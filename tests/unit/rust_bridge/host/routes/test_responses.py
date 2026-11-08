@@ -4,9 +4,9 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.rust_bridge.host.routes.responses import connection_defaults, map_failure, response
-from litellm.types.llms.openai import ResponsesAPIResponse
+import hangarllm
+from hangarllm.rust_bridge.host.routes.responses import connection_defaults, map_failure, response
+from hangarllm.types.llms.openai import ResponsesAPIResponse
 
 
 def test_response_validates_into_the_public_responses_model() -> None:
@@ -53,19 +53,19 @@ def test_response_rejects_a_payload_missing_required_fields() -> None:
 def test_connection_defaults_preserve_openai_precedence(
     monkeypatch: pytest.MonkeyPatch, global_key: str | None, provider_key: str | None, expected: str | None
 ) -> None:
-    monkeypatch.setattr(litellm, "api_key", global_key)
-    monkeypatch.setattr(litellm, "openai_key", provider_key)
-    monkeypatch.setattr(litellm, "api_base", "https://configured.invalid/v1")
-    assert connection_defaults("openai") == (expected, litellm.api_base)
+    monkeypatch.setattr(hangarllm, "api_key", global_key)
+    monkeypatch.setattr(hangarllm, "openai_key", provider_key)
+    monkeypatch.setattr(hangarllm, "api_base", "https://configured.invalid/v1")
+    assert connection_defaults("openai") == (expected, hangarllm.api_base)
 
 
 @pytest.mark.parametrize(("global_key", "expected"), (("global", "global"), (None, None)))
 def test_connection_defaults_keep_the_openai_key_away_from_openrouter(
     monkeypatch: pytest.MonkeyPatch, global_key: str | None, expected: str | None
 ) -> None:
-    monkeypatch.setattr(litellm, "api_key", global_key)
-    monkeypatch.setattr(litellm, "openai_key", "openai-only")
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_key", global_key)
+    monkeypatch.setattr(hangarllm, "openai_key", "openai-only")
+    monkeypatch.setattr(hangarllm, "api_base", None)
     assert connection_defaults("openrouter") == (expected, None)
 
 
@@ -84,6 +84,6 @@ class _UpstreamFailure(Exception):
 def test_failure_preserves_the_explicit_endpoint(api_base: str | None, base_url: str, expected: str) -> None:
     upstream: Final = _UpstreamFailure(429, '{"error":{"message":"rate limited"}}')
     mapped: Final = map_failure(upstream, {"model": "openai/test-model", "api_base": api_base, "base_url": base_url})
-    assert isinstance(mapped, litellm.RateLimitError)
+    assert isinstance(mapped, hangarllm.RateLimitError)
     assert str(mapped.response.request.url) == expected
     assert mapped.__context__ is upstream

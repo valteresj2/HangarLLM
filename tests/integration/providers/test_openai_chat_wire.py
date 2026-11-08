@@ -258,7 +258,7 @@ def test_azure_gpt_6_bridged_stream_returns_text_and_tool_call_on_one_choice(gat
         ]
 
 
-_SPEND_ROW: Final = 'SELECT request_tags, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+_SPEND_ROW: Final = 'SELECT request_tags, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 _TAGGED_METADATA: Final = json.dumps({"tags": ["t1"]})
 
 
@@ -540,7 +540,7 @@ def test_azure_gpt_6_bridged_no_cache_function_requests_each_reach_provider_and_
         ]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, status, cache_hit, spend FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+                'SELECT request_id, status, cache_hit, spend FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
                 (model,),
             ),
             lambda found: len(found) == 2,
@@ -586,7 +586,7 @@ def test_azure_gpt_6_bridged_function_requests_without_cache_field_still_hit_cac
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", _RESPONSES_TARGET)]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, status, cache_hit, spend FROM "LiteLLM_SpendLogs" WHERE model_group=%s'
+                'SELECT request_id, status, cache_hit, spend FROM "HangarLLM_SpendLogs" WHERE model_group=%s'
                 " ORDER BY request_id",
                 (model,),
             ),

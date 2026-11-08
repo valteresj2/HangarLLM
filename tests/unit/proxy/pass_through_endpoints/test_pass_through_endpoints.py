@@ -29,28 +29,28 @@ from pydantic import TypeAdapter, ValidationError
 from starlette.datastructures import FormData, Headers, QueryParams
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import ANTHROPIC_COMPATIBLE_MAX_USER_ID_LENGTH, ANTHROPIC_MAX_USER_ID_LENGTH, DEFAULT_REQUEST_TIMEOUT_SECONDS
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.litellm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._lazy_features import LazyFeature, attach_lazy_features
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.hooks.parallel_request_limiter import PROXY_MaxParallelRequestsHandler
-from litellm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import router as llm_passthrough_router
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+import hangarllm
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.constants import ANTHROPIC_COMPATIBLE_MAX_USER_ID_LENGTH, ANTHROPIC_MAX_USER_ID_LENGTH, DEFAULT_REQUEST_TIMEOUT_SECONDS
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.hangarllm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy._lazy_features import LazyFeature, attach_lazy_features
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.proxy.hooks.parallel_request_limiter import PROXY_MaxParallelRequestsHandler
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
+from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import router as llm_passthrough_router
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
     VertexPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
     DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS,
-    LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
+    HANGARLLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
     STORED_PROMPT_PROBE_MODEL,
     WALKOUT_TURN_DRAIN_SECONDS,
     HttpPassThroughEndpointHelpers,
@@ -75,21 +75,21 @@ from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
     set_env_variables_in_header,
     websocket_passthrough_request,
 )
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_websocket_passthrough_logging_handler import (
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.openai_websocket_passthrough_logging_handler import (
     openai_websocket_frame_kind,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_spend_logs_id
-from litellm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
-from litellm.types import utils as types_utils
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import CallTypes
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-    LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
-    LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
+from hangarllm.proxy.route_llm_request import ProxyModelNotFoundError
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_spend_logs_id
+from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
+from hangarllm.types import utils as types_utils
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import CallTypes
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+    HANGARLLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
+    HANGARLLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
     EndpointType,
     PassthroughStandardLoggingPayload,
     WebSocketSessionUsage,
@@ -113,7 +113,7 @@ PROTOCOL_CONSTRAINED_PASS_THROUGH_ROUTES: Final = MappingProxyType(
 
 
 def test_with_trace_context_without_opentelemetry(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setitem(sys.modules, "litellm.integrations.otel.plumbing.context", None)
+    monkeypatch.setitem(sys.modules, "hangarllm.integrations.otel.plumbing.context", None)
 
     headers = _with_trace_context({"authorization": "x"}, parent_span=None)
 
@@ -410,7 +410,7 @@ async def test_make_multipart_http_request_removes_content_type_header():
 @pytest.mark.asyncio
 async def test_non_streaming_http_request_handler_multipart_with_non_empty_parsed_body():
     """
-    Regression: pass_through_request injects litellm_logging_obj into _parsed_body before
+    Regression: pass_through_request injects hangarllm_logging_obj into _parsed_body before
     forwarding. Multipart uploads must still use files=, not json=_parsed_body.
     """
     request = MagicMock(spec=Request)
@@ -435,7 +435,7 @@ async def test_non_streaming_http_request_handler_multipart_with_non_empty_parse
         url=httpx.URL("http://test.com"),
         headers={},
         requested_query_params=None,
-        _parsed_body={"litellm_logging_obj": MagicMock()},
+        _parsed_body={"hangarllm_logging_obj": MagicMock()},
         forward_multipart=True,
     )
 
@@ -451,7 +451,7 @@ async def test_pass_through_request_failure_handler():
     """
     Test that the failure handler is called when pass_through_request fails
 
-    Critical Test: When a users pass through endpoint request fails, we must log the failure code, exception in litellm spend logs.
+    Critical Test: When a users pass through endpoint request fails, we must log the failure code, exception in hangarllm spend logs.
     """
     request_failure = httpx.HTTPError("Request failed")
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
@@ -477,7 +477,7 @@ async def test_pass_through_request_preserves_proxy_exception_status():
         openai_code="integer_above_max_value",
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
         mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=original)
 
@@ -606,15 +606,15 @@ async def test_custom_passthrough_predict_path_logs_via_generic_handler():
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
     handler.handle_logging = AsyncMock()
 
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     mock_response = MagicMock(spec=httpx.Response)
@@ -628,7 +628,7 @@ async def test_custom_passthrough_predict_path_logs_via_generic_handler():
     )
 
     with patch(
-        "litellm.proxy.pass_through_endpoints.success_handler.VertexPassthroughLoggingHandler.vertex_passthrough_handler"
+        "hangarllm.proxy.pass_through_endpoints.success_handler.VertexPassthroughLoggingHandler.vertex_passthrough_handler"
     ) as mock_vertex_handler:
         await handler.pass_through_async_success_handler(
             httpx_response=mock_response,
@@ -656,15 +656,15 @@ async def test_langfuse_passthrough_no_logging():
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Mock httpx response for langfuse request
@@ -705,7 +705,7 @@ def test_construct_target_url_with_subpath():
     """
     Test that construct_target_url_with_subpath correctly constructs target URLs
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         HttpPassThroughEndpointHelpers,
     )
 
@@ -756,7 +756,7 @@ def test_construct_target_url_with_subpath():
     ["admin/users", "public/../admin", "../../admin", "/admin/", "./admin", "admin?", "public?x/../admin#"],
 )
 def test_forwarded_route_is_the_path_the_forwarder_sends_upstream(subpath: str) -> None:
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         HttpPassThroughEndpointHelpers,
     )
 
@@ -772,7 +772,7 @@ def test_add_exact_path_route():
     """
     Test that add_exact_path_route correctly adds exact path routes
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
@@ -814,7 +814,7 @@ def test_add_subpath_route():
     """
     Test that add_subpath_route correctly adds wildcard routes for sub-paths
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
@@ -862,8 +862,8 @@ def test_add_subpath_route_on_a_loaded_lazy_app_outranks_the_builtin_prefix_rout
     from fastapi import FastAPI
     from starlette.routing import Match
 
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     saved_registry: Final = dict(_registered_pass_through_routes)
@@ -901,7 +901,7 @@ def test_add_subpath_route_on_a_loaded_lazy_app_outranks_the_builtin_prefix_rout
             "query_string": b"",
         }
         matched: Final = next(route for route in app.router.routes if route.matches(dict(scope))[0] is Match.FULL)
-        assert getattr(matched.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True, (
+        assert getattr(matched.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True, (
             "the first full match under /typesafe must be the configured pass-through route"
         )
     finally:
@@ -911,13 +911,13 @@ def test_add_subpath_route_on_a_loaded_lazy_app_outranks_the_builtin_prefix_rout
 
 def test_add_subpath_route_respects_the_builtin_routes_first_flag(monkeypatch: pytest.MonkeyPatch):
     """
-    With LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST set, a runtime-added configured
+    With HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST set, a runtime-added configured
     route keeps losing to the loaded feature's overlapping built-in prefix route.
     """
     from fastapi import FastAPI
     from starlette.routing import Match
 
-    monkeypatch.setenv("LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
+    monkeypatch.setenv("HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
 
     saved_registry: Final = dict(_registered_pass_through_routes)
     try:
@@ -966,11 +966,11 @@ def test_deleting_a_runtime_subpath_route_hands_its_prefix_back_to_the_builtin_r
     from fastapi import FastAPI
     from starlette.routing import Match, Route
 
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
-    monkeypatch.delenv("LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", raising=False)
+    monkeypatch.delenv("HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", raising=False)
     saved_registry: Final = dict(_registered_pass_through_routes)
     try:
         app: Final = FastAPI()
@@ -1009,7 +1009,7 @@ def test_deleting_a_runtime_subpath_route_hands_its_prefix_back_to_the_builtin_r
         configured_match: Final = next(
             route for route in app.router.routes if route.matches(dict(scope))[0] is Match.FULL
         )
-        assert getattr(configured_match.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+        assert getattr(configured_match.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
 
         InitPassThroughEndpointHelpers.remove_endpoint_routes(endpoint_id)
         SafeRouteAdder.remove_unregistered_routes(app)
@@ -1019,7 +1019,7 @@ def test_deleting_a_runtime_subpath_route_hands_its_prefix_back_to_the_builtin_r
         assert not any(
             isinstance(route, Route)
             and route.path == "/typesafe/{subpath:path}"
-            and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
             for route in app.router.routes
         )
     finally:
@@ -1032,9 +1032,9 @@ async def test_sync_drops_the_route_of_an_endpoint_that_left_the_config(monkeypa
     from fastapi import FastAPI
     from starlette.routing import Route
 
-    from litellm.proxy import proxy_server
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.proxy import proxy_server
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     saved_registry: Final = dict(_registered_pass_through_routes)
@@ -1061,7 +1061,7 @@ async def test_sync_drops_the_route_of_an_endpoint_that_left_the_config(monkeypa
         marked_routes: Final = tuple(
             route
             for route in app.router.routes
-            if isinstance(route, Route) and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            if isinstance(route, Route) and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
         )
         assert not any(route.path == "/sync-departed" for route in marked_routes)
         assert any(route.path == "/sync-retained" for route in marked_routes)
@@ -1077,12 +1077,12 @@ async def test_sync_keeps_a_departed_route_when_builtin_routes_come_first(
     from fastapi import FastAPI
     from starlette.routing import Route
 
-    from litellm.proxy import proxy_server
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.proxy import proxy_server
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
-    monkeypatch.setenv("LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
+    monkeypatch.setenv("HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
     saved_registry: Final = dict(_registered_pass_through_routes)
     try:
         _registered_pass_through_routes.clear()
@@ -1107,7 +1107,7 @@ async def test_sync_keeps_a_departed_route_when_builtin_routes_come_first(
         marked_routes: Final = tuple(
             route
             for route in app.router.routes
-            if isinstance(route, Route) and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            if isinstance(route, Route) and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
         )
         assert any(route.path == "/sync-departed" for route in marked_routes)
     finally:
@@ -1119,8 +1119,8 @@ def test_remove_unregistered_routes_keeps_routes_still_backed_by_the_registry() 
     from fastapi import FastAPI
     from starlette.routing import Route
 
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     saved_registry: Final = dict(_registered_pass_through_routes)
@@ -1158,7 +1158,7 @@ def test_remove_unregistered_routes_keeps_routes_still_backed_by_the_registry() 
         marked_routes: Final = tuple(
             route
             for route in app.router.routes
-            if isinstance(route, Route) and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            if isinstance(route, Route) and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
         )
         assert tuple(route.path for route in marked_routes) == (
             "/registry-exact",
@@ -1174,13 +1174,13 @@ def test_remove_unregistered_routes_drops_unregistered_methods() -> None:
     from fastapi import FastAPI
     from starlette.routing import Match, Route
 
-    from litellm.proxy._types import LiteLLMRoutes
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.proxy._types import HangarLLMRoutes
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     saved_registry: Final = dict(_registered_pass_through_routes)
-    saved_openai_routes: Final = tuple(LiteLLMRoutes.openai_routes.value)
+    saved_openai_routes: Final = tuple(HangarLLMRoutes.openai_routes.value)
     try:
         _registered_pass_through_routes.clear()
         app: Final = FastAPI()
@@ -1217,7 +1217,7 @@ def test_remove_unregistered_routes_drops_unregistered_methods() -> None:
             for route in app.router.routes
             if isinstance(route, Route)
             and route.path == "/x"
-            and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
         )
         assert len(marked_routes) == 1
         post_route: Final = marked_routes[0]
@@ -1234,7 +1234,7 @@ def test_remove_unregistered_routes_drops_unregistered_methods() -> None:
         post_scope: Final = {**get_scope, "method": "POST"}
         post_match: Final = next(route for route in app.router.routes if route.matches(post_scope)[0] is Match.FULL)
         assert post_match is post_route
-        assert getattr(post_match.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+        assert getattr(post_match.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
 
         client: Final = TestClient(app)
         with client:
@@ -1243,20 +1243,20 @@ def test_remove_unregistered_routes_drops_unregistered_methods() -> None:
     finally:
         _registered_pass_through_routes.clear()
         _registered_pass_through_routes.update(saved_registry)
-        LiteLLMRoutes.openai_routes.value[:] = saved_openai_routes
+        HangarLLMRoutes.openai_routes.value[:] = saved_openai_routes
 
 
 def test_remove_unregistered_routes_keeps_overlapping_method_route() -> None:
     from fastapi import FastAPI
     from starlette.routing import Route
 
-    from litellm.proxy._types import LiteLLMRoutes
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.proxy._types import HangarLLMRoutes
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     saved_registry: Final = dict(_registered_pass_through_routes)
-    saved_openai_routes: Final = tuple(LiteLLMRoutes.openai_routes.value)
+    saved_openai_routes: Final = tuple(HangarLLMRoutes.openai_routes.value)
     try:
         _registered_pass_through_routes.clear()
         app: Final = FastAPI()
@@ -1289,7 +1289,7 @@ def test_remove_unregistered_routes_keeps_overlapping_method_route() -> None:
             for route in app.router.routes
             if isinstance(route, Route)
             and route.path == "/x"
-            and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
         )
         assert len(routes_before) == 1
 
@@ -1301,14 +1301,14 @@ def test_remove_unregistered_routes_keeps_overlapping_method_route() -> None:
             for route in app.router.routes
             if isinstance(route, Route)
             and route.path == "/x"
-            and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
         )
         assert marked_routes == routes_before
         assert "POST" in (marked_routes[0].methods or ())
     finally:
         _registered_pass_through_routes.clear()
         _registered_pass_through_routes.update(saved_registry)
-        LiteLLMRoutes.openai_routes.value[:] = saved_openai_routes
+        HangarLLMRoutes.openai_routes.value[:] = saved_openai_routes
 
 
 def test_add_subpath_route_for_an_unrelated_prefix_leaves_the_route_order_untouched():
@@ -1360,7 +1360,7 @@ async def test_pass_through_handler_rejects_unregistered_method():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -1374,16 +1374,16 @@ async def test_pass_through_handler_rejects_unregistered_method():
     with (
         patch.dict(os.environ, {"SERVER_ROOT_PATH": ""}),
         patch(
-            "litellm.proxy.auth.auth_utils.get_request_route",
+            "hangarllm.proxy.auth.auth_utils.get_request_route",
             return_value="/test/path",
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type",
             new_callable=AsyncMock,
             return_value=({}, {}, None, False),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             {
                 "test-endpoint-id:exact:/test/path:POST": {
                     "endpoint_id": "test-endpoint-id",
@@ -1415,23 +1415,23 @@ async def test_initialize_pass_through_endpoints_with_include_subpath():
     """
     Test that initialize_pass_through_endpoints adds wildcard routes when include_subpath is True
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         initialize_pass_through_endpoints,
     )
 
     # Mock the helper functions directly
     with patch(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
     ) as mock_add_exact_route:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
         ) as mock_add_subpath_route:
             with patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "hangarllm.proxy.proxy_server.premium_user",
                 True,
             ):
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
                 ) as mock_set_env:
                     mock_set_env.return_value = {}
 
@@ -1466,23 +1466,23 @@ async def test_initialize_pass_through_endpoints_without_include_subpath():
     """
     Test that initialize_pass_through_endpoints only adds exact route when include_subpath is False
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         initialize_pass_through_endpoints,
     )
 
     # Mock the helper functions directly
     with patch(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
     ) as mock_add_exact_route:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
         ) as mock_add_subpath_route:
             with patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "hangarllm.proxy.proxy_server.premium_user",
                 True,
             ):
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
                 ) as mock_set_env:
                     mock_set_env.return_value = {}
 
@@ -1512,15 +1512,15 @@ def test_set_cost_per_request():
     Test that _set_cost_per_request correctly sets the cost in logging object and kwargs
     """
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Test with cost_per_request set
@@ -1550,15 +1550,15 @@ def test_set_cost_per_request_none():
     """
     Test that _set_cost_per_request does nothing when cost_per_request is None
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Test with cost_per_request not set (None)
@@ -1591,15 +1591,15 @@ async def test_pass_through_success_handler_with_cost_per_request():
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Mock the _handle_logging method to capture the call
@@ -1648,7 +1648,7 @@ async def test_create_pass_through_route_with_cost_per_request():
     """
     Test that create_pass_through_route correctly passes cost_per_request to the endpoint function
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -1666,12 +1666,12 @@ async def test_create_pass_through_route_with_cost_per_request():
 
     # Mock the pass_through_request function to capture its call
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -1706,13 +1706,13 @@ def test_resolve_pass_through_request_timeout_precedence():
     assert resolve_pass_through_request_timeout(endpoint_timeout=900) == 900.0
 
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"pass_through_request_timeout": 1200},
     ):
         assert resolve_pass_through_request_timeout() == 1200.0
         assert resolve_pass_through_request_timeout(endpoint_timeout=800) == 800.0
 
-    with patch("litellm.proxy.proxy_server.general_settings", {}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {}):
         assert resolve_pass_through_request_timeout() == DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS
 
 
@@ -1721,44 +1721,44 @@ def test_resolve_llm_passthrough_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"request_timeout": 30},
-            litellm_params={"timeout": 60},
+            hangarllm_params={"timeout": 60},
         )
         == 30.0
     )
     assert (
         resolve_llm_passthrough_timeout(
-            litellm_params={"timeout": 90},
+            hangarllm_params={"timeout": 90},
         )
         == 90.0
     )
 
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"pass_through_request_timeout": 6},
     ):
         assert resolve_llm_passthrough_timeout() == 6.0
 
 
 def test_resolve_llm_passthrough_timeout_honors_explicit_global_request_timeout(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr("litellm.request_timeout", 44.0, raising=False)
-    monkeypatch.setattr("litellm.request_timeout_explicitly_set", True, raising=False)
+    monkeypatch.setattr("hangarllm.request_timeout", 44.0, raising=False)
+    monkeypatch.setattr("hangarllm.request_timeout_explicitly_set", True, raising=False)
 
-    with patch("litellm.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
         assert resolve_llm_passthrough_timeout() == 44.0
         assert resolve_llm_passthrough_timeout(kwargs={"stream": True}) == 44.0
         assert resolve_llm_passthrough_timeout(router_timeout=120) == 120.0
         assert resolve_llm_passthrough_timeout(kwargs={"stream": True}, router_stream_timeout=900) == 900.0
-        assert resolve_llm_passthrough_timeout(litellm_params={"timeout": 90}) == 90.0
+        assert resolve_llm_passthrough_timeout(hangarllm_params={"timeout": 90}) == 90.0
         assert resolve_llm_passthrough_timeout(kwargs={"timeout": 45}) == 45.0
 
 
 def test_resolve_llm_passthrough_timeout_skips_unset_global_request_timeout(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr("litellm.request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS), raising=False)
-    monkeypatch.setattr("litellm.request_timeout_explicitly_set", False, raising=False)
+    monkeypatch.setattr("hangarllm.request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS), raising=False)
+    monkeypatch.setattr("hangarllm.request_timeout_explicitly_set", False, raising=False)
 
-    with patch("litellm.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
         assert resolve_llm_passthrough_timeout() == 6.0
-    with patch("litellm.proxy.proxy_server.general_settings", {}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {}):
         assert resolve_llm_passthrough_timeout() == DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS
 
 
@@ -1772,14 +1772,14 @@ def test_resolve_llm_passthrough_timeout_stream_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": True, "timeout": 45},
-            litellm_params={"stream_timeout": 1800, "timeout": 90},
+            hangarllm_params={"stream_timeout": 1800, "timeout": 90},
         )
         == 1800.0
     )
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": True, "timeout": 45},
-            litellm_params={"timeout": 90},
+            hangarllm_params={"timeout": 90},
             router_timeout=120,
             router_stream_timeout=1800,
         )
@@ -1795,7 +1795,7 @@ def test_resolve_llm_passthrough_timeout_stream_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": True},
-            litellm_params={"timeout": 90},
+            hangarllm_params={"timeout": 90},
             router_timeout=120,
         )
         == 90.0
@@ -1803,14 +1803,14 @@ def test_resolve_llm_passthrough_timeout_stream_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": False, "stream_timeout": 1800},
-            litellm_params={"stream_timeout": 1800, "timeout": 90},
+            hangarllm_params={"stream_timeout": 1800, "timeout": 90},
             router_stream_timeout=1800,
         )
         == 90.0
     )
     assert (
         resolve_llm_passthrough_timeout(
-            litellm_params={"stream_timeout": 1800},
+            hangarllm_params={"stream_timeout": 1800},
             router_timeout=120,
             router_stream_timeout=1800,
         )
@@ -1826,14 +1826,14 @@ def test_resolve_llm_passthrough_timeout_reads_stream_by_truthiness(stream: obje
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": stream},
-            litellm_params={"stream_timeout": 1800, "timeout": 90},
+            hangarllm_params={"stream_timeout": 1800, "timeout": 90},
         )
         == expected
     )
 
 
 @pytest.mark.parametrize(
-    "kwargs, litellm_params, expected",
+    "kwargs, hangarllm_params, expected",
     [
         ({"stream": True, "stream_timeout": 1800, "timeout": httpx.Timeout(30.0)}, {}, 1800.0),
         ({"stream": False}, {"stream_timeout": httpx.Timeout(30.0), "timeout": 90}, 90.0),
@@ -1841,32 +1841,32 @@ def test_resolve_llm_passthrough_timeout_reads_stream_by_truthiness(stream: obje
     ],
 )
 def test_resolve_llm_passthrough_timeout_validates_only_the_winning_value(
-    kwargs: dict[str, object], litellm_params: dict[str, object], expected: float
+    kwargs: dict[str, object], hangarllm_params: dict[str, object], expected: float
 ):
-    assert resolve_llm_passthrough_timeout(kwargs=kwargs, litellm_params=litellm_params) == expected
+    assert resolve_llm_passthrough_timeout(kwargs=kwargs, hangarllm_params=hangarllm_params) == expected
 
 
 def test_resolve_llm_passthrough_timeout_uses_the_deployment_timeout_for_the_requests_service_tier():
-    litellm_params = {
+    hangarllm_params = {
         "timeout": 610,
         "stream_timeout": 30,
         "timeout_by_service_tier": {"flex": 900},
         "stream_timeout_by_service_tier": {"flex": 950},
     }
-    assert resolve_llm_passthrough_timeout(kwargs={"service_tier": "flex"}, litellm_params=litellm_params) == 900.0
-    assert resolve_llm_passthrough_timeout(kwargs={"service_tier": "default"}, litellm_params=litellm_params) == 610.0
+    assert resolve_llm_passthrough_timeout(kwargs={"service_tier": "flex"}, hangarllm_params=hangarllm_params) == 900.0
+    assert resolve_llm_passthrough_timeout(kwargs={"service_tier": "default"}, hangarllm_params=hangarllm_params) == 610.0
     assert (
-        resolve_llm_passthrough_timeout(kwargs={"service_tier": "flex", "timeout": 20}, litellm_params=litellm_params)
+        resolve_llm_passthrough_timeout(kwargs={"service_tier": "flex", "timeout": 20}, hangarllm_params=hangarllm_params)
         == 20.0
     )
     assert (
-        resolve_llm_passthrough_timeout(kwargs={"service_tier": "flex", "stream": True}, litellm_params=litellm_params)
+        resolve_llm_passthrough_timeout(kwargs={"service_tier": "flex", "stream": True}, hangarllm_params=hangarllm_params)
         == 950.0
     )
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"service_tier": "flex", "stream": True},
-            litellm_params={"timeout": 610, "stream_timeout": 30, "timeout_by_service_tier": {"flex": 900}},
+            hangarllm_params={"timeout": 610, "stream_timeout": 30, "timeout_by_service_tier": {"flex": 900}},
         )
         == 30.0
     )
@@ -1879,9 +1879,9 @@ def test_resolve_llm_passthrough_timeout_rejects_a_non_numeric_winner():
 
 @pytest.mark.asyncio
 async def test_pass_through_request_uses_resolved_timeout():
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
 
@@ -1919,7 +1919,7 @@ async def test_pass_through_request_strips_client_guardrail_information(allow_cl
     mock_request.headers = Headers({})
     mock_request.query_params = QueryParams({})
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=RuntimeError("stop before upstream"))
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
         with pytest.raises(ProxyException):
@@ -1959,12 +1959,12 @@ async def test_create_pass_through_route_forwards_timeout():
     )
 
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -1994,7 +1994,7 @@ def test_initialize_pass_through_endpoints_with_cost_per_request():
     """
     Test that initialize_pass_through_endpoints correctly passes cost_per_request to route creation
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
@@ -2058,18 +2058,18 @@ async def test_pass_through_request_contains_proxy_server_request_in_kwargs():
     Critical Test: Ensures that when pass_through_request is called, the kwargs passed to
     downstream methods contain the proxy server request details (url, method, body).
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
         ) as mock_http_handler:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     with patch(
-                        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
+                        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
                     ) as mock_get_response_body:
                         # Setup mock for pre_call_hook and post_call_failure_hook
                         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={"test": "data"})
@@ -2133,13 +2133,13 @@ async def test_pass_through_request_contains_proxy_server_request_in_kwargs():
                         # Extract the kwargs passed to the success handler
                         call_kwargs = mock_success_handler.call_args[1]
 
-                        # Verify that litellm_params exists in kwargs
-                        assert "litellm_params" in call_kwargs
-                        litellm_params = call_kwargs["litellm_params"]
+                        # Verify that hangarllm_params exists in kwargs
+                        assert "hangarllm_params" in call_kwargs
+                        hangarllm_params = call_kwargs["hangarllm_params"]
 
-                        # Verify that proxy_server_request exists in litellm_params
-                        assert "proxy_server_request" in litellm_params
-                        proxy_server_request = litellm_params["proxy_server_request"]
+                        # Verify that proxy_server_request exists in hangarllm_params
+                        assert "proxy_server_request" in hangarllm_params
+                        proxy_server_request = hangarllm_params["proxy_server_request"]
 
                         # Verify the proxy_server_request contains expected fields
                         assert "url" in proxy_server_request
@@ -2155,12 +2155,12 @@ async def test_pass_through_request_contains_proxy_server_request_in_kwargs():
                         # Verify other required kwargs are present
                         assert "call_type" in call_kwargs
                         assert call_kwargs["call_type"] == "pass_through_endpoint"
-                        assert "litellm_call_id" in call_kwargs
+                        assert "hangarllm_call_id" in call_kwargs
                         assert "passthrough_logging_payload" in call_kwargs
 
                         # Verify metadata contains user information
-                        assert "metadata" in litellm_params
-                        metadata = litellm_params["metadata"]
+                        assert "metadata" in hangarllm_params
+                        metadata = hangarllm_params["metadata"]
                         assert metadata["user_api_key_hash"] == "test-api-key"
                         assert metadata["user_api_key_alias"] == "test-alias"
                         assert metadata["user_api_key_user_email"] == "test@example.com"
@@ -2175,12 +2175,12 @@ async def test_pass_through_request_streaming_marks_logging_obj_as_stream():
     response is dispatched, so cost/success callbacks treat it as a stream and the
     streaming dedup guard fires instead of double-logging.
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
             ) as mock_chunk_processor:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={"model": "claude-3", "stream": True})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -2223,7 +2223,7 @@ async def test_pass_through_request_streaming_marks_logging_obj_as_stream():
                 assert async_client.send.call_args.kwargs["stream"] is True
 
                 mock_chunk_processor.assert_called_once()
-                logging_obj = mock_chunk_processor.call_args.kwargs["litellm_logging_obj"]
+                logging_obj = mock_chunk_processor.call_args.kwargs["hangarllm_logging_obj"]
                 assert logging_obj.stream is True
                 assert logging_obj.model_call_details["stream"] is True
 
@@ -2237,12 +2237,12 @@ async def test_pass_through_request_preserves_caller_streaming_request_field(bod
         captured_hook_data.update(data)
         return data
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
             ) as mock_chunk_processor:
                 mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=capture_pre_call)
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -2292,22 +2292,22 @@ async def test_pass_through_request_preserves_caller_streaming_request_field(bod
 
                 upstream_json = async_client.build_request.call_args.kwargs["json"]
                 assert upstream_json["is_streaming_request"] == "caller-value"
-                assert "litellm_server_streaming_classification" not in upstream_json
+                assert "hangarllm_server_streaming_classification" not in upstream_json
                 assert upstream_json["contents"] == request_body["contents"]
 
 
 @pytest.mark.asyncio
 async def test_streaming_pass_through_drops_marker_after_hook_rebuilds_body_from_json():
     async def json_rebuilding_pre_call(user_api_key_dict, data, call_type, endpoint_type: EndpointType):
-        rebuilt = json.loads(json.dumps({k: v for k, v in data.items() if k != "litellm_logging_obj"}))
-        return {**rebuilt, "litellm_logging_obj": data["litellm_logging_obj"]}
+        rebuilt = json.loads(json.dumps({k: v for k, v in data.items() if k != "hangarllm_logging_obj"}))
+        return {**rebuilt, "hangarllm_logging_obj": data["hangarllm_logging_obj"]}
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
             ) as mock_chunk_processor:
                 mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=json_rebuilding_pre_call)
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -2377,12 +2377,12 @@ async def test_passthrough_guardrails_follow_effective_relay_stream_decision(
     ) -> dict[str, object]:
         return dict(data)
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
             ) as mock_chunk_processor:
                 mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=return_pre_call_data)
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -2454,12 +2454,12 @@ async def test_pass_through_request_sse_response_marks_logging_obj_as_stream():
     cost/success callbacks treat the assembled stream as a non-stream and the dedup
     guard never fires, double-logging the request.
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
             ) as mock_chunk_processor:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={"model": "claude-3"})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -2501,7 +2501,7 @@ async def test_pass_through_request_sse_response_marks_logging_obj_as_stream():
                 async_client.send.assert_awaited_once()
 
                 mock_chunk_processor.assert_called_once()
-                logging_obj = mock_chunk_processor.call_args.kwargs["litellm_logging_obj"]
+                logging_obj = mock_chunk_processor.call_args.kwargs["hangarllm_logging_obj"]
                 assert logging_obj.stream is True
                 assert logging_obj.model_call_details["stream"] is True
 
@@ -2513,9 +2513,9 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
     POST /openai_passthrough/v1/responses left the raw resp_ id in the stream and
     recorded no owner, so any other key could read, continue, and delete it.
     """
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    import hangarllm
+    from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+    from hangarllm.types.llms.custom_http import httpxSpecialProvider
 
     raw_id = "resp_0123456789abcdef"
     upstream_body = (
@@ -2523,9 +2523,9 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
         b'event: response.completed\ndata: {"type": "response.completed", "response": {"id": "%s"}}\n\n'
     ) % (raw_id.encode(), raw_id.encode())
     prisma_client = MagicMock()
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(return_value=None)
-    prisma_client.db.litellm_managedobjecttable.upsert = AsyncMock(return_value=None)
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_managedobjecttable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_managedobjecttable.upsert = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_managedfiletable.find_first = AsyncMock(return_value=None)
 
     def transport_handler(upstream_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=upstream_body, headers={"content-type": "text/event-stream"})
@@ -2534,7 +2534,7 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = hangarllm.in_memory_llm_clients_cache.cache_dict
     cache_key = next(key for key, cached in cache_dict.items() if cached is real_handler)
     cache_dict[cache_key] = SimpleNamespace(client=httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)))
 
@@ -2557,9 +2557,9 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
 
     flag_on = {"passthrough_managed_object_ids": True}
     proxy_server_globals = (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),  # test-quality-ok: read at call time
-        patch("litellm.proxy.proxy_server.general_settings", flag_on),  # test-quality-ok: read at call time
-        patch("litellm.proxy.proxy_server.prisma_client", prisma_client),  # test-quality-ok: read at call time
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),  # test-quality-ok: read at call time
+        patch("hangarllm.proxy.proxy_server.general_settings", flag_on),  # test-quality-ok: read at call time
+        patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),  # test-quality-ok: read at call time
     )
 
     try:
@@ -2578,8 +2578,8 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
         cache_dict[cache_key] = real_handler
 
     assert response.status_code == 200
-    prisma_client.db.litellm_managedobjecttable.upsert.assert_awaited_once()
-    created = prisma_client.db.litellm_managedobjecttable.upsert.await_args.kwargs["data"]["create"]
+    prisma_client.db.hangarllm_managedobjecttable.upsert.assert_awaited_once()
+    created = prisma_client.db.hangarllm_managedobjecttable.upsert.await_args.kwargs["data"]["create"]
     assert created["created_by"] == "user-a"
     assert created["team_id"] == "team-a"
     assert created["model_object_id"] == f"passthrough:openai:{raw_id}"
@@ -2599,19 +2599,19 @@ async def test_create_pass_through_endpoint():
     3. Adds the endpoint to the database
     4. Returns the created endpoint with the generated ID
     """
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         PassThroughEndpointResponse,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
-        with patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
+    with patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+        with patch("hangarllm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
             # Mock existing config (empty list)
             mock_get_config.return_value = ConfigFieldInfo(field_name="pass_through_endpoints", field_value=[])
 
@@ -2672,19 +2672,19 @@ async def test_update_pass_through_endpoint():
     4. Updates the database with the modified endpoint
     5. Returns the updated endpoint
     """
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         PassThroughEndpointResponse,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
-        with patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
+    with patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+        with patch("hangarllm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
             # Create existing endpoint data
             existing_endpoint_id = "test-endpoint-123"
             existing_endpoints = [
@@ -2768,23 +2768,23 @@ async def test_create_pass_through_endpoint_auth_true_enforces_allowlist():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_endpoints,
     )
 
     registry: dict = {}
 
     with (
-        patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
-        patch("litellm.proxy.proxy_server.update_config_general_settings"),
+        patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
+        patch("hangarllm.proxy.proxy_server.update_config_general_settings"),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             registry,
         ),
     ):
@@ -2842,13 +2842,13 @@ async def test_update_pass_through_endpoint_auth_true_enforces_allowlist():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
@@ -2865,10 +2865,10 @@ async def test_update_pass_through_endpoint_auth_true_enforces_allowlist():
     ]
 
     with (
-        patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
-        patch("litellm.proxy.proxy_server.update_config_general_settings"),
+        patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
+        patch("hangarllm.proxy.proxy_server.update_config_general_settings"),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             registry,
         ),
     ):
@@ -2912,13 +2912,13 @@ async def test_update_pass_through_endpoint_preserves_auth_false():
     naive exclude_none merge would overwrite the stored auth=false and start
     rejecting every team/key that lacks allowed_passthrough_routes.
     """
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
@@ -2935,10 +2935,10 @@ async def test_update_pass_through_endpoint_preserves_auth_false():
     ]
 
     with (
-        patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
-        patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config,
+        patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
+        patch("hangarllm.proxy.proxy_server.update_config_general_settings") as mock_update_config,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             registry,
         ),
     ):
@@ -2968,8 +2968,8 @@ async def test_update_pass_through_endpoint_preserves_auth_false():
 
 @pytest.mark.asyncio
 async def test_update_pass_through_endpoint_keeps_serving_the_old_route_until_the_new_one_is_registered():
-    from litellm.proxy._types import ConfigFieldInfo, PassThroughGenericEndpoint, UserAPIKeyAuth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import ConfigFieldInfo, PassThroughGenericEndpoint, UserAPIKeyAuth
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         update_pass_through_endpoints,
     )
@@ -2984,9 +2984,9 @@ async def test_update_pass_through_endpoint_keeps_serving_the_old_route_until_th
         targets_during_db_write.append(registered_target())
 
     with (
-        patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
-        patch("litellm.proxy.proxy_server.update_config_general_settings", side_effect=record_registered_target),
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes", {}),
+        patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
+        patch("hangarllm.proxy.proxy_server.update_config_general_settings", side_effect=record_registered_target),
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes", {}),
     ):
         InitPassThroughEndpointHelpers.add_exact_path_route(
             app=FastAPI(),
@@ -3023,17 +3023,17 @@ async def test_update_pass_through_endpoint_not_found():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+    with patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
         # Mock existing config with different endpoint
         existing_endpoints = [
             {
@@ -3080,18 +3080,18 @@ async def test_delete_pass_through_endpoint():
     2. Removes it from the database
     3. Returns the deleted endpoint
     """
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         PassThroughEndpointResponse,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         delete_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
-        with patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
+    with patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+        with patch("hangarllm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
             # Create existing endpoint data
             endpoint_to_delete_id = "test-endpoint-123"
             other_endpoint_id = "other-endpoint-456"
@@ -3161,11 +3161,11 @@ async def test_delete_pass_through_endpoint_removes_its_starlette_route(monkeypa
     from fastapi import FastAPI
     from starlette.routing import Route
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import delete_pass_through_endpoints
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import delete_pass_through_endpoints
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     saved_registry: Final = dict(_registered_pass_through_routes)
@@ -3206,7 +3206,7 @@ async def test_delete_pass_through_endpoint_removes_its_starlette_route(monkeypa
         assert not any(
             isinstance(route, Route)
             and route.path == "/delete-route"
-            and getattr(route.endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+            and getattr(route.endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
             for route in app.router.routes
         )
     finally:
@@ -3221,13 +3221,13 @@ async def test_delete_pass_through_endpoint_not_found():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         delete_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+    with patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
         # Mock existing config with different endpoint
         existing_endpoints = [
             {
@@ -3266,12 +3266,12 @@ async def test_get_pass_through_endpoints_includes_config_and_db():
     with correct is_from_config flag. Config-only endpoints have is_from_config=True,
     DB endpoints have is_from_config=False. When same path exists in both, DB overrides.
     """
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         PassThroughEndpointResponse,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         get_pass_through_endpoints,
     )
 
@@ -3308,15 +3308,15 @@ async def test_get_pass_through_endpoints_includes_config_and_db():
     ]
 
     with patch(
-        "litellm.proxy.proxy_server.prisma_client",
+        "hangarllm.proxy.proxy_server.prisma_client",
         MagicMock(),
     ):
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_db",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_db",
             new_callable=AsyncMock,
         ) as mock_get_db:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_config"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_config"
             ) as mock_get_config:
                 db_objects = [PassThroughGenericEndpoint(**ep, is_from_config=False) for ep in db_endpoints]
                 config_objects = [PassThroughGenericEndpoint(**ep, is_from_config=True) for ep in config_endpoints]
@@ -3352,7 +3352,7 @@ def test_get_pass_through_endpoints_from_config_skips_malformed():
     Test that _get_pass_through_endpoints_from_config skips malformed endpoints
     and returns only valid ones, without raising.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _get_pass_through_endpoints_from_config,
     )
 
@@ -3366,7 +3366,7 @@ def test_get_pass_through_endpoints_from_config_skips_malformed():
     ]
 
     with patch(
-        "litellm.proxy.proxy_server.config_passthrough_endpoints",
+        "hangarllm.proxy.proxy_server.config_passthrough_endpoints",
         config_passthrough_endpoints,
     ):
         result = _get_pass_through_endpoints_from_config()
@@ -3387,13 +3387,13 @@ async def test_delete_pass_through_endpoint_empty_list():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         delete_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+    with patch("hangarllm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
         # Mock empty config
         mock_get_config.return_value = ConfigFieldInfo(field_name="pass_through_endpoints", field_value=None)
 
@@ -3419,18 +3419,18 @@ async def test_pass_through_request_query_params_forwarding():
     This test verifies the fix for the bug where query parameters like api-version were being lost
     when forwarding requests to Azure OpenAI and other pass-through endpoints.
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
         ) as mock_http_handler:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     with patch(
-                        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
+                        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
                     ) as mock_get_response_body:
                         # Setup mock for pre_call_hook
                         test_body = {"name": "Azure Assistant", "model": "gpt-4o"}
@@ -3509,7 +3509,7 @@ class _FakeManagedFilesHook:
     def __init__(self, file_row: SimpleNamespace):
         self._file_row = file_row
 
-    async def get_unified_file_id(self, file_id: str, litellm_parent_otel_span=None) -> SimpleNamespace:
+    async def get_unified_file_id(self, file_id: str, hangarllm_parent_otel_span=None) -> SimpleNamespace:
         return self._file_row
 
 
@@ -3522,9 +3522,9 @@ async def _run_pass_through_and_capture_wire_url(
     managed_files_hook: _FakeManagedFilesHook | None = None,
     user_api_key_dict: UserAPIKeyAuth | None = None,
 ) -> httpx.URL:
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    import hangarllm
+    from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+    from hangarllm.types.llms.custom_http import httpxSpecialProvider
 
     recorded_requests = []
 
@@ -3536,7 +3536,7 @@ async def _run_pass_through_and_capture_wire_url(
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = hangarllm.in_memory_llm_clients_cache.cache_dict
     cache_key = next((key for key, cached in cache_dict.items() if cached is real_handler), None)
     assert cache_key is not None, (
         "PassThroughEndpoint client not found in in_memory_llm_clients_cache; "
@@ -3560,15 +3560,15 @@ async def _run_pass_through_and_capture_wire_url(
 
     try:
         with ExitStack() as stack:
-            stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging))
+            stack.enter_context(patch("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging))
             if managed_files_hook is not None:
                 stack.enter_context(
                     patch(
-                        "litellm.proxy.proxy_server.general_settings",
+                        "hangarllm.proxy.proxy_server.general_settings",
                         {"passthrough_managed_object_ids": True},
                     )
                 )
-                stack.enter_context(patch("litellm.proxy.proxy_server.prisma_client", None))
+                stack.enter_context(patch("hangarllm.proxy.proxy_server.prisma_client", None))
             response = await pass_through_request(
                 request=mock_request,
                 target=target,
@@ -3596,13 +3596,13 @@ async def test_pass_through_request_merge_query_params_preserves_target_query_on
     """
     wire_url = await _run_pass_through_and_capture_wire_url(
         target="https://www.bing.com/search?setLang=en-US&mkt=en-US",
-        incoming_query="q=litellm",
+        incoming_query="q=hangarllm",
         merge_query_params=True,
     )
     assert dict(wire_url.params) == {
         "setLang": "en-US",
         "mkt": "en-US",
-        "q": "litellm",
+        "q": "hangarllm",
     }
 
 
@@ -3629,9 +3629,9 @@ async def test_pass_through_request_default_query_params_reach_the_wire():
 async def test_pass_through_request_without_merge_replaces_target_query():
     wire_url = await _run_pass_through_and_capture_wire_url(
         target="https://www.bing.com/search?setLang=en-US",
-        incoming_query="q=litellm",
+        incoming_query="q=hangarllm",
     )
-    assert dict(wire_url.params) == {"q": "litellm"}
+    assert dict(wire_url.params) == {"q": "hangarllm"}
 
 
 @pytest.mark.asyncio
@@ -3705,8 +3705,8 @@ async def test_langfuse_pass_through_headers_resolve_environment_keys(monkeypatc
 
 @pytest.mark.asyncio
 async def test_pass_through_rpm_limit_is_sequential_and_scoped_per_key(tmp_path, monkeypatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import ProxyLogging, hash_token, user_api_key_cache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import ProxyLogging, hash_token, user_api_key_cache
 
     proxy = await _boot_db_backed_proxy(
         tmp_path,
@@ -3723,7 +3723,7 @@ async def test_pass_through_rpm_limit_is_sequential_and_scoped_per_key(tmp_path,
         "proxy_logging_obj",
         ProxyLogging(user_api_key_cache=user_api_key_cache),
     )
-    proxy_server.proxy_logging_obj._init_litellm_callbacks()
+    proxy_server.proxy_logging_obj._init_hangarllm_callbacks()
 
     keys = tuple(f"sk-test-{uuid.uuid4().hex}" for _ in range(2))
     for key in keys:
@@ -3755,7 +3755,7 @@ async def test_pass_through_request_merge_query_params_rewrites_managed_ids_on_t
     first bakes the un-rewritten managed ID into the URL and hands the rewriter
     None, leaking the managed ID upstream.
     """
-    from litellm.proxy.pass_through_endpoints.managed_id_codec import new_managed_id
+    from hangarllm.proxy.pass_through_endpoints.managed_id_codec import new_managed_id
 
     managed_id = new_managed_id("openai", "file-raw-123")
     hook = _FakeManagedFilesHook(SimpleNamespace(created_by="user-1", team_id=None))
@@ -3784,7 +3784,7 @@ async def test_pass_through_request_follows_redirect_to_final_response(httpx_tra
     from fastapi import Request
     from starlette.datastructures import Headers, QueryParams
 
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         pass_through_request,
     )
 
@@ -3826,8 +3826,8 @@ async def test_filter_endpoints_by_team_allowed_routes_with_filter():
     Test that _filter_endpoints_by_team_allowed_routes correctly filters endpoints
     when team has allowed_passthrough_routes in metadata
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -3842,7 +3842,7 @@ async def test_filter_endpoints_by_team_allowed_routes_with_filter():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"allowed_passthrough_routes": ["/api/allowed1", "/api/allowed2"]}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -3857,7 +3857,7 @@ async def test_filter_endpoints_by_team_allowed_routes_with_filter():
     assert result[1].path == "/api/allowed2"
 
     # Verify database call
-    mock_prisma_client.db.litellm_teamtable.find_unique.assert_called_once_with(where={"team_id": "test-team-123"})
+    mock_prisma_client.db.hangarllm_teamtable.find_unique.assert_called_once_with(where={"team_id": "test-team-123"})
 
 
 @pytest.mark.asyncio
@@ -3868,8 +3868,8 @@ async def test_filter_endpoints_by_team_allowed_routes_team_not_found():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -3880,7 +3880,7 @@ async def test_filter_endpoints_by_team_allowed_routes_team_not_found():
 
     # Mock prisma client to return None (team not found)
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
 
     # Call the function and expect HTTPException
     with pytest.raises(HTTPException) as exc_info:
@@ -3901,8 +3901,8 @@ async def test_filter_endpoints_by_team_allowed_routes_no_metadata():
     Test that _filter_endpoints_by_team_allowed_routes returns all endpoints
     when team has no metadata
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -3916,7 +3916,7 @@ async def test_filter_endpoints_by_team_allowed_routes_no_metadata():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = None
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -3937,8 +3937,8 @@ async def test_filter_endpoints_by_team_allowed_routes_no_allowed_routes_key():
     Test that _filter_endpoints_by_team_allowed_routes returns all endpoints
     when team metadata doesn't have allowed_passthrough_routes key
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -3952,7 +3952,7 @@ async def test_filter_endpoints_by_team_allowed_routes_no_allowed_routes_key():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"some_other_key": "some_value"}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -3973,8 +3973,8 @@ async def test_filter_endpoints_by_team_allowed_routes_empty_allowed_list():
     Test that _filter_endpoints_by_team_allowed_routes returns empty list
     when team has empty allowed_passthrough_routes list
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -3988,7 +3988,7 @@ async def test_filter_endpoints_by_team_allowed_routes_empty_allowed_list():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"allowed_passthrough_routes": []}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -4007,8 +4007,8 @@ async def test_filter_endpoints_by_team_allowed_routes_partial_match():
     Test that _filter_endpoints_by_team_allowed_routes correctly filters
     when only some endpoints match allowed routes
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -4028,7 +4028,7 @@ async def test_filter_endpoints_by_team_allowed_routes_partial_match():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"allowed_passthrough_routes": ["/api/openai", "/api/azure"]}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -4049,18 +4049,18 @@ async def test_bedrock_router_passthrough_metadata_initialization():
     Test that bedrock router passthrough properly initializes metadata for hooks.
 
     This test verifies the fix for issue #15826 where metadata.headers and
-    litellm_params.proxy_server_request were missing for /bedrock passthrough
+    hangarllm_params.proxy_server_request were missing for /bedrock passthrough
     requests with router models.
 
     The fix ensures router bedrock models use the same common processing path
     as non-router models, which properly initializes all metadata structures.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         handle_bedrock_passthrough_router_model,
     )
 
     # Mock ProxyBaseLLMRequestProcessing to verify it's used
-    with patch("litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing") as mock_processing_class:
+    with patch("hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing") as mock_processing_class:
         # Setup mock instance
         mock_processor = MagicMock()
         mock_processing_class.return_value = mock_processor
@@ -4147,9 +4147,9 @@ async def test_bedrock_router_passthrough_metadata_initialization():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_adds_headers_to_metadata():
+async def test_add_hangarllm_data_to_request_adds_headers_to_metadata():
     """
-    Test that add_litellm_data_to_request adds headers to metadata for guardrails.
+    Test that add_hangarllm_data_to_request adds headers to metadata for guardrails.
 
     This test verifies the fix for issue #17477 where guardrails couldn't access
     request headers (like User-Agent) on Bedrock pass-through endpoints.
@@ -4157,8 +4157,8 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
     The fix ensures headers are available in data["metadata"]["headers"] so
     guardrails can validate User-Agent, API keys, and other header-based checks.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.hangarllm_pre_call_utils import add_hangarllm_data_to_request
 
     # Create mock request with headers including User-Agent
     mock_request = MagicMock(spec=Request)
@@ -4188,8 +4188,8 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
         "messages": [{"role": "user", "content": "Hello"}],
     }
 
-    # Call add_litellm_data_to_request
-    result = await add_litellm_data_to_request(
+    # Call add_hangarllm_data_to_request
+    result = await add_hangarllm_data_to_request(
         data=data,
         request=mock_request,
         user_api_key_dict=mock_user_api_key_dict,
@@ -4198,15 +4198,15 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
         version="1.0",
     )
 
-    # Verify headers are added to litellm_metadata for guardrails.
-    # Bedrock passthrough uses litellm_metadata to prevent key-level
+    # Verify headers are added to hangarllm_metadata for guardrails.
+    # Bedrock passthrough uses hangarllm_metadata to prevent key-level
     # tags from leaking into the provider payload (GH#30629).
-    assert "litellm_metadata" in result, "litellm_metadata should be present in result"
-    assert "headers" in result["litellm_metadata"], "headers should be present in litellm_metadata"
-    assert isinstance(result["litellm_metadata"]["headers"], dict), "headers should be a dictionary"
+    assert "hangarllm_metadata" in result, "hangarllm_metadata should be present in result"
+    assert "headers" in result["hangarllm_metadata"], "headers should be present in hangarllm_metadata"
+    assert isinstance(result["hangarllm_metadata"]["headers"], dict), "headers should be a dictionary"
 
     # Verify specific headers are accessible (important for guardrails)
-    headers = result["litellm_metadata"]["headers"]
+    headers = result["hangarllm_metadata"]["headers"]
     assert "user-agent" in headers or "User-Agent" in headers, "User-Agent header should be accessible in metadata"
 
     # Also verify proxy_server_request has headers (original location)
@@ -4218,13 +4218,13 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
 async def test_create_pass_through_route_custom_body_url_target():
     """
     Test that programmatic callers (e.g. Bedrock proxy) can attach a JSON body via
-    request.state[LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY]; it is forwarded to
+    request.state[HANGARLLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY]; it is forwarded to
     pass_through_request and takes precedence over the request-parsed body.
 
     We cannot use a `custom_body: dict` route parameter: FastAPI would treat it as
     the HTTP body and reject multipart/form-data before the handler runs.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -4242,15 +4242,15 @@ async def test_create_pass_through_route_custom_body_url_target():
     )
 
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
         ) as mock_parse_request,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -4279,7 +4279,7 @@ async def test_create_pass_through_route_custom_body_url_target():
             "retrievalQuery": {"text": "What is in the knowledge base?"},
         }
 
-        setattr(mock_request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, bedrock_body)
+        setattr(mock_request.state, HANGARLLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, bedrock_body)
 
         await endpoint_func(
             request=mock_request,
@@ -4316,7 +4316,7 @@ async def test_pass_through_request_non_streaming_uses_content_for_state_raw_bod
     mock_request.query_params = QueryParams({})
     mock_request.headers = Headers({"Content-Type": "application/json"})
     mock_request.state = SimpleNamespace()
-    setattr(mock_request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
+    setattr(mock_request.state, HANGARLLM_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
     mock_request.body = AsyncMock(return_value=json.dumps(parsed_from_wire).encode("utf-8"))
 
     mock_user = MagicMock()
@@ -4346,19 +4346,19 @@ async def test_pass_through_request_non_streaming_uses_content_for_state_raw_bod
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
             return_value=mock_client_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
             new=AsyncMock(side_effect=_hook_mutates_body),
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
             new=AsyncMock(return_value={}),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ),
     ):
@@ -4389,7 +4389,7 @@ async def test_pass_through_request_streaming_uses_content_for_state_raw_body():
     mock_request.query_params = QueryParams({})
     mock_request.headers = Headers({"Content-Type": "application/json"})
     mock_request.state = SimpleNamespace()
-    setattr(mock_request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
+    setattr(mock_request.state, HANGARLLM_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
     mock_request.body = AsyncMock(return_value=json.dumps(parsed_from_wire).encode("utf-8"))
 
     mock_user = MagicMock()
@@ -4410,19 +4410,19 @@ async def test_pass_through_request_streaming_uses_content_for_state_raw_body():
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
             return_value=mock_client_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
             new=AsyncMock(side_effect=lambda **kw: kw["data"]),
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
             new=AsyncMock(return_value={}),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ),
     ):
@@ -4452,7 +4452,7 @@ async def test_create_pass_through_route_no_custom_body_falls_back():
     This ensures the default pass-through behavior is preserved — only the
     Bedrock proxy route (and similar callers) supply a pre-built body.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -4464,15 +4464,15 @@ async def test_create_pass_through_route_no_custom_body_falls_back():
     )
 
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
         ) as mock_parse_request,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -4515,7 +4515,7 @@ def test_is_registered_pass_through_route_with_custom_root():
     Registry stores bare paths; incoming routes may be bare (get_request_route)
     or prefixed (request.url.path). Both should resolve via normalization.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         _registered_pass_through_routes,
     )
@@ -4532,11 +4532,11 @@ def test_is_registered_pass_through_route_with_custom_root():
         "headers": {},
     }
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/proxy"):
+    with patch("hangarllm.proxy.utils.get_server_root_path", return_value="/proxy"):
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/proxy/api/endpoint") is True
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/api/endpoint") is True
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/"):
+    with patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"):
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/api/endpoint") is True
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/proxy/api/endpoint") is False
 
@@ -4549,7 +4549,7 @@ def test_get_registered_pass_through_route_with_custom_root():
     get_registered_pass_through_route matches bare registry paths against
     bare or SERVER_ROOT_PATH-prefixed incoming routes.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         _registered_pass_through_routes,
     )
@@ -4568,9 +4568,9 @@ def test_get_registered_pass_through_route_with_custom_root():
     route_key = f"{endpoint_id}:exact:{path}"
     _registered_pass_through_routes[route_key] = target_config
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"):
+    with patch("hangarllm.proxy.utils.get_server_root_path", return_value="/hangarllm"):
         # Prefixed incoming route
-        result = InitPassThroughEndpointHelpers.get_registered_pass_through_route("/litellm/chat/completions")
+        result = InitPassThroughEndpointHelpers.get_registered_pass_through_route("/hangarllm/chat/completions")
         assert result is not None
         assert result["target"] == "http://api.example.com/v1/chat/completions"
         assert result["headers"]["Authorization"] == "Bearer token123"
@@ -4580,7 +4580,7 @@ def test_get_registered_pass_through_route_with_custom_root():
         assert result is not None
         assert result["target"] == "http://api.example.com/v1/chat/completions"
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/"):
+    with patch("hangarllm.proxy.utils.get_server_root_path", return_value="/"):
         result = InitPassThroughEndpointHelpers.get_registered_pass_through_route("/chat/completions")
         assert result is not None
         assert result["target"] == "http://api.example.com/v1/chat/completions"
@@ -4614,7 +4614,7 @@ def test_db_registered_pass_through_route_bare_path_convention(
     Regression: #28547 / SERVER_ROOT_PATH — registry stores bare /ml paths;
     get_request_route() supplies bare paths; prefixed url.path must still match.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         _registered_pass_through_routes,
     )
@@ -4632,7 +4632,7 @@ def test_db_registered_pass_through_route_bare_path_convention(
     }
 
     with patch(
-        "litellm.proxy.utils.get_server_root_path",
+        "hangarllm.proxy.utils.get_server_root_path",
         return_value=server_root_path,
     ):
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route(incoming_route) is should_match
@@ -4645,19 +4645,19 @@ def test_mapped_pass_through_routes_with_server_root_path():
     Mapped passthrough routes (vertex_ai, bedrock, etc) should match
     even when SERVER_ROOT_PATH is set and the incoming route is prefixed.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22272
+    Regression test for upstream issue 22272
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"):
+    with patch("hangarllm.proxy.utils.get_server_root_path", return_value="/hangarllm"):
         # prefixed route should match mapped routes like /vertex_ai
         assert (
-            InitPassThroughEndpointHelpers.is_registered_pass_through_route("/litellm/vertex_ai/v1/projects/foo")
+            InitPassThroughEndpointHelpers.is_registered_pass_through_route("/hangarllm/vertex_ai/v1/projects/foo")
             is True
         )
-        assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/litellm/bedrock/model/invoke") is True
+        assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/hangarllm/bedrock/model/invoke") is True
 
         # bare route without prefix should not match when root is set
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/vertex_ai/v1/projects/foo") is False
@@ -4794,12 +4794,12 @@ class TestStaleRouteCleanupOnReload:
         stack = ExitStack()
         stack.enter_context(
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.SafeRouteAdder.add_api_route_if_not_exists"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.SafeRouteAdder.add_api_route_if_not_exists"
             )
         )
-        stack.enter_context(patch("litellm.proxy.proxy_server.premium_user", True))
+        stack.enter_context(patch("hangarllm.proxy.proxy_server.premium_user", True))
         mock_set_env = stack.enter_context(
-            patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header")
+            patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header")
         )
         mock_set_env.return_value = {}
         return stack
@@ -4883,14 +4883,14 @@ class TestStaleRouteCleanupOnReload:
 # even though the client correctly receives the 4xx.
 from fastapi import HTTPException as _FastAPIHTTPException
 
-from litellm.exceptions import (
+from hangarllm.exceptions import (
     BlockedPiiEntityError,
     GuardrailRaisedException,
     ModifyResponseException,
 )
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
-_PT_MODULE = "litellm.proxy.pass_through_endpoints.pass_through_endpoints"
+_PT_MODULE = "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints"
 
 
 def _lit3538_user_api_key_dict():
@@ -4929,7 +4929,7 @@ async def _drive_pass_through_block(raised_exception):
     logger = MagicMock()
 
     patches = [
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
         patch(f"{_PT_MODULE}.verbose_proxy_logger", logger),
         patch(
             f"{_PT_MODULE}.read_request_body",
@@ -4938,7 +4938,7 @@ async def _drive_pass_through_block(raised_exception):
         ),
         patch(f"{_PT_MODULE}.safe_get_request_headers", return_value={}),
         patch(
-            "litellm.proxy.pass_through_endpoints.passthrough_guardrails."
+            "hangarllm.proxy.pass_through_endpoints.passthrough_guardrails."
             "PassthroughGuardrailHandler.collect_guardrails",
             return_value=[],
         ),
@@ -5020,15 +5020,15 @@ async def test_pass_through_request_non_streaming_upstream_error_returned_unchan
         request=httpx.Request("POST", "http://target-api.com/api/denied"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5104,15 +5104,15 @@ async def test_pass_through_request_upstream_error_failure_hook_exception_is_swa
         request=httpx.Request("POST", "http://target-api.com/api/denied"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock(
@@ -5159,12 +5159,12 @@ async def test_pass_through_request_streaming_upstream_error_returned_unchanged(
         request=httpx.Request("GET", "http://target-api.com/api/stream-denied"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
             ) as mock_success_handler:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5255,13 +5255,13 @@ async def test_pass_through_request_non_streaming_upstream_error_body_logged_and
         request=httpx.Request("POST", "http://target-api.com/v1beta/models/claude-nope-9:generateContent"),
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5311,12 +5311,12 @@ async def test_pass_through_request_streaming_upstream_error_body_reaches_client
         request=httpx.Request("POST", "http://target-api.com/v1beta/models/claude-nope-9:streamGenerateContent"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
             ) as mock_success_handler:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5364,12 +5364,12 @@ async def test_truncate_upstream_error_body_caps_at_log_limit():
         content=long_body.encode("utf-8"),
         request=httpx.Request("POST", "http://target-api.com/api/big-error"),
     )
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5406,12 +5406,12 @@ async def test_pass_through_request_upstream_error_log_strips_provider_key_from_
     )
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5468,12 +5468,12 @@ async def test_passthrough_upstream_error_body_redacted_when_message_logging_off
     user_api_key_dict.team_id = None
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5507,9 +5507,9 @@ async def test_passthrough_upstream_error_body_redacted_when_message_logging_off
     detail: Final = mock_proxy_logging.post_call_failure_hook.call_args.kwargs["original_exception"].detail
 
     if turn_off_message_logging:
-        assert logged_body == "redacted-by-litellm"
+        assert logged_body == "redacted-by-hangarllm"
         assert "upstream body says the project was not found" not in logged_body
-        assert detail == "Upstream passthrough request failed with status 404: redacted-by-litellm"
+        assert detail == "Upstream passthrough request failed with status 404: redacted-by-hangarllm"
     else:
         assert "upstream body says the project was not found" in logged_body
         assert detail == f"Upstream passthrough request failed with status 404: {upstream_content.decode()}"
@@ -5548,12 +5548,12 @@ async def test_pass_through_request_streaming_upstream_error_reads_only_preview_
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5613,12 +5613,12 @@ async def test_pass_through_request_streaming_upstream_error_single_large_chunk_
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5685,12 +5685,12 @@ async def test_pass_through_request_streaming_upstream_error_body_read_failure_k
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5768,12 +5768,12 @@ async def test_pass_through_request_streaming_upstream_error_gzip_read_failure_r
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5822,12 +5822,12 @@ async def test_pass_through_request_streaming_upstream_error_gzip_body_decoded_f
     )
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5875,12 +5875,12 @@ async def test_pass_through_request_upstream_error_body_sanitized_against_log_fo
     )
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5934,8 +5934,8 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
     proxy-level failure hook at all, so the request left no spend row, no
     failure metric, and no alert; the pre-stream 4xx/5xx path already fires it.
     """
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+    from hangarllm.types.llms.custom_http import httpxSpecialProvider
 
     def transport_handler(upstream_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, stream=_UpstreamDroppingMidStream(), headers={"content-type": "text/event-stream"})
@@ -5944,7 +5944,7 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = hangarllm.in_memory_llm_clients_cache.cache_dict
     cache_key = next(key for key, cached in cache_dict.items() if cached is real_handler)
     cache_dict[cache_key] = SimpleNamespace(client=httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)))
 
@@ -5967,7 +5967,7 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
 
     try:
         with patch(  # test-quality-ok: proxy_logging_obj is a proxy_server module global read inside pass_through_request; there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
         ):
             response = await pass_through_request(
                 request=mock_request,
@@ -5986,9 +5986,9 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
     failure_call_kwargs = mock_proxy_logging.post_call_failure_hook.call_args.kwargs
     assert isinstance(failure_call_kwargs["original_exception"], httpx.ReadError)
     request_data = failure_call_kwargs["request_data"]
-    assert request_data["litellm_call_id"]
+    assert request_data["hangarllm_call_id"]
     assert request_data["model"] == "gpt-5.6"
-    assert isinstance(request_data["litellm_logging_obj"], LiteLLMLoggingObj)
+    assert isinstance(request_data["hangarllm_logging_obj"], HangarLLMLoggingObj)
 
 
 @pytest.mark.asyncio
@@ -6003,15 +6003,15 @@ async def test_pass_through_request_non_streaming_success_unchanged():
         request=httpx.Request("GET", "http://target-api.com/api/success"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -6069,12 +6069,12 @@ async def test_pass_through_request_claims_the_budget_reservation_only_when_its_
     )
 
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
         ) as mock_processing,
-        patch("litellm.litellm_core_utils.logging_worker.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("hangarllm.hangarllm_core_utils.logging_worker.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -6123,12 +6123,12 @@ async def test_pass_through_request_leaves_the_budget_reservation_for_the_reques
         raise RuntimeError("logging worker is shutting down")
 
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
         ) as mock_processing,
-        patch("litellm.litellm_core_utils.logging_worker.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("hangarllm.hangarllm_core_utils.logging_worker.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -6164,9 +6164,9 @@ async def test_pass_through_request_internal_failure_still_raises_proxy_exceptio
     made) must still surface as ProxyException, distinct from upstream
     passthrough errors which are now returned unchanged.
     """
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=RuntimeError("auth backend unavailable"))
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
 
@@ -6227,15 +6227,15 @@ def _inject_fake_passthrough_client(transport, timeout):
     returned, so the internal cache-key format is never duplicated here. Must
     run inside the test's event loop because cache keys are loop-scoped.
     Returns (client, cleanup)."""
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    import hangarllm
+    from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+    from hangarllm.types.llms.custom_http import httpxSpecialProvider
 
     real_handler = get_async_httpx_client(
         httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(timeout)},
     )
-    cache = litellm.in_memory_llm_clients_cache
+    cache = hangarllm.in_memory_llm_clients_cache
     cache_key = next(
         (key for key, cached in cache.cache_dict.items() if cached is real_handler),
         None,
@@ -6254,15 +6254,15 @@ def _inject_fake_passthrough_client(transport, timeout):
 
 
 def _enter_relay_logging_mocks(stack, parsed_body):
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
-    mock_proxy_logging = stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj"))
+    mock_proxy_logging = stack.enter_context(patch("hangarllm.proxy.proxy_server.proxy_logging_obj"))
     mock_proxy_logging.pre_call_hook = AsyncMock(return_value=parsed_body)
     mock_proxy_logging.post_call_failure_hook = AsyncMock()
     mock_proxy_logging.post_call_response_headers_hook = AsyncMock(return_value=None)
     mock_success_handler = stack.enter_context(
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
         )
     )
     mock_success_handler.return_value = None
@@ -6299,7 +6299,7 @@ async def test_pass_through_request_propagates_active_trace_context(span_source:
         with ExitStack() as stack:
             _enter_relay_logging_mocks(stack, {})
             if span_source == "auth_parent_span":
-                span = tracer.start_span("litellm_request")
+                span = tracer.start_span("hangarllm_request")
                 stack.callback(span.end)
                 user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", parent_otel_span=span)
             else:
@@ -6335,7 +6335,7 @@ async def _relay_with_trace_headers(inbound_headers: dict[str, str], forward_hea
     try:
         with ExitStack() as stack:
             _enter_relay_logging_mocks(stack, {})
-            span = tracer.start_span("litellm_request")
+            span = tracer.start_span("hangarllm_request")
             stack.callback(span.end)
             request = _relay_client_request(method="POST")
             request.headers = Headers(inbound_headers)
@@ -6392,14 +6392,14 @@ async def test_pass_through_request_relays_non_json_body_without_buffering():
 
     A non-JSON 2xx body must be relayed as a StreamingResponse whose chunks are
     pulled from the upstream one at a time, with zero chunks consumed before the
-    handler returns, upstream status/headers plus x-litellm-* headers preserved,
+    handler returns, upstream status/headers plus x-hangarllm-* headers preserved,
     and the success-handler logging fired with response_body=None once the
     stream completes. Pre-fix, the handler returned a plain Response after
     reading the entire body, so these assertions fail on the old code.
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (
         b'{"custom_id": "a", "result": {}}\n',
@@ -6446,7 +6446,7 @@ async def test_pass_through_request_relays_non_json_body_without_buffering():
 
             assert response.status_code == 200
             assert response.headers["x-upstream-marker"] == "batch-results"
-            assert "x-litellm-call-id" in response.headers
+            assert "x-hangarllm-call-id" in response.headers
             assert "content-length" not in response.headers
 
             mock_success_handler.assert_called_once()
@@ -6470,7 +6470,7 @@ async def test_pass_through_request_json_response_stays_buffered_for_logging(con
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (b'{"id": "file-123"', b', "status": "processed"}')
     upstream_stream = _RecordingUpstreamByteStream(upstream_chunks)
@@ -6519,7 +6519,7 @@ async def test_pass_through_request_upstream_error_body_stays_buffered():
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_stream = _RecordingUpstreamByteStream((b"upstream ", b"exploded"))
     fake_client, cleanup = _inject_fake_passthrough_client(
@@ -6558,7 +6558,7 @@ _UPSTREAM_JSON_ERROR: Final = b'{"error": {"message": "bad request", "type": "in
 async def _relay_upstream_through_pass_through_request(
     general_settings, status_code, content_type, body, callback_headers=None
 ):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     fake_client, cleanup = _inject_fake_passthrough_client(
         _FakeUpstreamTransport(
@@ -6572,7 +6572,7 @@ async def _relay_upstream_through_pass_through_request(
         with ExitStack() as stack:
             mock_proxy_logging, _ = _enter_relay_logging_mocks(stack, {})
             mock_proxy_logging.post_call_response_headers_hook = AsyncMock(return_value=callback_headers)
-            stack.enter_context(patch("litellm.proxy.proxy_server.general_settings", general_settings))
+            stack.enter_context(patch("hangarllm.proxy.proxy_server.general_settings", general_settings))
             return await pass_through_request(
                 request=_relay_client_request(),
                 target="http://upstream.test/v1/messages",
@@ -6588,32 +6588,32 @@ async def _relay_upstream_through_pass_through_request(
 @pytest.mark.asyncio
 async def test_pass_through_error_body_carries_the_call_id_when_opted_in():
     """With include_call_id_in_error_body on, a buffered upstream JSON error gets a top-level
-    litellm_call_id byte-identical to the x-litellm-call-id header, and content-length still
+    hangarllm_call_id byte-identical to the x-hangarllm-call-id header, and content-length still
     matches the rewritten body."""
     response = await _relay_upstream_through_pass_through_request(
         {"include_call_id_in_error_body": True}, 400, "application/json", _UPSTREAM_JSON_ERROR
     )
 
-    call_id = response.headers["x-litellm-call-id"]
+    call_id = response.headers["x-hangarllm-call-id"]
     assert response.status_code == 400
-    assert json.loads(response.body) == {**json.loads(_UPSTREAM_JSON_ERROR), "litellm_call_id": call_id}
+    assert json.loads(response.body) == {**json.loads(_UPSTREAM_JSON_ERROR), "hangarllm_call_id": call_id}
     assert int(response.headers["content-length"]) == len(response.body)
 
 
 @pytest.mark.asyncio
 async def test_pass_through_error_body_call_id_follows_a_restamped_header():
-    """A post_call_response_headers_hook that rewrites x-litellm-call-id wins in the header, so the
+    """A post_call_response_headers_hook that rewrites x-hangarllm-call-id wins in the header, so the
     body copies the emitted header value rather than the id the proxy generated."""
     response = await _relay_upstream_through_pass_through_request(
         {"include_call_id_in_error_body": True},
         400,
         "application/json",
         _UPSTREAM_JSON_ERROR,
-        callback_headers={"x-litellm-call-id": "restamped-by-hook"},
+        callback_headers={"x-hangarllm-call-id": "restamped-by-hook"},
     )
 
-    assert response.headers["x-litellm-call-id"] == "restamped-by-hook"
-    assert json.loads(response.body)["litellm_call_id"] == "restamped-by-hook"
+    assert response.headers["x-hangarllm-call-id"] == "restamped-by-hook"
+    assert json.loads(response.body)["hangarllm_call_id"] == "restamped-by-hook"
 
 
 @pytest.mark.asyncio
@@ -6633,7 +6633,7 @@ async def test_pass_through_body_stays_byte_identical_outside_the_opt_in(
 
     assert response.status_code == status_code
     assert response.body == body
-    assert "x-litellm-call-id" in response.headers
+    assert "x-hangarllm-call-id" in response.headers
 
 
 def _echo_upstream_body(upstream_request: httpx.Request) -> httpx.Response:
@@ -6672,7 +6672,7 @@ async def _relay_through_pass_through(
         with ExitStack() as stack:
             _enter_relay_logging_mocks(stack, {})
             stack.enter_context(
-                patch("litellm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache()))
+                patch("hangarllm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache()))
             )
             response: Final = await pass_through_request(
                 request=request,
@@ -6735,7 +6735,7 @@ def no_configured_anthropic_base(monkeypatch: pytest.MonkeyPatch) -> None:
         "messages",
         "messages-trailing-slash",
         "messages-with-query",
-        "user-id-beside-litellm-and-unknown-keys",
+        "user-id-beside-hangarllm-and-unknown-keys",
         "digits-user-id",
         "no-user-id",
         "email-user-id",
@@ -6821,8 +6821,8 @@ async def test_pass_through_caps_the_user_id_for_a_configured_anthropic_compatib
         (True, GuardrailEventHooks.post_call, None, {}, None, True),
         (True, GuardrailEventHooks.pre_call, None, {}, None, False),
         (False, GuardrailEventHooks.pre_call, {"pii-guard": {}}, {}, None, False),
-        (False, GuardrailEventHooks.pre_call, None, {"litellm_metadata": {"guardrails": ["pii-guard"]}}, None, False),
-        (False, GuardrailEventHooks.pre_call, {"pii-guard": {}}, {"litellm_metadata": {"guardrails": []}}, None, False),
+        (False, GuardrailEventHooks.pre_call, None, {"hangarllm_metadata": {"guardrails": ["pii-guard"]}}, None, False),
+        (False, GuardrailEventHooks.pre_call, {"pii-guard": {}}, {"hangarllm_metadata": {"guardrails": []}}, None, False),
         (True, GuardrailEventHooks.pre_call, None, {"stream": True}, "streaming", False),
         (True, GuardrailEventHooks.pre_call, None, {}, "streaming", True),
         (True, GuardrailEventHooks.pre_call, None, {"stream": True}, "non_streaming", True),
@@ -6834,7 +6834,7 @@ async def test_pass_through_caps_the_user_id_for_a_configured_anthropic_compatib
         "default-on-post-call-guardrail",
         "default-on-pre-call-guardrail",
         "guardrail-on-the-route",
-        "guardrail-in-litellm-metadata",
+        "guardrail-in-hangarllm-metadata",
         "route-guardrail-beside-an-empty-client-list",
         "streaming-guardrail-on-a-stream",
         "streaming-guardrail-off-a-stream",
@@ -6854,9 +6854,9 @@ async def test_pass_through_keeps_the_user_id_from_routes_a_guardrail_scans(
         guardrail_name="pii-guard", default_on=default_on, event_hook=event_hook, stream_scope=stream_scope
     )
     client_body: Final = MappingProxyType({**_MESSAGES_BODY, "metadata": {"user_id": "user-1"}, **client_fields})
-    body_without_client_fields: Final = {k: v for k, v in client_body.items() if k not in ("metadata", "litellm_metadata")}
+    body_without_client_fields: Final = {k: v for k, v in client_body.items() if k not in ("metadata", "hangarllm_metadata")}
 
-    with patch.object(litellm, "callbacks", [guardrail]):
+    with patch.object(hangarllm, "callbacks", [guardrail]):
         relayed: Final = await _relay_through_pass_through(
             client_body, _ANTHROPIC_MESSAGES, guardrails_config=guardrails_config
         )
@@ -6917,7 +6917,7 @@ async def test_pass_through_relay_client_disconnect_logs_partial_relay_warning(c
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (b'{"custom_id": "a"}\n', b'{"custom_id": "b"}\n')
     upstream_stream = _RecordingUpstreamByteStream(upstream_chunks)
@@ -6946,7 +6946,7 @@ async def test_pass_through_relay_client_disconnect_logs_partial_relay_warning(c
             first_chunk = await iterator.__anext__()
             assert first_chunk == upstream_chunks[0]
 
-            with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+            with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
                 await iterator.aclose()
 
             partial_relay_warnings = [
@@ -6974,7 +6974,7 @@ async def test_pass_through_relay_full_consumption_logs_no_partial_relay_warning
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (b'{"custom_id": "a"}\n', b'{"custom_id": "b"}\n')
     upstream_stream = _RecordingUpstreamByteStream(upstream_chunks)
@@ -6999,7 +6999,7 @@ async def test_pass_through_relay_full_consumption_logs_no_partial_relay_warning
             )
 
             assert isinstance(response, StreamingResponse)
-            with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+            with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
                 relayed = [chunk async for chunk in response.body_iterator]
 
             assert b"".join(relayed) == b"".join(upstream_chunks)
@@ -7024,24 +7024,24 @@ class _StandardLoggingPayloadRecorder(CustomLogger):
 
 @contextmanager
 def _recording_success_callback():
-    import litellm
+    import hangarllm
 
     recorder = _StandardLoggingPayloadRecorder()
-    original = litellm._async_success_callback
-    litellm._async_success_callback = [*original, recorder]
+    original = hangarllm._async_success_callback
+    hangarllm._async_success_callback = [*original, recorder]
     try:
         yield recorder
     finally:
-        litellm._async_success_callback = original
+        hangarllm._async_success_callback = original
 
 
 def _enter_upstream_usage_mocks(stack, parsed_body):
     """Same seams as _enter_relay_logging_mocks, but leaves the real
     pass-through success handler in place and captures the coroutines the
     logging worker would have run so the test can await them."""
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
-    mock_proxy_logging = stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj"))
+    mock_proxy_logging = stack.enter_context(patch("hangarllm.proxy.proxy_server.proxy_logging_obj"))
     mock_proxy_logging.pre_call_hook = AsyncMock(return_value=parsed_body)
     mock_proxy_logging.post_call_failure_hook = AsyncMock()
     mock_proxy_logging.post_call_response_headers_hook = AsyncMock(return_value=None)
@@ -7067,7 +7067,7 @@ async def _run_upstream_reporting_passthrough(
 ) -> tuple[list[object], MagicMock]:
     """Drive a generic pass-through against an upstream that reports its own
     cost/usage. Returns (recorded standard logging payloads, proxy logging mock)."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     fake_client, cleanup = _inject_fake_passthrough_client(
         _FakeUpstreamTransport(
@@ -7102,7 +7102,7 @@ async def test_pass_through_logging_uses_trace_header_and_generates_without_one(
     trace_id: Final[str] = "4bf92f3577b34da6a3ce929d0e0e4736"
     trace_payloads, _ = await _run_upstream_reporting_passthrough(
         upstream_headers=MappingProxyType({}),
-        request_headers=MappingProxyType({"x-litellm-trace-id": trace_id}),
+        request_headers=MappingProxyType({"x-hangarllm-trace-id": trace_id}),
     )
     logged_trace_id: Final[str] = cast(types_utils.StandardLoggingPayload, trace_payloads[0])["trace_id"]
     assert logged_trace_id == trace_id
@@ -7117,14 +7117,14 @@ async def test_pass_through_logging_uses_trace_header_and_generates_without_one(
 async def test_passthrough_records_cost_and_tokens_reported_by_upstream():
     """
     A pass-through target that prices the request itself reports the totals in
-    x-litellm-response-cost / x-litellm-total-tokens. LiteLLM must record those
+    x-hangarllm-response-cost / x-hangarllm-total-tokens. HangarLLM must record those
     values verbatim; before this, a generic pass-through always logged 0 spend
     and 0 tokens because there was nothing in the body to price.
     """
     payloads, _ = await _run_upstream_reporting_passthrough(
         {
-            "x-litellm-response-cost": "0.000415",
-            "x-litellm-total-tokens": "1874",
+            "x-hangarllm-response-cost": "0.000415",
+            "x-hangarllm-total-tokens": "1874",
         }
     )
 
@@ -7136,7 +7136,7 @@ async def test_passthrough_records_cost_and_tokens_reported_by_upstream():
 @pytest.mark.asyncio
 async def test_passthrough_records_zero_when_upstream_reports_zero():
     payloads, _ = await _run_upstream_reporting_passthrough(
-        {"x-litellm-response-cost": "0", "x-litellm-total-tokens": "0"}
+        {"x-hangarllm-response-cost": "0", "x-hangarllm-total-tokens": "0"}
     )
 
     assert len(payloads) == 1
@@ -7160,12 +7160,12 @@ async def test_passthrough_records_upstream_reported_cost_on_error_response():
     the error response, so the spend must land on the failure row rather than
     being dropped because the status code was >= 400.
     """
-    import litellm
+    import hangarllm
 
     _, mock_proxy_logging = await _run_upstream_reporting_passthrough(
         {
-            "x-litellm-response-cost": "0.00021",
-            "x-litellm-total-tokens": "930",
+            "x-hangarllm-response-cost": "0.00021",
+            "x-hangarllm-total-tokens": "930",
         },
         status_code=500,
     )
@@ -7173,7 +7173,7 @@ async def test_passthrough_records_upstream_reported_cost_on_error_response():
     mock_proxy_logging.post_call_failure_hook.assert_awaited_once()
     request_data = mock_proxy_logging.post_call_failure_hook.await_args.kwargs["request_data"]
     assert request_data["response_cost"] == 0.00021
-    assert request_data["combined_usage_object"] == litellm.Usage(total_tokens=930)
+    assert request_data["combined_usage_object"] == hangarllm.Usage(total_tokens=930)
 
 
 @pytest.mark.asyncio
@@ -7187,9 +7187,9 @@ async def test_passthrough_error_response_without_usage_headers_records_no_spend
 
 _UPSTREAM_SUMMARIZER_HEADERS: Final = MappingProxyType(
     {
-        "x-litellm-response-cost": "0.0123",
-        "x-litellm-total-tokens": "4210",
-        "x-litellm-upstream-model": "support-summarizer",
+        "x-hangarllm-response-cost": "0.0123",
+        "x-hangarllm-total-tokens": "4210",
+        "x-hangarllm-upstream-model": "support-summarizer",
     }
 )
 
@@ -7221,7 +7221,7 @@ async def test_passthrough_without_model_header_keeps_request_model(
     request_body: Mapping[str, object] | None, expected_model: str
 ):
     payloads, _ = await _run_upstream_reporting_passthrough(
-        {"x-litellm-response-cost": "0.0123", "x-litellm-total-tokens": "4210"}, request_body=request_body
+        {"x-hangarllm-response-cost": "0.0123", "x-hangarllm-total-tokens": "4210"}, request_body=request_body
     )
 
     assert len(payloads) == 1
@@ -7230,7 +7230,7 @@ async def test_passthrough_without_model_header_keeps_request_model(
 
 @pytest.mark.asyncio
 async def test_passthrough_records_upstream_reported_model_on_error_response():
-    import litellm
+    import hangarllm
 
     _, mock_proxy_logging = await _run_upstream_reporting_passthrough(
         _UPSTREAM_SUMMARIZER_HEADERS, status_code=500, request_body={"model": "gpt-4o"}
@@ -7241,7 +7241,7 @@ async def test_passthrough_records_upstream_reported_model_on_error_response():
     assert (request_data["model"], request_data["response_cost"], request_data["combined_usage_object"]) == (
         "support-summarizer",
         0.0123,
-        litellm.Usage(total_tokens=4210),
+        hangarllm.Usage(total_tokens=4210),
     ), request_data
 
 
@@ -7254,16 +7254,16 @@ async def test_streaming_passthrough_records_cost_tokens_and_model_reported_by_u
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     fake_client, cleanup = _inject_fake_passthrough_client(
         _FakeUpstreamTransport(
             status_code=200,
             headers={
                 "content-type": "text/event-stream",
-                "x-litellm-response-cost": "0.00312",
-                "x-litellm-total-tokens": "4021",
-                "x-litellm-upstream-model": "support-summarizer",
+                "x-hangarllm-response-cost": "0.00312",
+                "x-hangarllm-total-tokens": "4021",
+                "x-hangarllm-upstream-model": "support-summarizer",
             },
             stream=_RecordingUpstreamByteStream((b'data: {"delta": "hi"}\n\n',)),
         ),
@@ -7303,8 +7303,8 @@ async def test_upstream_reported_cost_survives_default_cost_per_request():
     """
     payloads, _ = await _run_upstream_reporting_passthrough(
         {
-            "x-litellm-response-cost": "0.000415",
-            "x-litellm-total-tokens": "1874",
+            "x-hangarllm-response-cost": "0.000415",
+            "x-hangarllm-total-tokens": "1874",
         },
         cost_per_request=0.0,
     )
@@ -7329,7 +7329,7 @@ async def test_unusable_upstream_cost_records_zero_not_the_flat_estimate():
     to a flat cost_per_request the upstream just contradicted.
     """
     payloads, _ = await _run_upstream_reporting_passthrough(
-        {"x-litellm-response-cost": "not-a-number", "x-litellm-total-tokens": "1874"},
+        {"x-hangarllm-response-cost": "not-a-number", "x-hangarllm-total-tokens": "1874"},
         cost_per_request=0.05,
     )
 
@@ -7387,12 +7387,12 @@ async def test_websocket_passthrough_forwards_non_ascii_first_frame():
     websocket.client_state = WebSocketState.CONNECTED
 
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
             return_value=FakeUpstreamConnect(upstream_ws),
         ),
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_success_hook = AsyncMock()
@@ -7453,18 +7453,18 @@ async def test_websocket_passthrough_propagates_active_trace_context(
     mock_proxy_logging.arelease_responses_websocket_slot = AsyncMock()
     mock_worker = MagicMock()
     mock_worker.ensure_initialized_and_enqueue = MagicMock(side_effect=lambda async_coroutine: async_coroutine.close())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
         fake_connect,
     )
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
         mock_worker,
     )
     with ExitStack() as stack:
         if span_source == "auth_parent_span":
-            span = tracer.start_span("litellm_request")
+            span = tracer.start_span("hangarllm_request")
             stack.callback(span.end)
             user_api_key_dict = UserAPIKeyAuth(parent_otel_span=span)
         else:
@@ -7520,13 +7520,13 @@ async def test_websocket_passthrough_never_forwards_caller_credentials_upstream(
     mock_proxy_logging.arelease_responses_websocket_slot = AsyncMock()
     mock_worker = MagicMock()
     mock_worker.ensure_initialized_and_enqueue = MagicMock(side_effect=lambda async_coroutine: async_coroutine.close())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
         fake_connect,
     )
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
         mock_worker,
     )
     await websocket_passthrough_request(
@@ -7601,12 +7601,12 @@ def _client_websocket(receive):
 @contextmanager
 def _patched_websocket_passthrough_environment(upstream_ws):
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
             return_value=FakeUpstreamConnect(upstream_ws),
         ),
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_success_hook = AsyncMock()
@@ -7676,7 +7676,7 @@ async def test_websocket_passthrough_keeps_normal_upstream_close_normal():
 
 
 async def _run_setup_rewrite_passthrough(setup_model: str, llm_router) -> str:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _build_vertex_live_setup_model_rewriter,
     )
 
@@ -7726,11 +7726,11 @@ async def test_websocket_passthrough_rewrites_setup_model_to_full_resource(setup
 
 @pytest.mark.asyncio
 async def test_websocket_passthrough_rewrites_gateway_alias_setup_model():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-live",
-                "litellm_params": {"model": "vertex_ai/gemini-live-2.5-flash"},
+                "hangarllm_params": {"model": "vertex_ai/gemini-live-2.5-flash"},
             }
         ]
     )
@@ -7753,10 +7753,10 @@ def test_vertex_live_setup_model_resolves_before_extraction(setup_model):
     client that addressed the gateway the documented way, by alias, logged no model and therefore
     resolved no cost-map entry. Resolving first is what puts the real name on the logging object.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _build_vertex_live_setup_model_rewriter,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _extract_model_from_vertex_ai_setup,
         _resolved_vertex_live_setup,
     )
@@ -7779,7 +7779,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
     before the rewrite, so this one drives the real websocket relay and asserts on what got logged,
     which is the name the cost map is looked up by. An unbilled session logs ``unknown``.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _build_vertex_live_setup_model_rewriter,
     )
 
@@ -7794,7 +7794,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
         )
     )
     built = []
-    real_logging = litellm.litellm_core_utils.litellm_logging.Logging
+    real_logging = hangarllm.hangarllm_core_utils.hangarllm_logging.Logging
 
     def _capture(*args, **kwargs):
         obj = real_logging(*args, **kwargs)
@@ -7802,7 +7802,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
         return obj
 
     with _patched_websocket_passthrough_environment(upstream_ws):
-        with patch("litellm.litellm_core_utils.litellm_logging.Logging", side_effect=_capture):
+        with patch("hangarllm.hangarllm_core_utils.hangarllm_logging.Logging", side_effect=_capture):
             await websocket_passthrough_request(
                 websocket=websocket,
                 target="wss://aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1.LlmBidiService/BidiGenerateContent",
@@ -7822,7 +7822,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
 
 def test_vertex_live_setup_resolution_is_inert_without_a_rewriter():
     """Non-Live passthrough routes pass no rewriter, so the frame must be handed over untouched."""
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _extract_model_from_vertex_ai_setup,
         _resolved_vertex_live_setup,
     )
@@ -7867,7 +7867,7 @@ async def test_websocket_passthrough_does_not_relay_unsendable_upstream_close(rc
 async def test_websocket_passthrough_rewrites_alias_of_unrecognised_upstream_model():
     llm_router = MagicMock()
     llm_router.registry.return_value.deployments.return_value = [
-        {"model_name": "gemini-live", "litellm_params": {"model": "self-hosted-live-endpoint"}}
+        {"model_name": "gemini-live", "hangarllm_params": {"model": "self-hosted-live-endpoint"}}
     ]
 
     sent_frame = await _run_setup_rewrite_passthrough("gemini-live", llm_router=llm_router)
@@ -7902,7 +7902,7 @@ async def test_websocket_passthrough_does_not_close_twice_when_success_logging_f
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints."
             "GLOBAL_LOGGING_WORKER.ensure_initialized_and_enqueue",
             side_effect=RuntimeError("logging worker down"),
         ),
@@ -7921,7 +7921,7 @@ async def test_websocket_passthrough_does_not_close_twice_when_success_logging_f
 
 
 SUCCESS_HANDLER: Final = (
-    "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints."
     "pass_through_endpoint_logging.pass_through_async_success_handler"
 )
 
@@ -8471,12 +8471,12 @@ async def test_websocket_passthrough_logs_each_turn_on_its_own_row_charged_to_th
         ["gpt-5.4-mini", "gpt-5.4-mini"],
         ["gpt-5.4", "gpt-5.4"],
     ]
-    assert [row["litellm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
+    assert [row["hangarllm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
         ["tier-a"],
         ["tier-b"],
     ]
-    assert [row["litellm_params"]["metadata"]["user_api_key"] for row in rows] == ["hashed-key", "hashed-key"]
-    assert rows[0]["litellm_call_id"] != rows[1]["litellm_call_id"]
+    assert [row["hangarllm_params"]["metadata"]["user_api_key"] for row in rows] == ["hashed-key", "hashed-key"]
+    assert rows[0]["hangarllm_call_id"] != rows[1]["hangarllm_call_id"]
     assert rows[1]["start_time"] == rows[0]["end_time"]
     relayed.proxy_logging.post_call_failure_hook.assert_not_awaited()
 
@@ -8510,7 +8510,7 @@ async def test_websocket_passthrough_holds_the_keys_parallel_slot_until_the_sess
         await asyncio.gather(*logged_rows)
         try:
             await asyncio.create_task(
-                admit(key, {"litellm_call_id": str(uuid.uuid4())}, "pass_through_endpoint"),
+                admit(key, {"hangarllm_call_id": str(uuid.uuid4())}, "pass_through_endpoint"),
                 context=contextvars.Context(),
             )
         except ProxyRateLimitError:
@@ -8535,7 +8535,7 @@ async def test_websocket_passthrough_holds_the_keys_parallel_slot_until_the_sess
         _patched_websocket_passthrough_environment(
             ScriptedUpstreamWebSocket(replies=[_responses_turn("gpt-5.4-mini")])
         ) as proxy_logging,
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as worker,
+        patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as worker,
         patch(SUCCESS_HANDLER, new_callable=AsyncMock, side_effect=log_row),
     ):
         proxy_logging.pre_call_hook = AsyncMock(side_effect=admit)
@@ -8627,13 +8627,13 @@ async def test_websocket_passthrough_frees_one_legacy_parallel_slot_only_when_th
             )
         )
         worker: Final = stack.enter_context(
-            patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER")
+            patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER")
         )
         stack.enter_context(patch(SUCCESS_HANDLER, new_callable=AsyncMock, side_effect=log_row))
         if upstream_refuses:
             stack.enter_context(
                 patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+                    "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
                     side_effect=OSError("upstream refused the socket"),
                 )
             )
@@ -8694,11 +8694,11 @@ async def test_websocket_passthrough_charges_pipelined_turns_to_the_frame_that_a
         ["gpt-5.4-mini-2099-01-01", "gpt-5.4-mini-2099-01-01"],
         ["gpt-5.4-2099-01-01", "gpt-5.4-2099-01-01"],
     ]
-    assert [row["litellm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
+    assert [row["hangarllm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
         ["tier-a"],
         ["tier-b"],
     ]
-    assert [row["litellm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4-mini", "gpt-5.4"]
+    assert [row["hangarllm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4-mini", "gpt-5.4"]
 
 
 def _responses_error(code: str) -> str:
@@ -8742,8 +8742,8 @@ async def test_websocket_passthrough_charges_turns_after_a_refused_frame_to_the_
     relayed: Final = await _relay_turns(client, upstream_ws, gate)
 
     rows: Final = [logged.kwargs for logged in relayed.success_handler.call_args_list]
-    assert [row["litellm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4-mini", "gpt-5.4"]
-    assert [row["litellm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
+    assert [row["hangarllm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4-mini", "gpt-5.4"]
+    assert [row["hangarllm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
         ["tier-a"],
         ["tier-b"],
     ]
@@ -8785,8 +8785,8 @@ async def test_websocket_passthrough_charges_turns_on_parallel_lanes_to_the_fram
         [("fast", "gpt-5.4-mini"), ("fast", "gpt-5.4-mini")],
         [("slow", "gpt-5.4"), ("slow", "gpt-5.4")],
     ]
-    assert [row["litellm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4-mini", "gpt-5.4"]
-    assert [row["litellm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
+    assert [row["hangarllm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4-mini", "gpt-5.4"]
+    assert [row["hangarllm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
         ["tier-a"],
         ["tier-b"],
     ]
@@ -8849,8 +8849,8 @@ async def test_websocket_passthrough_charges_realtime_turns_to_the_session_the_k
 
     assert gate.checked == ["gpt-realtime-2.1-mini", "gpt-realtime-2.1-mini"]
     rows: Final = [logged.kwargs for logged in relayed.success_handler.call_args_list]
-    assert [row["litellm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [["tier-a"]]
-    assert [row["litellm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-realtime-2.1"]
+    assert [row["hangarllm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [["tier-a"]]
+    assert [row["hangarllm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-realtime-2.1"]
 
 
 @pytest.mark.asyncio
@@ -8917,8 +8917,8 @@ async def test_websocket_passthrough_charges_each_lane_a_client_walked_out_of_to
 
     rows: Final = [logged.kwargs for logged in relayed.success_handler.call_args_list]
     assert [[frame["stream_id"] for frame in row["response_body"]] for row in rows] == [["slow"], ["fast"]]
-    assert [row["litellm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4", "gpt-5.4-mini"]
-    assert [row["litellm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
+    assert [row["hangarllm_params"]["metadata"]["model_group"] for row in rows] == ["gpt-5.4", "gpt-5.4-mini"]
+    assert [row["hangarllm_params"]["metadata"][MODEL_ACCESS_GROUP_METADATA_KEY] for row in rows] == [
         ["tier-b"],
         ["tier-a"],
     ]
@@ -9431,7 +9431,7 @@ async def _relay_deepgram_listen(upstream_ws, client_receive):
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(  # test-quality-ok: pass_through_endpoint_logging is a module global read inside websocket_passthrough_request; there is no injection seam
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints."
             "pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ) as success_handler,
@@ -9537,7 +9537,7 @@ async def test_websocket_passthrough_logs_the_meters_price_for_the_client_text_i
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(  # test-quality-ok: pass_through_endpoint_logging is a module global read inside websocket_passthrough_request; there is no injection seam
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints."
             "pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ) as success_handler,
@@ -9578,7 +9578,7 @@ async def test_websocket_passthrough_meters_only_client_text_the_upstream_accept
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(  # test-quality-ok: pass_through_endpoint_logging is a module global read inside websocket_passthrough_request; there is no injection seam
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints."
             "pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ) as success_handler,
@@ -9613,7 +9613,7 @@ async def test_websocket_passthrough_vertex_live_setup_ack_names_the_model_but_i
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(  # test-quality-ok: pass_through_endpoint_logging is a module global read inside websocket_passthrough_request; there is no injection seam
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints."
             "pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ) as success_handler,
@@ -9652,14 +9652,14 @@ def _passthrough_kwargs_for_reservation(
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body=parsed_body if parsed_body is not None else {},
-        litellm_call_id="lit-5425-call-id",
+        hangarllm_call_id="lit-5425-call-id",
     )
 
 
 async def _track_cost_for_passthrough_kwargs(kwargs: dict) -> AsyncMock:
     from datetime import datetime
 
-    from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
 
     callback_kwargs = {
         **kwargs,
@@ -9672,12 +9672,12 @@ async def _track_cost_for_passthrough_kwargs(kwargs: dict) -> AsyncMock:
 
     increment_spend_counters = AsyncMock()
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters",
+            "hangarllm.proxy.proxy_server.increment_spend_counters",
             increment_spend_counters,
         ),
-        patch("litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock),
+        patch("hangarllm.proxy.proxy_server.update_cache", new_callable=AsyncMock),
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
         mock_proxy_logging.slack_alerting_instance.customer_spend_alert = AsyncMock()
@@ -9713,7 +9713,7 @@ async def test_passthrough_success_reconciles_budget_reservation():
 
     reservation = user_api_key_dict.budget_reservation
     kwargs = _passthrough_kwargs_for_reservation(user_api_key_dict)
-    assert kwargs["litellm_params"]["metadata"]["user_api_key_budget_reservation"] is reservation
+    assert kwargs["hangarllm_params"]["metadata"]["user_api_key_budget_reservation"] is reservation
 
     increment_spend_counters = await _track_cost_for_passthrough_kwargs(kwargs)
 
@@ -9737,9 +9737,9 @@ async def test_passthrough_body_cannot_forge_budget_reservation():
 
     kwargs = _passthrough_kwargs_for_reservation(
         user_api_key_dict,
-        parsed_body={"litellm_metadata": {"user_api_key_budget_reservation": forged}},
+        parsed_body={"hangarllm_metadata": {"user_api_key_budget_reservation": forged}},
     )
-    assert kwargs["litellm_params"]["metadata"]["user_api_key_budget_reservation"] is None
+    assert kwargs["hangarllm_params"]["metadata"]["user_api_key_budget_reservation"] is None
 
     increment_spend_counters = await _track_cost_for_passthrough_kwargs(kwargs)
 
@@ -9754,14 +9754,14 @@ async def _drive_streaming_pass_through(upstream_content_type, chunk_delay_secon
     dispatch branches runs: the up-front one, and the one that only discovers the
     response is a stream from its content-type.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         PassThroughStreamingHandler,
     )
 
     with ExitStack() as stack:
-        mock_proxy_logging = stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj"))
+        mock_proxy_logging = stack.enter_context(patch("hangarllm.proxy.proxy_server.proxy_logging_obj"))
         mock_get_client = stack.enter_context(
-            patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client")
+            patch("hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client")
         )
         mock_chunk_processor = stack.enter_context(patch.object(PassThroughStreamingHandler, "chunk_processor"))
 
@@ -9821,7 +9821,7 @@ async def test_pass_through_sse_stream_emits_keepalive_before_the_first_upstream
     Both dispatch branches are covered: a request that declared stream=true, and
     one whose response is only recognised as a stream from its content-type.
     """
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", 0.05):
+    with patch.object(hangarllm, "sse_keepalive_ping_interval_seconds", 0.05):
         collected = await _drive_streaming_pass_through(
             upstream_content_type="text/event-stream",
             chunk_delay_seconds=0.2,
@@ -9834,7 +9834,7 @@ async def test_pass_through_sse_stream_emits_keepalive_before_the_first_upstream
 
 @pytest.mark.asyncio
 async def test_pass_through_sse_stream_stays_silent_when_keepalive_is_unconfigured():
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", None):
+    with patch.object(hangarllm, "sse_keepalive_ping_interval_seconds", None):
         collected = await _drive_streaming_pass_through(
             upstream_content_type="text/event-stream", chunk_delay_seconds=0.2
         )
@@ -9845,7 +9845,7 @@ async def test_pass_through_sse_stream_stays_silent_when_keepalive_is_unconfigur
 @pytest.mark.asyncio
 async def test_pass_through_binary_event_stream_is_never_given_an_sse_comment():
     """An AWS event stream is a binary transport: a ": ping" frame would corrupt it."""
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", 0.05):
+    with patch.object(hangarllm, "sse_keepalive_ping_interval_seconds", 0.05):
         collected = await _drive_streaming_pass_through(
             upstream_content_type="application/vnd.amazon.eventstream",
             chunk_delay_seconds=0.2,
@@ -9863,7 +9863,7 @@ async def test_pass_through_route_pings_while_the_upstream_call_is_still_running
     from fastapi import Response
     from fastapi.responses import StreamingResponse
 
-    module = "litellm.proxy.pass_through_endpoints.pass_through_endpoints"
+    module = "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints"
 
     async def _relayed():
         yield MESSAGE_START_SSE_FRAME
@@ -9886,7 +9886,7 @@ async def test_pass_through_route_pings_while_the_upstream_call_is_still_running
             )
         )
         stack.enter_context(patch(f"{module}.pass_through_request", slow_pass_through))
-        stack.enter_context(patch.object(litellm, "sse_keepalive_ping_interval_seconds", configured_interval))
+        stack.enter_context(patch.object(hangarllm, "sse_keepalive_ping_interval_seconds", configured_interval))
 
         endpoint_func = create_pass_through_route(
             endpoint="/v1/messages",
@@ -9919,7 +9919,7 @@ def test_passthrough_carries_the_per_model_budgets():
     """
     Native passthrough builds its logging metadata from
     StandardLoggingUserAPIKeyMetadata, which has no budget field, and never calls
-    add_litellm_data_to_request. Without these three keys the post-call increment
+    add_hangarllm_data_to_request. Without these three keys the post-call increment
     exits early, so a /bedrock/... request is costed but its per-model counter is
     never written: the budget reports zero forever and enforces nothing.
     """
@@ -9940,7 +9940,7 @@ def test_passthrough_carries_the_per_model_budgets():
         )
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["hangarllm_params"]["metadata"]
     assert metadata["user_api_key_model_max_budget"] == key_budget
     assert metadata["user_api_key_user_model_max_budget"] == user_budget
     assert metadata["user_api_key_end_user_model_max_budget"] == end_user_budget
@@ -9958,37 +9958,37 @@ def test_passthrough_budget_metadata_cannot_be_forged_by_the_request_body():
     kwargs = _passthrough_kwargs_for_reservation(
         UserAPIKeyAuth(token="hash", user_id="u-1", model_max_budget=key_budget),
         parsed_body={
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "user_api_key_model_max_budget": {"claude-opus-4-8": {"budget_limit": 999999.0, "time_period": "18h"}}
             }
         },
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["hangarllm_params"]["metadata"]
     assert metadata["user_api_key_model_max_budget"] == key_budget
 
 
 def _marked_pass_through_endpoint():
     """An endpoint carrying the marker ``create_pass_through_route`` sets."""
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     def _endpoint():  # pragma: no cover - identity only
         return None
 
-    setattr(_endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)  # noqa: B010  # name is a module constant
+    setattr(_endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, True)  # noqa: B010  # name is a module constant
     return _endpoint
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_slot", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_slot", ["metadata", "hangarllm_metadata"])
 async def test_user_defined_passthrough_is_neither_tracked_nor_enforced(metadata_slot: str) -> None:
     from datetime import datetime
 
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.auth.auth_utils import get_model_from_request
-    from litellm.proxy.hooks.model_max_budget_limiter import PROXY_VirtualKeyModelMaxBudgetLimiter
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy.auth.auth_utils import get_model_from_request
+    from hangarllm.proxy.hooks.model_max_budget_limiter import PROXY_VirtualKeyModelMaxBudgetLimiter
 
     budget: Final = {"managed-model": {"budget_limit": 0.1, "time_period": "1d"}}
     limiter: Final = PROXY_VirtualKeyModelMaxBudgetLimiter(DualCache())
@@ -10025,13 +10025,13 @@ async def test_user_defined_passthrough_is_neither_tracked_nor_enforced(metadata
     assert get_model_from_request(body, "/custom-budget-test", request=request) is None
     assert await limiter.is_team_within_model_budget("shared-team", budget, None, "managed-model")
     start: Final = datetime.now()
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="upstream-only-model",
         messages=[],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=start,
-        litellm_call_id="custom-budget",
+        hangarllm_call_id="custom-budget",
         function_id="custom-budget",
         kwargs={},
         dynamic_async_success_callbacks=[limiter],
@@ -10048,13 +10048,13 @@ async def test_user_defined_passthrough_is_neither_tracked_nor_enforced(metadata
         passthrough_logging_payload=payload,
         logging_obj=logging_obj,
         _parsed_body=body,
-        litellm_call_id="custom-budget",
+        hangarllm_call_id="custom-budget",
     )
     logging_obj.update_environment_variables(
         model="upstream-only-model",
         user="unknown",
         optional_params={},
-        litellm_params=kwargs["litellm_params"],
+        hangarllm_params=kwargs["hangarllm_params"],
         call_type="pass_through_endpoint",
     )
     response: Final = httpx.Response(
@@ -10076,7 +10076,7 @@ async def test_user_defined_passthrough_is_neither_tracked_nor_enforced(metadata
     )
     assert logging_obj.model_call_details["response_cost"] == 0.25
     assert await limiter.is_team_within_model_budget("shared-team", budget, None, "managed-model")
-    metadata: Final = kwargs["litellm_params"]["metadata"]
+    metadata: Final = kwargs["hangarllm_params"]["metadata"]
     assert (metadata["model_group"], metadata["customer_label"]) == ("managed-model", "retained")
     assert metadata.keys().isdisjoint(
         {
@@ -10088,7 +10088,7 @@ async def test_user_defined_passthrough_is_neither_tracked_nor_enforced(metadata
     )
 
 
-@pytest.mark.parametrize("metadata_slot", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_slot", ["metadata", "hangarllm_metadata"])
 def test_builtin_passthrough_pins_model_group_to_the_resolved_model(metadata_slot: str) -> None:
     request: Final = Request(
         {
@@ -10106,7 +10106,7 @@ def test_builtin_passthrough_pins_model_group_to_the_resolved_model(metadata_slo
         logging_obj=MagicMock(),
         _parsed_body={"contents": [], metadata_slot: {"model_group": "unbounded-client-choice"}},
     )
-    assert kwargs["litellm_params"]["metadata"]["model_group"] == "gemini-2.5-flash"
+    assert kwargs["hangarllm_params"]["metadata"]["model_group"] == "gemini-2.5-flash"
 
 
 @pytest.mark.parametrize(
@@ -10133,13 +10133,13 @@ def test_builtin_provider_routes_do_not_carry_the_user_defined_marker(handler_na
     test pins the distinction between calling the factory and being dispatched as
     its product, which is easy to misread from a grep alone.
     """
-    from litellm.proxy.pass_through_endpoints import llm_passthrough_endpoints
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.proxy.pass_through_endpoints import llm_passthrough_endpoints
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     handler = getattr(llm_passthrough_endpoints, handler_name)
-    assert getattr(handler, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is False, (
+    assert getattr(handler, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, False) is False, (
         f"{handler_name} is marked as a user-defined pass-through, so per-model budget "
         "metadata would be skipped and native provider spend would go untracked"
     )
@@ -10147,8 +10147,8 @@ def test_builtin_provider_routes_do_not_carry_the_user_defined_marker(handler_na
 
 def test_the_marker_check_distinguishes_the_two_route_kinds():
     """Positive control: the factory's product IS marked, so the check can discriminate."""
-    from litellm.proxy.auth.auth_utils import request_dispatched_to_pass_through_endpoint
-    from litellm.proxy.pass_through_endpoints import llm_passthrough_endpoints
+    from hangarllm.proxy.auth.auth_utils import request_dispatched_to_pass_through_endpoint
+    from hangarllm.proxy.pass_through_endpoints import llm_passthrough_endpoints
 
     marked = MagicMock(spec=Request)
     marked.scope = {"endpoint": _marked_pass_through_endpoint()}
@@ -10161,11 +10161,11 @@ def test_the_marker_check_distinguishes_the_two_route_kinds():
 
 async def _drive_passthrough_request_and_capture_logging(
     user_api_key_dict: UserAPIKeyAuth,
-    on_pre_call: Callable[[LiteLLMLoggingObj | None], None] | None = None,
-) -> tuple[int, LiteLLMLoggingObj | None]:
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    on_pre_call: Callable[[HangarLLMLoggingObj | None], None] | None = None,
+) -> tuple[int, HangarLLMLoggingObj | None]:
+    import hangarllm
+    from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+    from hangarllm.types.llms.custom_http import httpxSpecialProvider
 
     def transport_handler(upstream_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"ok": True})
@@ -10174,7 +10174,7 @@ async def _drive_passthrough_request_and_capture_logging(
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = hangarllm.in_memory_llm_clients_cache.cache_dict
     cache_key = next((key for key, cached in cache_dict.items() if cached is real_handler), None)
     assert cache_key is not None
     cache_dict[cache_key] = SimpleNamespace(client=httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)))
@@ -10192,7 +10192,7 @@ async def _drive_passthrough_request_and_capture_logging(
     ):
         captured_data.update(data)
         if on_pre_call is not None:
-            on_pre_call(data.get("litellm_logging_obj"))
+            on_pre_call(data.get("hangarllm_logging_obj"))
         return data
 
     mock_proxy_logging = MagicMock()
@@ -10203,7 +10203,7 @@ async def _drive_passthrough_request_and_capture_logging(
 
     try:
         with patch(  # test-quality-ok: proxy_logging_obj is a proxy_server module global read inside pass_through_request; there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
         ):
             response = await pass_through_request(
                 request=mock_request,
@@ -10214,14 +10214,14 @@ async def _drive_passthrough_request_and_capture_logging(
     finally:
         cache_dict[cache_key] = real_handler
 
-    return response.status_code, captured_data.get("litellm_logging_obj")
+    return response.status_code, captured_data.get("hangarllm_logging_obj")
 
 
 @pytest.mark.asyncio
 async def test_pass_through_request_wires_team_callbacks():
     """LIT-5152 regression: pass_through_request must resolve team-level logging
     callbacks from key/team metadata and wire them into the Logging object, the
-    same way add_litellm_data_to_request does for normal LLM routes."""
+    same way add_hangarllm_data_to_request does for normal LLM routes."""
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         team_id="test-team",
@@ -10307,10 +10307,10 @@ async def test_resolve_team_callback_wiring_fails_open_on_operational_error():
     """LIT-5152 fail-open: an operational error while resolving callback metadata
     (e.g. team config lookup hitting a dead secret manager) must not raise; the
     request proceeds without dynamic callbacks and the error is logged."""
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _resolve_team_callback_wiring,
     )
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     class RaisingTeamConfig(ProxyConfig):
         def load_team_config(self, team_id: str) -> dict:
@@ -10331,7 +10331,7 @@ async def test_resolve_team_callback_wiring_fails_open_on_operational_error():
 async def test_pass_through_request_leaves_guardrail_readable_metadata():
     """A pre-call guardrail reads the request headers off the passthrough logging
     params without raising."""
-    from litellm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
         _logged_request_headers,
     )
 
@@ -10354,7 +10354,7 @@ async def test_pass_through_request_leaves_guardrail_readable_metadata():
 
     observed: dict[str, dict[str, str] | BaseException] = {}  # mutable-ok: the pre-call hook records into it
 
-    def read_headers_the_way_a_guardrail_does(logging_obj: LiteLLMLoggingObj | None) -> None:
+    def read_headers_the_way_a_guardrail_does(logging_obj: HangarLLMLoggingObj | None) -> None:
         assert logging_obj is not None
         try:
             observed["headers"] = _logged_request_headers(logging_obj)
@@ -10378,9 +10378,9 @@ async def test_pass_through_request_leaves_cost_router_logger_working():
     """The cost router's logger reads the deployment id off the passthrough logging
     params without raising. least_busy shares the read but swallows the exception,
     so this is the strategy where the break is observable."""
-    from litellm._logging import verbose_logger
-    from litellm.caching.caching import DualCache
-    from litellm.router_strategy.lowest_cost import LowestCostLoggingHandler
+    from hangarllm._logging import verbose_logger
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.router_strategy.lowest_cost import LowestCostLoggingHandler
 
     handler = LowestCostLoggingHandler(router_cache=DualCache())
 
@@ -10427,12 +10427,12 @@ async def test_pass_through_request_leaves_cost_router_logger_working():
     assert not raised, f"cost router logger raised on the passthrough logging params: {raised[0].exc_info}"
 
 
-@pytest.mark.parametrize("client_metadata_key", ["litellm_metadata", "metadata"])
+@pytest.mark.parametrize("client_metadata_key", ["hangarllm_metadata", "metadata"])
 def test_passthrough_client_cannot_forge_session_id_omission(client_metadata_key: str):
     """The omit marker is proxy-owned: only the pre-call policy may set it. A pass-through body that carries
     it in its own metadata must not null out SpendLogs.session_id on a request the proxy never omitted."""
-    from litellm.constants import SESSION_ID_OMITTED_METADATA_KEY
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
+    from hangarllm.constants import SESSION_ID_OMITTED_METADATA_KEY
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
 
     mock_request = MagicMock(spec=Request)
     mock_request.method = "POST"
@@ -10446,10 +10446,10 @@ def test_passthrough_client_cannot_forge_session_id_omission(client_metadata_key
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body={client_metadata_key: {SESSION_ID_OMITTED_METADATA_KEY: True}},
-        litellm_call_id="lit-6694-call-id",
+        hangarllm_call_id="lit-6694-call-id",
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["hangarllm_params"]["metadata"]
     assert SESSION_ID_OMITTED_METADATA_KEY not in metadata
     assert (
         _get_session_id_for_spend_log(
@@ -10468,7 +10468,7 @@ async def _billed_metadata(gate: WebsocketFrameModelGate) -> Mapping[str, object
         gate,
         UserAPIKeyAuth(api_key="hashed-key"),
     )
-    return served.success_handler.call_args.kwargs["litellm_params"]["metadata"]
+    return served.success_handler.call_args.kwargs["hangarllm_params"]["metadata"]
 
 
 @pytest.mark.asyncio
@@ -10597,15 +10597,15 @@ async def _run_passthrough(
 ) -> _PassthroughRun:
     recorder: Final = _FailureHookRecorder()
     with (
-        pytest.MonkeyPatch.context() as litellm_patch,
+        pytest.MonkeyPatch.context() as hangarllm_patch,
         patch(  # test-quality-ok: proxy_logging_obj is a proxy_server module global read inside pass_through_request; there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache())
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache())
         ),
         respx.mock(assert_all_called=False) as upstream_mock,
     ):
-        litellm_patch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm_patch.setattr(litellm, "callbacks", [recorder] if guardrail is None else [guardrail, recorder])
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm_patch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm_patch.setattr(hangarllm, "callbacks", [recorder] if guardrail is None else [guardrail, recorder])
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         upstream_route: Final = upstream_mock.route(method="POST")
         if isinstance(upstream, Exception):
             upstream_route.mock(side_effect=upstream)
@@ -10632,7 +10632,7 @@ async def _run_passthrough(
             stream,
         )
         await asyncio.sleep(0)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     assert len(recorder.failures) == 1
     return _PassthroughRun(recorder.failures[0], response)
 
@@ -10794,7 +10794,7 @@ async def test_passthrough_guardrail_block_logs_model_from_url(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("body", [b'{"contents": "not a list"}', b'{"litellm_call_id": "client-chosen-id"}'])
+@pytest.mark.parametrize("body", [b'{"contents": "not a list"}', b'{"hangarllm_call_id": "client-chosen-id"}'])
 async def test_passthrough_guardrail_block_response_names_the_call_id_of_its_spend_row(body: bytes):
     guardrail: Final = _ModifyResponseOnPreCallGuardrail(
         guardrail_name="block-policy", event_hook=GuardrailEventHooks.pre_call, default_on=True
@@ -10804,7 +10804,7 @@ async def test_passthrough_guardrail_block_response_names_the_call_id_of_its_spe
     )
     assert isinstance(run.failure.original_exception, ModifyResponseException)
     assert run.response is not None
-    assert run.response.headers["x-litellm-call-id"] == get_spend_logs_id(
+    assert run.response.headers["x-hangarllm-call-id"] == get_spend_logs_id(
         CallTypes.pass_through.value, {}, run.failure.request_data
     )
 
@@ -10870,16 +10870,16 @@ async def _run_websocket_connect_failure(
 ) -> _RecordedFailure:
     recorder: Final = _FailureHookRecorder()
     with (
-        pytest.MonkeyPatch.context() as litellm_patch,
+        pytest.MonkeyPatch.context() as hangarllm_patch,
         patch(  # test-quality-ok: proxy_logging_obj is a proxy_server module global read inside websocket_passthrough_request; there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache())
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache())
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
             side_effect=_websocket_connect_failure(failure_kind),
         ),
     ):
-        litellm_patch.setattr(litellm, "callbacks", [recorder])
+        hangarllm_patch.setattr(hangarllm, "callbacks", [recorder])
         await websocket_passthrough_request(
             websocket=_client_websocket(_pending_receive),
             target=target,
@@ -11063,7 +11063,7 @@ def test_vertex_failure_model_name_matches_success_handler_naming(url_route: str
     assert VertexPassthroughLoggingHandler.model_from_url_route(url_route) == expected_model
 
 
-@pytest.mark.parametrize("client_metadata_key", ["litellm_metadata", "metadata"])
+@pytest.mark.parametrize("client_metadata_key", ["hangarllm_metadata", "metadata"])
 def test_passthrough_logs_the_resolved_deployment_model_info_over_the_request_body(client_metadata_key: str):
     """A provider route that resolved a router deployment stashes its model_info on request.state. That
     deployment, not a model_info the client put in its own body, is what spend logs and metrics attribute
@@ -11076,7 +11076,7 @@ def test_passthrough_logs_the_resolved_deployment_model_info_over_the_request_bo
     mock_request.headers = Headers({})
     mock_request.scope = {}
     mock_request.state = SimpleNamespace(
-        **{LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY: {"id": "vertex-gemini-38-flash-dep"}}
+        **{HANGARLLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY: {"id": "vertex-gemini-38-flash-dep"}}
     )
 
     kwargs = HttpPassThroughEndpointHelpers._init_kwargs_for_pass_through_endpoint(
@@ -11085,19 +11085,19 @@ def test_passthrough_logs_the_resolved_deployment_model_info_over_the_request_bo
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body={client_metadata_key: {"model_info": {"id": "client-forged-id"}}},
-        litellm_call_id="lit-1761-call-id",
+        hangarllm_call_id="lit-1761-call-id",
     )
 
-    assert kwargs["litellm_params"]["metadata"]["model_info"] == {"id": "vertex-gemini-38-flash-dep"}
+    assert kwargs["hangarllm_params"]["metadata"]["model_info"] == {"id": "vertex-gemini-38-flash-dep"}
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class _PassThroughSplit:
-    litellm_params: Mapping[str, object]
+    hangarllm_params: Mapping[str, object]
     forwarded_body: Mapping[str, object]
 
 
-_LITELLM_PARAMS: Final = TypeAdapter(dict[str, object])
+_HANGARLLM_PARAMS: Final = TypeAdapter(dict[str, object])
 _PROXY_SERVER_REQUEST: Final = TypeAdapter(dict[str, object])
 
 
@@ -11117,15 +11117,15 @@ def _split_pass_through_body(
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body=json.loads(body),
-        litellm_call_id="lit-owned-keys-call-id",
+        hangarllm_call_id="lit-owned-keys-call-id",
     )
-    validate_litellm_params: Final = _LITELLM_PARAMS.validate_python  # pyright: ignore[reportUnknownArgumentType]  # untyped legacy helper
-    litellm_params: Final = validate_litellm_params(kwargs["litellm_params"])
+    validate_hangarllm_params: Final = _HANGARLLM_PARAMS.validate_python  # pyright: ignore[reportUnknownArgumentType]  # untyped legacy helper
+    hangarllm_params: Final = validate_hangarllm_params(kwargs["hangarllm_params"])
     return _PassThroughSplit(
-        litellm_params=MappingProxyType(litellm_params),
+        hangarllm_params=MappingProxyType(hangarllm_params),
         forwarded_body=MappingProxyType(
-            _LITELLM_PARAMS.validate_python(
-                _PROXY_SERVER_REQUEST.validate_python(litellm_params["proxy_server_request"])["body"]
+            _HANGARLLM_PARAMS.validate_python(
+                _PROXY_SERVER_REQUEST.validate_python(hangarllm_params["proxy_server_request"])["body"]
             )
         ),
     )
@@ -11135,19 +11135,19 @@ GEMINI_BODY: Final = '{"contents": [{"parts": [{"text": "hi"}]}], "generationCon
 
 
 def _metadata_of(split: _PassThroughSplit) -> Mapping[str, object]:
-    return MappingProxyType(_LITELLM_PARAMS.validate_python(split.litellm_params["metadata"]))
+    return MappingProxyType(_HANGARLLM_PARAMS.validate_python(split.hangarllm_params["metadata"]))
 
 
-def test_passthrough_moves_every_litellm_owned_key_from_the_forwarded_body_into_litellm_params() -> None:
+def test_passthrough_moves_every_hangarllm_owned_key_from_the_forwarded_body_into_hangarllm_params() -> None:
     split: Final = _split_pass_through_body(
         '{"ttl": 30, "contents": [{"parts": [{"text": "hi"}]}], "num_retries": 2,'
-        ' "generationConfig": {"temperature": 0}, "litellm_trace_id": "trace-a"}'
+        ' "generationConfig": {"temperature": 0}, "hangarllm_trace_id": "trace-a"}'
     )
 
-    assert frozenset(split.litellm_params) == frozenset(
-        ("ttl", "num_retries", "litellm_trace_id", "metadata", "proxy_server_request")
+    assert frozenset(split.hangarllm_params) == frozenset(
+        ("ttl", "num_retries", "hangarllm_trace_id", "metadata", "proxy_server_request")
     )
-    assert tuple(split.litellm_params[k] for k in ("ttl", "num_retries", "litellm_trace_id")) == (30, 2, "trace-a")
+    assert tuple(split.hangarllm_params[k] for k in ("ttl", "num_retries", "hangarllm_trace_id")) == (30, 2, "trace-a")
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
@@ -11156,11 +11156,11 @@ PROXY_STAMPED_NAMES: Final = frozenset(
     (
         "proxy_server_request",
         "secret_fields",
-        "litellm_trusted_callback_vars",
-        "_litellm_addressed_response_id",
-        "_litellm_addressed_comparison_response_id",
-        "_litellm_strip_stream_usage",
-        "_litellm_stream_usage_injected",
+        "hangarllm_trusted_callback_vars",
+        "_hangarllm_addressed_response_id",
+        "_hangarllm_addressed_comparison_response_id",
+        "_hangarllm_strip_stream_usage",
+        "_hangarllm_stream_usage_injected",
         "client_side_timeout",
         "model_file_id_mapping",
     )
@@ -11170,17 +11170,17 @@ PROXY_STAMPED_NAMES: Final = frozenset(
 @pytest.mark.parametrize(
     "name",
     sorted(
-        frozenset(litellm.all_litellm_params)
-        - frozenset(("metadata", "litellm_metadata"))
+        frozenset(hangarllm.all_hangarllm_params)
+        - frozenset(("metadata", "hangarllm_metadata"))
         - PROXY_STAMPED_NAMES
         - PRICING_MODEL_OVERRIDE_NAMES
     ),
 )
-def test_passthrough_keeps_each_registered_litellm_owned_name_out_of_the_forwarded_body(name: str) -> None:
+def test_passthrough_keeps_each_registered_hangarllm_owned_name_out_of_the_forwarded_body(name: str) -> None:
     split: Final = _split_pass_through_body(json.dumps({name: "owned", **json.loads(GEMINI_BODY)}))
 
-    assert frozenset(split.litellm_params) == frozenset((name, "metadata", "proxy_server_request"))
-    assert split.litellm_params[name] == "owned"
+    assert frozenset(split.hangarllm_params) == frozenset((name, "metadata", "proxy_server_request"))
+    assert split.hangarllm_params[name] == "owned"
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
@@ -11197,7 +11197,7 @@ def test_passthrough_prices_with_a_client_base_model_only_for_keys_that_allow_cl
     )
 
     expected: Final = "vertex_ai/gemini-2.5-flash-lite" if allows_client_pricing else None
-    assert split.litellm_params.get("base_model") == expected
+    assert split.hangarllm_params.get("base_model") == expected
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
@@ -11223,25 +11223,25 @@ def test_passthrough_keeps_a_client_model_info_object_for_keys_that_allow_client
 def test_passthrough_drops_a_client_supplied_proxy_stamped_name(name: str) -> None:
     split: Final = _split_pass_through_body(json.dumps({name: {"forged": "by-client"}, **json.loads(GEMINI_BODY)}))
 
-    assert frozenset(split.litellm_params) == frozenset(("metadata", "proxy_server_request"))
-    assert split.litellm_params["proxy_server_request"] != {"forged": "by-client"}, split.litellm_params
+    assert frozenset(split.hangarllm_params) == frozenset(("metadata", "proxy_server_request"))
+    assert split.hangarllm_params["proxy_server_request"] != {"forged": "by-client"}, split.hangarllm_params
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
 def test_passthrough_merges_both_metadata_carriers_from_the_body_into_one_metadata_key() -> None:
     split: Final = _split_pass_through_body(
         '{"metadata": {"client_tag": "a"}, "contents": [{"parts": [{"text": "hi"}]}], "ttl": 30,'
-        ' "litellm_metadata": {"lm": "b"}, "generationConfig": {"temperature": 0}}'
+        ' "hangarllm_metadata": {"lm": "b"}, "generationConfig": {"temperature": 0}}'
     )
 
-    assert frozenset(split.litellm_params) == frozenset(("ttl", "metadata", "proxy_server_request"))
+    assert frozenset(split.hangarllm_params) == frozenset(("ttl", "metadata", "proxy_server_request"))
     assert _metadata_of(split) == {**_metadata_of(_split_pass_through_body(GEMINI_BODY)), "client_tag": "a", "lm": "b"}
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
-def test_passthrough_lets_metadata_win_over_litellm_metadata_on_a_shared_key() -> None:
+def test_passthrough_lets_metadata_win_over_hangarllm_metadata_on_a_shared_key() -> None:
     split: Final = _split_pass_through_body(
-        '{"litellm_metadata": {"shared": "from-litellm-metadata", "lm": "b"},'
+        '{"hangarllm_metadata": {"shared": "from-hangarllm-metadata", "lm": "b"},'
         ' "metadata": {"shared": "from-metadata", "client_tag": "a"}, "contents": []}'
     )
 
@@ -11253,13 +11253,13 @@ def test_passthrough_lets_metadata_win_over_litellm_metadata_on_a_shared_key() -
     }
 
 
-def test_passthrough_orders_extracted_litellm_params_by_the_registry() -> None:
+def test_passthrough_orders_extracted_hangarllm_params_by_the_registry() -> None:
     body: Final = json.dumps({"ttl": 30, "tags": ["team-a"], "num_retries": 2, "contents": []})
     split: Final = _split_pass_through_body(body)
     body_keys: Final = frozenset(json.loads(body))
 
-    assert tuple(k for k in split.litellm_params if k in body_keys) == tuple(
-        k for k in types_utils.all_litellm_params if k in body_keys
+    assert tuple(k for k in split.hangarllm_params if k in body_keys) == tuple(
+        k for k in types_utils.all_hangarllm_params if k in body_keys
     )
 
 
@@ -11267,22 +11267,22 @@ LATE_REGISTERED_BODY: Final = '{"registered_later": 1, "contents": [{"parts": [{
 
 
 def test_passthrough_sees_a_name_appended_to_the_public_list_after_import() -> None:
-    litellm.all_litellm_params.append("registered_later")
+    hangarllm.all_hangarllm_params.append("registered_later")
     try:
         split: Final = _split_pass_through_body(LATE_REGISTERED_BODY)
     finally:
-        litellm.all_litellm_params.remove("registered_later")
+        hangarllm.all_hangarllm_params.remove("registered_later")
 
-    assert frozenset(split.litellm_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
+    assert frozenset(split.hangarllm_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
     assert split.forwarded_body == {"contents": [{"parts": [{"text": "hi"}]}]}
 
 
 def test_passthrough_sees_the_public_list_rebound_after_import(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(types_utils, "all_litellm_params", (*litellm.all_litellm_params, "registered_later"))
+    monkeypatch.setattr(types_utils, "all_hangarllm_params", (*hangarllm.all_hangarllm_params, "registered_later"))
 
     split: Final = _split_pass_through_body(LATE_REGISTERED_BODY)
 
-    assert frozenset(split.litellm_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
+    assert frozenset(split.hangarllm_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
     assert split.forwarded_body == {"contents": [{"parts": [{"text": "hi"}]}]}
 
 
@@ -11290,7 +11290,7 @@ def test_passthrough_metadata_carries_key_team_project_tags_and_key_spend_logs_m
     mock_request = MagicMock(spec=Request)
     mock_request.method = "POST"
     mock_request.url = httpx.URL("http://0.0.0.0:4000/anthropic/v1/messages")
-    mock_request.headers = Headers({"x-litellm-tags": "caller-tag,key-tag"})
+    mock_request.headers = Headers({"x-hangarllm-tags": "caller-tag,key-tag"})
     mock_request.scope = {}
 
     cached_key = UserAPIKeyAuth(
@@ -11315,7 +11315,7 @@ def test_passthrough_metadata_carries_key_team_project_tags_and_key_spend_logs_m
                 "user_api_key_auth_metadata": "forged",
             }
         },
-        litellm_call_id="lit-5359-call-id",
+        hangarllm_call_id="lit-5359-call-id",
     )
     second = HttpPassThroughEndpointHelpers._init_kwargs_for_pass_through_endpoint(
         request=mock_request,
@@ -11323,17 +11323,17 @@ def test_passthrough_metadata_carries_key_team_project_tags_and_key_spend_logs_m
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body={},
-        litellm_call_id="lit-5359-second-call-id",
+        hangarllm_call_id="lit-5359-second-call-id",
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["hangarllm_params"]["metadata"]
     assert metadata["tags"] == ["body-tag", "key-tag", "shared-tag", "team-tag", "project-tag", "caller-tag"]
     assert metadata["spend_logs_metadata"] == {"request_id": "body", "cost_center": "key", "team_field": "team"}
     assert metadata["user_api_key_auth_metadata"] == {
         "tags": ["key-tag", "shared-tag"],
         "spend_logs_metadata": {"cost_center": "key"},
     }
-    assert second["litellm_params"]["metadata"]["spend_logs_metadata"] == {"cost_center": "key", "team_field": "team"}
+    assert second["hangarllm_params"]["metadata"]["spend_logs_metadata"] == {"cost_center": "key", "team_field": "team"}
     assert cached_key.metadata == {"tags": ["key-tag", "shared-tag"], "spend_logs_metadata": {"cost_center": "key"}}
     assert cached_key.team_metadata == {
         "tags": ["team-tag", "shared-tag"],
@@ -11351,14 +11351,14 @@ async def test_chat_completion_pass_through_endpoint_answers_an_openai_typed_err
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     request = MagicMock(spec=Request)
     request.body = AsyncMock(
@@ -11385,14 +11385,14 @@ async def test_chat_completion_pass_through_endpoint_keeps_the_raw_model_out_of_
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     request: Final = MagicMock(spec=Request)
     request.body = AsyncMock(
@@ -11417,7 +11417,7 @@ async def test_chat_completion_pass_through_endpoint_keeps_the_raw_model_out_of_
 
 
 @pytest.mark.asyncio
-async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers_litellm_call_id(
+async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers_hangarllm_call_id(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ):
@@ -11426,22 +11426,22 @@ async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     request = MagicMock(spec=Request)
-    request.headers = Headers({"x-litellm-call-id": call_id})
+    request.headers = Headers({"x-hangarllm-call-id": call_id})
     request.body = AsyncMock(
         return_value=json.dumps({"model": "unknown-model", "messages": [{"role": "user", "content": "hi"}]}).encode()
     )
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"), pytest.raises(ProxyException) as raised:
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"), pytest.raises(ProxyException) as raised:
         await chat_completion_pass_through_endpoint(
             fastapi_response=Response(),
             request=request,
@@ -11449,9 +11449,9 @@ async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers
             user_api_key_dict=UserAPIKeyAuth(api_key="sk-test"),
         )
 
-    assert raised.value.headers["x-litellm-call-id"] == call_id
+    assert raised.value.headers["x-hangarllm-call-id"] == call_id
     record = next(r for r in caplog.records if "Exception occured" in r.getMessage())
-    assert record.litellm_call_id == call_id
+    assert record.hangarllm_call_id == call_id
     assert call_id in record.getMessage()
 
 
@@ -11465,17 +11465,17 @@ async def test_chat_completion_pass_through_endpoint_without_a_model_answers_mod
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    router: Final = litellm.Router(
-        model_list=[{"model_name": "known-model", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-x"}}]
+    router: Final = hangarllm.Router(
+        model_list=[{"model_name": "known-model", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-x"}}]
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     request: Final = MagicMock(spec=Request)
     request.body = AsyncMock(return_value=json.dumps({"messages": [{"role": "user", "content": "hi"}]}).encode())
@@ -11494,7 +11494,7 @@ async def test_chat_completion_pass_through_endpoint_without_a_model_answers_mod
 
 
 def test_passthrough_attributes_a_cli_session_to_its_alias_not_the_login_token():
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_spend_logs_metadata
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import _get_spend_logs_metadata
 
     mock_request = MagicMock(spec=Request)
     mock_request.method = "POST"
@@ -11514,10 +11514,10 @@ def test_passthrough_attributes_a_cli_session_to_its_alias_not_the_login_token()
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body={},
-        litellm_call_id="lit-6852-passthrough-call-id",
+        hangarllm_call_id="lit-6852-passthrough-call-id",
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["hangarllm_params"]["metadata"]
     assert metadata["user_api_key"] == "cli-session-alice"
     assert _get_spend_logs_metadata(metadata)["user_api_key"] == "cli-session-alice"
 
@@ -11531,8 +11531,8 @@ class _StoredConfigRow:
 class _InMemoryConfigTable:
     def __init__(self, rows: Mapping[str, Mapping[str, object]]) -> None:
         self.rows: dict[str, Mapping[str, object]] = dict(rows)
-        self.db: Final = SimpleNamespace(litellm_config=self)
-        self.writer_db: Final = SimpleNamespace(litellm_config=self)
+        self.db: Final = SimpleNamespace(hangarllm_config=self)
+        self.writer_db: Final = SimpleNamespace(hangarllm_config=self)
 
     def _row(self, param_name: str) -> _StoredConfigRow | None:
         value: Final = self.rows.get(param_name)
@@ -11569,11 +11569,11 @@ async def _boot_db_backed_proxy(
 ) -> _DbBackedProxy:
     import yaml
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy import proxy_server
-    from litellm.proxy import utils as proxy_utils
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import _registered_pass_through_routes
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy import utils as proxy_utils
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import _registered_pass_through_routes
 
     general_settings: Final[dict[str, object]] = {"pass_through_endpoints": config_pass_through_endpoints}
     if master_key is not None:
@@ -11591,8 +11591,8 @@ async def _boot_db_backed_proxy(
     monkeypatch.setattr(proxy_server, "config_passthrough_endpoints", None)
     monkeypatch.setattr(proxy_server, "master_key", None)
     monkeypatch.setattr(proxy_server, "premium_user", False)
-    monkeypatch.setattr(proxy_utils, "litellm_config_cache", DualCache())
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(proxy_utils, "hangarllm_config_cache", DualCache())
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     monkeypatch.delitem(proxy_server.app.dependency_overrides, user_api_key_auth, raising=False)
     _registered_pass_through_routes.clear()
 
@@ -11611,7 +11611,7 @@ async def _run_db_sync_cycle(proxy: _DbBackedProxy) -> None:
 async def _send_through_proxy(
     path: str, headers: Mapping[str, str], method: str = "POST"
 ) -> tuple[httpx.Response, list[httpx.Request]]:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     upstream_requests: Final[list[httpx.Request]] = []
 
@@ -11655,7 +11655,7 @@ async def test_config_pass_through_keeps_forwarding_client_headers_after_a_db_sy
 
 @pytest.mark.asyncio
 async def test_config_and_db_pass_throughs_both_serve_and_list_after_a_db_sync(tmp_path, monkeypatch):
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import get_pass_through_endpoints
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import get_pass_through_endpoints
 
     proxy: Final = await _boot_db_backed_proxy(
         tmp_path,
@@ -11727,7 +11727,7 @@ async def test_config_pass_through_reads_its_custom_key_header_when_the_db_holds
                 "path": "/cfg-keyed",
                 "target": "http://config-upstream.test/api",
                 "auth": True,
-                "headers": {"litellm_user_api_key": "x-cfg-key"},
+                "headers": {"hangarllm_user_api_key": "x-cfg-key"},
             }
         ],
         db_pass_through_endpoints=[
@@ -11745,8 +11745,8 @@ async def test_config_pass_through_reads_its_custom_key_header_when_the_db_holds
 
 @pytest.mark.asyncio
 async def test_ui_can_create_a_db_pass_through_when_the_config_declares_pass_throughs(tmp_path, monkeypatch):
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
 
     proxy: Final = await _boot_db_backed_proxy(
         tmp_path,
@@ -11775,8 +11775,8 @@ async def test_ui_can_create_a_db_pass_through_when_the_config_declares_pass_thr
 
 @pytest.mark.asyncio
 async def test_a_ui_created_pass_through_leaves_the_config_ones_open_before_the_next_db_sync(tmp_path, monkeypatch):
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
 
     proxy: Final = await _boot_db_backed_proxy(
         tmp_path,
@@ -11890,8 +11890,8 @@ async def test_a_config_reload_keeps_config_pass_throughs_open_next_to_db_ones(t
 
 @pytest.mark.asyncio
 async def test_ui_create_keeps_the_stored_pass_throughs_when_models_are_not_stored_in_the_db(tmp_path, monkeypatch):
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
 
     proxy: Final = await _boot_db_backed_proxy(
         tmp_path,
@@ -11919,8 +11919,8 @@ async def test_ui_create_keeps_the_stored_pass_throughs_when_models_are_not_stor
 
 @pytest.mark.asyncio
 async def test_deleting_the_stored_pass_through_field_stops_serving_its_routes_right_away(tmp_path, monkeypatch):
-    from litellm.proxy._types import ConfigFieldDelete
-    from litellm.proxy.proxy_server import delete_config_general_settings
+    from hangarllm.proxy._types import ConfigFieldDelete
+    from hangarllm.proxy.proxy_server import delete_config_general_settings
 
     proxy: Final = await _boot_db_backed_proxy(
         tmp_path,
@@ -11960,8 +11960,8 @@ class _LaggingReadReplica:
 
 @pytest.mark.asyncio
 async def test_ui_create_keeps_stored_pass_throughs_a_lagging_read_replica_has_not_seen(tmp_path, monkeypatch):
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_endpoints
 
     proxy: Final = await _boot_db_backed_proxy(
         tmp_path,
@@ -11972,7 +11972,7 @@ async def test_ui_create_keeps_stored_pass_throughs_a_lagging_read_replica_has_n
         ],
     )
     monkeypatch.setattr(
-        proxy.config_table, "db", SimpleNamespace(litellm_config=_LaggingReadReplica(proxy.config_table))
+        proxy.config_table, "db", SimpleNamespace(hangarllm_config=_LaggingReadReplica(proxy.config_table))
     )
 
     await create_pass_through_endpoints(
@@ -12036,10 +12036,10 @@ async def test_pass_throughs_stay_open_while_a_db_sync_reads_the_database(tmp_pa
         await release_database_read.wait()
         return await read_row(key=key, value=value, table_name=table_name)
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy import utils as proxy_utils
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy import utils as proxy_utils
 
-    monkeypatch.setattr(proxy_utils, "litellm_config_cache", DualCache())
+    monkeypatch.setattr(proxy_utils, "hangarllm_config_cache", DualCache())
     monkeypatch.setattr(proxy.config_table, "get_generic_data", slow_read)
     sync: Final = asyncio.create_task(proxy.proxy_config.get_config(config_file_path=proxy.config_path))
     await asyncio.wait_for(database_read_started.wait(), timeout=5)
@@ -12064,7 +12064,7 @@ def _lazy_feature(monkeypatch: pytest.MonkeyPatch, name: str, path: str) -> Lazy
 
 
 def test_a_pass_through_added_after_a_lazy_feature_loaded_takes_over_its_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LITELLM_DISABLE_LAZY_ROUTES", raising=False)
+    monkeypatch.delenv("HANGARLLM_DISABLE_LAZY_ROUTES", raising=False)
 
     async def pass_through() -> dict[str, str]:
         return {"served_by": "pass-through"}
@@ -12081,8 +12081,8 @@ def test_a_pass_through_added_after_a_lazy_feature_loaded_takes_over_its_path(mo
 
 @pytest.mark.asyncio
 async def test_filter_endpoints_by_team_allowed_routes_drops_denied() -> None:
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -12093,7 +12093,7 @@ async def test_filter_endpoints_by_team_allowed_routes_drops_denied() -> None:
     mock_prisma_client: Final = MagicMock()
     mock_team: Final = MagicMock()
     mock_team.metadata = {"denied_passthrough_routes": ["/api/admin"]}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     result: Final = await _filter_endpoints_by_team_allowed_routes(
         team_id="test-team-123",
@@ -12106,8 +12106,8 @@ async def test_filter_endpoints_by_team_allowed_routes_drops_denied() -> None:
 
 @pytest.mark.asyncio
 async def test_filter_endpoints_by_team_allowed_routes_keeps_public_endpoints_the_team_denies() -> None:
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy._types import PassThroughGenericEndpoint
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -12118,7 +12118,7 @@ async def test_filter_endpoints_by_team_allowed_routes_keeps_public_endpoints_th
     mock_prisma_client: Final = MagicMock()
     mock_team: Final = MagicMock()
     mock_team.metadata = {"denied_passthrough_routes": ["/api"]}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     result: Final = await _filter_endpoints_by_team_allowed_routes(
         team_id="test-team-123",
@@ -12311,21 +12311,21 @@ def test_get_response_headers_filters_excluded_custom_headers():
     )
 
     custom_headers = {
-        "x-litellm-version": "1.84.0",
+        "x-hangarllm-version": "1.84.0",
         "content-length": "0",  # should be excluded
         "server": "uvicorn",  # should be excluded
     }
 
     result = HttpPassThroughEndpointHelpers.get_response_headers(
         headers=upstream_headers,
-        litellm_call_id="call-123",
+        hangarllm_call_id="call-123",
         custom_headers=custom_headers,
     )
 
     assert result["content-type"] == "application/json"
     assert result["x-amzn-requestid"] == "req-123"
-    assert result["x-litellm-version"] == "1.84.0"
-    assert result["x-litellm-call-id"] == "call-123"
+    assert result["x-hangarllm-version"] == "1.84.0"
+    assert result["x-hangarllm-call-id"] == "call-123"
     assert "content-length" not in result
     assert "server" not in result
 
@@ -12336,7 +12336,7 @@ def test_pass_through_routes_support_all_methods():
     set turns a request the upstream would have accepted into a 405. The
     exceptions are the POST-only protocol routes listed above.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         router as llm_router,
     )
 
@@ -12361,7 +12361,7 @@ def test_protocol_constrained_pass_through_exemptions_are_not_stale():
     outlive the routes it covers: a renamed or deleted route has to fail here
     rather than sit in the list silently exempting nothing.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         router as llm_router,
     )
 
@@ -12374,7 +12374,7 @@ def test_is_bedrock_agent_runtime_route():
     """
     Test that _is_bedrock_agent_runtime_route correctly identifies bedrock agent runtime endpoints
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _is_bedrock_agent_runtime_route,
     )
 
@@ -12390,17 +12390,17 @@ def test_is_bedrock_agent_runtime_route():
 
 def test_custom_pricing_used_in_cost_calculation():
     """
-    Test that when custom pricing parameters are provided in litellm_params,
+    Test that when custom pricing parameters are provided in hangarllm_params,
     they are actually used for cost calculation.
 
     This ensures that the custom pricing functionality works end-to-end:
-    1. Pricing params are stored in litellm_params
+    1. Pricing params are stored in hangarllm_params
     2. These params are used by completion_cost() to calculate costs
 
     Regression test for: LIT-1221
     """
-    from litellm import completion_cost, Choices, Message, ModelResponse
-    from litellm.utils import Usage
+    from hangarllm import completion_cost, Choices, Message, ModelResponse
+    from hangarllm.utils import Usage
 
     # Create a mock response with usage
     resp = ModelResponse(
@@ -12547,37 +12547,37 @@ def test_init_kwargs_for_pass_through_endpoint_basic(mock_request, mock_user_api
         request=request,
         user_api_key_dict=mock_user_api_key_dict,
         passthrough_logging_payload=passthrough_payload,
-        litellm_call_id="test-call-id",
-        logging_obj=LiteLLMLoggingObj(
+        hangarllm_call_id="test-call-id",
+        logging_obj=HangarLLMLoggingObj(
             model="test-model",
             messages=[],
             stream=False,
             call_type="test-call-type",
             start_time=datetime(2026, 1, 15, 12, 0, 0),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         ),
     )
 
     assert result["call_type"] == "pass_through_endpoint"
-    assert result["litellm_call_id"] == "test-call-id"
+    assert result["hangarllm_call_id"] == "test-call-id"
     assert result["passthrough_logging_payload"] == passthrough_payload
 
-    assert result["litellm_params"]["metadata"]["user_api_key"] == "test-key"
-    assert result["litellm_params"]["metadata"]["user_api_key_hash"] == "test-key"
-    assert result["litellm_params"]["metadata"]["user_api_key_alias"] is None
-    assert result["litellm_params"]["metadata"]["user_api_key_user_email"] is None
-    assert result["litellm_params"]["metadata"]["user_api_key_user_id"] == "test-user"
-    assert result["litellm_params"]["metadata"]["user_api_key_team_id"] == "test-team"
-    assert result["litellm_params"]["metadata"]["user_api_key_org_id"] is None
-    assert result["litellm_params"]["metadata"]["user_api_key_team_alias"] is None
-    assert result["litellm_params"]["metadata"]["user_api_key_end_user_id"] == "test-user"
-    assert result["litellm_params"]["metadata"]["user_api_key_request_route"] is None
+    assert result["hangarllm_params"]["metadata"]["user_api_key"] == "test-key"
+    assert result["hangarllm_params"]["metadata"]["user_api_key_hash"] == "test-key"
+    assert result["hangarllm_params"]["metadata"]["user_api_key_alias"] is None
+    assert result["hangarllm_params"]["metadata"]["user_api_key_user_email"] is None
+    assert result["hangarllm_params"]["metadata"]["user_api_key_user_id"] == "test-user"
+    assert result["hangarllm_params"]["metadata"]["user_api_key_team_id"] == "test-team"
+    assert result["hangarllm_params"]["metadata"]["user_api_key_org_id"] is None
+    assert result["hangarllm_params"]["metadata"]["user_api_key_team_alias"] is None
+    assert result["hangarllm_params"]["metadata"]["user_api_key_end_user_id"] == "test-user"
+    assert result["hangarllm_params"]["metadata"]["user_api_key_request_route"] is None
 
 
-def test_init_kwargs_with_litellm_metadata(mock_request, mock_user_api_key_dict):
+def test_init_kwargs_with_hangarllm_metadata(mock_request, mock_user_api_key_dict):
     request: Final = mock_request()
-    parsed_body: Final = {"litellm_metadata": {"custom_field": "custom_value", "tags": ["tag1", "tag2"]}}
+    parsed_body: Final = {"hangarllm_metadata": {"custom_field": "custom_value", "tags": ["tag1", "tag2"]}}
     passthrough_payload: Final = PassthroughStandardLoggingPayload(
         url="https://test.com",
         request_body={},
@@ -12588,19 +12588,19 @@ def test_init_kwargs_with_litellm_metadata(mock_request, mock_user_api_key_dict)
         user_api_key_dict=mock_user_api_key_dict,
         passthrough_logging_payload=passthrough_payload,
         _parsed_body=parsed_body,
-        litellm_call_id="test-call-id",
-        logging_obj=LiteLLMLoggingObj(
+        hangarllm_call_id="test-call-id",
+        logging_obj=HangarLLMLoggingObj(
             model="test-model",
             messages=[],
             stream=False,
             call_type="test-call-type",
             start_time=datetime(2026, 1, 15, 12, 0, 0),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         ),
     )
 
-    metadata: Final = result["litellm_params"]["metadata"]
+    metadata: Final = result["hangarllm_params"]["metadata"]
     assert metadata["custom_field"] == "custom_value"
     assert metadata["tags"] == ["tag1", "tag2"]
     assert metadata["user_api_key"] == "test-key"
@@ -12617,19 +12617,19 @@ def test_init_kwargs_with_tags_in_header(mock_request, mock_user_api_key_dict):
         request=request,
         user_api_key_dict=mock_user_api_key_dict,
         passthrough_logging_payload=passthrough_payload,
-        litellm_call_id="test-call-id",
-        logging_obj=LiteLLMLoggingObj(
+        hangarllm_call_id="test-call-id",
+        logging_obj=HangarLLMLoggingObj(
             model="test-model",
             messages=[],
             stream=False,
             call_type="test-call-type",
             start_time=datetime(2026, 1, 15, 12, 0, 0),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         ),
     )
 
-    metadata: Final = result["litellm_params"]["metadata"]
+    metadata: Final = result["hangarllm_params"]["metadata"]
     assert metadata["tags"] == ["tag1", "tag2"]
 
 
@@ -12676,13 +12676,13 @@ async def test_vertex_passthrough_forwards_body_and_request_tags_to_spend_payloa
         request_body=request_body,
         request_method="POST",
     )
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="gemini-3.1-flash-lite",
         messages=[],
         stream=stream,
         call_type="pass_through_endpoint",
         start_time=start_time,
-        litellm_call_id="vertex-request-tags",
+        hangarllm_call_id="vertex-request-tags",
         function_id="vertex-request-tags",
     )
     logging_kwargs: Final = HttpPassThroughEndpointHelpers._init_kwargs_for_pass_through_endpoint(
@@ -12690,14 +12690,14 @@ async def test_vertex_passthrough_forwards_body_and_request_tags_to_spend_payloa
         user_api_key_dict=user_api_key_dict,
         passthrough_logging_payload=passthrough_payload,
         _parsed_body=request_body,
-        litellm_call_id="vertex-request-tags",
+        hangarllm_call_id="vertex-request-tags",
         logging_obj=logging_obj,
     )
     logging_obj.update_environment_variables(
         model="gemini-3.1-flash-lite",
         user="unknown",
         optional_params={},
-        litellm_params=logging_kwargs["litellm_params"],
+        hangarllm_params=logging_kwargs["hangarllm_params"],
         call_type="pass_through_endpoint",
     )
     log_dispatch: Final = AsyncMock()
@@ -12717,14 +12717,14 @@ async def test_vertex_passthrough_forwards_body_and_request_tags_to_spend_payloa
 
     logged_kwargs: Final = log_dispatch.await_args.kwargs
     assert logged_kwargs["call_type"] == "pass_through_endpoint"
-    assert logged_kwargs["litellm_params"]["metadata"]["tags"] == ["vertex-js-sdk", "pass-through-endpoint"]
+    assert logged_kwargs["hangarllm_params"]["metadata"]["tags"] == ["vertex-js-sdk", "pass-through-endpoint"]
 
 
 athropic_request_body: Final = {
     "model": "claude-sonnet-4-5-20250929",
     "max_tokens": 256,
     "messages": [{"role": "user", "content": "Hello, world tell me 2 sentences "}],
-    "litellm_metadata": {"tags": ["hi", "hello"]},
+    "hangarllm_metadata": {"tags": ["hi", "hello"]},
 }
 
 
@@ -12849,14 +12849,14 @@ def test_init_kwargs_filters_pricing_params(mock_request, mock_user_api_key_dict
         user_api_key_dict=mock_user_api_key_dict,
         passthrough_logging_payload=passthrough_payload,
         _parsed_body=parsed_body,
-        litellm_call_id="test-call-id",
-        logging_obj=LiteLLMLoggingObj(
+        hangarllm_call_id="test-call-id",
+        logging_obj=HangarLLMLoggingObj(
             model="gpt-5.5",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
             start_time=datetime(2026, 1, 15, 12, 0, 0),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         ),
     )
@@ -12883,9 +12883,9 @@ def test_init_kwargs_filters_pricing_params(mock_request, mock_user_api_key_dict
     assert parsed_body["temperature"] == 0.7
     assert parsed_body["max_tokens"] == 100
 
-    litellm_params: Final = result["litellm_params"]
-    assert litellm_params["input_cost_per_token"] == 0.00002
-    assert litellm_params["output_cost_per_token"] == 0.00002
+    hangarllm_params: Final = result["hangarllm_params"]
+    assert hangarllm_params["input_cost_per_token"] == 0.00002
+    assert hangarllm_params["output_cost_per_token"] == 0.00002
 
 
 def test_init_kwargs_client_metadata_cannot_spoof_authenticated_identity(mock_request, mock_user_api_key_dict):
@@ -12909,18 +12909,18 @@ def test_init_kwargs_client_metadata_cannot_spoof_authenticated_identity(mock_re
         request=request,
         user_api_key_dict=authenticated_key,
         passthrough_logging_payload=passthrough_payload,
-        litellm_call_id="test-call-id",
-        logging_obj=LiteLLMLoggingObj(
+        hangarllm_call_id="test-call-id",
+        logging_obj=HangarLLMLoggingObj(
             model="test-model",
             messages=[],
             stream=False,
             call_type="test-call-type",
             start_time=datetime(2026, 1, 15, 12, 0, 0),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         ),
         _parsed_body={
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "user_api_key_org_id": "victim-org",
                 "user_api_key_end_user_id": "victim-end-user",
                 "user_api_key_user_id": "victim-user",
@@ -12932,7 +12932,7 @@ def test_init_kwargs_client_metadata_cannot_spoof_authenticated_identity(mock_re
         },
     )
 
-    metadata: Final = result["litellm_params"]["metadata"]
+    metadata: Final = result["hangarllm_params"]["metadata"]
     assert metadata["user_api_key_user_id"] == "test-user"
     assert metadata["user_api_key_team_id"] == "test-team"
     assert metadata["user_api_key_team_alias"] == "Real Team"
@@ -12964,7 +12964,7 @@ def test_init_kwargs_no_authenticated_identity_field_is_client_settable(mock_req
         metadata={"real": "auth-metadata"},
     )
     expected: Final = dict(
-        LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=authenticated_key)
+        HangarLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=authenticated_key)
     )
     assert len(expected) >= 20
 
@@ -12974,20 +12974,20 @@ def test_init_kwargs_no_authenticated_identity_field_is_client_settable(mock_req
         request=mock_request(),
         user_api_key_dict=authenticated_key,
         passthrough_logging_payload=PassthroughStandardLoggingPayload(url="https://test.com", request_body={}),
-        litellm_call_id="test-call-id",
-        logging_obj=LiteLLMLoggingObj(
+        hangarllm_call_id="test-call-id",
+        logging_obj=HangarLLMLoggingObj(
             model="test-model",
             messages=[],
             stream=False,
             call_type="test-call-type",
             start_time=datetime(2026, 1, 15, 12, 0, 0),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         ),
-        _parsed_body={"litellm_metadata": dict(spoofed), "metadata": dict(spoofed)},
+        _parsed_body={"hangarllm_metadata": dict(spoofed), "metadata": dict(spoofed)},
     )
 
-    metadata: Final = result["litellm_params"]["metadata"]
+    metadata: Final = result["hangarllm_params"]["metadata"]
     survived: Final = {key: metadata.get(key) for key in expected if metadata.get(key) != expected[key]}
     assert survived == {}, f"client-supplied values survived for: {sorted(survived)}"
 
@@ -12995,45 +12995,45 @@ def test_init_kwargs_no_authenticated_identity_field_is_client_settable(mock_req
 def test_init_kwargs_client_metadata_cannot_mark_a_pass_through_call_as_a_silent_experiment(
     mock_user_api_key_dict: UserAPIKeyAuth,
 ) -> None:
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
     started: Final = datetime(2026, 1, 15, 12, 0, 0)
     result: Final = HttpPassThroughEndpointHelpers._init_kwargs_for_pass_through_endpoint(
         request=Request({"type": "http", "method": "POST", "path": "/test", "headers": [], "query_string": b""}),
         user_api_key_dict=mock_user_api_key_dict,
         passthrough_logging_payload=PassthroughStandardLoggingPayload(url="https://test.com", request_body={}),
-        litellm_call_id="test-call-id",
-        logging_obj=LiteLLMLoggingObj(
+        hangarllm_call_id="test-call-id",
+        logging_obj=HangarLLMLoggingObj(
             model="test-model",
             messages=[],
             stream=False,
             call_type="test-call-type",
             start_time=started,
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         ),
         _parsed_body={
-            "litellm_metadata": {"is_silent_experiment": True, "client_key": "kept"},
+            "hangarllm_metadata": {"is_silent_experiment": True, "client_key": "kept"},
             "metadata": {"is_silent_experiment": True},
         },
     )
 
     row: Final = get_logging_payload(
-        kwargs={"model": "test-model", "litellm_params": result["litellm_params"]},
-        response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+        kwargs={"model": "test-model", "hangarllm_params": result["hangarllm_params"]},
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-test", choices=[]),
         start_time=started,
         end_time=started,
     )
     assert "is_silent_experiment" not in json.loads(row["metadata"])
-    assert result["litellm_params"]["metadata"]["client_key"] == "kept"
+    assert result["hangarllm_params"]["metadata"]["client_key"] == "kept"
 
 
 @pytest.mark.asyncio
 async def test_direct_passthrough_keeps_mapped_baggage_tags_outside_upstream_body():
-    from litellm.proxy.common_utils.http_parsing_utils import read_request_body
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy.common_utils.http_parsing_utils import read_request_body
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+    from hangarllm.proxy.utils import ProxyLogging
 
     async def receive():
         return {"type": "http.request", "body": b'{"model":"qa-model"}'}
@@ -13047,13 +13047,13 @@ async def test_direct_passthrough_keeps_mapped_baggage_tags_outside_upstream_bod
             "headers": [
                 (b"content-type", b"application/json"),
                 (b"baggage", b"entrypoint=a"),
-                (b"x-litellm-tags", b"existing"),
+                (b"x-hangarllm-tags", b"existing"),
             ],
         },
         receive,
     )
     admitted = await read_request_body(request)
-    await LiteLLMProxyRequestSetup.apply_baggage_tag_mappings_pre_auth(
+    await HangarLLMProxyRequestSetup.apply_baggage_tag_mappings_pre_auth(
         request,
         admitted,
         {"request_tag_mappings": [{"key": "entrypoint", "tag_prefix": "usecase:"}]},
@@ -13079,16 +13079,16 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_the_up
     update: dict[str, str | bool],
     expected: tuple[bool, bool, bool, bool],
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import (
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         ConfigFieldUpdate,
-        LiteLLMRoutes,
+        HangarLLMRoutes,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import update_pass_through_endpoints
+    from hangarllm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import update_pass_through_endpoints
 
     async def serve_stored_endpoints(data: ConfigFieldUpdate, **_: object) -> None:
         await initialize_pass_through_endpoints(data.field_value)
@@ -13101,7 +13101,7 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_the_up
         "include_subpath": True,
     }
     saved_registry: Final = dict(_registered_pass_through_routes)
-    saved_openai_routes: Final = tuple(LiteLLMRoutes.openai_routes.value)
+    saved_openai_routes: Final = tuple(HangarLLMRoutes.openai_routes.value)
     try:
         _registered_pass_through_routes.clear()
         monkeypatch.setattr(proxy_server, "app", FastAPI())
@@ -13110,10 +13110,10 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_the_up
         await initialize_pass_through_endpoints([stored_endpoint])
         with (
             patch(
-                "litellm.proxy.proxy_server.get_config_general_settings",
+                "hangarllm.proxy.proxy_server.get_config_general_settings",
                 return_value=ConfigFieldInfo(field_name="pass_through_endpoints", field_value=[stored_endpoint]),
             ),
-            patch("litellm.proxy.proxy_server.update_config_general_settings", side_effect=serve_stored_endpoints),
+            patch("hangarllm.proxy.proxy_server.update_config_general_settings", side_effect=serve_stored_endpoints),
         ):
             await update_pass_through_endpoints(
                 endpoint_id="moved-route",
@@ -13125,30 +13125,30 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_the_up
         updated_path: Final = str(update["path"])
         assert (
             RouteChecks.is_llm_api_route(route=updated_path),
-            f"{updated_path}/*" in LiteLLMRoutes.openai_routes.value,
+            f"{updated_path}/*" in HangarLLMRoutes.openai_routes.value,
             RouteChecks.is_llm_api_route(route="/moved-from"),
-            "/moved-from/*" in LiteLLMRoutes.openai_routes.value,
+            "/moved-from/*" in HangarLLMRoutes.openai_routes.value,
         ) == expected
     finally:
         _registered_pass_through_routes.clear()
         _registered_pass_through_routes.update(saved_registry)
-        LiteLLMRoutes.openai_routes.value[:] = saved_openai_routes
+        HangarLLMRoutes.openai_routes.value[:] = saved_openai_routes
 
 
 @pytest.mark.asyncio
 async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_a_path_another_endpoint_shares(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import (
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import (
         ConfigFieldInfo,
         ConfigFieldUpdate,
-        LiteLLMRoutes,
+        HangarLLMRoutes,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import update_pass_through_endpoints
+    from hangarllm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import update_pass_through_endpoints
 
     async def serve_stored_endpoints(data: ConfigFieldUpdate, **_: object) -> None:
         await initialize_pass_through_endpoints(data.field_value)
@@ -13164,7 +13164,7 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_a_path
         for method in ("GET", "POST")
     ]
     saved_registry: Final = dict(_registered_pass_through_routes)
-    saved_openai_routes: Final = tuple(LiteLLMRoutes.openai_routes.value)
+    saved_openai_routes: Final = tuple(HangarLLMRoutes.openai_routes.value)
     try:
         _registered_pass_through_routes.clear()
         monkeypatch.setattr(proxy_server, "app", FastAPI())
@@ -13173,10 +13173,10 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_a_path
         await initialize_pass_through_endpoints(stored_endpoints)
         with (
             patch(
-                "litellm.proxy.proxy_server.get_config_general_settings",
+                "hangarllm.proxy.proxy_server.get_config_general_settings",
                 return_value=ConfigFieldInfo(field_name="pass_through_endpoints", field_value=stored_endpoints),
             ),
-            patch("litellm.proxy.proxy_server.update_config_general_settings", side_effect=serve_stored_endpoints),
+            patch("hangarllm.proxy.proxy_server.update_config_general_settings", side_effect=serve_stored_endpoints),
         ):
             await update_pass_through_endpoints(
                 endpoint_id="shared-get",
@@ -13194,7 +13194,7 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_a_path
     finally:
         _registered_pass_through_routes.clear()
         _registered_pass_through_routes.update(saved_registry)
-        LiteLLMRoutes.openai_routes.value[:] = saved_openai_routes
+        HangarLLMRoutes.openai_routes.value[:] = saved_openai_routes
 
 
 @pytest.mark.asyncio
@@ -13205,7 +13205,7 @@ async def test_update_pass_through_endpoint_keeps_llm_api_route_checks_on_a_path
 async def test_passthrough_header_and_callback_share_finalized_cost(
     monkeypatch: pytest.MonkeyPatch, flat_cost: float, upstream_cost: str | None, expected: float
 ) -> None:
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     observed: Final = asyncio.get_running_loop().create_future()
 
@@ -13213,10 +13213,10 @@ async def test_passthrough_header_and_callback_share_finalized_cost(
         async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
             observed.set_result(kwargs["standard_logging_object"])
 
-    monkeypatch.setattr(litellm, "_async_success_callback", [Observer()])
-    monkeypatch.setattr(litellm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [Observer()])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
     upstream_headers: Final = (
-        {} if upstream_cost is None else {"x-litellm-response-cost": upstream_cost, "x-litellm-total-tokens": "12"}
+        {} if upstream_cost is None else {"x-hangarllm-response-cost": upstream_cost, "x-hangarllm-total-tokens": "12"}
     )
 
     def upstream(request: httpx.Request) -> httpx.Response:
@@ -13235,7 +13235,7 @@ async def test_passthrough_header_and_callback_share_finalized_cost(
         payload: Final = await asyncio.wait_for(observed, timeout=10)
         await GLOBAL_LOGGING_WORKER.flush()
         assert result.status_code == 200
-        assert float(result.headers["x-litellm-response-cost"]) == pytest.approx(expected)
+        assert float(result.headers["x-hangarllm-response-cost"]) == pytest.approx(expected)
         assert payload["response_cost"] == pytest.approx(expected)
         assert payload["cost_finalized"] is True
         if upstream_cost is not None:
@@ -13250,14 +13250,14 @@ def _stub_adapter_proxy(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     return proxy_logging
 
 

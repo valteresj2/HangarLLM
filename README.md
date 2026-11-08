@@ -27,7 +27,7 @@ An open-source LLM gateway, Python SDK and admin UI. Route, govern and observe e
 
 HangarLLM is a gateway that sits between your applications and every model or agent they use. Teams point their OpenAI, Anthropic or MCP clients at one URL, and HangarLLM handles authentication, routing, retries, fallbacks, spend tracking, rate limits, guardrails and audit logs. Admins run all of it from a web dashboard.
 
-HangarLLM is a fork of [LiteLLM](https://github.com/BerriAI/litellm), which is MIT licensed. Everything here is open source under the MIT License, including capabilities that upstream sells as a commercial add-on. Those were written from scratch for this project, and upstream's commercially licensed `enterprise/` directory is not included. There is no license key, no seat limit and no call to a license server. See [NOTICE](NOTICE) for details.
+Everything here is open source under the MIT License, with no license key, no seat limit and no call to a license server. The project builds on MIT licensed work credited in [NOTICE](NOTICE).
 
 ```text
  Your apps, IDEs and agents
@@ -61,7 +61,7 @@ HangarLLM is a fork of [LiteLLM](https://github.com/BerriAI/litellm), which is M
 
 **Access and governance.** Virtual keys, teams, organizations, projects, customers, budgets per key and per team, TPM and RPM limits, IP allow lists and model access groups.
 
-**Capabilities that are paid upstream are open here.**
+**Enterprise capabilities, open to everyone.**
 
 | Capability | What you get |
 | --- | --- |
@@ -159,13 +159,9 @@ response = hangarllm.completion(
 )
 ```
 
-`import hangarllm` and `import litellm` return the same module, so existing code and integrations keep working.
-
 ## Configuration
 
 Compose reads optional settings from `.env`, and gateway settings go in [docker/hangarllm-config.yaml](docker/hangarllm-config.yaml), which is the place to list models, callbacks and router options.
-
-Every setting read from a `LITELLM_*` environment variable also accepts a `HANGARLLM_*` spelling. When both are set, the explicit `LITELLM_*` value wins, and an empty `HANGARLLM_*` value is ignored.
 
 | Variable | Purpose |
 | --- | --- |
@@ -183,8 +179,8 @@ Every setting read from a `LITELLM_*` environment variable also accepts a `HANGA
 | `HANGARLLM_DISABLED_FEATURES` | Comma separated features to switch off |
 | `HANGARLLM_SKILL_SANDBOX_NETWORK` | Set to `true` to give skill code network access |
 | `HANGARLLM_DISABLE_SKILL_GIT_SYNC` | Set to `true` to stop polling GitHub skill repositories |
-| `LITELLM_ALLOW_MASTER_KEY_UI_LOGIN` | Set to `true` to accept the master key as UI password |
-| `LITELLM_ALLOW_SHARED_SECRETS` | Set to `true` to start when secrets are reused, while migrating an existing database |
+| `HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN` | Set to `true` to accept the master key as UI password |
+| `HANGARLLM_ALLOW_SHARED_SECRETS` | Set to `true` to start when secrets are reused, while migrating an existing database |
 
 Master key, salt key, session secret, metrics token, `UI_PASSWORD`, `DATABASE_URL` and `REDIS_PASSWORD` can each be read from a file by adding the `_FILE` suffix, which is how the Compose stack passes them as Docker secrets.
 
@@ -196,13 +192,13 @@ Master key, salt key, session secret, metrics token, `UI_PASSWORD`, `DATABASE_UR
 curl --cacert secrets/hangar-local-ca.crt https://localhost/v1/decisions -H "Authorization: Bearer sk-your-virtual-key" -H "Content-Type: application/json" -d '{"model": "my-decision-model", "input": "I was charged twice", "questions": [{"type": "predicate", "name": "refund", "instructions": "Is a refund needed?"}]}'
 ```
 
-To choose what a deployment sends upstream, set its mode to **Decisions** when adding the model and pick a **Decisions format**, or set `decisions_format` in `litellm_params`. The formats `openai`, `openrouter` and `systemone` are built in, and the default uses the provider's own format. Callers cannot pick a format in the request body. Only admins assign one to a model.
+To choose what a deployment sends upstream, set its mode to **Decisions** when adding the model and pick a **Decisions format**, or set `decisions_format` in `hangarllm_params`. The formats `openai`, `openrouter` and `systemone` are built in, and the default uses the provider's own format. Callers cannot pick a format in the request body. Only admins assign one to a model.
 
 To support a new vendor, subclass `OpenAIShapedDecisionsFormat`. You only convert to and from the OpenAI JSON, and the gateway handles auth, routing and spend tracking.
 
 ```python
 # acme_decisions.py, next to your config file
-from litellm.hangar.decisions.formats import OpenAIShapedDecisionsFormat
+from hangarllm.hangar.decisions.formats import OpenAIShapedDecisionsFormat
 
 
 class AcmeFormat(OpenAIShapedDecisionsFormat):
@@ -220,7 +216,7 @@ format_instance = AcmeFormat()
 ```
 
 ```yaml
-litellm_settings:
+hangarllm_settings:
   decisions_formats:
     acme: acme_decisions.format_instance
 ```
@@ -253,12 +249,6 @@ For provider keys in production, prefer a secret manager over the database. To r
 
 Prometheus scrapes the gateway automatically and is available at `http://127.0.0.1:9090` from the host running the stack. Spend, logs and the audit trail are in the admin UI, and callbacks for Langfuse, OpenTelemetry, Datadog and others can be added in the config file.
 
-## Migrating from LiteLLM
-
-HangarLLM is a drop-in replacement. The Python package is still importable as `litellm`, the `litellm` command still works next to `hangarllm`, and config files, `LITELLM_*` variables, the database schema, API routes and `x-litellm-*` headers are unchanged.
-
-Three things need attention. The UI needs its own `UI_PASSWORD`. A database encrypted with the master key must keep `LITELLM_SALT_KEY` equal to that key, with `LITELLM_ALLOW_SHARED_SECRETS=true` until its values are re-encrypted. And clients that send `api_key` or `extra_headers` in the body need an explicit allowance through `allow_client_side_credentials` or `configurable_clientside_auth_params`. The upstream LiteAdmin agent is not part of HangarLLM.
-
 ## Deploy
 
 | Target | Where |
@@ -283,10 +273,10 @@ make bootstrap
 ```
 
 ```bash
-uv run python litellm/proxy/proxy_cli.py --config litellm/proxy/dev_config.yaml --reload
+uv run python hangarllm/proxy/proxy_cli.py --config hangarllm/proxy/dev_config.yaml --reload
 ```
 
-Run the admin UI in dev mode from `ui/litellm-dashboard`.
+Run the admin UI in dev mode from `ui/hangarllm-dashboard`.
 
 ```bash
 npm run dev
@@ -298,7 +288,7 @@ Run the HangarLLM test suite.
 uv run pytest tests/hangar
 ```
 
-The main places to look are `litellm/` for the SDK and gateway, `litellm/hangar/` for features written for this project, `ui/litellm-dashboard/` for the admin UI, `litellm-rust/` for the native extension, and `tests/` for the test suites.
+The main places to look are `hangarllm/` for the SDK and gateway, `hangarllm/hangar/` for features written for this project, `ui/hangarllm-dashboard/` for the admin UI, `hangarllm-rust/` for the native extension, and `tests/` for the test suites.
 
 ## Troubleshooting
 
@@ -319,4 +309,4 @@ No prebuilt images or PyPI packages are published yet. The admin UI bundle is co
 
 ## License
 
-MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE). HangarLLM is an independent project and is not affiliated with BerriAI. "LiteLLM" is a name and trademark of BerriAI, used here only to describe the project's origin and compatibility. Provider names and logos belong to their respective owners.
+MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Provider names and logos belong to their respective owners.

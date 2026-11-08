@@ -3,7 +3,7 @@ OpenAPI compliance tests for Google Interactions API.
 
 Validates that our SDK requests/responses match the OpenAPI spec snapshot in
 interactions.openapi.json, taken from https://aistudio.google.com/api-reference/interactions.openapi.json
-(litellm/types/interactions/README.md says how to refresh it). The scheduled
+(hangarllm/types/interactions/README.md says how to refresh it). The scheduled
 interactions-spec-canary workflow runs the same tests against the live spec by passing
 --interactions-spec-url, so a change Google makes shows up there, not in every PR.
 
@@ -100,7 +100,7 @@ def test_spec_comes_from_the_requested_source(loaded_spec: LoadedSpec, request: 
 
 
 def test_interaction_status_export_carries_the_interaction_models_statuses() -> None:
-    from litellm.types.interactions import InteractionStatus, generated
+    from hangarllm.types.interactions import InteractionStatus, generated
 
     exported: Final = frozenset(member.value for member in InteractionStatus)
     modelled: Final = frozenset(member.value for member in _status_enum_of(generated.Interaction))
@@ -291,7 +291,7 @@ class TestResponseCompliance:
         ],
     )
     def test_status_enum_values(self, spec_dict, schema_name):
-        from litellm.types.interactions import generated
+        from hangarllm.types.interactions import generated
 
         schema = spec_dict["components"]["schemas"][schema_name]
         spec_statuses: Final = frozenset(schema["properties"]["status"]["enum"])

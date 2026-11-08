@@ -193,7 +193,7 @@ def run_scenario(
     assert_marker_seen(
         report,
         {
-            "S1": "LiteLLM_SpendLogs.proxy_server_request",
+            "S1": "HangarLLM_SpendLogs.proxy_server_request",
             "S2": f"GET /spend/logs/ui/{quote(request_id, safe='')} as admin -> 200",
             "S4": f"{sink}[",
         },
@@ -270,12 +270,12 @@ def test_c1_deprecated_team_callback_settings_langfuse_secret_reaches_only_langf
 def test_c1_config_default_team_settings_langfuse_secret_reaches_only_langfuse(
     tmp_path: Path, endpoint: str, request: pytest.FixtureRequest
 ) -> None:
-    """The team callback comes from ``litellm_settings.default_team_settings`` in config.yaml."""
+    """The team callback comes from ``hangarllm_settings.default_team_settings`` in config.yaml."""
     secret: Final = canary("C1")
     team_id: Final = f"canary-config-team-{secret.core[:12]}"
 
     def configure(config: dict[str, object], _provider: str, langfuse_url: str) -> None:
-        settings: Final = config["litellm_settings"]
+        settings: Final = config["hangarllm_settings"]
         assert isinstance(settings, dict)
         settings["default_team_settings"] = [
             {

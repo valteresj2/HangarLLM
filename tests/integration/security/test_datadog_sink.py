@@ -58,7 +58,7 @@ def datadog_intake(request: Request) -> Reply:
 
 
 def enable_datadog(config: dict[str, object], _provider_url: str) -> None:
-    settings: Final = config["litellm_settings"]
+    settings: Final = config["hangarllm_settings"]
     assert isinstance(settings, dict)
     settings["callbacks"] = [*settings["callbacks"], DATADOG_SINK]
 
@@ -150,7 +150,7 @@ def test_datadog_api_key_reaches_only_its_own_header(
         assert_marker_seen(
             report,
             {
-                "S1": "LiteLLM_SpendLogs.proxy_server_request",
+                "S1": "HangarLLM_SpendLogs.proxy_server_request",
                 "S2": f"GET /spend/logs/ui/{request_id} as admin -> 200",
                 "S4": f"{GENERIC_SINK}[",
             },

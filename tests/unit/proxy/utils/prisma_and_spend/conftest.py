@@ -37,7 +37,7 @@ VOLATILE_KEYS = frozenset(
         "token",
         "expires",
         "expires_at",
-        "litellm_call_id",
+        "hangarllm_call_id",
         "created",
         "spend",
         "last_refreshed_at",
@@ -61,36 +61,36 @@ def normalize(data: Any, volatile: frozenset = VOLATILE_KEYS) -> Any:
 
 
 _PRISMA_TABLES: List[str] = [
-    "litellm_verificationtoken",
-    "litellm_teamtable",
-    "litellm_usertable",
-    "litellm_endusertable",
-    "litellm_organizationtable",
-    "litellm_proxymodeltable",
-    "litellm_modeltable",
-    "litellm_budgettable",
-    "litellm_spendlogs",
-    "litellm_config",
-    "litellm_usernotifications",
-    "litellm_healthchecktable",
-    "litellm_dailyuserspend",
-    "litellm_dailyteamspend",
-    "litellm_dailytagspend",
-    "litellm_managed_object_table",
-    "litellm_credentialstable",
-    "litellm_mcpservertable",
-    "litellm_audit_log",
-    "litellm_invitationlink",
-    "litellm_session_token_table",
-    "litellm_passthrough_endpoint_table",
-    "litellm_cron_job",
-    "litellm_passthrough_logs",
-    "litellm_promptstable",
-    "litellm_guardrailstable",
-    "litellm_managed_files",
-    "litellm_mcpusercredentials",
-    "litellm_objectpermissiontable",
-    "litellm_organizationmembership",
+    "hangarllm_verificationtoken",
+    "hangarllm_teamtable",
+    "hangarllm_usertable",
+    "hangarllm_endusertable",
+    "hangarllm_organizationtable",
+    "hangarllm_proxymodeltable",
+    "hangarllm_modeltable",
+    "hangarllm_budgettable",
+    "hangarllm_spendlogs",
+    "hangarllm_config",
+    "hangarllm_usernotifications",
+    "hangarllm_healthchecktable",
+    "hangarllm_dailyuserspend",
+    "hangarllm_dailyteamspend",
+    "hangarllm_dailytagspend",
+    "hangarllm_managed_object_table",
+    "hangarllm_credentialstable",
+    "hangarllm_mcpservertable",
+    "hangarllm_audit_log",
+    "hangarllm_invitationlink",
+    "hangarllm_session_token_table",
+    "hangarllm_passthrough_endpoint_table",
+    "hangarllm_cron_job",
+    "hangarllm_passthrough_logs",
+    "hangarllm_promptstable",
+    "hangarllm_guardrailstable",
+    "hangarllm_managed_files",
+    "hangarllm_mcpusercredentials",
+    "hangarllm_objectpermissiontable",
+    "hangarllm_organizationmembership",
 ]
 
 
@@ -114,11 +114,11 @@ def _make_table_mock() -> MagicMock:
 
 @pytest.fixture
 def mock_prisma_client() -> MagicMock:
-    """Bare ``db`` mock with all common LiteLLM_* tables stubbed.
+    """Bare ``db`` mock with all common HangarLLM_* tables stubbed.
 
     Override individual return values in a test::
 
-        mock_prisma_client.db.litellm_usertable.find_unique.return_value = user
+        mock_prisma_client.db.hangarllm_usertable.find_unique.return_value = user
     """
     client = MagicMock(name="MockPrismaClient")
     client.db = MagicMock(name="MockPrismaDB")
@@ -194,7 +194,7 @@ def patched_prisma_import(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock
     directly and restore in teardown.
     """
     import prisma as _prisma_pkg
-    import litellm.proxy.utils as _utils_mod
+    import hangarllm.proxy.utils as _utils_mod
 
     fake_prisma = MagicMock(name="FakePrisma")
     fake_prisma.is_connected = MagicMock(return_value=False)
@@ -243,7 +243,7 @@ def prisma_client(
     """
     monkeypatch.delenv("DATABASE_URL_READ_REPLICA", raising=False)
     monkeypatch.delenv("IAM_TOKEN_DB_AUTH", raising=False)
-    from litellm.proxy.utils import PrismaClient
+    from hangarllm.proxy.utils import PrismaClient
 
     proxy_logging_obj = MagicMock(name="MockProxyLogging")
     proxy_logging_obj.failure_handler = AsyncMock()
@@ -294,7 +294,7 @@ def fake_clock(monkeypatch: pytest.MonkeyPatch) -> FakeClock:
 
 @pytest.fixture
 def make_spend_log_row() -> Callable[..., Dict[str, Any]]:
-    """Factory for fake LiteLLM_SpendLogs rows."""
+    """Factory for fake HangarLLM_SpendLogs rows."""
 
     def _make(
         request_id: str = "req-1",
@@ -355,7 +355,7 @@ def fake_redis() -> FakeRedisList:
 
 @pytest.fixture
 def proxy_logging_with_redis(fake_redis: FakeRedisList) -> MagicMock:
-    from litellm.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
+    from hangarllm.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
 
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()

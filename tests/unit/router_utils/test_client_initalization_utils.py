@@ -3,9 +3,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
+import hangarllm
+from hangarllm import Router
+from hangarllm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
 
 
 def _limit(max_parallel_requests: int = 1) -> MaxParallelRequestsLimit:
@@ -20,8 +20,8 @@ async def _hold(limit: MaxParallelRequestsLimit, release: asyncio.Event) -> str:
         return "ok"
 
 
-def _expect_rejection(limit: MaxParallelRequestsLimit) -> litellm.RateLimitError:
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+def _expect_rejection(limit: MaxParallelRequestsLimit) -> hangarllm.RateLimitError:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         limit.acquire()
     return excinfo.value
 
@@ -58,7 +58,7 @@ async def test_burst_over_the_cap_admits_exactly_max_parallel_requests_and_rejec
     async def attempt() -> str:
         try:
             return await _hold(limit, release)
-        except litellm.RateLimitError as e:
+        except hangarllm.RateLimitError as e:
             return f"rejected:{e.status_code}"
 
     callers: Final = [asyncio.create_task(attempt()) for _ in range(10)]
@@ -87,7 +87,7 @@ async def _concurrent_outcomes(router: Router, calls: int) -> list[str]:
             await router.acompletion(
                 model="gpt-5.6", messages=[{"role": "user", "content": "hi"}], mock_response="ok", mock_delay=0.3
             )
-        except litellm.RateLimitError as e:
+        except hangarllm.RateLimitError as e:
             return e.message
         return "ok"
 
@@ -95,7 +95,7 @@ async def _concurrent_outcomes(router: Router, calls: int) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected_cap"),
+    ("hangarllm_params", "expected_cap"),
     [
         ({"max_parallel_requests": 2, "rpm": 7, "tpm": 100_000}, 2),
         ({"rpm": 7, "tpm": 100_000}, 7),
@@ -104,10 +104,10 @@ async def _concurrent_outcomes(router: Router, calls: int) -> list[str]:
     ],
 )
 @pytest.mark.asyncio
-async def test_router_deployment_rejects_past_its_derived_cap(litellm_params: dict[str, int], expected_cap: int):
+async def test_router_deployment_rejects_past_its_derived_cap(hangarllm_params: dict[str, int], expected_cap: int):
     router: Final = Router(
         model_list=[
-            {"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "k", **litellm_params}}
+            {"model_name": "gpt-5.6", "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "k", **hangarllm_params}}
         ],
         num_retries=0,
     )
@@ -123,7 +123,7 @@ async def test_router_deployment_rejects_past_its_derived_cap(litellm_params: di
 @pytest.mark.asyncio
 async def test_router_without_any_concurrency_setting_has_no_limit():
     router: Final = Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "k"}}],
+        model_list=[{"model_name": "gpt-5.6", "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "k"}}],
         num_retries=0,
     )
 

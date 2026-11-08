@@ -6,15 +6,15 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_api import ChangeSet
-from litellm.router_strategy.switchyard_router.config import SwitchyardRouterConfig, build_algorithm
-from litellm.router_strategy.switchyard_router.switchyard_router import SwitchyardRouter
-from litellm.types.decisions import OpenAIDecisionResponse
-from litellm.types.router import Deployment
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_strategy.switchyard_router.config import SwitchyardRouterConfig, build_algorithm
+from hangarllm.router_strategy.switchyard_router.switchyard_router import SwitchyardRouter
+from hangarllm.types.decisions import OpenAIDecisionResponse
+from hangarllm.types.router import Deployment
+from hangarllm.types.utils import ModelResponse
 
 libsy = pytest.importorskip("switchyard_rust.libsy")
 
@@ -113,14 +113,14 @@ def transcript(endpoint: str, tool: str, results: tuple[str, ...], *, marked: bo
 
 def llm_router(
     *, route_config: Mapping[str, object], judge_fails: bool = False, num_retries: int = 0
-) -> litellm.Router:
+) -> hangarllm.Router:
     def deployment(name: str, reply: object) -> Mapping[str, object]:
         return {
             "model_name": name,
-            "litellm_params": {"model": f"openai/{name}", "api_key": "k", "mock_response": reply},
+            "hangarllm_params": {"model": f"openai/{name}", "api_key": "k", "mock_response": reply},
         }
 
-    return litellm.Router(
+    return hangarllm.Router(
         num_retries=num_retries,
         model_list=[
             deployment("strong", "strong"),
@@ -134,7 +134,7 @@ def llm_router(
 def switchyard_deployment(route_config: Mapping[str, object]) -> dict[str, object]:
     return {
         "model_name": "route",
-        "litellm_params": {"model": "auto_router/switchyard", "switchyard_router_config": route_config},
+        "hangarllm_params": {"model": "auto_router/switchyard", "switchyard_router_config": route_config},
         "model_info": {"id": "route-id"},
     }
 
@@ -148,7 +148,7 @@ async def test_critical_tool_error_selects_capable_without_rewriting_messages() 
     assert result.messages == messages
 
 
-async def routed_reply(proxy: litellm.Router, endpoint: str, edits: tuple[str, ...]) -> object:
+async def routed_reply(proxy: hangarllm.Router, endpoint: str, edits: tuple[str, ...]) -> object:
     match endpoint:
         case "anthropic_messages":
             message: Final = await proxy.aanthropic_messages(
@@ -180,7 +180,7 @@ async def test_router_follows_an_edited_switchyard_router_and_forgets_a_deleted_
     assert await routed_reply(proxy, "acompletion", ("Edit applied",) * 3) == "strong"
 
     _ = proxy.apply(ChangeSet(delete=["route-id"]))
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await proxy.acompletion(model="route", messages=HELLO)
 
 
@@ -197,7 +197,7 @@ async def test_anthropic_tool_failure_marker_reaches_switchyard(marked: bool, ex
 @pytest.mark.parametrize(
     ("request_kwargs", "expected"),
     [
-        ({"litellm_session_id": "s1"}, ["strong", "strong", "strong", "fast"]),
+        ({"hangarllm_session_id": "s1"}, ["strong", "strong", "strong", "fast"]),
         (
             {"proxy_server_request": {"headers": {"X-Session-Id": "s1", "session-id": "s1"}}},
             ["strong", "fast", "fast", "fast"],
@@ -223,8 +223,8 @@ async def pick(switchyard: SwitchyardRouter, request_kwargs: Mapping[str, object
 @pytest.mark.asyncio
 async def test_a_session_hold_never_crosses_api_keys() -> None:
     switchyard: Final = router(config())
-    owner: Final = {"litellm_session_id": "shared", "metadata": {"user_api_key_hash": "owner"}}
-    other: Final = {"litellm_session_id": "shared", "metadata": {"user_api_key_hash": "other"}}
+    owner: Final = {"hangarllm_session_id": "shared", "metadata": {"user_api_key_hash": "owner"}}
+    other: Final = {"hangarllm_session_id": "shared", "metadata": {"user_api_key_hash": "other"}}
     assert await pick(switchyard, owner, ("CUDA out of memory",)) == "strong"
     assert await pick(switchyard, other, ("All tests passed",) * 2) == "fast"
     assert await pick(switchyard, owner, ("All tests passed",) * 2) == "strong"
@@ -233,11 +233,11 @@ async def test_a_session_hold_never_crosses_api_keys() -> None:
 @pytest.mark.asyncio
 async def test_a_client_metadata_key_hash_cannot_join_another_keys_session() -> None:
     switchyard: Final = router(config())
-    owner: Final = {"litellm_session_id": "shared", "litellm_metadata": {"user_api_key_hash": "owner"}}
+    owner: Final = {"hangarllm_session_id": "shared", "hangarllm_metadata": {"user_api_key_hash": "owner"}}
     spoofer: Final = {
-        "litellm_session_id": "shared",
+        "hangarllm_session_id": "shared",
         "metadata": {"user_api_key_hash": "owner"},
-        "litellm_metadata": {"user_api_key_hash": "spoofer"},
+        "hangarllm_metadata": {"user_api_key_hash": "spoofer"},
     }
     assert await pick(switchyard, owner, ("CUDA out of memory",)) == "strong"
     assert await pick(switchyard, spoofer, ("All tests passed",) * 2) == "fast"
@@ -276,7 +276,7 @@ def decision_answer(advantage: float) -> OpenAIDecisionResponse:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("parent_bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("parent_bucket", ["metadata", "hangarllm_metadata"])
 @pytest.mark.parametrize("classifier", [{}, {"kind": "decision"}])
 async def test_judge_calls_carry_the_callers_tags_and_origin_where_their_endpoint_reads_them(
     parent_bucket: str, classifier: Mapping[str, object]
@@ -297,8 +297,8 @@ async def test_judge_calls_carry_the_callers_tags_and_origin_where_their_endpoin
         config(classifier=classifier, threshold=1.0), HELLO, completion=judge, decide=decide, request_kwargs=caller
     )
     (request,) = seen
-    read_by_endpoint: Final = "litellm_metadata" if classifier else "metadata"
-    assert set(request) & {"metadata", "litellm_metadata"} == {read_by_endpoint}
+    read_by_endpoint: Final = "hangarllm_metadata" if classifier else "metadata"
+    assert set(request) & {"metadata", "hangarllm_metadata"} == {read_by_endpoint}
     metadata: Final = request[read_by_endpoint]
     assert metadata["tags"] == ["eu-only"]  # pyright: ignore[reportIndexIssue]  # the judge request's metadata dict
     assert metadata["inherited_tags"] == ["team-eu"]  # pyright: ignore[reportIndexIssue]  # same
@@ -415,7 +415,7 @@ async def test_failing_judge_is_called_once_even_when_the_router_retries(monkeyp
         def log_pre_api_call(self, model: str, messages: object, kwargs: dict[str, object]) -> None:
             attempts.append(model)
 
-    monkeypatch.setattr(litellm, "callbacks", [CountAttempts()])
+    monkeypatch.setattr(hangarllm, "callbacks", [CountAttempts()])
     proxy: Final = llm_router(
         route_config={
             "models": {"capable": "strong", "efficient": "fast", "judge": "judge"},

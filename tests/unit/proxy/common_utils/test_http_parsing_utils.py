@@ -13,10 +13,10 @@ from starlette.datastructures import FormData, Headers, UploadFile
 from starlette.requests import Request
 
 
-import litellm
-import litellm.proxy.common_utils.http_parsing_utils as http_parsing_utils
-from litellm.proxy._types import ProxyException
-from litellm.proxy.common_utils.http_parsing_utils import (
+import hangarllm
+import hangarllm.proxy.common_utils.http_parsing_utils as http_parsing_utils
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.common_utils.http_parsing_utils import (
     _is_form_content_type,
     read_request_body,
     safe_get_request_headers,
@@ -33,8 +33,8 @@ from litellm.proxy.common_utils.http_parsing_utils import (
     read_raw_json_body,
 )
 from fastapi import Request as Request_http_parsing
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from starlette.types import Message
 from starlette.websockets import WebSocket
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
@@ -129,10 +129,10 @@ async def test_read_request_body_rejects_non_objects_from_json_fallback(body: by
 @pytest.mark.parametrize("dispatch", ["custom", "provider", "lens"])
 async def test_pass_through_body_validation_preserves_bytes(dispatch: str, body: bytes, invalid_unicode: bool) -> None:
     from fastapi.routing import APIRoute
-    from litellm.proxy.lens.adapter import lens_request
-    from litellm.proxy.lens.buffering import LensRoute
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import vertex_proxy_route
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_route
+    from hangarllm.proxy.lens.adapter import lens_request
+    from hangarllm.proxy.lens.buffering import LensRoute
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import vertex_proxy_route
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import create_pass_through_route
 
     path: Final = {"custom": "/v1/messages", "provider": "/vertex_ai/predict", "lens": "/lens/datasets"}[dispatch]
     route: Final = {
@@ -159,8 +159,8 @@ async def test_pass_through_body_validation_preserves_bytes(dispatch: str, body:
 @pytest.mark.parametrize("body", [b"null", b" \nnull\t", b"[]", b'"value"'])
 async def test_null_body_respects_the_dispatched_body_requirement(optional: bool, body: bytes) -> None:
     from fastapi.routing import APIRoute
-    from litellm.proxy.management_endpoints.key_management_endpoints import generate_key_fn
-    from litellm.proxy.spend_tracking.spend_management_endpoints import global_spend_end_users
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import generate_key_fn
+    from hangarllm.proxy.spend_tracking.spend_management_endpoints import global_spend_end_users
 
     endpoint: Final = global_spend_end_users if optional else generate_key_fn
     route: Final = APIRoute("/audit", endpoint, methods=["POST"])
@@ -192,7 +192,7 @@ async def test_read_request_body_marks_body_received_once_with_its_size(monkeypa
     assert await read_request_body(request) == orjson.loads(body)
     assert await read_request_body(request) == orjson.loads(body)
 
-    assert events == [("litellm.request.body_received", {"litellm.request.body_bytes": len(body)})]
+    assert events == [("hangarllm.request.body_received", {"hangarllm.request.body_bytes": len(body)})]
 
 
 @pytest.mark.asyncio
@@ -212,9 +212,9 @@ async def test_read_request_body_marks_body_received_for_binary_and_form_bodies(
     await read_request_body(_starlette_request(form, form_type))
 
     assert events == [
-        ("litellm.request.body_received", {"litellm.request.body_bytes": len(protobuf)}),
-        ("litellm.request.body_received", {"litellm.request.body_bytes": len(form)}),
-        ("litellm.request.body_received", None),
+        ("hangarllm.request.body_received", {"hangarllm.request.body_bytes": len(protobuf)}),
+        ("hangarllm.request.body_received", {"hangarllm.request.body_bytes": len(form)}),
+        ("hangarllm.request.body_received", None),
     ]
 
 
@@ -620,9 +620,9 @@ async def test_json_parsing_error_handling():
         "tools": [
             {
                 "type": "mcp",
-                "server_label": "litellm",
+                "server_label": "hangarllm",
                 "headers": {
-                    "x-litellm-api-key": "Bearer sk-9876",
+                    "x-hangarllm-api-key": "Bearer sk-9876",
                 }
             }
         ],
@@ -648,7 +648,7 @@ async def test_json_parsing_error_handling():
         "tools": [
             {
                 type: "mcp",
-                "server_label": "litellm"
+                "server_label": "hangarllm"
             }
         ],
         "input": "Run available tools"
@@ -672,9 +672,9 @@ async def test_json_parsing_error_handling():
         "tools": [
             {
                 "type": "mcp",
-                "server_label": "litellm",
+                "server_label": "hangarllm",
                 "headers": {
-                    "x-litellm-api-key": "Bearer sk-9876"
+                    "x-hangarllm-api-key": "Bearer sk-9876"
                 }
             }
         ],
@@ -712,7 +712,7 @@ async def test_surrogate_repair_skipped_above_size_limit(monkeypatch):
     `NaN` is rejected by orjson and accepted by the json fallback, so a body containing
     it is only salvaged when the repair path runs.
     """
-    import litellm.proxy.common_utils.http_parsing_utils as http_parsing_utils
+    import hangarllm.proxy.common_utils.http_parsing_utils as http_parsing_utils
 
     # Cap the repair at ~100 bytes so the test stays fast and independent of the default.
     monkeypatch.setattr(http_parsing_utils, "MAX_REQUEST_BODY_SIZE_TO_REPAIR_MB", 100 / (1024 * 1024))
@@ -830,13 +830,13 @@ def test_get_tags_from_request_body_with_metadata_tags():
     assert result == ["tag1", "tag2", "tag3"]
 
 
-def test_get_tags_from_request_body_with_litellm_metadata_tags():
+def test_get_tags_from_request_body_with_hangarllm_metadata_tags():
     """
-    Test that tags are correctly extracted from request body when using litellm_metadata.
+    Test that tags are correctly extracted from request body when using hangarllm_metadata.
     """
     request_body = {
         "model": "gpt-4",
-        "litellm_metadata": {"tags": ["tag1", "tag2", "tag3"]},
+        "hangarllm_metadata": {"tags": ["tag1", "tag2", "tag3"]},
     }
 
     result = get_tags_from_request_body(request_body=request_body)
@@ -905,7 +905,7 @@ def test_get_tags_from_request_body_with_dict_tags():
         "messages": [{"role": "user", "content": "aloha"}],
         "metadata": {
             "tags": {
-                "litellm_id": "litellm_ratelimit_test",
+                "hangarllm_id": "hangarllm_ratelimit_test",
                 "llm_id": "llmid_ratelimit_test",
             }
         },
@@ -921,7 +921,7 @@ def test_get_tags_from_request_body_with_null_metadata():
     """
     Test that function handles null metadata gracefully without crashing.
 
-    This is a regression test for https://github.com/BerriAI/litellm/issues/17263
+    This is a regression test for upstream issue 17263
     When metadata is explicitly set to null/None, the function should return
     an empty list instead of raising AttributeError.
     """
@@ -1006,7 +1006,7 @@ async def test_request_body_with_html_script_tags():
     parsed correctly without being blocked or modified.
 
     Regression test for GitHub issue #20441:
-    https://github.com/BerriAI/litellm/issues/20441
+    upstream issue 20441
 
     LLM message content frequently contains HTML/code snippets.
     The HTTP parsing layer must not interfere with such content.
@@ -1147,7 +1147,7 @@ class TestGetTagsFromRequestBodyStringCoerce:
     """
 
     def test_json_string_metadata_is_coerced_to_dict(self):
-        from litellm.proxy.common_utils.http_parsing_utils import (
+        from hangarllm.proxy.common_utils.http_parsing_utils import (
             get_tags_from_request_body,
         )
 
@@ -1157,7 +1157,7 @@ class TestGetTagsFromRequestBodyStringCoerce:
         assert tags == ["a", "b"]
 
     def test_unparseable_string_metadata_is_ignored(self):
-        from litellm.proxy.common_utils.http_parsing_utils import (
+        from hangarllm.proxy.common_utils.http_parsing_utils import (
             get_tags_from_request_body,
         )
 
@@ -1166,7 +1166,7 @@ class TestGetTagsFromRequestBodyStringCoerce:
         assert tags == ["root-only"]
 
     def test_dict_metadata_still_works(self):
-        from litellm.proxy.common_utils.http_parsing_utils import (
+        from hangarllm.proxy.common_utils.http_parsing_utils import (
             get_tags_from_request_body,
         )
 
@@ -1316,7 +1316,7 @@ class TestGetRequestBody:
 
 class TestNumericFormFields:
     def test_image_edit_schema_yields_only_n(self):
-        from litellm.types.images.main import ImageEditRequestParams
+        from hangarllm.types.images.main import ImageEditRequestParams
 
         assert dict(numeric_form_fields(get_type_hints(ImageEditRequestParams))) == {"n": int}
 
@@ -1442,7 +1442,7 @@ def test_shared_inference_model_selection_preserves_handler_precedence(
     body: str,
     expected: str,
 ) -> None:
-    from litellm.proxy.common_utils.http_parsing_utils import resolve_inference_model
+    from hangarllm.proxy.common_utils.http_parsing_utils import resolve_inference_model
 
     assert resolve_inference_model(body, settings, cli, path, kind=kind) == expected
 
@@ -1485,9 +1485,9 @@ async def test_only_trace_ingest_skips_json_body(method: str, path: str, skip_pa
 
 @pytest.mark.asyncio
 async def test_auth_and_retired_trace_handler_never_consume_upload_body() -> None:
-    from litellm.constants import OTLP_MAX_BODY_BYTES
-    from litellm.proxy import tracing_endpoints
-    from litellm.proxy.auth.user_api_key_auth import _read_request_body_deferring_parse_failure
+    from hangarllm.constants import OTLP_MAX_BODY_BYTES
+    from hangarllm.proxy import tracing_endpoints
+    from hangarllm.proxy.auth.user_api_key_auth import _read_request_body_deferring_parse_failure
 
     chunk: Final = b"x" * (OTLP_MAX_BODY_BYTES // 2 + 1)
     receive: Final = AsyncMock(side_effect=[{"type": "http.request", "body": chunk, "more_body": True}] * 2)
@@ -1512,11 +1512,11 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -1528,18 +1528,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -1549,60 +1549,60 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 def _request(receive: Callable[[], Awaitable[Message]]) -> Request_http_parsing:
@@ -1622,32 +1622,32 @@ def _request_with_body(body: bytes) -> Request_http_parsing:
 
     return _request(receive)
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_read_request_body_valid_json():
     result = await read_request_body(_request_with_body(b'{"key": "value"}'))
     assert result == {"key": "value"}
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_read_request_body_empty_body():
     result = await read_request_body(_request_with_body(b""))
     assert result == {}
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_read_request_body_invalid_json():
     with pytest.raises(ProxyException):
         await read_request_body(_request_with_body(b'{"key": value}'))
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_read_request_body_large_payload():
     large_payload = '{"key":' + '"a"' * 10**6 + "}"
     with pytest.raises(ProxyException):
         await read_request_body(_request_with_body(large_payload.encode()))
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_read_request_body_unexpected_error():
     async def receive() -> Message:
@@ -1756,7 +1756,7 @@ async def test_read_request_body_aborts_with_499_when_the_client_disconnects_mid
 async def test_read_request_body_closes_the_otel_server_span_when_the_client_disconnects_mid_upload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     span: Final = MagicMock()
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", MagicMock(), raising=False)

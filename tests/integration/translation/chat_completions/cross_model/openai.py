@@ -59,8 +59,8 @@ def _without_replay_record(response: Mapping[str, JsonValue]) -> dict[str, JsonV
 GPT_5_MINI_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_MINI_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_MINI_TEST_CASE.litellm_request, GPT_5_MINI_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_5_MINI_TEST_CASE.hangarllm_request, GPT_5_MINI_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/chat/completions",
     expected_provider_request={
@@ -136,7 +136,7 @@ GPT_5_MINI_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             },
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "chatcmpl-EZ6ZnzJxYtvI0dT0Ek5WxIoYCSBuF",
         "model": "openai/gpt-5-mini",
@@ -177,8 +177,8 @@ GPT_5_MINI_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_MINI_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_MINI_TEST_CASE.litellm_endpoint,
-    litellm_request={**GPT_5_MINI_TEST_CASE.litellm_request, "stream": True, "stream_options": {"include_usage": True}},
+    hangarllm_endpoint=GPT_5_MINI_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={**GPT_5_MINI_TEST_CASE.hangarllm_request, "stream": True, "stream_options": {"include_usage": True}},
     expected_provider_headers=GPT_5_MINI_TEST_CASE.expected_provider_headers,
     expected_provider_endpoint="/chat/completions",
     expected_provider_request={
@@ -562,11 +562,11 @@ GPT_5_MINI_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data="[DONE]"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_cfsTFwIpo5Pw1Ycjne6cu6rd", "call_w0dR7zl3FEWVVOUvxe2qRhw3"),
         arguments=({"query": "retries_remaining("}, {"path": "tests/test_retry.py"}),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 529,
         "completion_tokens": 53,
         "total_tokens": 582,
@@ -584,8 +584,8 @@ GPT_5_MINI_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_5_4_MINI_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_4_MINI_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_4_MINI_TEST_CASE.litellm_request, _without_replay_record(GPT_5_4_MINI_TEST_CASE.expected_litellm_response)
+    hangarllm_request=followup_request(
+        GPT_5_4_MINI_TEST_CASE.hangarllm_request, _without_replay_record(GPT_5_4_MINI_TEST_CASE.expected_hangarllm_response)
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -692,7 +692,7 @@ GPT_5_4_MINI_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 740,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_09416b73f1fe04c2006ad04a8d112c87d0867e37246b001702",
         "model": "openai/gpt-5.4-mini",
@@ -738,9 +738,9 @@ GPT_5_4_MINI_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_4_MINI_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_4_MINI_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_5_4_MINI_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_5_4_MINI_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_5_4_MINI_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1238,12 +1238,12 @@ GPT_5_4_MINI_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_8ucGVxGVa1SVMbD1mwPwwE3c", "call_NyYyHGphM3cB0Z3KkJRhhIfB"),
         arguments=({"query": "retries_remaining("}, {"path": "tests/test_retry.py"}),
         content="I’ll search for callers and run the targeted test to reproduce the failure.",
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 76,
         "total_tokens": 524,
@@ -1256,7 +1256,7 @@ GPT_5_4_MINI_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_5_6_LUNA_AGENT_TEST_CASE: Final = replace(
     GPT_5_6_LUNA_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.6-luna"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.6-luna"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-openai-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-5.6-luna"},
@@ -1305,7 +1305,7 @@ GPT_5_6_LUNA_AGENT_TEST_CASE: Final = replace(
             "total_tokens": 513,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0f14003909426a48006ad04a8d23a887d081fe3e6b3590c981",
         "model": "openai/gpt-5.6-luna",
@@ -1371,9 +1371,9 @@ GPT_5_6_LUNA_AGENT_TEST_CASE: Final = replace(
 GPT_5_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_6_LUNA_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_6_LUNA_AGENT_TEST_CASE.litellm_request,
-        _without_replay_record(GPT_5_6_LUNA_AGENT_TEST_CASE.expected_litellm_response),
+    hangarllm_request=followup_request(
+        GPT_5_6_LUNA_AGENT_TEST_CASE.hangarllm_request,
+        _without_replay_record(GPT_5_6_LUNA_AGENT_TEST_CASE.expected_hangarllm_response),
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -1473,7 +1473,7 @@ GPT_5_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 692,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0f14003909426a48006ad04a9045a087d0964813f7654b35a1",
         "model": "openai/gpt-5.6-luna",
@@ -1518,9 +1518,9 @@ GPT_5_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_6_LUNA_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_5_6_LUNA_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_5_6_LUNA_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_5_6_LUNA_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1758,7 +1758,7 @@ GPT_5_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_caBz8iaQgGxQPczEdr5gE18A", "call_Bg8gxxs2CV57YzN0vxup4DvY"),
         reasoning_items=(
             {
@@ -1770,7 +1770,7 @@ GPT_5_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             },
         ),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 67,
         "total_tokens": 515,
@@ -1783,7 +1783,7 @@ GPT_5_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_5_6_SOL_AGENT_TEST_CASE: Final = replace(
     GPT_5_6_SOL_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.6-sol"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.6-sol"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-openai-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-5.6-sol"},
@@ -1825,7 +1825,7 @@ GPT_5_6_SOL_AGENT_TEST_CASE: Final = replace(
             "total_tokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0d5f7a80fc3395a0006ad04a9e6d0887d0ae4fb1f1c2c82d05",
         "model": "openai/gpt-5.6-sol",
@@ -1883,9 +1883,9 @@ GPT_5_6_SOL_AGENT_TEST_CASE: Final = replace(
 GPT_5_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_6_SOL_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_6_SOL_AGENT_TEST_CASE.litellm_request,
-        _without_replay_record(GPT_5_6_SOL_AGENT_TEST_CASE.expected_litellm_response),
+    hangarllm_request=followup_request(
+        GPT_5_6_SOL_AGENT_TEST_CASE.hangarllm_request,
+        _without_replay_record(GPT_5_6_SOL_AGENT_TEST_CASE.expected_hangarllm_response),
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -1980,7 +1980,7 @@ GPT_5_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 687,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_00b169780b921f8d006ad04aa121b087d0b9ba7a302cc95525",
         "model": "openai/gpt-5.6-sol",
@@ -2026,9 +2026,9 @@ GPT_5_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_6_SOL_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_5_6_SOL_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_5_6_SOL_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_5_6_SOL_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2229,10 +2229,10 @@ GPT_5_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_RHePNBeoQ4fn5WnJUzavuVVF", "call_1h6M2yMno8h8DYlCJsImg3N4"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -2245,7 +2245,7 @@ GPT_5_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_5_6_TERRA_AGENT_TEST_CASE: Final = replace(
     GPT_5_6_TERRA_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.6-terra"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.6-terra"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-openai-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-5.6-terra"},
@@ -2287,7 +2287,7 @@ GPT_5_6_TERRA_AGENT_TEST_CASE: Final = replace(
             "total_tokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0be594400e6793a9006ad04aa8479487d0a036daf89a003d98",
         "model": "openai/gpt-5.6-terra",
@@ -2345,9 +2345,9 @@ GPT_5_6_TERRA_AGENT_TEST_CASE: Final = replace(
 GPT_5_6_TERRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_6_TERRA_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_6_TERRA_AGENT_TEST_CASE.litellm_request,
-        _without_replay_record(GPT_5_6_TERRA_AGENT_TEST_CASE.expected_litellm_response),
+    hangarllm_request=followup_request(
+        GPT_5_6_TERRA_AGENT_TEST_CASE.hangarllm_request,
+        _without_replay_record(GPT_5_6_TERRA_AGENT_TEST_CASE.expected_hangarllm_response),
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -2442,7 +2442,7 @@ GPT_5_6_TERRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 684,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0fe2d1d5d2bfdea9006ad04aaaeaf887d0b804e06e9f2a88bb",
         "model": "openai/gpt-5.6-terra",
@@ -2488,9 +2488,9 @@ GPT_5_6_TERRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_6_TERRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_6_TERRA_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_5_6_TERRA_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_5_6_TERRA_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_5_6_TERRA_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2691,10 +2691,10 @@ GPT_5_6_TERRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_xDdtGVzn464uEE7X8AuVRiHJ", "call_yPhpkZWP5B2zJo4SPhCEAxW4"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -2707,7 +2707,7 @@ GPT_5_6_TERRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_ASTRA_AGENT_TEST_CASE: Final = replace(
     GPT_6_ASTRA_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6-astra"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6-astra"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-openai-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-6-astra"},
@@ -2749,7 +2749,7 @@ GPT_6_ASTRA_AGENT_TEST_CASE: Final = replace(
             "total_tokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0c460ec382f21326006ad04aba1fc887d095a25a4a60b52123",
         "model": "openai/gpt-6-astra",
@@ -2806,9 +2806,9 @@ GPT_6_ASTRA_AGENT_TEST_CASE: Final = replace(
 GPT_6_ASTRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_ASTRA_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_ASTRA_AGENT_TEST_CASE.litellm_request,
-        _without_replay_record(GPT_6_ASTRA_AGENT_TEST_CASE.expected_litellm_response),
+    hangarllm_request=followup_request(
+        GPT_6_ASTRA_AGENT_TEST_CASE.hangarllm_request,
+        _without_replay_record(GPT_6_ASTRA_AGENT_TEST_CASE.expected_hangarllm_response),
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -2903,7 +2903,7 @@ GPT_6_ASTRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 682,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0eb40bf438f81237006ad04abe048087d097e1ca444166aa82",
         "model": "openai/gpt-6-astra",
@@ -2948,9 +2948,9 @@ GPT_6_ASTRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_ASTRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_ASTRA_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_6_ASTRA_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_6_ASTRA_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_6_ASTRA_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -3151,10 +3151,10 @@ GPT_6_ASTRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_rdLoAf1TMckmLuY7a9q3qGV2", "call_BCEXFCGlvI1hhltFXxKMhOQj"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -3167,7 +3167,7 @@ GPT_6_ASTRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_LUNA_AGENT_TEST_CASE: Final = replace(
     GPT_6_LUNA_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6-luna"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6-luna"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-openai-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-6-luna"},
@@ -3209,7 +3209,7 @@ GPT_6_LUNA_AGENT_TEST_CASE: Final = replace(
             "total_tokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_02084d7da75674a2006ad04a8e5ba087d09bcd2d078980b34f",
         "model": "openai/gpt-6-luna",
@@ -3267,9 +3267,9 @@ GPT_6_LUNA_AGENT_TEST_CASE: Final = replace(
 GPT_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_LUNA_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_LUNA_AGENT_TEST_CASE.litellm_request,
-        _without_replay_record(GPT_6_LUNA_AGENT_TEST_CASE.expected_litellm_response),
+    hangarllm_request=followup_request(
+        GPT_6_LUNA_AGENT_TEST_CASE.hangarllm_request,
+        _without_replay_record(GPT_6_LUNA_AGENT_TEST_CASE.expected_hangarllm_response),
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -3364,7 +3364,7 @@ GPT_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 689,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_09aa77587dce4423006ad04a966dd087d0887015ed690aa27c",
         "model": "openai/gpt-6-luna",
@@ -3410,9 +3410,9 @@ GPT_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_LUNA_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_6_LUNA_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_6_LUNA_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_6_LUNA_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -3613,10 +3613,10 @@ GPT_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_BXnB0UfiU2LW63KiDbncliyC", "call_rN9W4duhkWVD0ycWn3xo03Dl"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -3629,8 +3629,8 @@ GPT_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_SOL_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_SOL_TEST_CASE.litellm_request, _without_replay_record(GPT_6_SOL_TEST_CASE.expected_litellm_response)
+    hangarllm_request=followup_request(
+        GPT_6_SOL_TEST_CASE.hangarllm_request, _without_replay_record(GPT_6_SOL_TEST_CASE.expected_hangarllm_response)
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -3724,7 +3724,7 @@ GPT_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 685,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_002863be50c3c198006ad04aa69ba487d0a65f207d45bc6d04",
         "model": "openai/gpt-6-sol",
@@ -3769,8 +3769,8 @@ GPT_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_SOL_TEST_CASE.litellm_endpoint,
-    litellm_request={**GPT_6_SOL_TEST_CASE.litellm_request, "stream": True, "stream_options": {"include_usage": True}},
+    hangarllm_endpoint=GPT_6_SOL_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={**GPT_6_SOL_TEST_CASE.hangarllm_request, "stream": True, "stream_options": {"include_usage": True}},
     expected_provider_headers=GPT_6_SOL_TEST_CASE.expected_provider_headers,
     expected_provider_endpoint="/responses",
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-6-sol", "stream": True},
@@ -3968,10 +3968,10 @@ GPT_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_ISAnqtLEGvg6OfXg9D16OBHr", "call_h6Z6YQpd9m7NsG5iiF05Wue9"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -3984,7 +3984,7 @@ GPT_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_1_SOL_AGENT_TEST_CASE: Final = replace(
     GPT_6_1_SOL_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6.1-sol"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6.1-sol"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-openai-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-6.1-sol"},
@@ -4026,7 +4026,7 @@ GPT_6_1_SOL_AGENT_TEST_CASE: Final = replace(
             "total_tokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0bf6d56fb68ed25e006ad04aa4d03c87d0bd8428d6dc163509",
         "model": "openai/gpt-6.1-sol",
@@ -4083,9 +4083,9 @@ GPT_6_1_SOL_AGENT_TEST_CASE: Final = replace(
 GPT_6_1_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_1_SOL_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_1_SOL_AGENT_TEST_CASE.litellm_request,
-        _without_replay_record(GPT_6_1_SOL_AGENT_TEST_CASE.expected_litellm_response),
+    hangarllm_request=followup_request(
+        GPT_6_1_SOL_AGENT_TEST_CASE.hangarllm_request,
+        _without_replay_record(GPT_6_1_SOL_AGENT_TEST_CASE.expected_hangarllm_response),
     ),
     expected_provider_endpoint="/responses",
     expected_provider_request={
@@ -4180,7 +4180,7 @@ GPT_6_1_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "total_tokens": 687,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_09b6501350a8bfd9006ad04aa944dc87d089844d553ed99ad5",
         "model": "openai/gpt-6.1-sol",
@@ -4225,9 +4225,9 @@ GPT_6_1_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_1_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_1_SOL_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_6_1_SOL_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_6_1_SOL_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_6_1_SOL_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -4428,10 +4428,10 @@ GPT_6_1_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             event="response.completed",
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_dRjirW1hJv1g0OIFLZi21Ssq", "call_4Rb17RKwt3mIAswOKn3gi8Im"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,

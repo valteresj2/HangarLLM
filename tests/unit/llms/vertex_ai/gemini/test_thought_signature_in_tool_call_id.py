@@ -1,7 +1,7 @@
 """
 Tests for embedding thought signatures in tool call IDs for OpenAI client compatibility.
 
-When using OpenAI clients (instead of LiteLLM SDK), provider_specific_fields are not preserved.
+When using OpenAI clients (instead of HangarLLM SDK), provider_specific_fields are not preserved.
 This test suite validates that thought signatures can be embedded in tool call IDs and extracted
 when converting back to Gemini format.
 
@@ -21,19 +21,19 @@ import pytest
 import respx
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     THOUGHT_SIGNATURE_SEPARATOR,
     encode_tool_call_id_with_signature,
     get_thought_signature_from_tool,
     convert_to_gemini_tool_call_invoke,
 )
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.llms.vertex_ai import HttpxPartType
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.llms.vertex_ai import HttpxPartType
 
 
 def test_encode_decode_tool_call_id_with_signature():
@@ -123,7 +123,7 @@ def test_get_thought_signature_backward_compatibility():
     """Test that provider_specific_fields still works (backward compatibility)"""
     test_signature = "Co4CAdHtim/rWgXbz2Ghp4tShzLeMASrPw6JJyYIC3cbVyZnKzU3uv8/wVzyS2sKRPL2m8QQHHXbNQhEEz500G7n/4ZMmksdTtfQcJMoT76S1DGwhnAiLwTgWCNXs3lEb4M19EVYoWFxhrH5Lr9YMIquoU9U4paydGwvZyIyigamIg4B6WnxrRsf0KZV12gJed0DZuKczvOFtHz3zUnmZRlOiTzd5gBVyQM+5jv1VI8m4WUKd6cN/5a5ZvaA0ggiO6kdVhlpIVs7GczSEVJD8KH4u02X7VSnb7CvykqDntZzV0y8rZFBEFGKrChmeHlWXP4D1IB3F9KQyhuLgWImMzg4BajKVxxMU737JGnNISy5"
 
-    # Test with provider_specific_fields (LiteLLM SDK scenario)
+    # Test with provider_specific_fields (HangarLLM SDK scenario)
     tool = {
         "id": "call_abc123",
         "type": "function",
@@ -197,10 +197,10 @@ def test_convert_to_gemini_with_embedded_signature():
 def test_openai_client_e2e_flow(enable_preview_features):
     """
     End-to-end test simulating OpenAI client usage:
-    1. LiteLLM receives response from Gemini with thought signature
-    2. LiteLLM embeds signature in tool call ID (if preview features enabled)
+    1. HangarLLM receives response from Gemini with thought signature
+    2. HangarLLM embeds signature in tool call ID (if preview features enabled)
     3. OpenAI client sends message back with same tool call ID
-    4. LiteLLM extracts signature from ID/provider_specific_fields and sends to Gemini
+    4. HangarLLM extracts signature from ID/provider_specific_fields and sends to Gemini
     """
     test_signature = "Co4CAdHtim/rWgXbz2Ghp4tShzLeMASrPw6JJyYIC3cbVyZnKzU3uv8/wVzyS2sKRPL2m8QQHHXbNQhEEz500G7n/4ZMmksdTtfQcJMoT76S1DGwhnAiLwTgWCNXs3lEb4M19EVYoWFxhrH5Lr9YMIquoU9U4paydGwvZyIyigamIg4B6WnxrRsf0KZV12gJed0DZuKczvOFtHz3zUnmZRlOiTzd5gBVyQM+5jv1VI8m4WUKd6cN/5a5ZvaA0ggiO6kdVhlpIVs7GczSEVJD8KH4u02X7VSnb7CvykqDntZzV0y8rZFBEFGKrChmeHlWXP4D1IB3F9KQyhuLgWImMzg4BajKVxxMU737JGnNISy5"
 
@@ -215,7 +215,7 @@ def test_openai_client_e2e_flow(enable_preview_features):
         )
     ]
 
-    # Step 2: LiteLLM transforms to OpenAI format
+    # Step 2: HangarLLM transforms to OpenAI format
     function, tools, _ = VertexGeminiConfig._transform_parts(
         parts=gemini_parts,
         cumulative_tool_call_idx=0,
@@ -245,7 +245,7 @@ def test_openai_client_e2e_flow(enable_preview_features):
             }
         ],
     }
-    # Step 4: LiteLLM converts back to Gemini format, extracting signature
+    # Step 4: HangarLLM converts back to Gemini format, extracting signature
     gemini_parts_converted = convert_to_gemini_tool_call_invoke(
         openai_assistant_message
     )
@@ -377,7 +377,7 @@ def _returned_tool_calls(
 ) -> tuple[list[Mapping[str, object]], Mapping[str, object]]:
     with respx.mock:
         route: Final = respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_response(native_id, stream))
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="gemini/gemini-3.5-flash",
             messages=[USER_TURN],
             tools=[WEATHER_TOOL],
@@ -435,7 +435,7 @@ def test_bounded_tool_call_id_round_trips_to_gemini(client_keeps_provider_fields
 
     with respx.mock:
         route: Final = respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_answer())
-        litellm.completion(
+        hangarllm.completion(
             model="gemini/gemini-3.5-flash",
             messages=[
                 USER_TURN,
@@ -458,7 +458,7 @@ def test_tool_result_with_bare_id_matches_call_whose_id_the_client_re_signed():
     bare_id: Final = "call_601401"
     with respx.mock:
         route: Final = respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_answer())
-        litellm.completion(
+        hangarllm.completion(
             model="gemini/gemini-3.5-flash",
             messages=[
                 USER_TURN,
@@ -502,7 +502,7 @@ def _is_tool_use_start(event: Mapping[str, object]) -> bool:
 async def _messages_tool_use_blocks(stream: bool) -> list[Mapping[str, object]]:
     with respx.mock:
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_response(None, stream))
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             max_tokens=256,
             messages=[USER_TURN],
             model="gemini/gemini-3.5-flash",
@@ -523,7 +523,7 @@ async def _messages_tool_use_blocks(stream: bool) -> list[Mapping[str, object]]:
 async def test_messages_tool_use_keeps_thought_signature_kept_out_of_its_id(
     stream: bool, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     tool_uses: Final = await _messages_tool_use_blocks(stream)
 
     assert len(tool_uses) == 1
@@ -538,7 +538,7 @@ SHORT_IDS: Final = MappingProxyType({"thought_signature_in_tool_call_id": False}
 def _responses_function_call_items(stream: bool, request_params: Mapping[str, object] = SHORT_IDS) -> list[object]:
     with respx.mock:
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_response(None, stream))
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="gemini/gemini-3.5-flash",
             input=USER_TURN["content"],
             tools=[RESPONSES_WEATHER_TOOL],
@@ -600,7 +600,7 @@ def test_responses_function_call_provider_fields_reach_the_provider_only_with_sh
 
     with respx.mock:
         route: Final = respx.post(url__regex=r"https://api\.deepseek\.com/.*").mock(return_value=_deepseek_answer())
-        litellm.responses(
+        hangarllm.responses(
             model="deepseek/deepseek-v4-flash",
             input=[
                 {"role": "user", "content": USER_TURN["content"]},
@@ -635,7 +635,7 @@ def test_responses_function_call_replays_its_thought_signature_to_gemini(client_
 
     with respx.mock:
         route: Final = respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_answer())
-        litellm.responses(
+        hangarllm.responses(
             model="gemini/gemini-3.5-flash",
             input=[
                 {"role": "user", "content": USER_TURN["content"]},
@@ -662,7 +662,7 @@ def test_request_setting_given_as_a_string_or_number_keeps_ids_bounded(requested
     assert tool_calls[0]["provider_specific_fields"]["thought_signature"] == LONG_SIGNATURE
 
 
-async def _complete(use_async: bool, **request_params: object) -> litellm.ModelResponse:
+async def _complete(use_async: bool, **request_params: object) -> hangarllm.ModelResponse:
     request: Final = {
         "model": "gemini/gemini-3.5-flash",
         "messages": [USER_TURN],
@@ -670,14 +670,14 @@ async def _complete(use_async: bool, **request_params: object) -> litellm.ModelR
         "api_key": "test-gemini-key",
         **request_params,
     }
-    return await litellm.acompletion(**request) if use_async else litellm.completion(**request)
+    return await hangarllm.acompletion(**request) if use_async else hangarllm.completion(**request)
 
 
 @pytest.mark.parametrize("use_async", [False, True])
 async def test_request_setting_that_is_not_a_boolean_answers_400(use_async: bool):
     with respx.mock(assert_all_called=False):
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_response(None, False))
-        with pytest.raises(litellm.BadRequestError, match="thought_signature_in_tool_call_id") as raised:
+        with pytest.raises(hangarllm.BadRequestError, match="thought_signature_in_tool_call_id") as raised:
             await _complete(use_async, thought_signature_in_tool_call_id="maybe")
 
     assert raised.value.status_code == 400
@@ -687,7 +687,7 @@ async def test_request_setting_that_is_not_a_boolean_answers_400(use_async: bool
 async def test_request_setting_that_is_not_a_boolean_is_dropped_under_drop_params(
     use_async: bool, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_response(None, False))
         response: Final = await _complete(use_async, thought_signature_in_tool_call_id="maybe", drop_params=True)
@@ -698,11 +698,11 @@ async def test_request_setting_that_is_not_a_boolean_is_dropped_under_drop_param
 
 @pytest.mark.parametrize("configured_value", ["false", "False", 0, False])
 def test_deployment_setting_given_as_a_string_or_number_keeps_ids_bounded(configured_value: object):
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-agentcore",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gemini/gemini-3.5-flash",
                     "api_key": "test-gemini-key",
                     "thought_signature_in_tool_call_id": configured_value,
@@ -719,22 +719,22 @@ def test_deployment_setting_given_as_a_string_or_number_keeps_ids_bounded(config
 
 def test_deployment_setting_rejects_a_value_that_is_not_a_boolean():
     with pytest.raises(ValueError, match="thought_signature_in_tool_call_id"):
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gemini-agentcore",
-                    "litellm_params": {"model": "gemini/gemini-3.5-flash", "thought_signature_in_tool_call_id": "maybe"},
+                    "hangarllm_params": {"model": "gemini/gemini-3.5-flash", "thought_signature_in_tool_call_id": "maybe"},
                 }
             ]
         )
 
 
 def test_deployment_setting_survives_a_request_value_that_drop_params_drops():
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-agentcore",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gemini/gemini-3.5-flash",
                     "api_key": "test-gemini-key",
                     "thought_signature_in_tool_call_id": False,
@@ -756,7 +756,7 @@ def test_deployment_setting_survives_a_request_value_that_drop_params_drops():
 
 
 def test_responses_request_setting_that_is_not_a_boolean_answers_400():
-    with pytest.raises(litellm.BadRequestError, match="thought_signature_in_tool_call_id") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="thought_signature_in_tool_call_id") as raised:
         _responses_function_call_items(False, {"thought_signature_in_tool_call_id": "maybe"})
 
     assert raised.value.status_code == 400
@@ -775,10 +775,10 @@ def test_responses_request_setting_that_is_not_a_boolean_is_dropped_under_drop_p
 async def test_messages_request_setting_that_is_not_a_boolean_follows_drop_params(
     drop_params: bool, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=False) as mocked:
         mocked.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_response(None, False))
-        request: Final = litellm.anthropic.messages.acreate(
+        request: Final = hangarllm.anthropic.messages.acreate(
             max_tokens=256,
             messages=[USER_TURN],
             model="gemini/gemini-3.5-flash",
@@ -788,7 +788,7 @@ async def test_messages_request_setting_that_is_not_a_boolean_follows_drop_param
             drop_params=drop_params,
         )
         if not drop_params:
-            with pytest.raises(litellm.BadRequestError, match="thought_signature_in_tool_call_id"):
+            with pytest.raises(hangarllm.BadRequestError, match="thought_signature_in_tool_call_id"):
                 await request
             return
         response: Final = await request
@@ -811,7 +811,7 @@ def test_setting_that_is_not_a_boolean_is_ignored_where_nothing_reads_it():
                 },
             )
         )
-        response: Final = litellm.embedding(
+        response: Final = hangarllm.embedding(
             model="openai/text-embedding-3-small",
             input=["hi"],
             api_key="test-openai-key",
@@ -840,7 +840,7 @@ def test_tool_results_keep_their_own_names_when_tool_call_ids_share_a_prefix(too
     called_tools: Final = (("get_weather", tool_call_ids[0]), ("get_time", tool_call_ids[1]))
     with respx.mock:
         route: Final = respx.post(url__regex=GEMINI_URL_PATTERN).mock(return_value=_gemini_answer())
-        litellm.completion(
+        hangarllm.completion(
             model="gemini/gemini-3.5-flash",
             messages=[
                 USER_TURN,

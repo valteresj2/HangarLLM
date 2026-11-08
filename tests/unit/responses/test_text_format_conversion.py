@@ -5,8 +5,8 @@ import pytest
 from pydantic import BaseModel
 
 
-import litellm
-from litellm.types.llms.openai import (
+import hangarllm
+from hangarllm.types.llms.openai import (
     IncompleteDetails,
     ResponseAPIUsage,
     ResponsesAPIResponse,
@@ -27,7 +27,7 @@ class TestTextFormatConversion:
     @pytest.mark.asyncio
     async def test_text_format_to_text_conversion(self):
         """
-        Test that when text_format parameter is passed to litellm.aresponses,
+        Test that when text_format parameter is passed to hangarllm.aresponses,
         it gets converted to text parameter in the raw API call to OpenAI.
         """
         from unittest.mock import AsyncMock, MagicMock, patch
@@ -94,14 +94,14 @@ class TestTextFormatConversion:
             responses_api_provider_config,
             response_api_optional_request_params,
             custom_llm_provider,
-            litellm_params,
+            hangarllm_params,
             logging_obj,
             extra_headers=None,
             extra_body=None,
             timeout=None,
             client=None,
             fake_stream=False,
-            litellm_metadata=None,
+            hangarllm_metadata=None,
             shared_session=None,
             _is_async=False,
         ):
@@ -150,13 +150,13 @@ class TestTextFormatConversion:
                 )
 
         with patch.object(
-            import_module("litellm.responses.main").base_llm_http_handler, "response_api_handler",
+            import_module("hangarllm.responses.main").base_llm_http_handler, "response_api_handler",
             new=mock_handler,
         ):
-            litellm.turn_on_debug()
+            hangarllm.turn_on_debug()
 
             # Call aresponses with text_format parameter
-            response = await litellm.aresponses(
+            response = await hangarllm.aresponses(
                 input="What is the capital of France?",
                 text_format=TestResponse,
                 **base_completion_call_args,

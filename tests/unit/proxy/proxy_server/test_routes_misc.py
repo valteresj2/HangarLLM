@@ -88,21 +88,21 @@ def test_get_routes_invalid_method_405(client):
 
 
 def test_adaptive_router_state_returns_snapshots(client, auth_as, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy import proxy_server as ps
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     fake_router = MagicMock()
     snap = {"router_name": "ar-1", "queue_depth": 0, "posteriors": []}
     bandit = MagicMock()
     bandit.get_state_snapshot = AsyncMock(return_value=snap)
-    from litellm.types.router import TaggedPreRoutingStrategy
+    from hangarllm.types.router import TaggedPreRoutingStrategy
 
     fake_router.registry.return_value.plugins.return_value = {
         "ar-1": [TaggedPreRoutingStrategy(tags=(), strategy=bandit)]
     }
     monkeypatch.setattr(ps, "llm_router", fake_router)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/adaptive_router/state")
     assert response.status_code == 200
     assert normalize(response.json()) == {
@@ -113,23 +113,23 @@ def test_adaptive_router_state_returns_snapshots(client, auth_as, monkeypatch):
 
 
 def test_adaptive_router_state_not_admin_forbidden(client, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER):
         response = client.get("/adaptive_router/state")
     assert response.status_code == 403
     assert "error" in response.json().get("detail", {})
 
 
 def test_adaptive_router_state_not_configured_404(client, auth_as, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy import proxy_server as ps
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     fake_router = MagicMock()
     fake_router.registry.return_value.plugins.return_value = {}
     monkeypatch.setattr(ps, "llm_router", fake_router)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/adaptive_router/state")
     assert response.status_code == 404
     assert "adaptive_router" in response.json().get("detail", {}).get("error", "")
@@ -149,7 +149,7 @@ def test_get_logo_url_returns_http_url_when_set(client, monkeypatch):
 
 def test_get_logo_url_blank_when_local_path(client, monkeypatch):
     """Local filesystem paths must NOT be disclosed via this endpoint."""
-    monkeypatch.setenv("UI_LOGO_PATH", "/var/lib/litellm/internal-secret-logo.png")
+    monkeypatch.setenv("UI_LOGO_PATH", "/var/lib/hangarllm/internal-secret-logo.png")
     response = client.get("/get_logo_url")
     assert response.status_code == 200
     assert normalize(response.json()) == {"logo_url": ""}
@@ -234,7 +234,7 @@ def test_get_image_bundled_logos_have_an_alpha_channel(client, monkeypatch, para
 def test_get_image_serves_the_bundled_logo_for_each_theme_and_variant(client, monkeypatch, params, bundled_file):
     monkeypatch.delenv("UI_LOGO_PATH", raising=False)
     monkeypatch.delenv("UI_LOGO_PATH_DARK", raising=False)
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     expected = (Path(proxy_server.__file__).parent / bundled_file).read_bytes()
     response = client.get("/get_image", params=params)
@@ -252,7 +252,7 @@ def test_get_image_monogram_variant_keeps_serving_a_custom_ui_logo(client, monke
 
 def test_get_image_dark_theme_keeps_serving_a_custom_ui_logo(client, monkeypatch, tmp_path):
     """With no UI_LOGO_PATH_DARK set, dark mode falls back to the admin's own light logo
-    rather than replacing their branding with LiteLLM's."""
+    rather than replacing their branding with HangarLLM's."""
     custom_logo = tmp_path / "custom.png"
     custom_logo.write_bytes(PNG_SIGNATURE + b"custom-logo-marker")
     monkeypatch.setenv("UI_LOGO_PATH", str(custom_logo))
@@ -277,7 +277,7 @@ def test_get_image_dark_theme_prefers_the_dark_custom_logo(client, monkeypatch, 
 
 
 def test_get_image_unusable_dark_logo_falls_back_to_the_light_custom_logo(client, monkeypatch, tmp_path):
-    """A broken UI_LOGO_PATH_DARK must not drop the admin all the way to LiteLLM's own
+    """A broken UI_LOGO_PATH_DARK must not drop the admin all the way to HangarLLM's own
     logo while their light logo is still perfectly serviceable."""
     light_logo = tmp_path / "light.png"
     light_logo.write_bytes(PNG_SIGNATURE + b"light-marker")

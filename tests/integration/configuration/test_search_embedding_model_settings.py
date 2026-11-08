@@ -26,10 +26,10 @@ pytestmark: Final = pytest.mark.timeout(int(2 * graceful_stop_seconds() + 120))
 
 _MODEL_NAME: Final = "search-embedding"
 _AGENT_NOT_CONFIGURED: Final = (
-    "agent search needs litellm_settings.agent_search_embedding_model set to an embedding model from model_list"
+    "agent search needs hangarllm_settings.agent_search_embedding_model set to an embedding model from model_list"
 )
 _SKILL_NOT_CONFIGURED: Final = (
-    "skill search needs litellm_settings.skill_search_embedding_model set to an embedding model from model_list"
+    "skill search needs hangarllm_settings.skill_search_embedding_model set to an embedding model from model_list"
 )
 _SKILL_MARKDOWN: Final = """---
 name: echo-sample
@@ -78,19 +78,19 @@ def _write_config(directory: Path, upstream_url: str, agent_model: str, skill_mo
         "model_list": [
             {
                 "model_name": _MODEL_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_base": f"{upstream_url}/v1",
                     "api_key": "synthetic-openai-key",
                 },
             }
         ],
-        "litellm_settings": {
+        "hangarllm_settings": {
             "agent_search_embedding_model": agent_model,
             "skill_search_embedding_model": skill_model,
         },
         "general_settings": {
-            "master_key": "os.environ/LITELLM_MASTER_KEY",
+            "master_key": "os.environ/HANGARLLM_MASTER_KEY",
             "database_url": "os.environ/DATABASE_URL",
             "store_model_in_db": True,
         },
@@ -127,7 +127,7 @@ def _create_skill(candidate: OwnedProxy) -> str:
     with ZipFile(archive_data, "w") as archive:
         archive.writestr("echo-sample/SKILL.md", _SKILL_MARKDOWN)
     response: Final = candidate.gateway.request_multipart(
-        "/v1/skills?beta=true&custom_llm_provider=litellm_proxy",
+        "/v1/skills?beta=true&custom_llm_provider=hangarllm_proxy",
         {
             "display_title": "Echo search fixture",
             "description": "Echo sample skill for search validation",
@@ -221,7 +221,7 @@ def test_empty_agent_embedding_setting_returns_not_configured(empty_search_proxy
 
 def test_empty_skill_embedding_setting_returns_not_configured(empty_search_proxy: _SearchProxy) -> None:
     response: Final = empty_search_proxy.owned.gateway.request(
-        "GET", "/v1/skills?custom_llm_provider=litellm_proxy&query=echo"
+        "GET", "/v1/skills?custom_llm_provider=hangarllm_proxy&query=echo"
     )
     assert response.status_code == 400, response.text
     _assert_not_configured(
@@ -282,7 +282,7 @@ def test_configured_agent_embedding_model_returns_search_score(configured_search
 def test_configured_skill_embedding_model_returns_search_score(configured_search_proxy: _SearchProxy) -> None:
     configured_search_proxy.wire.drain()
     response: Final = configured_search_proxy.owned.gateway.request(
-        "GET", "/v1/skills?custom_llm_provider=litellm_proxy&query=echo"
+        "GET", "/v1/skills?custom_llm_provider=hangarllm_proxy&query=echo"
     )
     assert response.status_code == 200, response.text
     skills: Final[Sequence[JsonValue]] = list_value(JSON_OBJECT.validate_json(response.content)["data"])

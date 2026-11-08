@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
+import hangarllm
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -45,11 +45,11 @@ async def test_xinference_image_generation():
 
     # Mock the _get_openai_client method to return our mock client
     with patch.object(
-        litellm.main.openai_chat_completions,
+        hangarllm.main.openai_chat_completions,
         "_get_openai_client",
         return_value=mock_client,
     ):
-        response = await litellm.aimage_generation(
+        response = await hangarllm.aimage_generation(
             model="xinference/stabilityai/stable-diffusion-3.5-large",
             prompt="A beautiful sunset over a calm ocean",
             api_base="http://mock.image.generation.api",
@@ -121,11 +121,11 @@ async def test_xinference_image_generation_with_response_format():
 
     # Mock the _get_openai_client method to return our mock client
     with patch.object(
-        litellm.main.openai_chat_completions,
+        hangarllm.main.openai_chat_completions,
         "_get_openai_client",
         return_value=mock_client,
     ):
-        response = await litellm.aimage_generation(
+        response = await hangarllm.aimage_generation(
             model="xinference/stabilityai/stable-diffusion-3.5-large",
             api_base="http://mock.image.generation.api",
             prompt="A beautiful sunset over a calm ocean",

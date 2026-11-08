@@ -11,12 +11,12 @@ import httpx
 import pytest
 from fastapi import Request, Response
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.proxy._types import UserAPIKeyAuth, hash_token
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import anthropic_proxy_route
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.proxy._types import UserAPIKeyAuth, hash_token
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import anthropic_proxy_route
+from hangarllm.types.utils import StandardLoggingPayload
 
 _UPSTREAM: Final = "https://api.anthropic.com/v1/messages"
 _MODEL: Final = "claude-sonnet-4-5-20250929"
@@ -78,13 +78,13 @@ def _assert_spend_payload(
 
 @pytest.fixture
 def recorder(monkeypatch: pytest.MonkeyPatch) -> _RecordingLogger:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "synthetic-anthropic-key")
     monkeypatch.delenv("ANTHROPIC_API_BASE", raising=False)
     monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
     logger: Final = _RecordingLogger(f"msg_{uuid.uuid4().hex}")
-    monkeypatch.setattr(litellm, "callbacks", [logger])
-    monkeypatch.setattr(litellm, "_async_success_callback", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [logger])
     return logger
 
 
@@ -112,7 +112,7 @@ async def test_native_anthropic_passthrough_logs_usage_tags_and_spend(respx_mock
                 "model": _MODEL,
                 "max_tokens": 10,
                 "messages": [{"role": "user", "content": "Say 'hello test' and nothing else"}],
-                "litellm_metadata": {"tags": tags},
+                "hangarllm_metadata": {"tags": tags},
             }
         ),
         fastapi_response=MagicMock(spec=Response),
@@ -166,7 +166,7 @@ async def test_native_anthropic_passthrough_streaming_logs_usage_tags_and_spend(
                 "max_tokens": 10,
                 "stream": True,
                 "messages": [{"role": "user", "content": "Say 'hello stream test' and nothing else"}],
-                "litellm_metadata": {"tags": tags, "user": "test-user-1"},
+                "hangarllm_metadata": {"tags": tags, "user": "test-user-1"},
             }
         ),
         fastapi_response=MagicMock(spec=Response),

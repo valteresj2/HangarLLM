@@ -354,7 +354,7 @@ def test_a_broken_messages_stream_counts_toward_the_budget(gateway: Gateway) -> 
             "error": {
                 "type": "invalid_request_error",
                 "message": error["message"],
-                "litellm_error_type": "budget_exceeded",
+                "hangarllm_error_type": "budget_exceeded",
             },
         }, after.text
         assert _rows(gateway, key, 2) == (metered, StatusRow(status="failure", spend=0.0))

@@ -2,12 +2,12 @@ from typing import Final
 
 import pytest
 
-from litellm._internal_context import current_service_target
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.openai_files_endpoints.file_usage_caps import (
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.openai_files_endpoints.file_usage_caps import (
     FileUsageLimit,
     ScopedFileUsageLimit,
     batch_file_record_limit,
@@ -16,7 +16,7 @@ from litellm.proxy.openai_files_endpoints.file_usage_caps import (
     enforce_file_download_limit,
     resolve_scoped_limits,
 )
-from litellm.proxy.utils import InternalUsageCache, ProxyLogging
+from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging
 
 DAY: Final = 86400
 MIDDAY: Final = 20_000 * DAY + DAY / 2
@@ -147,7 +147,7 @@ class _ServiceTargetSeen(Exception):
 
 
 class _TargetReportingCache(InternalUsageCache):
-    async def async_increment_cache(self, key, value, litellm_parent_otel_span, local_only=False, **kwargs):
+    async def async_increment_cache(self, key, value, hangarllm_parent_otel_span, local_only=False, **kwargs):
         raise _ServiceTargetSeen(current_service_target())
 
 

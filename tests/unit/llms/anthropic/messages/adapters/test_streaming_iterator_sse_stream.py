@@ -11,13 +11,13 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicSSEStream,
     AnthropicStreamWrapper,
 )
-from litellm.types.utils import Delta, StreamingChoices
+from hangarllm.types.utils import Delta, StreamingChoices
 
 
 def _make_chunk(delta: Delta, finish_reason: str | None = None) -> MagicMock:
@@ -104,7 +104,7 @@ async def test_sse_stream_close_releases_http_response_before_upstream_body(star
             stream=True,
             call_type="acompletion",
             start_time=1.0,
-            litellm_call_id="disconnect-test",
+            hangarllm_call_id="disconnect-test",
             function_id="test",
         ),
     )

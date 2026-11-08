@@ -1,6 +1,6 @@
 # Budget Code Matrix
 
-What LiteLLM actually implements for budgets: every entity that can carry a dollar
+What HangarLLM actually implements for budgets: every entity that can carry a dollar
 budget, how the limit is enforced, and where in the code it happens. This is the
 "what we support" reference; the companion `BUDGET_TEST_COVERAGE_MATRIX.md` maps
 each row to its tests and the e2e gaps.
@@ -8,7 +8,7 @@ each row to its tests and the e2e gaps.
 Over-budget surfaces as a `budget_exceeded` error (the live suite
 `tests/otel_tests/test_e2e_budgeting.py` asserts `type == "budget_exceeded"`,
 `code == "429"`); the underlying `BudgetExceededError` is defined in
-`litellm/exceptions.py` (`status_code=400`). Enforcement runs in `common_checks()`
+`hangarllm/exceptions.py` (`status_code=400`). Enforcement runs in `common_checks()`
 / `auth_checks.py` at auth time, plus pre-call reservation in
 `budget_reservation.py`.
 
@@ -21,16 +21,16 @@ deployment; **alert** = notify only, request proceeds.
 
 | Entity | Budget stored | Hard `max_budget` | Soft budget | Per-window | Model budget | Reset by `budget_duration` |
 |--------|---------------|-------------------|-------------|------------|--------------|----------------------------|
-| API key | `LiteLLM_VerificationToken` (direct cols + `budget_id` FK) | block (`_virtual_key_max_budget_check`) | alert (`_virtual_key_soft_budget_check`) + 80% alert | block (`_virtual_key_multi_budget_check`) | block (`model_max_budget_limiter.is_key_within_model_budget`) | keys reset job |
-| Internal user | `LiteLLM_UserTable` (direct cols) | block (`common_checks`, only when not on a team) | - | - | via `model_max_budget` json | users reset job |
-| Team | `LiteLLM_TeamTable` (direct cols) | block (`_team_max_budget_check`) | alert (`_team_soft_budget_check`) | block (`_team_multi_budget_check`) | via `model_max_budget` | teams reset job |
-| Team member | `LiteLLM_TeamMembership` -> `LiteLLM_BudgetTable` | block (`_check_team_member_budget`) | - | - | - | budget-table reset job |
-| End-user / customer | `LiteLLM_EndUserTable` -> `LiteLLM_BudgetTable` | block (`_check_end_user_budget`) | - | - | block (`is_end_user_within_model_budget`) | budget-table reset job |
-| Organization | `LiteLLM_OrganizationTable` -> `LiteLLM_BudgetTable` | block (`_organization_max_budget_check`) | - | - | via budget-table | budget-table reset job |
-| Tag | `LiteLLM_TagTable` -> `LiteLLM_BudgetTable` | block (`_tag_max_budget_check`) | - | - | via budget-table | budget-table reset job |
-| Project | `LiteLLM_ProjectTable` -> `LiteLLM_BudgetTable` | block (`_project_max_budget_check`) | alert (`_project_soft_budget_check`) | - | - | budget-table reset job |
+| API key | `HangarLLM_VerificationToken` (direct cols + `budget_id` FK) | block (`_virtual_key_max_budget_check`) | alert (`_virtual_key_soft_budget_check`) + 80% alert | block (`_virtual_key_multi_budget_check`) | block (`model_max_budget_limiter.is_key_within_model_budget`) | keys reset job |
+| Internal user | `HangarLLM_UserTable` (direct cols) | block (`common_checks`, only when not on a team) | - | - | via `model_max_budget` json | users reset job |
+| Team | `HangarLLM_TeamTable` (direct cols) | block (`_team_max_budget_check`) | alert (`_team_soft_budget_check`) | block (`_team_multi_budget_check`) | via `model_max_budget` | teams reset job |
+| Team member | `HangarLLM_TeamMembership` -> `HangarLLM_BudgetTable` | block (`_check_team_member_budget`) | - | - | - | budget-table reset job |
+| End-user / customer | `HangarLLM_EndUserTable` -> `HangarLLM_BudgetTable` | block (`_check_end_user_budget`) | - | - | block (`is_end_user_within_model_budget`) | budget-table reset job |
+| Organization | `HangarLLM_OrganizationTable` -> `HangarLLM_BudgetTable` | block (`_organization_max_budget_check`) | - | - | via budget-table | budget-table reset job |
+| Tag | `HangarLLM_TagTable` -> `HangarLLM_BudgetTable` | block (`_tag_max_budget_check`) | - | - | via budget-table | budget-table reset job |
+| Project | `HangarLLM_ProjectTable` -> `HangarLLM_BudgetTable` | block (`_project_max_budget_check`) | alert (`_project_soft_budget_check`) | - | - | budget-table reset job |
 | Provider (router) | config `provider_budget_config` (in-memory) | filter (`router_strategy/budget_limiter`) | - | yes (time window) | - | window TTL |
-| Global proxy | `litellm.max_budget` (config) | block (`_global_proxy_budget_check`) | - | - | - | - |
+| Global proxy | `hangarllm.max_budget` (config) | block (`_global_proxy_budget_check`) | - | - | - | - |
 
 Notes / flags from the code:
 - **User budget only enforced off-team**: `common_checks` skips the personal-user
@@ -85,7 +85,7 @@ with `{"organization_ids": [id]}`; `/budget/info` takes `{"budgets": [id]}`;
 
 | Setting | Effect |
 |---------|--------|
-| `litellm.max_budget` | proxy-wide hard cap (global proxy budget) |
+| `hangarllm.max_budget` | proxy-wide hard cap (global proxy budget) |
 | `max_internal_user_budget` / `default_max_internal_user_budget` | default `max_budget` for internal users |
 | `internal_user_budget_duration` | default reset duration for internal users |
 | `max_end_user_budget` / `max_end_user_budget_id` | default budget for end-users |

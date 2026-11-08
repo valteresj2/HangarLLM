@@ -2,7 +2,7 @@
 
 Streaming reconstructs the response, its usage and its model name from chunks after the fact, in a separate code
 path from the non-streamed one (LIT-6241, LIT-6872, LIT-7632, LIT-7729, LIT-9044, LIT-9065). Each case is a plain and
-a streamed CostTrackingTestCase for one request, sent through the same key, and both LiteLLM_SpendLogs rows must
+a streamed CostTrackingTestCase for one request, sent through the same key, and both HangarLLM_SpendLogs rows must
 bill the case's expected row.
 
 Three cells are the native routes (chat, /v1/messages, /v1/responses); the rest are the bridges that translate one

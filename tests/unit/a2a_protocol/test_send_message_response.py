@@ -1,6 +1,6 @@
-"""Tests for LiteLLMSendMessageResponse JSON-RPC normalization."""
+"""Tests for HangarLLMSendMessageResponse JSON-RPC normalization."""
 
-from litellm.types.agents import LiteLLMSendMessageResponse
+from hangarllm.types.agents import HangarLLMSendMessageResponse
 
 
 def test_from_dict_backfills_id_on_agent_error_response():
@@ -9,7 +9,7 @@ def test_from_dict_backfills_id_on_agent_error_response():
         "error": {"code": -32054, "message": "Session not found"},
     }
 
-    response = LiteLLMSendMessageResponse.from_dict(agent_error, request_id="r1")
+    response = HangarLLMSendMessageResponse.from_dict(agent_error, request_id="r1")
 
     assert response.id == "r1"
     assert response.error == {"code": -32054, "message": "Session not found"}
@@ -23,7 +23,7 @@ def test_from_dict_preserves_existing_id():
         "error": {"code": -32001, "message": "Task not found"},
     }
 
-    response = LiteLLMSendMessageResponse.from_dict(payload, request_id="r1")
+    response = HangarLLMSendMessageResponse.from_dict(payload, request_id="r1")
 
     assert response.id == "upstream-id"
 
@@ -38,7 +38,7 @@ def test_from_dict_preserves_integer_id_echoed_by_upstream():
         "result": {"kind": "task"},
     }
 
-    response = LiteLLMSendMessageResponse.from_dict(payload, request_id="r1")
+    response = HangarLLMSendMessageResponse.from_dict(payload, request_id="r1")
 
     assert response.id == 42
     assert isinstance(response.id, int)
@@ -49,7 +49,7 @@ def test_from_dict_preserves_falsy_integer_id():
     absent id and backfilled from the request id."""
     payload = {"id": 0, "jsonrpc": "2.0", "result": {}}
 
-    response = LiteLLMSendMessageResponse.from_dict(payload, request_id="r1")
+    response = HangarLLMSendMessageResponse.from_dict(payload, request_id="r1")
 
     assert response.id == 0
 
@@ -65,8 +65,8 @@ def test_backfilled_id_keeps_the_request_id_type():
         "error": {"code": -32054, "message": "Session not found"},
     }
 
-    from_int = LiteLLMSendMessageResponse.from_dict(agent_error, request_id=7)
-    from_str = LiteLLMSendMessageResponse.from_dict(agent_error, request_id="7")
+    from_int = HangarLLMSendMessageResponse.from_dict(agent_error, request_id=7)
+    from_str = HangarLLMSendMessageResponse.from_dict(agent_error, request_id="7")
 
     assert from_int.id == 7
     assert isinstance(from_int.id, int)
@@ -78,7 +78,7 @@ def test_from_dict_accepts_null_id_when_the_error_cannot_be_correlated():
     """JSON-RPC 2.0 section 5 requires ``id`` to be null on an error that cannot be
     matched to a request, which is exactly the case where the caller supplied no id
     for the backfill to use. Rejecting it turned an agent's error into a proxy 500."""
-    response = LiteLLMSendMessageResponse.from_dict({"jsonrpc": "2.0", "error": {"code": -32054, "message": "x"}})
+    response = HangarLLMSendMessageResponse.from_dict({"jsonrpc": "2.0", "error": {"code": -32054, "message": "x"}})
 
     assert response.id is None
     assert response.error == {"code": -32054, "message": "x"}
@@ -87,7 +87,7 @@ def test_from_dict_accepts_null_id_when_the_error_cannot_be_correlated():
 def test_from_dict_accepts_null_id_echoed_by_upstream():
     """An agent may answer an uncorrelatable request with an explicit ``"id": null``.
     That is a well-formed response, not a validation failure."""
-    response = LiteLLMSendMessageResponse.from_dict(
+    response = HangarLLMSendMessageResponse.from_dict(
         {"id": None, "jsonrpc": "2.0", "error": {"code": -32600, "message": "bad"}}
     )
 
@@ -101,8 +101,8 @@ def test_boolean_id_is_never_relayed_as_an_integer():
     Both directions in one test, since either alone leaves the other free to regress."""
     agent_error = {"jsonrpc": "2.0", "error": {"code": -32054, "message": "x"}}
 
-    echoed = LiteLLMSendMessageResponse.from_dict({"id": True, "jsonrpc": "2.0", "result": {}})
-    backfilled = LiteLLMSendMessageResponse.from_dict(agent_error, request_id=True)
+    echoed = HangarLLMSendMessageResponse.from_dict({"id": True, "jsonrpc": "2.0", "result": {}})
+    backfilled = HangarLLMSendMessageResponse.from_dict(agent_error, request_id=True)
 
     assert echoed.id == "True"
     assert backfilled.id == "True"

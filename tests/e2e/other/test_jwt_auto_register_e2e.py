@@ -3,7 +3,7 @@
 `unregistered_jwt_client_behavior: auto_register` on `virtual_key_claim_field: sub` mints a fresh
 virtual key on the user's first JWT call. With `auto_register_map_existing_key: true` the proxy must
 instead point the new JWT mapping at a key the resolved user already owns, and mint only when the
-user has none. Each behavior gets its own gateway because the flag lives in `litellm_jwtauth`, so
+user has none. Each behavior gets its own gateway because the flag lives in `hangarllm_jwtauth`, so
 this file boots two owned proxies against the shared database and Keycloak realm.
 """
 
@@ -49,7 +49,7 @@ def _ping() -> ChatBody:
 
 
 def _identity_with_user(idp: Keycloak, client: OtherClient, resources: ResourceManager) -> Identity:
-    """An IdP identity plus the litellm user and team its claims resolve to, with
+    """An IdP identity plus the hangarllm user and team its claims resolve to, with
     teardown that also sweeps the user's keys and JWT mapping rows the proxy
     wrote, since those outlive the user row itself."""
     marker: Final = unique_marker()
@@ -96,7 +96,7 @@ def mapping_gateway(idp: Keycloak, tmp_path_factory: pytest.TempPathFactory) -> 
             idp,
             tmp_path_factory.mktemp("jwt-mapping"),
             cleanup,
-            litellm_jwtauth=f"{_JWT_COMMON}\nauto_register_map_existing_key: true",
+            hangarllm_jwtauth=f"{_JWT_COMMON}\nauto_register_map_existing_key: true",
             name="jwt-mapping-gateway",
         )
 
@@ -108,7 +108,7 @@ def minting_gateway(idp: Keycloak, tmp_path_factory: pytest.TempPathFactory) -> 
             idp,
             tmp_path_factory.mktemp("jwt-minting"),
             cleanup,
-            litellm_jwtauth=_JWT_COMMON,
+            hangarllm_jwtauth=_JWT_COMMON,
             name="jwt-minting-gateway",
         )
 

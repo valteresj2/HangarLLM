@@ -92,7 +92,7 @@ def test_idp_failure_stops_stack_startup(tmp_path: Path, failure: str, code: int
 
 
 def test_readiness_requires_the_imported_realm_on_the_configured_port(tmp_path: Path) -> None:
-    expected_path = "/realms/litellm-e2e/.well-known/openid-configuration"
+    expected_path = "/realms/hangarllm-e2e/.well-known/openid-configuration"
     observed_paths: list[str] = []
 
     class Discovery(BaseHTTPRequestHandler):

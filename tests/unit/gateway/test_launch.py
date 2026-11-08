@@ -16,27 +16,27 @@ from uvicorn.importer import import_from_string
 from uvicorn.main import main as uvicorn_main
 
 from gateway.launch import GATEWAY_APP, main, pool_database_url, uvicorn_argv
-from litellm.proxy.db.db_url_settings import DatabaseURLSettings
-from litellm.proxy.db.pgbouncer import PGBOUNCER_POOLED_ENV_VAR, PgBouncerError, PgBouncerSettings
-from litellm.proxy.proxy_server import app as proxy_app
+from hangarllm.proxy.db.db_url_settings import DatabaseURLSettings
+from hangarllm.proxy.db.pgbouncer import PGBOUNCER_POOLED_ENV_VAR, PgBouncerError, PgBouncerSettings
+from hangarllm.proxy.proxy_server import app as proxy_app
 
 DB_ENV: Final = {
     "DATABASE_HOST": "db.internal",
     "DATABASE_PORT": "5432",
-    "DATABASE_USER": "litellm_pool",
-    "DATABASE_NAME": "litellm",
+    "DATABASE_USER": "hangarllm_pool",
+    "DATABASE_NAME": "hangarllm",
     "DATABASE_PASSWORD": "p@ss",
 }
 
 
-def test_a_uvicorn_worker_reimports_the_launcher_without_loading_litellm():
+def test_a_uvicorn_worker_reimports_the_launcher_without_loading_hangarllm():
     reimported: Final = subprocess.run(
         [
             sys.executable,
             "-I",
             "-c",
             'import runpy, sys; runpy.run_module("gateway.launch", run_name="__mp_main__", alter_sys=True); '
-            'print("litellm" in sys.modules)',
+            'print("hangarllm" in sys.modules)',
         ],
         capture_output=True,
         text=True,
@@ -154,7 +154,7 @@ class TestPoolDatabaseUrl:
     def test_a_disabled_pooler_yields_no_url_to_install(self, password_env: dict[str, str]):
         settings: Final = DatabaseURLSettings.from_env()
         settings.apply_to_env()
-        environ: Final = {"DATABASE_URL": "postgresql://litellm_pool:p%40ss@db.internal:5432/litellm"}
+        environ: Final = {"DATABASE_URL": "postgresql://hangarllm_pool:p%40ss@db.internal:5432/hangarllm"}
         assert pool_database_url(settings, PgBouncerSettings(enabled=False), environ) is None
 
     def test_a_missing_upstream_url_is_reported(self, password_env: dict[str, str]):
@@ -169,7 +169,7 @@ class TestPoolDatabaseUrl:
         monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
         monkeypatch.setenv("AWS_REGION_NAME", "us-east-1")
         port: Final = _free_port()
-        environ: Final = {"DATABASE_URL": "postgresql://litellm:MINTED_TOKEN@db.internal:5432/litellm"}
+        environ: Final = {"DATABASE_URL": "postgresql://hangarllm:MINTED_TOKEN@db.internal:5432/hangarllm"}
         with _minted_iam_token("MINTED_TOKEN"):
             outcome: Final = pool_database_url(
                 DatabaseURLSettings.from_env(),
@@ -178,7 +178,7 @@ class TestPoolDatabaseUrl:
             )
         assert isinstance(outcome, str), outcome
         pooled: Final = urllib.parse.urlsplit(outcome)
-        assert (pooled.username, pooled.hostname, pooled.port) == ("litellm_pgbouncer", "127.0.0.1", port)
+        assert (pooled.username, pooled.hostname, pooled.port) == ("hangarllm_pgbouncer", "127.0.0.1", port)
         assert "MINTED_TOKEN" not in outcome
 
 
@@ -187,9 +187,9 @@ class TestMain:
         self, password_env: dict[str, str], monkeypatch: pytest.MonkeyPatch, socket_tempdir: Path
     ):
         port: Final = _free_port()
-        monkeypatch.setenv("LITELLM_PGBOUNCER_ENABLED", "true")
-        monkeypatch.setenv("LITELLM_PGBOUNCER_PORT", str(port))
-        monkeypatch.setenv("LITELLM_PGBOUNCER_BINARY", str(_fake_pooler(socket_tempdir)))
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_ENABLED", "true")
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_PORT", str(port))
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_BINARY", str(_fake_pooler(socket_tempdir)))
         monkeypatch.setenv("KEEPALIVE_TIMEOUT", "75")
         served: Final[list[tuple[str, ...]]] = []
         main(("--workers", "4"), serve=lambda argv: served.append(tuple(argv)))
@@ -197,7 +197,7 @@ class TestMain:
         pooled: Final = os.environ["DATABASE_URL"]
         assert urllib.parse.urlsplit(pooled).hostname == "127.0.0.1"
         assert urllib.parse.urlsplit(pooled).port == port
-        assert urllib.parse.urlsplit(pooled).username == "litellm_pgbouncer"
+        assert urllib.parse.urlsplit(pooled).username == "hangarllm_pgbouncer"
         assert "p%40ss" not in pooled
         assert _query(pooled)["pgbouncer"] == "true"
         assert _uvicorn_params(served[0])["timeout_keep_alive"] == 75
@@ -213,9 +213,9 @@ class TestMain:
         monkeypatch.delenv("DATABASE_PASSWORD")
         monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
         monkeypatch.setenv("AWS_REGION_NAME", "us-east-1")
-        monkeypatch.setenv("LITELLM_PGBOUNCER_ENABLED", "true")
-        monkeypatch.setenv("LITELLM_PGBOUNCER_PORT", str(port))
-        monkeypatch.setenv("LITELLM_PGBOUNCER_BINARY", str(_fake_pooler(socket_tempdir)))
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_ENABLED", "true")
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_PORT", str(port))
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_BINARY", str(_fake_pooler(socket_tempdir)))
         served: Final[list[tuple[str, ...]]] = []
         with _minted_iam_token("SUPERVISOR_TOKEN"):
             main(("--workers", "4"), serve=lambda argv: served.append(tuple(argv)))
@@ -232,8 +232,8 @@ class TestMain:
     def test_a_pooler_that_cannot_start_stops_the_gateway_before_uvicorn(
         self, password_env: dict[str, str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ):
-        monkeypatch.setenv("LITELLM_PGBOUNCER_ENABLED", "true")
-        monkeypatch.setenv("LITELLM_PGBOUNCER_BINARY", str(tmp_path / "missing-pgbouncer"))
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_ENABLED", "true")
+        monkeypatch.setenv("HANGARLLM_PGBOUNCER_BINARY", str(tmp_path / "missing-pgbouncer"))
         served: Final[list[tuple[str, ...]]] = []
         with pytest.raises(SystemExit) as stopped:
             main(("--workers", "4"), serve=lambda argv: served.append(tuple(argv)))

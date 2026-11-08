@@ -1,4 +1,4 @@
-"""A /v1/messages stream LiteLLM builds from a complete reply (web search interception, a fallback's answer, a guardrail
+"""A /v1/messages stream HangarLLM builds from a complete reply (web search interception, a fallback's answer, a guardrail
 rewrite) carries the ``stop_details`` and ``safeguard_results`` a real Anthropic stream puts on its ``message_delta``."""
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ REFUSAL_STOP_DETAILS: Final[Mapping[str, JsonValue]] = {
 }
 _FRAME_BOUNDARY: Final = re.compile(rb"(?<=\n\n)")
 
-LITELLM_SETTINGS: Final[Mapping[str, JsonValue]] = {
+HANGARLLM_SETTINGS: Final[Mapping[str, JsonValue]] = {
     "callbacks": ["websearch_interception"],
     "websearch_interception_params": {"enabled_providers": ["anthropic"], "search_tool_name": "tavily-search"},
 }
@@ -106,7 +106,7 @@ def extra_models(wire_url: str) -> Sequence[Mapping[str, JsonValue]]:
 def top_level(wire_url: str) -> Mapping[str, JsonValue]:
     tavily: Final[Mapping[str, JsonValue]] = {
         "search_tool_name": "tavily-search",
-        "litellm_params": {
+        "hangarllm_params": {
             "search_provider": "tavily",
             "api_key": "synthetic-tavily-key",
             "api_base": f"{wire_url}/tavily",
@@ -114,7 +114,7 @@ def top_level(wire_url: str) -> Mapping[str, JsonValue]:
     }
     tool_permission: Final[Mapping[str, JsonValue]] = {
         "guardrail_name": TOOL_PERMISSION,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "tool_permission",
             "mode": "post_call",
             "default_on": False,
@@ -125,7 +125,7 @@ def top_level(wire_url: str) -> Mapping[str, JsonValue]:
     }
     pipeline_rewrite: Final[Mapping[str, JsonValue]] = {
         "guardrail_name": PIPELINE_REWRITE,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "custom_code",
             "mode": "post_call",
             "default_on": False,
@@ -159,7 +159,7 @@ def top_level(wire_url: str) -> Mapping[str, JsonValue]:
 def synthesizing(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
     directory: Final = tmp_path_factory.mktemp("synthesized-streams")
     with safeguards_rig(
-        directory, litellm_settings=LITELLM_SETTINGS, top_level=top_level, extra_models=extra_models
+        directory, hangarllm_settings=HANGARLLM_SETTINGS, top_level=top_level, extra_models=extra_models
     ) as rig:
         yield rig
 

@@ -2,11 +2,11 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.brave.search.transformation import BraveSearchConfig
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.brave.search.transformation import BraveSearchConfig
 
 
-def _transform(payload: object, query: str = "q=litellm") -> SearchResponse:
+def _transform(payload: object, query: str = "q=hangarllm") -> SearchResponse:
     request = httpx.Request("GET", f"https://api.search.brave.com/res/v1/web/search?{query}")
     return BraveSearchConfig().transform_search_response(
         raw_response=httpx.Response(200, json=payload, request=request), logging_obj=None
@@ -21,13 +21,13 @@ def test_brave_results_are_mapped_section_by_section_with_normalized_dates():
     response = _transform(
         {
             "type": "search",
-            "query": {"original": "litellm"},
+            "query": {"original": "hangarllm"},
             "web": {
                 "type": "search",
                 "results": [
                     {
-                        "title": "LiteLLM",
-                        "url": "https://example.com/litellm",
+                        "title": "HangarLLM",
+                        "url": "https://example.com/hangarllm",
                         "description": "Call every LLM API",
                         "page_age": "2024-03-02T10:00:00",
                         "age": "January 1, 2020",
@@ -49,8 +49,8 @@ def test_brave_results_are_mapped_section_by_section_with_normalized_dates():
     assert response.object == "search"
     assert response.results == [
         SearchResult(
-            title="LiteLLM",
-            url="https://example.com/litellm",
+            title="HangarLLM",
+            url="https://example.com/hangarllm",
             snippet="Call every LLM API",
             date="2024-03-02",
             last_updated="2023-11-14",
@@ -65,7 +65,7 @@ def test_brave_results_are_mapped_section_by_section_with_normalized_dates():
     "payload",
     [
         {},
-        {"type": "search", "query": {"original": "litellm"}},
+        {"type": "search", "query": {"original": "hangarllm"}},
         {"web": {}},
         {"web": {"results": []}, "news": {"results": []}},
         {"web": {"results": ""}},
@@ -88,7 +88,7 @@ def test_brave_count_limits_results_across_sections_without_reading_entries_past
             "web": {"results": [_entry(1), _entry(2), "not a result object"]},
             "news": {"results": ["not a result object"]},
         },
-        query="q=litellm&count=2",
+        query="q=hangarllm&count=2",
     )
 
     assert [result.title for result in response.results] == ["Title 1", "Title 2"]
@@ -97,7 +97,7 @@ def test_brave_count_limits_results_across_sections_without_reading_entries_past
 def test_brave_result_filter_restricts_the_sections_that_are_read():
     response = _transform(
         {"web": {"results": [_entry(1)]}, "news": {"results": [_entry(2)]}, "videos": None},
-        query="q=litellm&result_filter=news",
+        query="q=hangarllm&result_filter=news",
     )
 
     assert [result.title for result in response.results] == ["Title 2"]
@@ -120,4 +120,4 @@ def test_brave_result_with_several_non_string_fields_reports_every_field():
 @pytest.mark.parametrize("payload", [{"web": {"results": [_entry(1)]}}, {}, [], "plain text body"])
 def test_brave_non_integer_count_is_reported_whatever_the_response_body_is(payload):
     with pytest.raises(ValueError, match="invalid literal for int"):
-        _transform(payload, query="q=litellm&count=abc")
+        _transform(payload, query="q=hangarllm&count=abc")

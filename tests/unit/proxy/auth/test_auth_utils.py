@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request
 
-import litellm
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.auth_utils import (
+import hangarllm
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.auth.auth_utils import (
     _allow_model_level_clientside_configurable_parameters,
     _get_customer_id_from_standard_headers,
     abbreviate_api_key,
@@ -35,9 +35,9 @@ from litellm.proxy.auth.auth_utils import (
     get_request_route_template,
     is_request_body_safe,
 )
-from litellm.router import Router
-from litellm.types.utils import oauth_token_exchange_litellm_params, server_owned_wif_litellm_params
-from litellm.types.workload_identity import ANTHROPIC_WIF_KWARGS_KEYS, OPENAI_WIF_KWARGS_KEYS
+from hangarllm.router import Router
+from hangarllm.types.utils import oauth_token_exchange_hangarllm_params, server_owned_wif_hangarllm_params
+from hangarllm.types.workload_identity import ANTHROPIC_WIF_KWARGS_KEYS, OPENAI_WIF_KWARGS_KEYS
 
 
 @pytest.mark.parametrize(
@@ -65,7 +65,7 @@ def test_token_exchange_settings_in_request_body_are_rejected(field: str) -> Non
     assert field in str(error.value)
 
 
-@pytest.mark.parametrize("field", oauth_token_exchange_litellm_params)
+@pytest.mark.parametrize("field", oauth_token_exchange_hangarllm_params)
 @pytest.mark.parametrize("route", ("/v1/mcp/server", "/v1/mcp/server/abc123"))
 def test_mcp_server_management_body_may_set_token_exchange_settings(field: str, route: str) -> None:
     assert (
@@ -80,7 +80,7 @@ def test_mcp_server_management_body_may_set_token_exchange_settings(field: str, 
     )
 
 
-@pytest.mark.parametrize("field", oauth_token_exchange_litellm_params)
+@pytest.mark.parametrize("field", oauth_token_exchange_hangarllm_params)
 @pytest.mark.parametrize("route", ("/chat/completions", "/v1/mcp/serverfoo"))
 def test_token_exchange_settings_remain_banned_outside_mcp_server_management(field: str, route: str) -> None:
     with pytest.raises(ValueError, match=field):
@@ -124,7 +124,7 @@ def test_model_opt_in_cannot_allow_a_token_exchange_endpoint_in_a_request_body()
         model_list=[
             {
                 "model_name": "microsoft_365_copilot/chat",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "microsoft_365_copilot/chat",
                     "configurable_clientside_auth_params": ["token_exchange_endpoint"],
                 },
@@ -149,7 +149,7 @@ def test_model_opt_in_cannot_allow_a_token_exchange_endpoint_in_a_request_body()
 
 @pytest.mark.parametrize(
     "param",
-    sorted(ANTHROPIC_WIF_KWARGS_KEYS | OPENAI_WIF_KWARGS_KEYS | set(oauth_token_exchange_litellm_params)),
+    sorted(ANTHROPIC_WIF_KWARGS_KEYS | OPENAI_WIF_KWARGS_KEYS | set(oauth_token_exchange_hangarllm_params)),
 )
 def test_every_server_owned_identity_param_is_refused_from_a_request_body(param: str):
     with pytest.raises(
@@ -164,14 +164,14 @@ def test_every_server_owned_identity_param_is_refused_from_a_request_body(param:
         )
 
 
-def _client_router_config(placement: str, litellm_params: dict[str, str]) -> dict[str, object]:
+def _client_router_config(placement: str, hangarllm_params: dict[str, str]) -> dict[str, object]:
     if placement == "model_list":
-        return {"model_list": [{"model_name": "gpt-5.4-nano", "litellm_params": litellm_params}]}
-    return {"default_litellm_params": litellm_params}
+        return {"model_list": [{"model_name": "gpt-5.4-nano", "hangarllm_params": hangarllm_params}]}
+    return {"default_hangarllm_params": hangarllm_params}
 
 
-@pytest.mark.parametrize("param", server_owned_wif_litellm_params)
-@pytest.mark.parametrize("placement", ["model_list", "default_litellm_params"])
+@pytest.mark.parametrize("param", server_owned_wif_hangarllm_params)
+@pytest.mark.parametrize("placement", ["model_list", "default_hangarllm_params"])
 def test_every_server_owned_auth_param_is_refused_from_a_client_router_config(param: str, placement: str):
     user_config: Final = _client_router_config(placement, {"model": "openai/gpt-5.4-nano", param: "attacker-chosen"})
     with pytest.raises(
@@ -189,29 +189,29 @@ def test_every_server_owned_auth_param_is_refused_from_a_client_router_config(pa
 @pytest.mark.parametrize(
     "body",
     [
-        {"model": "claude-sonnet-5", "litellm_credential_name": "admin-wif"},
-        {"model": "claude-sonnet-5", "litellm_params": {"litellm_credential_name": "admin-wif"}},
+        {"model": "claude-sonnet-5", "hangarllm_credential_name": "admin-wif"},
+        {"model": "claude-sonnet-5", "hangarllm_params": {"hangarllm_credential_name": "admin-wif"}},
         {
             "model": "claude-sonnet-5",
             "user_config": _client_router_config(
-                "model_list", {"model": "anthropic/claude-sonnet-5", "litellm_credential_name": "admin-wif"}
+                "model_list", {"model": "anthropic/claude-sonnet-5", "hangarllm_credential_name": "admin-wif"}
             ),
         },
         {
             "model": "claude-sonnet-5",
-            "user_config": _client_router_config("default_litellm_params", {"litellm_credential_name": "admin-wif"}),
+            "user_config": _client_router_config("default_hangarllm_params", {"hangarllm_credential_name": "admin-wif"}),
         },
     ],
-    ids=["top_level", "nested_litellm_params", "client_router_model_list", "client_router_defaults"],
+    ids=["top_level", "nested_hangarllm_params", "client_router_model_list", "client_router_defaults"],
 )
 def test_a_request_body_cannot_pick_a_federated_identity_by_credential_name(monkeypatch, body: dict):
     """Naming a federated credential moves the token exchange onto that credential's federation rule
     and organization just as sending the fields inline does, so the ban on the inline form has to
     cover the reference too."""
-    from litellm.types.utils import CredentialItem
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -240,10 +240,10 @@ def test_a_request_body_cannot_pick_a_federated_identity_by_credential_name(monk
 def test_a_request_body_may_still_name_a_credential_that_does_not_federate(monkeypatch):
     """Only federation makes a credential a deployment decision. An ordinary named credential stays
     usable from a request body, so the ban must read what the credential holds, not its presence."""
-    from litellm.types.utils import CredentialItem
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -256,7 +256,7 @@ def test_a_request_body_may_still_name_a_credential_that_does_not_federate(monke
 
     assert (
         is_request_body_safe(
-            request_body={"model": "claude-sonnet-5", "litellm_credential_name": "plain-key"},
+            request_body={"model": "claude-sonnet-5", "hangarllm_credential_name": "plain-key"},
             general_settings={"allow_client_side_credentials": True},
             llm_router=None,
             model="claude-sonnet-5",
@@ -268,10 +268,10 @@ def test_a_request_body_may_still_name_a_credential_that_does_not_federate(monke
 @pytest.fixture
 def federated_credential(monkeypatch):
     """A stored credential that federates, so a body naming it is the reference the ban targets."""
-    from litellm.types.utils import CredentialItem
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -299,10 +299,10 @@ def federated_credential(monkeypatch):
 @pytest.mark.parametrize(
     "body",
     [
-        {"model": "claude-sonnet-5", "litellm_credential_name": "admin-wif"},
-        {"model": "claude-sonnet-5", "litellm_params": {"litellm_credential_name": "admin-wif"}},
+        {"model": "claude-sonnet-5", "hangarllm_credential_name": "admin-wif"},
+        {"model": "claude-sonnet-5", "hangarllm_params": {"hangarllm_credential_name": "admin-wif"}},
     ],
-    ids=["top_level", "nested_litellm_params"],
+    ids=["top_level", "nested_hangarllm_params"],
 )
 def test_configuring_a_deployment_may_name_a_federated_credential(federated_credential, route: str, body: dict):
     """Attaching a federated credential to a deployment is the decision the ban tells the caller to
@@ -339,7 +339,7 @@ def test_a_call_still_cannot_pick_a_federated_identity_by_credential_name(federa
         match="names a credential configured for workload identity federation or OAuth token exchange",
     ):
         is_request_body_safe(
-            request_body={"model": "claude-sonnet-5", "litellm_credential_name": "admin-wif"},
+            request_body={"model": "claude-sonnet-5", "hangarllm_credential_name": "admin-wif"},
             general_settings={"allow_client_side_credentials": True},
             llm_router=None,
             model="claude-sonnet-5",
@@ -367,28 +367,28 @@ def test_configuring_a_deployment_still_cannot_carry_federation_fields_inline(ro
 _SERVICE_ACCOUNT_TOKEN_REFERENCE: Final = "oidc/file//var/run/secrets/kubernetes.io/serviceaccount/token"
 
 
-def _user_config_with(litellm_params: dict[str, str]) -> dict[str, object]:
-    return {"model_list": [{"model_name": "devstral", "litellm_params": {"model": "mistral/devstral-latest", **litellm_params}}]}
+def _user_config_with(hangarllm_params: dict[str, str]) -> dict[str, object]:
+    return {"model_list": [{"model_name": "devstral", "hangarllm_params": {"model": "mistral/devstral-latest", **hangarllm_params}}]}
 
 
-def _user_config_defaulting_to(litellm_params: dict[str, str]) -> dict[str, object]:
+def _user_config_defaulting_to(hangarllm_params: dict[str, str]) -> dict[str, object]:
     return {
         "model_list": [
             {
                 "model_name": "devstral",
-                "litellm_params": {"model": "mistral/devstral-latest", "api_base": "https://attacker.example"},
+                "hangarllm_params": {"model": "mistral/devstral-latest", "api_base": "https://attacker.example"},
             }
         ],
-        "default_litellm_params": litellm_params,
+        "default_hangarllm_params": hangarllm_params,
     }
 
 
-def _user_config_search_tool_with(litellm_params: dict[str, str]) -> dict[str, object]:
+def _user_config_search_tool_with(hangarllm_params: dict[str, str]) -> dict[str, object]:
     return {
         "search_tools": [
             {
                 "search_tool_name": "web",
-                "litellm_params": {"search_provider": "tavily", "api_base": "https://attacker.example", **litellm_params},
+                "hangarllm_params": {"search_provider": "tavily", "api_base": "https://attacker.example", **hangarllm_params},
             }
         ]
     }
@@ -396,10 +396,10 @@ def _user_config_search_tool_with(litellm_params: dict[str, str]) -> dict[str, o
 
 @pytest.fixture
 def oidc_api_key_credential(monkeypatch):
-    from litellm.types.utils import CredentialItem
+    from hangarllm.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -415,9 +415,9 @@ def _vector_store_embedding_config_with(embedding_config: dict[str, str]) -> dic
     return {
         "vector_store_id": "docs",
         "custom_llm_provider": "milvus",
-        "litellm_params": {
+        "hangarllm_params": {
             "api_base": "https://milvus.example",
-            "litellm_embedding_config": {"api_base": "https://attacker.example", **embedding_config},
+            "hangarllm_embedding_config": {"api_base": "https://attacker.example", **embedding_config},
         },
     }
 
@@ -475,15 +475,15 @@ def test_a_request_body_cannot_carry_an_oidc_api_key_reference(route: str | None
 @pytest.mark.parametrize(
     "body",
     [
-        {"model": "devstral", "litellm_credential_name": "admin-oidc"},
+        {"model": "devstral", "hangarllm_credential_name": "admin-oidc"},
         {
             "model": "devstral",
             "user_config": _user_config_with(
-                {"litellm_credential_name": "admin-oidc", "api_base": "https://attacker.example"}
+                {"hangarllm_credential_name": "admin-oidc", "api_base": "https://attacker.example"}
             ),
         },
-        {"model": "devstral", "user_config": _user_config_defaulting_to({"litellm_credential_name": "admin-oidc"})},
-        _vector_store_embedding_config_with({"litellm_credential_name": "admin-oidc"}),
+        {"model": "devstral", "user_config": _user_config_defaulting_to({"hangarllm_credential_name": "admin-oidc"})},
+        _vector_store_embedding_config_with({"hangarllm_credential_name": "admin-oidc"}),
     ],
     ids=["top_level", "user_config", "user_config_defaults", "vector_store_embedding_config"],
 )
@@ -498,10 +498,10 @@ def test_a_request_body_cannot_name_a_credential_holding_an_oidc_api_key(oidc_ap
 
 
 @pytest.mark.parametrize("route", [None, "/chat/completions"])
-def test_a_call_cannot_carry_an_oidc_api_key_in_litellm_params(route: str | None):
+def test_a_call_cannot_carry_an_oidc_api_key_in_hangarllm_params(route: str | None):
     with pytest.raises(ValueError, match="api_key holds an oidc/ secret reference"):
         is_request_body_safe(
-            request_body={"model": "devstral", "litellm_params": {"api_key": _SERVICE_ACCOUNT_TOKEN_REFERENCE}},
+            request_body={"model": "devstral", "hangarllm_params": {"api_key": _SERVICE_ACCOUNT_TOKEN_REFERENCE}},
             general_settings={"allow_client_side_credentials": True},
             llm_router=None,
             model="devstral",
@@ -510,14 +510,14 @@ def test_a_call_cannot_carry_an_oidc_api_key_in_litellm_params(route: str | None
 
 
 @pytest.mark.parametrize("route", ["/model/new", "/model/update", "/model/deployment-1/update", "/health/test_connection"])
-def test_a_deployment_write_may_carry_an_oidc_api_key_in_litellm_params(route: str):
+def test_a_deployment_write_may_carry_an_oidc_api_key_in_hangarllm_params(route: str):
     """A proxy admin configures an oidc/ api_key on a deployment through these routes, and the model management role
     gate refuses anyone else with a 403."""
     assert (
         is_request_body_safe(
             request_body={
                 "model": "devstral",
-                "litellm_params": {"model": "mistral/devstral-latest", "api_key": _SERVICE_ACCOUNT_TOKEN_REFERENCE},
+                "hangarllm_params": {"model": "mistral/devstral-latest", "api_key": _SERVICE_ACCOUNT_TOKEN_REFERENCE},
             },
             general_settings={},
             llm_router=None,
@@ -530,7 +530,7 @@ def test_a_deployment_write_may_carry_an_oidc_api_key_in_litellm_params(route: s
 
 _OIDC_DEPLOYMENT_PARAMS: Final = (
     pytest.param({"model": "mistral/devstral-latest", "api_key": _SERVICE_ACCOUNT_TOKEN_REFERENCE}, id="inline"),
-    pytest.param({"model": "mistral/devstral-latest", "litellm_credential_name": "admin-oidc"}, id="named_credential"),
+    pytest.param({"model": "mistral/devstral-latest", "hangarllm_credential_name": "admin-oidc"}, id="named_credential"),
 )
 
 
@@ -539,21 +539,21 @@ _OIDC_DEPLOYMENT_PARAMS: Final = (
 def test_a_base_override_cannot_send_the_deployments_oidc_api_key(
     oidc_api_key_credential, deployment_params: dict, override: str
 ):
-    from litellm.exceptions import BadRequestError
-    from litellm.litellm_core_utils.clientside_credential_handler import get_dynamic_litellm_params
+    from hangarllm.exceptions import BadRequestError
+    from hangarllm.hangarllm_core_utils.clientside_credential_handler import get_dynamic_hangarllm_params
 
     with pytest.raises(BadRequestError, match="api_key is an oidc/ secret reference"):
-        get_dynamic_litellm_params(
-            litellm_params=dict(deployment_params), request_kwargs={override: "https://caller.example/v1"}
+        get_dynamic_hangarllm_params(
+            hangarllm_params=dict(deployment_params), request_kwargs={override: "https://caller.example/v1"}
         )
 
 
 @pytest.mark.parametrize("deployment_params", _OIDC_DEPLOYMENT_PARAMS)
 def test_a_base_override_with_the_callers_own_api_key_is_allowed(oidc_api_key_credential, deployment_params: dict):
-    from litellm.litellm_core_utils.clientside_credential_handler import get_dynamic_litellm_params
+    from hangarllm.hangarllm_core_utils.clientside_credential_handler import get_dynamic_hangarllm_params
 
-    out: Final = get_dynamic_litellm_params(
-        litellm_params=dict(deployment_params),
+    out: Final = get_dynamic_hangarllm_params(
+        hangarllm_params=dict(deployment_params),
         request_kwargs={"api_base": "https://caller.example/v1", "api_key": "sk-caller"},
     )
     assert (out["api_base"], out["api_key"]) == ("https://caller.example/v1", "sk-caller")
@@ -563,7 +563,7 @@ def test_test_connection_may_name_a_credential_holding_an_oidc_api_key(oidc_api_
     """The admin UI tests a stored credential by name, which is how a proxy admin checks an oidc/ api_key works."""
     assert (
         is_request_body_safe(
-            request_body={"model": "devstral", "litellm_params": {"litellm_credential_name": "admin-oidc"}},
+            request_body={"model": "devstral", "hangarllm_params": {"hangarllm_credential_name": "admin-oidc"}},
             general_settings={},
             llm_router=None,
             model="devstral",
@@ -597,7 +597,7 @@ class TestCustomAuthCommonChecksWarning:
         )
         assert warning is not None
         assert "custom_auth_run_common_checks: true" in warning
-        assert "https://docs.litellm.ai/docs/proxy/custom_auth" in warning
+        assert "https://github.com/valteresj2/HangarLLM#readme" in warning
 
     def test_no_warning_when_common_checks_enabled(self):
         assert (
@@ -632,7 +632,7 @@ class TestWarnOnceIfCustomAuthSkipsCommonChecks:
     @pytest.fixture(autouse=True)
     def _reset_sentinel(self, monkeypatch):
         monkeypatch.setattr(
-            "litellm.proxy.auth.auth_utils._custom_auth_common_checks_warning_emitted",
+            "hangarllm.proxy.auth.auth_utils._custom_auth_common_checks_warning_emitted",
             False,
         )
 
@@ -661,12 +661,12 @@ class TestLogOnceIfBudgetReservationDisabled:
     @pytest.fixture(autouse=True)
     def _reset_sentinel(self, monkeypatch):
         monkeypatch.setattr(
-            "litellm.constants.budget_reservation_disabled_info_emitted",
+            "hangarllm.constants.budget_reservation_disabled_info_emitted",
             False,
         )
 
     def test_logs_info_only_once_when_enabled(self, caplog):
-        with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.INFO, logger="HangarLLM Proxy"):
             log_once_if_budget_reservation_disabled(disabled=False)
             assert not any("disable_budget_reservation is enabled" in record.message for record in caplog.records)
             for _ in range(3):
@@ -878,7 +878,7 @@ class TestGetKeyModelTpmLimit:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "model1",
-                "litellm_params": {"default_api_key_tpm_limit": "not-a-number"},
+                "hangarllm_params": {"default_api_key_tpm_limit": "not-a-number"},
             },
             _make_deployment_dict("model1", tpm=500),
         ]
@@ -891,15 +891,15 @@ class TestGetKeyModelTpmLimit:
 class TestGetCustomerIdFromStandardHeaders:
     """Tests for _get_customer_id_from_standard_headers helper function."""
 
-    def test_should_return_customer_id_from_x_litellm_customer_id_header(self):
-        """Should extract customer ID from x-litellm-customer-id header."""
-        headers = {"x-litellm-customer-id": "customer-123"}
+    def test_should_return_customer_id_from_x_hangarllm_customer_id_header(self):
+        """Should extract customer ID from x-hangarllm-customer-id header."""
+        headers = {"x-hangarllm-customer-id": "customer-123"}
         result = _get_customer_id_from_standard_headers(request_headers=headers)
         assert result == "customer-123"
 
-    def test_should_return_customer_id_from_x_litellm_end_user_id_header(self):
-        """Should extract customer ID from x-litellm-end-user-id header."""
-        headers = {"x-litellm-end-user-id": "end-user-456"}
+    def test_should_return_customer_id_from_x_hangarllm_end_user_id_header(self):
+        """Should extract customer ID from x-hangarllm-end-user-id header."""
+        headers = {"x-hangarllm-end-user-id": "end-user-456"}
         result = _get_customer_id_from_standard_headers(request_headers=headers)
         assert result == "end-user-456"
 
@@ -920,10 +920,10 @@ class TestGetEndUserIdFromRequestBodyWithStandardHeaders:
 
     def test_should_prioritize_standard_header_over_body_user(self):
         """Standard customer ID header should take precedence over body user field."""
-        headers = {"x-litellm-customer-id": "header-customer"}
+        headers = {"x-hangarllm-customer-id": "header-customer"}
         request_body = {"user": "body-user"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers=headers)
         assert result == "header-customer"
 
@@ -932,7 +932,7 @@ class TestGetEndUserIdFromRequestBodyWithStandardHeaders:
         headers = {"x-other-header": "value"}
         request_body = {"user": "body-user"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers=headers)
         assert result == "body-user"
 
@@ -944,20 +944,20 @@ def _request_dispatched_to(endpoint) -> Request:
 
 
 def _pass_through_endpoint():
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+        HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     def endpoint():  # stand-in for create_pass_through_route's handler
         ...
 
-    setattr(endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, True)
     return endpoint
 
 
 def test_get_model_from_request_skips_pass_through_dispatched_request():
     """When FastAPI dispatched the request to a user-defined pass-through handler,
-    the body `model` names an upstream model and must not be treated as a LiteLLM
+    the body `model` names an upstream model and must not be treated as a HangarLLM
     model for allowlist/budget enforcement."""
     assert (
         get_model_from_request(
@@ -1068,13 +1068,13 @@ def test_laya_model_normalization_does_not_change_other_provider_routes() -> Non
 
 
 def _cache_prediction_router():
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": group,
-                "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "test-provider-key"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "test-provider-key"},
                 "model_info": {"id": deployment_id, "team_id": team_id},
             }
             for group, deployment_id, team_id in (
@@ -1123,30 +1123,30 @@ def _cache_prediction_auth_app(
 
     from fastapi import FastAPI
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj, LiteLLM_UserTable, LitellmUserRoles, ProxyException
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
-    from litellm.proxy.management_endpoints import prompt_cache_prediction as endpoint
-    from litellm.proxy.utils import InternalUsageCache, ProxyLogging
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj, HangarLLM_UserTable, HangarllmUserRoles, ProxyException
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
+    from hangarllm.proxy.management_endpoints import prompt_cache_prediction as endpoint
+    from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging
 
-    auth = importlib.import_module("litellm.proxy.auth.user_api_key_auth")
+    auth = importlib.import_module("hangarllm.proxy.auth.user_api_key_auth")
     router = _cache_prediction_router()
     allowed_models = ["current-group", "candidate-group", "own-group"]
     token = UserAPIKeyAuth(
         api_key="test-proxy-key-hash",
         user_id="prediction-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         models=allowed_models if key_models is None else key_models,
         team_id=team_id,
         team_models=allowed_models if team_models is None else team_models,
         allowed_routes=allowed_routes,
         metadata=metadata or {},
     )
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id=token.user_id,
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         models=user_models,
     )
 
@@ -1163,7 +1163,7 @@ def _cache_prediction_auth_app(
 
     monkeypatch.setattr(auth, "user_api_key_auth_builder", authenticate)
     monkeypatch.setattr(auth, "get_user_object", AsyncMock(return_value=user))
-    team = LiteLLM_TeamTableCachedObj(team_id=team_id, models=token.team_models) if team_id else None
+    team = HangarLLM_TeamTableCachedObj(team_id=team_id, models=token.team_models) if team_id else None
     monkeypatch.setattr(auth, "get_team_object", AsyncMock(return_value=team))
     monkeypatch.setattr(auth_checks, "get_team_object", AsyncMock(return_value=team))
     monkeypatch.setattr(auth_checks, "get_team_membership", AsyncMock(return_value=None))
@@ -1336,7 +1336,7 @@ async def test_cache_prediction_preserves_authenticated_header_and_key_tag_rpm(
         ["current-group", "candidate-group"],
         metadata={"tag_rpm_limit": {"limited": limit}, "tags": key_tags},
     )
-    headers = {"x-litellm-tags": header_tag} if header_tag else {}
+    headers = {"x-hangarllm-tags": header_tag} if header_tag else {}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/cost/predict-cache", json=_cache_prediction_payload(), headers=headers)
         assert response.status_code == status_code, response.text
@@ -1481,13 +1481,13 @@ def test_get_model_from_request_bedrock_unparseable_endpoint_keeps_body_model():
 
 
 def _azure_relay_router():
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": "gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure_ai/gpt-5.4-mini",
                     "api_base": "https://a.services.ai.azure.com",
                     "api_key": "k",
@@ -1495,7 +1495,7 @@ def _azure_relay_router():
             },
             {
                 "model_name": "other-group",
-                "litellm_params": {"model": "azure/gpt-5.4", "api_base": "https://b.openai.azure.com", "api_key": "k"},
+                "hangarllm_params": {"model": "azure/gpt-5.4", "api_base": "https://b.openai.azure.com", "api_key": "k"},
             },
         ]
     )
@@ -1517,13 +1517,13 @@ def test_get_model_from_request_azure_relay_routes_use_the_model_group_in_the_pa
 
 
 def _nvidia_nim_relay_router():
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": "nim-page-elements",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2",
                     "api_base": "http://nim-a.internal:8000",
                     "api_key": "k",
@@ -1531,7 +1531,7 @@ def _nvidia_nim_relay_router():
             },
             {
                 "model_name": "nvidia/nemoretriever-table-structure-v1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "nvidia_nim/nvidia/nemoretriever-table-structure-v1",
                     "api_base": "http://nim-b.internal:8000",
                     "api_key": "k",
@@ -1539,11 +1539,11 @@ def _nvidia_nim_relay_router():
             },
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k"},
             },
             {
                 "model_name": "detect",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2",
                     "api_base": "http://nim-a.internal:8000",
                     "api_key": "k",
@@ -1551,7 +1551,7 @@ def _nvidia_nim_relay_router():
             },
             {
                 "model_name": "detect",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k"},
             },
         ]
     )
@@ -1597,7 +1597,7 @@ def test_get_model_from_request_includes_file_endpoint_header_model():
         get_model_from_request(
             request_data={},
             route="/v1/files",
-            request_headers={"X-LiteLLM-Model": "restricted-model"},
+            request_headers={"X-HangarLLM-Model": "restricted-model"},
         )
         == "restricted-model"
     )
@@ -1608,7 +1608,7 @@ def test_get_model_from_request_ignores_routing_header_on_standard_llm_routes():
         get_model_from_request(
             request_data={"model": "allowed-model"},
             route="/v1/chat/completions",
-            request_headers={"x-litellm-model": "restricted-model"},
+            request_headers={"x-hangarllm-model": "restricted-model"},
         )
         == "allowed-model"
     )
@@ -1618,7 +1618,7 @@ def test_get_model_from_request_authorizes_all_file_routing_model_sources():
     models = get_model_from_request(
         request_data={"model": "body-model"},
         route="/v1/files",
-        request_headers={"x-litellm-model": "header-model"},
+        request_headers={"x-hangarllm-model": "header-model"},
         request_query_params={"target_model_names": "query-model-a,query-model-b"},
     )
     assert isinstance(models, list)
@@ -1631,7 +1631,7 @@ def test_get_model_from_request_authorizes_all_file_routing_model_sources():
 
 
 def test_get_model_from_request_extracts_simple_encoded_file_id_model():
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from hangarllm.proxy.openai_files_endpoints.common_utils import (
         encode_file_id_with_model,
     )
 
@@ -1651,7 +1651,7 @@ def test_get_model_from_request_extracts_simple_encoded_file_id_model():
 
 def test_get_model_from_request_extracts_unified_file_id_models():
     raw_unified_file_id = (
-        "litellm_proxy:application/octet-stream;unified_id,test-id;"
+        "hangarllm_proxy:application/octet-stream;unified_id,test-id;"
         "target_model_names,model-a,model-b;llm_output_file_id,file-provider-id"
     )
     encoded_unified_file_id = base64.urlsafe_b64encode(raw_unified_file_id.encode()).decode().rstrip("=")
@@ -1684,7 +1684,7 @@ def test_get_model_from_request_includes_fine_tuning_target_model_query():
 
 
 def test_get_model_from_request_extracts_video_id_model():
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from hangarllm.types.videos.utils import encode_video_id_with_provider
 
     video_id = encode_video_id_with_provider(
         video_id="video-provider-id",
@@ -1702,7 +1702,7 @@ def test_get_model_from_request_extracts_video_id_model():
 
 
 def test_get_model_from_request_resolves_video_id_model_with_router():
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from hangarllm.types.videos.utils import encode_video_id_with_provider
 
     provider_video_id = (
         "projects/test-project/locations/us-central1/publishers/google/models/"
@@ -1717,7 +1717,7 @@ def test_get_model_from_request_resolves_video_id_model_with_router():
         model_list=[
             {
                 "model_name": "gcp/google/veo-3.1-generate-001",
-                "litellm_params": {"model": "vertex_ai/veo-3.1-generate-001"},
+                "hangarllm_params": {"model": "vertex_ai/veo-3.1-generate-001"},
             }
         ]
     )
@@ -1733,13 +1733,13 @@ def test_get_model_from_request_resolves_video_id_model_with_router():
 
 
 def test_get_model_from_request_checks_the_group_of_the_deployment_that_created_the_video() -> None:
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from hangarllm.types.videos.utils import encode_video_id_with_provider
 
     llm_router: Final = Router(
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
+                "hangarllm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
                 "model_info": {"id": f"dep-{name}"},
             }
             for name in ("sora-team", "sora-shared")
@@ -1760,13 +1760,13 @@ def test_get_model_from_request_checks_the_group_of_the_deployment_that_created_
 
 
 def test_get_model_from_request_checks_a_video_created_through_a_provider_wildcard_by_its_own_name() -> None:
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from hangarllm.types.videos.utils import encode_video_id_with_provider
 
     llm_router: Final = Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "wildcard-key"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "wildcard-key"},
                 "model_info": {"id": "dep-wildcard"},
             }
         ]
@@ -1790,13 +1790,13 @@ def test_get_model_from_request_checks_a_video_created_through_a_provider_wildca
 
 
 def test_get_model_from_request_checks_a_wildcard_video_whose_bare_name_does_not_route_by_its_prefixed_name() -> None:
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from hangarllm.types.videos.utils import encode_video_id_with_provider
 
     llm_router: Final = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*", "api_key": "wildcard-key"},
+                "hangarllm_params": {"model": "gemini/*", "api_key": "wildcard-key"},
                 "model_info": {"id": "dep-wildcard"},
             }
         ]
@@ -1820,7 +1820,7 @@ def _sora_fallback_router() -> Router:
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
+                "hangarllm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
                 "model_info": {"id": f"dep-{name}"},
             }
             for name in ("sora-pair", "sora-backup", "sora-last", "sora-other")
@@ -1853,9 +1853,9 @@ def test_get_model_from_request_checks_a_fallback_served_video_by_the_requested_
     creating_group: str,
     expected: str,
 ) -> None:
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from hangarllm.types.videos.utils import encode_video_id_with_provider
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
     video_id: Final = encode_video_id_with_provider(
         video_id="video_raw",
         provider="azure",
@@ -1878,20 +1878,20 @@ _BATCH_DEPLOYMENT_ID = "8d0eaa7e6c6f54a425dfd0062cb6b0dc"
 
 
 def _managed_batch_router():
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
                 },
                 "model_info": {"id": _BATCH_DEPLOYMENT_ID},
             },
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
                 "model_info": {"id": "a-different-deployment-id"},
             },
         ]
@@ -1902,9 +1902,9 @@ def _encode_managed_id(decoded: str) -> str:
     return base64.urlsafe_b64encode(decoded.encode()).decode().rstrip("=")
 
 
-_MANAGED_BATCH_ID = _encode_managed_id(f"litellm_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123")
+_MANAGED_BATCH_ID = _encode_managed_id(f"hangarllm_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123")
 _MANAGED_BATCH_OUTPUT_FILE_ID = _encode_managed_id(
-    f"litellm_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123;"
+    f"hangarllm_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123;"
     "llm_output_file_id:provider-file-456"
 )
 
@@ -1946,8 +1946,8 @@ async def test_managed_batch_routes_pass_team_model_access_check(route, request_
     """End-to-end regression for #32580: a team scoped to the batch model group got
     ``team_model_access_denied`` on retrieve/cancel because the deployment id, not the
     model group, was authorized. Fails pre-fix with the deployment id in the message."""
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth.auth_checks import can_team_access_model
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth.auth_checks import can_team_access_model
 
     llm_router = _managed_batch_router()
     model = get_model_from_request(request_data=request_data, route=route, llm_router=llm_router)
@@ -1955,7 +1955,7 @@ async def test_managed_batch_routes_pass_team_model_access_check(route, request_
     assert (
         await can_team_access_model(
             model=model,
-            team_object=LiteLLM_TeamTable(team_id="team-batch", models=["bedrock-batch-model"]),
+            team_object=HangarLLM_TeamTable(team_id="team-batch", models=["bedrock-batch-model"]),
             llm_router=llm_router,
         )
         is True
@@ -1964,7 +1964,7 @@ async def test_managed_batch_routes_pass_team_model_access_check(route, request_
     with pytest.raises(Exception, match="is not available for this API key"):
         await can_team_access_model(
             model=model,
-            team_object=LiteLLM_TeamTable(team_id="team-other", models=["some-other-model"]),
+            team_object=HangarLLM_TeamTable(team_id="team-other", models=["some-other-model"]),
             llm_router=llm_router,
         )
 
@@ -1973,7 +1973,7 @@ _TEAM_DEPLOYMENT_ID: Final = "team-a-deployment-id"
 _TEAM_INTERNAL_MODEL_NAME: Final = "model_name_team-a_6d1f3c2e-0000-4000-8000-000000000000"
 _TEAM_PUBLIC_MODEL_NAME: Final = "team-batch-model"
 _TEAM_MANAGED_BATCH_ID: Final = _encode_managed_id(
-    f"litellm_proxy;model_id:{_TEAM_DEPLOYMENT_ID};llm_batch_id:provider-batch-789"
+    f"hangarllm_proxy;model_id:{_TEAM_DEPLOYMENT_ID};llm_batch_id:provider-batch-789"
 )
 
 
@@ -1982,7 +1982,7 @@ def _team_scoped_router(public_model_name: str | None = _TEAM_PUBLIC_MODEL_NAME)
         model_list=[
             {
                 "model_name": _TEAM_INTERNAL_MODEL_NAME,
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
                 "model_info": {
                     "id": _TEAM_DEPLOYMENT_ID,
                     "team_id": "team-a",
@@ -1994,7 +1994,7 @@ def _team_scoped_router(public_model_name: str | None = _TEAM_PUBLIC_MODEL_NAME)
 
 
 def _team_scoped_character_id() -> str:
-    from litellm.types.videos.utils import encode_character_id_with_provider
+    from hangarllm.types.videos.utils import encode_character_id_with_provider
 
     return encode_character_id_with_provider(character_id="char_team", provider="openai", model_id=_TEAM_DEPLOYMENT_ID)
 
@@ -2009,7 +2009,7 @@ def _team_scoped_character_id() -> str:
             "/v1/fine_tuning/jobs/{fine_tuning_job_id}",
             {
                 "fine_tuning_job_id": _encode_managed_id(
-                    f"litellm_proxy;model_id:{_TEAM_DEPLOYMENT_ID};generic_response_id:ftjob-1"
+                    f"hangarllm_proxy;model_id:{_TEAM_DEPLOYMENT_ID};generic_response_id:ftjob-1"
                 )
             },
             id="fine-tuning-job",
@@ -2018,7 +2018,7 @@ def _team_scoped_character_id() -> str:
             "/v1/vector_stores/{vector_store_id}",
             {
                 "vector_store_id": _encode_managed_id(
-                    "litellm_proxy:vector_store;unified_id,vs-unified;"
+                    "hangarllm_proxy:vector_store;unified_id,vs-unified;"
                     f"target_model_names,{_TEAM_PUBLIC_MODEL_NAME};resource_id,vs_1;model_id,{_TEAM_DEPLOYMENT_ID}"
                 )
             },
@@ -2034,8 +2034,8 @@ def _team_scoped_character_id() -> str:
 async def test_team_scoped_managed_ids_authorize_only_the_owning_team_by_public_name(
     route: str, request_data: dict[str, str]
 ) -> None:
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.auth_checks import can_key_call_resolved_model
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.auth.auth_checks import can_key_call_resolved_model
 
     llm_router: Final = _team_scoped_router()
 
@@ -2057,8 +2057,8 @@ async def test_team_scoped_managed_ids_authorize_only_the_owning_team_by_public_
 
 @pytest.mark.asyncio
 async def test_legacy_team_alias_authorizes_a_team_batch_only_for_keys_granted_the_alias() -> None:
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.auth_checks import can_key_call_resolved_model
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.auth.auth_checks import can_key_call_resolved_model
 
     llm_router: Final = _team_scoped_router(public_model_name=None)
 
@@ -2088,7 +2088,7 @@ async def test_legacy_team_alias_authorizes_a_team_batch_only_for_keys_granted_t
 
 
 def test_get_model_from_request_resolves_character_id_model_with_router():
-    from litellm.types.videos.utils import encode_character_id_with_provider
+    from hangarllm.types.videos.utils import encode_character_id_with_provider
 
     character_id = encode_character_id_with_provider(
         character_id="character-provider-id",
@@ -2112,11 +2112,11 @@ def test_get_model_from_request_resolves_character_id_model_with_router():
 def test_get_model_from_request_only_runs_media_decoders_for_matching_fields():
     with (
         patch(
-            "litellm.types.videos.utils.decode_video_id_with_provider",
+            "hangarllm.types.videos.utils.decode_video_id_with_provider",
             return_value={"model_id": "video-model"},
         ) as video_decoder,
         patch(
-            "litellm.types.videos.utils.decode_character_id_with_provider",
+            "hangarllm.types.videos.utils.decode_character_id_with_provider",
             return_value={"model_id": "character-model"},
         ) as character_decoder,
     ):
@@ -2156,15 +2156,15 @@ def test_get_model_from_request_only_runs_media_decoders_for_matching_fields():
 def test_get_model_from_request_handles_managed_id_decoder_failures():
     with (
         patch(
-            "litellm.proxy.openai_files_endpoints.common_utils.decode_model_from_file_id",
+            "hangarllm.proxy.openai_files_endpoints.common_utils.decode_model_from_file_id",
             side_effect=Exception("decode failed"),
         ),
         patch(
-            "litellm.llms.base_llm.managed_resources.utils.parse_unified_id",
+            "hangarllm.llms.base_llm.managed_resources.utils.parse_unified_id",
             side_effect=Exception("parse failed"),
         ),
         patch(
-            "litellm.types.videos.utils.decode_video_id_with_provider",
+            "hangarllm.types.videos.utils.decode_video_id_with_provider",
             side_effect=Exception("video decode failed"),
         ),
     ):
@@ -2201,7 +2201,7 @@ def test_get_model_from_request_extracts_realtime_session_model(route):
     validate the model a restricted key is actually requesting.
 
     Regression test for the model-access bypass on the GA Realtime WebRTC
-    HTTP routes (https://github.com/BerriAI/litellm/issues/29923).
+    HTTP routes (upstream issue 29923).
     """
     assert (
         get_model_from_request(
@@ -2251,60 +2251,60 @@ def test_abbreviate_api_key_short_key_is_fully_masked():
 
 
 def test_get_customer_user_header_returns_none_when_no_customer_role():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from hangarllm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
-    mappings = [{"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"}]
+    mappings = [{"header_name": "X-OpenWebUI-User-Id", "hangarllm_user_role": "internal_user"}]
     result = get_customer_user_header_from_mapping(mappings)
     assert result is None
 
 
 def test_get_customer_user_header_returns_none_for_single_non_customer_mapping():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from hangarllm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
-    mapping = {"header_name": "X-Only-Internal", "litellm_user_role": "internal_user"}
+    mapping = {"header_name": "X-Only-Internal", "hangarllm_user_role": "internal_user"}
     result = get_customer_user_header_from_mapping(mapping)
     assert result is None
 
 
 def test_get_customer_user_header_from_mapping_returns_customer_header():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from hangarllm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
     mappings = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"},
-        {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
+        {"header_name": "X-OpenWebUI-User-Id", "hangarllm_user_role": "internal_user"},
+        {"header_name": "X-OpenWebUI-User-Email", "hangarllm_user_role": "customer"},
     ]
     result = get_customer_user_header_from_mapping(mappings)
     assert result == ["x-openwebui-user-email"]
 
 
 def test_get_customer_user_header_returns_customers_header_in_config_order_when_multiple_exist():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from hangarllm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
     mappings = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"},
-        {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
-        {"header_name": "X-User-Id", "litellm_user_role": "customer"},
+        {"header_name": "X-OpenWebUI-User-Id", "hangarllm_user_role": "internal_user"},
+        {"header_name": "X-OpenWebUI-User-Email", "hangarllm_user_role": "customer"},
+        {"header_name": "X-User-Id", "hangarllm_user_role": "customer"},
     ]
     result = get_customer_user_header_from_mapping(mappings)
     assert result == ["x-openwebui-user-email", "x-user-id"]
 
 
 def test_get_end_user_id_returns_id_from_user_header_mappings():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from hangarllm.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     mappings = [
-        {"header_name": "x-openwebui-user-id", "litellm_user_role": "internal_user"},
-        {"header_name": "x-openwebui-user-email", "litellm_user_role": "customer"},
+        {"header_name": "x-openwebui-user-id", "hangarllm_user_role": "internal_user"},
+        {"header_name": "x-openwebui-user-email", "hangarllm_user_role": "customer"},
     ]
     general_settings = {"user_header_mappings": mappings}
     headers = {"x-openwebui-user-email": "1234"}
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "hangarllm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("hangarllm.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(request_body={}, request_headers=headers)
 
@@ -2312,12 +2312,12 @@ def test_get_end_user_id_returns_id_from_user_header_mappings():
 
 
 def test_get_end_user_id_returns_first_customer_header_when_multiple_mappings_exist():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from hangarllm.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     mappings = [
-        {"header_name": "x-openwebui-user-id", "litellm_user_role": "internal_user"},
-        {"header_name": "x-user-id", "litellm_user_role": "customer"},
-        {"header_name": "x-openwebui-user-email", "litellm_user_role": "customer"},
+        {"header_name": "x-openwebui-user-id", "hangarllm_user_role": "internal_user"},
+        {"header_name": "x-user-id", "hangarllm_user_role": "customer"},
+        {"header_name": "x-openwebui-user-email", "hangarllm_user_role": "customer"},
     ]
     general_settings = {"user_header_mappings": mappings}
     headers = {
@@ -2327,10 +2327,10 @@ def test_get_end_user_id_returns_first_customer_header_when_multiple_mappings_ex
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "hangarllm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("hangarllm.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(request_body={}, request_headers=headers)
 
@@ -2338,20 +2338,20 @@ def test_get_end_user_id_returns_first_customer_header_when_multiple_mappings_ex
 
 
 def test_get_end_user_id_returns_none_when_no_customer_role_in_mappings():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from hangarllm.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     mappings = [
-        {"header_name": "x-openwebui-user-id", "litellm_user_role": "internal_user"},
+        {"header_name": "x-openwebui-user-id", "hangarllm_user_role": "internal_user"},
     ]
     general_settings = {"user_header_mappings": mappings}
     headers = {"x-openwebui-user-id": "user-789"}
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "hangarllm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("hangarllm.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(request_body={}, request_headers=headers)
 
@@ -2359,17 +2359,17 @@ def test_get_end_user_id_returns_none_when_no_customer_role_in_mappings():
 
 
 def test_get_end_user_id_falls_back_to_deprecated_user_header_name():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from hangarllm.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     general_settings = {"user_header_name": "x-custom-user-id"}
     headers = {"x-custom-user-id": "user-legacy"}
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "hangarllm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("hangarllm.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(request_body={}, request_headers=headers)
 
@@ -2380,17 +2380,17 @@ class TestCoerceUserIdToStr:
     """Unit tests for the _coerce_user_id_to_str helper."""
 
     def test_plain_string_is_returned_verbatim(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("alice@example.com") == "alice@example.com"
 
     def test_string_is_stripped(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("  bob  ") == "bob"
 
     def test_codex_opaque_identifier_is_preserved(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         codex_id = (
             "user_8a4a360c36621665b341e06fb76041d9b6def732bb183eea148d4abc9d97c1de"
@@ -2399,18 +2399,18 @@ class TestCoerceUserIdToStr:
         assert _coerce_user_id_to_str(codex_id) == codex_id
 
     def test_none_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str(None) is None
 
     def test_empty_string_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("") is None
         assert _coerce_user_id_to_str("   ") is None
 
     def test_dict_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         payload = {
             "device_id": "abc",
@@ -2420,7 +2420,7 @@ class TestCoerceUserIdToStr:
         assert _coerce_user_id_to_str(payload) is None
 
     def test_list_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str(["a", "b"]) is None
 
@@ -2430,65 +2430,65 @@ class TestCoerceUserIdToStr:
         This preserves backwards compatibility: existing deployments that
         intentionally pass JSON-encoded user identifiers keep working.
         """
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import hangarllm
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         blob = (
             '{"device_id":"d5abe9199ee7759a0558974e9371e78c7b38d7621aae26d6609c1de61af6afb0",'
             '"account_uuid":"","session_id":"c284b8cb-a050-4278-8599-cc4e016a10ab"}'
         )
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = False
+        original = hangarllm.validate_end_user_id_in_db
+        hangarllm.validate_end_user_id_in_db = False
         try:
             assert _coerce_user_id_to_str(blob) == blob
         finally:
-            litellm.validate_end_user_id_in_db = original
+            hangarllm.validate_end_user_id_in_db = original
 
     def test_json_encoded_dict_string_returns_none_when_validation_enabled(self):
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import hangarllm
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         # Same broken shape we saw in spend logs, but pre-stringified to JSON.
         blob = (
             '{"device_id":"d5abe9199ee7759a0558974e9371e78c7b38d7621aae26d6609c1de61af6afb0",'
             '"account_uuid":"","session_id":"c284b8cb-a050-4278-8599-cc4e016a10ab"}'
         )
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = True
+        original = hangarllm.validate_end_user_id_in_db
+        hangarllm.validate_end_user_id_in_db = True
         try:
             assert _coerce_user_id_to_str(blob) is None
         finally:
-            litellm.validate_end_user_id_in_db = original
+            hangarllm.validate_end_user_id_in_db = original
 
     def test_json_encoded_list_string_passes_through_by_default(self):
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import hangarllm
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = False
+        original = hangarllm.validate_end_user_id_in_db
+        hangarllm.validate_end_user_id_in_db = False
         try:
             assert _coerce_user_id_to_str('["a","b"]') == '["a","b"]'
         finally:
-            litellm.validate_end_user_id_in_db = original
+            hangarllm.validate_end_user_id_in_db = original
 
     def test_json_encoded_list_string_returns_none_when_validation_enabled(self):
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import hangarllm
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = True
+        original = hangarllm.validate_end_user_id_in_db
+        hangarllm.validate_end_user_id_in_db = True
         try:
             assert _coerce_user_id_to_str('["a","b"]') is None
         finally:
-            litellm.validate_end_user_id_in_db = original
+            hangarllm.validate_end_user_id_in_db = original
 
     def test_int_returns_str(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str(12345) == "12345"
 
     def test_bool_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         # bool is an int subclass — reject explicitly, never produce "True"/"False".
         assert _coerce_user_id_to_str(True) is None
@@ -2496,7 +2496,7 @@ class TestCoerceUserIdToStr:
 
     def test_brace_string_that_isnt_json_is_kept(self):
         """A string starting with `{` but failing to parse stays as-is."""
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from hangarllm.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("{not json") == "{not json"
 
@@ -2505,16 +2505,16 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     """Tests that get_end_user_id_from_request_body drops dict-shaped values
     rather than stringifying them into spend logs."""
 
-    def test_dict_user_falls_through_to_litellm_metadata(self):
+    def test_dict_user_falls_through_to_hangarllm_metadata(self):
         request_body = {
             "user": {
                 "device_id": "abc",
                 "session_id": "c284b8cb",
             },
-            "litellm_metadata": {"user": "alice@example.com"},
+            "hangarllm_metadata": {"user": "alice@example.com"},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result == "alice@example.com"
@@ -2524,7 +2524,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "user": {"device_id": "abc", "session_id": "xyz"},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result is None
@@ -2532,27 +2532,27 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     def test_json_encoded_user_string_passes_through_by_default(self):
         """JSON-encoded user strings pass through unless validation is opted in.
 
-        Gating behind ``litellm.validate_end_user_id_in_db`` keeps existing
+        Gating behind ``hangarllm.validate_end_user_id_in_db`` keeps existing
         deployments that send JSON-encoded identifiers working until they
         explicitly opt into the stricter extraction.
         """
-        import litellm
+        import hangarllm
 
         blob = '{"device_id":"d5abe9199ee7759a","account_uuid":"","session_id":"c284b8cb-a050-4278-8599-cc4e016a10ab"}'
         request_body = {"user": blob}
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = False
+        original = hangarllm.validate_end_user_id_in_db
+        hangarllm.validate_end_user_id_in_db = False
         try:
-            with patch("litellm.proxy.proxy_server.general_settings", {}):
+            with patch("hangarllm.proxy.proxy_server.general_settings", {}):
                 result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
         finally:
-            litellm.validate_end_user_id_in_db = original
+            hangarllm.validate_end_user_id_in_db = original
 
         assert result == blob
 
     def test_json_encoded_user_string_returns_none_when_validation_enabled(self):
-        import litellm
+        import hangarllm
 
         request_body = {
             "user": (
@@ -2560,20 +2560,20 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             ),
         }
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = True
+        original = hangarllm.validate_end_user_id_in_db
+        hangarllm.validate_end_user_id_in_db = True
         try:
-            with patch("litellm.proxy.proxy_server.general_settings", {}):
+            with patch("hangarllm.proxy.proxy_server.general_settings", {}):
                 result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
         finally:
-            litellm.validate_end_user_id_in_db = original
+            hangarllm.validate_end_user_id_in_db = original
 
         assert result is None
 
     def test_plain_string_user_is_preserved(self):
         request_body = {"user": "alice@example.com"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result == "alice@example.com"
@@ -2585,7 +2585,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
         )
         request_body = {"user": codex_id}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result == codex_id
@@ -2593,7 +2593,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     def test_int_user_is_coerced_to_string(self):
         request_body = {"user": 12345}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result == "12345"
@@ -2604,7 +2604,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "safety_identifier": "alice@example.com",
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result == "alice@example.com"
@@ -2614,7 +2614,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "safety_identifier": {"device_id": "abc"},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result is None
@@ -2624,7 +2624,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "metadata": {"user_id": {"device_id": "abc"}},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result is None
@@ -2632,7 +2632,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     def test_whitespace_user_falls_through(self):
         request_body = {"user": "   ", "safety_identifier": "alice@example.com"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers={})
 
         assert result == "alice@example.com"
@@ -2647,10 +2647,10 @@ class TestGetEndUserIdDropsMalformedBodyValues:
 
         with (
             patch(
-                "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+                "hangarllm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
                 return_value=None,
             ),
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
+            patch("hangarllm.proxy.proxy_server.general_settings", general_settings),
         ):
             result = get_end_user_id_from_request_body(request_body=request_body, request_headers=headers)
 
@@ -2659,15 +2659,15 @@ class TestGetEndUserIdDropsMalformedBodyValues:
 
 def _make_deployment_dict(model_name: str, tpm: Optional[int] = None, rpm: Optional[int] = None) -> dict:
     """Helper to build a minimal deployment dict as returned by router.registry().deployments()."""
-    litellm_params: dict = {"model": model_name}
+    hangarllm_params: dict = {"model": model_name}
     if tpm is not None:
-        litellm_params["default_api_key_tpm_limit"] = tpm
+        hangarllm_params["default_api_key_tpm_limit"] = tpm
     if rpm is not None:
-        litellm_params["default_api_key_rpm_limit"] = rpm
-    return {"model_name": model_name, "litellm_params": litellm_params}
+        hangarllm_params["default_api_key_rpm_limit"] = rpm
+    return {"model_name": model_name, "hangarllm_params": hangarllm_params}
 
 
-_ROUTER_PATCH = "litellm.proxy.proxy_server.llm_router"
+_ROUTER_PATCH = "hangarllm.proxy.proxy_server.llm_router"
 
 
 class TestDeploymentDefaultRpmLimit:
@@ -2753,7 +2753,7 @@ class TestDeploymentDefaultRpmLimit:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "model1",
-                "litellm_params": {"default_api_key_rpm_limit": "not-a-number"},
+                "hangarllm_params": {"default_api_key_rpm_limit": "not-a-number"},
             },
             _make_deployment_dict("model1", rpm=100),
         ]
@@ -2921,16 +2921,16 @@ class TestCheckCompleteCredentialsBlocksSSRF:
     the gate accepts ``api_key=anything`` plus a malicious target and the
     proxy is used as an SSRF pivot.
 
-    The check only runs when ``litellm.user_url_validation`` is True, so
+    The check only runs when ``hangarllm.user_url_validation`` is True, so
     every test in this class flips the toggle. Tests stay mock-only — no
     real DNS is performed.
     """
 
     @pytest.fixture(autouse=True)
     def _enable_url_validation(self, monkeypatch):
-        import litellm
+        import hangarllm
 
-        monkeypatch.setattr(litellm, "user_url_validation", True, raising=False)
+        monkeypatch.setattr(hangarllm, "user_url_validation", True, raising=False)
 
     @pytest.mark.parametrize(
         "url_field",
@@ -2947,10 +2947,10 @@ class TestCheckCompleteCredentialsBlocksSSRF:
         ],
     )
     def test_rejects_private_or_metadata_targets(self, url_field, blocked_url):
-        from litellm.litellm_core_utils.url_utils import SSRFError
+        from hangarllm.hangarllm_core_utils.url_utils import SSRFError
 
         with patch(
-            "litellm.proxy.auth.auth_utils.validate_url",
+            "hangarllm.proxy.auth.auth_utils.validate_url",
             side_effect=SSRFError(f"blocked: {blocked_url}"),
         ):
             with pytest.raises(ValueError, match="is rejected by the SSRF guard") as exc_info:
@@ -2967,7 +2967,7 @@ class TestCheckCompleteCredentialsBlocksSSRF:
     def test_allows_public_target_when_validate_url_passes(self):
         # ``validate_url`` is mocked so no real DNS is performed.
         with patch(
-            "litellm.proxy.auth.auth_utils.validate_url",
+            "hangarllm.proxy.auth.auth_utils.validate_url",
             return_value=("https://api.openai.com/v1", "api.openai.com"),
         ):
             result = check_complete_credentials(
@@ -2983,11 +2983,11 @@ class TestCheckCompleteCredentialsBlocksSSRF:
         # Admins who disable ``user_url_validation`` (default) should not
         # have requests rejected at the proxy boundary even if the URL
         # would fail the SSRF guard.
-        import litellm
+        import hangarllm
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(hangarllm, "user_url_validation", False, raising=False)
         with patch(
-            "litellm.proxy.auth.auth_utils.validate_url",
+            "hangarllm.proxy.auth.auth_utils.validate_url",
         ) as mocked:
             result = check_complete_credentials(
                 {
@@ -3000,7 +3000,7 @@ class TestCheckCompleteCredentialsBlocksSSRF:
         mocked.assert_not_called()
 
 
-class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
+class TestGetDynamicHangarllmParamsClearsAdminConfigOnBaseOverride:
     """
     When the caller redirects ``api_base`` / ``base_url`` to their own
     server, admin-set fields like ``OpenAI-Organization``, ``extra_body``,
@@ -3009,8 +3009,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
     """
 
     def test_clears_admin_organization_and_extra_body_on_base_override(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
         admin_params = {
@@ -3021,8 +3021,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "extra_body": {"x-admin-secret": "super-secret"},
             "api_version": "2026-04-01",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params=dict(admin_params),
             request_kwargs={
                 "api_key": "sk-attacker",
                 "api_base": "https://attacker.example",
@@ -3035,8 +3035,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert "api_version" not in out
 
     def test_clears_aws_and_vertex_secrets_on_base_override(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
         admin_params = {
@@ -3047,8 +3047,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "vertex_credentials": '{"private_key":"-----BEGIN..."}',
             "vertex_project": "admin-gcp-project",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params=dict(admin_params),
             request_kwargs={"base_url": "https://attacker.example", "api_key": "sk-caller"},
         )
         assert "aws_access_key_id" not in out
@@ -3058,8 +3058,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert "vertex_project" not in out
 
     def test_clears_nvcf_function_id_on_base_override(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
         admin_params = {
@@ -3068,16 +3068,16 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "api_key": "nvapi-admin",
             "nvcf_function_id": "admin-pinned-function",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params=dict(admin_params),
             request_kwargs={"api_base": "self-hosted.example.com:50051", "api_key": "sk-caller"},
         )
         assert out["api_base"] == "self-hosted.example.com:50051"
         assert "nvcf_function_id" not in out
 
     def test_clears_use_ssl_on_base_override(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
         admin_params = {
@@ -3086,15 +3086,15 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "api_key": "nvapi-admin",
             "use_ssl": True,
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params=dict(admin_params),
             request_kwargs={"api_base": "self-hosted.example.com:50051", "api_key": "sk-caller"},
         )
         assert out["api_base"] == "self-hosted.example.com:50051"
         assert "use_ssl" not in out
 
     def test_clears_oauth_token_exchange_fields_for_other_provider_base_overrides(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import get_dynamic_litellm_params
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import get_dynamic_hangarllm_params
 
         oauth_values: Final = {
             "token_exchange_audience": "https://graph.microsoft.com",
@@ -3104,8 +3104,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "client_id": "copilot-client",
             "client_secret": "copilot-secret",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params={
                 "model": "openai/gpt-4o",
                 "api_base": "https://admin.example.com/v1",
                 **oauth_values,
@@ -3116,7 +3116,7 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert all(field not in out for field in oauth_values)
 
     def test_clears_oauth_token_exchange_fields_for_microsoft_365_copilot_base_overrides(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import get_dynamic_litellm_params
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import get_dynamic_hangarllm_params
 
         oauth_values: Final = {
             "token_exchange_audience": "https://graph.microsoft.com",
@@ -3126,8 +3126,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "client_id": "copilot-client",
             "client_secret": "copilot-secret",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params={
                 "model": "microsoft_365_copilot/chat",
                 "api_base": "https://graph.microsoft.com/beta",
                 **oauth_values,
@@ -3146,12 +3146,12 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         # the field name with any value (or empty string) to keep the
         # admin's value forwarded, which is the exfiltration vector this
         # test guards against.
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params={
                 "api_base": "https://admin.upstream/v1",
                 "organization": "org-admin",
                 "extra_body": {"admin": "value"},
@@ -3168,17 +3168,17 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
 
     def test_per_user_oauth_credential_survives_base_override(self):
         # Fail-closed: a caller-redirected api_base must not drop
-        # litellm_credential_name / github_copilot_auth_type off a per-user
+        # hangarllm_credential_name / github_copilot_auth_type off a per-user
         # deployment, which would flip the call to shared mode and send the
         # admin's Copilot token to the attacker's host. Keeping them is safe
         # because per-user mode ignores the caller api_base anyway.
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
-        from litellm.types.utils import CredentialItem
+        from hangarllm.types.utils import CredentialItem
 
         with patch.object(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -3188,26 +3188,26 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
                 )
             ],
         ):
-            out = get_dynamic_litellm_params(
-                litellm_params={
+            out = get_dynamic_hangarllm_params(
+                hangarllm_params={
                     "model": "github_copilot/gpt-4o",
-                    "litellm_credential_name": "copilot-cred",
+                    "hangarllm_credential_name": "copilot-cred",
                     "github_copilot_auth_type": "per_user_oauth",
                 },
                 request_kwargs={"api_base": "https://attacker.example"},
             )
-        assert out["litellm_credential_name"] == "copilot-cred"
+        assert out["hangarllm_credential_name"] == "copilot-cred"
         assert out["github_copilot_auth_type"] == "per_user_oauth"
         assert out["api_base"] == "https://attacker.example"
 
     def test_shared_oauth_credential_name_is_cleared_on_base_override(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
-        from litellm.types.utils import CredentialItem
+        from hangarllm.types.utils import CredentialItem
 
         with patch.object(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -3217,10 +3217,10 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
                 )
             ],
         ):
-            out = get_dynamic_litellm_params(
-                litellm_params={
+            out = get_dynamic_hangarllm_params(
+                hangarllm_params={
                     "model": "github_copilot/gpt-4o",
-                    "litellm_credential_name": "copilot-cred",
+                    "hangarllm_credential_name": "copilot-cred",
                     "github_copilot_auth_type": "shared",
                 },
                 request_kwargs={"api_base": "https://attacker.example"},
@@ -3230,13 +3230,13 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
     def test_field_echo_does_not_preserve_admin_value(self):
         # Regression: a caller that echoes an admin-config field name with
         # an *empty* value (or any value) must not be able to keep the
-        # admin's value in ``litellm_params``.
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        # admin's value in ``hangarllm_params``.
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params={
                 "api_base": "https://admin.upstream/v1",
                 "organization": "org-admin-secret",
                 "extra_body": {"x-admin-only": "secret"},
@@ -3253,14 +3253,14 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert "org-admin-secret" not in str(out)
 
     def test_no_clearing_when_only_api_key_overridden(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
         # Caller only overrides api_key (BYOK pattern); admin's organization /
         # extra_body / region still apply because the destination is unchanged.
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params={
                 "api_base": "https://admin.upstream/v1",
                 "organization": "org-admin",
                 "api_version": "2026-04-01",
@@ -3272,12 +3272,12 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert out["api_base"] == "https://admin.upstream/v1"
 
     def test_client_api_key_used_when_supplied_with_base_override(self):
-        from litellm.litellm_core_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
+            get_dynamic_hangarllm_params,
         )
 
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_hangarllm_params(
+            hangarllm_params={
                 "model": "gpt-4",
                 "api_key": "sk-admin-secret",
                 "api_base": "https://admin.upstream/v1",
@@ -3306,13 +3306,13 @@ class TestClientsideBaseOverrideOutboundKey:
     when the caller overrides ``api_base``."""
 
     def _router(self):
-        from litellm import Router
+        from hangarllm import Router
 
         return Router(
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4",
                         "api_key": "sk-SERVER-CONFIG",
                         "api_base": "https://admin.upstream/v1",
@@ -3323,10 +3323,10 @@ class TestClientsideBaseOverrideOutboundKey:
 
     @pytest.fixture(autouse=True)
     def _ambient_server_key(self, monkeypatch):
-        import litellm
+        import hangarllm
 
         monkeypatch.setenv("OPENAI_API_KEY", "sk-SERVER-ENV")
-        monkeypatch.setattr(litellm, "api_key", None, raising=False)
+        monkeypatch.setattr(hangarllm, "api_key", None, raising=False)
 
     def test_caller_key_override_sends_caller_key_never_server_key(self):
         import httpx
@@ -3362,9 +3362,9 @@ class TestIsRequestBodySafeBlocksFallbackSmuggle:
 
     @pytest.fixture(autouse=True)
     def _disable_url_validation(self, monkeypatch):
-        import litellm
+        import hangarllm
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(hangarllm, "user_url_validation", False, raising=False)
 
     @pytest.mark.parametrize(
         "fallback_key",
@@ -3488,11 +3488,11 @@ class TestIsRequestBodySafeBlocksFallbackSmuggle:
     def test_nested_api_base_caught_across_router_fallback_rounds(self):
         """An ``api_base`` target nested ``ROUTER_MAX_FALLBACKS - 1`` rounds deep
         is still reached and rejected."""
-        import litellm
+        import hangarllm
 
         with pytest.raises(ValueError, match="api_base"):
             is_request_body_safe(
-                request_body=_rounds_deep_api_base_payload(litellm.ROUTER_MAX_FALLBACKS - 1, "fallbacks"),
+                request_body=_rounds_deep_api_base_payload(hangarllm.ROUTER_MAX_FALLBACKS - 1, "fallbacks"),
                 general_settings={},
                 llm_router=None,
                 model="gpt-4",
@@ -3592,9 +3592,9 @@ class TestIsRequestBodySafeBlocksEndpointTargetingFields:
         # The new banned-params entries should be rejected even when
         # ``user_url_validation`` is off — the gate isn't the URL guard,
         # it's the banned-params list.
-        import litellm
+        import hangarllm
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(hangarllm, "user_url_validation", False, raising=False)
 
     @pytest.mark.parametrize(
         "field",
@@ -3784,8 +3784,8 @@ class TestIsRequestBodySafeBlocksRustOptIn:
     """``rust`` hands the whole call to the Rust core, which signs and sends
     with its own HTTP client rather than the one the deployment configured, and
     reports no ``post_call``. The proxy splats the request body straight into
-    the router, and ``rust`` is a litellm param, so it lands in
-    ``litellm_params`` and the gate honours it: without this entry any
+    the router, and ``rust`` is a hangarllm param, so it lands in
+    ``hangarllm_params`` and the gate honours it: without this entry any
     authenticated caller picks a transport and a callback surface the admin
     never chose. It stays a deployment decision, liftable only by the same
     admin opt-in as the rest of the list."""
@@ -3926,7 +3926,7 @@ class TestIsRequestBodySafeBlocksNVCFFunctionOverride:
     def test_admin_opt_in_per_deployment_allows_nvcf_function_id(self, monkeypatch):
         """The error message lists per-deployment ``configurable_clientside_auth_params``
         as a second opt-in. Cover that path too so it can't silently regress."""
-        from litellm.proxy.auth import auth_utils
+        from hangarllm.proxy.auth import auth_utils
 
         monkeypatch.setattr(
             auth_utils,
@@ -3971,10 +3971,10 @@ def test_admin_opt_in_proxy_wide_allows_riva_offline() -> None:
 
 
 def test_api_base_override_keeps_the_deployments_riva_offline_mode() -> None:
-    from litellm.litellm_core_utils.clientside_credential_handler import get_dynamic_litellm_params
+    from hangarllm.hangarllm_core_utils.clientside_credential_handler import get_dynamic_hangarllm_params
 
-    out: Final = get_dynamic_litellm_params(
-        litellm_params={"model": "nvidia_riva/nvidia/parakeet-0.6b-tdt", "riva_offline": True},
+    out: Final = get_dynamic_hangarllm_params(
+        hangarllm_params={"model": "nvidia_riva/nvidia/parakeet-0.6b-tdt", "riva_offline": True},
         request_kwargs={"api_base": "caller-riva:50051"},
     )
     assert (out["api_base"], out["riva_offline"]) == ("caller-riva:50051", True)
@@ -4011,7 +4011,7 @@ class TestIsRequestBodySafeBlocksRivaUseSsl:
         )
 
     def test_admin_opt_in_per_deployment_allows_use_ssl(self, monkeypatch):
-        from litellm.proxy.auth import auth_utils
+        from hangarllm.proxy.auth import auth_utils
 
         monkeypatch.setattr(
             auth_utils,
@@ -4066,13 +4066,13 @@ class TestIsRequestBodySafeBlocksBedrockTags:
         )
 
     def test_admin_opt_in_per_deployment_allows_bedrock_tags(self):
-        from litellm import Router
+        from hangarllm import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "bedrock-batch-opus",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "bedrock/us.anthropic.claude-opus-4-7",
                         "configurable_clientside_auth_params": ["bedrock_tags"],
                     },
@@ -4093,13 +4093,13 @@ class TestIsRequestBodySafeBlocksBedrockTags:
         )
 
     def test_per_deployment_opt_in_for_other_param_still_rejects_bedrock_tags(self):
-        from litellm import Router
+        from hangarllm import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "bedrock-batch-opus",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "bedrock/us.anthropic.claude-opus-4-7",
                         "configurable_clientside_auth_params": ["api_base"],
                     },
@@ -4123,7 +4123,7 @@ class TestIsRequestBodySafeBlocksBedrockTags:
 
 class TestIsRequestBodySafeNestedConfig:
     """The Milvus vector store transformer unpacks
-    ``litellm_embedding_config`` as ``**kwargs`` into ``litellm.embedding(...)``
+    ``hangarllm_embedding_config`` as ``**kwargs`` into ``hangarllm.embedding(...)``
     — same SSRF / credential-exfil surface as a top-level ``api_base`` in
     the request body. ``is_request_body_safe`` must recurse into this
     nested dict so a banned param can't be smuggled in via nesting."""
@@ -4139,12 +4139,12 @@ class TestIsRequestBodySafeNestedConfig:
             )
 
     def test_nested_api_base_in_embedding_config_blocked(self):
-        """Smuggling ``api_base`` inside ``litellm_embedding_config`` is
+        """Smuggling ``api_base`` inside ``hangarllm_embedding_config`` is
         the VERIA-6 bypass — must be blocked by the recursive check."""
         with pytest.raises(ValueError, match="api_base"):
             is_request_body_safe(
                 request_body={
-                    "litellm_embedding_config": {
+                    "hangarllm_embedding_config": {
                         "api_base": "https://attacker.example.com",
                         "api_key": "leaked-key",
                     }
@@ -4163,7 +4163,7 @@ class TestIsRequestBodySafeNestedConfig:
             is_request_body_safe(
                 request_body={
                     "model": "nvidia_riva/parakeet",
-                    "litellm_metadata": {"nvcf_function_id": "attacker-via-metadata"},
+                    "hangarllm_metadata": {"nvcf_function_id": "attacker-via-metadata"},
                 },
                 general_settings={},
                 llm_router=None,
@@ -4176,7 +4176,7 @@ class TestIsRequestBodySafeNestedConfig:
         when nested."""
         with pytest.raises(ValueError, match="langfuse_host"):
             is_request_body_safe(
-                request_body={"litellm_embedding_config": {"langfuse_host": "https://attacker.example.com"}},
+                request_body={"hangarllm_embedding_config": {"langfuse_host": "https://attacker.example.com"}},
                 general_settings={},
                 llm_router=None,
                 model="milvus-store",
@@ -4187,7 +4187,7 @@ class TestIsRequestBodySafeNestedConfig:
         keep the existing escape hatch — same UX as for root-level."""
         assert (
             is_request_body_safe(
-                request_body={"litellm_embedding_config": {"api_base": "https://my-azure.example.com"}},
+                request_body={"hangarllm_embedding_config": {"api_base": "https://my-azure.example.com"}},
                 general_settings={"allow_client_side_credentials": True},
                 llm_router=None,
                 model="milvus-store",
@@ -4201,7 +4201,7 @@ class TestIsRequestBodySafeNestedConfig:
         assert (
             is_request_body_safe(
                 request_body={
-                    "litellm_embedding_config": {
+                    "hangarllm_embedding_config": {
                         "api_version": "2024-02-15-preview",
                     }
                 },
@@ -4213,11 +4213,11 @@ class TestIsRequestBodySafeNestedConfig:
         )
 
     def test_non_dict_nested_config_does_not_break_check(self):
-        """A bogus type for ``litellm_embedding_config`` (string, list,
+        """A bogus type for ``hangarllm_embedding_config`` (string, list,
         None) must not crash the validator — it should just fall through."""
         assert (
             is_request_body_safe(
-                request_body={"litellm_embedding_config": "not-a-dict"},
+                request_body={"hangarllm_embedding_config": "not-a-dict"},
                 general_settings={},
                 llm_router=None,
                 model="x",
@@ -4227,15 +4227,15 @@ class TestIsRequestBodySafeNestedConfig:
 
     def test_deeply_nested_config_does_not_recurse(self):
         """Greptile P1: ``is_request_body_safe`` is iterative single-level —
-        a deeply-nested ``litellm_embedding_config`` cannot exhaust the
+        a deeply-nested ``hangarllm_embedding_config`` cannot exhaust the
         Python call stack to trigger a 500 ``RecursionError``. Build a
         body 1000 levels deep; the validator must complete in O(1)
         descent."""
-        body = {"litellm_embedding_config": {}}
-        cur = body["litellm_embedding_config"]
+        body = {"hangarllm_embedding_config": {}}
+        cur = body["hangarllm_embedding_config"]
         for _ in range(1000):
-            cur["litellm_embedding_config"] = {}
-            cur = cur["litellm_embedding_config"]
+            cur["hangarllm_embedding_config"] = {}
+            cur = cur["hangarllm_embedding_config"]
         # Banned param at the deepest level shouldn't be reached — single
         # level only.
         cur["api_base"] = "https://attacker.example.com"
@@ -4258,11 +4258,11 @@ class TestIsRequestBodySafeNestedConfig:
 class TestObservabilityCallbackBans:
     """The proxy must reject observability credentials, hosts, and project
     identifiers regardless of whether they arrive at the request body root,
-    in ``metadata`` / ``litellm_metadata``, or in a JSON-string-encoded
+    in ``metadata`` / ``hangarllm_metadata``, or in a JSON-string-encoded
     metadata blob (multipart/``extra_body`` path).
 
     The ban list is derived from
-    ``litellm.litellm_core_utils.initialize_dynamic_callback_params._supported_callback_params``
+    ``hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params._supported_callback_params``
     minus a small ``_SAFE_CLIENT_CALLBACK_PARAMS`` allow-list, plus
     ``_EXTRA_BANNED_OBSERVABILITY_PARAMS`` for fields integrations read but
     that are not yet in the canonical allow-list. The derivation keeps the
@@ -4271,9 +4271,9 @@ class TestObservabilityCallbackBans:
 
     @pytest.fixture(autouse=True)
     def _disable_url_validation(self, monkeypatch):
-        import litellm
+        import hangarllm
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(hangarllm, "user_url_validation", False, raising=False)
 
     @pytest.mark.parametrize(
         "field",
@@ -4311,7 +4311,7 @@ class TestObservabilityCallbackBans:
 
     @pytest.mark.parametrize(
         "metadata_key",
-        ["metadata", "litellm_metadata"],
+        ["metadata", "hangarllm_metadata"],
     )
     @pytest.mark.parametrize(
         "field",
@@ -4326,7 +4326,7 @@ class TestObservabilityCallbackBans:
     )
     def test_observability_field_in_metadata_dict_is_rejected(self, metadata_key, field):
         # Verifies the metadata walk: a value smuggled inside ``metadata``
-        # or ``litellm_metadata`` is just as dangerous as the same field
+        # or ``hangarllm_metadata`` is just as dangerous as the same field
         # at the body root, and must hit the same gate.
         with pytest.raises(ValueError, match="Rejected Request") as exc:
             is_request_body_safe(
@@ -4340,7 +4340,7 @@ class TestObservabilityCallbackBans:
             )
         assert field in str(exc.value)
 
-    @pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_key", ["metadata", "hangarllm_metadata"])
     @pytest.mark.parametrize(
         "field",
         ["phoenix_project_name", "phoenix_project_name_override"],
@@ -4362,12 +4362,12 @@ class TestObservabilityCallbackBans:
             is True
         )
 
-    def test_observability_field_in_litellm_params_metadata_is_rejected(self):
+    def test_observability_field_in_hangarllm_params_metadata_is_rejected(self):
         with pytest.raises(ValueError, match="Rejected Request: turn_off_message_logging is not allowed") as exc:
             is_request_body_safe(
                 request_body={
                     "model": "gpt-4",
-                    "litellm_params": {"metadata": {"turn_off_message_logging": False}},
+                    "hangarllm_params": {"metadata": {"turn_off_message_logging": False}},
                 },
                 general_settings={},
                 llm_router=None,
@@ -4377,7 +4377,7 @@ class TestObservabilityCallbackBans:
 
     @pytest.mark.parametrize(
         "metadata_key",
-        ["metadata", "litellm_metadata"],
+        ["metadata", "hangarllm_metadata"],
     )
     def test_observability_field_in_json_string_metadata_is_rejected(self, metadata_key):
         # Multipart/form-data and ``extra_body`` callers send metadata as a
@@ -4449,7 +4449,7 @@ def test_model_level_allow_does_not_skip_subsequent_banned_params(monkeypatch):
     where that bypass matters: a body pairing a model-level-allowed
     ``api_base`` with an observability credential like ``langfuse_host``
     must still reject on the second field, not silently pass."""
-    from litellm.proxy.auth import auth_utils
+    from hangarllm.proxy.auth import auth_utils
 
     monkeypatch.setattr(
         auth_utils,
@@ -4478,11 +4478,11 @@ def test_observability_ban_covers_canonical_supported_callback_params():
     list are banned by default (the safe failure mode); flagging them as
     safe is an explicit decision recorded in
     ``_SAFE_CLIENT_CALLBACK_PARAMS``."""
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
         _request_blocked_callback_params,
         _supported_callback_params,
     )
-    from litellm.proxy.auth.auth_utils import (
+    from hangarllm.proxy.auth.auth_utils import (
         _BANNED_REQUEST_BODY_PARAMS,
         _SAFE_CLIENT_CALLBACK_PARAMS,
     )
@@ -4506,12 +4506,12 @@ def test_observability_ban_covers_canonical_supported_callback_params():
 
 class TestPricingInjectionBlocked:
     """Authenticated clients must not be able to mutate the global
-    litellm.model_cost registry by supplying pricing fields in the request
-    body.  Any CustomPricingLiteLLMParams field (input_cost_per_token etc.)
+    hangarllm.model_cost registry by supplying pricing fields in the request
+    body.  Any CustomPricingHangarLLMParams field (input_cost_per_token etc.)
     passed to completion() is forwarded to register_model(), which overwrites
     the shared global dict for ALL users on the instance.
 
-    Fix: all CustomPricingLiteLLMParams fields are in _BANNED_REQUEST_BODY_PARAMS,
+    Fix: all CustomPricingHangarLLMParams fields are in _BANNED_REQUEST_BODY_PARAMS,
     so is_request_body_safe() rejects them before they reach completion().
     """
 
@@ -4537,13 +4537,13 @@ class TestPricingInjectionBlocked:
         assert field in str(exc.value)
 
     def test_all_custom_pricing_fields_are_banned(self):
-        from litellm.proxy.auth.auth_utils import _BANNED_REQUEST_BODY_PARAMS
-        from litellm.types.utils import CustomPricingLiteLLMParams
+        from hangarllm.proxy.auth.auth_utils import _BANNED_REQUEST_BODY_PARAMS
+        from hangarllm.types.utils import CustomPricingHangarLLMParams
 
         banned = set(_BANNED_REQUEST_BODY_PARAMS)
-        for field in CustomPricingLiteLLMParams.model_fields:
+        for field in CustomPricingHangarLLMParams.model_fields:
             assert field in banned, (
-                f"CustomPricingLiteLLMParams.{field} is not in "
+                f"CustomPricingHangarLLMParams.{field} is not in "
                 "_BANNED_REQUEST_BODY_PARAMS — clients can poison the global "
                 "model cost registry by supplying it in the request body."
             )
@@ -4609,7 +4609,7 @@ class TestIsRequestBodySafeBlocksModelList:
                 request_body={
                     "model": "gpt-4",
                     "messages": [{"role": "user", "content": "hi"}],
-                    "model_list": [{"model_name": "x", "litellm_params": {}}],
+                    "model_list": [{"model_name": "x", "hangarllm_params": {}}],
                 },
                 general_settings={},
                 llm_router=None,
@@ -4660,7 +4660,7 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
     """Bracket notation is how multipart callers express nested metadata; it is
     validated the same way the dict form is."""
 
-    @pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_key", ["metadata", "hangarllm_metadata"])
     def test_bracket_notation_banned_param_is_rejected(self, metadata_key):
         with pytest.raises(ValueError, match="langfuse_host"):
             is_request_body_safe(
@@ -4676,7 +4676,7 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
     def test_bracket_notation_api_base_is_rejected(self):
         with pytest.raises(ValueError, match="api_base"):
             is_request_body_safe(
-                request_body={"litellm_metadata[api_base]": "https://example.invalid"},
+                request_body={"hangarllm_metadata[api_base]": "https://example.invalid"},
                 general_settings={},
                 llm_router=None,
                 model="gpt-4",
@@ -4685,7 +4685,7 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
     def test_bracket_notation_allowed_under_proxy_wide_opt_in(self):
         assert (
             is_request_body_safe(
-                request_body={"litellm_metadata[langfuse_host]": "https://byok.example"},
+                request_body={"hangarllm_metadata[langfuse_host]": "https://byok.example"},
                 general_settings={"allow_client_side_credentials": True},
                 llm_router=None,
                 model="gpt-4",
@@ -4698,8 +4698,8 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
             is_request_body_safe(
                 request_body={
                     "purpose": "assistants",
-                    "litellm_metadata[spend_logs_metadata][owner]": "john",
-                    "litellm_metadata[tags]": "production",
+                    "hangarllm_metadata[spend_logs_metadata][owner]": "john",
+                    "hangarllm_metadata[tags]": "production",
                 },
                 general_settings={},
                 llm_router=None,
@@ -4711,8 +4711,8 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
     def test_bracket_notation_matches_json_encoding_for_deeper_nesting(self):
         """A value nested below the first level is treated the same either way:
         the check descends one level into metadata, for both encodings."""
-        deep_bracket = {"litellm_metadata[spend_logs_metadata][langfuse_host]": "https://example.invalid"}
-        deep_json = {"litellm_metadata": {"spend_logs_metadata": {"langfuse_host": "https://example.invalid"}}}
+        deep_bracket = {"hangarllm_metadata[spend_logs_metadata][langfuse_host]": "https://example.invalid"}
+        deep_json = {"hangarllm_metadata": {"spend_logs_metadata": {"langfuse_host": "https://example.invalid"}}}
         kwargs = dict(general_settings={}, llm_router=None, model="gpt-4")
         assert is_request_body_safe(request_body=deep_bracket, **kwargs) is True
         assert is_request_body_safe(request_body=deep_json, **kwargs) is True
@@ -4748,24 +4748,24 @@ class TestHasUserSetupSso:
             monkeypatch.delenv(key, raising=False)
 
     def test_false_when_no_sso_env(self):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from hangarllm.proxy.auth.auth_utils import has_user_setup_sso
 
         assert has_user_setup_sso() is False
 
     def test_true_for_oauth_client_ids(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from hangarllm.proxy.auth.auth_utils import has_user_setup_sso
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         assert has_user_setup_sso() is True
 
     def test_true_for_saml_metadata_url(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from hangarllm.proxy.auth.auth_utils import has_user_setup_sso
 
         monkeypatch.setenv("SAML_IDP_METADATA_URL", "https://idp.example.com/metadata.xml")
         assert has_user_setup_sso() is True
 
     def test_true_for_saml_metadata_xml(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from hangarllm.proxy.auth.auth_utils import has_user_setup_sso
 
         monkeypatch.setenv("SAML_IDP_METADATA_XML", "<EntityDescriptor/>")
         assert has_user_setup_sso() is True
@@ -4797,38 +4797,38 @@ class TestIsSsoProviderFullyConfigured:
             monkeypatch.delenv(key, raising=False)
 
     def test_false_when_nothing_configured(self):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         assert is_sso_provider_fully_configured() is False
 
     def test_google_client_id_alone_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         assert is_sso_provider_fully_configured() is False
 
     def test_google_with_secret_is_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "google-secret")
         assert is_sso_provider_fully_configured() is True
 
     def test_microsoft_client_id_alone_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")
         assert is_sso_provider_fully_configured() is False
 
     def test_microsoft_missing_tenant_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")
         monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "ms-secret")
         assert is_sso_provider_fully_configured() is False
 
     def test_microsoft_with_secret_and_tenant_is_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")
         monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "ms-secret")
@@ -4836,13 +4836,13 @@ class TestIsSsoProviderFullyConfigured:
         assert is_sso_provider_fully_configured() is True
 
     def test_generic_client_id_alone_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GENERIC_CLIENT_ID", "generic-client")
         assert is_sso_provider_fully_configured() is False
 
     def test_generic_missing_one_endpoint_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GENERIC_CLIENT_ID", "generic-client")
         monkeypatch.setenv("GENERIC_CLIENT_SECRET", "generic-secret")
@@ -4852,7 +4852,7 @@ class TestIsSsoProviderFullyConfigured:
         assert is_sso_provider_fully_configured() is False
 
     def test_generic_with_every_endpoint_is_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GENERIC_CLIENT_ID", "generic-client")
         monkeypatch.setenv("GENERIC_CLIENT_SECRET", "generic-secret")
@@ -4862,7 +4862,7 @@ class TestIsSsoProviderFullyConfigured:
         assert is_sso_provider_fully_configured() is True
 
     def test_saml_metadata_url_is_ready_when_runtime_installed(self, monkeypatch):
-        from litellm.proxy.auth import auth_utils
+        from hangarllm.proxy.auth import auth_utils
 
         monkeypatch.setenv("SAML_IDP_METADATA_URL", "https://idp.example.com/metadata.xml")
         monkeypatch.setattr(auth_utils.importlib.util, "find_spec", lambda name: object())
@@ -4872,7 +4872,7 @@ class TestIsSsoProviderFullyConfigured:
         """Regression: python3-saml (``onelogin.saml2``) is an optional
         dependency; SAMLAuthHandler fails closed on every request when it is
         not installed, so IdP metadata alone must not read as ready."""
-        from litellm.proxy.auth import auth_utils
+        from hangarllm.proxy.auth import auth_utils
 
         monkeypatch.setenv("SAML_IDP_METADATA_URL", "https://idp.example.com/metadata.xml")
         monkeypatch.setattr(auth_utils.importlib.util, "find_spec", lambda name: None)
@@ -4886,7 +4886,7 @@ class TestIsSsoProviderFullyConfigured:
         gate does not catch this, every password login 500s instead of
         falling back, on a deployment that configured SAML metadata but
         skipped the extra."""
-        from litellm.proxy.auth import auth_utils
+        from hangarllm.proxy.auth import auth_utils
 
         def _raise(name: str):
             raise ModuleNotFoundError("No module named 'onelogin'")
@@ -4900,7 +4900,7 @@ class TestIsSsoProviderFullyConfigured:
         leftover from a migration) must not stop the check from reaching a
         fully configured Microsoft provider set alongside it — every
         provider is evaluated independently, not in a first-match order."""
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from hangarllm.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")
@@ -4993,13 +4993,13 @@ class TestIsRequestBodySafeBlocksAwsIdentitySelectors:
             False,
         ),  # should return False
         (
-            {"api_base": "^https://litellm.*direct\.fireworks\.ai/v1$"},
-            {"api_base": "https://litellm-dev.direct.fireworks.ai/v1"},
+            {"api_base": "^https://hangarllm.*direct\.fireworks\.ai/v1$"},
+            {"api_base": "https://hangarllm-dev.direct.fireworks.ai/v1"},
             True,
         ),
         (
-            {"api_base": "^https://litellm.*novice\.fireworks\.ai/v1$"},
-            {"api_base": "https://litellm-dev.direct.fireworks.ai/v1"},
+            {"api_base": "^https://hangarllm.*novice\.fireworks\.ai/v1$"},
+            {"api_base": "https://hangarllm-dev.direct.fireworks.ai/v1"},
             False,
         ),
     ],
@@ -5009,7 +5009,7 @@ def test_configurable_clientside_parameters(allowed_param, input_value, should_r
         model_list=[
             {
                 "model_name": "dummy-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "dummy-key",
                     "configurable_clientside_auth_params": [allowed_param],
@@ -5029,50 +5029,50 @@ def test_configurable_clientside_parameters(allowed_param, input_value, should_r
 
 def test_get_customer_user_header_from_mapping_returns_customer_header_with_mixed_roles():
     mappings: Final[list[dict[str, str]]] = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"},
-        {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
+        {"header_name": "X-OpenWebUI-User-Id", "hangarllm_user_role": "internal_user"},
+        {"header_name": "X-OpenWebUI-User-Email", "hangarllm_user_role": "customer"},
     ]
     assert get_customer_user_header_from_mapping(mappings) == ["x-openwebui-user-email"]
 
 
 def test_get_customer_user_header_from_mapping_no_customer_returns_none():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from hangarllm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
-    mappings = [{"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"}]
+    mappings = [{"header_name": "X-OpenWebUI-User-Id", "hangarllm_user_role": "internal_user"}]
     result = get_customer_user_header_from_mapping(mappings)
     assert result is None
 
     # Also support a single mapping dict
     single_mapping = {
         "header_name": "X-Only-Internal",
-        "litellm_user_role": "internal_user",
+        "hangarllm_user_role": "internal_user",
     }
     result = get_customer_user_header_from_mapping(single_mapping)
     assert result is None
 
 
 def test_get_internal_user_header_from_mapping_returns_internal_header():
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 
     mappings = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"},
-        {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
+        {"header_name": "X-OpenWebUI-User-Id", "hangarllm_user_role": "internal_user"},
+        {"header_name": "X-OpenWebUI-User-Email", "hangarllm_user_role": "customer"},
     ]
 
-    result = LiteLLMProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
+    result = HangarLLMProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
     assert result == "X-OpenWebUI-User-Id"
 
 
 def test_get_internal_user_header_from_mapping_no_internal_returns_none():
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 
-    mappings = [{"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"}]
-    result = LiteLLMProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
+    mappings = [{"header_name": "X-OpenWebUI-User-Email", "hangarllm_user_role": "customer"}]
+    result = HangarLLMProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
     assert result is None
 
     # Also support single mapping dict
-    single_mapping = {"header_name": "X-Only-Customer", "litellm_user_role": "customer"}
-    result = LiteLLMProxyRequestSetup.get_internal_user_header_from_mapping(single_mapping)
+    single_mapping = {"header_name": "X-Only-Customer", "hangarllm_user_role": "customer"}
+    result = HangarLLMProxyRequestSetup.get_internal_user_header_from_mapping(single_mapping)
     assert result is None
 
 
@@ -5092,7 +5092,7 @@ def test_get_internal_user_header_from_mapping_no_internal_returns_none():
     ],
 )
 def test_get_model_from_request(request_data, expected_model):
-    from litellm.proxy.auth.auth_utils import get_model_from_request
+    from hangarllm.proxy.auth.auth_utils import get_model_from_request
 
     request_data = {"target_model_names": "gpt-3.5-turbo, gpt-4o-mini-general-deployment"}
     route = "/openai/deployments/gpt-3.5-turbo"
@@ -5158,7 +5158,7 @@ def test_get_model_from_request(request_data, expected_model):
 )
 def test_get_model_from_request_vertex_ai_passthrough(request_data, route, expected_model):
     """Test that get_model_from_request correctly extracts Vertex AI model from URL"""
-    from litellm.proxy.auth.auth_utils import get_model_from_request
+    from hangarllm.proxy.auth.auth_utils import get_model_from_request
 
     model = get_model_from_request(request_data, route)
     assert model == expected_model
@@ -5246,8 +5246,8 @@ def test_get_end_user_id_from_request_body_always_returns_str():
         (
             {},
             {"user_header_name": "X-User-ID"},
-            {"litellm_metadata": {"user": "litellm-user-789"}},
-            "litellm-user-789",
+            {"hangarllm_metadata": {"user": "hangarllm-user-789"}},
+            "hangarllm-user-789",
         ),
         (
             {},
@@ -5260,7 +5260,7 @@ def test_get_end_user_id_from_request_body_always_returns_str():
             {"user_header_name": "X-User-ID"},
             {
                 "user": "body-user",
-                "litellm_metadata": {"user": "litellm-user"},
+                "hangarllm_metadata": {"user": "hangarllm-user"},
                 "metadata": {"user_id": "metadata-user"},
             },
             "header-priority",
@@ -5279,7 +5279,7 @@ def test_get_end_user_id_from_request_body_with_user_header_name(
     mock_request: Final = MagicMock(spec=Request)
     mock_request.headers = headers
 
-    with patch("litellm.proxy.proxy_server.general_settings", general_settings_config):
+    with patch("hangarllm.proxy.proxy_server.general_settings", general_settings_config):
         end_user_id: Final = get_end_user_id_from_request_body(request_body, dict(mock_request.headers))
         assert end_user_id == expected_user_id
 
@@ -5295,7 +5295,7 @@ def test_get_end_user_id_from_request_body_no_user_found():
         "messages": [{"role": "user", "content": "hello"}],
     }
 
-    with patch("litellm.proxy.proxy_server.general_settings", general_settings_config):
+    with patch("hangarllm.proxy.proxy_server.general_settings", general_settings_config):
         end_user_id: Final = get_end_user_id_from_request_body(request_body, dict(mock_request.headers))
         assert end_user_id is None
 
@@ -5303,7 +5303,7 @@ def test_get_end_user_id_from_request_body_no_user_found():
 def test_get_end_user_id_from_request_body_backwards_compatibility():
     cases: Final = (
         ({"user": "test-user-123"}, "test-user-123"),
-        ({"litellm_metadata": {"user": "litellm-user-456"}}, "litellm-user-456"),
+        ({"hangarllm_metadata": {"user": "hangarllm-user-456"}}, "hangarllm-user-456"),
         ({"metadata": {"user_id": "metadata-user-789"}}, "metadata-user-789"),
         ({"model": "gpt-4"}, None),
     )
@@ -5443,8 +5443,8 @@ def _request_with_content_length(content_length: int) -> Request:
 @pytest.mark.asyncio
 async def test_a_quoted_max_request_size_mb_lets_a_smaller_keyed_request_through():
     with (
-        patch("litellm.proxy.proxy_server.general_settings", {"max_request_size_mb": "10"}),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.general_settings", {"max_request_size_mb": "10"}),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
     ):
         assert await check_if_request_size_is_safe(request=_request_with_content_length(1024)) is True
 
@@ -5452,8 +5452,8 @@ async def test_a_quoted_max_request_size_mb_lets_a_smaller_keyed_request_through
 @pytest.mark.asyncio
 async def test_a_quoted_max_request_size_mb_rejects_a_larger_keyed_request_with_400():
     with (
-        patch("litellm.proxy.proxy_server.general_settings", {"max_request_size_mb": "10"}),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.general_settings", {"max_request_size_mb": "10"}),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
         pytest.raises(ProxyException) as raised,
     ):
         await check_if_request_size_is_safe(request=_request_with_content_length(11 * 1024 * 1024))
@@ -5464,8 +5464,8 @@ async def test_a_quoted_max_request_size_mb_rejects_a_larger_keyed_request_with_
 @pytest.mark.asyncio
 async def test_a_non_numeric_max_request_size_mb_is_ignored_without_premium():
     with (
-        patch("litellm.proxy.proxy_server.general_settings", {"max_request_size_mb": "10MB"}),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.general_settings", {"max_request_size_mb": "10MB"}),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
     ):
         assert await check_if_request_size_is_safe(request=_request_with_content_length(1024)) is True
 
@@ -5475,7 +5475,7 @@ async def test_a_non_numeric_max_request_size_mb_is_ignored_without_premium():
 def test_chatgpt_model_configuration_reaches_role_authorization(
     allow_client_side_credentials: bool, route: str
 ) -> None:
-    body: Final = {"litellm_params": {"model": "chatgpt/gpt-6-luna", "chatgpt_auth_file": "/tokens/account-a/auth.json"}}
+    body: Final = {"hangarllm_params": {"model": "chatgpt/gpt-6-luna", "chatgpt_auth_file": "/tokens/account-a/auth.json"}}
     assert is_request_body_safe(
         request_body=body,
         general_settings={"allow_client_side_credentials": allow_client_side_credentials},

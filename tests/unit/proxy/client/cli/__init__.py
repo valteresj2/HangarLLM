@@ -1,1 +1,1 @@
-"""Tests for the LiteLLM Proxy Client CLI package."""
+"""Tests for the HangarLLM Proxy Client CLI package."""

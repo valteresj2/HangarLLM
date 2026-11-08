@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.base_llm.realtime.transformation import RealtimeBackend
-from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import (
+from hangarllm.llms.base_llm.realtime.transformation import RealtimeBackend
+from hangarllm.llms.vertex_ai.audio_transcription.realtime_transformation import (
     MAX_AUDIO_MESSAGE_BYTES,
     ChirpProtocolError,
     ChirpSessionConfig,
@@ -16,16 +16,16 @@ from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import (
     new_words,
     parse_chirp_session_update,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.llms.vertex_ai.realtime.transformation import vertex_realtime_config
-from litellm.types.llms.vertex_ai_speech_to_text import (
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+from hangarllm.llms.vertex_ai.realtime.transformation import vertex_realtime_config
+from hangarllm.types.llms.vertex_ai_speech_to_text import (
     VertexSpeechStreamingConfigured,
     VertexSpeechStreamingResponse,
     VertexSpeechStreamingResult,
     VertexSpeechStreamingTurnDiscarded,
     VertexSpeechStreamingTurnFinished,
 )
-from litellm.types.realtime import RealtimeResponseTransformInput
+from hangarllm.types.realtime import RealtimeResponseTransformInput
 
 MODEL: Final = "chirp_3"
 EMPTY_TRANSFORM_INPUT: Final[RealtimeResponseTransformInput] = {

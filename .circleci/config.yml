@@ -8,7 +8,7 @@ parameters:
     default: ""
   migration_baseline_image:
     type: string
-    default: "ghcr.io/berriai/litellm-database:v1.102.0"
+    default: "ghcr.io/valteresj2/hangarllm-database:v1.102.0"
   migration_source_sha:
     type: string
     default: ""
@@ -39,7 +39,7 @@ commands:
             revision="${REQUESTED_REVISION:-$CIRCLE_SHA1}"
             [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || exit 1
             git init
-            git remote add origin https://github.com/BerriAI/litellm.git
+            git remote add origin https://github.com/valteresj2/HangarLLM.git
             for attempt in 1 2 3; do
               git fetch --filter=blob:none origin "$revision" && git checkout --detach FETCH_HEAD && break
               [[ $attempt -lt 3 ]] || exit 1
@@ -129,7 +129,7 @@ commands:
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
             export PATH="$HOME/.local/bin:$PATH"
   install_node:
-    description: "Install the Node.js version pinned in ui/litellm-dashboard/.nvmrc (24.19.0, which bundles npm 11.17.0) with checksum verification, and prepend it to PATH. Run this on any executor whose image does not already ship that version, or `npm ci` in ui/litellm-dashboard fails EBADENGINE against the engines floor. Installs into /opt/node rather than over /usr/local on purpose: cimg/python:*-browsers ships its own node there, and unpacking the tarball on top of it leaves npm 11.17 files merged with the image's npm 11.9 tree, which reports the new version and then exits 1 on `npm ci` with no error text at all. Requires checkout, which the .nvmrc drift check reads."
+    description: "Install the Node.js version pinned in ui/hangarllm-dashboard/.nvmrc (24.19.0, which bundles npm 11.17.0) with checksum verification, and prepend it to PATH. Run this on any executor whose image does not already ship that version, or `npm ci` in ui/hangarllm-dashboard fails EBADENGINE against the engines floor. Installs into /opt/node rather than over /usr/local on purpose: cimg/python:*-browsers ships its own node there, and unpacking the tarball on top of it leaves npm 11.17 files merged with the image's npm 11.9 tree, which reports the new version and then exits 1 on `npm ci` with no error text at all. Requires checkout, which the .nvmrc drift check reads."
     steps:
       - run:
           name: Install Node.js 24.19.0
@@ -137,9 +137,9 @@ commands:
             NODE_VERSION="24.19.0"
             NODE_TARBALL="node-v${NODE_VERSION}-linux-x64.tar.xz"
             NODE_EXPECTED_SHA="14b342e71204f811bde6153be8e04b62aef63c236fef92b55f9c83154b409647"
-            NVMRC_VERSION="$(tr -d '[:space:]' < ui/litellm-dashboard/.nvmrc)"
+            NVMRC_VERSION="$(tr -d '[:space:]' < ui/hangarllm-dashboard/.nvmrc)"
             if [ "$NVMRC_VERSION" != "$NODE_VERSION" ]; then
-              echo "install_node: ui/litellm-dashboard/.nvmrc pins ${NVMRC_VERSION} but this command pins ${NODE_VERSION}; update NODE_VERSION and NODE_EXPECTED_SHA together" >&2
+              echo "install_node: ui/hangarllm-dashboard/.nvmrc pins ${NVMRC_VERSION} but this command pins ${NODE_VERSION}; update NODE_VERSION and NODE_EXPECTED_SHA together" >&2
               exit 1
             fi
             curl -sSLf -o "/tmp/${NODE_TARBALL}" "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TARBALL}"
@@ -152,7 +152,7 @@ commands:
             node --version
             npm --version
   install_rust:
-    description: "Install pinned rustup (1.28.2) and Rust toolchain (1.98.0) with checksum verification. Adds ~/.cargo/bin to PATH. Run this before any `uv sync` or `uv build` of the workspace: the root package builds litellm-rust through maturin, and on an image without cargo maturin fetches an unpinned rustup and a floating toolchain by itself. Also restores the dev-profile cargo cache that save_cargo_target writes on main, minus the workspace crates' fingerprints so those always rebuild from the checked-out source."
+    description: "Install pinned rustup (1.28.2) and Rust toolchain (1.98.0) with checksum verification. Adds ~/.cargo/bin to PATH. Run this before any `uv sync` or `uv build` of the workspace: the root package builds hangarllm-rust through maturin, and on an image without cargo maturin fetches an unpinned rustup and a floating toolchain by itself. Also restores the dev-profile cargo cache that save_cargo_target writes on main, minus the workspace crates' fingerprints so those always rebuild from the checked-out source."
     steps:
       - run:
           name: Install Rust (rustup 1.28.2, toolchain 1.98.0)
@@ -185,11 +185,11 @@ commands:
             { rustc -vV; cc --version; cat /etc/os-release; } > /tmp/cargo-build-env
       - restore_cache:
           keys:
-            - v1-cargo-dev-{{ checksum "/tmp/cargo-build-env" }}-{{ checksum "litellm-rust/Cargo.lock" }}
+            - v1-cargo-dev-{{ checksum "/tmp/cargo-build-env" }}-{{ checksum "hangarllm-rust/Cargo.lock" }}
             - v1-cargo-dev-{{ checksum "/tmp/cargo-build-env" }}-
       - run:
           name: Force a rebuild of the workspace crates restored from the cargo cache
-          command: rm -rf litellm-rust/target/debug/.fingerprint/litellm-*
+          command: rm -rf hangarllm-rust/target/debug/.fingerprint/hangarllm-*
   save_cargo_target:
     steps:
       - when:
@@ -197,10 +197,10 @@ commands:
             equal: [main, << pipeline.git.branch >>]
           steps:
             - save_cache:
-                key: v1-cargo-dev-{{ checksum "/tmp/cargo-build-env" }}-{{ checksum "litellm-rust/Cargo.lock" }}
+                key: v1-cargo-dev-{{ checksum "/tmp/cargo-build-env" }}-{{ checksum "hangarllm-rust/Cargo.lock" }}
                 paths:
                   - ~/.cargo/registry
-                  - ~/project/litellm-rust/target/debug
+                  - ~/project/hangarllm-rust/target/debug
   start_postgres:
     description: "Start a postgres-db container on port 5432 and wait until it accepts connections."
     parameters:
@@ -295,16 +295,16 @@ commands:
             done
             echo "fake OpenAI endpoint did not become ready" >&2
             exit 1
-  setup_litellm_enterprise_pip:
+  setup_hangarllm_enterprise_pip:
     steps:
       - run:
-          name: "Install local version of litellm-enterprise"
+          name: "Install local version of hangarllm-enterprise"
           command: |
-            # litellm-enterprise is a uv workspace member and is already installed
+            # hangarllm-enterprise is a uv workspace member and is already installed
             # by the main `uv sync --all-groups --all-extras`.  Do NOT run
-            # `uv sync --package litellm-enterprise` here — that overwrites the
+            # `uv sync --package hangarllm-enterprise` here — that overwrites the
             # shared .venv and strips out dev/test deps (pytest, prisma, etc.).
-            uv run --no-sync python -c "import litellm_enterprise; print('litellm-enterprise OK:', litellm_enterprise.__file__)"
+            uv run --no-sync python -c "import hangarllm_enterprise; print('hangarllm-enterprise OK:', hangarllm_enterprise.__file__)"
   install_windows_toolchain:
     steps:
       - run:
@@ -349,7 +349,7 @@ commands:
             if (-not (Select-String -Path $PROFILE -SimpleMatch $cargoBin -Quiet)) {
               Add-Content -Path $PROFILE -Value "`$env:Path = `"$cargoBin;`$env:Path`""
             }
-  setup_litellm_test_deps:
+  setup_hangarllm_test_deps:
     parameters:
       checkout:
         type: boolean
@@ -369,7 +369,7 @@ commands:
           name: Install Dependencies
           command: |
             uv sync --frozen --all-groups --all-extras --python 3.12
-      - setup_litellm_enterprise_pip
+      - setup_hangarllm_enterprise_pip
       - save_cache:
           paths:
             - ~/.cache/uv
@@ -424,14 +424,14 @@ jobs:
             & "$HOME\.cargo\bin\rustc.exe" -vV | Out-File -Encoding ascii .cargo-build-env
       - restore_cache:
           keys:
-            - v1-cargo-release-windows-{{ checksum ".cargo-build-env" }}-{{ checksum "litellm-rust/Cargo.lock" }}
+            - v1-cargo-release-windows-{{ checksum ".cargo-build-env" }}-{{ checksum "hangarllm-rust/Cargo.lock" }}
             - v1-cargo-release-windows-{{ checksum ".cargo-build-env" }}-
       - run:
           name: Force a rebuild of the workspace crates restored from the cargo cache
           command: |
-            $fingerprints = "litellm-rust/target/release/.fingerprint"
+            $fingerprints = "hangarllm-rust/target/release/.fingerprint"
             if (Test-Path $fingerprints) {
-              Get-ChildItem -Path $fingerprints -Filter "litellm-*" | Remove-Item -Recurse -Force
+              Get-ChildItem -Path $fingerprints -Filter "hangarllm-*" | Remove-Item -Recurse -Force
             }
       - run:
           name: Build the release wheel and install it under a worst-case MAX_PATH prefix
@@ -450,10 +450,10 @@ jobs:
             equal: [main, << pipeline.git.branch >>]
           steps:
             - save_cache:
-                key: v1-cargo-release-windows-{{ checksum ".cargo-build-env" }}-{{ checksum "litellm-rust/Cargo.lock" }}
+                key: v1-cargo-release-windows-{{ checksum ".cargo-build-env" }}-{{ checksum "hangarllm-rust/Cargo.lock" }}
                 paths:
                   - ~/.cargo/registry
-                  - ~/project/litellm-rust/target/release
+                  - ~/project/hangarllm-rust/target/release
 
   base_sdk_install:
     docker:
@@ -516,20 +516,20 @@ jobs:
       - run:
           name: Create Kind Cluster
           command: |
-            kind create cluster --name litellm-test
+            kind create cluster --name hangarllm-test
 
       - run:
           name: Load Docker Database Image for helm tests
           command: |
-            zstd -d litellm-docker-database.tar.zst --stdout | docker load
+            zstd -d hangarllm-docker-database.tar.zst --stdout | docker load
             IMAGE_TAG=${CIRCLE_SHA1:-ci}
-            docker tag litellm-docker-database:ci litellm-ci:${IMAGE_TAG}
+            docker tag hangarllm-docker-database:ci hangarllm-ci:${IMAGE_TAG}
 
       - run:
           name: Load Docker image into Kind
           command: |
             IMAGE_TAG=${CIRCLE_SHA1:-ci}
-            kind load docker-image litellm-ci:${IMAGE_TAG} --name litellm-test
+            kind load docker-image hangarllm-ci:${IMAGE_TAG} --name hangarllm-test
 
       # Run helm lint
       - run:
@@ -542,27 +542,27 @@ jobs:
           name: Run helm tests
           command: |
             IMAGE_TAG=${CIRCLE_SHA1:-ci}
-            helm install litellm ./helm/hangarllm -f ./helm/hangarllm/ci/test-values.yaml \
-              --set image.repository=litellm-ci \
+            helm install hangarllm ./helm/hangarllm -f ./helm/hangarllm/ci/test-values.yaml \
+              --set image.repository=hangarllm-ci \
               --set image.tag=${IMAGE_TAG} \
               --set image.pullPolicy=Never
-            if ! kubectl rollout status deployment/litellm --timeout=180s; then
-              kubectl describe pods -l app.kubernetes.io/name=litellm
-              kubectl logs -l app.kubernetes.io/name=litellm --tail=200
+            if ! kubectl rollout status deployment/hangarllm --timeout=180s; then
+              kubectl describe pods -l app.kubernetes.io/name=hangarllm
+              kubectl logs -l app.kubernetes.io/name=hangarllm --tail=200
               exit 1
             fi
 
             echo "Printing pod logs..."
-            kubectl logs $(kubectl get pods -l app.kubernetes.io/name=litellm -o jsonpath="{.items[0].metadata.name}")
+            kubectl logs $(kubectl get pods -l app.kubernetes.io/name=hangarllm -o jsonpath="{.items[0].metadata.name}")
 
             # Run the helm tests
-            helm test litellm --logs
+            helm test hangarllm --logs
 
       # Cleanup
       - run:
           name: Cleanup
           command: |
-            kind delete cluster --name litellm-test
+            kind delete cluster --name hangarllm-test
           when: always # This ensures cleanup runs even if previous steps fail
 
   db_migration_disable_update_check:
@@ -573,10 +573,10 @@ jobs:
     steps:
       - checkout_over_https
       - run:
-          name: Generate LiteLLM master key
+          name: Generate HangarLLM master key
           command: |
             key="$(openssl rand -hex 16)"
-            printf 'export LITELLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
+            printf 'export HANGARLLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
       - skip_if_unrelated_changes
       - setup_google_dns
       - install_uv
@@ -587,25 +587,25 @@ jobs:
             uv sync --frozen --all-groups --all-extras --python 3.12
       - start_fake_openai_endpoint
       - start_postgres:
-          db_name: litellm_test
+          db_name: hangarllm_test
       - attach_workspace:
           at: ~/project
       - run:
           name: Load Docker Database Image
           command: |
-            zstd -d litellm-docker-database.tar.zst --stdout | docker load
-            docker images | grep litellm-docker-database
+            zstd -d hangarllm-docker-database.tar.zst --stdout | docker load
+            docker images | grep hangarllm-docker-database
       - run:
           name: Seed database with real schema
           command: |
             docker run -d \
               -p 4001:4000 \
-              -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5432/litellm_test" \
-              -e LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" \
+              -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5432/hangarllm_test" \
+              -e HANGARLLM_MASTER_KEY="$HANGARLLM_MASTER_KEY" \
               --name schema-seed \
               --add-host=host.docker.internal:host-gateway \
-              -v $(pwd)/litellm/proxy/example_config_yaml/simple_config.yaml:/app/config.yaml \
-              litellm-docker-database:ci \
+              -v $(pwd)/hangarllm/proxy/example_config_yaml/simple_config.yaml:/app/config.yaml \
+              hangarllm-docker-database:ci \
               --config /app/config.yaml \
               --port 4000 \
               --use_prisma_db_push
@@ -620,17 +620,17 @@ jobs:
           command: |
             docker run -d \
               -p 4000:4000 \
-              -e LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true \
-              -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5432/litellm_test" \
-              -e DEFAULT_NUM_WORKERS_LITELLM_PROXY=1 \
+              -e HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true \
+              -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5432/hangarllm_test" \
+              -e DEFAULT_NUM_WORKERS_HANGARLLM_PROXY=1 \
               -e DISABLE_SCHEMA_UPDATE="True" \
               -e FAKE_OPENAI_API_BASE=http://host.docker.internal:8190 \
               --name my-app \
               --add-host=host.docker.internal:host-gateway \
-              -v $(pwd)/litellm/proxy/example_config_yaml/bad_schema.prisma:/app/schema.prisma \
-              -v $(pwd)/litellm/proxy/example_config_yaml/bad_schema.prisma:/app/litellm/proxy/schema.prisma \
-              -v $(pwd)/litellm/proxy/example_config_yaml/disable_schema_update.yaml:/app/config.yaml \
-              litellm-docker-database:ci \
+              -v $(pwd)/hangarllm/proxy/example_config_yaml/bad_schema.prisma:/app/schema.prisma \
+              -v $(pwd)/hangarllm/proxy/example_config_yaml/bad_schema.prisma:/app/hangarllm/proxy/schema.prisma \
+              -v $(pwd)/hangarllm/proxy/example_config_yaml/disable_schema_update.yaml:/app/config.yaml \
+              hangarllm-docker-database:ci \
               --config /app/config.yaml \
               --port 4000
       - wait_for_service:
@@ -673,10 +673,10 @@ jobs:
     steps:
       - checkout_over_https
       - run:
-          name: Generate LiteLLM master key
+          name: Generate HangarLLM master key
           command: |
             key="$(openssl rand -hex 16)"
-            printf 'export LITELLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
+            printf 'export HANGARLLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
       - skip_if_unrelated_changes
       - setup_google_dns
       - install_uv
@@ -691,8 +691,8 @@ jobs:
       - run:
           name: Load Docker Database Image
           command: |
-            zstd -d litellm-docker-database.tar.zst --stdout | docker load
-            docker images | grep litellm-docker-database
+            zstd -d hangarllm-docker-database.tar.zst --stdout | docker load
+            docker images | grep hangarllm-docker-database
       - start_openai_record_replay_proxy
       - start_fake_openai_endpoint
       # Second Docker Container Run with Different Config
@@ -706,15 +706,15 @@ jobs:
               -e REDIS_HOST=$REDIS_HOST \
               -e REDIS_PASSWORD=$REDIS_PASSWORD \
               -e REDIS_PORT=$REDIS_PORT \
-              -e LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" \
+              -e HANGARLLM_MASTER_KEY="$HANGARLLM_MASTER_KEY" \
               -e OPENAI_API_KEY=$OPENAI_API_KEY \
               -e FAKE_OPENAI_API_BASE=http://host.docker.internal:8190 \
-              -e LITELLM_LICENSE="bad-license" \
-              -e LITELLM_LOG=ERROR \
+              -e HANGARLLM_LICENSE="bad-license" \
+              -e HANGARLLM_LOG=ERROR \
               --add-host host.docker.internal:host-gateway \
               --name my-app-3 \
-              -v $(pwd)/litellm/proxy/example_config_yaml/enterprise_config.yaml:/app/config.yaml \
-              litellm-docker-database:ci \
+              -v $(pwd)/hangarllm/proxy/example_config_yaml/enterprise_config.yaml:/app/config.yaml \
+              hangarllm-docker-database:ci \
               --config /app/config.yaml \
               --port 4000
 
@@ -759,20 +759,20 @@ jobs:
       - install_node
       - restore_cache:
           keys:
-            - ui-dashboard-node-deps-v1-{{ checksum "ui/litellm-dashboard/package-lock.json" }}
+            - ui-dashboard-node-deps-v1-{{ checksum "ui/hangarllm-dashboard/package-lock.json" }}
       - run:
           name: Install dashboard dependencies
           command: |
-            cd ui/litellm-dashboard
+            cd ui/hangarllm-dashboard
             npm ci
       - save_cache:
-          key: ui-dashboard-node-deps-v1-{{ checksum "ui/litellm-dashboard/package-lock.json" }}
+          key: ui-dashboard-node-deps-v1-{{ checksum "ui/hangarllm-dashboard/package-lock.json" }}
           paths:
-            - ui/litellm-dashboard/node_modules
+            - ui/hangarllm-dashboard/node_modules
       - run:
           name: Build UI bundle
           command: |
-            cd ui/litellm-dashboard
+            cd ui/hangarllm-dashboard
             npm run build
             mkdir -p ../../ui-bundle
             mv out ../../ui-bundle/out
@@ -794,11 +794,11 @@ jobs:
         environment:
           POSTGRES_USER: e2euser
           POSTGRES_PASSWORD: e2epassword
-          POSTGRES_DB: litellm_e2e
+          POSTGRES_DB: hangarllm_e2e
     resource_class: xlarge
     working_directory: ~/project
     environment:
-      DATABASE_URL: "postgresql://e2euser:e2epassword@localhost:5432/litellm_e2e"
+      DATABASE_URL: "postgresql://e2euser:e2epassword@localhost:5432/hangarllm_e2e"
       CI: "true"
       # Boot the proxy with an external logout URL so proxyLogoutUrl.spec.ts can
       # assert the redirect. Set at job level so both the proxy boot step and the
@@ -808,10 +808,10 @@ jobs:
     steps:
       - checkout_over_https
       - run:
-          name: Generate LiteLLM master key
+          name: Generate HangarLLM master key
           command: |
             key="$(openssl rand -hex 16)"
-            printf 'export LITELLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
+            printf 'export HANGARLLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
       - skip_if_unrelated_changes:
           category: client
       - attach_workspace:
@@ -827,7 +827,7 @@ jobs:
           name: Install Python dependencies
           command: |
             uv sync --frozen --all-groups --all-extras --python 3.12
-            uv run --no-sync python -m prisma generate --schema litellm/proxy/schema.prisma
+            uv run --no-sync python -m prisma generate --schema hangarllm/proxy/schema.prisma
       - save_cache:
           key: v1-uv-cache-{{ checksum "uv.lock" }}
           paths:
@@ -854,18 +854,18 @@ jobs:
       - run:
           name: Use built UI bundle
           command: |
-            rm -rf litellm/proxy/_experimental/out
-            cp -r ui-bundle/out litellm/proxy/_experimental/out
+            rm -rf hangarllm/proxy/_experimental/out
+            cp -r ui-bundle/out hangarllm/proxy/_experimental/out
       - wait_for_service:
           url: tcp://localhost:5432
           timeout: "30"
       - run:
           name: Push Prisma schema
-          command: uv run --no-sync python -m prisma db push --schema litellm/proxy/schema.prisma --accept-data-loss
+          command: uv run --no-sync python -m prisma db push --schema hangarllm/proxy/schema.prisma --accept-data-loss
       - run:
           name: Seed database
           command: |
-            PGPASSWORD=e2epassword psql -h localhost -p 5432 -U e2euser -d litellm_e2e \
+            PGPASSWORD=e2epassword psql -h localhost -p 5432 -U e2euser -d hangarllm_e2e \
               -f tests/e2e/ui/fixtures/seed.sql
       - run:
           name: Start mock LLM server
@@ -885,20 +885,20 @@ jobs:
             echo "Mock Presidio server never answered /health on port 8091" >&2
             exit 1
       - run:
-          name: Start LiteLLM proxy
+          name: Start HangarLLM proxy
           environment:
             MOCK_LLM_URL: "http://127.0.0.1:8090/v1"
             DISABLE_SCHEMA_UPDATE: "true"
             SERVER_ROOT_PATH: ""
             # PROXY_LOGOUT_URL is inherited from the job-level environment so the
             # proxy and proxyLogoutUrl.spec.ts agree on the logout target.
-          # LITELLM_LICENSE is forwarded from the project env so premium-gated
+          # HANGARLLM_LICENSE is forwarded from the project env so premium-gated
           # UI flows can be exercised. license.spec.ts asserts the resulting
           # JWT carries premium_user=true; if it ever stops being passed, that
           # test fails loudly rather than silently regressing premium coverage.
           command: |
-            LITELLM_LICENSE="$LITELLM_LICENSE" \
-              uv run --no-sync python -m litellm.proxy.proxy_cli \
+            HANGARLLM_LICENSE="$HANGARLLM_LICENSE" \
+              uv run --no-sync python -m hangarllm.proxy.proxy_cli \
                 --config tests/e2e/ui/fixtures/config.yml \
                 --port 4000
           background: true
@@ -906,7 +906,7 @@ jobs:
           name: Wait for proxy to be ready
           command: |
             for i in $(seq 1 60); do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:4000/health -H "Authorization: Bearer $LITELLM_MASTER_KEY" 2>/dev/null || true)
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:4000/health -H "Authorization: Bearer $HANGARLLM_MASTER_KEY" 2>/dev/null || true)
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "Proxy is ready"
                 exit 0
@@ -917,11 +917,11 @@ jobs:
             exit 1
       - run:
           name: Run Playwright E2E tests
-          # Forward LITELLM_LICENSE so license.spec.ts can detect that the
+          # Forward HANGARLLM_LICENSE so license.spec.ts can detect that the
           # proxy was launched with a license and assert premium_user=true.
           command: |
             cd tests/e2e/ui
-            LITELLM_LICENSE="$LITELLM_LICENSE" \
+            HANGARLLM_LICENSE="$HANGARLLM_LICENSE" \
               npx playwright test --config playwright.config.ts --workers=3 --retries=0
           no_output_timeout: 10m
       - store_artifacts:
@@ -941,23 +941,23 @@ jobs:
         environment:
           POSTGRES_USER: e2euser
           POSTGRES_PASSWORD: e2epassword
-          POSTGRES_DB: litellm_e2e
+          POSTGRES_DB: hangarllm_e2e
     resource_class: large
     working_directory: ~/project
     environment:
-      DATABASE_URL: "postgresql://e2euser:e2epassword@localhost:5432/litellm_e2e"
+      DATABASE_URL: "postgresql://e2euser:e2epassword@localhost:5432/hangarllm_e2e"
       CI: "true"
       # The whole job exercises the proxy mounted under a prefix. SERVER_ROOT_PATH
       # is read both by the proxy at boot (to rewrite the built UI bundle in place)
       # and by migration.serverRootPath.config.ts, which refuses to run without it.
-      SERVER_ROOT_PATH: "/litellm"
+      SERVER_ROOT_PATH: "/hangarllm"
     steps:
       - checkout_over_https
       - run:
-          name: Generate LiteLLM master key
+          name: Generate HangarLLM master key
           command: |
             key="$(openssl rand -hex 16)"
-            printf 'export LITELLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
+            printf 'export HANGARLLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
       - skip_if_unrelated_changes:
           category: client
       - attach_workspace:
@@ -973,7 +973,7 @@ jobs:
           name: Install Python dependencies
           command: |
             uv sync --frozen --all-groups --all-extras --python 3.12
-            uv run --no-sync python -m prisma generate --schema litellm/proxy/schema.prisma
+            uv run --no-sync python -m prisma generate --schema hangarllm/proxy/schema.prisma
       - save_cache:
           key: v1-uv-cache-{{ checksum "uv.lock" }}
           paths:
@@ -995,18 +995,18 @@ jobs:
       - run:
           name: Use built UI bundle
           command: |
-            rm -rf litellm/proxy/_experimental/out
-            cp -r ui-bundle/out litellm/proxy/_experimental/out
+            rm -rf hangarllm/proxy/_experimental/out
+            cp -r ui-bundle/out hangarllm/proxy/_experimental/out
       - wait_for_service:
           url: tcp://localhost:5432
           timeout: "30"
       - run:
           name: Push Prisma schema
-          command: uv run --no-sync python -m prisma db push --schema litellm/proxy/schema.prisma --accept-data-loss
+          command: uv run --no-sync python -m prisma db push --schema hangarllm/proxy/schema.prisma --accept-data-loss
       - run:
           name: Seed database
           command: |
-            PGPASSWORD=e2epassword psql -h localhost -p 5432 -U e2euser -d litellm_e2e \
+            PGPASSWORD=e2epassword psql -h localhost -p 5432 -U e2euser -d hangarllm_e2e \
               -f tests/e2e/ui/fixtures/seed.sql
       - run:
           name: Start mock LLM server
@@ -1026,15 +1026,15 @@ jobs:
             echo "Mock Presidio server never answered /health on port 8091" >&2
             exit 1
       - run:
-          name: Start LiteLLM proxy under a server root path
+          name: Start HangarLLM proxy under a server root path
           environment:
             MOCK_LLM_URL: "http://127.0.0.1:8090/v1"
             DISABLE_SCHEMA_UPDATE: "true"
           # Output flows to this step's own log, so a boot crash is visible here
           # rather than swallowed by a downstream readiness probe.
           command: |
-            LITELLM_LICENSE="$LITELLM_LICENSE" \
-              uv run --no-sync python -m litellm.proxy.proxy_cli \
+            HANGARLLM_LICENSE="$HANGARLLM_LICENSE" \
+              uv run --no-sync python -m hangarllm.proxy.proxy_cli \
                 --config tests/e2e/ui/fixtures/config.yml \
                 --port 4000
           background: true
@@ -1042,20 +1042,20 @@ jobs:
           name: Wait for prefixed proxy to be ready
           command: |
             for i in $(seq 1 60); do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://127.0.0.1:4000/litellm/health 2>/dev/null || true)
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -H "Authorization: Bearer $HANGARLLM_MASTER_KEY" http://127.0.0.1:4000/hangarllm/health 2>/dev/null || true)
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "Prefixed proxy is ready"
                 exit 0
               fi
               sleep 2
             done
-            echo "Prefixed proxy failed to start; see the 'Start LiteLLM proxy under a server root path' step for the boot log"
+            echo "Prefixed proxy failed to start; see the 'Start HangarLLM proxy under a server root path' step for the boot log"
             exit 1
       - run:
           name: Run migration smoke under SERVER_ROOT_PATH
           command: |
             cd tests/e2e/ui
-            LITELLM_LICENSE="$LITELLM_LICENSE" \
+            HANGARLLM_LICENSE="$HANGARLLM_LICENSE" \
               npx playwright test --config migration.serverRootPath.config.ts
           no_output_timeout: 10m
       - store_artifacts:
@@ -1094,11 +1094,11 @@ jobs:
             if [ -n "$MIGRATION_CANDIDATE_IMAGE" ]; then
               [[ "$MIGRATION_CANDIDATE_IMAGE" =~ ^ghcr.io/berriai/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]] || exit 1
               docker pull "$MIGRATION_CANDIDATE_IMAGE"
-              docker tag "$MIGRATION_CANDIDATE_IMAGE" litellm-docker-database:ci
+              docker tag "$MIGRATION_CANDIDATE_IMAGE" hangarllm-docker-database:ci
             else
               docker build \
                 --label org.opencontainers.image.revision="$(git rev-parse HEAD)" \
-                -t litellm-docker-database:ci \
+                -t hangarllm-docker-database:ci \
                 -f docker/Dockerfile.database .
             fi
             python3 .circleci/scripts/run_migration_tests.py record-image
@@ -1106,12 +1106,12 @@ jobs:
       - run:
           name: Save Docker image to workspace root
           command: |
-            docker save litellm-docker-database:ci | zstd -1 -T0 > litellm-docker-database.tar.zst
+            docker save hangarllm-docker-database:ci | zstd -1 -T0 > hangarllm-docker-database.tar.zst
 
       - persist_to_workspace:
           root: .
           paths:
-            - litellm-docker-database.tar.zst
+            - hangarllm-docker-database.tar.zst
             - migration-image.json
 
   migration_startup_tests:
@@ -1127,9 +1127,9 @@ jobs:
     resource_class: large
     working_directory: ~/project
     environment:
-      LITELLM_MIGRATION_TESTS: "1"
-      LITELLM_MIGRATION_TEST_IMAGE: litellm-docker-database:ci
-      LITELLM_MIGRATION_BASELINE_IMAGE: << pipeline.parameters.migration_baseline_image >>
+      HANGARLLM_MIGRATION_TESTS: "1"
+      HANGARLLM_MIGRATION_TEST_IMAGE: hangarllm-docker-database:ci
+      HANGARLLM_MIGRATION_BASELINE_IMAGE: << pipeline.parameters.migration_baseline_image >>
       MIGRATION_TEST_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       MIGRATION_TEST_CONTAINER_ADMIN_URL: postgresql://postgres:postgres@host.docker.internal:5432/postgres
       MIGRATION_TEST_OUTPUT: /tmp/migration-results
@@ -1138,10 +1138,10 @@ jobs:
       - checkout_over_https:
           revision: << pipeline.parameters.migration_source_sha >>
       - run:
-          name: Generate LiteLLM master key
+          name: Generate HangarLLM master key
           command: |
             key="$(openssl rand -hex 16)"
-            printf 'export LITELLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
+            printf 'export HANGARLLM_MASTER_KEY=sk-%s\n' "$key" >> "$BASH_ENV"
       - install_uv
       - install_rust
       - restore_cache:
@@ -1155,7 +1155,7 @@ jobs:
       - run:
           name: Load the shared candidate and start PostgreSQL
           command: |
-            zstd -d litellm-docker-database.tar.zst --stdout | docker load
+            zstd -d hangarllm-docker-database.tar.zst --stdout | docker load
             docker run -d --name migration-postgres \
               -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
               -p 5432:5432 \
@@ -1202,7 +1202,7 @@ jobs:
           name: Remove migration test containers
           when: always
           command: |
-            docker ps -aq --filter label=litellm-migration-test=true | xargs -r docker rm -f
+            docker ps -aq --filter label=hangarllm-migration-test=true | xargs -r docker rm -f
             docker rm -f migration-postgres || true
 
   test_bad_database_url:
@@ -1220,16 +1220,16 @@ jobs:
       - run:
           name: Load Docker Database Image
           command: |
-            zstd -d litellm-docker-database.tar.zst --stdout | docker load
-            docker tag litellm-docker-database:ci myapp:latest
+            zstd -d hangarllm-docker-database.tar.zst --stdout | docker load
+            docker tag hangarllm-docker-database:ci myapp:latest
       - run:
           name: Run Docker container with bad DATABASE_URL
           command: |
             set +e
             docker run --name my-app \
               -p 4000:4000 \
-              -e LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true \
-              -e DEFAULT_NUM_WORKERS_LITELLM_PROXY=1 \
+              -e HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true \
+              -e DEFAULT_NUM_WORKERS_HANGARLLM_PROXY=1 \
               -e DATABASE_URL="postgresql://wrong:wrong@wrong:5432/wrong" \
               myapp:latest \
               --port 4000 > docker_output.log 2>&1
@@ -1270,7 +1270,7 @@ jobs:
     working_directory: ~/project
     parallelism: << parameters.parallelism >>
     steps:
-      - setup_litellm_test_deps
+      - setup_hangarllm_test_deps
       - when:
           condition:
             equal: [browser, << parameters.suite >>]
@@ -1278,11 +1278,11 @@ jobs:
             - install_node
             - restore_cache:
                 keys:
-                  - integration-ui-v3-{{ checksum "ui/litellm-dashboard/package-lock.json" }}-{{ checksum "tests/e2e/ui/package-lock.json" }}
+                  - integration-ui-v3-{{ checksum "ui/hangarllm-dashboard/package-lock.json" }}-{{ checksum "tests/e2e/ui/package-lock.json" }}
             - run:
                 name: Install locked browser dependencies
                 command: |
-                  cd ui/litellm-dashboard
+                  cd ui/hangarllm-dashboard
                   npm ci
                   cd ../../tests/e2e/ui
                   npm ci
@@ -1290,13 +1290,13 @@ jobs:
                     timeout --signal=TERM --kill-after=20s 6m node node_modules/@playwright/test/cli.js install-deps chromium
                   timeout --signal=TERM --kill-after=20s 3m node node_modules/@playwright/test/cli.js install chromium
             - save_cache:
-                key: integration-ui-v3-{{ checksum "ui/litellm-dashboard/package-lock.json" }}-{{ checksum "tests/e2e/ui/package-lock.json" }}
+                key: integration-ui-v3-{{ checksum "ui/hangarllm-dashboard/package-lock.json" }}-{{ checksum "tests/e2e/ui/package-lock.json" }}
                 paths:
                   - ~/.npm
                   - ~/.cache/ms-playwright
             - run:
                 name: Build the candidate dashboard
-                command: cd ui/litellm-dashboard && NEXT_TELEMETRY_DISABLED=1 npm run build
+                command: cd ui/hangarllm-dashboard && NEXT_TELEMETRY_DISABLED=1 npm run build
       - when:
           condition:
             equal: [mcp, << parameters.suite >>]
@@ -1426,7 +1426,7 @@ jobs:
     resource_class: large
     working_directory: ~/project
     steps:
-      - setup_litellm_test_deps
+      - setup_hangarllm_test_deps
       - run:
           name: Check out base product code
           environment:
@@ -1434,10 +1434,10 @@ jobs:
           command: |
             [[ "$ROUTING_PARITY_BASE" =~ ^[0-9a-f]{40}$ ]] || exit 1
             git fetch --depth 1 --no-filter origin "$ROUTING_PARITY_BASE"
-            git rm -r -f --quiet litellm enterprise litellm-proxy-extras
-            git checkout "$ROUTING_PARITY_BASE" -- litellm enterprise litellm-proxy-extras
+            git rm -r -f --quiet hangarllm enterprise hangarllm-proxy-extras
+            git checkout "$ROUTING_PARITY_BASE" -- hangarllm enterprise hangarllm-proxy-extras
             git reset --quiet
-            test -f litellm/rust_bridge/_native.abi3.so
+            test -f hangarllm/rust_bridge/_native.abi3.so
       - start_postgres:
           image: postgres:16@sha256:e17e86066e5ef83e0952a9347f5c792b7ece00972e2aa787a6986f471b3dd3d5
           server_args: "-c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all -c pg_stat_statements.max=20000"
@@ -1458,10 +1458,10 @@ jobs:
       - run:
           name: Check out head product code
           command: |
-            git rm -r -f --quiet litellm enterprise litellm-proxy-extras
-            git checkout "$CIRCLE_SHA1" -- litellm enterprise litellm-proxy-extras
+            git rm -r -f --quiet hangarllm enterprise hangarllm-proxy-extras
+            git checkout "$CIRCLE_SHA1" -- hangarllm enterprise hangarllm-proxy-extras
             git reset --quiet
-            test -f litellm/rust_bridge/_native.abi3.so
+            test -f hangarllm/rust_bridge/_native.abi3.so
       - start_postgres:
           image: postgres:16@sha256:e17e86066e5ef83e0952a9347f5c792b7ece00972e2aa787a6986f471b3dd3d5
           server_args: "-c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all -c pg_stat_statements.max=20000"
@@ -1506,24 +1506,24 @@ jobs:
     resource_class: large
     working_directory: ~/project
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/litellm_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/hangarllm_test
     steps:
       - checkout_over_https
       - skip_if_unrelated_changes
-      - setup_litellm_test_deps:
+      - setup_hangarllm_test_deps:
           checkout: false
       - start_postgres:
-          db_name: litellm_test
+          db_name: hangarllm_test
           image: postgres:16@sha256:e17e86066e5ef83e0952a9347f5c792b7ece00972e2aa787a6986f471b3dd3d5
       - run:
           name: Generate Prisma client
-          command: uv run --no-sync prisma generate --schema litellm/proxy/schema.prisma
+          command: uv run --no-sync prisma generate --schema hangarllm/proxy/schema.prisma
       - when:
           condition: << parameters.seed >>
           steps:
             - run:
                 name: Seed database schema
-                command: uv run --no-sync prisma db push --schema litellm/proxy/schema.prisma --accept-data-loss
+                command: uv run --no-sync prisma db push --schema hangarllm/proxy/schema.prisma --accept-data-loss
       - run:
           name: Run << parameters.test_path >>
           command: |
@@ -1534,7 +1534,7 @@ jobs:
               worker_args=(-n << parameters.workers >> --dist=worksteal)
             fi
             if [ -n "<< parameters.coverage_flag >>" ]; then
-              coverage_args=(--cov=./litellm --cov-report=xml:coverage.xml)
+              coverage_args=(--cov=./hangarllm --cov-report=xml:coverage.xml)
             fi
             timeout --signal=TERM << parameters.timeout_minutes >>m uv run --no-sync pytest \
               << parameters.test_path >> -vv --tb=short --durations=10 -o junit_family=xunit1 \

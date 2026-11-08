@@ -84,7 +84,7 @@ def test_worker_sigkill_mid_safeguards_burst_leaves_the_replacement_adding_the_b
         wire: Final = stack.enter_context(wire_server(holding_peer(held, release)))
         config: Final = owned_config(tmp_path, gateway, wire.url)
         owned: Final = stack.enter_context(
-            owned_proxy_process(gateway, tmp_path, {"LITELLM_RUST": "true"}, config=config, workers=2)
+            owned_proxy_process(gateway, tmp_path, {"HANGARLLM_RUST": "true"}, config=config, workers=2)
         )
         proxy_url: Final = owned.gateway.client.base_url
         workers: Final = eventually(lambda: started_workers(owned.log), lambda pids: len(pids) == 2, seconds=30)
@@ -135,7 +135,7 @@ def test_proxy_shutdown_mid_safeguards_burst_then_a_fresh_boot_keeps_adding_the_
         markers: Final = tuple(new_marker() for _ in range(_BURST))
         pool: Final = stack.enter_context(ThreadPoolExecutor(max_workers=len(markers)))
         stack.callback(release.set)
-        with owned_proxy_process(gateway, tmp_path, {"LITELLM_RUST": "true"}, config=config, workers=2) as first:
+        with owned_proxy_process(gateway, tmp_path, {"HANGARLLM_RUST": "true"}, config=config, workers=2) as first:
             clients: Final = _clients(stack, str(first.gateway.client.base_url), len(markers))
             futures: Final = tuple(
                 pool.submit(_post_or_dropped, client, gateway.key, marker)
@@ -149,7 +149,7 @@ def test_proxy_shutdown_mid_safeguards_burst_then_a_fresh_boot_keeps_adding_the_
         assert all(result in (None, 200) for result in results), results
         assert tuple(sent.beta for sent in during) == (DANGEROUS_TOOL_USE,) * len(markers), during
         assert sorted(sent.marker for sent in during) == sorted(markers), during
-        with owned_proxy_process(gateway, tmp_path, {"LITELLM_RUST": "true"}, config=config, workers=2) as second:
+        with owned_proxy_process(gateway, tmp_path, {"HANGARLLM_RUST": "true"}, config=config, workers=2) as second:
             after: Final = tuple(new_marker() for _ in range(_SECOND_WAVE))
             statuses: Final = tuple(_post(second.gateway.client, gateway.key, marker) for marker in after)
         assert statuses == (200,) * len(after), statuses

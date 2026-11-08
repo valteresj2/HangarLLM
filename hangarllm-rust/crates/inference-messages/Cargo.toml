@@ -1,0 +1,38 @@
+[package]
+name = "hangarllm-inference-messages"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hangarllm-secret-value.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+hangarllm-auth = { workspace = true, features = ["aws", "azure", "gcp"] }
+hangarllm-auth-aws.workspace = true
+hangarllm-cache-response.workspace = true
+hangarllm-core-utils.workspace = true
+hangarllm-host.workspace = true
+hangarllm-http.workspace = true
+hangarllm-inference.workspace = true
+hangarllm-llms.workspace = true
+hangarllm-llms-types.workspace = true
+hangarllm-router-types.workspace = true
+hangarllm-secrets.workspace = true
+hangarllm-tracing.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+hangarllm-error.workspace = true
+hangarllm-framer = { workspace = true, features = ["sse"] }
+hangarllm-cache-memory.workspace = true
+hangarllm-host-native.workspace = true
+hangarllm-http = { workspace = true, features = ["test-support"] }
+hangarllm-inference-testing.workspace = true
+rstest.workspace = true
+wiremock.workspace = true

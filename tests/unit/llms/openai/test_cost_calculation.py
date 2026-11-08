@@ -2,16 +2,16 @@
 
 import pytest
 
-import litellm
-from litellm.llms.openai.cost_calculation import cost_per_second
+import hangarllm
+from hangarllm.llms.openai.cost_calculation import cost_per_second
 
 
 def _register_stt(name: str, **pricing: float) -> None:
-    litellm.register_model(
+    hangarllm.register_model(
         {
             name: {
                 "mode": "audio_transcription",
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 **pricing,
             }
         },

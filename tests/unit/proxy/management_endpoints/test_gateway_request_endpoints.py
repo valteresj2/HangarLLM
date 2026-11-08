@@ -7,11 +7,11 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from litellm.models.gateway_activity import GatewayRouteActivity, GatewayStatusCodeActivity
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.deps.repositories import get_gateway_activity_repository
-from litellm.proxy.management_endpoints.gateway_request_endpoints import (
+from hangarllm.models.gateway_activity import GatewayRouteActivity, GatewayStatusCodeActivity
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.deps.repositories import get_gateway_activity_repository
+from hangarllm.proxy.management_endpoints.gateway_request_endpoints import (
     _default_range,
     _fold_by_date,
     _fold_by_route,
@@ -19,7 +19,7 @@ from litellm.proxy.management_endpoints.gateway_request_endpoints import (
     get_gateway_daily_activity,
     router,
 )
-from litellm.repositories.gateway_activity_repository import GatewayActivityRepository
+from hangarllm.repositories.gateway_activity_repository import GatewayActivityRepository
 
 # The handler stamps "today" from the wall clock, so any assertion that names a
 # date has to pin it. Recomputing the expected range in the assertion instead
@@ -34,7 +34,7 @@ _FROZEN_RANGE = ("2023-02-13", "2023-03-15")
 
 @pytest.fixture
 def frozen_clock():
-    with patch("litellm.proxy.management_endpoints.gateway_request_endpoints.datetime") as clock:
+    with patch("hangarllm.proxy.management_endpoints.gateway_request_endpoints.datetime") as clock:
         clock.now.return_value = _FROZEN_NOW
         yield
 
@@ -57,7 +57,7 @@ def _row(
 
 
 def _admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(api_key="sk-test", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 def _prisma_returning(rows: Sequence[Mapping[str, str | int | None]] | None) -> MagicMock:
@@ -160,10 +160,10 @@ class TestGatewayDailyActivityEndpoint:
     @pytest.mark.parametrize(
         "role",
         [
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
-            LitellmUserRoles.TEAM,
-            LitellmUserRoles.ORG_ADMIN,
+            HangarllmUserRoles.INTERNAL_USER,
+            HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            HangarllmUserRoles.TEAM,
+            HangarllmUserRoles.ORG_ADMIN,
         ],
     )
     async def test_refuses_every_non_admin_role(self, role):
@@ -177,7 +177,7 @@ class TestGatewayDailyActivityEndpoint:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "role",
-        [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+        [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY],
     )
     async def test_serves_both_admin_roles(self, role):
         response = await get_gateway_daily_activity(

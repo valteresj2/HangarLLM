@@ -88,7 +88,7 @@ def _proxy_config(directory: Path, model: str, upstream_url: str) -> Path:
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"bedrock/invoke/{BEDROCK_MODEL}",
                             "api_base": upstream_url,
                             "aws_access_key_id": "AKIASCRIPTEDPROVIDER",
@@ -102,14 +102,14 @@ def _proxy_config(directory: Path, model: str, upstream_url: str) -> Path:
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "disable_spend_logs": False,
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                 },
-                "litellm_settings": {"include_cost_in_streaming_usage": True},
+                "hangarllm_settings": {"include_cost_in_streaming_usage": True},
                 "router_settings": {"disable_cooldowns": True},
             }
         )
@@ -156,7 +156,7 @@ def test_bedrock_messages_stream_usage_cost_matches_recorded_spend_with_custom_c
             streamed_usage: Final = STREAMED_USAGE.validate_python(message_delta["usage"])
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT status, prompt_tokens, completion_tokens, spend FROM "LiteLLM_SpendLogs" '
+                    'SELECT status, prompt_tokens, completion_tokens, spend FROM "HangarLLM_SpendLogs" '
                     "WHERE request_id=%s",
                     (message_id,),
                 ),

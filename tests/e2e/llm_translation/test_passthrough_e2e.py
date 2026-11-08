@@ -3,7 +3,7 @@
 Each test sends a NATIVE provider request through the proxy's passthrough route
 and verifies the proxy still logged a costed SpendLogs row
 (call_type="pass_through_endpoint"), correlated by the id the caller was served:
-the x-litellm-call-id header on gemini, the `msg_...` message id on anthropic.
+the x-hangarllm-call-id header on gemini, the `msg_...` message id on anthropic.
 
 Covered: gemini ("gemini-3.8-flash") + anthropic ("claude-haiku-4-5"), streaming +
 non-streaming, plus native tool calls. See LLM_TRANSLATION_COVERAGE_MATRIX.md.
@@ -86,7 +86,7 @@ def test_gemini_passthrough_nonstreaming_logs_cost(
     assert tag in (row.request_tags or []), f"tags not logged: {row.request_tags}"
 
 
-@pytest.mark.skip(reason="stage red: product gap, native passthrough returns no x-litellm-response-cost or x-ratelimit-* headers")
+@pytest.mark.skip(reason="stage red: product gap, native passthrough returns no x-hangarllm-response-cost or x-ratelimit-* headers")
 @meta(
     Subject(
         domain=Domain.PASSTHROUGH,
@@ -100,7 +100,7 @@ def test_gemini_passthrough_returns_the_same_header_contract_as_the_managed_rout
     client: PassthroughClient, scoped_key: str
 ) -> None:
     """Native /gemini/ passthrough must return the same operational headers as
-    /chat/completions: x-litellm-response-cost so the call reconciles against
+    /chat/completions: x-hangarllm-response-cost so the call reconciles against
     spend, and x-ratelimit-* so a client can pace itself. It returns neither
     today, which makes native traffic invisible to the same tooling.
     """
@@ -109,13 +109,13 @@ def test_gemini_passthrough_returns_the_same_header_contract_as_the_managed_rout
     )
     require_successful_call(result)
 
-    assert result.call_id, "passthrough must stamp x-litellm-call-id"
+    assert result.call_id, "passthrough must stamp x-hangarllm-call-id"
     assert result.response_cost is not None, (
-        "passthrough generateContent returned no x-litellm-response-cost header, so a "
+        "passthrough generateContent returned no x-hangarllm-response-cost header, so a "
         "native call cannot be reconciled against spend the way /chat/completions can"
     )
     assert result.response_cost > 0, (
-        f"x-litellm-response-cost must be a real cost, got {result.response_cost}"
+        f"x-hangarllm-response-cost must be a real cost, got {result.response_cost}"
     )
 
     pacing = tuple(name for name in result.headers if name.startswith("x-ratelimit-"))
@@ -439,7 +439,7 @@ class TestOpenAIPassthroughSpend:
             scoped_key, EMBEDDING_MODEL, f"cost this sentence {unique_marker()}"
         )
         require_successful_call(result)
-        assert result.call_id, "embeddings passthrough returned no x-litellm-call-id"
+        assert result.call_id, "embeddings passthrough returned no x-hangarllm-call-id"
 
         rows = client.proxy.poll_logs_for_request_id(
             result.call_id, predicate=lambda rows: (rows[0].spend or 0) > 0

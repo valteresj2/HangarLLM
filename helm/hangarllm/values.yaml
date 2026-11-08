@@ -15,7 +15,7 @@ image:
   tag: ""
 
 imagePullSecrets: []
-nameOverride: "litellm"
+nameOverride: "hangarllm"
 fullnameOverride: ""
 
 serviceAccount:
@@ -29,12 +29,12 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
-# annotations for litellm deployment
+# annotations for hangarllm deployment
 deploymentAnnotations: {}
 deploymentLabels: {}
 deploymentMinReadySeconds: 0
 
-# annotations for litellm pods
+# annotations for hangarllm pods
 podAnnotations: {}
 podLabels: {}
 
@@ -54,9 +54,9 @@ topologySpreadConstraints:
   #   whenUnsatisfiable: DoNotSchedule
   #   labelSelector:
   #     matchLabels:
-  #       app: litellm
+  #       app: hangarllm
 
-# At the time of writing, the litellm docker image requires write access to the
+# At the time of writing, the hangarllm docker image requires write access to the
 #  filesystem on startup so that prisma can install some dependencies.
 podSecurityContext: {}
 securityContext:
@@ -68,19 +68,19 @@ securityContext:
   # runAsNonRoot: true
   # runAsUser: 1000
 
-# A list of Kubernetes Secret objects that will be exported to the LiteLLM proxy
+# A list of Kubernetes Secret objects that will be exported to the HangarLLM proxy
 #  pod as environment variables.  These secrets can then be referenced in the
-#  configuration file (or "litellm" ConfigMap) with `os.environ/<Env Var Name>`
+#  configuration file (or "hangarllm" ConfigMap) with `os.environ/<Env Var Name>`
 environmentSecrets:
   []
-  # - litellm-env-secret
+  # - hangarllm-env-secret
 
-# A list of Kubernetes ConfigMap objects that will be exported to the LiteLLM proxy
+# A list of Kubernetes ConfigMap objects that will be exported to the HangarLLM proxy
 #  pod as environment variables.  The ConfigMap kv-pairs can then be referenced in the
-#  configuration file (or "litellm" ConfigMap) with `os.environ/<Env Var Name>`
+#  configuration file (or "hangarllm" ConfigMap) with `os.environ/<Env Var Name>`
 environmentConfigMaps:
   []
-  # - litellm-env-configmap
+  # - hangarllm-env-configmap
 
 service:
   type: ClusterIP
@@ -89,7 +89,7 @@ service:
   # optionally specify loadBalancerClass
   # loadBalancerClass: tailscale
 
-# Probes for LiteLLM gateway container
+# Probes for HangarLLM gateway container
 livenessProbe:
   path: /health/liveliness
   initialDelaySeconds: 0
@@ -145,7 +145,7 @@ billingMetrics:
   enabled: false
   endpoint: ""
   tokenUrl: ""
-  secretName: litellm-billing-metrics
+  secretName: hangarllm-billing-metrics
   exportIntervalMs: ""
 
 proxyConfigMap:
@@ -157,8 +157,8 @@ proxyConfigMap:
   # key: "config.yaml"
 
 # The elements within proxy_config are rendered as config.yaml for the proxy
-#  Examples: https://github.com/BerriAI/litellm/tree/main/litellm/proxy/example_config_yaml
-#  Reference: https://docs.litellm.ai/docs/proxy/configs
+#  Examples: https://github.com/valteresj2/HangarLLM/tree/main/hangarllm/proxy/example_config_yaml
+#  Reference: https://github.com/valteresj2/HangarLLM#readme
 proxy_config:
   model_list: []
   general_settings:
@@ -188,7 +188,7 @@ metricsServer:
 collector:
   enabled: false
   # unix:///<dir>/<file>.sock (the <dir> becomes a shared emptyDir) or tcp://127.0.0.1:<port>
-  address: unix:///var/run/litellm/collector.sock
+  address: unix:///var/run/hangarllm/collector.sock
   # Events each uvicorn worker holds in memory while the sidecar is slow or restarting
   bufferSize: 1000
   # fallback: run the pipeline in the worker when the sidecar is unreachable or the
@@ -201,7 +201,7 @@ collector:
   command:
     - python
     - -m
-    - litellm.proxy.collector
+    - hangarllm.proxy.collector
   # Sized independently of the proxy container; the pipeline is CPU bound
   resources: {}
   # requests:
@@ -224,7 +224,7 @@ resources:
   # sizing below that gets the pod OOMKilled once traffic and DB connections ramp up.
   # Scale both figures with --num_workers, then uncomment the lines below and remove the
   # curly braces after 'resources:'. See "Recommended Machine Specifications" in
-  # https://docs.litellm.ai/docs/proxy/prod.
+  # https://github.com/valteresj2/HangarLLM#readme
   # requests:
   #   cpu: "1"
   #   memory: 4Gi
@@ -237,7 +237,7 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 100
   # 60 is the documented recommendation. See "Recommended Machine Specifications"
-  # in https://docs.litellm.ai/docs/proxy/prod. A new replica clears the startupProbe
+  # in https://github.com/valteresj2/HangarLLM#readme A new replica clears the startupProbe
   # above only after up to failureThreshold x periodSeconds = 300 seconds, so a target
   # high enough to trip near saturation adds capacity minutes after it was needed.
   targetCPUUtilizationPercentage: 60
@@ -249,16 +249,16 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
   # behavior: {}
   # Opt-in per-pod workload targets, rendered as autoscaling/v2 `Pods` metrics
-  # named `litellm_requests_per_second` and `litellm_tokens_per_second` with an
+  # named `hangarllm_requests_per_second` and `hangarllm_tokens_per_second` with an
   # AverageValue target, alongside whichever resource targets are set (the HPA
   # follows the metric asking for the most replicas). A Prometheus Adapter must
   # serve those two names on custom.metrics.k8s.io from the proxy's counters,
   # grouped by the scrape target's `pod` label (enable serviceMonitor below so
   # every pod is scraped on its own):
-  #   litellm_requests_per_second:
-  #     sum(rate(litellm_proxy_total_requests_metric_total{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)
-  #   litellm_tokens_per_second:
-  #     sum(rate(litellm_total_tokens_metric_total{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)
+  #   hangarllm_requests_per_second:
+  #     sum(rate(hangarllm_proxy_total_requests_metric_total{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)
+  #   hangarllm_tokens_per_second:
+  #     sum(rate(hangarllm_total_tokens_metric_total{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)
   # rate() over [1m] is already per second, so no `* 60`. How fast the HPA
   # reacts is set by that window, the scrape interval and the HPA sync period
   # (15s by default), not by the unit: keep serviceMonitor.interval at 15s or
@@ -344,7 +344,7 @@ db:
 
   # How to connect to the existing postgres server/cluster
   endpoint: localhost
-  database: litellm
+  database: hangarllm
   url: postgresql://$(DATABASE_USERNAME):$(DATABASE_PASSWORD)@$(DATABASE_HOST)/$(DATABASE_NAME)
   # Authenticate with a short-lived token instead of a password. useIAMAuth is
   # AWS RDS / Aurora IAM database authentication (the pod needs AWS credentials,
@@ -363,7 +363,7 @@ db:
   # Postgres port, used to build the token-auth URL (password auth takes the
   # port from db.url)
   port: 5432
-  # Postgres schema for the LiteLLM tables, rendered as DATABASE_SCHEMA under
+  # Postgres schema for the HangarLLM tables, rendered as DATABASE_SCHEMA under
   # token auth only (password auth carries it as ?schema= in db.url)
   schema: ""
   # Database user as a plain value. Empty means read it from
@@ -429,7 +429,7 @@ db:
   #  instance.  See the "postgresql" top level key for additional configuration.
   deployStandalone: true
 
-# Lifecycle hooks for the LiteLLM container
+# Lifecycle hooks for the HangarLLM container
 #
 # Prefer the native /health/drain preStop hook over a fixed `sleep`: it marks
 # the pod NotReady and blocks only until in-flight requests actually finish
@@ -486,15 +486,15 @@ postgresql:
       repository: bitnamilegacy/postgres-exporter
       tag: 0.15.0-debian-12-r14
   auth:
-    username: litellm
-    database: litellm
+    username: hangarllm
+    database: hangarllm
 
     # You should override these on the helm command line with
     #  `--set postgresql.auth.postgres-password=<some good password>,postgresql.auth.password=<some good password>`
     password: NoTaGrEaTpAsSwOrD
     postgres-password: NoTaGrEaTpAsSwOrD
 
-    # A secret is created by this chart (litellm-helm) with the credentials that
+    # A secret is created by this chart (hangarllm-helm) with the credentials that
     #  the new Postgres instance should use.
     # existingSecret: ""
     # secretKeys:
@@ -569,7 +569,7 @@ migrationJob:
   jobLabels: {} # Custom labels for the Job metadata
   jobAnnotations: {} # Custom annotations for the Job metadata
   podLabels: {} # Custom labels for the Job pod template
-  command: [] # Override container command (defaults to ["python", "litellm/proxy/prisma_migration.py"])
+  command: [] # Override container command (defaults to ["python", "hangarllm/proxy/prisma_migration.py"])
   args: [] # Override container args
   ttlSecondsAfterFinished: 120
   resources: {}
@@ -586,15 +586,15 @@ migrationJob:
     helm:
       enabled: false
 
-# Log level for the litellm proxy (sets LITELLM_LOG in the deployment env).
+# Log level for the hangarllm proxy (sets HANGARLLM_LOG in the deployment env).
 # Rendered as a direct `env:` entry, which in Kubernetes takes precedence over
-# any `envFrom:` source. If you currently source LITELLM_LOG from an
+# any `envFrom:` source. If you currently source HANGARLLM_LOG from an
 # environmentSecret or environmentConfigMap, set `logLevel: ""` here to
 # disable injection — otherwise this value silently overrides your secret /
 # configmap entry.
 #
-# Setting LITELLM_LOG inside `envVars:` below also wins: the template skips
-# this injection entirely when envVars already defines LITELLM_LOG.
+# Setting HANGARLLM_LOG inside `envVars:` below also wins: the template skips
+# this injection entirely when envVars already defines HANGARLLM_LOG.
 logLevel: INFO
 
 # Additional environment variables to be added to the deployment as a map of key-value pairs
@@ -611,7 +611,7 @@ args: {}
 
 # - name: EXTRA_ENV_VAR
 #   value: EXTRA_ENV_VAR_VALUE
-# Additional Kubernetes resources to deploy with litellm
+# Additional Kubernetes resources to deploy with hangarllm
 extraResources: []
 
 # - apiVersion: v1

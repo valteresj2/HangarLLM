@@ -8,19 +8,19 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.integrations import model_deprecation_email as module
-from litellm.integrations.email_templates.model_deprecation_email import (
+from hangarllm.integrations import model_deprecation_email as module
+from hangarllm.integrations.email_templates.model_deprecation_email import (
     render_model_deprecation_email,
 )
-from litellm.models.team import LiteLLM_TeamTable
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy._types import LiteLLM_VerificationToken
-from litellm.repositories.config_repository import ConfigParam
-from litellm.types.integrations.model_deprecation_email import (
+from hangarllm.models.team import HangarLLM_TeamTable
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy._types import HangarLLM_VerificationToken
+from hangarllm.repositories.config_repository import ConfigParam
+from hangarllm.types.integrations.model_deprecation_email import (
     DeprecationEmailMilestone,
     ModelDeprecationEmail,
 )
-from litellm.types.proxy.model_deprecation import (
+from hangarllm.types.proxy.model_deprecation import (
     ModelDeprecationInfo,
     ModelDeprecationResponse,
     SuccessorModelSource,
@@ -32,7 +32,7 @@ NOW = datetime(2026, 11, 1, tzinfo=timezone.utc)
 def info(days=30, model="gemini/gemini-2.5-pro"):
     return ModelDeprecationInfo(
         model_name="research",
-        litellm_model=model,
+        hangarllm_model=model,
         deprecation_date=NOW.date() + timedelta(days=days),
         days_until_deprecation=days,
         status="imminent",
@@ -71,7 +71,7 @@ def sender(monkeypatch):
         )
     )
     send = AsyncMock(return_value=True)
-    monkeypatch.setattr("litellm.proxy.utils.send_email", send)
+    monkeypatch.setattr("hangarllm.proxy.utils.send_email", send)
     return instance, send
 
 
@@ -184,9 +184,9 @@ async def test_should_scope_usage_to_current_owners_and_admins_excluding_former_
         property(lambda _: MagicMock(group_by=grouped)),
     )
     keys = [
-        LiteLLM_VerificationToken(token="one", user_id="alice", team_id="research"),
-        LiteLLM_VerificationToken(token="two", user_id="alice"),
-        LiteLLM_VerificationToken(token="three", user_id="bob", team_id="research"),
+        HangarLLM_VerificationToken(token="one", user_id="alice", team_id="research"),
+        HangarLLM_VerificationToken(token="two", user_id="alice"),
+        HangarLLM_VerificationToken(token="three", user_id="bob", team_id="research"),
     ]
 
     async def key_rows(_, field, values):
@@ -194,7 +194,7 @@ async def test_should_scope_usage_to_current_owners_and_admins_excluding_former_
         return [key for key in keys if key.token in ids]
 
     monkeypatch.setattr(module.VerificationTokenRepository, "find_many_in", key_rows)
-    team = LiteLLM_TeamTable(
+    team = HangarLLM_TeamTable(
         team_id="research",
         team_alias="Research",
         admins=["bob", "mallory", "removed-admin"],
@@ -210,7 +210,7 @@ async def test_should_scope_usage_to_current_owners_and_admins_excluding_former_
     monkeypatch.setattr(module.TeamRepository, "find_many_in", team_rows)
 
     async def user_rows(_, field, values):
-        return [LiteLLM_UserTable(user_id=user_id, user_email=f"{user_id}@example.com") for user_id in values]
+        return [HangarLLM_UserTable(user_id=user_id, user_email=f"{user_id}@example.com") for user_id in values]
 
     monkeypatch.setattr(module.UserRepository, "find_many_in", user_rows)
     impacts = await instance._impacts("gemini/gemini-2.5-pro", date(2026, 10, 3), NOW.date())
@@ -236,7 +236,7 @@ def test_should_render_the_current_ui_logo_safe_model_text_and_actionable_links(
     )
     email = ModelDeprecationEmail(
         model=model,
-        usage_model=model.litellm_model,
+        usage_model=model.hangarllm_model,
         recipient_email="owner@example.com",
         milestone=DeprecationEmailMilestone.THIRTY_DAYS,
         key_count=3,
@@ -246,13 +246,13 @@ def test_should_render_the_current_ui_logo_safe_model_text_and_actionable_links(
         end_date=NOW.date(),
     )
     rendered = render_model_deprecation_email(email, base_url="https://gateway.example")
-    assert "/public/assets/logos/litellm_logo.png" in rendered.html
-    assert "litellm-listing.s3.amazonaws.com" not in rendered.html
+    assert "/public/assets/logos/hangarllm_logo.png" in rendered.html
+    assert "hangarllm-listing.s3.amazonaws.com" not in rendered.html
     assert "<script>" not in rendered.html
     assert "javascript:" not in rendered.html
     assert "&lt;script&gt;" in rendered.html
     assert "/ui/usage?tab=models&amp;from=2026-10-03&amp;to=2026-11-01" in rendered.html
-    assert "Recommendation source: LiteLLM model cost map" in rendered.text
+    assert "Recommendation source: HangarLLM model cost map" in rendered.text
     assert "Google is deprecating this model on 01 Dec 2026 (UTC)." in rendered.html
     assert "Google is deprecating this model on 01 Dec 2026 (UTC)." in rendered.text
     assert "google_pse.png" in rendered.html
@@ -282,7 +282,7 @@ def test_should_render_the_current_ui_logo_safe_model_text_and_actionable_links(
 
 @pytest.mark.asyncio
 async def test_should_keep_the_email_loop_running_after_a_delivery_error(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     router = MagicMock()
     database = MagicMock()

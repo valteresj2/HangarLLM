@@ -1,4 +1,4 @@
-module github.com/BerriAI/terraform-provider-litellm
+module github.com/BerriAI/terraform-provider-hangarllm
 
 go 1.25.0
 

@@ -6,19 +6,19 @@ from integration._support import interception_vendor as iv
 from integration._support.wire import Wire, wire_server
 from openai.types.responses import WebSearchToolParam
 
-import litellm
-from litellm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
-from litellm.responses.streaming_iterator import (
+import hangarllm
+from hangarllm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
+from hangarllm.responses.streaming_iterator import (
     MockResponsesAPIStreamingIterator,
     ResponsesAPIStreamingIterator,
     SyncResponsesAPIStreamingIterator,
 )
-from litellm.types.llms.openai import OutputTextDeltaEvent, ResponsesAPIStreamingResponse
+from hangarllm.types.llms.openai import OutputTextDeltaEvent, ResponsesAPIStreamingResponse
 
 
 @pytest.fixture
 def wire(monkeypatch: pytest.MonkeyPatch) -> Iterator[Wire]:
-    monkeypatch.setattr(litellm, "callbacks", [WebSearchInterceptionLogger(enabled_providers=["azure"])])
+    monkeypatch.setattr(hangarllm, "callbacks", [WebSearchInterceptionLogger(enabled_providers=["azure"])])
     with wire_server(iv.respond) as served:
         yield served
 
@@ -37,7 +37,7 @@ def _assert_one_clean_call(wire: Wire, name: str) -> None:
 
 def test_sync_responses_stream_with_web_search_keeps_stream_options_off_azure(wire: Wire) -> None:
     name: Final = iv.deployment("plain")
-    stream: Final = litellm.responses(
+    stream: Final = hangarllm.responses(
         model=f"azure/{name}",
         input=f"Search for {name}",
         tools=[WebSearchToolParam(type="web_search")],
@@ -56,7 +56,7 @@ def test_sync_responses_stream_with_web_search_keeps_stream_options_off_azure(wi
 
 async def test_async_responses_stream_with_web_search_keeps_stream_options_off_azure(wire: Wire) -> None:
     name: Final = iv.deployment("plain")
-    stream: Final = await litellm.aresponses(
+    stream: Final = await hangarllm.aresponses(
         model=f"azure/{name}",
         input=f"Search for {name}",
         tools=[WebSearchToolParam(type="web_search")],

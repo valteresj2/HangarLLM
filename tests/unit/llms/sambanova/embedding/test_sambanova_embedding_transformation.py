@@ -4,9 +4,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.sambanova.embedding.transformation import SambaNovaEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.sambanova.embedding.transformation import SambaNovaEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 EMBEDDING_ROW = {"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]}
 
@@ -18,7 +18,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         stream=False,
         call_type="embedding",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return SambaNovaEmbeddingConfig().transform_embedding_response(
@@ -29,7 +29,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         api_key="sk-test",
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 

@@ -12,9 +12,9 @@ from integration._support.database import read_rows, write_rows
 from pydantic import BaseModel, JsonValue
 from redis import Redis
 
-from litellm.proxy.common_utils.reset_budget_job import ResetBudgetJob
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.proxy.common_utils.reset_budget_job import ResetBudgetJob
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
 
 def _python_isoformat(value: datetime) -> str:
@@ -85,7 +85,7 @@ class _TeamMembershipInfo(BaseModel):
     budget_id: str | None = None
     spend: float | None = None
     budget_source: str | None = None
-    litellm_budget_table: _BudgetRecord | None = None
+    hangarllm_budget_table: _BudgetRecord | None = None
 
 
 class _TeamInfo(BaseModel):
@@ -98,7 +98,7 @@ class _MemberMe(BaseModel):
     team_id: str
     budget_id: str | None = None
     role: str | None = None
-    litellm_budget_table: _BudgetRecord | None = None
+    hangarllm_budget_table: _BudgetRecord | None = None
 
 
 class _MemberUpdateResponse(BaseModel):
@@ -193,7 +193,7 @@ def _budget_state(team_id: str, user_id: str) -> tuple[_MemberBudgetState, ...]:
             "SELECT tm.user_id, tm.team_id, tm.budget_id, tm.spend, b.max_budget, b.tpm_limit, b.rpm_limit, "
             "b.budget_duration, b.allowed_models, b.temp_budget_increase, "
             "b.temp_budget_expiry::text AS temp_budget_expiry "
-            'FROM "LiteLLM_TeamMembership" tm LEFT JOIN "LiteLLM_BudgetTable" b ON b.budget_id = tm.budget_id '
+            'FROM "HangarLLM_TeamMembership" tm LEFT JOIN "HangarLLM_BudgetTable" b ON b.budget_id = tm.budget_id '
             "WHERE tm.team_id = %s AND tm.user_id = %s",
             (team_id, user_id),
         )
@@ -205,14 +205,14 @@ def _budget_record(budget_id: str) -> tuple[_BudgetRecord, ...]:
         _BudgetRecord.model_validate(row)
         for row in read_rows(
             "SELECT budget_id, max_budget, tpm_limit, rpm_limit, budget_duration, allowed_models, "
-            'temp_budget_increase, temp_budget_expiry FROM "LiteLLM_BudgetTable" WHERE budget_id = %s',
+            'temp_budget_increase, temp_budget_expiry FROM "HangarLLM_BudgetTable" WHERE budget_id = %s',
             (budget_id,),
         )
     )
 
 
 def _team_default_budget_id(team_id: str) -> str:
-    rows: Final = read_rows('SELECT metadata FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    rows: Final = read_rows('SELECT metadata FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
     assert len(rows) == 1, rows
     metadata: Final = object_value(rows[0]["metadata"])
     return string_value(metadata["team_member_budget_id"])
@@ -245,14 +245,14 @@ def test_member_added_without_any_budget_is_charged_on_its_membership_row(gatewa
             for row in memberships
         ] == [{"user_id": user, "team_id": team, "budget_id": None, "spend": 0}], added.text
         assert read_rows(
-            'SELECT budget_id, spend, total_spend FROM "LiteLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
+            'SELECT budget_id, spend, total_spend FROM "HangarLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
             (team, user),
         ) == [{"budget_id": None, "spend": 0.0, "total_spend": 0.0}]
         key: Final = scenario.key(team_id=team, user_id=user, models=[model])
         assert gateway.chat(model, key=key, text=f"member spend {uuid.uuid4().hex}")["usage"]["total_tokens"] == 40
         charged: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, total_spend FROM "LiteLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
+                'SELECT spend, total_spend FROM "HangarLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
                 (team, user),
             ),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
@@ -261,7 +261,7 @@ def test_member_added_without_any_budget_is_charged_on_its_membership_row(gatewa
         assert float(charged[0]["spend"]) == pytest.approx(0.06)
         assert float(charged[0]["total_spend"]) == pytest.approx(0.06)
         team_rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id=%s', (team,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id=%s', (team,)),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
             seconds=70,
         )
@@ -297,7 +297,7 @@ def test_member_over_budget_is_blocked_when_redis_counter_reads_stale_low(gatewa
         assert gateway.chat(model, key=key, text=f"member budget {uuid.uuid4().hex}")["usage"]["total_tokens"] == 40
         charged: Final = eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_TeamMembership" WHERE team_id=%s AND user_id=%s', (team, user)
+                'SELECT spend FROM "HangarLLM_TeamMembership" WHERE team_id=%s AND user_id=%s', (team, user)
             ),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
             seconds=70,
@@ -357,8 +357,8 @@ def test_member_update_lowering_the_budget_below_spend_blocks_the_next_call(
         )
         assert accrued[0].spend == pytest.approx(0.12), accrued
         cached_membership: Final = _member_me(gateway, team, key)
-        assert cached_membership.litellm_budget_table is not None, repr(cached_membership)
-        assert cached_membership.litellm_budget_table.max_budget == 1, repr(cached_membership)
+        assert cached_membership.hangarllm_budget_table is not None, repr(cached_membership)
+        assert cached_membership.hangarllm_budget_table.max_budget == 1, repr(cached_membership)
 
         updated: Final = _member_update(
             gateway,
@@ -399,18 +399,18 @@ def test_member_update_lowering_the_budget_below_spend_blocks_the_next_call(
         team_info: Final = _team_info(gateway, team)
         listed: Final = next(member for member in team_info.team_memberships if member.user_id == user)
         assert listed.budget_id == state[0].budget_id, repr(listed)
-        assert listed.litellm_budget_table is not None, repr(listed)
-        assert listed.litellm_budget_table.max_budget == 0.0001, repr(listed)
-        assert listed.litellm_budget_table.tpm_limit == 1000, repr(listed)
-        assert listed.litellm_budget_table.rpm_limit == 100, repr(listed)
-        assert listed.litellm_budget_table.budget_duration == "30d", repr(listed)
+        assert listed.hangarllm_budget_table is not None, repr(listed)
+        assert listed.hangarllm_budget_table.max_budget == 0.0001, repr(listed)
+        assert listed.hangarllm_budget_table.tpm_limit == 1000, repr(listed)
+        assert listed.hangarllm_budget_table.rpm_limit == 100, repr(listed)
+        assert listed.hangarllm_budget_table.budget_duration == "30d", repr(listed)
         member_info: Final = _member_me(gateway, team, personal_key)
         assert member_info.budget_id == state[0].budget_id, repr(member_info)
-        assert member_info.litellm_budget_table is not None, repr(member_info)
-        assert member_info.litellm_budget_table.max_budget == 0.0001, repr(member_info)
-        assert member_info.litellm_budget_table.tpm_limit == 1000, repr(member_info)
-        assert member_info.litellm_budget_table.rpm_limit == 100, repr(member_info)
-        assert member_info.litellm_budget_table.budget_duration == "30d", repr(member_info)
+        assert member_info.hangarllm_budget_table is not None, repr(member_info)
+        assert member_info.hangarllm_budget_table.max_budget == 0.0001, repr(member_info)
+        assert member_info.hangarllm_budget_table.tpm_limit == 1000, repr(member_info)
+        assert member_info.hangarllm_budget_table.rpm_limit == 100, repr(member_info)
+        assert member_info.hangarllm_budget_table.budget_duration == "30d", repr(member_info)
 
 
 @pytest.mark.parametrize(
@@ -518,18 +518,18 @@ def test_member_update_temp_budget_increase_readmits_a_blocked_member(
         team_info: Final = _team_info(gateway, team)
         listed: Final = next(member for member in team_info.team_memberships if member.user_id == user)
         assert listed.budget_id == state[0].budget_id, repr(listed)
-        assert listed.litellm_budget_table is not None, repr(listed)
-        assert listed.litellm_budget_table.budget_id == state[0].budget_id, repr(listed)
-        assert listed.litellm_budget_table.temp_budget_increase == 1.0, repr(listed)
-        assert listed.litellm_budget_table.temp_budget_expiry is not None, repr(listed)
-        assert listed.litellm_budget_table.temp_budget_expiry.replace(tzinfo=timezone.utc) == expiry, repr(listed)
+        assert listed.hangarllm_budget_table is not None, repr(listed)
+        assert listed.hangarllm_budget_table.budget_id == state[0].budget_id, repr(listed)
+        assert listed.hangarllm_budget_table.temp_budget_increase == 1.0, repr(listed)
+        assert listed.hangarllm_budget_table.temp_budget_expiry is not None, repr(listed)
+        assert listed.hangarllm_budget_table.temp_budget_expiry.replace(tzinfo=timezone.utc) == expiry, repr(listed)
         member_info: Final = _member_me(gateway, team, key)
         assert member_info.budget_id == state[0].budget_id, repr(member_info)
-        assert member_info.litellm_budget_table is not None, repr(member_info)
-        assert member_info.litellm_budget_table.budget_id == state[0].budget_id, repr(member_info)
-        assert member_info.litellm_budget_table.temp_budget_increase == 1.0, repr(member_info)
-        assert member_info.litellm_budget_table.temp_budget_expiry is not None, repr(member_info)
-        assert member_info.litellm_budget_table.temp_budget_expiry.replace(tzinfo=timezone.utc) == expiry, repr(
+        assert member_info.hangarllm_budget_table is not None, repr(member_info)
+        assert member_info.hangarllm_budget_table.budget_id == state[0].budget_id, repr(member_info)
+        assert member_info.hangarllm_budget_table.temp_budget_increase == 1.0, repr(member_info)
+        assert member_info.hangarllm_budget_table.temp_budget_expiry is not None, repr(member_info)
+        assert member_info.hangarllm_budget_table.temp_budget_expiry.replace(tzinfo=timezone.utc) == expiry, repr(
             member_info
         )
 
@@ -734,13 +734,13 @@ def test_member_update_by_email_sets_models_role_and_forks_the_team_default_budg
         assert _budget_record(default_budget_id) == default_budget_before, repr(default_budget_before)
         team_info: Final = _team_info(gateway, team)
         listed_one: Final = next(member for member in team_info.team_memberships if member.user_id == user_one)
-        assert listed_one.litellm_budget_table is not None, repr(listed_one)
-        assert listed_one.litellm_budget_table.max_budget == 12, repr(listed_one)
-        assert listed_one.litellm_budget_table.allowed_models == [], repr(listed_one)
+        assert listed_one.hangarllm_budget_table is not None, repr(listed_one)
+        assert listed_one.hangarllm_budget_table.max_budget == 12, repr(listed_one)
+        assert listed_one.hangarllm_budget_table.allowed_models == [], repr(listed_one)
         member_info: Final = _member_me(gateway, team, user_one_key)
-        assert member_info.litellm_budget_table is not None, repr(member_info)
-        assert member_info.litellm_budget_table.max_budget == 12, repr(member_info)
-        assert member_info.litellm_budget_table.allowed_models == [], repr(member_info)
+        assert member_info.hangarllm_budget_table is not None, repr(member_info)
+        assert member_info.hangarllm_budget_table.max_budget == 12, repr(member_info)
+        assert member_info.hangarllm_budget_table.allowed_models == [], repr(member_info)
         roster_member: Final = next(
             member for member in team_info.team_info.members_with_roles if member.user_id == user_one
         )
@@ -766,7 +766,7 @@ def test_member_update_by_email_sets_models_role_and_forks_the_team_default_budg
         )
         assert admin_roster.role == "admin", repr(admin_roster)
         roster_rows: Final = read_rows(
-            'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         )
         assert len(roster_rows) == 1, roster_rows
@@ -873,13 +873,13 @@ def test_bulk_update_is_a_merge_patch_per_member(gateway: Gateway, upstream: htt
         assert _budget_record(default_budget_id) == default_budget_before, repr(default_budget_before)
         info: Final = _team_info(gateway, team)
         info_one: Final = next(member for member in info.team_memberships if member.user_id == user_one)
-        assert info_one.litellm_budget_table is not None, repr(info_one)
-        assert info_one.litellm_budget_table.max_budget == 0.0001, repr(info_one)
-        assert info_one.litellm_budget_table.rpm_limit == 7, repr(info_one)
+        assert info_one.hangarllm_budget_table is not None, repr(info_one)
+        assert info_one.hangarllm_budget_table.max_budget == 0.0001, repr(info_one)
+        assert info_one.hangarllm_budget_table.rpm_limit == 7, repr(info_one)
         me_one: Final = _member_me(gateway, team, personal_key_one)
-        assert me_one.litellm_budget_table is not None, repr(me_one)
-        assert me_one.litellm_budget_table.max_budget == 0.0001, repr(me_one)
-        assert me_one.litellm_budget_table.rpm_limit == 7, repr(me_one)
+        assert me_one.hangarllm_budget_table is not None, repr(me_one)
+        assert me_one.hangarllm_budget_table.max_budget == 0.0001, repr(me_one)
+        assert me_one.hangarllm_budget_table.rpm_limit == 7, repr(me_one)
 
         over_budget: Final = _chat(gateway, spend_model, key_one, f"bulk member blocked {uuid.uuid4().hex}")
         _budget_refused(over_budget)
@@ -921,9 +921,9 @@ def test_bulk_update_is_a_merge_patch_per_member(gateway: Gateway, upstream: htt
         assert cleared_max_state[0].rpm_limit == 7, cleared_max_state
         assert _budget_record(default_budget_id) == default_budget_before, repr(default_budget_before)
         me_after_max_clear: Final = _member_me(gateway, team, personal_key_one)
-        assert me_after_max_clear.litellm_budget_table is not None, repr(me_after_max_clear)
-        assert me_after_max_clear.litellm_budget_table.max_budget is None, repr(me_after_max_clear)
-        assert me_after_max_clear.litellm_budget_table.rpm_limit == 7, repr(me_after_max_clear)
+        assert me_after_max_clear.hangarllm_budget_table is not None, repr(me_after_max_clear)
+        assert me_after_max_clear.hangarllm_budget_table.max_budget is None, repr(me_after_max_clear)
+        assert me_after_max_clear.hangarllm_budget_table.rpm_limit == 7, repr(me_after_max_clear)
         admitted_again: Final = _chat(gateway, spend_model, key_one, f"bulk member readmitted {uuid.uuid4().hex}")
         assert admitted_again.status_code == 200, admitted_again.text
         observed_after_max_clear: Final = _observed_models(upstream)
@@ -1016,7 +1016,7 @@ def test_bulk_update_restores_team_default_when_last_member_limit_is_cleared(
             ),
         ), cleared.text
         assert read_rows(
-            'SELECT budget_id FROM "LiteLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
+            'SELECT budget_id FROM "HangarLLM_TeamMembership" WHERE team_id=%s AND user_id=%s',
             (team, user),
         ) == [{"budget_id": None}], cleared.text
         assert _budget_record(default_budget_id) == default_budget_before, repr(default_budget_before)
@@ -1031,7 +1031,7 @@ def test_bulk_update_restores_team_default_when_last_member_limit_is_cleared(
 
 def _budget_reset_at(budget_id: str) -> str:
     rows: Final = read_rows(
-        'SELECT budget_reset_at::text AS budget_reset_at FROM "LiteLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
+        'SELECT budget_reset_at::text AS budget_reset_at FROM "HangarLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
     )
     assert len(rows) == 1, rows
     return string_value(rows[0]["budget_reset_at"])
@@ -1045,7 +1045,7 @@ async def _run_scheduled_budget_reset() -> None:
     try:
         await ResetBudgetJob(
             ProxyLogging(user_api_key_cache=UserApiKeyCache()), client
-        ).reset_budget_for_litellm_budget_table()
+        ).reset_budget_for_hangarllm_budget_table()
     finally:
         await client.db.disconnect()
 
@@ -1100,7 +1100,7 @@ def test_temp_budget_increase_on_a_team_default_member_keeps_the_team_reset_sche
         assert _budget_state(team, untouched)[0].budget_id == default_budget_id
 
         write_rows(
-            "UPDATE \"LiteLLM_BudgetTable\" SET budget_reset_at = NOW() - INTERVAL '1 hour' WHERE budget_id IN (%s, %s)",
+            "UPDATE \"HangarLLM_BudgetTable\" SET budget_reset_at = NOW() - INTERVAL '1 hour' WHERE budget_id IN (%s, %s)",
             (default_budget_id, topped_up_budget_id),
         )
         asyncio.run(_run_scheduled_budget_reset())

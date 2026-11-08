@@ -198,7 +198,7 @@ ignored_function_names = [
     "_mid_stream_error_before_output",  # Tested through the Responses mid-stream fallback and background stream tests
     "_without_decisions_deployments_refusing_media",  # Tested through the mixed media-flag group tests in tests/unit/decisions/test_main.py
     "_decisions_deployment_refuses_media",  # Read by _without_decisions_deployments_refusing_media, tested through the same group tests
-    "_active_default_litellm_params",  # Tested through the router default drop_params test in tests/unit/decisions/test_main.py
+    "_active_default_hangarllm_params",  # Tested through the router default drop_params test in tests/unit/decisions/test_main.py
 ]
 
 
@@ -212,14 +212,14 @@ def public_name(function_name):
 
 def main():
     router_file = [
-        "./litellm/router.py",
-        "./litellm/litellm_core_utils/batch_utils.py",
-        "./litellm/litellm_core_utils/pattern_match_deployments.py",
+        "./hangarllm/router.py",
+        "./hangarllm/hangarllm_core_utils/batch_utils.py",
+        "./hangarllm/hangarllm_core_utils/pattern_match_deployments.py",
     ]
     # router_file = [
-    #     "../../litellm/router.py",
-    #     "../../litellm/litellm_core_utils/pattern_match_deployments.py",
-    #     "../../litellm/litellm_core_utils/batch_utils.py",
+    #     "../../hangarllm/router.py",
+    #     "../../hangarllm/hangarllm_core_utils/pattern_match_deployments.py",
+    #     "../../hangarllm/hangarllm_core_utils/batch_utils.py",
     # ]  ## LOCAL TESTING
     tests_dir = "./tests/"  # Update this path if your tests directory is located elsewhere
     # tests_dir = "../../tests/"  # LOCAL TESTING

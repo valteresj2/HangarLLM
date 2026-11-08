@@ -6,7 +6,7 @@ from typing import Final, TypeAlias
 
 import pytest
 
-from litellm.proxy.spend_tracking.session_page import (
+from hangarllm.proxy.spend_tracking.session_page import (
     Session,
     _parse_session_cursor,
     _Read,

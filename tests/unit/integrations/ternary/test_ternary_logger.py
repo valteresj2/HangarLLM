@@ -11,11 +11,11 @@ from unittest.mock import AsyncMock, MagicMock
 import polars as pl
 import pytest
 
-from litellm.integrations.focus.destinations.base import FocusTimeWindow
-from litellm.integrations.focus.focus_logger import FocusLogger
-from litellm.integrations.focus.destinations.ternary_destination import FocusTernaryDestination
-from litellm.integrations.focus.serializers import FocusCsvSerializer
-from litellm.integrations.ternary.export_engine import (
+from hangarllm.integrations.focus.destinations.base import FocusTimeWindow
+from hangarllm.integrations.focus.focus_logger import FocusLogger
+from hangarllm.integrations.focus.destinations.ternary_destination import FocusTernaryDestination
+from hangarllm.integrations.focus.serializers import FocusCsvSerializer
+from hangarllm.integrations.ternary.export_engine import (
     TernaryExportEngine,
     _canonical_day,
     _day_window,
@@ -23,11 +23,11 @@ from litellm.integrations.ternary.export_engine import (
     _merge_token_tags,
     _partition_by_day,
 )
-from litellm.integrations.ternary.ternary_logger import (
+from hangarllm.integrations.ternary.ternary_logger import (
     TERNARY_USAGE_DATA_JOB_NAME,
     TernaryLogger,
 )
-from tests.test_litellm_rust.support.child_interpreter import run_child_interpreter
+from tests.test_hangarllm_rust.support.child_interpreter import run_child_interpreter
 
 
 def _logger() -> TernaryLogger:
@@ -105,7 +105,7 @@ def test_compute_time_window_is_day_aligned_and_carries_whole_days():
 
 @pytest.mark.asyncio
 async def test_daily_export_resends_yesterday_whole_including_spend_flushed_after_midnight():
-    """LiteLLM flushes spend in batches, so a 2026-10-07 row can be written at 2026-10-08 00:10, after that
+    """HangarLLM flushes spend in batches, so a 2026-10-07 row can be written at 2026-10-08 00:10, after that
     day's 00:05 export. The next daily run (2026-10-09 00:05) must still upload 2026-10-07 complete."""
     from datetime import datetime, timezone
 
@@ -228,7 +228,7 @@ def test_merge_token_tags_adds_raw_db_keys_and_preserves_existing():
 
 
 def test_merge_token_tags_aligns_per_row_through_the_real_transformer():
-    from litellm.integrations.focus.transformer import FocusTransformer
+    from hangarllm.integrations.focus.transformer import FocusTransformer
 
     data = pl.DataFrame(
         {
@@ -284,7 +284,7 @@ def test_merge_token_tags_non_object_tags_degrades_to_empty():
 def test_keep_window_days_warns_when_everything_dropped(caplog):
     import logging
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     data = pl.DataFrame({"date": ["2026-09-01", "2026-09-02"], "spend": [1.0, 2.0]})
     window = _day_window_from(datetime(2026, 9, 5, tzinfo=timezone.utc), datetime(2026, 9, 6, tzinfo=timezone.utc))
@@ -318,7 +318,7 @@ def test_merge_token_tags_noop_without_token_columns():
 def test_merge_token_tags_warns_without_tags_column(caplog):
     import logging
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     normalized = pl.DataFrame({"BilledCost": [1.0]})
     source = pl.DataFrame({"prompt_tokens": [5]})
@@ -331,7 +331,7 @@ def test_merge_token_tags_warns_without_tags_column(caplog):
 def test_merge_token_tags_warns_on_row_mismatch(caplog):
     import logging
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     normalized = pl.DataFrame({"Tags": [json.dumps({"team_id": "t1"})]})
     source = pl.DataFrame({"prompt_tokens": [1, 2]})
@@ -376,8 +376,8 @@ async def test_transform_enrich_deliver_skips_empty_data():
 
 
 def _real_engine() -> MagicMock:
-    from litellm.integrations.focus.serializers import FocusCsvSerializer
-    from litellm.integrations.focus.transformer import FocusTransformer
+    from hangarllm.integrations.focus.serializers import FocusCsvSerializer
+    from hangarllm.integrations.focus.transformer import FocusTransformer
 
     engine = MagicMock()
     engine._transformer = FocusTransformer()
@@ -453,7 +453,7 @@ def test_partition_by_day_sorts_canonicalizes_and_drops_undated_rows(caplog):
     import logging
     from datetime import date
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     data = pl.DataFrame(
         {"date": ["2026-10-06", None, "2026-10-05", "not-a-date", "2026-10-06"], "spend": [1.0, 2.0, 3.0, 4.0, 5.0]}
@@ -474,7 +474,7 @@ def test_partition_by_day_sorts_canonicalizes_and_drops_undated_rows(caplog):
 def test_partition_by_day_warns_and_exports_nothing_without_a_date_column(caplog):
     import logging
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
         parts = _partition_by_day(pl.DataFrame({"spend": [1.0, 2.0]}))
@@ -559,8 +559,8 @@ def test_logger_registry_and_ternary_logger_import_without_polars():
     result = run_child_interpreter(
         "import sys\n"
         "sys.modules['polars'] = None\n"
-        "from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry\n"
-        "from litellm.integrations.ternary.ternary_logger import TernaryLogger\n"
+        "from hangarllm.hangarllm_core_utils.custom_logger_registry import CustomLoggerRegistry\n"
+        "from hangarllm.integrations.ternary.ternary_logger import TernaryLogger\n"
         "assert CustomLoggerRegistry.CALLBACK_CLASS_STR_TO_CLASS_TYPE['ternary'] is TernaryLogger\n"
         "TernaryLogger(api_key='k', connection_id='c', base_url='https://ternary.test')\n",
         timeout=120,
@@ -640,7 +640,7 @@ def test_init_custom_logger_compatible_class_returns_cached_ternary_logger(monke
     monkeypatch.setenv("TERNARY_API_KEY", "k")
     monkeypatch.setenv("TERNARY_CONNECTION_ID", "c")
     monkeypatch.setenv("TERNARY_BASE_URL", "https://ternary.test")
-    from litellm.litellm_core_utils.litellm_logging import _init_custom_logger_compatible_class
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import _init_custom_logger_compatible_class
 
     first = _init_custom_logger_compatible_class("ternary", internal_usage_cache=None, llm_router=None)
     assert isinstance(first, TernaryLogger)

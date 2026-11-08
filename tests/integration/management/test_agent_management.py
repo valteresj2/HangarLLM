@@ -15,7 +15,7 @@ class _AgentRead(BaseModel):
 
     agent_id: str
     agent_name: str
-    litellm_params: dict[str, JsonValue] | None
+    hangarllm_params: dict[str, JsonValue] | None
     static_headers: dict[str, str] | None
 
 
@@ -40,18 +40,18 @@ def _register_agent(gateway: Gateway, scenario: Scenario, name: str, url: str, s
         {
             "agent_name": name,
             "agent_card_params": _peer_card(url, name),
-            "litellm_params": {"api_key": secret, "cost_per_query": 0.1},
+            "hangarllm_params": {"api_key": secret, "cost_per_query": 0.1},
             "static_headers": {"Authorization": f"Bearer {secret}"},
         },
     )
     assert created.status_code == 200, created.text
-    assert secret not in json.dumps(created.json()["litellm_params"]), created.text
+    assert secret not in json.dumps(created.json()["hangarllm_params"]), created.text
     identity: Final = created.json()["agent_id"]
 
     def cleanup() -> None:
         deleted: Final = gateway.request("DELETE", f"/v1/agents/{identity}")
         assert deleted.status_code == 200, deleted.text
-        assert read_rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
+        assert read_rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
 
     scenario.cleanups.callback(cleanup)
     return identity
@@ -93,7 +93,7 @@ def test_agent_reads_redact_credentials_filter_by_key_permission_and_keep_the_st
         assert listed.status_code == 200, listed.text
         assert secret not in listed.text, listed.text
         assert [
-            (agent.agent_id, agent.litellm_params, agent.static_headers)
+            (agent.agent_id, agent.hangarllm_params, agent.static_headers)
             for agent in map(_AgentRead.model_validate, listed.json())
         ] == [(visible, redacted_params, None)], listed.text
 
@@ -102,7 +102,7 @@ def test_agent_reads_redact_credentials_filter_by_key_permission_and_keep_the_st
         assert secret not in fetched.text, fetched.text
         read: Final = _AgentRead.model_validate_json(fetched.content)
         assert (read.agent_id, read.static_headers) == (visible, None), fetched.text
-        assert read.litellm_params in (stored_params, redacted_params), fetched.text
+        assert read.hangarllm_params in (stored_params, redacted_params), fetched.text
 
         refused: Final = gateway.client.get(f"/v1/agents/{hidden}", headers={"Authorization": f"Bearer {restricted}"})
         assert (refused.status_code, refused.json()) == (
@@ -113,14 +113,14 @@ def test_agent_reads_redact_credentials_filter_by_key_permission_and_keep_the_st
         admin_list: Final = gateway.request("GET", "/v1/agents")
         assert admin_list.status_code == 200, admin_list.text
         admin_rows: Final = {
-            agent.agent_id: agent.litellm_params
+            agent.agent_id: agent.hangarllm_params
             for agent in map(_AgentRead.model_validate, admin_list.json())
             if agent.agent_id in (visible, hidden)
         }
         assert admin_rows == {visible: redacted_params, hidden: redacted_params}, admin_list.text
 
         stored: Final = read_rows(
-            "SELECT litellm_params->>'api_key' AS api_key FROM \"LiteLLM_AgentsTable\" WHERE agent_id=%s", (visible,)
+            "SELECT hangarllm_params->>'api_key' AS api_key FROM \"HangarLLM_AgentsTable\" WHERE agent_id=%s", (visible,)
         )
         assert stored == [{"api_key": secret}], stored
 

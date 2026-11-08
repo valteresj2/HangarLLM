@@ -2,7 +2,7 @@
 (datetime, Decimal) must reach the real LangSmith API instead of dying in
 json.dumps and dropping the whole batch. Only the SDK path can put such values
 into the batch (the proxy JSON-decodes request metadata), so this test drives
-litellm.acompletion in-process against the real OpenAI API with a LangsmithLogger
+hangarllm.acompletion in-process against the real OpenAI API with a LangsmithLogger
 injected per request, flushes the batch, and reads the run back by id through
 LangSmith's own API. Nothing is mocked.
 """
@@ -24,8 +24,8 @@ from e2e_http import Headers, Success, get_external
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-import litellm
-from litellm.integrations.langsmith import LangsmithLogger
+import hangarllm
+from hangarllm.integrations.langsmith import LangsmithLogger
 
 pytestmark = pytest.mark.e2e
 
@@ -63,7 +63,7 @@ def load_langsmith_creds() -> LangsmithCreds:
     return LangsmithCreds(
         api_key=api_key,
         base_url=(os.getenv("LANGSMITH_BASE_URL") or "https://api.smith.langchain.com").rstrip("/"),
-        project=os.getenv("LANGSMITH_PROJECT") or "litellm-e2e",
+        project=os.getenv("LANGSMITH_PROJECT") or "hangarllm-e2e",
         tenant_id=os.getenv("LANGSMITH_TENANT_ID"),
     )
 
@@ -115,14 +115,14 @@ class TestLangsmithBatchSerialization:
         run_id: Final = uuid.uuid4()
         created_at: Final = datetime.datetime(2026, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
         spend: Final = decimal.Decimal("0.0042")
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model=f"openai/{CHEAP_OPENAI_MODEL}",
             messages=[{"role": "user", "content": f"Reply with the single word ok ({marker})"}],
             max_completion_tokens=5,
             callbacks=[logger],
             metadata={"run_id": str(run_id), "metadata": {"marker": marker, "created_at": created_at, "spend": spend}},
         )
-        assert isinstance(response, litellm.ModelResponse) and response.id, (
+        assert isinstance(response, hangarllm.ModelResponse) and response.id, (
             "a non-streaming completion must return a ModelResponse before the batch flush is meaningful"
         )
         enqueue_deadline: Final = time.monotonic() + POLL_TIMEOUT

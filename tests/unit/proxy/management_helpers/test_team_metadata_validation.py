@@ -5,8 +5,8 @@ import pytest
 from fastapi import HTTPException
 
 
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from hangarllm.proxy._types import CommonProxyErrors, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.management_helpers.team_metadata_validation import (
     DEFAULT_TEAM_METADATA_VALIDATION_REJECTED_MESSAGE,
     DEFAULT_TEAM_METADATA_VALIDATION_TIMEOUT_SECONDS,
     DEFAULT_TEAM_METADATA_VALIDATION_UNAVAILABLE_MESSAGE,
@@ -196,7 +196,7 @@ async def test_adapter_is_noop_when_unconfigured():
         existing_metadata=None,
         team_id="team-1",
         team_alias="alias-1",
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="u1"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="u1"),
         registry=TeamMetadataValidatorRegistry(),
     )
     assert calls == []
@@ -211,9 +211,9 @@ async def test_adapter_builds_payload_and_reads_settings():
         return TeamMetadataValidationResult(valid=True)
 
     with (
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"team_metadata_validation_timeout": 3, "team_metadata_validation_error_message": "ops msg"},
         ),
     ):
@@ -224,7 +224,7 @@ async def test_adapter_builds_payload_and_reads_settings():
             team_id="team-9",
             team_alias="alias-9",
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 user_id="user-9",
                 user_email="user-9@example.com",
             ),
@@ -240,7 +240,7 @@ async def test_adapter_builds_payload_and_reads_settings():
     assert payload.team_alias == "alias-9"
     assert payload.requester.user_id == "user-9"
     assert payload.requester.user_email == "user-9@example.com"
-    assert payload.requester.user_role == LitellmUserRoles.INTERNAL_USER.value
+    assert payload.requester.user_role == HangarllmUserRoles.INTERNAL_USER.value
 
 
 @pytest.mark.asyncio
@@ -252,8 +252,8 @@ async def test_adapter_normalizes_non_dict_metadata_to_empty_dict():
         return TeamMetadataValidationResult(valid=True)
 
     with (
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
     ):
         await validate_team_metadata_if_configured(
             operation="create",
@@ -261,7 +261,7 @@ async def test_adapter_normalizes_non_dict_metadata_to_empty_dict():
             existing_metadata=None,
             team_id="team-1",
             team_alias=None,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="u1"),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="u1"),
             registry=_registry_with(validator),
         )
 
@@ -285,8 +285,8 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 from tests.unit.proxy.management_helpers import team_metadata_validator_impls as impls
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.management_helpers.team_metadata_validation import (
     TEAM_METADATA_VALIDATOR_REGISTRY,
 )
 
@@ -338,8 +338,8 @@ def _configured(validator):
     TEAM_METADATA_VALIDATOR_REGISTRY.set(validator)
     try:
         with (
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.general_settings", {}),
+            patch("hangarllm.proxy.proxy_server.premium_user", True),
+            patch("hangarllm.proxy.proxy_server.general_settings", {}),
         ):
             yield
     finally:
@@ -349,29 +349,29 @@ def _configured(validator):
 async def _drive_create(metadata, mock_sink=None):
     from fastapi import Request
 
-    from litellm.proxy._types import LiteLLM_TeamTable, NewTeamRequest
-    from litellm.proxy.management_endpoints.team_endpoints import new_team
+    from hangarllm.proxy._types import HangarLLM_TeamTable, NewTeamRequest
+    from hangarllm.proxy.management_endpoints.team_endpoints import new_team
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as pc,
-        patch("litellm.proxy.proxy_server._license_check") as lic,
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client") as pc,
+        patch("hangarllm.proxy.proxy_server._license_check") as lic,
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
     ):
         team_row = MagicMock(team_id="matrix-team-1")
         team_row.model_dump.return_value = {"team_id": "matrix-team-1"}
         pc.jsonify_team_object = MagicMock(side_effect=lambda db_data: db_data)
         pc.get_data = AsyncMock(return_value=None)
         pc.update_data = AsyncMock(return_value=MagicMock())
-        pc.db.litellm_teamtable.create = AsyncMock(return_value=team_row)
-        pc.db.litellm_teamtable.count = AsyncMock(return_value=0)
-        pc.db.litellm_teamtable.update = AsyncMock(return_value=team_row)
-        pc.db.litellm_usertable.update = AsyncMock(return_value=MagicMock())
-        pc.db.litellm_modeltable.create = AsyncMock(return_value=MagicMock(id="model-1"))
+        pc.db.hangarllm_teamtable.create = AsyncMock(return_value=team_row)
+        pc.db.hangarllm_teamtable.count = AsyncMock(return_value=0)
+        pc.db.hangarllm_teamtable.update = AsyncMock(return_value=team_row)
+        pc.db.hangarllm_usertable.update = AsyncMock(return_value=MagicMock())
+        pc.db.hangarllm_modeltable.create = AsyncMock(return_value=MagicMock(id="model-1"))
         lic.is_team_count_over_limit.return_value = False
         if mock_sink is not None:
-            mock_sink["team_create"] = pc.db.litellm_teamtable.create
-            mock_sink["model_create"] = pc.db.litellm_modeltable.create
+            mock_sink["team_create"] = pc.db.hangarllm_teamtable.create
+            mock_sink["model_create"] = pc.db.hangarllm_modeltable.create
 
         request_kwargs = {"team_alias": "matrix-team"}
         if metadata is not None:
@@ -379,39 +379,39 @@ async def _drive_create(metadata, mock_sink=None):
         return await new_team(
             data=NewTeamRequest(**request_kwargs),
             http_request=MagicMock(spec=Request),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
 
 async def _drive_update(kind, existing_metadata, payload):
     from fastapi import Request
 
-    from litellm.proxy._types import LiteLLM_TeamTable, PatchTeamRequest, UpdateTeamRequest
-    from litellm.proxy.management_endpoints.team_endpoints import patch_team, update_team
+    from hangarllm.proxy._types import HangarLLM_TeamTable, PatchTeamRequest, UpdateTeamRequest
+    from hangarllm.proxy.management_endpoints.team_endpoints import patch_team, update_team
 
     team_id = "matrix-team-upd"
-    existing = LiteLLM_TeamTable(
+    existing = HangarLLM_TeamTable(
         team_id=team_id,
         team_alias="matrix",
         metadata=existing_metadata,
         organization_id=None,
     )
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin-1")
+    auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin-1")
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as pc,
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client") as pc,
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.team_endpoints.refresh_cached_team",
+            "hangarllm.proxy.management_endpoints.team_endpoints.refresh_cached_team",
             new=AsyncMock(),
         ),
     ):
-        pc.db.litellm_teamtable.find_unique = AsyncMock(return_value=existing)
-        pc.db.litellm_teamtable.update = AsyncMock(
-            return_value=LiteLLM_TeamTable(team_id=team_id, team_alias="matrix")
+        pc.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=existing)
+        pc.db.hangarllm_teamtable.update = AsyncMock(
+            return_value=HangarLLM_TeamTable(team_id=team_id, team_alias="matrix")
         )
         pc.jsonify_team_object = MagicMock(side_effect=lambda db_data: db_data)
 
@@ -421,14 +421,14 @@ async def _drive_update(kind, existing_metadata, payload):
                 data=UpdateTeamRequest(team_id=team_id, **payload),
                 http_request=req,
                 user_api_key_dict=auth,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
         return await patch_team(
             team_id=team_id,
             data=PatchTeamRequest.model_validate(dict(payload)),
             http_request=req,
             user_api_key_dict=auth,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
 
@@ -599,7 +599,7 @@ async def test_class_instance_with_sync_call_is_rejected():
     assert exc_info.value.status_code == 500
 
 
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from hangarllm.proxy.management_helpers.team_metadata_validation import (
     TeamMetadataSchemaRegistry,
     parse_team_metadata_schema,
 )
@@ -685,9 +685,9 @@ async def test_adapter_applies_configured_timeout_to_slow_validator():
     registry.set(slow_validator)
 
     with (
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"team_metadata_validation_timeout": 0.01},
         ),
     ):
@@ -698,7 +698,7 @@ async def test_adapter_applies_configured_timeout_to_slow_validator():
                 existing_metadata=None,
                 team_id="team-1",
                 team_alias="alias-1",
-                user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="u1"),
+                user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="u1"),
                 registry=registry,
             )
 

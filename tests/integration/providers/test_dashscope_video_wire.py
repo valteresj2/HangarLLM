@@ -304,11 +304,11 @@ def test_requests_billed_before_their_length_is_known_answer_400_even_with_drop_
     ("provider_model", "size", "message"),
     [
         ("wan2.7-t2v", "832x480", "wan2.7-t2v is not offered at resolution '480P', only at 720P, 1080P"),
-        ("wan2.6-t2v", "1280x720", "size only maps onto DashScope video models in litellm's cost map"),
+        ("wan2.6-t2v", "1280x720", "size only maps onto DashScope video models in hangarllm's cost map"),
     ],
     ids=["unpriced-tier", "unpriced-model"],
 )
-def test_a_size_litellm_cannot_bill_answers_400_without_a_task(
+def test_a_size_hangarllm_cannot_bill_answers_400_without_a_task(
     gateway: Gateway, provider_model: str, size: str, message: str
 ) -> None:
     with wire_server(task_api()) as wire, gateway.scenario() as scenario:
@@ -557,22 +557,22 @@ def test_two_identical_creates_are_two_tasks_each_billed_once(gateway: Gateway) 
         settled_spend(key, expected)
 
 
-async def test_litellm_sdk_sync_and_async_create_poll_and_download_through_dashscope() -> None:
-    import litellm
+async def test_hangarllm_sdk_sync_and_async_create_poll_and_download_through_dashscope() -> None:
+    import hangarllm
 
     with wire_server(task_api()) as wire:
-        created: Final = litellm.video_generation(
+        created: Final = hangarllm.video_generation(
             model=f"dashscope/{MODEL}", prompt=PROMPT, seconds="5", size="1280x720", api_base=wire.url, api_key=API_KEY
         )
-        status: Final = litellm.video_status(video_id=created.id, api_base=wire.url, api_key=API_KEY)
+        status: Final = hangarllm.video_status(video_id=created.id, api_base=wire.url, api_key=API_KEY)
         assert (status.id, status.status) == (created.id, "completed")
-        assert litellm.video_content(video_id=created.id, api_base=wire.url, api_key=API_KEY) == MP4
-        async_created: Final = await litellm.avideo_generation(
+        assert hangarllm.video_content(video_id=created.id, api_base=wire.url, api_key=API_KEY) == MP4
+        async_created: Final = await hangarllm.avideo_generation(
             model=f"dashscope/{MODEL}", prompt=PROMPT, seconds="5", size="1280x720", api_base=wire.url, api_key=API_KEY
         )
-        async_status: Final = await litellm.avideo_status(video_id=async_created.id, api_base=wire.url, api_key=API_KEY)
+        async_status: Final = await hangarllm.avideo_status(video_id=async_created.id, api_base=wire.url, api_key=API_KEY)
         assert (async_status.id, async_status.status) == (async_created.id, "completed")
-        assert await litellm.avideo_content(video_id=async_created.id, api_base=wire.url, api_key=API_KEY) == MP4
+        assert await hangarllm.avideo_content(video_id=async_created.id, api_base=wire.url, api_key=API_KEY) == MP4
         bodies: Final = create_bodies(wire.drain())
         assert bodies == tuple(
             {

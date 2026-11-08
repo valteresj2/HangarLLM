@@ -10,10 +10,10 @@ import pytest
 import respx
 from fastapi import HTTPException
 
-import litellm
-from litellm import ModelResponse, Router
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import (
+import hangarllm
+from hangarllm import ModelResponse, Router
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.utils import (
     create_model_info_response,
     get_available_models_for_user,
     hash_token,
@@ -75,7 +75,7 @@ def test_is_known_model_error_path_none_router():
 def test_is_known_vector_store_index_happy_path(monkeypatch):
     registry = MagicMock()
     registry.get_vector_store_indexes.return_value = ["index-a", "index-b"]
-    monkeypatch.setattr(litellm, "vector_store_index_registry", registry)
+    monkeypatch.setattr(hangarllm, "vector_store_index_registry", registry)
     summary = {
         "result": is_known_vector_store_index("index-a"),
         "indexes": ["index-a", "index-b"],
@@ -91,7 +91,7 @@ def test_is_known_vector_store_index_happy_path(monkeypatch):
 def test_is_known_vector_store_index_returns_false_when_missing(monkeypatch):
     registry = MagicMock()
     registry.get_vector_store_indexes.return_value = ["index-a"]
-    monkeypatch.setattr(litellm, "vector_store_index_registry", registry)
+    monkeypatch.setattr(hangarllm, "vector_store_index_registry", registry)
     summary = {
         "result": is_known_vector_store_index("missing"),
         "indexes": ["index-a"],
@@ -105,7 +105,7 @@ def test_is_known_vector_store_index_returns_false_when_missing(monkeypatch):
 
 
 def test_is_known_vector_store_index_error_path_no_registry(monkeypatch):
-    monkeypatch.setattr(litellm, "vector_store_index_registry", None)
+    monkeypatch.setattr(hangarllm, "vector_store_index_registry", None)
     assert is_known_vector_store_index("anything") is False
 
 
@@ -134,7 +134,7 @@ def test_create_model_info_response_happy_path_no_metadata():
 
 def test_create_model_info_response_with_metadata_default_general(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_all_fallbacks",
+        "hangarllm.proxy.auth.model_checks.get_all_fallbacks",
         lambda **_kwargs: [{"model": "fallback-1"}],
     )
     result = create_model_info_response(
@@ -163,7 +163,7 @@ def test_create_model_info_response_with_explicit_fallback_type(monkeypatch):
         captured["fallback_type"] = fallback_type
         return ["x"]
 
-    monkeypatch.setattr("litellm.proxy.auth.model_checks.get_all_fallbacks", _capture)
+    monkeypatch.setattr("hangarllm.proxy.auth.model_checks.get_all_fallbacks", _capture)
     result = create_model_info_response(
         model_id="gpt-4o",
         provider="openai",
@@ -299,15 +299,15 @@ async def test_get_available_models_for_user_happy_path_returns_complete_list(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_key_models",
+        "hangarllm.proxy.auth.model_checks.get_key_models",
         lambda **_k: ["gpt-4o"],
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_team_models",
+        "hangarllm.proxy.auth.model_checks.get_team_models",
         lambda **_k: ["claude-haiku"],
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_complete_model_list",
+        "hangarllm.proxy.auth.model_checks.get_complete_model_list",
         lambda **_k: ["gpt-4o", "claude-haiku", "gemini"],
     )
     router = _router_with_models(["gpt-4o", "claude-haiku", "gemini"])
@@ -340,15 +340,15 @@ async def test_get_available_models_for_user_happy_path_returns_complete_list(
 @pytest.mark.asyncio
 async def test_get_available_models_for_user_with_none_router(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_key_models",
+        "hangarllm.proxy.auth.model_checks.get_key_models",
         lambda **_k: [],
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_team_models",
+        "hangarllm.proxy.auth.model_checks.get_team_models",
         lambda **_k: [],
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_complete_model_list",
+        "hangarllm.proxy.auth.model_checks.get_complete_model_list",
         lambda **_k: ["user-model"],
     )
     user_api_key_dict = UserAPIKeyAuth(
@@ -382,18 +382,18 @@ async def test_get_available_models_for_user_error_path_complete_list_raises(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_key_models",
+        "hangarllm.proxy.auth.model_checks.get_key_models",
         lambda **_k: [],
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.model_checks.get_team_models",
+        "hangarllm.proxy.auth.model_checks.get_team_models",
         lambda **_k: [],
     )
 
     def _boom(**_kwargs):
         raise RuntimeError("downstream failure")
 
-    monkeypatch.setattr("litellm.proxy.auth.model_checks.get_complete_model_list", _boom)
+    monkeypatch.setattr("hangarllm.proxy.auth.model_checks.get_complete_model_list", _boom)
     user_api_key_dict = UserAPIKeyAuth(
         api_key="sk-test-key",
         user_id="user-1",
@@ -413,15 +413,15 @@ async def test_get_available_models_for_user_error_path_complete_list_raises(
 async def test_get_available_models_for_user_resolves_team_access_group_models(
     monkeypatch,
 ):
-    from litellm.models.access_group import LiteLLM_AccessGroupTable
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
+    from hangarllm.models.access_group import HangarLLM_AccessGroupTable
+    from hangarllm.models.team import HangarLLM_TeamTableCachedObj
 
-    team = LiteLLM_TeamTableCachedObj(
+    team = HangarLLM_TeamTableCachedObj(
         team_id="team-1",
         models=["no-default-models"],
         access_group_ids=["ag-1"],
     )
-    access_group = LiteLLM_AccessGroupTable(
+    access_group = HangarLLM_AccessGroupTable(
         access_group_id="ag-1",
         access_group_name="repro-group",
         access_model_names=["model-a", "model-b"],
@@ -434,8 +434,8 @@ async def test_get_available_models_for_user_resolves_team_access_group_models(
     async def _get_access_object(**_kwargs):
         return access_group
 
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_team_object", _get_team_object)
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_access_object", _get_access_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_team_object", _get_team_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_access_object", _get_access_object)
 
     result = await get_available_models_for_user(
         user_api_key_dict=UserAPIKeyAuth(
@@ -459,13 +459,13 @@ async def test_get_available_models_for_user_resolves_team_access_group_models(
 async def test_get_available_models_for_user_lists_team_access_group_models_only_where_auth_grants_them(
     monkeypatch,
 ):
-    from litellm.models.access_group import LiteLLM_AccessGroupTable
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
-    from litellm.proxy._types import Member
+    from hangarllm.models.access_group import HangarLLM_AccessGroupTable
+    from hangarllm.models.team import HangarLLM_TeamTableCachedObj
+    from hangarllm.proxy._types import Member
 
     teams = {
-        "team-1": LiteLLM_TeamTableCachedObj(team_id="team-1", models=["model-a"], access_group_ids=["ag-1"]),
-        "team-2": LiteLLM_TeamTableCachedObj(
+        "team-1": HangarLLM_TeamTableCachedObj(team_id="team-1", models=["model-a"], access_group_ids=["ag-1"]),
+        "team-2": HangarLLM_TeamTableCachedObj(
             team_id="team-2", models=["model-c"], members_with_roles=[Member(user_id="user-1", role="user")]
         ),
     }
@@ -474,15 +474,15 @@ async def test_get_available_models_for_user_lists_team_access_group_models_only
         return teams[team_id]
 
     async def _get_access_object(**_kwargs):
-        return LiteLLM_AccessGroupTable(
+        return HangarLLM_AccessGroupTable(
             access_group_id="ag-1",
             access_group_name="team-group",
             access_model_names=["model-b"],
             assigned_team_ids=["team-1"],
         )
 
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_team_object", _get_team_object)
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_access_object", _get_access_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_team_object", _get_team_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_access_object", _get_access_object)
 
     async def _list_for(key_models: list[str], config: dict[str, list[str]] | None = None, team_id: str | None = None):
         return sorted(
@@ -517,12 +517,12 @@ async def test_get_available_models_for_user_lists_team_access_group_models_only
 async def test_get_available_models_for_user_without_access_groups_grants_nothing(
     monkeypatch,
 ):
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
+    from hangarllm.models.team import HangarLLM_TeamTableCachedObj
 
     async def _get_team_object(**_kwargs):
-        return LiteLLM_TeamTableCachedObj(team_id="team-1", models=["no-default-models"])
+        return HangarLLM_TeamTableCachedObj(team_id="team-1", models=["no-default-models"])
 
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_team_object", _get_team_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_team_object", _get_team_object)
 
     result = await get_available_models_for_user(
         user_api_key_dict=UserAPIKeyAuth(
@@ -546,24 +546,24 @@ async def test_get_available_models_for_user_without_access_groups_grants_nothin
 async def test_get_available_models_for_user_resolves_key_access_group_models(
     monkeypatch,
 ):
-    from litellm.models.access_group import LiteLLM_AccessGroupTable
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
+    from hangarllm.models.access_group import HangarLLM_AccessGroupTable
+    from hangarllm.models.team import HangarLLM_TeamTableCachedObj
 
     async def _get_team_object(**_kwargs):
-        return LiteLLM_TeamTableCachedObj(team_id="team-1", models=["no-default-models"])
+        return HangarLLM_TeamTableCachedObj(team_id="team-1", models=["no-default-models"])
 
     async def _get_access_object(**_kwargs):
-        return LiteLLM_AccessGroupTable(
+        return HangarLLM_AccessGroupTable(
             access_group_id="ag-1",
             access_group_name="key-group",
             access_model_names=["model-b"],
             assigned_key_ids=[hash_token("sk-test-key")],
         )
 
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_team_object", _get_team_object)
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_access_object", _get_access_object)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_team_object", _get_team_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_access_object", _get_access_object)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock())
 
     result = await get_available_models_for_user(
         user_api_key_dict=UserAPIKeyAuth(
@@ -585,7 +585,7 @@ async def test_get_available_models_for_user_resolves_key_access_group_models(
 
 
 def _agent_ceiling(models: frozenset[str] | None):
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import AgentAccessGroupCeiling
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import AgentAccessGroupCeiling
 
     async def resolve(agent_id: str) -> AgentAccessGroupCeiling | None:
         if models is None:
@@ -681,13 +681,13 @@ class _CatalogHeldUntilTheLoopRuns:
 def test_get_available_models_for_user_fetches_a_live_catalog_without_holding_the_event_loop_or_its_default_pool(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     catalog: Final = _CatalogHeldUntilTheLoopRuns()
     router: Final = Router(
         model_list=[
             {
                 "model_name": "openrouter/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openrouter/*",
                     "api_key": "sk-or-available-models-off-loop",
                     "api_base": OPENROUTER_BASE,

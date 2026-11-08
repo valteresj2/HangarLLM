@@ -38,7 +38,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -51,7 +51,7 @@
               "endTimeUnixNano": "1791061576009220000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -81,7 +81,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "4d1e094d-24e7-49f6-8d33-656a7d7712ae"
                   }
@@ -134,7 +134,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -147,7 +147,7 @@
               "endTimeUnixNano": "1791061577761649000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -177,7 +177,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "38acfc26-d8f3-4adc-9528-0196c28b8640"
                   }

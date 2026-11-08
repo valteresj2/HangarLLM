@@ -127,7 +127,7 @@
           "minimum": 0,
           "type": "integer"
         },
-        "litellm_request_id": {
+        "hangarllm_request_id": {
           "type": [
             "string",
             "null"
@@ -207,7 +207,7 @@
         "model",
         "input_tokens",
         "output_tokens",
-        "litellm_request_id",
+        "hangarllm_request_id",
         "spend",
         "spend_log_request_id",
         "spend_match"

@@ -17,7 +17,7 @@ from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, Wire
 from pydantic import JsonValue
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
 Provider = Literal["gemini", "vertex_ai"]
 Endpoint = Literal["chat", "messages", "responses"]
@@ -29,7 +29,7 @@ PROJECT: Final = "scripted-project"
 LOCATION: Final = "us-central1"
 MODEL_PATH: Final = f"/v1/projects/{PROJECT}/locations/{LOCATION}/publishers/google/models/{BACKEND}"
 CONTINUED_MODEL_PATH: Final = MODEL_PATH.replace("/v1/", "/v1beta1/", 1)
-SALT: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+SALT: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 CAP: Final = 1000
 INPUT_COST: Final = 0.001
 OUTPUT_COST: Final = 0.002
@@ -37,13 +37,13 @@ NO_CACHE: Final[Mapping[str, JsonValue]] = MappingProxyType({"cache": {"no-cache
 NOTHING_EXTRA: Final[Mapping[str, JsonValue]] = MappingProxyType({})
 PROMPT: Final = "Write the long answer."
 CHECKPOINT: Final = "checkpoint-token-never-for-clients"
-HOP_TOKEN: Final = "hop-token-litellm-sends-back"
+HOP_TOKEN: Final = "hop-token-hangarllm-sends-back"
 CUT_TOKEN: Final = "cut-token-for-the-caller"
 REFUSAL: Final = "The scripted upstream refused this continuation request"
 PROVIDERS: Final[tuple[Provider, ...]] = ("gemini", "vertex_ai")
 ENDPOINTS: Final[tuple[Endpoint, ...]] = ("chat", "messages", "responses")
 SPEND_COLUMNS: Final = (
-    'SELECT request_id, call_type, status, cache_hit, prompt_tokens, completion_tokens, spend FROM "LiteLLM_SpendLogs"'
+    'SELECT request_id, call_type, status, cache_hit, prompt_tokens, completion_tokens, spend FROM "HangarLLM_SpendLogs"'
 )
 
 

@@ -1,12 +1,12 @@
 from typing import Final
 
-from litellm import Router
+from hangarllm import Router
 
 
 def test_get_settings_returns_the_routing_and_retry_settings_the_router_was_built_with():
     router: Final = Router(
         model_list=[
-            {"model_name": "gpt-4.1-mini", "litellm_params": {"model": "openai/gpt-4.1-mini", "api_key": "fake-key"}}
+            {"model_name": "gpt-4.1-mini", "hangarllm_params": {"model": "openai/gpt-4.1-mini", "api_key": "fake-key"}}
         ],
         routing_strategy="latency-based-routing",
         routing_strategy_args={"ttl": 10},

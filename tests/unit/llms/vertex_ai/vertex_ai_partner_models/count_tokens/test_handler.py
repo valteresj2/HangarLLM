@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import count_tokens_headers
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import count_tokens_headers
 
 _HISTORY: Final = ({"role": "user", "content": "Hello"},)
 

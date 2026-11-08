@@ -239,7 +239,7 @@ def _response_id(served: _Served) -> str | None:
 
 def _spend_statuses(model: str, expected: int) -> MappingProxyType[str, str]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=70,
     )
@@ -405,7 +405,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
     base: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     deployment: Final = {
         "model_name": _CONFIG_MODEL,
-        "litellm_params": {"model": f"ollama/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
+        "hangarllm_params": {"model": f"ollama/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
     }
     path: Final = tmp_path / "ollama-prompt-tools-chaos.yaml"
     path.write_text(yaml.safe_dump({**base, "model_list": [deployment]}))

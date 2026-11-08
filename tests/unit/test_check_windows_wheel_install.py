@@ -29,7 +29,7 @@ def test_flags_entry_one_char_over_budget(tmp_path):
 
 def test_allows_entry_exactly_at_budget(tmp_path):
     at_limit = "a" * FILE_BUDGET
-    assert overlong_install_paths(_wheel(tmp_path, at_limit, "litellm/__init__.py")) == []
+    assert overlong_install_paths(_wheel(tmp_path, at_limit, "hangarllm/__init__.py")) == []
 
 
 def test_flags_directory_one_char_over_create_directory_limit(tmp_path):
@@ -45,8 +45,8 @@ def test_allows_directory_exactly_at_create_directory_limit(tmp_path):
 @pytest.mark.parametrize(
     "entry",
     [
-        "litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/guardrail_benchmarks/evals/block_disability_discrimination.jsonl",
-        "litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/policy_templates/sg_pdpa_profiling_automated_decisions.yaml",
+        "hangarllm/proxy/guardrails/guardrail_hooks/hangarllm_content_filter/guardrail_benchmarks/evals/block_disability_discrimination.jsonl",
+        "hangarllm/proxy/guardrails/guardrail_hooks/hangarllm_content_filter/policy_templates/sg_pdpa_profiling_automated_decisions.yaml",
     ],
 )
 def test_flags_the_paths_that_overflowed_store_python(tmp_path, entry):
@@ -66,13 +66,13 @@ def test_orders_offenders_longest_first(tmp_path):
 def _dist_with(tmp_path, *entry_names):
     dist = tmp_path / "dist"
     dist.mkdir()
-    with zipfile.ZipFile(dist / "litellm-0-py3-none-any.whl", "w") as zf:
+    with zipfile.ZipFile(dist / "hangarllm-0-py3-none-any.whl", "w") as zf:
         for name in entry_names:
             zf.writestr(name, "{}")
 
 
 def test_lengths_only_passes_without_installing(tmp_path, monkeypatch):
-    _dist_with(tmp_path, "litellm/__init__.py")
+    _dist_with(tmp_path, "hangarllm/__init__.py")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("PATH", "")
     assert main(["--lengths-only"]) == 0

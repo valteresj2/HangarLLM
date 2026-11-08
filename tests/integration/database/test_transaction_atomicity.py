@@ -27,18 +27,18 @@ def test_access_group_second_key_constraint_failure_rolls_back_all_writes(gatewa
 
         def remove_partial_group() -> None:
             for row in read_rows(
-                'SELECT access_group_id FROM "LiteLLM_AccessGroupTable" WHERE access_group_name=%s', (name,)
+                'SELECT access_group_id FROM "HangarLLM_AccessGroupTable" WHERE access_group_name=%s', (name,)
             ):
                 response: Final = gateway.request("DELETE", f"/v1/access_group/{row['access_group_id']}")
                 assert response.status_code == 204, response.text
             assert (
-                read_rows('SELECT access_group_id FROM "LiteLLM_AccessGroupTable" WHERE access_group_name=%s', (name,))
+                read_rows('SELECT access_group_id FROM "HangarLLM_AccessGroupTable" WHERE access_group_name=%s', (name,))
                 == []
             )
 
         scenario.cleanups.callback(remove_partial_group)
         before: Final = read_rows(
-            'SELECT token, access_group_ids FROM "LiteLLM_VerificationToken" WHERE token=ANY(%s) ORDER BY token',
+            'SELECT token, access_group_ids FROM "HangarLLM_VerificationToken" WHERE token=ANY(%s) ORDER BY token',
             (tokens,),
         )
         with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection, ExitStack() as cleanup:
@@ -56,13 +56,13 @@ def test_access_group_second_key_constraint_failure_rolls_back_all_writes(gatewa
             )
             connection.execute(
                 sql.SQL(
-                    'ALTER TABLE "LiteLLM_VerificationToken" ADD '
+                    'ALTER TABLE "HangarLLM_VerificationToken" ADD '
                     "CONSTRAINT {} CHECK (token <> {} OR {}(access_group_ids))"
                 ).format(sql.Identifier(constraint), sql.Literal(tokens[1]), sql.Identifier(check_function))
             )
             cleanup.callback(
                 connection.execute,
-                sql.SQL('ALTER TABLE "LiteLLM_VerificationToken" DROP CONSTRAINT {}').format(
+                sql.SQL('ALTER TABLE "HangarLLM_VerificationToken" DROP CONSTRAINT {}').format(
                     sql.Identifier(constraint)
                 ),
             )
@@ -77,14 +77,14 @@ def test_access_group_second_key_constraint_failure_rolls_back_all_writes(gatewa
                 ).fetchone() == (True,)
                 assert (
                     read_rows(
-                        'SELECT access_group_id FROM "LiteLLM_AccessGroupTable" WHERE access_group_name=%s', (name,)
+                        'SELECT access_group_id FROM "HangarLLM_AccessGroupTable" WHERE access_group_name=%s', (name,)
                     )
                     == []
                 )
                 assert (
                     read_rows(
                         "SELECT token, access_group_ids FROM "
-                        '"LiteLLM_VerificationToken" WHERE token=ANY(%s) ORDER BY token',
+                        '"HangarLLM_VerificationToken" WHERE token=ANY(%s) ORDER BY token',
                         (tokens,),
                     )
                     == before
@@ -112,13 +112,13 @@ def test_access_group_second_key_constraint_failure_rolls_back_all_writes(gatewa
             assert deleted.status_code == 204, deleted.text
             assert (
                 read_rows(
-                    'SELECT access_group_id FROM "LiteLLM_AccessGroupTable" WHERE access_group_id=%s', (identity,)
+                    'SELECT access_group_id FROM "HangarLLM_AccessGroupTable" WHERE access_group_id=%s', (identity,)
                 )
                 == []
             )
         assert (
             read_rows(
-                'SELECT token, access_group_ids FROM "LiteLLM_VerificationToken" WHERE token=ANY(%s) ORDER BY token',
+                'SELECT token, access_group_ids FROM "HangarLLM_VerificationToken" WHERE token=ANY(%s) ORDER BY token',
                 (tokens,),
             )
             == before

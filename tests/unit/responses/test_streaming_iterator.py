@@ -19,21 +19,21 @@ import pytest
 import websockets.exceptions
 from pydantic_core import PydanticSerializationError
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import UPSTREAM_USAGE_COST, billed_usage_cost
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.responses.streaming_iterator import (
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.core_helpers import UPSTREAM_USAGE_COST, billed_usage_cost
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.responses.streaming_iterator import (
     CachedResponsesAPIStreamingIterator,
     MockResponsesAPIStreamingIterator,
     ResponsesAPIStreamingIterator,
     SyncResponsesAPIStreamingIterator,
     _estimate_usage_from_text,
 )
-from litellm.types.llms.openai import (
+from hangarllm.types.llms.openai import (
     ResponseAPIUsage,
     ResponseCompletedEvent,
     ResponsesAPIResponse,
@@ -41,8 +41,8 @@ from litellm.types.llms.openai import (
     ResponsesAPIStreamingResponse,
 )
 from contextlib import suppress
-from litellm.responses import streaming_iterator as streaming_module
-from litellm.types.utils import CallTypes
+from hangarllm.responses import streaming_iterator as streaming_module
+from hangarllm.types.utils import CallTypes
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from types import SimpleNamespace
 
@@ -81,7 +81,7 @@ def _mock_config() -> Mock:
 def _make_iterator(
     *,
     sse_events: list[bytes],
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: HangarLLMLoggingObj,
     trailing_error: Optional[Exception] = None,
     config: Mock | None = None,
     request_data: dict | None = None,
@@ -101,7 +101,7 @@ def _make_iterator(
         model="gpt-4o-mini",
         responses_api_provider_config=config or _mock_config(),
         logging_obj=logging_obj,
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="openai",
         request_data=request_data,
     )
@@ -110,7 +110,7 @@ def _make_iterator(
 def _make_sync_iterator(
     *,
     sse_events: list[bytes],
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: HangarLLMLoggingObj,
     trailing_error: Optional[Exception] = None,
 ) -> SyncResponsesAPIStreamingIterator:
     def iter_bytes():
@@ -128,15 +128,15 @@ def _make_sync_iterator(
         model="gpt-4o-mini",
         responses_api_provider_config=_mock_config(),
         logging_obj=logging_obj,
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="openai",
     )
 
 
 def _logging_obj_stub() -> Mock:
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.completion_start_time = None
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"hangarllm_params": {}}
     return logging_obj
 
 
@@ -145,9 +145,9 @@ async def test_responses_streaming_stamps_completion_start_time_on_first_chunk()
     """Without the fix, `logging_obj.completion_start_time` stays None across the
     entire stream and _success_handler_helper_fn falls back to end_time — collapsing
     the reported TTFT to full generation time."""
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.completion_start_time = None
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"hangarllm_params": {}}
     stamped: list[datetime] = []
 
     def _update(*, completion_start_time):
@@ -182,9 +182,9 @@ async def test_responses_streaming_does_not_reset_prior_completion_start_time():
     iterator must not overwrite it — otherwise TTFT would collapse to
     time-to-last-chunk under contention."""
     prior = datetime(2020, 1, 1, 0, 0, 0)
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.completion_start_time = prior
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"hangarllm_params": {}}
 
     iterator = _make_iterator(
         sse_events=[
@@ -338,12 +338,12 @@ _READ_TIMEOUT_PREFIXES: Final = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("prefix", _READ_TIMEOUT_PREFIXES)
-async def test_transport_read_timeout_raises_litellm_timeout(prefix):
+async def test_transport_read_timeout_raises_hangarllm_timeout(prefix):
     logging_obj: Final = _failure_tracking_logging_obj()
     stall: Final = httpx.ReadTimeout("")
     iterator: Final = _make_iterator(sse_events=prefix, logging_obj=logging_obj, trailing_error=stall)
 
-    with pytest.raises(litellm.Timeout) as exc_info:
+    with pytest.raises(hangarllm.Timeout) as exc_info:
         async for _ in iterator:
             pass
 
@@ -354,12 +354,12 @@ async def test_transport_read_timeout_raises_litellm_timeout(prefix):
 
 
 @pytest.mark.parametrize("prefix", _READ_TIMEOUT_PREFIXES)
-def test_sync_transport_read_timeout_raises_litellm_timeout(prefix):
+def test_sync_transport_read_timeout_raises_hangarllm_timeout(prefix):
     iterator: Final = _make_sync_iterator(
         sse_events=prefix, logging_obj=_logging_obj_stub(), trailing_error=httpx.ReadTimeout("")
     )
 
-    with pytest.raises(litellm.Timeout) as exc_info:
+    with pytest.raises(hangarllm.Timeout) as exc_info:
         for _ in iterator:
             pass
 
@@ -378,7 +378,7 @@ async def test_stream_ending_after_partial_output_without_terminal_event_raises(
 
     created: Final = await iterator.__anext__()
     delta: Final = await iterator.__anext__()
-    with pytest.raises(litellm.APIConnectionError) as exc_info:
+    with pytest.raises(hangarllm.APIConnectionError) as exc_info:
         await iterator.__anext__()
 
     assert (created.type, delta.type) == ("response.created", "response.output_text.delta")
@@ -398,7 +398,7 @@ async def test_stream_ending_before_any_output_raises_fallback_error(prefix, pre
         async for _ in iterator:
             pass
 
-    assert isinstance(exc_info.value.original_exception, litellm.APIConnectionError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.APIConnectionError)
     assert exc_info.value.is_pre_first_chunk is pre_first_chunk
     assert exc_info.value.generated_content == ""
     _assert_failure_logged_once(logging_obj, exc_info.value.original_exception)
@@ -456,7 +456,7 @@ def test_sync_stream_ending_after_partial_output_without_terminal_event_raises(t
 
     created: Final = next(iterator)
     delta: Final = next(iterator)
-    with pytest.raises(litellm.APIConnectionError) as exc_info:
+    with pytest.raises(hangarllm.APIConnectionError) as exc_info:
         next(iterator)
 
     assert (created.type, delta.type) == ("response.created", "response.output_text.delta")
@@ -472,7 +472,7 @@ def test_sync_stream_ending_before_any_output_raises_fallback_error():
         for _ in iterator:
             pass
 
-    assert isinstance(exc_info.value.original_exception, litellm.APIConnectionError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.APIConnectionError)
     assert exc_info.value.is_pre_first_chunk is False
     _assert_failure_logged_once(logging_obj, exc_info.value.original_exception)
 
@@ -499,7 +499,7 @@ class _LoopRecordingLogger(CustomLogger):
 
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
         self.failure_loop = asyncio.get_running_loop()
-        self.failure_deployment_id = kwargs["litellm_params"].get("model_info", {}).get("id")
+        self.failure_deployment_id = kwargs["hangarllm_params"].get("model_info", {}).get("id")
         await asyncio.sleep(0.05)
         self.failure_finished = True
 
@@ -532,23 +532,23 @@ class _OrderRecordingSyncLogger(CustomLogger):
 def _real_logging_obj(
     *,
     call_type: str = "aresponses",
-    litellm_params: dict[str, object] | None = None,
+    hangarllm_params: dict[str, object] | None = None,
     callbacks: tuple[CustomLogger, ...] | None = None,
     stream: bool = True,
-) -> LiteLLMLoggingObj:
-    logging_obj: Final = LiteLLMLoggingObj(
+) -> HangarLLMLoggingObj:
+    logging_obj: Final = HangarLLMLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=stream,
         call_type=call_type,
         start_time=datetime.now(),
-        litellm_call_id="lit-8678-test",
+        hangarllm_call_id="lit-8678-test",
         function_id="lit-8678-test",
         dynamic_async_success_callbacks=None if callbacks is None else list(callbacks),
         dynamic_async_failure_callbacks=None if callbacks is None else list(callbacks),
     )
-    logging_obj.model_call_details["litellm_params"] = (
-        dict(litellm_params) if litellm_params is not None else {"aresponses": True}
+    logging_obj.model_call_details["hangarllm_params"] = (
+        dict(hangarllm_params) if hangarllm_params is not None else {"aresponses": True}
     )
     return logging_obj
 
@@ -567,8 +567,8 @@ async def test_transport_error_failure_logging_runs_on_the_iterating_loop(monkey
     worker thread and block the iterating loop until it finished, so a callback waiting on
     state bound to that loop (a batch logger's flush lock) stalled the whole proxy."""
     recorder: Final = _LoopRecordingLogger()
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
     iterator: Final = _make_iterator(
         sse_events=_PARTIAL_OUTPUT_EVENTS,
         logging_obj=_real_logging_obj(),
@@ -589,10 +589,10 @@ async def test_failure_logging_finishes_before_the_error_reaches_the_consumer(mo
     deployment as soon as it catches the error, so failure logging that still runs after
     the raise reads the fallback deployment's params and cools down the wrong deployment."""
     recorder: Final = _LoopRecordingLogger()
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
     logging_obj: Final = _real_logging_obj(
-        litellm_params={"aresponses": True, "model_info": {"id": "primary-deployment"}}
+        hangarllm_params={"aresponses": True, "model_info": {"id": "primary-deployment"}}
     )
     iterator: Final = _make_iterator(
         sse_events=[],
@@ -603,7 +603,7 @@ async def test_failure_logging_finishes_before_the_error_reaches_the_consumer(mo
     with pytest.raises(MidStreamFallbackError):
         async for _ in iterator:
             pass
-    logging_obj.model_call_details["litellm_params"]["model_info"] = {"id": "fallback-deployment"}
+    logging_obj.model_call_details["hangarllm_params"]["model_info"] = {"id": "fallback-deployment"}
     await _wait_until(lambda: recorder.failure_finished)
 
     assert recorder.failure_deployment_id == "primary-deployment"
@@ -612,11 +612,11 @@ async def test_failure_logging_finishes_before_the_error_reaches_the_consumer(mo
 @pytest.mark.asyncio
 async def test_sync_stream_failure_inside_a_running_loop_still_runs_sync_only_callbacks(monkeypatch):
     recorder: Final = _SyncOnlyRecordingLogger()
-    monkeypatch.setattr(litellm, "failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
     iterator: Final = _make_sync_iterator(
         sse_events=_PARTIAL_OUTPUT_EVENTS,
-        logging_obj=_real_logging_obj(call_type="responses", litellm_params={}),
+        logging_obj=_real_logging_obj(call_type="responses", hangarllm_params={}),
         trailing_error=httpx.ReadError("Response payload is not completed"),
     )
 
@@ -633,11 +633,11 @@ async def test_sync_failure_callbacks_run_after_async_failure_logging_finishes(m
     async one is still running, which is the ordering the blocking dispatch used to give."""
     async_recorder: Final = _LoopRecordingLogger()
     sync_recorder: Final = _OrderRecordingSyncLogger(async_recorder)
-    monkeypatch.setattr(litellm, "_async_failure_callback", [async_recorder])
-    monkeypatch.setattr(litellm, "failure_callback", [sync_recorder])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [async_recorder])
+    monkeypatch.setattr(hangarllm, "failure_callback", [sync_recorder])
     iterator: Final = _make_sync_iterator(
         sse_events=_PARTIAL_OUTPUT_EVENTS,
-        logging_obj=_real_logging_obj(call_type="responses", litellm_params={}),
+        logging_obj=_real_logging_obj(call_type="responses", hangarllm_params={}),
         trailing_error=httpx.ReadError("Response payload is not completed"),
     )
 
@@ -653,7 +653,7 @@ async def test_sync_failure_callbacks_run_after_async_failure_logging_finishes(m
 @pytest.mark.asyncio
 async def test_completed_stream_success_deployment_hook_runs_on_the_iterating_loop(monkeypatch):
     recorder: Final = _LoopRecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     iterator: Final = _make_iterator(sse_events=_COMPLETE_STREAM_EVENTS, logging_obj=_logging_obj_stub())
 
     async for _ in iterator:
@@ -673,8 +673,8 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
     import asyncio
     from types import SimpleNamespace
 
-    import litellm
-    from litellm.types.utils import CallTypes
+    import hangarllm
+    from hangarllm.types.utils import CallTypes
 
     writes = []
 
@@ -696,12 +696,12 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
             "custom_llm_provider": "openai",
         },
         preset_cache_key="responses-stream-cache-key",
-        original_function=litellm.aresponses,
+        original_function=hangarllm.aresponses,
         dual_cache=None,
         _should_store_result_in_cache=lambda original_function, kwargs: True,
     )
     logging_obj = SimpleNamespace(
-        model_call_details={"litellm_params": {}},
+        model_call_details={"hangarllm_params": {}},
         llm_caching_handler=caching_handler,
     )
     iterator = ResponsesAPIStreamingIterator(
@@ -731,7 +731,7 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
             ],
         ),
     )
-    monkeypatch.setattr(litellm, "cache", _SlowWriteCache())
+    monkeypatch.setattr(hangarllm, "cache", _SlowWriteCache())
 
     async def _short_lived_script():
         iterator._persist_completed_response_to_cache(is_async=True)
@@ -743,9 +743,9 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
 
 def test_run_post_success_hooks_does_not_report_generation_time_as_overhead():
     """LIT-5466: the provider call is timed to first byte, so at stream completion the total minus
-    that duration is token generation, not LiteLLM overhead."""
+    that duration is token generation, not HangarLLM overhead."""
     logging_obj = _logging_obj_stub()
-    logging_obj.model_call_details = {"litellm_params": {}, "llm_api_duration_ms": 200.0}
+    logging_obj.model_call_details = {"hangarllm_params": {}, "llm_api_duration_ms": 200.0}
     logging_obj.caching_details = None
 
     class _CompletedEvent:
@@ -759,7 +759,7 @@ def test_run_post_success_hooks_does_not_report_generation_time_as_overhead():
     iterator._run_post_success_hooks(datetime(2025, 1, 1, 0, 0, 10))
 
     assert iterator.completed_response._hidden_params["_response_ms"] == 10000.0
-    assert "litellm_overhead_time_ms" not in iterator.completed_response._hidden_params
+    assert "hangarllm_overhead_time_ms" not in iterator.completed_response._hidden_params
 
 
 def _mock_config_with_completed_response(response: ResponsesAPIResponse) -> Mock:
@@ -857,10 +857,10 @@ def _responses_api_response_with_usage() -> ResponsesAPIResponse:
 
 
 def test_stamp_responses_usage_cost_stamps_computed_cost():
-    from litellm.responses.streaming_iterator import stamp_responses_usage_cost
+    from hangarllm.responses.streaming_iterator import stamp_responses_usage_cost
 
     response = _responses_api_response_with_usage()
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.model_call_details = {"custom_llm_provider": "openai"}
     logging_obj.response_cost_calculator.return_value = 0.000704
 
@@ -874,12 +874,12 @@ def test_stamp_responses_usage_cost_stamps_computed_cost():
 
 
 def test_stamp_responses_usage_cost_bills_the_spend_row_price_over_the_provider_reported_cost():
-    from litellm.litellm_core_utils.core_helpers import response_cost_in_hidden_params
-    from litellm.responses.streaming_iterator import stamp_responses_usage_cost
+    from hangarllm.hangarllm_core_utils.core_helpers import response_cost_in_hidden_params
+    from hangarllm.responses.streaming_iterator import stamp_responses_usage_cost
 
     response = _responses_api_response_with_usage()
     setattr(response.usage, "cost", 0.5)
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.model_call_details = {"custom_llm_provider": "openai"}
     logging_obj.response_cost_calculator.return_value = 0.00032
 
@@ -904,7 +904,7 @@ def _unvalidated_response_with_dict_usage(usage: dict) -> ResponsesAPIResponse:
 
 
 def test_stamp_responses_usage_cost_keeps_provider_cost_from_dict_usage():
-    from litellm.responses.streaming_iterator import stamp_responses_usage_cost
+    from hangarllm.responses.streaming_iterator import stamp_responses_usage_cost
 
     response = _unvalidated_response_with_dict_usage(
         {
@@ -915,7 +915,7 @@ def test_stamp_responses_usage_cost_keeps_provider_cost_from_dict_usage():
             "cost": {"currency": "USD", "input_cost": 0, "output_cost": 3e-05, "total_cost": 3e-05},
         }
     )
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.model_call_details = {"custom_llm_provider": "openai"}
     logging_obj.response_cost_calculator.return_value = 3e-05
 
@@ -927,10 +927,10 @@ def test_stamp_responses_usage_cost_keeps_provider_cost_from_dict_usage():
 
 
 def test_stamp_responses_usage_cost_computes_cost_for_dict_usage_without_cost():
-    from litellm.responses.streaming_iterator import stamp_responses_usage_cost
+    from hangarllm.responses.streaming_iterator import stamp_responses_usage_cost
 
     response = _unvalidated_response_with_dict_usage({"input_tokens": 29, "output_tokens": 120, "total_tokens": 149})
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.model_call_details = {"custom_llm_provider": "openai"}
     logging_obj.response_cost_calculator.return_value = 0.000704
 
@@ -942,10 +942,10 @@ def test_stamp_responses_usage_cost_computes_cost_for_dict_usage_without_cost():
 
 
 def test_stamp_responses_usage_cost_survives_calculator_failure():
-    from litellm.responses.streaming_iterator import stamp_responses_usage_cost
+    from hangarllm.responses.streaming_iterator import stamp_responses_usage_cost
 
     response = _responses_api_response_with_usage()
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=HangarLLMLoggingObj)
     logging_obj.model_call_details = {"custom_llm_provider": "openai"}
     logging_obj.response_cost_calculator.side_effect = RuntimeError("cost map unavailable")
 
@@ -957,7 +957,7 @@ def test_stamp_responses_usage_cost_survives_calculator_failure():
 def _capture_dispatch(logged: list):
     """Record the object handed to the success handlers.
 
-    ``Mock(spec=LiteLLMLoggingObj).dispatch_success_handlers`` is an AsyncMock whose side effect
+    ``Mock(spec=HangarLLMLoggingObj).dispatch_success_handlers`` is an AsyncMock whose side effect
     only runs when the coroutine is awaited, so capture with a plain function instead.
     """
 
@@ -1006,7 +1006,7 @@ def _make_header_iterator(
     *,
     headers: dict,
     config: Mock,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: HangarLLMLoggingObj,
 ) -> ResponsesAPIStreamingIterator:
     async def aiter_bytes():
         yield _sse_event({"type": "response.completed"})
@@ -1020,7 +1020,7 @@ def _make_header_iterator(
         model="gpt-4o-mini",
         responses_api_provider_config=config,
         logging_obj=logging_obj,
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="azure",
     )
 
@@ -1088,8 +1088,8 @@ async def test_streaming_logging_copy_preserves_transform_hidden_params():
 
 
 @pytest.mark.asyncio
-async def test_streaming_logging_copy_keeps_the_stamped_bill_as_litellms_own():
-    """The terminal event's usage.cost is litellm's bill. The logging copy must carry upstream_usage_cost
+async def test_streaming_logging_copy_keeps_the_stamped_bill_as_hangarllms_own():
+    """The terminal event's usage.cost is hangarllm's bill. The logging copy must carry upstream_usage_cost
     beside it, or the spend row reads that bill back as an upstream charge (input 0, output total)."""
     logging_obj = _logging_obj_stub()
     logging_obj.response_cost_calculator.return_value = 0.00039
@@ -1178,7 +1178,7 @@ async def test_streaming_logging_copy_keeps_client_usage_when_response_fails_val
 
     assert len(logged) == 1
     now = datetime.now()
-    LiteLLMLoggingObj._get_assembled_streaming_response(
+    HangarLLMLoggingObj._get_assembled_streaming_response(
         logging_obj, logged[0], start_time=now, end_time=now, is_async=True, streaming_chunks=[]
     )
     assert logged[0].response.usage["prompt_tokens"] == 29
@@ -1240,7 +1240,7 @@ async def test_completed_event_without_usage_counts_multimodal_input_as_messages
             ],
         }
     ]
-    json_count: Final = litellm.token_counter(model="gpt-4o-mini", text=json.dumps(image_input))
+    json_count: Final = hangarllm.token_counter(model="gpt-4o-mini", text=json.dumps(image_input))
     response = _responses_api_response_without_usage()
     iterator = _make_iterator(
         sse_events=[
@@ -1374,7 +1374,7 @@ async def test_completed_event_with_a_dict_response_is_typed_and_billed():
 
 
 def test_billed_terminal_response_keeps_a_response_that_already_has_usage():
-    from litellm.responses.streaming_iterator import _billed_terminal_response
+    from hangarllm.responses.streaming_iterator import _billed_terminal_response
 
     response: Final = _responses_api_response_with_usage()
 
@@ -1382,7 +1382,7 @@ def test_billed_terminal_response_keeps_a_response_that_already_has_usage():
 
 
 def test_billed_terminal_response_copies_when_estimating_and_leaves_the_original_untouched():
-    from litellm.responses.streaming_iterator import _billed_terminal_response
+    from hangarllm.responses.streaming_iterator import _billed_terminal_response
 
     response: Final = _responses_api_response_without_usage()
     estimated: Final = ResponseAPIUsage(input_tokens=3, output_tokens=4, total_tokens=7)
@@ -1405,7 +1405,7 @@ def test_persist_completed_response_to_cache_skips_a_response_without_output(mon
         response=ResponsesAPIResponse.model_construct(id="resp_empty", output=[], usage=None),
     )
     cache: Final = Mock()
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
 
     iterator._persist_completed_response_to_cache(is_async=False)
 
@@ -1427,7 +1427,7 @@ def test_persist_completed_response_to_cache_survives_an_unserializable_response
         type="response.completed", response=bad_response
     )
     cache: Final = Mock()
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
 
     iterator._persist_completed_response_to_cache(is_async=False)
 
@@ -1444,12 +1444,12 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function")
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+            importlib.reload(hangarllm.proxy.proxy_server)
     except Exception:
         pass
     loop = asyncio.get_event_loop_policy().new_event_loop()
@@ -1469,7 +1469,7 @@ class _FakeLoggingObj:
         self.last_async_success_kwargs = None
         self.start_time = datetime.now()
         self.completion_start_time = None
-        self.model_call_details = {"litellm_params": {}}
+        self.model_call_details = {"hangarllm_params": {}}
         self.success_logged = threading.Event()
         self.failure_logged = threading.Event()
 
@@ -1651,7 +1651,7 @@ async def test_responses_streaming_triggers_hooks(monkeypatch):
         model="test-model",
         responses_api_provider_config=SimpleNamespace(),  # not used in this test
         logging_obj=logging_obj,
-        request_data={"foo": "bar", "litellm_params": {}},
+        request_data={"foo": "bar", "hangarllm_params": {}},
         call_type=CallTypes.responses.value,
     )
 
@@ -1669,7 +1669,7 @@ async def test_responses_streaming_triggers_hooks(monkeypatch):
     assert hook_calls["post_call"] == 1
     assert hook_calls["metadata"] == 1
     assert seen["request_data"]["foo"] == "bar"
-    assert seen["request_data"].get("litellm_params") is not None
+    assert seen["request_data"].get("hangarllm_params") is not None
     assert seen["call_type"] == CallTypes.responses
 
 
@@ -1686,8 +1686,8 @@ async def test_responses_streaming_calls_post_streaming_deployment_hook(monkeypa
             return response_chunk
 
     # Set callbacks to our fake hook
-    original_callbacks = litellm.callbacks
-    litellm.callbacks = [_HookLogger()]
+    original_callbacks = hangarllm.callbacks
+    hangarllm.callbacks = [_HookLogger()]
 
     logging_obj = _FakeLoggingObj()
 
@@ -1711,7 +1711,7 @@ async def test_responses_streaming_calls_post_streaming_deployment_hook(monkeypa
     assert getattr(chunk, "tagged", False) is True
 
     # reset callbacks
-    litellm.callbacks = original_callbacks
+    hangarllm.callbacks = original_callbacks
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
@@ -1768,7 +1768,7 @@ def test_process_chunk_wraps_encrypted_content_with_model_id():
             return openai_types.OutputItemAddedEvent(
                 type=openai_types.ResponsesAPIStreamEvents.OUTPUT_ITEM_ADDED,
                 output_index=0,
-                item=openai_types.BaseLiteLLMOpenAIResponseObject(
+                item=openai_types.BaseHangarLLMOpenAIResponseObject(
                     id="rs_123",
                     type="reasoning",
                     encrypted_content="ciphertext",
@@ -1780,7 +1780,7 @@ def test_process_chunk_wraps_encrypted_content_with_model_id():
         model="test-model",
         responses_api_provider_config=_EncryptedConfig(),
         logging_obj=_FakeLoggingObj(),
-        litellm_metadata={
+        hangarllm_metadata={
             "encrypted_content_affinity_enabled": True,
             "model_info": {"id": "model-123"},
         },
@@ -1790,14 +1790,14 @@ def test_process_chunk_wraps_encrypted_content_with_model_id():
 
     event = iterator._process_chunk(json.dumps({"type": "response.output_item.added"}))
 
-    assert event.item.encrypted_content.startswith("litellm_enc:")
+    assert event.item.encrypted_content.startswith("hangarllm_enc:")
     assert event.item.encrypted_content.endswith(";ciphertext")
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 def test_process_chunk_completed_response_updates_id_and_usage_cost(monkeypatch):
-    original_include_cost = litellm.include_cost_in_streaming_usage
-    litellm.include_cost_in_streaming_usage = True
+    original_include_cost = hangarllm.include_cost_in_streaming_usage
+    hangarllm.include_cost_in_streaming_usage = True
     openai_types = streaming_module._get_openai_response_types()
 
     class _CompletedConfig:
@@ -1826,7 +1826,7 @@ def test_process_chunk_completed_response_updates_id_and_usage_cost(monkeypatch)
         model="test-model",
         responses_api_provider_config=_CompletedConfig(),
         logging_obj=logging_obj,
-        litellm_metadata={"model_info": {"id": "model-123"}},
+        hangarllm_metadata={"model_info": {"id": "model-123"}},
         custom_llm_provider="openai",
         request_data={"foo": "bar"},
         call_type=CallTypes.responses.value,
@@ -1839,7 +1839,7 @@ def test_process_chunk_completed_response_updates_id_and_usage_cost(monkeypatch)
         # runs update_responses_api_response_id_with_model_id (see streaming_iterator.py).
         event = iterator._process_chunk(json.dumps({"type": "response.completed", "response": {"id": "resp_live"}}))
     finally:
-        litellm.include_cost_in_streaming_usage = original_include_cost
+        hangarllm.include_cost_in_streaming_usage = original_include_cost
 
     assert iterator.completed_response is event
     assert event.response.id != "resp_live"
@@ -1938,8 +1938,8 @@ def test_process_chunk_returns_none_for_invalid_json_and_non_dict_payload():
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 def test_process_chunk_cost_annotation_failure_is_nonfatal(monkeypatch):
-    original_include_cost = litellm.include_cost_in_streaming_usage
-    litellm.include_cost_in_streaming_usage = True
+    original_include_cost = hangarllm.include_cost_in_streaming_usage
+    hangarllm.include_cost_in_streaming_usage = True
     openai_types = streaming_module._get_openai_response_types()
 
     class _CompletedConfig:
@@ -1977,7 +1977,7 @@ def test_process_chunk_cost_annotation_failure_is_nonfatal(monkeypatch):
     try:
         event = iterator._process_chunk(json.dumps({"type": "response.completed"}))
     finally:
-        litellm.include_cost_in_streaming_usage = original_include_cost
+        hangarllm.include_cost_in_streaming_usage = original_include_cost
 
     assert iterator.completed_response is event
     assert event.response.usage.cost is None
@@ -2005,8 +2005,8 @@ def test_get_completed_response_object_accepts_direct_response():
 @pytest.mark.asyncio
 async def test_responses_streaming_completed_event_persists_async_cache():
     logging_obj = _FakeLoggingObj()
-    original_cache = litellm.cache
-    litellm.cache = SimpleNamespace(
+    original_cache = hangarllm.cache
+    hangarllm.cache = SimpleNamespace(
         async_add_cache=AsyncMock(),
         add_cache=MagicMock(),
     )
@@ -2021,7 +2021,7 @@ async def test_responses_streaming_completed_event_persists_async_cache():
             "custom_llm_provider": "openai",
         },
         preset_cache_key="responses-stream-cache-key",
-        original_function=litellm.aresponses,
+        original_function=hangarllm.aresponses,
         async_set_cache=AsyncMock(),
         _should_store_result_in_cache=lambda original_function, kwargs: True,
     )
@@ -2041,20 +2041,20 @@ async def test_responses_streaming_completed_event_persists_async_cache():
     iterator._handle_logging_completed_response()
     await _await_tasks_spawned_since(existing_tasks)
 
-    litellm.cache.async_add_cache.assert_called_once()
-    assert litellm.cache.async_add_cache.call_args.kwargs["stream"] is True
-    assert litellm.cache.async_add_cache.call_args.kwargs["cache_key"] == "responses-stream-cache-key"
-    assert "metadata" not in litellm.cache.async_add_cache.call_args.kwargs
-    assert "custom_llm_provider" not in litellm.cache.async_add_cache.call_args.kwargs
-    assert json.loads(litellm.cache.async_add_cache.call_args.args[0])["id"] == iterator.completed_response.response.id
-    litellm.cache = original_cache
+    hangarllm.cache.async_add_cache.assert_called_once()
+    assert hangarllm.cache.async_add_cache.call_args.kwargs["stream"] is True
+    assert hangarllm.cache.async_add_cache.call_args.kwargs["cache_key"] == "responses-stream-cache-key"
+    assert "metadata" not in hangarllm.cache.async_add_cache.call_args.kwargs
+    assert "custom_llm_provider" not in hangarllm.cache.async_add_cache.call_args.kwargs
+    assert json.loads(hangarllm.cache.async_add_cache.call_args.args[0])["id"] == iterator.completed_response.response.id
+    hangarllm.cache = original_cache
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 def test_responses_streaming_completed_event_persists_sync_cache():
     logging_obj = _FakeLoggingObj()
-    original_cache = litellm.cache
-    litellm.cache = SimpleNamespace(
+    original_cache = hangarllm.cache
+    hangarllm.cache = SimpleNamespace(
         async_add_cache=AsyncMock(),
         add_cache=MagicMock(),
     )
@@ -2069,7 +2069,7 @@ def test_responses_streaming_completed_event_persists_sync_cache():
             "custom_llm_provider": "openai",
         },
         preset_cache_key="responses-stream-cache-key",
-        original_function=litellm.responses,
+        original_function=hangarllm.responses,
         sync_set_cache=MagicMock(),
         _should_store_result_in_cache=lambda original_function, kwargs: True,
     )
@@ -2087,13 +2087,13 @@ def test_responses_streaming_completed_event_persists_sync_cache():
 
     iterator._handle_logging_completed_response()
 
-    litellm.cache.add_cache.assert_called_once()
-    assert litellm.cache.add_cache.call_args.kwargs["stream"] is True
-    assert litellm.cache.add_cache.call_args.kwargs["cache_key"] == "responses-stream-cache-key"
-    assert "metadata" not in litellm.cache.add_cache.call_args.kwargs
-    assert "custom_llm_provider" not in litellm.cache.add_cache.call_args.kwargs
-    assert json.loads(litellm.cache.add_cache.call_args.args[0])["id"] == iterator.completed_response.response.id
-    litellm.cache = original_cache
+    hangarllm.cache.add_cache.assert_called_once()
+    assert hangarllm.cache.add_cache.call_args.kwargs["stream"] is True
+    assert hangarllm.cache.add_cache.call_args.kwargs["cache_key"] == "responses-stream-cache-key"
+    assert "metadata" not in hangarllm.cache.add_cache.call_args.kwargs
+    assert "custom_llm_provider" not in hangarllm.cache.add_cache.call_args.kwargs
+    assert json.loads(hangarllm.cache.add_cache.call_args.args[0])["id"] == iterator.completed_response.response.id
+    hangarllm.cache = original_cache
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
@@ -2214,15 +2214,15 @@ def test_persist_completed_response_to_cache_guard_branches(monkeypatch, scenari
                 "custom_llm_provider": "openai",
             },
             preset_cache_key=None,
-            original_function=litellm.responses,
+            original_function=hangarllm.responses,
             dual_cache=None,
             _should_store_result_in_cache=lambda original_function, kwargs: scenario != "store_disabled",
         )
         if scenario == "missing_cache_backend":
-            monkeypatch.setattr(streaming_module.litellm, "cache", None)
+            monkeypatch.setattr(streaming_module.hangarllm, "cache", None)
         else:
             monkeypatch.setattr(
-                streaming_module.litellm,
+                streaming_module.hangarllm,
                 "cache",
                 SimpleNamespace(add_cache=MagicMock(), async_add_cache=AsyncMock()),
             )
@@ -2235,8 +2235,8 @@ def test_persist_completed_response_to_cache_guard_branches(monkeypatch, scenari
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 def test_build_synthetic_response_events_covers_annotations_function_calls_and_refusals():
-    original_include_cost = litellm.include_cost_in_streaming_usage
-    litellm.include_cost_in_streaming_usage = True
+    original_include_cost = hangarllm.include_cost_in_streaming_usage
+    hangarllm.include_cost_in_streaming_usage = True
     logging_obj = _FakeLoggingObj()
     logging_obj.response_cost_calculator = MagicMock(side_effect=RuntimeError("boom"))
     transformed = ResponsesAPIResponse(
@@ -2280,7 +2280,7 @@ def test_build_synthetic_response_events_covers_annotations_function_calls_and_r
             chunk_size=5,
         )
     finally:
-        litellm.include_cost_in_streaming_usage = original_include_cost
+        hangarllm.include_cost_in_streaming_usage = original_include_cost
 
     event_types = [event.type.value if hasattr(event.type, "value") else str(event.type) for event in events]
 
@@ -2414,15 +2414,15 @@ async def test_cached_responses_stream_async_hit_triggers_success_callbacks(
     )
 
     logging_obj = _FakeLoggingObj()
-    original_cache = litellm.cache
-    litellm.cache = SimpleNamespace(
+    original_cache = hangarllm.cache
+    hangarllm.cache = SimpleNamespace(
         async_add_cache=AsyncMock(),
         add_cache=MagicMock(),
     )
     logging_obj.llm_caching_handler = SimpleNamespace(
         request_kwargs={"model": "test-model", "input": "hello", "stream": True},
         preset_cache_key="responses-stream-cache-key",
-        original_function=litellm.aresponses,
+        original_function=hangarllm.aresponses,
         _should_store_result_in_cache=lambda original_function, kwargs: True,
     )
 
@@ -2444,9 +2444,9 @@ async def test_cached_responses_stream_async_hit_triggers_success_callbacks(
     assert logging_obj.last_async_success_kwargs["cache_hit"] is True
     assert hook_calls["post_call"] == 1
     assert hook_calls["metadata"] == 1
-    litellm.cache.async_add_cache.assert_not_called()
-    litellm.cache.add_cache.assert_not_called()
-    litellm.cache = original_cache
+    hangarllm.cache.async_add_cache.assert_not_called()
+    hangarllm.cache.add_cache.assert_not_called()
+    hangarllm.cache = original_cache
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
@@ -2471,15 +2471,15 @@ def test_cached_responses_stream_sync_hit_triggers_success_callbacks(monkeypatch
     )
 
     logging_obj = _FakeLoggingObj()
-    original_cache = litellm.cache
-    litellm.cache = SimpleNamespace(
+    original_cache = hangarllm.cache
+    hangarllm.cache = SimpleNamespace(
         async_add_cache=AsyncMock(),
         add_cache=MagicMock(),
     )
     logging_obj.llm_caching_handler = SimpleNamespace(
         request_kwargs={"model": "test-model", "input": "hello", "stream": True},
         preset_cache_key="responses-stream-cache-key",
-        original_function=litellm.responses,
+        original_function=hangarllm.responses,
         _should_store_result_in_cache=lambda original_function, kwargs: True,
     )
 
@@ -2500,9 +2500,9 @@ def test_cached_responses_stream_sync_hit_triggers_success_callbacks(monkeypatch
     assert logging_obj.last_async_success_kwargs["cache_hit"] is True
     assert hook_calls["post_call"] == 1
     assert hook_calls["metadata"] == 1
-    litellm.cache.async_add_cache.assert_not_called()
-    litellm.cache.add_cache.assert_not_called()
-    litellm.cache = original_cache
+    hangarllm.cache.async_add_cache.assert_not_called()
+    hangarllm.cache.add_cache.assert_not_called()
+    hangarllm.cache = original_cache
 
 
 def _answer_with_text_and_tool_call() -> ResponsesAPIResponse:
@@ -2534,7 +2534,7 @@ def _answer_with_text_and_tool_call() -> ResponsesAPIResponse:
 
 
 def test_faked_stream_bridged_to_chat_sends_tool_arguments_once():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from hangarllm.completion_extras.hangarllm_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -2836,7 +2836,7 @@ async def _run_websocket_turn(logger: CustomLogger, terminal_event: dict[str, ob
         backend_ws=backend_ws,
         logging_obj=_real_logging_obj(
             call_type=CallTypes.aresponses_websocket.value,
-            litellm_params={CallTypes.aresponses_websocket.value: True},
+            hangarllm_params={CallTypes.aresponses_websocket.value: True},
             callbacks=(logger,),
             stream=False,
         ),

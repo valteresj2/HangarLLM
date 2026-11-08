@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 
 def test_vertex_ai_bge_embedding_with_custom_api_base():
@@ -31,7 +31,7 @@ def test_vertex_ai_bge_embedding_with_custom_api_base():
     with (
         patch.object(client, "post") as mock_post,
         patch(
-            "litellm.llms.vertex_ai.vertex_embeddings.embedding_handler.VertexEmbedding._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_embeddings.embedding_handler.VertexEmbedding._ensure_access_token",
             side_effect=mock_auth_token,
         ),
     ):
@@ -47,7 +47,7 @@ def test_vertex_ai_bge_embedding_with_custom_api_base():
         }
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="vertex_ai/bge-small-en-v1.5",
             input=["Hello", "World"],
             api_base="http://10.96.32.8",
@@ -110,7 +110,7 @@ def test_vertex_ai_bge_with_endpoint_id_pattern():
     with (
         patch.object(client, "post") as mock_post,
         patch(
-            "litellm.llms.vertex_ai.vertex_embeddings.embedding_handler.VertexEmbedding._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_embeddings.embedding_handler.VertexEmbedding._ensure_access_token",
             side_effect=mock_auth_token,
         ),
     ):
@@ -125,7 +125,7 @@ def test_vertex_ai_bge_with_endpoint_id_pattern():
         }
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="vertex_ai/bge/204379420394258432",
             input=["Hello", "World"],
             vertex_project="1060139831167",
@@ -197,7 +197,7 @@ def test_vertex_ai_bge_psc_endpoint_url_construction():
     with (
         patch.object(client, "post") as mock_post,
         patch(
-            "litellm.llms.vertex_ai.vertex_embeddings.embedding_handler.VertexEmbedding._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_embeddings.embedding_handler.VertexEmbedding._ensure_access_token",
             side_effect=mock_auth_token,
         ),
     ):
@@ -206,7 +206,7 @@ def test_vertex_ai_bge_psc_endpoint_url_construction():
         mock_response.json.return_value = {"predictions": [[0.1, 0.2, 0.3, 0.4, 0.5]]}
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="vertex_ai/bge/378943383978115072",
             input=["The food was delicious and the waiter.."],
             api_base="http://10.128.16.2",

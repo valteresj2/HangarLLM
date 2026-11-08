@@ -25,7 +25,7 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from openai.types.responses import ResponseCompletedEvent
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -34,7 +34,7 @@ _API_KEY: Final = "synthetic-gemini-key"
 _PROJECT: Final = "scripted-project"
 _LOCATION: Final = "us-central1"
 _MODEL_PATH: Final = f"/v1/projects/{_PROJECT}/locations/{_LOCATION}/publishers/google/models/{_BACKEND}"
-_SALT: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+_SALT: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 _CLAUDE_SIGNATURE: Final = "CAQSyAsKEAgSGAI4AUIIdGhpbmtpbmcSDAlY-synthetic-claude-signature"
 _GEMINI_SIGNATURE: Final = "synthetic-gemini-thought-signature"
 _REASONING: Final = "private thought about fruit"
@@ -459,7 +459,7 @@ def _call_type(endpoint: Endpoint) -> str:
 def _spend_row(*request_ids: str) -> Mapping[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT model_group, call_type, status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+            'SELECT model_group, call_type, status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
             "WHERE request_id = ANY(%s)",
             (list(request_ids),),  # pyright: ignore[reportArgumentType]  # psycopg adapts the list to a text array
         ),
@@ -472,7 +472,7 @@ def _spend_row(*request_ids: str) -> Mapping[str, JsonValue]:
 def _spend_proxy_server_request(request_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT proxy_server_request FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT proxy_server_request FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (request_id,),
         ),
         lambda found: len(found) == 1,

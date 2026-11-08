@@ -10,7 +10,7 @@ from integration._support.client import Gateway, list_value, object_value
 from integration._support.process import graceful_stop_seconds, owned_proxy_process
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy._lazy_features import LAZY_FEATURES
+from hangarllm.proxy._lazy_features import LAZY_FEATURES
 
 DOCS_SECONDS: Final = 120
 COLD_DOCS: Final = 4
@@ -18,7 +18,7 @@ CHATS: Final = 8
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 OWNED_PROXY_TIMEOUT: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
 TWO_OWNED_PROXIES_TIMEOUT: Final = pytest.mark.timeout(2 * (2 * graceful_stop_seconds() + 120))
-LAZY_ROUTES_FLAG: Final = "LITELLM_DISABLE_LAZY_ROUTES"
+LAZY_ROUTES_FLAG: Final = "HANGARLLM_DISABLE_LAZY_ROUTES"
 WARMED_FEATURE: Final = next(feature for feature in LAZY_FEATURES if feature.name == "policies")
 
 
@@ -135,7 +135,7 @@ def test_each_root_path_prefix_lists_itself_first_in_servers(gateway: Gateway, t
 
 @OWNED_PROXY_TIMEOUT
 def test_a_scalar_server_root_path_is_listed_once_in_servers(gateway: Gateway, tmp_path: Path) -> None:
-    overrides: Final = {"SERVER_ROOT_PATH": "/gateway", "LITELLM_UI_PATH": str(tmp_path / "ui")}
+    overrides: Final = {"SERVER_ROOT_PATH": "/gateway", "HANGARLLM_UI_PATH": str(tmp_path / "ui")}
     with owned_proxy_process(gateway, tmp_path, overrides, client_timeout=DOCS_SECONDS) as owned:
         servers: Final = _servers(owned.gateway.request("GET", "/gateway/openapi.json"))
     assert servers == [{"url": "/gateway"}]

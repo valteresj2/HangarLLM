@@ -16,11 +16,11 @@ from fastapi import HTTPException
 from prometheus_client import REGISTRY
 from prometheus_client.samples import Sample
 
-import litellm
-from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
-from litellm.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+import hangarllm
+from hangarllm.constants import HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
+from hangarllm.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
 
 
 PROVIDER_CREDENTIAL_FIELDS = [
@@ -122,7 +122,7 @@ class TestInvalidAPIKeyDetection:
 
     def test_auth_error_message_detection(self, prometheus_logger):
         exception = AssertionError(
-            "LiteLLM Virtual Key expected. Received=invalid-key-12345, expected to start with 'sk-'."
+            "HangarLLM Virtual Key expected. Received=invalid-key-12345, expected to start with 'sk-'."
         )
         assert prometheus_logger._is_invalid_api_key_request(status_code=None, exception=exception) is True
 
@@ -143,7 +143,7 @@ class TestSkipMetricsValidation:
             (ExceptionWithCode("401"), False, True),
             (AssertionError("expected to start with 'sk-'"), False, True),
             (
-                litellm.AuthenticationError(
+                hangarllm.AuthenticationError(
                     message="Incorrect API key provided: sk-rotat*****",
                     llm_provider="openai",
                     model="gpt-4o-mini",
@@ -152,7 +152,7 @@ class TestSkipMetricsValidation:
                 False,
             ),
             (
-                litellm.AuthenticationError(
+                hangarllm.AuthenticationError(
                     message="API key not valid. Please pass a valid API key.",
                     llm_provider="gemini",
                     model="gemini-2.5-flash",
@@ -161,7 +161,7 @@ class TestSkipMetricsValidation:
                 False,
             ),
             (
-                litellm.AuthenticationError(
+                hangarllm.AuthenticationError(
                     message="Authentication Error, Invalid proxy server token passed.",
                     llm_provider="openai",
                     model="gpt-4o-mini",
@@ -170,7 +170,7 @@ class TestSkipMetricsValidation:
                 True,
             ),
             (
-                litellm.CallerCredentialAuthenticationError(
+                hangarllm.CallerCredentialAuthenticationError(
                     message="GitHub Copilot connection is missing for this user",
                     llm_provider="github_copilot",
                     model="gpt-4o",
@@ -184,7 +184,7 @@ class TestSkipMetricsValidation:
                 True,
             ),
             (
-                litellm.BadRequestError(
+                hangarllm.BadRequestError(
                     message="API key not valid. Please pass a valid API key.",
                     llm_provider="gemini",
                     model="gemini-2.5-flash",
@@ -201,7 +201,7 @@ class TestSkipMetricsValidation:
             "unmarked-auth-message",
             "provider-401",
             "provider-auth-message",
-            "proxy-gate-litellm-auth-error",
+            "proxy-gate-hangarllm-auth-error",
             "caller-credential-401",
             "unmarked-http-exception-401",
             "provider-400-auth-message",
@@ -212,16 +212,16 @@ class TestSkipMetricsValidation:
     ):
         kwargs: Final[dict[str, object]] = {"exception": exception, **CALLED_THE_PROVIDER}
         if proxy_gate:
-            kwargs[LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL] = True
+            kwargs[HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL] = True
         assert prometheus_logger._should_skip_metrics_for_invalid_key(kwargs=kwargs) is expected
 
     @pytest.mark.parametrize(
         "logged_call,expected",
         [
-            ({"litellm_params": {"proxy_server_request": {"caller_credential_fields": ("api_key",)}}}, True),
+            ({"hangarllm_params": {"proxy_server_request": {"caller_credential_fields": ("api_key",)}}}, True),
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "github_copilot_user_session": GithubCopilotUserSession(
                             token="caller-session-token", api_base="https://api.githubcopilot.com"
                         )
@@ -230,22 +230,22 @@ class TestSkipMetricsValidation:
                 True,
             ),
             ({"standard_logging_object": {"metadata": {"used_client_oauth_token": True}}}, True),
-            ({"litellm_params": {"proxy_server_request": {"caller_credential_fields": ("headers",)}}}, True),
+            ({"hangarllm_params": {"proxy_server_request": {"caller_credential_fields": ("headers",)}}}, True),
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "proxy_server_request": {"caller_credential_fields": ("provider_specific_header",)}
                     }
                 },
                 True,
             ),
-            ({"litellm_params": {"proxy_server_request": {"caller_credential_fields": ()}}}, False),
-            ({"litellm_params": {"proxy_server_request": {"caller_credential_fields": "api_key"}}}, False),
+            ({"hangarllm_params": {"proxy_server_request": {"caller_credential_fields": ()}}}, False),
+            ({"hangarllm_params": {"proxy_server_request": {"caller_credential_fields": "api_key"}}}, False),
             ({"standard_logging_object": {"metadata": {"used_client_oauth_token": False}}}, False),
-            ({"litellm_params": {"proxy_server_request": {"body": {"azure_ad_token": "caller-token"}}}}, True),
+            ({"hangarllm_params": {"proxy_server_request": {"body": {"azure_ad_token": "caller-token"}}}}, True),
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "proxy_server_request": {"body": {"extra_body": {"azure_ad_token": "caller-token"}}}
                     }
                 },
@@ -253,36 +253,36 @@ class TestSkipMetricsValidation:
             ),
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "azure_ad_token": "deployment-token",
                         "proxy_server_request": {"body": {"model": "azure-deployment"}},
                     }
                 },
                 False,
             ),
-            ({"litellm_params": {"proxy_server_request": {"body": {"extra_body": "azure_ad_token"}}}}, False),
+            ({"hangarllm_params": {"proxy_server_request": {"body": {"extra_body": "azure_ad_token"}}}}, False),
             (
                 {
-                    "litellm_params": {
-                        "proxy_server_request": {"body": {"litellm_credential_name": "caller-credential"}}
+                    "hangarllm_params": {
+                        "proxy_server_request": {"body": {"hangarllm_credential_name": "caller-credential"}}
                     }
                 },
                 True,
             ),
             (
                 {
-                    "litellm_params": {
-                        "litellm_credential_name": "deployment-credential",
+                    "hangarllm_params": {
+                        "hangarllm_credential_name": "deployment-credential",
                         "proxy_server_request": {"body": {"model": "openai-deployment"}},
                     }
                 },
                 False,
             ),
-            ({"litellm_params": {"proxy_server_request": {"caller_credential_fields": ("extra_headers",)}}}, True),
-            ({"litellm_params": {"proxy_server_request": {"caller_credential_fields": ("organization",)}}}, True),
+            ({"hangarllm_params": {"proxy_server_request": {"caller_credential_fields": ("extra_headers",)}}}, True),
+            ({"hangarllm_params": {"proxy_server_request": {"caller_credential_fields": ("organization",)}}}, True),
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "proxy_server_request": {"credential_fields": ("headers",), "caller_credential_fields": ()}
                     }
                 },
@@ -290,7 +290,7 @@ class TestSkipMetricsValidation:
             ),
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "proxy_server_request": {"body": {"extra_headers": {"Authorization": "Bearer sk-caller"}}}
                     }
                 },
@@ -319,7 +319,7 @@ class TestSkipMetricsValidation:
         ],
     )
     def test_skip_a_provider_401_on_a_credential_the_caller_owns(self, prometheus_logger, logged_call, expected):
-        exception: Final = litellm.AuthenticationError(
+        exception: Final = hangarllm.AuthenticationError(
             message="Incorrect API key provided: sk-calle*****",
             llm_provider="openai",
             model="gpt-4o-mini",
@@ -333,7 +333,7 @@ class TestSkipMetricsValidation:
         ids=["provider-401", "401-before-the-provider-call", "blank-provider-call-start"],
     )
     def test_skip_a_401_raised_before_the_provider_was_called(self, prometheus_logger, logged_call, expected):
-        exception: Final = litellm.AuthenticationError(
+        exception: Final = hangarllm.AuthenticationError(
             message="Missing Anthropic API Key - A call is being made to anthropic but no key is set",
             llm_provider="anthropic",
             model="claude-haiku-4-5",
@@ -349,8 +349,8 @@ class TestSkipMetricsValidation:
         sent: Final = {field: "caller-credential"}
         body: Final = {"model": "shared-deployment", **({"extra_body": sent} if inside_extra_body else sent)}
         kwargs: Final = {
-            "exception": litellm.AuthenticationError(message="Unauthorized", llm_provider="azure", model="gpt-4o"),
-            "litellm_params": {"proxy_server_request": {"body": body}},
+            "exception": hangarllm.AuthenticationError(message="Unauthorized", llm_provider="azure", model="gpt-4o"),
+            "hangarllm_params": {"proxy_server_request": {"body": body}},
             **CALLED_THE_PROVIDER,
         }
         assert prometheus_logger._should_skip_metrics_for_invalid_key(kwargs=kwargs) is True
@@ -358,9 +358,9 @@ class TestSkipMetricsValidation:
     @pytest.mark.parametrize("field", PROVIDER_CREDENTIAL_FIELDS + PROVIDER_ENDPOINT_FIELDS)
     def test_count_a_provider_401_on_a_provider_credential_field_the_deployment_owns(self, prometheus_logger, field):
         kwargs: Final = {
-            "exception": litellm.AuthenticationError(message="Unauthorized", llm_provider="azure", model="gpt-4o"),
+            "exception": hangarllm.AuthenticationError(message="Unauthorized", llm_provider="azure", model="gpt-4o"),
             **CALLED_THE_PROVIDER,
-            "litellm_params": {
+            "hangarllm_params": {
                 field: "deployment-credential",
                 "proxy_server_request": {"body": {"model": "shared-deployment"}},
             },
@@ -376,10 +376,10 @@ class TestSkipMetricsValidation:
         self, prometheus_logger, token_exchange_endpoint, expected
     ):
         kwargs: Final = {
-            "exception": litellm.AuthenticationError(
+            "exception": hangarllm.AuthenticationError(
                 message="Unauthorized", llm_provider="microsoft_365_copilot", model="copilot"
             ),
-            "litellm_params": {"token_exchange_endpoint": token_exchange_endpoint, "client_secret": "deployment"},
+            "hangarllm_params": {"token_exchange_endpoint": token_exchange_endpoint, "client_secret": "deployment"},
             **CALLED_THE_PROVIDER,
         }
         assert prometheus_logger._should_skip_metrics_for_invalid_key(kwargs=kwargs) is expected
@@ -397,7 +397,7 @@ class TestAsyncHooks:
         [
             HTTPException(
                 status_code=401,
-                detail="LiteLLM Virtual Key expected. Received=nota****tall, expected to start with 'sk-'.",
+                detail="HangarLLM Virtual Key expected. Received=nota****tall, expected to start with 'sk-'.",
             ),
             ProxyException(
                 message="Authentication Error, Invalid proxy server token passed.",
@@ -412,8 +412,8 @@ class TestAsyncHooks:
         unauthenticated.api_key = "notakeyatall"
 
         with (
-            patch.object(prometheus_logger, "litellm_proxy_failed_requests_metric") as mock_failed,
-            patch.object(prometheus_logger, "litellm_proxy_total_requests_metric") as mock_total,
+            patch.object(prometheus_logger, "hangarllm_proxy_failed_requests_metric") as mock_failed,
+            patch.object(prometheus_logger, "hangarllm_proxy_total_requests_metric") as mock_total,
         ):
             await prometheus_logger.async_post_call_failure_hook(
                 request_data={"model": "test-model"},
@@ -443,7 +443,7 @@ class TestAsyncHooks:
             code=401,
         )
 
-        with patch.object(prometheus_logger, "litellm_proxy_failed_requests_metric") as mock_failed:
+        with patch.object(prometheus_logger, "hangarllm_proxy_failed_requests_metric") as mock_failed:
             await prometheus_logger.async_post_call_failure_hook(
                 request_data={"model": "test-model"},
                 original_exception=exception,
@@ -469,12 +469,12 @@ class TestAsyncHooks:
                 "model_group": "test-model",
             },
             "exception": exception,
-            "litellm_params": {},
-            LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL: True,
+            "hangarllm_params": {},
+            HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL: True,
         }
 
         with (
-            patch.object(prometheus_logger, "litellm_llm_api_failed_requests_metric") as mock_failed,
+            patch.object(prometheus_logger, "hangarllm_llm_api_failed_requests_metric") as mock_failed,
             patch.object(prometheus_logger, "set_llm_deployment_failure_metrics") as mock_deployment,
         ):
             await prometheus_logger.async_log_failure_event(
@@ -486,7 +486,7 @@ class TestAsyncHooks:
 
 
 def _provider_auth_failure_kwargs() -> dict[str, object]:
-    exception: Final = litellm.AuthenticationError(
+    exception: Final = hangarllm.AuthenticationError(
         message="Incorrect API key provided: sk-rotat*****",
         llm_provider="openai",
         model="gpt-4o-mini",
@@ -507,20 +507,20 @@ def _provider_auth_failure_kwargs() -> dict[str, object]:
             "custom_llm_provider": "openai",
         },
         "exception": exception,
-        "litellm_params": {"custom_llm_provider": "openai", "metadata": {}},
+        "hangarllm_params": {"custom_llm_provider": "openai", "metadata": {}},
         **CALLED_THE_PROVIDER,
     }
 
 
 def _deployment_entra_rejection_kwargs() -> dict[str, object]:
-    from litellm.llms.azure.common_utils import EntraRejectionError
+    from hangarllm.llms.azure.common_utils import EntraRejectionError
 
     reason: Final = "Failed to get Azure AD token: AADSTS7000215: Invalid client secret provided."
     try:
-        raise litellm.AuthenticationError(message=reason, llm_provider="azure", model="gpt-4.1") from (
+        raise hangarllm.AuthenticationError(message=reason, llm_provider="azure", model="gpt-4.1") from (
             EntraRejectionError(status_code=401, message=reason)
         )
-    except litellm.AuthenticationError as raised:
+    except hangarllm.AuthenticationError as raised:
         return {
             key: value for key, value in _provider_auth_failure_kwargs().items() if key not in CALLED_THE_PROVIDER
         } | {"exception": raised}
@@ -551,9 +551,9 @@ class TestProviderAuthFailures:
             end_time=None,
         )
 
-        assert _metric_values("litellm_llm_api_failed_requests_metric_total", "deployment-1") == [1.0]
-        assert _metric_values("litellm_deployment_failure_responses_total", "deployment-1") == [1.0]
-        assert _metric_values("litellm_deployment_state", "deployment-1") == [1.0]
+        assert _metric_values("hangarllm_llm_api_failed_requests_metric_total", "deployment-1") == [1.0]
+        assert _metric_values("hangarllm_deployment_failure_responses_total", "deployment-1") == [1.0]
+        assert _metric_values("hangarllm_deployment_state", "deployment-1") == [1.0]
 
     @pytest.mark.asyncio
     async def test_log_failure_event_records_entra_rejecting_the_deployment_credential_before_the_call(
@@ -566,14 +566,14 @@ class TestProviderAuthFailures:
             end_time=None,
         )
 
-        assert _metric_values("litellm_llm_api_failed_requests_metric_total", "deployment-1") == [1.0]
-        assert _metric_values("litellm_deployment_failure_responses_total", "deployment-1") == [1.0]
+        assert _metric_values("hangarllm_llm_api_failed_requests_metric_total", "deployment-1") == [1.0]
+        assert _metric_values("hangarllm_deployment_failure_responses_total", "deployment-1") == [1.0]
 
     def test_deployment_failure_metrics_record_a_provider_401(self, prometheus_logger):
         prometheus_logger.set_llm_deployment_failure_metrics(_provider_auth_failure_kwargs())
 
         failures: Final = [
-            sample for sample in _registry_samples() if sample.name == "litellm_deployment_failure_responses_total"
+            sample for sample in _registry_samples() if sample.name == "hangarllm_deployment_failure_responses_total"
         ]
         assert [
             (
@@ -584,5 +584,5 @@ class TestProviderAuthFailures:
             )
             for sample in failures
         ] == [("deployment-1", "401", "openai", 1.0)]
-        assert _metric_values("litellm_deployment_total_requests_total", "deployment-1") == [1.0]
-        assert _metric_values("litellm_deployment_state", "deployment-1") == [1.0]
+        assert _metric_values("hangarllm_deployment_total_requests_total", "deployment-1") == [1.0]
+        assert _metric_values("hangarllm_deployment_state", "deployment-1") == [1.0]

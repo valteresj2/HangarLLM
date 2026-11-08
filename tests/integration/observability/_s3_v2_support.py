@@ -85,7 +85,7 @@ def s3_config(
     path: Path, sink_url: str, extra: Mapping[str, JsonValue], settings: Mapping[str, JsonValue] | None = None
 ) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"].update(
+    config["hangarllm_settings"].update(
         {
             "callbacks": ["s3_v2"],
             "s3_callback_params": {
@@ -263,7 +263,7 @@ def call_surface(
     marker: str,
     no_cache: bool = True,
 ) -> tuple[str, str | None]:
-    """Drive one request through the given surface; return (client-visible response id, x-litellm-call-id)."""
+    """Drive one request through the given surface; return (client-visible response id, x-hangarllm-call-id)."""
     base: Final = str(candidate.client.base_url).rstrip("/")
     headers: Final = {"Authorization": f"Bearer {key}"}
     if surface == "chat":
@@ -308,7 +308,7 @@ def call_surface(
             key=key,
         )
         assert response.status_code == 200, response.text
-        return str(response.json()["id"]), response.headers.get("x-litellm-call-id")
+        return str(response.json()["id"]), response.headers.get("x-hangarllm-call-id")
     assert surface == "responses_stream", surface
     with candidate.client.stream(
         "POST",
@@ -318,7 +318,7 @@ def call_surface(
     ) as response:
         text: Final = response.read().decode()
         assert response.status_code == 200, text
-        call_id: Final = response.headers.get("x-litellm-call-id")
+        call_id: Final = response.headers.get("x-hangarllm-call-id")
     assert marker in text, text
     return marker, call_id
 
@@ -336,7 +336,7 @@ def collect_payloads(sink: RecordingS3Sink, count: int, seconds: float = 60) -> 
 def mixed_burst(
     candidate: Gateway, openai_model: str, anthropic_model: str, key: str, marker: str, per_surface: int = 8
 ) -> tuple[tuple[str, str | None], ...]:
-    """Fire `per_surface` requests on every surface; returns (response id, x-litellm-call-id) per request."""
+    """Fire `per_surface` requests on every surface; returns (response id, x-hangarllm-call-id) per request."""
     jobs: Final = tuple(
         (surface, f"{marker}-{surface}-{index}") for surface in SURFACES for index in range(per_surface)
     )
@@ -352,7 +352,7 @@ def mixed_burst(
 def matched_ids(
     payloads: tuple[dict[str, JsonValue], ...], answered: tuple[tuple[str, str | None], ...]
 ) -> frozenset[str]:
-    """Every payload must be accountable to an answered request by response id or litellm_call_id."""
+    """Every payload must be accountable to an answered request by response id or hangarllm_call_id."""
     response_ids: Final = frozenset(observed for observed, _ in answered)
     call_ids: Final = frozenset(call_id for _, call_id in answered if call_id is not None)
     landed: Final = []
@@ -364,6 +364,6 @@ def matched_ids(
         if uncached in response_ids:
             landed.append(str(payload["id"]))
             continue
-        assert payload["litellm_call_id"] in call_ids, f"unmatched payload {payload['id']!r}"
+        assert payload["hangarllm_call_id"] in call_ids, f"unmatched payload {payload['id']!r}"
         landed.append(str(payload["id"]))
     return frozenset(landed)

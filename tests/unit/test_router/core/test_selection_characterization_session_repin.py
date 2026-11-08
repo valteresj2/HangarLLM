@@ -9,8 +9,8 @@ from collections.abc import Callable
 
 import pytest
 
-from litellm.router_core import RouterCore
-from litellm.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
+from hangarllm.router_core import RouterCore
+from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
 from tests.unit.test_router.core.scripted_host import ScriptedHost, completion_response, deployment, rate_limit
 from tests.unit.test_router.core.streaming_helpers import (
     MESSAGES,

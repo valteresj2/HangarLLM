@@ -2,7 +2,7 @@
 Tests for LibertAI provider configuration and integration.
 """
 
-import litellm
+import hangarllm
 
 
 class TestLibertAIProviderConfig:
@@ -10,15 +10,15 @@ class TestLibertAIProviderConfig:
 
     def test_libertai_in_provider_list(self):
         """Test that libertai is in the provider list"""
-        from litellm import LlmProviders
+        from hangarllm import LlmProviders
 
         assert hasattr(LlmProviders, "LIBERTAI")
         assert LlmProviders.LIBERTAI.value == "libertai"
-        assert "libertai" in litellm.provider_list
+        assert "libertai" in hangarllm.provider_list
 
     def test_libertai_json_config_exists(self):
         """Test that libertai is configured in providers.json"""
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         assert JSONProviderRegistry.exists("libertai")
 
@@ -31,7 +31,7 @@ class TestLibertAIProviderConfig:
 
     def test_libertai_provider_resolution(self):
         """Test that provider resolution finds libertai and the default base URL"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="libertai/qwen3.6-27b",
@@ -46,7 +46,7 @@ class TestLibertAIProviderConfig:
 
     def test_libertai_api_base_override(self):
         """Test that an explicit api_base / api_key overrides the default"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="libertai/qwen3.6-27b",
@@ -61,13 +61,13 @@ class TestLibertAIProviderConfig:
 
     def test_libertai_router_config(self):
         """Test that libertai can be used in Router configuration"""
-        from litellm import Router
+        from hangarllm import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "libertai-chat",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "libertai/qwen3.6-27b",
                         "api_key": "test-key",
                     },
@@ -83,10 +83,10 @@ class TestLibertAIProviderConfig:
         import json
         from pathlib import Path
 
-        import litellm as _litellm
+        import hangarllm as _hangarllm
 
         backup_path = (
-            Path(_litellm.__file__).parent / "provider_endpoints_support_backup.json"
+            Path(_hangarllm.__file__).parent / "provider_endpoints_support_backup.json"
         )
         matrix = json.loads(backup_path.read_text())
 

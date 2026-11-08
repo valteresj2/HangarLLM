@@ -13,14 +13,14 @@ import pytest_asyncio
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
-from litellm.integrations.gcs_pubsub.pub_sub import *
-from litellm.integrations.generic_api.generic_api_callback import LOG_FORMAT_TYPES, GenericAPILogger
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
+from hangarllm.integrations.gcs_pubsub.pub_sub import *
+from hangarllm.integrations.generic_api.generic_api_callback import LOG_FORMAT_TYPES, GenericAPILogger
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.utils import StandardLoggingPayload
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -64,11 +64,11 @@ async def test_generic_api_callback():
     # Initialize the GenericAPILogger and set the mock
     generic_logger = GenericAPILogger(endpoint=test_endpoint, headers=test_headers, flush_interval=3600)
     generic_logger.async_httpx_client.post = mock_post
-    litellm.callbacks = [generic_logger]
+    hangarllm.callbacks = [generic_logger]
 
     # Make the completion call
     response = await _await_with_spawned_tasks(
-        litellm.acompletion(
+        hangarllm.acompletion(
             model="gpt-5.5",
             messages=[{"role": "user", "content": "Hello, world!"}],
             mock_response="hi",
@@ -145,12 +145,12 @@ async def test_generic_api_callback_multiple_logs():
     # Initialize the GenericAPILogger and set the mock
     generic_logger = GenericAPILogger(endpoint=test_endpoint, headers=test_headers, flush_interval=3600)
     generic_logger.async_httpx_client.post = mock_post
-    litellm.callbacks = [generic_logger]
+    hangarllm.callbacks = [generic_logger]
 
     # Make the completion call
     for _ in range(10):
         response = await _await_with_spawned_tasks(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-5.5",
                 messages=[{"role": "user", "content": "Hello, world!"}],
                 mock_response="hi",
@@ -227,12 +227,12 @@ async def test_generic_api_callback_ndjson_format():
         log_format="ndjson",  # Set NDJSON format
     )
     generic_logger.async_httpx_client.post = mock_post
-    litellm.callbacks = [generic_logger]
+    hangarllm.callbacks = [generic_logger]
 
     # Make multiple completion calls to generate multiple logs
     for i in range(3):
         response = await _await_with_spawned_tasks(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-5.5",
                 messages=[{"role": "user", "content": f"Hello, world! {i}"}],
                 mock_response="hi",
@@ -298,12 +298,12 @@ async def test_generic_api_callback_single_format():
         log_format="single",  # Set single format
     )
     generic_logger.async_httpx_client.post = mock_post
-    litellm.callbacks = [generic_logger]
+    hangarllm.callbacks = [generic_logger]
 
     # Make 3 completion calls
     for i in range(3):
         response = await _await_with_spawned_tasks(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-5.5",
                 messages=[{"role": "user", "content": f"Hello, world! {i}"}],
                 mock_response="hi",
@@ -359,12 +359,12 @@ async def test_generic_api_callback_json_array_format_explicit():
         log_format="json_array",  # Explicitly set json_array
     )
     generic_logger.async_httpx_client.post = mock_post
-    litellm.callbacks = [generic_logger]
+    hangarllm.callbacks = [generic_logger]
 
     # Make multiple completion calls
     for i in range(5):
         response = await _await_with_spawned_tasks(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-5.5",
                 messages=[{"role": "user", "content": f"Hello, world! {i}"}],
                 mock_response="hi",
@@ -409,7 +409,7 @@ async def test_generic_api_callback_sumologic_uses_ndjson():
     # Initialize using callback_name (loads from JSON config)
     generic_logger = GenericAPILogger(callback_name="sumologic", flush_interval=3600)
     generic_logger.async_httpx_client.post = mock_post
-    litellm.callbacks = [generic_logger]
+    hangarllm.callbacks = [generic_logger]
 
     # Verify the logger has ndjson format
     assert generic_logger.log_format == "ndjson", "Sumologic should use ndjson format"
@@ -417,7 +417,7 @@ async def test_generic_api_callback_sumologic_uses_ndjson():
     # Make completion calls
     for i in range(2):
         await _await_with_spawned_tasks(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-5.5",
                 messages=[{"role": "user", "content": f"Test {i}"}],
                 mock_response="response",
@@ -455,10 +455,10 @@ async def test_generic_api_callback_sends_queued_events_on_its_own(monkeypatch: 
 
     generic_logger = GenericAPILogger(endpoint=test_endpoint, headers=test_headers, flush_interval=0.05)
     generic_logger.async_httpx_client.post = mock_post
-    monkeypatch.setattr(litellm, "callbacks", [generic_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [generic_logger])
 
     for i in range(3):
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-5.5",
             messages=[{"role": "user", "content": f"Hello, world! {i}"}],
             mock_response="hi",
@@ -497,7 +497,7 @@ async def test_generic_api_callback_invalid_log_format():
 @pytest.mark.asyncio
 async def test_generic_api_callback_retries_timeout_then_succeeds():
     """
-    Test that GenericAPILogger retries LiteLLM timeout errors when configured.
+    Test that GenericAPILogger retries HangarLLM timeout errors when configured.
     """
     test_endpoint = "https://example.com/api/logs"
     generic_logger = GenericAPILogger(
@@ -509,10 +509,10 @@ async def test_generic_api_callback_retries_timeout_then_succeeds():
 
     mock_post = AsyncMock()
     mock_post.side_effect = [
-        litellm.Timeout(
+        hangarllm.Timeout(
             message="Connection timed out",
             model="default-model-name",
-            llm_provider="litellm-httpx-handler",
+            llm_provider="hangarllm-httpx-handler",
         ),
         type("Response", (), {"status_code": 200})(),
     ]
@@ -595,7 +595,7 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest_asyncio.fixture(loop_scope="function", autouse=True)
-async def drain_logging_worker(isolate_litellm_state: None) -> AsyncIterator[None]:
+async def drain_logging_worker(isolate_hangarllm_state: None) -> AsyncIterator[None]:
     yield
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS)
 
@@ -604,41 +604,41 @@ LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS: Final = LOGGING_WORKER_MAX_TIME_PER_COROUT
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm state to the true defaults captured at conftest import time,
+    Resets hangarllm state to the true defaults captured at conftest import time,
     then restores after the test. This prevents module-level mutations (e.g.
-    `litellm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
+    `hangarllm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
     leaking across tests within the same xdist worker.
     """
-    from litellm.litellm_core_utils import litellm_logging as ll_logging
-    from litellm.proxy.management_helpers import audit_logs as ll_audit_logs
+    from hangarllm.hangarllm_core_utils import hangarllm_logging as ll_logging
+    from hangarllm.proxy.management_helpers import audit_logs as ll_audit_logs
 
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
 
 
 _LIST_ATTRS = (
@@ -672,23 +672,23 @@ _DEFAULTS: dict = {}
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 

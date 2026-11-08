@@ -1,11 +1,11 @@
 import os
 
-import litellm
-from litellm.llms.vertex_ai.gemini.cost_calculator import cost_per_web_search_request
-from litellm.llms.vertex_ai.image_generation.cost_calculator import (
+import hangarllm
+from hangarllm.llms.vertex_ai.gemini.cost_calculator import cost_per_web_search_request
+from hangarllm.llms.vertex_ai.image_generation.cost_calculator import (
     cost_calculator as vertex_image_generation_cost_calculator,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     ImageObject,
     ImageResponse,
     ImageUsage,
@@ -31,10 +31,10 @@ def _image_response_with_web_search(web_search_requests):
 
 
 def test_vertex_image_generation_cost_adds_web_search_grounding(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     model = "gemini-3-pro-image-preview"
-    model_info = litellm.get_model_info(model=model, custom_llm_provider="vertex_ai")
+    model_info = hangarllm.get_model_info(model=model, custom_llm_provider="vertex_ai")
 
     grounded = vertex_image_generation_cost_calculator(
         model=model,
@@ -56,8 +56,8 @@ def test_vertex_image_generation_cost_adds_web_search_grounding(monkeypatch):
 
 
 def test_vertex_image_generation_cost_no_web_search_when_absent(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     model = "gemini-3-pro-image-preview"
 
     cost_zero = vertex_image_generation_cost_calculator(

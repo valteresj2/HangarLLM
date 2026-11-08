@@ -1,9 +1,9 @@
-"""An owned, source-built proxy whose `litellm_jwtauth` block a test controls.
+"""An owned, source-built proxy whose `hangarllm_jwtauth` block a test controls.
 
 The shared proxy on :4000 runs the CONTRIBUTING.md JWT block, so a test that
-needs a different `litellm_jwtauth` config boots its own gateway on a free port
+needs a different `hangarllm_jwtauth` config boots its own gateway on a free port
 against the same database and the same Keycloak realm. The caller supplies the
-`litellm_jwtauth` mapping verbatim, which is exactly what makes a config an
+`hangarllm_jwtauth` mapping verbatim, which is exactly what makes a config an
 unfixed proxy rejects observable as a boot failure in this gateway's own log.
 """
 
@@ -63,11 +63,11 @@ class OwnedJwtGateway:
             assert self._child.poll() is not None, "old gateway process is still alive"
 
 
-@step("Boot a dedicated proxy {name} with its own litellm_jwtauth config")
+@step("Boot a dedicated proxy {name} with its own hangarllm_jwtauth config")
 def owned_jwt_gateway(
-    idp: Keycloak, directory: Path, cleanup: ExitStack, *, litellm_jwtauth: str, name: str
+    idp: Keycloak, directory: Path, cleanup: ExitStack, *, hangarllm_jwtauth: str, name: str
 ) -> OwnedJwtGateway:
-    for env_name in ("DATABASE_URL", "LITELLM_LICENSE", "LITELLM_MASTER_KEY"):
+    for env_name in ("DATABASE_URL", "HANGARLLM_LICENSE", "HANGARLLM_MASTER_KEY"):
         assert os.environ.get(env_name), f"{env_name} is required for the owned JWT gateway"
     port: Final = available_port()
     base_url: Final = f"http://127.0.0.1:{port}"
@@ -75,21 +75,21 @@ def owned_jwt_gateway(
     config.write_text(
         "model_list:\n"
         f"  - model_name: {MODEL_NAME}\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         f"      model: gemini/{MODEL_NAME}\n"
         "      api_key: os.environ/GEMINI_API_KEY\n"
         "general_settings:\n"
-        "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+        "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         "  database_url: os.environ/DATABASE_URL\n"
         "  proxy_batch_write_at: 5\n"
         "  enable_jwt_auth: true\n"
-        "  litellm_jwtauth:\n" + "".join(f"    {line}\n" for line in litellm_jwtauth.strip().splitlines())
+        "  hangarllm_jwtauth:\n" + "".join(f"    {line}\n" for line in hangarllm_jwtauth.strip().splitlines())
     )
     environment: Final = {
         **{key: value for key, value in os.environ.items() if not key.startswith(INHERITED_ENV_PREFIXES)},
         "JWT_PUBLIC_KEY_URL": idp.jwks_url,
         "JWT_ISSUER": idp.issuer,
-        "JWT_AUDIENCE": "litellm-e2e",
+        "JWT_AUDIENCE": "hangarllm-e2e",
         "DISABLE_SCHEMA_UPDATE": "true",
         "STORE_MODEL_IN_DB": "True",
         "PYTHONPATH": str(Path(__file__).resolve().parents[3]),
@@ -100,10 +100,10 @@ def owned_jwt_gateway(
             base_url=base_url,
             control_plane_base_url=base_url,
             replica_urls=(base_url,),
-            master_key=os.environ["LITELLM_MASTER_KEY"],
+            master_key=os.environ["HANGARLLM_MASTER_KEY"],
         ),
         _environment=environment,
-        _command=(sys.executable, "-m", "litellm.proxy.proxy_cli", "--config", str(config), "--port", str(port)),
+        _command=(sys.executable, "-m", "hangarllm.proxy.proxy_cli", "--config", str(config), "--port", str(port)),
         _log_path=directory / f"{name}.log",
     )
     cleanup.callback(gateway.stop)

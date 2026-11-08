@@ -12,17 +12,17 @@ from unittest.mock import patch
 import pytest
 from fastapi import Request
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.management_endpoints.policy_endpoints.endpoints import (
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.management_endpoints.policy_endpoints.endpoints import (
     GuardrailTestResultEntry,
     _compute_overall_action,
     _test_guardrail_definitions,
     get_policy_templates,
     list_policies,
 )
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.types.proxy.policy_engine import (
+from hangarllm.proxy.policy_engine.policy_registry import get_policy_registry
+from hangarllm.types.proxy.policy_engine import (
     PolicyGuardrailsResponse,
     PolicyListResponse,
     PolicyScopeResponse,
@@ -36,8 +36,8 @@ async def test_pattern_based_guardrail_masks_pii():
     guardrail_defs = [
         {
             "guardrail_name": "test-ssn-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "hangarllm_params": {
+                "guardrail": "hangarllm_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -70,8 +70,8 @@ async def test_blocked_words_guardrail_blocks():
     guardrail_defs = [
         {
             "guardrail_name": "test-word-blocker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "hangarllm_params": {
+                "guardrail": "hangarllm_content_filter",
                 "mode": "pre_call",
                 "blocked_words": [
                     {
@@ -101,8 +101,8 @@ async def test_clean_text_passes():
     guardrail_defs = [
         {
             "guardrail_name": "test-ssn-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "hangarllm_params": {
+                "guardrail": "hangarllm_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -128,11 +128,11 @@ async def test_clean_text_passes():
 
 @pytest.mark.asyncio
 async def test_unsupported_guardrail_type():
-    """Non-litellm_content_filter types should return unsupported."""
+    """Non-hangarllm_content_filter types should return unsupported."""
     guardrail_defs = [
         {
             "guardrail_name": "test-mcp",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "mcp_security",
                 "mode": "pre_call",
             },
@@ -156,8 +156,8 @@ async def test_multiple_guardrails_mixed_results():
     guardrail_defs = [
         {
             "guardrail_name": "ssn-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "hangarllm_params": {
+                "guardrail": "hangarllm_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -172,8 +172,8 @@ async def test_multiple_guardrails_mixed_results():
         },
         {
             "guardrail_name": "email-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "hangarllm_params": {
+                "guardrail": "hangarllm_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -248,17 +248,17 @@ class TestEnrichPolicyTemplateStreamKeepalive:
         import asyncio
         from unittest.mock import MagicMock
 
-        import litellm
-        import litellm.proxy.management_endpoints.policy_endpoints.endpoints as policy_endpoints
-        import litellm.proxy.proxy_server as proxy_server
+        import hangarllm
+        import hangarllm.proxy.management_endpoints.policy_endpoints.endpoints as policy_endpoints
+        import hangarllm.proxy.proxy_server as proxy_server
         from fastapi.responses import StreamingResponse
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.management_endpoints.policy_endpoints.endpoints import (
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.management_endpoints.policy_endpoints.endpoints import (
             EnrichTemplateRequest,
             enrich_policy_template_stream,
         )
 
-        monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", interval)
+        monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", interval)
 
         async def _name_chunks():
             await asyncio.sleep(delay)
@@ -284,7 +284,7 @@ class TestEnrichPolicyTemplateStreamKeepalive:
                 model="gpt-5.4-mini",
             ),
             request=MagicMock(),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
         assert isinstance(response, StreamingResponse)
         chunks = [chunk if isinstance(chunk, bytes) else chunk.encode() async for chunk in response.body_iterator]
@@ -376,14 +376,14 @@ async def test_list_policies_reports_each_loaded_policy_with_its_resolved_guardr
     assert list(response.policies) == list(expected_policies)
 
 
-@pytest.mark.parametrize("flag", ["LITELLM_OFFLINE_MODE", "LITELLM_LOCAL_POLICY_TEMPLATES"])
+@pytest.mark.parametrize("flag", ["HANGARLLM_OFFLINE_MODE", "HANGARLLM_LOCAL_POLICY_TEMPLATES"])
 @pytest.mark.asyncio
 async def test_policy_templates_serve_the_bundled_copy_without_fetching(monkeypatch: pytest.MonkeyPatch, flag: str):
     monkeypatch.setenv(flag, "true")
-    bundled = json.loads((Path(litellm.__file__).parent / "policy_templates_backup.json").read_text(encoding="utf-8"))
+    bundled = json.loads((Path(hangarllm.__file__).parent / "policy_templates_backup.json").read_text(encoding="utf-8"))
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         side_effect=AssertionError("policy templates were fetched"),
     ) as get_client:
         response = await get_policy_templates(request=_policy_list_request(), user_api_key_dict=UserAPIKeyAuth())

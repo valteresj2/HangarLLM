@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.llms.watsonx.completion.transformation import IBMWatsonXAIConfig
+from hangarllm.llms.watsonx.completion.transformation import IBMWatsonXAIConfig
 
 
 @pytest.mark.parametrize(

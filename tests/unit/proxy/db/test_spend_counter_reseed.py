@@ -1,7 +1,7 @@
 """Window-spend reads in ``SpendCounterReseed``.
 
-The maintained ``LiteLLM_BudgetWindowSpend`` row replaces a per-request
-``LiteLLM_SpendLogs`` range scan, so these pin *when* the aggregate is still
+The maintained ``HangarLLM_BudgetWindowSpend`` row replaces a per-request
+``HangarLLM_SpendLogs`` range scan, so these pin *when* the aggregate is still
 allowed to run: only when the row is missing or belongs to an older window.
 """
 
@@ -16,13 +16,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import PROXY_DB_LOOKUP_MAX_CONCURRENCY
-from litellm.proxy.db.db_lookup_gate import LoopBoundSemaphore, db_lookup_stall_tracker
-from litellm.proxy.db.spend_counter_reseed import SpendCounterReseed
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.spend_counters import SpendCounterStore
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.constants import PROXY_DB_LOOKUP_MAX_CONCURRENCY
+from hangarllm.proxy.db.db_lookup_gate import LoopBoundSemaphore, db_lookup_stall_tracker
+from hangarllm.proxy.db.spend_counter_reseed import SpendCounterReseed
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.spend_counters import SpendCounterStore
 
 WINDOW_START = datetime(2026, 8, 1, tzinfo=timezone.utc)
 
@@ -74,11 +74,11 @@ class _FakePrismaClient:
         project_row: SimpleNamespace | None = None,
     ) -> None:
         self.db = SimpleNamespace(
-            litellm_budgetwindowspend=_FakeFindUniqueTable(row=row, error=error),
-            litellm_spendlogs=_FakeSpendLogsTable(total=spend_logs_total),
-            litellm_endusertable=_FakeFindUniqueTable(row=end_user_row, error=end_user_error),
-            litellm_verificationtoken=_InFlightCountingTable(),
-            litellm_projecttable=_FakeFindUniqueTable(row=project_row),
+            hangarllm_budgetwindowspend=_FakeFindUniqueTable(row=row, error=error),
+            hangarllm_spendlogs=_FakeSpendLogsTable(total=spend_logs_total),
+            hangarllm_endusertable=_FakeFindUniqueTable(row=end_user_row, error=end_user_error),
+            hangarllm_verificationtoken=_InFlightCountingTable(),
+            hangarllm_projecttable=_FakeFindUniqueTable(row=project_row),
         )
 
 
@@ -101,7 +101,7 @@ class _PausedSpendTable:
 async def _reseed_with_paused_table(
     table: _PausedSpendTable, cache: SpendCounterStore, counter_key: str, window: bool
 ) -> float | None:
-    prisma: Final = SimpleNamespace(db=SimpleNamespace(litellm_usertable=table, litellm_budgetwindowspend=table))
+    prisma: Final = SimpleNamespace(db=SimpleNamespace(hangarllm_usertable=table, hangarllm_budgetwindowspend=table))
     if window:
         return await SpendCounterReseed.coalesced_window(
             prisma_client=prisma,
@@ -134,7 +134,7 @@ async def test_window_from_table_reads_row_by_primary_key():
     )
 
     assert result == 4.5
-    assert prisma.db.litellm_budgetwindowspend.where_clauses == [
+    assert prisma.db.hangarllm_budgetwindowspend.where_clauses == [
         {
             "entity_type_entity_id_window_duration": {
                 "entity_type": "key",
@@ -158,7 +158,7 @@ async def test_window_from_table_maps_team_entity_type():
     )
 
     assert result == 9.0
-    inner = prisma.db.litellm_budgetwindowspend.where_clauses[0]["entity_type_entity_id_window_duration"]
+    inner = prisma.db.hangarllm_budgetwindowspend.where_clauses[0]["entity_type_entity_id_window_duration"]
     assert inner["entity_type"] == "team"
 
 
@@ -249,7 +249,7 @@ async def test_window_from_db_prefers_the_row_over_the_spend_logs_aggregate():
     )
 
     assert result == 4.5
-    assert prisma.db.litellm_spendlogs.call_count == 0
+    assert prisma.db.hangarllm_spendlogs.call_count == 0
 
 
 @pytest.mark.asyncio
@@ -270,7 +270,7 @@ async def test_window_from_db_falls_back_to_spend_logs(row):
     )
 
     assert result == 7.25
-    assert prisma.db.litellm_spendlogs.call_count == 1
+    assert prisma.db.hangarllm_spendlogs.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -287,7 +287,7 @@ async def test_window_from_db_without_a_duration_skips_the_row_lookup():
     )
 
     assert result == 7.25
-    assert prisma.db.litellm_budgetwindowspend.where_clauses == []
+    assert prisma.db.hangarllm_budgetwindowspend.where_clauses == []
 
 
 @pytest.mark.asyncio
@@ -308,7 +308,7 @@ async def test_coalesced_window_seeds_a_cold_counter_from_the_row():
 
     assert result == 4.5
     assert cache.get_local(counter_key) == 4.5
-    assert prisma.db.litellm_spendlogs.call_count == 0
+    assert prisma.db.hangarllm_spendlogs.call_count == 0
 
 
 @pytest.mark.asyncio
@@ -341,7 +341,7 @@ async def test_cold_reseed_does_not_add_database_spend_to_concurrent_cache(
 async def test_cold_reseed_preserves_concurrent_local_increment(
     monkeypatch: pytest.MonkeyPatch, window: bool, batch: bool, increment: float
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     cache: Final = SpendCounterStore(connect(None).spend_counters())
     counter_key: Final = (
@@ -377,7 +377,7 @@ async def test_end_user_from_db_reads_the_end_user_row_by_user_id():
     )
 
     assert result == 0.0
-    assert prisma.db.litellm_endusertable.where_clauses == [{"user_id": "customer-42"}]
+    assert prisma.db.hangarllm_endusertable.where_clauses == [{"user_id": "customer-42"}]
 
 
 @pytest.mark.asyncio
@@ -396,7 +396,7 @@ async def test_end_user_from_db_ignores_other_counter_kinds_without_touching_the
     prisma: Final = _FakePrismaClient(end_user_row=SimpleNamespace(user_id="x", spend=5.0))
 
     assert await SpendCounterReseed.end_user_from_db(prisma_client=prisma, counter_key=counter_key) is None
-    assert prisma.db.litellm_endusertable.where_clauses == []
+    assert prisma.db.hangarllm_endusertable.where_clauses == []
 
 
 @pytest.mark.asyncio
@@ -431,7 +431,7 @@ async def test_from_db_bounds_in_flight_prisma_requests_across_counter_keys():
     )
 
     assert results == [1.0] * burst
-    assert prisma.db.litellm_verificationtoken.max_in_flight == PROXY_DB_LOOKUP_MAX_CONCURRENCY
+    assert prisma.db.hangarllm_verificationtoken.max_in_flight == PROXY_DB_LOOKUP_MAX_CONCURRENCY
 
 
 @pytest.mark.asyncio
@@ -439,7 +439,7 @@ async def test_from_db_reseeds_project_counter_from_the_project_row():
     prisma: Final = _FakePrismaClient(project_row=SimpleNamespace(project_id="proj-1", spend=7.25))
 
     assert await SpendCounterReseed.from_db(prisma_client=prisma, counter_key="spend:project:proj-1") == 7.25
-    assert prisma.db.litellm_projecttable.where_clauses == [{"project_id": "proj-1"}]
+    assert prisma.db.hangarllm_projecttable.where_clauses == [{"project_id": "proj-1"}]
 
 
 @pytest.mark.asyncio
@@ -454,11 +454,11 @@ async def test_from_db_deadline_covers_the_wait_for_a_gate_slot(monkeypatch: pyt
     """A saturated gate must fail the lookup at the deadline instead of parking
     the request on a gate slot outside the bounded window."""
     gate: Final = LoopBoundSemaphore(1)
-    monkeypatch.setattr("litellm.proxy.db.spend_counter_reseed.db_lookup_gate", gate)
-    monkeypatch.setattr("litellm.proxy.db.db_lookup_gate.PROXY_DB_LOOKUP_DEADLINE_SECONDS", 0.05)
+    monkeypatch.setattr("hangarllm.proxy.db.spend_counter_reseed.db_lookup_gate", gate)
+    monkeypatch.setattr("hangarllm.proxy.db.db_lookup_gate.PROXY_DB_LOOKUP_DEADLINE_SECONDS", 0.05)
     find_unique: Final = AsyncMock()
     prisma: Final = SimpleNamespace(
-        db=SimpleNamespace(litellm_verificationtoken=SimpleNamespace(find_unique=find_unique))
+        db=SimpleNamespace(hangarllm_verificationtoken=SimpleNamespace(find_unique=find_unique))
     )
     db_lookup_stall_tracker.clear()
     try:
@@ -481,4 +481,4 @@ async def test_from_db_still_never_reads_the_end_user_row():
     prisma: Final = _FakePrismaClient(end_user_row=SimpleNamespace(user_id="customer-42", spend=5.0))
 
     assert await SpendCounterReseed.from_db(prisma_client=prisma, counter_key="spend:end_user:customer-42") is None
-    assert prisma.db.litellm_endusertable.where_clauses == []
+    assert prisma.db.hangarllm_endusertable.where_clauses == []

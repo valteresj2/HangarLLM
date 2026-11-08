@@ -7,8 +7,8 @@ import pytest
 
 # langfuse_client_init imports this lazily; cache it before any test mocks
 # sys.modules["langfuse"], or a single-file run dies on the real import
-import litellm.integrations.langfuse.langfuse_sdk  # noqa: F401
-from litellm.integrations.langfuse.langfuse_prompt_management import (
+import hangarllm.integrations.langfuse.langfuse_sdk  # noqa: F401
+from hangarllm.integrations.langfuse.langfuse_prompt_management import (
     LangfusePromptManagement,
     langfuse_client_init,
 )
@@ -51,7 +51,7 @@ class TestLangfusePromptManagement:
 
     def test_log_failure_event_runs_async_logger(self):
         langfuse_prompt_management = LangfusePromptManagement()
-        with patch("litellm.integrations.langfuse.langfuse_prompt_management.run_async_function") as mock_run_async:
+        with patch("hangarllm.integrations.langfuse.langfuse_prompt_management.run_async_function") as mock_run_async:
             kwargs = {"standard_callback_dynamic_params": {}}
             start_time, end_time = 1, 2
 
@@ -68,20 +68,20 @@ class TestLangfusePromptManagement:
     def test_langfuse_client_init_passes_dedicated_httpx_client(self):
         import httpx
 
-        from litellm.llms.custom_httpx.http_handler import get_httpx_client
+        from hangarllm.llms.custom_httpx.http_handler import get_httpx_client
 
         shared_client = get_httpx_client().client
         built = MagicMock()
         with (
             patch(
-                "litellm.integrations.langfuse.langfuse_prompt_management.resolve_langfuse_credentials",
+                "hangarllm.integrations.langfuse.langfuse_prompt_management.resolve_langfuse_credentials",
                 return_value=("pk-1234", "sk-9876", "https://localhost"),
             ),
             patch(
-                "litellm.integrations.langfuse.langfuse_sdk.build_langfuse_client", built
+                "hangarllm.integrations.langfuse.langfuse_sdk.build_langfuse_client", built
             ),  # test-quality-ok: the REST client is built where langfuse_client_init resolves it; the transport it gets is the behavior under test
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_ssl_configuration",
+                "hangarllm.llms.custom_httpx.http_handler.get_ssl_configuration",
                 return_value=False,
             ) as mock_get_ssl,
         ):
@@ -126,7 +126,7 @@ def test_langfuse_client_init_warns_that_upstream_langfuse_is_ignored(monkeypatc
     monkeypatch.setenv("LANGFUSE_HOST", "https://test.langfuse.com")
     monkeypatch.setenv("UPSTREAM_LANGFUSE_SECRET_KEY", "sk-upstream")
     monkeypatch.setenv("UPSTREAM_LANGFUSE_HOST", "https://upstream.example")
-    with caplog.at_level("WARNING", logger="LiteLLM"):
+    with caplog.at_level("WARNING", logger="HangarLLM"):
         langfuse_client_init.cache_clear()
         langfuse_client_init()
     langfuse_client_init.cache_clear()
@@ -138,12 +138,12 @@ def test_langfuse_client_init_mock_mode_makes_no_network_calls(monkeypatch):
 
     The registry maps the "langfuse" callback to LangfusePromptManagement, so
     this logger is the one the standard proxy path emits observations through;
-    they travel over litellm's own OTLP exporter, which the httpx mock cannot see.
+    they travel over hangarllm's own OTLP exporter, which the httpx mock cannot see.
     """
     import threading
     from http.server import BaseHTTPRequestHandler, HTTPServer
 
-    import litellm
+    import hangarllm
 
     received = []
 
@@ -171,13 +171,13 @@ def test_langfuse_client_init_mock_mode_makes_no_network_calls(monkeypatch):
         logger = LangfusePromptManagement()
         logged = logger.log_event_on_langfuse(
             kwargs={
-                "litellm_call_id": "call-pm-mock-egress",
+                "hangarllm_call_id": "call-pm-mock-egress",
                 "call_type": "completion",
-                "litellm_params": {"metadata": {"trace_id": "a" * 32}},
+                "hangarllm_params": {"metadata": {"trace_id": "a" * 32}},
                 "messages": [{"role": "user", "content": "hi"}],
                 "optional_params": {},
             },
-            response_obj=litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "ok"}}]),
+            response_obj=hangarllm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "ok"}}]),
             start_time=now,
             end_time=now,
         )
@@ -195,7 +195,7 @@ def test_langfuse_debug_reaches_the_export_channel_through_the_registered_callba
     so wiring ``LANGFUSE_DEBUG`` only there left the flag a no-op on the YAML callback path."""
     import logging
 
-    from litellm.integrations.langfuse.langfuse_sdk import release_langfuse_tracing
+    from hangarllm.integrations.langfuse.langfuse_sdk import release_langfuse_tracing
 
     monkeypatch.setenv("LANGFUSE_MOCK", "true")
     monkeypatch.setenv("LANGFUSE_HOST", "http://127.0.0.1:1")
@@ -217,8 +217,8 @@ def test_langfuse_debug_reaches_the_export_channel_through_the_registered_callba
 
 @pytest.mark.asyncio
 async def test_async_log_failure_event_records_trace_id_for_alerting(monkeypatch):
-    from litellm.integrations.langfuse.langfuse_sdk import resolve_trace_id
-    from litellm.litellm_core_utils.specialty_caches.service_trace_id_cache import in_memory_trace_id_cache
+    from hangarllm.integrations.langfuse.langfuse_sdk import resolve_trace_id
+    from hangarllm.hangarllm_core_utils.specialty_caches.service_trace_id_cache import in_memory_trace_id_cache
 
     monkeypatch.setenv("LANGFUSE_MOCK", "true")
     monkeypatch.setenv("LANGFUSE_HOST", "http://127.0.0.1:1")
@@ -228,10 +228,10 @@ async def test_async_log_failure_event_records_trace_id_for_alerting(monkeypatch
     call_id: Final = "call-trace-cache-1"
     now: Final = datetime.now(timezone.utc)
     kwargs: Final = {
-        "litellm_call_id": call_id,
+        "hangarllm_call_id": call_id,
         "model": "gpt-5.4",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_params": {"metadata": {"trace_id": "alert-trace-1"}},
+        "hangarllm_params": {"metadata": {"trace_id": "alert-trace-1"}},
         "optional_params": {},
         "standard_callback_dynamic_params": {},
         "exception": RuntimeError("provider down"),
@@ -244,17 +244,17 @@ async def test_async_log_failure_event_records_trace_id_for_alerting(monkeypatch
     finally:
         langfuse_client_init.cache_clear()
 
-    assert in_memory_trace_id_cache.get_cache(litellm_call_id=call_id, service_name="langfuse") == resolve_trace_id(
+    assert in_memory_trace_id_cache.get_cache(hangarllm_call_id=call_id, service_name="langfuse") == resolve_trace_id(
         "alert-trace-1"
     )
 
 
 def test_old_sdk_fails_with_the_upgrade_message_before_the_otel_module_is_imported(monkeypatch):
     """On a v2 install `langfuse_sdk` itself fails to import, so the version gate must run first."""
-    import litellm.integrations.langfuse.langfuse_prompt_management as pm_module
+    import hangarllm.integrations.langfuse.langfuse_prompt_management as pm_module
 
     monkeypatch.setattr(pm_module, "installed_langfuse_version", lambda: "2.59.7")
-    monkeypatch.setitem(sys.modules, "litellm.integrations.langfuse.langfuse_sdk", None)
+    monkeypatch.setitem(sys.modules, "hangarllm.integrations.langfuse.langfuse_sdk", None)
 
     with pytest.raises(ImportError) as raised:
         LangfusePromptManagement(
@@ -270,7 +270,7 @@ def test_prompt_cache_ttl_typo_is_named_instead_of_reported_as_not_installed(mon
     """The v4 SDK runs ``int()`` on this variable at import, and ``langfuse_client_init`` wraps any import
     failure as "Langfuse not installed", so the gate has to run before that import."""
     monkeypatch.setenv("LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS", raw)
-    monkeypatch.setitem(sys.modules, "litellm.integrations.langfuse.langfuse_sdk", None)
+    monkeypatch.setitem(sys.modules, "hangarllm.integrations.langfuse.langfuse_sdk", None)
     langfuse_client_init.cache_clear()
 
     with pytest.raises(ValueError, match="LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS") as raised:

@@ -28,7 +28,7 @@ from integration.spend._partial_stream import (
 from pydantic import JsonValue
 from redis import Redis
 
-from litellm.constants import REDIS_SOCKET_TIMEOUT
+from hangarllm.constants import REDIS_SOCKET_TIMEOUT
 
 _BURST: Final = 12
 _SPREAD: Final = 6
@@ -161,7 +161,7 @@ def _policy_config(directory: Path, policy: Wire) -> Path:
             "guardrails": [
                 {
                     "guardrail_name": "priced-bedrock-policy",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "bedrock",
                         "mode": "pre_call",
                         "default_on": True,

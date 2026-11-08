@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from litellm_proxy_extras.request_log_indexes import filter_request_log_index_diff
+from hangarllm_proxy_extras.request_log_indexes import filter_request_log_index_diff
 
 
 @pytest.mark.skipif(
@@ -23,11 +23,11 @@ def test_schema_migration_in_sync():
     """
     db_url = os.environ["DATABASE_URL"]
     source_migrations_dir = Path(
-        "./litellm-proxy-extras/litellm_proxy_extras/migrations"
+        "./hangarllm-proxy-extras/hangarllm_proxy_extras/migrations"
     )
     source_schema_path = Path("./schema.prisma")
 
-    temp_base = Path(tempfile.mkdtemp(prefix="litellm_schema_migration_"))
+    temp_base = Path(tempfile.mkdtemp(prefix="hangarllm_schema_migration_"))
     schema_path = temp_base / "schema.prisma"
     migrations_dir = temp_base / "migrations"
 
@@ -37,7 +37,7 @@ def test_schema_migration_in_sync():
 
         if not any(migrations_dir.iterdir()):
             pytest.fail(
-                "No existing migrations found. Run `python litellm/ci_cd/baseline_db_migration.py`."
+                "No existing migrations found. Run `python hangarllm/ci_cd/baseline_db_migration.py`."
             )
 
         subprocess.run(
@@ -67,7 +67,7 @@ def test_schema_migration_in_sync():
             if drift.strip():
                 pytest.fail(
                     "Schema changes detected that no migration captures. Run "
-                    "`python litellm/ci_cd/run_migration.py <migration_name>`.\n\n"
+                    "`python hangarllm/ci_cd/run_migration.py <migration_name>`.\n\n"
                     + drift
                 )
         else:

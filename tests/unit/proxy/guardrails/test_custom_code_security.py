@@ -7,16 +7,16 @@ from http.server import ThreadingHTTPServer
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.exceptions import ModifyResponseException
-from litellm.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import (
+import hangarllm
+from hangarllm.exceptions import ModifyResponseException
+from hangarllm.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import (
     DEFAULT_EXECUTION_TIMEOUT_SECONDS,
     CustomCodeCompilationError,
     CustomCodeExecutionError,
     CustomCodeGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from hangarllm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from hangarllm.types.guardrails import SupportedGuardrailIntegrations
 
 # str.mro() + generator gi_code + code.replace(co_names=...) + __setattr__
 # to swap a function's bytecode and read http_get's real builtins dict.
@@ -147,7 +147,7 @@ def test_documented_ssn_example_compiles_and_runs():
 async def test_async_guardrail_compiles_and_runs():
     code = "async def apply_guardrail(inputs, request_data, input_type):\n    return allow()\n"
     guardrail = _compile(code)
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     result = await guardrail.apply_guardrail(
         inputs=GenericGuardrailAPIInputs(texts=["test"]),
@@ -206,7 +206,7 @@ async def test_custom_code_flag_passes_content_through_and_records_flagged_entry
     """LIT-6894: flag() must not raise, must return the content unchanged and must log
     exactly one guardrail_flagged entry (the decorator must not add a second "success")."""
     guardrail = CustomCodeGuardrail(custom_code=FLAG_CODE, guardrail_name="t", event_hook=["pre_call", "post_call"])
-    request_data = {"model": "test-model", "litellm_metadata": {}}
+    request_data = {"model": "test-model", "hangarllm_metadata": {}}
 
     result = await guardrail.apply_guardrail(
         inputs={"texts": ["hello"]},
@@ -215,7 +215,7 @@ async def test_custom_code_flag_passes_content_through_and_records_flagged_entry
     )
 
     assert result == {"texts": ["hello"]}
-    entries = request_data["litellm_metadata"]["standard_logging_guardrail_information"]
+    entries = request_data["hangarllm_metadata"]["standard_logging_guardrail_information"]
     assert len(entries) == 1
     entry = entries[0]
     assert entry["guardrail_status"] == "guardrail_flagged"
@@ -234,11 +234,11 @@ async def test_custom_code_flag_passes_content_through_and_records_flagged_entry
 async def test_custom_code_flag_default_reason_and_empty_metadata():
     code = "def apply_guardrail(inputs, request_data, input_type):\n    return flag('just a note')\n"
     guardrail = _compile(code)
-    request_data = {"model": "m", "litellm_metadata": {}}
+    request_data = {"model": "m", "hangarllm_metadata": {}}
 
     await guardrail.apply_guardrail(inputs={"texts": ["x"]}, request_data=request_data, input_type="request")
 
-    entry = request_data["litellm_metadata"]["standard_logging_guardrail_information"][0]
+    entry = request_data["hangarllm_metadata"]["standard_logging_guardrail_information"][0]
     assert entry["guardrail_response"] == {
         "action": "flag",
         "reason": "just a note",
@@ -263,9 +263,9 @@ CALLER_IDENTITY = {
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_key", ["metadata", "hangarllm_metadata"])
 async def test_custom_code_sandbox_sees_caller_identity_from_proxy_metadata_bucket(metadata_key):
-    """LIT-6609: the proxy writes user_api_key_* into `metadata` (chat) or `litellm_metadata`
+    """LIT-6609: the proxy writes user_api_key_* into `metadata` (chat) or `hangarllm_metadata`
     (/v1/messages, responses, batches, files); the sandbox must resolve ids from either."""
     guardrail = _compile(IDENTITY_ECHO_CODE)
     request_data = {"model": "m", metadata_key: dict(CALLER_IDENTITY)}
@@ -280,19 +280,19 @@ async def test_custom_code_sandbox_sees_caller_identity_from_proxy_metadata_buck
 
 
 @pytest.mark.asyncio
-async def test_custom_code_sandbox_merges_caller_metadata_with_litellm_metadata():
-    """On litellm_metadata routes the caller's own `metadata` field must stay visible next to
+async def test_custom_code_sandbox_merges_caller_metadata_with_hangarllm_metadata():
+    """On hangarllm_metadata routes the caller's own `metadata` field must stay visible next to
     the proxy identity block, and the proxy block wins on key collisions."""
     guardrail = _compile(IDENTITY_ECHO_CODE)
     request_data = {
         "model": "m",
         "metadata": {"trace_id": "abc", "user_api_key_user_id": "forged"},
-        "litellm_metadata": dict(CALLER_IDENTITY),
+        "hangarllm_metadata": dict(CALLER_IDENTITY),
     }
 
     await guardrail.apply_guardrail(inputs={"texts": ["x"]}, request_data=request_data, input_type="request")
 
-    entry = request_data["litellm_metadata"]["standard_logging_guardrail_information"][0]
+    entry = request_data["hangarllm_metadata"]["standard_logging_guardrail_information"][0]
     assert entry["guardrail_response"]["metadata"] == {
         "ids": ["someone@example.com", "team-1", "end-user-1"],
         "metadata_keys": sorted([*CALLER_IDENTITY, "trace_id"]),
@@ -321,11 +321,11 @@ async def test_custom_code_sandbox_ignores_top_level_identity_fields():
 async def test_custom_code_allow_still_records_success_not_flagged():
     code = "def apply_guardrail(inputs, request_data, input_type):\n    return allow()\n"
     guardrail = _compile(code)
-    request_data = {"model": "m", "litellm_metadata": {}}
+    request_data = {"model": "m", "hangarllm_metadata": {}}
 
     await guardrail.apply_guardrail(inputs={"texts": ["x"]}, request_data=request_data, input_type="request")
 
-    entries = request_data["litellm_metadata"]["standard_logging_guardrail_information"]
+    entries = request_data["hangarllm_metadata"]["standard_logging_guardrail_information"]
     assert [e["guardrail_status"] for e in entries] == ["success"]
 
 
@@ -451,9 +451,9 @@ def second_server():
 
 @pytest.fixture(autouse=True)
 def _fresh_http_client_and_url_policy(monkeypatch):
-    litellm.in_memory_llm_clients_cache.flush_cache()
-    monkeypatch.setattr(litellm, "user_url_validation", True)
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [])
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "user_url_validation", True)
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [])
 
 
 def _reporting_guardrail(call: str) -> CustomCodeGuardrail:
@@ -496,7 +496,7 @@ async def test_http_post_refuses_loopback_by_default(local_server):
 
 @pytest.mark.asyncio
 async def test_http_get_reaches_an_allowlisted_host(local_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     guardrail = _reporting_guardrail(f'http_get("http://127.0.0.1:{local_server.port}/marker")')
 
     reason = await _block_reason(guardrail)
@@ -507,7 +507,7 @@ async def test_http_get_reaches_an_allowlisted_host(local_server, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_http_get_refuses_a_redirect_into_a_blocked_host(local_server, second_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     guardrail = _reporting_guardrail(
         f'http_get("http://127.0.0.1:{local_server.port}/redirect-to/{second_server.port}")'
     )
@@ -521,7 +521,7 @@ async def test_http_get_refuses_a_redirect_into_a_blocked_host(local_server, sec
 
 @pytest.mark.asyncio
 async def test_http_post_does_not_follow_redirects(local_server, second_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     guardrail = _reporting_guardrail(
         f'http_post("http://127.0.0.1:{local_server.port}/redirect-to/{second_server.port}", body={{"a": 1}})'
     )
@@ -535,7 +535,7 @@ async def test_http_post_does_not_follow_redirects(local_server, second_server, 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("call", ["http_post", "http_get"])
 async def test_caller_host_header_never_reaches_the_validated_destination(local_server, monkeypatch, call):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     guardrail = _reporting_guardrail(
         f'{call}("http://127.0.0.1:{local_server.port}/marker", headers={{"host": "spoofed", "X-Extra": "kept"}})'
     )
@@ -550,7 +550,7 @@ async def test_caller_host_header_never_reaches_the_validated_destination(local_
 
 @pytest.mark.asyncio
 async def test_caller_headers_pass_through_untouched_when_url_validation_is_disabled(local_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     guardrail = _reporting_guardrail(
         f'http_post("http://127.0.0.1:{local_server.port}/marker", headers={{"host": "spoofed", "X-Extra": "kept"}})'
     )
@@ -566,7 +566,7 @@ async def test_caller_headers_pass_through_untouched_when_url_validation_is_disa
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("method", "body"), [("PUT", "put"), ("DELETE", "deleted"), ("PATCH", "patched")])
 async def test_http_request_other_methods_reach_an_allowlisted_host(local_server, monkeypatch, method, body):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     guardrail = _reporting_guardrail(
         f'http_request("http://127.0.0.1:{local_server.port}/marker", method="{method}")'
     )
@@ -579,7 +579,7 @@ async def test_http_request_other_methods_reach_an_allowlisted_host(local_server
 
 @pytest.mark.asyncio
 async def test_http_request_refuses_a_method_outside_the_allowlist(local_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     guardrail = _reporting_guardrail(f'http_request("http://127.0.0.1:{local_server.port}/marker", method="TRACE")')
 
     reason = await _block_reason(guardrail)
@@ -590,7 +590,7 @@ async def test_http_request_refuses_a_method_outside_the_allowlist(local_server,
 
 @pytest.mark.asyncio
 async def test_http_get_gives_up_at_its_own_timeout(local_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     guardrail = _reporting_guardrail(f'http_get("http://127.0.0.1:{local_server.port}/slow", timeout=0.5)')
 
     started = time.monotonic()
@@ -617,7 +617,7 @@ async def test_sync_guardrail_returning_a_coroutine_has_it_awaited():
 
 @pytest.mark.asyncio
 async def test_http_get_is_unvalidated_when_url_validation_is_disabled(local_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     guardrail = _reporting_guardrail(f'http_get("http://127.0.0.1:{local_server.port}/marker")')
 
     reason = await _block_reason(guardrail)
@@ -682,7 +682,7 @@ async def test_sync_busy_loop_does_not_stall_the_event_loop():
 
 @pytest.mark.asyncio
 async def test_async_guardrail_is_stopped_at_the_execution_timeout(local_server, monkeypatch):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     code = (
         "async def apply_guardrail(inputs, request_data, input_type):\n"
         f'    await http_get("http://127.0.0.1:{local_server.port}/slow")\n'
@@ -699,7 +699,7 @@ async def test_async_guardrail_is_stopped_at_the_execution_timeout(local_server,
 async def test_async_guardrail_that_swallows_cancellation_is_stopped_at_the_execution_timeout(
     local_server, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [f"127.0.0.1:{local_server.port}"])
     code = (
         "async def apply_guardrail(inputs, request_data, input_type):\n"
         "    attempts = 0\n"
@@ -816,21 +816,21 @@ def test_execution_timeout_must_be_positive(execution_timeout):
         )
 
 
-def _initialize_from_config(guardrail_name: str, litellm_params: dict[str, object]) -> CustomCodeGuardrail:
+def _initialize_from_config(guardrail_name: str, hangarllm_params: dict[str, object]) -> CustomCodeGuardrail:
     InMemoryGuardrailHandler().initialize_guardrail(
         guardrail={
             "guardrail_name": guardrail_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": SupportedGuardrailIntegrations.CUSTOM_CODE.value,
                 "mode": "pre_call",
                 "custom_code": "def apply_guardrail(inputs, request_data, input_type):\n    return allow()\n",
-                **litellm_params,
+                **hangarllm_params,
             },
         }
     )
     initialized = [
         callback
-        for callback in litellm.callbacks
+        for callback in hangarllm.callbacks
         if isinstance(callback, CustomCodeGuardrail) and callback.guardrail_name == guardrail_name
     ]
     assert initialized, f"{guardrail_name} was not registered as a callback"

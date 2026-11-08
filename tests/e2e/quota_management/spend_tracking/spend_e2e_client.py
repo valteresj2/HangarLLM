@@ -89,9 +89,9 @@ class ClientAttributionHeaders(AuthHeaders):
     config (Codex CLI's config.toml ``http_headers``, Claude Code's
     ``ANTHROPIC_CUSTOM_HEADERS``) because it has no body field for the end user."""
 
-    x_litellm_customer_id: str | None = Field(default=None, alias="x-litellm-customer-id")
-    x_litellm_end_user_id: str | None = Field(default=None, alias="x-litellm-end-user-id")
-    x_litellm_tags: str | None = Field(default=None, alias="x-litellm-tags")
+    x_hangarllm_customer_id: str | None = Field(default=None, alias="x-hangarllm-customer-id")
+    x_hangarllm_end_user_id: str | None = Field(default=None, alias="x-hangarllm-end-user-id")
+    x_hangarllm_tags: str | None = Field(default=None, alias="x-hangarllm-tags")
 
 
 class GeminiApiKeyHeaders(Headers):
@@ -167,7 +167,7 @@ class CallbackLogMetadata(BaseModel):
 
 class CallbackLogPayload(BaseModel):
     id: str
-    litellm_call_id: str
+    hangarllm_call_id: str
     model: str
     call_type: str = "acompletion"
     start_time: float = Field(serialization_alias="startTime")

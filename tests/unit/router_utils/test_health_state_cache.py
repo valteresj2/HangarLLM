@@ -6,9 +6,9 @@ import time
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.router_utils.health_state_cache import DeploymentHealthCache
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.redis_cache import RedisCircuitBreakerOpenError
+from hangarllm.router_utils.health_state_cache import DeploymentHealthCache
 
 
 @pytest.fixture

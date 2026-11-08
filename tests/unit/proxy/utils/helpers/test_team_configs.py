@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.proxy.utils import is_valid_team_configs
+from hangarllm.proxy.utils import is_valid_team_configs
 
 
 def normalize(value):

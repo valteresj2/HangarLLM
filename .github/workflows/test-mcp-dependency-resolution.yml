@@ -1,25 +1,25 @@
-name: LiteLLM MCP Dependency Resolution
+name: HangarLLM MCP Dependency Resolution
 
 on:
   pull_request:
     branches:
       - main
-      - "litellm_**"
+      - "hangarllm_**"
     paths:
       - "**/pyproject.toml"
       - "uv.lock"
       - "uv.toml"
       - ".python-version"
       - "rust-toolchain.toml"
-      - "litellm-rust/**"
-      - "litellm/__init__.py"
-      - "litellm/_version.py"
-      - "litellm/_lazy_imports_registry.py"
+      - "hangarllm-rust/**"
+      - "hangarllm/__init__.py"
+      - "hangarllm/_version.py"
+      - "hangarllm/_lazy_imports_registry.py"
       - "scripts/build_core_distribution.py"
-      - "litellm/proxy/proxy_server.py"
-      - "litellm/**/*mcp*"
-      - "litellm/**/*mcp*/**"
-      - "litellm/integrations/arize/**"
+      - "hangarllm/proxy/proxy_server.py"
+      - "hangarllm/**/*mcp*"
+      - "hangarllm/**/*mcp*/**"
+      - "hangarllm/integrations/arize/**"
       - "scripts/check_mcp_sdk_install.py"
       - "tests/base_sdk_tests/**"
       - ".github/workflows/test-mcp-dependency-resolution.yml"
@@ -103,7 +103,7 @@ jobs:
       - name: Check lowest direct runtime installations
         if: steps.changes.outputs.decision != 'skip'
         run: |
-          wheel=$(realpath dist/mcp-check/litellm-[0-9]*.whl)
+          wheel=$(realpath dist/mcp-check/hangarllm-[0-9]*.whl)
           for extra in core mcp proxy; do
             args=()
             if [ "$extra" != core ]; then args=(--extra "$extra"); fi
@@ -128,7 +128,7 @@ jobs:
     timeout-minutes: 30
     env:
       UV_PYTHON: ${{ matrix.python-version }}
-      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      HANGARLLM_LOCAL_MODEL_COST_MAP: "True"
     strategy:
       fail-fast: false
       matrix:
@@ -158,7 +158,7 @@ jobs:
           --cov-config=/dev/null --cov=scripts.build_core_distribution --cov-branch --cov-append --cov-report=
       - name: Verify isolated core installations
         run: |
-          wheel=$(realpath dist/core/litellm_core-*.whl)
+          wheel=$(realpath dist/core/hangarllm_core-*.whl)
           for resolution in highest lowest-direct; do
             uv venv --python ${{ matrix.python-version }} ".venv-core-$resolution"
             uv pip install --python ".venv-core-$resolution" --resolution "$resolution" "$wheel"

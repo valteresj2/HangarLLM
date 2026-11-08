@@ -105,7 +105,7 @@ def _config(directory: Path, wire: Wire, model: str, general_settings: Mapping[s
     base: Final = object_value(yaml.safe_load(_PROXY_CONFIG.read_text()))
     deployment: Final = {
         "model_name": model,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"hosted_vllm/{_SERVED_MODEL}",
             "api_base": f"{wire.url}/v1",
             "input_cost_per_token": _INPUT_COST,
@@ -140,7 +140,7 @@ def _chat_body(model: str, **extra: JsonValue) -> dict[str, JsonValue]:
 def _rows(model: str, count: int) -> list[dict[str, JsonValue]]:
     return held(
         lambda: read_rows(
-            'SELECT request_id, status, prompt_tokens, completion_tokens, spend FROM "LiteLLM_SpendLogs" '
+            'SELECT request_id, status, prompt_tokens, completion_tokens, spend FROM "HangarLLM_SpendLogs" '
             "WHERE model_group=%s",
             (model,),
         ),

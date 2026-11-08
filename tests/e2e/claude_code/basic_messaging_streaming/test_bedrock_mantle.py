@@ -1,12 +1,12 @@
 """basic_messaging_streaming x AWS Bedrock Mantle (GPT-5.6).
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Anthropic Messages
+mode against a running HangarLLM proxy that routes Anthropic Messages
 requests to OpenAI's GPT-5.6 family (Sol, Terra, Luna) on AWS
 Bedrock's Mantle endpoint, and report the outcome via `compat_result`.
 
 Mantle streams OpenAI Responses API events over SigV4-signed SSE;
-LiteLLM re-emits them as Anthropic stream events, and the
+HangarLLM re-emits them as Anthropic stream events, and the
 `verify_streaming=True` assertion (via `--include-partial-messages`)
 proves the events arrived incrementally rather than as one buffered
 response.
@@ -46,7 +46,7 @@ BEDROCK_MANTLE_MODELS = [
     )
 )
 def test_basic_messaging_streaming_bedrock_mantle(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     non-empty streamed reply from each GPT-5.6 tier."""
     skip_unless_mantle_cells_enabled()
     run_basic_messaging_cell(

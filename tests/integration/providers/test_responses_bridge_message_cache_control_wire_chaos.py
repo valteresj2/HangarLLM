@@ -114,7 +114,7 @@ def _stored_models(api_base: str) -> list[JsonValue]:
         anthropic_deployment(_OWNED_DROP, api_base, drop_params=True),
         {
             "model_name": _NOVA,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock/converse/us.amazon.nova-2-lite-v1:0",
                 "api_key": PROVIDER_KEY,
                 "api_base": api_base,
@@ -124,7 +124,7 @@ def _stored_models(api_base: str) -> list[JsonValue]:
         },
         {
             "model_name": _CHAT,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-5.4",
                 "api_key": PROVIDER_KEY,
                 "api_base": f"{api_base}/v1",
@@ -148,7 +148,7 @@ def yaml_drop_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_StoredR
     directory: Final = tmp_path_factory.mktemp("bridge-mark-yaml-drop")
     with wire_server(anthropic_peer) as wire, gateway_from_environment() as gateway:
         config: Final = owned_config(
-            directory, [anthropic_deployment(_OWNED, wire.url)], litellm_settings={"drop_params": True}
+            directory, [anthropic_deployment(_OWNED, wire.url)], hangarllm_settings={"drop_params": True}
         )
         with owned_proxy_process(gateway, directory, {}, config=config, workers=2) as owned:
             yield _StoredRig(wire, owned)
@@ -182,7 +182,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
         "POST", "/v1/responses", json=_body(model, call), headers={"Authorization": f"Bearer {key}"}
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers["x-litellm-call-id"])
+    return _Served(call, response.status_code, raw.decode(), response.headers["x-hangarllm-call-id"])
 
 
 async def _burst(
@@ -222,7 +222,7 @@ def _assert_each_lands_once(
 ) -> None:
     expected: Final = len(failed) + len(served)
     rows: Final = eventually(lambda: spend.rows_for(model), lambda found: len(found) >= expected, seconds=70)
-    by_call: Final = {string_value(row["litellm_call_id"]): row for row in rows}
+    by_call: Final = {string_value(row["hangarllm_call_id"]): row for row in rows}
     assert len(by_call) == len(rows) == expected, rows
     for item in failed:
         assert by_call[item.call_id]["status"] == "failure", (item.call_id, rows)
@@ -325,7 +325,7 @@ async def _hold_burst(
 def _follow_up(gateway: Gateway, wire: Wire, spend: pcb.SpendLogs) -> None:
     call: Final = _Call(False, new_marker())
     response: Final = gateway.request("POST", "/v1/responses", dict(_body(_OWNED, call)))
-    served: Final = _Served(call, response.status_code, response.text, response.headers["x-litellm-call-id"])
+    served: Final = _Served(call, response.status_code, response.text, response.headers["x-hangarllm-call-id"])
     _assert_answered(served)
     _marked_once(_marked_posts(wire), (call,))
     spend.landed(_OWNED, served.call_id, None)
@@ -379,7 +379,7 @@ async def test_proxy_restart_mid_burst_never_lands_a_served_call_twice(
         second_directory.mkdir()
         with owned_proxy_process(gateway, second_directory, {}, config=config, workers=2) as second:
             _follow_up(second.gateway, wire, spend)
-    counts: Final = Counter(string_value(row["litellm_call_id"]) for row in spend.rows_for(_OWNED))
+    counts: Final = Counter(string_value(row["hangarllm_call_id"]) for row in spend.rows_for(_OWNED))
     assert all(count == 1 for count in counts.values()), counts
     landed: Final = sum(1 for item in served if item.call_id in counts)
     record_property("served", len(served))
@@ -402,7 +402,7 @@ def test_previous_response_replay_keeps_the_system_mark(stored_rig: _StoredRig, 
     )
     assert first.status_code == 200, first.text
     first_id: Final = string_value(_JSON_OBJECT.validate_json(first.text)["id"])
-    spend.landed(_OWNED, first.headers["x-litellm-call-id"], None)
+    spend.landed(_OWNED, first.headers["x-hangarllm-call-id"], None)
     assert [anthropic_labels(request) for request in _marked_posts(stored_rig.wire)] == [[SYSTEM_LABEL]]
     second: Final = stored_rig.gateway.request(
         "POST",
@@ -436,7 +436,7 @@ def _stored_turn(rig: _StoredRig, spend: pcb.SpendLogs, model: str, items: Seque
     first: Final = _respond(
         rig, {"model": model, "max_output_tokens": 64, "cache": {"no-cache": True}, "tools": [_TOOL], "input": items}
     )
-    spend.landed(model, first.headers["x-litellm-call-id"], None)
+    spend.landed(model, first.headers["x-hangarllm-call-id"], None)
     (posted,) = _marked_posts(rig.wire)
     return string_value(_JSON_OBJECT.validate_json(first.text)["id"]), posted
 

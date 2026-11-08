@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from litellm.proxy.guardrails.guardrail_hooks.custom_code.bounded_execution import (
+from hangarllm.proxy.guardrails.guardrail_hooks.custom_code.bounded_execution import (
     ExecutionTimeoutError,
     SandboxExit,
     await_with_timeout,

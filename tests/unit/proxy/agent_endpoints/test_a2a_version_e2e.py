@@ -22,7 +22,7 @@ from starlette.routing import Route
 
 pytest.importorskip("a2a.compat.v0_3.types")
 
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy._types import UserAPIKeyAuth
 
 UPSTREAM_BASE = "http://testserver"
 
@@ -129,7 +129,7 @@ def _make_agent(*, protocol_version: str) -> MagicMock:
         "name": "Test Agent",
         "protocolVersion": protocol_version,
     }
-    agent.litellm_params = {}
+    agent.hangarllm_params = {}
     agent.static_headers = None
     agent.extra_headers = None
     return agent
@@ -167,27 +167,27 @@ async def _add_proxy_data(data: Dict[str, Any], **_: Any) -> Dict[str, Any]:
 
 
 def _proxy_patches(agent: MagicMock) -> List[Any]:
-    from litellm.proxy.agent_endpoints import a2a_endpoints as a2a_endpoints_mod
+    from hangarllm.proxy.agent_endpoints import a2a_endpoints as a2a_endpoints_mod
 
     return [
         patch.object(a2a_endpoints_mod, "_get_agent", return_value=agent),
         patch(
-            "litellm.proxy.agent_endpoints.auth.agent_permission_handler"
+            "hangarllm.proxy.agent_endpoints.auth.agent_permission_handler"
             ".AgentRequestHandler.is_agent_allowed",
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "litellm.proxy.common_request_processing.add_litellm_data_to_request",
+            "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
             new=AsyncMock(side_effect=_add_proxy_data),
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "1.0.0"),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.version", "1.0.0"),
         patch(
-            "litellm.a2a_protocol.main.get_async_httpx_client",
+            "hangarllm.a2a_protocol.main.get_async_httpx_client",
             side_effect=_fake_get_async_httpx_client,
         ),
-        patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True),
+        patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True),
     ]
 
 
@@ -219,7 +219,7 @@ def _clear_upstream_calls() -> None:
 
 @pytest.mark.asyncio
 async def test_proxy_serves_1_0_when_agent_pinned_and_upstream_speaks_03():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
     agent = _make_agent(protocol_version="1.0")
     request = _make_request(
@@ -253,7 +253,7 @@ async def test_proxy_serves_1_0_when_agent_pinned_and_upstream_speaks_03():
 
 @pytest.mark.asyncio
 async def test_proxy_serves_0_3_when_agent_pinned_passthrough():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
     agent = _make_agent(protocol_version="0.3")
     request = _make_request("message/send", _wire_send_params())
@@ -281,7 +281,7 @@ async def test_proxy_serves_0_3_when_agent_pinned_passthrough():
 
 @pytest.mark.asyncio
 async def test_proxy_streaming_serves_1_0_envelopes():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
     agent = _make_agent(protocol_version="1.0")
     request = _make_request(

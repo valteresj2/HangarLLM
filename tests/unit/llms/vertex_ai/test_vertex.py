@@ -11,18 +11,18 @@ import respx
 from dotenv import load_dotenv
 from google.oauth2.credentials import Credentials
 
-import litellm.litellm_core_utils
-import litellm.litellm_core_utils.prompt_templates
-import litellm.litellm_core_utils.prompt_templates.factory
+import hangarllm.hangarllm_core_utils
+import hangarllm.hangarllm_core_utils.prompt_templates
+import hangarllm.hangarllm_core_utils.prompt_templates.factory
 
 load_dotenv()
 from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm import Router, get_optional_params
-from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
+import hangarllm
+from hangarllm import Router, get_optional_params
+from hangarllm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
 
 def encode_image_to_base64(image_path):
@@ -33,7 +33,7 @@ def encode_image_to_base64(image_path):
 def test_completion_pydantic_obj_2():
     from pydantic import BaseModel
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 
     class CalendarEvent(BaseModel):
@@ -90,7 +90,7 @@ def test_completion_pydantic_obj_2():
     with patch.object(client, "post", new=MagicMock()) as mock_post:
         mock_post.return_value = expected_request_body
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="gemini/gemini-2.5-flash",
                 messages=messages,
                 response_format=EventsList,
@@ -110,7 +110,7 @@ def test_completion_pydantic_obj_2():
 
 def test_build_vertex_schema():
 
-    from litellm.llms.vertex_ai.common_utils import build_vertex_schema
+    from hangarllm.llms.vertex_ai.common_utils import build_vertex_schema
 
     schema = {
         "type": "object",
@@ -257,12 +257,12 @@ def test_vertex_tool_type_field_removal():
 
 
 def test_function_calling_with_gemini():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     with patch.object(client, "post", new=MagicMock()) as mock_post:
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model="gemini/gemini-1.5-pro-002",
                 messages=[
                     {
@@ -309,7 +309,7 @@ def test_function_calling_with_gemini():
 
 
 def test_multiple_function_call():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     messages = [
@@ -374,7 +374,7 @@ def test_multiple_function_call():
     mock_response.json.return_value = response_body
 
     with patch.object(client, "post", return_value=mock_response) as mock_post:
-        r = litellm.completion(
+        r = hangarllm.completion(
             messages=messages,
             model="gemini/gemini-1.5-flash-002",
             api_key="test-api-key",
@@ -418,7 +418,7 @@ def test_multiple_function_call():
 
 
 def test_multiple_function_call_changed_text_pos():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     messages = [
@@ -482,7 +482,7 @@ def test_multiple_function_call_changed_text_pos():
     mock_response.json.return_value = response_body
 
     with patch.object(client, "post", return_value=mock_response) as mock_post:
-        resp = litellm.completion(
+        resp = hangarllm.completion(
             messages=messages,
             model="gemini/gemini-1.5-flash-002",
             api_key="test-api-key",
@@ -525,7 +525,7 @@ def test_multiple_function_call_changed_text_pos():
 
 
 def test_function_calling_with_gemini_multiple_results():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     # Step 1: send the conversation and available functions to the model
@@ -601,7 +601,7 @@ def test_function_calling_with_gemini_multiple_results():
     mock_response.json.return_value = response_body
 
     with patch.object(client, "post", return_value=mock_response):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gemini/gemini-1.5-flash-002",
             messages=messages,
             tools=tools,
@@ -620,7 +620,7 @@ def test_function_calling_with_gemini_multiple_results():
 
 
 def test_logprobs_unit_test():
-    from litellm import VertexGeminiConfig
+    from hangarllm import VertexGeminiConfig
 
     result = VertexGeminiConfig()._transform_logprobs(
         logprobs_result={
@@ -1099,7 +1099,7 @@ def test_logprobs_unit_test():
 
 
 def test_logprobs():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
@@ -1183,7 +1183,7 @@ def test_logprobs():
     mock_response.json.return_value = response_body
 
     with patch.object(client, "post", return_value=mock_response):
-        resp = litellm.completion(
+        resp = hangarllm.completion(
             model="gemini/gemini-1.5-flash-002",
             messages=[
                 {"role": "user", "content": "What's the weather like in San Francisco?"}
@@ -1199,7 +1199,7 @@ def test_logprobs():
 
 def test_process_gemini_media():
     """Test the _process_gemini_media function for different image sources"""
-    from litellm.types.llms.vertex_ai import FileDataType
+    from hangarllm.types.llms.vertex_ai import FileDataType
 
     # Test GCS URI
     gcs_result = _process_gemini_media("gs://bucket/image.png")
@@ -1228,7 +1228,7 @@ def test_process_gemini_media():
             ],
         }
     ]
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -1276,7 +1276,7 @@ def test_process_gemini_media():
 
 def test_get_image_mime_type_from_url():
     """Test MIME type inference for remote media URLs"""
-    from litellm.litellm_core_utils.prompt_templates.file_id_utils import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.file_id_utils import (
         get_image_mime_type_from_url,
     )
 
@@ -1331,11 +1331,11 @@ def test_vertex_embedding_url(model, expected_url):
     """
     Test URL generation for embedding models, including numeric model IDs (fine-tuned models
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/6482
+    Relevant issue: upstream issue 6482
 
     When a fine-tuned embedding model is used, the URL is different from the standard one.
     """
-    from litellm.llms.vertex_ai.common_utils import get_vertex_url
+    from hangarllm.llms.vertex_ai.common_utils import get_vertex_url
 
     url, endpoint = get_vertex_url(
         mode="embedding",
@@ -1358,7 +1358,7 @@ import pytest
 # Add these fixtures below existing fixtures
 @pytest.fixture
 def vertex_client():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     return HTTPHandler()
 
@@ -1405,7 +1405,7 @@ def test_aaavertex_embeddings_distances(
     with (
         patch.object(vertex_client, "post", return_value=mock_response),
         patch.object(
-            litellm.main.vertex_multimodal_embedding,
+            hangarllm.main.vertex_multimodal_embedding,
             "_ensure_access_token",
             side_effect=mock_auth_token,
         ),
@@ -1415,7 +1415,7 @@ def test_aaavertex_embeddings_distances(
                 "predictions": [{"imageEmbedding": mock_image_embeddings[idx]}]
             }
             mock_response.status_code = 200
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="vertex_ai/multimodalembedding@001",
                 input=[f"data:image/png;base64,{encoded_image}"],
                 client=vertex_client,
@@ -1435,12 +1435,12 @@ def test_aaavertex_embeddings_distances(
     with (
         patch.object(vertex_client, "post", return_value=text_mock_response),
         patch.object(
-            litellm.main.vertex_multimodal_embedding,
+            hangarllm.main.vertex_multimodal_embedding,
             "_ensure_access_token",
             side_effect=mock_auth_token,
         ),
     ):
-        text_response = litellm.embedding(
+        text_response = hangarllm.embedding(
             model="vertex_ai/multimodalembedding@001",
             input=[input_string],
             client=vertex_client,
@@ -1510,14 +1510,14 @@ def test_vertex_parallel_tool_calls_false_single_tool():
     assert "tools" in optional_params
 
 
-from litellm.llms.vertex_ai.gemini.transformation import transform_request_body
+from hangarllm.llms.vertex_ai.gemini.transformation import transform_request_body
 
 
 def test_system_prompt_only_adds_blank_user_message():
     """
     Test that the system prompt only adds a blank user message when a system message is passed in.
 
-    Relevant Issue - https://github.com/BerriAI/litellm/issues/13769
+    Relevant Issue - upstream issue 13769
     """
     SYSTEM_INSTRUCTION = "System instructions for the model"
     data = transform_request_body(
@@ -1525,7 +1525,7 @@ def test_system_prompt_only_adds_blank_user_message():
         model="gemini-2.5-flash",
         optional_params={},
         custom_llm_provider="vertex_ai",
-        litellm_params={},
+        hangarllm_params={},
         cached_content=None,
     )
     print("Final data: ", data)
@@ -1545,7 +1545,7 @@ def test_system_prompt_only_adds_blank_user_message():
 
 @pytest.fixture
 def _cached_vertex_credentials(monkeypatch: pytest.MonkeyPatch) -> str:
-    from litellm.main import (
+    from hangarllm.main import (
         vertex_chat_completion,
         vertex_embedding,
         vertex_model_garden_chat_completion,
@@ -1568,7 +1568,7 @@ def _cached_vertex_credentials(monkeypatch: pytest.MonkeyPatch) -> str:
     return credential_key
 
 
-def test_litellm_completion_vertex_exception(
+def test_hangarllm_completion_vertex_exception(
     respx_mock: respx.MockRouter, _cached_vertex_credentials: str
 ) -> None:
     url: Final = (
@@ -1588,8 +1588,8 @@ def test_litellm_completion_vertex_exception(
         )
     )
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.completion(
             model="vertex_ai/gemini-3.5-flash-lite",
             messages=[{"role": "user", "content": "hello"}],
             vertex_project="test-project",
@@ -1626,7 +1626,7 @@ def test_router_completion_vertex_exception(
         model_list=[
             {
                 "model_name": "vertex-gemini-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-3.5-flash-lite",
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
@@ -1637,7 +1637,7 @@ def test_router_completion_vertex_exception(
         num_retries=0,
     )
 
-    with pytest.raises(litellm.RateLimitError) as exc_info:
+    with pytest.raises(hangarllm.RateLimitError) as exc_info:
         router.completion(
             model="vertex-gemini-test",
             messages=[{"role": "user", "content": "hello"}],
@@ -1671,7 +1671,7 @@ async def test_completion_fine_tuned_model(
     _cached_vertex_credentials: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     url: Final = (
         "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/"
         "locations/us-central1/endpoints/4965075652664360960:generateContent"
@@ -1680,7 +1680,7 @@ async def test_completion_fine_tuned_model(
         return_value=httpx.Response(200, json=_vertex_gemini_response("A canvas vast"))
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="vertex_ai_beta/4965075652664360960",
         messages=[{"role": "user", "content": "Write a short poem about the sky"}],
         vertex_project="test-project",
@@ -1721,7 +1721,7 @@ def test_gemini_finetuned_endpoint(
         return_value=httpx.Response(200, json=_vertex_gemini_response())
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="vertex_ai/4965075652664360960",
         messages=[{"role": "user", "content": "search for weather in boston"}],
         vertex_project="test-project",
@@ -1749,7 +1749,7 @@ def test_gemini_nullable_object_tool_schema_httpx(
         return_value=httpx.Response(200, json=_vertex_gemini_response())
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="vertex_ai/gemini-3.5-flash",
         messages=[{"role": "user", "content": "call the tool"}],
         tools=[
@@ -1862,7 +1862,7 @@ def test_gemini_pro_grounding(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="vertex_ai_beta/gemini-1.0-pro-001",
         messages=[{"role": "user", "content": "Who won the world cup?"}],
         tools=[{"googleSearchRetrieval": value_in_dict}],
@@ -1918,7 +1918,7 @@ def test_gemini_pro_httpx_custom_api_base(
         return_value=httpx.Response(200, json=response_body)
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=f"vertex_ai/{model}",
         messages=[{"role": "user", "content": "Hello world"}],
         api_base=_CUSTOM_API_BASE,
@@ -1936,7 +1936,7 @@ def test_gemini_pro_httpx_custom_api_base(
 
 
 def test_prompt_factory() -> None:
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -2014,7 +2014,7 @@ def test_signed_s3_url_with_format(
         return_value=httpx.Response(200, json=_vertex_gemini_response())
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="vertex_ai/gemini-2.0-flash-001",
         messages=[
             {
@@ -2056,7 +2056,7 @@ async def test_vertex_ai_deepseek(
     _cached_vertex_credentials: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(
         "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/"
         "locations/us-central1/endpoints/openapi/chat/completions"
@@ -2081,7 +2081,7 @@ async def test_vertex_ai_deepseek(
         )
     )
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
         messages=[{"role": "user", "content": "Hi!"}],
         vertex_project="test-project",
@@ -2128,7 +2128,7 @@ def test_vertex_ai_response_id(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="vertex_ai/gemini-1.5-pro",
         messages=[{"role": "user", "content": "Hi!"}],
         vertex_project="test-project",
@@ -2148,7 +2148,7 @@ async def test_vertexai_embedding_finetuned(
     _cached_vertex_credentials: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     url: Final = (
         "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/"
         "locations/us-central1/endpoints/1004708436694269952:predict"
@@ -2164,9 +2164,9 @@ async def test_vertexai_embedding_finetuned(
             },
         )
     )
-    inputs: Final = ["good morning from litellm", "this is another item"]
+    inputs: Final = ["good morning from hangarllm", "this is another item"]
 
-    response: Final = await litellm.aembedding(
+    response: Final = await hangarllm.aembedding(
         model="vertex_ai/1004708436694269952",
         input=inputs,
         vertex_project="test-project",
@@ -2194,7 +2194,7 @@ async def test_vertexai_model_garden_model_completion(
     monkeypatch: pytest.MonkeyPatch,
     max_retries: int | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setitem(
         sys.modules,
         "vertexai",
@@ -2219,7 +2219,7 @@ async def test_vertexai_model_garden_model_completion(
                 "choices": [
                     {
                         "index": 0,
-                        "message": {"role": "assistant", "content": "Litellm Bot"},
+                        "message": {"role": "assistant", "content": "Hangarllm Bot"},
                         "finish_reason": "stop",
                     }
                 ],
@@ -2232,7 +2232,7 @@ async def test_vertexai_model_garden_model_completion(
         )
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="vertex_ai/openai/5464397967697903616",
         messages=messages,
         vertex_project="test-project",
@@ -2252,7 +2252,7 @@ async def test_vertexai_model_garden_model_completion(
     assert response.model == "vertex_ai/meta-llama/Llama-3.1-8B-Instruct"
     assert len(response.choices) == 1
     assert response.choices[0].message.role == "assistant"
-    assert response.choices[0].message.content == "Litellm Bot"
+    assert response.choices[0].message.content == "Hangarllm Bot"
     assert response.choices[0].finish_reason == "stop"
     assert (
         response.usage.prompt_tokens,
@@ -2267,7 +2267,7 @@ async def test_partner_models_httpx_ai21(
     _cached_vertex_credentials: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     url: Final = (
         "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/test-project/"
         "locations/us-central1/publishers/ai21/models/jamba-1.5-mini@001:rawPredict"
@@ -2325,7 +2325,7 @@ async def test_partner_models_httpx_ai21(
         )
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="vertex_ai/jamba-1.5-mini@001",
         messages=messages,
         tools=tools,
@@ -2367,7 +2367,7 @@ async def test_gemini_context_caching_anthropic_format(
     sync_mode: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     cache_list_route: Final = respx_mock.get(
         url__regex=r".*cachedContents.*"
     ).mock(return_value=httpx.Response(200, json={"cachedContents": []}))
@@ -2411,14 +2411,14 @@ async def test_gemini_context_caching_anthropic_format(
     ]
 
     if sync_mode:
-        litellm.completion(
+        hangarllm.completion(
             model="gemini/gemini-2.5-flash-lite-001",
             messages=messages,
             temperature=0.2,
             max_tokens=10,
         )
     else:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gemini/gemini-2.5-flash-lite-001",
             messages=messages,
             temperature=0.2,
@@ -2460,20 +2460,20 @@ async def test_anthropic_message_via_anthropic_messages(
     _cached_vertex_credentials: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation import (
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation import (
         VertexAIPartnerModelsAnthropicMessagesConfig,
     )
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.utils import ProviderConfigManager
 
     provider_configs: Final = (
         ProviderConfigManager.get_provider_anthropic_messages_config(
             model="vertex_ai/claude-3-5-sonnet@20240620",
-            provider=litellm.LlmProviders.VERTEX_AI,
+            provider=hangarllm.LlmProviders.VERTEX_AI,
         ),
         ProviderConfigManager.get_provider_anthropic_messages_config(
             model="claude-3-5-sonnet@20240620",
-            provider=litellm.LlmProviders.VERTEX_AI,
+            provider=hangarllm.LlmProviders.VERTEX_AI,
         ),
     )
     for provider_config in provider_configs:
@@ -2510,8 +2510,8 @@ async def test_anthropic_message_via_anthropic_messages(
         "max_retries": 0,
     }
 
-    response: Final = await litellm.anthropic_messages(**call_params)
-    completion_response: Final = await litellm.acompletion(**call_params)
+    response: Final = await hangarllm.anthropic_messages(**call_params)
+    completion_response: Final = await hangarllm.acompletion(**call_params)
 
     assert response["stop_reason"] == "end_turn"
     assert completion_response.choices[0].message.content == "Here are the recipes."
@@ -2570,8 +2570,8 @@ def test_gemini_fine_tuned_model_request_consistency(
         "max_retries": 0,
     }
 
-    litellm.completion(model="vertex_ai/gemini/ft-uuid", **common_params)
-    litellm.completion(model="vertex_ai/gemini-2.5-flash", **common_params)
+    hangarllm.completion(model="vertex_ai/gemini/ft-uuid", **common_params)
+    hangarllm.completion(model="vertex_ai/gemini-2.5-flash", **common_params)
 
     assert route.call_count == 2
     first_request: Final = json.loads(route.calls[0].request.content)
@@ -2663,7 +2663,7 @@ def test_gemini_pro_json_schema_args_sent_httpx(
         return_value=httpx.Response(200, json=_recipes_response(model, invalid_response))
     )
     call: Final = functools.partial(
-        litellm.completion,
+        hangarllm.completion,
         model=model,
         messages=[{"role": "user", "content": "List 5 cookie recipes"}],
         response_format={
@@ -2678,7 +2678,7 @@ def test_gemini_pro_json_schema_args_sent_httpx(
     )
 
     if invalid_response and enforce_validation:
-        with pytest.raises(litellm.JSONSchemaValidationError):
+        with pytest.raises(hangarllm.JSONSchemaValidationError):
             call()
     else:
         response = call()
@@ -2719,12 +2719,12 @@ def test_gemini_pro_json_schema_args_sent_httpx_openai_schema(
     class ResponseSchema(BaseModel):
         recipes: list[Recipe]
 
-    monkeypatch.setattr(litellm, "enable_json_schema_validation", enforce_validation)
+    monkeypatch.setattr(hangarllm, "enable_json_schema_validation", enforce_validation)
     route: Final = respx_mock.post(url__regex=rf".*/{re.escape(endpoint)}$").mock(
         return_value=httpx.Response(200, json=_recipes_response(model, invalid_response))
     )
     call: Final = functools.partial(
-        litellm.completion,
+        hangarllm.completion,
         model=model,
         messages=[{"role": "user", "content": "List 5 cookie recipes"}],
         response_format=ResponseSchema,
@@ -2735,7 +2735,7 @@ def test_gemini_pro_json_schema_args_sent_httpx_openai_schema(
     )
 
     if invalid_response and enforce_validation:
-        with pytest.raises(litellm.JSONSchemaValidationError):
+        with pytest.raises(hangarllm.JSONSchemaValidationError):
             call()
     else:
         response = call()
@@ -2764,7 +2764,7 @@ async def test_gemini_pro_json_schema_httpx_content_policy_error(
     content_filter_type: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     response_body: Final = (
         {
             "promptFeedback": {"blockReason": "OTHER"},
@@ -2785,7 +2785,7 @@ async def test_gemini_pro_json_schema_httpx_content_policy_error(
         url__regex=r".*gemini-2.5-flash-lite:generateContent"
     ).mock(return_value=httpx.Response(200, json=response_body))
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="vertex_ai_beta/gemini-2.5-flash-lite",
         messages=[{"role": "user", "content": "List recipes"}],
         response_format={"type": "json_object"},
@@ -2800,14 +2800,14 @@ async def test_gemini_pro_json_schema_httpx_content_policy_error(
 
 
 @pytest.mark.parametrize("route_type", ["completion", "embedding"])
-def test_litellm_api_base(
+def test_hangarllm_api_base(
     respx_mock: respx.MockRouter,
     _cached_vertex_credentials: str,
     monkeypatch: pytest.MonkeyPatch,
     route_type: str,
 ) -> None:
-    monkeypatch.setattr(litellm, "api_base", "https://litellm.com")
-    route: Final = respx_mock.post(url__regex=r"https://litellm\.com.*").mock(
+    monkeypatch.setattr(hangarllm, "api_base", "https://hangarllm.com")
+    route: Final = respx_mock.post(url__regex=r"https://hangarllm\.com.*").mock(
         return_value=httpx.Response(
             200,
             json=(
@@ -2823,7 +2823,7 @@ def test_litellm_api_base(
     )
 
     if route_type == "completion":
-        litellm.completion(
+        hangarllm.completion(
             model="vertex_ai/gemini-2.0-flash-001",
             messages=[{"role": "user", "content": "Hello"}],
             vertex_project="test-project",
@@ -2832,7 +2832,7 @@ def test_litellm_api_base(
             max_retries=0,
         )
     else:
-        litellm.embedding(
+        hangarllm.embedding(
             model="vertex_ai/gemini-2.0-flash-001",
             input=["Hello"],
             vertex_project="test-project",
@@ -2843,7 +2843,7 @@ def test_litellm_api_base(
 
     assert route.call_count == 1
     assert str(route.calls[0].request.url) == (
-        "https://litellm.com/v1/projects/test-project/locations/us-central1/publishers/google/models/"
+        "https://hangarllm.com/v1/projects/test-project/locations/us-central1/publishers/google/models/"
         f"gemini-2.0-flash-001:{'generateContent' if route_type == 'completion' else 'predict'}"
     )
 
@@ -2875,7 +2875,7 @@ def test_vertex_anthropic_completion(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="vertex_ai/claude-sonnet-4-6@default",
         messages=[{"role": "user", "content": "Hello, world!"}],
         vertex_project="test-project",
@@ -2925,7 +2925,7 @@ def test_vertex_gemini_streaming_returns_text_and_finish_reason(
         )
     )
 
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="vertex_ai_beta/gemini-2.5-flash-lite",
         messages=[{"role": "user", "content": "Say a sentence."}],
         stream=True,

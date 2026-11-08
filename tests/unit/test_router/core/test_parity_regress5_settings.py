@@ -10,10 +10,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import Deployment, LiteLLM_Params, RetryPolicy
+import hangarllm
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import Deployment, HangarLLM_Params, RetryPolicy
 from tests.unit.test_router.core.gaps_l11100_helpers import TIERS, complexity_marker
 from tests.unit.test_router.core.retries_health_helpers import MakeCore, attempt
 from tests.unit.test_router.core.scripted_host import (
@@ -44,7 +44,7 @@ async def test_retry_policy_assigned_after_build_governs_the_next_failure(
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert host.deployments_called("acompletion") == ["d1"]
 
 
@@ -67,7 +67,7 @@ async def test_a_retry_policy_written_as_a_dict_stays_a_dict_and_applies(
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert core.retry_policy == {"RateLimitErrorRetries": 0}  # pyright: ignore[reportAttributeAccessIssue]  # see above
     assert host.deployments_called("acompletion") == ["d1"]
 
@@ -185,7 +185,7 @@ async def test_a_failure_reads_a_num_retries_that_is_no_count(
 
     assert isinstance(error, TypeError)
     assert str(error) == message
-    assert isinstance(error.__context__, litellm.InternalServerError)
+    assert isinstance(error.__context__, hangarllm.InternalServerError)
     assert len(host.deployments_called("acompletion")) == 1
 
 
@@ -199,7 +199,7 @@ async def test_a_num_retries_below_one_leaves_the_failure_standing(
 
     error: Final = await attempt(core, num_retries=value)
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert len(host.deployments_called("acompletion")) == 1
 
 
@@ -230,7 +230,7 @@ async def test_num_retries_true_counts_as_one_retry(make_core: MakeCore, host: S
 
     error: Final = await attempt(core, num_retries=True)
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert len(host.deployments_called("acompletion")) == 2
 
 
@@ -363,7 +363,7 @@ async def test_a_failing_default_deployment_stamps_only_its_own_id(
 ) -> None:
     core: Final = _one_group(make_core)
     assigned: Final = {
-        "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+        "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k"},
         **({"model_info": model_info} if model_info is not None else {}),
     }
     core.apply(ChangeSet(assign={"default_deployment": assigned}))
@@ -400,9 +400,9 @@ def test_a_capability_limit_that_cannot_be_called_fails_the_build(make_core: Mak
         ({"model_info": {"output_cost_per_token": "nan"}}, "model_info.output_cost_per_token"),
         ({"model_info": {"input_cost_per_token": "1e400"}}, "model_info.input_cost_per_token"),
         ({"model_info": {"input_cost_per_token": float("inf")}}, "model_info.input_cost_per_token"),
-        ({"input_cost_per_token": "inf"}, "litellm_params.input_cost_per_token"),
+        ({"input_cost_per_token": "inf"}, "hangarllm_params.input_cost_per_token"),
     ],
-    ids=["inf", "nan", "overflow", "float", "litellm_params"],
+    ids=["inf", "nan", "overflow", "float", "hangarllm_params"],
 )
 def test_the_rust_core_refuses_a_cost_that_is_not_finite(
     host: ScriptedHost, params: dict[str, object], named: str
@@ -415,7 +415,7 @@ def test_the_rust_core_refuses_a_cost_that_is_not_finite_on_add(host: ScriptedHo
     core: Final = CORE_BUILDERS["rust"](host, model_list=[deployment("g", "m")])
     added: Final = Deployment(
         model_name="g",
-        litellm_params=LiteLLM_Params(model="openai/gpt-4o", api_key="k"),
+        hangarllm_params=HangarLLM_Params(model="openai/gpt-4o", api_key="k"),
         model_info={"id": "late", "input_cost_per_token": float("inf")},
     )
     with pytest.raises(ValueError, match="Set a finite cost"):
@@ -443,7 +443,7 @@ def test_the_rust_core_refuses_a_share_wider_than_it_can_hold_on_add(host: Scrip
     core: Final = CORE_BUILDERS["rust"](host, model_list=[deployment("g", "free")])
     added: Final = Deployment(
         model_name="g",
-        litellm_params=LiteLLM_Params(model="openai/gpt-4o", api_key="k"),
+        hangarllm_params=HangarLLM_Params(model="openai/gpt-4o", api_key="k"),
         model_info={"id": "late", "db_model": True, "ptu_shares": {"T1": 10**20}},
     )
     with pytest.raises(ValueError, match=r"model_info\.ptu_shares\.T1 is 100000000000000000000, outside"):
@@ -468,6 +468,6 @@ async def test_the_rust_error_note_reads_the_fallbacks_the_walk_used(host: Scrip
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert "configured: h" not in error.message
     assert host.deployments_called("acompletion") == ["d1"]

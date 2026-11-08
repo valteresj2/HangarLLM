@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 import pytest
 
 
-import litellm
-from litellm.llms.gemini.realtime.transformation import GEMINI_LIVE_DOCUMENTED_VOICES, GeminiRealtimeConfig
-from litellm.types.llms.gemini import BidiGenerateContentServerMessage
+import hangarllm
+from hangarllm.llms.gemini.realtime.transformation import GEMINI_LIVE_DOCUMENTED_VOICES, GeminiRealtimeConfig
+from hangarllm.types.llms.gemini import BidiGenerateContentServerMessage
 
 
 def test_gemini_realtime_transformation_session_created():
@@ -27,7 +27,7 @@ def test_gemini_realtime_transformation_session_created():
 
     session_created_message_str = json.dumps(session_created_message)
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "123"
+    logging_obj.hangarllm_trace_id = "123"
 
     transformed_message = config.transform_realtime_response(
         session_created_message_str,
@@ -65,7 +65,7 @@ def test_session_created_does_not_overwrite_session_configuration_request():
     setup_complete_message = {"setupComplete": {}}
 
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_123"
+    logging_obj.hangarllm_trace_id = "trace_123"
 
     transformed = config.transform_realtime_response(
         json.dumps(setup_complete_message),
@@ -115,7 +115,7 @@ def test_gemini_realtime_transformation_content_delta():
 
     session_created_message_str = json.dumps(session_created_message)
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id.return_value = "123"
+    logging_obj.hangarllm_trace_id.return_value = "123"
 
     returned_object = config.transform_realtime_response(
         session_created_message_str,
@@ -151,7 +151,7 @@ def test_gemini_realtime_transformation_content_delta():
 
 
 def test_gemini_model_turn_event_mapping():
-    from litellm.types.llms.openai import OpenAIRealtimeEventTypes
+    from hangarllm.types.llms.openai import OpenAIRealtimeEventTypes
 
     config = GeminiRealtimeConfig()
     assert config is not None
@@ -177,7 +177,7 @@ def test_gemini_model_turn_event_mapping():
 
 
 def test_gemini_realtime_transformation_audio_delta():
-    from litellm.types.llms.openai import OpenAIRealtimeEventTypes
+    from hangarllm.types.llms.openai import OpenAIRealtimeEventTypes
 
     config = GeminiRealtimeConfig()
     assert config is not None
@@ -268,7 +268,7 @@ def test_gemini_output_audio_transcript_delta_uses_active_response_ids():
 
 
 def test_gemini_realtime_transformation_generation_complete():
-    from litellm.types.llms.openai import OpenAIRealtimeEventTypes
+    from hangarllm.types.llms.openai import OpenAIRealtimeEventTypes
 
     config = GeminiRealtimeConfig()
     assert config is not None
@@ -329,7 +329,7 @@ def test_gemini_realtime_tool_call_transformation():
 
     gemini_tool_call_str = json.dumps(gemini_tool_call)
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "test-trace-123"
+    logging_obj.hangarllm_trace_id = "test-trace-123"
 
     # Transform the toolCall message
     result = config.transform_realtime_response(
@@ -599,7 +599,7 @@ def test_gemini_subsequent_guardrail_session_update_dropped_with_warning(caplog)
         "session": {"turn_detection": {"type": "server_vad", "create_response": False}},
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         messages = config.transform_realtime_request(
             json.dumps(follow_up),
             "gemini-2.5-flash",
@@ -712,11 +712,11 @@ def test_gemini_requires_session_configuration_feature_flag(monkeypatch):
     config = GeminiRealtimeConfig()
 
     # Default behavior remains backwards-compatible (auto setup on connect)
-    monkeypatch.setattr(litellm, "gemini_live_defer_setup", False, raising=False)
+    monkeypatch.setattr(hangarllm, "gemini_live_defer_setup", False, raising=False)
     assert config.requires_session_configuration() is True
 
     # Opt-in behavior: defer setup until client sends session.update
-    monkeypatch.setattr(litellm, "gemini_live_defer_setup", True, raising=False)
+    monkeypatch.setattr(hangarllm, "gemini_live_defer_setup", True, raising=False)
     assert config.requires_session_configuration() is False
 
 
@@ -732,7 +732,7 @@ def test_gemini_realtime_function_call_output_transformation():
 
     # Receive a toolCall from Gemini first to populate the call_id -> name mapping.
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_func_output"
+    logging_obj.hangarllm_trace_id = "trace_func_output"
     config.transform_realtime_response(
         json.dumps(
             {
@@ -869,7 +869,7 @@ def test_return_new_content_delta_events_without_session_config_does_not_error()
 def test_gemini_realtime_multi_tool_calls_have_unique_item_ids():
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "test-trace-123"
+    logging_obj.hangarllm_trace_id = "test-trace-123"
 
     gemini_tool_call = {
         "toolCall": {
@@ -952,7 +952,7 @@ def test_gemini_tool_call_emits_response_created_preamble():
     """Verify response.created is emitted before tool call events when response_id is None."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_123"
+    logging_obj.hangarllm_trace_id = "trace_123"
 
     gemini_tool_call = {
         "toolCall": {
@@ -1026,7 +1026,7 @@ def test_gemini_tool_call_resets_ids_for_post_tool_model_turn():
     """After tool-call response.done, a subsequent modelTurn must emit response.created."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_123"
+    logging_obj.hangarllm_trace_id = "trace_123"
 
     session_configuration_request = json.dumps(
         {
@@ -1095,7 +1095,7 @@ def test_gemini_empty_tool_call_does_not_crash_websocket():
     on what is at worst a benign no-op from Gemini."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_empty_tool_call"
+    logging_obj.hangarllm_trace_id = "trace_empty_tool_call"
 
     result = config.transform_realtime_response(
         json.dumps({"toolCall": {"functionCalls": []}}),
@@ -1124,7 +1124,7 @@ def test_gemini_empty_tool_call_with_sibling_usage_metadata_does_not_crash():
     raising ``Unknown message type``."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_empty_tool_call_with_sibling"
+    logging_obj.hangarllm_trace_id = "trace_empty_tool_call_with_sibling"
 
     result = config.transform_realtime_response(
         json.dumps(
@@ -1159,7 +1159,7 @@ def test_gemini_tool_call_response_done_includes_usage_from_sibling_metadata():
     authenticated client can repeatedly drive tool calls with zero spend."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_tool_call_usage"
+    logging_obj.hangarllm_trace_id = "trace_tool_call_usage"
 
     result = config.transform_realtime_response(
         json.dumps(
@@ -1214,7 +1214,7 @@ def test_gemini_tool_call_response_done_falls_back_to_empty_usage():
     expect ``usage`` on every ``response.done``) don't break."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_tool_call_no_usage"
+    logging_obj.hangarllm_trace_id = "trace_tool_call_no_usage"
 
     result = config.transform_realtime_response(
         json.dumps(
@@ -1268,7 +1268,7 @@ def test_gemini_function_call_output_includes_name():
     }
 
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_123"
+    logging_obj.hangarllm_trace_id = "trace_123"
 
     config.transform_realtime_response(
         json.dumps(gemini_tool_call),
@@ -1545,7 +1545,7 @@ def test_gemini_tool_call_id_to_name_evicts_oldest_when_capped():
     function_call_output messages."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_lru"
+    logging_obj.hangarllm_trace_id = "trace_lru"
 
     config._TOOL_CALL_ID_TO_NAME_MAX = 4
 
@@ -1594,7 +1594,7 @@ def test_gemini_standalone_usage_metadata_does_not_crash_websocket():
     session on a benign no-op frame."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_usage_only"
+    logging_obj.hangarllm_trace_id = "trace_usage_only"
 
     result = config.transform_realtime_response(
         json.dumps(
@@ -1635,7 +1635,7 @@ def test_gemini_standalone_usage_metadata_is_attributed_to_next_tool_call_respon
     spend/budget accounting."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_standalone_usage_then_tool_call"
+    logging_obj.hangarllm_trace_id = "trace_standalone_usage_then_tool_call"
 
     standalone_result = config.transform_realtime_response(
         json.dumps(
@@ -1704,7 +1704,7 @@ def test_gemini_standalone_usage_metadata_is_attributed_to_next_response_done():
     arrives in a separate frame are still billed correctly."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_standalone_usage_then_turn_complete"
+    logging_obj.hangarllm_trace_id = "trace_standalone_usage_then_turn_complete"
 
     config.transform_realtime_response(
         json.dumps(
@@ -1772,7 +1772,7 @@ def test_gemini_in_frame_usage_metadata_clears_pending_buffer():
         "totalTokenCount": 198,
     }
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_in_frame_clears_buffer"
+    logging_obj.hangarllm_trace_id = "trace_in_frame_clears_buffer"
 
     result = config.transform_realtime_response(
         json.dumps(
@@ -1823,7 +1823,7 @@ def test_gemini_post_tool_bare_turn_complete_followed_by_answer():
     The important thing is that the post-tool answer is correctly generated."""
     config = GeminiRealtimeConfig()
     logging_obj = MagicMock()
-    logging_obj.litellm_trace_id = "trace_post_tool_bare_turn_complete"
+    logging_obj.hangarllm_trace_id = "trace_post_tool_bare_turn_complete"
 
     session_configuration_request = json.dumps(
         {
@@ -1949,7 +1949,7 @@ def test_gemini_post_tool_bare_turn_complete_followed_by_answer():
 def patch_gemini_audio_cost_map_entries(monkeypatch):
     """Inject gemini_native_audio / gemini_audio_only_live into the cost map.
 
-    litellm.model_cost is fetched from main branch at import time, so in CI
+    hangarllm.model_cost is fetched from main branch at import time, so in CI
     the fields may not exist yet. Patch locally so these tests are
     self-contained.
     """
@@ -1964,13 +1964,13 @@ def patch_gemini_audio_cost_map_entries(monkeypatch):
         "gemini/gemini-3.1-flash-live-preview",
     ]
     for m in native_audio_models:
-        entry = dict(litellm.model_cost.get(m, {}))
+        entry = dict(hangarllm.model_cost.get(m, {}))
         entry["gemini_native_audio"] = True
-        monkeypatch.setitem(litellm.model_cost, m, entry)
+        monkeypatch.setitem(hangarllm.model_cost, m, entry)
     for m in flash_live_models:
-        entry = dict(litellm.model_cost.get(m, {}))
+        entry = dict(hangarllm.model_cost.get(m, {}))
         entry["gemini_audio_only_live"] = True
-        monkeypatch.setitem(litellm.model_cost, m, entry)
+        monkeypatch.setitem(hangarllm.model_cost, m, entry)
 
 
 @pytest.mark.parametrize(
@@ -2080,17 +2080,17 @@ def test_google_ai_studio_forwards_any_voice_to_models_that_accept_it(model, dro
 def patch_gemini_transcribe_live_cost_map_entry(monkeypatch):
     """Inject the gemini-3.5-transcribe-live registry entry locally.
 
-    litellm.model_cost is fetched from main branch at import time, so in CI
+    hangarllm.model_cost is fetched from main branch at import time, so in CI
     the entry may not exist yet. Also stamp supported_output_modalities on a
     chat model to prove mode, not output modalities, drives the discriminator.
     """
     for m in ["gemini-3.5-transcribe-live", "gemini/gemini-3.5-transcribe-live"]:
-        entry = dict(litellm.model_cost.get(m, {}))
+        entry = dict(hangarllm.model_cost.get(m, {}))
         entry["mode"] = "audio_transcription"
-        monkeypatch.setitem(litellm.model_cost, m, entry)
-    chat_entry = dict(litellm.model_cost.get("gemini-2.5-flash", {}))
+        monkeypatch.setitem(hangarllm.model_cost, m, entry)
+    chat_entry = dict(hangarllm.model_cost.get("gemini-2.5-flash", {}))
     chat_entry["supported_output_modalities"] = ["text"]
-    monkeypatch.setitem(litellm.model_cost, "gemini-2.5-flash", chat_entry)
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-2.5-flash", chat_entry)
 
 
 @pytest.mark.parametrize("model", ["gemini-3.5-transcribe-live", "gemini/gemini-3.5-transcribe-live"])
@@ -2177,8 +2177,8 @@ def test_gemini_live_rejects_only_output_modalities_the_model_cannot_produce_at_
 
 @pytest.mark.parametrize("drop_params", [False, True])
 def test_gemini_provider_realtime_config_carries_drop_params(drop_params):
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.utils import LlmProviders
+    from hangarllm.utils import ProviderConfigManager
 
     model = "gemini-live-2.5-flash-native-audio"
     config = ProviderConfigManager.get_provider_realtime_config(
@@ -2203,8 +2203,8 @@ def test_gemini_chat_model_with_text_output_modalities_keeps_audio_eager_setup(
 def test_generation_complete_without_prior_delta_keeps_turn_usage(patch_gemini_audio_cost_map_entries):
     from typing import Final
 
-    from litellm.types.llms.gemini import BidiGenerateContentServerMessage
-    from litellm.types.realtime import RealtimeResponseTransformInput
+    from hangarllm.types.llms.gemini import BidiGenerateContentServerMessage
+    from hangarllm.types.realtime import RealtimeResponseTransformInput
 
     config: Final = GeminiRealtimeConfig()
     turn_end_frame: Final[BidiGenerateContentServerMessage] = {
@@ -2243,8 +2243,8 @@ def test_generation_complete_without_prior_delta_keeps_turn_usage(patch_gemini_a
 def test_bare_generation_complete_without_prior_delta_is_dropped(patch_gemini_audio_cost_map_entries):
     from typing import Final
 
-    from litellm.types.llms.gemini import BidiGenerateContentServerMessage
-    from litellm.types.realtime import RealtimeResponseTransformInput
+    from hangarllm.types.llms.gemini import BidiGenerateContentServerMessage
+    from hangarllm.types.realtime import RealtimeResponseTransformInput
 
     config: Final = GeminiRealtimeConfig()
     bare_frame: Final[BidiGenerateContentServerMessage] = {"serverContent": {"generationComplete": True}}
@@ -2277,13 +2277,13 @@ def _input_audio_append_message(raw_byte_count: int) -> str:
 
 
 def test_transcribe_live_completed_event_carries_estimated_usage(patch_gemini_transcribe_live_cost_map_entry):
-    """Gemini Live sends no usageMetadata for transcribe sessions, so LiteLLM bills
+    """Gemini Live sends no usageMetadata for transcribe sessions, so HangarLLM bills
     from streamed audio duration at Google's published estimate (25 audio tok/sec in,
     175 text tok/min out): 96000 pcm16 bytes = 2s at 24kHz -> 50 in / 6 out."""
     from typing import Final
 
-    from litellm.types.llms.gemini import BidiGenerateContentServerMessage
-    from litellm.types.realtime import RealtimeInputAudioTranscriptionUsage, RealtimeResponseTransformInput
+    from hangarllm.types.llms.gemini import BidiGenerateContentServerMessage
+    from hangarllm.types.realtime import RealtimeInputAudioTranscriptionUsage, RealtimeResponseTransformInput
 
     config: Final = GeminiRealtimeConfig()
     config.transform_realtime_request(_input_audio_append_message(96000), "gemini-3.5-transcribe-live")
@@ -2345,8 +2345,8 @@ def test_non_transcription_live_model_completed_event_has_no_usage(patch_gemini_
     double-bill, so the estimate is gated to audio_transcription-mode models."""
     from typing import Final
 
-    from litellm.types.llms.gemini import BidiGenerateContentServerMessage
-    from litellm.types.realtime import RealtimeResponseTransformInput
+    from hangarllm.types.llms.gemini import BidiGenerateContentServerMessage
+    from hangarllm.types.realtime import RealtimeResponseTransformInput
 
     config: Final = GeminiRealtimeConfig()
     config.transform_realtime_request(_input_audio_append_message(96000), "gemini-3.1-flash-live-preview")
@@ -2386,7 +2386,7 @@ def test_unbilled_usage_on_session_close_flushes_trailing_audio(patch_gemini_tra
     so the streaming layer can bill it (144000 pcm16 bytes = 3s -> 75 in / 9 out)."""
     from typing import Final
 
-    from litellm.types.realtime import RealtimeInputAudioTranscriptionUsage
+    from hangarllm.types.realtime import RealtimeInputAudioTranscriptionUsage
 
     config: Final = GeminiRealtimeConfig()
     config.transform_realtime_request(_input_audio_append_message(144000), "gemini-3.5-transcribe-live")

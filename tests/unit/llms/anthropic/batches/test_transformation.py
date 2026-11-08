@@ -1,10 +1,10 @@
 """
-Unit tests for litellm/llms/anthropic/batches/transformation.py
+Unit tests for hangarllm/llms/anthropic/batches/transformation.py
 
 AnthropicBatchesConfig is the pure request/response mapping layer for Anthropic
 Message Batches. It builds auth headers, constructs the batch create/retrieve
 URLs, and (most importantly) maps an Anthropic MessageBatch JSON response into a
-LiteLLM/OpenAI ``LiteLLMBatch`` (status mapping, timestamp parsing, request
+HangarLLM/OpenAI ``HangarLLMBatch`` (status mapping, timestamp parsing, request
 counts). A silent bug here mis-reports batch status or counts to the caller, so
 these tests assert EXACT output values rather than "ran without error".
 
@@ -21,8 +21,8 @@ import httpx
 import pytest
 
 
-from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-from litellm.types.utils import LiteLLMBatch, LlmProviders
+from hangarllm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+from hangarllm.types.utils import HangarLLMBatch, LlmProviders
 
 
 @pytest.fixture
@@ -59,7 +59,7 @@ def test_validate_environment_builds_headers_with_api_key(config):
         model="",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-ant-test",
     )
     assert headers["accept"] == "application/json"
@@ -77,7 +77,7 @@ def test_validate_environment_preserves_existing_beta_header(config):
         model="",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-ant-test",
     )
     # Existing beta values are preserved and the batches beta is merged in.
@@ -93,7 +93,7 @@ def test_validate_environment_oauth_key_uses_bearer(config):
         model="",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-ant-oat-abc123",
     )
     # OAuth tokens map to Authorization: Bearer, not x-api-key.
@@ -110,7 +110,7 @@ def test_validate_environment_missing_key_raises(config):
                 model="",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
             )
 
@@ -126,7 +126,7 @@ def test_get_complete_batch_url_appends_path(config):
         api_key="sk",
         model="claude-3",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         data={},  # type: ignore[arg-type]
     )
     assert url == "https://api.anthropic.com/v1/messages/batches"
@@ -138,7 +138,7 @@ def test_get_complete_batch_url_strips_trailing_slash(config):
         api_key="sk",
         model="claude-3",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         data={},  # type: ignore[arg-type]
     )
     assert url == "https://api.anthropic.com/v1/messages/batches"
@@ -151,7 +151,7 @@ def test_get_complete_batch_url_already_complete_is_unchanged(config):
         api_key="sk",
         model="claude-3",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         data={},  # type: ignore[arg-type]
     )
     assert url == complete
@@ -169,7 +169,7 @@ def test_get_complete_batch_url_uses_default_api_base(config):
             api_key="sk",
             model="claude-3",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             data={},  # type: ignore[arg-type]
         )
     assert url == "https://api.anthropic.com/v1/messages/batches"
@@ -185,7 +185,7 @@ def test_get_retrieve_batch_url_happy_path(config):
         api_base="https://api.anthropic.com",
         batch_id="msgbatch_123",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.anthropic.com/v1/messages/batches/msgbatch_123"
 
@@ -195,7 +195,7 @@ def test_get_retrieve_batch_url_strips_trailing_slash(config):
         api_base="https://api.anthropic.com/",
         batch_id="msgbatch_123",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.anthropic.com/v1/messages/batches/msgbatch_123"
 
@@ -206,7 +206,7 @@ def test_get_retrieve_batch_url_encodes_batch_id(config):
         api_base="https://api.anthropic.com",
         batch_id="a/b id",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.anthropic.com/v1/messages/batches/a%2Fb%20id"
 
@@ -217,7 +217,7 @@ def test_get_retrieve_batch_url_rejects_dot_segment(config):
             api_base="https://api.anthropic.com",
             batch_id="..",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -231,7 +231,7 @@ def test_get_retrieve_batch_url_uses_default_api_base(config):
             api_base=None,
             batch_id="msgbatch_123",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
     assert url == "https://api.anthropic.com/v1/messages/batches/msgbatch_123"
 
@@ -242,7 +242,7 @@ def test_get_retrieve_batch_url_uses_default_api_base(config):
 
 
 def test_transform_retrieve_batch_request_returns_empty_dict(config):
-    assert config.transform_retrieve_batch_request(batch_id="msgbatch_123", optional_params={}, litellm_params={}) == {}
+    assert config.transform_retrieve_batch_request(batch_id="msgbatch_123", optional_params={}, hangarllm_params={}) == {}
 
 
 # =========================================================================== #
@@ -256,7 +256,7 @@ def test_transform_create_batch_request_not_implemented(config):
             model="claude-3",
             create_batch_data={},  # type: ignore[arg-type]
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -266,7 +266,7 @@ def test_transform_create_batch_response_not_implemented(config):
             model="claude-3",
             raw_response=_response({}),
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -292,10 +292,10 @@ def test_transform_retrieve_response_in_progress(config):
         }
     )
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=raw, logging_obj=MagicMock(), litellm_params={}
+        model=None, raw_response=raw, logging_obj=MagicMock(), hangarllm_params={}
     )
 
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert batch.id == "msgbatch_abc"
     assert batch.object == "batch"
     assert batch.endpoint == "/v1/messages"
@@ -330,7 +330,7 @@ def test_transform_retrieve_response_ended_maps_to_completed(config):
         }
     )
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=raw, logging_obj=MagicMock(), litellm_params={}
+        model=None, raw_response=raw, logging_obj=MagicMock(), hangarllm_params={}
     )
     # "ended" -> OpenAI "completed".
     assert batch.status == "completed"
@@ -354,7 +354,7 @@ def test_transform_retrieve_response_canceling_maps_to_cancelling(config):
         }
     )
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=raw, logging_obj=MagicMock(), litellm_params={}
+        model=None, raw_response=raw, logging_obj=MagicMock(), hangarllm_params={}
     )
     # "canceling" -> OpenAI "cancelling".
     assert batch.status == "cancelling"
@@ -373,7 +373,7 @@ def test_transform_retrieve_response_unknown_status_defaults_in_progress(config)
         }
     )
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=raw, logging_obj=MagicMock(), litellm_params={}
+        model=None, raw_response=raw, logging_obj=MagicMock(), hangarllm_params={}
     )
     # Unmapped status falls back to in_progress (don't 500 on new enum values).
     assert batch.status == "in_progress"
@@ -384,7 +384,7 @@ def test_transform_retrieve_response_missing_id_and_status_defaults(config):
     raw = _response({})
     before = int(time.time())
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=raw, logging_obj=MagicMock(), litellm_params={}
+        model=None, raw_response=raw, logging_obj=MagicMock(), hangarllm_params={}
     )
     after = int(time.time())
     assert batch.id == ""
@@ -408,7 +408,7 @@ def test_transform_retrieve_response_archived_sets_expired_at(config):
         }
     )
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=raw, logging_obj=MagicMock(), litellm_params={}
+        model=None, raw_response=raw, logging_obj=MagicMock(), hangarllm_params={}
     )
     # archived_at present -> expired_at populated.
     assert batch.expired_at == 1727344800
@@ -425,7 +425,7 @@ def test_transform_retrieve_response_bad_timestamp_is_none(config):
     )
     before = int(time.time())
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=raw, logging_obj=MagicMock(), litellm_params={}
+        model=None, raw_response=raw, logging_obj=MagicMock(), hangarllm_params={}
     )
     after = int(time.time())
     # Unparseable created_at -> parse_timestamp returns None, created_at falls
@@ -441,7 +441,7 @@ def test_transform_retrieve_response_unparseable_json_raises(config):
     )
     with pytest.raises(ValueError, match="Failed to parse Anthropic batch response"):
         config.transform_retrieve_batch_response(
-            model=None, raw_response=bad, logging_obj=MagicMock(), litellm_params={}
+            model=None, raw_response=bad, logging_obj=MagicMock(), hangarllm_params={}
         )
 
 
@@ -452,7 +452,7 @@ def test_transform_retrieve_response_unparseable_json_raises(config):
 
 def test_get_error_class_with_dict_headers(config):
     err = config.get_error_class(error_message="rate limited", status_code=429, headers={"x-ratelimit": "0"})
-    from litellm.llms.anthropic.common_utils import AnthropicError
+    from hangarllm.llms.anthropic.common_utils import AnthropicError
 
     assert isinstance(err, AnthropicError)
     assert err.status_code == 429
@@ -472,7 +472,7 @@ def test_get_error_class_with_httpx_headers(config):
 
 
 def test_transform_response_sums_usage_across_lines(config):
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.types.utils import ModelResponse, Usage
 
     # Two result lines; transform_parsed_response is stubbed to attach a fixed
     # Usage per line so we can assert the SUM is what lands on model_response.
@@ -508,7 +508,7 @@ def test_transform_response_sums_usage_across_lines(config):
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -521,7 +521,7 @@ def test_transform_response_sums_usage_across_lines(config):
 
 
 def test_transform_response_skips_malformed_lines(config):
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.types.utils import ModelResponse, Usage
 
     valid = '{"result": {"message": {"content": [{"type": "text", "text": "a"}]}}}'
     # Interior blank line (survives the outer strip) exercises the empty-line
@@ -551,7 +551,7 @@ def test_transform_response_skips_malformed_lines(config):
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -562,7 +562,7 @@ def test_transform_response_skips_malformed_lines(config):
 
 
 def test_transform_response_reraises_unexpected_error(config):
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.types.utils import ModelResponse, Usage
 
     valid = '{"result": {"message": {"content": [{"type": "text", "text": "a"}]}}}'
     raw = httpx.Response(
@@ -585,7 +585,7 @@ def test_transform_response_reraises_unexpected_error(config):
             side_effect=fake_transform_parsed,
         ),
         patch(
-            "litellm.cost_calculator.BaseTokenUsageProcessor.combine_usage_objects",
+            "hangarllm.cost_calculator.BaseTokenUsageProcessor.combine_usage_objects",
             side_effect=RuntimeError("boom"),
         ),
     ):
@@ -598,7 +598,7 @@ def test_transform_response_reraises_unexpected_error(config):
                 request_data={},
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -616,7 +616,7 @@ from tests.unit.llms.base_llm.batches.base_batches_config_test import (  # noqa:
 
 class TestAnthropicBatchesContract(BatchesConfigContractTests):
     def make_config(self):
-        from litellm.llms.anthropic.batches.transformation import (
+        from hangarllm.llms.anthropic.batches.transformation import (
             AnthropicBatchesConfig,
         )
 

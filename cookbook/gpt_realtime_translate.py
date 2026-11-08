@@ -64,14 +64,14 @@ def parse_args(argv: Sequence[str] | None = None) -> Settings | str:
     )
     parser.add_argument("input_wav", type=Path)
     parser.add_argument("--output", type=Path, default=Path("translated.wav"))
-    parser.add_argument("--base-url", default=os.getenv("LITELLM_BASE_URL", "http://localhost:4000"))
+    parser.add_argument("--base-url", default=os.getenv("HANGARLLM_BASE_URL", "http://localhost:4000"))
     parser.add_argument("--model", default=os.getenv("REALTIME_TRANSLATE_MODEL", "gpt-realtime-translate"))
     parser.add_argument("--target-language", default="fr")
     parser.add_argument("--trailing-silence", type=float, default=1.5)
     parsed = parser.parse_args(argv)
-    api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("HANGARLLM_API_KEY") or os.getenv("OPENAI_API_KEY")
     if not api_key:
-        return "Set LITELLM_API_KEY or OPENAI_API_KEY before running the script"
+        return "Set HANGARLLM_API_KEY or OPENAI_API_KEY before running the script"
     if parsed.trailing_silence < 0:
         return "--trailing-silence must be zero or greater"
     return Settings(

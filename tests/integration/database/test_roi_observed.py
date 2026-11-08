@@ -10,9 +10,9 @@ import pytest_asyncio
 from fastapi import FastAPI, HTTPException
 from pydantic import SecretStr
 
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.roi_calculator.github import SourceError
-from litellm.proxy.roi_calculator.oauth import (
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.roi_calculator.github import SourceError
+from hangarllm.proxy.roi_calculator.oauth import (
     OAuthConfig,
     TokenGrant,
     begin_authorization,
@@ -21,12 +21,12 @@ from litellm.proxy.roi_calculator.oauth import (
     exchange_code,
     save_grant,
 )
-from litellm.proxy.roi_calculator.observed_sync import ObservedSyncManager, Progress
-from litellm.proxy.roi_calculator.settings import load_settings, load_stored_settings, save_settings
-from litellm.proxy.roi_calculator.sync_store import SyncStore
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.types.roi_observed import ObservedData, ObservedPeriodData, ObservedWindow
+from hangarllm.proxy.roi_calculator.observed_sync import ObservedSyncManager, Progress
+from hangarllm.proxy.roi_calculator.settings import load_settings, load_stored_settings, save_settings
+from hangarllm.proxy.roi_calculator.sync_store import SyncStore
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.repositories.config_repository import ConfigRepository
+from hangarllm.types.roi_observed import ObservedData, ObservedPeriodData, ObservedWindow
 from tests.integration._support.database import scratch_database, write_rows
 
 
@@ -34,14 +34,14 @@ from tests.integration._support.database import scratch_database, write_rows
 async def repository(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[ConfigRepository]:
     with scratch_database() as url:
         write_rows(
-            'CREATE TABLE "LiteLLM_Config" (param_name TEXT PRIMARY KEY, param_value JSONB NOT NULL, '
+            'CREATE TABLE "HangarLLM_Config" (param_name TEXT PRIMARY KEY, param_value JSONB NOT NULL, '
             "last_run_at TIMESTAMP NOT NULL DEFAULT NOW(), reload_revision BIGINT NOT NULL DEFAULT 0)",
             (),
             database_url=url,
         )
         monkeypatch.setenv("DATABASE_URL", url)
         monkeypatch.delenv("DATABASE_URL_READ_REPLICA", raising=False)
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test-only-observed-roi-salt-0123456789")
+        monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-only-observed-roi-salt-0123456789")
         client: Final = PrismaClient(url, ProxyLogging(UserApiKeyCache()))
         await client.connect()
         try:
@@ -53,7 +53,7 @@ async def repository(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[ConfigRep
 def _config(provider: str = "github") -> OAuthConfig:
     from pydantic import TypeAdapter
 
-    from litellm.proxy.roi_calculator.oauth import Provider
+    from hangarllm.proxy.roi_calculator.oauth import Provider
 
     selected: Final = TypeAdapter(Provider).validate_python(provider)
     return OAuthConfig(
@@ -155,8 +155,8 @@ async def test_authorization_rejects_a_different_browser_and_changed_settings(re
 async def test_concurrent_app_refresh_rotates_once_and_preserves_account_links(
     repository: ConfigRepository, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_ROI_GITHUB_CLIENT_ID", "test-client")
-    monkeypatch.setenv("LITELLM_ROI_GITHUB_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("HANGARLLM_ROI_GITHUB_CLIENT_ID", "test-client")
+    monkeypatch.setenv("HANGARLLM_ROI_GITHUB_CLIENT_SECRET", "test-client-secret")
     monkeypatch.setenv("PROXY_BASE_URL", "https://gateway.example.test")
     await save_grant(
         repository,
@@ -188,8 +188,8 @@ async def test_concurrent_app_refresh_rotates_once_and_preserves_account_links(
 async def test_refresh_cannot_restore_a_connection_replaced_while_the_provider_responds(
     repository: ConfigRepository, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_ROI_GITHUB_CLIENT_ID", "test-client")
-    monkeypatch.setenv("LITELLM_ROI_GITHUB_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("HANGARLLM_ROI_GITHUB_CLIENT_ID", "test-client")
+    monkeypatch.setenv("HANGARLLM_ROI_GITHUB_CLIENT_SECRET", "test-client-secret")
     monkeypatch.setenv("PROXY_BASE_URL", "https://gateway.example.test")
     await save_grant(
         repository,
@@ -261,20 +261,20 @@ async def test_app_callback_round_trip_and_admin_authorization(
 ) -> None:
     from fastapi import FastAPI
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.management_endpoints.roi_observed_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.management_endpoints.roi_observed_endpoints import (
         get_oauth_repository,
         get_observed_transport,
         router,
     )
-    from litellm.proxy.roi_calculator.settings import get_roi_config_repository
+    from hangarllm.proxy.roi_calculator.settings import get_roi_config_repository
 
     config: Final = _config(provider)
-    monkeypatch.setenv(f"LITELLM_ROI_{provider.upper()}_CLIENT_ID", config.client_id)
-    monkeypatch.setenv(f"LITELLM_ROI_{provider.upper()}_CLIENT_SECRET", config.client_secret.get_secret_value())
+    monkeypatch.setenv(f"HANGARLLM_ROI_{provider.upper()}_CLIENT_ID", config.client_id)
+    monkeypatch.setenv(f"HANGARLLM_ROI_{provider.upper()}_CLIENT_SECRET", config.client_secret.get_secret_value())
     monkeypatch.setenv("PROXY_BASE_URL", config.proxy_url)
-    monkeypatch.setenv("LITELLM_ROI_GITHUB_APP_SLUG", "example-roi")
+    monkeypatch.setenv("HANGARLLM_ROI_GITHUB_APP_SLUG", "example-roi")
 
     def respond(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
@@ -300,9 +300,9 @@ async def test_app_callback_round_trip_and_admin_authorization(
     app.dependency_overrides[get_observed_transport] = lambda: httpx.MockTransport(respond)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=config.proxy_url) as client:
         for role, expected in (
-            (LitellmUserRoles.INTERNAL_USER, 403),
-            (LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, 403),
-            (LitellmUserRoles.PROXY_ADMIN, 200),
+            (HangarllmUserRoles.INTERNAL_USER, 403),
+            (HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, 403),
+            (HangarllmUserRoles.PROXY_ADMIN, 200),
         ):
             app.dependency_overrides[user_api_key_auth] = lambda role=role: UserAPIKeyAuth(user_role=role)
             response: Final = await client.post(f"/roi-calculator/observed/oauth/{provider}/start")
@@ -364,7 +364,7 @@ async def test_app_callback_round_trip_and_admin_authorization(
         )
         assert rejected.status_code == 303
         assert rejected.headers["location"] == config.proxy_url + "/ui/roi-calculator/?connection_failed=1"
-        assert "litellm_roi_oauth" not in client.cookies
+        assert "hangarllm_roi_oauth" not in client.cookies
         assert (await client.get("/roi-calculator/observed/settings")).json() == saved.json()
 
 
@@ -374,15 +374,15 @@ async def test_identity_api_combines_accounts_and_removes_automatic_links_withou
 ) -> None:
     from fastapi import FastAPI
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.management_endpoints.roi_observed_endpoints import router
-    from litellm.proxy.roi_calculator.settings import get_roi_config_repository
-    from litellm.types.roi_observed import ObservedPull
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.management_endpoints.roi_observed_endpoints import router
+    from hangarllm.proxy.roi_calculator.settings import get_roi_config_repository
+    from hangarllm.types.roi_observed import ObservedPull
 
-    write_rows('CREATE TABLE "LiteLLM_UserTable" (user_id TEXT PRIMARY KEY, user_email TEXT)', ())
+    write_rows('CREATE TABLE "HangarLLM_UserTable" (user_id TEXT PRIMARY KEY, user_email TEXT)', ())
     write_rows(
-        'INSERT INTO "LiteLLM_UserTable" VALUES (%s,%s),(%s,%s)', ("ari", "ari@example.test", "bea", "bea@example.test")
+        'INSERT INTO "HangarLLM_UserTable" VALUES (%s,%s),(%s,%s)', ("ari", "ari@example.test", "bea", "bea@example.test")
     )
     settings: Final = (await load_settings(repository)).model_copy(update={"repos": ("org/repo",)})
     await save_settings(repository, settings, "", "")
@@ -409,7 +409,7 @@ async def test_identity_api_combines_accounts_and_removes_automatic_links_withou
     app: Final = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_roi_config_repository] = lambda: repository
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.test"
     ) as client:
@@ -433,7 +433,7 @@ async def test_identity_api_combines_accounts_and_removes_automatic_links_withou
         assert removed.json()["report"]["people"] == []
         assert [login.split(":", 1)[-1] for login in removed.json()["report"]["unmatched_logins"]] == ["ari", "old-ari"]
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+            user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY
         )
         readonly: Final = await client.get("/roi-calculator/observed/report")
         assert readonly.status_code == 200
@@ -447,7 +447,7 @@ async def test_identity_api_combines_accounts_and_removes_automatic_links_withou
 async def test_both_app_connections_keep_repositories_credentials_and_account_links(
     repository: ConfigRepository,
 ) -> None:
-    from litellm.proxy.roi_calculator.settings import connection_id, stored_connections
+    from hangarllm.proxy.roi_calculator.settings import connection_id, stored_connections
 
     await save_grant(
         repository,
@@ -491,13 +491,13 @@ async def test_both_app_connections_keep_repositories_credentials_and_account_li
 
 @pytest.mark.asyncio
 async def test_cross_provider_account_form_saves_atomically_without_legacy_logins(repository: ConfigRepository) -> None:
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.roi_observed_endpoints import router
-    from litellm.proxy.roi_calculator.settings import get_roi_config_repository, stored_connections, write_admin
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.roi_observed_endpoints import router
+    from hangarllm.proxy.roi_calculator.settings import get_roi_config_repository, stored_connections, write_admin
 
-    write_rows('CREATE TABLE "LiteLLM_UserTable" (user_id TEXT PRIMARY KEY, user_email TEXT)', ())
+    write_rows('CREATE TABLE "HangarLLM_UserTable" (user_id TEXT PRIMARY KEY, user_email TEXT)', ())
     write_rows(
-        'INSERT INTO "LiteLLM_UserTable" VALUES (%s, %s), (%s, %s)',
+        'INSERT INTO "HangarLLM_UserTable" VALUES (%s, %s), (%s, %s)',
         ("ari", "ari@example.test", "bea", "bea@example.test"),
     )
     await save_grant(repository, _config("github"), TokenGrant(access_token=SecretStr("github-token")))
@@ -511,7 +511,7 @@ async def test_cross_provider_account_form_saves_atomically_without_legacy_login
         return repository
 
     async def admin() -> UserAPIKeyAuth:
-        return UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        return UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     app.dependency_overrides[get_roi_config_repository] = config_repository
     app.dependency_overrides[write_admin] = admin
@@ -534,23 +534,23 @@ async def test_cross_provider_account_form_saves_atomically_without_legacy_login
 async def test_http_sync_combines_providers_retains_period_and_recovers_invalid_reports(
     repository: ConfigRepository,
 ) -> None:
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.management_endpoints.roi_observed_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.management_endpoints.roi_observed_endpoints import (
         get_observed_manager,
         get_observed_transport,
         router,
     )
-    from litellm.proxy.roi_calculator.settings import get_roi_config_repository
-    from litellm.types.roi_observed import ObservedReportResponse, ObservedSettings
+    from hangarllm.proxy.roi_calculator.settings import get_roi_config_repository
+    from hangarllm.types.roi_observed import ObservedReportResponse, ObservedSettings
 
-    write_rows('CREATE TABLE "LiteLLM_UserTable" (user_id TEXT PRIMARY KEY, user_email TEXT)', ())
+    write_rows('CREATE TABLE "HangarLLM_UserTable" (user_id TEXT PRIMARY KEY, user_email TEXT)', ())
     write_rows(
-        'CREATE TABLE "LiteLLM_DailyUserSpend" (user_id TEXT, date TEXT, spend DOUBLE PRECISION, api_requests INTEGER)',
+        'CREATE TABLE "HangarLLM_DailyUserSpend" (user_id TEXT, date TEXT, spend DOUBLE PRECISION, api_requests INTEGER)',
         (),
     )
     write_rows(
-        'CREATE TABLE "LiteLLM_SpendLogs" (spend DOUBLE PRECISION, request_tags JSONB, metadata JSONB, "startTime" TIMESTAMP)',
+        'CREATE TABLE "HangarLLM_SpendLogs" (spend DOUBLE PRECISION, request_tags JSONB, metadata JSONB, "startTime" TIMESTAMP)',
         (),
     )
 
@@ -577,7 +577,7 @@ async def test_http_sync_combines_providers_retains_period_and_recovers_invalid_
     app.dependency_overrides[get_roi_config_repository] = lambda: repository
     app.dependency_overrides[get_observed_manager] = lambda: manager
     app.dependency_overrides[get_observed_transport] = lambda: httpx.MockTransport(respond)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     async def finish() -> None:
         for _ in range(200):
@@ -656,10 +656,10 @@ async def test_http_sync_combines_providers_retains_period_and_recovers_invalid_
 async def test_host_whitespace_preserves_app_credentials_and_account_matches(
     repository: ConfigRepository, provider: str
 ) -> None:
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.management_endpoints.roi_observed_endpoints import get_observed_transport, router
-    from litellm.proxy.roi_calculator.settings import connection_id, get_roi_config_repository
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.management_endpoints.roi_observed_endpoints import get_observed_transport, router
+    from hangarllm.proxy.roi_calculator.settings import connection_id, get_roi_config_repository
 
     config: Final = _config(provider)
     granted: Final = await save_grant(
@@ -687,7 +687,7 @@ async def test_host_whitespace_preserves_app_credentials_and_account_matches(
     app.include_router(router)
     app.dependency_overrides[get_roi_config_repository] = lambda: repository
     app.dependency_overrides[get_observed_transport] = lambda: httpx.MockTransport(respond)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://gateway.test") as client:
         response: Final = await client.put(
             "/roi-calculator/observed/settings",
@@ -706,12 +706,12 @@ async def test_host_whitespace_preserves_app_credentials_and_account_matches(
 async def test_connection_edits_replace_only_the_selected_host_and_keep_the_workspace_schedule(
     repository: ConfigRepository,
 ) -> None:
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.management_endpoints.roi_observed_endpoints import get_observed_transport, router
-    from litellm.proxy.roi_calculator.settings import get_roi_config_repository, stored_connections
-    from litellm.types.roi_calculator import ROISettings
-    from litellm.types.roi_observed import ObservedSettings
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.management_endpoints.roi_observed_endpoints import get_observed_transport, router
+    from hangarllm.proxy.roi_calculator.settings import get_roi_config_repository, stored_connections
+    from hangarllm.types.roi_calculator import ROISettings
+    from hangarllm.types.roi_observed import ObservedSettings
 
     legacy: Final = ROISettings(repos=("org/service",), estimator_model="legacy-model", update_interval_minutes=60)
     await save_settings(repository, legacy, "", "")
@@ -727,7 +727,7 @@ async def test_connection_edits_replace_only_the_selected_host_and_keep_the_work
     app.include_router(router)
     app.dependency_overrides[get_roi_config_repository] = lambda: repository
     app.dependency_overrides[get_observed_transport] = lambda: httpx.MockTransport(respond)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://gateway.test") as client:
         assert (await client.get("/roi-calculator/observed/settings")).status_code == 200
         assert (await load_settings(repository)) == legacy

@@ -5,11 +5,11 @@ from typing import Final
 
 import pytest
 
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.router_cooldowns import CooldownCacheValue, RouterCooldownStore
-from litellm.redis.stores.router_usage import RouterUsageStore
-from litellm.router_rust.routing_stores import Handled, RoutingStores
-from litellm.router_utils.cooldown_cache import CooldownCache
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.router_cooldowns import CooldownCacheValue, RouterCooldownStore
+from hangarllm.redis.stores.router_usage import RouterUsageStore
+from hangarllm.router_rust.routing_stores import Handled, RoutingStores
+from hangarllm.router_utils.cooldown_cache import CooldownCache
 from tests.unit.redis.stores.test_router_cooldowns import FakeCooldowns
 
 _ENTRY: Final[CooldownCacheValue] = {

@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 
 def make_tool_call_dict(

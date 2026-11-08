@@ -200,11 +200,11 @@ def audit_rig(
             [
                 {
                     "guardrail_name": "audit-shield",
-                    "litellm_params": _shield_params(azure, mode="pre_call", default_on=True),
+                    "hangarllm_params": _shield_params(azure, mode="pre_call", default_on=True),
                 },
                 {
                     "guardrail_name": _TEXT_MODERATION,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "azure/text_moderations",
                         "mode": "pre_call",
                         "default_on": False,
@@ -233,7 +233,7 @@ def optin_rig(
             [
                 {
                     "guardrail_name": _OPT_IN_SHIELD,
-                    "litellm_params": _shield_params(azure, mode="pre_call", default_on=False),
+                    "hangarllm_params": _shield_params(azure, mode="pre_call", default_on=False),
                 }
             ],
         )
@@ -260,11 +260,11 @@ def chaos_rig(
             [
                 {
                     "guardrail_name": "audit-shield",
-                    "litellm_params": _shield_params(azure, mode="pre_call", default_on=True),
+                    "hangarllm_params": _shield_params(azure, mode="pre_call", default_on=True),
                 },
                 {
                     "guardrail_name": _TEXT_MODERATION,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "azure/text_moderations",
                         "mode": "pre_call",
                         "default_on": False,
@@ -293,7 +293,7 @@ def during_rig(
             [
                 {
                     "guardrail_name": "audit-shield-during",
-                    "litellm_params": _shield_params(azure, mode="during_call", default_on=True),
+                    "hangarllm_params": _shield_params(azure, mode="during_call", default_on=True),
                 }
             ],
         )
@@ -331,7 +331,7 @@ def _analyze_texts(requests: tuple[Request, ...]) -> tuple[JsonValue, ...]:
 
 def _guardrail_entries(model: str, count: int = 1) -> list[JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -347,7 +347,7 @@ def _provider_calls(provider: Wire) -> tuple[Request, ...]:
 
 def _entries_by_request_id(request_id: str) -> list[JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -751,7 +751,7 @@ def test_repeated_responses_body_bills_each_call_once(
             assert response.status_code == 200, response.text
         assert _shield_prompts(azure.drain()) == (prompt, prompt)
         rows: Final = eventually(
-            lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+            lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
             lambda values: len(values) == 2,
             seconds=70,
         )
@@ -779,7 +779,7 @@ def test_opt_in_shield_scans_responses_input_exactly_once(
         assert _shield_prompts(azure.drain()) == (prompt,)
         rows: Final = eventually(
             lambda: read_rows(
-                "SELECT metadata FROM \"LiteLLM_SpendLogs\" WHERE model_group=%s AND metadata->>'guardrail_information' IS NOT NULL",
+                "SELECT metadata FROM \"HangarLLM_SpendLogs\" WHERE model_group=%s AND metadata->>'guardrail_information' IS NOT NULL",
                 (model,),
             ),
             lambda values: len(values) == 1,
@@ -874,7 +874,7 @@ def test_concurrent_mixed_requests_scan_each_prompt_once(
     for model_group in (chat_model, messages_model, responses_model):
         rows: Final = eventually(
             lambda group=model_group: read_rows(
-                'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (group,)
+                'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (group,)
             ),
             lambda values: len(values) == 10,
             seconds=70,
@@ -937,7 +937,7 @@ def test_azure_outage_burst_then_recovery_bills_fresh_requests_once(
         assert len(_provider_calls(provider)) == 2
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE model_group IN (%s, %s) ORDER BY request_id',
+                'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE model_group IN (%s, %s) ORDER BY request_id',
                 (recovery_chat_model, recovery_responses_model),
             ),
             lambda values: len(values) == 2,
@@ -981,7 +981,7 @@ def test_killing_a_worker_mid_burst_leaves_no_duplicate_rows(
     assert set(scans) <= set(identities), scans
     assert {identity for identity, status in outcomes if status == 200} <= set(scans), (outcomes, scans)
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda values: len(values) >= len(survivors),
         seconds=30,
         return_last_on_timeout=True,

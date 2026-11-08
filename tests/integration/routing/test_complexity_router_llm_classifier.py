@@ -62,13 +62,13 @@ def test_llm_classifier_verdict_routes_the_request_to_the_classified_tier_model(
         config["model_list"] = [
             {
                 "model_name": name,
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_base": url, "api_key": "synthetic"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_base": url, "api_key": "synthetic"},
             }
             for name, url in (("judge", judge.url), ("simple", simple.url), ("complex", complex_tier.url))
         ] + [
             {
                 "model_name": router,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "classifier_type": "llm",

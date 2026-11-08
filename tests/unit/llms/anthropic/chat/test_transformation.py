@@ -17,11 +17,11 @@ import json
 
 import pytest
 
-import litellm
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.responses.litellm_completion_transformation.transformation import (
+import hangarllm
+from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
+from hangarllm.responses.hangarllm_completion_transformation.transformation import (
     TOOL_CALLS_CACHE,
-    LiteLLMCompletionResponsesConfig,
+    HangarLLMCompletionResponsesConfig,
 )
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
@@ -40,7 +40,7 @@ def test_empty_tool_call_id_is_skipped():
     }
 
     # Transform should return empty list (skip the message)
-    result = LiteLLMCompletionResponsesConfig._transform_responses_api_tool_call_output_to_chat_completion_message(
+    result = HangarLLMCompletionResponsesConfig._transform_responses_api_tool_call_output_to_chat_completion_message(
         tool_call_output_empty
     )
 
@@ -64,7 +64,7 @@ def test_empty_tool_call_id_in_messages_list_is_removed():
     ]
 
     # The fix should remove messages with empty tool_call_id
-    fixed_messages = LiteLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
+    fixed_messages = HangarLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
         messages=messages, tools=None
     )
 
@@ -102,7 +102,7 @@ def test_tool_call_id_recovered_from_previous_assistant():
         },
     ]
 
-    fixed_messages = LiteLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
+    fixed_messages = HangarLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
         messages=messages, tools=None
     )
 
@@ -152,7 +152,7 @@ def test_tool_calls_added_when_missing():
         {"role": "tool", "content": '{"output":"hello"}', "tool_call_id": tool_call_id},
     ]
 
-    fixed_messages = LiteLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
+    fixed_messages = HangarLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
         messages=messages, tools=[shell_tool]
     )
 
@@ -214,7 +214,7 @@ def test_anthropic_transformation_with_fixed_messages():
     ]
 
     # Apply the fix
-    fixed_messages = LiteLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
+    fixed_messages = HangarLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
         messages=messages, tools=[shell_tool]
     )
 
@@ -226,7 +226,7 @@ def test_anthropic_transformation_with_fixed_messages():
         model="claude-sonnet-4-5",
         messages=fixed_messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -275,17 +275,17 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function")
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+            importlib.reload(hangarllm.proxy.proxy_server)
     except Exception as e:
-        print(f"Error reloading litellm.proxy.proxy_server: {e}")
+        print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
-    print(litellm)
+    print(hangarllm)
     yield
     loop.close()
     asyncio.set_event_loop(None)
@@ -351,7 +351,7 @@ def test_fix_ensures_tool_calls_for_tool_results():
     ]
 
     # Apply the fix
-    fixed_messages = LiteLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
+    fixed_messages = HangarLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
         messages=messages_missing_tool_calls, tools=[shell_tool]
     )
 
@@ -391,7 +391,7 @@ def test_fix_ensures_tool_calls_for_tool_results():
         model="claude-sonnet-4-5",
         messages=fixed_messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

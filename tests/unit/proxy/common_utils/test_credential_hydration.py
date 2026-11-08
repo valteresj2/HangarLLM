@@ -3,19 +3,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.proxy.common_utils.credential_hydration import (
+import hangarllm
+from hangarllm.proxy.common_utils.credential_hydration import (
     effective_server_owned_wif_fields,
     hydrate_named_credential_authoritative,
     named_credential_wif_fields,
 )
-from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-from litellm.types.utils import CredentialItem
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+from hangarllm.types.utils import CredentialItem
 
 
 @pytest.mark.asyncio
 async def test_authoritative_hydrate_returns_an_encrypted_empty_value_as_empty(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-hydration-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-hydration-test-salt")
     row = {
         "credential_name": "openai-wif",
         "credential_values": {
@@ -25,9 +25,9 @@ async def test_authoritative_hydrate_returns_an_encrypted_empty_value_as_empty(m
         "credential_info": {"custom_llm_provider": "openai"},
     }
     prisma = MagicMock()
-    prisma.db.litellm_credentialstable.find_unique = AsyncMock(return_value=row)
+    prisma.db.hangarllm_credentialstable.find_unique = AsyncMock(return_value=row)
 
-    with patch.object(litellm, "credential_list", []):  # test-quality-ok: the row under test must win over memory
+    with patch.object(hangarllm, "credential_list", []):  # test-quality-ok: the row under test must win over memory
         resolved = await hydrate_named_credential_authoritative("openai-wif", prisma)
 
     assert resolved is not None
@@ -50,9 +50,9 @@ async def test_attaching_a_credential_is_server_owned_only_when_its_api_key_is_a
         credential_name="admin-oidc", credential_values={"api_key": credential_api_key}, credential_info={}
     )
 
-    with patch.object(litellm, "credential_list", [credential]):  # test-quality-ok: the in-memory list is the input
+    with patch.object(hangarllm, "credential_list", [credential]):  # test-quality-ok: the in-memory list is the input
         fields = await effective_server_owned_wif_fields(
-            {"model": "mistral/devstral-latest"}, {"litellm_credential_name": "admin-oidc"}, None
+            {"model": "mistral/devstral-latest"}, {"hangarllm_credential_name": "admin-oidc"}, None
         )
 
     assert fields == expected
@@ -60,7 +60,7 @@ async def test_attaching_a_credential_is_server_owned_only_when_its_api_key_is_a
 
 @pytest.mark.asyncio
 async def test_a_stored_credential_whose_encrypted_api_key_is_an_oidc_reference_is_server_owned(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-hydration-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-hydration-test-salt")
     row = {
         "credential_name": "admin-oidc",
         "credential_values": {
@@ -69,9 +69,9 @@ async def test_a_stored_credential_whose_encrypted_api_key_is_an_oidc_reference_
         "credential_info": {"custom_llm_provider": "mistral"},
     }
     prisma = MagicMock()
-    prisma.db.litellm_credentialstable.find_unique = AsyncMock(return_value=row)
+    prisma.db.hangarllm_credentialstable.find_unique = AsyncMock(return_value=row)
 
-    with patch.object(litellm, "credential_list", []):  # test-quality-ok: a pod that has not loaded the row yet
+    with patch.object(hangarllm, "credential_list", []):  # test-quality-ok: a pod that has not loaded the row yet
         fields = await named_credential_wif_fields("admin-oidc", prisma)
 
     assert fields == ("api_key",)

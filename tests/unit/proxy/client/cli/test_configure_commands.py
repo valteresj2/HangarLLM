@@ -16,11 +16,11 @@ from click.testing import CliRunner
 from InquirerPy.base.control import Choice
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.client.cli import cli
-from litellm.proxy.client.cli.commands import claude_settings as claude_settings_module
-from litellm.proxy.client.cli.commands import configure as configure_module
-from litellm.proxy.client.cli.commands.claude_settings import SettingsFileOwner
-from litellm.proxy.client.cli.commands.configure import configure_claude, configure_group, interactive_configure
+from hangarllm.proxy.client.cli import cli
+from hangarllm.proxy.client.cli.commands import claude_settings as claude_settings_module
+from hangarllm.proxy.client.cli.commands import configure as configure_module
+from hangarllm.proxy.client.cli.commands.claude_settings import SettingsFileOwner
+from hangarllm.proxy.client.cli.commands.configure import configure_claude, configure_group, interactive_configure
 
 PROXY = "http://proxy.test:4000"
 VALID_KEY = "sk-virtual-key"
@@ -40,12 +40,12 @@ def _mock_models():
 def paths(monkeypatch, tmp_path):
     """The default settings file, reached the way Claude Code reaches it: CLAUDE_CONFIG_DIR names its directory."""
     settings_path = tmp_path / "claude" / "settings.json"
-    state_path = tmp_path / "litellm" / "claude_configure_state.json"
+    state_path = tmp_path / "hangarllm" / "claude_configure_state.json"
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(settings_path.parent))
     monkeypatch.setattr(claude_settings_module, "CLAUDE_SETTINGS_PATH", settings_path)
     monkeypatch.setattr(claude_settings_module, "CONFIGURE_STATE_PATH", state_path)
-    monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
-    monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_URL", raising=False)
     return settings_path, state_path
 
 
@@ -171,7 +171,7 @@ class TestConfigureClaudeWithAVirtualKey:
             ),
             (
                 lambda: responses.get(f"{PROXY}/v1/models", body="<html>not json</html>"),
-                "answered, so check that it is a LiteLLM proxy",
+                "answered, so check that it is a HangarLLM proxy",
                 "Is the proxy at",
             ),
             (
@@ -235,7 +235,7 @@ class TestConfigureClaudeWithoutAKey:
             obj={"base_url": PROXY, "api_key": "sk-login-jwt", "api_key_from_token_file": True},
         )
         assert result.exit_code != 0
-        assert "--api-key" in result.output and "LITELLM_PROXY_API_KEY" in result.output
+        assert "--api-key" in result.output and "HANGARLLM_PROXY_API_KEY" in result.output
         assert "apiKeyHelper" not in result.output
         assert not settings_path.exists() and not state_path.exists()
         assert len(responses.calls) == 0
@@ -326,8 +326,8 @@ class TestConfigureAgents:
         if "codex" in targets:
             codex = tomlkit.parse(codex_path.read_text())
             assert codex["model"] == "auto"
-            assert codex["model_provider"] == "litellm"
-            provider = codex["model_providers"]["litellm"]
+            assert codex["model_provider"] == "hangarllm"
+            provider = codex["model_providers"]["hangarllm"]
             assert provider["base_url"] == f"{PROXY}/v1"
             assert provider["http_headers"]["Authorization"] == f"Bearer {VALID_KEY}"
             assert "env_key" not in provider
@@ -359,7 +359,7 @@ class TestConfigureAgents:
             assert written["env"]["ANTHROPIC_BASE_URL"] == PROXY
             assert not codex_path.exists()
         else:
-            provider = tomlkit.parse(codex_path.read_text())["model_providers"]["litellm"]
+            provider = tomlkit.parse(codex_path.read_text())["model_providers"]["hangarllm"]
             assert provider["http_headers"]["Authorization"] == f"Bearer {VALID_KEY}"
             assert provider["base_url"] == f"{PROXY}/v1"
             assert not paths[0].exists()
@@ -396,7 +396,7 @@ class TestConfigureAgents:
             )
         assert (settings_path.read_bytes(), codex_path.read_bytes()) == before
         assert not state_path.exists()
-        assert not tuple((codex_path.parent / ".litellm").glob("*.json"))
+        assert not tuple((codex_path.parent / ".hangarllm").glob("*.json"))
 
     @responses.activate
     def test_both_configs_are_preflighted_before_fetching_models_or_writing(
@@ -436,7 +436,7 @@ class TestConfigureAgents:
         assert VALID_KEY not in str(caught.value)
         assert len(responses.calls) == 0
         assert not paths[0].exists() and not paths[1].exists()
-        assert not codex_path.exists() and not tuple((codex_path.parent / ".litellm").glob("*.json"))
+        assert not codex_path.exists() and not tuple((codex_path.parent / ".hangarllm").glob("*.json"))
 
     @responses.activate
     def test_claude_only_configuration_does_not_require_codex(
@@ -516,7 +516,7 @@ class TestConfigureAgents:
         self, runner, paths, codex_path, tmp_path, secret_vault_factory, fake_codex_version
     ):
         _mock_agent_models()
-        token_path = tmp_path / ".litellm" / "token.json"
+        token_path = tmp_path / ".hangarllm" / "token.json"
         token_path.parent.mkdir()
         token_path.write_text(json.dumps({"base_url": PROXY, "timestamp": time.time()}))
         vault = secret_vault_factory(json.dumps({"base_url": PROXY, "key": "sk-login", "jwt_token": ""}))
@@ -718,7 +718,7 @@ class TestClaudeCodeView:
 
 
 def _saved_profile_path(target: Literal["claude", "codex"], settings_path: Path) -> Path:
-    from litellm.proxy.client.cli.commands.configure_profiles import setup_profile_path
+    from hangarllm.proxy.client.cli.commands.configure_profiles import setup_profile_path
 
     return setup_profile_path(target, settings_path)
 
@@ -863,7 +863,7 @@ class TestSavedAgentSetup:
         assert undone.exit_code == 0, undone.output
         replacement_url: Final = "https://replacement.test/gateway"
         if source == "environment":
-            monkeypatch.setenv("LITELLM_PROXY_URL", replacement_url)
+            monkeypatch.setenv("HANGARLLM_PROXY_URL", replacement_url)
         args: Final = (
             ["--base-url", replacement_url, "configure", target]
             if source == "global"
@@ -1120,7 +1120,7 @@ class TestSavedAgentSetup:
         target: Literal["claude", "codex"],
         lost_receipt: bool,
     ) -> None:
-        from litellm.proxy.client.cli.commands.configure_profiles import receipt_path_for
+        from hangarllm.proxy.client.cli.commands.configure_profiles import receipt_path_for
 
         _mock_agent_models()
         _configure_saved_agent(runner, target)
@@ -1155,7 +1155,7 @@ class TestSavedAgentSetup:
         target: Literal["claude", "codex"],
         failure: str,
     ) -> None:
-        from litellm.proxy.client.cli.commands import configure_profiles, configure_setup
+        from hangarllm.proxy.client.cli.commands import configure_profiles, configure_setup
 
         _mock_agent_models()
         _configure_saved_agent(runner, target)
@@ -1221,7 +1221,7 @@ class TestSavedAgentSetup:
         else:
             providers: Final = written["model_providers"]
             assert isinstance(providers, dict)
-            provider: Final = providers["litellm"]
+            provider: Final = providers["hangarllm"]
             assert isinstance(provider, dict)
             headers: Final = provider["http_headers"]
             assert isinstance(headers, dict)
@@ -1233,7 +1233,7 @@ class TestSavedAgentSetup:
     def test_contended_setup_lock_blocks_requests_and_agent_writes(
         self, runner: CliRunner, paths: tuple[Path, Path]
     ) -> None:
-        from litellm.proxy.client.cli.commands.configure_profiles import setup_locks
+        from hangarllm.proxy.client.cli.commands.configure_profiles import setup_locks
 
         _mock_agent_models()
         with setup_locks(("claude",)):

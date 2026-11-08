@@ -4,21 +4,21 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.fal_ai.chat.transformation import FalAIChatConfig, FalAIError
-from litellm.types.utils import LlmProviders, ModelResponse
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.fal_ai.chat.transformation import FalAIChatConfig, FalAIError
+from hangarllm.types.utils import LlmProviders, ModelResponse
+from hangarllm.utils import ProviderConfigManager
 
 MODEL = "fal-ai/moondream3-preview/query"
 
 
 @pytest.fixture(autouse=True)
 def _use_local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _messages(*content):
@@ -39,7 +39,7 @@ def test_provider_config_manager_resolves_fal_ai_chat_config():
 def test_get_complete_url_targets_fal_endpoint():
     assert (
         FalAIChatConfig().get_complete_url(
-            api_base=None, api_key=None, model=MODEL, optional_params={}, litellm_params={}
+            api_base=None, api_key=None, model=MODEL, optional_params={}, hangarllm_params={}
         )
         == "https://fal.run/fal-ai/moondream3-preview/query"
     )
@@ -48,7 +48,7 @@ def test_get_complete_url_targets_fal_endpoint():
 def test_get_complete_url_strips_fal_ai_model_prefix():
     assert (
         FalAIChatConfig().get_complete_url(
-            api_base=None, api_key=None, model=f"fal_ai/{MODEL}", optional_params={}, litellm_params={}
+            api_base=None, api_key=None, model=f"fal_ai/{MODEL}", optional_params={}, hangarllm_params={}
         )
         == "https://fal.run/fal-ai/moondream3-preview/query"
     )
@@ -56,7 +56,7 @@ def test_get_complete_url_strips_fal_ai_model_prefix():
 
 def test_validate_environment_uses_fal_key_scheme():
     headers = FalAIChatConfig().validate_environment(
-        headers={}, model=MODEL, messages=[], optional_params={}, litellm_params={}, api_key="secret"
+        headers={}, model=MODEL, messages=[], optional_params={}, hangarllm_params={}, api_key="secret"
     )
     assert headers["Authorization"] == "Key secret"
 
@@ -75,7 +75,7 @@ def test_transform_request_joins_text_parts_and_extracts_image_url():
             }
         ],
         optional_params={"temperature": 0.2, "top_p": 0.9, "reasoning": False},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert body == {
@@ -100,7 +100,7 @@ def test_transform_request_passes_data_url_through():
             }
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert body["image_url"] == "data:image/png;base64,AAAA"
@@ -116,7 +116,7 @@ def test_transform_request_accepts_single_user_message():
             }
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert body["prompt"] == "describe"
@@ -135,7 +135,7 @@ def test_transform_request_rejects_system_message():
                 },
             ],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     assert exc_info.value.status_code == 400
@@ -157,7 +157,7 @@ def test_transform_request_rejects_multi_turn_history():
                 },
             ],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     assert exc_info.value.status_code == 400
@@ -169,7 +169,7 @@ def test_transform_request_rejects_zero_images():
             model=MODEL,
             messages=[{"role": "user", "content": [{"type": "text", "text": "describe"}]}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -189,7 +189,7 @@ def test_transform_request_rejects_two_images():
                 }
             ],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -200,7 +200,7 @@ def test_transform_request_rejects_missing_text():
             model=MODEL,
             messages=[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "https://a"}}]}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -219,14 +219,14 @@ def test_transform_request_rejects_streaming():
                 }
             ],
             optional_params={"stream": True},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
 
 def test_completion_dispatch_rejects_streaming():
-    with pytest.raises(litellm.BadRequestError):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError):
+        hangarllm.completion(
             model=MODEL,
             custom_llm_provider="fal_ai",
             stream=True,
@@ -249,8 +249,8 @@ def test_map_openai_params_maps_reasoning_effort(effort, expected):
 def test_map_openai_params_drops_unknown_reasoning_effort_with_one_warning(
     drop_globally: bool, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", drop_globally)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    monkeypatch.setattr(hangarllm, "drop_params", drop_globally)
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         mapped: Final = FalAIChatConfig().map_openai_params(
             non_default_params={"reasoning_effort": "xhigh"},
             optional_params={},
@@ -266,7 +266,7 @@ def test_map_openai_params_drops_unknown_reasoning_effort_with_one_warning(
 def test_map_openai_params_rejects_unknown_reasoning_effort_without_drop_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     with pytest.raises(FalAIError) as exc_info:
         FalAIChatConfig().map_openai_params(
             non_default_params={"reasoning_effort": "xhigh"}, optional_params={}, model=MODEL, drop_params=False
@@ -325,7 +325,7 @@ def test_transform_response_maps_output_reasoning_usage_and_finish_reason():
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert response.choices[0].message.content == "a red circle"
@@ -355,7 +355,7 @@ def test_transform_response_omits_reasoning_when_null():
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert response.choices[0].message.content == "a red circle"
@@ -377,7 +377,7 @@ def test_transform_response_rejects_body_missing_output():
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
     assert exc_info.value.status_code == 422
@@ -394,7 +394,7 @@ def test_transform_response_rejects_body_missing_usage_info():
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
     assert exc_info.value.status_code == 422

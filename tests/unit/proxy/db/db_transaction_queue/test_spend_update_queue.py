@@ -6,11 +6,11 @@ import pytest
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
 
-import litellm
-from litellm.constants import MAX_SIZE_IN_MEMORY_QUEUE
-from litellm.proxy._types import Litellm_EntityType, SpendUpdateQueueItem
-from litellm.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
-from litellm.types.services import ServiceTypes
+import hangarllm
+from hangarllm.constants import MAX_SIZE_IN_MEMORY_QUEUE
+from hangarllm.proxy._types import Hangarllm_EntityType, SpendUpdateQueueItem
+from hangarllm.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
+from hangarllm.types.services import ServiceTypes
 
 
 @pytest.mark.asyncio
@@ -18,32 +18,32 @@ from litellm.types.services import ServiceTypes
 async def test_spend_queue_gauge_tracks_enqueue_aggregation_and_drain(
     monkeypatch: pytest.MonkeyPatch, aggregation_threshold: int
 ) -> None:
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     queue: Final = SpendUpdateQueue()
     queue.MAX_SIZE_IN_MEMORY_QUEUE = aggregation_threshold
     response_cost: Final = 0.5
     update: Final = SpendUpdateQueueItem(
-        entity_type=Litellm_EntityType.USER, entity_id="queue-user", response_cost=response_cost
+        entity_type=Hangarllm_EntityType.USER, entity_id="queue-user", response_cost=response_cost
     )
 
     await queue.add_update(update)
     await asyncio.sleep(0)
     assert REGISTRY.get_sample_value(
-        "litellm_in_memory_spend_update_queue_size",
+        "hangarllm_in_memory_spend_update_queue_size",
         {"in_memory_spend_update_queue": str(ServiceTypes.IN_MEMORY_SPEND_UPDATE_QUEUE)},
     ) == queue.update_queue.qsize() == 1
 
     await queue.add_update(update)
     await asyncio.sleep(0)
     assert REGISTRY.get_sample_value(
-        "litellm_in_memory_spend_update_queue_size",
+        "hangarllm_in_memory_spend_update_queue_size",
         {"in_memory_spend_update_queue": str(ServiceTypes.IN_MEMORY_SPEND_UPDATE_QUEUE)},
     ) == queue.update_queue.qsize() == (1 if aggregation_threshold == 2 else 2)
 
     await queue.aggregate_queue_updates()
     await asyncio.sleep(0)
     assert REGISTRY.get_sample_value(
-        "litellm_in_memory_spend_update_queue_size",
+        "hangarllm_in_memory_spend_update_queue_size",
         {"in_memory_spend_update_queue": str(ServiceTypes.IN_MEMORY_SPEND_UPDATE_QUEUE)},
     ) == queue.update_queue.qsize() == 1
 
@@ -51,20 +51,20 @@ async def test_spend_queue_gauge_tracks_enqueue_aggregation_and_drain(
     await asyncio.sleep(0)
     assert transactions["user_list_transactions"] == {"queue-user": 2 * response_cost}
     assert REGISTRY.get_sample_value(
-        "litellm_in_memory_spend_update_queue_size",
+        "hangarllm_in_memory_spend_update_queue_size",
         {"in_memory_spend_update_queue": str(ServiceTypes.IN_MEMORY_SPEND_UPDATE_QUEUE)},
     ) == queue.update_queue.qsize() == 0
 
 
 @pytest.mark.asyncio
 async def test_spend_queue_gauge_tracks_partial_flush(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm.proxy.db.db_transaction_queue.base_update_queue as base_queue_module
+    import hangarllm.proxy.db.db_transaction_queue.base_update_queue as base_queue_module
 
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     monkeypatch.setattr(base_queue_module, "MAX_IN_MEMORY_QUEUE_FLUSH_COUNT", 1)
     queue: Final = SpendUpdateQueue()
     update: Final = SpendUpdateQueueItem(
-        entity_type=Litellm_EntityType.USER, entity_id="queue-user", response_cost=0.5
+        entity_type=Hangarllm_EntityType.USER, entity_id="queue-user", response_cost=0.5
     )
     await queue.add_update(update)
     await queue.add_update(update)
@@ -73,7 +73,7 @@ async def test_spend_queue_gauge_tracks_partial_flush(monkeypatch: pytest.Monkey
     await asyncio.sleep(0)
     assert transactions["user_list_transactions"] == {"queue-user": update["response_cost"]}
     assert REGISTRY.get_sample_value(
-        "litellm_in_memory_spend_update_queue_size",
+        "hangarllm_in_memory_spend_update_queue_size",
         {"in_memory_spend_update_queue": str(ServiceTypes.IN_MEMORY_SPEND_UPDATE_QUEUE)},
     ) == queue.update_queue.qsize() == 1
 
@@ -88,7 +88,7 @@ def spend_queue():
 async def test_add_update(spend_queue):
     # Test adding a single update
     update: SpendUpdateQueueItem = {
-        "entity_type": Litellm_EntityType.USER,
+        "entity_type": Hangarllm_EntityType.USER,
         "entity_id": "user123",
         "response_cost": 0.5,
     }
@@ -102,7 +102,7 @@ async def test_add_update(spend_queue):
 async def test_missing_response_cost(spend_queue):
     # Test with missing response_cost - should default to 0
     update: SpendUpdateQueueItem = {
-        "entity_type": Litellm_EntityType.USER,
+        "entity_type": Hangarllm_EntityType.USER,
         "entity_id": "user123",
     }
 
@@ -119,7 +119,7 @@ async def test_missing_response_cost(spend_queue):
 async def test_missing_entity_id(spend_queue):
     # Test with missing entity_id - should default to empty string
     update: SpendUpdateQueueItem = {
-        "entity_type": Litellm_EntityType.USER,
+        "entity_type": Hangarllm_EntityType.USER,
         "response_cost": 1.0,
     }
 
@@ -136,7 +136,7 @@ async def test_missing_entity_id(spend_queue):
 async def test_none_values(spend_queue):
     # Test with None values
     update: SpendUpdateQueueItem = {
-        "entity_type": Litellm_EntityType.USER,
+        "entity_type": Hangarllm_EntityType.USER,
         "entity_id": None,  # type: ignore
         "response_cost": None,
     }
@@ -155,16 +155,16 @@ async def test_multiple_updates_with_missing_fields(spend_queue):
     # Test multiple updates with various missing fields
     updates: list[SpendUpdateQueueItem] = [
         {
-            "entity_type": Litellm_EntityType.USER,
+            "entity_type": Hangarllm_EntityType.USER,
             "entity_id": "user123",
             "response_cost": 0.5,
         },
         {
-            "entity_type": Litellm_EntityType.USER,
+            "entity_type": Hangarllm_EntityType.USER,
             "entity_id": "user123",  # missing response_cost
         },
         {
-            "entity_type": Litellm_EntityType.USER,  # missing entity_id
+            "entity_type": Hangarllm_EntityType.USER,  # missing entity_id
             "response_cost": 1.5,
         },
     ]
@@ -226,7 +226,7 @@ async def test_queue_max_size_triggers_aggregation(monkeypatch, spend_queue):
     # Add 6 updates for the same user (exceeding the max size)
     for i in range(6):
         update: SpendUpdateQueueItem = {
-            "entity_type": Litellm_EntityType.USER,
+            "entity_type": Hangarllm_EntityType.USER,
             "entity_id": "user123",
             "response_cost": 1.0,
         }
@@ -248,22 +248,22 @@ async def test_aggregate_queue_updates_accuracy(spend_queue):
     # Add multiple updates for different entities
     updates = [
         {
-            "entity_type": Litellm_EntityType.USER,
+            "entity_type": Hangarllm_EntityType.USER,
             "entity_id": "user1",
             "response_cost": 1.5,
         },
         {
-            "entity_type": Litellm_EntityType.USER,
+            "entity_type": Hangarllm_EntityType.USER,
             "entity_id": "user1",
             "response_cost": 2.5,
         },
         {
-            "entity_type": Litellm_EntityType.USER,
+            "entity_type": Hangarllm_EntityType.USER,
             "entity_id": "user2",
             "response_cost": 3.0,
         },
         {
-            "entity_type": Litellm_EntityType.TEAM,
+            "entity_type": Hangarllm_EntityType.TEAM,
             "entity_id": "team1",
             "response_cost": 5.0,
         },
@@ -293,12 +293,12 @@ def test_get_aggregated_spend_update_queue_item_does_not_mutate_original_updates
     spend_queue,
 ):
     original_update: SpendUpdateQueueItem = {
-        "entity_type": Litellm_EntityType.USER,
+        "entity_type": Hangarllm_EntityType.USER,
         "entity_id": "user1",
         "response_cost": 10.0,
     }
     duplicate_key_update: SpendUpdateQueueItem = {
-        "entity_type": Litellm_EntityType.USER,
+        "entity_type": Hangarllm_EntityType.USER,
         "entity_id": "user1",
         "response_cost": 20.0,
     }
@@ -310,7 +310,7 @@ def test_get_aggregated_spend_update_queue_item_does_not_mutate_original_updates
         (
             update
             for update in aggregated_updates
-            if update.get("entity_type") == Litellm_EntityType.USER
+            if update.get("entity_type") == Hangarllm_EntityType.USER
             and update.get("entity_id") == "user1"
         ),
         None,
@@ -332,7 +332,7 @@ async def test_queue_size_reduction_with_large_volume(monkeypatch, spend_queue):
     for i in range(200):
         await spend_queue.add_update(
             {
-                "entity_type": Litellm_EntityType.USER,
+                "entity_type": Hangarllm_EntityType.USER,
                 "entity_id": "user1",
                 "response_cost": 0.5,
             }
@@ -345,7 +345,7 @@ async def test_queue_size_reduction_with_large_volume(monkeypatch, spend_queue):
     for i in range(300):
         await spend_queue.add_update(
             {
-                "entity_type": Litellm_EntityType.KEY,
+                "entity_type": Hangarllm_EntityType.KEY,
                 "entity_id": "key1",
                 "response_cost": 1.0,
             }

@@ -16,7 +16,7 @@ from integration._support.upstream import ScenarioHandle, delete_scenario, regis
 from integration.cost_calculation.cost_tracking_case import JsonResponse, RoutedResponse, TextResponse
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import MAX_OBJECTS_PER_POLL_CYCLE
+from hangarllm.constants import MAX_OBJECTS_PER_POLL_CYCLE
 
 INPUT_COST_PER_TOKEN: Final = 0.001
 OUTPUT_COST_PER_TOKEN: Final = 0.002
@@ -160,7 +160,7 @@ def _scripted_deployment(scenario: Scenario, marker: str, routes: RoutedResponse
         "/model/new",
         {
             "model_name": f"poll-{marker}-{sha256(scenario_id.encode()).hexdigest()[:12]}",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-scripted-provider",
                 "api_base": handle.api_base(),
@@ -205,7 +205,7 @@ def _submitted_batch_id(gateway: Gateway, key: str, model_name: str) -> str:
 def _managed_rows(batch_ids: tuple[str, ...]) -> list[dict[str, JsonValue]]:
     placeholders: Final = ", ".join("%s" for _ in batch_ids)
     return read_rows(
-        f'SELECT batch_processed FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id IN ({placeholders})',
+        f'SELECT batch_processed FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id IN ({placeholders})',
         batch_ids,
     )
 
@@ -224,7 +224,7 @@ def test_uncostable_batches_do_not_starve_billable_batches(
         if backlog:
             _insert_scan_rows(owner, "old", backlog, datetime(2000, 1, 1, tzinfo=timezone.utc))
             scenario.cleanups.callback(
-                write_rows, 'DELETE FROM "LiteLLM_ManagedObjectTable" WHERE created_by = %s', (owner,)
+                write_rows, 'DELETE FROM "HangarLLM_ManagedObjectTable" WHERE created_by = %s', (owner,)
             )
         team_id: Final = scenario.team()
         key: Final = scenario.key(team_id=team_id)
@@ -244,12 +244,12 @@ def test_uncostable_batches_do_not_starve_billable_batches(
         for batch_id in (*gone_batch_ids, missing_output_id, costable_batch_id):
             scenario.cleanups.callback(
                 write_rows,
-                'DELETE FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+                'DELETE FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
                 (batch_id,),
             )
         if old_completed:
             write_rows(
-                'UPDATE "LiteLLM_ManagedObjectTable" SET status = %s, '
+                'UPDATE "HangarLLM_ManagedObjectTable" SET status = %s, '
                 "created_at = NOW() - INTERVAL '30 days' WHERE unified_object_id = %s",
                 ("completed", costable_batch_id),
             )
@@ -257,7 +257,7 @@ def test_uncostable_batches_do_not_starve_billable_batches(
         register_scenario(upstream.scenario_id, _completed_routes(), control_url=upstream.control_url)
         spend_rows: Final = eventually(
             lambda: read_rows(
-                'SELECT call_type, status, prompt_tokens, completion_tokens, spend FROM "LiteLLM_SpendLogs" '
+                'SELECT call_type, status, prompt_tokens, completion_tokens, spend FROM "HangarLLM_SpendLogs" '
                 "WHERE api_key = %s AND call_type = %s",
                 (sha256(key.encode()).hexdigest(), "aretrieve_batch"),
             ),
@@ -292,8 +292,8 @@ def test_uncostable_batches_do_not_starve_billable_batches(
             PROMPT_TOKENS * INPUT_COST_PER_TOKEN + COMPLETION_TOKENS * OUTPUT_COST_PER_TOKEN
         )
         for table, column, identity in (
-            ("LiteLLM_VerificationToken", "token", sha256(key.encode()).hexdigest()),
-            ("LiteLLM_TeamTable", "team_id", team_id),
+            ("HangarLLM_VerificationToken", "token", sha256(key.encode()).hexdigest()),
+            ("HangarLLM_TeamTable", "team_id", team_id),
         ):
             balance: Final = eventually(
                 partial(read_rows, f'SELECT spend FROM "{table}" WHERE {column} = %s', (identity,)),
@@ -306,7 +306,7 @@ def test_uncostable_batches_do_not_starve_billable_batches(
 def _insert_scan_rows(owner: str, group: str, size: int, created_at: datetime) -> tuple[str, ...]:
     prefix: Final = f"{owner}-{group}-"
     write_rows(
-        'INSERT INTO "LiteLLM_ManagedObjectTable" '
+        'INSERT INTO "HangarLLM_ManagedObjectTable" '
         "(id, unified_object_id, model_object_id, file_object, file_purpose, status, created_by, created_at, updated_at) "
         "SELECT %s || lpad(n::text, 8, '0'), %s || n, %s || n, '{}'::jsonb, 'batch', 'completed', %s, "
         "%s::timestamptz, NOW() FROM generate_series(0, %s::int - 1) n",
@@ -318,10 +318,10 @@ def _insert_scan_rows(owner: str, group: str, size: int, created_at: datetime) -
 @pytest.mark.asyncio
 @pytest.mark.parametrize("count", [2 * MAX_OBJECTS_PER_POLL_CYCLE, 2 * MAX_OBJECTS_PER_POLL_CYCLE + 1, 1000])
 async def test_arrivals_progress_while_retry_scan_advances_and_wraps(count: int) -> None:
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
-    from litellm.hangar.proxy.cost_jobs import CheckBatchCost
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
+    from hangarllm.hangar.proxy.cost_jobs import CheckBatchCost
 
     owner: Final = f"batch-scan-{uuid4().hex}"
 
@@ -345,7 +345,7 @@ async def test_arrivals_progress_while_retry_scan_advances_and_wraps(count: int)
                 page: Final = await poller._find_jobs(where)
                 assert len(page) <= MAX_OBJECTS_PER_POLL_CYCLE
                 write_rows(
-                    'UPDATE "LiteLLM_ManagedObjectTable" SET batch_processed = true '
+                    'UPDATE "HangarLLM_ManagedObjectTable" SET batch_processed = true '
                     "WHERE created_by = %s AND id = ANY(%s) AND id LIKE %s",
                     (owner, [row.id for row in page], f"{owner}-arrival-%"),
                 )
@@ -370,17 +370,17 @@ async def test_arrivals_progress_while_retry_scan_advances_and_wraps(count: int)
             assert len(restart_ids) == MAX_OBJECTS_PER_POLL_CYCLE
             assert restart_old == old_ids[: MAX_OBJECTS_PER_POLL_CYCLE - MAX_OBJECTS_PER_POLL_CYCLE // 2]
     finally:
-        write_rows('DELETE FROM "LiteLLM_ManagedObjectTable" WHERE created_by = %s', (owner,))
+        write_rows('DELETE FROM "HangarLLM_ManagedObjectTable" WHERE created_by = %s', (owner,))
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("steady_arrivals", [False, True])
 @pytest.mark.parametrize("backlog", [0, 1000])
 async def test_recent_batches_are_revisited_without_scanning_old_backlog(steady_arrivals: bool, backlog: int) -> None:
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
-    from litellm.hangar.proxy.cost_jobs import CheckBatchCost
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
+    from hangarllm.hangar.proxy.cost_jobs import CheckBatchCost
 
     owner: Final = f"batch-repeat-{uuid4().hex}"
     try:
@@ -398,15 +398,15 @@ async def test_recent_batches_are_revisited_without_scanning_old_backlog(steady_
                 assert any(target in tuple(row.id for row in page) for page in pages)
                 assert all(len(page) <= MAX_OBJECTS_PER_POLL_CYCLE for page in pages)
             write_rows(
-                'UPDATE "LiteLLM_ManagedObjectTable" SET batch_processed = true WHERE created_by = %s AND id != %s',
+                'UPDATE "HangarLLM_ManagedObjectTable" SET batch_processed = true WHERE created_by = %s AND id != %s',
                 (owner, target),
             )
             write_rows(
-                'UPDATE "LiteLLM_ManagedObjectTable" SET created_at = %s WHERE id = %s',
+                'UPDATE "HangarLLM_ManagedObjectTable" SET created_at = %s WHERE id = %s',
                 (datetime(2000, 1, 1, tzinfo=timezone.utc), target),
             )
             recovery: Final = tuple([await poller._find_jobs(where) for _ in range(4)])
             assert any(target in tuple(row.id for row in page) for page in recovery)
 
     finally:
-        write_rows('DELETE FROM "LiteLLM_ManagedObjectTable" WHERE created_by = %s', (owner,))
+        write_rows('DELETE FROM "HangarLLM_ManagedObjectTable" WHERE created_by = %s', (owner,))

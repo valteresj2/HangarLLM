@@ -10,17 +10,17 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.proxy.auth.auth_checks import (
     get_org_object,
     get_team_membership,
     get_team_object,
     get_user_object,
 )
-from litellm.proxy.auth.auth_object_prefetch import AuthObjectRefs, prefetch_auth_objects
-from litellm.proxy.auth.team_grants import team_model_aliases
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.auth.auth_object_prefetch import AuthObjectRefs, prefetch_auth_objects
+from hangarllm.proxy.auth.team_grants import team_model_aliases
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import PrismaClient
 from tests.integration._support.prisma_clients import connected_proxy_prisma
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -48,29 +48,29 @@ async def test_join_binds_the_membership_to_the_requested_team(prisma):
     run = uuid4().hex
     user_id, team_a, team_b, org_id = (f"pf-user-{run}", f"pf-team-a-{run}", f"pf-team-b-{run}", f"pf-org-{run}")
     try:
-        await prisma.db.litellm_budgettable.create(
+        await prisma.db.hangarllm_budgettable.create(
             data={"budget_id": f"a-{run}", "max_budget": 11.0, "created_by": "t", "updated_by": "t"}
         )
-        await prisma.db.litellm_budgettable.create(
+        await prisma.db.hangarllm_budgettable.create(
             data={"budget_id": f"b-{run}", "max_budget": 22.0, "created_by": "t", "updated_by": "t"}
         )
-        await prisma.db.litellm_organizationtable.create(
+        await prisma.db.hangarllm_organizationtable.create(
             data={
                 "organization_id": org_id,
                 "organization_alias": "pf",
                 "created_by": "t",
                 "updated_by": "t",
-                "litellm_budget_table": {"connect": {"budget_id": f"b-{run}"}},
+                "hangarllm_budget_table": {"connect": {"budget_id": f"b-{run}"}},
             }
         )
-        await prisma.db.litellm_usertable.create(data={"user_id": user_id, "max_budget": 33.0})
-        await prisma.db.litellm_teamtable.create(data={"team_id": team_a, "organization_id": org_id, "max_budget": 1.0})
-        await prisma.db.litellm_teamtable.create(data={"team_id": team_b, "max_budget": 2.0})
-        await prisma.db.litellm_teammembership.create(
-            data={"user_id": user_id, "team_id": team_a, "litellm_budget_table": {"connect": {"budget_id": f"a-{run}"}}}
+        await prisma.db.hangarllm_usertable.create(data={"user_id": user_id, "max_budget": 33.0})
+        await prisma.db.hangarllm_teamtable.create(data={"team_id": team_a, "organization_id": org_id, "max_budget": 1.0})
+        await prisma.db.hangarllm_teamtable.create(data={"team_id": team_b, "max_budget": 2.0})
+        await prisma.db.hangarllm_teammembership.create(
+            data={"user_id": user_id, "team_id": team_a, "hangarllm_budget_table": {"connect": {"budget_id": f"a-{run}"}}}
         )
-        await prisma.db.litellm_teammembership.create(
-            data={"user_id": user_id, "team_id": team_b, "litellm_budget_table": {"connect": {"budget_id": f"b-{run}"}}}
+        await prisma.db.hangarllm_teammembership.create(
+            data={"user_id": user_id, "team_id": team_b, "hangarllm_budget_table": {"connect": {"budget_id": f"b-{run}"}}}
         )
 
         cache = _frozen_cache()
@@ -89,17 +89,17 @@ async def test_join_binds_the_membership_to_the_requested_team(prisma):
         org = await get_org_object(org_id=org_id, prisma_client=dead_db, user_api_key_cache=cache)
         assert dead_db.db.mock_calls == [], "getters must be served from the prefetched cache"
 
-        assert membership is not None and membership.litellm_budget_table is not None
-        assert (membership.team_id, membership.litellm_budget_table.max_budget) == (team_a, 11.0)
+        assert membership is not None and membership.hangarllm_budget_table is not None
+        assert (membership.team_id, membership.hangarllm_budget_table.max_budget) == (team_a, 11.0)
         assert (team.team_id, team.max_budget, team.organization_id, team.models) == (team_a, 1.0, org_id, [])
         assert user is not None and user.max_budget == 33.0
         assert org is not None and (org.organization_id, org.models) == (org_id, [])
     finally:
-        await prisma.db.litellm_teammembership.delete_many(where={"user_id": user_id})
-        await prisma.db.litellm_teamtable.delete_many(where={"team_id": {"in": [team_a, team_b]}})
-        await prisma.db.litellm_usertable.delete_many(where={"user_id": user_id})
-        await prisma.db.litellm_organizationtable.delete_many(where={"organization_id": org_id})
-        await prisma.db.litellm_budgettable.delete_many(where={"budget_id": {"in": [f"a-{run}", f"b-{run}"]}})
+        await prisma.db.hangarllm_teammembership.delete_many(where={"user_id": user_id})
+        await prisma.db.hangarllm_teamtable.delete_many(where={"team_id": {"in": [team_a, team_b]}})
+        await prisma.db.hangarllm_usertable.delete_many(where={"user_id": user_id})
+        await prisma.db.hangarllm_organizationtable.delete_many(where={"organization_id": org_id})
+        await prisma.db.hangarllm_budgettable.delete_many(where={"budget_id": {"in": [f"a-{run}", f"b-{run}"]}})
 
 
 async def test_join_reads_team_model_aliases_from_the_mapped_column(prisma):
@@ -107,13 +107,13 @@ async def test_join_reads_team_model_aliases_from_the_mapped_column(prisma):
     run = uuid4().hex
     team_id = f"pf-team-{run}"
     aliases = {"gpt-4o": f"gpt-4o-{run}"}
-    model_table = await prisma.db.litellm_modeltable.create(
+    model_table = await prisma.db.hangarllm_modeltable.create(
         data={"model_aliases": json.dumps(aliases), "created_by": "t", "updated_by": "t"}
     )
     try:
-        await prisma.db.litellm_teamtable.create(data={"team_id": team_id, "model_id": model_table.id})
-        expected_team = await prisma.db.litellm_teamtable.find_unique(
-            where={"team_id": team_id}, include={"litellm_model_table": True}
+        await prisma.db.hangarllm_teamtable.create(data={"team_id": team_id, "model_id": model_table.id})
+        expected_team = await prisma.db.hangarllm_teamtable.find_unique(
+            where={"team_id": team_id}, include={"hangarllm_model_table": True}
         )
 
         cache = _frozen_cache()
@@ -124,13 +124,13 @@ async def test_join_reads_team_model_aliases_from_the_mapped_column(prisma):
         team = await get_team_object(team_id=team_id, prisma_client=dead_db, user_api_key_cache=cache)
         assert dead_db.db.mock_calls == [], "getters must be served from the prefetched cache"
 
-        assert expected_team is not None and expected_team.litellm_model_table is not None
-        assert team.litellm_model_table is not None
-        assert team.litellm_model_table.model_aliases == expected_team.litellm_model_table.model_aliases == aliases
+        assert expected_team is not None and expected_team.hangarllm_model_table is not None
+        assert team.hangarllm_model_table is not None
+        assert team.hangarllm_model_table.model_aliases == expected_team.hangarllm_model_table.model_aliases == aliases
         assert team_model_aliases(team) == aliases
     finally:
-        await prisma.db.litellm_teamtable.delete_many(where={"team_id": team_id})
-        await prisma.db.litellm_modeltable.delete_many(where={"id": model_table.id})
+        await prisma.db.hangarllm_teamtable.delete_many(where={"team_id": team_id})
+        await prisma.db.hangarllm_modeltable.delete_many(where={"id": model_table.id})
 
 
 async def test_join_reads_null_nested_lists_the_way_prisma_does(prisma):
@@ -138,26 +138,26 @@ async def test_join_reads_null_nested_lists_the_way_prisma_does(prisma):
     run = uuid4().hex
     user_id, team_id, permission_id, budget_id = (f"pf-user-{run}", f"pf-team-{run}", f"pf-perm-{run}", f"pf-bud-{run}")
     try:
-        await prisma.db.litellm_objectpermissiontable.create(data={"object_permission_id": permission_id})
-        await prisma.db.litellm_budgettable.create(data={"budget_id": budget_id, "created_by": "t", "updated_by": "t"})
+        await prisma.db.hangarllm_objectpermissiontable.create(data={"object_permission_id": permission_id})
+        await prisma.db.hangarllm_budgettable.create(data={"budget_id": budget_id, "created_by": "t", "updated_by": "t"})
         await prisma.db.execute_raw(
-            'UPDATE "LiteLLM_ObjectPermissionTable" SET mcp_servers = NULL, models = NULL '
+            'UPDATE "HangarLLM_ObjectPermissionTable" SET mcp_servers = NULL, models = NULL '
             "WHERE object_permission_id = $1",
             permission_id,
         )
         await prisma.db.execute_raw(
-            'UPDATE "LiteLLM_BudgetTable" SET allowed_models = NULL WHERE budget_id = $1', budget_id
+            'UPDATE "HangarLLM_BudgetTable" SET allowed_models = NULL WHERE budget_id = $1', budget_id
         )
-        await prisma.db.litellm_usertable.create(data={"user_id": user_id})
-        await prisma.db.litellm_teamtable.create(data={"team_id": team_id, "object_permission_id": permission_id})
-        await prisma.db.litellm_teammembership.create(
-            data={"user_id": user_id, "team_id": team_id, "litellm_budget_table": {"connect": {"budget_id": budget_id}}}
+        await prisma.db.hangarllm_usertable.create(data={"user_id": user_id})
+        await prisma.db.hangarllm_teamtable.create(data={"team_id": team_id, "object_permission_id": permission_id})
+        await prisma.db.hangarllm_teammembership.create(
+            data={"user_id": user_id, "team_id": team_id, "hangarllm_budget_table": {"connect": {"budget_id": budget_id}}}
         )
-        expected_team = await prisma.db.litellm_teamtable.find_unique(
+        expected_team = await prisma.db.hangarllm_teamtable.find_unique(
             where={"team_id": team_id}, include={"object_permission": True}
         )
-        expected_membership = await prisma.db.litellm_teammembership.find_unique(
-            where={"user_id_team_id": {"user_id": user_id, "team_id": team_id}}, include={"litellm_budget_table": True}
+        expected_membership = await prisma.db.hangarllm_teammembership.find_unique(
+            where={"user_id_team_id": {"user_id": user_id, "team_id": team_id}}, include={"hangarllm_budget_table": True}
         )
 
         cache = _frozen_cache()
@@ -175,16 +175,16 @@ async def test_join_reads_null_nested_lists_the_way_prisma_does(prisma):
         assert team.object_permission is not None
         assert team.object_permission.mcp_servers == expected_team.object_permission.mcp_servers == []
         assert team.object_permission.models == expected_team.object_permission.models == []
-        assert expected_membership is not None and expected_membership.litellm_budget_table is not None
-        assert membership is not None and membership.litellm_budget_table is not None
+        assert expected_membership is not None and expected_membership.hangarllm_budget_table is not None
+        assert membership is not None and membership.hangarllm_budget_table is not None
         assert (
-            membership.litellm_budget_table.allowed_models
-            == expected_membership.litellm_budget_table.allowed_models
+            membership.hangarllm_budget_table.allowed_models
+            == expected_membership.hangarllm_budget_table.allowed_models
             == []
         )
     finally:
-        await prisma.db.litellm_teammembership.delete_many(where={"user_id": user_id})
-        await prisma.db.litellm_teamtable.delete_many(where={"team_id": team_id})
-        await prisma.db.litellm_usertable.delete_many(where={"user_id": user_id})
-        await prisma.db.litellm_objectpermissiontable.delete_many(where={"object_permission_id": permission_id})
-        await prisma.db.litellm_budgettable.delete_many(where={"budget_id": budget_id})
+        await prisma.db.hangarllm_teammembership.delete_many(where={"user_id": user_id})
+        await prisma.db.hangarllm_teamtable.delete_many(where={"team_id": team_id})
+        await prisma.db.hangarllm_usertable.delete_many(where={"user_id": user_id})
+        await prisma.db.hangarllm_objectpermissiontable.delete_many(where={"object_permission_id": permission_id})
+        await prisma.db.hangarllm_budgettable.delete_many(where={"budget_id": budget_id})

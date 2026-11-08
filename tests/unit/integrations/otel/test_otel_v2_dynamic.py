@@ -6,10 +6,10 @@ import logging
 import pytest
 from opentelemetry.trace import NoOpTracer
 
-from litellm.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
-from litellm.integrations.otel.plumbing.providers import parse_headers
-from litellm.integrations.otel.plumbing.routing import TenantTracerCache
-from litellm.integrations.otel.presets import (
+from hangarllm.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
+from hangarllm.integrations.otel.plumbing.providers import parse_headers
+from hangarllm.integrations.otel.plumbing.routing import TenantTracerCache
+from hangarllm.integrations.otel.presets import (
     DYNAMIC_HEADERS_BY_CALLBACK,
     dynamic_otlp_endpoint,
     dynamic_otlp_headers,
@@ -30,7 +30,7 @@ def _cache(callback_name, exporters=None):
         )
         exporters = [ExporterSpec(kind="in_memory"), *owned]
     cfg = OpenTelemetryV2Config(exporters=exporters)
-    return TenantTracerCache(cfg, callback_name, "litellm")
+    return TenantTracerCache(cfg, callback_name, "hangarllm")
 
 
 # --- header builders mirror the V1 construct_dynamic_otel_headers overrides --- #
@@ -100,7 +100,7 @@ def test_provider_cache_is_bounded_and_evicts_lru(monkeypatch):
     # must be bounded — an unbounded cache lets a caller spawn one provider (and
     # its background exporter thread) per unique credential set. On overflow the
     # least-recently-used provider is evicted and shut down.
-    from litellm.integrations.otel.plumbing import routing as routing_mod
+    from hangarllm.integrations.otel.plumbing import routing as routing_mod
 
     monkeypatch.setattr(routing_mod, "_MAX_CACHED_PROVIDERS", 2)
     shut_down = []
@@ -312,7 +312,7 @@ def test_eviction_defers_shutdown_while_a_span_is_open(monkeypatch):
     # takes the hold, atomically with the cache update, so a concurrent
     # eviction can never shut a just-selected provider down before the caller
     # records its span.
-    from litellm.integrations.otel.plumbing import routing as routing_mod
+    from hangarllm.integrations.otel.plumbing import routing as routing_mod
 
     monkeypatch.setattr(routing_mod, "_MAX_CACHED_PROVIDERS", 1)
     shut_down = []
@@ -335,7 +335,7 @@ def test_retired_providers_are_capped(monkeypatch):
     # otherwise pin one live provider per open call, far past the cache bound.
     # Past the cap the stalest retiree is shut down and its later release is a
     # no-op, while the ones still within the cap keep draining.
-    from litellm.integrations.otel.plumbing import routing as routing_mod
+    from hangarllm.integrations.otel.plumbing import routing as routing_mod
 
     monkeypatch.setattr(routing_mod, "_MAX_CACHED_PROVIDERS", 1)
     monkeypatch.setattr(routing_mod, "_MAX_RETIRED_PROVIDERS", 2)
@@ -359,7 +359,7 @@ def test_retired_providers_are_capped(monkeypatch):
 
 
 def test_release_without_eviction_keeps_provider_alive(monkeypatch):
-    from litellm.integrations.otel.plumbing import routing as routing_mod
+    from hangarllm.integrations.otel.plumbing import routing as routing_mod
 
     shut_down = []
     monkeypatch.setattr(routing_mod, "_shutdown_provider", lambda p: shut_down.append(p))
@@ -374,7 +374,7 @@ def test_release_without_eviction_keeps_provider_alive(monkeypatch):
 
 
 def test_tenant_service_name_precedence_and_blanks():
-    from litellm.integrations.otel.plumbing.routing import tenant_service_name
+    from hangarllm.integrations.otel.plumbing.routing import tenant_service_name
 
     assert tenant_service_name({"otel_service_name": "team-svc"}) == "team-svc"
     assert tenant_service_name({"otel_service_name_override": "override", "otel_service_name": "base"}) == "override"
@@ -384,7 +384,7 @@ def test_tenant_service_name_precedence_and_blanks():
 
 
 def test_key_override_survives_team_metadata_merge():
-    from litellm.integrations.otel.plumbing.routing import tenant_service_name
+    from hangarllm.integrations.otel.plumbing.routing import tenant_service_name
 
     # Request setup merges team metadata over key metadata (last writer wins),
     # so a key keeps its own destination via ``otel_service_name_override``,
@@ -465,7 +465,7 @@ def test_newrelic_dynamic_headers():
 
 
 def test_newrelic_dynamic_endpoint_resolves_from_fixed_table():
-    from litellm.integrations.otel.presets import dynamic_otlp_endpoint
+    from hangarllm.integrations.otel.presets import dynamic_otlp_endpoint
 
     assert dynamic_otlp_endpoint("newrelic", {"newrelic_region": "eu"}) == "https://otlp.eu01.nr-data.net"
     assert dynamic_otlp_endpoint("newrelic", {"newrelic_region": "US"}) == "https://otlp.nr-data.net"
@@ -597,12 +597,12 @@ def test_credential_routed_span_roots_new_trace_and_links_back():
         InMemorySpanExporter,
     )
 
-    from litellm.integrations.otel.logger import _request_trace_links
+    from hangarllm.integrations.otel.logger import _request_trace_links
 
     default_exporter = InMemorySpanExporter()
     default_provider = TracerProvider()
     default_provider.add_span_processor(SimpleSpanProcessor(default_exporter))
-    default = default_provider.get_tracer("litellm")
+    default = default_provider.get_tracer("hangarllm")
 
     cache = _cache(
         "newrelic",
@@ -642,7 +642,7 @@ def test_service_name_route_stays_parented_unlike_credential_route():
 
 
 def test_requires_headers_spec_skipped_without_headers():
-    from litellm.integrations.otel.plumbing.providers import build_tracer_provider
+    from hangarllm.integrations.otel.plumbing.providers import build_tracer_provider
 
     cfg = OpenTelemetryV2Config(
         exporters=[ExporterSpec(kind="otlp_http", endpoint="https://otlp.nr-data.net", requires_headers=True)]
@@ -651,7 +651,7 @@ def test_requires_headers_spec_skipped_without_headers():
     processors = provider._active_span_processor._span_processors
     # Only the baggage processor: the keyless spec must not export (New Relic
     # rejects unauthenticated posts with a 4xx per span batch).
-    assert [type(p).__name__ for p in processors] == ["LiteLLMBaggageSpanProcessor"]
+    assert [type(p).__name__ for p in processors] == ["HangarLLMBaggageSpanProcessor"]
 
     keyed = OpenTelemetryV2Config(
         exporters=[
@@ -681,7 +681,7 @@ def test_newrelic_key_only_team_routes_to_us_not_operator_region(monkeypatch):
 
 
 def test_signoz_dynamic_headers_stamp_ingestion_key():
-    from litellm.integrations.otel.presets import dynamic_otlp_headers
+    from hangarllm.integrations.otel.presets import dynamic_otlp_headers
 
     assert dynamic_otlp_headers("signoz", {"signoz_ingestion_key": "team-key"}) == {"signoz-ingestion-key": "team-key"}
     # No key means no per-request routing; the caller keeps its default tracer.
@@ -689,10 +689,10 @@ def test_signoz_dynamic_headers_stamp_ingestion_key():
 
 
 def test_signoz_dynamic_endpoint_comes_from_team_config_when_its_host_is_allowlisted(monkeypatch):
-    import litellm
-    from litellm.integrations.otel.presets import dynamic_otlp_endpoint
+    import hangarllm
+    from hangarllm.integrations.otel.presets import dynamic_otlp_endpoint
 
-    monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["ingest.eu.signoz.cloud"])
+    monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", ["ingest.eu.signoz.cloud"])
     assert (
         dynamic_otlp_endpoint(
             "signoz", {"signoz_ingestion_endpoint": "https://ingest.eu.signoz.cloud:443", "signoz_ingestion_key": "k"}
@@ -705,10 +705,10 @@ def test_signoz_dynamic_endpoint_comes_from_team_config_when_its_host_is_allowli
 
 
 def test_signoz_team_endpoint_off_the_allowlist_is_dropped_along_with_its_key(monkeypatch):
-    import litellm
-    from litellm.integrations.otel.presets import dynamic_otlp_endpoint, dynamic_otlp_headers
+    import hangarllm
+    from hangarllm.integrations.otel.presets import dynamic_otlp_endpoint, dynamic_otlp_headers
 
-    monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", [])
+    monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", [])
     params = {"signoz_ingestion_endpoint": "http://169.254.169.254/v1/traces", "signoz_ingestion_key": "k"}
     assert dynamic_otlp_endpoint("signoz", params) is None
     # The tenant key must not ride to the operator's collector either: the request keeps the default tracer.
@@ -716,14 +716,14 @@ def test_signoz_team_endpoint_off_the_allowlist_is_dropped_along_with_its_key(mo
 
 
 def test_signoz_keyless_team_endpoint_is_ignored_so_the_operator_key_never_reaches_it(monkeypatch, caplog):
-    import litellm
-    from litellm.integrations.otel.presets import dynamic_otlp_endpoint, dynamic_otlp_headers
-    from litellm.integrations.otel.presets.signoz import _warn_endpoint_without_key
+    import hangarllm
+    from hangarllm.integrations.otel.presets import dynamic_otlp_endpoint, dynamic_otlp_headers
+    from hangarllm.integrations.otel.presets.signoz import _warn_endpoint_without_key
 
-    monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["collector.team.internal"])
+    monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", ["collector.team.internal"])
     params = {"signoz_ingestion_endpoint": "http://collector.team.internal:4318"}
     _warn_endpoint_without_key.cache_clear()
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         assert dynamic_otlp_headers("signoz", params) is None
     assert "Set signoz_ingestion_key alongside it" in caplog.text
     assert dynamic_otlp_endpoint("signoz", params) is None

@@ -44,7 +44,7 @@ pytestmark: Final = [
 ]
 
 MARKER: Final = re.compile(rb"callersess-[0-9a-f]{32}")
-CALLER_SESSION_KEY: Final = "litellm_caller_session_id"
+CALLER_SESSION_KEY: Final = "hangarllm_caller_session_id"
 PATHS: Final = MappingProxyType(
     {"chat": "/v1/chat/completions", "messages": "/v1/messages", "responses": "/v1/responses"}
 )
@@ -231,14 +231,14 @@ class Rigs:
 
 def _spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT session_id, request_id, metadata::text AS metadata_text FROM "LiteLLM_SpendLogs" '
-        "WHERE litellm_call_id=%s",
+        'SELECT session_id, request_id, metadata::text AS metadata_text FROM "HangarLLM_SpendLogs" '
+        "WHERE hangarllm_call_id=%s",
         (call_id,),
     )
 
 
 def _spend_row(response: httpx.Response) -> dict[str, JsonValue]:
-    call_id: Final = response.headers["x-litellm-call-id"]
+    call_id: Final = response.headers["x-hangarllm-call-id"]
     rows: Final = eventually(lambda: _spend_rows(call_id), lambda values: len(values) >= 1, seconds=70)
     assert len(rows) == 1, rows
     return rows[0]
@@ -259,13 +259,13 @@ def _model(scenario: Scenario, upstream: Wire) -> str:
 
 
 def _rig_config(
-    directory: Path, name: str, litellm_settings: Mapping[str, JsonValue], extra: Mapping[str, JsonValue]
+    directory: Path, name: str, hangarllm_settings: Mapping[str, JsonValue], extra: Mapping[str, JsonValue]
 ) -> Path:
     shared: Final = object_value(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     config: Final = {
         **shared,
         "general_settings": {**object_value(shared["general_settings"]), "store_prompts_in_spend_logs": True},
-        "litellm_settings": {**object_value(shared["litellm_settings"]), **litellm_settings},
+        "hangarllm_settings": {**object_value(shared["hangarllm_settings"]), **hangarllm_settings},
         **extra,
     }
     path: Final = directory / f"{name}.yaml"
@@ -295,7 +295,7 @@ def rigs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rigs]:
             owned_proxy_process(
                 shared,
                 directory,
-                {"LITELLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300"},
+                {"HANGARLLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300"},
                 config=_rig_config(
                     directory,
                     "flag-on",
@@ -326,8 +326,8 @@ def test_spend_log_session_is_the_body_session_beside_a_trace_header(rigs: Rigs,
         endpoint,
         marker,
         stream=stream,
-        headers={"x-litellm-trace-id": _token("trace")},
-        fields={"litellm_session_id": session},
+        headers={"x-hangarllm-trace-id": _token("trace")},
+        fields={"hangarllm_session_id": session},
     )
 
     row: Final = _spend_row(response)
@@ -352,10 +352,10 @@ def test_sdk_clients_record_the_body_session_beside_a_trace_header(rigs: Rigs) -
         model=rig.model,
         messages=[{"role": "user", "content": markers[0]}],
         stream=True,
-        extra_headers={"x-litellm-trace-id": traces[0]},
-        extra_body={"litellm_session_id": sessions[0]},
+        extra_headers={"x-hangarllm-trace-id": traces[0]},
+        extra_body={"hangarllm_session_id": sessions[0]},
     ) as chat_stream:
-        chat_call: Final = chat_stream.headers["x-litellm-call-id"]
+        chat_call: Final = chat_stream.headers["x-hangarllm-call-id"]
         chat_text: Final = "".join(
             chunk.choices[0].delta.content or "" for chunk in chat_stream.parse() if chunk.choices
         )
@@ -363,24 +363,24 @@ def test_sdk_clients_record_the_body_session_beside_a_trace_header(rigs: Rigs) -
         model=rig.model,
         max_tokens=16,
         messages=[{"role": "user", "content": markers[1]}],
-        extra_headers={"x-litellm-trace-id": traces[1]},
-        extra_body={"litellm_session_id": sessions[1]},
+        extra_headers={"x-hangarllm-trace-id": traces[1]},
+        extra_body={"hangarllm_session_id": sessions[1]},
     )
     with chat_client.responses.with_streaming_response.create(
         model=rig.model,
         input=markers[2],
         stream=True,
-        extra_headers={"x-litellm-trace-id": traces[2]},
-        extra_body={"litellm_session_id": sessions[2]},
+        extra_headers={"x-hangarllm-trace-id": traces[2]},
+        extra_body={"hangarllm_session_id": sessions[2]},
     ) as responses_stream:
-        responses_call: Final = responses_stream.headers["x-litellm-call-id"]
+        responses_call: Final = responses_stream.headers["x-hangarllm-call-id"]
         completed: Final = tuple(event for event in responses_stream.parse() if event.type == "response.completed")
 
     first_block: Final = message.parse().content[0]
     assert chat_text == f"answer {markers[0]}", chat_text
     assert isinstance(first_block, anthropic.types.TextBlock) and first_block.text == f"answer {markers[1]}", message
     assert len(completed) == 1, completed
-    calls: Final = (chat_call, message.headers["x-litellm-call-id"], responses_call)
+    calls: Final = (chat_call, message.headers["x-hangarllm-call-id"], responses_call)
     landed: Final = tuple(
         eventually(lambda call=call: _spend_rows(call), lambda values: len(values) == 1, seconds=70)[0]["session_id"]
         for call in calls
@@ -391,7 +391,7 @@ def test_sdk_clients_record_the_body_session_beside_a_trace_header(rigs: Rigs) -
 def test_conversation_span_keeps_the_trace_header_and_no_internal_key(rigs: Rigs) -> None:
     trace: Final = _token("trace")
     response: Final = rigs.flag_on.send(
-        "chat", _marker(), headers={"x-litellm-trace-id": trace}, fields={"litellm_session_id": _token("convo")}
+        "chat", _marker(), headers={"x-hangarllm-trace-id": trace}, fields={"hangarllm_session_id": _token("convo")}
     )
     response_id: Final = string_value(JSON_OBJECT.validate_json(response.content)["id"])
 
@@ -403,13 +403,13 @@ def test_conversation_span_keeps_the_trace_header_and_no_internal_key(rigs: Rigs
 
 def test_a_continued_chains_conversation_spans_keep_each_turns_trace_header(rigs: Rigs) -> None:
     traces: Final = (_token("trace"), _token("trace"))
-    first: Final = _turn(rigs.flag_on, _marker(), headers={"x-litellm-trace-id": traces[0]})
+    first: Final = _turn(rigs.flag_on, _marker(), headers={"x-hangarllm-trace-id": traces[0]})
     _turn(
         rigs.flag_on,
         _marker(),
         first,
-        headers={"x-litellm-trace-id": traces[1]},
-        fields={"litellm_session_id": _token("convo")},
+        headers={"x-hangarllm-trace-id": traces[1]},
+        fields={"hangarllm_session_id": _token("convo")},
     )
 
     conversations: Final = eventually(
@@ -424,7 +424,7 @@ def test_flag_off_keeps_the_trace_id_beside_a_body_session(rigs: Rigs, endpoint:
     trace: Final = _token("trace")
 
     response: Final = rigs.flag_off.send(
-        endpoint, _marker(), headers={"x-litellm-trace-id": trace}, fields={"litellm_session_id": _token("convo")}
+        endpoint, _marker(), headers={"x-hangarllm-trace-id": trace}, fields={"hangarllm_session_id": _token("convo")}
     )
 
     assert _session(response) == trace
@@ -436,7 +436,7 @@ def test_response_cache_hit_records_the_body_session_beside_a_trace_header(rigs:
     sessions: Final = (_token("convo"), _token("convo"))
     responses: Final = tuple(
         rigs.flag_on.send(
-            endpoint, marker, headers={"x-litellm-trace-id": _token("trace")}, fields={"litellm_session_id": session}
+            endpoint, marker, headers={"x-hangarllm-trace-id": _token("trace")}, fields={"hangarllm_session_id": session}
         )
         for session in sessions
     )
@@ -451,7 +451,7 @@ def test_metadata_session_beside_a_new_trace_per_turn_groups_both_turns(rigs: Ri
         rigs.flag_on.send(
             "chat",
             _marker(),
-            headers={"x-litellm-trace-id": _token("trace")},
+            headers={"x-hangarllm-trace-id": _token("trace")},
             fields={"metadata": {"session_id": session}},
         )
         for _ in range(2)
@@ -474,32 +474,32 @@ def test_metadata_session_beside_a_new_trace_per_turn_groups_both_turns(rigs: Ri
 
 
 def _shape(shape: str, trace: str, session: str, header: str) -> tuple[Headers, dict[str, JsonValue], str]:
-    traced: Final = {"x-litellm-trace-id": trace}
+    traced: Final = {"x-hangarllm-trace-id": trace}
     match shape:
         case "session-header-wins":
-            return {"x-litellm-session-id": header}, {"litellm_session_id": session}, header
+            return {"x-hangarllm-session-id": header}, {"hangarllm_session_id": session}, header
         case "trace-header-only":
             return traced, {}, trace
         case "body-session-only":
-            return {}, {"litellm_session_id": session}, session
+            return {}, {"hangarllm_session_id": session}, session
         case "int-session":
-            return traced, {"litellm_session_id": 7}, trace
+            return traced, {"hangarllm_session_id": 7}, trace
         case "list-session":
-            return traced, {"litellm_session_id": [session]}, trace
+            return traced, {"hangarllm_session_id": [session]}, trace
         case "empty-session":
-            return traced, {"litellm_session_id": ""}, trace
+            return traced, {"hangarllm_session_id": ""}, trace
         case "null-session":
-            return traced, {"litellm_session_id": None}, trace
+            return traced, {"hangarllm_session_id": None}, trace
         case "nul-session":
-            return traced, {"litellm_session_id": session + "\x00x"}, trace
+            return traced, {"hangarllm_session_id": session + "\x00x"}, trace
         case "two-trace-headers":
             return (
-                (("x-litellm-trace-id", trace), ("x-litellm-trace-id", header)),
-                {"litellm_session_id": session},
+                (("x-hangarllm-trace-id", trace), ("x-hangarllm-trace-id", header)),
+                {"hangarllm_session_id": session},
                 session,
             )
         case _:
-            return traced, {"litellm_session_id": session + "s" * 5120}, session + "s" * 5120
+            return traced, {"hangarllm_session_id": session + "s" * 5120}, session + "s" * 5120
 
 
 @pytest.mark.parametrize(
@@ -522,7 +522,7 @@ def test_spend_log_session_for_each_session_shape(rigs: Rigs, shape: str) -> Non
     neighbor_trace: Final = _token("neighbor")
 
     response: Final = rigs.flag_on.send("chat", _marker(), fields, headers=headers)
-    neighbor: Final = rigs.flag_on.send("chat", _marker(), headers={"x-litellm-trace-id": neighbor_trace})
+    neighbor: Final = rigs.flag_on.send("chat", _marker(), headers={"x-hangarllm-trace-id": neighbor_trace})
 
     assert _session(response) == expected
     assert _session(neighbor) == neighbor_trace
@@ -533,11 +533,11 @@ def test_client_sent_internal_session_key_is_ignored(rigs: Rigs, endpoint: str) 
     forged: Final = _token("forged")
     trace: Final = _token("trace")
     forged_metadata: Final[dict[str, JsonValue]] = {
-        "metadata" if endpoint == "chat" else "litellm_metadata": {CALLER_SESSION_KEY: forged}
+        "metadata" if endpoint == "chat" else "hangarllm_metadata": {CALLER_SESSION_KEY: forged}
     }
 
     untraced: Final = rigs.flag_on.send(endpoint, _marker(), forged_metadata)
-    traced: Final = rigs.flag_on.send(endpoint, _marker(), forged_metadata, headers={"x-litellm-trace-id": trace})
+    traced: Final = rigs.flag_on.send(endpoint, _marker(), forged_metadata, headers={"x-hangarllm-trace-id": trace})
 
     assert _session(untraced) not in (forged, None)
     assert _session(traced) == trace
@@ -549,11 +549,11 @@ def test_identical_requests_each_log_once_with_the_body_session(rigs: Rigs) -> N
     marker: Final = _marker()
 
     responses: Final = tuple(
-        rigs.flag_on.send("chat", marker, headers={"x-litellm-trace-id": trace}, fields={"litellm_session_id": session})
+        rigs.flag_on.send("chat", marker, headers={"x-hangarllm-trace-id": trace}, fields={"hangarllm_session_id": session})
         for _ in range(3)
     )
 
-    assert len({response.headers["x-litellm-call-id"] for response in responses}) == 3
+    assert len({response.headers["x-hangarllm-call-id"] for response in responses}) == 3
     assert tuple(_session(response) for response in responses) == (session, session, session)
 
 
@@ -567,7 +567,7 @@ def _pass_through_route(rig: Rig, target: str) -> str:
     return path
 
 
-@pytest.mark.parametrize("field", ["litellm_session_id", "metadata"])
+@pytest.mark.parametrize("field", ["hangarllm_session_id", "metadata"])
 def test_pass_through_spend_log_session_is_the_body_session_beside_a_trace_header(rigs: Rigs, field: str) -> None:
     marker: Final = _marker()
     session: Final = _token("convo")
@@ -575,7 +575,7 @@ def test_pass_through_spend_log_session_is_the_body_session_beside_a_trace_heade
     path: Final = _pass_through_route(rig, f"{rig.upstream.url}/v1/chat/completions")
     key: Final = rig.scenario.key(allowed_passthrough_routes=[path])
     fields: Final[dict[str, JsonValue]] = (
-        {"litellm_session_id": session} if field == "litellm_session_id" else {"metadata": {"session_id": session}}
+        {"hangarllm_session_id": session} if field == "hangarllm_session_id" else {"metadata": {"session_id": session}}
     )
 
     response: Final = rig.proxy.request(
@@ -583,12 +583,12 @@ def test_pass_through_spend_log_session_is_the_body_session_beside_a_trace_heade
         path,
         rig.body("chat", marker, fields),
         key=key,
-        headers={"x-litellm-trace-id": _token("trace")},
+        headers={"x-hangarllm-trace-id": _token("trace")},
     )
 
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT session_id FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (sha256(key.encode()).hexdigest(),)
+            'SELECT session_id FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (sha256(key.encode()).hexdigest(),)
         ),
         lambda found: len(found) >= 1,
         seconds=70,
@@ -617,11 +617,11 @@ def _turn(
 def _turn_fields(shape: str, session: str) -> tuple[dict[str, JsonValue], dict[str, JsonValue]]:
     match shape:
         case "session-every-turn":
-            return {"litellm_session_id": session}, {"litellm_session_id": session}
+            return {"hangarllm_session_id": session}, {"hangarllm_session_id": session}
         case "session-from-turn-2":
-            return {}, {"litellm_session_id": session}
+            return {}, {"hangarllm_session_id": session}
         case _:
-            return {"litellm_session_id": _token("convo")}, {"litellm_session_id": _token("convo")}
+            return {"hangarllm_session_id": _token("convo")}, {"hangarllm_session_id": _token("convo")}
 
 
 @pytest.mark.parametrize(
@@ -637,8 +637,8 @@ def test_bridged_chain_history(rigs: Rigs, correlated: bool, shape: str, replays
     rig: Final = rigs.flag_on if correlated else rigs.flag_off
     first_fields, second_fields = _turn_fields(shape, _token("convo"))
     markers: Final = (_marker(), _marker(), _marker())
-    first: Final = _turn(rig, markers[0], headers={"x-litellm-trace-id": _token("trace")}, fields=first_fields)
-    second: Final = _turn(rig, markers[1], first, headers={"x-litellm-trace-id": _token("trace")}, fields=second_fields)
+    first: Final = _turn(rig, markers[0], headers={"x-hangarllm-trace-id": _token("trace")}, fields=first_fields)
+    second: Final = _turn(rig, markers[1], first, headers={"x-hangarllm-trace-id": _token("trace")}, fields=second_fields)
 
     _turn(rig, markers[2], second)
 
@@ -693,8 +693,8 @@ def test_bridged_history_follows_the_previous_responses_owner(
     owners: Final = _owners(rig.scenario, rig.model, shape)
     session: Final = _token("convo")
     markers: Final = (_marker(), _marker(), _marker())
-    _turn(rig, markers[0], key=owners.first, fields={"litellm_session_id": session})
-    second: Final = _turn(rig, markers[1], key=owners.second, fields={"litellm_session_id": session})
+    _turn(rig, markers[0], key=owners.first, fields={"hangarllm_session_id": session})
+    second: Final = _turn(rig, markers[1], key=owners.second, fields={"hangarllm_session_id": session})
 
     _turn(rig, markers[2], second, key=owners.second)
 
@@ -715,8 +715,8 @@ def test_concurrent_burst_across_endpoints_logs_each_session_once(rigs: Rigs) ->
             endpoint,
             _marker(),
             stream=stream,
-            headers={"x-litellm-trace-id": _token("trace")},
-            fields={"litellm_session_id": sessions[index]},
+            headers={"x-hangarllm-trace-id": _token("trace")},
+            fields={"hangarllm_session_id": sessions[index]},
         )
 
     with ThreadPoolExecutor(max_workers=12) as pool:
@@ -737,7 +737,7 @@ def _open_upstream_connections(pid: int, upstream: Wire) -> int:
 def _post_or_none(rig: Rig, session: str) -> httpx.Response | None:
     try:
         return rig.post(
-            "chat", _marker(), headers={"x-litellm-trace-id": _token("trace")}, fields={"litellm_session_id": session}
+            "chat", _marker(), headers={"x-hangarllm-trace-id": _token("trace")}, fields={"hangarllm_session_id": session}
         )
     except httpx.HTTPError:
         return None
@@ -771,8 +771,8 @@ def test_killing_one_worker_mid_burst_keeps_logging_the_body_session(rigs: Rigs)
                 after: Final = rig.send(
                     "chat",
                     _marker(),
-                    headers={"x-litellm-trace-id": _token("trace")},
-                    fields={"litellm_session_id": after_session},
+                    headers={"x-hangarllm-trace-id": _token("trace")},
+                    fields={"hangarllm_session_id": after_session},
                 )
 
     served: Final = tuple(

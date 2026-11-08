@@ -2,15 +2,15 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "litellm.ui.fullname" . }}
+  name: {{ include "hangarllm.ui.fullname" . }}
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: ui
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "litellm.ui.fullname" . }}
+    name: {{ include "hangarllm.ui.fullname" . }}
   minReplicas: {{ .Values.ui.hpa.minReplicas }}
   maxReplicas: {{ .Values.ui.hpa.maxReplicas }}
   metrics:

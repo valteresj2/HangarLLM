@@ -1,7 +1,7 @@
 """
 Integration tests for WebSearch interception with the Responses API.
 
-Tests that the websearch_interception callback intercepts litellm_web_search
+Tests that the websearch_interception callback intercepts hangarllm_web_search
 tool calls returned by /v1/responses, executes the search server-side, and
 builds a Responses-format follow-up request.
 """
@@ -13,16 +13,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
+import hangarllm
 
-from litellm.integrations.websearch_interception.handler import (
+from hangarllm.integrations.websearch_interception.handler import (
     WebSearchInterceptionLogger,
 )
-from litellm.types.integrations.custom_logger import (
+from hangarllm.types.integrations.custom_logger import (
     RESPONSES_AGENTIC_SURFACE,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.types.utils import CallTypes, LlmProviders
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.types.utils import CallTypes, LlmProviders
 
 
 def _responses_output_with_web_search(call_id: str = "fc_1", query: str = "latest ai news"):
@@ -30,7 +30,7 @@ def _responses_output_with_web_search(call_id: str = "fc_1", query: str = "lates
         output=[
             SimpleNamespace(
                 type="function_call",
-                name="litellm_web_search",
+                name="hangarllm_web_search",
                 call_id=call_id,
                 arguments='{"query": "%s"}' % query,
             )
@@ -40,14 +40,14 @@ def _responses_output_with_web_search(call_id: str = "fc_1", query: str = "lates
 
 @pytest.mark.asyncio
 async def test_responses_hook_detects_function_call():
-    """async_should_run_responses_agentic_loop detects a litellm_web_search function_call."""
+    """async_should_run_responses_agentic_loop detects a hangarllm_web_search function_call."""
     logger = WebSearchInterceptionLogger(enabled_providers=[LlmProviders.OPENAI])
 
     should_run, tools_dict = await logger.async_should_run_responses_agentic_loop(
         response=_responses_output_with_web_search(),
         model="gpt-4o",
         messages=[{"role": "user", "content": "What's the latest AI news?"}],
-        tools=[{"type": "function", "name": "litellm_web_search"}],
+        tools=[{"type": "function", "name": "hangarllm_web_search"}],
         stream=False,
         custom_llm_provider="openai",
         kwargs={},
@@ -56,7 +56,7 @@ async def test_responses_hook_detects_function_call():
     assert should_run is True
     assert tools_dict["response_format"] == "responses"
     assert len(tools_dict["tool_calls"]) == 1
-    assert tools_dict["tool_calls"][0]["name"] == "litellm_web_search"
+    assert tools_dict["tool_calls"][0]["name"] == "hangarllm_web_search"
     assert tools_dict["tool_calls"][0]["call_id"] == "fc_1"
     assert tools_dict["tool_calls"][0]["input"] == {"query": "latest ai news"}
 
@@ -89,7 +89,7 @@ async def test_responses_hook_not_triggered_for_disabled_provider():
         response=_responses_output_with_web_search(),
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
-        tools=[{"type": "function", "name": "litellm_web_search"}],
+        tools=[{"type": "function", "name": "hangarllm_web_search"}],
         stream=False,
         custom_llm_provider="openai",
         kwargs={},
@@ -111,7 +111,7 @@ async def test_responses_hook_ignores_non_websearch_function_call():
         response=response,
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
-        tools=[{"type": "function", "name": "litellm_web_search"}],
+        tools=[{"type": "function", "name": "hangarllm_web_search"}],
         stream=False,
         custom_llm_provider="openai",
         kwargs={},
@@ -132,7 +132,7 @@ async def test_responses_hook_ignores_bare_web_search_function_call():
         response=response,
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
-        tools=[{"type": "function", "name": "litellm_web_search"}],
+        tools=[{"type": "function", "name": "hangarllm_web_search"}],
         stream=False,
         custom_llm_provider="openai",
         kwargs={},
@@ -156,7 +156,7 @@ async def test_surface_marker_routes_should_run_to_responses_branch():
         response=_responses_output_with_web_search(),
         model="gpt-4o",
         messages=[{"role": "user", "content": "What's the latest AI news?"}],
-        tools=[{"type": "function", "name": "litellm_web_search"}],
+        tools=[{"type": "function", "name": "hangarllm_web_search"}],
         stream=False,
         custom_llm_provider="openai",
         kwargs={"_agentic_loop_api_surface": RESPONSES_AGENTIC_SURFACE},
@@ -177,7 +177,7 @@ async def test_default_branch_does_not_detect_responses_output():
         response=_responses_output_with_web_search(),
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
-        tools=[{"type": "function", "name": "litellm_web_search"}],
+        tools=[{"type": "function", "name": "hangarllm_web_search"}],
         stream=False,
         custom_llm_provider="openai",
         kwargs={},
@@ -200,7 +200,7 @@ async def test_build_responses_plan_produces_responses_input():
                 "id": "fc_1",
                 "call_id": "fc_1",
                 "type": "function_call",
-                "name": "litellm_web_search",
+                "name": "hangarllm_web_search",
                 "arguments": '{"query": "latest ai news"}',
                 "input": {"query": "latest ai news"},
             }
@@ -221,8 +221,8 @@ async def test_build_responses_plan_produces_responses_input():
             messages=[{"role": "user", "content": "What's the latest AI news?"}],
             response=_responses_output_with_web_search(),
             optional_params={
-                "tools": [{"type": "function", "name": "litellm_web_search"}],
-                "tool_choice": {"type": "function", "name": "litellm_web_search"},
+                "tools": [{"type": "function", "name": "hangarllm_web_search"}],
+                "tool_choice": {"type": "function", "name": "hangarllm_web_search"},
             },
             logging_obj=MagicMock(),
             stream=False,
@@ -242,7 +242,7 @@ async def test_build_responses_plan_produces_responses_input():
     assert input_items[1] == {
         "type": "function_call",
         "call_id": "fc_1",
-        "name": "litellm_web_search",
+        "name": "hangarllm_web_search",
         "arguments": '{"query": "latest ai news"}',
     }
     assert input_items[2] == {
@@ -251,7 +251,7 @@ async def test_build_responses_plan_produces_responses_input():
         "output": "OpenAI shipped a new model",
     }
 
-    assert patch_obj.tools == [{"type": "function", "name": "litellm_web_search"}]
+    assert patch_obj.tools == [{"type": "function", "name": "hangarllm_web_search"}]
     assert "tool_choice" not in patch_obj.optional_params
     assert "_agentic_loop_api_surface" not in patch_obj.kwargs
     assert patch_obj.model == "openai/gpt-4o"
@@ -263,7 +263,7 @@ _WEB_SEARCH_FUNCTION_CALL: Final = {
             "id": "fc_1",
             "call_id": "fc_1",
             "type": "function_call",
-            "name": "litellm_web_search",
+            "name": "hangarllm_web_search",
             "arguments": '{"query": "latest ai news"}',
             "input": {"query": "latest ai news"},
         }
@@ -280,7 +280,7 @@ async def _responses_followup_model(model: str, custom_llm_provider: str, loggin
         model=model,
         messages=[{"role": "user", "content": "What's the latest AI news?"}],
         response=_responses_output_with_web_search(),
-        optional_params={"tools": [{"type": "function", "name": "litellm_web_search"}]},
+        optional_params={"tools": [{"type": "function", "name": "hangarllm_web_search"}]},
         logging_obj=logging_obj,
         stream=False,
         kwargs={
@@ -314,14 +314,14 @@ async def test_responses_followup_reuses_the_model_the_caller_requested() -> Non
         stream=False,
         call_type=CallTypes.responses.value,
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-responses-followup",
+        hangarllm_call_id="call-responses-followup",
         function_id="fn-responses-followup",
     )
-    litellm.responses(
+    hangarllm.responses(
         model=requested_model,
         input="What's the latest AI news?",
         mock_response="searching",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
     followup_model: Final = await _responses_followup_model("openrouter/free", "openrouter", logging_obj)
@@ -340,21 +340,21 @@ async def test_responses_followup_keeps_the_caller_model_across_the_chat_complet
         stream=False,
         call_type=CallTypes.responses.value,
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-bridged-followup",
+        hangarllm_call_id="call-bridged-followup",
         function_id="fn-bridged-followup",
     )
-    litellm.responses(
+    hangarllm.responses(
         model=requested_model,
         input="What's the latest AI news?",
         mock_response="searching",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
-    litellm.completion(
+    hangarllm.completion(
         model="openrouter/free",
         custom_llm_provider="openrouter",
         messages=[{"role": "user", "content": "What's the latest AI news?"}],
         mock_response="searching",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         _skip_responses_api_bridge=True,
     )
 
@@ -366,7 +366,7 @@ async def test_responses_followup_keeps_the_caller_model_across_the_chat_complet
 @pytest.mark.asyncio
 async def test_deployment_hook_converts_native_responses_web_search_tool():
     """async_pre_call_deployment_hook converts a native Responses web_search tool
-    into the flat litellm_web_search function tool (Responses shape, not the
+    into the flat hangarllm_web_search function tool (Responses shape, not the
     nested Chat Completions {"function": {...}} wrapper).
     """
     logger = WebSearchInterceptionLogger(enabled_providers=[LlmProviders.OPENAI])
@@ -385,7 +385,7 @@ async def test_deployment_hook_converts_native_responses_web_search_tool():
     assert len(converted_tools) == 1
     tool = converted_tools[0]
     assert tool["type"] == "function"
-    assert tool["name"] == "litellm_web_search"
+    assert tool["name"] == "hangarllm_web_search"
     assert "function" not in tool
     assert tool["parameters"]["required"] == ["query"]
 

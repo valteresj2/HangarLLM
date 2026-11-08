@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.constants import GITHUB_COPILOT_DEFAULT_HOST, GITHUB_COPILOT_USER_SESSION_TTL_SECONDS
-from litellm.exceptions import (
+import hangarllm
+from hangarllm.constants import GITHUB_COPILOT_DEFAULT_HOST, GITHUB_COPILOT_USER_SESSION_TTL_SECONDS
+from hangarllm.exceptions import (
     APIConnectionError,
     AuthenticationError,
     BadRequestError,
@@ -21,9 +21,9 @@ from litellm.exceptions import (
     CallerCredentialRateLimitError,
     ServiceUnavailableError,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.github_copilot.github_host import github_host_endpoints
-from litellm.llms.github_copilot.per_user_auth import (
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.github_copilot.github_host import github_host_endpoints
+from hangarllm.llms.github_copilot.per_user_auth import (
     _SESSION_CACHE,
     GITHUB_COPILOT_USER_SESSION_KWARG_KEY,
     GithubCopilotUserSession,
@@ -40,7 +40,7 @@ from litellm.llms.github_copilot.per_user_auth import (
     resolve_copilot_user_session,
     validated_copilot_api_base,
 )
-from litellm.types.utils import CredentialItem, ModelResponse
+from hangarllm.types.utils import CredentialItem, ModelResponse
 
 COPILOT_USER_URL = "https://api.github.com/copilot_internal/user"
 DEVICE_CODE_URL = "https://github.com/login/device/code"
@@ -83,10 +83,10 @@ def github_http(respond: Callable[[httpx.Request], httpx.Response]):
     async_client = AsyncHTTPHandler(transport=httpx.MockTransport(capture))
     sync_client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(capture)))
     with (
-        patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=async_client),
-        patch("litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client", return_value=async_client),
-        patch("litellm.llms.custom_httpx.llm_http_handler.get_httpx_client", return_value=sync_client),
-        patch.object(litellm, "module_level_client", sync_client),
+        patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=async_client),
+        patch("hangarllm.llms.custom_httpx.llm_http_handler.get_async_httpx_client", return_value=async_client),
+        patch("hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client", return_value=sync_client),
+        patch.object(hangarllm, "module_level_client", sync_client),
     ):
         yield requests
 
@@ -109,7 +109,7 @@ def _clear_session_cache():
 
 @pytest.fixture
 def per_user_credential():
-    with patch.object(litellm, "credential_list", [_credential()]):
+    with patch.object(hangarllm, "credential_list", [_credential()]):
         yield
 
 
@@ -118,12 +118,12 @@ def test_named_per_user_credential_selects_per_user_mode(per_user_credential):
 
 
 def test_named_shared_credential_stays_shared_even_if_kwargs_ask_for_per_user():
-    with patch.object(litellm, "credential_list", [_credential(auth_type="shared")]):
+    with patch.object(hangarllm, "credential_list", [_credential(auth_type="shared")]):
         assert github_copilot_auth_mode("copilot-cred", "per_user_oauth") is False
 
 
 def test_named_credential_without_flag_stays_shared():
-    with patch.object(litellm, "credential_list", [_credential(auth_type=None)]):
+    with patch.object(hangarllm, "credential_list", [_credential(auth_type=None)]):
         assert github_copilot_auth_mode("copilot-cred", None) is False
 
 
@@ -133,7 +133,7 @@ def test_per_user_kwargs_without_credential_name_raise_400():
 
 
 def test_unknown_named_credential_falls_back_to_kwargs():
-    with patch.object(litellm, "credential_list", []):
+    with patch.object(hangarllm, "credential_list", []):
         assert github_copilot_auth_mode("missing-cred", "per_user_oauth") is True
         assert github_copilot_auth_mode("missing-cred", None) is False
 
@@ -190,7 +190,7 @@ def test_ghe_user_lookup_uses_stored_host_not_request_kwargs():
         assert str(request.url) == "https://api.octo.ghe.com/copilot_internal/user"
         return httpx.Response(200, json=_user_payload(api_base="https://copilot-api.octo.ghe.com"), request=request)
 
-    with patch.object(litellm, "credential_list", [credential]), github_http(respond) as requests:
+    with patch.object(hangarllm, "credential_list", [credential]), github_http(respond) as requests:
         kwargs: Final = _kwargs_with_connection(github_host="octo.ghe.com")
         kwargs["github_copilot_host"] = "evil.ghe.com"
         attach_github_copilot_user_session(kwargs)
@@ -206,7 +206,7 @@ def test_invalid_stored_host_fails_before_user_lookup():
         credential_values={"github_copilot_auth_type": "per_user_oauth", "github_copilot_host": "https://octo.ghe.com"},
         credential_info={},
     )
-    with patch.object(litellm, "credential_list", [credential]):
+    with patch.object(hangarllm, "credential_list", [credential]):
         with github_http(lambda request: pytest.fail(f"unexpected request to {request.url}")) as requests:
             with pytest.raises(BadRequestError):
                 attach_github_copilot_user_session(_kwargs_with_connection())
@@ -220,7 +220,7 @@ def test_session_repr_and_str_hide_the_token(caplog):
     with caplog.at_level("DEBUG"):
         import logging
 
-        logging.getLogger("litellm").debug("session: %s", session)
+        logging.getLogger("hangarllm").debug("session: %s", session)
     assert "secret-copilot-token" not in caplog.text
 
 
@@ -254,7 +254,7 @@ def test_user_lookup_auth_failures_raise_caller_auth_error_and_evict(status):
     with github_http(_user_responder(status=status)):
         with pytest.raises(CallerCredentialAuthenticationError) as exc:
             resolve_copilot_user_session("user-a", "gh-token", "copilot-cred", _GITHUB_ENDPOINTS)
-        assert "Reconnect GitHub Copilot for credential 'copilot-cred' in the LiteLLM UI (LLM Credentials)" in str(
+        assert "Reconnect GitHub Copilot for credential 'copilot-cred' in the HangarLLM UI (LLM Credentials)" in str(
             exc.value
         )
         assert (
@@ -277,7 +277,7 @@ def test_user_lookup_other_failure_raises_service_unavailable_without_body():
 
 def test_session_cache_uses_fixed_ttl():
     with (
-        patch("litellm.llms.github_copilot.per_user_auth.time.time", return_value=1000) as clock,
+        patch("hangarllm.llms.github_copilot.per_user_auth.time.time", return_value=1000) as clock,
         github_http(_user_responder()) as requests,
     ):
         resolve_copilot_user_session("user-a", "gh-token", "copilot-cred", _GITHUB_ENDPOINTS)
@@ -465,7 +465,7 @@ def _kwargs_with_connection(
     github_host: str | None = "github.com",
 ) -> dict[str, object]:
     return {
-        "litellm_credential_name": "copilot-cred",
+        "hangarllm_credential_name": "copilot-cred",
         "secret_fields": {
             "user_provider_credentials_user_id": "user-a",
             "user_provider_credentials": {
@@ -496,10 +496,10 @@ def test_attach_sync_injects_session(per_user_credential):
 
 
 def test_attach_per_user_without_connection_raises_connect_401(per_user_credential):
-    kwargs = {"litellm_credential_name": "copilot-cred", "secret_fields": {}}
+    kwargs = {"hangarllm_credential_name": "copilot-cred", "secret_fields": {}}
     with pytest.raises(CallerCredentialAuthenticationError) as exc:
         attach_github_copilot_user_session(kwargs)
-    assert "Connect GitHub Copilot for credential 'copilot-cred' in the LiteLLM UI (LLM Credentials)" in str(exc.value)
+    assert "Connect GitHub Copilot for credential 'copilot-cred' in the HangarLLM UI (LLM Credentials)" in str(exc.value)
 
 
 @pytest.mark.parametrize(
@@ -510,7 +510,7 @@ def test_attach_rejects_connection_from_a_different_github_host(
     credential_host: str,
     connection_host: str,
 ):
-    with patch.object(litellm, "credential_list", [_credential(github_host=credential_host)]):
+    with patch.object(hangarllm, "credential_list", [_credential(github_host=credential_host)]):
         kwargs: Final = _kwargs_with_connection(github_host=connection_host)
         with github_http(lambda request: pytest.fail(f"unexpected user lookup at {request.url}")) as requests:
             with pytest.raises(CallerCredentialAuthenticationError) as exc:
@@ -528,8 +528,8 @@ def test_legacy_connection_without_host_uses_github_com(per_user_credential):
 
 
 def test_attach_shared_mode_does_nothing_without_connection():
-    with patch.object(litellm, "credential_list", [_credential(auth_type=None)]):
-        kwargs = {"litellm_credential_name": "copilot-cred"}
+    with patch.object(hangarllm, "credential_list", [_credential(auth_type=None)]):
+        kwargs = {"hangarllm_credential_name": "copilot-cred"}
         attach_github_copilot_user_session(kwargs)
         assert GITHUB_COPILOT_USER_SESSION_KWARG_KEY not in kwargs
 
@@ -601,17 +601,17 @@ async def test_apoll_device_flow_connected():
 
 
 def test_is_github_copilot_per_user_request():
-    from litellm.llms.github_copilot.per_user_auth import is_github_copilot_per_user_request
+    from hangarllm.llms.github_copilot.per_user_auth import is_github_copilot_per_user_request
 
     session = GithubCopilotUserSession(token="t", api_base="https://api.githubcopilot.com")
     assert is_github_copilot_per_user_request({GITHUB_COPILOT_USER_SESSION_KWARG_KEY: session}) is True
     assert is_github_copilot_per_user_request({}) is False
     assert is_github_copilot_per_user_request({GITHUB_COPILOT_USER_SESSION_KWARG_KEY: "not-a-session"}) is False
-    assert is_github_copilot_per_user_request({"litellm_credential_name": "copilot-cred"}) is False
+    assert is_github_copilot_per_user_request({"hangarllm_credential_name": "copilot-cred"}) is False
 
 
 def _chat_completion_response():
-    from litellm.utils import convert_to_model_response_object
+    from hangarllm.utils import convert_to_model_response_object
 
     return convert_to_model_response_object(
         response_object={
@@ -643,23 +643,23 @@ def test_two_per_user_calls_with_identical_bodies_both_reach_upstream(  # test-q
 ):
     """Response-cache keys ignore caller identity: without the exclusion the second user's call
     would be served from the first's cache entry and neither run on their own seat."""
-    from litellm.caching import Cache
+    from hangarllm.caching import Cache
 
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     with (
         github_http(_user_responder()),
         patch(
-            "litellm.main.openai_chat_completions.completion",
+            "hangarllm.main.openai_chat_completions.completion",
             return_value=_chat_completion_response(),
         ) as mock_completion,
     ):
         base = {
             "model": "github_copilot/gpt-4o",
             "messages": [{"role": "user", "content": "hi"}],
-            "litellm_credential_name": "copilot-cred",
+            "hangarllm_credential_name": "copilot-cred",
         }
-        litellm.completion(**base, secret_fields=_secret_fields("user-a", "gho_a"))
-        litellm.completion(**base, secret_fields=_secret_fields("user-b", "gho_b"))
+        hangarllm.completion(**base, secret_fields=_secret_fields("user-a", "gho_a"))
+        hangarllm.completion(**base, secret_fields=_secret_fields("user-b", "gho_b"))
         assert mock_completion.call_count == 2
 
 
@@ -668,23 +668,23 @@ async def test_two_per_user_async_calls_with_identical_bodies_both_reach_upstrea
     per_user_credential, monkeypatch
 ):
     """Async path: per-user calls must bypass async_get_cache read and write the same way."""
-    from litellm.caching import Cache
+    from hangarllm.caching import Cache
 
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     with (
         github_http(_user_responder()),
         patch(
-            "litellm.main.openai_chat_completions.acompletion",
+            "hangarllm.main.openai_chat_completions.acompletion",
             new=AsyncMock(return_value=_chat_completion_response()),
         ) as mock_completion,
     ):
         base = {
             "model": "github_copilot/gpt-4o",
             "messages": [{"role": "user", "content": "hi"}],
-            "litellm_credential_name": "copilot-cred",
+            "hangarllm_credential_name": "copilot-cred",
         }
-        await litellm.acompletion(**base, secret_fields=_secret_fields("user-a", "gho_a"))
-        await litellm.acompletion(**base, secret_fields=_secret_fields("user-b", "gho_b"))
+        await hangarllm.acompletion(**base, secret_fields=_secret_fields("user-a", "gho_a"))
+        await hangarllm.acompletion(**base, secret_fields=_secret_fields("user-b", "gho_b"))
         assert mock_completion.call_count == 2
 
 
@@ -693,16 +693,16 @@ def test_shared_mode_second_identical_call_hits_response_cache(  # test-quality-
 ):
     """Control: shared device-login github_copilot keeps caching exactly as before, so a second
     identical call does not touch the upstream."""
-    from litellm.caching import Cache
+    from hangarllm.caching import Cache
 
     (tmp_path / "access-token").write_text("shared-copilot-token")
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
 
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     with (
         github_http(_user_responder()),
         patch(
-            "litellm.main.openai_chat_completions.completion",
+            "hangarllm.main.openai_chat_completions.completion",
             return_value=_chat_completion_response(),
         ) as mock_completion,
     ):
@@ -710,8 +710,8 @@ def test_shared_mode_second_identical_call_hits_response_cache(  # test-quality-
             "model": "github_copilot/gpt-4o",
             "messages": [{"role": "user", "content": "hi"}],
         }
-        litellm.completion(**call)
-        litellm.completion(**call)
+        hangarllm.completion(**call)
+        hangarllm.completion(**call)
         assert mock_completion.call_count == 1, "shared mode must still serve the second call from cache"
 
 
@@ -769,7 +769,7 @@ def _copilot_surface_responder(model_payload):
 
 
 def _no_authenticator():
-    from litellm.llms.github_copilot.authenticator import Authenticator
+    from hangarllm.llms.github_copilot.authenticator import Authenticator
 
     return patch.object(  # test-quality-ok: patching the shared-login edge asserts it is never consulted
         Authenticator, "get_api_key", side_effect=AssertionError("shared Authenticator must not run")
@@ -791,14 +791,14 @@ def test_e2e_completion_per_user_credential(per_user_credential):
         github_http(_user_responder()) as requests,
         _no_authenticator(),
         patch(
-            "litellm.main.openai_chat_completions.completion",
+            "hangarllm.main.openai_chat_completions.completion",
             return_value=_chat_completion_response(),
         ) as mock_completion,
     ):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="github_copilot/gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
         )
     assert len(requests) == 1 and str(requests[0].url) == COPILOT_USER_URL
@@ -818,14 +818,14 @@ def test_e2e_completion_per_user_session_token_wins_over_caller_authorization(pe
         github_http(_user_responder()),
         _no_authenticator(),
         patch(
-            "litellm.main.openai_chat_completions.completion",
+            "hangarllm.main.openai_chat_completions.completion",
             return_value=_chat_completion_response(),
         ) as mock_completion,
     ):
-        litellm.completion(
+        hangarllm.completion(
             model="github_copilot/gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
             extra_headers={"Authorization": "Bearer caller-token", "x-custom": "keep"},
         )
@@ -852,14 +852,14 @@ def test_e2e_completion_per_user_caller_authorization_cannot_override_session(pe
         github_http(_user_responder()),
         _no_authenticator(),
         patch(
-            "litellm.main.openai_chat_completions.completion",
+            "hangarllm.main.openai_chat_completions.completion",
             return_value=_chat_completion_response(),
         ) as mock_completion,
     ):
-        litellm.completion(
+        hangarllm.completion(
             model="github_copilot/gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
             extra_headers=caller_headers,
         )
@@ -875,10 +875,10 @@ def test_e2e_embedding_per_user_caller_authorization_cannot_override_session(per
         github_http(_copilot_surface_responder(_embedding_response_payload())) as requests,
         _no_authenticator(),
     ):
-        litellm.embedding(
+        hangarllm.embedding(
             model="github_copilot/text-embedding-3-small",
             input=["hi"],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
             extra_headers=dict(_EVIL_AUTH_HEADERS),
         )
@@ -890,10 +890,10 @@ def test_e2e_per_user_sends_the_github_token_to_the_accounts_copilot_host(per_us
         github_http(_account_responder(model_payload=_embedding_response_payload())) as requests,
         _no_authenticator(),
     ):
-        litellm.embedding(
+        hangarllm.embedding(
             model="github_copilot/text-embedding-3-small",
             input=["hi"],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_org_app"),
         )
     assert EXCHANGE_URL not in [str(r.url) for r in requests]
@@ -907,10 +907,10 @@ def test_e2e_responses_per_user_caller_authorization_cannot_override_session(per
         github_http(_copilot_surface_responder(_responses_payload())) as requests,
         _no_authenticator(),
     ):
-        litellm.responses(
+        hangarllm.responses(
             model="github_copilot/gpt-5.3-codex",
             input=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
             extra_headers=dict(_EVIL_AUTH_HEADERS),
         )
@@ -925,11 +925,11 @@ async def test_e2e_anthropic_messages_per_user_caller_authorization_cannot_overr
         github_http(_copilot_surface_responder(_anthropic_messages_payload())) as requests,
         _no_authenticator(),
     ):
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             model="github_copilot/claude-haiku-4.5",
             max_tokens=16,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
             extra_headers=dict(_EVIL_AUTH_HEADERS),
         )
@@ -941,10 +941,10 @@ def test_e2e_embedding_per_user_credential(per_user_credential):
         github_http(_copilot_surface_responder(_embedding_response_payload())) as requests,
         _no_authenticator(),
     ):
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="github_copilot/text-embedding-3-small",
             input=["hi"],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
         )
     _assert_user_lookup_then_model_call(requests, "gho_a")
@@ -957,10 +957,10 @@ def test_e2e_responses_per_user_credential(per_user_credential):
         github_http(_copilot_surface_responder(_responses_payload())) as requests,
         _no_authenticator(),
     ):
-        response = litellm.responses(
+        response = hangarllm.responses(
             model="github_copilot/gpt-5.3-codex",
             input=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
         )
     _assert_user_lookup_then_model_call(requests, "gho_a")
@@ -974,11 +974,11 @@ async def test_e2e_anthropic_messages_per_user_credential(per_user_credential):
         github_http(_copilot_surface_responder(_anthropic_messages_payload())) as requests,
         _no_authenticator(),
     ):
-        response = await litellm.anthropic.messages.acreate(
+        response = await hangarllm.anthropic.messages.acreate(
             model="github_copilot/claude-haiku-4.5",
             max_tokens=16,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields=_secret_fields("user-a", "gho_a"),
         )
     _assert_user_lookup_then_model_call(requests, "gho_a")
@@ -986,35 +986,35 @@ async def test_e2e_anthropic_messages_per_user_credential(per_user_credential):
     assert response["usage"]["input_tokens"] == 4
 
 
-_CONNECT_MESSAGE = "Connect GitHub Copilot for credential 'copilot-cred' in the LiteLLM UI (LLM Credentials)"
+_CONNECT_MESSAGE = "Connect GitHub Copilot for credential 'copilot-cred' in the HangarLLM UI (LLM Credentials)"
 
 
 def test_e2e_completion_not_connected_raises_connect_401(per_user_credential):
     with pytest.raises(AuthenticationError, match="Connect GitHub Copilot"):
-        litellm.completion(
+        hangarllm.completion(
             model="github_copilot/gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields={"user_provider_credentials_user_id": "user-a", "user_provider_credentials": {}},
         )
 
 
 def test_e2e_embedding_not_connected_raises_connect_401(per_user_credential):
     with pytest.raises(AuthenticationError, match="Connect GitHub Copilot"):
-        litellm.embedding(
+        hangarllm.embedding(
             model="github_copilot/text-embedding-3-small",
             input=["hi"],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields={"user_provider_credentials_user_id": "user-a", "user_provider_credentials": {}},
         )
 
 
 def test_e2e_responses_not_connected_raises_connect_401(per_user_credential):
     with pytest.raises(AuthenticationError, match="Connect GitHub Copilot"):
-        litellm.responses(
+        hangarllm.responses(
             model="github_copilot/gpt-5.3-codex",
             input=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields={"user_provider_credentials_user_id": "user-a", "user_provider_credentials": {}},
         )
 
@@ -1022,11 +1022,11 @@ def test_e2e_responses_not_connected_raises_connect_401(per_user_credential):
 @pytest.mark.asyncio
 async def test_e2e_anthropic_messages_not_connected_raises_connect_401(per_user_credential):
     with pytest.raises(AuthenticationError, match="Connect GitHub Copilot"):
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             model="github_copilot/claude-haiku-4.5",
             max_tokens=16,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_credential_name="copilot-cred",
+            hangarllm_credential_name="copilot-cred",
             secret_fields={"user_provider_credentials_user_id": "user-a", "user_provider_credentials": {}},
         )
 
@@ -1041,11 +1041,11 @@ def test_e2e_completion_shared_mode_still_uses_authenticator(tmp_path, monkeypat
     with (
         github_http(_user_responder()),
         patch(
-            "litellm.main.openai_chat_completions.completion",
+            "hangarllm.main.openai_chat_completions.completion",
             return_value=_chat_completion_response(),
         ) as mock_completion,
     ):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="github_copilot/gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
         )
@@ -1056,7 +1056,7 @@ def test_e2e_completion_shared_mode_still_uses_authenticator(tmp_path, monkeypat
 def test_e2e_embedding_shared_mode_still_uses_authenticator(tmp_path, monkeypatch):
     _shared_login(tmp_path, monkeypatch)
     with github_http(_copilot_surface_responder(_embedding_response_payload())) as requests:
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="github_copilot/text-embedding-3-small",
             input=["hi"],
         )
@@ -1068,7 +1068,7 @@ def test_e2e_embedding_shared_mode_still_uses_authenticator(tmp_path, monkeypatc
 def test_e2e_responses_shared_mode_still_uses_authenticator(tmp_path, monkeypatch):
     _shared_login(tmp_path, monkeypatch)
     with github_http(_copilot_surface_responder(_responses_payload())) as requests:
-        response = litellm.responses(
+        response = hangarllm.responses(
             model="github_copilot/gpt-5.3-codex",
             input=[{"role": "user", "content": "hi"}],
         )
@@ -1079,14 +1079,14 @@ def test_e2e_responses_shared_mode_still_uses_authenticator(tmp_path, monkeypatc
 
 @pytest.mark.asyncio
 async def test_e2e_anthropic_messages_shared_mode_still_uses_authenticator():
-    from litellm.llms.github_copilot.authenticator import Authenticator
+    from hangarllm.llms.github_copilot.authenticator import Authenticator
 
     with (
         github_http(_copilot_surface_responder(_anthropic_messages_payload())) as requests,
         patch.object(Authenticator, "get_api_key", return_value="shared-copilot-token"),
         patch.object(Authenticator, "get_api_base", return_value="https://api.githubcopilot.com"),
     ):
-        response = await litellm.anthropic.messages.acreate(
+        response = await hangarllm.anthropic.messages.acreate(
             model="github_copilot/claude-haiku-4.5",
             max_tokens=16,
             messages=[{"role": "user", "content": "hi"}],
@@ -1136,7 +1136,7 @@ def test_two_users_same_github_token_do_not_share_session():
 
 
 def test_same_user_and_token_do_not_share_sessions_across_hosts():
-    from litellm.llms.github_copilot.github_host import github_host_endpoints
+    from hangarllm.llms.github_copilot.github_host import github_host_endpoints
 
     ghe_endpoints: Final = github_host_endpoints("octo.ghe.com")
 
@@ -1152,16 +1152,16 @@ def test_same_user_and_token_do_not_share_sessions_across_hosts():
 
 
 def test_router_constructs_with_per_user_credential_deployment(per_user_credential):
-    from litellm.llms.github_copilot.authenticator import Authenticator
+    from hangarllm.llms.github_copilot.authenticator import Authenticator
 
     with patch.object(Authenticator, "get_api_key", side_effect=AssertionError("shared login")) as get_key:
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "copilot",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "github_copilot/gpt-4.1",
-                        "litellm_credential_name": "copilot-cred",
+                        "hangarllm_credential_name": "copilot-cred",
                     },
                 }
             ]
@@ -1173,16 +1173,16 @@ def test_router_constructs_with_per_user_credential_deployment(per_user_credenti
 
 
 def test_provider_info_per_user_without_session_returns_default_base_and_no_key(per_user_credential):
-    from litellm.llms.github_copilot.authenticator import Authenticator
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.llms.github_copilot.authenticator import Authenticator
+    from hangarllm.types.router import HangarLLM_Params
 
-    params: Final = LiteLLM_Params(
+    params: Final = HangarLLM_Params(
         model="github_copilot/gpt-4.1",
-        litellm_credential_name="copilot-cred",
+        hangarllm_credential_name="copilot-cred",
     )
     with patch.object(Authenticator, "get_api_key", side_effect=AssertionError("shared login")) as get_key:
-        _, _, dynamic_api_key, api_base = litellm.get_llm_provider(
-            model="github_copilot/gpt-4.1", litellm_params=params
+        _, _, dynamic_api_key, api_base = hangarllm.get_llm_provider(
+            model="github_copilot/gpt-4.1", hangarllm_params=params
         )
     get_key.assert_not_called()
     assert api_base == "https://api.githubcopilot.com"
@@ -1190,15 +1190,15 @@ def test_provider_info_per_user_without_session_returns_default_base_and_no_key(
 
 
 def test_provider_info_shared_github_copilot_still_uses_authenticator():
-    from litellm.llms.github_copilot.authenticator import Authenticator
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.llms.github_copilot.authenticator import Authenticator
+    from hangarllm.types.router import HangarLLM_Params
 
-    params: Final = LiteLLM_Params(model="github_copilot/gpt-4.1")
+    params: Final = HangarLLM_Params(model="github_copilot/gpt-4.1")
     with (
         patch.object(Authenticator, "get_api_key", return_value="shared-token") as get_key,
         patch.object(Authenticator, "get_api_base", return_value="https://api.githubcopilot.com"),
     ):
-        _, _, dynamic_api_key, _ = litellm.get_llm_provider(model="github_copilot/gpt-4.1", litellm_params=params)
+        _, _, dynamic_api_key, _ = hangarllm.get_llm_provider(model="github_copilot/gpt-4.1", hangarllm_params=params)
     get_key.assert_called_once()
     assert dynamic_api_key == "shared-token"
 
@@ -1215,7 +1215,7 @@ async def test_aresolve_cancelled_waiter_does_not_cancel_the_shared_session(per_
             return httpx.Response(200, json=_user_payload(), request=httpx.Request("GET", url))
 
     with patch(  # test-quality-ok: the gate holds the HTTP edge open so two waiters overlap
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=_GatedClient()
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=_GatedClient()
     ):
         first = asyncio.ensure_future(
             aresolve_copilot_user_session("user-a", "gh-shared", "copilot-cred", _GITHUB_ENDPOINTS)
@@ -1248,7 +1248,7 @@ async def test_aresolve_does_not_share_an_in_flight_session_after_token_changes(
                 request=httpx.Request("GET", url),
             )
 
-    with patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=_GatedClient()):
+    with patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=_GatedClient()):
         first = asyncio.ensure_future(
             aresolve_copilot_user_session("user-a", "gh-a", "copilot-cred", _GITHUB_ENDPOINTS)
         )
@@ -1267,7 +1267,7 @@ async def test_aresolve_does_not_share_an_in_flight_session_after_token_changes(
 async def test_aresolve_failure_with_a_single_caller_emits_no_unretrieved_warning(per_user_credential):
     """The leader removes the failed future before anyone awaits it; the stored
     exception must be consumed so the loop does not log 'never retrieved'."""
-    import litellm.llms.github_copilot.per_user_auth as pua
+    import hangarllm.llms.github_copilot.per_user_auth as pua
 
     captured: list[tuple[object, object]] = []
     loop = asyncio.get_running_loop()
@@ -1297,12 +1297,12 @@ async def test_per_user_streaming_call_writes_nothing_to_the_response_cache(per_
     """Per-user streamed completions must never be written to the shared response
     cache: the handler built before the session attach would otherwise use a stale
     request_kwargs copy without the session marker."""
-    from litellm.caching import Cache
-    from litellm.caching.caching_handler import LLMCachingHandler
+    from hangarllm.caching import Cache
+    from hangarllm.caching.caching_handler import LLMCachingHandler
 
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     handler = LLMCachingHandler(
-        original_function=litellm.acompletion,
+        original_function=hangarllm.acompletion,
         request_kwargs={"model": "github_copilot/gpt-4o"},
         start_time=datetime.datetime.now(),
     )
@@ -1315,14 +1315,14 @@ async def test_per_user_streaming_call_writes_nothing_to_the_response_cache(per_
     }
     await handler.async_get_cache(
         model="github_copilot/gpt-4o",
-        original_function=litellm.acompletion,
+        original_function=hangarllm.acompletion,
         logging_obj=MagicMock(),
         start_time=datetime.datetime.now(),
         call_type="acompletion",
         kwargs=kwargs,
     )
     assert (
-        handler.should_store_result_in_cache(original_function=litellm.acompletion, kwargs=handler.request_kwargs)
+        handler.should_store_result_in_cache(original_function=hangarllm.acompletion, kwargs=handler.request_kwargs)
         is False
     )
 
@@ -1331,12 +1331,12 @@ async def test_per_user_streaming_call_writes_nothing_to_the_response_cache(per_
 async def test_shared_streaming_call_still_writes_response_cache(tmp_path, monkeypatch):
     """Control: shared device-login streaming keeps caching normally."""
     _shared_login(tmp_path, monkeypatch)
-    from litellm.caching import Cache
-    from litellm.caching.caching_handler import LLMCachingHandler
+    from hangarllm.caching import Cache
+    from hangarllm.caching.caching_handler import LLMCachingHandler
 
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     handler = LLMCachingHandler(
-        original_function=litellm.acompletion,
+        original_function=hangarllm.acompletion,
         request_kwargs={"model": "github_copilot/gpt-4o"},
         start_time=datetime.datetime.now(),
     )
@@ -1346,47 +1346,47 @@ async def test_shared_streaming_call_still_writes_response_cache(tmp_path, monke
     }
     await handler.async_get_cache(
         model="github_copilot/gpt-4o",
-        original_function=litellm.acompletion,
+        original_function=hangarllm.acompletion,
         logging_obj=MagicMock(),
         start_time=datetime.datetime.now(),
         call_type="acompletion",
         kwargs=kwargs,
     )
     assert (
-        handler.should_store_result_in_cache(original_function=litellm.acompletion, kwargs=handler.request_kwargs)
+        handler.should_store_result_in_cache(original_function=hangarllm.acompletion, kwargs=handler.request_kwargs)
         is True
     )
 
 
 def _per_user_router():
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "copilot",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "github_copilot/gpt-4.1",
-                    "litellm_credential_name": "copilot-cred",
+                    "hangarllm_credential_name": "copilot-cred",
                 },
             }
         ]
     )
 
 
-def _route_with_credential_name(router: litellm.Router, credential_name: str) -> ModelResponse:
+def _route_with_credential_name(router: hangarllm.Router, credential_name: str) -> ModelResponse:
     return router.completion(
         model="copilot",
         messages=[{"role": "user", "content": "hi"}],
-        litellm_credential_name=credential_name,
+        hangarllm_credential_name=credential_name,
         mock_response="ok",
     )
 
 
 def test_per_user_deployment_rejects_a_caller_credential_override(per_user_credential):
-    """Caller kwargs win the litellm_params merge downstream, so the deployment
+    """Caller kwargs win the hangarllm_params merge downstream, so the deployment
     layer is the last place that still sees both names: a different name on a
     per-user deployment must be refused there even if discovery missed the hop."""
     router: Final = _per_user_router()
-    with pytest.raises(BadRequestError, match="litellm_credential_name cannot be overridden"):
+    with pytest.raises(BadRequestError, match="hangarllm_credential_name cannot be overridden"):
         _route_with_credential_name(router, "shared-cred")
 
 
@@ -1399,10 +1399,10 @@ def test_per_user_deployment_allows_the_configured_credential_name(per_user_cred
 
 
 def test_shared_deployment_keeps_caller_credential_override():
-    from litellm.llms.github_copilot.authenticator import Authenticator
+    from hangarllm.llms.github_copilot.authenticator import Authenticator
 
     with (
-        patch.object(litellm, "credential_list", [_credential(auth_type="shared")]),
+        patch.object(hangarllm, "credential_list", [_credential(auth_type="shared")]),
         patch.object(Authenticator, "get_api_key", return_value="shared-token"),
     ):
         router: Final = _per_user_router()

@@ -15,27 +15,27 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import JsonValue, ValidationError
 
-import litellm
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.models.project import LiteLLM_ProjectTable
-from litellm.proxy._types import (
+import hangarllm
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.constants import PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS
+from hangarllm.hangarllm_core_utils.duration_parser import duration_in_seconds
+from hangarllm.models.object_permission import HangarLLM_ObjectPermissionTable
+from hangarllm.models.project import HangarLLM_ProjectTable
+from hangarllm.proxy._types import (
     CommonProxyErrors,
     GenerateKeyRequest,
     GenerateKeyResponse,
     KeyManagementRoutes,
-    LiteLLM_BudgetTable,
-    LiteLLM_ObjectPermissionBase,
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TeamTable,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
-    LiteLLM_VerificationToken,
-    LiteLLMKeyType,
-    LitellmUserRoles,
+    HangarLLM_BudgetTable,
+    HangarLLM_ObjectPermissionBase,
+    HangarLLM_OrganizationTable,
+    HangarLLM_ProjectTableCachedObj,
+    HangarLLM_TeamTable,
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
+    HangarLLM_VerificationToken,
+    HangarLLMKeyType,
+    HangarllmUserRoles,
     Member,
     NewUserRequest,
     ProxyException,
@@ -44,20 +44,20 @@ from litellm.proxy._types import (
     UpdateKeyRequest,
     hash_token,
 )
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.proxy.auth.auth_checks import (
     delete_cache_key_object,
     get_key_object,
     jwt_key_mapping_cache_key,
 )
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import AuthCacheInvalidationSubscriber
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub import AuthCacheInvalidationSubscriber
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     budget_windows_absent_cache_key,
     project_cache_key,
 )
-from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from hangarllm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+from hangarllm.proxy.management_endpoints.key_management_endpoints import (
     KeyProjectBindingError,
     _check_key_project_team,
     _check_key_project_team_on_mutation,
@@ -106,8 +106,8 @@ from litellm.proxy.management_endpoints.key_management_endpoints import (
     validate_key_list_check,
     validate_key_team_change,
 )
-from litellm.proxy.proxy_server import app
-from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+from hangarllm.proxy.proxy_server import app
+from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
     BulkUpdateKeyRequest,
     BulkUpdateKeyResponse,
     CustomKeyPolicyRequest,
@@ -121,7 +121,7 @@ client = TestClient(app)
 async def test_list_keys():
     mock_prisma_client = AsyncMock()
     mock_find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many
     args = {
         "prisma_client": mock_prisma_client,
         "page": 1,
@@ -144,7 +144,7 @@ async def test_list_keys():
 
     where_condition = mock_find_many.call_args.kwargs["where"]
     print(f"where_condition: {where_condition}")
-    assert json.dumps({"team_id": {"not": "litellm-dashboard"}}) in json.dumps(
+    assert json.dumps({"team_id": {"not": "hangarllm-dashboard"}}) in json.dumps(
         where_condition
     )
 
@@ -158,8 +158,8 @@ async def test_list_keys_include_created_by_keys():
     mock_prisma_client = AsyncMock()
     mock_find_many = AsyncMock(return_value=[])
     mock_count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many
-    mock_prisma_client.db.litellm_verificationtoken.count = mock_count
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many
+    mock_prisma_client.db.hangarllm_verificationtoken.count = mock_count
 
     test_user_id = "user-123"
     test_org_id = "org-456"
@@ -317,40 +317,40 @@ async def test_key_token_handling(monkeypatch):
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from hangarllm.proxy.proxy_server import prisma_client
 
     # Use monkeypatch to set the prisma_client
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     # Test key generation
     response = await generate_key_fn(
         data=GenerateKeyRequest(),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
         ),
     )
 
@@ -371,30 +371,30 @@ async def test_budget_reset_and_expires_at_first_of_month(monkeypatch):
     """
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None)
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None)
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None)
     )
 
     from datetime import datetime, timedelta, timezone
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_helper_fn,
     )
 
     # Use monkeypatch to set the prisma_client
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     # Test key generation with budget_duration="1mo", duration="1mo", key_budget_duration="1mo"
     response = await generate_key_helper_fn(
@@ -450,33 +450,33 @@ async def test_key_expiration_exact_duration_hours(monkeypatch):
     """
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None)
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None)
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None)
     )
 
     from datetime import datetime, timedelta, timezone
 
     import pytest
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_helper_fn,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from hangarllm.proxy.proxy_server import prisma_client
 
     # Use monkeypatch to set the prisma_client
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     # Test key generation with duration="12h"
     # This should expire exactly 12 hours from creation, not at the next midnight/noon boundary
@@ -516,13 +516,13 @@ async def test_key_expiration_exact_duration_hours(monkeypatch):
 async def test_generate_key_persists_tpd_limit(monkeypatch):
     mock_prisma_client = AsyncMock()
     mock_prisma_client.insert_data = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None)
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None)
     )
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     data_json = GenerateKeyRequest(tpd_limit=250000, rpm_limit=5).model_dump(exclude_none=True)
     response = await generate_key_helper_fn(request_type="key", **data_json, table_name="key")
@@ -537,7 +537,7 @@ async def test_generate_key_persists_tpd_limit(monkeypatch):
 @pytest.mark.asyncio
 async def test_key_generation_with_object_permission(monkeypatch):
     """Ensure /key/generate correctly handles `object_permission` input by
-    1. Creating a record in litellm_objectpermissiontable
+    1. Creating a record in hangarllm_objectpermissiontable
     2. Passing the returned `object_permission_id` into the key insert payload
     """
     # --- Setup mocked prisma client ---
@@ -546,13 +546,13 @@ async def test_key_generation_with_object_permission(monkeypatch):
     # identity helper for jsonify_object (used inside generate_key_helper_fn)
     mock_prisma_client.jsonify_object = lambda data: data  # type: ignore
 
-    # Mock the prisma_client.db.litellm_objectpermissiontable.create call
+    # Mock the prisma_client.db.hangarllm_objectpermissiontable.create call
     mock_object_permission_create = AsyncMock(
         return_value=MagicMock(object_permission_id="objperm123")
     )
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = (
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = (
         mock_object_permission_create
     )
 
@@ -565,7 +565,7 @@ async def test_key_generation_with_object_permission(monkeypatch):
         elif table_name == "key":
             return MagicMock(
                 token="hashed_token_456",
-                litellm_budget_table=None,
+                hangarllm_budget_table=None,
                 object_permission=None,
             )
         return MagicMock()
@@ -573,28 +573,28 @@ async def test_key_generation_with_object_permission(monkeypatch):
     mock_prisma_client.insert_data = AsyncMock(side_effect=_insert_data_side_effect)
 
     # Attach the mocked prisma client to the proxy_server module
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     # --- Import objects after monkeypatching ---
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         GenerateKeyRequest,
-        LiteLLM_ObjectPermissionBase,
-        LitellmUserRoles,
+        HangarLLM_ObjectPermissionBase,
+        HangarllmUserRoles,
     )
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
     # --- Call generate_key_fn with object_permission ---
     request_data = GenerateKeyRequest(
-        object_permission=LiteLLM_ObjectPermissionBase(vector_stores=["my-vector"])
+        object_permission=HangarLLM_ObjectPermissionBase(vector_stores=["my-vector"])
     )
 
     await generate_key_fn(
         data=request_data,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="user-1",
         ),
@@ -631,26 +631,26 @@ async def test_generate_key_debug_log_never_contains_raw_token(monkeypatch, capl
             return MagicMock(models=[], spend=0)
         return MagicMock(
             token="hashed_token_456",
-            litellm_budget_table=None,
+            hangarllm_budget_table=None,
             object_permission=None,
         )
 
     mock_prisma_client.insert_data = AsyncMock(side_effect=_insert_data_side_effect)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
     raw_key = "sk-short-secret-a1b2"
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         await generate_key_fn(
             data=GenerateKeyRequest(key=raw_key),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-9876",
                 user_id="user-1",
             ),
@@ -699,39 +699,39 @@ async def test_generate_key_personal_non_admin_denied_for_team_scoped_fields(
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data  # type: ignore
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = AsyncMock(
         return_value=MagicMock(object_permission_id="should-not-create")
     )
     mock_prisma_client.insert_data = AsyncMock(return_value=MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         GenerateKeyRequest,
-        LiteLLM_ObjectPermissionBase,
-        LitellmUserRoles,
+        HangarLLM_ObjectPermissionBase,
+        HangarllmUserRoles,
     )
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
     if "object_permission" in request_kwargs:
         request_kwargs = {
             **request_kwargs,
-            "object_permission": LiteLLM_ObjectPermissionBase(
+            "object_permission": HangarLLM_ObjectPermissionBase(
                 **request_kwargs["object_permission"]
             ),
         }
     request_data = GenerateKeyRequest(**request_kwargs)
 
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     with pytest.raises((HTTPException, ProxyException)) as exc:
         await generate_key_fn(
             data=request_data,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-alice",
                 user_id="alice",
             ),
@@ -742,7 +742,7 @@ async def test_generate_key_personal_non_admin_denied_for_team_scoped_fields(
         getattr(exc.value, "detail", None) or getattr(exc.value, "message", exc.value)
     )
     assert expected_in_error in body
-    mock_prisma_client.db.litellm_objectpermissiontable.create.assert_not_called()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -755,19 +755,19 @@ async def test_update_key_personal_non_admin_denied_vector_stores(monkeypatch):
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data  # type: ignore
     mock_prisma_client.db = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache",
+        "hangarllm.proxy.proxy_server.user_api_key_cache",
         MagicMock(),
     )
 
-    from litellm.proxy._types import (
-        LiteLLM_ObjectPermissionBase,
-        LitellmUserRoles,
+    from hangarllm.proxy._types import (
+        HangarLLM_ObjectPermissionBase,
+        HangarllmUserRoles,
         UpdateKeyRequest,
     )
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _validate_update_key_data,
     )
 
@@ -782,7 +782,7 @@ async def test_update_key_personal_non_admin_denied_vector_stores(monkeypatch):
     )
     data = UpdateKeyRequest(
         key="sk-alice-personal",
-        object_permission=LiteLLM_ObjectPermissionBase(vector_stores=["acme_vs"]),
+        object_permission=HangarLLM_ObjectPermissionBase(vector_stores=["acme_vs"]),
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -790,7 +790,7 @@ async def test_update_key_personal_non_admin_denied_vector_stores(monkeypatch):
             data=data,
             existing_key_row=existing_key_row,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-alice",
                 user_id="alice",
             ),
@@ -811,11 +811,11 @@ async def test_update_key_grandfathers_existing_mcp_servers(monkeypatch):
     the team is unchanged."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import (
-        LiteLLM_ObjectPermissionBase,
+    from hangarllm.proxy._types import (
+        HangarLLM_ObjectPermissionBase,
         UpdateKeyRequest,
     )
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _validate_mcp_servers_for_key_update,
     )
 
@@ -823,7 +823,7 @@ async def test_update_key_grandfathers_existing_mcp_servers(monkeypatch):
     existing_row.mcp_servers = ["server-a", "server-b"]
     existing_row.mcp_tool_permissions = {}
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_mcpservertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_mcpservertable.find_many = AsyncMock(return_value=[])
 
     team_obj = MagicMock()
     team_obj.team_id = "team-1"
@@ -846,14 +846,14 @@ async def test_update_key_grandfathers_existing_mcp_servers(monkeypatch):
     }
     mock_mgr.get_allow_all_keys_server_ids.return_value = []
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+        "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
         mock_mgr,
     )
 
     result = await _validate_mcp_servers_for_key_update(
         data=UpdateKeyRequest(
             key="sk-team-key",
-            object_permission=LiteLLM_ObjectPermissionBase(mcp_servers=["server-a"]),
+            object_permission=HangarLLM_ObjectPermissionBase(mcp_servers=["server-a"]),
         ),
         team_obj=team_obj,
         existing_key_row=existing_key_row,
@@ -874,11 +874,11 @@ async def test_update_key_personal_non_admin_denied_access_groups(
     `if _team_id_to_check is not None`) breaks this test."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data  # type: ignore
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
-    from litellm.proxy._types import LitellmUserRoles, UpdateKeyRequest
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UpdateKeyRequest
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _validate_update_key_data,
     )
 
@@ -901,7 +901,7 @@ async def test_update_key_personal_non_admin_denied_access_groups(
             data=data,
             existing_key_row=existing_key_row,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-alice",
                 user_id="alice",
             ),
@@ -920,8 +920,8 @@ async def test_generate_key_helper_fn_with_access_group_ids(monkeypatch):
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data  # type: ignore
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = AsyncMock(
         return_value=MagicMock(object_permission_id=None)
     )
     mock_prisma_client.db.query_raw = AsyncMock(return_value=[])
@@ -936,7 +936,7 @@ async def test_generate_key_helper_fn_with_access_group_ids(monkeypatch):
             captured_key_data.update(kwargs.get("data", {}))
             return MagicMock(
                 token="hashed_token_789",
-                litellm_budget_table=None,
+                hangarllm_budget_table=None,
                 object_permission=None,
                 created_at=None,
                 updated_at=None,
@@ -944,9 +944,9 @@ async def test_generate_key_helper_fn_with_access_group_ids(monkeypatch):
         return MagicMock()
 
     mock_prisma_client.insert_data = AsyncMock(side_effect=_insert_data_side_effect)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_helper_fn,
     )
 
@@ -971,8 +971,8 @@ async def test_generate_key_helper_fn_with_budget_fallbacks(monkeypatch):
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data  # type: ignore
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = AsyncMock(
         return_value=MagicMock(object_permission_id=None)
     )
 
@@ -986,7 +986,7 @@ async def test_generate_key_helper_fn_with_budget_fallbacks(monkeypatch):
             captured_key_data.update(kwargs.get("data", {}))
             return MagicMock(
                 token="hashed_token_budget_fallbacks",
-                litellm_budget_table=None,
+                hangarllm_budget_table=None,
                 object_permission=None,
                 created_at=None,
                 updated_at=None,
@@ -994,9 +994,9 @@ async def test_generate_key_helper_fn_with_budget_fallbacks(monkeypatch):
         return MagicMock()
 
     mock_prisma_client.insert_data = AsyncMock(side_effect=_insert_data_side_effect)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_helper_fn,
     )
 
@@ -1019,7 +1019,7 @@ async def test_key_generation_with_mcp_tool_permissions(monkeypatch):
 
     This test verifies that:
     1. mcp_tool_permissions is accepted in the object_permission field
-    2. The field is properly stored in the LiteLLM_ObjectPermissionTable
+    2. The field is properly stored in the HangarLLM_ObjectPermissionTable
     3. The key is correctly linked to the object_permission record
     """
     mock_prisma_client = AsyncMock()
@@ -1033,9 +1033,9 @@ async def test_key_generation_with_mcp_tool_permissions(monkeypatch):
         return MagicMock(object_permission_id="objperm_mcp_123")
 
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = mock_create
-    mock_prisma_client.db.litellm_mcpservertable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = mock_create
+    mock_prisma_client.db.hangarllm_mcpservertable.find_many = AsyncMock(return_value=[])
 
     async def _insert_data_side_effect(*args, **kwargs):
         table_name = kwargs.get("table_name")
@@ -1044,33 +1044,33 @@ async def test_key_generation_with_mcp_tool_permissions(monkeypatch):
         elif table_name == "key":
             return MagicMock(
                 token="hashed_token_789",
-                litellm_budget_table=None,
+                hangarllm_budget_table=None,
                 object_permission=None,
             )
         return MagicMock()
 
     mock_prisma_client.insert_data = AsyncMock(side_effect=_insert_data_side_effect)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
         AsyncMock(
             side_effect=lambda object_permission=None, **kwargs: object_permission
         ),
     )
 
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         GenerateKeyRequest,
-        LiteLLM_ObjectPermissionBase,
-        LitellmUserRoles,
+        HangarLLM_ObjectPermissionBase,
+        HangarllmUserRoles,
     )
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
     # Create request with mcp_tool_permissions
     request_data = GenerateKeyRequest(
-        object_permission=LiteLLM_ObjectPermissionBase(
+        object_permission=HangarLLM_ObjectPermissionBase(
             mcp_servers=["server_1"],
             mcp_tool_permissions={"server_1": ["tool1", "tool2", "tool3"]},
         )
@@ -1079,7 +1079,7 @@ async def test_key_generation_with_mcp_tool_permissions(monkeypatch):
     await generate_key_fn(
         data=request_data,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="user-mcp-1",
         ),
@@ -1099,14 +1099,14 @@ async def test_key_generation_with_mcp_tool_permissions(monkeypatch):
 async def test_key_update_prepares_existing_object_permission_without_writing():
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LiteLLM_ObjectPermissionBase, LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionBase, HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _prepare_key_update_object_permission,
         _write_prepared_key_update_object_permission,
     )
 
     mock_prisma_client = AsyncMock()
-    existing_key_row = LiteLLM_VerificationToken(
+    existing_key_row = HangarLLM_VerificationToken(
         token="test_token_hash",
         object_permission_id="existing_perm_id_123",
         user_id="user123",
@@ -1117,11 +1117,11 @@ async def test_key_update_prepares_existing_object_permission_without_writing():
         "object_permission_id": "existing_perm_id_123",
         "vector_stores": ["old_store"],
     }
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=existing_permission)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=existing_permission)
     permission_upsert = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = permission_upsert
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = permission_upsert
 
-    object_permission_data = LiteLLM_ObjectPermissionBase(vector_stores=["new_store"]).model_dump(
+    object_permission_data = HangarLLM_ObjectPermissionBase(vector_stores=["new_store"]).model_dump(
         exclude_unset=True, exclude_none=True
     )
     upsert = await _prepare_key_update_object_permission(
@@ -1134,7 +1134,7 @@ async def test_key_update_prepares_existing_object_permission_without_writing():
     assert upsert.object_permission_id == "existing_perm_id_123"
     assert upsert.record["vector_stores"] == ["new_store"]
     permission_upsert.assert_not_awaited()
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.assert_awaited_once_with(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.assert_awaited_once_with(
         where={"object_permission_id": "existing_perm_id_123"}
     )
 
@@ -1156,22 +1156,22 @@ async def test_key_update_prepares_json_object_permission_and_upserts_new_row():
     import json
     from unittest.mock import AsyncMock
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _prepare_key_update_object_permission,
         _write_prepared_key_update_object_permission,
     )
 
     mock_prisma_client = AsyncMock()
-    existing_key_row = LiteLLM_VerificationToken(
+    existing_key_row = HangarLLM_VerificationToken(
         token="test_token_hash_2",
         object_permission_id=None,
         user_id="user456",
         team_id=None,
     )
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
     permission_upsert = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = permission_upsert
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = permission_upsert
 
     upsert = await _prepare_key_update_object_permission(
         object_permission_data=json.dumps({"vector_stores": ["brand_new_store"]}),
@@ -1199,25 +1199,25 @@ async def test_key_update_prepares_json_object_permission_and_upserts_new_row():
 async def test_key_update_recreates_missing_object_permission_with_existing_id():
     from unittest.mock import AsyncMock
 
-    from litellm.proxy._types import LiteLLM_ObjectPermissionBase, LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionBase, HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _prepare_key_update_object_permission,
         _write_prepared_key_update_object_permission,
     )
 
     mock_prisma_client = AsyncMock()
-    existing_key_row = LiteLLM_VerificationToken(
+    existing_key_row = HangarLLM_VerificationToken(
         token="test_token_hash_3",
         object_permission_id="missing_perm_id_789",
         user_id="user789",
         team_id=None,
     )
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
     permission_upsert = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = permission_upsert
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = permission_upsert
 
     upsert = await _prepare_key_update_object_permission(
-        object_permission_data=LiteLLM_ObjectPermissionBase(vector_stores=["recreated_store"]).model_dump(
+        object_permission_data=HangarLLM_ObjectPermissionBase(vector_stores=["recreated_store"]).model_dump(
             exclude_unset=True, exclude_none=True
         ),
         existing_key_row=existing_key_row,
@@ -1273,7 +1273,7 @@ async def test_key_update_object_permission_does_not_add_null_fields():
     existing_key_row.project_id = None
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin_user",
     )
@@ -1312,23 +1312,23 @@ async def test_key_info_returns_object_permission(monkeypatch):
 
     import pytest
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     # Mock prisma client
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     # Mock key with object_permission_id
     test_key_token = "hashed_test_token_123"
     test_object_permission_id = "objperm_info_test_123"
 
-    mock_key_info = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key_info = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key_info.token = test_key_token
     mock_key_info.object_permission_id = test_object_permission_id
     mock_key_info.user_id = "user123"
     mock_key_info.team_id = None
-    mock_key_info.litellm_budget_table = None
+    mock_key_info.hangarllm_budget_table = None
 
     # Mock the dict/model_dump methods
     mock_key_info.model_dump.return_value = {
@@ -1336,12 +1336,12 @@ async def test_key_info_returns_object_permission(monkeypatch):
         "object_permission_id": test_object_permission_id,
         "user_id": "user123",
         "team_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key_info.dict.return_value = mock_key_info.model_dump.return_value
 
     # Mock find_unique for the key lookup
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_info
     )
 
@@ -1359,13 +1359,13 @@ async def test_key_info_returns_object_permission(monkeypatch):
     )
 
     # Mock find_unique for object permission lookup
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         return_value=mock_object_permission
     )
 
     # Create user API key dict
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-test-key-456",
     )
 
@@ -1395,13 +1395,13 @@ async def test_key_info_returns_object_permission(monkeypatch):
     assert obj_perm["agents"] == ["agent_1"]
 
     # Verify the object permission was actually queried from database
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.assert_called_once_with(
         where={"object_permission_id": test_object_permission_id}
     )
 
 
-def _stored_key_with_lifetime_spend(token: str, spend: float, total_spend: float) -> LiteLLM_VerificationToken:
-    return LiteLLM_VerificationToken.model_validate(
+def _stored_key_with_lifetime_spend(token: str, spend: float, total_spend: float) -> HangarLLM_VerificationToken:
+    return HangarLLM_VerificationToken.model_validate(
         {"token": token, "user_id": "user123", "spend": spend, "total_spend": total_spend}
     )
 
@@ -1409,17 +1409,17 @@ def _stored_key_with_lifetime_spend(token: str, spend: float, total_spend: float
 @pytest.mark.asyncio
 async def test_key_info_returns_lifetime_total_spend_next_to_resettable_spend(monkeypatch):
     """After a budget reset the period spend is 0 while total_spend keeps the lifetime figure."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=_stored_key_with_lifetime_spend(token="hashed_key", spend=0.0, total_spend=3.75)
     )
 
     result = await info_key_fn(
         key="sk-test-key-456",
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-test-key-456"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-test-key-456"),
     )
 
     assert result["info"]["spend"] == 0.0
@@ -1429,10 +1429,10 @@ async def test_key_info_returns_lifetime_total_spend_next_to_resettable_spend(mo
 @pytest.mark.asyncio
 async def test_list_keys_full_object_returns_lifetime_total_spend():
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[_stored_key_with_lifetime_spend(token="hashed_key", spend=0.0, total_spend=3.75)]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=1)
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=1)
 
     result = await list_key_helper(
         prisma_client=mock_prisma_client,
@@ -1457,12 +1457,12 @@ async def test_list_keys_full_object_returns_lifetime_total_spend():
 @pytest.mark.asyncio
 async def test_get_new_token_with_valid_key(monkeypatch):
     """Test get_new_token function when provided with a valid key that starts with 'sk-'"""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         get_new_token,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     # Test with valid new_key
     data = RegenerateKeyRequest(new_key="sk-test1234567890abc")
@@ -1476,12 +1476,12 @@ async def test_get_new_token_with_invalid_key(monkeypatch):
     """Test get_new_token function when provided with an invalid key that doesn't start with 'sk-'"""
     from fastapi import HTTPException
 
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         get_new_token,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     # Test with invalid new_key (doesn't start with 'sk-')
     data = RegenerateKeyRequest(new_key="invalid-key-123")
@@ -1499,12 +1499,12 @@ async def test_get_new_token_rejects_short_new_key(monkeypatch):
     otherwise the stored key_name (sk-...{last 4 chars}) reveals the entire key."""
     from fastapi import HTTPException
 
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         get_new_token,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     data = RegenerateKeyRequest(new_key="sk-99")
 
@@ -1523,18 +1523,18 @@ async def test_generate_key_fn_rejects_short_custom_key(monkeypatch, short_key):
     accepted and fully exposed via key_name."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles, ProxyException
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles, ProxyException
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     assert len(short_key) < 16
 
@@ -1542,7 +1542,7 @@ async def test_generate_key_fn_rejects_short_custom_key(monkeypatch, short_key):
         await generate_key_fn(
             data=GenerateKeyRequest(key=short_key),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
+                user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
             ),
         )
 
@@ -1555,23 +1555,23 @@ async def test_generate_key_fn_accepts_custom_key_at_minimum_length(monkeypatch)
     """Custom keys at exactly the minimum length (16 chars) are still accepted."""
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None, object_permission=None)
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None, object_permission=None)
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     custom_key = "sk-abcdefghijklm"
     assert len(custom_key) == 16
@@ -1579,7 +1579,7 @@ async def test_generate_key_fn_accepts_custom_key_at_minimum_length(monkeypatch)
     response = await generate_key_fn(
         data=GenerateKeyRequest(key=custom_key),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
         ),
     )
 
@@ -1591,11 +1591,11 @@ async def test_check_custom_key_allowed_when_disabled(monkeypatch):
     """_check_custom_key_allowed raises 403 when disable_custom_api_keys is true."""
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
 
     with pytest.raises(HTTPException) as exc_info:
         await _check_custom_key_allowed("sk-custom-key-123")
@@ -1607,11 +1607,11 @@ async def test_check_custom_key_allowed_when_disabled(monkeypatch):
 @pytest.mark.asyncio
 async def test_check_custom_key_allowed_when_enabled(monkeypatch):
     """_check_custom_key_allowed does nothing when disable_custom_api_keys is false."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": False})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": False})
 
     # Should not raise
     await _check_custom_key_allowed("sk-custom-key-123")
@@ -1620,11 +1620,11 @@ async def test_check_custom_key_allowed_when_enabled(monkeypatch):
 @pytest.mark.asyncio
 async def test_check_custom_key_allowed_when_unset(monkeypatch):
     """_check_custom_key_allowed does nothing when setting is not present."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     # Should not raise
     await _check_custom_key_allowed("sk-custom-key-123")
@@ -1635,14 +1635,14 @@ async def test_check_custom_key_allowed_honours_the_config_file(monkeypatch):
     """A config-file general_settings.disable_custom_api_keys is enforced with no stored UI row."""
     from fastapi import HTTPException
 
-    from litellm.proxy.config_resolvers import SettingsStore
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.config_resolvers import SettingsStore
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
 
     general_settings = SettingsStore("general_settings")
     general_settings.load_yaml({"disable_custom_api_keys": True})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
 
     with pytest.raises(HTTPException) as exc_info:
         await _check_custom_key_allowed("sk-custom-key-123456")
@@ -1668,14 +1668,14 @@ async def test_check_custom_key_allowed_coerces_a_non_bool_config_value(monkeypa
     """A YAML value that is not a bare bool, such as a quoted "true", still decides the gate."""
     from fastapi import HTTPException
 
-    from litellm.proxy.config_resolvers import SettingsStore
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.config_resolvers import SettingsStore
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
 
     general_settings = SettingsStore("general_settings")
     general_settings.load_yaml({"disable_custom_api_keys": config_value})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
 
     rejected = False
     try:
@@ -1691,17 +1691,17 @@ async def test_check_custom_key_allowed_config_file_beats_the_stored_ui_row(monk
     """The config file owns the flag, so a stored UI row saying false cannot re-open custom keys."""
     from fastapi import HTTPException
 
-    from litellm.proxy.config_resolvers import SettingsStore
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.config_resolvers import SettingsStore
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
-    from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+    from hangarllm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
         apply_runtime_general_settings_flags,
     )
 
     general_settings = SettingsStore("general_settings")
     general_settings.load_yaml({"disable_custom_api_keys": True})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
 
     apply_runtime_general_settings_flags({"disable_custom_api_keys": False})
 
@@ -1716,17 +1716,17 @@ async def test_check_custom_key_allowed_picks_up_a_ui_write_without_the_serving_
     """A pod that never served the PATCH enforces the new value after its own settings sync."""
     from fastapi import HTTPException
 
-    from litellm.proxy.config_resolvers import SettingsStore
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.config_resolvers import SettingsStore
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
-    from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+    from hangarllm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
         apply_runtime_general_settings_flags,
     )
 
     general_settings = SettingsStore("general_settings")
     general_settings.load_yaml({})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
 
     await _check_custom_key_allowed("sk-custom-key-123456")
 
@@ -1741,11 +1741,11 @@ async def test_check_custom_key_allowed_picks_up_a_ui_write_without_the_serving_
 @pytest.mark.asyncio
 async def test_check_custom_key_allowed_none_key_always_passes(monkeypatch):
     """_check_custom_key_allowed does nothing when key is None, even if setting is on."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _check_custom_key_allowed,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
 
     # Should not raise — None means auto-generate
     await _check_custom_key_allowed(None)
@@ -1756,12 +1756,12 @@ async def test_get_new_token_rejected_when_custom_keys_disabled(monkeypatch):
     """get_new_token raises 403 when new_key is set and disable_custom_api_keys is true."""
     from fastapi import HTTPException
 
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         get_new_token,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
 
     data = RegenerateKeyRequest(new_key="sk-custom-regen-key")
 
@@ -1774,12 +1774,12 @@ async def test_get_new_token_rejected_when_custom_keys_disabled(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_new_token_auto_generates_when_custom_keys_disabled(monkeypatch):
     """get_new_token auto-generates a key when new_key is None, even if setting is on."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         get_new_token,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"disable_custom_api_keys": True})
 
     data = RegenerateKeyRequest()  # no new_key
     result = await get_new_token(data)
@@ -1796,9 +1796,9 @@ async def test_generate_service_account_requires_team_id():
                 team_id=None,
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"
+                user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -1809,11 +1809,11 @@ async def test_generate_service_account_works_with_team_id():
 
     # Mock the database and router dependencies from proxy_server
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
-        patch("litellm.proxy.proxy_server.llm_router") as mock_router,
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
+        patch("hangarllm.proxy.proxy_server.llm_router") as mock_router,
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
         ) as mock_generate_key,
     ):
 
@@ -1835,9 +1835,9 @@ async def test_generate_service_account_works_with_team_id():
                 team_id="IJ",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"
+                user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -1861,10 +1861,10 @@ def _key_generation_prisma_client(
     )
     object_permission_table.delete = AsyncMock()
 
-    prisma_client.db.litellm_budgettable = budget_table
-    prisma_client.db.litellm_objectpermissiontable = object_permission_table
-    prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(return_value=project_record)
+    prisma_client.db.hangarllm_budgettable = budget_table
+    prisma_client.db.hangarllm_objectpermissiontable = object_permission_table
+    prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(return_value=project_record)
     prisma_client.insert_data = AsyncMock()
     return prisma_client, budget_table, object_permission_table
 
@@ -1876,15 +1876,15 @@ async def test_rejected_key_generation_deletes_created_budget_and_default_permis
     prisma_client, budget_table, object_permission_table = _key_generation_prisma_client(
         {"project_id": "project-b", "team_id": "team-b"}
     )
-    monkeypatch.setattr(litellm, "key_generation_settings", None)
+    monkeypatch.setattr(hangarllm, "key_generation_settings", None)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"object_permission": {"vector_stores": ["default-vector-store"]}},
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
 
     with pytest.raises(KeyProjectBindingError) as exc:
         await _common_key_generation_helper(
@@ -1895,11 +1895,11 @@ async def test_rejected_key_generation_deletes_created_budget_and_default_permis
                 team_id="team-a",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -1918,15 +1918,15 @@ async def test_key_generation_does_not_delete_rows_for_other_http_exceptions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     prisma_client, budget_table, object_permission_table = _key_generation_prisma_client(None)
-    monkeypatch.setattr(litellm, "key_generation_settings", None)
+    monkeypatch.setattr(hangarllm, "key_generation_settings", None)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"object_permission": {"vector_stores": ["default-vector-store"]}},
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
 
     with pytest.raises(HTTPException) as exc:
         await _common_key_generation_helper(
@@ -1937,11 +1937,11 @@ async def test_key_generation_does_not_delete_rows_for_other_http_exceptions(
                 team_id="team-a",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -1961,16 +1961,16 @@ async def test_generate_key_throttle_rejected_for_non_admin():
     /key/update gate does not cover generate, so generate needs its own admin
     check. Only the enable value is gated, so this must 403."""
     mock_prisma_client = AsyncMock()
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         with pytest.raises(HTTPException) as exc:
             await _common_key_generation_helper(
                 data=GenerateKeyRequest(throttle_on_budget_exceeded=True),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                     api_key="sk-alice",
                     user_id="alice",
                 ),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=None,
             )
     assert int(getattr(exc.value, "status_code", 0)) == 403
@@ -1982,11 +1982,11 @@ async def test_generate_key_throttle_allowed_for_admin():
     """A proxy admin may create a key with throttle_on_budget_exceeded=true; the
     generate admin gate must let the admin through to key creation."""
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
         ) as mock_generate_key,
     ):
         mock_generate_key.return_value = {
@@ -1997,8 +1997,8 @@ async def test_generate_key_throttle_allowed_for_admin():
         }
         await _common_key_generation_helper(
             data=GenerateKeyRequest(throttle_on_budget_exceeded=True),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert mock_generate_key.called
@@ -2009,13 +2009,13 @@ async def test_generate_key_end_user_budget_id_rejected_for_non_admin():
     """A key's default end-user budget overrides the proxy-wide one, so a non-admin must not
     be able to pick a looser one for the customers their key creates."""
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock()
     with pytest.raises(HTTPException) as exc:
         await _validate_end_user_budget_id_change(
             requested_budget_id="svc-a-budget",
             existing_budget_id=None,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-alice",
                 user_id="alice",
             ),
@@ -2023,13 +2023,13 @@ async def test_generate_key_end_user_budget_id_rejected_for_non_admin():
         )
     assert int(getattr(exc.value, "status_code", 0)) == 403
     assert "Only proxy admins can set end_user_budget_id" in str(exc.value.detail)
-    mock_prisma_client.db.litellm_budgettable.find_unique.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique.assert_not_awaited()
 
     await _validate_end_user_budget_id_change(
         requested_budget_id="",
         existing_budget_id=None,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-alice",
             user_id="alice",
         ),
@@ -2042,17 +2042,17 @@ async def test_generate_key_end_user_budget_id_must_name_an_existing_budget():
     """A typo in end_user_budget_id would silently leave new customers on the proxy-wide default,
     so key creation rejects an id that matches no budget row."""
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(return_value=None)
     with pytest.raises(HTTPException) as exc:
         await _validate_end_user_budget_id_change(
             requested_budget_id="no-such-budget",
             existing_budget_id=None,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
             prisma_client=mock_prisma_client,
         )
     assert int(getattr(exc.value, "status_code", 0)) == 400
     assert "no-such-budget" in str(exc.value.detail)
-    mock_prisma_client.db.litellm_budgettable.find_unique.assert_awaited_once_with(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique.assert_awaited_once_with(
         where={"budget_id": "no-such-budget"}
     )
 
@@ -2063,15 +2063,15 @@ async def test_generate_key_end_user_budget_id_lands_in_key_metadata():
     budget_row = MagicMock()
     budget_row.model_dump.return_value = {"budget_id": "svc-a-budget", "max_budget": 0.5}
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(return_value=budget_row)
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(return_value=budget_row)
     with (
         patch(  # test-quality-ok: the helper reads proxy_server globals, no seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client
         ),
-        patch("litellm.proxy.proxy_server.llm_router", None),  # test-quality-ok: read as a proxy_server global
-        patch("litellm.proxy.proxy_server.premium_user", False),  # test-quality-ok: read as a proxy_server global
+        patch("hangarllm.proxy.proxy_server.llm_router", None),  # test-quality-ok: read as a proxy_server global
+        patch("hangarllm.proxy.proxy_server.premium_user", False),  # test-quality-ok: read as a proxy_server global
         patch(  # test-quality-ok: assertion is on the metadata handed to the db writer
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
         ) as mock_generate_key,
     ):
         mock_generate_key.return_value = {
@@ -2082,8 +2082,8 @@ async def test_generate_key_end_user_budget_id_lands_in_key_metadata():
         }
         await _common_key_generation_helper(
             data=GenerateKeyRequest(end_user_budget_id="svc-a-budget"),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert mock_generate_key.call_args.kwargs["metadata"] == {"end_user_budget_id": "svc-a-budget"}
@@ -2093,7 +2093,7 @@ async def test_generate_key_end_user_budget_id_lands_in_key_metadata():
 async def test_update_key_end_user_budget_id_folds_into_metadata_and_survives_omission():
     """/key/update with end_user_budget_id writes it into metadata; an update that omits the field
     (the edit form only sends what changed) keeps the value the key already had."""
-    existing_key = LiteLLM_VerificationToken(token="hashed", metadata={"end_user_budget_id": "svc-a-budget"})
+    existing_key = HangarLLM_VerificationToken(token="hashed", metadata={"end_user_budget_id": "svc-a-budget"})
 
     updated = await prepare_key_update_data(
         data=UpdateKeyRequest(key="sk-1", end_user_budget_id="svc-b-budget"), existing_key_row=existing_key
@@ -2110,16 +2110,16 @@ async def test_update_key_end_user_budget_id_folds_into_metadata_and_survives_om
 async def test_update_key_clears_end_user_budget_id_with_empty_string():
     """Sending an empty end_user_budget_id detaches the key default without touching any budget row,
     so auth falls back to the proxy-wide default for that key's customers."""
-    from litellm.proxy.auth.auth_checks import get_key_end_user_budget_id
+    from hangarllm.proxy.auth.auth_checks import get_key_end_user_budget_id
 
-    existing_key = LiteLLM_VerificationToken(token="hashed", metadata={"end_user_budget_id": "svc-a-budget"})
+    existing_key = HangarLLM_VerificationToken(token="hashed", metadata={"end_user_budget_id": "svc-a-budget"})
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(return_value=None)
 
     await _validate_update_key_data(
         data=UpdateKeyRequest(key="sk-1", end_user_budget_id=""),
         existing_key_row=existing_key,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
         llm_router=None,
         premium_user=False,
         prisma_client=mock_prisma_client,
@@ -2130,7 +2130,7 @@ async def test_update_key_clears_end_user_budget_id_with_empty_string():
         existing_key_row=existing_key,
     )
 
-    mock_prisma_client.db.litellm_budgettable.find_unique.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique.assert_not_awaited()
     assert get_key_end_user_budget_id(cleared["metadata"]) is None
 
 
@@ -2138,10 +2138,10 @@ async def test_update_key_clears_end_user_budget_id_with_empty_string():
 async def test_update_key_metadata_body_without_end_user_budget_id_is_a_clear_for_non_admin():
     """/key/update replaces metadata wholesale, so a non-admin sending metadata that drops the field
     would detach the key default; that must be refused like an explicit clear, while an admin may do it."""
-    existing_key = LiteLLM_VerificationToken(token="hashed", metadata={"end_user_budget_id": "svc-a-budget"})
+    existing_key = HangarLLM_VerificationToken(token="hashed", metadata={"end_user_budget_id": "svc-a-budget"})
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(return_value=None)
-    non_admin = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-alice", user_id="alice")
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(return_value=None)
+    non_admin = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-alice", user_id="alice")
 
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
@@ -2166,44 +2166,44 @@ async def test_update_key_metadata_body_without_end_user_budget_id_is_a_clear_fo
     await _validate_end_user_budget_id_change(
         requested_budget_id=_requested_end_user_budget_id(UpdateKeyRequest(key="sk-1", metadata={"team": "ops"})),
         existing_budget_id="svc-a-budget",
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
         prisma_client=mock_prisma_client,
     )
     assert _requested_end_user_budget_id(UpdateKeyRequest(key="sk-1", key_alias="renamed")) is None
-    mock_prisma_client.db.litellm_budgettable.find_unique.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_regenerate_key_end_user_budget_id_rejected_for_non_admin():
     """/key/regenerate also accepts key params, so a non-admin must not be able to use it to attach
     a looser default customer budget that /key/generate and /key/update would refuse."""
-    from litellm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy._types import RegenerateKeyRequest
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock()
     with pytest.raises(HTTPException) as exc:
         await _execute_virtual_key_regeneration(
             prisma_client=mock_prisma_client,
-            key_in_db=LiteLLM_VerificationToken(token="hashed", user_id="alice"),
+            key_in_db=HangarLLM_VerificationToken(token="hashed", user_id="alice"),
             hashed_api_key="hashed",
             key="hashed",
             data=RegenerateKeyRequest(end_user_budget_id="svc-a-budget"),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-alice", user_id="alice"
+                user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-alice", user_id="alice"
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
     assert int(getattr(exc.value, "status_code", 0)) == 403
     assert "Only proxy admins can set end_user_budget_id" in str(exc.value.detail)
-    mock_prisma_client.db.litellm_verificationtoken.update.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_verificationtoken.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_update_service_account_requires_team_id():
     data = UpdateKeyRequest(key="sk-1", metadata={"service_account_id": "sa"})
-    existing_key = LiteLLM_VerificationToken(token="hashed", team_id=None)
+    existing_key = HangarLLM_VerificationToken(token="hashed", team_id=None)
 
     with pytest.raises(HTTPException):
         await prepare_key_update_data(data=data, existing_key_row=existing_key)
@@ -2214,7 +2214,7 @@ async def test_update_service_account_works_with_team_id():
     data = UpdateKeyRequest(
         key="sk-1", metadata={"service_account_id": "sa"}, team_id="IJ"
     )
-    existing_key = LiteLLM_VerificationToken(token="hashed")
+    existing_key = HangarLLM_VerificationToken(token="hashed")
 
     await prepare_key_update_data(data=data, existing_key_row=existing_key)
 
@@ -2224,7 +2224,7 @@ async def test_update_service_account_works_with_team_id():
 async def test_update_key_enable_prompt_caching_folds_into_metadata(flag_value):
     """Top-level enable_prompt_caching on /key/update lands in key metadata, including flipping back to False."""
     data = UpdateKeyRequest(key="sk-1", enable_prompt_caching=flag_value)
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="hashed", metadata={"enable_prompt_caching": not flag_value}
     )
 
@@ -2238,7 +2238,7 @@ async def test_update_key_enable_prompt_caching_folds_into_metadata(flag_value):
 @pytest.mark.parametrize("tpd_limit", [250000, None])
 async def test_update_key_writes_tpd_limit_as_a_column(tpd_limit):
     data = UpdateKeyRequest(key="sk-1", tpd_limit=tpd_limit)
-    existing_key = LiteLLM_VerificationToken(token="hashed", tpd_limit=1)
+    existing_key = HangarLLM_VerificationToken(token="hashed", tpd_limit=1)
 
     updated = await prepare_key_update_data(data=data, existing_key_row=existing_key)
 
@@ -2258,7 +2258,7 @@ async def test_update_preserves_service_account_id_when_metadata_replaced():
         metadata={"unrelated": "value"},
         team_id="IJ",
     )
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="hashed",
         team_id="IJ",
         metadata={"service_account_id": "sa-123"},
@@ -2282,7 +2282,7 @@ async def test_update_rejects_service_account_id_overwrite():
         metadata={"service_account_id": "sa-new"},
         team_id="IJ",
     )
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="hashed",
         team_id="IJ",
         metadata={"service_account_id": "sa-old"},
@@ -2301,7 +2301,7 @@ async def test_update_allows_matching_service_account_id():
         metadata={"service_account_id": "sa-123", "other": "value"},
         team_id="IJ",
     )
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="hashed",
         team_id="IJ",
         metadata={"service_account_id": "sa-123"},
@@ -2325,7 +2325,7 @@ async def test_update_rejects_explicit_null_service_account_id():
         metadata={"service_account_id": None},
         team_id="IJ",
     )
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="hashed",
         team_id="IJ",
         metadata={"service_account_id": "sa-old"},
@@ -2344,7 +2344,7 @@ async def test_update_rejects_whole_metadata_null_on_service_account_key():
     since the effect would be to clear an immutable field.
     """
     data = UpdateKeyRequest(key="sk-1", metadata=None, team_id="IJ")
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="hashed",
         team_id="IJ",
         metadata={"service_account_id": "sa-123"},
@@ -2359,7 +2359,7 @@ async def test_update_rejects_whole_metadata_null_on_service_account_key():
 async def test_update_without_metadata_still_preserves_existing():
     """Omitting metadata entirely must not drop existing metadata fields."""
     data = UpdateKeyRequest(key="sk-1", max_budget=100)
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="hashed",
         team_id="IJ",
         metadata={"service_account_id": "sa-123", "other": "kept"},
@@ -2374,9 +2374,9 @@ async def test_update_without_metadata_still_preserves_existing():
 @pytest.mark.asyncio
 async def test_prepare_key_update_data_encrypts_callback_vars(monkeypatch):
     """/key/update must encrypt callback_vars values before they reach the DB."""
-    from litellm.proxy.common_utils.callback_utils import decrypt_callback_vars
+    from hangarllm.proxy.common_utils.callback_utils import decrypt_callback_vars
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     data = UpdateKeyRequest(
         key="sk-1",
         metadata={
@@ -2392,7 +2392,7 @@ async def test_prepare_key_update_data_encrypts_callback_vars(monkeypatch):
             ]
         },
     )
-    existing_key = LiteLLM_VerificationToken(token="hashed")
+    existing_key = HangarLLM_VerificationToken(token="hashed")
 
     result = await prepare_key_update_data(data=data, existing_key_row=existing_key)
 
@@ -2407,13 +2407,13 @@ async def test_prepare_key_update_data_encrypts_callback_vars(monkeypatch):
 @pytest.mark.asyncio
 async def test_prepare_key_update_data_duration_never_expires():
     """Test that duration="-1" sets expires to None (never expires)."""
-    from litellm.proxy._types import UpdateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import UpdateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         prepare_key_update_data,
     )
 
     # Mock existing key
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=["gpt-3.5-turbo"],
@@ -2438,12 +2438,12 @@ async def test_prepare_key_update_data_duration_never_expires():
 @pytest.mark.asyncio
 async def test_prepare_key_update_data_duration_none_never_expires():
     """Test that duration=None sets expires to None (never expires)."""
-    from litellm.proxy._types import UpdateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import UpdateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         prepare_key_update_data,
     )
 
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=["gpt-3.5-turbo"],
@@ -2467,12 +2467,12 @@ async def test_prepare_key_update_data_duration_none_never_expires():
 @pytest.mark.parametrize("cleared_value", [[], None])
 async def test_prepare_key_update_data_budget_limits_clears_field(cleared_value):
     """budget_limits=[] / None must serialize to JSON null, never reach Prisma raw."""
-    from litellm.proxy._types import UpdateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import UpdateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         prepare_key_update_data,
     )
 
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=["gpt-3.5-turbo"],
@@ -2493,12 +2493,12 @@ async def test_prepare_key_update_data_budget_limits_clears_field(cleared_value)
 @pytest.mark.asyncio
 async def test_prepare_key_update_data_budget_limits_serializes_windows():
     """Non-empty budget_limits stay JSON-encoded with reset_at initialized."""
-    from litellm.proxy._types import UpdateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import UpdateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         prepare_key_update_data,
     )
 
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=["gpt-3.5-turbo"],
@@ -2522,8 +2522,8 @@ async def test_prepare_key_update_data_budget_limits_serializes_windows():
     assert windows[0]["reset_at"] is not None
 
 
-def _key_with_weekly_window(reset_at: datetime) -> LiteLLM_VerificationToken:
-    return LiteLLM_VerificationToken(
+def _key_with_weekly_window(reset_at: datetime) -> HangarLLM_VerificationToken:
+    return HangarLLM_VerificationToken(
         token="test-token",
         user_id="test-user",
         metadata={},
@@ -2532,7 +2532,7 @@ def _key_with_weekly_window(reset_at: datetime) -> LiteLLM_VerificationToken:
 
 
 async def _updated_windows_by_duration(
-    existing_key: LiteLLM_VerificationToken, budget_limits: list[dict[str, object]]
+    existing_key: HangarLLM_VerificationToken, budget_limits: list[dict[str, object]]
 ) -> dict[str, dict[str, object]]:
     result: Final = await prepare_key_update_data(
         data=UpdateKeyRequest.model_validate({"key": "test-token", "budget_limits": budget_limits}),
@@ -2575,9 +2575,9 @@ async def test_prepare_key_update_data_disable_global_guardrails_false_no_premiu
     Regression #30285: editing a key via the UI sends disable_global_guardrails=False
     (unchanged default). A non-premium user must NOT get a 403, and False must persist.
     """
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
     data = UpdateKeyRequest(key="sk-1", disable_global_guardrails=False)
-    existing_key = LiteLLM_VerificationToken(token="hashed")
+    existing_key = HangarLLM_VerificationToken(token="hashed")
 
     result = await prepare_key_update_data(data=data, existing_key_row=existing_key)
 
@@ -2589,9 +2589,9 @@ async def test_prepare_key_update_data_disable_global_guardrails_true_requires_p
     monkeypatch,
 ):
     """Control: enabling the premium feature (True) without a license still 403s."""
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
     data = UpdateKeyRequest(key="sk-1", disable_global_guardrails=True)
-    existing_key = LiteLLM_VerificationToken(token="hashed")
+    existing_key = HangarLLM_VerificationToken(token="hashed")
 
     with pytest.raises(HTTPException) as exc_info:
         await prepare_key_update_data(data=data, existing_key_row=existing_key)
@@ -2603,9 +2603,9 @@ async def test_prepare_key_update_data_disable_global_guardrails_true_premium_pe
     monkeypatch,
 ):
     """A premium user enabling the feature (True) succeeds and the value persists."""
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     data = UpdateKeyRequest(key="sk-1", disable_global_guardrails=True)
-    existing_key = LiteLLM_VerificationToken(token="hashed")
+    existing_key = HangarLLM_VerificationToken(token="hashed")
 
     result = await prepare_key_update_data(data=data, existing_key_row=existing_key)
 
@@ -2618,7 +2618,7 @@ async def test_validate_team_id_used_in_service_account_request_requires_team_id
     Test that validate_team_id_used_in_service_account_request raises HTTPException
     when team_id is None for service account key generation.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         validate_team_id_used_in_service_account_request,
     )
 
@@ -2641,7 +2641,7 @@ async def test_validate_team_id_used_in_service_account_request_requires_prisma_
     Test that validate_team_id_used_in_service_account_request raises HTTPException
     when prisma_client is None for service account key generation.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         validate_team_id_used_in_service_account_request,
     )
 
@@ -2664,7 +2664,7 @@ async def test_validate_team_id_used_in_service_account_request_checks_team_exis
     Test that validate_team_id_used_in_service_account_request validates that
     the team_id exists in the database for service account key generation.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         validate_team_id_used_in_service_account_request,
     )
 
@@ -2672,7 +2672,7 @@ async def test_validate_team_id_used_in_service_account_request_checks_team_exis
 
     # Mock the database query to return None (team doesn't exist)
     mock_find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_teamtable.find_unique = mock_find_unique
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = mock_find_unique
 
     # Test that HTTPException is raised when team doesn't exist in DB
     with pytest.raises(HTTPException) as exc_info:
@@ -2694,7 +2694,7 @@ async def test_validate_team_id_used_in_service_account_request_success():
     Test that validate_team_id_used_in_service_account_request returns True
     when team_id exists in the database for service account key generation.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         validate_team_id_used_in_service_account_request,
     )
 
@@ -2703,7 +2703,7 @@ async def test_validate_team_id_used_in_service_account_request_success():
     # Mock the database query to return a team object (team exists)
     mock_team = {"team_id": "existing-team-id", "team_name": "Test Team"}
     mock_find_unique = AsyncMock(return_value=mock_team)
-    mock_prisma_client.db.litellm_teamtable.find_unique = mock_find_unique
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = mock_find_unique
 
     # Test that function returns True when team exists
     result = await validate_team_id_used_in_service_account_request(
@@ -2725,12 +2725,12 @@ async def test_generate_service_account_key_endpoint_validation():
     """
     from unittest.mock import patch
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_service_account_key_fn,
     )
 
     # Test case 1: Missing team_id
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
         # Mock prisma_client to be not None so we can reach team_id validation
         mock_prisma_instance = AsyncMock()
         mock_prisma.return_value = mock_prisma_instance
@@ -2739,9 +2739,9 @@ async def test_generate_service_account_key_endpoint_validation():
             await generate_service_account_key_fn(
                 data=GenerateKeyRequest(team_id=None),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"
                 ),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
         assert exc_info.value.status_code == 400
@@ -2750,18 +2750,18 @@ async def test_generate_service_account_key_endpoint_validation():
         )
 
     # Test case 2: Team doesn't exist in database
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma:
+    with patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma:
         # Mock team not found
         mock_find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_teamtable.find_unique = mock_find_unique
+        mock_prisma.db.hangarllm_teamtable.find_unique = mock_find_unique
 
         with pytest.raises(HTTPException) as exc_info:
             await generate_service_account_key_fn(
                 data=GenerateKeyRequest(team_id="non-existent-team"),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"
                 ),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
         assert exc_info.value.status_code == 400
@@ -2777,8 +2777,8 @@ async def test_unblock_key_supports_both_sk_and_hashed_tokens(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import unblock_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import unblock_key
 
     # Mock dependencies
     mock_prisma_client = AsyncMock()
@@ -2799,10 +2799,10 @@ async def test_unblock_key_supports_both_sk_and_hashed_tokens(monkeypatch):
     )
 
     # Mock database operations
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_record
     )
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=mock_key_record
     )
 
@@ -2813,16 +2813,16 @@ async def test_unblock_key_supports_both_sk_and_hashed_tokens(monkeypatch):
         return token
 
     # Apply monkeypatch
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", mock_hash_token)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", mock_hash_token)
     monkeypatch.setattr(
-        "litellm.store_audit_logs", False
+        "hangarllm.store_audit_logs", False
     )  # Disable audit logs for simpler test
 
     # Mock get_key_object and _cache_key_object
@@ -2830,14 +2830,14 @@ async def test_unblock_key_supports_both_sk_and_hashed_tokens(monkeypatch):
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         mock_delete_cache_key_object,
     )
 
     # Create mock request and user auth
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
     )
 
     # Test Case 1: Using sk- prefixed token
@@ -2847,18 +2847,18 @@ async def test_unblock_key_supports_both_sk_and_hashed_tokens(monkeypatch):
         data=sk_token_request,
         http_request=mock_request,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     # Verify that the database update was called with hashed token
-    sk_token_call = mock_prisma_client.db.litellm_verificationtoken.update.call_args.kwargs
+    sk_token_call = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args.kwargs
     assert sk_token_call["where"] == {"token": test_hashed_token}
     assert sk_token_call["data"]["blocked"] is False
 
     assert result == mock_key_record
 
     # Reset mocks for second test
-    mock_prisma_client.db.litellm_verificationtoken.update.reset_mock()
+    mock_prisma_client.db.hangarllm_verificationtoken.update.reset_mock()
 
     # Test Case 2: Using already hashed token
     hashed_token_request = BlockKeyRequest(key=test_hashed_token)
@@ -2867,11 +2867,11 @@ async def test_unblock_key_supports_both_sk_and_hashed_tokens(monkeypatch):
         data=hashed_token_request,
         http_request=mock_request,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     # Verify that the database update was called with the same hashed token
-    hashed_token_call = mock_prisma_client.db.litellm_verificationtoken.update.call_args.kwargs
+    hashed_token_call = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args.kwargs
     assert hashed_token_call["where"] == {"token": test_hashed_token}
     assert hashed_token_call["data"]["blocked"] is False
 
@@ -2884,18 +2884,18 @@ async def test_unblock_key_invalid_key_format(monkeypatch):
     Test that unblock_key properly validates key format and raises appropriate errors
     for invalid keys.
     """
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import unblock_key
-    from litellm.proxy.utils import ProxyException
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import unblock_key
+    from hangarllm.proxy.utils import ProxyException
 
     # Mock prisma_client to avoid DB connection error
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     # Mock request and user auth
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
     )
 
     # Test with invalid key format
@@ -2906,7 +2906,7 @@ async def test_unblock_key_invalid_key_format(monkeypatch):
             data=invalid_key_request,
             http_request=mock_request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc_info.value.code == "400"
@@ -2924,34 +2924,34 @@ async def test_block_key_nonexistent_key_returns_404(monkeypatch):
     which raised a 401 ProxyException with 'Authentication Error' — making
     it look like an auth failure when it was really a missing-key error.
     """
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import block_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import block_key
 
     mock_prisma_client = AsyncMock()
     mock_user_api_key_cache = MagicMock()
     mock_proxy_logging_obj = MagicMock()
 
     # find_unique returns None → key does not exist
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
 
     def mock_hash_token(token):
         return "abcd1234" * 8  # 64-char hex
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", mock_hash_token)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", mock_hash_token)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
     )
 
     data = BlockKeyRequest(key="sk-does-not-exist-key")
@@ -2961,7 +2961,7 @@ async def test_block_key_nonexistent_key_returns_404(monkeypatch):
             data=data,
             http_request=mock_request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc_info.value.code == "404"
@@ -2969,7 +2969,7 @@ async def test_block_key_nonexistent_key_returns_404(monkeypatch):
     # Must NOT contain "Authentication Error"
     assert "Authentication Error" not in str(exc_info.value.message)
     # update should never be called since the key doesn't exist
-    mock_prisma_client.db.litellm_verificationtoken.update.assert_not_called()
+    mock_prisma_client.db.hangarllm_verificationtoken.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -2978,8 +2978,8 @@ async def test_unblock_key_nonexistent_key_returns_404(monkeypatch):
     Test that unblock_key returns 404 (not misleading 401) when the key
     doesn't exist in the database.
     """
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         unblock_key,
     )
 
@@ -2988,26 +2988,26 @@ async def test_unblock_key_nonexistent_key_returns_404(monkeypatch):
     mock_proxy_logging_obj = MagicMock()
 
     # find_unique returns None → key does not exist
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
 
     def mock_hash_token(token):
         return "abcd1234" * 8
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", mock_hash_token)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", mock_hash_token)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
     )
 
     data = BlockKeyRequest(key="sk-does-not-exist-key")
@@ -3017,13 +3017,13 @@ async def test_unblock_key_nonexistent_key_returns_404(monkeypatch):
             data=data,
             http_request=mock_request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc_info.value.code == "404"
     assert "not found" in str(exc_info.value.message).lower()
     assert "Authentication Error" not in str(exc_info.value.message)
-    mock_prisma_client.db.litellm_verificationtoken.update.assert_not_called()
+    mock_prisma_client.db.hangarllm_verificationtoken.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -3033,7 +3033,7 @@ async def test_update_key_nonexistent_key_returns_404(monkeypatch):
     key doesn't exist in the database, even when the caller is authenticated
     as a proxy admin via the Authorization header.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -3042,23 +3042,23 @@ async def test_update_key_nonexistent_key_returns_404(monkeypatch):
     mock_proxy_logging_obj = MagicMock()
 
     # find_unique returns None → key does not exist
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
     )
 
     data = UpdateKeyRequest(key="sk-does-not-exist-key")
@@ -3068,7 +3068,7 @@ async def test_update_key_nonexistent_key_returns_404(monkeypatch):
             request=mock_request,
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc_info.value.code == "404"
@@ -3077,15 +3077,15 @@ async def test_update_key_nonexistent_key_returns_404(monkeypatch):
 
 
 def _setup_update_key_mocks(monkeypatch, mock_prisma_client):
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", AsyncMock())
     proxy_logging_obj: Final = MagicMock()
     proxy_logging_obj.service_logging_obj.async_service_success_hook = AsyncMock()
     proxy_logging_obj.service_logging_obj.async_service_failure_hook = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
 
 @pytest.mark.asyncio
@@ -3095,15 +3095,15 @@ async def test_update_key_rejects_a_duration_that_never_advances(monkeypatch, ba
     moment it is written. The reset job re-reads such rows on every tick, and a
     tenant with enough of them fills each batch and starves other tenants.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
     hashed_token = "0d62f396c1317066f55a96086517047c737087c61eb2bf016b72e6298927b15b"
-    key_in_db = LiteLLM_VerificationToken(token=hashed_token, user_id="test-user")
+    key_in_db = HangarLLM_VerificationToken(token=hashed_token, user_id="test-user")
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
     mock_prisma_client.update_data = AsyncMock()
@@ -3114,9 +3114,9 @@ async def test_update_key_rejects_a_duration_that_never_advances(monkeypatch, ba
             request=MagicMock(),
             data=UpdateKeyRequest(key=hashed_token, budget_duration=bad_duration),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+                user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert str(exc_info.value.code) == "400"
@@ -3128,24 +3128,24 @@ async def test_update_key_rejects_a_duration_that_never_advances(monkeypatch, ba
 @pytest.mark.parametrize("bad_duration", ["0s", "-5m"])
 async def test_generate_key_rejects_a_duration_that_never_advances(monkeypatch, bad_duration):
     """/key/generate must reject the same never-advancing durations /key/update does."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new=AsyncMock(),
     ) as mock_generate:
         with pytest.raises(ProxyException) as exc_info:
             await generate_key_fn(
                 data=GenerateKeyRequest(budget_duration=bad_duration),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876", user_id="1234"
                 ),
             )
 
@@ -3160,12 +3160,12 @@ async def test_update_key_by_alias_only(monkeypatch):
     /key/update identified by key_alias alone resolves the key row via
     find_many on the alias and updates using the resolved token.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
     hashed_token = "0d62f396c1317066f55a96086517047c737087c61eb2bf016b72e6298927b15b"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_token,
         key_alias="prod-alias",
         user_id="test-user",
@@ -3173,10 +3173,10 @@ async def test_update_key_by_alias_only(monkeypatch):
     )
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[key_in_db]
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(
         return_value=None
     )
     mock_prisma_client.update_data = AsyncMock(
@@ -3185,27 +3185,27 @@ async def test_update_key_by_alias_only(monkeypatch):
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
     )
 
     request_data = UpdateKeyRequest(key_alias="prod-alias", max_budget=50.0)
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
     ) as mock_delete_cache:
         mock_delete_cache.return_value = None
         result = await update_key_fn(
             request=MagicMock(),
             data=request_data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_many.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many.assert_called_once_with(
         where={"key_alias": "prod-alias"}, take=2
     )
     assert request_data.key == hashed_token
-    mock_prisma_client.db.litellm_verificationtoken.find_unique.assert_not_called()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique.assert_not_called()
     mock_prisma_client.update_data.assert_awaited_once()
     assert mock_prisma_client.update_data.call_args.kwargs["token"] == hashed_token
     assert (
@@ -3216,22 +3216,22 @@ async def test_update_key_by_alias_only(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_update_key_changed_alias_must_match_key_alias_pattern(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
-    monkeypatch.setattr(litellm, "key_alias_pattern", r"^[a-z0-9]+(-[a-z0-9]+)*$")
+    monkeypatch.setattr(hangarllm, "key_alias_pattern", r"^[a-z0-9]+(-[a-z0-9]+)*$")
     hashed_token = "0d62f396c1317066f55a96086517047c737087c61eb2bf016b72e6298927b15b"
-    key_in_db = LiteLLM_VerificationToken(token=hashed_token, key_alias="Legacy Alias", user_id="test-user")
+    key_in_db = HangarLLM_VerificationToken(token=hashed_token, key_alias="Legacy Alias", user_id="test-user")
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=key_in_db)
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[key_in_db])
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=key_in_db)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[key_in_db])
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(return_value=None)
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {"max_budget": 50.0}})
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
     )
 
     with pytest.raises(ProxyException) as exc_info:
@@ -3239,21 +3239,21 @@ async def test_update_key_changed_alias_must_match_key_alias_pattern(monkeypatch
             request=MagicMock(),
             data=UpdateKeyRequest(key=hashed_token, key_alias="Prod Key"),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert str(exc_info.value.code) == "400"
     assert "key_alias_pattern" in str(exc_info.value.message)
     mock_prisma_client.update_data.assert_not_awaited()
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         return_value=None,
     ):
         await update_key_fn(
             request=MagicMock(),
             data=UpdateKeyRequest(key=hashed_token, key_alias="Legacy Alias", max_budget=50.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     mock_prisma_client.update_data.assert_awaited_once()
 
@@ -3263,18 +3263,18 @@ async def test_update_key_by_alias_not_found_returns_404(monkeypatch):
     """
     /key/update with a key_alias matching no key returns 404.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
     )
 
     with pytest.raises(ProxyException) as exc_info:
@@ -3282,7 +3282,7 @@ async def test_update_key_by_alias_not_found_returns_404(monkeypatch):
             request=MagicMock(),
             data=UpdateKeyRequest(key_alias="no-such-alias", max_budget=50.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert str(exc_info.value.code) == "404"
@@ -3296,22 +3296,22 @@ async def test_update_key_by_duplicate_alias_returns_400(monkeypatch):
     /key/update with a key_alias shared by multiple keys returns 400
     instead of silently updating one of them.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
     rows = [
-        LiteLLM_VerificationToken(token="hashed-token-1", key_alias="dup-alias"),
-        LiteLLM_VerificationToken(token="hashed-token-2", key_alias="dup-alias"),
+        HangarLLM_VerificationToken(token="hashed-token-1", key_alias="dup-alias"),
+        HangarLLM_VerificationToken(token="hashed-token-2", key_alias="dup-alias"),
     ]
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=rows
     )
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
     )
 
     with pytest.raises(ProxyException) as exc_info:
@@ -3319,7 +3319,7 @@ async def test_update_key_by_duplicate_alias_returns_400(monkeypatch):
             request=MagicMock(),
             data=UpdateKeyRequest(key_alias="dup-alias", max_budget=50.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert str(exc_info.value.code) == "400"
@@ -3334,22 +3334,22 @@ async def test_update_key_with_key_and_alias_selects_by_key(monkeypatch):
     identifies the row (find_unique, never find_many) and key_alias is the new
     alias to set; the response echoes the caller-passed key.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
     hashed_token = "0d62f396c1317066f55a96086517047c737087c61eb2bf016b72e6298927b15b"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_token,
         key_alias="old-name",
         user_id="test-user",
     )
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(
         return_value=None
     )
     mock_prisma_client.update_data = AsyncMock(
@@ -3358,22 +3358,22 @@ async def test_update_key_with_key_and_alias_selects_by_key(monkeypatch):
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
     )
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
     ) as mock_delete_cache:
         mock_delete_cache.return_value = None
         result = await update_key_fn(
             request=MagicMock(),
             data=UpdateKeyRequest(key="sk-test-key", key_alias="new-name"),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_many.assert_not_called()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique.assert_called_once()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many.assert_not_called()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique.assert_called_once()
     assert mock_prisma_client.update_data.call_args.kwargs["token"] == "sk-test-key"
     assert result["key"] == "sk-test-key"
 
@@ -3384,8 +3384,8 @@ async def test_block_key_existing_key_succeeds(monkeypatch):
     Test that block_key successfully blocks an existing key and
     invalidates the cache entry.
     """
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import block_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import block_key
 
     mock_prisma_client = AsyncMock()
     mock_user_api_key_cache = MagicMock()
@@ -3402,13 +3402,13 @@ async def test_block_key_existing_key_succeeds(monkeypatch):
         f'{{"token": "{test_hashed_token}", "blocked": false}}'
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_record
     )
     mock_updated_record = MagicMock()
     mock_updated_record.token = test_hashed_token
     mock_updated_record.blocked = True
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=mock_updated_record
     )
 
@@ -3417,28 +3417,28 @@ async def test_block_key_existing_key_succeeds(monkeypatch):
             return test_hashed_token
         return token
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", mock_hash_token)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", mock_hash_token)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
     # Mock _delete_cache_key_object
     async def mock_delete_cache_key_object(**kwargs):
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         mock_delete_cache_key_object,
     )
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
     )
 
     data = BlockKeyRequest(key="sk-test123456789")
@@ -3447,15 +3447,15 @@ async def test_block_key_existing_key_succeeds(monkeypatch):
         data=data,
         http_request=mock_request,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     # Verify the key was found and updated
-    mock_prisma_client.db.litellm_verificationtoken.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique.assert_called_once_with(
         where={"token": test_hashed_token}
     )
-    mock_prisma_client.db.litellm_verificationtoken.update.assert_called_once()
-    block_call = mock_prisma_client.db.litellm_verificationtoken.update.call_args.kwargs
+    mock_prisma_client.db.hangarllm_verificationtoken.update.assert_called_once()
+    block_call = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args.kwargs
     assert block_call["where"] == {"token": test_hashed_token}
     assert block_call["data"]["blocked"] is True
     assert result == mock_updated_record
@@ -3464,9 +3464,9 @@ async def test_block_key_existing_key_succeeds(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("endpoint_name", ["block_key", "unblock_key"])
 async def test_block_and_unblock_write_no_audit_row_when_the_key_update_fails(monkeypatch, endpoint_name):
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints import key_management_endpoints
-    from litellm.proxy.management_helpers.audit_logs import drain_audit_tasks
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints import key_management_endpoints
+    from hangarllm.proxy.management_helpers.audit_logs import drain_audit_tasks
 
     hashed_token = "a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd"
     existing_key_record = MagicMock()
@@ -3474,24 +3474,24 @@ async def test_block_and_unblock_write_no_audit_row_when_the_key_update_fails(mo
     existing_key_record.model_dump_json.return_value = f'{{"token": "{hashed_token}"}}'
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing_key_record)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(side_effect=RuntimeError("update failed"))
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing_key_record)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(side_effect=RuntimeError("update failed"))
     audit_writer = AsyncMock()
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.create_audit_log_for_update", audit_writer)
-    monkeypatch.setattr("litellm.store_audit_logs", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.create_audit_log_for_update", audit_writer)
+    monkeypatch.setattr("hangarllm.store_audit_logs", True)
 
     with pytest.raises(RuntimeError, match="update failed"):
         await getattr(key_management_endpoints, endpoint_name)(
             data=BlockKeyRequest(key=hashed_token),
             http_request=MagicMock(),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
+                user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin_user"
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     await drain_audit_tasks(timeout=1.0)
 
@@ -3508,7 +3508,7 @@ async def test_validate_key_team_change_with_member_permissions():
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import KeyManagementRoutes
+    from hangarllm.proxy._types import KeyManagementRoutes
 
     # Create mock objects
     mock_key = MagicMock()
@@ -3532,14 +3532,14 @@ async def test_validate_key_team_change_with_member_permissions():
     mock_member_object = MagicMock()
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.can_team_access_model",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.can_team_access_model",
         new_callable=AsyncMock,
     ):
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._get_user_in_team"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._get_user_in_team"
         ) as mock_get_user:
             with patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.does_team_member_have_permissions_for_endpoint"
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.does_team_member_have_permissions_for_endpoint"
             ) as mock_has_perms:
                 mock_get_user.return_value = mock_member_object
                 mock_has_perms.return_value = True
@@ -3586,16 +3586,16 @@ async def test_validate_key_team_change_skips_all_team_models_sentinel():
 
     mock_change_initiator = MagicMock()
     mock_change_initiator.user_id = "test-user-123"
-    mock_change_initiator.user_role = LitellmUserRoles.PROXY_ADMIN.value
+    mock_change_initiator.user_role = HangarllmUserRoles.PROXY_ADMIN.value
 
     mock_router = MagicMock()
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.can_team_access_model",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.can_team_access_model",
         new_callable=AsyncMock,
     ) as mock_can_access:
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._get_user_in_team"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._get_user_in_team"
         ) as mock_get_user:
             mock_get_user.return_value = MagicMock()
 
@@ -3672,13 +3672,13 @@ def test_key_rotation_fields_helper():
 @pytest.mark.asyncio
 async def test_update_key_fn_auto_rotate_enable():
     """Test that update_key_fn properly handles enabling auto rotation."""
-    from litellm.proxy._types import LiteLLM_VerificationToken, UpdateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_VerificationToken, UpdateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         prepare_key_update_data,
     )
 
     # Mock existing key
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=["gpt-3.5-turbo"],
@@ -3706,13 +3706,13 @@ async def test_update_key_fn_auto_rotate_enable():
 @pytest.mark.asyncio
 async def test_update_key_fn_auto_rotate_disable():
     """Test that update_key_fn properly handles disabling auto rotation."""
-    from litellm.proxy._types import LiteLLM_VerificationToken, UpdateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_VerificationToken, UpdateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         prepare_key_update_data,
     )
 
     # Mock existing key with rotation enabled
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=["gpt-3.5-turbo"],
@@ -3742,12 +3742,12 @@ async def test_check_team_key_limits_no_existing_keys():
     """
     # Mock prisma client
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
 
     # Create team table with limits
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-123",
         team_alias="test-team",
         tpm_limit=10000,
@@ -3775,7 +3775,7 @@ async def test_check_team_key_limits_no_existing_keys():
     )
 
     # Verify database was queried
-    mock_prisma_client.db.litellm_verificationtoken.find_many.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many.assert_called_once_with(
         where={"team_id": "test-team-123"}
     )
 
@@ -3800,12 +3800,12 @@ async def test_check_team_key_limits_with_existing_keys_within_bounds():
     existing_key3.rpm_limit = None  # Should be ignored in calculation
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key1, existing_key2, existing_key3]
     )
 
     # Create team table with limits
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-456",
         team_alias="test-team",
         tpm_limit=10000,  # Total: 3000 + 2000 + 4000 (new) = 9000 < 10000 ✓
@@ -3849,12 +3849,12 @@ async def test_check_team_key_limits_tpm_overallocation():
     existing_key2.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key1, existing_key2]
     )
 
     # Create team table with limits
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-789",
         team_alias="test-team",
         tpm_limit=10000,  # Allocated: 6000 + 3000 = 9000, New: 2000, Total: 11000 > 10000 ✗
@@ -3906,12 +3906,12 @@ async def test_check_team_key_limits_rpm_overallocation():
     existing_key2.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key1, existing_key2]
     )
 
     # Create team table with limits
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-101",
         team_alias="test-team",
         tpm_limit=10000,
@@ -3952,7 +3952,7 @@ async def test_check_team_key_limits_on_update_excludes_self():
     allocated totals. Without this, the key's current limits would be
     double-counted: once from find_many and once from data.tpm_limit/rpm_limit.
     """
-    from litellm.proxy._types import hash_token as _ht
+    from hangarllm.proxy._types import hash_token as _ht
 
     # The key being updated is returned by find_many with its current limits.
     # In the DB, token is stored as a SHA-256 hash of the raw key.
@@ -3970,11 +3970,11 @@ async def test_check_team_key_limits_on_update_excludes_self():
     other_key.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[self_key, other_key]
     )
 
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-self",
         team_alias="test-team",
         tpm_limit=10000,
@@ -4016,12 +4016,12 @@ async def test_check_team_key_limits_no_team_limits():
     existing_key.rpm_limit = 500
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key]
     )
 
     # Create team table with no limits
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-202",
         team_alias="test-team",
         tpm_limit=None,  # No team limit
@@ -4059,12 +4059,12 @@ async def test_check_team_key_limits_no_key_limits():
     existing_key.rpm_limit = 800
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key]
     )
 
     # Create team table with limits
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-303",
         team_alias="test-team",
         tpm_limit=10000,
@@ -4112,12 +4112,12 @@ async def test_check_team_key_limits_mixed_scenarios():
     existing_key3.rpm_limit = 300
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key1, existing_key2, existing_key3]
     )
 
     # Create team table with only TPM limit
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-404",
         team_alias="test-team",
         tpm_limit=10000,  # Allocated: 3000 + 0 + 2000 = 5000, New: 4000, Total: 9000 < 10000 ✓
@@ -4155,12 +4155,12 @@ async def test_check_team_key_limits_exact_boundary():
     existing_key.rpm_limit = 700
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key]
     )
 
     # Create team table with limits
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-505",
         team_alias="test-team",
         tpm_limit=10000,  # Allocated: 7000, New: 3000, Total: 10000 = 10000 ✓
@@ -4192,7 +4192,7 @@ def test_check_team_key_model_specific_limits_no_limits():
     Should return without raising any exceptions.
     """
     # Create existing key with no model-specific limits
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user",
         team_id="test-team-123",
@@ -4202,7 +4202,7 @@ def test_check_team_key_model_specific_limits_no_limits():
     keys = [existing_key]
 
     # Create team table
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-123",
         team_alias="test-team",
         tpm_limit=10000,
@@ -4235,7 +4235,7 @@ def test_check_team_key_model_specific_limits_rpm_overallocation():
     Should raise HTTPException with appropriate error message.
     """
     # Create existing keys with model-specific RPM limits
-    existing_key1 = LiteLLM_VerificationToken(
+    existing_key1 = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user-1",
         team_id="test-team-456",
@@ -4247,7 +4247,7 @@ def test_check_team_key_model_specific_limits_rpm_overallocation():
         },
     )
 
-    existing_key2 = LiteLLM_VerificationToken(
+    existing_key2 = HangarLLM_VerificationToken(
         token="test-token-2",
         user_id="test-user-2",
         team_id="test-team-456",
@@ -4261,7 +4261,7 @@ def test_check_team_key_model_specific_limits_rpm_overallocation():
     keys = [existing_key1, existing_key2]
 
     # Create team table with RPM limit
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-456",
         team_alias="test-team",
         tpm_limit=10000,
@@ -4307,7 +4307,7 @@ def test_check_team_key_model_specific_limits_team_model_rpm_overallocation():
     with per-model limits, not just a global team RPM limit.
     """
     # Create existing keys with model-specific RPM limits
-    existing_key1 = LiteLLM_VerificationToken(
+    existing_key1 = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user-1",
         team_id="test-team-789",
@@ -4319,7 +4319,7 @@ def test_check_team_key_model_specific_limits_team_model_rpm_overallocation():
         },
     )
 
-    existing_key2 = LiteLLM_VerificationToken(
+    existing_key2 = HangarLLM_VerificationToken(
         token="test-token-2",
         user_id="test-user-2",
         team_id="test-team-789",
@@ -4333,7 +4333,7 @@ def test_check_team_key_model_specific_limits_team_model_rpm_overallocation():
     keys = [existing_key1, existing_key2]
 
     # Create team table with model-specific RPM limits in metadata
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-789",
         team_alias="test-team",
         tpm_limit=None,
@@ -4384,7 +4384,7 @@ def test_check_team_key_model_specific_limits_team_model_tpm_overallocation():
     with per-model limits, not just a global team TPM limit.
     """
     # Create existing keys with model-specific TPM limits
-    existing_key1 = LiteLLM_VerificationToken(
+    existing_key1 = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user-1",
         team_id="test-team-101",
@@ -4396,7 +4396,7 @@ def test_check_team_key_model_specific_limits_team_model_tpm_overallocation():
         },
     )
 
-    existing_key2 = LiteLLM_VerificationToken(
+    existing_key2 = HangarLLM_VerificationToken(
         token="test-token-2",
         user_id="test-user-2",
         team_id="test-team-101",
@@ -4410,7 +4410,7 @@ def test_check_team_key_model_specific_limits_team_model_tpm_overallocation():
     keys = [existing_key1, existing_key2]
 
     # Create team table with model-specific TPM limits in metadata
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-101",
         team_alias="test-team",
         tpm_limit=None,
@@ -4456,19 +4456,19 @@ def test_check_team_key_model_specific_limits_team_model_tpm_overallocation():
 async def test_generate_key_with_object_permission():
     """
     Test that /key/generate correctly handles object_permission by:
-    1. Creating a record in litellm_objectpermissiontable
+    1. Creating a record in hangarllm_objectpermissiontable
     2. Passing the returned object_permission_id into the key insert payload
     3. NOT passing the object_permission dict to the key table
     """
     from unittest.mock import patch
 
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         GenerateKeyRequest,
-        LiteLLM_ObjectPermissionBase,
-        LitellmUserRoles,
+        HangarLLM_ObjectPermissionBase,
+        HangarllmUserRoles,
     )
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _common_key_generation_helper,
     )
 
@@ -4480,14 +4480,14 @@ async def test_generate_key_with_object_permission():
     mock_object_perm_create = AsyncMock(
         return_value=MagicMock(object_permission_id="objperm_key_456")
     )
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = mock_object_perm_create
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = mock_object_perm_create
 
     # Mock key insertion
     mock_key_insert = AsyncMock(
         return_value=MagicMock(
             token="hashed_token_123",
-            litellm_budget_table=None,
+            hangarllm_budget_table=None,
             created_at="2024-01-01T00:00:00Z",
             updated_at="2024-01-01T00:00:00Z",
         )
@@ -4497,34 +4497,34 @@ async def test_generate_key_with_object_permission():
     # Create request with object_permission
     key_request = GenerateKeyRequest(
         models=["gpt-4"],
-        object_permission=LiteLLM_ObjectPermissionBase(
+        object_permission=HangarLLM_ObjectPermissionBase(
             vector_stores=["vector_store_1"],
             mcp_servers=["mcp_server_1"],
         ),
     )
 
     mock_admin_auth = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin_user",
     )
 
     # Patch the prisma_client and other dependencies
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "hangarllm.proxy.proxy_server.prisma_client",
             mock_prisma_client,
         ),
-        patch("litellm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "hangarllm.proxy.proxy_server.premium_user",
             False,
         ),
         patch(
-            "litellm.proxy.proxy_server.litellm_proxy_admin_name",
+            "hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name",
             "admin",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
             new=AsyncMock(
                 side_effect=lambda object_permission=None, **kwargs: object_permission
             ),
@@ -4534,7 +4534,7 @@ async def test_generate_key_with_object_permission():
         result = await _common_key_generation_helper(
             data=key_request,
             user_api_key_dict=mock_admin_auth,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -4561,15 +4561,15 @@ async def test_generate_key_team_member_inherits_org_skips_membership_check():
     When ``organization_id`` is inherited from the key's team (via
     ``apply_enterprise_key_management_params`` -> ``add_team_organization_id``),
     the caller already passed team-level authorization. Requiring an explicit
-    ``LiteLLM_OrganizationMembership`` row on top of that broke the normal admin
+    ``HangarLLM_OrganizationMembership`` row on top of that broke the normal admin
     workflow (admins only add users to teams). This asserts the org-membership
     check is skipped when the org id came from the caller's team.
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _common_key_generation_helper,
     )
 
@@ -4592,33 +4592,33 @@ async def test_generate_key_team_member_inherits_org_skips_membership_check():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_search_tools_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_search_tools_against_team",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._validate_caller_can_assign_key_org",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._validate_caller_can_assign_key_org",
             mock_validate_org,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_org_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_org_object",
             new_callable=AsyncMock,
-            return_value=MagicMock(litellm_budget_table=None),
+            return_value=MagicMock(hangarllm_budget_table=None),
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_org_key_limits",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_org_key_limits",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             mock_generate_key,
         ),
     ):
@@ -4630,9 +4630,9 @@ async def test_generate_key_team_member_inherits_org_skips_membership_check():
             ),
             user_api_key_dict=UserAPIKeyAuth(
                 user_id="alice",
-                user_role=LitellmUserRoles.INTERNAL_USER.value,
+                user_role=HangarllmUserRoles.INTERNAL_USER.value,
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=mock_team_table,
         )
 
@@ -4655,9 +4655,9 @@ async def test_generate_key_foreign_org_without_team_still_enforces_membership()
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _common_key_generation_helper,
     )
 
@@ -4674,25 +4674,25 @@ async def test_generate_key_foreign_org_without_team_still_enforces_membership()
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._validate_caller_can_assign_key_org",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._validate_caller_can_assign_key_org",
             mock_validate_org,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_org_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_org_object",
             new_callable=AsyncMock,
-            return_value=MagicMock(litellm_budget_table=None),
+            return_value=MagicMock(hangarllm_budget_table=None),
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_org_key_limits",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_org_key_limits",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             mock_generate_key,
         ),
     ):
@@ -4703,9 +4703,9 @@ async def test_generate_key_foreign_org_without_team_still_enforces_membership()
             ),
             user_api_key_dict=UserAPIKeyAuth(
                 user_id="alice",
-                user_role=LitellmUserRoles.INTERNAL_USER.value,
+                user_role=HangarllmUserRoles.INTERNAL_USER.value,
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -4720,9 +4720,9 @@ async def test_generate_key_foreign_org_with_mismatched_team_still_enforces_memb
     organization_id on the key request, the org-membership check must still run."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _common_key_generation_helper,
     )
 
@@ -4744,37 +4744,37 @@ async def test_generate_key_foreign_org_with_mismatched_team_still_enforces_memb
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_search_tools_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_search_tools_against_team",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.hangar.proxy.key_management.apply_enterprise_key_management_params",
+            "hangarllm.hangar.proxy.key_management.apply_enterprise_key_management_params",
             side_effect=lambda data, team_table: data,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._validate_caller_can_assign_key_org",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._validate_caller_can_assign_key_org",
             mock_validate_org,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_org_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_org_object",
             new_callable=AsyncMock,
-            return_value=MagicMock(litellm_budget_table=None),
+            return_value=MagicMock(hangarllm_budget_table=None),
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_org_key_limits",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_org_key_limits",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             mock_generate_key,
         ),
     ):
@@ -4786,9 +4786,9 @@ async def test_generate_key_foreign_org_with_mismatched_team_still_enforces_memb
             ),
             user_api_key_dict=UserAPIKeyAuth(
                 user_id="alice",
-                user_role=LitellmUserRoles.INTERNAL_USER.value,
+                user_role=HangarllmUserRoles.INTERNAL_USER.value,
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=mock_team_table,
         )
 
@@ -4809,19 +4809,19 @@ async def test_check_org_key_limits_no_existing_keys():
     """
     # Mock prisma client
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
 
     # Create organization table with limits in budget table
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-123",
         organization_alias="test-org",
         budget_id="budget-123",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-123",
             tpm_limit=20000,
             rpm_limit=2000,
@@ -4844,7 +4844,7 @@ async def test_check_org_key_limits_no_existing_keys():
     )
 
     # Verify database was queried
-    mock_prisma_client.db.litellm_verificationtoken.find_many.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many.assert_called_once_with(
         where={"organization_id": "test-org-123"}
     )
 
@@ -4872,19 +4872,19 @@ async def test_check_org_key_limits_with_existing_keys_within_bounds():
     existing_key3.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key1, existing_key2, existing_key3]
     )
 
     # Create organization table with limits
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-456",
         organization_alias="test-org",
         budget_id="budget-456",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-456",
             tpm_limit=20000,  # Total: 5000 + 3000 + 8000 (new) = 16000 < 20000 ✓
             rpm_limit=2000,  # Total: 400 + 500 + 800 (new) = 1700 < 2000 ✓
@@ -4925,19 +4925,19 @@ async def test_check_org_key_limits_tpm_overallocation():
     existing_key2.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key1, existing_key2]
     )
 
     # Create organization table with limits
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-789",
         organization_alias="test-org",
         budget_id="budget-789",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-789",
             tpm_limit=20000,  # Allocated: 12000 + 6000 = 18000, New: 3000, Total: 21000 > 20000 ✗
             rpm_limit=2000,
@@ -4984,19 +4984,19 @@ async def test_check_org_key_limits_rpm_overallocation():
     existing_key2.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key1, existing_key2]
     )
 
     # Create organization table with limits
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-101",
         organization_alias="test-org",
         budget_id="budget-101",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-101",
             tpm_limit=20000,
             rpm_limit=2000,  # Allocated: 1200 + 600 = 1800, New: 300, Total: 2100 > 2000 ✗
@@ -5038,19 +5038,19 @@ async def test_check_org_key_limits_no_org_limits():
     existing_key.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key]
     )
 
     # Create organization table with no limits
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-202",
         organization_alias="test-org",
         budget_id="budget-202",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-202",
             tpm_limit=None,  # No organization limit
             rpm_limit=None,  # No organization limit
@@ -5078,7 +5078,7 @@ def test_check_org_key_model_specific_limits_no_limits():
     Should return without raising any exceptions.
     """
     # Create existing key with no model-specific limits
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user",
         organization_id="test-org-123",
@@ -5088,7 +5088,7 @@ def test_check_org_key_model_specific_limits_no_limits():
     keys = [existing_key]
 
     # Create organization table
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-123",
         organization_alias="test-org",
         budget_id="budget-123",
@@ -5096,7 +5096,7 @@ def test_check_org_key_model_specific_limits_no_limits():
         created_by="admin",
         updated_by="admin",
         metadata={},
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-123",
             tpm_limit=20000,
             rpm_limit=2000,
@@ -5123,7 +5123,7 @@ def test_check_org_key_model_specific_limits_rpm_overallocation():
     Should raise HTTPException with appropriate error message.
     """
     # Create existing keys with model-specific RPM limits
-    existing_key1 = LiteLLM_VerificationToken(
+    existing_key1 = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user-1",
         organization_id="test-org-456",
@@ -5135,7 +5135,7 @@ def test_check_org_key_model_specific_limits_rpm_overallocation():
         },
     )
 
-    existing_key2 = LiteLLM_VerificationToken(
+    existing_key2 = HangarLLM_VerificationToken(
         token="test-token-2",
         user_id="test-user-2",
         organization_id="test-org-456",
@@ -5149,7 +5149,7 @@ def test_check_org_key_model_specific_limits_rpm_overallocation():
     keys = [existing_key1, existing_key2]
 
     # Create organization table with RPM limit
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-456",
         organization_alias="test-org",
         budget_id="budget-456",
@@ -5157,7 +5157,7 @@ def test_check_org_key_model_specific_limits_rpm_overallocation():
         created_by="admin",
         updated_by="admin",
         metadata={},
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-456",
             tpm_limit=20000,
             rpm_limit=2000,  # Total organization RPM limit
@@ -5197,7 +5197,7 @@ def test_check_org_key_model_specific_limits_org_model_rpm_overallocation():
     with per-model limits, not just a global organization RPM limit.
     """
     # Create existing keys with model-specific RPM limits
-    existing_key1 = LiteLLM_VerificationToken(
+    existing_key1 = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user-1",
         organization_id="test-org-789",
@@ -5209,7 +5209,7 @@ def test_check_org_key_model_specific_limits_org_model_rpm_overallocation():
         },
     )
 
-    existing_key2 = LiteLLM_VerificationToken(
+    existing_key2 = HangarLLM_VerificationToken(
         token="test-token-2",
         user_id="test-user-2",
         organization_id="test-org-789",
@@ -5223,7 +5223,7 @@ def test_check_org_key_model_specific_limits_org_model_rpm_overallocation():
     keys = [existing_key1, existing_key2]
 
     # Create organization table with model-specific RPM limits in metadata
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-789",
         organization_alias="test-org",
         budget_id="budget-789",
@@ -5236,7 +5236,7 @@ def test_check_org_key_model_specific_limits_org_model_rpm_overallocation():
                 "gpt-3.5-turbo": 1000,
             }
         },
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-789",
             tpm_limit=None,
             rpm_limit=None,
@@ -5276,7 +5276,7 @@ def test_check_org_key_model_specific_limits_org_model_tpm_overallocation():
     with per-model limits, not just a global organization TPM limit.
     """
     # Create existing keys with model-specific TPM limits
-    existing_key1 = LiteLLM_VerificationToken(
+    existing_key1 = HangarLLM_VerificationToken(
         token="test-token-1",
         user_id="test-user-1",
         organization_id="test-org-101",
@@ -5288,7 +5288,7 @@ def test_check_org_key_model_specific_limits_org_model_tpm_overallocation():
         },
     )
 
-    existing_key2 = LiteLLM_VerificationToken(
+    existing_key2 = HangarLLM_VerificationToken(
         token="test-token-2",
         user_id="test-user-2",
         organization_id="test-org-101",
@@ -5302,7 +5302,7 @@ def test_check_org_key_model_specific_limits_org_model_tpm_overallocation():
     keys = [existing_key1, existing_key2]
 
     # Create organization table with model-specific TPM limits in metadata
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-101",
         organization_alias="test-org",
         budget_id="budget-101",
@@ -5315,7 +5315,7 @@ def test_check_org_key_model_specific_limits_org_model_tpm_overallocation():
                 "claude-3": 15000,
             }
         },
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-101",
             tpm_limit=None,
             rpm_limit=None,
@@ -5352,11 +5352,11 @@ def test_transform_verification_tokens_to_deleted_records():
     user_api_key_dict = UserAPIKeyAuth(
         user_id="user-123",
         api_key="sk-test",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
     )
 
     config_stamp = datetime(2026, 8, 10, 12, 30, 45, tzinfo=timezone.utc)
-    key1 = LiteLLM_VerificationToken(
+    key1 = HangarLLM_VerificationToken(
         token="hashed-token-1",
         user_id="user-123",
         team_id="team-456",
@@ -5375,7 +5375,7 @@ def test_transform_verification_tokens_to_deleted_records():
         settings_updated_at=config_stamp,
     )
 
-    key2 = LiteLLM_VerificationToken(
+    key2 = HangarLLM_VerificationToken(
         token="hashed-token-2",
         user_id="user-789",
         team_id=None,
@@ -5397,19 +5397,19 @@ def test_transform_verification_tokens_to_deleted_records():
     records = _transform_verification_tokens_to_deleted_records(
         keys=[key1, key2],
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by="admin-user",
+        hangarllm_changed_by="admin-user",
     )
 
     assert len(records) == 2
     assert all("deleted_at" in record for record in records)
     assert all("deleted_by" in record for record in records)
     assert all("deleted_by_api_key" in record for record in records)
-    assert all("litellm_changed_by" in record for record in records)
+    assert all("hangarllm_changed_by" in record for record in records)
     assert all(record["deleted_by"] == "user-123" for record in records)
     assert all(
         record["deleted_by_api_key"] == user_api_key_dict.api_key for record in records
     )
-    assert all(record["litellm_changed_by"] == "admin-user" for record in records)
+    assert all(record["hangarllm_changed_by"] == "admin-user" for record in records)
 
     record1 = records[0]
     assert record1["token"] == "hashed-token-1"
@@ -5420,8 +5420,8 @@ def test_transform_verification_tokens_to_deleted_records():
     assert isinstance(record1["config"], str)
     assert isinstance(record1["permissions"], str)
     assert isinstance(record1["metadata"], str)
-    assert "litellm_budget_table" not in record1
-    assert "litellm_organization_table" not in record1
+    assert "hangarllm_budget_table" not in record1
+    assert "hangarllm_organization_table" not in record1
     assert "object_permission" not in record1
     assert "id" not in record1
 
@@ -5453,7 +5453,7 @@ def test_transform_verification_tokens_to_deleted_records_empty_list():
     user_api_key_dict = UserAPIKeyAuth(
         user_id="user-123",
         api_key="sk-test",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
     )
 
     records = _transform_verification_tokens_to_deleted_records(
@@ -5468,7 +5468,7 @@ def test_transform_verification_tokens_to_deleted_records_empty_list():
 async def test_save_deleted_verification_token_records():
     mock_prisma_client = AsyncMock()
     mock_create_many = AsyncMock()
-    mock_prisma_client.db.litellm_deletedverificationtoken.create_many = (
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.create_many = (
         mock_create_many
     )
 
@@ -5498,7 +5498,7 @@ async def test_save_deleted_verification_token_records():
 async def test_save_deleted_verification_token_records_empty_list():
     mock_prisma_client = AsyncMock()
     mock_create_many = AsyncMock()
-    mock_prisma_client.db.litellm_deletedverificationtoken.create_many = (
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.create_many = (
         mock_create_many
     )
 
@@ -5513,17 +5513,17 @@ async def test_save_deleted_verification_token_records_empty_list():
 async def test_persist_deleted_verification_tokens():
     mock_prisma_client = AsyncMock()
     mock_create_many = AsyncMock()
-    mock_prisma_client.db.litellm_deletedverificationtoken.create_many = (
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.create_many = (
         mock_create_many
     )
 
     user_api_key_dict = UserAPIKeyAuth(
         user_id="user-123",
         api_key="sk-test",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
     )
 
-    key = LiteLLM_VerificationToken(
+    key = HangarLLM_VerificationToken(
         token="hashed-token-1",
         user_id="user-123",
         team_id="team-456",
@@ -5545,7 +5545,7 @@ async def test_persist_deleted_verification_tokens():
         keys=[key],
         prisma_client=mock_prisma_client,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by="admin-user",
+        hangarllm_changed_by="admin-user",
     )
 
     mock_create_many.assert_called_once()
@@ -5555,7 +5555,7 @@ async def test_persist_deleted_verification_tokens():
     assert len(records) == 1
     assert records[0]["token"] == "hashed-token-1"
     assert records[0]["deleted_by"] == "user-123"
-    assert records[0]["litellm_changed_by"] == "admin-user"
+    assert records[0]["hangarllm_changed_by"] == "admin-user"
 
 
 @pytest.mark.asyncio
@@ -5566,10 +5566,10 @@ async def test_delete_verification_tokens_persists_deleted_keys(monkeypatch):
     user_api_key_dict = UserAPIKeyAuth(
         user_id="admin-user",
         api_key="sk-admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
     )
 
-    key1 = LiteLLM_VerificationToken(
+    key1 = HangarLLM_VerificationToken(
         token="hashed-token-1",
         user_id="user-123",
         team_id="team-456",
@@ -5587,7 +5587,7 @@ async def test_delete_verification_tokens_persists_deleted_keys(monkeypatch):
         allowed_routes=[],
     )
 
-    key2 = LiteLLM_VerificationToken(
+    key2 = HangarLLM_VerificationToken(
         token="hashed-token-2",
         user_id="user-789",
         team_id=None,
@@ -5606,7 +5606,7 @@ async def test_delete_verification_tokens_persists_deleted_keys(monkeypatch):
     )
 
     mock_find_many = AsyncMock(return_value=[key1, key2])
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many
 
     # delete_data returns {"deleted_keys": ...} from utils.py line 3049
     # The function at line 2410 assigns it to deleted_tokens
@@ -5621,7 +5621,7 @@ async def test_delete_verification_tokens_persists_deleted_keys(monkeypatch):
     mock_user_api_key_cache.delete_cache = MagicMock()
 
     mock_create_many = AsyncMock()
-    mock_prisma_client.db.litellm_deletedverificationtoken.create_many = (
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.create_many = (
         mock_create_many
     )
 
@@ -5629,15 +5629,15 @@ async def test_delete_verification_tokens_persists_deleted_keys(monkeypatch):
         return token if not token.startswith("sk-") else f"hashed-{token}"
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         mock_hash_token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token",
         mock_hash_token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.prisma_client",
+        "hangarllm.proxy.proxy_server.prisma_client",
         mock_prisma_client,
     )
 
@@ -5645,7 +5645,7 @@ async def test_delete_verification_tokens_persists_deleted_keys(monkeypatch):
         tokens=["sk-token-1", "sk-token-2"],
         user_api_key_cache=mock_user_api_key_cache,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by="admin-user",
+        hangarllm_changed_by="admin-user",
     )
 
     mock_create_many.assert_called_once()
@@ -5654,7 +5654,7 @@ async def test_delete_verification_tokens_persists_deleted_keys(monkeypatch):
     records = call_args.kwargs["data"]
     assert len(records) == 2
     assert all(record["deleted_by"] == "admin-user" for record in records)
-    assert all(record["litellm_changed_by"] == "admin-user" for record in records)
+    assert all(record["hangarllm_changed_by"] == "admin-user" for record in records)
     # delete_data returns the list directly, which gets wrapped in {"deleted_keys": ...}
     assert isinstance(result["deleted_keys"], list)
     assert set(result["deleted_keys"]) == {"hashed-token-1", "hashed-token-2"}
@@ -5670,7 +5670,7 @@ class _JWTMappingRow:
 
 
 class _CascadingJWTMappingTable:
-    """Mapping rows that LiteLLM_JWTKeyMapping_token_fkey drops when their key is deleted."""
+    """Mapping rows that HangarLLM_JWTKeyMapping_token_fkey drops when their key is deleted."""
 
     def __init__(self, rows):
         self.rows = rows
@@ -5705,7 +5705,7 @@ async def test_delete_verification_tokens_evicts_jwt_key_mapping_cache(monkeypat
         ]
     )
 
-    key1 = LiteLLM_VerificationToken(
+    key1 = HangarLLM_VerificationToken(
         token="hashed-token-1",
         user_id="user-123",
         team_id=None,
@@ -5724,11 +5724,11 @@ async def test_delete_verification_tokens_evicts_jwt_key_mapping_cache(monkeypat
     )
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[key1]
     )
-    mock_prisma_client.db.litellm_jwtkeymapping = jwt_table
-    mock_prisma_client.db.litellm_deletedverificationtoken.create_many = AsyncMock()
+    mock_prisma_client.db.hangarllm_jwtkeymapping = jwt_table
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.create_many = AsyncMock()
 
     async def cascading_delete_data(tokens):
         jwt_table.cascade(tokens)
@@ -5738,15 +5738,15 @@ async def test_delete_verification_tokens_evicts_jwt_key_mapping_cache(monkeypat
 
     recording_evict = _RecordingEvict()
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.evict_and_broadcast",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.evict_and_broadcast",
         recording_evict,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         lambda token: token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.prisma_client",
+        "hangarllm.proxy.proxy_server.prisma_client",
         mock_prisma_client,
     )
 
@@ -5756,7 +5756,7 @@ async def test_delete_verification_tokens_evicts_jwt_key_mapping_cache(monkeypat
         user_api_key_dict=UserAPIKeyAuth(
             user_id="admin-user",
             api_key="sk-admin",
-            user_role=LitellmUserRoles.PROXY_ADMIN.value,
+            user_role=HangarllmUserRoles.PROXY_ADMIN.value,
         ),
     )
 
@@ -5839,8 +5839,8 @@ class _SharedCoordinationRedis:
         _ = await asyncio.gather(*(subscription.messages.join() for subscription in self._subscriptions))
 
 
-def _owned_key_row(hashed_token: str) -> LiteLLM_VerificationToken:
-    return LiteLLM_VerificationToken(
+def _owned_key_row(hashed_token: str) -> HangarLLM_VerificationToken:
+    return HangarLLM_VerificationToken(
         token=hashed_token,
         user_id="user-123",
         team_id=None,
@@ -5859,11 +5859,11 @@ def _owned_key_row(hashed_token: str) -> LiteLLM_VerificationToken:
     )
 
 
-def _prisma_with_key_row(key_row: LiteLLM_VerificationToken) -> AsyncMock:
+def _prisma_with_key_row(key_row: HangarLLM_VerificationToken) -> AsyncMock:
     prisma_client: Final = AsyncMock()
-    prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[key_row])
-    prisma_client.db.litellm_jwtkeymapping = _CascadingJWTMappingTable([])
-    prisma_client.db.litellm_deletedverificationtoken.create_many = AsyncMock()
+    prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[key_row])
+    prisma_client.db.hangarllm_jwtkeymapping = _CascadingJWTMappingTable([])
+    prisma_client.db.hangarllm_deletedverificationtoken.create_many = AsyncMock()
     prisma_client.delete_data = AsyncMock(return_value=[key_row.token])
     prisma_client.get_data = AsyncMock(return_value=None)
     return prisma_client
@@ -5885,15 +5885,15 @@ async def test_delete_verification_tokens_stops_the_key_on_a_peer_worker(monkeyp
     )
     peer_subscriber.start()
     prisma_client: Final = _prisma_with_key_row(_owned_key_row(hashed_token))
-    monkeypatch.setattr("litellm.proxy.proxy_server.redis_usage_cache", coordination_redis)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.redis_usage_cache", coordination_redis)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
 
     try:
         await delete_verification_tokens(
             tokens=[raw_key],
             user_api_key_cache=deleting_worker_cache,
             user_api_key_dict=UserAPIKeyAuth(
-                user_id="admin-user", api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN.value
+                user_id="admin-user", api_key="sk-admin", user_role=HangarllmUserRoles.PROXY_ADMIN.value
             ),
         )
         await coordination_redis.until_every_subscriber_applied_its_messages()
@@ -5912,8 +5912,8 @@ async def test_delete_verification_tokens_stops_the_key_on_a_peer_worker(monkeyp
 @pytest.mark.parametrize(
     "deleter",
     [
-        UserAPIKeyAuth(user_id="admin-user", api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN.value),
-        UserAPIKeyAuth(user_id="user-123", api_key="sk-owner", user_role=LitellmUserRoles.INTERNAL_USER.value),
+        UserAPIKeyAuth(user_id="admin-user", api_key="sk-admin", user_role=HangarllmUserRoles.PROXY_ADMIN.value),
+        UserAPIKeyAuth(user_id="user-123", api_key="sk-owner", user_role=HangarllmUserRoles.INTERNAL_USER.value),
     ],
     ids=["proxy_admin", "key_owner"],
 )
@@ -5936,8 +5936,8 @@ async def test_delete_verification_tokens_evicts_a_requested_key_whose_row_is_al
         redis_cache=coordination_redis, user_api_key_cache=peer_worker_cache
     )
     peer_subscriber.start()
-    monkeypatch.setattr("litellm.proxy.proxy_server.redis_usage_cache", coordination_redis)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", _prisma_with_key_row(_owned_key_row(live_token)))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.redis_usage_cache", coordination_redis)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", _prisma_with_key_row(_owned_key_row(live_token)))
 
     try:
         await delete_verification_tokens(
@@ -5971,15 +5971,15 @@ async def test_delete_verification_tokens_leaves_unowned_cache_entries_alone_on_
         additional_in_memory_caches=(peer_spend_counters,),
     )
     peer_subscriber.start()
-    monkeypatch.setattr("litellm.proxy.proxy_server.redis_usage_cache", coordination_redis)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", _prisma_with_key_row(_owned_key_row(hashed_token)))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.redis_usage_cache", coordination_redis)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", _prisma_with_key_row(_owned_key_row(hashed_token)))
 
     try:
         await delete_verification_tokens(
             tokens=[other_team_counter, raw_key],
             user_api_key_cache=deleting_worker_cache,
             user_api_key_dict=UserAPIKeyAuth(
-                user_id="user-123", api_key="sk-owner", user_role=LitellmUserRoles.INTERNAL_USER.value
+                user_id="user-123", api_key="sk-owner", user_role=HangarllmUserRoles.INTERNAL_USER.value
             ),
         )
         await coordination_redis.until_every_subscriber_applied_its_messages()
@@ -5993,8 +5993,8 @@ async def test_delete_verification_tokens_leaves_unowned_cache_entries_alone_on_
 
 @pytest.mark.asyncio
 async def test_delete_key_fn_persists_deleted_keys(monkeypatch):
-    from litellm.proxy._types import KeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import KeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         delete_key_fn,
         delete_verification_tokens,
     )
@@ -6005,10 +6005,10 @@ async def test_delete_key_fn_persists_deleted_keys(monkeypatch):
     user_api_key_dict = UserAPIKeyAuth(
         user_id="admin-user",
         api_key="sk-admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
     )
 
-    key1 = LiteLLM_VerificationToken(
+    key1 = HangarLLM_VerificationToken(
         token="hashed-token-1",
         user_id="user-123",
         team_id="team-456",
@@ -6030,19 +6030,19 @@ async def test_delete_key_fn_persists_deleted_keys(monkeypatch):
         return ({"deleted_keys": ["sk-token-1"]}, [key1])
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_verification_tokens",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_verification_tokens",
         mock_delete_verification_tokens,
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.prisma_client",
+        "hangarllm.proxy.proxy_server.prisma_client",
         mock_prisma_client,
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache",
+        "hangarllm.proxy.proxy_server.user_api_key_cache",
         mock_user_api_key_cache,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_deleted_hook",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_deleted_hook",
         AsyncMock(),
     )
 
@@ -6051,7 +6051,7 @@ async def test_delete_key_fn_persists_deleted_keys(monkeypatch):
     result = await delete_key_fn(
         data=data,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by="admin-user",
+        hangarllm_changed_by="admin-user",
     )
 
     assert result["deleted_keys"] == ["sk-token-1"]
@@ -6060,19 +6060,19 @@ async def test_delete_key_fn_persists_deleted_keys(monkeypatch):
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_proxy_admin_team_key(monkeypatch):
     """Test that team admin can delete team keys from their own team."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="other-user",
         team_id="test-team-123",
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="team-admin-user",
         api_key="sk-user",
     )
 
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-123",
         team_alias="test-team",
         tpm_limit=None,
@@ -6094,7 +6094,7 @@ async def test_can_delete_verification_token_proxy_admin_team_key(monkeypatch):
         return team_table
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
 
@@ -6111,19 +6111,19 @@ async def test_can_delete_verification_token_proxy_admin_team_key(monkeypatch):
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_team_admin_different_team(monkeypatch):
     """Test that team admin cannot delete team keys from a different team."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="other-user",
         team_id="test-team-456",
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="team-admin-user",
         api_key="sk-user",
     )
 
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-456",
         team_alias="test-team",
         tpm_limit=None,
@@ -6145,7 +6145,7 @@ async def test_can_delete_verification_token_team_admin_different_team(monkeypat
         return team_table
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
 
@@ -6162,19 +6162,19 @@ async def test_can_delete_verification_token_team_admin_different_team(monkeypat
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_key_owner_team_key(monkeypatch):
     """Test that key owner can delete their own team key."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="key-owner-user",
         team_id="test-team-123",
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="key-owner-user",
         api_key="sk-user",
     )
 
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-123",
         team_alias="test-team",
         tpm_limit=None,
@@ -6195,7 +6195,7 @@ async def test_can_delete_verification_token_key_owner_team_key(monkeypatch):
         return team_table
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
 
@@ -6212,14 +6212,14 @@ async def test_can_delete_verification_token_key_owner_team_key(monkeypatch):
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_key_owner_personal_key(monkeypatch):
     """Test that key owner can delete their own personal key."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="key-owner-user",
         team_id=None,
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="key-owner-user",
         api_key="sk-user",
     )
@@ -6240,19 +6240,19 @@ async def test_can_delete_verification_token_key_owner_personal_key(monkeypatch)
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_other_user_team_key(monkeypatch):
     """Test that other user cannot delete team keys they don't own and aren't admin for."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="key-owner-user",
         team_id="test-team-123",
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="other-user",
         api_key="sk-user",
     )
 
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id="test-team-123",
         team_alias="test-team",
         tpm_limit=None,
@@ -6275,7 +6275,7 @@ async def test_can_delete_verification_token_other_user_team_key(monkeypatch):
         return team_table
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
 
@@ -6292,14 +6292,14 @@ async def test_can_delete_verification_token_other_user_team_key(monkeypatch):
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_other_user_personal_key(monkeypatch):
     """Test that other user cannot delete personal keys they don't own."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="key-owner-user",
         team_id=None,
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="other-user",
         api_key="sk-user",
     )
@@ -6320,14 +6320,14 @@ async def test_can_delete_verification_token_other_user_personal_key(monkeypatch
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_team_key_no_team_found(monkeypatch):
     """Test that deletion fails when team is not found in database."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="key-owner-user",
         team_id="non-existent-team",
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="key-owner-user",
         api_key="sk-user",
     )
@@ -6339,7 +6339,7 @@ async def test_can_delete_verification_token_team_key_no_team_found(monkeypatch)
         return None
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
 
@@ -6356,14 +6356,14 @@ async def test_can_delete_verification_token_team_key_no_team_found(monkeypatch)
 @pytest.mark.asyncio
 async def test_can_delete_verification_token_personal_key_no_user_id(monkeypatch):
     """Test that deletion fails for personal key when key has no user_id."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id=None,
         team_id=None,
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="some-user",
         api_key="sk-user",
     )
@@ -6384,14 +6384,14 @@ async def test_can_delete_verification_token_personal_key_no_user_id(monkeypatch
 @pytest.mark.asyncio
 async def test_can_modify_verification_token_proxy_admin_team_key(monkeypatch):
     """Test that proxy admin can modify any team key."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="other-user",
         team_id="test-team-123",
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin-user",
         api_key="sk-admin",
     )
@@ -6412,14 +6412,14 @@ async def test_can_modify_verification_token_proxy_admin_team_key(monkeypatch):
 @pytest.mark.asyncio
 async def test_can_modify_verification_token_proxy_admin_personal_key(monkeypatch):
     """Test that proxy admin can modify any personal key."""
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="test-token",
         user_id="other-user",
         team_id=None,
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin-user",
         api_key="sk-admin",
     )
@@ -6509,16 +6509,16 @@ async def test_list_keys_with_expand_user():
 
     mock_find_many_users = AsyncMock(return_value=[mock_user1, mock_user2])
 
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many_keys
-    mock_prisma_client.db.litellm_verificationtoken.count = mock_count_keys
-    mock_prisma_client.db.litellm_usertable.find_many = mock_find_many_users
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many_keys
+    mock_prisma_client.db.hangarllm_verificationtoken.count = mock_count_keys
+    mock_prisma_client.db.hangarllm_usertable.find_many = mock_find_many_users
 
     # Patch attach_object_permission_to_dict to just return the dict unchanged
     async def mock_attach_object_permission(d, _):
         return d
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.attach_object_permission_to_dict",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.attach_object_permission_to_dict",
         side_effect=mock_attach_object_permission,
     ):
         args = {
@@ -6621,15 +6621,15 @@ async def test_list_keys_with_expand_user_includes_created_by_user():
 
     mock_find_many_users = AsyncMock(return_value=[mock_user_owner, mock_user_creator])
 
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many_keys
-    mock_prisma_client.db.litellm_verificationtoken.count = mock_count_keys
-    mock_prisma_client.db.litellm_usertable.find_many = mock_find_many_users
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many_keys
+    mock_prisma_client.db.hangarllm_verificationtoken.count = mock_count_keys
+    mock_prisma_client.db.hangarllm_usertable.find_many = mock_find_many_users
 
     async def mock_attach_object_permission(d, _):
         return d
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.attach_object_permission_to_dict",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.attach_object_permission_to_dict",
         side_effect=mock_attach_object_permission,
     ):
         args = {
@@ -6706,12 +6706,12 @@ async def test_list_keys_with_status_deleted():
     mock_find_many_regular = AsyncMock(return_value=[])
     mock_count_regular = AsyncMock(return_value=0)
 
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_many = (
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_many = (
         mock_find_many_deleted
     )
-    mock_prisma_client.db.litellm_deletedverificationtoken.count = mock_count_deleted
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many_regular
-    mock_prisma_client.db.litellm_verificationtoken.count = mock_count_regular
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.count = mock_count_deleted
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many_regular
+    mock_prisma_client.db.hangarllm_verificationtoken.count = mock_count_regular
 
     args = {
         "prisma_client": mock_prisma_client,
@@ -6756,15 +6756,15 @@ async def test_list_keys_with_invalid_status():
     mock_prisma_client = AsyncMock()
 
     # Mock the endpoint function directly to test validation
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import list_keys
-    from litellm.proxy.utils import ProxyException
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import list_keys
+    from hangarllm.proxy.utils import ProxyException
 
     mock_request = Mock()
-    mock_user_api_key_dict = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    mock_user_api_key_dict = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     # Mock prisma_client to be non-None
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         # Should raise ProxyException for invalid status (HTTPException is caught and re-raised as ProxyException)
         with pytest.raises(ProxyException) as exc_info:
             await list_keys(
@@ -6784,19 +6784,19 @@ async def test_list_keys_with_invalid_status():
 async def test_list_keys_accepts_live_status_filters(monkeypatch, status_filter):
     from unittest.mock import Mock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import list_keys
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import list_keys
 
     live_row = MagicMock()
     live_row.model_dump.return_value = {"token": "hashed_live_token", "object_permission_id": None}
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[live_row])
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=1)
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[live_row])
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=1)
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     response = await list_keys(
         request=Mock(),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         page=1,
         size=10,
         user_id=None,
@@ -6821,11 +6821,11 @@ async def test_list_keys_accepts_live_status_filters(monkeypatch, status_filter)
 
     assert response["keys"] == ["hashed_live_token"]
     assert response["total_count"] == 1
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_many.assert_not_called()
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_many.assert_not_called()
 
 
 def _status_filter_where(status_filter: str | None) -> Mapping[str, object]:
-    from litellm.proxy.management_endpoints.key_management_endpoints import _build_key_filter_conditions
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import _build_key_filter_conditions
 
     return _build_key_filter_conditions(
         user_id=None,
@@ -6864,9 +6864,9 @@ def test_build_key_filter_conditions_deleted_status_adds_no_live_clause():
 async def test_list_key_helper_revoked_status_filters_live_table_on_blocked():
     mock_prisma_client = AsyncMock()
     mock_find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
 
     await list_key_helper(
         prisma_client=mock_prisma_client,
@@ -6884,7 +6884,7 @@ async def test_list_key_helper_revoked_status_filters_live_table_on_blocked():
         status="revoked",
     )
 
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_many.assert_not_called()
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_many.assert_not_called()
     where = mock_find_many.call_args.kwargs["where"]
     assert {"blocked": True} in where["AND"]
 
@@ -6907,23 +6907,23 @@ def _archived_key_row(token: str, user_id: str) -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_info_key_fn_serves_deleted_key_from_archive(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     hashed = "hashed_deleted_token"
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_first = AsyncMock(
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_first = AsyncMock(
         return_value=_archived_key_row(hashed, "user-x")
     )
 
     result = await info_key_fn(
         key=hashed,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
     )
 
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_first.assert_awaited_once()
-    assert mock_prisma_client.db.litellm_deletedverificationtoken.find_first.await_args.kwargs["where"] == {
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_first.assert_awaited_once()
+    assert mock_prisma_client.db.hangarllm_deletedverificationtoken.find_first.await_args.kwargs["where"] == {
         "token": hashed
     }
     info = result["info"]
@@ -6937,13 +6937,13 @@ async def test_info_key_fn_serves_deleted_key_from_archive(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_info_key_fn_archived_key_keeps_owner_authorization(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     hashed = "hashed_deleted_token"
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_first = AsyncMock(
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_first = AsyncMock(
         return_value=_archived_key_row(hashed, "owner-1")
     )
 
@@ -6951,31 +6951,31 @@ async def test_info_key_fn_archived_key_keeps_owner_authorization(monkeypatch):
         await info_key_fn(
             key=hashed,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER, user_id="someone-else", api_key="sk-other"
+                user_role=HangarllmUserRoles.INTERNAL_USER, user_id="someone-else", api_key="sk-other"
             ),
         )
     assert exc_info.value.code == "403"
 
     owner_result = await info_key_fn(
         key=hashed,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="owner-1", api_key="sk-own"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="owner-1", api_key="sk-own"),
     )
     assert owner_result["info"]["status"] == "deleted"
 
 
 @pytest.mark.asyncio
 async def test_info_key_fn_unknown_key_still_404s(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
 
     with pytest.raises(ProxyException) as exc_info:
         await info_key_fn(
             key="hashed_missing",
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
         )
     assert exc_info.value.code == "404"
 
@@ -6993,11 +6993,11 @@ async def test_info_key_fn_unknown_key_still_404s(monkeypatch):
     ],
 )
 async def test_info_key_fn_reports_live_key_status(monkeypatch, blocked, expires, expected_status):
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    live_row = MagicMock(spec=LiteLLM_VerificationToken)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    live_row = MagicMock(spec=HangarLLM_VerificationToken)
     live_row.model_dump.return_value = {
         "token": "hashed_live",
         "user_id": "user-x",
@@ -7006,15 +7006,15 @@ async def test_info_key_fn_reports_live_key_status(monkeypatch, blocked, expires
         "blocked": blocked,
         "expires": expires,
     }
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=live_row)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=live_row)
 
     result = await info_key_fn(
         key="hashed_live",
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
     )
 
     assert result["info"]["status"] == expected_status
-    mock_prisma_client.db.litellm_deletedverificationtoken.find_first.assert_not_called()
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.find_first.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -7030,12 +7030,12 @@ async def test_list_keys_non_admin_user_id_auto_set():
     # Create a non-admin user with a user_id
     test_user_id = "test-user-123"
     mock_user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id=test_user_id,
     )
 
     # Mock user info returned by validate_key_list_check
-    mock_user_info = LiteLLM_UserTable(
+    mock_user_info = HangarLLM_UserTable(
         user_id=test_user_id,
         user_email="test@example.com",
         teams=[],
@@ -7053,17 +7053,17 @@ async def test_list_keys_non_admin_user_id_auto_set():
     )
 
     # Mock prisma_client to be non-None
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
             return_value=mock_user_info,
         ):
             with patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.get_admin_team_ids",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.get_admin_team_ids",
                 return_value=[],
             ):
                 with patch(
-                    "litellm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
+                    "hangarllm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
                     mock_list_key_helper,
                 ):
                     mock_request = Mock()
@@ -7091,10 +7091,10 @@ def _make_member_team_table(
     member_role: str = "user",
     team_member_permissions=None,
 ):
-    """Build a LiteLLM_TeamTable with a single member, suitable for list_keys tests."""
-    from litellm.proxy._types import LiteLLM_TeamTable, Member
+    """Build a HangarLLM_TeamTable with a single member, suitable for list_keys tests."""
+    from hangarllm.proxy._types import HangarLLM_TeamTable, Member
 
-    return LiteLLM_TeamTable(
+    return HangarLLM_TeamTable(
         team_id=team_id,
         members_with_roles=[Member(user_id=member_user_id, role=member_role)],
         team_member_permissions=team_member_permissions,
@@ -7114,10 +7114,10 @@ async def _invoke_list_keys_and_capture_helper_kwargs(
     """
     from unittest.mock import Mock, patch
 
-    from litellm.proxy._types import LiteLLM_UserTable
+    from hangarllm.proxy._types import HangarLLM_UserTable
 
     mock_prisma_client = AsyncMock()
-    mock_user_info = LiteLLM_UserTable(
+    mock_user_info = HangarLLM_UserTable(
         user_id=user_api_key_dict.user_id,
         user_email="member@example.com",
         teams=[t.team_id for t in team_objects],
@@ -7132,17 +7132,17 @@ async def _invoke_list_keys_and_capture_helper_kwargs(
         }
     )
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
             return_value=mock_user_info,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._fetch_user_team_objects",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._fetch_user_team_objects",
             AsyncMock(return_value=team_objects),
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
             mock_list_key_helper,
         ),
     ):
@@ -7171,7 +7171,7 @@ async def test_list_keys_team_member_with_key_list_permission_sees_all_team_keys
     member_user_id = "member-user-1"
     team_id = "team-with-permission"
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id=member_user_id,
     )
     team_objects = [
@@ -7207,7 +7207,7 @@ async def test_list_keys_team_member_without_key_list_permission_only_service_ac
     member_user_id = "member-user-2"
     team_id = "team-no-permission"
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id=member_user_id,
     )
     team_objects = [
@@ -7241,7 +7241,7 @@ async def test_list_keys_team_member_with_permission_in_one_team_only():
     team_with_permission = "team-A"
     team_without_permission = "team-B"
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id=member_user_id,
     )
     team_objects = [
@@ -7281,7 +7281,7 @@ async def test_list_keys_team_admin_unaffected_by_member_permission_logic():
     admin_user_id = "team-admin-user"
     team_id = "team-with-admin"
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id=admin_user_id,
     )
     team_objects = [
@@ -7312,7 +7312,7 @@ def test_build_key_filter_conditions_full_visibility_team_includes_service_accou
     This is the SQL-level proof that a member with /key/list permission
     will see service account keys for the team.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -7352,7 +7352,7 @@ def test_build_key_filter_conditions_member_only_team_restricts_to_service_accou
     service accounts visible. This is the "no permission" baseline that
     must keep working.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -7385,7 +7385,7 @@ def test_build_key_filter_conditions_agent_id_narrows_visibility():
     them). Without this the UI cannot list an agent's keys server-side and
     falls back to fetching every key and filtering client-side.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -7429,7 +7429,7 @@ def test_build_key_filter_conditions_key_alias_narrows_team_admin_visibility():
     admin-team branch matched every team key and the filter was a no-op. It
     must be a top-level AND so it narrows every visibility branch.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -7472,7 +7472,7 @@ def test_build_key_filter_conditions_key_hash_narrows_team_admin_visibility():
     instead of sitting in the own-keys branch where the admin-team branch
     bypasses it.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -7501,7 +7501,7 @@ def test_build_key_filter_conditions_search_ors_token_and_alias_contains():
     LIT-4741: `search` matches a key by its alias (case-insensitive contains) OR by
     its ID (the token column), with the pasted value used verbatim.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -7529,7 +7529,7 @@ def test_build_key_filter_conditions_search_narrows_team_admin_visibility():
     LIT-4741, same class as LIT-3243: `search` must be a top-level AND so it
     narrows a team admin's admin-team branch instead of being bypassed by it.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -7560,8 +7560,8 @@ async def test_list_key_helper_applies_search_to_prisma_where():
     """LIT-4741: `search` given to _list_key_helper must reach the Prisma where clause."""
     mock_prisma_client = AsyncMock()
     mock_find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_verificationtoken.find_many = mock_find_many
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = mock_find_many
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
 
     await list_key_helper(
         prisma_client=mock_prisma_client,
@@ -7580,55 +7580,55 @@ async def test_list_key_helper_applies_search_to_prisma_where():
 
 
 _BULK_UPDATE_TOKEN: Final = "1f2e3d4c5b6a79880123456789abcdef0123456789abcdef0123456789abcdef"
-_BULK_UPDATE_TEAM: Final = LiteLLM_TeamTableCachedObj(team_id="team-1")
+_BULK_UPDATE_TEAM: Final = HangarLLM_TeamTableCachedObj(team_id="team-1")
 
 
 async def _run_bulk_update_on_one_key(
     monkeypatch: pytest.MonkeyPatch,
     item_payload: Mapping[str, object],
-    team: LiteLLM_TeamTableCachedObj = _BULK_UPDATE_TEAM,
+    team: HangarLLM_TeamTableCachedObj = _BULK_UPDATE_TEAM,
     user_api_key_cache: UserApiKeyCache | None = None,
 ) -> tuple[BulkUpdateKeyResponse, AsyncMock]:
-    from litellm.proxy.management_endpoints.key_management_endpoints import bulk_update_keys
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import bulk_update_keys
 
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=_BULK_UPDATE_TOKEN, user_id="test-user", team_id="team-1", max_budget=100.0, budget_id="budget-1"
     )
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=key_in_db)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=key_in_db)
     mock_prisma_client.get_data = AsyncMock(return_value=key_in_db)
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = AsyncMock(
         return_value=MagicMock(object_permission_id="objperm-bulk")
     )
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {"token": _BULK_UPDATE_TOKEN}})
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
     if user_api_key_cache is not None:
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", user_api_key_cache)
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object", AsyncMock(return_value=team)
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object", AsyncMock(return_value=team)
     )
 
     with (
         patch(  # test-quality-ok: the handler reads the cache and hook singletons from module globals, no injection seam
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: the permission check is a classmethod the handler calls directly, no injection seam
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: the audit hook is a classmethod the handler calls directly, no injection seam
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
             new_callable=AsyncMock,
         ),
     ):
         response = await bulk_update_keys(
             data=BulkUpdateKeyRequest.model_validate({"keys": [{"key": _BULK_UPDATE_TOKEN, **item_payload}]}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+                user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     return response, mock_prisma_client
@@ -7669,7 +7669,7 @@ async def test_bulk_update_keys_object_permission_is_granted_not_dropped(monkeyp
     nothing but the key, so the call wiped the key's budget instead of granting the permission."""
     prisma = await _bulk_update_one_key(monkeypatch, {"object_permission": {"vector_stores": ["vs-1"]}})
 
-    upserted = prisma.db.litellm_objectpermissiontable.upsert.call_args.kwargs["data"]["create"]
+    upserted = prisma.db.hangarllm_objectpermissiontable.upsert.call_args.kwargs["data"]["create"]
     assert upserted["vector_stores"] == ["vs-1"]
     written = _written_key_row(prisma)
     assert written["object_permission_id"] == upserted["object_permission_id"]
@@ -7678,25 +7678,25 @@ async def test_bulk_update_keys_object_permission_is_granted_not_dropped(monkeyp
 
 @pytest.mark.asyncio
 async def test_bulk_update_keys_invalidates_cache_for_new_object_permission(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy.common_utils.user_api_key_cache import object_permission_cache_key
+    from hangarllm.proxy.common_utils.user_api_key_cache import object_permission_cache_key
 
     permission_id = str(UUID("00000000-0000-0000-0000-000000000001"))
     permission_cache_key = object_permission_cache_key(permission_id)
     user_api_key_cache = UserApiKeyCache()
     user_api_key_cache.set_cache(
         key=permission_cache_key,
-        value=LiteLLM_ObjectPermissionTable(object_permission_id=permission_id, vector_stores=["stale"]),
-        model_type=LiteLLM_ObjectPermissionTable,
+        value=HangarLLM_ObjectPermissionTable(object_permission_id=permission_id, vector_stores=["stale"]),
+        model_type=HangarLLM_ObjectPermissionTable,
     )
     assert (
         user_api_key_cache.get_cache(
             key=permission_cache_key,
-            model_type=LiteLLM_ObjectPermissionTable,
+            model_type=HangarLLM_ObjectPermissionTable,
         )
         is not None
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_helpers.object_permission_utils.uuid.uuid4",
+        "hangarllm.proxy.management_helpers.object_permission_utils.uuid.uuid4",
         lambda: UUID(permission_id),
     )
 
@@ -7711,7 +7711,7 @@ async def test_bulk_update_keys_invalidates_cache_for_new_object_permission(monk
     assert (
         user_api_key_cache.get_cache(
             key=permission_cache_key,
-            model_type=LiteLLM_ObjectPermissionTable,
+            model_type=HangarLLM_ObjectPermissionTable,
         )
         is None
     )
@@ -7721,9 +7721,9 @@ async def test_bulk_update_keys_invalidates_cache_for_new_object_permission(monk
 async def test_bulk_update_keys_object_permission_outside_the_team_allowlist_is_refused(monkeypatch):
     """A bulk item's object_permission is checked against the key's team exactly as /key/update
     checks it, so a team key cannot be granted a search tool its team does not allow."""
-    team = LiteLLM_TeamTableCachedObj(
+    team = HangarLLM_TeamTableCachedObj(
         team_id="team-1",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="op-team-1", search_tools=["team-search"]),
+        object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="op-team-1", search_tools=["team-search"]),
     )
     response, prisma = await _run_bulk_update_on_one_key(
         monkeypatch, {"object_permission": {"search_tools": ["other-search"]}}, team=team
@@ -7799,30 +7799,30 @@ async def test_generate_key_with_router_settings(monkeypatch):
         elif table_name == "key":
             return MagicMock(
                 token="hashed_token_router",
-                litellm_budget_table=None,
+                hangarllm_budget_table=None,
                 object_permission=None,
             )
         return MagicMock()
 
     mock_prisma_client.insert_data = AsyncMock(side_effect=_insert_data_side_effect)
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[
         SimpleNamespace(model_id="weighted-id", model_name="gpt-4", model_info={})
     ])
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
-    from litellm.proxy._types import GenerateKeyRequest, LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_key_fn,
     )
 
@@ -7844,7 +7844,7 @@ async def test_generate_key_with_router_settings(monkeypatch):
     await generate_key_fn(
         data=request_data,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="user-router-1",
         ),
@@ -7887,7 +7887,7 @@ async def test_generate_key_with_router_settings(monkeypatch):
     with pytest.raises(ProxyException, match="Unknown deployment ID"):
         await generate_key_fn(
             data=GenerateKeyRequest(router_settings={"weights": {"gpt-4": {"unknown-id": 1}}}),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="user-router-1"),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="user-router-1"),
         )
     mock_prisma_client.insert_data.assert_not_awaited()
 
@@ -7905,17 +7905,17 @@ async def test_update_key_with_router_settings(
     2. Serializing router_settings to JSON when updating database
     3. Updating router_settings in the key record
     """
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         prepare_key_update_data,
     )
 
     model = SimpleNamespace(model_id="weighted-id", model_name="gpt-4", model_info={})
     table = SimpleNamespace(find_many=AsyncMock(return_value=[model]))
-    db = SimpleNamespace(db=SimpleNamespace(litellm_proxymodeltable=table))
+    db = SimpleNamespace(db=SimpleNamespace(hangarllm_proxymodeltable=table))
 
     # Mock existing key
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token-router",
         key_alias="test-key",
         models=["gpt-3.5-turbo"],
@@ -8035,22 +8035,22 @@ async def test_get_and_validate_existing_key():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     # Test Case 1: Successfully retrieve existing key
     mock_prisma_client = AsyncMock()
-    mock_key = LiteLLM_VerificationToken(
+    mock_key = HangarLLM_VerificationToken(
         token="test-key-123",
         user_id="user-123",
         models=["gpt-4"],
         team_id=None,
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key
     )
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         return_value="hashed-test-key-123",
     ):
         result = await _get_and_validate_existing_key(
@@ -8059,17 +8059,17 @@ async def test_get_and_validate_existing_key():
         )
 
     assert result == mock_key
-    mock_prisma_client.db.litellm_verificationtoken.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique.assert_called_once_with(
         where={"token": "hashed-test-key-123"}, include={"object_permission": True}
     )
 
     # Test Case 2: Key not found raises ProxyException
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         return_value="hashed-non-existent-key",
     ):
         with pytest.raises(ProxyException) as exc_info:
@@ -8099,7 +8099,7 @@ async def test_process_single_key_update():
 
     Tests successful key update with all validations passing.
     """
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateKeyRequestItem,
     )
 
@@ -8110,7 +8110,7 @@ async def test_process_single_key_update():
     mock_llm_router = MagicMock()
 
     # Mock existing key
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-key-123",
         user_id="user-123",
         models=["gpt-4"],
@@ -8128,7 +8128,7 @@ async def test_process_single_key_update():
         "tags": ["production"],
     }
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=existing_key
     )
     mock_updated_key_obj = MagicMock()
@@ -8139,34 +8139,34 @@ async def test_process_single_key_update():
 
     # Mock prepare_key_update_data
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data"
     ) as mock_prepare:
         mock_prepare.return_value = {"max_budget": 100.0, "tags": ["production"]}
 
         # Mock TeamMemberPermissionChecks
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint"
         ) as mock_permission_check:
             mock_permission_check.return_value = None
 
             # Mock _delete_cache_key_object
             with patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
             ) as mock_delete_cache:
                 mock_delete_cache.return_value = None
 
-                # Mock hash_token (imported from litellm.proxy._types)
-                with patch("litellm.types.proxy.auth.user_api_key_auth.hash_token") as mock_hash:
+                # Mock hash_token (imported from hangarllm.proxy._types)
+                with patch("hangarllm.types.proxy.auth.user_api_key_auth.hash_token") as mock_hash:
                     mock_hash.return_value = "hashed-test-key-123"
 
                     # Mock _hash_token_if_needed
                     with patch(
-                        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+                        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
                         return_value="hashed-test-key-123",
                     ):
                         # Mock KeyManagementEventHooks
                         with patch(
-                            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
+                            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
                         ):
                             # Create update request
                             update_key_request = UpdateKeyRequest(
@@ -8176,7 +8176,7 @@ async def test_process_single_key_update():
                             )
 
                             user_api_key_dict = UserAPIKeyAuth(
-                                user_role=LitellmUserRoles.PROXY_ADMIN,
+                                user_role=HangarllmUserRoles.PROXY_ADMIN,
                                 api_key="sk-admin",
                                 user_id="admin-user",
                             )
@@ -8185,7 +8185,7 @@ async def test_process_single_key_update():
                             result = await _process_single_key_update(
                                 update_key_request=update_key_request,
                                 user_api_key_dict=user_api_key_dict,
-                                litellm_changed_by=None,
+                                hangarllm_changed_by=None,
                                 prisma_client=mock_prisma_client,
                                 user_api_key_cache=mock_user_api_key_cache,
                                 proxy_logging_obj=mock_proxy_logging_obj,
@@ -8199,7 +8199,7 @@ async def test_process_single_key_update():
                             assert result.get("tags") == ["production"]
 
                             # Verify mocks were called
-                            mock_prisma_client.db.litellm_verificationtoken.find_unique.assert_called_once()
+                            mock_prisma_client.db.hangarllm_verificationtoken.find_unique.assert_called_once()
                             mock_prisma_client.update_data.assert_called_once()
                             mock_delete_cache.assert_called_once()
 
@@ -8213,16 +8213,16 @@ async def test_bulk_update_keys_success(monkeypatch):
     1. Multiple keys updated successfully
     2. Response contains correct counts and data
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         bulk_update_keys,
     )
-    from litellm.proxy.proxy_server import (
+    from hangarllm.proxy.proxy_server import (
         llm_router,
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
     )
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateKeyRequest,
         BulkUpdateKeyRequestItem,
     )
@@ -8234,14 +8234,14 @@ async def test_bulk_update_keys_success(monkeypatch):
     mock_llm_router = MagicMock()
 
     # Mock existing keys
-    existing_key_1 = LiteLLM_VerificationToken(
+    existing_key_1 = HangarLLM_VerificationToken(
         token="test-key-1",
         user_id="user-123",
         models=["gpt-4"],
         team_id=None,
         max_budget=None,
     )
-    existing_key_2 = LiteLLM_VerificationToken(
+    existing_key_2 = HangarLLM_VerificationToken(
         token="test-key-2",
         user_id="user-123",
         models=["gpt-3.5-turbo"],
@@ -8263,7 +8263,7 @@ async def test_bulk_update_keys_success(monkeypatch):
         "tags": ["staging"],
     }
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         side_effect=[existing_key_1, existing_key_2]
     )
     mock_updated_key_1_obj = MagicMock()
@@ -8278,18 +8278,18 @@ async def test_bulk_update_keys_success(monkeypatch):
     )
 
     # Patch dependencies
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", mock_llm_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", mock_llm_router)
 
     # Mock helper functions
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data"
     ) as mock_prepare:
         mock_prepare.side_effect = [
             {"max_budget": 100.0, "tags": ["production"]},
@@ -8297,12 +8297,12 @@ async def test_bulk_update_keys_success(monkeypatch):
         ]
 
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint"
         ):
             with patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
             ):
-                with patch("litellm.types.proxy.auth.user_api_key_auth.hash_token") as mock_hash:
+                with patch("hangarllm.types.proxy.auth.user_api_key_auth.hash_token") as mock_hash:
                     mock_hash.side_effect = ["hashed-key-1", "hashed-key-2"]
 
                     def _hash_for_bulk_success(token: str) -> str:
@@ -8312,11 +8312,11 @@ async def test_bulk_update_keys_success(monkeypatch):
                         }[token]
 
                     with patch(
-                        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+                        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
                         side_effect=_hash_for_bulk_success,
                     ):
                         with patch(
-                            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
+                            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
                         ):
                             # Create request
                             request_data = BulkUpdateKeyRequest(
@@ -8335,7 +8335,7 @@ async def test_bulk_update_keys_success(monkeypatch):
                             )
 
                             user_api_key_dict = UserAPIKeyAuth(
-                                user_role=LitellmUserRoles.PROXY_ADMIN,
+                                user_role=HangarllmUserRoles.PROXY_ADMIN,
                                 api_key="sk-admin",
                                 user_id="admin-user",
                             )
@@ -8344,7 +8344,7 @@ async def test_bulk_update_keys_success(monkeypatch):
                             response = await bulk_update_keys(
                                 data=request_data,
                                 user_api_key_dict=user_api_key_dict,
-                                litellm_changed_by=None,
+                                hangarllm_changed_by=None,
                             )
 
                             # Verify response
@@ -8365,10 +8365,10 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
     2. Response contains both successful and failed updates
     3. Failed updates include error messages
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         bulk_update_keys,
     )
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateKeyRequest,
         BulkUpdateKeyRequestItem,
     )
@@ -8380,7 +8380,7 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
     mock_llm_router = MagicMock()
 
     # Mock existing keys
-    existing_key_1 = LiteLLM_VerificationToken(
+    existing_key_1 = HangarLLM_VerificationToken(
         token="test-key-1",
         user_id="user-123",
         models=["gpt-4"],
@@ -8397,7 +8397,7 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
     }
 
     # First key exists, second key doesn't exist
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         side_effect=[existing_key_1, None]  # Second key not found
     )
     mock_updated_key_1_obj = MagicMock()
@@ -8409,28 +8409,28 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
     mock_prisma_client.get_data = AsyncMock(return_value=None)
 
     # Patch dependencies
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", mock_llm_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", mock_llm_router)
 
     # Mock helper functions
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data"
     ) as mock_prepare:
         mock_prepare.return_value = {"max_budget": 100.0, "tags": ["production"]}
 
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint"
         ):
             with patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
             ):
-                with patch("litellm.types.proxy.auth.user_api_key_auth.hash_token") as mock_hash:
+                with patch("hangarllm.types.proxy.auth.user_api_key_auth.hash_token") as mock_hash:
                     mock_hash.return_value = "hashed-key-1"
 
                     def _hash_for_bulk_partial(token: str) -> str:
@@ -8440,11 +8440,11 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
                         }[token]
 
                     with patch(
-                        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+                        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
                         side_effect=_hash_for_bulk_partial,
                     ):
                         with patch(
-                            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
+                            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
                         ):
                             # Create request with one valid and one invalid key
                             request_data = BulkUpdateKeyRequest(
@@ -8463,7 +8463,7 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
                             )
 
                             user_api_key_dict = UserAPIKeyAuth(
-                                user_role=LitellmUserRoles.PROXY_ADMIN,
+                                user_role=HangarllmUserRoles.PROXY_ADMIN,
                                 api_key="sk-admin",
                                 user_id="admin-user",
                             )
@@ -8472,7 +8472,7 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
                             response = await bulk_update_keys(
                                 data=request_data,
                                 user_api_key_dict=user_api_key_dict,
-                                litellm_changed_by=None,
+                                hangarllm_changed_by=None,
                             )
 
                             # Verify response
@@ -8504,13 +8504,13 @@ async def test_bulk_update_keys_partial_failures(monkeypatch):
 def test_validate_reset_spend_value_invalid(
     reset_to, key_spend, key_max_budget, budget_max_budget, expected_error
 ):
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token="test-token",
         user_id="test-user",
         spend=key_spend,
         max_budget=key_max_budget,
-        litellm_budget_table=(
-            LiteLLM_BudgetTable(
+        hangarllm_budget_table=(
+            HangarLLM_BudgetTable(
                 budget_id="test-budget", max_budget=budget_max_budget
             ).dict()
             if budget_max_budget is not None
@@ -8540,13 +8540,13 @@ def test_validate_reset_spend_value_invalid(
 def test_validate_reset_spend_value_valid(
     reset_to, key_spend, key_max_budget, budget_max_budget
 ):
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token="test-token",
         user_id="test-user",
         spend=key_spend,
         max_budget=key_max_budget,
-        litellm_budget_table=(
-            LiteLLM_BudgetTable(
+        hangarllm_budget_table=(
+            HangarLLM_BudgetTable(
                 budget_id="test-budget", max_budget=budget_max_budget
             ).dict()
             if budget_max_budget is not None
@@ -8559,12 +8559,12 @@ def test_validate_reset_spend_value_valid(
 
 
 def test_validate_reset_spend_value_no_budget_table():
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token="test-token",
         user_id="test-user",
         spend=100.0,
         max_budget=50.0,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
     result = _validate_reset_spend_value(25.0, key_in_db)
@@ -8572,12 +8572,12 @@ def test_validate_reset_spend_value_no_budget_table():
 
 
 def test_validate_reset_spend_value_none_spend():
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token="test-token",
         user_id="test-user",
         spend=0.0,
         max_budget=None,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
     result = _validate_reset_spend_value(0.0, key_in_db)
@@ -8596,15 +8596,15 @@ async def test_reset_key_spend_success(monkeypatch):
     mock_proxy_logging_obj = MagicMock()
 
     hashed_key = "hashed-test-key"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=100.0,
         max_budget=200.0,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
-    updated_key = LiteLLM_VerificationToken(
+    updated_key = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=50.0,
@@ -8612,28 +8612,28 @@ async def test_reset_key_spend_success(monkeypatch):
         budget_reset_at=None,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=updated_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
 
     with (
-        patch("litellm.proxy.proxy_server.hash_token") as mock_hash_token,
+        patch("hangarllm.proxy.proxy_server.hash_token") as mock_hash_token,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
         ) as mock_check_admin,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
         ) as mock_delete_cache,
     ):
         mock_hash_token.return_value = hashed_key
@@ -8645,14 +8645,14 @@ async def test_reset_key_spend_success(monkeypatch):
         mock_spend_counter_cache = MagicMock()
         mock_spend_counter_cache.redis_cache = None
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.spend_counter_cache",
+            "hangarllm.proxy.proxy_server.spend_counter_cache",
             mock_spend_counter_cache,
         )
         spend = FakeSpendCounters(redis=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.spend_counter_store", spend.store())
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.spend_counter_store", spend.store())
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -8661,14 +8661,14 @@ async def test_reset_key_spend_success(monkeypatch):
             key="sk-test-key",
             data=ResetSpendRequest(reset_to=50.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
         assert response["spend"] == 50.0
         assert response["previous_spend"] == 100.0
         assert response["key_hash"] == hashed_key
         assert response["max_budget"] == 200.0
-        mock_prisma_client.db.litellm_verificationtoken.update.assert_called_once()
+        mock_prisma_client.db.hangarllm_verificationtoken.update.assert_called_once()
         mock_delete_cache.assert_awaited_once()
         assert spend.memory[f"spend:key:{hashed_key}"] == 50.0
         # spend_db_floor marker is also set to the reset value (LIT-3803 pattern),
@@ -8690,7 +8690,7 @@ async def test_reset_key_spend_resets_budget_windows(monkeypatch):
     Before the fix, reset_key_spend_fn only reset spend:key:{hash}, leaving
     spend:key:{hash}:window:{duration} at its pre-reset value. Since
     get_current_spend always re-derives a window counter from real
-    LiteLLM_SpendLogs rows inside the still-open window, merely zeroing that
+    HangarLLM_SpendLogs rows inside the still-open window, merely zeroing that
     counter without also advancing reset_at is not durable either: the very
     next request would re-sum the unchanged historical spend and put the
     counter right back above the window's max_budget, so
@@ -8702,12 +8702,12 @@ async def test_reset_key_spend_resets_budget_windows(monkeypatch):
     mock_proxy_logging_obj = MagicMock()
 
     hashed_key = "hashed-window-budget-key"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=80.0,
         max_budget=1000.0,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
         budget_limits=[
             {
                 "budget_duration": "1d",
@@ -8716,7 +8716,7 @@ async def test_reset_key_spend_resets_budget_windows(monkeypatch):
             }
         ],
     )
-    updated_key = LiteLLM_VerificationToken(
+    updated_key = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=0.0,
@@ -8724,40 +8724,40 @@ async def test_reset_key_spend_resets_budget_windows(monkeypatch):
         budget_reset_at=None,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=updated_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
 
     mock_spend_counter_cache = MagicMock()
     mock_spend_counter_cache.redis_cache = MagicMock()
     mock_spend_counter_cache.redis_cache.async_set_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.spend_counter_cache",
+        "hangarllm.proxy.proxy_server.spend_counter_cache",
         mock_spend_counter_cache,
     )
 
     spend = FakeSpendCounters()
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.spend_counter_store", spend.store())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.spend_counter_store", spend.store())
 
     with (
-        patch("litellm.proxy.proxy_server.hash_token") as mock_hash_token,  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
+        patch("hangarllm.proxy.proxy_server.hash_token") as mock_hash_token,  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
         patch(  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
         ) as mock_check_admin,
         patch(  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
         ) as mock_delete_cache,
     ):
         mock_hash_token.return_value = hashed_key
@@ -8765,7 +8765,7 @@ async def test_reset_key_spend_resets_budget_windows(monkeypatch):
         mock_delete_cache.return_value = None
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -8775,7 +8775,7 @@ async def test_reset_key_spend_resets_budget_windows(monkeypatch):
             key="sk-test-key",
             data=ResetSpendRequest(reset_to=0.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
         after_call = datetime.now(timezone.utc)
 
@@ -8798,8 +8798,8 @@ async def test_reset_key_spend_resets_budget_windows(monkeypatch):
     # get_budget_reset_time("1d") call would give) is the wrong value here --
     # it would put window_start at the start of the day already in progress,
     # which still covers that spend.
-    assert mock_prisma_client.db.litellm_verificationtoken.update.call_count == 2
-    window_update_call = mock_prisma_client.db.litellm_verificationtoken.update.call_args_list[1]
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.call_count == 2
+    window_update_call = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args_list[1]
     assert window_update_call.kwargs["where"] == {"token": hashed_key}
     persisted_windows = json.loads(window_update_call.kwargs["data"]["budget_limits"])
     assert len(persisted_windows) == 1
@@ -8818,15 +8818,15 @@ async def test_reset_key_spend_no_budget_limits_skips_window_reset(monkeypatch):
     mock_proxy_logging_obj = MagicMock()
 
     hashed_key = "hashed-no-window-key"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=100.0,
         max_budget=200.0,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
         budget_limits=None,
     )
-    updated_key = LiteLLM_VerificationToken(
+    updated_key = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=0.0,
@@ -8834,39 +8834,39 @@ async def test_reset_key_spend_no_budget_limits_skips_window_reset(monkeypatch):
         budget_reset_at=None,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=updated_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
 
     mock_spend_counter_cache = MagicMock()
     mock_spend_counter_cache.redis_cache = None
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.spend_counter_cache",
+        "hangarllm.proxy.proxy_server.spend_counter_cache",
         mock_spend_counter_cache,
     )
 
     spend = FakeSpendCounters(redis=None)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.spend_counter_store", spend.store())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.spend_counter_store", spend.store())
 
     with (
-        patch("litellm.proxy.proxy_server.hash_token") as mock_hash_token,  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
+        patch("hangarllm.proxy.proxy_server.hash_token") as mock_hash_token,  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
         patch(  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
         ) as mock_check_admin,
         patch(  # test-quality-ok: no HTTP boundary; same pattern as test_reset_key_spend_success
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
         ) as mock_delete_cache,
     ):
         mock_hash_token.return_value = hashed_key
@@ -8874,7 +8874,7 @@ async def test_reset_key_spend_no_budget_limits_skips_window_reset(monkeypatch):
         mock_delete_cache.return_value = None
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -8883,11 +8883,11 @@ async def test_reset_key_spend_no_budget_limits_skips_window_reset(monkeypatch):
             key="sk-test-key",
             data=ResetSpendRequest(reset_to=0.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert response["spend"] == 0.0
-    mock_prisma_client.db.litellm_verificationtoken.update.assert_called_once()
+    mock_prisma_client.db.hangarllm_verificationtoken.update.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -8909,7 +8909,7 @@ async def test_delete_cache_key_object_broadcasts_invalidation(monkeypatch):
     mock_proxy_logging_obj.internal_usage_cache.dual_cache.async_delete_cache = AsyncMock()
 
     with patch(  # test-quality-ok: pub/sub broadcast to other workers has no HTTP boundary to fake
-        "litellm.proxy.auth.auth_checks.publish_auth_cache_invalidation"
+        "hangarllm.proxy.auth.auth_checks.publish_auth_cache_invalidation"
     ) as mock_publish:
         mock_publish.return_value = None
         await delete_cache_key_object(
@@ -8931,7 +8931,7 @@ async def test_update_key_spend_updates_counter(monkeypatch):
     """
     Test that updating a key's spend via update_key_fn immediately updates the spend counter.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -8940,47 +8940,47 @@ async def test_update_key_spend_updates_counter(monkeypatch):
     mock_proxy_logging_obj = MagicMock()
 
     hashed_key = "0d62f396c1317066f55a96086517047c737087c61eb2bf016b72e6298927b15b"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=10.0,
         max_budget=200.0,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
     mock_prisma_client.get_data = AsyncMock(return_value=key_in_db)
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {"spend": 0.0}})
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
     mock_spend_counter_cache = MagicMock()
     mock_spend_counter_cache.redis_cache = MagicMock()
     mock_spend_counter_cache.redis_cache.async_set_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.spend_counter_cache",
+        "hangarllm.proxy.proxy_server.spend_counter_cache",
         mock_spend_counter_cache,
     )
     spend = FakeSpendCounters()
-    monkeypatch.setattr("litellm.proxy.proxy_server.spend_counter_store", spend.store())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.spend_counter_store", spend.store())
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
     ) as mock_delete_cache:
         mock_delete_cache.return_value = None
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -8992,7 +8992,7 @@ async def test_update_key_spend_updates_counter(monkeypatch):
             request=mock_request,
             data=UpdateKeyRequest(key="sk-test-key", spend=0.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
         mock_delete_cache.assert_awaited_once()
@@ -9009,16 +9009,16 @@ async def test_reset_key_spend_success_team_admin(monkeypatch):
 
     hashed_key = "hashed-test-key"
     team_id = "test-team-123"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         team_id=team_id,
         spend=100.0,
         max_budget=200.0,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
-    updated_key = LiteLLM_VerificationToken(
+    updated_key = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         team_id=team_id,
@@ -9027,15 +9027,15 @@ async def test_reset_key_spend_success_team_admin(monkeypatch):
         budget_reset_at=None,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=updated_key
     )
 
     # Set up team table with user as admin
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id=team_id,
         team_alias="test-team",
         tpm_limit=None,
@@ -9053,29 +9053,29 @@ async def test_reset_key_spend_success_team_admin(monkeypatch):
     async def mock_get_team_object(*args, **kwargs):
         return team_table
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
 
     with (
-        patch("litellm.proxy.proxy_server.hash_token") as mock_hash_token,
+        patch("hangarllm.proxy.proxy_server.hash_token") as mock_hash_token,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
         ) as mock_delete_cache,
     ):
         mock_hash_token.return_value = hashed_key
         mock_delete_cache.return_value = None
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-team-admin",
             user_id="team-admin-user",
         )
@@ -9084,31 +9084,31 @@ async def test_reset_key_spend_success_team_admin(monkeypatch):
             key="sk-test-key",
             data=ResetSpendRequest(reset_to=50.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
         assert response["spend"] == 50.0
         assert response["previous_spend"] == 100.0
         assert response["key_hash"] == hashed_key
         assert response["max_budget"] == 200.0
-        mock_prisma_client.db.litellm_verificationtoken.update.assert_called_once()
+        mock_prisma_client.db.hangarllm_verificationtoken.update.assert_called_once()
         mock_delete_cache.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_reset_key_spend_key_not_found(monkeypatch):
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
-    with patch("litellm.proxy.proxy_server.hash_token") as mock_hash_token:
+    with patch("hangarllm.proxy.proxy_server.hash_token") as mock_hash_token:
         mock_hash_token.return_value = "hashed-key"
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -9118,7 +9118,7 @@ async def test_reset_key_spend_key_not_found(monkeypatch):
                 key="sk-test-key",
                 data=ResetSpendRequest(reset_to=50.0),
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
         assert exc_info.value.status_code == 404
@@ -9129,10 +9129,10 @@ async def test_reset_key_spend_key_not_found(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_reset_key_spend_db_not_connected(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin-user",
     )
@@ -9142,7 +9142,7 @@ async def test_reset_key_spend_db_not_connected(monkeypatch):
             key="sk-test-key",
             data=ResetSpendRequest(reset_to=50.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc_info.value.status_code == 500
@@ -9152,25 +9152,25 @@ async def test_reset_key_spend_db_not_connected(monkeypatch):
 @pytest.mark.asyncio
 async def test_reset_key_spend_validation_error(monkeypatch):
     mock_prisma_client = MagicMock()
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token="hashed-key",
         user_id="test-user",
         spend=100.0,
         max_budget=None,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
-    with patch("litellm.proxy.proxy_server.hash_token") as mock_hash_token:
+    with patch("hangarllm.proxy.proxy_server.hash_token") as mock_hash_token:
         mock_hash_token.return_value = "hashed-key"
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -9180,7 +9180,7 @@ async def test_reset_key_spend_validation_error(monkeypatch):
                 key="sk-test-key",
                 data=ResetSpendRequest(reset_to=150.0),
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
         assert exc_info.value.status_code == 400
@@ -9193,28 +9193,28 @@ async def test_reset_key_spend_authorization_failure(monkeypatch):
     mock_user_api_key_cache = MagicMock()
 
     hashed_key = "hashed-test-key"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         team_id="team-1",
         spend=100.0,
         max_budget=None,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
 
     with (
-        patch("litellm.proxy.proxy_server.hash_token") as mock_hash_token,
+        patch("hangarllm.proxy.proxy_server.hash_token") as mock_hash_token,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
         ) as mock_check_admin,
     ):
         mock_hash_token.return_value = hashed_key
@@ -9223,7 +9223,7 @@ async def test_reset_key_spend_authorization_failure(monkeypatch):
         )
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-user",
             user_id="user-1",
         )
@@ -9233,7 +9233,7 @@ async def test_reset_key_spend_authorization_failure(monkeypatch):
                 key="sk-test-key",
                 data=ResetSpendRequest(reset_to=50.0),
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
         assert exc_info.value.status_code == 403
@@ -9246,15 +9246,15 @@ async def test_reset_key_spend_hashed_key(monkeypatch):
     mock_proxy_logging_obj = MagicMock()
 
     hashed_key = "already-hashed-key"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=100.0,
         max_budget=None,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
-    updated_key = LiteLLM_VerificationToken(
+    updated_key = HangarLLM_VerificationToken(
         token=hashed_key,
         user_id="test-user",
         spend=50.0,
@@ -9262,34 +9262,34 @@ async def test_reset_key_spend_hashed_key(monkeypatch):
         budget_reset_at=None,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=updated_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_proxy_or_team_admin_for_key"
         ) as mock_check_admin,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object"
         ) as mock_delete_cache,
     ):
         mock_check_admin.return_value = None
         mock_delete_cache.return_value = None
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -9298,12 +9298,12 @@ async def test_reset_key_spend_hashed_key(monkeypatch):
             key=hashed_key,
             data=ResetSpendRequest(reset_to=50.0),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
         assert response["spend"] == 50.0
-        mock_prisma_client.db.litellm_verificationtoken.find_unique.assert_called_once_with(
-            where={"token": hashed_key}, include={"litellm_budget_table": True}
+        mock_prisma_client.db.hangarllm_verificationtoken.find_unique.assert_called_once_with(
+            where={"token": hashed_key}, include={"hangarllm_budget_table": True}
         )
 
 
@@ -9311,7 +9311,7 @@ async def test_reset_key_spend_hashed_key(monkeypatch):
 async def test_validate_key_list_check_proxy_admin():
     mock_prisma_client = AsyncMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin-user",
     )
 
@@ -9331,19 +9331,19 @@ async def test_validate_key_list_check_proxy_admin():
 @pytest.mark.asyncio
 async def test_validate_key_list_check_team_admin_success():
     mock_prisma_client = AsyncMock()
-    user_info = LiteLLM_UserTable(
+    user_info = HangarLLM_UserTable(
         user_id="test-user",
         user_email="test@example.com",
         teams=["team-1"],
         organization_memberships=[],
     )
 
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=user_info
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -9364,19 +9364,19 @@ async def test_validate_key_list_check_team_admin_success():
 @pytest.mark.asyncio
 async def test_validate_key_list_check_team_admin_fail():
     mock_prisma_client = AsyncMock()
-    user_info = LiteLLM_UserTable(
+    user_info = HangarLLM_UserTable(
         user_id="test-user",
         user_email="test@example.com",
         teams=["team-1"],
         organization_memberships=[],
     )
 
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=user_info
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -9398,32 +9398,32 @@ async def test_validate_key_list_check_team_admin_fail():
 @pytest.mark.asyncio
 async def test_validate_key_list_check_key_hash_authorized():
     mock_prisma_client = AsyncMock()
-    user_info = LiteLLM_UserTable(
+    user_info = HangarLLM_UserTable(
         user_id="test-user",
         user_email="test@example.com",
         teams=[],
         organization_memberships=[],
     )
 
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="hashed-key",
         user_id="test-user",
     )
 
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=user_info
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_info
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints._can_user_query_key_info"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints._can_user_query_key_info"
     ) as mock_can_query:
         mock_can_query.return_value = True
 
@@ -9444,32 +9444,32 @@ async def test_validate_key_list_check_key_hash_authorized():
 @pytest.mark.asyncio
 async def test_validate_key_list_check_key_hash_unauthorized():
     mock_prisma_client = AsyncMock()
-    user_info = LiteLLM_UserTable(
+    user_info = HangarLLM_UserTable(
         user_id="test-user",
         user_email="test@example.com",
         teams=[],
         organization_memberships=[],
     )
 
-    key_info = LiteLLM_VerificationToken(
+    key_info = HangarLLM_VerificationToken(
         token="hashed-key",
         user_id="other-user",
     )
 
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=user_info
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_info
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints._can_user_query_key_info"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints._can_user_query_key_info"
     ) as mock_can_query:
         mock_can_query.return_value = False
 
@@ -9491,22 +9491,22 @@ async def test_validate_key_list_check_key_hash_unauthorized():
 @pytest.mark.asyncio
 async def test_validate_key_list_check_key_hash_not_found():
     mock_prisma_client = AsyncMock()
-    user_info = LiteLLM_UserTable(
+    user_info = HangarLLM_UserTable(
         user_id="test-user",
         user_email="test@example.com",
         teams=[],
         organization_memberships=[],
     )
 
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=user_info
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         side_effect=Exception("Key not found")
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -9530,20 +9530,20 @@ async def test_validate_key_list_check_key_hash_row_missing():
     """A key_hash with no row reaches the same 'Key Hash not found' 403 as a failed
     lookup, instead of blowing up inside the ownership check on a None row."""
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
+        return_value=HangarLLM_UserTable(
             user_id="test-user",
             user_email="test@example.com",
             teams=[],
             organization_memberships=[],
         )
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="test-user",
         api_key="sk-caller",
     )
@@ -9569,8 +9569,8 @@ async def test_validate_key_list_check_proxy_admin_viewer_skips_db_lookup():
     """proxy_admin_viewer takes the same unscoped read fast-path as proxy_admin, so no
     user row is fetched and none of the user/team scoping filters apply."""
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
+        return_value=HangarLLM_UserTable(
             user_id="viewer-user",
             user_email="viewer@example.com",
             teams=[],
@@ -9579,7 +9579,7 @@ async def test_validate_key_list_check_proxy_admin_viewer_skips_db_lookup():
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY,
         user_id="viewer-user",
     )
 
@@ -9594,7 +9594,7 @@ async def test_validate_key_list_check_proxy_admin_viewer_skips_db_lookup():
     )
 
     assert result is None
-    mock_prisma_client.db.litellm_usertable.find_unique.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_usertable.find_unique.assert_not_awaited()
     assert mock_prisma_client.mock_calls == []
 
 
@@ -9603,8 +9603,8 @@ async def test_validate_key_list_check_internal_user_cannot_query_other_user():
     """Admin-view parity must not leak past the admin roles: an internal user still
     cannot list another user's keys."""
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
+        return_value=HangarLLM_UserTable(
             user_id="test-user",
             user_email="test@example.com",
             teams=[],
@@ -9613,7 +9613,7 @@ async def test_validate_key_list_check_internal_user_cannot_query_other_user():
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -9639,7 +9639,7 @@ async def test_key_with_budget_id_does_not_store_budget_duration():
     budget_duration, the key does NOT get budget_duration stored on it.
 
     Keys with budget_id follow their linked budget tier's reset schedule;
-    reset_budget_for_litellm_budget_table() resets them when the tier resets.
+    reset_budget_for_hangarllm_budget_table() resets them when the tier resets.
     This avoids duplicating budget_duration on keys so tier updates apply
     automatically to all linked keys.
     """
@@ -9657,12 +9657,12 @@ async def test_key_with_budget_id_does_not_store_budget_duration():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             mock_generate_key,
         ),
     ):
@@ -9673,11 +9673,11 @@ async def test_key_with_budget_id_does_not_store_budget_duration():
                 # NOTE: budget_duration is intentionally NOT set here
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-9876",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -9691,7 +9691,7 @@ async def test_key_with_budget_id_does_not_store_budget_duration():
     )
 
     # No budget tier lookup - we don't copy budget_duration onto the key
-    mock_prisma.db.litellm_budgettable.find_unique.assert_not_called()
+    mock_prisma.db.hangarllm_budgettable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -9707,7 +9707,7 @@ async def test_key_does_not_override_explicit_budget_duration():
     # The budget tier has budget_duration="7d"
     mock_budget_row = MagicMock()
     mock_budget_row.budget_duration = "7d"
-    mock_prisma.db.litellm_budgettable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_budgettable.find_unique = AsyncMock(
         return_value=mock_budget_row
     )
 
@@ -9721,12 +9721,12 @@ async def test_key_does_not_override_explicit_budget_duration():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             mock_generate_key,
         ),
     ):
@@ -9737,11 +9737,11 @@ async def test_key_does_not_override_explicit_budget_duration():
                 budget_duration="30d",  # explicit budget_duration should take precedence
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-9876",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -9755,29 +9755,29 @@ async def test_key_does_not_override_explicit_budget_duration():
     )
 
     # The budget tier should NOT have been looked up since budget_duration was explicit
-    mock_prisma.db.litellm_budgettable.find_unique.assert_not_called()
+    mock_prisma.db.hangarllm_budgettable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_server_credentials_master_key"
+    "hangarllm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_server_credentials_master_key"
 )
 async def test_rotate_master_key_reencrypts_model_params_in_place(
     mock_rotate_mcp,
 ):
     """
     Regression test for: master key rotation wipes every non-credential column
-    on LiteLLM_ProxyModelTable. Rotation used to rebuild the table via
+    on HangarLLM_ProxyModelTable. Rotation used to rebuild the table via
     delete_many + create_many from Deployment objects, which carry no
     blocked/created_at/created_by/updated_at/updated_by, so every rotation
     reset blocked to False (silently unblocking blocked models) and rewrote the
-    audit columns. Rotation must instead update only litellm_params (the sole
+    audit columns. Rotation must instead update only hangarllm_params (the sole
     encrypted column) on each existing row, keyed by model_id.
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         rotate_master_key,
     )
 
@@ -9789,22 +9789,22 @@ async def test_rotate_master_key_reencrypts_model_params_in_place(
     mock_model = MagicMock()
     mock_model.model_id = "model-1"
     mock_model.model_name = "test-model"
-    mock_model.litellm_params = (
+    mock_model.hangarllm_params = (
         '{"model": "openai/gpt-4", "api_key": "sk-encrypted-old"}'
     )
     mock_model.model_info = '{"id": "model-1"}'
     mock_model.created_by = "admin"
     mock_model.updated_by = "admin"
-    mock_prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(
         return_value=[mock_model]
     )
 
     # Mock transaction context manager
     mock_tx = AsyncMock()
-    mock_tx.litellm_proxymodeltable = MagicMock()
-    mock_tx.litellm_proxymodeltable.delete_many = AsyncMock()
-    mock_tx.litellm_proxymodeltable.create_many = AsyncMock()
-    mock_tx.litellm_proxymodeltable.update_many = AsyncMock()
+    mock_tx.hangarllm_proxymodeltable = MagicMock()
+    mock_tx.hangarllm_proxymodeltable.delete_many = AsyncMock()
+    mock_tx.hangarllm_proxymodeltable.create_many = AsyncMock()
+    mock_tx.hangarllm_proxymodeltable.update_many = AsyncMock()
     mock_prisma_client.db.tx = MagicMock(
         return_value=AsyncMock(
             __aenter__=AsyncMock(return_value=mock_tx),
@@ -9813,10 +9813,10 @@ async def test_rotate_master_key_reencrypts_model_params_in_place(
     )
 
     # Mock config table — no env vars
-    mock_prisma_client.db.litellm_config.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_config.find_many = AsyncMock(return_value=[])
 
     # Mock credentials table — no credentials
-    mock_prisma_client.db.litellm_credentialstable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_credentialstable.find_many = AsyncMock(
         return_value=[]
     )
 
@@ -9828,7 +9828,7 @@ async def test_rotate_master_key_reencrypts_model_params_in_place(
     mock_proxy_config.decrypt_model_list_from_db.return_value = [
         {
             "model_name": "test-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4",
                 "api_key": "sk-decrypted-key",
             },
@@ -9837,13 +9837,13 @@ async def test_rotate_master_key_reencrypts_model_params_in_place(
     ]
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-9876",
         user_id="test-user",
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_config",
+        "hangarllm.proxy.proxy_server.proxy_config",
         mock_proxy_config,
     ):
         await rotate_master_key(
@@ -9854,28 +9854,28 @@ async def test_rotate_master_key_reencrypts_model_params_in_place(
         )
 
     # Rotation must never rewrite whole rows: no delete + recreate
-    mock_tx.litellm_proxymodeltable.delete_many.assert_not_called()
-    mock_tx.litellm_proxymodeltable.create_many.assert_not_called()
+    mock_tx.hangarllm_proxymodeltable.delete_many.assert_not_called()
+    mock_tx.hangarllm_proxymodeltable.create_many.assert_not_called()
 
-    mock_tx.litellm_proxymodeltable.update_many.assert_called_once()
-    call_args = mock_tx.litellm_proxymodeltable.update_many.call_args
+    mock_tx.hangarllm_proxymodeltable.update_many.assert_called_once()
+    call_args = mock_tx.hangarllm_proxymodeltable.update_many.call_args
 
     assert call_args.kwargs["where"] == {
         "model_id": "model-1"
     }, "the re-encrypted params must land on the same row, keyed by model_id"
 
     update_data = call_args.kwargs["data"]
-    assert set(update_data.keys()) == {"litellm_params"}, (
-        "rotation must touch only the encrypted litellm_params column; writing any "
+    assert set(update_data.keys()) == {"hangarllm_params"}, (
+        "rotation must touch only the encrypted hangarllm_params column; writing any "
         f"other column wipes it (blocked, audit columns), got {sorted(update_data.keys())}"
     )
 
     import prisma
 
     assert isinstance(
-        update_data["litellm_params"], prisma.Json
-    ), f"litellm_params should be prisma.Json for update_many(), got {type(update_data['litellm_params'])}"
-    reencrypted_params = update_data["litellm_params"].data
+        update_data["hangarllm_params"], prisma.Json
+    ), f"hangarllm_params should be prisma.Json for update_many(), got {type(update_data['hangarllm_params'])}"
+    reencrypted_params = update_data["hangarllm_params"].data
     assert set(reencrypted_params.keys()) >= {"model", "api_key"}
     assert (
         reencrypted_params["api_key"] != "sk-decrypted-key"
@@ -9887,22 +9887,22 @@ async def test_rotate_master_key_keeps_environment_variables_it_cannot_decrypt(m
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
-    from litellm.proxy.management_endpoints.key_management_endpoints import rotate_master_key
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import rotate_master_key
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-old-master-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-old-master-key")
     under_another_key = encrypt_value_helper("stored-under-another-key", new_encryption_key="sk-another-master-key")
     for key in ("ROTATION_TEST_ENCRYPTED", "ROTATION_TEST_PLAINTEXT", "ROTATION_TEST_UNDER_ANOTHER_KEY"):
         monkeypatch.setenv(key, "restored-by-monkeypatch")
         monkeypatch.delenv(key)
     prisma_client = AsyncMock()
     prisma_client.db = MagicMock()
-    prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    prisma_client.db.litellm_credentialstable.find_many = AsyncMock(return_value=[])
-    prisma_client.db.litellm_config.update = AsyncMock()
-    prisma_client.writer_db.litellm_config.find_many = AsyncMock(
+    prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_credentialstable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_config.update = AsyncMock()
+    prisma_client.writer_db.hangarllm_config.find_many = AsyncMock(
         return_value=[
             SimpleNamespace(
                 param_name="environment_variables",
@@ -9914,16 +9914,16 @@ async def test_rotate_master_key_keeps_environment_variables_it_cannot_decrypt(m
             )
         ]
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", ProxyConfig())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_config", ProxyConfig())
 
     await rotate_master_key(
         prisma_client=prisma_client,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876"),
         current_master_key="sk-old-master-key",
         new_master_key="sk-new-master-key",
     )
 
-    stored = prisma_client.db.litellm_config.update.call_args.kwargs["data"]["param_value"].data
+    stored = prisma_client.db.hangarllm_config.update.call_args.kwargs["data"]["param_value"].data
     rotated = decrypt_if_encrypted_with(stored["ROTATION_TEST_ENCRYPTED"], "sk-new-master-key")
     assert {**stored, "ROTATION_TEST_ENCRYPTED": rotated} == {
         "ROTATION_TEST_ENCRYPTED": "stored-encrypted",
@@ -9937,12 +9937,12 @@ async def test_rotate_master_key_keeps_an_environment_variable_the_read_replica_
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
-    from litellm.proxy.management_endpoints.key_management_endpoints import rotate_master_key
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import rotate_master_key
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-old-master-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-old-master-key")
     monkeypatch.setenv("ROTATION_TEST_SAVED_A_MOMENT_AGO", "restored-by-monkeypatch")
     monkeypatch.delenv("ROTATION_TEST_SAVED_A_MOMENT_AGO")
 
@@ -9951,23 +9951,23 @@ async def test_rotate_master_key_keeps_an_environment_variable_the_read_replica_
 
     prisma_client = AsyncMock()
     prisma_client.db = MagicMock()
-    prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    prisma_client.db.litellm_credentialstable.find_many = AsyncMock(return_value=[])
-    prisma_client.db.litellm_config.update = AsyncMock()
-    prisma_client.db.litellm_config.find_many = AsyncMock(return_value=rows({}))
-    prisma_client.writer_db.litellm_config.find_many = AsyncMock(
+    prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_credentialstable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_config.update = AsyncMock()
+    prisma_client.db.hangarllm_config.find_many = AsyncMock(return_value=rows({}))
+    prisma_client.writer_db.hangarllm_config.find_many = AsyncMock(
         return_value=rows({"ROTATION_TEST_SAVED_A_MOMENT_AGO": encrypt_value_helper("saved-a-moment-ago")})
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", ProxyConfig())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_config", ProxyConfig())
 
     await rotate_master_key(
         prisma_client=prisma_client,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876"),
         current_master_key="sk-old-master-key",
         new_master_key="sk-new-master-key",
     )
 
-    stored = prisma_client.db.litellm_config.update.call_args.kwargs["data"]["param_value"].data
+    stored = prisma_client.db.hangarllm_config.update.call_args.kwargs["data"]["param_value"].data
     assert {key: decrypt_if_encrypted_with(value, "sk-new-master-key") for key, value in stored.items()} == {
         "ROTATION_TEST_SAVED_A_MOMENT_AGO": "saved-a-moment-ago"
     }
@@ -9981,44 +9981,44 @@ async def test_default_key_generate_params_duration(monkeypatch):
     Regression test for bug where 'duration' was missing from the list
     of fields populated from default_key_generate_params.
     """
-    import litellm
+    import hangarllm
 
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     # Set default_key_generate_params with duration
-    monkeypatch.setattr(litellm, "default_key_generate_params", {"duration": "180d"})
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", {"duration": "180d"})
 
     request = GenerateKeyRequest()  # No duration specified
     response = await _common_key_generation_helper(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="1234",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
         team_table=None,
     )
 
@@ -10033,38 +10033,38 @@ async def test_default_key_generate_params_object_permission_applied_when_absent
     default_key_generate_params.object_permission is applied to a key that
     doesn't specify object_permission at all.
     """
-    import litellm
+    import hangarllm
 
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = AsyncMock(
         return_value=MagicMock(object_permission_id="objperm-1")
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {
                 "object_permission": {"vector_stores": ["default-vs"]}
@@ -10075,15 +10075,15 @@ async def test_default_key_generate_params_object_permission_applied_when_absent
     await _common_key_generation_helper(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="1234",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
         team_table=None,
     )
 
-    created_data = mock_prisma_client.db.litellm_objectpermissiontable.create.call_args.kwargs["data"]
+    created_data = mock_prisma_client.db.hangarllm_objectpermissiontable.create.call_args.kwargs["data"]
     assert created_data["vector_stores"] == ["default-vs"]
 
 
@@ -10095,39 +10095,39 @@ async def test_default_key_generate_params_object_permission_merges_partial(
     caller left unset - an explicitly supplied field (agents here) is
     preserved alongside the defaulted field (vector_stores).
     """
-    import litellm
-    from litellm.proxy._types import LiteLLM_ObjectPermissionBase
+    import hangarllm
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionBase
 
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = AsyncMock(
         return_value=MagicMock(object_permission_id="objperm-2")
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {
                 "object_permission": {"vector_stores": ["default-vs"]}
@@ -10135,20 +10135,20 @@ async def test_default_key_generate_params_object_permission_merges_partial(
     )
 
     request = GenerateKeyRequest(
-        object_permission=LiteLLM_ObjectPermissionBase(agents=["agent-1"])
+        object_permission=HangarLLM_ObjectPermissionBase(agents=["agent-1"])
     )
     await _common_key_generation_helper(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="1234",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
         team_table=None,
     )
 
-    created_data = mock_prisma_client.db.litellm_objectpermissiontable.create.call_args.kwargs["data"]
+    created_data = mock_prisma_client.db.hangarllm_objectpermissiontable.create.call_args.kwargs["data"]
     assert created_data["agents"] == ["agent-1"]
     assert created_data["vector_stores"] == ["default-vs"]
 
@@ -10160,39 +10160,39 @@ async def test_default_key_generate_params_object_permission_does_not_override_e
     A field the caller explicitly set on object_permission must win over the
     same field in default_key_generate_params.
     """
-    import litellm
-    from litellm.proxy._types import LiteLLM_ObjectPermissionBase
+    import hangarllm
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionBase
 
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = AsyncMock(
         return_value=MagicMock(object_permission_id="objperm-3")
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {
                 "object_permission": {"vector_stores": ["default-vs"]}
@@ -10200,22 +10200,22 @@ async def test_default_key_generate_params_object_permission_does_not_override_e
     )
 
     request = GenerateKeyRequest(
-        object_permission=LiteLLM_ObjectPermissionBase(
+        object_permission=HangarLLM_ObjectPermissionBase(
             vector_stores=["explicit-vs"]
         )
     )
     await _common_key_generation_helper(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="1234",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
         team_table=None,
     )
 
-    created_data = mock_prisma_client.db.litellm_objectpermissiontable.create.call_args.kwargs["data"]
+    created_data = mock_prisma_client.db.hangarllm_objectpermissiontable.create.call_args.kwargs["data"]
     assert created_data["vector_stores"] == ["explicit-vs"]
 
 
@@ -10229,38 +10229,38 @@ async def test_default_key_generate_params_object_permission_not_rejected_for_no
     caller-scope validation, so it is never mistaken for a caller-requested
     permission.
     """
-    import litellm
+    import hangarllm
 
     mock_prisma_client = AsyncMock()
     mock_insert_data = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
     mock_prisma_client.insert_data = mock_insert_data
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=None
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=MagicMock(
-            token="hashed_token_123", litellm_budget_table=None, object_permission=None
+            token="hashed_token_123", hangarllm_budget_table=None, object_permission=None
         )
     )
-    mock_prisma_client.db.litellm_objectpermissiontable = MagicMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable = MagicMock()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.create = AsyncMock(
         return_value=MagicMock(object_permission_id="objperm-4")
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {
                 "object_permission": {"vector_stores": ["default-vs"]}
@@ -10271,16 +10271,16 @@ async def test_default_key_generate_params_object_permission_not_rejected_for_no
     response = await _common_key_generation_helper(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-alice",
             user_id="alice",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
         team_table=None,
     )
 
     assert response is not None
-    created_data = mock_prisma_client.db.litellm_objectpermissiontable.create.call_args.kwargs["data"]
+    created_data = mock_prisma_client.db.hangarllm_objectpermissiontable.create.call_args.kwargs["data"]
     assert created_data["vector_stores"] == ["default-vs"]
 
 
@@ -10290,7 +10290,7 @@ async def test_build_key_filter_member_team_service_accounts():
     Test that regular team members can see service accounts (user_id=NULL)
     for their teams, but NOT other members' personal keys.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10334,7 +10334,7 @@ async def test_build_key_filter_admin_sees_all_team_keys():
     Test that team admins see ALL keys for their teams (not just service accounts),
     and that member_team_ids doesn't duplicate admin teams.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10391,7 +10391,7 @@ async def test_build_key_filter_created_by_scoped_to_current_teams():
     A former team member should NOT see service accounts they created for
     a team they've left.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10447,7 +10447,7 @@ async def test_build_key_filter_created_by_no_teams():
     Test that when user has no team memberships (empty list), created_by
     only returns non-team keys (personal keys).
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10496,7 +10496,7 @@ async def test_build_key_filter_backward_compat_no_member_team_ids():
     created_by filter should use the old unrestricted behavior.
     This ensures direct callers of _list_key_helper (like Prometheus) still work.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10534,7 +10534,7 @@ async def test_build_key_filter_admin_all_member_overlap():
     Test that when user is admin of ALL teams they belong to,
     no member-only service account condition is added (would be redundant).
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10578,7 +10578,7 @@ async def test_build_key_filter_project_id():
     Test that project_id is applied as a global AND condition, narrowing all results
     to keys that belong to the specified project.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10613,7 +10613,7 @@ async def test_build_key_filter_access_group_id():
     Test that access_group_id is applied as a global AND condition using hasSome,
     narrowing results to keys whose access_group_ids array contains the given ID.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10648,7 +10648,7 @@ async def test_build_key_filter_project_id_and_access_group_id():
     Test that project_id and access_group_id stack correctly when both are provided.
     Both should be applied as AND conditions, narrowing results to keys that match both.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10682,7 +10682,7 @@ async def test_build_key_filter_team_id_scoped():
     When team_id is provided, it should act as a global AND filter so keys
     from other teams are excluded — even when the user is admin of multiple teams.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10715,7 +10715,7 @@ async def test_build_key_filter_admin_substring_matching():
     Admin callers get substring (contains + insensitive) matching for user_id
     and key_alias when both substring flags are set.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10747,7 +10747,7 @@ async def test_build_key_filter_non_admin_exact_matching():
     use_substring_matching=False (the default).  This prevents a user whose
     ID is a substring of another user's ID from seeing that user's keys.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10778,7 +10778,7 @@ async def test_build_key_filter_default_is_exact_matching():
     The default for use_substring_matching is False, ensuring backward
     compatibility — callers that don't pass the flag get exact matching.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -10806,20 +10806,20 @@ async def test_get_member_team_ids():
     Test that get_member_team_ids returns all teams where user is a member
     (any role), not just admin teams.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         get_member_team_ids,
     )
 
     user_id = "member-user-123"
 
     # Create mock user info with teams
-    user_info = LiteLLM_UserTable(
+    user_info = HangarLLM_UserTable(
         user_id=user_id,
         teams=["team-A", "team-B", "team-C"],
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-test",
         user_id=user_id,
     )
@@ -10876,7 +10876,7 @@ async def test_get_member_team_ids():
         "blocked": False,
     }
 
-    mock_prisma_client.db.litellm_teamtable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_teamtable.find_many = AsyncMock(
         return_value=[mock_team_a, mock_team_b, mock_team_c]
     )
 
@@ -10894,7 +10894,7 @@ async def test_get_member_team_ids():
 @pytest.mark.asyncio
 async def test_generate_key_with_agent_id():
     """Test that agent_id is accepted in GenerateKeyRequest and passed to generate_key_helper_fn."""
-    from litellm.proxy._types import GenerateKeyRequest
+    from hangarllm.proxy._types import GenerateKeyRequest
 
     # Verify GenerateKeyRequest accepts agent_id
     request = GenerateKeyRequest(
@@ -10912,7 +10912,7 @@ async def test_generate_key_helper_fn_agent_id():
     """Test that generate_key_helper_fn passes agent_id into the insert_data call."""
     from unittest.mock import AsyncMock, MagicMock, call, patch
 
-    import litellm.proxy.management_endpoints.key_management_endpoints as km
+    import hangarllm.proxy.management_endpoints.key_management_endpoints as km
 
     mock_prisma_client = AsyncMock()
     mock_insert = AsyncMock(
@@ -10920,12 +10920,12 @@ async def test_generate_key_helper_fn_agent_id():
             token="sk-test",
             created_at=None,
             updated_at=None,
-            litellm_budget_table=None,
+            hangarllm_budget_table=None,
         )
     )
     mock_prisma_client.insert_data = mock_insert
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         await generate_key_helper_fn(
             request_type="key",
             agent_id="test-agent-456",
@@ -10945,7 +10945,7 @@ async def test_generate_key_helper_fn_agent_id():
 
 def _make_admin_key_dict() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
         user_id="admin-user",
     )
 
@@ -10961,7 +10961,7 @@ async def test_key_aliases_response_shape():
         ]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         result = await key_aliases(
             user_api_key_dict=_make_admin_key_dict(),
             page=1,
@@ -10993,7 +10993,7 @@ async def test_key_aliases_pagination_skip_take():
         ]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         result = await key_aliases(
             user_api_key_dict=_make_admin_key_dict(),
             page=3,
@@ -11023,7 +11023,7 @@ async def test_key_aliases_search_filter():
         ]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         await key_aliases(
             user_api_key_dict=_make_admin_key_dict(),
             page=1,
@@ -11050,7 +11050,7 @@ async def test_key_aliases_no_search_omits_ilike_filter():
         ]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         await key_aliases(
             user_api_key_dict=_make_admin_key_dict(),
             page=1,
@@ -11070,7 +11070,7 @@ async def test_key_aliases_internal_user_scoped_to_own_keys_and_teams():
     # Mock user table lookup to return teams
     mock_user_row = MagicMock()
     mock_user_row.teams = ["team-abc", "team-xyz"]
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_row
     )
 
@@ -11082,11 +11082,11 @@ async def test_key_aliases_internal_user_scoped_to_own_keys_and_teams():
     )
 
     internal_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         user_id="user-123",
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         result = await key_aliases(
             user_api_key_dict=internal_user,
             page=1,
@@ -11123,7 +11123,7 @@ async def test_key_aliases_admin_sees_all():
         ]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         result = await key_aliases(
             user_api_key_dict=_make_admin_key_dict(),
             page=1,
@@ -11142,15 +11142,15 @@ async def test_key_aliases_admin_sees_all():
 class TestValidateKeyAliasFormat:
     @pytest.fixture(autouse=True)
     def reset_key_alias_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "enable_key_alias_format_validation", False)
+        monkeypatch.setattr(hangarllm, "enable_key_alias_format_validation", False)
 
     @pytest.fixture(autouse=True)
     def reset_key_alias_pattern(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "key_alias_pattern", None)
+        monkeypatch.setattr(hangarllm, "key_alias_pattern", None)
 
     def test_validation_skipped_when_flag_disabled(self):
         """When enable_key_alias_format_validation is False (default), no charset/length validation occurs."""
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
@@ -11164,7 +11164,7 @@ class TestValidateKeyAliasFormat:
         "unsafe_alias",
         [
             "../../../other-app/creds",
-            "litellm/../../secret",
+            "hangarllm/../../secret",
             "foo\n- !grant\n  role: !!admin\n  member: attacker",
             "foo\rbar",
             "foo\x00bar",
@@ -11179,7 +11179,7 @@ class TestValidateKeyAliasFormat:
         even when enable_key_alias_format_validation (the separate, opt-in charset
         rule) is disabled.
         """
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
@@ -11191,11 +11191,11 @@ class TestValidateKeyAliasFormat:
         assert '".." path segment' in str(exc.value.message)
 
     def test_validate_key_alias_format_valid(self, monkeypatch):
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
-        monkeypatch.setattr(litellm, "enable_key_alias_format_validation", True)
+        monkeypatch.setattr(hangarllm, "enable_key_alias_format_validation", True)
         # Valid cases
         _validate_key_alias_format(None)  # OK
         _validate_key_alias_format("valid-alias")
@@ -11208,12 +11208,12 @@ class TestValidateKeyAliasFormat:
         _validate_key_alias_format("team/user@example.com")
 
     def test_validate_key_alias_format_invalid(self, monkeypatch):
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy._types import ProxyException
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
-        monkeypatch.setattr(litellm, "enable_key_alias_format_validation", True)
+        monkeypatch.setattr(hangarllm, "enable_key_alias_format_validation", True)
         invalid_aliases = [
             "",  # empty
             " ",  # whitespace
@@ -11234,11 +11234,11 @@ class TestValidateKeyAliasFormat:
             assert "Invalid key_alias format" in str(exc.value.message)
 
     def test_configured_pattern_applies_with_flag_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
-        monkeypatch.setattr(litellm, "key_alias_pattern", r"^[a-z0-9]+(-[a-z0-9]+)*$")
+        monkeypatch.setattr(hangarllm, "key_alias_pattern", r"^[a-z0-9]+(-[a-z0-9]+)*$")
         with pytest.raises(ProxyException) as exc:
             _validate_key_alias_format("Prod Key")
         assert str(exc.value.code) == "400"
@@ -11249,45 +11249,45 @@ class TestValidateKeyAliasFormat:
         assert _validate_key_alias_format(None) is None
 
     def test_configured_pattern_must_match_the_whole_alias(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
-        monkeypatch.setattr(litellm, "key_alias_pattern", r"team-[a-z]+")
+        monkeypatch.setattr(hangarllm, "key_alias_pattern", r"team-[a-z]+")
         _validate_key_alias_format("team-search")
         for partial_match in ("team-search-2", "xteam-search"):
             with pytest.raises(ProxyException):
                 _validate_key_alias_format(partial_match)
 
     def test_configured_pattern_replaces_the_builtin_rule(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
-        monkeypatch.setattr(litellm, "enable_key_alias_format_validation", True)
-        monkeypatch.setattr(litellm, "key_alias_pattern", r"^[a-z ]+$")
+        monkeypatch.setattr(hangarllm, "enable_key_alias_format_validation", True)
+        monkeypatch.setattr(hangarllm, "key_alias_pattern", r"^[a-z ]+$")
         _validate_key_alias_format("alias with spaces")
         with pytest.raises(ProxyException) as exc:
             _validate_key_alias_format("Uppercase")
         assert "key_alias_pattern" in str(exc.value.message)
 
     def test_configured_pattern_keeps_the_baseline_safety_check(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
-        monkeypatch.setattr(litellm, "key_alias_pattern", r".*")
+        monkeypatch.setattr(hangarllm, "key_alias_pattern", r".*")
         with pytest.raises(ProxyException) as exc:
             _validate_key_alias_format("../../../other-app/creds")
         assert str(exc.value.code) == "400"
         assert "key_alias_pattern" not in str(exc.value.message)
 
     def test_configured_pattern_bounds_the_alias_length(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
-        monkeypatch.setattr(litellm, "key_alias_pattern", r"^[a-z]+$")
+        monkeypatch.setattr(hangarllm, "key_alias_pattern", r"^[a-z]+$")
         _validate_key_alias_format("a" * 255)
         with pytest.raises(ProxyException) as exc:
             _validate_key_alias_format("a" * 256)
@@ -11302,18 +11302,18 @@ async def test_check_org_key_limits_on_update_within_bounds():
     a key's TPM/RPM limits within organization bounds.
     """
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[]
     )
 
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-update-1",
         organization_alias="test-org",
         budget_id="budget-123",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-123",
             tpm_limit=20000,
             rpm_limit=2000,
@@ -11336,7 +11336,7 @@ async def test_check_org_key_limits_on_update_within_bounds():
         prisma_client=mock_prisma_client,
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_many.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many.assert_called_once_with(
         where={"organization_id": "test-org-update-1"}
     )
 
@@ -11347,7 +11347,7 @@ async def test_check_org_key_limits_on_update_overallocation():
     Test that _check_org_key_limits raises HTTPException when updating a key
     would exceed organization TPM limits.
     """
-    from litellm.proxy._types import hash_token as _hash_token
+    from hangarllm.proxy._types import hash_token as _hash_token
 
     existing_key = MagicMock()
     existing_key.token = _hash_token("sk-other-key")
@@ -11356,18 +11356,18 @@ async def test_check_org_key_limits_on_update_overallocation():
     existing_key.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[existing_key]
     )
 
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-update-2",
         organization_alias="test-org",
         budget_id="budget-456",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-456",
             tpm_limit=20000,
             rpm_limit=2000,
@@ -11399,7 +11399,7 @@ async def test_check_org_key_limits_on_update_excludes_self():
     allocated totals. Without this, the key's current limits would be
     double-counted: once from find_many and once from data.tpm_limit/rpm_limit.
     """
-    from litellm.proxy._types import hash_token
+    from hangarllm.proxy._types import hash_token
 
     # The key being updated is returned by find_many with its current limits.
     # In the DB, token is stored as a SHA-256 hash of the raw key.
@@ -11417,18 +11417,18 @@ async def test_check_org_key_limits_on_update_excludes_self():
     other_key.metadata = {}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[self_key, other_key]
     )
 
-    org_table = LiteLLM_OrganizationTable(
+    org_table = HangarLLM_OrganizationTable(
         organization_id="test-org-self",
         organization_alias="test-org",
         budget_id="budget-789",
         models=["gpt-4"],
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             budget_id="budget-789",
             tpm_limit=20000,
             rpm_limit=2000,
@@ -11533,10 +11533,10 @@ def _setup_block_unblock_mocks(monkeypatch, mock_key_team_id=None):
         f'{{"token": "{test_hashed_token}", "blocked": false}}'
     )
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_record
     )
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=mock_key_record
     )
 
@@ -11548,21 +11548,21 @@ def _setup_block_unblock_mocks(monkeypatch, mock_key_team_id=None):
             return test_hashed_token
         return token
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", mock_hash_token)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", mock_hash_token)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
     async def mock_delete_cache_key_object(**kwargs):
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         mock_delete_cache_key_object,
     )
 
@@ -11572,14 +11572,14 @@ def _setup_block_unblock_mocks(monkeypatch, mock_key_team_id=None):
 @pytest.mark.asyncio
 async def test_block_key_rejected_for_internal_user(monkeypatch):
     """Internal users should not be able to block keys."""
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import block_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import block_key
 
     _setup_block_unblock_mocks(monkeypatch)
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="internal_user",
     )
@@ -11589,7 +11589,7 @@ async def test_block_key_rejected_for_internal_user(monkeypatch):
             data=BlockKeyRequest(key="sk-test123456789"),
             http_request=mock_request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc.value.status_code == 403
@@ -11599,14 +11599,14 @@ async def test_block_key_rejected_for_internal_user(monkeypatch):
 @pytest.mark.asyncio
 async def test_unblock_key_rejected_for_internal_user(monkeypatch):
     """Internal users should not be able to unblock keys."""
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import unblock_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import unblock_key
 
     _setup_block_unblock_mocks(monkeypatch)
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="internal_user",
     )
@@ -11616,7 +11616,7 @@ async def test_unblock_key_rejected_for_internal_user(monkeypatch):
             data=BlockKeyRequest(key="sk-test123456789"),
             http_request=mock_request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc.value.status_code == 403
@@ -11626,14 +11626,14 @@ async def test_unblock_key_rejected_for_internal_user(monkeypatch):
 @pytest.mark.asyncio
 async def test_block_key_allowed_for_proxy_admin(monkeypatch):
     """Proxy admins should be able to block keys."""
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import block_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import block_key
 
     _setup_block_unblock_mocks(monkeypatch)
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin_user",
     )
@@ -11642,7 +11642,7 @@ async def test_block_key_allowed_for_proxy_admin(monkeypatch):
         data=BlockKeyRequest(key="sk-test123456789"),
         http_request=mock_request,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
     assert result is not None
 
@@ -11650,14 +11650,14 @@ async def test_block_key_allowed_for_proxy_admin(monkeypatch):
 @pytest.mark.asyncio
 async def test_block_key_allowed_for_team_admin(monkeypatch):
     """Team admins should be able to block keys belonging to their team."""
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import block_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import block_key
 
     team_id = "team-123"
     _setup_block_unblock_mocks(monkeypatch, mock_key_team_id=team_id)
 
     # Mock get_team_object to return a team where the user is admin
-    team_obj = LiteLLM_TeamTableCachedObj(
+    team_obj = HangarLLM_TeamTableCachedObj(
         team_id=team_id,
         members_with_roles=[
             Member(user_id="team_admin_user", role="admin"),
@@ -11668,13 +11668,13 @@ async def test_block_key_allowed_for_team_admin(monkeypatch):
         return team_obj
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
 
     mock_request = MagicMock()
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-teamadmin",
         user_id="team_admin_user",
     )
@@ -11683,7 +11683,7 @@ async def test_block_key_allowed_for_team_admin(monkeypatch):
         data=BlockKeyRequest(key="sk-test123456789"),
         http_request=mock_request,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
     assert result is not None
 
@@ -11691,7 +11691,7 @@ async def test_block_key_allowed_for_team_admin(monkeypatch):
 @pytest.mark.asyncio
 async def test_update_key_max_budget_rejected_for_internal_user(monkeypatch):
     """Internal users should not be able to modify max_budget on keys."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -11719,24 +11719,24 @@ async def test_update_key_max_budget_rejected_for_internal_user(monkeypatch):
     }
 
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_existing_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
 
     mock_request = MagicMock()
     mock_request.query_params = {}
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="internal_user",
     )
@@ -11746,7 +11746,7 @@ async def test_update_key_max_budget_rejected_for_internal_user(monkeypatch):
             request=mock_request,
             data=UpdateKeyRequest(key=test_hashed_token, max_budget=999999),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert str(exc.value.code) == "403"
@@ -11756,7 +11756,7 @@ async def test_update_key_max_budget_rejected_for_internal_user(monkeypatch):
 @pytest.mark.asyncio
 async def test_update_key_non_budget_fields_allowed_for_internal_user(monkeypatch):
     """Internal users should still be able to update non-budget fields on their own keys."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -11792,31 +11792,31 @@ async def test_update_key_non_budget_fields_allowed_for_internal_user(monkeypatc
 
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
     mock_prisma_client.update_data = AsyncMock(return_value=mock_updated_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_existing_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
     def mock_hash_token(token):
         return test_hashed_token
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", mock_hash_token)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", mock_hash_token)
 
     async def mock_delete_cache_key_object(**kwargs):
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         mock_delete_cache_key_object,
     )
 
@@ -11825,14 +11825,14 @@ async def test_update_key_non_budget_fields_allowed_for_internal_user(monkeypatc
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
         mock_enforce_unique_key_alias,
     )
 
     mock_request = MagicMock()
     mock_request.query_params = {}
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="internal_user",
     )
@@ -11842,7 +11842,7 @@ async def test_update_key_non_budget_fields_allowed_for_internal_user(monkeypatc
         request=mock_request,
         data=UpdateKeyRequest(key=test_hashed_token, key_alias="my-alias"),
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     assert result is not None
@@ -11859,7 +11859,7 @@ async def test_update_key_throttle_on_budget_exceeded_rejected_for_internal_user
     must NOT be able to self-opt-in to it; it has to route through the admin-only
     _check_key_admin_access and return 403. Without treating the flag as a budget
     change this update would succeed, letting the owner bypass their own cap."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -11890,18 +11890,18 @@ async def test_update_key_throttle_on_budget_exceeded_rejected_for_internal_user
     }
 
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=mock_existing_key)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=mock_existing_key)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
 
     mock_request = MagicMock()
     mock_request.query_params = {}
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="internal_user",
     )
@@ -11914,7 +11914,7 @@ async def test_update_key_throttle_on_budget_exceeded_rejected_for_internal_user
                 throttle_on_budget_exceeded=True,
             ),
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert str(exc.value.code) == "403"
@@ -11929,7 +11929,7 @@ async def test_update_key_throttle_unchanged_allows_non_budget_edit_for_internal
     because the UI resends throttle_on_budget_exceeded unchanged (the edit form
     always includes it). Only the transition to enabled is admin-gated, so an
     unchanged False here leaves the key owner's non-budget edit working."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -11962,33 +11962,33 @@ async def test_update_key_throttle_unchanged_allows_non_budget_edit_for_internal
 
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
     mock_prisma_client.update_data = AsyncMock(return_value=mock_updated_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=mock_existing_key)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=mock_existing_key)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", lambda token: test_hashed_token)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", lambda token: test_hashed_token)
 
     async def _noop(**kwargs):
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         _noop,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
         _noop,
     )
 
     mock_request = MagicMock()
     mock_request.query_params = {}
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="internal_user",
     )
@@ -12001,7 +12001,7 @@ async def test_update_key_throttle_unchanged_allows_non_budget_edit_for_internal
             throttle_on_budget_exceeded=False,
         ),
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     assert result is not None
@@ -12015,7 +12015,7 @@ async def test_update_key_non_budget_rejects_cross_user_modification(monkeypatch
     key they weren't admin of as long as they avoided budget/spend. This
     confirms that a non-admin user updating a key that belongs to another
     user fails with 403 even for non-budget fields."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -12038,23 +12038,23 @@ async def test_update_key_non_budget_rejects_cross_user_modification(monkeypatch
     }
 
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_existing_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", AsyncMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
+        "hangarllm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
     )
 
     mock_request = MagicMock()
     mock_request.query_params = {}
     attacker = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-attacker",
         user_id="attacker_user",  # NOT the owner
     )
@@ -12068,7 +12068,7 @@ async def test_update_key_non_budget_rejects_cross_user_modification(monkeypatch
                 key=test_hashed_token, key_alias="pwned", blocked=True
             ),
             user_api_key_dict=attacker,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert str(exc.value.code) == "403"
 
@@ -12077,7 +12077,7 @@ async def test_update_key_non_budget_rejects_cross_user_modification(monkeypatch
 async def test_update_key_creator_reassigned_key_blocked(monkeypatch):
     """Regression: creator who no longer owns the key (user_id ≠ caller) must
     not bypass _check_key_admin_access via the caller_is_creator shortcut."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -12102,22 +12102,22 @@ async def test_update_key_creator_reassigned_key_blocked(monkeypatch):
     }
 
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_existing_key
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", AsyncMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
+        "hangarllm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
     )
 
     demoted_admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-demoted",
         user_id="demoted-admin",
     )
@@ -12130,7 +12130,7 @@ async def test_update_key_creator_reassigned_key_blocked(monkeypatch):
             request=mock_request,
             data=UpdateKeyRequest(key=test_hashed_token, key_alias="hijacked"),
             user_api_key_dict=demoted_admin,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert str(exc.value.code) == "403"
 
@@ -12143,7 +12143,7 @@ async def test_update_key_team_member_with_permission_can_update_non_budget(
     update non-budget fields on a team key even though they are not a team
     admin. Regression: the cross-key admin check was over-broad and rejected
     this documented path."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -12166,7 +12166,7 @@ async def test_update_key_team_member_with_permission_can_update_non_budget(
         "max_budget": 10.0,
     }
 
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id=team_id,
         team_alias="test-team",
         tpm_limit=None,
@@ -12189,7 +12189,7 @@ async def test_update_key_team_member_with_permission_can_update_non_budget(
     mock_prisma_client = AsyncMock()
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
     mock_prisma_client.update_data = AsyncMock(return_value=mock_updated_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_existing_key
     )
 
@@ -12203,35 +12203,35 @@ async def test_update_key_team_member_with_permission_can_update_non_budget(
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_helpers.team_member_permission_checks.get_team_object",
+        "hangarllm.proxy.management_helpers.team_member_permission_checks.get_team_object",
         mock_get_team_object,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
         mock_enforce_unique_key_alias,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         mock_delete_cache_key_object,
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", AsyncMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
+        "hangarllm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
     )
 
     mock_request = MagicMock()
     mock_request.query_params = {}
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-team-member",
         user_id=member_user_id,
         team_id=team_id,
@@ -12243,7 +12243,7 @@ async def test_update_key_team_member_with_permission_can_update_non_budget(
         request=mock_request,
         data=UpdateKeyRequest(key=test_hashed_token, key_alias="renamed-by-member"),
         user_api_key_dict=team_member,
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     assert result is not None
@@ -12254,7 +12254,7 @@ async def test_update_key_team_member_cannot_change_budget(monkeypatch):
     """A team member with /key/update in member_permissions still cannot
     change max_budget — budget/spend changes require team/org admin. The
     member_permissions bypass only applies to non-budget fields."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -12277,7 +12277,7 @@ async def test_update_key_team_member_cannot_change_budget(monkeypatch):
         "max_budget": 10.0,
     }
 
-    team_table = LiteLLM_TeamTableCachedObj(
+    team_table = HangarLLM_TeamTableCachedObj(
         team_id=team_id,
         team_alias="test-team",
         tpm_limit=None,
@@ -12295,7 +12295,7 @@ async def test_update_key_team_member_cannot_change_budget(monkeypatch):
 
     mock_prisma_client = AsyncMock()
     mock_prisma_client.get_data = AsyncMock(return_value=mock_existing_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_existing_key
     )
 
@@ -12303,26 +12303,26 @@ async def test_update_key_team_member_cannot_change_budget(monkeypatch):
         return team_table
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         mock_get_team_object,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_helpers.team_member_permission_checks.get_team_object",
+        "hangarllm.proxy.management_helpers.team_member_permission_checks.get_team_object",
         mock_get_team_object,
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", AsyncMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
+        "hangarllm.proxy.proxy_server.hash_token", lambda t: test_hashed_token
     )
 
     mock_request = MagicMock()
     mock_request.query_params = {}
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-team-member",
         user_id=member_user_id,
         team_id=team_id,
@@ -12333,7 +12333,7 @@ async def test_update_key_team_member_cannot_change_budget(monkeypatch):
             request=mock_request,
             data=UpdateKeyRequest(key=test_hashed_token, max_budget=500.0),
             user_api_key_dict=team_member,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert str(exc.value.code) == "403"
 
@@ -12360,17 +12360,17 @@ class TestLIT1884KeyGenerateValidation:
 
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
         # Patch _common_key_generation_helper to avoid needing full DB mocks.
         # We just want to verify user_id is set before we reach this point.
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
                 new_callable=AsyncMock,
                 return_value=MagicMock(),
             ),
@@ -12378,7 +12378,7 @@ class TestLIT1884KeyGenerateValidation:
             await generate_key_fn(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
         # The data object should have been mutated to include the caller's user_id
@@ -12399,15 +12399,15 @@ class TestLIT1884KeyGenerateValidation:
 
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
                 AsyncMock(side_effect=Exception("Team not found")),
             ),
         ):
@@ -12415,7 +12415,7 @@ class TestLIT1884KeyGenerateValidation:
                 await generate_key_fn(
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
             assert str(exc_info.value.code) == "400"
             assert "Team not found" in str(exc_info.value.message)
@@ -12434,21 +12434,21 @@ class TestLIT1884KeyGenerateValidation:
 
         user_api_key_dict = UserAPIKeyAuth(
             user_id="admin-user",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
 
         mock_prisma_client = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
                 AsyncMock(side_effect=Exception("Team not found")),
             ),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
                 new_callable=AsyncMock,
                 return_value=MagicMock(),
             ),
@@ -12457,7 +12457,7 @@ class TestLIT1884KeyGenerateValidation:
             result = await generate_key_fn(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
             assert result is not None
 
@@ -12472,17 +12472,17 @@ class TestLIT1884KeyGenerateValidation:
 
         user_api_key_dict = UserAPIKeyAuth(
             user_id="admin-user",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
 
         mock_prisma_client = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
                 new_callable=AsyncMock,
                 return_value=MagicMock(),
             ),
@@ -12490,7 +12490,7 @@ class TestLIT1884KeyGenerateValidation:
             await generate_key_fn(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
         # user_id should remain None for admin
@@ -12504,10 +12504,10 @@ class TestLIT1884KeyGenerateValidation:
         data = GenerateKeyRequest(team_id="some-team-id")
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
-        with patch.object(litellm, "key_generation_settings", None):
+        with patch.object(hangarllm, "key_generation_settings", None):
             with pytest.raises(HTTPException) as exc_info:
                 key_generation_check(
                     team_table=None,
@@ -12525,10 +12525,10 @@ class TestLIT1884KeyGenerateValidation:
         data = GenerateKeyRequest(team_id="some-team-id")
         user_api_key_dict = UserAPIKeyAuth(
             user_id="admin-user",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
 
-        with patch.object(litellm, "key_generation_settings", None):
+        with patch.object(hangarllm, "key_generation_settings", None):
             result = key_generation_check(
                 team_table=None,
                 user_api_key_dict=user_api_key_dict,
@@ -12554,7 +12554,7 @@ class TestLIT1884KeyUpdateValidation:
 
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
         with pytest.raises(HTTPException) as exc_info:
@@ -12586,11 +12586,11 @@ class TestLIT1884KeyUpdateValidation:
 
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
             AsyncMock(
                 side_effect=HTTPException(
                     status_code=404,
@@ -12626,7 +12626,7 @@ class TestLIT1884KeyUpdateValidation:
 
         user_api_key_dict = UserAPIKeyAuth(
             user_id="admin-user",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
 
         mock_prisma_client = AsyncMock()
@@ -12660,7 +12660,7 @@ class TestLIT4891SafePresetKeyTypeTransition:
     def _make_auth(self):
         return UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
     async def _run_update(self, data, existing_key_row):
@@ -12786,7 +12786,7 @@ class TestKeyOwnerPrivilegeEscalation:
     def _make_auth(self, user_id="creator-123"):
         return UserAPIKeyAuth(
             user_id=user_id,
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
     @pytest.mark.asyncio
@@ -12804,7 +12804,7 @@ class TestKeyOwnerPrivilegeEscalation:
             side_effect=HTTPException(status_code=403, detail="Not authorized")
         )
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -12838,7 +12838,7 @@ class TestKeyOwnerPrivilegeEscalation:
             side_effect=HTTPException(status_code=403, detail="Not authorized")
         )
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             with pytest.raises(HTTPException):
@@ -12865,7 +12865,7 @@ class TestKeyOwnerPrivilegeEscalation:
             side_effect=HTTPException(status_code=403, detail="Not authorized")
         )
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             with pytest.raises(HTTPException):
@@ -12891,7 +12891,7 @@ class TestKeyOwnerPrivilegeEscalation:
 
         mock_check = AsyncMock()
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             await _validate_update_key_data(
@@ -12917,7 +12917,7 @@ class TestKeyOwnerPrivilegeEscalation:
             side_effect=HTTPException(status_code=403, detail="Not authorized")
         )
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             with pytest.raises(HTTPException):
@@ -12944,7 +12944,7 @@ class TestKeyOwnerPrivilegeEscalation:
             side_effect=HTTPException(status_code=403, detail="Not authorized")
         )
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             with pytest.raises(HTTPException):
@@ -12965,12 +12965,12 @@ class TestKeyOwnerPrivilegeEscalation:
         existing = self._make_existing_key(created_by="someone-else")
         auth = UserAPIKeyAuth(
             user_id="admin-user",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
 
         mock_check = AsyncMock()
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             await _validate_update_key_data(
@@ -12991,12 +12991,12 @@ class TestKeyOwnerPrivilegeEscalation:
         existing.max_budget = 1.0
         auth = UserAPIKeyAuth(
             user_id="admin-user",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
 
         mock_check = AsyncMock()
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             mock_check,
         ):
             await _validate_update_key_data(
@@ -13020,13 +13020,13 @@ class TestKeyAliasSkipValidationOnUnchanged:
 
     @pytest.fixture(autouse=True)
     def enable_validation(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "enable_key_alias_format_validation", True)
+        monkeypatch.setattr(hangarllm, "enable_key_alias_format_validation", True)
 
     @pytest.fixture
     def mock_prisma(self):
         prisma = MagicMock()
         prisma.db = MagicMock()
-        prisma.db.litellm_verificationtoken = MagicMock()
+        prisma.db.hangarllm_verificationtoken = MagicMock()
         prisma.get_data = AsyncMock(return_value=None)  # no duplicate alias
         prisma.update_data = AsyncMock(return_value=None)
         prisma.jsonify_object = MagicMock(side_effect=lambda data: data)
@@ -13035,7 +13035,7 @@ class TestKeyAliasSkipValidationOnUnchanged:
     @pytest.fixture
     def existing_key_with_legacy_alias(self):
         """A key whose alias contains '@' — valid now, but simulates a legacy alias."""
-        return LiteLLM_VerificationToken(
+        return HangarLLM_VerificationToken(
             token="hashed_token_123",
             key_alias="user@domain.com",
             team_id="team-1",
@@ -13054,8 +13054,8 @@ class TestKeyAliasSkipValidationOnUnchanged:
         # Temporarily make the regex reject '@' to simulate stricter rules
         import re
 
-        from litellm.proxy.management_endpoints import key_management_endpoints as mod
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints import key_management_endpoints as mod
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
@@ -13089,7 +13089,7 @@ class TestKeyAliasSkipValidationOnUnchanged:
         """
         When the alias IS being changed, validation should still run.
         """
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
@@ -13107,7 +13107,7 @@ class TestKeyAliasSkipValidationOnUnchanged:
         """
         Changing the alias to a new valid value should pass validation.
         """
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
@@ -13125,7 +13125,7 @@ class TestKeyAliasSkipValidationOnUnchanged:
         When key_alias is not in the update payload (None), validation
         should be skipped regardless.
         """
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _validate_key_alias_format,
         )
 
@@ -13138,15 +13138,15 @@ class TestKeyAliasSkipValidationOnUnchanged:
 
 def test_enforce_upperbound_rejects_over_limit_on_generate(monkeypatch):
     """Test that key generation is rejected when values exceed upperbound."""
-    import litellm
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    import hangarllm
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     tpm_limit=1000, rpm_limit=100, max_budget=10.0
                 ),
     )
@@ -13159,15 +13159,15 @@ def test_enforce_upperbound_rejects_over_limit_on_generate(monkeypatch):
 
 def test_enforce_upperbound_fills_defaults_on_generate(monkeypatch):
     """Test that None values are filled with upperbound defaults during generation."""
-    import litellm
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    import hangarllm
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     tpm_limit=1000, rpm_limit=100
                 ),
     )
@@ -13179,15 +13179,15 @@ def test_enforce_upperbound_fills_defaults_on_generate(monkeypatch):
 
 def test_enforce_upperbound_skips_none_on_update(monkeypatch):
     """Test that None values are NOT filled during update (fill_defaults=False)."""
-    import litellm
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    import hangarllm
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     tpm_limit=1000, rpm_limit=100
                 ),
     )
@@ -13199,15 +13199,15 @@ def test_enforce_upperbound_skips_none_on_update(monkeypatch):
 
 def test_enforce_upperbound_rejects_over_limit_on_update(monkeypatch):
     """Test that key update is rejected when values exceed upperbound."""
-    import litellm
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    import hangarllm
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     tpm_limit=1000, rpm_limit=100, max_budget=10.0
                 ),
     )
@@ -13220,15 +13220,15 @@ def test_enforce_upperbound_rejects_over_limit_on_update(monkeypatch):
 
 def test_enforce_upperbound_allows_within_limit_on_update(monkeypatch):
     """Test that key update passes when values are within upperbound."""
-    import litellm
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    import hangarllm
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     tpm_limit=1000, rpm_limit=100, max_budget=10.0
                 ),
     )
@@ -13244,15 +13244,15 @@ def test_enforce_upperbound_allows_within_limit_on_update(monkeypatch):
 
 def test_enforce_upperbound_duration_over_limit(monkeypatch):
     """Test that duration exceeding upperbound is rejected."""
-    import litellm
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    import hangarllm
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     duration="7d"
                 ),
     )
@@ -13265,9 +13265,9 @@ def test_enforce_upperbound_duration_over_limit(monkeypatch):
 
 def test_enforce_upperbound_no_config_is_noop(monkeypatch):
     """Test that no enforcement happens when upperbound params are not configured."""
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "upperbound_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "upperbound_key_generate_params", None)
     data = UpdateKeyRequest(key="sk-test", tpm_limit=999999)
     _enforce_upperbound_key_params(data, fill_defaults=False)
     # Should not raise — no enforcement configured
@@ -13288,7 +13288,7 @@ def _make_regenerate_mock_prisma():
             return iter(self._data.items())
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=DictLikeResult(
             {
                 "token": "new-hashed-token",
@@ -13297,7 +13297,7 @@ def _make_regenerate_mock_prisma():
             }
         )
     )
-    mock_prisma_client.db.litellm_verificationtoken.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.create = AsyncMock(
         return_value=None
     )
     mock_prisma_client.jsonify_object = MagicMock(side_effect=lambda data: data)
@@ -13306,14 +13306,14 @@ def _make_regenerate_mock_prisma():
 
 def _make_regenerate_user_api_key_dict():
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin-user",
     )
 
 
 def _make_regenerate_existing_key():
-    return LiteLLM_VerificationToken(
+    return HangarLLM_VerificationToken(
         token="abc123",
         user_id="user-1",
         models=["gpt-4"],
@@ -13326,18 +13326,18 @@ def _make_regenerate_existing_key():
 @pytest.mark.asyncio
 async def test_execute_virtual_key_regeneration_rejects_over_limit_duration(monkeypatch):
     """Regenerate must reject durations exceeding upperbound_key_generate_params.duration."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     duration="1h"
                 ),
     )
@@ -13348,20 +13348,20 @@ async def test_execute_virtual_key_regeneration_rejects_over_limit_duration(monk
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: archival path is outside upperbound rejection
-            "litellm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
             new_callable=AsyncMock,
         ) as persist_deleted_verification_tokens,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
     ):
@@ -13373,7 +13373,7 @@ async def test_execute_virtual_key_regeneration_rejects_over_limit_duration(monk
                 key="abc123",
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 user_api_key_cache=MagicMock(),
                 proxy_logging_obj=MagicMock(),
             )
@@ -13381,37 +13381,37 @@ async def test_execute_virtual_key_regeneration_rejects_over_limit_duration(monk
     assert "duration" in str(exc_info.value.detail)
     # Rejected regenerate must not reach the DB update.
     persist_deleted_verification_tokens.assert_not_awaited()
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 0
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 0
 
 
 @pytest.mark.asyncio
 async def test_execute_virtual_key_regeneration_changed_alias_must_match_key_alias_pattern(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
-    monkeypatch.setattr(litellm, "key_alias_pattern", r"^[a-z0-9]+(-[a-z0-9]+)*$")
+    monkeypatch.setattr(hangarllm, "key_alias_pattern", r"^[a-z0-9]+(-[a-z0-9]+)*$")
     mock_prisma_client = _make_regenerate_mock_prisma()
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
     ):
@@ -13423,31 +13423,31 @@ async def test_execute_virtual_key_regeneration_changed_alias_must_match_key_ali
                 key="abc123",
                 data=RegenerateKeyRequest(key_alias="Regenerated Key"),
                 user_api_key_dict=_make_regenerate_user_api_key_dict(),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 user_api_key_cache=MagicMock(),
                 proxy_logging_obj=MagicMock(),
             )
     assert str(exc_info.value.code) == "400"
     assert exc_info.value.param == "key_alias"
     assert r"^[a-z0-9]+(-[a-z0-9]+)*$" in str(exc_info.value.message)
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 0
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 0
 
 
 @pytest.mark.asyncio
 async def test_execute_virtual_key_regeneration_allows_within_limit_duration(monkeypatch):
     """Regenerate must accept durations within upperbound_key_generate_params.duration."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     duration="1h"
                 ),
     )
@@ -13458,20 +13458,20 @@ async def test_execute_virtual_key_regeneration_allows_within_limit_duration(mon
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
     ):
@@ -13482,11 +13482,11 @@ async def test_execute_virtual_key_regeneration_allows_within_limit_duration(mon
             key="abc123",
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -13504,27 +13504,27 @@ async def test_execute_virtual_key_regeneration_rejects_when_custom_key_update_h
 
     with (
         patch(  # test-quality-ok: deterministic token setup for policy rejection
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(  # test-quality-ok: grace-period path is outside policy rejection
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ) as insert_deprecated_key,
         patch(  # test-quality-ok: archival path is outside policy rejection
-            "litellm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
             new_callable=AsyncMock,
         ) as persist_deleted_verification_tokens,
         patch(  # test-quality-ok: cache eviction is outside policy rejection
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: rotation callback is outside policy rejection
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
-        patch("litellm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
+        patch("hangarllm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
     ):
         with pytest.raises(HTTPException) as exc_info:
             await _execute_virtual_key_regeneration(
@@ -13534,7 +13534,7 @@ async def test_execute_virtual_key_regeneration_rejects_when_custom_key_update_h
                 key="abc123",
                 data=data,
                 user_api_key_dict=_make_regenerate_user_api_key_dict(),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 user_api_key_cache=MagicMock(),
                 proxy_logging_obj=MagicMock(),
             )
@@ -13543,7 +13543,7 @@ async def test_execute_virtual_key_regeneration_rejects_when_custom_key_update_h
     assert exc_info.value.detail == "duration must be <= 7d"
     insert_deprecated_key.assert_not_awaited()
     persist_deleted_verification_tokens.assert_not_awaited()
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 0
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 0
     assert len(received_data) == 1
     assert received_data[0].key == "abc123"
     assert received_data[0].duration == "3000d"
@@ -13564,27 +13564,27 @@ async def test_execute_virtual_key_regeneration_allows_when_custom_key_update_ho
 
     with (
         patch(  # test-quality-ok: deterministic token setup for policy approval
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(  # test-quality-ok: grace-period path is outside policy approval
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: verify archival follows policy approval
-            "litellm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
             new_callable=AsyncMock,
         ) as persist_deleted_verification_tokens,
         patch(  # test-quality-ok: cache eviction is outside policy approval
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: rotation callback is outside policy approval
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
-        patch("litellm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
+        patch("hangarllm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
     ):
         await _execute_virtual_key_regeneration(
             prisma_client=mock_prisma_client,
@@ -13593,12 +13593,12 @@ async def test_execute_virtual_key_regeneration_allows_when_custom_key_update_ho
             key="abc123",
             data=data,
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
 
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
     persist_deleted_verification_tokens.assert_awaited_once()
     assert persist_deleted_verification_tokens.call_args.kwargs["keys"] == [existing_key]
     assert len(received_data) == 1
@@ -13617,23 +13617,23 @@ async def test_execute_virtual_key_regeneration_skips_custom_key_update_hook_wit
 
     with (
         patch(  # test-quality-ok: deterministic token setup for unchanged request
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(  # test-quality-ok: grace-period path is outside unchanged request
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: cache eviction is outside unchanged request
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: rotation callback is outside unchanged request
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
-        patch("litellm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
+        patch("hangarllm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
     ):
         await _execute_virtual_key_regeneration(
             prisma_client=mock_prisma_client,
@@ -13642,12 +13642,12 @@ async def test_execute_virtual_key_regeneration_skips_custom_key_update_hook_wit
             key="abc123",
             data=data,
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
 
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -13666,23 +13666,23 @@ async def test_execute_virtual_key_regeneration_hides_the_untouched_modal_expiry
 
     with (
         patch(  # test-quality-ok: deterministic token setup for the untouched modal body
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(  # test-quality-ok: grace-period path is outside the hook input
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: cache eviction is outside the hook input
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: rotation callback is outside the hook input
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
-        patch("litellm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
+        patch("hangarllm.proxy.proxy_server.user_custom_key_update", hook),  # test-quality-ok: inject policy hook
     ):
         await _execute_virtual_key_regeneration(
             prisma_client=mock_prisma_client,
@@ -13691,12 +13691,12 @@ async def test_execute_virtual_key_regeneration_hides_the_untouched_modal_expiry
             key="abc123",
             data=untouched_modal_body,
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
 
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
     assert len(received_data) == 1
     assert "duration" not in received_data[0].model_fields_set
     assert received_data[0].model_fields_set >= {"key", "key_alias", "max_budget", "tpm_limit", "rpm_limit"}
@@ -13719,7 +13719,7 @@ def _seven_day_policy(received: list[CustomKeyPolicyRequest]):
     return policy
 
 
-def _assert_expires_in(effective_key: LiteLLM_VerificationToken, duration: str) -> None:
+def _assert_expires_in(effective_key: HangarLLM_VerificationToken, duration: str) -> None:
     expires = effective_key.expires
     assert isinstance(expires, datetime)
     assert expires.tzinfo is not None
@@ -13731,37 +13731,37 @@ def _regenerate_policy_mocks(policy, insert_deprecated_key: AsyncMock, persist: 
     stack = ExitStack()
     stack.enter_context(
         patch(  # test-quality-ok: deterministic token setup for the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         )
     )
     stack.enter_context(
         patch(  # test-quality-ok: grace-period write must not run on a denied regenerate
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             insert_deprecated_key,
         )
     )
     stack.enter_context(
         patch(  # test-quality-ok: archival write must not run on a denied regenerate
-            "litellm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.persist_deleted_verification_tokens",
             persist,
         )
     )
     stack.enter_context(
         patch(  # test-quality-ok: cache eviction is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         )
     )
     stack.enter_context(
         patch(  # test-quality-ok: rotation callback is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         )
     )
     stack.enter_context(
-        patch("litellm.proxy.proxy_server.user_custom_key_policy", policy)  # test-quality-ok: inject policy hook
+        patch("hangarllm.proxy.proxy_server.user_custom_key_policy", policy)  # test-quality-ok: inject policy hook
     )
     return stack
 
@@ -13774,7 +13774,7 @@ async def _regenerate_under_policy(mock_prisma_client, existing_key, data):
         key="abc123",
         data=data,
         user_api_key_dict=_make_regenerate_user_api_key_dict(),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
         user_api_key_cache=MagicMock(),
         proxy_logging_obj=MagicMock(),
     )
@@ -13796,7 +13796,7 @@ async def test_regenerate_rejects_when_custom_key_policy_denies_the_effective_ex
     assert exc_info.value.detail == _POLICY_DENIAL_MESSAGE
     insert_deprecated_key.assert_not_awaited()
     persist.assert_not_awaited()
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 0
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 0
     assert [policy_request.operation for policy_request in received] == ["regenerate"]
     assert received[0].existing_key is not None
     assert received[0].existing_key.token == "abc123"
@@ -13815,7 +13815,7 @@ async def test_regenerate_within_custom_key_policy_rotates_the_key():
     with _regenerate_policy_mocks(_seven_day_policy(received), AsyncMock(), persist):
         await _regenerate_under_policy(mock_prisma_client, existing_key, RegenerateKeyRequest(duration="5d"))
 
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
     persist.assert_awaited_once()
     assert persist.call_args.kwargs["keys"] == [existing_key]
     assert [policy_request.operation for policy_request in received] == ["regenerate"]
@@ -13839,14 +13839,14 @@ async def test_regenerate_without_changes_still_runs_custom_key_policy(data):
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "key rotation is frozen"
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 0
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 0
     assert [policy_request.operation for policy_request in received] == ["regenerate"]
     assert received[0].existing_key == existing_key
     assert received[0].effective_key == existing_key
 
 
-def _policy_existing_team_key() -> LiteLLM_VerificationToken:
-    return LiteLLM_VerificationToken(
+def _policy_existing_team_key() -> HangarLLM_VerificationToken:
+    return HangarLLM_VerificationToken(
         token=_POLICY_HASHED_TOKEN,
         user_id="test-user",
         team_id="team-a",
@@ -13855,14 +13855,14 @@ def _policy_existing_team_key() -> LiteLLM_VerificationToken:
     )
 
 
-def _setup_update_key_fn_policy_mocks(monkeypatch, existing_key: LiteLLM_VerificationToken) -> AsyncMock:
+def _setup_update_key_fn_policy_mocks(monkeypatch, existing_key: HangarLLM_VerificationToken) -> AsyncMock:
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing_key)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(return_value=None)
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {"max_budget": 50.0, "team_id": "team-a"}})
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object", AsyncMock(return_value=None)
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object", AsyncMock(return_value=None)
     )
     return mock_prisma_client
 
@@ -13880,7 +13880,7 @@ def _assert_update_policy_request(policy_request: CustomKeyPolicyRequest, reques
 
 @pytest.mark.asyncio
 async def test_update_key_fn_runs_custom_key_policy_on_the_effective_row(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import update_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import update_key_fn
 
     mock_prisma_client = _setup_update_key_fn_policy_mocks(monkeypatch, _policy_existing_team_key())
     received: list[CustomKeyPolicyRequest] = []
@@ -13891,16 +13891,16 @@ async def test_update_key_fn_runs_custom_key_policy_on_the_effective_row(monkeyp
 
     with (
         patch(  # test-quality-ok: cache eviction is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
-        patch("litellm.proxy.proxy_server.user_custom_key_policy", policy),  # test-quality-ok: inject policy hook
+        patch("hangarllm.proxy.proxy_server.user_custom_key_policy", policy),  # test-quality-ok: inject policy hook
     ):
         await update_key_fn(
             request=MagicMock(),
             data=data,
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     mock_prisma_client.update_data.assert_awaited_once()
@@ -13913,19 +13913,19 @@ async def test_update_key_fn_runs_custom_key_policy_on_the_effective_row(monkeyp
 
 @pytest.mark.asyncio
 async def test_update_key_fn_rejects_when_custom_key_policy_denies(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import update_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import update_key_fn
 
     mock_prisma_client = _setup_update_key_fn_policy_mocks(monkeypatch, _policy_existing_team_key())
     received: list[CustomKeyPolicyRequest] = []
     policy = _seven_day_policy(received)
 
-    with patch("litellm.proxy.proxy_server.user_custom_key_policy", policy):  # test-quality-ok: inject policy hook
+    with patch("hangarllm.proxy.proxy_server.user_custom_key_policy", policy):  # test-quality-ok: inject policy hook
         with pytest.raises(ProxyException) as exc_info:
             await update_key_fn(
                 request=MagicMock(),
                 data=UpdateKeyRequest(key=_POLICY_HASHED_TOKEN, duration="3000d", max_budget=50.0),
                 user_api_key_dict=_make_regenerate_user_api_key_dict(),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
     assert str(exc_info.value.code) == "403"
@@ -13938,15 +13938,15 @@ async def test_update_key_fn_rejects_when_custom_key_policy_denies(monkeypatch):
 async def _process_single_key_update_under_policy(prisma_client: AsyncMock, data: UpdateKeyRequest, policy):
     with (
         patch(  # test-quality-ok: cache eviction is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: update callback is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: the existing key's team is outside the policy path, as in the /key/update tests
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -13954,7 +13954,7 @@ async def _process_single_key_update_under_policy(prisma_client: AsyncMock, data
         return await _process_single_key_update(
             update_key_request=data,
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=prisma_client,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
@@ -13998,13 +13998,13 @@ async def test_process_single_key_update_rejects_when_custom_key_policy_denies()
 
 
 def _record_object_permission_writes(mock_prisma_client: AsyncMock, events: list[str]) -> None:
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
 
     async def upsert(**_kwargs: object) -> MagicMock:
         events.append("permission row upsert")
         return MagicMock(object_permission_id=_OBJECT_PERMISSION_ID_AFTER_POLICY)
 
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = AsyncMock(side_effect=upsert)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = AsyncMock(side_effect=upsert)
 
 
 def _recording_policy(events: list[str], allowed: bool):
@@ -14023,14 +14023,14 @@ def _assert_permission_row_written_after_policy(events: list[str], written: Mapp
 
 def _assert_permission_row_untouched(mock_prisma_client: AsyncMock, events: list[str]) -> None:
     assert events == ["policy"]
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert.assert_not_awaited()
 
 
 def _update_with_object_permission(max_budget: float) -> UpdateKeyRequest:
     return UpdateKeyRequest(
         key=_POLICY_HASHED_TOKEN,
         max_budget=max_budget,
-        object_permission=LiteLLM_ObjectPermissionBase(vector_stores=["vs-1"]),
+        object_permission=HangarLLM_ObjectPermissionBase(vector_stores=["vs-1"]),
     )
 
 
@@ -14038,21 +14038,21 @@ def _setup_update_key_fn_object_permission_mocks(monkeypatch, allowed: bool) -> 
     mock_prisma_client = _setup_update_key_fn_policy_mocks(monkeypatch, _policy_existing_team_key())
     events: list[str] = []
     _record_object_permission_writes(mock_prisma_client, events)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_key_policy", _recording_policy(events, allowed))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_custom_key_policy", _recording_policy(events, allowed))
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object", AsyncMock()
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object", AsyncMock()
     )
     return mock_prisma_client, events
 
 
 async def _update_key_fn_with_object_permission(max_budget: float):
-    from litellm.proxy.management_endpoints.key_management_endpoints import update_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import update_key_fn
 
     return await update_key_fn(
         request=MagicMock(),
         data=_update_with_object_permission(max_budget=max_budget),
         user_api_key_dict=_make_regenerate_user_api_key_dict(),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
 
@@ -14115,7 +14115,7 @@ async def test_regenerate_writes_the_object_permission_row_only_after_the_policy
     mock_prisma_client = _make_regenerate_mock_prisma()
     events: list[str] = []
     _record_object_permission_writes(mock_prisma_client, events)
-    data = RegenerateKeyRequest(max_budget=50.0, object_permission=LiteLLM_ObjectPermissionBase(vector_stores=["vs-1"]))
+    data = RegenerateKeyRequest(max_budget=50.0, object_permission=HangarLLM_ObjectPermissionBase(vector_stores=["vs-1"]))
     existing_key: Final = _make_regenerate_existing_key().model_copy(
         update={"object_permission_id": _OBJECT_PERMISSION_ID_AFTER_POLICY}
     )
@@ -14124,7 +14124,7 @@ async def test_regenerate_writes_the_object_permission_row_only_after_the_policy
         await _regenerate_under_policy(mock_prisma_client, existing_key, data)
 
     _assert_permission_row_written_after_policy(
-        events, mock_prisma_client.db.litellm_verificationtoken.update.await_args.kwargs["data"]
+        events, mock_prisma_client.db.hangarllm_verificationtoken.update.await_args.kwargs["data"]
     )
 
 
@@ -14133,7 +14133,7 @@ async def test_regenerate_denied_by_the_policy_leaves_the_object_permission_row_
     mock_prisma_client = _make_regenerate_mock_prisma()
     events: list[str] = []
     _record_object_permission_writes(mock_prisma_client, events)
-    data = RegenerateKeyRequest(max_budget=5000.0, object_permission=LiteLLM_ObjectPermissionBase(vector_stores=["vs-1"]))
+    data = RegenerateKeyRequest(max_budget=5000.0, object_permission=HangarLLM_ObjectPermissionBase(vector_stores=["vs-1"]))
 
     with _regenerate_policy_mocks(_recording_policy(events, allowed=False), AsyncMock(), AsyncMock()):
         with pytest.raises(HTTPException) as exc_info:
@@ -14141,31 +14141,31 @@ async def test_regenerate_denied_by_the_policy_leaves_the_object_permission_row_
 
     assert exc_info.value.status_code == 403
     _assert_permission_row_untouched(mock_prisma_client, events)
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 0
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 0
 
 
 @pytest.mark.asyncio
 async def test_bulk_update_keys_runs_custom_key_policy_per_key(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import bulk_update_keys
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import bulk_update_keys
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateKeyRequest,
         BulkUpdateKeyRequestItem,
     )
 
     existing_keys = [
-        LiteLLM_VerificationToken(token="test-key-1", user_id="user-123", max_budget=None),
-        LiteLLM_VerificationToken(token="test-key-2", user_id="user-123", max_budget=50.0),
+        HangarLLM_VerificationToken(token="test-key-1", user_id="user-123", max_budget=None),
+        HangarLLM_VerificationToken(token="test-key-2", user_id="user-123", max_budget=50.0),
     ]
     updated_row = MagicMock()
     updated_row.model_dump.return_value = {"user_id": "user-123", "max_budget": 100.0}
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(side_effect=existing_keys)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(side_effect=existing_keys)
     mock_prisma_client.update_data = AsyncMock(return_value={"data": updated_row})
     mock_prisma_client.get_data = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
     received: list[CustomKeyPolicyRequest] = []
 
     async def cap_max_budget(policy_request: CustomKeyPolicyRequest) -> dict[str, object]:
@@ -14175,15 +14175,15 @@ async def test_bulk_update_keys_runs_custom_key_policy_per_key(monkeypatch):
             return {"decision": False, "message": "max_budget must be 100 or less"}
         return {"decision": True}
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_key_policy", cap_max_budget)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_custom_key_policy", cap_max_budget)
 
     with (
         patch(  # test-quality-ok: cache eviction is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: update callback is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
             new_callable=AsyncMock,
         ),
     ):
@@ -14195,7 +14195,7 @@ async def test_bulk_update_keys_runs_custom_key_policy_per_key(monkeypatch):
                 ]
             ),
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert [update.key for update in response.successful_updates] == ["test-key-1"]
@@ -14213,26 +14213,26 @@ async def test_bulk_update_keys_runs_custom_key_policy_per_key(monkeypatch):
 
 def _policy_generate_prisma() -> MagicMock:
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_budgettable.create = AsyncMock(return_value=MagicMock(budget_id="budget-1"))
+    mock_prisma.db.hangarllm_budgettable.create = AsyncMock(return_value=MagicMock(budget_id="budget-1"))
     mock_prisma.jsonify_object = MagicMock(side_effect=lambda data: json.loads(data) if isinstance(data, str) else data)
     return mock_prisma
 
 
 def _generate_policy_mocks(mock_prisma: MagicMock, generate_key_helper: AsyncMock, policy) -> ExitStack:
     stack = ExitStack()
-    stack.enter_context(patch("litellm.proxy.proxy_server.prisma_client", mock_prisma))  # test-quality-ok: fake DB
-    stack.enter_context(patch("litellm.proxy.proxy_server.llm_router", None))  # test-quality-ok: no router in test
-    stack.enter_context(patch("litellm.proxy.proxy_server.premium_user", True))  # test-quality-ok: premium fields
-    stack.enter_context(patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"))  # test-quality-ok: admin
-    stack.enter_context(patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()))  # test-quality-ok: cache
+    stack.enter_context(patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma))  # test-quality-ok: fake DB
+    stack.enter_context(patch("hangarllm.proxy.proxy_server.llm_router", None))  # test-quality-ok: no router in test
+    stack.enter_context(patch("hangarllm.proxy.proxy_server.premium_user", True))  # test-quality-ok: premium fields
+    stack.enter_context(patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"))  # test-quality-ok: admin
+    stack.enter_context(patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()))  # test-quality-ok: cache
     stack.enter_context(
         patch(  # test-quality-ok: the key write must not run on a denied generate
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             generate_key_helper,
         )
     )
     stack.enter_context(
-        patch("litellm.proxy.proxy_server.user_custom_key_policy", policy)  # test-quality-ok: inject policy hook
+        patch("hangarllm.proxy.proxy_server.user_custom_key_policy", policy)  # test-quality-ok: inject policy hook
     )
     return stack
 
@@ -14270,12 +14270,12 @@ async def test_generate_key_rejects_when_custom_key_policy_denies_before_any_wri
     with _generate_policy_mocks(mock_prisma, generate_key_helper, _seven_day_policy(received)):
         with pytest.raises(ProxyException) as exc_info:
             await generate_key_fn(
-                data=data, user_api_key_dict=_make_regenerate_user_api_key_dict(), litellm_changed_by=None
+                data=data, user_api_key_dict=_make_regenerate_user_api_key_dict(), hangarllm_changed_by=None
             )
 
     assert str(exc_info.value.code) == "403"
     assert exc_info.value.message == _POLICY_DENIAL_MESSAGE
-    mock_prisma.db.litellm_budgettable.create.assert_not_awaited()
+    mock_prisma.db.hangarllm_budgettable.create.assert_not_awaited()
     generate_key_helper.assert_not_awaited()
     assert len(received) == 1
     _assert_generate_policy_request(received[0], "3000d", organization_id="org-1")
@@ -14295,10 +14295,10 @@ async def test_generate_key_within_custom_key_policy_creates_the_key():
 
     with _generate_policy_mocks(mock_prisma, generate_key_helper, _seven_day_policy(received)):
         await generate_key_fn(
-            data=data, user_api_key_dict=_make_regenerate_user_api_key_dict(), litellm_changed_by=None
+            data=data, user_api_key_dict=_make_regenerate_user_api_key_dict(), hangarllm_changed_by=None
         )
 
-    mock_prisma.db.litellm_budgettable.create.assert_awaited_once()
+    mock_prisma.db.hangarllm_budgettable.create.assert_awaited_once()
     generate_key_helper.assert_awaited_once()
     assert len(received) == 1
     _assert_generate_policy_request(received[0], "5d", organization_id=None)
@@ -14307,17 +14307,17 @@ async def test_generate_key_within_custom_key_policy_creates_the_key():
 
 @pytest.mark.asyncio
 async def test_service_account_generate_rejects_when_custom_key_policy_denies():
-    from litellm.proxy.management_endpoints.key_management_endpoints import generate_service_account_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import generate_service_account_key_fn
 
     mock_prisma = _policy_generate_prisma()
-    mock_prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=MagicMock())
+    mock_prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=MagicMock())
     generate_key_helper = AsyncMock(return_value=_POLICY_GENERATED_KEY)
     received: list[CustomKeyPolicyRequest] = []
 
     with (
         _generate_policy_mocks(mock_prisma, generate_key_helper, _seven_day_policy(received)),
         patch(  # test-quality-ok: team lookup is outside the policy path
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -14326,13 +14326,13 @@ async def test_service_account_generate_rejects_when_custom_key_policy_denies():
             await generate_service_account_key_fn(
                 data=GenerateKeyRequest(team_id="team-1", duration="3000d"),
                 user_api_key_dict=_make_regenerate_user_api_key_dict(),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == _POLICY_DENIAL_MESSAGE
     generate_key_helper.assert_not_awaited()
-    mock_prisma.db.litellm_budgettable.create.assert_not_awaited()
+    mock_prisma.db.hangarllm_budgettable.create.assert_not_awaited()
     assert [policy_request.operation for policy_request in received] == ["generate"]
     assert received[0].existing_key is None
     assert received[0].effective_key.team_id == "team-1"
@@ -14342,7 +14342,7 @@ async def test_service_account_generate_rejects_when_custom_key_policy_denies():
 
 @pytest.mark.asyncio
 async def test_effective_key_after_update_decodes_json_string_columns_and_keeps_omitted_fields():
-    existing_key = LiteLLM_VerificationToken(token="tok", user_id="u1", team_id="team-a")
+    existing_key = HangarLLM_VerificationToken(token="tok", user_id="u1", team_id="team-a")
     non_default_values = await prepare_key_update_data(
         data=UpdateKeyRequest(
             key="tok", router_settings={"num_retries": 3}, budget_limits=[{"budget_duration": "1d", "max_budget": 2.0}]
@@ -14365,7 +14365,7 @@ async def test_effective_key_after_update_decodes_json_string_columns_and_keeps_
 
 @pytest.mark.asyncio
 async def test_effective_key_after_update_clears_expiry_for_a_minus_one_duration():
-    existing_key = LiteLLM_VerificationToken(token="tok", expires=datetime(2027, 1, 1, tzinfo=timezone.utc))
+    existing_key = HangarLLM_VerificationToken(token="tok", expires=datetime(2027, 1, 1, tzinfo=timezone.utc))
     non_default_values = await prepare_key_update_data(
         data=UpdateKeyRequest(key="tok", duration="-1"), existing_key_row=existing_key
     )
@@ -14376,10 +14376,10 @@ async def test_effective_key_after_update_clears_expiry_for_a_minus_one_duration
 
 
 def test_effective_key_after_update_swaps_the_object_permission_id_and_drops_the_stale_relation():
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="tok",
         object_permission_id="op-old",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="op-old", mcp_servers=["old"]),
+        object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="op-old", mcp_servers=["old"]),
     )
 
     effective_key = _effective_key_after_update(
@@ -14406,7 +14406,7 @@ def test_effective_key_for_generate_reflects_the_processed_request_without_mutat
         auto_rotate=True,
         rotation_interval="30d",
         object_permission={"mcp_servers": ["srv"]},
-        key_type=LiteLLMKeyType.LLM_API,
+        key_type=HangarLLMKeyType.LLM_API,
     )
 
     effective_key = _effective_key_for_generate(data=data, now=now)
@@ -14457,7 +14457,7 @@ def _policy_request_for_generate() -> CustomKeyPolicyRequest:
     return CustomKeyPolicyRequest(
         operation="generate",
         existing_key=None,
-        effective_key=LiteLLM_VerificationToken(token="tok"),
+        effective_key=HangarLLM_VerificationToken(token="tok"),
         request=GenerateKeyRequest(),
     )
 
@@ -14513,23 +14513,23 @@ async def test_regenerate_evicts_jwt_key_mapping_cache_so_next_jwt_call_gets_new
     Regenerate must evict the entry locally, broadcast the eviction to other
     workers, and the very next JWT resolve must return the rotated token.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.auth_method import AuthMethod
-    from litellm.proxy.auth.resolvers.models import CredentialRef
-    from litellm.proxy.auth.resolvers.store import IdentityStore
-    from litellm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.auth_method import AuthMethod
+    from hangarllm.proxy.auth.resolvers.models import CredentialRef
+    from hangarllm.proxy.auth.resolvers.store import IdentityStore
+    from hangarllm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
     stale_cache_key = jwt_key_mapping_cache_key("sub", "user1", None)
     existing_key = _make_regenerate_existing_key()
     mock_prisma_client = _make_regenerate_mock_prisma()
-    mock_prisma_client.db.litellm_jwtkeymapping.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_jwtkeymapping.find_many = AsyncMock(
         return_value=[MagicMock(jwt_claim_name="sub", jwt_claim_value="user1", jwt_issuer=None)]
     )
-    mock_prisma_client.db.litellm_jwtkeymapping.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_jwtkeymapping.find_first = AsyncMock(
         return_value=MagicMock(token="new-hashed-token")
     )
     user_api_key_cache = DualCache()
@@ -14538,24 +14538,24 @@ async def test_regenerate_evicts_jwt_key_mapping_cache_so_next_jwt_call_gets_new
     publish_mock = AsyncMock()
     with (
         patch(  # test-quality-ok: deterministic token; same pattern as sibling regenerate tests
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(  # test-quality-ok: grace-period path not under test; same pattern as sibling regenerate tests
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: key-object eviction is separate from the mapping eviction under test
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: background rotation hook is irrelevant to cache eviction
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: captures the cross-worker broadcast without a redis instance
-            "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
+            "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
             publish_mock,
         ),
     ):
@@ -14566,14 +14566,14 @@ async def test_regenerate_evicts_jwt_key_mapping_cache_so_next_jwt_call_gets_new
             key="abc123",
             data=None,
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=user_api_key_cache,
             proxy_logging_obj=MagicMock(),
         )
 
     assert await user_api_key_cache.async_get_cache(stale_cache_key) is None
     publish_mock.assert_any_await(cache_key=stale_cache_key)
-    mock_prisma_client.db.litellm_jwtkeymapping.find_many.assert_awaited_once_with(where={"token": "abc123"})
+    mock_prisma_client.db.hangarllm_jwtkeymapping.find_many.assert_awaited_once_with(where={"token": "abc123"})
 
     rotated_key = UserAPIKeyAuth(token="new-hashed-token", user_id="user-1")
     rotated_principal = IdentityStore._principal_from_key(
@@ -14587,11 +14587,11 @@ async def test_regenerate_evicts_jwt_key_mapping_cache_so_next_jwt_call_gets_new
         return rotated_principal
 
     jwt_handler = MagicMock()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         virtual_key_claim_field="sub", virtual_key_mapping_cache_ttl=300
     )
     with patch(  # test-quality-ok: DB-backed resolve; fake asserts it receives the rotated hash
-        "litellm.proxy.auth.resolvers.store.IdentityStore.resolve",
+        "hangarllm.proxy.auth.resolvers.store.IdentityStore.resolve",
         new_callable=AsyncMock,
         side_effect=fake_resolve,
     ):
@@ -14610,18 +14610,18 @@ async def test_regenerate_evicts_jwt_key_mapping_cache_so_next_jwt_call_gets_new
 @pytest.mark.asyncio
 async def test_execute_virtual_key_regeneration_rejects_over_limit_max_budget(monkeypatch):
     """Regenerate must reject max_budget exceeding upperbound — proves the fix covers non-duration fields."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     max_budget=10.0
                 ),
     )
@@ -14632,16 +14632,16 @@ async def test_execute_virtual_key_regeneration_rejects_over_limit_max_budget(mo
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
     ):
@@ -14653,31 +14653,31 @@ async def test_execute_virtual_key_regeneration_rejects_over_limit_max_budget(mo
                 key="abc123",
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 user_api_key_cache=MagicMock(),
                 proxy_logging_obj=MagicMock(),
             )
     assert exc_info.value.status_code == 400
     assert "max_budget" in str(exc_info.value.detail)
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 0
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 0
 
 
 @pytest.mark.asyncio
 async def test_execute_virtual_key_regeneration_skips_none_values(monkeypatch):
     """Regenerate with data.duration=None must not raise, even when upperbound is set
     (fill_defaults=False semantic — None means 'inherit from existing key')."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(
+        HangarLLM_UpperboundKeyGenerateParams(
                     duration="1h"
                 ),
     )
@@ -14688,20 +14688,20 @@ async def test_execute_virtual_key_regeneration_skips_none_values(monkeypatch):
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
     ):
@@ -14712,22 +14712,22 @@ async def test_execute_virtual_key_regeneration_skips_none_values(monkeypatch):
             key="abc123",
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
 
 
 @pytest.mark.asyncio
 async def test_execute_virtual_key_regeneration_no_upperbound_config_is_noop(monkeypatch):
     """Regenerate with no upperbound config set must accept any duration."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
-    monkeypatch.setattr(litellm, "upperbound_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "upperbound_key_generate_params", None)
     existing_key = _make_regenerate_existing_key()
     data = RegenerateKeyRequest(duration="30d")
     user_api_key_dict = _make_regenerate_user_api_key_dict()
@@ -14735,20 +14735,20 @@ async def test_execute_virtual_key_regeneration_no_upperbound_config_is_noop(mon
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
     ):
@@ -14759,11 +14759,11 @@ async def test_execute_virtual_key_regeneration_no_upperbound_config_is_noop(mon
             key="abc123",
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
 
 
 class TestAllowedRoutesCallerPermission:
@@ -14782,16 +14782,16 @@ class TestAllowedRoutesCallerPermission:
         )
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         mock_prisma_client = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
                 new_callable=AsyncMock,
                 return_value=MagicMock(),
             ),
@@ -14800,7 +14800,7 @@ class TestAllowedRoutesCallerPermission:
                 await generate_key_fn(
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
         assert str(exc_info.value.code) == "403"
         assert "allowed_routes" in str(exc_info.value.message)
@@ -14814,17 +14814,17 @@ class TestAllowedRoutesCallerPermission:
         )
         user_api_key_dict = UserAPIKeyAuth(
             user_id="admin-user",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
         mock_prisma_client = AsyncMock()
         stub_response = MagicMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
                 new_callable=AsyncMock,
                 return_value=stub_response,
             ),
@@ -14832,7 +14832,7 @@ class TestAllowedRoutesCallerPermission:
             result = await generate_key_fn(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
         assert result is stub_response
 
@@ -14846,17 +14846,17 @@ class TestAllowedRoutesCallerPermission:
         data = GenerateKeyRequest(key_alias="plain-key")
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         mock_prisma_client = AsyncMock()
         stub_response = MagicMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
                 new_callable=AsyncMock,
                 return_value=stub_response,
             ),
@@ -14864,32 +14864,32 @@ class TestAllowedRoutesCallerPermission:
             result = await generate_key_fn(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
         assert result is stub_response
 
     @pytest.mark.asyncio
     async def test_non_admin_update_key_with_allowed_routes_rejected(self):
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             update_key_fn,
         )
 
         data = UpdateKeyRequest(key="sk-test", allowed_routes=["/*"])
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         mock_prisma_client = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_update", None),
-            patch("litellm.proxy.proxy_server.llm_router", None),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_update", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", None),
+            patch("hangarllm.proxy.proxy_server.premium_user", True),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._get_and_validate_existing_key",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._get_and_validate_existing_key",
                 new_callable=AsyncMock,
                 return_value=MagicMock(),
             ),
@@ -14899,7 +14899,7 @@ class TestAllowedRoutesCallerPermission:
                     request=MagicMock(),
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
         assert str(exc_info.value.code) == "403"
         assert "allowed_routes" in str(exc_info.value.message)
@@ -14910,7 +14910,7 @@ class TestAllowedRoutesCallerPermission:
         route restriction with an explicit `[]` in the request body. The value
         matches the model default but `model_fields_set` distinguishes the
         two. Clearing from a safe preset is allowed (LIT-4891)."""
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             update_key_fn,
         )
 
@@ -14918,19 +14918,19 @@ class TestAllowedRoutesCallerPermission:
         assert "allowed_routes" in data.model_fields_set
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         mock_prisma_client = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_update", None),
-            patch("litellm.proxy.proxy_server.llm_router", None),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_update", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", None),
+            patch("hangarllm.proxy.proxy_server.premium_user", True),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._get_and_validate_existing_key",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._get_and_validate_existing_key",
                 new_callable=AsyncMock,
                 return_value=MagicMock(allowed_routes=["/chat/completions"]),
             ),
@@ -14940,7 +14940,7 @@ class TestAllowedRoutesCallerPermission:
                     request=MagicMock(),
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
         assert str(exc_info.value.code) == "403"
         assert "allowed_routes" in str(exc_info.value.message)
@@ -14949,7 +14949,7 @@ class TestAllowedRoutesCallerPermission:
     async def test_non_admin_update_key_explicit_null_allowed_routes_rejected(self):
         """`update_key_fn` rejects a non-admin clearing a custom (non-preset)
         route restriction with an explicit `null` in the request body."""
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             update_key_fn,
         )
 
@@ -14957,19 +14957,19 @@ class TestAllowedRoutesCallerPermission:
         assert "allowed_routes" in data.model_fields_set
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         mock_prisma_client = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_update", None),
-            patch("litellm.proxy.proxy_server.llm_router", None),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_update", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", None),
+            patch("hangarllm.proxy.proxy_server.premium_user", True),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._get_and_validate_existing_key",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._get_and_validate_existing_key",
                 new_callable=AsyncMock,
                 return_value=MagicMock(allowed_routes=["/chat/completions"]),
             ),
@@ -14979,7 +14979,7 @@ class TestAllowedRoutesCallerPermission:
                     request=MagicMock(),
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
         assert str(exc_info.value.code) == "403"
         assert "allowed_routes" in str(exc_info.value.message)
@@ -14988,8 +14988,8 @@ class TestAllowedRoutesCallerPermission:
     async def test_non_admin_regenerate_key_explicit_empty_allowed_routes_rejected(self):
         """`regenerate_key_fn` rejects a non-admin when `allowed_routes` is
         present as `[]` in the request body."""
-        from litellm.proxy._types import RegenerateKeyRequest
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy._types import RegenerateKeyRequest
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             regenerate_key_fn,
         )
 
@@ -14997,16 +14997,16 @@ class TestAllowedRoutesCallerPermission:
         assert "allowed_routes" in data.model_fields_set
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
-        with patch("litellm.proxy.proxy_server.premium_user", True):
+        with patch("hangarllm.proxy.proxy_server.premium_user", True):
             with pytest.raises(ProxyException) as exc_info:
                 await regenerate_key_fn(
                     key=None,
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
         assert str(exc_info.value.code) == "403"
         assert "allowed_routes" in str(exc_info.value.message)
@@ -15017,24 +15017,24 @@ class TestAllowedRoutesCallerPermission:
         before the `premium_user` check, so a non-premium proxy still returns
         the allowed_routes rejection (403) rather than the enterprise-license
         error (500) when a non-admin sends `allowed_routes`."""
-        from litellm.proxy._types import RegenerateKeyRequest
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy._types import RegenerateKeyRequest
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             regenerate_key_fn,
         )
 
         data = RegenerateKeyRequest(key="sk-test", allowed_routes=["/*"])
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
-        with patch("litellm.proxy.proxy_server.premium_user", False):
+        with patch("hangarllm.proxy.proxy_server.premium_user", False):
             with pytest.raises(ProxyException) as exc_info:
                 await regenerate_key_fn(
                     key=None,
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
         assert str(exc_info.value.code) == "403"
         assert "allowed_routes" in str(exc_info.value.message)
@@ -15050,16 +15050,16 @@ class TestAllowedRoutesCallerPermission:
         assert "allowed_routes" in data.model_fields_set
         user_api_key_dict = UserAPIKeyAuth(
             user_id="internal-user-123",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         mock_prisma_client = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
                 new_callable=AsyncMock,
                 return_value=MagicMock(),
             ),
@@ -15068,7 +15068,7 @@ class TestAllowedRoutesCallerPermission:
                 await generate_key_fn(
                     data=data,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    hangarllm_changed_by=None,
                 )
         assert str(exc_info.value.code) == "403"
         assert "allowed_routes" in str(exc_info.value.message)
@@ -15079,7 +15079,7 @@ class TestAllowedRoutesCallerPermission:
         composed of `_NON_ADMIN_SAFE_ALLOWED_ROUTES_PRESETS` tokens. This
         is the shape the post-`handle_key_type` recheck at line 914 uses
         after deriving `["llm_api_routes"]` from `key_type=llm_api`."""
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _check_allowed_routes_caller_permission,
         )
 
@@ -15087,7 +15087,7 @@ class TestAllowedRoutesCallerPermission:
             allowed_routes=["llm_api_routes"],
             user_api_key_dict=UserAPIKeyAuth(
                 user_id="internal-user-123",
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
             ),
             allow_safe_presets=True,
         )
@@ -15095,7 +15095,7 @@ class TestAllowedRoutesCallerPermission:
             allowed_routes=["info_routes"],
             user_api_key_dict=UserAPIKeyAuth(
                 user_id="internal-user-123",
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
             ),
             allow_safe_presets=True,
         )
@@ -15107,7 +15107,7 @@ class TestAllowedRoutesCallerPermission:
         `["management_routes"]` from `key_type=management`)."""
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _check_allowed_routes_caller_permission,
         )
 
@@ -15116,7 +15116,7 @@ class TestAllowedRoutesCallerPermission:
                 allowed_routes=["management_routes"],
                 user_api_key_dict=UserAPIKeyAuth(
                     user_id="internal-user-123",
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                 ),
                 allow_safe_presets=True,
             )
@@ -15131,7 +15131,7 @@ class TestAllowedRoutesCallerPermission:
         the safe-preset branch."""
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from hangarllm.proxy.management_endpoints.key_management_endpoints import (
             _check_allowed_routes_caller_permission,
         )
 
@@ -15140,7 +15140,7 @@ class TestAllowedRoutesCallerPermission:
                 allowed_routes=None,
                 user_api_key_dict=UserAPIKeyAuth(
                     user_id="internal-user-123",
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                 ),
                 allowed_routes_was_provided=True,
                 allow_safe_presets=True,
@@ -15157,7 +15157,7 @@ def test_jinja_prompt_manager_is_sandboxed():
     """
     from jinja2.exceptions import SecurityError
 
-    from litellm.integrations.dotprompt.prompt_manager import PromptManager
+    from hangarllm.integrations.dotprompt.prompt_manager import PromptManager
 
     pm = PromptManager()
     template = pm.jinja_env.from_string("{{ ''.__class__.__mro__ }}")
@@ -15166,7 +15166,7 @@ def test_jinja_prompt_manager_is_sandboxed():
 
 
 def test_validate_public_image_url_rejects_local_paths():
-    from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+    from hangarllm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
         _validate_public_image_url,
     )
 
@@ -15177,7 +15177,7 @@ def test_validate_public_image_url_rejects_local_paths():
 
 
 def test_validate_public_image_url_accepts_http_and_noop_empty():
-    from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+    from hangarllm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
         _validate_public_image_url,
     )
 
@@ -15199,13 +15199,13 @@ async def test_process_single_key_update_cache_invalidation_with_token_hash():
     is deleted while the stale entry (with outdated fields) persists and
     gets refreshed indefinitely by update_cache on every successful request.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _process_single_key_update,
     )
 
     token_hash = "abc123def456"
 
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token=token_hash,
         user_id="user-1",
         models=["gpt-4"],
@@ -15215,7 +15215,7 @@ async def test_process_single_key_update_cache_invalidation_with_token_hash():
     )
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=existing_key
     )
     mock_updated = MagicMock()
@@ -15228,19 +15228,19 @@ async def test_process_single_key_update_cache_invalidation_with_token_hash():
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data",
             return_value={"max_budget": 100.0},
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
             return_value=None,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ) as mock_delete_cache,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook",
             new_callable=AsyncMock,
         ),
     ):
@@ -15250,7 +15250,7 @@ async def test_process_single_key_update_cache_invalidation_with_token_hash():
         )
 
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin-user",
         )
@@ -15258,7 +15258,7 @@ async def test_process_single_key_update_cache_invalidation_with_token_hash():
         await _process_single_key_update(
             update_key_request=update_key_request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=mock_prisma_client,
             user_api_key_cache=mock_user_api_key_cache,
             proxy_logging_obj=mock_proxy_logging_obj,
@@ -15284,7 +15284,7 @@ async def test_process_single_key_update_non_admin_permissions_rejected():
     assert "permissions" in update_key_request.model_fields_set
 
     non_admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-non-admin",
         user_id="user-1",
     )
@@ -15293,7 +15293,7 @@ async def test_process_single_key_update_non_admin_permissions_rejected():
         await _process_single_key_update(
             update_key_request=update_key_request,
             user_api_key_dict=non_admin,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=AsyncMock(),
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
@@ -15313,7 +15313,7 @@ async def test_process_single_key_update_non_admin_permissions_explicit_empty_re
     assert "permissions" in update_key_request.model_fields_set
 
     non_admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-non-admin",
         user_id="user-1",
     )
@@ -15322,7 +15322,7 @@ async def test_process_single_key_update_non_admin_permissions_explicit_empty_re
         await _process_single_key_update(
             update_key_request=update_key_request,
             user_api_key_dict=non_admin,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=AsyncMock(),
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
@@ -15341,7 +15341,7 @@ async def test_process_single_key_update_non_admin_permissions_explicit_empty_re
 async def test_process_single_key_update_non_admin_cannot_drop_stored_denied_passthrough_routes(
     fields: dict[str, object],
 ) -> None:
-    stored_key: Final = LiteLLM_VerificationToken(
+    stored_key: Final = HangarLLM_VerificationToken(
         token="hashed-key", user_id="key-owner", metadata={"denied_passthrough_routes": ["/svc/admin"]}
     )
     prisma_client: Final = AsyncMock()
@@ -15349,8 +15349,8 @@ async def test_process_single_key_update_non_admin_cannot_drop_stored_denied_pas
     with pytest.raises(HTTPException) as exc_info:
         await _process_single_key_update(
             update_key_request=UpdateKeyRequest.model_validate({"key": "sk-owned-key", **fields}),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="team-admin"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="team-admin"),
+            hangarllm_changed_by=None,
             prisma_client=prisma_client,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
@@ -15370,13 +15370,13 @@ async def test_execute_virtual_key_regeneration_cache_invalidation_with_token_ha
     double-hashed) to _delete_cache_key_object when the key is a
     pre-hashed token ID.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
     token_hash = "abc123def456"
 
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token=token_hash,
         user_id="user-1",
         models=["gpt-4"],
@@ -15396,12 +15396,12 @@ async def test_execute_virtual_key_regeneration_cache_invalidation_with_token_ha
         def __iter__(self):
             return iter(self._data.items())
 
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
         return_value=DictLikeResult(
             {"token": "new-hashed-token", "key_name": "sk-...ab12", "user_id": "user-1"}
         )
     )
-    mock_prisma_client.db.litellm_verificationtoken.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.create = AsyncMock(
         return_value=None
     )
     mock_prisma_client.jsonify_object = MagicMock(side_effect=lambda data: data)
@@ -15410,31 +15410,31 @@ async def test_execute_virtual_key_regeneration_cache_invalidation_with_token_ha
     mock_proxy_logging_obj = MagicMock()
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin-user",
     )
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ) as mock_delete_cache,
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.prepare_key_update_data",
             new_callable=AsyncMock,
             return_value={},
         ),
@@ -15446,7 +15446,7 @@ async def test_execute_virtual_key_regeneration_cache_invalidation_with_token_ha
             key=token_hash,
             data=None,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=mock_user_api_key_cache,
             proxy_logging_obj=mock_proxy_logging_obj,
         )
@@ -15462,11 +15462,11 @@ async def test_execute_virtual_key_regeneration_cache_invalidation_with_token_ha
 # ---------------------------------------------------------------------------
 
 
-_BULK_PKG = "litellm.proxy.management_endpoints.key_management_endpoints"
+_BULK_PKG = "hangarllm.proxy.management_endpoints.key_management_endpoints"
 
 
-def _make_team_key(token: str, team_id: str = "team-abc") -> LiteLLM_VerificationToken:
-    return LiteLLM_VerificationToken(
+def _make_team_key(token: str, team_id: str = "team-abc") -> HangarLLM_VerificationToken:
+    return HangarLLM_VerificationToken(
         token=token,
         user_id="user-123",
         models=[],
@@ -15477,13 +15477,13 @@ def _make_team_key(token: str, team_id: str = "team-abc") -> LiteLLM_Verificatio
 
 def _admin() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin"
     )
 
 
 def _internal_user() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-iu", user_id="iu"
+        user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-iu", user_id="iu"
     )
 
 
@@ -15503,18 +15503,18 @@ def _setup_team_keys_mocks(
 ):
     """Set up mocks for bulk_update_team_keys; returns mock_prisma."""
     mock_prisma = AsyncMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[] if find_many is None else find_many
     )
     if find_unique is not None:
-        mock_prisma.db.litellm_verificationtoken.find_unique = find_unique
+        mock_prisma.db.hangarllm_verificationtoken.find_unique = find_unique
     if update_data is not None:
         mock_prisma.update_data = update_data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_key_update", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_custom_key_update", None)
     monkeypatch.setattr(
         f"{_BULK_PKG}.prepare_key_update_data",
         AsyncMock(return_value={"max_budget": 50.0}),
@@ -15536,12 +15536,12 @@ def _setup_team_keys_mocks(
 
 
 async def _call_as_admin(data):
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         bulk_update_team_keys,
     )
 
     return await bulk_update_team_keys(
-        data=data, user_api_key_dict=_admin(), litellm_changed_by=None
+        data=data, user_api_key_dict=_admin(), hangarllm_changed_by=None
     )
 
 
@@ -15550,7 +15550,7 @@ async def _call_as_admin(data):
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_success_with_key_ids(monkeypatch):
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15576,7 +15576,7 @@ async def test_bulk_update_team_keys_success_with_key_ids(monkeypatch):
 
     assert len(response.successful_updates) == 2
     assert len(response.failed_updates) == 0
-    where = mock.db.litellm_verificationtoken.find_many.await_args.kwargs["where"]
+    where = mock.db.hangarllm_verificationtoken.find_many.await_args.kwargs["where"]
     assert where["team_id"] == "team-abc"
     assert where["token"] == {"in": ["tok-a", "tok-b"]}
     find_unique.assert_not_called()
@@ -15584,7 +15584,7 @@ async def test_bulk_update_team_keys_success_with_key_ids(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_success_all_keys_in_team(monkeypatch):
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15609,7 +15609,7 @@ async def test_bulk_update_team_keys_success_all_keys_in_team(monkeypatch):
     )
 
     assert len(response.successful_updates) == 3
-    where = mock.db.litellm_verificationtoken.find_many.await_args.kwargs["where"]
+    where = mock.db.hangarllm_verificationtoken.find_many.await_args.kwargs["where"]
     # `blocked` is Boolean? with no default → /key/generate writes NULL. Prisma's
     # NOT excludes NULLs, so the filter has to OR `false` with `null` explicitly.
     blocked_or, expires_or = where["AND"][0]["OR"], where["AND"][1]["OR"]
@@ -15625,7 +15625,7 @@ async def test_bulk_update_team_keys_success_all_keys_in_team(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_key_not_in_team(monkeypatch):
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15655,7 +15655,7 @@ async def test_bulk_update_team_keys_key_not_in_team(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_batch_size_cap(monkeypatch):
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15679,7 +15679,7 @@ async def test_bulk_update_team_keys_batch_size_cap(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_empty_team_returns_404(monkeypatch):
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15701,10 +15701,10 @@ async def test_bulk_update_team_keys_empty_team_returns_404(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_team_member_with_permission(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         bulk_update_team_keys,
     )
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15729,7 +15729,7 @@ async def test_bulk_update_team_keys_team_member_with_permission(monkeypatch):
             update_fields=KeyUpdateFields(max_budget=50.0),
         ),
         user_api_key_dict=_internal_user(),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
     assert len(response.successful_updates) == 1
     # Upfront check + per-key check inside _process_single_key_update
@@ -15738,10 +15738,10 @@ async def test_bulk_update_team_keys_team_member_with_permission(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_team_member_no_permission(monkeypatch):
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         bulk_update_team_keys,
     )
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15767,7 +15767,7 @@ async def test_bulk_update_team_keys_team_member_no_permission(monkeypatch):
                 update_fields=KeyUpdateFields(max_budget=1.0),
             ),
             user_api_key_dict=_internal_user(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     mock.update_data.assert_not_called()
 
@@ -15777,15 +15777,15 @@ def test_handle_key_type_persists_key_type_and_derives_routes():
     the token) while still deriving the `allowed_routes` preset. Regression for
     the UI showing scoped keys as "All Proxy Models": the frontend now reads the
     persisted `key_type` instead of reverse-mapping the preset string."""
-    from litellm.proxy._types import GenerateKeyRequest, LiteLLMKeyType
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarLLMKeyType
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         handle_key_type,
     )
 
     cases = {
-        LiteLLMKeyType.MANAGEMENT: ("management", ["management_routes"]),
-        LiteLLMKeyType.READ_ONLY: ("read_only", ["info_routes"]),
-        LiteLLMKeyType.LLM_API: ("llm_api", ["llm_api_routes"]),
+        HangarLLMKeyType.MANAGEMENT: ("management", ["management_routes"]),
+        HangarLLMKeyType.READ_ONLY: ("read_only", ["info_routes"]),
+        HangarLLMKeyType.LLM_API: ("llm_api", ["llm_api_routes"]),
     }
     for key_type, (expected_type, expected_routes) in cases.items():
         data = GenerateKeyRequest(key_type=key_type)
@@ -15797,13 +15797,13 @@ def test_handle_key_type_persists_key_type_and_derives_routes():
 def test_handle_key_type_default_persists_type_without_forcing_routes():
     """`default` is persisted but must not overwrite an explicit `allowed_routes`
     (e.g. a SCIM key created with `["/scim/*"]` and no explicit key_type)."""
-    from litellm.proxy._types import GenerateKeyRequest, LiteLLMKeyType
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest, HangarLLMKeyType
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         handle_key_type,
     )
 
-    data = GenerateKeyRequest(key_type=LiteLLMKeyType.DEFAULT)
-    out = handle_key_type(data, {"allowed_routes": ["/scim/*"], "key_type": LiteLLMKeyType.DEFAULT})
+    data = GenerateKeyRequest(key_type=HangarLLMKeyType.DEFAULT)
+    out = handle_key_type(data, {"allowed_routes": ["/scim/*"], "key_type": HangarLLMKeyType.DEFAULT})
     assert out["key_type"] == "default"
     assert out["allowed_routes"] == ["/scim/*"]
 
@@ -15811,8 +15811,8 @@ def test_handle_key_type_default_persists_type_without_forcing_routes():
 def test_handle_key_type_none_drops_key_type():
     """When no `key_type` is supplied the payload must not carry a `key_type`
     entry, so old keys stay `null` and the frontend keeps its route fallback."""
-    from litellm.proxy._types import GenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import GenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         handle_key_type,
     )
 
@@ -15828,7 +15828,7 @@ def test_bulk_update_team_keys_request_validation():
     """Allowlist (extra='forbid'), empty-payload rejection, and selection XOR."""
     from pydantic import ValidationError
 
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15875,15 +15875,15 @@ def test_bulk_update_team_keys_request_validation():
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_hashes_raw_sk_key_ids(monkeypatch):
     """Regression: raw sk-... key_ids must be hashed before the find_many lookup."""
-    from litellm.proxy._types import hash_token
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import hash_token
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
 
     raw_sk = "sk-rawkey1234567890"
     hashed = hash_token(raw_sk)
-    row = LiteLLM_VerificationToken(
+    row = HangarLLM_VerificationToken(
         token=hashed, user_id="u", models=[], team_id="team-abc", max_budget=None
     )
     mock = _setup_team_keys_mocks(
@@ -15901,7 +15901,7 @@ async def test_bulk_update_team_keys_hashes_raw_sk_key_ids(monkeypatch):
             update_fields=KeyUpdateFields(max_budget=50.0),
         )
     )
-    where = mock.db.litellm_verificationtoken.find_many.await_args.kwargs["where"]
+    where = mock.db.hangarllm_verificationtoken.find_many.await_args.kwargs["where"]
     assert where["token"] == {"in": [hashed]}
     # Response reports the user-supplied form, not the hash.
     assert response.successful_updates[0].key == raw_sk
@@ -15910,10 +15910,10 @@ async def test_bulk_update_team_keys_hashes_raw_sk_key_ids(monkeypatch):
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_auth_check_runs_when_no_keys_match(monkeypatch):
     """Regression: non-admin with bogus key_ids must still hit the membership gate."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         bulk_update_team_keys,
     )
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -15940,7 +15940,7 @@ async def test_bulk_update_team_keys_auth_check_runs_when_no_keys_match(monkeypa
                 update_fields=KeyUpdateFields(max_budget=1.0),
             ),
             user_api_key_dict=_internal_user(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     # Anchored on data.team_id, not existing_keys[0].
     assert auth_check.await_args.kwargs["existing_key_row"].team_id == "victim-team"
@@ -15954,14 +15954,14 @@ async def test_bulk_update_team_keys_does_not_log_raw_sk_token_on_failure(
     """Regression: per-key failure must not log the raw sk-... (ERROR-level logs persist)."""
     import logging
 
-    from litellm.proxy._types import hash_token
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import hash_token
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
 
     raw_sk = "sk-supersecret1234567890"
-    row = LiteLLM_VerificationToken(
+    row = HangarLLM_VerificationToken(
         token=hash_token(raw_sk),
         user_id="u",
         models=[],
@@ -15975,7 +15975,7 @@ async def test_bulk_update_team_keys_does_not_log_raw_sk_token_on_failure(
         hash_identity=False,
     )
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         response = await _call_as_admin(
             BulkUpdateTeamKeysRequest(
                 team_id="team-abc",
@@ -15991,7 +15991,7 @@ async def test_bulk_update_team_keys_does_not_log_raw_sk_token_on_failure(
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_propagates_team_id_to_per_key_request(monkeypatch):
     """Regression: per-key UpdateKeyRequest carries data.team_id (gates _check_team_key_limits)."""
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -16021,7 +16021,7 @@ async def test_bulk_update_team_keys_propagates_team_id_to_per_key_request(monke
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_dedupes_key_ids(monkeypatch):
     """Duplicate key_ids collapse to a single update (no redundant DB writes, no inflated counts)."""
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -16056,10 +16056,10 @@ async def test_bulk_update_team_keys_blocks_metadata_allowed_passthrough_routes(
     """Non-admin can't grant passthrough access by smuggling allowed_passthrough_routes through metadata."""
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         bulk_update_team_keys,
     )
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -16078,7 +16078,7 @@ async def test_bulk_update_team_keys_blocks_metadata_allowed_passthrough_routes(
         await bulk_update_team_keys(
             data=request,
             user_api_key_dict=_internal_user(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert exc.value.status_code == 403
@@ -16095,7 +16095,7 @@ import contextlib  # noqa: E402
 
 def _non_admin_user_api_key_dict():
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="user-1",
     )
@@ -16107,20 +16107,20 @@ def _patch_regenerate_side_effects():
     ``_execute_virtual_key_regeneration`` runs to completion under test."""
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
     ):
@@ -16151,8 +16151,8 @@ def _patch_regenerate_side_effects():
 async def test_regenerate_user_id_rebind_guard(
     incoming_user_id, expected_status, expected_substring
 ):
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
@@ -16167,7 +16167,7 @@ async def test_regenerate_user_id_rebind_guard(
             key="abc123",
             data=data,
             user_api_key_dict=_non_admin_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
@@ -16188,17 +16188,17 @@ async def test_regenerate_premium_gate_requires_actual_master_key():
     # ``regenerate_key_fn``'s decorator wraps the underlying ValueError
     # into a ProxyException with empty ``message``. The exception type
     # alone confirms the premium gate fired.
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         regenerate_key_fn,
     )
 
     data = RegenerateKeyRequest(key="sk-not-master", new_master_key="anything")
 
     with (
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.master_key", "sk-the-real-master-key"),
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.master_key", "sk-the-real-master-key"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),
         pytest.raises((ValueError, HTTPException, ProxyException)),
     ):
         await regenerate_key_fn(
@@ -16210,8 +16210,8 @@ async def test_regenerate_premium_gate_requires_actual_master_key():
 
 @pytest.mark.asyncio
 async def test_regenerate_premium_gate_allows_actual_master_key_holder():
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         regenerate_key_fn,
     )
 
@@ -16219,11 +16219,11 @@ async def test_regenerate_premium_gate_allows_actual_master_key_holder():
     data = RegenerateKeyRequest(key=master, new_master_key="sk-new-master")
 
     with (
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.master_key", master),
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.master_key", master),
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.rotate_master_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.rotate_master_key",
             new_callable=AsyncMock,
         ),
     ):
@@ -16231,7 +16231,7 @@ async def test_regenerate_premium_gate_allows_actual_master_key_holder():
             key=master,
             data=data,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=master,
                 user_id="admin",
             ),
@@ -16242,17 +16242,17 @@ async def test_regenerate_premium_gate_allows_actual_master_key_holder():
 
 @pytest.mark.asyncio
 async def test_regenerate_applies_normalized_mcp_object_permission():
-    from litellm.proxy._types import (
-        LiteLLM_ObjectPermissionBase,
+    from hangarllm.proxy._types import (
+        HangarLLM_ObjectPermissionBase,
         RegenerateKeyRequest,
     )
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         regenerate_key_fn,
     )
 
     data = RegenerateKeyRequest(
         key="sk-old",
-        object_permission=LiteLLM_ObjectPermissionBase(mcp_servers=["server-alias"]),
+        object_permission=HangarLLM_ObjectPermissionBase(mcp_servers=["server-alias"]),
     )
     existing_key = _make_regenerate_existing_key()
     mock_prisma_client = AsyncMock()
@@ -16261,43 +16261,43 @@ async def test_regenerate_applies_normalized_mcp_object_permission():
     execute_mock = AsyncMock(return_value=MagicMock())
 
     with (
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.master_key", None),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.hash_token", lambda token: "hashed-old"),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.master_key", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.hash_token", lambda token: "hashed-old"),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.VerificationTokenRepository",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.VerificationTokenRepository",
             return_value=mock_repo,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.enforce_member_can_assign_access_groups",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.enforce_member_can_assign_access_groups",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.can_modify_verification_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.can_modify_verification_token",
             new_callable=AsyncMock,
             return_value=True,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_mcp_servers_against_team",
             new_callable=AsyncMock,
             return_value={"mcp_servers": ["server-id"]},
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_search_tools_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_search_tools_against_team",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_vector_stores_against_team",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_vector_stores_against_team",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._execute_virtual_key_regeneration",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._execute_virtual_key_regeneration",
             execute_mock,
         ),
     ):
@@ -16305,7 +16305,7 @@ async def test_regenerate_applies_normalized_mcp_object_permission():
             key="sk-old",
             data=data,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN.value,
+                user_role=HangarllmUserRoles.PROXY_ADMIN.value,
                 api_key="sk-admin",
                 user_id="admin",
             ),
@@ -16328,7 +16328,7 @@ async def test_ghsa_q775_non_admin_unlimited_can_delegate_budget():
     """
     data = GenerateKeyRequest(max_budget=999999)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="user-1",
         max_budget=None,
@@ -16337,11 +16337,11 @@ async def test_ghsa_q775_non_admin_unlimited_can_delegate_budget():
     mock_prisma_client = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
             new_callable=AsyncMock,
             return_value=MagicMock(),
         ),
@@ -16349,7 +16349,7 @@ async def test_ghsa_q775_non_admin_unlimited_can_delegate_budget():
         result = await generate_key_fn(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
         assert result is not None
 
@@ -16362,7 +16362,7 @@ async def test_ghsa_q775_non_admin_cannot_exceed_own_budget():
     """
     data = GenerateKeyRequest(max_budget=500)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="user-1",
         max_budget=100,
@@ -16371,15 +16371,15 @@ async def test_ghsa_q775_non_admin_cannot_exceed_own_budget():
     mock_prisma_client = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
     ):
         with pytest.raises((HTTPException, ProxyException)) as exc_info:
             await generate_key_fn(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
         err = exc_info.value
         code = getattr(err, "status_code", None) or getattr(err, "code", None)
@@ -16395,7 +16395,7 @@ async def test_ghsa_q775_non_admin_within_budget_allowed():
     """
     data = GenerateKeyRequest(max_budget=50)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="user-1",
         max_budget=100,
@@ -16404,11 +16404,11 @@ async def test_ghsa_q775_non_admin_within_budget_allowed():
     mock_prisma_client = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
             new_callable=AsyncMock,
             return_value=MagicMock(),
         ),
@@ -16416,7 +16416,7 @@ async def test_ghsa_q775_non_admin_within_budget_allowed():
         result = await generate_key_fn(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
         assert result is not None
 
@@ -16431,7 +16431,7 @@ async def test_ghsa_q775_upperbound_default_not_rejected():
     assert data.max_budget is None
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="user-1",
         max_budget=None,
@@ -16440,15 +16440,15 @@ async def test_ghsa_q775_upperbound_default_not_rejected():
     mock_prisma_client = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
         patch(
-            "litellm.upperbound_key_generate_params",
+            "hangarllm.upperbound_key_generate_params",
             MagicMock(max_budget=100.0),
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
             new_callable=AsyncMock,
             return_value=MagicMock(),
         ),
@@ -16456,7 +16456,7 @@ async def test_ghsa_q775_upperbound_default_not_rejected():
         result = await generate_key_fn(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
         assert result is not None
 
@@ -16471,7 +16471,7 @@ async def test_ghsa_q775_default_key_generate_params_not_rejected():
     assert data.max_budget is None
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-internal",
         user_id="user-1",
         max_budget=None,
@@ -16480,15 +16480,15 @@ async def test_ghsa_q775_default_key_generate_params_not_rejected():
     mock_prisma_client = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
         patch(
-            "litellm.default_key_generate_params",
+            "hangarllm.default_key_generate_params",
             {"max_budget": 50.0},
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
             new_callable=AsyncMock,
             return_value=MagicMock(),
         ),
@@ -16496,7 +16496,7 @@ async def test_ghsa_q775_default_key_generate_params_not_rejected():
         result = await generate_key_fn(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
         assert result is not None
 
@@ -16508,7 +16508,7 @@ async def test_ghsa_q775_admin_bypasses_budget_ceiling():
     """
     data = GenerateKeyRequest(max_budget=999999)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin-1",
         max_budget=None,
@@ -16517,11 +16517,11 @@ async def test_ghsa_q775_admin_bypasses_budget_ceiling():
     mock_prisma_client = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._common_key_generation_helper",
             new_callable=AsyncMock,
             return_value=MagicMock(),
         ),
@@ -16529,7 +16529,7 @@ async def test_ghsa_q775_admin_bypasses_budget_ceiling():
         result = await generate_key_fn(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
         assert result is not None
 
@@ -16537,7 +16537,7 @@ async def test_ghsa_q775_admin_bypasses_budget_ceiling():
 @pytest.mark.asyncio
 async def test_ghsa_q775_ui_session_token_team_key_exempt_from_budget_ceiling():
     """
-    Regression: a UI/CLI session token (team_id=litellm-dashboard) creating a
+    Regression: a UI/CLI session token (team_id=hangarllm-dashboard) creating a
     TEAM key (data.team_id set) is exempt from the delegated-authority ceiling.
     The session max_budget is a per-session chat spend cap (max_ui_session_budget,
     default $0.25), not a delegation authority, and the team key's spend is bounded
@@ -16545,11 +16545,11 @@ async def test_ghsa_q775_ui_session_token_team_key_exempt_from_budget_ceiling():
     blocked since v1.86.x. Calls the helper directly so the ceiling runs (mocking
     out _common_key_generation_helper would mock out the check under test).
     """
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 
     data = GenerateKeyRequest(max_budget=500, team_id="team-abc")
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-ui-session",
         user_id="user-1",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
@@ -16557,17 +16557,17 @@ async def test_ghsa_q775_ui_session_token_team_key_exempt_from_budget_ceiling():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"),
     ):
         try:
             await _common_key_generation_helper(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=MagicMock(),
             )
         except (HTTPException, ProxyException) as err:
@@ -16581,17 +16581,17 @@ async def test_ghsa_q775_ui_session_token_team_key_exempt_from_budget_ceiling():
 async def test_ghsa_q775_ui_session_token_personal_key_still_capped():
     """
     Security regression for GHSA-q775: the session-token exemption must NOT extend
-    to personal keys. A UI/CLI session token (team_id=litellm-dashboard) creating a
+    to personal keys. A UI/CLI session token (team_id=hangarllm-dashboard) creating a
     key with no data.team_id is still bound by the ceiling; otherwise a session
     token - or a leaked one, whose blast radius is the $0.25 chat cap - could mint
     an arbitrary-budget personal key, the exact escalation GHSA-q775 closed. Unlike
     a team key, nothing else bounds a personal key's spend.
     """
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 
     data = GenerateKeyRequest(max_budget=500)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-ui-session",
         user_id="user-1",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
@@ -16601,15 +16601,15 @@ async def test_ghsa_q775_ui_session_token_personal_key_still_capped():
     mock_prisma_client = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_key_generate", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_custom_key_generate", None),
     ):
         with pytest.raises((HTTPException, ProxyException)) as exc_info:
             await generate_key_fn(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
             )
         err = exc_info.value
         code = getattr(err, "status_code", None) or getattr(err, "code", None)
@@ -16620,11 +16620,11 @@ async def test_ghsa_q775_ui_session_token_personal_key_still_capped():
 
 @pytest.mark.asyncio
 async def test_ui_session_token_personal_key_ceiling_is_user_budget():
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 
     data = GenerateKeyRequest(max_budget=100)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-ui-session",
         user_id="user-1",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
@@ -16633,13 +16633,13 @@ async def test_ui_session_token_personal_key_ceiling_is_user_budget():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),  # test-quality-ok: helper reads proxy_server.prisma_client directly
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: helper reads proxy_server.user_api_key_cache directly
-        patch("litellm.proxy.proxy_server.llm_router", None),  # test-quality-ok: helper reads proxy_server.llm_router directly
-        patch("litellm.proxy.proxy_server.premium_user", False),  # test-quality-ok: helper reads proxy_server.premium_user directly
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"),  # test-quality-ok: helper reads proxy_server.litellm_proxy_admin_name directly
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),  # test-quality-ok: helper reads proxy_server.prisma_client directly
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: helper reads proxy_server.user_api_key_cache directly
+        patch("hangarllm.proxy.proxy_server.llm_router", None),  # test-quality-ok: helper reads proxy_server.llm_router directly
+        patch("hangarllm.proxy.proxy_server.premium_user", False),  # test-quality-ok: helper reads proxy_server.premium_user directly
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"),  # test-quality-ok: helper reads proxy_server.hangarllm_proxy_admin_name directly
         patch(  # test-quality-ok: helper has no dependency injection seam for key persistence
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
         ) as mock_generate_key,
     ):
         mock_generate_key.return_value = {"key": "sk-test-key", "token_id": "token-id"}
@@ -16647,7 +16647,7 @@ async def test_ui_session_token_personal_key_ceiling_is_user_budget():
             await _common_key_generation_helper(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=None,
             )
         except (HTTPException, ProxyException) as err:
@@ -16657,11 +16657,11 @@ async def test_ui_session_token_personal_key_ceiling_is_user_budget():
 
 @pytest.mark.asyncio
 async def test_ui_session_token_personal_key_above_user_budget_rejected():
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 
     data = GenerateKeyRequest(max_budget=600)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-ui-session",
         user_id="user-1",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
@@ -16670,13 +16670,13 @@ async def test_ui_session_token_personal_key_above_user_budget_rejected():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),  # test-quality-ok: helper reads proxy_server.prisma_client directly
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: helper reads proxy_server.user_api_key_cache directly
-        patch("litellm.proxy.proxy_server.llm_router", None),  # test-quality-ok: helper reads proxy_server.llm_router directly
-        patch("litellm.proxy.proxy_server.premium_user", False),  # test-quality-ok: helper reads proxy_server.premium_user directly
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"),  # test-quality-ok: helper reads proxy_server.litellm_proxy_admin_name directly
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),  # test-quality-ok: helper reads proxy_server.prisma_client directly
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: helper reads proxy_server.user_api_key_cache directly
+        patch("hangarllm.proxy.proxy_server.llm_router", None),  # test-quality-ok: helper reads proxy_server.llm_router directly
+        patch("hangarllm.proxy.proxy_server.premium_user", False),  # test-quality-ok: helper reads proxy_server.premium_user directly
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"),  # test-quality-ok: helper reads proxy_server.hangarllm_proxy_admin_name directly
         patch(  # test-quality-ok: helper has no dependency injection seam for key persistence
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
         ) as mock_generate_key,
     ):
         mock_generate_key.return_value = {"key": "sk-test-key", "token_id": "token-id"}
@@ -16684,7 +16684,7 @@ async def test_ui_session_token_personal_key_above_user_budget_rejected():
             await _common_key_generation_helper(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=None,
             )
         err = exc_info.value
@@ -16706,12 +16706,12 @@ async def test_ghsa_q775_default_team_id_does_not_grant_session_token_exemption(
     request must still be rejected. Mirrors how _requested_max_budget is captured
     before defaults run.
     """
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 
     data = GenerateKeyRequest(max_budget=500)
     assert data.team_id is None
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-ui-session",
         user_id="user-1",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
@@ -16719,18 +16719,18 @@ async def test_ghsa_q775_default_team_id_does_not_grant_session_token_exemption(
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "default_user_id"),
-        patch("litellm.default_key_generate_params", {"team_id": "injected-team"}),
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "default_user_id"),
+        patch("hangarllm.default_key_generate_params", {"team_id": "injected-team"}),
     ):
         with pytest.raises((HTTPException, ProxyException)) as exc_info:
             await _common_key_generation_helper(
                 data=data,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=None,
             )
         err = exc_info.value
@@ -16747,7 +16747,7 @@ async def test_prepare_key_update_data_budget_duration_null_clears_fields():
     should produce budget_duration=None and budget_reset_at=None so Prisma
     clears them in the DB.
     """
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=[],
@@ -16774,7 +16774,7 @@ async def test_prepare_key_update_data_budget_duration_not_sent_excluded():
     When budget_duration is NOT sent in the request (unset), it should not
     appear in the result dict at all — the existing DB value stays unchanged.
     """
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=[],
@@ -16799,7 +16799,7 @@ async def test_prepare_key_update_data_budget_duration_valid_sets_reset():
     When budget_duration is set to a valid duration string, both
     budget_duration and budget_reset_at should be populated.
     """
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="test-token",
         key_alias="test-key",
         models=[],
@@ -16826,8 +16826,8 @@ async def test_info_key_fn_includes_model_max_budget_usage(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     test_key_token = "hashed_token_budget_test"
     model_max_budget = {
@@ -16835,42 +16835,42 @@ async def test_info_key_fn_includes_model_max_budget_usage(monkeypatch):
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     # A real cache seeded at the real counter key: the spend only comes back if
     # the endpoint computed virtual_key_spend:hashed_token_budget_test:gpt-4o:1d.
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
+        "hangarllm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
         await _budget_cache({"virtual_key_spend:hashed_token_budget_test:gpt-4o:1d": 0.23}),
     )
 
-    mock_key_info = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key_info = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key_info.token = test_key_token
     mock_key_info.object_permission_id = None
     mock_key_info.user_id = "user-x"
     mock_key_info.team_id = None
-    mock_key_info.litellm_budget_table = None
+    mock_key_info.hangarllm_budget_table = None
     mock_key_info.model_dump.return_value = {
         "token": test_key_token,
         "model_max_budget": model_max_budget,
         "user_id": "user-x",
         "team_id": None,
         "object_permission_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key_info.dict.return_value = mock_key_info.model_dump.return_value
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_info
     )
     mock_prisma_client.db.query_raw = AsyncMock()
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-test-budget-key",
     )
 
@@ -16892,46 +16892,46 @@ async def test_info_key_fn_no_model_max_budget_skips_usage(monkeypatch):
     """Keys with no model_max_budget should not include model_max_budget_usage."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     test_key_token = "hashed_token_no_budget"
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     mock_user_api_key_cache.async_get_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
+        "hangarllm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
         mock_user_api_key_cache,
     )
 
-    mock_key_info = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key_info = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key_info.token = test_key_token
     mock_key_info.object_permission_id = None
     mock_key_info.user_id = "user-y"
     mock_key_info.team_id = None
-    mock_key_info.litellm_budget_table = None
+    mock_key_info.hangarllm_budget_table = None
     mock_key_info.model_dump.return_value = {
         "token": test_key_token,
         "model_max_budget": {},
         "user_id": "user-y",
         "team_id": None,
         "object_permission_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key_info.dict.return_value = mock_key_info.model_dump.return_value
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_info
     )
     mock_prisma_client.db.query_raw = AsyncMock()
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-test-no-budget",
     )
 
@@ -16950,8 +16950,8 @@ async def test_info_key_fn_v2_includes_model_max_budget_usage(monkeypatch):
     """/v2/key/info should include model_max_budget_usage for keys with per-model budgets."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import KeyRequest, LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import KeyRequest, HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         info_key_fn_v2,
     )
 
@@ -16959,20 +16959,20 @@ async def test_info_key_fn_v2_includes_model_max_budget_usage(monkeypatch):
     model_max_budget = {"gpt-4o": {"budget_limit": 1.00, "time_period": "7d"}}
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     # A real cache seeded at the real counter key: the spend only comes back if
     # the endpoint computed virtual_key_spend:hashed_token_v2_test:gpt-4o:7d.
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
+        "hangarllm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
         await _budget_cache({"virtual_key_spend:hashed_token_v2_test:gpt-4o:7d": 0.55}),
     )
 
-    mock_key = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key.token = test_key_token
     mock_key.user_id = "user-v2"
     mock_key.team_id = None
@@ -16981,7 +16981,7 @@ async def test_info_key_fn_v2_includes_model_max_budget_usage(monkeypatch):
         "model_max_budget": model_max_budget,
         "user_id": "user-v2",
         "team_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key.dict.return_value = mock_key.model_dump.return_value
 
@@ -16989,7 +16989,7 @@ async def test_info_key_fn_v2_includes_model_max_budget_usage(monkeypatch):
     mock_prisma_client.db.query_raw = AsyncMock()
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
     )
 
@@ -17010,13 +17010,13 @@ async def test_info_key_fn_v2_includes_model_max_budget_usage(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_info_key_fn_budget_table_fallback(monkeypatch):
-    """When model_max_budget is empty on the key but set in litellm_budget_table,
+    """When model_max_budget is empty on the key but set in hangarllm_budget_table,
     /key/info should still populate model_max_budget_usage.
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     test_key_token = "hashed_token_budget_table_test"
     budget_table_model_max_budget = {
@@ -17024,32 +17024,32 @@ async def test_info_key_fn_budget_table_fallback(monkeypatch):
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     # A real cache seeded at the real counter key: the spend only comes back if
     # the endpoint computed virtual_key_spend:hashed_token_budget_table_test:bedrock/anthropic.claude-opus-4:30d.
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
+        "hangarllm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
         await _budget_cache({"virtual_key_spend:hashed_token_budget_table_test:bedrock/anthropic.claude-opus-4:30d": 1.20}),
     )
 
-    mock_key_info = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key_info = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key_info.token = test_key_token
     mock_key_info.object_permission_id = None
     mock_key_info.user_id = "user-bt"
     mock_key_info.team_id = None
-    mock_key_info.litellm_budget_table = None
+    mock_key_info.hangarllm_budget_table = None
     mock_key_info.model_dump.return_value = {
         "token": test_key_token,
         "model_max_budget": {},
         "user_id": "user-bt",
         "team_id": None,
         "object_permission_id": None,
-        "litellm_budget_table": {
+        "hangarllm_budget_table": {
             "budget_id": "bt-123",
             "budget_duration": "30d",
             "budget_reset_at": "2026-07-01T00:00:00+00:00",
@@ -17058,13 +17058,13 @@ async def test_info_key_fn_budget_table_fallback(monkeypatch):
     }
     mock_key_info.dict.return_value = mock_key_info.model_dump.return_value
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_info
     )
     mock_prisma_client.db.query_raw = AsyncMock()
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-test-bt-key",
     )
 
@@ -17083,12 +17083,12 @@ async def test_info_key_fn_budget_table_fallback(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_info_key_fn_v2_budget_table_fallback(monkeypatch):
-    """When model_max_budget is empty on the key but set in litellm_budget_table,
+    """When model_max_budget is empty on the key but set in hangarllm_budget_table,
     /v2/key/info should still populate model_max_budget_usage."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import KeyRequest, LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import KeyRequest, HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         info_key_fn_v2,
     )
 
@@ -17098,20 +17098,20 @@ async def test_info_key_fn_v2_budget_table_fallback(monkeypatch):
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     # A real cache seeded at the real counter key: the spend only comes back if
     # the endpoint computed virtual_key_spend:hashed_token_v2_bt_test:bedrock/anthropic.claude-opus-4:30d.
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
+        "hangarllm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
         await _budget_cache({"virtual_key_spend:hashed_token_v2_bt_test:bedrock/anthropic.claude-opus-4:30d": 2.50}),
     )
 
-    mock_key = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key.token = test_key_token
     mock_key.user_id = "user-v2-bt"
     mock_key.team_id = None
@@ -17120,7 +17120,7 @@ async def test_info_key_fn_v2_budget_table_fallback(monkeypatch):
         "model_max_budget": {},
         "user_id": "user-v2-bt",
         "team_id": None,
-        "litellm_budget_table": {
+        "hangarllm_budget_table": {
             "budget_id": "bt-456",
             "budget_duration": "30d",
             "budget_reset_at": "2026-07-01T00:00:00+00:00",
@@ -17133,7 +17133,7 @@ async def test_info_key_fn_v2_budget_table_fallback(monkeypatch):
     mock_prisma_client.db.query_raw = AsyncMock()
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin-v2-bt",
     )
 
@@ -17159,8 +17159,8 @@ async def test_info_key_fn_reports_budget_limits_usage(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     test_key_token = "hashed_token_window_test"
     budget_limits = [
@@ -17172,38 +17172,38 @@ async def test_info_key_fn_reports_budget_limits_usage(monkeypatch):
     ]
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     mock_get_current_spend = AsyncMock(return_value=0.73)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend
+        "hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend
     )
 
-    mock_key_info = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key_info = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key_info.token = test_key_token
     mock_key_info.object_permission_id = None
     mock_key_info.user_id = "user-w"
     mock_key_info.team_id = None
-    mock_key_info.litellm_budget_table = None
+    mock_key_info.hangarllm_budget_table = None
     mock_key_info.model_dump.return_value = {
         "token": test_key_token,
         "budget_limits": [dict(w) for w in budget_limits],
         "user_id": "user-w",
         "team_id": None,
         "object_permission_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key_info.dict.return_value = mock_key_info.model_dump.return_value
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_info
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-test-window-key",
     )
 
@@ -17230,44 +17230,44 @@ async def test_info_key_fn_no_budget_limits_skips_spend_lookup(monkeypatch):
     """Keys without budget windows get no budget_limits_usage field and trigger no spend lookup."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     test_key_token = "hashed_token_no_windows"
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     mock_get_current_spend = AsyncMock(return_value=0.0)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend
+        "hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend
     )
 
-    mock_key_info = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key_info = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key_info.token = test_key_token
     mock_key_info.object_permission_id = None
     mock_key_info.user_id = "user-nw"
     mock_key_info.team_id = None
-    mock_key_info.litellm_budget_table = None
+    mock_key_info.hangarllm_budget_table = None
     mock_key_info.model_dump.return_value = {
         "token": test_key_token,
         "budget_limits": None,
         "user_id": "user-nw",
         "team_id": None,
         "object_permission_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key_info.dict.return_value = mock_key_info.model_dump.return_value
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_info
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-test-no-window-key",
     )
 
@@ -17286,8 +17286,8 @@ async def test_info_key_fn_v2_reports_budget_limits_usage(monkeypatch):
     """/v2/key/info reports budget_limits_usage per window and leaves budget_limits as stored."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import KeyRequest, LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import KeyRequest, HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         info_key_fn_v2,
     )
 
@@ -17306,17 +17306,17 @@ async def test_info_key_fn_v2_reports_budget_limits_usage(monkeypatch):
     ]
 
     mock_prisma_client = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     mock_get_current_spend = AsyncMock(return_value=1.25)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend
+        "hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend
     )
 
-    mock_key = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key.token = test_key_token
     mock_key.user_id = "user-v2-w"
     mock_key.team_id = None
@@ -17325,14 +17325,14 @@ async def test_info_key_fn_v2_reports_budget_limits_usage(monkeypatch):
         "budget_limits": [dict(w) for w in budget_limits],
         "user_id": "user-v2-w",
         "team_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key.dict.return_value = mock_key.model_dump.return_value
 
     mock_prisma_client.get_data = AsyncMock(return_value=[mock_key])
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin-v2-w",
     )
 
@@ -17366,13 +17366,13 @@ async def test_build_budget_limits_usage_json_string_input(monkeypatch):
     import json as json_module
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_budget_limits_usage,
     )
 
     mock_get_current_spend = AsyncMock(return_value=0.5)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend
+        "hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend
     )
 
     raw = json_module.dumps(
@@ -17389,13 +17389,13 @@ async def test_build_budget_limits_usage_empty_windows_returns_none(monkeypatch)
     """A key with no windows (None, [], or "[]") returns None so the field is left off; no spend lookup runs."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_budget_limits_usage,
     )
 
     mock_get_current_spend = AsyncMock(return_value=0.0)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend
+        "hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend
     )
 
     for stored in (None, [], "[]"):
@@ -17408,13 +17408,13 @@ async def test_build_budget_limits_usage_window_without_max_budget(monkeypatch):
     """A window with only budget_duration still reports current_spend, read without a budget ceiling."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_budget_limits_usage,
     )
 
     mock_get_current_spend = AsyncMock(return_value=0.75)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend
+        "hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend
     )
 
     result = await _build_budget_limits_usage(
@@ -17433,14 +17433,14 @@ async def test_build_budget_limits_usage_pydantic_windows(monkeypatch):
     """BudgetLimitEntry windows (the shape UserAPIKeyAuth carries) are dumped to dicts and reported."""
     from unittest.mock import AsyncMock
 
-    from litellm.models.team import BudgetLimitEntry
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.models.team import BudgetLimitEntry
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_budget_limits_usage,
     )
 
     mock_get_current_spend = AsyncMock(return_value=1.0)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend
+        "hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend
     )
 
     result = await _build_budget_limits_usage(
@@ -17465,8 +17465,8 @@ async def test_info_key_fn_reads_the_configured_budget_model_key(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LiteLLM_VerificationToken
-    from litellm.proxy.management_endpoints.key_management_endpoints import info_key_fn
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import info_key_fn
 
     test_key_token = "hashed_token_prefix_test"
     model_max_budget = {
@@ -17474,42 +17474,42 @@ async def test_info_key_fn_reads_the_configured_budget_model_key(monkeypatch):
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    mock_prisma_client.db.hangarllm_budgetwindowspend.find_unique = AsyncMock(return_value=None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     mock_user_api_key_cache = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
+        "hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache
     )
     # A real cache seeded at the real counter key: the spend only comes back if
     # the endpoint computed virtual_key_spend:hashed_token_prefix_test:openai/gpt-4o:7d.
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
+        "hangarllm.proxy.proxy_server.model_max_budget_limiter.dual_cache",
         await _budget_cache({"virtual_key_spend:hashed_token_prefix_test:openai/gpt-4o:7d": 0.75}),
     )
 
-    mock_key_info = MagicMock(spec=LiteLLM_VerificationToken)
+    mock_key_info = MagicMock(spec=HangarLLM_VerificationToken)
     mock_key_info.token = test_key_token
     mock_key_info.object_permission_id = None
     mock_key_info.user_id = "user-prefix"
     mock_key_info.team_id = None
-    mock_key_info.litellm_budget_table = None
+    mock_key_info.hangarllm_budget_table = None
     mock_key_info.model_dump.return_value = {
         "token": test_key_token,
         "model_max_budget": model_max_budget,
         "user_id": "user-prefix",
         "team_id": None,
         "object_permission_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
     mock_key_info.dict.return_value = mock_key_info.model_dump.return_value
 
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=mock_key_info
     )
     mock_prisma_client.db.query_raw = AsyncMock()
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-prefix-test",
     )
 
@@ -17531,7 +17531,7 @@ async def _budget_cache(seeded):
     any change to the key format would still match itself and these tests could
     never fail, which is the exact bug they exist to catch.
     """
-    from litellm.caching.caching import DualCache
+    from hangarllm.caching.caching import DualCache
 
     cache = DualCache()
     for key, spend in seeded.items():
@@ -17541,7 +17541,7 @@ async def _budget_cache(seeded):
 
 @pytest.mark.asyncio
 async def test_build_model_max_budget_usage_no_cache_returns_empty():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_model_max_budget_usage,
     )
 
@@ -17557,7 +17557,7 @@ async def test_build_model_max_budget_usage_no_cache_returns_empty():
 async def test_build_model_max_budget_usage_reads_current_cache_window():
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_model_max_budget_usage,
     )
 
@@ -17577,7 +17577,7 @@ async def test_build_model_max_budget_usage_reads_current_cache_window():
 async def test_build_model_max_budget_usage_no_duration_in_budget_returns_empty():
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_model_max_budget_usage,
     )
 
@@ -17597,7 +17597,7 @@ async def test_build_model_max_budget_usage_no_duration_in_budget_returns_empty(
 async def test_build_model_max_budget_usage_skips_model_without_duration():
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_model_max_budget_usage,
     )
 
@@ -17619,7 +17619,7 @@ async def test_build_model_max_budget_usage_skips_model_without_duration():
 async def test_build_model_max_budget_usage_unparseable_duration_skipped():
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_model_max_budget_usage,
     )
 
@@ -17641,7 +17641,7 @@ async def test_build_model_max_budget_usage_unparseable_duration_skipped():
 async def test_build_model_max_budget_usage_invalid_budget_config_skipped():
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_model_max_budget_usage,
     )
 
@@ -17668,7 +17668,7 @@ async def test_build_model_max_budget_usage_reads_only_the_configured_model_key(
     """
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_model_max_budget_usage,
     )
 
@@ -17697,9 +17697,9 @@ def test_list_keys_substring_matching_param_defaults_to_false():
 async def _list_keys_capture_helper_kwargs(user_api_key_dict, **list_kwargs):
     from unittest.mock import Mock, patch
 
-    from litellm.proxy._types import LiteLLM_UserTable
+    from hangarllm.proxy._types import HangarLLM_UserTable
 
-    mock_user_info = LiteLLM_UserTable(
+    mock_user_info = HangarLLM_UserTable(
         user_id=user_api_key_dict.user_id,
         user_email="u@example.com",
         teams=[],
@@ -17708,13 +17708,13 @@ async def _list_keys_capture_helper_kwargs(user_api_key_dict, **list_kwargs):
     helper = AsyncMock(
         return_value={"keys": [], "total_count": 0, "current_page": 1, "total_pages": 0}
     )
-    with patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()):
         with patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
             return_value=mock_user_info,
         ):
             with patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
                 helper,
             ):
                 await list_keys(
@@ -17731,7 +17731,7 @@ async def test_list_keys_admin_exact_by_default():
     """Security regression: an admin calling /key/list with an exact user_id and
     no substring_matching flag must get exact matching, so an integration scoping
     to one user with an admin key never receives other users' keys."""
-    admin = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin-1")
+    admin = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin-1")
     kwargs = await _list_keys_capture_helper_kwargs(
         admin, user_id="alice", substring_matching=False
     )
@@ -17742,7 +17742,7 @@ async def test_list_keys_admin_exact_by_default():
 @pytest.mark.asyncio
 async def test_list_keys_admin_substring_opt_in():
     """An admin may opt back into substring matching (dashboard search)."""
-    admin = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin-1")
+    admin = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin-1")
     kwargs = await _list_keys_capture_helper_kwargs(
         admin, user_id="alice", substring_matching=True
     )
@@ -17753,7 +17753,7 @@ async def test_list_keys_admin_substring_opt_in():
 async def test_list_keys_non_admin_cannot_opt_into_substring():
     """user_id substring matching is admin-only: a non-admin requesting it still
     gets exact matching, scoped to their own user_id."""
-    user = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="alice")
+    user = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="alice")
     kwargs = await _list_keys_capture_helper_kwargs(
         user, user_id=None, substring_matching=True
     )
@@ -17798,7 +17798,7 @@ class _InMemoryVerificationTokenTable:
 
 
 def _team_key(token, key_alias, user_id):
-    return LiteLLM_VerificationToken(token=token, key_alias=key_alias, user_id=user_id, team_id="team-a")
+    return HangarLLM_VerificationToken(token=token, key_alias=key_alias, user_id=user_id, team_id="team-a")
 
 
 _TEAM_A_KEYS = (
@@ -17812,22 +17812,22 @@ _TEAM_A_KEYS = (
 def _list_team_a_keys_as(user_role, members_with_roles, query):
     from fastapi import FastAPI
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.management_endpoints.key_management_endpoints import router
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import router
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken = _InMemoryVerificationTokenTable(_TEAM_A_KEYS)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(user_id="alice", teams=["team-a"], organization_memberships=[])
+    mock_prisma_client.db.hangarllm_verificationtoken = _InMemoryVerificationTokenTable(_TEAM_A_KEYS)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
+        return_value=HangarLLM_UserTable(user_id="alice", teams=["team-a"], organization_memberships=[])
     )
-    mock_prisma_client.db.litellm_teamtable.find_many = AsyncMock(
-        return_value=[LiteLLM_TeamTable(team_id="team-a", members_with_roles=members_with_roles)]
+    mock_prisma_client.db.hangarllm_teamtable.find_many = AsyncMock(
+        return_value=[HangarLLM_TeamTable(team_id="team-a", members_with_roles=members_with_roles)]
     )
     test_app = FastAPI()
     test_app.include_router(router)
     test_app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=user_role, user_id="alice")
     with patch(  # test-quality-ok: /key/list reads the prisma client from the proxy_server module global, no injection point
-        "litellm.proxy.proxy_server.prisma_client", mock_prisma_client
+        "hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client
     ):
         response = TestClient(test_app).get(
             f"/key/list?team_id=team-a&include_team_keys=true&include_created_by_keys=true&{query}"
@@ -17842,7 +17842,7 @@ _ALICE_TEAM_MEMBER = [Member(user_id="alice", role="user"), Member(user_id="bob"
 
 @pytest.mark.parametrize(
     "user_role",
-    [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY, LitellmUserRoles.TEAM],
+    [HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY, HangarllmUserRoles.TEAM],
 )
 def test_list_keys_team_admin_key_alias_substring_returns_every_matching_team_key(user_role):
     keys = _list_team_a_keys_as(user_role, _ALICE_TEAM_ADMIN, "key_alias=first&substring_matching=true")
@@ -17851,15 +17851,15 @@ def test_list_keys_team_admin_key_alias_substring_returns_every_matching_team_ke
 
 def test_list_keys_team_member_key_alias_substring_stays_within_own_visibility():
     keys = _list_team_a_keys_as(
-        LitellmUserRoles.INTERNAL_USER, _ALICE_TEAM_MEMBER, "key_alias=first&substring_matching=true"
+        HangarllmUserRoles.INTERNAL_USER, _ALICE_TEAM_MEMBER, "key_alias=first&substring_matching=true"
     )
     assert keys == ["tok-alice-first", "tok-svc-first"]
 
 
 def test_list_keys_key_alias_stays_exact_without_substring_matching():
-    assert _list_team_a_keys_as(LitellmUserRoles.INTERNAL_USER, _ALICE_TEAM_ADMIN, "key_alias=first") == []
+    assert _list_team_a_keys_as(HangarllmUserRoles.INTERNAL_USER, _ALICE_TEAM_ADMIN, "key_alias=first") == []
     assert _list_team_a_keys_as(
-        LitellmUserRoles.INTERNAL_USER, _ALICE_TEAM_ADMIN, "key_alias=app_llmhub_first.last"
+        HangarllmUserRoles.INTERNAL_USER, _ALICE_TEAM_ADMIN, "key_alias=app_llmhub_first.last"
     ) == ["tok-alice-first"]
 
 
@@ -17867,7 +17867,7 @@ def test_list_keys_key_alias_stays_exact_without_substring_matching():
 async def test_list_keys_search_is_honored_for_non_admin():
     """LIT-4741: unlike substring_matching, `search` is not admin-gated. A non-admin's
     search reaches the helper while their own-user scoping stays in place."""
-    user = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="alice")
+    user = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="alice")
     kwargs = await _list_keys_capture_helper_kwargs(user, user_id=None, search="key-id-123")
     assert kwargs["search"] == "key-id-123"
     assert kwargs["user_id"] == "alice"
@@ -17875,9 +17875,9 @@ async def test_list_keys_search_is_honored_for_non_admin():
 
 @pytest.mark.asyncio
 async def test_cli_session_token_delegation_ceiling_blocked_by_team_budget():
-    team = LiteLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
+    team = HangarLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         team_id="team-1",
         is_session_token=True,
@@ -17886,7 +17886,7 @@ async def test_cli_session_token_delegation_ceiling_blocked_by_team_budget():
         await _common_key_generation_helper(
             data=GenerateKeyRequest(max_budget=1000.0),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=team,
         )
     assert exc_info.value.status_code == 400
@@ -17895,22 +17895,22 @@ async def test_cli_session_token_delegation_ceiling_blocked_by_team_budget():
 
 @pytest.mark.asyncio
 async def test_cli_session_token_delegation_allowed_within_team_budget():
-    team = LiteLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
+    team = HangarLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         team_id="team-1",
         is_session_token=True,
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "user-1"},
     ):
         result = await _common_key_generation_helper(
             data=GenerateKeyRequest(max_budget=25.0),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=team,
         )
     assert result is not None
@@ -17918,22 +17918,22 @@ async def test_cli_session_token_delegation_allowed_within_team_budget():
 
 @pytest.mark.asyncio
 async def test_regular_unlimited_user_delegation_ceiling_not_applied():
-    team = LiteLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
+    team = HangarLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         team_id="team-1",
         is_session_token=False,
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "user-1"},
     ):
         result = await _common_key_generation_helper(
             data=GenerateKeyRequest(max_budget=1000.0),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=team,
         )
     assert result is not None
@@ -17942,7 +17942,7 @@ async def test_regular_unlimited_user_delegation_ceiling_not_applied():
 @pytest.mark.asyncio
 async def test_cli_session_token_personal_key_with_budget_blocked():
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         team_id="team-1",
         is_session_token=True,
@@ -17951,7 +17951,7 @@ async def test_cli_session_token_personal_key_with_budget_blocked():
         await _common_key_generation_helper(
             data=GenerateKeyRequest(max_budget=1000.0),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,  # no team in request = personal key
         )
     assert exc_info.value.status_code == 400
@@ -17961,20 +17961,20 @@ async def test_cli_session_token_personal_key_with_budget_blocked():
 @pytest.mark.asyncio
 async def test_cli_session_token_personal_key_without_budget_allowed():
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         team_id="team-1",
         is_session_token=True,
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "user-1"},
     ):
         result = await _common_key_generation_helper(
             data=GenerateKeyRequest(max_budget=None),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,  # no team in request = personal key, but no explicit budget
         )
     assert result is not None
@@ -17985,12 +17985,12 @@ async def test_budget_limits_window_cannot_exceed_caller_max_budget(monkeypatch)
     """A non-admin caller may not set a `budget_limits` window above
     their own `max_budget`."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=10.0,
     )
@@ -18003,7 +18003,7 @@ async def test_budget_limits_window_cannot_exceed_caller_max_budget(monkeypatch)
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 400
@@ -18015,12 +18015,12 @@ async def test_budget_limits_window_cannot_exceed_caller_max_budget(monkeypatch)
 async def test_budget_limits_window_within_caller_max_budget_allowed(monkeypatch):
     """Counterpart: a window within the caller's ceiling must still pass."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=100.0,
     )
@@ -18028,14 +18028,14 @@ async def test_budget_limits_window_within_caller_max_budget_allowed(monkeypatch
         budget_limits=[{"budget_duration": "1d", "max_budget": 25.0}],
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "user-1"},
     ):
         result = await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert result is not None
@@ -18045,12 +18045,12 @@ async def test_budget_limits_window_within_caller_max_budget_allowed(monkeypatch
 async def test_budget_limits_admin_unrestricted(monkeypatch):
     """Proxy admin can set any window budget regardless of their own max_budget."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin-1",
         max_budget=10.0,
     )
@@ -18058,14 +18058,14 @@ async def test_budget_limits_admin_unrestricted(monkeypatch):
         budget_limits=[{"budget_duration": "1d", "max_budget": 1_000_000.0}],
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "admin-1"},
     ):
         result = await _common_key_generation_helper(
             data=request,
             user_api_key_dict=admin,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert result is not None
@@ -18078,12 +18078,12 @@ async def test_budget_limits_window_non_finite_rejected_for_non_admin(monkeypatc
     gets 400. The finite-number invariant applies before role / ceiling
     checks."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=10.0,
     )
@@ -18094,7 +18094,7 @@ async def test_budget_limits_window_non_finite_rejected_for_non_admin(monkeypatc
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 400
@@ -18107,12 +18107,12 @@ async def test_budget_limits_window_non_finite_rejected_for_admin(monkeypatch, n
     """The finite-number invariant applies to every caller including
     proxy admin."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin-1",
     )
     request = GenerateKeyRequest(
@@ -18122,7 +18122,7 @@ async def test_budget_limits_window_non_finite_rejected_for_admin(monkeypatch, n
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=admin,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 400
@@ -18134,12 +18134,12 @@ async def test_budget_limits_session_token_personal_key_rejected(monkeypatch):
     """A CLI session token caller may not set `budget_limits` on a
     personal key (no `team_id`). Mirrors the scalar `max_budget` guard."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         is_session_token=True,
     )
@@ -18150,7 +18150,7 @@ async def test_budget_limits_session_token_personal_key_rejected(monkeypatch):
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 400
@@ -18162,13 +18162,13 @@ async def test_budget_limits_session_token_team_key_uses_team_ceiling(monkeypatc
     """A CLI session token acting on a team key uses the team's
     `max_budget` as the ceiling; values within it are permitted."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
-    team = LiteLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
+    team = HangarLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         team_id="team-1",
         is_session_token=True,
@@ -18178,14 +18178,14 @@ async def test_budget_limits_session_token_team_key_uses_team_ceiling(monkeypatc
         team_id="team-1",
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "user-1"},
     ):
         result = await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=team,
         )
     assert result is not None
@@ -18195,13 +18195,13 @@ async def test_budget_limits_session_token_team_key_uses_team_ceiling(monkeypatc
 async def test_budget_limits_session_token_team_key_over_team_budget_rejected(monkeypatch):
     """Same shape, but window exceeds the team's `max_budget`."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
-    team = LiteLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
+    team = HangarLLM_TeamTableCachedObj(team_id="team-1", max_budget=50.0)
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         team_id="team-1",
         is_session_token=True,
@@ -18214,7 +18214,7 @@ async def test_budget_limits_session_token_team_key_over_team_budget_rejected(mo
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=team,
         )
     assert exc_info.value.status_code == 400
@@ -18226,12 +18226,12 @@ async def test_budget_limits_session_token_personal_key_admin_unaffected(monkeyp
     """A proxy admin using a session token is exempt from the personal-key
     reject; the role short-circuit runs first."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin-1",
         is_session_token=True,
     )
@@ -18239,14 +18239,14 @@ async def test_budget_limits_session_token_personal_key_admin_unaffected(monkeyp
         budget_limits=[{"budget_duration": "1d", "max_budget": 1_000_000.0}],
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "admin-1"},
     ):
         result = await _common_key_generation_helper(
             data=request,
             user_api_key_dict=admin,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert result is not None
@@ -18257,12 +18257,12 @@ async def test_permissions_field_rejected_for_non_admin(monkeypatch):
     """A non-admin caller may not set the `permissions` field on a key
     they create."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=100.0,
     )
@@ -18271,7 +18271,7 @@ async def test_permissions_field_rejected_for_non_admin(monkeypatch):
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 403
@@ -18285,24 +18285,24 @@ async def test_permissions_empty_default_allowed_for_non_admin(monkeypatch):
     to pass for non-admin callers; only a non-empty dict triggers the gate.
     """
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=100.0,
     )
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "user-1"},
     ):
         result = await _common_key_generation_helper(
             data=GenerateKeyRequest(),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert result is not None
@@ -18312,24 +18312,24 @@ async def test_permissions_empty_default_allowed_for_non_admin(monkeypatch):
 async def test_permissions_admin_can_set_any(monkeypatch):
     """Proxy admin can still set `permissions` on a key."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin-1",
     )
     request = GenerateKeyRequest(permissions={"get_spend_routes": True})
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         new_callable=AsyncMock,
         return_value={"key": "sk-test", "expires": None, "user_id": "admin-1"},
     ):
         result = await _common_key_generation_helper(
             data=request,
             user_api_key_dict=admin,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert result is not None
@@ -18342,12 +18342,12 @@ async def test_permissions_explicit_empty_rejected_for_non_admin_on_generate(mon
     stays allowed; that carve-out lives in
     `test_permissions_empty_default_allowed_for_non_admin`."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=100.0,
     )
@@ -18357,7 +18357,7 @@ async def test_permissions_explicit_empty_rejected_for_non_admin_on_generate(mon
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 403
@@ -18378,7 +18378,7 @@ def _make_personal_key_row_for_alice():
 
 def _make_alice_internal_user():
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-alice",
         user_id="alice",
     )
@@ -18390,7 +18390,7 @@ async def test_update_key_non_admin_permissions_non_empty_rejected(monkeypatch):
     is present in the request body (personal-key fast-path caller)."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     data = UpdateKeyRequest(
         key="sk-alice-personal",
@@ -18418,7 +18418,7 @@ async def test_update_key_non_admin_permissions_explicit_empty_rejected(monkeypa
     default but `model_fields_set` distinguishes the two."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     data = UpdateKeyRequest(
         key="sk-alice-personal",
@@ -18446,7 +18446,7 @@ async def test_update_key_non_admin_permissions_explicit_null_rejected(monkeypat
     is present as `null` in the request body."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     data = UpdateKeyRequest(
         key="sk-alice-personal",
@@ -18475,7 +18475,7 @@ async def test_update_key_non_admin_omits_permissions_succeeds(monkeypatch):
     on an unrelated field)."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     data = UpdateKeyRequest(key="sk-alice-personal", tpm_limit=42)
     assert "permissions" not in data.model_fields_set
@@ -18497,10 +18497,10 @@ async def test_update_key_admin_can_set_permissions(monkeypatch):
     shape of `permissions` in the request body."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin-1",
     )
@@ -18524,12 +18524,12 @@ async def test_update_key_admin_can_set_permissions(monkeypatch):
 async def test_regenerate_key_non_admin_permissions_rejected(monkeypatch):
     """`regenerate_key_fn` rejects a non-admin when `permissions` is
     present in the request body, before any DB work."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         regenerate_key_fn,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
 
     data = RegenerateKeyRequest(
         key="sk-alice-personal",
@@ -18541,7 +18541,7 @@ async def test_regenerate_key_non_admin_permissions_rejected(monkeypatch):
             key=None,
             data=data,
             user_api_key_dict=_make_alice_internal_user(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert int(exc.value.code) == 403
     assert "permissions" in str(exc.value.message)
@@ -18551,12 +18551,12 @@ async def test_regenerate_key_non_admin_permissions_rejected(monkeypatch):
 async def test_regenerate_key_non_admin_permissions_explicit_empty_rejected(monkeypatch):
     """`regenerate_key_fn` rejects a non-admin when `permissions` is
     present as `{}` in the request body."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         regenerate_key_fn,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
 
     data = RegenerateKeyRequest(key="sk-alice-personal", permissions={})
     assert "permissions" in data.model_fields_set
@@ -18566,7 +18566,7 @@ async def test_regenerate_key_non_admin_permissions_explicit_empty_rejected(monk
             key=None,
             data=data,
             user_api_key_dict=_make_alice_internal_user(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert int(exc.value.code) == 403
     assert "permissions" in str(exc.value.message)
@@ -18578,12 +18578,12 @@ async def test_regenerate_key_non_admin_permissions_rejected_before_enterprise_g
     before the `premium_user` check, so a non-premium proxy still returns
     the permissions rejection (403) rather than the enterprise-license
     error (500) when a non-admin sends `permissions`."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         regenerate_key_fn,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
 
     data = RegenerateKeyRequest(
         key="sk-alice-personal",
@@ -18595,7 +18595,7 @@ async def test_regenerate_key_non_admin_permissions_rejected_before_enterprise_g
             key=None,
             data=data,
             user_api_key_dict=_make_alice_internal_user(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert int(exc.value.code) == 403
     assert "permissions" in str(exc.value.message)
@@ -18607,12 +18607,12 @@ async def test_generate_key_non_admin_disable_global_guardrails_rejected(monkeyp
     """`_common_key_generation_helper` rejects a non-admin setting
     `disable_global_guardrails` on the request body."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=100.0,
     )
@@ -18621,7 +18621,7 @@ async def test_generate_key_non_admin_disable_global_guardrails_rejected(monkeyp
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 403
@@ -18633,12 +18633,12 @@ async def test_generate_key_non_admin_metadata_disable_global_guardrails_rejecte
     """`_common_key_generation_helper` rejects a non-admin smuggling
     `disable_global_guardrails` under `metadata`."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         None,
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=100.0,
     )
@@ -18647,7 +18647,7 @@ async def test_generate_key_non_admin_metadata_disable_global_guardrails_rejecte
         await _common_key_generation_helper(
             data=request,
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 403
@@ -18660,12 +18660,12 @@ async def test_generate_key_non_admin_server_default_guardrail_flag_not_treated_
     `disable_global_guardrails: true` must not 403 a non-admin who sent no flag;
     only caller-sent metadata counts as requesting the opt-out."""
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.litellm.default_key_generate_params",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hangarllm.default_key_generate_params",
         {"metadata": {"disable_global_guardrails": True}},
         raising=False,
     )
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user-1",
         max_budget=100.0,
     )
@@ -18675,7 +18675,7 @@ async def test_generate_key_non_admin_server_default_guardrail_flag_not_treated_
         await _common_key_generation_helper(
             data=GenerateKeyRequest(team_id="team-1", models=["gpt-4o"]),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     except Exception as exc:
@@ -18690,7 +18690,7 @@ async def test_generate_key_non_admin_server_default_guardrail_flag_not_treated_
                 metadata={"disable_global_guardrails": True},
             ),
             user_api_key_dict=caller,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert exc_info.value.status_code == 403
@@ -18703,7 +18703,7 @@ async def test_update_key_non_admin_disable_global_guardrails_rejected(monkeypat
     `disable_global_guardrails` is true in the request body."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     data = UpdateKeyRequest(
         key="sk-alice-personal",
@@ -18731,7 +18731,7 @@ async def test_update_key_non_admin_resending_stored_disable_global_guardrails_a
     the key (the Admin UI edit form round-trips the whole metadata JSON)."""
     mock_prisma_client = AsyncMock()
     mock_prisma_client.jsonify_object = lambda data: data
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     existing_key_row = _make_personal_key_row_for_alice()
     existing_key_row.metadata = {"disable_global_guardrails": True}
@@ -18761,8 +18761,8 @@ async def test_regenerate_key_non_admin_disable_global_guardrails_rejected(monke
     """`regenerate_key_fn` rejects a non-admin setting
     `disable_global_guardrails` once the stored key row is loaded (the
     already-stored exemption check needs the row's metadata)."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         regenerate_key_fn,
     )
 
@@ -18777,10 +18777,10 @@ async def test_regenerate_key_non_admin_disable_global_guardrails_rejected(monke
     )
 
     with (
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.VerificationTokenRepository",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.VerificationTokenRepository",
             return_value=mock_repo,
         ),
         pytest.raises(ProxyException) as exc,
@@ -18789,7 +18789,7 @@ async def test_regenerate_key_non_admin_disable_global_guardrails_rejected(monke
             key=None,
             data=data,
             user_api_key_dict=_make_alice_internal_user(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
     assert int(exc.value.code) == 403
     assert "disable_global_guardrails" in str(exc.value.message)
@@ -18834,7 +18834,7 @@ def test_build_expires_where_clause_expired_shape():
     """'expired' must exclude never-expiring (NULL) keys and match expires < now."""
     from datetime import datetime, timezone
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_expires_where_clause,
     )
 
@@ -18848,7 +18848,7 @@ def test_build_expires_where_clause_active_shape():
     """'active' must include never-expiring (NULL) keys and match expires >= now."""
     from datetime import datetime, timezone
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_expires_where_clause,
     )
 
@@ -18860,7 +18860,7 @@ def test_build_expires_where_clause_active_shape():
 
 def test_build_key_filter_conditions_expired_applies_lt_clause():
     """expires_filter='expired' ANDs in a not-NULL + lt(now) constraint."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -18884,7 +18884,7 @@ def test_build_key_filter_conditions_expired_applies_lt_clause():
 
 def test_build_key_filter_conditions_active_applies_gte_and_null():
     """expires_filter='active' ANDs in a NULL-or-gte(now) constraint."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -18908,7 +18908,7 @@ def test_build_key_filter_conditions_active_applies_gte_and_null():
 
 def test_build_key_filter_conditions_no_expires_filter_omits_clause():
     """Default (no expires_filter) must not add any expires constraint — preserves existing callers."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -18927,7 +18927,7 @@ def test_build_key_filter_conditions_no_expires_filter_omits_clause():
 
 def test_build_key_filter_conditions_invalid_expires_filter_omits_clause():
     """An unrecognized expires_filter value is ignored, not applied blindly."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -18949,7 +18949,7 @@ def test_build_key_filter_conditions_expires_now_is_call_time_utc():
     """The lt(now) boundary is computed at call time as a tz-aware UTC datetime."""
     from datetime import datetime, timezone
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _build_key_filter_conditions,
     )
 
@@ -18980,9 +18980,9 @@ async def test_list_keys_rejects_invalid_expires():
     from unittest.mock import Mock, patch
 
     mock_prisma_client = AsyncMock()
-    mock_user_api_key_dict = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    mock_user_api_key_dict = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client):
         with pytest.raises(ProxyException) as exc_info:
             await list_keys(
                 request=Mock(),
@@ -19005,8 +19005,8 @@ async def test_list_keys_forwards_expires_filter(expires_value, expected_forward
     from unittest.mock import Mock, patch
 
     mock_prisma_client = AsyncMock()
-    mock_user_api_key_dict = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
-    mock_user_info = LiteLLM_UserTable(
+    mock_user_api_key_dict = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
+    mock_user_info = HangarLLM_UserTable(
         user_id="admin-user",
         user_email="admin@example.com",
         teams=[],
@@ -19017,13 +19017,13 @@ async def test_list_keys_forwards_expires_filter(expires_value, expected_forward
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
             return_value=mock_user_info,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
             mock_helper,
         ),
     ):
@@ -19044,8 +19044,8 @@ async def test_list_keys_without_expires_param_forwards_none():
     from unittest.mock import Mock, patch
 
     mock_prisma_client = AsyncMock()
-    mock_user_api_key_dict = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
-    mock_user_info = LiteLLM_UserTable(
+    mock_user_api_key_dict = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
+    mock_user_info = HangarLLM_UserTable(
         user_id="admin-user",
         user_email="admin@example.com",
         teams=[],
@@ -19056,13 +19056,13 @@ async def test_list_keys_without_expires_param_forwards_none():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.validate_key_list_check",
             return_value=mock_user_info,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.list_key_helper",
             mock_helper,
         ),
     ):
@@ -19078,16 +19078,16 @@ async def test_list_keys_without_expires_param_forwards_none():
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.management_endpoints.key_management_endpoints.rotate_sso_identity_assertions_master_key"
+    "hangarllm.proxy.management_endpoints.key_management_endpoints.rotate_sso_identity_assertions_master_key"
 )
 @patch(
-    "litellm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_user_env_vars_master_key"
+    "hangarllm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_user_env_vars_master_key"
 )
 @patch(
-    "litellm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_user_credentials_master_key"
+    "hangarllm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_user_credentials_master_key"
 )
 @patch(
-    "litellm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_server_credentials_master_key"
+    "hangarllm.proxy.management_endpoints.key_management_endpoints.rotate_mcp_server_credentials_master_key"
 )
 async def test_rotate_master_key_rotates_sso_identity_assertions(
     mock_rotate_mcp_server,
@@ -19100,26 +19100,26 @@ async def test_rotate_master_key_rotates_sso_identity_assertions(
     assertion (step 4d)."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         rotate_master_key,
     )
 
     mock_prisma_client = AsyncMock()
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
     mock_tx = AsyncMock()
-    mock_tx.litellm_proxymodeltable = MagicMock()
-    mock_tx.litellm_proxymodeltable.delete_many = AsyncMock()
-    mock_tx.litellm_proxymodeltable.create_many = AsyncMock()
+    mock_tx.hangarllm_proxymodeltable = MagicMock()
+    mock_tx.hangarllm_proxymodeltable.delete_many = AsyncMock()
+    mock_tx.hangarllm_proxymodeltable.create_many = AsyncMock()
     mock_prisma_client.db.tx = MagicMock(
         return_value=AsyncMock(
             __aenter__=AsyncMock(return_value=mock_tx),
             __aexit__=AsyncMock(return_value=False),
         )
     )
-    mock_prisma_client.db.litellm_config.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_credentialstable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_config.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_credentialstable.find_many = AsyncMock(
         return_value=[]
     )
 
@@ -19127,13 +19127,13 @@ async def test_rotate_master_key_rotates_sso_identity_assertions(
     mock_proxy_config.decrypt_model_list_from_db.return_value = []
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-9876",
         user_id="test-user",
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_config",
+        "hangarllm.proxy.proxy_server.proxy_config",
         mock_proxy_config,
     ):
         await rotate_master_key(
@@ -19154,17 +19154,17 @@ async def test_rotate_master_key_rotates_search_tools(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
         decrypt_if_encrypted_with,
         encrypt_value_helper,
     )
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         rotate_master_key,
     )
 
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-old-master-key")
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-old-master-key")
 
     class _Row(SimpleNamespace):
         def __iter__(self):
@@ -19172,25 +19172,25 @@ async def test_rotate_master_key_rotates_search_tools(monkeypatch):
 
     row = _Row(
         search_tool_id="search-tool-1",
-        litellm_params={"search_provider": "tavily", "api_key": encrypt_value_helper("tvly-secret")},
+        hangarllm_params={"search_provider": "tavily", "api_key": encrypt_value_helper("tvly-secret")},
     )
 
     async def _update_many(where, data):
-        expected_litellm_params = json.loads(where["litellm_params"]["equals"])
-        if where["search_tool_id"] != row.search_tool_id or expected_litellm_params != row.litellm_params:
+        expected_hangarllm_params = json.loads(where["hangarllm_params"]["equals"])
+        if where["search_tool_id"] != row.search_tool_id or expected_hangarllm_params != row.hangarllm_params:
             return 0
-        row.litellm_params = json.loads(data["litellm_params"])
+        row.hangarllm_params = json.loads(data["hangarllm_params"])
         return 1
 
     mock_prisma_client = AsyncMock()
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_config.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_credentialstable.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_searchtoolstable.find_many = AsyncMock(return_value=[row])
-    mock_prisma_client.db.litellm_searchtoolstable.update_many = AsyncMock(side_effect=_update_many)
+    mock_prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_config.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_credentialstable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_searchtoolstable.find_many = AsyncMock(return_value=[row])
+    mock_prisma_client.db.hangarllm_searchtoolstable.update_many = AsyncMock(side_effect=_update_many)
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-9876",
         user_id="test-user",
     )
@@ -19202,26 +19202,26 @@ async def test_rotate_master_key_rotates_search_tools(monkeypatch):
         new_master_key="sk-new-master-key",
     )
 
-    assert decrypt_if_encrypted_with(row.litellm_params["api_key"], "sk-new-master-key") == "tvly-secret"
-    assert row.litellm_params["search_provider"] == "tavily"
+    assert decrypt_if_encrypted_with(row.hangarllm_params["api_key"], "sk-new-master-key") == "tvly-secret"
+    assert row.hangarllm_params["search_provider"] == "tavily"
 
 
 @pytest.mark.asyncio
 async def test_check_encryption_endpoint_rejects_proxy_admin_viewer():
     """The residual scan walks and decrypt-classifies every credential-bearing table,
     so it stays proxy_admin-only despite being read-only."""
-    from litellm.proxy.management_endpoints import credential_migration as cm
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints import credential_migration as cm
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         check_encryption_endpoint,
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY,
         user_id="viewer-user",
     )
     mock_check = AsyncMock(return_value=cm.MigrationReport())
 
-    with patch("litellm.proxy.proxy_server.prisma_client", MagicMock()), patch.object(
+    with patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()), patch.object(
         cm, "check_encryption", mock_check
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -19234,18 +19234,18 @@ async def test_check_encryption_endpoint_rejects_proxy_admin_viewer():
 @pytest.mark.asyncio
 async def test_migrate_encryption_endpoint_rejects_proxy_admin_viewer():
     """The re-encryption write sibling is also proxy_admin-only."""
-    from litellm.proxy.management_endpoints import credential_migration as cm
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints import credential_migration as cm
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         migrate_encryption_endpoint,
     )
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY,
         user_id="viewer-user",
     )
     mock_migrate = AsyncMock(return_value=cm.MigrationReport())
 
-    with patch("litellm.proxy.proxy_server.prisma_client", MagicMock()), patch.object(
+    with patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()), patch.object(
         cm, "migrate_encryption", mock_migrate
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -19314,7 +19314,7 @@ def test_output_token_estimate_admin_gate_matrix(label, request_body, existing_m
     both routes are gated. Resending the stored value is what the edit form
     produces on every save and has to stay allowed.
     """
-    from litellm.proxy.auth.auth_utils import (
+    from hangarllm.proxy.auth.auth_utils import (
         enforce_output_token_estimates_are_admin_only,
     )
 
@@ -19327,7 +19327,7 @@ def test_output_token_estimate_admin_gate_matrix(label, request_body, existing_m
         )
 
     non_admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-non-admin",
         user_id="alice",
     )
@@ -19341,7 +19341,7 @@ def test_output_token_estimate_admin_gate_matrix(label, request_body, existing_m
 
     _call(
         UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin",
         )
@@ -19353,16 +19353,16 @@ async def test_generate_key_output_token_estimate_rejected_for_non_admin():
     """The /key/update gate does not cover generate, so without its own check a
     non-admin could self-mint a key that reserves one output token per
     unbounded request and overrun the TPM window it is charged against."""
-    with patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()):
         with pytest.raises(HTTPException) as exc:
             await _common_key_generation_helper(
                 data=GenerateKeyRequest(default_estimated_output_tokens=1, tpm_limit=100000),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                     api_key="sk-alice",
                     user_id="alice",
                 ),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=None,
             )
     assert int(getattr(exc.value, "status_code", 0)) == 403
@@ -19374,16 +19374,16 @@ async def test_generate_key_output_token_estimate_in_metadata_rejected_for_non_a
     """Writing the declaration into the raw metadata blob lands in the same
     stored field, so gating only the dedicated top-level field leaves the
     bypass wide open."""
-    with patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()):
         with pytest.raises(HTTPException) as exc:
             await _common_key_generation_helper(
                 data=GenerateKeyRequest(metadata={"default_estimated_output_tokens": 1}),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                     api_key="sk-alice",
                     user_id="alice",
                 ),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=None,
             )
     assert int(getattr(exc.value, "status_code", 0)) == 403
@@ -19393,11 +19393,11 @@ async def test_generate_key_output_token_estimate_in_metadata_rejected_for_non_a
 async def test_generate_key_output_token_estimate_allowed_for_admin():
     """A proxy admin declaring the estimate must reach key creation."""
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn"
         ) as mock_generate_key,
     ):
         mock_generate_key.return_value = {
@@ -19408,8 +19408,8 @@ async def test_generate_key_output_token_estimate_allowed_for_admin():
         }
         await _common_key_generation_helper(
             data=GenerateKeyRequest(default_estimated_output_tokens=200),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+            hangarllm_changed_by=None,
             team_table=None,
         )
     assert mock_generate_key.called
@@ -19436,7 +19436,7 @@ def _estimate_key_row(token: str, metadata: dict):
 
 
 def _wire_update_key_fn(
-    monkeypatch: pytest.MonkeyPatch, existing_key: LiteLLM_VerificationToken | MagicMock
+    monkeypatch: pytest.MonkeyPatch, existing_key: HangarLLM_VerificationToken | MagicMock
 ) -> AsyncMock:
     mock_prisma_client = AsyncMock()
     updated_key = MagicMock()
@@ -19445,25 +19445,25 @@ def _wire_update_key_fn(
 
     mock_prisma_client.get_data = AsyncMock(return_value=existing_key)
     mock_prisma_client.update_data = AsyncMock(return_value=updated_key)
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing_key)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing_key)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", AsyncMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.hash_token", lambda token: existing_key.token)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.hash_token", lambda token: existing_key.token)
 
     async def _noop(**kwargs):
         pass
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         _noop,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints._enforce_unique_key_alias",
         _noop,
     )
     return mock_prisma_client
@@ -19474,7 +19474,7 @@ async def test_update_key_output_token_estimate_lowered_rejected_for_non_admin(m
     """End-to-end wiring: a key's owner reaches /key/update without any admin
     check because metadata is a non-budget field, so the gate has to fire
     inside the update path itself rather than only in a helper."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -19489,11 +19489,11 @@ async def test_update_key_output_token_estimate_lowered_rejected_for_non_admin(m
             request=mock_request,
             data=UpdateKeyRequest(key=token, default_estimated_output_tokens=1),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-internal",
                 user_id="internal_user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert str(exc.value.code) == "403"
@@ -19504,7 +19504,7 @@ async def test_update_key_output_token_estimate_lowered_rejected_for_non_admin(m
 async def test_update_key_output_token_estimate_unchanged_allows_non_admin_edit(monkeypatch):
     """The edit form resends every field it renders, so gating on presence
     would 403 a key owner renaming their own key."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -19518,11 +19518,11 @@ async def test_update_key_output_token_estimate_unchanged_allows_non_admin_edit(
         request=mock_request,
         data=UpdateKeyRequest(key=token, key_alias="my-alias", default_estimated_output_tokens=4000),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-internal",
             user_id="internal_user",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     assert result is not None
@@ -19536,13 +19536,13 @@ async def test_regenerate_key_output_token_estimate_lowered_rejected_for_non_adm
     the request body runs through prepare_key_update_data exactly as an update
     does, so gating only generate and update leaves the declaration writable.
     """
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
     token = "c1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=token,
         user_id="internal_user",
         metadata={_ESTIMATE: 4000},
@@ -19556,11 +19556,11 @@ async def test_regenerate_key_output_token_estimate_lowered_rejected_for_non_adm
             key="sk-original",
             data=RegenerateKeyRequest(key="sk-original", default_estimated_output_tokens=1),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-internal",
                 user_id="internal_user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
@@ -19597,7 +19597,7 @@ _UNTOUCHED = object()
 def test_batch_limits_admin_gate_matrix(limit_key, label, sent, stored, allowed):
     request_body = {} if sent is _UNTOUCHED else {"metadata": {} if sent is None else {limit_key: sent}}
     existing_metadata = None if stored is None else {limit_key: stored}
-    from litellm.proxy.auth.auth_utils import (
+    from hangarllm.proxy.auth.auth_utils import (
         enforce_batch_limits_are_admin_only,
     )
 
@@ -19610,7 +19610,7 @@ def test_batch_limits_admin_gate_matrix(limit_key, label, sent, stored, allowed)
         )
 
     non_admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-non-admin",
         user_id="alice",
     )
@@ -19624,7 +19624,7 @@ def test_batch_limits_admin_gate_matrix(limit_key, label, sent, stored, allowed)
 
     _call(
         UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin",
         )
@@ -19635,16 +19635,16 @@ def test_batch_limits_admin_gate_matrix(limit_key, label, sent, stored, allowed)
 async def test_generate_key_batch_enqueued_token_limit_rejected_for_non_admin():
     """A non-admin self-minting a key with the limit would replace the standard
     batch RPM/TPM checks with a cap of their own choosing."""
-    with patch("litellm.proxy.proxy_server.prisma_client", AsyncMock()):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", AsyncMock()):
         with pytest.raises(HTTPException) as exc:
             await _common_key_generation_helper(
                 data=GenerateKeyRequest(metadata={_BATCH_LIMIT: 100000}, rpm_limit=2),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                     api_key="sk-alice",
                     user_id="alice",
                 ),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 team_table=None,
             )
     assert int(getattr(exc.value, "status_code", 0)) == 403
@@ -19655,7 +19655,7 @@ async def test_generate_key_batch_enqueued_token_limit_rejected_for_non_admin():
 async def test_update_key_batch_enqueued_token_limit_raised_rejected_for_non_admin(monkeypatch):
     """/key/update is reachable by the key's own holder, so the gate has to
     fire inside the update path itself rather than only at generation."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -19670,11 +19670,11 @@ async def test_update_key_batch_enqueued_token_limit_raised_rejected_for_non_adm
             request=mock_request,
             data=UpdateKeyRequest(key=token, metadata={_BATCH_LIMIT: 10**12}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-internal",
                 user_id="internal_user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert str(exc.value.code) == "403"
@@ -19685,7 +19685,7 @@ async def test_update_key_batch_enqueued_token_limit_raised_rejected_for_non_adm
 async def test_update_key_batch_enqueued_token_limit_unchanged_allows_non_admin_edit(monkeypatch):
     """The edit form resends every field it renders, so gating on presence
     would 403 a key owner renaming a key that carries an admin-set limit."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
@@ -19699,11 +19699,11 @@ async def test_update_key_batch_enqueued_token_limit_unchanged_allows_non_admin_
         request=mock_request,
         data=UpdateKeyRequest(key=token, key_alias="my-alias", metadata={_BATCH_LIMIT: 100000}),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-internal",
             user_id="internal_user",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     assert result is not None
@@ -19713,13 +19713,13 @@ async def test_update_key_batch_enqueued_token_limit_unchanged_allows_non_admin_
 async def test_regenerate_key_batch_enqueued_token_limit_rejected_for_non_admin():
     """/key/regenerate runs the request body through prepare_key_update_data
     exactly as an update does, so it is a third write path into the field."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
     token = "f1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd"
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=token,
         user_id="internal_user",
         metadata={_BATCH_LIMIT: 100000},
@@ -19733,11 +19733,11 @@ async def test_regenerate_key_batch_enqueued_token_limit_rejected_for_non_admin(
             key="sk-original",
             data=RegenerateKeyRequest(key="sk-original", metadata={_BATCH_LIMIT: 10**12}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-internal",
                 user_id="internal_user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
@@ -19750,7 +19750,7 @@ async def test_regenerate_key_batch_enqueued_token_limit_rejected_for_non_admin(
 async def test_bulk_key_update_batch_enqueued_token_limit_rejected_for_non_admin():
     """Bulk team-key updates run through _process_single_key_update, not
     /key/update's validator, so the gate must also live on that path."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _process_single_key_update,
     )
 
@@ -19761,11 +19761,11 @@ async def test_bulk_key_update_batch_enqueued_token_limit_rejected_for_non_admin
         await _process_single_key_update(
             update_key_request=UpdateKeyRequest(key=token, metadata={_BATCH_LIMIT: 10**12}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-internal",
                 user_id="internal_user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
@@ -19782,8 +19782,8 @@ async def test_execute_virtual_key_regeneration_stamps_settings_updated_at():
     """Regenerate rewrites the key's config, so it must move settings_updated_at."""
     from datetime import datetime, timezone
 
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
@@ -19798,13 +19798,13 @@ async def test_execute_virtual_key_regeneration_stamps_settings_updated_at():
             key="abc123",
             data=RegenerateKeyRequest(max_budget=42.0),
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
         after = datetime.now(timezone.utc)
 
-    sent = mock_prisma_client.db.litellm_verificationtoken.update.call_args.kwargs["data"]
+    sent = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args.kwargs["data"]
     assert sent["max_budget"] == 42.0
     assert before <= sent["settings_updated_at"] <= after
 
@@ -19814,8 +19814,8 @@ async def test_block_key_stamps_settings_updated_at(monkeypatch):
     """Blocking a key is a config change, not spend activity."""
     from datetime import datetime, timezone
 
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import block_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import block_key
 
     mock_prisma_client, _ = _setup_block_unblock_mocks(monkeypatch)
 
@@ -19824,15 +19824,15 @@ async def test_block_key_stamps_settings_updated_at(monkeypatch):
         data=BlockKeyRequest(key="sk-test123456789"),
         http_request=MagicMock(),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin_user",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
     after = datetime.now(timezone.utc)
 
-    sent = mock_prisma_client.db.litellm_verificationtoken.update.call_args.kwargs["data"]
+    sent = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args.kwargs["data"]
     assert sent["blocked"] is True
     assert before <= sent["settings_updated_at"] <= after
 
@@ -19842,8 +19842,8 @@ async def test_unblock_key_stamps_settings_updated_at(monkeypatch):
     """Unblocking a key is a config change, not spend activity."""
     from datetime import datetime, timezone
 
-    from litellm.proxy._types import BlockKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import unblock_key
+    from hangarllm.proxy._types import BlockKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import unblock_key
 
     mock_prisma_client, _ = _setup_block_unblock_mocks(monkeypatch)
 
@@ -19852,32 +19852,32 @@ async def test_unblock_key_stamps_settings_updated_at(monkeypatch):
         data=BlockKeyRequest(key="sk-test123456789"),
         http_request=MagicMock(),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-admin",
             user_id="admin_user",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
     after = datetime.now(timezone.utc)
 
-    sent = mock_prisma_client.db.litellm_verificationtoken.update.call_args.kwargs["data"]
+    sent = mock_prisma_client.db.hangarllm_verificationtoken.update.call_args.kwargs["data"]
     assert sent["blocked"] is False
     assert before <= sent["settings_updated_at"] <= after
 
 
 def _wire_key_generation_prisma(monkeypatch):
-    created_key = MagicMock(token="hashed_token_123", litellm_budget_table=None, object_permission=None)
+    created_key = MagicMock(token="hashed_token_123", hangarllm_budget_table=None, object_permission=None)
 
     mock_prisma_client = AsyncMock()
     mock_prisma_client.insert_data = AsyncMock(return_value=created_key)
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(return_value=created_key)
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(return_value=created_key)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     return mock_prisma_client.insert_data
 
@@ -19886,11 +19886,11 @@ async def _generate_key_and_get_persisted_row(data: GenerateKeyRequest, mock_ins
     await _common_key_generation_helper(
         data=data,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-9876",
             user_id="1234",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
         team_table=None,
     )
     key_call = next(c for c in mock_insert_data.call_args_list if c.kwargs["table_name"] == "key")
@@ -19900,7 +19900,7 @@ async def _generate_key_and_get_persisted_row(data: GenerateKeyRequest, mock_ins
 @pytest.mark.asyncio
 async def test_default_key_generate_params_allowed_routes_fills_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
@@ -19909,11 +19909,11 @@ async def test_default_key_generate_params_allowed_routes_fills_unset(monkeypatc
     response: Final = await generate_key_fn(
         data=GenerateKeyRequest(),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-internal",
             user_id="internal-user",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     assert response is not None
@@ -19924,7 +19924,7 @@ async def test_default_key_generate_params_allowed_routes_fills_unset(monkeypatc
 @pytest.mark.asyncio
 async def test_default_key_generate_params_allowed_routes_keeps_explicit_value(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
@@ -19942,23 +19942,23 @@ async def test_default_key_generate_params_allowed_routes_keeps_explicit_value(m
 async def test_default_key_generate_params_allowed_routes_extends_key_type_preset_it_covers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy._types import LiteLLMKeyType
+    from hangarllm.proxy._types import HangarLLMKeyType
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
     mock_insert_data: Final = _wire_key_generation_prisma(monkeypatch)
 
     await generate_key_fn(
-        data=GenerateKeyRequest(key_type=LiteLLMKeyType.LLM_API),
+        data=GenerateKeyRequest(key_type=HangarLLMKeyType.LLM_API),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             api_key="sk-internal",
             user_id="internal-user",
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     key_call: Final = next(c for c in mock_insert_data.call_args_list if c.kwargs["table_name"] == "key")
@@ -19968,13 +19968,13 @@ async def test_default_key_generate_params_allowed_routes_extends_key_type_prese
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("key_type", "preset_routes"),
-    [(LiteLLMKeyType.MANAGEMENT, ["management_routes"]), (LiteLLMKeyType.READ_ONLY, ["info_routes"])],
+    [(HangarLLMKeyType.MANAGEMENT, ["management_routes"]), (HangarLLMKeyType.READ_ONLY, ["info_routes"])],
 )
 async def test_default_key_generate_params_allowed_routes_keeps_management_and_read_only_presets(
-    monkeypatch: pytest.MonkeyPatch, key_type: LiteLLMKeyType, preset_routes: list[str]
+    monkeypatch: pytest.MonkeyPatch, key_type: HangarLLMKeyType, preset_routes: list[str]
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "management_routes", "info_routes", "/key/spend/report"]},
     )
@@ -19990,14 +19990,14 @@ async def test_default_key_generate_params_allowed_routes_keeps_management_and_r
 
 @pytest.mark.parametrize(
     "data",
-    [GenerateKeyRequest(), GenerateKeyRequest(key_type=LiteLLMKeyType.LLM_API)],
+    [GenerateKeyRequest(), GenerateKeyRequest(key_type=HangarLLMKeyType.LLM_API)],
     ids=["unset", "llm_api"],
 )
 def test_effective_key_for_generate_shows_default_allowed_routes_to_the_policy(
     monkeypatch: pytest.MonkeyPatch, data: GenerateKeyRequest
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
@@ -20012,7 +20012,7 @@ async def test_default_key_generate_params_allowed_routes_skips_team_service_acc
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
@@ -20031,14 +20031,14 @@ async def test_default_key_generate_params_allowed_routes_skips_full_access_keys
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
     mock_insert_data: Final = _wire_key_generation_prisma(monkeypatch)
 
     key_row: Final = await _generate_key_and_get_persisted_row(
-        GenerateKeyRequest(key_type=LiteLLMKeyType.DEFAULT),
+        GenerateKeyRequest(key_type=HangarLLMKeyType.DEFAULT),
         mock_insert_data,
     )
 
@@ -20046,17 +20046,17 @@ async def test_default_key_generate_params_allowed_routes_skips_full_access_keys
 
 
 def _owner_route_update_status(existing: list[str], incoming: list[str]) -> int | None:
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _enforce_allowed_routes_update_permission,
     )
 
     try:
         _enforce_allowed_routes_update_permission(
             data=UpdateKeyRequest(key="sk-owned", allowed_routes=incoming),
-            existing_key_row=LiteLLM_VerificationToken(
+            existing_key_row=HangarLLM_VerificationToken(
                 token="hashed-owned", user_id="internal-user", allowed_routes=existing
             ),
-            user_api_key_dict=UserAPIKeyAuth(user_id="internal-user", user_role=LitellmUserRoles.INTERNAL_USER),
+            user_api_key_dict=UserAPIKeyAuth(user_id="internal-user", user_role=HangarllmUserRoles.INTERNAL_USER),
         )
     except HTTPException as exc:
         return exc.status_code
@@ -20092,7 +20092,7 @@ def test_owner_cannot_change_the_routes_a_key_got_from_default_key_generate_para
     monkeypatch: pytest.MonkeyPatch, existing: list[str], incoming: list[str], expected_status: int | None
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
@@ -20113,7 +20113,7 @@ def test_owner_cannot_change_the_routes_a_key_got_from_default_key_generate_para
 async def test_key_update_writes_allowed_routes_only_when_they_change(
     incoming: list[str], written: list[str] | None
 ) -> None:
-    existing_key: Final = LiteLLM_VerificationToken(
+    existing_key: Final = HangarLLM_VerificationToken(
         token="hashed", allowed_routes=["llm_api_routes", "/key/spend/report"]
     )
 
@@ -20127,14 +20127,14 @@ async def test_key_update_writes_allowed_routes_only_when_they_change(
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("request_data", "expected_routes"),
-    [(GenerateKeyRequest(), []), (GenerateKeyRequest(key_type=LiteLLMKeyType.LLM_API), ["llm_api_routes"])],
+    [(GenerateKeyRequest(), []), (GenerateKeyRequest(key_type=HangarLLMKeyType.LLM_API), ["llm_api_routes"])],
     ids=["no_key_type", "ai_apis"],
 )
 async def test_default_key_generate_params_allowed_routes_with_a_non_string_entry_is_ignored(
     monkeypatch: pytest.MonkeyPatch, request_data: GenerateKeyRequest, expected_routes: list[str]
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", 123]},
     )
@@ -20150,7 +20150,7 @@ async def test_default_key_generate_params_allowed_routes_empty_list_treated_as_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "default_key_generate_params",
         {"allowed_routes": ["llm_api_routes", "/key/spend/report"]},
     )
@@ -20168,7 +20168,7 @@ async def test_default_key_generate_params_allowed_routes_empty_list_treated_as_
 async def test_default_key_generate_params_allowed_routes_ignores_a_string_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "default_key_generate_params", {"allowed_routes": "llm_api_routes"})
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", {"allowed_routes": "llm_api_routes"})
     mock_insert_data: Final = _wire_key_generation_prisma(monkeypatch)
 
     key_row: Final = await _generate_key_and_get_persisted_row(GenerateKeyRequest(), mock_insert_data)
@@ -20183,7 +20183,7 @@ async def test_key_generate_explicit_null_budget_duration_beats_default_key_gene
     Gating on the value alone made that indistinguishable from omitting the field,
     so the configured default overrode the opt-out and budget_reset_at got stamped.
     """
-    monkeypatch.setattr(litellm, "default_key_generate_params", {"budget_duration": "30d"})
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", {"budget_duration": "30d"})
     mock_insert_data = _wire_key_generation_prisma(monkeypatch)
 
     key_row = await _generate_key_and_get_persisted_row(GenerateKeyRequest(budget_duration=None), mock_insert_data)
@@ -20195,7 +20195,7 @@ async def test_key_generate_explicit_null_budget_duration_beats_default_key_gene
 @pytest.mark.asyncio
 async def test_key_generate_omitted_budget_duration_still_takes_default_key_generate_params(monkeypatch):
     """Omitting the field keeps applying the default, the behavior the explicit-null fix must not break."""
-    monkeypatch.setattr(litellm, "default_key_generate_params", {"budget_duration": "30d"})
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", {"budget_duration": "30d"})
     mock_insert_data = _wire_key_generation_prisma(monkeypatch)
 
     key_row = await _generate_key_and_get_persisted_row(GenerateKeyRequest(), mock_insert_data)
@@ -20208,15 +20208,15 @@ async def test_key_generate_omitted_budget_duration_still_takes_default_key_gene
 async def test_key_generate_explicit_null_budget_duration_cannot_bypass_upperbound(monkeypatch):
     """upperbound_key_generate_params is an admin ceiling: an explicit null must not mint an uncapped key,
     otherwise any key creator could bypass configured limits (duration, budgets, rate limits)."""
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(budget_duration="30d"),
+        HangarLLM_UpperboundKeyGenerateParams(budget_duration="30d"),
     )
     mock_insert_data = _wire_key_generation_prisma(monkeypatch)
 
@@ -20229,15 +20229,15 @@ async def test_key_generate_explicit_null_budget_duration_cannot_bypass_upperbou
 @pytest.mark.asyncio
 async def test_key_generate_omitted_budget_duration_still_filled_by_upperbound(monkeypatch):
     """The upperbound's long-standing fill-on-omitted behavior stays untouched."""
-    from litellm.types.proxy.management_endpoints.ui_sso import (
-        LiteLLM_UpperboundKeyGenerateParams,
+    from hangarllm.types.proxy.management_endpoints.ui_sso import (
+        HangarLLM_UpperboundKeyGenerateParams,
     )
 
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "upperbound_key_generate_params",
-        LiteLLM_UpperboundKeyGenerateParams(budget_duration="30d"),
+        HangarLLM_UpperboundKeyGenerateParams(budget_duration="30d"),
     )
     mock_insert_data = _wire_key_generation_prisma(monkeypatch)
 
@@ -20245,7 +20245,7 @@ async def test_key_generate_omitted_budget_duration_still_filled_by_upperbound(m
 
     assert key_row["budget_duration"] == "30d"
     assert key_row["budget_reset_at"] is not None
-from litellm.proxy.management_helpers.access_group_key_sync import (
+from hangarllm.proxy.management_helpers.access_group_key_sync import (
     _ATTACH_KEY_SQL,
     _DETACH_KEY_SQL,
     _REPOINT_KEY_SQL,
@@ -20320,14 +20320,14 @@ def _access_group_table_mocks(monkeypatch, mock_prisma_client, access_groups):
 
 async def _authorized_models_for_key(access_groups, token, key_access_group_ids):
     """Run the real auth-time reader against the post-sync access group rows."""
-    from litellm.proxy._types import LiteLLM_AccessGroupTable, LiteLLM_TeamTable
-    from litellm.proxy.auth.auth_checks import (
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable, HangarLLM_TeamTable
+    from hangarllm.proxy.auth.auth_checks import (
         get_authorized_resources_from_key_access_groups,
     )
 
     async def _get_access_object(*, access_group_id, **_kwargs):
         stored = access_groups[access_group_id]
-        return LiteLLM_AccessGroupTable(
+        return HangarLLM_AccessGroupTable(
             access_group_id=access_group_id,
             access_group_name=access_group_id,
             access_model_names=list(stored["access_model_names"]),
@@ -20336,11 +20336,11 @@ async def _authorized_models_for_key(access_groups, token, key_access_group_ids)
         )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "hangarllm.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             side_effect=_get_access_object,
         ),
@@ -20352,7 +20352,7 @@ async def _authorized_models_for_key(access_groups, token, key_access_group_ids)
                 team_id="team-a",
                 access_group_ids=list(key_access_group_ids),
             ),
-            team_object=LiteLLM_TeamTable(team_id="team-a", models=[]),
+            team_object=HangarLLM_TeamTable(team_id="team-a", models=[]),
             resource_field="access_model_names",
         )
 
@@ -20372,11 +20372,11 @@ async def test_update_key_syncs_access_group_assigned_key_ids_in_both_directions
     ever adds (or only ever removes), so this covers add, remove, untouched, and the
     authorization consequence of each.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=ACCESS_GROUP_SYNC_TOKEN,
         user_id="test-user",
         access_group_ids=["ag-drop", "ag-keep"],
@@ -20394,10 +20394,10 @@ async def test_update_key_syncs_access_group_assigned_key_ids_in_both_directions
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(
         return_value=None
     )
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {}})
@@ -20408,11 +20408,11 @@ async def test_update_key_syncs_access_group_assigned_key_ids_in_both_directions
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+            "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
             new_callable=AsyncMock,
         ) as invalidate_cache,
     ):
@@ -20422,11 +20422,11 @@ async def test_update_key_syncs_access_group_assigned_key_ids_in_both_directions
                 key=ACCESS_GROUP_SYNC_TOKEN, access_group_ids=["ag-keep", "ag-add"]
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert access_groups["ag-drop"]["assigned_key_ids"] == []
@@ -20465,11 +20465,11 @@ async def test_update_key_leaves_access_groups_alone_when_field_is_unset(monkeyp
     its `model_fields_set` would see None and wipe every group's copy of the token on any
     unrelated edit, e.g. a max_budget change.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=ACCESS_GROUP_SYNC_TOKEN,
         user_id="test-user",
         access_group_ids=["ag-keep"],
@@ -20482,10 +20482,10 @@ async def test_update_key_leaves_access_groups_alone_when_field_is_unset(monkeyp
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(
         return_value=None
     )
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {}})
@@ -20495,18 +20495,18 @@ async def test_update_key_leaves_access_groups_alone_when_field_is_unset(monkeyp
     _setup_update_key_mocks(monkeypatch, mock_prisma_client)
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
         new_callable=AsyncMock,
     ):
         await update_key_fn(
             request=MagicMock(),
             data=UpdateKeyRequest(key=ACCESS_GROUP_SYNC_TOKEN, max_budget=50.0),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     raw_mock.assert_not_called()
@@ -20523,7 +20523,7 @@ async def test_bulk_update_keys_syncs_access_group_assigned_key_ids(monkeypatch)
     `_process_single_key_update`, which is a separate write path from /key/update's own
     inline one. Both have to maintain the group's copy or a bulk attach grants nothing.
     """
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=ACCESS_GROUP_SYNC_TOKEN,
         user_id="test-user",
         access_group_ids=["ag-drop"],
@@ -20543,15 +20543,15 @@ async def test_bulk_update_keys_syncs_access_group_assigned_key_ids(monkeypatch)
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+            "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks.can_team_member_execute_key_management_endpoint",
             new_callable=AsyncMock,
         ),
     ):
@@ -20560,11 +20560,11 @@ async def test_bulk_update_keys_syncs_access_group_assigned_key_ids(monkeypatch)
                 key=ACCESS_GROUP_SYNC_TOKEN, access_group_ids=["ag-add"]
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=mock_prisma_client,
             user_api_key_cache=AsyncMock(),
             proxy_logging_obj=MagicMock(),
@@ -20587,7 +20587,7 @@ async def test_delete_key_withdraws_token_from_its_access_groups(monkeypatch):
     Without the withdrawal the group keeps a token that no longer resolves to a row, so
     the access group page lists a key that does not exist and the list grows without bound.
     """
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=ACCESS_GROUP_SYNC_TOKEN,
         user_id="test-user",
         access_group_ids=["ag-keep"],
@@ -20600,32 +20600,32 @@ async def test_delete_key_withdraws_token_from_its_access_groups(monkeypatch):
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(
         return_value=[key_in_db]
     )
     mock_prisma_client.delete_data = AsyncMock(return_value={"deleted_keys": 1})
-    mock_prisma_client.db.litellm_deletedverificationtoken.create_many = AsyncMock()
+    mock_prisma_client.db.hangarllm_deletedverificationtoken.create_many = AsyncMock()
     _access_group_table_mocks(monkeypatch, mock_prisma_client, access_groups)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.prisma_client", mock_prisma_client
+        "hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client
     )
 
     mock_cache = MagicMock()
     mock_cache.delete_cache = MagicMock()
 
     with patch(
-        "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+        "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
         new_callable=AsyncMock,
     ):
         await delete_verification_tokens(
             tokens=[ACCESS_GROUP_SYNC_TOKEN],
             user_api_key_cache=mock_cache,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by="admin-user",
+            hangarllm_changed_by="admin-user",
         )
 
     assert access_groups["ag-keep"]["assigned_key_ids"] == ["other-key"]
@@ -20646,7 +20646,7 @@ async def test_generate_key_records_token_in_its_access_groups(monkeypatch):
 
     created_key = MagicMock()
     created_key.token = ACCESS_GROUP_SYNC_TOKEN
-    created_key.litellm_budget_table = None
+    created_key.hangarllm_budget_table = None
     created_key.created_at = None
     created_key.updated_at = None
 
@@ -20654,13 +20654,13 @@ async def test_generate_key_records_token_in_its_access_groups(monkeypatch):
     mock_prisma_client.insert_data = AsyncMock(return_value=created_key)
     _access_group_table_mocks(monkeypatch, mock_prisma_client, access_groups)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.prisma_client", mock_prisma_client
+        "hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
     with patch(
-        "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+        "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
         new_callable=AsyncMock,
     ):
         await generate_key_helper_fn(
@@ -20685,14 +20685,14 @@ async def test_regenerate_key_repoints_access_group_assigned_key_ids(monkeypatch
     denies the regenerated key the group's grants, so the group's copy has to be
     re-pointed from the old hash to the new one in the same operation.
     """
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
-    from litellm.proxy.utils import hash_token
+    from hangarllm.proxy.utils import hash_token
 
     new_token_hash = hash_token("sk-newtoken1234ab12")
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="abc123",
         user_id="user-1",
         models=["gpt-4"],
@@ -20710,24 +20710,24 @@ async def test_regenerate_key_repoints_access_group_assigned_key_ids(monkeypatch
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+            "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
             new_callable=AsyncMock,
         ),
     ):
@@ -20738,7 +20738,7 @@ async def test_regenerate_key_repoints_access_group_assigned_key_ids(monkeypatch
             key="abc123",
             data=RegenerateKeyRequest(),
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
@@ -20764,13 +20764,13 @@ async def test_key_write_paths_revoke_the_key_cache_before_syncing_access_groups
     just lost, until that entry expires. Ordering it last means a failed sync degrades to
     the stale listing this PR fixes rather than to a stale grant.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
     order = []
 
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=ACCESS_GROUP_SYNC_TOKEN,
         user_id="test-user",
         access_group_ids=["ag-drop"],
@@ -20783,10 +20783,10 @@ async def test_key_write_paths_revoke_the_key_cache_before_syncing_access_groups
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(
         return_value=None
     )
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {}})
@@ -20798,12 +20798,12 @@ async def test_key_write_paths_revoke_the_key_cache_before_syncing_access_groups
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
             side_effect=lambda **kwargs: order.append("revoke_key_cache"),
         ),
         patch(
-            "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+            "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
             new_callable=AsyncMock,
         ),
     ):
@@ -20811,11 +20811,11 @@ async def test_key_write_paths_revoke_the_key_cache_before_syncing_access_groups
             request=MagicMock(),
             data=UpdateKeyRequest(key=ACCESS_GROUP_SYNC_TOKEN, access_group_ids=[]),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert order == ["revoke_key_cache", "sync"]
@@ -20832,13 +20832,13 @@ async def test_update_key_syncs_many_access_groups_in_one_statement_per_directio
     per-group statement lets one /key/update hold a connection for hundreds of sequential
     writes. Both halves are set-based, so the cost is two statements no matter the size.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         update_key_fn,
     )
 
     dropped = [f"ag-drop-{i}" for i in range(60)]
     added = [f"ag-add-{i}" for i in range(60)]
-    key_in_db = LiteLLM_VerificationToken(
+    key_in_db = HangarLLM_VerificationToken(
         token=ACCESS_GROUP_SYNC_TOKEN,
         user_id="test-user",
         access_group_ids=dropped,
@@ -20858,10 +20858,10 @@ async def test_update_key_syncs_many_access_groups_in_one_statement_per_directio
     }
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=key_in_db
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(
         return_value=None
     )
     mock_prisma_client.update_data = AsyncMock(return_value={"data": {}})
@@ -20872,11 +20872,11 @@ async def test_update_key_syncs_many_access_groups_in_one_statement_per_directio
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+            "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
             new_callable=AsyncMock,
         ),
     ):
@@ -20886,11 +20886,11 @@ async def test_update_key_syncs_many_access_groups_in_one_statement_per_directio
                 key=ACCESS_GROUP_SYNC_TOKEN, access_group_ids=added
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert [call.args[0] for call in raw_mock.call_args_list] == [
@@ -20917,14 +20917,14 @@ async def test_regenerate_key_repoints_live_membership_not_the_key_row_it_read(
     group an admin revoked in between and leaves the dead hash in a group an admin attached
     in between, which silently restores one grant and drops another.
     """
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
-    from litellm.proxy.utils import hash_token
+    from hangarllm.proxy.utils import hash_token
 
     new_token_hash = hash_token("sk-newtoken1234ab12")
-    existing_key = LiteLLM_VerificationToken(
+    existing_key = HangarLLM_VerificationToken(
         token="abc123",
         user_id="user-1",
         models=["gpt-4"],
@@ -20946,24 +20946,24 @@ async def test_regenerate_key_repoints_live_membership_not_the_key_row_it_read(
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
+            "hangarllm.proxy.management_helpers.access_group_key_sync._invalidate_access_group_cache",
             new_callable=AsyncMock,
         ),
     ):
@@ -20974,7 +20974,7 @@ async def test_regenerate_key_repoints_live_membership_not_the_key_row_it_read(
             key="abc123",
             data=RegenerateKeyRequest(),
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
@@ -20993,15 +20993,15 @@ async def _cache_with_project(
     user_api_key_cache = UserApiKeyCache()
     await user_api_key_cache.async_set_cache(
         key=project_cache_key(project_id),
-        value=LiteLLM_ProjectTableCachedObj(
+        value=HangarLLM_ProjectTableCachedObj(
             project_id=project_id,
             team_id=team_id,
             models=project_models,
-            litellm_budget_table=(
-                LiteLLM_BudgetTable(max_budget=project_max_budget) if project_max_budget is not None else None
+            hangarllm_budget_table=(
+                HangarLLM_BudgetTable(max_budget=project_max_budget) if project_max_budget is not None else None
             ),
         ),
-        model_type=LiteLLM_ProjectTableCachedObj,
+        model_type=HangarLLM_ProjectTableCachedObj,
     )
     return user_api_key_cache
 
@@ -21044,14 +21044,14 @@ async def test_check_project_key_limits_still_rejects_real_model_outside_project
 
 @pytest.mark.asyncio
 async def test_update_key_soft_budget_updates_existing_budget_row():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _update_key_soft_budget,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id="budget-123")
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id="budget-123")
     mock_db = MagicMock()
-    mock_db.litellm_budgettable.update = AsyncMock()
-    mock_db.litellm_budgettable.create = AsyncMock()
+    mock_db.hangarllm_budgettable.update = AsyncMock()
+    mock_db.hangarllm_budgettable.create = AsyncMock()
 
     result = await _update_key_soft_budget(
         db=mock_db,
@@ -21061,7 +21061,7 @@ async def test_update_key_soft_budget_updates_existing_budget_row():
     )
 
     assert result == "budget-123"
-    mock_db.litellm_budgettable.update.assert_awaited_once_with(
+    mock_db.hangarllm_budgettable.update.assert_awaited_once_with(
         where={"budget_id": "budget-123"},
         data={"soft_budget": 25.0, "updated_by": "user-1"},
     )
@@ -21069,14 +21069,14 @@ async def test_update_key_soft_budget_updates_existing_budget_row():
 
 @pytest.mark.asyncio
 async def test_update_key_soft_budget_clears_existing_budget_row():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _update_key_soft_budget,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id="budget-123")
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id="budget-123")
     mock_db = MagicMock()
-    mock_db.litellm_budgettable.update = AsyncMock()
-    mock_db.litellm_budgettable.create = AsyncMock()
+    mock_db.hangarllm_budgettable.update = AsyncMock()
+    mock_db.hangarllm_budgettable.create = AsyncMock()
 
     result = await _update_key_soft_budget(
         db=mock_db,
@@ -21086,7 +21086,7 @@ async def test_update_key_soft_budget_clears_existing_budget_row():
     )
 
     assert result == "budget-123"
-    mock_db.litellm_budgettable.update.assert_awaited_once_with(
+    mock_db.hangarllm_budgettable.update.assert_awaited_once_with(
         where={"budget_id": "budget-123"},
         data={"soft_budget": None, "updated_by": "user-1"},
     )
@@ -21094,16 +21094,16 @@ async def test_update_key_soft_budget_clears_existing_budget_row():
 
 @pytest.mark.asyncio
 async def test_update_key_soft_budget_creates_budget_row_when_key_has_none():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _update_key_soft_budget,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id=None)
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id=None)
     created_row = MagicMock()
     created_row.budget_id = "budget-new"
     mock_db = MagicMock()
-    mock_db.litellm_budgettable.create = AsyncMock(return_value=created_row)
-    mock_db.litellm_budgettable.update = AsyncMock()
+    mock_db.hangarllm_budgettable.create = AsyncMock(return_value=created_row)
+    mock_db.hangarllm_budgettable.update = AsyncMock()
 
     result = await _update_key_soft_budget(
         db=mock_db,
@@ -21113,21 +21113,21 @@ async def test_update_key_soft_budget_creates_budget_row_when_key_has_none():
     )
 
     assert result == "budget-new"
-    mock_db.litellm_budgettable.create.assert_awaited_once_with(
+    mock_db.hangarllm_budgettable.create.assert_awaited_once_with(
         data={"soft_budget": 10.5, "created_by": "user-1", "updated_by": "user-1"}
     )
 
 
 @pytest.mark.asyncio
 async def test_update_key_soft_budget_noop_when_clearing_without_budget_row():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _update_key_soft_budget,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id=None)
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id=None)
     mock_db = MagicMock()
-    mock_db.litellm_budgettable.create = AsyncMock()
-    mock_db.litellm_budgettable.update = AsyncMock()
+    mock_db.hangarllm_budgettable.create = AsyncMock()
+    mock_db.hangarllm_budgettable.update = AsyncMock()
 
     result = await _update_key_soft_budget(
         db=mock_db,
@@ -21137,8 +21137,8 @@ async def test_update_key_soft_budget_noop_when_clearing_without_budget_row():
     )
 
     assert result is None
-    mock_db.litellm_budgettable.create.assert_not_awaited()
-    mock_db.litellm_budgettable.update.assert_not_awaited()
+    mock_db.hangarllm_budgettable.create.assert_not_awaited()
+    mock_db.hangarllm_budgettable.update.assert_not_awaited()
 
 
 def test_update_key_request_accepts_soft_budget():
@@ -21149,7 +21149,7 @@ def test_update_key_request_accepts_soft_budget():
 
 @pytest.mark.parametrize("valid_value", [None, 0.0, 25.0])
 def test_validate_soft_budget_value_accepts_valid_values(valid_value):
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _validate_soft_budget_value,
     )
 
@@ -21158,7 +21158,7 @@ def test_validate_soft_budget_value_accepts_valid_values(valid_value):
 
 @pytest.mark.parametrize("invalid_value", [-5.0, float("nan"), float("inf")])
 def test_validate_soft_budget_value_rejects_invalid_values(invalid_value):
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _validate_soft_budget_value,
     )
 
@@ -21171,16 +21171,16 @@ def test_validate_soft_budget_value_rejects_invalid_values(invalid_value):
 
 @pytest.mark.asyncio
 async def test_apply_soft_budget_update_adds_budget_id_for_new_budget_row():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _apply_soft_budget_update,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id=None)
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id=None)
     created_row = MagicMock()
     created_row.budget_id = "budget-created-456"
     mock_db = MagicMock()
-    mock_db.litellm_budgettable.create = AsyncMock(return_value=created_row)
-    mock_db.litellm_budgettable.update = AsyncMock()
+    mock_db.hangarllm_budgettable.create = AsyncMock(return_value=created_row)
+    mock_db.hangarllm_budgettable.update = AsyncMock()
 
     result = await _apply_soft_budget_update(
         data=UpdateKeyRequest(key="sk-test", soft_budget=25.0),
@@ -21195,14 +21195,14 @@ async def test_apply_soft_budget_update_adds_budget_id_for_new_budget_row():
 
 @pytest.mark.asyncio
 async def test_apply_soft_budget_update_keeps_existing_budget_id_out_of_token_update():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _apply_soft_budget_update,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id="budget-123")
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id="budget-123")
     mock_db = MagicMock()
-    mock_db.litellm_budgettable.update = AsyncMock()
-    mock_db.litellm_budgettable.create = AsyncMock()
+    mock_db.hangarllm_budgettable.update = AsyncMock()
+    mock_db.hangarllm_budgettable.create = AsyncMock()
 
     result = await _apply_soft_budget_update(
         data=UpdateKeyRequest(key="sk-test", soft_budget=40.0),
@@ -21213,7 +21213,7 @@ async def test_apply_soft_budget_update_keeps_existing_budget_id_out_of_token_up
     )
 
     assert dict(result) == {"max_budget": 100.0}
-    mock_db.litellm_budgettable.update.assert_awaited_once_with(
+    mock_db.hangarllm_budgettable.update.assert_awaited_once_with(
         where={"budget_id": "budget-123"},
         data={"soft_budget": 40.0, "updated_by": "user-1"},
     )
@@ -21221,11 +21221,11 @@ async def test_apply_soft_budget_update_keeps_existing_budget_id_out_of_token_up
 
 @pytest.mark.asyncio
 async def test_update_key_row_with_soft_budget_updates_budget_and_key_in_transaction():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _update_key_row_with_soft_budget,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id=None)
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id=None)
     created_row = MagicMock(budget_id="budget-new")
     updated_row = MagicMock()
     updated_row.model_dump.return_value = {
@@ -21234,8 +21234,8 @@ async def test_update_key_row_with_soft_budget_updates_budget_and_key_in_transac
         "object_permission": {"mcp_servers": ["srv-1"], "mcp_tool_permissions": {"srv-1": ["read"]}},
     }
     tx = MagicMock()
-    tx.litellm_budgettable.create = AsyncMock(return_value=created_row)
-    tx.litellm_verificationtoken.update = AsyncMock(return_value=updated_row)
+    tx.hangarllm_budgettable.create = AsyncMock(return_value=created_row)
+    tx.hangarllm_verificationtoken.update = AsyncMock(return_value=updated_row)
     tx_context = MagicMock()
     tx_context.__aenter__ = AsyncMock(return_value=tx)
     tx_context.__aexit__ = AsyncMock(return_value=None)
@@ -21258,8 +21258,8 @@ async def test_update_key_row_with_soft_budget_updates_budget_and_key_in_transac
         "budget_id": "budget-new",
         "object_permission": {"mcp_servers": ["srv-1"], "mcp_tool_permissions": {"srv-1": ["read"]}},
     }
-    tx.litellm_verificationtoken.update.assert_awaited_once()
-    update_call = tx.litellm_verificationtoken.update.await_args
+    tx.hangarllm_verificationtoken.update.assert_awaited_once()
+    update_call = tx.hangarllm_verificationtoken.update.await_args
     assert update_call.kwargs["where"] == {"token": result["token"]}
     assert update_call.kwargs["include"] == {"object_permission": True}
     assert update_call.kwargs["data"]["budget_id"] == "budget-new"
@@ -21268,15 +21268,15 @@ async def test_update_key_row_with_soft_budget_updates_budget_and_key_in_transac
 
 @pytest.mark.asyncio
 async def test_update_key_row_with_soft_budget_propagates_transaction_error():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _update_key_row_with_soft_budget,
     )
 
-    existing_key = LiteLLM_VerificationToken(token="test-token", budget_id=None)
+    existing_key = HangarLLM_VerificationToken(token="test-token", budget_id=None)
     created_row = MagicMock(budget_id="budget-new")
     tx = MagicMock()
-    tx.litellm_budgettable.create = AsyncMock(return_value=created_row)
-    tx.litellm_verificationtoken.update = AsyncMock(side_effect=RuntimeError("update failed"))
+    tx.hangarllm_budgettable.create = AsyncMock(return_value=created_row)
+    tx.hangarllm_verificationtoken.update = AsyncMock(side_effect=RuntimeError("update failed"))
     tx_context = MagicMock()
     tx_context.__aenter__ = AsyncMock(return_value=tx)
     tx_context.__aexit__ = AsyncMock(return_value=None)
@@ -21300,8 +21300,8 @@ async def test_update_key_row_with_soft_budget_propagates_transaction_error():
 
 def test_generate_key_request_blank_team_id_is_personal():
     """The UI Team-field clear submits team_id=""; it must count as no team (LIT-3925)."""
-    from litellm.proxy._types import RegenerateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _is_team_key,
     )
 
@@ -21313,7 +21313,7 @@ def test_generate_key_request_blank_team_id_is_personal():
 
 
 def test_generate_key_request_blank_organization_and_project_id_are_unset():
-    from litellm.proxy._types import RegenerateKeyRequest
+    from hangarllm.proxy._types import RegenerateKeyRequest
 
     cleared = GenerateKeyRequest(organization_id="", project_id="")
     assert cleared.organization_id is None
@@ -21325,7 +21325,7 @@ def test_generate_key_request_blank_organization_and_project_id_are_unset():
 
 
 def test_key_request_blank_organization_id_is_unset():
-    from litellm.proxy._types import RegenerateKeyRequest, UpdateKeyRequest
+    from hangarllm.proxy._types import RegenerateKeyRequest, UpdateKeyRequest
 
     assert GenerateKeyRequest(organization_id="").organization_id is None
     assert RegenerateKeyRequest(organization_id="").organization_id is None
@@ -21335,8 +21335,8 @@ def test_key_request_blank_organization_id_is_unset():
 
 
 def test_update_key_request_blank_team_id_is_not_a_team_change():
-    from litellm.proxy._types import UpdateKeyRequest
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import UpdateKeyRequest
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         is_different_team,
     )
 
@@ -21344,9 +21344,9 @@ def test_update_key_request_blank_team_id_is_not_a_team_change():
     assert blank.team_id is None
     assert "team_id" not in blank.model_dump(exclude_unset=True)
     assert blank.model_dump(exclude_unset=True) == {"key": "sk-1", "key_alias": "renamed"}
-    assert is_different_team(data=blank, existing_key_row=LiteLLM_VerificationToken(token="hashed")) is False
+    assert is_different_team(data=blank, existing_key_row=HangarLLM_VerificationToken(token="hashed")) is False
     assert (
-        is_different_team(data=blank, existing_key_row=LiteLLM_VerificationToken(token="hashed", team_id="team-1"))
+        is_different_team(data=blank, existing_key_row=HangarLLM_VerificationToken(token="hashed", team_id="team-1"))
         is False
     )
     assert "team_id" in UpdateKeyRequest(key="sk-1", team_id=None).model_dump(exclude_unset=True)
@@ -21354,7 +21354,7 @@ def test_update_key_request_blank_team_id_is_not_a_team_change():
     assert (
         is_different_team(
             data=UpdateKeyRequest(key="sk-1", team_id="team-1"),
-            existing_key_row=LiteLLM_VerificationToken(token="hashed"),
+            existing_key_row=HangarLLM_VerificationToken(token="hashed"),
         )
         is True
     )
@@ -21363,13 +21363,13 @@ def test_update_key_request_blank_team_id_is_not_a_team_change():
 def test_key_generation_check_blank_team_id_uses_personal_permissions(monkeypatch):
     """key_generation_check with team_id="" must take the personal-key path instead
     of failing the team lookup with "Unable to find team object" (LIT-3925)."""
-    from litellm.proxy._types import KeyManagementRoutes
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import KeyManagementRoutes
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         key_generation_check,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "key_generation_settings",
         {
             "team_key_generation": {"allowed_team_member_roles": ["admin"]},
@@ -21381,7 +21381,7 @@ def test_key_generation_check_blank_team_id_uses_personal_permissions(monkeypatc
         key_generation_check(
             team_table=None,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-alice",
                 user_id="alice",
             ),
@@ -21394,7 +21394,7 @@ def test_key_generation_check_blank_team_id_uses_personal_permissions(monkeypatc
 
 @pytest.mark.asyncio
 async def test_project_detachment_preserves_omission_and_other_key_fields():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-detach-token", project_id="project-orbit", team_id="team-orbit",
         organization_id="org-orbit", models=["model-orbit"], max_budget=5, rpm_limit=97,
     )
@@ -21414,18 +21414,18 @@ async def test_project_detachment_preserves_omission_and_other_key_fields():
 async def test_project_detachment_uses_effective_project_for_validation_on_unowned_project(
     project_id: str | None,
 ):
-    existing: Final = LiteLLM_VerificationToken(token="project-detach-token", project_id="project-orbit")
+    existing: Final = HangarLLM_VerificationToken(token="project-detach-token", project_id="project-orbit")
     cache: Final = await _cache_with_project("project-orbit", ["model-orbit"], team_id=None)
     data: Final = UpdateKeyRequest(key=existing.token, project_id=project_id, models=["model-other"])
     if project_id is None:
         await _validate_update_key_data(
-            data, existing, UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            data, existing, UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             None, False, MagicMock(), cache,
         )
     else:
         with pytest.raises(HTTPException) as exc:
             await _validate_update_key_data(
-                data, existing, UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+                data, existing, UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
                 None, False, MagicMock(), cache,
             )
         assert exc.value.status_code == 400
@@ -21435,9 +21435,9 @@ async def test_project_detachment_uses_effective_project_for_validation_on_unown
 
 def _project_assignment_prisma(stored_row: Mapping[str, object] | None = None) -> MagicMock:
     database = MagicMock()
-    team_row: Final = LiteLLM_TeamTable(team_id="team-lit-5823", members=[])
-    database.db.litellm_teamtable.find_unique = AsyncMock(return_value=team_row)
-    database.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=team_row)
+    team_row: Final = HangarLLM_TeamTable(team_id="team-lit-5823", members=[])
+    database.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team_row)
+    database.writer_db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team_row)
     if stored_row is None:
         return database
 
@@ -21465,16 +21465,16 @@ def _project_assignment_prisma(stored_row: Mapping[str, object] | None = None) -
             raise AssertionError("object_permission must not reach update_many")
         return 1 if _where_matches(where, stored_row) else 0
 
-    tx.litellm_verificationtoken.update_many = AsyncMock(side_effect=_update_many)
+    tx.hangarllm_verificationtoken.update_many = AsyncMock(side_effect=_update_many)
     written = MagicMock()
     written.model_dump = MagicMock(return_value={**stored_row, "project_id": "project-orbit"})
-    tx.litellm_verificationtoken.find_unique = AsyncMock(return_value=written)
+    tx.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=written)
     return database
 
 
 @pytest.mark.asyncio
 async def test_project_assignment_to_unassigned_key_on_same_team():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
     cache: Final = await _cache_with_project("project-orbit", ["model-orbit"])
@@ -21482,7 +21482,7 @@ async def test_project_assignment_to_unassigned_key_on_same_team():
 
     await _validate_update_key_data(
         data, existing,
-        UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         None, False, _project_assignment_prisma(), cache,
     )
 
@@ -21492,7 +21492,7 @@ async def test_project_assignment_to_unassigned_key_on_same_team():
 
 @pytest.mark.asyncio
 async def test_project_assignment_rejects_project_on_another_team():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-other", models=["model-orbit"]
     )
     cache: Final = await _cache_with_project("project-orbit", ["model-orbit"])
@@ -21500,7 +21500,7 @@ async def test_project_assignment_rejects_project_on_another_team():
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id="project-orbit"), existing,
-            UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             None, False, _project_assignment_prisma(), cache,
         )
     assert exc.value.status_code == 400
@@ -21509,7 +21509,7 @@ async def test_project_assignment_rejects_project_on_another_team():
 
 @pytest.mark.asyncio
 async def test_project_assignment_rejects_key_with_no_team():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id=None, models=["model-orbit"]
     )
     cache: Final = await _cache_with_project("project-orbit", ["model-orbit"])
@@ -21517,7 +21517,7 @@ async def test_project_assignment_rejects_key_with_no_team():
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id="project-orbit"), existing,
-            UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             None, False, _project_assignment_prisma(), cache,
         )
     assert exc.value.status_code == 400
@@ -21526,16 +21526,16 @@ async def test_project_assignment_rejects_key_with_no_team():
 
 @pytest.mark.asyncio
 async def test_project_assignment_rejects_nonexistent_project():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
     database: Final = _project_assignment_prisma()
-    database.db.litellm_projecttable.find_unique = AsyncMock(return_value=None)
+    database.db.hangarllm_projecttable.find_unique = AsyncMock(return_value=None)
 
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id="project-ghost"), existing,
-            UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             None, False, database, UserApiKeyCache(),
         )
     assert exc.value.status_code == 404
@@ -21544,7 +21544,7 @@ async def test_project_assignment_rejects_nonexistent_project():
 
 @pytest.mark.asyncio
 async def test_project_assignment_validates_existing_models_against_project():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823", models=["model-elsewhere"]
     )
     cache: Final = await _cache_with_project("project-orbit", ["model-orbit"])
@@ -21552,7 +21552,7 @@ async def test_project_assignment_validates_existing_models_against_project():
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id="project-orbit"), existing,
-            UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             None, False, _project_assignment_prisma(), cache,
         )
     assert exc.value.status_code == 400
@@ -21561,7 +21561,7 @@ async def test_project_assignment_validates_existing_models_against_project():
 
 @pytest.mark.asyncio
 async def test_project_assignment_with_explicit_null_max_budget_ignores_stored_budget():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823", models=[], max_budget=100.0
     )
     cache: Final = await _cache_with_project("project-orbit", [], project_max_budget=10.0)
@@ -21569,7 +21569,7 @@ async def test_project_assignment_with_explicit_null_max_budget_ignores_stored_b
     request: Final = UpdateKeyRequest(key=existing.token, project_id="project-orbit", max_budget=None)
     await _validate_update_key_data(
         request, existing,
-        UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         None, False, _project_assignment_prisma(), cache,
     )
 
@@ -21580,7 +21580,7 @@ async def test_project_assignment_with_explicit_null_max_budget_ignores_stored_b
 
 @pytest.mark.asyncio
 async def test_project_assignment_without_max_budget_uses_stored_budget():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823", models=[], max_budget=100.0
     )
     cache: Final = await _cache_with_project("project-orbit", [], project_max_budget=10.0)
@@ -21588,7 +21588,7 @@ async def test_project_assignment_without_max_budget_uses_stored_budget():
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id="project-orbit"), existing,
-            UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             None, False, _project_assignment_prisma(), cache,
         )
     assert exc.value.status_code == 400
@@ -21597,7 +21597,7 @@ async def test_project_assignment_without_max_budget_uses_stored_budget():
 
 @pytest.mark.asyncio
 async def test_prepare_key_update_data_includes_new_project_assignment():
-    existing: Final = LiteLLM_VerificationToken(token="project-assign-token", project_id=None)
+    existing: Final = HangarLLM_VerificationToken(token="project-assign-token", project_id=None)
 
     result: Final = await prepare_key_update_data(
         data=UpdateKeyRequest(key=existing.token, project_id="project-orbit"), existing_key_row=existing,
@@ -21611,11 +21611,11 @@ async def test_project_assignment_write_requires_row_still_unassigned():
     database = MagicMock()
     database.jsonify_object = lambda data: dict(data)
     tx: Final = database.tx.return_value.__aenter__.return_value
-    tx.litellm_verificationtoken.update_many = AsyncMock(return_value=1)
+    tx.hangarllm_verificationtoken.update_many = AsyncMock(return_value=1)
     row = MagicMock()
     row.model_dump = MagicMock(return_value={"project_id": "project-orbit"})
-    tx.litellm_verificationtoken.find_unique = AsyncMock(return_value=row)
-    existing: Final = LiteLLM_VerificationToken(
+    tx.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=row)
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
 
@@ -21626,7 +21626,7 @@ async def test_project_assignment_write_requires_row_still_unassigned():
         existing_key_row=existing,
     )
 
-    update_where: Final = tx.litellm_verificationtoken.update_many.await_args.kwargs["where"]
+    update_where: Final = tx.hangarllm_verificationtoken.update_many.await_args.kwargs["where"]
     assert update_where["token"] == result["token"]
     assert result["data"] == {"project_id": "project-orbit"}
 
@@ -21636,8 +21636,8 @@ async def test_project_assignment_write_rejects_when_row_gained_project():
     database = MagicMock()
     database.jsonify_object = lambda data: dict(data)
     tx: Final = database.tx.return_value.__aenter__.return_value
-    tx.litellm_verificationtoken.update_many = AsyncMock(return_value=0)
-    existing: Final = LiteLLM_VerificationToken(
+    tx.hangarllm_verificationtoken.update_many = AsyncMock(return_value=0)
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
 
@@ -21651,23 +21651,23 @@ async def test_project_assignment_write_rejects_when_row_gained_project():
 
     assert exc.value.status_code == 400
     assert "concurrently" in str(exc.value.detail)
-    tx.litellm_verificationtoken.find_unique.assert_not_called()
+    tx.hangarllm_verificationtoken.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_project_assignment_write_upserts_object_permission_in_same_tx():
     database = MagicMock()
     database.jsonify_object = lambda data: dict(data)
-    database.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
+    database.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=None)
     tx: Final = database.tx.return_value.__aenter__.return_value
-    tx.litellm_verificationtoken.update_many = AsyncMock(return_value=1)
+    tx.hangarllm_verificationtoken.update_many = AsyncMock(return_value=1)
     permission_row = MagicMock()
     permission_row.object_permission_id = "perm-lit-01"
-    tx.litellm_objectpermissiontable.upsert = AsyncMock(return_value=permission_row)
+    tx.hangarllm_objectpermissiontable.upsert = AsyncMock(return_value=permission_row)
     row = MagicMock()
     row.model_dump = MagicMock(return_value={"project_id": "project-orbit"})
-    tx.litellm_verificationtoken.find_unique = AsyncMock(return_value=row)
-    existing: Final = LiteLLM_VerificationToken(
+    tx.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=row)
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823"
     )
 
@@ -21678,8 +21678,8 @@ async def test_project_assignment_write_upserts_object_permission_in_same_tx():
         existing_key_row=existing,
     )
 
-    tx.litellm_objectpermissiontable.upsert.assert_awaited_once()
-    update_data: Final = tx.litellm_verificationtoken.update_many.await_args.kwargs["data"]
+    tx.hangarllm_objectpermissiontable.upsert.assert_awaited_once()
+    update_data: Final = tx.hangarllm_verificationtoken.update_many.await_args.kwargs["data"]
     assert update_data["object_permission_id"] == "perm-lit-01"
     assert "object_permission" not in update_data
     assert result["data"] == {"project_id": "project-orbit"}
@@ -21696,7 +21696,7 @@ async def test_project_assignment_write_matches_null_models_column():
         "object_permission_id": None,
     }
     database: Final = _project_assignment_prisma(stored_row=stored)
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token=stored["token"], project_id=None, team_id="team-lit-5823", models=[]
     )
 
@@ -21721,7 +21721,7 @@ async def test_project_assignment_write_strips_explicit_null_object_permission()
         "object_permission_id": None,
     }
     database: Final = _project_assignment_prisma(stored_row=stored)
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token=stored["token"], project_id=None, team_id="team-lit-5823", models=[]
     )
     update_values: Final = await prepare_key_update_data(
@@ -21751,7 +21751,7 @@ async def test_project_assignment_write_rejects_when_max_budget_changed():
         "object_permission_id": None,
     }
     database: Final = _project_assignment_prisma(stored_row=stored)
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token=stored["token"], project_id=None, team_id="team-lit-5823",
         models=["model-orbit"], max_budget=100.0,
     )
@@ -21779,7 +21779,7 @@ async def test_project_assignment_write_rejects_when_object_permission_changed()
         "object_permission_id": "perm-new",
     }
     database: Final = _project_assignment_prisma(stored_row=stored)
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token=stored["token"], project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
 
@@ -21806,7 +21806,7 @@ async def test_project_assignment_write_rejects_when_team_changed():
         "object_permission_id": None,
     }
     database: Final = _project_assignment_prisma(stored_row=stored)
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token=stored["token"], project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
 
@@ -21824,22 +21824,22 @@ async def test_project_assignment_write_rejects_when_team_changed():
 
 def _assignment_project_update_prisma(stored_row: Mapping[str, object]) -> MagicMock:
     database: Final = _project_assignment_prisma(stored_row=stored_row)
-    project_row: Final = LiteLLM_ProjectTable(project_id="project-orbit", team_id="team-lit-5823")
-    database.db.litellm_projecttable.find_unique = AsyncMock(return_value=project_row)
-    database.writer_db.litellm_projecttable.find_unique = AsyncMock(return_value=project_row)
+    project_row: Final = HangarLLM_ProjectTable(project_id="project-orbit", team_id="team-lit-5823")
+    database.db.hangarllm_projecttable.find_unique = AsyncMock(return_value=project_row)
+    database.writer_db.hangarllm_projecttable.find_unique = AsyncMock(return_value=project_row)
     return database
 
 
 def _setup_assignment_update_mocks(monkeypatch: pytest.MonkeyPatch, database: MagicMock, cache: UserApiKeyCache) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", database)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", cache)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", database)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", cache)
     proxy_logging_obj: Final = MagicMock()
     proxy_logging_obj.service_logging_obj.async_service_success_hook = AsyncMock()
     proxy_logging_obj.service_logging_obj.async_service_failure_hook = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    monkeypatch.setattr("litellm.store_audit_logs", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.store_audit_logs", False)
 
 
 @pytest.mark.asyncio
@@ -21852,11 +21852,11 @@ async def test_update_key_fn_assigns_project_through_guarded_write(monkeypatch: 
         "max_budget": None,
         "object_permission_id": None,
     }
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token=stored["token"], project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
     database: Final = _assignment_project_update_prisma(stored)
-    database.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing)
+    database.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing)
     cache: Final = await _cache_with_project("project-orbit", ["model-orbit"])
     _setup_assignment_update_mocks(monkeypatch, database, cache)
 
@@ -21864,16 +21864,16 @@ async def test_update_key_fn_assigns_project_through_guarded_write(monkeypatch: 
         request=MagicMock(),
         data=UpdateKeyRequest(key="sk-assign", project_id="project-orbit"),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
     tx: Final = database.tx.return_value.__aenter__.return_value
-    tx.litellm_verificationtoken.update_many.assert_awaited_once()
-    update_where: Final = tx.litellm_verificationtoken.update_many.await_args.kwargs["where"]
+    tx.hangarllm_verificationtoken.update_many.assert_awaited_once()
+    update_where: Final = tx.hangarllm_verificationtoken.update_many.await_args.kwargs["where"]
     assert update_where["project_id"] is None
-    tx.litellm_verificationtoken.update.assert_not_called()
+    tx.hangarllm_verificationtoken.update.assert_not_called()
     assert result["project_id"] == "project-orbit"
 
 
@@ -21887,13 +21887,13 @@ async def test_update_key_fn_soft_budget_runs_guarded_assignment(monkeypatch: py
         "max_budget": None,
         "object_permission_id": None,
     }
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token=stored["token"], project_id=None, team_id="team-lit-5823", models=["model-orbit"]
     )
     database: Final = _assignment_project_update_prisma(stored)
-    database.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing)
+    database.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing)
     tx: Final = database.tx.return_value.__aenter__.return_value
-    tx.litellm_budgettable.create = AsyncMock(return_value=SimpleNamespace(budget_id="budget-new"))
+    tx.hangarllm_budgettable.create = AsyncMock(return_value=SimpleNamespace(budget_id="budget-new"))
     cache: Final = await _cache_with_project("project-orbit", ["model-orbit"])
     _setup_assignment_update_mocks(monkeypatch, database, cache)
 
@@ -21901,30 +21901,30 @@ async def test_update_key_fn_soft_budget_runs_guarded_assignment(monkeypatch: py
         request=MagicMock(),
         data=UpdateKeyRequest(key="sk-assign", project_id="project-orbit", soft_budget=5.0),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin", user_id="admin-user"
         ),
-        litellm_changed_by=None,
+        hangarllm_changed_by=None,
     )
 
-    tx.litellm_budgettable.create.assert_awaited_once()
-    tx.litellm_verificationtoken.update_many.assert_awaited_once()
-    update_where: Final = tx.litellm_verificationtoken.update_many.await_args.kwargs["where"]
+    tx.hangarllm_budgettable.create.assert_awaited_once()
+    tx.hangarllm_verificationtoken.update_many.assert_awaited_once()
+    update_where: Final = tx.hangarllm_verificationtoken.update_many.await_args.kwargs["where"]
     assert update_where["project_id"] is None
-    tx.litellm_verificationtoken.update.assert_not_called()
+    tx.hangarllm_verificationtoken.update.assert_not_called()
     assert result["project_id"] == "project-orbit"
 
 
 @pytest.mark.asyncio
 async def test_key_creator_cannot_detach_project_without_admin_access():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-detach-token", project_id="project-orbit", user_id="user-orbit", created_by="user-orbit",
     )
     database: Final = MagicMock()
-    database.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing)
+    database.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing)
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id=None), existing,
-            UserAPIKeyAuth(user_id="user-orbit", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="user-orbit", user_role=HangarllmUserRoles.INTERNAL_USER),
             None, False, database, UserApiKeyCache(),
         )
     assert exc.value.status_code == 403
@@ -21933,7 +21933,7 @@ async def test_key_creator_cannot_detach_project_without_admin_access():
 
 @pytest.mark.asyncio
 async def test_unauthorized_caller_gets_403_not_project_lookup_result():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823",
         user_id="user-orbit", created_by="user-orbit",
     )
@@ -21941,7 +21941,7 @@ async def test_unauthorized_caller_gets_403_not_project_lookup_result():
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id="project-missing"), existing,
-            UserAPIKeyAuth(user_id="user-other", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="user-other", user_role=HangarllmUserRoles.INTERNAL_USER),
             None, False, database, UserApiKeyCache(),
         )
     assert exc.value.status_code == 403
@@ -21950,7 +21950,7 @@ async def test_unauthorized_caller_gets_403_not_project_lookup_result():
 
 @pytest.mark.asyncio
 async def test_unauthorized_caller_gets_403_not_project_team_leak():
-    existing: Final = LiteLLM_VerificationToken(
+    existing: Final = HangarLLM_VerificationToken(
         token="project-assign-token", project_id=None, team_id="team-lit-5823",
         user_id="user-orbit", created_by="user-orbit",
     )
@@ -21959,7 +21959,7 @@ async def test_unauthorized_caller_gets_403_not_project_team_leak():
     with pytest.raises(HTTPException) as exc:
         await _validate_update_key_data(
             UpdateKeyRequest(key=existing.token, project_id="project-orbit"), existing,
-            UserAPIKeyAuth(user_id="user-other", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="user-other", user_role=HangarllmUserRoles.INTERNAL_USER),
             None, False, database, cache,
         )
     assert exc.value.status_code == 403
@@ -21975,18 +21975,18 @@ _OWNERSHIP_DESTINATION_TEAM: Final = "ownership-destination-team"
 def _make_generate_mock_prisma() -> AsyncMock:
     mock_prisma_client: Final = AsyncMock()
     mock_prisma_client.insert_data = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None, object_permission=None)
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None, object_permission=None)
     )
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken = MagicMock()
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_verificationtoken.count = AsyncMock(return_value=0)
-    mock_prisma_client.db.litellm_verificationtoken.update = AsyncMock(
-        return_value=MagicMock(token="hashed_token_123", litellm_budget_table=None, object_permission=None)
+    mock_prisma_client.db.hangarllm_verificationtoken = MagicMock()
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_verificationtoken.count = AsyncMock(return_value=0)
+    mock_prisma_client.db.hangarllm_verificationtoken.update = AsyncMock(
+        return_value=MagicMock(token="hashed_token_123", hangarllm_budget_table=None, object_permission=None)
     )
-    mock_prisma_client.db.litellm_teamtable = MagicMock()
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_teamtable = MagicMock()
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
     return mock_prisma_client
 
 
@@ -21997,25 +21997,25 @@ def _configure_key_endpoints(
     mock_prisma_client: Final = _make_generate_mock_prisma()
     project_obj: Final = user_api_key_cache.get_cache(
         key=project_cache_key(_OWNED_PROJECT),
-        model_type=LiteLLM_ProjectTableCachedObj,
+        model_type=HangarLLM_ProjectTableCachedObj,
     )
     project_row: Final = (
-        LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=project_obj.team_id)
+        HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=project_obj.team_id)
         if project_obj is not None
         else None
     )
-    mock_prisma_client.db.litellm_projecttable = MagicMock()
-    mock_prisma_client.db.litellm_projecttable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_projecttable = MagicMock()
+    mock_prisma_client.db.hangarllm_projecttable.find_unique = AsyncMock(
         return_value=project_row
     )
     mock_prisma_client.writer_db = MagicMock()
-    mock_prisma_client.writer_db.litellm_teamtable = mock_prisma_client.db.litellm_teamtable
-    mock_prisma_client.writer_db.litellm_projecttable = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
+    mock_prisma_client.writer_db.hangarllm_teamtable = mock_prisma_client.db.hangarllm_teamtable
+    mock_prisma_client.writer_db.hangarllm_projecttable = MagicMock()
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
         return_value=project_row
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", user_api_key_cache)
     return mock_prisma_client
 
 
@@ -22027,13 +22027,13 @@ async def test_key_generation_rejects_foreign_project_team(
 ) -> None:
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id="team-b")
     _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
 
     with pytest.raises(HTTPException) as error:
         await _common_key_generation_helper(
             data=GenerateKeyRequest(project_id=_OWNED_PROJECT, team_id=key_team_id),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -22054,7 +22054,7 @@ async def test_key_generation_budget_ceiling_precedes_project_ownership(
 ) -> None:
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id=_OWNERSHIP_PROJECT_TEAM)
     _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
 
     with pytest.raises(HTTPException) as error:
         await _common_key_generation_helper(
@@ -22064,15 +22064,15 @@ async def test_key_generation_budget_ceiling_precedes_project_ownership(
                 max_budget=10,
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
-                api_key="litellm_login_session",
+                user_role=HangarllmUserRoles.INTERNAL_USER,
+                api_key="hangarllm_login_session",
                 user_id="session-user",
                 team_id=_OWNERSHIP_KEY_TEAM,
                 is_session_token=True,
                 max_budget=5,
             ),
-            litellm_changed_by=None,
-            team_table=LiteLLM_TeamTableCachedObj(team_id=_OWNERSHIP_KEY_TEAM),
+            hangarllm_changed_by=None,
+            team_table=HangarLLM_TeamTableCachedObj(team_id=_OWNERSHIP_KEY_TEAM),
         )
 
     assert error.value.status_code == 400
@@ -22087,11 +22087,11 @@ async def test_key_generation_organization_membership_error_precedes_project_own
         _OWNED_PROJECT, [], team_id=_OWNERSHIP_PROJECT_TEAM
     )
     mock_prisma_client: Final = _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    mock_prisma_client.db.litellm_usertable = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(user_id="key-owner", organization_memberships=[])
+    mock_prisma_client.db.hangarllm_usertable = MagicMock()
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
+        return_value=HangarLLM_UserTable(user_id="key-owner", organization_memberships=[])
     )
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
 
     with pytest.raises(HTTPException) as error:
         await _common_key_generation_helper(
@@ -22100,12 +22100,12 @@ async def test_key_generation_organization_membership_error_precedes_project_own
                 organization_id="org-not-member",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-user",
                 user_id="key-owner",
                 is_session_token=True,
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -22121,8 +22121,8 @@ async def test_key_generation_premium_permission_error_precedes_project_ownershi
         _OWNED_PROJECT, [], team_id=_OWNERSHIP_PROJECT_TEAM
     )
     mock_prisma_client: Final = _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
 
     with pytest.raises(HTTPException) as error:
         await _common_key_generation_helper(
@@ -22132,10 +22132,10 @@ async def test_key_generation_premium_permission_error_precedes_project_ownershi
                 permissions={"get_spend_routes": True},
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -22154,10 +22154,10 @@ async def test_key_generation_duplicate_alias_error_precedes_project_ownership(
         _OWNED_PROJECT, [], team_id=_OWNERSHIP_PROJECT_TEAM
     )
     mock_prisma_client: Final = _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    mock_prisma_client.db.litellm_verificationtoken.find_first = AsyncMock(
-        return_value=LiteLLM_VerificationToken(token="existing-token", key_alias=key_alias)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_first = AsyncMock(
+        return_value=HangarLLM_VerificationToken(token="existing-token", key_alias=key_alias)
     )
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
 
     with pytest.raises(ProxyException) as error:
         await _common_key_generation_helper(
@@ -22166,8 +22166,8 @@ async def test_key_generation_duplicate_alias_error_precedes_project_ownership(
                 team_id=_OWNERSHIP_KEY_TEAM,
                 key_alias=key_alias,
             ),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -22190,23 +22190,23 @@ async def test_key_generation_uses_database_project_team_when_cache_is_stale(
 ) -> None:
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id=_OWNERSHIP_KEY_TEAM)
     prisma_client: Final = _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    prisma_client.db.litellm_projecttable = MagicMock()
-    prisma_client.db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_KEY_TEAM)
+    prisma_client.db.hangarllm_projecttable = MagicMock()
+    prisma_client.db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_KEY_TEAM)
     )
-    prisma_client.writer_db.litellm_projecttable = MagicMock()
-    prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
+    prisma_client.writer_db.hangarllm_projecttable = MagicMock()
+    prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
     )
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
     data: Final = GenerateKeyRequest(project_id=_OWNED_PROJECT, team_id=key_team_id)
-    user_api_key_dict: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin")
+    user_api_key_dict: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin")
 
     if expected_status == 200:
         response: Final = await _common_key_generation_helper(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
         assert response.team_id == _OWNERSHIP_PROJECT_TEAM
@@ -22216,7 +22216,7 @@ async def test_key_generation_uses_database_project_team_when_cache_is_stale(
         await _common_key_generation_helper(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             team_table=None,
         )
 
@@ -22236,24 +22236,24 @@ async def test_key_generation_slow_writer_project_lookup_does_not_stall_db_track
 ) -> None:
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id=_OWNERSHIP_PROJECT_TEAM)
     prisma_client: Final = _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    monkeypatch.setattr("litellm.proxy.db.db_lookup_gate.PROXY_DB_LOOKUP_DEADLINE_SECONDS", 0.0)
+    monkeypatch.setattr("hangarllm.proxy.db.db_lookup_gate.PROXY_DB_LOOKUP_DEADLINE_SECONDS", 0.0)
 
-    async def slow_project_lookup(*, where: Mapping[str, object]) -> LiteLLM_ProjectTable:
+    async def slow_project_lookup(*, where: Mapping[str, object]) -> HangarLLM_ProjectTable:
         assert where == {"project_id": _OWNED_PROJECT}
         await asyncio.sleep(0)
         await asyncio.sleep(0)
-        return LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
+        return HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
 
-    prisma_client.writer_db.litellm_projecttable.find_unique = slow_project_lookup
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    prisma_client.writer_db.hangarllm_projecttable.find_unique = slow_project_lookup
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
 
     db_lookup_stall_tracker.clear()
     try:
         response: Final = await asyncio.wait_for(
             _common_key_generation_helper(
                 data=GenerateKeyRequest(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM),
-                user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-                litellm_changed_by=None,
+                user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+                hangarllm_changed_by=None,
                 team_table=None,
             ),
             timeout=1.0,
@@ -22274,12 +22274,12 @@ async def test_key_generation_accepts_same_team_and_unowned_projects(
         _OWNED_PROJECT, [], team_id=project_team_id
     )
     _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
 
     response: Final = await _common_key_generation_helper(
         data=GenerateKeyRequest(project_id=_OWNED_PROJECT, team_id="team-a"),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-        litellm_changed_by=None,
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+        hangarllm_changed_by=None,
         team_table=None,
     )
 
@@ -22295,15 +22295,15 @@ async def test_key_generation_uses_default_team_for_project_ownership(
 ) -> None:
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id=project_team_id)
     _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    monkeypatch.setattr(litellm, "default_key_generate_params", {"team_id": "team-b"})
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", {"team_id": "team-b"})
     data: Final = GenerateKeyRequest(project_id=_OWNED_PROJECT)
 
     if expected_status is not None:
         with pytest.raises(HTTPException) as error:
             await _common_key_generation_helper(
                 data=data,
-                user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-                litellm_changed_by=None,
+                user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+                hangarllm_changed_by=None,
                 team_table=None,
             )
         assert error.value.status_code == expected_status
@@ -22312,8 +22312,8 @@ async def test_key_generation_uses_default_team_for_project_ownership(
 
     response: Final = await _common_key_generation_helper(
         data=data,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-        litellm_changed_by=None,
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+        hangarllm_changed_by=None,
         team_table=None,
     )
     assert response.team_id == "team-b"
@@ -22324,15 +22324,15 @@ async def test_service_account_generation_rejects_foreign_project_team(monkeypat
     team_id: Final = "service-account-team"
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id="team-b")
     mock_prisma_client: Final = _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(
-        return_value=LiteLLM_TeamTable(team_id=team_id)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(
+        return_value=HangarLLM_TeamTable(team_id=team_id)
     )
 
     with pytest.raises(HTTPException) as error:
         await generate_service_account_key_fn(
             data=GenerateKeyRequest(team_id=team_id, project_id=_OWNED_PROJECT),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+            hangarllm_changed_by=None,
         )
 
     assert error.value.status_code == 400
@@ -22344,23 +22344,23 @@ async def test_service_account_generation_rejects_foreign_project_team(monkeypat
 @pytest.mark.asyncio
 async def test_key_generation_default_budget_does_not_reject_project_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     user_api_key_cache: Final = UserApiKeyCache()
-    project: Final = LiteLLM_ProjectTableCachedObj(
+    project: Final = HangarLLM_ProjectTableCachedObj(
         project_id=_OWNED_PROJECT,
         team_id="team-a",
         models=[],
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=1.0),
     )
     await user_api_key_cache.async_set_cache(
         key=project_cache_key(_OWNED_PROJECT),
         value=project,
-        model_type=LiteLLM_ProjectTableCachedObj,
+        model_type=HangarLLM_ProjectTableCachedObj,
     )
     _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    monkeypatch.setattr(litellm, "default_key_generate_params", {"team_id": "team-a", "max_budget": 10.0})
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", {"team_id": "team-a", "max_budget": 10.0})
 
     response: Final = await generate_key_fn(
         data=GenerateKeyRequest(project_id=_OWNED_PROJECT),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
     )
 
     assert response.team_id == "team-a"
@@ -22368,7 +22368,7 @@ async def test_key_generation_default_budget_does_not_reject_project_budget(monk
 
 @pytest.mark.asyncio
 async def test_key_update_rejects_team_change_for_project_bound_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    existing_key_row: Final = LiteLLM_VerificationToken(
+    existing_key_row: Final = HangarLLM_VerificationToken(
         token="hashed-key",
         team_id=_OWNERSHIP_KEY_TEAM,
         project_id=_OWNED_PROJECT,
@@ -22376,26 +22376,26 @@ async def test_key_update_rejects_team_change_for_project_bound_key(monkeypatch:
         budget_id="budget-update",
     )
     mock_prisma_client: Final = _wire_update_key_fn(monkeypatch, existing_key_row)
-    existing_permission: Final = LiteLLM_ObjectPermissionTable(
+    existing_permission: Final = HangarLLM_ObjectPermissionTable(
         object_permission_id="permission-update",
         vector_stores=["existing-store"],
     )
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=existing_permission)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=existing_permission)
     permission_upsert: Final = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = permission_upsert
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = permission_upsert
     permission_before: Final = existing_permission.model_dump()
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         AsyncMock(
-            return_value=LiteLLM_TeamTable(team_id=_OWNERSHIP_DESTINATION_TEAM).model_copy(
+            return_value=HangarLLM_TeamTable(team_id=_OWNERSHIP_DESTINATION_TEAM).model_copy(
                 update={"team_members": []}
             )
         ),
     )
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", MagicMock())
     mock_request: Final = MagicMock()
     mock_request.query_params = {}
 
@@ -22406,10 +22406,10 @@ async def test_key_update_rejects_team_change_for_project_bound_key(monkeypatch:
                 key="sk-key",
                 team_id=_OWNERSHIP_DESTINATION_TEAM,
                 soft_budget=5.0,
-                object_permission=LiteLLM_ObjectPermissionBase(vector_stores=["replacement-store"]),
+                object_permission=HangarLLM_ObjectPermissionBase(vector_stores=["replacement-store"]),
             ),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+            hangarllm_changed_by=None,
         )
 
     assert str(getattr(error.value, "status_code", None) or getattr(error.value, "code", None)) == "400"
@@ -22428,43 +22428,43 @@ async def test_key_update_rejects_team_change_for_project_bound_key(monkeypatch:
 async def test_key_update_ambiguous_permission_error_precedes_project_ownership(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    existing_key_row: Final = LiteLLM_VerificationToken(
+    existing_key_row: Final = HangarLLM_VerificationToken(
         token="hashed-key",
         team_id=_OWNERSHIP_KEY_TEAM,
         project_id=_OWNED_PROJECT,
         object_permission_id="permission-ambiguous",
     )
     mock_prisma_client: Final = _wire_update_key_fn(monkeypatch, existing_key_row)
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
-        return_value=LiteLLM_ObjectPermissionTable(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
+        return_value=HangarLLM_ObjectPermissionTable(
             object_permission_id="permission-ambiguous",
             mcp_tool_permissions={},
         )
     )
     permission_upsert: Final = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = permission_upsert
-    mock_prisma_client.db.litellm_mcpservertable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = permission_upsert
+    mock_prisma_client.db.hangarllm_mcpservertable.find_many = AsyncMock(
         return_value=[
             MagicMock(server_id="wiki-a-id", alias="wiki", server_name="wiki-a"),
             MagicMock(server_id="wiki-b-id", alias="wiki", server_name="wiki-b"),
         ]
     )
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         AsyncMock(
-            return_value=LiteLLM_TeamTable(
+            return_value=HangarLLM_TeamTable(
                 team_id=_OWNERSHIP_DESTINATION_TEAM,
-                object_permission=LiteLLM_ObjectPermissionTable(
+                object_permission=HangarLLM_ObjectPermissionTable(
                     object_permission_id="permission-team",
                     mcp_servers=["wiki-a-id", "wiki-b-id"],
                 ),
             )
         ),
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", MagicMock())
 
     with pytest.raises((HTTPException, ProxyException)) as error:
         await update_key_fn(
@@ -22472,12 +22472,12 @@ async def test_key_update_ambiguous_permission_error_precedes_project_ownership(
             data=UpdateKeyRequest(
                 key="sk-key",
                 team_id=_OWNERSHIP_DESTINATION_TEAM,
-                object_permission=LiteLLM_ObjectPermissionBase(
+                object_permission=HangarLLM_ObjectPermissionBase(
                     mcp_tool_permissions={"wiki": ["read_wiki_structure"]}
                 ),
             ),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+            hangarllm_changed_by=None,
         )
 
     assert str(getattr(error.value, "status_code", None) or getattr(error.value, "code", None)) == "400"
@@ -22491,7 +22491,7 @@ async def test_key_update_ambiguous_permission_error_precedes_project_ownership(
         expected_detail
     )
     permission_upsert.assert_not_awaited()
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique.assert_not_awaited()
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique.assert_not_awaited()
     mock_prisma_client.update_data.assert_not_awaited()
 
 
@@ -22499,7 +22499,7 @@ async def test_key_update_ambiguous_permission_error_precedes_project_ownership(
 async def test_key_update_organization_membership_error_precedes_project_ownership(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    existing_key_row: Final = LiteLLM_VerificationToken(
+    existing_key_row: Final = HangarLLM_VerificationToken(
         token="hashed-key",
         user_id="key-owner",
         created_by="key-owner",
@@ -22508,29 +22508,29 @@ async def test_key_update_organization_membership_error_precedes_project_ownersh
     )
     mock_prisma_client: Final = _wire_update_key_fn(monkeypatch, existing_key_row)
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id=_OWNERSHIP_PROJECT_TEAM)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache)
-    mock_prisma_client.db.litellm_usertable = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(user_id="key-owner", organization_memberships=[])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", user_api_key_cache)
+    mock_prisma_client.db.hangarllm_usertable = MagicMock()
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
+        return_value=HangarLLM_UserTable(user_id="key-owner", organization_memberships=[])
     )
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
     )
-    team_object: Final = LiteLLM_TeamTableCachedObj(
+    team_object: Final = HangarLLM_TeamTableCachedObj(
         team_id=_OWNERSHIP_KEY_TEAM,
         members_with_roles=[Member(user_id="key-owner", role="admin")],
         team_member_permissions=["/key/update"],
     )
     team_lookup: Final = AsyncMock(return_value=team_object)
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
         team_lookup,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_helpers.team_member_permission_checks.get_team_object",
+        "hangarllm.proxy.management_helpers.team_member_permission_checks.get_team_object",
         team_lookup,
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", MagicMock())
     mock_request: Final = MagicMock()
     mock_request.query_params = {}
 
@@ -22543,12 +22543,12 @@ async def test_key_update_organization_membership_error_precedes_project_ownersh
                 organization_id="org-not-member",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-user",
                 user_id="key-owner",
                 team_id=_OWNERSHIP_PROJECT_TEAM,
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert error.value.code == "403"
@@ -22559,8 +22559,8 @@ async def test_key_update_organization_membership_error_precedes_project_ownersh
 async def test_bulk_key_update_rejects_project_team_change_and_allows_other_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.management_endpoints.key_management_endpoints import bulk_update_keys
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import bulk_update_keys
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateKeyRequest,
         BulkUpdateKeyRequestItem,
     )
@@ -22569,7 +22569,7 @@ async def test_bulk_key_update_rejects_project_team_change_and_allows_other_fiel
         _OWNED_PROJECT, [], team_id=_OWNERSHIP_PROJECT_TEAM
     )
     mock_prisma_client: Final = _configure_key_endpoints(monkeypatch, user_api_key_cache)
-    existing_key_row: Final = LiteLLM_VerificationToken(
+    existing_key_row: Final = HangarLLM_VerificationToken(
         token="hashed-bulk-key",
         user_id=None,
         models=[],
@@ -22578,20 +22578,20 @@ async def test_bulk_key_update_rejects_project_team_change_and_allows_other_fiel
         object_permission_id="permission-bulk",
         budget_id="budget-bulk",
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing_key_row)
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(
-        return_value=LiteLLM_TeamTable(team_id=_OWNERSHIP_DESTINATION_TEAM)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing_key_row)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(
+        return_value=HangarLLM_TeamTable(team_id=_OWNERSHIP_DESTINATION_TEAM)
     )
-    existing_permission: Final = LiteLLM_ObjectPermissionTable(
+    existing_permission: Final = HangarLLM_ObjectPermissionTable(
         object_permission_id="permission-bulk",
         vector_stores=["existing-store"],
     )
     permission_before: Final = existing_permission.model_dump()
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=existing_permission)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=existing_permission)
     permission_upsert: Final = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = permission_upsert
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = permission_upsert
     budget_update: Final = AsyncMock()
-    mock_prisma_client.db.litellm_budgettable.update = budget_update
+    mock_prisma_client.db.hangarllm_budgettable.update = budget_update
     mock_prisma_client.get_data = AsyncMock(return_value=existing_key_row)
     updated_key: Final = MagicMock()
     updated_key.model_dump.return_value = {
@@ -22601,8 +22601,8 @@ async def test_bulk_key_update_rejects_project_team_change_and_allows_other_fiel
         "project_id": _OWNED_PROJECT,
     }
     mock_prisma_client.update_data = AsyncMock(return_value={"data": updated_key})
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock())
 
     request: Final = BulkUpdateKeyRequest(
         keys=[
@@ -22611,39 +22611,39 @@ async def test_bulk_key_update_rejects_project_team_change_and_allows_other_fiel
                     "key": "sk-bulk-key",
                     "team_id": _OWNERSHIP_DESTINATION_TEAM,
                     "soft_budget": 5.0,
-                    "object_permission": LiteLLM_ObjectPermissionBase(vector_stores=["replacement-store"]),
+                    "object_permission": HangarLLM_ObjectPermissionBase(vector_stores=["replacement-store"]),
                 }
             ),
             BulkUpdateKeyRequestItem(key="sk-bulk-key", max_budget=10.0, tags=["bulk-update"]),
         ]
     )
     user_api_key_dict: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-admin",
         user_id="admin",
     )
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
             new_callable=AsyncMock,
-            return_value=LiteLLM_TeamTable(team_id=_OWNERSHIP_DESTINATION_TEAM),
+            return_value=HangarLLM_TeamTable(team_id=_OWNERSHIP_DESTINATION_TEAM),
         ),
-        patch("litellm.proxy.management_endpoints.common_utils.premium_user_check"),
-        patch("litellm.proxy.utils.premium_user_check"),
+        patch("hangarllm.proxy.management_endpoints.common_utils.premium_user_check"),
+        patch("hangarllm.proxy.utils.premium_user_check"),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks",
             SimpleNamespace(async_key_updated_hook=AsyncMock()),
         ),
     ):
         response: Final = await bulk_update_keys(
             data=request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert response.total_requested == 2
@@ -22676,13 +22676,13 @@ async def test_key_team_ownership_mutation_allows_legacy_mismatch_without_change
     request_fields: dict[str, str],
 ) -> None:
     prisma_client: Final = MagicMock()
-    prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(
+    prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(
             project_id=_OWNED_PROJECT,
             team_id=_OWNERSHIP_PROJECT_TEAM,
         )
     )
-    existing_key_row: Final = LiteLLM_VerificationToken(
+    existing_key_row: Final = HangarLLM_VerificationToken(
         token="hashed-key",
         team_id=_OWNERSHIP_KEY_TEAM,
         project_id=_OWNED_PROJECT,
@@ -22700,13 +22700,13 @@ async def test_key_team_ownership_mutation_allows_legacy_mismatch_without_change
 @pytest.mark.asyncio
 async def test_key_team_ownership_mutation_allows_detach_with_team_change() -> None:
     prisma_client: Final = MagicMock()
-    prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(
+    prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(
             project_id=_OWNED_PROJECT,
             team_id=_OWNERSHIP_PROJECT_TEAM,
         )
     )
-    existing_key_row: Final = LiteLLM_VerificationToken(
+    existing_key_row: Final = HangarLLM_VerificationToken(
         token="hashed-key",
         team_id=_OWNERSHIP_KEY_TEAM,
         project_id=_OWNED_PROJECT,
@@ -22731,42 +22731,42 @@ async def test_regenerate_checks_project_team_ownership(
     expected_status: int | None,
     expected_updates: int,
 ) -> None:
-    existing_key: Final = LiteLLM_VerificationToken(
+    existing_key: Final = HangarLLM_VerificationToken(
         token="abc123",
         team_id=key_team_id,
         object_permission_id="permission-regenerate",
     )
     mock_prisma_client: Final = _make_regenerate_mock_prisma()
     mock_prisma_client.writer_db = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id="team-b")
+    mock_prisma_client.writer_db.hangarllm_projecttable = MagicMock()
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id="team-b")
     )
     deleted_history_table: Final = MagicMock()
     deleted_history_table.create_many = AsyncMock()
-    mock_prisma_client.db.litellm_deletedverificationtoken = deleted_history_table
+    mock_prisma_client.db.hangarllm_deletedverificationtoken = deleted_history_table
     deprecated_key_table: Final = MagicMock()
     deprecated_key_table.upsert = AsyncMock()
-    mock_prisma_client.db.litellm_deprecatedverificationtoken = deprecated_key_table
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
-        return_value=LiteLLM_ObjectPermissionTable(
+    mock_prisma_client.db.hangarllm_deprecatedverificationtoken = deprecated_key_table
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
+        return_value=HangarLLM_ObjectPermissionTable(
             object_permission_id="permission-regenerate",
             vector_stores=["existing-store"],
         )
     )
     permission_upsert: Final = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = permission_upsert
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = permission_upsert
     user_api_key_cache: Final = await _cache_with_project(_OWNED_PROJECT, [], team_id="team-b")
 
     async def regenerate() -> None:
         with (
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
                 new_callable=AsyncMock,
                 return_value="sk-newtoken1234ab12",
             ),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
                 new_callable=AsyncMock,
             ),
         ):
@@ -22778,10 +22778,10 @@ async def test_regenerate_checks_project_team_ownership(
                 data=RegenerateKeyRequest(
                     project_id=_OWNED_PROJECT,
                     grace_period="1h" if expected_status is not None else None,
-                    object_permission=LiteLLM_ObjectPermissionBase(vector_stores=["replacement-store"]),
+                    object_permission=HangarLLM_ObjectPermissionBase(vector_stores=["replacement-store"]),
                 ),
                 user_api_key_dict=_make_regenerate_user_api_key_dict(),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 user_api_key_cache=user_api_key_cache,
                 proxy_logging_obj=MagicMock(),
             )
@@ -22798,7 +22798,7 @@ async def test_regenerate_checks_project_team_ownership(
         await regenerate()
         permission_upsert.assert_awaited_once()
 
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == expected_updates
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == expected_updates
 
 
 @pytest.mark.parametrize(
@@ -22811,17 +22811,17 @@ async def test_regenerate_requires_caller_in_project_team(
     expected_status: int | None,
     expected_updates: int,
 ) -> None:
-    existing_key: Final = LiteLLM_VerificationToken(token="abc123", user_id="caller-user", team_id=None)
+    existing_key: Final = HangarLLM_VerificationToken(token="abc123", user_id="caller-user", team_id=None)
     mock_prisma_client: Final = _make_regenerate_mock_prisma()
     mock_prisma_client.writer_db = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id="team-b")
+    mock_prisma_client.writer_db.hangarllm_projecttable = MagicMock()
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id="team-b")
     )
     deleted_history_table: Final = MagicMock()
     deleted_history_table.create_many = AsyncMock()
-    mock_prisma_client.db.litellm_deletedverificationtoken = deleted_history_table
-    project_team: Final = LiteLLM_TeamTableCachedObj(
+    mock_prisma_client.db.hangarllm_deletedverificationtoken = deleted_history_table
+    project_team: Final = HangarLLM_TeamTableCachedObj(
         team_id="team-b",
         members_with_roles=[] if caller_role is None else [Member(user_id="caller-user", role=caller_role)],
     )
@@ -22830,15 +22830,15 @@ async def test_regenerate_requires_caller_in_project_team(
     async def regenerate() -> None:
         with (
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
                 new_callable=AsyncMock,
                 return_value="sk-newtoken1234ab12",
             ),
             patch(
-                "litellm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
+                "hangarllm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
                 new_callable=AsyncMock,
             ),
-            patch("litellm.proxy.management_endpoints.key_management_endpoints.get_team_object", get_team),
+            patch("hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object", get_team),
         ):
             await _execute_virtual_key_regeneration(
                 prisma_client=mock_prisma_client,
@@ -22847,11 +22847,11 @@ async def test_regenerate_requires_caller_in_project_team(
                 key="abc123",
                 data=RegenerateKeyRequest(team_id="team-b", project_id=_OWNED_PROJECT),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                     api_key="sk-caller",
                     user_id="caller-user",
                 ),
-                litellm_changed_by=None,
+                hangarllm_changed_by=None,
                 user_api_key_cache=UserApiKeyCache(),
                 proxy_logging_obj=MagicMock(),
             )
@@ -22868,51 +22868,51 @@ async def test_regenerate_requires_caller_in_project_team(
         await regenerate()
 
     assert get_team.await_args.kwargs["team_id"] == "team-b"
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == expected_updates
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == expected_updates
 
 
 @pytest.mark.asyncio
 async def test_regenerate_proxy_admin_skips_project_team_membership_lookup() -> None:
     mock_prisma_client: Final = _make_regenerate_mock_prisma()
     mock_prisma_client.writer_db = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id="team-b")
+    mock_prisma_client.writer_db.hangarllm_projecttable = MagicMock()
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id="team-b")
     )
     get_team: Final = AsyncMock()
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._delete_cache_key_object",
             new_callable=AsyncMock,
         ),
-        patch("litellm.proxy.management_endpoints.key_management_endpoints.get_team_object", get_team),
+        patch("hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object", get_team),
     ):
         response: Final = await _execute_virtual_key_regeneration(
             prisma_client=mock_prisma_client,
-            key_in_db=LiteLLM_VerificationToken(token="abc123", user_id="user-1", team_id=None),
+            key_in_db=HangarLLM_VerificationToken(token="abc123", user_id="user-1", team_id=None),
             hashed_api_key="abc123",
             key="abc123",
             data=RegenerateKeyRequest(team_id="team-b", project_id=_OWNED_PROJECT),
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=UserApiKeyCache(),
             proxy_logging_obj=MagicMock(),
         )
 
     assert response.key == "sk-newtoken1234ab12"
     get_team.assert_not_awaited()
-    assert mock_prisma_client.db.litellm_verificationtoken.update.await_count == 1
+    assert mock_prisma_client.db.hangarllm_verificationtoken.update.await_count == 1
 
 
 @pytest.mark.asyncio
 async def test_regenerate_output_estimate_admin_error_precedes_project_ownership() -> None:
-    existing_key: Final = LiteLLM_VerificationToken(
+    existing_key: Final = HangarLLM_VerificationToken(
         token="abc123",
         user_id="key-owner",
         team_id=_OWNERSHIP_PROJECT_TEAM,
@@ -22921,8 +22921,8 @@ async def test_regenerate_output_estimate_admin_error_precedes_project_ownership
     )
     mock_prisma_client: Final = _make_regenerate_mock_prisma()
     mock_prisma_client.writer_db = MagicMock()
-    mock_prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(
-        return_value=LiteLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
+    mock_prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(
+        return_value=HangarLLM_ProjectTable(project_id=_OWNED_PROJECT, team_id=_OWNERSHIP_PROJECT_TEAM)
     )
 
     with pytest.raises(HTTPException) as error:
@@ -22937,24 +22937,24 @@ async def test_regenerate_output_estimate_admin_error_precedes_project_ownership
                 metadata={"default_estimated_output_tokens": 1},
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-user",
                 user_id="key-owner",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=MagicMock(),
             proxy_logging_obj=MagicMock(),
         )
 
     assert error.value.status_code == 403
     assert "Only proxy admins can set" in str(error.value.detail)
-    mock_prisma_client.db.litellm_verificationtoken.update.assert_not_awaited()
+    mock_prisma_client.db.hangarllm_verificationtoken.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_key_project_team_validation_rejects_missing_project() -> None:
     prisma_client: Final = MagicMock()
-    prisma_client.writer_db.litellm_projecttable.find_unique = AsyncMock(return_value=None)
+    prisma_client.writer_db.hangarllm_projecttable.find_unique = AsyncMock(return_value=None)
 
     with pytest.raises(KeyProjectBindingError) as error:
         await _check_key_project_team(
@@ -22969,7 +22969,7 @@ async def test_key_project_team_validation_rejects_missing_project() -> None:
 
 @pytest.mark.asyncio
 async def test_bulk_update_team_keys_runs_custom_key_policy_per_key(monkeypatch):
-    from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.key_management_endpoints import (
         BulkUpdateTeamKeysRequest,
         KeyUpdateFields,
     )
@@ -22986,7 +22986,7 @@ async def test_bulk_update_team_keys_runs_custom_key_policy_per_key(monkeypatch)
             return {"decision": False, "message": "tok-b is frozen"}
         return {"decision": True}
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_key_policy", freeze_tok_b)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_custom_key_policy", freeze_tok_b)
 
     response = await _call_as_admin(
         BulkUpdateTeamKeysRequest(
@@ -23039,7 +23039,7 @@ class TestServiceAccountKeyGenerationCheck:
         assert exc_info.value.status_code == 403
 
     def test_own_team_with_permission_allowed(self):
-        team_table = LiteLLM_TeamTableCachedObj(
+        team_table = HangarLLM_TeamTableCachedObj(
             team_id="team-a",
             members_with_roles=[],
             team_member_permissions=["/key/generate"],
@@ -23056,7 +23056,7 @@ class TestServiceAccountKeyGenerationCheck:
         )
 
     def test_own_team_without_permission_denied(self):
-        team_table = LiteLLM_TeamTableCachedObj(
+        team_table = HangarLLM_TeamTableCachedObj(
             team_id="team-a",
             members_with_roles=[],
             team_member_permissions=["/key/info"],
@@ -23075,8 +23075,8 @@ class TestServiceAccountKeyGenerationCheck:
 def _stub_service_account_generation(monkeypatch):
     """Stub the DB lookups generate_service_account_key_fn needs so the test
     exercises only the service_account_id stamping and user_id clearing."""
-    from litellm.proxy import proxy_server
-    from litellm.proxy.management_endpoints import key_management_endpoints as kme
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.management_endpoints import key_management_endpoints as kme
 
     mock_helper = AsyncMock(return_value=MagicMock())
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
@@ -23090,7 +23090,7 @@ async def test_generate_service_account_key_stamps_service_account_id(monkeypatc
     """generate_service_account_key_fn must stamp metadata.service_account_id
     (key_alias fallback) so the key is identifiable as a service account by
     is_team_service_account and check_if_token_is_service_account."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_service_account_key_fn,
     )
 
@@ -23099,8 +23099,8 @@ async def test_generate_service_account_key_stamps_service_account_id(monkeypatc
 
     await generate_service_account_key_fn(
         data=data,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
-        litellm_changed_by=None,
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+        hangarllm_changed_by=None,
     )
 
     assert data.metadata is not None
@@ -23112,7 +23112,7 @@ async def test_generate_service_account_key_stamps_service_account_id(monkeypatc
 @pytest.mark.asyncio
 async def test_generate_service_account_key_generates_uuid_when_no_alias(monkeypatch):
     """Without key_alias, service_account_id falls back to a generated uuid."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         generate_service_account_key_fn,
     )
 
@@ -23121,8 +23121,8 @@ async def test_generate_service_account_key_generates_uuid_when_no_alias(monkeyp
 
     await generate_service_account_key_fn(
         data=data,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1"),
-        litellm_changed_by=None,
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-1"),
+        hangarllm_changed_by=None,
     )
 
     assert data.metadata is not None
@@ -23136,9 +23136,9 @@ async def test_key_update_invalidates_cached_object_permission(monkeypatch):
     after the update re-attached the OLD grants until the management-object TTL expired, which
     served revoked MCP tools and withheld newly granted ones.
     """
-    from litellm.proxy._types import LiteLLM_ObjectPermissionBase
-    from litellm.proxy.auth.auth_checks import get_object_permission
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionBase
+    from hangarllm.proxy.auth.auth_checks import get_object_permission
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     permission_id = "objperm-lit5479"
     grants = {"old": ["tool_a"], "new": ["tool_a", "tool_b"]}
@@ -23152,24 +23152,24 @@ async def test_key_update_invalidates_cached_object_permission(monkeypatch):
         return row
 
     mock_prisma_client = AsyncMock()
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         side_effect=lambda **kwargs: _row(grants["old"])
     )
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = AsyncMock(
         return_value=MagicMock(object_permission_id=permission_id)
     )
-    existing_key_row = LiteLLM_VerificationToken(
+    existing_key_row = HangarLLM_VerificationToken(
         token="hashed-sk-lit5479",
         user_id="user-123",
         object_permission_id=permission_id,
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         return_value=existing_key_row
     )
     updated_key = MagicMock()
     updated_key.model_dump.return_value = {"user_id": "user-123"}
     mock_prisma_client.update_data = AsyncMock(return_value={"data": updated_key})
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     user_api_key_cache = UserApiKeyCache()
     assert (
@@ -23181,21 +23181,21 @@ async def test_key_update_invalidates_cached_object_permission(monkeypatch):
     ).mcp_tool_permissions == {"server-1": grants["old"]}
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
     ):
         await _process_single_key_update(
             update_key_request=UpdateKeyRequest(
                 key="sk-lit5479",
-                object_permission=LiteLLM_ObjectPermissionBase(
+                object_permission=HangarLLM_ObjectPermissionBase(
                     mcp_tool_permissions={"server-1": grants["new"]}
                 ),
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=mock_prisma_client,
             user_api_key_cache=user_api_key_cache,
             proxy_logging_obj=AsyncMock(),
@@ -23203,7 +23203,7 @@ async def test_key_update_invalidates_cached_object_permission(monkeypatch):
             existing_key_row=existing_key_row,
         )
 
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.side_effect = (
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.side_effect = (
         lambda **kwargs: _row(grants["new"])
     )
     reread = await get_object_permission(
@@ -23221,10 +23221,10 @@ async def test_key_regeneration_invalidates_cached_object_permission(
     monkeypatch: pytest.MonkeyPatch, key_has_permission: bool
 ):
     """Regression: regenerating a key with new permissions must not keep serving the old grants."""
-    from litellm.proxy._types import LiteLLM_ObjectPermissionBase, RegenerateKeyRequest
-    from litellm.proxy.auth.auth_checks import get_object_permission
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionBase, RegenerateKeyRequest
+    from hangarllm.proxy.auth.auth_checks import get_object_permission
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _execute_virtual_key_regeneration,
     )
 
@@ -23240,13 +23240,13 @@ async def test_key_regeneration_invalidates_cached_object_permission(
         return row
 
     mock_prisma_client = _make_regenerate_mock_prisma()
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(side_effect=_row)
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(side_effect=_row)
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = AsyncMock(
         return_value=MagicMock(object_permission_id=permission_id)
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
     monkeypatch.setattr(
-        "litellm.proxy.management_helpers.object_permission_utils.uuid.uuid4",
+        "hangarllm.proxy.management_helpers.object_permission_utils.uuid.uuid4",
         lambda: UUID(permission_id),
     )
 
@@ -23264,20 +23264,20 @@ async def test_key_regeneration_invalidates_cached_object_permission(
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_new_token",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_new_token",
             new_callable=AsyncMock,
             return_value="sk-newtoken1234ab12",
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._insert_deprecated_key",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.delete_cache_key_object",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_rotated_hook"
         ),
     ):
         await _execute_virtual_key_regeneration(
@@ -23286,10 +23286,10 @@ async def test_key_regeneration_invalidates_cached_object_permission(
             hashed_api_key="abc123",
             key="abc123",
             data=RegenerateKeyRequest(
-                object_permission=LiteLLM_ObjectPermissionBase(mcp_tool_permissions={"server-1": ["tool_a", "tool_b"]})
+                object_permission=HangarLLM_ObjectPermissionBase(mcp_tool_permissions={"server-1": ["tool_a", "tool_b"]})
             ),
             user_api_key_dict=_make_regenerate_user_api_key_dict(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             user_api_key_cache=user_api_key_cache,
             proxy_logging_obj=AsyncMock(),
         )
@@ -23297,7 +23297,7 @@ async def test_key_regeneration_invalidates_cached_object_permission(
     assert (
         user_api_key_cache.get_cache(
             key=object_permission_cache_key(permission_id),
-            model_type=LiteLLM_ObjectPermissionTable,
+            model_type=HangarLLM_ObjectPermissionTable,
         )
         is None
     )
@@ -23314,8 +23314,8 @@ async def test_key_regeneration_invalidates_cached_object_permission(
 @pytest.mark.asyncio
 async def test_invalidate_cached_object_permissions_broadcasts_to_other_workers():
     """Other workers hold their own in-memory copy, so eviction has to be broadcast, not just local."""
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         invalidate_cached_object_permissions,
     )
 
@@ -23323,7 +23323,7 @@ async def test_invalidate_cached_object_permissions_broadcasts_to_other_workers(
     user_api_key_cache.async_delete_cache = AsyncMock(side_effect=Exception("redis down"))
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
         new_callable=AsyncMock,
     ) as mock_publish:
         await invalidate_cached_object_permissions(
@@ -23344,9 +23344,9 @@ async def test_key_update_evicts_object_permission_before_key_object(monkeypatch
     ``get_key_object`` embeds the permission row in the cached key object, so a request landing
     between the two evictions would otherwise re-cache stale grants for a full key TTL.
     """
-    from litellm.proxy._types import LiteLLM_ObjectPermissionBase
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
-    from litellm.proxy.utils import hash_token_if_needed
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionBase
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+    from hangarllm.proxy.utils import hash_token_if_needed
 
     deleted: list[str] = []
 
@@ -23366,39 +23366,39 @@ async def test_key_update_evicts_object_permission_before_key_object(monkeypatch
         "object_permission_id": permission_id,
         "mcp_tool_permissions": {"server-1": ["tool_a"]},
     }
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         return_value=existing_permission_row
     )
-    mock_prisma_client.db.litellm_objectpermissiontable.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.upsert = AsyncMock(
         return_value=MagicMock(object_permission_id=permission_id)
     )
-    existing_key_row = LiteLLM_VerificationToken(
+    existing_key_row = HangarLLM_VerificationToken(
         token="hashed-sk-lit5479",
         user_id="user-123",
         object_permission_id=permission_id,
     )
-    mock_prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=existing_key_row)
+    mock_prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=existing_key_row)
     updated_key = MagicMock()
     updated_key.model_dump.return_value = {"user_id": "user-123"}
     mock_prisma_client.update_data = AsyncMock(return_value={"data": updated_key})
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client)
 
     with patch(
-        "litellm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.KeyManagementEventHooks.async_key_updated_hook"
     ):
         await _process_single_key_update(
             update_key_request=UpdateKeyRequest(
                 key="sk-lit5479",
-                object_permission=LiteLLM_ObjectPermissionBase(
+                object_permission=HangarLLM_ObjectPermissionBase(
                     mcp_tool_permissions={"server-1": ["tool_a", "tool_b"]}
                 ),
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-admin",
                 user_id="admin-user",
             ),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
             prisma_client=mock_prisma_client,
             user_api_key_cache=_RecordingCache(),
             proxy_logging_obj=AsyncMock(),
@@ -23416,7 +23416,7 @@ class TestTeamAdminMemberKeyBudgetUpdate:
     only when the proxy enables the 'member_key_budgets' permission."""
 
     def _member_key_row(self):
-        return LiteLLM_VerificationToken(
+        return HangarLLM_VerificationToken(
             token="hashed_member_key",
             user_id="member-1",
             team_id="team-1",
@@ -23429,35 +23429,35 @@ class TestTeamAdminMemberKeyBudgetUpdate:
     def _caller(self, user_id="team-admin-1"):
         return UserAPIKeyAuth(
             user_id=user_id,
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
 
     def _team(self, members):
-        return LiteLLM_TeamTableCachedObj(team_id="team-1", members_with_roles=members)
+        return HangarLLM_TeamTableCachedObj(team_id="team-1", members_with_roles=members)
 
     def _setup(self, monkeypatch, team_obj, editable_fields):
         mock_get_team = AsyncMock(return_value=team_obj)
         monkeypatch.setattr(
-            "litellm.proxy.management_endpoints.key_management_endpoints.get_team_object",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.get_team_object",
             mock_get_team,
         )
         monkeypatch.setattr(
-            "litellm.proxy.management_helpers.team_member_permission_checks.get_team_object",
+            "hangarllm.proxy.management_helpers.team_member_permission_checks.get_team_object",
             mock_get_team,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"team_admin_editable_team_fields": editable_fields},
         )
         monkeypatch.setattr(
-            "litellm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.TeamMemberPermissionChecks",
             SimpleNamespace(
                 can_team_member_execute_key_management_endpoint=AsyncMock(return_value=None),
                 enforce_member_can_assign_access_groups=MagicMock(return_value=None),
             ),
         )
         monkeypatch.setattr(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_team_key_limits",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_team_key_limits",
             AsyncMock(return_value=None),
         )
 
@@ -23470,7 +23470,7 @@ class TestTeamAdminMemberKeyBudgetUpdate:
         )
         admin_check = AsyncMock(return_value=None)
         monkeypatch.setattr(
-            "litellm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints._check_key_admin_access",
             admin_check,
         )
         await _validate_update_key_data(
@@ -23552,7 +23552,7 @@ class TestTeamAdminMemberKeyBudgetUpdate:
             self._team([Member(user_id="team-admin-1", role="admin")]),
             ["member_key_budgets"],
         )
-        personal_row = LiteLLM_VerificationToken(
+        personal_row = HangarLLM_VerificationToken(
             token="hashed_personal",
             user_id="member-1",
             team_id=None,
@@ -23573,7 +23573,7 @@ class TestTeamAdminMemberKeyBudgetUpdate:
         assert "member_key_budgets" not in str(exc.value.detail)
 
 
-_MEMBER_KEY_TEAM = LiteLLM_TeamTableCachedObj(
+_MEMBER_KEY_TEAM = HangarLLM_TeamTableCachedObj(
     team_id="team-1",
     members_with_roles=[
         Member(user_id="team-admin-1", role="admin"),
@@ -23587,7 +23587,7 @@ def test_team_admin_asking_for_a_teammates_team_key_is_a_member_key_request():
     assert _team_admin_requests_member_key(
         data=GenerateKeyRequest(user_id="member-1", team_id="team-1"),
         team_table=_MEMBER_KEY_TEAM,
-        user_api_key_dict=UserAPIKeyAuth(user_id="team-admin-1", user_role=LitellmUserRoles.INTERNAL_USER),
+        user_api_key_dict=UserAPIKeyAuth(user_id="team-admin-1", user_role=HangarllmUserRoles.INTERNAL_USER),
     )
 
 
@@ -23598,42 +23598,42 @@ def test_team_admin_asking_for_a_teammates_team_key_is_a_member_key_request():
             GenerateKeyRequest(user_id="member-1", team_id="team-1"),
             _MEMBER_KEY_TEAM,
             "member-2",
-            LitellmUserRoles.INTERNAL_USER,
+            HangarllmUserRoles.INTERNAL_USER,
             id="ordinary_member_for_another_member",
         ),
         pytest.param(
             GenerateKeyRequest(user_id="outsider", team_id="team-1"),
             _MEMBER_KEY_TEAM,
             "team-admin-1",
-            LitellmUserRoles.INTERNAL_USER,
+            HangarllmUserRoles.INTERNAL_USER,
             id="team_admin_for_a_user_outside_the_team",
         ),
         pytest.param(
             GenerateKeyRequest(user_id="member-1"),
             None,
             "team-admin-1",
-            LitellmUserRoles.INTERNAL_USER,
+            HangarllmUserRoles.INTERNAL_USER,
             id="personal_key_for_another_user",
         ),
         pytest.param(
             GenerateKeyRequest(user_id="team-admin-1", team_id="team-1"),
             _MEMBER_KEY_TEAM,
             "team-admin-1",
-            LitellmUserRoles.INTERNAL_USER,
+            HangarllmUserRoles.INTERNAL_USER,
             id="team_admin_for_themselves",
         ),
         pytest.param(
             GenerateKeyRequest(team_id="team-1"),
             _MEMBER_KEY_TEAM,
             "team-admin-1",
-            LitellmUserRoles.INTERNAL_USER,
+            HangarllmUserRoles.INTERNAL_USER,
             id="team_key_with_no_owner",
         ),
         pytest.param(
             GenerateKeyRequest(user_id="member-1", team_id="team-1"),
             _MEMBER_KEY_TEAM,
             "team-admin-1",
-            LitellmUserRoles.PROXY_ADMIN,
+            HangarllmUserRoles.PROXY_ADMIN,
             id="proxy_admin_keeps_the_proxy_admin_path",
         ),
     ],
@@ -23646,9 +23646,9 @@ def test_other_key_requests_are_not_member_key_requests(data, team_table, caller
     )
 
 
-@pytest.mark.parametrize("requested", [None, LiteLLMKeyType.DEFAULT, LiteLLMKeyType.LLM_API])
+@pytest.mark.parametrize("requested", [None, HangarLLMKeyType.DEFAULT, HangarLLMKeyType.LLM_API])
 def test_a_member_key_is_always_saved_as_an_llm_api_key(requested):
-    from litellm.proxy.management_endpoints.key_management_endpoints import handle_key_type
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import handle_key_type
 
     request = _member_key_request(
         GenerateKeyRequest(user_id="member-1", team_id="team-1", key_type=requested), acting_as_team_admin=True
@@ -23659,9 +23659,9 @@ def test_a_member_key_is_always_saved_as_an_llm_api_key(requested):
 
 
 def test_other_key_requests_keep_the_key_type_they_asked_for():
-    from litellm.proxy.management_endpoints.key_management_endpoints import handle_key_type
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import handle_key_type
 
-    request = _member_key_request(GenerateKeyRequest(key_type=LiteLLMKeyType.MANAGEMENT), acting_as_team_admin=False)
+    request = _member_key_request(GenerateKeyRequest(key_type=HangarLLMKeyType.MANAGEMENT), acting_as_team_admin=False)
 
     assert handle_key_type(request, {}) == {"key_type": "management", "allowed_routes": ["management_routes"]}
 
@@ -23672,25 +23672,25 @@ async def _team_admin_generates_member_key(
     editable_fields: tuple[str, ...] = ("create_member_keys",),
 ) -> GenerateKeyResponse:
     prisma_client: Final = MagicMock()
-    prisma_client.writer_db.litellm_usertable.find_unique = find_owner
+    prisma_client.writer_db.hangarllm_usertable.find_unique = find_owner
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"team_admin_editable_team_fields": list(editable_fields)},
         ),
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             generate_key,
         ),
     ):
         return await _common_key_generation_helper(
             data=GenerateKeyRequest(user_id="member-1", team_id="team-1"),
-            user_api_key_dict=UserAPIKeyAuth(user_id="team-admin-1", user_role=LitellmUserRoles.INTERNAL_USER),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(user_id="team-admin-1", user_role=HangarllmUserRoles.INTERNAL_USER),
+            hangarllm_changed_by=None,
             team_table=_MEMBER_KEY_TEAM,
         )
 
@@ -23700,7 +23700,7 @@ async def test_team_admin_creates_an_llm_api_key_owned_by_an_internal_user_teamm
     generate_key: Final = AsyncMock(return_value={"key": "sk-member", "user_id": "member-1", "team_id": "team-1"})
 
     await _team_admin_generates_member_key(
-        AsyncMock(return_value=MagicMock(user_role=LitellmUserRoles.INTERNAL_USER.value)), generate_key
+        AsyncMock(return_value=MagicMock(user_role=HangarllmUserRoles.INTERNAL_USER.value)), generate_key
     )
 
     saved: Final = generate_key.await_args.kwargs
@@ -23717,13 +23717,13 @@ async def test_team_admin_creates_an_llm_api_key_owned_by_an_internal_user_teamm
 async def test_custom_key_policy_sees_the_routes_a_member_key_is_saved_with(
     monkeypatch: pytest.MonkeyPatch, default_key_generate_params: dict[str, list[str]] | None
 ) -> None:
-    monkeypatch.setattr(litellm, "default_key_generate_params", default_key_generate_params)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", default_key_generate_params)
     policy: Final = AsyncMock(return_value={"decision": True})
     generate_key: Final = AsyncMock(return_value={"key": "sk-member", "user_id": "member-1", "team_id": "team-1"})
 
-    with patch("litellm.proxy.proxy_server.user_custom_key_policy", policy):  # test-quality-ok: inject policy hook
+    with patch("hangarllm.proxy.proxy_server.user_custom_key_policy", policy):  # test-quality-ok: inject policy hook
         await _team_admin_generates_member_key(
-            AsyncMock(return_value=MagicMock(user_role=LitellmUserRoles.INTERNAL_USER.value)), generate_key
+            AsyncMock(return_value=MagicMock(user_role=HangarllmUserRoles.INTERNAL_USER.value)), generate_key
         )
 
     policy_request: Final = policy.await_args.args[0]
@@ -23737,7 +23737,7 @@ async def test_team_admin_cannot_create_a_key_owned_by_a_proxy_admin_teammate():
 
     with pytest.raises(HTTPException) as exc:
         await _team_admin_generates_member_key(
-            AsyncMock(return_value=MagicMock(user_role=LitellmUserRoles.PROXY_ADMIN.value)), generate_key
+            AsyncMock(return_value=MagicMock(user_role=HangarllmUserRoles.PROXY_ADMIN.value)), generate_key
         )
 
     assert exc.value.status_code == 403
@@ -23761,13 +23761,13 @@ async def test_rotate_master_key_reencrypts_guardrail_params(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_registry import (
-        decrypt_guardrail_litellm_params,
-        encrypt_guardrail_litellm_params,
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_registry import (
+        decrypt_guardrail_hangarllm_params,
+        encrypt_guardrail_hangarllm_params,
     )
-    from litellm.proxy.management_endpoints import key_management_endpoints
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints import key_management_endpoints
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         rotate_master_key,
     )
 
@@ -23778,34 +23778,34 @@ async def test_rotate_master_key_reencrypts_guardrail_params(monkeypatch):
         "rotate_sso_identity_assertions_master_key",
     ):
         monkeypatch.setattr(key_management_endpoints, rotator, AsyncMock())
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-old-master-key")
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-old-master-key")
     guardrail_row = SimpleNamespace(
         guardrail_id="g-1",
         updated_at="t1",
-        litellm_params=encrypt_guardrail_litellm_params({"guardrail": "bedrock", "aws_secret_access_key": "aws-secret"}),
+        hangarllm_params=encrypt_guardrail_hangarllm_params({"guardrail": "bedrock", "aws_secret_access_key": "aws-secret"}),
     )
     mock_prisma_client = AsyncMock()
     mock_prisma_client.db = MagicMock()
-    mock_prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_config.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_credentialstable.find_many = AsyncMock(return_value=[])
-    mock_prisma_client.db.litellm_guardrailstable.find_many = AsyncMock(return_value=[guardrail_row])
-    mock_prisma_client.db.litellm_guardrailstable.update_many = AsyncMock(return_value=1)
+    mock_prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_config.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_credentialstable.find_many = AsyncMock(return_value=[])
+    mock_prisma_client.db.hangarllm_guardrailstable.find_many = AsyncMock(return_value=[guardrail_row])
+    mock_prisma_client.db.hangarllm_guardrailstable.update_many = AsyncMock(return_value=1)
 
     await rotate_master_key(
         prisma_client=mock_prisma_client,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="test-user"),
         current_master_key="sk-old-master-key",
         new_master_key="sk-new-master-key",
     )
 
-    write = mock_prisma_client.db.litellm_guardrailstable.update_many.call_args.kwargs
-    stored_params = json.loads(write["data"]["litellm_params"])
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-new-master-key")
+    write = mock_prisma_client.db.hangarllm_guardrailstable.update_many.call_args.kwargs
+    stored_params = json.loads(write["data"]["hangarllm_params"])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-new-master-key")
     assert write["where"] == {"guardrail_id": "g-1", "updated_at": "t1"}
-    assert stored_params["aws_secret_access_key"].startswith("litellm_enc::")
-    assert decrypt_guardrail_litellm_params(stored_params) == {
+    assert stored_params["aws_secret_access_key"].startswith("hangarllm_enc::")
+    assert decrypt_guardrail_hangarllm_params(stored_params) == {
         "guardrail": "bedrock",
         "aws_secret_access_key": "aws-secret",
     }
@@ -23818,19 +23818,19 @@ def test_is_team_key() -> None:
 
 def test_team_key_generation_team_member_check(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "key_generation_settings",
         {"team_key_generation": {"allowed_team_member_roles": ["admin"]}},
         raising=False,
     )
-    team: Final = LiteLLM_TeamTableCachedObj(
+    team: Final = HangarLLM_TeamTableCachedObj(
         team_id="test_team_id",
         team_alias="test_team_alias",
         members_with_roles=[Member(role="admin", user_id="test_user_id")],
     )
     admin_member: Final = UserAPIKeyAuth(
         user_id="test_user_id",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         api_key="sk-test",
         team_member=Member(role="admin", user_id="test_user_id"),
     )
@@ -23870,14 +23870,14 @@ def test_key_generation_required_params_check() -> None:
 
 def test_personal_key_generation_check(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "key_generation_settings",
         {"personal_key_generation": {"allowed_user_roles": ["proxy_admin"]}},
         raising=False,
     )
     assert _personal_key_generation_check(
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-test",
             user_id="admin",
         ),
@@ -23886,7 +23886,7 @@ def test_personal_key_generation_check(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(HTTPException):
         _personal_key_generation_check(
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
                 api_key="sk-test",
                 user_id="admin",
             ),
@@ -23895,7 +23895,7 @@ def test_personal_key_generation_check(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_prepare_metadata_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     cases: Final[tuple[tuple[UpdateKeyRequest, dict[str, JsonValue], dict[str, JsonValue], dict[str, JsonValue]], ...]] = (
         (
             UpdateKeyRequest(key="sk-test", metadata={"test": "new"}),
@@ -23940,14 +23940,14 @@ def test_prepare_metadata_fields(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_key_generate_reads_the_team_from_the_writer_database_not_the_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     cache: Final = UserApiKeyCache()
-    cached_team: Final = LiteLLM_TeamTableCachedObj(team_id="1234", team_alias="cached-team")
-    await cache.async_set_cache(key="team_id:1234", value=cached_team, model_type=LiteLLM_TeamTableCachedObj, ttl=60)
+    cached_team: Final = HangarLLM_TeamTableCachedObj(team_id="1234", team_alias="cached-team")
+    await cache.async_set_cache(key="team_id:1234", value=cached_team, model_type=HangarLLM_TeamTableCachedObj, ttl=60)
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=cached_team)
-    prisma_client.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=cached_team)
+    prisma_client.writer_db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
 
@@ -23957,7 +23957,7 @@ async def test_key_generate_reads_the_team_from_the_writer_database_not_the_cach
             user_api_key_dict=UserAPIKeyAuth(
                 api_key="sk-integration-test",
                 user_id="user",
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
             ),
         )
 
@@ -23968,19 +23968,19 @@ def test_key_info_unexpected_database_exception_sanitized(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_prisma: Final = MagicMock()
     secret_marker: Final = "SECRET_DB_DETAIL: invalid database statement"
-    mock_prisma.db.litellm_verificationtoken.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_verificationtoken.find_unique = AsyncMock(
         side_effect=RuntimeError(secret_marker)
     )
     monkeypatch.setattr(proxy_server, "prisma_client", mock_prisma)
 
     admin_auth: Final = UserAPIKeyAuth(
         api_key="sk-test-master",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     proxy_server.app.dependency_overrides[user_api_key_auth] = lambda: admin_auth
 
@@ -23998,18 +23998,18 @@ def test_key_info_unexpected_database_exception_sanitized(
 
 @pytest.fixture
 def spend_permission_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     prisma_client: Final = _configure_key_endpoints(monkeypatch, UserApiKeyCache())
-    prisma_client.db.litellm_usertable = MagicMock()
-    prisma_client.db.litellm_usertable.count = AsyncMock(return_value=0)
-    monkeypatch.setattr(litellm, "default_key_generate_params", None)
+    prisma_client.db.hangarllm_usertable = MagicMock()
+    prisma_client.db.hangarllm_usertable.count = AsyncMock(return_value=0)
+    monkeypatch.setattr(hangarllm, "default_key_generate_params", None)
     monkeypatch.setattr(proxy_server, "premium_user", False)
     monkeypatch.setitem(
         proxy_server.app.dependency_overrides,
         user_api_key_auth,
-        lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
+        lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin"),
     )
     return TestClient(proxy_server.app)
 
@@ -24048,7 +24048,7 @@ def test_enterprise_spend_permission_guard(
     spend_permission_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     response: Final = spend_permission_client.post(
         "/key/generate", json={"permissions": {"get_spend_routes": True}}
     )
@@ -24069,17 +24069,17 @@ def test_guardrails_enterprise_error_guard(spend_permission_client: TestClient) 
 def test_key_info_missing_key_preserves_404(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "prisma_client", mock_prisma)
 
     admin_auth: Final = UserAPIKeyAuth(
         api_key="sk-test-master",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     proxy_server.app.dependency_overrides[user_api_key_auth] = lambda: admin_auth
 
@@ -24095,8 +24095,8 @@ def test_key_info_missing_key_preserves_404(
 def test_key_info_permission_denied_preserves_403(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     mock_key: Final = MagicMock()
     mock_key.token = "hashed-other-token"
@@ -24109,17 +24109,17 @@ def test_key_info_permission_denied_preserves_403(
         "expires": None,
     }
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=mock_key)
+    mock_prisma.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=mock_key)
     monkeypatch.setattr(proxy_server, "prisma_client", mock_prisma)
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints._can_user_query_key_info",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints._can_user_query_key_info",
         AsyncMock(return_value=False),
     )
 
     user_auth: Final = UserAPIKeyAuth(
         api_key="sk-regular-user",
         user_id="user1",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
     proxy_server.app.dependency_overrides[user_api_key_auth] = lambda: user_auth
 
@@ -24136,14 +24136,14 @@ def test_key_info_database_not_connected_sanitized_500(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
 
     admin_auth: Final = UserAPIKeyAuth(
         api_key="sk-test-master",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     proxy_server.app.dependency_overrides[user_api_key_auth] = lambda: admin_auth
 
@@ -24159,7 +24159,7 @@ def test_key_info_database_not_connected_sanitized_500(
 
 
 def test_key_health_failure_body_carries_a_json_null_param():
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="hashed-key", metadata={"logging": ["not-a-callback-object"]}
@@ -24179,17 +24179,17 @@ def test_key_health_failure_body_carries_a_json_null_param():
 async def test_update_key_reports_a_bad_budget_duration_as_a_request_error_not_an_auth_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import Request
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import update_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import update_key_fn
 
     monkeypatch.setattr(  # test-quality-ok: the endpoint reads proxy_server.prisma_client itself, no parameter to inject
-        "litellm.proxy.proxy_server.prisma_client", MagicMock()
+        "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
     )
 
     with pytest.raises(ProxyException) as exc_info:
         await update_key_fn(
             request=MagicMock(spec=Request),
             data=UpdateKeyRequest(key="sk-whatever", budget_duration="not-a-duration"),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin-1", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin-1", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     assert (exc_info.value.code, exc_info.value.type) == ("400", "invalid_request_error")
@@ -24202,19 +24202,19 @@ async def test_update_key_passes_its_own_rejection_through_without_making_it_its
 ) -> None:
     from fastapi import Request
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import update_key_fn
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import update_key_fn
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
     monkeypatch.setattr(  # test-quality-ok: the endpoint reads proxy_server.prisma_client itself, no parameter to inject
-        "litellm.proxy.proxy_server.prisma_client", prisma_client
+        "hangarllm.proxy.proxy_server.prisma_client", prisma_client
     )
 
     with pytest.raises(ProxyException) as exc_info:
         await update_key_fn(
             request=MagicMock(spec=Request),
             data=UpdateKeyRequest(key="sk-missing", max_budget=5),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin-1", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin-1", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     assert (exc_info.value.code, exc_info.value.type) == ("404", "not_found_error")
@@ -24225,17 +24225,17 @@ async def test_update_key_passes_its_own_rejection_through_without_making_it_its
 async def test_key_aliases_answers_503_when_the_database_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
     import prisma.errors
 
-    from litellm.proxy.management_endpoints.key_management_endpoints import key_aliases
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import key_aliases
 
     unreachable_db: Final = MagicMock()
     unreachable_db.db.query_raw = AsyncMock(
         side_effect=prisma.errors.PrismaError("Can't reach database server at `db:5432`")
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", unreachable_db)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", unreachable_db)
 
     with pytest.raises(ProxyException) as exc_info:
         await key_aliases(
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin-1", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin-1", user_role=HangarllmUserRoles.PROXY_ADMIN),
             page=1,
             size=50,
             search=None,

@@ -21,20 +21,20 @@ from mcp.types import CallToolResult, EmptyResult, InitializeRequestParams, Requ
 from mcp.types import Tool as MCPTool
 from pydantic import ConfigDict, ValidationError
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import AlertType, LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-from litellm.proxy.mcp_server.mcp_server_manager import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import AlertType, HangarLLM_ObjectPermissionTable, UserAPIKeyAuth
+from hangarllm.proxy.mcp_server.mcp_server_manager import (
     MCPServerManager,
 )
-from litellm.proxy.mcp_server.server import (
+from hangarllm.proxy.mcp_server.server import (
     _log_sdk_rejection,
     mcp_server_tool_call,
     server,
     set_auth_context,
 )
-from litellm.types.mcp import MCPPostCallResponseObject
+from hangarllm.types.mcp import MCPPostCallResponseObject
 
 
 class SDKRejectionParams(RequestParams):
@@ -85,11 +85,11 @@ def sdk_rejection_logger() -> Generator[SDKRejectionLogger, None, None]:
         )
     )
     try:
-        with patch("litellm.callbacks", [logger]):
+        with patch("hangarllm.callbacks", [logger]):
             yield logger
     finally:
         auth_context_var.reset(token)
-        litellm.logging_callback_manager._reset_all_callbacks()
+        hangarllm.logging_callback_manager._reset_all_callbacks()
 
 
 @pytest.mark.asyncio
@@ -150,7 +150,7 @@ async def test_sdk_rejection_emits_one_redacted_zero_cost_failure(
 async def test_sdk_caller_errors_do_not_trigger_llm_alerts(
     sdk_rejection_logger: SDKRejectionLogger, method: str, params: dict[str, object], code: int
 ) -> None:
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from hangarllm.proxy.proxy_server import proxy_logging_obj
 
     with (
         patch.object(proxy_logging_obj, "alert_types", [AlertType.llm_exceptions]),
@@ -191,7 +191,7 @@ async def test_sdk_rejection_sync_logging_allows_concurrent_ping(
         ) -> None:
             ping_responses.put(asyncio.run_coroutine_threadsafe(client.session.send_ping(), loop).result(timeout=10))
 
-        with patch("litellm.failure_callback", [sync_failure]):
+        with patch("hangarllm.failure_callback", [sync_failure]):
             with pytest.raises(MCPError) as rejected:
                 await client.session.send_request(Request(method="unknown/method", params=RequestParams()), EmptyResult)
             assert rejected.value.code == -32601
@@ -351,7 +351,7 @@ def _set_authorized_user(server_ids):
     user_auth = UserAPIKeyAuth(
         api_key="test",
         user_id="test_user",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="mcp-test-permissions",
             mcp_servers=server_list,
         ),
@@ -362,7 +362,7 @@ def _set_authorized_user(server_ids):
 @pytest.mark.asyncio
 async def test_mcp_cost_tracking():
     # Create a mock tool call result
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
     mock_result = CallToolResult(
         content=[TextContent(type="text", text="Test response")], isError=False
     )
@@ -391,7 +391,7 @@ async def test_mcp_cost_tracking():
     local_mcp_server_manager = MCPServerManager()
 
     with patch(
-        "litellm.proxy.mcp_server.upstream.MCPClient",
+        "hangarllm.proxy.mcp_server.upstream.MCPClient",
         mock_client_constructor,
     ):
         # Load the server config
@@ -410,7 +410,7 @@ async def test_mcp_cost_tracking():
 
         # Set up the test logger
         test_logger = TestMCPLogger()
-        litellm.callbacks = [test_logger]
+        hangarllm.callbacks = [test_logger]
 
         # Initialize the tool mapping
         await local_mcp_server_manager._initialize_tool_name_to_mcp_server_name_mapping()
@@ -418,11 +418,11 @@ async def test_mcp_cost_tracking():
         # Patch the global manager in both modules where it's used
         with (
             patch(
-                "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+                "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
             patch(
-                "litellm.proxy.mcp_server.operations.global_mcp_server_manager",
+                "hangarllm.proxy.mcp_server.operations.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
         ):
@@ -487,7 +487,7 @@ async def test_mcp_cost_tracking():
 async def test_mcp_cost_tracking_per_tool():
     """Test that individual tool costs are tracked correctly when tool_name_to_cost_per_query is configured"""
     # Create a mock tool call result
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
     mock_result = CallToolResult(
         content=[TextContent(type="text", text="Test response")], isError=False
     )
@@ -524,7 +524,7 @@ async def test_mcp_cost_tracking_per_tool():
     local_mcp_server_manager = MCPServerManager()
 
     with patch(
-        "litellm.proxy.mcp_server.upstream.MCPClient",
+        "hangarllm.proxy.mcp_server.upstream.MCPClient",
         mock_client_constructor,
     ):
         # Load the server config with per-tool costs
@@ -547,7 +547,7 @@ async def test_mcp_cost_tracking_per_tool():
 
         # Set up the test logger
         test_logger = TestMCPLogger()
-        litellm.callbacks = [test_logger]
+        hangarllm.callbacks = [test_logger]
 
         # Initialize the tool mapping
         await local_mcp_server_manager._initialize_tool_name_to_mcp_server_name_mapping()
@@ -569,11 +569,11 @@ async def test_mcp_cost_tracking_per_tool():
         # Patch the global manager in both modules where it's used
         with (
             patch(
-                "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+                "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
             patch(
-                "litellm.proxy.mcp_server.operations.global_mcp_server_manager",
+                "hangarllm.proxy.mcp_server.operations.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
         ):
@@ -668,7 +668,7 @@ class MCPLoggerHook(TestMCPLogger):
 @pytest.mark.asyncio
 async def test_mcp_tool_call_hook():
     # Create a mock tool call result
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
     mock_result = CallToolResult(
         content=[TextContent(type="text", text="Test response")], isError=False
     )
@@ -697,7 +697,7 @@ async def test_mcp_tool_call_hook():
     local_mcp_server_manager = MCPServerManager()
 
     with patch(
-        "litellm.proxy.mcp_server.upstream.MCPClient",
+        "hangarllm.proxy.mcp_server.upstream.MCPClient",
         mock_client_constructor,
     ):
         # Load the server config
@@ -711,7 +711,7 @@ async def test_mcp_tool_call_hook():
 
         # Set up the test logger
         test_logger = MCPLoggerHook()
-        litellm.callbacks = [test_logger]
+        hangarllm.callbacks = [test_logger]
 
         # Initialize the tool mapping
         await local_mcp_server_manager._initialize_tool_name_to_mcp_server_name_mapping()
@@ -727,11 +727,11 @@ async def test_mcp_tool_call_hook():
         # Patch the global manager in both modules where it's used
         with (
             patch(
-                "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
+                "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
             patch(
-                "litellm.proxy.mcp_server.operations.global_mcp_server_manager",
+                "hangarllm.proxy.mcp_server.operations.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
         ):
@@ -768,7 +768,7 @@ async def test_mcp_tool_call_hook():
 _QUEUED_LOGGING_OUTLIVES_TEST = '''
 import time
 
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 ran_at = []
 

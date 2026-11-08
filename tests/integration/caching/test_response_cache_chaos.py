@@ -73,20 +73,20 @@ STREAM_FRAME_DELAY_MS: Final = 500
 PER_ENDPOINT: Final = 6
 STREAMS_PER_ENDPOINT: Final = 2
 LOCAL_BATCH: Final = 20
-SPEND_SQL: Final = 'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+SPEND_SQL: Final = 'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 
 
 @dataclass(frozen=True, slots=True)
 class Deployment:
     name: str
-    litellm_model: str
+    hangarllm_model: str
     handle: ScenarioHandle
 
     def entry(self) -> dict[str, JsonValue]:
         return {
             "model_name": self.name,
-            "litellm_params": {
-                "model": self.litellm_model,
+            "hangarllm_params": {
+                "model": self.hangarllm_model,
                 "api_base": self.handle.api_base(),
                 "api_key": PROVIDER_KEY,
             },
@@ -147,8 +147,8 @@ class Answer:
         return f"{self.call.label}: {self.status} {self.text[:160]!r}"
 
 
-def _deployment(scenario: Scenario, kind: str, litellm_model: str, response: JsonResponse | SseResponse) -> Deployment:
-    return Deployment(f"chaos-{kind}-{uuid.uuid4().hex[:8]}", litellm_model, scripted(scenario, response))
+def _deployment(scenario: Scenario, kind: str, hangarllm_model: str, response: JsonResponse | SseResponse) -> Deployment:
+    return Deployment(f"chaos-{kind}-{uuid.uuid4().hex[:8]}", hangarllm_model, scripted(scenario, response))
 
 
 def _fleet(scenario: Scenario) -> Fleet:
@@ -173,12 +173,12 @@ def _config(directory: Path, fleet: Fleet, cache_params: dict[str, JsonValue] | 
     """The rig's proxy config with the fleet as its model list and, when given, another response cache."""
     rig: Final = yaml.safe_load((Path(__file__).resolve().parents[1] / "proxy_config.yaml").read_text())
     assert isinstance(rig, dict)
-    litellm_settings: Final = rig["litellm_settings"]
-    assert isinstance(litellm_settings, dict)
+    hangarllm_settings: Final = rig["hangarllm_settings"]
+    assert isinstance(hangarllm_settings, dict)
     config: Final = {
         **rig,
         "model_list": fleet.entries(),
-        "litellm_settings": {**litellm_settings, **({"cache_params": cache_params} if cache_params else {})},
+        "hangarllm_settings": {**hangarllm_settings, **({"cache_params": cache_params} if cache_params else {})},
     }
     path: Final = directory / f"proxy_config-{uuid.uuid4().hex[:8]}.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False))

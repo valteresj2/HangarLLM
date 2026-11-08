@@ -28,11 +28,11 @@ from cryptography.x509.oid import NameOID
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from starlette.datastructures import URL
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.management_endpoints.sso.saml_sso import (
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.proxy._types import HangarllmUserRoles
+from hangarllm.proxy.management_endpoints.sso.saml_sso import (
     _SAML_AUTHN_REQUEST_CACHE_PREFIX,
     _SAML_AUTHN_STATE_COOKIE,
     _SAML_MAX_POST_BYTES,
@@ -40,8 +40,8 @@ from litellm.proxy.management_endpoints.sso.saml_sso import (
     _SAML_REPLAY_GUARD_MAX_TTL_SECONDS,
     SAMLAuthHandler,
 )
-from litellm.proxy.management_endpoints.types import CustomOpenID
-from litellm.proxy.mcp_server.outbound_credentials.sso_assertion_store import SSOIdentityAssertion
+from hangarllm.proxy.management_endpoints.types import CustomOpenID
+from hangarllm.proxy.mcp_server.outbound_credentials.sso_assertion_store import SSOIdentityAssertion
 
 
 def _shared_cache(store: InMemoryCache | None = None) -> DualCache:
@@ -233,7 +233,7 @@ async def test_valid_idp_initiated_login_maps_assertion_to_user(saml_env_idp_ini
     assert result.id == "alice@example.com"
     assert result.first_name == "Alice"
     assert result.last_name == "Smith"
-    assert result.user_role == LitellmUserRoles.INTERNAL_USER
+    assert result.user_role == HangarllmUserRoles.INTERNAL_USER
     assert result.provider == "saml"
 
 
@@ -606,7 +606,7 @@ async def test_multi_valued_role_attribute_resolves_to_highest_privilege(saml_en
     )
 
     result = await _acs(_b64(resp), _shared_cache())
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+    assert result.user_role == HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY
 
 
 @pytest.mark.asyncio
@@ -704,8 +704,8 @@ async def test_idp_initiated_replay_rejected_across_workers(saml_env_idp_initiat
 
 @pytest.mark.asyncio
 async def test_sp_initiated_login_endpoint_ticket_is_accepted_by_another_worker(saml_env, monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_endpoints.ui_sso import saml_login
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_endpoints.ui_sso import saml_login
 
     key_pem, cert_pem = saml_env
     shared_store = InMemoryCache()
@@ -722,7 +722,7 @@ async def test_sp_initiated_login_endpoint_ticket_is_accepted_by_another_worker(
 
 @pytest.mark.asyncio
 async def test_sp_metadata_endpoint_serves_acs_and_entity_id(saml_env):
-    from litellm.proxy.management_endpoints.ui_sso import saml_metadata
+    from hangarllm.proxy.management_endpoints.ui_sso import saml_metadata
 
     response = await saml_metadata(_fake_request())
     body = bytes(response.body).decode()
@@ -790,8 +790,8 @@ def _fake_request_with_scheme(scheme, headers=None, client_host="203.0.113.5"):
 
 
 class TestSAMLAuthnCookieSecureFlag:
-    """Regression tests for the litellm_saml_authn cookie's Secure attribute.
-    litellm only sees a plain-HTTP hop whenever TLS terminates at a reverse
+    """Regression tests for the hangarllm_saml_authn cookie's Secure attribute.
+    hangarllm only sees a plain-HTTP hop whenever TLS terminates at a reverse
     proxy, so Secure must not be derived from the literal request scheme alone."""
 
     @pytest.mark.asyncio
@@ -816,12 +816,12 @@ class TestSAMLAuthnCookieSecureFlag:
 
     @pytest.mark.asyncio
     async def test_secure_behind_trusted_tls_terminating_proxy(self, saml_env, monkeypatch):
-        """THE regression: TLS terminates at a reverse proxy, litellm only sees a
+        """THE regression: TLS terminates at a reverse proxy, hangarllm only sees a
         plain-HTTP hop, but the cookie must still be marked Secure when the operator
         has configured a trusted proxy reporting X-Forwarded-Proto: https."""
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"use_x_forwarded_for": True, "mcp_trusted_proxy_ranges": ["10.0.0.0/8"]},
         )
         cache = DualCache()
@@ -833,7 +833,7 @@ class TestSAMLAuthnCookieSecureFlag:
     @pytest.mark.asyncio
     async def test_untrusted_spoofed_forwarded_proto_is_ignored(self, saml_env, monkeypatch):
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
         cache = DualCache()
         request = _fake_request_with_scheme("http", headers={"X-Forwarded-Proto": "https"}, client_host="203.0.113.5")
         redirect = await SAMLAuthHandler.build_login_redirect(request, cache)
@@ -857,7 +857,7 @@ def test_an_encrypted_assertion_is_not_retained_and_the_login_log_says_why(caplo
         def get_last_assertion_not_on_or_after(self) -> int | None:
             return None
 
-    with caplog.at_level(logging.WARNING, logger="litellm.proxy"):
+    with caplog.at_level(logging.WARNING, logger="hangarllm.proxy"):
         retained = SAMLAuthHandler._retained_assertion(_Encrypted())  # pyright: ignore[reportArgumentType]  # stub auth  # pyright: ignore[reportPrivateUsage]  # the retention seam under test
 
     assert retained is None

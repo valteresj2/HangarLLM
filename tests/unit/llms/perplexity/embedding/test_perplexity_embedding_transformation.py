@@ -11,12 +11,12 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.perplexity.embedding.transformation import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.perplexity.embedding.transformation import (
     PerplexityEmbeddingConfig,
     PerplexityEmbeddingError,
 )
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.types.utils import EmbeddingResponse
 
 
 class TestPerplexityEmbeddingConfig:
@@ -32,7 +32,7 @@ class TestPerplexityEmbeddingConfig:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://api.perplexity.ai/v1/embeddings"
 
@@ -43,7 +43,7 @@ class TestPerplexityEmbeddingConfig:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.api.com/v1/embeddings"
 
@@ -54,7 +54,7 @@ class TestPerplexityEmbeddingConfig:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.api.com/v1/embeddings"
 
@@ -102,7 +102,7 @@ class TestPerplexityEmbeddingConfig:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="pplx-test-key",
         )
         assert headers["Authorization"] == "Bearer pplx-test-key"
@@ -280,23 +280,23 @@ class TestPerplexityEmbeddingProviderConfig:
     """Test that Perplexity is correctly registered in ProviderConfigManager."""
 
     def test_provider_config_returns_perplexity_embedding(self):
-        import litellm
-        from litellm.utils import ProviderConfigManager
+        import hangarllm
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_embedding_config(
             model="pplx-embed-v1-0.6b",
-            provider=litellm.LlmProviders.PERPLEXITY,
+            provider=hangarllm.LlmProviders.PERPLEXITY,
         )
         assert config is not None
         assert isinstance(config, PerplexityEmbeddingConfig)
 
     def test_provider_config_returns_perplexity_embedding_4b(self):
-        import litellm
-        from litellm.utils import ProviderConfigManager
+        import hangarllm
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_embedding_config(
             model="pplx-embed-v1-4b",
-            provider=litellm.LlmProviders.PERPLEXITY,
+            provider=hangarllm.LlmProviders.PERPLEXITY,
         )
         assert config is not None
         assert isinstance(config, PerplexityEmbeddingConfig)
@@ -312,7 +312,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         stream=False,
         call_type="embedding",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return PerplexityEmbeddingConfig().transform_embedding_response(
@@ -410,7 +410,7 @@ def test_perplexity_embedding_token_count_that_is_not_an_integer_is_rejected(usa
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         PerplexityEmbeddingConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="pplx-embed-v1-0.6b", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="pplx-embed-v1-0.6b", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/perplexity/v1/embeddings"
     )

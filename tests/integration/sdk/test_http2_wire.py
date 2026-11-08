@@ -201,7 +201,7 @@ def http2_tls_peer(tmp_path_factory: pytest.TempPathFactory) -> Iterator[TlsPeer
 
 
 def _async_exchange(base_url: str, ssl_verify: bool | None = False) -> Observed:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     async def _run() -> Observed:
         handler: Final = AsyncHTTPHandler(ssl_verify=ssl_verify)
@@ -221,7 +221,7 @@ def _async_exchange(base_url: str, ssl_verify: bool | None = False) -> Observed:
 
 
 def _sync_exchange(base_url: str, ssl_verify: bool | None = False) -> Observed:
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     handler: Final = HTTPHandler(ssl_verify=ssl_verify)
     try:
@@ -239,9 +239,9 @@ def _sync_exchange(base_url: str, ssl_verify: bool | None = False) -> Observed:
 
 def _set_http2(monkeypatch: pytest.MonkeyPatch, enabled: bool) -> None:
     if enabled:
-        monkeypatch.setenv("LITELLM_HTTP2", "True")
+        monkeypatch.setenv("HANGARLLM_HTTP2", "True")
     else:
-        monkeypatch.delenv("LITELLM_HTTP2", raising=False)
+        monkeypatch.delenv("HANGARLLM_HTTP2", raising=False)
 
 
 def _assert_negotiated(observed: Observed, enabled: bool) -> None:
@@ -273,21 +273,21 @@ def test_sync_handler_negotiates_http2_only_when_enabled(
 
 
 def _trust_peer_without_global_http2(monkeypatch: pytest.MonkeyPatch, peer: TlsPeer) -> None:
-    import litellm
+    import hangarllm
 
     _set_http2(monkeypatch, False)
     monkeypatch.delenv("DISABLE_AIOHTTP_TRANSPORT", raising=False)
     monkeypatch.setenv("SSL_VERIFY", str(peer.cert_file))
     monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(peer.cert_file))
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def _vertex_search_file_ids(
     peer: TlsPeer, search_url: str | None = None, ssl_verify: ssl.SSLContext | None = None
 ) -> list[str | None]:
-    import litellm
+    import hangarllm
 
-    response: Final = litellm.vector_stores.search(
+    response: Final = hangarllm.vector_stores.search(
         vector_store_id="default_search",
         query="ping",
         custom_llm_provider="vertex_ai/search_api",
@@ -306,9 +306,9 @@ async def _avertex_search_file_ids(
     ssl_verify: ssl.SSLContext | None = None,
     extra_headers: dict[str, object] | None = None,
 ) -> list[str | None]:
-    import litellm
+    import hangarllm
 
-    response: Final = await litellm.vector_stores.asearch(
+    response: Final = await hangarllm.vector_stores.asearch(
         vector_store_id="default_search",
         query="ping",
         custom_llm_provider="vertex_ai/search_api",
@@ -338,7 +338,7 @@ def test_async_vertex_search_negotiates_http2_without_global_flag(
 def test_default_async_client_stays_http1_after_vertex_search_used_http2(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer
 ) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
 
@@ -357,7 +357,7 @@ def test_default_async_client_stays_http1_after_vertex_search_used_http2(
 def test_vertex_search_fetches_one_token_for_many_searches(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer
 ) -> None:
-    import litellm
+    import hangarllm
 
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
     credentials: Final = service_account_json("p", f"{http2_tls_peer.url}/token-reuse")
@@ -373,11 +373,11 @@ def test_vertex_search_fetches_one_token_for_many_searches(
     )
 
     async def _searches() -> None:
-        await litellm.vector_stores.asearch(**search)
-        await asyncio.gather(*(litellm.vector_stores.asearch(**search) for _ in range(5)))
+        await hangarllm.vector_stores.asearch(**search)
+        await asyncio.gather(*(hangarllm.vector_stores.asearch(**search) for _ in range(5)))
 
     asyncio.run(_searches())
-    litellm.vector_stores.search(**search)
+    hangarllm.vector_stores.search(**search)
 
     token_requests: Final = http2_tls_peer.log.token_requests
     token_paths: Final = tuple(iter(lambda: None if token_requests.empty() else token_requests.get(), None))
@@ -387,10 +387,10 @@ def test_vertex_search_fetches_one_token_for_many_searches(
 def test_vertex_search_over_forced_ipv4_trusts_the_configured_ca(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer
 ) -> None:
-    import litellm
+    import hangarllm
 
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
 
     assert _vertex_search_file_ids(http2_tls_peer) == ["http/1.1"]
     assert asyncio.run(_avertex_search_file_ids(http2_tls_peer)) == ["http/2"]
@@ -401,7 +401,7 @@ def test_explicit_http2_off_keeps_vertex_search_on_http1(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer, off: str
 ) -> None:
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
-    monkeypatch.setenv("LITELLM_HTTP2", off)
+    monkeypatch.setenv("HANGARLLM_HTTP2", off)
     assert asyncio.run(_avertex_search_file_ids(http2_tls_peer)) == ["http/1.1"]
 
 
@@ -409,10 +409,10 @@ def test_explicit_http2_off_keeps_vertex_search_on_http1(
 def test_http2_setting_off_keeps_vertex_search_on_http1(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer, off: bool | int | str
 ) -> None:
-    import litellm
+    import hangarllm
 
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
-    monkeypatch.setattr(litellm, "http2", off)
+    monkeypatch.setattr(hangarllm, "http2", off)
     assert asyncio.run(_avertex_search_file_ids(http2_tls_peer)) == ["http/1.1"]
 
 
@@ -471,7 +471,7 @@ def _route_https_through_a_dead_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def _async_peer_http_version(peer: TlsPeer, http2: bool) -> str:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     handler: Final = AsyncHTTPHandler(ssl_verify=str(peer.cert_file), http2=http2)
     try:
@@ -484,26 +484,26 @@ async def _async_peer_http_version(peer: TlsPeer, http2: bool) -> str:
 def test_http2_client_skips_env_proxies_when_aiohttp_trust_env_is_disabled(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer
 ) -> None:
-    import litellm
+    import hangarllm
 
     _set_http2(monkeypatch, False)
     _route_https_through_a_dead_proxy(monkeypatch)
 
     for force_ipv4 in (False, True):
-        monkeypatch.setattr(litellm, "force_ipv4", force_ipv4)
+        monkeypatch.setattr(hangarllm, "force_ipv4", force_ipv4)
         assert asyncio.run(_async_peer_http_version(http2_tls_peer, http2=True)) == "HTTP/2"
 
 
 def test_global_http2_toggle_keeps_env_proxies_when_aiohttp_trust_env_is_disabled(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer
 ) -> None:
-    import litellm
+    import hangarllm
 
     _set_http2(monkeypatch, True)
     _route_https_through_a_dead_proxy(monkeypatch)
 
     for force_ipv4 in (False, True):
-        monkeypatch.setattr(litellm, "force_ipv4", force_ipv4)
+        monkeypatch.setattr(hangarllm, "force_ipv4", force_ipv4)
         with pytest.raises(httpx.ConnectError):
             asyncio.run(_async_peer_http_version(http2_tls_peer, http2=False))
 
@@ -608,17 +608,17 @@ def test_vertex_search_retries_a_connection_the_server_drains_with_goaway(
 def test_vertex_search_sends_once_when_an_http1_server_hangs_up(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer
 ) -> None:
-    import litellm
+    import hangarllm
 
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
-    monkeypatch.setenv("LITELLM_HTTP2", "False")
+    monkeypatch.setenv("HANGARLLM_HTTP2", "False")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
 
     with _raw_tls_peer(http2_tls_peer, "http/1.1", _hang_up_after_request) as (search_url, accepted):
-        with pytest.raises(litellm.InternalServerError, match="Server disconnected"):
+        with pytest.raises(hangarllm.InternalServerError, match="Server disconnected"):
             _vertex_search_file_ids(http2_tls_peer, search_url=search_url)
         assert accepted.qsize() == 1
-        with pytest.raises(litellm.InternalServerError, match="Server disconnected"):
+        with pytest.raises(hangarllm.InternalServerError, match="Server disconnected"):
             asyncio.run(_avertex_search_file_ids(http2_tls_peer, search_url=search_url))
         assert accepted.qsize() == 2
 
@@ -627,13 +627,13 @@ def test_vertex_search_sends_once_when_an_http1_server_hangs_up(
 def test_vertex_search_keeps_its_http2_connection_across_an_idle_gap(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer, force_ipv4: bool
 ) -> None:
-    import litellm
-    from litellm.constants import AIOHTTP_KEEPALIVE_TIMEOUT
+    import hangarllm
+    from hangarllm.constants import AIOHTTP_KEEPALIVE_TIMEOUT
 
     idle_gap: Final = DEFAULT_LIMITS.keepalive_expiry + 1
     assert idle_gap < AIOHTTP_KEEPALIVE_TIMEOUT
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
-    monkeypatch.setattr(litellm, "force_ipv4", force_ipv4)
+    monkeypatch.setattr(hangarllm, "force_ipv4", force_ipv4)
 
     async def _search_twice(search_url: str) -> list[str | None]:
         first: Final = await _avertex_search_file_ids(http2_tls_peer, search_url=search_url)
@@ -648,7 +648,7 @@ def test_vertex_search_keeps_its_http2_connection_across_an_idle_gap(
 def test_async_http2_handler_opens_another_connection_once_the_streams_run_out(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer
 ) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
 
@@ -672,7 +672,7 @@ def test_async_http2_handler_opens_another_connection_once_the_streams_run_out(
 
 
 def test_http2_transport_opens_no_more_connections_than_its_cap(http2_tls_peer: TlsPeer) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     async def _burst() -> frozenset[str]:
         transport: Final = AsyncHTTPHandler.create_async_transport(
@@ -695,9 +695,9 @@ def test_http2_transport_opens_no_more_connections_than_its_cap(http2_tls_peer: 
 
 
 def test_forced_ipv4_handlers_honour_ssl_verify_false(monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer) -> None:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
     for enabled in (False, True):
         _set_http2(monkeypatch, enabled)
@@ -716,9 +716,9 @@ def _ca_dir_holding(cert_file: Path, ca_dir: Path) -> Path:
 def test_forced_ipv4_handlers_trust_a_ca_found_only_in_ssl_cert_dir(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer, tmp_path: Path
 ) -> None:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
     monkeypatch.delenv("SSL_VERIFY", raising=False)
     monkeypatch.delenv("SSL_CERT_FILE", raising=False)
@@ -732,10 +732,10 @@ def test_forced_ipv4_handlers_trust_a_ca_found_only_in_ssl_cert_dir(
 def test_vertex_search_over_forced_ipv4_presents_the_client_certificate(
     monkeypatch: pytest.MonkeyPatch, http2_tls_peer: TlsPeer, tmp_path: Path
 ) -> None:
-    import litellm
+    import hangarllm
 
     _trust_peer_without_global_http2(monkeypatch, http2_tls_peer)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
     client_pem: Final = tmp_path / "client.pem"
     client_pem.write_bytes(http2_tls_peer.cert_file.read_bytes() + http2_tls_peer.key_file.read_bytes())
     monkeypatch.setenv("SSL_CERTIFICATE", str(client_pem))
@@ -751,8 +751,8 @@ def test_vertex_search_over_forced_ipv4_presents_the_client_certificate(
 
 @pytest.mark.parametrize("proxied", [False, True], ids=["direct", "behind-http-proxy"])
 def test_an_evicted_http2_handler_is_not_closed_mid_request(monkeypatch: pytest.MonkeyPatch, proxied: bool) -> None:
-    from litellm.caching.evicted_client_closer import EvictedClientCloser
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     for name in ("http_proxy", "HTTP_PROXY", "all_proxy", "ALL_PROXY", "no_proxy", "NO_PROXY"):
         monkeypatch.delenv(name, raising=False)

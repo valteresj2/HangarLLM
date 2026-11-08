@@ -7,20 +7,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
     VertexPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.streaming_handler import (
+from hangarllm.proxy.pass_through_endpoints.streaming_handler import (
     PassThroughStreamContext,
     PassThroughStreamingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
 MODEL = "gemini-stream-pricing-probe"
 PROMPT_TOKENS = 1000
@@ -36,28 +36,28 @@ VERTEX_COST = PROMPT_TOKENS * VERTEX_INPUT_RATE + COMPLETION_TOKENS * VERTEX_OUT
 @pytest.fixture(autouse=True)
 def divergent_rate_cards(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"gemini/{MODEL}",
         {
             "input_cost_per_token": GEMINI_INPUT_RATE,
             "output_cost_per_token": GEMINI_OUTPUT_RATE,
-            "litellm_provider": "gemini",
+            "hangarllm_provider": "gemini",
             "mode": "chat",
         },
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"vertex_ai/{MODEL}",
         {
             "input_cost_per_token": VERTEX_INPUT_RATE,
             "output_cost_per_token": VERTEX_OUTPUT_RATE,
-            "litellm_provider": "vertex_ai",
+            "hangarllm_provider": "vertex_ai",
             "mode": "chat",
         },
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _chunks() -> list[str]:
@@ -79,12 +79,12 @@ def _chunks() -> list[str]:
     return [f"data: {json.dumps(payload)}"]
 
 
-def _logging_obj() -> LiteLLMLoggingObj:
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+def _logging_obj() -> HangarLLMLoggingObj:
+    logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     logging_obj.model_call_details = {}
     logging_obj.optional_params = {}
-    logging_obj.litellm_params = {}
-    logging_obj.litellm_call_id = "test-call-id"
+    logging_obj.hangarllm_params = {}
+    logging_obj.hangarllm_call_id = "test-call-id"
     return logging_obj
 
 
@@ -101,7 +101,7 @@ def test_streaming_generate_content_bills_against_the_requested_provider(
     logging_obj = _logging_obj()
 
     _, kwargs = PassThroughStreamingHandler._build_passthrough_logging_result(
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         passthrough_success_handler_obj=PassThroughEndpointLogging(),
         url_route="/v1/generateContent",
         request_body={},
@@ -120,7 +120,7 @@ def test_vertex_generate_content_payload_prices_gemini_urls_at_gemini_rates():
     logging_obj = _logging_obj()
 
     result = VertexPassthroughLoggingHandler._handle_logging_vertex_collected_chunks(
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         passthrough_success_handler_obj=PassThroughEndpointLogging(),
         url_route=f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:streamGenerateContent",
         request_body={},
@@ -166,25 +166,25 @@ async def test_interrupted_anthropic_stream_recovers_output_tokens_off_the_event
     from unittest.mock import AsyncMock
 
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
     )
 
-    caplog.set_level(logging.WARNING, logger="LiteLLM")
-    caplog.set_level(logging.WARNING, logger="LiteLLM Proxy")
+    caplog.set_level(logging.WARNING, logger="HangarLLM")
+    caplog.set_level(logging.WARNING, logger="HangarLLM Proxy")
     model = "claude-fable-5"
     warm_tokenizer(model)
     logging_obj = _logging_obj()
     logging_obj.model_call_details = {"model": model, "stream": True}
-    logging_obj.litellm_params = {}
+    logging_obj.hangarllm_params = {}
     logging_obj.get_router_model_id.return_value = None
     logging_obj.dispatch_success_handlers = AsyncMock()
 
     _, took, lags = await timed_with_loop_lags(
         lambda: PassThroughStreamingHandler._route_streaming_logging_to_handler(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=PassThroughEndpointLogging(),
             url_route="/anthropic/v1/messages",
             request_body={"model": model, "stream": True},
@@ -207,19 +207,19 @@ async def test_failed_anthropic_stream_records_partial_usage_off_the_event_loop(
     from unittest.mock import AsyncMock
 
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
     )
 
-    caplog.set_level(logging.WARNING, logger="LiteLLM")
-    caplog.set_level(logging.WARNING, logger="LiteLLM Proxy")
+    caplog.set_level(logging.WARNING, logger="HangarLLM")
+    caplog.set_level(logging.WARNING, logger="HangarLLM Proxy")
     model = "claude-fable-5"
     warm_tokenizer(model)
     logging_obj = _logging_obj()
     logging_obj.model_call_details = {"model": model, "stream": True}
-    logging_obj.litellm_params = {}
+    logging_obj.hangarllm_params = {}
     logging_obj.get_router_model_id.return_value = None
     logging_obj.attempt_scoped_copy.return_value = logging_obj
     logging_obj.dispatch_failure_handlers = AsyncMock()
@@ -229,7 +229,7 @@ async def test_failed_anthropic_stream_records_partial_usage_off_the_event_loop(
 
     _, took, lags = await timed_with_loop_lags(
         lambda: PassThroughStreamingHandler.schedule_stream_failure_logging(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             request_body={"model": model, "stream": True},
             raw_bytes=_interrupted_anthropic_stream(model, text * 100),
@@ -249,26 +249,26 @@ async def test_interrupted_vertex_stream_bills_the_deployment_custom_price(monke
     deployment_id: Final = "vertex-custom-priced-deployment"
     custom_rates: Final = {"input_cost_per_token": 2e-09, "output_cost_per_token": 3e-09}
     monkeypatch.setitem(
-        litellm.model_cost, deployment_id, {**custom_rates, "litellm_provider": "vertex_ai", "mode": "chat"}
+        hangarllm.model_cost, deployment_id, {**custom_rates, "hangarllm_provider": "vertex_ai", "mode": "chat"}
     )
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "ping"}],
         stream=True,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="interrupted-stream",
+        hangarllm_call_id="interrupted-stream",
         function_id="interrupted-stream",
     )
     logging_obj.optional_params = {}
-    logging_obj.litellm_params = {"metadata": {"model_info": {"id": deployment_id, **custom_rates}}}
+    logging_obj.hangarllm_params = {"metadata": {"model_info": {"id": deployment_id, **custom_rates}}}
     url_route: Final = (
         f"https://aiplatform.googleapis.com/v1/projects/p/locations/us"
         f"/publishers/google/models/{MODEL}:streamGenerateContent?alt=sse"
     )
 
     await PassThroughStreamingHandler.schedule_stream_failure_logging(
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         endpoint_type=EndpointType.VERTEX_AI,
         request_body={},
         raw_bytes=[chunk.encode("utf-8") for chunk in _chunks()],

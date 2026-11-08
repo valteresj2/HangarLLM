@@ -8,40 +8,40 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.bedrock.image_edit.amazon_nova_canvas_image_edit_transformation import (
+import hangarllm
+from hangarllm.llms.bedrock.image_edit.amazon_nova_canvas_image_edit_transformation import (
     BedrockAmazonNovaCanvasImageEditConfig,
     get_bedrock_image_edit_config_for_model,
 )
-from litellm.llms.bedrock.image_edit.handler import BedrockImageEdit
-from litellm.llms.bedrock.image_edit.stability_transformation import (
+from hangarllm.llms.bedrock.image_edit.handler import BedrockImageEdit
+from hangarllm.llms.bedrock.image_edit.stability_transformation import (
     BedrockStabilityImageEditConfig,
 )
-from litellm.types.images.main import ImageEditOptionalRequestParams
+from hangarllm.types.images.main import ImageEditOptionalRequestParams
 
 
 @pytest.fixture(autouse=True)
 def ensure_nova_canvas_image_edit_model_cost_flags(monkeypatch):
-    """Routing uses ``supports_nova_canvas_image_edit`` on ``litellm.model_cost``.
+    """Routing uses ``supports_nova_canvas_image_edit`` on ``hangarllm.model_cost``.
 
     Full ``model_prices_and_context_window.json`` includes these flags, but CI or
     alternate cost maps may omit them—merge minimal entries so tests match production.
     """
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
     for key in (
         "amazon.nova-canvas-v1:0",
         "us.amazon.nova-canvas-v1:0",
     ):
-        entry = litellm.model_cost.get(key) or {}
+        entry = hangarllm.model_cost.get(key) or {}
         if entry.get("supports_nova_canvas_image_edit") is True:
             continue
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             key,
             {
                 **entry,
-                "litellm_provider": entry.get("litellm_provider", "bedrock"),
+                "hangarllm_provider": entry.get("hangarllm_provider", "bedrock"),
                 "mode": entry.get("mode", "image_generation"),
                 "supports_nova_canvas_image_edit": True,
             },
@@ -110,33 +110,33 @@ def test_get_bedrock_image_edit_config_unknown_raises():
 
 def test_provider_config_manager_bedrock_nova_canvas():
     """ProviderConfigManager.get_provider_image_edit_config matches handler routing."""
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.utils import ProviderConfigManager
 
     cfg = ProviderConfigManager.get_provider_image_edit_config(
         "amazon.nova-canvas-v1:0",
-        litellm.LlmProviders.BEDROCK,
+        hangarllm.LlmProviders.BEDROCK,
     )
     assert isinstance(cfg, BedrockAmazonNovaCanvasImageEditConfig)
 
 
 def test_provider_config_manager_bedrock_stability_inpaint():
     """ProviderConfigManager returns Stability config for Stability edit models."""
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.utils import ProviderConfigManager
 
     cfg = ProviderConfigManager.get_provider_image_edit_config(
         "stability.stable-image-inpaint-v1:0",
-        litellm.LlmProviders.BEDROCK,
+        hangarllm.LlmProviders.BEDROCK,
     )
     assert isinstance(cfg, BedrockStabilityImageEditConfig)
 
 
 def test_provider_config_manager_bedrock_unknown_raises():
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.utils import ProviderConfigManager
 
     with pytest.raises(ValueError, match="Unsupported Bedrock image-edit model"):
         ProviderConfigManager.get_provider_image_edit_config(
             "amazon.titan-image-generator-v1",
-            litellm.LlmProviders.BEDROCK,
+            hangarllm.LlmProviders.BEDROCK,
         )
 
 
@@ -145,11 +145,11 @@ def test_provider_config_manager_bedrock_dispatches_to_nova_transform_outpaintin
     Full dispatch: utils.ProviderConfigManager -> get_bedrock_image_edit_config_for_model
     -> Nova config.transform_image_edit_request (not only direct helper calls).
     """
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.utils import ProviderConfigManager
 
     cfg = ProviderConfigManager.get_provider_image_edit_config(
         "amazon.nova-canvas-v1:0",
-        litellm.LlmProviders.BEDROCK,
+        hangarllm.LlmProviders.BEDROCK,
     )
     assert cfg is not None
     img = io.BytesIO(b"scene")
@@ -162,7 +162,7 @@ def test_provider_config_manager_bedrock_dispatches_to_nova_transform_outpaintin
             "taskType": "OUTPAINTING",
             "mask": mask,
         },
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "OUTPAINTING"
@@ -178,7 +178,7 @@ def test_transform_request_image_variation_without_mask():
         prompt="make it warmer",
         image=img,
         image_edit_optional_request_params={},
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "IMAGE_VARIATION"
@@ -198,7 +198,7 @@ def test_transform_request_image_pathlike_input(tmp_path):
         prompt="pathlike",
         image=image_path,
         image_edit_optional_request_params={},
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
 
@@ -218,7 +218,7 @@ def test_transform_request_inpainting_with_mask():
         prompt="add a hat",
         image=main,
         image_edit_optional_request_params={"mask": mask},
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "INPAINTING"
@@ -241,7 +241,7 @@ def test_transform_request_explicit_image_variation_with_mask_honors_task_type()
             "taskType": "IMAGE_VARIATION",
             "mask": mask,
         },
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "IMAGE_VARIATION"
@@ -263,7 +263,7 @@ def test_transform_request_outpainting_with_mask():
             "taskType": "OUTPAINTING",
             "mask": mask,
         },
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "OUTPAINTING"
@@ -283,7 +283,7 @@ def test_transform_request_outpainting_with_mask_prompt():
             "taskType": "OUTPAINTING",
             "maskPrompt": "the area behind the subject",
         },
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "OUTPAINTING"
@@ -304,7 +304,7 @@ def test_transform_request_outpainting_prefers_mask_prompt_over_binary_mask():
             "mask": mask,
             "maskPrompt": "sky region",
         },
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "OUTPAINTING"
@@ -327,7 +327,7 @@ def test_transform_request_outpainting_with_out_painting_mode():
             "mask": mask,
             "outPaintingMode": "PRECISE",
         },
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "OUTPAINTING"
@@ -357,7 +357,7 @@ def test_transform_request_outpainting_without_mask_raises():
             prompt="extend",
             image=img,
             image_edit_optional_request_params={"taskType": "OUTPAINTING"},
-            litellm_params={},  # type: ignore[arg-type]
+            hangarllm_params={},  # type: ignore[arg-type]
             headers={},
         )
 
@@ -374,7 +374,7 @@ def test_transform_request_inpainting_explicit_task_without_mask_raises():
             prompt="fix it",
             image=img,
             image_edit_optional_request_params={"taskType": "INPAINTING"},
-            litellm_params={},  # type: ignore[arg-type]
+            hangarllm_params={},  # type: ignore[arg-type]
             headers={},
         )
 
@@ -389,7 +389,7 @@ def test_transform_request_unknown_task_type_raises():
             prompt="x",
             image=img,
             image_edit_optional_request_params={"taskType": "TEXT_IMAGE"},
-            litellm_params={},  # type: ignore[arg-type]
+            hangarllm_params={},  # type: ignore[arg-type]
             headers={},
         )
 
@@ -403,7 +403,7 @@ def test_transform_request_background_removal():
         prompt="ignored",
         image=img,
         image_edit_optional_request_params={"taskType": "BACKGROUND_REMOVAL"},
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "BACKGROUND_REMOVAL"
@@ -426,7 +426,7 @@ def test_transform_request_background_removal_omits_image_generation_config():
             "cfgScale": 7.5,
             "n": 2,
         },
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "BACKGROUND_REMOVAL"
@@ -442,7 +442,7 @@ def test_transform_request_image_variation_includes_image_generation_config():
         prompt="warm",
         image=img,
         image_edit_optional_request_params={"size": "1024x1024", "seed": 1},
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["taskType"] == "IMAGE_VARIATION"
@@ -477,7 +477,7 @@ def test_transform_request_unknown_quality_reaches_image_generation_config():
         prompt="x",
         image=img,
         image_edit_optional_request_params=op,
-        litellm_params={},  # type: ignore[arg-type]
+        hangarllm_params={},  # type: ignore[arg-type]
         headers={},
     )
     assert body["imageGenerationConfig"]["quality"] == "auto"
@@ -619,7 +619,7 @@ def test_prepare_request_bearer_token_never_runs_the_sigv4_credential_chain(monk
         model="amazon.nova-canvas-v1:0",
         image=[io.BytesIO(b"fake-png")],
         prompt="make it warmer",
-        optional_params={"aws_region_name": "us-west-2", "aws_profile_name": "litellm-no-such-aws-profile"},
+        optional_params={"aws_region_name": "us-west-2", "aws_profile_name": "hangarllm-no-such-aws-profile"},
         api_base=None,
         extra_headers=None,
         logging_obj=Mock(),

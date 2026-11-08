@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 
 import importlib
 
-import litellm
-from litellm import constants, get_llm_provider, MorphChatConfig
+import hangarllm
+from hangarllm import constants, get_llm_provider, MorphChatConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from unittest.mock import patch
 
@@ -43,7 +43,7 @@ def _build_constant_env_var_map() -> dict[str, str]:
     Build a mapping of CONSTANT_NAME -> ENV_VAR_NAME by parsing constants.py.
 
     This keeps the test resilient when a constant name and env var name differ
-    (e.g., aliases like LITELLM_* env vars).
+    (e.g., aliases like HANGARLLM_* env vars).
     """
     env_var_map: dict[str, str] = {}
     constants_source = inspect.getsource(constants)
@@ -91,7 +91,7 @@ def _build_constant_env_var_map() -> dict[str, str]:
 
 
 @pytest.mark.parametrize(
-    ("cli_value", "litellm_cli_value", "expected"),
+    ("cli_value", "hangarllm_cli_value", "expected"),
     [
         ("48", None, 48),
         (None, "48", 48),
@@ -105,24 +105,24 @@ def _build_constant_env_var_map() -> dict[str, str]:
 def test_cli_jwt_expiration_hours_from_environment(
     monkeypatch: pytest.MonkeyPatch,
     cli_value: str | None,
-    litellm_cli_value: str | None,
+    hangarllm_cli_value: str | None,
     expected: int,
 ) -> None:
     monkeypatch.delenv("CLI_JWT_EXPIRATION_HOURS", raising=False)
-    monkeypatch.delenv("LITELLM_CLI_JWT_EXPIRATION_HOURS", raising=False)
+    monkeypatch.delenv("HANGARLLM_CLI_JWT_EXPIRATION_HOURS", raising=False)
 
     try:
         if cli_value is not None:
             monkeypatch.setenv("CLI_JWT_EXPIRATION_HOURS", cli_value)
-        if litellm_cli_value is not None:
-            monkeypatch.setenv("LITELLM_CLI_JWT_EXPIRATION_HOURS", litellm_cli_value)
+        if hangarllm_cli_value is not None:
+            monkeypatch.setenv("HANGARLLM_CLI_JWT_EXPIRATION_HOURS", hangarllm_cli_value)
 
-        importlib.reload(litellm.constants)
-        assert litellm.constants.CLI_JWT_EXPIRATION_HOURS == expected
+        importlib.reload(hangarllm.constants)
+        assert hangarllm.constants.CLI_JWT_EXPIRATION_HOURS == expected
     finally:
         monkeypatch.delenv("CLI_JWT_EXPIRATION_HOURS", raising=False)
-        monkeypatch.delenv("LITELLM_CLI_JWT_EXPIRATION_HOURS", raising=False)
-        importlib.reload(litellm.constants)
+        monkeypatch.delenv("HANGARLLM_CLI_JWT_EXPIRATION_HOURS", raising=False)
+        importlib.reload(hangarllm.constants)
 
 
 @pytest.mark.parametrize(
@@ -143,9 +143,9 @@ def test_mcp_sse_event_limit_uses_positive_override_or_default(raw: str | None, 
     try:
         with pytest.MonkeyPatch.context() as environment:
             if raw is None:
-                environment.delenv("LITELLM_MCP_MAX_SSE_EVENT_SIZE_BYTES", raising=False)
+                environment.delenv("HANGARLLM_MCP_MAX_SSE_EVENT_SIZE_BYTES", raising=False)
             else:
-                environment.setenv("LITELLM_MCP_MAX_SSE_EVENT_SIZE_BYTES", raw)
+                environment.setenv("HANGARLLM_MCP_MAX_SSE_EVENT_SIZE_BYTES", raw)
             importlib.reload(constants)
             assert constants.MCP_MAX_SSE_EVENT_SIZE_BYTES == expected
     finally:
@@ -160,24 +160,24 @@ def _is_blank(value: object) -> bool:
 def test_constants_import_treats_blank_env_values_as_unset(blank: str) -> None:
     """
     Regression: a numeric knob exported as a blank string (a Helm `value: ""` or an emptied .env
-    line) raised ValueError while importing litellm.constants, so the proxy crash-looped at boot.
+    line) raised ValueError while importing hangarllm.constants, so the proxy crash-looped at boot.
     Blank now means unset, so import succeeds with every env-backed constant blank, and every
     numeric or optional constant keeps the value it has with the variable absent.
     """
     constant_env_vars = _build_constant_env_var_map()
-    assert {"ROUTER_MAX_FALLBACKS", "LITELLM_MAX_STREAMING_DURATION_SECONDS"} <= constant_env_vars.keys()
+    assert {"ROUTER_MAX_FALLBACKS", "HANGARLLM_MAX_STREAMING_DURATION_SECONDS"} <= constant_env_vars.keys()
     env_vars = set(constant_env_vars.values())
     try:
         with mock.patch.dict(os.environ):
             for env_var in env_vars:
                 os.environ.pop(env_var, None)
-            importlib.reload(litellm.constants)
-            unset = {name: getattr(litellm.constants, name) for name in constant_env_vars}
+            importlib.reload(hangarllm.constants)
+            unset = {name: getattr(hangarllm.constants, name) for name in constant_env_vars}
         with mock.patch.dict(os.environ, {env_var: blank for env_var in env_vars}):
-            importlib.reload(litellm.constants)
-            with_blank_env = {name: getattr(litellm.constants, name) for name in constant_env_vars}
+            importlib.reload(hangarllm.constants)
+            with_blank_env = {name: getattr(hangarllm.constants, name) for name in constant_env_vars}
     finally:
-        importlib.reload(litellm.constants)
+        importlib.reload(hangarllm.constants)
 
     numeric_or_optional = {name for name, value in unset.items() if value is None or type(value) in (int, float)}
     changed = {
@@ -210,12 +210,12 @@ def test_request_timeout_counts_as_explicit_only_when_it_parses(
     else:
         monkeypatch.setenv("REQUEST_TIMEOUT", raw)
     try:
-        importlib.reload(litellm.constants)
-        assert litellm.constants.request_timeout == expected_timeout
-        assert litellm.constants.request_timeout_explicitly_set is expected_explicit
+        importlib.reload(hangarllm.constants)
+        assert hangarllm.constants.request_timeout == expected_timeout
+        assert hangarllm.constants.request_timeout_explicitly_set is expected_explicit
     finally:
         monkeypatch.undo()
-        importlib.reload(litellm.constants)
+        importlib.reload(hangarllm.constants)
 
 
 @pytest.fixture()
@@ -237,7 +237,7 @@ def event_loop():
 
 @pytest.fixture(scope="function")
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -247,21 +247,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -270,31 +270,31 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 
 @pytest.fixture
 def _populate_known_models_for_morph_tests(monkeypatch: pytest.MonkeyPatch) -> None:
-    for attr, value in vars(litellm).items():
+    for attr, value in vars(hangarllm).items():
         if attr.endswith("_models") and isinstance(value, set):
-            monkeypatch.setattr(litellm, attr, value.copy())
+            monkeypatch.setattr(hangarllm, attr, value.copy())
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "models_by_provider",
-        {provider: models.copy() for provider, models in litellm.models_by_provider.items()},
+        {provider: models.copy() for provider, models in hangarllm.models_by_provider.items()},
     )
-    litellm.add_known_models()
+    hangarllm.add_known_models()
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown", "_populate_known_models_for_morph_tests")
@@ -333,8 +333,8 @@ def test_morph_get_llm_provider():
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown", "_populate_known_models_for_morph_tests")
 def test_morph_in_provider_lists():
     """Test that morph is included in all necessary provider lists."""
-    import litellm
-    from litellm.constants import (
+    import hangarllm
+    from hangarllm.constants import (
         openai_compatible_endpoints,
         openai_compatible_providers,
     )
@@ -346,10 +346,10 @@ def test_morph_in_provider_lists():
     assert "https://api.morphllm.com/v1" in openai_compatible_endpoints
 
     # Check morph is in provider_list
-    assert "morph" in litellm.provider_list
+    assert "morph" in hangarllm.provider_list
 
     # Check models are in model_list after initialization
-    assert all(model in litellm.model_list for model in ["morph/morph-v3-large", "morph/morph-v3-fast"])
+    assert all(model in hangarllm.model_list for model in ["morph/morph-v3-large", "morph/morph-v3-fast"])
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown", "_populate_known_models_for_morph_tests")

@@ -2,7 +2,7 @@
 Characterization of the stateful routing strategies once traffic has gone through the core:
 least-busy follows in-flight requests, latency-based follows measured latency, and usage-based
 routing follows the tokens and requests each deployment served. The host here is a
-``TrafficHost``, which feeds the strategy loggers the way litellm's logging does around a call.
+``TrafficHost``, which feeds the strategy loggers the way hangarllm's logging does around a call.
 """
 
 import asyncio
@@ -11,7 +11,7 @@ from typing import Final
 
 import pytest
 
-import litellm
+import hangarllm
 from tests.unit.test_router.core.scripted_host import bad_request, deployment
 from tests.unit.test_router.core.selection_helpers import MESSAGES, MakeCore, TrafficHost, picked_ids
 
@@ -54,7 +54,7 @@ async def test_least_busy_releases_a_deployment_whose_request_failed(make_core: 
     await _until_called(host, 1)
     assert await picked_ids(core, "g", times=5, messages=MESSAGES) == {"b"}
     host.gates["openai/a"].set()
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await in_flight
     assert await picked_ids(core, "g", times=5, messages=MESSAGES) == {"a"}
 
@@ -135,7 +135,7 @@ async def test_usage_based_v2_rate_limits_once_every_deployment_used_its_rpm(
     await core.acompletion(model="g", messages=MESSAGES, num_retries=0)  # pyright: ignore[reportAttributeAccessIssue]
     await core.acompletion(model="g", messages=MESSAGES, num_retries=0)  # pyright: ignore[reportAttributeAccessIssue]
     assert sorted(host.deployments_called()) == ["a", "b"]
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await core.acompletion(model="g", messages=MESSAGES, num_retries=0)  # pyright: ignore[reportAttributeAccessIssue]
     assert re.search(
         r"No deployments available for selected model\. Passed model=g\. Deployments=\{'[ab]': \{'current_tpm': 10, "

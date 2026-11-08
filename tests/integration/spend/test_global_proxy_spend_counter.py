@@ -14,12 +14,12 @@ from integration._support.redis_process import owned_redis
 from pydantic import JsonValue, TypeAdapter
 from redis import Redis
 
-import litellm
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import GLOBAL_PROXY_SPEND_CACHE_KEY, LITELLM_PROXY_BUDGET_NAME
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.proxy_server import update_cache
+import hangarllm
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.constants import GLOBAL_PROXY_SPEND_CACHE_KEY, HANGARLLM_PROXY_BUDGET_NAME
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.proxy_server import update_cache
 
 BUDGET_MODEL: Final = "proxy-budget-model"
 CONFIG: Final = TypeAdapter(dict[str, JsonValue])
@@ -33,7 +33,7 @@ def _proxy_budget_config(gateway: Gateway, directory: Path, max_budget: float) -
     )
     model: Final[JsonValue] = {
         "model_name": BUDGET_MODEL,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_key": "integration-provider-key",
             "api_base": f"{gateway.upstream_url}/v1",
@@ -51,8 +51,8 @@ def _proxy_budget_config(gateway: Gateway, directory: Path, max_budget: float) -
                     **SECTION.validate_python(loaded["general_settings"]),
                     "user_api_key_cache_ttl": 600,
                 },
-                "litellm_settings": {
-                    **SECTION.validate_python(loaded["litellm_settings"]),
+                "hangarllm_settings": {
+                    **SECTION.validate_python(loaded["hangarllm_settings"]),
                     "max_budget": max_budget,
                     "budget_duration": "30d",
                 },
@@ -82,7 +82,7 @@ def _served_id(proxy: Gateway, key: str) -> str:
 def _logged_spend(proxy: Gateway, request_ids: tuple[str, ...]) -> tuple[float, ...]:
     rows: Final = eventually(
         lambda: proxy.rows(
-            'SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s::text[])',
+            'SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s::text[])',
             ("{" + ",".join(request_ids) + "}",),
         ),
         lambda found: len(found) == len(request_ids),
@@ -92,7 +92,7 @@ def _logged_spend(proxy: Gateway, request_ids: tuple[str, ...]) -> tuple[float, 
 
 
 def _proxy_budget_spend(proxy: Gateway) -> float | None:
-    rows: Final = proxy.rows('SELECT spend FROM "LiteLLM_UserTable" WHERE user_id = %s', (LITELLM_PROXY_BUDGET_NAME,))
+    rows: Final = proxy.rows('SELECT spend FROM "HangarLLM_UserTable" WHERE user_id = %s', (HANGARLLM_PROXY_BUDGET_NAME,))
     return float(str(rows[0]["spend"])) if rows else None
 
 
@@ -125,7 +125,7 @@ async def _add_request_cost(cache: UserApiKeyCache, response_cost: float) -> Non
 async def test_global_proxy_spend_adds_every_instance_cost_and_stays_cleared_after_a_budget_reset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "max_budget", 100.0)
+    monkeypatch.setattr(hangarllm, "max_budget", 100.0)
     redis_cache: Final = RedisCache(
         host=os.environ["REDIS_HOST"],
         port=int(os.environ["REDIS_PORT"]),

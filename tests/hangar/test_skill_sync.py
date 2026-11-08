@@ -12,12 +12,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import SecretStr
 
-from litellm.hangar.skill_sync.apply import ExistingSkill, SyncTarget, apply_discovery
-from litellm.hangar.skill_sync.discovery import Discovery, DiscoveryFailure, discover_skills
-from litellm.hangar.skill_sync.endpoints import valid_signature
-from litellm.hangar.skill_sync.github import GitHubClient, GitHubError, HeadCommit, NotModified, web_base
-from litellm.hangar.skill_sync.service import _statuses
-from litellm.hangar.skill_sync.types import GitConnection, GitSourceCreate, SyncIssue, SyncReport, SyncSummary
+from hangarllm.hangar.skill_sync.apply import ExistingSkill, SyncTarget, apply_discovery
+from hangarllm.hangar.skill_sync.discovery import Discovery, DiscoveryFailure, discover_skills
+from hangarllm.hangar.skill_sync.endpoints import valid_signature
+from hangarllm.hangar.skill_sync.github import GitHubClient, GitHubError, HeadCommit, NotModified, web_base
+from hangarllm.hangar.skill_sync.service import _statuses
+from hangarllm.hangar.skill_sync.types import GitConnection, GitSourceCreate, SyncIssue, SyncReport, SyncSummary
 
 ROOT = "acme-skills-0123abc"
 SHA = "a" * 40
@@ -418,13 +418,13 @@ class TestPolling:
     async def _poll(self, row, monkeypatch):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.hangar.skill_sync import service
+        from hangarllm.hangar.skill_sync import service
 
         service._etags.clear()
         run_sync = AsyncMock()
         monkeypatch.setattr(service, "run_sync", run_sync)
         prisma = MagicMock()
-        prisma.writer_db.litellm_skillgitsource.update = AsyncMock()
+        prisma.writer_db.hangarllm_skillgitsource.update = AsyncMock()
         respx.get("https://api.github.com/repos/acme/skills/commits/main").mock(return_value=httpx.Response(200, text=SHA))
         async with httpx.AsyncClient() as http:
             await service._poll_one(prisma, row, http)

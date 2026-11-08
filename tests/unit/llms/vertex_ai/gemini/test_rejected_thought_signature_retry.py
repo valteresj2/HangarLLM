@@ -7,14 +7,14 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.google_genai import agenerate_content, agenerate_content_stream, generate_content, generate_content_stream
-from litellm.litellm_core_utils.prompt_templates.factory import get_dummy_thought_signature
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.vertex_ai.gemini.rejected_thought_signature_retry import with_placeholder_thought_signatures
-from litellm.types.llms.vertex_ai import RequestBody
-from litellm.types.utils import Choices, ModelResponse, ModelResponseStream
-from litellm.utils import CustomStreamWrapper
+import hangarllm
+from hangarllm.google_genai import agenerate_content, agenerate_content_stream, generate_content, generate_content_stream
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import get_dummy_thought_signature
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.vertex_ai.gemini.rejected_thought_signature_retry import with_placeholder_thought_signatures
+from hangarllm.types.llms.vertex_ai import RequestBody
+from hangarllm.types.utils import Choices, ModelResponse, ModelResponseStream
+from hangarllm.utils import CustomStreamWrapper
 
 MODEL: Final = "gemini/gemini-3.8-flash"
 VERTEX_MINTED: Final = base64.b64encode(b"minted-by-vertex").decode()
@@ -128,9 +128,9 @@ async def _complete(
         "api_key": "unit-test-key",
     }
     response: Final = (
-        await litellm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(backend)))
+        await hangarllm.acompletion(**kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(backend)))
         if is_async
-        else litellm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(backend))))
+        else hangarllm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(backend))))
     )
     if isinstance(response, ModelResponse):
         return _text_of(response)
@@ -168,7 +168,7 @@ async def test_signature_rejected_by_the_other_backend_is_resent_once_with_the_p
 @pytest.mark.asyncio
 async def test_placeholder_rejected_too_is_raised_after_the_second_post(is_async: bool, stream: bool):
     sent: Final[list[dict[str, object]]] = []
-    with pytest.raises(litellm.BadRequestError, match="thought signature"):
+    with pytest.raises(hangarllm.BadRequestError, match="thought signature"):
         await _complete(
             HISTORY_WITH_FOREIGN_SIGNATURES,
             _replay((_rejected(AI_STUDIO_REJECTION), _rejected(AI_STUDIO_REJECTION)), sent),
@@ -183,7 +183,7 @@ async def test_placeholder_rejected_too_is_raised_after_the_second_post(is_async
 @pytest.mark.asyncio
 async def test_unrelated_400_is_raised_without_a_resend(is_async: bool, stream: bool):
     sent: Final[list[dict[str, object]]] = []
-    with pytest.raises(litellm.BadRequestError, match="Unknown name"):
+    with pytest.raises(hangarllm.BadRequestError, match="Unknown name"):
         await _complete(HISTORY_WITH_FOREIGN_SIGNATURES, _replay((_rejected(UNRELATED_REJECTION),), sent), is_async, stream)
     assert len(sent) == 1
 
@@ -195,7 +195,7 @@ async def test_signature_400_on_a_history_carrying_only_the_placeholder_is_raise
     is_async: bool, stream: bool
 ):
     sent: Final[list[dict[str, object]]] = []
-    with pytest.raises(litellm.BadRequestError, match="thought signature"):
+    with pytest.raises(hangarllm.BadRequestError, match="thought signature"):
         await _complete(HISTORY_WITHOUT_SIGNATURES, _replay((_rejected(AI_STUDIO_REJECTION),), sent), is_async, stream)
     assert len(sent) == 1
     assert set(_signatures_of(sent[0])) <= {get_dummy_thought_signature()}
@@ -462,7 +462,7 @@ async def test_native_generate_content_resends_a_rejected_signature_with_the_pla
 @pytest.mark.asyncio
 async def test_native_generate_content_raises_an_unrelated_400_without_a_resend(is_async: bool, stream: bool):
     sent: Final[list[dict[str, object]]] = []
-    with pytest.raises(litellm.BadRequestError, match="Unknown name"):
+    with pytest.raises(hangarllm.BadRequestError, match="Unknown name"):
         await _generate(
             _native_contents("thoughtSignature"), _replay((_rejected(UNRELATED_REJECTION),), sent), is_async, stream
         )

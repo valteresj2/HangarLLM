@@ -8,7 +8,7 @@ import os
 import pytest
 
 
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.patterns import (
+from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.patterns import (
     PATTERN_CATEGORIES,
     PATTERN_DESCRIPTIONS,
     PATTERN_DISPLAY_NAMES,
@@ -104,7 +104,7 @@ def test_json_file_exists():
     """
     json_path = os.path.join(
         os.path.dirname(__file__),
-        "../../../../../../litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/patterns.json",
+        "../../../../../../hangarllm/proxy/guardrails/guardrail_hooks/hangarllm_content_filter/patterns.json",
     )
 
     assert os.path.exists(json_path)
@@ -121,7 +121,7 @@ def test_json_pattern_structure():
     """
     json_path = os.path.join(
         os.path.dirname(__file__),
-        "../../../../../../litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/patterns.json",
+        "../../../../../../hangarllm/proxy/guardrails/guardrail_hooks/hangarllm_content_filter/patterns.json",
     )
 
     with open(json_path, "r") as f:

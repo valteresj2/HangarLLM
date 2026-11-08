@@ -1,5 +1,5 @@
 {
-  "_doc": "Router members and litellm.router_utils modules used outside the router. Shrink-only: see tests/code_coverage_tests/router_surface_check.py.",
+  "_doc": "Router members and hangarllm.router_utils modules used outside the router. Shrink-only: see tests/code_coverage_tests/router_surface_check.py.",
   "members_outside": [
     "a_add_message",
     "aadapter_completion",

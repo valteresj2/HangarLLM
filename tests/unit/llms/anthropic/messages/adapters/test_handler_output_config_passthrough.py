@@ -33,18 +33,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
+import hangarllm
 
 # Anchor sys.path to this file's location — not the working-directory-relative
 # pattern Greptile flagged on PR #23706. Resolves correctly regardless of
 # where pytest is invoked from.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../..")))
 
-from litellm.llms.anthropic.messages.adapters.handler import (
+from hangarllm.llms.anthropic.messages.adapters.handler import (
     ANTHROPIC_ONLY_REQUEST_KEYS,
-    LiteLLMMessagesToCompletionTransformationHandler,
+    HangarLLMMessagesToCompletionTransformationHandler,
 )
-from litellm.types.integrations.custom_logger import CONVERTED_STREAM_KEYS
+from hangarllm.types.integrations.custom_logger import CONVERTED_STREAM_KEYS
 
 MESSAGES = [{"role": "user", "content": "hello"}]
 
@@ -60,7 +60,7 @@ def _call_prepare(extra_kwargs, model="gpt-4o", output_format=None, **overrides)
     falsy-empty-dict path. The fallback ``or {}`` pattern PR #22727 used here
     masked the no-extra-kwargs case from ever exercising the test's intent.
     """
-    return LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    return HangarLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=overrides.get("max_tokens", 1024),
         messages=overrides.get("messages", MESSAGES),
         model=model,
@@ -256,7 +256,7 @@ class TestPromptCacheOptionsForwarded:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("converted_stream_key", sorted(CONVERTED_STREAM_KEYS))
 async def test_messages_layer_converted_stream_flag_still_gets_a_message_back(converted_stream_key: str):
-    response: Final = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+    response: Final = await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
         max_tokens=16,
         messages=MESSAGES,
         model="openai/gpt-4o",
@@ -283,8 +283,8 @@ _DEEPWIKI_SERVER: Final = {"type": "url", "url": "https://mcp.deepwiki.com/mcp",
 def test_mcp_servers_a_chat_route_cannot_run_answer_400_naming_each_server(
     monkeypatch: pytest.MonkeyPatch, mcp_servers: object, named: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.UnsupportedParamsError) as raised:
         _call_prepare(
             extra_kwargs={"mcp_servers": mcp_servers, "custom_llm_provider": "gemini"}, model="gemini-3.8-flash"
         )
@@ -295,15 +295,15 @@ def test_mcp_servers_a_chat_route_cannot_run_answer_400_naming_each_server(
 
 @pytest.mark.parametrize(
     ("route", "forwards"),
-    [("litellm_proxy", True), ("hosted_vllm", True), ("bedrock", False), ("vertex_ai", False)],
+    [("hangarllm_proxy", True), ("hosted_vllm", True), ("bedrock", False), ("vertex_ai", False)],
 )
 def test_mcp_servers_reach_routes_that_carry_them_and_answer_400_elsewhere(
     monkeypatch: pytest.MonkeyPatch, route: str, forwards: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     extra_kwargs: Final = {"mcp_servers": [_DEEPWIKI_SERVER], "custom_llm_provider": route}
     if not forwards:
-        with pytest.raises(litellm.UnsupportedParamsError, match=f"on {route}, so the MCP server `deepwiki`"):
+        with pytest.raises(hangarllm.UnsupportedParamsError, match=f"on {route}, so the MCP server `deepwiki`"):
             _call_prepare(extra_kwargs=extra_kwargs, model="some-model")
         return
 
@@ -328,7 +328,7 @@ _WEATHER_TOOL: Final = {
 def test_drop_params_drops_the_mcp_toolset_tools_of_dropped_mcp_servers(
     monkeypatch: pytest.MonkeyPatch, tools: list[dict[str, object]], kept_tool_names: list[str] | None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     completion_kwargs, _ = _call_prepare(
         extra_kwargs={"mcp_servers": [_DEEPWIKI_SERVER], "custom_llm_provider": "gemini"},
         model="gemini-3.8-flash",
@@ -353,7 +353,7 @@ _DROP_FORMS: Final[Mapping[str, Mapping[str, object]]] = {
 def test_drop_params_drops_mcp_servers_instead_of_forwarding_them(
     monkeypatch: pytest.MonkeyPatch, drop_params: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", drop_params == "global")
+    monkeypatch.setattr(hangarllm, "drop_params", drop_params == "global")
     completion_kwargs, _ = _call_prepare(
         extra_kwargs={
             "mcp_servers": [_DEEPWIKI_SERVER],
@@ -369,7 +369,7 @@ def test_drop_params_drops_mcp_servers_instead_of_forwarding_them(
 
 @pytest.mark.parametrize("mcp_servers", [None, []], ids=["absent", "empty"])
 def test_no_mcp_servers_needs_no_drop_params(monkeypatch: pytest.MonkeyPatch, mcp_servers: object) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     completion_kwargs, _ = _call_prepare(
         extra_kwargs={"mcp_servers": mcp_servers, "custom_llm_provider": "gemini"}, model="gemini-3.8-flash"
     )

@@ -18,31 +18,31 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import SecretStr
 
-import litellm
-from litellm.proxy.mcp_server.outbound_credentials.result import (
+import hangarllm
+from hangarllm.proxy.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy.mcp_server.outbound_credentials.token_endpoint import (
+from hangarllm.proxy.mcp_server.outbound_credentials.token_endpoint import (
     CLIENT_ASSERTION_TYPE,
     ExchangedToken,
     ExchangedTokenCache,
     TokenEndpointClient,
 )
-from litellm.proxy.mcp_server.outbound_credentials.types import (
+from hangarllm.proxy.mcp_server.outbound_credentials.types import (
     ClientSecretAuth,
     CredError,
     PrivateKeyJwtAuth,
 )
 
 _PATCH_TARGET = (
-    "litellm.proxy.mcp_server.outbound_credentials."
+    "hangarllm.proxy.mcp_server.outbound_credentials."
     "token_endpoint.get_async_httpx_client"
 )
 
 _ENDPOINT = "https://idp.example.com/oauth2/token"
-_CLIENT_ID = "litellm-client-id"
+_CLIENT_ID = "hangarllm-client-id"
 
 _RSA_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _PRIVATE_PEM = _RSA_KEY.private_bytes(
@@ -156,10 +156,10 @@ async def test_fetch_http_error_maps_to_upstream_unavailable_with_status():
     [
         httpx.ConnectError("connection refused", request=MagicMock()),
         httpx.ReadTimeout("timed out", request=MagicMock()),
-        litellm.Timeout(
+        hangarllm.Timeout(
             message="Connection timed out",
             model="default-model-name",
-            llm_provider="litellm-httpx-handler",
+            llm_provider="hangarllm-httpx-handler",
         ),
     ],
 )

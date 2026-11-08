@@ -35,7 +35,7 @@ def _config_without_periodic_reload(directory: Path) -> Path:
 
 def _stored_row(identity: str) -> dict[str, JsonValue]:
     rows: Final = read_rows(
-        'SELECT search_tool_name, litellm_params, search_tool_info FROM "LiteLLM_SearchToolsTable" '
+        'SELECT search_tool_name, hangarllm_params, search_tool_info FROM "HangarLLM_SearchToolsTable" '
         "WHERE search_tool_id = %s",
         (identity,),
     )
@@ -46,10 +46,10 @@ def _stored_row(identity: str) -> dict[str, JsonValue]:
 def _assert_stored_encrypted(identity: str, name: str, plaintext: dict[str, str]) -> None:
     row: Final = _stored_row(identity)
     assert (row["search_tool_name"], row["search_tool_info"]) == (name, _TOOL_INFO), row
-    stored: Final = row["litellm_params"]
+    stored: Final = row["hangarllm_params"]
     assert isinstance(stored, dict) and sorted(stored) == sorted(plaintext), row
     leaked: Final = {key: value for key, value in plaintext.items() if stored[key] == value or value in json.dumps(row)}
-    assert leaked == {}, f"search tool litellm_params stored in plaintext: {sorted(leaked)}"
+    assert leaked == {}, f"search tool hangarllm_params stored in plaintext: {sorted(leaked)}"
 
 
 def _masked(key: str) -> str:
@@ -78,7 +78,7 @@ def test_search_tool_create_update_delete_is_read_back_and_applied_without_resta
         original: Final = {"search_provider": "exa_ai", "api_key": _ORIGINAL_KEY, "api_base": f"{wire.url}/original"}
         created: Final = candidate.post(
             "/search_tools",
-            {"search_tool": {"search_tool_name": name, "litellm_params": original, "search_tool_info": _TOOL_INFO}},
+            {"search_tool": {"search_tool_name": name, "hangarllm_params": original, "search_tool_info": _TOOL_INFO}},
         )
         identity: Final = string_value(created["search_tool_id"])
         scenario.cleanups.callback(candidate.request, "DELETE", f"/search_tools/{identity}")
@@ -88,7 +88,7 @@ def test_search_tool_create_update_delete_is_read_back_and_applied_without_resta
             expected: Final = {
                 "search_tool_id": identity,
                 "search_tool_name": name,
-                "litellm_params": {**params, "api_key": _masked(params["api_key"])},
+                "hangarllm_params": {**params, "api_key": _masked(params["api_key"])},
                 "search_tool_info": _TOOL_INFO,
                 "is_from_config": False,
             }
@@ -123,7 +123,7 @@ def test_search_tool_create_update_delete_is_read_back_and_applied_without_resta
         updated: Final = candidate.request(
             "PUT",
             f"/search_tools/{identity}",
-            {"search_tool": {"search_tool_name": name, "litellm_params": rotated, "search_tool_info": _TOOL_INFO}},
+            {"search_tool": {"search_tool_name": name, "hangarllm_params": rotated, "search_tool_info": _TOOL_INFO}},
         )
         assert updated.status_code == 200, updated.text
         _assert_stored_encrypted(identity, name, rotated)
@@ -133,7 +133,7 @@ def test_search_tool_create_update_delete_is_read_back_and_applied_without_resta
         deleted: Final = candidate.request("DELETE", f"/search_tools/{identity}")
         assert deleted.status_code == 200, deleted.text
         assert (
-            read_rows('SELECT search_tool_id FROM "LiteLLM_SearchToolsTable" WHERE search_tool_id = %s', (identity,))
+            read_rows('SELECT search_tool_id FROM "HangarLLM_SearchToolsTable" WHERE search_tool_id = %s', (identity,))
             == []
         )
         missing: Final = candidate.request("GET", f"/search_tools/{identity}")

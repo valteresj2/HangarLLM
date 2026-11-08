@@ -45,8 +45,8 @@ _SPEC.loader.exec_module(_LOADED_VERIFIER)
 verifier: Final = cast(_VerifierModule, _LOADED_VERIFIER)
 
 _EXPECTED_TAG: Final = "cp310-abi3-linux_x86_64"
-_NATIVE_MEMBER: Final = "litellm/rust_bridge/_native.abi3.so"
-_DIST_INFO: Final = "litellm-1.100.0.dist-info"
+_NATIVE_MEMBER: Final = "hangarllm/rust_bridge/_native.abi3.so"
+_DIST_INFO: Final = "hangarllm-1.100.0.dist-info"
 
 
 def _write_wheel(
@@ -58,12 +58,12 @@ def _write_wheel(
     duplicate_wheel: bool = False,
     native_bytes: bytes = b"synthetic native extension",
 ) -> Path:
-    wheel: Final = tmp_path / f"litellm-1.100.0-{filename_tag}.whl"
+    wheel: Final = tmp_path / f"hangarllm-1.100.0-{filename_tag}.whl"
     with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(_NATIVE_MEMBER, native_bytes)
         archive.writestr(
             f"{dist_info}/METADATA",
-            "Metadata-Version: 2.1\nName: litellm\nVersion: 1.100.0\n",
+            "Metadata-Version: 2.1\nName: hangarllm\nVersion: 1.100.0\n",
         )
         archive.writestr(
             f"{dist_info}/RECORD",
@@ -108,9 +108,9 @@ def _run_verifier(
     exposes_panic: bool = False,
 ) -> int:
     native_module: Final = (
-        _NativeModuleWithPanicHook("litellm.rust_bridge._native")
+        _NativeModuleWithPanicHook("hangarllm.rust_bridge._native")
         if exposes_panic
-        else ModuleType("litellm.rust_bridge._native")
+        else ModuleType("hangarllm.rust_bridge._native")
     )
 
     def _fake_load_native_module(_: Path) -> ModuleType:
@@ -207,6 +207,6 @@ def test_vocabulary_is_packaged_once(tmp_path: Path, embedded: bool) -> None:
         native_bytes=b"native engine" + (ranks if embedded else b""),
     )
     with zipfile.ZipFile(wheel, "a") as archive:
-        archive.writestr("litellm/litellm_core_utils/tokenizers/" + "a" * 40, ranks)
+        archive.writestr("hangarllm/hangarllm_core_utils/tokenizers/" + "a" * 40, ranks)
 
     assert _run_verifier(wheel) == (1 if embedded else 0)

@@ -6,16 +6,16 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.groq.chat.transformation import (
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.groq.chat.transformation import (
     GroqChatCompletionStreamingHandler,
     GroqChatConfig,
 )
-from litellm.utils import get_optional_params
+from hangarllm.utils import get_optional_params
 
 WEB_SEARCH_MODELS = (
     "openai/gpt-oss-120b",
@@ -80,7 +80,7 @@ class TestGroqWebSearchOptions:
         assert "tools" not in optional_params
 
     def test_unsupported_model_raises_without_drop_params(self):
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             get_optional_params(
                 model="llama-3.3-70b-versatile",
                 custom_llm_provider="groq",
@@ -99,7 +99,7 @@ class TestGroqWebSearchOptions:
         assert "tools" not in optional_params
 
     def test_ignored_fields_logged_as_info(self, caplog: pytest.LogCaptureFixture):
-        with caplog.at_level(logging.INFO, logger="LiteLLM"):
+        with caplog.at_level(logging.INFO, logger="HangarLLM"):
             get_optional_params(
                 model="openai/gpt-oss-20b",
                 custom_llm_provider="groq",
@@ -115,7 +115,7 @@ class TestGroqWebSearchOptions:
         assert "enabled" in ignored_fields_records[0].message
 
     def test_empty_options_log_nothing(self, caplog: pytest.LogCaptureFixture):
-        with caplog.at_level(logging.INFO, logger="LiteLLM"):
+        with caplog.at_level(logging.INFO, logger="HangarLLM"):
             get_optional_params(
                 model="openai/gpt-oss-20b",
                 custom_llm_provider="groq",
@@ -162,7 +162,7 @@ EXECUTED_TOOLS_OPENS_ONLY = [
 ]
 
 
-def _groq_completion_with_mocked_response(response_json: dict) -> litellm.ModelResponse:
+def _groq_completion_with_mocked_response(response_json: dict) -> hangarllm.ModelResponse:
     client = HTTPHandler()
     fake_response = httpx.Response(
         status_code=200,
@@ -170,7 +170,7 @@ def _groq_completion_with_mocked_response(response_json: dict) -> litellm.ModelR
         request=httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions"),
     )
     with patch.object(client, "post", return_value=fake_response):
-        return litellm.completion(
+        return hangarllm.completion(
             model="groq/openai/gpt-oss-20b",
             messages=[{"role": "user", "content": "hi"}],
             web_search_options={"search_context_size": "high"},
@@ -204,7 +204,7 @@ class TestGroqWebSearchUsageSignal:
         assert getattr(response.usage, "server_tool_use", None) is None
 
     def test_response_without_usage_is_left_untouched(self):
-        model_response = litellm.ModelResponse()
+        model_response = hangarllm.ModelResponse()
         GroqChatConfig()._add_web_search_usage(model_response=model_response)
         assert getattr(model_response, "usage", None) is None
 
@@ -223,7 +223,7 @@ class TestGroqStructuredOutputs:
     """
     Tests for Groq structured outputs handling.
     Related issues:
-    - https://github.com/BerriAI/litellm/issues/11001
+    - upstream issue 11001
     - https://github.com/openai/openai-agents-python/issues/2140
     """
 
@@ -264,7 +264,7 @@ class TestGroqStructuredOutputs:
             ],
         }
 
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             config.map_openai_params(
                 non_default_params=non_default_params,
                 optional_params={},
@@ -358,13 +358,13 @@ class TestGroqReasoning:
     """
     Tests for Groq reasoning field mapping.
 
-    Groq returns 'reasoning' field in delta, but LiteLLM expects 'reasoning_content'.
+    Groq returns 'reasoning' field in delta, but HangarLLM expects 'reasoning_content'.
     """
 
     def test_reasoning_field_mapping_in_streaming_chunks(self):
         """
         Test that Groq's 'reasoning' field in streaming chunks is properly mapped
-        to LiteLLM's 'reasoning_content' field.
+        to HangarLLM's 'reasoning_content' field.
         """
         handler = GroqChatCompletionStreamingHandler(
             streaming_response=None, sync_stream=True
@@ -487,7 +487,7 @@ class TestGroqReasoning:
         )
 
 
-def test_tool_search_reply_sent_to_groq_drops_litellm_response_fields():
+def test_tool_search_reply_sent_to_groq_drops_hangarllm_response_fields():
     tool_search_reply = {
         "role": "assistant",
         "content": "",
@@ -510,7 +510,7 @@ def test_tool_search_reply_sent_to_groq_drops_litellm_response_fields():
             {"role": "tool", "tool_call_id": "call_1", "content": "sunny"},
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -560,7 +560,7 @@ async def test_streamed_reasoning_reply_can_be_replayed(is_async: bool, with_too
             ],
         }
     )
-    reply: Final = litellm.stream_chunk_builder([chunk]).choices[0].message
+    reply: Final = hangarllm.stream_chunk_builder([chunk]).choices[0].message
     assert reply.reasoning_content == "I should check the weather."
     history: Final = [reply.model_dump(exclude_none=True)]
     config: Final = GroqChatConfig()
@@ -601,7 +601,7 @@ def test_groq_request_drops_null_assistant_fields_without_touching_the_callers_m
     messages_before: Final = copy.deepcopy(messages)
 
     body: Final = GroqChatConfig().transform_request(
-        model="openai/gpt-oss-120b", messages=messages, optional_params={}, litellm_params={}, headers={}
+        model="openai/gpt-oss-120b", messages=messages, optional_params={}, hangarllm_params={}, headers={}
     )
 
     assert body["messages"][1] == {"role": "assistant", "content": "Hello"}

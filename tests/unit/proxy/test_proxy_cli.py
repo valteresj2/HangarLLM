@@ -29,12 +29,12 @@ import yaml
 from uvicorn.config import LOOP_FACTORIES
 from uvicorn.importer import import_from_string
 
-import litellm
-from litellm._logging import turn_on_json
-from litellm.constants import DEFAULT_MAX_REQUEST_HEADER_SIZE, GRACEFUL_SHUTDOWN_TEARDOWN_HEADROOM_SECONDS
-from litellm.proxy import proxy_cli
-from litellm.proxy.proxy_cli import ProxyInitializationHelpers, run_server
-from litellm.proxy.shutdown.graceful_shutdown_manager import DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT
+import hangarllm
+from hangarllm._logging import turn_on_json
+from hangarllm.constants import DEFAULT_MAX_REQUEST_HEADER_SIZE, GRACEFUL_SHUTDOWN_TEARDOWN_HEADROOM_SECONDS
+from hangarllm.proxy import proxy_cli
+from hangarllm.proxy.proxy_cli import ProxyInitializationHelpers, run_server
+from hangarllm.proxy.shutdown.graceful_shutdown_manager import DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +42,7 @@ def fork_reservation():
     """Reserving is irreversible: it would forbid native routes in this pytest worker for good"""
     with (
         patch(  # test-quality-ok: process-global native state, a real reservation would poison every later test in the worker
-            "litellm.rust_bridge.fork_guard.reserve_process_for_forking"
+            "hangarllm.rust_bridge.fork_guard.reserve_process_for_forking"
         ) as reserve
     ):
         yield reserve
@@ -59,7 +59,7 @@ def test_max_request_header_size_cli_precedence(
     if env_value is not None:
         monkeypatch.setenv("MAX_REQUEST_HEADER_SIZE", env_value)
     args: Final = [] if cli_value is None else ["--max_request_header_size", cli_value]
-    with run_server.make_context("litellm", args) as context:
+    with run_server.make_context("hangarllm", args) as context:
         assert context.params["max_request_header_size"] == expected
 
 
@@ -73,7 +73,7 @@ def test_max_request_header_size_rejects_invalid_values(
         monkeypatch.setenv("MAX_REQUEST_HEADER_SIZE", value)
     args: Final = ["--max_request_header_size", value] if source == "cli" else []
     with pytest.raises(click.BadParameter):
-        run_server.make_context("litellm", args)
+        run_server.make_context("hangarllm", args)
 
 
 def _request_header_test_config(server: str, limit: int | None) -> uvicorn.Config:
@@ -89,7 +89,7 @@ def _request_header_test_config(server: str, limit: int | None) -> uvicorn.Confi
     import gunicorn.config
     import gunicorn.glogging
 
-    from litellm.proxy.shutdown.graceful_uvicorn_worker import build_graceful_shutdown_uvicorn_worker
+    from hangarllm.proxy.shutdown.graceful_uvicorn_worker import build_graceful_shutdown_uvicorn_worker
 
     gunicorn_config: Final = gunicorn.config.Config()
     worker: Final = build_graceful_shutdown_uvicorn_worker(7.5, limit)(
@@ -150,10 +150,10 @@ async def test_segmented_request_headers(
 
 @pytest.mark.xdist_group("proxy_cli")
 class TestProxyInitializationHelpers:
-    @patch("litellm._version.version", "1.0.0")
+    @patch("hangarllm._version.version", "1.0.0")
     @patch("click.echo")
-    def test_echo_litellm_version(self, mock_echo):
-        ProxyInitializationHelpers._echo_litellm_version()
+    def test_echo_hangarllm_version(self, mock_echo):
+        ProxyInitializationHelpers._echo_hangarllm_version()
 
         mock_echo.assert_called_once_with("\nHangarLLM: Current Version = 1.0.0\n")
 
@@ -207,7 +207,7 @@ class TestProxyInitializationHelpers:
     def test_get_default_unvicorn_init_args(self):
         # Test without log_config
         args = ProxyInitializationHelpers._get_default_unvicorn_init_args("localhost", 8000)
-        assert args["app"] == "litellm.proxy.proxy_server:app"
+        assert args["app"] == "hangarllm.proxy.proxy_server:app"
         assert args["host"] == "localhost"
         assert args["port"] == 8000
         assert args["server_header"] is False
@@ -217,7 +217,7 @@ class TestProxyInitializationHelpers:
         assert args["log_config"] == "log_config.json"
 
         # Test with json_logs=True
-        with patch("litellm.json_logs", True):
+        with patch("hangarllm.json_logs", True):
             args = ProxyInitializationHelpers._get_default_unvicorn_init_args("localhost", 8000)
             # When json_logs is True, log_config should be set to the JSON log config dict
             assert args["log_config"] is not None
@@ -275,15 +275,15 @@ class TestProxyInitializationHelpers:
                 lg.setLevel(level)
                 lg.propagate = propagate
 
-    def test_litellm_log_error_silences_uvicorn_info_lines(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOG", "ERROR")
+    def test_hangarllm_log_error_silences_uvicorn_info_lines(self, monkeypatch):
+        monkeypatch.setenv("HANGARLLM_LOG", "ERROR")
         args = ProxyInitializationHelpers._get_default_unvicorn_init_args("localhost", 8000)
 
         assert "log_config" not in args
         assert self._uvicorn_access_info_enabled(args) is False
 
-    def test_unset_litellm_log_keeps_uvicorn_default_info_lines(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_LOG", raising=False)
+    def test_unset_hangarllm_log_keeps_uvicorn_default_info_lines(self, monkeypatch):
+        monkeypatch.delenv("HANGARLLM_LOG", raising=False)
         args = ProxyInitializationHelpers._get_default_unvicorn_init_args("localhost", 8000)
 
         assert "log_level" not in args
@@ -306,8 +306,8 @@ class TestProxyInitializationHelpers:
             def __init__(self, app=None):
                 pass
 
-        monkeypatch.setattr(litellm, "suppress_startup_output", True)
-        monkeypatch.setattr(litellm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", True)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
         with patch("uvicorn.Config", _UvicornConfigWithoutWorkerHealthcheck):
             args: Final = ProxyInitializationHelpers._get_default_unvicorn_init_args(
                 "localhost", 8000, timeout_worker_healthcheck=15
@@ -353,8 +353,8 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_hangarllm_patched_config_paths"):
+            StatReload._hangarllm_patched_config_paths.clear()
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text("model_list: []\n")
@@ -375,8 +375,8 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_hangarllm_patched_config_paths"):
+            StatReload._hangarllm_patched_config_paths.clear()
 
         env_file = tmp_path / ".env"
         env_file.write_text("FOO=bar\n")
@@ -392,8 +392,8 @@ class TestProxyInitializationHelpers:
     def test_patch_statreload_extra_paths_skips_falsy(self, tmp_path):
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_hangarllm_patched_config_paths"):
+            StatReload._hangarllm_patched_config_paths.clear()
 
         assert ProxyInitializationHelpers._patch_statreload_extra_paths([]) is False
         assert ProxyInitializationHelpers._patch_statreload_extra_paths([None, ""]) is False
@@ -403,8 +403,8 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_hangarllm_patched_config_paths"):
+            StatReload._hangarllm_patched_config_paths.clear()
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text("model_list: []\n")
@@ -426,9 +426,9 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
-        monkeypatch.delenv("LITELLM_DEV_ENV_HOT_RELOAD", raising=False)
+        if hasattr(StatReload, "_hangarllm_patched_config_paths"):
+            StatReload._hangarllm_patched_config_paths.clear()
+        monkeypatch.delenv("HANGARLLM_DEV_ENV_HOT_RELOAD", raising=False)
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text("model_list: []\n")
@@ -437,10 +437,10 @@ class TestProxyInitializationHelpers:
         monkeypatch.chdir(tmp_path)
 
         uvicorn_args: dict = {}
-        with patch("litellm._logging.verbose_proxy_logger.warning") as mock_warning:
+        with patch("hangarllm._logging.verbose_proxy_logger.warning") as mock_warning:
             ProxyInitializationHelpers._configure_dev_reload(uvicorn_args, str(config_file))
 
-        assert os.environ["LITELLM_DEV_ENV_HOT_RELOAD"] == "True"
+        assert os.environ["HANGARLLM_DEV_ENV_HOT_RELOAD"] == "True"
         assert uvicorn_args["reload"] is True
         assert ".env" in uvicorn_args["reload_includes"]
 
@@ -455,15 +455,15 @@ class TestProxyInitializationHelpers:
         assert config_file.resolve() in yielded_paths
 
     def test_dev_env_hot_reload_enabled_reads_flag(self, monkeypatch):
-        from litellm._process_defaults import _dev_env_hot_reload_enabled
+        from hangarllm._process_defaults import _dev_env_hot_reload_enabled
 
-        monkeypatch.setenv("LITELLM_DEV_ENV_HOT_RELOAD", "True")
+        monkeypatch.setenv("HANGARLLM_DEV_ENV_HOT_RELOAD", "True")
         assert _dev_env_hot_reload_enabled() is True
 
-        monkeypatch.setenv("LITELLM_DEV_ENV_HOT_RELOAD", "false")
+        monkeypatch.setenv("HANGARLLM_DEV_ENV_HOT_RELOAD", "false")
         assert _dev_env_hot_reload_enabled() is False
 
-        monkeypatch.delenv("LITELLM_DEV_ENV_HOT_RELOAD", raising=False)
+        monkeypatch.delenv("HANGARLLM_DEV_ENV_HOT_RELOAD", raising=False)
         assert _dev_env_hot_reload_enabled() is False
 
     @patch("asyncio.run")
@@ -501,7 +501,7 @@ class TestProxyInitializationHelpers:
             )
         mock_granian_cls.assert_called_once()
         call_kwargs = mock_granian_cls.call_args.kwargs
-        assert call_kwargs["target"] == "litellm.proxy.proxy_server:app"
+        assert call_kwargs["target"] == "hangarllm.proxy.proxy_server:app"
         assert call_kwargs["address"] == "0.0.0.0"
         assert call_kwargs["port"] == 4000
         assert call_kwargs["workers"] == 2
@@ -609,9 +609,9 @@ class TestProxyInitializationHelpers:
             assert ProxyInitializationHelpers._get_loop_type() == "uvloop"
 
     @pytest.mark.parametrize(("env_value", "expected"), [("asyncio", "asyncio"), ("uvloop", "uvloop"), ("", "uvloop")])
-    def test_get_loop_type_honors_litellm_event_loop_env(self, env_value: str, expected: str, monkeypatch) -> None:
+    def test_get_loop_type_honors_hangarllm_event_loop_env(self, env_value: str, expected: str, monkeypatch) -> None:
         monkeypatch.setattr("sys.platform", "linux")
-        monkeypatch.setenv("LITELLM_EVENT_LOOP", env_value)
+        monkeypatch.setenv("HANGARLLM_EVENT_LOOP", env_value)
         assert ProxyInitializationHelpers._get_loop_type() == expected
 
     def test_selected_loop_factory_imports_on_this_interpreter(self):
@@ -635,7 +635,7 @@ class TestProxyInitializationHelpers:
             # This is simulating what happens in the run_server function when database_url is None
             import urllib.parse
 
-            from litellm.proxy.proxy_cli import append_query_params
+            from hangarllm.proxy.proxy_cli import append_query_params
 
             database_host = os.environ["DATABASE_HOST"]
             database_username = os.environ["DATABASE_USERNAME"]
@@ -665,21 +665,21 @@ class TestProxyInitializationHelpers:
             assert "pool_timeout=60" in modified_url
 
     def test_append_query_params_handles_missing_url(self):
-        from litellm.proxy.proxy_cli import append_query_params
+        from hangarllm.proxy.proxy_cli import append_query_params
 
         modified_url = append_query_params(None, {"connection_limit": 10})
         assert modified_url == ""
 
     @patch("uvicorn.run")
     @patch("atexit.register")  # critical
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_skip_server_startup(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run, tmp_path: Path
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -708,13 +708,13 @@ class TestProxyInitializationHelpers:
                     # Prevent real import of proxy_server inside Click's
                     # isolation context (heavy side effects cause stream
                     # lifecycle issues with Click 8.2+)
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -743,8 +743,8 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_script_boot_imports_the_package_proxy_server(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run
     ):
@@ -760,7 +760,7 @@ class TestProxyInitializationHelpers:
             patch.dict(os.environ, clean_env, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": sibling_proxy_server, "litellm.proxy.proxy_server": package_proxy_server},
+                {"proxy_server": sibling_proxy_server, "hangarllm.proxy.proxy_server": package_proxy_server},
             ),
             patch.object(sys, "argv", ["proxy_cli.py", "--skip_server_startup"]),
             patch.object(sys, "path", list(sys.path)),
@@ -773,8 +773,8 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_limit_concurrency_passed_to_uvicorn(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run
     ):
@@ -782,7 +782,7 @@ class TestProxyInitializationHelpers:
         past the cap; omitted values stay absent and non-positive values are rejected."""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_proxy_module = MagicMock(
@@ -798,13 +798,13 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.side_effect = lambda *a, **k: {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -835,10 +835,10 @@ class TestProxyInitializationHelpers:
     @patch("atexit.register")
     @patch("subprocess.Popen")
     @patch(
-        "litellm.proxy.db.prisma_client.PrismaManager.setup_database"
+        "hangarllm.proxy.db.prisma_client.PrismaManager.setup_database"
     )  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
     @patch(  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_prometheus_metrics_port_starts_separate_metrics_process(
         self,
@@ -850,13 +850,13 @@ class TestProxyInitializationHelpers:
         mock_uvicorn_run,
         tmp_path,
     ):
-        """--prometheus_metrics_port must spawn `python -m litellm.proxy.prometheus_metrics_server` on --host
+        """--prometheus_metrics_port must spawn `python -m hangarllm.proxy.prometheus_metrics_server` on --host
         with the shared multiproc dir, wait for its /metrics response, and only then start uvicorn. It must stay off by
         default, refuse to share --port, and abort the proxy when the child dies before serving."""
         import httpx
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_popen.return_value = MagicMock(pid=4242, **{"poll.return_value": None})
@@ -864,7 +864,7 @@ class TestProxyInitializationHelpers:
 
         def child_metrics(request: httpx.Request) -> httpx.Response:
             probed_urls.append(str(request.url))
-            return httpx.Response(200, headers={"x-litellm-metrics-pid": "4242"}, content=b"")
+            return httpx.Response(200, headers={"x-hangarllm-metrics-pid": "4242"}, content=b"")
 
         mock_handle_request.side_effect = child_metrics
         mock_proxy_module = MagicMock(
@@ -883,15 +883,15 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(  # test-quality-ok: same isolation as the sibling CLI tests above
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args"
+                "hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.side_effect = lambda *a, **k: {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -903,7 +903,7 @@ class TestProxyInitializationHelpers:
             assert result.exit_code == 0, f"exit_code={result.exit_code}, output={result.output}"
             mock_popen.assert_called_once()
             spawned = list(mock_popen.call_args.args[0])
-            assert spawned[1:3] == ["-m", "litellm.proxy.prometheus_metrics_server"]
+            assert spawned[1:3] == ["-m", "hangarllm.proxy.prometheus_metrics_server"]
             assert spawned[3:] == ["--host", "127.0.0.1", "--port", "4001", "--multiproc_dir", str(tmp_path)]
             assert probed_urls == ["http://127.0.0.1:4001/metrics"]
             assert "Serving Prometheus metrics on 127.0.0.1:4001/metrics (pid 4242)" in result.output
@@ -958,8 +958,8 @@ class TestProxyInitializationHelpers:
     )
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_db_timeout_settings_are_forwarded_to_pool_timeout(
         self,
         mock_should_update,
@@ -971,7 +971,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1000,19 +1000,19 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "hangarllm.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: (
                     f"{url}?connection_limit={params['connection_limit']}&pool_timeout={params['pool_timeout']}"
                 ),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1029,13 +1029,13 @@ class TestProxyInitializationHelpers:
             assert appended_params["pool_timeout"] == expected_timeout
 
     def test_build_db_connection_url_params_defaults(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from hangarllm.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(connection_limit=10, pool_timeout=60)
         assert params == {"connection_limit": 10, "pool_timeout": 60}
 
     def test_build_db_connection_url_params_omits_none_timeouts(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from hangarllm.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1047,7 +1047,7 @@ class TestProxyInitializationHelpers:
         assert "socket_timeout" not in params
 
     def test_build_db_connection_url_params_includes_optional_timeouts(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from hangarllm.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1059,7 +1059,7 @@ class TestProxyInitializationHelpers:
         assert params["socket_timeout"] == 120
 
     def test_build_db_connection_url_params_extras_override_defaults(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from hangarllm.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1076,8 +1076,8 @@ class TestProxyInitializationHelpers:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_db_connection_extra_params_forwarded_to_url(
         self,
         mock_should_update,
@@ -1087,7 +1087,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1120,17 +1120,17 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "hangarllm.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1149,7 +1149,7 @@ class TestProxyInitializationHelpers:
             assert appended_params["statement_cache_size"] == 0
 
     def test_build_db_connection_url_params_disable_prepared_statements(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from hangarllm.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1159,7 +1159,7 @@ class TestProxyInitializationHelpers:
         assert params["pgbouncer"] == "true"
 
     def test_build_db_connection_url_params_no_pgbouncer_by_default(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from hangarllm.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1168,7 +1168,7 @@ class TestProxyInitializationHelpers:
         assert "pgbouncer" not in params
 
     def test_build_db_connection_url_params_extra_pgbouncer_overrides_flag(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from hangarllm.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1190,8 +1190,8 @@ class TestProxyInitializationHelpers:
     )
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_disable_prepared_statements_forwarded_to_url(
         self,
         mock_should_update,
@@ -1203,7 +1203,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1231,17 +1231,17 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "hangarllm.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1272,8 +1272,8 @@ class TestProxyInitializationHelpers:
     )
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_disable_prepared_statements_env_var_forwarded_to_url(
         self,
         mock_should_update,
@@ -1286,7 +1286,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1318,17 +1318,17 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "hangarllm.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1347,8 +1347,8 @@ class TestProxyInitializationHelpers:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_malformed_disable_prepared_statements_env_var_is_rejected_even_when_config_enables_it(
         self,
         mock_should_update,
@@ -1358,7 +1358,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1391,17 +1391,17 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "hangarllm.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1417,16 +1417,16 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_proxy_default_api_version_uses_azure_default(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run
     ):
-        """Proxy default api_version should match litellm.AZURE_DEFAULT_API_VERSION for consistency."""
+        """Proxy default api_version should match hangarllm.AZURE_DEFAULT_API_VERSION for consistency."""
         from click.testing import CliRunner
 
-        import litellm
-        from litellm.proxy.proxy_cli import run_server
+        import hangarllm
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_proxy_module = MagicMock(
@@ -1442,13 +1442,13 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1456,17 +1456,17 @@ class TestProxyInitializationHelpers:
             assert result.exit_code == 0, f"exit_code={result.exit_code}, output={result.output}"
             mock_proxy_module.save_worker_config.assert_called_once()
             call_kwargs = mock_proxy_module.save_worker_config.call_args[1]
-            assert call_kwargs["api_version"] == litellm.AZURE_DEFAULT_API_VERSION
+            assert call_kwargs["api_version"] == hangarllm.AZURE_DEFAULT_API_VERSION
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_keepalive_timeout_flag(self, mock_should_update, mock_setup_db, mock_print, mock_uvicorn_run):
         """Test that the keepalive_timeout flag is properly passed to uvicorn"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -1494,14 +1494,14 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers.is_port_in_use",
+                "hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.is_port_in_use",
                 return_value=False,
             ),
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
                 "timeout_keep_alive": 30,
@@ -1526,13 +1526,13 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_timeout_worker_healthcheck_flag(self, mock_should_update, mock_setup_db, mock_print, mock_uvicorn_run):
         """Test that the --timeout_worker_healthcheck flag is threaded through to the uvicorn init helper."""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -1560,14 +1560,14 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers.is_port_in_use",
+                "hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.is_port_in_use",
                 return_value=False,
             ),
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1586,12 +1586,12 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_max_requests_before_restart_flag(self, mock_setup_db, mock_print, mock_uvicorn_run):
         """Test that the max_requests_before_restart flag is passed to uvicorn as limit_max_requests"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -1618,10 +1618,10 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1637,12 +1637,12 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_max_requests_before_restart_jitter_flag(self, mock_setup_db, mock_print, mock_uvicorn_run):
         """--max_requests_before_restart_jitter maps to uvicorn limit_max_requests_jitter"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         class _NewUvicornConfig:
             def __init__(self, limit_max_requests=None, limit_max_requests_jitter=0):
@@ -1664,10 +1664,10 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1689,17 +1689,17 @@ class TestProxyInitializationHelpers:
             assert call_args[1]["limit_max_requests"] == 1000
             assert call_args[1]["limit_max_requests_jitter"] == 50
 
-    @patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.run_gunicorn_server")
+    @patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.run_gunicorn_server")
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_run_gunicorn_passes_max_requests_jitter(
         self, mock_setup_db, mock_print, mock_uvicorn_run, mock_run_gunicorn
     ):
         """--run_gunicorn threads jitter into _run_gunicorn_server, not uvicorn.run"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
@@ -1716,10 +1716,10 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1781,12 +1781,12 @@ class TestProxyInitializationHelpers:
         assert "uvicorn exits" not in warning
 
     @patch("uvicorn.run")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_single_worker_max_requests_warning_printed_on_uvicorn(self, mock_setup_db, mock_uvicorn_run):
         """uvicorn single-worker startup prints the does-not-recycle warning"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
@@ -1803,10 +1803,10 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1817,17 +1817,17 @@ class TestProxyInitializationHelpers:
             assert "--max_requests_before_restart 123 with --num_workers 1" in result.output
             assert "uvicorn exits the process" in result.output
 
-    @patch("litellm.proxy.proxy_cli.start_query_engine_reaper")
+    @patch("hangarllm.proxy.proxy_cli.start_query_engine_reaper")
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_single_worker_max_requests_no_warning_with_two_workers(
         self, mock_setup_db, mock_print, mock_uvicorn_run, mock_start_reaper
     ):
         """num_workers 2 with --max_requests_before_restart prints no warning"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
@@ -1844,10 +1844,10 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1860,16 +1860,16 @@ class TestProxyInitializationHelpers:
             assert result.exit_code == 0, f"exit_code={result.exit_code}, output={result.output}"
             assert not any("does not recycle a worker" in str(c) for c in mock_print.call_args_list)
 
-    @patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.run_gunicorn_server")
+    @patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.run_gunicorn_server")
     @patch("uvicorn.run")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_single_worker_max_requests_warning_printed_on_gunicorn(
         self, mock_setup_db, mock_uvicorn_run, mock_run_gunicorn
     ):
         """--run_gunicorn single-worker startup prints the gunicorn warning variant"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
@@ -1886,10 +1886,10 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1903,17 +1903,17 @@ class TestProxyInitializationHelpers:
             assert "--max_requests_before_restart 123 with --num_workers 1" in result.output
             assert "gunicorn accepts no connections" in result.output
 
-    @patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.init_hypercorn_server")
+    @patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.init_hypercorn_server")
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_single_worker_max_requests_no_warning_on_hypercorn(
         self, mock_setup_db, mock_print, mock_uvicorn_run, mock_init_hypercorn
     ):
         """hypercorn ignores --max_requests_before_restart, so no warning prints"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
@@ -1930,10 +1930,10 @@ class TestProxyInitializationHelpers:
                     )
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1960,7 +1960,7 @@ class TestProxyInitializationHelpers:
         with (
             patch("gunicorn.app.base.BaseApplication.run", capture_run),
             patch(  # test-quality-ok: option tests must not start a thread or change the pytest worker's child ownership
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "hangarllm.proxy.proxy_cli.start_query_engine_reaper"
             ),
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -1996,7 +1996,7 @@ class TestProxyInitializationHelpers:
         with (
             patch("gunicorn.app.base.BaseApplication.run", capture_run),
             patch(  # test-quality-ok: option tests must not start a thread or change the pytest worker's child ownership
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "hangarllm.proxy.proxy_cli.start_query_engine_reaper"
             ),
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -2037,7 +2037,7 @@ class TestProxyInitializationHelpers:
         with (
             patch("gunicorn.app.base.BaseApplication.run", capture_run),
             patch(  # test-quality-ok: option tests must not start a thread or change the pytest worker's child ownership
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "hangarllm.proxy.proxy_cli.start_query_engine_reaper"
             ),
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -2064,7 +2064,7 @@ class TestProxyInitializationHelpers:
         with (
             patch("gunicorn.app.base.BaseApplication.run", capture_run),
             patch(  # test-quality-ok: option tests must not start a thread or change the pytest worker's child ownership
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "hangarllm.proxy.proxy_cli.start_query_engine_reaper"
             ),
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -2126,7 +2126,7 @@ class TestProxyInitializationHelpers:
     @patch.dict(os.environ, {}, clear=True)
     def test_construct_database_url_from_env_vars(self):
         """Test the construct_database_url_from_env_vars function with various scenarios"""
-        from litellm.proxy.utils import construct_database_url_from_env_vars
+        from hangarllm.proxy.utils import construct_database_url_from_env_vars
 
         # Test with all required variables present
         test_env = {
@@ -2192,7 +2192,7 @@ class TestProxyInitializationHelpers:
 
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -2203,7 +2203,7 @@ class TestProxyInitializationHelpers:
 
         # Mock the ProxyConfig.get_config method to return a proper async config
         async def mock_get_config(config_file_path=None):
-            return {"general_settings": {}, "litellm_settings": {}}
+            return {"general_settings": {}, "hangarllm_settings": {}}
 
         mock_proxy_config_instance = MagicMock()
         mock_proxy_config_instance.get_config = mock_get_config
@@ -2219,7 +2219,7 @@ class TestProxyInitializationHelpers:
         # Only remove DATABASE_URL and DIRECT_URL to prevent the database setup
         # code path from running. Do NOT use clear=True as it removes PATH, HOME,
         # etc., which causes imports inside run_server to break in CI (the real
-        # litellm.proxy.proxy_server import has heavy side effects that fail
+        # hangarllm.proxy.proxy_server import has heavy side effects that fail
         # without a proper environment).
         env_overrides = {
             "DATABASE_URL": "",
@@ -2236,14 +2236,14 @@ class TestProxyInitializationHelpers:
             with (
                 patch.dict(
                     "sys.modules",
-                    {"litellm.proxy.proxy_server": mock_proxy_server_module},
+                    {"hangarllm.proxy.proxy_server": mock_proxy_server_module},
                 ),
                 patch(
-                    "litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args"
+                    "hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args"
                 ) as mock_get_args,
             ):
                 mock_get_args.return_value = {
-                    "app": "litellm.proxy.proxy_server:app",
+                    "app": "hangarllm.proxy.proxy_server:app",
                     "host": "localhost",
                     "port": 8000,
                 }
@@ -2278,7 +2278,7 @@ class TestQueryEngineReaperWiring:
     def _invoke_run_server(self, args):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
@@ -2296,11 +2296,11 @@ class TestQueryEngineReaperWiring:
                 },
             ),
             patch("uvicorn.run") as mock_uvicorn_run,
-            patch("litellm.proxy.proxy_cli.start_query_engine_reaper") as mock_start_reaper,
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.start_query_engine_reaper") as mock_start_reaper,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2325,7 +2325,7 @@ class TestQueryEngineReaperWiring:
 
         with (
             patch("gunicorn.app.base.BaseApplication.run"),
-            patch("litellm.proxy.proxy_cli.start_query_engine_reaper") as mock_start_reaper,
+            patch("hangarllm.proxy.proxy_cli.start_query_engine_reaper") as mock_start_reaper,
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
                 host="127.0.0.1",
@@ -2344,10 +2344,10 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
+    @patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema")
     def test_use_prisma_db_push_flag_behavior(
         self,
         mock_should_update_schema,
@@ -2358,7 +2358,7 @@ class TestRunServerDbSetup:
         mock_subprocess_run,
     ):
         """Test that use_prisma_db_push flag correctly controls PrismaManager.setup_database use_migrate parameter"""
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         # Mock subprocess.run to simulate prisma being available
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -2382,13 +2382,13 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2417,16 +2417,16 @@ class TestRunServerDbSetup:
 
     @patch("atexit.register")
     @patch(
-        "litellm.proxy.db.prisma_client.PrismaManager.setup_database"
+        "hangarllm.proxy.db.prisma_client.PrismaManager.setup_database"
     )  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
     @patch(
-        "litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes"
+        "hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes"
     )  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
     @patch(
-        "litellm.proxy.db.check_migration.check_prisma_schema_diff"
+        "hangarllm.proxy.db.check_migration.check_prisma_schema_diff"
     )  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema"
+        "hangarllm.proxy.db.prisma_client.should_update_prisma_schema"
     )  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
     def test_migrations_run_when_the_prisma_cli_is_not_on_path(
         self,
@@ -2438,7 +2438,7 @@ class TestRunServerDbSetup:
         tmp_path,
         capsys,
     ):
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_should_update_schema.return_value = True
         empty_bin = tmp_path / "emptybin"
@@ -2461,15 +2461,15 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(  # test-quality-ok: same isolation as the sibling CLI tests above
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args"
+                "hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2494,9 +2494,9 @@ class TestRunServerDbSetup:
         capsys,
     ):
         """A DATABASE_URL with no way to run the Prisma CLI is fatal; no DATABASE_URL needs no Prisma at all."""
-        from litellm_proxy_extras import prisma_toolchain
+        from hangarllm_proxy_extras import prisma_toolchain
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         empty_bin = tmp_path / "emptybin"
         empty_bin.mkdir()
@@ -2520,7 +2520,7 @@ class TestRunServerDbSetup:
             patch.dict(os.environ, clean_env, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": mock_proxy_module, "litellm.proxy.proxy_server": mock_proxy_module},
+                {"proxy_server": mock_proxy_module, "hangarllm.proxy.proxy_server": mock_proxy_module},
             ),
             patch.object(prisma_toolchain.importlib.util, "find_spec", side_effect=hide_prisma),
             pytest.raises(SystemExit) if exits else nullcontext() as exit_info,
@@ -2531,15 +2531,15 @@ class TestRunServerDbSetup:
         if exits:
             assert exit_info.value.code == 1
             assert "a database URL is set but the prisma CLI is neither on PATH nor importable" in out
-            assert "pip install 'litellm[extra_proxy]'" in out
+            assert "pip install 'hangarllm[extra_proxy]'" in out
             assert "\x1b[" not in out
         else:
             assert "prisma CLI" not in out
             assert "Setup complete" in out
 
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes", return_value=True)
     def test_a_pgbouncer_that_cannot_start_stops_the_cli_with_an_uncolored_error_off_a_terminal(
         self,
         mock_build_indexes,
@@ -2548,7 +2548,7 @@ class TestRunServerDbSetup:
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        from litellm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
         mock_proxy_module: Final = MagicMock(
             app=MagicMock(),
@@ -2559,19 +2559,19 @@ class TestRunServerDbSetup:
         clean_env: Final = {
             k: v
             for k, v in os.environ.items()
-            if not k.startswith(("DATABASE_URL", "DIRECT_URL", "LITELLM_PGBOUNCER_", "DISABLE_SCHEMA_UPDATE"))
+            if not k.startswith(("DATABASE_URL", "DIRECT_URL", "HANGARLLM_PGBOUNCER_", "DISABLE_SCHEMA_UPDATE"))
         }
         pgbouncer_env: Final = {
             "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "LITELLM_PGBOUNCER_ENABLED": "true",
-            "LITELLM_PGBOUNCER_BINARY": str(tmp_path / "missing-pgbouncer"),
+            "HANGARLLM_PGBOUNCER_ENABLED": "true",
+            "HANGARLLM_PGBOUNCER_BINARY": str(tmp_path / "missing-pgbouncer"),
         }
 
         with (
             patch.dict(os.environ, {**clean_env, **pgbouncer_env}, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": mock_proxy_module, "litellm.proxy.proxy_server": mock_proxy_module},
+                {"proxy_server": mock_proxy_module, "hangarllm.proxy.proxy_server": mock_proxy_module},
             ),
             pytest.raises(SystemExit) as exit_info,
         ):
@@ -2579,15 +2579,15 @@ class TestRunServerDbSetup:
 
         error: Final = capsys.readouterr().err
         assert exit_info.value.code == 1
-        assert "LITELLM_PGBOUNCER_ENABLED is set but the in-container pgbouncer could not start" in error
+        assert "HANGARLLM_PGBOUNCER_ENABLED is set but the in-container pgbouncer could not start" in error
         assert "\x1b[" not in error
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
+    @patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema")
     def test_startup_fails_when_db_setup_fails(
         self,
         mock_should_update_schema,
@@ -2598,7 +2598,7 @@ class TestRunServerDbSetup:
         mock_subprocess_run,
     ):
         """Test that proxy exits with code 1 when PrismaManager.setup_database returns False, with no opt-in flag"""
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2620,13 +2620,13 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2638,10 +2638,10 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
+    @patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema")
     def test_startup_exits_on_non_postgres_database_url(
         self,
         mock_should_update_schema,
@@ -2654,7 +2654,7 @@ class TestRunServerDbSetup:
     ):
         """A sqlite DATABASE_URL must exit immediately, before any prisma call,
         instead of stalling on a migration against the postgresql-only schema."""
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2667,7 +2667,7 @@ class TestRunServerDbSetup:
         )
 
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
-        clean_env["DATABASE_URL"] = "sqlite:///data/litellm.db"
+        clean_env["DATABASE_URL"] = "sqlite:///data/hangarllm.db"
 
         with (
             patch.dict(os.environ, clean_env, clear=True),
@@ -2675,7 +2675,7 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
         ):
@@ -2689,10 +2689,10 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
+    @patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema")
     def test_v2_migration_resolver_opts_in_via_env_var(
         self,
         mock_should_update_schema,
@@ -2705,11 +2705,11 @@ class TestRunServerDbSetup:
     ):
         """USE_V2_MIGRATION_RESOLVER=true must select the v2 resolver.
 
-        The Helm migrations Job runs `python litellm/proxy/prisma_migration.py`,
+        The Helm migrations Job runs `python hangarllm/proxy/prisma_migration.py`,
         which calls run_server with a fixed argv, so a deployment reaches the
         resolver through the env var rather than a CLI flag.
         """
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2732,7 +2732,7 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
         ):
@@ -2743,8 +2743,8 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run", return_value=MagicMock(returncode=0))
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
     def test_the_deprecated_v2_resolver_flag_warns_with_startup_output_suppressed(
         self,
         mock_build_indexes,
@@ -2754,7 +2754,7 @@ class TestRunServerDbSetup:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        from litellm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
         mock_proxy_module: Final = MagicMock(
             app=MagicMock(),
@@ -2767,8 +2767,8 @@ class TestRunServerDbSetup:
             for k, v in os.environ.items()
             if k not in ("DATABASE_URL", "DIRECT_URL", "USE_V2_MIGRATION_RESOLVER", "DISABLE_SCHEMA_UPDATE")
         }
-        monkeypatch.setattr(litellm, "suppress_startup_output", True)
-        monkeypatch.setattr(litellm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", True)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
 
         with (
             patch.dict(
@@ -2776,7 +2776,7 @@ class TestRunServerDbSetup:
             ),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": mock_proxy_module, "litellm.proxy.proxy_server": mock_proxy_module},
+                {"proxy_server": mock_proxy_module, "hangarllm.proxy.proxy_server": mock_proxy_module},
             ),
         ):
             run_server.main(["--local", "--skip_server_startup", "--use_v2_migration_resolver"], standalone_mode=False)
@@ -2795,10 +2795,10 @@ class TestRunServerDbSetup:
     )
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes", return_value=True)
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes", return_value=True)
+    @patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=True)
     def test_the_retired_enforce_prisma_migration_check_opt_in_still_parses_and_changes_nothing(
         self,
         mock_should_update_schema,
@@ -2814,7 +2814,7 @@ class TestRunServerDbSetup:
     ):
         """Deployments still pass the flag or set the env var; the flag is accepted with a
         deprecation line and the env var is ignored, and a successful setup boots either way."""
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_proxy_module = MagicMock(
@@ -2830,7 +2830,7 @@ class TestRunServerDbSetup:
             patch.dict(os.environ, {**clean_env, **environment}, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": mock_proxy_module, "litellm.proxy.proxy_server": mock_proxy_module},
+                {"proxy_server": mock_proxy_module, "hangarllm.proxy.proxy_server": mock_proxy_module},
             ),
         ):
             run_server.main(list(arguments), standalone_mode=False)
@@ -2860,7 +2860,7 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
     def test_the_retired_enforce_prisma_migration_check_opt_in_warns_without_a_database(
         self,
         mock_setup_database,
@@ -2870,7 +2870,7 @@ class TestRunServerDbSetup:
     ):
         """The deprecation line does not depend on reaching database setup: a deployment that
         passes the flag with no DATABASE_URL still learns the flag is dead."""
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_proxy_module = MagicMock(
@@ -2885,7 +2885,7 @@ class TestRunServerDbSetup:
             patch.dict(os.environ, clean_env, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": mock_proxy_module, "litellm.proxy.proxy_server": mock_proxy_module},
+                {"proxy_server": mock_proxy_module, "hangarllm.proxy.proxy_server": mock_proxy_module},
             ),
         ):
             run_server.main(
@@ -2914,21 +2914,21 @@ class TestRunServerDbSetup:
         ],
     )
     def test_resolve_v2_migration_resolver(self, use_legacy_flag, env_value, expected):
-        from litellm.proxy.proxy_cli import resolve_v2_migration_resolver
+        from hangarllm.proxy.proxy_cli import resolve_v2_migration_resolver
 
         assert resolve_v2_migration_resolver(use_legacy_flag=use_legacy_flag, env_value=env_value) is expected
 
     def test_deprecated_v2_flag_not_reported_outside_a_cli_invocation(self):
-        from litellm.proxy.proxy_cli import deprecated_v2_flag_passed_on_cli
+        from hangarllm.proxy.proxy_cli import deprecated_v2_flag_passed_on_cli
 
         assert deprecated_v2_flag_passed_on_cli() is False
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes")
+    @patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema")
     def test_legacy_resolver_flag_reaches_database_setup(
         self,
         mock_should_update_schema,
@@ -2943,7 +2943,7 @@ class TestRunServerDbSetup:
         The resolver decision itself is covered mock-free above; this is the
         one wiring check that the flag is threaded through run_server.
         """
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2967,7 +2967,7 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
         ):
@@ -2994,11 +2994,11 @@ class TestRunServerDbSetup:
     @patch("uvicorn.run")
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes", return_value=False)
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.start_request_log_index_build")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database", return_value=True)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.build_request_log_indexes", return_value=False)
+    @patch("hangarllm.proxy.db.prisma_client.PrismaManager.start_request_log_index_build")
+    @patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=True)
     def test_the_migration_job_waits_for_the_index_build_and_a_serving_proxy_starts_it_in_the_background(
         self,
         mock_should_update_schema,
@@ -3018,7 +3018,7 @@ class TestRunServerDbSetup:
         migrations and exits 1 when one could not be built. A serving proxy that ran the
         migrations starts the build in the background and serves whatever the build does; one
         whose migrations failed exits 1 and starts no build."""
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         mock_setup_database.return_value = migrated
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -3036,12 +3036,12 @@ class TestRunServerDbSetup:
             patch.dict(os.environ, clean_env, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": mock_proxy_module, "litellm.proxy.proxy_server": mock_proxy_module},
+                {"proxy_server": mock_proxy_module, "hangarllm.proxy.proxy_server": mock_proxy_module},
             ),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
             outcome as exc_info,
         ):
-            mock_get_args.return_value = {"app": "litellm.proxy.proxy_server:app", "host": "localhost", "port": 8000}
+            mock_get_args.return_value = {"app": "hangarllm.proxy.proxy_server:app", "host": "localhost", "port": 8000}
             run_server.main(list(arguments), standalone_mode=False)
 
         assert (exc_info is not None and exc_info.value.code == 1) is exits
@@ -3076,7 +3076,7 @@ def _failing_hook():
 
 
 class TestWorkerStartupHooks:
-    """Tests for the LITELLM_WORKER_STARTUP_HOOKS mechanism in proxy_startup_event."""
+    """Tests for the HANGARLLM_WORKER_STARTUP_HOOKS mechanism in proxy_startup_event."""
 
     @pytest.mark.asyncio
     async def test_should_run_worker_startup_hooks(self):
@@ -3084,10 +3084,10 @@ class TestWorkerStartupHooks:
         global _dummy_hook_called
         _dummy_hook_called = False
 
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from hangarllm.proxy.proxy_server import proxy_startup_event
 
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": "tests.unit.proxy.test_proxy_cli:_dummy_hook",
+            "HANGARLLM_WORKER_STARTUP_HOOKS": "tests.unit.proxy.test_proxy_cli:_dummy_hook",
         }
         # Remove DATABASE_URL to avoid real DB setup
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
@@ -3108,10 +3108,10 @@ class TestWorkerStartupHooks:
         global _dummy_async_hook_called
         _dummy_async_hook_called = False
 
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from hangarllm.proxy.proxy_server import proxy_startup_event
 
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": "tests.unit.proxy.test_proxy_cli:_dummy_async_hook",
+            "HANGARLLM_WORKER_STARTUP_HOOKS": "tests.unit.proxy.test_proxy_cli:_dummy_async_hook",
         }
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
         clean_env.update(env_overrides)
@@ -3128,10 +3128,10 @@ class TestWorkerStartupHooks:
     @pytest.mark.asyncio
     async def test_should_raise_on_failing_worker_startup_hook(self):
         """A failing worker startup hook propagates the error."""
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from hangarllm.proxy.proxy_server import proxy_startup_event
 
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": "tests.unit.proxy.test_proxy_cli:_failing_hook",
+            "HANGARLLM_WORKER_STARTUP_HOOKS": "tests.unit.proxy.test_proxy_cli:_failing_hook",
         }
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
         clean_env.update(env_overrides)
@@ -3142,16 +3142,16 @@ class TestWorkerStartupHooks:
                     pass
 
     def test_should_skip_when_no_hooks_set(self):
-        """When LITELLM_WORKER_STARTUP_HOOKS is not set, no hooks are executed."""
+        """When HANGARLLM_WORKER_STARTUP_HOOKS is not set, no hooks are executed."""
         global _dummy_hook_called
         _dummy_hook_called = False
 
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("LITELLM_WORKER_STARTUP_HOOKS", None)
+            os.environ.pop("HANGARLLM_WORKER_STARTUP_HOOKS", None)
             # The hook block should be skipped entirely when env var is absent
-            assert "LITELLM_WORKER_STARTUP_HOOKS" not in os.environ
+            assert "HANGARLLM_WORKER_STARTUP_HOOKS" not in os.environ
             # Verify that an empty env var value also results in no hook execution
-            assert os.environ.get("LITELLM_WORKER_STARTUP_HOOKS", "") == ""
+            assert os.environ.get("HANGARLLM_WORKER_STARTUP_HOOKS", "") == ""
 
     @pytest.mark.asyncio
     async def test_should_run_multiple_hooks(self):
@@ -3160,11 +3160,11 @@ class TestWorkerStartupHooks:
         _dummy_hook_called = False
         _dummy_async_hook_called = False
 
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from hangarllm.proxy.proxy_server import proxy_startup_event
 
         hooks = "tests.unit.proxy.test_proxy_cli:_dummy_hook,tests.unit.proxy.test_proxy_cli:_dummy_async_hook"
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": hooks,
+            "HANGARLLM_WORKER_STARTUP_HOOKS": hooks,
         }
         clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")}
         clean_env.update(env_overrides)
@@ -3241,7 +3241,7 @@ class TestPostgresStatementTimeoutOptions:
         ],
     )
     def test_pg_options_with_timeouts(self, existing, statement_timeout, lock_timeout, expected):
-        from litellm.proxy.proxy_cli import _pg_options_with_timeouts
+        from hangarllm.proxy.proxy_cli import _pg_options_with_timeouts
 
         assert _pg_options_with_timeouts(existing, statement_timeout, lock_timeout) == expected
 
@@ -3267,7 +3267,7 @@ class TestPostgresStatementTimeoutOptions:
         """A transaction that opened and then stalled holds its connection and its
         locks for as long as the client stays silent; ``idle_in_transaction_session_timeout``
         is the only server-side bound on that, so it rides the same ``options`` string."""
-        from litellm.proxy.proxy_cli import _pg_options_with_timeouts
+        from hangarllm.proxy.proxy_cli import _pg_options_with_timeouts
 
         assert _pg_options_with_timeouts(existing, 60, 15, idle_timeout) == expected
 
@@ -3395,13 +3395,13 @@ def _run_server_and_capture_urls(
             "sys.modules",
             {
                 "proxy_server": mock_proxy_module,
-                "litellm.proxy.proxy_server": mock_proxy_module,
+                "hangarllm.proxy.proxy_server": mock_proxy_module,
             },
         ),
         patch("subprocess.run", return_value=MagicMock(returncode=0)),
         patch("atexit.register"),
-        patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
-        patch("litellm.proxy.db.check_migration.check_prisma_schema_diff"),
+        patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
+        patch("hangarllm.proxy.db.check_migration.check_prisma_schema_diff"),
     ):
         run_server.main(
             ["--config", config_path, "--local", "--skip_server_startup", *extra_args],
@@ -3647,7 +3647,7 @@ class TestMaxIdleConnectionLifetimeDefault:
         assert query["max_idle_connection_lifetime"] == ["45"]
 
     def test_idle_lifetime_params_prefers_configured_value(self):
-        from litellm.proxy.db.db_url_settings import idle_lifetime_params
+        from hangarllm.proxy.db.db_url_settings import idle_lifetime_params
 
         assert dict(idle_lifetime_params(45)) == {"max_idle_connection_lifetime": 45}
         assert dict(idle_lifetime_params(None)) == {"max_idle_connection_lifetime": 60}
@@ -3659,8 +3659,8 @@ class TestTokenAuthCliFlags:
     def _invoke_with_azure_host(self, args):
         from click.testing import CliRunner
 
-        from litellm.proxy.db.token_auth import build_azure_entra_token_provider
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.db.token_auth import build_azure_entra_token_provider
+        from hangarllm.proxy.proxy_cli import run_server
 
         build_azure_entra_token_provider.cache_clear()
         clean_env = {
@@ -3676,8 +3676,8 @@ class TestTokenAuthCliFlags:
             )
         }
         clean_env["DATABASE_HOST"] = "writer.postgres.database.azure.com"
-        clean_env["DATABASE_USER"] = "litellm@contoso.onmicrosoft.com"
-        clean_env["DATABASE_NAME"] = "litellm_db"
+        clean_env["DATABASE_USER"] = "hangarllm@contoso.onmicrosoft.com"
+        clean_env["DATABASE_NAME"] = "hangarllm_db"
 
         mock_proxy_module = MagicMock(
             app=MagicMock(),
@@ -3691,20 +3691,20 @@ class TestTokenAuthCliFlags:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "hangarllm.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
+                "hangarllm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
                 return_value=lambda: "ENTRA_TOKEN",
             ),
-            patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
-            patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database"),
+            patch("hangarllm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
+            patch("hangarllm.proxy.db.prisma_client.PrismaManager.setup_database"),
             patch("uvicorn.run"),
-            patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
+            patch("hangarllm.proxy.proxy_cli.ProxyInitializationHelpers.get_default_unvicorn_init_args") as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "hangarllm.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -3782,7 +3782,7 @@ class TestValidateConfigFlag:
     def test_validate_config_valid_config_exits_zero(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("DIRECT_URL", raising=False)
@@ -3793,7 +3793,7 @@ class TestValidateConfigFlag:
                     "model_list": [
                         {
                             "model_name": "gpt-4o",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "openai/gpt-4o",
                                 "api_key": "sk-fake",
                             },
@@ -3811,7 +3811,7 @@ class TestValidateConfigFlag:
     def test_validate_config_invalid_mcp_server_exits_one(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("DIRECT_URL", raising=False)
@@ -3838,7 +3838,7 @@ class TestValidateConfigFlag:
     def test_validate_config_without_config_is_usage_error(self, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         result = CliRunner().invoke(run_server, ["--validate_config"])
 
@@ -3849,7 +3849,7 @@ class TestValidateConfigFlag:
     def test_validate_config_with_ollama_model_does_not_start_ollama(self, mock_popen, tmp_path, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from hangarllm.proxy.proxy_cli import run_server
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("DIRECT_URL", raising=False)
@@ -3860,7 +3860,7 @@ class TestValidateConfigFlag:
                     "model_list": [
                         {
                             "model_name": "gpt-4o",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "openai/gpt-4o",
                                 "api_key": "sk-fake",
                             },
@@ -3890,7 +3890,7 @@ def _boot_from_config_file(config_path: Path, *flags: str) -> str | None:
 COUNTING_SECRET_MANAGER_MODULE: Final = """
 import os
 
-from litellm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
 
 
 class CountingSecretManager(CustomSecretManager):
@@ -3915,11 +3915,11 @@ class CountingSecretManager(CustomSecretManager):
 SECRET_MANAGER_BACKED_CONFIG: Final = """
 model_list:
   - model_name: my-model
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-5.4-mini
       api_key: os.environ/MY_PROVIDER_KEY
 
-litellm_settings:
+hangarllm_settings:
   suppress_startup_output: true
 
 general_settings:
@@ -3931,7 +3931,7 @@ general_settings:
 """
 
 
-_PROBE_LOGGER: Final = "litellm-test-worker-log-config"
+_PROBE_LOGGER: Final = "hangarllm-test-worker-log-config"
 
 
 @pytest.fixture
@@ -3962,7 +3962,7 @@ def test_a_spawned_worker_applies_the_log_config_in_the_app_factory_not_in_uvico
     monkeypatch.setenv(proxy_cli.WORKER_LOG_CONFIG_ENV, "")
     log_config: Final = _log_config_source(kind, tmp_path)
     worker_args: Final = {
-        "app": "litellm.proxy.proxy_server:app",
+        "app": "hangarllm.proxy.proxy_server:app",
         "log_config": log_config,
         **ProxyInitializationHelpers.child_process_uvicorn_overrides(log_config),
     }
@@ -3973,20 +3973,20 @@ def test_a_spawned_worker_applies_the_log_config_in_the_app_factory_not_in_uvico
     assert probe_logger.level == logging.NOTSET
 
     served: Final = import_from_string(worker_args["app"])()
-    assert served is importlib.import_module("litellm.proxy.proxy_server").app
+    assert served is importlib.import_module("hangarllm.proxy.proxy_server").app
     assert probe_logger.level == logging.ERROR
 
 
 class TestJsonLogsConfigReachesSpawnedWorkers:
-    """`litellm_settings.json_logs: true` turns JSON on inside the CLI process, but the workers that
+    """`hangarllm_settings.json_logs: true` turns JSON on inside the CLI process, but the workers that
     uvicorn or granian spawn are fresh interpreters that pick plain or JSON from the JSON_LOGS
     environment variable at import. The CLI has to export it, or every worker logs plain text until
     its own load_config reaches the key. `suppress_startup_output` has the same problem with the banner
     each worker prints before its load_config."""
 
     @staticmethod
-    def _write_config(path: Path, litellm_settings: dict[str, object]) -> Path:
-        path.write_text(yaml.dump({"model_list": [], "litellm_settings": litellm_settings}))
+    def _write_config(path: Path, hangarllm_settings: dict[str, object]) -> Path:
+        path.write_text(yaml.dump({"model_list": [], "hangarllm_settings": hangarllm_settings}))
         return path
 
     @staticmethod
@@ -3997,7 +3997,7 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
         extra_env: dict[str, str] | None = None,
         proxy_config_class: object = None,
     ) -> str | None:
-        from litellm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
         mock_proxy_module: Final = MagicMock(
             app=MagicMock(),
@@ -4013,9 +4013,9 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
                 "DATABASE_URL",
                 "DIRECT_URL",
                 "JSON_LOGS",
-                "LITELLM_SUPPRESS_STARTUP_OUTPUT",
+                "HANGARLLM_SUPPRESS_STARTUP_OUTPUT",
                 "CONFIG_FILE_PATH",
-                "LITELLM_CONFIG_BUCKET_NAME",
+                "HANGARLLM_CONFIG_BUCKET_NAME",
             )
         }
         config_env: Final = {} if config_file_path_env is None else {"CONFIG_FILE_PATH": str(config_file_path_env)}
@@ -4024,10 +4024,10 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
             patch.dict(os.environ, {**clean_env, **config_env, **(extra_env or {})}, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": mock_proxy_module, "litellm.proxy.proxy_server": mock_proxy_module},
+                {"proxy_server": mock_proxy_module, "hangarllm.proxy.proxy_server": mock_proxy_module},
             ),
             patch("atexit.register"),
-            patch("litellm.turn_on_json"),  # test-quality-ok: it swaps every logger handler in this pytest worker
+            patch("hangarllm.turn_on_json"),  # test-quality-ok: it swaps every logger handler in this pytest worker
         ):
             run_server.main([*config_args, "--local", "--skip_server_startup"], standalone_mode=False)
             return os.environ.get(name)
@@ -4035,32 +4035,32 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
     def test_json_logs_true_exports_json_logs_to_spawned_workers(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
         monkeypatch.setattr(sys, "excepthook", sys.excepthook)
         config_path: Final = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"model_list": [], "litellm_settings": {"json_logs": True}}))
+        config_path.write_text(yaml.dump({"model_list": [], "hangarllm_settings": {"json_logs": True}}))
 
         assert _boot_from_config_file(config_path) == "true"
 
     def test_plain_logs_config_leaves_json_logs_unset(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
         config_path: Final = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"model_list": [], "litellm_settings": {}}))
+        config_path.write_text(yaml.dump({"model_list": [], "hangarllm_settings": {}}))
 
         assert _boot_from_config_file(config_path) is None
 
-    @pytest.mark.parametrize("litellm_settings", [[], "", 0, False])
+    @pytest.mark.parametrize("hangarllm_settings", [[], "", 0, False])
     @pytest.mark.parametrize("via_config_file_path_env", [False, True])
-    def test_an_empty_litellm_settings_still_boots(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, litellm_settings: object, via_config_file_path_env: bool
+    def test_an_empty_hangarllm_settings_still_boots(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hangarllm_settings: object, via_config_file_path_env: bool
     ) -> None:
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
         config_file: Final = tmp_path / "config.yaml"
-        config_file.write_text(yaml.dump({"model_list": [], "litellm_settings": litellm_settings}))
+        config_file.write_text(yaml.dump({"model_list": [], "hangarllm_settings": hangarllm_settings}))
         exported: Final = (
-            self._env_after_boot("LITELLM_SUPPRESS_STARTUP_OUTPUT", config_file_path_env=config_file)
+            self._env_after_boot("HANGARLLM_SUPPRESS_STARTUP_OUTPUT", config_file_path_env=config_file)
             if via_config_file_path_env
-            else self._env_after_boot("LITELLM_SUPPRESS_STARTUP_OUTPUT", config=config_file)
+            else self._env_after_boot("HANGARLLM_SUPPRESS_STARTUP_OUTPUT", config=config_file)
         )
         assert exported is None
 
@@ -4068,17 +4068,17 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
     def test_only_a_boolean_suppress_startup_output_reaches_spawned_workers(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, setting: object, exported: str | None
     ) -> None:
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
         config: Final = self._write_config(tmp_path / "config.yaml", {"suppress_startup_output": setting})
-        assert self._env_after_boot("LITELLM_SUPPRESS_STARTUP_OUTPUT", config=config) == exported
+        assert self._env_after_boot("HANGARLLM_SUPPRESS_STARTUP_OUTPUT", config=config) == exported
 
-    @pytest.mark.parametrize(("name", "exported"), [("LITELLM_SUPPRESS_STARTUP_OUTPUT", "true"), ("JSON_LOGS", None)])
+    @pytest.mark.parametrize(("name", "exported"), [("HANGARLLM_SUPPRESS_STARTUP_OUTPUT", "true"), ("JSON_LOGS", None)])
     def test_a_config_named_by_CONFIG_FILE_PATH_passes_only_suppress_startup_output_to_spawned_workers(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, exported: str | None
     ) -> None:
         """Its json_logs stays the workers' own to read, as before, so uvicorn's lines keep their plain format."""
-        monkeypatch.setattr(litellm, "json_logs", False)
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
         settings: Final[dict[str, object]] = {"json_logs": True, "suppress_startup_output": True}
         config_file: Final = self._write_config(tmp_path / "config.yaml", settings)
         assert self._env_after_boot(name, config_file_path_env=config_file) == exported
@@ -4087,11 +4087,11 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Workers load CONFIG_FILE_PATH ahead of --config, so its key quiets the CLI when both are set."""
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
         cli_config: Final = self._write_config(tmp_path / "cli.yaml", {})
         env_config: Final = self._write_config(tmp_path / "env.yaml", {"suppress_startup_output": True})
         exported: Final = self._env_after_boot(
-            "LITELLM_SUPPRESS_STARTUP_OUTPUT", config=cli_config, config_file_path_env=env_config
+            "HANGARLLM_SUPPRESS_STARTUP_OUTPUT", config=cli_config, config_file_path_env=env_config
         )
         assert exported == "true"
 
@@ -4100,7 +4100,7 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
         [
             ("config.yaml", "missing.yaml", {}),
             ("config.json", "config.json", {}),
-            ("config.yaml", "config.yaml", {"LITELLM_CONFIG_BUCKET_NAME": "litellm-configs"}),
+            ("config.yaml", "config.yaml", {"HANGARLLM_CONFIG_BUCKET_NAME": "hangarllm-configs"}),
         ],
         ids=["missing-file", "not-yaml", "bucket-config"],
     )
@@ -4114,10 +4114,10 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
     ) -> None:
         """Workers load CONFIG_FILE_PATH only when it names a YAML file and no config bucket is set, and a boot
         with any other value starts, so the CLI reads nothing from it either instead of failing the boot."""
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
         self._write_config(tmp_path / config_file, {"suppress_startup_output": True})
         exported: Final = self._env_after_boot(
-            "LITELLM_SUPPRESS_STARTUP_OUTPUT", config_file_path_env=tmp_path / env_file, extra_env=extra_env
+            "HANGARLLM_SUPPRESS_STARTUP_OUTPUT", config_file_path_env=tmp_path / env_file, extra_env=extra_env
         )
         assert exported is None
 
@@ -4126,19 +4126,19 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
     ) -> None:
         """The CLI takes only the suppress key from CONFIG_FILE_PATH, so a config backed by a secret manager is
         read from it once per worker, as before, not once more by the CLI."""
-        from litellm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
-        monkeypatch.setattr(litellm, "secret_manager_client", None)
-        monkeypatch.setattr(litellm, "_key_management_system", None)
-        monkeypatch.setattr(litellm, "_key_management_settings", litellm._key_management_settings)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "secret_manager_client", None)
+        monkeypatch.setattr(hangarllm, "_key_management_system", None)
+        monkeypatch.setattr(hangarllm, "_key_management_settings", hangarllm._key_management_settings)
         reads: Final = tmp_path / "secret_reads.log"
         (tmp_path / "counting_secret_manager.py").write_text(COUNTING_SECRET_MANAGER_MODULE)
         config_file: Final = tmp_path / "config.yaml"
         config_file.write_text(SECRET_MANAGER_BACKED_CONFIG)
 
         exported: Final = self._env_after_boot(
-            "LITELLM_SUPPRESS_STARTUP_OUTPUT",
+            "HANGARLLM_SUPPRESS_STARTUP_OUTPUT",
             config_file_path_env=config_file,
             extra_env={"SECRET_READ_LOG": str(reads)},
             proxy_config_class=ProxyConfig,
@@ -4150,15 +4150,15 @@ class TestJsonLogsConfigReachesSpawnedWorkers:
     def test_a_CONFIG_FILE_PATH_key_set_in_an_included_file_reaches_spawned_workers(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
         self._write_config(tmp_path / "quiet.yaml", {"suppress_startup_output": True})
         config_file: Final = tmp_path / "config.yaml"
         config_file.write_text(yaml.dump({"include": ["quiet.yaml"], "model_list": []}))
 
         exported: Final = self._env_after_boot(
-            "LITELLM_SUPPRESS_STARTUP_OUTPUT", config_file_path_env=config_file, proxy_config_class=ProxyConfig
+            "HANGARLLM_SUPPRESS_STARTUP_OUTPUT", config_file_path_env=config_file, proxy_config_class=ProxyConfig
         )
 
         assert exported == "true"
@@ -4176,7 +4176,7 @@ class TestEnforcePrismaMigrationCheckNoticeAroundTheConfigRead:
     def test_a_config_read_that_fails_still_prints_the_notice(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        monkeypatch.setattr(litellm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
 
         with pytest.raises(Exception, match="Config file not found"):
             _boot_from_config_file(tmp_path / "missing.yaml", self.FLAG)
@@ -4186,9 +4186,9 @@ class TestEnforcePrismaMigrationCheckNoticeAroundTheConfigRead:
     def test_a_plain_config_prints_the_notice_once(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        monkeypatch.setattr(litellm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
         config_path: Final = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"model_list": [], "litellm_settings": {}}))
+        config_path.write_text(yaml.dump({"model_list": [], "hangarllm_settings": {}}))
 
         _boot_from_config_file(config_path, self.FLAG)
 
@@ -4197,10 +4197,10 @@ class TestEnforcePrismaMigrationCheckNoticeAroundTheConfigRead:
     def test_a_config_only_json_logs_makes_the_notice_one_json_record(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        monkeypatch.setattr(litellm, "json_logs", False)
+        monkeypatch.setattr(hangarllm, "json_logs", False)
         monkeypatch.setattr(sys, "excepthook", sys.excepthook)
         config_path: Final = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"model_list": [], "litellm_settings": {"json_logs": True}}))
+        config_path.write_text(yaml.dump({"model_list": [], "hangarllm_settings": {"json_logs": True}}))
 
         _boot_from_config_file(config_path, self.FLAG)
 
@@ -4212,10 +4212,10 @@ class TestEnforcePrismaMigrationCheckNoticeAroundTheConfigRead:
     def test_a_config_only_suppress_startup_output_keeps_the_notice(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], json_logs: bool
     ) -> None:
-        monkeypatch.setattr(litellm, "json_logs", json_logs)
-        monkeypatch.setattr(litellm, "suppress_startup_output", False)
+        monkeypatch.setattr(hangarllm, "json_logs", json_logs)
+        monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
         config_path: Final = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"model_list": [], "litellm_settings": {"suppress_startup_output": True}}))
+        config_path.write_text(yaml.dump({"model_list": [], "hangarllm_settings": {"suppress_startup_output": True}}))
 
         _boot_from_config_file(config_path, self.FLAG)
 
@@ -4229,7 +4229,7 @@ def test_granian_flag_notices_are_json_records_in_json_mode(
     printed while the launcher starts; with json_logs on they are WARNING records on stdout after the INFO
     start line, not plaintext between the records."""
     pytest.importorskip("granian")
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
 
@@ -4262,7 +4262,7 @@ def test_granian_flag_notices_are_json_records_in_json_mode(
 
 
 def test_migration_data_check_exits_zero_when_there_is_nothing_to_dry_run(monkeypatch, capfd):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@db.example/litellm")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@db.example/hangarllm")
 
     assert ProxyInitializationHelpers.run_migration_data_check(use_migrate=False) == 0
 

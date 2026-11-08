@@ -51,7 +51,7 @@ def test_vector_store_search_user_context_reaches_bedrock_retrieve_body(gateway:
             {
                 "vector_store_id": knowledge_base_id,
                 "custom_llm_provider": "bedrock",
-                "litellm_params": {
+                "hangarllm_params": {
                     "aws_region_name": "us-east-1",
                     "aws_access_key_id": ACCESS_KEY,
                     "aws_secret_access_key": "synthetic-knowledge-base-secret-key",

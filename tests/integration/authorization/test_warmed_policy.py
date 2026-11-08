@@ -171,7 +171,7 @@ def test_key_block_and_unblock_reach_both_warmed_workers(gateway: Gateway, peer:
         assert blocked_info.status_code == 200, blocked_info.text
         assert _KeyInfoResponse.model_validate_json(blocked_info.content).info.blocked is True, blocked_info.text
         blocked_rows: Final = TypeAdapter(tuple[_BlockedRow, ...]).validate_python(
-            read_rows('SELECT blocked FROM "LiteLLM_VerificationToken" WHERE token=%s', (key_hash,))
+            read_rows('SELECT blocked FROM "HangarLLM_VerificationToken" WHERE token=%s', (key_hash,))
         )
         assert blocked_rows == (_BlockedRow(blocked=True),)
 
@@ -188,7 +188,7 @@ def test_key_block_and_unblock_reach_both_warmed_workers(gateway: Gateway, peer:
         assert unblocked_info.status_code == 200, unblocked_info.text
         assert _KeyInfoResponse.model_validate_json(unblocked_info.content).info.blocked is False, unblocked_info.text
         unblocked_rows: Final = TypeAdapter(tuple[_BlockedRow, ...]).validate_python(
-            read_rows('SELECT blocked FROM "LiteLLM_VerificationToken" WHERE token=%s', (key_hash,))
+            read_rows('SELECT blocked FROM "HangarLLM_VerificationToken" WHERE token=%s', (key_hash,))
         )
         assert unblocked_rows == (_BlockedRow(blocked=False),)
 
@@ -346,7 +346,7 @@ def test_generated_policy_changes_reach_both_warmed_workers(gateway: Gateway, pe
         @invariant()
         def both_workers_enforce_policy(self) -> None:
             rows: Final = read_rows(
-                'SELECT models, blocked FROM "LiteLLM_VerificationToken" WHERE token = %s',
+                'SELECT models, blocked FROM "HangarLLM_VerificationToken" WHERE token = %s',
                 (sha256(self.key.encode()).hexdigest(),),
             )
             assert rows == [{"models": [self.models[self.allowed]], "blocked": self.blocked}]
@@ -382,15 +382,15 @@ def test_scim_deactivation_blocks_null_and_false_keys_but_preserves_other_owners
         scenario.cleanups.callback(scenario.delete_key, service_key)
         with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
             connection.execute(
-                'UPDATE "LiteLLM_VerificationToken" SET blocked = NULL WHERE token = %s',
+                'UPDATE "HangarLLM_VerificationToken" SET blocked = NULL WHERE token = %s',
                 (sha256(null_key.encode()).hexdigest(),),
             )
         assert read_rows(
-            'SELECT user_id, blocked FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT user_id, blocked FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(null_key.encode()).hexdigest(),),
         ) == [{"user_id": user, "blocked": None}]
         assert read_rows(
-            'SELECT user_id FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT user_id FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(service_key.encode()).hexdigest(),),
         ) == [{"user_id": None}]
         for token in (null_key, false_key, control, service_key):
@@ -407,7 +407,7 @@ def test_scim_deactivation_blocks_null_and_false_keys_but_preserves_other_owners
             assert response.status_code == 200, response.text
             for token in (null_key, false_key):
                 rows: Final = read_rows(
-                    'SELECT blocked, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+                    'SELECT blocked, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
                     (sha256(token.encode()).hexdigest(),),
                 )
                 assert rows[0]["blocked"] is not active
@@ -500,13 +500,13 @@ def test_scim_idp_deactivation_spelling_blocks_and_restores_the_users_key(
             [],
         )
         user_rows: Final = read_rows(
-            'SELECT metadata FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT metadata FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         user_metadata: Final = object_value(user_rows[0]["metadata"])
         assert user_metadata.get("scim_active") is False and "active" not in user_metadata, user_metadata
         key_rows: Final = read_rows(
-            'SELECT blocked, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT blocked, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         )
         assert key_rows[0]["blocked"] is True, key_rows
@@ -545,14 +545,14 @@ def test_scim_idp_deactivation_spelling_blocks_and_restores_the_users_key(
             [],
         )
         reactivated_user_rows: Final = read_rows(
-            'SELECT metadata FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT metadata FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         reactivated_metadata: Final = object_value(reactivated_user_rows[0]["metadata"])
         assert reactivated_metadata.get("scim_active") is True, reactivated_user_rows
         assert "active" not in reactivated_metadata, reactivated_user_rows
         restored_key_rows: Final = read_rows(
-            'SELECT blocked, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT blocked, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         )
         assert restored_key_rows[0]["blocked"] is False, restored_key_rows
@@ -620,7 +620,7 @@ def test_scim_put_without_active_keeps_a_deactivated_user_blocked(gateway: Gatew
             deactivated_emails,
         )
         blocked_key_rows: Final = read_rows(
-            'SELECT blocked, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT blocked, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         )
         assert blocked_key_rows[0]["blocked"] is True, blocked_key_rows
@@ -661,7 +661,7 @@ def test_scim_put_without_active_keeps_a_deactivated_user_blocked(gateway: Gatew
             deactivated_emails,
         )
         still_blocked_rows: Final = read_rows(
-            'SELECT blocked, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT blocked, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         )
         assert still_blocked_rows[0]["blocked"] is True, still_blocked_rows
@@ -686,27 +686,27 @@ def _expected_scim_write_denial(route: str, user_id: str, user_role: str) -> dic
 
 
 def _delete_user_if_present(gateway: Gateway, user_id: str) -> None:
-    if read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,)):
+    if read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,)):
         response: Final = gateway.request("POST", "/user/delete", {"user_ids": [user_id]})
         assert response.status_code == 200 and response.json() == 1, response.text
-    assert read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,)) == []
+    assert read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,)) == []
 
 
 def _delete_group_if_present(gateway: Gateway, group_id: str) -> None:
-    if read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (group_id,)):
+    if read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (group_id,)):
         response: Final = gateway.request(
             "DELETE",
             f"/scim/v2/Groups/{group_id}",
             headers={"Content-Type": "application/scim+json"},
         )
         assert response.status_code == 204, response.text
-    assert read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (group_id,)) == []
+    assert read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (group_id,)) == []
 
 
 def _delete_team_if_present(gateway: Gateway, team_id: str) -> None:
-    if read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,)):
+    if read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,)):
         gateway.post("/team/delete", {"team_ids": [team_id]})
-    assert read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,)) == []
+    assert read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,)) == []
 
 
 @pytest.mark.parametrize(
@@ -737,12 +737,12 @@ def test_non_admin_keys_cannot_write_scim_users_or_groups(gateway: Gateway, team
         scenario.cleanups.callback(_delete_team_if_present, gateway, team)
         key: Final = scenario.key(user_id=caller, team_id=team if team_admin else None)
         user_before: Final = read_rows(
-            'SELECT user_role, metadata, teams FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT user_role, metadata, teams FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (caller,),
         )
         caller_role: Final = string_value(user_before[0]["user_role"])
         team_before: Final = read_rows(
-            'SELECT team_alias, members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT team_alias, members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         )
         new_user: Final = f"scim-denied-{uuid.uuid4().hex}"
@@ -826,19 +826,19 @@ def test_non_admin_keys_cannot_write_scim_users_or_groups(gateway: Gateway, team
         assert response.status_code == 401, response.text
         assert object_value(response.json()) == _expected_scim_write_denial(route, caller, caller_role), response.text
         user_after: Final = read_rows(
-            'SELECT user_role, metadata, teams FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT user_role, metadata, teams FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (caller,),
         )
         team_after: Final = read_rows(
-            'SELECT team_alias, members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT team_alias, members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         )
         new_user_rows: Final = read_rows(
-            'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (new_user,),
         )
         new_group_rows: Final = read_rows(
-            'SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (new_group,),
         )
         assert user_after == user_before, (user_after, response.text)
@@ -862,28 +862,28 @@ def test_warmed_team_role_demotion_prevents_later_management_writes(gateway: Gat
         gateway.chat(model, key=caller)
         changed: Final = gateway.request("POST", "/team/update", {"team_id": team, "tpm_limit": 5000}, key=caller)
         assert changed.status_code == 200, changed.text
-        assert read_rows('SELECT tpm_limit FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)) == [
+        assert read_rows('SELECT tpm_limit FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)) == [
             {"tpm_limit": 5000}
         ]
         unrelated_before: Final = read_rows(
-            'SELECT tpm_limit FROM "LiteLLM_TeamTable" WHERE team_id = %s', (control_team,)
+            'SELECT tpm_limit FROM "HangarLLM_TeamTable" WHERE team_id = %s', (control_team,)
         )
         unrelated: Final = gateway.request(
             "POST", "/team/update", {"team_id": control_team, "tpm_limit": 7000}, key=caller
         )
         assert unrelated.status_code == 403, unrelated.text
         assert (
-            read_rows('SELECT tpm_limit FROM "LiteLLM_TeamTable" WHERE team_id = %s', (control_team,))
+            read_rows('SELECT tpm_limit FROM "HangarLLM_TeamTable" WHERE team_id = %s', (control_team,))
             == unrelated_before
         )
         gateway.post("/team/member_update", {"team_id": team, "user_id": user, "role": "user"})
         for target in (team, control_team):
-            before: Final = read_rows('SELECT tpm_limit FROM "LiteLLM_TeamTable" WHERE team_id = %s', (target,))
+            before: Final = read_rows('SELECT tpm_limit FROM "HangarLLM_TeamTable" WHERE team_id = %s', (target,))
             denied: Final = gateway.request("POST", "/team/update", {"team_id": target, "tpm_limit": 9000}, key=caller)
             assert denied.status_code == 403, denied.text
-            after: Final = read_rows('SELECT tpm_limit FROM "LiteLLM_TeamTable" WHERE team_id = %s', (target,))
+            after: Final = read_rows('SELECT tpm_limit FROM "HangarLLM_TeamTable" WHERE team_id = %s', (target,))
             assert after == before
-        roster: Final = read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,))
+        roster: Final = read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,))
         members: Final = roster[0]["members_with_roles"]
         assert isinstance(members, list)
         assert (
@@ -895,7 +895,7 @@ def test_warmed_team_role_demotion_prevents_later_management_writes(gateway: Gat
 
 def _key_row(key: str) -> dict[str, JsonValue]:
     rows: Final = read_rows(
-        'SELECT max_budget, key_alias FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        'SELECT max_budget, key_alias FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
     assert len(rows) == 1
@@ -968,7 +968,7 @@ def test_expiry_and_explicit_clear_reach_both_warmed_workers(gateway: Gateway, p
             assert_serving(worker, model, key, 200)
         gateway.post("/key/update", {"key": key, "duration": "0s"})
         assert read_rows(
-            "SELECT expires <= timezone('UTC', now()) AS expired FROM \"LiteLLM_VerificationToken\" WHERE token = %s",
+            "SELECT expires <= timezone('UTC', now()) AS expired FROM \"HangarLLM_VerificationToken\" WHERE token = %s",
             (sha256(key.encode()).hexdigest(),),
         ) == [{"expired": True}]
         for worker in (gateway, peer):
@@ -976,7 +976,7 @@ def test_expiry_and_explicit_clear_reach_both_warmed_workers(gateway: Gateway, p
             assert_serving(worker, model, control, 200)
         gateway.post("/key/update", {"key": key, "duration": None})
         assert read_rows(
-            'SELECT expires IS NULL AS cleared FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT expires IS NULL AS cleared FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         ) == [{"cleared": True}]
         for worker in (gateway, peer):

@@ -566,7 +566,7 @@ def gemini_chat_response(
     usage: Mapping[str, JsonValue],
 ) -> Mapping[str, JsonValue]:
     return {
-        **GEMINI_3_8_FLASH_TEST_CASE.expected_litellm_response,
+        **GEMINI_3_8_FLASH_TEST_CASE.expected_hangarllm_response,
         "choices": [
             {
                 "finish_reason": "tool_calls",
@@ -596,7 +596,7 @@ def signed_tool_call(call_id: str, arguments: str, signature: str) -> Mapping[st
 
 
 THINKING_REQUEST: Final[Mapping[str, JsonValue]] = {
-    key: value for key, value in GEMINI_3_8_FLASH_TEST_CASE.litellm_request.items() if key != "reasoning_effort"
+    key: value for key, value in GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request.items() if key != "reasoning_effort"
 }
 
 GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
@@ -606,7 +606,7 @@ GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
         GEMINI_3_8_FLASH_TEST_CASE.expected_provider_request, {"thinkingLevel": "high", "includeThoughts": False}
     ),
     mock_provider_response=GEMINI_3_8_FLASH_THOUGHTS_OFF_RESPONSE,
-    expected_litellm_response=gemini_chat_response(
+    expected_hangarllm_response=gemini_chat_response(
         content=(
             "To understand how zero, negative, and non-integer quantities (such as floats or invalid types) are "
             "currently handled and where the checkout rejection is enforced, we need to inspect "
@@ -634,11 +634,11 @@ GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
 GEMINI_2_5_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_TEST_CASE,
     scenario="thoughts_off",
-    litellm_request={**GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "model": "gemini/gemini-2.5-flash"},
+    hangarllm_request={**GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "model": "gemini/gemini-2.5-flash"},
     expected_provider_endpoint="/models/gemini-2.5-flash:generateContent",
     expected_provider_request=GEMINI_2_5_FLASH_REQUEST,
     mock_provider_response=GEMINI_2_5_FLASH_THOUGHTS_OFF_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         **gemini_chat_response(
             content="I will read the `shop/validation.py` file to understand the quantity validation logic.",
             tool_call={
@@ -670,7 +670,7 @@ VERTEX_GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
         VERTEX_GEMINI_3_8_FLASH_TEST_CASE.expected_provider_request, {"thinkingLevel": "high", "includeThoughts": False}
     ),
     mock_provider_response=VERTEX_GEMINI_3_8_FLASH_THOUGHTS_OFF_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         **gemini_chat_response(
             content=(
                 "To understand how zero, negative, and non-integer quantities are handled during checkout validation, "
@@ -702,7 +702,7 @@ VERTEX_GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
 GEMINI_3_8_FLASH_THINKING_OMITTED_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_TEST_CASE,
     scenario="thinking_omitted",
-    litellm_request={
+    hangarllm_request={
         **THINKING_REQUEST,
         "thinking": {"type": "enabled", "budget_tokens": 1024, "display": "omitted"},
     },
@@ -710,7 +710,7 @@ GEMINI_3_8_FLASH_THINKING_OMITTED_TEST_CASE: Final = replace(
         GEMINI_3_8_FLASH_TEST_CASE.expected_provider_request, {"includeThoughts": False}
     ),
     mock_provider_response=GEMINI_3_8_FLASH_THINKING_OMITTED_RESPONSE,
-    expected_litellm_response=gemini_chat_response(
+    expected_hangarllm_response=gemini_chat_response(
         content=(
             "To understand how the checkout validates quantities—including zero, negative, and non-integer "
             "quantities—I need to inspect `shop/validation.py` next."
@@ -737,7 +737,7 @@ GEMINI_3_8_FLASH_THINKING_OMITTED_TEST_CASE: Final = replace(
 GEMINI_3_8_FLASH_THINKING_SHOWN_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_TEST_CASE,
     scenario="thinking_shown",
-    litellm_request={
+    hangarllm_request={
         **THINKING_REQUEST,
         "thinking": {"type": "enabled", "budget_tokens": 1024, "display": "summarized"},
     },
@@ -745,7 +745,7 @@ GEMINI_3_8_FLASH_THINKING_SHOWN_TEST_CASE: Final = replace(
         GEMINI_3_8_FLASH_TEST_CASE.expected_provider_request, {"includeThoughts": True}
     ),
     mock_provider_response=GEMINI_3_8_FLASH_THINKING_SHOWN_RESPONSE,
-    expected_litellm_response=gemini_chat_response(
+    expected_hangarllm_response=gemini_chat_response(
         content=(
             "I need to inspect `shop/validation.py` next to examine how zero, negative, and non-integer quantities "
             "are currently handled in `validate_quantity`."
@@ -772,7 +772,7 @@ GEMINI_3_8_FLASH_THINKING_SHOWN_TEST_CASE: Final = replace(
 
 
 def with_request(case: TranslationTestCase, scenario: str, **fields: JsonValue) -> TranslationTestCase:
-    return replace(case, scenario=scenario, litellm_request={**case.litellm_request, **fields})
+    return replace(case, scenario=scenario, hangarllm_request={**case.hangarllm_request, **fields})
 
 
 def with_thinking(case: TranslationTestCase, scenario: str, display: JsonValue) -> TranslationTestCase:
@@ -841,17 +841,17 @@ def without_closed_schema(tool: JsonValue) -> JsonValue:
 
 
 def cacheable_run(case: TranslationTestCase, marker: str, reply_id: str) -> TranslationTestCase:
-    messages: Final = list_value(case.litellm_request["messages"])
+    messages: Final = list_value(case.hangarllm_request["messages"])
     system: Final = object_value(messages[0])
     instruction: Final = object_value(case.expected_provider_request["system_instruction"])
     (part,) = list_value(instruction["parts"])
     text: Final = f"{string_value(system['content'])} Review run {marker}."
     return replace(
         case,
-        litellm_request={
-            **{name: value for name, value in case.litellm_request.items() if name != "cache"},
+        hangarllm_request={
+            **{name: value for name, value in case.hangarllm_request.items() if name != "cache"},
             "messages": [{**system, "content": text}, messages[1]],
-            "tools": [without_closed_schema(tool) for tool in list_value(case.litellm_request["tools"])],
+            "tools": [without_closed_schema(tool) for tool in list_value(case.hangarllm_request["tools"])],
         },
         mock_provider_response={**case.mock_provider_response, "responseId": reply_id},
         expected_provider_request={
@@ -889,9 +889,9 @@ def test_a_summary_alias_ask_and_a_plain_request_never_share_a_cached_reply(
     first_key: Final = stored_reply_key(cacheable_run(first, marker, uuid4().hex), thoughts_off, provider)
     second_key: Final = stored_reply_key(second_run, thoughts_off, provider)
     assert second_key != first_key
-    repeat: Final = thoughts_off.request("POST", second.litellm_endpoint, second_run.litellm_request)
+    repeat: Final = thoughts_off.request("POST", second.hangarllm_endpoint, second_run.hangarllm_request)
     assert repeat.status_code == 200, repeat.text
-    assert repeat.headers.get("x-litellm-cache-key") == second_key, sorted(repeat.headers)
+    assert repeat.headers.get("x-hangarllm-cache-key") == second_key, sorted(repeat.headers)
     assert provider.received() == ()
 
 
@@ -938,7 +938,7 @@ def test_a_streamed_turn_keeps_thinking_and_billing_reasoning_without_thought_te
     response: Final = thoughts_off.request(
         "POST",
         "/v1/chat/completions",
-        {**GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "stream": True, "stream_options": {"include_usage": True}},
+        {**GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "stream": True, "stream_options": {"include_usage": True}},
     )
     assert_provider_request(
         provider.received(),
@@ -984,32 +984,32 @@ def test_a_flag_written_as_text_or_left_null_still_sends_gemini_a_boolean(
 BURST_ASKS: Final[tuple[tuple[str, Mapping[str, JsonValue], Mapping[str, JsonValue]], ...]] = (
     (
         "/v1/chat/completions",
-        {**GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "reasoning_effort": {"effort": "low", "summary": "auto"}},
+        {**GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "reasoning_effort": {"effort": "low", "summary": "auto"}},
         {"thinkingLevel": "low", "includeThoughts": True},
     ),
     (
         "/v1/chat/completions",
-        GEMINI_3_8_FLASH_TEST_CASE.litellm_request,
+        GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request,
         {"thinkingLevel": "high", "includeThoughts": False},
     ),
     (
         "/v1/messages",
-        MESSAGES_GEMINI_3_8_FLASH_TEST_CASE.litellm_request,
+        MESSAGES_GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request,
         {"thinkingLevel": "high", "includeThoughts": True},
     ),
     (
         "/v1/messages",
-        {**MESSAGES_GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "thinking": {"type": "adaptive"}},
+        {**MESSAGES_GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "thinking": {"type": "adaptive"}},
         {"thinkingLevel": "high", "includeThoughts": False},
     ),
     (
         "/v1/responses",
-        {**RESPONSES_GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "reasoning": {"effort": "high", "summary": "auto"}},
+        {**RESPONSES_GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "reasoning": {"effort": "high", "summary": "auto"}},
         {"thinkingLevel": "high", "includeThoughts": True},
     ),
     (
         "/v1/responses",
-        RESPONSES_GEMINI_3_8_FLASH_TEST_CASE.litellm_request,
+        RESPONSES_GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request,
         {"thinkingLevel": "high", "includeThoughts": False},
     ),
 )

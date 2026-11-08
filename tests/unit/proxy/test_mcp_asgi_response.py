@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 from starlette.types import Message, Receive, Scope, Send
 
-from litellm.proxy.proxy_server import _stream_mcp_asgi_response
+from hangarllm.proxy.proxy_server import _stream_mcp_asgi_response
 
 
 @pytest.mark.asyncio

@@ -351,7 +351,7 @@ def _stored_first_turn(proxy: Gateway, model: str, marker: str) -> str:
     _answered(first, marker)
     response_id: Final = str(_JSON_OBJECT.validate_json(first.text)["id"])
     eventually(
-        lambda: proxy.rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: proxy.rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda rows: any(rv.same_response(str(row["request_id"]), response_id) for row in rows),
         seconds=70,
     )

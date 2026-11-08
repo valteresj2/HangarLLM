@@ -1,11 +1,11 @@
 """Shared helpers for ``test_gaps_l11100*.py``: strategy-router marker deployments and a host whose
 callback registration can also remove a callback from every list (what the adaptive router's hook
-sync asks of litellm's ``LoggingCallbackManager``)."""
+sync asks of hangarllm's ``LoggingCallbackManager``)."""
 
 from collections.abc import Callable, Mapping
 from typing import Final
 
-from litellm.router_core import RouterCore
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.scripted_host import HostCallbacks, ScriptedHost
 
 MakeCore = Callable[..., RouterCore]
@@ -14,7 +14,7 @@ TIERS: Final = {"SIMPLE": "small", "MEDIUM": "big", "COMPLEX": "big", "REASONING
 
 
 class RemovingHostCallbacks(HostCallbacks):
-    """``HostCallbacks`` plus ``remove_callback_from_all_lists``, as litellm's callback manager has it."""
+    """``HostCallbacks`` plus ``remove_callback_from_all_lists``, as hangarllm's callback manager has it."""
 
     def __init__(self, host: "RemovingHost") -> None:
         super().__init__(host)
@@ -41,12 +41,12 @@ def complexity_marker(
     deployment_id: str = "marker",
     *,
     config: Mapping[str, object] | None = None,
-    **params: object,  # kwargs-ok: extra marker litellm_params
+    **params: object,  # kwargs-ok: extra marker hangarllm_params
 ) -> dict[str, object]:  # mutable-ok: a model_list entry
     """An ``auto_router/complexity_router`` marker with the shipped tiers and default model ``big``."""
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": dict(config) if config is not None else {"tiers": dict(TIERS)},
             "complexity_router_default_model": "big",
@@ -58,11 +58,11 @@ def complexity_marker(
 
 def adaptive_marker(
     name: str, deployment_id: str, available_models: list[str], **params: object
-) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: extra marker litellm_params
+) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: extra marker hangarllm_params
     """An ``auto_router/adaptive_router`` marker over ``available_models``."""
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/adaptive_router",
             "adaptive_router_config": {"available_models": available_models},
             **params,
@@ -73,9 +73,9 @@ def adaptive_marker(
 
 def marker(
     name: str, deployment_id: str, model: str, **params: object
-) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: marker litellm_params
-    """Any strategy-router marker: ``model`` is its ``auto_router/...`` litellm model."""
-    return {"model_name": name, "litellm_params": {"model": model, **params}, "model_info": {"id": deployment_id}}
+) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: marker hangarllm_params
+    """Any strategy-router marker: ``model`` is its ``auto_router/...`` hangarllm model."""
+    return {"model_name": name, "hangarllm_params": {"model": model, **params}, "model_info": {"id": deployment_id}}
 
 
 def registered_tags(core: RouterCore, kind: str) -> dict[str, list[tuple[str, ...]]]:  # mutable-ok: a fresh dict

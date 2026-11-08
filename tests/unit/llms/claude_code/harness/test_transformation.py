@@ -1,7 +1,7 @@
 """Unit tests for the Claude Code harness config. No network, no real CLI.
 
 Fixtures under fixtures/ are sanitized stream-json recorded from Claude Code
-2.1.285 through a LiteLLM gateway.
+2.1.285 through a HangarLLM gateway.
 """
 
 from __future__ import annotations
@@ -16,16 +16,16 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from litellm.harness.context import SessionContext
-from litellm.harness.errors import (
+from hangarllm.harness.context import SessionContext
+from hangarllm.harness.errors import (
     HarnessError,
     HarnessInstallFailed,
     OptionsMismatch,
 )
-from litellm.harness.handlers.cli_handler import CLIHarnessHandler
-from litellm.harness.options import ClaudeCodeOptions, CodexOptions
-from litellm.harness.sandbox.base import CompletedRun
-from litellm.harness.types import (
+from hangarllm.harness.handlers.cli_handler import CLIHarnessHandler
+from hangarllm.harness.options import ClaudeCodeOptions, CodexOptions
+from hangarllm.harness.sandbox.base import CompletedRun
+from hangarllm.harness.types import (
     Compaction,
     Harness,
     Reasoning,
@@ -33,16 +33,16 @@ from litellm.harness.types import (
     ToolCall,
     ToolResult,
 )
-from litellm.llms.base_llm.harness.transformation import (
+from hangarllm.llms.base_llm.harness.transformation import (
     HarnessTurnError,
     HarnessTurnRequest,
 )
-from litellm.llms.base_llm.harness.utils import (
+from hangarllm.llms.base_llm.harness.utils import (
     decode_json_line,
     last_json_object,
     native_tool_names,
 )
-from litellm.llms.claude_code.harness.transformation import (
+from hangarllm.llms.claude_code.harness.transformation import (
     MANAGED_CONFIG_KEYS,
     MANAGED_ENV_KEYS,
     NORMALIZED_TO_NATIVE,

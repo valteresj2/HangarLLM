@@ -1,6 +1,6 @@
 """Tests for MCP header alias sanitization and auth header lookup."""
 
-from litellm.proxy.mcp_server.utils import (
+from hangarllm.proxy.mcp_server.utils import (
     lookup_mcp_server_auth_in_headers,
     sanitize_mcp_alias_for_header,
 )

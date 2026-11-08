@@ -61,7 +61,7 @@ def test_otel_weave_output_keeps_text_completion_provider_fields_beside_the_synt
 
     with wire_server(upstream) as provider, wire_server(sink) as collector:
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"].update({"callbacks": ["otel"]})
+        config["hangarllm_settings"].update({"callbacks": ["otel"]})
         config["callback_settings"] = {
             "otel": {
                 "exporter": "http/json",
@@ -74,7 +74,7 @@ def test_otel_weave_output_keeps_text_completion_provider_fields_beside_the_synt
         path: Final = tmp_path / "otel.yaml"
         path.write_text(yaml.safe_dump(config))
         with (
-            owned_proxy(gateway, tmp_path, {"LITELLM_OTEL_V2": "1"}, config=path) as candidate,
+            owned_proxy(gateway, tmp_path, {"HANGARLLM_OTEL_V2": "1"}, config=path) as candidate,
             candidate.scenario() as scenario,
         ):
             model: Final = scenario.model(model="openai/gpt-3.5-turbo-instruct", api_base=provider.url + "/v1")

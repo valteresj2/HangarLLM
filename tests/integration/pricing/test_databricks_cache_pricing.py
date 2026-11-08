@@ -66,13 +66,13 @@ def test_databricks_cached_prompt_tokens_bill_at_cache_rates_not_input_rate(gate
             + CACHE_READ_TOKENS * CACHE_READ_RATE
         )
         expected_completion_cost: Final = COMPLETION_TOKENS * OUTPUT_RATE
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(
             expected_prompt_cost + expected_completion_cost, rel=1e-6
         ), response.text
         request_id: Final = string_value(object_value(response.json())["id"])
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+                'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
                 "WHERE request_id = %s",
                 (request_id,),
             ),

@@ -5,26 +5,26 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.fal_ai_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.fal_ai_passthrough_logging_handler import (
     FalAIPassthroughLoggingHandler,
 )
-from litellm.types.utils import ImageResponse
+from hangarllm.types.utils import ImageResponse
 
 pytestmark: Final = pytest.mark.usefixtures("local_model_cost_map")
 
 UPSTREAM_URL: Final = "https://queue.fal.run/fal-ai/trellis-2"
 
 
-def _logging_obj(call_id: str = "call-fal") -> LiteLLMLoggingObj:
-    return LiteLLMLoggingObj(
+def _logging_obj(call_id: str = "call-fal") -> HangarLLMLoggingObj:
+    return HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "passthrough"}],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
         function_id="passthrough",
     )
 
@@ -42,14 +42,14 @@ def test_handler_extracts_model_urls_and_resolution_keyed_cost():
         "timings": {"inference": 1.2},
     }
     logging_obj: Final = _logging_obj()
-    expected_cost: Final = litellm.model_cost["fal_ai/fal-ai/trellis-2"]["output_cost_per_image_1536"]
+    expected_cost: Final = hangarllm.model_cost["fal_ai/fal-ai/trellis-2"]["output_cost_per_image_1536"]
 
     handler_result = FalAIPassthroughLoggingHandler().fal_ai_passthrough_handler(
         response_body=upstream_body,
         request_body={"image_url": "https://example.com/in.png", "resolution": 1536},
         logging_obj=logging_obj,
         url_route=UPSTREAM_URL,
-        kwargs={"litellm_params": {"metadata": {}}},
+        kwargs={"hangarllm_params": {"metadata": {}}},
     )
 
     result = handler_result["result"]
@@ -62,7 +62,7 @@ def test_handler_extracts_model_urls_and_resolution_keyed_cost():
     assert handler_result["kwargs"]["model"] == "fal-ai/trellis-2"
     assert handler_result["kwargs"]["custom_llm_provider"] == "fal_ai"
     assert handler_result["kwargs"]["response_cost"] == pytest.approx(expected_cost)
-    assert handler_result["kwargs"]["litellm_params"] == {"metadata": {}}
+    assert handler_result["kwargs"]["hangarllm_params"] == {"metadata": {}}
     assert logging_obj.model == "fal-ai/trellis-2"
     assert logging_obj.model_call_details["model"] == "fal-ai/trellis-2"
     assert logging_obj.model_call_details["custom_llm_provider"] == "fal_ai"
@@ -97,7 +97,7 @@ def test_handler_charges_for_queue_submit():
     )
     assert handler_result["kwargs"]["model"] == "fal-ai/trellis-2"
     assert handler_result["kwargs"]["response_cost"] == pytest.approx(
-        litellm.model_cost["fal_ai/fal-ai/trellis-2"]["output_cost_per_image_1536"]
+        hangarllm.model_cost["fal_ai/fal-ai/trellis-2"]["output_cost_per_image_1536"]
     )
 
 
@@ -113,7 +113,7 @@ def test_handler_strips_queue_base_path_prefix(monkeypatch: pytest.MonkeyPatch):
 
     assert handler_result["kwargs"]["model"] == "fal-ai/trellis-2"
     assert handler_result["kwargs"]["response_cost"] == pytest.approx(
-        litellm.model_cost["fal_ai/fal-ai/trellis-2"]["output_cost_per_image_1536"]
+        hangarllm.model_cost["fal_ai/fal-ai/trellis-2"]["output_cost_per_image_1536"]
     )
 
 

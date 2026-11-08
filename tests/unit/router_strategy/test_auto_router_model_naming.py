@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.router_strategy.auto_router.auto_router_model_naming import (
+from hangarllm.router_strategy.auto_router.auto_router_model_naming import (
     GATED_AUTO_ROUTER_CAPABILITIES,
     capability_limit_violation,
     carries_complexity_router_settings,
@@ -16,8 +16,8 @@ from litellm.router_strategy.auto_router.auto_router_model_naming import (
     validate_complexity_router_config_write,
     validate_strategy_router_model_write,
 )
-from litellm.router_strategy.complexity_router.fuse_presets import get_fuse_presets
-from litellm.router_strategy.complexity_router.jev_classifier import DEFAULT_JEV_INSTRUCTIONS
+from hangarllm.router_strategy.complexity_router.fuse_presets import get_fuse_presets
+from hangarllm.router_strategy.complexity_router.jev_classifier import DEFAULT_JEV_INSTRUCTIONS
 
 COMPLEXITY_FIELDS = frozenset({"complexity_router_config"})
 SEMANTIC_FIELDS = frozenset({"auto_router_config", "auto_router_default_model", "auto_router_embedding_model"})
@@ -311,7 +311,7 @@ def test_config_check_ignores_the_model_entirely():
 
 
 @pytest.mark.parametrize(
-    "litellm_params, expected",
+    "hangarllm_params, expected",
     [
         ({"model": "openai/gpt-4o"}, ()),
         (
@@ -376,13 +376,13 @@ def test_config_check_ignores_the_model_entirely():
         ),
     ],
 )
-def test_strategy_router_dependencies(litellm_params, expected):
-    found = strategy_router_dependencies(litellm_params)
+def test_strategy_router_dependencies(hangarllm_params, expected):
+    found = strategy_router_dependencies(hangarllm_params)
     assert tuple((d.model_name, d.role) for d in found) == expected
 
 
 def test_complexity_default_model_param_wins_over_the_config_field():
-    """ComplexityRouter overwrites config.default_model with the litellm_params one, so the
+    """ComplexityRouter overwrites config.default_model with the hangarllm_params one, so the
     config field is dead whenever the param is set and must not be able to red the router."""
     found = strategy_router_dependencies(
         {
@@ -492,7 +492,7 @@ def test_placement_accepts_the_documented_nesting():
 def test_placement_guards_every_setting_the_config_owns():
     """Derived from the model rather than listed here, so a field added to ComplexityRouterConfig
     later is covered without editing this gate. Pinned so a rename cannot silently shrink it."""
-    from litellm.router_strategy.complexity_router.config import (
+    from hangarllm.router_strategy.complexity_router.config import (
         COMPLEXITY_ROUTER_CONFIG_KEYS,
         ComplexityRouterConfig,
     )
@@ -596,13 +596,13 @@ def test_custom_classifier_prompt_capability(config: Mapping[str, object], expec
     ],
 )
 def test_is_complexity_router_model(model: str | None, expected: bool) -> None:
-    from litellm.router_strategy.auto_router.auto_router_model_naming import is_complexity_router_model
+    from hangarllm.router_strategy.auto_router.auto_router_model_naming import is_complexity_router_model
 
     assert is_complexity_router_model(model) is expected
 
 
 @pytest.mark.parametrize(
-    "litellm_params,expected_key",
+    "hangarllm_params,expected_key",
     [
         ({"model": "auto_router/complexity_router", "complexity_router_config": _CAPABILITY_CONFIG}, "capability"),
         ({"model": "auto_router/complexity_router-eu", "complexity_router_config": _FUSE_CONFIG}, "llm_v2"),
@@ -640,12 +640,12 @@ def test_is_complexity_router_model(model: str | None, expected: bool) -> None:
         ({}, None),
     ],
 )
-def test_gated_capabilities_of(litellm_params: Mapping[str, object], expected_key: str | None) -> None:
+def test_gated_capabilities_of(hangarllm_params: Mapping[str, object], expected_key: str | None) -> None:
     """Only a complexity router claiming a licensed capability counts toward that capability's limit.
 
     Renaming the built-in tiers through tier_labels is not a custom tier set, so it stays ungated.
     """
-    capabilities: Final = gated_capabilities_of(litellm_params)
+    capabilities: Final = gated_capabilities_of(hangarllm_params)
     assert tuple(capability.key for capability in capabilities) == (() if expected_key is None else (expected_key,))
 
 
@@ -658,7 +658,7 @@ def test_count_capability_routers_counts_only_its_own_capability(capability) -> 
         params = {"model": "auto_router/complexity_router"} | (
             {} if config is None else {"complexity_router_config": config}
         )
-        return {"model_name": name, "litellm_params": params}
+        return {"model_name": name, "hangarllm_params": params}
 
     by_key = {
         "heuristic_v2": (_HV2_CONFIG, _HV2_CONFIG),
@@ -671,10 +671,10 @@ def test_count_capability_routers_counts_only_its_own_capability(capability) -> 
     rows: list[Mapping[str, object]] = [
         row("a", mine_first),
         row("b", theirs),
-        {"model_name": "c", "litellm_params": {"model": "openai/gpt-4o"}},
+        {"model_name": "c", "hangarllm_params": {"model": "openai/gpt-4o"}},
         row("d", mine_second),
         {"model_name": "e"},
-        {"model_name": "f", "litellm_params": "not a mapping"},
+        {"model_name": "f", "hangarllm_params": "not a mapping"},
     ]
     assert count_capability_routers(rows, capability=capability) == 2
     assert count_capability_routers((), capability=capability) == 0
@@ -752,7 +752,7 @@ def test_chained_heuristic_and_judge_prompt_claim_each_active_capability(
     assert tuple(capability.key for capability in claimed_capabilities(config)) == expected
     assert tuple(capability.key for capability in gated_capabilities_of(params)) == expected
     for capability in GATED_AUTO_ROUTER_CAPABILITIES:
-        assert count_capability_routers(({"litellm_params": params},), capability=capability) == (
+        assert count_capability_routers(({"hangarllm_params": params},), capability=capability) == (
             1 if capability.key in expected else 0
         )
 

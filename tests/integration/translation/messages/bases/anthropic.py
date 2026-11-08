@@ -9,8 +9,8 @@ from pydantic import JsonValue
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "anthropic/claude-sonnet-4-6",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -52,7 +52,7 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "anthropic/claude-sonnet-4-6",
         "id": "msg_011Cg7v1w1xZexMrWpf5GU75",
         "type": "message",
@@ -78,8 +78,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "anthropic/claude-haiku-4-5",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -121,7 +121,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "anthropic/claude-haiku-4-5",
         "id": "msg_011Cg7v1Mt9Eid844XTV8AMc",
         "type": "message",
@@ -147,8 +147,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "anthropic/claude-sonnet-5",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -191,7 +191,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "anthropic/claude-sonnet-5",
         "id": "msg_011Cg7v2KRMCpM2FsiVygFAS",
         "type": "message",
@@ -218,8 +218,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "anthropic/claude-opus-4-8",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -262,7 +262,7 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "anthropic/claude-opus-4-8",
         "id": "msg_011Cg7v1ZPwvewtTtXqjdwzZ",
         "type": "message",
@@ -366,8 +366,8 @@ CLAUDE_SONNET_5_5_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-sonnet-5-5"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-sonnet-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -388,7 +388,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
         "model": "claude-sonnet-5-5",
         "usage": {**object_value(CLAUDE_SONNET_5_5_RESPONSE_FIELDS["usage"]), "speed": "standard"},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_RESPONSE,
         **CLAUDE_SONNET_5_5_RESPONSE_FIELDS,
         "model": "anthropic/claude-sonnet-5-5",
@@ -451,8 +451,8 @@ CLAUDE_HAIKU_5_5_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-haiku-5-5"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-haiku-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -473,7 +473,7 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
         "model": "claude-haiku-5-5",
         "usage": {**object_value(CLAUDE_HAIKU_5_5_RESPONSE_FIELDS["usage"]), "speed": "standard"},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_RESPONSE,
         **CLAUDE_HAIKU_5_5_RESPONSE_FIELDS,
         "model": "anthropic/claude-haiku-5-5",
@@ -548,8 +548,8 @@ CLAUDE_OPUS_5_5_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-opus-5-5"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-opus-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -570,7 +570,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
         "model": "claude-opus-5-5",
         "usage": {**object_value(CLAUDE_OPUS_5_5_RESPONSE_FIELDS["usage"]), "speed": "standard"},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_RESPONSE,
         **CLAUDE_OPUS_5_5_RESPONSE_FIELDS,
         "model": "anthropic/claude-opus-5-5",
@@ -646,8 +646,8 @@ CLAUDE_FABLE_5_1_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-fable-5-1"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "anthropic/claude-fable-5-1"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -668,7 +668,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
         "model": "claude-fable-5-1",
         "usage": {**object_value(CLAUDE_FABLE_5_1_RESPONSE_FIELDS["usage"]), "speed": "standard"},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_RESPONSE,
         **CLAUDE_FABLE_5_1_RESPONSE_FIELDS,
         "model": "anthropic/claude-fable-5-1",

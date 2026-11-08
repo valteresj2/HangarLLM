@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache, _redis_circuit_breaker_guard, _redis_circuit_breaker_guard_sync
-from litellm.constants import DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE
-from litellm.types.caching import RedisPipelineIncrementOperation
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache, _redis_circuit_breaker_guard, _redis_circuit_breaker_guard_sync
+from hangarllm.constants import DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE
+from hangarllm.types.caching import RedisPipelineIncrementOperation
 
 
 @pytest.mark.asyncio
@@ -506,10 +506,10 @@ async def test_dual_cache_late_attach_redis_wires_writes_and_ttl_async():
 
 class _OpenBreakerRedis:
     def __init__(self) -> None:
-        from litellm._service_logger import ServiceLogging
-        from litellm.caching.redis_cache import RedisHealth
-        from litellm.redis.store_settings import RedisBreakerSettings
-        from litellm.rust_bridge._native import NativeRedisBreaker
+        from hangarllm._service_logger import ServiceLogging
+        from hangarllm.caching.redis_cache import RedisHealth
+        from hangarllm.redis.store_settings import RedisBreakerSettings
+        from hangarllm.rust_bridge._native import NativeRedisBreaker
 
         breaker: Final = NativeRedisBreaker(
             RedisBreakerSettings(failure_threshold=1, recovery_timeout=60.0, timeout_min_duration=5.0)
@@ -569,7 +569,7 @@ async def test_an_open_circuit_breaker_is_not_an_error_per_request(caplog, call)
     cache = DualCache(in_memory_cache=InMemoryCache(), redis_cache=_OpenBreakerRedis())  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         await call(cache)
 
     assert [record.levelno for record in caplog.records if record.levelno >= logging.WARNING] == []
@@ -585,7 +585,7 @@ def test_an_open_circuit_breaker_is_not_an_error_per_sync_request(caplog, call):
     cache = DualCache(in_memory_cache=InMemoryCache(), redis_cache=_OpenBreakerRedis())  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         call(cache)
 
     assert [record.levelno for record in caplog.records if record.levelno >= logging.WARNING] == []
@@ -600,11 +600,11 @@ async def test_a_real_redis_failure_still_logs_an_error(caplog):
 
     cache = DualCache(in_memory_cache=InMemoryCache(), redis_cache=_BrokenRedis())  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         assert await cache.async_get_cache("k") is None
 
     errors = [record for record in caplog.records if record.levelno == logging.ERROR]
-    assert [record.getMessage() for record in errors] == ["LiteLLM Cache: exception in async_get_cache: redis is down"]
+    assert [record.getMessage() for record in errors] == ["HangarLLM Cache: exception in async_get_cache: redis is down"]
     assert errors[0].exc_info is not None
 
 
@@ -640,8 +640,8 @@ async def test_redis_timeouts_falling_back_to_memory_log_once_per_interval(caplo
     """The first fallback WARNING of a timeout streak logs, the rest stay at DEBUG until the summary."""
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import RedisTimeoutLogThrottle
+    from hangarllm.caching import redis_cache as redis_cache_module
+    from hangarllm.caching.redis_cache import RedisTimeoutLogThrottle
 
     clock = MagicMock(return_value=1_000.0)
     monkeypatch.setattr(
@@ -661,7 +661,7 @@ async def test_redis_timeouts_falling_back_to_memory_log_once_per_interval(caplo
     )
     increments = [RedisPipelineIncrementOperation(key="k", increment_value=1.0, ttl=60)]
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         for _ in range(100):
             await cache.async_increment_cache_pipeline(increment_list=increments)
             await cache.async_increment_cache("k", 1.0)
@@ -679,7 +679,7 @@ async def test_redis_timeouts_falling_back_to_memory_log_once_per_interval(caplo
 
     caplog.clear()
     clock.return_value += 5.0
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         await cache.async_increment_cache("k", 1.0)
     assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
         (

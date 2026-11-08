@@ -1,4 +1,4 @@
-from litellm.proxy.mcp_server import operations as mcp_operations
+from hangarllm.proxy.mcp_server import operations as mcp_operations
 
 """Unit tests for MCP OAuth passthrough tool-fetch behavior."""
 
@@ -15,18 +15,18 @@ if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
 
 
-from litellm.proxy._types import MCPTransport
-from litellm.proxy.mcp_server.exceptions import (
+from hangarllm.proxy._types import MCPTransport
+from hangarllm.proxy.mcp_server.exceptions import (
     TOKEN_EXCHANGE_SUBJECT_ERROR,
     MCPServerListError,
     MCPUpstreamAuthError,
 )
-from litellm.proxy.mcp_server.mcp_server_manager import (
+from hangarllm.proxy.mcp_server.mcp_server_manager import (
     MCPServerManager,
     _extract_upstream_auth_failure,
 )
-from litellm.types.mcp import MCPAuth
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.mcp import MCPAuth
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def test_extract_upstream_auth_failure_finds_401_in_http_status_error():
@@ -340,8 +340,8 @@ async def test_aggregate_list_tools_absorbs_one_unauthenticated_server():
 
     from mcp.types import Tool as MCPTool
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.mcp_server import server as mcp_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.mcp_server import server as mcp_server
 
     delegate = _http_server(
         "s1", "delegate_docs", auth_type=MCPAuth.oauth2, delegate_auth_to_upstream=True
@@ -383,9 +383,9 @@ async def test_single_server_route_also_absorbs_upstream_auth_error():
     re-auth surfacing is handled by a request-scope preemptive check, tracked separately."""
     from unittest.mock import patch
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.mcp_server import server as mcp_server
-    from litellm.proxy.mcp_server.mcp_context import mcp_gateway_server_name
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.mcp_server import server as mcp_server
+    from hangarllm.proxy.mcp_server.mcp_context import mcp_gateway_server_name
 
     delegate = _http_server(
         "s1", "delegate_docs", auth_type=MCPAuth.oauth2, delegate_auth_to_upstream=True
@@ -424,8 +424,8 @@ async def test_aggregate_with_single_accessible_server_still_absorbs():
     permission sets."""
     from unittest.mock import patch
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.mcp_server import server as mcp_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.mcp_server import server as mcp_server
 
     delegate = _http_server(
         "s1", "delegate_docs", auth_type=MCPAuth.oauth2, delegate_auth_to_upstream=True
@@ -467,7 +467,7 @@ async def test_fetch_tools_logs_upstream_request_details_on_500(caplog):
         side_effect=httpx.HTTPStatusError("500", request=request, response=response)
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         with pytest.raises(MCPServerListError):
             await manager._fetch_tools_with_timeout(mock_client, "sample_docs")
 
@@ -484,7 +484,7 @@ async def test_client_creation_failure_logs_sanitized_exchange(monkeypatch, capl
     response = httpx.Response(500, request=request, json={"error":"missing_scope"})
     error = httpx.HTTPStatusError("query-secret", request=request, response=response)
     monkeypatch.setattr(manager, "create_mcp_client", AsyncMock(side_effect=error))
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         with pytest.raises(MCPServerListError):
             await manager._get_tools_from_server(server)
     assert "POST https://upstream/ -> HTTP 500" in caplog.text
@@ -505,9 +505,9 @@ async def test_client_creation_failure_logs_sanitized_exchange(monkeypatch, capl
     ],
 )
 def test_passthrough_admission_recognizes_only_matching_authorization(oauth_headers, server_headers, authorized):
-    from litellm.proxy.mcp_server.operations import _client_has_passthrough_authorization
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy.mcp_server.operations import _client_has_passthrough_authorization
+    from hangarllm.types.mcp import MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(server_id="catalog", name="catalog", alias="catalog", transport=MCPTransport.http)
     assert _client_has_passthrough_authorization(server, oauth_headers, server_headers) is authorized
@@ -527,7 +527,7 @@ def test_managed_step_up_challenge_uses_only_the_gateway_metadata(base_url, requ
 
 @pytest.mark.asyncio
 async def test_scope_challenge_replaces_pending_stream_headers_once():
-    from litellm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
+    from hangarllm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
 
     send = AsyncMock()
     response = OAuthScopeResponse(send, "https://gateway.example", "/docs/mcp")
@@ -553,9 +553,9 @@ async def test_scope_authorization_releases_progress_without_waiting_for_tool_re
     from mcp.server.context import ServerRequestContext
     from starlette.requests import Request
 
-    from litellm.proxy.mcp_server.legacy_callbacks import get_scope_response, record_upstream_tool_authorization
-    from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
-    from litellm.proxy.mcp_server.scope_challenge import (
+    from hangarllm.proxy.mcp_server.legacy_callbacks import get_scope_response, record_upstream_tool_authorization
+    from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from hangarllm.proxy.mcp_server.scope_challenge import (
         SCOPE_RESPONSE_KEY,
         OAuthScopeResponse,
     )
@@ -576,7 +576,7 @@ async def test_scope_authorization_releases_progress_without_waiting_for_tool_re
         await record_upstream_tool_authorization(httpx2.Response(200, request=unread), pending=get_scope_response())
         assert gate.pending
         # Use the actual HTTP response hook contract, before reading the tool response body.
-        from litellm.mcp_client.client import MCPClient
+        from hangarllm.mcp_client.client import MCPClient
 
         upstream = MCPClient(server_url="https://upstream.example/mcp")
         async with upstream._create_httpx_client_factory(transport=httpx2.MockTransport(lambda request: httpx2.Response(200, content=b"tool result")))() as client:
@@ -600,7 +600,7 @@ async def test_scope_middleware_releases_waiting_response_on_validation_or_cance
     from mcp.server.context import ServerRequestContext
     from starlette.requests import Request
 
-    from litellm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse, finish_scope_response
+    from hangarllm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse, finish_scope_response
 
     send: Final = AsyncMock(side_effect=BrokenPipeError("peer disconnected") if fail_send else None)
     gate: Final = OAuthScopeResponse(send, "https://gateway.example", "/mcp/docs")
@@ -625,8 +625,8 @@ async def test_scope_transport_owns_header_send_cancellation_and_errors(fail_sen
     import httpx2
     from starlette.types import Message
 
-    from litellm.proxy.mcp_server.legacy_callbacks import record_upstream_tool_authorization
-    from litellm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
+    from hangarllm.proxy.mcp_server.legacy_callbacks import record_upstream_tool_authorization
+    from hangarllm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
 
     send_started: Final = asyncio.Event()
     send_stopped: Final = asyncio.Event()
@@ -675,7 +675,7 @@ async def test_scope_transport_owns_header_send_cancellation_and_errors(fail_sen
 async def test_scope_authorization_sends_stream_headers_before_the_first_body_chunk(allowed_before_start: bool) -> None:
     from starlette.types import Message
 
-    from litellm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
+    from hangarllm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
 
     send: Final = AsyncMock()
     gate: Final = OAuthScopeResponse(send, "https://gateway.example", "/mcp/docs")
@@ -696,7 +696,7 @@ async def test_scope_authorization_sends_stream_headers_before_the_first_body_ch
 
 @pytest.mark.asyncio
 async def test_scope_response_preserves_transport_validation_errors():
-    from litellm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
+    from hangarllm.proxy.mcp_server.scope_challenge import OAuthScopeResponse
 
     send = AsyncMock()
     gate = OAuthScopeResponse(send, "https://gateway.example", "/mcp/docs")
@@ -716,9 +716,9 @@ async def test_streamable_sdk_relays_scope_challenge_before_committing_http_resp
     from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.proxy.mcp_server.legacy_callbacks import get_scope_response
-    from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
-    from litellm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse, finish_scope_response
+    from hangarllm.proxy.mcp_server.legacy_callbacks import get_scope_response
+    from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from hangarllm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse, finish_scope_response
 
     async def call_tool(context, params):
         token = active_mcp_request_ctx_var.set(context)
@@ -770,9 +770,9 @@ async def test_scope_challenges_are_isolated_between_concurrent_requests():
     from mcp.server.context import ServerRequestContext
     from starlette.requests import Request
 
-    from litellm.proxy.mcp_server.legacy_callbacks import get_scope_response, record_upstream_tool_authorization
-    from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
-    from litellm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse
+    from hangarllm.proxy.mcp_server.legacy_callbacks import get_scope_response, record_upstream_tool_authorization
+    from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from hangarllm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse
 
     async def request_scope(denied):
         send = AsyncMock()
@@ -799,7 +799,7 @@ async def test_scope_challenges_are_isolated_between_concurrent_requests():
 
 @pytest.mark.parametrize("body", [b"", b"{", b"[]", b'{"method":"initialize"}'])
 def test_non_tool_payloads_do_not_hold_response_headers(body):
-    from litellm.proxy.mcp_server.scope_challenge import is_tool_call_request, scope_response_from_request
+    from hangarllm.proxy.mcp_server.scope_challenge import is_tool_call_request, scope_response_from_request
 
     assert not is_tool_call_request(body)
     assert scope_response_from_request(None) is None
@@ -810,7 +810,7 @@ async def test_scope_middleware_preserves_non_http_requests():
     from mcp.server.context import ServerRequestContext
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.proxy.mcp_server.scope_challenge import finish_scope_response
+    from hangarllm.proxy.mcp_server.scope_challenge import finish_scope_response
 
     context = ServerRequestContext(session=MagicMock(), lifespan_context={}, protocol_version="2025-11-25", method="tools/call")
     async def call_next(request):

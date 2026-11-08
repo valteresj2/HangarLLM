@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, TEAM_BETA, Actor
 from tests.integration._support.actors import create_scratch_key
@@ -86,7 +86,7 @@ async def test_key_reset_spend_authz_matrix(
         gateway_client, seeder, resources.prefix, actors, shape, caller
     )
     hashed = hash_token(target)
-    await db.db.litellm_verificationtoken.update(
+    await db.db.hangarllm_verificationtoken.update(
         where={"token": hashed}, data={"spend": _SEED_SPEND}
     )
 
@@ -99,7 +99,7 @@ async def test_key_reset_spend_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value} {shape}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_verificationtoken.find_unique(where={"token": hashed})
+    row = await db.db.hangarllm_verificationtoken.find_unique(where={"token": hashed})
     assert row is not None
     if expected_status == 200:
         assert row.spend == _RESET_TO

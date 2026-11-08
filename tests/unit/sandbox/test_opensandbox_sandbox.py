@@ -3,14 +3,14 @@ import json
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.base_llm.sandbox.transformation import ContainerHandle
-from litellm.llms.opensandbox.sandbox.transformation import (
+import hangarllm
+from hangarllm.llms.base_llm.sandbox.transformation import ContainerHandle
+from hangarllm.llms.opensandbox.sandbox.transformation import (
     MAX_OUTPUT_BYTES,
     OPEN_SANDBOX_DEFAULT_TEMPLATE,
     OpenSandboxSandboxConfig,
 )
-from litellm.utils import ProviderConfigManager
+from hangarllm.utils import ProviderConfigManager
 
 TEST_API_BASE = "https://sandbox.test/v1"
 
@@ -222,7 +222,7 @@ def test_static_helpers_cover_defaults_and_fallbacks(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "litellm.llms.opensandbox.sandbox.transformation.get_secret_str",
+        "hangarllm.llms.opensandbox.sandbox.transformation.get_secret_str",
         fake_secret,
     )
     config = OpenSandboxSandboxConfig()
@@ -284,7 +284,7 @@ def test_static_helpers_cover_defaults_and_fallbacks(monkeypatch):
 
 def test_api_base_requires_kwarg_or_env(monkeypatch):
     monkeypatch.setattr(
-        "litellm.llms.opensandbox.sandbox.transformation.get_secret_str",
+        "hangarllm.llms.opensandbox.sandbox.transformation.get_secret_str",
         lambda key: None,
     )
 
@@ -402,7 +402,7 @@ async def test_create_waits_across_pending_state(monkeypatch):
         sleeps.append(interval)
 
     monkeypatch.setattr(
-        "litellm.llms.opensandbox.sandbox.transformation.asyncio.sleep", fake_sleep
+        "hangarllm.llms.opensandbox.sandbox.transformation.asyncio.sleep", fake_sleep
     )
 
     handle = await OpenSandboxSandboxConfig().acreate_sandbox(
@@ -468,7 +468,7 @@ async def test_create_waits_for_endpoint_resolution(monkeypatch):
         sleeps.append(interval)
 
     monkeypatch.setattr(
-        "litellm.llms.opensandbox.sandbox.transformation.asyncio.sleep", fake_sleep
+        "hangarllm.llms.opensandbox.sandbox.transformation.asyncio.sleep", fake_sleep
     )
 
     handle = await OpenSandboxSandboxConfig().acreate_sandbox(
@@ -604,17 +604,17 @@ async def test_public_lifecycle_create_run_delete():
         ]
     )
 
-    container = await litellm.acreate_sandbox(
+    container = await hangarllm.acreate_sandbox(
         provider="opensandbox", api_key="", api_base=TEST_API_BASE, client=client
     )
-    result = await litellm.arun_code(
+    result = await hangarllm.arun_code(
         provider="opensandbox",
         container=container,
         code="print(6*7)",
         api_key="",
         client=client,
     )
-    ok = await litellm.adelete_sandbox(
+    ok = await hangarllm.adelete_sandbox(
         provider="opensandbox",
         container=container,
         api_key="",
@@ -631,7 +631,7 @@ async def test_code_interpreter_tool_deletes_even_when_run_raises():
     client = FakeHTTPClient(execute_raises=RuntimeError("boom"))
 
     with pytest.raises(RuntimeError, match="boom"):
-        await litellm.acode_interpreter_tool(
+        await hangarllm.acode_interpreter_tool(
             provider="opensandbox",
             code="1/0",
             api_key="",

@@ -163,7 +163,7 @@ def _config(wire: Wire) -> dict[str, JsonValue]:
         "model_list": [
             {
                 "model_name": MANAGED_MODEL,
-                "litellm_params": {"model": "openai/gpt-4.1", "api_key": key, "api_base": f"{wire.url}/v1"},
+                "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": key, "api_base": f"{wire.url}/v1"},
                 "model_info": {"supported_endpoints": ["/chat/completions", "/fine_tuning"]},
             }
             for key in DEPLOYMENT_KEYS
@@ -177,7 +177,7 @@ def _config(wire: Wire) -> dict[str, JsonValue]:
                 "api_version": AZURE_API_VERSION,
             },
         ],
-        "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
+        "general_settings": {"master_key": "os.environ/HANGARLLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
     }
 
 
@@ -387,7 +387,7 @@ def test_azure_cancel_merges_finetune_settings(rig: Rig) -> None:
 def test_create_reads_the_documented_custom_llm_provider_header(rig: Rig) -> None:
     pytest.skip(
         "BUG: create ignores the documented custom-llm-provider header and returns 500"
-        " Invalid request, No litellm managed file id or custom_llm_provider provided."
+        " Invalid request, No hangarllm managed file id or custom_llm_provider provided."
     )
     with rig.sdk("/v1") as client:
         raw: Final = client.fine_tuning.jobs.with_raw_response.create(
@@ -425,7 +425,7 @@ def test_cancel_reads_the_documented_custom_llm_provider_header(rig: Rig) -> Non
 def test_retrieve_reads_the_documented_custom_llm_provider_header(rig: Rig) -> None:
     pytest.skip(
         "BUG: retrieve ignores the documented custom-llm-provider header and returns 400"
-        " Invalid request, No litellm managed file id or custom_llm_provider provided."
+        " Invalid request, No hangarllm managed file id or custom_llm_provider provided."
     )
     with rig.sdk("/v1") as client:
         raw: Final = client.fine_tuning.jobs.with_raw_response.retrieve(
@@ -449,7 +449,7 @@ def test_managed_create_sends_the_provider_file_id_of_the_pinned_deployment(rig:
         )
         assert uploaded.status_code == 200, uploaded.text
         managed_file: Final = JSON_OBJECT.validate_json(uploaded.text)["id"]
-        assert isinstance(managed_file, str) and _decoded(managed_file).startswith("litellm_proxy:"), uploaded.text
+        assert isinstance(managed_file, str) and _decoded(managed_file).startswith("hangarllm_proxy:"), uploaded.text
         uploads: Final = _drained(rig)
         assert sorted((request.method, request.target, _bearer(request)) for request in uploads) == [
             ("POST", "/v1/files", key) for key in DEPLOYMENT_KEYS
@@ -474,7 +474,7 @@ def test_managed_create_sends_the_provider_file_id_of_the_pinned_deployment(rig:
     assert raw.status_code == 200, raw.text
     job: Final = Job.model_validate_json(raw.text)
     assert re.fullmatch(
-        rf"litellm_proxy;model_id:[0-9a-f]{{64}};generic_response_id:"
+        rf"hangarllm_proxy;model_id:[0-9a-f]{{64}};generic_response_id:"
         rf"{_managed_job_id(_provider_file_id(deployment_key, 'train.jsonl'))}",
         _decoded(job.id),
     ), raw.text

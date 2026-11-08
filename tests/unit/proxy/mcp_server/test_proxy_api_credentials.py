@@ -5,31 +5,31 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.constants import CLI_JWT_EXPIRATION_HOURS
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.management_endpoints.ui_sso import CliSsoTeamDetail
-from litellm.proxy.mcp_server.gateway_dcr_flow import ConsentTeam, MintedProxyCredential
-from litellm.proxy.mcp_server.proxy_api_credentials import (
+from hangarllm.constants import CLI_JWT_EXPIRATION_HOURS
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy._types import HangarllmUserRoles
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.proxy.auth.route_checks import RouteChecks
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.management_endpoints.ui_sso import CliSsoTeamDetail
+from hangarllm.proxy.mcp_server.gateway_dcr_flow import ConsentTeam, MintedProxyCredential
+from hangarllm.proxy.mcp_server.proxy_api_credentials import (
     lookup_consent_teams,
     lookup_consent_teams_from_database,
     mint_proxy_credential,
 )
 
-_LOAD_USER = "litellm.proxy.mcp_server.proxy_api_credentials.load_active_user_by_id"
-_FETCH_TEAMS = "litellm.proxy.mcp_server.proxy_api_credentials.fetch_cli_sso_team_details"
-_PRISMA = "litellm.proxy.proxy_server.prisma_client"
+_LOAD_USER = "hangarllm.proxy.mcp_server.proxy_api_credentials.load_active_user_by_id"
+_FETCH_TEAMS = "hangarllm.proxy.mcp_server.proxy_api_credentials.fetch_cli_sso_team_details"
+_PRISMA = "hangarllm.proxy.proxy_server.prisma_client"
 TEAM_DETAILS = (
     CliSsoTeamDetail(team_id="team-a", team_alias="Team A", team_models=("gpt-5.4-mini",)),
     CliSsoTeamDetail(team_id="team-b", team_models=(), team_model_aliases={"fast": "gpt-5.4-mini"}),
 )
 
 
-def _user(**overrides) -> LiteLLM_UserTable:
-    return LiteLLM_UserTable(
+def _user(**overrides) -> HangarLLM_UserTable:
+    return HangarLLM_UserTable(
         **{
             "user_id": "u1",
             "user_role": "internal_user",
@@ -48,7 +48,7 @@ def _decoded(minted: MintedProxyCredential):
 
 @pytest.fixture(autouse=True)
 def _salt_key(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-proxy-api-credentials-tests")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-proxy-api-credentials-tests")
 
 
 @pytest.fixture
@@ -78,9 +78,9 @@ async def test_mint_passes_user_lookup_failures_through(failure, load_user, fetc
 @pytest.mark.parametrize(
     "stored_role, minted_role",
     [
-        (None, LitellmUserRoles.INTERNAL_USER),
-        ("made_up_role", LitellmUserRoles.INTERNAL_USER),
-        ("proxy_admin", LitellmUserRoles.PROXY_ADMIN),
+        (None, HangarllmUserRoles.INTERNAL_USER),
+        ("made_up_role", HangarllmUserRoles.INTERNAL_USER),
+        ("proxy_admin", HangarllmUserRoles.PROXY_ADMIN),
     ],
 )
 async def test_mint_carries_the_role_the_proxy_enforces_for_the_user(load_user, fetch_teams, stored_role, minted_role):
@@ -138,14 +138,14 @@ async def test_mint_reads_the_users_teams_from_the_database_not_a_stale_cached_r
     """JWT auth caches the user it creates before it adds that user to the JWT's team, and adding a member
     never evicts the cached row, so a mint off the cached row refused the very first token exchange as not
     a member. The mint has to read the database row, whatever the cache holds."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     cache = UserApiKeyCache()
     await cache.async_set_cache(
-        key="stale-cache-user", value=_user(user_id="stale-cache-user", teams=[]), model_type=LiteLLM_UserTable
+        key="stale-cache-user", value=_user(user_id="stale-cache-user", teams=[]), model_type=HangarLLM_UserTable
     )
     prisma = MagicMock()
-    prisma.writer_db.litellm_usertable.find_unique = AsyncMock(
+    prisma.writer_db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=_user(user_id="stale-cache-user", teams=["team-a"])
     )
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
@@ -163,14 +163,14 @@ async def test_mint_refuses_a_user_scim_deactivated_after_the_cache_last_saw_the
     """SCIM deactivation writes the user row without evicting the cached copy, so a mint off the cache would
     keep issuing credentials for the management-object TTL. The mint reads the database row, so the
     deactivated user is refused on the first refresh after the deactivation."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     cache = UserApiKeyCache()
     await cache.async_set_cache(
-        key="deactivated-user", value=_user(user_id="deactivated-user", teams=["team-a"]), model_type=LiteLLM_UserTable
+        key="deactivated-user", value=_user(user_id="deactivated-user", teams=["team-a"]), model_type=HangarLLM_UserTable
     )
     prisma = MagicMock()
-    prisma.writer_db.litellm_usertable.find_unique = AsyncMock(
+    prisma.writer_db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=_user(user_id="deactivated-user", teams=["team-a"], metadata={"scim_active": False})
     )
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
@@ -313,7 +313,7 @@ async def test_an_llm_only_credential_keeps_the_llm_api_carve_outs_except_mcp_di
     minted = await mint_proxy_credential("u1", "team-a", allowed_routes=allowed_routes)
     assert isinstance(minted, MintedProxyCredential)
     with patch(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route",
+        "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route",
         side_effect=lambda route: route.startswith("/my-llm-endpoint"),
     ):
         assert _route_status(minted, "/my-llm-endpoint/v1/chat", "POST") == registered_pass_through

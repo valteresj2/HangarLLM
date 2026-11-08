@@ -72,7 +72,7 @@ TEAM_GROUP: Final = "sched-default-team"
 ZERO_GROUPS: Final = ("sched-zero-plain", "sched-zero-dropped")
 DIGIT_GROUPS: Final = ("sched-digit-plain", "sched-digit-dropped")
 IGNORED_GROUP: Final = "sched-ignored"
-PRIORITIZED: Final = "x-litellm-request-prioritization-used"
+PRIORITIZED: Final = "x-hangarllm-request-prioritization-used"
 IGNORED_WARNING: Final = "router_settings.default_priority is ignored"
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 JSON_LIST: Final = TypeAdapter(list[JsonValue])
@@ -180,15 +180,15 @@ def deployment_entry(
     model_name: str | None = None,
     model: str | None = None,
     model_info: Mapping[str, JsonValue] | None = None,
-    **litellm_params: JsonValue,
+    **hangarllm_params: JsonValue,
 ) -> dict[str, JsonValue]:
     return {
         "model_name": model_name or group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": model or f"openai/{upstream_name(group)}",
             "api_base": wire.url + "/v1",
             "api_key": "synthetic-openai-key",
-            **litellm_params,
+            **hangarllm_params,
         },
         "model_info": {"id": f"{group}-deployment", **(model_info or {})},
     }
@@ -202,15 +202,15 @@ def owned_config(
     *,
     cancel_on_disconnect: bool = False,
     extra_models: Sequence[Mapping[str, JsonValue]] = (),
-    litellm_settings: Mapping[str, JsonValue] | None = None,
+    hangarllm_settings: Mapping[str, JsonValue] | None = None,
 ) -> Path:
     base: Final = JSON_OBJECT.validate_python(
         yaml.safe_load((Path(__file__).parents[1] / "proxy_config.yaml").read_text())
     )
     general_settings: Final = base.get("general_settings", {})
     assert isinstance(general_settings, dict)
-    base_litellm_settings: Final = base.get("litellm_settings", {})
-    assert isinstance(base_litellm_settings, dict)
+    base_hangarllm_settings: Final = base.get("hangarllm_settings", {})
+    assert isinstance(base_hangarllm_settings, dict)
     general: Final[dict[str, JsonValue]] = {
         **general_settings,
         **({"cancel_on_disconnect": True} if cancel_on_disconnect else {}),
@@ -218,7 +218,7 @@ def owned_config(
     config: Final[dict[str, JsonValue]] = {
         **base,
         "general_settings": general,
-        "litellm_settings": {**base_litellm_settings, **(litellm_settings or {})},
+        "hangarllm_settings": {**base_hangarllm_settings, **(hangarllm_settings or {})},
         "router_settings": dict(settings),
         "model_list": [*(deployment_entry(group, wire) for group in groups), *(dict(entry) for entry in extra_models)],
     }
@@ -343,7 +343,7 @@ def assert_served(answer: Answer, marker: str) -> str:
 
 def spend_row_lands(identity: str) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+        lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -513,7 +513,7 @@ def test_other_prioritized_endpoints_are_served_once_and_billed(
     answer: Final = call(gateway, endpoint, model, marker)
     identity: Final = assert_served(answer, marker)
     if endpoint in ("queue", "queue-stream"):
-        assert answer.headers.get("x-litellm-priority") == "1", answer.headers
+        assert answer.headers.get("x-hangarllm-priority") == "1", answer.headers
     assert_once(received_markers(wire), (marker,))
     spend_row_lands(identity)
 
@@ -586,7 +586,7 @@ def test_non_integer_priority_is_dropped_under_drop_params(gateway: Gateway, rig
     marker: Final = new_marker()
     answer: Final = post(gateway, "/v1/chat/completions", chat_body(model, marker, priority="high", drop_params=True))
     assert_served(answer, marker)
-    assert answer.headers.get("x-litellm-request-prioritization-used") is None, answer.headers
+    assert answer.headers.get("x-hangarllm-request-prioritization-used") is None, answer.headers
     assert "priority" not in upstream_body_for(wire, marker)
 
 
@@ -595,7 +595,7 @@ def test_zero_priority_is_scheduled_and_not_forwarded(gateway: Gateway, rig_mode
     marker: Final = new_marker()
     answer: Final = post(gateway, "/v1/chat/completions", chat_body(model, marker, priority=0))
     assert_served(answer, marker)
-    assert answer.headers.get("x-litellm-request-prioritization-used") == "True", answer.headers
+    assert answer.headers.get("x-hangarllm-request-prioritization-used") == "True", answer.headers
     assert "priority" not in upstream_body_for(wire, marker)
 
 
@@ -1036,7 +1036,7 @@ def defaulted(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Defaulted]:
             settings,
             cancel_on_disconnect=True,
             extra_models=extra_models,
-            litellm_settings={"global_prompt_directory": str(prompt_directory(directory))},
+            hangarllm_settings={"global_prompt_directory": str(prompt_directory(directory))},
         )
         overrides: Final = {"REDIS_HOST": cache.host, "REDIS_PORT": str(cache.port)}
         shared: Final = OwnedState.SHARED_WITH_WORKER
@@ -1240,7 +1240,7 @@ def test_zero_default_priority_queues_requests_without_one_and_dropped_ones(gate
         settings: Final[dict[str, JsonValue]] = {
             **cooldown_settings(cache),
             "default_priority": 0,
-            "default_litellm_params": {"drop_params": True},
+            "default_hangarllm_params": {"drop_params": True},
         }
         config: Final = owned_config(tmp_path, wire, ZERO_GROUPS, settings)
         overrides: Final = {"REDIS_HOST": cache.host, "REDIS_PORT": str(cache.port)}
@@ -1259,7 +1259,7 @@ def test_digit_string_default_priority_queues_requests_without_one_and_dropped_o
     upstream: Final = upstream_for(DIGIT_GROUPS)
     with owned_redis(tmp_path) as cache, wire_server(answering_model_discovery(upstream.respond)) as wire:
         settings: Final[dict[str, JsonValue]] = {**cooldown_settings(cache), "default_priority": "2"}
-        config: Final = owned_config(tmp_path, wire, DIGIT_GROUPS, settings, litellm_settings={"drop_params": True})
+        config: Final = owned_config(tmp_path, wire, DIGIT_GROUPS, settings, hangarllm_settings={"drop_params": True})
         overrides: Final = {"REDIS_HOST": cache.host, "REDIS_PORT": str(cache.port)}
         with owned_proxy_process(gateway, tmp_path, overrides, config=config, workers=2) as owned:
             plain, dropped = DIGIT_GROUPS
@@ -1369,7 +1369,7 @@ def test_queue_route_without_priority_takes_the_default(defaulted: Defaulted, en
     marker: Final = new_marker()
     answer: Final = call(defaulted.pair.first, endpoint, group, marker, priority=None)
     assert_served(answer, marker)
-    assert answer.headers.get("x-litellm-priority") == str(DEFAULT_PRIORITY), answer.headers
+    assert answer.headers.get("x-hangarllm-priority") == str(DEFAULT_PRIORITY), answer.headers
     assert "priority" not in upstream_body_for(defaulted.pair.wire, marker)
 
 
@@ -1382,7 +1382,7 @@ def test_queue_route_with_an_explicit_priority_under_a_default_reports_it(
     marker: Final = new_marker()
     answer: Final = post(defaulted.pair.second, "/queue/chat/completions", chat_body(group, marker, priority=priority))
     assert_served(answer, marker)
-    assert answer.headers.get("x-litellm-priority") == "1", answer.headers
+    assert answer.headers.get("x-hangarllm-priority") == "1", answer.headers
     assert "priority" not in upstream_body_for(defaulted.pair.wire, marker)
 
 

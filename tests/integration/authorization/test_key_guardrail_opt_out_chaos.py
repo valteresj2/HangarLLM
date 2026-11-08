@@ -111,7 +111,7 @@ def test_concurrent_flag_writes_split_expected_outcomes(gateway: Gateway, tmp_pa
         created_aliases: Final = [
             row["key_alias"]
             for row in read_rows(
-                'SELECT key_alias FROM "LiteLLM_VerificationToken" WHERE key_alias LIKE %s', (f"{alias}-%",)
+                'SELECT key_alias FROM "HangarLLM_VerificationToken" WHERE key_alias LIKE %s', (f"{alias}-%",)
             )
         ]
         for response in responses:
@@ -131,7 +131,7 @@ def test_concurrent_flag_writes_split_expected_outcomes(gateway: Gateway, tmp_pa
         ]
         assert len(created_aliases) == 20, created_aliases
         for entry in created_aliases:
-            stored: Final = read_rows('SELECT metadata FROM "LiteLLM_VerificationToken" WHERE key_alias = %s', (entry,))
+            stored: Final = read_rows('SELECT metadata FROM "HangarLLM_VerificationToken" WHERE key_alias = %s', (entry,))
             assert stored[0]["metadata"].get("disable_global_guardrails") is not True, entry
 
 
@@ -282,7 +282,7 @@ def test_flag_denial_survives_worker_kill(gateway: Gateway, tmp_path: Path) -> N
                 assert "disable_global_guardrails" in denied.text, denied.text
             assert (
                 read_rows(
-                    'SELECT token FROM "LiteLLM_VerificationToken" WHERE key_alias LIKE %s AND metadata::text LIKE %s',
+                    'SELECT token FROM "HangarLLM_VerificationToken" WHERE key_alias LIKE %s AND metadata::text LIKE %s',
                     (f"{alias}-%", '%"disable_global_guardrails": true%'),
                 )
                 == []

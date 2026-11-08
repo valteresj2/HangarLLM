@@ -3,7 +3,7 @@ Test that batch retrieve endpoint resolves raw input_file_id to the
 unified managed file ID before returning.
 
 Bug: After batch completion, batches.retrieve returns the raw provider
-input_file_id instead of the LiteLLM unified ID.
+input_file_id instead of the HangarLLM unified ID.
 """
 
 import base64
@@ -12,16 +12,16 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from hangarllm.proxy.openai_files_endpoints.common_utils import (
     is_base64_encoded_unified_file_id,
 )
 
 
-DECODED_UNIFIED_INPUT_FILE_ID = "litellm_proxy:application/octet-stream;unified_id,test-uuid;target_model_names,azure-gpt-4"
+DECODED_UNIFIED_INPUT_FILE_ID = "hangarllm_proxy:application/octet-stream;unified_id,test-uuid;target_model_names,azure-gpt-4"
 B64_UNIFIED_INPUT_FILE_ID = base64.urlsafe_b64encode(DECODED_UNIFIED_INPUT_FILE_ID.encode()).decode().rstrip("=")
 RAW_INPUT_FILE_ID = "file-raw-provider-abc123"
 
-DECODED_UNIFIED_BATCH_ID = "litellm_proxy;model_id:model-xyz;llm_batch_id:batch-123"
+DECODED_UNIFIED_BATCH_ID = "hangarllm_proxy;model_id:model-xyz;llm_batch_id:batch-123"
 B64_UNIFIED_BATCH_ID = base64.urlsafe_b64encode(DECODED_UNIFIED_BATCH_ID.encode()).decode().rstrip("=")
 
 
@@ -35,7 +35,7 @@ async def test_should_resolve_raw_input_file_id_to_unified():
     unified_batch_id = is_base64_encoded_unified_file_id(B64_UNIFIED_BATCH_ID)
     assert unified_batch_id, "Test setup: batch_id should decode as unified"
 
-    from litellm.types.utils import LiteLLMBatch
+    from hangarllm.types.utils import HangarLLMBatch
 
     batch_data = {
         "id": B64_UNIFIED_BATCH_ID,
@@ -55,10 +55,10 @@ async def test_should_resolve_raw_input_file_id_to_unified():
     mock_managed_file.unified_file_id = B64_UNIFIED_INPUT_FILE_ID
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedobjecttable.find_first = AsyncMock(return_value=mock_db_object)
-    mock_prisma.db.litellm_managedfiletable.find_first = AsyncMock(return_value=mock_managed_file)
+    mock_prisma.db.hangarllm_managedobjecttable.find_first = AsyncMock(return_value=mock_db_object)
+    mock_prisma.db.hangarllm_managedfiletable.find_first = AsyncMock(return_value=mock_managed_file)
 
-    from litellm.proxy.openai_files_endpoints.common_utils import get_batch_from_database
+    from hangarllm.proxy.openai_files_endpoints.common_utils import get_batch_from_database
 
     _, response = await get_batch_from_database(
         batch_id=B64_UNIFIED_BATCH_ID,

@@ -12,9 +12,9 @@ from integration._support.responses_replay import (
 )
 from integration._support.wire import wire_server
 
-import litellm
-from litellm.types.llms.openai import ChatCompletionToolMessage, ChatCompletionToolParam
-from litellm.types.utils import ChatCompletionMessageToolCall
+import hangarllm
+from hangarllm.types.llms.openai import ChatCompletionToolMessage, ChatCompletionToolParam
+from hangarllm.types.utils import ChatCompletionMessageToolCall
 
 
 def _rain(call: ChatCompletionMessageToolCall) -> ChatCompletionToolMessage:
@@ -24,7 +24,7 @@ def _rain(call: ChatCompletionMessageToolCall) -> ChatCompletionToolMessage:
 def test_run_tool_loop_replays_responses_items_in_the_order_openai_produced() -> None:
     prompt: Final = f"Pick a city and check whether it is raining there {uuid.uuid4().hex}"
     with wire_server(responses_upstream(WEATHER_TURN)) as wire:
-        content: Final = litellm.run_tool_loop(
+        content: Final = hangarllm.run_tool_loop(
             model=f"openai/responses/{MODEL}",
             messages=[{"role": "user", "content": prompt}],
             tools=[cast(ChatCompletionToolParam, WEATHER_TOOL)],

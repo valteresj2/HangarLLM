@@ -24,11 +24,11 @@ RUN curl -fsSLo /tmp/uv.tar.gz "https://github.com/astral-sh/uv/releases/downloa
 RUN groupadd --gid 1000 populator && useradd --uid 1000 --gid 1000 --create-home populator
 
 ENV HOME=/home/populator \
-    LITELLM_REPO=/opt/litellm \
+    HANGARLLM_REPO=/opt/hangarllm \
     DISABLE_AUTOUPDATER=1
 
-COPY --chown=populator:populator . /opt/litellm/tests/e2e/
+COPY --chown=populator:populator . /opt/hangarllm/tests/e2e/
 
 USER populator
 WORKDIR /home/populator
-CMD ["/opt/litellm/tests/e2e/claude_code/cron_vm/run_daily.sh"]
+CMD ["/opt/hangarllm/tests/e2e/claude_code/cron_vm/run_daily.sh"]

@@ -16,7 +16,7 @@ from pydantic import JsonValue
 from redis import Redis
 from redis.client import PubSub
 
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import _BULK_EVICTION_WAIT_SECONDS
+from hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub import _BULK_EVICTION_WAIT_SECONDS
 from tests.integration._support.budget import case_timeout_seconds
 from tests.integration._support.client import JSON_OBJECT, Gateway, eventually, object_value, string_value
 from tests.integration._support.database import read_rows
@@ -30,7 +30,7 @@ _HANDLER_BUDGET_SECONDS: Final = 0.75
 _BULK_BUDGET_SECONDS: Final = 2.0
 _COORDINATION_SOCKET_TIMEOUT_SECONDS: Final = 5.0
 _SHORTEST_REDIS_WAIT_SECONDS: Final = min(_BULK_EVICTION_WAIT_SECONDS, _COORDINATION_SOCKET_TIMEOUT_SECONDS)
-_CHANNEL: Final = "litellm_proxy.auth_cache_invalidation"
+_CHANNEL: Final = "hangarllm_proxy.auth_cache_invalidation"
 
 
 def _timed_post(candidate: Gateway, path: str, body: Mapping[str, JsonValue], timeout: float = 15) -> float:
@@ -389,13 +389,13 @@ def _chat_observation(text: str) -> dict[str, JsonValue]:
 
 
 def _user_row(user_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT models, max_budget, metadata FROM "LiteLLM_UserTable" WHERE user_id=%s', (user_id,))
+    return read_rows('SELECT models, max_budget, metadata FROM "HangarLLM_UserTable" WHERE user_id=%s', (user_id,))
 
 
 def _partial_user_row(user_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
         "SELECT models, max_budget, metadata, user_alias, rpm_limit, budget_duration, spend "
-        'FROM "LiteLLM_UserTable" WHERE user_id=%s',
+        'FROM "HangarLLM_UserTable" WHERE user_id=%s',
         (user_id,),
     )
 
@@ -437,7 +437,7 @@ def _model_user(gateway: Gateway, model: str, max_budget: float = 10.0) -> str:
 
 def _wait_for_spend(user_id: str, spend: float) -> None:
     eventually(
-        lambda: read_rows('SELECT spend FROM "LiteLLM_UserTable" WHERE user_id=%s', (user_id,)),
+        lambda: read_rows('SELECT spend FROM "HangarLLM_UserTable" WHERE user_id=%s', (user_id,)),
         lambda rows: bool(rows) and float(rows[0]["spend"]) >= spend,
         seconds=70,
     )

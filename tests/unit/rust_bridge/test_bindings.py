@@ -6,15 +6,15 @@ from typing import Final, cast  # noqa: TID251  # narrows the async binding's un
 
 import pytest
 
-from litellm.rust_bridge import _native, bindings
-from litellm.rust_bridge.chat_completions import entrypoints as chat_completions
-from litellm.rust_bridge.embeddings import entrypoints as embeddings
-from litellm.rust_bridge.execution import Complete, Step
-from litellm.rust_bridge.messages import entrypoints as messages
-from litellm.rust_bridge.ocr import entrypoints as ocr
-from litellm.rust_bridge.public_call import NativeCall
-from litellm.rust_bridge.responses import entrypoints as responses
-from litellm.rust_bridge.transcription import native as transcription
+from hangarllm.rust_bridge import _native, bindings
+from hangarllm.rust_bridge.chat_completions import entrypoints as chat_completions
+from hangarllm.rust_bridge.embeddings import entrypoints as embeddings
+from hangarllm.rust_bridge.execution import Complete, Step
+from hangarllm.rust_bridge.messages import entrypoints as messages
+from hangarllm.rust_bridge.ocr import entrypoints as ocr
+from hangarllm.rust_bridge.public_call import NativeCall
+from hangarllm.rust_bridge.responses import entrypoints as responses
+from hangarllm.rust_bridge.transcription import native as transcription
 
 
 def test_binding_distinguishes_disable_from_reset() -> None:

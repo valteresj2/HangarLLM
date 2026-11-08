@@ -7,29 +7,29 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.rust_bridge import detectors
-from litellm.rust_bridge.chat_completions import detectors as chat_detectors
-from litellm.rust_bridge.messages import detectors as messages_detectors
-from litellm.rust_bridge.public_call import NativeCall
-from litellm.rust_bridge.responses import detectors as responses_detectors
-from litellm.types.llms.anthropic import ANTHROPIC_ADVISOR_TOOL_TYPE, ANTHROPIC_TOOL_SEARCH_TOOL_TYPES
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.rust_bridge import detectors
+from hangarllm.rust_bridge.chat_completions import detectors as chat_detectors
+from hangarllm.rust_bridge.messages import detectors as messages_detectors
+from hangarllm.rust_bridge.public_call import NativeCall
+from hangarllm.rust_bridge.responses import detectors as responses_detectors
+from hangarllm.types.llms.anthropic import ANTHROPIC_ADVISOR_TOOL_TYPE, ANTHROPIC_TOOL_SEARCH_TOOL_TYPES
 
-GATEWAY_TOOL: Final = {"type": "mcp", "server_label": "gateway", "server_url": "litellm_proxy"}
+GATEWAY_TOOL: Final = {"type": "mcp", "server_label": "gateway", "server_url": "hangarllm_proxy"}
 REMOTE_TOOL: Final = {"type": "mcp", "server_label": "docs", "server_url": "https://mcp.example.com/sse"}
-ENCODED_ID: Final = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-1", "rs_1")  # pyright: ignore[reportPrivateUsage]  # the encoder litellm stamps on earlier turns
+ENCODED_ID: Final = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-1", "rs_1")  # pyright: ignore[reportPrivateUsage]  # the encoder hangarllm stamps on earlier turns
 WRAPPED_CONTENT: Final = ResponsesAPIRequestUtils.wrap_encrypted_content_with_model_id("opaque", "deployment-1")
 
 
 MAPPED_FILE: Final = {
-    "model_file_id_mapping": {"litellm-file": {"deployment-1": "file-abc"}},
+    "model_file_id_mapping": {"hangarllm-file": {"deployment-1": "file-abc"}},
     "model_info": {"id": "deployment-1"},
 }
-MAPPED_FILE_INPUT: Final = [{"role": "user", "content": [{"type": "input_file", "file_id": "litellm-file"}]}]
+MAPPED_FILE_INPUT: Final = [{"role": "user", "content": [{"type": "input_file", "file_id": "hangarllm-file"}]}]
 CACHED_TEXT: Final = {"type": "input_text", "text": "hi", "cache_control": {"type": "ephemeral"}}
 THINKING_TURN: Final = {"role": "assistant", "content": [{"type": "thinking", "thinking": "x", "signature": "s"}]}
 REDACTED: Final = {"type": "redacted_thinking", "data": "x"}
@@ -99,14 +99,14 @@ def _wrap_nested_level(value: object, depth: int) -> object:
         (responses_detectors.client_headers, {"headers": None}, False),
         (
             chat_detectors.model_list,
-            {"model_list": [{"model_name": "gpt-5", "litellm_params": {"model": "gpt-5"}}]},
+            {"model_list": [{"model_name": "gpt-5", "hangarllm_params": {"model": "gpt-5"}}]},
             True,
         ),
         (chat_detectors.model_list, {"model_list": None}, False),
         (chat_detectors.chat_retries_fallbacks, {"context_window_fallback_dict": {"gpt-5": "gpt-5-mini"}}, True),
         (chat_detectors.chat_retries_fallbacks, {"fallbacks": ["gpt-5-mini"]}, True),
         (detectors.retries_fallbacks, {"context_window_fallback_dict": {"gpt-5": "gpt-5-mini"}}, False),
-        (detectors.prompt_management, {"model": "litellm_agent/gpt-5"}, True),
+        (detectors.prompt_management, {"model": "hangarllm_agent/gpt-5"}, True),
         (detectors.prompt_management, {"model": "gpt-5"}, False),
         (detectors.caller_client, {"client": object()}, True),
         (detectors.caller_client, {"shared_session": object()}, True),
@@ -233,11 +233,11 @@ def _wrap_nested_level(value: object, depth: int) -> object:
         (detectors.drop_params, {"additional_drop_params": []}, False),
         (
             responses_detectors.deployment_response_id,
-            {"litellm_metadata": {"model_info": {"id": "deployment-1"}}},
+            {"hangarllm_metadata": {"model_info": {"id": "deployment-1"}}},
             True,
         ),
-        (responses_detectors.deployment_response_id, {"litellm_metadata": {"model_info": {}}}, False),
-        (responses_detectors.deployment_response_id, {"litellm_metadata": None}, False),
+        (responses_detectors.deployment_response_id, {"hangarllm_metadata": {"model_info": {}}}, False),
+        (responses_detectors.deployment_response_id, {"hangarllm_metadata": None}, False),
         (responses_detectors.encoded_item_ids, {"input": [{"type": "reasoning", "id": ENCODED_ID}]}, True),
         (
             responses_detectors.encoded_item_ids,
@@ -336,17 +336,17 @@ def test_global_settings_are_detected(
     kwargs: Mapping[str, object],
 ) -> None:
     for name in ("drop_params", "modify_params", "enable_anthropic_prompt_caching", "include_cost_in_streaming_usage"):
-        monkeypatch.setattr(litellm, name, False)
+        monkeypatch.setattr(hangarllm, name, False)
     for name in ("num_retries", "model_fallbacks"):
-        monkeypatch.setattr(litellm, name, None)
-    monkeypatch.setattr(litellm, "model_alias_map", {})
+        monkeypatch.setattr(hangarllm, name, None)
+    monkeypatch.setattr(hangarllm, "model_alias_map", {})
     assert not detector(call(**kwargs))
-    monkeypatch.setattr(litellm, setting, value)
+    monkeypatch.setattr(hangarllm, setting, value)
     assert detector(call(**kwargs))
 
 
 def test_stream_cost_injection_needs_a_stream(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+    monkeypatch.setattr(hangarllm, "include_cost_in_streaming_usage", True)
     assert not messages_detectors.stream_cost_injection(call())
 
 
@@ -362,7 +362,7 @@ def test_foundry_beta_row_reads_the_api_base_the_anthropic_handler_reads(monkeyp
 
 
 def test_model_alias_map_applies_only_to_the_requested_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_alias_map", {"fast": "openai/gpt-5-mini"})
+    monkeypatch.setattr(hangarllm, "model_alias_map", {"fast": "openai/gpt-5-mini"})
     assert chat_detectors.model_alias_map(call(model="fast"))
     assert not chat_detectors.model_alias_map(call())
 
@@ -384,15 +384,15 @@ def test_model_alias_map_applies_only_to_the_requested_model(monkeypatch: pytest
 def test_chat_model_param_gating_follows_the_provider_param_rules(
     monkeypatch: pytest.MonkeyPatch, kwargs: Mapping[str, object], expected: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     assert chat_detectors.chat_model_param_gating(call(**kwargs)) is expected
 
 
 def test_openai_workload_identity_applies_only_without_a_static_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "openai_key", None)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "openai_key", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     identity: Final = {
         "openai_identity_provider_id": "idp-1",
         "openai_service_account_id": "sa-1",
@@ -467,7 +467,7 @@ class _Deployment(CustomLogger):
 def test_callback_detectors_need_an_override(
     monkeypatch: pytest.MonkeyPatch, detector: Callable[[NativeCall], bool], callbacks: list[object], expected: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", callbacks)
+    monkeypatch.setattr(hangarllm, "callbacks", callbacks)
     assert detector(call()) is expected
 
 
@@ -478,7 +478,7 @@ def _logging_with(callback: CustomLogger) -> Logging:
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="function-1",
     )
     logging_obj.add_dynamic_callback(callback)
@@ -489,10 +489,10 @@ def _logging_with(callback: CustomLogger) -> Logging:
     ("detector", "kwargs", "expected"),
     (
         (detectors.agentic_loop_hook, {"success_callback": [_Agentic()]}, True),
-        (detectors.agentic_loop_hook, {"litellm_logging_obj": _logging_with(_Agentic())}, True),
+        (detectors.agentic_loop_hook, {"hangarllm_logging_obj": _logging_with(_Agentic())}, True),
         (detectors.agentic_loop_hook, {"success_callback": [_Logger()]}, False),
         (messages_detectors.pre_request_hook, {"success_callback": [_Rewrite()]}, False),
-        (chat_detectors.chat_agentic_loop_hook, {"litellm_logging_obj": _logging_with(_ChatAgentic())}, True),
+        (chat_detectors.chat_agentic_loop_hook, {"hangarllm_logging_obj": _logging_with(_ChatAgentic())}, True),
         (responses_detectors.deployment_hook, {"success_callback": [_Deployment()]}, True),
     ),
     ids=(
@@ -510,16 +510,16 @@ def test_callback_detectors_read_the_request_callbacks_the_handler_reads(
     kwargs: Mapping[str, object],
     expected: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     assert detector(call(**kwargs)) is expected
 
 
 def test_websearch_interception_needs_the_interception_logger(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
+    from hangarllm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
 
-    monkeypatch.setattr(litellm, "callbacks", [_Rewrite()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Rewrite()])
     assert not messages_detectors.websearch_interception(call())
-    monkeypatch.setattr(litellm, "callbacks", [WebSearchInterceptionLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [WebSearchInterceptionLogger()])
     assert messages_detectors.websearch_interception(call())
 
 
@@ -535,7 +535,7 @@ def test_websearch_interception_needs_the_interception_logger(monkeypatch: pytes
 def test_response_cache_is_skipped_only_by_no_cache(
     monkeypatch: pytest.MonkeyPatch, cache: Cache | None, kwargs: Mapping[str, object], expected: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "cache", cache)
     assert detectors.response_cache(call(**kwargs)) is expected
 
 
@@ -548,10 +548,10 @@ def test_tls_policy_reads_the_security_level_environment_then_the_setting(
 ) -> None:
     monkeypatch.delenv("SSL_SECURITY_LEVEL", raising=False)
     monkeypatch.delenv("SSL_ECDH_CURVE", raising=False)
-    monkeypatch.setattr(litellm, "ssl_ecdh_curve", None)
+    monkeypatch.setattr(hangarllm, "ssl_ecdh_curve", None)
     if environment is not None:
         monkeypatch.setenv("SSL_SECURITY_LEVEL", environment)
-    monkeypatch.setattr(litellm, "ssl_security_level", setting)
+    monkeypatch.setattr(hangarllm, "ssl_security_level", setting)
     assert detectors.tls_policy(call()) is expected
 
 
@@ -564,8 +564,8 @@ def test_tls_policy_flags_only_curves_native_tls_lacks(
 ) -> None:
     monkeypatch.delenv("SSL_SECURITY_LEVEL", raising=False)
     monkeypatch.delenv("SSL_ECDH_CURVE", raising=False)
-    monkeypatch.setattr(litellm, "ssl_security_level", None)
+    monkeypatch.setattr(hangarllm, "ssl_security_level", None)
     if environment is not None:
         monkeypatch.setenv("SSL_ECDH_CURVE", environment)
-    monkeypatch.setattr(litellm, "ssl_ecdh_curve", setting)
+    monkeypatch.setattr(hangarllm, "ssl_ecdh_curve", setting)
     assert detectors.tls_policy(call()) is expected

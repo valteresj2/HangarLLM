@@ -79,13 +79,13 @@ class _ChatResponse(BaseModel):
 def _delete_guardrail(gateway: Gateway, guardrail_id: str) -> None:
     deleted: Final = gateway.request("DELETE", f"/guardrails/{guardrail_id}")
     assert deleted.status_code == 200, deleted.text
-    assert read_rows('SELECT guardrail_id FROM "LiteLLM_GuardrailsTable" WHERE guardrail_id=%s', (guardrail_id,)) == []
+    assert read_rows('SELECT guardrail_id FROM "HangarLLM_GuardrailsTable" WHERE guardrail_id=%s', (guardrail_id,)) == []
 
 
 def _delete_policy(gateway: Gateway, policy_id: str) -> None:
     deleted: Final = gateway.request("DELETE", f"/policies/{policy_id}")
     assert deleted.status_code == 200, deleted.text
-    assert read_rows('SELECT policy_id FROM "LiteLLM_PolicyTable" WHERE policy_id=%s', (policy_id,)) == []
+    assert read_rows('SELECT policy_id FROM "HangarLLM_PolicyTable" WHERE policy_id=%s', (policy_id,)) == []
 
 
 def _create_guardrail(
@@ -101,7 +101,7 @@ def _create_guardrail(
         {
             "guardrail": {
                 "guardrail_name": guardrail_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": False,
@@ -183,19 +183,19 @@ def _assert_guardrail_request(
     response: httpx.Response | None = None,
 ) -> None:
     assert request.method == "POST"
-    assert request.target == "/beta/litellm_basic_guardrail_api"
+    assert request.target == "/beta/hangarllm_basic_guardrail_api"
     payload: Final = _JSON_OBJECT.validate_json(request.body)
     assert set(payload) == {
         "input_type",
-        "litellm_call_id",
-        "litellm_trace_id",
+        "hangarllm_call_id",
+        "hangarllm_trace_id",
         "structured_messages",
         "images",
         "tools",
         "texts",
         "request_data",
         "request_headers",
-        "litellm_version",
+        "hangarllm_version",
         "additional_provider_specific_params",
         "tool_calls",
         "model",
@@ -222,11 +222,11 @@ def _assert_guardrail_request(
         "tool_calls": None,
         "model": model,
     }, payload
-    assert payload["litellm_call_id"] is None or isinstance(payload["litellm_call_id"], str), payload
-    assert payload["litellm_trace_id"] is None or isinstance(payload["litellm_trace_id"], str), payload
-    assert payload["litellm_version"] is None or isinstance(payload["litellm_version"], str), payload
-    if response is not None and response.headers.get("x-litellm-call-id") is not None:
-        assert payload["litellm_call_id"] == response.headers["x-litellm-call-id"], payload
+    assert payload["hangarllm_call_id"] is None or isinstance(payload["hangarllm_call_id"], str), payload
+    assert payload["hangarllm_trace_id"] is None or isinstance(payload["hangarllm_trace_id"], str), payload
+    assert payload["hangarllm_version"] is None or isinstance(payload["hangarllm_version"], str), payload
+    if response is not None and response.headers.get("x-hangarllm-call-id") is not None:
+        assert payload["hangarllm_call_id"] == response.headers["x-hangarllm-call-id"], payload
     request_data: Final = object_value(payload["request_data"])
     assert set(request_data).issubset(
         {
@@ -414,7 +414,7 @@ def test_policy_attachments_match_live_models_teams_keys_and_global_scope(gatewa
             gateway,
             scenario.cleanups,
             f"guardrail-{prefix}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         policy_name: Final = f"policy-{prefix}"
@@ -442,7 +442,7 @@ def test_policy_attachments_match_live_models_teams_keys_and_global_scope(gatewa
         assert readback.status_code == 200, readback.text
         assert _AttachmentResponse.model_validate_json(readback.content).model_dump() == expected_scope, readback.text
         rows: Final = read_rows(
-            'SELECT policy_name, scope, teams, keys, models FROM "LiteLLM_PolicyAttachmentTable" '
+            'SELECT policy_name, scope, teams, keys, models FROM "HangarLLM_PolicyAttachmentTable" '
             "WHERE attachment_id=%s",
             (created_attachment.attachment_id,),
         )
@@ -457,18 +457,18 @@ def test_policy_attachments_match_live_models_teams_keys_and_global_scope(gatewa
         ]
 
         matching_response: Final = _chat(gateway, model, matching_key, _PROMPT)
-        assert matching_response.headers.get("x-litellm-applied-policies") == policy_name, matching_response.text
+        assert matching_response.headers.get("x-hangarllm-applied-policies") == policy_name, matching_response.text
         global_response: Final = _chat(gateway, second_model, matching_key, _PROMPT) if spelling == "*" else None
         if global_response is not None:
-            assert global_response.headers.get("x-litellm-applied-policies") == policy_name, global_response.text
+            assert global_response.headers.get("x-hangarllm-applied-policies") == policy_name, global_response.text
         elif spelling == "models":
             nonmatching_model_response: Final = _chat(gateway, second_model, matching_key, _PROMPT)
-            assert nonmatching_model_response.headers.get("x-litellm-applied-policies") is None, (
+            assert nonmatching_model_response.headers.get("x-hangarllm-applied-policies") is None, (
                 nonmatching_model_response.text
             )
         elif nonmatching_key is not None:
             nonmatching_key_response: Final = _chat(gateway, model, nonmatching_key, _PROMPT)
-            assert nonmatching_key_response.headers.get("x-litellm-applied-policies") is None, (
+            assert nonmatching_key_response.headers.get("x-hangarllm-applied-policies") is None, (
                 nonmatching_key_response.text
             )
         global_responses: Final[tuple[httpx.Response, ...]] = () if global_response is None else (global_response,)
@@ -496,7 +496,7 @@ def test_policy_attachments_match_live_models_teams_keys_and_global_scope(gatewa
                 response=response,
             )
         assert [(request.method, request.target) for request in guardrail_requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api")
+            ("POST", "/beta/hangarllm_basic_guardrail_api")
         ] * expected_matches
         expected_provider_texts: Final = (
             (_MASKED, _MASKED)
@@ -540,14 +540,14 @@ def test_matching_model_and_global_attachments_apply_by_priority(
             gateway,
             scenario.cleanups,
             f"guardrail-model-{prefix}",
-            f"{model_guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{model_guardrail.url}/beta/hangarllm_basic_guardrail_api",
             model_guardrail_key,
         )
         global_guardrail_name: Final = _create_guardrail(
             gateway,
             scenario.cleanups,
             f"guardrail-global-{prefix}",
-            f"{global_guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{global_guardrail.url}/beta/hangarllm_basic_guardrail_api",
             global_guardrail_key,
         )
         model_policy_name: Final = f"policy-model-{prefix}"
@@ -611,7 +611,7 @@ def test_matching_model_and_global_attachments_apply_by_priority(
             else (global_policy_name, model_policy_name)
         )
         matched: Final = _chat(gateway, model, key, _PROMPT)
-        assert matched.headers.get("x-litellm-applied-policies") == ",".join(expected_order), matched.text
+        assert matched.headers.get("x-hangarllm-applied-policies") == ",".join(expected_order), matched.text
         matched_model_guardrail_requests: Final = model_guardrail.drain()
         matched_global_guardrail_requests: Final = global_guardrail.drain()
         assert len(matched_model_guardrail_requests) == 1
@@ -625,7 +625,7 @@ def test_matching_model_and_global_attachments_apply_by_priority(
         _assert_provider_request(matched_provider_requests[0], _PROMPT)
 
         unmatched: Final = _chat(gateway, other_model, key, _PROMPT)
-        assert unmatched.headers.get("x-litellm-applied-policies") == global_policy_name, unmatched.text
+        assert unmatched.headers.get("x-hangarllm-applied-policies") == global_policy_name, unmatched.text
         assert model_guardrail.drain() == ()
         unmatched_global_guardrail_requests: Final = global_guardrail.drain()
         assert len(unmatched_global_guardrail_requests) == 1
@@ -640,7 +640,7 @@ def _delete_attachment(gateway: Gateway, attachment_id: str) -> None:
     deleted: Final = gateway.request("DELETE", f"/policies/attachments/{attachment_id}")
     assert deleted.status_code == 200, deleted.text
     assert (
-        read_rows('SELECT attachment_id FROM "LiteLLM_PolicyAttachmentTable" WHERE attachment_id=%s', (attachment_id,))
+        read_rows('SELECT attachment_id FROM "HangarLLM_PolicyAttachmentTable" WHERE attachment_id=%s', (attachment_id,))
         == []
     )
 
@@ -669,21 +669,21 @@ def test_request_policy_name_selects_its_production_guardrail_and_is_removed_fro
             gateway,
             scenario.cleanups,
             f"guardrail-one-{uuid.uuid4().hex}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "guardrail-one",
         )
         second_guardrail: Final = _create_guardrail(
             gateway,
             scenario.cleanups,
             f"guardrail-two-{uuid.uuid4().hex}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "guardrail-two",
         )
         policy_id: Final = _create_policy(gateway, scenario.cleanups, policy_name, first_guardrail)
         _create_published_version(gateway, scenario.cleanups, policy_name, policy_id, second_guardrail)
 
         response: Final = _chat(gateway, model, key, _PROMPT, policies=[policy_name])
-        assert response.headers.get("x-litellm-applied-policies") == policy_name, response.text
+        assert response.headers.get("x-hangarllm-applied-policies") == policy_name, response.text
 
         sdk_prompt: Final = f"{_PROMPT} via SDK {uuid.uuid4().hex}"
         with httpx.Client(trust_env=False, timeout=15) as client:
@@ -715,7 +715,7 @@ def test_request_policy_name_selects_its_production_guardrail_and_is_removed_fro
         for request, expected_text in zip(provider_requests, expected_provider_texts, strict=True):
             _assert_provider_request(request, expected_text)
         assert [(request.method, request.target) for request in guardrail_requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api")
+            ("POST", "/beta/hangarllm_basic_guardrail_api")
         ] * len(guardrail_requests)
         assert [(request.method, request.target) for request in provider_requests] == [
             ("POST", "/v1/chat/completions")
@@ -749,14 +749,14 @@ def test_request_policy_version_id_selects_its_published_guardrail(gateway: Gate
             gateway,
             scenario.cleanups,
             f"guardrail-one-{uuid.uuid4().hex}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "guardrail-one",
         )
         second_guardrail: Final = _create_guardrail(
             gateway,
             scenario.cleanups,
             f"guardrail-two-{uuid.uuid4().hex}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "guardrail-two",
         )
         policy_id: Final = _create_policy(gateway, scenario.cleanups, policy_name, first_guardrail)
@@ -765,7 +765,7 @@ def test_request_policy_version_id_selects_its_published_guardrail(gateway: Gate
         )
 
         response: Final = _chat(gateway, model, key, _PROMPT, policies=[f"policy_{version_id}"])
-        assert response.headers.get("x-litellm-applied-policies") == policy_name, response.text
+        assert response.headers.get("x-hangarllm-applied-policies") == policy_name, response.text
         guardrail_requests: Final = guardrail.drain()
         assert len(guardrail_requests) == 1
         assert guardrail_requests[0].headers["x-api-key"] == "guardrail-two"
@@ -774,7 +774,7 @@ def test_request_policy_version_id_selects_its_published_guardrail(gateway: Gate
         assert len(provider_requests) == 1
         _assert_provider_request(provider_requests[0], _MASKED_SECOND)
         assert [(request.method, request.target) for request in guardrail_requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api")
+            ("POST", "/beta/hangarllm_basic_guardrail_api")
         ]
         assert [(request.method, request.target) for request in provider_requests] == [("POST", "/v1/chat/completions")]
 
@@ -803,14 +803,14 @@ def test_request_published_policy_version_id_resolves_after_force_sync(gateway: 
             gateway,
             scenario.cleanups,
             f"guardrail-one-{uuid.uuid4().hex}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "guardrail-one",
         )
         second_guardrail: Final = _create_guardrail(
             gateway,
             scenario.cleanups,
             f"guardrail-two-{uuid.uuid4().hex}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "guardrail-two",
         )
         policy_id: Final = _create_policy(gateway, scenario.cleanups, policy_name, first_guardrail)
@@ -826,10 +826,10 @@ def test_request_published_policy_version_id_resolves_after_force_sync(gateway: 
         assert synchronized.status_code == 200, synchronized.text
 
         response: Final = _chat(gateway, model, key, _PROMPT, policies=[f"policy_{version_id}"])
-        assert response.headers.get("x-litellm-applied-policies") == policy_name, response.text
+        assert response.headers.get("x-hangarllm-applied-policies") == policy_name, response.text
         guardrail_requests: Final = guardrail.drain()
         assert [(request.method, request.target) for request in guardrail_requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api")
+            ("POST", "/beta/hangarllm_basic_guardrail_api")
         ]
         assert [request.headers["x-api-key"] for request in guardrail_requests] == ["guardrail-two"]
         _assert_guardrail_request(guardrail_requests[0], _PROMPT, model, key, response=response)
@@ -872,7 +872,7 @@ def test_policy_attachment_with_a_blocking_guardrail_stops_the_request_before_th
             gateway,
             scenario.cleanups,
             f"guardrail-{prefix}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         policy_name: Final = f"policy-{prefix}"
@@ -902,7 +902,7 @@ def test_policy_attachment_with_a_blocking_guardrail_stops_the_request_before_th
         }, blocked.text
 
         allowed: Final = _chat(gateway, other_model, key, _PROMPT)
-        assert allowed.headers.get("x-litellm-applied-policies") is None, allowed.text
+        assert allowed.headers.get("x-hangarllm-applied-policies") is None, allowed.text
 
         guardrail_requests: Final = guardrail.drain()
         assert len(guardrail_requests) == 1
@@ -942,7 +942,7 @@ def test_policy_attachment_tag_scope_matches_only_tagged_requests(
             gateway,
             scenario.cleanups,
             f"guardrail-{prefix}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         policy_name: Final = f"policy-{prefix}"
@@ -969,7 +969,7 @@ def test_policy_attachment_tag_scope_matches_only_tagged_requests(
         assert readback.status_code == 200, readback.text
         assert _AttachmentResponse.model_validate_json(readback.content).model_dump() == expected_scope, readback.text
         rows: Final = read_rows(
-            'SELECT policy_name, tags, is_default FROM "LiteLLM_PolicyAttachmentTable" WHERE attachment_id=%s',
+            'SELECT policy_name, tags, is_default FROM "HangarLLM_PolicyAttachmentTable" WHERE attachment_id=%s',
             (created_attachment.attachment_id,),
         )
         assert rows == [{"policy_name": policy_name, "tags": [f"{prefix}-*"], "is_default": False}]
@@ -988,15 +988,15 @@ def test_policy_attachment_tag_scope_matches_only_tagged_requests(
             "/v1/chat/completions",
             tagged_body,
             key=key,
-            headers={"x-litellm-tags": ", ".join(header_tags)} if tag_spelling == "header" else None,
+            headers={"x-hangarllm-tags": ", ".join(header_tags)} if tag_spelling == "header" else None,
         )
         assert tagged.status_code == 200, tagged.text
         _ChatResponse.model_validate_json(tagged.content)
         tagged_id: Final = string_value(object_value(tagged.json())["id"])
-        assert tagged.headers.get("x-litellm-applied-policies") == policy_name, tagged.text
+        assert tagged.headers.get("x-hangarllm-applied-policies") == policy_name, tagged.text
         spend_rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_tags FROM "LiteLLM_SpendLogs" WHERE request_id=%s AND status=%s',
+                'SELECT request_tags FROM "HangarLLM_SpendLogs" WHERE request_id=%s AND status=%s',
                 (tagged_id, "success"),
             ),
             lambda rows: len(rows) == 1,
@@ -1020,7 +1020,7 @@ def test_policy_attachment_tag_scope_matches_only_tagged_requests(
         _assert_provider_request(tagged_provider_requests[0], _MASKED)
 
         untagged: Final = _chat(gateway, model, key, _PROMPT)
-        assert untagged.headers.get("x-litellm-applied-policies") is None, untagged.text
+        assert untagged.headers.get("x-hangarllm-applied-policies") is None, untagged.text
         assert guardrail.drain() == ()
         untagged_provider_requests: Final = provider.drain()
         assert len(untagged_provider_requests) == 1
@@ -1049,14 +1049,14 @@ def test_default_policy_attachment_applies_only_when_no_other_attachment_matches
             gateway,
             scenario.cleanups,
             f"guardrail-default-{prefix}",
-            f"{default_guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{default_guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         scoped_guardrail_name: Final = _create_guardrail(
             gateway,
             scenario.cleanups,
             f"guardrail-scoped-{prefix}",
-            f"{scoped_guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{scoped_guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         default_policy: Final = f"policy-default-{prefix}"
@@ -1103,24 +1103,24 @@ def test_default_policy_attachment_applies_only_when_no_other_attachment_matches
             "default": False,
         }, scoped_attachment.text
         rows: Final = read_rows(
-            'SELECT policy_name, is_default FROM "LiteLLM_PolicyAttachmentTable" WHERE attachment_id=%s',
+            'SELECT policy_name, is_default FROM "HangarLLM_PolicyAttachmentTable" WHERE attachment_id=%s',
             (created_default.attachment_id,),
         )
         assert rows == [{"policy_name": default_policy, "is_default": True}]
 
         first_response: Final = _chat(gateway, first_model, key, _PROMPT)
-        assert first_response.headers.get("x-litellm-applied-policies") == default_policy, first_response.text
+        assert first_response.headers.get("x-hangarllm-applied-policies") == default_policy, first_response.text
         second_response: Final = _chat(gateway, second_model, key, _PROMPT)
-        assert second_response.headers.get("x-litellm-applied-policies") == scoped_policy, second_response.text
+        assert second_response.headers.get("x-hangarllm-applied-policies") == scoped_policy, second_response.text
 
         default_requests: Final = default_guardrail.drain()
         assert [(request.method, request.target) for request in default_requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api")
+            ("POST", "/beta/hangarllm_basic_guardrail_api")
         ]
         _assert_guardrail_request(default_requests[0], _PROMPT, first_model, key, response=first_response)
         scoped_requests: Final = scoped_guardrail.drain()
         assert [(request.method, request.target) for request in scoped_requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api")
+            ("POST", "/beta/hangarllm_basic_guardrail_api")
         ]
         _assert_guardrail_request(scoped_requests[0], _PROMPT, second_model, key, response=second_response)
         provider_requests: Final = provider.drain()
@@ -1145,7 +1145,7 @@ def test_policy_attachment_tag_scope_matches_tags_from_the_key_and_team(gateway:
             gateway,
             scenario.cleanups,
             f"guardrail-{prefix}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         policy_name: Final = f"policy-{prefix}"
@@ -1182,9 +1182,9 @@ def test_policy_attachment_tag_scope_matches_tags_from_the_key_and_team(gateway:
         team_prompt: Final = f"{_PROMPT} team metadata"
         control_prompt: Final = f"{_PROMPT} untagged control"
         key_response: Final = _chat(gateway, model, key_tagged, key_prompt)
-        assert key_response.headers.get("x-litellm-applied-policies") == policy_name, key_response.text
+        assert key_response.headers.get("x-hangarllm-applied-policies") == policy_name, key_response.text
         team_response: Final = _chat(gateway, model, team_key, team_prompt)
-        assert team_response.headers.get("x-litellm-applied-policies") == policy_name, team_response.text
+        assert team_response.headers.get("x-hangarllm-applied-policies") == policy_name, team_response.text
         guardrail_requests: Final = guardrail.drain()
         assert len(guardrail_requests) == 2
         _assert_guardrail_request(guardrail_requests[0], key_prompt, model, key_tagged, response=key_response)
@@ -1195,7 +1195,7 @@ def test_policy_attachment_tag_scope_matches_tags_from_the_key_and_team(gateway:
         _assert_provider_request(provider_requests[1], f"{_MASKED}: {team_prompt}")
 
         control_response: Final = _chat(gateway, model, untagged_key, control_prompt)
-        assert control_response.headers.get("x-litellm-applied-policies") is None, control_response.text
+        assert control_response.headers.get("x-hangarllm-applied-policies") is None, control_response.text
         assert guardrail.drain() == ()
         control_provider_requests: Final = provider.drain()
         assert len(control_provider_requests) == 1
@@ -1216,7 +1216,7 @@ def test_streaming_chat_on_an_attached_model_runs_the_policy_guardrail(gateway: 
             gateway,
             scenario.cleanups,
             f"guardrail-{prefix}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         policy_name: Final = f"policy-{prefix}"
@@ -1244,7 +1244,7 @@ def test_streaming_chat_on_an_attached_model_runs_the_policy_guardrail(gateway: 
         assert provider.drain() == ()
 
         attached_headers, attached_text = _stream_chat(gateway, model, key, _PROMPT)
-        assert attached_headers.get("x-litellm-applied-policies") == policy_name, dict(attached_headers)
+        assert attached_headers.get("x-hangarllm-applied-policies") == policy_name, dict(attached_headers)
         assert attached_text == "provider response"
         guardrail_requests: Final = guardrail.drain()
         assert len(guardrail_requests) == 1
@@ -1255,7 +1255,7 @@ def test_streaming_chat_on_an_attached_model_runs_the_policy_guardrail(gateway: 
 
         assert guardrail.drain() == ()
         unattached_headers, unattached_text = _stream_chat(gateway, second_model, key, _PROMPT)
-        assert unattached_headers.get("x-litellm-applied-policies") is None, dict(unattached_headers)
+        assert unattached_headers.get("x-hangarllm-applied-policies") is None, dict(unattached_headers)
         assert unattached_text == "provider response"
         assert guardrail.drain() == ()
         unattached_provider_requests: Final = provider.drain()
@@ -1278,7 +1278,7 @@ def test_streaming_request_body_policies_run_the_guardrail_and_are_removed_from_
             gateway,
             scenario.cleanups,
             f"guardrail-{prefix}",
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
             "synthetic-guardrail-key",
         )
         policy_name: Final = f"policy-{prefix}"
@@ -1287,7 +1287,7 @@ def test_streaming_request_body_policies_run_the_guardrail_and_are_removed_from_
         assert provider.drain() == ()
 
         response_headers, response_text = _stream_chat(gateway, model, key, _PROMPT, policy_name=policy_name)
-        assert response_headers.get("x-litellm-applied-policies") == policy_name, dict(response_headers)
+        assert response_headers.get("x-hangarllm-applied-policies") == policy_name, dict(response_headers)
         assert response_text == "provider response"
         guardrail_requests: Final = guardrail.drain()
         assert len(guardrail_requests) == 1

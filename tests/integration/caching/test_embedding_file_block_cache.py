@@ -24,7 +24,7 @@ WIRE_METADATA: Final[dict[str, JsonValue]] = {"fps": 1.0, "startOffset": "0s", "
 TEXT_PART: Final[dict[str, JsonValue]] = {"text": "a red bus"}
 SETTLE_SECONDS: Final = 15
 SPEND_SQL: Final = (
-    'SELECT request_id, cache_hit, spend FROM "LiteLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime", request_id'
+    'SELECT request_id, cache_hit, spend FROM "HangarLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime", request_id'
 )
 
 
@@ -120,7 +120,7 @@ def test_block_embedding_is_served_from_the_cache_with_a_zero_spend_row(gateway:
         body: Final = embed_body(model, [block("one")])
         first: Final = gateway.request("POST", "/v1/embeddings", body, key=key)
         assert first.status_code == 200, first.text
-        first_id: Final = first.headers["x-litellm-call-id"]
+        first_id: Final = first.headers["x-hangarllm-call-id"]
         assert wire_parts(wire) == [[gcs_part("one")]]
         served: Final = await_hit(gateway, wire, body, key)
         assert embeddings_of(served) == embeddings_of(object_value(first.json())) == [vector([gcs_part("one")])]

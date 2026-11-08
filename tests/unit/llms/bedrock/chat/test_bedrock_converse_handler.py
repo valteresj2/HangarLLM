@@ -21,12 +21,12 @@ import respx
 from botocore.credentials import Credentials
 from botocore.exceptions import ClientError
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.bedrock.chat.converse_handler import BedrockConverseLLM
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.rust_bridge import configuration
-from litellm.types.utils import AdapterCompletionStreamWrapper, ModelResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.bedrock.chat.converse_handler import BedrockConverseLLM
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.rust_bridge import configuration
+from hangarllm.types.utils import AdapterCompletionStreamWrapper, ModelResponse
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 from tests.unit.llms.bedrock.slow_upstream import (
     CONVERSE_ANSWER,
@@ -46,7 +46,7 @@ RESOLVED_CREDENTIALS = Credentials(
 
 @pytest.fixture(autouse=True)
 def reset_rust_configuration(monkeypatch):
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("HANGARLLM_RUST", "1")
     configuration.reset_rust_configuration()
     yield
     configuration.reset_rust_configuration()
@@ -64,7 +64,7 @@ def _completion_kwargs(**overrides):
         "optional_params": {"maxTokens": 16},
         "acompletion": False,
         "timeout": 30.0,
-        "litellm_params": {},
+        "hangarllm_params": {},
         "extra_headers": None,
         "client": None,
         "api_key": None,
@@ -120,7 +120,7 @@ async def _drive_async_completion(
         logging_obj=logging_obj,
         stream=None,
         optional_params={"maxTokens": 16},
-        litellm_params={"aws_region_name": "us-west-2"},
+        hangarllm_params={"aws_region_name": "us-west-2"},
         credentials=credentials,
         headers={},
         client=client,
@@ -166,7 +166,7 @@ async def test_python_only_async_dispatch_refreshes_credentials_off_the_event_lo
     monkeypatch: pytest.MonkeyPatch, rust_enabled: bool
 ) -> None:
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
-    monkeypatch.setenv("LITELLM_RUST", "1" if rust_enabled else "0")
+    monkeypatch.setenv("HANGARLLM_RUST", "1" if rust_enabled else "0")
     configuration.rust(rust_enabled)
     probe: Final = EventLoopProbe()
     release: Final = asyncio.create_task(probe.release_refresh_from_the_loop())
@@ -209,7 +209,7 @@ def test_bearer_token_auth_serves_when_boto3_resolves_no_sigv4_credentials(monke
     monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "bedrock-bearer-token")
     client = _sync_client_returning_converse_response()
 
-    response = _run(credentials=None, litellm_params={}, client=client)
+    response = _run(credentials=None, hangarllm_params={}, client=client)
 
     assert response.choices[0].message.content == "hi"
     sent_headers = client.post.call_args.kwargs["headers"]
@@ -229,8 +229,8 @@ def test_bearer_token_auth_never_runs_the_sigv4_credential_chain(monkeypatch, co
 
     response = BedrockConverseLLM().completion(
         **_completion_kwargs(
-            optional_params={"maxTokens": 16, "aws_profile_name": "litellm-no-such-aws-profile"},
-            litellm_params={},
+            optional_params={"maxTokens": 16, "aws_profile_name": "hangarllm-no-such-aws-profile"},
+            hangarllm_params={},
             client=client,
             api_key="bedrock-bearer-token" if configured_through == "api_key" else None,
         )
@@ -249,7 +249,7 @@ def test_session_tags_sign_the_request_and_stay_out_of_the_body(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -275,11 +275,11 @@ def test_session_tags_sign_the_request_and_stay_out_of_the_body(monkeypatch):
                     "aws_region_name": "us-east-1",
                     "aws_access_key_id": "AKIACONVERSECALLER",
                     "aws_secret_access_key": "pod-caller-secret",
-                    "aws_role_name": "arn:aws:iam::999999999999:role/litellm-converse-role",
-                    "aws_session_name": "litellm-converse-session",
+                    "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-converse-role",
+                    "aws_session_name": "hangarllm-converse-session",
                     "aws_session_tags": tags,
                 },
-                litellm_params={},
+                hangarllm_params={},
                 client=client,
             )
         )
@@ -304,19 +304,19 @@ def _converse_streaming_kwargs() -> dict[str, object]:
 
 @pytest.mark.asyncio
 async def test_async_converse_streaming_fails_at_the_request_timeout_not_the_upstreams_pace() -> None:
-    with pytest.raises(litellm.Timeout):
-        await litellm.acompletion(client=slow_upstream_async_client(), **_converse_streaming_kwargs())
+    with pytest.raises(hangarllm.Timeout):
+        await hangarllm.acompletion(client=slow_upstream_async_client(), **_converse_streaming_kwargs())
 
 
 def test_sync_converse_streaming_fails_at_the_request_timeout_not_the_upstreams_pace() -> None:
-    with pytest.raises(litellm.Timeout):
-        litellm.completion(client=slow_upstream_sync_client(), **_converse_streaming_kwargs())
+    with pytest.raises(hangarllm.Timeout):
+        hangarllm.completion(client=slow_upstream_sync_client(), **_converse_streaming_kwargs())
 
 
 @pytest.mark.asyncio
 async def test_live_stream_with_a_text_stream_timeout_reports_the_stream_timeout_it_was_cut_at() -> None:
-    with pytest.raises(litellm.Timeout) as excinfo:
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.Timeout) as excinfo:
+        await hangarllm.acompletion(
             client=slow_upstream_async_client(),
             **{
                 **_converse_streaming_kwargs(),
@@ -351,12 +351,12 @@ _FAKE_STREAMED_REQUESTS: Final = pytest.mark.parametrize(
 )
 
 
-def _bedrock_router(model: str, *, timeout: float, stream_timeout: float) -> litellm.Router:
-    return litellm.Router(
+def _bedrock_router(model: str, *, timeout: float, stream_timeout: float) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "aws_access_key_id": "fake",
                     "aws_secret_access_key": "fake",
@@ -370,7 +370,7 @@ def _bedrock_router(model: str, *, timeout: float, stream_timeout: float) -> lit
     )
 
 
-def _router_with_a_stream_timeout_shorter_than_the_upstreams_first_byte(model: str) -> litellm.Router:
+def _router_with_a_stream_timeout_shorter_than_the_upstreams_first_byte(model: str) -> hangarllm.Router:
     return _bedrock_router(model, timeout=UPSTREAM_FIRST_BYTE_SECONDS * 2, stream_timeout=STREAM_TIMEOUT_SECONDS)
 
 
@@ -427,12 +427,12 @@ async def test_fake_stream_keeps_a_stream_timeout_longer_than_the_request_timeou
 _BEDROCK_RUNTIME_URL: Final = r"https://bedrock-runtime\.us-east-1\.amazonaws\.com/.*"
 
 
-async def _text_completion_text(router: litellm.Router) -> str:
+async def _text_completion_text(router: hangarllm.Router) -> str:
     response: Final = await router.atext_completion(model="bedrock", prompt="hi", stream=True)
     return "".join([chunk.choices[0].text or "" async for chunk in response])
 
 
-async def _anthropic_messages_text(router: litellm.Router) -> str:
+async def _anthropic_messages_text(router: hangarllm.Router) -> str:
     response: Final = await router.aanthropic_messages(
         model="bedrock", messages=[{"role": "user", "content": "hi"}], max_tokens=10, stream=True
     )
@@ -441,7 +441,7 @@ async def _anthropic_messages_text(router: litellm.Router) -> str:
     return "".join(event["delta"]["text"] for event in events if event["type"] == "content_block_delta")
 
 
-async def _responses_text(router: litellm.Router) -> str:
+async def _responses_text(router: hangarllm.Router) -> str:
     response: Final = await router.aresponses(model="bedrock", input="hi", stream=True)
     return "".join([event.delta async for event in response if event.type == "response.output_text.delta"])
 
@@ -453,11 +453,11 @@ async def _responses_text(router: litellm.Router) -> str:
     ids=["text_completion", "anthropic_messages", "responses"],
 )
 async def test_fake_stream_on_each_router_surface_is_bounded_by_the_request_timeout(
-    stream_text: Callable[[litellm.Router], Awaitable[str]],
+    stream_text: Callable[[hangarllm.Router], Awaitable[str]],
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=slow_upstream_answer(CONVERSE_ANSWER))
     router: Final = _router_with_a_stream_timeout_shorter_than_the_upstreams_first_byte(
         "bedrock/converse/ai21.jamba-1-5-large-v1:0"
@@ -478,8 +478,8 @@ class _ChatCompletionAdapter(CustomLogger):
 async def test_fake_stream_through_a_router_adapter_is_bounded_by_the_request_timeout(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "adapters", [{"id": "chat", "adapter": _ChatCompletionAdapter()}])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "adapters", [{"id": "chat", "adapter": _ChatCompletionAdapter()}])
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=slow_upstream_answer(CONVERSE_ANSWER))
     router: Final = _router_with_a_stream_timeout_shorter_than_the_upstreams_first_byte(
         "bedrock/converse/ai21.jamba-1-5-large-v1:0"
@@ -491,7 +491,7 @@ async def test_fake_stream_through_a_router_adapter_is_bounded_by_the_request_ti
 
     assert isinstance(response, AsyncIterator)
     contents: Final = [
-        chunk.choices[0].delta.content or "" async for chunk in response if isinstance(chunk, litellm.ModelResponseStream)
+        chunk.choices[0].delta.content or "" async for chunk in response if isinstance(chunk, hangarllm.ModelResponseStream)
     ]
     assert "".join(contents) == "hi"
 
@@ -500,13 +500,13 @@ async def test_fake_stream_through_a_router_adapter_is_bounded_by_the_request_ti
 async def test_live_anthropic_messages_stream_through_the_router_fails_at_the_stream_timeout(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=slow_upstream_answer())
     router: Final = _router_with_a_stream_timeout_shorter_than_the_upstreams_first_byte(
         "bedrock/invoke/anthropic.claude-sonnet-4-5-v1:0"
     )
 
-    with pytest.raises(litellm.Timeout) as excinfo:
+    with pytest.raises(hangarllm.Timeout) as excinfo:
         await _anthropic_messages_text(router)
     assert getattr(excinfo.value, "timeout", None) == STREAM_TIMEOUT_SECONDS
 
@@ -515,7 +515,7 @@ def test_sync_live_stream_through_the_router_fails_at_the_stream_timeout() -> No
     router: Final = _router_with_a_stream_timeout_shorter_than_the_upstreams_first_byte(
         "bedrock/anthropic.claude-sonnet-4-5-v1:0"
     )
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         router.completion(
             model="bedrock", messages=[{"role": "user", "content": "hi"}], stream=True, client=slow_upstream_sync_client()
         )
@@ -526,7 +526,7 @@ async def test_async_live_stream_through_the_router_fails_at_the_stream_timeout(
     router: Final = _router_with_a_stream_timeout_shorter_than_the_upstreams_first_byte(
         "bedrock/anthropic.claude-sonnet-4-5-v1:0"
     )
-    with pytest.raises(litellm.Timeout) as excinfo:
+    with pytest.raises(hangarllm.Timeout) as excinfo:
         await router.acompletion(
             model="bedrock", messages=[{"role": "user", "content": "hi"}], stream=True, client=slow_upstream_async_client()
         )
@@ -539,7 +539,7 @@ async def test_failed_fake_stream_reports_the_request_timeout_it_was_bounded_by(
     router: Final = _bedrock_router(
         "bedrock/converse/ai21.jamba-1-5-large-v1:0", timeout=request_timeout, stream_timeout=STREAM_TIMEOUT_SECONDS
     )
-    with pytest.raises(litellm.Timeout) as excinfo:
+    with pytest.raises(hangarllm.Timeout) as excinfo:
         await router.acompletion(
             model="bedrock",
             messages=[{"role": "user", "content": "hi"}],
@@ -568,7 +568,7 @@ def _rejects_native_output_then_answers_slowly(request: httpx.Request) -> httpx.
     return slow_upstream_answer(CONVERSE_ANSWER)(request)
 
 
-async def _stream_json_schema_with_thinking(router: litellm.Router) -> str:
+async def _stream_json_schema_with_thinking(router: hangarllm.Router) -> str:
     response: Final = await router.acompletion(
         model="bedrock",
         messages=[{"role": "user", "content": "hi"}],
@@ -587,7 +587,7 @@ def _sent_paths(respx_mock: respx.MockRouter) -> list[str]:
 async def test_native_output_retry_is_bounded_by_the_request_timeout_not_the_stream_timeout(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=_rejects_native_output_then_answers_slowly)
     router: Final = _bedrock_router(
         "bedrock/converse/us.anthropic.claude-opus-4-8",
@@ -620,7 +620,7 @@ def _denies_streaming_then_answers(request: httpx.Request) -> httpx.Response:
 async def test_a_denied_native_output_stream_is_sent_again_buffered_with_native_output(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=_denies_streaming_then_answers)
     router: Final = _bedrock_router(
         "bedrock/converse/us.anthropic.claude-opus-5-5", timeout=60, stream_timeout=STREAM_TIMEOUT_SECONDS
@@ -664,7 +664,7 @@ def _denies_invoke_streaming_then_answers(request: httpx.Request) -> httpx.Respo
 async def test_a_denied_native_output_stream_on_the_invoke_route_is_sent_again_buffered_to_invoke(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=_denies_invoke_streaming_then_answers)
     router: Final = _bedrock_router(
         "bedrock/invoke/us.anthropic.claude-opus-5-5", timeout=60, stream_timeout=STREAM_TIMEOUT_SECONDS
@@ -712,7 +712,7 @@ def _denies_invoke_streaming_and_rejects_native_output(request: httpx.Request) -
 async def test_a_rejected_schema_after_a_denied_invoke_stream_falls_back_to_the_json_tool_still_buffered(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=_denies_invoke_streaming_and_rejects_native_output)
     router: Final = _bedrock_router(
         "bedrock/invoke/us.anthropic.claude-opus-5-5", timeout=60, stream_timeout=STREAM_TIMEOUT_SECONDS
@@ -736,14 +736,14 @@ async def test_a_rejected_schema_after_a_denied_invoke_stream_falls_back_to_the_
 async def test_failed_native_output_retry_reports_the_request_timeout_it_was_bounded_by(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=_rejects_native_output_then_answers_slowly)
     request_timeout: Final = UPSTREAM_FIRST_BYTE_SECONDS / 2
     router: Final = _bedrock_router(
         "bedrock/converse/us.anthropic.claude-opus-4-8", timeout=request_timeout, stream_timeout=STREAM_TIMEOUT_SECONDS
     )
 
-    with pytest.raises(litellm.Timeout) as excinfo:
+    with pytest.raises(hangarllm.Timeout) as excinfo:
         await _stream_json_schema_with_thinking(router)
     assert getattr(excinfo.value, "timeout", None) == request_timeout
     assert _sent_paths(respx_mock) == ["converse-stream", "converse"]
@@ -765,14 +765,14 @@ async def test_failed_native_output_retry_reports_the_request_timeout_it_was_bou
     ids=["fake_stream", "live_stream"],
 )
 async def test_failed_stream_on_each_router_surface_reports_the_timeout_it_was_bounded_by(
-    stream_text: Callable[[litellm.Router], Awaitable[str]],
+    stream_text: Callable[[hangarllm.Router], Awaitable[str]],
     model: str,
     upstream_answer: bytes,
     bounding_timeout: float,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(url__regex=_BEDROCK_RUNTIME_URL).mock(side_effect=slow_upstream_answer(upstream_answer))
     router: Final = _bedrock_router(model, timeout=UPSTREAM_FIRST_BYTE_SECONDS / 2, stream_timeout=STREAM_TIMEOUT_SECONDS)
 
@@ -820,8 +820,8 @@ def _answer_with_json_mode_thinking_response(request: httpx.Request) -> httpx.Re
 def _bedrock_claude_without_native_structured_output() -> str:
     return next(
         f"bedrock/{model}"
-        for model, info in litellm.model_cost.items()
-        if info.get("litellm_provider") == "bedrock_converse"
+        for model, info in hangarllm.model_cost.items()
+        if info.get("hangarllm_provider") == "bedrock_converse"
         and model.startswith("us.anthropic.claude")
         and info.get("supports_native_structured_output") is False
         and info.get("supports_reasoning") is True
@@ -862,7 +862,7 @@ def _answer_fields(response: ModelResponse) -> tuple[object, ...]:
     )
 
 
-def _streamed_thinking_blocks(chunks: list[litellm.ModelResponseStream]) -> list[object]:
+def _streamed_thinking_blocks(chunks: list[hangarllm.ModelResponseStream]) -> list[object]:
     deltas: Final = [chunk.choices[0].delta for chunk in chunks if chunk.choices]
     block_lists: Final = [getattr(delta, "thinking_blocks", None) or [] for delta in deltas]
     return list(chain.from_iterable(block_lists))
@@ -875,11 +875,11 @@ def test_fake_streamed_json_mode_answer_keeps_the_reasoning_of_the_non_streamed_
     client: Final = HTTPHandler(client=httpx.Client(transport=transport))
     kwargs: Final = _json_mode_thinking_kwargs()
 
-    answer: Final = litellm.completion(client=client, **kwargs)
+    answer: Final = hangarllm.completion(client=client, **kwargs)
     chunks: Final = list(
-        litellm.completion(client=client, stream=True, stream_options={"include_usage": True}, **kwargs)
+        hangarllm.completion(client=client, stream=True, stream_options={"include_usage": True}, **kwargs)
     )
-    rebuilt: Final = litellm.stream_chunk_builder(chunks, messages=kwargs["messages"])
+    rebuilt: Final = hangarllm.stream_chunk_builder(chunks, messages=kwargs["messages"])
 
     finish_reason, _, _, reasoning_content, _, reasoning_tokens = _answer_fields(answer)
     assert (finish_reason, reasoning_content, reasoning_tokens) == (
@@ -898,12 +898,12 @@ async def test_async_fake_streamed_json_mode_answer_keeps_the_reasoning_of_the_n
     client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(_answer_with_json_mode_thinking_response))
     kwargs: Final = _json_mode_thinking_kwargs()
 
-    answer: Final = await litellm.acompletion(client=client, **kwargs)
-    stream: Final = await litellm.acompletion(
+    answer: Final = await hangarllm.acompletion(client=client, **kwargs)
+    stream: Final = await hangarllm.acompletion(
         client=client, stream=True, stream_options={"include_usage": True}, **kwargs
     )
     chunks: Final = [chunk async for chunk in stream]
-    rebuilt: Final = litellm.stream_chunk_builder(chunks, messages=kwargs["messages"])
+    rebuilt: Final = hangarllm.stream_chunk_builder(chunks, messages=kwargs["messages"])
 
     finish_reason, _, _, reasoning_content, _, reasoning_tokens = _answer_fields(answer)
     assert (finish_reason, reasoning_content, reasoning_tokens) == (
@@ -969,11 +969,11 @@ def test_fake_streamed_text_tool_call_arrives_as_the_tool_call_of_the_non_stream
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_answer_with_llama_text_tool_call)))
     kwargs: Final = _llama_tool_kwargs()
 
-    answer: Final = litellm.completion(client=client, **kwargs)
-    chunks: Final = list(litellm.completion(client=client, stream=True, **kwargs))
+    answer: Final = hangarllm.completion(client=client, **kwargs)
+    chunks: Final = list(hangarllm.completion(client=client, stream=True, **kwargs))
 
     assert _tool_answer(answer) == ("tool_calls", None, [("get_weather", '{"city": "Paris"}')])
-    assert _tool_answer(litellm.stream_chunk_builder(chunks, messages=kwargs["messages"])) == _tool_answer(answer)
+    assert _tool_answer(hangarllm.stream_chunk_builder(chunks, messages=kwargs["messages"])) == _tool_answer(answer)
 
 
 @pytest.mark.asyncio
@@ -981,12 +981,12 @@ async def test_async_fake_streamed_text_tool_call_arrives_as_the_tool_call_of_th
     client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(_answer_with_llama_text_tool_call))
     kwargs: Final = _llama_tool_kwargs()
 
-    answer: Final = await litellm.acompletion(client=client, **kwargs)
-    stream: Final = await litellm.acompletion(client=client, stream=True, **kwargs)
+    answer: Final = await hangarllm.acompletion(client=client, **kwargs)
+    stream: Final = await hangarllm.acompletion(client=client, stream=True, **kwargs)
     chunks: Final = [chunk async for chunk in stream]
 
     assert _tool_answer(answer) == ("tool_calls", None, [("get_weather", '{"city": "Paris"}')])
-    assert _tool_answer(litellm.stream_chunk_builder(chunks, messages=kwargs["messages"])) == _tool_answer(answer)
+    assert _tool_answer(hangarllm.stream_chunk_builder(chunks, messages=kwargs["messages"])) == _tool_answer(answer)
 
 
 def test_fake_streamed_json_mode_answer_closes_merged_reasoning_before_the_answer() -> None:
@@ -997,9 +997,9 @@ def test_fake_streamed_json_mode_answer_closes_merged_reasoning_before_the_answe
     )
     kwargs: Final = _json_mode_thinking_kwargs()
 
-    answer: Final = litellm.completion(client=client, **kwargs)
+    answer: Final = hangarllm.completion(client=client, **kwargs)
     chunks: Final = list(
-        litellm.completion(client=client, stream=True, merge_reasoning_content_in_choices=True, **kwargs)
+        hangarllm.completion(client=client, stream=True, merge_reasoning_content_in_choices=True, **kwargs)
     )
 
     assert "".join(chunk.choices[0].delta.content or "" for chunk in chunks) == (
@@ -1017,16 +1017,16 @@ _UPSTREAM_ERROR_BODY: Final = '{"message":"The request is invalid."}'
 @pytest.mark.parametrize(
     ("upstream_status", "error_class", "status_code"),
     [
-        (400, litellm.BadRequestError, 400),
-        (429, litellm.RateLimitError, 429),
-        (500, litellm.ServiceUnavailableError, 503),
-        (503, litellm.ServiceUnavailableError, 503),
+        (400, hangarllm.BadRequestError, 400),
+        (429, hangarllm.RateLimitError, 429),
+        (500, hangarllm.ServiceUnavailableError, 503),
+        (503, hangarllm.ServiceUnavailableError, 503),
     ],
 )
 def test_sync_converse_streaming_upstream_error_carries_the_upstream_body_as_text(
     model: str,
     upstream_status: int,
-    error_class: type[litellm.BadRequestError | litellm.RateLimitError | litellm.ServiceUnavailableError],
+    error_class: type[hangarllm.BadRequestError | hangarllm.RateLimitError | hangarllm.ServiceUnavailableError],
     status_code: int,
 ) -> None:
     client: Final = HTTPHandler(
@@ -1038,7 +1038,7 @@ def test_sync_converse_streaming_upstream_error_carries_the_upstream_body_as_tex
     )
 
     with pytest.raises(error_class) as raised:
-        litellm.completion(
+        hangarllm.completion(
             model=f"bedrock/converse/{model}",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -1050,26 +1050,26 @@ def test_sync_converse_streaming_upstream_error_carries_the_upstream_body_as_tex
         )
 
     assert raised.value.status_code == status_code
-    assert raised.value.message == f"litellm.{error_class.__name__}: BedrockException - {_UPSTREAM_ERROR_BODY}"
+    assert raised.value.message == f"hangarllm.{error_class.__name__}: BedrockException - {_UPSTREAM_ERROR_BODY}"
 
 
 @pytest.mark.parametrize("stream", (False, True))
 def test_converse_profile_override_records_cost_without_changing_response_model(
     monkeypatch: pytest.MonkeyPatch, stream: bool
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_RUST", "0")
     configuration.rust(False)
     model: Final = "openai.gpt-5.6-sol"
     profile: Final = f"us.{model}"
-    prices: Final = litellm.get_model_info(profile, custom_llm_provider="bedrock")
+    prices: Final = hangarllm.get_model_info(profile, custom_llm_provider="bedrock")
 
     def respond(request: httpx.Request) -> httpx.Response:
         assert request.url.path == f"/model/{profile}/converse"
         return httpx.Response(200, json=CONVERSE_RESPONSE)
 
     with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=f"bedrock/converse/{model}",
             model_id=profile,
             messages=[{"role": "user", "content": "hi"}],
@@ -1080,7 +1080,7 @@ def test_converse_profile_override_records_cost_without_changing_response_model(
             fake_stream=stream,
             max_tokens=16,
         )
-        result: Final = litellm.stream_chunk_builder(list(response)) if stream else response
+        result: Final = hangarllm.stream_chunk_builder(list(response)) if stream else response
 
     assert result is not None
     assert result.model == model

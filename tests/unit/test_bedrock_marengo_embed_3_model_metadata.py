@@ -3,11 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from litellm.constants import bedrock_embedding_models
+from hangarllm.constants import bedrock_embedding_models
 
 REPO_ROOT = Path(__file__).parents[2]
 MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PATH = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PATH = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 BASE_MODEL = "twelvelabs.marengo-embed-3-0-v1:0"
 PROFILE_MODELS = ("us.twelvelabs.marengo-embed-3-0-v1:0", "eu.twelvelabs.marengo-embed-3-0-v1:0")

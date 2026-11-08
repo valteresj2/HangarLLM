@@ -17,10 +17,10 @@ _REPORTED_MODEL: Final = "support-summarizer"
 _REPORTED_COST: Final = 0.0123
 _REPORTED_TOKENS: Final = 4210
 _USAGE_HEADERS: Final = {
-    "x-litellm-response-cost": str(_REPORTED_COST),
-    "x-litellm-total-tokens": str(_REPORTED_TOKENS),
+    "x-hangarllm-response-cost": str(_REPORTED_COST),
+    "x-hangarllm-total-tokens": str(_REPORTED_TOKENS),
 }
-_MODEL_HEADER: Final = {"x-litellm-upstream-model": _REPORTED_MODEL}
+_MODEL_HEADER: Final = {"x-hangarllm-upstream-model": _REPORTED_MODEL}
 
 
 def _upstream(
@@ -56,7 +56,7 @@ def _endpoint(gateway: Gateway, scenario: Scenario, marker: str, target: str, **
 def _spend_row(key: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT model, spend, total_tokens, status FROM "LiteLLM_SpendLogs" WHERE api_key=%s AND call_type=%s',
+            'SELECT model, spend, total_tokens, status FROM "HangarLLM_SpendLogs" WHERE api_key=%s AND call_type=%s',
             (sha256(key.encode()).hexdigest(), "pass_through_endpoint"),
         ),
         lambda values: len(values) == 1,
@@ -81,7 +81,7 @@ def test_upstream_reported_model_names_the_spend_row_daily_rollup_and_usage_brea
         response: Final = gateway.request("POST", path, {"ticket_id": marker}, key=key)
         assert response.status_code == 200, response.text
         assert response.json() == {"summary": marker}, response.text
-        assert response.headers["x-litellm-upstream-model"] == _REPORTED_MODEL, response.headers
+        assert response.headers["x-hangarllm-upstream-model"] == _REPORTED_MODEL, response.headers
 
         assert _row_values(_spend_row(key)) == (
             _REPORTED_MODEL,
@@ -90,7 +90,7 @@ def test_upstream_reported_model_names_the_spend_row_daily_rollup_and_usage_brea
             "success",
         )
         daily: Final = eventually(
-            lambda: read_rows('SELECT model, spend FROM "LiteLLM_DailyTeamSpend" WHERE team_id=%s', (team,)),
+            lambda: read_rows('SELECT model, spend FROM "HangarLLM_DailyTeamSpend" WHERE team_id=%s', (team,)),
             lambda values: len(values) == 1,
             seconds=70,
         )
@@ -182,7 +182,7 @@ def test_without_a_usable_model_header_the_row_keeps_the_request_model(
     gateway: Gateway, body_model: str | None, header_value: str | None, expected_model: str
 ) -> None:
     marker: Final = uuid.uuid4().hex
-    headers: Final = {**_USAGE_HEADERS, **({} if header_value is None else {"x-litellm-upstream-model": header_value})}
+    headers: Final = {**_USAGE_HEADERS, **({} if header_value is None else {"x-hangarllm-upstream-model": header_value})}
     body: Final[dict[str, JsonValue]] = {"ticket_id": marker, **({} if body_model is None else {"model": body_model})}
     with wire_server(_upstream(marker, headers)) as wire, gateway.scenario() as scenario:
         path: Final = _endpoint(gateway, scenario, marker, wire.url + "/v1/summarize")
@@ -212,7 +212,7 @@ def test_spend_row_keeps_a_bounded_first_model_name(
     gateway: Gateway, header_value: str, expected_model: str, status: int
 ) -> None:
     marker: Final = uuid.uuid4().hex
-    headers: Final = {**_USAGE_HEADERS, "x-litellm-upstream-model": header_value}
+    headers: Final = {**_USAGE_HEADERS, "x-hangarllm-upstream-model": header_value}
     with wire_server(_upstream(marker, headers, status=status)) as wire, gateway.scenario() as scenario:
         path: Final = _endpoint(gateway, scenario, marker, wire.url + "/v1/summarize")
         key: Final = scenario.key(allowed_passthrough_routes=[path])

@@ -14,17 +14,17 @@ from unittest.mock import Mock
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.responses.utils import ResponseAPILoggingUtils
-from litellm.router import Router
-from litellm.router_strategy.lowest_latency import LowestLatencyLoggingHandler, RoutingArgs
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.responses.utils import ResponseAPILoggingUtils
+from hangarllm.router import Router
+from hangarllm.router_strategy.lowest_latency import LowestLatencyLoggingHandler, RoutingArgs
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
 DEPLOYMENT_ID = "9876"
 KWARGS = {
-    "litellm_params": {
+    "hangarllm_params": {
         "metadata": {
             "model_group": "gemini-embedding-001",
             "deployment": "vertex_ai/gemini-embedding-001",
@@ -34,12 +34,12 @@ KWARGS = {
 }
 
 
-def _embedding_response() -> litellm.EmbeddingResponse:
-    return litellm.EmbeddingResponse(
+def _embedding_response() -> hangarllm.EmbeddingResponse:
+    return hangarllm.EmbeddingResponse(
         model="gemini-embedding-001",
         data=[{"embedding": [0.1, 0.2], "index": 0, "object": "embedding"}],
         object="list",
-        usage=litellm.Usage(prompt_tokens=5, completion_tokens=0, total_tokens=5),
+        usage=hangarllm.Usage(prompt_tokens=5, completion_tokens=0, total_tokens=5),
     )
 
 
@@ -99,17 +99,17 @@ async def test_async_embedding_latency_is_json_serializable():
     json.dumps({"latency_normalized": latencies})
 
 
-def _chat_response(completion_tokens: int) -> litellm.ModelResponse:
-    return litellm.ModelResponse(
+def _chat_response(completion_tokens: int) -> hangarllm.ModelResponse:
+    return hangarllm.ModelResponse(
         model="gpt-4o-mini",
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 finish_reason="stop",
                 index=0,
-                message=litellm.Message(content="hi", role="assistant"),
+                message=hangarllm.Message(content="hi", role="assistant"),
             )
         ],
-        usage=litellm.Usage(
+        usage=hangarllm.Usage(
             prompt_tokens=10,
             completion_tokens=completion_tokens,
             total_tokens=10 + completion_tokens,
@@ -179,14 +179,14 @@ SLOW_TTFT_ID = "slow-ttft-long-output"
 FAST_API_BASE = "https://fast.example.test/v1"
 SLOW_API_BASE = "https://slow.example.test/v1"
 STREAMING_DEPLOYMENTS = [
-    {"model_info": {"id": FAST_TTFT_ID}, "litellm_params": {}},
-    {"model_info": {"id": SLOW_TTFT_ID}, "litellm_params": {}},
+    {"model_info": {"id": FAST_TTFT_ID}, "hangarllm_params": {}},
+    {"model_info": {"id": SLOW_TTFT_ID}, "hangarllm_params": {}},
 ]
 
 
 def _streaming_kwargs(deployment_id: str, start_time: datetime, ttft_seconds: float):
     return {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_group": MODEL_GROUP},
             "model_info": {"id": deployment_id},
         },
@@ -257,7 +257,7 @@ async def test_ttft_window_keeps_newest_samples_when_full(sync_mode: bool):
 
     for ttft in ttfts:
         kwargs = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": MODEL_GROUP},
                 "model_info": {"id": FAST_TTFT_ID},
             },
@@ -395,8 +395,8 @@ async def test_async_get_available_deployments_treats_missing_samples_as_zero_la
         value={DEPLOYMENT_ID: cached_entry, "slower": {"latency_normalized": [0.5]}},
     )
     healthy_deployments = [
-        {"model_info": {"id": DEPLOYMENT_ID}, "litellm_params": {}},
-        {"model_info": {"id": "slower"}, "litellm_params": {}},
+        {"model_info": {"id": DEPLOYMENT_ID}, "hangarllm_params": {}},
+        {"model_info": {"id": "slower"}, "hangarllm_params": {}},
     ]
 
     picked = await handler.async_get_available_deployments(
@@ -433,7 +433,7 @@ async def test_unusable_ttft_samples_do_not_leave_the_buffer_window_empty(
 
     picked = await handler.async_get_available_deployments(
         model_group=MODEL_GROUP,
-        healthy_deployments=[{"model_info": {"id": FAST_TTFT_ID}, "litellm_params": {"api_base": FAST_API_BASE}}],
+        healthy_deployments=[{"model_info": {"id": FAST_TTFT_ID}, "hangarllm_params": {"api_base": FAST_API_BASE}}],
         request_kwargs=request_kwargs,
     )
 
@@ -461,8 +461,8 @@ async def test_unusable_ttft_samples_fall_back_to_recorded_latency():
     picked = await handler.async_get_available_deployments(
         model_group=MODEL_GROUP,
         healthy_deployments=[
-            {"model_info": {"id": FAST_TTFT_ID}, "litellm_params": {"api_base": FAST_API_BASE}},
-            {"model_info": {"id": SLOW_TTFT_ID}, "litellm_params": {"api_base": SLOW_API_BASE}},
+            {"model_info": {"id": FAST_TTFT_ID}, "hangarllm_params": {"api_base": FAST_API_BASE}},
+            {"model_info": {"id": SLOW_TTFT_ID}, "hangarllm_params": {"api_base": SLOW_API_BASE}},
         ],
         request_kwargs=request_kwargs,
     )
@@ -477,7 +477,7 @@ def _latency_router(routing_strategy_args: dict) -> Router:
         model_list=[
             {
                 "model_name": MODEL_GROUP,
-                "litellm_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
                 "model_info": {"id": deployment_id},
             }
             for deployment_id in (FAST_TTFT_ID, SLOW_TTFT_ID)
@@ -537,7 +537,7 @@ async def test_runtime_routing_strategy_args_update_is_a_noop_without_a_selector
         model_list=[
             {
                 "model_name": MODEL_GROUP,
-                "litellm_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
                 "model_info": {"id": FAST_TTFT_ID},
             }
         ],
@@ -562,7 +562,7 @@ class _FrozenDatetime(datetime):
 
 @pytest.fixture
 def frozen_latency_clock(monkeypatch):
-    monkeypatch.setattr("litellm.router_strategy.lowest_latency.datetime", _FrozenDatetime)
+    monkeypatch.setattr("hangarllm.router_strategy.lowest_latency.datetime", _FrozenDatetime)
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
@@ -580,7 +580,7 @@ async def test_latency_memory_leak(sync_mode):
     model_group = "gpt-3.5-turbo"
     deployment_id = "1234"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gpt-3.5-turbo",
                 "deployment": "azure/gpt-4.1-mini",
@@ -654,7 +654,7 @@ def test_latency_updated():
     model_group = "gpt-3.5-turbo"
     deployment_id = "1234"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gpt-3.5-turbo",
                 "deployment": "azure/gpt-4.1-mini",
@@ -681,12 +681,12 @@ def test_get_available_deployments():
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "azure/gpt-4.1-mini"},
+            "hangarllm_params": {"model": "azure/gpt-4.1-mini"},
             "model_info": {"id": "1234"},
         },
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "azure/gpt-4.1-mini"},
+            "hangarllm_params": {"model": "azure/gpt-4.1-mini"},
             "model_info": {"id": "5678"},
         },
     ]
@@ -694,7 +694,7 @@ def test_get_available_deployments():
     model_group = "gpt-3.5-turbo"
     deployment_id = "1234"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gpt-3.5-turbo",
                 "deployment": "azure/gpt-4.1-mini",
@@ -713,7 +713,7 @@ def test_get_available_deployments():
     )
     deployment_id = "5678"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gpt-3.5-turbo",
                 "deployment": "azure/gpt-4.1-mini",
@@ -748,7 +748,7 @@ def test_router_get_available_deployments():
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -758,7 +758,7 @@ def test_router_get_available_deployments():
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
                 "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
@@ -776,7 +776,7 @@ def test_router_get_available_deployments():
 
     deployment_id = 1
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -794,7 +794,7 @@ def test_router_get_available_deployments():
     )
     deployment_id = 2
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -825,7 +825,7 @@ async def test_lowest_latency_routing_buffer(buffer):
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -835,7 +835,7 @@ async def test_lowest_latency_routing_buffer(buffer):
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
                 "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
@@ -854,7 +854,7 @@ async def test_lowest_latency_routing_buffer(buffer):
 
     deployment_id = 1
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -872,7 +872,7 @@ async def test_lowest_latency_routing_buffer(buffer):
     )
     deployment_id = 2
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -916,7 +916,7 @@ async def test_lowest_latency_routing_time_to_first_token(sync_mode):
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -925,7 +925,7 @@ async def test_lowest_latency_routing_time_to_first_token(sync_mode):
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
                 "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
@@ -947,7 +947,7 @@ async def test_lowest_latency_routing_time_to_first_token(sync_mode):
     four_seconds_later = start_time + timedelta(seconds=4)
 
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -957,7 +957,7 @@ async def test_lowest_latency_routing_time_to_first_token(sync_mode):
         "completion_start_time": one_second_later,
     }
 
-    response_obj = litellm.ModelResponse(usage=litellm.Usage(completion_tokens=50, total_tokens=50))
+    response_obj = hangarllm.ModelResponse(usage=hangarllm.Usage(completion_tokens=50, total_tokens=50))
     end_time = four_seconds_later
 
     if sync_mode:
@@ -976,7 +976,7 @@ async def test_lowest_latency_routing_time_to_first_token(sync_mode):
         )
     deployment_id = 2
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "azure-model",
             },
@@ -985,7 +985,7 @@ async def test_lowest_latency_routing_time_to_first_token(sync_mode):
         "stream": True,
         "completion_start_time": three_seconds_later,
     }
-    response_obj = litellm.ModelResponse(usage=litellm.Usage(completion_tokens=50, total_tokens=50))
+    response_obj = hangarllm.ModelResponse(usage=hangarllm.Usage(completion_tokens=50, total_tokens=50))
     end_time = three_seconds_later
     if sync_mode:
         router.lowestlatency_logger.log_success_event(
@@ -1043,7 +1043,7 @@ def test_latency_list_trimming_discards_oldest_entry():
     model_group = "gpt-3.5-turbo"
     deployment_id = "test-deployment"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": model_group,
                 "deployment": "azure/gpt-4.1-mini",
@@ -1103,7 +1103,7 @@ async def test_latency_list_trimming_discards_oldest_entry_async():
     model_group = "gpt-3.5-turbo"
     deployment_id = "test-deployment"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": model_group,
                 "deployment": "azure/gpt-4.1-mini",
@@ -1161,7 +1161,7 @@ async def test_timeout_penalty_discards_oldest_entry():
     model_group = "gpt-3.5-turbo"
     deployment_id = "test-deployment"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": model_group,
                 "deployment": "azure/gpt-4.1-mini",
@@ -1184,7 +1184,7 @@ async def test_timeout_penalty_discards_oldest_entry():
 
     timeout_kwargs = {
         **kwargs,
-        "exception": litellm.Timeout(message="Request timed out", model="test-model", llm_provider="test"),
+        "exception": hangarllm.Timeout(message="Request timed out", model="test-model", llm_provider="test"),
     }
 
     await lowest_latency_logger.async_log_failure_event(
@@ -1222,7 +1222,7 @@ def test_list_order_preserved_after_multiple_trims():
     model_group = "gpt-3.5-turbo"
     deployment_id = "test-deployment"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": model_group,
                 "deployment": "azure/gpt-4.1-mini",
@@ -1269,17 +1269,17 @@ async def test_usage_limits_filter_sync_and_async_logging(async_mode: bool) -> N
     deployments: Final = [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-4o-mini", "rpm": 1},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "rpm": 1},
             "model_info": {"id": "rpm-limited"},
         },
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-4o-mini", "tpm": 1},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "tpm": 1},
             "model_info": {"id": "tpm-limited"},
         },
         {
             "model_name": model_group,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "rpm": 3,
                 "tpm": 1000,
@@ -1291,7 +1291,7 @@ async def test_usage_limits_filter_sync_and_async_logging(async_mode: bool) -> N
 
     log_kwargs: Final = tuple(
         {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": model_group},
                 "model_info": {"id": deployment_id},
             }
@@ -1354,7 +1354,7 @@ async def test_router_uses_lowest_latency_deployment() -> None:
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "mock_response": _chat_response(completion_tokens=4),
                 },
@@ -1362,7 +1362,7 @@ async def test_router_uses_lowest_latency_deployment() -> None:
             },
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "mock_response": _chat_response(completion_tokens=4),
                 },
@@ -1374,7 +1374,7 @@ async def test_router_uses_lowest_latency_deployment() -> None:
     )
     router.lowestlatency_logger.log_success_event(
         kwargs={
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": model_group},
                 "model_info": {"id": "slow"},
             }
@@ -1385,7 +1385,7 @@ async def test_router_uses_lowest_latency_deployment() -> None:
     )
     router.lowestlatency_logger.log_success_event(
         kwargs={
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": model_group},
                 "model_info": {"id": "fast"},
             }
@@ -1413,7 +1413,7 @@ async def test_router_streaming_uses_lowest_latency_deployment() -> None:
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "mock_response": "Hello world",
                 },
@@ -1421,7 +1421,7 @@ async def test_router_streaming_uses_lowest_latency_deployment() -> None:
             },
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "mock_response": "Hello world",
                 },
@@ -1433,7 +1433,7 @@ async def test_router_streaming_uses_lowest_latency_deployment() -> None:
     )
     router.lowestlatency_logger.log_success_event(
         kwargs={
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": model_group},
                 "model_info": {"id": "slow"},
             }
@@ -1444,7 +1444,7 @@ async def test_router_streaming_uses_lowest_latency_deployment() -> None:
     )
     router.lowestlatency_logger.log_success_event(
         kwargs={
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": model_group},
                 "model_info": {"id": "fast"},
             }
@@ -1477,7 +1477,7 @@ def test_latency_cache_honors_custom_ttl() -> None:
 
     handler.log_success_event(
         kwargs={
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": "ttl-group"},
                 "model_info": {"id": "deployment"},
             }
@@ -1505,7 +1505,7 @@ async def test_router_model_group_usage_increases_by_logged_tokens() -> None:
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "tpm": 100,
                     "mock_response": _chat_response(completion_tokens=5),
@@ -1556,7 +1556,7 @@ async def test_responses_and_chat_latency_use_comparable_token_units(
     ):
         kwargs: Final = {
             "call_type": "aresponses",
-            "litellm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": deployment_id}},
+            "hangarllm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": deployment_id}},
         }
         if async_callback:
             await handler.async_log_success_event(kwargs, response, start, start + timedelta(seconds=seconds))
@@ -1569,7 +1569,7 @@ async def test_responses_and_chat_latency_use_comparable_token_units(
     assert logged_native.usage.model_dump() == original_fields
     assert native.usage is usage
     deployments: Final = [
-        {"model_name": "mixed", "model_info": {"id": name}, "litellm_params": {}} for name in ("native", "bridge")
+        {"model_name": "mixed", "model_info": {"id": name}, "hangarllm_params": {}} for name in ("native", "bridge")
     ]
     picked: Final = handler.get_available_deployments(
         model_group="mixed", healthy_deployments=deployments, request_kwargs={"stream": False, "metadata": {}}
@@ -1584,7 +1584,7 @@ async def test_responses_and_chat_latency_use_comparable_token_units(
 @pytest.mark.parametrize(
     "response",
     [
-        litellm.ModelResponse(),
+        hangarllm.ModelResponse(),
         ResponsesAPIResponse(id="resp-missing", created_at=0, output=[], usage=None),
         ResponsesAPIResponse(
             id="resp-zero", created_at=0, output=[],
@@ -1593,7 +1593,7 @@ async def test_responses_and_chat_latency_use_comparable_token_units(
     ],
 )
 async def test_responses_without_output_tokens_keep_elapsed_seconds(
-    async_callback: bool, response: litellm.ModelResponse | ResponsesAPIResponse
+    async_callback: bool, response: hangarllm.ModelResponse | ResponsesAPIResponse
 ) -> None:
     cache: Final = DualCache()
     handler: Final = LowestLatencyLoggingHandler(router_cache=cache)
@@ -1622,7 +1622,7 @@ async def test_legacy_latency_does_not_starve_deployments_after_upgrade(
     }
     cache.set_cache(key="mixed_map", value=copy.deepcopy(legacy))
     deployments: Final = [
-        {"model_name": "mixed", "model_info": {"id": name}, "litellm_params": {}} for name in ("native", "bridge")
+        {"model_name": "mixed", "model_info": {"id": name}, "hangarllm_params": {}} for name in ("native", "bridge")
     ]
     native: Final = ResponsesAPIResponse(
         id="resp-upgrade", created_at=0, output=[],
@@ -1630,7 +1630,7 @@ async def test_legacy_latency_does_not_starve_deployments_after_upgrade(
     )
     for iteration in range(2):
         bridge_kwargs: Final = {
-            "litellm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": "bridge"}},
+            "hangarllm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": "bridge"}},
         }
         if async_mode:
             await handler.async_log_success_event(bridge_kwargs, _chat_response(100), 0.0, 3.0)
@@ -1643,7 +1643,7 @@ async def test_legacy_latency_does_not_starve_deployments_after_upgrade(
         )
         assert selected["model_info"]["id"] == "native"
         native_kwargs: Final = {
-            "litellm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": "native"}},
+            "hangarllm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": "native"}},
         }
         if async_mode:
             await handler.async_log_success_event(native_kwargs, native, 0.0, 2.0)
@@ -1703,8 +1703,8 @@ async def test_timeout_penalty_updates_normalized_latency_and_avoids_failed_depl
     )
     await handler.async_log_failure_event(
         kwargs={
-            "exception": litellm.Timeout(message="request timed out", model="test", llm_provider="openai"),
-            "litellm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": "native"}},
+            "exception": hangarllm.Timeout(message="request timed out", model="test", llm_provider="openai"),
+            "hangarllm_params": {"metadata": {"model_group": "mixed"}, "model_info": {"id": "native"}},
         },
         response_obj=None, start_time=0.0, end_time=3.0,
     )
@@ -1713,6 +1713,6 @@ async def test_timeout_penalty_updates_normalized_latency_and_avoids_failed_depl
     assert recorded["latency"] == [0.001]
     selected: Final = await handler.async_get_available_deployments(
         model_group="mixed",
-        healthy_deployments=[{"model_info": {"id": name}, "litellm_params": {}} for name in ("native", "bridge")],
+        healthy_deployments=[{"model_info": {"id": name}, "hangarllm_params": {}} for name in ("native", "bridge")],
     )
     assert selected["model_info"]["id"] == "bridge"

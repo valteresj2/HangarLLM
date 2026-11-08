@@ -12,7 +12,7 @@ from typing import Final
 
 import pytest
 
-import litellm
+import hangarllm
 from tests._wait_helpers import await_until
 from tests.integration._support.wire import Reply, Request, wire_server
 
@@ -40,16 +40,16 @@ async def test_langsmith_logging_async_delivers_runs(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("LANGSMITH_API_KEY", "lsv2_unit_key")
     monkeypatch.setenv("LANGSMITH_PROJECT", "pr-b")
 
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
 
     with wire_server(upstream) as wire:
         monkeypatch.setenv("LANGSMITH_BASE_URL", wire.url)
         monkeypatch.setenv("LANGSMITH_ENDPOINT", wire.url)
-        litellm.success_callback = ["langsmith"]
+        hangarllm.success_callback = ["langsmith"]
         try:
             responses = await asyncio.gather(
                 *(
-                    litellm.acompletion(
+                    hangarllm.acompletion(
                         model="openai/chatgpt-v-2",
                         messages=[{"role": "user", "content": "This is a test"}],
                         max_tokens=5,
@@ -61,7 +61,7 @@ async def test_langsmith_logging_async_delivers_runs(monkeypatch: pytest.MonkeyP
             )
             assert len(responses) == REQUEST_COUNT
 
-            from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+            from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
             await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=30)
 
@@ -71,8 +71,8 @@ async def test_langsmith_logging_async_delivers_runs(monkeypatch: pytest.MonkeyP
                 timeout_s=30,
             )
         finally:
-            litellm.success_callback = []
-            litellm.logging_callback_manager._reset_all_callbacks()
+            hangarllm.success_callback = []
+            hangarllm.logging_callback_manager._reset_all_callbacks()
 
     runs = _posted_runs(captured)
     assert len(runs) == REQUEST_COUNT

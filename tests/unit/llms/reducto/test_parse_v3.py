@@ -1,7 +1,7 @@
 import pytest
 
-import litellm
-from tests.test_litellm_rust.support.recording_server import RecordingServer, ResponseSpec
+import hangarllm
+from tests.test_hangarllm_rust.support.recording_server import RecordingServer, ResponseSpec
 
 pytestmark = pytest.mark.requires_rust_extension
 
@@ -59,14 +59,14 @@ def _reducto_parse_response() -> dict:
 
 @pytest.fixture()
 def disable_aiohttp_transport():
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
-    litellm.disable_aiohttp_transport = True
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    original_disable_aiohttp = hangarllm.disable_aiohttp_transport
+    hangarllm.disable_aiohttp_transport = True
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     try:
         yield
     finally:
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.disable_aiohttp_transport = original_disable_aiohttp
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
@@ -76,7 +76,7 @@ async def test_parse_v3_file_upload_and_response_mapping(disable_aiohttp_transpo
     reducto_server.enqueue(ResponseSpec(body={"file_id": "reducto://uploaded.pdf"}))
     reducto_server.enqueue(ResponseSpec(body=provider_response))
 
-    response = await litellm.aocr(
+    response = await hangarllm.aocr(
         model="reducto/parse-v3",
         document={
             "type": "file",
@@ -123,7 +123,7 @@ async def test_parse_v3_file_upload_and_response_mapping(disable_aiohttp_transpo
 async def test_parse_v3_reducto_id_passthrough_skips_upload(disable_aiohttp_transport, reducto_server: RecordingServer):
     reducto_server.enqueue(ResponseSpec(body=_reducto_parse_response()))
 
-    response = await litellm.aocr(
+    response = await hangarllm.aocr(
         model="reducto/parse-v3",
         document={
             "type": "document_url",
@@ -150,7 +150,7 @@ async def test_unknown_model_uses_current_protocol_without_local_rejection(
 ):
     reducto_server.enqueue(ResponseSpec(body=_reducto_parse_response()))
 
-    response = await litellm.aocr(
+    response = await hangarllm.aocr(
         model="reducto/future-parse-model",
         document={
             "type": "document_url",

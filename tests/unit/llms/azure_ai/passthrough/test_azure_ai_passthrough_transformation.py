@@ -7,14 +7,14 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.azure_ai.passthrough.transformation import AzureAIPassthroughConfig
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import EmbeddingResponse, ImageResponse, LlmProviders, ModelResponse
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.azure_ai.passthrough.transformation import AzureAIPassthroughConfig
+from hangarllm.llms.base_llm.ocr.transformation import OCRResponse
+from hangarllm.types.rerank import RerankResponse
+from hangarllm.types.utils import EmbeddingResponse, ImageResponse, LlmProviders, ModelResponse
+from hangarllm.utils import ProviderConfigManager
 
 FOUNDRY_BASE = "https://my-resource.services.ai.azure.com"
 RESPONSES_COMPLETED_EVENT = {
@@ -53,8 +53,8 @@ class _SpendProbe(CustomLogger):
 def clear_azure_ai_env(monkeypatch):
     for env_var in ("AZURE_AI_API_BASE", "AZURE_AI_API_KEY", "AZURE_AD_TOKEN", "AZURE_API_KEY"):
         monkeypatch.delenv(env_var, raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
 
 
 def test_provider_config_manager_resolves_azure_ai_passthrough_config():
@@ -72,7 +72,7 @@ def test_router_model_prefix_is_stripped_and_native_path_kept_verbatim():
         model="Cohere-parse-v5",
         endpoint="Cohere-parse-v5/providers/cohere/v2/parse",
         request_query_params=None,
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/providers/cohere/v2/parse"
@@ -86,7 +86,7 @@ def test_model_group_prefix_is_stripped_when_router_metadata_names_it():
         model="Cohere-parse-v5",
         endpoint="/parse-alias/providers/cohere/v2/parse",
         request_query_params=None,
-        litellm_params={"litellm_metadata": {"model_group": "parse-alias"}},
+        hangarllm_params={"hangarllm_metadata": {"model_group": "parse-alias"}},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/providers/cohere/v2/parse"
@@ -99,7 +99,7 @@ def test_model_inside_the_path_stays_and_query_params_are_forwarded():
         model="gpt-5.4-mini",
         endpoint="openai/deployments/gpt-5.4-mini/chat/completions",
         request_query_params={"api-version": "2024-10-21"},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/openai/deployments/gpt-5.4-mini/chat/completions?api-version=2024-10-21"
@@ -112,7 +112,7 @@ def test_api_base_that_already_ends_in_models_is_cut_back_to_the_foundry_root():
         model="gpt-5.4-mini",
         endpoint="gpt-5.4-mini/models/chat/completions",
         request_query_params={"api-version": "2024-05-01-preview"},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/models/chat/completions?api-version=2024-05-01-preview"
@@ -130,7 +130,7 @@ def test_full_url_api_base_that_already_ends_with_the_native_path_is_not_doubled
         model="model_router/model-router",
         endpoint="model-router/chat/completions",
         request_query_params=None,
-        litellm_params={"litellm_metadata": {"model_group": "model-router"}},
+        hangarllm_params={"hangarllm_metadata": {"model_group": "model-router"}},
     )
 
     assert str(url) == f"{model_router_url}?api-version=2025-01-01-preview"
@@ -145,7 +145,7 @@ def test_deployment_root_api_base_is_not_repeated_when_the_relay_carries_the_dep
         model="gpt-4o",
         endpoint=f"aoai-gpt-4o/openai/deployments/{relayed_deployment}/chat/completions",
         request_query_params={"api-version": "2024-10-21"},
-        litellm_params={"litellm_metadata": {"model_group": "aoai-gpt-4o"}},
+        hangarllm_params={"hangarllm_metadata": {"model_group": "aoai-gpt-4o"}},
     )
 
     assert str(url) == (
@@ -162,7 +162,7 @@ def test_deployment_named_like_the_first_native_segment_keeps_its_deployment_roo
         model="chat",
         endpoint="aoai-chat/chat/completions",
         request_query_params={"api-version": "2024-10-21"},
-        litellm_params={"litellm_metadata": {"model_group": "aoai-chat"}},
+        hangarllm_params={"hangarllm_metadata": {"model_group": "aoai-chat"}},
     )
 
     assert (
@@ -179,7 +179,7 @@ def test_parse_relay_under_a_models_api_base_targets_the_foundry_root():
         model="Cohere-parse-v5",
         endpoint="Cohere-parse-v5/providers/cohere/v2/parse",
         request_query_params=None,
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/providers/cohere/v2/parse"
@@ -192,7 +192,7 @@ def test_deployment_api_version_fills_in_when_the_caller_sends_none():
         model="gpt-5.4-mini",
         endpoint="gpt-5.4-mini/models/chat/completions",
         request_query_params=None,
-        litellm_params={"api_version": "2024-05-01-preview"},
+        hangarllm_params={"api_version": "2024-05-01-preview"},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/models/chat/completions?api-version=2024-05-01-preview"
@@ -205,7 +205,7 @@ def test_callers_api_version_beats_the_deployments():
         model="gpt-5.4-mini",
         endpoint="gpt-5.4-mini/models/chat/completions",
         request_query_params={"api-version": "2025-04-01-preview"},
-        litellm_params={"api_version": "2024-05-01-preview"},
+        hangarllm_params={"api_version": "2024-05-01-preview"},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/models/chat/completions?api-version=2025-04-01-preview"
@@ -218,7 +218,7 @@ def test_api_version_on_the_configured_api_base_is_the_last_fallback():
         model="gpt-5.4-mini",
         endpoint="gpt-5.4-mini/models/chat/completions",
         request_query_params=None,
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert str(url) == f"{FOUNDRY_BASE}/models/chat/completions?api-version=2024-05-01-preview"
@@ -232,17 +232,17 @@ def test_missing_api_base_raises_instead_of_building_a_relative_url():
             model="Cohere-parse-v5",
             endpoint="Cohere-parse-v5/providers/cohere/v2/parse",
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
-def _auth_headers(api_key: str | None, api_base: str, litellm_params: dict | None = None) -> dict:
+def _auth_headers(api_key: str | None, api_base: str, hangarllm_params: dict | None = None) -> dict:
     return AzureAIPassthroughConfig().validate_environment(
         headers={"content-type": "application/json"},
         model="Cohere-parse-v5",
         messages=[],
         optional_params={},
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
         api_key=api_key,
         api_base=api_base,
     )
@@ -262,7 +262,7 @@ def test_serverless_host_gets_a_bearer_token():
 
 
 def test_entra_token_is_used_when_the_deployment_has_no_api_key(no_ambient_azure_credentials):
-    headers = _auth_headers(api_key=None, api_base=FOUNDRY_BASE, litellm_params={"azure_ad_token": "entra-token"})
+    headers = _auth_headers(api_key=None, api_base=FOUNDRY_BASE, hangarllm_params={"azure_ad_token": "entra-token"})
 
     assert headers["Authorization"] == "Bearer entra-token"
 
@@ -350,13 +350,13 @@ def _relay_logging_obj(
         stream=stream,
         call_type="allm_passthrough_route",
         start_time=datetime.now(),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
         dynamic_async_success_callbacks=callbacks,
     )
     logging_obj.update_environment_variables(
         model=model,
-        litellm_params={"api_base": api_base, "custom_llm_provider": "azure_ai"},
+        hangarllm_params={"api_base": api_base, "custom_llm_provider": "azure_ai"},
         optional_params={},
         custom_llm_provider="azure_ai",
         endpoint=endpoint,
@@ -416,7 +416,7 @@ def test_ocr_result_routes_the_relay_to_per_page_ocr_costing():
         "providers/mistral/azure/ocr",
         MISTRAL_OCR_BODY,
     )
-    per_page = litellm.get_model_info("azure_ai/mistral-document-ai-2512")["ocr_cost_per_page"]
+    per_page = hangarllm.get_model_info("azure_ai/mistral-document-ai-2512")["ocr_cost_per_page"]
 
     assert isinstance(result, OCRResponse)
     assert logging_obj.call_type == "aocr"
@@ -501,7 +501,7 @@ def test_foundry_embeddings_relay_is_costed_per_input_token():
     result, logging_obj = _relay_logging_result(
         AzureAIPassthroughConfig(), "embed-v-4-0", "models/embeddings", EMBEDDINGS_BODY
     )
-    per_token = litellm.get_model_info("azure_ai/embed-v-4-0")["input_cost_per_token"]
+    per_token = hangarllm.get_model_info("azure_ai/embed-v-4-0")["input_cost_per_token"]
 
     assert isinstance(result, EmbeddingResponse)
     assert logging_obj.call_type == "aembedding"
@@ -513,7 +513,7 @@ def test_cohere_rerank_relay_is_costed_per_search_unit():
     result, logging_obj = _relay_logging_result(
         AzureAIPassthroughConfig(), "cohere-rerank-v4.0-fast", "providers/cohere/v2/rerank", RERANK_BODY
     )
-    per_query = litellm.get_model_info("azure_ai/cohere-rerank-v4.0-fast")["input_cost_per_query"]
+    per_query = hangarllm.get_model_info("azure_ai/cohere-rerank-v4.0-fast")["input_cost_per_query"]
 
     assert isinstance(result, RerankResponse)
     assert logging_obj.call_type == "arerank"
@@ -542,7 +542,7 @@ def _cohere_embed_relay_result(
 
 
 def _foundry_embed_price(price_key: str) -> float:
-    return litellm.get_model_info("azure_ai/embed-v-4-0")[price_key]
+    return hangarllm.get_model_info("azure_ai/embed-v-4-0")[price_key]
 
 
 def test_native_cohere_embed_relay_is_costed_per_billed_input_token() -> None:
@@ -651,7 +651,7 @@ def test_native_cohere_embed_relay_without_billed_units_is_costed_from_the_echoe
 ) -> None:
     result, logging_obj = _cohere_embed_relay_result({**COHERE_EMBED_BODY, "texts": texts, "meta": {}})
     per_token: Final = _foundry_embed_price("input_cost_per_token")
-    echoed_tokens: Final = sum(len(litellm.encoding.encode(text, disallowed_special=())) for text in counted_texts)
+    echoed_tokens: Final = sum(len(hangarllm.encoding.encode(text, disallowed_special=())) for text in counted_texts)
 
     assert isinstance(result, EmbeddingResponse)
     assert logging_obj.call_type == "aembedding"
@@ -681,7 +681,7 @@ def test_image_generation_relay_is_costed_per_image():
     result, logging_obj = _relay_logging_result(
         AzureAIPassthroughConfig(), "FLUX.2-pro", "openai/deployments/FLUX.2-pro/images/generations", IMAGE_BODY
     )
-    per_image = litellm.get_model_info("azure_ai/FLUX.2-pro")["output_cost_per_image"]
+    per_image = hangarllm.get_model_info("azure_ai/FLUX.2-pro")["output_cost_per_image"]
 
     assert isinstance(result, ImageResponse)
     assert logging_obj.call_type == "aimage_generation"
@@ -693,7 +693,7 @@ def test_flux_2_relay_through_the_provider_route_is_costed_per_image():
     result, logging_obj = _relay_logging_result(
         AzureAIPassthroughConfig(), "FLUX.2-pro", "providers/blackforestlabs/v1/flux-2-pro", IMAGE_BODY
     )
-    per_image = litellm.get_model_info("azure_ai/FLUX.2-pro")["output_cost_per_image"]
+    per_image = hangarllm.get_model_info("azure_ai/FLUX.2-pro")["output_cost_per_image"]
 
     assert isinstance(result, ImageResponse)
     assert logging_obj.call_type == "aimage_generation"
@@ -730,7 +730,7 @@ def test_streaming_chat_completion_chunks_are_costed_like_azure():
 
     response = AzureAIPassthroughConfig().handle_logging_collected_chunks(
         all_chunks=chunks,
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         model="gpt-5.4-mini",
         custom_llm_provider="azure_ai",
         endpoint="chat/completions",
@@ -746,12 +746,12 @@ def test_streaming_responses_chunks_through_a_router_relay_are_costed_like_azure
 
     response = AzureAIPassthroughConfig().handle_logging_collected_chunks(
         all_chunks=["event: response.completed", "data: " + json.dumps(RESPONSES_COMPLETED_EVENT)],
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         model="gpt-5.4-mini",
         custom_llm_provider="azure_ai",
         endpoint="gpt/openai/responses",
     )
-    info = litellm.get_model_info("azure_ai/gpt-5.4-mini")
+    info = hangarllm.get_model_info("azure_ai/gpt-5.4-mini")
 
     assert response is not None
     assert response.response.usage.output_tokens == 100
@@ -773,7 +773,7 @@ async def test_streaming_responses_relay_flush_reaches_the_success_callbacks_wit
     )
     collector.add(stream.encode())
     await logging_obj.async_flush_passthrough_collected_chunks(collector=collector)
-    info = litellm.get_model_info("azure_ai/gpt-5.4-mini")
+    info = hangarllm.get_model_info("azure_ai/gpt-5.4-mini")
 
     assert probe.logged_call_type == "allm_passthrough_route"
     assert probe.logged_cost == pytest.approx(1000 * info["input_cost_per_token"] + 100 * info["output_cost_per_token"])

@@ -1,13 +1,13 @@
-import asyncio, copy, importlib, litellm, logging, os, pytest, sys, time
+import asyncio, copy, importlib, hangarllm, logging, os, pytest, sys, time
 import types
 
 
-from litellm.integrations.helicone import HeliconeLogger
+from hangarllm.integrations.helicone import HeliconeLogger
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Final
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from unittest.mock import MagicMock
 
@@ -108,11 +108,11 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -124,18 +124,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -145,60 +145,60 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 @pytest.fixture
@@ -211,10 +211,10 @@ def helicone_global_state(
     try:
         root_logger.setLevel(logging.DEBUG)
         logging.basicConfig(level=logging.DEBUG)
-        monkeypatch.setattr(litellm, "num_retries", 3)
-        monkeypatch.setattr(litellm, "success_callback", ["helicone"])
+        monkeypatch.setattr(hangarllm, "num_retries", 3)
+        monkeypatch.setattr(hangarllm, "success_callback", ["helicone"])
         monkeypatch.setenv("HELICONE_DEBUG", "True")
-        monkeypatch.setenv("LITELLM_LOG", "DEBUG")
+        monkeypatch.setenv("HANGARLLM_LOG", "DEBUG")
         yield tmp_path
     finally:
         added_handlers: Final = tuple(
@@ -238,16 +238,16 @@ def pre_helicone_setup(log_path: Path) -> None:
     file_handler.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown", "helicone_global_state")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown", "helicone_global_state")
 def test_helicone_logging_async(helicone_global_state: Path):
     try:
         pre_helicone_setup(helicone_global_state / "helicone.log")
-        litellm.success_callback = []
+        hangarllm.success_callback = []
         start_time_empty_callback = asyncio.run(make_async_calls())
         print("done with no callback test")
 
         print("starting helicone test")
-        litellm.success_callback = ["helicone"]
+        hangarllm.success_callback = ["helicone"]
         start_time_helicone = asyncio.run(make_async_calls())
         print("done with helicone test")
 
@@ -256,7 +256,7 @@ def test_helicone_logging_async(helicone_global_state: Path):
 
         assert abs(start_time_helicone - start_time_empty_callback) < 1
 
-    except litellm.Timeout as e:
+    except hangarllm.Timeout as e:
         pass
     except Exception as e:
         pytest.fail(f"An exception occurred - {e}")
@@ -289,18 +289,18 @@ def create_async_task(**completion_kwargs):
         "mock_response": "It's simple to use and easy to get started",
     }
     completion_args.update(completion_kwargs)
-    return asyncio.create_task(litellm.acompletion(**completion_args))
+    return asyncio.create_task(hangarllm.acompletion(**completion_args))
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown", "helicone_global_state")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown", "helicone_global_state")
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     condition=not os.environ.get("OPENAI_API_KEY", False),
     reason="Authentication missing for openai",
 )
 async def test_helicone_logging_metadata():
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
-    litellm.success_callback = ["helicone"]
+    hangarllm.success_callback = ["helicone"]
 
     request_id = str(uuid.uuid4())
     trace_common_metadata = {"Helicone-Property-Request-Id": request_id}
@@ -325,13 +325,13 @@ async def test_helicone_logging_metadata():
 
     time.sleep(3)
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown", "helicone_global_state")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown", "helicone_global_state")
 def test_helicone_removes_otel_span_from_metadata():
     """
-    Test that HeliconeLogger removes litellm_parent_otel_span from metadata
+    Test that HeliconeLogger removes hangarllm_parent_otel_span from metadata
     to prevent JSON serialization errors.
     """
-    from litellm.integrations.helicone import HeliconeLogger
+    from hangarllm.integrations.helicone import HeliconeLogger
 
     # Create a mock span object (similar to what OpenTelemetry would create)
     mock_span = MagicMock()
@@ -341,7 +341,7 @@ def test_helicone_removes_otel_span_from_metadata():
     metadata = {
         "user_id": "test_user",
         "request_id": "test_request_123",
-        "litellm_parent_otel_span": mock_span,  # This would cause JSON serialization error
+        "hangarllm_parent_otel_span": mock_span,  # This would cause JSON serialization error
         "other_metadata": "some_value",
     }
 
@@ -349,11 +349,11 @@ def test_helicone_removes_otel_span_from_metadata():
     logger = HeliconeLogger()
 
     # Test the add_metadata_from_header method
-    litellm_params = {"proxy_server_request": {"headers": {}}}
-    result_metadata = logger.add_metadata_from_header(litellm_params, metadata)
+    hangarllm_params = {"proxy_server_request": {"headers": {}}}
+    result_metadata = logger.add_metadata_from_header(hangarllm_params, metadata)
 
-    # Verify that litellm_parent_otel_span was removed
-    assert "litellm_parent_otel_span" not in result_metadata
+    # Verify that hangarllm_parent_otel_span was removed
+    assert "hangarllm_parent_otel_span" not in result_metadata
     assert "user_id" in result_metadata
     assert "request_id" in result_metadata
     assert "other_metadata" in result_metadata
@@ -361,4 +361,4 @@ def test_helicone_removes_otel_span_from_metadata():
     assert result_metadata["request_id"] == "test_request_123"
     assert result_metadata["other_metadata"] == "some_value"
 
-    print("✅ Test passed: litellm_parent_otel_span was successfully removed from metadata")
+    print("✅ Test passed: hangarllm_parent_otel_span was successfully removed from metadata")

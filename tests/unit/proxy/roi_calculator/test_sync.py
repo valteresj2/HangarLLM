@@ -9,11 +9,11 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.proxy.roi_calculator.analytics import summarize
-from litellm.proxy.roi_calculator.estimator import CompletionCaller
-from litellm.proxy.roi_calculator.github import GitHubPullListItem
-from litellm.proxy.roi_calculator.sync import SpendReader, SyncManager, read_gateway_user_emails, read_spend
-from litellm.types.roi_calculator import (
+from hangarllm.proxy.roi_calculator.analytics import summarize
+from hangarllm.proxy.roi_calculator.estimator import CompletionCaller
+from hangarllm.proxy.roi_calculator.github import GitHubPullListItem
+from hangarllm.proxy.roi_calculator.sync import SpendReader, SyncManager, read_gateway_user_emails, read_spend
+from hangarllm.types.roi_calculator import (
     ROIBranchSpend,
     ROICompletionRequest,
     ROIReport,
@@ -143,8 +143,8 @@ class _UserTable:
 
 class _SpendDatabase:
     def __init__(self, directory: tuple[Mapping[str, str], ...] = ()) -> None:
-        self.litellm_dailyuserspend: Final = _DailySpendTable()
-        self.litellm_usertable: Final = _UserTable()
+        self.hangarllm_dailyuserspend: Final = _DailySpendTable()
+        self.hangarllm_usertable: Final = _UserTable()
         self.directory: Final = directory or (
             {"user_id": "inactive", "user_email": "inactive@example.com"},
             {"user_id": "invalid", "user_email": "not-an-email"},

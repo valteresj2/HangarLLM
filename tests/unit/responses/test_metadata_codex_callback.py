@@ -5,8 +5,8 @@ Fixes issue: Metadata is no longer passed to custom callback during chat complet
 calls to codex models (#21204)
 
 Codex models (gpt-5.1-codex, gpt-5.2-codex) use mode=responses and route through
-responses_api_bridge. The bridge converts metadata to litellm_metadata. This test
-verifies metadata is preserved for custom callbacks via kwargs['litellm_params']['metadata'].
+responses_api_bridge. The bridge converts metadata to hangarllm_metadata. This test
+verifies metadata is preserved for custom callbacks via kwargs['hangarllm_params']['metadata'].
 """
 
 import asyncio
@@ -16,8 +16,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 def _make_mock_http_response(response_dict: dict):
@@ -51,14 +51,14 @@ class MetadataCaptureCallback(CustomLogger):
 
 
 @pytest.mark.asyncio
-async def test_metadata_passed_via_litellm_metadata_responses_api():
+async def test_metadata_passed_via_hangarllm_metadata_responses_api():
     """
-    Test that when calling responses() directly with litellm_metadata,
+    Test that when calling responses() directly with hangarllm_metadata,
     metadata is preserved for custom callbacks.
 
     Uses HTTP mock since mock_response returns early before update_environment_variables.
     """
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from hangarllm.types.llms.openai import ResponsesAPIResponse
 
     mock_response = ResponsesAPIResponse.model_construct(
         id="resp-test-2",
@@ -84,31 +84,31 @@ async def test_metadata_passed_via_litellm_metadata_responses_api():
 
     test_metadata = {"request_id": "req-456"}
     callback = MetadataCaptureCallback()
-    original_callbacks = litellm.callbacks.copy() if litellm.callbacks else []
-    litellm.callbacks = [callback]
+    original_callbacks = hangarllm.callbacks.copy() if hangarllm.callbacks else []
+    hangarllm.callbacks = [callback]
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _make_mock_http_response(
                 mock_response.model_dump()
             )
-            await litellm.aresponses(
+            await hangarllm.aresponses(
                 model="gpt-4o",
                 input="hi",
-                litellm_metadata=test_metadata,
+                hangarllm_metadata=test_metadata,
             )
 
         await asyncio.wait_for(callback.event.wait(), timeout=5.0)
 
         assert callback.captured_kwargs is not None
 
-        litellm_params = callback.captured_kwargs.get("litellm_params", {})
-        metadata = litellm_params.get("metadata") or {}
+        hangarllm_params = callback.captured_kwargs.get("hangarllm_params", {})
+        metadata = hangarllm_params.get("metadata") or {}
 
         assert "request_id" in metadata
         assert metadata["request_id"] == "req-456"
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks

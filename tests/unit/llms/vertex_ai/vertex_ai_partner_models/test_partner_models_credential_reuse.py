@@ -13,13 +13,13 @@ import pytest
 import responses
 import respx
 
-import litellm
+import hangarllm
 
-from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
     VertexAIPartnerModels,
 )
-from litellm.llms.vertex_ai.vertex_gemma_models.main import VertexAIGemmaModels
-from litellm.llms.vertex_ai.vertex_model_garden.main import VertexAIModelGardenModels
+from hangarllm.llms.vertex_ai.vertex_gemma_models.main import VertexAIGemmaModels
+from hangarllm.llms.vertex_ai.vertex_model_garden.main import VertexAIModelGardenModels
 
 
 def _mock_vertexai():
@@ -61,7 +61,7 @@ class TestPartnerModelsCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ) as mock_ensure,
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
+                "hangarllm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
             ) as mock_handler,
         ):
             mock_handler.completion.return_value = "response"
@@ -78,7 +78,7 @@ class TestPartnerModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                hangarllm_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',
@@ -106,7 +106,7 @@ class TestPartnerModelsCredentialReuse:
                 partner, "load_auth", return_value=(mock_creds, "proj")
             ) as mock_load,
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
+                "hangarllm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
             ) as mock_handler,
         ):
             mock_handler.completion.return_value = "resp"
@@ -123,7 +123,7 @@ class TestPartnerModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                hangarllm_params={},
                 vertex_project="proj",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',
@@ -146,7 +146,7 @@ class TestPartnerModelsCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ),
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
+                "hangarllm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
             ) as mock_handler,
         ):
             mock_handler.completion.return_value = "response"
@@ -163,7 +163,7 @@ class TestPartnerModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                hangarllm_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials=None,
@@ -190,7 +190,7 @@ class TestGemmaModelsCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ) as mock_ensure,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.transformation.VertexGemmaConfig",
+                "hangarllm.llms.vertex_ai.vertex_gemma_models.transformation.VertexGemmaConfig",
                 mock_gemma_config,
             ),
         ):
@@ -206,7 +206,7 @@ class TestGemmaModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                hangarllm_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',
@@ -236,7 +236,7 @@ class TestModelGardenCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ) as mock_ensure,
             patch(
-                "litellm.llms.openai_like.chat.handler.OpenAILikeChatHandler",
+                "hangarllm.llms.openai_like.chat.handler.OpenAILikeChatHandler",
                 mock_handler,
             ),
         ):
@@ -252,7 +252,7 @@ class TestModelGardenCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                hangarllm_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',
@@ -282,7 +282,7 @@ def test_sync_mistral_partner_completion_posts_to_raw_predict_without_a_client()
                     {
                         "index": 0,
                         "finish_reason": "stop",
-                        "message": {"role": "assistant", "content": "I am Litellm Bot."},
+                        "message": {"role": "assistant", "content": "I am Hangarllm Bot."},
                     }
                 ],
                 "usage": {"prompt_tokens": 21, "completion_tokens": 5, "total_tokens": 26},
@@ -290,7 +290,7 @@ def test_sync_mistral_partner_completion_posts_to_raw_predict_without_a_client()
         )
     )
     messages: Final = [
-        {"role": "system", "content": "Your name is Litellm Bot, you are a helpful assistant"},
+        {"role": "system", "content": "Your name is Hangarllm Bot, you are a helpful assistant"},
         {"role": "user", "content": "Hello, what is your name?"},
     ]
 
@@ -299,7 +299,7 @@ def test_sync_mistral_partner_completion_posts_to_raw_predict_without_a_client()
             "https://oauth2.googleapis.com/token",
             json={"access_token": "partner-access-token", "expires_in": 3600, "token_type": "Bearer"},
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="vertex_ai/mistral-small-2503@001",
             messages=messages,
             vertex_project="partner-project",
@@ -318,5 +318,5 @@ def test_sync_mistral_partner_completion_posts_to_raw_predict_without_a_client()
     request: Final = route.calls[0].request
     assert request.headers["authorization"] == "Bearer partner-access-token"
     assert json.loads(request.content) == {"model": "mistral-small-2503", "messages": messages, "stream": False}
-    assert response.choices[0].message.content == "I am Litellm Bot."
+    assert response.choices[0].message.content == "I am Hangarllm Bot."
     assert response.usage.total_tokens == 26

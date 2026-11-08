@@ -8,8 +8,8 @@ from integration.translation.case import TranslationTestCase
 """
 QWEN3_0_6B_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "hosted_vllm/Qwen/Qwen3-0.6B",
         "state": "Help! My payouts have been failing for 3 days!",
         "questions": {
@@ -50,7 +50,7 @@ QWEN3_0_6B_TEST_CASE: Final = TranslationTestCase(
         "usage": {"input_tokens": 61, "output_tokens": 1},
         "diagnostics": {"is_urgent": {"label_mass": 0.9979320910923947, "argmax_is_label": True}},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "decision-9c26c028d7f4457e",
         "object": "structured_decision",
         "created": 1791517765,
@@ -74,8 +74,8 @@ vLLM build.
 QWEN3_0_6B_DECISIONS_TEST_CASE: Final = replace(
     QWEN3_0_6B_TEST_CASE,
     scenario="decisions",
-    litellm_endpoint="/v1/decisions",
-    litellm_request={
+    hangarllm_endpoint="/v1/decisions",
+    hangarllm_request={
         "model": "hosted_vllm/Qwen/Qwen3-0.6B",
         "input": "The checkout page crashed twice today",
         "questions": [
@@ -111,7 +111,7 @@ QWEN3_0_6B_DECISIONS_TEST_CASE: Final = replace(
         "usage": {"input_tokens": 43, "output_tokens": 1},
         "diagnostics": {"is_defect": {"label_mass": 0.9998605790748358, "argmax_is_label": True}},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "Qwen/Qwen3-0.6B",
         "answers": [
             {
@@ -136,7 +136,7 @@ QWEN3_0_6B_DECISIONS_TEST_CASE: Final = replace(
 )
 
 """vLLM only scores `choice` questions, so an OpenAI `predicate` goes out as `noul` and comes back as vLLM's 400,
-which LiteLLM passes through as a 400.
+which HangarLLM passes through as a 400.
 """
 VLLM_NOUL_REJECTED: Final = {
     "error": {
@@ -149,7 +149,7 @@ VLLM_NOUL_REJECTED: Final = {
 QWEN3_0_6B_PREDICATE_REJECTED_TEST_CASE: Final = replace(
     QWEN3_0_6B_DECISIONS_TEST_CASE,
     scenario="predicate_rejected",
-    litellm_request={
+    hangarllm_request={
         "model": "hosted_vllm/Qwen/Qwen3-0.6B",
         "input": "The checkout page crashed twice today",
         "questions": [{"type": "predicate", "name": "is_bug", "instructions": "Is this a bug?"}],
@@ -162,11 +162,11 @@ QWEN3_0_6B_PREDICATE_REJECTED_TEST_CASE: Final = replace(
     },
     mock_provider_status_code=400,
     mock_provider_response=VLLM_NOUL_REJECTED,
-    expected_litellm_status_code=400,
-    expected_litellm_response={
+    expected_hangarllm_status_code=400,
+    expected_hangarllm_response={
         "error": {
-            "message": f"litellm.BadRequestError: Hosted_vllmException - {json.dumps(VLLM_NOUL_REJECTED)}\n\n"
-            "LiteLLM: model group 'hosted_vllm/Qwen/Qwen3-0.6B' failed with the error above. No fallback was attempted.",
+            "message": f"hangarllm.BadRequestError: Hosted_vllmException - {json.dumps(VLLM_NOUL_REJECTED)}\n\n"
+            "HangarLLM: model group 'hosted_vllm/Qwen/Qwen3-0.6B' failed with the error above. No fallback was attempted.",
             "type": "invalid_request_error",
             "param": None,
             "code": "400",

@@ -2,8 +2,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_utils.request_priority import (
+import hangarllm
+from hangarllm.router_utils.request_priority import (
     InvalidPriority,
     parse_default_priority,
     request_drops_params,
@@ -58,7 +58,7 @@ def test_the_drop_params_decision_is_consulted_only_for_a_non_integer_priority()
 def test_the_global_drop_params_wins_then_the_request_then_the_router_defaults_then_the_deployments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     assert request_drops_params({}, {}, ()) is False
     assert request_drops_params({"drop_params": True}, {}, ()) is True
     assert request_drops_params({"drop_params": "true"}, {}, ()) is True
@@ -68,7 +68,7 @@ def test_the_global_drop_params_wins_then_the_request_then_the_router_defaults_t
     assert request_drops_params({}, {}, ({"drop_params": True}, {"model": "openai/gpt-5.4-nano"})) is True
     assert request_drops_params({}, {}, ({"drop_params": False}, {"model": "openai/gpt-5.4-nano"})) is False
     assert request_drops_params({}, {"drop_params": False}, ({"drop_params": True},)) is False
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     assert request_drops_params({}, {}, ()) is True
     assert request_drops_params({}, {}, ({"model": "openai/gpt-5.4-nano"},)) is True
     assert request_drops_params({"drop_params": False}, {}, ()) is True
@@ -78,7 +78,7 @@ def test_the_global_drop_params_wins_then_the_request_then_the_router_defaults_t
 
 
 def test_a_priority_named_in_additional_drop_params_at_any_level_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     by_name: Final = {"additional_drop_params": ["priority"]}
     assert request_drops_params(by_name, {}, ()) is True
     assert request_drops_params({**by_name, "drop_params": False}, {}, ()) is True

@@ -17,8 +17,8 @@ from integration.providers._idle_upstream_support import (
     stay_idle,
 )
 
-import litellm
-from litellm.types.utils import Choices, ModelResponse
+import hangarllm
+from hangarllm.types.utils import Choices, ModelResponse
 
 
 def _text(response: object) -> str:
@@ -30,7 +30,7 @@ def _text(response: object) -> str:
 
 async def _chat(model: str, api_base: str, marker: str) -> str:
     return _text(
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model=model,
             api_base=api_base,
             api_key=PROVIDER_KEY,
@@ -50,7 +50,7 @@ async def anthropic_chat(api_base: str, marker: str) -> str:
 
 
 async def mistral_ocr_rust_bridge(api_base: str, marker: str) -> str:
-    response: Final = await litellm.aocr(
+    response: Final = await hangarllm.aocr(
         model="mistral/mistral-ocr-latest",
         document={"type": "document_url", "document_url": f"https://documents.invalid/{marker}.pdf"},
         api_base=api_base,

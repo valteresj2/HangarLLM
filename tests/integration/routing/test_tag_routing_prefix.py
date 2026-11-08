@@ -62,7 +62,7 @@ def _config(directory: Path, wire: Wire, prefix: str) -> Path:
     ) -> dict[str, JsonValue]:
         return {
             "model_name": group,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"{provider}/{backend}",
                 "api_base": f"{wire.url}/v1",
                 "api_key": "synthetic-tag-prefix-key",
@@ -125,7 +125,7 @@ def unprefixed(tmp_path_factory: pytest.TempPathFactory, upstream: Wire) -> Iter
 def _call(
     endpoint: Endpoint, model: str, prompt: str, tags: Sequence[str], stream: bool
 ) -> tuple[str, Mapping[str, JsonValue], Mapping[str, str]]:
-    header: Final = {"x-litellm-tags": ",".join(tags)}
+    header: Final = {"x-hangarllm-tags": ",".join(tags)}
     match endpoint:
         case "chat":
             messages: Final[JsonValue] = [{"role": "user", "content": prompt}]
@@ -252,9 +252,9 @@ def test_an_unprefixed_caller_constraint_is_ignored_once_a_prefix_is_set(
     "metadata",
     [
         {"metadata": {"tags": ["&region:nowhere"], "inherited_tags": ["&region:nowhere"]}},
-        {"litellm_metadata": {"tags": ["&region:nowhere"], "inherited_tags": ["&region:nowhere"]}},
+        {"hangarllm_metadata": {"tags": ["&region:nowhere"], "inherited_tags": ["&region:nowhere"]}},
     ],
-    ids=["metadata", "litellm_metadata"],
+    ids=["metadata", "hangarllm_metadata"],
 )
 def test_a_caller_cannot_make_an_unprefixed_tag_route_by_sending_inherited_tags(
     prefixed: Gateway, upstream: Wire, metadata: dict[str, JsonValue]

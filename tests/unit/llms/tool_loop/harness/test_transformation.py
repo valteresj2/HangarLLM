@@ -9,11 +9,11 @@ from typing import Final, Literal
 import pytest
 from pydantic import BaseModel
 
-from litellm import sandbox
-from litellm.harness.context import GatewayTarget, SessionContext
-from litellm.harness.options import ToolLoopOptions
-from litellm.harness.types import Harness
-from litellm.llms.tool_loop.harness.transformation import (
+from hangarllm import sandbox
+from hangarllm.harness.context import GatewayTarget, SessionContext
+from hangarllm.harness.options import ToolLoopOptions
+from hangarllm.harness.types import Harness
+from hangarllm.llms.tool_loop.harness.transformation import (
     ToolLoopHarnessConfig,
     completion_kwargs,
     function_tool,
@@ -134,10 +134,10 @@ def test_gateway_routing_and_response_format_override_options(tmp_path: Path) ->
     kwargs: Final = completion_kwargs(ctx)
 
     assert kwargs == {
-        "model": "litellm_proxy/anthropic/claude",
+        "model": "hangarllm_proxy/anthropic/claude",
         "api_base": "https://gateway",
         "api_key": "virtual-key",
-        "extra_headers": {"x-litellm-tags": "harness,tool_loop"},
+        "extra_headers": {"x-hangarllm-tags": "harness,tool_loop"},
         "response_format": OutputModel,
     }
 

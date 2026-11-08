@@ -1,7 +1,7 @@
 """tool_use_streaming x Vertex AI.
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Claude requests to
+mode against a running HangarLLM proxy that routes Claude requests to
 GCP Vertex AI, ask Claude to invoke a built-in tool (`Bash`), and
 assert that the upstream (a) emitted a `tool_use` content block and
 (b) actually streamed events incrementally.

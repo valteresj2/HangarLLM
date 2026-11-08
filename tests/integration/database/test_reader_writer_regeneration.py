@@ -41,7 +41,7 @@ def test_key_regeneration_uses_writer_with_a_real_readonly_reader(gateway: Gatew
             with psycopg.connect(reader_url, autocommit=True) as reader:
                 assert reader.execute("SHOW transaction_read_only").fetchone() == ("on",)
                 with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
-                    reader.execute('UPDATE "LiteLLM_VerificationToken" SET blocked = true WHERE false')
+                    reader.execute('UPDATE "HangarLLM_VerificationToken" SET blocked = true WHERE false')
             with owned_proxy(gateway, tmp_path, {"DATABASE_URL_READ_REPLICA": reader_url}) as candidate:
                 assert read_rows("SELECT pid FROM pg_stat_activity WHERE usename=%s", (role,)), (
                     "Candidate reader was never connected"
@@ -76,7 +76,7 @@ def test_key_regeneration_uses_writer_with_a_real_readonly_reader(gateway: Gatew
                     group: Final = string_value(response.json()["access_group_id"])
                     try:
                         with psycopg.connect(url) as blocker, ThreadPoolExecutor(max_workers=1) as executor:
-                            blocker.execute('LOCK TABLE "LiteLLM_AccessGroupTable" IN ACCESS EXCLUSIVE MODE')
+                            blocker.execute('LOCK TABLE "HangarLLM_AccessGroupTable" IN ACCESS EXCLUSIVE MODE')
                             pending: Final = executor.submit(candidate.request, "GET", f"/v1/access_group/{group}")
                             try:
                                 reached: Final = eventually(
@@ -103,10 +103,10 @@ def test_key_regeneration_uses_writer_with_a_real_readonly_reader(gateway: Gatew
                         new_hash: Final = sha256(new.encode()).hexdigest()
                         assert new != old
                         assert read_rows(
-                            'SELECT assigned_key_ids FROM "LiteLLM_AccessGroupTable" WHERE access_group_id=%s', (group,)
+                            'SELECT assigned_key_ids FROM "HangarLLM_AccessGroupTable" WHERE access_group_id=%s', (group,)
                         ) == [{"assigned_key_ids": [new_hash]}]
                         assert read_rows(
-                            'SELECT token, access_group_ids FROM "LiteLLM_VerificationToken" WHERE token=ANY(%s)',
+                            'SELECT token, access_group_ids FROM "HangarLLM_VerificationToken" WHERE token=ANY(%s)',
                             ([old_hash, new_hash],),
                         ) == [{"token": new_hash, "access_group_ids": [group]}]
                         assert candidate.chat(model, key=new)["usage"]["total_tokens"] == 40
@@ -125,7 +125,7 @@ def test_key_regeneration_uses_writer_with_a_real_readonly_reader(gateway: Gatew
                         assert deleted.status_code == 204, deleted.text
                         assert (
                             read_rows(
-                                'SELECT access_group_id FROM "LiteLLM_AccessGroupTable" WHERE access_group_id=%s',
+                                'SELECT access_group_id FROM "HangarLLM_AccessGroupTable" WHERE access_group_id=%s',
                                 (group,),
                             )
                             == []
@@ -230,7 +230,7 @@ def _assert_success(response: httpx.Response) -> _ChatResponse:
 def test_regenerate_with_a_grace_period_keeps_the_old_key_serving_billed_to_the_new_row(
     gateway: Gateway, spelling: str
 ) -> None:
-    assert os.environ.get("LITELLM_KEY_ROTATION_GRACE_PERIOD") is None
+    assert os.environ.get("HANGARLLM_KEY_ROTATION_GRACE_PERIOD") is None
     backend: Final = "integration-keys-auth-grace"
     prompts: Final = (
         "grace old key " + uuid.uuid4().hex,
@@ -278,7 +278,7 @@ def test_regenerate_with_a_grace_period_keeps_the_old_key_serving_billed_to_the_
         old_spend: Final = TypeAdapter(tuple[_SpendLog, ...]).validate_python(
             eventually(
                 lambda: read_rows(
-                    'SELECT api_key, spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                    'SELECT api_key, spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                     (old_response.id,),
                 ),
                 lambda rows: len(rows) == 1,
@@ -288,7 +288,7 @@ def test_regenerate_with_a_grace_period_keeps_the_old_key_serving_billed_to_the_
         new_spend: Final = TypeAdapter(tuple[_SpendLog, ...]).validate_python(
             eventually(
                 lambda: read_rows(
-                    'SELECT api_key, spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                    'SELECT api_key, spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                     (new_response.id,),
                 ),
                 lambda rows: len(rows) == 1,
@@ -302,7 +302,7 @@ def test_regenerate_with_a_grace_period_keeps_the_old_key_serving_billed_to_the_
         key_spend: Final = TypeAdapter(tuple[_KeySpend, ...]).validate_python(
             eventually(
                 lambda: read_rows(
-                    'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s',
+                    'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s',
                     (hash_two,),
                 ),
                 lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) > 0,
@@ -313,7 +313,7 @@ def test_regenerate_with_a_grace_period_keeps_the_old_key_serving_billed_to_the_
         deprecated: Final = TypeAdapter(tuple[_DeprecatedKey, ...]).validate_python(
             read_rows(
                 "SELECT active_token_id, EXTRACT(EPOCH FROM revoke_at - now())::float8 AS grace_seconds "
-                'FROM "LiteLLM_DeprecatedVerificationToken" WHERE token=%s',
+                'FROM "HangarLLM_DeprecatedVerificationToken" WHERE token=%s',
                 (hash_one,),
             )
         )

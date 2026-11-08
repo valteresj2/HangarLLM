@@ -6,9 +6,9 @@ from collections.abc import Callable
 
 import pytest
 
-from litellm.integrations.pointfive.logger import PointFiveLogger
-from litellm.integrations.pointfive.upload_client import PointFiveUploadError
-from litellm.types.integrations.pointfive import DEFAULT_API_URL, PointFiveInitParams, PointFiveUploadFailure
+from hangarllm.integrations.pointfive.logger import PointFiveLogger
+from hangarllm.integrations.pointfive.upload_client import PointFiveUploadError
+from hangarllm.types.integrations.pointfive import DEFAULT_API_URL, PointFiveInitParams, PointFiveUploadFailure
 
 OBJECT_KEY = "some/object.ndjson.gz"
 
@@ -239,10 +239,10 @@ def test_an_api_key_can_be_an_environment_reference(monkeypatch):
     assert logger.upload_client.api_key == "p5tu_from_env"
 
 
-def test_params_are_read_from_litellm_settings(monkeypatch):
-    import litellm
+def test_params_are_read_from_hangarllm_settings(monkeypatch):
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "pointfive_params", {"api_key": "p5tu_configured", "batch_size": 7})
+    monkeypatch.setattr(hangarllm, "pointfive_params", {"api_key": "p5tu_configured", "batch_size": 7})
 
     logger = PointFiveLogger()
 
@@ -378,9 +378,9 @@ async def test_the_logger_flushes_periodically_by_default():
 @pytest.mark.asyncio
 async def test_params_already_built_are_used_as_they_are(monkeypatch):
     """config.yaml is validated once into a params object; a second validation would be wasted."""
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "pointfive_params", PointFiveInitParams(max_batch_bytes=4096))
+    monkeypatch.setattr(hangarllm, "pointfive_params", PointFiveInitParams(max_batch_bytes=4096))
 
     logger = PointFiveLogger(upload_client=FakeUploadClient())
 
@@ -634,9 +634,9 @@ async def test_a_failed_request_honours_the_global_redaction_setting(monkeypatch
     The async failure path hands the payload over untouched, so a tenant could trigger a
     provider failure and ship prompts that the operator had already asked to be redacted.
     """
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", True)
     upload_client = FakeUploadClient()
     logger = _logger(upload_client, batch_size=1)
     event = _event("globally-redacted")
@@ -652,9 +652,9 @@ async def test_a_failed_request_honours_the_global_redaction_setting(monkeypatch
 @pytest.mark.asyncio
 async def test_excluded_fields_are_dropped_from_a_failed_request(monkeypatch):
     """standard_logging_payload_excluded_fields drops a field entirely; failures skipped it too."""
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "standard_logging_payload_excluded_fields", ["messages"])
+    monkeypatch.setattr(hangarllm, "standard_logging_payload_excluded_fields", ["messages"])
     upload_client = FakeUploadClient()
     logger = _logger(upload_client, batch_size=1, turn_off_message_logging=True)
     event = _event("field-excluded")
@@ -751,7 +751,7 @@ def test_an_unset_env_reference_is_never_used_as_the_key(monkeypatch):
 
 def test_an_unset_url_reference_falls_back_to_the_public_endpoint(monkeypatch):
     """An unresolved url reference must not become the destination the proxy uploads to."""
-    from litellm.integrations.pointfive.logger import _resolved_api_url
+    from hangarllm.integrations.pointfive.logger import _resolved_api_url
 
     monkeypatch.delenv("POINTFIVE_API_URL", raising=False)
     monkeypatch.delenv("POINTFIVE_MISSING_URL", raising=False)

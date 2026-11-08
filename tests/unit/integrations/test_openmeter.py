@@ -6,23 +6,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.openmeter import OpenMeterLogger
-from litellm.litellm_core_utils.internal_call_metadata import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+import hangarllm
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.integrations.openmeter import OpenMeterLogger
+from hangarllm.hangarllm_core_utils.internal_call_metadata import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     SETTLES_BACKGROUND_RESPONSE_KWARG,
     BackgroundResponseSettlement,
 )
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
 BACKGROUND_COST_POLL_KWARGS: Final[Mapping[str, object]] = {
     "call_type": "aget_responses",
-    "litellm_params": {"metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN}},
+    "hangarllm_params": {"metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN}},
 }
 PASSTHROUGH_SETTLEMENT_KWARGS: Final[Mapping[str, object]] = {
     "call_type": "pass_through_endpoint",
-    "litellm_params": {"metadata": {}},
+    "hangarllm_params": {"metadata": {}},
     SETTLES_BACKGROUND_RESPONSE_KWARG: BackgroundResponseSettlement.SETTLES,
 }
 
@@ -71,7 +71,7 @@ class TestOpenMeterIntegration:
         create_kwargs: Final[Mapping[str, object]] = {
             "user": "user-1",
             "call_type": "aresponses",
-            "litellm_params": {"metadata": {}},
+            "hangarllm_params": {"metadata": {}},
         }
 
         create_event: Final = logger._common_logic(create_kwargs, response_obj)
@@ -88,7 +88,7 @@ class TestOpenMeterIntegration:
             "user": "test-user-123",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "hangarllm_call_id": "test-call-id",
         }
 
         # Mock response object
@@ -113,7 +113,7 @@ class TestOpenMeterIntegration:
             "user": 12345,  # Integer user ID
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id-2",
+            "hangarllm_call_id": "test-call-id-2",
         }
 
         response_obj = {
@@ -134,7 +134,7 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "hangarllm_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -150,7 +150,7 @@ class TestOpenMeterIntegration:
             "user": None,
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "hangarllm_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -166,7 +166,7 @@ class TestOpenMeterIntegration:
             "user": "",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "hangarllm_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -175,7 +175,7 @@ class TestOpenMeterIntegration:
         assert isinstance(result["subject"], str)
         assert result["subject"] == ""
 
-    @patch("litellm.integrations.openmeter.HTTPHandler")
+    @patch("hangarllm.integrations.openmeter.HTTPHandler")
     def test_log_success_event(self, mock_http_handler):
         """Test synchronous log_success_event method"""
         mock_post = MagicMock()
@@ -187,7 +187,7 @@ class TestOpenMeterIntegration:
             "user": "test-user",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "hangarllm_call_id": "test-call-id",
         }
 
         response_obj = {
@@ -208,7 +208,7 @@ class TestOpenMeterIntegration:
         assert isinstance(data["subject"], str)
         assert data["data"]["model"] == "gpt-3.5-turbo"
 
-    @patch("litellm.integrations.openmeter.get_async_httpx_client")
+    @patch("hangarllm.integrations.openmeter.get_async_httpx_client")
     @pytest.mark.asyncio
     async def test_async_log_success_event(self, mock_get_client):
         """Test asynchronous log_success_event method"""
@@ -223,7 +223,7 @@ class TestOpenMeterIntegration:
             "user": "async-test-user",
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "async-test-call-id",
+            "hangarllm_call_id": "async-test-call-id",
         }
 
         response_obj = {
@@ -252,22 +252,22 @@ class TestOpenMeterIntegration:
             "user": "cloudevents-test-user",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "cloudevents-test-call-id",
+            "hangarllm_call_id": "cloudevents-test-call-id",
         }
 
         response_data = {
             "id": "cloudevents-test-response-id",
             "usage": {"prompt_tokens": 15, "completion_tokens": 8, "total_tokens": 23},
         }
-        response_obj = litellm.ModelResponse(**response_data)
+        response_obj = hangarllm.ModelResponse(**response_data)
 
         result = logger._common_logic(kwargs, response_obj)
 
         # Verify CloudEvents required fields
         assert result["specversion"] == "1.0"
-        assert result["type"] == "litellm_tokens"  # default value
+        assert result["type"] == "hangarllm_tokens"  # default value
         assert result["id"] == "cloudevents-test-response-id"
-        assert result["source"] == "litellm-proxy"
+        assert result["source"] == "hangarllm-proxy"
         assert "time" in result
         assert isinstance(result["subject"], str)
         assert result["subject"] == "cloudevents-test-user"
@@ -290,7 +290,7 @@ class TestOpenMeterIntegration:
             "user": "custom-event-user",
             "model": "gpt-4",
             "response_cost": 0.003,
-            "litellm_call_id": "custom-event-call-id",
+            "hangarllm_call_id": "custom-event-call-id",
         }
 
         response_obj = {
@@ -309,8 +309,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {"metadata": {"user_api_key_user_id": "token-user-123"}},
+            "hangarllm_call_id": "test-call-id",
+            "hangarllm_params": {"metadata": {"user_api_key_user_id": "token-user-123"}},
             # No "user" parameter - should use token user_id
         }
 
@@ -334,8 +334,8 @@ class TestOpenMeterIntegration:
             "user": "direct-user-456",  # Direct user should take priority
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "hangarllm_call_id": "test-call-id",
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_user_id": "token-user-123"  # This should be ignored
                 }
@@ -361,8 +361,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "hangarllm_call_id": "test-call-id",
+            "hangarllm_params": {
                 "metadata": {
                     # No user_api_key_user_id
                 }
@@ -382,8 +382,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "hangarllm_call_id": "test-call-id",
+            "hangarllm_params": {
                 "metadata": {"user_api_key_user_id": None}  # Explicitly None
             },
         }
@@ -401,8 +401,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-4",
             "response_cost": 0.003,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "hangarllm_call_id": "test-call-id",
+            "hangarllm_params": {
                 "metadata": {"user_api_key_user_id": 12345}  # Integer user_id
             },
         }
@@ -428,8 +428,8 @@ class TestOpenMeterIntegration:
             "user": "forged-by-client",
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "hangarllm_call_id": "test-call-id",
+            "hangarllm_params": {
                 "metadata": {"user_api_key_user_id": "real-tenant-id"}
             },
         }
@@ -455,7 +455,7 @@ class TestOpenMeterIntegration:
             "user": "would-have-worked-without-the-flag",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "hangarllm_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -473,8 +473,8 @@ class TestOpenMeterIntegration:
             "user": "request-user",
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "hangarllm_call_id": "test-call-id",
+            "hangarllm_params": {
                 "metadata": {"user_api_key_user_id": "key-user"}
             },
         }
@@ -487,7 +487,7 @@ class TestOpenMeterIntegration:
         result = logger._common_logic(kwargs, response_obj)
         assert result["subject"] == "request-user"
 
-    @patch("litellm.integrations.openmeter.HTTPHandler")
+    @patch("hangarllm.integrations.openmeter.HTTPHandler")
     def test_integration_token_user_id_scenario(self, mock_http_handler):
         """Integration test simulating the exact scenario that was failing"""
         mock_post = MagicMock()
@@ -500,8 +500,8 @@ class TestOpenMeterIntegration:
             "model": "gpt-3.5-turbo",
             "messages": [{"role": "user", "content": "Hello"}],
             "response_cost": 0.001,
-            "litellm_call_id": "test-integration-call-id",
-            "litellm_params": {
+            "hangarllm_call_id": "test-integration-call-id",
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_user_id": "user123-from-token",
                     "user_api_key": "hashed-key-abc",

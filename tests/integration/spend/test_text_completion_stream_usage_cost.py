@@ -98,7 +98,7 @@ def _proxy_config(directory: Path, model: str, upstream_url: str) -> Path:
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-5.4-mini",
                             "api_base": f"{upstream_url}/v1",
                             "api_key": "scripted-upstream",
@@ -108,7 +108,7 @@ def _proxy_config(directory: Path, model: str, upstream_url: str) -> Path:
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "disable_spend_logs": False,
@@ -164,7 +164,7 @@ def test_text_completion_stream_without_stream_options_bills_like_its_twins(gate
             request_ids: Final = (silent_frames[0]["id"], asked_frames[0]["id"], whole.json()["id"])
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT request_id, prompt_tokens, completion_tokens, spend FROM "LiteLLM_SpendLogs" '
+                    'SELECT request_id, prompt_tokens, completion_tokens, spend FROM "HangarLLM_SpendLogs" '
                     "WHERE request_id = ANY(%s)",
                     (list(request_ids),),
                     database_url=candidate.database_url,

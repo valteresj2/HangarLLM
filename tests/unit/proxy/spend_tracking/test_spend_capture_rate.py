@@ -8,13 +8,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.constants import (
+from hangarllm.constants import (
     SPEND_CAPTURE_RATE_CHECK_JOB_ID,
     SPEND_CAPTURE_RATE_DOCS_URL,
     SPEND_CAPTURE_RATE_MAX_RANGE_DAYS,
 )
-from litellm.llms.openai.organization_costs import OPENAI_ADMIN_KEY_ENV_VAR
-from litellm.proxy.spend_tracking.spend_capture_rate import (
+from hangarllm.llms.openai.organization_costs import OPENAI_ADMIN_KEY_ENV_VAR
+from hangarllm.proxy.spend_tracking.spend_capture_rate import (
     ProviderBillingCredentialMissing,
     ProviderBillingRequestFailed,
     alert_message,
@@ -22,7 +22,7 @@ from litellm.proxy.spend_tracking.spend_capture_rate import (
     run_scheduled_spend_capture_rate_check,
     run_spend_capture_rate_check,
 )
-from litellm.types.proxy.spend_capture_rate import CaptureRateReport, SpendCaptureRateCheckSettings
+from hangarllm.types.proxy.spend_capture_rate import CaptureRateReport, SpendCaptureRateCheckSettings
 
 _ADMIN_KEY: Final = "sk-admin-test"
 
@@ -169,7 +169,7 @@ async def test_check_reads_the_closed_window_before_today_and_publishes_the_rate
     sql, start, end, providers = prisma.db.query_raw.await_args.args
     assert (start, end) == ("2026-09-21", "2026-09-22")
     assert set(providers) == {"openai", "text-completion-openai"}
-    assert '"LiteLLM_DailyUserSpend"' in sql
+    assert '"HangarLLM_DailyUserSpend"' in sql
 
 
 @pytest.mark.asyncio

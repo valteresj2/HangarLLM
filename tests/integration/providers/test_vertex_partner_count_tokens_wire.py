@@ -381,7 +381,7 @@ def _owned_config(
                 "model_list": [
                     {
                         "model_name": name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"vertex_ai/{_BACKEND}",
                             "api_base": api_base,
                             "vertex_project": _PROJECT,
@@ -391,7 +391,7 @@ def _owned_config(
                     }
                     for name, api_base in api_bases.items()
                 ],
-                "litellm_settings": {**config["litellm_settings"], **settings},
+                "hangarllm_settings": {**config["hangarllm_settings"], **settings},
             }
         )
     )
@@ -403,7 +403,7 @@ def test_messages_count_tokens_forwards_system_and_tools(gateway: Gateway, syste
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url)
         response: Final = _count(gateway, {**_bare(model), "system": system, "tools": _TOOLS})
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         assert _counted_bodies(wire) == ({**_PEER_BARE, "system": system, "tools": _TOOLS},)
 
 
@@ -411,7 +411,7 @@ def test_messages_count_tokens_without_system_or_tools_sends_bare_body(gateway: 
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url)
         response: Final = _count(gateway, _bare(model))
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         assert _counted_bodies(wire) == (_PEER_BARE,)
 
 
@@ -461,7 +461,7 @@ def test_responses_input_tokens_counts_through_the_partner_peer(gateway: Gateway
         assert _payload(response) == {
             "object": "response.input_tokens",
             "input_tokens": _PEER_COUNT,
-            "litellm_count_source": "provider",
+            "hangarllm_count_source": "provider",
         }, response.text
         assert _counted_bodies(wire) == (_PEER_BARE,)
 
@@ -559,7 +559,7 @@ def test_llama_count_still_reaches_the_meta_count_route(gateway: Gateway) -> Non
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url, model=f"vertex_ai/{_LLAMA_BACKEND}")
         response: Final = _count(gateway, _bare(model))
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         (sent,) = _count_bodies(wire.drain(), _LLAMA_COUNT_TARGET)
         assert sent["messages"] == _MESSAGES, sent
 
@@ -677,7 +677,7 @@ def test_messages_count_tokens_forwards_an_empty_tools_list(gateway: Gateway) ->
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url)
         response: Final = _count(gateway, {**_bare(model), "tools": []})
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         assert _counted_bodies(wire) == ({**_PEER_BARE, "tools": []},)
 
 
@@ -685,7 +685,7 @@ def test_messages_count_tokens_forwards_an_empty_system_string(gateway: Gateway)
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url)
         response: Final = _count(gateway, {**_bare(model), "system": ""})
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         assert _counted_bodies(wire) == ({**_PEER_BARE, "system": ""},)
 
 
@@ -693,7 +693,7 @@ def test_messages_count_tokens_leaves_null_system_and_tools_out(gateway: Gateway
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url)
         response: Final = _count(gateway, {**_bare(model), "system": None, "tools": None})
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         assert _counted_bodies(wire) == (_PEER_BARE,)
 
 
@@ -711,7 +711,7 @@ def test_messages_count_tokens_forwards_a_5kb_system_verbatim(gateway: Gateway) 
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url)
         response: Final = _count(gateway, {**_bare(model), "system": system})
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         assert _counted_bodies(wire) == ({**_PEER_BARE, "system": system},)
 
 
@@ -724,7 +724,7 @@ def test_messages_count_tokens_duplicate_system_and_tools_keys_forward_one_value
             content=f'{{"model": "{model}", "messages": {json.dumps(_MESSAGES)}, {fields}, {fields}}}',
             headers={"Authorization": f"Bearer {gateway.key}", "Content-Type": "application/json"},
         )
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         (sent,) = _count_requests(wire.drain())
         assert _count_bodies((sent,)) == (_PEER_FULL,)
         assert (sent.body.count(b'"system"'), sent.body.count(b'"tools"')) == (1, 1), sent.body
@@ -757,7 +757,7 @@ def test_count_tokens_location_override_targets_the_count_region(gateway: Gatewa
             gateway, scenario, wire.url, vertex_location="global", vertex_count_tokens_location="europe-west1"
         )
         response: Final = _count(gateway, _bare(model))
-        assert _payload(response) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, response.text
+        assert _payload(response) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, response.text
         target: Final = _COUNT_TARGET.replace(f"/locations/{_LOCATION}/", "/locations/europe-west1/")
         assert _count_bodies(wire.drain(), target) == (_PEER_BARE,)
 
@@ -766,11 +766,11 @@ def test_messages_count_tokens_repeated_request_reaches_the_peer_each_time(gatew
     with wire_server(_peer()) as wire, gateway.scenario() as scenario:
         model: Final = _deployment(gateway, scenario, wire.url)
         answers: Final = tuple(_payload(_count(gateway, _bare(model))) for _ in range(2))
-        assert answers == ({"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"},) * 2
+        assert answers == ({"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"},) * 2
         assert _counted_bodies(wire) == (_PEER_BARE,) * 2
 
 
-@pytest.mark.timeout(240)  # boots an owned two-worker proxy with litellm_settings.disable_token_counter
+@pytest.mark.timeout(240)  # boots an owned two-worker proxy with hangarllm_settings.disable_token_counter
 def test_disabled_token_counter_surfaces_provider_failures_instead_of_counting_locally(
     gateway: Gateway, tmp_path: Path
 ) -> None:
@@ -783,7 +783,7 @@ def test_disabled_token_counter_surfaces_provider_failures_instead_of_counting_l
         )
         with owned_proxy_process(gateway, tmp_path, {}, config=config, workers=2) as owned:
             counted: Final = _count(owned.gateway, _full(_OWNED_MODEL))
-            assert _payload(counted) == {"input_tokens": _PEER_COUNT, "litellm_count_source": "provider"}, counted.text
+            assert _payload(counted) == {"input_tokens": _PEER_COUNT, "hangarllm_count_source": "provider"}, counted.text
             rejected: Final = _count(
                 owned.gateway, {**_full(_OWNED_MODEL), "messages": [{"role": "user", "content": _REJECT_TEXT}]}
             )

@@ -9,11 +9,11 @@ from mcp.server.context import ServerRequestContext
 from mcp.types import CallToolRequestParams as MCPCallToolRequestParams
 from mcp.types import CallToolResult, TextContent
 
-from litellm.mcp_client.client import MCPClient, PersistentMCPSession
-from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
-from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.mcp_client.client import MCPClient, PersistentMCPSession
+from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+from hangarllm.types.mcp import MCPAuth, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 HOLD_SECONDS = 0.1
 

@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 
-from litellm.llms.vertex_ai.vertex_ai_partner_models.llama.transformation import (
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.llama.transformation import (
     VertexAILlama3Config,
     VertexAILlama3StreamingHandler,
 )
@@ -47,7 +47,7 @@ MAAS_MODELS = (
 class TestVertexAILlama3Config:
     def test_transform_choices(self):
         """
-        Relevant Issue: https://github.com/BerriAI/litellm/issues/10441#issuecomment-2844975599
+        Relevant Issue: upstream issue 10441
         """
         config = VertexAILlama3Config()
 

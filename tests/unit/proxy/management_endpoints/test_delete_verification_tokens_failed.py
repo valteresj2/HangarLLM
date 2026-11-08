@@ -1,7 +1,7 @@
 """
 Tests for the `failed_tokens` field returned by delete_verification_tokens().
 
-Related PR: https://github.com/BerriAI/litellm/pull/12577
+Related PR: upstream issue 12577
 
 Verifies that delete_verification_tokens() includes a `failed_tokens` key in
 its result dict in all scenarios, populated with any token hashes that could
@@ -14,12 +14,12 @@ import pytest
 
 from unittest.mock import AsyncMock, MagicMock
 
-from litellm.proxy._types import (
-    LiteLLM_VerificationToken,
-    LitellmUserRoles,
+from hangarllm.proxy._types import (
+    HangarLLM_VerificationToken,
+    HangarllmUserRoles,
 )
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+from hangarllm.proxy.management_endpoints.key_management_endpoints import (
     delete_verification_tokens,
 )
 
@@ -29,8 +29,8 @@ from litellm.proxy.management_endpoints.key_management_endpoints import (
 # ---------------------------------------------------------------------------
 
 
-def _make_token(token: str, user_id: str = "user-123") -> LiteLLM_VerificationToken:
-    return LiteLLM_VerificationToken(
+def _make_token(token: str, user_id: str = "user-123") -> HangarLLM_VerificationToken:
+    return HangarLLM_VerificationToken(
         token=token,
         user_id=user_id,
         team_id=None,
@@ -53,7 +53,7 @@ def _admin_user() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         user_id="admin-user",
         api_key="sk-admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
     )
 
 
@@ -61,16 +61,16 @@ def _regular_user(user_id: str = "user-123") -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         user_id=user_id,
         api_key="sk-regular",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
     )
 
 
 def _mock_prisma(keys, deleted_tokens):
     """Return a minimal mock prisma_client for a given set of found keys and deleted tokens."""
     mock = AsyncMock()
-    mock.db.litellm_verificationtoken.find_many = AsyncMock(return_value=keys)
+    mock.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=keys)
     mock.delete_data = AsyncMock(return_value=deleted_tokens)
-    mock.db.litellm_deletedverificationtoken.create_many = AsyncMock()
+    mock.db.hangarllm_deletedverificationtoken.create_many = AsyncMock()
     return mock
 
 
@@ -94,14 +94,14 @@ async def test_delete_all_tokens_admin_returns_empty_failed_tokens(monkeypatch):
     mock_cache.delete_cache = MagicMock()
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         lambda token: token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token",
         lambda token: token,
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
     result, _keys_deleted = await delete_verification_tokens(
         tokens=["hashed-token-1", "hashed-token-2"],
@@ -132,18 +132,18 @@ async def test_delete_tokens_non_admin_all_succeed_returns_empty_failed_tokens(
     mock_cache.delete_cache = MagicMock()
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         lambda token: token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token",
         lambda token: token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.can_modify_verification_token",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.can_modify_verification_token",
         AsyncMock(return_value=True),
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
     result, _ = await delete_verification_tokens(
         tokens=["hashed-token-1"],
@@ -175,26 +175,26 @@ async def test_delete_tokens_non_admin_token_not_in_db_returns_failed_tokens(
 
     mock_prisma = AsyncMock()
     # DB find_many returns only key1 — token-2 is not found
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[key1])
+    mock_prisma.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[key1])
     mock_prisma.delete_data = AsyncMock(return_value=["hashed-token-1"])
-    mock_prisma.db.litellm_deletedverificationtoken.create_many = AsyncMock()
+    mock_prisma.db.hangarllm_deletedverificationtoken.create_many = AsyncMock()
 
     mock_cache = MagicMock()
     mock_cache.delete_cache = MagicMock()
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         lambda token: token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token",
         lambda token: token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.can_modify_verification_token",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.can_modify_verification_token",
         AsyncMock(return_value=True),
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
     result, _ = await delete_verification_tokens(
         tokens=["hashed-token-1", "hashed-token-2"],
@@ -234,14 +234,14 @@ async def test_delete_tokens_admin_partial_db_failure_returns_failed_tokens(
     mock_cache.delete_cache = MagicMock()
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token_if_needed",
         lambda token: token,
     )
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.hash_token",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.hash_token",
         lambda token: token,
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", mock_prisma)
 
     result, _ = await delete_verification_tokens(
         tokens=["hashed-token-1", "hashed-token-2"],

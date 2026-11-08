@@ -43,7 +43,7 @@ def connect() -> psycopg.Connection[tuple[object, ...]]:
 
 def fingerprints(connection: psycopg.Connection[tuple[object, ...]], ids: tuple[str, ...]) -> dict[str, str]:
     rows: Final = connection.execute(
-        f'SELECT request_id, {_FINGERPRINT} FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)', (list(ids),)
+        f'SELECT request_id, {_FINGERPRINT} FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)', (list(ids),)
     ).fetchall()
     return dict(_FINGERPRINTS.validate_python(rows))
 
@@ -60,27 +60,27 @@ def missing_indexes(connection: psycopg.Connection[tuple[object, ...]], names: t
 
 def read_state(connection: psycopg.Connection[tuple[object, ...]]) -> UpgradeState:
     (state,) = _STATE.validate_python(
-        connection.execute('SELECT state FROM "_LiteLLMPerfUpgrade" WHERE id=1').fetchone()
+        connection.execute('SELECT state FROM "_HangarLLMPerfUpgrade" WHERE id=1').fetchone()
     )
     return state
 
 
 def write_state(connection: psycopg.Connection[tuple[object, ...]], state: UpgradeState) -> None:
     _ = connection.execute(
-        """INSERT INTO "_LiteLLMPerfUpgrade" (id, state) VALUES (1, %s::jsonb)
+        """INSERT INTO "_HangarLLMPerfUpgrade" (id, state) VALUES (1, %s::jsonb)
            ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state""",
         (state.model_dump_json(),),
     )
 
 
 def release_indexes(connection: psycopg.Connection[tuple[object, ...]]) -> None:
-    _ = connection.execute('UPDATE "_LiteLLMPerfUpgrade" SET traffic_ready=true WHERE id=1')
+    _ = connection.execute('UPDATE "_HangarLLMPerfUpgrade" SET traffic_ready=true WHERE id=1')
 
 
 def wait_for_traffic(connection: psycopg.Connection[tuple[object, ...]], deadline: float) -> bool:
     while time.monotonic() < deadline:
         (ready,) = _BOOL.validate_python(
-            connection.execute('SELECT traffic_ready FROM "_LiteLLMPerfUpgrade" WHERE id=1').fetchone()
+            connection.execute('SELECT traffic_ready FROM "_HangarLLMPerfUpgrade" WHERE id=1').fetchone()
         )
         if ready:
             return True
@@ -91,15 +91,15 @@ def wait_for_traffic(connection: psycopg.Connection[tuple[object, ...]], deadlin
 def main() -> int:
     assert os.environ.get("E2E_DATABASE_UPGRADE") == "1", "Only run against a disposable restored baseline"
     assert os.environ.get("DATABASE_PERF_CONFIRM_DISPOSABLE") == "1", "Disposable database confirmation required"
-    from litellm_proxy_extras import request_log_indexes
-    from litellm_proxy_extras.utils import ProxyExtrasDBManager
+    from hangarllm_proxy_extras import request_log_indexes
+    from hangarllm_proxy_extras.utils import ProxyExtrasDBManager
 
     with connect() as connection:
-        _ = connection.execute("""CREATE TABLE "_LiteLLMPerfUpgrade" (
+        _ = connection.execute("""CREATE TABLE "_HangarLLMPerfUpgrade" (
             id integer PRIMARY KEY CHECK (id=1), state jsonb NOT NULL, traffic_ready boolean NOT NULL DEFAULT false)""")
         sample: Final = connection.execute("""
-            (SELECT request_id FROM "LiteLLM_SpendLogs" ORDER BY request_id LIMIT 32)
-            UNION (SELECT request_id FROM "LiteLLM_SpendLogs" ORDER BY request_id DESC LIMIT 32)""").fetchall()
+            (SELECT request_id FROM "HangarLLM_SpendLogs" ORDER BY request_id LIMIT 32)
+            UNION (SELECT request_id FROM "HangarLLM_SpendLogs" ORDER BY request_id DESC LIMIT 32)""").fetchall()
         ids: Final = tuple(row[0] for row in _STRINGS.validate_python(sample))
         assert ids, "Restored baseline has no spend logs"
         names: Final = tuple(index.name for index in request_log_indexes.REQUEST_LOG_INDEXES)

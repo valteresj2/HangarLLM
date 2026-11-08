@@ -7,13 +7,13 @@ from anthropic.types import TextBlock, ToolUnionParam
 from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
 
 pytestmark = pytest.mark.e2e
 
-_BETA_CONFIG: Final = files("litellm").joinpath("anthropic_beta_headers_config.json")
+_BETA_CONFIG: Final = files("hangarllm").joinpath("anthropic_beta_headers_config.json")
 _ANTHROPIC_MODEL: Final = "anthropic/claude-sonnet-5-5"
 _VERTEX_MODEL: Final = "vertex_ai/claude-sonnet-5-5"
 _VERTEX_LOCATION: Final = "global"
@@ -36,25 +36,25 @@ def _mapped_beta_headers(provider: str, per_model: frozenset[str]) -> str:
     return ",".join(sorted(forwarded - per_model))
 
 
-def _deployment(backend: str) -> LiteLLMParamsBody:
+def _deployment(backend: str) -> HangarLLMParamsBody:
     match backend.split("/", 1)[0]:
         case "anthropic":
-            return LiteLLMParamsBody(model=backend, api_key="os.environ/ANTHROPIC_API_KEY")
+            return HangarLLMParamsBody(model=backend, api_key="os.environ/ANTHROPIC_API_KEY")
         case "vertex_ai":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=backend,
                 vertex_project="os.environ/VERTEXAI_PROJECT",
                 vertex_location=_VERTEX_LOCATION,
                 vertex_credentials="os.environ/VERTEXAI_CREDENTIALS",
             )
         case "azure_ai":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=backend,
                 api_base="os.environ/AZURE_AI_API_BASE",
                 api_key="os.environ/AZURE_AI_API_KEY",
             )
         case _:
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=backend,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

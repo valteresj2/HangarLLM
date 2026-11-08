@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
+import hangarllm
 
 MOCK_V1_RESPONSE = {
     "search_id": "search_abc123",
@@ -41,25 +41,25 @@ def _mock_response(payload=None):
 @pytest.fixture
 def httpx_transport(monkeypatch):
     monkeypatch.setattr(  # test-quality-ok: respx needs HTTPX enabled to fake the provider HTTP boundary.
-        litellm,
+        hangarllm,
         "disable_aiohttp_transport",
         True,
     )
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.fixture
 def bundled_cost_map(monkeypatch):
     """Price lookups against the bundled cost map.
 
-    litellm caches model-info lookups, so swapping ``model_cost`` only takes
+    hangarllm caches model-info lookups, so swapping ``model_cost`` only takes
     effect once those caches are invalidated -- on the way in and back out.
     """
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     _invalidate_model_cost_lowercase_map()
     yield
     monkeypatch.undo()
@@ -75,12 +75,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_v1_endpoint_and_headers(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="latest developments in AI",
                 search_provider="parallel_ai",
             )
@@ -96,12 +96,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_string_query_maps_to_search_queries_and_objective(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="latest developments in AI",
                 search_provider="parallel_ai",
             )
@@ -113,12 +113,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_list_query_maps_to_search_queries(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query=["AI developments", "machine learning trends"],
                 search_provider="parallel_ai",
             )
@@ -133,12 +133,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_mode_param_passthrough(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
                 mode="turbo",
@@ -149,14 +149,14 @@ class TestParallelAISearch:
 
     @pytest.mark.asyncio
     async def test_default_mode_is_basic(self):
-        """v1 defaults to 'advanced' server-side; litellm must send 'basic' to keep v1beta's default tier and cost tracking accurate."""
+        """v1 defaults to 'advanced' server-side; hangarllm must send 'basic' to keep v1beta's default tier and cost tracking accurate."""
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
             )
@@ -168,12 +168,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_legacy_processor_maps_to_mode(self, processor, expected_mode):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
                 processor=processor,
@@ -186,12 +186,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_explicit_mode_wins_over_processor(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
                 mode="turbo",
@@ -205,12 +205,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_top_level_v1_params_pass_through(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
                 session_id="session_123",
@@ -226,12 +226,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_optional_params_nest_under_advanced_settings(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
                 max_results=5,
@@ -262,12 +262,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_explicit_advanced_settings_take_precedence(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
                 max_results=5,
@@ -280,12 +280,12 @@ class TestParallelAISearch:
     @pytest.mark.asyncio
     async def test_response_transformation(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
             )
@@ -320,12 +320,12 @@ class TestParallelAISearch:
         # host), so the server key is still used and the URL is normalized.
         monkeypatch.setenv("PARALLEL_AI_API_BASE", api_base)
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = _mock_response()
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
             )
@@ -339,11 +339,11 @@ class TestParallelAISearch:
         # server key must be refused without any outbound request.
         monkeypatch.setenv("PARALLEL_API_KEY", "server-secret")
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             with pytest.raises(Exception, match="Refusing to send"):
-                await litellm.asearch(
+                await hangarllm.asearch(
                     query="AI developments",
                     search_provider="parallel_ai",
                     api_base="https://attacker.example.com",
@@ -356,7 +356,7 @@ class TestParallelAISearch:
         monkeypatch.delenv("PARALLEL_AI_API_KEY", raising=False)
 
         with pytest.raises(Exception, match="PARALLEL_API_KEY"):
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="AI developments",
                 search_provider="parallel_ai",
             )
@@ -365,7 +365,7 @@ class TestParallelAISearch:
     async def test_flat_source_and_fetch_params_nest_under_advanced_settings(self, respx_mock, httpx_transport):
         route = respx_mock.post("https://api.parallel.ai/v1/search").respond(json=MOCK_V1_RESPONSE)
 
-        await litellm.asearch(
+        await hangarllm.asearch(
             query="AI developments",
             search_provider="parallel_ai",
             objective="find peer-reviewed AI research",
@@ -398,7 +398,7 @@ class TestParallelAISearch:
     async def test_response_preserves_raw_parallel_fields(self, respx_mock, httpx_transport):
         respx_mock.post("https://api.parallel.ai/v1/search").respond(json=MOCK_V1_RESPONSE)
 
-        response = await litellm.asearch(
+        response = await hangarllm.asearch(
             query="AI developments",
             search_provider="parallel_ai",
         )
@@ -419,7 +419,7 @@ class TestParallelAISearch:
         }
         respx_mock.post("https://api.parallel.ai/v1/search").respond(json=response_payload)
 
-        response = await litellm.asearch(
+        response = await hangarllm.asearch(
             query="AI developments",
             search_provider="parallel_ai",
         )

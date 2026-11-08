@@ -1,13 +1,13 @@
 """pdf_input x Anthropic.
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 to Anthropic, write a tiny valid PDF to disk, allow the built-in `Read`
 tool, and ask Claude to read the PDF and report what it contains.
 
 The Read tool inlines the PDF bytes as `document` content blocks on the
 next assistant turn, which is exactly the gateway path we want to
 exercise: it's distinct from image content blocks (which are tested in
-`vision/`) and uses a different transformation in LiteLLM's Anthropic
+`vision/`) and uses a different transformation in HangarLLM's Anthropic
 provider. We assert the upstream produces a non-empty reply that
 references the contents of the PDF — proving the proxy preserved the
 document content block end-to-end.
@@ -118,7 +118,7 @@ def _build_minimal_pdf(marker: str) -> bytes:
     )
 )
 def test_pdf_input_anthropic(compat_result, tmp_path):
-    """Drive the `claude` CLI against the LiteLLM proxy with a PDF
+    """Drive the `claude` CLI against the HangarLLM proxy with a PDF
     attached via the Read tool and assert the reply references it."""
     base_url, api_key = require_proxy(compat_result)
 

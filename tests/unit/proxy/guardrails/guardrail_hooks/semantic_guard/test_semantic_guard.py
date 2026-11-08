@@ -7,16 +7,16 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy.guardrails.content_filter_data import POLICY_TEMPLATES_DIR
-from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import SemanticGuardRouteLoader
-from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import SemanticGuardrail
+from hangarllm.proxy.guardrails.content_filter_data import POLICY_TEMPLATES_DIR
+from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import SemanticGuardRouteLoader
+from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import SemanticGuardrail
 
 
 class TestRouteLoader:
     """Tests for SemanticGuardRouteLoader — YAML loading and route building."""
 
     def test_load_builtin_prompt_injection_template(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
             SemanticGuardRouteLoader,
         )
 
@@ -27,7 +27,7 @@ class TestRouteLoader:
         assert template.get("similarity_threshold") == 0.75
 
     def test_load_unknown_template_raises(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
             SemanticGuardRouteLoader,
         )
 
@@ -35,7 +35,7 @@ class TestRouteLoader:
             SemanticGuardRouteLoader.load_builtin_template("nonexistent_template")
 
     def test_list_builtin_templates(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
             SemanticGuardRouteLoader,
         )
 
@@ -45,7 +45,7 @@ class TestRouteLoader:
 
 class TestHelperFunctions:
     def test_extract_user_text_string_content(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_user_text,
         )
 
@@ -56,7 +56,7 @@ class TestHelperFunctions:
         assert _extract_user_text(messages) == "Hello world"
 
     def test_extract_user_text_list_content(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_user_text,
         )
 
@@ -72,7 +72,7 @@ class TestHelperFunctions:
         assert _extract_user_text(messages) == "Hello world"
 
     def test_extract_user_text_empty(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_user_text,
         )
 
@@ -80,7 +80,7 @@ class TestHelperFunctions:
         assert _extract_user_text(messages) == ""
 
     def test_extract_user_text_takes_last_user_msg(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_user_text,
         )
 
@@ -92,7 +92,7 @@ class TestHelperFunctions:
         assert _extract_user_text(messages) == "second"
 
     def test_extract_response_text(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_response_text,
         )
 
@@ -102,7 +102,7 @@ class TestHelperFunctions:
         assert _extract_response_text(mock_response) == "Hello from LLM"
 
     def test_extract_response_text_combines_all_choices(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_response_text,
         )
 
@@ -121,7 +121,7 @@ class TestHelperFunctions:
         )
 
     def test_extract_response_text_empty(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_response_text,
         )
 
@@ -132,7 +132,7 @@ class TestHelperFunctions:
     def test_extract_response_text_fails_closed_on_a_message_without_content(self):
         from types import SimpleNamespace
 
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _extract_response_text,
         )
 
@@ -144,7 +144,7 @@ class TestHelperFunctions:
             _extract_response_text(response)
 
     def test_get_top_route_choice_single(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _get_top_route_choice,
         )
 
@@ -153,7 +153,7 @@ class TestHelperFunctions:
         assert _get_top_route_choice(mock_choice) == mock_choice
 
     def test_get_top_route_choice_list(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _get_top_route_choice,
         )
 
@@ -162,14 +162,14 @@ class TestHelperFunctions:
         assert _get_top_route_choice([mock_choice]) == mock_choice
 
     def test_get_top_route_choice_none(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _get_top_route_choice,
         )
 
         assert _get_top_route_choice(None) is None
 
     def test_get_top_route_choice_empty_list(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.semantic_guard import (
             _get_top_route_choice,
         )
 
@@ -177,15 +177,15 @@ class TestHelperFunctions:
 
 
 class TestContentFilterSqlInjectionTemplate:
-    """Tests for the keyword-based SQL injection policy template (litellm-content-filter)."""
+    """Tests for the keyword-based SQL injection policy template (hangarllm-content-filter)."""
 
     @pytest.fixture
     def sql_injection_guardrail(self):
-        import litellm
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        import hangarllm
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
-        from litellm.types.proxy.guardrails.guardrail_hooks.litellm_content_filter import (
+        from hangarllm.types.proxy.guardrails.guardrail_hooks.hangarllm_content_filter import (
             ContentFilterCategoryConfig,
         )
 
@@ -204,7 +204,7 @@ class TestContentFilterSqlInjectionTemplate:
         return ContentFilterGuardrail(
             guardrail_name="sql-injection-keyword-test",
             categories=categories,
-            event_hook=litellm.types.guardrails.GuardrailEventHooks.pre_call,
+            event_hook=hangarllm.types.guardrails.GuardrailEventHooks.pre_call,
         )
 
     SQL_ALWAYS_BLOCK_CASES = [
@@ -363,7 +363,7 @@ class TestSemanticGuardSqlInjectionTemplate:
     """Tests for loading the sql_injection route template."""
 
     def test_load_builtin_sql_injection_template(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
             SemanticGuardRouteLoader,
         )
 
@@ -374,7 +374,7 @@ class TestSemanticGuardSqlInjectionTemplate:
         assert template.get("similarity_threshold") == 0.78
 
     def test_list_builtin_templates_includes_sql_injection(self):
-        from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
             SemanticGuardRouteLoader,
         )
 
@@ -384,15 +384,15 @@ class TestSemanticGuardSqlInjectionTemplate:
 
 
 class TestContentFilterPromptInjectionTemplate:
-    """Tests for the keyword-based prompt injection policy template (litellm-content-filter)."""
+    """Tests for the keyword-based prompt injection policy template (hangarllm-content-filter)."""
 
     @pytest.fixture
     def content_filter_guardrail(self):
-        import litellm
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        import hangarllm
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
-        from litellm.types.proxy.guardrails.guardrail_hooks.litellm_content_filter import (
+        from hangarllm.types.proxy.guardrails.guardrail_hooks.hangarllm_content_filter import (
             ContentFilterCategoryConfig,
         )
 
@@ -411,7 +411,7 @@ class TestContentFilterPromptInjectionTemplate:
         return ContentFilterGuardrail(
             guardrail_name="prompt-injection-keyword-test",
             categories=categories,
-            event_hook=litellm.types.guardrails.GuardrailEventHooks.pre_call,
+            event_hook=hangarllm.types.guardrails.GuardrailEventHooks.pre_call,
         )
 
     ALWAYS_BLOCK_CASES = [

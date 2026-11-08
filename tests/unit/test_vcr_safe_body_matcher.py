@@ -199,14 +199,14 @@ def test_normalize_volatile_tokens_collapses_uuid_and_timestamps():
 
 def test_normalize_volatile_tokens_collapses_bedrock_batch_job_names():
     a = (
-        b'{"jobName":"litellm-batch-aaaaaaaa",'
+        b'{"jobName":"hangarllm-batch-aaaaaaaa",'
         b'"outputDataConfig":{"s3OutputDataConfig":'
-        b'{"s3Uri":"s3://bucket/litellm-batch-outputs/litellm-batch-aaaaaaaa/"}}}'
+        b'{"s3Uri":"s3://bucket/hangarllm-batch-outputs/hangarllm-batch-aaaaaaaa/"}}}'
     )
     b = (
-        b'{"jobName":"litellm-batch-bbbbbbbb",'
+        b'{"jobName":"hangarllm-batch-bbbbbbbb",'
         b'"outputDataConfig":{"s3OutputDataConfig":'
-        b'{"s3Uri":"s3://bucket/litellm-batch-outputs/litellm-batch-bbbbbbbb/"}}}'
+        b'{"s3Uri":"s3://bucket/hangarllm-batch-outputs/hangarllm-batch-bbbbbbbb/"}}}'
     )
     assert _normalize_volatile_tokens(a) == _normalize_volatile_tokens(b)
 
@@ -264,8 +264,8 @@ def test_tolerant_path_normalizes_bedrock_managed_s3_file_uuid():
     a = Request(
         method="PUT",
         uri=(
-            "https://s3.us-west-2.amazonaws.com/litellm-proxy-test/"
-            "litellm-bedrock-files/us.anthropic.claude-haiku-4-5-20251001-v1-0-"
+            "https://s3.us-west-2.amazonaws.com/hangarllm-proxy-test/"
+            "hangarllm-bedrock-files/us.anthropic.claude-haiku-4-5-20251001-v1-0-"
             "123e4567-e89b-12d3-a456-426614174000.jsonl"
         ),
         body=b"",
@@ -274,8 +274,8 @@ def test_tolerant_path_normalizes_bedrock_managed_s3_file_uuid():
     b = Request(
         method="PUT",
         uri=(
-            "https://s3.us-west-2.amazonaws.com/litellm-proxy-test/"
-            "litellm-bedrock-files/us.anthropic.claude-haiku-4-5-20251001-v1-0-"
+            "https://s3.us-west-2.amazonaws.com/hangarllm-proxy-test/"
+            "hangarllm-bedrock-files/us.anthropic.claude-haiku-4-5-20251001-v1-0-"
             "abcdefab-1234-5678-9abc-def012345678.jsonl"
         ),
         body=b"",
@@ -290,8 +290,8 @@ def test_tolerant_path_normalizes_bedrock_batch_s3_file_uuid():
     a = Request(
         method="PUT",
         uri=(
-            "https://s3.us-west-2.amazonaws.com/litellm-proxy-test/"
-            "litellm-bedrock-files-us.anthropic.claude-haiku-4-5-20251001-v1-0-"
+            "https://s3.us-west-2.amazonaws.com/hangarllm-proxy-test/"
+            "hangarllm-bedrock-files-us.anthropic.claude-haiku-4-5-20251001-v1-0-"
             "a48e9ec2-5594-45e3-bdbb-44f5d71c06f3.jsonl"
         ),
         body=b"",
@@ -300,8 +300,8 @@ def test_tolerant_path_normalizes_bedrock_batch_s3_file_uuid():
     b = Request(
         method="PUT",
         uri=(
-            "https://s3.us-west-2.amazonaws.com/litellm-proxy-test/"
-            "litellm-bedrock-files-us.anthropic.claude-haiku-4-5-20251001-v1-0-"
+            "https://s3.us-west-2.amazonaws.com/hangarllm-proxy-test/"
+            "hangarllm-bedrock-files-us.anthropic.claude-haiku-4-5-20251001-v1-0-"
             "123e4567-e89b-12d3-a456-426614174000.jsonl"
         ),
         body=b"",
@@ -359,10 +359,10 @@ def test_tolerant_query_skips_telemetry_but_enforces_others():
 
     # Telemetry GET with a fresh trace_id in the query must still match.
     a = _greq(
-        "https://us.cloud.langfuse.com/api/public/observations?traceId=litellm-test-AAA"
+        "https://us.cloud.langfuse.com/api/public/observations?traceId=hangarllm-test-AAA"
     )
     b = _greq(
-        "https://us.cloud.langfuse.com/api/public/observations?traceId=litellm-test-BBB"
+        "https://us.cloud.langfuse.com/api/public/observations?traceId=hangarllm-test-BBB"
     )
     _tolerant_query_matcher(a, b)  # must not raise
 

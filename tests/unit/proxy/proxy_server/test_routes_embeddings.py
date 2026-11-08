@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy import common_request_processing, proxy_server
+from hangarllm.proxy import common_request_processing, proxy_server
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -51,7 +51,7 @@ def embedding_pipeline_raises(monkeypatch):
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", MagicMock(post_call_failure_hook=AsyncMock()))
 
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     async def _raise(self, *args, **kwargs):
         raise ValueError("boom")

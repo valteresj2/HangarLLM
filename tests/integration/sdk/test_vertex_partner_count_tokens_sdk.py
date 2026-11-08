@@ -2,7 +2,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, wire_server
@@ -59,7 +59,7 @@ async def test_acount_tokens_forwards_system_and_tools_to_the_partner_peer(
 ) -> None:
     with wire_server(_peer(200)) as wire:
         vertex_environment(wire.url)
-        counted: Final = await litellm.acount_tokens(
+        counted: Final = await hangarllm.acount_tokens(
             model=f"vertex_ai/{_BACKEND}", messages=_MESSAGES, tools=_TOOLS, system=_SYSTEM, api_base=wire.url
         )
         (sent,) = _count_requests(wire.drain())
@@ -82,7 +82,7 @@ async def test_acount_tokens_falls_back_to_the_local_tokenizer_when_the_peer_rej
 ) -> None:
     with wire_server(_peer(400)) as wire:
         vertex_environment(wire.url)
-        counted: Final = await litellm.acount_tokens(
+        counted: Final = await hangarllm.acount_tokens(
             model=f"vertex_ai/{_BACKEND}", messages=_MESSAGES, tools=_TOOLS, system=_SYSTEM, api_base=wire.url
         )
         assert len(_count_requests(wire.drain())) == 1
@@ -149,11 +149,11 @@ async def test_acount_tokens_sends_chat_tool_use_the_way_acompletion_sends_it(
 ) -> None:
     with wire_server(_generating_peer) as wire:
         vertex_environment(wire.url)
-        generated: Final = await litellm.acompletion(
+        generated: Final = await hangarllm.acompletion(
             model=f"vertex_ai/{_BACKEND}", messages=_CHAT_TOOL_USE, tools=_CHAT_TOOLS, max_tokens=16, api_base=wire.url
         )
         assert generated.choices[0].message.content == "It is sunny.", generated
-        counted: Final = await litellm.acount_tokens(
+        counted: Final = await hangarllm.acount_tokens(
             model=f"vertex_ai/{_BACKEND}", messages=_CHAT_TOOL_USE, tools=_CHAT_TOOLS, api_base=wire.url
         )
         assert (counted.total_tokens, counted.tokenizer_type) == (_PEER_COUNT, "vertex_ai_partner_models"), counted

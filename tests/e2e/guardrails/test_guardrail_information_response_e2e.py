@@ -60,7 +60,7 @@ def _opted_in_entries(
 
 class TestGuardrailInformationResponse:
     @pytest.mark.covers(
-        "guardrail.litellm_content_filter.pre_call.returns_guardrail_information",
+        "guardrail.hangarllm_content_filter.pre_call.returns_guardrail_information",
         exercised_on=["chat_completions"],
     )
     @meta(

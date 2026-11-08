@@ -13,7 +13,7 @@ import pytest
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
-from litellm.proxy.openai_files_endpoints.common_utils import get_batch_from_database
+from hangarllm.proxy.openai_files_endpoints.common_utils import get_batch_from_database
 
 
 def _mock_prisma(batch_json: str, managed_file_record=None):
@@ -23,11 +23,11 @@ def _mock_prisma(batch_json: str, managed_file_record=None):
     batch_db_record = MagicMock()
     batch_db_record.file_object = batch_json
 
-    prisma.db.litellm_managedobjecttable.find_first = AsyncMock(
+    prisma.db.hangarllm_managedobjecttable.find_first = AsyncMock(
         return_value=batch_db_record
     )
 
-    prisma.db.litellm_managedfiletable.find_first = AsyncMock(
+    prisma.db.hangarllm_managedfiletable.find_first = AsyncMock(
         return_value=managed_file_record
     )
 
@@ -78,10 +78,10 @@ async def test_should_resolve_raw_input_file_id_to_unified_id():
         f"got raw: '{response.input_file_id}'"
     )
 
-    prisma.db.litellm_managedfiletable.find_first.assert_any_call(
+    prisma.db.hangarllm_managedfiletable.find_first.assert_any_call(
         where={"flat_model_file_ids": {"has": raw_input_file_id}}
     )
-    prisma.db.litellm_managedfiletable.find_first.assert_any_call(
+    prisma.db.hangarllm_managedfiletable.find_first.assert_any_call(
         where={"flat_model_file_ids": {"has": "file-output-raw"}}
     )
 
@@ -95,7 +95,7 @@ async def test_should_preserve_already_managed_input_file_id():
     import base64
 
     unified_batch_id = "bGl0ZWxsbV9wcm94eTpiYXRjaF9pZA"
-    decoded_unified = "litellm_proxy:application/octet-stream;unified_id,test-123"
+    decoded_unified = "hangarllm_proxy:application/octet-stream;unified_id,test-123"
     base64_input_file_id = base64.urlsafe_b64encode(decoded_unified.encode()).decode().rstrip("=")
 
     batch_data = {
@@ -124,4 +124,4 @@ async def test_should_preserve_already_managed_input_file_id():
         f"got: '{response.input_file_id}'"
     )
 
-    prisma.db.litellm_managedfiletable.find_first.assert_not_called()
+    prisma.db.hangarllm_managedfiletable.find_first.assert_not_called()

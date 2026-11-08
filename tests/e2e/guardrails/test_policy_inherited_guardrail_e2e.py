@@ -7,7 +7,7 @@ points at the child only, so the parent is reachable through inheritance alone.
 A request the child condition does not match must still be blocked by the
 parent's filter; a request it does match must be blocked by both.
 
-Uses litellm_content_filter (keyword match, no external service) so the block is
+Uses hangarllm_content_filter (keyword match, no external service) so the block is
 deterministic and free, with the request model routed to a real provider.
 """
 
@@ -31,7 +31,7 @@ MODEL = CHEAP_OPENAI_MODEL
 
 def _applied_guardrails(outcome: StreamingResponse) -> frozenset[str]:
     return frozenset(
-        name.strip() for name in outcome.headers.get("x-litellm-applied-guardrails", "").split(",") if name.strip()
+        name.strip() for name in outcome.headers.get("x-hangarllm-applied-guardrails", "").split(",") if name.strip()
     )
 
 
@@ -104,7 +104,7 @@ class TestPolicyInheritedGuardrail:
             f"policy's own model condition does not match {MODEL}; got {outcome.status_code}: {outcome.body[:300]}"
         )
         assert parent_guardrail in _applied_guardrails(outcome), (
-            f"x-litellm-applied-guardrails must name the inherited parent guardrail; got {outcome.headers}"
+            f"x-hangarllm-applied-guardrails must name the inherited parent guardrail; got {outcome.headers}"
         )
         assert child_guardrail not in _applied_guardrails(outcome), (
             f"the child's own guardrail must not run when its condition fails; got {outcome.headers}"

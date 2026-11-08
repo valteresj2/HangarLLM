@@ -27,13 +27,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.anthropic.common_utils import ToolsWithoutStrict, is_claude_tool_target, tools_without_strict
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import hangarllm
+from hangarllm.llms.anthropic.common_utils import ToolsWithoutStrict, is_claude_tool_target, tools_without_strict
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../..")))
 
-from litellm.proxy._types import SpecialHeaders  # noqa: E402  # sys.path must be patched before importing litellm
+from hangarllm.proxy._types import SpecialHeaders  # noqa: E402  # sys.path must be patched before importing hangarllm
 
 # Fake tokens for testing (not real secrets)
 FAKE_OAUTH_TOKEN = "sk-ant-oat01-fake-token-for-testing-123456789abcdef"
@@ -53,7 +53,7 @@ FAKE_AUTH_TOKEN = "sk-ant-aut01-fake-auth-token-for-testing-123456789"
     ],
 )
 def test_is_anthropic_messages_url(url: str, expected: bool) -> None:
-    from litellm.llms.anthropic.common_utils import is_anthropic_messages_url
+    from hangarllm.llms.anthropic.common_utils import is_anthropic_messages_url
 
     assert is_anthropic_messages_url(url) is expected
 
@@ -79,7 +79,7 @@ def test_is_anthropic_messages_url(url: str, expected: bool) -> None:
 def test_anthropic_upstream_user_id_limit(
     monkeypatch: pytest.MonkeyPatch, configured_base: str | None, url: str, expected: int | None
 ) -> None:
-    from litellm.llms.anthropic.common_utils import anthropic_upstream_user_id_limit
+    from hangarllm.llms.anthropic.common_utils import anthropic_upstream_user_id_limit
 
     monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_BASE", raising=False)
@@ -90,7 +90,7 @@ def test_anthropic_upstream_user_id_limit(
 
 
 def test_anthropic_pass_through_api_base_prefers_the_api_base_variable(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.llms.anthropic.common_utils import anthropic_pass_through_api_base
+    from hangarllm.llms.anthropic.common_utils import anthropic_pass_through_api_base
 
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://fallback.test")
     monkeypatch.setenv("ANTHROPIC_API_BASE", "http://preferred.test")
@@ -133,16 +133,16 @@ def test_anthropic_pass_through_api_base_prefers_the_api_base_variable(monkeypat
     ],
 )
 def test_anthropic_accepts_user_id(user_id: str, expected: bool) -> None:
-    from litellm.constants import ANTHROPIC_MAX_USER_ID_LENGTH
-    from litellm.llms.anthropic.common_utils import anthropic_accepts_user_id
+    from hangarllm.constants import ANTHROPIC_MAX_USER_ID_LENGTH
+    from hangarllm.llms.anthropic.common_utils import anthropic_accepts_user_id
 
     assert anthropic_accepts_user_id(user_id, ANTHROPIC_MAX_USER_ID_LENGTH) is expected
 
 
 @pytest.mark.parametrize("character", ["a", "\u00e9", "\U0001f600"], ids=["ascii", "two-bytes", "four-bytes"])
 def test_anthropic_accepts_user_id_counts_characters_up_to_the_limit(character: str) -> None:
-    from litellm.constants import ANTHROPIC_MAX_USER_ID_LENGTH
-    from litellm.llms.anthropic.common_utils import anthropic_accepts_user_id
+    from hangarllm.constants import ANTHROPIC_MAX_USER_ID_LENGTH
+    from hangarllm.llms.anthropic.common_utils import anthropic_accepts_user_id
 
     assert anthropic_accepts_user_id(character * ANTHROPIC_MAX_USER_ID_LENGTH, ANTHROPIC_MAX_USER_ID_LENGTH) is True
     assert (
@@ -158,8 +158,8 @@ def test_anthropic_model_not_found_maps_to_not_found_but_authentication_error_do
                 json={"type": "error", "error": {"type": "not_found_error", "message": "model not found"}},
             )
         )
-        with pytest.raises(litellm.NotFoundError):
-            litellm.completion(
+        with pytest.raises(hangarllm.NotFoundError):
+            hangarllm.completion(
                 model="anthropic/claude-opus-5",
                 messages=[{"role": "user", "content": "Hello"}],
                 api_key="test-api-key",
@@ -173,8 +173,8 @@ def test_anthropic_model_not_found_maps_to_not_found_but_authentication_error_do
                 json={"type": "error", "error": {"type": "authentication_error", "message": "invalid key"}},
             )
         )
-        with pytest.raises(litellm.AuthenticationError):
-            litellm.completion(
+        with pytest.raises(hangarllm.AuthenticationError):
+            hangarllm.completion(
                 model="anthropic/claude-opus-5",
                 messages=[{"role": "user", "content": "Hello"}],
                 api_key="test-api-key",
@@ -196,7 +196,7 @@ def test_anthropic_model_not_found_maps_to_not_found_but_authentication_error_do
     ],
 )
 def test_is_claude_code_one_shot_subagent_request(messages, system, expected):
-    from litellm.llms.anthropic.common_utils import is_claude_code_one_shot_subagent_request
+    from hangarllm.llms.anthropic.common_utils import is_claude_code_one_shot_subagent_request
 
     assert (
         is_claude_code_one_shot_subagent_request(
@@ -215,7 +215,7 @@ class TestOptionallyHandleAnthropicOAuth:
     @pytest.mark.parametrize("header_name", ["authorization", "Authorization", "AUTHORIZATION"])
     def test_oauth_token_in_authorization_header(self, header_name):
         """OAuth token in Authorization header should be detected and headers set correctly."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -232,7 +232,7 @@ class TestOptionallyHandleAnthropicOAuth:
     @pytest.mark.parametrize("api_key_header_name", ["x-api-key", "X-Api-Key"])
     def test_oauth_removes_x_api_key_any_casing(self, api_key_header_name):
         """When OAuth wins, a client x-api-key header is removed whatever its casing."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -246,7 +246,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_oauth_token_in_api_key_directly(self):
         """OAuth token passed as api_key should set Authorization: Bearer header."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -261,7 +261,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_oauth_removes_existing_x_api_key(self):
         """When OAuth is detected, any existing x-api-key should be removed."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -273,7 +273,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_regular_api_key_unchanged(self):
         """Regular API keys (non-OAuth) should pass through unmodified."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -287,7 +287,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_regular_key_in_authorization_header(self):
         """Non-OAuth token in Authorization header should not trigger OAuth handling."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -299,7 +299,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_none_api_key_no_error(self):
         """None api_key with empty headers should not raise errors."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -315,7 +315,7 @@ class TestGetAnthropicHeaders:
 
     def test_oauth_token_uses_authorization_bearer(self):
         """OAuth token should produce Authorization: Bearer header, not x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -333,7 +333,7 @@ class TestGetAnthropicHeaders:
 
     def test_regular_key_uses_x_api_key(self):
         """Regular API key should produce x-api-key header, not Authorization."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -350,7 +350,7 @@ class TestGetAnthropicHeaders:
 
     def test_custom_api_base_uses_bearer_header(self):
         """Custom api_base and non-standard API key should produce Authorization: Bearer header when opted in."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -368,7 +368,7 @@ class TestGetAnthropicHeaders:
 
     def test_custom_api_base_uses_bearer_header_already_starts_with_bearer(self):
         """If the key already starts with Bearer and Bearer opt-in is enabled, use it directly."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -386,7 +386,7 @@ class TestGetAnthropicHeaders:
 
     def test_custom_api_base_uses_x_api_key_when_standard_key(self):
         """If the key is standard sk-ant- key, use x-api-key even with custom api_base."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -403,7 +403,7 @@ class TestGetAnthropicHeaders:
 
     def test_oauth_includes_standard_headers(self):
         """OAuth path should still include standard Anthropic headers."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -424,7 +424,7 @@ class TestValidateEnvironmentOAuth:
 
     def test_oauth_via_authorization_header(self):
         """validate_environment should produce correct headers for OAuth tokens."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {"authorization": f"Bearer {FAKE_OAUTH_TOKEN}"}
@@ -434,7 +434,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -446,7 +446,7 @@ class TestValidateEnvironmentOAuth:
 
     def test_oauth_via_api_key_param(self):
         """validate_environment with OAuth token as api_key should use Bearer auth."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -456,7 +456,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=FAKE_OAUTH_TOKEN,
             api_base=None,
         )
@@ -467,7 +467,7 @@ class TestValidateEnvironmentOAuth:
 
     def test_regular_key_via_api_key_param(self):
         """validate_environment with regular API key should use x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -477,7 +477,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=FAKE_REGULAR_KEY,
             api_base=None,
         )
@@ -486,8 +486,8 @@ class TestValidateEnvironmentOAuth:
         assert "authorization" not in updated_headers
 
     def test_custom_api_base_via_param(self):
-        """validate_environment uses Bearer when use_bearer_for_custom_base is set in litellm_params."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        """validate_environment uses Bearer when use_bearer_for_custom_base is set in hangarllm_params."""
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -497,7 +497,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={"use_bearer_for_custom_base": True},
+            hangarllm_params={"use_bearer_for_custom_base": True},
             api_key="custom-api-key",
             api_base="https://custom-gateway.com",
         )
@@ -505,9 +505,9 @@ class TestValidateEnvironmentOAuth:
         assert updated_headers["authorization"] == "Bearer custom-api-key"
         assert "x-api-key" not in updated_headers
 
-    def test_custom_api_base_via_litellm_params(self):
-        """validate_environment uses Bearer when api_base and use_bearer_for_custom_base are in litellm_params."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    def test_custom_api_base_via_hangarllm_params(self):
+        """validate_environment uses Bearer when api_base and use_bearer_for_custom_base are in hangarllm_params."""
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -517,7 +517,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={"api_base": "https://custom-gateway.com", "use_bearer_for_custom_base": True},
+            hangarllm_params={"api_base": "https://custom-gateway.com", "use_bearer_for_custom_base": True},
             api_key="custom-api-key",
             api_base=None,
         )
@@ -532,7 +532,7 @@ class TestPassthroughOAuth:
 
     def test_passthrough_oauth_no_x_api_key(self):
         """Passthrough endpoint should not add x-api-key for OAuth tokens."""
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -544,7 +544,7 @@ class TestPassthroughOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -555,7 +555,7 @@ class TestPassthroughOAuth:
 
     def test_passthrough_regular_key_uses_x_api_key(self):
         """Passthrough endpoint should still use x-api-key for regular API keys."""
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -567,7 +567,7 @@ class TestPassthroughOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=FAKE_REGULAR_KEY,
             api_base=None,
         )
@@ -581,21 +581,21 @@ class TestIsAnthropicOAuthKey:
 
     def test_oauth_token_raw(self):
         """Raw OAuth token should be detected."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from hangarllm.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("sk-ant-oat01-abc123") is True
         assert is_anthropic_oauth_key("sk-ant-oat02-xyz789") is True
 
     def test_oauth_token_bearer_format(self):
         """Bearer-prefixed OAuth token should be detected."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from hangarllm.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("Bearer sk-ant-oat01-abc123") is True
         assert is_anthropic_oauth_key("Bearer sk-ant-oat02-xyz789") is True
 
     def test_non_oauth_tokens(self):
         """Non-OAuth values should return False."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from hangarllm.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key(None) is False
         assert is_anthropic_oauth_key("") is False
@@ -604,14 +604,14 @@ class TestIsAnthropicOAuthKey:
 
     def test_case_sensitivity(self):
         """OAuth prefix matching should be case-sensitive."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from hangarllm.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("sk-ant-OAT01-abc123") is False
         assert is_anthropic_oauth_key("SK-ANT-OAT01-abc123") is False
 
     def test_just_prefix(self):
         """Just the prefix with no suffix should still match."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from hangarllm.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("sk-ant-oat") is True
 
@@ -623,7 +623,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should preserve Authorization header with OAuth tokens."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -641,7 +641,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should strip Authorization header with regular API keys."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -658,7 +658,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should preserve x-api-key when forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -680,7 +680,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should strip x-api-key when forward_llm_provider_auth_headers=False (default)."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -698,7 +698,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should preserve x-goog-api-key when forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -716,7 +716,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should always preserve OAuth tokens regardless of forward_llm_provider_auth_headers."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -738,7 +738,7 @@ class TestProxyOAuthHeaderForwarding:
     def test_add_provider_specific_headers_forwards_oauth(self):
         """add_provider_specific_headers_to_request should forward OAuth Authorization
         as a ProviderSpecificHeader scoped to Anthropic and nothing else."""
-        from litellm.proxy.litellm_pre_call_utils import (
+        from hangarllm.proxy.hangarllm_pre_call_utils import (
             add_provider_specific_headers_to_request,
         )
 
@@ -758,7 +758,7 @@ class TestProxyOAuthHeaderForwarding:
     def test_add_provider_specific_headers_ignores_non_oauth(self):
         """add_provider_specific_headers_to_request should not create a
         ProviderSpecificHeader for non-OAuth Authorization headers."""
-        from litellm.proxy.litellm_pre_call_utils import (
+        from hangarllm.proxy.hangarllm_pre_call_utils import (
             add_provider_specific_headers_to_request,
         )
 
@@ -775,10 +775,10 @@ class TestProxyOAuthHeaderForwarding:
     def test_add_provider_specific_headers_combines_anthropic_and_oauth(self):
         """When both anthropic-beta and OAuth Authorization are present, both
         reach Anthropic."""
-        from litellm.litellm_core_utils.get_provider_specific_headers import (
+        from hangarllm.hangarllm_core_utils.get_provider_specific_headers import (
             ProviderSpecificHeaderUtils,
         )
-        from litellm.proxy.litellm_pre_call_utils import (
+        from hangarllm.proxy.hangarllm_pre_call_utils import (
             add_provider_specific_headers_to_request,
         )
 
@@ -799,15 +799,15 @@ class TestProxyOAuthHeaderForwarding:
         assert anthropic_headers["authorization"] == f"Bearer {FAKE_OAUTH_TOKEN}"
         assert anthropic_headers["anthropic-beta"] == "oauth-2025-04-20"
 
-    def test_clean_headers_forwards_x_api_key_when_authenticated_with_litellm_key(self):
-        """clean_headers should forward x-api-key when user authenticated with x-litellm-api-key and forward_llm_provider_auth_headers=True."""
+    def test_clean_headers_forwards_x_api_key_when_authenticated_with_hangarllm_key(self):
+        """clean_headers should forward x-api-key when user authenticated with x-hangarllm-api-key and forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"x-litellm-api-key", b"sk-litellm-proxy-key"),
+                (b"x-hangarllm-api-key", b"sk-hangarllm-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-client-key"),
                 (b"content-type", b"application/json"),
             ]
@@ -815,31 +815,31 @@ class TestProxyOAuthHeaderForwarding:
         cleaned = clean_headers(
             raw_headers,
             forward_llm_provider_auth_headers=True,
-            authenticated_with_header="x-litellm-api-key",
+            authenticated_with_header="x-hangarllm-api-key",
         )
 
         # x-api-key should be forwarded (it's a provider key, not used for auth)
         assert "x-api-key" in cleaned
         assert cleaned["x-api-key"] == "sk-ant-api03-client-key"
-        # x-litellm-api-key should be excluded (special header)
-        assert "x-litellm-api-key" not in cleaned
+        # x-hangarllm-api-key should be excluded (special header)
+        assert "x-hangarllm-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
     def test_clean_headers_excludes_x_api_key_when_used_for_auth(self):
-        """clean_headers should exclude x-api-key when it was used for LiteLLM authentication."""
+        """clean_headers should exclude x-api-key when it was used for HangarLLM authentication."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"x-api-key", b"sk-litellm-proxy-key"),
+                (b"x-api-key", b"sk-hangarllm-proxy-key"),
                 (b"content-type", b"application/json"),
             ]
         )
         cleaned = clean_headers(raw_headers, authenticated_with_header="x-api-key")
 
-        # x-api-key should be excluded (was used for LiteLLM auth)
+        # x-api-key should be excluded (was used for HangarLLM auth)
         assert "x-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
@@ -849,11 +849,11 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should forward x-api-key when user authenticated with Authorization header and forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"authorization", b"Bearer sk-litellm-proxy-key"),
+                (b"authorization", b"Bearer sk-hangarllm-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-client-key"),
                 (b"content-type", b"application/json"),
             ]
@@ -875,7 +875,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should exclude x-api-key when authenticated_with_header is None."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -889,18 +889,18 @@ class TestProxyOAuthHeaderForwarding:
         assert "x-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
-    def test_clean_headers_forwards_x_api_key_with_forward_flag_and_litellm_auth(
+    def test_clean_headers_forwards_x_api_key_with_forward_flag_and_hangarllm_auth(
         self,
     ):
         """clean_headers should forward x-api-key when both forward_llm_provider_auth_headers=True
         and authenticated_with_header indicates different header was used for auth."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"x-litellm-api-key", b"sk-litellm-proxy-key"),
+                (b"x-hangarllm-api-key", b"sk-hangarllm-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-client-key"),
                 (b"x-goog-api-key", b"google-key-123"),
                 (b"content-type", b"application/json"),
@@ -909,7 +909,7 @@ class TestProxyOAuthHeaderForwarding:
         cleaned = clean_headers(
             raw_headers,
             forward_llm_provider_auth_headers=True,
-            authenticated_with_header="x-litellm-api-key",
+            authenticated_with_header="x-hangarllm-api-key",
         )
 
         # x-api-key should be forwarded (provider key, not used for auth)
@@ -918,31 +918,31 @@ class TestProxyOAuthHeaderForwarding:
         # x-goog-api-key should also be forwarded (forward flag is True)
         assert "x-goog-api-key" in cleaned
         assert cleaned["x-goog-api-key"] == "google-key-123"
-        # x-litellm-api-key should be excluded (special header)
-        assert "x-litellm-api-key" not in cleaned
+        # x-hangarllm-api-key should be excluded (special header)
+        assert "x-hangarllm-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
-    def test_clean_headers_authorization_not_forwarded_when_used_for_litellm_auth(
+    def test_clean_headers_authorization_not_forwarded_when_used_for_hangarllm_auth(
         self,
     ):
-        """Authorization Bearer (LiteLLM key) must never be forwarded to the LLM provider.
+        """Authorization Bearer (HangarLLM key) must never be forwarded to the LLM provider.
 
-        When a user sends their LiteLLM key as 'Authorization: Bearer sk-9876' and
+        When a user sends their HangarLLM key as 'Authorization: Bearer sk-9876' and
         forward_llm_provider_auth_headers=True, the Authorization header must be stripped
         — not sent to Anthropic as if it were an Anthropic API key.
         """
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"authorization", b"Bearer sk-9876-litellm-proxy-key"),
+                (b"authorization", b"Bearer sk-9876-hangarllm-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-real-anthropic-key"),
                 (b"content-type", b"application/json"),
             ]
         )
-        # Authorization was the header used for LiteLLM auth
+        # Authorization was the header used for HangarLLM auth
         cleaned = clean_headers(
             raw_headers,
             forward_llm_provider_auth_headers=True,
@@ -957,40 +957,40 @@ class TestProxyOAuthHeaderForwarding:
         assert cleaned["x-api-key"] == "sk-ant-api03-real-anthropic-key"
         assert cleaned["content-type"] == "application/json"
 
-    def test_clean_headers_oauth_authorization_forwarded_when_not_used_for_litellm_auth(
+    def test_clean_headers_oauth_authorization_forwarded_when_not_used_for_hangarllm_auth(
         self,
     ):
-        """OAuth Authorization header IS forwarded when x-litellm-api-key was used for proxy auth."""
+        """OAuth Authorization header IS forwarded when x-hangarllm-api-key was used for proxy auth."""
 
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from hangarllm.proxy.hangarllm_pre_call_utils import clean_headers
 
         oauth_token = "Bearer claude-gODtUFO8RoSnClWTtHKFJg"
 
         raw_headers = Headers(
             raw=[
-                (b"x-litellm-api-key", b"sk-litellm-proxy-key"),
+                (b"x-hangarllm-api-key", b"sk-hangarllm-proxy-key"),
                 (b"authorization", oauth_token.encode()),
                 (b"content-type", b"application/json"),
             ]
         )
-        # x-litellm-api-key was used for LiteLLM auth; Authorization carries the Anthropic OAuth token
+        # x-hangarllm-api-key was used for HangarLLM auth; Authorization carries the Anthropic OAuth token
         with patch(
-            "litellm.llms.anthropic.common_utils.is_anthropic_oauth_key",
+            "hangarllm.llms.anthropic.common_utils.is_anthropic_oauth_key",
             return_value=True,
         ):
             cleaned = clean_headers(
                 raw_headers,
                 forward_llm_provider_auth_headers=True,
-                authenticated_with_header="x-litellm-api-key",
+                authenticated_with_header="x-hangarllm-api-key",
             )
 
         # OAuth Authorization should be forwarded (not used for proxy auth)
         assert "authorization" in cleaned
         assert cleaned["authorization"] == oauth_token
         # Proxy key must be stripped
-        assert "x-litellm-api-key" not in cleaned
+        assert "x-hangarllm-api-key" not in cleaned
 
 
 class TestGetAnthropicHeadersWithAuthToken:
@@ -998,7 +998,7 @@ class TestGetAnthropicHeadersWithAuthToken:
 
     def test_auth_token_uses_bearer_header(self):
         """auth_token should produce Authorization: Bearer header."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -1017,7 +1017,7 @@ class TestGetAnthropicHeadersWithAuthToken:
 
     def test_auth_token_includes_standard_headers(self):
         """auth_token path should include standard Anthropic headers."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -1035,7 +1035,7 @@ class TestGetAnthropicHeadersWithAuthToken:
 
     def test_api_key_takes_precedence_over_auth_token(self):
         """When both api_key and auth_token are provided, api_key wins."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -1058,7 +1058,7 @@ class TestValidateEnvironmentAuthToken:
         """validate_environment should use Bearer auth when only ANTHROPIC_AUTH_TOKEN is set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict(
@@ -1071,7 +1071,7 @@ class TestValidateEnvironmentAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1084,7 +1084,7 @@ class TestValidateEnvironmentAuthToken:
         """validate_environment should prefer explicit api_key over ANTHROPIC_AUTH_TOKEN."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict(
@@ -1097,7 +1097,7 @@ class TestValidateEnvironmentAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=FAKE_REGULAR_KEY,
                 api_base=None,
             )
@@ -1111,7 +1111,7 @@ class TestValidateEnvironmentAuthToken:
 
         import pytest
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict("os.environ", {}, clear=True):
@@ -1121,7 +1121,7 @@ class TestValidateEnvironmentAuthToken:
                     model="claude-sonnet-4-5-20250929",
                     messages=[{"role": "user", "content": "Hello"}],
                     optional_params={},
-                    litellm_params={},
+                    hangarllm_params={},
                     api_key=None,
                     api_base=None,
                 )
@@ -1130,7 +1130,7 @@ class TestValidateEnvironmentAuthToken:
         """validate_environment should resolve ANTHROPIC_API_KEY from env when api_key param is None."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict(
@@ -1143,7 +1143,7 @@ class TestValidateEnvironmentAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1159,7 +1159,7 @@ class TestGetAuthToken:
         """get_auth_token returns the ANTHROPIC_AUTH_TOKEN env var value."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {"ANTHROPIC_AUTH_TOKEN": FAKE_AUTH_TOKEN}, clear=True):
             assert AnthropicModelInfo.get_auth_token() == FAKE_AUTH_TOKEN
@@ -1168,14 +1168,14 @@ class TestGetAuthToken:
         """get_auth_token returns None when ANTHROPIC_AUTH_TOKEN is not set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {}, clear=True):
             assert AnthropicModelInfo.get_auth_token() is None
 
     def test_explicit_param_takes_precedence(self):
         """Explicit auth_token param takes precedence over env var."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         explicit_token = "sk-ant-aut01-explicit-token-override-123456789"
         assert AnthropicModelInfo.get_auth_token(explicit_token) == explicit_token
@@ -1186,7 +1186,7 @@ class TestGetAuthHeader:
 
     def test_returns_x_api_key_when_api_key_provided(self):
         """Explicit api_key param should return x-api-key header."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(api_key=FAKE_REGULAR_KEY)
         assert result == {"x-api-key": FAKE_REGULAR_KEY}
@@ -1195,7 +1195,7 @@ class TestGetAuthHeader:
         """ANTHROPIC_API_KEY env var should return x-api-key header."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1209,7 +1209,7 @@ class TestGetAuthHeader:
         """ANTHROPIC_AUTH_TOKEN env var should return Authorization: Bearer header."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1223,7 +1223,7 @@ class TestGetAuthHeader:
         """ANTHROPIC_API_KEY should take precedence over ANTHROPIC_AUTH_TOKEN."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1240,7 +1240,7 @@ class TestGetAuthHeader:
         """Explicit api_key param should override ANTHROPIC_AUTH_TOKEN env var."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1254,7 +1254,7 @@ class TestGetAuthHeader:
         """Should return None when neither api_key nor auth_token is available."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {}, clear=True):
             result = AnthropicModelInfo.get_auth_header()
@@ -1263,7 +1263,7 @@ class TestGetAuthHeader:
     def test_oauth_token_uses_bearer_not_x_api_key(self):
         """OAuth token (sk-ant-oat*) should return Authorization: Bearer with the
         mandatory oauth beta, not x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(api_key=FAKE_OAUTH_TOKEN)
         assert result == {
@@ -1276,7 +1276,7 @@ class TestGetAuthHeader:
         with the mandatory oauth beta."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1291,7 +1291,7 @@ class TestGetAuthHeader:
 
     def test_custom_api_base_get_auth_header_uses_bearer(self):
         """Non-standard API key and custom api_base returns Bearer when use_bearer_for_custom_base=True."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(
             api_key="my-custom-key", api_base="https://custom-gateway.com", use_bearer_for_custom_base=True
@@ -1300,7 +1300,7 @@ class TestGetAuthHeader:
 
     def test_custom_api_base_get_auth_header_uses_x_api_key_when_standard(self):
         """Standard sk-ant- key with custom api_base should still return x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(api_key=FAKE_REGULAR_KEY, api_base="https://custom-gateway.com")
         assert result == {"x-api-key": FAKE_REGULAR_KEY}
@@ -1311,7 +1311,7 @@ class TestGetApiBaseFallbackChain:
 
     def test_explicit_param_takes_precedence(self):
         """Explicit api_base param takes precedence over all env vars."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.get_api_base("https://explicit.example.com") == "https://explicit.example.com"
 
@@ -1319,7 +1319,7 @@ class TestGetApiBaseFallbackChain:
         """get_api_base returns the default Anthropic API base when no env vars are set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {}, clear=True):
             assert AnthropicModelInfo.get_api_base() == "https://api.anthropic.com"
@@ -1328,7 +1328,7 @@ class TestGetApiBaseFallbackChain:
         """ANTHROPIC_API_BASE takes precedence over ANTHROPIC_BASE_URL."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1344,7 +1344,7 @@ class TestGetApiBaseFallbackChain:
         """get_api_base falls back to ANTHROPIC_BASE_URL when ANTHROPIC_API_BASE is not set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1361,7 +1361,7 @@ class TestPassthroughAuthToken:
         """Passthrough endpoint should use Bearer auth when only ANTHROPIC_AUTH_TOKEN is set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1372,7 +1372,7 @@ class TestPassthroughAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1385,7 +1385,7 @@ class TestPassthroughAuthToken:
         """Passthrough endpoint should prefer ANTHROPIC_API_KEY over ANTHROPIC_AUTH_TOKEN."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1403,7 +1403,7 @@ class TestPassthroughAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1415,20 +1415,20 @@ class TestPassthroughAuthToken:
         """Passthrough endpoint should raise locally instead of forwarding an unauthenticated request."""
         from unittest.mock import patch as mock_patch
 
-        import litellm
-        from litellm.llms.anthropic.messages.native.transformation import (
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
         config = AnthropicMessagesConfig()
         with mock_patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(litellm.AuthenticationError, match="Missing Anthropic API Key"):
+            with pytest.raises(hangarllm.AuthenticationError, match="Missing Anthropic API Key"):
                 config.validate_anthropic_messages_environment(
                     headers={},
                     model="claude-sonnet-4-5-20250929",
                     messages=[{"role": "user", "content": "Hello"}],
                     optional_params={},
-                    litellm_params={},
+                    hangarllm_params={},
                     api_key=None,
                     api_base=None,
                 )
@@ -1438,7 +1438,7 @@ class TestPassthroughAuthToken:
         """A client-forwarded x-api-key header, whatever its casing, should satisfy validation without env credentials."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1449,7 +1449,7 @@ class TestPassthroughAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1461,7 +1461,7 @@ class TestPassthroughAuthToken:
         """get_complete_url should use ANTHROPIC_BASE_URL when api_base is None."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1476,7 +1476,7 @@ class TestPassthroughAuthToken:
                 api_key=FAKE_REGULAR_KEY,
                 model="claude-sonnet-4-5-20250929",
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
         assert url == "https://custom.example.com/v1/messages"
@@ -1493,7 +1493,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
     invalid encrypted signatures, and blocks with empty thinking text."""
 
     def test_is_anthropic_invalid_thinking_block_error_positive(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1505,7 +1505,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_anthropic_invalid_thinking_block_error_positive_bedrock(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1514,7 +1514,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_anthropic_invalid_thinking_block_error_positive_vertex(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1522,7 +1522,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_anthropic_invalid_thinking_block_error_negative(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1537,7 +1537,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         Anthropic surface with no reasoning text) 400s with a message that names
         no signature, so the pre-rename matcher missed it and the strip-and-retry
         never fired. Raw string captured live on 2026-08-27."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1549,7 +1549,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_empty_thinking_block(self):
-        from litellm.llms.anthropic.common_utils import is_empty_thinking_block
+        from hangarllm.llms.anthropic.common_utils import is_empty_thinking_block
 
         assert is_empty_thinking_block({"type": "thinking", "thinking": ""}) is True
         assert is_empty_thinking_block({"type": "thinking", "thinking": " \n\t "}) is True
@@ -1566,7 +1566,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         Converse adaptive thinking emits empty text with only a signature, and
         the client needs it to replay reasoning in tool-use turns); only an
         empty block with nothing to preserve is droppable."""
-        from litellm.llms.anthropic.common_utils import is_empty_unsigned_thinking_block
+        from hangarllm.llms.anthropic.common_utils import is_empty_unsigned_thinking_block
 
         assert is_empty_unsigned_thinking_block({"type": "thinking", "thinking": ""}) is True
         assert is_empty_unsigned_thinking_block({"type": "thinking", "thinking": " \n\t "}) is True
@@ -1583,7 +1583,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         empty, unsigned thinking block keeps its tool_use blocks and loses the
         poison; whitespace-only counts as empty; a non-empty thinking block and
         redacted_thinking are untouched."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1619,7 +1619,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         model's reasoning on every replayed turn and leaves preserved-thinking
         enforcement (thinking.block_binding) nothing to check. The message and
         block order must survive untouched."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1642,7 +1642,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert out[3]["content"][1]["text"] == "Sunny."
 
     def test_strip_thinking_blocks_from_anthropic_messages(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_thinking_blocks_from_anthropic_messages,
         )
 
@@ -1664,7 +1664,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert messages[1]["content"][0]["type"] == "thinking"
 
     def test_strip_thinking_blocks_drops_message_when_only_thinking_blocks(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_thinking_blocks_from_anthropic_messages,
         )
 
@@ -1682,7 +1682,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert out[0]["role"] == "user"
 
     def test_strip_thinking_blocks_from_anthropic_messages_request_dict(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_thinking_blocks_from_anthropic_messages_request_dict,
         )
 
@@ -1712,7 +1712,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         and keeps the ``tool_use``; a whole message that reduces to no blocks
         is dropped; whitespace-only text counts as empty; the caller's list
         is never mutated."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1728,7 +1728,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert len(msgs[1]["content"]) == 2  # caller's content unchanged
 
     def test_strip_empty_text_blocks_preserves_thinking_blocks(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1746,10 +1746,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_strip_keeps_encrypted_reasoning_blocks_for_the_responses_bridge(self):
         """The /v1/messages handler runs this before dispatch, so the bridge must still see the replay."""
-        from litellm.litellm_core_utils.prompt_templates.reasoning_utils import (
+        from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
             encrypted_reasoning_signature,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1767,10 +1767,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_strip_encrypted_reasoning_drops_only_the_bridge_tagged_blocks(self):
         """A session resumed on an Anthropic model replays reasoning only OpenAI can verify."""
-        from litellm.litellm_core_utils.prompt_templates.reasoning_utils import (
+        from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
             encrypted_reasoning_signature,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_encrypted_reasoning_blocks_from_anthropic_messages,
         )
 
@@ -1805,7 +1805,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         Anthropic API and Bedrock Invoke reject with "Invalid `data` in `redacted_thinking` block"."""
         import base64
 
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_encrypted_reasoning_blocks_from_anthropic_messages,
         )
 
@@ -1833,7 +1833,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_strip_encrypted_reasoning_leaves_malformed_messages_for_the_provider_to_reject(self):
         """A bare string in messages must reach Anthropic as a 400, not die in the stripper as a 500."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_encrypted_reasoning_blocks_from_anthropic_messages,
         )
 
@@ -1841,7 +1841,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert strip_encrypted_reasoning_blocks_from_anthropic_messages(msgs) == msgs
 
     def test_strip_empty_text_blocks_treats_null_text_as_empty(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1858,7 +1858,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert [b["type"] for b in out[0]["content"]] == ["tool_result"]
 
     def test_strip_empty_text_blocks_treats_missing_text_key_as_empty(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1875,7 +1875,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert [b["type"] for b in out[0]["content"]] == ["tool_result"]
 
     def test_strip_empty_text_blocks_leaves_non_empty_text_alone(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1884,7 +1884,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert out[0] is msgs[0]  # untouched messages keep identity
 
     def test_strip_empty_text_blocks_treats_non_string_text_value_as_empty(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1901,12 +1901,12 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert [b["type"] for b in out[0]["content"]] == ["tool_result"]
 
     def test_flatten_unencrypted_web_search_results_keeps_snippet_evidence(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
         msgs = [
-            {"role": "user", "content": "latest litellm version?"},
+            {"role": "user", "content": "latest hangarllm version?"},
             {
                 "role": "assistant",
                 "content": [
@@ -1914,7 +1914,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
                         "type": "server_tool_use",
                         "id": "srvtoolu_1",
                         "name": "web_search",
-                        "input": {"query": "latest litellm version"},
+                        "input": {"query": "latest hangarllm version"},
                     },
                     {
                         "type": "web_search_tool_result",
@@ -1922,7 +1922,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
                         "content": [
                             {
                                 "type": "web_search_result",
-                                "url": "https://github.com/BerriAI/litellm/releases",
+                                "url": "https://github.com/valteresj2/HangarLLM/releases",
                                 "title": "Releases",
                                 "page_age": None,
                                 "encrypted_content": "",
@@ -1940,8 +1940,8 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert out[0] is msgs[0]
         assert [b["type"] for b in out[1]["content"]] == ["text", "text"]
         flattened = out[1]["content"][0]["text"]
-        assert "Web search results for 'latest litellm version':" in flattened
-        assert "URL: https://github.com/BerriAI/litellm/releases" in flattened
+        assert "Web search results for 'latest hangarllm version':" in flattened
+        assert "URL: https://github.com/valteresj2/HangarLLM/releases" in flattened
         assert "Snippet: Latest release v1.95.0" in flattened
         assert msgs[1]["content"][0]["type"] == "server_tool_use"
 
@@ -1953,10 +1953,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
         place ships an unsupported tag to Bedrock on the next turn just as surely
         as a populated one does.
         """
-        from litellm.integrations.websearch_interception.transformation import (
+        from hangarllm.integrations.websearch_interception.transformation import (
             WebSearchTransformation,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -1996,10 +1996,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
         messages once per iteration. A pass that appended instead of replacing
         would duplicate the evidence on every loop.
         """
-        from litellm.integrations.websearch_interception.transformation import (
+        from hangarllm.integrations.websearch_interception.transformation import (
             WebSearchTransformation,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -2024,7 +2024,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert json.dumps(twice) == json.dumps(once)
 
     def test_flatten_unencrypted_web_search_results_preserves_real_anthropic_blocks(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -2061,10 +2061,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_flatten_unencrypted_web_search_results_flattens_error_blocks(self):
         """A failed intercepted search is replayed by the client as the error
-        object LiteLLM emitted. Anthropic rejects a replayed ``server_tool_use``
+        object HangarLLM emitted. Anthropic rejects a replayed ``server_tool_use``
         it never issued, so the pair is flattened to text the same way a
         successful unencrypted result is."""
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -2094,7 +2094,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert json.dumps(twice) == json.dumps(once)
 
     def test_sanitize_tool_use_ids_in_anthropic_messages(self):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             sanitize_tool_use_ids_in_anthropic_messages,
         )
 
@@ -2127,10 +2127,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert msgs[0]["content"][0]["id"] == "functions.Bash:0"
 
     def test_normalize_anthropic_tool_use_id_strips_thought_signature(self):
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
             THOUGHT_SIGNATURE_SEPARATOR,
         )
-        from litellm.llms.anthropic.common_utils import normalize_anthropic_tool_use_id
+        from hangarllm.llms.anthropic.common_utils import normalize_anthropic_tool_use_id
 
         base = "call_abc123"
         sig = "CiIBDDnWx+/a=="
@@ -2139,7 +2139,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
     def test_anthropic_messages_config_http_retry_helpers(self):
         import httpx
 
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -2209,7 +2209,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
     def test_anthropic_messages_retry_honors_thinking_block_binding(
         self, thinking: Mapping[str, object], error_message: str, expected: bool
     ) -> None:
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -2253,7 +2253,7 @@ class TestClaudeOpus48AdaptiveThinking:
         ],
     )
     def test_adaptive_thinking_detected_for_opus_4_8(self, local_model_cost_map, model):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is True
 
@@ -2268,7 +2268,7 @@ class TestClaudeOpus48AdaptiveThinking:
         ],
     )
     def test_adaptive_thinking_detected_for_fable_5(self, local_model_cost_map, model):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is True
 
@@ -2301,7 +2301,7 @@ class TestClaudeOpus48AdaptiveThinking:
         for the 4.6 key), a dated release suffix (``-20260219``), a combined
         ``-<date>-v1:0`` suffix (the real Bedrock id shape), and a dotted family
         version (``4.6`` -> ``4-6``)."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is True
 
@@ -2318,10 +2318,10 @@ class TestClaudeOpus48AdaptiveThinking:
         without a major version matches neither the core-family 4.6+ gate nor the
         family-agnostic 5+ gate, so neither the cost map nor the declarative rule marks
         it adaptive."""
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import hangarllm
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
-        assert model not in litellm.model_cost
+        assert model not in hangarllm.model_cost
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is False
 
     @pytest.mark.parametrize(
@@ -2344,10 +2344,10 @@ class TestClaudeOpus48AdaptiveThinking:
         or higher, bare 5+ majors included. The version gate is the declarative
         ``claude-adaptive-thinking`` rule, so 5.x, 6.x and any later family are covered
         with no code change."""
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import hangarllm
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
-        assert model not in litellm.model_cost
+        assert model not in hangarllm.model_cost
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is True
 
     @pytest.mark.parametrize(
@@ -2365,10 +2365,10 @@ class TestClaudeOpus48AdaptiveThinking:
         version rule caps the minor at two digits, so the date is not misread as a >= 4.6
         minor. The anchored pricing rule still resolves these for cost, just without the
         adaptive flag."""
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import hangarllm
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
-        assert model not in litellm.model_cost
+        assert model not in hangarllm.model_cost
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is False
 
     @pytest.mark.parametrize(
@@ -2376,7 +2376,7 @@ class TestClaudeOpus48AdaptiveThinking:
         ["claude-opus-4-5", "claude-3-7-sonnet", "claude-3-5-haiku-20241022"],
     )
     def test_non_adaptive_models_not_detected(self, local_model_cost_map, model):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is False
 
@@ -2399,7 +2399,7 @@ class TestDefaultSuffixAdaptiveThinking:
         ],
     )
     def test_default_suffix_models_are_adaptive_thinking(self, local_model_cost_map, model: str) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is True, (
             f"{model} not classified as adaptive thinking. Check _model_map_lookup_candidates strips @default suffix."
@@ -2413,7 +2413,7 @@ class TestDefaultSuffixAdaptiveThinking:
         ],
     )
     def test_lookup_candidates_include_bare_name(self, model: str, expected_bare: str) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         candidates = AnthropicModelInfo._model_map_lookup_candidates(model)
         assert expected_bare in candidates, f"Expected '{expected_bare}' in candidates for '{model}', got: {candidates}"
@@ -2430,19 +2430,19 @@ class TestCapabilityProbeUsesCallerProvider:
     BEDROCK_MODEL = "global.anthropic.claude-opus-4-8"
 
     def test_exact_bedrock_entry_flag_is_authoritative_for_bedrock_caller(self, local_model_cost_map, monkeypatch):
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import hangarllm
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.is_adaptive_thinking_model(self.BEDROCK_MODEL, "bedrock") is True
 
-        monkeypatch.setitem(litellm.model_cost[self.BEDROCK_MODEL], "supports_adaptive_thinking", False)
-        litellm.get_model_info.cache_clear()
+        monkeypatch.setitem(hangarllm.model_cost[self.BEDROCK_MODEL], "supports_adaptive_thinking", False)
+        hangarllm.get_model_info.cache_clear()
 
         assert AnthropicModelInfo.is_adaptive_thinking_model(self.BEDROCK_MODEL, "bedrock") is False
 
 
 def test_create_anthropic_model_list_response_shape():
-    from litellm.llms.anthropic.common_utils import (
+    from hangarllm.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -2477,7 +2477,7 @@ def test_create_anthropic_model_list_response_carries_token_limits():
     """max_input_tokens and max_tokens are nullable in the Anthropic Models shape,
     not optional, so both keys are emitted for every entry and carry null when the
     limit is unknown."""
-    from litellm.llms.anthropic.common_utils import (
+    from hangarllm.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -2516,7 +2516,7 @@ def test_create_anthropic_model_list_response_carries_token_limits():
 
 
 def test_create_anthropic_model_list_response_empty():
-    from litellm.llms.anthropic.common_utils import (
+    from hangarllm.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -2545,7 +2545,7 @@ ANTHROPIC_ENV_VARS = (
     "ANTHROPIC_FEDERATION_WORKSPACE_ID",
     "ANTHROPIC_IDENTITY_TOKEN_FILE",
     "ANTHROPIC_IDENTITY_TOKEN",
-    "LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS",
+    "HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS",
 )
 
 WIF_ENV = {
@@ -2554,7 +2554,7 @@ WIF_ENV = {
     "ANTHROPIC_IDENTITY_TOKEN": "inline-wire-jwt",
 }
 
-PROXY_CREDENTIAL_HEADER_NAMES = sorted(SpecialHeaders.litellm_credential_header_names())
+PROXY_CREDENTIAL_HEADER_NAMES = sorted(SpecialHeaders.hangarllm_credential_header_names())
 
 
 class RecordingPoster:
@@ -2581,9 +2581,9 @@ def wif_engine(monkeypatch, clean_anthropic_env):
     singleton, to avoid cross-test cache pollution) and count its consultations."""
     import httpx
 
-    from litellm.llms.anthropic import common_utils as anthropic_common_utils
-    from litellm.llms.anthropic.wif import get_anthropic_wif_token
-    from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+    from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+    from hangarllm.llms.anthropic.wif import get_anthropic_wif_token
+    from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
     poster = RecordingPoster(
         httpx.Response(
@@ -2594,9 +2594,9 @@ def wif_engine(monkeypatch, clean_anthropic_env):
     engine = JwtBearerTokenExchangeEngine(poster=poster)
     calls = []
 
-    def with_injected_engine(litellm_params, api_base, model):
+    def with_injected_engine(hangarllm_params, api_base, model):
         calls.append(model)
-        return get_anthropic_wif_token(litellm_params, api_base, model, engine)
+        return get_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
     monkeypatch.setattr(anthropic_common_utils, "get_anthropic_wif_token", with_injected_engine)
     return poster, calls
@@ -2609,9 +2609,9 @@ def wif_async_engine(monkeypatch, clean_anthropic_env):
     async tests can prove the mint went through the async seam, off the loop."""
     import httpx
 
-    from litellm.llms.anthropic import common_utils as anthropic_common_utils
-    from litellm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
-    from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+    from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+    from hangarllm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
+    from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
     poster = RecordingPoster(
         httpx.Response(
@@ -2622,12 +2622,12 @@ def wif_async_engine(monkeypatch, clean_anthropic_env):
     engine = JwtBearerTokenExchangeEngine(poster=poster)
     sync_calls = []
 
-    def sync_shim(litellm_params, api_base, model):
+    def sync_shim(hangarllm_params, api_base, model):
         sync_calls.append(model)
-        return get_anthropic_wif_token(litellm_params, api_base, model, engine)
+        return get_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
-    async def async_shim(litellm_params, api_base, model):
-        return await aget_anthropic_wif_token(litellm_params, api_base, model, engine)
+    async def async_shim(hangarllm_params, api_base, model):
+        return await aget_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
     monkeypatch.setattr(anthropic_common_utils, "get_anthropic_wif_token", sync_shim)
     monkeypatch.setattr(anthropic_common_utils, "aget_anthropic_wif_token", async_shim)
@@ -2635,14 +2635,14 @@ def wif_async_engine(monkeypatch, clean_anthropic_env):
 
 
 def _validate_chat_environment(api_key=None):
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     return AnthropicModelInfo().validate_environment(
         headers={},
         model="claude-sonnet-4-5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=api_key,
         api_base=None,
     )
@@ -2729,14 +2729,14 @@ class TestWifTierPrecedence:
         configured federation and left a key behind gets no other signal that nothing is federated."""
         import logging
 
-        from litellm.llms.anthropic.wif import _warn_static_credential_shadows_federation
+        from hangarllm.llms.anthropic.wif import _warn_static_credential_shadows_federation
 
         _warn_static_credential_shadows_federation.cache_clear()
         poster, calls = wif_engine
         self._set_wif_env(monkeypatch)
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             first = _validate_chat_environment()
             _validate_chat_environment()
 
@@ -2749,12 +2749,12 @@ class TestWifTierPrecedence:
     def test_an_unfederated_deployment_stays_quiet(self, monkeypatch, wif_engine, caplog):
         import logging
 
-        from litellm.llms.anthropic.wif import _warn_static_credential_shadows_federation
+        from hangarllm.llms.anthropic.wif import _warn_static_credential_shadows_federation
 
         _warn_static_credential_shadows_federation.cache_clear()
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             _validate_chat_environment()
 
         assert [record for record in caplog.records if "takes precedence" in record.getMessage()] == []
@@ -2766,12 +2766,12 @@ class TestWifTierPrecedence:
         instead, which is why a rule id appearing later in the process does not start warning."""
         import logging
 
-        from litellm.llms.anthropic.wif import _warn_static_credential_shadows_federation
+        from hangarllm.llms.anthropic.wif import _warn_static_credential_shadows_federation
 
         _warn_static_credential_shadows_federation.cache_clear()
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             _validate_chat_environment()
             monkeypatch.setenv("ANTHROPIC_FEDERATION_RULE_ID", "fdrl_wire1")
             _validate_chat_environment()
@@ -2783,9 +2783,9 @@ class TestWifZeroBehaviorChange:
     def test_unconfigured_raises_same_authentication_error(self, clean_anthropic_env):
         """No WIF config and no keys: same AuthenticationError as today (message
         extended, type and provider identical)."""
-        import litellm
+        import hangarllm
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             _validate_chat_environment()
 
         assert exc_info.value.llm_provider == "anthropic"
@@ -2799,16 +2799,16 @@ class TestWifZeroBehaviorChange:
     def test_a_token_file_credential_missing_an_id_names_the_id_not_the_key(
         self, clean_anthropic_env: None, tmp_path: Path
     ):
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import hangarllm
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             AnthropicModelInfo().validate_environment(
                 headers={},
                 model="claude-haiku-5-5",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={
+                hangarllm_params={
                     "anthropic_federation_rule_id": "fdrl_1",
                     "anthropic_identity_token_file": str(tmp_path / "token"),
                 },
@@ -2848,14 +2848,14 @@ class TestMergeAnthropicBetaHeaders:
     so the helper has to keep taking one: .split() on a list is an AttributeError."""
 
     def test_list_valued_existing_header_is_merged(self):
-        from litellm.llms.anthropic.common_utils import merge_anthropic_beta_headers
+        from hangarllm.llms.anthropic.common_utils import merge_anthropic_beta_headers
 
         assert merge_anthropic_beta_headers(["skills-2025-10-02", "files-api-2025-04-14"], "oauth-2025-04-20") == (
             "files-api-2025-04-14,oauth-2025-04-20,skills-2025-10-02"
         )
 
     def test_list_and_comma_string_forms_agree(self):
-        from litellm.llms.anthropic.common_utils import merge_anthropic_beta_headers
+        from hangarllm.llms.anthropic.common_utils import merge_anthropic_beta_headers
 
         as_list = merge_anthropic_beta_headers(["a", "b"], "c")
         as_string = merge_anthropic_beta_headers("a,b", "c")
@@ -2863,13 +2863,13 @@ class TestMergeAnthropicBetaHeaders:
 
     def test_skills_validate_environment_accepts_a_list_header(self, monkeypatch):
         """End of the regression: the Skills surface itself must not raise on the list form."""
-        from litellm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
+        from hangarllm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
 
         headers = AnthropicSkillsConfig().validate_environment(
             headers={"anthropic-beta": ["files-api-2025-04-14"]},
-            litellm_params=None,
+            hangarllm_params=None,
         )
 
         assert "files-api-2025-04-14" in headers["anthropic-beta"]
@@ -2883,7 +2883,7 @@ class TestWifServerOwnedAuthHeaderStrip:
     def test_mint_strips_caller_supplied_x_api_key(self, monkeypatch, wif_engine):
         """Security regression: without the strip, a caller-forwarded x-api-key
         would sit next to the server-minted Authorization on the outgoing request."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         poster, _ = wif_engine
         for name, value in WIF_ENV.items():
@@ -2895,7 +2895,7 @@ class TestWifServerOwnedAuthHeaderStrip:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -2907,28 +2907,28 @@ class TestWifServerOwnedAuthHeaderStrip:
 
     def test_server_owned_set_is_every_proxy_credential_header(self):
         """The strip list must track the proxy's own key-header list, not a hand-rolled
-        pair: every header user_api_key_auth accepts a LiteLLM key in must be here."""
-        from litellm.llms.anthropic.common_utils import _SERVER_OWNED_AUTH_HEADERS
+        pair: every header user_api_key_auth accepts a HangarLLM key in must be here."""
+        from hangarllm.llms.anthropic.common_utils import _SERVER_OWNED_AUTH_HEADERS
 
-        assert _SERVER_OWNED_AUTH_HEADERS == SpecialHeaders.litellm_credential_header_names()
-        assert {"x-litellm-api-key", "api-key", "x-goog-api-key"} < _SERVER_OWNED_AUTH_HEADERS
+        assert _SERVER_OWNED_AUTH_HEADERS == SpecialHeaders.hangarllm_credential_header_names()
+        assert {"x-hangarllm-api-key", "api-key", "x-goog-api-key"} < _SERVER_OWNED_AUTH_HEADERS
 
     @pytest.mark.parametrize("header_name", PROXY_CREDENTIAL_HEADER_NAMES)
     def test_mint_strips_every_proxy_credential_header(self, monkeypatch, wif_engine, header_name):
-        """A LiteLLM virtual key arrives in any of the proxy's accepted key headers; once
+        """A HangarLLM virtual key arrives in any of the proxy's accepted key headers; once
         a mint happened none of them may reach Anthropic in any header slot."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         for name, value in WIF_ENV.items():
             monkeypatch.setenv(name, value)
-        caller_key = "sk-litellm-CALLER-VIRTUAL-KEY"
+        caller_key = "sk-hangarllm-CALLER-VIRTUAL-KEY"
 
         headers = AnthropicModelInfo().validate_environment(
             headers={header_name.title(): caller_key, "user-agent": "caller/1.0"},
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -2941,15 +2941,15 @@ class TestWifServerOwnedAuthHeaderStrip:
     @pytest.mark.parametrize("header_name", PROXY_CREDENTIAL_HEADER_NAMES)
     def test_skills_surface_strips_caller_credentials_too(self, monkeypatch, wif_engine, header_name):
         """Skills builds its own headers as well; every minting surface needs the same strip."""
-        from litellm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
+        from hangarllm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
 
         for name, value in WIF_ENV.items():
             monkeypatch.setenv(name, value)
-        caller_key = "sk-litellm-CALLER-VIRTUAL-KEY"
+        caller_key = "sk-hangarllm-CALLER-VIRTUAL-KEY"
 
         headers = AnthropicSkillsConfig().validate_environment(
             headers={header_name.title(): caller_key, "user-agent": "caller/1.0"},
-            litellm_params=None,
+            hangarllm_params=None,
         )
 
         assert headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
@@ -2961,7 +2961,7 @@ class TestWifServerOwnedAuthHeaderStrip:
         """The passthrough surface hands the caller's own credential upstream rather than minting.
         That check was case-sensitive, so X-Api-Key slipped past it and the caller's key would have
         travelled beside a minted Bearer."""
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -2975,7 +2975,7 @@ class TestWifServerOwnedAuthHeaderStrip:
             model="claude-sonnet-4-5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -2988,18 +2988,18 @@ class TestWifServerOwnedAuthHeaderStrip:
     def test_batches_surface_strips_caller_credentials_too(self, monkeypatch, wif_engine, header_name):
         """Batches builds its own headers on the create path, so it needs the same strip: the
         handler's retrieve path passes none, but this entry point takes the caller's."""
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+        from hangarllm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
 
         for name, value in WIF_ENV.items():
             monkeypatch.setenv(name, value)
-        caller_key = "sk-litellm-CALLER-VIRTUAL-KEY"
+        caller_key = "sk-hangarllm-CALLER-VIRTUAL-KEY"
 
         headers = AnthropicBatchesConfig().validate_environment(
             headers={header_name.title(): caller_key, "user-agent": "caller/1.0"},
             model="claude-sonnet-4-5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -3013,18 +3013,18 @@ class TestWifServerOwnedAuthHeaderStrip:
     def test_files_surface_strips_caller_credentials_too(self, monkeypatch, wif_engine, header_name):
         """The files surface builds its own headers, so it needs the same strip the chat surface
         has: without it a minted federation Bearer travels beside the caller's own credential."""
-        from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+        from hangarllm.llms.anthropic.files.transformation import AnthropicFilesConfig
 
         for name, value in WIF_ENV.items():
             monkeypatch.setenv(name, value)
-        caller_key = "sk-litellm-CALLER-VIRTUAL-KEY"
+        caller_key = "sk-hangarllm-CALLER-VIRTUAL-KEY"
 
         headers = AnthropicFilesConfig().validate_environment(
             headers={header_name.title(): caller_key, "user-agent": "caller/1.0"},
             model="claude-sonnet-4-5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -3035,11 +3035,11 @@ class TestWifServerOwnedAuthHeaderStrip:
         assert headers["user-agent"] == "caller/1.0"
 
     def test_no_mint_preserves_caller_supplied_authorization(self, monkeypatch, clean_anthropic_env):
-        """No-regression: LiteLLM deliberately lets a caller-forwarded credential
+        """No-regression: HangarLLM deliberately lets a caller-forwarded credential
         header ride alongside a statically configured ANTHROPIC_API_KEY, because the
         two occupy different header slots (x-api-key vs authorization) when the key
         isn't OAuth-shaped. The strip must stay conditional on an actual WIF mint."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         caller_authorization = "Bearer caller-forwarded-downstream-token"
@@ -3049,7 +3049,7 @@ class TestWifServerOwnedAuthHeaderStrip:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -3076,7 +3076,7 @@ class TestWifResolvedApiKeyThreading:
 
     @pytest.mark.asyncio
     async def test_aget_auth_header_carries_minted_token(self, monkeypatch, wif_async_engine):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         for name, value in WIF_ENV.items():
             monkeypatch.setenv(name, value)
@@ -3092,7 +3092,7 @@ class TestGetAuthHeaderBetas:
     def test_oat_branch_carries_oauth_beta(self, clean_anthropic_env):
         """The pre-existing bug: the oat branch returned a bare Bearer without the
         mandatory oauth beta."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(api_key=FAKE_OAUTH_TOKEN)
 
@@ -3102,7 +3102,7 @@ class TestGetAuthHeaderBetas:
         }
 
     def test_wif_fallback_returns_bearer_and_beta(self, monkeypatch, wif_engine):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         poster, calls = wif_engine
         for name, value in WIF_ENV.items():
@@ -3117,7 +3117,7 @@ class TestGetAuthHeaderBetas:
         assert len(poster.requests) == 1
 
     def test_no_credentials_still_returns_none(self, clean_anthropic_env):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.get_auth_header() is None
 
@@ -3127,14 +3127,14 @@ class TestFilesBatchesBetaMerge:
     a Bearer oat auth header must keep the oauth beta AND gain the surface beta."""
 
     def test_files_merges_oauth_and_files_betas(self, clean_anthropic_env):
-        from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+        from hangarllm.llms.anthropic.files.transformation import AnthropicFilesConfig
 
         headers = AnthropicFilesConfig().validate_environment(
             headers={},
             model="",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=FAKE_OAUTH_TOKEN,
         )
 
@@ -3143,14 +3143,14 @@ class TestFilesBatchesBetaMerge:
         assert {"oauth-2025-04-20", "files-api-2025-04-14"} <= betas
 
     def test_batches_merges_oauth_and_batches_betas(self, clean_anthropic_env):
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+        from hangarllm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
 
         headers = AnthropicBatchesConfig().validate_environment(
             headers={},
             model="",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=FAKE_OAUTH_TOKEN,
         )
 
@@ -3161,14 +3161,14 @@ class TestFilesBatchesBetaMerge:
     def test_files_preserves_caller_supplied_beta(self, clean_anthropic_env):
         """Regression: files did a two-way merge that dropped the client's own
         anthropic-beta; it must three-way merge exactly like batches."""
-        from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+        from hangarllm.llms.anthropic.files.transformation import AnthropicFilesConfig
 
         headers = AnthropicFilesConfig().validate_environment(
             headers={"anthropic-beta": "context-1m-2025-08-07"},
             model="",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=FAKE_OAUTH_TOKEN,
         )
 
@@ -3180,7 +3180,7 @@ class TestMessagesEnvAuthBetaMerge:
     def test_client_beta_survives_env_auth_injection(self, monkeypatch, clean_anthropic_env):
         """Regression: headers.update(auth_header) silently clobbered the client's
         anthropic-beta on the native /v1/messages route."""
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -3191,7 +3191,7 @@ class TestMessagesEnvAuthBetaMerge:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert headers["authorization"] == f"Bearer {FAKE_OAUTH_TOKEN}"
@@ -3206,16 +3206,16 @@ WIF_PARAMS_ONLY = {
 }
 
 
-class TestWifLitellmParamsPlumbing:
-    """Per-deployment anthropic_* litellm_params must reach the WIF tier on every
+class TestWifHangarllmParamsPlumbing:
+    """Per-deployment anthropic_* hangarllm_params must reach the WIF tier on every
     surface that has them, not only chat."""
 
     @pytest.fixture(autouse=True)
     def _inline_identity_token(self, monkeypatch):
         monkeypatch.setenv("WIF_PARAMS_TEST_TOKEN", "params-jwt")
 
-    def test_files_mints_from_litellm_params(self, wif_engine):
-        from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+    def test_files_mints_from_hangarllm_params(self, wif_engine):
+        from hangarllm.llms.anthropic.files.transformation import AnthropicFilesConfig
 
         poster, _ = wif_engine
         headers = AnthropicFilesConfig().validate_environment(
@@ -3223,14 +3223,14 @@ class TestWifLitellmParamsPlumbing:
             model="",
             messages=[],
             optional_params={},
-            litellm_params=dict(WIF_PARAMS_ONLY),
+            hangarllm_params=dict(WIF_PARAMS_ONLY),
         )
 
         assert headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
         assert len(poster.requests) == 1
 
-    def test_batches_mints_from_litellm_params(self, wif_engine):
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+    def test_batches_mints_from_hangarllm_params(self, wif_engine):
+        from hangarllm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
 
         poster, _ = wif_engine
         headers = AnthropicBatchesConfig().validate_environment(
@@ -3238,20 +3238,20 @@ class TestWifLitellmParamsPlumbing:
             model="",
             messages=[],
             optional_params={},
-            litellm_params=dict(WIF_PARAMS_ONLY),
+            hangarllm_params=dict(WIF_PARAMS_ONLY),
         )
 
         assert headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
         assert len(poster.requests) == 1
 
-    def test_skills_mints_from_litellm_params(self, wif_engine):
-        from litellm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
-        from litellm.types.router import GenericLiteLLMParams
+    def test_skills_mints_from_hangarllm_params(self, wif_engine):
+        from hangarllm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
+        from hangarllm.types.router import GenericHangarLLMParams
 
         poster, _ = wif_engine
         headers = AnthropicSkillsConfig().validate_environment(
             headers={},
-            litellm_params=GenericLiteLLMParams(
+            hangarllm_params=GenericHangarLLMParams(
                 anthropic_federation_rule_id=WIF_PARAMS_ONLY["anthropic_federation_rule_id"],
                 anthropic_organization_id=WIF_PARAMS_ONLY["anthropic_organization_id"],
                 anthropic_identity_token=WIF_PARAMS_ONLY["anthropic_identity_token"],
@@ -3261,8 +3261,8 @@ class TestWifLitellmParamsPlumbing:
         assert headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
         assert len(poster.requests) == 1
 
-    def test_messages_mints_from_litellm_params(self, wif_engine):
-        from litellm.llms.anthropic.messages.native.transformation import (
+    def test_messages_mints_from_hangarllm_params(self, wif_engine):
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -3272,7 +3272,7 @@ class TestWifLitellmParamsPlumbing:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params=dict(WIF_PARAMS_ONLY),
+            hangarllm_params=dict(WIF_PARAMS_ONLY),
         )
 
         assert headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
@@ -3296,8 +3296,8 @@ class TestWifTokenUrlParity:
     def test_both_tiers_share_one_clean_token_url(self, monkeypatch, wif_engine, configured_base):
         # This is about deriving one URL from many spellings of the same base, not about which
         # hosts an operator trusts with org-scoped credentials, so the private host is allowlisted.
-        monkeypatch.setenv("LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gw.example.com")
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        monkeypatch.setenv("HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS", "gw.example.com")
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         poster, _ = wif_engine
         for name, value in WIF_ENV.items():
@@ -3308,7 +3308,7 @@ class TestWifTokenUrlParity:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={"api_base": configured_base},
+            hangarllm_params={"api_base": configured_base},
             api_key=None,
             api_base=None,
         )
@@ -3323,7 +3323,7 @@ class TestWifAsyncSeam:
 
     @pytest.mark.asyncio
     async def test_aget_auth_header_runs_exchange_off_event_loop(self, monkeypatch, wif_async_engine):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         poster, sync_calls = wif_async_engine
         for name, value in WIF_ENV.items():
@@ -3341,7 +3341,7 @@ class TestWifAsyncSeam:
 
     @pytest.mark.asyncio
     async def test_avalidate_messages_environment_mints_off_loop(self, wif_async_engine, monkeypatch):
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -3353,7 +3353,7 @@ class TestWifAsyncSeam:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params=dict(WIF_PARAMS_ONLY),
+            hangarllm_params=dict(WIF_PARAMS_ONLY),
         )
 
         assert headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
@@ -3364,7 +3364,7 @@ class TestWifAsyncSeam:
     async def test_avalidate_delegates_to_subclass_sync_override(self):
         """A provider subclass that only overrides the sync method must keep its
         behavior when the handler goes through the async variant."""
-        from litellm.llms.anthropic.messages.native.transformation import (
+        from hangarllm.llms.anthropic.messages.native.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -3375,7 +3375,7 @@ class TestWifAsyncSeam:
                 model,
                 messages,
                 optional_params,
-                litellm_params,
+                hangarllm_params,
                 api_key=None,
                 api_base=None,
             ):
@@ -3386,7 +3386,7 @@ class TestWifAsyncSeam:
             model="claude-sonnet-4-5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_base="https://marker.example.com",
         )
 
@@ -3395,7 +3395,7 @@ class TestWifAsyncSeam:
 
     @pytest.mark.asyncio
     async def test_base_default_avalidate_delegates_to_sync(self):
-        from litellm.llms.base_llm.anthropic_messages.transformation import (
+        from hangarllm.llms.base_llm.anthropic_messages.transformation import (
             BaseAnthropicMessagesConfig,
         )
 
@@ -3406,20 +3406,20 @@ class TestWifAsyncSeam:
                 model,
                 messages,
                 optional_params,
-                litellm_params,
+                hangarllm_params,
                 api_key=None,
                 api_base=None,
             ):
                 return {"x-sync-only": "1"}, api_base
 
-            def get_complete_url(self, api_base, api_key, model, optional_params, litellm_params, stream=None):
+            def get_complete_url(self, api_base, api_key, model, optional_params, hangarllm_params, stream=None):
                 return api_base or ""
 
             def get_supported_anthropic_messages_params(self, model):
                 return []
 
             def transform_anthropic_messages_request(
-                self, model, messages, anthropic_messages_optional_request_params, litellm_params, headers
+                self, model, messages, anthropic_messages_optional_request_params, hangarllm_params, headers
             ):
                 return {}
 
@@ -3431,7 +3431,7 @@ class TestWifAsyncSeam:
             model="m",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert headers == {"x-sync-only": "1"}
@@ -3439,20 +3439,20 @@ class TestWifAsyncSeam:
 
 class TestWifRespxEndToEnd:
     def test_completion_mints_and_never_leaks_config(self, monkeypatch, tmp_path, clean_anthropic_env):
-        """Drives the REAL kwargs funnel through litellm.completion: the mint hits
+        """Drives the REAL kwargs funnel through hangarllm.completion: the mint hits
         /v1/oauth/token, the data plane carries the minted Bearer + oauth beta, and
         NONE of the six anthropic_* keys leak into the /v1/messages body."""
         import httpx
         import respx
 
-        import litellm
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.wif import get_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        import hangarllm
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.wif import get_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
-        monkeypatch.setattr(litellm, "api_key", None)
-        monkeypatch.setattr(litellm, "anthropic_key", None)
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setattr(hangarllm, "api_key", None)
+        monkeypatch.setattr(hangarllm, "anthropic_key", None)
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = tmp_path / "identity-token"
         token_file.write_text("e2e-oidc-assertion", encoding="utf-8")
 
@@ -3460,7 +3460,7 @@ class TestWifRespxEndToEnd:
         monkeypatch.setattr(
             anthropic_common_utils,
             "get_anthropic_wif_token",
-            lambda litellm_params, api_base, model: get_anthropic_wif_token(litellm_params, api_base, model, engine),
+            lambda hangarllm_params, api_base, model: get_anthropic_wif_token(hangarllm_params, api_base, model, engine),
         )
 
         wif_kwarg_names: Final = (
@@ -3491,7 +3491,7 @@ class TestWifRespxEndToEnd:
             messages_route = respx.post("https://api.anthropic.com/v1/messages").mock(
                 return_value=httpx.Response(200, json=anthropic_response)
             )
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="anthropic/claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "hi"}],
                 anthropic_federation_rule_id="fdrl_e2e",
@@ -3526,14 +3526,14 @@ class TestWifRespxEndToEnd:
         import httpx
         import respx
 
-        import litellm
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.wif import get_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        import hangarllm
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.wif import get_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
-        monkeypatch.setattr(litellm, "api_key", None)
-        monkeypatch.setattr(litellm, "anthropic_key", None)
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setattr(hangarllm, "api_key", None)
+        monkeypatch.setattr(hangarllm, "anthropic_key", None)
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = tmp_path / "identity-token"
         token_file.write_text("e2e-oidc-assertion", encoding="utf-8")
 
@@ -3541,7 +3541,7 @@ class TestWifRespxEndToEnd:
         monkeypatch.setattr(
             anthropic_common_utils,
             "get_anthropic_wif_token",
-            lambda litellm_params, api_base, model: get_anthropic_wif_token(litellm_params, api_base, model, engine),
+            lambda hangarllm_params, api_base, model: get_anthropic_wif_token(hangarllm_params, api_base, model, engine),
         )
 
         anthropic_response = {
@@ -3564,7 +3564,7 @@ class TestWifRespxEndToEnd:
             messages_route = respx.post(url__regex=r"https://api\.anthropic\.com/v1/messages.*").mock(
                 return_value=httpx.Response(200, json=anthropic_response)
             )
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="anthropic/claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "hi"}],
                 api_base="https://api.anthropic.com/v1/messages/",
@@ -3577,18 +3577,18 @@ class TestWifRespxEndToEnd:
         assert token_route.call_count == 1
         assert messages_route.calls[0].request.headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
 
-    def test_get_auth_header_with_litellm_params_mints_via_real_engine(
+    def test_get_auth_header_with_hangarllm_params_mints_via_real_engine(
         self, monkeypatch, tmp_path, clean_anthropic_env
     ):
         import httpx
         import respx
 
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-        from litellm.llms.anthropic.wif import get_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.wif import get_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
-        monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+        monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
         token_file = tmp_path / "identity-token"
         token_file.write_text("e2e-oidc-assertion", encoding="utf-8")
 
@@ -3596,7 +3596,7 @@ class TestWifRespxEndToEnd:
         monkeypatch.setattr(
             anthropic_common_utils,
             "get_anthropic_wif_token",
-            lambda litellm_params, api_base, model: get_anthropic_wif_token(litellm_params, api_base, model, engine),
+            lambda hangarllm_params, api_base, model: get_anthropic_wif_token(hangarllm_params, api_base, model, engine),
         )
 
         with respx.mock:
@@ -3608,7 +3608,7 @@ class TestWifRespxEndToEnd:
             )
             result = AnthropicModelInfo.get_auth_header(
                 allow_workload_identity=True,
-                litellm_params={
+                hangarllm_params={
                     "anthropic_federation_rule_id": "fdrl_e2e",
                     "anthropic_organization_id": "org-e2e",
                     "anthropic_identity_token_file": str(token_file),
@@ -3638,21 +3638,21 @@ class TestWifProviderAllowlist:
         monkeypatch.setenv("WIF_TEST_JWT", "jwt-assertion-value")
 
     def test_vertex_anthropic_never_mints_or_sends_the_assertion(self, monkeypatch, wif_engine):
-        import litellm
-        from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+        import hangarllm
+        from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
             VertexAIAnthropicConfig,
         )
 
         poster, calls = wif_engine
         self._env_only_wif(monkeypatch)
 
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             VertexAIAnthropicConfig().validate_environment(
                 headers={},
                 model="claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "hi"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base="https://us-east5-aiplatform.googleapis.com/v1/projects/p/locations/us-east5",
             )
@@ -3661,7 +3661,7 @@ class TestWifProviderAllowlist:
         assert poster.requests == []
 
     def test_anthropic_itself_still_mints(self, monkeypatch, wif_engine):
-        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+        from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
 
         poster, calls = wif_engine
         self._env_only_wif(monkeypatch)
@@ -3671,7 +3671,7 @@ class TestWifProviderAllowlist:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -3682,7 +3682,7 @@ class TestWifProviderAllowlist:
     def test_auth_header_facade_defaults_to_refusing_to_mint(self, monkeypatch, clean_anthropic_env):
         """The facade is reachable from provider code that has nothing to do with Anthropic, so a
         caller must state that it authenticates against Anthropic's own API."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         self._env_only_wif(monkeypatch)
 
@@ -3692,8 +3692,8 @@ class TestWifProviderAllowlist:
     def test_eligibility_is_not_inherited_by_a_new_subclass(self):
         """A provider added later by subclassing the Anthropic config must not inherit the right to
         mint an Anthropic-org credential against its own host."""
-        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-        from litellm.llms.anthropic.common_utils import config_allows_workload_identity
+        from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
+        from hangarllm.llms.anthropic.common_utils import config_allows_workload_identity
 
         class NewCompatibleProvider(AnthropicConfig):
             pass
@@ -3703,7 +3703,7 @@ class TestWifProviderAllowlist:
 
     def test_model_discovery_gates_on_the_instance(self, monkeypatch, wif_engine):
         """get_models is inherited, so it must consult the instance rather than trusting its caller."""
-        from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+        from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
             VertexAIAnthropicConfig,
         )
 
@@ -3742,7 +3742,7 @@ class RecordingModelsClient:
 class TestModelDiscovery:
     """AnthropicModelInfo.get_models / discover_models: pagination, redirect refusal, and
     sanitized errors on the upstream Anthropic /v1/models call itself (issue #28607 gap: a
-    WIF source configured in litellm_params, rather than the environment, could not
+    WIF source configured in hangarllm_params, rather than the environment, could not
     discover)."""
 
     @pytest.mark.parametrize(
@@ -3751,11 +3751,11 @@ class TestModelDiscovery:
     def test_discovery_does_not_double_the_version_segment(self, monkeypatch, clean_anthropic_env, configured_base):
         """Regression: /v1/models is appended here, so a base an operator already wrote as
         .../v1 (or the chat URL they copied) would be asked for /v1/v1/models and 404."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         client = RecordingModelsClient([{"data": [{"id": "claude-a"}], "has_more": False, "last_id": "claude-a"}])
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
 
         models = AnthropicModelInfo().get_models(api_base=configured_base)
 
@@ -3763,7 +3763,7 @@ class TestModelDiscovery:
         assert client.calls[0].url == "https://api.anthropic.com/v1/models"
 
     def test_get_models_paginates_via_has_more_and_last_id(self, monkeypatch, clean_anthropic_env):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         client = RecordingModelsClient(
@@ -3772,7 +3772,7 @@ class TestModelDiscovery:
                 {"data": [{"id": "claude-c"}], "has_more": False, "last_id": "claude-c"},
             ]
         )
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
 
         models = AnthropicModelInfo().get_models(api_base="https://api.anthropic.com")
 
@@ -3786,8 +3786,8 @@ class TestModelDiscovery:
         URL's query string into the params mapping by mutating it. Handing that client a
         read-only mapping raised AttributeError, so discovery blew up for any org holding more
         models than one page, while the stubbed client here never exercised the mutation."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         requested: Final = []  # mutable-ok: a test spy recording the URLs the client was asked for
@@ -3805,7 +3805,7 @@ class TestModelDiscovery:
             )
 
         handler: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
-        monkeypatch.setattr("litellm.module_level_client", handler)
+        monkeypatch.setattr("hangarllm.module_level_client", handler)
 
         models = AnthropicModelInfo().get_models(api_base="https://api.anthropic.com")
 
@@ -3819,25 +3819,25 @@ class TestModelDiscovery:
         """Only the configured api_base is validated, so a redirected /v1/models must not be
         allowed to replay the credential to an unvalidated origin -- same rule already applied
         to the WIF token exchange itself."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         client = RecordingModelsClient([{"data": [], "has_more": False, "last_id": None}])
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
 
         AnthropicModelInfo().get_models(api_base="https://api.anthropic.com")
 
         assert client.calls[0].follow_redirects is False
 
     def test_get_models_page_cap_stops_a_runaway_has_more(self, monkeypatch, clean_anthropic_env):
-        from litellm.llms.anthropic.common_utils import (
+        from hangarllm.llms.anthropic.common_utils import (
             _MODEL_LIST_PAGE_CAP,
             AnthropicModelInfo,
         )
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         client = RecordingModelsClient([{"data": [{"id": "claude-loop"}], "has_more": True, "last_id": "claude-loop"}])
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
 
         with pytest.raises(Exception, match="did not terminate"):
             AnthropicModelInfo().get_models(api_base="https://api.anthropic.com")
@@ -3847,7 +3847,7 @@ class TestModelDiscovery:
     def test_get_models_error_is_sanitized_not_raw_response_text(self, monkeypatch, clean_anthropic_env):
         """A failed discovery call must never echo the raw response body verbatim -- only the
         structured error message, so an unrelated/oversized/reflected body is not surfaced."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         reflected_payload = "<script>evil()</script>" * 50
@@ -3866,7 +3866,7 @@ class TestModelDiscovery:
                 )
             ]
         )
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
 
         with pytest.raises(Exception, match="invalid x-api-key") as exc_info:  # noqa: B017  # the callee raises a bare Exception; match pins the sanitized text
             AnthropicModelInfo().get_models(api_base="https://api.anthropic.com")
@@ -3874,18 +3874,18 @@ class TestModelDiscovery:
         assert "invalid x-api-key" in str(exc_info.value)
         assert reflected_payload not in str(exc_info.value)
 
-    def test_discover_models_threads_litellm_params_into_wif(self, monkeypatch, wif_engine):
+    def test_discover_models_threads_hangarllm_params_into_wif(self, monkeypatch, wif_engine):
         """The gap this phase fixes: get_models only ever saw api_key/api_base, so a WIF source
-        configured in litellm_params (rather than ANTHROPIC_* env vars) could not discover."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        configured in hangarllm_params (rather than ANTHROPIC_* env vars) could not discover."""
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         poster, calls = wif_engine
         client = RecordingModelsClient([{"data": [{"id": "claude-wif"}], "has_more": False, "last_id": None}])
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
         monkeypatch.setenv("DISC_JWT", "jwt-assertion-value")
 
         models = AnthropicModelInfo().discover_models(
-            litellm_params={
+            hangarllm_params={
                 "anthropic_federation_rule_id": "fdrl_disc",
                 "anthropic_organization_id": "org-disc",
                 "anthropic_identity_token": "oidc/env/DISC_JWT",
@@ -3896,16 +3896,16 @@ class TestModelDiscovery:
         assert len(poster.requests) == 1
         assert client.calls[0].headers["authorization"] == f"Bearer {FAKE_MINTED_TOKEN}"
 
-    def test_discover_models_without_litellm_params_behaves_like_get_models(self, monkeypatch, clean_anthropic_env):
-        """No litellm_params (the wildcard-discovery call shape) must fall back to the
+    def test_discover_models_without_hangarllm_params_behaves_like_get_models(self, monkeypatch, clean_anthropic_env):
+        """No hangarllm_params (the wildcard-discovery call shape) must fall back to the
         env-only resolution get_models has always used -- zero behavior change for that path."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_REGULAR_KEY)
         client = RecordingModelsClient([{"data": [{"id": "claude-env"}], "has_more": False, "last_id": None}])
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
 
-        models = AnthropicModelInfo().discover_models(litellm_params=None)
+        models = AnthropicModelInfo().discover_models(hangarllm_params=None)
 
         assert models == ["anthropic/claude-env"]
         assert client.calls[0].headers["x-api-key"] == FAKE_REGULAR_KEY
@@ -3913,14 +3913,14 @@ class TestModelDiscovery:
     def test_discover_models_explicit_api_key_beats_wif(self, monkeypatch, wif_engine):
         """Same precedence discover_models must honor as every other Anthropic auth surface:
         WIF is the lowest tier."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         poster, calls = wif_engine
         client = RecordingModelsClient([{"data": [], "has_more": False, "last_id": None}])
-        monkeypatch.setattr("litellm.module_level_client", client)
+        monkeypatch.setattr("hangarllm.module_level_client", client)
 
         AnthropicModelInfo().discover_models(
-            litellm_params={
+            hangarllm_params={
                 "api_key": FAKE_REGULAR_KEY,
                 "anthropic_federation_rule_id": "fdrl_disc",
                 "anthropic_organization_id": "org-disc",
@@ -3937,7 +3937,7 @@ class TestWifExchangeTransportHardening:
     def test_token_exchange_client_does_not_follow_redirects(self):
         """Only the initial token URL is validated, so a 3xx must not be allowed to replay the
         assertion to an origin that was never checked."""
-        from litellm.llms.base_llm.auth.token_exchange import _HttpxSyncTokenPoster
+        from hangarllm.llms.base_llm.auth.token_exchange import _HttpxSyncTokenPoster
 
         handler = _HttpxSyncTokenPoster()._handler_instance()
 
@@ -3977,7 +3977,7 @@ class TestWifServerOwnedParamsAreUnconditional:
         ],
     )
     def test_rejected_even_with_proxy_wide_opt_in(self, param: str):
-        from litellm.proxy.auth.auth_utils import is_request_body_safe
+        from hangarllm.proxy.auth.auth_utils import is_request_body_safe
 
         with pytest.raises(ValueError, match="server-owned workload identity federation"):
             is_request_body_safe(
@@ -3987,12 +3987,12 @@ class TestWifServerOwnedParamsAreUnconditional:
                 model="claude-sonnet-5",
             )
 
-    def test_rejected_inside_nested_litellm_params(self):
-        from litellm.proxy.auth.auth_utils import is_request_body_safe
+    def test_rejected_inside_nested_hangarllm_params(self):
+        from hangarllm.proxy.auth.auth_utils import is_request_body_safe
 
         with pytest.raises(ValueError, match="server-owned workload identity federation"):
             is_request_body_safe(
-                request_body={"model": "claude-sonnet-5", "litellm_params": self._body("anthropic_identity_token")},
+                request_body={"model": "claude-sonnet-5", "hangarllm_params": self._body("anthropic_identity_token")},
                 general_settings={"allow_client_side_credentials": True},
                 llm_router=None,
                 model="claude-sonnet-5",
@@ -4003,7 +4003,7 @@ class TestWifServerOwnedParamsAreUnconditional:
         workspace id reached the token endpoint, which answered "workspace_id is not a well-formed
         wrkspc_ tagged ID", i.e. the caller's value had become the scope of the minted credential.
         router.py merges request kwargs OVER deployment params, so it also beat the configured one."""
-        from litellm.proxy.auth.auth_utils import is_request_body_safe
+        from hangarllm.proxy.auth.auth_utils import is_request_body_safe
 
         with pytest.raises(
             Exception,
@@ -4021,7 +4021,7 @@ class TestWifServerOwnedParamsAreUnconditional:
         spellings, anthropic_workspace_id included, none of which is a federation parameter; the
         federation field carries its own name, so the client-side credential opt-in that admits
         them is not overridden by the unconditional federation ban."""
-        from litellm.proxy.auth.auth_utils import is_request_body_safe
+        from hangarllm.proxy.auth.auth_utils import is_request_body_safe
 
         for spelling in ("workspace_id", "aws_workspace_id", "anthropic_workspace_id"):
             assert (
@@ -4037,25 +4037,25 @@ class TestWifServerOwnedParamsAreUnconditional:
 
 class TestWifDisabledOnClientRedirectedBase:
     def test_the_sentinel_survives_the_kwargs_funnel(self):
-        """Setting the sentinel is only half of it. get_litellm_params rebuilds litellm_params from
+        """Setting the sentinel is only half of it. get_hangarllm_params rebuilds hangarllm_params from
         kwargs, so a field it does not carry is dropped on the way and the deployment federates for
         the caller-chosen base after all."""
-        from litellm.litellm_core_utils.clientside_credential_handler import (
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
             DISABLE_WORKLOAD_IDENTITY_PARAM,
         )
-        from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
+        from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
 
-        funneled = get_litellm_params(**{DISABLE_WORKLOAD_IDENTITY_PARAM: True})
+        funneled = get_hangarllm_params(**{DISABLE_WORKLOAD_IDENTITY_PARAM: True})
 
         assert funneled[DISABLE_WORKLOAD_IDENTITY_PARAM] is True
 
     def test_the_sentinel_is_not_client_settable(self):
         """It is server-owned in both directions: a caller must not be able to set it, and must not
         be able to clear it either."""
-        from litellm.litellm_core_utils.clientside_credential_handler import (
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
             DISABLE_WORKLOAD_IDENTITY_PARAM,
         )
-        from litellm.types.router import reject_server_owned_wif_params
+        from hangarllm.types.router import reject_server_owned_wif_params
 
         with pytest.raises(ValueError, match=DISABLE_WORKLOAD_IDENTITY_PARAM):
             reject_server_owned_wif_params({DISABLE_WORKLOAD_IDENTITY_PARAM: False})
@@ -4063,11 +4063,11 @@ class TestWifDisabledOnClientRedirectedBase:
     def test_base_override_clears_wif_and_sets_the_sentinel(self):
         """A federation token minted for a client-chosen api_base would send the workload's assertion,
         and then the minted bearer, to that host."""
-        from litellm.litellm_core_utils.clientside_credential_handler import (
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
             DISABLE_WORKLOAD_IDENTITY_PARAM,
-            get_dynamic_litellm_params,
+            get_dynamic_hangarllm_params,
         )
-        from litellm.llms.anthropic.wif import resolve_anthropic_wif_params
+        from hangarllm.llms.anthropic.wif import resolve_anthropic_wif_params
 
         admin_deployment = {
             "model": "anthropic/claude-sonnet-5",
@@ -4076,8 +4076,8 @@ class TestWifDisabledOnClientRedirectedBase:
             "anthropic_identity_token": "oidc/env/WIF_TEST_JWT",
         }
 
-        redirected = get_dynamic_litellm_params(
-            litellm_params=dict(admin_deployment),
+        redirected = get_dynamic_hangarllm_params(
+            hangarllm_params=dict(admin_deployment),
             request_kwargs={"api_base": "https://not-anthropic.example"},
         )
 
@@ -4088,8 +4088,8 @@ class TestWifDisabledOnClientRedirectedBase:
     def test_sentinel_blocks_env_var_configured_federation(self, monkeypatch):
         """Environment-configured federation cannot be cleared out of a dict, so the sentinel is what
         stops it on a redirected deployment."""
-        from litellm.litellm_core_utils.clientside_credential_handler import DISABLE_WORKLOAD_IDENTITY_PARAM
-        from litellm.llms.anthropic.wif import resolve_anthropic_wif_params
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import DISABLE_WORKLOAD_IDENTITY_PARAM
+        from hangarllm.llms.anthropic.wif import resolve_anthropic_wif_params
 
         monkeypatch.setenv("ANTHROPIC_FEDERATION_RULE_ID", "fdrl_env")
         monkeypatch.setenv("ANTHROPIC_ORGANIZATION_ID", "org-env")
@@ -4103,11 +4103,11 @@ class TestWifDisabledOnClientRedirectedBase:
         """Same failure mode the legacy-path test above guards against, for the internal_issuer
         identity source: a signing_key_ref resolved for a client-chosen api_base would mint an
         assertion, and then a bearer token, for that host."""
-        from litellm.litellm_core_utils.clientside_credential_handler import (
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
             DISABLE_WORKLOAD_IDENTITY_PARAM,
-            get_dynamic_litellm_params,
+            get_dynamic_hangarllm_params,
         )
-        from litellm.llms.anthropic.wif import resolve_anthropic_wif_params
+        from hangarllm.llms.anthropic.wif import resolve_anthropic_wif_params
 
         admin_deployment = {
             "model": "anthropic/claude-sonnet-5",
@@ -4119,8 +4119,8 @@ class TestWifDisabledOnClientRedirectedBase:
             "anthropic_issuer_signing_key_ref": "oidc/env/ISSUER_SIGNING_KEY_PEM",
         }
 
-        redirected = get_dynamic_litellm_params(
-            litellm_params=dict(admin_deployment),
+        redirected = get_dynamic_hangarllm_params(
+            hangarllm_params=dict(admin_deployment),
             request_kwargs={"api_base": "https://not-anthropic.example"},
         )
 
@@ -4132,11 +4132,11 @@ class TestWifDisabledOnClientRedirectedBase:
     def test_base_override_clears_keycloak_fields(self):
         """Same as the internal_issuer case above, for the keycloak identity source: a
         client_secret_ref resolved for a client-chosen api_base must not follow it there."""
-        from litellm.litellm_core_utils.clientside_credential_handler import (
+        from hangarllm.hangarllm_core_utils.clientside_credential_handler import (
             DISABLE_WORKLOAD_IDENTITY_PARAM,
-            get_dynamic_litellm_params,
+            get_dynamic_hangarllm_params,
         )
-        from litellm.llms.anthropic.wif import resolve_anthropic_wif_params
+        from hangarllm.llms.anthropic.wif import resolve_anthropic_wif_params
 
         admin_deployment = {
             "model": "anthropic/claude-sonnet-5",
@@ -4144,12 +4144,12 @@ class TestWifDisabledOnClientRedirectedBase:
             "anthropic_organization_id": "org-admin",
             "anthropic_identity_source": "keycloak",
             "anthropic_keycloak_token_url": "https://keycloak.internal.example/realms/r/protocol/openid-connect/token",
-            "anthropic_keycloak_client_id": "litellm",
+            "anthropic_keycloak_client_id": "hangarllm",
             "anthropic_keycloak_client_secret_ref": "oidc/env/KEYCLOAK_CLIENT_SECRET",
         }
 
-        redirected = get_dynamic_litellm_params(
-            litellm_params=dict(admin_deployment),
+        redirected = get_dynamic_hangarllm_params(
+            hangarllm_params=dict(admin_deployment),
             request_kwargs={"api_base": "https://not-anthropic.example"},
         )
 
@@ -4162,7 +4162,7 @@ class TestWifDisabledOnClientRedirectedBase:
 def test_create_anthropic_model_list_response_lists_ids_as_told():
     """listed_ids renames an entry for the caller while display_name and every other field stay keyed to the served
     id, and the envelope's first/last ids follow the renamed entries."""
-    from litellm.llms.anthropic.common_utils import (
+    from hangarllm.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -4193,7 +4193,7 @@ class TestMalformedContentListItems:
         ],
     )
     def test_beta_headers_resolve_for_non_dict_content_items(self, content: list[object]) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config: Final = AnthropicModelInfo()
         messages: Final = [{"role": "user", "content": content}]
@@ -4203,7 +4203,7 @@ class TestMalformedContentListItems:
             model="claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=FAKE_REGULAR_KEY,
         )
 
@@ -4212,7 +4212,7 @@ class TestMalformedContentListItems:
         assert config.is_pdf_used(messages) is False
 
     def test_real_content_parts_still_set_their_beta_headers(self) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config: Final = AnthropicModelInfo()
 
@@ -4231,18 +4231,18 @@ class TestMalformedContentListItems:
         )
 
     def test_mixed_list_keeps_detecting_the_valid_part(self) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
         config: Final = AnthropicModelInfo()
         messages: Final = [{"role": "user", "content": ["what type of file is this?", {"type": "image", "source": {}}]}]
 
         assert config.is_pdf_used(messages) is True
 
-    def test_litellm_completion_rejects_bare_string_content_item_as_bad_request(self) -> None:
-        import litellm
+    def test_hangarllm_completion_rejects_bare_string_content_item_as_bad_request(self) -> None:
+        import hangarllm
 
-        with pytest.raises(litellm.BadRequestError):
-            litellm.completion(
+        with pytest.raises(hangarllm.BadRequestError):
+            hangarllm.completion(
                 model="anthropic/claude-haiku-4-5-20251001",
                 messages=[{"role": "user", "content": ["what type of file is this?"]}],
                 api_key=FAKE_REGULAR_KEY,
@@ -4257,8 +4257,8 @@ class TestMalformedContentListItems:
 def test_validate_environment_adds_mid_conversation_output_config_beta(
     nested_output_config: bool, explicit_beta: bool, output_config: dict[str, object]
 ) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
 
     beta: Final = ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
 
@@ -4273,7 +4273,7 @@ def test_validate_environment_adds_mid_conversation_output_config_beta(
         model="claude-fable-5-1",
         messages=messages,
         optional_params={"output_config": {"effort": "high"}},
-        litellm_params={},
+        hangarllm_params={},
         api_key=FAKE_REGULAR_KEY,
     )
 
@@ -4285,8 +4285,8 @@ def test_validate_environment_adds_mid_conversation_output_config_beta(
 @pytest.mark.parametrize("display", (None, "summarized", "omitted", "updates"))
 @pytest.mark.parametrize("explicit_beta", (False, True))
 def test_validate_environment_adds_thinking_display_updates_beta(display: str | None, explicit_beta: bool) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     beta: Final = ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
     headers: Final = AnthropicModelInfo().validate_environment(
@@ -4294,7 +4294,7 @@ def test_validate_environment_adds_thinking_display_updates_beta(display: str | 
         model="claude-opus-5",
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params={"thinking": {"type": "adaptive", "display": display}} if display else {},
-        litellm_params={},
+        hangarllm_params={},
         api_key=FAKE_REGULAR_KEY,
     )
 
@@ -4314,15 +4314,15 @@ def test_validate_environment_adds_thinking_display_updates_beta(display: str | 
     ),
 )
 def test_thinking_display_beta_requires_active_thinking(thinking: object, expected: bool) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     headers: Final = AnthropicModelInfo().validate_environment(
         headers={},
         model="claude-opus-5",
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params={"thinking": thinking},
-        litellm_params={},
+        hangarllm_params={},
         api_key=FAKE_REGULAR_KEY,
     )
 
@@ -4344,7 +4344,7 @@ def test_thinking_display_beta_requires_active_thinking(thinking: object, expect
 def test_shared_legacy_thinking_translation_preserves_supported_display(
     provider: str, display: str, expected_thinking: dict[str, str]
 ) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     optional_params: Final = {
         "thinking": {"type": "enabled", "budget_tokens": 2048, "display": display},
@@ -4365,7 +4365,7 @@ def test_shared_legacy_thinking_translation_preserves_supported_display(
 def test_shared_legacy_thinking_translation_carries_block_binding(
     drop_params: bool, expected_unknown_keys: dict[str, object]
 ) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     optional_params: Final = {
         "thinking": {
@@ -4471,9 +4471,9 @@ def test_chat_thinking_drops_unknown_keys_only_under_drop_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     block_binding: Final = {"prefix_mismatch_behavior": "error"}
-    monkeypatch.setattr(litellm, "drop_params", drop_params_source == "global")
+    monkeypatch.setattr(hangarllm, "drop_params", drop_params_source == "global")
 
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model=model,
         custom_llm_provider=custom_llm_provider,
         thinking={**requested_thinking, "block_binding": block_binding, **rejected_keys},
@@ -4491,8 +4491,8 @@ def test_chat_thinking_drops_unknown_keys_only_under_drop_params(
 @pytest.mark.parametrize("action", (None, "tool_addition", "tool_removal"))
 @pytest.mark.parametrize("explicit_beta", (False, True))
 def test_validate_environment_adds_tool_changes_beta(action: str | None, explicit_beta: bool) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
 
     beta: Final = ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
     content: Final = (
@@ -4505,7 +4505,7 @@ def test_validate_environment_adds_tool_changes_beta(action: str | None, explici
         model="claude-fable-5-1",
         messages=[{"role": "user", "content": "Hello"}, {"role": "system", "content": content}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=FAKE_REGULAR_KEY,
     )
 
@@ -4526,15 +4526,15 @@ def test_validate_environment_adds_tool_changes_beta(action: str | None, explici
     ),
 )
 def test_tool_changes_beta_requires_system_tool_reference(role: str, content: object) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
 
     headers: Final = AnthropicModelInfo().validate_environment(
         headers={},
         model="claude-fable-5-1",
         messages=[{"role": role, "content": content}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=FAKE_REGULAR_KEY,
     )
 
@@ -4563,14 +4563,14 @@ def test_tool_changes_beta_requires_system_tool_reference(role: str, content: ob
 def test_tool_call_is_rebuilt_as_server_tool_use_only_with_a_stored_result(
     tool_call_id: object, provider_specific_fields: object, rebuilt: bool
 ) -> None:
-    from litellm.llms.anthropic.common_utils import tool_call_is_rebuilt_as_server_tool_use
+    from hangarllm.llms.anthropic.common_utils import tool_call_is_rebuilt_as_server_tool_use
 
     assert tool_call_is_rebuilt_as_server_tool_use(tool_call_id, provider_specific_fields) is rebuilt
 
 
 def _pre_stream_exception_for(error_type: str, message: str, status_code: int, model: str) -> Exception:
-    from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-    from litellm.llms.anthropic.common_utils import AnthropicError
+    from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
+    from hangarllm.llms.anthropic.common_utils import AnthropicError
 
     body: Final = json.dumps({"type": "error", "error": {"type": error_type, "message": message}})
     with pytest.raises(Exception, match=message) as raised:
@@ -4587,7 +4587,7 @@ def _pre_stream_exception_for(error_type: str, message: str, status_code: int, m
     ["overloaded_error", "api_error", "timeout_error", "rate_limit_error", "invalid_request_error", "never_seen_error"],
 )
 def test_anthropic_error_frame_exception_matches_the_pre_stream_mapping_for_that_frame(error_type: str) -> None:
-    from litellm.llms.anthropic.common_utils import ANTHROPIC_ERROR_STATUS_CODE_MAP, anthropic_error_frame_exception
+    from hangarllm.llms.anthropic.common_utils import ANTHROPIC_ERROR_STATUS_CODE_MAP, anthropic_error_frame_exception
 
     status_code: Final = ANTHROPIC_ERROR_STATUS_CODE_MAP.get(error_type, 500)
     pre_stream: Final = _pre_stream_exception_for(error_type, "upstream said no", status_code, "claude-sonnet-4-5")
@@ -4600,12 +4600,12 @@ def test_anthropic_error_frame_exception_matches_the_pre_stream_mapping_for_that
 
 
 def test_anthropic_error_frame_exception_classes_an_overloaded_frame_as_internal_server_error() -> None:
-    import litellm
-    from litellm.llms.anthropic.common_utils import anthropic_error_frame_exception
+    import hangarllm
+    from hangarllm.llms.anthropic.common_utils import anthropic_error_frame_exception
 
     error: Final = anthropic_error_frame_exception("overloaded_error", "Overloaded", 503, "claude-sonnet-4-5")
 
-    assert type(error) is litellm.InternalServerError
+    assert type(error) is hangarllm.InternalServerError
     assert error.provider_status_code == 529
 
 
@@ -4615,9 +4615,9 @@ _NON_NUMERIC_BUDGETS: Final = (True, False, None, "", "lots", [4096])
 @pytest.mark.usefixtures("local_model_cost_map")
 @pytest.mark.parametrize("budget_tokens", _NON_NUMERIC_BUDGETS)
 def test_shared_legacy_thinking_translation_rejects_a_non_numeric_budget(budget_tokens: object) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"thinking\.budget_tokens must be a number"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"thinking\.budget_tokens must be a number"):
         AnthropicModelInfo.translate_legacy_thinking_for_adaptive_model(
             model="claude-opus-5",
             optional_params={"thinking": {"type": "enabled", "budget_tokens": budget_tokens}},
@@ -4631,11 +4631,11 @@ def test_shared_legacy_thinking_translation_rejects_a_non_numeric_budget(budget_
 def test_shared_legacy_thinking_translation_drops_a_non_numeric_budget_under_drop_params(
     budget_tokens: object, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     optional_params: Final = {"thinking": {"type": "enabled", "budget_tokens": budget_tokens}}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         AnthropicModelInfo.translate_legacy_thinking_for_adaptive_model(
             model="claude-opus-5", optional_params=optional_params, custom_llm_provider="azure_ai", drop_params=True
         )
@@ -4667,7 +4667,7 @@ _SIGNED_COMPACTION_BLOCK: Final = {"type": "compaction", "content": "summary so 
 def test_requires_native_compaction_beta_per_provider(
     provider: str, expected: bool, optional_params: dict[str, object], messages: list[object]
 ) -> None:
-    from litellm.llms.anthropic.common_utils import requires_native_compaction_beta
+    from hangarllm.llms.anthropic.common_utils import requires_native_compaction_beta
 
     assert requires_native_compaction_beta(provider, optional_params, messages) is expected
 
@@ -4685,7 +4685,7 @@ def test_requires_native_compaction_beta_per_provider(
 def test_requires_native_compaction_beta_is_false_without_a_signal(
     provider: str, optional_params: dict[str, object], messages: list[object]
 ) -> None:
-    from litellm.llms.anthropic.common_utils import requires_native_compaction_beta
+    from hangarllm.llms.anthropic.common_utils import requires_native_compaction_beta
 
     assert requires_native_compaction_beta(provider, optional_params, messages) is False
 
@@ -4737,11 +4737,11 @@ def test_tools_without_strict_drops_only_the_strict_key_and_counts_the_strict_to
 def test_auto_injection_reads_a_deployments_own_prompt_caching_flag_not_a_siblings(
     registration_order: tuple[str, ...],
 ) -> None:
-    from litellm import Router
-    from litellm.llms.anthropic.common_utils import supports_anthropic_cache_control
+    from hangarllm import Router
+    from hangarllm.llms.anthropic.common_utils import supports_anthropic_cache_control
 
     model: Final = "anthropic.claude-qa-cache-model"
-    litellm.register_model({model: {"litellm_provider": "bedrock", "mode": "chat", "supports_prompt_caching": True}})
+    hangarllm.register_model({model: {"hangarllm_provider": "bedrock", "mode": "chat", "supports_prompt_caching": True}})
     model_infos: Final = {
         "caching-off": {"id": "caching-off-id", "supports_prompt_caching": False},
         "unflagged": {"id": "unflagged-id"},
@@ -4750,7 +4750,7 @@ def test_auto_injection_reads_a_deployments_own_prompt_caching_flag_not_a_siblin
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": f"bedrock/{model}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/{model}", "aws_region_name": "us-east-1"},
                 "model_info": model_infos[name],
             }
             for name in registration_order
@@ -4764,38 +4764,38 @@ def test_auto_injection_reads_a_deployments_own_prompt_caching_flag_not_a_siblin
 
 
 def test_auto_injection_leaves_an_unmapped_claude_deployment_uncached_instead_of_raising() -> None:
-    from litellm.llms.anthropic.common_utils import supports_anthropic_cache_control
+    from hangarllm.llms.anthropic.common_utils import supports_anthropic_cache_control
 
     assert supports_anthropic_cache_control("claude-qa-unmapped-model", "anthropic", {"id": "unmapped-id"}) is False
 
 
 def test_auto_injection_honors_a_register_model_opt_out_made_under_the_provider_prefixed_name() -> None:
-    from litellm.llms.anthropic.common_utils import supports_anthropic_cache_control
-    from litellm.utils import catalog_with_runtime_registrations
+    from hangarllm.llms.anthropic.common_utils import supports_anthropic_cache_control
+    from hangarllm.utils import catalog_with_runtime_registrations
 
     model: Final = next(
         key
         for key, entry in catalog_with_runtime_registrations().items()
-        if entry.get("litellm_provider") == "anthropic" and entry.get("supports_prompt_caching") is True
+        if entry.get("hangarllm_provider") == "anthropic" and entry.get("supports_prompt_caching") is True
     )
-    litellm.register_model({f"anthropic/{model}": {"supports_prompt_caching": False}})
+    hangarllm.register_model({f"anthropic/{model}": {"supports_prompt_caching": False}})
 
     assert supports_anthropic_cache_control(model, "anthropic", {"id": "plain-id"}) is False
 
 
 @pytest.mark.parametrize("route_prefix", ["bedrock/", "bedrock/converse/"])
 def test_auto_injection_honors_a_register_model_opt_out_made_under_a_bedrock_route_prefixed_name(route_prefix: str) -> None:
-    from litellm.llms.anthropic.common_utils import supports_anthropic_cache_control
-    from litellm.utils import catalog_with_runtime_registrations
+    from hangarllm.llms.anthropic.common_utils import supports_anthropic_cache_control
+    from hangarllm.utils import catalog_with_runtime_registrations
 
     model: Final = next(
         key
         for key, entry in catalog_with_runtime_registrations().items()
-        if entry.get("litellm_provider") == "bedrock_converse"
+        if entry.get("hangarllm_provider") == "bedrock_converse"
         and entry.get("supports_prompt_caching") is True
         and key.startswith("us.anthropic.claude")
     )
-    litellm.register_model({f"{route_prefix}{model}": {"supports_prompt_caching": False}})
+    hangarllm.register_model({f"{route_prefix}{model}": {"supports_prompt_caching": False}})
 
     assert (
         supports_anthropic_cache_control(model, "bedrock", {"id": "plain-id"}),
@@ -4810,11 +4810,11 @@ def test_auto_injection_honors_a_register_model_opt_out_made_under_a_bedrock_rou
 def test_auto_injection_reads_a_string_or_numeric_deployment_prompt_caching_flag_as_the_bool_it_spells(
     declared: object, catalog_caching: bool, expected: bool
 ) -> None:
-    from litellm.llms.anthropic.common_utils import supports_anthropic_cache_control
+    from hangarllm.llms.anthropic.common_utils import supports_anthropic_cache_control
 
     model: Final = f"claude-qa-lax-flag-model-{catalog_caching}"
-    litellm.register_model(
-        {model: {"litellm_provider": "anthropic", "mode": "chat", "supports_prompt_caching": catalog_caching}}
+    hangarllm.register_model(
+        {model: {"hangarllm_provider": "anthropic", "mode": "chat", "supports_prompt_caching": catalog_caching}}
     )
 
     assert (
@@ -4836,16 +4836,16 @@ def test_auto_injection_reads_a_string_or_numeric_deployment_prompt_caching_flag
 def test_the_later_of_a_bare_and_a_prefixed_register_model_entry_wins_for_routed_and_sdk_calls(
     registrations: tuple[tuple[str, bool], ...], expected: bool, reload_cost_map: bool
 ) -> None:
-    from litellm.llms.anthropic.common_utils import supports_anthropic_cache_control
-    from litellm.utils import catalog_with_runtime_registrations, reapply_runtime_model_cost_registrations
+    from hangarllm.llms.anthropic.common_utils import supports_anthropic_cache_control
+    from hangarllm.utils import catalog_with_runtime_registrations, reapply_runtime_model_cost_registrations
 
     model: Final = next(
         key
         for key, entry in catalog_with_runtime_registrations().items()
-        if entry.get("litellm_provider") == "anthropic" and entry.get("supports_prompt_caching") is True
+        if entry.get("hangarllm_provider") == "anthropic" and entry.get("supports_prompt_caching") is True
     )
     for prefix, flag in registrations:
-        litellm.register_model({f"{prefix}{model}": {"supports_prompt_caching": flag}})
+        hangarllm.register_model({f"{prefix}{model}": {"supports_prompt_caching": flag}})
     if reload_cost_map:
         reapply_runtime_model_cost_registrations()
 
@@ -4856,18 +4856,18 @@ def test_the_later_of_a_bare_and_a_prefixed_register_model_entry_wins_for_routed
 
 
 def test_a_register_model_opt_out_for_one_claude_model_leaves_every_other_routed_models_catalog_flag() -> None:
-    from litellm.llms.anthropic.common_utils import supports_anthropic_cache_control
-    from litellm.utils import catalog_with_runtime_registrations
+    from hangarllm.llms.anthropic.common_utils import supports_anthropic_cache_control
+    from hangarllm.utils import catalog_with_runtime_registrations
 
     opted_out, untouched = itertools.islice(
         (
             key
             for key, entry in catalog_with_runtime_registrations().items()
-            if entry.get("litellm_provider") == "anthropic" and entry.get("supports_prompt_caching") is True
+            if entry.get("hangarllm_provider") == "anthropic" and entry.get("supports_prompt_caching") is True
         ),
         2,
     )
-    litellm.register_model({f"anthropic/{opted_out}": {"supports_prompt_caching": False}})
+    hangarllm.register_model({f"anthropic/{opted_out}": {"supports_prompt_caching": False}})
 
     assert supports_anthropic_cache_control(untouched, "anthropic", {"id": "plain-id"}) is True
 
@@ -4875,7 +4875,7 @@ def test_a_register_model_opt_out_for_one_claude_model_leaves_every_other_routed
 _MASKED_HOSTED_WEB_CALL_PROBE: Final = """
 import json
 
-from litellm.llms.anthropic.common_utils import write_request_hosted_web_call_arguments
+from hangarllm.llms.anthropic.common_utils import write_request_hosted_web_call_arguments
 
 message = {
     "role": "assistant",

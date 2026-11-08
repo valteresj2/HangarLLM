@@ -15,14 +15,14 @@ import pytest
 
 from pydantic import SecretStr
 
-from litellm.llms.base_llm.auth.shared_token_store import (
+from hangarllm.llms.base_llm.auth.shared_token_store import (
     CACHE_DIR_ENV,
     FileTokenStore,
     StoredToken,
     default_shared_token_store,
 )
-from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
-from litellm.llms.base_llm.auth.types import MintedToken, TokenEndpointError
+from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+from hangarllm.llms.base_llm.auth.types import MintedToken, TokenEndpointError
 from tests.unit.llms.base_llm.auth.test_token_exchange import (
     DEFAULT_ASSERTION,
     DEFAULT_REF,
@@ -261,7 +261,7 @@ def test_default_store_follows_the_cache_dir_env(tmp_path: Path, monkeypatch: py
     monkeypatch.delenv(CACHE_DIR_ENV)
     default = default_shared_token_store()
     assert isinstance(default, FileTokenStore)
-    assert default.directory.name == f"litellm-token-exchange-{os.getuid()}"
+    assert default.directory.name == f"hangarllm-token-exchange-{os.getuid()}"
 
 
 class GatedSingleUsePoster(SingleUsePoster):

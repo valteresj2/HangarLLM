@@ -6,8 +6,8 @@ import responses
 from pydantic import JsonValue
 from rich.console import Console
 
-from litellm.proxy.client.chat import ChatClient
-from litellm.proxy.client.cli.commands.chat import _stream_response
+from hangarllm.proxy.client.chat import ChatClient
+from hangarllm.proxy.client.cli.commands.chat import _stream_response
 
 BASE_URL: Final = "http://localhost:8000"
 MESSAGE: Final = "blocked [/pii] :warning: content in [prompt_injection] after 42 tokens"

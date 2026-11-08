@@ -2,8 +2,8 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.microsoft_365_copilot.common_utils import extract_caller_assertion
-from litellm.types.proxy.litellm_pre_call_utils import SecretFields
+from hangarllm.llms.microsoft_365_copilot.common_utils import extract_caller_assertion
+from hangarllm.types.proxy.hangarllm_pre_call_utils import SecretFields
 
 
 @pytest.mark.parametrize(

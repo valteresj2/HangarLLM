@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 from pydantic import JsonValue, ValidationError
 from starlette.requests import Request
 
-from litellm.proxy.google_endpoints.endpoints import _google_count_tokens_request, google_count_tokens
-from litellm.types.llms.vertex_ai import TokenCountDetailsResponse
+from hangarllm.proxy.google_endpoints.endpoints import _google_count_tokens_request, google_count_tokens
+from hangarllm.types.llms.vertex_ai import TokenCountDetailsResponse
 
 
 @pytest.mark.parametrize(

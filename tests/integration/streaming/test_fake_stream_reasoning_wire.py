@@ -72,7 +72,7 @@ class _Frozen(BaseModel):
 
 
 class _CostEntry(_Frozen):
-    litellm_provider: str | None = None
+    hangarllm_provider: str | None = None
     supports_native_structured_output: bool | None = None
     supports_reasoning: bool | None = None
 
@@ -155,7 +155,7 @@ _COST_MAP: Final = TypeAdapter(dict[str, _CostEntry])
 def _fakes_structured_output_stream(model: str, entry: _CostEntry) -> bool:
     return (
         model.startswith("us.anthropic.claude")
-        and entry.litellm_provider == "bedrock_converse"
+        and entry.hangarllm_provider == "bedrock_converse"
         and entry.supports_native_structured_output is False
         and entry.supports_reasoning is True
     )
@@ -163,7 +163,7 @@ def _fakes_structured_output_stream(model: str, entry: _CostEntry) -> bool:
 
 def _claude_without_native_structured_output() -> str:
     entries: Final = _COST_MAP.validate_json(
-        (files("litellm") / "model_prices_and_context_window_backup.json").read_bytes()
+        (files("hangarllm") / "model_prices_and_context_window_backup.json").read_bytes()
     )
     return next(model for model, entry in entries.items() if _fakes_structured_output_stream(model, entry))
 
@@ -356,7 +356,7 @@ def test_fake_streamed_json_schema_chat_answer_matches_the_non_streamed_answer(g
 def _spend_rows(model: str, count: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)
+            'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)
         ),
         lambda found: len(found) >= count,
         seconds=70,

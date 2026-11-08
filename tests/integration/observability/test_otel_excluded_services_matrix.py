@@ -233,7 +233,7 @@ class Rig:
         with self.proxy.client.stream("POST", path, json=body, headers={**auth, **parent}) as response:
             text: Final = response.read().decode()
             assert response.status_code == 200, text
-            return Sent(response.headers["x-litellm-call-id"], _raw_text(endpoint, stream, text))
+            return Sent(response.headers["x-hangarllm-call-id"], _raw_text(endpoint, stream, text))
 
     def sdk(self, endpoint: Endpoint, marker: str, stream: bool) -> Sent:
         if endpoint == "messages":
@@ -244,12 +244,12 @@ class Rig:
                 )
                 block: Final = reply.parse().content[0]
                 assert isinstance(block, anthropic.types.TextBlock), block
-                return Sent(reply.headers["x-litellm-call-id"], block.text)
+                return Sent(reply.headers["x-hangarllm-call-id"], block.text)
             with messages.with_streaming_response.create(
                 model=self.model, max_tokens=16, messages=[{"role": "user", "content": marker}], stream=True
             ) as streamed:
                 return Sent(
-                    streamed.headers["x-litellm-call-id"],
+                    streamed.headers["x-hangarllm-call-id"],
                     "".join(
                         event.delta.text
                         for event in streamed.parse()
@@ -263,21 +263,21 @@ class Rig:
                     model=self.model, messages=[{"role": "user", "content": marker}]
                 )
                 return Sent(
-                    completion.headers["x-litellm-call-id"], completion.parse().choices[0].message.content or ""
+                    completion.headers["x-hangarllm-call-id"], completion.parse().choices[0].message.content or ""
                 )
             with client.chat.completions.with_streaming_response.create(
                 model=self.model, messages=[{"role": "user", "content": marker}], stream=True
             ) as chunks:
                 return Sent(
-                    chunks.headers["x-litellm-call-id"],
+                    chunks.headers["x-hangarllm-call-id"],
                     "".join(chunk.choices[0].delta.content or "" for chunk in chunks.parse() if chunk.choices),
                 )
         if not stream:
             created: Final = client.responses.with_raw_response.create(model=self.model, input=marker)
-            return Sent(created.headers["x-litellm-call-id"], created.parse().output_text)
+            return Sent(created.headers["x-hangarllm-call-id"], created.parse().output_text)
         with client.responses.with_streaming_response.create(model=self.model, input=marker, stream=True) as events:
             return Sent(
-                events.headers["x-litellm-call-id"],
+                events.headers["x-hangarllm-call-id"],
                 "".join(event.delta for event in events.parse() if event.type == "response.output_text.delta"),
             )
 
@@ -292,7 +292,7 @@ class Rig:
                 )
                 block: Final = reply.parse().content[0]
                 assert isinstance(block, anthropic.types.TextBlock), block
-                return Sent(reply.headers["x-litellm-call-id"], block.text)
+                return Sent(reply.headers["x-hangarllm-call-id"], block.text)
             async with messages.with_streaming_response.create(
                 model=self.model, max_tokens=16, messages=[{"role": "user", "content": marker}], stream=True
             ) as streamed:
@@ -301,7 +301,7 @@ class Rig:
                     async for event in await streamed.parse()
                     if event.type == "content_block_delta" and event.delta.type == "text_delta"
                 ]
-                return Sent(streamed.headers["x-litellm-call-id"], "".join(pieces))
+                return Sent(streamed.headers["x-hangarllm-call-id"], "".join(pieces))
         client: Final = openai.AsyncOpenAI(base_url=self.base_url() + "/v1", api_key=self.key, max_retries=0)
         if endpoint == "chat":
             if not stream:
@@ -309,7 +309,7 @@ class Rig:
                     model=self.model, messages=[{"role": "user", "content": marker}]
                 )
                 return Sent(
-                    completion.headers["x-litellm-call-id"], completion.parse().choices[0].message.content or ""
+                    completion.headers["x-hangarllm-call-id"], completion.parse().choices[0].message.content or ""
                 )
             async with client.chat.completions.with_streaming_response.create(
                 model=self.model, messages=[{"role": "user", "content": marker}], stream=True
@@ -317,17 +317,17 @@ class Rig:
                 deltas: Final = [
                     chunk.choices[0].delta.content or "" async for chunk in await chunks.parse() if chunk.choices
                 ]
-                return Sent(chunks.headers["x-litellm-call-id"], "".join(deltas))
+                return Sent(chunks.headers["x-hangarllm-call-id"], "".join(deltas))
         if not stream:
             created: Final = await client.responses.with_raw_response.create(model=self.model, input=marker)
-            return Sent(created.headers["x-litellm-call-id"], created.parse().output_text)
+            return Sent(created.headers["x-hangarllm-call-id"], created.parse().output_text)
         async with client.responses.with_streaming_response.create(
             model=self.model, input=marker, stream=True
         ) as events:
             texts: Final = [
                 event.delta async for event in await events.parse() if event.type == "response.output_text.delta"
             ]
-            return Sent(events.headers["x-litellm-call-id"], "".join(texts))
+            return Sent(events.headers["x-hangarllm-call-id"], "".join(texts))
 
     def send(self, endpoint: Endpoint, client: Client, marker: str, stream: bool) -> Sent:
         if client == "raw":
@@ -364,7 +364,7 @@ def _has_model_span(spans: tuple[Span, ...]) -> bool:
 
 def _trace_of_call(sink: str, call_id: str, since: int) -> tuple[Span, ...]:
     _, spans = recorded_spans(sink, since)
-    traces: Final = {span["trace_id"] for span in spans if span["attributes"].get("litellm.call_id") == call_id}
+    traces: Final = {span["trace_id"] for span in spans if span["attributes"].get("hangarllm.call_id") == call_id}
     return tuple(span for span in spans if span["trace_id"] in traces)
 
 
@@ -428,7 +428,7 @@ def _null_otel_config(directory: Path, otel_audit_config: AuditConfigWriter, nam
     loaded: Final = object_value(JSON.validate_python(yaml.safe_load(written.read_text())))
     config: Final = {
         **loaded,
-        "litellm_settings": {**object_value(loaded["litellm_settings"]), "callbacks": ["langfuse_otel"]},
+        "hangarllm_settings": {**object_value(loaded["hangarllm_settings"]), "callbacks": ["langfuse_otel"]},
         "callback_settings": {**object_value(loaded["callback_settings"]), "otel": None},
     }
     path: Final = directory / f"{name}.yaml"
@@ -461,9 +461,9 @@ def _started(
         owned_proxy_process(
             gateway,
             directory,
-            {"LITELLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300", **environment},
+            {"HANGARLLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300", **environment},
             config=config,
-            remove_environment=("LITELLM_OTEL_EXCLUDED_SERVICES",),
+            remove_environment=("HANGARLLM_OTEL_EXCLUDED_SERVICES",),
             workers=workers,
         ) as owned,
         owned.gateway.scenario() as scenario,
@@ -630,9 +630,9 @@ def _assert_operator_exactly_once(rig: Rig, served: tuple[Sent, ...], cursors: C
     def roots() -> dict[str, int]:
         _, spans = recorded_spans(rig.sinks.operator, cursors.operator)
         traced: Final = {
-            span["trace_id"]: str(span["attributes"]["litellm.call_id"])
+            span["trace_id"]: str(span["attributes"]["hangarllm.call_id"])
             for span in spans
-            if span["attributes"].get("litellm.call_id") in wanted
+            if span["attributes"].get("hangarllm.call_id") in wanted
         }
         counts: Final = {call: 0 for call in wanted}
         for span in spans:
@@ -643,7 +643,7 @@ def _assert_operator_exactly_once(rig: Rig, served: tuple[Sent, ...], cursors: C
     landed: Final = eventually(roots, lambda counts: all(count >= 1 for count in counts.values()), seconds=90)
     assert landed == {call: 1 for call in wanted}, landed
     _, spans = recorded_spans(rig.sinks.operator, cursors.operator)
-    return {span["trace_id"] for span in spans if span["attributes"].get("litellm.call_id") in wanted}
+    return {span["trace_id"] for span in spans if span["attributes"].get("hangarllm.call_id") in wanted}
 
 
 def _assert_tenant_never_saw_datastore_spans(rig: Rig, cursors: Cursors, traces: set[str]) -> None:

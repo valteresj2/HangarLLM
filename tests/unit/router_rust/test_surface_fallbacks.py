@@ -1,7 +1,7 @@
 from dataclasses import fields
 
-from litellm.router_rust.surface.fallbacks import MOCK_FLAGS
-from litellm.types.router import MockRouterTestingParams
+from hangarllm.router_rust.surface.fallbacks import MOCK_FLAGS
+from hangarllm.types.router import MockRouterTestingParams
 
 
 def test_mock_flags_cover_every_mock_testing_param():

@@ -1,18 +1,18 @@
-# litellm_team_block Resource
+# hangarllm_team_block Resource
 
-Manages the blocked state of an existing LiteLLM team. Creating this resource blocks the team (all calls from its keys are rejected); destroying it unblocks the team.
+Manages the blocked state of an existing HangarLLM team. Creating this resource blocks the team (all calls from its keys are rejected); destroying it unblocks the team.
 
 If the team is unblocked outside of Terraform (or deleted), the resource is removed from state and Terraform plans to re-block it on the next apply.
 
 ## Example Usage
 
 ```hcl
-resource "litellm_team" "example" {
+resource "hangarllm_team" "example" {
   team_alias = "suspended-team"
 }
 
-resource "litellm_team_block" "example" {
-  team_id = litellm_team.example.id
+resource "hangarllm_team_block" "example" {
+  team_id = hangarllm_team.example.id
 }
 ```
 
@@ -34,5 +34,5 @@ In addition to the arguments above, the following attributes are exported:
 Team blocks can be imported using the team ID:
 
 ```shell
-terraform import litellm_team_block.example team-1234
+terraform import hangarllm_team_block.example team-1234
 ```

@@ -2,7 +2,7 @@
 Unit tests for what an intercepted request returns once a safety rail refuses
 another agentic loop.
 
-The web search interception loop injects an internal tool (litellm_web_search)
+The web search interception loop injects an internal tool (hangarllm_web_search)
 that the client never declared. When the loop cap or the repeated-fingerprint
 guard trips, the turn has to end with a terminal response: leaking that internal
 tool_use block leaves the client holding a tool call it cannot answer.
@@ -17,42 +17,42 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.exceptions import AuthenticationError, RateLimitError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.websearch_interception.handler import (
+import hangarllm
+from hangarllm.exceptions import AuthenticationError, RateLimitError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.websearch_interception.handler import (
     WEBSEARCH_EMIT_NATIVE_BLOCKS_KEY,
     WebSearchInterceptionLogger,
 )
-from litellm.integrations.websearch_interception.tools import get_litellm_web_search_tool
-from litellm.litellm_core_utils.agentic_followup_failure import is_agentic_followup_failure
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.agentic_loop_settings import DEFAULT_MAX_AGENTIC_LOOPS
-from litellm.llms.anthropic.messages.native.fake_stream_iterator import (
+from hangarllm.integrations.websearch_interception.tools import get_hangarllm_web_search_tool
+from hangarllm.hangarllm_core_utils.agentic_followup_failure import is_agentic_followup_failure
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.agentic_loop_settings import DEFAULT_MAX_AGENTIC_LOOPS
+from hangarllm.llms.anthropic.messages.native.fake_stream_iterator import (
     FakeAnthropicMessagesStreamIterator,
 )
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.secret_managers.main import get_secret
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.integrations.custom_logger import (
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.secret_managers.main import get_secret
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.integrations.custom_logger import (
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
     AgenticLoopSafetyError,
 )
 
-INTERNAL_TOOL_NAME = "litellm_web_search"
-CODE_EXECUTION_TOOL_NAME = "litellm_code_execution"
+INTERNAL_TOOL_NAME = "hangarllm_web_search"
+CODE_EXECUTION_TOOL_NAME = "hangarllm_code_execution"
 
 
 @pytest.fixture(autouse=True)
 def only_the_callbacks_these_tests_register(monkeypatch):
     """
     These tests drive the hooks with a callback of their own on the logging
-    object, so a logger another test left on litellm.callbacks would join the
+    object, so a logger another test left on hangarllm.callbacks would join the
     run and change what the hooks do.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
 
 def _internal_tool_use_block(block_id: str = "toolu_internal_1") -> dict:
@@ -196,7 +196,7 @@ def _logging_obj(*callbacks: CustomLogger, converted_stream: bool = False) -> Ma
     logging_obj = MagicMock()
     logging_obj.model_call_details = {"websearch_interception_converted_stream": converted_stream}
     logging_obj.dynamic_success_callbacks = list(callbacks)
-    logging_obj.litellm_call_id = "call-abc"
+    logging_obj.hangarllm_call_id = "call-abc"
     return logging_obj
 
 
@@ -608,7 +608,7 @@ class TestOuterFramePostHookStillRuns:
                 },
             )
 
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", fake_acreate)
+        monkeypatch.setattr("hangarllm.anthropic_interface.messages.acreate", fake_acreate)
 
         result = await _run_hooks(
             handler,
@@ -645,18 +645,18 @@ def _request_logging_obj(call_type: str, *callbacks: CustomLogger) -> Logging:
         stream=False,
         call_type=call_type,
         start_time=time.time(),
-        litellm_call_id="call-abc",
+        hangarllm_call_id="call-abc",
         function_id="f",
         dynamic_success_callbacks=list(callbacks),
     )
     logging_obj.update_environment_variables(
-        model="claude-sonnet-4-5", user="", optional_params={}, litellm_params={}, custom_llm_provider="anthropic"
+        model="claude-sonnet-4-5", user="", optional_params={}, hangarllm_params={}, custom_llm_provider="anthropic"
     )
     return logging_obj
 
 
 def _assert_first_call_billed(logging_obj: Logging, *, input_tokens: int, output_tokens: int) -> None:
-    price = litellm.model_cost["claude-sonnet-4-5"]
+    price = hangarllm.model_cost["claude-sonnet-4-5"]
     assert logging_obj.model_call_details["combined_usage_object"].total_tokens == input_tokens + output_tokens
     assert logging_obj.model_call_details["response_cost"] == pytest.approx(
         input_tokens * price["input_cost_per_token"] + output_tokens * price["output_cost_per_token"]
@@ -682,7 +682,7 @@ class TestFailedFollowUpCallReachesTheClient:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("converted_stream", (False, True), ids=("non_streaming", "streaming_client"))
     async def test_follow_up_rate_limit_is_raised_to_the_caller(self, monkeypatch, converted_stream):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._rate_limited_follow_up)
+        monkeypatch.setattr("hangarllm.anthropic_interface.messages.acreate", self._rate_limited_follow_up)
 
         with (
             patch.object(self.logger, "_execute_search", side_effect=self._search),
@@ -693,7 +693,7 @@ class TestFailedFollowUpCallReachesTheClient:
                 model="claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "who won the world cup"}],
                 anthropic_messages_provider_config=MagicMock(),
-                anthropic_messages_optional_request_params={"tools": [get_litellm_web_search_tool()]},
+                anthropic_messages_optional_request_params={"tools": [get_hangarllm_web_search_tool()]},
                 logging_obj=_logging_obj(self.logger, converted_stream=converted_stream),
                 stream=False,
                 custom_llm_provider="anthropic",
@@ -702,7 +702,7 @@ class TestFailedFollowUpCallReachesTheClient:
 
     @pytest.mark.asyncio
     async def test_follow_up_rate_limit_bills_the_first_call_on_the_failure_log(self, monkeypatch):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._rate_limited_follow_up)
+        monkeypatch.setattr("hangarllm.anthropic_interface.messages.acreate", self._rate_limited_follow_up)
         logging_obj = _request_logging_obj("anthropic_messages", self.logger)
 
         with (
@@ -714,7 +714,7 @@ class TestFailedFollowUpCallReachesTheClient:
                 model="claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "who won the world cup"}],
                 anthropic_messages_provider_config=MagicMock(),
-                anthropic_messages_optional_request_params={"tools": [get_litellm_web_search_tool()]},
+                anthropic_messages_optional_request_params={"tools": [get_hangarllm_web_search_tool()]},
                 logging_obj=logging_obj,
                 stream=False,
                 custom_llm_provider="anthropic",
@@ -736,7 +736,7 @@ class TestFailedFollowUpCallReachesTheClient:
                 model="claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "who won the world cup"}],
                 anthropic_messages_provider_config=MagicMock(),
-                anthropic_messages_optional_request_params={"tools": [get_litellm_web_search_tool()]},
+                anthropic_messages_optional_request_params={"tools": [get_hangarllm_web_search_tool()]},
                 logging_obj=logging_obj,
                 stream=False,
                 custom_llm_provider="anthropic",
@@ -748,7 +748,7 @@ class TestFailedFollowUpCallReachesTheClient:
 
     @pytest.mark.asyncio
     async def test_responses_follow_up_rate_limit_bills_the_first_call_on_the_failure_log(self, monkeypatch):
-        monkeypatch.setattr(litellm, "aresponses", self._rate_limited_follow_up)
+        monkeypatch.setattr(hangarllm, "aresponses", self._rate_limited_follow_up)
         callback = _ResponsesInterceptingCallback()
         logging_obj = _request_logging_obj("aresponses", callback)
         first_call = _responses_turn(("call_search", INTERNAL_TOOL_NAME)).model_copy(
@@ -773,7 +773,7 @@ class TestFailedFollowUpCallReachesTheClient:
 
     @pytest.mark.asyncio
     async def test_responses_follow_up_rate_limit_is_raised_to_the_caller(self, monkeypatch):
-        monkeypatch.setattr(litellm, "aresponses", self._rate_limited_follow_up)
+        monkeypatch.setattr(hangarllm, "aresponses", self._rate_limited_follow_up)
         callback = _ResponsesInterceptingCallback()
 
         with pytest.raises(RateLimitError, match="UserByModelByMinuteUncachedInputTokens"):
@@ -822,7 +822,7 @@ class TestFailedSearchEndsTheTurn:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "who won the world cup"}],
             anthropic_messages_provider_config=MagicMock(),
-            anthropic_messages_optional_request_params={"tools": [get_litellm_web_search_tool()]},
+            anthropic_messages_optional_request_params={"tools": [get_hangarllm_web_search_tool()]},
             logging_obj=_logging_obj(self.logger, converted_stream=converted_stream),
             stream=False,
             custom_llm_provider="anthropic",
@@ -831,7 +831,7 @@ class TestFailedSearchEndsTheTurn:
 
     @pytest.mark.asyncio
     async def test_all_failed_iteration_ends_the_turn_without_a_follow_up_call(self, monkeypatch):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._fake_acreate)
+        monkeypatch.setattr("hangarllm.anthropic_interface.messages.acreate", self._fake_acreate)
 
         with patch.object(
             self.logger,
@@ -852,7 +852,7 @@ class TestFailedSearchEndsTheTurn:
 
     @pytest.mark.asyncio
     async def test_all_failed_iteration_streams_the_error_block(self, monkeypatch):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._fake_acreate)
+        monkeypatch.setattr("hangarllm.anthropic_interface.messages.acreate", self._fake_acreate)
 
         with patch.object(
             self.logger,
@@ -872,7 +872,7 @@ class TestFailedSearchEndsTheTurn:
 
     @pytest.mark.asyncio
     async def test_mixed_iteration_keeps_the_follow_up_call(self, monkeypatch):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._fake_acreate)
+        monkeypatch.setattr("hangarllm.anthropic_interface.messages.acreate", self._fake_acreate)
 
         async def search(query, kwargs=None, rich=None):
             if query == "fails":
@@ -886,7 +886,7 @@ class TestFailedSearchEndsTheTurn:
         assert len(self.followup_calls) == 1
         tool_results = self.followup_calls[0]["messages"][-1]["content"]
         assert [block["type"] for block in tool_results] == ["tool_result", "tool_result"]
-        assert tool_results[0]["content"] == "Search failed: litellm.RateLimitError: slow down"
+        assert tool_results[0]["content"] == "Search failed: hangarllm.RateLimitError: slow down"
         assert tool_results[1]["content"] == "Title: Result\nURL: https://example.com"
         assert result["stop_reason"] == "end_turn"
         assert _block_types(result) == [
@@ -948,7 +948,7 @@ class TestMaxAgenticLoopsConfigKnob:
         )
         kwargs = {
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "hangarllm_params": {"custom_llm_provider": "bedrock"},
         }
 
         updated = await logger.async_pre_request_hook(model="claude-sonnet-4-5", messages=[], kwargs=kwargs)
@@ -963,7 +963,7 @@ class TestMaxAgenticLoopsConfigKnob:
         )
         kwargs = {
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "hangarllm_params": {"custom_llm_provider": "bedrock"},
             "max_agentic_loops": 2,
         }
 
@@ -977,7 +977,7 @@ class TestMaxAgenticLoopsConfigKnob:
         logger = WebSearchInterceptionLogger.from_config_yaml({"enabled_providers": ["bedrock"]})
         kwargs = {
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "hangarllm_params": {"custom_llm_provider": "bedrock"},
         }
 
         updated = await logger.async_pre_request_hook(model="claude-sonnet-4-5", messages=[], kwargs=kwargs)
@@ -1009,7 +1009,7 @@ class TestBothCeilingKnobsAreValidated:
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": 0})
 
     def test_a_per_deployment_non_integer_names_the_field_it_came_from(self):
-        with pytest.raises(TypeError, match=r"litellm_params\.max_agentic_loops must be an integer"):
+        with pytest.raises(TypeError, match=r"hangarllm_params\.max_agentic_loops must be an integer"):
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": "three"})
 
     def test_a_per_deployment_true_is_not_read_as_a_ceiling_of_one(self):
@@ -1041,7 +1041,7 @@ class TestBothCeilingKnobsAreValidated:
     def test_each_knob_names_its_own_config_field(self):
         with pytest.raises(ValueError, match=r"websearch_interception_params\.max_agentic_loops"):
             WebSearchInterceptionLogger(max_agentic_loops=0)
-        with pytest.raises(ValueError, match=r"litellm_params\.max_agentic_loops"):
+        with pytest.raises(ValueError, match=r"hangarllm_params\.max_agentic_loops"):
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": 0})
 
 
@@ -1074,7 +1074,7 @@ class TestACeilingThatSpellsAWholeNumberStillWorks:
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": "0"})
 
     def test_a_word_is_still_refused(self):
-        with pytest.raises(TypeError, match=r"litellm_params\.max_agentic_loops must be an integer"):
+        with pytest.raises(TypeError, match=r"hangarllm_params\.max_agentic_loops must be an integer"):
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": "three"})
 
     def test_a_fractional_ceiling_is_refused_rather_than_truncated(self):

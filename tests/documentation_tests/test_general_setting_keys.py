@@ -1,8 +1,8 @@
 import os
 import re
 
-# Define the base directory for the litellm repository and documentation path
-repo_base = "./litellm"  # Change this to your actual path
+# Define the base directory for the hangarllm repository and documentation path
+repo_base = "./hangarllm"  # Change this to your actual path
 
 
 # Regular expressions to capture the keys used in general_settings.get() and general_settings[]
@@ -14,7 +14,7 @@ bracket_pattern = re.compile(r'general_settings\[\s*[\'"]([^\'"]+)[\'"]\s*\]')
 # Set to store unique keys from the code
 general_settings_keys = set()
 
-# Walk through all files in the litellm repo to find references of general_settings
+# Walk through all files in the hangarllm repo to find references of general_settings
 for root, dirs, files in os.walk(repo_base):
     for file in files:
         if file.endswith(".py"):  # Only process Python files

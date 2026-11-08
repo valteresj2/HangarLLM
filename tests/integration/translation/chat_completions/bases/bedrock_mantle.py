@@ -13,8 +13,8 @@ from integration.translation.templates.bedrock_mantle import (
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock_mantle/anthropic.claude-haiku-4-5",
         "max_tokens": 64,
         "messages": [
@@ -54,7 +54,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock_mantle/anthropic.claude-haiku-4-5",
@@ -92,8 +92,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock_mantle/anthropic.claude-sonnet-5",
         "max_tokens": 64,
         "messages": [
@@ -134,7 +134,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock_mantle/anthropic.claude-sonnet-5",
@@ -172,8 +172,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_4_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock_mantle/openai.gpt-5.4",
         "max_tokens": 64,
         "messages": [
@@ -246,7 +246,7 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "moderation": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "resp_h5f65ggx7fstww26djcqgint5e7gwa2h6q43xjkxhggr2ftxybnq",
         "created": ANY,
         "model": "bedrock_mantle/openai.gpt-5.4",
@@ -269,8 +269,8 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock_mantle/openai.gpt-5.6-sol",
         "max_tokens": 64,
         "messages": [
@@ -343,7 +343,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "moderation": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "resp_7s4e6m623k3hkjqx4fexvwqodxn3zxtfpkqrz4hdl7qe2wcyftsa",
         "created": ANY,
         "model": "bedrock_mantle/openai.gpt-5.6-sol",
@@ -366,8 +366,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock_mantle/openai.gpt-5.6-luna",
         "max_tokens": 64,
         "messages": [
@@ -440,7 +440,7 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "moderation": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "resp_gnit33ia2bne452i37ag5m5jgatjnnqog5a25yjrymielrfwokra",
         "created": ANY,
         "model": "bedrock_mantle/openai.gpt-5.6-luna",
@@ -462,8 +462,8 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/anthropic.claude-opus-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/anthropic.claude-opus-5-5"},
     expected_provider_endpoint="/anthropic/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -471,7 +471,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     },
     expected_provider_request={**BEDROCK_MANTLE_ANTHROPIC_MESSAGES_REQUEST},
     mock_provider_response={**BEDROCK_MANTLE_ANTHROPIC_MESSAGES_RESPONSE},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock_mantle/anthropic.claude-opus-5-5",
         "choices": [
@@ -536,8 +536,8 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-6.1-sol"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -548,7 +548,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
         "stream": False,
     },
     mock_provider_response={**BEDROCK_MANTLE_OPENAI_RESPONSES_RESPONSE},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_izakuft4jrxwmodefqee2jjt6gkmayywwuuc242pduoydywb3v4a",
         "model": "bedrock_mantle/openai.gpt-6.1-sol",
@@ -598,8 +598,8 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-6-luna"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-6-luna"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -657,7 +657,7 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 427,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_pbro2cu7wxoshets5f2v3mmv22dzjjepi3ztmm6qceyuuveilumq",
         "model": "bedrock_mantle/openai.gpt-6-luna",
@@ -707,8 +707,8 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-6-astra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-6-astra"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -766,7 +766,7 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 460,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_jpvjizqjx4f4u6nyz7deamnfdzbqxgxqm7nirzdlaxm2mbp5r7yq",
         "model": "bedrock_mantle/openai.gpt-6-astra",
@@ -816,8 +816,8 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-5.6-terra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock_mantle/openai.gpt-5.6-terra"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -876,7 +876,7 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 426,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_rzoladobotq7d5aitvspg3wwysoow5b436v6zaymozikilgh4uwa",
         "model": "bedrock_mantle/openai.gpt-5.6-terra",

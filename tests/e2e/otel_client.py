@@ -2,8 +2,8 @@
 Jaeger query API (the destination's own API - completeness is judged on what the
 backend actually holds, never on "export succeeded" proxy-side).
 
-Traces are fetched server-side by the ``litellm.call_id`` tag the gen-AI span
-carries (the request's x-litellm-call-id response header), so read-back is
+Traces are fetched server-side by the ``hangarllm.call_id`` tag the gen-AI span
+carries (the request's x-hangarllm-call-id response header), so read-back is
 immune to the query page filling up with unrelated traffic (background jobs,
 other suites sharing the stack). Jaeger returns every span of a matching trace,
 so the completeness assertions see the whole tree. A failed query is a hard
@@ -34,9 +34,9 @@ from e2e_metadata import step
 from pydantic import BaseModel, ConfigDict, Field
 
 #: OTEL resource service.name the proxy exports under (OTEL_SERVICE_NAME default).
-JAEGER_SERVICE = "litellm"
-#: Span tag carrying the request's x-litellm-call-id (stamped on the gen-AI span).
-CALL_ID_TAG = "litellm.call_id"
+JAEGER_SERVICE = "hangarllm"
+#: Span tag carrying the request's x-hangarllm-call-id (stamped on the gen-AI span).
+CALL_ID_TAG = "hangarllm.call_id"
 #: The v2 gen-AI span attribute recording time-to-first-token for streamed
 #: calls: seconds from the upstream request being issued to the first streamed
 #: chunk (stamped only for streaming; added in #32236).

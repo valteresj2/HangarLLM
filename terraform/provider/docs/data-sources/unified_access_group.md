@@ -1,23 +1,23 @@
 ---
-page_title: "litellm_unified_access_group Data Source - terraform-provider-litellm"
+page_title: "hangarllm_unified_access_group Data Source - terraform-provider-hangarllm"
 subcategory: ""
 description: |-
-  Retrieves information about an existing LiteLLM unified access group.
+  Retrieves information about an existing HangarLLM unified access group.
 ---
 
-# litellm_unified_access_group (Data Source)
+# hangarllm_unified_access_group (Data Source)
 
-Retrieves information about an existing LiteLLM unified access group by ID.
+Retrieves information about an existing HangarLLM unified access group by ID.
 
 ## Example Usage
 
 ```terraform
-data "litellm_unified_access_group" "engineering" {
+data "hangarllm_unified_access_group" "engineering" {
   access_group_id = "b6e5f9d0-..."
 }
 
 output "engineering_models" {
-  value = data.litellm_unified_access_group.engineering.access_model_names
+  value = data.hangarllm_unified_access_group.engineering.access_model_names
 }
 ```
 

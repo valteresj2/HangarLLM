@@ -235,7 +235,7 @@ def _only_call(wire: Wire, target: str = _RESPONSES_PATH) -> None:
 
 
 def _spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,))
+    return read_rows('SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,))
 
 
 def _single_row(call_id: str) -> dict[str, JsonValue]:
@@ -281,7 +281,7 @@ def test_chat_completions_overflow_envelope_returns_400_prompt_too_long_and_logs
         assert response.status_code == 400, response.text
         assert _GENERIC in _error_message(response), response.text
         _only_call(wire)
-        assert _GENERIC in _failure_message(response.headers["x-litellm-call-id"])
+        assert _GENERIC in _failure_message(response.headers["x-hangarllm-call-id"])
 
 
 def test_chat_completions_stream_overflow_envelope_returns_400_prompt_too_long(gateway: Gateway) -> None:
@@ -304,7 +304,7 @@ def test_messages_overflow_envelope_returns_400_invalid_request_and_logs_failure
         assert error["type"] == "invalid_request_error", response.text
         assert _GENERIC in str(error["message"]), response.text
         _only_call(wire)
-        assert _GENERIC in _failure_message(response.headers["x-litellm-call-id"])
+        assert _GENERIC in _failure_message(response.headers["x-hangarllm-call-id"])
 
 
 def test_messages_stream_overflow_envelope_before_the_stream_returns_400_invalid_request(gateway: Gateway) -> None:
@@ -327,7 +327,7 @@ def test_responses_overflow_envelope_returns_400_prompt_too_long_and_logs_failur
         assert response.status_code == 400, response.text
         assert _GENERIC in _error_message(response), response.text
         _only_call(wire)
-        assert _GENERIC in _failure_message(response.headers["x-litellm-call-id"])
+        assert _GENERIC in _failure_message(response.headers["x-hangarllm-call-id"])
 
 
 def test_responses_stream_overflow_envelope_before_the_stream_returns_400_prompt_too_long(gateway: Gateway) -> None:
@@ -468,7 +468,7 @@ def test_messages_stream_overflow_with_a_retry_budget_returns_400_invalid_reques
     with wire_server(_mantle_peer(prompt, reply)) as wire, gateway.scenario() as scenario:
         model: Final = scenario.model(model=_MODEL, api_base=wire.url, api_key=_API_KEY)
         response: Final = gateway.request(
-            "POST", "/v1/messages", _messages(model, prompt, stream=True), headers={"x-litellm-num-retries": "2"}
+            "POST", "/v1/messages", _messages(model, prompt, stream=True), headers={"x-hangarllm-num-retries": "2"}
         )
         assert response.status_code == 400, response.text
         assert response.headers["content-type"].startswith("application/json"), dict(response.headers)
@@ -476,7 +476,7 @@ def test_messages_stream_overflow_with_a_retry_budget_returns_400_invalid_reques
         assert error["type"] == "invalid_request_error", response.text
         assert _GENERIC in str(error["message"]), response.text
         _only_call(wire)
-        assert _GENERIC in _failure_message(response.headers["x-litellm-call-id"])
+        assert _GENERIC in _failure_message(response.headers["x-hangarllm-call-id"])
 
 
 def test_responses_stream_overflow_in_response_failed_event_relays_failure_saying_prompt_too_long(
@@ -648,7 +648,7 @@ def test_chat_completions_repeated_overflow_logs_one_failure_row_per_call(gatewa
         responses: Final = tuple(
             gateway.request("POST", "/v1/chat/completions", _chat(model, prompt)) for _ in range(2)
         )
-        call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+        call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
         assert len(set(call_ids)) == 2, call_ids
         assert [request.target for request in wire.drain()] == [_RESPONSES_PATH, _RESPONSES_PATH]
         for response, call_id in zip(responses, call_ids, strict=True):
@@ -731,7 +731,7 @@ def _burst_bodies(model: str, round_name: str) -> tuple[_Call, ...]:
 
 def _tagged_rows(tag: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT status FROM "LiteLLM_SpendLogs" WHERE request_tags::jsonb @> %s::jsonb', (json.dumps([tag]),)
+        'SELECT status FROM "HangarLLM_SpendLogs" WHERE request_tags::jsonb @> %s::jsonb', (json.dumps([tag]),)
     )
 
 
@@ -744,7 +744,7 @@ def _fire(gateway: Gateway, bodies: tuple[_Call, ...]) -> tuple[_Outcome, ...]:
     def one(item: _Call) -> _Outcome:
         path, body, overflow, tag = item
         with gateway.client.stream(
-            "POST", path, json=body, headers={"Authorization": f"Bearer {gateway.key}", "x-litellm-tags": tag}
+            "POST", path, json=body, headers={"Authorization": f"Bearer {gateway.key}", "x-hangarllm-tags": tag}
         ) as response:
             text: Final = b"".join(response.iter_bytes()).decode()
         return path, overflow, body["stream"] is True, response.status_code, tag, text

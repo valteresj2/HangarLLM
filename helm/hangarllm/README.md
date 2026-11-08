@@ -1,8 +1,8 @@
-# Helm Chart for LiteLLM
+# Helm Chart for HangarLLM
 
 > [!IMPORTANT]
 > This is community maintained, Please make an issue if you run into a bug
-> We recommend using [Docker or Kubernetes for production deployments](https://docs.litellm.ai/docs/proxy/prod)
+> We recommend using [Docker or Kubernetes for production deployments](https://github.com/valteresj2/HangarLLM#readme)
 
 ## Prerequisites
 
@@ -19,36 +19,36 @@ If `db.useStackgresOperator` is used (not yet implemented):
 
 ## Parameters
 
-### LiteLLM Proxy Deployment Settings
+### HangarLLM Proxy Deployment Settings
 
 | Name                        | Description                                                                                                                                                                                                                                   | Value                     |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `replicaCount`              | The number of LiteLLM Proxy pods to be deployed                                                                                                                                                                                               | `1`                       |
-| `masterkeySecretName`       | The name of the Kubernetes Secret that contains the Master API Key for LiteLLM. If not specified, use the generated secret name.                                                                                                              | N/A                       |
-| `masterkeySecretKey`        | The key within the Kubernetes Secret that contains the Master API Key for LiteLLM. If not specified, use `masterkey` as the key.                                                                                                              | N/A                       |
-| `masterkey`                 | The Master API Key for LiteLLM. If not specified, a random key in the `sk-...` format is generated on first install and reused on upgrades. | N/A                       |
-| `environmentSecrets`        | An optional array of Secret object names. The keys and values in these secrets will be presented to the LiteLLM proxy pod as environment variables. See below for an example Secret object.                                                   | `[]`                      |
-| `environmentConfigMaps`     | An optional array of ConfigMap object names. The keys and values in these configmaps will be presented to the LiteLLM proxy pod as environment variables. See below for an example Secret object.                                             | `[]`                      |
-| `image.repository`          | LiteLLM Proxy image repository                                                                                                                                                                                                                | `ghcr.io/hangarllm/hangarllm` |
-| `image.pullPolicy`          | LiteLLM Proxy image pull policy                                                                                                                                                                                                               | `IfNotPresent`            |
-| `image.tag`                 | Overrides the image tag whose default the latest version of LiteLLM at the time this chart was published.                                                                                                                                     | `""`                      |
-| `imagePullSecrets`          | Registry credentials for the LiteLLM and initContainer images.                                                                                                                                                                                | `[]`                      |
-| `serviceAccount.create`     | Whether or not to create a Kubernetes Service Account for this deployment. The default is `false` because LiteLLM has no need to access the Kubernetes API.                                                                                   | `false`                   |
+| `replicaCount`              | The number of HangarLLM Proxy pods to be deployed                                                                                                                                                                                               | `1`                       |
+| `masterkeySecretName`       | The name of the Kubernetes Secret that contains the Master API Key for HangarLLM. If not specified, use the generated secret name.                                                                                                              | N/A                       |
+| `masterkeySecretKey`        | The key within the Kubernetes Secret that contains the Master API Key for HangarLLM. If not specified, use `masterkey` as the key.                                                                                                              | N/A                       |
+| `masterkey`                 | The Master API Key for HangarLLM. If not specified, a random key in the `sk-...` format is generated on first install and reused on upgrades. | N/A                       |
+| `environmentSecrets`        | An optional array of Secret object names. The keys and values in these secrets will be presented to the HangarLLM proxy pod as environment variables. See below for an example Secret object.                                                   | `[]`                      |
+| `environmentConfigMaps`     | An optional array of ConfigMap object names. The keys and values in these configmaps will be presented to the HangarLLM proxy pod as environment variables. See below for an example Secret object.                                             | `[]`                      |
+| `image.repository`          | HangarLLM Proxy image repository                                                                                                                                                                                                                | `ghcr.io/hangarllm/hangarllm` |
+| `image.pullPolicy`          | HangarLLM Proxy image pull policy                                                                                                                                                                                                               | `IfNotPresent`            |
+| `image.tag`                 | Overrides the image tag whose default the latest version of HangarLLM at the time this chart was published.                                                                                                                                     | `""`                      |
+| `imagePullSecrets`          | Registry credentials for the HangarLLM and initContainer images.                                                                                                                                                                                | `[]`                      |
+| `serviceAccount.create`     | Whether or not to create a Kubernetes Service Account for this deployment. The default is `false` because HangarLLM has no need to access the Kubernetes API.                                                                                   | `false`                   |
 | `service.type`              | Kubernetes Service type (e.g. `LoadBalancer`, `ClusterIP`, etc.)                                                                                                                                                                              | `ClusterIP`               |
 | `service.port`              | TCP port that the Kubernetes Service will listen on. Also the TCP port within the Pod that the proxy will listen on.                                                                                                                          | `4000`                    |
-| `livenessProbe.*`           | Liveness probe settings for the LiteLLM container (`path`, `periodSeconds`, `timeoutSeconds`, thresholds, and initial delay).                                                                                                                  | See `values.yaml`         |
-| `readinessProbe.*`          | Readiness probe settings for the LiteLLM container (`path`, `periodSeconds`, `timeoutSeconds`, thresholds, and initial delay).                                                                                                                 | See `values.yaml`         |
-| `startupProbe.*`            | Startup probe settings for the LiteLLM container (`path`, `periodSeconds`, `timeoutSeconds`, thresholds, and initial delay).                                                                                                                   | See `values.yaml`         |
-| `resources.*`               | CPU/memory requests and limits for the LiteLLM container. Unset by default; production deployments should set 1 CPU and 4Gi of memory per worker.                                                                                             | `{}`                      |
+| `livenessProbe.*`           | Liveness probe settings for the HangarLLM container (`path`, `periodSeconds`, `timeoutSeconds`, thresholds, and initial delay).                                                                                                                  | See `values.yaml`         |
+| `readinessProbe.*`          | Readiness probe settings for the HangarLLM container (`path`, `periodSeconds`, `timeoutSeconds`, thresholds, and initial delay).                                                                                                                 | See `values.yaml`         |
+| `startupProbe.*`            | Startup probe settings for the HangarLLM container (`path`, `periodSeconds`, `timeoutSeconds`, thresholds, and initial delay).                                                                                                                   | See `values.yaml`         |
+| `resources.*`               | CPU/memory requests and limits for the HangarLLM container. Unset by default; production deployments should set 1 CPU and 4Gi of memory per worker.                                                                                             | `{}`                      |
 | `service.loadBalancerClass` | Optional LoadBalancer implementation class (only used when `service.type` is `LoadBalancer`)                                                                                                                                                  | `""`                      |
 | `ingress.labels`            | Additional labels for the Ingress resource                                                                                                                                                                                                    | `{}`                      |
 | `ingress.*`                 | See [values.yaml](./values.yaml) for example settings                                                                                                                                                                                         | N/A                       |
 | `proxyConfigMap.create`     | When `true`, render a ConfigMap from `.Values.proxy_config` and mount it.                                                                                                                                                                     | `true`                    |
 | `proxyConfigMap.name`       | When `create=false`, name of the existing ConfigMap to mount.                                                                                                                                                                                 | `""`                      |
 | `proxyConfigMap.key`        | Key in the ConfigMap that contains the proxy config file.                                                                                                                                                                                     | `"config.yaml"`           |
-| `proxy_config.*`            | See [values.yaml](./values.yaml) for default settings. Rendered into the ConfigMap’s `config.yaml` only when `proxyConfigMap.create=true`. See [example_config_yaml](../../../litellm/proxy/example_config_yaml/) for configuration examples. | `N/A`                     |
-| `extraContainers[]`         | An array of additional containers to be deployed as sidecars alongside the LiteLLM Proxy.                                                                                                                                                     |
-| `pdb.enabled`               | Enable a PodDisruptionBudget for the LiteLLM proxy Deployment                                                                                                                                                                                 | `false`                   |
+| `proxy_config.*`            | See [values.yaml](./values.yaml) for default settings. Rendered into the ConfigMap’s `config.yaml` only when `proxyConfigMap.create=true`. See [example_config_yaml](../../../hangarllm/proxy/example_config_yaml/) for configuration examples. | `N/A`                     |
+| `extraContainers[]`         | An array of additional containers to be deployed as sidecars alongside the HangarLLM Proxy.                                                                                                                                                     |
+| `pdb.enabled`               | Enable a PodDisruptionBudget for the HangarLLM proxy Deployment                                                                                                                                                                                 | `false`                   |
 | `pdb.minAvailable`          | Minimum number/percentage of pods that must be available during **voluntary** disruptions (choose **one** of minAvailable/maxUnavailable)                                                                                                     | `null`                    |
 | `pdb.maxUnavailable`        | Maximum number/percentage of pods that can be unavailable during **voluntary** disruptions (choose **one** of minAvailable/maxUnavailable)                                                                                                    | `null`                    |
 | `pdb.annotations`           | Extra metadata annotations to add to the PDB                                                                                                                                                                                                  | `{}`                      |
@@ -57,7 +57,7 @@ If `db.useStackgresOperator` is used (not yet implemented):
 | `billingMetrics.enabled`    | Enable enterprise billable-request metering. Requires an enterprise license.                                                                                                                                                                  | `false`                   |
 | `billingMetrics.endpoint`   | Collector that the billable-request counter is pushed to.                                                                                                                                                                                    | `""` |
 | `billingMetrics.tokenUrl`   | Cognito OAuth2 client-credentials token endpoint.                                                                                                                                                                                               | `""` |
-| `billingMetrics.secretName` | Name of an existing Secret with `client-id` and `client-secret` keys.                                                                                                                                                                           | `litellm-billing-metrics` |
+| `billingMetrics.secretName` | Name of an existing Secret with `client-id` and `client-secret` keys.                                                                                                                                                                           | `hangarllm-billing-metrics` |
 | `billingMetrics.exportIntervalMs` | How often the counter is pushed, in milliseconds. The proxy defaults to `60000` when unset.                                                                                                                                             | `""`                      |
 
 #### Example `proxy_config` ConfigMap from values (default):
@@ -79,7 +79,7 @@ The chart ships no models, so add them under `proxy_config.model_list` or from t
 proxy_config:
   model_list:
     - model_name: gpt-5.6
-      litellm_params:
+      hangarllm_params:
         model: openai/gpt-5.6
         api_key: os.environ/OPENAI_API_KEY
 ```
@@ -89,7 +89,7 @@ proxy_config:
 ```
 proxyConfigMap:
   create: false
-  name: my-litellm-config
+  name: my-hangarllm-config
   key: config.yaml
 
 # proxy_config is ignored in this mode
@@ -101,7 +101,7 @@ proxyConfigMap:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: litellm-envsecrets
+  name: hangarllm-envsecrets
 data:
   AZURE_OPENAI_API_KEY: TXlTZWN1cmVLM3k=
 type: Opaque
@@ -109,10 +109,10 @@ type: Opaque
 
 #### Enterprise billable-request metering
 
-Enterprise licenses meter billable requests by pushing a counter to LiteLLM's collector with Cognito bearer authentication. Create a Secret with `client-id` and `client-secret` keys, then enable the chart values:
+Enterprise licenses meter billable requests by pushing a counter to HangarLLM's collector with Cognito bearer authentication. Create a Secret with `client-id` and `client-secret` keys, then enable the chart values:
 
 ```
-kubectl create secret generic litellm-billing-metrics --from-literal=client-id=... --from-literal=client-secret=...
+kubectl create secret generic hangarllm-billing-metrics --from-literal=client-id=... --from-literal=client-secret=...
 ```
 
 ```
@@ -129,14 +129,14 @@ the Secret name when billing metrics are enabled
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `db.useExisting`          | Use an existing Postgres database. A Kubernetes Secret object must exist that contains credentials for connecting to the database. An example secret object definition is provided below.                                                                                                 | `false`                                                                                    |
 | `db.endpoint`             | If `db.useExisting` is `true`, this is the IP, Hostname or Service Name of the Postgres server to connect to.                                                                                                                                                                             | `localhost`                                                                                |
-| `db.database`             | If `db.useExisting` is `true`, the name of the existing database to connect to.                                                                                                                                                                                                           | `litellm`                                                                                  |
+| `db.database`             | If `db.useExisting` is `true`, the name of the existing database to connect to.                                                                                                                                                                                                           | `hangarllm`                                                                                  |
 | `db.url`                  | If `db.useExisting` is `true`, the connection url of the existing database to connect to can be overwritten with this value.                                                                                                                                                              | `postgresql://$(DATABASE_USERNAME):$(DATABASE_PASSWORD)@$(DATABASE_HOST)/$(DATABASE_NAME)` |
 | `db.secret.name`          | If `db.useExisting` is `true`, the name of the Kubernetes Secret that contains credentials.                                                                                                                                                                                               | `postgres`                                                                                 |
 | `db.secret.usernameKey`   | If `db.useExisting` is `true`, the name of the key within the Kubernetes Secret that holds the username for authenticating with the Postgres instance.                                                                                                                                    | `username`                                                                                 |
 | `db.secret.passwordKey`   | If `db.useExisting` is `true`, the name of the key within the Kubernetes Secret that holds the password associates with the above user.                                                                                                                                                   | `password`                                                                                 |
 | `db.username`             | If `db.useExisting` is `true`, the database user as a plain value. When set, `db.secret.usernameKey` is not read.                                                                                                                                                                        | `""`                                                                                       |
 | `db.port`                 | If `db.useExisting` is `true` with token auth, the Postgres port used to build the connection URL. Password auth takes the port from `db.url`.                                                                                                                                           | `5432`                                                                                     |
-| `db.schema`               | With token auth, the Postgres schema holding the LiteLLM tables, rendered as `DATABASE_SCHEMA` when the tables are not in `public`. Ignored with password auth, where the schema stays in `db.url` as `?schema=`.                                                                        | `""`                                                                                       |
+| `db.schema`               | With token auth, the Postgres schema holding the HangarLLM tables, rendered as `DATABASE_SCHEMA` when the tables are not in `public`. Ignored with password auth, where the schema stays in `db.url` as `?schema=`.                                                                        | `""`                                                                                       |
 | `db.useIAMAuth`           | If `db.useExisting` is `true` and `db.deployStandalone` is `false`, authenticate with an AWS RDS IAM token instead of a password. See [Token auth](#token-auth-to-an-existing-postgres-rds-iam-or-microsoft-entra-id).                                                                  | `false`                                                                                    |
 | `db.useAzureEntraAuth`    | If `db.useExisting` is `true` and `db.deployStandalone` is `false`, authenticate with a Microsoft Entra ID token instead of a password. Mutually exclusive with `db.useIAMAuth`.                                                                                                        | `false`                                                                                    |
 | `db.useStackgresOperator` | Not yet implemented.                                                                                                                                                                                                                                                                      | `false`                                                                                    |
@@ -164,7 +164,7 @@ metadata:
 data:
   # Password for the "postgres" user
   postgres-password: <some secure password, base64 encoded>
-  username: litellm
+  username: hangarllm
   password: <some secure password, base64 encoded>
 type: Opaque
 ```
@@ -178,9 +178,9 @@ db:
   useExisting: true
   deployStandalone: false
   useIAMAuth: true
-  endpoint: litellm.cluster-abc123.us-west-1.rds.amazonaws.com
-  database: litellm
-  username: litellm_iam   # the role granted rds_iam; no db.secret needed
+  endpoint: hangarllm.cluster-abc123.us-west-1.rds.amazonaws.com
+  database: hangarllm
+  username: hangarllm_iam   # the role granted rds_iam; no db.secret needed
 ```
 
 The pod needs cloud credentials for the token: on EKS use IRSA or Pod Identity on the chart's `serviceAccount` (and `migrationJob.serviceAccountName` when the Helm hook runs before the ServiceAccount exists), on AKS use workload identity. Set `AWS_RDS_REGION` under `envVars` when the RDS hostname is not a standard regional endpoint (the token must be signed for the region the database lives in). TLS options that would otherwise go in `db.url` are set as `DATABASE_SSLMODE` and `DATABASE_SSLROOTCERT` under `envVars`. Leaving `db.username` empty reads the user from `db.secret.usernameKey` as before.
@@ -192,7 +192,7 @@ The pod needs cloud credentials for the token: on EKS use IRSA or Pod Identity o
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: litellm-env-configmap
+  name: hangarllm-env-configmap
 data:
   SOME_KEY: someValue
   ANOTHER_KEY: anotherValue
@@ -206,7 +206,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: litellm-env-secret
+  name: hangarllm-env-secret
 type: Opaque
 data:
   SOME_PASSWORD: cDZbUGVXeU5e0ZW # base64 encoded
@@ -234,18 +234,18 @@ The migration job supports both ArgoCD and Helm hooks to ensure database migrati
 
 When browsing to the URL published per the settings in `ingress.*`, you will
 be prompted for **Admin Configuration**. The **Proxy Endpoint** is the internal
-(from the `litellm` pod's perspective) URL published by the `<RELEASE>-litellm`
+(from the `hangarllm` pod's perspective) URL published by the `<RELEASE>-hangarllm`
 Kubernetes Service. If the deployment uses the default settings for this
-service, the **Proxy Endpoint** should be set to `http://<RELEASE>-litellm:4000`.
+service, the **Proxy Endpoint** should be set to `http://<RELEASE>-hangarllm:4000`.
 
 The **Proxy Key** is the value specified for `masterkey` or, if a `masterkey`
 was not provided to the helm command line, the `masterkey` is a randomly
-generated string in the `sk-...` format stored in the `<RELEASE>-litellm-masterkey` Kubernetes Secret.
+generated string in the `sk-...` format stored in the `<RELEASE>-hangarllm-masterkey` Kubernetes Secret.
 The key is generated once on the first install; later `helm upgrade` runs reuse the
 value already in that Secret, so upgrading never rotates the master key.
 
 ```bash
-kubectl -n litellm get secret <RELEASE>-litellm-masterkey -o jsonpath="{.data.masterkey}"
+kubectl -n hangarllm get secret <RELEASE>-hangarllm-masterkey -o jsonpath="{.data.masterkey}"
 ```
 
 ## Admin UI Limitations

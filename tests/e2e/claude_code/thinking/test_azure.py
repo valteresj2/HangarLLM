@@ -1,12 +1,12 @@
 """thinking x Azure (Microsoft Foundry).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to Anthropic's models hosted in Microsoft Foundry on
 Azure, enable extended thinking via `--effort high`, and assert
 that the upstream returned a `thinking` content block.
 
 Foundry's Claude deployments advertise `supports_reasoning: true` in
-LiteLLM's pricing metadata; the `thinking={"type": "enabled", ...}`
+HangarLLM's pricing metadata; the `thinking={"type": "enabled", ...}`
 parameter passes through `azure_ai/claude-*` to Foundry's
 `/anthropic/v1/messages` endpoint unchanged. Note that
 `claude-opus-4-7-preview` documents thinking as not supported on
@@ -76,7 +76,7 @@ def _has_thinking_block(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_thinking_azure(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy with thinking
+    """Drive the `claude` CLI against the HangarLLM proxy with thinking
     enabled and assert a `thinking` content block was emitted."""
     base_url, api_key = require_proxy(compat_result)
 

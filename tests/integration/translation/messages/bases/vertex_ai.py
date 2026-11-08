@@ -14,8 +14,8 @@ CLAUDE_HAIKU_5_5_MESSAGES_THINKING_SIGNATURE: Final = "CAQS4wYKEggSEAIYAjgBQgh0a
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "vertex_ai/claude-haiku-4-5@20251001",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -49,8 +49,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens": 5,
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "model": "vertex_ai/claude-haiku-4-5@20251001",
         "id": "msg_vrtx_011CfjuyLkoJCtCANzSshqj7",
         "type": "message",
@@ -72,8 +72,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "vertex_ai/claude-sonnet-4-6@default",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -107,8 +107,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
             "output_tokens": 5,
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "model": "vertex_ai/claude-sonnet-4-6@default",
         "id": "msg_vrtx_011CfjuxNMG2o9mmi6TvgC48",
         "type": "message",
@@ -130,8 +130,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "vertex_ai/claude-sonnet-5@default",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -166,8 +166,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "model": "vertex_ai/claude-sonnet-5@default",
         "id": "msg_vrtx_011CfjuyZQJsY8CfdZxY6C9E",
         "type": "message",
@@ -190,8 +190,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "vertex_ai/claude-opus-4-8@default",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -226,8 +226,8 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "model": "vertex_ai/claude-opus-4-8@default",
         "id": "msg_vrtx_011Cfjuyk5joSiAW8h6nktJh",
         "type": "message",
@@ -250,8 +250,8 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_3_5_FLASH_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "vertex_ai/gemini-3.5-flash",
         "max_tokens": 1024,
         "system": "You are a terse assistant.",
@@ -288,8 +288,8 @@ GEMINI_3_5_FLASH_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-05T22:54:50.809002Z",
         "responseId": "uirEaqqwMc-U9LsPjJTYuQU",
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "id": "uirEaqqwMc-U9LsPjJTYuQU",
         "type": "message",
         "role": "assistant",
@@ -389,8 +389,8 @@ GEMINI_4_ARGON_MESSAGES_THOUGHT_SIGNATURE_0: Final = (
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-sonnet-5-5@default"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-sonnet-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-sonnet-5-5@default:rawPredict",
     expected_provider_headers={"authorization": "Bearer scripted-token", "content-type": "application/json"},
     expected_provider_request={
@@ -447,7 +447,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 159},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **VERTEX_AI_ANTHROPIC_MESSAGES_RESPONSE,
         "model": "vertex_ai/claude-sonnet-5-5@default",
         "id": "msg_vrtx_011Cg38paXLscBt8ARDQWjmd",
@@ -489,8 +489,8 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-haiku-5-5@default"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-haiku-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-haiku-5-5@default:rawPredict",
     expected_provider_headers={"authorization": "Bearer scripted-token", "content-type": "application/json"},
     expected_provider_request={
@@ -547,7 +547,7 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 129},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **VERTEX_AI_ANTHROPIC_MESSAGES_RESPONSE,
         "model": "vertex_ai/claude-haiku-5-5@default",
         "id": "msg_vrtx_011Cg8BfjWDUi4ZYQxpy6aVM",
@@ -589,8 +589,8 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-opus-5-5@default"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-opus-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-opus-5-5@default:rawPredict",
     expected_provider_headers={"authorization": "Bearer scripted-token", "content-type": "application/json"},
     expected_provider_request={
@@ -646,7 +646,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 70},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **VERTEX_AI_ANTHROPIC_MESSAGES_RESPONSE,
         "model": "vertex_ai/claude-opus-5-5@default",
         "id": "msg_vrtx_011Cg38pLy1pX8GQEfjq6NFo",
@@ -687,8 +687,8 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-fable-5-1@default"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "vertex_ai/claude-fable-5-1@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-fable-5-1@default:rawPredict",
     expected_provider_headers={"authorization": "Bearer scripted-token", "content-type": "application/json"},
     expected_provider_request={
@@ -733,7 +733,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **VERTEX_AI_ANTHROPIC_MESSAGES_RESPONSE,
         "model": "vertex_ai/claude-fable-5-1@default",
         "id": "msg_vrtx_011Cg38pBu4rsBNuTwSrvoze",
@@ -763,8 +763,8 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "vertex_ai/gemini-3.8-flash"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "vertex_ai/gemini-3.8-flash"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.8-flash:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={
@@ -841,7 +841,7 @@ GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-15T01:13:45.750641Z",
         "responseId": "ySjQarHoLb2apucPwee_YQ",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_BRIDGE_RESPONSE,
         "id": "ySjQarHoLb2apucPwee_YQ",
         "model": "vertex_ai/gemini-3.8-flash",
@@ -889,8 +889,8 @@ GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "vertex_ai/gemini-3.1-pro-preview"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "vertex_ai/gemini-3.1-pro-preview"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.1-pro-preview:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={
@@ -969,7 +969,7 @@ GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-15T01:13:40.675781Z",
         "responseId": "xCjQasWfKcyL9LsPx7HAqQ8",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_BRIDGE_RESPONSE,
         "id": "xCjQasWfKcyL9LsPx7HAqQ8",
         "model": "vertex_ai/gemini-3.1-pro-preview",
@@ -1019,8 +1019,8 @@ GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_4_ARGON_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "vertex_ai/gemini-4-argon"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "vertex_ai/gemini-4-argon"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-4-argon:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={
@@ -1093,7 +1093,7 @@ GEMINI_4_ARGON_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-15T01:13:52.985186Z",
         "responseId": "0CjQauKQPNyFpucPldSPiAY",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_BRIDGE_RESPONSE,
         "id": "0CjQauKQPNyFpucPldSPiAY",
         "model": "vertex_ai/gemini-4-argon",

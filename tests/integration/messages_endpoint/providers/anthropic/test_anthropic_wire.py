@@ -38,7 +38,7 @@ def test_anthropic_tool_history_and_cache_tokens_keep_wire_and_accounting_contra
         assert body["system"] == [{"type": "text", "text": "synthetic policy", "cache_control": {"type": "ephemeral"}}]
         assert body["tools"][0]["name"] == "add" and body["tools"][0]["input_schema"] == tool_schema
         assert body["max_tokens"] == 16
-        assert not {"timeout", "stream_chunk_size", "litellm_params", "litellm_metadata", "rpm", "tpm"}.intersection(
+        assert not {"timeout", "stream_chunk_size", "hangarllm_params", "hangarllm_metadata", "rpm", "tpm"}.intersection(
             body
         )
         messages: Final = body["messages"]
@@ -123,7 +123,7 @@ def test_anthropic_tool_history_and_cache_tokens_keep_wire_and_accounting_contra
         assert len(wire.drain()) == 1
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, prompt_tokens, completion_tokens, metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT spend, prompt_tokens, completion_tokens, metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (body["id"],),
             ),
             lambda values: len(values) == 1,
@@ -176,8 +176,8 @@ def test_anthropic_messages_slow_upstream_is_cut_off_at_the_deployment_request_t
             "timeout",
             "request_timeout",
             "stream_chunk_size",
-            "litellm_params",
-            "litellm_metadata",
+            "hangarllm_params",
+            "hangarllm_metadata",
             "rpm",
             "tpm",
         }.intersection(body)
@@ -357,7 +357,7 @@ def test_anthropic_messages_preserves_cli_beta_safeguards_and_result(gateway: Ga
 
 
 @pytest.mark.parametrize(
-    ("status", "error_type", "error_class", "litellm_error"),
+    ("status", "error_type", "error_class", "hangarllm_error"),
     [
         pytest.param(429, "rate_limit_error", anthropic.RateLimitError, "RateLimitError", id="rate_limit"),
         pytest.param(400, "invalid_request_error", anthropic.BadRequestError, "BadRequestError", id="invalid_request"),
@@ -368,7 +368,7 @@ def test_anthropic_messages_preserves_upstream_error_status_and_body(
     status: int,
     error_type: str,
     error_class: type[anthropic.APIStatusError],
-    litellm_error: str,
+    hangarllm_error: str,
 ) -> None:
     message: Final = f"synthetic {error_type}"
     expected_error: Final = {"type": "error", "error": {"type": error_type, "message": message}}
@@ -413,8 +413,8 @@ def test_anthropic_messages_preserves_upstream_error_status_and_body(
             "error": {
                 "type": error_type,
                 "message": (
-                    f"litellm.{litellm_error}: AnthropicException - {json.dumps(expected_error)}\n\n"
-                    f"LiteLLM: model group '{model}' failed with the error above. No fallback was attempted."
+                    f"hangarllm.{hangarllm_error}: AnthropicException - {json.dumps(expected_error)}\n\n"
+                    f"HangarLLM: model group '{model}' failed with the error above. No fallback was attempted."
                 ),
             },
         }, caught.value.response.text
@@ -467,8 +467,8 @@ def test_anthropic_messages_preserves_upstream_rate_limit_retry_after(gateway: G
             "error": {
                 "type": "rate_limit_error",
                 "message": (
-                    f"litellm.RateLimitError: AnthropicException - {json.dumps(upstream_error)}\n\n"
-                    f"LiteLLM: model group '{model}' failed with the error above. No fallback was attempted."
+                    f"hangarllm.RateLimitError: AnthropicException - {json.dumps(upstream_error)}\n\n"
+                    f"HangarLLM: model group '{model}' failed with the error above. No fallback was attempted."
                 ),
             },
         }, caught.value.response.text

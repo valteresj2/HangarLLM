@@ -10,11 +10,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.ptu_shares import PTUTeamCeiling
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.router_api import ChangeSet
-from litellm.types.router import AllowedFailsPolicy
+import hangarllm
+from hangarllm.hangarllm_core_utils.ptu_shares import PTUTeamCeiling
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.router_api import ChangeSet
+from hangarllm.types.router import AllowedFailsPolicy
 from tests.unit.test_router.core.scripted_host import (
     auth_error,
     bad_request,
@@ -30,12 +30,12 @@ from tests.unit.test_router.core.selection_helpers import MakeCore, picked_ids
 # --- settings().allowed_fails_for ----------------------------------------------------------------
 
 
-def _bad_gateway() -> litellm.BadGatewayError:
-    return litellm.BadGatewayError(message="bad gateway", llm_provider="openai", model="gpt-4o")
+def _bad_gateway() -> hangarllm.BadGatewayError:
+    return hangarllm.BadGatewayError(message="bad gateway", llm_provider="openai", model="gpt-4o")
 
 
-def _connection_error() -> litellm.APIConnectionError:
-    return litellm.APIConnectionError(message="no route", llm_provider="openai", model="gpt-4o")
+def _connection_error() -> hangarllm.APIConnectionError:
+    return hangarllm.APIConnectionError(message="no route", llm_provider="openai", model="gpt-4o")
 
 
 FULL_POLICY: Final = AllowedFailsPolicy(
@@ -219,10 +219,10 @@ def test_the_for_request_source_finds_one_teams_public_name_for_a_proxy_admin(ma
 def test_the_for_request_source_refuses_a_name_several_teams_share_for_a_proxy_admin(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(TEAMS_AND_GROUPS))
     admin: Final = {"metadata": {"user_api_key_auth": UserAPIKeyAuth(user_role="proxy_admin")}}  # pyright: ignore[reportCallIssue]
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         core.registry().deployments("pub", source="for_request", request=admin)
     assert str(raised.value) == (
-        "litellm.BadRequestError: Model name 'pub' matches deployments from multiple teams. "
+        "hangarllm.BadRequestError: Model name 'pub' matches deployments from multiple teams. "
         "Specify the deployment ID directly to disambiguate."
     )
 
@@ -292,8 +292,8 @@ async def test_a_group_only_share_holders_may_use_refuses_everyone_else(
     make_core: MakeCore, request_kwargs: dict[str, object]
 ) -> None:
     core: Final = make_core(model_list=list(PTU_MODELS))
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("gpt", dict(request_kwargs))
     assert str(raised.value) == (
-        "litellm.BadRequestError: Deployment gpt is reserved for the teams holding a PTU share of it"
+        "hangarllm.BadRequestError: Deployment gpt is reserved for the teams holding a PTU share of it"
     )

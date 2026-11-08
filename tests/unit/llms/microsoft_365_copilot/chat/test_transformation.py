@@ -4,19 +4,19 @@ from typing import Final, Protocol, cast
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.llms.anthropic.messages.adapters.transformation import LiteLLMAnthropicMessagesAdapter
-from litellm.llms.microsoft_365_copilot.chat.transformation import (
+import hangarllm
+from hangarllm.llms.anthropic.messages.adapters.transformation import HangarLLMAnthropicMessagesAdapter
+from hangarllm.llms.microsoft_365_copilot.chat.transformation import (
     Microsoft365CopilotChatConfig,
     build_chat_request,
     extract_graph_error_message,
     map_graph_response,
 )
-from litellm.llms.microsoft_365_copilot.common_utils import Microsoft365CopilotError
-from litellm.types.llms.anthropic import AllAnthropicPassThroughMessageValues
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import LlmProviders, Usage
-from litellm.utils import ProviderConfigManager, token_counter
+from hangarllm.llms.microsoft_365_copilot.common_utils import Microsoft365CopilotError
+from hangarllm.types.llms.anthropic import AllAnthropicPassThroughMessageValues
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.utils import LlmProviders, Usage
+from hangarllm.utils import ProviderConfigManager, token_counter
 
 
 class _ModelResponseWithUsage(Protocol):
@@ -153,7 +153,7 @@ def test_anthropic_adapter_preserves_trailing_system_context_for_m365() -> None:
         ],
     )
     translated_messages: Final = TypeAdapter(list[AllMessageValues]).validate_python(
-        LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+        HangarLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
             desktop_messages,
             model="microsoft_365_copilot/chat",
             custom_llm_provider="microsoft_365_copilot",
@@ -324,12 +324,12 @@ def test_provider_config_accepts_openai_compatibility_params() -> None:
 
 
 def test_provider_is_registered_for_model_resolution_and_chat_config() -> None:
-    _, provider, _, _ = litellm.get_llm_provider(model="microsoft_365_copilot/chat")
+    _, provider, _, _ = hangarllm.get_llm_provider(model="microsoft_365_copilot/chat")
     config: Final = ProviderConfigManager.get_provider_chat_config(
         model="microsoft_365_copilot/chat",
         provider=LlmProviders.MICROSOFT_365_COPILOT,
     )
 
     assert provider == LlmProviders.MICROSOFT_365_COPILOT.value
-    assert LlmProviders.MICROSOFT_365_COPILOT in litellm.provider_list
+    assert LlmProviders.MICROSOFT_365_COPILOT in hangarllm.provider_list
     assert isinstance(config, Microsoft365CopilotChatConfig)

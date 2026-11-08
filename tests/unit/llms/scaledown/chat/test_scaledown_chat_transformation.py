@@ -8,13 +8,13 @@ import pytest
 import respx
 from pydantic import JsonValue
 
-import litellm
-from litellm.llms.scaledown.chat.transformation import (
+import hangarllm
+from hangarllm.llms.scaledown.chat.transformation import (
     DECISIONS_UPSTREAM_MODEL,
     ScaleDownChatConfig,
     ScaleDownError,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 
 BASE = "https://api.scaledown.xyz"
 
@@ -45,14 +45,14 @@ def _transform_response(
         request_data=request_data or {},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
 
 def _build_decisions(config: ScaleDownChatConfig, messages: list, optional_params: dict) -> dict:
     body = config.transform_request(
-        model="scaledown/decisions", messages=messages, optional_params=optional_params, litellm_params={}, headers={}
+        model="scaledown/decisions", messages=messages, optional_params=optional_params, hangarllm_params={}, headers={}
     )
     config.sign_request(
         headers={},
@@ -70,7 +70,7 @@ def test_auth_uses_x_api_key_not_bearer(config):
         model="scaledown/extract",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-explicit",
     )
 
@@ -87,7 +87,7 @@ def test_missing_api_key_is_rejected_before_any_request(config, monkeypatch):
             model="scaledown/extract",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
     assert exc.value.status_code == 401
@@ -104,7 +104,7 @@ def test_missing_api_key_is_rejected_before_any_request(config, monkeypatch):
     ],
 )
 def test_each_model_targets_its_native_endpoint(config, model, path):
-    url = config.get_complete_url(api_base=None, api_key="k", model=model, optional_params={}, litellm_params={})
+    url = config.get_complete_url(api_base=None, api_key="k", model=model, optional_params={}, hangarllm_params={})
 
     assert url == f"{BASE}{path}"
 
@@ -115,10 +115,10 @@ def test_each_model_targets_its_native_endpoint(config, model, path):
 )
 def test_api_base_with_or_without_v1_resolves_to_the_same_host(config, api_base):
     extract = config.get_complete_url(
-        api_base=api_base, api_key="k", model="scaledown/extract", optional_params={}, litellm_params={}
+        api_base=api_base, api_key="k", model="scaledown/extract", optional_params={}, hangarllm_params={}
     )
     decisions = config.get_complete_url(
-        api_base=api_base, api_key="k", model="scaledown/decisions", optional_params={}, litellm_params={}
+        api_base=api_base, api_key="k", model="scaledown/decisions", optional_params={}, hangarllm_params={}
     )
 
     assert extract == "https://staging.scaledown.xyz/extract"
@@ -138,7 +138,7 @@ def test_decisions_request_carries_state_and_questions_without_chat_keys(config)
         model="scaledown/decisions",
         messages=[{"role": "user", "content": "I was charged twice."}],
         optional_params={"questions": questions},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -154,7 +154,7 @@ def test_decisions_alias_sends_the_only_model_upstream_accepts(config):
         model="scaledown/decisions",
         messages=[{"role": "user", "content": "text"}],
         optional_params={"questions": {"q": {"type": "noul", "instructions": "Positive?"}}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -194,7 +194,7 @@ def test_extra_body_may_set_extract_options(config):
         extra_body={"threshold": 0.7},
         request={"text": "t", "entities": {}},
         model="scaledown/extract",
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert merged == {"threshold": 0.7}
@@ -215,7 +215,7 @@ def test_extra_body_may_set_extract_options(config):
 )
 def test_extra_body_cannot_override_the_model_or_prompt_text(config, model, extra_body):
     with pytest.raises(ScaleDownError, match=r"may only set|is not accepted"):
-        config.transform_extra_body(extra_body=extra_body, request={}, model=model, litellm_params={})
+        config.transform_extra_body(extra_body=extra_body, request={}, model=model, hangarllm_params={})
 
 
 def test_compress_rate_via_extra_body_sets_the_scaledown_rate(config):
@@ -223,7 +223,7 @@ def test_compress_rate_via_extra_body_sets_the_scaledown_rate(config):
         extra_body={"compression_rate": 0.5},
         request={"context": "", "prompt": "q", "scaledown": {"rate": "auto"}},
         model="scaledown/compress",
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert merged == {"scaledown": {"rate": 0.5}}
@@ -236,7 +236,7 @@ def test_env_key_is_not_sent_to_an_untrusted_api_base(config):
             model="scaledown/extract",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_base="https://attacker.example",
         )
 
@@ -249,14 +249,14 @@ def test_empty_key_does_not_unlock_the_env_key_for_an_untrusted_api_base(config,
             model="scaledown/extract",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=empty_key,
             api_base="https://attacker.example",
         )
 
 
 def test_explicit_key_or_trusted_api_base_is_allowed(config, monkeypatch):
-    kwargs = dict(headers={}, model="scaledown/extract", messages=[], optional_params={}, litellm_params={})
+    kwargs = dict(headers={}, model="scaledown/extract", messages=[], optional_params={}, hangarllm_params={})
     assert (
         config.validate_environment(api_key="own", api_base="https://elsewhere.example", **kwargs)["x-api-key"] == "own"
     )
@@ -297,7 +297,7 @@ def test_unknown_question_type_is_rejected(config):
             model="scaledown/decisions",
             messages=[{"role": "user", "content": "t"}],
             optional_params={"questions": {"q": {"type": "ranking"}}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -308,7 +308,7 @@ def test_choice_question_without_criteria_is_rejected(config):
             model="scaledown/decisions",
             messages=[{"role": "user", "content": "t"}],
             optional_params={"questions": {"q": {"type": "choice", "criteria": {}}}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -320,7 +320,7 @@ def test_score_criteria_outside_two_to_ten_is_rejected(config, levels):
             model="scaledown/decisions",
             messages=[{"role": "user", "content": "t"}],
             optional_params={"questions": {"q": {"type": "score", "criteria": ["l"] * levels}}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -333,7 +333,7 @@ def test_score_criteria_within_two_to_ten_is_accepted(config, levels):
         model="scaledown/decisions",
         messages=[{"role": "user", "content": "t"}],
         optional_params={"questions": {"q": {"type": "score", "criteria": criteria}}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -439,7 +439,7 @@ def test_extract_schema_follows_local_refs(config: ScaleDownChatConfig, wrapper:
         model="scaledown/extract",
         messages=[{"role": "user", "content": "text"}],
         optional_params={"response_format": {"type": "json_schema", "json_schema": {"name": "n", "schema": schema}}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -526,8 +526,8 @@ def test_extract_rejects_unsupported_composition(config: ScaleDownChatConfig, fi
 @respx.mock
 @pytest.mark.parametrize("question_type", [[], {}])
 def test_malformed_question_types_are_request_errors(question_type: list[JsonValue] | dict[str, JsonValue]) -> None:
-    with pytest.raises(litellm.BadRequestError, match="Question 'q'"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match="Question 'q'"):
+        hangarllm.completion(
             model="scaledown/decisions",
             messages=[{"role": "user", "content": "text"}],
             questions={"q": {"type": question_type}},
@@ -538,8 +538,8 @@ def test_malformed_question_types_are_request_errors(question_type: list[JsonVal
 
 @respx.mock
 def test_unknown_scaledown_model_is_a_request_error() -> None:
-    with pytest.raises(litellm.BadRequestError, match="Unknown ScaleDown model"):
-        litellm.completion(model="scaledown/unknown", messages=[{"role": "user", "content": "text"}])
+    with pytest.raises(hangarllm.BadRequestError, match="Unknown ScaleDown model"):
+        hangarllm.completion(model="scaledown/unknown", messages=[{"role": "user", "content": "text"}])
 
     assert not respx.calls
 
@@ -549,7 +549,7 @@ def _extract_body(config: ScaleDownChatConfig, schema: dict) -> dict:
         model="scaledown/extract",
         messages=[{"role": "user", "content": "text"}],
         optional_params={"response_format": {"type": "json_schema", "json_schema": {"name": "n", "schema": schema}}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -624,7 +624,7 @@ def test_extract_request_maps_schema_to_entities_including_nesting(config):
         model="scaledown/extract",
         messages=[{"role": "user", "content": "Invoice from Northwind."}],
         optional_params={"response_format": {"type": "json_schema", "json_schema": {"name": "i", "schema": schema}}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -645,7 +645,7 @@ def test_extract_without_a_schema_is_rejected(config):
             model="scaledown/extract",
             messages=[{"role": "user", "content": "text"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -661,7 +661,7 @@ def test_summarize_request_splits_instructions_text_and_max_tokens(
             {"role": "user", "content": "a long document"},
         ],
         optional_params={"max_tokens": 40},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -676,7 +676,7 @@ def test_compress_request_puts_earlier_messages_in_context_and_defaults_rate_to_
             {"role": "user", "content": "the question"},
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -752,7 +752,7 @@ def test_non_json_response_is_an_upstream_error(config: ScaleDownChatConfig, ups
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -789,7 +789,7 @@ def test_completion_sends_x_api_key_to_the_native_summarize_endpoint():
         return_value=httpx.Response(200, json={"summary": "s", "input_tokens": 120})
     )
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="scaledown/summarize",
         messages=[
             {"role": "system", "content": "Be terse."},
@@ -824,7 +824,7 @@ def test_completion_routes_decisions_to_the_decisions_endpoint():
         )
     )
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="scaledown/decisions",
         messages=[{"role": "user", "content": "I was charged twice."}],
         questions={
@@ -857,7 +857,7 @@ def test_completion_extract_converts_response_format_to_entities():
     extract_result = {"entities": [], "structured_result": {"vendor": "Acme Corp"}, "input_tokens": 20}
     route = respx.post(f"{BASE}/extract").mock(return_value=httpx.Response(200, json=extract_result))
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="scaledown/extract",
         messages=[{"role": "user", "content": "Acme Corp invoiced $500."}],
         response_format=schema,
@@ -884,14 +884,14 @@ def test_completion_cost_comes_from_input_tokens_not_upstream_usage_cost():
         )
     )
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="scaledown/decisions",
         messages=[{"role": "user", "content": "text"}],
         questions={"q": {"type": "noul", "instructions": "Positive?"}},
     )
 
-    cost = litellm.completion_cost(completion_response=response, model="scaledown/decisions")
-    assert cost == pytest.approx(1000 * litellm.model_cost["scaledown/decisions"]["input_cost_per_token"])
+    cost = hangarllm.completion_cost(completion_response=response, model="scaledown/decisions")
+    assert cost == pytest.approx(1000 * hangarllm.model_cost["scaledown/decisions"]["input_cost_per_token"])
 
 
 @respx.mock
@@ -908,7 +908,7 @@ def test_completion_honors_scaledown_api_base(monkeypatch):
         )
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="scaledown/decisions",
         messages=[{"role": "user", "content": "text"}],
         questions={"q": {"type": "noul", "instructions": "Positive?"}},
@@ -921,8 +921,8 @@ def test_completion_honors_scaledown_api_base(monkeypatch):
 def test_upstream_payment_error_surfaces_the_detail():
     respx.post(f"{BASE}/v1/scaledown").mock(return_value=httpx.Response(402, json={"detail": "Insufficient credits"}))
 
-    with pytest.raises(litellm.exceptions.BadRequestError) as exc:
-        litellm.completion(
+    with pytest.raises(hangarllm.exceptions.BadRequestError) as exc:
+        hangarllm.completion(
             model="scaledown/decisions",
             messages=[{"role": "user", "content": "text"}],
             questions={"q": {"type": "noul", "instructions": "Positive?"}},
@@ -941,8 +941,8 @@ def test_failed_completion_invokes_post_api_logger() -> None:
 
     respx.post(f"{BASE}/v1/scaledown").respond(402, json={"detail": "Insufficient credits"})
 
-    with pytest.raises(litellm.BadRequestError):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError):
+        hangarllm.completion(
             model="scaledown/decisions",
             messages=[{"role": "user", "content": "text"}],
             questions={"q": {"type": "noul", "instructions": "Positive?"}},
@@ -958,7 +958,7 @@ def test_malformed_decisions_request_never_reaches_the_network():
     route = respx.post(f"{BASE}/v1/scaledown")
 
     with pytest.raises(Exception, match="questions"):
-        litellm.completion(
+        hangarllm.completion(
             model="scaledown/decisions",
             messages=[{"role": "user", "content": "text"}],
         )
@@ -980,7 +980,7 @@ def test_questions_passed_through_extra_body_reach_scaledown():
     )
     questions = {"q": {"type": "noul", "instructions": "Positive?"}}
 
-    litellm.completion(
+    hangarllm.completion(
         model="scaledown/decisions",
         messages=[{"role": "user", "content": "text"}],
         extra_body={"questions": questions},
@@ -997,7 +997,7 @@ def test_streaming_request_is_served_as_a_single_chunk():
     )
 
     chunks = list(
-        litellm.completion(
+        hangarllm.completion(
             model="scaledown/compress",
             messages=[{"role": "user", "content": "the question"}],
             stream=True,
@@ -1042,8 +1042,8 @@ def test_extract_merges_first_scalar_match_with_nested_fields(config, structured
 @respx.mock
 def test_strict_extraction_is_rejected_before_network():
     route = respx.post(f"{BASE}/extract")
-    with pytest.raises(litellm.BadRequestError, match="strict JSON schemas"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match="strict JSON schemas"):
+        hangarllm.completion(
             model="scaledown/extract",
             messages=[{"role": "user", "content": "Invoice from Northwind. Total: $500."}],
             response_format={
@@ -1103,7 +1103,7 @@ def test_classify_uses_native_labels_and_preserves_scores(nested):
     ]
     options = {"extra_body": {"labels": labels}} if nested else {"labels": labels}
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="scaledown/classify",
         messages=[{"role": "user", "content": [{"type": "text", "text": "Server is down."}]}],
         **options,
@@ -1112,8 +1112,8 @@ def test_classify_uses_native_labels_and_preserves_scores(nested):
     assert json.loads(route.calls[0].request.content) == {"text": "Server is down.", "labels": labels}
     assert json.loads(response.choices[0].message.content) == payload
     assert response.usage.prompt_tokens == 521
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(
-        521 * litellm.model_cost["scaledown/classify"]["input_cost_per_token"]
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(
+        521 * hangarllm.model_cost["scaledown/classify"]["input_cost_per_token"]
     )
 
 
@@ -1121,8 +1121,8 @@ def test_classify_uses_native_labels_and_preserves_scores(nested):
 @pytest.mark.parametrize("labels", [None, [], ["urgent"], [{"name": "urgent"}]])
 def test_classify_requires_labels_before_network(labels):
     route = respx.post(f"{BASE}/classify")
-    with pytest.raises(litellm.BadRequestError, match=r"labels|rubric"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match=r"labels|rubric"):
+        hangarllm.completion(
             model="scaledown/classify", messages=[{"role": "user", "content": "text"}], extra_body={"labels": labels}
         )
     assert not route.called
@@ -1131,7 +1131,7 @@ def test_classify_requires_labels_before_network(labels):
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_extraction_keeps_flat_fields_and_usage():
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     route = respx.post(f"{BASE}/extract").mock(
         return_value=httpx.Response(
@@ -1145,7 +1145,7 @@ async def test_async_extraction_keeps_flat_fields_and_usage():
     )
     client = AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport())
     try:
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="scaledown/extract",
             messages=[{"role": "user", "content": "Invoice from Northwind."}],
             response_format={
@@ -1173,9 +1173,9 @@ def test_router_stream_includes_usage_without_sending_stream_options_upstream():
     route = respx.post(f"{BASE}/summarization/abstractive").mock(
         return_value=httpx.Response(200, json={"summary": "Fixed billing.", "input_tokens": 90})
     )
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "summary", "litellm_params": {"model": "scaledown/summarize", "api_key": "test-key"}}
+            {"model_name": "summary", "hangarllm_params": {"model": "scaledown/summarize", "api_key": "test-key"}}
         ],
         num_retries=0,
     )
@@ -1204,8 +1204,8 @@ def test_pydantic_response_format_does_not_silently_claim_strict_support():
         vendor: str
 
     route = respx.post(f"{BASE}/extract")
-    with pytest.raises(litellm.BadRequestError, match="strict JSON schemas"):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError, match="strict JSON schemas"):
+        hangarllm.completion(
             model="scaledown/extract",
             messages=[{"role": "user", "content": "Invoice from Northwind."}],
             response_format=Invoice,

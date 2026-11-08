@@ -5,10 +5,10 @@ description: >-
 
 test_paths:
   - reason: >-
-      litellm.agent() end-to-end suite. It drives the real claude, codex, opencode and pi CLIs and
-      deepagents against a live LiteLLM AI Gateway, so it needs those binaries on PATH plus
-      LITELLM_PROXY_API_BASE / LITELLM_PROXY_API_KEY, and skips without them. Run manually
-      before changing litellm/harness; the mocked coverage runs in tests/unit/harness and
+      hangarllm.agent() end-to-end suite. It drives the real claude, codex, opencode and pi CLIs and
+      deepagents against a live HangarLLM AI Gateway, so it needs those binaries on PATH plus
+      HANGARLLM_PROXY_API_BASE / HANGARLLM_PROXY_API_KEY, and skips without them. Run manually
+      before changing hangarllm/harness; the mocked coverage runs in tests/unit/harness and
       tests/unit/llms/*/harness
     paths:
       - tests/harness_e2e
@@ -65,11 +65,11 @@ dockerfiles:
   - reason: >-
       An example image under cookbook/ that is documentation rather than a shipped artifact
     paths:
-      - cookbook/litellm-ollama-docker-image/Dockerfile
+      - cookbook/hangarllm-ollama-docker-image/Dockerfile
   - reason: >-
       The Rust gateway image compiles the whole workspace in release mode, which is too slow for
       a per-pull-request job while the gateway binary is still being assembled; the Rust lint,
       clippy, and compile jobs already cover the code it packages. Revisit when the gateway is
       published
     paths:
-      - litellm-rust/crates/gateway/Dockerfile
+      - hangarllm-rust/crates/gateway/Dockerfile

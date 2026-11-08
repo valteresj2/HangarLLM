@@ -13,8 +13,8 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import (
+import hangarllm
+from hangarllm.exceptions import (
     BadRequestError,
     ContentPolicyViolationError,
     ContextWindowExceededError,
@@ -166,14 +166,14 @@ class TestExceptionMessageFormatting:
     """Test that exception messages are formatted correctly after refactoring."""
 
     def test_bad_request_error_message_format(self):
-        """BadRequestError should format message with litellm prefix."""
+        """BadRequestError should format message with hangarllm prefix."""
         error = BadRequestError(
             message="test error",
             model="gpt-4",
             llm_provider="azure",
         )
 
-        assert "litellm.BadRequestError" in error.message
+        assert "hangarllm.BadRequestError" in error.message
         assert "test error" in error.message
 
     def test_content_policy_violation_error_message_format(self):
@@ -184,7 +184,7 @@ class TestExceptionMessageFormatting:
             llm_provider="azure",
         )
 
-        assert "litellm.ContentPolicyViolationError" in error.message
+        assert "hangarllm.ContentPolicyViolationError" in error.message
         assert "test error" in error.message
 
     def test_context_window_exceeded_error_message_format(self):
@@ -195,7 +195,7 @@ class TestExceptionMessageFormatting:
             llm_provider="azure",
         )
 
-        assert "litellm.ContextWindowExceededError" in error.message
+        assert "hangarllm.ContextWindowExceededError" in error.message
         assert "test error" in error.message
 
 
@@ -225,14 +225,14 @@ class TestExceptionAttributes:
             message="test error",
             model="gpt-4",
             llm_provider="azure",
-            litellm_debug_info="debug info",
+            hangarllm_debug_info="debug info",
             max_retries=3,
             num_retries=1,
         )
 
         assert error.model == "gpt-4"
         assert error.llm_provider == "azure"
-        assert error.litellm_debug_info == "debug info"
+        assert error.hangarllm_debug_info == "debug info"
         assert error.max_retries == 3
         assert error.num_retries == 1
         assert error.status_code == 400
@@ -264,8 +264,8 @@ class TestExceptionAttributes:
         assert midstream_error.status_code == 429
         assert midstream_error.response.status_code == 429
         assert str(midstream_error.response.request.url) == "https://openai.com/v1/"
-        assert midstream_error.message == "litellm.MidStreamFallbackError: stream broke"
-        assert midstream_error.args == ("litellm.MidStreamFallbackError: stream broke",)
+        assert midstream_error.message == "hangarllm.MidStreamFallbackError: stream broke"
+        assert midstream_error.args == ("hangarllm.MidStreamFallbackError: stream broke",)
 
         # With no original exception, should default to 503.
         midstream_fallback = MidStreamFallbackError(
@@ -285,7 +285,7 @@ class TestProxyHeaderExtraction:
 
     def test_get_response_headers_adds_llm_provider_prefix(self):
         """get_response_headers should prefix non-OpenAI headers with llm_provider-."""
-        from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+        from hangarllm.hangarllm_core_utils.llm_response_utils.get_headers import (
             get_response_headers,
         )
 
@@ -305,7 +305,7 @@ class TestProxyHeaderExtraction:
 
     def test_proxy_can_extract_headers_from_exception_response(self):
         """Simulate how proxy extracts headers from exception.response.headers."""
-        from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+        from hangarllm.hangarllm_core_utils.llm_response_utils.get_headers import (
             get_response_headers,
         )
 
@@ -343,7 +343,7 @@ class TestBedrockErrorHeaders:
     """A BedrockError built with headers but no response still exposes them (LIT-5428)."""
 
     def test_synthesized_response_carries_headers(self):
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from hangarllm.llms.bedrock.common_utils import BedrockError
 
         error = BedrockError(
             status_code=500,
@@ -356,14 +356,14 @@ class TestBedrockErrorHeaders:
         assert str(error.response.request.url) == str(error.request.url)
 
     def test_synthesized_response_without_headers_stays_empty(self):
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from hangarllm.llms.bedrock.common_utils import BedrockError
 
         error = BedrockError(status_code=500, message="boom")
 
         assert dict(error.response.headers) == {}
 
     def test_explicit_response_is_kept(self):
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from hangarllm.llms.bedrock.common_utils import BedrockError
 
         provider_response = httpx.Response(
             status_code=500,
@@ -381,11 +381,11 @@ class TestBedrockErrorHeaders:
 
     def test_proxy_extraction_surfaces_bedrock_request_id(self):
         """End-to-end shape the proxy error handler returns to the caller."""
-        from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-        from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+        from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
+        from hangarllm.hangarllm_core_utils.llm_response_utils.get_headers import (
             get_response_headers,
         )
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from hangarllm.llms.bedrock.common_utils import BedrockError
 
         provider_response = httpx.Response(
             status_code=500,
@@ -423,7 +423,7 @@ class TestBedrockErrorHeaders:
 
 @pytest.mark.parametrize(
     "error_class",
-    (RateLimitError, ServiceUnavailableError, litellm.BadGatewayError, litellm.InternalServerError),
+    (RateLimitError, ServiceUnavailableError, hangarllm.BadGatewayError, hangarllm.InternalServerError),
 )
 def test_error_built_from_an_unread_streaming_response_keeps_its_headers(error_class: type[Exception]) -> None:
     unread: Final = httpx.Response(

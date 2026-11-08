@@ -81,7 +81,7 @@ class _Rig:
 def _deployment(name: str, model: str, port: int) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, "api_base": f"http://127.0.0.1:{port}/v1", "api_key": API_KEY},
+        "hangarllm_params": {"model": model, "api_base": f"http://127.0.0.1:{port}/v1", "api_key": API_KEY},
         "model_info": FAKED_STREAM,
     }
 
@@ -197,7 +197,7 @@ async def _send(client: httpx.AsyncClient, key: str, call: _Call) -> _Served:
         "POST", _path(call.kind), json=_body(call), headers={"Authorization": f"Bearer {key}", **_HEADERS}
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers["x-litellm-call-id"])
+    return _Served(call, response.status_code, raw.decode(), response.headers["x-hangarllm-call-id"])
 
 
 async def _burst(
@@ -279,7 +279,7 @@ def _assert_forwarded(received: tuple[Request, ...], calls: Sequence[_Call]) -> 
 def _rows(call_ids: Sequence[str]) -> Sequence[Mapping[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT litellm_call_id, status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = ANY(string_to_array(%s, %s))',
+            'SELECT hangarllm_call_id, status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = ANY(string_to_array(%s, %s))',
             (",".join(call_ids), ","),
         ),
         lambda found: len(found) >= len(call_ids),
@@ -289,7 +289,7 @@ def _rows(call_ids: Sequence[str]) -> Sequence[Mapping[str, JsonValue]]:
 
 def _assert_each_logged_once(served: Sequence[_Served]) -> None:
     rows: Final = _rows(tuple(item.call_id for item in served))
-    assert sorted(string_value(row["litellm_call_id"]) for row in rows) == sorted(item.call_id for item in served), rows
+    assert sorted(string_value(row["hangarllm_call_id"]) for row in rows) == sorted(item.call_id for item in served), rows
     assert all(row["status"] == "success" for row in rows), rows
 
 

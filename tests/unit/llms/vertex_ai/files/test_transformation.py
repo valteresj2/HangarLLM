@@ -8,8 +8,8 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.llms.vertex_ai.files.transformation import VertexAIFilesConfig, is_passthrough_managed_gcs_url
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+from hangarllm.llms.vertex_ai.files.transformation import VertexAIFilesConfig, is_passthrough_managed_gcs_url
 
 NATIVE_VERTEX_ROW = json.dumps(
     {
@@ -25,9 +25,9 @@ OPENAI_BATCH_JSONL = (
     b' "body": {"model": "gemini-2.5-flash", "messages": [{"role": "user", "content": "hi"}]}}\n'
 )
 PASSTHROUGH_OBJECT = (
-    "litellm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/uuid-1/predictions.jsonl"
+    "hangarllm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/uuid-1/predictions.jsonl"
 )
-TRANSFORMED_OBJECT = "litellm-vertex-files/publishers/google/models/gemini-2.5-flash/uuid-1/predictions.jsonl"
+TRANSFORMED_OBJECT = "hangarllm-vertex-files/publishers/google/models/gemini-2.5-flash/uuid-1/predictions.jsonl"
 UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
@@ -66,18 +66,18 @@ def _native_output_jsonl() -> bytes:
     )
 
 
-def _upload_chunks(config: VertexAIFilesConfig, file: object, litellm_params: dict) -> list[bytes]:
+def _upload_chunks(config: VertexAIFilesConfig, file: object, hangarllm_params: dict) -> list[bytes]:
     body = config.transform_create_file_request(
         model="",
         create_file_data={"file": file, "purpose": "batch"},
         optional_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
     return list(body["streaming_media_upload"]["body_stream"].iter_bytes())
 
 
-def _upload_body_bytes(config: VertexAIFilesConfig, file: object, litellm_params: dict) -> bytes:
-    return b"".join(_upload_chunks(config, file, litellm_params))
+def _upload_body_bytes(config: VertexAIFilesConfig, file: object, hangarllm_params: dict) -> bytes:
+    return b"".join(_upload_chunks(config, file, hangarllm_params))
 
 
 class TestPassthroughBatchUpload:
@@ -85,13 +85,13 @@ class TestPassthroughBatchUpload:
     to GCS byte for byte, filed under a `passthrough/` object path so the batch
     output that lands beside it is recognized and returned untouched as well."""
 
-    def _upload_url(self, config, litellm_params, file, purpose="batch") -> str:
+    def _upload_url(self, config, hangarllm_params, file, purpose="batch") -> str:
         return config.get_complete_file_url(
             api_base=None,
             api_key=None,
             model="",
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             data={"file": file, "purpose": purpose},
         )
 
@@ -102,7 +102,7 @@ class TestPassthroughBatchUpload:
             ("batch.jsonl", NATIVE_VERTEX_JSONL, "application/jsonl"),
         )
         object_name = parse_qs(urlparse(url).query)["name"][0]
-        assert object_name.startswith("litellm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/")
+        assert object_name.startswith("hangarllm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/")
 
     def test_passthrough_upload_without_deployment_model_is_rejected(self, config):
         with pytest.raises(VertexAIError) as exc_info:
@@ -119,7 +119,7 @@ class TestPassthroughBatchUpload:
             model="",
             create_file_data={"file": ("notes.txt", b"plain text", "text/plain"), "purpose": "user_data"},
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket", "passthrough": True},
+            hangarllm_params={"gcs_bucket_name": "my-bucket", "passthrough": True},
         )
         assert result == b"plain text"
 
@@ -131,7 +131,7 @@ class TestPassthroughBatchUpload:
             purpose="user_data",
         )
         object_name = parse_qs(urlparse(url).query)["name"][0]
-        assert object_name.startswith("litellm-vertex-files/uploads/")
+        assert object_name.startswith("hangarllm-vertex-files/uploads/")
         assert "passthrough" not in object_name
 
     @pytest.mark.parametrize(
@@ -149,7 +149,7 @@ class TestPassthroughBatchUpload:
             model="",
             create_file_data={"file": file, "purpose": "batch"},
             optional_params={},
-            litellm_params={"passthrough": True},
+            hangarllm_params={"passthrough": True},
         )
         stream = body["streaming_media_upload"]["body_stream"]
         assert b"".join(stream.iter_bytes()) == NATIVE_VERTEX_JSONL
@@ -205,7 +205,7 @@ class TestPassthroughBatchUpload:
                 request=httpx.Request("GET", _gcs_media_url(object_name)),
             )
             result = config.transform_file_content_response(
-                raw_response=raw_response, logging_obj=MagicMock(), litellm_params={}
+                raw_response=raw_response, logging_obj=MagicMock(), hangarllm_params={}
             )
             return result.response.content
 
@@ -214,12 +214,12 @@ class TestPassthroughBatchUpload:
         transformed = _download(TRANSFORMED_OBJECT)
         assert transformed != raw_jsonl
         assert json.loads(transformed.splitlines()[0])["response"]["body"]["choices"]
-        nested = _download(f"litellm-vertex-files/{PASSTHROUGH_OBJECT}")
+        nested = _download(f"hangarllm-vertex-files/{PASSTHROUGH_OBJECT}")
         assert nested != raw_jsonl
         assert json.loads(nested.splitlines()[0])["response"]["body"]["choices"]
 
     def test_output_of_an_upload_whose_model_smuggles_the_passthrough_segment_is_still_transformed(self, config):
-        smuggled_model = b"litellm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash"
+        smuggled_model = b"hangarllm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash"
         upload_url = self._upload_url(
             config,
             {"gcs_bucket_name": "my-bucket"},
@@ -235,10 +235,10 @@ class TestPassthroughBatchUpload:
         )
 
         result = config.transform_file_content_response(
-            raw_response=raw_response, logging_obj=MagicMock(), litellm_params={}
+            raw_response=raw_response, logging_obj=MagicMock(), hangarllm_params={}
         )
 
-        assert object_name.startswith("litellm-vertex-files/litellm-vertex-files/passthrough/")
+        assert object_name.startswith("hangarllm-vertex-files/hangarllm-vertex-files/passthrough/")
         assert json.loads(result.response.content.splitlines()[0])["response"]["body"]["choices"]
 
     @pytest.mark.parametrize(
@@ -246,9 +246,9 @@ class TestPassthroughBatchUpload:
         [
             (f"gs://my-bucket/{PASSTHROUGH_OBJECT}", True),
             (f"gs://my-bucket/team-a/{PASSTHROUGH_OBJECT}", True),
-            (f"gs://my-bucket/litellm-vertex-files/{PASSTHROUGH_OBJECT}", False),
+            (f"gs://my-bucket/hangarllm-vertex-files/{PASSTHROUGH_OBJECT}", False),
             (_gcs_media_url(f"team-a/sub/{PASSTHROUGH_OBJECT}"), True),
-            (_gcs_media_url(f"litellm-vertex-files/publishers/google/models/x/{PASSTHROUGH_OBJECT}"), False),
+            (_gcs_media_url(f"hangarllm-vertex-files/publishers/google/models/x/{PASSTHROUGH_OBJECT}"), False),
             (_gcs_media_url(TRANSFORMED_OBJECT), False),
         ],
         ids=["gs", "gs-prefixed", "gs-smuggled", "https-prefixed", "https-model-path-smuggled", "https-transformed"],
@@ -265,7 +265,7 @@ class TestPassthroughBatchUpload:
             headers=headers,
             request_url=_gcs_media_url(f"team-a/{PASSTHROUGH_OBJECT}"),
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result.stream_iterator is stream_iterator
         assert result.headers == headers
@@ -273,7 +273,7 @@ class TestPassthroughBatchUpload:
 
 class TestEmbeddingOutputTranslation:
     EMBEDDING_OBJECT = (
-        "litellm-vertex-files/publishers/google/models/gemini-embedding-2/prediction-model-1/predictions.jsonl"
+        "hangarllm-vertex-files/publishers/google/models/gemini-embedding-2/prediction-model-1/predictions.jsonl"
     )
 
     def _transform(self, config: VertexAIFilesConfig, rows: list[dict]) -> list[dict]:
@@ -284,7 +284,7 @@ class TestEmbeddingOutputTranslation:
             request=httpx.Request("GET", _gcs_media_url(self.EMBEDDING_OBJECT)),
         )
         result = config.transform_file_content_response(
-            raw_response=raw_response, logging_obj=MagicMock(), litellm_params={}
+            raw_response=raw_response, logging_obj=MagicMock(), hangarllm_params={}
         )
         return [json.loads(line) for line in result.response.content.decode().splitlines()]
 

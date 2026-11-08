@@ -4,16 +4,16 @@ from typing import Dict, Optional
 
 import pytest
 
-from litellm.constants import INVALID_API_KEY_ERROR_MESSAGE
-from litellm.proxy._types import UserAPIKeyAuth, hash_token
-from litellm.proxy.auth.resolvers.exceptions import (
+from hangarllm.constants import INVALID_API_KEY_ERROR_MESSAGE
+from hangarllm.proxy._types import UserAPIKeyAuth, hash_token
+from hangarllm.proxy.auth.resolvers.exceptions import (
     KeyNotFoundError,
     NoDatabaseConnectionError,
     PrincipalMissingSourceKeyError,
 )
-from litellm.proxy.auth.auth_method import AuthMethod
-from litellm.proxy.auth.resolvers.models import Principal, PrincipalType
-from litellm.proxy.auth.resolvers.store import IdentityStore
+from hangarllm.proxy.auth.auth_method import AuthMethod
+from hangarllm.proxy.auth.resolvers.models import Principal, PrincipalType
+from hangarllm.proxy.auth.resolvers.store import IdentityStore
 
 
 class _FakeCache:

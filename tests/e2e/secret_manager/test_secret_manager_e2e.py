@@ -10,7 +10,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_http import Result, Success, UnauthorizedError, unwrap
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatResponse, KeyGenerateBody, LiteLLMParamsBody
+from models import ChatBody, ChatMessage, ChatResponse, KeyGenerateBody, HangarLLMParamsBody
 from proxy_client import ProxyClient
 from secret_store import SecretStore
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
@@ -18,7 +18,7 @@ from e2e_metadata import Domain, Mode, Provider, Subject, meta
 pytestmark = [pytest.mark.e2e, pytest.mark.secret_manager]
 
 BACKEND_MODEL: Final = "openai/gpt-4o-mini"
-VIRTUAL_KEY_PREFIX: Final = "litellm-e2e/virtual-keys/"
+VIRTUAL_KEY_PREFIX: Final = "hangarllm-e2e/virtual-keys/"
 PROVIDER_KEY_ENV: Final = "OPENAI_API_KEY"
 
 
@@ -32,7 +32,7 @@ def _provider_key() -> str:
 
 
 def _seed(store: SecretStore, resources: ResourceManager, value: str) -> str:
-    name: Final = f"litellm-e2e-openai-{unique_marker()}"
+    name: Final = f"hangarllm-e2e-openai-{unique_marker()}"
     store.write(name, value)
     resources.defer(lambda: store.destroy(name))
     return name
@@ -42,7 +42,7 @@ def _deploy(proxy: ProxyClient, resources: ResourceManager, secret_name: str) ->
     model_name: Final = f"secret-manager-backed-{unique_marker()}"
     model_id: Final = proxy.create_model(
         model_name,
-        LiteLLMParamsBody(model=BACKEND_MODEL, api_key=f"os.environ/{secret_name}"),
+        HangarLLMParamsBody(model=BACKEND_MODEL, api_key=f"os.environ/{secret_name}"),
         provider_live=True,
     )
     resources.defer(lambda: proxy.delete_model(model_id))
@@ -103,7 +103,7 @@ class TestSecretManager:
     def test_deployment_uses_the_value_the_manager_holds(
         self, proxy: ProxyClient, resources: ResourceManager, store: SecretStore, scoped_key: str
     ) -> None:
-        bogus: Final = f"sk-litellm-e2e-not-a-key-{unique_marker()}"
+        bogus: Final = f"sk-hangarllm-e2e-not-a-key-{unique_marker()}"
         model: Final = _deploy(proxy, resources, _seed(store, resources, bogus))
 
         result: Final = _chat(proxy, scoped_key, model)
@@ -125,7 +125,7 @@ class TestSecretManager:
     def test_generated_key_is_written_to_the_manager(
         self, proxy: ProxyClient, resources: ResourceManager, store: SecretStore
     ) -> None:
-        alias: Final = f"litellm-e2e-vk-{unique_marker()}"
+        alias: Final = f"hangarllm-e2e-vk-{unique_marker()}"
         secret_name: Final = f"{VIRTUAL_KEY_PREFIX}{alias}"
         resources.defer(lambda: store.destroy(secret_name))
         key: Final = proxy.generate_key(KeyGenerateBody(key_alias=alias))
@@ -143,7 +143,7 @@ class TestSecretManager:
     def test_deleted_key_is_removed_from_the_manager(
         self, proxy: ProxyClient, resources: ResourceManager, store: SecretStore
     ) -> None:
-        alias: Final = f"litellm-e2e-vk-{unique_marker()}"
+        alias: Final = f"hangarllm-e2e-vk-{unique_marker()}"
         secret_name: Final = f"{VIRTUAL_KEY_PREFIX}{alias}"
         resources.defer(lambda: store.destroy(secret_name))
         key: Final = proxy.generate_key(KeyGenerateBody(key_alias=alias))

@@ -1,54 +1,54 @@
 """
 Tests for the unified rate-limit error model introduced by LIT-2968.
 
-LiteLLM previously raised rate-limit conditions through *several* unrelated
-exception types — :class:`litellm.RateLimitError` (vendor 429s),
+HangarLLM previously raised rate-limit conditions through *several* unrelated
+exception types — :class:`hangarllm.RateLimitError` (vendor 429s),
 :class:`fastapi.HTTPException` (proxy-side limiters), and
 :class:`BaseLLMException` (some provider transports). These tests pin down
 the new behavior:
 
-1. Every rate-limit exception is a :class:`litellm.RateLimitError` and exposes
+1. Every rate-limit exception is a :class:`hangarllm.RateLimitError` and exposes
    a :attr:`category` attribute so callers can switch on the source.
 2. Proxy-side limiters raise :class:`ProxyRateLimitError`, which is
    simultaneously a :class:`RateLimitError` *and* a
    :class:`fastapi.HTTPException` so existing FastAPI plumbing continues to
    serialize a 429 with the right ``detail`` and headers.
 3. The :class:`RateLimitErrorCategory` constants are exported on the
-   ``litellm`` module so user code can import them without reaching into
+   ``hangarllm`` module so user code can import them without reaching into
    internal modules.
 """
 
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.exceptions import RateLimitError, RateLimitErrorCategory, RateLimitType
-from litellm.proxy.common_utils.proxy_rate_limit_error import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.exceptions import RateLimitError, RateLimitErrorCategory, RateLimitType
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import (
     ProxyRateLimitError,
     map_v3_rate_limit_type,
 )
-from litellm.proxy.utils import InternalUsageCache
+from hangarllm.proxy.utils import InternalUsageCache
 
 
 class TestRateLimitErrorCategory:
-    def test_should_export_category_enum_on_litellm_module(self):
-        assert hasattr(litellm, "RateLimitErrorCategory")
-        assert litellm.RateLimitErrorCategory is RateLimitErrorCategory
+    def test_should_export_category_enum_on_hangarllm_module(self):
+        assert hasattr(hangarllm, "RateLimitErrorCategory")
+        assert hangarllm.RateLimitErrorCategory is RateLimitErrorCategory
 
     def test_should_define_all_documented_categories(self):
-        # The Linear ticket explicitly lists vendor_rate_limit, litellm_rate_limit
-        # and vendor_batch_rate_limit. We additionally expose a litellm_batch_*
+        # The Linear ticket explicitly lists vendor_rate_limit, hangarllm_rate_limit
+        # and vendor_batch_rate_limit. We additionally expose a hangarllm_batch_*
         # value so the proxy's batch limiter can be distinguished from the
         # generic key/team/user limiter.
         assert RateLimitErrorCategory.VENDOR_RATE_LIMIT == "vendor_rate_limit"
         assert (
             RateLimitErrorCategory.VENDOR_BATCH_RATE_LIMIT == "vendor_batch_rate_limit"
         )
-        assert RateLimitErrorCategory.LITELLM_RATE_LIMIT == "litellm_rate_limit"
+        assert RateLimitErrorCategory.HANGARLLM_RATE_LIMIT == "hangarllm_rate_limit"
         assert (
-            RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT
-            == "litellm_batch_rate_limit"
+            RateLimitErrorCategory.HANGARLLM_BATCH_RATE_LIMIT
+            == "hangarllm_batch_rate_limit"
         )
 
     def test_should_str_compare_for_easy_user_switching(self):
@@ -78,20 +78,20 @@ class TestRateLimitErrorCategoryAttribute:
     def test_should_accept_enum_category_and_normalize_to_string(self):
         e = RateLimitError(
             message="oops",
-            llm_provider="litellm",
+            llm_provider="hangarllm",
             model="gpt-4",
-            category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            category=RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
         )
         # The .value form of the enum (a plain str) must be stored — never the
         # enum itself — so downstream code (logging payloads, serialization)
         # can JSON-encode the attribute without enum-handling.
-        assert e.category == "litellm_rate_limit"
+        assert e.category == "hangarllm_rate_limit"
         assert isinstance(e.category, str)
 
     def test_should_carry_optional_headers(self):
         e = RateLimitError(
             message="oops",
-            llm_provider="litellm",
+            llm_provider="hangarllm",
             model="gpt-4",
             headers={"retry-after": 60},
         )
@@ -109,19 +109,19 @@ class TestProxyRateLimitError:
         assert isinstance(e, RateLimitError)
         assert isinstance(e, HTTPException)
 
-    def test_should_default_category_to_litellm_rate_limit(self):
-        # ProxyRateLimitError is only used by litellm's own proxy-side
+    def test_should_default_category_to_hangarllm_rate_limit(self):
+        # ProxyRateLimitError is only used by hangarllm's own proxy-side
         # limiters, so its default category must reflect that. The vendor
         # default lives on the parent RateLimitError.
         e = ProxyRateLimitError(detail="over limit")
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
 
-    def test_should_accept_litellm_batch_rate_limit_category(self):
+    def test_should_accept_hangarllm_batch_rate_limit_category(self):
         e = ProxyRateLimitError(
             detail="batch over limit",
-            category=RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT,
+            category=RateLimitErrorCategory.HANGARLLM_BATCH_RATE_LIMIT,
         )
-        assert e.category == "litellm_batch_rate_limit"
+        assert e.category == "hangarllm_batch_rate_limit"
 
     def test_should_set_status_code_to_429(self):
         e = ProxyRateLimitError(detail="over limit")
@@ -205,9 +205,9 @@ class TestProxyRateLimitError:
         with pytest.raises(RateLimitError) as exc_info:
             raise ProxyRateLimitError(
                 detail="over limit",
-                category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+                category=RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
             )
-        assert exc_info.value.category == "litellm_rate_limit"
+        assert exc_info.value.category == "hangarllm_rate_limit"
 
     def test_should_be_catchable_as_http_exception(self):
         # This is the backward-compat guarantee: every existing
@@ -226,13 +226,13 @@ class TestProxyHookCategoryWiring:
     @pytest.mark.parametrize(
         "module_path",
         [
-            "litellm.proxy.hooks.parallel_request_limiter",
-            "litellm.proxy.hooks.parallel_request_limiter_v3",
-            "litellm.proxy.hooks.dynamic_rate_limiter",
-            "litellm.proxy.hooks.dynamic_rate_limiter_v3",
-            "litellm.proxy.hooks.batch_rate_limiter",
-            "litellm.proxy.hooks.max_budget_per_session_limiter",
-            "litellm.proxy.hooks.max_iterations_limiter",
+            "hangarllm.proxy.hooks.parallel_request_limiter",
+            "hangarllm.proxy.hooks.parallel_request_limiter_v3",
+            "hangarllm.proxy.hooks.dynamic_rate_limiter",
+            "hangarllm.proxy.hooks.dynamic_rate_limiter_v3",
+            "hangarllm.proxy.hooks.batch_rate_limiter",
+            "hangarllm.proxy.hooks.max_budget_per_session_limiter",
+            "hangarllm.proxy.hooks.max_iterations_limiter",
         ],
     )
     def test_every_proxy_rate_limit_hook_uses_unified_class(self, module_path):
@@ -263,20 +263,20 @@ class TestStandardLoggingPayloadCarriesCategory:
     """
 
     def test_should_propagate_category_for_proxy_rate_limit_error(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
         e = ProxyRateLimitError(
             detail="over limit",
-            category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            category=RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
         )
         info = StandardLoggingPayloadSetup.get_error_information(e)
-        assert info["error_rate_limit_category"] == "litellm_rate_limit"
+        assert info["error_rate_limit_category"] == "hangarllm_rate_limit"
         assert info["error_code"] == "429"
 
     def test_should_propagate_vendor_category_for_plain_rate_limit_error(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -289,23 +289,23 @@ class TestStandardLoggingPayloadCarriesCategory:
         # Default category for a plain RateLimitError is vendor_rate_limit.
         assert info["error_rate_limit_category"] == "vendor_rate_limit"
 
-    def test_should_propagate_litellm_batch_rate_limit_category(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+    def test_should_propagate_hangarllm_batch_rate_limit_category(self):
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
         e = ProxyRateLimitError(
             detail="batch over limit",
-            category=RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT,
+            category=RateLimitErrorCategory.HANGARLLM_BATCH_RATE_LIMIT,
         )
         info = StandardLoggingPayloadSetup.get_error_information(e)
-        assert info["error_rate_limit_category"] == "litellm_batch_rate_limit"
+        assert info["error_rate_limit_category"] == "hangarllm_batch_rate_limit"
 
     def test_should_be_none_for_non_rate_limit_errors(self):
         # Non-rate-limit exceptions don't carry a `.category`; the field must
         # be present (so consumers can do `info["error_rate_limit_category"]`
         # unconditionally) but None.
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -315,7 +315,7 @@ class TestStandardLoggingPayloadCarriesCategory:
         assert info["error_rate_limit_category"] is None
 
     def test_should_be_none_when_no_exception(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -337,7 +337,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         helper used internally — it must raise the unified class."""
         from unittest.mock import MagicMock
 
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from hangarllm.proxy.hooks.parallel_request_limiter import (
             PROXY_MaxParallelRequestsHandler,
         )
 
@@ -346,7 +346,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             handler.raise_rate_limit_error(additional_details="key-over-rpm")
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
         # The helper must populate retry-after so clients can back off.
         assert e.headers is not None
         assert "retry-after" in e.headers
@@ -367,7 +367,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         """
         from unittest.mock import MagicMock
 
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from hangarllm.proxy.hooks.parallel_request_limiter import (
             PROXY_MaxParallelRequestsHandler,
         )
 
@@ -412,7 +412,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         # An explicit headers= kwarg, in contrast, IS surfaced on self.headers.
         e2 = RateLimitError(
             message="proxy 429",
-            llm_provider="litellm",
+            llm_provider="hangarllm",
             model="gpt-4",
             response=vendor_response,
             headers={"retry-after": "30"},
@@ -424,7 +424,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         """v3 parallel_request_limiter's ``_handle_rate_limit_error`` must
         translate an OVER_LIMIT response into a ProxyRateLimitError."""
 
-        from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+        from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
             PROXY_MaxParallelRequestsHandler_v3,
         )
 
@@ -458,7 +458,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             handler._handle_rate_limit_error(response, descriptors)
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
         # v3 helper attaches retry-after, rate_limit_type and reset_at.
         assert e.headers is not None
         assert {"retry-after", "rate_limit_type", "reset_at"}.issubset(e.headers.keys())
@@ -473,13 +473,13 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         """
         from unittest.mock import patch
 
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.max_iterations_limiter import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.max_iterations_limiter import (
             PROXY_MaxIterationsHandler,
         )
-        from litellm.proxy.utils import InternalUsageCache
-        from litellm.types.agents import AgentResponse
+        from hangarllm.proxy.utils import InternalUsageCache
+        from hangarllm.types.agents import AgentResponse
 
         cache = DualCache()
         handler = PROXY_MaxIterationsHandler(
@@ -492,11 +492,11 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         agent = AgentResponse(
             agent_id="agent-iter-1",
             agent_name="iter-agent",
-            litellm_params={"max_iterations": 1},
+            hangarllm_params={"max_iterations": 1},
             agent_card_params={"name": "iter-agent", "version": "1.0.0"},
         )
         with patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+            "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
         ) as mock_registry:
             mock_registry.get_agent_by_id.return_value = agent
             # First call within budget.
@@ -516,7 +516,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
                 )
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
         assert isinstance(e, RateLimitError)
         assert isinstance(e, HTTPException)
 
@@ -529,9 +529,9 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         """
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.dynamic_rate_limiter import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.dynamic_rate_limiter import (
             PROXY_DynamicRateLimitHandler,
         )
 
@@ -555,7 +555,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             )
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
         assert isinstance(e.detail, dict)
         assert "TPM" in e.detail.get("error", "")
 
@@ -568,9 +568,9 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         meets the limits."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.parallel_request_limiter import (
             PROXY_MaxParallelRequestsHandler,
         )
 
@@ -595,7 +595,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             )
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
 
     @pytest.mark.parametrize(
         "current,limits,expected_type",
@@ -632,9 +632,9 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         """
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.parallel_request_limiter import (
             PROXY_MaxParallelRequestsHandler,
         )
 
@@ -690,9 +690,9 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         """
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.parallel_request_limiter import (
             PROXY_MaxParallelRequestsHandler,
         )
 
@@ -721,9 +721,9 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         branch is covered by the test above)."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.dynamic_rate_limiter import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.dynamic_rate_limiter import (
             PROXY_DynamicRateLimitHandler,
         )
 
@@ -745,7 +745,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             )
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
         assert isinstance(e.detail, dict)
         assert "RPM" in e.detail.get("error", "")
 
@@ -768,8 +768,8 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         """
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.dynamic_rate_limiter_v3 import (
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.dynamic_rate_limiter_v3 import (
             PROXY_DynamicRateLimitHandlerV3,
         )
 
@@ -824,7 +824,7 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             )
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
 
     @pytest.mark.asyncio
     async def test_max_budget_per_session_limiter_raises_proxy_rate_limit_error(
@@ -834,9 +834,9 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
         assert the unified class is raised."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.max_budget_per_session_limiter import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.hooks.max_budget_per_session_limiter import (
             PROXY_MaxBudgetPerSessionHandler,
         )
 
@@ -850,9 +850,9 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             agent_id="agent-session-1",
         )
         agent = MagicMock()
-        agent.litellm_params = {"max_budget_per_session": 1.0}
+        agent.hangarllm_params = {"max_budget_per_session": 1.0}
         with patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+            "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry"
         ) as mock_registry:
             mock_registry.get_agent_by_id.return_value = agent
             with pytest.raises(ProxyRateLimitError) as exc_info:
@@ -864,18 +864,18 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
                 )
         e = exc_info.value
         assert e.status_code == 429
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
         assert "session" in str(e.detail).lower()
 
-    def test_batch_rate_limiter_helper_raises_with_litellm_batch_category(self):
+    def test_batch_rate_limiter_helper_raises_with_hangarllm_batch_category(self):
         """
         Direct invocation of `_PROXY_BatchRateLimiter._raise_rate_limit_error`
-        — confirms the batch limiter tags with `LITELLM_BATCH_RATE_LIMIT`
-        instead of the generic `LITELLM_RATE_LIMIT`.
+        — confirms the batch limiter tags with `HANGARLLM_BATCH_RATE_LIMIT`
+        instead of the generic `HANGARLLM_RATE_LIMIT`.
         """
         from unittest.mock import MagicMock
 
-        from litellm.proxy.hooks.batch_rate_limiter import (
+        from hangarllm.proxy.hooks.batch_rate_limiter import (
             BatchFileUsage,
             PROXY_BatchRateLimiter,
         )
@@ -915,8 +915,8 @@ class TestProxyHooksActuallyRaiseProxyRateLimitError:
             )
         e = exc_info.value
         assert e.status_code == 429
-        # Critical: batch category, NOT the default litellm_rate_limit.
-        assert e.category == RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT
+        # Critical: batch category, NOT the default hangarllm_rate_limit.
+        assert e.category == RateLimitErrorCategory.HANGARLLM_BATCH_RATE_LIMIT
         assert isinstance(e, RateLimitError)
         assert isinstance(e, HTTPException)
 
@@ -926,16 +926,16 @@ class TestRateLimitType:
     Tests for the orthogonal `rate_limit_type` dimension introduced as a
     follow-up to LIT-2968 (trho's last ask in the Slack thread).
 
-    `category` answers *who* rate-limited (vendor vs. litellm); `type`
+    `category` answers *who* rate-limited (vendor vs. hangarllm); `type`
     answers *which dimension* was exceeded (requests / tokens / etc.).
     Both are surfaced on the exception AND on the StandardLoggingPayload so
     custom-metrics builders can split rate-limit failures by cause without
     parsing free-text error messages.
     """
 
-    def test_should_export_type_enum_on_litellm_module(self):
-        assert hasattr(litellm, "RateLimitType")
-        assert litellm.RateLimitType is RateLimitType
+    def test_should_export_type_enum_on_hangarllm_module(self):
+        assert hasattr(hangarllm, "RateLimitType")
+        assert hangarllm.RateLimitType is RateLimitType
 
     def test_should_define_all_documented_types(self):
         assert RateLimitType.REQUESTS == "requests"
@@ -965,7 +965,7 @@ class TestRateLimitType:
     def test_rate_limit_error_should_accept_enum_type_and_normalize_to_string(self):
         e = RateLimitError(
             message="oops",
-            llm_provider="litellm",
+            llm_provider="hangarllm",
             model="gpt-4",
             rate_limit_type=RateLimitType.CONCURRENT_REQUESTS,
         )
@@ -1035,7 +1035,7 @@ class TestStandardLoggingPayloadCarriesType:
     """
 
     def test_should_propagate_type_for_proxy_rate_limit_error(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -1047,7 +1047,7 @@ class TestStandardLoggingPayloadCarriesType:
         assert info["error_rate_limit_type"] == "tokens"
 
     def test_should_propagate_type_for_plain_rate_limit_error(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -1061,7 +1061,7 @@ class TestStandardLoggingPayloadCarriesType:
         assert info["error_rate_limit_type"] == "requests"
 
     def test_should_be_none_when_unspecified(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -1078,7 +1078,7 @@ class TestStandardLoggingPayloadCarriesType:
         # Symmetry with `error_rate_limit_category`: the field must be
         # present on every payload so consumers can read it
         # unconditionally, but None for non-rate-limit exceptions.
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -1117,7 +1117,7 @@ class TestProxyHooksWireTypeCorrectly:
         # the explicit-type override paths.
         from unittest.mock import MagicMock
 
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from hangarllm.proxy.hooks.parallel_request_limiter import (
             PROXY_MaxParallelRequestsHandler,
         )
 
@@ -1129,7 +1129,7 @@ class TestProxyHooksWireTypeCorrectly:
     def test_parallel_request_limiter_v1_helper_accepts_explicit_type(self):
         from unittest.mock import MagicMock
 
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from hangarllm.proxy.hooks.parallel_request_limiter import (
             PROXY_MaxParallelRequestsHandler,
         )
 
@@ -1173,7 +1173,7 @@ class TestProxyHooksWireTypeCorrectly:
         coverage tools see the new wiring as exercised.
         """
 
-        from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+        from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
             PROXY_MaxParallelRequestsHandler_v3,
         )
 
@@ -1223,7 +1223,7 @@ class TestProxyHooksWireTypeCorrectly:
     @pytest.mark.asyncio
     async def test_v3_limiter_max_parallel_requests_maps_to_concurrent(self):
 
-        from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+        from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
             PROXY_MaxParallelRequestsHandler_v3,
         )
 
@@ -1266,7 +1266,7 @@ class TestProxyHooksWireTypeCorrectly:
     def test_batch_rate_limiter_emits_tokens_type_for_tpm_violation(self):
         from unittest.mock import MagicMock
 
-        from litellm.proxy.hooks.batch_rate_limiter import (
+        from hangarllm.proxy.hooks.batch_rate_limiter import (
             BatchFileUsage,
             PROXY_BatchRateLimiter,
         )
@@ -1304,12 +1304,12 @@ class TestProxyHooksWireTypeCorrectly:
             )
         e = exc_info.value
         assert e.rate_limit_type == "tokens"
-        assert e.category == RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_BATCH_RATE_LIMIT
 
     def test_batch_rate_limiter_emits_requests_type_for_rpm_violation(self):
         from unittest.mock import MagicMock
 
-        from litellm.proxy.hooks.batch_rate_limiter import (
+        from hangarllm.proxy.hooks.batch_rate_limiter import (
             BatchFileUsage,
             PROXY_BatchRateLimiter,
         )
@@ -1347,13 +1347,13 @@ class TestProxyHooksWireTypeCorrectly:
             )
         e = exc_info.value
         assert e.rate_limit_type == "requests"
-        assert e.category == RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT
+        assert e.category == RateLimitErrorCategory.HANGARLLM_BATCH_RATE_LIMIT
 
 
 class TestBudgetExceededErrorSurfacesUnifiedFields:
     """
     The hot path for virtual-key / team / org / end-user max_budget caps
-    raises :class:`litellm.BudgetExceededError`, which historically had no
+    raises :class:`hangarllm.BudgetExceededError`, which historically had no
     relationship to :class:`RateLimitError` and therefore left the unified
     `error_rate_limit_category` / `error_rate_limit_type` fields empty.
     Test 2 of the QA pass surfaced this gap; this class pins the fix.
@@ -1367,16 +1367,16 @@ class TestBudgetExceededErrorSurfacesUnifiedFields:
     in `get_error_information` picks them up automatically.
     """
 
-    def test_should_carry_litellm_rate_limit_category(self):
-        e = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+    def test_should_carry_hangarllm_rate_limit_category(self):
+        e = hangarllm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
         # Stored as the plain string value (matches RateLimitError behavior),
         # but equality with the enum still works because the enum subclasses
         # str.
-        assert e.category == "litellm_rate_limit"
-        assert e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT
+        assert e.category == "hangarllm_rate_limit"
+        assert e.category == RateLimitErrorCategory.HANGARLLM_RATE_LIMIT
 
     def test_should_carry_budget_rate_limit_type(self):
-        e = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+        e = hangarllm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
         assert e.rate_limit_type == "budget"
         assert e.rate_limit_type == RateLimitType.BUDGET
 
@@ -1384,13 +1384,13 @@ class TestBudgetExceededErrorSurfacesUnifiedFields:
         # `llm_provider` is read off the exception in `get_error_information`
         # — it must always be a string so the StandardLoggingPayload field
         # stays serializable. Default to "" when no caller passes one.
-        e = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+        e = hangarllm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
         assert e.llm_provider == ""
 
     def test_should_accept_llm_provider_kwarg(self):
         # Callers that have the resolved provider in scope (e.g. the
         # auth-checks budget enforcement paths) can thread it through.
-        e = litellm.BudgetExceededError(
+        e = hangarllm.BudgetExceededError(
             current_cost=0.5, max_budget=0.1, llm_provider="anthropic"
         )
         assert e.llm_provider == "anthropic"
@@ -1398,14 +1398,14 @@ class TestBudgetExceededErrorSurfacesUnifiedFields:
     def test_should_keep_existing_status_code_and_message(self):
         # Backward-compat guard: existing callers depend on `status_code=422`
         # and the canonical message format.
-        e = litellm.BudgetExceededError(current_cost=0.000109, max_budget=0.0001)
+        e = hangarllm.BudgetExceededError(current_cost=0.000109, max_budget=0.0001)
         assert e.status_code == 422
         assert "Current cost: 0.000109" in e.message
         assert "Max budget: 0.0001" in e.message
 
     def test_should_honor_budget_exceeded_status_code_override(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr(litellm, "budget_exceeded_status_code", 429)
-        e = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+        monkeypatch.setattr(hangarllm, "budget_exceeded_status_code", 429)
+        e = hangarllm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
         assert e.status_code == 429
 
     def test_should_still_be_catchable_as_exception_not_rate_limit_error(self):
@@ -1414,29 +1414,29 @@ class TestBudgetExceededErrorSurfacesUnifiedFields:
         # handlers must keep catching it, and `except RateLimitError:`
         # handlers must NOT start catching it (which would surprise callers
         # who rely on the two being distinct).
-        e = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+        e = hangarllm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
         assert isinstance(e, Exception)
-        assert isinstance(e, litellm.BudgetExceededError)
+        assert isinstance(e, hangarllm.BudgetExceededError)
         assert not isinstance(e, RateLimitError)
 
     def test_should_propagate_category_to_standard_logging_payload(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
-        e = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+        e = hangarllm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
         info = StandardLoggingPayloadSetup.get_error_information(e)
-        assert info["error_rate_limit_category"] == "litellm_rate_limit"
+        assert info["error_rate_limit_category"] == "hangarllm_rate_limit"
         assert info["error_rate_limit_type"] == "budget"
         assert info["error_code"] == "422"
         assert info["error_class"] == "BudgetExceededError"
 
     def test_should_propagate_llm_provider_to_standard_logging_payload(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
-        e = litellm.BudgetExceededError(
+        e = hangarllm.BudgetExceededError(
             current_cost=0.5, max_budget=0.1, llm_provider="bedrock"
         )
         info = StandardLoggingPayloadSetup.get_error_information(e)
@@ -1453,7 +1453,7 @@ class TestThirdPartyAttrLeakageGuard:
     """
 
     def test_should_drop_unknown_category_string_on_third_party_exception(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -1464,7 +1464,7 @@ class TestThirdPartyAttrLeakageGuard:
         assert info["error_rate_limit_category"] is None
 
     def test_should_drop_unknown_rate_limit_type_string_on_third_party_exception(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -1475,7 +1475,7 @@ class TestThirdPartyAttrLeakageGuard:
         assert info["error_rate_limit_type"] is None
 
     def test_should_drop_non_string_garbage_attrs(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             StandardLoggingPayloadSetup,
         )
 
@@ -1488,7 +1488,7 @@ class TestThirdPartyAttrLeakageGuard:
         assert info["error_rate_limit_type"] is None
 
     def test_should_drop_garbage_on_prometheus_label_extraction(self):
-        from litellm.integrations.prometheus import PrometheusLogger
+        from hangarllm.integrations.prometheus import PrometheusLogger
 
         class Foreign(Exception):
             category = "spam"
@@ -1503,7 +1503,7 @@ class TestThirdPartyAttrLeakageGuard:
     def test_should_still_accept_legitimate_rate_limit_categories(self):
         # The guard must not over-correct — every documented enum value
         # is a valid string and must pass through.
-        from litellm.exceptions import (
+        from hangarllm.exceptions import (
             validate_rate_limit_category,
             validate_rate_limit_type,
         )
@@ -1533,7 +1533,7 @@ class TestBudgetExceededErrorLlmProviderEnrichment:
     ):
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from litellm.proxy.auth.auth_exception_handler import (
+        from hangarllm.proxy.auth.auth_exception_handler import (
             UserAPIKeyAuthExceptionHandler,
         )
 
@@ -1545,7 +1545,7 @@ class TestBudgetExceededErrorLlmProviderEnrichment:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 MagicMock(
                     post_call_failure_hook=AsyncMock(
                         side_effect=fake_post_call_failure_hook
@@ -1553,11 +1553,11 @@ class TestBudgetExceededErrorLlmProviderEnrichment:
                 ),
             ),
             patch(
-                "litellm.proxy.proxy_server.general_settings",
+                "hangarllm.proxy.proxy_server.general_settings",
                 {"use_x_forwarded_for": False},
             ),
             patch(
-                "litellm.proxy.auth.auth_exception_handler.get_request_ip_address",
+                "hangarllm.proxy.auth.auth_exception_handler.get_request_ip_address",
                 return_value="127.0.0.1",
             ),
         ):
@@ -1575,7 +1575,7 @@ class TestBudgetExceededErrorLlmProviderEnrichment:
         return captured.get("exception")
 
     async def test_should_resolve_llm_provider_from_request_data_when_unset(self):
-        err = litellm.BudgetExceededError(current_cost=100, max_budget=10)
+        err = hangarllm.BudgetExceededError(current_cost=100, max_budget=10)
         assert err.llm_provider == ""
         seen = await self._run_handler_and_capture_exception_seen_by_callback(
             err, {"model": "openai/gpt-4o-mini"}
@@ -1584,7 +1584,7 @@ class TestBudgetExceededErrorLlmProviderEnrichment:
         assert seen.llm_provider == "openai"
 
     async def test_should_not_overwrite_llm_provider_when_caller_set_it(self):
-        err = litellm.BudgetExceededError(
+        err = hangarllm.BudgetExceededError(
             current_cost=100, max_budget=10, llm_provider="anthropic"
         )
         seen = await self._run_handler_and_capture_exception_seen_by_callback(
@@ -1592,10 +1592,10 @@ class TestBudgetExceededErrorLlmProviderEnrichment:
         )
         assert seen.llm_provider == "anthropic"
 
-    async def test_should_fall_back_to_litellm_proxy_when_model_missing(self):
-        err = litellm.BudgetExceededError(current_cost=100, max_budget=10)
+    async def test_should_fall_back_to_hangarllm_proxy_when_model_missing(self):
+        err = hangarllm.BudgetExceededError(current_cost=100, max_budget=10)
         seen = await self._run_handler_and_capture_exception_seen_by_callback(err, {})
-        assert seen.llm_provider == "litellm_proxy"
+        assert seen.llm_provider == "hangarllm_proxy"
 
     async def test_should_not_enrich_non_budget_exceptions(self):
         err = ValueError("unrelated")

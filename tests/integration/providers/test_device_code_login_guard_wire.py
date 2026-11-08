@@ -27,7 +27,7 @@ from integration._support.timing import assert_cut_short, timed
 from integration._support.wire import Request
 from pydantic import JsonValue
 
-from litellm.llms.chatgpt.authenticator import DEVICE_CODE_COOLDOWN_SECONDS
+from hangarllm.llms.chatgpt.authenticator import DEVICE_CODE_COOLDOWN_SECONDS
 
 pytestmark: Final = [pytest.mark.timeout(300), pytest.mark.shares_worker_state]
 
@@ -56,7 +56,7 @@ _STORED_BEARERS: Final[Mapping[Provider, str]] = MappingProxyType(
 )
 _CONTROL_MODEL: Final = "device-login-control"
 _EXTRA: Final[Mapping[str, JsonValue]] = MappingProxyType({"num_retries": 0, "cache": {"no-cache": True}})
-_CALL_ID: Final = "x-litellm-call-id"
+_CALL_ID: Final = "x-hangarllm-call-id"
 _CLIENT_SECONDS: Final = 60
 
 
@@ -160,10 +160,10 @@ class _Scene:
 def _config(peers: dl.Peers, directory: Path) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     config["model_list"] = [
-        {"model_name": "*", "litellm_params": {"model": "*"}},
+        {"model_name": "*", "hangarllm_params": {"model": "*"}},
         {
             "model_name": _CONTROL_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_base": f"{peers.api.url}/v1",
                 "api_key": dl.CONTROL_KEY,
@@ -344,7 +344,7 @@ def _error_message(text: str) -> str:
 def _spend_rows(key: str) -> Sequence[Mapping[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, status, model FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+            'SELECT request_id, status, model FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
             (hashlib.sha256(key.encode()).hexdigest(),),
         ),
         lambda rows: len(rows) >= 1,
@@ -363,7 +363,7 @@ def _every_served_call_logged(key: str, served: SimpleQueue[str]) -> None:
         return
     eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
             (hashlib.sha256(key.encode()).hexdigest(),),
         ),
         lambda rows: len(rows) >= len(served_calls),
@@ -373,7 +373,7 @@ def _every_served_call_logged(key: str, served: SimpleQueue[str]) -> None:
 
 def _failure_logged(served: _Served) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (served.call_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (served.call_id,)),
         lambda found: len(found) >= 1,
         seconds=40,
     )
@@ -508,7 +508,7 @@ def test_copilot_embeddings_are_served_with_the_stored_access_token(scene: _Scen
 def test_connection_test_reports_the_refusal_instead_of_starting_a_login(scene: _Scene, provider: Provider) -> None:
     served: Final = scene.post(
         "/health/test_connection",
-        {"litellm_params": {"model": _MODELS[provider, "chat"]}, "mode": "chat"},
+        {"hangarllm_params": {"model": _MODELS[provider, "chat"]}, "mode": "chat"},
         as_admin=True,
     )
     assert served.status == 200, served.text
@@ -757,7 +757,7 @@ def test_model_created_without_a_token_refuses_requests_and_serves_once_the_toke
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": "chatgpt/gpt-5.6-terra"},
+            "hangarllm_params": {"model": "chatgpt/gpt-5.6-terra"},
             "model_info": {"id": identity},
         },
     )
@@ -828,7 +828,7 @@ def test_a_burst_of_refusals_leaves_other_models_served_and_logs_every_request_o
     assert {dl.bearer(request) for request in received} == {dl.CONTROL_KEY}
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
             (hashlib.sha256(scene.key.encode()).hexdigest(),),
         ),
         lambda found: len(found) >= 40,

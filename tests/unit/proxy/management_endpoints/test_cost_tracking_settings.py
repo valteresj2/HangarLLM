@@ -12,11 +12,11 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 
-import litellm
-from litellm._internal_context import pinned_billing_time
-from litellm.proxy._types import CostEstimateRequest
-from litellm.proxy.management_endpoints.cost_tracking_settings import router
-from litellm.proxy.proxy_server import app
+import hangarllm
+from hangarllm._internal_context import pinned_billing_time
+from hangarllm.proxy._types import CostEstimateRequest
+from hangarllm.proxy.management_endpoints.cost_tracking_settings import router
+from hangarllm.proxy.proxy_server import app
 
 client = TestClient(app)
 
@@ -33,7 +33,7 @@ class TestCostTrackingSettings:
         mock_proxy_config = AsyncMock()
         mock_proxy_config.get_config = AsyncMock(
             return_value={
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "cost_discount_config": {
                         "vertex_ai": 0.05,
                         "gemini": 0.05,
@@ -47,11 +47,11 @@ class TestCostTrackingSettings:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
         ):
@@ -80,17 +80,17 @@ class TestCostTrackingSettings:
         """
         # Mock the proxy_config to return a config without cost_discount_config
         mock_proxy_config = AsyncMock()
-        mock_proxy_config.get_config = AsyncMock(return_value={"litellm_settings": {}})
+        mock_proxy_config.get_config = AsyncMock(return_value={"hangarllm_settings": {}})
 
         mock_prisma_client = MagicMock()
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
         ):
@@ -114,7 +114,7 @@ class TestCostTrackingSettings:
         """
         # Mock the proxy_config
         mock_proxy_config = AsyncMock()
-        mock_proxy_config.get_config = AsyncMock(return_value={"litellm_settings": {}})
+        mock_proxy_config.get_config = AsyncMock(return_value={"hangarllm_settings": {}})
         mock_proxy_config.save_config = AsyncMock()
 
         mock_prisma_client = MagicMock()
@@ -129,18 +129,18 @@ class TestCostTrackingSettings:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 mock_store_model_in_db,
             ),
-            patch.object(litellm, "cost_discount_config", {}),
+            patch.object(hangarllm, "cost_discount_config", {}),
         ):
             # Make request
             response = client.patch(
@@ -163,8 +163,8 @@ class TestCostTrackingSettings:
             # Verify config was saved
             mock_proxy_config.save_config.assert_called_once()
 
-            # Verify litellm.cost_discount_config was updated
-            assert litellm.cost_discount_config == test_discount_config
+            # Verify hangarllm.cost_discount_config was updated
+            assert hangarllm.cost_discount_config == test_discount_config
 
     @pytest.mark.asyncio
     async def test_update_cost_discount_config_model_pattern_key(self):
@@ -172,7 +172,7 @@ class TestCostTrackingSettings:
         Test PATCH /config/cost_discount_config accepts <provider>/<model-pattern> keys.
         """
         mock_proxy_config = AsyncMock()
-        mock_proxy_config.get_config = AsyncMock(return_value={"litellm_settings": {}})
+        mock_proxy_config.get_config = AsyncMock(return_value={"hangarllm_settings": {}})
         mock_proxy_config.save_config = AsyncMock()
 
         mock_prisma_client = MagicMock()
@@ -180,10 +180,10 @@ class TestCostTrackingSettings:
         test_discount_config = {"vertex_ai/claude-*": 0.2}
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
-            patch.object(litellm, "cost_discount_config", {}),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
+            patch.object(hangarllm, "cost_discount_config", {}),
         ):
             response = client.patch(
                 "/config/cost_discount_config",
@@ -194,7 +194,7 @@ class TestCostTrackingSettings:
             assert response.status_code == 200
             assert response.json()["values"]["vertex_ai/claude-*"] == 0.2
             mock_proxy_config.save_config.assert_called_once()
-            assert litellm.cost_discount_config == test_discount_config
+            assert hangarllm.cost_discount_config == test_discount_config
 
     @pytest.mark.asyncio
     async def test_update_cost_discount_config_invalid_provider_with_pattern(self):
@@ -205,9 +205,9 @@ class TestCostTrackingSettings:
         mock_prisma_client = MagicMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             response = client.patch(
                 "/config/cost_discount_config",
@@ -227,9 +227,9 @@ class TestCostTrackingSettings:
         mock_prisma_client = MagicMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             response = client.patch(
                 "/config/cost_discount_config",
@@ -257,15 +257,15 @@ class TestCostTrackingSettings:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 mock_store_model_in_db,
             ),
         ):
@@ -298,15 +298,15 @@ class TestCostTrackingSettings:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 mock_store_model_in_db,
             ),
         ):
@@ -338,15 +338,15 @@ class TestCostTrackingSettings:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 mock_store_model_in_db,
             ),
         ):
@@ -371,9 +371,9 @@ class TestResolveModelForCostLookup:
         """
         When a model group has base_model set in model_info,
         _resolve_model_for_cost_lookup should return the base_model
-        instead of the raw litellm_params.model (Azure deployment name).
+        instead of the raw hangarllm_params.model (Azure deployment name).
         """
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
@@ -381,7 +381,7 @@ class TestResolveModelForCostLookup:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/openai/gpt-5.3-codex",
                     "api_base": "https://fake.openai.azure.com/",
                     "api_key": "fake-key",
@@ -394,7 +394,7 @@ class TestResolveModelForCostLookup:
         ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             mock_router,
         ):
             resolved = _resolve_model_for_cost_lookup("gpt-5.3-codex")
@@ -402,11 +402,11 @@ class TestResolveModelForCostLookup:
         assert resolved.model == "azure/gpt-4o"
         mock_router.registry.return_value.deployments.assert_called_once_with("gpt-5.3-codex")
 
-    def test_falls_back_to_litellm_params_model_when_no_base_model(self):
+    def test_falls_back_to_hangarllm_params_model_when_no_base_model(self):
         """
-        When no base_model is set, should fall back to litellm_params.model.
+        When no base_model is set, should fall back to hangarllm_params.model.
         """
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
@@ -414,7 +414,7 @@ class TestResolveModelForCostLookup:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                 },
                 "model_info": {
@@ -424,19 +424,19 @@ class TestResolveModelForCostLookup:
         ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             mock_router,
         ):
             resolved = _resolve_model_for_cost_lookup("gpt-4")
 
         assert resolved.model == "openai/gpt-4"
 
-    def test_resolves_base_model_from_litellm_params(self):
+    def test_resolves_base_model_from_hangarllm_params(self):
         """
-        When base_model is in litellm_params (not model_info),
+        When base_model is in hangarllm_params (not model_info),
         it should still be resolved.
         """
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
@@ -444,7 +444,7 @@ class TestResolveModelForCostLookup:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "my-azure-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/my-custom-deployment",
                     "base_model": "azure/gpt-4o-mini",
                 },
@@ -455,7 +455,7 @@ class TestResolveModelForCostLookup:
         ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             mock_router,
         ):
             resolved = _resolve_model_for_cost_lookup("my-azure-model")
@@ -466,12 +466,12 @@ class TestResolveModelForCostLookup:
         """
         When no router is available, should return the original model name.
         """
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             None,
         ):
             resolved = _resolve_model_for_cost_lookup("azure/openai/gpt-5.3-codex")
@@ -480,9 +480,9 @@ class TestResolveModelForCostLookup:
         assert resolved.provider is None
 
     def test_returns_custom_llm_provider_on_base_model_path(self):
-        """base_model path: the custom_llm_provider from litellm_params is
+        """base_model path: the custom_llm_provider from hangarllm_params is
         returned as the second tuple element, unchanged."""
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
@@ -490,7 +490,7 @@ class TestResolveModelForCostLookup:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "my-azure-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/my-deployment",
                     "base_model": "azure/gpt-4o",
                     "custom_llm_provider": "azure",
@@ -499,7 +499,7 @@ class TestResolveModelForCostLookup:
             }
         ]
 
-        with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
             resolved = _resolve_model_for_cost_lookup("my-azure-model")
 
         assert resolved.model == "azure/gpt-4o"
@@ -507,8 +507,8 @@ class TestResolveModelForCostLookup:
 
     def test_returns_custom_llm_provider_on_resolved_model_path(self):
         """resolved-model path (no base_model): the custom_llm_provider from
-        litellm_params is returned alongside litellm_params.model."""
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        hangarllm_params is returned alongside hangarllm_params.model."""
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
@@ -516,7 +516,7 @@ class TestResolveModelForCostLookup:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "custom_llm_provider": "openai",
                 },
@@ -524,17 +524,17 @@ class TestResolveModelForCostLookup:
             }
         ]
 
-        with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
             resolved = _resolve_model_for_cost_lookup("gpt-4")
 
         assert resolved.model == "openai/gpt-4"
         assert resolved.provider == "openai"
 
-    def test_resolves_base_model_when_deployment_has_no_litellm_params(self):
-        """A deployment can omit litellm_params entirely; base_model from
+    def test_resolves_base_model_when_deployment_has_no_hangarllm_params(self):
+        """A deployment can omit hangarllm_params entirely; base_model from
         model_info must still resolve (the .get default must be {} not None,
-        else the later litellm_params.get(...) raises and resolution is lost)."""
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        else the later hangarllm_params.get(...) raises and resolution is lost)."""
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
@@ -546,17 +546,17 @@ class TestResolveModelForCostLookup:
             }
         ]
 
-        with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
             resolved = _resolve_model_for_cost_lookup("my-azure-model")
 
         assert resolved.model == "azure/gpt-4o"
         assert resolved.provider is None
 
     def test_resolves_model_when_deployment_has_no_model_info(self):
-        """A deployment can omit model_info entirely; litellm_params.model must
+        """A deployment can omit model_info entirely; hangarllm_params.model must
         still resolve (the .get default must be {} not None, else the earlier
         model_info.get(...) raises and resolution is lost)."""
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             _resolve_model_for_cost_lookup,
         )
 
@@ -564,11 +564,11 @@ class TestResolveModelForCostLookup:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4"},
+                "hangarllm_params": {"model": "openai/gpt-4"},
             }
         ]
 
-        with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
             resolved = _resolve_model_for_cost_lookup("gpt-4")
 
         assert resolved.model == "openai/gpt-4"
@@ -587,8 +587,8 @@ class TestEstimateCostOnPremProvider:
 
         completion_cost is intentionally NOT mocked.
         """
-        from litellm.proxy._types import CostEstimateRequest
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy._types import CostEstimateRequest
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             estimate_cost,
         )
 
@@ -602,7 +602,7 @@ class TestEstimateCostOnPremProvider:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "nvidia/zai-org/glm-5.2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "zai-org/GLM-5.2",
                     "custom_llm_provider": "openai",
                 },
@@ -610,22 +610,22 @@ class TestEstimateCostOnPremProvider:
             }
         ]
 
-        saved_model_cost = dict(litellm.model_cost)
-        litellm.register_model(
+        saved_model_cost = dict(hangarllm.model_cost)
+        hangarllm.register_model(
             {
                 "openai/zai-org/GLM-5.2": {
                     "input_cost_per_token": 0.0,
                     "output_cost_per_token": 0.0,
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "chat",
                 }
             }
         )
         try:
-            with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+            with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
                 response = await estimate_cost(request=request, user_api_key_dict=MagicMock())
         finally:
-            litellm.model_cost = saved_model_cost
+            hangarllm.model_cost = saved_model_cost
 
         assert response.model == "nvidia/zai-org/glm-5.2"
         assert response.provider == "openai"
@@ -639,8 +639,8 @@ class TestEstimateCostOnPremProvider:
 
         completion_cost is intentionally NOT mocked.
         """
-        from litellm.proxy._types import CostEstimateRequest
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy._types import CostEstimateRequest
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             estimate_cost,
         )
 
@@ -655,7 +655,7 @@ class TestEstimateCostOnPremProvider:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "nvidia/zai-org/glm-5.2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "zai-org/GLM-5.2",
                     "custom_llm_provider": "openai",
                     "input_cost_per_token": 0.000001,
@@ -665,7 +665,7 @@ class TestEstimateCostOnPremProvider:
             }
         ]
 
-        with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
             response = await estimate_cost(request=request, user_api_key_dict=MagicMock())
 
         assert response.provider == "openai"
@@ -680,12 +680,12 @@ class TestEstimateCostOnPremProvider:
     async def test_estimate_cost_onprem_model_with_model_info_pricing(self):
         """
         Custom pricing configured under model_info (how DB / Admin UI added
-        deployments store it) must be honored, not just litellm_params pricing.
+        deployments store it) must be honored, not just hangarllm_params pricing.
 
         completion_cost is intentionally NOT mocked.
         """
-        from litellm.proxy._types import CostEstimateRequest
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy._types import CostEstimateRequest
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             estimate_cost,
         )
 
@@ -699,7 +699,7 @@ class TestEstimateCostOnPremProvider:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "nvidia/zai-org/glm-5.2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "zai-org/GLM-5.2",
                     "custom_llm_provider": "openai",
                 },
@@ -710,7 +710,7 @@ class TestEstimateCostOnPremProvider:
             }
         ]
 
-        with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
             response = await estimate_cost(request=request, user_api_key_dict=MagicMock())
 
         assert response.provider == "openai"
@@ -719,13 +719,13 @@ class TestEstimateCostOnPremProvider:
         assert response.output_cost_per_token == pytest.approx(0.000004)
 
     @pytest.mark.asyncio
-    async def test_estimate_cost_litellm_params_pricing_overrides_model_info(self):
+    async def test_estimate_cost_hangarllm_params_pricing_overrides_model_info(self):
         """
-        When pricing is set in both places, litellm_params wins, matching the
+        When pricing is set in both places, hangarllm_params wins, matching the
         router's cost-map registration precedence.
         """
-        from litellm.proxy._types import CostEstimateRequest
-        from litellm.proxy.management_endpoints.cost_tracking_settings import (
+        from hangarllm.proxy._types import CostEstimateRequest
+        from hangarllm.proxy.management_endpoints.cost_tracking_settings import (
             estimate_cost,
         )
 
@@ -739,7 +739,7 @@ class TestEstimateCostOnPremProvider:
         mock_router.registry.return_value.deployments.return_value = [
             {
                 "model_name": "nvidia/zai-org/glm-5.2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "zai-org/GLM-5.2",
                     "custom_llm_provider": "openai",
                     "input_cost_per_token": 0.000001,
@@ -752,7 +752,7 @@ class TestEstimateCostOnPremProvider:
             }
         ]
 
-        with patch("litellm.proxy.proxy_server.llm_router", mock_router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", mock_router):
             response = await estimate_cost(request=request, user_api_key_dict=MagicMock())
 
         assert response.cost_per_request == pytest.approx(0.002)
@@ -767,7 +767,7 @@ class TestBlockRequestsForModelsWithoutPricing:
 
     @pytest.mark.asyncio
     async def test_get_reflects_in_memory_flag(self):
-        with patch.object(litellm, "block_requests_for_models_without_pricing", True):
+        with patch.object(hangarllm, "block_requests_for_models_without_pricing", True):
             response = client.get(
                 "/config/block_requests_for_models_without_pricing",
                 headers={"Authorization": "Bearer sk-9876"},
@@ -779,14 +779,14 @@ class TestBlockRequestsForModelsWithoutPricing:
     @pytest.mark.asyncio
     async def test_patch_persists_and_updates_flag(self):
         mock_proxy_config = AsyncMock()
-        mock_proxy_config.get_config = AsyncMock(return_value={"litellm_settings": {}})
+        mock_proxy_config.get_config = AsyncMock(return_value={"hangarllm_settings": {}})
         mock_proxy_config.save_config = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
-            patch.object(litellm, "block_requests_for_models_without_pricing", False),
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
+            patch.object(hangarllm, "block_requests_for_models_without_pricing", False),
         ):
             response = client.patch(
                 "/config/block_requests_for_models_without_pricing",
@@ -796,24 +796,24 @@ class TestBlockRequestsForModelsWithoutPricing:
 
             assert response.status_code == 200
             assert response.json() == {"enabled": True}
-            assert litellm.block_requests_for_models_without_pricing is True
+            assert hangarllm.block_requests_for_models_without_pricing is True
 
         saved_config = mock_proxy_config.save_config.call_args.kwargs["new_config"]
-        assert saved_config["litellm_settings"]["block_requests_for_models_without_pricing"] is True
+        assert saved_config["hangarllm_settings"]["block_requests_for_models_without_pricing"] is True
 
     def test_peer_workers_pick_up_persisted_flag_on_config_reload(self):
         """A PATCH only mutates the flag on the worker that served it; peer workers must pick the
-        persisted value up when they reload litellm_settings from the DB."""
-        from litellm.proxy.proxy_server import ProxyConfig
+        persisted value up when they reload hangarllm_settings from the DB."""
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
-        with patch.object(litellm, "block_requests_for_models_without_pricing", False):
+        with patch.object(hangarllm, "block_requests_for_models_without_pricing", False):
             proxy_config = ProxyConfig()
             db_values = proxy_config._prepared_db_settings_values(
-                "litellm_settings", {"block_requests_for_models_without_pricing": True}
+                "hangarllm_settings", {"block_requests_for_models_without_pricing": True}
             )
-            proxy_config._apply_litellm_settings_db_values(db_values)
+            proxy_config._apply_hangarllm_settings_db_values(db_values)
 
-            assert litellm.block_requests_for_models_without_pricing is True
+            assert hangarllm.block_requests_for_models_without_pricing is True
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("loads_config_overrides", [True, False])
@@ -823,32 +823,32 @@ class TestBlockRequestsForModelsWithoutPricing:
         leaves config_overrides out."""
         from types import SimpleNamespace
 
-        from litellm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
         config_record = SimpleNamespace(
             param_value={"block_requests_for_models_without_pricing": True, "unsafe_key": "x"}
         )
         with (
-            patch.object(litellm, "block_requests_for_models_without_pricing", False),
+            patch.object(hangarllm, "block_requests_for_models_without_pricing", False),
             patch.object(
                 ProxyConfig,
                 "_should_load_db_object",
                 side_effect=lambda object_type: loads_config_overrides and object_type == "config_overrides",
             ),
             patch.object(ProxyConfig, "_init_hashicorp_vault_config_override", AsyncMock()),
-            patch("litellm.proxy.proxy_server.get_config_param", AsyncMock(return_value=config_record)),
+            patch("hangarllm.proxy.proxy_server.get_config_param", AsyncMock(return_value=config_record)),
         ):
             await ProxyConfig()._init_non_llm_objects_in_db(prisma_client=MagicMock())
 
-            assert litellm.block_requests_for_models_without_pricing is True
-            assert not hasattr(litellm, "unsafe_key")
+            assert hangarllm.block_requests_for_models_without_pricing is True
+            assert not hasattr(hangarllm, "unsafe_key")
 
     @pytest.mark.asyncio
     async def test_patch_requires_store_model_in_db(self):
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.proxy_config", AsyncMock()),
-            patch("litellm.proxy.proxy_server.store_model_in_db", False),
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.proxy_config", AsyncMock()),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", False),
         ):
             response = client.patch(
                 "/config/block_requests_for_models_without_pricing",
@@ -872,7 +872,7 @@ def _router_pricing(model: str = AN_UNDERLYING_MODEL, **pricing: float) -> Magic
     mock_router.registry.return_value.deployments.return_value = [
         {
             "model_name": AN_ALIAS,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": model,
                 "custom_llm_provider": "openai",
                 **pricing,
@@ -884,15 +884,15 @@ def _router_pricing(model: str = AN_UNDERLYING_MODEL, **pricing: float) -> Magic
 
 
 async def _estimate(mock_router: MagicMock | None, model: str = AN_ALIAS, **overrides: int):
-    from litellm.proxy._types import CostEstimateRequest
-    from litellm.proxy.management_endpoints.cost_tracking_settings import estimate_cost
+    from hangarllm.proxy._types import CostEstimateRequest
+    from hangarllm.proxy.management_endpoints.cost_tracking_settings import estimate_cost
 
     request = CostEstimateRequest(
         model=model,
         **{"input_tokens": INPUT_TOKENS, "output_tokens": OUTPUT_TOKENS, **overrides},
     )
     with patch(  # test-quality-ok: proxy_server module global is the endpoint's only injection point
-        "litellm.proxy.proxy_server.llm_router", mock_router
+        "hangarllm.proxy.proxy_server.llm_router", mock_router
     ):
         return await estimate_cost(request=request, user_api_key_dict=MagicMock())
 
@@ -917,12 +917,12 @@ class TestEstimateCostPartiallyPricedDeployments:
     @pytest.mark.asyncio
     async def test_a_model_priced_only_by_the_cost_map_reports_that_price_and_provider(self, monkeypatch):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             A_MAPPED_MODEL,
             {
                 "input_cost_per_token": 0.000005,
                 "output_cost_per_token": 0.000006,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
             },
         )
@@ -974,7 +974,7 @@ class TestEstimateCostPeriodTotals:
 
     @pytest.mark.asyncio
     async def test_a_configured_margin_is_totalled_per_period_like_the_other_components(self, monkeypatch):
-        monkeypatch.setattr(litellm, "cost_margin_config", {"openai": 0.10})
+        monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": 0.10})
 
         response = await _estimate(
             _router_pricing(input_cost_per_token=0.000001, output_cost_per_token=0.000002),
@@ -1009,7 +1009,7 @@ class TestEstimateCostCacheAndReasoningTokens:
     @pytest.mark.asyncio
     async def test_a_mapped_model_bills_cache_and_reasoning_tokens_at_their_own_rates(self, monkeypatch):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             A_MAPPED_MODEL,
             {
                 "input_cost_per_token": 3e-6,
@@ -1017,7 +1017,7 @@ class TestEstimateCostCacheAndReasoningTokens:
                 "cache_read_input_token_cost": 3e-7,
                 "cache_creation_input_token_cost": 3.75e-6,
                 "output_cost_per_reasoning_token": 1e-5,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
             },
         )
@@ -1053,9 +1053,9 @@ class TestEstimateCostCacheAndReasoningTokens:
         at the input rate, and its reasoning tokens at the output rate. The estimate reports those
         effective rates."""
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             A_MAPPED_MODEL,
-            {"input_cost_per_token": 5e-6, "output_cost_per_token": 6e-6, "litellm_provider": "openai", "mode": "chat"},
+            {"input_cost_per_token": 5e-6, "output_cost_per_token": 6e-6, "hangarllm_provider": "openai", "mode": "chat"},
         )
 
         response = await _estimate_with_cache_and_reasoning(None, model=A_MAPPED_MODEL)
@@ -1072,7 +1072,7 @@ class TestEstimateCostCacheAndReasoningTokens:
     @pytest.mark.asyncio
     async def test_a_request_without_cache_or_reasoning_tokens_estimates_as_before(self, monkeypatch):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             A_MAPPED_MODEL,
             {
                 "input_cost_per_token": 3e-6,
@@ -1080,7 +1080,7 @@ class TestEstimateCostCacheAndReasoningTokens:
                 "cache_read_input_token_cost": 3e-7,
                 "cache_creation_input_token_cost": 3.75e-6,
                 "output_cost_per_reasoning_token": 1e-5,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
             },
         )
@@ -1113,14 +1113,14 @@ class TestEstimateCostCacheAndReasoningTokens:
     @pytest.mark.asyncio
     async def test_a_custom_priced_deployment_of_a_mapped_model_inherits_its_built_in_cache_rates(self, monkeypatch):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             A_MAPPED_MODEL,
             {
                 "input_cost_per_token": 5e-6,
                 "output_cost_per_token": 6e-6,
                 "cache_read_input_token_cost": 5e-7,
                 "cache_creation_input_token_cost": 6.25e-6,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
             },
         )
@@ -1142,7 +1142,7 @@ class TestEstimateCostCacheAndReasoningTokens:
         """Above a token tier the calculator bills every line at the tier's rate, so the reported
         rates must be the tier's too: each line equals its token count times the rate next to it."""
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             A_MAPPED_MODEL,
             {
                 "input_cost_per_token": 3e-6,
@@ -1153,7 +1153,7 @@ class TestEstimateCostCacheAndReasoningTokens:
                 "output_cost_per_token_above_200k_tokens": 3e-5,
                 "cache_read_input_token_cost_above_200k_tokens": 6e-7,
                 "cache_creation_input_token_cost_above_200k_tokens": 7.5e-6,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
             },
         )
@@ -1190,7 +1190,7 @@ class TestEstimateCostCacheAndReasoningTokens:
         """The totals and the reported rates resolve off-peak pricing on separate paths. A quote
         taken as a window opens must not bill on one side of it and report rates from the other."""
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             A_MAPPED_MODEL,
             {
                 "input_cost_per_token": 3e-6,
@@ -1200,7 +1200,7 @@ class TestEstimateCostCacheAndReasoningTokens:
                     "input_cost_per_token": 1e-6,
                     "output_cost_per_token": 5e-6,
                 },
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
             },
         )
@@ -1221,7 +1221,7 @@ class TestEstimateCostCacheAndReasoningTokens:
         at the tier rate, so the reported rates have to be the tier's rather than the sub-tier base."""
         an_xai_model = "xai/tiered-model"
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             an_xai_model,
             {
                 "input_cost_per_token": 3e-6,
@@ -1230,7 +1230,7 @@ class TestEstimateCostCacheAndReasoningTokens:
                 "input_cost_per_token_above_200k_tokens": 6e-6,
                 "output_cost_per_token_above_200k_tokens": 3e-5,
                 "cache_read_input_token_cost_above_200k_tokens": 6e-7,
-                "litellm_provider": "xai",
+                "hangarllm_provider": "xai",
                 "mode": "chat",
             },
         )

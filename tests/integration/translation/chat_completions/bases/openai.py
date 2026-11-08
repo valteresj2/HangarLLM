@@ -20,8 +20,8 @@ from integration.translation.templates.openai import (
 
 GPT_5_4_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "openai/gpt-5.4",
         "max_tokens": 64,
         "messages": [
@@ -70,7 +70,7 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
         "service_tier": "default",
         "system_fingerprint": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "chatcmpl-EVhxnsh4umJNE0UBHCO0G3rCQjLO9",
         "created": 1791225871,
         "model": "openai/gpt-5.4",
@@ -108,8 +108,8 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "openai/gpt-5.6-sol",
         "max_tokens": 64,
         "messages": [
@@ -158,7 +158,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
         "service_tier": "default",
         "system_fingerprint": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "chatcmpl-EVhxr75iujjmwE0F2bgGMQHDX3Bq6",
         "created": 1791225875,
         "model": "openai/gpt-5.6-sol",
@@ -201,8 +201,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "openai/gpt-5.6-luna",
         "max_tokens": 64,
         "messages": [
@@ -251,7 +251,7 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
         "service_tier": "default",
         "system_fingerprint": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "chatcmpl-EVhxvZldBlNE3r8WZ8qJkxC92PmAr",
         "created": 1791225879,
         "model": "openai/gpt-5.6-luna",
@@ -293,8 +293,8 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-6-luna"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-6-luna"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -390,7 +390,7 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 453,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "openai/gpt-6-luna",
         "id": "resp_0a2459714d575226006ad02398406087d0a2501571a0097cce",
@@ -453,8 +453,8 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_MINI_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5-mini"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5-mini"},
     expected_provider_endpoint="/chat/completions",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={**OPENAI_CHAT_AGENT_REQUEST, "model": "gpt-5-mini"},
@@ -498,7 +498,7 @@ GPT_5_MINI_TEST_CASE: Final = TranslationTestCase(
             },
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "chatcmpl-EZ6ZkY5c57uHF4jMweilQxn2h2XUv",
         "model": "openai/gpt-5-mini",
@@ -547,8 +547,8 @@ GPT_5_MINI_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_4_MINI_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.4-mini"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-5.4-mini"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-5.4-mini"},
@@ -606,7 +606,7 @@ GPT_5_4_MINI_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 530,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_04479f74ce91556d006ad04a8ad01487d0b4589fd4fb7af2c8",
         "model": "openai/gpt-5.4-mini",
@@ -664,8 +664,8 @@ GPT_5_4_MINI_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "openai/gpt-6-sol"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-6-sol"},
@@ -707,7 +707,7 @@ GPT_6_SOL_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0bd4e7f6afc56841006ad04aa3bdc887d089b162423410f96b",
         "model": "openai/gpt-6-sol",
@@ -763,8 +763,8 @@ GPT_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-6.1-sol"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -859,7 +859,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 478,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "openai/gpt-6.1-sol",
         "id": "resp_0e8134ce088f63e7006ad023a2e5b887d0a0f422419e0bfbe7",
@@ -920,8 +920,8 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-6-astra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-6-astra"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -1016,7 +1016,7 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 447,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "openai/gpt-6-astra",
         "id": "resp_0dd9c3f2f13006a2006ad0238bcfa087d0ae1a00e93e9dcfa5",
@@ -1077,8 +1077,8 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-5.6-terra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/gpt-5.6-terra"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -1175,7 +1175,7 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 399,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "openai/gpt-5.6-terra",
         "id": "resp_0b9dd9372c7413ec006ad02386760487d08468a2a84f9e6871",

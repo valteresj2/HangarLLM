@@ -209,20 +209,20 @@ def test_an_ancestor_directory_covers_a_file_but_does_not_name_it():
     # The whole point of the split: `tests/x` answers "does it run?" but not
     # "which shard owns it?" — accepting it for the latter is how a new child
     # silently drops out of a tree that has no catch-all bucket.
-    assert coverage._token_covers("tests/test_litellm", "tests/test_litellm/caching") is True
-    assert coverage._token_names("tests/test_litellm", "tests/test_litellm/caching") is False
+    assert coverage._token_covers("tests/test_hangarllm", "tests/test_hangarllm/caching") is True
+    assert coverage._token_names("tests/test_hangarllm", "tests/test_hangarllm/caching") is False
 
 
 def test_an_exact_token_both_covers_and_names():
-    assert coverage._token_covers("tests/test_litellm/caching", "tests/test_litellm/caching") is True
-    assert coverage._token_names("tests/test_litellm/caching", "tests/test_litellm/caching") is True
+    assert coverage._token_covers("tests/test_hangarllm/caching", "tests/test_hangarllm/caching") is True
+    assert coverage._token_names("tests/test_hangarllm/caching", "tests/test_hangarllm/caching") is True
 
 
 def test_a_glob_names_only_what_it_matches_not_what_sits_below_it():
-    glob = "tests/test_litellm/test_*.py"
-    assert coverage._token_names(glob, "tests/test_litellm/test_router.py") is True
-    assert coverage._token_names(glob, "tests/test_litellm/test_router.py/nested.py") is False
-    assert coverage._token_names(glob, "tests/test_litellm/nested/test_router.py") is False
+    glob = "tests/test_hangarllm/test_*.py"
+    assert coverage._token_names(glob, "tests/test_hangarllm/test_router.py") is True
+    assert coverage._token_names(glob, "tests/test_hangarllm/test_router.py/nested.py") is False
+    assert coverage._token_names(glob, "tests/test_hangarllm/nested/test_router.py") is False
 
 
 def test_a_glob_still_covers_the_subtree_for_the_census():

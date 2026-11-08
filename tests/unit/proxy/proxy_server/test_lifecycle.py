@@ -11,7 +11,7 @@ Pins covered:
 - ``cost_tracking``
 - ``_resolve_typed_dict_type``
 - ``_resolve_pydantic_type``
-- ``get_litellm_model_info``
+- ``get_hangarllm_model_info``
 - ``run_ollama_serve``
 """
 
@@ -33,15 +33,15 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
-import litellm.proxy.proxy_server as ps
-from litellm.proxy.management_helpers.audit_logs import track_audit_task
-from litellm.proxy.proxy_server import (
+import hangarllm.proxy.proxy_server as ps
+from hangarllm.proxy.management_helpers.audit_logs import track_audit_task
+from hangarllm.proxy.proxy_server import (
     ProxyStartupEvent,
     _resolve_pydantic_type,
     _resolve_typed_dict_type,
     cleanup_router_config_variables,
     cost_tracking,
-    get_litellm_model_info,
+    get_hangarllm_model_info,
     initialize,
     initialize_from_worker_config,
     initialize_shared_aiohttp_session,
@@ -51,7 +51,7 @@ from litellm.proxy.proxy_server import (
     run_ollama_serve,
     save_worker_config,
 )
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.utils import PrismaClient
 
 from .conftest import normalize
 
@@ -123,10 +123,10 @@ async def test_database_lifespan_disconnects_prisma_after_proxy_shutdown(monkeyp
     monkeypatch.setattr(ps, "jwt_handler", fake_jwt, raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
     async with _closing_prisma(fake_prisma):
         await proxy_shutdown_event()
@@ -150,7 +150,7 @@ async def test_database_lifespan_disconnects_prisma_after_proxy_shutdown(monkeyp
 async def test_proxy_shutdown_flushes_every_langfuse_export_channel(monkeypatch):
     """A generation finished just before a graceful restart is still queued in its batch
     processor, so shutdown must flush every acquired export channel."""
-    from litellm.integrations.langfuse import langfuse_sdk
+    from hangarllm.integrations.langfuse import langfuse_sdk
 
     flushed = MagicMock(return_value=True)
     monkeypatch.setattr(langfuse_sdk, "flush_langfuse_tracing", flushed)
@@ -158,10 +158,10 @@ async def test_proxy_shutdown_flushes_every_langfuse_export_channel(monkeypatch)
     monkeypatch.setattr(ps, "jwt_handler", MagicMock(close=AsyncMock()), raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
     await proxy_shutdown_event()
 
@@ -174,8 +174,8 @@ async def test_proxy_shutdown_flushes_langfuse_off_the_event_loop_and_logs_a_tim
     with the shutdown deadline, and a channel that misses it is reported instead of ignored."""
     import threading
 
-    from litellm.constants import LANGFUSE_SHUTDOWN_FLUSH_TIMEOUT_MILLIS
-    from litellm.integrations.langfuse import langfuse_sdk
+    from hangarllm.constants import LANGFUSE_SHUTDOWN_FLUSH_TIMEOUT_MILLIS
+    from hangarllm.integrations.langfuse import langfuse_sdk
 
     ran_on = MagicMock()
 
@@ -188,12 +188,12 @@ async def test_proxy_shutdown_flushes_langfuse_off_the_event_loop_and_logs_a_tim
     monkeypatch.setattr(ps, "jwt_handler", MagicMock(close=AsyncMock()), raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
-    with caplog.at_level("WARNING", logger="LiteLLM Proxy"):
+    with caplog.at_level("WARNING", logger="HangarLLM Proxy"):
         await proxy_shutdown_event()
 
     (flush_thread, timeout_millis), _ = ran_on.call_args
@@ -231,10 +231,10 @@ async def test_proxy_shutdown_drains_gateway_requests_before_disconnecting(monke
     monkeypatch.setattr(ps, "jwt_handler", fake_jwt, raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
     async with _closing_prisma(fake_prisma):
         await proxy_shutdown_event()
@@ -272,10 +272,10 @@ async def test_proxy_shutdown_drains_audit_writes_beside_the_gateway_flush_befor
     monkeypatch.setattr(ps, "jwt_handler", fake_jwt, raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
     track_audit_task(asyncio.create_task(_audit_write_that_finishes_after_the_flush_starts()))
     async with _closing_prisma(fake_prisma):
@@ -296,10 +296,10 @@ async def test_proxy_shutdown_skips_gateway_flush_without_a_database(monkeypatch
     monkeypatch.setattr(ps, "jwt_handler", fake_jwt, raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
     await proxy_shutdown_event()
 
@@ -319,10 +319,10 @@ async def test_proxy_shutdown_without_a_database_drains_audit_callbacks_before_t
     monkeypatch.setattr(ps, "jwt_handler", fake_jwt, raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
     async def _audit_callback_still_sending() -> None:
         await asyncio.sleep(0.05)
@@ -345,12 +345,12 @@ async def test_database_lifespan_logs_disconnect_error_after_shutdown_instead_of
     fake_jwt.close = AsyncMock()
     monkeypatch.setattr(ps, "jwt_handler", fake_jwt, raising=False)
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         async with _closing_prisma(fake_prisma):
             await proxy_shutdown_event()
 
@@ -370,7 +370,7 @@ async def test_flush_spend_logs_queue_on_shutdown_drains_before_disconnect(monke
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
     drain = AsyncMock()
-    import litellm.proxy.utils as utils_mod
+    import hangarllm.proxy.utils as utils_mod
 
     monkeypatch.setattr(utils_mod, "drain_spend_logs_queue", drain)
 
@@ -391,7 +391,7 @@ async def test_flush_spend_logs_queue_on_shutdown_swallows_drain_errors(monkeypa
     monkeypatch.setattr(ps, "prisma_client", MagicMock(), raising=False)
     monkeypatch.setattr(ps, "db_writer_client", None, raising=False)
 
-    import litellm.proxy.utils as utils_mod
+    import hangarllm.proxy.utils as utils_mod
 
     monkeypatch.setattr(
         utils_mod,
@@ -428,7 +428,7 @@ async def test_flush_spend_counters_on_shutdown_logs_and_swallows_commit_errors(
         AsyncMock(side_effect=RuntimeError("db gone")),
     )
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         await ps.flush_spend_counters_on_shutdown()
 
     assert "Error flushing spend counters on shutdown: db gone" in caplog.text
@@ -534,7 +534,7 @@ def test__redact_worker_config_for_logging_dict_masks_all_secret_shapes():
     URL-with-credentials field (`database_url`), which the segment masker
     misses because neither segment matches its sensitive-pattern set.
     """
-    from litellm.proxy.proxy_server import _redact_worker_config_for_logging
+    from hangarllm.proxy.proxy_server import _redact_worker_config_for_logging
 
     redacted = _redact_worker_config_for_logging(_lit4152_worker_config_dict())
     rendered = repr(redacted)
@@ -550,7 +550,7 @@ def test__redact_worker_config_for_logging_json_string_round_trips_masked():
     Confirm the string path also masks and that the returned value re-parses
     into a dict with the sensitive fields masked.
     """
-    from litellm.proxy.proxy_server import _redact_worker_config_for_logging
+    from hangarllm.proxy.proxy_server import _redact_worker_config_for_logging
 
     payload = json.dumps(_lit4152_worker_config_dict())
     redacted = _redact_worker_config_for_logging(payload)
@@ -565,7 +565,7 @@ def test__redact_worker_config_for_logging_passthrough_for_none_and_non_json_str
     """Non-dict, non-JSON-parseable string is passed through verbatim (nothing
     to mask) and ``None`` returns ``None``.
     """
-    from litellm.proxy.proxy_server import _redact_worker_config_for_logging
+    from hangarllm.proxy.proxy_server import _redact_worker_config_for_logging
 
     assert _redact_worker_config_for_logging(None) is None
     assert _redact_worker_config_for_logging("/tmp/some_config.yaml") == "/tmp/some_config.yaml"
@@ -580,7 +580,7 @@ def test__redact_worker_config_for_logging_masks_non_string_url_webhook_values()
     the whole value is replaced regardless of shape so a nested webhook or
     Bearer token under a non-segment-matched key does not slip through.
     """
-    from litellm.proxy.proxy_server import _redact_worker_config_for_logging
+    from hangarllm.proxy.proxy_server import _redact_worker_config_for_logging
 
     nested_webhook_secret = "https://hooks.slack.com/services/T0/B0/nested-webhook-secret-xyz"
     data = {
@@ -615,7 +615,7 @@ def test__redact_worker_config_for_logging_masks_nested_secret_fields():
     must not leak a nested ``database_url`` or webhook secret; the earlier
     top-level-only redaction would have passed these through raw.
     """
-    from litellm.proxy.proxy_server import _redact_worker_config_for_logging
+    from hangarllm.proxy.proxy_server import _redact_worker_config_for_logging
 
     nested_db_url = "postgresql://nested_user:nested_pw_4152@nested-host:5432/db"
     nested_webhook = "https://hooks.slack.com/services/T0/B0/nested-4152-webhook"
@@ -686,16 +686,16 @@ async def test_initialize_from_worker_config_drops_legacy_telemetry_key():
 
 
 def test_load_from_azure_key_vault_disabled_no_side_effect(monkeypatch):
-    import litellm
+    import hangarllm
 
     sentinel_secret_mgr = object()
-    monkeypatch.setattr(litellm, "secret_manager_client", sentinel_secret_mgr, raising=False)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", sentinel_secret_mgr, raising=False)
 
     result = load_from_azure_key_vault(use_azure_key_vault=False)
 
     observed = {
         "return_value": result,
-        "secret_manager_unchanged": litellm.secret_manager_client is sentinel_secret_mgr,
+        "secret_manager_unchanged": hangarllm.secret_manager_client is sentinel_secret_mgr,
         "called_with": False,
     }
     assert normalize(observed) == {
@@ -726,12 +726,12 @@ async def test_cost_tracking_adds_db_and_shadow_eval_callbacks_when_prisma_set(
 ) -> None:
     from datetime import datetime
 
-    import litellm
-    from litellm.integrations.shadow_eval_logger import ShadowEvalLogger
-    from litellm.proxy.spend_tracking.spend_event import SpendEventDecodeError, decode_spend_event
-    from litellm.proxy.spend_tracking.spend_event_producer import SpendEventProducer
-    from litellm.types.utils import ModelResponse, Usage
-    from litellm.utils import Rules, function_setup
+    import hangarllm
+    from hangarllm.integrations.shadow_eval_logger import ShadowEvalLogger
+    from hangarllm.proxy.spend_tracking.spend_event import SpendEventDecodeError, decode_spend_event
+    from hangarllm.proxy.spend_tracking.spend_event_producer import SpendEventProducer
+    from hangarllm.types.utils import ModelResponse, Usage
+    from hangarllm.utils import Rules, function_setup
 
     producer: Final = AsyncMock(spec=SpendEventProducer)
     monkeypatch.setattr(ps, "prisma_client", MagicMock())
@@ -745,14 +745,14 @@ async def test_cost_tracking_adds_db_and_shadow_eval_callbacks_when_prisma_set(
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        monkeypatch.setattr(litellm, name, [])
+        monkeypatch.setattr(hangarllm, name, [])
 
     for _ in range(setup_count):
         cost_tracking()
 
-    assert len(litellm.callbacks) == 2
-    assert sum(isinstance(cb, ShadowEvalLogger) for cb in litellm.callbacks) == 1
-    assert len(litellm._async_success_callback) == 1
+    assert len(hangarllm.callbacks) == 2
+    assert sum(isinstance(cb, ShadowEvalLogger) for cb in hangarllm.callbacks) == 1
+    assert len(hangarllm._async_success_callback) == 1
     now: Final = datetime(2026, 1, 1)
     logging_obj, _ = function_setup(
         "acompletion",
@@ -760,9 +760,9 @@ async def test_cost_tracking_adds_db_and_shadow_eval_callbacks_when_prisma_set(
         now,
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "hello"}],
-        litellm_call_id="single-accounting-event",
+        hangarllm_call_id="single-accounting-event",
     )
-    logging_obj.update_environment_variables(litellm_params={"acompletion": True, "metadata": {}}, optional_params={})
+    logging_obj.update_environment_variables(hangarllm_params={"acompletion": True, "metadata": {}}, optional_params={})
     response: Final = ModelResponse(
         id="chatcmpl-single-accounting-event",
         model="gpt-4o-mini",
@@ -778,16 +778,16 @@ async def test_cost_tracking_adds_db_and_shadow_eval_callbacks_when_prisma_set(
 
 def test_cost_tracking_no_op_when_prisma_missing(monkeypatch):
     """Without a prisma_client cost_tracking is a no-op — not an error."""
-    import litellm
+    import hangarllm
 
     monkeypatch.setattr(ps, "prisma_client", None, raising=False)
-    monkeypatch.setattr(litellm, "callbacks", [], raising=False)
-    monkeypatch.setattr(litellm, "_async_success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [], raising=False)
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [], raising=False)
 
     cost_tracking()
 
-    assert litellm.callbacks == []
-    assert litellm._async_success_callback == []
+    assert hangarllm.callbacks == []
+    assert hangarllm._async_success_callback == []
 
 
 # ---------------------------------------------------------------------------
@@ -862,22 +862,22 @@ def test_resolve_pydantic_type_invalid_non_union_non_model_returns_empty():
 
 
 # ---------------------------------------------------------------------------
-# get_litellm_model_info
+# get_hangarllm_model_info
 # ---------------------------------------------------------------------------
 
 
-def test_get_litellm_model_info_uses_base_model_for_lookup(monkeypatch):
-    import litellm
+def test_get_hangarllm_model_info_uses_base_model_for_lookup(monkeypatch):
+    import hangarllm
 
     expected_info = {"max_tokens": 8192, "input_cost_per_token": 0.00003}
     fake_get = MagicMock(return_value=expected_info)
-    monkeypatch.setattr(litellm, "get_model_info", fake_get, raising=False)
+    monkeypatch.setattr(hangarllm, "get_model_info", fake_get, raising=False)
 
     model = {
         "model_info": {"base_model": "gpt-4"},
-        "litellm_params": {"model": "azure/my-deployment"},
+        "hangarllm_params": {"model": "azure/my-deployment"},
     }
-    result = get_litellm_model_info(model=model)
+    result = get_hangarllm_model_info(model=model)
 
     observed = {
         "called_arg": (
@@ -893,10 +893,10 @@ def test_get_litellm_model_info_uses_base_model_for_lookup(monkeypatch):
     }
 
 
-def test_get_litellm_model_info_invalid_empty_dict_returns_empty():
+def test_get_hangarllm_model_info_invalid_empty_dict_returns_empty():
     """Empty input means model_to_lookup is None — internal exception is caught
     and the function returns {}."""
-    result = get_litellm_model_info(model={})
+    result = get_hangarllm_model_info(model={})
     assert result == {}
 
 
@@ -1003,7 +1003,7 @@ async def test_proxy_startup_event_honors_disable_model_info_refresh(
     fixture (or a metered upstream) makes only the calls its clients asked for."""
     scheduler = AsyncIOScheduler()
     clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")} | {
-        "LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true"
+        "HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true"
     }
     with (
         patch.dict(os.environ, clean_env, clear=True),
@@ -1026,7 +1026,7 @@ async def test_proxy_startup_event_honors_disable_model_info_refresh(
 async def test_proxy_shutdown_commits_spend_before_waiting_on_a_slow_logging_task_and_again_after_it() -> None:
     """A worker killed while shutdown waits on a slow logging task keeps the spend it had already counted,
     and a worker that finishes the wait also commits the spend that task adds."""
-    from litellm.responses import streaming_iterator as streaming_module
+    from hangarllm.responses import streaming_iterator as streaming_module
 
     task_may_finish: Final = asyncio.Event()
     task_finished: Final = asyncio.Event()
@@ -1047,7 +1047,7 @@ async def test_proxy_shutdown_commits_spend_before_waiting_on_a_slow_logging_tas
 
     scheduler: Final = AsyncIOScheduler()
     clean_env: Final = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")} | {
-        "LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true"
+        "HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true"
     }
     with (
         patch.dict(os.environ, clean_env, clear=True),
@@ -1098,31 +1098,31 @@ def test_otel_global_provider_published_after_callback_init():
 
 
 def test_startup_warns_for_global_budget_without_database(caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         ProxyStartupEvent.warn_budget_without_db(max_budget=100.0, prisma_client=None)
 
-    assert "litellm.max_budget=100.0" in caplog.text
+    assert "hangarllm.max_budget=100.0" in caplog.text
     assert "will NOT be enforced" in caplog.text
     assert "requests will never be blocked" in caplog.text
 
 
 def test_startup_does_not_warn_for_global_budget_with_database(caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         ProxyStartupEvent.warn_budget_without_db(max_budget=100.0, prisma_client=MagicMock())
 
-    assert "litellm.max_budget" not in caplog.text
+    assert "hangarllm.max_budget" not in caplog.text
 
 
 @pytest.mark.parametrize("max_budget", [0, None])
 def test_startup_does_not_warn_without_global_budget(caplog, max_budget):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         ProxyStartupEvent.warn_budget_without_db(max_budget=max_budget, prisma_client=None)
 
-    assert "litellm.max_budget" not in caplog.text
+    assert "hangarllm.max_budget" not in caplog.text
 
 
 def test_startup_warns_for_fail_closed_rate_limits_without_redis(caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         ProxyStartupEvent._warn_fail_closed_rate_limits_without_redis(
             fail_closed_rate_limit_enforcement=True, redis_usage_cache=None
         )
@@ -1133,7 +1133,7 @@ def test_startup_warns_for_fail_closed_rate_limits_without_redis(caplog):
 
 @pytest.mark.parametrize("fail_closed, redis_usage_cache", [(True, MagicMock()), (False, None)])
 def test_startup_does_not_warn_for_fail_closed_rate_limits_when_nothing_is_lost(caplog, fail_closed, redis_usage_cache):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         ProxyStartupEvent._warn_fail_closed_rate_limits_without_redis(
             fail_closed_rate_limit_enforcement=fail_closed, redis_usage_cache=redis_usage_cache
         )
@@ -1145,13 +1145,13 @@ def test_startup_does_not_warn_for_fail_closed_rate_limits_when_nothing_is_lost(
 async def test_proxy_startup_event_warns_for_fail_closed_rate_limits_without_redis(caplog):
     scheduler = AsyncIOScheduler()
     clean_env = {k: v for k, v in os.environ.items() if k not in ("DATABASE_URL", "DIRECT_URL")} | {
-        "LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true"
+        "HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true"
     }
     with (
         patch.dict(os.environ, clean_env, clear=True),
         patch.object(ps, "scheduler", scheduler),
         patch.dict(ps.general_settings, {"fail_closed_rate_limit_enforcement": True}),
-        caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"),
+        caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"),
     ):
         try:
             async with proxy_startup_event(app=None):
@@ -1172,7 +1172,7 @@ def test_proxy_startup_event_warns_for_global_budget_without_database():
     """
     wrapped = getattr(ps._proxy_lifespan, "__wrapped__", ps._proxy_lifespan)
     source = inspect.getsource(wrapped)
-    budget_check_pos = source.find("if prisma_client is not None and litellm.max_budget > 0:")
+    budget_check_pos = source.find("if prisma_client is not None and hangarllm.max_budget > 0:")
     warn_pos = source.find("warn_budget_without_db(")
     next_startup_section_pos = source.find(
         "await ProxyStartupEvent.initialize_scheduled_background_jobs(",
@@ -1189,20 +1189,20 @@ def test_proxy_startup_event_warns_for_global_budget_without_database():
 
 @pytest.mark.asyncio
 async def test_tuning_baseline_v3_is_created_alongside_the_legacy_row():
-    from litellm.router_strategy.auto_router.auto_router_tuning_baseline import DEFAULT_TUNING_FINGERPRINT
+    from hangarllm.router_strategy.auto_router.auto_router_tuning_baseline import DEFAULT_TUNING_FINGERPRINT
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_config.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_config.create = AsyncMock()
+    prisma_client.db.hangarllm_config.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_config.create = AsyncMock()
     deployment = {
         "model_name": "a",
-        "litellm_params": {"model": "auto_router/complexity_router", "complexity_router_config": {}},
+        "hangarllm_params": {"model": "auto_router/complexity_router", "complexity_router_config": {}},
     }
 
     result = await ProxyStartupEvent._load_heuristic_v1_tuning_baselines(prisma_client, [deployment])
 
     assert result == {'yaml:["a",[]]': DEFAULT_TUNING_FINGERPRINT}
-    assert prisma_client.db.litellm_config.create.await_args.kwargs["data"] == {
+    assert prisma_client.db.hangarllm_config.create.await_args.kwargs["data"] == {
         "param_name": "auto_router_tuning_baseline_v3",
         "param_value": json.dumps(dict(result)),
     }
@@ -1210,7 +1210,7 @@ async def test_tuning_baseline_v3_is_created_alongside_the_legacy_row():
 
 @pytest.mark.asyncio
 async def test_scorer_baseline_upgrade_preserves_existing_routers_and_is_not_refreshed_on_restart():
-    from litellm.router_strategy.auto_router.auto_router_tuning_baseline import (
+    from hangarllm.router_strategy.auto_router.auto_router_tuning_baseline import (
         mutable_tuned_identities,
         snapshot_tuning_baselines,
     )
@@ -1218,7 +1218,7 @@ async def test_scorer_baseline_upgrade_preserves_existing_routers_and_is_not_ref
     deployments = [
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": {"tiers": {"SIMPLE": name}, "code_keywords": [name]},
             },
@@ -1226,28 +1226,28 @@ async def test_scorer_baseline_upgrade_preserves_existing_routers_and_is_not_ref
         for name in ("a", "b")
     ]
     prisma_client = MagicMock()
-    prisma_client.db.litellm_config.find_unique = AsyncMock(
+    prisma_client.db.hangarllm_config.find_unique = AsyncMock(
         side_effect=lambda where: (
             MagicMock(param_value='{"legacy-router":"old-combined-hash"}')
             if where["param_name"] == "auto_router_tuning_baseline_v2"
             else None
         )
     )
-    prisma_client.db.litellm_config.create = AsyncMock()
+    prisma_client.db.hangarllm_config.create = AsyncMock()
 
     baseline = await ProxyStartupEvent._load_heuristic_v1_tuning_baselines(prisma_client, deployments)
 
     assert baseline == snapshot_tuning_baselines(deployments)
     assert mutable_tuned_identities(deployments, baseline) == frozenset()
-    prisma_client.db.litellm_config.create.assert_awaited_once_with(
+    prisma_client.db.hangarllm_config.create.assert_awaited_once_with(
         data={"param_name": "auto_router_tuning_baseline_v3", "param_value": json.dumps(dict(baseline))}
     )
-    prisma_client.db.litellm_config.find_unique.side_effect = None
-    prisma_client.db.litellm_config.find_unique.return_value = MagicMock(param_value=json.dumps(dict(baseline)))
+    prisma_client.db.hangarllm_config.find_unique.side_effect = None
+    prisma_client.db.hangarllm_config.find_unique.return_value = MagicMock(param_value=json.dumps(dict(baseline)))
     changed = [
         {
             "model_name": "a",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": {"tiers": {"SIMPLE": "different-model"}, "code_keywords": ["new-rule"]},
             },
@@ -1258,7 +1258,7 @@ async def test_scorer_baseline_upgrade_preserves_existing_routers_and_is_not_ref
 
     assert reloaded == baseline
     assert mutable_tuned_identities(changed, reloaded) == frozenset({'yaml:["a",[]]'})
-    prisma_client.db.litellm_config.create.assert_awaited_once()
+    prisma_client.db.hangarllm_config.create.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1273,7 +1273,7 @@ async def test_tuning_baseline_waits_for_a_complete_db_model_census(monkeypatch)
     )
 
     assert result is None
-    prisma_client.db.litellm_config.find_unique.assert_not_called()
+    prisma_client.db.hangarllm_config.find_unique.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

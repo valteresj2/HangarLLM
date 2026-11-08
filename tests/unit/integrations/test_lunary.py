@@ -2,9 +2,9 @@
 
 from typing import Final
 
-import litellm
-from litellm.integrations.lunary import parse_messages, parse_tool_calls
-from litellm.types.utils import (
+import hangarllm
+from hangarllm.integrations.lunary import parse_messages, parse_tool_calls
+from hangarllm.types.utils import (
     ChatCompletionMessageCustomToolCall,
     ChatCompletionMessageToolCall,
     Function,
@@ -41,12 +41,12 @@ def test_parse_tool_calls_none_passthrough():
 
 
 def test_parse_messages_lists_server_tool_calls_before_client_calls():
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 index=0,
                 finish_reason="tool_calls",
-                message=litellm.Message(
+                message=hangarllm.Message(
                     role="assistant",
                     content=None,
                     tool_calls=[

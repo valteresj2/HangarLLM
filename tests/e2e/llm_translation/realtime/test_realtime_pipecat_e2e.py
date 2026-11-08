@@ -1,7 +1,7 @@
 """Live pipecat smoke for the proxy realtime websocket.
 
 A realism layer on top of test_realtime_e2e: instead of speaking the GA protocol
-by hand, drive the proxy through the shared LiteLLMRealtimeLLMService (pipecat's
+by hand, drive the proxy through the shared HangarLLMRealtimeLLMService (pipecat's
 GA service with proxy-specific overrides, keepalive pings disabled) with its
 base_url pointed at the proxy and the model swapped per provider. It confirms the
 audio and function-call wiring survives the round-trip. Assertions are coarse;
@@ -14,7 +14,7 @@ the async pipecat pipeline with asyncio.run. Skips unless pipecat is installed:
 
 Known caveat: pipecat tool calling over the realtime service has been flaky
 upstream (pipecat-ai/pipecat#2544). A failure here with the matching raw-ws tool
-test passing points at pipecat, not litellm.
+test passing points at pipecat, not hangarllm.
 """
 
 # pipecat is an optional, dynamically typed dependency loaded behind importorskip,
@@ -59,7 +59,7 @@ from pipecat.processors.frame_processor import (  # noqa: E402
 )
 from pipecat.services.llm_service import FunctionCallParams  # noqa: E402
 
-from pipecat_service import LiteLLMRealtimeLLMService  # noqa: E402
+from pipecat_service import HangarLLMRealtimeLLMService  # noqa: E402
 
 # Vertex native-audio live is flaky through pipecat tool calling (upstream
 # pipecat-ai/pipecat#2544); raw-ws tool_call_round_trip[vertex_ai] is the
@@ -76,7 +76,7 @@ PROVIDER_PARAMS = [
                 domain=Domain.LLM_TRANSLATION,
                 route=Route.REALTIME,
                 providers=(Provider(p.id),),
-                models=(p.litellm_params.model,),
+                models=(p.hangarllm_params.model,),
                 capabilities=(Capability.FUNCTION_CALLING,),
                 mode=Mode.WEBSOCKET,
             )
@@ -116,7 +116,7 @@ async def _run_pipeline(key: str, model: str) -> tuple[bool, bool]:
         tool_called.set()
         await params.result_callback({"city": "Paris", "temperature_f": 72})
 
-    llm = LiteLLMRealtimeLLMService(
+    llm = HangarLLMRealtimeLLMService(
         api_key=key, base_url=f"{ws_base_url()}/v1/realtime", model=model
     )
     llm.register_function("get_weather", get_weather)

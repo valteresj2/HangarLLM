@@ -20,14 +20,14 @@ from models import (
     ChatBody,
     ChatMessage,
     KeyGenerateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModelsListResponse,
 )
 from proxy_client import ProxyClient
 from requests import RequestException
 
 ROUTER_MODEL = "complexity-smart-router"
-ROUTER_PARAMS = LiteLLMParamsBody(
+ROUTER_PARAMS = HangarLLMParamsBody(
     model="auto_router/complexity_router",
     complexity_router_config={
         "classifier_type": "llm",

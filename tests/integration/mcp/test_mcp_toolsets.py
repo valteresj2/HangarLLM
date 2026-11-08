@@ -28,16 +28,16 @@ from integration._support.mcp import (
 from integration._support.mcp_grants import create_toolset
 from integration._support.process import owned_proxy, owned_proxy_process
 
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import LITELLM_SESSION_TOKEN_PREFIX, ExperimentalUIJWTToken
-from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_bearer_token
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.auth_checks import HANGARLLM_SESSION_TOKEN_PREFIX, ExperimentalUIJWTToken
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_bearer_token
 
 ADD: Final = {"a": 4, "b": 5}
 
 
 def _dashboard_ui_session_token(user_id: str) -> str:
-    user: Final = LiteLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
+    user: Final = HangarLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
     return ExperimentalUIJWTToken.get_experimental_ui_login_jwt_auth_token(user)
 
 
@@ -109,7 +109,7 @@ def test_team_granted_toolset_is_listed_and_served_to_a_team_key(gateway: Gatewa
 def test_dashboard_session_of_a_team_member_lists_the_team_granted_toolset(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "lit6029_" + uuid.uuid4().hex[:8]
         server_id: Final = register_mcp(scenario, peer, alias)
@@ -179,7 +179,7 @@ def test_dashboard_session_serves_the_team_toolset_despite_a_disjoint_grant_on_t
 ) -> None:
     """The member's own row grants a different server outright. That grant must not cap the team's toolset
     to nothing, and the team's sibling toolset must not leak onto the granted toolset's route."""
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "lit6029_" + uuid.uuid4().hex[:8]
         server_id: Final = register_mcp(scenario, peer, alias)
@@ -210,7 +210,7 @@ def test_dashboard_session_serves_the_team_toolset_despite_a_disjoint_grant_on_t
 def test_a_member_removed_from_the_team_loses_its_toolset_on_the_dashboard_session(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "lit6029_" + uuid.uuid4().hex[:8]
         server_id: Final = register_mcp(scenario, peer, alias)
@@ -240,11 +240,11 @@ def _expired_dashboard_token(user_id: str) -> str:
         key_alias="ui-token",
         expires=expired + "+00:00",
         user_id=user_id,
-        team_id="litellm-dashboard",
+        team_id="hangarllm-dashboard",
         models=[],
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
-    return encrypt_bearer_token(stale.model_dump_json(exclude_none=True), prefix=LITELLM_SESSION_TOKEN_PREFIX)
+    return encrypt_bearer_token(stale.model_dump_json(exclude_none=True), prefix=HANGARLLM_SESSION_TOKEN_PREFIX)
 
 
 def _rest_list(gateway: Gateway, headers: dict[str, str], params: object) -> httpx.Response:
@@ -283,7 +283,7 @@ def _strict_config(directory: Path) -> Path:
 def test_mcp_rest_toolset_name_narrows_the_list_and_serves_the_call_for_a_team_key_and_a_dashboard_member(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "lit6029rest" + uuid.uuid4().hex[:6]
         server_id: Final = register_mcp(scenario, peer, alias)
@@ -367,7 +367,7 @@ def test_an_unknown_or_malformed_toolset_name_is_refused_without_peer_traffic_an
 def test_garbage_expired_and_tampered_credentials_are_refused_on_every_toolset_surface(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         server_id: Final = register_mcp(scenario, peer, "lit6029cred" + uuid.uuid4().hex[:6])
         granted_id, granted_name = _toolset(scenario, server_id, "add")
@@ -394,7 +394,7 @@ def test_garbage_expired_and_tampered_credentials_are_refused_on_every_toolset_s
 def test_a_dashboard_member_of_a_deleted_team_loses_the_toolset_while_a_direct_grant_survives(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "lit6029gone" + uuid.uuid4().hex[:6]
         server_id: Final = register_mcp(scenario, peer, alias)
@@ -429,7 +429,7 @@ def test_a_dashboard_member_of_a_deleted_team_loses_the_toolset_while_a_direct_g
 def test_require_key_mcp_access_defined_stops_key_inheritance_but_not_the_dashboard_member(
     gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with (
         owned_proxy(gateway, tmp_path, {}, config=_strict_config(tmp_path), workers=2) as strict,
         mcp_peer() as peer,
@@ -476,7 +476,7 @@ def test_a_key_with_only_a_vector_store_grant_still_inherits_the_team_toolset(ga
 def test_a_member_added_after_the_team_was_cached_sees_the_toolset_on_every_following_request(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         server_id: Final = register_mcp(scenario, peer, "lit6029cache" + uuid.uuid4().hex[:6])
         granted_id, _ = _toolset(scenario, server_id, "add")
@@ -497,7 +497,7 @@ def test_a_member_added_after_the_team_was_cached_sees_the_toolset_on_every_foll
 def test_a_member_of_two_teams_sees_the_union_and_each_route_stays_narrowed_to_its_own_toolset(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "lit6029two" + uuid.uuid4().hex[:6]
         server_id: Final = register_mcp(scenario, peer, alias)
@@ -550,7 +550,7 @@ _GUARDRAIL_CODE: Final = (
 _ECHO_GUARDRAIL_YAML: Final = (
     "guardrails:\n"
     "  - guardrail_name: catalog-echo\n"
-    "    litellm_params:\n"
+    "    hangarllm_params:\n"
     "      guardrail: custom_code\n"
     "      mode: pre_mcp_call\n"
     "      default_on: true\n"

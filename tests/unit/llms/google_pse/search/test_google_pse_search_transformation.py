@@ -4,9 +4,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.google_pse.search.transformation import GooglePSESearchConfig
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.google_pse.search.transformation import GooglePSESearchConfig
 
 
 def _transform(payload: object) -> SearchResponse:
@@ -16,7 +16,7 @@ def _transform(payload: object) -> SearchResponse:
         stream=False,
         call_type="search",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return GooglePSESearchConfig().transform_search_response(
@@ -29,18 +29,18 @@ def test_google_pse_items_keep_provider_order_and_ignore_search_metadata():
         {
             "kind": "customsearch#search",
             "url": {"type": "application/json", "template": "https://www.googleapis.com/customsearch/v1?q={q}"},
-            "queries": {"request": [{"title": "Google Custom Search - litellm", "totalResults": "2", "count": 2}]},
+            "queries": {"request": [{"title": "Google Custom Search - hangarllm", "totalResults": "2", "count": 2}]},
             "searchInformation": {"searchTime": 0.21, "formattedSearchTime": "0.21", "totalResults": "2"},
             "items": [
                 {
                     "kind": "customsearch#result",
-                    "title": "LiteLLM",
-                    "htmlTitle": "<b>LiteLLM</b>",
-                    "link": "https://example.com/litellm",
+                    "title": "HangarLLM",
+                    "htmlTitle": "<b>HangarLLM</b>",
+                    "link": "https://example.com/hangarllm",
                     "displayLink": "example.com",
                     "snippet": "Call every LLM API",
                     "htmlSnippet": "Call every <b>LLM</b> API",
-                    "pagemap": {"metatags": [{"og:title": "LiteLLM"}]},
+                    "pagemap": {"metatags": [{"og:title": "HangarLLM"}]},
                 },
                 {"title": "Docs", "link": "https://example.com/docs", "snippet": "Docs"},
             ],
@@ -49,7 +49,7 @@ def test_google_pse_items_keep_provider_order_and_ignore_search_metadata():
 
     assert response.object == "search"
     assert response.results == [
-        SearchResult(title="LiteLLM", url="https://example.com/litellm", snippet="Call every LLM API"),
+        SearchResult(title="HangarLLM", url="https://example.com/hangarllm", snippet="Call every LLM API"),
         SearchResult(title="Docs", url="https://example.com/docs", snippet="Docs"),
     ]
 

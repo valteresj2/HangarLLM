@@ -7,22 +7,22 @@ from typing import Final, cast
 from unittest.mock import MagicMock, patch
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
 from fastapi import Request, Response
 from starlette.types import Message
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_ai_live_passthrough_logging_handler import (
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_ai_live_passthrough_logging_handler import (
     VertexAILivePassthroughLoggingHandler,
 )
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import vertex_proxy_route
-from litellm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
-from litellm.types.utils import CostBreakdown, LlmProviders, StandardLoggingPayload, Usage
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import vertex_proxy_route
+from hangarllm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
+from hangarllm.types.utils import CostBreakdown, LlmProviders, StandardLoggingPayload, Usage
 
 
 class _LiveTurn(TypedDict):
@@ -42,7 +42,7 @@ class TestVertexAILivePassthroughLoggingHandler:
     @pytest.fixture
     def mock_logging_obj(self):
         """Create a mock logging object"""
-        mock = MagicMock(spec=LiteLLMLoggingObj)
+        mock = MagicMock(spec=HangarLLMLoggingObj)
         mock.model_call_details = {}
         mock.response_cost_calculator.return_value = None
         return mock
@@ -313,8 +313,8 @@ class TestVertexAILivePassthroughLoggingHandler:
         messages: list[dict[str, object]],
         model: str,
     ) -> float:
-        from litellm.cost_calculator import completion_cost
-        from litellm.types.utils import ModelResponse
+        from hangarllm.cost_calculator import completion_cost
+        from hangarllm.types.utils import ModelResponse
 
         usage = cls._session_usage(handler, mock_logging_obj, messages, model)
         return completion_cost(
@@ -328,7 +328,7 @@ class TestVertexAILivePassthroughLoggingHandler:
 
     @classmethod
     def _expected_session_cost(cls, turns: Sequence[_LiveTurn]) -> float:
-        from litellm.utils import get_model_info
+        from hangarllm.utils import get_model_info
 
         info = get_model_info(model=cls.NATIVE_AUDIO_MODEL, custom_llm_provider="vertex_ai")
         return (
@@ -461,22 +461,22 @@ class TestVertexAILivePassthroughLoggingHandler:
 
         assert grounded > plain, "a grounded session must cost more than the same tokens ungrounded"
 
-    def _priced_logging_obj(self) -> LiteLLMLoggingObj:
+    def _priced_logging_obj(self) -> HangarLLMLoggingObj:
         """A real logging object, since the session's price is handed to it turn by turn."""
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model=self.NATIVE_AUDIO_MODEL,
             messages=[],
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime(2025, 1, 1),
-            litellm_call_id="live-session",
+            hangarllm_call_id="live-session",
             function_id="live",
         )
         logging_obj.update_environment_variables(
             model=self.NATIVE_AUDIO_MODEL,
             user="u",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             call_type="pass_through_endpoint",
         )
         logging_obj.model_call_details["custom_llm_provider"] = "vertex_ai"
@@ -562,7 +562,7 @@ class TestVertexAILivePassthroughLoggingHandler:
         plain_cost, _ = self._billed_session(handler, messages)
 
         fixed_amount = 0.01
-        with patch.object(litellm, "cost_margin_config", {"vertex_ai": {"fixed_amount": fixed_amount}}):
+        with patch.object(hangarllm, "cost_margin_config", {"vertex_ai": {"fixed_amount": fixed_amount}}):
             margined_cost, breakdown = self._billed_session(handler, messages)
 
         assert margined_cost - plain_cost == pytest.approx(fixed_amount), (
@@ -637,9 +637,9 @@ class TestVertexAILivePassthroughLoggingHandler:
         so this stays correct as prices move, and it is asserted exactly, so dropping a
         modality and double-charging one both fail.
         """
-        from litellm.cost_calculator import completion_cost
-        from litellm.types.utils import ModelResponse
-        from litellm.utils import get_model_info
+        from hangarllm.cost_calculator import completion_cost
+        from hangarllm.types.utils import ModelResponse
+        from hangarllm.utils import get_model_info
 
         model = self.NATIVE_AUDIO_MODEL
         info = get_model_info(model=model, custom_llm_provider="vertex_ai")
@@ -753,7 +753,7 @@ class TestVertexAILivePassthroughIntegration:
     @pytest.fixture
     def mock_logging_obj(self):
         """Create a mock logging object"""
-        mock = MagicMock(spec=LiteLLMLoggingObj)
+        mock = MagicMock(spec=HangarLLMLoggingObj)
         mock.model_call_details = {}
         mock.response_cost_calculator.return_value = None
         return mock
@@ -772,7 +772,7 @@ class TestVertexAILivePassthroughIntegration:
         assert handler.is_vertex_ai_live_route("/openai/chat/completions") == False
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_ai_live_passthrough_logging_handler.VertexAILivePassthroughLoggingHandler"
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_ai_live_passthrough_logging_handler.VertexAILivePassthroughLoggingHandler"
     )
     @pytest.mark.asyncio
     async def test_success_handler_vertex_ai_live_integration(
@@ -828,7 +828,7 @@ class TestVertexAILivePassthroughErrorHandling:
     @pytest.fixture
     def mock_logging_obj(self):
         """Create a mock logging object"""
-        mock = MagicMock(spec=LiteLLMLoggingObj)
+        mock = MagicMock(spec=HangarLLMLoggingObj)
         mock.model_call_details = {}
         mock.response_cost_calculator.return_value = None
         return mock
@@ -951,8 +951,8 @@ async def test_vertex_ai_generate_content_spendlog(
     endpoint: Final = _generate_content_endpoint(f"p-{uuid.uuid4().hex}")
     upstream_url: Final = f"https://us-central1-aiplatform.googleapis.com/{endpoint}"
     recorder: Final = _SuccessRecorder(upstream_url, asyncio.get_running_loop())
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
     contents: Final = [{"role": "user", "parts": [{"text": "hi"}]}]
     route: Final = respx_mock.post(upstream_url).mock(
         return_value=httpx.Response(
@@ -970,11 +970,11 @@ async def test_vertex_ai_generate_content_spendlog(
         endpoint=endpoint,
         request=_vertex_request(endpoint, json.dumps({"contents": contents}).encode()),
         fastapi_response=Response(),
-        user_api_key_dict=UserAPIKeyAuth(api_key="hashed-token", user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(api_key="hashed-token", user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     assert isinstance(response, Response)
     assert response.status_code == 200
-    call_id: Final = response.headers.get("x-litellm-call-id")
+    call_id: Final = response.headers.get("x-hangarllm-call-id")
     assert call_id
     await asyncio.wait_for(recorder.logged.wait(), 30)
     assert route.call_count == 1

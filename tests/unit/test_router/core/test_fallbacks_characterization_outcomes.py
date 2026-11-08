@@ -8,8 +8,8 @@ from collections.abc import Mapping
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
 from tests.unit.test_router.core.fallbacks_helpers import (
     GROUP_A_OF_THREE,
     MakeCore,
@@ -32,9 +32,9 @@ from tests.unit.test_router.core.scripted_host import (
     timeout,
 )
 
-ERROR_429 = '{"message": "litellm.RateLimitError: slow down", "type": "throttling_error", "param": null, "code": "429"}'
+ERROR_429 = '{"message": "hangarllm.RateLimitError: slow down", "type": "throttling_error", "param": null, "code": "429"}'
 ERROR_500 = (
-    '{"message": "litellm.InternalServerError: boom", "type": "internal_server_error", "param": null, "code": "500"}'
+    '{"message": "hangarllm.InternalServerError: boom", "type": "internal_server_error", "param": null, "code": "500"}'
 )
 
 # --- headers and hidden params ------------------------------------------------------------------
@@ -49,8 +49,8 @@ async def test_a_two_hop_chain_reports_one_attempted_fallback(make_core: MakeCor
     response = await complete(core)
 
     assert host.deployments_called("acompletion") == ["a", "b", "c"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
-    assert headers(response)["x-litellm-model-group"] == "c"
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-model-group"] == "c"
 
 
 @pytest.mark.asyncio
@@ -73,9 +73,9 @@ async def test_success_headers_after_a_fallback(make_core: MakeCore, host: Scrip
     response = await complete(core)
 
     assert headers(response) == {
-        "x-litellm-model-group": "b",
-        "x-litellm-attempted-retries": 0,
-        "x-litellm-attempted-fallbacks": 1,
+        "x-hangarllm-model-group": "b",
+        "x-hangarllm-attempted-retries": 0,
+        "x-hangarllm-attempted-fallbacks": 1,
     }
 
 
@@ -88,7 +88,7 @@ async def test_include_fallback_errors_lists_the_primary_error_in_a_header(
 
     response = await complete(core, include_fallback_errors=True)
 
-    assert headers(response)["x-litellm-fallback-errors"] == f"[{ERROR_429}]"
+    assert headers(response)["x-hangarllm-fallback-errors"] == f"[{ERROR_429}]"
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_include_fallback_errors_lists_the_inner_hops_errors_first(
     response = await complete(core, include_fallback_errors=True)
 
     assert host.deployments_called("acompletion") == ["a", "b", "c"]
-    assert headers(response)["x-litellm-fallback-errors"] == f"[{ERROR_500}, {ERROR_429}]"
+    assert headers(response)["x-hangarllm-fallback-errors"] == f"[{ERROR_500}, {ERROR_429}]"
 
 
 @pytest.mark.asyncio
@@ -117,7 +117,7 @@ async def test_without_include_fallback_errors_no_errors_header_is_set(make_core
 
     response = await complete(core)
 
-    assert "x-litellm-fallback-errors" not in headers(response)
+    assert "x-hangarllm-fallback-errors" not in headers(response)
 
 
 # --- what each attempt carries to the host ------------------------------------------------------------
@@ -181,14 +181,14 @@ async def test_router_debug_on_a_context_window_error_without_its_chain_names_th
     show_router_debug(host)
     host.answer("openai/a", context_window())
 
-    with pytest.raises(litellm.ContextWindowExceededError) as raised:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as raised:
         await complete(core)
 
     assert str(raised.value) == (
-        "litellm.ContextWindowExceededError: litellm.BadRequestError: too long\n"
+        "hangarllm.ContextWindowExceededError: hangarllm.BadRequestError: too long\n"
         "model=a. context_window_fallbacks=None. fallbacks=None.\n\n"
-        "Set 'context_window_fallback' - https://docs.litellm.ai/docs/routing#fallbacks\n\n"
-        "LiteLLM: model group 'a' failed with the error above. No fallback was attempted."
+        "Set 'context_window_fallback' - https://github.com/valteresj2/HangarLLM#readme"
+        "HangarLLM: model group 'a' failed with the error above. No fallback was attempted."
     )
 
 
@@ -200,14 +200,14 @@ async def test_router_debug_on_a_context_window_error_that_also_fails_its_fallba
     show_router_debug(host)
     host.answer("*", context_window())
 
-    with pytest.raises(litellm.ContextWindowExceededError) as raised:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as raised:
         await complete(core)
 
-    hint = "context_window_fallbacks=None. fallbacks=[{'a': ['b']}].\n\nSet 'context_window_fallback' - https://docs.litellm.ai/docs/routing#fallbacks"
+    hint = "context_window_fallbacks=None. fallbacks=[{'a': ['b']}].\n\nSet 'context_window_fallback' - https://github.com/valteresj2/HangarLLM#readme"
     assert str(raised.value) == (
-        f"litellm.ContextWindowExceededError: litellm.BadRequestError: too long\nmodel=a. {hint}\n\n"
-        "LiteLLM: model group 'a' failed with the error above. Fallback to b also failed: "
-        f"litellm.ContextWindowExceededError: litellm.BadRequestError: too long\nmodel=b. {hint}"
+        f"hangarllm.ContextWindowExceededError: hangarllm.BadRequestError: too long\nmodel=a. {hint}\n\n"
+        "HangarLLM: model group 'a' failed with the error above. Fallback to b also failed: "
+        f"hangarllm.ContextWindowExceededError: hangarllm.BadRequestError: too long\nmodel=b. {hint}"
     )
 
 
@@ -217,12 +217,12 @@ async def test_router_debug_names_a_plain_request_list_that_failed(make_core: Ma
     show_router_debug(host)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core, fallbacks=["b", "c"])
 
     assert str(raised.value) == (
-        "litellm.RateLimitError: slow down\n\nLiteLLM: model group 'a' failed with the error above. "
-        "Fallback to b, c also failed: litellm.RateLimitError: slow down"
+        "hangarllm.RateLimitError: slow down\n\nHangarLLM: model group 'a' failed with the error above. "
+        "Fallback to b, c also failed: hangarllm.RateLimitError: slow down"
     )
 
 
@@ -234,11 +234,11 @@ async def test_router_debug_with_max_fallbacks_one_names_only_the_first_level(
     show_router_debug(host)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a", "b"]
-    assert str(raised.value).endswith("Fallback to b also failed: litellm.RateLimitError: slow down")
+    assert str(raised.value).endswith("Fallback to b also failed: hangarllm.RateLimitError: slow down")
 
 
 @pytest.mark.asyncio
@@ -251,12 +251,12 @@ async def test_router_debug_reports_the_first_fallback_errors_message_not_the_la
     host.answer("openai/b", server_error())
     host.answer("openai/c", timeout())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
     assert str(raised.value) == (
-        "litellm.RateLimitError: slow down\n\nLiteLLM: model group 'a' failed with the error above. "
-        "Fallback to b also failed: litellm.InternalServerError: boom"
+        "hangarllm.RateLimitError: slow down\n\nHangarLLM: model group 'a' failed with the error above. "
+        "Fallback to b also failed: hangarllm.InternalServerError: boom"
     )
 
 
@@ -267,12 +267,12 @@ async def test_router_debug_truncates_a_long_fallback_error(make_core: MakeCore,
     host.answer("openai/a", rate_limit())
     host.answer("openai/b", rate_limit(message="x" * 3000))
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
-    detail = "litellm.RateLimitError: " + "x" * 3000
+    detail = "hangarllm.RateLimitError: " + "x" * 3000
     assert str(raised.value) == (
-        "litellm.RateLimitError: slow down\n\nLiteLLM: model group 'a' failed with the error above. "
+        "hangarllm.RateLimitError: slow down\n\nHangarLLM: model group 'a' failed with the error above. "
         f"Fallback to b also failed: {detail[:2000]}... [truncated {len(detail) - 2000} characters]"
     )
 
@@ -287,12 +287,12 @@ async def test_router_debug_on_an_unmatched_content_policy_chain_says_no_fallbac
     show_router_debug(host)
     host.answer("openai/a", content_policy())
 
-    with pytest.raises(litellm.ContentPolicyViolationError) as raised:
+    with pytest.raises(hangarllm.ContentPolicyViolationError) as raised:
         await complete(core)
 
     assert str(raised.value) == (
-        "litellm.BadRequestError: litellm.ContentPolicyViolationError: blocked\n\n"
-        "LiteLLM: model group 'a' failed with the error above. No fallback was attempted."
+        "hangarllm.BadRequestError: hangarllm.ContentPolicyViolationError: blocked\n\n"
+        "HangarLLM: model group 'a' failed with the error above. No fallback was attempted."
     )
 
 
@@ -304,11 +304,11 @@ async def test_router_debug_no_chain_message_without_any_configured_keys(
     show_router_debug(host)
     host.answer("openai/a", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core, fallbacks=[{"x": ["b"]}, {"y": ["c"]}])
 
     assert str(raised.value).endswith(
-        "LiteLLM: model group 'a' failed with the error above and no fallback model group was found for it, "
+        "HangarLLM: model group 'a' failed with the error above and no fallback model group was found for it, "
         "so the request was not retried on another model. Fallbacks are configured for: x, y. "
         "Add a fallbacks entry for that model group (Router fallbacks or proxy router_settings.fallbacks) "
         "to retry on another model."
@@ -338,7 +338,7 @@ async def test_a_fallback_target_the_check_rejects_is_skipped(
     response = await complete(core)
 
     assert host.deployments_called("acompletion") == ["a", "c"]
-    assert headers(response)["x-litellm-model-group"] == "c"
+    assert headers(response)["x-hangarllm-model-group"] == "c"
     assert seen == ["b", "c"]
 
 
@@ -368,12 +368,12 @@ async def test_router_debug_explains_a_skipped_fallback_target(
     show_router_debug(host)
     host.answer("openai/a", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a"]
     assert str(raised.value) == (
-        f"litellm.RateLimitError: slow down\n\nLiteLLM: model group 'a' failed with the error above. {sentence}"
+        f"hangarllm.RateLimitError: slow down\n\nHangarLLM: model group 'a' failed with the error above. {sentence}"
     )
 
 
@@ -391,13 +391,13 @@ async def test_router_debug_names_both_the_failed_and_the_skipped_targets(
     show_router_debug(host)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a", "c"]
     assert str(raised.value) == (
-        "litellm.RateLimitError: slow down\n\nLiteLLM: model group 'a' failed with the error above. "
-        "Fallback to c also failed: litellm.RateLimitError: slow down "
+        "hangarllm.RateLimitError: slow down\n\nHangarLLM: model group 'a' failed with the error above. "
+        "Fallback to c also failed: hangarllm.RateLimitError: slow down "
         "Fallback to b was skipped because the caller is not authorized to call it."
     )
     # The access check runs before the budget check; a skipped target is asked again in c's hop.
@@ -428,7 +428,7 @@ async def test_fallback_events_reach_the_process_custom_loggers_innermost_hop_fi
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     events = FallbackEvents()
-    monkeypatch.setattr(litellm, "callbacks", [events])
+    monkeypatch.setattr(hangarllm, "callbacks", [events])
     core = build(make_core, fallbacks=[{"a": ["b", "c"]}])
     host.answer("openai/a", rate_limit())
     host.answer("openai/b", server_error())
@@ -446,11 +446,11 @@ async def test_a_fallback_that_fails_everywhere_logs_failure_events(
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     events = FallbackEvents()
-    monkeypatch.setattr(litellm, "callbacks", [events])
+    monkeypatch.setattr(hangarllm, "callbacks", [events])
     core = build(make_core, fallbacks=[{"a": ["b"]}])
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core)
 
     assert events.events == [("failure", "a", "b", "RateLimitError")]
@@ -505,12 +505,12 @@ async def test_a_content_filtered_response_with_fallbacks_disabled_raises_conten
     core = build(make_core, content_policy_fallbacks=[{"a": ["b"]}])
     host.answer("openai/a", content_filtered())
 
-    with pytest.raises(litellm.ContentPolicyViolationError) as raised:
+    with pytest.raises(hangarllm.ContentPolicyViolationError) as raised:
         await complete(core, disable_fallbacks=True)
 
     assert (
         str(raised.value)
-        == "litellm.BadRequestError: litellm.ContentPolicyViolationError: Response output was blocked."
+        == "hangarllm.BadRequestError: hangarllm.ContentPolicyViolationError: Response output was blocked."
     )
     assert host.deployments_called("acompletion") == ["a"]
 
@@ -526,7 +526,7 @@ async def test_the_last_content_filtered_response_is_returned_when_every_fallbac
 
     assert host.deployments_called("acompletion") == ["a", "b"]
     assert response.choices[0].finish_reason == "content_filter"  # pyright: ignore[reportAttributeAccessIssue]  # ModelResponse
-    assert headers(response)["x-litellm-model-group"] == "b"
+    assert headers(response)["x-hangarllm-model-group"] == "b"
 
 
 # --- weighted failover ---------------------------------------------------------------------------
@@ -549,7 +549,7 @@ async def test_weighted_failover_tries_every_deployment_of_the_group_before_the_
     called = host.deployments_called("acompletion")
     assert sorted(called[:3]) == ["a1", "a2", "a3"]
     assert called[3:] == ["b"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
 
 
 @pytest.mark.asyncio
@@ -596,8 +596,8 @@ async def test_a_weighted_failover_that_answers_counts_as_a_fallback_inside_the_
     assert calls[0].deployment_id != calls[1].deployment_id
     assert [call.model_group for call in calls] == ["a", "a"]
     assert [metadata_of(call.kwargs)["attempted_fallbacks"] for call in calls] == [0, 1]
-    assert headers(response)["x-litellm-model-group"] == "a"
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-model-group"] == "a"
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
 
 
 @pytest.mark.asyncio
@@ -615,7 +615,7 @@ async def test_weighted_failover_is_bounded_by_max_fallbacks(
     a_deployments_fail(host, rate_limit())
 
     if max_fallbacks == 0:
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await complete(core)
     else:
         await complete(core)
@@ -656,7 +656,7 @@ async def test_weighted_failover_with_fallbacks_disabled_tries_one_deployment(
     core = build(make_core, model_list=GROUP_A_OF_THREE, enable_weighted_failover=True, fallbacks=[{"a": ["b"]}])
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core, disable_fallbacks=True)
 
     assert len(host.deployments_called("acompletion")) == 1

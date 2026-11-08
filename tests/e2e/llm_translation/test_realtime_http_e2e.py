@@ -15,7 +15,7 @@ from e2e_config import unique_marker
 from e2e_http import NoBody, PartialBody, UnknownApiError, assert_auth_denied, unwrap
 from e2e_metadata import Domain, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from pydantic import BaseModel
 
@@ -112,15 +112,15 @@ class RealtimeClientSecretResponse(BaseModel):
 
 def _register(proxy: ProxyClient, resources: ResourceManager) -> tuple[str, str]:
     return _register_backend(
-        proxy, resources, LiteLLMParamsBody(model=REALTIME_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+        proxy, resources, HangarLLMParamsBody(model=REALTIME_BACKEND, api_key="os.environ/OPENAI_API_KEY")
     )
 
 
 def _register_backend(
-    proxy: ProxyClient, resources: ResourceManager, litellm_params: LiteLLMParamsBody
+    proxy: ProxyClient, resources: ResourceManager, hangarllm_params: HangarLLMParamsBody
 ) -> tuple[str, str]:
     model: Final = f"e2e-realtime-http-{unique_marker()}"
-    model_id: Final = proxy.create_model(model, litellm_params)
+    model_id: Final = proxy.create_model(model, hangarllm_params)
     resources.defer(lambda: proxy.delete_model(model_id))
     return model, resources.key()
 
@@ -130,16 +130,16 @@ class _AudioBackend:
     id: str
     registry_route: str
     provider: Provider
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
 
     @property
     def upstream_model(self) -> str:
-        return self.litellm_params.model.split("/", 1)[1]
+        return self.hangarllm_params.model.split("/", 1)[1]
 
 
 def _openai_backend(model: str) -> _AudioBackend:
     return _AudioBackend(
-        "openai", "openai", Provider.OPENAI, LiteLLMParamsBody(model=model, api_key="os.environ/OPENAI_API_KEY")
+        "openai", "openai", Provider.OPENAI, HangarLLMParamsBody(model=model, api_key="os.environ/OPENAI_API_KEY")
     )
 
 
@@ -148,7 +148,7 @@ def _azure_backend(model: str) -> _AudioBackend:
         "azure",
         "azure_openai",
         Provider.AZURE,
-        LiteLLMParamsBody(model=model, api_base="os.environ/AZURE_API_BASE", api_key="os.environ/AZURE_API_KEY"),
+        HangarLLMParamsBody(model=model, api_base="os.environ/AZURE_API_BASE", api_key="os.environ/AZURE_API_KEY"),
     )
 
 
@@ -168,7 +168,7 @@ def _subject(backend: _AudioBackend) -> pytest.MarkDecorator:
             domain=Domain.LLM_TRANSLATION,
             route=Route.REALTIME,
             providers=(backend.provider,),
-            models=(backend.litellm_params.model,),
+            models=(backend.hangarllm_params.model,),
         )
     )
 
@@ -249,7 +249,7 @@ class TestRealtimeTranslationClientSecrets:
     def test_translations_route_mints_a_french_translation_session(
         self, proxy: ProxyClient, resources: ResourceManager, backend: _AudioBackend
     ) -> None:
-        model, key = _register_backend(proxy, resources, backend.litellm_params)
+        model, key = _register_backend(proxy, resources, backend.hangarllm_params)
         secret: Final = unwrap(
             proxy.transport.post(
                 TRANSLATIONS_CLIENT_SECRETS,
@@ -272,13 +272,13 @@ class TestRealtimeTranslationClientSecrets:
             domain=Domain.PROXY_AUTH,
             route=Route.REALTIME,
             providers=(Provider.OPENAI,),
-            models=(TRANSLATION_BACKENDS[0].litellm_params.model,),
+            models=(TRANSLATION_BACKENDS[0].hangarllm_params.model,),
         )
     )
     def test_translation_token_is_refused_by_the_realtime_calls_route(
         self, proxy: ProxyClient, resources: ResourceManager
     ) -> None:
-        model, key = _register_backend(proxy, resources, TRANSLATION_BACKENDS[0].litellm_params)
+        model, key = _register_backend(proxy, resources, TRANSLATION_BACKENDS[0].hangarllm_params)
         secret: Final = unwrap(
             proxy.transport.post(
                 TRANSLATIONS_CLIENT_SECRETS,
@@ -303,13 +303,13 @@ class TestRealtimeTranslationClientSecrets:
             domain=Domain.LLM_TRANSLATION,
             route=Route.REALTIME,
             providers=(Provider.OPENAI,),
-            models=(TRANSLATION_BACKENDS[0].litellm_params.model,),
+            models=(TRANSLATION_BACKENDS[0].hangarllm_params.model,),
         )
     )
     def test_translation_session_on_the_realtime_route_is_rejected(
         self, proxy: ProxyClient, resources: ResourceManager
     ) -> None:
-        model, key = _register_backend(proxy, resources, TRANSLATION_BACKENDS[0].litellm_params)
+        model, key = _register_backend(proxy, resources, TRANSLATION_BACKENDS[0].hangarllm_params)
         result: Final = proxy.transport.post(
             "/v1/realtime/client_secrets",
             headers=proxy.transport.bearer(key),
@@ -328,7 +328,7 @@ class TestRealtimeTranscriptionClientSecrets:
     def test_transcription_session_runs_on_the_deployment_model(
         self, proxy: ProxyClient, resources: ResourceManager, backend: _AudioBackend
     ) -> None:
-        model, key = _register_backend(proxy, resources, backend.litellm_params)
+        model, key = _register_backend(proxy, resources, backend.hangarllm_params)
         secret: Final = unwrap(
             proxy.transport.post(
                 "/v1/realtime/client_secrets",

@@ -3,14 +3,14 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.aws_polly.text_to_speech.transformation import AWSPollyTextToSpeechConfig
+from hangarllm.llms.aws_polly.text_to_speech.transformation import AWSPollyTextToSpeechConfig
 
 
 def test_installed_botocore_signs_the_speech_request() -> None:
     headers, body = AWSPollyTextToSpeechConfig()._sign_polly_request(
         request_body={"Text": "ping", "VoiceId": "Joanna"},
         endpoint_url="https://polly.us-west-2.amazonaws.com/v1/speech",
-        litellm_params={
+        hangarllm_params={
             "aws_access_key_id": "test-key",
             "aws_secret_access_key": "test-secret",
             "aws_region_name": "us-west-2",

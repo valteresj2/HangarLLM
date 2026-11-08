@@ -7,9 +7,9 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.duckduckgo.search.transformation import DuckDuckGoSearchConfig
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.duckduckgo.search.transformation import DuckDuckGoSearchConfig
 
 
 class TestDuckDuckGoSearchMocked:
@@ -115,13 +115,13 @@ class TestDuckDuckGoSearchMocked:
 
         # Mock the httpx AsyncClient get method (DuckDuckGo uses GET)
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
             # Make the search call
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="python programming", search_provider="duckduckgo", max_results=5
             )
 
@@ -208,13 +208,13 @@ class TestDuckDuckGoSearchMocked:
 
         # Mock the httpx AsyncClient get method
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
             # Make the search call
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="India", search_provider="duckduckgo"
             )
 
@@ -247,10 +247,10 @@ _DDG_INSTANT_ANSWER: Final = {
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
@@ -261,7 +261,7 @@ async def test_duckduckgo_search_response_structure_and_max_results(
         return_value=httpx.Response(200, json=_DDG_INSTANT_ANSWER)
     )
 
-    response: Final = await litellm.asearch(query="india", search_provider="duckduckgo", max_results=5)
+    response: Final = await hangarllm.asearch(query="india", search_provider="duckduckgo", max_results=5)
 
     assert route.call_count == 1
     sent_params: Final = route.calls[0].request.url.params
@@ -281,7 +281,7 @@ async def test_duckduckgo_search_response_structure_and_max_results(
     assert first_result.snippet == "India is a country in South Asia."
     assert response.results[1].title == "Topic 0"
     assert response.results[1].snippet == "snippet text for topic 0."
-    assert response._hidden_params["response_cost"] == litellm.model_cost["duckduckgo/search"]["input_cost_per_query"]  # pyright: ignore[reportPrivateUsage]  # cost is only surfaced on _hidden_params
+    assert response._hidden_params["response_cost"] == hangarllm.model_cost["duckduckgo/search"]["input_cost_per_query"]  # pyright: ignore[reportPrivateUsage]  # cost is only surfaced on _hidden_params
 
 
 def test_duckduckgo_sync_search_returns_typed_results_without_a_limit(respx_mock: respx.MockRouter) -> None:
@@ -289,7 +289,7 @@ def test_duckduckgo_sync_search_returns_typed_results_without_a_limit(respx_mock
         return_value=httpx.Response(200, json=_DDG_INSTANT_ANSWER)
     )
 
-    response: Final = litellm.search(query="india", search_provider="duckduckgo")
+    response: Final = hangarllm.search(query="india", search_provider="duckduckgo")
 
     assert route.call_count == 1
     assert "_max_results" not in route.calls[0].request.url.params

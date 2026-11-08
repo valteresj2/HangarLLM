@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.telemetry.consent import (
+from hangarllm.telemetry.consent import (
     OFF,
     REQUIRES,
     ConsentGatedSink,
@@ -13,7 +13,7 @@ from litellm.telemetry.consent import (
     consent_of,
     parse_consent,
 )
-from litellm.telemetry.records import (
+from hangarllm.telemetry.records import (
     AttemptRecord,
     BlockCounts,
     BlockType,
@@ -54,11 +54,11 @@ class _RecordingSink:
 _REQUEST: Final = RequestRecord(
     endpoint="/chat/completions",
     stream=True,
-    litellm_status=StatusClass.SUCCESS,
+    hangarllm_status=StatusClass.SUCCESS,
     provider="openai",
     deployment_hash="d1",
     provider_status=StatusClass.SUCCESS,
-    litellm_cache_hit=True,
+    hangarllm_cache_hit=True,
     handled_by_rust=True,
     provider_cache_hit=True,
     provider_attempts=2,
@@ -71,16 +71,16 @@ _REQUEST: Final = RequestRecord(
 _SUCCESS_ONLY: Final = RequestRecord(
     endpoint="/chat/completions",
     stream=True,
-    litellm_status=StatusClass.SUCCESS,
+    hangarllm_status=StatusClass.SUCCESS,
     provider_status=StatusClass.SUCCESS,
-    litellm_cache_hit=True,
+    hangarllm_cache_hit=True,
     handled_by_rust=True,
     provider_attempts=2,
     latency_to_headers_ms=20.0,
     latency_to_first_byte_ms=40.0,
 )
 _ATTEMPT: Final = AttemptRecord(provider="openai", provider_status=StatusClass.SUCCESS, stream=True)
-_INSTANCE: Final = InstanceInfo(instance_id="abc", litellm_version="1.0.0", config_keys=frozenset({"cache"}))
+_INSTANCE: Final = InstanceInfo(instance_id="abc", hangarllm_version="1.0.0", config_keys=frozenset({"cache"}))
 _UI_EVENT: Final = UIEvent(page="models", action=UIAction.VIEW)
 
 
@@ -118,7 +118,7 @@ async def test_off_forwards_nothing() -> None:
 @pytest.mark.asyncio
 async def test_heartbeat_alone_sends_only_the_instance_header() -> None:
     assert await _send_everything(_consent(TelemetryGroup.HEARTBEAT)) == _RecordingSink(
-        instances=(InstanceInfo(instance_id="abc", litellm_version="1.0.0", groups=frozenset(_CHAIN[:1])),),
+        instances=(InstanceInfo(instance_id="abc", hangarllm_version="1.0.0", groups=frozenset(_CHAIN[:1])),),
         flushes=1,
     )
 
@@ -136,7 +136,7 @@ async def test_a_directly_built_consent_skipping_a_middle_group_reports_and_forw
         TelemetryConsent(frozenset({TelemetryGroup.HEARTBEAT, TelemetryGroup.EVENT_DETAILS}))
     )
     assert inner == _RecordingSink(
-        instances=(InstanceInfo(instance_id="abc", litellm_version="1.0.0", groups=frozenset(_CHAIN[:1])),),
+        instances=(InstanceInfo(instance_id="abc", hangarllm_version="1.0.0", groups=frozenset(_CHAIN[:1])),),
         flushes=1,
     )
 
@@ -199,7 +199,7 @@ def test_only_allowlisted_header_keys_adds_no_other_key() -> None:
         RequestRecord(
             endpoint="/v1/messages",
             stream=False,
-            litellm_status=StatusClass.SUCCESS,
+            hangarllm_status=StatusClass.SUCCESS,
             header_keys=frozenset({"anthropic-version"}),
         )
     )

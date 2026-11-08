@@ -1,7 +1,7 @@
 """
 The old public Router members outside the entry points: registry lookups, the
 routing-state lifecycle, the routing callbacks' checks, one provider call's accounting and the
-pre-routing strategy builders (``RustLegacyMembers``, litellm/router_rust/surface/legacy_members.py).
+pre-routing strategy builders (``RustLegacyMembers``, hangarllm/router_rust/surface/legacy_members.py).
 """
 
 import asyncio
@@ -10,21 +10,21 @@ from typing import Final, Literal
 
 import pytest
 
-import litellm
-from litellm.constants import ROUTER_USAGE_COUNTED_TOKENS_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.token_counter import served_openai_models
-from litellm.redis.stores.connection import RedisStores
-from litellm.redis.stores.router_usage import RouterUsage, RouterUsageStore
-from litellm.router_api import RoutingContext
-from litellm.router_core import RouterCore
-from litellm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
-from litellm.router_strategy.auto_router.auto_router_model_naming import HEURISTIC_V2_CAPABILITY
-from litellm.router_strategy.base_routing_strategy import BaseRoutingStrategy
-from litellm.router_strategy.least_busy import LeastBusyLoggingHandler
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
-from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import PromptCachingDeploymentCheck
-from litellm.types.router import CustomRoutingStrategyBase, Deployment
+import hangarllm
+from hangarllm.constants import ROUTER_USAGE_COUNTED_TOKENS_METADATA_KEY
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.token_counter import served_openai_models
+from hangarllm.redis.stores.connection import RedisStores
+from hangarllm.redis.stores.router_usage import RouterUsage, RouterUsageStore
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_core import RouterCore
+from hangarllm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
+from hangarllm.router_strategy.auto_router.auto_router_model_naming import HEURISTIC_V2_CAPABILITY
+from hangarllm.router_strategy.base_routing_strategy import BaseRoutingStrategy
+from hangarllm.router_strategy.least_busy import LeastBusyLoggingHandler
+from hangarllm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
+from hangarllm.router_utils.pre_call_checks.prompt_caching_deployment_check import PromptCachingDeploymentCheck
+from hangarllm.types.router import CustomRoutingStrategyBase, Deployment
 from tests.unit.test_router.core.construction_precall_helpers import CallbackHost
 from tests.unit.test_router.core.gaps_l11100_helpers import (
     TIERS,
@@ -380,7 +380,7 @@ def test_routing_strategy_pre_call_checks_hands_each_callback_the_deployment(
     assert gate.seen[0][0] is picked
 
     gate.error = rate_limit(message="sync gate")
-    with pytest.raises(litellm.RateLimitError, match="sync gate"):
+    with pytest.raises(hangarllm.RateLimitError, match="sync gate"):
         core.routing_strategy_pre_call_checks(picked)  # pyright: ignore[reportAttributeAccessIssue]  # see above
     assert cooled_down(core, ["a"]) == {}
 
@@ -395,7 +395,7 @@ async def test_a_rate_limited_async_pre_call_check_cools_down_and_logs_the_failu
     logging_obj: Final = RecordingLogging()
     span: Final = object()
 
-    with pytest.raises(litellm.RateLimitError, match="gate says no") as raised:
+    with pytest.raises(hangarllm.RateLimitError, match="gate says no") as raised:
         await core.async_routing_strategy_pre_call_checks(  # pyright: ignore[reportAttributeAccessIssue]  # an old public member
             deployment=dict(GROUP[0]), parent_otel_span=span, logging_obj=logging_obj
         )
@@ -479,7 +479,7 @@ async def test_async_admit_deployment_turn_runs_the_checks_on_the_deployment_as_
     admission: Final = await core.async_admit_deployment_turn("g", {"model_info": {"id": "a"}}, {})  # pyright: ignore[reportAttributeAccessIssue]  # an old public member
 
     assert dict(admission) == {}
-    assert gate.seen[0][0]["litellm_params"]["model"] == "openai/a"  # pyright: ignore[reportIndexIssue]  # the deployment dict
+    assert gate.seen[0][0]["hangarllm_params"]["model"] == "openai/a"  # pyright: ignore[reportIndexIssue]  # the deployment dict
 
 
 @pytest.mark.asyncio
@@ -487,7 +487,7 @@ async def test_a_rate_limited_turn_cools_the_deployment_down(make_core: MakeCore
     host.lists["callbacks"].append(Gate(rate_limit(message="turn refused")))
     core: Final = make_core(model_list=list(GROUP))
 
-    with pytest.raises(litellm.RateLimitError, match="turn refused"):
+    with pytest.raises(hangarllm.RateLimitError, match="turn refused"):
         await core.async_admit_deployment_turn("g", {"model_info": {"id": "a"}}, {})  # pyright: ignore[reportAttributeAccessIssue]  # an old public member
 
     assert set(cooled_down(core, ["a", "b"])) == {"a"}
@@ -534,7 +534,7 @@ async def test_make_call_raises_the_endpoints_error(make_core: MakeCore) -> None
     async def endpoint(**kwargs: object) -> object:  # kwargs-ok: the request, as make_call passes it
         raise server_error()
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.make_call(endpoint, model="g", metadata=metadata)  # pyright: ignore[reportAttributeAccessIssue]  # an old public member
 
     assert await counted(core, "rpm") is None
@@ -594,7 +594,7 @@ async def test_increment_usage_counts_nothing_for_no_response(make_core: MakeCor
 @pytest.mark.asyncio
 async def test_async_deployment_callback_on_failure_counts_one_request(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(GROUP))
-    logged: Final = {"litellm_params": {"metadata": call_metadata(), "model_info": {"id": "a"}}}
+    logged: Final = {"hangarllm_params": {"metadata": call_metadata(), "model_info": {"id": "a"}}}
 
     await core.async_deployment_callback_on_failure(logged, None, None, None)  # pyright: ignore[reportAttributeAccessIssue]  # an old public member
 
@@ -605,9 +605,9 @@ async def test_async_deployment_callback_on_failure_counts_one_request(make_core
 @pytest.mark.parametrize(
     "logged",
     [
-        {"call_type": "aretrieve_batch", "litellm_params": {"metadata": call_metadata(), "model_info": {"id": "a"}}},
-        {"litellm_params": {"metadata": {"deployment": "x"}, "model_info": {"id": "a"}}},
-        {"litellm_params": {"metadata": call_metadata()}},
+        {"call_type": "aretrieve_batch", "hangarllm_params": {"metadata": call_metadata(), "model_info": {"id": "a"}}},
+        {"hangarllm_params": {"metadata": {"deployment": "x"}, "model_info": {"id": "a"}}},
+        {"hangarllm_params": {"metadata": call_metadata()}},
     ],
     ids=["batch-retrieve", "no-group", "no-id"],
 )
@@ -623,7 +623,7 @@ async def test_async_deployment_callback_on_failure_skips(make_core: MakeCore, l
 async def test_async_deployment_callback_on_failure_needs_the_params(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(GROUP))
 
-    with pytest.raises(KeyError, match="litellm_params"):
+    with pytest.raises(KeyError, match="hangarllm_params"):
         await core.async_deployment_callback_on_failure({}, None, None, None)  # pyright: ignore[reportAttributeAccessIssue]  # an old public member
 
 
@@ -633,7 +633,7 @@ async def test_async_deployment_callback_on_failure_needs_the_params(make_core: 
 def test_deployment_params_merge_in_the_order_the_deployment_receives_them(make_core: MakeCore) -> None:
     core: Final = make_core(
         model_list=[deployment("g", "a", temperature=0.1, tool_choice="auto", top_p=0.5)],
-        default_litellm_params={"temperature": 0.9, "tool_choice": "none"},
+        default_hangarllm_params={"temperature": 0.9, "tool_choice": "none"},
     )
     target: Final = core.registry().deployment("a")
 
@@ -648,19 +648,19 @@ def test_deployment_params_merge_in_the_order_the_deployment_receives_them(make_
 
 def test_update_kwargs_before_fallbacks_writes_the_group_into_the_named_bucket(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(GROUP), model_group_alias={"al": "g"})
-    request: Final[dict[str, object]] = {"litellm_trace_id": "t", "litellm_metadata": {"k": "v"}}
+    request: Final[dict[str, object]] = {"hangarllm_trace_id": "t", "hangarllm_metadata": {"k": "v"}}
 
-    RoutingContext(core).update_kwargs_before_fallbacks("al", request, "litellm_metadata")  # pyright: ignore[reportArgumentType]  # see above
+    RoutingContext(core).update_kwargs_before_fallbacks("al", request, "hangarllm_metadata")  # pyright: ignore[reportArgumentType]  # see above
 
     assert request == {
-        "litellm_trace_id": "t",
-        "litellm_metadata": {"k": "v", "model_group": "al", "model_group_alias": "al"},
+        "hangarllm_trace_id": "t",
+        "hangarllm_metadata": {"k": "v", "model_group": "al", "model_group_alias": "al"},
     }
 
     plain: Final[dict[str, object]] = {}  # mutable-ok: the request the core writes into
     RoutingContext(core).update_kwargs_before_fallbacks("g", plain)  # pyright: ignore[reportArgumentType]  # see above
 
-    assert isinstance(plain["litellm_trace_id"], str)
+    assert isinstance(plain["hangarllm_trace_id"], str)
     assert plain["metadata"] == {"model_group": "g", "model_group_alias": None}
 
 
@@ -679,7 +679,7 @@ def test_update_kwargs_before_fallbacks_writes_the_group_into_the_named_bucket(m
     ],
 )
 def test_the_rust_core_refuses_what_it_cannot_serve(name: str) -> None:
-    from litellm.router_rust.core import RustCoreUnsupported
+    from hangarllm.router_rust.core import RustCoreUnsupported
 
     core: Final = rust_core(ScriptedHost(), model_list=list(GROUP))
 

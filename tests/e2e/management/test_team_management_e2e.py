@@ -74,7 +74,7 @@ class MemberBudgetTable(BaseModel):
 
 class TeamMembership(BaseModel):
     user_id: str
-    litellm_budget_table: MemberBudgetTable | None = None
+    hangarllm_budget_table: MemberBudgetTable | None = None
 
 
 class CallerEditAccess(BaseModel):
@@ -220,9 +220,9 @@ def _member_role(info: TeamInfoRead, user_id: str) -> TeamRole | None:
 
 def _member_max_budget(info: TeamInfoRead, user_id: str) -> float | None:
     membership = next((tm for tm in info.team_memberships if tm.user_id == user_id), None)
-    if membership is None or membership.litellm_budget_table is None:
+    if membership is None or membership.hangarllm_budget_table is None:
         return None
-    return membership.litellm_budget_table.max_budget
+    return membership.hangarllm_budget_table.max_budget
 
 
 def _member_add_status(client: ManagementClient, key: str, team_id: str, user_id: str) -> StreamingResponse:

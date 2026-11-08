@@ -1,7 +1,7 @@
 """Live e2e: the proxy under load keeps serving every request while Redis is down entirely.
 
 Runs against a proxy booted from tests/e2e/gateway/redis_chaos_ci_config.yml, which points
-cache_params at a real Redis with litellm's default socket_timeout. That one client backs all
+cache_params at a real Redis with hangarllm's default socket_timeout. That one client backs all
 three Redis touchpoints on the request path: the virtual-key auth cache, the response cache,
 and the cross-pod spend counter the cost-tracking callback awaits.
 
@@ -49,7 +49,7 @@ from e2e_http import NoBody
 from lifecycle import ResourceManager
 from load_client import LoadClient
 from locust_load import LoadResult, run_gateway_load
-from models import KeyGenerateBody, LiteLLMParamsBody
+from models import KeyGenerateBody, HangarLLMParamsBody
 from phase_budget import AbsoluteBudget, Budget, RatioBudget, violations
 from proxy_client import ProxyClient
 from proxy_usage import ProxyUsageSampler, UsageWindow
@@ -95,15 +95,15 @@ DRAIN_TIMEOUT_SECONDS: Final = 30.0
 DRAIN_POLL_SECONDS: Final = 1.0
 
 TIMEOUT_FAILURES_RE: Final = re.compile(
-    r'^litellm_redis_circuit_breaker_failures_total\{failure_class="timeout"\} ([0-9.e+]+)$', re.M
+    r'^hangarllm_redis_circuit_breaker_failures_total\{failure_class="timeout"\} ([0-9.e+]+)$', re.M
 )
 # The state gauge carries a pid label under the multiprocess collector, one series per worker,
 # so this matches any label order rather than a bare {state="open"} that never appears.
 BREAKER_OPEN_RE: Final = re.compile(
-    r'^litellm_redis_circuit_breaker_state\{[^}]*state="open"[^}]*\} ([0-9.e+]+)$', re.M
+    r'^hangarllm_redis_circuit_breaker_state\{[^}]*state="open"[^}]*\} ([0-9.e+]+)$', re.M
 )
 BREAKER_TRANSITIONS_RE: Final = re.compile(
-    r'^litellm_redis_circuit_breaker_transitions_total\{state="[a-z_]+"\} ([0-9.e+]+)$', re.M
+    r'^hangarllm_redis_circuit_breaker_transitions_total\{state="[a-z_]+"\} ([0-9.e+]+)$', re.M
 )
 
 
@@ -111,7 +111,7 @@ def _deployment_metric_re(name: str, model_ids: tuple[str, ...]) -> re.Pattern[s
     """A per-deployment counter, narrowed to the deployments one run registered, so traffic
     anything else sends the same proxy during the run cannot pad the retry count."""
     ids: Final = "|".join(re.escape(model_id) for model_id in model_ids)
-    return re.compile(rf'^litellm_{name}\{{[^}}]*model_id="(?:{ids})"[^}}]*\}} ([0-9.e+]+)$', re.M)
+    return re.compile(rf'^hangarllm_{name}\{{[^}}]*model_id="(?:{ids})"[^}}]*\}} ([0-9.e+]+)$', re.M)
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,17 +147,17 @@ class Phase:
         )
 
 
-def _failing_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _failing_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=MOCK_MODEL,
         api_key="sk-redis-chaos-not-used",
-        mock_response="litellm.InternalServerError",
+        mock_response="hangarllm.InternalServerError",
         order=FAILING_ORDER,
     )
 
 
-def _serving_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _serving_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=MOCK_MODEL,
         api_key="sk-redis-chaos-not-used",
         mock_response="redis chaos ok",

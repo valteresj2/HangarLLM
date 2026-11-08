@@ -253,11 +253,11 @@ def sweep_database(
 
 TIME_SCOPED_TABLES: Final = MappingProxyType(
     {
-        "LiteLLM_SpendLogs": ("startTime", "updated_at"),
-        "LiteLLM_ErrorLogs": ("startTime", "endTime"),
-        "LiteLLM_AuditLog": ("updated_at",),
-        "LiteLLM_DeletedTeamTable": ("deleted_at",),
-        "LiteLLM_DeletedVerificationToken": ("deleted_at",),
+        "HangarLLM_SpendLogs": ("startTime", "updated_at"),
+        "HangarLLM_ErrorLogs": ("startTime", "endTime"),
+        "HangarLLM_AuditLog": ("updated_at",),
+        "HangarLLM_DeletedTeamTable": ("deleted_at",),
+        "HangarLLM_DeletedVerificationToken": ("deleted_at",),
     }
 )
 SCOPE_SLACK: Final = timedelta(seconds=5)
@@ -334,8 +334,8 @@ def get_routes() -> tuple[str, ...]:
     """
     script: Final = (
         "import asyncio, json\n"
-        "from litellm.proxy._lazy_features import LAZY_FEATURES, _force_load\n"
-        "from litellm.proxy.proxy_server import app\n"
+        "from hangarllm.proxy._lazy_features import LAZY_FEATURES, _force_load\n"
+        "from hangarllm.proxy.proxy_server import app\n"
         "async def load():\n"
         "    for feature in LAZY_FEATURES:\n"
         "        await _force_load(app, feature)\n"

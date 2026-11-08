@@ -5,12 +5,12 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
 
 
 def test_hostinger_router_provider_resolution(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("HOSTINGER_ROUTER_API_KEY", "hostinger-test-key")
 
@@ -28,7 +28,7 @@ def test_hostinger_router_provider_resolution(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_hostinger_router_provider_keeps_explicit_credentials(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("HOSTINGER_ROUTER_API_KEY", "hostinger-env-key")
 
@@ -46,7 +46,7 @@ def test_hostinger_router_provider_keeps_explicit_credentials(monkeypatch: pytes
 
 @pytest.mark.parametrize("model", ["gpt-5-nano", "claude-sonnet-5"])
 def test_hostinger_router_api_base_keeps_unprefixed_model_provider(model: str):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     _, provider_without_api_base, _, _ = get_llm_provider(model=model)
     _, provider_with_hostinger_api_base, _, _ = get_llm_provider(
@@ -58,15 +58,15 @@ def test_hostinger_router_api_base_keeps_unprefixed_model_provider(model: str):
     assert provider_with_hostinger_api_base == provider_without_api_base
 
 
-HOSTINGER_ROUTER_MODELS = tuple(sorted(name for name in litellm.model_cost if name.startswith("hostinger_router/")))
+HOSTINGER_ROUTER_MODELS = tuple(sorted(name for name in hangarllm.model_cost if name.startswith("hostinger_router/")))
 HOSTINGER_ROUTER_CHAT_MODELS = tuple(
-    name for name in HOSTINGER_ROUTER_MODELS if litellm.get_model_info(name)["mode"] == "chat"
+    name for name in HOSTINGER_ROUTER_MODELS if hangarllm.get_model_info(name)["mode"] == "chat"
 )
 
 
 @pytest.mark.parametrize("model", HOSTINGER_ROUTER_CHAT_MODELS)
 def test_hostinger_router_model_cost_and_capabilities(model: str):
-    from litellm.cost_calculator import cost_per_token
+    from hangarllm.cost_calculator import cost_per_token
 
     prompt_cost, completion_cost = cost_per_token(
         model=model,
@@ -74,21 +74,21 @@ def test_hostinger_router_model_cost_and_capabilities(model: str):
         completion_tokens=1_000_000,
         custom_llm_provider="hostinger_router",
     )
-    model_info = litellm.get_model_info(model)
+    model_info = hangarllm.get_model_info(model)
 
     assert prompt_cost == pytest.approx(model_info["input_cost_per_token"] * 1_000_000)
     assert completion_cost == pytest.approx(model_info["output_cost_per_token"] * 1_000_000)
     assert model_info["output_cost_per_token"] > 0
     assert model_info["max_tokens"] == model_info["max_output_tokens"] <= model_info["max_input_tokens"]
-    assert model_info["litellm_provider"] == "hostinger_router"
+    assert model_info["hangarllm_provider"] == "hostinger_router"
     assert model_info["mode"] == "chat"
     if model_info.get("supports_prompt_caching"):
         assert 0 < model_info["cache_read_input_token_cost"] < model_info["input_cost_per_token"]
     capability_checks: Final = (
-        ("supports_function_calling", litellm.supports_function_calling),
-        ("supports_reasoning", litellm.supports_reasoning),
-        ("supports_response_schema", litellm.supports_response_schema),
-        ("supports_vision", litellm.supports_vision),
+        ("supports_function_calling", hangarllm.supports_function_calling),
+        ("supports_reasoning", hangarllm.supports_reasoning),
+        ("supports_response_schema", hangarllm.supports_response_schema),
+        ("supports_vision", hangarllm.supports_vision),
     )
     assert {name: check(model) for name, check in capability_checks} == {
         name: model_info.get(name) is True for name, _ in capability_checks
@@ -114,7 +114,7 @@ def test_hostinger_router_chat_completions_request():
                 "usage": {"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="hostinger_router/claude-sonnet-5",
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="hostinger-test-key",
@@ -140,7 +140,7 @@ def test_hostinger_router_chat_completions_streaming_request():
             headers={"content-type": "text/event-stream"},
             content="".join(chunks).encode(),
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="hostinger_router/claude-sonnet-5",
             messages=[{"role": "user", "content": "Say hello"}],
             stream=True,
@@ -177,7 +177,7 @@ def test_hostinger_router_responses_request():
                 "usage": {"input_tokens": 4, "output_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="hostinger_router/gpt-5.2",
             input="Say hello",
             api_key="hostinger-test-key",
@@ -204,7 +204,7 @@ EMBEDDING_RESPONSE: Final = {
 def test_hostinger_router_embeddings_request():
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        response: Final = litellm.embedding(
+        response: Final = hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -221,7 +221,7 @@ def test_hostinger_router_embeddings_request():
 def test_hostinger_router_embeddings_send_extra_headers_as_http_headers():
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -239,7 +239,7 @@ def test_hostinger_router_embeddings_send_extra_headers_as_http_headers():
 def test_hostinger_router_embeddings_extra_headers_replace_key_headers_of_any_case():
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -256,7 +256,7 @@ def test_hostinger_router_embeddings_extra_headers_replace_key_headers_of_any_ca
 def test_hostinger_router_embeddings_send_numeric_extra_headers_as_text(configured: int | float, sent: str):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -270,8 +270,8 @@ def test_hostinger_router_embeddings_send_numeric_extra_headers_as_text(configur
 def test_hostinger_router_embeddings_refuse_non_text_extra_headers(configured: object):
     with respx.mock(assert_all_called=False) as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        with pytest.raises(litellm.UnsupportedParamsError, match="X-Debug") as refused:
-            litellm.embedding(
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="X-Debug") as refused:
+            hangarllm.embedding(
                 model="hostinger_router/text-embedding-3-small",
                 input=["Say hello"],
                 api_key="hostinger-test-key",
@@ -286,7 +286,7 @@ def test_hostinger_router_embeddings_refuse_non_text_extra_headers(configured: o
 def test_hostinger_router_embeddings_drop_non_text_extra_headers_under_drop_params(configured: object):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -318,7 +318,7 @@ TRANSPORT_EXTRA_HEADERS: Final = [
 def test_hostinger_router_embeddings_ignore_transport_extra_headers(name: str, configured: str):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -340,8 +340,8 @@ MALFORMED_HEADER_NAMES: Final = ["Host:evil.example", "X Note", "X-Caf\u00e9"]
 def test_hostinger_router_embeddings_refuse_malformed_extra_header_names(name: str):
     with respx.mock(assert_all_called=False) as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        with pytest.raises(litellm.UnsupportedParamsError) as refused:
-            litellm.embedding(
+        with pytest.raises(hangarllm.UnsupportedParamsError) as refused:
+            hangarllm.embedding(
                 model="hostinger_router/text-embedding-3-small",
                 input=["Say hello"],
                 api_key="hostinger-test-key",
@@ -357,7 +357,7 @@ def test_hostinger_router_embeddings_refuse_malformed_extra_header_names(name: s
 def test_hostinger_router_embeddings_drop_malformed_extra_header_names_under_drop_params(name: str):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -375,17 +375,17 @@ def test_hostinger_router_embeddings_drop_malformed_extra_header_names_under_dro
 def test_hostinger_router_embeddings_drop_extra_header_values_http_cannot_carry(configured: str):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
-            extra_headers={"x-litellm-user_api_key_alias": configured, "X-Trace-Id": "trace-1"},
+            extra_headers={"x-hangarllm-user_api_key_alias": configured, "X-Trace-Id": "trace-1"},
         )
 
     request: Final = route.calls.last.request
     assert request.headers.get_list("host") == ["router.hostinger.com"]
     assert request.headers.get_list("x-trace-id") == ["trace-1"]
-    assert "x-litellm-user_api_key_alias" not in request.headers
+    assert "x-hangarllm-user_api_key_alias" not in request.headers
 
 
 @pytest.mark.parametrize(
@@ -395,7 +395,7 @@ def test_hostinger_router_embeddings_drop_extra_header_values_http_cannot_carry(
 def test_hostinger_router_embeddings_trim_whitespace_around_extra_header_values(configured: str, sent: str):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -406,11 +406,11 @@ def test_hostinger_router_embeddings_trim_whitespace_around_extra_header_values(
 
 
 def test_hostinger_router_embeddings_extra_headers_stay_with_their_request():
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "shared",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hostinger_router/text-embedding-3-small",
                     "api_key": "hostinger-test-key",
                     "headers": {"X-Org-Id": "org-1"},
@@ -438,7 +438,7 @@ def test_hostinger_router_embeddings_extra_headers_stay_with_their_request():
 def test_hostinger_router_embeddings_send_headers_given_as_name_value_pairs(param: str):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -454,8 +454,8 @@ def test_hostinger_router_embeddings_send_headers_given_as_name_value_pairs(para
 def test_hostinger_router_embeddings_refuse_headers_that_are_not_an_object(param: str):
     with respx.mock(assert_all_called=False) as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        with pytest.raises(litellm.UnsupportedParamsError, match=rf"\b{param} must be a JSON object") as refused:
-            litellm.embedding(
+        with pytest.raises(hangarllm.UnsupportedParamsError, match=rf"\b{param} must be a JSON object") as refused:
+            hangarllm.embedding(
                 model="hostinger_router/text-embedding-3-small",
                 input=["Say hello"],
                 api_key="hostinger-test-key",
@@ -470,7 +470,7 @@ def test_hostinger_router_embeddings_refuse_headers_that_are_not_an_object(param
 def test_hostinger_router_embeddings_drop_headers_that_are_not_an_object_under_drop_params(param: str):
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        litellm.embedding(
+        hangarllm.embedding(
             model="hostinger_router/text-embedding-3-small",
             input=["Say hello"],
             api_key="hostinger-test-key",
@@ -491,33 +491,33 @@ def test_hostinger_router_embeddings_never_borrow_another_providers_key(monkeypa
 
     with respx.mock(assert_all_called=False) as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        with pytest.raises(litellm.BadRequestError, match="Missing API Key"):
-            litellm.embedding(model="hostinger_router/text-embedding-3-small", input=["Say hello"])
+        with pytest.raises(hangarllm.BadRequestError, match="Missing API Key"):
+            hangarllm.embedding(model="hostinger_router/text-embedding-3-small", input=["Say hello"])
 
     assert route.call_count == 0
 
 
 def test_json_provider_without_embeddings_endpoint_refuses_embeddings():
-    from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+    from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
     slug: Final = next(
         slug
         for slug in JSONProviderRegistry.list_providers()
-        if not JSONProviderRegistry.supports_embeddings(slug) and slug not in litellm.provider_list
+        if not JSONProviderRegistry.supports_embeddings(slug) and slug not in hangarllm.provider_list
     )
 
     with respx.mock(assert_all_called=False) as upstream:
         route: Final = upstream.route().respond(200, json=EMBEDDING_RESPONSE)
-        with pytest.raises(litellm.BadRequestError):
-            litellm.embedding(model=f"{slug}/text-embedding-3-small", input=["Say hello"], api_key="test-key")
+        with pytest.raises(hangarllm.BadRequestError):
+            hangarllm.embedding(model=f"{slug}/text-embedding-3-small", input=["Say hello"], api_key="test-key")
 
     assert route.call_count == 0
 
 
 @pytest.mark.asyncio
 async def test_hostinger_router_anthropic_messages_request(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock() as upstream:
         route: Final = upstream.post("https://router.hostinger.com/v1/messages").respond(
             200,
@@ -532,7 +532,7 @@ async def test_hostinger_router_anthropic_messages_request(monkeypatch: pytest.M
                 "usage": {"input_tokens": 4, "output_tokens": 3},
             },
         )
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model="hostinger_router/claude-sonnet-5",
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,
@@ -572,8 +572,8 @@ UNSUPPORTED_ENDPOINT: Final = {"error": {"message": "Model does not support this
 async def test_hostinger_router_messages_bridge_models_without_native_messages(
     model: str, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock(assert_all_called=False) as upstream:
         native: Final = upstream.post("https://router.hostinger.com/v1/messages").respond(
             403, json=UNSUPPORTED_ENDPOINT
@@ -581,7 +581,7 @@ async def test_hostinger_router_messages_bridge_models_without_native_messages(
         chat: Final = upstream.post("https://router.hostinger.com/v1/chat/completions").respond(
             200, json=CHAT_COMPLETION_RESPONSE
         )
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model=f"hostinger_router/{model}",
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,
@@ -602,7 +602,7 @@ def test_hostinger_router_responses_bridge_models_without_native_responses():
         chat: Final = upstream.post("https://router.hostinger.com/v1/chat/completions").respond(
             200, json=CHAT_COMPLETION_RESPONSE
         )
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="hostinger_router/claude-sonnet-5",
             input="Say hello",
             api_key="hostinger-test-key",
@@ -637,14 +637,14 @@ ANTHROPIC_MESSAGE_RESPONSE: Final = {
 async def test_hostinger_router_endpoint_opt_in_stays_with_its_own_deployment(
     sibling_model_info: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     deployment_params: Final = {"model": "hostinger_router/gpt-5-nano", "api_key": "hostinger-test-key"}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "opted-in", "litellm_params": deployment_params, "model_info": sibling_model_info},
-            {"model_name": "plain", "litellm_params": deployment_params},
+            {"model_name": "opted-in", "hangarllm_params": deployment_params, "model_info": sibling_model_info},
+            {"model_name": "plain", "hangarllm_params": deployment_params},
         ]
     )
 
@@ -672,14 +672,14 @@ async def test_hostinger_router_endpoint_opt_in_stays_with_its_own_deployment(
 
 @pytest.mark.asyncio
 async def test_hostinger_router_deployment_cache_ttl_opt_in_keeps_one_hour_ttl(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "opted-in",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hostinger_router/claude-haiku-4-5",
                     "api_base": "https://router.hostinger.com/v1",
                     "api_key": "hostinger-test-key",

@@ -118,7 +118,7 @@ def _config(container: Wire, authority: Wire, tmp_path: Path) -> Path:
             {
                 **base,
                 "model_list": [
-                    {"model_name": f"sagemaker-chat-{source}", "litellm_params": {**common, **extra}}
+                    {"model_name": f"sagemaker-chat-{source}", "hangarllm_params": {**common, **extra}}
                     for source, extra in sources.items()
                 ],
             }

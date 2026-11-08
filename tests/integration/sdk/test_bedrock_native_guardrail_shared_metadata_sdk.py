@@ -1,4 +1,4 @@
-"""An SDK caller that reuses one ``metadata=`` dict across ``litellm.completion`` calls to a Bedrock deployment whose
+"""An SDK caller that reuses one ``metadata=`` dict across ``hangarllm.completion`` calls to a Bedrock deployment whose
 ``guardrailConfig`` has ``trace: enabled`` is billed, on each call, for that call's guardrail trace only, and the
 caller's dict is left as the caller wrote it (LIT-10239)"""
 
@@ -11,7 +11,7 @@ from integration._support.client import eventually
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue
 
-import litellm
+import hangarllm
 
 _MODEL: Final = "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0"
 _PROMPT_TOKENS: Final = 5
@@ -34,24 +34,24 @@ def _bedrock(request: Request) -> Reply:
 
 
 def _guardrail_cost() -> float:
-    rates: Final = litellm.model_cost["bedrock/guardrails"]["guardrail_cost_per_unit"]
+    rates: Final = hangarllm.model_cost["bedrock/guardrails"]["guardrail_cost_per_unit"]
     return sum(units * rates[counter] for counter, units in _USAGE.items())
 
 
 def _llm_cost() -> float:
-    prices: Final = litellm.model_cost[_MODEL.removeprefix("bedrock/")]
+    prices: Final = hangarllm.model_cost[_MODEL.removeprefix("bedrock/")]
     return _PROMPT_TOKENS * prices["input_cost_per_token"] + _COMPLETION_TOKENS * prices["output_cost_per_token"]
 
 
 def test_each_call_sharing_one_metadata_dict_is_billed_its_own_trace_only() -> None:
     billed: list[float] = []  # mutable-ok: the success callback appends what each call was billed
-    litellm.success_callback.append(
+    hangarllm.success_callback.append(
         lambda kwargs, response, start, end: billed.append(kwargs["standard_logging_object"]["response_cost"])
     )
     shared_metadata: Final = {"tag": "x"}
     with wire_server(_bedrock) as wire:
         for guardrail_id in _GUARDRAIL_IDS:
-            litellm.completion(
+            hangarllm.completion(
                 model=_MODEL,
                 messages=[{"role": "user", "content": "hello"}],
                 api_base=wire.url,

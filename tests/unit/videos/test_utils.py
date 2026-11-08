@@ -1,11 +1,11 @@
 """
-Pure-logic contract tests for litellm/videos/main.py's request utils
-(litellm/videos/utils.py: VideoGenerationRequestUtils).
+Pure-logic contract tests for hangarllm/videos/main.py's request utils
+(hangarllm/videos/utils.py: VideoGenerationRequestUtils).
 
 These lock the exact param-shaping behavior so a mutation that drops a filter,
 flips a precedence, or stops removing a key fails loudly. The only seam is the
-provider config's map_openai_params (a provider boundary); filter_out_litellm_params
-runs for real, so the "litellm-internal params get stripped" assertions reflect
+provider config's map_openai_params (a provider boundary); filter_out_hangarllm_params
+runs for real, so the "hangarllm-internal params get stripped" assertions reflect
 production. Every test asserts the exact resulting dict, never "ran without error".
 """
 
@@ -16,11 +16,11 @@ import pytest
 
 
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.llms.volcengine.videos.transformation import VolcEngineVideoConfig
-from litellm.llms.vertex_ai.videos.transformation import VertexAIVideoConfig
-from litellm.videos.utils import VideoGenerationRequestUtils
+import hangarllm
+from hangarllm.exceptions import UnsupportedParamsError
+from hangarllm.llms.volcengine.videos.transformation import VolcEngineVideoConfig
+from hangarllm.llms.vertex_ai.videos.transformation import VertexAIVideoConfig
+from hangarllm.videos.utils import VideoGenerationRequestUtils
 
 get_requested = (
     VideoGenerationRequestUtils.get_requested_video_generation_optional_param
@@ -40,9 +40,9 @@ get_optional = VideoGenerationRequestUtils.get_optional_params_video_generation
 # get_requested_video_generation_optional_param
 #
 # Receives the caller's full local_vars; must return only the API-bound optional
-# params. filter_out_litellm_params strips known internal keys for real; the
+# params. filter_out_hangarllm_params strips known internal keys for real; the
 # values used below were chosen against the live set: seconds/size/user/foo_param/
-# vertex_project/extra/a/b survive, api_key/metadata/litellm_* are stripped.
+# vertex_project/extra/a/b survive, api_key/metadata/hangarllm_* are stripped.
 # =========================================================================== #
 
 
@@ -59,20 +59,20 @@ def test_requested__drops_none_and_excluded_keys():
     assert result == {"seconds": "8", "user": "u1"}
 
 
-def test_requested__strips_litellm_internal_params():
+def test_requested__strips_hangarllm_internal_params():
     result = get_requested(
         {
             "seconds": "8",
             "api_key": "sk-secret",
             "metadata": {"x": 1},
-            "litellm_call_id": "id-123",
+            "hangarllm_call_id": "id-123",
         }
     )
     assert result == {"seconds": "8"}
 
 
 def test_requested__timeout_always_removed():
-    # timeout is NOT a litellm-internal param, so only the explicit pop removes it.
+    # timeout is NOT a hangarllm-internal param, so only the explicit pop removes it.
     result = get_requested({"seconds": "8", "timeout": 30})
     assert result == {"seconds": "8"}
 
@@ -123,7 +123,7 @@ def test_requested__extra_body_kwargs_overrides_top_level():
     }
 
 
-def test_requested__extra_body_strips_litellm_internal_params():
+def test_requested__extra_body_strips_hangarllm_internal_params():
     result = get_requested({"extra_body": {"api_key": "sk", "foo_param": "bar"}})
     # api_key filtered out of extra_body; only foo_param remains (and is spread).
     assert result == {"foo_param": "bar", "extra_body": {"foo_param": "bar"}}
@@ -162,7 +162,7 @@ def test_optional__delegates_to_map_openai_params_with_drop_params():
     config.map_openai_params.assert_called_once_with(
         video_create_optional_params=optional_params,
         model="sora-2",
-        drop_params=litellm.drop_params,
+        drop_params=hangarllm.drop_params,
     )
 
 

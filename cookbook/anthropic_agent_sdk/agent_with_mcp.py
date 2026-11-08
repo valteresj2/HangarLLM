@@ -1,7 +1,7 @@
 """
 Interactive Claude Agent SDK CLI with MCP Support
 
-This example demonstrates an interactive CLI chat with the Anthropic Agent SDK using LiteLLM as a proxy,
+This example demonstrates an interactive CLI chat with the Anthropic Agent SDK using HangarLLM as a proxy,
 with MCP (Model Context Protocol) server integration for enhanced capabilities.
 """
 
@@ -11,7 +11,7 @@ from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
 from common import (
     Config,
     fetch_available_models,
-    setup_litellm_env,
+    setup_hangarllm_env,
     print_header,
     handle_model_list,
     handle_model_switch,
@@ -25,24 +25,24 @@ async def interactive_chat_with_mcp():
     """
     config = Config()
 
-    # Configure Anthropic SDK to point to LiteLLM gateway
-    litellm_base_url = setup_litellm_env(config)
+    # Configure Anthropic SDK to point to HangarLLM gateway
+    hangarllm_base_url = setup_hangarllm_env(config)
 
     # Fetch available models from proxy
     available_models = await fetch_available_models(
-        litellm_base_url, config.LITELLM_API_KEY
+        hangarllm_base_url, config.HANGARLLM_API_KEY
     )
 
-    current_model = config.LITELLM_MODEL
+    current_model = config.HANGARLLM_MODEL
 
     # MCP server configuration
-    mcp_server_url = f"{litellm_base_url}/mcp/deepwiki2"
+    mcp_server_url = f"{hangarllm_base_url}/mcp/deepwiki2"
     use_mcp = os.getenv("USE_MCP", "true").lower() == "true"
 
     if not use_mcp:
         print("⚠️  MCP disabled via USE_MCP=false")
 
-    print_header(litellm_base_url, current_model, has_mcp=use_mcp)
+    print_header(hangarllm_base_url, current_model, has_mcp=use_mcp)
 
     while True:
         # Configure agent options
@@ -59,7 +59,7 @@ async def interactive_chat_with_mcp():
                             "type": "http",
                             "url": mcp_server_url,
                             "headers": {
-                                "Authorization": f"Bearer {config.LITELLM_API_KEY}"
+                                "Authorization": f"Bearer {config.HANGARLLM_API_KEY}"
                             },
                         }
                     },

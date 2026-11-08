@@ -4,7 +4,7 @@ custom pricing fields from kwargs and model_info, not just the base
 input/output costs.
 
 Previously, only input_cost_per_token, output_cost_per_token, and
-litellm_provider were forwarded. Fields like cache_read_input_token_cost,
+hangarllm_provider were forwarded. Fields like cache_read_input_token_cost,
 mode, and supports_prompt_caching were dropped, causing incorrect cost
 calculations for DB-sourced models with prompt caching pricing.
 """
@@ -17,9 +17,9 @@ from typing import Final, NoReturn
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import _expand_model_aliases, adopt_model_cost_map
-from litellm.types.utils import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_model_cost_map import _expand_model_aliases, adopt_model_cost_map
+from hangarllm.types.utils import (
     Choices,
     CompletionTokensDetailsWrapper,
     Message,
@@ -27,28 +27,28 @@ from litellm.types.utils import (
     PromptTokensDetailsWrapper,
     Usage,
 )
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
 
 def _snapshot_model_cost_entries(keys):
-    return {key: copy.deepcopy(litellm.model_cost.get(key)) for key in keys}
+    return {key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in keys}
 
 
 def _restore_model_cost_entries(original_entries):
     for key, value in original_entries.items():
         if value is None:
-            litellm.model_cost.pop(key, None)
+            hangarllm.model_cost.pop(key, None)
         else:
-            litellm.model_cost[key] = value
+            hangarllm.model_cost[key] = value
     _invalidate_model_cost_lowercase_map()
 
 
 def test_register_model_receives_cache_pricing_fields():
     """End-to-end: when register_model is called with a full pricing entry,
-    the cache pricing fields should be present in litellm.model_cost."""
+    the cache pricing fields should be present in hangarllm.model_cost."""
     model_key = "openai/test-custom-model-with-cache-pricing"
 
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model_key: {
                 "input_cost_per_token": 0.001,
@@ -57,12 +57,12 @@ def test_register_model_receives_cache_pricing_fields():
                 "supports_prompt_caching": True,
                 "mode": "chat",
                 "max_tokens": 8192,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
             }
         }
     )
 
-    registered = litellm.model_cost.get(model_key)
+    registered = hangarllm.model_cost.get(model_key)
     assert registered is not None, f"{model_key} should be in model_cost"
     assert registered["cache_read_input_token_cost"] == 0.00025
     assert registered["supports_prompt_caching"] is True
@@ -70,25 +70,25 @@ def test_register_model_receives_cache_pricing_fields():
     assert registered["max_tokens"] == 8192
 
     # Cleanup
-    litellm.model_cost.pop(model_key, None)
+    hangarllm.model_cost.pop(model_key, None)
 
 
-def test_register_model_strips_none_litellm_provider():
-    """``get_model_info`` returns ``litellm_provider: None`` for deployments
+def test_register_model_strips_none_hangarllm_provider():
+    """``get_model_info`` returns ``hangarllm_provider: None`` for deployments
     registered without a provider (e.g. ``Router.add_deployment`` flows).
     ``register_model`` must not persist that None into ``model_cost``,
     otherwise ``_check_provider_match`` will drop custom pricing on
     subsequent cost lookups.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/28336.
+    Regression test for upstream issue 28336
     """
-    from litellm.utils import _check_provider_match
+    from hangarllm.utils import _check_provider_match
 
     model_key = "test-custom-pricing-no-provider-28336"
-    litellm.model_cost.pop(model_key, None)
+    hangarllm.model_cost.pop(model_key, None)
 
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 model_key: {
                     "input_cost_per_token": 0.001,
@@ -97,42 +97,42 @@ def test_register_model_strips_none_litellm_provider():
             }
         )
 
-        registered = litellm.model_cost.get(model_key)
+        registered = hangarllm.model_cost.get(model_key)
         assert registered is not None, f"{model_key} should be in model_cost"
         # The key may be absent entirely, but if present it must not be None.
-        assert "litellm_provider" not in registered or registered["litellm_provider"] is not None
+        assert "hangarllm_provider" not in registered or registered["hangarllm_provider"] is not None
         # Downstream consumers must accept this entry for any provider,
         # mirroring what the cost calculator does.
         assert _check_provider_match(registered, "openai") is True
         assert _check_provider_match(registered, "anthropic") is True
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
 
 
-def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeypatch):
+def test_register_model_strips_none_hangarllm_provider_from_get_model_info(monkeypatch):
     """Directly exercise the strip in ``register_model``.
 
     The companion test above hits the ``except Exception`` branch where
     ``existing_model`` is an empty dict, so the ``pop`` is a no-op. This
     test patches ``get_model_info`` to return the failure mode the strip
-    was added to handle, namely a populated dict whose ``litellm_provider``
+    was added to handle, namely a populated dict whose ``hangarllm_provider``
     is ``None``. Without the strip, the merged entry in
-    ``litellm.model_cost`` would carry ``litellm_provider: None`` and
+    ``hangarllm.model_cost`` would carry ``hangarllm_provider: None`` and
     ``_check_provider_match`` would drop custom pricing.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/28336.
+    Regression test for upstream issue 28336
     """
-    from litellm import utils as litellm_utils
-    from litellm.utils import _check_provider_match
+    from hangarllm import utils as hangarllm_utils
+    from hangarllm.utils import _check_provider_match
 
     model_key = "test-strip-none-provider-from-get-model-info-28336"
-    litellm.model_cost.pop(model_key, None)
+    hangarllm.model_cost.pop(model_key, None)
 
     def _fake_get_model_info(model, *args, **kwargs):
         assert model == model_key
         return {
             "key": model_key,
-            "litellm_provider": None,
+            "hangarllm_provider": None,
             "mode": "chat",
             "max_tokens": 4096,
         }
@@ -141,10 +141,10 @@ def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeyp
     # ``_invalidate_model_cost_lowercase_map``, so the replacement must
     # expose a no-op ``cache_clear`` attribute.
     _fake_get_model_info.cache_clear = lambda: None
-    monkeypatch.setattr(litellm_utils, "get_model_info", _fake_get_model_info)
+    monkeypatch.setattr(hangarllm_utils, "get_model_info", _fake_get_model_info)
 
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 model_key: {
                     "input_cost_per_token": 0.001,
@@ -153,14 +153,14 @@ def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeyp
             }
         )
 
-        registered = litellm.model_cost.get(model_key)
+        registered = hangarllm.model_cost.get(model_key)
         assert registered is not None, f"{model_key} should be in model_cost"
         # The strip must have removed the None-valued provider that
         # ``get_model_info`` returned. The key may be absent entirely, but
         # it must never be present with value ``None``.
-        assert "litellm_provider" not in registered or (registered["litellm_provider"] is not None), (
-            "register_model failed to strip litellm_provider=None returned "
-            f"by get_model_info, got {registered.get('litellm_provider')!r}"
+        assert "hangarllm_provider" not in registered or (registered["hangarllm_provider"] is not None), (
+            "register_model failed to strip hangarllm_provider=None returned "
+            f"by get_model_info, got {registered.get('hangarllm_provider')!r}"
         )
         # Metadata from the patched ``get_model_info`` must still flow
         # through, so we know the strip did not nuke the rest of the entry.
@@ -174,7 +174,7 @@ def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeyp
         assert _check_provider_match(registered, "openai") is True
         assert _check_provider_match(registered, "anthropic") is True
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
 
 
 def test_register_model_inherits_builtin_cache_pricing_for_unmapped_key(monkeypatch):
@@ -193,35 +193,35 @@ def test_register_model_inherits_builtin_cache_pricing_for_unmapped_key(monkeypa
 
     Regression for the cache-pricing dropout under partial overrides.
     """
-    from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-    from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+    from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import generic_cost_per_token
+    from hangarllm.types.utils import PromptTokensDetailsWrapper, Usage
 
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    original_model_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     builtin_key = "us.anthropic.claude-sonnet-4-6"
     registered_key = f"bedrock/bedrock/bedrock/{builtin_key}"
-    builtin = litellm.model_cost[builtin_key]
+    builtin = hangarllm.model_cost[builtin_key]
 
     assert builtin["cache_creation_input_token_cost"] > 0
     assert builtin["cache_read_input_token_cost"] > 0
 
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 registered_key: {
                     "input_cost_per_token": builtin["input_cost_per_token"],
                     "output_cost_per_token": builtin["output_cost_per_token"],
-                    "litellm_provider": "bedrock",
+                    "hangarllm_provider": "bedrock",
                 }
             }
         )
 
-        registered = litellm.model_cost[registered_key]
+        registered = hangarllm.model_cost[registered_key]
         assert registered.get("cache_creation_input_token_cost") == builtin["cache_creation_input_token_cost"]
         assert registered.get("cache_read_input_token_cost") == builtin["cache_read_input_token_cost"]
-        assert registered["litellm_provider"] == "bedrock"
+        assert registered["hangarllm_provider"] == "bedrock"
 
         usage = Usage(
             prompt_tokens=1100,
@@ -250,10 +250,10 @@ def test_register_model_inherits_builtin_cache_pricing_for_unmapped_key(monkeypa
         assert abs(output_cost - builtin["output_cost_per_token"] * 100) < 1e-12
         assert input_cost > text_only_cost + 1e-12
     finally:
-        litellm.model_cost.pop(registered_key, None)
-        litellm.model_cost = original_model_cost
-        os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
-        from litellm.utils import _invalidate_model_cost_lowercase_map
+        hangarllm.model_cost.pop(registered_key, None)
+        hangarllm.model_cost = original_model_cost
+        os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
+        from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
         _invalidate_model_cost_lowercase_map()
 
@@ -266,19 +266,19 @@ def test_register_model_warns_when_no_builtin_match_for_cache_pricing(caplog):
     """
     import logging
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     registered_key = "bedrock/totally-made-up-model-alias-xyz"
-    litellm.model_cost.pop(registered_key, None)
+    hangarllm.model_cost.pop(registered_key, None)
 
     try:
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
-            litellm.register_model(
+            hangarllm.register_model(
                 {
                     registered_key: {
                         "input_cost_per_token": 0.001,
                         "output_cost_per_token": 0.002,
-                        "litellm_provider": "bedrock",
+                        "hangarllm_provider": "bedrock",
                     }
                 }
             )
@@ -288,7 +288,7 @@ def test_register_model_warns_when_no_builtin_match_for_cache_pricing(caplog):
             for record in caplog.records
         ), "expected a warning naming the unmapped key and the cache cost fields"
     finally:
-        litellm.model_cost.pop(registered_key, None)
+        hangarllm.model_cost.pop(registered_key, None)
 
 
 def test_register_model_no_warning_without_custom_pricing(caplog):
@@ -298,17 +298,17 @@ def test_register_model_no_warning_without_custom_pricing(caplog):
     """
     import logging
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     registered_key = "azure/lit6318-deployment-without-pricing"
-    litellm.model_cost.pop(registered_key, None)
+    hangarllm.model_cost.pop(registered_key, None)
 
     try:
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
-            litellm.register_model(
+            hangarllm.register_model(
                 {
                     registered_key: {
-                        "litellm_provider": "azure",
+                        "hangarllm_provider": "azure",
                         "base_model": "azure/text-embedding-3-large",
                     }
                 }
@@ -318,7 +318,7 @@ def test_register_model_no_warning_without_custom_pricing(caplog):
             "entry without custom pricing must register silently"
         )
     finally:
-        litellm.model_cost.pop(registered_key, None)
+        hangarllm.model_cost.pop(registered_key, None)
 
 
 def test_register_model_no_warning_for_tiered_pricing_without_cache_costs(caplog):
@@ -328,17 +328,17 @@ def test_register_model_no_warning_for_tiered_pricing_without_cache_costs(caplog
     """
     import logging
 
-    from litellm._logging import verbose_logger
+    from hangarllm._logging import verbose_logger
 
     registered_key = "bedrock/lit6318-tiered-priced-model"
-    litellm.model_cost.pop(registered_key, None)
+    hangarllm.model_cost.pop(registered_key, None)
 
     try:
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
-            litellm.register_model(
+            hangarllm.register_model(
                 {
                     registered_key: {
-                        "litellm_provider": "bedrock",
+                        "hangarllm_provider": "bedrock",
                         "tiered_pricing": [
                             {
                                 "range": [0, 200000],
@@ -354,7 +354,7 @@ def test_register_model_no_warning_for_tiered_pricing_without_cache_costs(caplog
             "tiered pricing entry must register silently"
         )
     finally:
-        litellm.model_cost.pop(registered_key, None)
+        hangarllm.model_cost.pop(registered_key, None)
 
 
 def test_router_deployment_without_custom_pricing_registers_silently(caplog):
@@ -364,8 +364,8 @@ def test_router_deployment_without_custom_pricing_registers_silently(caplog):
     """
     import logging
 
-    from litellm import Router
-    from litellm._logging import verbose_logger
+    from hangarllm import Router
+    from hangarllm._logging import verbose_logger
 
     deployment_model = "azure/lit6318-my-deployment-name"
     deployment_id = "lit6318-no-pricing-deployment"
@@ -377,7 +377,7 @@ def test_router_deployment_without_custom_pricing_registers_silently(caplog):
                 model_list=[
                     {
                         "model_name": "indexing",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": deployment_model,
                             "api_base": "https://example.openai.azure.com",
                             "api_key": "fake-key",
@@ -403,8 +403,8 @@ def test_router_custom_priced_deployment_warning_names_model_not_hash(caplog):
     """
     import logging
 
-    from litellm import Router
-    from litellm._logging import verbose_logger
+    from hangarllm import Router
+    from hangarllm._logging import verbose_logger
 
     deployment_model = "bedrock/lit6318-totally-made-up-model"
     deployment_id = "lit6318-custom-priced-deployment-hash"
@@ -416,7 +416,7 @@ def test_router_custom_priced_deployment_warning_names_model_not_hash(caplog):
                 model_list=[
                     {
                         "model_name": "made-up",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": deployment_model,
                             "aws_region_name": "us-east-1",
                             "input_cost_per_token": 1e-06,
@@ -437,24 +437,24 @@ def test_router_custom_priced_deployment_warning_names_model_not_hash(caplog):
 
 
 def test_register_model_router_add_deployment_custom_pricing_applies():
-    """End-to-end regression for https://github.com/BerriAI/litellm/issues/28336.
+    """End-to-end regression for upstream issue 28336
 
     ``Router.add_deployment`` registers custom pricing without passing
-    ``litellm_provider``. Cost calculation must still pick up the custom
+    ``hangarllm_provider``. Cost calculation must still pick up the custom
     pricing instead of falling back to the default provider price.
     """
-    from litellm import Router
+    from hangarllm import Router
 
     model_key = "router-add-deployment-custom-pricing-28336"
     deployment_model = f"openai/{model_key}"
-    litellm.model_cost.pop(model_key, None)
-    litellm.model_cost.pop(deployment_model, None)
+    hangarllm.model_cost.pop(model_key, None)
+    hangarllm.model_cost.pop(deployment_model, None)
 
     router = Router(
         model_list=[
             {
                 "model_name": model_key,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": deployment_model,
                     "api_key": "fake-key-for-registration",
                     "input_cost_per_token": 0.00042,
@@ -469,19 +469,19 @@ def test_register_model_router_add_deployment_custom_pricing_applies():
         # ``add_deployment`` runs as part of ``Router.__init__``; the
         # registered entry must not block ``_check_provider_match`` for
         # the deployment's provider.
-        from litellm.utils import _check_provider_match
+        from hangarllm.utils import _check_provider_match
 
-        registered_keys = [k for k in (deployment_model, model_key) if k in litellm.model_cost]
+        registered_keys = [k for k in (deployment_model, model_key) if k in hangarllm.model_cost]
         assert registered_keys, (
             f"Router.add_deployment did not register custom pricing for {model_key} / {deployment_model}"
         )
         for k in registered_keys:
-            assert _check_provider_match(litellm.model_cost[k], "openai") is True, (
+            assert _check_provider_match(hangarllm.model_cost[k], "openai") is True, (
                 f"custom pricing for {k} was dropped by _check_provider_match"
             )
     finally:
-        litellm.model_cost.pop(model_key, None)
-        litellm.model_cost.pop(deployment_model, None)
+        hangarllm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(deployment_model, None)
         del router
 
 
@@ -489,18 +489,18 @@ def test_embedding_router_zero_pricing_does_not_clobber_builtin_pricing():
     """LIT-3991: a router-originated embedding request that carries explicit
     zero custom pricing (e.g. resolved through an ``openai/*`` wildcard
     deployment with ``input_cost_per_token: 0``) must not overwrite the shared
-    ``openai/text-embedding-3-small`` entry in ``litellm.model_cost``. Before
+    ``openai/text-embedding-3-small`` entry in ``hangarllm.model_cost``. Before
     the fix, one call through the wildcard poisoned the shared key and every
     sibling deployment relying on built-in pricing logged $0 until restart.
     """
     shared_key = "openai/text-embedding-3-small"
     deployment_id = "lit3991-wildcard-embed-zero"
     snapshot = _snapshot_model_cost_entries([shared_key, "text-embedding-3-small", deployment_id])
-    builtin_input_cost = litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+    builtin_input_cost = hangarllm.get_model_info(model=shared_key)["input_cost_per_token"]
     assert builtin_input_cost > 0
 
     try:
-        litellm.embedding(
+        hangarllm.embedding(
             model=shared_key,
             input=["hello"],
             api_key="fake-key",
@@ -511,18 +511,18 @@ def test_embedding_router_zero_pricing_does_not_clobber_builtin_pricing():
             mock_response=[0.1, 0.2],
         )
 
-        assert litellm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
+        assert hangarllm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
             "wildcard deployment's zero pricing leaked into the shared model_cost key"
         )
-        assert deployment_id not in litellm.model_cost
+        assert deployment_id not in hangarllm.model_cost
 
-        sibling_response = litellm.embedding(
+        sibling_response = hangarllm.embedding(
             model=shared_key,
             input=["hello"],
             api_key="fake-key",
             mock_response=[0.1, 0.2],
         )
-        sibling_cost = litellm.completion_cost(completion_response=sibling_response, call_type="embedding")
+        sibling_cost = hangarllm.completion_cost(completion_response=sibling_response, call_type="embedding")
         assert sibling_cost == pytest.approx(10 * builtin_input_cost)
     finally:
         _restore_model_cost_entries(snapshot)
@@ -535,21 +535,21 @@ def test_embedding_router_custom_pricing_costs_request_via_deployment_id():
     deployment_id = "lit3991-wildcard-embed-custom"
     override_input_cost = 5e-05
     snapshot = _snapshot_model_cost_entries([shared_key, "text-embedding-3-small", deployment_id])
-    builtin_input_cost = litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+    builtin_input_cost = hangarllm.get_model_info(model=shared_key)["input_cost_per_token"]
     assert builtin_input_cost != override_input_cost
 
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 deployment_id: {
                     "input_cost_per_token": override_input_cost,
                     "output_cost_per_token": override_input_cost * 2,
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "embedding",
                 }
             }
         )
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=shared_key,
             input=["hello"],
             api_key="fake-key",
@@ -563,7 +563,7 @@ def test_embedding_router_custom_pricing_costs_request_via_deployment_id():
         assert response._hidden_params["response_cost"] == pytest.approx(
             response.usage.prompt_tokens * override_input_cost
         )
-        assert litellm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost
+        assert hangarllm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost
     finally:
         _restore_model_cost_entries(snapshot)
 
@@ -573,11 +573,11 @@ def test_completion_router_zero_pricing_does_not_clobber_builtin_pricing():
     shared_key = "openai/gpt-4o-mini"
     deployment_id = "lit3991-wildcard-chat-zero"
     snapshot = _snapshot_model_cost_entries([shared_key, "gpt-4o-mini", deployment_id])
-    builtin_input_cost = litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+    builtin_input_cost = hangarllm.get_model_info(model=shared_key)["input_cost_per_token"]
     assert builtin_input_cost > 0
 
     try:
-        litellm.completion(
+        hangarllm.completion(
             model=shared_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -588,21 +588,21 @@ def test_completion_router_zero_pricing_does_not_clobber_builtin_pricing():
             mock_response="hello back",
         )
 
-        assert litellm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
+        assert hangarllm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
             "wildcard deployment's zero pricing leaked into the shared model_cost key"
         )
-        assert deployment_id not in litellm.model_cost
+        assert deployment_id not in hangarllm.model_cost
     finally:
         _restore_model_cost_entries(snapshot)
 
 
 def test_embedding_direct_sdk_custom_pricing_prices_the_call_without_writing_the_cost_map():
-    """A direct SDK call with its own prices is costed with them and leaves ``litellm.model_cost`` alone, so the
+    """A direct SDK call with its own prices is costed with them and leaves ``hangarllm.model_cost`` alone, so the
     next call for the same model name, and every other deployment of it, is priced from the cost map again."""
     model_key: Final = "openai/lit3991-direct-sdk-embed-model"
     override_input_cost: Final = 3e-05
     try:
-        response: Final = litellm.embedding(
+        response: Final = hangarllm.embedding(
             model=model_key,
             input=["hello"],
             api_key="fake-key",
@@ -611,40 +611,40 @@ def test_embedding_direct_sdk_custom_pricing_prices_the_call_without_writing_the
             mock_response=[0.1, 0.2],
         )
 
-        assert model_key not in litellm.model_cost
+        assert model_key not in hangarllm.model_cost
         assert response._hidden_params["response_cost"] == pytest.approx(
             response.usage.prompt_tokens * override_input_cost
         )
 
-        plain: Final = litellm.embedding(model=model_key, input=["hello"], api_key="fake-key", mock_response=[0.1, 0.2])
+        plain: Final = hangarllm.embedding(model=model_key, input=["hello"], api_key="fake-key", mock_response=[0.1, 0.2])
         assert plain._hidden_params["response_cost"] != response._hidden_params["response_cost"]
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()
 
 
 def test_register_model_keeps_a_catalog_rows_own_prices_when_the_lookup_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     geo_key: Final = "au.anthropic.lit-5853-geo-model"
     geo_row: Final = {
-        "litellm_provider": "bedrock_converse",
+        "hangarllm_provider": "bedrock_converse",
         "mode": "chat",
         "input_cost_per_token": 3.3e-06,
         "output_cost_per_token": 1.65e-05,
         "cache_read_input_token_cost": 3.3e-07,
     }
     sibling_row: Final = {
-        "litellm_provider": "bedrock_converse",
+        "hangarllm_provider": "bedrock_converse",
         "mode": "chat",
         "input_cost_per_token": 3e-06,
         "output_cost_per_token": 1.5e-05,
         "cache_read_input_token_cost": 3e-07,
     }
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.get_model_cost_map(url=""),
+            **hangarllm.get_model_cost_map(url=""),
             geo_key: dict(geo_row),
             "anthropic.lit-5853-geo-model": sibling_row,
         },
@@ -655,14 +655,14 @@ def test_register_model_keeps_a_catalog_rows_own_prices_when_the_lookup_fails(mo
         raise RuntimeError("dictionary changed size during iteration")
 
     with pytest.MonkeyPatch.context() as lookup_patch:
-        lookup_patch.setattr(litellm.utils, "get_model_info", lookup_tripped_by_a_concurrent_registration)
-        litellm.register_model({geo_key: {"mode": "chat"}}, persist_across_reloads=False)
+        lookup_patch.setattr(hangarllm.utils, "get_model_info", lookup_tripped_by_a_concurrent_registration)
+        hangarllm.register_model({geo_key: {"mode": "chat"}}, persist_across_reloads=False)
 
     try:
         for field in ("input_cost_per_token", "output_cost_per_token", "cache_read_input_token_cost"):
-            assert litellm.model_cost[geo_key][field] == geo_row[field]
-            assert litellm.get_model_info(geo_key)[field] == geo_row[field]
-        assert litellm.model_cost[geo_key]["litellm_provider"] == geo_row["litellm_provider"]
+            assert hangarllm.model_cost[geo_key][field] == geo_row[field]
+            assert hangarllm.get_model_info(geo_key)[field] == geo_row[field]
+        assert hangarllm.model_cost[geo_key]["hangarllm_provider"] == geo_row["hangarllm_provider"]
     finally:
         _invalidate_model_cost_lowercase_map()
 
@@ -674,14 +674,14 @@ def test_register_model_leaves_no_shadow_key_when_the_lookup_trips_once(
     catalog_key: Final = "au.anthropic.lit-5853-geo-model"
     alias: Final = f"bedrock/{route}{catalog_key}"
     repriced_input_cost: Final = 9e-06
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.get_model_cost_map(url=""),
+            **hangarllm.get_model_cost_map(url=""),
             catalog_key: {
-                "litellm_provider": "bedrock_converse",
+                "hangarllm_provider": "bedrock_converse",
                 "mode": "chat",
                 "input_cost_per_token": 3.3e-06,
                 "output_cost_per_token": 1.65e-05,
@@ -689,7 +689,7 @@ def test_register_model_leaves_no_shadow_key_when_the_lookup_trips_once(
         },
     )
     _invalidate_model_cost_lowercase_map()
-    real_lookup: Final = litellm.utils.get_model_info
+    real_lookup: Final = hangarllm.utils.get_model_info
     lookups: Final = itertools.count()
 
     def lookup_tripped_once_by_a_concurrent_registration(model: str, custom_llm_provider: str | None = None) -> object:
@@ -698,13 +698,13 @@ def test_register_model_leaves_no_shadow_key_when_the_lookup_trips_once(
         return real_lookup(model=model, custom_llm_provider=custom_llm_provider)
 
     with pytest.MonkeyPatch.context() as lookup_patch:
-        lookup_patch.setattr(litellm.utils, "get_model_info", lookup_tripped_once_by_a_concurrent_registration)
-        litellm.register_model({alias: {"litellm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False)
-    litellm.register_model({catalog_key: {"input_cost_per_token": repriced_input_cost}}, persist_across_reloads=False)
+        lookup_patch.setattr(hangarllm.utils, "get_model_info", lookup_tripped_once_by_a_concurrent_registration)
+        hangarllm.register_model({alias: {"hangarllm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False)
+    hangarllm.register_model({catalog_key: {"input_cost_per_token": repriced_input_cost}}, persist_across_reloads=False)
 
     try:
-        assert litellm.get_model_info(alias)["key"] == catalog_key
-        assert litellm.get_model_info(alias)["input_cost_per_token"] == repriced_input_cost
+        assert hangarllm.get_model_info(alias)["key"] == catalog_key
+        assert hangarllm.get_model_info(alias)["input_cost_per_token"] == repriced_input_cost
     finally:
         _invalidate_model_cost_lowercase_map()
 
@@ -713,40 +713,40 @@ def test_register_model_leaves_no_shadow_key_when_the_lookup_trips_once(
 def test_register_model_bills_a_catalog_rows_tier_rates_the_same_when_the_lookup_fails(
     monkeypatch: pytest.MonkeyPatch, key_prefix: str
 ) -> None:
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.types.utils import ModelResponse, Usage
 
     catalog_key: Final = "au.anthropic.lit-5853-tiered-geo-model"
     registered_key: Final = f"{key_prefix}{catalog_key}"
     catalog_row: Final = {
-        "litellm_provider": "bedrock_converse",
+        "hangarllm_provider": "bedrock_converse",
         "mode": "chat",
         "input_cost_per_token": 3.3e-06,
         "output_cost_per_token": 1.65e-05,
         "input_cost_per_token_above_200k_tokens": 6.6e-06,
         "output_cost_per_token_above_200k_tokens": 2.475e-05,
     }
-    builtin_cost_map: Final = litellm.get_model_cost_map(url="")
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    builtin_cost_map: Final = hangarllm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
 
     def lookup_tripped_by_a_concurrent_registration(model: str, custom_llm_provider: str | None = None) -> NoReturn:
         raise RuntimeError("dictionary changed size during iteration")
 
     def long_prompt_cost_after_registering_with(lookup: Callable[..., object]) -> float:
-        monkeypatch.setattr(litellm, "model_cost", {**builtin_cost_map, catalog_key: dict(catalog_row)})
+        monkeypatch.setattr(hangarllm, "model_cost", {**builtin_cost_map, catalog_key: dict(catalog_row)})
         _invalidate_model_cost_lowercase_map()
         with pytest.MonkeyPatch.context() as lookup_patch:
-            lookup_patch.setattr(litellm.utils, "get_model_info", lookup)
-            litellm.register_model(
+            lookup_patch.setattr(hangarllm.utils, "get_model_info", lookup)
+            hangarllm.register_model(
                 {
                     registered_key: {
-                        "litellm_provider": "bedrock",
+                        "hangarllm_provider": "bedrock",
                         "input_cost_per_token": 1e-06,
                         "output_cost_per_token": 2e-06,
                     }
                 },
                 persist_across_reloads=False,
             )
-        return litellm.completion_cost(
+        return hangarllm.completion_cost(
             completion_response=ModelResponse(
                 model=registered_key,
                 usage=Usage(prompt_tokens=250_000, completion_tokens=1_000, total_tokens=251_000),
@@ -757,7 +757,7 @@ def test_register_model_bills_a_catalog_rows_tier_rates_the_same_when_the_lookup
 
     try:
         assert long_prompt_cost_after_registering_with(lookup_tripped_by_a_concurrent_registration) == pytest.approx(
-            long_prompt_cost_after_registering_with(litellm.utils.get_model_info)
+            long_prompt_cost_after_registering_with(hangarllm.utils.get_model_info)
         )
     finally:
         _invalidate_model_cost_lowercase_map()
@@ -770,16 +770,16 @@ def test_register_model_prices_a_provider_less_azure_ai_key_without_repricing_th
     openai_key: Final = "lit-5853-openai-model"
     azure_ai_key: Final = f"azure_ai/{openai_key}"
     openai_row: Final = {
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "chat",
         "input_cost_per_token": 5e-06,
         "output_cost_per_token": 1.5e-05,
     }
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://lit-5853.openai.azure.com")
-    monkeypatch.setattr(litellm, "model_cost", {**litellm.get_model_cost_map(url=""), openai_key: dict(openai_row)})
+    monkeypatch.setattr(hangarllm, "model_cost", {**hangarllm.get_model_cost_map(url=""), openai_key: dict(openai_row)})
     monkeypatch.setattr(
-        litellm, "open_ai_chat_completion_models", {*litellm.open_ai_chat_completion_models, openai_key}
+        hangarllm, "open_ai_chat_completion_models", {*hangarllm.open_ai_chat_completion_models, openai_key}
     )
     _invalidate_model_cost_lowercase_map()
 
@@ -788,15 +788,15 @@ def test_register_model_prices_a_provider_less_azure_ai_key_without_repricing_th
 
     with pytest.MonkeyPatch.context() as lookup_patch:
         if lookup_trips:
-            lookup_patch.setattr(litellm.utils, "get_model_info", lookup_tripped_by_a_concurrent_registration)
-        litellm.register_model(
+            lookup_patch.setattr(hangarllm.utils, "get_model_info", lookup_tripped_by_a_concurrent_registration)
+        hangarllm.register_model(
             {azure_ai_key: {"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06}},
             persist_across_reloads=False,
         )
 
     try:
-        assert litellm.model_cost[openai_key] == openai_row
-        assert litellm.cost_per_token(model=azure_ai_key, prompt_tokens=1000, completion_tokens=1000) == pytest.approx(
+        assert hangarllm.model_cost[openai_key] == openai_row
+        assert hangarllm.cost_per_token(model=azure_ai_key, prompt_tokens=1000, completion_tokens=1000) == pytest.approx(
             (1e-03, 2e-03)
         )
     finally:
@@ -807,35 +807,35 @@ def test_register_model_keeps_the_prices_a_reload_adopts_while_it_registers(monk
     catalog_key: Final = "au.anthropic.lit-5853-reloaded-model"
     deployment_key: Final = f"bedrock/{catalog_key}"
     catalog_row: Final = {
-        "litellm_provider": "bedrock_converse",
+        "hangarllm_provider": "bedrock_converse",
         "mode": "chat",
         "input_cost_per_token": 3.3e-06,
         "output_cost_per_token": 1.65e-05,
     }
     reloaded_input_cost: Final = 6.6e-06
-    builtin_cost_map: Final = litellm.get_model_cost_map(url="")
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", {**builtin_cost_map, catalog_key: dict(catalog_row)})
+    builtin_cost_map: Final = hangarllm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", {**builtin_cost_map, catalog_key: dict(catalog_row)})
     _invalidate_model_cost_lowercase_map()
     reloaded_cost_map: Final = {
         **builtin_cost_map,
         catalog_key: {**catalog_row, "input_cost_per_token": reloaded_input_cost},
     }
-    real_lookup: Final = litellm.utils.get_model_info
+    real_lookup: Final = hangarllm.utils.get_model_info
 
     def lookup_racing_a_price_data_reload(model: str, custom_llm_provider: str | None = None) -> object:
         info: Final = real_lookup(model=model, custom_llm_provider=custom_llm_provider)
-        if litellm.model_cost is not reloaded_cost_map:
+        if hangarllm.model_cost is not reloaded_cost_map:
             adopt_model_cost_map(reloaded_cost_map)
         return info
 
     with pytest.MonkeyPatch.context() as lookup_patch:
-        lookup_patch.setattr(litellm.utils, "get_model_info", lookup_racing_a_price_data_reload)
-        litellm.register_model({deployment_key: {"litellm_provider": "bedrock"}}, persist_across_reloads=False)
+        lookup_patch.setattr(hangarllm.utils, "get_model_info", lookup_racing_a_price_data_reload)
+        hangarllm.register_model({deployment_key: {"hangarllm_provider": "bedrock"}}, persist_across_reloads=False)
 
     try:
-        assert litellm.model_cost[catalog_key]["input_cost_per_token"] == reloaded_input_cost
-        assert litellm.get_model_info(deployment_key)["input_cost_per_token"] == reloaded_input_cost
+        assert hangarllm.model_cost[catalog_key]["input_cost_per_token"] == reloaded_input_cost
+        assert hangarllm.get_model_info(deployment_key)["input_cost_per_token"] == reloaded_input_cost
     finally:
         _invalidate_model_cost_lowercase_map()
 
@@ -846,14 +846,14 @@ def test_register_model_keeps_its_price_when_a_reload_adopts_a_map_as_it_writes(
     catalog_key: Final = "au.anthropic.lit-5853-reloaded-as-written-model"
     deployment_key: Final = f"bedrock/{catalog_key}"
     catalog_row: Final = {
-        "litellm_provider": "bedrock_converse",
+        "hangarllm_provider": "bedrock_converse",
         "mode": "chat",
         "input_cost_per_token": 3.3e-06,
         "output_cost_per_token": 1.65e-05,
     }
     reloaded_input_cost: Final = 6.6e-06
     registered_output_cost: Final = 2e-05
-    builtin_cost_map: Final = litellm.get_model_cost_map(url="")
+    builtin_cost_map: Final = hangarllm.get_model_cost_map(url="")
     reloaded_cost_map: Final = {
         **builtin_cost_map,
         catalog_key: {**catalog_row, "input_cost_per_token": reloaded_input_cost},
@@ -861,58 +861,58 @@ def test_register_model_keeps_its_price_when_a_reload_adopts_a_map_as_it_writes(
 
     class CostMapAReloadReplacesAsItIsWritten(dict[str, dict[str, object]]):
         def update(self, other: Mapping[str, dict[str, object]], /) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # registration writes pass one mapping
-            if litellm.model_cost is self:
+            if hangarllm.model_cost is self:
                 adopt_model_cost_map(reloaded_cost_map)
             super().update(other)
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         CostMapAReloadReplacesAsItIsWritten({**builtin_cost_map, catalog_key: dict(catalog_row)}),
     )
     _invalidate_model_cost_lowercase_map()
 
-    litellm.register_model(
-        {deployment_key: {"litellm_provider": "bedrock", "output_cost_per_token": registered_output_cost}},
+    hangarllm.register_model(
+        {deployment_key: {"hangarllm_provider": "bedrock", "output_cost_per_token": registered_output_cost}},
         persist_across_reloads=False,
     )
 
     try:
-        assert litellm.model_cost is reloaded_cost_map
-        assert litellm.get_model_info(deployment_key)["input_cost_per_token"] == reloaded_input_cost
-        assert litellm.get_model_info(deployment_key)["output_cost_per_token"] == registered_output_cost
+        assert hangarllm.model_cost is reloaded_cost_map
+        assert hangarllm.get_model_info(deployment_key)["input_cost_per_token"] == reloaded_input_cost
+        assert hangarllm.get_model_info(deployment_key)["output_cost_per_token"] == registered_output_cost
     finally:
         _invalidate_model_cost_lowercase_map()
 
 
 def test_register_model_leaves_the_entry_a_lookup_is_walking_intact(monkeypatch: pytest.MonkeyPatch) -> None:
     catalog_key: Final = "lit-5853-live-entry-model"
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.get_model_cost_map(url=""),
-            catalog_key: {"litellm_provider": "openai", "mode": "chat", "input_cost_per_token": 2e-06},
+            **hangarllm.get_model_cost_map(url=""),
+            catalog_key: {"hangarllm_provider": "openai", "mode": "chat", "input_cost_per_token": 2e-06},
         },
     )
     _invalidate_model_cost_lowercase_map()
-    walk: Final = iter(litellm.model_cost[catalog_key].items())
+    walk: Final = iter(hangarllm.model_cost[catalog_key].items())
     first_field: Final = next(walk)
 
     try:
-        litellm.register_model(
-            {catalog_key: {"litellm_provider": "openai", "input_cost_per_token": 1e-06, "supports_vision": True}},
+        hangarllm.register_model(
+            {catalog_key: {"hangarllm_provider": "openai", "input_cost_per_token": 1e-06, "supports_vision": True}},
             persist_across_reloads=False,
         )
         assert dict((first_field, *walk)) == {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "input_cost_per_token": 2e-06,
         }
-        assert litellm.get_model_info(catalog_key)["input_cost_per_token"] == 1e-06
-        assert litellm.get_model_info(catalog_key)["supports_vision"] is True
+        assert hangarllm.get_model_info(catalog_key)["input_cost_per_token"] == 1e-06
+        assert hangarllm.get_model_info(catalog_key)["supports_vision"] is True
     finally:
         _invalidate_model_cost_lowercase_map()
 
@@ -922,16 +922,16 @@ _ALIAS_KEY: Final = "lit-5853-alias-model"
 
 
 def _install_aliased_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         _expand_model_aliases(
             {
-                **litellm.get_model_cost_map(url=""),
+                **hangarllm.get_model_cost_map(url=""),
                 _CANONICAL_KEY: {
                     "aliases": [_ALIAS_KEY],
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "chat",
                     "input_cost_per_token": 2e-06,
                     "output_cost_per_token": 8e-06,
@@ -943,7 +943,7 @@ def _install_aliased_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _token_prices(name: str) -> tuple[float | None, float | None]:
-    info: Final = litellm.get_model_info(name)
+    info: Final = hangarllm.get_model_info(name)
     return info["input_cost_per_token"], info["output_cost_per_token"]
 
 
@@ -954,12 +954,12 @@ def test_register_model_prices_every_alias_of_the_registered_entry(
     _install_aliased_cost_map(monkeypatch)
 
     try:
-        litellm.register_model(
-            {registered_key: {"litellm_provider": "openai", "input_cost_per_token": 1e-06}},
+        hangarllm.register_model(
+            {registered_key: {"hangarllm_provider": "openai", "input_cost_per_token": 1e-06}},
             persist_across_reloads=False,
         )
-        litellm.register_model(
-            {registered_key: {"litellm_provider": "openai", "output_cost_per_token": 4e-06}},
+        hangarllm.register_model(
+            {registered_key: {"hangarllm_provider": "openai", "output_cost_per_token": 4e-06}},
             persist_across_reloads=False,
         )
         assert {name: _token_prices(name) for name in (_CANONICAL_KEY, _ALIAS_KEY)} == {
@@ -972,16 +972,16 @@ def test_register_model_prices_every_alias_of_the_registered_entry(
 
 def test_register_model_leaves_an_alias_repointed_at_its_own_entry(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_aliased_cost_map(monkeypatch)
-    litellm.model_cost[_ALIAS_KEY] = {
-        "litellm_provider": "openai",
+    hangarllm.model_cost[_ALIAS_KEY] = {
+        "hangarllm_provider": "openai",
         "mode": "chat",
         "input_cost_per_token": 5e-06,
         "output_cost_per_token": 6e-06,
     }
 
     try:
-        litellm.register_model(
-            {_CANONICAL_KEY: {"litellm_provider": "openai", "input_cost_per_token": 1e-06}},
+        hangarllm.register_model(
+            {_CANONICAL_KEY: {"hangarllm_provider": "openai", "input_cost_per_token": 1e-06}},
             persist_across_reloads=False,
         )
         assert {name: _token_prices(name) for name in (_CANONICAL_KEY, _ALIAS_KEY)} == {
@@ -993,18 +993,18 @@ def test_register_model_leaves_an_alias_repointed_at_its_own_entry(monkeypatch: 
 
 
 def test_register_model_inherits_builtin_token_pricing_for_unmapped_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     _invalidate_model_cost_lowercase_map()
     builtin_key: Final = "us.anthropic.claude-sonnet-4-6"
     registered_key: Final = f"bedrock/bedrock/bedrock/{builtin_key}"
-    builtin: Final = litellm.model_cost[builtin_key]
+    builtin: Final = hangarllm.model_cost[builtin_key]
 
     try:
-        litellm.register_model(
-            {registered_key: {"litellm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False
+        hangarllm.register_model(
+            {registered_key: {"hangarllm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False
         )
-        info: Final = litellm.get_model_info(registered_key)
+        info: Final = hangarllm.get_model_info(registered_key)
         assert info["input_cost_per_token"] == builtin["input_cost_per_token"] > 0
         assert info["output_cost_per_token"] == builtin["output_cost_per_token"] > 0
         assert info["cache_read_input_token_cost"] == builtin["cache_read_input_token_cost"]
@@ -1015,7 +1015,7 @@ def test_register_model_inherits_builtin_token_pricing_for_unmapped_key(monkeypa
 def test_register_model_keeps_the_capabilities_an_unregistered_region_alias_resolves_to(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.litellm_core_utils.fallback_generalizations import (
+    from hangarllm.hangarllm_core_utils.fallback_generalizations import (
         get_fallback_generalization_rules,
         set_fallback_generalizations,
     )
@@ -1023,13 +1023,13 @@ def test_register_model_keeps_the_capabilities_an_unregistered_region_alias_reso
     sibling_key: Final = "anthropic.lit-5853-flagless-model"
     region_alias: Final = f"bedrock/ap-northeast-1.{sibling_key}"
     sibling_row: Final = {
-        "litellm_provider": "bedrock_converse",
+        "hangarllm_provider": "bedrock_converse",
         "mode": "chat",
         "input_cost_per_token": 3e-06,
         "output_cost_per_token": 1.5e-05,
     }
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", {**litellm.get_model_cost_map(url=""), sibling_key: sibling_row})
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", {**hangarllm.get_model_cost_map(url=""), sibling_key: sibling_row})
     _invalidate_model_cost_lowercase_map()
     previous_rules: Final = list(get_fallback_generalization_rules())
     set_fallback_generalizations(
@@ -1043,11 +1043,11 @@ def test_register_model_keeps_the_capabilities_an_unregistered_region_alias_reso
     )
 
     try:
-        unregistered: Final = litellm.get_model_info(region_alias)
-        litellm.register_model(
-            {region_alias: {"litellm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False
+        unregistered: Final = hangarllm.get_model_info(region_alias)
+        hangarllm.register_model(
+            {region_alias: {"hangarllm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False
         )
-        registered: Final = litellm.get_model_info(region_alias)
+        registered: Final = hangarllm.get_model_info(region_alias)
         assert registered["supports_system_messages"] is unregistered["supports_system_messages"] is True
         assert (
             registered["supports_parallel_function_calling"]
@@ -1118,24 +1118,24 @@ def test_register_model_keeps_custom_flat_prices_over_inherited_rate_variants(
     usage: dict[str, int],
     expected_cost: float,
 ) -> None:
-    from litellm.types.utils import CompletionTokensDetailsWrapper, ModelResponse, Usage
+    from hangarllm.types.utils import CompletionTokensDetailsWrapper, ModelResponse, Usage
 
     builtin_key: Final = "anthropic.lit-5853-tiered-model-v1:0"
     alias: Final = f"bedrock/ap-northeast-1.{builtin_key}"
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.get_model_cost_map(url=""),
-            builtin_key: {"litellm_provider": "bedrock", "mode": "chat", **builtin_prices},
+            **hangarllm.get_model_cost_map(url=""),
+            builtin_key: {"hangarllm_provider": "bedrock", "mode": "chat", **builtin_prices},
         },
     )
     _invalidate_model_cost_lowercase_map()
 
     try:
-        litellm.register_model(
-            {alias: {"litellm_provider": "bedrock", **custom_prices}},
+        hangarllm.register_model(
+            {alias: {"hangarllm_provider": "bedrock", **custom_prices}},
             persist_across_reloads=False,
         )
         response_usage: Final = Usage(
@@ -1144,7 +1144,7 @@ def test_register_model_keeps_custom_flat_prices_over_inherited_rate_variants(
             total_tokens=usage["prompt_tokens"] + usage["completion_tokens"],
             completion_tokens_details=CompletionTokensDetailsWrapper(reasoning_tokens=usage.get("reasoning_tokens", 0)),
         )
-        cost: Final = litellm.completion_cost(
+        cost: Final = hangarllm.completion_cost(
             completion_response=ModelResponse(model=alias, usage=response_usage),
             model=alias,
             custom_llm_provider="bedrock",
@@ -1156,14 +1156,14 @@ def test_register_model_keeps_custom_flat_prices_over_inherited_rate_variants(
 
 def test_register_model_never_inherits_pricing_across_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     openai_key: Final = "lit-5853-openai-only-model"
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.get_model_cost_map(url=""),
+            **hangarllm.get_model_cost_map(url=""),
             openai_key: {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 2.5e-06,
                 "output_cost_per_token": 1e-05,
@@ -1175,10 +1175,10 @@ def test_register_model_never_inherits_pricing_across_providers(monkeypatch: pyt
     registered_key: Final = f"bedrock/{openai_key}"
 
     try:
-        litellm.register_model(
-            {registered_key: {"litellm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False
+        hangarllm.register_model(
+            {registered_key: {"hangarllm_provider": "bedrock", "mode": "chat"}}, persist_across_reloads=False
         )
-        registered: Final = litellm.model_cost[registered_key]
+        registered: Final = hangarllm.model_cost[registered_key]
         assert "cache_read_input_token_cost" not in registered
         assert "input_cost_per_token" not in registered
         assert "output_cost_per_token" not in registered
@@ -1193,7 +1193,7 @@ def test_update_dictionary_merges_nested_dicts_without_aliasing():
     """
     from typing import cast
 
-    from litellm.utils import update_dictionary
+    from hangarllm.utils import update_dictionary
 
     existing_nested = cast(dict[str, object], {"hours_utc": "01:00-02:00", 1: "existing"})
     existing = {"off_peak_pricing": existing_nested}
@@ -1229,7 +1229,7 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
     deployment's registration merged its keys into that same object, corrupting
     the first deployment's schedule and polluting the built-in entry.
     """
-    from litellm import Router
+    from hangarllm import Router
 
     active_block = {
         "windows": [{"hours_utc": "16:00-19:00", "weekdays": [2]}],
@@ -1249,7 +1249,7 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
         model_list=[
             {
                 "model_name": "offpeak-active-weekday",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -1262,7 +1262,7 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
             },
             {
                 "model_name": "offpeak-inactive-hours",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -1277,16 +1277,16 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
     )
 
     try:
-        registered_first = litellm.model_cost[deployment_ids[0]]["off_peak_pricing"]
-        registered_second = litellm.model_cost[deployment_ids[1]]["off_peak_pricing"]
+        registered_first = hangarllm.model_cost[deployment_ids[0]]["off_peak_pricing"]
+        registered_second = hangarllm.model_cost[deployment_ids[1]]["off_peak_pricing"]
         assert registered_first == active_block
         assert registered_second == inactive_block
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = hangarllm.model_cost.get(shared_key) or {}
             assert not shared_entry.get("off_peak_pricing")
     finally:
         for deployment_id in deployment_ids:
-            litellm.model_cost.pop(deployment_id, None)
+            hangarllm.model_cost.pop(deployment_id, None)
         _restore_model_cost_entries(original_entries)
         del router
 
@@ -1297,7 +1297,7 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
     inherited from the backend model's built-in cost map entry, since the
     shared backend key deliberately never carries the off-peak block.
     """
-    from litellm import Router
+    from hangarllm import Router
 
     block = {
         "hours_utc": "00:00-00:00",
@@ -1307,13 +1307,13 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
     shared_keys = ["gpt-4o-mini", "openai/gpt-4o-mini"]
     deployment_id = "offpeak-only-dep-1"
     original_entries = _snapshot_model_cost_entries(shared_keys + [deployment_id])
-    builtin_info = litellm.get_model_info(model="openai/gpt-4o-mini")
+    builtin_info = hangarllm.get_model_info(model="openai/gpt-4o-mini")
 
     router = Router(
         model_list=[
             {
                 "model_name": "offpeak-only",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -1323,13 +1323,13 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
     )
 
     try:
-        entry = litellm.model_cost[deployment_id]
+        entry = hangarllm.model_cost[deployment_id]
         assert entry["off_peak_pricing"] == block
         assert entry["input_cost_per_token"] is not None
         assert entry["input_cost_per_token"] == builtin_info["input_cost_per_token"]
         assert entry["output_cost_per_token"] == builtin_info["output_cost_per_token"]
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = hangarllm.model_cost.get(shared_key) or {}
             assert not shared_entry.get("off_peak_pricing")
     finally:
         _restore_model_cost_entries(original_entries)
@@ -1337,7 +1337,7 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
 
 
 def test_use_custom_pricing_for_model_sees_off_peak_only_model_info():
-    from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import use_custom_pricing_for_model
 
     block = {"hours_utc": "00:00-00:00", "input_cost_per_token": 5e-05}
     assert use_custom_pricing_for_model({"metadata": {"model_info": {"off_peak_pricing": block}}}) is True
@@ -1350,8 +1350,8 @@ def test_completion_cost_applies_off_peak_only_deployment_pricing():
     a ``router_model_id`` whose entry carries only an always-on off-peak block,
     the request bills at the block's rates rather than the shared backend rate.
     """
-    from litellm import Router
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm import Router
+    from hangarllm.types.utils import ModelResponse, Usage
 
     block = {
         "hours_utc": "00:00-00:00",
@@ -1366,7 +1366,7 @@ def test_completion_cost_applies_off_peak_only_deployment_pricing():
         model_list=[
             {
                 "model_name": "offpeak-only",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -1380,7 +1380,7 @@ def test_completion_cost_applies_off_peak_only_deployment_pricing():
             model="gpt-4o-mini",
             usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
         )
-        cost = litellm.completion_cost(
+        cost = hangarllm.completion_cost(
             completion_response=response,
             model="openai/gpt-4o-mini",
             custom_llm_provider="openai",
@@ -1398,7 +1398,7 @@ def test_completion_prices_cost_per_second_from_the_call_without_writing_the_cos
     original_entries: Final = _snapshot_model_cost_entries([model_key])
 
     try:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1406,9 +1406,9 @@ def test_completion_prices_cost_per_second_from_the_call_without_writing_the_cos
             mock_response="hello back",
         )
 
-        assert model_key not in litellm.model_cost
+        assert model_key not in hangarllm.model_cost
         assert response._hidden_params["response_cost"] > 0
-        assert litellm.completion_cost(completion_response=response, custom_cost_per_second=0.02) == pytest.approx(
+        assert hangarllm.completion_cost(completion_response=response, custom_cost_per_second=0.02) == pytest.approx(
             0.02 * response._response_ms / 1000
         )
     finally:
@@ -1417,18 +1417,18 @@ def test_completion_prices_cost_per_second_from_the_call_without_writing_the_cos
 
 def test_update_model_cost():
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 "gpt-4": {
                     "max_tokens": 8192,
                     "input_cost_per_token": 0.00002,
                     "output_cost_per_token": 0.00006,
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "chat",
                 },
             }
         )
-        assert litellm.model_cost["gpt-4"]["input_cost_per_token"] == 0.00002
+        assert hangarllm.model_cost["gpt-4"]["input_cost_per_token"] == 0.00002
     except Exception as e:
         pytest.fail(f"An error occurred: {e}")
 
@@ -1440,9 +1440,9 @@ def test_register_model_scopes_builtin_match_to_the_given_provider():
     colliding_id: Final = "baseten/zai-org/glm-5.2"
     builtin_key: Final = "baseten/zai-org/GLM-5.2"
     model_cost_entries: Final = _snapshot_model_cost_entries((colliding_id, builtin_key))
-    builtin_row_before: Final = copy.deepcopy(litellm.model_cost[builtin_key])
+    builtin_row_before: Final = copy.deepcopy(hangarllm.model_cost[builtin_key])
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 colliding_id: {
                     "input_cost_per_token": 0.00000096,
@@ -1454,12 +1454,12 @@ def test_register_model_scopes_builtin_match_to_the_given_provider():
             custom_llm_provider="openai",
         )
 
-        entry: Final = litellm.model_cost[colliding_id]
-        assert "litellm_provider" not in entry
+        entry: Final = hangarllm.model_cost[colliding_id]
+        assert "hangarllm_provider" not in entry
         assert entry["input_cost_per_token"] == 0.00000096
         assert entry["output_cost_per_token"] == 0.00000302
         assert entry["cache_read_input_token_cost"] == 0.00000010
-        assert litellm.model_cost[builtin_key] == builtin_row_before
+        assert hangarllm.model_cost[builtin_key] == builtin_row_before
     finally:
         _restore_model_cost_entries(model_cost_entries)
 
@@ -1490,8 +1490,8 @@ def test_router_call_with_audio_rates_is_priced_per_modality_from_its_registered
     deployment_id: Final = "audio-rates-deployment"
     snapshot: Final = _snapshot_model_cost_entries([deployment_id])
     try:
-        litellm.register_model({deployment_id: {**_AUDIO_RATES, "litellm_provider": "openai", "mode": "chat"}})
-        response: Final = litellm.completion(
+        hangarllm.register_model({deployment_id: {**_AUDIO_RATES, "hangarllm_provider": "openai", "mode": "chat"}})
+        response: Final = hangarllm.completion(
             model="openai/gpt-audio-2025-08-28",
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1507,7 +1507,7 @@ def test_router_call_with_audio_rates_is_priced_per_modality_from_its_registered
 def test_direct_call_with_flat_rates_is_priced_from_them_without_writing_the_cost_map():
     model_key: Final = "openai/lit-direct-flat-rates-model"
     try:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1516,16 +1516,16 @@ def test_direct_call_with_flat_rates_is_priced_from_them_without_writing_the_cos
             output_cost_per_token=1e-05,
         )
         assert response._hidden_params["response_cost"] == pytest.approx(1000 * 2.5e-06 + 1000 * 1e-05)
-        assert model_key not in litellm.model_cost
+        assert model_key not in hangarllm.model_cost
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()
 
 
 def test_direct_call_with_audio_rates_is_priced_per_modality_without_writing_the_cost_map():
     model_key: Final = "openai/lit-direct-audio-rates-model"
     try:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1536,40 +1536,40 @@ def test_direct_call_with_audio_rates_is_priced_per_modality_without_writing_the
             output_cost_per_audio_token=8e-05,
         )
         assert response._hidden_params["response_cost"] == pytest.approx(1000 * 4e-05 + 1000 * 8e-05)
-        assert model_key not in litellm.model_cost
+        assert model_key not in hangarllm.model_cost
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()
 
 
 def test_direct_call_with_directional_per_second_rates_is_priced_from_them_without_writing_the_cost_map():
     model_key: Final = "openai/lit-direct-per-second-model"
     try:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
             mock_response="ok",
             input_cost_per_second=0.004,
         )
-        assert litellm.completion_cost(completion_response=response, custom_cost_per_second=0.004) == pytest.approx(
+        assert hangarllm.completion_cost(completion_response=response, custom_cost_per_second=0.004) == pytest.approx(
             0.004 * response._response_ms / 1000
         )
         assert response._hidden_params["response_cost"] > 0
-        assert model_key not in litellm.model_cost
+        assert model_key not in hangarllm.model_cost
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()
 
 
 def test_router_call_with_request_prices_bills_them_over_the_deployment_rates():
-    from litellm import Router
+    from hangarllm import Router
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "lit-request-override",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-mini",
                     "api_key": "fake-key",
                     "mock_response": "ok",
@@ -1598,10 +1598,10 @@ def test_router_call_with_request_prices_bills_them_over_the_deployment_rates():
 
 def test_direct_call_flat_rates_override_the_catalogs_tiers_per_direction():
     model_key: Final = "openai/lit-tiered-catalog-model"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model_key: {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "tiered_pricing": [
                     {"range": [0, 128000], "input_cost_per_token": 3e-07, "output_cost_per_token": 6e-07},
@@ -1612,7 +1612,7 @@ def test_direct_call_flat_rates_override_the_catalogs_tiers_per_direction():
         persist_across_reloads=False,
     )
     try:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1623,7 +1623,7 @@ def test_direct_call_flat_rates_override_the_catalogs_tiers_per_direction():
         assert response._hidden_params["response_cost"] == pytest.approx(
             response.usage.prompt_tokens * 1e-05 + response.usage.completion_tokens * 2e-05
         )
-        input_only: Final = litellm.completion(
+        input_only: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1633,18 +1633,18 @@ def test_direct_call_flat_rates_override_the_catalogs_tiers_per_direction():
         assert input_only._hidden_params["response_cost"] == pytest.approx(
             input_only.usage.prompt_tokens * 1e-05 + input_only.usage.completion_tokens * 6e-07
         )
-        assert "input_cost_per_token" not in litellm.model_cost[model_key]
+        assert "input_cost_per_token" not in hangarllm.model_cost[model_key]
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()
 
 
 def test_direct_call_with_only_a_per_second_rate_on_a_mapped_model_is_billed_per_second():
     model_key: Final = "openai/lit-mapped-token-rates-model"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model_key: {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 1e-06,
                 "output_cost_per_token": 2e-06,
@@ -1653,7 +1653,7 @@ def test_direct_call_with_only_a_per_second_rate_on_a_mapped_model_is_billed_per
         persist_across_reloads=False,
     )
     try:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1663,18 +1663,18 @@ def test_direct_call_with_only_a_per_second_rate_on_a_mapped_model_is_billed_per
         token_rate_cost: Final = response.usage.prompt_tokens * 1e-06 + response.usage.completion_tokens * 2e-06
         assert response._hidden_params["response_cost"] != pytest.approx(token_rate_cost)
         assert response._hidden_params["response_cost"] == pytest.approx(0.02 * response._response_ms / 1000, rel=0.25)
-        assert litellm.model_cost[model_key]["input_cost_per_token"] == 1e-06
+        assert hangarllm.model_cost[model_key]["input_cost_per_token"] == 1e-06
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()
 
 
 def test_direct_call_flat_rate_applies_to_the_callers_own_tiers_not_the_catalogs():
     model_key: Final = "openai/lit-caller-tiers-model"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model_key: {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "tiered_pricing": [
                     {"range": [0, 1000000], "input_cost_per_token": 3e-07, "output_cost_per_token": 6e-07}
@@ -1684,7 +1684,7 @@ def test_direct_call_flat_rate_applies_to_the_callers_own_tiers_not_the_catalogs
         persist_across_reloads=False,
     )
     try:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1695,7 +1695,7 @@ def test_direct_call_flat_rate_applies_to_the_callers_own_tiers_not_the_catalogs
         assert response._hidden_params["response_cost"] == pytest.approx(
             response.usage.prompt_tokens * 1e-05 + response.usage.completion_tokens * 9e-06
         )
-        assert litellm.model_cost[model_key]["tiered_pricing"][0]["output_cost_per_token"] == 6e-07
+        assert hangarllm.model_cost[model_key]["tiered_pricing"][0]["output_cost_per_token"] == 6e-07
     finally:
-        litellm.model_cost.pop(model_key, None)
+        hangarllm.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()

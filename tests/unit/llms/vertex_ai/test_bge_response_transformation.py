@@ -9,8 +9,8 @@ and handles different response formats.
 
 import pytest
 
-from litellm.llms.vertex_ai.vertex_embeddings.bge import VertexBGEConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.vertex_ai.vertex_embeddings.bge import VertexBGEConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 
 def test_is_bge_model_detection():

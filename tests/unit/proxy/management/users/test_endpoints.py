@@ -5,10 +5,10 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.list_api.common import ManagementProblem, problem_response
-from litellm.proxy.management_endpoints.management_v1 import router
+from hangarllm.proxy._types import HangarllmUserRoles
+from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from hangarllm.proxy.list_api.common import ManagementProblem, problem_response
+from hangarllm.proxy.management_endpoints.management_v1 import router
 
 app: Final = FastAPI()
 
@@ -36,7 +36,7 @@ def authenticate_as(resolved: UserAPIKeyAuth) -> None:
 
 @pytest.mark.parametrize(
     "role",
-    [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY],
 )
 def test_returns_the_identity_auth_resolved_for_the_caller(caller, role):
     authenticate_as(UserAPIKeyAuth(user_id="u-1", user_role=role, user_email="u1@example.com"))
@@ -48,18 +48,18 @@ def test_returns_the_identity_auth_resolved_for_the_caller(caller, role):
 
 
 def test_key_without_a_user_gets_a_404_problem_document(caller):
-    authenticate_as(UserAPIKeyAuth(team_id="team-1", user_role=LitellmUserRoles.INTERNAL_USER))
+    authenticate_as(UserAPIKeyAuth(team_id="team-1", user_role=HangarllmUserRoles.INTERNAL_USER))
 
     response = client.get(USERS_ME_PATH, headers={"Authorization": "Bearer k"})
 
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json()["type"] == "urn:litellm:error:user-not-found"
+    assert response.json()["type"] == "urn:hangarllm:error:user-not-found"
     assert response.json()["status"] == 404
 
 
 def test_route_is_served_but_hidden_from_the_openapi_schema(caller):
-    authenticate_as(UserAPIKeyAuth(user_id="u-1", user_role=LitellmUserRoles.INTERNAL_USER))
+    authenticate_as(UserAPIKeyAuth(user_id="u-1", user_role=HangarllmUserRoles.INTERNAL_USER))
     paths: Final = app.openapi()["paths"]
 
     assert client.get(USERS_ME_PATH).status_code == 200

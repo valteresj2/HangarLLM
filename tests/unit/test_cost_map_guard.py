@@ -26,14 +26,14 @@ def _load(name: str) -> ModuleType:
 guard: Final = _load("cost_map_guard")
 
 MAP_FILES: Final = (guard.COST_MAP_PATH,)
-BOT_REF: Final = "litellm_cost_map_sync_2026-09-04T12-00Z"
+BOT_REF: Final = "hangarllm_cost_map_sync_2026-09-04T12-00Z"
 
 
 def _entry(price: float = 1e-06, **extra: object) -> dict[str, object]:
     return {
         "input_cost_per_token": price,
         "output_cost_per_token": price * 2,
-        "litellm_provider": "openrouter",
+        "hangarllm_provider": "openrouter",
         "mode": "chat",
         "max_tokens": 4096,
         **extra,
@@ -155,8 +155,8 @@ def test_backup_drift_is_reported() -> None:
 
 STALE_HEAD: Final = _snapshot(BASE_MAP, backup=_serialize({**BASE_MAP, "openrouter/b": _entry(3e-06)}))
 CODE_ONLY: Final = (
-    "litellm/utils.py",
-    "tests/test_litellm/test_utils.py",
+    "hangarllm/utils.py",
+    "tests/test_hangarllm/test_utils.py",
     "docs/model_prices_and_context_window.json",
 )
 
@@ -186,10 +186,10 @@ def test_contract_names_the_skip() -> None:
 
 
 def test_bot_may_only_touch_the_cost_map_files() -> None:
-    changed = (*guard.GUARDED_PATHS, "litellm/utils.py", ".github/workflows/cost-map-guard.yml")
+    changed = (*guard.GUARDED_PATHS, "hangarllm/utils.py", ".github/workflows/cost-map-guard.yml")
     assert _failures(BASE, changed_files=changed, bot=False) == ()
     assert _failures(BASE, changed_files=changed) == (
-        "bot PRs may only change the cost map files, not litellm/utils.py",
+        "bot PRs may only change the cost map files, not hangarllm/utils.py",
         "bot PRs may only change the cost map files, not .github/workflows/cost-map-guard.yml",
     )
 
@@ -334,10 +334,10 @@ BOT_AUTHOR_PIN_FAILURE: Final = (
 @pytest.mark.parametrize(
     ("head_ref", "author_type", "changed", "expected"),
     [
-        ("litellm-providers/price-sync-fireworks-ai", "User", (*MAP_FILES, guard.PINS_PATH), (PRICE_SYNC_PIN_FAILURE,)),
-        ("litellm-providers/price-sync-fireworks-ai", "Bot", MAP_FILES, ()),
-        ("litellm_azure_ai_mai_image_2_5_pro", "Bot", (*MAP_FILES, guard.PINS_PATH), (BOT_AUTHOR_PIN_FAILURE,)),
-        ("litellm_azure_ai_mai_image_2_5_pro", "Bot", MAP_FILES, ()),
+        ("hangarllm-providers/price-sync-fireworks-ai", "User", (*MAP_FILES, guard.PINS_PATH), (PRICE_SYNC_PIN_FAILURE,)),
+        ("hangarllm-providers/price-sync-fireworks-ai", "Bot", MAP_FILES, ()),
+        ("hangarllm_azure_ai_mai_image_2_5_pro", "Bot", (*MAP_FILES, guard.PINS_PATH), (BOT_AUTHOR_PIN_FAILURE,)),
+        ("hangarllm_azure_ai_mai_image_2_5_pro", "Bot", MAP_FILES, ()),
         ("fix-openrouter-price-sync", "User", (*MAP_FILES, guard.PINS_PATH), ()),
         ("fix-openrouter-price-sync", "", (*MAP_FILES, guard.PINS_PATH), ()),
     ],
@@ -368,8 +368,8 @@ def _commit(repo: Path, cost_map: dict[str, object], message: str, pins: str | N
 
 
 def _commit_code_only(repo: Path, message: str) -> str:
-    (repo / "litellm").mkdir(exist_ok=True)
-    (repo / "litellm" / "utils.py").write_text(f"print('{message}')\n")
+    (repo / "hangarllm").mkdir(exist_ok=True)
+    (repo / "hangarllm" / "utils.py").write_text(f"print('{message}')\n")
     return _git_commit(repo, message)
 
 
@@ -424,7 +424,7 @@ def _run_guard(
     ("head_ref", "expected_code", "expected_line"),
     [
         (BOT_REF, 1, "- bot PRs may not remove models: openrouter/b"),
-        ("litellm_fix_pricing", 0, "cost map guard passed (human PR, file checks only)"),
+        ("hangarllm_fix_pricing", 0, "cost map guard passed (human PR, file checks only)"),
     ],
 )
 def test_main_reads_both_revisions_from_git(
@@ -444,7 +444,7 @@ def test_main_skips_the_file_checks_on_a_stale_base_the_pr_never_touched(tmp_pat
     (tmp_path / guard.BACKUP_PATH).write_text(_serialize({**BASE_MAP, "openrouter/b": _entry(3e-06)}))
     stale_base: Final = _commit_code_only(tmp_path, "stale base with drifted backup")
     head: Final = _commit_code_only(tmp_path, "code change on the stale base")
-    human: Final = _run_guard(tmp_path, stale_base, head, "litellm_fix_pricing")
+    human: Final = _run_guard(tmp_path, stale_base, head, "hangarllm_fix_pricing")
     assert human.returncode == 0, human.stdout + human.stderr
     assert "cost map guard passed (human PR, cost map untouched)" in human.stdout.splitlines()
     bot: Final = _run_guard(tmp_path, stale_base, head, BOT_REF)
@@ -458,7 +458,7 @@ def test_main_keeps_the_file_checks_when_a_cost_map_file_is_renamed(tmp_path: Pa
     base: Final = _commit(tmp_path, BASE_MAP, "base")
     subprocess.run(("git", "mv", guard.COST_MAP_PATH, "renamed.json"), cwd=tmp_path, check=True)
     head: Final = _git_commit(tmp_path, "rename the cost map")
-    result: Final = _run_guard(tmp_path, base, head, "litellm_fix_pricing")
+    result: Final = _run_guard(tmp_path, base, head, "hangarllm_fix_pricing")
     assert result.returncode == 1, result.stdout + result.stderr
     assert "cost map guard failed (human PR, file checks only):" in result.stdout.splitlines()
 
@@ -466,7 +466,7 @@ def test_main_keeps_the_file_checks_when_a_cost_map_file_is_renamed(tmp_path: Pa
 def test_main_fails_when_the_changed_files_cannot_be_read(tmp_path: Path) -> None:
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     head: Final = _commit(tmp_path, BASE_MAP, "head")
-    result: Final = _run_guard(tmp_path, "0" * 40, head, "litellm_fix_pricing")
+    result: Final = _run_guard(tmp_path, "0" * 40, head, "hangarllm_fix_pricing")
     assert result.returncode == 1, result.stdout + result.stderr
     assert result.stdout.startswith("cost map guard failed: git diff ")
 
@@ -474,13 +474,13 @@ def test_main_fails_when_the_changed_files_cannot_be_read(tmp_path: Path) -> Non
 def test_main_rejects_a_bot_pr_that_edits_code(tmp_path: Path) -> None:
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     base = _commit(tmp_path, BASE_MAP, "base")
-    (tmp_path / "litellm" / "utils.py").write_text("print('hi')\n")
+    (tmp_path / "hangarllm" / "utils.py").write_text("print('hi')\n")
     head = _commit(tmp_path, {**BASE_MAP, "openrouter/c": _entry()}, "head")
     assert _run_guard(tmp_path, base, head, BOT_REF).returncode == 1
-    assert _run_guard(tmp_path, base, head, "litellm_fix_pricing").returncode == 0
+    assert _run_guard(tmp_path, base, head, "hangarllm_fix_pricing").returncode == 0
 
 
-@pytest.mark.parametrize("head_ref", [BOT_REF, "litellm_fix_pricing"])
+@pytest.mark.parametrize("head_ref", [BOT_REF, "hangarllm_fix_pricing"])
 def test_main_reads_the_pins_from_the_head_revision(tmp_path: Path, head_ref: str) -> None:
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     base: Final = _commit(tmp_path, BASE_MAP, "base", pins=PINS)
@@ -491,7 +491,7 @@ def test_main_reads_the_pins_from_the_head_revision(tmp_path: Path, head_ref: st
     assert [line for line in result.stdout.splitlines() if line.startswith(pin_line)]
 
 
-@pytest.mark.parametrize("head_ref", [BOT_REF, "litellm_fix_pricing"])
+@pytest.mark.parametrize("head_ref", [BOT_REF, "hangarllm_fix_pricing"])
 def test_main_holds_a_pin_the_base_branch_added_after_the_pr_branched(tmp_path: Path, head_ref: str) -> None:
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     merge_base: Final = _commit(tmp_path, BASE_MAP, "merge base")
@@ -508,7 +508,7 @@ def test_main_reports_a_failed_merge_apart_from_a_conflict(tmp_path: Path) -> No
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     base: Final = _commit(tmp_path, BASE_MAP, "base")
     head: Final = _commit(tmp_path, {**BASE_MAP, "openrouter/c": _entry()}, "head")
-    result: Final = _run_guard(tmp_path, base, head, "litellm_fix_pricing", target="0" * 40)
+    result: Final = _run_guard(tmp_path, base, head, "hangarllm_fix_pricing", target="0" * 40)
     assert result.returncode == 1, result.stdout + result.stderr
     assert result.stdout.startswith(f"cost map guard failed: git merge-tree into {'0' * 40} failed: ")
 
@@ -519,7 +519,7 @@ def test_main_tells_a_conflicting_pr_to_merge_the_base_branch_in(tmp_path: Path)
     target: Final = _commit(tmp_path, {**BASE_MAP, "openrouter/b": _entry(3e-06)}, "base branch reprices b")
     subprocess.run(("git", "checkout", "-q", merge_base), cwd=tmp_path, check=True)
     head: Final = _commit(tmp_path, {**BASE_MAP, "openrouter/b": _entry(4e-06)}, "pr reprices b differently")
-    result: Final = _run_guard(tmp_path, merge_base, head, "litellm_fix_pricing", target=target)
+    result: Final = _run_guard(tmp_path, merge_base, head, "hangarllm_fix_pricing", target=target)
     assert result.returncode == 1, result.stdout + result.stderr
     conflict_line: Final = "- the pull request does not merge cleanly into its base branch; merge the base branch in first"
     assert conflict_line in result.stdout.splitlines()
@@ -529,7 +529,7 @@ def test_main_skips_the_merge_for_a_pr_that_leaves_the_cost_map_alone(tmp_path: 
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     base: Final = _commit(tmp_path, BASE_MAP, "base")
     head: Final = _commit_code_only(tmp_path, "code change")
-    result: Final = _run_guard(tmp_path, base, head, "litellm_fix_pricing", target="0" * 40)
+    result: Final = _run_guard(tmp_path, base, head, "hangarllm_fix_pricing", target="0" * 40)
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout.splitlines() == ["cost map guard passed (human PR, cost map untouched)"]
 
@@ -540,7 +540,7 @@ def test_main_lets_only_a_human_opened_pr_change_the_pins(tmp_path: Path, author
     base: Final = _commit(tmp_path, BASE_MAP, "base", pins=PINS)
     head: Final = _commit(tmp_path, NO_VISION_MAP, "lower the flag and drop its pin", pins=NO_PINS)
     result: Final = _run_guard(
-        tmp_path, base, head, "litellm_azure_ai_mai_image_2_5_pro", author_type=author_type
+        tmp_path, base, head, "hangarllm_azure_ai_mai_image_2_5_pro", author_type=author_type
     )
     assert result.returncode == expected_code, result.stdout + result.stderr
     assert (f"- {BOT_AUTHOR_PIN_FAILURE}" in result.stdout.splitlines()) == (author_type == "Bot")

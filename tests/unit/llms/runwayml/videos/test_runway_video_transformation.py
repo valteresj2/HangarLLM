@@ -7,16 +7,16 @@ from typing import Final
 
 import httpx
 import pytest
-from litellm.exceptions import UnsupportedParamsError
+from hangarllm.exceptions import UnsupportedParamsError
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.runwayml.videos.transformation import (
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.runwayml.videos.transformation import (
     RunwayMLError,
     RunwayMLVideoConfig,
     _ratio_to_resolution,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoObject
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.main import VideoObject
 
 
 @pytest.mark.parametrize("drop_params", [False, True])
@@ -35,7 +35,7 @@ class TestRunwayMLVideoTransformation:
 
     def test_transform_video_create_request(self):
         """Test video creation request validates URL and payload structure."""
-        prompt = "A high quality demo video of litellm ai gateway"
+        prompt = "A high quality demo video of hangarllm ai gateway"
         api_base = "https://api.dev.runwayml.com/v1"
 
         data, files, url = self.config.transform_video_create_request(
@@ -47,7 +47,7 @@ class TestRunwayMLVideoTransformation:
                 "duration": 5,
                 "ratio": "1280:720",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -69,7 +69,7 @@ class TestRunwayMLVideoTransformation:
             prompt="A serene mountain lake at sunrise",
             api_base="https://api.dev.runwayml.com/v1",
             video_create_optional_request_params={"duration": 8, "ratio": "1280:720"},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -88,7 +88,7 @@ class TestRunwayMLVideoTransformation:
                 "promptImage": "https://example.com/reference.png",
                 "ratio": "1280:720",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -102,7 +102,7 @@ class TestRunwayMLVideoTransformation:
             prompt="Make it snow",
             api_base="https://api.dev.runwayml.com/v1",
             video_create_optional_request_params={"videoUri": "https://example.com/source.mp4"},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -216,7 +216,7 @@ class TestRunwayMLVideoTransformation:
 
     def test_transform_video_status_with_timestamp_handling(self):
         """Test status retrieval handles RunwayML's ISO 8601 timestamps correctly."""
-        from litellm.types.videos.utils import encode_video_id_with_provider
+        from hangarllm.types.videos.utils import encode_video_id_with_provider
 
         # Test status request URL construction
         video_id = encode_video_id_with_provider(
@@ -227,7 +227,7 @@ class TestRunwayMLVideoTransformation:
         url, params = self.config.transform_video_status_retrieve_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -265,7 +265,7 @@ class TestRunwayMLVideoTransformation:
 
     def test_transform_video_content_extraction(self):
         """Test content retrieval extracts video URL from RunwayML response correctly."""
-        from litellm.types.videos.utils import encode_video_id_with_provider
+        from hangarllm.types.videos.utils import encode_video_id_with_provider
 
         # Test content request URL
         video_id = encode_video_id_with_provider(
@@ -276,7 +276,7 @@ class TestRunwayMLVideoTransformation:
         url, params = self.config.transform_video_content_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -304,7 +304,7 @@ class TestRunwayMLVideoTransformation:
         url, params = self.config.transform_video_status_retrieve_request(
             video_id="../../tasks/other?x=1#frag",
             api_base="https://api.dev.runwayml.com/v1",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -320,7 +320,7 @@ class TestRunwayMLVideoTransformation:
         mock_logging_obj = Mock()
 
         # Step 1: Create video
-        prompt = "A high quality demo video of litellm ai gateway"
+        prompt = "A high quality demo video of hangarllm ai gateway"
         api_base = "https://api.dev.runwayml.com/v1"
         data, files, url = config.transform_video_create_request(
             model="gen4_turbo",
@@ -331,7 +331,7 @@ class TestRunwayMLVideoTransformation:
                 "ratio": "1280:720",
                 "duration": 5,
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 

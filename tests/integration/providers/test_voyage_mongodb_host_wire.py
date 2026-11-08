@@ -65,10 +65,10 @@ _OWNED_PROXY_CELL_SECONDS: Final = 2 * max(30.0, float(os.environ.get("INTEGRATI
 pytestmark: Final = [pytest.mark.timeout(_OWNED_PROXY_CELL_SECONDS), pytest.mark.shares_worker_state]
 
 
-def _deployment(name: str, model: str, mode: str, **litellm_params: JsonValue) -> dict[str, JsonValue]:
+def _deployment(name: str, model: str, mode: str, **hangarllm_params: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, **litellm_params},
+        "hangarllm_params": {"model": model, **hangarllm_params},
         "model_info": {"id": name, "mode": mode},
     }
 
@@ -228,7 +228,7 @@ def _rerank(candidate: Gateway, model: str, path: str = "/v1/rerank", **extra: J
 
 def _error_message(call_id: str) -> str:
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -240,7 +240,7 @@ def _error_message(call_id: str) -> str:
 def _assert_refused(response: httpx.Response) -> None:
     assert response.status_code == REFUSED_STATUS, response.text
     assert REFUSED_MARKER in response.text, response.text
-    assert REFUSED_MARKER in _error_message(response.headers["x-litellm-call-id"]), response.text
+    assert REFUSED_MARKER in _error_message(response.headers["x-hangarllm-call-id"]), response.text
 
 
 def _assert_dialed(forward: ForwardProxy, response: httpx.Response, host: str) -> None:
@@ -252,7 +252,7 @@ def test_scripted_chat_keeps_serving_behind_the_forward_proxy(isolated: Gateway,
     forward.drain()
     reply: Final = isolated.chat(SCRIPTED_CHAT, text=f"forward proxy control {uuid.uuid4().hex}")
     rows: Final = eventually(
-        lambda: read_rows('SELECT model FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (str(reply["id"]),)),
+        lambda: read_rows('SELECT model FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (str(reply["id"]),)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -347,7 +347,7 @@ def test_test_connection_dials_ai_mongodb_for_mongodb_key(
 ) -> None:
     forward.drain()
     report: Final = isolated.post(
-        "/health/test_connection", {"litellm_params": {"model": model, "api_key": MONGODB_KEY}, "mode": mode}
+        "/health/test_connection", {"hangarllm_params": {"model": model, "api_key": MONGODB_KEY}, "mode": mode}
     )
     assert report["status"] == "error", report
     assert REFUSED_MARKER in json.dumps(report), report
@@ -361,7 +361,7 @@ def test_non_string_request_body_key_is_rejected_by_validation_before_any_dial(
     forward.drain()
     response: Final = _embed(isolated, MONGODB_EMBEDDINGS, api_key=api_key)
     assert response.status_code == 500, response.text
-    assert "LiteLLM_Params" in response.text and "api_key" in response.text, response.text
+    assert "HangarLLM_Params" in response.text and "api_key" in response.text, response.text
     assert forward.targets() == ()
 
 
@@ -543,7 +543,7 @@ def _rerank_peer(request: Request) -> Reply:
 
 def _spend_api_base(call_id: str) -> str:
     rows: Final = eventually(
-        lambda: read_rows('SELECT api_base FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: read_rows('SELECT api_base FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -568,7 +568,7 @@ def test_explicit_api_base_keeps_mongodb_key_embeddings_on_that_base(gateway: Ga
         assert data[0]["embedding"] == VECTOR, response.text
         received: Final = wire.drain()
         assert tuple(request.target for request in received) == (target,), received
-        assert _spend_api_base(response.headers["x-litellm-call-id"]).startswith(wire.url), response.text
+        assert _spend_api_base(response.headers["x-hangarllm-call-id"]).startswith(wire.url), response.text
 
 
 @pytest.mark.parametrize("suffix", ("", "/v1"), ids=("bare", "v1"))
@@ -589,7 +589,7 @@ def test_public_provider_fields_name_voyage_as_mongodb(gateway: Gateway) -> None
     response: Final = gateway.request("GET", "/public/providers/fields")
     assert response.status_code == 200, response.text
     voyage: Final = [
-        entry for entry in _JSON_OBJECTS.validate_json(response.content) if entry["litellm_provider"] == "voyage"
+        entry for entry in _JSON_OBJECTS.validate_json(response.content) if entry["hangarllm_provider"] == "voyage"
     ]
     assert [entry["provider_display_name"] for entry in voyage] == ["VoyageAI by MongoDB"], response.text
 
@@ -610,11 +610,11 @@ def _voyage_display_names(endpoints: list[dict[str, JsonValue]]) -> Iterator[str
 
 
 def _served_call_ids(served: tuple[_Probe, ...]) -> tuple[str, ...]:
-    return tuple(probe.response.headers["x-litellm-call-id"] for probe in served)
+    return tuple(probe.response.headers["x-hangarllm-call-id"] for probe in served)
 
 
 def _spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,))
+    return read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,))
 
 
 async def test_forward_proxy_outage_mid_traffic_recovers_with_the_right_hosts(gateway: Gateway, tmp_path: Path) -> None:
@@ -643,7 +643,7 @@ async def test_forward_proxy_outage_mid_traffic_recovers_with_the_right_hosts(ga
         for probe in during:
             assert probe.response.status_code == REFUSED_STATUS, probe.response.text
             assert OUTAGE_MARKER in probe.response.text, probe.response.text
-            assert OUTAGE_MARKER in _error_message(probe.response.headers["x-litellm-call-id"])
+            assert OUTAGE_MARKER in _error_message(probe.response.headers["x-hangarllm-call-id"])
         assert before_counts == {MONGODB_HOST: 6, VOYAGE_HOST: 6}
         assert after_counts == {MONGODB_HOST: 6, VOYAGE_HOST: 6}
 

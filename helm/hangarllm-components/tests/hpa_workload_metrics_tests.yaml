@@ -47,7 +47,7 @@ tests:
             type: Pods
             pods:
               metric:
-                name: litellm_requests_per_second
+                name: hangarllm_requests_per_second
               target:
                 type: AverageValue
                 averageValue: "90"
@@ -57,7 +57,7 @@ tests:
             type: Pods
             pods:
               metric:
-                name: litellm_tokens_per_second
+                name: hangarllm_tokens_per_second
           any: true
 
   - it: adds a tokens-per-second Pods metric on its own
@@ -74,7 +74,7 @@ tests:
             type: Pods
             pods:
               metric:
-                name: litellm_tokens_per_second
+                name: hangarllm_tokens_per_second
               target:
                 type: AverageValue
                 averageValue: "6M"
@@ -84,7 +84,7 @@ tests:
             type: Pods
             pods:
               metric:
-                name: litellm_requests_per_second
+                name: hangarllm_requests_per_second
           any: true
 
   - it: renders requests and tokens targets together and keeps CPU and memory
@@ -104,10 +104,10 @@ tests:
           value: memory
       - equal:
           path: spec.metrics[2].pods.metric.name
-          value: litellm_requests_per_second
+          value: hangarllm_requests_per_second
       - equal:
           path: spec.metrics[3].pods.metric.name
-          value: litellm_tokens_per_second
+          value: hangarllm_tokens_per_second
       - equal:
           path: spec.metrics[3].pods.target.averageValue
           value: "6000000"
@@ -130,10 +130,10 @@ tests:
           any: true
       - equal:
           path: spec.metrics[0].pods.metric.name
-          value: litellm_requests_per_second
+          value: hangarllm_requests_per_second
       - equal:
           path: spec.metrics[1].pods.metric.name
-          value: litellm_tokens_per_second
+          value: hangarllm_tokens_per_second
       - notMatchRegexRaw:
           pattern: per_minute
 
@@ -185,7 +185,7 @@ tests:
       - equal:
           path: spec.selector.matchLabels
           value:
-            app.kubernetes.io/name: litellm
+            app.kubernetes.io/name: hangarllm
             app.kubernetes.io/instance: rel
             app.kubernetes.io/component: gateway
       - equal:

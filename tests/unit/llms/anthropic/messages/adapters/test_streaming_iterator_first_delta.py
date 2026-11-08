@@ -1,7 +1,7 @@
 """
 Regression tests for issue #30014.
 
-When LiteLLM proxies ``client -> /v1/messages -> /v1/chat/completions`` and a
+When HangarLLM proxies ``client -> /v1/messages -> /v1/chat/completions`` and a
 streaming chunk both *triggers* a new Anthropic content block (its type differs
 from the active block) and *carries* the first delta of that new block, the
 trigger chunk's delta must be re-emitted as a ``content_block_delta``.
@@ -29,11 +29,11 @@ from unittest.mock import MagicMock
 import pytest
 
 
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
-from litellm.types.llms.openai import ChatCompletionThinkingBlock
-from litellm.types.utils import (
+from hangarllm.types.llms.openai import ChatCompletionThinkingBlock
+from hangarllm.types.utils import (
     ChatCompletionDeltaToolCall,
     Delta,
     Function,
@@ -150,7 +150,7 @@ async def test_streaming_chat_refusal_emits_refusal_text_and_stop_details_async(
 
 def test_streaming_chat_refusal_parked_in_provider_specific_fields_is_emitted():
     """Providers that do not populate ``delta.refusal`` (Azure o-series among
-    them) hand LiteLLM the refusal as an unrecognized field, which lands in
+    them) hand HangarLLM the refusal as an unrecognized field, which lands in
     ``provider_specific_fields``. That first delta still has to stream as text,
     otherwise the client gets ``stop_reason: refusal`` over an empty content
     array and shows the user nothing.
@@ -947,7 +947,7 @@ def test_mixed_thinking_blocks_and_text_chunk_is_split_sync():
 
 
 def test_mixed_chunk_with_both_reasoning_fields_keeps_text_sync():
-    """LiteLLM bridges often set ``reasoning_content`` AND ``thinking_blocks``
+    """HangarLLM bridges often set ``reasoning_content`` AND ``thinking_blocks``
     together. Both fields are one payload kind, so the split must emit the
     thinking once and still deliver the text; the previous split cleared only
     ``reasoning_content`` on the text piece, so the surviving ``thinking_blocks``

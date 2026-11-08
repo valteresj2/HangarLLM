@@ -60,7 +60,7 @@ def test_streamed_web_search_turn_capped_by_max_agentic_loops_ends_turn_with_sni
             return Reply(body=json.dumps({"query": "query-0", "results": [SEARCH_RESULT]}).encode())
         assert request.target == INVOKE_TARGET
         assert request.headers["authorization"] == "Bearer synthetic-bedrock-token"
-        assert [tool["name"] for tool in body["tools"]] == ["litellm_web_search"], body["tools"]
+        assert [tool["name"] for tool in body["tools"]] == ["hangarllm_web_search"], body["tools"]
         assert "stream" not in body, body
         depth: Final = sum(
             1
@@ -89,7 +89,7 @@ def test_streamed_web_search_turn_capped_by_max_agentic_loops_ends_turn_with_sni
                         {
                             "type": "tool_use",
                             "id": f"toolu_{depth}",
-                            "name": "litellm_web_search",
+                            "name": "hangarllm_web_search",
                             "input": {"query": f"query-{depth}"},
                         },
                     ],
@@ -105,14 +105,14 @@ def test_streamed_web_search_turn_capped_by_max_agentic_loops_ends_turn_with_sni
         config["search_tools"] = [
             {
                 "search_tool_name": "integration-search",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "tavily",
                     "api_key": "synthetic-tavily-key",
                     "api_base": wire.url + "/tavily",
                 },
             }
         ]
-        config["litellm_settings"].update(
+        config["hangarllm_settings"].update(
             {
                 "callbacks": ["websearch_interception"],
                 "websearch_interception_params": {
@@ -190,7 +190,7 @@ def test_streamed_web_search_turn_capped_by_max_agentic_loops_ends_turn_with_sni
             assert [event["delta"]["stop_reason"] for name, event in events if name == "message_delta"] == [
                 "end_turn"
             ], response.text
-            assert "litellm_web_search" not in response.text, response.text
+            assert "hangarllm_web_search" not in response.text, response.text
             assert [request.target for request in wire.drain()] == [INVOKE_TARGET, SEARCH_TARGET, INVOKE_TARGET]
 
 
@@ -221,7 +221,7 @@ _SEARCH_RESULT_BLOCK: Final = {
 
 
 def _search_tool_use(identity: str) -> dict[str, object]:
-    return {"type": "tool_use", "id": identity, "name": "litellm_web_search", "input": {"query": _QUERY}}
+    return {"type": "tool_use", "id": identity, "name": "hangarllm_web_search", "input": {"query": _QUERY}}
 
 
 def _anthropic_reply(identity: str, content: list[dict[str, object]], stop_reason: str) -> Reply:
@@ -268,7 +268,7 @@ def test_capped_websearch_interception_loop_ends_turn_instead_of_exposing_intern
         body: Final = json.loads(request.body)
         if any(tool.get("type") == "web_search_20250305" for tool in body["tools"]):
             return _anthropic_reply(identity, [{"type": "text", "text": _NOT_INTERCEPTED}], "end_turn")
-        assert [tool["name"] for tool in body["tools"]] == ["litellm_web_search"], body["tools"]
+        assert [tool["name"] for tool in body["tools"]] == ["hangarllm_web_search"], body["tools"]
         return _anthropic_reply(identity, [_TEXT_BLOCK, _search_tool_use(identity)], "tool_use")
 
     def send(candidate: Gateway, model: str) -> httpx.Response:
@@ -291,10 +291,10 @@ def test_capped_websearch_interception_loop_ends_turn_instead_of_exposing_intern
         config["search_tools"] = [
             {
                 "search_tool_name": "integration-searxng",
-                "litellm_params": {"search_provider": "searxng", "api_base": wire.url},
+                "hangarllm_params": {"search_provider": "searxng", "api_base": wire.url},
             }
         ]
-        config["litellm_settings"].update(
+        config["hangarllm_settings"].update(
             {
                 "callbacks": ["websearch_interception"],
                 "websearch_interception_params": {
@@ -352,7 +352,7 @@ def test_database_created_search_tool_backend_receives_the_intercepted_query_ove
         body: Final = json.loads(request.body)
         if any(tool.get("type") == "web_search_20250305" for tool in body["tools"]):
             return _anthropic_reply(identity, [{"type": "text", "text": _NOT_INTERCEPTED}], "end_turn")
-        assert [tool["name"] for tool in body["tools"]] == ["litellm_web_search"], body["tools"]
+        assert [tool["name"] for tool in body["tools"]] == ["hangarllm_web_search"], body["tools"]
         results: Final = [
             block
             for message in body["messages"]
@@ -386,7 +386,7 @@ def test_database_created_search_tool_backend_receives_the_intercepted_query_ove
             {
                 "search_tool": {
                     "search_tool_name": tool_name,
-                    "litellm_params": {"search_provider": "searxng", "api_base": wire.url + "/database"},
+                    "hangarllm_params": {"search_provider": "searxng", "api_base": wire.url + "/database"},
                 }
             },
         )
@@ -395,10 +395,10 @@ def test_database_created_search_tool_backend_receives_the_intercepted_query_ove
         config["search_tools"] = [
             {
                 "search_tool_name": tool_name,
-                "litellm_params": {"search_provider": "searxng", "api_base": wire.url + "/config"},
+                "hangarllm_params": {"search_provider": "searxng", "api_base": wire.url + "/config"},
             }
         ]
-        config["litellm_settings"].update(
+        config["hangarllm_settings"].update(
             {
                 "callbacks": ["websearch_interception"],
                 "websearch_interception_params": {
@@ -427,7 +427,7 @@ def test_database_created_search_tool_backend_receives_the_intercepted_query_ove
             for result in block["content"]
         ]
         assert found == [("https://owned.invalid/a", "Owned result")], response.text
-        assert "litellm_web_search" not in response.text, response.text
+        assert "hangarllm_web_search" not in response.text, response.text
         targets: Final = tuple((request.method, urlsplit(request.target).path) for request in wire.drain())
         assert targets[-3:] == (("POST", "/v1/messages"), ("GET", "/database/search"), ("POST", "/v1/messages")), (
             targets
@@ -451,7 +451,7 @@ def test_empty_exa_search_reaches_the_model_without_the_exa_response_envelope(ga
             return Reply(body=json.dumps({**envelope, "results": []}).encode())
         assert request.method == "POST" and parts.path == "/v1/messages", request.target
         body: Final = json.loads(request.body)
-        assert [tool["name"] for tool in body["tools"]] == ["litellm_web_search"], body["tools"]
+        assert [tool["name"] for tool in body["tools"]] == ["hangarllm_web_search"], body["tools"]
         results: Final = [
             block
             for message in body["messages"]
@@ -471,14 +471,14 @@ def test_empty_exa_search_reaches_the_model_without_the_exa_response_envelope(ga
         config["search_tools"] = [
             {
                 "search_tool_name": tool_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "exa_ai",
                     "api_key": "synthetic-exa-key",
                     "api_base": wire.url + "/exa",
                 },
             }
         ]
-        config["litellm_settings"].update(
+        config["hangarllm_settings"].update(
             {
                 "callbacks": ["websearch_interception"],
                 "websearch_interception_params": {

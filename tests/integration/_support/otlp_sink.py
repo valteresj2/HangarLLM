@@ -36,7 +36,7 @@ from typing_extensions import ReadOnly, TypedDict
 
 from integration._support.ports import allocate_port
 
-INTERNAL_MARKERS: Final = ("gen_ai.operation.name", "mcp.method.name", "litellm.guardrail_name")
+INTERNAL_MARKERS: Final = ("gen_ai.operation.name", "mcp.method.name", "hangarllm.guardrail_name")
 
 
 class Span(TypedDict):
@@ -375,19 +375,19 @@ _AUDIT_CONFIGURATION: Final = TypeAdapter(dict[str, JsonValue])
 def audit_configuration_writer(sinks: SpanSinks) -> AuditConfigWriter:
     tenant_host: Final = urlparse(sinks.tenant).netloc
 
-    def write(directory: Path, litellm_settings: Mapping[str, JsonValue] = MappingProxyType({})) -> Path:
+    def write(directory: Path, hangarllm_settings: Mapping[str, JsonValue] = MappingProxyType({})) -> Path:
         config: Final = _AUDIT_CONFIGURATION.validate_python(
             yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
         )
-        settings: Final = _AUDIT_CONFIGURATION.validate_python(config.get("litellm_settings", {}))
+        settings: Final = _AUDIT_CONFIGURATION.validate_python(config.get("hangarllm_settings", {}))
         general: Final = _AUDIT_CONFIGURATION.validate_python(config.get("general_settings", {}))
         configured: Final = {
             **config,
-            "litellm_settings": {
+            "hangarllm_settings": {
                 **settings,
                 "callbacks": ["otel"],
                 "provider_url_destination_allowed_hosts": [tenant_host],
-                **litellm_settings,
+                **hangarllm_settings,
             },
             "callback_settings": {
                 "otel": {"exporter": "http/json", "endpoint": sinks.operator, "use_simple_processor": True}

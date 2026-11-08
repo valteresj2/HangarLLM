@@ -5,13 +5,13 @@ from typing import Final
 import pytest
 from redis import Redis
 
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3 as _PROXY_MaxParallelRequestsHandler,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.redis.stores.rate_limits import CounterIncrement, RateLimitScope
+from hangarllm.proxy.utils import InternalUsageCache
+from hangarllm.redis.stores.rate_limits import CounterIncrement, RateLimitScope
 
 
 @pytest.mark.asyncio

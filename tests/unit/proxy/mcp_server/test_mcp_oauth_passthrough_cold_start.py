@@ -3,9 +3,9 @@
 
 import pytest
 
-from litellm.proxy._types import MCPTransport
-from litellm.types.mcp import MCPAuth
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.proxy._types import MCPTransport
+from hangarllm.types.mcp import MCPAuth
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def _make_scope(path: str, headers: list = None) -> dict:
@@ -39,11 +39,11 @@ def test_passthrough_cold_start_emits_401_with_matching_resource_metadata(
     route, expected_metadata_path
 ):
     """No auth headers on a passthrough server route emits matching metadata."""
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
         _is_mcp_passthrough_cold_start,
         _parse_mcp_server_names_from_path,
     )
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -92,10 +92,10 @@ def test_passthrough_cold_start_emits_401_with_matching_resource_metadata(
 
 def test_is_mcp_passthrough_cold_start_false_for_oauth2_server():
     """Gateway-managed OAuth2 servers must not trigger the cold-start bypass."""
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
         _is_mcp_passthrough_cold_start,
     )
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -121,7 +121,7 @@ def test_is_mcp_passthrough_cold_start_false_for_oauth2_server():
 
 def test_is_mcp_passthrough_cold_start_false_for_empty_servers():
     """Aggregate /mcp route (no server list) must not trigger bypass."""
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
         _is_mcp_passthrough_cold_start,
     )
 
@@ -146,7 +146,7 @@ def test_is_mcp_passthrough_cold_start_false_for_empty_servers():
     ],
 )
 def test_parse_mcp_server_names_from_path(path, expected):
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
         _parse_mcp_server_names_from_path,
     )
 

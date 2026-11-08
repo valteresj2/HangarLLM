@@ -524,7 +524,7 @@ def _proxy_config(directory: Path) -> Path:
         "general_settings": {
             **general_settings,
             "enable_jwt_auth": True,
-            "litellm_jwtauth": {"user_id_jwt_field": "sub", "team_ids_jwt_field": "groups"},
+            "hangarllm_jwtauth": {"user_id_jwt_field": "sub", "team_ids_jwt_field": "groups"},
             "forward_llm_provider_auth_headers": True,
         },
         "files_settings": [{"custom_llm_provider": "openai"}, {"custom_llm_provider": "azure"}],
@@ -596,7 +596,7 @@ def _deployment(
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": model, "api_key": api_key, "api_base": api_base},
+            "hangarllm_params": {"model": model, "api_key": api_key, "api_base": api_base},
             "model_info": ({} if team_id is None else {"team_id": team_id})
             | ({} if model_id is None else {"id": model_id}),
         },
@@ -774,7 +774,7 @@ def _ingest(
     key: str,
     vector_store: Mapping[str, JsonValue] = OPENAI,
     *,
-    name: str = "litellm-rag-ingest",
+    name: str = "hangarllm-rag-ingest",
     path: str = "/v1/rag/ingest",
 ) -> httpx.Response:
     return gateway.request_multipart(path, _ingest_request(name, vector_store), {"file": DOCUMENT}, key=key)
@@ -830,7 +830,7 @@ def _completed_store(rig: RagRig, response: httpx.Response) -> str:
 
 def _store_rows(store_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT vector_store_id, team_id, litellm_params, vector_store_metadata FROM "LiteLLM_ManagedVectorStoresTable" '
+        'SELECT vector_store_id, team_id, hangarllm_params, vector_store_metadata FROM "HangarLLM_ManagedVectorStoresTable" '
         "WHERE vector_store_id = %s",
         (store_id,),
     )
@@ -889,7 +889,7 @@ def test_unreachable_credential_api_base_fails_ingest_without_saving_a_store(rag
     response: Final = _ingest(
         rag_rig.gateway,
         rag_rig.tenants.team_a_key,
-        {**OPENAI, "litellm_credential_name": rag_rig.tenants.unreachable_credential_name},
+        {**OPENAI, "hangarllm_credential_name": rag_rig.tenants.unreachable_credential_name},
     )
 
     assert response.status_code == 500, response.text
@@ -937,7 +937,7 @@ def test_caller_credential_name_wins_over_the_team_deployment(rag_rig: RagRig) -
         _ingest(
             rag_rig.gateway,
             rag_rig.tenants.team_a_key,
-            {**OPENAI, "litellm_credential_name": rag_rig.tenants.credential_name},
+            {**OPENAI, "hangarllm_credential_name": rag_rig.tenants.credential_name},
         ),
     )
 
@@ -964,7 +964,7 @@ def test_blank_caller_credential_name_falls_back_to_the_team_deployment(rag_rig:
     tenants: Final = rag_rig.tenants
 
     store_id: Final = _completed_store(
-        rag_rig, _ingest(rag_rig.gateway, tenants.team_a_key, {**OPENAI, "litellm_credential_name": blank})
+        rag_rig, _ingest(rag_rig.gateway, tenants.team_a_key, {**OPENAI, "hangarllm_credential_name": blank})
     )
     assert rag_rig.signatures() == _ingest_signatures("team", TEAM_API_KEY, store_id)
 
@@ -1056,7 +1056,7 @@ def test_files_upload_by_a_key_restricted_under_the_team_wildcard_uses_the_team_
     assert rag_rig.signatures() == (("wildcard", "POST", "/v1/files", f"Bearer {WILDCARD_API_KEY}"),)
 
 
-@pytest.mark.parametrize("batch_options", ({}, {"litellm_credential_name": "no-such-credential"}), ids=("plain", "credential_name"))
+@pytest.mark.parametrize("batch_options", ({}, {"hangarllm_credential_name": "no-such-credential"}), ids=("plain", "credential_name"))
 @pytest.mark.parametrize(
     ("caller", "prefix", "api_key", "reads_input"),
     (("team_a_key", "team", TEAM_API_KEY, False), ("wildcard_bare_key", "wildcard", WILDCARD_API_KEY, True)),
@@ -1174,11 +1174,11 @@ def test_caller_credentials_in_retrieval_config_never_reach_an_unmanaged_search(
     )
 
 
-def _managed_store(rig: RagRig, scenario: Scenario, litellm_params: Mapping[str, JsonValue]) -> str:
+def _managed_store(rig: RagRig, scenario: Scenario, hangarllm_params: Mapping[str, JsonValue]) -> str:
     store_id: Final = f"vs_managed_{uuid.uuid4().hex}"
     rig.gateway.post(
         "/vector_store/new",
-        {"vector_store_id": store_id, "custom_llm_provider": "openai", "litellm_params": dict(litellm_params)},
+        {"vector_store_id": store_id, "custom_llm_provider": "openai", "hangarllm_params": dict(hangarllm_params)},
     )
     scenario.cleanups.callback(rig.gateway.post, "/vector_store/delete", {"vector_store_id": store_id})
     return store_id
@@ -1193,7 +1193,7 @@ def test_managed_store_credentials_decide_the_search_key(
     rag_rig: RagRig, stored: Literal["own_key", "null_key", "empty_key"], prefix: str, api_key: str
 ) -> None:
     tenants: Final = rag_rig.tenants
-    litellm_params: Final[Mapping[str, JsonValue]] = MappingProxyType(
+    hangarllm_params: Final[Mapping[str, JsonValue]] = MappingProxyType(
         {
             "own_key": {"api_key": CALLER_API_KEY, "api_base": f"{rag_rig.upstream.url}/caller/v1"},
             "null_key": {"api_key": None},
@@ -1201,7 +1201,7 @@ def test_managed_store_credentials_decide_the_search_key(
         }[stored]
     )
     with rag_rig.gateway.scenario() as scenario:
-        store_id: Final = _managed_store(rag_rig, scenario, litellm_params)
+        store_id: Final = _managed_store(rag_rig, scenario, hangarllm_params)
 
         response: Final = _query(
             rag_rig.gateway, tenants.team_a_key, tenants.team_a_model, {**OPENAI, "vector_store_id": store_id}
@@ -1224,7 +1224,7 @@ def test_credential_name_in_retrieval_config_is_rejected_before_search(rag_rig: 
         {
             **OPENAI,
             "vector_store_id": f"vs_unmanaged_{uuid.uuid4().hex}",
-            "litellm_credential_name": tenants.credential_name,
+            "hangarllm_credential_name": tenants.credential_name,
         },
     )
 
@@ -1328,7 +1328,7 @@ def test_jwt_route_outside_the_team_allowed_routes_names_the_route(rag_rig: RagR
     assert response.status_code == 403, response.text
     assert (
         f"Team {tenants.team_a} can access model {tenants.team_a_model} but route /v1beta/interactions "
-        "is not in litellm_jwtauth.team_allowed_routes"
+        "is not in hangarllm_jwtauth.team_allowed_routes"
     ) in response.text, response.text
     assert rag_rig.calls() == ()
 
@@ -1515,7 +1515,7 @@ def _ingest_and_drain(
 def _ingests_after_editing(
     gateway: Gateway, scenario: Scenario, key: str, upstream: Wire, model_id: str
 ) -> tuple[tuple[str, tuple[Signature, ...]], ...]:
-    edited: Final = gateway.request("PATCH", f"/model/{model_id}/update", {"litellm_params": {"timeout": 30}})
+    edited: Final = gateway.request("PATCH", f"/model/{model_id}/update", {"hangarllm_params": {"timeout": 30}})
     assert edited.status_code == 200, edited.text
     return tuple(_ingest_and_drain(gateway, scenario, key, upstream) for _ in range(4))
 
@@ -1590,14 +1590,14 @@ def test_a_team_with_two_openai_deployments_keeps_ingesting_through_the_older_on
 def test_ingest_into_a_managed_store_uses_its_own_key_else_the_team_key(
     rag_rig: RagRig, stored: Literal["own_key", "null_key"], prefix: str, api_key: str
 ) -> None:
-    litellm_params: Final[Mapping[str, JsonValue]] = MappingProxyType(
+    hangarllm_params: Final[Mapping[str, JsonValue]] = MappingProxyType(
         {
             "own_key": {"api_key": CALLER_API_KEY, "api_base": f"{rag_rig.upstream.url}/caller/v1"},
             "null_key": {"api_key": None},
         }[stored]
     )
     with rag_rig.gateway.scenario() as scenario:
-        store_id: Final = _managed_store(rag_rig, scenario, litellm_params)
+        store_id: Final = _managed_store(rag_rig, scenario, hangarllm_params)
 
         response: Final = _ingest(rag_rig.gateway, rag_rig.tenants.team_a_key, {**OPENAI, "vector_store_id": store_id})
 
@@ -1616,7 +1616,7 @@ def _file_id_ingest(gateway: Gateway, key: str, vector_store: Mapping[str, JsonV
         "/v1/rag/ingest",
         {
             "file_id": "file-team-existing",
-            "ingest_options": {"name": "litellm-rag-ingest", "vector_store": dict(vector_store)},
+            "ingest_options": {"name": "hangarllm-rag-ingest", "vector_store": dict(vector_store)},
         },
         key=key,
     )
@@ -1712,7 +1712,7 @@ def test_s3_vectors_bucket_name_the_caller_sent_is_rejected_with_400_after_embed
         "request": json.dumps(
             {
                 "ingest_options": {
-                    "name": "litellm-rag-ingest",
+                    "name": "hangarllm-rag-ingest",
                     "embedding": {"model": tenants.shared_model},
                     "vector_store": {"custom_llm_provider": "s3_vectors", "vector_bucket_name": "ab", "dimension": 3},
                 }
@@ -2104,7 +2104,7 @@ def test_forwarded_provider_key_on_ingest_wins_over_team_provider_credentials(ra
 
     response: Final = rag_rig.gateway.client.post(
         "/v1/rag/ingest",
-        data=dict(_ingest_request("litellm-rag-forwarded-key", OPENAI)),
+        data=dict(_ingest_request("hangarllm-rag-forwarded-key", OPENAI)),
         files={"file": DOCUMENT},
         headers=dict(_forwarding(tenants.team_a_key)),
     )
@@ -2175,11 +2175,11 @@ def test_jwt_header_team_outside_a_claim_with_a_non_string_entry_is_denied_with_
         "/v1/chat/completions",
         _llm_body("/v1/chat/completions", tenants.team_a_model),
         key=rag_rig.jwt(tenants.jwt_member, tenants.team_a, stray_claim),
-        headers={"x-litellm-team-id": header_team},
+        headers={"x-hangarllm-team-id": header_team},
     )
 
     assert response.status_code == 403, response.text
-    assert f"x-litellm-team-id '{header_team}' does not resolve to a team id or a unique team alias" in response.text, (
+    assert f"x-hangarllm-team-id '{header_team}' does not resolve to a team id or a unique team alias" in response.text, (
         response.text
     )
     assert f"'{tenants.team_a}'" in response.text, response.text
@@ -2252,7 +2252,7 @@ def test_blank_oversized_or_repeated_forwarded_provider_key_on_files_and_batches
 def _forwarded_ingest(rig: RagRig, vector_store: Mapping[str, JsonValue]) -> httpx.Response:
     return rig.gateway.client.post(
         "/v1/rag/ingest",
-        data=dict(_ingest_request("litellm-rag-forwarded-key", vector_store)),
+        data=dict(_ingest_request("hangarllm-rag-forwarded-key", vector_store)),
         files={"file": DOCUMENT},
         headers=dict(_forwarding(rig.tenants.team_a_key)),
     )
@@ -2260,7 +2260,7 @@ def _forwarded_ingest(rig: RagRig, vector_store: Mapping[str, JsonValue]) -> htt
 
 def test_forwarded_provider_key_on_ingest_never_overrides_a_named_credential(rag_rig: RagRig) -> None:
     store_id: Final = _completed_store(
-        rag_rig, _forwarded_ingest(rag_rig, {**OPENAI, "litellm_credential_name": rag_rig.tenants.credential_name})
+        rag_rig, _forwarded_ingest(rag_rig, {**OPENAI, "hangarllm_credential_name": rag_rig.tenants.credential_name})
     )
 
     assert rag_rig.signatures() == _ingest_signatures("credential", CREDENTIAL_API_KEY, store_id)

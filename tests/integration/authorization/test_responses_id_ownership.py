@@ -245,7 +245,7 @@ def test_regression_comparison_response_id_other_identity_is_denied_before_dispa
                     extra_body={
                         **_comparison_body(created.id, nested),
                         **(
-                            {"_litellm_addressed_comparison_response_id": "resp_unmanaged_comparison"}
+                            {"_hangarllm_addressed_comparison_response_id": "resp_unmanaged_comparison"}
                             if retained
                             else {}
                         ),

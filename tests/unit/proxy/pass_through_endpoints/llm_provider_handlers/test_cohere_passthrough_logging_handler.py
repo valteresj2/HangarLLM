@@ -8,16 +8,16 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.cohere_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.cohere_passthrough_logging_handler import (
     CoherePassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import CallTypes
+from hangarllm.types.utils import CallTypes
 
 
 class TestCoherePassthroughLoggingHandler:
@@ -42,7 +42,7 @@ class TestCoherePassthroughLoggingHandler:
             },
         }
 
-    def _create_mock_logging_obj(self) -> LiteLLMLoggingObj:
+    def _create_mock_logging_obj(self) -> HangarLLMLoggingObj:
         """Create a mock logging object"""
         mock_logging_obj = MagicMock()
         mock_logging_obj.model_call_details = {}
@@ -68,7 +68,7 @@ class TestCoherePassthroughLoggingHandler:
             request_method="POST",
         )
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_cohere_embed_passthrough_cost_tracking(self, mock_completion_cost: MagicMock) -> None:
         """Test successful cost tracking for Cohere embed passthrough"""
         mock_completion_cost.return_value = 3.6e-07
@@ -126,9 +126,9 @@ class TestCoherePassthroughLoggingHandler:
         assert result["result"].model == "embed-english-v3.0"
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.base_passthrough_logging_handler.BasePassthroughLoggingHandler.passthrough_chat_handler"
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.base_passthrough_logging_handler.BasePassthroughLoggingHandler.passthrough_chat_handler"
     )
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_openai_embeddings_route_does_not_use_cohere_embed_path(self, mock_completion_cost, mock_chat_handler):
         mock_chat_handler.return_value = {"result": None, "kwargs": {}}
         response_body = {
@@ -186,14 +186,14 @@ _CALL_START: Final = datetime(2026, 10, 1, 12, 0, 0)
 _CALL_END: Final = datetime(2026, 10, 1, 12, 0, 1)
 
 
-def _passthrough_logging_obj() -> LiteLLMLoggingObj:
-    return LiteLLMLoggingObj(
+def _passthrough_logging_obj() -> HangarLLMLoggingObj:
+    return HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "no-message-pass-through-endpoint"}],
         stream=False,
         call_type=CallTypes.pass_through.value,
         start_time=_CALL_START,
-        litellm_call_id="cohere-embed-passthrough-call",
+        hangarllm_call_id="cohere-embed-passthrough-call",
         function_id="cohere-embed-passthrough-function",
     )
 
@@ -215,7 +215,7 @@ def test_cohere_embed_passthrough_is_costed_from_billed_units(
         "texts": ["hello world", "second text"],
         "input_type": "search_document",
     }
-    model_info: Final = litellm.get_model_info("cohere/embed-v4.0")
+    model_info: Final = hangarllm.get_model_info("cohere/embed-v4.0")
     expected_cost: Final = (
         input_tokens * model_info["input_cost_per_token"] + image_tokens * model_info["input_cost_per_image_token"]
     )
@@ -261,7 +261,7 @@ def test_cohere_v3_image_embed_passthrough_is_costed_per_billed_image() -> None:
         "meta": {"api_version": {"version": "2"}, "billed_units": {"images": 1}},
         "response_type": "embeddings_by_type",
     }
-    per_image: Final = litellm.get_model_info("embed-english-v3.0", custom_llm_provider="cohere")["input_cost_per_image"]
+    per_image: Final = hangarllm.get_model_info("embed-english-v3.0", custom_llm_provider="cohere")["input_cost_per_image"]
 
     logged: Final = _normalize_cohere_embed("https://api.cohere.com/v2/embed", body, "embed-english-v3.0")
 

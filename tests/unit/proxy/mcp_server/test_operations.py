@@ -8,27 +8,27 @@ from mcp.server.context import ServerRequestContext
 from mcp.types import GetPromptRequest, GetPromptRequestParams, GetPromptResult
 from mcp.types import Tool as MCPTool
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.mcp_server import operations, rest_endpoints
-from litellm.proxy.mcp_server.mcp_server_manager import (
+from hangarllm.proxy.mcp_server import operations, rest_endpoints
+from hangarllm.proxy.mcp_server.mcp_server_manager import (
     HTTPException as MCPServerManagerHTTPException,
 )
-from litellm.proxy.mcp_server.mcp_server_manager import (
+from hangarllm.proxy.mcp_server.mcp_server_manager import (
     ListedToolsCaller,
 )
-from litellm.proxy.mcp_server.operations import GatewayOperations, prepare_context
-from litellm.proxy.mcp_server.tool_registry import global_mcp_tool_registry
-from litellm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.proxy.mcp_server.operations import GatewayOperations, prepare_context
+from hangarllm.proxy.mcp_server.tool_registry import global_mcp_tool_registry
+from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
+from hangarllm.types.mcp import MCPAuth, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class _CatalogHookCapture(CustomLogger):
@@ -73,7 +73,7 @@ def test_explicit_server_scope_setting_only_rejects_unscoped_aggregate_requests(
     if auth_state == "sealed" and auth is not None:
         auth.mcp_session_resource_server_ids = ("alpha-id",)
 
-    with patch("litellm.proxy.proxy_server.general_settings", settings):
+    with patch("hangarllm.proxy.proxy_server.general_settings", settings):
         if raises:
             with pytest.raises(HTTPException) as exc_info:
                 operations.raise_if_unscoped_aggregate_request(mcp_servers, auth, toolset_id)
@@ -106,12 +106,12 @@ async def test_mapped_caller_bearer_reaches_agent_evaluation(
     from mcp.types import CallToolRequest, CallToolRequestParams, CallToolResult, TextContent
     from starlette.requests import Request
 
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.proxy.guardrails.guardrail_hooks.agent_365.agent_365 import Agent365Guardrail
-    from litellm.proxy.mcp_server import server as gateway
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
-    from litellm.proxy.mcp_server.mcp_context import _mcp_proxy_mode
-    from litellm.proxy.mcp_server.tool_search import mcp_proxy_tool_id, with_mcp_proxy_identity
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.proxy.guardrails.guardrail_hooks.agent_365.agent_365 import Agent365Guardrail
+    from hangarllm.proxy.mcp_server import server as gateway
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+    from hangarllm.proxy.mcp_server.mcp_context import _mcp_proxy_mode
+    from hangarllm.proxy.mcp_server.tool_search import mcp_proxy_tool_id, with_mcp_proxy_identity
 
     bearer: Final = "signed.caller.assertion"
     request: Final = Request(
@@ -164,7 +164,7 @@ async def test_mapped_caller_bearer_reaches_agent_evaluation(
     executions: Final[asyncio.Queue[str]] = asyncio.Queue()
 
     async def tool() -> str:
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import request_extra_headers
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import request_extra_headers
 
         assert bearer not in str(request_extra_headers.get())
         executions.put_nowait("executed")
@@ -180,7 +180,7 @@ async def test_mapped_caller_bearer_reaches_agent_evaluation(
         event_hook="pre_mcp_call",
         default_on=True,
     )
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     managed: Final = MCPServer(
         server_id="guarded",
         name="guarded",
@@ -266,7 +266,7 @@ async def test_listing_records_only_tools_the_caller_received(
     monkeypatch.setitem(manager.tool_name_to_mcp_server_name_mapping, "status", server.server_id)
     monkeypatch.setitem(manager.tool_name_to_mcp_server_name_mapping, "served-catalog-status", server.server_id)
     capture: Final = _CatalogHookCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     for name in ("echo", "status"):
         global_mcp_tool_registry.register_tool(
             name=f"served-catalog-{name}",
@@ -314,15 +314,15 @@ async def test_listing_records_only_tools_the_caller_received(
 
 @pytest.mark.asyncio
 async def test_oauth_prefetch_failure_does_not_log_caller_or_exception_text(caplog):
-    from litellm.proxy.mcp_server.operations import _prefetch_oauth_creds_for_user
+    from hangarllm.proxy.mcp_server.operations import _prefetch_oauth_creds_for_user
 
     user_id = "caller\nFORGED-USER-LINE"
     fetch = AsyncMock(side_effect=RuntimeError("database\nFORGED-ERROR-LINE"))
     database = object()
     with (
-        patch("litellm.proxy.utils.get_prisma_client_or_throw", return_value=database),
-        patch("litellm.proxy.mcp_server.db.list_user_oauth_credentials", fetch),
-        caplog.at_level("WARNING", logger="LiteLLM"),
+        patch("hangarllm.proxy.utils.get_prisma_client_or_throw", return_value=database),
+        patch("hangarllm.proxy.mcp_server.db.list_user_oauth_credentials", fetch),
+        caplog.at_level("WARNING", logger="HangarLLM"),
     ):
         result = await _prefetch_oauth_creds_for_user(UserAPIKeyAuth(user_id=user_id))
     assert result == {}
@@ -338,7 +338,7 @@ async def test_oauth_prefetch_failure_does_not_log_caller_or_exception_text(capl
 async def test_dispatch_uses_explicit_context_when_ambient_caller_differs():
     from mcp.server.auth.middleware.auth_context import auth_context_var
 
-    from litellm.proxy.mcp_server.server import set_auth_context
+    from hangarllm.proxy.mcp_server.server import set_auth_context
 
     context = prepare_context(
         UserAPIKeyAuth(user_id="alpha"),
@@ -350,7 +350,7 @@ async def test_dispatch_uses_explicit_context_when_ambient_caller_differs():
     handler = AsyncMock(return_value=GetPromptResult(messages=[]))
     try:
         set_auth_context(UserAPIKeyAuth(user_id="bravo"), raw_headers={"x-caller": "bravo"})
-        with patch("litellm.proxy.mcp_server.operations.mcp_get_prompt", handler):
+        with patch("hangarllm.proxy.mcp_server.operations.mcp_get_prompt", handler):
             result = await GatewayOperations().execute(
                 GetPromptRequest(params=GetPromptRequestParams(name="alpha-prompt")), context
             )
@@ -368,8 +368,8 @@ async def test_dispatch_uses_explicit_context_when_ambient_caller_differs():
 async def test_legacy_adapter_cleans_context_after_cancelled_operation():
     from types import SimpleNamespace
 
-    from litellm.proxy.mcp_server import server
-    from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from hangarllm.proxy.mcp_server import server
+    from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
 
     previous_session = server.active_mcp_session_var.get()
     previous_request = active_mcp_request_ctx_var.get()
@@ -383,7 +383,7 @@ async def test_legacy_adapter_cleans_context_after_cancelled_operation():
             raise asyncio.CancelledError
 
     with patch(
-        "litellm.proxy.mcp_server.server.get_or_extract_auth_context", AsyncMock(return_value=auth)
+        "hangarllm.proxy.mcp_server.server.get_or_extract_auth_context", AsyncMock(return_value=auth)
     ):
         with pytest.raises(asyncio.CancelledError):
             await cancelled_operation()
@@ -395,8 +395,8 @@ async def test_legacy_adapter_cleans_context_after_cancelled_operation():
 async def test_legacy_adapter_cleans_context_when_trace_setup_fails():
     from types import SimpleNamespace
 
-    from litellm.proxy.mcp_server import server
-    from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from hangarllm.proxy.mcp_server import server
+    from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
 
     previous_session = server.active_mcp_session_var.get()
     previous_request = active_mcp_request_ctx_var.get()
@@ -417,9 +417,9 @@ async def test_legacy_adapter_cleans_context_when_trace_setup_fails():
 async def test_prompt_sampling_receives_explicit_operation_caller_headers_and_ip():
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server import operations
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.types.mcp import MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     upstream = MCPServer(
         server_id="explicit-prompt",
@@ -438,8 +438,8 @@ async def test_prompt_sampling_receives_explicit_operation_caller_headers_and_ip
     sampling = AsyncMock()
     with (
         patch.object(operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[upstream])),
-        patch("litellm.proxy.mcp_server.upstream.MCPClient", return_value=client) as factory,
-        patch("litellm.proxy.mcp_server.sampling_handler.handle_sampling_create_message", sampling),
+        patch("hangarllm.proxy.mcp_server.upstream.MCPClient", return_value=client) as factory,
+        patch("hangarllm.proxy.mcp_server.sampling_handler.handle_sampling_create_message", sampling),
     ):
         result = await GatewayOperations().execute(
             GetPromptRequest(params=GetPromptRequestParams(name="explicit_prompt-prompt")), context
@@ -519,8 +519,8 @@ async def test_disabled_capability_never_reaches_upstream(
     from mcp.shared.exceptions import MCPError
     from mcp.types import METHOD_NOT_FOUND
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import catalog
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import catalog
 
     monkeypatch.setitem(proxy_server.general_settings, "mcp_disabled_capabilities", [disabled])
     request, _client_method, manager_method, upstream_value, result_field = _catalog_case(operation)
@@ -532,8 +532,8 @@ async def test_disabled_capability_never_reaches_upstream(
     context: Final = prepare_context(UserAPIKeyAuth(api_key=hash_token("sk-disabled")), mcp_servers=[server.server_id])
     with (
         patch.object(operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[server])),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock(enforce_mcp_server_rate_limits=AsyncMock())),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock(enforce_mcp_server_rate_limits=AsyncMock())),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
         patch.dict(manager.registry, {server.server_id: server}),
         patch.object(manager, manager_method, upstream),
         patch.object(catalog, "fetch_optional_catalog_page", upstream),
@@ -568,8 +568,8 @@ async def test_mcp_server_rpm_limits_every_catalog_operation(operation: str) -> 
     from mcp.shared.exceptions import MCPError
     from mcp.types import INVALID_REQUEST
 
-    from litellm.proxy.mcp_server import catalog
-    from litellm.proxy.mcp_server.faults.list_outcomes import ServerListOk
+    from hangarllm.proxy.mcp_server import catalog
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import ServerListOk
 
     server: Final = MCPServer(
         server_id="catalog-rpm",
@@ -634,8 +634,8 @@ async def test_mcp_server_rpm_limits_every_catalog_operation(operation: str) -> 
 
     with (
         patch.object(operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[server])),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
         patch.dict(manager.registry, {server.server_id: server}),
         patch.object(manager, manager_method, upstream),
         patch.object(catalog, "get_filtered_server_tools", upstream),
@@ -684,7 +684,7 @@ async def test_tools_call_warmup_does_not_consume_mcp_server_rpm() -> None:
     with (
         patch.object(operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[server])),
         patch.object(operations.global_mcp_server_manager, "server_exposes_tool", return_value=False),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
         patch.object(operations.global_mcp_server_manager, "get_tools_from_server", upstream),
     ):
         await operations._list_tools_before_first_call(
@@ -712,8 +712,8 @@ def _scoped_rig(
     """Two config servers that both expose a bare ``list_rules`` on a manager that has listed neither."""
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     manager: Final = MCPServerManager()
     memory: Final = MCPServer(
@@ -743,7 +743,7 @@ async def test_bare_tool_name_on_a_single_server_scope_routes_to_that_server_col
 ) -> None:
     """``/{server_name}/mcp`` (or ``x-mcp-servers`` naming one server) with the upstream's bare tool name
     must list and call the scoped server on a process whose tool-name map has never seen it, and when two
-    servers share the bare name the scope decides (BerriAI/litellm#44831)."""
+    servers share the bare name the scope decides (valteresj2/HangarLLM#44831)."""
     memory, other, listing, handled = _scoped_rig(monkeypatch)
     expected: Final = memory if scope == "memory_server" else other
 
@@ -788,7 +788,7 @@ async def test_bare_tool_name_without_a_single_server_scope_is_still_unresolved_
 
 @pytest.mark.asyncio
 async def test_tools_call_pre_call_check_enforces_mcp_server_rpm() -> None:
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     server: Final = MCPServer(
         server_id="catalog-call",
@@ -823,7 +823,7 @@ async def test_tools_call_pre_call_check_enforces_mcp_server_rpm() -> None:
 async def test_tools_call_pre_call_hook_rejection_does_not_enforce_mcp_server_rpm() -> None:
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     server: Final = MCPServer(
         server_id="catalog-call-pre-hook-rejected",
@@ -856,7 +856,7 @@ async def test_tools_call_pre_call_hook_rejection_does_not_enforce_mcp_server_rp
 
 @pytest.mark.asyncio
 async def test_disallowed_tool_does_not_consume_mcp_server_rpm() -> None:
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     server: Final = MCPServer(
         server_id="catalog-call-authorization",
@@ -902,9 +902,9 @@ async def test_catalog_helpers_preserve_context_results_and_failure_policy(metho
     from mcp.server.context import ServerRequestContext
     from mcp.types import PaginatedRequestParams
 
-    from litellm.proxy.mcp_server import operations, server
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy.mcp_server import operations, server
+    from hangarllm.types.mcp import MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     operation, handler_name, manager_method, payload, collection = _catalog_case(method)
     caller = UserAPIKeyAuth(user_id="catalog-caller")
@@ -969,7 +969,7 @@ async def test_explicit_proxy_context_rejects_catalog_operations_before_upstream
     from mcp.shared.exceptions import MCPError
     from mcp.types import METHOD_NOT_FOUND
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     operation, _, manager_method, _, _ = _catalog_case(method)
     upstream = AsyncMock()
@@ -986,9 +986,9 @@ async def test_explicit_proxy_context_rejects_catalog_operations_before_upstream
 async def test_tool_operation_preserves_failure_messages_and_request_trace(failure):
     from mcp.types import CallToolRequest, CallToolRequestParams
 
-    from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.utils import MCPMissingUserEnvVarsError
+    from hangarllm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.utils import MCPMissingUserEnvVarsError
 
     failures = {
         "missing_env": (
@@ -1007,7 +1007,7 @@ async def test_tool_operation_preserves_failure_messages_and_request_trace(failu
     error, expected = failures[failure]
     dispatch = AsyncMock(side_effect=error)
     context = prepare_context(
-        raw_headers={"x-litellm-trace-id": "operation-trace", "authorization": "private-test-header"}
+        raw_headers={"x-hangarllm-trace-id": "operation-trace", "authorization": "private-test-header"}
     )
     with patch.object(operations, "call_mcp_tool", dispatch):
         result = await GatewayOperations().execute(
@@ -1017,8 +1017,8 @@ async def test_tool_operation_preserves_failure_messages_and_request_trace(failu
     assert expected in result.content[0].text
     assert "private-test-header" not in result.content[0].text
     dispatch.assert_awaited_once()
-    assert dispatch.await_args.kwargs["litellm_trace_id"] == "operation-trace"
-    assert dispatch.await_args.kwargs["litellm_session_id"] == "operation-trace"
+    assert dispatch.await_args.kwargs["hangarllm_trace_id"] == "operation-trace"
+    assert dispatch.await_args.kwargs["hangarllm_session_id"] == "operation-trace"
 
 
 @pytest.mark.asyncio
@@ -1031,7 +1031,7 @@ async def test_tool_operation_preserves_failure_messages_and_request_trace(failu
     ],
 )
 async def test_catalog_operation_preserves_empty_result_for_malformed_upstream_items(method, helper):
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     operation, _, _, _, collection = _catalog_case(method)
     with patch.object(operations, helper, AsyncMock(return_value=[{"unexpected": "item"}])):
@@ -1044,7 +1044,7 @@ async def test_catalog_operation_preserves_empty_result_for_malformed_upstream_i
 async def test_tool_listing_returns_empty_result_without_dispatch_for_unavailable_catalog(catalog_unavailable):
     from mcp.types import ListToolsRequest
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     allowed = AsyncMock(
         return_value=[], side_effect=RuntimeError("catalog unavailable") if catalog_unavailable else None
@@ -1064,7 +1064,7 @@ async def test_tool_listing_returns_empty_result_without_dispatch_for_unavailabl
 async def test_explicit_proxy_context_lists_builtin_tools_and_blocks_direct_tool_dispatch():
     from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     context = prepare_context(mcp_proxy_mode=True)
     allowed = AsyncMock()
@@ -1106,7 +1106,7 @@ class TestChallengeMissingTokenExchangeSubject:
         raw_headers: dict[str, str] | None = None,
         requested_server: MCPServer | None = None,
     ) -> None:
-        from litellm.proxy.mcp_server.operations import _challenge_missing_token_exchange_subject
+        from hangarllm.proxy.mcp_server.operations import _challenge_missing_token_exchange_subject
 
         return _challenge_missing_token_exchange_subject(
             server=server,
@@ -1126,7 +1126,7 @@ class TestChallengeMissingTokenExchangeSubject:
                 server,
                 [server],
                 user=UserAPIKeyAuth(api_key="sk-admission"),
-                raw_headers={"x-litellm-api-key": "sk-admission"},
+                raw_headers={"x-hangarllm-api-key": "sk-admission"},
             )
         assert exc_info.value.status_code == 401
         challenge = (exc_info.value.headers or {}).get("WWW-Authenticate", "")
@@ -1138,7 +1138,7 @@ class TestChallengeMissingTokenExchangeSubject:
         ["Bearer sk-admission", "Bearer sk-some-other-virtual-key"],
         ids=["repeated-admission-key", "another-virtual-key"],
     )
-    def test_litellm_key_in_authorization_is_not_a_subject(self, authorization: str):
+    def test_hangarllm_key_in_authorization_is_not_a_subject(self, authorization: str):
         from fastapi import HTTPException
 
         server = _server("te-vk", MCPAuth.oauth2_token_exchange)
@@ -1148,7 +1148,7 @@ class TestChallengeMissingTokenExchangeSubject:
                 [server],
                 user=UserAPIKeyAuth(api_key="sk-admission"),
                 oauth2_headers={"Authorization": authorization},
-                raw_headers={"x-litellm-api-key": "sk-admission", "authorization": authorization},
+                raw_headers={"x-hangarllm-api-key": "sk-admission", "authorization": authorization},
             )
         assert exc_info.value.status_code == 401
 
@@ -1161,7 +1161,7 @@ class TestChallengeMissingTokenExchangeSubject:
                 [server],
                 user=UserAPIKeyAuth(api_key="sk-admission"),
                 oauth2_headers={"Authorization": "Bearer idp-subject"},
-                raw_headers={"x-litellm-api-key": "sk-admission", "authorization": "Bearer idp-subject"},
+                raw_headers={"x-hangarllm-api-key": "sk-admission", "authorization": "Bearer idp-subject"},
             )
             is None
         )
@@ -1202,7 +1202,7 @@ async def test_execute_mcp_tool_challenges_missing_subject_before_cold_listing()
 
     from fastapi import HTTPException
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     server = _server("te-exec", MCPAuth.oauth2_token_exchange)
     listing = AsyncMock()
@@ -1218,7 +1218,7 @@ async def test_execute_mcp_tool_challenges_missing_subject_before_cold_listing()
             allowed_mcp_servers=[server],
             start_time=datetime.now(timezone.utc),
             user_api_key_auth=UserAPIKeyAuth(api_key="sk-admission"),
-            raw_headers={"x-litellm-api-key": "sk-admission"},
+            raw_headers={"x-hangarllm-api-key": "sk-admission"},
             requested_server_id=server.server_id,
         )
     assert exc_info.value.status_code == 401
@@ -1232,9 +1232,9 @@ async def test_local_tool_json_array_is_converted_once_for_the_caller_revision(c
     text block; converting at the caller's revision keeps the upstream body exactly once."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.tool_outcome import WireCompat, parse_http_body
-    from litellm.proxy.mcp_server.tool_registry import global_mcp_tool_registry
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.tool_outcome import WireCompat, parse_http_body
+    from hangarllm.proxy.mcp_server.tool_registry import global_mcp_tool_registry
 
     body = '["a","b"]'
     tool = MagicMock()
@@ -1255,7 +1255,7 @@ async def test_discovery_preserves_caller_scope_and_proxy_restrictions():
     context = prepare_context(
         UserAPIKeyAuth(user_id="scoped"), mcp_servers=["only-this"], mcp_proxy_mode=True, protocol_version="2025-06-18"
     )
-    with patch("litellm.proxy.mcp_server.operations._execute_handle_list_tools", listed):
+    with patch("hangarllm.proxy.mcp_server.operations._execute_handle_list_tools", listed):
         result = await GatewayOperations().execute(DiscoverRequest(), context)
     assert result.capabilities.tools is not None
     assert result.capabilities.resources is None
@@ -1269,8 +1269,8 @@ async def test_discovery_preserves_caller_scope_and_proxy_restrictions():
 async def test_discovery_outright_tools_failure_still_advertises_other_capabilities() -> None:
     from mcp.types import DiscoverRequest, ListPromptsResult, ListToolsResult, Prompt
 
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.catalog import ToolListingFailedOutright
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.catalog import ToolListingFailedOutright
 
     tools: Final = AsyncMock(side_effect=ToolListingFailedOutright(code=-32603, message="every server failed"))
     prompts: Final = AsyncMock(return_value=ListPromptsResult(prompts=[Prompt(name="p")]))
@@ -1291,7 +1291,7 @@ async def test_discovery_propagates_non_outright_mcp_errors_from_tools_listing()
     from mcp import MCPError
     from mcp.types import INVALID_PARAMS, DiscoverRequest
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     tools: Final = AsyncMock(side_effect=MCPError(code=INVALID_PARAMS, message="bad cursor"))
     context: Final = prepare_context(
@@ -1310,7 +1310,7 @@ async def test_discovery_denial_cannot_advertise_tools():
     from mcp.types import DiscoverRequest
 
     denied = AsyncMock(side_effect=HTTPException(status_code=403, detail="Forbidden"))
-    with patch("litellm.proxy.mcp_server.operations._execute_handle_list_tools", denied):
+    with patch("hangarllm.proxy.mcp_server.operations._execute_handle_list_tools", denied):
         with pytest.raises(HTTPException) as error:
             await GatewayOperations().execute(DiscoverRequest(), prepare_context(UserAPIKeyAuth(user_id="denied")))
     assert error.value.status_code == 403
@@ -1330,7 +1330,7 @@ async def test_discovery_lists_each_capability_with_the_same_caller(available):
         ResourceTemplate,
     )
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     context = prepare_context(UserAPIKeyAuth(user_id="scoped"), mcp_servers=["authorized"])
     tools = AsyncMock(return_value=ListToolsResult(tools=[]))
@@ -1377,7 +1377,7 @@ async def test_discovery_skips_disabled_capability_listings(disabled: str, monke
         ResourceTemplate,
     )
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setitem(proxy_server.general_settings, "mcp_disabled_capabilities", [disabled])
     context: Final = prepare_context(UserAPIKeyAuth(user_id="scoped"), mcp_servers=["authorized"])
@@ -1411,9 +1411,9 @@ async def test_discovery_skips_disabled_capability_listings(disabled: str, monke
 async def test_discovery_shares_one_server_admission_across_catalog_listings() -> None:
     from mcp import types
 
-    from litellm.proxy.mcp_server import catalog
-    from litellm.proxy.mcp_server.contracts import OperationContext
-    from litellm.proxy.mcp_server.faults.list_outcomes import ServerListOk
+    from hangarllm.proxy.mcp_server import catalog
+    from hangarllm.proxy.mcp_server.contracts import OperationContext
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import ServerListOk
 
     admitted: Final = MCPServer(
         server_id="discover-admitted",
@@ -1480,7 +1480,7 @@ async def test_discovery_shares_one_server_admission_across_catalog_listings() -
     optional_fetch: Final = AsyncMock(side_effect=fetch_optional_page)
     with (
         patch.object(operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[admitted, rejected])),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
         patch.object(proxy_logging, "enforce_mcp_server_rate_limits", enforcement),
         patch.object(catalog, "get_filtered_server_tools", upstream_calls[0]),
         patch.object(catalog, "fetch_optional_catalog_page", optional_fetch),
@@ -1515,7 +1515,7 @@ async def test_discovery_concurrent_listings_drain_on_failure_and_cancellation(o
         ListToolsResult,
     )
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     ready = [asyncio.Event() for _ in range(4)]
     closed = [asyncio.Event() for _ in range(4)]
@@ -1575,7 +1575,7 @@ async def test_discovery_concurrent_listings_drain_on_failure_and_cancellation(o
 async def test_tools_listing_preserves_explicit_spend_log_policy(log_enabled):
     from mcp.types import PaginatedRequestParams
 
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     listing = AsyncMock(return_value=operations.AggregateToolListing(tools=[], outcomes={}))
     with patch.object(operations, "_list_mcp_tools", listing):
@@ -1625,9 +1625,9 @@ async def test_discovery_keeps_one_catalog_revision_across_concurrent_listings(m
         ListToolsResult,
     )
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     manager = MCPServerManager()
     original = MCPServer(server_id="catalog-server", name="before", transport=MCPTransport.http)
@@ -1672,8 +1672,8 @@ async def test_local_handler_freshness_tracks_registered_owner_with_overlapping_
 
     from fastapi import HTTPException
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     manager = MCPServerManager()
@@ -1715,8 +1715,8 @@ async def test_local_call_cannot_borrow_another_servers_authority(
 
     from fastapi import HTTPException
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     manager: Final = MCPServerManager()
     allowed: Final = MCPServer(server_id="allowed", name="allowed", transport=MCPTransport.http)
@@ -1752,8 +1752,8 @@ async def test_local_call_preserves_matching_and_legacy_handlers(
 ) -> None:
     from datetime import datetime
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     manager: Final = MCPServerManager()
     server: Final = MCPServer(server_id="allowed", name="allowed", transport=MCPTransport.http)
@@ -1782,8 +1782,8 @@ async def test_local_call_preserves_matching_and_legacy_handlers(
 async def test_local_handler_rejects_an_owner_absent_from_the_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
     manager: Final = MCPServerManager()
     handler: Final = AsyncMock(return_value="private result")
@@ -1817,7 +1817,7 @@ async def test_continuation_preserves_current_authority_unavailable_error(monkey
     from mcp import MCPError
     from mcp.types import ListPromptsRequest, ListResourcesRequest, ListResourceTemplatesRequest, PaginatedRequestParams
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     caller = UserAPIKeyAuth(api_key="sk-owned-key-without-database")
@@ -1838,10 +1838,10 @@ async def test_virtual_tool_catalog_rejects_a_cursor_and_preserves_its_complete_
     from mcp import MCPError
     from mcp.types import ListToolsRequest, PaginatedRequestParams
 
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
     caller = UserAPIKeyAuth(
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="search", mcp_tool_search_enabled=True)
+        object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="search", mcp_tool_search_enabled=True)
     )
     context = prepare_context(caller)
     result = await GatewayOperations().execute(ListToolsRequest(), context)
@@ -1861,13 +1861,13 @@ async def test_optional_catalog_preserves_revoked_user_error(monkeypatch, reques
 
     from mcp import MCPError, types
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy import proxy_server
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"supported_db_objects": []})
     table = SimpleNamespace(find_unique=AsyncMock(return_value=None))
     monkeypatch.setattr(
-        proxy_server, "prisma_client", SimpleNamespace(writer_db=SimpleNamespace(litellm_usertable=table))
+        proxy_server, "prisma_client", SimpleNamespace(writer_db=SimpleNamespace(hangarllm_usertable=table))
     )
     monkeypatch.setattr(proxy_server, "user_api_key_cache", DualCache())
     caller = UserAPIKeyAuth(user_id="revoked-catalog-user")
@@ -1916,10 +1916,10 @@ async def test_initial_tool_listing_preserves_legacy_error_fallback(
     fetch.assert_awaited_once()
 
 
-@pytest.mark.parametrize("header_name", ("x-litellm-api-key", "X-LiteLLM-API-Key"))
+@pytest.mark.parametrize("header_name", ("x-hangarllm-api-key", "X-HangarLLM-API-Key"))
 def test_discovery_extra_headers_exclude_gateway_admission_key(header_name: str) -> None:
     caller_key: Final = "Bearer sk-admission-only"
-    raw_headers: Final = {"x-litellm-api-key": caller_key, "x-tenant": "tenant-control"}
+    raw_headers: Final = {"x-hangarllm-api-key": caller_key, "x-tenant": "tenant-control"}
     server: Final = MCPServer(
         server_id="header-boundary",
         name="header-boundary",
@@ -1938,7 +1938,7 @@ def test_discovery_extra_headers_exclude_gateway_admission_key(header_name: str)
     )
     assert auth_header is None
     assert extra_headers == {"X-Tenant": "tenant-control"}
-    assert raw_headers == {"x-litellm-api-key": caller_key, "x-tenant": "tenant-control"}
+    assert raw_headers == {"x-hangarllm-api-key": caller_key, "x-tenant": "tenant-control"}
 
 
 @pytest.mark.asyncio
@@ -1951,7 +1951,7 @@ async def test_guardrail_context_never_recovers_a_previous_request_bearer(
     from mcp.server.auth.middleware.auth_context import auth_context_var
     from starlette.requests import Request
 
-    from litellm.proxy.mcp_server import server as gateway
+    from hangarllm.proxy.mcp_server import server as gateway
 
     request: Final = (
         None
@@ -1974,7 +1974,7 @@ async def test_guardrail_context_never_recovers_a_previous_request_bearer(
             raw_headers={"authorization": "Bearer previous.caller.assertion"},
         )
         capture: Final = _CatalogHookCapture()
-        monkeypatch.setattr(litellm, "callbacks", [capture])
+        monkeypatch.setattr(hangarllm, "callbacks", [capture])
         async with gateway._legacy_operation_context(_mcp_request_ctx(request=request), trace=False) as context:
             await operations.global_mcp_server_manager.pre_call_tool_check(
                 name="echo",
@@ -2007,8 +2007,8 @@ async def test_discovery_optional_probes_use_remaining_listing_budget(delay, mon
         ToolsCapability,
     )
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import subscriptions
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import subscriptions
 
     entered = asyncio.Event()
     cleaned = asyncio.Event()

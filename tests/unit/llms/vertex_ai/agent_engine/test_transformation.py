@@ -13,14 +13,14 @@ import httpx
 import pytest
 
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler, get_async_httpx_client
-from litellm.llms.vertex_ai.agent_engine.sse_iterator import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler, get_async_httpx_client
+from hangarllm.llms.vertex_ai.agent_engine.sse_iterator import (
     VertexAgentEngineResponseIterator,
 )
-from litellm.llms.vertex_ai.agent_engine.transformation import VertexAgentEngineConfig
-from litellm.types.utils import LlmProviders
-from litellm.utils import CustomStreamWrapper
+from hangarllm.llms.vertex_ai.agent_engine.transformation import VertexAgentEngineConfig
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import CustomStreamWrapper
 
 
 class TestVertexAgentEngineTransformRequest:
@@ -34,13 +34,13 @@ class TestVertexAgentEngineTransformRequest:
 
         messages = [{"role": "user", "content": "Hello, what can you do?"}]
         optional_params = {"user_id": "test-user-123"}
-        litellm_params = {}
+        hangarllm_params = {}
 
         result = config.transform_request(
             model="agent_engine/123456789",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
@@ -60,13 +60,13 @@ class TestVertexAgentEngineTransformRequest:
             "user_id": "test-user-123",
             "session_id": "session-abc-456",
         }
-        litellm_params = {}
+        hangarllm_params = {}
 
         result = config.transform_request(
             model="agent_engine/123456789",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
@@ -157,14 +157,14 @@ async def test_async_stream_wrapper_without_a_client_posts_through_the_cached_ve
             stream=True,
             call_type="acompletion",
             start_time=datetime(2026, 1, 1),
-            litellm_call_id="call-1",
+            hangarllm_call_id="call-1",
             function_id="fn-1",
         ),
         api_base=api_base,
         headers={},
         data={"class_method": "stream_query"},
         messages=messages,
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert type(wrapper) is CustomStreamWrapper
@@ -191,14 +191,14 @@ async def _streamed_text(sync_stream: bool) -> str:
             stream=True,
             call_type="completion" if sync_stream else "acompletion",
             start_time=datetime(2026, 1, 1),
-            litellm_call_id="call-separators",
+            hangarllm_call_id="call-separators",
             function_id="fn-separators",
         ),
         "api_base": "https://us-central1-aiplatform.googleapis.com/v1/reasoningEngines/123:streamQuery",
         "headers": {},
         "data": {"class_method": "stream_query"},
         "messages": messages,
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
     transport: Final = httpx.MockTransport(_separated_text_reply)
     if sync_stream:

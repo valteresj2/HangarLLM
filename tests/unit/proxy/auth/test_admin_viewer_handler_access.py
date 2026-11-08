@@ -18,19 +18,19 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-import litellm.proxy.proxy_server as ps
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.proxy_server import app
+import hangarllm.proxy.proxy_server as ps
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.proxy_server import app
 
 
 def _make_admin_viewer_auth() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY,
     )
 
 
-def _override_auth(role: LitellmUserRoles) -> None:
+def _override_auth(role: HangarllmUserRoles) -> None:
     fake_user = UserAPIKeyAuth(user_id="viewer_user", user_role=role)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: fake_user
 
@@ -59,14 +59,14 @@ def admin_viewer_client(monkeypatch):
     mock_query_raw = AsyncMock(side_effect=[[{"count": 0}], []])
 
     mock_prisma.db = types.SimpleNamespace(
-        litellm_budgettable=mock_budget_table,
-        litellm_invitationlink=mock_invitation_table,
-        litellm_config=mock_config_table,
+        hangarllm_budgettable=mock_budget_table,
+        hangarllm_invitationlink=mock_invitation_table,
+        hangarllm_config=mock_config_table,
         query_raw=mock_query_raw,
     )
 
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
-    _override_auth(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY)
+    _override_auth(HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY)
 
     yield TestClient(app)
 

@@ -9,14 +9,14 @@ them execute a basedpyright/pytest/prettier storm at a time instead of all
 thrashing it at once. Slots are fcntl.flock files (macOS ships no flock(1)
 binary, hence python3 + stdlib only, runnable before any venv exists) under a
 per-user cache directory shared by every worktree and session:
-~/.cache/litellm/gate-slots by default, $LITELLM_GATE_SLOT_DIR to override.
+~/.cache/hangarllm/gate-slots by default, $HANGARLLM_GATE_SLOT_DIR to override.
 A holder's lock dies with its process, so a crash leaves nothing to clean up.
 
-$LITELLM_GATE_SLOTS sets the slot count (default 2); 0 disables locking.
+$HANGARLLM_GATE_SLOTS sets the slot count (default 2); 0 disables locking.
 Waiting is a blocking flock on a turnstile file plus a slow poll of the slots,
 so contenders queue roughly first-come-first-served without busy-spinning.
 A process that acquired (or deliberately skipped) a slot exports
-LITELLM_GATE_SLOT_HELD, and nested acquisitions under that marker are no-ops,
+HANGARLLM_GATE_SLOT_HELD, and nested acquisitions under that marker are no-ops,
 so `make check` invoking the gates internally can never deadlock against
 itself. Any filesystem error fails open and the command runs unlocked: the
 lock is a courtesy to the machine, never a gate that may break a build (CI
@@ -39,16 +39,16 @@ from typing import IO, TYPE_CHECKING, Final
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-HELD_MARKER_ENV: Final = "LITELLM_GATE_SLOT_HELD"
-SLOT_COUNT_ENV: Final = "LITELLM_GATE_SLOTS"
-SLOT_DIR_ENV: Final = "LITELLM_GATE_SLOT_DIR"
+HELD_MARKER_ENV: Final = "HANGARLLM_GATE_SLOT_HELD"
+SLOT_COUNT_ENV: Final = "HANGARLLM_GATE_SLOTS"
+SLOT_DIR_ENV: Final = "HANGARLLM_GATE_SLOT_DIR"
 DEFAULT_SLOT_COUNT: Final = 2
 POLL_SECONDS: Final = 2.0
 
 
 def _slot_dir() -> Path:
     override: Final = os.environ.get(SLOT_DIR_ENV)
-    return Path(override) if override else Path.home() / ".cache" / "litellm" / "gate-slots"
+    return Path(override) if override else Path.home() / ".cache" / "hangarllm" / "gate-slots"
 
 
 def _slot_count() -> int:

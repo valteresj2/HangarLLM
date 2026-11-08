@@ -11,7 +11,7 @@ amazon.nova-sonic-v1:0 answers GetFoundationModel with "This model version has
 reached the end of its life". A retired id does not fail loudly here: Bedrock
 ends the bidirectional stream instead of erroring, so the proxy closes the
 client socket with 1000 OK and this test reads it as a hang. Re-check the id
-against that command before concluding litellm broke.
+against that command before concluding hangarllm broke.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from realtime_client import (
     RealtimeClient,
     ResponseCreate,
@@ -58,7 +58,7 @@ class TestNovaSonicRealtime:
         model = f"e2e-nova-sonic-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=NOVA_SONIC,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

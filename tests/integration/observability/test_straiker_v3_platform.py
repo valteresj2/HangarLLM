@@ -338,7 +338,7 @@ def _provider(request: Request) -> Reply:
 def _guardrail(name: str, key: str, url: str, mode: str, default_on: bool, **params: object) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "straiker",
             "mode": mode,
             "default_on": default_on,
@@ -352,7 +352,7 @@ def _guardrail(name: str, key: str, url: str, mode: str, default_on: bool, **par
 
 def _rig_config(sink_url: str, root: Path) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["guardrails"] = [
         _guardrail("straiker-v3", V3_KEY, sink_url, "pre_call", True, agent_ref=AUDIT_AGENT),
         _guardrail("straiker-v3-post", V3_KEY, sink_url, "post_call", False, agent_ref=POST_AGENT),
@@ -416,7 +416,7 @@ class Rig:
     def spend_row(self, request_id: str) -> dict[str, object]:
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, model, call_type, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                'SELECT request_id, model, call_type, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                 (request_id,),
             ),
             lambda values: len(values) == 1,
@@ -516,7 +516,7 @@ def test_v3_pre_call_allow_relays_provider_body_and_key_identity(rig: Rig) -> No
     assert sent.body["model"] == rig.chat_model
     assert "api_key" not in sent.body and "synthetic-openai-key" not in json.dumps(sent.body)
     assert object_value(sent.body["metadata"])["user_api_key_alias"] == "alias-" + marker
-    assert sent.body.get("session_id", "").startswith("litellm-")
+    assert sent.body.get("session_id", "").startswith("hangarllm-")
     upstream: Final = rig.provider_calls(marker, rig.provider_drain())
     assert len(upstream) == 1 and upstream[0].target == "/v1/chat/completions"
     row: Final = rig.spend_row(response.id)
@@ -750,14 +750,14 @@ def test_v3_redacts_tool_credentials_but_keeps_schema_properties(rig: Rig) -> No
     assert "synthetic-tool-secret" not in json.dumps(sent) and "synthetic-mcp-secret" not in json.dumps(sent)
 
 
-# U1: a v1 collection key still speaks the v1 webhook with the litellm envelope
+# U1: a v1 collection key still speaks the v1 webhook with the hangarllm envelope
 def test_v1_key_keeps_webhook_envelope_and_format_header(rig: Rig) -> None:
     marker: Final = rig.marker()
     response: Final = _chat(rig, "v1 " + marker, guardrails=["straiker-v1"])
     assert response.status_code == 200, response.text
     calls: Final = _v1_calls(rig, marker, V1_KEY)
     assert len(calls) == 1, rig.sink_calls(marker)
-    assert calls[0].headers["x-straiker-webhook-format"] == "litellm"
+    assert calls[0].headers["x-straiker-webhook-format"] == "hangarllm"
     assert calls[0].body["schema_version"] and object_value(calls[0].body["event"])["type"]
     assert "v1 " + marker in json.dumps(object_value(calls[0].body["request"]))
     assert len(_v3_request_calls(rig, marker)) == 1, "the default_on v3 route runs beside it"
@@ -883,7 +883,7 @@ def test_v3_repeated_allowed_request_is_scored_and_logged_each_time(rig: Rig) ->
     assert len(_v3_request_calls(rig, marker)) == 3
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s', ("chatcmpl-" + marker + "%",)
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s', ("chatcmpl-" + marker + "%",)
         ),
         lambda values: len(values) == 3,
         seconds=70,
@@ -968,7 +968,7 @@ def test_v3_oversized_prompt_and_odd_header_values_are_relayed(rig: Rig) -> None
     assert sent.body["messages"] == [{"role": "user", "content": big}]
     assert sent.headers["x-s6r-agent"] == "audit-agent"
     assert "x-claude-code-session-id" not in sent.headers
-    assert sent.body.get("session_id", "").startswith("litellm-")
+    assert sent.body.get("session_id", "").startswith("hangarllm-")
 
 
 # S7: a guardrail with a malformed format_hint is rejected at /guardrails/apply_guardrail time, not at boot
@@ -978,7 +978,7 @@ def test_malformed_format_hint_config_is_rejected_by_guardrail_management(rig: R
         json={
             "guardrail": {
                 "guardrail_name": "straiker-bad-" + uuid.uuid4().hex,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "straiker",
                     "mode": "pre_call",
                     "api_key": V3_KEY,
@@ -1052,7 +1052,7 @@ def test_burst_with_platform_outage_recovers_without_duplicate_spend(rig: Rig) -
         expected: Final = ("msg_" if index % 3 == 0 else "chatcmpl-") + marker + "%"
         rows: Final = eventually(
             lambda like=expected: read_rows(
-                'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s', (like,)
+                'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s', (like,)
             ),
             lambda values: len(values) == 1,
             seconds=70,

@@ -30,7 +30,7 @@ _WEATHER_TOOL: Final[JsonValue] = {
     },
 }
 _COST_MAP_PATH: Final = Path(__file__).resolve().parents[3] / "model_prices_and_context_window.json"
-_ENDPOINT_SUPPORT_PATH: Final = Path(__file__).resolve().parents[3] / "litellm/provider_endpoints_support_backup.json"
+_ENDPOINT_SUPPORT_PATH: Final = Path(__file__).resolve().parents[3] / "hangarllm/provider_endpoints_support_backup.json"
 _COST_MAP: Final = TypeAdapter(dict[str, dict[str, JsonValue]])
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _JSON_LIST: Final = TypeAdapter(list[JsonValue])
@@ -225,11 +225,11 @@ def test_chat_completion_reaches_the_vendor_and_bills_the_catalog_price(gateway:
         choice: Final = object_value(_JSON_LIST.validate_python(payload["choices"])[0])
         assert object_value(choice["message"])["content"] == "43"
         expected_cost: Final = 23 * _catalog_cost("input_cost_per_token") + 41 * _catalog_cost("output_cost_per_token")
-        assert float(response.headers["x-litellm-response-cost"]) == _approx(expected_cost)
+        assert float(response.headers["x-hangarllm-response-cost"]) == _approx(expected_cost)
         assert _targets(wire) == [("POST", "/v1/chat/completions")]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (identity,),
             ),
             lambda values: len(values) == 1,
@@ -529,7 +529,7 @@ def test_public_routes_list_the_provider_with_its_endpoints_and_fields(gateway: 
     entries: Final = tuple(
         object_value(entry)
         for entry in _JSON_LIST.validate_json(fields_response.content)
-        if object_value(entry)["litellm_provider"] == "inferenceapis"
+        if object_value(entry)["hangarllm_provider"] == "inferenceapis"
     )
     assert len(entries) == 1
     required: Final = {

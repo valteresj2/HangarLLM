@@ -11,9 +11,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
+import hangarllm
 import openai
-from litellm import Router
+from hangarllm import Router
 
 _KEY: Final = "synthetic-family-key"
 _PROMPT: Final = "family wire probe"
@@ -144,15 +144,15 @@ def _completion(model: str) -> Reply:
 
 
 def _answer(response: object) -> str | None:
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     choice: Final = response.choices[0]
-    assert isinstance(choice, litellm.Choices)
+    assert isinstance(choice, hangarllm.Choices)
     return choice.message.content
 
 
 async def _raised(call: dict[str, JsonValue]) -> BaseException:
     with pytest.raises(openai.APIError) as caught:
-        await litellm.acompletion(messages=[{"role": "user", "content": _PROMPT}], num_retries=0, **call)
+        await hangarllm.acompletion(messages=[{"role": "user", "content": _PROMPT}], num_retries=0, **call)
     return caught.value
 
 
@@ -164,7 +164,7 @@ async def _raised(call: dict[str, JsonValue]) -> BaseException:
 def test_an_overflow_400_from_inference_apis_raises_context_window_exceeded(text: str, code: str) -> None:
     with wire_server(_scripted(_error(400, text, code))) as wire:
         raised: Final = asyncio.run(_raised(_plain_call("inferenceapis")(wire.url)))
-        assert isinstance(raised, litellm.ContextWindowExceededError), repr(raised)
+        assert isinstance(raised, hangarllm.ContextWindowExceededError), repr(raised)
         assert raised.status_code == 400
         assert text in str(raised)
         assert _prompted(wire) == 1
@@ -175,8 +175,8 @@ def test_an_overflow_400_from_inference_apis_raises_context_window_exceeded(text
 def test_a_400_stays_a_bad_request_for_every_provider_without_its_own_mapper(provider: str, text: str) -> None:
     with wire_server(_scripted(_error(400, text))) as wire:
         raised: Final = asyncio.run(_raised(_BUILDER_CALLS[provider](wire.url)))
-        assert isinstance(raised, litellm.BadRequestError), repr(raised)
-        assert not isinstance(raised, litellm.ContextWindowExceededError), repr(raised)
+        assert isinstance(raised, hangarllm.BadRequestError), repr(raised)
+        assert not isinstance(raised, hangarllm.ContextWindowExceededError), repr(raised)
         assert text in str(raised)
         assert _prompted(wire) == 1
 
@@ -187,7 +187,7 @@ def test_the_inference_apis_overflow_phrase_raises_context_window_exceeded_on_pr
 ) -> None:
     with wire_server(_scripted(_error(400, _INFERENCEAPIS_TEXT, "upstream_rejected"))) as wire:
         raised: Final = asyncio.run(_raised(_plain_call(provider)(wire.url)))
-        assert isinstance(raised, litellm.ContextWindowExceededError), repr(raised)
+        assert isinstance(raised, hangarllm.ContextWindowExceededError), repr(raised)
         assert _INFERENCEAPIS_TEXT in str(raised)
         assert _prompted(wire) == 1
 
@@ -200,15 +200,15 @@ def test_a_param_error_naming_context_length_exceeded_behavior_stays_a_bad_reque
             "api_key": _KEY,
         }
         raised: Final = asyncio.run(_raised(call))
-        assert isinstance(raised, litellm.BadRequestError), repr(raised)
-        assert not isinstance(raised, litellm.ContextWindowExceededError), repr(raised)
+        assert isinstance(raised, hangarllm.BadRequestError), repr(raised)
+        assert not isinstance(raised, hangarllm.ContextWindowExceededError), repr(raised)
         assert _prompted(wire) == 1
 
 
 def test_aiohttp_openai_still_reports_an_upstream_400_as_a_server_error() -> None:
     with wire_server(_scripted(_error(400, _OVERFLOW_TEXT, "context_length_exceeded"))) as wire:
         raised: Final = asyncio.run(_raised(_plain_call("aiohttp_openai")(wire.url)))
-        assert isinstance(raised, litellm.InternalServerError), repr(raised)
+        assert isinstance(raised, hangarllm.InternalServerError), repr(raised)
         assert _prompted(wire) == 1
 
 
@@ -228,15 +228,15 @@ def _fallback_router(setup: str, primary_url: str, backup_url: str) -> Router:
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": primary_model, "api_base": primary_url, "api_key": _KEY},
+                "hangarllm_params": {"model": primary_model, "api_base": primary_url, "api_key": _KEY},
             },
             {
                 "model_name": "other",
-                "litellm_params": {"model": "openai/other", "api_base": backup_url, "api_key": _KEY},
+                "hangarllm_params": {"model": "openai/other", "api_base": backup_url, "api_key": _KEY},
             },
             {
                 "model_name": "backup",
-                "litellm_params": {"model": "openai/backup", "api_base": backup_url, "api_key": _KEY},
+                "hangarllm_params": {"model": "openai/backup", "api_base": backup_url, "api_key": _KEY},
             },
         ],
         context_window_fallbacks=context_window_fallbacks,
@@ -271,7 +271,7 @@ def _forwarding(provider_model: str) -> Callable[[Request], Reply]:
 def test_every_json_provider_forwards_non_openai_params_in_the_request_body(provider: str) -> None:
     with wire_server(_forwarding("m")) as wire:
         response: Final = asyncio.run(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model=f"{provider}/m",
                 api_base=wire.url,
                 api_key=_KEY,
@@ -291,7 +291,7 @@ def test_every_json_provider_forwards_non_openai_params_in_the_request_body(prov
 
 def test_a_sync_json_provider_call_forwards_non_openai_params_in_the_request_body() -> None:
     with wire_server(_forwarding("m")) as wire:
-        litellm.completion(
+        hangarllm.completion(
             model="veniceai/m",
             api_base=wire.url,
             api_key=_KEY,

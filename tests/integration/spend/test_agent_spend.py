@@ -112,7 +112,7 @@ def _assert_a2a_calls_are_billed(
             {
                 "agent_name": marker,
                 "agent_card_params": _peer_card(wire.url, marker, version),
-                "litellm_params": pricing,
+                "hangarllm_params": pricing,
             },
         )
         assert created.status_code == 200, created.text
@@ -121,7 +121,7 @@ def _assert_a2a_calls_are_billed(
         def cleanup() -> None:
             deleted: Final = gateway.request("DELETE", f"/v1/agents/{agent}")
             assert deleted.status_code == 200, deleted.text
-            assert read_rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (agent,)) == []
+            assert read_rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (agent,)) == []
 
         scenario.cleanups.callback(cleanup)
         key: Final = scenario.key()
@@ -183,7 +183,7 @@ def _assert_a2a_calls_are_billed(
         logs: Final = eventually(
             lambda: read_rows(
                 "SELECT request_id, agent_id, spend, api_key, call_type, "
-                """to_char("startTime", 'YYYY-MM-DD') AS day FROM "LiteLLM_SpendLogs" """
+                """to_char("startTime", 'YYYY-MM-DD') AS day FROM "HangarLLM_SpendLogs" """
                 "WHERE api_key=%s ORDER BY request_id",
                 (digest,),
             ),
@@ -202,12 +202,12 @@ def _assert_a2a_calls_are_billed(
         ], logs
         total: Final = cost * len(methods)
         assert eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (agent,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (agent,)),
             lambda rows: rows == [{"spend": total}],
             seconds=20,
         ) == [{"spend": total}]
         assert eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda rows: rows == [{"spend": total}],
             seconds=20,
         ) == [{"spend": total}]
@@ -217,7 +217,7 @@ def _assert_a2a_calls_are_billed(
         daily: Final = eventually(
             lambda: read_rows(
                 "SELECT agent_id, date, api_key, spend, api_requests::text AS api_requests, "
-                'successful_requests::text AS successful_requests FROM "LiteLLM_DailyAgentSpend" WHERE agent_id=%s '
+                'successful_requests::text AS successful_requests FROM "HangarLLM_DailyAgentSpend" WHERE agent_id=%s '
                 "ORDER BY date",
                 (agent,),
             ),

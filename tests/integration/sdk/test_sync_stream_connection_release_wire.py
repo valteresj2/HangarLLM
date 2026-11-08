@@ -13,8 +13,8 @@ import pytest
 from integration._support.client import eventually
 from integration._support.wire import Reply, Request, Wire, wire_server
 
-import litellm
-from litellm.types.utils import ModelResponseStream
+import hangarllm
+from hangarllm.types.utils import ModelResponseStream
 
 _API_KEY: Final = "synthetic-stream-release-key"
 _PROMPT: Final = "does the socket go back to the pool once the stream is done with it?"
@@ -140,8 +140,8 @@ async def _open_sessions_settling_to_while_the_loop_runs(wire: Wire, at_most: in
 def test_sync_stream_read_to_its_last_chunk_releases_the_connection(shape: _Shape) -> None:
     with wire_server(_peer(shape), keep_alive=True) as wire:
         request: Final = _request_kwargs(shape, wire)
-        first_text: Final = "".join(_text_of(chunk) for chunk in litellm.completion(**request))
-        second_text: Final = "".join(_text_of(chunk) for chunk in litellm.completion(**request))
+        first_text: Final = "".join(_text_of(chunk) for chunk in hangarllm.completion(**request))
+        second_text: Final = "".join(_text_of(chunk) for chunk in hangarllm.completion(**request))
         assert (first_text, second_text) == (_FIRST_WORDS + _LAST_WORD, _FIRST_WORDS + _LAST_WORD)
         assert _open_sessions_settling_to(wire, at_most=1) <= 1, "a finished stream left its TCP session open"
 
@@ -151,14 +151,14 @@ def test_sync_stream_closed_after_its_first_chunk_releases_the_connection(shape:
     gate: Final = threading.Event()
     with wire_server(_peer(shape, gate_after_first=gate), keep_alive=True) as wire:
         request: Final = _request_kwargs(shape, wire)
-        abandoned: Final = litellm.completion(**request)
+        abandoned: Final = hangarllm.completion(**request)
         first_chunk: Final = next(iter(abandoned))
         assert _text_of(first_chunk) == _FIRST_WORDS
         abandoned.close()
         gate.set()
         assert _open_sessions_settling_to(wire, at_most=0) == 0, "close() left the TCP session open"
         gate.clear()
-        follow_up: Final = litellm.completion(**request)
+        follow_up: Final = hangarllm.completion(**request)
         assert _text_of(next(iter(follow_up))) == _FIRST_WORDS
         gate.set()
         assert "".join(_text_of(chunk) for chunk in follow_up) == _LAST_WORD
@@ -169,8 +169,8 @@ async def test_async_stream_read_to_its_last_chunk_releases_the_connection() -> 
     shape: Final = _SHAPES[0]
     with wire_server(_peer(shape), keep_alive=True) as wire:
         request: Final = _request_kwargs(shape, wire)
-        first_text: Final = "".join([_text_of(chunk) async for chunk in await litellm.acompletion(**request)])
-        second_text: Final = "".join([_text_of(chunk) async for chunk in await litellm.acompletion(**request)])
+        first_text: Final = "".join([_text_of(chunk) async for chunk in await hangarllm.acompletion(**request)])
+        second_text: Final = "".join([_text_of(chunk) async for chunk in await hangarllm.acompletion(**request)])
         assert (first_text, second_text) == (_FIRST_WORDS + _LAST_WORD, _FIRST_WORDS + _LAST_WORD)
         assert await _open_sessions_settling_to_while_the_loop_runs(wire, at_most=1) <= 1, (
             "a finished stream left its TCP session open"
@@ -183,7 +183,7 @@ async def test_async_stream_aclosed_after_its_first_chunk_releases_the_connectio
     gate: Final = threading.Event()
     with wire_server(_peer(shape, gate_after_first=gate), keep_alive=True) as wire:
         request: Final = _request_kwargs(shape, wire)
-        abandoned: Final = await litellm.acompletion(**request)
+        abandoned: Final = await hangarllm.acompletion(**request)
         assert _text_of(await abandoned.__anext__()) == _FIRST_WORDS
         await abandoned.aclose()
         gate.set()
@@ -191,7 +191,7 @@ async def test_async_stream_aclosed_after_its_first_chunk_releases_the_connectio
             "aclose() left the TCP session open"
         )
         gate.clear()
-        follow_up: Final = await litellm.acompletion(**request)
+        follow_up: Final = await hangarllm.acompletion(**request)
         assert _text_of(await follow_up.__anext__()) == _FIRST_WORDS
         gate.set()
         assert "".join([_text_of(chunk) async for chunk in follow_up]) == _LAST_WORD
@@ -208,7 +208,7 @@ def test_sync_stream_that_raises_mid_stream_releases_the_connection() -> None:
     with wire_server(_peer(broken), keep_alive=True) as wire:
         request: Final = _request_kwargs(broken, wire)
         with pytest.raises(Exception, match="overloaded"):
-            "".join(_text_of(chunk) for chunk in litellm.completion(**request))
+            "".join(_text_of(chunk) for chunk in hangarllm.completion(**request))
         assert _open_sessions_settling_to(wire, at_most=0) == 0, (
             "a stream that raised mid-way left its TCP session open"
         )
@@ -218,7 +218,7 @@ _STUCK: Final = _Shape(
     "hosted_vllm",
     "hosted_vllm/stuck-model",
     _OPENAI_OPENING,
-    (_openai_delta("the model is stuck on this", None),) * (10 * litellm.REPEATED_STREAMING_CHUNK_LIMIT),
+    (_openai_delta("the model is stuck on this", None),) * (10 * hangarllm.REPEATED_STREAMING_CHUNK_LIMIT),
 )
 
 
@@ -228,7 +228,7 @@ def _still_generating_peer(request: Request) -> Reply:
 
 def test_sync_stream_stuck_repeating_one_chunk_releases_the_connection() -> None:
     with wire_server(_still_generating_peer, keep_alive=True) as wire:
-        stuck: Final = litellm.completion(**_request_kwargs(_STUCK, wire))
+        stuck: Final = hangarllm.completion(**_request_kwargs(_STUCK, wire))
         with pytest.raises(Exception, match="repeating the same chunk"):
             for _ in stuck:
                 pass
@@ -238,7 +238,7 @@ def test_sync_stream_stuck_repeating_one_chunk_releases_the_connection() -> None
 @pytest.mark.asyncio
 async def test_async_stream_stuck_repeating_one_chunk_releases_the_connection() -> None:
     with wire_server(_still_generating_peer, keep_alive=True) as wire:
-        stuck: Final = await litellm.acompletion(**_request_kwargs(_STUCK, wire))
+        stuck: Final = await hangarllm.acompletion(**_request_kwargs(_STUCK, wire))
         with pytest.raises(Exception, match="repeating the same chunk"):
             async for _ in stuck:
                 pass

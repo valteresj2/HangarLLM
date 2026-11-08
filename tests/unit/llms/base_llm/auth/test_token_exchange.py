@@ -15,7 +15,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from litellm.llms.base_llm.auth.token_exchange import (
+from hangarllm.llms.base_llm.auth.token_exchange import (
     _METRICS_QUEUE_LIMIT,
     _REDACTION_CAP,
     ADVISORY_REFRESH_BACKOFF_SECONDS,
@@ -33,7 +33,7 @@ from litellm.llms.base_llm.auth.token_exchange import (
     _new_exchange_handler,
     redact_oauth_error_body,
 )
-from litellm.llms.base_llm.auth.types import (
+from hangarllm.llms.base_llm.auth.types import (
     AssertionSource,
     AssertionSourceError,
     BodyEncoding,
@@ -46,8 +46,8 @@ from litellm.llms.base_llm.auth.types import (
     TokenExchangeSpec,
     TokenTransportError,
 )
-from litellm.secret_managers.main import OidcPathNotAllowedError, _resolve_oidc_file_path
-from litellm.types.services import ServiceTypes
+from hangarllm.secret_managers.main import OidcPathNotAllowedError, _resolve_oidc_file_path
+from hangarllm.types.services import ServiceTypes
 
 DEFAULT_REF: Final = "oidc/env/TEST_ASSERTION"
 DEFAULT_ASSERTION: Final = "test-jwt-assertion"
@@ -355,7 +355,7 @@ def test_advisory_serve_stale_single_flight_backoff(caplog: pytest.LogCaptureFix
     assert second.access_token.get_secret_value() == "stale-token"
     assert len(executor.pending) == 1
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         executor.run_all()
     assert len(poster.requests) == 2
     warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
@@ -708,7 +708,7 @@ class TestRedactionAndCaps:
         """The caller declares each shape it sent, since an encoding the redactor cannot reverse
         (base64 of id:secret) is only knowable there."""
         raw = SecretStr("sUp3rS3cretValue123")
-        blob = SecretStr(base64.b64encode(b"litellm:sUp3rS3cretValue123").decode())
+        blob = SecretStr(base64.b64encode(b"hangarllm:sUp3rS3cretValue123").decode())
         body = {"error": "invalid_client", "error_description": f"bad {blob.get_secret_value()}"}
 
         result = redact_oauth_error_body(400, json.dumps(body), (raw, blob))
@@ -885,7 +885,7 @@ class TestAssertionGuards:
         [
             (OidcPathNotAllowedError("path outside allowed credential directories"), "disallowed_path"),
             (ValueError("Environment variable ANTHROPIC_IDENTITY_TOKEN not found"), "unreadable"),
-            (ImportError("needs PyJWT and cryptography: pip install 'litellm[proxy]'"), "unreadable"),
+            (ImportError("needs PyJWT and cryptography: pip install 'hangarllm[proxy]'"), "unreadable"),
             (OSError("permission denied"), "unreadable"),
         ],
     )
@@ -916,13 +916,13 @@ class TestAssertionGuards:
         poster = ScriptedPoster([token_response()])
 
         def reader(ref: str) -> str | None:
-            raise ImportError("the internal_issuer identity source needs PyJWT and cryptography: pip install 'litellm[proxy]'")
+            raise ImportError("the internal_issuer identity source needs PyJWT and cryptography: pip install 'hangarllm[proxy]'")
 
         result = make_engine(poster, reader=reader).get_token(make_spec())
 
         assert isinstance(result, AssertionSourceError)
         assert result.detail is not None
-        assert "litellm[proxy]" in result.detail
+        assert "hangarllm[proxy]" in result.detail
 
     @pytest.mark.parametrize(
         "raised",
@@ -1021,13 +1021,13 @@ class TestOidcFilePathAllowlistRaisesTypedError:
     oidc/file allowlist actually raises OidcPathNotAllowedError rather than a bare ValueError."""
 
     def test_out_of_allowlist_absolute_path(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", raising=False)
+        monkeypatch.delenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", raising=False)
 
         with pytest.raises(OidcPathNotAllowedError):
             _resolve_oidc_file_path("/etc/not-a-credential-dir/token")
 
     def test_relative_path(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", raising=False)
+        monkeypatch.delenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", raising=False)
 
         with pytest.raises(OidcPathNotAllowedError):
             _resolve_oidc_file_path("relative/token/path")
@@ -1437,7 +1437,7 @@ class TestDefaultTokenPoster:
 
 
 class TestDefaultAssertionReader:
-    def test_reads_through_litellm_secret_resolution(self, monkeypatch: pytest.MonkeyPatch):
+    def test_reads_through_hangarllm_secret_resolution(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("WIF_ASSERTION_FOR_DEFAULT_READER", "header.payload.signature")
 
         assert _default_assertion_reader("os.environ/WIF_ASSERTION_FOR_DEFAULT_READER") == "header.payload.signature"

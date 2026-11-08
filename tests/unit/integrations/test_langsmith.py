@@ -10,14 +10,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
-import litellm
-from litellm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
-from litellm.integrations.langsmith import CredentialsKey, LangsmithLogger, LangsmithQueueObject
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import hangarllm
+from hangarllm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
+from hangarllm.integrations.langsmith import CredentialsKey, LangsmithLogger, LangsmithQueueObject
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_get_credentials_from_env_does_not_use_env_for_dynamic_base_url(
     monkeypatch,
@@ -37,12 +37,12 @@ async def test_get_credentials_from_env_does_not_use_env_for_dynamic_base_url(
     )
 
     assert credentials["LANGSMITH_API_KEY"] is None
-    assert credentials["LANGSMITH_PROJECT"] == "litellm-completion"
+    assert credentials["LANGSMITH_PROJECT"] == "hangarllm-completion"
     assert credentials["LANGSMITH_BASE_URL"] == "https://attacker.example"
     assert credentials["LANGSMITH_TENANT_ID"] is None
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_dynamic_langsmith_base_url_does_not_inherit_default_api_key(
     monkeypatch,
@@ -70,7 +70,7 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest_asyncio.fixture(loop_scope="function")
-async def drain_logging_worker(isolate_litellm_state: None) -> AsyncIterator[None]:
+async def drain_logging_worker(isolate_hangarllm_state: None) -> AsyncIterator[None]:
     yield
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS)
 
@@ -79,41 +79,41 @@ LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS: Final = LOGGING_WORKER_MAX_TIME_PER_COROUT
 
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm state to the true defaults captured at conftest import time,
+    Resets hangarllm state to the true defaults captured at conftest import time,
     then restores after the test. This prevents module-level mutations (e.g.
-    `litellm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
+    `hangarllm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
     leaking across tests within the same xdist worker.
     """
-    from litellm.litellm_core_utils import litellm_logging as ll_logging
-    from litellm.proxy.management_helpers import audit_logs as ll_audit_logs
+    from hangarllm.hangarllm_core_utils import hangarllm_logging as ll_logging
+    from hangarllm.proxy.management_helpers import audit_logs as ll_audit_logs
 
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
 
 
 _LIST_ATTRS = (
@@ -147,28 +147,28 @@ _DEFAULTS: dict = {}
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
 # Test get_credentials_from_env
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_get_credentials_from_env():
     # Test with direct parameters
@@ -204,7 +204,7 @@ async def test_get_credentials_from_env():
     del os.environ["LANGSMITH_TENANT_ID"]
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_group_batches_by_credentials():
 
@@ -242,7 +242,7 @@ async def test_group_batches_by_credentials():
     assert len(grouped[key].queue_objects) == 2
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_group_batches_by_credentials_multiple_credentials():
 
@@ -290,7 +290,7 @@ async def test_group_batches_by_credentials_multiple_credentials():
         assert len(batch_group.queue_objects) == 1  # Each group should have one object
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_group_batches_by_credentials_with_tenant_id():
 
@@ -343,7 +343,7 @@ async def test_group_batches_by_credentials_with_tenant_id():
 
 
 # Test make_dot_order
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_make_dot_order():
     logger = LangsmithLogger(langsmith_api_key="test-key")
@@ -371,12 +371,12 @@ async def test_make_dot_order():
 
 
 # Test is_serializable
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_is_serializable():
     from pydantic import BaseModel
 
-    from litellm.integrations.langsmith import is_serializable
+    from hangarllm.integrations.langsmith import is_serializable
 
     # Test basic types
     assert is_serializable("string") is True
@@ -395,7 +395,7 @@ async def test_is_serializable():
     assert is_serializable(TestModel(field="test")) is False
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_async_send_batch():
     logger = LangsmithLogger(langsmith_api_key="test-key")
@@ -420,7 +420,7 @@ async def test_async_send_batch():
     assert "x-tenant-id" not in call_args[1]["headers"]
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_async_send_batch_with_tenant_id():
     logger = LangsmithLogger(langsmith_api_key="test-key", langsmith_tenant_id="test-tenant-id")
@@ -445,11 +445,11 @@ async def test_async_send_batch_with_tenant_id():
     assert call_args[1]["headers"]["x-tenant-id"] == "test-tenant-id"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_langsmith_key_based_logging():
     """
-    In key based logging langsmith_api_key and langsmith_project are passed directly to litellm.acompletion
+    In key based logging langsmith_api_key and langsmith_project are passed directly to hangarllm.acompletion
     """
     try:
         # Mock the httpx post request
@@ -463,16 +463,16 @@ async def test_langsmith_key_based_logging():
         mock_async_httpx_handler.post = AsyncMock(return_value=mock_response)
 
         mock_get_client = patch(
-            "litellm.integrations.langsmith.get_async_httpx_client",
+            "hangarllm.integrations.langsmith.get_async_httpx_client",
             return_value=mock_async_httpx_handler,
         )
         mock_get_client.start()
 
-        litellm.set_verbose = True
-        litellm.DEFAULT_FLUSH_INTERVAL_SECONDS = 1
+        hangarllm.set_verbose = True
+        hangarllm.DEFAULT_FLUSH_INTERVAL_SECONDS = 1
 
-        litellm.callbacks = [LangsmithLogger()]
-        response = await litellm.acompletion(
+        hangarllm.callbacks = [LangsmithLogger()]
+        response = await hangarllm.acompletion(
             model="gpt-4.1-mini",
             messages=[{"role": "user", "content": "Test message"}],
             max_tokens=10,
@@ -587,20 +587,20 @@ async def test_langsmith_key_based_logging():
         pytest.fail(f"Error occurred: {e}")
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_langsmith_queue_logging():
     try:
         # Initialize LangsmithLogger
         test_langsmith_logger = LangsmithLogger()
 
-        litellm.callbacks = [test_langsmith_logger]
+        hangarllm.callbacks = [test_langsmith_logger]
         test_langsmith_logger.batch_size = 6
-        litellm.set_verbose = True
+        hangarllm.set_verbose = True
 
         # Make multiple calls to ensure we don't hit the batch size
         for _ in range(5):
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="gpt-4.1-mini",
                 messages=[{"role": "user", "content": "Test message"}],
                 max_tokens=10,
@@ -619,7 +619,7 @@ async def test_langsmith_queue_logging():
 
         # Now make calls to exceed the batch size
         for _ in range(3):
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="gpt-4.1-mini",
                 messages=[{"role": "user", "content": "Test message"}],
                 max_tokens=10,
@@ -638,7 +638,7 @@ async def test_langsmith_queue_logging():
         assert len(test_langsmith_logger.log_queue) < 5
 
         # Clean up
-        for cb in litellm.callbacks:
+        for cb in hangarllm.callbacks:
             if isinstance(cb, LangsmithLogger):
                 await cb.async_httpx_client.client.aclose()
 

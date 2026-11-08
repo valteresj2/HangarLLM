@@ -163,7 +163,7 @@ def _spend_logs_lookup(gateway: Gateway, request_id: str) -> list[JsonValue]:
 def _request_ids_for_key(gateway: Gateway, key: str, count: int) -> list[str]:
     rows: Final = eventually(
         lambda: gateway.rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "endTime"',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "endTime"',
             (sha256(key.encode()).hexdigest(),),
         ),
         lambda found: len(found) >= count,
@@ -186,12 +186,12 @@ def _logs_page_search(gateway: Gateway, client_id: str) -> list[str]:
 
 
 @pytest.mark.timeout(120)
-@pytest.mark.parametrize("litellm_model", [_NATIVE_MODEL, _BRIDGED_MODEL], ids=["native", "bridge"])
+@pytest.mark.parametrize("hangarllm_model", [_NATIVE_MODEL, _BRIDGED_MODEL], ids=["native", "bridge"])
 def test_streamed_responses_spend_row_is_filed_under_the_id_the_client_saw(
-    gateway: Gateway, litellm_model: str
+    gateway: Gateway, hangarllm_model: str
 ) -> None:
     with wire_server(_respond) as wire, gateway.scenario() as scenario:
-        model: Final = scenario.model(model=litellm_model, api_base=f"{wire.url}/v1", api_key="synthetic-key")
+        model: Final = scenario.model(model=hangarllm_model, api_base=f"{wire.url}/v1", api_key="synthetic-key")
         key: Final = scenario.key(models=[model])
 
         client_id: Final = _terminal_response_id(
@@ -207,7 +207,7 @@ def test_streamed_responses_spend_row_is_filed_under_the_id_the_client_saw(
 def _proxy_config(
     directory: Path,
     general_settings: Mapping[str, JsonValue],
-    litellm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
+    hangarllm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
 ) -> Path:
     stock: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     path: Final = directory / "responses-spend.yaml"
@@ -216,7 +216,7 @@ def _proxy_config(
             {
                 **stock,
                 "general_settings": {**object_value(stock["general_settings"]), **general_settings},
-                "litellm_settings": {**object_value(stock["litellm_settings"]), **litellm_settings},
+                "hangarllm_settings": {**object_value(stock["hangarllm_settings"]), **hangarllm_settings},
             }
         )
     )
@@ -350,7 +350,7 @@ def test_a_reader_other_than_the_creator_continues_through_the_id_its_retrieve_r
 @pytest.mark.timeout(180)
 def test_reads_and_cancels_sent_with_a_session_header_add_no_replayed_turns(gateway: Gateway, tmp_path: Path) -> None:
     first_prompt: Final = f"first turn {uuid4().hex}"
-    session: Final = {"x-litellm-session-id": f"session-{uuid4().hex}"}
+    session: Final = {"x-hangarllm-session-id": f"session-{uuid4().hex}"}
     with (
         wire_server(_respond) as wire,
         owned_proxy(gateway, tmp_path, {}, config=_prompt_storing_config(tmp_path)) as storing,
@@ -425,7 +425,7 @@ def test_with_id_security_off_reads_and_cancels_add_no_rows_and_no_replayed_turn
     gateway: Gateway, tmp_path: Path
 ) -> None:
     first_prompt: Final = f"first turn {uuid4().hex}"
-    session: Final = {"x-litellm-session-id": f"session-{uuid4().hex}"}
+    session: Final = {"x-hangarllm-session-id": f"session-{uuid4().hex}"}
     with (
         wire_server(_respond) as wire,
         owned_proxy(

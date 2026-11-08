@@ -5,11 +5,11 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
     VertexPassthroughLoggingHandler,
 )
-from litellm.types.utils import ModelResponse, PassthroughCallTypes
+from hangarllm.types.utils import ModelResponse, PassthroughCallTypes
 
 _OMNI_INTERACTIONS_USAGE: Final = {
     "total_tokens": 4041,
@@ -30,12 +30,12 @@ def test_interactions_create_response_logs_modality_usage_and_cost() -> None:
     Regression for LIT-6896: gemini-omni Interactions passthrough rows were logged
     with zero tokens and zero spend. Input, text-output and video-output tokens
     must land in usage, priced with the model's per-modality rates, and the
-    response id must stay the litellm_call_id so SpendLogs keep their request_id.
+    response id must stay the hangarllm_call_id so SpendLogs keep their request_id.
     """
     logging_obj = MagicMock()
     logging_obj.model_call_details = {}
     logging_obj.optional_params = {}
-    logging_obj.litellm_call_id = "call-6896"
+    logging_obj.hangarllm_call_id = "call-6896"
     response = httpx.Response(
         status_code=200,
         json={
@@ -67,7 +67,7 @@ def test_interactions_create_response_logs_modality_usage_and_cost() -> None:
     assert usage.completion_tokens_details.text_tokens == 9
     assert usage.completion_tokens_details.video_tokens == 4000
 
-    model_info = litellm.get_model_info(model="gemini-omni-flash-preview", custom_llm_provider="vertex_ai")
+    model_info = hangarllm.get_model_info(model="gemini-omni-flash-preview", custom_llm_provider="vertex_ai")
     expected_cost = (
         12 * model_info["input_cost_per_token"]
         + (9 + 20) * model_info["output_cost_per_token"]
@@ -104,7 +104,7 @@ def test_lyria_predict_response_preserves_audio_response_and_logs_cost(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "vertex_ai/lyria-002",
         {
             "vertex_ai_audio_api": "lyria_predict",
@@ -166,7 +166,7 @@ def test_audio_predict_response_uses_model_map_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "vertex_ai/music-audio-preview",
         {
             "vertex_ai_audio_api": "lyria_predict",
@@ -208,7 +208,7 @@ def test_audio_predict_response_supports_bytes_base64_encoded(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "vertex_ai/lyria-002",
         {
             "vertex_ai_audio_api": "lyria_predict",

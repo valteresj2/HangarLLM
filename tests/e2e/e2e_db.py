@@ -4,7 +4,7 @@ Kept at the top level next to e2e_config and lifecycle so every suite imports it
 by name (`from e2e_db import ...`); no suite reaches into another's directory by
 mutating sys.path.
 
-reset_spend_logs truncates LiteLLM_SpendLogs and cannot be undone, so the
+reset_spend_logs truncates HangarLLM_SpendLogs and cannot be undone, so the
 session-finish cleanup routes through run_spend_log_cleanup, which fires the
 truncate only on an explicit operator opt-in. "An e2e test ran" is necessary but
 never sufficient: a DATABASE_URL pointing at a shared or staging instance must
@@ -40,7 +40,7 @@ def run_spend_log_cleanup(
 
 
 def reset_spend_logs() -> None:
-    """Truncate LiteLLM_SpendLogs for a clean slate. No proxy endpoint deletes
+    """Truncate HangarLLM_SpendLogs for a clean slate. No proxy endpoint deletes
     spend logs (/global/spend/reset keeps them), so go to the DB directly. Uses
     DATABASE_URL (default: the local docker postgres on its mapped host port; the
     in-container `@db` host isn't resolvable from the host, so default to
@@ -50,7 +50,7 @@ def reset_spend_logs() -> None:
 
     url = os.environ.get(
         "DATABASE_URL",
-        "postgresql://llmproxy:dbpassword9090@localhost:5432/litellm",
+        "postgresql://llmproxy:dbpassword9090@localhost:5432/hangarllm",
     )
     with psycopg.connect(url) as conn:
-        _ = conn.execute('TRUNCATE TABLE "LiteLLM_SpendLogs"')
+        _ = conn.execute('TRUNCATE TABLE "HangarLLM_SpendLogs"')

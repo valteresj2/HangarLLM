@@ -84,7 +84,7 @@ class TestConversationalMatrix:
         assert reply.usage is not None and reply.usage.input_tokens > 0 and reply.usage.output_tokens > 0, (
             f"{cell.id}: usage missing or zero, so the caller cannot account for this call: {reply.usage}"
         )
-        assert reply.call_id_header, f"{cell.id}: x-litellm-call-id header missing"
+        assert reply.call_id_header, f"{cell.id}: x-hangarllm-call-id header missing"
 
     @pytest.mark.parametrize("cell", cells_covering("basic", "stream", "works"))
     def test_stream_delivers_text_usage_and_a_terminal_event(
@@ -115,9 +115,9 @@ class TestConversationalMatrix:
         surface: Final = surfaces[cell.surface]
         reply: Final = surface.reply(key, deployments.alias(cell), f"{GREETING_PROMPT} {unique_marker()}")
 
-        assert reply.cost_header is not None, f"{cell.id}: x-litellm-response-cost header missing"
+        assert reply.cost_header is not None, f"{cell.id}: x-hangarllm-response-cost header missing"
         header_cost: Final = float(reply.cost_header)
-        assert header_cost > 0, f"{cell.id}: x-litellm-response-cost is not positive: {header_cost}"
+        assert header_cost > 0, f"{cell.id}: x-hangarllm-response-cost is not positive: {header_cost}"
 
         def _priced(rows: list[SpendLogRow]) -> bool:
             return any(row.spend is not None and row.spend > 0 for row in rows)
@@ -130,7 +130,7 @@ class TestConversationalMatrix:
             f"{cell.id}: spend row has no token counts, so the cost is not real usage: {row}"
         )
         assert row.spend is not None and _approx_equal(row.spend, header_cost), (
-            f"{cell.id}: logged spend {row.spend} disagrees with x-litellm-response-cost {header_cost}"
+            f"{cell.id}: logged spend {row.spend} disagrees with x-hangarllm-response-cost {header_cost}"
         )
         assert row.model and cell.deployment.backend.endswith(row.model), (
             f"{cell.id}: spend row logged model {row.model!r}, not the deployment's {cell.deployment.backend!r}"

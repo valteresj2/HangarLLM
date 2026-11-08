@@ -40,7 +40,7 @@ _CLIENT_BETAS_WITH_DANGEROUS: Final = ",".join((*_CLAUDE_CODE_BETAS, BETA))
 _MERGED_BETAS: Final = ",".join(sorted((*_CLAUDE_CODE_BETAS, BETA)))
 _FOUNDRY_MODEL: Final = "azure_ai/claude-sonnet-4-6"
 _FOUNDRY_BETA_COLUMN: Final = object_value(
-    object_value(json.loads(Path("litellm/anthropic_beta_headers_config.json").read_text()))["azure_ai"]
+    object_value(json.loads(Path("hangarllm/anthropic_beta_headers_config.json").read_text()))["azure_ai"]
 )
 _FOUNDRY_KEY: Final = "synthetic-foundry-key"
 _FOUNDRY_TARGET: Final = "/anthropic/v1/messages"
@@ -209,7 +209,7 @@ def _assert_streamed(response: httpx.Response, marker: str) -> None:
 
 def _spend_row(identity: str) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -219,7 +219,7 @@ def _spend_row(identity: str) -> None:
 def _cache_hit_spend_row(identity: str) -> None:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, cache_hit FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s',
+            'SELECT request_id, status, cache_hit FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s',
             (f"{identity}\\_cache\\_hit%",),
         ),
         lambda found: len(found) == 1,
@@ -231,7 +231,7 @@ def _cache_hit_spend_row(identity: str) -> None:
 def _responses_spend_row(model: str) -> None:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group = %s AND call_type = %s',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group = %s AND call_type = %s',
             (model, "aresponses"),
         ),
         lambda found: len(found) == 1,
@@ -425,7 +425,7 @@ def local_beta_map_gateway(tmp_path_factory: pytest.TempPathFactory) -> Iterator
         owned_proxy(
             shared,
             tmp_path_factory.mktemp("safeguards-local-beta-map"),
-            {"LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"},
+            {"HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"},
         ) as owned,
     ):
         yield owned

@@ -4,8 +4,8 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm import cost_per_token, get_model_info
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm import cost_per_token, get_model_info
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
 REPO_ROOT: Final = Path(__file__).parents[2]
 MODEL: Final = "azure_ai/grok-4.6"
@@ -22,7 +22,7 @@ def test_azure_ai_grok_4_6_is_priced_and_routed() -> None:
     assert (routed_model, provider) == ("grok-4.6", "azure_ai")
 
     info = get_model_info(model=routed_model, custom_llm_provider=provider)
-    assert info["litellm_provider"] == "azure_ai"
+    assert info["hangarllm_provider"] == "azure_ai"
     assert info["mode"] == "chat"
     assert info["supports_function_calling"] is True
     assert info["supports_prompt_caching"] is True
@@ -39,6 +39,6 @@ def test_azure_ai_grok_4_6_is_priced_and_routed() -> None:
 
 def test_azure_ai_grok_4_6_entry_source_and_backup_match() -> None:
     main_entry = _cost_map_entry(REPO_ROOT / "model_prices_and_context_window.json")
-    backup_entry = _cost_map_entry(REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json")
+    backup_entry = _cost_map_entry(REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json")
 
     assert backup_entry == main_entry

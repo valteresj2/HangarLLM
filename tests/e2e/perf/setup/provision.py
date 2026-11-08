@@ -67,7 +67,7 @@ class ListedGuardrail(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     guardrail_name: str
-    litellm_params: ListedGuardrailParams
+    hangarllm_params: ListedGuardrailParams
 
 
 class GuardrailList(BaseModel):
@@ -104,7 +104,7 @@ def check_deployed(proxy: ProxyClient, case: PerformanceTestCase) -> None:
             "/guardrails/list", headers=proxy.transport.master, params=NoBody(), response_type=GuardrailList
         )
     ).guardrails
-    modes: Final = {guardrail.guardrail_name: guardrail.litellm_params.mode for guardrail in listed}
+    modes: Final = {guardrail.guardrail_name: guardrail.hangarllm_params.mode for guardrail in listed}
     for guardrail in case.guardrails:
         mode = modes.get(guardrail.name)
         hooks = mode if isinstance(mode, list) else [mode]

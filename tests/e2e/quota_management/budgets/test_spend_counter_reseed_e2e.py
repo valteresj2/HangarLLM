@@ -120,7 +120,7 @@ def _spend_counter(rds: "redis.Redis[str] | RedisCluster[str]", key: str) -> flo
     digest = hashlib.sha256(key.encode()).hexdigest()
     suffix = f"spend:key:{digest}"
     if isinstance(rds, RedisCluster):
-        for candidate in (suffix, f"litellm:{suffix}", f"litellm.caching:{suffix}"):
+        for candidate in (suffix, f"hangarllm:{suffix}", f"hangarllm.caching:{suffix}"):
             parsed = _parse_counter(rds.get(candidate))
             if parsed is not None:
                 return parsed

@@ -46,7 +46,7 @@ def _rig(gateway: Gateway, tmp_path: Path, file_settings: Mapping[str, JsonValue
     config: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     path: Final = tmp_path / f"callback_delete_{uuid.uuid4().hex}.yaml"
     path.write_text(
-        yaml.safe_dump({**config, "litellm_settings": {**object_value(config["litellm_settings"]), **file_settings}})
+        yaml.safe_dump({**config, "hangarllm_settings": {**object_value(config["hangarllm_settings"]), **file_settings}})
     )
     with (
         scratch_database() as database_url,
@@ -86,8 +86,8 @@ def _listed(proxy: Gateway, expected: tuple[tuple[str, str], ...]) -> None:
 
 def _stored_settings(database_url: str) -> Mapping[str, JsonValue]:
     rows: Final = read_rows(
-        'SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s',
-        ("litellm_settings",),
+        'SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s',
+        ("hangarllm_settings",),
         database_url=database_url,
     )
     assert len(rows) == 1, rows
@@ -99,7 +99,7 @@ def _configure(
     proxy: Gateway, settings: Mapping[str, JsonValue], environment: Mapping[str, JsonValue] | None = None
 ) -> None:
     body: Final[Mapping[str, JsonValue]] = {
-        "litellm_settings": dict(settings),
+        "hangarllm_settings": dict(settings),
         "environment_variables": None if environment is None else dict(environment),
     }
     assert proxy.post("/config/update", body) == {"message": "Config updated successfully"}
@@ -201,7 +201,7 @@ def test_delete_of_a_callback_only_the_config_file_lists_is_refused_and_names_th
 
         assert status == 400, body
         detail: Final = object_value(body["detail"])
-        assert (detail["keys"], detail["section"]) == (["callbacks"], "litellm_settings")
+        assert (detail["keys"], detail["section"]) == (["callbacks"], "hangarllm_settings")
         assert "set in the config file" in str(detail["error"])
         _listed(file_owned.proxy, ((CALLBACK, "success_and_failure"),))
 
@@ -253,7 +253,7 @@ class Pair:
 
 
 def _runs(proxy: Gateway, name: str) -> bool:
-    active: Final = list_value(proxy.get("/active/callbacks")["all_litellm_callbacks"])
+    active: Final = list_value(proxy.get("/active/callbacks")["all_hangarllm_callbacks"])
     return any(name in str(entry).lower() for entry in active)
 
 
@@ -269,7 +269,7 @@ def _pair(gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         environment: Final = {
             "DATABASE_URL": database_url,
             "DEFAULT_FLUSH_INTERVAL_SECONDS": "1",
-            "LITELLM_STORE_AUDIT_LOGS": "True",
+            "HANGARLLM_STORE_AUDIT_LOGS": "True",
         }
         removed: Final = (
             "DATABASE_URL_READ_REPLICA",
@@ -299,7 +299,7 @@ def _send_on_both(pair: Pair, model: str, key: str, marker: str, outcome: str) -
 def test_deleted_callback_stops_receiving_events_on_both_processes(
     gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, list_key: str, outcome: str
 ) -> None:
-    assert os.environ.get("LITELLM_LICENSE"), "LITELLM_LICENSE must be set: audit logs are an enterprise feature"
+    assert os.environ.get("HANGARLLM_LICENSE"), "HANGARLLM_LICENSE must be set: audit logs are an enterprise feature"
     marker: Final = "callback-delete-" + uuid.uuid4().hex
     with _pair(gateway, tmp_path, monkeypatch) as pair, pair.first.scenario() as scenario:
         _configure(
@@ -325,8 +325,8 @@ def test_deleted_callback_stops_receiving_events_on_both_processes(
         assert _stored_settings(pair.database_url)[list_key] == [CALLBACK]
         audit: Final = eventually(
             lambda: read_rows(
-                'SELECT before_value, updated_values FROM "LiteLLM_AuditLog" WHERE object_id = %s AND action = %s',
-                ("litellm_settings", "deleted"),
+                'SELECT before_value, updated_values FROM "HangarLLM_AuditLog" WHERE object_id = %s AND action = %s',
+                ("hangarllm_settings", "deleted"),
                 database_url=pair.database_url,
             ),
             bool,

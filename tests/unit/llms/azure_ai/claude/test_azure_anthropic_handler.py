@@ -13,9 +13,9 @@ import pytest
 import respx
 from httpx import Response
 
-import litellm
-from litellm.llms.azure_ai.anthropic.handler import AzureAnthropicChatCompletion
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.llms.azure_ai.anthropic.handler import AzureAnthropicChatCompletion
+from hangarllm.types.utils import ModelResponse
 
 
 class TestAzureAnthropicChatCompletion:
@@ -27,8 +27,8 @@ class TestAzureAnthropicChatCompletion:
         assert hasattr(handler, "acompletion_function")
         assert hasattr(handler, "acompletion_stream_function")
 
-    @patch("litellm.utils.ProviderConfigManager")
-    @patch("litellm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
+    @patch("hangarllm.utils.ProviderConfigManager")
+    @patch("hangarllm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
     def test_completion_uses_azure_anthropic_config(
         self, mock_azure_config, mock_provider_manager
     ):
@@ -64,7 +64,7 @@ class TestAzureAnthropicChatCompletion:
         logging_obj = MagicMock()
         optional_params = {}
         timeout = 60.0
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
         headers = {}
 
         with patch.object(
@@ -83,7 +83,7 @@ class TestAzureAnthropicChatCompletion:
                 logging_obj=logging_obj,
                 optional_params=optional_params,
                 timeout=timeout,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 headers=headers,
                 acompletion=True,
             )
@@ -92,9 +92,9 @@ class TestAzureAnthropicChatCompletion:
             mock_azure_config.assert_called_once()
             mock_config_instance.validate_environment.assert_called_once()
 
-    @patch("litellm.llms.anthropic.chat.handler.make_sync_call")
-    @patch("litellm.utils.ProviderConfigManager")
-    @patch("litellm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
+    @patch("hangarllm.llms.anthropic.chat.handler.make_sync_call")
+    @patch("hangarllm.utils.ProviderConfigManager")
+    @patch("hangarllm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
     def test_completion_streaming(
         self, mock_azure_config, mock_provider_manager, mock_make_sync_call
     ):
@@ -137,7 +137,7 @@ class TestAzureAnthropicChatCompletion:
         logging_obj = MagicMock()
         optional_params = {"stream": True}
         timeout = 60.0
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
         headers = {}
 
         result = handler.completion(
@@ -153,7 +153,7 @@ class TestAzureAnthropicChatCompletion:
             logging_obj=logging_obj,
             optional_params=optional_params,
             timeout=timeout,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
             acompletion=False,
         )
@@ -162,9 +162,9 @@ class TestAzureAnthropicChatCompletion:
         mock_make_sync_call.assert_called_once()
         assert result is not None
 
-    @patch("litellm.llms.custom_httpx.http_handler.get_httpx_client")
-    @patch("litellm.utils.ProviderConfigManager")
-    @patch("litellm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
+    @patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client")
+    @patch("hangarllm.utils.ProviderConfigManager")
+    @patch("hangarllm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
     def test_completion_non_streaming(self, mock_azure_config, mock_provider_manager, mock_get_client):
         # Note: decorators are applied in reverse order
         """Test completion without streaming"""
@@ -200,7 +200,7 @@ class TestAzureAnthropicChatCompletion:
         logging_obj = MagicMock()
         optional_params = {}
         timeout = 60.0
-        litellm_params = {"api_key": "test-api-key"}
+        hangarllm_params = {"api_key": "test-api-key"}
         headers = {}
 
         # Mock HTTP client
@@ -239,7 +239,7 @@ class TestAzureAnthropicChatCompletion:
             logging_obj=logging_obj,
             optional_params=optional_params,
             timeout=timeout,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
             client=None,  # Let it create the client
             acompletion=False,
@@ -262,8 +262,8 @@ def test_completion_surfaces_the_status_and_headers_of_a_rejected_request():
         )
     )
 
-    with pytest.raises(litellm.BadRequestError) as rejected:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
+        hangarllm.completion(
             model="azure_ai/claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             api_base="https://example-resource.services.ai.azure.com/anthropic",
@@ -271,7 +271,7 @@ def test_completion_surfaces_the_status_and_headers_of_a_rejected_request():
         )
 
     assert rejected.value.status_code == 400
-    assert rejected.value.litellm_response_headers["x-request-id"] == "req-1"
+    assert rejected.value.hangarllm_response_headers["x-request-id"] == "req-1"
     assert "max_tokens too large" in str(rejected.value)
 
 
@@ -280,7 +280,7 @@ def test_completion_surfaces_the_status_and_headers_of_a_rejected_request():
 def test_completion_adds_the_binding_beta_so_block_binding_is_kept(
     drop_params: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx.post("https://example-resource.services.ai.azure.com/anthropic/v1/messages").mock(
         return_value=Response(
             200,
@@ -298,7 +298,7 @@ def test_completion_adds_the_binding_beta_so_block_binding_is_kept(
     )
     block_binding: Final = {"prefix_mismatch_behavior": "error"}
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure_ai/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hi"}],
         api_base="https://example-resource.services.ai.azure.com/anthropic",
@@ -330,7 +330,7 @@ def test_completion_sends_the_binding_beta_next_to_the_callers_own_betas(local_b
         )
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="azure_ai/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hi"}],
         api_base="https://example-resource.services.ai.azure.com/anthropic",

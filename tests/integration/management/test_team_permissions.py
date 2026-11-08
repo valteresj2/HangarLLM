@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.proxy._types import KeyManagementRoutes
+from hangarllm.proxy._types import KeyManagementRoutes
 
 from tests.integration._support.actors import Actor
 from tests.integration._support.actors import create_scratch_team, owned_settings_client
@@ -80,7 +80,7 @@ async def test_team_permissions_update_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None
@@ -144,7 +144,7 @@ async def test_team_permissions_bulk_update_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None

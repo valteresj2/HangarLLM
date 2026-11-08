@@ -2,7 +2,7 @@
 
 OpenAI shipped GPT-5.6 as a three-tier family on 2026-07-09 — Sol
 (flagship), Terra (balanced), Luna (fast) — and Claude Code can drive
-all three through a LiteLLM proxy that translates the Anthropic
+all three through a HangarLLM proxy that translates the Anthropic
 Messages API to each provider's native shape. Four provider columns
 cover "OpenAI plus the big three clouds":
 

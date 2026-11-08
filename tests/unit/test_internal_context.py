@@ -13,7 +13,7 @@ from typing import Final
 
 import pytest
 
-from litellm._internal_context import (
+from hangarllm._internal_context import (
     current_service_caller,
     current_service_target,
     service_caller,
@@ -23,70 +23,70 @@ from litellm._internal_context import (
 
 _REPO: Final = Path(__file__).resolve().parents[2]
 
-_REDIS_PRODUCER_ROOTS: Final = ("litellm", "enterprise")
+_REDIS_PRODUCER_ROOTS: Final = ("hangarllm", "enterprise")
 # The cache implementations and facades: they emit the service events, their callers declare the family.
-_CACHE_LAYER_DIRS: Final = ("litellm/caching",)
+_CACHE_LAYER_DIRS: Final = ("hangarllm/caching",)
 # Helpers that act on a cache handed in by the declaring caller, or forward to the response-cache facade.
 _CACHE_PARAMETER_HELPERS: Final = frozenset(
     {
-        "litellm/llms/anthropic/prompt_cache_prediction.py",
-        "litellm/proxy/common_utils/cache_coordinator.py",
-        "litellm/proxy/common_utils/user_api_key_cache.py",
-        "litellm/router_utils/routing_prefetch.py",
-        "litellm/utils.py",
+        "hangarllm/llms/anthropic/prompt_cache_prediction.py",
+        "hangarllm/proxy/common_utils/cache_coordinator.py",
+        "hangarllm/proxy/common_utils/user_api_key_cache.py",
+        "hangarllm/router_utils/routing_prefetch.py",
+        "hangarllm/utils.py",
     }
 )
 # Callers whose every cache call hits a process-local ``InMemoryCache`` (a ``DualCache`` built without
 # ``redis_cache``, a ``local_only=True`` call, the client / logger / tool-name caches), so no Redis span exists.
 _IN_MEMORY_ONLY_CALLERS: Final = frozenset(
     {
-        "litellm/integrations/datadog/datadog_team_handler.py",
-        "litellm/integrations/humanloop.py",
-        "litellm/integrations/langfuse/langfuse_handler.py",
-        "litellm/integrations/langfuse/langfuse_prompt_management.py",
-        "litellm/integrations/newrelic/newrelic_team_handler.py",
-        "litellm/integrations/shadow_eval_logger.py",
-        "litellm/litellm_core_utils/litellm_logging.py",
-        "litellm/litellm_core_utils/oauth_token_exchange.py",
-        "litellm/litellm_core_utils/prompt_templates/factory.py",
-        "litellm/litellm_core_utils/prompt_templates/image_handling.py",
-        "litellm/litellm_core_utils/specialty_caches/dynamic_logging_cache.py",
-        "litellm/litellm_core_utils/specialty_caches/service_trace_id_cache.py",
-        "litellm/llms/azure/common_utils.py",
-        "litellm/llms/bedrock/base_aws_llm.py",
-        "litellm/llms/custom_httpx/http_handler.py",
-        "litellm/llms/databricks/common_utils.py",
-        "litellm/llms/gigachat/authenticator.py",
-        "litellm/llms/github_copilot/per_user_auth.py",
-        "litellm/llms/github_copilot/authenticator.py",
-        "litellm/llms/litellm_proxy/skills/handler.py",
-        "litellm/llms/openai/common_utils.py",
-        "litellm/llms/openai_like/model_info.py",
-        "litellm/llms/vertex_ai/vertex_ai_non_gemini.py",
-        "litellm/llms/watsonx/common_utils.py",
-        "litellm/proxy/mcp_server/byok_credential_cache.py",
-        "litellm/proxy/mcp_server/catalog.py",
-        "litellm/proxy/mcp_server/discoverable_endpoints.py",
-        "litellm/proxy/mcp_server/oauth_identity_binding.py",
-        "litellm/proxy/mcp_server/operations.py",
-        "litellm/proxy/mcp_server/outbound_credentials/sso_assertion_store.py",
-        "litellm/proxy/mcp_server/outbound_credentials/token_endpoint.py",
-        "litellm/proxy/agent_endpoints/databricks_oauth.py",
-        "litellm/proxy/common_utils/registry_read_through.py",
-        "litellm/proxy/container_endpoints/ownership.py",
-        "litellm/proxy/discovery_endpoints/agent_skills_endpoints.py",
-        "litellm/proxy/guardrails/guardrail_hooks/straiker/straiker.py",
-        "litellm/proxy/hooks/model_budget_shared_windows.py",
-        "litellm/proxy/spend_tracking/key_metadata_recovery.py",
-        "litellm/proxy/ui_crud_endpoints/latest_release_endpoints.py",
-        "litellm/responses/litellm_completion_transformation/transformation.py",
-        "litellm/router_utils/client_initalization_utils.py",
-        "litellm/router_utils/pre_call_checks/prompt_caching_deployment_check.py",
-        "litellm/router_utils/router_callbacks/track_deployment_metrics.py",
-        "litellm/secret_managers/cyberark_secret_manager.py",
-        "litellm/secret_managers/google_secret_manager.py",
-        "litellm/secret_managers/hashicorp_secret_manager.py",
-        "litellm/secret_managers/main.py",
+        "hangarllm/integrations/datadog/datadog_team_handler.py",
+        "hangarllm/integrations/humanloop.py",
+        "hangarllm/integrations/langfuse/langfuse_handler.py",
+        "hangarllm/integrations/langfuse/langfuse_prompt_management.py",
+        "hangarllm/integrations/newrelic/newrelic_team_handler.py",
+        "hangarllm/integrations/shadow_eval_logger.py",
+        "hangarllm/hangarllm_core_utils/hangarllm_logging.py",
+        "hangarllm/hangarllm_core_utils/oauth_token_exchange.py",
+        "hangarllm/hangarllm_core_utils/prompt_templates/factory.py",
+        "hangarllm/hangarllm_core_utils/prompt_templates/image_handling.py",
+        "hangarllm/hangarllm_core_utils/specialty_caches/dynamic_logging_cache.py",
+        "hangarllm/hangarllm_core_utils/specialty_caches/service_trace_id_cache.py",
+        "hangarllm/llms/azure/common_utils.py",
+        "hangarllm/llms/bedrock/base_aws_llm.py",
+        "hangarllm/llms/custom_httpx/http_handler.py",
+        "hangarllm/llms/databricks/common_utils.py",
+        "hangarllm/llms/gigachat/authenticator.py",
+        "hangarllm/llms/github_copilot/per_user_auth.py",
+        "hangarllm/llms/github_copilot/authenticator.py",
+        "hangarllm/llms/hangarllm_proxy/skills/handler.py",
+        "hangarllm/llms/openai/common_utils.py",
+        "hangarllm/llms/openai_like/model_info.py",
+        "hangarllm/llms/vertex_ai/vertex_ai_non_gemini.py",
+        "hangarllm/llms/watsonx/common_utils.py",
+        "hangarllm/proxy/mcp_server/byok_credential_cache.py",
+        "hangarllm/proxy/mcp_server/catalog.py",
+        "hangarllm/proxy/mcp_server/discoverable_endpoints.py",
+        "hangarllm/proxy/mcp_server/oauth_identity_binding.py",
+        "hangarllm/proxy/mcp_server/operations.py",
+        "hangarllm/proxy/mcp_server/outbound_credentials/sso_assertion_store.py",
+        "hangarllm/proxy/mcp_server/outbound_credentials/token_endpoint.py",
+        "hangarllm/proxy/agent_endpoints/databricks_oauth.py",
+        "hangarllm/proxy/common_utils/registry_read_through.py",
+        "hangarllm/proxy/container_endpoints/ownership.py",
+        "hangarllm/proxy/discovery_endpoints/agent_skills_endpoints.py",
+        "hangarllm/proxy/guardrails/guardrail_hooks/straiker/straiker.py",
+        "hangarllm/proxy/hooks/model_budget_shared_windows.py",
+        "hangarllm/proxy/spend_tracking/key_metadata_recovery.py",
+        "hangarllm/proxy/ui_crud_endpoints/latest_release_endpoints.py",
+        "hangarllm/responses/hangarllm_completion_transformation/transformation.py",
+        "hangarllm/router_utils/client_initalization_utils.py",
+        "hangarllm/router_utils/pre_call_checks/prompt_caching_deployment_check.py",
+        "hangarllm/router_utils/router_callbacks/track_deployment_metrics.py",
+        "hangarllm/secret_managers/cyberark_secret_manager.py",
+        "hangarllm/secret_managers/google_secret_manager.py",
+        "hangarllm/secret_managers/hashicorp_secret_manager.py",
+        "hangarllm/secret_managers/main.py",
     }
 )
 

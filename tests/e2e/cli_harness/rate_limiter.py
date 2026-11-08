@@ -1,9 +1,9 @@
 """A token bucket per upstream, shared by every process on the host, so parallel CLI suites and xdist workers
 together stay under one request rate per provider instead of one rate each.
 
-Each bucket is a small JSON file read and written under an exclusive `flock`, in `LITELLM_COMPAT_RATE_STATE_DIR`
-(default: a fixed folder under `$TMPDIR`). `LITELLM_COMPAT_RATE_<BUCKET>` sets a bucket's req/s (default 5, 0 or less
-turns it off) and `LITELLM_COMPAT_RATE_BURST` overrides every bucket's burst (default: its rate).
+Each bucket is a small JSON file read and written under an exclusive `flock`, in `HANGARLLM_COMPAT_RATE_STATE_DIR`
+(default: a fixed folder under `$TMPDIR`). `HANGARLLM_COMPAT_RATE_<BUCKET>` sets a bucket's req/s (default 5, 0 or less
+turns it off) and `HANGARLLM_COMPAT_RATE_BURST` overrides every bucket's burst (default: its rate).
 """
 
 from __future__ import annotations
@@ -23,10 +23,10 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 DEFAULT_RATE: Final = 5.0
-RATE_ENV_PREFIX: Final = "LITELLM_COMPAT_RATE_"
-BURST_ENV: Final = "LITELLM_COMPAT_RATE_BURST"
-STATE_DIR_ENV: Final = "LITELLM_COMPAT_RATE_STATE_DIR"
-DEFAULT_STATE_DIR_NAME: Final = "litellm-claude-compat-ratelimit"
+RATE_ENV_PREFIX: Final = "HANGARLLM_COMPAT_RATE_"
+BURST_ENV: Final = "HANGARLLM_COMPAT_RATE_BURST"
+STATE_DIR_ENV: Final = "HANGARLLM_COMPAT_RATE_STATE_DIR"
+DEFAULT_STATE_DIR_NAME: Final = "hangarllm-claude-compat-ratelimit"
 _WAKE_MARGIN_SECONDS: Final = 1e-3
 
 

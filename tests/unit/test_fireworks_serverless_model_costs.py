@@ -14,7 +14,7 @@ import os
 
 import pytest
 
-from litellm.utils import get_model_info
+from hangarllm.utils import get_model_info
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +34,7 @@ def test_bare_fireworks_ids_resolve_through_prefixed_entries():
     ]:
         info = get_model_info(model=bare_id, custom_llm_provider="fireworks_ai")
         assert info.get("key") == prefixed_key
-        assert info["litellm_provider"] == "fireworks_ai"
+        assert info["hangarllm_provider"] == "fireworks_ai"
 
 
 def test_fireworks_account_prefixed_twins_agree_on_price(model_data):

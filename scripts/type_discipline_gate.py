@@ -2,7 +2,7 @@
 """Delta-vs-base gate for the LIT* rules in scripts/check_type_discipline.py.
 
 Sibling of scripts/ruff_strict_gate.py. Each rule is counted across the whole
-`litellm` tree at HEAD and at the merge-base with the branch this change merges
+`hangarllm` tree at HEAD and at the merge-base with the branch this change merges
 into, and the gate fails only when a rule grew past the merge-base count, so a
 change is blamed for the violations it adds, never for drift that already exists
 in the base. There is no committed budget: the merge-base count is the ceiling,
@@ -53,7 +53,7 @@ from lint_base_counts import (
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 CHECKER: Final = REPO_ROOT / "scripts" / "check_type_discipline.py"
-TARGET: Final = "litellm"
+TARGET: Final = "hangarllm"
 
 _HUNK: Final = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 _LINE: Final = re.compile(r"^(?P<file>.+?):(?P<line>\d+): (?P<code>LIT\d+) ")

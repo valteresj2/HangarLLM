@@ -9,19 +9,19 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms import compaction as native
-from litellm.router_api import RoutingContext
-from litellm.router_strategy.complexity_router.config import ContextCompactionConfig
-from litellm.router_strategy.complexity_router.context_compaction import (
+import hangarllm
+from hangarllm.llms import compaction as native
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_strategy.complexity_router.config import ContextCompactionConfig
+from hangarllm.router_strategy.complexity_router.context_compaction import (
     CompactionState,
     Surface,
     arm_compaction,
     compact_to_fit,
     compaction_executor,
 )
-from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
-from litellm.types.router import Deployment
+from hangarllm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
+from hangarllm.types.router import Deployment
 
 pytestmark: Final = [pytest.mark.asyncio, pytest.mark.usefixtures("local_model_cost_map")]
 SCHEMA: Final = {"type": "object", "properties": {"code": {"type": "string"}}}
@@ -30,10 +30,10 @@ SCHEMA: Final = {"type": "object", "properties": {"code": {"type": "string"}}}
 @pytest.fixture(autouse=True)
 def native_catalog(monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None) -> None:
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    monkeypatch.setenv("LITELLM_LICENSE", "")
-    monkeypatch.setattr(litellm, "use_chat_completions_url_for_anthropic_messages", False)
-    monkeypatch.setitem(litellm.model_cost, "summary-fixture", {
-        "litellm_provider": "anthropic", "mode": "chat", "max_input_tokens": 32000,
+    monkeypatch.setenv("HANGARLLM_LICENSE", "")
+    monkeypatch.setattr(hangarllm, "use_chat_completions_url_for_anthropic_messages", False)
+    monkeypatch.setitem(hangarllm.model_cost, "summary-fixture", {
+        "hangarllm_provider": "anthropic", "mode": "chat", "max_input_tokens": 32000,
         "max_output_tokens": 4096, "supports_anthropic_compaction": True,
     })
 
@@ -43,26 +43,26 @@ def make_router(
     conflict: bool = False, output: int | None = 64,
     answer_defaults: Mapping[str, object] | None = None,
     context_fallback: bool = False,
-) -> litellm.Router:
+) -> hangarllm.Router:
     config: Final = {
         "tiers": {"SIMPLE": "small", "MEDIUM": "large", "COMPLEX": "large", "REASONING": "large"},
         "keyword_tier_rules": [{"keywords": ["answer", "tail result"], "tier": "SIMPLE"}],
         "enable_context_window_escalation": False, "max_tokens_from_tier_model": False,
         **(settings or {}),
     }
-    return litellm.Router(model_list=[
-        {"model_name": "auto", "litellm_params": {
+    return hangarllm.Router(model_list=[
+        {"model_name": "auto", "hangarllm_params": {
             "model": "auto_router/complexity_router", "complexity_router_config": config,
         }},
-        {"model_name": "small", "litellm_params": {
+        {"model_name": "small", "hangarllm_params": {
             "model": "openai/arbitrary-answer", "api_base": "https://answer.test/v1", "api_key": "answer-test", "max_retries": 0,
             **(answer_defaults or {}),
         }, "model_info": {"id": "pinned-answer", "max_input_tokens": window, "max_output_tokens": output}},
-        {"model_name": "large", "litellm_params": {
+        {"model_name": "large", "hangarllm_params": {
             "model": "anthropic/summary-fixture", "api_base": "https://compact.test", "api_key": "compact-test",
             **({"stop": ["deployment policy"]} if conflict else {}),
         }, "model_info": {"id": "native-compactor", "max_input_tokens": compactor_window, "max_output_tokens": 4096}},
-        {"model_name": "backup", "litellm_params": {
+        {"model_name": "backup", "hangarllm_params": {
             "model": "anthropic/summary-fixture", "api_base": "https://compact.test", "api_key": "backup-test",
         }, "model_info": {"id": "backup-compactor", "max_input_tokens": 32000, "max_output_tokens": 4096}},
     ], enable_pre_call_checks=True, num_retries=0, disable_cooldowns=True,
@@ -149,7 +149,7 @@ def wire() -> Iterator[tuple[respx.Route, respx.Route]]:
         yield compactor, answer
 
 
-async def invoke(router: litellm.Router, surface: Surface, payload: Mapping[str, object], retries: int = 0) -> object:
+async def invoke(router: hangarllm.Router, surface: Surface, payload: Mapping[str, object], retries: int = 0) -> object:
     if surface == "responses":
         return await router.aresponses(model="auto", max_output_tokens=64, num_retries=retries, **payload)
     if surface == "messages":
@@ -277,13 +277,13 @@ async def test_uncompactable_overflow_uses_explicit_context_fallback(
 async def test_no_native_compactor_respects_explicit_escalation(
     wire: tuple[respx.Route, respx.Route], monkeypatch: pytest.MonkeyPatch, escalate: bool,
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost["summary-fixture"], "supports_anthropic_compaction", False)
+    monkeypatch.setitem(hangarllm.model_cost["summary-fixture"], "supports_anthropic_compaction", False)
     router: Final = make_router(settings={"enable_context_window_escalation": escalate})
     compactor, answer = wire
     compactor.mock(return_value=httpx.Response(200, json={**native_reply().json(),
         "content": [{"type": "text", "text": "MAPLE-47"}], "stop_reason": "end_turn"}))
     if not escalate:
-        with pytest.raises(litellm.ContextWindowExceededError, match="No configured compactor"):
+        with pytest.raises(hangarllm.ContextWindowExceededError, match="No configured compactor"):
             await invoke(router, "chat", history("chat"))
         assert compactor.call_count == 0
     else:
@@ -302,7 +302,7 @@ async def test_undersized_native_compactor_does_not_block_explicit_escalation(
         "tiers": {"SIMPLE": "small", "MEDIUM": "large", "COMPLEX": "wide", "REASONING": "wide"},
     })
     router.add_deployment(Deployment(
-        model_name="wide", litellm_params={
+        model_name="wide", hangarllm_params={
             "model": "openai/wide-answer", "api_base": "https://answer.test/v1", "api_key": "answer-test",
         }, model_info={"id": "wide-answer", "max_input_tokens": 32000, "max_output_tokens": 64},
     ))
@@ -327,7 +327,7 @@ async def test_bad_native_result_never_reaches_answerer(
         truncated=failure == "truncated",
     )
     compactor.mock(return_value=reply)
-    with pytest.raises((litellm.BadRequestError, litellm.InternalServerError)):
+    with pytest.raises((hangarllm.BadRequestError, hangarllm.InternalServerError)):
         await invoke(make_router(), surface, history(surface))
     assert compactor.call_count == 1 and answer.call_count == 0
 
@@ -352,7 +352,7 @@ async def test_unsafe_responses_reject_only_when_compaction_needed(
         **({"instructions": "Keep every instruction " * 600} if failure == "retained" else {}),
     }
     if needed:
-        with pytest.raises(litellm.BadRequestError, match="Context compaction"):
+        with pytest.raises(hangarllm.BadRequestError, match="Context compaction"):
             await invoke(make_router(), "responses", request)
         assert all(route.call_count == 0 for route in wire)
     else:
@@ -385,7 +385,7 @@ async def test_client_owned_history_bypasses_compaction(
     await arm_compaction(before_defaults, ContextCompactionConfig(), ("large",))
     counted: Final = router._count_pre_call_check_tokens(None, request["input"], request)
     if arm_first and counted > 512:
-        with pytest.raises(litellm.ContextWindowExceededError):
+        with pytest.raises(hangarllm.ContextWindowExceededError):
             await compact_to_fit(RoutingContext(router), deployment.model_dump(), request, "responses")
     else:
         result: Final = await compact_to_fit(RoutingContext(router), deployment.model_dump(), request, "responses")
@@ -404,7 +404,7 @@ async def test_client_managed_overflow_keeps_context_window_admission(
     payload: Final = {**history(surface), **(managed if source == "request" else {})}
     compactor, answer = wire
     if source == "deployment":
-        with pytest.raises(litellm.ContextWindowExceededError):
+        with pytest.raises(hangarllm.ContextWindowExceededError):
             await invoke(router, surface, payload)
         assert compactor.call_count == 0
     else:
@@ -419,9 +419,9 @@ async def test_automatic_compactor_skips_conflicts_and_requires_capacity_and_cap
     wire: tuple[respx.Route, respx.Route], monkeypatch: pytest.MonkeyPatch, case: str,
 ) -> None:
     if case.startswith("capability"):
-        metadata: Final = {key: value for key, value in litellm.model_cost["summary-fixture"].items()
+        metadata: Final = {key: value for key, value in hangarllm.model_cost["summary-fixture"].items()
                            if key != "supports_anthropic_compaction"}
-        monkeypatch.setitem(litellm.model_cost, "summary-fixture", {
+        monkeypatch.setitem(hangarllm.model_cost, "summary-fixture", {
             **metadata, **({"supports_anthropic_compaction": False} if case == "capability_false" else {}),
         })
     conflict: Final = case == "conflicting_defaults"
@@ -434,7 +434,7 @@ async def test_automatic_compactor_skips_conflicts_and_requires_capacity_and_cap
         assert compactor.calls[0].request.headers["x-api-key"] == "backup-test"
         assert "stop_sequences" not in json.loads(compactor.calls[0].request.content)
     else:
-        with pytest.raises(litellm.BadRequestError, match="No configured compactor"):
+        with pytest.raises(hangarllm.BadRequestError, match="No configured compactor"):
             await invoke(router, "chat", history("chat"))
         assert all(route.call_count == 0 for route in wire)
 
@@ -454,7 +454,7 @@ async def test_unusable_output_budget_still_enforces_known_input_window(
     state: Final = CompactionState(config=ContextCompactionConfig(), candidates=("large",))
     request: Final = {**payload, "model": "small", "max_tokens": output, "_context_compaction_state": state}
     if overflow:
-        with pytest.raises(litellm.BadRequestError, match="known input window"):
+        with pytest.raises(hangarllm.BadRequestError, match="known input window"):
             await compact_to_fit(RoutingContext(router), deployment.model_dump(), request, "chat")
     else:
         assert await compact_to_fit(RoutingContext(router), deployment.model_dump(), request, "chat") is request
@@ -492,7 +492,7 @@ async def test_retry_reuses_summary_or_terminal_cancellation(outcome: Literal["s
         if outcome == "success":
             assert await first == await compact_to_fit(ctx, deployment.model_dump(), request, "messages")
             changed: Final = {**request, "messages": [{"role": "user", "content": "new history"}, *request["messages"]]}
-            with pytest.raises(litellm.BadRequestError, match="History changed"):
+            with pytest.raises(hangarllm.BadRequestError, match="History changed"):
                 await compact_to_fit(ctx, deployment.model_dump(), changed, "messages")
         else:
             error: Final = asyncio.CancelledError if outcome == "cancel" else asyncio.TimeoutError

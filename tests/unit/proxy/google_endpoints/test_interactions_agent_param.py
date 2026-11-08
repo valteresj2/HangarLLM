@@ -2,7 +2,7 @@
 Tests for managed-agent interaction routing.
 
 Custom Gemini agents are identified by ``agent`` (name/id), not ``model``.
-The proxy must not pass the agent name as ``model`` or LiteLLM may route to
+The proxy must not pass the agent name as ``model`` or HangarLLM may route to
 openai/* wildcards instead of Gemini interactions.
 """
 
@@ -44,17 +44,17 @@ class TestInteractionsAgentParameter:
 class TestInteractionsAgentOnlyProviderRouting:
     """SDK: agent-only create must not call get_llm_provider on the agent name."""
 
-    @patch("litellm.interactions.main.interactions_http_handler")
-    @patch("litellm.interactions.main.get_provider_interactions_api_config")
-    @patch("litellm.get_llm_provider")
+    @patch("hangarllm.interactions.main.interactions_http_handler")
+    @patch("hangarllm.interactions.main.get_provider_interactions_api_config")
+    @patch("hangarllm.get_llm_provider")
     def test_agent_only_skips_get_llm_provider(
         self,
         mock_get_llm_provider,
         mock_get_config,
         mock_handler,
     ):
-        from litellm.interactions.main import create
-        from litellm.types.interactions import InteractionsAPIResponse
+        from hangarllm.interactions.main import create
+        from hangarllm.types.interactions import InteractionsAPIResponse
 
         mock_get_config.return_value = MagicMock()
         mock_handler.create_interaction.return_value = InteractionsAPIResponse(
@@ -68,7 +68,7 @@ class TestInteractionsAgentOnlyProviderRouting:
             agent="mqy-custom-slides-agent",
             input="test",
             custom_llm_provider="gemini",
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
 
         mock_get_llm_provider.assert_not_called()
@@ -77,9 +77,9 @@ class TestInteractionsAgentOnlyProviderRouting:
         assert call_kwargs["model"] is None
         assert call_kwargs["custom_llm_provider"] == "gemini"
 
-    @patch("litellm.interactions.main.interactions_http_handler")
-    @patch("litellm.interactions.main.get_provider_interactions_api_config")
-    @patch("litellm.get_llm_provider")
+    @patch("hangarllm.interactions.main.interactions_http_handler")
+    @patch("hangarllm.interactions.main.get_provider_interactions_api_config")
+    @patch("hangarllm.get_llm_provider")
     def test_proxy_mistake_model_equals_agent_is_corrected(
         self,
         mock_get_llm_provider,
@@ -87,8 +87,8 @@ class TestInteractionsAgentOnlyProviderRouting:
         mock_handler,
     ):
         """If model was wrongly set to the agent name, clear it before the HTTP call."""
-        from litellm.interactions.main import create
-        from litellm.types.interactions import InteractionsAPIResponse
+        from hangarllm.interactions.main import create
+        from hangarllm.types.interactions import InteractionsAPIResponse
 
         mock_get_config.return_value = MagicMock()
         mock_handler.create_interaction.return_value = InteractionsAPIResponse(
@@ -103,7 +103,7 @@ class TestInteractionsAgentOnlyProviderRouting:
             agent="mqy-custom-slides-agent",
             input="test",
             custom_llm_provider="gemini",
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
 
         mock_get_llm_provider.assert_not_called()
@@ -115,9 +115,9 @@ _PROXY_CONFIG: Final = Path(__file__).resolve().parents[1] / "test_configs" / "t
 
 @pytest.fixture
 def proxy_client(monkeypatch: pytest.MonkeyPatch, httpx_transport: None) -> TestClient:
-    from litellm.proxy.proxy_server import app, cleanup_router_config_variables, initialize
+    from hangarllm.proxy.proxy_server import app, cleanup_router_config_variables, initialize
 
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
     cleanup_router_config_variables()
     asyncio.run(initialize(config=str(_PROXY_CONFIG)))
     return TestClient(app)

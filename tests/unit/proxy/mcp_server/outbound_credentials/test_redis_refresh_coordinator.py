@@ -4,10 +4,10 @@ import asyncio
 
 import pytest
 
-from litellm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
-from litellm.proxy.mcp_server.outbound_credentials.redis_refresh_coordinator import (
+from hangarllm.proxy.mcp_server.outbound_credentials.redis_refresh_coordinator import (
     LockAcquisition,
     RedisRefreshCoordinator,
 )

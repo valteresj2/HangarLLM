@@ -3,7 +3,7 @@ Characterization of what a streamed attempt records against its deployment: the 
 request a stream counts once it is fully consumed, and the failure and cooldown a stream that breaks
 after its first chunk counts, for chat, Responses and /v1/messages streams.
 
-Every scripted stream here logs through the host when it ends (``logged=True``), as litellm's stream
+Every scripted stream here logs through the host when it ends (``logged=True``), as hangarllm's stream
 logging does, so a core that learns outcomes from logging callbacks sees the stream's outcome only
 then, with the assembled response's usage.
 """
@@ -15,9 +15,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
-from litellm.types.llms.openai import ResponseAPIUsage, ResponseCompletedEvent, ResponsesAPIResponse
+import hangarllm
+from hangarllm.router_core import RouterCore
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponseCompletedEvent, ResponsesAPIResponse
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
 from tests.unit.test_router.core.streaming_helpers import (
     MESSAGE_STOP,
@@ -43,7 +43,7 @@ USAGE: Final = {"prompt_tokens": 4, "completion_tokens": 8, "total_tokens": 12}
 
 def group(
     *ids: str, **params: object
-) -> list[dict[str, object]]:  # kwargs-ok: litellm_params  # mutable-ok: a model_list
+) -> list[dict[str, object]]:  # kwargs-ok: hangarllm_params  # mutable-ok: a model_list
     return [deployment("g", deployment_id, None, **params) for deployment_id in ids]
 
 
@@ -75,7 +75,7 @@ async def settle() -> None:
 
 
 def eventually(check: Callable[[], bool]) -> None:
-    """Wait for ``check``: litellm logs a sync stream's outcome from a worker thread."""
+    """Wait for ``check``: hangarllm logs a sync stream's outcome from a worker thread."""
     deadline: Final = time.monotonic() + 5.0
     while not check() and time.monotonic() < deadline:
         time.sleep(0.01)
@@ -145,7 +145,7 @@ def test_a_sync_stream_that_breaks_after_content_counts_one_failure_and_cools_do
     )
 
     stream: Final = open_chat_sync(core)
-    with pytest.raises(litellm.RateLimitError, match="mid stream"):
+    with pytest.raises(hangarllm.RateLimitError, match="mid stream"):
         collect_texts_sync(stream)
     eventually(lambda: bool(cooled(core, "a", "b")))
 
@@ -169,7 +169,7 @@ async def test_a_stream_that_breaks_after_content_counts_one_failure_and_cools_d
     )
 
     stream: Final = await open_chat(core)
-    with pytest.raises(litellm.RateLimitError, match="mid stream"):
+    with pytest.raises(hangarllm.RateLimitError, match="mid stream"):
         await collect_texts(stream)
     await settle()
 
@@ -188,7 +188,7 @@ async def test_a_stream_that_breaks_after_content_within_the_allowed_fails_does_
     core: Final = make_core(model_list=group("a"), num_retries=0, allowed_fails=3)
 
     stream: Final = await open_chat(core)
-    with pytest.raises(litellm.RateLimitError, match="mid stream"):
+    with pytest.raises(hangarllm.RateLimitError, match="mid stream"):
         await collect_texts(stream)
     await settle()
 
@@ -300,7 +300,7 @@ async def test_a_responses_stream_that_breaks_after_output_counts_one_failure_an
     )
 
     stream: Final = await open_responses(core)
-    with pytest.raises(litellm.RateLimitError, match="mid stream"):
+    with pytest.raises(hangarllm.RateLimitError, match="mid stream"):
         await collect_event_types(stream)
     await settle()
 
@@ -373,7 +373,7 @@ async def test_a_messages_stream_that_breaks_after_content_counts_one_failure_an
     )
 
     stream: Final = await open_messages(core)
-    with pytest.raises(litellm.RateLimitError, match="mid stream"):
+    with pytest.raises(hangarllm.RateLimitError, match="mid stream"):
         await collect_bytes(stream)
     await settle()
 

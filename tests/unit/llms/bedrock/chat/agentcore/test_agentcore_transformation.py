@@ -18,10 +18,10 @@ import respx
 from typing import Final
 from unittest.mock import MagicMock, Mock, patch
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
 
 class TestAgentCoreAcceptHeader:
@@ -70,13 +70,13 @@ class TestAgentCoreAcceptHeader:
     def test_accept_header_in_completion_request_jwt(self):
         """
         End-to-end test: verify Accept header appears in the final HTTP request
-        when using JWT auth through litellm.completion().
+        when using JWT auth through hangarllm.completion().
 
         No exception swallowing: if completion() raises (for example because the
         injected client was silently ignored and a real network call was made),
         the test must fail with that error, not a misleading mock assertion.
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
         mock_response = Mock(spec=httpx.Response)
@@ -87,7 +87,7 @@ class TestAgentCoreAcceptHeader:
         }
 
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_runtime",
                 messages=[{"role": "user", "content": "test"}],
                 api_key="test-jwt-token",
@@ -277,9 +277,9 @@ class TestAgentCoreStreamingJsonFallback:
         """
         When stream=True but the agent returns Content-Type: application/json,
         content is extracted and returned instead of silently returning empty.
-        Exercises the full path through litellm.completion().
+        Exercises the full path through hangarllm.completion().
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
         json_body = {"response": [{"text": "Strands sync response"}]}
@@ -290,7 +290,7 @@ class TestAgentCoreStreamingJsonFallback:
         mock_response.read.return_value = json.dumps(json_body).encode()
 
         with patch.object(client, "post", return_value=mock_response):
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                 messages=[{"role": "user", "content": "test"}],
                 stream=True,
@@ -310,11 +310,11 @@ class TestAgentCoreStreamingJsonFallback:
     async def test_async_streaming_with_json_response(self):
         """
         Async streaming: same Content-Type: application/json fallback via
-        litellm.acompletion(stream=True).
+        hangarllm.acompletion(stream=True).
         """
         from unittest.mock import AsyncMock
 
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         client = AsyncHTTPHandler()
         json_body = {"response": [{"text": "Strands async response"}]}
@@ -327,7 +327,7 @@ class TestAgentCoreStreamingJsonFallback:
         with patch.object(
             client, "post", new_callable=AsyncMock, return_value=mock_response
         ):
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                 messages=[{"role": "user", "content": "test"}],
                 stream=True,
@@ -349,7 +349,7 @@ class TestAgentCoreStreamingJsonFallback:
         is malformed JSON, an error is raised with a descriptive message
         (not a raw JSONDecodeError).
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
 
@@ -362,7 +362,7 @@ class TestAgentCoreStreamingJsonFallback:
             with pytest.raises(
                 Exception, match="Failed to read/parse JSON response body"
             ):
-                litellm.completion(
+                hangarllm.completion(
                     model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                     messages=[{"role": "user", "content": "test"}],
                     stream=True,
@@ -377,7 +377,7 @@ class TestAgentCoreStreamingJsonFallback:
         """
         from unittest.mock import AsyncMock
 
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         client = AsyncHTTPHandler()
 
@@ -392,7 +392,7 @@ class TestAgentCoreStreamingJsonFallback:
             with pytest.raises(
                 Exception, match="Failed to read/parse JSON response body"
             ):
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                     messages=[{"role": "user", "content": "test"}],
                     stream=True,
@@ -409,7 +409,7 @@ class TestAgentCoreMultimodalContent:
     only emits {"prompt": "<text>"} by default and drops image_url, file, and
     other non-text blocks.
 
-    When the ``forward_multimodal_content`` litellm param is set, the OpenAI
+    When the ``forward_multimodal_content`` hangarllm param is set, the OpenAI
     content list is forwarded verbatim under a "content" field whenever the last
     message contains a non-text block. This is opt-in: an agent must be written
     to read payload["content"]. Without the flag, the payload is byte-identical
@@ -426,7 +426,7 @@ class TestAgentCoreMultimodalContent:
         return {
             "model": "bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:111111111111:runtime/test_agent",
             "optional_params": {},
-            "litellm_params": {},
+            "hangarllm_params": {},
             "headers": {},
         }
 
@@ -628,8 +628,8 @@ class TestAgentCoreMultimodalContent:
         payload = config.transform_request(messages=messages, **kwargs)
         assert "content" not in payload
 
-    def test_forward_flag_via_litellm_params(self, config, transform_kwargs):
-        """The opt-in flag is also honored when set in litellm_params."""
+    def test_forward_flag_via_hangarllm_params(self, config, transform_kwargs):
+        """The opt-in flag is also honored when set in hangarllm_params."""
         content = [
             {"type": "text", "text": "hi"},
             {
@@ -640,7 +640,7 @@ class TestAgentCoreMultimodalContent:
         messages = [{"role": "user", "content": content}]
         kwargs = {
             **transform_kwargs,
-            "litellm_params": {"forward_multimodal_content": True},
+            "hangarllm_params": {"forward_multimodal_content": True},
         }
         payload = config.transform_request(messages=messages, **kwargs)
         assert payload["content"] == content
@@ -653,14 +653,14 @@ def test_bedrock_agentcore_without_api_key_uses_sigv4():
     """
     import json
 
-    litellm.turn_on_debug()
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    hangarllm.turn_on_debug()
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
     with patch.object(client, "post", return_value=MagicMock()) as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/hosted_agent_r9jvp-3ySZuRHjLC",
                 messages=[
                     {
@@ -703,8 +703,8 @@ def test_agentcore_transform_response_sse():
     Integration test for transform_response with SSE response
     Verifies end-to-end transformation of SSE responses to ModelResponse
     """
-    from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+    from hangarllm.types.utils import ModelResponse
 
     config = AmazonAgentCoreConfig()
 
@@ -734,7 +734,7 @@ data: {"message":{"role":"assistant","content":[{"text":"SSE response"}]}}
         request_data={},
         messages=[{"role": "user", "content": "test"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -756,14 +756,14 @@ def test_bedrock_agentcore_with_runtime_user_id():
     """
     import json
 
-    litellm.turn_on_debug()
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    hangarllm.turn_on_debug()
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
     with patch.object(client, "post", return_value=MagicMock()) as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/hosted_agent_r9jvp-3ySZuRHjLC",
                 messages=[
                     {
@@ -793,7 +793,7 @@ def test_agentcore_parse_sse_response_without_final_message():
     """
     Unit test for SSE response parsing when only deltas are present (no final message)
     """
-    from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+    from hangarllm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
 
     config = AmazonAgentCoreConfig()
 
@@ -829,9 +829,9 @@ def test_agentcore_synchronous_non_streaming_response():
     This is a regression test for the streaming simplification changes
     to ensure we didn't break the non-streaming code path.
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     client = HTTPHandler()
 
     # Mock a JSON response (typical for synchronous AgentCore calls)
@@ -850,7 +850,7 @@ def test_agentcore_synchronous_non_streaming_response():
 
     with patch.object(client, "post", return_value=mock_response) as mock_post:
         # Make a synchronous (non-streaming) completion call
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/hosted_agent_r9jvp-3ySZuRHjLC",
             messages=[
                 {
@@ -896,7 +896,7 @@ def test_agentcore_parse_sse_response():
     Unit test for SSE response parsing (streaming response consumed as text)
     Verifies that text/event-stream responses are parsed correctly
     """
-    from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+    from hangarllm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
 
     config = AmazonAgentCoreConfig()
 
@@ -931,15 +931,15 @@ def test_bedrock_agentcore_with_all_parameters():
     """
     import json
 
-    litellm.turn_on_debug()
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    hangarllm.turn_on_debug()
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     test_jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature"
 
     with patch.object(client, "post", return_value=MagicMock()) as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/hosted_agent_r9jvp-3ySZuRHjLC",
                 messages=[
                     {
@@ -1001,15 +1001,15 @@ def test_bedrock_agentcore_with_api_key_bearer_token():
     """
     import json
 
-    litellm.turn_on_debug()
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    hangarllm.turn_on_debug()
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     test_jwt_token = "test-jwt-token-header.payload.signature"
 
     with patch.object(client, "post", return_value=MagicMock()) as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/hosted_agent_r9jvp-3ySZuRHjLC",
                 messages=[
                     {
@@ -1050,14 +1050,14 @@ def test_bedrock_agentcore_with_session_and_user():
     """
     import json
 
-    litellm.turn_on_debug()
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    hangarllm.turn_on_debug()
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
     with patch.object(client, "post", return_value=MagicMock()) as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/hosted_agent_r9jvp-3ySZuRHjLC",
                 messages=[
                     {
@@ -1093,7 +1093,7 @@ def test_agentcore_parse_json_response():
     Unit test for JSON response parsing (non-streaming)
     Verifies that content-type: application/json responses are parsed correctly
     """
-    from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+    from hangarllm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
 
     config = AmazonAgentCoreConfig()
 
@@ -1118,8 +1118,8 @@ def test_agentcore_transform_response_json():
     Integration test for transform_response with JSON response
     Verifies end-to-end transformation of JSON responses to ModelResponse
     """
-    from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+    from hangarllm.types.utils import ModelResponse
 
     config = AmazonAgentCoreConfig()
 
@@ -1145,7 +1145,7 @@ def test_agentcore_transform_response_json():
         request_data={},
         messages=[{"role": "user", "content": "test"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -1163,14 +1163,14 @@ def test_bedrock_agentcore_with_custom_params():
     """
     import json
 
-    litellm.turn_on_debug()
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    hangarllm.turn_on_debug()
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
     with patch.object(client, "post", return_value=MagicMock()) as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/hosted_agent_r9jvp-3ySZuRHjLC",
                 messages=[
                     {
@@ -1178,7 +1178,7 @@ def test_bedrock_agentcore_with_custom_params():
                         "content": "Explain machine learning in simple terms",
                     }
                 ],
-                runtimeSessionId="litellm-test-session-id-12345678901234567890",
+                runtimeSessionId="hangarllm-test-session-id-12345678901234567890",
                 qualifier="DEFAULT",
                 client=client,
             )
@@ -1206,7 +1206,7 @@ def test_bedrock_agentcore_with_custom_params():
         assert "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id" in headers
         assert (
             headers["X-Amzn-Bedrock-AgentCore-Runtime-Session-Id"]
-            == "litellm-test-session-id-12345678901234567890"
+            == "hangarllm-test-session-id-12345678901234567890"
         )
 
         # Verify the request body - should just be the payload
@@ -1258,7 +1258,7 @@ def test_agentcore_runtime_response_becomes_assistant_message(
         "arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A888602223428%3Aruntime%2Fhosted_agent_13sf6-cALnp38iZD/invocations"
     ).mock(return_value=httpx.Response(200, content=body.encode(), headers={"content-type": content_type}))
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/"
         "hosted_agent_13sf6-cALnp38iZD",
         messages=[{"role": "user", "content": "Explain machine learning in simple terms"}],
@@ -1296,11 +1296,11 @@ async def _stream_agentcore(body: str, sync_mode: bool) -> list[tuple[str | None
     if sync_mode:
         return [
             (chunk.choices[0].delta.content, chunk.choices[0].finish_reason)
-            for chunk in litellm.completion(**kwargs, client=HTTPHandler())
+            for chunk in hangarllm.completion(**kwargs, client=HTTPHandler())
         ]
     return [
         (chunk.choices[0].delta.content, chunk.choices[0].finish_reason)
-        async for chunk in await litellm.acompletion(
+        async for chunk in await hangarllm.acompletion(
             **kwargs, client=AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport())
         )
     ]
@@ -1361,7 +1361,7 @@ def test_get_complete_url_sends_a_non_string_runtime_endpoint_to_that_endpoint()
         api_key=None,
         model="agentcore/arn:aws:bedrock-agentcore:us-west-2:111122223333:runtime/my-agent",
         optional_params={"aws_bedrock_runtime_endpoint": httpx.URL(f"{vpc_endpoint}/")},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url.startswith(f"{vpc_endpoint}/runtimes/")

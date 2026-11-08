@@ -4,12 +4,12 @@ from collections.abc import Iterator
 from typing import Final
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
-from litellm._logging import verbose_logger
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.deepseek.chat.transformation import DeepSeekChatConfig
+from hangarllm._logging import verbose_logger
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.deepseek.chat.transformation import DeepSeekChatConfig
 
 DEEPSEEK_API_BASE: Final = "https://api.deepseek.com/beta"
 DEEPSEEK_CHAT_COMPLETIONS_URL: Final = f"{DEEPSEEK_API_BASE}/chat/completions"
@@ -19,10 +19,10 @@ DEEPSEEK_API_KEY: Final = "fake_api_key"
 @pytest.fixture
 def _deepseek_httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
-    monkeypatch.setattr(litellm, "sync_transport", None, raising=False)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "sync_transport", None, raising=False)
     yield
     client_cache.flush_cache()
 
@@ -111,7 +111,7 @@ def test_completion_cost_deepseek_reports_prompt_cache_usage(respx_mock: respx.M
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="deepseek/deepseek-chat",
         messages=messages,
         api_key=DEEPSEEK_API_KEY,
@@ -202,7 +202,7 @@ def test_transform_request_strips_unsupported_tools_from_body():
             ],
             "tool_choice": "auto",
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -222,7 +222,7 @@ async def test_async_transform_request_strips_unsupported_tools_from_body():
             ],
             "tool_choice": "auto",
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -243,12 +243,12 @@ class TestDeepSeekVisionMultimodalContent:
 
     def setup_method(self):
         self.config = DeepSeekChatConfig()
-        prior_entry = litellm.model_cost.get(self.VISION_MODEL)
+        prior_entry = hangarllm.model_cost.get(self.VISION_MODEL)
         self._prior_registry_entry = dict(prior_entry) if prior_entry is not None else None
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 "deepseek/deepseek-v4-flash-vision-exp": {
-                    "litellm_provider": "deepseek",
+                    "hangarllm_provider": "deepseek",
                     "mode": "chat",
                     "input_cost_per_token": 4.4e-07,
                     "output_cost_per_token": 1.32e-06,
@@ -259,9 +259,9 @@ class TestDeepSeekVisionMultimodalContent:
 
     def teardown_method(self):
         if self._prior_registry_entry is None:
-            litellm.model_cost.pop(self.VISION_MODEL, None)
+            hangarllm.model_cost.pop(self.VISION_MODEL, None)
         else:
-            litellm.model_cost[self.VISION_MODEL] = self._prior_registry_entry
+            hangarllm.model_cost[self.VISION_MODEL] = self._prior_registry_entry
 
     @staticmethod
     def _image_message(role="user"):
@@ -491,7 +491,7 @@ class TestDeepSeekVisionMultimodalContent:
             model=self.VISION_MODEL,
             messages=[self._image_message()],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -504,7 +504,7 @@ class TestDeepSeekVisionMultimodalContent:
             model=self.VISION_MODEL,
             messages=[self._image_message()],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -523,7 +523,7 @@ async def test_deepseek_forwards_native_effort(
     respx_mock: respx.MockRouter, model: str, effort: str, thinking: str | None, stream: bool
 ) -> None:
     route: Final = respx_mock.post(DEEPSEEK_CHAT_COMPLETIONS_URL).mock(return_value=_deepseek_response(stream))
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=f"deepseek/{model}",
         messages=[{"role": "user", "content": "Hello"}],
         api_key=DEEPSEEK_API_KEY,
@@ -745,10 +745,10 @@ def test_deepseek_mock_completion(stream):
     """
     Deepseek API is hanging. Mock the call, to a fake endpoint, so we can confirm our integration is working.
     """
-    import litellm
-    from litellm import completion
+    import hangarllm
+    from hangarllm import completion
 
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     response = completion(
         model="deepseek/deepseek-reasoner",
@@ -774,10 +774,10 @@ async def test_deepseek_provider_async_completion(stream):
     import json
     from unittest.mock import MagicMock, patch
 
-    import litellm
-    from litellm import acompletion
+    import hangarllm
+    from hangarllm import acompletion
 
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     # Set up the test parameters
     api_key = "fake_api_key"
@@ -785,11 +785,11 @@ async def test_deepseek_provider_async_completion(stream):
     messages = [{"role": "user", "content": "Hello, world!"}]
 
     # Mock AsyncHTTPHandler.post method for async test
-    with patch("litellm.llms.custom_httpx.llm_http_handler.AsyncHTTPHandler.post") as mock_post:
-        mock_response_data = litellm.ModelResponse(
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.AsyncHTTPHandler.post") as mock_post:
+        mock_response_data = hangarllm.ModelResponse(
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(content="Hello!"),
+                hangarllm.Choices(
+                    message=hangarllm.Message(content="Hello!"),
                     index=0,
                     finish_reason="stop",
                 )
@@ -834,7 +834,7 @@ def test_deepseek_fill_reasoning_content_multiturn():
     Reproduces issue #28045: DeepSeek thinking mode fails in multi-turn conversations
     because reasoning_content is not passed back to the API.
     """
-    from litellm.llms.deepseek.chat.transformation import DeepSeekChatConfig
+    from hangarllm.llms.deepseek.chat.transformation import DeepSeekChatConfig
 
     config = DeepSeekChatConfig()
 
@@ -891,7 +891,7 @@ def test_deepseek_fill_reasoning_content_guard_in_transform_request():
     thinking as opt-in but not always-on. Addresses oss-pr-review-agent feedback
     on PR #28057.
     """
-    from litellm.llms.deepseek.chat.transformation import DeepSeekChatConfig
+    from hangarllm.llms.deepseek.chat.transformation import DeepSeekChatConfig
 
     config = DeepSeekChatConfig()
 
@@ -906,7 +906,7 @@ def test_deepseek_fill_reasoning_content_guard_in_transform_request():
         model="deepseek-reasoner",
         messages=messages,
         optional_params={"thinking": {"type": "enabled"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert result["messages"][1].get("reasoning_content") == " ", (
@@ -918,7 +918,7 @@ def test_deepseek_fill_reasoning_content_guard_in_transform_request():
         model="deepseek-reasoner",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "reasoning_content" not in result["messages"][1], (
@@ -930,7 +930,7 @@ def test_deepseek_fill_reasoning_content_guard_in_transform_request():
         model="deepseek-chat",
         messages=messages,
         optional_params={"thinking": {"type": "enabled"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "reasoning_content" not in result["messages"][1], (
@@ -949,7 +949,7 @@ def test_deepseek_fill_reasoning_content_guard_in_transform_request():
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         DeepSeekChatConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="deepseek-chat", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="deepseek-chat", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/deepseek/chat/completions"
     )
@@ -964,8 +964,8 @@ _HOSTED_MCP_TOOL: Final = {
 
 
 def test_a_hosted_mcp_tool_answers_400_on_deepseek_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         DeepSeekChatConfig().map_openai_params(
             {"tools": [_function_tool("shell"), _HOSTED_MCP_TOOL]}, {}, "deepseek-v4-flash", False
         )
@@ -975,7 +975,7 @@ def test_a_hosted_mcp_tool_answers_400_on_deepseek_without_drop_params(monkeypat
 
 
 def test_deepseek_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_function_tool(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     with caplog.at_level("WARNING"):
         result: Final = DeepSeekChatConfig().map_openai_params(
             {"tools": [_HOSTED_MCP_TOOL, _function_tool("shell")], "tool_choice": "auto"}, {}, "deepseek-v4-flash", True
@@ -988,7 +988,7 @@ def test_deepseek_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_functi
 
 
 def test_deepseek_sends_no_tools_when_drop_params_drops_every_hosted_mcp_tool(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     result: Final = DeepSeekChatConfig().map_openai_params(
         {"tools": [_HOSTED_MCP_TOOL], "tool_choice": "required", "parallel_tool_calls": True},
         {},

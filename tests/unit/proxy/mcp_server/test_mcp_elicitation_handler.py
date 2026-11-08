@@ -24,8 +24,8 @@ from mcp.types import (
     UrlElicitationCapability,
 )
 
-from litellm.proxy.mcp_server import elicitation_handler
-from litellm.proxy.mcp_server.elicitation_handler import (
+from hangarllm.proxy.mcp_server import elicitation_handler
+from hangarllm.proxy.mcp_server.elicitation_handler import (
     _relay_elicitation_to_downstream,
     handle_elicitation_request,
 )

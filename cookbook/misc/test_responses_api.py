@@ -4,7 +4,7 @@ import os
 from openai import OpenAI
 import time
 
-client = OpenAI(base_url="http://0.0.0.0:4001", api_key=os.environ["LITELLM_MASTER_KEY"])
+client = OpenAI(base_url="http://0.0.0.0:4001", api_key=os.environ["HANGARLLM_MASTER_KEY"])
 
 
 # Function to encode the image
@@ -14,7 +14,7 @@ def encode_image(image_path):
 
 
 # Path to your image
-image_path = "litellm/proxy/logo.png"
+image_path = "hangarllm/proxy/logo.png"
 
 # Getting the Base64 string
 base64_image = encode_image(image_path)

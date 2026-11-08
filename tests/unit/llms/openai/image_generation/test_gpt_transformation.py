@@ -3,9 +3,9 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.azure.image_generation.gpt_transformation import AzureGPTImageGenerationConfig
-from litellm.llms.openai.image_generation.gpt_transformation import GPTImageGenerationConfig
-from litellm.types.utils import ImageResponse
+from hangarllm.llms.azure.image_generation.gpt_transformation import AzureGPTImageGenerationConfig
+from hangarllm.llms.openai.image_generation.gpt_transformation import GPTImageGenerationConfig
+from hangarllm.types.utils import ImageResponse
 
 
 @pytest.mark.parametrize("config", [GPTImageGenerationConfig(), AzureGPTImageGenerationConfig()])
@@ -30,7 +30,7 @@ def test_transform_image_generation_response_keeps_provider_echo(config):
         logging_obj=MagicMock(),
         request_data={"prompt": "a red apple", "output_format": "jpeg"},
         optional_params={"output_format": "jpeg"},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

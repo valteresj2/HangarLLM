@@ -29,8 +29,8 @@ from openai.types.evals.run_list_response import RunListResponse as _EvalRunList
 from openai.types.evals.run_retrieve_response import RunRetrieveResponse as _EvalRunRetrieve
 from pydantic import BaseModel, JsonValue
 
-from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
-from litellm.types.videos.utils import encode_video_id_with_provider
+from hangarllm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+from hangarllm.types.videos.utils import encode_video_id_with_provider
 from tests.integration.cost_calculation.cost_tracking_case import JsonResponse, RoutedResponse
 
 _EVAL_DATA_SOURCE_CONFIG: Final[dict[str, JsonValue]] = {
@@ -207,7 +207,7 @@ def _add_vector_store(
         {
             "vector_store_id": vector_store_id,
             "custom_llm_provider": "openai",
-            "litellm_params": {"model": alias, "api_base": handle.api_base(), "api_key": handle.scenario_id},
+            "hangarllm_params": {"model": alias, "api_base": handle.api_base(), "api_key": handle.scenario_id},
         },
     )
     assert created.status_code == 200, created.text
@@ -224,7 +224,7 @@ def _assert_provider_error(response: httpx.Response, status: int) -> None:
 
 def _assert_no_gateway_headers(gateway: Gateway, requests: tuple[Request, ...], context: str) -> None:
     leaked: Final = [
-        {name: value for name, value in request.headers.items() if name == "x-litellm-model" or gateway.key in value}
+        {name: value for name, value in request.headers.items() if name == "x-hangarllm-model" or gateway.key in value}
         for request in requests
     ]
     assert leaked == [{} for _ in requests], context
@@ -450,8 +450,8 @@ _EVERY_EVAL_ROUTE: Final = (
 
 
 def _model_routing(alias: str, spelling: str) -> _ModelRouting:
-    if spelling == "x-litellm-model":
-        return _ModelRouting(body=None, query=None, headers={"x-litellm-model": alias})
+    if spelling == "x-hangarllm-model":
+        return _ModelRouting(body=None, query=None, headers={"x-hangarllm-model": alias})
     return _ModelRouting(body={"model": alias}, query={"model": alias}, headers=None)
 
 
@@ -498,19 +498,19 @@ def _assert_eval_sdk_paths(gateway: Gateway, suffix: str, spelling: str, calls: 
         assert [_parsed_types(raw.parse()) for raw in raws] == [(call.parsed,) for call in calls], response_text
 
 
-@pytest.mark.parametrize("spelling", ("model-param", "x-litellm-model"))
+@pytest.mark.parametrize("spelling", ("model-param", "x-hangarllm-model"))
 def test_eval_routes_reach_sdk_paths_with_bare_api_base(gateway: Gateway, spelling: str) -> None:
     _assert_eval_sdk_paths(gateway, "", spelling, _EVAL_ROUTES_WITHOUT_KNOWN_BUGS)
 
 
-@pytest.mark.parametrize("spelling", ("model-param", "x-litellm-model"))
+@pytest.mark.parametrize("spelling", ("model-param", "x-hangarllm-model"))
 @pytest.mark.parametrize("suffix", ("/v1", "/v1/"), ids=("v1", "v1-trailing-slash"))
 def test_eval_routes_reach_sdk_paths_with_v1_api_base(gateway: Gateway, suffix: str, spelling: str) -> None:
     pytest.skip("BUG: an api_base ending in /v1 sends every eval request to /v1/v1/evals")
     _assert_eval_sdk_paths(gateway, suffix, spelling, _EVAL_ROUTES_WITHOUT_KNOWN_BUGS)
 
 
-@pytest.mark.parametrize("spelling", ("model-param", "x-litellm-model"))
+@pytest.mark.parametrize("spelling", ("model-param", "x-hangarllm-model"))
 @pytest.mark.parametrize("suffix", ("", "/v1", "/v1/"), ids=("bare", "v1", "v1-trailing-slash"))
 def test_every_eval_route_reaches_sdk_path_and_relays_upstream_body(
     gateway: Gateway, suffix: str, spelling: str
@@ -592,7 +592,7 @@ def test_model_scoped_lookup_returns_scripted_provider_404(
             if "/batches/" in route_path or "/batch/jobs/" in route_path
             else path
         )
-        headers: Final = {"x-litellm-model": alias} if "/skills/" in request_path else {}
+        headers: Final = {"x-hangarllm-model": alias} if "/skills/" in request_path else {}
         params: Final = {"model": alias} if "/evals/" in request_path else None
         response: Final = gateway.request("GET", request_path, params=params, headers=headers)
         assert response.status_code == status, response.text
@@ -655,7 +655,7 @@ def test_openai_sdk_file_lookup_returns_head_provider_error(
                     "model_list": [
                         {
                             "model_name": model,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "openai/gpt-4o-mini",
                                 "api_base": handle.api_base(),
                                 "api_key": scenario_id,

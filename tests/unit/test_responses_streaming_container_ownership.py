@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import respx
 
-import litellm
+import hangarllm
 
 _DELTA = {
     "type": "response.output_text.delta",
@@ -60,11 +60,11 @@ def _stream_through_router(*events):
     body = b"".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n".encode() for e in events)
 
     async def _drive():
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-5.5",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5.5",
                         "api_key": "sk-test",
                         "api_base": "https://api.openai.com/v1",
@@ -80,12 +80,12 @@ def _stream_through_router(*events):
             chunks = [chunk async for chunk in stream]
         return stream, chunks
 
-    with patch.object(litellm, "disable_aiohttp_transport", True):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    with patch.object(hangarllm, "disable_aiohttp_transport", True):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         try:
             return asyncio.run(_drive())
         finally:
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 class TestStreamWrapperCapturesTerminalEvent:
@@ -124,7 +124,7 @@ class TestProxyOwnershipHookReadsCompletedResponse:
     response correctly so the ownership recording path doesn't break."""
 
     def test_extract_returns_inner_response_object(self):
-        from litellm.proxy.common_request_processing import (
+        from hangarllm.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -143,7 +143,7 @@ class TestSilentSkipNowLogged:
     def test_warning_logged_when_completed_response_missing(self, caplog):
         import logging
 
-        from litellm.proxy.common_request_processing import (
+        from hangarllm.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -171,7 +171,7 @@ class TestSilentSkipNowLogged:
                 async for _ in wrapped:
                     pass
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
             asyncio.run(driver())
 
         assert any(

@@ -6,7 +6,7 @@ from integration._support.client import Gateway, Scenario
 from integration._support.database import read_rows, write_rows
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.types.memory_management import LiteLLM_MemoryRow, MemoryDeleteResponse, MemoryListResponse
+from hangarllm.types.memory_management import HangarLLM_MemoryRow, MemoryDeleteResponse, MemoryListResponse
 
 _MEMORY_ROUTE: Final = ["/v1/memory"]
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
@@ -31,12 +31,12 @@ def _admin_only_error(route: str, user_id: str) -> dict[str, JsonValue]:
 
 
 def _delete_memory_row(key: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_MemoryTable" WHERE key = %s', (key,))
+    write_rows('DELETE FROM "HangarLLM_MemoryTable" WHERE key = %s', (key,))
 
 
 def _memory_rows(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT key, value, user_id, team_id, created_by, updated_by FROM "LiteLLM_MemoryTable" WHERE key = %s',
+        'SELECT key, value, user_id, team_id, created_by, updated_by FROM "HangarLLM_MemoryTable" WHERE key = %s',
         (key,),
     )
 
@@ -44,13 +44,13 @@ def _memory_rows(key: str) -> list[dict[str, JsonValue]]:
 def _memory_create_rows(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
         "SELECT memory_id, key, value, metadata, user_id, team_id, created_by, updated_by "
-        'FROM "LiteLLM_MemoryTable" WHERE key = %s',
+        'FROM "HangarLLM_MemoryTable" WHERE key = %s',
         (key,),
     )
 
 
 def _memory_metadata(key: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT metadata FROM "LiteLLM_MemoryTable" WHERE key = %s', (key,))
+    return read_rows('SELECT metadata FROM "HangarLLM_MemoryTable" WHERE key = %s', (key,))
 
 
 def _prefix_listing(gateway: Gateway, prefix: str, caller: str) -> tuple[int, list[str]]:
@@ -95,7 +95,7 @@ def test_memory_create_enforces_personal_and_team_scope(gateway: Gateway) -> Non
             key=key_a,
         )
         assert own_response.status_code == 200, own_response.text
-        own: Final = LiteLLM_MemoryRow.model_validate_json(own_response.content)
+        own: Final = HangarLLM_MemoryRow.model_validate_json(own_response.content)
         assert (
             own.key,
             own.value,
@@ -153,7 +153,7 @@ def test_memory_create_enforces_personal_and_team_scope(gateway: Gateway) -> Non
             key=gateway.key,
         )
         assert admin_response.status_code == 200, admin_response.text
-        admin_memory: Final = LiteLLM_MemoryRow.model_validate_json(admin_response.content)
+        admin_memory: Final = HangarLLM_MemoryRow.model_validate_json(admin_response.content)
         assert (
             admin_memory.key,
             admin_memory.value,
@@ -213,7 +213,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
         )
         assert created.status_code == 200, created.text
         _register_memory_cleanup(scenario, personal_key)
-        created_row: Final = LiteLLM_MemoryRow.model_validate_json(created.content)
+        created_row: Final = HangarLLM_MemoryRow.model_validate_json(created.content)
         assert (created_row.key, created_row.value, created_row.user_id, created_row.team_id) == (
             personal_key,
             "a1",
@@ -235,7 +235,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
 
         visible_to_member: Final = _memory_request(gateway, "GET", personal_key, caller=key_b)
         assert visible_to_member.status_code == 200, visible_to_member.text
-        assert LiteLLM_MemoryRow.model_validate_json(visible_to_member.content).value == "a1", visible_to_member.text
+        assert HangarLLM_MemoryRow.model_validate_json(visible_to_member.content).value == "a1", visible_to_member.text
         overwrite_refused: Final = _memory_request(
             gateway,
             "PUT",
@@ -278,7 +278,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
             body={"value": "a2"},
         )
         assert overwritten.status_code == 200, overwritten.text
-        assert LiteLLM_MemoryRow.model_validate_json(overwritten.content).value == "a2", overwritten.text
+        assert HangarLLM_MemoryRow.model_validate_json(overwritten.content).value == "a2", overwritten.text
         assert _memory_metadata(personal_key) == [{"metadata": _PUT_METADATA}]
         metadata_updated: Final = _memory_request(
             gateway,
@@ -288,7 +288,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
             body={"metadata": _UPDATED_METADATA},
         )
         assert metadata_updated.status_code == 200, metadata_updated.text
-        assert LiteLLM_MemoryRow.model_validate_json(metadata_updated.content).model_dump(
+        assert HangarLLM_MemoryRow.model_validate_json(metadata_updated.content).model_dump(
             include={"value", "metadata"}
         ) == {"value": "a2", "metadata": _UPDATED_METADATA}, metadata_updated.text
         assert _memory_metadata(personal_key) == [{"metadata": _UPDATED_METADATA}]
@@ -312,7 +312,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
         )
         assert team_created.status_code == 200, team_created.text
         _register_memory_cleanup(scenario, team_only_key)
-        team_row: Final = LiteLLM_MemoryRow.model_validate_json(team_created.content)
+        team_row: Final = HangarLLM_MemoryRow.model_validate_json(team_created.content)
         assert (team_row.value, team_row.user_id, team_row.team_id) == ("team value", None, team), team_created.text
         assert _memory_rows(team_only_key) == [
             {
@@ -327,7 +327,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
         member_team_read: Final = _memory_request(gateway, "GET", team_only_key, caller=key_b)
         assert member_team_read.status_code == 200, member_team_read.text
         assert (
-            LiteLLM_MemoryRow.model_validate_json(member_team_read.content).model_dump(include={"key", "value"})
+            HangarLLM_MemoryRow.model_validate_json(member_team_read.content).model_dump(include={"key", "value"})
         ) == {"key": team_only_key, "value": "team value"}, member_team_read.text
         member_list: Final = gateway.request("GET", "/v1/memory", key=key_b)
         assert member_list.status_code == 200, member_list.text
@@ -390,7 +390,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
             body={"value": "admin overwrite"},
         )
         assert admin_write.status_code == 200, admin_write.text
-        assert LiteLLM_MemoryRow.model_validate_json(admin_write.content).value == "admin overwrite", admin_write.text
+        assert HangarLLM_MemoryRow.model_validate_json(admin_write.content).value == "admin overwrite", admin_write.text
 
         team_admin_personal_write: Final = _memory_request(
             gateway,
@@ -416,7 +416,7 @@ def test_memory_routes_enforce_personal_and_team_write_ownership(gateway: Gatewa
 
         master_read: Final = _memory_request(gateway, "GET", personal_key, caller=gateway.key)
         assert master_read.status_code == 200, master_read.text
-        assert LiteLLM_MemoryRow.model_validate_json(master_read.content).value == "a2", master_read.text
+        assert HangarLLM_MemoryRow.model_validate_json(master_read.content).value == "a2", master_read.text
         master_write: Final = _memory_request(
             gateway,
             "PUT",

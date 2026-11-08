@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import Request, Response
 
-from litellm.integrations.datadog.datadog_metrics import DatadogMetricsLogger
-from litellm.types.utils import StandardLoggingPayload
+from hangarllm.integrations.datadog.datadog_metrics import DatadogMetricsLogger
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 @pytest.fixture
@@ -126,23 +126,23 @@ async def test_add_metrics_from_log(clean_env):
     logger._add_metrics_from_log(log=payload, kwargs=kwargs, status_code="200")
 
     # Should have 3 series: total_latency, llm_api_latency, request_count
-    # (no overhead metric because payload has no hidden_params litellm_overhead_time_ms)
+    # (no overhead metric because payload has no hidden_params hangarllm_overhead_time_ms)
     assert len(logger.log_queue) == 3
 
     metrics = {s["metric"]: s for s in logger.log_queue}
 
     # Total latency ~2s
-    total = metrics["litellm.request.total_latency"]
+    total = metrics["hangarllm.request.total_latency"]
     assert total["type"] == 3  # gauge
     assert abs(total["points"][0]["value"] - 2.0) < 0.1
 
     # LLM API latency ~1s
-    llm = metrics["litellm.llm_api.latency"]
+    llm = metrics["hangarllm.llm_api.latency"]
     assert llm["type"] == 3  # gauge
     assert abs(llm["points"][0]["value"] - 1.0) < 0.1
 
     # Request count
-    count = metrics["litellm.llm_api.request_count"]
+    count = metrics["hangarllm.llm_api.request_count"]
     assert count["type"] == 1  # count
     assert count["points"][0]["value"] == 1.0
     assert "status_code:200" in count["tags"]
@@ -150,7 +150,7 @@ async def test_add_metrics_from_log(clean_env):
 
 @pytest.mark.asyncio
 async def test_overhead_latency_metric_emitted(clean_env):
-    """Test that litellm.overhead.latency is emitted when hidden_params contains litellm_overhead_time_ms."""
+    """Test that hangarllm.overhead.latency is emitted when hidden_params contains hangarllm_overhead_time_ms."""
     logger = DatadogMetricsLogger(batch_size=100, start_periodic_flush=False)
 
     now = datetime.now()
@@ -161,7 +161,7 @@ async def test_overhead_latency_metric_emitted(clean_env):
         custom_llm_provider="openai",
         model="gpt-4o",
         hidden_params={
-            "litellm_overhead_time_ms": 250.0,  # 250 ms of overhead
+            "hangarllm_overhead_time_ms": 250.0,  # 250 ms of overhead
         },
     )
 
@@ -177,9 +177,9 @@ async def test_overhead_latency_metric_emitted(clean_env):
 
     # Overhead metric must be present
     assert (
-        "litellm.overhead.latency" in metrics
-    ), f"Expected 'litellm.overhead.latency' in emitted metrics, got: {list(metrics.keys())}"
-    overhead = metrics["litellm.overhead.latency"]
+        "hangarllm.overhead.latency" in metrics
+    ), f"Expected 'hangarllm.overhead.latency' in emitted metrics, got: {list(metrics.keys())}"
+    overhead = metrics["hangarllm.overhead.latency"]
     assert overhead["type"] == 3  # gauge
     # 250 ms → 0.25 s
     assert abs(overhead["points"][0]["value"] - 0.25) < 1e-6
@@ -189,7 +189,7 @@ async def test_overhead_latency_metric_emitted(clean_env):
 
 @pytest.mark.asyncio
 async def test_overhead_latency_metric_absent_when_no_hidden_params(clean_env):
-    """Test that litellm.overhead.latency is NOT emitted when hidden_params has no overhead value."""
+    """Test that hangarllm.overhead.latency is NOT emitted when hidden_params has no overhead value."""
     logger = DatadogMetricsLogger(batch_size=100, start_periodic_flush=False)
 
     now = datetime.now()
@@ -199,7 +199,7 @@ async def test_overhead_latency_metric_absent_when_no_hidden_params(clean_env):
     payload = StandardLoggingPayload(
         custom_llm_provider="openai",
         model="gpt-4o",
-        # No hidden_params / no litellm_overhead_time_ms
+        # No hidden_params / no hangarllm_overhead_time_ms
     )
 
     kwargs = {
@@ -211,7 +211,7 @@ async def test_overhead_latency_metric_absent_when_no_hidden_params(clean_env):
     logger._add_metrics_from_log(log=payload, kwargs=kwargs, status_code="200")
 
     metrics = {s["metric"]: s for s in logger.log_queue}
-    assert "litellm.overhead.latency" not in metrics
+    assert "hangarllm.overhead.latency" not in metrics
 
 
 @pytest.mark.asyncio
@@ -279,7 +279,7 @@ async def test_async_log_failure_event_extracts_status_code(clean_env):
     )
 
     count_series = next(
-        (s for s in logger.log_queue if s["metric"] == "litellm.llm_api.request_count"),
+        (s for s in logger.log_queue if s["metric"] == "hangarllm.llm_api.request_count"),
         None,
     )
     assert count_series is not None
@@ -308,7 +308,7 @@ async def test_async_log_failure_event_default_status_code(clean_env):
     )
 
     count_series = next(
-        (s for s in logger.log_queue if s["metric"] == "litellm.llm_api.request_count"),
+        (s for s in logger.log_queue if s["metric"] == "hangarllm.llm_api.request_count"),
         None,
     )
     assert count_series is not None
@@ -328,7 +328,7 @@ async def test_async_send_batch(clean_env):
     # Manually add a metric series to the queue
     logger.log_queue = [
         {
-            "metric": "litellm.request.total_latency",
+            "metric": "hangarllm.request.total_latency",
             "type": 3,
             "points": [{"timestamp": int(time.time()), "value": 1.5}],
             "tags": ["env:test"],
@@ -348,7 +348,7 @@ async def test_async_send_batch(clean_env):
     compressed = call_args[1]["content"]
     payload = json.loads(gzip.decompress(compressed).decode("utf-8"))
     assert len(payload["series"]) == 1
-    assert payload["series"][0]["metric"] == "litellm.request.total_latency"
+    assert payload["series"][0]["metric"] == "hangarllm.request.total_latency"
 
 
 @pytest.mark.asyncio

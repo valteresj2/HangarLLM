@@ -23,10 +23,10 @@ def test_basedpyright_counts_per_rule_from_json_not_warnings():
     payload = json.dumps(
         {
             "generalDiagnostics": [
-                _bpr(f"{ROOT}/litellm/utils.py", "error", "reportUnknownVariableType"),
-                _bpr(f"{ROOT}/litellm/utils.py", "error", "reportUnknownVariableType"),
-                _bpr(f"{ROOT}/litellm/main.py", "error", "reportArgumentType"),
-                _bpr(f"{ROOT}/litellm/main.py", "warning", "reportUnusedImport"),
+                _bpr(f"{ROOT}/hangarllm/utils.py", "error", "reportUnknownVariableType"),
+                _bpr(f"{ROOT}/hangarllm/utils.py", "error", "reportUnknownVariableType"),
+                _bpr(f"{ROOT}/hangarllm/main.py", "error", "reportArgumentType"),
+                _bpr(f"{ROOT}/hangarllm/main.py", "warning", "reportUnusedImport"),
             ]
         }
     )
@@ -38,7 +38,7 @@ def test_basedpyright_counts_per_rule_from_json_not_warnings():
 
 def test_basedpyright_error_without_a_rule_is_bucketed():
     payload = json.dumps(
-        {"generalDiagnostics": [_bpr(f"{ROOT}/litellm/x.py", "error", None)]}
+        {"generalDiagnostics": [_bpr(f"{ROOT}/hangarllm/x.py", "error", None)]}
     )
     assert gate.count_basedpyright(payload) == {gate.UNCODED: 1}
 
@@ -62,7 +62,7 @@ def test_symlinked_root_keeps_diagnostics_in_tree(tmp_path):
     payload = json.dumps(
         {
             "generalDiagnostics": [
-                _bpr(link / "litellm" / "x.py", "error", "reportArgumentType")
+                _bpr(link / "hangarllm" / "x.py", "error", "reportArgumentType")
             ]
         }
     )

@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec, inline_request_body
+from hangarllm.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec, inline_request_body
 
 
 class TestCustomOpenAPISpec:
@@ -30,12 +30,12 @@ class TestCustomOpenAPISpec:
             },
         }
 
-    @patch("litellm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_request_schema")
+    @patch("hangarllm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_request_schema")
     def test_add_chat_completion_request_schema(self, mock_add_schema, base_openapi_schema):
         """Test that chat completion schema is added correctly."""
         mock_add_schema.return_value = base_openapi_schema
 
-        with patch("litellm.proxy._types.ProxyChatCompletionRequest") as mock_model:
+        with patch("hangarllm.proxy._types.ProxyChatCompletionRequest") as mock_model:
             result = CustomOpenAPISpec.add_chat_completion_request_schema(base_openapi_schema)
 
             mock_add_schema.assert_called_once_with(
@@ -47,12 +47,12 @@ class TestCustomOpenAPISpec:
             )
             assert result == base_openapi_schema
 
-    @patch("litellm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_request_schema")
+    @patch("hangarllm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_request_schema")
     def test_add_embedding_request_schema(self, mock_add_schema, base_openapi_schema):
         """Test that embedding schema is added correctly."""
         mock_add_schema.return_value = base_openapi_schema
 
-        with patch("litellm.types.embedding.EmbeddingRequest") as mock_model:
+        with patch("hangarllm.types.embedding.EmbeddingRequest") as mock_model:
             result = CustomOpenAPISpec.add_embedding_request_schema(base_openapi_schema)
 
             mock_add_schema.assert_called_once_with(
@@ -64,12 +64,12 @@ class TestCustomOpenAPISpec:
             )
             assert result == base_openapi_schema
 
-    @patch("litellm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_request_schema")
+    @patch("hangarllm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_request_schema")
     def test_add_responses_api_request_schema(self, mock_add_schema, base_openapi_schema):
         """Test that responses API schema is added correctly."""
         mock_add_schema.return_value = base_openapi_schema
 
-        with patch("litellm.types.llms.openai.ResponsesAPIRequestParams") as mock_model:
+        with patch("hangarllm.types.llms.openai.ResponsesAPIRequestParams") as mock_model:
             result = CustomOpenAPISpec.add_responses_api_request_schema(base_openapi_schema)
 
             mock_add_schema.assert_called_once_with(
@@ -178,7 +178,7 @@ def test_rewrite_defs_refs():
 
 
 def test_get_pydantic_schema_generates_schema_for_responses_request_typed_dict():
-    from litellm.types.llms.openai import ResponsesAPIRequestParams
+    from hangarllm.types.llms.openai import ResponsesAPIRequestParams
 
     schema = CustomOpenAPISpec.get_pydantic_schema(ResponsesAPIRequestParams)
 
@@ -255,7 +255,7 @@ def test_add_schema_to_components_keeps_name_for_identical_existing_def():
 
 
 def test_responses_request_params_schema_requires_model_and_input():
-    from litellm.types.llms.openai import ResponsesAPIRequestParams
+    from hangarllm.types.llms.openai import ResponsesAPIRequestParams
 
     schema = CustomOpenAPISpec.get_pydantic_schema(ResponsesAPIRequestParams)
 

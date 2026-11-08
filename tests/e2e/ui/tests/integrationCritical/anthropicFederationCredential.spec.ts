@@ -14,7 +14,7 @@ import {
   setInvitedUserPassword,
 } from "../../helpers/userOnboarding";
 
-const master = process.env.LITELLM_MASTER_KEY ?? "sk-integration-master";
+const master = process.env.HANGARLLM_MASTER_KEY ?? "sk-integration-master";
 const headers = { Authorization: `Bearer ${master}` };
 
 const ANTHROPIC_LABEL = "Anthropic";
@@ -25,7 +25,7 @@ const FEDERATION_HELP =
   "Workload identity federation is saved as a credential, then attached to this model.";
 const ADDED_TOAST = "Credential added successfully";
 const UPDATED_TOAST = "Credential updated successfully";
-const ALLOWLIST_VARIABLE = "LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS";
+const ALLOWLIST_VARIABLE = "HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS";
 const NO_IDS_MESSAGE =
   "Enter at least one of these ids, or pick an identity source that stores a token. The proxy rejects a credential with no values";
 const RAW_TOKEN_MESSAGE =
@@ -42,7 +42,7 @@ interface StoredCredential {
 
 interface Deployment {
   model_name: string;
-  litellm_params: Record<string, unknown>;
+  hangarllm_params: Record<string, unknown>;
   model_info: { id: string };
 }
 
@@ -55,7 +55,7 @@ interface CredentialWrite {
 
 interface ModelWrite {
   model_name: string;
-  litellm_params: Record<string, unknown>;
+  hangarllm_params: Record<string, unknown>;
 }
 
 interface ModelCreated {
@@ -386,7 +386,7 @@ test("the Add Credential dialog stores each federation identity source with only
     await pickIdentitySource(
       page,
       issuerDialog,
-      "Token signed by LiteLLM (internal issuer)",
+      "Token signed by HangarLLM (internal issuer)",
     );
     const issuer = {
       anthropic_issuer_url: `https://issuer-${suffix}.example`,
@@ -671,7 +671,7 @@ test("a proxy admin saves a federation credential from the Add Model tab and the
     });
     await expect(page.getByText(ADDED_TOAST)).toBeVisible();
     await expect(dialog).toBeHidden();
-    await expect(page.locator("#litellm_credential_name")).toHaveValue(
+    await expect(page.locator("#hangarllm_credential_name")).toHaveValue(
       credentialName,
     );
     await expect(page.locator("#api_key")).toHaveCount(0);
@@ -694,9 +694,9 @@ test("a proxy admin saves a federation credential from the Add Model tab and the
       { method: "POST", urlIncludes: "/health/test_connection" },
       () => page.getByTestId("test-connect-btn").click(),
     );
-    expect(probe.litellm_params.litellm_credential_name).toBe(credentialName);
-    expect(probe.litellm_params.custom_llm_provider).toBe("anthropic");
-    expect("api_key" in probe.litellm_params).toBe(false);
+    expect(probe.hangarllm_params.hangarllm_credential_name).toBe(credentialName);
+    expect(probe.hangarllm_params.custom_llm_provider).toBe("anthropic");
+    expect("api_key" in probe.hangarllm_params).toBe(false);
     const results = page.getByRole("dialog", {
       name: "Connection Test Results",
     });
@@ -726,9 +726,9 @@ test("a proxy admin saves a federation credential from the Add Model tab and the
     deploymentId = ((await creationResponse.json()) as ModelCreated).model_id;
     expect(deploymentId).not.toBe("");
     expect(added.model_name).toBe(modelName);
-    expect(added.litellm_params.litellm_credential_name).toBe(credentialName);
-    expect(added.litellm_params.custom_llm_provider).toBe("anthropic");
-    expect("api_key" in added.litellm_params).toBe(false);
+    expect(added.hangarllm_params.hangarllm_credential_name).toBe(credentialName);
+    expect(added.hangarllm_params.custom_llm_provider).toBe("anthropic");
+    expect("api_key" in added.hangarllm_params).toBe(false);
 
     const findDeployment = async (): Promise<Deployment | undefined> => {
       const info = await readBack<{ data: Deployment[] }>(page, "/model/info");
@@ -744,11 +744,11 @@ test("a proxy admin saves a federation credential from the Add Model tab and the
       .not.toBe("");
     const deployment = await findDeployment();
     expect(deployment?.model_info.id).toBe(deploymentId);
-    expect(deployment?.litellm_params.litellm_credential_name).toBe(
+    expect(deployment?.hangarllm_params.hangarllm_credential_name).toBe(
       credentialName,
     );
-    expect(deployment?.litellm_params.custom_llm_provider).toBe("anthropic");
-    expect("api_key" in (deployment?.litellm_params ?? {})).toBe(false);
+    expect(deployment?.hangarllm_params.custom_llm_provider).toBe("anthropic");
+    expect("api_key" in (deployment?.hangarllm_params ?? {})).toBe(false);
   } finally {
     if (deploymentId) {
       await postAsMaster(request, "/model/delete", { id: deploymentId });

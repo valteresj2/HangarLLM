@@ -7,14 +7,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.proxy_server import app
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.utils import LiteLLMBatch
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.proxy_server import app
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router import Router
+from hangarllm.types.utils import HangarLLMBatch
 
 from fastapi.testclient import TestClient
 
@@ -30,7 +30,7 @@ def llm_router() -> Router:
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-3.5-turbo",
                     "api_key": "test-key",
                 },
@@ -44,14 +44,14 @@ def _setup_proxy(monkeypatch, llm_router: Router):
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
 
-def _make_batch_response() -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _make_batch_response() -> HangarLLMBatch:
+    return HangarLLMBatch(
         id="batch_abc123",
         completion_window="24h",
         created_at=1234567890,
@@ -72,9 +72,9 @@ def test_output_expires_after_passthrough():
         mock_response.id = "batch_123"
         return mock_response
 
-    with patch("litellm.batches.main.openai_batches_instance") as mock_instance:
+    with patch("hangarllm.batches.main.openai_batches_instance") as mock_instance:
         mock_instance.create_batch.side_effect = capturing_create
-        litellm.create_batch(
+        hangarllm.create_batch(
             completion_window="24h",
             endpoint="/v1/chat/completions",
             input_file_id="file-abc123",
@@ -110,7 +110,7 @@ class TestBatchEndpointTeamOverride:
             captured_kwargs.update(kwargs)
             return _make_batch_response()
 
-        monkeypatch.setattr(litellm, "acreate_batch", mock_acreate_batch)
+        monkeypatch.setattr(hangarllm, "acreate_batch", mock_acreate_batch)
 
         try:
             response = client.post(
@@ -174,16 +174,16 @@ class TestBatchEndpointTeamOverride:
 
 
 class TestBatchEndpointPolicyMetadata:
-    """Batch create must not forward LiteLLM policy tracking via OpenAI metadata."""
+    """Batch create must not forward HangarLLM policy tracking via OpenAI metadata."""
 
     def test_create_batch_does_not_forward_applied_policies_metadata(
         self, monkeypatch, llm_router
     ):
-        from litellm.proxy.policy_engine.attachment_registry import (
+        from hangarllm.proxy.policy_engine.attachment_registry import (
             get_attachment_registry,
         )
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-        from litellm.types.proxy.policy_engine import (
+        from hangarllm.proxy.policy_engine.policy_registry import get_policy_registry
+        from hangarllm.types.proxy.policy_engine import (
             Policy,
             PolicyAttachment,
             PolicyGuardrails,
@@ -218,7 +218,7 @@ class TestBatchEndpointPolicyMetadata:
             captured_kwargs.update(kwargs)
             return _make_batch_response()
 
-        monkeypatch.setattr(litellm, "acreate_batch", mock_acreate_batch)
+        monkeypatch.setattr(hangarllm, "acreate_batch", mock_acreate_batch)
 
         try:
             response = client.post(
@@ -240,7 +240,7 @@ class TestBatchEndpointPolicyMetadata:
 
         assert captured_kwargs.get("metadata") in (None, {})
         assert (
-            "global-baseline" in captured_kwargs["litellm_metadata"]["applied_policies"]
+            "global-baseline" in captured_kwargs["hangarllm_metadata"]["applied_policies"]
         )
 
 
@@ -266,7 +266,7 @@ class TestBatchEndpointTeamValidation:
         async def mock_acreate_batch(**kwargs):
             return _make_batch_response()
 
-        monkeypatch.setattr(litellm, "acreate_batch", mock_acreate_batch)
+        monkeypatch.setattr(hangarllm, "acreate_batch", mock_acreate_batch)
 
         try:
             response = client.post(

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.tinyfish.search.transformation import (
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.tinyfish.search.transformation import (
     TinyfishSearchConfig,
     _append_domain_filters,
     _default_missing_result_fields,
@@ -226,7 +226,7 @@ class TestTransformSearchRequest:
 
     def test_arbitrary_param_passed_through(self):
         # `fetch` is a TinyFish-specific param (JSON-encoded fetch config).
-        # The passthrough loop should forward it verbatim without LiteLLM needing
+        # The passthrough loop should forward it verbatim without HangarLLM needing
         # to know about it.
         config = TinyfishSearchConfig()
         result = config.transform_search_request(
@@ -298,7 +298,7 @@ class TestGetCompleteUrl:
     def test_default_api_base(self):
         config = TinyfishSearchConfig()
         with patch(
-            "litellm.llms.tinyfish.search.transformation.get_secret_str",
+            "hangarllm.llms.tinyfish.search.transformation.get_secret_str",
             return_value=None,
         ):
             url = config.get_complete_url(api_base=None, optional_params={})
@@ -314,7 +314,7 @@ class TestGetCompleteUrl:
     def test_env_api_base(self):
         config = TinyfishSearchConfig()
         with patch(
-            "litellm.llms.tinyfish.search.transformation.get_secret_str",
+            "hangarllm.llms.tinyfish.search.transformation.get_secret_str",
             return_value="https://env.tinyfish.ai",
         ):
             url = config.get_complete_url(api_base=None, optional_params={})
@@ -323,7 +323,7 @@ class TestGetCompleteUrl:
     def test_with_tinyfish_params(self):
         config = TinyfishSearchConfig()
         with patch(
-            "litellm.llms.tinyfish.search.transformation.get_secret_str",
+            "hangarllm.llms.tinyfish.search.transformation.get_secret_str",
             return_value=None,
         ):
             url = config.get_complete_url(
@@ -338,7 +338,7 @@ class TestGetCompleteUrl:
     def test_without_tinyfish_params_key(self):
         config = TinyfishSearchConfig()
         with patch(
-            "litellm.llms.tinyfish.search.transformation.get_secret_str",
+            "hangarllm.llms.tinyfish.search.transformation.get_secret_str",
             return_value=None,
         ):
             url = config.get_complete_url(
@@ -349,7 +349,7 @@ class TestGetCompleteUrl:
     def test_data_none(self):
         config = TinyfishSearchConfig()
         with patch(
-            "litellm.llms.tinyfish.search.transformation.get_secret_str",
+            "hangarllm.llms.tinyfish.search.transformation.get_secret_str",
             return_value=None,
         ):
             url = config.get_complete_url(api_base=None, optional_params={}, data=None)
@@ -422,7 +422,7 @@ class TestTransformSearchResponse:
         assert len(result.results) == 10
 
     def test_missing_required_fields_default_to_empty_string(self):
-        # title/url/snippet are required by LiteLLM's SearchResult schema.
+        # title/url/snippet are required by HangarLLM's SearchResult schema.
         # We default missing/null values to "" so a degraded TinyFish result
         # flows through instead of failing the whole call.
         config = TinyfishSearchConfig()
@@ -463,7 +463,7 @@ class TestTransformSearchResponse:
 
     def test_top_level_future_extras_flow_through(self):
         # Any future TinyFish top-level field must ride through unchanged
-        # (design contract: no LiteLLM code change needed for new fields).
+        # (design contract: no HangarLLM code change needed for new fields).
         config = TinyfishSearchConfig()
         body = {
             "results": [
@@ -501,7 +501,7 @@ class TestTransformSearchResponse:
 
     def test_response_headers_future_headers_flow_through(self):
         # "Accept extra": any header TinyFish Search adds later must ride
-        # through without a LiteLLM code change.
+        # through without a HangarLLM code change.
         config = TinyfishSearchConfig()
         mock_response = _make_mock_response(
             MOCK_TINYFISH_RESPONSE,
@@ -519,32 +519,32 @@ class TestTransformSearchResponse:
         assert raw["x-example-header-a"] == "value-a"
         assert raw["x-example-header-b"] == "value-b"
 
-    def test_response_headers_strips_x_litellm_spoof(self):
-        # A provider setting `x-litellm-*` in its response must not be able to
-        # spoof LiteLLM-internal markers via _hidden_params["additional_headers"].
+    def test_response_headers_strips_x_hangarllm_spoof(self):
+        # A provider setting `x-hangarllm-*` in its response must not be able to
+        # spoof HangarLLM-internal markers via _hidden_params["additional_headers"].
         # The raw copy preserves the header (opt-in debug view); the sanitized
-        # copy prefixes it with `llm_provider-` so bare `x-litellm-*` markers
+        # copy prefixes it with `llm_provider-` so bare `x-hangarllm-*` markers
         # can't be spoofed (values still survive under the prefixed key for
         # observability).
         config = TinyfishSearchConfig()
         mock_response = _make_mock_response(
             MOCK_TINYFISH_RESPONSE,
-            headers={"x-litellm-attempted-fallbacks": "spoofed", "X-Request-ID": "r1"},
+            headers={"x-hangarllm-attempted-fallbacks": "spoofed", "X-Request-ID": "r1"},
         )
         result = config.transform_search_response(
             raw_response=mock_response, logging_obj=None
         )
         # Raw view still has the spoof.
-        assert result._hidden_params["headers"]["x-litellm-attempted-fallbacks"] == "spoofed"
+        assert result._hidden_params["headers"]["x-hangarllm-attempted-fallbacks"] == "spoofed"
         # Sanitized view: the spoof survives only under the llm_provider- prefix
-        # (never under the bare x-litellm-* key that LiteLLM downstream trusts).
+        # (never under the bare x-hangarllm-* key that HangarLLM downstream trusts).
         additional = result._hidden_params["additional_headers"]
-        assert "x-litellm-attempted-fallbacks" not in additional
-        assert additional.get("llm_provider-x-litellm-attempted-fallbacks") == "spoofed"
+        assert "x-hangarllm-attempted-fallbacks" not in additional
+        assert additional.get("llm_provider-x-hangarllm-attempted-fallbacks") == "spoofed"
 
     def test_fetch_field_rides_through_to_search_result(self):
         # Mirrors TinyFish Search's per-result `fetch` nested object.
-        # Confirms `fetch=...` requests surface their content to LiteLLM
+        # Confirms `fetch=...` requests surface their content to HangarLLM
         # callers without provider changes.
         config = TinyfishSearchConfig()
         fetched = {
@@ -768,7 +768,7 @@ class TestErrorHandling:
     def test_wrap_error_returns_attributed_baselm_exception_directly(self):
         # Direct unit test of the private _wrap_error helper used by
         # transform_search_response. Network failures don't go through this;
-        # they hit BaseSearchConfig.get_error_class via LiteLLM core.
+        # they hit BaseSearchConfig.get_error_class via HangarLLM core.
         config = TinyfishSearchConfig()
         body = '{"error": {"code": "UNAUTHORIZED", "message": "bad key"}}'
         exc = config._wrap_error(
@@ -781,7 +781,7 @@ class TestErrorHandling:
 
     def test_schema_mismatch_wraps_with_attribution(self):
         # When TinyFish returns a 200 with a body shape that doesn't match
-        # LiteLLM's SearchResponse contract (e.g. missing top-level `results`),
+        # HangarLLM's SearchResponse contract (e.g. missing top-level `results`),
         # raise with TinyFish attribution + docs link so the caller knows to
         # check TinyFish's schema, not their own input.
         config = TinyfishSearchConfig()

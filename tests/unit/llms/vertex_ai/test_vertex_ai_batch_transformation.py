@@ -7,15 +7,15 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.vertex_ai.batches.handler import VertexAIBatchPrediction
-from litellm.llms.vertex_ai.batches.transformation import VertexAIBatchTransformation
+import hangarllm
+from hangarllm.llms.vertex_ai.batches.handler import VertexAIBatchPrediction
+from hangarllm.llms.vertex_ai.batches.transformation import VertexAIBatchTransformation
 
 
 def test_output_file_id_uses_predictions_jsonl_with_output_info():
     response = {
         "outputInfo": {
-            "gcsOutputDirectory": "gs://test-bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123"
+            "gcsOutputDirectory": "gs://test-bucket/hangarllm-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123"
         }
     }
 
@@ -27,7 +27,7 @@ def test_output_file_id_uses_predictions_jsonl_with_output_info():
 
     assert (
         output_file_id
-        == "gs://test-bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123/predictions.jsonl"
+        == "gs://test-bucket/hangarllm-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123/predictions.jsonl"
     )
 
 
@@ -36,7 +36,7 @@ def test_output_file_id_is_none_until_output_info():
         "outputInfo": {},
         "outputConfig": {
             "gcsDestination": {
-                "outputUriPrefix": "gs://test-bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-pro"
+                "outputUriPrefix": "gs://test-bucket/hangarllm-vertex-files/publishers/google/models/gemini-2.5-pro"
             }
         },
     }
@@ -64,7 +64,7 @@ def test_vertex_ai_cancel_batch():
         "outputConfig": {"gcsDestination": {"outputUriPrefix": "gs://test-bucket/output"}},
     }
 
-    with patch("litellm.llms.vertex_ai.batches.handler.get_httpx_client") as mock_client:
+    with patch("hangarllm.llms.vertex_ai.batches.handler.get_httpx_client") as mock_client:
         mock_client.return_value.post.return_value = mock_response
         mock_client.return_value.get.return_value = mock_response
 
@@ -105,7 +105,7 @@ def test_vertex_ai_cancel_batch_encodes_batch_id():
         "outputConfig": {"gcsDestination": {"outputUriPrefix": "gs://test-bucket/output"}},
     }
 
-    with patch("litellm.llms.vertex_ai.batches.handler.get_httpx_client") as mock_client:
+    with patch("hangarllm.llms.vertex_ai.batches.handler.get_httpx_client") as mock_client:
         mock_client.return_value.post.return_value = mock_response
         mock_client.return_value.get.return_value = mock_response
 
@@ -154,7 +154,7 @@ def test_vertex_ai_cancel_batch_custom_proxy_retrieve_url():
         "outputConfig": {"gcsDestination": {"outputUriPrefix": "gs://test-bucket/output"}},
     }
 
-    with patch("litellm.llms.vertex_ai.batches.handler.get_httpx_client") as mock_client:
+    with patch("hangarllm.llms.vertex_ai.batches.handler.get_httpx_client") as mock_client:
         mock_client.return_value.post.return_value = mock_response
         mock_client.return_value.get.return_value = mock_response
 
@@ -183,16 +183,16 @@ def test_vertex_ai_cancel_batch_custom_proxy_retrieve_url():
 
 
 @pytest.mark.asyncio
-async def test_litellm_cancel_batch_vertex_ai():
-    """Test that litellm.cancel_batch works with vertex_ai provider"""
+async def test_hangarllm_cancel_batch_vertex_ai():
+    """Test that hangarllm.cancel_batch works with vertex_ai provider"""
     mock_response = MagicMock()
     mock_response.id = "batch_123"
     mock_response.status = "cancelling"
 
-    with patch("litellm.batches.main.vertex_ai_batches_instance") as mock_instance:
+    with patch("hangarllm.batches.main.vertex_ai_batches_instance") as mock_instance:
         mock_instance.cancel_batch.return_value = mock_response
 
-        response = litellm.cancel_batch(
+        response = hangarllm.cancel_batch(
             batch_id="batch_123",
             custom_llm_provider="vertex_ai",
             vertex_project="test-project",
@@ -207,10 +207,10 @@ async def test_litellm_cancel_batch_vertex_ai():
 _MOCK_GCS_FILE_RESPONSE: Final = MappingProxyType(
     {
         "kind": "storage#object",
-        "id": "litellm-local/litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb/1739598666670574",
-        "selfLink": "https://www.googleapis.com/storage/v1/b/litellm-local/o/litellm-vertex-files%2Fpublishers%2Fgoogle%2Fmodels%2Fgemini-1.5-flash-001%2F5f7b99ad-9203-4430-98bf-3b45451af4cb",
-        "name": "litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb",
-        "bucket": "litellm-local",
+        "id": "hangarllm-local/hangarllm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb/1739598666670574",
+        "selfLink": "https://www.googleapis.com/storage/v1/b/hangarllm-local/o/hangarllm-vertex-files%2Fpublishers%2Fgoogle%2Fmodels%2Fgemini-1.5-flash-001%2F5f7b99ad-9203-4430-98bf-3b45451af4cb",
+        "name": "hangarllm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb",
+        "bucket": "hangarllm-local",
         "generation": "1739598666670574",
         "metageneration": "1",
         "contentType": "application/json",
@@ -229,17 +229,17 @@ _MOCK_GCS_FILE_RESPONSE: Final = MappingProxyType(
 _MOCK_VERTEX_BATCH_RESPONSE: Final = MappingProxyType(
     {
         "name": "projects/123456789/locations/us-central1/batchPredictionJobs/test-batch-id-456",
-        "displayName": "litellm_batch_job",
+        "displayName": "hangarllm_batch_job",
         "model": "projects/123456789/locations/us-central1/models/gemini-1.5-flash-001",
         "modelVersionId": "v1",
         "inputConfig": {
             "gcsSource": {
                 "uris": [
-                    "gs://litellm-local/litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb"
+                    "gs://hangarllm-local/hangarllm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb"
                 ]
             }
         },
-        "outputConfig": {"gcsDestination": {"outputUriPrefix": "gs://litellm-local/batch-outputs/"}},
+        "outputConfig": {"gcsDestination": {"outputUriPrefix": "gs://hangarllm-local/batch-outputs/"}},
         "dedicatedResources": {
             "machineSpec": {
                 "machineType": "n1-standard-4",
@@ -263,10 +263,10 @@ _MOCK_VERTEX_BATCH_RESPONSE: Final = MappingProxyType(
 async def test_vertex_file_upload_create_and_retrieve_batch(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
-    monkeypatch.setenv("GCS_BUCKET_NAME", "litellm-local")
+    monkeypatch.setenv("GCS_BUCKET_NAME", "hangarllm-local")
     monkeypatch.setenv("VERTEXAI_PROJECT", "mock-project")
     monkeypatch.setenv("VERTEXAI_LOCATION", "us-central1")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     mock_creds: Final = MagicMock(token="mock-token", valid=True, expiry=None)
     monkeypatch.setattr("google.auth.default", lambda *args, **kwargs: (mock_creds, "mock-project"))
     jobs_url: Final = (
@@ -274,7 +274,7 @@ async def test_vertex_file_upload_create_and_retrieve_batch(
         "/batchPredictionJobs"
     )
     upload_route: Final = respx_mock.post(
-        url__startswith="https://storage.googleapis.com/upload/storage/v1/b/litellm-local/o"
+        url__startswith="https://storage.googleapis.com/upload/storage/v1/b/hangarllm-local/o"
     ).mock(return_value=httpx.Response(200, json=dict(_MOCK_GCS_FILE_RESPONSE)))
     create_route: Final = respx_mock.post(jobs_url).mock(
         return_value=httpx.Response(200, json=dict(_MOCK_VERTEX_BATCH_RESPONSE))
@@ -283,11 +283,11 @@ async def test_vertex_file_upload_create_and_retrieve_batch(
         return_value=httpx.Response(200, json=dict(_MOCK_VERTEX_BATCH_RESPONSE))
     )
     gcs_object_uri: Final = (
-        "gs://litellm-local/litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/"
+        "gs://hangarllm-local/hangarllm-vertex-files/publishers/google/models/gemini-1.5-flash-001/"
         "5f7b99ad-9203-4430-98bf-3b45451af4cb"
     )
 
-    file_obj: Final = await litellm.acreate_file(
+    file_obj: Final = await hangarllm.acreate_file(
         file=(
             "vertex_batch.jsonl",
             b'{"custom_id": "request-1", "method": "POST", "url": "/v1/chat/completions", '
@@ -303,14 +303,14 @@ async def test_vertex_file_upload_create_and_retrieve_batch(
     upload_request: Final = upload_route.calls.last.request
     assert upload_request.url.params["uploadType"] == "media"
     assert upload_request.url.params["name"].startswith(
-        "litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/"
+        "hangarllm-vertex-files/publishers/google/models/gemini-1.5-flash-001/"
     )
     assert upload_request.headers["Content-Type"] == "application/json"
     uploaded_row: Final = json.loads(upload_request.content)
     assert uploaded_row["request"]["contents"] == [{"role": "user", "parts": [{"text": "hi"}]}]
-    assert uploaded_row["request"]["labels"]["litellm_custom_id"] == "request-1"
+    assert uploaded_row["request"]["labels"]["hangarllm_custom_id"] == "request-1"
 
-    create_batch_response: Final = await litellm.acreate_batch(
+    create_batch_response: Final = await hangarllm.acreate_batch(
         completion_window="24h",
         endpoint="/v1/chat/completions",
         input_file_id=file_obj.id,
@@ -322,11 +322,11 @@ async def test_vertex_file_upload_create_and_retrieve_batch(
     assert create_body["inputConfig"] == {"gcsSource": {"uris": [gcs_object_uri]}, "instancesFormat": "jsonl"}
     assert create_body["model"] == "publishers/google/models/gemini-1.5-flash-001"
     assert create_body["outputConfig"]["predictionsFormat"] == "jsonl"
-    assert create_body["outputConfig"]["gcsDestination"]["outputUriPrefix"].startswith("gs://litellm-local/")
+    assert create_body["outputConfig"]["gcsDestination"]["outputUriPrefix"].startswith("gs://hangarllm-local/")
     assert create_batch_response.id == "test-batch-id-456"
     assert create_batch_response.input_file_id == gcs_object_uri
 
-    retrieved_batch: Final = await litellm.aretrieve_batch(
+    retrieved_batch: Final = await hangarllm.aretrieve_batch(
         batch_id=create_batch_response.id, custom_llm_provider="vertex_ai"
     )
 

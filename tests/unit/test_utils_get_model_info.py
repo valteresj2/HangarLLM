@@ -8,20 +8,20 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import get_model_info
-from litellm.llms.bedrock.common_utils import BedrockModelInfo
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.utils import ModelInfoBase
-from litellm.utils import _invalidate_model_cost_lowercase_map, supports_native_structured_output
+import hangarllm
+from hangarllm import get_model_info
+from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.types.utils import ModelInfoBase
+from hangarllm.utils import _invalidate_model_cost_lowercase_map, supports_native_structured_output
 import os
 from unittest.mock import MagicMock, patch
 
 
 @pytest.fixture(autouse=True)
 def isolate_model_info_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
-    monkeypatch.setattr(litellm, "custom_provider_map", list(litellm.custom_provider_map))
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
+    monkeypatch.setattr(hangarllm, "custom_provider_map", list(hangarllm.custom_provider_map))
     yield
     _invalidate_model_cost_lowercase_map()
 
@@ -31,7 +31,7 @@ def test_get_model_info_simple_model_name():
     tests if model name given, and model exists in model info - the object is returned
     """
     model = "claude-opus-5-5"
-    litellm.get_model_info(model)
+    hangarllm.get_model_info(model)
 
 
 def test_get_model_info_custom_llm_with_model_name():
@@ -39,7 +39,7 @@ def test_get_model_info_custom_llm_with_model_name():
     Tests if {custom_llm_provider}/{model_name} name given, and model exists in model info, the object is returned
     """
     model = "anthropic/claude-opus-5-5"
-    litellm.get_model_info(model)
+    hangarllm.get_model_info(model)
 
 
 def test_get_model_info_custom_llm_with_same_name_vllm(monkeypatch):
@@ -48,7 +48,7 @@ def test_get_model_info_custom_llm_with_same_name_vllm(monkeypatch):
     """
     model = "command-r-plus"
     provider = "openai"  # vllm is openai-compatible
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "openai/command-r-plus": {
                 "input_cost_per_token": 0.0,
@@ -56,7 +56,7 @@ def test_get_model_info_custom_llm_with_same_name_vllm(monkeypatch):
             },
         }
     )
-    model_info = litellm.get_model_info(model, custom_llm_provider=provider)
+    model_info = hangarllm.get_model_info(model, custom_llm_provider=provider)
     print("model_info", model_info)
     assert model_info["input_cost_per_token"] == 0.0
 
@@ -70,26 +70,26 @@ def test_get_model_info_passes_through_gemini_tiered_audio_rates() -> None:
         "cache_read_input_audio_token_cost_priority": 4e-7,
         "cache_read_input_audio_token_cost_batches": 5e-7,
     }
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model: {
-                "litellm_provider": "gemini",
+                "hangarllm_provider": "gemini",
                 "mode": "chat",
                 **prices,
             }
         }
     )
 
-    model_info: Final = litellm.get_model_info(model=model, custom_llm_provider="gemini")
+    model_info: Final = hangarllm.get_model_info(model=model, custom_llm_provider="gemini")
 
     assert {key: model_info[key] for key in prices} == prices
 
 
 def test_get_model_info_ollama_chat():
-    from litellm.llms.ollama.completion.transformation import OllamaConfig
+    from hangarllm.llms.ollama.completion.transformation import OllamaConfig
 
     with patch.object(
-        litellm.module_level_client,
+        hangarllm.module_level_client,
         "post",
         return_value=MagicMock(
             json=lambda: {
@@ -114,16 +114,16 @@ def test_get_model_info_ollama_chat():
 
 def test_get_model_info_bedrock_region(monkeypatch):
     regional_model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
     model_cost_without_regional_entry = {
-        key: value for key, value in litellm.get_model_cost_map(url="").items() if key != regional_model
+        key: value for key, value in hangarllm.get_model_cost_map(url="").items() if key != regional_model
     }
-    monkeypatch.setattr(litellm, "model_cost", model_cost_without_regional_entry)
+    monkeypatch.setattr(hangarllm, "model_cost", model_cost_without_regional_entry)
     _invalidate_model_cost_lowercase_map()
-    info = litellm.get_model_info(model=regional_model, custom_llm_provider="bedrock")
+    info = hangarllm.get_model_info(model=regional_model, custom_llm_provider="bedrock")
     print("info", info)
     assert info["key"] == "anthropic.claude-haiku-4-5-20251001-v1:0"
-    assert info["litellm_provider"] == "bedrock_converse"
+    assert info["hangarllm_provider"] == "bedrock_converse"
 
 
 @pytest.mark.parametrize(
@@ -138,7 +138,7 @@ def test_get_model_info_bedrock_region(monkeypatch):
     ],
 )
 def test_get_model_info_completion_cost_unit_tests(model):
-    info = litellm.get_model_info(model)
+    info = hangarllm.get_model_info(model)
     print("info", info)
 
 
@@ -147,7 +147,7 @@ def test_get_model_info_ft_model_with_provider_prefix():
         "model": "openai/ft:gpt-3.5-turbo:my-org:custom_suffix:id",
         "custom_llm_provider": "openai",
     }
-    info = litellm.get_model_info(**args)
+    info = hangarllm.get_model_info(**args)
     print("info", info)
     assert info["key"] == "ft:gpt-3.5-turbo"
 
@@ -157,13 +157,13 @@ def _enforce_bedrock_converse_models(
 ) -> None:
     for model, info in model_cost.items():
         if (
-            info.get("litellm_provider") == "bedrock"
+            info.get("hangarllm_provider") == "bedrock"
             and info.get("mode") == "chat"
             and model not in whitelist_models
             and BedrockModelInfo.get_bedrock_route(model) != "claude_platform"
             and not (
                 (base_model := BedrockModelInfo.get_base_model(model)) != model
-                and model_cost.get(base_model, {}).get("litellm_provider") == "bedrock_converse"
+                and model_cost.get(base_model, {}).get("hangarllm_provider") == "bedrock_converse"
                 and BedrockModelInfo.get_bedrock_route(model) == "converse"
             )
         ):
@@ -186,8 +186,8 @@ def test_model_info_bedrock_converse(monkeypatch):
 
     This ensures they are automatically routed to the converse endpoint.
     """
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     try:
         # Load whitelist models from file
         with open("whitelisted_bedrock_models.txt", "r") as file:
@@ -196,7 +196,7 @@ def test_model_info_bedrock_converse(monkeypatch):
         pytest.skip("whitelisted_bedrock_models.txt not found")
 
     _enforce_bedrock_converse_models(
-        model_cost=litellm.model_cost, whitelist_models=whitelist_models
+        model_cost=hangarllm.model_cost, whitelist_models=whitelist_models
     )
 
 
@@ -205,12 +205,12 @@ def test_model_info_bedrock_converse_enforcement(monkeypatch):
     """
     Test the enforcement of the whitelist by adding a fake model and ensuring the test fails.
     """
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     # Add a fake unwhitelisted model
-    litellm.model_cost["fake.bedrock-chat-model"] = {
-        "litellm_provider": "bedrock",
+    hangarllm.model_cost["fake.bedrock-chat-model"] = {
+        "hangarllm_provider": "bedrock",
         "mode": "chat",
     }
 
@@ -222,7 +222,7 @@ def test_model_info_bedrock_converse_enforcement(monkeypatch):
         # Check for unwhitelisted models
         with pytest.raises(AssertionError, match=r"fake\.bedrock-chat-model"):
             _enforce_bedrock_converse_models(
-                model_cost=litellm.model_cost, whitelist_models=whitelist_models
+                model_cost=hangarllm.model_cost, whitelist_models=whitelist_models
             )
     except FileNotFoundError as e:
         pytest.skip("whitelisted_bedrock_models.txt not found")
@@ -234,12 +234,12 @@ def test_regional_bedrock_alias_requires_canonical_converse_metadata(
     region: str, base_provider: Literal["bedrock_converse", "bedrock"]
 ) -> None:
     base_model: Final = next(
-        model for model in sorted(litellm.bedrock_converse_models) if BedrockModelInfo.get_base_model(model) == model
+        model for model in sorted(hangarllm.bedrock_converse_models) if BedrockModelInfo.get_base_model(model) == model
     )
     model: Final = f"bedrock/{region}/{base_model}"
     model_cost: Final[Mapping[str, ModelInfoBase]] = {
-        model: {"litellm_provider": "bedrock", "mode": "chat"},
-        base_model: {"litellm_provider": base_provider, "mode": "chat"},
+        model: {"hangarllm_provider": "bedrock", "mode": "chat"},
+        base_model: {"hangarllm_provider": base_provider, "mode": "chat"},
     }
     assert BedrockModelInfo.get_bedrock_route(model) == "converse"
     if base_provider == "bedrock":
@@ -264,13 +264,13 @@ def test_get_model_info_bedrock_models():
     Check for drift in base model info for bedrock models and regional model info for bedrock models.
     GovCloud regions may lag their commercial base on Bedrock native structured output, never lead it.
     """
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
-    for k, v in litellm.model_cost.items():
-        if v["litellm_provider"] == "bedrock":
+    for k, v in hangarllm.model_cost.items():
+        if v["hangarllm_provider"] == "bedrock":
             k = k.replace("*/", "")
             potential_commitments = [
                 "1-month-commitment",
@@ -284,12 +284,12 @@ def test_get_model_info_bedrock_models():
             # get_base_model() returns model id without "bedrock/" prefix; cost map keys use "bedrock/<model>"
             base_model_key = (
                 base_model
-                if base_model in litellm.model_cost
+                if base_model in hangarllm.model_cost
                 else f"bedrock/{base_model}"
             )
-            if base_model_key not in litellm.model_cost:
+            if base_model_key not in hangarllm.model_cost:
                 continue
-            base_model_info = litellm.model_cost[base_model_key]
+            base_model_info = hangarllm.model_cost[base_model_key]
             for base_model_key, base_model_value in base_model_info.items():
                 if "invoke/" in k:
                     continue
@@ -324,7 +324,7 @@ def _cross_region_profiles(
     return tuple(
         (model_key, model_info, base_model_key)
         for model_key, model_info in model_cost.items()
-        if str(model_info.get("litellm_provider", "")).startswith("bedrock")
+        if str(model_info.get("hangarllm_provider", "")).startswith("bedrock")
         and (
             base_model_key := _cross_region_base_model_key(model_key, prefixes, model_cost)
         )
@@ -346,28 +346,28 @@ _BEDROCK_PROFILE_ONLY_NATIVE_OUTPUT_MODELS: Final = frozenset(
 
 def test_get_model_info_bedrock_cross_region_capability_parity():
     """
-    Cross-region inference profiles carry litellm_provider "bedrock_converse", so the
+    Cross-region inference profiles carry hangarllm_provider "bedrock_converse", so the
     regional drift check above (which filters on "bedrock") never reaches them.
     GovCloud is a separate AWS partition that gets features later, so a us-gov profile
     may lack Bedrock native structured output its commercial base has, never the reverse.
     """
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     prefixes = ("us.", "eu.", "apac.", "us-gov.")
     checked = 0
 
-    for k, v in litellm.model_cost.items():
-        if not str(v.get("litellm_provider", "")).startswith("bedrock"):
+    for k, v in hangarllm.model_cost.items():
+        if not str(v.get("hangarllm_provider", "")).startswith("bedrock"):
             continue
         base_model_key = next(
             (k[len(p) :] for p in prefixes if k.startswith(p)),
             None,
         )
-        if base_model_key is None or base_model_key not in litellm.model_cost:
+        if base_model_key is None or base_model_key not in hangarllm.model_cost:
             continue
         checked += 1
-        for cap, base_value in litellm.model_cost[base_model_key].items():
+        for cap, base_value in hangarllm.model_cost[base_model_key].items():
             if not cap.startswith("supports_"):
                 continue
             assert cap in v, f"{cap} is on {base_model_key} but missing from {k}"
@@ -390,11 +390,11 @@ def test_get_model_info_bedrock_cross_region_capability_parity():
 
 def test_bedrock_native_output_default_reaches_only_versions_that_read_its_key(local_model_cost_map):
     flagged: Final = tuple(
-        key for key, row in litellm.model_cost.items() if row.get("supports_bedrock_native_structured_output_by_default")
+        key for key, row in hangarllm.model_cost.items() if row.get("supports_bedrock_native_structured_output_by_default")
     )
 
     assert flagged
-    assert [key for key in flagged if litellm.model_cost[key].get("supports_native_structured_output")] == []
+    assert [key for key in flagged if hangarllm.model_cost[key].get("supports_native_structured_output")] == []
     assert [key for key in flagged if not get_model_info(key)["supports_native_structured_output"]] == []
 
 
@@ -405,7 +405,7 @@ def test_bedrock_native_output_default_reaches_only_versions_that_read_its_key(l
 )
 def test_a_registered_bedrock_opt_out_beats_the_native_output_default(local_model_cost_map, registered, native):
     model: Final = "us.anthropic.claude-sonnet-5"
-    litellm.register_model({model: registered}, persist_across_reloads=False)
+    hangarllm.register_model({model: registered}, persist_across_reloads=False)
 
     assert get_model_info(f"bedrock/{model}")["supports_native_structured_output"] is native
     assert supports_native_structured_output(f"bedrock/{model}") is native
@@ -416,23 +416,23 @@ def _is_positive_cost(value: object) -> bool:
 
 
 def test_get_model_info_bedrock_priced_cross_region_profile_has_priced_base():
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     prefixes = ("us.", "eu.", "apac.", "us-gov.", "au.", "global.")
     checked = 0
 
-    for k, v in litellm.model_cost.items():
-        if not str(v.get("litellm_provider", "")).startswith("bedrock"):
+    for k, v in hangarllm.model_cost.items():
+        if not str(v.get("hangarllm_provider", "")).startswith("bedrock"):
             continue
         base_model_key = next(
             (k[len(p) :] for p in prefixes if k.startswith(p)),
             None,
         )
-        if base_model_key is None or base_model_key not in litellm.model_cost:
+        if base_model_key is None or base_model_key not in hangarllm.model_cost:
             continue
         checked += 1
-        base = litellm.model_cost[base_model_key]
+        base = hangarllm.model_cost[base_model_key]
         for cost_key in ("input_cost_per_token", "output_cost_per_token"):
             if (v.get(cost_key) or 0) > 0:
                 assert (
@@ -453,37 +453,37 @@ def test_get_model_info_case_insensitive_lookup(monkeypatch):
     errors when using lowercase model names like "qwen/qwen3-next-80b-a3b-thinking"
     because the lookup was case-sensitive.
     """
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     # Register a test model with mixed-case name
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "together_ai/Qwen/Qwen3-Next-80B-A3B-Thinking": {
                 "input_cost_per_token": 0.0001,
                 "output_cost_per_token": 0.0002,
-                "litellm_provider": "together_ai",
+                "hangarllm_provider": "together_ai",
                 "supports_function_calling": True,
             }
         }
     )
 
     # Test 1: Exact case should work
-    info = litellm.get_model_info(
+    info = hangarllm.get_model_info(
         model="Qwen/Qwen3-Next-80B-A3B-Thinking", custom_llm_provider="together_ai"
     )
     assert info is not None
     assert info["supports_function_calling"] is True
 
     # Test 2: Lowercase should also work (case-insensitive lookup)
-    info_lower = litellm.get_model_info(
+    info_lower = hangarllm.get_model_info(
         model="qwen/qwen3-next-80b-a3b-thinking", custom_llm_provider="together_ai"
     )
     assert info_lower is not None
     assert info_lower["supports_function_calling"] is True
 
     # Test 3: Mixed case should also work
-    info_mixed = litellm.get_model_info(
+    info_mixed = hangarllm.get_model_info(
         model="QWEN/qwen3-NEXT-80b-a3b-thinking", custom_llm_provider="together_ai"
     )
     assert info_mixed is not None
@@ -494,23 +494,23 @@ def test_get_model_info_case_insensitive_supports_function_calling(monkeypatch):
     """
     Test that supports_function_calling check works with case-insensitive model lookup.
     """
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
     # Register a model with mixed-case name that supports function calling
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "test_provider/TestModel-ABC": {
                 "input_cost_per_token": 0.0001,
                 "output_cost_per_token": 0.0002,
-                "litellm_provider": "test_provider",
+                "hangarllm_provider": "test_provider",
                 "supports_function_calling": True,
             }
         }
     )
 
     # Test that supports_function_calling works with lowercase model name
-    from litellm.utils import supports_function_calling
+    from hangarllm.utils import supports_function_calling
 
     # Exact case
     assert (
@@ -526,16 +526,16 @@ def test_get_model_info_case_insensitive_supports_function_calling(monkeypatch):
 
 
 def test_get_model_info_custom_model_router():
-    from litellm import Router
-    from litellm import get_model_info
+    from hangarllm import Router
+    from hangarllm import get_model_info
 
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     router = Router(
         model_list=[
             {
                 "model_name": "ma-summary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_base": "http://ma-mix-llm-serving.cicero.svc.cluster.local/v1",
                     "input_cost_per_token": 1,
                     "output_cost_per_token": 1,
@@ -553,13 +553,13 @@ def test_get_model_info_custom_model_router():
 
 
 def test_get_model_info_custom_provider():
-    # Custom provider example copied from https://docs.litellm.ai/docs/providers/custom_llm_server:
-    import litellm
-    from litellm import CustomLLM, completion
+    # Custom provider example copied from https://github.com/valteresj2/HangarLLM#readme
+    import hangarllm
+    from hangarllm import CustomLLM, completion
 
     class MyCustomLLM(CustomLLM):
-        def completion(self, *args, **kwargs) -> litellm.ModelResponse:
-            return litellm.completion(
+        def completion(self, *args, **kwargs) -> hangarllm.ModelResponse:
+            return hangarllm.completion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Hello world"}],
                 mock_response="Hi!",
@@ -567,7 +567,7 @@ def test_get_model_info_custom_provider():
 
     my_custom_llm = MyCustomLLM()
 
-    litellm.custom_provider_map = [  # 👈 KEY STEP - REGISTER HANDLER
+    hangarllm.custom_provider_map = [  # 👈 KEY STEP - REGISTER HANDLER
         {"provider": "my-custom-llm", "custom_handler": my_custom_llm}
     ]
 
@@ -580,10 +580,10 @@ def test_get_model_info_custom_provider():
 
     # Register model info
     model_info = {"my-custom-llm/my-fake-model": {"max_tokens": 2048}}
-    litellm.register_model(model_info)
+    hangarllm.register_model(model_info)
 
     # Get registered model info
-    from litellm import get_model_info
+    from hangarllm import get_model_info
 
     get_model_info(
         model="my-custom-llm/my-fake-model"
@@ -591,8 +591,8 @@ def test_get_model_info_custom_provider():
 
 
 def test_get_model_info_huggingface_models(monkeypatch):
-    from litellm import Router
-    from litellm.types.router import ModelGroupInfo
+    from hangarllm import Router
+    from hangarllm.types.router import ModelGroupInfo
 
     monkeypatch.setenv("HUGGINGFACE_API_KEY", "hf_abc123")
 
@@ -602,7 +602,7 @@ def test_get_model_info_huggingface_models(monkeypatch):
             model_list=[
                 {
                     "model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "huggingface/meta-llama/Meta-Llama-3-8B-Instruct",
                         "api_base": "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-8B-Instruct",
                         "api_key": os.environ["HUGGINGFACE_API_KEY"],
@@ -610,7 +610,7 @@ def test_get_model_info_huggingface_models(monkeypatch):
                 }
             ]
         )
-        info = litellm.get_model_info("huggingface/meta-llama/Meta-Llama-3-8B-Instruct")
+        info = hangarllm.get_model_info("huggingface/meta-llama/Meta-Llama-3-8B-Instruct")
     assert info is not None
 
     ModelGroupInfo(

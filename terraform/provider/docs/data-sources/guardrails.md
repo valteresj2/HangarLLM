@@ -1,18 +1,18 @@
-# litellm_guardrails Data Source
+# hangarllm_guardrails Data Source
 
-Retrieves the list of all guardrails configured on the LiteLLM proxy (from both config and DB). Sensitive `litellm_params` are not exposed.
+Retrieves the list of all guardrails configured on the HangarLLM proxy (from both config and DB). Sensitive `hangarllm_params` are not exposed.
 
 ## Example Usage
 
 ```hcl
-data "litellm_guardrails" "all" {}
+data "hangarllm_guardrails" "all" {}
 
 output "guardrail_ids" {
-  value = data.litellm_guardrails.all.ids
+  value = data.hangarllm_guardrails.all.ids
 }
 
 output "guardrail_names" {
-  value = [for g in data.litellm_guardrails.all.guardrails : g.guardrail_name]
+  value = [for g in data.hangarllm_guardrails.all.guardrails : g.guardrail_name]
 }
 ```
 

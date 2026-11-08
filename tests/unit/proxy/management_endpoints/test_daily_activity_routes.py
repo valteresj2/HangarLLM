@@ -14,24 +14,24 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from prisma.errors import DataError
 
-from litellm import constants
-from litellm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
-from litellm.proxy._types import LiteLLM_TeamTable, LiteLLM_UserTable, LitellmUserRoles, Member, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.management_endpoints.daily_activity_routes import (
+from hangarllm import constants
+from hangarllm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarLLM_UserTable, HangarllmUserRoles, Member, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.management_endpoints.daily_activity_routes import (
     _csv_cell,
     get_daily_activity_llm_router,
     get_daily_activity_prisma_client,
     get_daily_activity_repository,
     router,
 )
-from litellm.router import Router
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from hangarllm.router import Router
+from hangarllm.types.proxy.management_endpoints.common_daily_activity import (
     KeySpendMetrics,
     SpendAnalyticsPaginatedResponse,
     SpendMetrics,
 )
-from litellm.types.repositories.daily_activity import (
+from hangarllm.types.repositories.daily_activity import (
     AggregatedRows,
     DailyActivityScope,
     DailyActivityTable,
@@ -541,51 +541,51 @@ def _matches(row: object, where: Mapping[str, object]) -> bool:
 
 
 def _prisma_client(**table_overrides: object) -> object:
-    user: Final = LiteLLM_UserTable(
+    user: Final = HangarLLM_UserTable(
         user_id="user-a",
         user_email="user@example.test",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         teams=["team-a"],
     )
-    team: Final = LiteLLM_TeamTable(
+    team: Final = HangarLLM_TeamTable(
         team_id="team-a",
         team_alias="Team A",
         members_with_roles=[Member(user_id="user-a", role="user")],
     )
-    other_user: Final = LiteLLM_UserTable(
+    other_user: Final = HangarLLM_UserTable(
         user_id="user-b",
         user_email="other-user@example.test",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         teams=["team-b"],
     )
-    other_team: Final = LiteLLM_TeamTable(
+    other_team: Final = HangarLLM_TeamTable(
         team_id="team-b",
         team_alias="Team B",
         members_with_roles=[Member(user_id="user-b", role="user")],
     )
     default_tables: Final = SimpleNamespace(
-        litellm_usertable=_PrismaTable((user, other_user)),
-        litellm_teamtable=_PrismaTable((team, other_team)),
-        litellm_verificationtoken=_PrismaTable((SimpleNamespace(token="key-alpha", user_id="user-a"),)),
-        litellm_organizationmembership=_PrismaTable(
+        hangarllm_usertable=_PrismaTable((user, other_user)),
+        hangarllm_teamtable=_PrismaTable((team, other_team)),
+        hangarllm_verificationtoken=_PrismaTable((SimpleNamespace(token="key-alpha", user_id="user-a"),)),
+        hangarllm_organizationmembership=_PrismaTable(
             (
                 SimpleNamespace(user_id="user-a", organization_id="org-a", user_role="org_admin"),
                 SimpleNamespace(user_id="user-b", organization_id="other-org", user_role="org_admin"),
             )
         ),
-        litellm_organizationtable=_PrismaTable(
+        hangarllm_organizationtable=_PrismaTable(
             (
                 SimpleNamespace(organization_id="org-a", organization_alias="Org A"),
                 SimpleNamespace(organization_id="other-org", organization_alias="Other Org"),
             )
         ),
-        litellm_endusertable=_PrismaTable(
+        hangarllm_endusertable=_PrismaTable(
             (
                 SimpleNamespace(user_id="customer-a", alias="Customer A"),
                 SimpleNamespace(user_id="customer-b", alias="Customer B"),
             )
         ),
-        litellm_agentstable=_PrismaTable(
+        hangarllm_agentstable=_PrismaTable(
             (
                 SimpleNamespace(agent_id="agent-a", agent_name="Agent A", created_by="user-a"),
                 SimpleNamespace(agent_id="agent-b", agent_name="Agent B", created_by="user-b"),
@@ -602,9 +602,9 @@ def _daily_activity_test_client(repository: _FakeRepository, prisma_client: obje
     app.include_router(router)
 
     def resolve_auth(request: Request) -> UserAPIKeyAuth:
-        role: Final = LitellmUserRoles(request.headers.get("x-user-role", LitellmUserRoles.PROXY_ADMIN.value))
+        role: Final = HangarllmUserRoles(request.headers.get("x-user-role", HangarllmUserRoles.PROXY_ADMIN.value))
         user_id: Final[str | None] = request.headers.get("x-user-id") or (
-            "admin" if role != LitellmUserRoles.INTERNAL_USER else None
+            "admin" if role != HangarllmUserRoles.INTERNAL_USER else None
         )
         return UserAPIKeyAuth(
             user_id=user_id,
@@ -657,7 +657,7 @@ def _ptu_sized_router(
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "shared-ptu",
                     "base_model": "azure/gpt-4.1",
@@ -688,7 +688,7 @@ def test_team_aggregated_route_reports_ptu_hours_for_the_sized_model_group_only_
     (output at the model's output ratio) over one PTU-hour of input; the unsized popular-group,
     the day without rare-group traffic, and the flag-off run all report zero."""
     client, _ = daily_activity_client
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True" if attribution_enabled else "False")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True" if attribution_enabled else "False")
     _inject_llm_router(client, _ptu_sized_router("rare-group"))
 
     response: Final = client.get("/team/daily/activity/aggregated", params=_entity_params("team_ids", "team-a"))
@@ -718,7 +718,7 @@ def test_team_aggregated_route_reports_no_ptu_hours_to_a_team_holding_no_share(
     """rare-group is split between team-b and team-c, so team-a's page alone converts none of its
     rare-group tokens even though the group is sized."""
     client, _ = daily_activity_client
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     _inject_llm_router(client, _ptu_sized_router("rare-group", shares=MappingProxyType({"team-b": 30, "team-c": 20})))
 
     response: Final = client.get("/team/daily/activity/aggregated", params=_entity_params("team_ids", "team-a"))
@@ -737,7 +737,7 @@ def test_ptu_hours_stay_zero_outside_the_team_routes(
     """PTU reservations are split per team, so only the team routes convert tokens to PTU-hours;
     a user's own activity on the same sized model group keeps the field at zero."""
     client, _ = daily_activity_client
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     _inject_llm_router(client, _ptu_sized_router("rare-group"))
 
     response: Final = client.get("/user/daily/activity/aggregated", params=_entity_params("user_id", "user-a"))
@@ -937,7 +937,7 @@ def test_key_page_route_rejects_invalid_bounds(
     (
         ({}, {"2025-01-01": {"user-a": 12.5, "user-b": 100.0}, "2025-01-02": {"user-a": 2.0}}),
         (
-            {"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
+            {"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
             {"2025-01-01": {"user-a": 12.5}, "2025-01-02": {"user-a": 2.0}},
         ),
     ),
@@ -1125,10 +1125,10 @@ def test_user_page_route_still_reports_a_lookup_bug_that_is_not_a_database_failu
 _ENTITY_ALIAS_LOOKUPS: Final = pytest.mark.parametrize(
     ("prefix", "query_name", "entity_id", "alias_table", "alias"),
     [
-        ("/team", "team_ids", "team-a", "litellm_teamtable", {"team_alias": "Team A"}),
-        ("/organization", "organization_ids", "org-a", "litellm_organizationtable", {"organization_alias": "Org A"}),
-        ("/customer", "end_user_ids", "customer-a", "litellm_endusertable", {"alias": "Customer A"}),
-        ("/agent", "agent_ids", "agent-a", "litellm_agentstable", {"agent_name": "Agent A"}),
+        ("/team", "team_ids", "team-a", "hangarllm_teamtable", {"team_alias": "Team A"}),
+        ("/organization", "organization_ids", "org-a", "hangarllm_organizationtable", {"organization_alias": "Org A"}),
+        ("/customer", "end_user_ids", "customer-a", "hangarllm_endusertable", {"alias": "Customer A"}),
+        ("/agent", "agent_ids", "agent-a", "hangarllm_agentstable", {"agent_name": "Agent A"}),
     ],
     ids=["team", "organization", "customer", "agent"],
 )
@@ -1192,12 +1192,12 @@ def test_team_route_fails_closed_for_a_team_member_when_the_team_lookup_hits_a_d
     failure: Exception,
 ) -> None:
     repository: Final = _FakeRepository(_seeded_activity())
-    prisma_client: Final = _prisma_client(litellm_teamtable=_FailingPrismaTable(failure))
+    prisma_client: Final = _prisma_client(hangarllm_teamtable=_FailingPrismaTable(failure))
     with _daily_activity_test_client(repository, prisma_client) as client:
         response: Final = client.get(
             "/team/daily/activity/aggregated",
             params=_entity_params("team_ids", "team-a"),
-            headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
+            headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
         )
 
     assert response.status_code == 500, response.text
@@ -1240,7 +1240,7 @@ def test_user_page_route_scopes_non_admin_to_their_own_user(
     daily_activity_client: tuple[TestClient, _FakeRepository],
 ) -> None:
     client, repository = daily_activity_client
-    headers: Final = {"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"}
+    headers: Final = {"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"}
 
     own_response: Final = client.get("/user/daily/activity/aggregated/users", params=_DATE_PARAMS, headers=headers)
     denied_response: Final = client.get(
@@ -1475,7 +1475,7 @@ def test_user_routes_preserve_scope_denials_and_service_account_guard(
     denied: Final = client.get(
         "/user/daily/activity/aggregated",
         params=_entity_params("user_id", "user-b"),
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
     )
     assert denied.status_code == 403, denied.text
     repository.aggregated.assert_not_awaited()
@@ -1483,7 +1483,7 @@ def test_user_routes_preserve_scope_denials_and_service_account_guard(
     service_account: Final = client.get(
         "/user/daily/activity/aggregated",
         params=_DATE_PARAMS,
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value},
     )
     assert service_account.status_code == 403, service_account.text
     repository.aggregated.assert_not_awaited()
@@ -1491,7 +1491,7 @@ def test_user_routes_preserve_scope_denials_and_service_account_guard(
     own_scope: Final = client.get(
         "/user/daily/activity/aggregated",
         params=_DATE_PARAMS,
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
     )
     assert own_scope.status_code == 200, own_scope.text
     assert own_scope.json()["metadata"]["total_spend"] == pytest.approx(14.5)
@@ -1505,7 +1505,7 @@ def test_team_scope_applies_membership_and_user_key_filter(
     response: Final = client.get(
         "/team/daily/activity/aggregated",
         params={**_entity_params("team_ids", "team-a"), "timezone": "480"},
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
     )
     assert response.status_code == 200, response.text
     assert response.json()["metadata"]["total_spend"] == pytest.approx(3.0)
@@ -1526,7 +1526,7 @@ def test_team_scope_does_not_allow_an_unowned_api_key(
     response: Final = client.get(
         "/team/daily/activity/aggregated",
         params={**_entity_params("team_ids", "team-a"), "api_key": api_key},
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
     )
     assert response.status_code == 200, response.text
     assert response.json()["metadata"]["total_spend"] == 0
@@ -1538,7 +1538,7 @@ def _assert_customer_route_denied(client: TestClient, prefix: str, suffix: str, 
     response: Final = client.get(
         f"{prefix}/daily/activity/{suffix}",
         params={**_entity_params("end_user_ids", "customer-a"), **extra_params},
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"},
     )
     assert response.status_code == 403, response.text
 
@@ -1593,7 +1593,7 @@ def test_non_admin_routes_return_only_permitted_entities_and_keys(
     extra_params: Mapping[str, str],
 ) -> None:
     client, _ = daily_activity_client
-    headers: Final = {"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"}
+    headers: Final = {"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-a"}
     response: Final = client.get(
         f"{prefix}/daily/activity/{family}",
         params={**_entity_params(query_name, entity_id), **extra_params},
@@ -1611,7 +1611,7 @@ def test_empty_scope_filters_fail_closed(daily_activity_client: tuple[TestClient
     response: Final = client.get(
         "/tag/daily/activity/aggregated",
         params=_entity_params("tags", "blue"),
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value, "x-user-id": "user-empty"},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value, "x-user-id": "user-empty"},
     )
     assert response.status_code == 200, response.text
     assert response.json()["metadata"]["total_spend"] == 0
@@ -1722,7 +1722,7 @@ def test_user_internal_role_is_scoped_to_api_key(daily_activity_client: tuple[Te
         "/tag/daily/activity/aggregated",
         params=_entity_params("tags", "blue"),
         headers={
-            "x-user-role": LitellmUserRoles.INTERNAL_USER.value,
+            "x-user-role": HangarllmUserRoles.INTERNAL_USER.value,
             "x-user-id": "user-a",
         },
     )

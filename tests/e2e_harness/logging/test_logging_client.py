@@ -15,7 +15,7 @@ def test_observation_preserves_v2_content_usage_and_cost(encoded: bool, cost: fl
     metadata: Final[JsonValue] = {
         "attributes": {
             "langfuse.observation.type": "generation",
-            "litellm.metadata.user_api_key_alias": "test-key-alias",
+            "hangarllm.metadata.user_api_key_alias": "test-key-alias",
         }
     }
     usage: Final[JsonValue] = {"input": 17, "output": 3}

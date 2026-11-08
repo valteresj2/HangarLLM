@@ -14,10 +14,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.utils import ProxyLogging
 
 
 class MockStreamingCallback(CustomLogger):
@@ -70,7 +70,7 @@ async def test_streaming_hook_is_async_generator():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", [callback]):
+    with patch.object(hangarllm, "callbacks", [callback]):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -104,7 +104,7 @@ async def test_streaming_hook_chains_multiple_callbacks():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", [callback1, callback2]):
+    with patch.object(hangarllm, "callbacks", [callback1, callback2]):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -136,7 +136,7 @@ async def test_streaming_hook_handles_empty_callbacks():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", []):
+    with patch.object(hangarllm, "callbacks", []):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -174,7 +174,7 @@ async def test_streaming_hook_propagates_callback_errors():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", [failing_callback]):
+    with patch.object(hangarllm, "callbacks", [failing_callback]):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -213,7 +213,7 @@ async def test_closing_the_stream_runs_every_callback_cleanup_before_returning()
     proxy_logging = ProxyLogging(user_api_key_cache=MagicMock())
     callbacks = [CleanupRecordingCallback(), CleanupRecordingCallback()]
 
-    with patch.object(litellm, "callbacks", callbacks):
+    with patch.object(hangarllm, "callbacks", callbacks):
         ProxyLogging._callback_capabilities_cache.clear()
         stream = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -249,7 +249,7 @@ async def test_closing_the_stream_still_cleans_up_inner_callbacks_when_an_outer_
     proxy_logging = ProxyLogging(user_api_key_cache=MagicMock())
     inner = CleanupRecordingCallback()
 
-    with patch.object(litellm, "callbacks", [inner, RaisingCleanupCallback()]):
+    with patch.object(hangarllm, "callbacks", [inner, RaisingCleanupCallback()]):
         ProxyLogging._callback_capabilities_cache.clear()
         stream = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -290,7 +290,7 @@ class PlainIteratorCallback(CustomLogger):
 async def test_a_hook_returning_a_plain_async_iterator_streams_every_chunk():
     proxy_logging = ProxyLogging(user_api_key_cache=MagicMock())
 
-    with patch.object(litellm, "callbacks", [PlainIteratorCallback()]):
+    with patch.object(hangarllm, "callbacks", [PlainIteratorCallback()]):
         ProxyLogging._callback_capabilities_cache.clear()
         received = [
             chunk
@@ -350,7 +350,7 @@ async def test_closing_the_stream_closes_a_hook_iterator_that_is_not_a_generator
     proxy_logging = ProxyLogging(user_api_key_cache=MagicMock())
     callback = ClosableIteratorCallback()
 
-    with patch.object(litellm, "callbacks", [callback]):
+    with patch.object(hangarllm, "callbacks", [callback]):
         ProxyLogging._callback_capabilities_cache.clear()
         stream = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -369,7 +369,7 @@ async def test_a_hook_iterator_with_a_synchronous_aclose_streams_everything_and_
     proxy_logging = ProxyLogging(user_api_key_cache=MagicMock())
     callback = ClosableIteratorCallback(iterator_type=_SyncClosableAsyncIterator)
 
-    with patch.object(litellm, "callbacks", [callback]):
+    with patch.object(hangarllm, "callbacks", [callback]):
         ProxyLogging._callback_capabilities_cache.clear()
         received = [
             chunk
@@ -438,9 +438,9 @@ async def test_a_hook_iterator_whose_aclose_raises_still_finishes_the_stream(cap
     proxy_logging = ProxyLogging(user_api_key_cache=MagicMock())
     callback = RaisingAcloseIteratorCallback()
 
-    with patch.object(litellm, "callbacks", [callback]):
+    with patch.object(hangarllm, "callbacks", [callback]):
         ProxyLogging._callback_capabilities_cache.clear()
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
             received = [
                 chunk
                 async for chunk in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -472,9 +472,9 @@ async def test_a_hook_iterator_whose_synchronous_aclose_raises_still_finishes_th
         iterator_type=_SyncRaisingAcloseIterator, error=ValueError("sync cleanup failed")
     )
 
-    with patch.object(litellm, "callbacks", [callback]):
+    with patch.object(hangarllm, "callbacks", [callback]):
         ProxyLogging._callback_capabilities_cache.clear()
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
             received = [
                 chunk
                 async for chunk in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -503,9 +503,9 @@ async def test_a_hook_iterator_with_a_clean_aclose_streams_everything_without_wa
     proxy_logging = ProxyLogging(user_api_key_cache=MagicMock())
     callback = ClosableIteratorCallback()
 
-    with patch.object(litellm, "callbacks", [callback]):
+    with patch.object(hangarllm, "callbacks", [callback]):
         ProxyLogging._callback_capabilities_cache.clear()
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
             received = [
                 chunk
                 async for chunk in proxy_logging.async_post_call_streaming_iterator_hook(

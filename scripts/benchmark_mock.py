@@ -18,7 +18,7 @@ REQUEST_BODY = {
 }
 
 HEADERS = {
-    "Authorization": f"Bearer {os.environ['LITELLM_MASTER_KEY']}",
+    "Authorization": f"Bearer {os.environ['HANGARLLM_MASTER_KEY']}",
     "Content-Type": "application/json",
 }
 

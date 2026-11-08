@@ -31,7 +31,7 @@ MESSAGES: Final = "/v1/messages"
 RESPONSES: Final = "/v1/responses"
 FAILURE_ROW: Final = (
     "SELECT status, model_group, model_id, api_base, metadata::jsonb -> 'error_information' AS error "
-    'FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+    'FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 )
 ENDPOINT_CELLS: Final = tuple((path, stream) for path in (CHAT, MESSAGES, RESPONSES) for stream in (False, True))
 ENDPOINT_GROUPS: Final = tuple(
@@ -90,7 +90,7 @@ def cooldown_config(directory: Path, cache: OwnedRedis, prefix: str, wire: Wire)
     model_list: Final = [
         {
             "model_name": f"{prefix}-{name}",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-5.4",
                 "api_base": f"{wire.url}/{prefix}-{name}/{lane}/v1",
                 "api_key": "synthetic-openai-key",
@@ -156,13 +156,13 @@ def request_body(path: str, group: str, stream: bool) -> dict[str, JsonValue]:
 
 def send(gateway: Gateway, path: str, group: str, stream: bool = False) -> Outcome:
     response: Final = gateway.request("POST", path, request_body(path, group, stream), headers={"Connection": "close"})
-    return Outcome(response.status_code, response.text, response.headers["x-litellm-call-id"])
+    return Outcome(response.status_code, response.text, response.headers["x-hangarllm-call-id"])
 
 
 def send_chat(rig: Rig, name: str, extra: Mapping[str, JsonValue]) -> Outcome:
     body: Final = {**request_body(CHAT, rig.group(name), False), **extra}
     response: Final = rig.gateway.request("POST", CHAT, body, headers={"Connection": "close"})
-    return Outcome(response.status_code, response.text, response.headers["x-litellm-call-id"])
+    return Outcome(response.status_code, response.text, response.headers["x-hangarllm-call-id"])
 
 
 def failure_row(gateway: Gateway, call_id: str) -> dict[str, JsonValue]:
@@ -243,7 +243,7 @@ def openai_chat(rig: Rig, group: str) -> Outcome:
     client: Final = openai.OpenAI(base_url=f"{rig.gateway.client.base_url}/v1", api_key=rig.gateway.key, max_retries=0)
     with pytest.raises(openai.RateLimitError) as raised:
         client.chat.completions.create(model=group, messages=[{"role": "user", "content": uuid.uuid4().hex}])
-    return Outcome(429, raised.value.message, raised.value.response.headers["x-litellm-call-id"])
+    return Outcome(429, raised.value.message, raised.value.response.headers["x-hangarllm-call-id"])
 
 
 def openai_async_stream(rig: Rig, group: str) -> Outcome:
@@ -256,7 +256,7 @@ def openai_async_stream(rig: Rig, group: str) -> Outcome:
                 await client.chat.completions.create(
                     model=group, messages=[{"role": "user", "content": uuid.uuid4().hex}], stream=True
                 )
-            return Outcome(429, raised.value.message, raised.value.response.headers["x-litellm-call-id"])
+            return Outcome(429, raised.value.message, raised.value.response.headers["x-hangarllm-call-id"])
         finally:
             await client.close()
 
@@ -269,7 +269,7 @@ def anthropic_message(rig: Rig, group: str) -> Outcome:
     )
     with pytest.raises(anthropic.RateLimitError) as raised:
         client.messages.create(model=group, max_tokens=8, messages=[{"role": "user", "content": uuid.uuid4().hex}])
-    return Outcome(429, raised.value.message, raised.value.response.headers["x-litellm-call-id"])
+    return Outcome(429, raised.value.message, raised.value.response.headers["x-hangarllm-call-id"])
 
 
 SDK_CLIENTS: Final = {

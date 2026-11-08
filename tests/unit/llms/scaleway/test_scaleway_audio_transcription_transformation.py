@@ -4,11 +4,11 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.scaleway.audio_transcription.transformation import (
+from hangarllm.llms.scaleway.audio_transcription.transformation import (
     ScalewayAudioTranscriptionConfig,
     ScalewayAudioTranscriptionException,
 )
-from litellm.types.utils import TranscriptionResponse
+from hangarllm.types.utils import TranscriptionResponse
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ def test_scaleway_get_complete_url_default_base():
         api_key="fake",
         model="whisper-large-v3",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.scaleway.ai/v1/audio/transcriptions"
 
@@ -35,7 +35,7 @@ def test_scaleway_get_complete_url_custom_base_strips_trailing_slash():
         api_key="fake",
         model="whisper-large-v3",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://custom.example.com/v1/audio/transcriptions"
 
@@ -51,7 +51,7 @@ def test_scaleway_validate_environment_explicit_api_key():
         model="whisper-large-v3",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="explicit-key",
     )
     assert headers["Authorization"] == "Bearer explicit-key"
@@ -65,7 +65,7 @@ def test_scaleway_validate_environment_reads_scw_secret_key(monkeypatch):
         model="whisper-large-v3",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert headers["Authorization"] == "Bearer env-secret"
 
@@ -78,7 +78,7 @@ def test_scaleway_validate_environment_explicit_api_key_wins_over_env(monkeypatc
         model="whisper-large-v3",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="explicit-wins",
     )
     assert headers["Authorization"] == "Bearer explicit-wins"
@@ -111,7 +111,7 @@ def test_scaleway_transform_request_builds_multipart_with_supported_params():
                     "temperature": 0.0,
                     "response_format": "verbose_json",
                 },
-                litellm_params={},
+                hangarllm_params={},
             )
         )
 
@@ -137,7 +137,7 @@ def test_scaleway_transform_request_drops_unsupported_params():
                     "stream": True,  # not supported
                     "diarize": True,  # not supported
                 },
-                litellm_params={},
+                hangarllm_params={},
             )
         )
 
@@ -244,7 +244,7 @@ def test_scaleway_validate_environment_raises_when_no_key(monkeypatch):
             model="whisper-large-v3",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
     assert "SCW_SECRET_KEY" in str(excinfo.value)

@@ -16,7 +16,7 @@ except ImportError:
 workspace_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 sys.path.insert(0, workspace_path)
 
-import litellm
+import hangarllm
 
 
 class TestXiaomiMiMoProviderConfig:
@@ -24,18 +24,18 @@ class TestXiaomiMiMoProviderConfig:
 
     def test_xiaomi_mimo_in_provider_list(self):
         """Test that xiaomi_mimo is in the provider list (fixes #18794)"""
-        from litellm import LlmProviders
+        from hangarllm import LlmProviders
 
         # Verify xiaomi_mimo is in the enum
         assert hasattr(LlmProviders, "XIAOMI_MIMO")
         assert LlmProviders.XIAOMI_MIMO.value == "xiaomi_mimo"
 
         # Verify it's in the provider list
-        assert "xiaomi_mimo" in litellm.provider_list
+        assert "xiaomi_mimo" in hangarllm.provider_list
 
     def test_xiaomi_mimo_json_config_exists(self):
         """Test that xiaomi_mimo is configured in providers.json"""
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         # Verify xiaomi_mimo is loaded
         assert JSONProviderRegistry.exists("xiaomi_mimo")
@@ -49,7 +49,7 @@ class TestXiaomiMiMoProviderConfig:
 
     def test_xiaomi_mimo_provider_resolution(self):
         """Test that provider resolution finds xiaomi_mimo"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="xiaomi_mimo/mimo-v2-flash",
@@ -64,14 +64,14 @@ class TestXiaomiMiMoProviderConfig:
 
     def test_xiaomi_mimo_router_config(self):
         """Test that xiaomi_mimo can be used in Router configuration (fixes #18794)"""
-        from litellm import Router
+        from hangarllm import Router
 
         # This should not raise "Unsupported provider - xiaomi_mimo"
         router = Router(
             model_list=[
                 {
                     "model_name": "mimo-v2-flash",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "xiaomi_mimo/mimo-v2-flash",
                         "api_key": "test-key",
                     },

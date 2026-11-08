@@ -1,7 +1,7 @@
 suite: test deployment
 templates:
   - deployment.yaml
-  - configmap-litellm.yaml
+  - configmap-hangarllm.yaml
 tests:
   - it: should work
     template: deployment.yaml
@@ -12,7 +12,7 @@ tests:
           of: Deployment
       - matchRegex:
           path: metadata.name
-          pattern: -litellm$
+          pattern: -hangarllm$
       - equal:
           path: spec.template.spec.containers[0].image
           value: ghcr.io/hangarllm/hangarllm:test
@@ -64,7 +64,7 @@ tests:
             name: PROXY_MASTER_KEY
             valueFrom:
               secretKeyRef:
-                name: RELEASE-NAME-litellm-masterkey
+                name: RELEASE-NAME-hangarllm-masterkey
                 key: masterkey
   - it: should work with masterkeySecretName and masterkeySecretKey
     template: deployment.yaml
@@ -210,23 +210,23 @@ tests:
     set:
       proxyConfigMap:
         create: false
-        name: my-litellm-config
+        name: my-hangarllm-config
         key: custom.yaml
     asserts:
       - contains:
           path: spec.template.spec.volumes
           content:
-            name: litellm-config
+            name: hangarllm-config
             configMap:
-              name: my-litellm-config
+              name: my-hangarllm-config
               items:
                 - key: custom.yaml
                   path: config.yaml
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: litellm-config
-            mountPath: /etc/litellm/config.yaml
+            name: hangarllm-config
+            mountPath: /etc/hangarllm/config.yaml
             subPath: config.yaml
   - it: should work with lifecycle hooks
     template: deployment.yaml
@@ -251,7 +251,7 @@ tests:
           path: spec.template.spec.containers[0].lifecycle.preStop.exec.command[2]
           value: echo "Container stopping"
   - it: should render background health check settings from proxy_config.general_settings
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       proxy_config.general_settings.background_health_checks: true
       proxy_config.general_settings.health_check_interval: 240
@@ -271,7 +271,7 @@ tests:
           path: data["config.yaml"]
           pattern: '(?m)^\s*health_check_details:\s*false$'
   - it: should not render any placeholder models when the user sets proxy_config without model_list
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       proxy_config.general_settings.store_model_in_db: true
     asserts:
@@ -285,17 +285,17 @@ tests:
           path: data["config.yaml"]
           pattern: 'master_key: os.environ/PROXY_MASTER_KEY'
   - it: should render a user-supplied model_list as the only models
-    template: configmap-litellm.yaml
+    template: configmap-hangarllm.yaml
     set:
       proxy_config.model_list:
         - model_name: my-model
-          litellm_params:
+          hangarllm_params:
             model: openai/my-model
             api_key: os.environ/OPENAI_API_KEY
     asserts:
       - matchRegex:
           path: data["config.yaml"]
-          pattern: 'model_list:\n- litellm_params:\n    api_key: os.environ/OPENAI_API_KEY\n    model: openai/my-model\n  model_name: my-model\n$'
+          pattern: 'model_list:\n- hangarllm_params:\n    api_key: os.environ/OPENAI_API_KEY\n    model: openai/my-model\n  model_name: my-model\n$'
   - it: should allow overriding liveness, readiness, and startup probes
     template: deployment.yaml
     set:

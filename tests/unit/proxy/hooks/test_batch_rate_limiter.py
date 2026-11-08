@@ -19,17 +19,17 @@ import respx
 from fastapi import HTTPException
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm import DualCache
-from litellm.constants import BATCH_TPD_WINDOW_SECONDS
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.batch_rate_limiter import BatchFileUsage
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+import hangarllm
+from hangarllm import DualCache
+from hangarllm.constants import BATCH_TPD_WINDOW_SECONDS
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.hooks.batch_rate_limiter import BatchFileUsage
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.utils import InternalUsageCache, hash_token
-from litellm.redis.stores.rate_limits import RateLimitScope
-from litellm.types.llms.openai import ChatCompletionUserMessage, LiteLLMBatchCreateRequest
+from hangarllm.proxy.utils import InternalUsageCache, hash_token
+from hangarllm.redis.stores.rate_limits import RateLimitScope
+from hangarllm.types.llms.openai import ChatCompletionUserMessage, HangarLLMBatchCreateRequest
 
 
 class _Clock:
@@ -326,7 +326,7 @@ class _BatchLine(TypedDict):
 @pytest.fixture
 def openai_files(monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter) -> respx.MockRouter:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     return respx_mock
 
 
@@ -350,11 +350,11 @@ def _serve_file(router: respx.MockRouter, file_id: str, rows: Sequence[_BatchLin
 
 
 def _token_counter_total(rows: Sequence[_BatchLine]) -> int:
-    return sum(litellm.token_counter(model=row["body"]["model"], messages=row["body"]["messages"]) for row in rows)
+    return sum(hangarllm.token_counter(model=row["body"]["model"], messages=row["body"]["messages"]) for row in rows)
 
 
-def _create_batch_data(input_file_id: str) -> LiteLLMBatchCreateRequest:
-    return LiteLLMBatchCreateRequest(model=_BATCH_MODEL, input_file_id=input_file_id)
+def _create_batch_data(input_file_id: str) -> HangarLLMBatchCreateRequest:
+    return HangarLLMBatchCreateRequest(model=_BATCH_MODEL, input_file_id=input_file_id)
 
 
 @pytest.mark.asyncio
@@ -486,8 +486,8 @@ async def test_batch_rate_limiter_without_user_context(openai_files: respx.MockR
 async def test_batch_input_without_a_model_is_read_through_the_team_deployment(
     openai_files: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm import Router
-    from litellm.proxy import proxy_server
+    from hangarllm import Router
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(
         proxy_server,
@@ -496,7 +496,7 @@ async def test_batch_input_without_a_model_is_read_through_the_team_deployment(
             model_list=[
                 {
                     "model_name": "openai/*",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/*",
                         "api_key": "sk-team",
                         "api_base": "https://team.example/v1",
@@ -558,7 +558,7 @@ def _serve_file_to_the_deployment_key(rows: Sequence[_BatchLine]) -> Callable[[h
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "query_string, routing_headers",
-    [(b"model=routed-batch-model", ()), (b"", ((b"x-litellm-model", b"routed-batch-model"),))],
+    [(b"model=routed-batch-model", ()), (b"", ((b"x-hangarllm-model", b"routed-batch-model"),))],
     ids=["query", "header"],
 )
 async def test_model_routed_batch_is_counted_with_the_deployment_key_not_the_request_key(
@@ -569,9 +569,9 @@ async def test_model_routed_batch_is_counted_with_the_deployment_key_not_the_req
 ):
     from starlette.requests import Request
 
-    from litellm import Router
-    from litellm.proxy import proxy_server
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from hangarllm import Router
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.hangarllm_pre_call_utils import add_hangarllm_data_to_request
 
     monkeypatch.setattr(
         proxy_server,
@@ -580,7 +580,7 @@ async def test_model_routed_batch_is_counted_with_the_deployment_key_not_the_req
             model_list=[
                 {
                     "model_name": "routed-batch-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{_BATCH_MODEL}",
                         "api_key": "sk-deployment",
                         "api_base": "https://routed.example/v1",
@@ -608,7 +608,7 @@ async def test_model_routed_batch_is_counted_with_the_deployment_key_not_the_req
             "headers": [(b"content-type", b"application/json"), *routing_headers],
         }
     )
-    data: Final = await add_litellm_data_to_request(
+    data: Final = await add_hangarllm_data_to_request(
         data={
             "input_file_id": "file-abc123",
             "endpoint": "/v1/chat/completions",
@@ -634,18 +634,18 @@ async def test_model_routed_batch_is_counted_with_the_deployment_key_not_the_req
 async def _install_managed_file_hook(
     openai_files: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, rows: str
 ) -> tuple[respx.Route, respx.Route]:
-    from litellm.hangar.proxy.managed_files import _PROXY_LiteLLMManagedFiles
+    from hangarllm.hangar.proxy.managed_files import _PROXY_HangarLLMManagedFiles
 
-    from litellm import Router
-    from litellm.models.managed_files import LiteLLM_ManagedFileTable
-    from litellm.proxy import proxy_server
-    from litellm.proxy.openai_files_endpoints.common_utils import is_base64_encoded_unified_file_id
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm import Router
+    from hangarllm.models.managed_files import HangarLLM_ManagedFileTable
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.openai_files_endpoints.common_utils import is_base64_encoded_unified_file_id
+    from hangarllm.proxy.utils import ProxyLogging
 
     assert is_base64_encoded_unified_file_id(_MANAGED_FILE_ID)
     provider_route: Final = _serve_file(openai_files, "file-provider-1", rows)
     unrouted_managed_read: Final = _serve_file(openai_files, _MANAGED_FILE_ID, rows)
-    row: Final = LiteLLM_ManagedFileTable(
+    row: Final = HangarLLM_ManagedFileTable(
         unified_file_id=_MANAGED_FILE_ID,
         model_mappings={"deployment-1": "file-provider-1"},
         flat_model_file_ids=["file-provider-1"],
@@ -653,18 +653,18 @@ async def _install_managed_file_hook(
         team_id="team-owner",
     )
     file_cache: Final = InternalUsageCache(dual_cache=DualCache())
-    await file_cache.async_set_cache(key=_MANAGED_FILE_ID, value=row.model_dump(), litellm_parent_otel_span=None)
+    await file_cache.async_set_cache(key=_MANAGED_FILE_ID, value=row.model_dump(), hangarllm_parent_otel_span=None)
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(return_value=row)
+    prisma_client.db.hangarllm_managedfiletable.find_first = AsyncMock(return_value=row)
     proxy_logging: Final = ProxyLogging(user_api_key_cache=DualCache())
-    proxy_logging.proxy_hook_mapping["managed_files"] = _PROXY_LiteLLMManagedFiles(
+    proxy_logging.proxy_hook_mapping["managed_files"] = _PROXY_HangarLLMManagedFiles(
         internal_usage_cache=file_cache, prisma_client=prisma_client
     )
     router: Final = Router(
         model_list=[
             {
                 "model_name": _BATCH_MODEL,
-                "litellm_params": {"model": f"openai/{_BATCH_MODEL}", "api_key": "sk-test"},
+                "hangarllm_params": {"model": f"openai/{_BATCH_MODEL}", "api_key": "sk-test"},
                 "model_info": {"id": "deployment-1"},
             }
         ]

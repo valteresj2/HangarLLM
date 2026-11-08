@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.passthrough.main import allm_passthrough_route, llm_passthrough_route
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.passthrough.main import allm_passthrough_route, llm_passthrough_route
 
 
 def test_llm_passthrough_route():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
@@ -55,15 +55,15 @@ def test_bedrock_application_inference_profile_url_encoding():
 
     with (
         patch(
-            "litellm.utils.ProviderConfigManager.get_provider_passthrough_config",
+            "hangarllm.utils.ProviderConfigManager.get_provider_passthrough_config",
             return_value=mock_provider_config,
         ),
         patch(
-            "litellm.litellm_core_utils.get_litellm_params.get_litellm_params",
+            "hangarllm.hangarllm_core_utils.get_hangarllm_params.get_hangarllm_params",
             return_value={},
         ),
         patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+            "hangarllm.hangarllm_core_utils.get_llm_provider_logic.get_llm_provider",
             return_value=("test-model", "bedrock", "test-key", "test-base"),
         ),
         patch.object(client.client, "send", return_value=MagicMock(status_code=200)),
@@ -79,7 +79,7 @@ def test_bedrock_application_inference_profile_url_encoding():
             method="POST",
             custom_llm_provider="bedrock",
             client=client,
-            litellm_logging_obj=mock_logging_obj,
+            hangarllm_logging_obj=mock_logging_obj,
         )
 
         # Verify that build_request was called with the encoded URL
@@ -110,15 +110,15 @@ def test_bedrock_non_application_inference_profile_no_encoding():
 
     with (
         patch(
-            "litellm.utils.ProviderConfigManager.get_provider_passthrough_config",
+            "hangarllm.utils.ProviderConfigManager.get_provider_passthrough_config",
             return_value=mock_provider_config,
         ),
         patch(
-            "litellm.litellm_core_utils.get_litellm_params.get_litellm_params",
+            "hangarllm.hangarllm_core_utils.get_hangarllm_params.get_hangarllm_params",
             return_value={},
         ),
         patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+            "hangarllm.hangarllm_core_utils.get_llm_provider_logic.get_llm_provider",
             return_value=("test-model", "bedrock", "test-key", "test-base"),
         ),
         patch.object(client.client, "send", return_value=MagicMock(status_code=200)),
@@ -134,7 +134,7 @@ def test_bedrock_non_application_inference_profile_no_encoding():
             method="POST",
             custom_llm_provider="bedrock",
             client=client,
-            litellm_logging_obj=mock_logging_obj,
+            hangarllm_logging_obj=mock_logging_obj,
         )
 
         # Verify that build_request was called with the original URL (no encoding)
@@ -152,7 +152,7 @@ def test_update_stream_param_based_on_request_body():
     """
     Test _update_stream_param_based_on_request_body handles stream parameter correctly.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         HttpPassThroughEndpointHelpers,
     )
 
@@ -217,7 +217,7 @@ def mock_request():
 @pytest.fixture
 def mock_user_api_key_dict():
     """Create a mock user API key dictionary"""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     return UserAPIKeyAuth(
         api_key="test-key",
@@ -236,7 +236,7 @@ async def test_pass_through_request_stream_param_override(mock_request, mock_use
     """
     from unittest.mock import AsyncMock, Mock, patch
 
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         pass_through_request,
     )
 
@@ -280,15 +280,15 @@ async def test_pass_through_request_stream_param_override(mock_request, mock_use
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
             return_value=mock_client_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
             return_value=request_body,  # Return the request body unchanged
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),  # Mock the success handler
         ),
     ):
@@ -335,7 +335,7 @@ async def test_pass_through_request_stream_param_no_override(mock_request, mock_
     """
     from unittest.mock import AsyncMock, Mock, patch
 
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         pass_through_request,
     )
 
@@ -374,15 +374,15 @@ async def test_pass_through_request_stream_param_no_override(mock_request, mock_
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
             return_value=mock_client_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
             return_value=request_body,  # Return the request body unchanged
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
+            "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),  # Mock the success handler
         ),
     ):
@@ -440,15 +440,15 @@ def test_azure_with_custom_api_base_and_key():
 
     with (
         patch(
-            "litellm.utils.ProviderConfigManager.get_provider_passthrough_config",
+            "hangarllm.utils.ProviderConfigManager.get_provider_passthrough_config",
             return_value=mock_provider_config,
         ),
         patch(
-            "litellm.litellm_core_utils.get_litellm_params.get_litellm_params",
+            "hangarllm.hangarllm_core_utils.get_hangarllm_params.get_hangarllm_params",
             return_value={},
         ),
         patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+            "hangarllm.hangarllm_core_utils.get_llm_provider_logic.get_llm_provider",
             return_value=(
                 "gpt-4.1",
                 "azure",
@@ -479,7 +479,7 @@ def test_azure_with_custom_api_base_and_key():
                 "messages": [{"role": "user", "content": "Hello!"}],
             },
             client=client,
-            litellm_logging_obj=mock_logging_obj,
+            hangarllm_logging_obj=mock_logging_obj,
         )
 
         # Verify that build_request was called with the correct parameters
@@ -526,15 +526,15 @@ def test_content_param_forwarded_to_build_request():
 
     with (
         patch(
-            "litellm.utils.ProviderConfigManager.get_provider_passthrough_config",
+            "hangarllm.utils.ProviderConfigManager.get_provider_passthrough_config",
             return_value=mock_provider_config,
         ),
         patch(
-            "litellm.litellm_core_utils.get_litellm_params.get_litellm_params",
+            "hangarllm.hangarllm_core_utils.get_hangarllm_params.get_hangarllm_params",
             return_value={},
         ),
         patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+            "hangarllm.hangarllm_core_utils.get_llm_provider_logic.get_llm_provider",
             return_value=(
                 "gpt-4",
                 "azure",
@@ -557,7 +557,7 @@ def test_content_param_forwarded_to_build_request():
             data=None,
             json=None,
             client=client,
-            litellm_logging_obj=mock_logging_obj,
+            hangarllm_logging_obj=mock_logging_obj,
         )
 
         mock_build_request.assert_called_once()
@@ -649,15 +649,15 @@ async def test_allm_passthrough_route_429_streaming_raises():
 
     with (
         patch(
-            "litellm.utils.ProviderConfigManager.get_provider_passthrough_config",
+            "hangarllm.utils.ProviderConfigManager.get_provider_passthrough_config",
             return_value=mock_provider_config,
         ),
         patch(
-            "litellm.litellm_core_utils.get_litellm_params.get_litellm_params",
+            "hangarllm.hangarllm_core_utils.get_hangarllm_params.get_hangarllm_params",
             return_value={},
         ),
         patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+            "hangarllm.hangarllm_core_utils.get_llm_provider_logic.get_llm_provider",
             return_value=(
                 "gpt-4",
                 "azure",
@@ -678,7 +678,7 @@ async def test_allm_passthrough_route_429_streaming_raises():
                 api_key="fake-azure-key",
                 json={"model": "gpt-4", "input": "hello", "stream": True},
                 client=async_client,
-                litellm_logging_obj=mock_logging_obj,
+                hangarllm_logging_obj=mock_logging_obj,
             )
 
     assert exc_info.value.response.status_code == 429
@@ -695,7 +695,7 @@ def test_llm_passthrough_route_sync_streaming_error_maps_upstream_status():
     ResponseNotRead on a streamed-but-unread body, masking the real upstream
     error entirely.
     """
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 
     error_body = json.dumps(
         {
@@ -751,7 +751,7 @@ def test_llm_passthrough_route_sync_streaming_error_maps_upstream_status():
                 "stream": True,
             },
             client=sync_client,
-            litellm_logging_obj=mock_logging_obj,
+            hangarllm_logging_obj=mock_logging_obj,
             provider_config=mock_provider_config,
         )
 
@@ -764,13 +764,13 @@ def test_llm_passthrough_route_propagates_allm_passthrough_route_to_logging_obj(
     Regression guard for LIT-4192: `allm_passthrough_route` sets
     `kwargs["allm_passthrough_route"] = True` on the async entrypoint, and the
     inner `llm_passthrough_route` must let that flag flow through
-    `get_litellm_params(**kwargs)` and land in the logging object's
-    `litellm_params`. Without that, `_is_sync_litellm_request` misclassifies
+    `get_hangarllm_params(**kwargs)` and land in the logging object's
+    `hangarllm_params`. Without that, `_is_sync_hangarllm_request` misclassifies
     the request as sync and fires duplicate success callbacks.
     """
     import asyncio
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
 
     client = HTTPHandler()
 
@@ -784,22 +784,22 @@ def test_llm_passthrough_route_propagates_allm_passthrough_route_to_logging_obj(
     mock_provider_config.sign_request.return_value = ({}, None)
     mock_provider_config.is_streaming_request.return_value = False
 
-    captured_litellm_params: dict = {}
+    captured_hangarllm_params: dict = {}
 
     def _capture_update_env(*args, **kwargs):
-        captured_litellm_params.clear()
-        captured_litellm_params.update(kwargs.get("litellm_params") or {})
+        captured_hangarllm_params.clear()
+        captured_hangarllm_params.update(kwargs.get("hangarllm_params") or {})
 
     mock_logging_obj = MagicMock()
     mock_logging_obj.update_environment_variables.side_effect = _capture_update_env
 
     with (
         patch(
-            "litellm.utils.ProviderConfigManager.get_provider_passthrough_config",
+            "hangarllm.utils.ProviderConfigManager.get_provider_passthrough_config",
             return_value=mock_provider_config,
         ),
         patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+            "hangarllm.hangarllm_core_utils.get_llm_provider_logic.get_llm_provider",
             return_value=(
                 "bedrock/foo",
                 "bedrock",
@@ -823,15 +823,15 @@ def test_llm_passthrough_route_propagates_allm_passthrough_route_to_logging_obj(
             api_key="fake-key",
             json={"messages": []},
             client=client,
-            litellm_logging_obj=mock_logging_obj,
+            hangarllm_logging_obj=mock_logging_obj,
             allm_passthrough_route=True,
         )
 
     if asyncio.iscoroutine(result):
         result.close()
 
-    assert captured_litellm_params.get("allm_passthrough_route") is True
-    assert LitellmLogging.is_sync_litellm_request(captured_litellm_params) is False
+    assert captured_hangarllm_params.get("allm_passthrough_route") is True
+    assert HangarllmLogging.is_sync_hangarllm_request(captured_hangarllm_params) is False
 
 
 FOUNDRY_BASE = "https://my-resource.services.ai.azure.com"
@@ -864,7 +864,7 @@ def test_azure_ai_relay_reaches_the_deployment_with_its_own_credential():
             api_key="deployment-key",
             json={"model": "Cohere-parse-v5", "document": {"type": "image_url", "image_url": "https://x/y.png"}},
             client=client,
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
         )
 
     sent = mock_send.call_args.kwargs["request"]
@@ -876,11 +876,11 @@ def test_azure_ai_relay_reaches_the_deployment_with_its_own_credential():
 
 @pytest.mark.asyncio
 async def test_router_relays_azure_ai_model_through_the_deployment_api_base():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "foundry-parse",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure_ai/Cohere-parse-v5",
                     "api_base": FOUNDRY_BASE,
                     "api_key": "deployment-key",
@@ -909,11 +909,11 @@ async def test_router_relays_azure_ai_model_through_the_deployment_api_base():
 @pytest.mark.asyncio
 async def test_router_relays_an_openai_model_on_a_foundry_base_as_azure_ai(monkeypatch):
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://unrelated.openai.azure.com")
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "foundry-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure_ai/gpt-5.4-mini",
                     "api_base": FOUNDRY_BASE,
                     "api_key": "deployment-key",

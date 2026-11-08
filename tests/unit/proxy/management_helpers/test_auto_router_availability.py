@@ -4,12 +4,12 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-from litellm.proxy.management_helpers.auto_router_availability import (
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+from hangarllm.proxy.management_helpers.auto_router_availability import (
     auto_router_availability,
     build_auto_router_catalog,
 )
-from litellm.router_strategy.auto_router.auto_router_tuning_baseline import snapshot_tuning_baselines
+from hangarllm.router_strategy.auto_router.auto_router_tuning_baseline import snapshot_tuning_baselines
 
 
 def deployment(
@@ -23,7 +23,7 @@ def deployment(
     return {
         "model_name": model_id,
         "model_info": {"id": model_id, "db_model": True},
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "classifier_type": classifier,
@@ -192,25 +192,25 @@ def test_restoring_tiers_does_not_exempt_a_retained_custom_prompt() -> None:
 
 @pytest.mark.parametrize("blocked", (False, True))
 def test_catalog_keeps_unloaded_routers_and_ownership_without_provider_credentials(blocked: bool, monkeypatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "catalog-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "catalog-test-key")
     source: Final = SimpleNamespace(
         model_id="saved",
         created_by="owner",
         model_info={"team_id": "team"},
         blocked=blocked,
-        litellm_params={
+        hangarllm_params={
             "model": encrypt_value_helper("auto_router/complexity_router"),
             "api_key": "private-key",
             "complexity_router_config": {"classifier_type": "heuristic_v2"},
         },
     )
-    provider: Final = SimpleNamespace(model_id="provider", litellm_params={"model": "openai/model"})
+    provider: Final = SimpleNamespace(model_id="provider", hangarllm_params={"model": "openai/model"})
     catalog: Final = build_auto_router_catalog((source, provider))
     assert catalog is not None and len(catalog) == 1
     assert (catalog[0].model_id, catalog[0].team_id, catalog[0].created_by) == ("saved", "team", "owner")
     assert catalog[0].deployment == {
         "model_info": {"id": "saved", "db_model": True},
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"classifier_type": "heuristic_v2"},
         },

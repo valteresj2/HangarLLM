@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from litellm.repositories.spend_log_insert import spend_log_insert_statement
+from hangarllm.repositories.spend_log_insert import spend_log_insert_statement
 
 
 @pytest.mark.parametrize(

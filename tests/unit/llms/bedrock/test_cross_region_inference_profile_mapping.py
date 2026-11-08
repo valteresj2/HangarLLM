@@ -4,11 +4,11 @@ from typing import NamedTuple
 
 import pytest
 
-import litellm
-from litellm.cost_calculator import completion_cost
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-from litellm.llms.bedrock.common_utils import BedrockModelInfo
-from litellm.types.utils import (
+import hangarllm
+from hangarllm.cost_calculator import completion_cost
+from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
+from hangarllm.types.utils import (
     Choices,
     Message,
     ModelResponse,
@@ -21,21 +21,21 @@ from litellm.types.utils import (
 def local_model_cost_map(monkeypatch):
     """Resolve models against this checkout's cost map instead of the network-fetched
     ``main`` copy, which lags this branch until merge."""
-    original_converse_models = set(litellm.bedrock_converse_models)
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    original_converse_models = set(hangarllm.bedrock_converse_models)
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     try:
-        litellm.bedrock_converse_models.update(
+        hangarllm.bedrock_converse_models.update(
             key
-            for key, value in litellm.model_cost.items()
-            if isinstance(value, dict) and value.get("litellm_provider") == "bedrock_converse"
+            for key, value in hangarllm.model_cost.items()
+            if isinstance(value, dict) and value.get("hangarllm_provider") == "bedrock_converse"
         )
         yield
     finally:
-        litellm.bedrock_converse_models.clear()
-        litellm.bedrock_converse_models.update(original_converse_models)
-        litellm.get_model_info.cache_clear()
+        hangarllm.bedrock_converse_models.clear()
+        hangarllm.bedrock_converse_models.update(original_converse_models)
+        hangarllm.get_model_info.cache_clear()
 
 
 class GptProfile(NamedTuple):

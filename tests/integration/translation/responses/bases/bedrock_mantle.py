@@ -15,8 +15,8 @@ from pydantic import JsonValue
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock_mantle/anthropic.claude-haiku-4-5",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -54,7 +54,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -109,8 +109,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock_mantle/anthropic.claude-sonnet-5",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -149,7 +149,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -204,8 +204,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_4_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock_mantle/openai.gpt-5.4",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -275,7 +275,7 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "moderation": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791240603,
         "error": None,
@@ -341,8 +341,8 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock_mantle/openai.gpt-5.6-sol",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -412,7 +412,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "moderation": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791240605,
         "error": None,
@@ -478,8 +478,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "bedrock_mantle/openai.gpt-5.6-luna",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -549,7 +549,7 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "moderation": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791240607,
         "error": None,
@@ -640,8 +640,8 @@ CLAUDE_OPUS_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/anthropic.claude-opus-5-5"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/anthropic.claude-opus-5-5"},
     expected_provider_endpoint="/anthropic/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -683,7 +683,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "bedrock_mantle/anthropic.claude-opus-5-5",
         "output": [
@@ -811,8 +811,8 @@ BEDROCK_MANTLE_OPENAI_RESPONSES_RESPONSES_INPUT: Final[JsonValue] = [
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-6.1-sol"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -875,7 +875,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 461,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **BEDROCK_MANTLE_OPENAI_RESPONSES_RESPONSES_RESPONSE,
         "created_at": 1792027275,
         "model": "bedrock_mantle/openai.gpt-6.1-sol",
@@ -991,8 +991,8 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-6-luna"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-6-luna"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -1057,7 +1057,7 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 434,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **BEDROCK_MANTLE_OPENAI_RESPONSES_RESPONSES_RESPONSE,
         "created_at": 1792027281,
         "model": "bedrock_mantle/openai.gpt-6-luna",
@@ -1173,8 +1173,8 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-6-astra"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-6-astra"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -1239,7 +1239,7 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 452,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **BEDROCK_MANTLE_OPENAI_RESPONSES_RESPONSES_RESPONSE,
         "created_at": 1792027288,
         "model": "bedrock_mantle/openai.gpt-6-astra",
@@ -1355,8 +1355,8 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-5.6-terra"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "bedrock_mantle/openai.gpt-5.6-terra"},
     expected_provider_endpoint="/openai/v1/responses",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-mantle-key",
@@ -1421,7 +1421,7 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 390,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **BEDROCK_MANTLE_OPENAI_RESPONSES_RESPONSES_RESPONSE,
         "created_at": 1792027295,
         "model": "bedrock_mantle/openai.gpt-5.6-terra",

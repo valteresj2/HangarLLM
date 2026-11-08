@@ -23,10 +23,10 @@ from aiohttp.tracing import Trace
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
-from litellm.llms.custom_httpx.http_handler import (
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.custom_httpx.aiohttp_transport import HangarLLMAiohttpTransport
+from hangarllm.llms.custom_httpx.http_handler import (
     _CLIENT_REFCOUNT_WHEN_HANDLER_IS_SOLE_REFERRER,
     AsyncHTTPHandler,
     HTTPHandler,
@@ -36,11 +36,11 @@ from litellm.llms.custom_httpx.http_handler import (
     get_ssl_configuration,
     realtime_ssl_for_url,
 )
-from litellm.types.llms.custom_http import VerifyTypes
+from hangarllm.types.llms.custom_http import VerifyTypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from litellm.exceptions import Timeout as LitellmTimeout
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.exceptions import Timeout as HangarllmTimeout
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -69,17 +69,17 @@ async def test_async_post_streaming_status_error_should_not_wait_forever_for_bod
         )
 
     monkeypatch.setattr(
-        "litellm.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
+        "hangarllm.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
         0.01,
     )
 
-    litellm_handler = AsyncHTTPHandler()
-    await litellm_handler.client.aclose()
-    litellm_handler.client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
+    hangarllm_handler = AsyncHTTPHandler()
+    await hangarllm_handler.client.aclose()
+    hangarllm_handler.client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
     try:
         with pytest.raises(MaskedHTTPStatusError) as exc_info:
             await asyncio.wait_for(
-                litellm_handler.post(
+                hangarllm_handler.post(
                     "https://vertex.example/streamRawPredict",
                     stream=True,
                 ),
@@ -89,7 +89,7 @@ async def test_async_post_streaming_status_error_should_not_wait_forever_for_bod
         assert exc_info.value.status_code == 400
         assert exc_info.value.response.status_code == 400
     finally:
-        await litellm_handler.close()
+        await hangarllm_handler.close()
 
 
 def test_sync_post_streaming_status_error_should_not_wait_forever_for_body(
@@ -121,16 +121,16 @@ def test_sync_post_streaming_status_error_should_not_wait_forever_for_body(
         )
 
     monkeypatch.setattr(
-        "litellm.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
+        "hangarllm.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
         0.01,
     )
 
-    litellm_handler = HTTPHandler()
-    litellm_handler.client.close()
-    litellm_handler.client = httpx.Client(transport=httpx.MockTransport(mock_handler))
+    hangarllm_handler = HTTPHandler()
+    hangarllm_handler.client.close()
+    hangarllm_handler.client = httpx.Client(transport=httpx.MockTransport(mock_handler))
     try:
         with pytest.raises(MaskedHTTPStatusError) as exc_info:
-            litellm_handler.post(
+            hangarllm_handler.post(
                 "https://vertex.example/streamRawPredict",
                 stream=True,
             )
@@ -138,13 +138,13 @@ def test_sync_post_streaming_status_error_should_not_wait_forever_for_body(
         assert exc_info.value.status_code == 400
         assert exc_info.value.response.status_code == 400
     finally:
-        litellm_handler.close()
+        hangarllm_handler.close()
 
 
 @pytest.mark.asyncio
 async def test_ssl_security_level(monkeypatch):
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", False)
 
     with patch.dict(os.environ, clear=True):
         # Set environment variable for SSL security level
@@ -154,9 +154,9 @@ async def test_ssl_security_level(monkeypatch):
         client = AsyncHTTPHandler()
 
         try:
-            # Get the transport (should be LiteLLMAiohttpTransport)
+            # Get the transport (should be HangarLLMAiohttpTransport)
             transport = client.client._transport
-            assert isinstance(transport, LiteLLMAiohttpTransport)
+            assert isinstance(transport, HangarLLMAiohttpTransport)
 
             # Get the aiohttp ClientSession
             client_session = transport.get_valid_client_session()
@@ -177,8 +177,8 @@ async def test_ssl_security_level(monkeypatch):
 @pytest.mark.asyncio
 async def test_force_ipv4_transport(monkeypatch: pytest.MonkeyPatch):
     """Test transport creation with force_ipv4 enabled"""
-    monkeypatch.setattr(litellm, "force_ipv4", True)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     transport = AsyncHTTPHandler.create_async_transport()
 
@@ -189,8 +189,8 @@ async def test_force_ipv4_transport(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.asyncio
 async def test_aiohttp_disabled_transport(monkeypatch: pytest.MonkeyPatch):
     """Test transport creation with aiohttp disabled"""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
 
     transport = AsyncHTTPHandler.create_async_transport()
 
@@ -203,19 +203,19 @@ async def test_ssl_verification_with_aiohttp_transport(monkeypatch: pytest.Monke
     """
     Test aiohttp respects ssl_verify=False
 
-    We validate that the ssl settings for a litellm transport match what a ssl verify=False aiohttp client would have.
+    We validate that the ssl settings for a hangarllm transport match what a ssl verify=False aiohttp client would have.
 
     """
     import aiohttp
 
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", False)
 
-    litellm_async_client = AsyncHTTPHandler(ssl_verify=False)
+    hangarllm_async_client = AsyncHTTPHandler(ssl_verify=False)
 
     try:
-        transport = litellm_async_client.client._transport
-        assert isinstance(transport, LiteLLMAiohttpTransport)
+        transport = hangarllm_async_client.client._transport
+        assert isinstance(transport, HangarLLMAiohttpTransport)
         transport_connector = transport.get_valid_client_session().connector
         assert isinstance(transport_connector, TCPConnector)
 
@@ -224,12 +224,12 @@ async def test_ssl_verification_with_aiohttp_transport(monkeypatch: pytest.Monke
             aiohttp_connector = aiohttp_session.connector
             assert isinstance(aiohttp_connector, aiohttp.TCPConnector)
 
-            # assert both litellm transport and aiohttp session have ssl_verify=False
+            # assert both hangarllm transport and aiohttp session have ssl_verify=False
             assert transport_connector._ssl == aiohttp_connector._ssl
         finally:
             await aiohttp_session.close()
     finally:
-        await litellm_async_client.close()
+        await hangarllm_async_client.close()
 
 
 @pytest.mark.asyncio
@@ -239,14 +239,14 @@ async def test_ssl_verification_with_shared_session(monkeypatch: pytest.MonkeyPa
 
     This was a bug where shared sessions bypassed SSL configuration because
     create_aiohttp_transport returned immediately without passing ssl_verify
-    to the LiteLLMAiohttpTransport constructor.
+    to the HangarLLMAiohttpTransport constructor.
 
     The fix stores ssl_verify in the transport and passes it per-request.
     """
     import aiohttp
 
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", False)
 
     shared_session = aiohttp.ClientSession()
 
@@ -274,7 +274,7 @@ async def test_ssl_context_with_shared_session(monkeypatch: pytest.MonkeyPatch):
     import aiohttp
 
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", False)
 
     custom_ssl_context = ssl.create_default_context()
 
@@ -300,7 +300,7 @@ async def test_ssl_context_with_shared_session(monkeypatch: pytest.MonkeyPatch):
 def test_get_ssl_configuration():
     """Test that get_ssl_configuration() returns a proper SSL context with certifi CA bundle
     when no environment variables are set."""
-    from litellm.llms.custom_httpx.http_handler import _ssl_context_cache
+    from hangarllm.llms.custom_httpx.http_handler import _ssl_context_cache
 
     # Clear cache to ensure ssl.create_default_context is called
     _ssl_context_cache.clear()
@@ -348,7 +348,7 @@ class MockClientSession:
 @pytest.mark.asyncio
 async def test_create_aiohttp_transport_with_shared_session():
     """Test that create_aiohttp_transport reuses shared session when provided"""
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     # Create a mock shared session that's not callable
     mock_session = MockClientSession()
@@ -366,7 +366,7 @@ async def test_create_aiohttp_transport_with_shared_session():
 @pytest.mark.asyncio
 async def test_async_handler_with_shared_session():
     """Test AsyncHTTPHandler initialization with shared session"""
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     # Create a mock shared session
     mock_session = MockClientSession()
@@ -382,11 +382,11 @@ async def test_async_handler_with_shared_session():
 @pytest.mark.asyncio
 async def test_get_async_httpx_client_with_shared_session():
     """Test get_async_httpx_client with shared session"""
-    from litellm.llms.custom_httpx.http_handler import (
+    from hangarllm.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         AsyncHTTPHandler as AsyncHTTPHandlerReload,
     )
-    from litellm.types.utils import LlmProviders
+    from hangarllm.types.utils import LlmProviders
 
     # Create a mock shared session
     mock_session = MockClientSession()
@@ -406,11 +406,11 @@ async def test_get_async_httpx_client_with_shared_session():
 @pytest.mark.asyncio
 async def test_get_async_httpx_client_without_shared_session():
     """Test get_async_httpx_client without shared session (backward compatibility)"""
-    from litellm.llms.custom_httpx.http_handler import (
+    from hangarllm.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         AsyncHTTPHandler as AsyncHTTPHandlerReload,
     )
-    from litellm.types.utils import LlmProviders
+    from hangarllm.types.utils import LlmProviders
 
     # Test without shared session
     client = get_async_httpx_client(llm_provider=LlmProviders.ANTHROPIC, shared_session=None)
@@ -424,7 +424,7 @@ async def test_get_async_httpx_client_without_shared_session():
 @pytest.mark.asyncio
 async def test_session_reuse_chain():
     """Test that session is properly passed through the entire call chain"""
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     # Create a mock shared session
     mock_session = MockClientSession()
@@ -445,7 +445,7 @@ async def test_session_reuse_chain():
 def test_shared_session_parameter_in_acompletion():
     """Test that acompletion function accepts shared_session parameter"""
     import inspect
-    from litellm.main import acompletion
+    from hangarllm.main import acompletion
 
     # Get the function signature
     sig = inspect.signature(acompletion)
@@ -462,7 +462,7 @@ def test_shared_session_parameter_in_acompletion():
 def test_shared_session_parameter_in_completion():
     """Test that completion function accepts shared_session parameter"""
     import inspect
-    from litellm.main import completion
+    from hangarllm.main import completion
 
     # Get the function signature
     sig = inspect.signature(completion)
@@ -479,11 +479,11 @@ def test_shared_session_parameter_in_completion():
 @pytest.mark.asyncio
 async def test_session_reuse_integration():
     """Integration test for session reuse functionality"""
-    from litellm.llms.custom_httpx.http_handler import (
+    from hangarllm.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         AsyncHTTPHandler as AsyncHTTPHandlerReload,
     )
-    from litellm.types.utils import LlmProviders
+    from hangarllm.types.utils import LlmProviders
 
     # Create a mock session
     mock_session = MockClientSession()
@@ -514,23 +514,23 @@ async def test_session_reuse_integration():
 
 
 @pytest.mark.parametrize(
-    "env_curve,litellm_curve,expected_curve,should_call",
+    "env_curve,hangarllm_curve,expected_curve,should_call",
     [
-        # env_curve: SSL_ECDH_CURVE env var | litellm_curve: litellm.ssl_ecdh_curve variable
+        # env_curve: SSL_ECDH_CURVE env var | hangarllm_curve: hangarllm.ssl_ecdh_curve variable
         # expected_curve: curve that should be set | should_call: whether set_ecdh_curve() should be called
         # Valid configurations
         ("X25519", None, "X25519", True),  # Env var only
         ("prime256v1", None, "prime256v1", True),  # Different valid curve
-        (None, "secp384r1", "secp384r1", True),  # litellm variable only
+        (None, "secp384r1", "secp384r1", True),  # hangarllm variable only
         ("X25519", "secp521r1", "X25519", True),  # Env var takes precedence
         # Empty/None configurations - should skip
         ("", None, None, False),  # Empty string - skip configuration
         (None, None, None, False),  # None value - skip configuration
     ],
 )
-def test_ssl_ecdh_curve(env_curve, litellm_curve, expected_curve, should_call, monkeypatch):
+def test_ssl_ecdh_curve(env_curve, hangarllm_curve, expected_curve, should_call, monkeypatch):
     """Test SSL ECDH curve configuration with valid curves and precedence"""
-    from litellm.llms.custom_httpx.http_handler import _ssl_context_cache
+    from hangarllm.llms.custom_httpx.http_handler import _ssl_context_cache
 
     # Clear cache to ensure fresh SSL context creation
     _ssl_context_cache.clear()
@@ -539,7 +539,7 @@ def test_ssl_ecdh_curve(env_curve, litellm_curve, expected_curve, should_call, m
         if env_curve:
             monkeypatch.setenv("SSL_ECDH_CURVE", env_curve)
 
-        monkeypatch.setattr(litellm, "ssl_ecdh_curve", litellm_curve)
+        monkeypatch.setattr(hangarllm, "ssl_ecdh_curve", hangarllm_curve)
 
         # Create a real SSL context and patch set_ecdh_curve on it
         # We need a real SSLContext instance (not a MagicMock) because _create_ssl_context
@@ -557,35 +557,35 @@ def test_ssl_ecdh_curve(env_curve, litellm_curve, expected_curve, should_call, m
                 assert isinstance(ssl_context, ssl.SSLContext)
 
 
-def test_default_user_agent_is_litellm_version(monkeypatch):
-    from litellm._version import version
-    from litellm.llms.custom_httpx.http_handler import get_default_headers
+def test_default_user_agent_is_hangarllm_version(monkeypatch):
+    from hangarllm._version import version
+    from hangarllm.llms.custom_httpx.http_handler import get_default_headers
 
-    monkeypatch.delenv("LITELLM_USER_AGENT", raising=False)
+    monkeypatch.delenv("HANGARLLM_USER_AGENT", raising=False)
 
-    assert get_default_headers()["User-Agent"] == f"litellm/{version}"
+    assert get_default_headers()["User-Agent"] == f"hangarllm/{version}"
 
 
 def test_user_agent_can_be_overridden_via_env_var(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import get_default_headers
+    from hangarllm.llms.custom_httpx.http_handler import get_default_headers
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("HANGARLLM_USER_AGENT", "Claude Code")
 
     assert get_default_headers()["User-Agent"] == "Claude Code"
 
 
 def test_user_agent_env_var_can_be_empty_string(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import get_default_headers
+    from hangarllm.llms.custom_httpx.http_handler import get_default_headers
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "")
+    monkeypatch.setenv("HANGARLLM_USER_AGENT", "")
 
     assert get_default_headers()["User-Agent"] == ""
 
 
 def test_user_agent_override_is_not_appended_to_default(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-    monkeypatch.delenv("LITELLM_USER_AGENT", raising=False)
+    monkeypatch.delenv("HANGARLLM_USER_AGENT", raising=False)
 
     handler = HTTPHandler()
     try:
@@ -601,9 +601,9 @@ def test_user_agent_override_is_not_appended_to_default(monkeypatch):
 
 
 def test_sync_http_handler_uses_env_user_agent(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("HANGARLLM_USER_AGENT", "Claude Code")
 
     handler = HTTPHandler()
     try:
@@ -615,9 +615,9 @@ def test_sync_http_handler_uses_env_user_agent(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_http_handler_uses_env_user_agent(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("HANGARLLM_USER_AGENT", "Claude Code")
 
     handler = AsyncHTTPHandler()
     try:
@@ -629,9 +629,9 @@ async def test_async_http_handler_uses_env_user_agent(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_httpx_handler_uses_env_user_agent(monkeypatch):
-    from litellm.llms.custom_httpx.httpx_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.httpx_handler import HTTPHandler
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("HANGARLLM_USER_AGENT", "Claude Code")
 
     handler = HTTPHandler()
     try:
@@ -718,42 +718,42 @@ async def test_async_get_forwards_per_request_timeout():
 
 
 class TestDefaultCachedClientTimeoutHonorsRequestTimeout:
-    """Cached default httpx clients must fall back to an explicit litellm.request_timeout.
+    """Cached default httpx clients must fall back to an explicit hangarllm.request_timeout.
 
     Regression for LIT-2369: get_async_httpx_client / get_httpx_client hardcoded a
-    600s default and never consulted litellm.request_timeout, so provider calls with
+    600s default and never consulted hangarllm.request_timeout, so provider calls with
     no per-model timeout (e.g. Bedrock) hung for 600s.
     """
 
     def test_default_when_request_timeout_unset(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.llms.custom_httpx.http_handler import (
+        from hangarllm.llms.custom_httpx.http_handler import (
             _DEFAULT_TIMEOUT,
             _default_cached_client_timeout,
         )
 
-        monkeypatch.setattr(litellm, "request_timeout", litellm.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS)
-        monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False)
+        monkeypatch.setattr(hangarllm, "request_timeout", hangarllm.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS)
+        monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", False)
         assert _default_cached_client_timeout() is _DEFAULT_TIMEOUT
 
     def test_uses_explicit_request_timeout(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.llms.custom_httpx.http_handler import (
+        from hangarllm.llms.custom_httpx.http_handler import (
             _default_cached_client_timeout,
         )
 
-        monkeypatch.setattr(litellm, "request_timeout", 300)
-        monkeypatch.setattr(litellm, "request_timeout_explicitly_set", True)
+        monkeypatch.setattr(hangarllm, "request_timeout", 300)
+        monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", True)
         resolved = _default_cached_client_timeout()
         assert resolved.read == 300.0
         assert resolved.connect == 5.0
 
     def test_cached_async_client_built_with_explicit_request_timeout(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.caching.llm_caching_handler import LLMClientCache
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-        from litellm.types.utils import LlmProviders
+        from hangarllm.caching.llm_caching_handler import LLMClientCache
+        from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+        from hangarllm.types.utils import LlmProviders
 
-        monkeypatch.setattr(litellm, "request_timeout", 300)
-        monkeypatch.setattr(litellm, "request_timeout_explicitly_set", True)
-        litellm.in_memory_llm_clients_cache = LLMClientCache()
+        monkeypatch.setattr(hangarllm, "request_timeout", 300)
+        monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", True)
+        hangarllm.in_memory_llm_clients_cache = LLMClientCache()
         client = get_async_httpx_client(llm_provider=LlmProviders.BEDROCK)
         assert client.timeout.read == 300.0
 
@@ -803,13 +803,13 @@ async def test_init_held_async_handler_survives_external_client_close():
 
 @pytest.mark.asyncio
 async def test_init_held_async_handler_survives_evicted_client_close():
-    from litellm.caching.evicted_client_closer import EvictedClientCloser
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
 
     cache = LLMClientCache(evicted_client_closer=EvictedClientCloser(grace_seconds=0))
     handler = AsyncHTTPHandler(timeout=42.5)
     held_client = handler.client
-    cache.set_cache("init-held-handler", handler, litellm_owned_client=True, ttl=0)
+    cache.set_cache("init-held-handler", handler, hangarllm_owned_client=True, ttl=0)
     await asyncio.sleep(0.02)
     assert cache.get_cache("init-held-handler") is None
     await asyncio.sleep(0.05)
@@ -925,18 +925,18 @@ def test_concurrent_sync_heal_creates_exactly_one_replacement():
 
 @pytest.fixture
 def fresh_llm_client_cache():
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
 
-    previous = getattr(litellm, "in_memory_llm_clients_cache", None)
-    litellm.in_memory_llm_clients_cache = LLMClientCache()
+    previous = getattr(hangarllm, "in_memory_llm_clients_cache", None)
+    hangarllm.in_memory_llm_clients_cache = LLMClientCache()
     try:
         yield
     finally:
-        litellm.in_memory_llm_clients_cache = previous
+        hangarllm.in_memory_llm_clients_cache = previous
 
 
 def test_sole_referrer_handler_may_close_but_a_sharing_one_may_not():
-    from litellm.llms.custom_httpx.http_handler import _handler_may_close_client
+    from hangarllm.llms.custom_httpx.http_handler import _handler_may_close_client
 
     assert _handler_may_close_client(_CLIENT_REFCOUNT_WHEN_HANDLER_IS_SOLE_REFERRER, owns_client=True)
     assert not _handler_may_close_client(_CLIENT_REFCOUNT_WHEN_HANDLER_IS_SOLE_REFERRER + 1, owns_client=True)
@@ -991,8 +991,8 @@ def test_exclusively_owned_sync_client_pool_is_closed_when_handler_is_collected(
 
 @pytest.mark.asyncio
 async def test_exclusively_owned_async_client_pool_is_closed_when_handler_is_collected(keepalive_server, monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
 
     handler = AsyncHTTPHandler()
     pool = handler.client._transport._pool
@@ -1009,8 +1009,8 @@ async def test_exclusively_owned_async_client_pool_is_closed_when_handler_is_col
 
 @pytest.mark.asyncio
 async def test_handed_out_async_client_pool_survives_handler_collection(keepalive_server, monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
 
     handler = AsyncHTTPHandler()
     consumer_client = handler.client
@@ -1170,20 +1170,20 @@ async def test_async_close_leaves_assigned_client_open():
 
 
 def test_client_handed_out_by_sync_cache_survives_eviction_and_collection(fresh_llm_client_cache):
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
 
     handler = get_httpx_client()
     consumer_client = handler.client
     handler_ref = weakref.ref(handler)
 
     assert not consumer_client.is_closed
-    assert litellm.in_memory_llm_clients_cache.get_cache("httpx_client") is handler
+    assert hangarllm.in_memory_llm_clients_cache.get_cache("httpx_client") is handler
 
-    litellm.in_memory_llm_clients_cache = LLMClientCache()
+    hangarllm.in_memory_llm_clients_cache = LLMClientCache()
     del handler
     gc.collect()
 
-    assert litellm.in_memory_llm_clients_cache.get_cache("httpx_client") is None
+    assert hangarllm.in_memory_llm_clients_cache.get_cache("httpx_client") is None
     assert handler_ref() is None
     assert not consumer_client.is_closed
 
@@ -1192,9 +1192,9 @@ def test_client_handed_out_by_sync_cache_survives_eviction_and_collection(fresh_
 
 @pytest.mark.asyncio
 async def test_client_handed_out_by_async_cache_survives_eviction_and_collection(fresh_llm_client_cache):
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.utils import LlmProviders
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.llms.custom_httpx.http_handler import get_async_httpx_client
+    from hangarllm.types.utils import LlmProviders
 
     handler = get_async_httpx_client(llm_provider=LlmProviders.OPENAI)
     consumer_client = handler.client
@@ -1202,7 +1202,7 @@ async def test_client_handed_out_by_async_cache_survives_eviction_and_collection
 
     assert not consumer_client.is_closed
 
-    litellm.in_memory_llm_clients_cache = LLMClientCache()
+    hangarllm.in_memory_llm_clients_cache = LLMClientCache()
     del handler
     gc.collect()
     await asyncio.sleep(0.1)
@@ -1231,7 +1231,7 @@ def _cookie_recorder():
 
 @pytest.mark.asyncio
 async def test_async_client_never_replays_one_upstreams_cookie_to_another():
-    """LiteLLM's async clients are pooled and shared by every caller, so a cookie one
+    """HangarLLM's async clients are pooled and shared by every caller, so a cookie one
     upstream sets would be attached to every later request on a matching domain, reaching
     a different tenant's upstream. The client must persist no response cookie."""
     handler, seen = _cookie_recorder()
@@ -1311,7 +1311,7 @@ def test_a_handler_left_on_the_default_still_follows_redirects():
 
 @pytest.mark.asyncio
 async def test_aiohttp_session_never_replays_one_upstreams_cookie_to_another():
-    """The httpx jar is not the only one. AiohttpTransport is litellm's default transport
+    """The httpx jar is not the only one. AiohttpTransport is hangarllm's default transport
     and the aiohttp ClientSession keeps its own cookie jar, which httpx-level assertions
     cannot see, so blocking only the httpx jar leaves the leak intact on the real path.
 
@@ -1322,7 +1322,7 @@ async def test_aiohttp_session_never_replays_one_upstreams_cookie_to_another():
 
     http_handler = AsyncHTTPHandler(timeout=61.0)
     transport = http_handler.client._transport
-    assert isinstance(transport, LiteLLMAiohttpTransport), "aiohttp is no longer the default transport"
+    assert isinstance(transport, HangarLLMAiohttpTransport), "aiohttp is no longer the default transport"
 
     session = transport.client() if callable(transport.client) else transport.client
     jar = session.cookie_jar
@@ -1342,7 +1342,7 @@ def _mint_session_on_dead_loop(handler: AsyncHTTPHandler) -> ClientSession:
     session outlives its loop and can only ever be disposed loop-lessly.
     """
     transport = handler.client._transport
-    assert isinstance(transport, LiteLLMAiohttpTransport)
+    assert isinstance(transport, HangarLLMAiohttpTransport)
     loop = asyncio.new_event_loop()
 
     async def _create() -> ClientSession:
@@ -1377,7 +1377,7 @@ async def test_finalizer_with_running_loop_schedules_close_and_holds_task_ref():
     result may be collected before it runs, leaving the session unclosed."""
     handler = AsyncHTTPHandler(timeout=61.0)
     transport = handler.client._transport
-    assert isinstance(transport, LiteLLMAiohttpTransport)
+    assert isinstance(transport, HangarLLMAiohttpTransport)
     session = transport.get_valid_client_session()
     assert not session.closed
     del transport
@@ -1449,19 +1449,19 @@ async def test_sync_close_helper_respects_session_ownership():
     shared session (e.g. the proxy's) must never be closed by a handler."""
     owned_handler = AsyncHTTPHandler(timeout=61.0)
     owned_transport = owned_handler.client._transport
-    assert isinstance(owned_transport, LiteLLMAiohttpTransport)
+    assert isinstance(owned_transport, HangarLLMAiohttpTransport)
     owned_session = owned_transport.get_valid_client_session()
 
-    baseline = set(LiteLLMAiohttpTransport._background_close_tasks)
+    baseline = set(HangarLLMAiohttpTransport._background_close_tasks)
     owned_handler._dispose_wrapped_aiohttp_session()
-    scheduled = LiteLLMAiohttpTransport._background_close_tasks - baseline
+    scheduled = HangarLLMAiohttpTransport._background_close_tasks - baseline
     await asyncio.gather(*scheduled)
     assert owned_session.closed
 
     shared_session = ClientSession()
     shared_handler = AsyncHTTPHandler(timeout=61.0, shared_session=shared_session)
     shared_transport = shared_handler.client._transport
-    assert isinstance(shared_transport, LiteLLMAiohttpTransport)
+    assert isinstance(shared_transport, HangarLLMAiohttpTransport)
     assert shared_transport._owns_session is False
 
     shared_handler._dispose_wrapped_aiohttp_session()
@@ -1650,8 +1650,8 @@ async def test_async_handler_honours_proxy_env_for_every_transport(
     monkeypatch.setenv("HTTP_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", disable_aiohttp_transport)
-    monkeypatch.setattr(litellm, "force_ipv4", force_ipv4)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", disable_aiohttp_transport)
+    monkeypatch.setattr(hangarllm, "force_ipv4", force_ipv4)
 
     handler = AsyncHTTPHandler()
     try:
@@ -1669,7 +1669,7 @@ def test_sync_handler_honours_proxy_env(forward_proxy_server, monkeypatch: pytes
     monkeypatch.setenv("HTTP_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "force_ipv4", force_ipv4)
+    monkeypatch.setattr(hangarllm, "force_ipv4", force_ipv4)
 
     handler = HTTPHandler()
     try:
@@ -1683,11 +1683,11 @@ def test_sync_handler_honours_proxy_env(forward_proxy_server, monkeypatch: pytes
 
 @pytest.mark.asyncio
 async def test_force_ipv4_httpx_transport_honours_no_proxy(keepalive_server, monkeypatch: pytest.MonkeyPatch):
-    """NO_PROXY hosts must still go direct when the proxy mounts are supplied by litellm instead of httpx."""
+    """NO_PROXY hosts must still go direct when the proxy mounts are supplied by hangarllm instead of httpx."""
     monkeypatch.setenv("HTTP_PROXY", "http://proxy.invalid:3128")
     monkeypatch.setenv("NO_PROXY", "127.0.0.1")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
 
     handler = AsyncHTTPHandler()
     try:
@@ -1802,8 +1802,8 @@ async def test_force_ipv4_https_proxy_mount_uses_handler_ca_bundle(
     monkeypatch.setenv("HTTPS_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
 
     handler = AsyncHTTPHandler(ssl_verify=ca_pem)
     try:
@@ -1821,7 +1821,7 @@ def test_sync_force_ipv4_https_proxy_mount_uses_handler_ca_bundle(
     monkeypatch.setenv("HTTPS_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
 
     handler = HTTPHandler(ssl_verify=ca_pem)
     try:
@@ -1965,27 +1965,27 @@ async def test_bounded_get_closes_stream_on_cancellation(respx_mock, monkeypatch
 
 @pytest.mark.asyncio
 async def test_http2_flag_bypasses_aiohttp_transport(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
-    monkeypatch.delenv("LITELLM_HTTP2", raising=False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
+    monkeypatch.delenv("HANGARLLM_HTTP2", raising=False)
     monkeypatch.delenv("DISABLE_AIOHTTP_TRANSPORT", raising=False)
 
-    monkeypatch.setattr(litellm, "http2", True)
+    monkeypatch.setattr(hangarllm, "http2", True)
     assert AsyncHTTPHandler.should_use_aiohttp_transport() is False
-    assert not isinstance(AsyncHTTPHandler.create_async_transport(), LiteLLMAiohttpTransport)
+    assert not isinstance(AsyncHTTPHandler.create_async_transport(), HangarLLMAiohttpTransport)
 
-    monkeypatch.setattr(litellm, "http2", False)
-    monkeypatch.setenv("LITELLM_HTTP2", "True")
+    monkeypatch.setattr(hangarllm, "http2", False)
+    monkeypatch.setenv("HANGARLLM_HTTP2", "True")
     assert AsyncHTTPHandler.should_use_aiohttp_transport() is False
-    assert not isinstance(AsyncHTTPHandler.create_async_transport(), LiteLLMAiohttpTransport)
+    assert not isinstance(AsyncHTTPHandler.create_async_transport(), HangarLLMAiohttpTransport)
 
 
 @pytest.mark.asyncio
 async def test_http2_disabled_by_default(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "http2", False)
-    monkeypatch.delenv("LITELLM_HTTP2", raising=False)
+    monkeypatch.setattr(hangarllm, "http2", False)
+    monkeypatch.delenv("HANGARLLM_HTTP2", raising=False)
     monkeypatch.delenv("DISABLE_AIOHTTP_TRANSPORT", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", False)
 
     assert AsyncHTTPHandler.should_use_aiohttp_transport() is True
 
@@ -1998,11 +1998,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -2014,18 +2014,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -2035,62 +2035,62 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
@@ -2115,7 +2115,7 @@ class _SlowHandler(BaseHTTPRequestHandler):
         pass
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_post_delay_exceeds_per_request_timeout_raises():
     server = ThreadingHTTPServer(("127.0.0.1", 0), _SlowHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -2123,7 +2123,7 @@ def test_post_delay_exceeds_per_request_timeout_raises():
 
     handler = get_httpx_client(params={"timeout": _CLIENT_DEFAULT_TIMEOUT_S})
     try:
-        with pytest.raises(LitellmTimeout):
+        with pytest.raises(HangarllmTimeout):
             handler.post(
                 f"http://{host}:{port}/delay",
                 headers={"content-type": "application/json"},
@@ -2152,7 +2152,7 @@ def test_realtime_ssl_for_url_keeps_the_shared_context_for_wss_endpoints() -> No
 
 
 def test_realtime_ssl_for_url_turns_ssl_verify_false_into_an_unverified_tls_context(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("litellm.llms.custom_httpx.http_handler._shared_realtime_ssl_context", False)
+    monkeypatch.setattr("hangarllm.llms.custom_httpx.http_handler._shared_realtime_ssl_context", False)
     selected: Final = realtime_ssl_for_url("wss://aiplatform.us.rep.googleapis.com/ws")
     assert isinstance(selected, ssl.SSLContext)
     assert selected.verify_mode == ssl.CERT_NONE
@@ -2187,10 +2187,10 @@ def test_ollama_ssl_verify_false_builds_a_client_that_skips_certificate_checks(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
     route: Final = _ollama_generate_route(respx_mock, stream=False)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="ollama/llama3.1",
         messages=_ollama_ssl_messages(),
         api_base="http://ollama.test:11434",
@@ -2207,11 +2207,11 @@ async def test_async_ollama_ssl_verify_false_builds_a_client_that_skips_certific
     stream: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = _ollama_generate_route(respx_mock, stream=stream)
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="ollama/llama3.1",
         messages=_ollama_ssl_messages(),
         api_base="http://ollama.test:11434",
@@ -2255,7 +2255,7 @@ def test_sync_timeout_without_a_per_call_timeout_names_the_phase_and_the_limit_t
     handler.client.close()
     handler.client = httpx.Client(transport=_timing_out(kind), timeout=_TIMEOUT_CLIENT_LIMITS)
     try:
-        with pytest.raises(LitellmTimeout) as raised:
+        with pytest.raises(HangarllmTimeout) as raised:
             getattr(handler, verb)("https://example.com/v1/embeddings", json={"input": "hi"})
     finally:
         handler.close()
@@ -2275,7 +2275,7 @@ async def test_async_timeout_without_a_per_call_timeout_names_the_phase_and_the_
     await handler.client.aclose()
     handler.client = httpx.AsyncClient(transport=_timing_out(kind), timeout=_TIMEOUT_CLIENT_LIMITS)
     try:
-        with pytest.raises(LitellmTimeout) as raised:
+        with pytest.raises(HangarllmTimeout) as raised:
             await getattr(handler, verb)("https://example.com/v1/embeddings", json={"input": "hi"})
     finally:
         await handler.close()
@@ -2291,7 +2291,7 @@ def test_sync_timeout_reports_the_per_call_timeout_as_a_float_when_one_is_given(
     handler.client.close()
     handler.client = httpx.Client(transport=_timing_out(httpx.ReadTimeout), timeout=_TIMEOUT_CLIENT_LIMITS)
     try:
-        with pytest.raises(LitellmTimeout) as raised:
+        with pytest.raises(HangarllmTimeout) as raised:
             handler.post("https://example.com/v1/embeddings", json={"input": "hi"}, timeout=30)
     finally:
         handler.close()
@@ -2304,7 +2304,7 @@ async def test_async_timeout_reports_the_per_call_timeout_as_a_float_when_one_is
     await handler.client.aclose()
     handler.client = httpx.AsyncClient(transport=_timing_out(httpx.ReadTimeout), timeout=_TIMEOUT_CLIENT_LIMITS)
     try:
-        with pytest.raises(LitellmTimeout) as raised:
+        with pytest.raises(HangarllmTimeout) as raised:
             await handler.post("https://example.com/v1/embeddings", json={"input": "hi"}, timeout=30)
     finally:
         await handler.close()
@@ -2348,7 +2348,7 @@ def _pool_diagnostic_clock(monkeypatch: pytest.MonkeyPatch) -> _PoolDiagnosticCl
 @asynccontextmanager
 async def _pool_diagnostic_session(source: str) -> AsyncIterator[ClientSession]:
     if source == "proxy":
-        from litellm.proxy.proxy_server import initialize_shared_aiohttp_session
+        from hangarllm.proxy.proxy_server import initialize_shared_aiohttp_session
 
         session: Final = await initialize_shared_aiohttp_session()
         assert session is not None
@@ -2356,7 +2356,7 @@ async def _pool_diagnostic_session(source: str) -> AsyncIterator[ClientSession]:
             yield session
         return
     if source == "native-connector":
-        from litellm.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
+        from hangarllm.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
 
         handler: Final = BaseLLMAIOHTTPHandler(connector=TCPConnector(limit=7, limit_per_host=2))
         try:
@@ -2391,7 +2391,7 @@ async def test_aiohttp_pool_failure_identifies_queue_wait_and_cleans_up_timer(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     pool_diagnostic_clock: Final = _pool_diagnostic_clock(monkeypatch)
-    caplog.set_level(logging.WARNING, logger="LiteLLM")
+    caplog.set_level(logging.WARNING, logger="HangarLLM")
     url: Final = URL("https://private-user:private-password@pool.test:8443/private-path?token=private-query")
     async with _pool_diagnostic_session(source) as session:
         connector: Final = session.connector
@@ -2423,7 +2423,7 @@ async def test_aiohttp_pool_diagnostics_do_not_label_slow_upstream_as_pool_satur
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     pool_diagnostic_clock: Final = _pool_diagnostic_clock(monkeypatch)
-    caplog.set_level(logging.WARNING, logger="LiteLLM")
+    caplog.set_level(logging.WARNING, logger="HangarLLM")
     url: Final = URL("https://healthy.test/completions")
     async with _pool_diagnostic_session("sdk") as session:
         traces: Final = await _pool_diagnostic_request(session, url)
@@ -2444,7 +2444,7 @@ async def test_aiohttp_pool_warns_while_queued_once_per_request_with_isolated_co
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
 ) -> None:
     pool_diagnostic_clock: Final = _pool_diagnostic_clock(monkeypatch)
-    caplog.set_level(logging.WARNING, logger="LiteLLM")
+    caplog.set_level(logging.WARNING, logger="HangarLLM")
     slow_url: Final = URL("https://blocked.test/completions")
     fast_url: Final = URL("https://available.test/completions")
     async with _pool_diagnostic_session("sdk") as session:
@@ -2492,7 +2492,7 @@ async def test_aiohttp_pool_warning_tracks_redirect_destination_without_masking_
     from aiohttp.http_writer import StreamWriter
 
     clock: Final = _pool_diagnostic_clock(monkeypatch)
-    caplog.set_level(logging.WARNING, logger="LiteLLM")
+    caplog.set_level(logging.WARNING, logger="HangarLLM")
     url: Final = URL("https://initial.test:8443/completions")
     async with _pool_diagnostic_session("sdk") as session:
         traces: Final = await _pool_diagnostic_request(session, url)

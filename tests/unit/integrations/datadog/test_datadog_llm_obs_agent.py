@@ -1,6 +1,6 @@
 import os
 from unittest.mock import patch
-from litellm.integrations.datadog.datadog_llm_obs import DataDogLLMObsLogger
+from hangarllm.integrations.datadog.datadog_llm_obs import DataDogLLMObsLogger
 
 
 def test_datadog_llm_obs_agent_configuration():
@@ -8,8 +8,8 @@ def test_datadog_llm_obs_agent_configuration():
     Test that DataDog LLM Obs logger correctly configures agent endpoint.
     """
     test_env = {
-        "LITELLM_DD_AGENT_HOST": "localhost",
-        "LITELLM_DD_LLM_OBS_PORT": "10518",
+        "HANGARLLM_DD_AGENT_HOST": "localhost",
+        "HANGARLLM_DD_LLM_OBS_PORT": "10518",
         "DD_API_KEY": "test-api-key",  # Optional, but checking if it's preserved
     }
 
@@ -29,7 +29,7 @@ def test_datadog_llm_obs_agent_no_api_key_ok():
     Test that agent mode works WITHOUT DD_API_KEY (agent handles auth).
     """
     test_env = {
-        "LITELLM_DD_AGENT_HOST": "localhost",
+        "HANGARLLM_DD_AGENT_HOST": "localhost",
         # No DD_API_KEY
     }
 

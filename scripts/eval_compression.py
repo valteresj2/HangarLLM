@@ -11,7 +11,7 @@ Usage:
 The harness runs each problem in two modes:
   1. **baseline** — raw prompt sent directly to the model.
   2. **compressed** — prompt is padded with distractor context, then
-     ``litellm.compress()`` removes the noise before sending.
+     ``hangarllm.compress()`` removes the noise before sending.
 
 This measures whether compression preserves the signal the model needs
 to solve the task while reducing token usage.
@@ -32,8 +32,8 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
-import litellm
-from litellm.types.utils import CallTypes
+import hangarllm
+from hangarllm.types.utils import CallTypes
 
 # ---------------------------------------------------------------------------
 # Problem definitions (HumanEval-style)
@@ -744,7 +744,7 @@ class BenchmarkReport:
 
 
 # ---------------------------------------------------------------------------
-# LLM caller (uses litellm)
+# LLM caller (uses hangarllm)
 # ---------------------------------------------------------------------------
 
 SYSTEM_MSG = (
@@ -755,9 +755,9 @@ SYSTEM_MSG = (
 
 
 def call_llm(model: str, messages: list[dict]) -> dict:
-    """Call model via litellm. Returns dict with response text and usage."""
+    """Call model via hangarllm. Returns dict with response text and usage."""
     t0 = time.time()
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=model, messages=messages, temperature=0.0, max_tokens=2048
     )
     latency_ms = (time.time() - t0) * 1000
@@ -878,7 +878,7 @@ def eval_problem(
     compression_ratio = 0.0
 
     if use_compression:
-        result = litellm.compress(
+        result = hangarllm.compress(
             messages=messages,
             model=model,
             call_type=CallTypes.completion,
@@ -965,7 +965,7 @@ def run_benchmark(
     Run the full benchmark.
 
     Parameters:
-        model: LLM model name (litellm format).
+        model: LLM model name (hangarllm format).
         num_problems: How many problems to run (0 = all).
         num_runs: Number of runs per mode.
         padding_factor: How many distractor snippets to inject. Each snippet
@@ -1036,7 +1036,7 @@ def run_benchmark(
     print(f"    Avg total tokens:  {base_agg['avg_total_tokens']}")
     print(f"    Avg latency:       {base_agg['avg_latency_ms']}ms")
 
-    print(f"\n  Compressed (litellm.compress → then call model):")
+    print(f"\n  Compressed (hangarllm.compress → then call model):")
     print(
         f"    Pass rate:         {comp_agg['pass_rate']}% ({comp_agg['passed']}/{comp_agg['total']})"
     )
@@ -1091,7 +1091,7 @@ if __name__ == "__main__":
         description="Prompt Compression Evaluation Harness"
     )
     parser.add_argument(
-        "--model", default="gpt-4o-mini", help="Model name (litellm format)"
+        "--model", default="gpt-4o-mini", help="Model name (hangarllm format)"
     )
     parser.add_argument(
         "--problems", type=int, default=0, help="Number of problems (0 = all)"

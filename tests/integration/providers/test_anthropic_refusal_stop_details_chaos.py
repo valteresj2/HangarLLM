@@ -124,7 +124,7 @@ def _chaos_config(directory: Path, upstream: Wire, sink: str, *, retries: int) -
     model_list: Final = [
         {
             "model_name": _MODEL_NAME,
-            "litellm_params": {"model": f"anthropic/{MODEL}", "api_base": upstream.url, "api_key": "scripted-key"},
+            "hangarllm_params": {"model": f"anthropic/{MODEL}", "api_base": upstream.url, "api_key": "scripted-key"},
         }
     ]
     path: Final = directory / "anthropic-refusal-chaos.yaml"

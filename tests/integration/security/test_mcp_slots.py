@@ -142,19 +142,19 @@ def _authorize_and_redeem(rig: Rig, alias: str, key: str) -> None:
             "code_challenge_method": "S256",
             "scope": "tools.call",
         },
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
     )
     assert started.status_code in (302, 307), started.text
     consent: Final = httpx.get(started.headers["location"], follow_redirects=False, trust_env=False)
     assert consent.status_code == 302, consent.text
     returned: Final = client.get(
-        consent.headers["location"].removeprefix(base), headers={"x-litellm-api-key": key}, cookies=started.cookies
+        consent.headers["location"].removeprefix(base), headers={"x-hangarllm-api-key": key}, cookies=started.cookies
     )
     assert returned.status_code == 302, returned.text
     code: Final = parse_qs(urlsplit(returned.headers["location"]).query)["code"][0]
     redeemed: Final = client.post(
         f"/{alias}/token",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         data={
             "grant_type": "authorization_code",
             "code": code,
@@ -235,8 +235,8 @@ def _send(rig: Rig, wiring: Wiring, via: Via, tool: str, text: str) -> httpx.Res
             "tools": [
                 {
                     "type": "mcp",
-                    "server_url": f"litellm_proxy/mcp/{wiring.alias}",
-                    "server_label": "litellm",
+                    "server_url": f"hangarllm_proxy/mcp/{wiring.alias}",
+                    "server_label": "hangarllm",
                     "require_approval": "never",
                     "allowed_tools": [f"{wiring.alias}-{tool}"],
                 }
@@ -273,7 +273,7 @@ def _spend_rows(marker: Canary, since: datetime, call_types: frozenset[str]) -> 
     """Every spend row carrying ``marker``, once a row of each of ``call_types`` has been written."""
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, call_type FROM "LiteLLM_SpendLogs" '
+            'SELECT request_id, call_type FROM "HangarLLM_SpendLogs" '
             'WHERE "startTime" >= %s AND proxy_server_request::text LIKE %s',
             (since.astimezone(UTC).replace(tzinfo=None) - SLACK, f"%{marker.core}%"),
         ),
@@ -350,7 +350,7 @@ def test_mcp_credential_reaches_only_its_peer(
         assert_marker_seen(
             report,
             {
-                "S1": "LiteLLM_SpendLogs.proxy_server_request",
+                "S1": "HangarLLM_SpendLogs.proxy_server_request",
                 "S2": f"GET /spend/logs/ui/{tool_row} as admin -> 200",
                 "S4": f"{GENERIC_SINK}[",
                 **({"S3": "response[0] POST"} if outcome == "success" else {}),

@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+from hangarllm.proxy.common_utils.openai_endpoint_utils import (
     remove_sensitive_info_from_deployment,
 )
 
@@ -10,16 +10,16 @@ from litellm.proxy.common_utils.openai_endpoint_utils import (
 @pytest.mark.parametrize(
     "model_config, expected_config",
     [
-        # Test case 1: Empty litellm_params
+        # Test case 1: Empty hangarllm_params
         (
-            {"model_name": "test-model", "litellm_params": {}},
-            {"model_name": "test-model", "litellm_params": {}},
+            {"model_name": "test-model", "hangarllm_params": {}},
+            {"model_name": "test-model", "hangarllm_params": {}},
         ),
         # Test case 2: Full sensitive data removal, mixed secrets of azure, aws, gcp, and typical api_key
         (
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "api_key": "sk-sensitive-key-123",
                     "client_secret": "~v8Q4W:Zp9gJ-3sTqX5aB@LkR2mNfYdC",
@@ -33,7 +33,7 @@ from litellm.proxy.common_utils.openai_endpoint_utils import (
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "api_base": "https://api.openai.com/v1",
                     "temperature": 0.7,
@@ -45,7 +45,7 @@ from litellm.proxy.common_utils.openai_endpoint_utils import (
         (
             {
                 "model_name": "claude-3",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-3",
                     "api_key": "sk-anthropic-key",
                     "temperature": 0.5,
@@ -53,14 +53,14 @@ from litellm.proxy.common_utils.openai_endpoint_utils import (
             },
             {
                 "model_name": "claude-3",
-                "litellm_params": {"model": "anthropic/claude-3", "temperature": 0.5},
+                "hangarllm_params": {"model": "anthropic/claude-3", "temperature": 0.5},
             },
         ),
         # Test case 4: No sensitive data
         (
             {
                 "model_name": "local-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "local/model",
                     "temperature": 0.8,
                     "max_tokens": 100,
@@ -68,7 +68,7 @@ from litellm.proxy.common_utils.openai_endpoint_utils import (
             },
             {
                 "model_name": "local-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "local/model",
                     "temperature": 0.8,
                     "max_tokens": 100,
@@ -88,10 +88,10 @@ def test_remove_sensitive_info_from_deployment_with_excluded_keys():
     """
     base_config = {
         "model_name": "test-model",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4",
             "api_key": "sk-sensitive-key-123",
-            "litellm_credentials_name": "my-credential-name",
+            "hangarllm_credentials_name": "my-credential-name",
             "access_token": "token-12345",
             "temperature": 0.7,
         },
@@ -99,23 +99,23 @@ def test_remove_sensitive_info_from_deployment_with_excluded_keys():
 
     # Without excluded_keys, access_token should be masked (contains "token")
     sanitized_config = remove_sensitive_info_from_deployment(copy.deepcopy(base_config))
-    assert sanitized_config["litellm_params"]["access_token"] != "token-12345"
-    assert "*" in sanitized_config["litellm_params"]["access_token"]
+    assert sanitized_config["hangarllm_params"]["access_token"] != "token-12345"
+    assert "*" in sanitized_config["hangarllm_params"]["access_token"]
 
-    # With excluded_keys, litellm_credentials_name should NOT be masked.
+    # With excluded_keys, hangarllm_credentials_name should NOT be masked.
     # ``remove_sensitive_info_from_deployment`` mutates its input, so feed it
     # a fresh copy rather than the already-sanitized one.
     sanitized_config = remove_sensitive_info_from_deployment(
-        copy.deepcopy(base_config), excluded_keys={"litellm_credentials_name"}
+        copy.deepcopy(base_config), excluded_keys={"hangarllm_credentials_name"}
     )
-    assert sanitized_config["litellm_params"]["litellm_credentials_name"] == "my-credential-name"
+    assert sanitized_config["hangarllm_params"]["hangarllm_credentials_name"] == "my-credential-name"
 
     # access_token should still be masked (not in excluded_keys)
-    assert sanitized_config["litellm_params"]["access_token"] != "token-12345"
-    assert "*" in sanitized_config["litellm_params"]["access_token"]
+    assert sanitized_config["hangarllm_params"]["access_token"] != "token-12345"
+    assert "*" in sanitized_config["hangarllm_params"]["access_token"]
 
     # api_key should still be removed (popped) regardless of excluded_keys
-    assert "api_key" not in sanitized_config["litellm_params"]
+    assert "api_key" not in sanitized_config["hangarllm_params"]
 
 
 def test_remove_sensitive_info_from_deployment_keeps_nested_nulls():
@@ -126,7 +126,7 @@ def test_remove_sensitive_info_from_deployment_keeps_nested_nulls():
     }
     deployment = {
         "model_name": "route",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/switchyard",
             "api_key": "sk-sensitive-key-123",
             "switchyard_router_config": copy.deepcopy(router_config),
@@ -135,5 +135,5 @@ def test_remove_sensitive_info_from_deployment_keeps_nested_nulls():
 
     sanitized = remove_sensitive_info_from_deployment(deployment)
 
-    assert "api_key" not in sanitized["litellm_params"]
-    assert sanitized["litellm_params"]["switchyard_router_config"] == router_config
+    assert "api_key" not in sanitized["hangarllm_params"]
+    assert sanitized["hangarllm_params"]["switchyard_router_config"] == router_config

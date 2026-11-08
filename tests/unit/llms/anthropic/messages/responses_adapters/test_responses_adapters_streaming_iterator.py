@@ -1,6 +1,6 @@
 """
 Tests for AnthropicResponsesStreamWrapper
-(litellm/llms/anthropic/messages/responses_adapters/streaming_iterator.py)
+(hangarllm/llms/anthropic/messages/responses_adapters/streaming_iterator.py)
 """
 
 import asyncio
@@ -16,18 +16,18 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../..")))
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.litellm_core_utils.prompt_templates.reasoning_utils import (
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
     encrypted_reasoning_signature,
 )
-from litellm.llms.anthropic.messages.native.streaming_iterator import aclose_superseded_attempt
-from litellm.llms.anthropic.messages.native.utils import INCOMPLETE_STREAM_ERROR_MESSAGE
-from litellm.llms.anthropic.messages.responses_adapters.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.native.streaming_iterator import aclose_superseded_attempt
+from hangarllm.llms.anthropic.messages.native.utils import INCOMPLETE_STREAM_ERROR_MESSAGE
+from hangarllm.llms.anthropic.messages.responses_adapters.streaming_iterator import (
     AnthropicResponsesStreamWrapper,
 )
-from litellm.types.llms.openai import ResponseFailedEvent, ResponsesAPIResponse
+from hangarllm.types.llms.openai import ResponseFailedEvent, ResponsesAPIResponse
 
 
 def _process_all(events: list) -> list:
@@ -198,7 +198,7 @@ _ENCRYPTED_REASONING = "gAAAAABp_encrypted_reasoning_bytes_only_openai_can_read"
 
 
 class TestEncryptedReasoningIsStreamedForReplay:
-    """Regression for https://github.com/BerriAI/litellm/issues/40288.
+    """Regression for upstream issue 40288
 
     The client echoes a thinking block's signature (or a redacted block's data) back on the
     next turn, so the item's ``encrypted_content`` has to reach it through one of those.
@@ -259,10 +259,10 @@ class TestEncryptedReasoningIsStreamedForReplay:
 
 
 class TestToolUseBlockClosedExactlyOnce:
-    """Regression for https://github.com/BerriAI/litellm/issues/37273.
+    """Regression for upstream issue 37273
 
     With ``custom_llm_provider: openai`` + ``use_chat_completions_api: true``,
-    ``/v1/messages`` streams through ``LiteLLMCompletionStreamingIterator``,
+    ``/v1/messages`` streams through ``HangarLLMCompletionStreamingIterator``,
     which ends a tool-call turn with two ``response.output_item.done`` events:
     one for the function_call item (id = call_id) and one for a synthetic
     message item whose id is the upstream chatcmpl id and was never opened as a
@@ -395,7 +395,7 @@ class TestResponseCompletedUsage:
     input rate."""
 
     def test_response_completed_usage_carries_cache_tokens(self):
-        from litellm.types.llms.openai import ResponseAPIUsage
+        from hangarllm.types.llms.openai import ResponseAPIUsage
 
         response = SimpleNamespace(
             status="completed",
@@ -513,7 +513,7 @@ class TestUpstreamFailureEndsStreamWithErrorEvent:
         }
 
     def test_raised_mid_stream_fallback_error_is_unwrapped_to_the_provider_failure(self):
-        rate_limit = litellm.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
+        rate_limit = hangarllm.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
         wrapped = MidStreamFallbackError(
             message=str(rate_limit),
             model="m",
@@ -561,7 +561,7 @@ class TestUpstreamFailureEndsStreamWithErrorEvent:
         [
             (
                 MidStreamFallbackError(message="boom", model="m", llm_provider="openai"),
-                {"type": "api_error", "message": "litellm.MidStreamFallbackError: boom"},
+                {"type": "api_error", "message": "hangarllm.MidStreamFallbackError: boom"},
             ),
             (
                 type("StringStatusError", (Exception,), {"status_code": "429"})("throttled"),
@@ -637,14 +637,14 @@ class _FailureHookRecorder:
         self.received = (*self.received, failure)
 
 
-def _logging_obj_with_failure_hook(on_failure: Callable[[Exception], Awaitable[None]]) -> LitellmLogging:
-    logging_obj = LitellmLogging(
+def _logging_obj_with_failure_hook(on_failure: Callable[[Exception], Awaitable[None]]) -> HangarllmLogging:
+    logging_obj = HangarllmLogging(
         model="m",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime(2026, 1, 1),
-        litellm_call_id="lit-6871-test",
+        hangarllm_call_id="lit-6871-test",
         function_id="lit-6871-test",
     )
     logging_obj._on_detached_stream_failure = on_failure
@@ -652,10 +652,10 @@ def _logging_obj_with_failure_hook(on_failure: Callable[[Exception], Awaitable[N
 
 
 def _collect_with_logging(
-    stream: AsyncIterator[dict[str, object]], logging_obj: LitellmLogging
+    stream: AsyncIterator[dict[str, object]], logging_obj: HangarllmLogging
 ) -> list[dict[str, object]]:
     async def _run() -> list[dict[str, object]]:
-        wrapper = AnthropicResponsesStreamWrapper(responses_stream=stream, model="m", litellm_logging_obj=logging_obj)
+        wrapper = AnthropicResponsesStreamWrapper(responses_stream=stream, model="m", hangarllm_logging_obj=logging_obj)
         return [chunk async for chunk in wrapper]
 
     return asyncio.run(_run())
@@ -679,14 +679,14 @@ def _failing_after_one_delta() -> AsyncIterator[dict[str, object]]:
         yield {"type": "response.created"}
         yield {"type": "response.output_item.added", "item": {"type": "message", "id": "msg_1"}}
         yield {"type": "response.output_text.delta", "item_id": "msg_1", "delta": "Hi"}
-        raise litellm.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
+        raise hangarllm.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
 
     return _gen()
 
 
 class TestUpstreamFailureReachesTheProxyFailureHook:
     def test_raised_upstream_failure_reaches_the_hook_unwrapped_once_the_error_event_was_consumed(self):
-        rate_limit = litellm.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
+        rate_limit = hangarllm.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
         wrapped = MidStreamFallbackError(
             message=str(rate_limit),
             model="m",
@@ -727,7 +727,7 @@ class TestUpstreamFailureReachesTheProxyFailureHook:
         chunks = _collect_with_logging(_gen(), _logging_obj_with_failure_hook(recorder))
         assert chunks[-1]["type"] == "error"
         (failure,) = recorder.received
-        assert isinstance(failure, litellm.RateLimitError)
+        assert isinstance(failure, hangarllm.RateLimitError)
         assert failure.status_code == 429
         assert "Rate limit reached for gpt-5.5, try again in 20s." in failure.message
 
@@ -752,7 +752,7 @@ class TestUpstreamFailureReachesTheProxyFailureHook:
             wrapper = AnthropicResponsesStreamWrapper(
                 responses_stream=_failing_after_one_delta(),
                 model="m",
-                litellm_logging_obj=_logging_obj_with_failure_hook(consumer.hook),
+                hangarllm_logging_obj=_logging_obj_with_failure_hook(consumer.hook),
             )
             await consumer.drain(wrapper)
             with pytest.raises(StopAsyncIteration):
@@ -779,7 +779,7 @@ class TestUpstreamFailureReachesTheProxyFailureHook:
 
         async def _close_on_the_error_event() -> None:
             wrapper = AnthropicResponsesStreamWrapper(
-                responses_stream=_failing_after_one_delta(), model="m", litellm_logging_obj=_logging_obj_with_failure_hook(recorder)
+                responses_stream=_failing_after_one_delta(), model="m", hangarllm_logging_obj=_logging_obj_with_failure_hook(recorder)
             )
             sse = wrapper.async_anthropic_sse_wrapper()
             async for frame in sse:
@@ -803,7 +803,7 @@ class TestUpstreamFailureReachesTheProxyFailureHook:
 
         async def _disconnect_mid_hook() -> None:
             wrapper = AnthropicResponsesStreamWrapper(
-                responses_stream=_failing_after_one_delta(), model="m", litellm_logging_obj=_logging_obj_with_failure_hook(_held_hook)
+                responses_stream=_failing_after_one_delta(), model="m", hangarllm_logging_obj=_logging_obj_with_failure_hook(_held_hook)
             )
 
             async def _consume() -> None:

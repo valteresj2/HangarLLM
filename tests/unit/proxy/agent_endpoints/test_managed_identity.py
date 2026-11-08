@@ -2,9 +2,9 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.agent_endpoints.managed_identity import classify_agent_subject, managed_write_fields
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import (
+from hangarllm.proxy.agent_endpoints.managed_identity import classify_agent_subject, managed_write_fields
+from hangarllm.types.agents import AgentResponse
+from hangarllm.types.proxy.agent_identity import (
     AgentExecutionMode,
     AgentIdentityBinding,
     AgentIdentityFailure,
@@ -187,7 +187,7 @@ def test_enabling_unbound_or_inactive_identity_requires_rebinding(identity: Agen
 
 @pytest.mark.parametrize("mode", ["delegated", "both"])
 def test_explicit_empty_scope_requirements_can_be_registered_and_preserved(mode: str) -> None:
-    from litellm.types.proxy.agent_identity import EntraIdentityConfig
+    from hangarllm.types.proxy.agent_identity import EntraIdentityConfig
 
     configuration: Final = EntraIdentityConfig(
         provider="microsoft_entra",
@@ -231,7 +231,7 @@ def test_malformed_application_roles_are_rejected(roles: object) -> None:
 def test_entra_binding_normalizes_identifiers_and_rejects_invalid_configuration() -> None:
     from pydantic import ValidationError
 
-    from litellm.types.proxy.agent_identity import EntraIdentityConfig
+    from hangarllm.types.proxy.agent_identity import EntraIdentityConfig
 
     identifier = "ABCDEF00-1234-4234-9234-123456789ABC"
     config = EntraIdentityConfig(provider="microsoft_entra", tenant_id=identifier, client_id=identifier)

@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.llms.friendliai.chat.transformation import FriendliaiChatConfig
-from litellm.types.llms.openai import AllMessageValues
+from hangarllm.llms.friendliai.chat.transformation import FriendliaiChatConfig
+from hangarllm.types.llms.openai import AllMessageValues
 
 _TOOL_CALLS: Final = [
     {"id": "toolu_01", "type": "function", "function": {"name": "Bash", "arguments": '{"command": "echo hi"}'}}
@@ -27,10 +27,10 @@ async def test_transform_request_drops_internal_fields_friendliai_rejects():
     config: Final = FriendliaiChatConfig()
 
     sync_request: Final = config.transform_request(
-        model="zai-org/GLM-5.3", messages=messages, optional_params={}, litellm_params={}, headers={}
+        model="zai-org/GLM-5.3", messages=messages, optional_params={}, hangarllm_params={}, headers={}
     )
     async_request: Final = await config.async_transform_request(
-        model="zai-org/GLM-5.3", messages=messages, optional_params={}, litellm_params={}, headers={}
+        model="zai-org/GLM-5.3", messages=messages, optional_params={}, hangarllm_params={}, headers={}
     )
 
     expected_assistant: Final = {

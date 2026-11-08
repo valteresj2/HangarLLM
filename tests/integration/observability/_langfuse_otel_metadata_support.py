@@ -247,7 +247,7 @@ def langfuse_rig(
         config: Final = {
             **raw_config,
             "model_list": [*raw_config.get("model_list", []), *(model_list(provider.url) if model_list else ())],
-            "litellm_settings": {**raw_config["litellm_settings"], "callbacks": ["langfuse_otel"], **settings},
+            "hangarllm_settings": {**raw_config["hangarllm_settings"], "callbacks": ["langfuse_otel"], **settings},
         }
         path: Final = tmp_path / "langfuse_otel.yaml"
         path.write_text(yaml.safe_dump(config))
@@ -261,7 +261,7 @@ def langfuse_rig(
                     else {}
                 ),
                 "LANGFUSE_HOST": collector.url,
-                "LITELLM_OTEL_V2": "1",
+                "HANGARLLM_OTEL_V2": "1",
                 **{
                     name: (collector.url if value == "__collector__" else value)
                     for name, value in dict(overrides or {}).items()

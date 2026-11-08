@@ -17,7 +17,7 @@ actual spend crosses the limit; the tpm test asserts the exact contract on both
 sides (a 429 only once the blocked call's reservation exceeds the remaining
 budget, and no later than the first call after actual spend reaches the limit).
 All calls of one test must land inside a single window
-(LITELLM_RATE_LIMIT_WINDOW_SIZE, 60s default), which real chat latency
+(HANGARLLM_RATE_LIMIT_WINDOW_SIZE, 60s default), which real chat latency
 comfortably allows.
 
 The window opens at the pre-call hook of the first counted call, which happens

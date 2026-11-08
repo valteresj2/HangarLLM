@@ -354,7 +354,7 @@ def user_texts(request: Request) -> list[JsonValue]:
 def spend_row(request_id: str) -> Event:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, model_group FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)
+            'SELECT request_id, status, model_group FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)
         ),
         lambda found: len(found) == 1,
         seconds=70,

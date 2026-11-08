@@ -17,11 +17,11 @@ import pytest
 from fastapi import HTTPException
 from respx import MockRouter
 
-from litellm.proxy.mcp_server.exceptions import (
+from hangarllm.proxy.mcp_server.exceptions import (
     MCPOpenApiUpstreamError,
     MCPUpstreamAuthError,
 )
-from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
     _request_upstream_url,
     _resolve_param_list,
     _resolve_ref,
@@ -34,10 +34,10 @@ from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
     request_resolved_auth_headers,
     resolve_operation_params,
 )
-from litellm.proxy.mcp_server.tool_outcome import JsonResult, TextResult
-from litellm.types.mcp import MCPAuth, MCPAuthType
+from hangarllm.proxy.mcp_server.tool_outcome import JsonResult, TextResult
+from hangarllm.types.mcp import MCPAuth, MCPAuthType
 
-GET_ASYNC_CLIENT_TARGET = "litellm.proxy.mcp_server.openapi_to_mcp_generator.get_async_httpx_client"
+GET_ASYNC_CLIENT_TARGET = "hangarllm.proxy.mcp_server.openapi_to_mcp_generator.get_async_httpx_client"
 
 
 @pytest.mark.asyncio
@@ -1063,7 +1063,7 @@ class TestResolveOperationParams:
 
 class TestSanitizeOpenAPIToolName:
     def test_replaces_slashes(self):
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             sanitize_openapi_tool_name,
         )
 
@@ -1073,35 +1073,35 @@ class TestSanitizeOpenAPIToolName:
         )
 
     def test_replaces_other_punctuation(self):
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             sanitize_openapi_tool_name,
         )
 
         assert sanitize_openapi_tool_name("foo.bar:baz qux") == "foo_bar_baz_qux"
 
     def test_lowercases(self):
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             sanitize_openapi_tool_name,
         )
 
         assert sanitize_openapi_tool_name("Pulls/List-Files") == "pulls_list-files"
 
     def test_already_valid_passes_through(self):
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             sanitize_openapi_tool_name,
         )
 
         assert sanitize_openapi_tool_name("plain-tool_name") == "plain-tool_name"
 
     def test_empty_string(self):
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             sanitize_openapi_tool_name,
         )
 
         assert sanitize_openapi_tool_name("") == ""
 
     def test_caps_at_128_chars(self):
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             sanitize_openapi_tool_name,
         )
 
@@ -1115,7 +1115,7 @@ class TestRegisterToolsFromOpenAPI:
     def test_github_style_operation_ids_are_sanitized(self, monkeypatch):
         import re
 
-        from litellm.proxy.mcp_server import openapi_to_mcp_generator
+        from hangarllm.proxy.mcp_server import openapi_to_mcp_generator
 
         registered: list = []
 
@@ -1163,7 +1163,7 @@ class TestRegisterToolsFromOpenAPI:
     ):
         import re
 
-        from litellm.proxy.mcp_server import openapi_to_mcp_generator
+        from hangarllm.proxy.mcp_server import openapi_to_mcp_generator
 
         registered: list = []
 
@@ -1512,7 +1512,7 @@ class TestUpstreamStatusIsClassified:
         """
         import httpx
 
-        from litellm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
+        from hangarllm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
 
         request = httpx.Request(method.upper(), "https://api.example.com/reports")
         raw = httpx.Response(
@@ -1559,7 +1559,7 @@ class TestBoundedOpenAPISpecLoading:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("max_bytes", [12, 13])
     async def test_exact_size_and_smaller_specs_load(self, respx_mock, monkeypatch, max_bytes):
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import load_openapi_spec_async
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import load_openapi_spec_async
 
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
         route = respx_mock.get("https://93.184.216.34/spec.json").respond(200, content=b'{"paths":{}}')
@@ -1571,8 +1571,8 @@ class TestBoundedOpenAPISpecLoading:
     async def test_unsafe_response_headers_reject_before_reading(self, respx_mock, monkeypatch, headers):
         import httpx
 
-        from litellm.llms.custom_httpx.http_handler import HTTPResponseLimitError
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.llms.custom_httpx.http_handler import HTTPResponseLimitError
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             load_openapi_spec_async,
         )
 
@@ -1596,8 +1596,8 @@ class TestBoundedOpenAPISpecLoading:
     async def test_chunked_response_is_bounded_and_closed(self, respx_mock, monkeypatch):
         import httpx
 
-        from litellm.llms.custom_httpx.http_handler import HTTPResponseLimitError
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import (
+        from hangarllm.llms.custom_httpx.http_handler import HTTPResponseLimitError
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import (
             load_openapi_spec_async,
         )
 
@@ -1623,8 +1623,8 @@ class TestBoundedOpenAPISpecLoading:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("target", ["https://93.184.216.35/final.json", "http://127.0.0.1/private.json"])
     async def test_bounded_spec_redirects_preserve_ssrf_protection(self, respx_mock, monkeypatch, target):
-        from litellm.litellm_core_utils.url_utils import SSRFError
-        from litellm.proxy.mcp_server.openapi_to_mcp_generator import load_openapi_spec_async
+        from hangarllm.hangarllm_core_utils.url_utils import SSRFError
+        from hangarllm.proxy.mcp_server.openapi_to_mcp_generator import load_openapi_spec_async
 
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
         respx_mock.get("https://93.184.216.34/spec.json").respond(302, headers={"location": target})
@@ -1650,7 +1650,7 @@ def without_mcp(name, *args, **kwargs):
         raise ModuleNotFoundError('MCP SDK unavailable')
     return original_import(name, *args, **kwargs)
 builtins.__import__ = without_mcp
-import litellm.proxy.mcp_server.openapi_to_mcp_generator
+import hangarllm.proxy.mcp_server.openapi_to_mcp_generator
 """
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

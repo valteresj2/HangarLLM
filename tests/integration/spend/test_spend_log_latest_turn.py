@@ -10,7 +10,7 @@ from integration._support.process import owned_proxy
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 MESSAGES: Final = TypeAdapter(list[dict[str, JsonValue]])
@@ -27,7 +27,7 @@ def _latest_turn_config(tmp_path: Path) -> Path:
             {
                 "model_list": [],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_responses_id_security": True,
                     "store_model_in_db": True,
@@ -104,7 +104,7 @@ def _native_response(text: str) -> bytes:
 
 def _row(proxy: Gateway, where: str, value: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: proxy.rows(f'SELECT {ROW_COLUMNS} FROM "LiteLLM_SpendLogs" WHERE {where}=%s', (value,)),
+        lambda: proxy.rows(f'SELECT {ROW_COLUMNS} FROM "HangarLLM_SpendLogs" WHERE {where}=%s', (value,)),
         lambda values: len(values) == 1,
         seconds=70,
     )

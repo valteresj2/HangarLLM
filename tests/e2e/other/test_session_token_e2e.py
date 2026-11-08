@@ -24,9 +24,9 @@ from e2e_metadata import Domain, Subject, meta
 
 pytestmark = pytest.mark.e2e
 
-SALT_KEY: Final = os.environ.get("LITELLM_SALT_KEY") or MASTER_KEY
-SESSION_TOKEN_PREFIX: Final = "litellm_login_"
-ENCRYPTED_PREFIX: Final = "litellm_enc::"
+SALT_KEY: Final = os.environ.get("HANGARLLM_SALT_KEY") or MASTER_KEY
+SESSION_TOKEN_PREFIX: Final = "hangarllm_login_"
+ENCRYPTED_PREFIX: Final = "hangarllm_enc::"
 
 
 def _admin_session_token(expires_at: datetime) -> str:
@@ -35,7 +35,7 @@ def _admin_session_token(expires_at: datetime) -> str:
             "token": f"ui-token-{unique_marker()}",
             "user_id": f"e2e-session-{unique_marker()}",
             "user_role": "proxy_admin",
-            "team_id": "litellm-dashboard",
+            "team_id": "hangarllm-dashboard",
             "expires": expires_at.isoformat(),
         }
     )

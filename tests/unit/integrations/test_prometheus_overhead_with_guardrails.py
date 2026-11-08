@@ -1,8 +1,8 @@
 """
-Unit tests for litellm_overhead_with_guardrails_latency_metric.
+Unit tests for hangarllm_overhead_with_guardrails_latency_metric.
 
-The metric reports total internal latency LiteLLM adds around the provider
-call = SDK overhead (litellm_overhead_time_ms) + pre/post-call guardrail
+The metric reports total internal latency HangarLLM adds around the provider
+call = SDK overhead (hangarllm_overhead_time_ms) + pre/post-call guardrail
 durations. During-call (moderation) guardrails run concurrently with the LLM
 call and are excluded so they don't inflate the overhead.
 """
@@ -12,9 +12,9 @@ from unittest.mock import MagicMock
 import pytest
 from prometheus_client import REGISTRY
 
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import StandardLoggingPayload
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 @pytest.fixture(autouse=True)
@@ -162,7 +162,7 @@ def test_get_guardrail_overhead_seconds_counts_single_pre_call_dict():
 
 def _patch_label_factory(monkeypatch):
     monkeypatch.setattr(
-        "litellm.integrations.prometheus.prometheus_label_factory",
+        "hangarllm.integrations.prometheus.prometheus_label_factory",
         lambda **kwargs: {},
     )
 
@@ -172,10 +172,10 @@ def test_overhead_with_guardrails_recorded_when_only_guardrails_no_sdk_overhead(
     _patch_label_factory(monkeypatch)
     logger = PrometheusLogger()
     mock_metric = MagicMock()
-    logger.litellm_overhead_with_guardrails_latency_metric = mock_metric
+    logger.hangarllm_overhead_with_guardrails_latency_metric = mock_metric
 
     payload = StandardLoggingPayload(
-        hidden_params={},  # no litellm_overhead_time_ms
+        hidden_params={},  # no hangarllm_overhead_time_ms
         guardrail_information=[
             {"guardrail_mode": GuardrailEventHooks.post_call, "duration": 0.2}
         ],
@@ -194,10 +194,10 @@ def test_overhead_with_guardrails_recorded_when_sdk_overhead_is_zero(monkeypatch
     _patch_label_factory(monkeypatch)
     logger = PrometheusLogger()
     mock_metric = MagicMock()
-    logger.litellm_overhead_with_guardrails_latency_metric = mock_metric
+    logger.hangarllm_overhead_with_guardrails_latency_metric = mock_metric
 
     payload = StandardLoggingPayload(
-        hidden_params={"litellm_overhead_time_ms": 0.0},
+        hidden_params={"hangarllm_overhead_time_ms": 0.0},
         guardrail_information=[
             {"guardrail_mode": GuardrailEventHooks.pre_call, "duration": 0.1}
         ],
@@ -215,7 +215,7 @@ def test_overhead_with_guardrails_skipped_when_no_overhead_and_no_guardrails(mon
     _patch_label_factory(monkeypatch)
     logger = PrometheusLogger()
     mock_metric = MagicMock()
-    logger.litellm_overhead_with_guardrails_latency_metric = mock_metric
+    logger.hangarllm_overhead_with_guardrails_latency_metric = mock_metric
 
     payload = StandardLoggingPayload(hidden_params={})
     logger._set_overhead_with_guardrails_metric(
@@ -228,11 +228,11 @@ def test_overhead_with_guardrails_skipped_when_no_overhead_and_no_guardrails(mon
 def test_overhead_with_guardrails_metric_is_registered():
     """The overhead-with-guardrails histogram is defined and registered on logger init."""
     logger = PrometheusLogger()
-    assert logger.litellm_overhead_with_guardrails_latency_metric is not None
+    assert logger.hangarllm_overhead_with_guardrails_latency_metric is not None
 
     registered = [
         name
         for name in REGISTRY._names_to_collectors
-        if name.startswith("litellm_overhead_with_guardrails_latency_metric")
+        if name.startswith("hangarllm_overhead_with_guardrails_latency_metric")
     ]
-    assert registered, "litellm_overhead_with_guardrails_latency_metric not registered"
+    assert registered, "hangarllm_overhead_with_guardrails_latency_metric not registered"

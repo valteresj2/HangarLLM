@@ -11,13 +11,13 @@ from integration._support.forward_proxy import refusing_forward_proxy
 from integration._support.process import owned_proxy
 from pydantic import JsonValue
 
-_PACKAGE: Final = Path(__file__).resolve().parents[3] / "litellm"
+_PACKAGE: Final = Path(__file__).resolve().parents[3] / "hangarllm"
 _CONTROL_HOST: Final = "provider.offline-mode.example"
 _REMOTE_URLS: Final = {
-    "LITELLM_MODEL_COST_MAP_URL": "https://cost-map.offline-mode.example/model_prices.json",
-    "LITELLM_ANTHROPIC_BETA_HEADERS_URL": "https://beta-headers.offline-mode.example/config.json",
-    "LITELLM_AUTOROUTER_PRESETS_URL": "https://autorouter.offline-mode.example/presets.json",
-    "LITELLM_BLOG_POSTS_URL": "https://blog.offline-mode.example/rss.xml",
+    "HANGARLLM_MODEL_COST_MAP_URL": "https://cost-map.offline-mode.example/model_prices.json",
+    "HANGARLLM_ANTHROPIC_BETA_HEADERS_URL": "https://beta-headers.offline-mode.example/config.json",
+    "HANGARLLM_AUTOROUTER_PRESETS_URL": "https://autorouter.offline-mode.example/presets.json",
+    "HANGARLLM_BLOG_POSTS_URL": "https://blog.offline-mode.example/rss.xml",
 }
 _SELF_INITIATED_HOSTS: Final = frozenset(
     {
@@ -26,20 +26,20 @@ _SELF_INITIATED_HOSTS: Final = frozenset(
         "autorouter.offline-mode.example:443",
         "blog.offline-mode.example:443",
         "raw.githubusercontent.com:443",
-        "docs.litellm.ai:443",
+        "github.com/valteresj2/HangarLLM#readme",
         "api.pwnedpasswords.com:443",
         "huggingface.co:443",
     }
 )
 _PER_FEATURE_FLAGS: Final = (
-    "LITELLM_OFFLINE_MODE",
-    "LITELLM_LOCAL_MODEL_COST_MAP",
-    "LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS",
-    "LITELLM_LOCAL_AUTOROUTER_PRESETS",
-    "LITELLM_LOCAL_POLICY_TEMPLATES",
-    "LITELLM_LOCAL_BLOG_POSTS",
-    "LITELLM_DISABLE_LATEST_RELEASE_CHECK",
-    "LITELLM_LICENSE",
+    "HANGARLLM_OFFLINE_MODE",
+    "HANGARLLM_LOCAL_MODEL_COST_MAP",
+    "HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS",
+    "HANGARLLM_LOCAL_AUTOROUTER_PRESETS",
+    "HANGARLLM_LOCAL_POLICY_TEMPLATES",
+    "HANGARLLM_LOCAL_BLOG_POSTS",
+    "HANGARLLM_DISABLE_LATEST_RELEASE_CHECK",
+    "HANGARLLM_LICENSE",
 )
 
 
@@ -55,7 +55,7 @@ def _write_config(directory: Path) -> Path:
                 "model_list": [
                     {
                         "model_name": "offline-mode-control",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_base": f"https://{_CONTROL_HOST}/v1",
                             "api_key": "synthetic-provider-key",
@@ -63,7 +63,7 @@ def _write_config(directory: Path) -> Path:
                     },
                     {
                         "model_name": "offline-mode-kimi",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "bedrock/us.moonshotai.kimi-k3",
                             "aws_region_name": "us-east-1",
                             "aws_access_key_id": "synthetic-access-key",
@@ -73,7 +73,7 @@ def _write_config(directory: Path) -> Path:
                 ],
                 "router_settings": {"num_retries": 0},
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
             }
@@ -107,7 +107,7 @@ def test_offline_mode_stops_every_self_initiated_request(
             "NO_PROXY": "127.0.0.1,localhost",
             "AIOHTTP_TRUST_ENV": "True",
             **_REMOTE_URLS,
-            **({"LITELLM_OFFLINE_MODE": offline_mode} if offline_mode is not None else {}),
+            **({"HANGARLLM_OFFLINE_MODE": offline_mode} if offline_mode is not None else {}),
         }
         with owned_proxy(
             gateway,
@@ -123,7 +123,7 @@ def test_offline_mode_stops_every_self_initiated_request(
             release: Final = _json(isolated, "GET", "/get/latest_release_info")
             presets: Final = object_value(_json(isolated, "GET", "/public/autorouter_presets"))
             templates: Final = _json(isolated, "GET", "/policy/templates")
-            blog: Final = object_value(_json(isolated, "GET", "/public/litellm_blog_posts"))
+            blog: Final = object_value(_json(isolated, "GET", "/public/hangarllm_blog_posts"))
             user: Final = object_value(
                 _json(isolated, "POST", "/user/new", {"user_email": f"offline-{uuid.uuid4().hex}@example.com"})
             )

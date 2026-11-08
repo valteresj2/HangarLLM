@@ -9,15 +9,15 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.anthropic.messages.caller_model_checks import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.anthropic.messages.caller_model_checks import (
     CallerModelVerdict,
     _caller_within_team_member_model_budget,
 )
-from litellm.llms.anthropic.messages.safeguards import (
+from hangarllm.llms.anthropic.messages.safeguards import (
     CLASSIFIER_MAX_TOKENS,
     CLASSIFIER_SYSTEM_PROMPT,
     TOOL_RESULT_CHAR_LIMIT,
@@ -33,18 +33,18 @@ from litellm.llms.anthropic.messages.safeguards import (
     requested_dangerous_tool_use,
     with_safeguard_results,
 )
-from litellm.llms.anthropic.messages.utils import proxy_sub_call_metadata
-from litellm.proxy._types import LiteLLM_EndUserTable, Litellm_EntityType, UserAPIKeyAuth
-from litellm.proxy.hooks.model_max_budget_limiter import (
+from hangarllm.llms.anthropic.messages.utils import proxy_sub_call_metadata
+from hangarllm.proxy._types import HangarLLM_EndUserTable, Hangarllm_EntityType, UserAPIKeyAuth
+from hangarllm.proxy.hooks.model_max_budget_limiter import (
     PROXY_VirtualKeyModelMaxBudgetLimiter,
     model_budget_spend_cache_key,
     team_member_budget_entity_id,
 )
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.router import Router
-from litellm.types.llms.anthropic import AnthropicResponseContentBlockToolUse
-from litellm.types.router import RouterErrors
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm.router import Router
+from hangarllm.types.llms.anthropic import AnthropicResponseContentBlockToolUse
+from hangarllm.types.router import RouterErrors
+from hangarllm.types.utils import Choices, Message, ModelResponse
 from tests.unit.llms.anthropic.messages.conftest import ProxyAuthState
 
 DANGEROUS_TOOL_USE_REQUEST: Final = [{"type": "dangerous_tool_use", "classifier_context": {"permission_mode": "auto"}}]
@@ -86,7 +86,7 @@ def _evaluator(classifier: _RecordingClassifier, **overrides: object) -> Safegua
         "classifier_model": "classifier",
         "classifier_context": '{"permission_mode": "auto"}',
         "transcript": '{"user": "set up the repo"}',
-        "litellm_metadata": {"user_api_key": "hashed", "user_api_key_end_user_id": "end-user-7"},
+        "hangarllm_metadata": {"user_api_key": "hashed", "user_api_key_end_user_id": "end-user-7"},
         "allowed_model_region": None,
         "acompletion": classifier,
         "caller_model_verdict": _CallerGate("allowed"),
@@ -157,7 +157,7 @@ async def test_evaluate_sends_the_transcript_context_and_tool_calls_with_the_cal
     assert call["max_tokens"] == CLASSIFIER_MAX_TOKENS
     assert "timeout" not in call
     assert call["num_retries"] == 0
-    assert call["litellm_metadata"] == {"user_api_key": "hashed", "user_api_key_end_user_id": "end-user-7"}
+    assert call["hangarllm_metadata"] == {"user_api_key": "hashed", "user_api_key_end_user_id": "end-user-7"}
     assert call["user"] == "end-user-7"
     assert call["allowed_model_region"] == "eu"
     messages: Final = call["messages"]
@@ -173,7 +173,7 @@ async def test_evaluate_sends_the_transcript_context_and_tool_calls_with_the_cal
 @pytest.mark.asyncio
 async def test_evaluate_without_end_user_or_region_sends_neither_kwarg():
     classifier: Final = _RecordingClassifier(['{"verdicts": {"call_ls": {"flagged": false}}}'])
-    await _evaluator(classifier, litellm_metadata={"user_api_key": "hashed"}).evaluate((LS,))
+    await _evaluator(classifier, hangarllm_metadata={"user_api_key": "hashed"}).evaluate((LS,))
     assert "user" not in classifier.calls[0]
     assert "allowed_model_region" not in classifier.calls[0]
 
@@ -261,16 +261,16 @@ async def test_evaluate_marks_only_the_ids_the_classifier_skipped_or_garbled_as_
 @pytest.mark.parametrize(
     "reply, reason",
     [
-        (litellm.Timeout("slow", model="classifier", llm_provider="fireworks_ai"), "timeout"),
+        (hangarllm.Timeout("slow", model="classifier", llm_provider="fireworks_ai"), "timeout"),
         (
-            litellm.ContextWindowExceededError("too long", model="classifier", llm_provider="fireworks_ai"),
+            hangarllm.ContextWindowExceededError("too long", model="classifier", llm_provider="fireworks_ai"),
             "input_too_long",
         ),
-        (litellm.ContentPolicyViolationError("refused", model="classifier", llm_provider="fireworks_ai"), "refused"),
-        (litellm.RateLimitError("slow down", model="classifier", llm_provider="fireworks_ai"), "error"),
-        (litellm.BadRequestError("bad request", model="classifier", llm_provider="fireworks_ai"), "error"),
+        (hangarllm.ContentPolicyViolationError("refused", model="classifier", llm_provider="fireworks_ai"), "refused"),
+        (hangarllm.RateLimitError("slow down", model="classifier", llm_provider="fireworks_ai"), "error"),
+        (hangarllm.BadRequestError("bad request", model="classifier", llm_provider="fireworks_ai"), "error"),
         (
-            litellm.BadRequestError(
+            hangarllm.BadRequestError(
                 "Deployment classifier is reserved for another team until 15:00 UTC",
                 model="classifier",
                 llm_provider="",
@@ -292,7 +292,7 @@ async def test_evaluate_answers_unavailable_for_every_tool_use_when_the_classifi
 
 @pytest.mark.asyncio
 async def test_evaluate_answers_unsupported_when_the_proxy_serves_no_deployment_for_the_classifier():
-    not_served: Final = litellm.BadRequestError(
+    not_served: Final = hangarllm.BadRequestError(
         f"You passed in model=classifier. {RouterErrors.no_healthy_deployments.value}",
         model="classifier",
         llm_provider="",
@@ -315,7 +315,7 @@ async def test_evaluate_gives_up_on_a_classifier_that_never_answers():
         classifier_model="classifier",
         classifier_context="{}",
         transcript="",
-        litellm_metadata={},
+        hangarllm_metadata={},
         allowed_model_region=None,
         acompletion=_StalledClassifier(),
         caller_model_verdict=_CallerGate("allowed"),
@@ -360,24 +360,24 @@ class _Router:
 
 
 def test_build_evaluator_is_a_no_op_without_safeguards_or_without_the_setting():
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         assert (
             build_safeguards_evaluator(
                 safeguards=None,
                 messages=[],
-                litellm_metadata=None,
+                hangarllm_metadata=None,
                 user_api_key_auth=None,
                 llm_router=None,
                 logging_kwargs={},
             )
             is None
         )
-    with patch("litellm.proxy.proxy_server.general_settings", {}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {}):
         assert (
             build_safeguards_evaluator(
                 safeguards=DANGEROUS_TOOL_USE_REQUEST,
                 messages=[],
-                litellm_metadata=None,
+                hangarllm_metadata=None,
                 user_api_key_auth=None,
                 llm_router=None,
                 logging_kwargs={},
@@ -390,11 +390,11 @@ def test_build_evaluator_is_a_no_op_without_safeguards_or_without_the_setting():
 async def test_build_evaluator_prefers_the_router_and_keeps_only_the_attribution_auth_and_header_metadata():
     router: Final = _Router()
     caller: Final = UserAPIKeyAuth(allowed_model_region="us")
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = build_safeguards_evaluator(
             safeguards=DANGEROUS_TOOL_USE_REQUEST,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_metadata={
+            hangarllm_metadata={
                 "user_api_key": "hashed",
                 "user_api_key_auth": caller,
                 "headers": {"x": "y"},
@@ -407,7 +407,7 @@ async def test_build_evaluator_prefers_the_router_and_keeps_only_the_attribution
     assert evaluator is not None
     assert _verdicts(await evaluator.evaluate((LS,))) == {"call_ls": {"type": "evaluated", "outcome": "not_flagged"}}
     assert router.calls[0]["model"] == "classifier"
-    assert router.calls[0]["litellm_metadata"] == {
+    assert router.calls[0]["hangarllm_metadata"] == {
         "user_api_key": "hashed",
         "headers": {"x": "y"},
         "user_api_key_auth": caller,
@@ -421,11 +421,11 @@ async def test_build_evaluator_prefers_the_router_and_keeps_only_the_attribution
 async def test_classifier_spend_row_logs_under_the_callers_key_hash():
     key_hash: Final = hashlib.sha256(b"sk-caller").hexdigest()
     router: Final = _Router()
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = build_safeguards_evaluator(
             safeguards=DANGEROUS_TOOL_USE_REQUEST,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_metadata={"user_api_key": key_hash, "user_api_key_hash": key_hash, "user_api_key_alias": "dev"},
+            hangarllm_metadata={"user_api_key": key_hash, "user_api_key_hash": key_hash, "user_api_key_alias": "dev"},
             user_api_key_auth=UserAPIKeyAuth(),
             llm_router=router,
             logging_kwargs={},
@@ -434,7 +434,7 @@ async def test_classifier_spend_row_logs_under_the_callers_key_hash():
     await evaluator.evaluate((LS,))
     logged_at: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
     spend_row: Final = get_logging_payload(
-        kwargs={"litellm_params": {"metadata": router.calls[0]["litellm_metadata"]}, "call_type": "acompletion"},
+        kwargs={"hangarllm_params": {"metadata": router.calls[0]["hangarllm_metadata"]}, "call_type": "acompletion"},
         response_obj=None,
         start_time=logged_at,
         end_time=logged_at,
@@ -445,11 +445,11 @@ async def test_classifier_spend_row_logs_under_the_callers_key_hash():
 @pytest.mark.asyncio
 async def test_build_evaluator_answers_unsupported_when_the_callers_key_cannot_call_the_classifier_model():
     router: Final = _Router()
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = build_safeguards_evaluator(
             safeguards=DANGEROUS_TOOL_USE_REQUEST,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_metadata={"user_api_key": "hashed"},
+            hangarllm_metadata={"user_api_key": "hashed"},
             user_api_key_auth=UserAPIKeyAuth(models=["kimi-k3"]),
             llm_router=router,
             logging_kwargs={},
@@ -463,14 +463,14 @@ async def test_build_evaluator_answers_unsupported_when_the_callers_key_cannot_c
 async def test_build_evaluator_answers_unsupported_when_the_end_users_models_exclude_the_classifier(
     proxy_auth_state: ProxyAuthState,
 ) -> None:
-    proxy_auth_state.seed(LiteLLM_EndUserTable(user_id="eu-1", blocked=False, models=["kimi-k3"]))
+    proxy_auth_state.seed(HangarLLM_EndUserTable(user_id="eu-1", blocked=False, models=["kimi-k3"]))
     router: Final = _Router()
     caller: Final = UserAPIKeyAuth(api_key="sk-app", end_user_id="eu-1")
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = build_safeguards_evaluator(
             safeguards=DANGEROUS_TOOL_USE_REQUEST,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_metadata={
+            hangarllm_metadata={
                 "user_api_key": "hashed",
                 "user_api_key_end_user_id": "eu-1",
                 "user_api_key_auth": caller,
@@ -487,7 +487,7 @@ async def test_build_evaluator_answers_unsupported_when_the_end_users_models_exc
 def _classifier_deployment(access_group: str, order: int, reply: str) -> dict[str, object]:
     return {
         "model_name": "classifier",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-5.4-mini",
             "api_key": "sk-fake",
             "order": order,
@@ -509,11 +509,11 @@ async def test_the_classifier_call_reaches_only_a_deployment_in_the_callers_acce
     )
     proxy_auth_state.serve(router)
     caller: Final = UserAPIKeyAuth(api_key="sk-a", models=["group-a"])
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = build_safeguards_evaluator(
             safeguards=DANGEROUS_TOOL_USE_REQUEST,
             messages=[{"role": "user", "content": "hi"}],
-            litellm_metadata={"user_api_key": "hashed", "user_api_key_auth": caller},
+            hangarllm_metadata={"user_api_key": "hashed", "user_api_key_auth": caller},
             user_api_key_auth=caller,
             llm_router=router,
             logging_kwargs={},
@@ -541,13 +541,13 @@ async def test_the_classifier_call_charges_the_team_members_classifier_budget_so
     member: Final = UserAPIKeyAuth(user_id="member-1", team_id="team-1", team_member_model_max_budget=budget)
     limiter: Final = PROXY_VirtualKeyModelMaxBudgetLimiter(dual_cache=DualCache())
     classifier_logged: Final = _SuccessEventLogged()
-    monkeypatch.setattr(litellm, "callbacks", [limiter, classifier_logged])
-    monkeypatch.setattr(litellm, "_async_success_callback", [limiter, classifier_logged])
+    monkeypatch.setattr(hangarllm, "callbacks", [limiter, classifier_logged])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [limiter, classifier_logged])
     router: Final = Router(
         model_list=[
             {
                 "model_name": "classifier",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-mini",
                     "api_key": "sk-fake",
                     "mock_response": '{"verdicts": {"call_ls": {"flagged": false}}}',
@@ -567,7 +567,7 @@ async def test_the_classifier_call_charges_the_team_members_classifier_budget_so
         classifier_model="classifier",
         classifier_context='{"permission_mode": "auto"}',
         transcript='{"user": "set up the repo"}',
-        litellm_metadata=proxy_sub_call_metadata(
+        hangarllm_metadata=proxy_sub_call_metadata(
             {
                 "user_api_key_hash": "member-key-hash",
                 "user_api_key_user_id": "member-1",
@@ -586,7 +586,7 @@ async def test_the_classifier_call_charges_the_team_members_classifier_budget_so
     await asyncio.wait_for(classifier_logged.logged.wait(), timeout=30.0)
     member_spend: Final = await limiter.dual_cache.async_get_cache(
         key=model_budget_spend_cache_key(
-            entity_type=Litellm_EntityType.TEAM_MEMBER,
+            entity_type=Hangarllm_EntityType.TEAM_MEMBER,
             entity_id=team_member_budget_entity_id(user_id="member-1", team_id="team-1"),
             budget_model="classifier",
             budget_duration="1d",
@@ -596,19 +596,19 @@ async def test_the_classifier_call_charges_the_team_members_classifier_budget_so
     assert await evaluator.evaluate((LS,)) == UNSUPPORTED
 
 
-def test_build_evaluator_without_a_router_calls_litellm_directly():
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+def test_build_evaluator_without_a_router_calls_hangarllm_directly():
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = build_safeguards_evaluator(
             safeguards=DANGEROUS_TOOL_USE_REQUEST,
             messages=[],
-            litellm_metadata=None,
+            hangarllm_metadata=None,
             user_api_key_auth=None,
             llm_router=None,
             logging_kwargs={},
         )
     assert evaluator is not None
-    assert evaluator.acompletion is litellm.acompletion
-    assert evaluator.litellm_metadata == {}
+    assert evaluator.acompletion is hangarllm.acompletion
+    assert evaluator.hangarllm_metadata == {}
 
 
 def test_render_transcript_keeps_turns_and_tool_calls_and_truncates_tool_results():

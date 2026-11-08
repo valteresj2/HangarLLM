@@ -340,7 +340,7 @@ class Rig:
         return tuple(
             eventually(
                 lambda: read_rows(
-                    'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response_id,)
+                    'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response_id,)
                 ),
                 lambda values: len(values) == 1,
                 seconds=70,
@@ -372,8 +372,8 @@ class RigFactory:
         )
         config: Final = {
             **loaded,
-            "litellm_settings": {
-                **object_value(loaded["litellm_settings"]),
+            "hangarllm_settings": {
+                **object_value(loaded["hangarllm_settings"]),
                 "callbacks": ["signoz"],
                 "provider_url_destination_allowed_hosts": [self.tenant_sink.wire.url],
             },
@@ -384,7 +384,7 @@ class RigFactory:
 
     def overrides(self) -> dict[str, str]:
         return {
-            "LITELLM_OTEL_V2": "1" if self.otel_v2 else "0",
+            "HANGARLLM_OTEL_V2": "1" if self.otel_v2 else "0",
             "OTEL_BSP_SCHEDULE_DELAY": "300",
             **({"SIGNOZ_INGESTION_ENDPOINT": self.endpoint} if self.endpoint is not None else {}),
             **({"SIGNOZ_INGESTION_KEY": self.ingestion_key} if self.ingestion_key is not None else {}),
@@ -861,7 +861,7 @@ def _assert_exactly_once(rig: Rig, identities: Sequence[str]) -> None:
     charged: Final = frozenset(identities)
     spend: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s::text[])',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s::text[])',
             ("{" + ",".join(charged) + "}",),
         ),
         lambda rows: {str(row["request_id"]) for row in rows} >= charged,

@@ -5,8 +5,8 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.xai.common_utils import XAIModelInfo
+import hangarllm
+from hangarllm.llms.xai.common_utils import XAIModelInfo
 
 MODELS_URL = "https://api.x.ai/v1/models"
 MANY_MODELS = [{"id": f"grok-{index}"} for index in range(500)]
@@ -119,6 +119,6 @@ def test_get_valid_models_lists_xai_models_and_falls_back_to_empty_on_a_malforme
 ):
     with respx.mock:
         respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=payload))
-        models = litellm.get_valid_models(check_provider_endpoint=True, custom_llm_provider="xai", api_key=api_key)
+        models = hangarllm.get_valid_models(check_provider_endpoint=True, custom_llm_provider="xai", api_key=api_key)
 
     assert models == expected

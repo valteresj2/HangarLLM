@@ -64,7 +64,7 @@ def session_router(wire_url: str) -> Sequence[Mapping[str, JsonValue]]:
         deployment(ROUTED_MODEL, "fireworks_ai/accounts/fireworks/models/kimi-k2p5", f"{wire_url}/routed/inference/v1"),
         {
             "model_name": SESSION_ROUTER,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_default_model": ROUTED_MODEL,
                 "complexity_router_config": {"tiers": tiers},
@@ -183,6 +183,6 @@ def test_body_trace_id_that_passed_the_team_gate_carries_the_summary_and_classif
         compacting.register(
             request_nonce, chat_backend(tool_id(request_nonce), stream=False), summarizing_or_classifying
         )
-        traced: Final = {**long_request(request_nonce), "litellm_trace_id": f"trace-{uuid.uuid4().hex}"}
+        traced: Final = {**long_request(request_nonce), "hangarllm_trace_id": f"trace-{uuid.uuid4().hex}"}
         body: Final = json_body(compacting.post(traced, key=key))
         assert assert_summarized_and_classified_on_their_models(compacting, request_nonce, body) == CHAT_TARGET

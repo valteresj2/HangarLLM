@@ -132,7 +132,7 @@ def _key(rig: Rig, *, permissions: dict[str, JsonValue] | None = None) -> Iterat
         rig.proxy.post("/key/delete", {"keys": [key]})
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE token=%s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE token=%s',
                 (sha256(key.encode()).hexdigest(),),
                 database_url=rig.database_url,
             )
@@ -201,10 +201,10 @@ def _wire(caller: Caller, marker: str) -> dict[str, JsonValue]:
 
 def _stored(caller: Caller, response_id: str, *, masked: bool = True, cache: bool = False) -> dict[str, JsonValue]:
     query: Final = (
-        'SELECT request_id, status, metadata, cache_hit FROM "LiteLLM_SpendLogs" '
-        "WHERE request_id=%s OR litellm_call_id=%s"
+        'SELECT request_id, status, metadata, cache_hit FROM "HangarLLM_SpendLogs" '
+        "WHERE request_id=%s OR hangarllm_call_id=%s"
         if not cache
-        else 'SELECT request_id, status, metadata, cache_hit FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s'
+        else 'SELECT request_id, status, metadata, cache_hit FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s'
     )
     rows: Final = eventually(
         lambda: read_rows(
@@ -235,7 +235,7 @@ def _stored(caller: Caller, response_id: str, *, masked: bool = True, cache: boo
 async def test_sdk_tool_traffic_is_redacted(caller: Caller, provider: str, client_mode: str, stream: bool) -> None:
     marker: Final = _identity()
     body: Final = _body(provider, marker, stream=stream)
-    options: Final = {"extra_headers": {"x-litellm-call-id": marker}, "extra_body": {"cache": body["cache"]}}
+    options: Final = {"extra_headers": {"x-hangarllm-call-id": marker}, "extra_body": {"cache": body["cache"]}}
     if provider == "anthropic":
         arguments: Final = {
             "model": "claude",
@@ -307,7 +307,7 @@ def test_messages_aliases_redact_system_and_multiple_tool_items(caller: Caller, 
     body["system"] = [{"type": "text", "text": TEXT, "cache_control": {"type": "ephemeral"}}]
     body["messages"][-1]["content"][0]["content"].append({"type": "text", "text": TEXT})
     response: Final = caller.rig.proxy.request(
-        "POST", path, body, key=caller.key, headers={"x-litellm-call-id": marker}
+        "POST", path, body, key=caller.key, headers={"x-hangarllm-call-id": marker}
     )
     assert response.status_code == 200 and "accepted" in response.text, response.text
     observed: Final = _wire(caller, marker)
@@ -376,7 +376,7 @@ def test_existing_text_shapes_still_redact(caller: Caller, path: str) -> None:
         **({"input": f"{marker} {TEXT}"} if path.endswith("responses") else {"prompt": f"{marker} {TEXT}"}),
     }
     response: Final = caller.rig.proxy.request(
-        "POST", path, body, key=caller.key, headers={"x-litellm-call-id": marker}
+        "POST", path, body, key=caller.key, headers={"x-hangarllm-call-id": marker}
     )
     assert response.status_code == 200 and "accepted" in response.text, response.text
     _wire(caller, marker)
@@ -412,7 +412,7 @@ def test_responses_tool_calls_and_instructions_are_redacted(caller: Caller, shap
         **({"instructions": TEXT} if shape == "instructions" else {}),
     }
     response: Final = caller.rig.proxy.request(
-        "POST", "/v1/responses", body, key=caller.key, headers={"x-litellm-call-id": marker}
+        "POST", "/v1/responses", body, key=caller.key, headers={"x-hangarllm-call-id": marker}
     )
     assert response.status_code == 200 and "accepted" in response.text, response.text
     sent: Final = _wire(caller, marker)
@@ -453,11 +453,11 @@ def test_provider_error_occurs_after_redaction(caller: Caller, provider: str) ->
     body["messages"][0]["content"] += " provider-error"
     path: Final = "/v1/messages" if provider == "anthropic" else "/v1/chat/completions"
     response: Final = caller.rig.proxy.request(
-        "POST", path, body, key=caller.key, headers={"x-litellm-call-id": marker}
+        "POST", path, body, key=caller.key, headers={"x-hangarllm-call-id": marker}
     )
     assert response.status_code == 401 and "scripted deployment refused" in response.text, response.text
     _wire(caller, marker)
-    row: Final = _stored(caller, response.headers["x-litellm-call-id"])
+    row: Final = _stored(caller, response.headers["x-hangarllm-call-id"])
     assert row["status"] == "failure", row
 
 

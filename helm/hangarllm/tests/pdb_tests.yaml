@@ -14,7 +14,7 @@ tests:
       - equal:
           path: spec.selector.matchLabels
           value:
-            app.kubernetes.io/name: litellm
+            app.kubernetes.io/name: hangarllm
             app.kubernetes.io/instance: RELEASE-NAME
 
 ---

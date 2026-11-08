@@ -1,9 +1,9 @@
 """Client for the proxy's A2A (agent-to-agent) surface.
 
 An A2A agent is registered admin-side via POST /v1/agents with an agent card and
-litellm_params; the proxy fronts it at /a2a/{id}, serving a proxy-owned agent card
+hangarllm_params; the proxy fronts it at /a2a/{id}, serving a proxy-owned agent card
 at /.well-known/agent-card.json and accepting A2A JSON-RPC calls at /a2a/{id}. This
-suite registers agents backed by the litellm_completion_bridge (custom_llm_provider
+suite registers agents backed by the hangarllm_completion_bridge (custom_llm_provider
 + model), so message/send runs a real provider completion and comes back in the
 agent's pinned A2A protocol version. The A2A request/response models are co-located
 here because only this suite uses them.
@@ -53,8 +53,8 @@ class AgentCardParams(BaseModel):
 
 
 class A2ABridgeParams(BaseModel):
-    """litellm_params that route the agent through the completion bridge: an A2A
-    message/send is transformed into a litellm.acompletion against this provider."""
+    """hangarllm_params that route the agent through the completion bridge: an A2A
+    message/send is transformed into a hangarllm.acompletion against this provider."""
 
     model_config = ConfigDict(protected_namespaces=())
 
@@ -66,7 +66,7 @@ class A2ABridgeParams(BaseModel):
 class AgentRegisterBody(BaseModel):
     agent_name: str
     agent_card_params: AgentCardParams
-    litellm_params: A2ABridgeParams | None = None
+    hangarllm_params: A2ABridgeParams | None = None
 
 
 class A2ASecurityScheme(BaseModel):

@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 
 
-from litellm.proxy.db.prisma_client import (
+from hangarllm.proxy.db.prisma_client import (
     PrismaManager,
     PrismaWrapper,
     _PrismaDrainTracker,
@@ -210,7 +210,7 @@ ENVIRONMENT_VARIABLES_REVISION_TRIGGER_ARGV = [
     "schema.prisma",
     "--file",
     str(
-        importlib.resources.files("litellm_proxy_extras")
+        importlib.resources.files("hangarllm_proxy_extras")
         / "migrations"
         / "20261015120000_add_environment_variables_revision_trigger"
         / "migration.sql"
@@ -219,11 +219,11 @@ ENVIRONMENT_VARIABLES_REVISION_TRIGGER_ARGV = [
 
 
 def test_db_push_applies_replica_identity_full_when_requested(monkeypatch, fake_prisma_cli, unset_database_url):
-    """`prisma db push` bypasses litellm-proxy-extras, so it needs its own call
+    """`prisma db push` bypasses hangarllm-proxy-extras, so it needs its own call
     into the opt-in REPLICA IDENTITY FULL step."""
-    from litellm.proxy.db.prisma_client import PrismaManager
-    from litellm_proxy_extras.replica_identity import REPLICA_IDENTITY_FULL_ENV_VAR
-    from litellm_proxy_extras.utils import ProxyExtrasDBManager
+    from hangarllm.proxy.db.prisma_client import PrismaManager
+    from hangarllm_proxy_extras.replica_identity import REPLICA_IDENTITY_FULL_ENV_VAR
+    from hangarllm_proxy_extras.utils import ProxyExtrasDBManager
 
     monkeypatch.setenv(REPLICA_IDENTITY_FULL_ENV_VAR, "true")
     applied = []
@@ -240,11 +240,11 @@ def test_db_push_applies_replica_identity_full_when_requested(monkeypatch, fake_
 
 
 def test_db_push_is_rejected_when_spend_logs_is_partitioned(monkeypatch, fake_prisma_cli, unset_database_url):
-    """A doc-partitioned LiteLLM_SpendLogs makes `prisma db push` rewrite the
+    """A doc-partitioned HangarLLM_SpendLogs makes `prisma db push` rewrite the
     primary key back to ("request_id"), which Postgres rejects; the guard must
     fail fast with guidance instead of running the push."""
-    from litellm.proxy.db.prisma_client import PrismaManager
-    from litellm_proxy_extras.utils import (
+    from hangarllm.proxy.db.prisma_client import PrismaManager
+    from hangarllm_proxy_extras.utils import (
         PARTITIONED_SPEND_LOGS_PUSH_ERROR,
         ProxyExtrasDBManager,
     )
@@ -260,8 +260,8 @@ def test_db_push_is_rejected_when_spend_logs_is_partitioned(monkeypatch, fake_pr
 
 
 def test_db_push_proceeds_when_spend_logs_is_not_partitioned(monkeypatch, fake_prisma_cli, unset_database_url):
-    from litellm.proxy.db.prisma_client import PrismaManager
-    from litellm_proxy_extras.utils import ProxyExtrasDBManager
+    from hangarllm.proxy.db.prisma_client import PrismaManager
+    from hangarllm_proxy_extras.utils import ProxyExtrasDBManager
 
     monkeypatch.setattr(
         ProxyExtrasDBManager, "spend_logs_is_partitioned", staticmethod(lambda: False)
@@ -285,12 +285,12 @@ def _entra_jwt(expires_in_seconds: int) -> str:
 def azure_env(monkeypatch, unset_database_url):
     monkeypatch.setenv("DATABASE_HOST", "pg.postgres.database.azure.com")
     monkeypatch.setenv("DATABASE_PORT", "5432")
-    monkeypatch.setenv("DATABASE_USER", "litellm@contoso.onmicrosoft.com")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "hangarllm@contoso.onmicrosoft.com")
+    monkeypatch.setenv("DATABASE_NAME", "hangarllm_db")
 
 
 def _azure_wrapper(token: str, **kwargs):
-    from litellm.proxy.db.token_auth import AzureEntraTokenAuth
+    from hangarllm.proxy.db.token_auth import AzureEntraTokenAuth
 
     return PrismaWrapper(
         original_prisma=MagicMock(),
@@ -307,8 +307,8 @@ def test_azure_entra_mint_writes_an_encoded_url_into_the_db_url_env_var(azure_en
     db_url = wrapper.get_rds_iam_token()
 
     assert db_url == (
-        f"postgresql://litellm%40contoso.onmicrosoft.com:{urllib.parse.quote(token, safe='')}"
-        "@pg.postgres.database.azure.com:5432/litellm_db"
+        f"postgresql://hangarllm%40contoso.onmicrosoft.com:{urllib.parse.quote(token, safe='')}"
+        "@pg.postgres.database.azure.com:5432/hangarllm_db"
     )
     assert os.environ["DATABASE_URL"] == db_url
 
@@ -333,8 +333,8 @@ def test_token_refresh_keeps_the_connection_params_of_the_url_it_replaces(
     old_token = _entra_jwt(60)
     monkeypatch.setenv(
         "DATABASE_URL",
-        f"postgresql://litellm%40contoso.onmicrosoft.com:{urllib.parse.quote(old_token, safe='')}"
-        f"@pg.postgres.database.azure.com:5432/litellm_db?{previous_query}",
+        f"postgresql://hangarllm%40contoso.onmicrosoft.com:{urllib.parse.quote(old_token, safe='')}"
+        f"@pg.postgres.database.azure.com:5432/hangarllm_db?{previous_query}",
     )
     new_token = _entra_jwt(3600)
 
@@ -347,16 +347,16 @@ def test_token_refresh_keeps_the_connection_params_of_the_url_it_replaces(
 
 
 def test_token_refresh_keeps_the_reader_url_params_separate_from_the_writer(azure_env, monkeypatch):
-    from litellm.proxy.db.token_auth import IAMEndpoint
+    from hangarllm.proxy.db.token_auth import IAMEndpoint
 
-    monkeypatch.setenv("DATABASE_URL", "postgresql://w:t@pg:5432/litellm_db?max_idle_connection_lifetime=45")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://w:t@pg:5432/hangarllm_db?max_idle_connection_lifetime=45")
     monkeypatch.setenv(
-        "DATABASE_URL_READ_REPLICA", "postgresql://r:t@replica:5432/litellm_db?max_idle_connection_lifetime=60"
+        "DATABASE_URL_READ_REPLICA", "postgresql://r:t@replica:5432/hangarllm_db?max_idle_connection_lifetime=60"
     )
     reader = _azure_wrapper(
         _entra_jwt(3600),
         db_url_env_var="DATABASE_URL_READ_REPLICA",
-        iam_endpoint=IAMEndpoint(host="replica", port="5432", user="r", name="litellm_db", schema=None),
+        iam_endpoint=IAMEndpoint(host="replica", port="5432", user="r", name="hangarllm_db", schema=None),
     )
 
     reader_url = reader.get_rds_iam_token()
@@ -457,7 +457,7 @@ def test_db_push_timeout_takes_its_process_tree_with_it(fake_prisma_cli, unset_d
     A timed-out `db push` used to leave Node and the schema engine writing the schema,
     so the next attempt pushed into a database the abandoned one was still mutating.
     """
-    monkeypatch.delenv("LITELLM_SET_REPLICA_IDENTITY_FULL", raising=False)
+    monkeypatch.delenv("HANGARLLM_SET_REPLICA_IDENTITY_FULL", raising=False)
     monkeypatch.setenv("FAKE_PRISMA_HANG_FIRST", "1")
 
     assert PrismaManager.setup_database(use_migrate=False) is True
@@ -472,7 +472,7 @@ def test_db_push_without_the_prisma_runner_fails_the_migration_instead_of_crashi
     An ImportError out of setup_database escapes the caller's RuntimeError handler and
     kills boot with a traceback instead of the failed-setup message and exit code.
     """
-    monkeypatch.setitem(sys.modules, "litellm_proxy_extras.prisma_toolchain", None)
+    monkeypatch.setitem(sys.modules, "hangarllm_proxy_extras.prisma_toolchain", None)
 
     assert PrismaManager.setup_database(use_migrate=False) is False
     assert fake_prisma_cli.calls == []
@@ -489,7 +489,7 @@ def test_db_push_without_the_prisma_runner_fails_the_migration_instead_of_crashi
 def test_without_proxy_extras_the_index_build_reports_failure_instead_of_raising(monkeypatch, run, outcome):
     """The migration job exits non-zero and a serving proxy keeps booting when the extras
     package that owns the index build is not installed."""
-    monkeypatch.setitem(sys.modules, "litellm_proxy_extras.utils", None)
+    monkeypatch.setitem(sys.modules, "hangarllm_proxy_extras.utils", None)
 
     assert run() is outcome
 
@@ -590,7 +590,7 @@ async def test_a_query_issued_while_the_last_one_finishes_keeps_the_engine_drain
 
 def test_migration_dry_run_summary_without_migrations_has_nothing_to_dry_run(unset_database_url):
     """`prisma db push` applies no migration files, so the dry run reports that instead of connecting."""
-    from litellm.proxy.db.prisma_client import PrismaManager
+    from hangarllm.proxy.db.prisma_client import PrismaManager
 
     assert PrismaManager.migration_dry_run_summary(use_migrate=False) == (
         True,
@@ -599,6 +599,6 @@ def test_migration_dry_run_summary_without_migrations_has_nothing_to_dry_run(uns
 
 
 def test_migration_dry_run_summary_needs_database_url(unset_database_url):
-    from litellm.proxy.db.prisma_client import PrismaManager
+    from hangarllm.proxy.db.prisma_client import PrismaManager
 
     assert PrismaManager.migration_dry_run_summary(use_migrate=True) == (False, "DATABASE_URL is not set.")

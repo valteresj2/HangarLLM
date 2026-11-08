@@ -8,23 +8,23 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.base_llm.decisions.transformation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.base_llm.decisions.transformation import (
     DecisionsResponseValidationError,
     ir_to_systemone_response,
     systemone_request_to_ir,
 )
-from litellm.llms.openai.decisions.transformation import ir_to_openai_response, openai_request_to_ir
-from litellm.llms.parallel_ai.decisions.transformation import ParallelAIDecisionsConfig
-from litellm.types.decisions import (
+from hangarllm.llms.openai.decisions.transformation import ir_to_openai_response, openai_request_to_ir
+from hangarllm.llms.parallel_ai.decisions.transformation import ParallelAIDecisionsConfig
+from hangarllm.types.decisions import (
     DecisionsIRRefusal,
     DecisionsRequestBody,
     OpenAIDecisionRequestBody,
     UnsupportedDecisionsRequest,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager, Rules, function_setup
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager, Rules, function_setup
 
 QUESTIONS: Final = {
     "available": {"type": "noul", "instructions": "Is this product available?"},
@@ -60,8 +60,8 @@ PAYLOAD: Final = {
 async def test_sdk_sends_parallel_wire_format_and_preserves_evidence(
     use_async: bool, surface: str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     route: Final = respx_mock.post("https://api.parallel.ai/v1/decisions").respond(json=PAYLOAD)
     connection: Final = {"model": "parallel_ai/decision", "api_key": "test-key", "timeout": 5, "num_retries": 0}
     fields: Final = (
@@ -72,8 +72,8 @@ async def test_sdk_sends_parallel_wire_format_and_preserves_evidence(
             "questions": [{"type": "predicate", "name": "available", "instructions": "Available?"}],
         }
     )
-    sync_call: Final = litellm.systemone if surface == "systemone" else litellm.decisions
-    async_call: Final = litellm.asystemone if surface == "systemone" else litellm.adecisions
+    sync_call: Final = hangarllm.systemone if surface == "systemone" else hangarllm.decisions
+    async_call: Final = hangarllm.asystemone if surface == "systemone" else hangarllm.adecisions
     response: Final = await async_call(**connection, **fields) if use_async else sync_call(**connection, **fields)
     sent: Final = route.calls.last.request
     body: Final = json.loads(sent.content)
@@ -223,8 +223,8 @@ def test_undocumented_parallel_fields_stay_off_the_openai_response() -> None:
 @pytest.mark.parametrize("tokens", [0, 100, 32000])
 @pytest.mark.parametrize("call_type", ["decisions", "adecisions", "systemone", "asystemone"])
 def test_request_pricing_is_independent_of_token_count(tokens: int, call_type: str) -> None:
-    rate: Final = litellm.model_cost["parallel_ai/decision"]["input_cost_per_query"]
-    cost: Final = litellm.cost_per_token(
+    rate: Final = hangarllm.model_cost["parallel_ai/decision"]["input_cost_per_query"]
+    cost: Final = hangarllm.cost_per_token(
         model="parallel_ai/decision",
         prompt_tokens=tokens,
         completion_tokens=0,
@@ -237,15 +237,15 @@ def test_request_pricing_is_independent_of_token_count(tokens: int, call_type: s
 async def test_deployment_query_price_replaces_the_catalog_price(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post("https://api.parallel.ai/v1/decisions").respond(json=PAYLOAD)
-    price: Final = 25 * litellm.model_cost["parallel_ai/decision"]["input_cost_per_query"]
-    router: Final = litellm.Router(
+    price: Final = 25 * hangarllm.model_cost["parallel_ai/decision"]["input_cost_per_query"]
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "webjev",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "parallel_ai/decision",
                     "api_key": "test-key",
                     "input_cost_per_query": price,
@@ -257,10 +257,10 @@ async def test_deployment_query_price_replaces_the_catalog_price(
         "model": "webjev",
         "input": "Example",
         "questions": [{"type": "predicate", "name": "available", "instructions": "Available?"}],
-        "litellm_call_id": "query-price-call",
+        "hangarllm_call_id": "query-price-call",
     }
     logging_obj, data = function_setup("adecisions", Rules(), datetime.now(), **fields)
-    response: Final = await router.adecisions(**data, litellm_logging_obj=logging_obj)
+    response: Final = await router.adecisions(**data, hangarllm_logging_obj=logging_obj)
     assert response._hidden_params["response_cost"] == pytest.approx(price)
     await GLOBAL_LOGGING_WORKER.clear_queue()
 
@@ -269,16 +269,16 @@ async def test_deployment_query_price_replaces_the_catalog_price(
 async def test_query_price_on_another_provider_leaves_its_token_billing_alone(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     input_rate: Final = 1e-06
     tokens: Final = 1000
     model: Final = "fireworks_ai/accounts/example/models/token-billed"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {"input_cost_per_token": input_rate, "output_cost_per_token": 0.0}
-        | {"litellm_provider": "fireworks_ai", "mode": "evaluation"},
+        | {"hangarllm_provider": "fireworks_ai", "mode": "evaluation"},
     )
     respx_mock.post("https://api.fireworks.ai/inference/v1/systemone").respond(
         json={
@@ -287,11 +287,11 @@ async def test_query_price_on_another_provider_leaves_its_token_billing_alone(
             "usage": {"input_tokens": tokens, "output_tokens": 0},
         }
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "token-billed",
-                "litellm_params": {"model": model, "api_key": "test-key", "input_cost_per_query": 0.025},
+                "hangarllm_params": {"model": model, "api_key": "test-key", "input_cost_per_query": 0.025},
             }
         ]
     )
@@ -299,10 +299,10 @@ async def test_query_price_on_another_provider_leaves_its_token_billing_alone(
         "model": "token-billed",
         "input": "Example",
         "questions": [{"type": "predicate", "name": "available", "instructions": "Available?"}],
-        "litellm_call_id": "token-billed-call",
+        "hangarllm_call_id": "token-billed-call",
     }
     logging_obj, data = function_setup("adecisions", Rules(), datetime.now(), **fields)
-    response: Final = await router.adecisions(**data, litellm_logging_obj=logging_obj)
+    response: Final = await router.adecisions(**data, hangarllm_logging_obj=logging_obj)
     assert response._hidden_params["response_cost"] == pytest.approx(tokens * input_rate)
     await GLOBAL_LOGGING_WORKER.clear_queue()
 
@@ -328,7 +328,7 @@ async def test_untrusted_base_cannot_receive_environment_key(
     monkeypatch.delenv("PARALLEL_AI_API_KEY", raising=False)
     monkeypatch.delenv("PARALLEL_API_KEY", raising=False)
     monkeypatch.setenv(key_env, "server-secret")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://attacker.example/v1/decisions").respond(json=PAYLOAD)
     connection: Final = {"model": "parallel_ai/decision", "api_base": "https://attacker.example", "num_retries": 0}
     fields: Final = (
@@ -339,13 +339,13 @@ async def test_untrusted_base_cannot_receive_environment_key(
             "questions": [{"type": "predicate", "name": "available", "instructions": "Available?"}],
         }
     )
-    sync_call: Final = litellm.systemone if surface == "systemone" else litellm.decisions
-    async_call: Final = litellm.asystemone if surface == "systemone" else litellm.adecisions
+    sync_call: Final = hangarllm.systemone if surface == "systemone" else hangarllm.decisions
+    async_call: Final = hangarllm.asystemone if surface == "systemone" else hangarllm.adecisions
 
     async def call() -> object:
         return await async_call(**connection, **fields) if use_async else sync_call(**connection, **fields)
 
-    with pytest.raises(litellm.BadRequestError, match="explicit api_key"):
+    with pytest.raises(hangarllm.BadRequestError, match="explicit api_key"):
         await call()
     assert not route.called
     await GLOBAL_LOGGING_WORKER.clear_queue()
@@ -404,8 +404,8 @@ def test_operator_base_retains_environment_key(api_base: str | None, monkeypatch
 @pytest.mark.parametrize("api_key", [None, "caller-key"])
 @pytest.mark.parametrize("api_base", ["https://api.parallel.ai\t", "https://api.parallel.ai\r\nHost: attacker.example"])
 def test_malformed_destination_is_a_bad_request(api_base: str, api_key: str | None) -> None:
-    with pytest.raises(litellm.BadRequestError):
-        litellm.decisions(
+    with pytest.raises(hangarllm.BadRequestError):
+        hangarllm.decisions(
             model="parallel_ai/decision",
             api_base=api_base,
             api_key=api_key,

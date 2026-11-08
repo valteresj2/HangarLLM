@@ -6,14 +6,14 @@ import time
 
 import pytest
 
-from litellm.router import Router
+from hangarllm.router import Router
 
 
 def _make_deployment(model_id: str, model_name: str = "gpt-4") -> dict:
     """Helper to create a deployment dict for testing."""
     return {
         "model_name": model_name,
-        "litellm_params": {"model": "openai/gpt-4", "api_key": "fake"},
+        "hangarllm_params": {"model": "openai/gpt-4", "api_key": "fake"},
         "model_info": {"id": model_id},
     }
 
@@ -76,7 +76,7 @@ class TestBuildDeploymentHealthStates:
     """Test the build_deployment_health_states function."""
 
     def test_builds_states_from_endpoints(self):
-        from litellm.proxy.health_check import build_deployment_health_states
+        from hangarllm.proxy.health_check import build_deployment_health_states
 
         healthy = [{"model": "gpt-4", "model_id": "deploy-1"}]
         unhealthy = [{"model": "gpt-4", "model_id": "deploy-2", "error": "timeout"}]
@@ -86,7 +86,7 @@ class TestBuildDeploymentHealthStates:
         assert states["deploy-2"]["is_healthy"] is False
 
     def test_no_model_id_skipped(self):
-        from litellm.proxy.health_check import build_deployment_health_states
+        from hangarllm.proxy.health_check import build_deployment_health_states
 
         healthy = [{"model": "gpt-4"}]  # no model_id
         unhealthy = [{"model": "gpt-4", "model_id": "deploy-2"}]
@@ -96,7 +96,7 @@ class TestBuildDeploymentHealthStates:
         assert states["deploy-2"]["is_healthy"] is False
 
     def test_empty_endpoints(self):
-        from litellm.proxy.health_check import build_deployment_health_states
+        from hangarllm.proxy.health_check import build_deployment_health_states
 
         states = build_deployment_health_states([], [])
         assert states == {}

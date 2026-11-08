@@ -4,12 +4,12 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+from hangarllm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
 
-from litellm.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
-from litellm.proxy.openai_files_endpoints.batch_guardrails import (
+from hangarllm.caching import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.proxy.openai_files_endpoints.batch_guardrails import (
     BatchScanResult,
     RecordDropped,
     RecordRedacted,
@@ -129,7 +129,7 @@ async def test_body_carrying_its_own_metadata_is_not_reported_as_redacted():
 @pytest.mark.asyncio
 async def test_guardrail_writing_bookkeeping_into_metadata_is_not_a_redaction():
     def _touch_metadata(data):
-        data["litellm_metadata"]["applied_guardrails"] = ["some-guard"]
+        data["hangarllm_metadata"]["applied_guardrails"] = ["some-guard"]
 
     assert await _scan(_jsonl(_record("a")), FakeProxyLogging(_touch_metadata)) is None
 
@@ -174,13 +174,13 @@ async def test_request_metadata_is_narrowed_to_what_guardrails_read():
         "guardrails": ["g"],
         "tags": ["t"],
         "headers": {"x-noma-application-id": "app-1"},
-        "litellm_parent_otel_span": threading.RLock(),
+        "hangarllm_parent_otel_span": threading.RLock(),
         "user_api_key": "sk-secret",
     }
 
     failure = await _scan(
         _jsonl(_record("a")),
-        FakeProxyLogging(lambda d: seen.append(dict(d["litellm_metadata"]))),
+        FakeProxyLogging(lambda d: seen.append(dict(d["hangarllm_metadata"]))),
         metadata=metadata,
     )
 
@@ -194,7 +194,7 @@ async def test_one_record_cannot_leak_a_metadata_write_into_the_next_one():
     seen = []
 
     def _tamper(data):
-        bag = data["litellm_metadata"]
+        bag = data["hangarllm_metadata"]
         seen.append((dict(bag["headers"]), list(bag["tags"])))
         bag["headers"]["x-injected"] = "from-record-1"
         bag["tags"].append("from-record-1")
@@ -213,7 +213,7 @@ async def test_records_are_scanned_under_the_headers_the_upload_carried():
 
     await _scan(
         _jsonl(_record("a")),
-        FakeProxyLogging(lambda d: seen.append(d["litellm_metadata"].get("headers"))),
+        FakeProxyLogging(lambda d: seen.append(d["hangarllm_metadata"].get("headers"))),
         metadata={"guardrails": ["g"], "headers": {"x-noma-application-id": "app-1"}},
     )
 
@@ -373,7 +373,7 @@ async def test_an_absolute_url_resolves_by_path_not_by_body_shape(url, expected_
 )
 async def test_a_file_the_upload_validation_accepts_is_a_file_the_scan_can_read(prefix, label):
     """The validator parses each line as bytes, which tolerates a BOM; the scan must match it."""
-    from litellm.proxy.openai_files_endpoints.batch_file_validation import check_batch_file_upload
+    from hangarllm.proxy.openai_files_endpoints.batch_file_validation import check_batch_file_upload
 
     payload = prefix + (json.dumps(_record("a")) + "\n").encode()
     assert check_batch_file_upload("in.jsonl", io.BytesIO(payload), None) is None, f"{label} rejected upfront"
@@ -404,8 +404,8 @@ async def test_a_bom_file_is_rewritten_without_losing_the_untouched_records():
 )
 def test_load_balancing_finds_the_routing_record_in_any_file_the_upload_accepts(prefix):
     """A file whose routing model cannot be read is silently sent to the default provider."""
-    from litellm.proxy.openai_files_endpoints.batch_file_validation import check_batch_file_upload
-    from litellm.proxy.openai_files_endpoints.files_endpoints import get_first_json_object
+    from hangarllm.proxy.openai_files_endpoints.batch_file_validation import check_batch_file_upload
+    from hangarllm.proxy.openai_files_endpoints.files_endpoints import get_first_json_object
 
     payload = prefix + (json.dumps(_record("a")) + "\n").encode()
     assert check_batch_file_upload("in.jsonl", io.BytesIO(payload), None) is None, "rejected upfront"
@@ -433,7 +433,7 @@ async def test_a_malformed_url_does_not_escape_the_scan(url):
 )
 def test_a_reported_custom_id_can_always_be_rendered(custom_id, expected):
     """The id is echoed in the response; one that cannot be encoded back out would 500 the upload."""
-    from litellm.proxy.openai_files_endpoints.batch_guardrails import _custom_id_of
+    from hangarllm.proxy.openai_files_endpoints.batch_guardrails import _custom_id_of
 
     rendered = _custom_id_of({"custom_id": custom_id})
 
@@ -448,8 +448,8 @@ def test_a_reported_custom_id_can_always_be_rendered(custom_id, expected):
 )
 def test_a_record_whose_body_is_not_an_object_does_not_crash_deployment_selection(body):
     """Validation only checks that `body` is present, so a record can carry anything there."""
-    from litellm.proxy.openai_files_endpoints.batch_file_validation import check_batch_file_upload
-    from litellm.proxy.openai_files_endpoints.files_endpoints import (
+    from hangarllm.proxy.openai_files_endpoints.batch_file_validation import check_batch_file_upload
+    from hangarllm.proxy.openai_files_endpoints.files_endpoints import (
         get_first_json_object,
         get_model_from_json_obj,
     )
@@ -464,7 +464,7 @@ def test_a_record_whose_body_is_not_an_object_does_not_crash_deployment_selectio
 
 @pytest.mark.parametrize("payload", [b"", b"\n\n\n"], ids=["empty", "blanks_only"])
 def test_load_balancing_returns_none_when_there_is_no_record(payload):
-    from litellm.proxy.openai_files_endpoints.files_endpoints import get_first_json_object
+    from hangarllm.proxy.openai_files_endpoints.files_endpoints import get_first_json_object
 
     assert get_first_json_object(io.BytesIO(payload)) is None
     assert get_first_json_object(payload) is None
@@ -553,7 +553,7 @@ def test_every_failure_maps_to_a_400_naming_the_record(failure, fragment):
 @pytest.mark.asyncio
 async def test_scan_does_not_mutate_the_parsed_record():
     """The guardrail must redact a copy. Mutating the record would corrupt what PR 2 writes out."""
-    from litellm.proxy.openai_files_endpoints.batch_guardrails import _ParsedRecord, _scan_record
+    from hangarllm.proxy.openai_files_endpoints.batch_guardrails import _ParsedRecord, _scan_record
 
     payload = _record("a", content="my secret is here")
     record = _ParsedRecord(line_number=1, payload=payload)
@@ -575,7 +575,7 @@ async def test_scan_does_not_mutate_the_parsed_record():
 async def test_scan_is_bounded_so_a_huge_file_cannot_fan_out_without_limit():
     import asyncio
 
-    from litellm.proxy.openai_files_endpoints.batch_guardrails import _SCAN_WINDOW
+    from hangarllm.proxy.openai_files_endpoints.batch_guardrails import _SCAN_WINDOW
 
     in_flight = {"now": 0, "peak": 0}
 
@@ -646,14 +646,14 @@ async def test_redact_mode_keeps_a_masked_record_instead_of_rejecting():
     assert [(c.line_number, c.custom_id) for c in result.changes] == [(2, "b")]
     rewritten = json.loads(rewrite_batch_input_file(source, result).read().decode().splitlines()[1])
     assert rewritten["body"]["messages"][0]["content"] == "my *** is here"
-    assert "litellm_metadata" not in rewritten["body"], "proxy metadata must not reach the uploaded file"
+    assert "hangarllm_metadata" not in rewritten["body"], "proxy metadata must not reach the uploaded file"
     assert result.submitted_records == 3
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status_code", [400, 403, 422], ids=["content_policy", "akto", "llm_as_a_judge"])
-async def test_every_status_litellm_calls_a_block_drops_the_record(status_code):
-    """Follows CustomGuardrail._is_guardrail_intervention, so drop matches what litellm logs as a block."""
+async def test_every_status_hangarllm_calls_a_block_drops_the_record(status_code):
+    """Follows CustomGuardrail._is_guardrail_intervention, so drop matches what hangarllm logs as a block."""
     source = _jsonl(_record("a"), _record("b", content="tripwire"))
 
     result = await _scan_full(source, FakeProxyLogging(_blocking("tripwire", status_code)))
@@ -759,7 +759,7 @@ async def test_clean_file_needs_no_rewrite():
     ],
     ids=["guardrail_raised", "blocked_pii_entity"],
 )
-async def test_litellm_native_block_exceptions_drop_the_record(exc):
+async def test_hangarllm_native_block_exceptions_drop_the_record(exc):
     """Presidio and friends raise these rather than an HTTPException; they are still policy blocks."""
 
     def _hook(data):
@@ -776,7 +776,7 @@ async def test_litellm_native_block_exceptions_drop_the_record(exc):
 
 @pytest.mark.asyncio
 async def test_raising_a_native_block_exception_drops_whatever_status_it_carries():
-    """Raising this type IS the block signal in litellm, so the drop set matches what it logs as a block."""
+    """Raising this type IS the block signal in hangarllm, so the drop set matches what it logs as a block."""
 
     def _hook(data):
         if "tripwire" in data["messages"][0]["content"]:
@@ -806,7 +806,7 @@ async def test_an_unreachable_guardrail_aborts_instead_of_quietly_dropping_the_r
 @pytest.mark.asyncio
 async def test_a_guardrail_subclass_that_blocks_content_drops_only_that_record():
     """A subclass has to opt in too, or a real block takes the whole upload down with it."""
-    from litellm.proxy.guardrails.guardrail_hooks.ovalix.ovalix import OvalixGuardrailBlockedException
+    from hangarllm.proxy.guardrails.guardrail_hooks.ovalix.ovalix import OvalixGuardrailBlockedException
 
     def _hook(data):
         if "tripwire" in data["messages"][0]["content"]:
@@ -821,7 +821,7 @@ async def test_a_guardrail_subclass_that_blocks_content_drops_only_that_record()
 @pytest.mark.asyncio
 async def test_a_record_a_guardrail_rerouted_aborts_rather_than_shipping_to_the_original_provider():
     """pre_call_hook honours a reroute by rewriting `model`; a batch file cannot follow it."""
-    from litellm.proxy.openai_files_endpoints.batch_guardrails import UnroutableRecord
+    from hangarllm.proxy.openai_files_endpoints.batch_guardrails import UnroutableRecord
 
     def _hook(data):
         if "tripwire" in data["messages"][0]["content"]:
@@ -856,7 +856,7 @@ async def test_the_scan_spool_is_closed_when_the_upload_is_refused():
 
     source = _jsonl(_record("a"), _record("b", content="tripwire"))
     spools = []
-    import litellm.proxy.openai_files_endpoints.batch_guardrails as bg
+    import hangarllm.proxy.openai_files_endpoints.batch_guardrails as bg
 
     real = bg.tempfile.SpooledTemporaryFile
 
@@ -878,7 +878,7 @@ async def test_the_scan_spool_is_closed_when_the_upload_is_refused():
 @pytest.mark.asyncio
 async def test_the_rewrite_closes_its_own_output_when_it_cannot_finish():
     """A half-written rewrite spool has no owner yet, so it has to clean up after itself."""
-    import litellm.proxy.openai_files_endpoints.batch_guardrails as bg
+    import hangarllm.proxy.openai_files_endpoints.batch_guardrails as bg
 
     source = _jsonl(_record("a"), _record("b", content="my secret is here"))
     result = await _scan_full(source, FakeProxyLogging(_redact_containing("secret")))
@@ -910,7 +910,7 @@ async def test_the_rewrite_closes_its_own_output_when_it_cannot_finish():
 @pytest.mark.asyncio
 async def test_the_scan_spool_is_closed_when_a_record_escapes_the_iterator():
     """A raise from inside the read loop bypasses the per-record outcome path entirely."""
-    import litellm.proxy.openai_files_endpoints.batch_guardrails as bg
+    import hangarllm.proxy.openai_files_endpoints.batch_guardrails as bg
 
     spools = []
     real = bg.tempfile.SpooledTemporaryFile
@@ -939,14 +939,14 @@ async def test_a_real_non_guardrail_enforcement_hook_drops_its_record(monkeypatc
     these hooks to `raise ... from e` would turn every drop into an aborted upload. Nothing else
     pins that, because the other tests raise their own exceptions.
     """
-    import litellm
-    from litellm.proxy.hooks.prompt_injection_detection import OPTIONAL_PromptInjectionDetection
-    from litellm.proxy._types import LiteLLMPromptInjectionParams
+    import hangarllm
+    from hangarllm.proxy.hooks.prompt_injection_detection import OPTIONAL_PromptInjectionDetection
+    from hangarllm.proxy._types import HangarLLMPromptInjectionParams
 
     hook = OPTIONAL_PromptInjectionDetection(
-        prompt_injection_params=LiteLLMPromptInjectionParams(heuristics_check=True)
+        prompt_injection_params=HangarLLMPromptInjectionParams(heuristics_check=True)
     )
-    monkeypatch.setattr(litellm, "callbacks", [hook])
+    monkeypatch.setattr(hangarllm, "callbacks", [hook])
     ProxyLogging._callback_capabilities_cache.clear()
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -1005,7 +1005,7 @@ async def test_a_redacted_record_keeps_its_own_guardrails_key():
 @pytest.mark.asyncio
 async def test_a_400_that_is_not_a_guardrail_decision_still_aborts():
     """A guardrail's own HTTP client can raise a 400 because OUR payload was rejected, not the content."""
-    from litellm.exceptions import BadRequestError
+    from hangarllm.exceptions import BadRequestError
 
     def _hook(data):
         raise BadRequestError(message="guardrail service rejected the payload", model="m", llm_provider="p")
@@ -1032,18 +1032,18 @@ async def test_a_redacted_record_keeps_its_own_body_metadata():
 
     assert body["metadata"] == {"team": "finance"}
     assert body["messages"][0]["content"] == "my *** is here"
-    assert "litellm_metadata" not in body
+    assert "hangarllm_metadata" not in body
 
 
 @pytest.mark.asyncio
-async def test_a_redacted_record_keeps_its_own_litellm_metadata():
-    """Tags ride in litellm_metadata; a guardrail firing must not change how the record is attributed."""
+async def test_a_redacted_record_keeps_its_own_hangarllm_metadata():
+    """Tags ride in hangarllm_metadata; a guardrail firing must not change how the record is attributed."""
     record = _record("m", content="my secret is here")
-    record["body"]["litellm_metadata"] = {"tags": ["cost-center-42"]}
+    record["body"]["hangarllm_metadata"] = {"tags": ["cost-center-42"]}
 
     body = await _rewritten_body(record, _redact_containing("secret"))
 
-    assert body["litellm_metadata"] == {"tags": ["cost-center-42"]}
+    assert body["hangarllm_metadata"] == {"tags": ["cost-center-42"]}
 
 
 @pytest.mark.asyncio
@@ -1160,7 +1160,7 @@ async def test_the_earliest_unscannable_record_is_the_one_reported():
 
 @pytest.mark.asyncio
 async def test_a_dropped_record_names_the_guardrail_from_an_enriched_http_detail():
-    """litellm stamps guardrail_name into a block's detail dict; the report should carry it through."""
+    """hangarllm stamps guardrail_name into a block's detail dict; the report should carry it through."""
     blocked = HTTPException(
         status_code=400,
         detail={"error": "Violated guardrail policy", "guardrail_name": "zscaler"},

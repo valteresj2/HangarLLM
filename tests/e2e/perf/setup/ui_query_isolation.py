@@ -32,7 +32,7 @@ class ActiveQuery(BaseModel):
 def validate_target(url: str) -> None:
     assert os.environ.get("E2E_UI_PERF_DISPOSABLE") == "1", "Disposable database confirmation required"
     assert os.environ.get("E2E_RESET_SPEND_LOGS") != "1", "Never truncate the snapshot baseline"
-    assert re.fullmatch(r"db-perf-perf-[a-z0-9-]+\.litellm\.svc", urlparse(url).hostname or ""), (
+    assert re.fullmatch(r"db-perf-perf-[a-z0-9-]+\.hangarllm\.svc", urlparse(url).hostname or ""), (
         "SQL cancellation is restricted to the disposable perf-lane restore"
     )
 

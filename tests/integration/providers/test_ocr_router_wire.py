@@ -47,13 +47,13 @@ def test_router_aocr_routes_to_mistral_and_logs_spend(gateway: Gateway) -> None:
         assert [page["index"] for page in payload["pages"]] == [0], payload
         assert payload["pages"][0]["markdown"] == "Test PDF File", payload
         assert payload["usage_info"]["pages_processed"] == len(payload["pages"]), payload
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(_OCR_COST_PER_PAGE), response.headers
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(_OCR_COST_PER_PAGE), response.headers
 
-        request_id: Final = string_value(response.headers["x-litellm-call-id"])
+        request_id: Final = string_value(response.headers["x-hangarllm-call-id"])
         rows: Final = eventually(
             lambda: read_rows(
                 "SELECT status, call_type, custom_llm_provider, model, model_group, spend, prompt_tokens, "
-                'completion_tokens, total_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'completion_tokens, total_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (request_id,),
             ),
             lambda values: len(values) == 1,

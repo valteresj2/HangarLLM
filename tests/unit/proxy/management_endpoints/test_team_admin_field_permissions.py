@@ -3,16 +3,16 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.models.team import BudgetLimitEntry
-from litellm.models.verification_token import LiteLLM_VerificationToken
-from litellm.proxy._types import (
-    LiteLLM_ModelTable,
-    LiteLLM_TeamTable,
-    LiteLLMKeyType,
+from hangarllm.models.team import BudgetLimitEntry
+from hangarllm.models.verification_token import HangarLLM_VerificationToken
+from hangarllm.proxy._types import (
+    HangarLLM_ModelTable,
+    HangarLLM_TeamTable,
+    HangarLLMKeyType,
     UpdateKeyRequest,
     UpdateTeamRequest,
 )
-from litellm.proxy.management_endpoints.team_admin_field_permissions import (
+from hangarllm.proxy.management_endpoints.team_admin_field_permissions import (
     SUPPORTED_TEAM_ADMIN_EDITABLE_TEAM_FIELDS,
     TeamAdminDeclaredMetadataKeyCleared,
     TeamAdminEditAllowed,
@@ -45,7 +45,7 @@ _SUPPORTED = frozenset({"tpm_limit", "rpm_limit", "team_alias"})
 
 
 def _team(**overrides):
-    return LiteLLM_TeamTable(team_id="team-1", **overrides)
+    return HangarLLM_TeamTable(team_id="team-1", **overrides)
 
 
 class TestResolveTeamAdminEditableFields:
@@ -153,11 +153,11 @@ class TestChangedTeamFields:
         assert changed_team_fields(data, existing) == frozenset()
 
     def test_model_aliases_compare_against_the_model_table(self):
-        table = LiteLLM_ModelTable(model_aliases='{"fast": "gpt-4o-mini"}', created_by="a", updated_by="a")
+        table = HangarLLM_ModelTable(model_aliases='{"fast": "gpt-4o-mini"}', created_by="a", updated_by="a")
         same = UpdateTeamRequest(team_id="team-1", model_aliases={"fast": "gpt-4o-mini"})
         different = UpdateTeamRequest(team_id="team-1", model_aliases={"fast": "gpt-4o"})
-        assert changed_team_fields(same, _team(litellm_model_table=table)) == frozenset()
-        assert changed_team_fields(different, _team(litellm_model_table=table)) == frozenset({"model_aliases"})
+        assert changed_team_fields(same, _team(hangarllm_model_table=table)) == frozenset()
+        assert changed_team_fields(different, _team(hangarllm_model_table=table)) == frozenset({"model_aliases"})
 
     def test_empty_model_aliases_against_no_model_table_is_not_a_change(self):
         assert changed_team_fields(UpdateTeamRequest(team_id="team-1", model_aliases={}), _team()) == frozenset()
@@ -329,7 +329,7 @@ _PROXY_READ_TEAM_METADATA_KEYS: Final = (
     "allow_client_mock_response",
     "allow_client_message_redaction_opt_out",
     "allow_client_pricing_override",
-    "allow_litellm_changed_by_header",
+    "allow_hangarllm_changed_by_header",
     "otel_service_name_override",
     "otel_service_name",
     "soft_budget_alerting_emails",
@@ -528,7 +528,7 @@ class TestTeamAdminRequestOrRaise:
 
 
 def _key(**overrides):
-    return LiteLLM_VerificationToken(token="hashed", **overrides)
+    return HangarLLM_VerificationToken(token="hashed", **overrides)
 
 
 class TestTeamAdminMayEditMemberKeyBudgets:
@@ -570,7 +570,7 @@ _MEMBER_KEYS_ON = {"team_admin_editable_team_fields": ["create_member_keys"]}
 
 class TestTeamAdminMemberKeyCreationVerdict:
     @pytest.mark.parametrize("owner_role", ["internal_user", "internal_user_viewer"])
-    @pytest.mark.parametrize("key_type", [None, LiteLLMKeyType.DEFAULT, LiteLLMKeyType.LLM_API])
+    @pytest.mark.parametrize("key_type", [None, HangarLLMKeyType.DEFAULT, HangarLLMKeyType.LLM_API])
     def test_an_ordinary_member_and_an_llm_key_are_allowed(self, owner_role, key_type):
         verdict = team_admin_member_key_creation_verdict(_MEMBER_KEYS_ON, key_type=key_type, owner_role=owner_role)
         assert verdict == TeamAdminMemberKeyCreationAllowed()
@@ -597,7 +597,7 @@ class TestTeamAdminMemberKeyCreationVerdict:
         assert exc.value.status_code == 403
         assert f"'{owner_role}'" in exc.value.detail
 
-    @pytest.mark.parametrize("key_type", [LiteLLMKeyType.MANAGEMENT, LiteLLMKeyType.READ_ONLY])
+    @pytest.mark.parametrize("key_type", [HangarLLMKeyType.MANAGEMENT, HangarLLMKeyType.READ_ONLY])
     def test_a_key_type_that_reaches_beyond_llm_routes_is_refused(self, key_type):
         verdict = team_admin_member_key_creation_verdict(_MEMBER_KEYS_ON, key_type=key_type, owner_role="internal_user")
         assert verdict == TeamAdminMemberKeyTypeNotPermitted(key_type=key_type)

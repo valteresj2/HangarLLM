@@ -118,7 +118,7 @@ def _message_text(gateway: Gateway, model: str, marker: str) -> list[str]:
 
 def _spend_rows(pattern: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id, api_base, cache_hit FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s', (pattern,)
+        'SELECT request_id, api_base, cache_hit FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s', (pattern,)
     )
 
 

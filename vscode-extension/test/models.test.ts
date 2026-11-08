@@ -92,7 +92,7 @@ describe("describeModels", () => {
     });
     expect(model?.tooltip).toBe(
       [
-        "LiteLLM model group gpt-5.6 via openai",
+        "HangarLLM model group gpt-5.6 via openai",
         "Input: $4.00 per 1M tokens",
         "Output: $20.00 per 1M tokens",
         "Context: 922000 in / 128000 out tokens",

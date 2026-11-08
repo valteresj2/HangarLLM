@@ -14,14 +14,14 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.gigachat.chat.transformation import (
+from hangarllm.llms.gigachat.chat.transformation import (
     GigaChatConfig,
     GigaChatError,
     is_valid_json,
 )
-from litellm.types.utils import ModelResponse, Usage
+from hangarllm.types.utils import ModelResponse, Usage
 
-TRANSFORM_MODULE = "litellm.llms.gigachat.chat.transformation"
+TRANSFORM_MODULE = "hangarllm.llms.gigachat.chat.transformation"
 
 
 def _make_httpx_response(
@@ -75,7 +75,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="GigaChat",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
         assert url == "https://custom.example.com/chat/completions"
@@ -86,7 +86,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="GigaChat",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
         assert url == "https://custom.example.com/chat/completions"
@@ -97,7 +97,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="GigaChat",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
         assert url.endswith("/chat/completions")
@@ -116,7 +116,7 @@ class TestValidateEnvironment:
             model="GigaChat",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="creds",
             api_base="https://api.example.com",
         )
@@ -134,7 +134,7 @@ class TestValidateEnvironment:
             model="GigaChat",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="my-creds",
             api_base="https://my-api.example.com",
         )
@@ -143,7 +143,7 @@ class TestValidateEnvironment:
 
     @patch(
         f"{TRANSFORM_MODULE}.get_access_token",
-        side_effect=lambda credentials, litellm_params: f"token-for-{credentials}",
+        side_effect=lambda credentials, hangarllm_params: f"token-for-{credentials}",
     )
     def test_falls_back_to_env_credentials_when_api_key_missing(
         self, mock_get_token, monkeypatch: pytest.MonkeyPatch
@@ -154,7 +154,7 @@ class TestValidateEnvironment:
             model="GigaChat",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -537,7 +537,7 @@ class TestTransformRequest:
             model="gigachat/GigaChat",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["model"] == "GigaChat"
@@ -549,7 +549,7 @@ class TestTransformRequest:
             model="gigachat/GigaChat-Pro",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["model"] == "GigaChat-Pro"
@@ -563,7 +563,7 @@ class TestTransformRequest:
                 "max_tokens": 100,
                 "stream": True,
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["temperature"] == 0.5
@@ -578,7 +578,7 @@ class TestTransformRequest:
                 "functions": [{"name": "my_func"}],
                 "function_call": {"name": "my_func"},
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert body["functions"] == [{"name": "my_func"}]
@@ -589,7 +589,7 @@ class TestTransformRequest:
             model="gigachat/GigaChat",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"n": 2, "user": "abc"},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "n" not in body
@@ -623,7 +623,7 @@ class TestTransformResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.choices[0].message.content == "Hello!"
@@ -661,7 +661,7 @@ class TestTransformResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.choices[0].finish_reason == "tool_calls"
@@ -701,7 +701,7 @@ class TestTransformResponse:
             request_data={},
             messages=[],
             optional_params={"_structured_output": True},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         # Structured output: function_call -> content
@@ -735,7 +735,7 @@ class TestTransformResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         tc = result.choices[0].message.tool_calls[0]
@@ -765,7 +765,7 @@ class TestTransformResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         # functions_state_id should have been removed from the message data
@@ -788,7 +788,7 @@ class TestTransformResponse:
                 request_data={},
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
         assert "Invalid JSON response" in str(exc_info.value.message)
@@ -807,7 +807,7 @@ class TestTransformResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.choices == []
@@ -838,7 +838,7 @@ class TestTransformResponse:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         tc = result.choices[0].message.tool_calls[0]
@@ -850,7 +850,7 @@ class TestGetModelResponseIterator:
         self.config = GigaChatConfig()
 
     def test_returns_gigachat_iterator_sync(self):
-        from litellm.llms.gigachat.chat.streaming import (
+        from hangarllm.llms.gigachat.chat.streaming import (
             GigaChatModelResponseIterator,
         )
 

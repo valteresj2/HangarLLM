@@ -23,7 +23,7 @@ from openai import OpenAI
 from pydantic import BaseModel, JsonValue, TypeAdapter
 from typing_extensions import assert_never
 
-from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+from hangarllm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
 INPUT_FILENAME: Final = "in.jsonl"
 OUTPUT_BYTES: Final = b'{"custom_id": "r1", "result": {"response": {"body": "ok"}}}\n'
@@ -31,10 +31,10 @@ STREAM_CHUNK_BYTES: Final = 1024 * 1024
 _HEAD_OPEN: Final = b'{"custom_id": "r0", "padding": "'
 _HEAD_CLOSE: Final = b'"}\n'
 OUTPUT_HEAD: Final = _HEAD_OPEN + b"h" * (STREAM_CHUNK_BYTES - len(_HEAD_OPEN) - len(_HEAD_CLOSE)) + _HEAD_CLOSE
-MANAGED_PREFIX: Final = "litellm_proxy:"
+MANAGED_PREFIX: Final = "hangarllm_proxy:"
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 MANAGED_FILE_ROW: Final = (
-    'SELECT model_mappings, flat_model_file_ids FROM "LiteLLM_ManagedFileTable" WHERE unified_file_id = %s'
+    'SELECT model_mappings, flat_model_file_ids FROM "HangarLLM_ManagedFileTable" WHERE unified_file_id = %s'
 )
 _BatchUploadSpelling = Literal["sdk_list", "repeated_bracket", "indexed", "comma_joined", "repeated_plain"]
 _ModelRoutedSpelling = Literal[
@@ -457,7 +457,7 @@ def _model_routed_upload(
                 "/v1/files",
                 data={"purpose": "batch"},
                 files={"file": (INPUT_FILENAME, uploaded, "application/jsonl")},
-                headers={"Authorization": f"Bearer {gateway.key}", "x-litellm-model": alias},
+                headers={"Authorization": f"Bearer {gateway.key}", "x-hangarllm-model": alias},
             )
             assert headed.status_code == 200, headed.text
             return _FileObject.model_validate_json(headed.content)
@@ -469,7 +469,7 @@ def _model_routed_upload(
                     "model": alias,
                     "target_model_names": alias,
                     "custom_llm_provider": "openai",
-                    "litellm_metadata[tag]": "x",
+                    "hangarllm_metadata[tag]": "x",
                 },
                 files={"file": (INPUT_FILENAME, uploaded, "application/jsonl")},
                 headers={"Authorization": f"Bearer {gateway.key}"},
@@ -571,7 +571,7 @@ def _assert_model_routed_upload_reaches_one_deployment_and_the_encoded_id_reads_
         "sdk-extra-body-with-proxy-fields",
         "multipart-model-field",
         "query-model",
-        "x-litellm-model-header",
+        "x-hangarllm-model-header",
         "multipart-model-with-proxy-fields",
         "sdk-expires-after",
         "multipart-bracketed-expires-after",
@@ -643,7 +643,7 @@ def _content_request(
             )
         case "v1_raw_header":
             return gateway.client.build_request(
-                "GET", f"/v1/files/{raw_output}/content", headers={**authorization, "x-litellm-model": alias}
+                "GET", f"/v1/files/{raw_output}/content", headers={**authorization, "x-hangarllm-model": alias}
             )
         case _:
             assert_never(route)
@@ -787,7 +787,7 @@ def _created_batch(
                 "metadata": {"job": "x"},
             },
             params={"model": alias} if spelling == "query_model" else None,
-            headers={"x-litellm-model": alias} if spelling == "header_model" else None,
+            headers={"x-hangarllm-model": alias} if spelling == "header_model" else None,
         )
         assert created.status_code == 200, created.text
         return _Batch.model_validate_json(created.content)
@@ -866,7 +866,7 @@ def _assert_create_batch_reaches_one_deployment_and_returns_model_encoded_ids(
 @pytest.mark.parametrize(
     "spelling",
     ["encoded_input", "body_model", "query_model", "header_model", "sanitized_metadata"],
-    ids=["encoded-input-id", "body-model", "query-model", "x-litellm-model-header", "non-string-metadata-dropped"],
+    ids=["encoded-input-id", "body-model", "query-model", "x-hangarllm-model-header", "non-string-metadata-dropped"],
 )
 def test_create_batch_reaches_one_deployment_and_returns_model_encoded_ids(
     gateway: Gateway, spelling: _BatchCreateSpelling

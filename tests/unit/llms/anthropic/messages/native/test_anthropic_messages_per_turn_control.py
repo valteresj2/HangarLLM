@@ -1,12 +1,12 @@
 import pytest
 
-from litellm import anthropic_beta_headers_manager
-from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
-from litellm.llms.anthropic.messages.native.transformation import (
+from hangarllm import anthropic_beta_headers_manager
+from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+from hangarllm.llms.anthropic.messages.native.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.openai_like.json_loader import SimpleProviderConfig
-from litellm.llms.openai_like.messages.transformation import (
+from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
+from hangarllm.llms.openai_like.messages.transformation import (
     JSONProviderAnthropicMessagesConfig,
 )
 
@@ -39,7 +39,7 @@ def _validate(messages, headers=None, optional_params=None):
         model="claude-fable-5-1",
         messages=messages,
         optional_params=dict(optional_params or {"max_tokens": 64000, "output_config": {"effort": "high"}}),
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-ant-test",
     )
     return validated
@@ -47,7 +47,7 @@ def _validate(messages, headers=None, optional_params=None):
 
 @pytest.fixture(autouse=True)
 def bundled_beta_allowlist(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
     yield
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
@@ -125,7 +125,7 @@ def test_json_provider_passthrough_adds_per_turn_control_beta():
         model="claude-fable-5-1",
         messages=_claude_code_turn({"effort": "medium"}),
         optional_params={"max_tokens": 1024},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test",
     )
 
@@ -137,7 +137,7 @@ def test_json_provider_passthrough_adds_per_turn_control_beta():
 def test_native_messages_thinking_display_updates_beta(display: str | None, explicit_beta: bool) -> None:
     from typing import Final
 
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     beta: Final = ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
     headers, _ = AnthropicMessagesConfig().validate_anthropic_messages_environment(
@@ -145,7 +145,7 @@ def test_native_messages_thinking_display_updates_beta(display: str | None, expl
         model="claude-opus-5",
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params={"thinking": {"type": "adaptive", "display": display}} if display else {},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-ant-test",
     )
 
@@ -157,7 +157,7 @@ def test_native_messages_thinking_display_updates_beta(display: str | None, expl
 def test_native_messages_tool_changes_beta(action: str | None, explicit_beta: bool) -> None:
     from typing import Final
 
-    from litellm.types.llms.anthropic import (
+    from hangarllm.types.llms.anthropic import (
         ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER,
         ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER,
     )
@@ -173,7 +173,7 @@ def test_native_messages_tool_changes_beta(action: str | None, explicit_beta: bo
         model="claude-fable-5-1",
         messages=["not a message dict", {"role": "user", "content": "Hello"}, {"role": "system", "content": content}],
         optional_params={"thinking": {"type": "adaptive", "display": "updates"}},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-ant-test",
     )
 

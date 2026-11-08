@@ -8,7 +8,7 @@ import { CHAT_MODEL_A, MOCK_RESPONSE_TEXT, masterKey } from "../../helpers/traff
 interface StoredGuardrail {
   guardrail_id: string;
   guardrail_name: string | null;
-  litellm_params?: { pii_entities_config?: Record<string, string> | null } | null;
+  hangarllm_params?: { pii_entities_config?: Record<string, string> | null } | null;
 }
 
 async function listGuardrails(page: PlaywrightPage): Promise<StoredGuardrail[]> {
@@ -31,8 +31,8 @@ async function createKeywordGuardrailViaApi(page: PlaywrightPage, name: string, 
     data: {
       guardrail: {
         guardrail_name: name,
-        litellm_params: {
-          guardrail: "litellm_content_filter",
+        hangarllm_params: {
+          guardrail: "hangarllm_content_filter",
           mode: "pre_call",
           default_on: false,
           blocked_words: [{ keyword, action: "BLOCK" }],
@@ -58,7 +58,7 @@ async function openKeywordsStep(page: PlaywrightPage, name: string) {
   await wizard.getByRole("combobox", { name: "Guardrail Provider" }).click();
   // The content filter runs inside the proxy, so this is the one provider a test can
   // configure end to end without standing up a third-party moderation service.
-  await page.getByRole("option", { name: /LiteLLM Content Filter/ }).click();
+  await page.getByRole("option", { name: /HangarLLM Content Filter/ }).click();
 
   for (const step of ["Topics", "Patterns", "Keywords"]) {
     await wizard.getByRole("button", { name: "Next" }).click();
@@ -240,7 +240,7 @@ test.describe("Guardrails", () => {
     await expect(row).toHaveCount(1, { timeout: 15_000 });
 
     const stored = await findGuardrail(page, guardrailName);
-    const piiConfig = stored?.litellm_params?.pii_entities_config ?? {};
+    const piiConfig = stored?.hangarllm_params?.pii_entities_config ?? {};
     expect(
       Object.keys(piiConfig).length,
       "Select All & Mask persisted no PII entities, so the guardrail would mask nothing",

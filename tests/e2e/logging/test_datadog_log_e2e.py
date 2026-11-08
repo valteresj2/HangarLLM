@@ -12,7 +12,7 @@ payload missing the cost all fail here.
 Both halves of the contract are asserted: the recorded state (the proxy
 reports the DataDogLogger callback active via /health/readiness/details) and
 the enforced behavior (the event at the intake, with the cost cross-checked
-against the x-litellm-response-cost header of the very response the caller
+against the x-hangarllm-response-cost header of the very response the caller
 received).
 """
 
@@ -28,7 +28,7 @@ from e2e_config import CHEAP_ANTHROPIC_MODEL, CHEAP_OPENAI_MODEL, unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
 from logging_client import INVALID_UPSTREAM_API_KEY, LoggingClient, first_ok, readiness_details_body
-from models import ChatMessage, LiteLLMParamsBody, ReliabilityChatBody, RouterSettingsOverride
+from models import ChatMessage, HangarLLMParamsBody, ReliabilityChatBody, RouterSettingsOverride
 from pydantic import BaseModel, ConfigDict
 
 pytestmark = pytest.mark.e2e
@@ -72,9 +72,9 @@ def _assert_exactly_one_event(
     expect_stream: bool = False,
 ) -> _DdMessagePayload:
     """The enforced behavior: the intake holds exactly one event for the call,
-    sourced from litellm, whose payload names the model group and call type,
+    sourced from hangarllm, whose payload names the model group and call type,
     counts real tokens, and carries the same cost as ``cost_anchor`` - the
-    x-litellm-response-cost header for non-streaming calls, or the /spend/logs
+    x-hangarllm-response-cost header for non-streaming calls, or the /spend/logs
     row for streamed calls (headers ship before a stream's cost exists)."""
     assert events, "no DataDog log event for this call reached the intake within the deadline"
     assert len(events) == 1, (
@@ -83,8 +83,8 @@ def _assert_exactly_one_event(
         "for the currently known non-streaming /v1/messages instance)"
     )
     event = events[0]
-    assert "source:litellm" in event.tags, (
-        f"the ingested event must carry the litellm source (shipped as ddsource), got tags {event.tags!r}"
+    assert "source:hangarllm" in event.tags, (
+        f"the ingested event must carry the hangarllm source (shipped as ddsource), got tags {event.tags!r}"
     )
     # The proxy ships the envelope at status "info", but DataDog re-derives the
     # indexed event status from the parsed payload's status attribute
@@ -138,7 +138,7 @@ class TestDataDogLogDelivery:
             lambda: client.chat_raw(key, CHEAP_ANTHROPIC_MODEL, f"reply with one word {marker}", max_tokens=16),
         )
         assert outcome.response_cost is not None and outcome.response_cost > 0, (
-            f"the response must report x-litellm-response-cost, got {outcome.response_cost!r}"
+            f"the response must report x-hangarllm-response-cost, got {outcome.response_cost!r}"
         )
         events = dd_logs.poll_events_for_marker(marker)
         _assert_exactly_one_event(
@@ -174,7 +174,7 @@ class TestDataDogLogDelivery:
             lambda: client.messages_raw(key, CHEAP_ANTHROPIC_MODEL, f"reply with one word {marker}", max_tokens=16),
         )
         assert outcome.response_cost is not None and outcome.response_cost > 0, (
-            f"the response must report x-litellm-response-cost, got {outcome.response_cost!r}"
+            f"the response must report x-hangarllm-response-cost, got {outcome.response_cost!r}"
         )
         events = dd_logs.poll_events_for_marker(marker)
         _assert_exactly_one_event(
@@ -208,7 +208,7 @@ class TestDataDogLogDelivery:
             lambda: client.responses_raw(key, CHEAP_OPENAI_MODEL, f"reply with one word {marker}"),
         )
         assert outcome.response_cost is not None and outcome.response_cost > 0, (
-            f"the response must report x-litellm-response-cost, got {outcome.response_cost!r}"
+            f"the response must report x-hangarllm-response-cost, got {outcome.response_cost!r}"
         )
         events = dd_logs.poll_events_for_marker(marker)
         _assert_exactly_one_event(
@@ -377,7 +377,7 @@ class TestDataDogLogDelivery:
 
 def _assert_exactly_one_failure_event(events: list[DdLogEvent], *, model_group: str) -> _DdMessagePayload:
     """The enforced behavior for a failed call: the intake holds exactly one
-    event for the deployment, sourced from litellm, indexed at an error-grade
+    event for the deployment, sourced from hangarllm, indexed at an error-grade
     severity (DataDog derives it from the payload's status="failure"; observed
     as its "emergency" bucket), whose payload carries the provider error and
     no cost."""
@@ -387,8 +387,8 @@ def _assert_exactly_one_failure_event(events: list[DdLogEvent], *, model_group: 
         "more than one event for one call is the duplicate-delivery bug"
     )
     event = events[0]
-    assert "source:litellm" in event.tags, (
-        f"the ingested event must carry the litellm source (shipped as ddsource), got tags {event.tags!r}"
+    assert "source:hangarllm" in event.tags, (
+        f"the ingested event must carry the hangarllm source (shipped as ddsource), got tags {event.tags!r}"
     )
     assert event.status in ("error", "emergency"), (
         f"failure events must index at an error-grade severity, got {event.status!r}"
@@ -432,7 +432,7 @@ class TestDataDogFailureDelivery:
         model_name = f"dd-err-{unique_marker()}"
         model_id = client.create_model(
             model_name,
-            LiteLLMParamsBody(model=FAILING_BACKEND_MODEL, api_key=INVALID_UPSTREAM_API_KEY),
+            HangarLLMParamsBody(model=FAILING_BACKEND_MODEL, api_key=INVALID_UPSTREAM_API_KEY),
         )
         resources.defer(lambda: client.delete_model(model_id))
         key = client.key_with_alias(f"dd-err-key-{unique_marker()}", models=[model_name])
@@ -494,7 +494,7 @@ class TestDataDogFailureDelivery:
         model_name = f"dd-err-stream-{unique_marker()}"
         model_id = client.create_model(
             model_name,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=FAILING_BACKEND_MODEL,
                 api_key=INVALID_UPSTREAM_API_KEY,
                 api_base="http://localhost:1",

@@ -16,16 +16,16 @@ from typing import Final
 
 import psycopg
 import pytest
-from litellm_proxy_extras import migration_data_checks, migration_dry_run, request_log_indexes
-from litellm_proxy_extras.migration_lock import MIGRATION_LOCK_KEY, migration_lock
-from litellm_proxy_extras.migration_recovery import roll_back_failed_inert_migration
-from litellm_proxy_extras.request_log_indexes import (
+from hangarllm_proxy_extras import migration_data_checks, migration_dry_run, request_log_indexes
+from hangarllm_proxy_extras.migration_lock import MIGRATION_LOCK_KEY, migration_lock
+from hangarllm_proxy_extras.migration_recovery import roll_back_failed_inert_migration
+from hangarllm_proxy_extras.request_log_indexes import (
     REQUEST_LOG_INDEXES,
     RequestLogIndex,
     build_index_on_partitioned_table,
     ensure_request_log_indexes,
 )
-from litellm_proxy_extras.utils import ProxyExtrasDBManager
+from hangarllm_proxy_extras.utils import ProxyExtrasDBManager
 from psycopg import sql
 from psycopg.abc import Params, QueryNoTemplate
 from psycopg.conninfo import make_conninfo
@@ -39,24 +39,24 @@ requires_db: Final = pytest.mark.skipif(
 )
 
 REPO: Final = Path(__file__).resolve().parents[4]
-PACKAGE: Final = REPO / "litellm-proxy-extras" / "litellm_proxy_extras"
+PACKAGE: Final = REPO / "hangarllm-proxy-extras" / "hangarllm_proxy_extras"
 PARTITION_SCRIPT: Final = REPO / "db_scripts" / "partition_spend_logs.sql"
 API_KEY_INDEX_MIGRATION: Final = "20260823000000_add_spend_logs_api_key_starttime_index"
-CALL_ID_INDEX_MIGRATION: Final = "20260831120001_spend_logs_litellm_call_id_index"
-API_KEY_INDEX: Final = "LiteLLM_SpendLogs_api_key_startTime_idx"
-CALL_ID_INDEX: Final = "LiteLLM_SpendLogs_litellm_call_id_idx"
-PARTITIONED_PARENT_ERROR: Final = 'cannot create index on partitioned table "LiteLLM_SpendLogs" concurrently'
+CALL_ID_INDEX_MIGRATION: Final = "20260831120001_spend_logs_hangarllm_call_id_index"
+API_KEY_INDEX: Final = "HangarLLM_SpendLogs_api_key_startTime_idx"
+CALL_ID_INDEX: Final = "HangarLLM_SpendLogs_hangarllm_call_id_idx"
+PARTITIONED_PARENT_ERROR: Final = 'cannot create index on partitioned table "HangarLLM_SpendLogs" concurrently'
 ORIGINAL_MIGRATION_SQL: Final = MappingProxyType(
     {
         API_KEY_INDEX_MIGRATION: (
             "-- CreateIndex\n"
-            'CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_api_key_startTime_idx" '
-            'ON "LiteLLM_SpendLogs"("api_key", "startTime");\n'
+            'CREATE INDEX IF NOT EXISTS "HangarLLM_SpendLogs_api_key_startTime_idx" '
+            'ON "HangarLLM_SpendLogs"("api_key", "startTime");\n'
         ),
         CALL_ID_INDEX_MIGRATION: (
             "-- CreateIndex\n"
-            'CREATE INDEX CONCURRENTLY IF NOT EXISTS "LiteLLM_SpendLogs_litellm_call_id_idx" '
-            'ON "LiteLLM_SpendLogs"("litellm_call_id");\n'
+            'CREATE INDEX CONCURRENTLY IF NOT EXISTS "HangarLLM_SpendLogs_hangarllm_call_id_idx" '
+            'ON "HangarLLM_SpendLogs"("hangarllm_call_id");\n'
         ),
     }
 )
@@ -66,11 +66,11 @@ RELEASES: Final = pytest.mark.parametrize(
 )
 PARTITIONS: Final = MappingProxyType(
     {
-        "LiteLLM_SpendLogs_p2026_08": ("2026-08-01", "2026-09-01"),
-        "LiteLLM_SpendLogs_p2026_09": ("2026-09-01", "2026-10-01"),
+        "HangarLLM_SpendLogs_p2026_08": ("2026-08-01", "2026-09-01"),
+        "HangarLLM_SpendLogs_p2026_09": ("2026-09-01", "2026-10-01"),
     }
 )
-DEFAULT_PARTITION: Final = "LiteLLM_SpendLogs_pdefault"
+DEFAULT_PARTITION: Final = "HangarLLM_SpendLogs_pdefault"
 ROWS_PER_PARTITION: Final = 200
 RESOLVERS: Final = pytest.mark.parametrize("use_v2_resolver", (True, False), ids=("v2", "v1"))
 
@@ -108,7 +108,7 @@ def _deploy_release(database_url: str, prisma_dir: Path, before: str) -> None:
 
 
 def _insert_spend_log(
-    conn: "psycopg.Connection[tuple[object, ...]]", request_id: str, day: str, table: str = "LiteLLM_SpendLogs"
+    conn: "psycopg.Connection[tuple[object, ...]]", request_id: str, day: str, table: str = "HangarLLM_SpendLogs"
 ) -> None:
     conn.execute(
         sql.SQL(
@@ -123,7 +123,7 @@ def _partition_spend_logs(database_url: str) -> None:
         conn.execute(PARTITION_SCRIPT.read_bytes())
         for partition, (start, stop) in PARTITIONS.items():
             conn.execute(
-                sql.SQL('CREATE TABLE {} PARTITION OF "LiteLLM_SpendLogs" FOR VALUES FROM ({}) TO ({})').format(
+                sql.SQL('CREATE TABLE {} PARTITION OF "HangarLLM_SpendLogs" FOR VALUES FROM ({}) TO ({})').format(
                     sql.Identifier(partition), sql.Literal(start), sql.Literal(stop)
                 )
             )
@@ -202,8 +202,8 @@ def _index_validity(database_url: str, suffix: str) -> Mapping[str, bool]:
     with psycopg.connect(database_url) as conn, conn.cursor(row_factory=class_row(_IndexRow)) as cursor:
         rows: Final = cursor.execute(
             "SELECT c.relname AS name, i.indisvalid AS valid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid "
-            "WHERE c.relname LIKE %s AND (i.indrelid = to_regclass('\"LiteLLM_SpendLogs\"') OR i.indrelid IN "
-            "(SELECT inhrelid FROM pg_inherits WHERE inhparent = to_regclass('\"LiteLLM_SpendLogs\"'))) "
+            "WHERE c.relname LIKE %s AND (i.indrelid = to_regclass('\"HangarLLM_SpendLogs\"') OR i.indrelid IN "
+            "(SELECT inhrelid FROM pg_inherits WHERE inhparent = to_regclass('\"HangarLLM_SpendLogs\"'))) "
             "ORDER BY c.relname",
             (f"%{suffix}",),
         ).fetchall()
@@ -253,8 +253,8 @@ def _index_oids(database_url: str) -> Mapping[str, int]:
     with psycopg.connect(database_url) as conn, conn.cursor(row_factory=class_row(_OidRow)) as cursor:
         rows: Final = cursor.execute(
             "SELECT c.relname AS name, c.oid::int AS oid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid "
-            "WHERE i.indrelid = to_regclass('\"LiteLLM_SpendLogs\"') OR i.indrelid IN "
-            "(SELECT inhrelid FROM pg_inherits WHERE inhparent = to_regclass('\"LiteLLM_SpendLogs\"'))"
+            "WHERE i.indrelid = to_regclass('\"HangarLLM_SpendLogs\"') OR i.indrelid IN "
+            "(SELECT inhrelid FROM pg_inherits WHERE inhparent = to_regclass('\"HangarLLM_SpendLogs\"'))"
         ).fetchall()
     return MappingProxyType({row.name: row.oid for row in rows})
 
@@ -294,19 +294,19 @@ def test_a_partitioned_spend_logs_upgrade_builds_both_indexes_per_partition_and_
     assert _migration_job(use_v2_resolver) is True
 
     _assert_index_covers_every_partition(partitioned_database, API_KEY_INDEX, "api_key_startTime_idx")
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
     ledger: Final = _assert_every_ledger_row_is_finished(partitioned_database)
     _assert_no_pending_migrations(partitioned_database)
     oids: Final = _index_oids(partitioned_database)
 
     with psycopg.connect(partitioned_database, autocommit=True) as conn:
         conn.execute(
-            'CREATE TABLE "LiteLLM_SpendLogs_p2026_10" PARTITION OF "LiteLLM_SpendLogs" '
+            'CREATE TABLE "HangarLLM_SpendLogs_p2026_10" PARTITION OF "HangarLLM_SpendLogs" '
             "FOR VALUES FROM ('2026-10-01') TO ('2026-11-01')"
         )
     inherited: Final = frozenset(
-        ("LiteLLM_SpendLogs_p2026_10", f"LiteLLM_SpendLogs_p2026_10_{suffix}")
-        for suffix in ("api_key_startTime_idx", "litellm_call_id_idx")
+        ("HangarLLM_SpendLogs_p2026_10", f"HangarLLM_SpendLogs_p2026_10_{suffix}")
+        for suffix in ("api_key_startTime_idx", "hangarllm_call_id_idx")
     )
     attached: Final = _attached_children(partitioned_database, API_KEY_INDEX) | _attached_children(
         partitioned_database, CALL_ID_INDEX
@@ -331,7 +331,7 @@ def test_a_plain_spend_logs_upgrade_builds_both_indexes_and_a_second_job_run_reb
     assert _migration_job(use_v2_resolver) is True
 
     assert _index_validity(scratch_database, "api_key_startTime_idx") == {API_KEY_INDEX: True}
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: True}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: True}
     _assert_every_ledger_row_is_finished(scratch_database)
     _assert_no_pending_migrations(scratch_database)
     oids: Final = _index_oids(scratch_database)
@@ -373,7 +373,7 @@ def test_a_failed_call_id_ledger_row_from_a_v1_103_boot_is_rolled_back_and_the_i
 
     _assert_every_ledger_row_is_finished(partitioned_database)
     _assert_index_covers_every_partition(partitioned_database, API_KEY_INDEX, "api_key_startTime_idx")
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
     _assert_no_pending_migrations(partitioned_database)
     with psycopg.connect(partitioned_database) as conn:
         rows: Final = conn.execute(
@@ -437,12 +437,12 @@ def _leave_an_invalid_index(database_url: str, name: str, table: str, column: st
 
 @requires_db
 def test_an_invalid_index_of_the_managed_name_on_a_plain_table_is_rebuilt(scratch_database: str) -> None:
-    _leave_an_invalid_index(scratch_database, CALL_ID_INDEX, "LiteLLM_SpendLogs", "litellm_call_id")
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: False}
+    _leave_an_invalid_index(scratch_database, CALL_ID_INDEX, "HangarLLM_SpendLogs", "hangarllm_call_id")
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: False}
 
     assert ensure_request_log_indexes(scratch_database, "public") is True
 
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: True}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: True}
 
 
 def _rebuild_as_another_replica(database_url: str, name: str, table: str, column: str) -> int:
@@ -492,19 +492,19 @@ def test_an_index_another_replica_made_valid_before_the_lock_was_taken_is_kept(s
     """Two replicas boot against the same invalid index. The one that takes the lock
     second must read the catalog again under it, or it drops the valid index the first
     one just finished and starts the whole build over."""
-    _leave_an_invalid_index(scratch_database, CALL_ID_INDEX, "LiteLLM_SpendLogs", "litellm_call_id")
+    _leave_an_invalid_index(scratch_database, CALL_ID_INDEX, "HangarLLM_SpendLogs", "hangarllm_call_id")
     theirs: Final[queue.SimpleQueue[int]] = queue.SimpleQueue()
     connect: Final = _connecting_with_another_replica_acting_first(
         "pg_try_advisory_lock",
         lambda _: theirs.put(
-            _rebuild_as_another_replica(scratch_database, CALL_ID_INDEX, "LiteLLM_SpendLogs", "litellm_call_id")
+            _rebuild_as_another_replica(scratch_database, CALL_ID_INDEX, "HangarLLM_SpendLogs", "hangarllm_call_id")
         ),
     )
 
     assert ensure_request_log_indexes(scratch_database, "public", (CALL_ID_INDEX_DEFINITION,), connect) is True
 
     assert _index_oids(scratch_database)[CALL_ID_INDEX] == theirs.get_nowait()
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: True}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: True}
 
 
 @requires_db
@@ -522,21 +522,21 @@ def test_a_child_index_another_replica_attached_first_is_not_attached_twice(part
 
     assert ensure_request_log_indexes(partitioned_database, "public", (CALL_ID_INDEX_DEFINITION,), connect) is True
 
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 @requires_db
 def test_an_invalid_child_index_left_by_an_interrupted_build_is_rebuilt_and_attached(
     partitioned_database: str,
 ) -> None:
-    partition: Final = "LiteLLM_SpendLogs_p2026_08"
-    child: Final = f"{partition}_litellm_call_id_idx"
-    _leave_an_invalid_index(partitioned_database, child, partition, "litellm_call_id")
-    assert _index_validity(partitioned_database, "litellm_call_id_idx") == {child: False}
+    partition: Final = "HangarLLM_SpendLogs_p2026_08"
+    child: Final = f"{partition}_hangarllm_call_id_idx"
+    _leave_an_invalid_index(partitioned_database, child, partition, "hangarllm_call_id")
+    assert _index_validity(partitioned_database, "hangarllm_call_id_idx") == {child: False}
 
     assert ensure_request_log_indexes(partitioned_database, "public") is True
 
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 @requires_db
@@ -547,37 +547,37 @@ def test_partitioning_a_table_the_index_job_already_covered_moves_its_call_id_in
     names. The call-id index is built by the index job, not Prisma, and a deployment that partitions after
     that job ran kept the name on the legacy table, so every later job run reported it as on another table."""
     assert ensure_request_log_indexes(scratch_database, "public") is True
-    assert _indexed_table(scratch_database, CALL_ID_INDEX) == "LiteLLM_SpendLogs"
+    assert _indexed_table(scratch_database, CALL_ID_INDEX) == "HangarLLM_SpendLogs"
 
     _partition_spend_logs(scratch_database)
 
     assert (
-        _indexed_table(scratch_database, "LiteLLM_SpendLogs_legacy_litellm_call_id_idx") == "LiteLLM_SpendLogs_legacy"
+        _indexed_table(scratch_database, "HangarLLM_SpendLogs_legacy_hangarllm_call_id_idx") == "HangarLLM_SpendLogs_legacy"
     )
     assert ensure_request_log_indexes(scratch_database, "public") is True
-    _assert_index_covers_every_partition(scratch_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(scratch_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 @requires_db
 def test_an_index_of_that_name_on_another_table_is_left_alone_and_reported(partitioned_database: str) -> None:
     with psycopg.connect(partitioned_database, autocommit=True) as conn:
-        conn.execute(f'CREATE INDEX "{CALL_ID_INDEX}" ON "LiteLLM_ErrorLogs" ("request_id")')
+        conn.execute(f'CREATE INDEX "{CALL_ID_INDEX}" ON "HangarLLM_ErrorLogs" ("request_id")')
 
     assert ensure_request_log_indexes(partitioned_database, "public") is False
 
-    assert _index_validity(partitioned_database, "litellm_call_id_idx") == {}
-    assert _indexed_table(partitioned_database, CALL_ID_INDEX) == "LiteLLM_ErrorLogs"
+    assert _index_validity(partitioned_database, "hangarllm_call_id_idx") == {}
+    assert _indexed_table(partitioned_database, CALL_ID_INDEX) == "HangarLLM_ErrorLogs"
     _assert_index_covers_every_partition(partitioned_database, API_KEY_INDEX, "api_key_startTime_idx")
 
 
 @requires_db
 def test_an_invalid_index_of_a_child_name_on_another_table_is_not_dropped(partitioned_database: str) -> None:
-    child: Final = "LiteLLM_SpendLogs_p2026_08_litellm_call_id_idx"
-    _leave_an_invalid_index(partitioned_database, child, "LiteLLM_ErrorLogs", "request_id")
+    child: Final = "HangarLLM_SpendLogs_p2026_08_hangarllm_call_id_idx"
+    _leave_an_invalid_index(partitioned_database, child, "HangarLLM_ErrorLogs", "request_id")
 
     assert ensure_request_log_indexes(partitioned_database, "public") is False
 
-    assert _indexed_table(partitioned_database, child) == "LiteLLM_ErrorLogs"
+    assert _indexed_table(partitioned_database, child) == "HangarLLM_ErrorLogs"
     assert _attached_children(partitioned_database, CALL_ID_INDEX) == frozenset()
 
 
@@ -586,10 +586,10 @@ def test_a_process_holding_the_migration_lock_makes_the_build_wait_for_the_next_
     with psycopg.connect(scratch_database, autocommit=True) as other_replica:
         other_replica.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_LOCK_KEY,))
         assert ensure_request_log_indexes(scratch_database, "public") is False
-        assert _index_validity(scratch_database, "litellm_call_id_idx") == {}
+        assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {}
 
     assert ensure_request_log_indexes(scratch_database, "public") is True
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: True}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: True}
 
 
 @requires_db
@@ -604,10 +604,10 @@ def test_a_migration_job_that_could_not_build_the_indexes_reports_failure_and_su
         other_replica.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_LOCK_KEY,))
         assert _migration_job(use_v2_resolver) is False
         _assert_every_ledger_row_is_finished(scratch_database)
-        assert _index_validity(scratch_database, "litellm_call_id_idx") == {}
+        assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {}
 
     assert _migration_job(use_v2_resolver) is True
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: True}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: True}
     assert _index_validity(scratch_database, "api_key_startTime_idx") == {API_KEY_INDEX: True}
 
 
@@ -624,12 +624,12 @@ def test_the_serving_proxy_setup_applies_the_inert_migrations_and_builds_no_inde
 
     _assert_every_ledger_row_is_finished(partitioned_database)
     _assert_no_pending_migrations(partitioned_database)
-    assert _index_validity(partitioned_database, "litellm_call_id_idx") == {}
+    assert _index_validity(partitioned_database, "hangarllm_call_id_idx") == {}
     assert _index_validity(partitioned_database, "api_key_startTime_idx") == api_key_index_before
 
     assert _migration_job(use_v2_resolver) is True
     _assert_index_covers_every_partition(partitioned_database, API_KEY_INDEX, "api_key_startTime_idx")
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 @requires_db
@@ -641,19 +641,19 @@ def test_a_role_that_may_not_create_indexes_is_logged_and_left_for_the_next_job_
         conn.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
         conn.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'reader'").format(sql.Identifier(role)))
         conn.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(role)))
-        conn.execute(sql.SQL('GRANT SELECT ON "LiteLLM_SpendLogs" TO {}').format(sql.Identifier(role)))
+        conn.execute(sql.SQL('GRANT SELECT ON "HangarLLM_SpendLogs" TO {}').format(sql.Identifier(role)))
     reader_url: Final = make_conninfo(scratch_database, user=role, password="reader")
     try:
         with psycopg.connect(reader_url) as reader:
             assert reader.execute("SELECT current_user").fetchone() == (role,)
-        with caplog.at_level("WARNING", logger="litellm_proxy_extras"):
+        with caplog.at_level("WARNING", logger="hangarllm_proxy_extras"):
             assert ensure_request_log_indexes(reader_url, "public") is False
     finally:
         with psycopg.connect(scratch_database, autocommit=True) as conn:
             conn.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role)))
             conn.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
     assert "leaving them for the next index build" in caplog.text
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {}
 
 
 @requires_db
@@ -664,7 +664,7 @@ def test_inserts_keep_flowing_while_the_partition_indexes_build(partitioned_data
     on the parent, queueing every new INSERT behind it."""
     outcome: Final[list[bool]] = []  # mutable-ok: the builder thread hands its result back through it
     with psycopg.connect(partitioned_database) as writer:
-        _insert_spend_log(writer, "LiteLLM_SpendLogs_p2026_08-open", "2026-08-15", table="LiteLLM_SpendLogs_p2026_08")
+        _insert_spend_log(writer, "HangarLLM_SpendLogs_p2026_08-open", "2026-08-15", table="HangarLLM_SpendLogs_p2026_08")
         builder_thread: Final = threading.Thread(
             target=lambda: outcome.append(_build_in_its_own_session(partitioned_database, CALL_ID_INDEX_DEFINITION))
         )
@@ -673,12 +673,12 @@ def test_inserts_keep_flowing_while_the_partition_indexes_build(partitioned_data
             _wait_until_the_build_is_waiting(partitioned_database)
             with psycopg.connect(partitioned_database, autocommit=True) as late_writer:
                 late_writer.execute("SET lock_timeout = '1s'")
-                _insert_spend_log(late_writer, "LiteLLM_SpendLogs_p2026_08-late", "2026-08-16")
+                _insert_spend_log(late_writer, "HangarLLM_SpendLogs_p2026_08-late", "2026-08-16")
         finally:
             writer.commit()
             builder_thread.join()
     assert outcome == [True]
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 def _insert_for(database_url: str, seconds: float) -> None:
@@ -723,22 +723,22 @@ def test_inserts_are_never_held_back_while_the_parent_index_waits_for_an_open_wr
             finally:
                 builder_thread.join()
     assert outcome == [True]
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 @requires_db
 def test_inserts_are_never_held_back_while_attach_partition_waits_for_a_reader_of_the_child_index(
     partitioned_database: str,
 ) -> None:
-    partition: Final = "LiteLLM_SpendLogs_p2026_08"
+    partition: Final = "HangarLLM_SpendLogs_p2026_08"
     child_index: Final = CALL_ID_INDEX_DEFINITION.partition_index_name(partition)
-    assert child_index == "LiteLLM_SpendLogs_p2026_08_litellm_call_id_idx"
+    assert child_index == "HangarLLM_SpendLogs_p2026_08_hangarllm_call_id_idx"
     with psycopg.connect(partitioned_database, autocommit=True) as conn:
         conn.execute(
-            'CREATE INDEX "LiteLLM_SpendLogs_litellm_call_id_idx" ON ONLY "LiteLLM_SpendLogs" ("litellm_call_id")'
+            'CREATE INDEX "HangarLLM_SpendLogs_hangarllm_call_id_idx" ON ONLY "HangarLLM_SpendLogs" ("hangarllm_call_id")'
         )
         conn.execute(
-            sql.SQL('CREATE INDEX {} ON {} ("litellm_call_id")').format(
+            sql.SQL('CREATE INDEX {} ON {} ("hangarllm_call_id")').format(
                 sql.Identifier(CALL_ID_INDEX_DEFINITION.partition_index_name(partition)), sql.Identifier(partition)
             )
         )
@@ -747,7 +747,7 @@ def test_inserts_are_never_held_back_while_attach_partition_waits_for_a_reader_o
     with psycopg.connect(partitioned_database) as reader:
         reader.execute("SET enable_seqscan = off")
         reader.execute(
-            sql.SQL('SELECT count(*) FROM {} WHERE "litellm_call_id" IS NULL').format(sql.Identifier(partition))
+            sql.SQL('SELECT count(*) FROM {} WHERE "hangarllm_call_id" IS NULL').format(sql.Identifier(partition))
         ).fetchone()
         reader_pid: Final = _backend_pid(reader)
         with psycopg.connect(partitioned_database, autocommit=True) as inspector:
@@ -770,7 +770,7 @@ def test_inserts_are_never_held_back_while_attach_partition_waits_for_a_reader_o
             finally:
                 builder_thread.join()
     assert outcome == [True]
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 @requires_db
@@ -780,28 +780,28 @@ def test_a_parent_index_that_never_gets_its_lock_is_left_for_the_next_index_buil
     monkeypatch.setattr(request_log_indexes, "_DDL_LOCK_ATTEMPTS", 2)
     with psycopg.connect(partitioned_database) as writer:
         _insert_spend_log(writer, "parent-index-lock-owner", "2026-08-15")
-        with caplog.at_level("WARNING", logger="litellm_proxy_extras"):
+        with caplog.at_level("WARNING", logger="hangarllm_proxy_extras"):
             assert _build_in_its_own_session(partitioned_database, CALL_ID_INDEX_DEFINITION) is False
         assert "leaving it for the next index build" in caplog.text
         assert _indexed_table(partitioned_database, CALL_ID_INDEX) is None
         writer.commit()
         assert _build_in_its_own_session(partitioned_database, CALL_ID_INDEX_DEFINITION) is True
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 @requires_db
 def test_an_attach_that_never_gets_its_lock_is_left_for_the_next_index_build(
     partitioned_database: str, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    partition: Final = "LiteLLM_SpendLogs_p2026_08"
+    partition: Final = "HangarLLM_SpendLogs_p2026_08"
     child_index: Final = CALL_ID_INDEX_DEFINITION.partition_index_name(partition)
-    assert child_index == "LiteLLM_SpendLogs_p2026_08_litellm_call_id_idx"
+    assert child_index == "HangarLLM_SpendLogs_p2026_08_hangarllm_call_id_idx"
     with psycopg.connect(partitioned_database, autocommit=True) as conn:
         conn.execute(
-            'CREATE INDEX "LiteLLM_SpendLogs_litellm_call_id_idx" ON ONLY "LiteLLM_SpendLogs" ("litellm_call_id")'
+            'CREATE INDEX "HangarLLM_SpendLogs_hangarllm_call_id_idx" ON ONLY "HangarLLM_SpendLogs" ("hangarllm_call_id")'
         )
         conn.execute(
-            sql.SQL('CREATE INDEX {} ON {} ("litellm_call_id")').format(
+            sql.SQL('CREATE INDEX {} ON {} ("hangarllm_call_id")').format(
                 sql.Identifier(child_index), sql.Identifier(partition)
             )
         )
@@ -810,7 +810,7 @@ def test_an_attach_that_never_gets_its_lock_is_left_for_the_next_index_build(
     with psycopg.connect(partitioned_database) as reader:
         reader.execute("SET enable_seqscan = off")
         reader.execute(
-            sql.SQL('SELECT count(*) FROM {} WHERE "litellm_call_id" IS NULL').format(sql.Identifier(partition))
+            sql.SQL('SELECT count(*) FROM {} WHERE "hangarllm_call_id" IS NULL').format(sql.Identifier(partition))
         ).fetchone()
         reader_pid: Final = _backend_pid(reader)
         with psycopg.connect(partitioned_database, autocommit=True) as inspector:
@@ -820,13 +820,13 @@ def test_an_attach_that_never_gets_its_lock_is_left_for_the_next_index_build(
                 (reader_pid, f'"{child_index}"'),
             ).fetchone()
         assert child_lock is not None
-        with caplog.at_level("WARNING", logger="litellm_proxy_extras"):
+        with caplog.at_level("WARNING", logger="hangarllm_proxy_extras"):
             assert _build_in_its_own_session(partitioned_database, CALL_ID_INDEX_DEFINITION) is False
         assert "Could not get the lock for attaching" in caplog.text
         reader.commit()
 
     assert _build_in_its_own_session(partitioned_database, CALL_ID_INDEX_DEFINITION) is True
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
 
 
 def _build_in_its_own_session(database_url: str, index: RequestLogIndex) -> bool:
@@ -860,27 +860,27 @@ def _create_index(database_url: str, name: str, table: str, columns: str) -> int
 def test_a_valid_index_of_the_same_definition_under_another_name_is_renamed_instead_of_rebuilt(
     scratch_database: str,
 ) -> None:
-    hand_built: Final = _create_index(scratch_database, "call_id_by_hand", "LiteLLM_SpendLogs", '("litellm_call_id")')
+    hand_built: Final = _create_index(scratch_database, "call_id_by_hand", "HangarLLM_SpendLogs", '("hangarllm_call_id")')
 
     assert ensure_request_log_indexes(scratch_database, "public") is True
 
     oids: Final = _index_oids(scratch_database)
     assert "call_id_by_hand" not in oids and oids[CALL_ID_INDEX] == hand_built
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: True}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: True}
 
 
 @requires_db
 def test_a_hand_built_child_index_under_another_name_is_renamed_and_attached(partitioned_database: str) -> None:
-    partition: Final = "LiteLLM_SpendLogs_p2026_08"
+    partition: Final = "HangarLLM_SpendLogs_p2026_08"
     hand_built: Final = _create_index(
-        partitioned_database, "p2026_08_call_id_by_hand", partition, '("litellm_call_id")'
+        partitioned_database, "p2026_08_call_id_by_hand", partition, '("hangarllm_call_id")'
     )
 
     assert ensure_request_log_indexes(partitioned_database, "public") is True
 
-    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "litellm_call_id_idx")
+    _assert_index_covers_every_partition(partitioned_database, CALL_ID_INDEX, "hangarllm_call_id_idx")
     oids: Final = _index_oids(partitioned_database)
-    assert "p2026_08_call_id_by_hand" not in oids and oids[f"{partition}_litellm_call_id_idx"] == hand_built
+    assert "p2026_08_call_id_by_hand" not in oids and oids[f"{partition}_hangarllm_call_id_idx"] == hand_built
 
 
 @requires_db
@@ -889,16 +889,16 @@ def test_an_index_with_another_definition_is_not_taken_for_the_managed_one(scrat
         conn.execute(sql.SQL("DROP INDEX {}").format(sql.Identifier(API_KEY_INDEX)))
     others: Final = {
         "time_then_key": _create_index(
-            scratch_database, "time_then_key", "LiteLLM_SpendLogs", '("startTime", "api_key")'
+            scratch_database, "time_then_key", "HangarLLM_SpendLogs", '("startTime", "api_key")'
         ),
         "call_id_desc": _create_index(
-            scratch_database, "call_id_desc", "LiteLLM_SpendLogs", '("litellm_call_id" DESC)'
+            scratch_database, "call_id_desc", "HangarLLM_SpendLogs", '("hangarllm_call_id" DESC)'
         ),
         "call_id_then_key": _create_index(
-            scratch_database, "call_id_then_key", "LiteLLM_SpendLogs", '("litellm_call_id", "api_key")'
+            scratch_database, "call_id_then_key", "HangarLLM_SpendLogs", '("hangarllm_call_id", "api_key")'
         ),
         "call_id_pattern": _create_index(
-            scratch_database, "call_id_pattern", "LiteLLM_SpendLogs", '("litellm_call_id" text_pattern_ops)'
+            scratch_database, "call_id_pattern", "HangarLLM_SpendLogs", '("hangarllm_call_id" text_pattern_ops)'
         ),
     }
 
@@ -906,7 +906,7 @@ def test_an_index_with_another_definition_is_not_taken_for_the_managed_one(scrat
 
     oids: Final = _index_oids(scratch_database)
     assert {name: oids[name] for name in others} == others
-    assert _index_validity(scratch_database, "litellm_call_id_idx") == {CALL_ID_INDEX: True}
+    assert _index_validity(scratch_database, "hangarllm_call_id_idx") == {CALL_ID_INDEX: True}
     assert _index_validity(scratch_database, "api_key_startTime_idx") == {API_KEY_INDEX: True}
 
 
@@ -915,18 +915,18 @@ def test_a_valid_partitioned_parent_index_under_another_name_is_renamed_with_its
     partitioned_database: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     hand_built: Final = _create_index(
-        partitioned_database, "call_id_parent_by_hand", "LiteLLM_SpendLogs", '("litellm_call_id")'
+        partitioned_database, "call_id_parent_by_hand", "HangarLLM_SpendLogs", '("hangarllm_call_id")'
     )
     children_before: Final = _attached_children(partitioned_database, "call_id_parent_by_hand")
 
-    with caplog.at_level("INFO", logger="litellm_proxy_extras"):
+    with caplog.at_level("INFO", logger="hangarllm_proxy_extras"):
         assert ensure_request_log_indexes(partitioned_database, "public") is True
 
     assert "Building index" not in caplog.text
     oids: Final = _index_oids(partitioned_database)
     assert "call_id_parent_by_hand" not in oids and oids[CALL_ID_INDEX] == hand_built
     assert _attached_children(partitioned_database, CALL_ID_INDEX) == children_before
-    assert _index_validity(partitioned_database, "litellm_call_id_idx")[CALL_ID_INDEX] is True
+    assert _index_validity(partitioned_database, "hangarllm_call_id_idx")[CALL_ID_INDEX] is True
 
 
 @requires_db
@@ -934,9 +934,9 @@ def test_a_second_copy_of_a_managed_index_is_reported_with_its_drop_statement_an
     scratch_database: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     assert ensure_request_log_indexes(scratch_database, "public") is True
-    copy: Final = _create_index(scratch_database, "call_id_copy", "LiteLLM_SpendLogs", '("litellm_call_id")')
+    copy: Final = _create_index(scratch_database, "call_id_copy", "HangarLLM_SpendLogs", '("hangarllm_call_id")')
 
-    with caplog.at_level("WARNING", logger="litellm_proxy_extras"):
+    with caplog.at_level("WARNING", logger="hangarllm_proxy_extras"):
         assert ensure_request_log_indexes(scratch_database, "public") is True
 
     assert 'remove it with: DROP INDEX CONCURRENTLY "public"."call_id_copy"' in caplog.text
@@ -945,7 +945,7 @@ def test_a_second_copy_of_a_managed_index_is_reported_with_its_drop_statement_an
 
 def _insert_spend_log_with_key(conn: "psycopg.Connection[tuple[object, ...]]", request_id: str, api_key: str) -> None:
     conn.execute(
-        'INSERT INTO "LiteLLM_SpendLogs" ("request_id", "call_type", "startTime", "endTime", "api_key") '
+        'INSERT INTO "HangarLLM_SpendLogs" ("request_id", "call_type", "startTime", "endTime", "api_key") '
         "VALUES (%s, %s, %s, %s, %s)",
         (request_id, "acompletion", "2025-06-03 14:02:11", "2025-06-03 14:02:13", api_key),
     )
@@ -958,7 +958,7 @@ def _legacy_bearer_token() -> str:
 
 
 _HASH_LEGACY_KEYS: Final = (
-    'UPDATE "LiteLLM_SpendLogs" SET api_key = encode(sha256(convert_to('
+    'UPDATE "HangarLLM_SpendLogs" SET api_key = encode(sha256(convert_to('
     "regexp_replace(api_key, '^[Bb][Ee][Aa][Rr][Ee][Rr] ', ''), 'UTF8')), 'hex') "
     "WHERE api_key <> '' AND api_key !~ '^[0-9a-fA-F]{64}$' AND api_key !~ '^hashed-jwt-[0-9A-Fa-f]{64}$'"
 )
@@ -997,12 +997,12 @@ def test_a_serving_proxy_index_build_that_meets_too_long_keys_reports_the_rows_i
     with psycopg.connect(scratch_database, autocommit=True) as conn:
         _insert_spend_log_with_key(conn, "legacy-1", _legacy_bearer_token())
 
-    with caplog.at_level("WARNING", logger="litellm_proxy_extras"):
+    with caplog.at_level("WARNING", logger="hangarllm_proxy_extras"):
         built: Final = ensure_request_log_indexes(scratch_database, "public")
 
     assert built is False
     assert f"Not building index {API_KEY_INDEX}" in caplog.text, caplog.text
-    assert '"LiteLLM_SpendLogs".api_key, startTime: 1 row(s) with an index entry over 2704 bytes' in caplog.text, (
+    assert '"HangarLLM_SpendLogs".api_key, startTime: 1 row(s) with an index entry over 2704 bytes' in caplog.text, (
         caplog.text
     )
     assert "exceeds btree version 4 maximum" not in caplog.text, caplog.text
@@ -1145,7 +1145,7 @@ REQUIRE_TEAM_ALIAS: Final = "20991231000000_require_team_alias"
 
 
 def _extras_with_scratch_migration(tmp_path: Path, name: str, migration_sql: str) -> Path:
-    """A copy of the shipped package dir with one more migration folder, the shape `LITELLM_MIGRATION_DIR` points at."""
+    """A copy of the shipped package dir with one more migration folder, the shape `HANGARLLM_MIGRATION_DIR` points at."""
     extras: Final = tmp_path / "extras"
     shutil.copytree(PACKAGE / "migrations", extras / "migrations")
     shutil.copy(PACKAGE / "schema.prisma", extras / "schema.prisma")
@@ -1158,7 +1158,7 @@ def _team_alias_is_nullable(database_url: str) -> bool:
     with psycopg.connect(database_url) as conn:
         row: Final = conn.execute(
             "SELECT is_nullable FROM information_schema.columns "
-            "WHERE table_name = 'LiteLLM_TeamTable' AND column_name = 'team_alias'"
+            "WHERE table_name = 'HangarLLM_TeamTable' AND column_name = 'team_alias'"
         ).fetchone()
     return row == ("YES",)
 
@@ -1189,16 +1189,16 @@ def test_the_dry_run_reports_postgres_own_error_for_the_row_a_migration_cannot_t
     scratch_database: str, tmp_path: Path
 ) -> None:
     extras: Final = _extras_with_scratch_migration(
-        tmp_path, REQUIRE_TEAM_ALIAS, 'ALTER TABLE "LiteLLM_TeamTable" ALTER COLUMN "team_alias" SET NOT NULL;\n'
+        tmp_path, REQUIRE_TEAM_ALIAS, 'ALTER TABLE "HangarLLM_TeamTable" ALTER COLUMN "team_alias" SET NOT NULL;\n'
     )
     ledger_before: Final = _ledger(scratch_database)
     with psycopg.connect(scratch_database, autocommit=True) as conn:
-        conn.execute('INSERT INTO "LiteLLM_TeamTable" ("team_id") VALUES (%s)', ("no-alias",))
+        conn.execute('INSERT INTO "HangarLLM_TeamTable" ("team_id") VALUES (%s)', ("no-alias",))
         result: Final = migration_dry_run.dry_run(conn, "public", extras / "migrations")
 
     assert result.rejected is not None, result
     assert result.rejected.name == REQUIRE_TEAM_ALIAS
-    assert 'column "team_alias" of relation "LiteLLM_TeamTable" contains null values' in result.rejected.error
+    assert 'column "team_alias" of relation "HangarLLM_TeamTable" contains null values' in result.rejected.error
     assert result.applied == ()
     assert _team_alias_is_nullable(scratch_database), "a rejected dry run must leave the schema as it was"
     assert _ledger(scratch_database) == ledger_before
@@ -1210,11 +1210,11 @@ def test_the_cli_summary_turns_from_postgres_error_to_timings_once_the_rows_are_
     scratch_database: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     extras: Final = _extras_with_scratch_migration(
-        tmp_path, REQUIRE_TEAM_ALIAS, 'ALTER TABLE "LiteLLM_TeamTable" ALTER COLUMN "team_alias" SET NOT NULL;\n'
+        tmp_path, REQUIRE_TEAM_ALIAS, 'ALTER TABLE "HangarLLM_TeamTable" ALTER COLUMN "team_alias" SET NOT NULL;\n'
     )
-    monkeypatch.setenv("LITELLM_MIGRATION_DIR", str(extras))
+    monkeypatch.setenv("HANGARLLM_MIGRATION_DIR", str(extras))
     with psycopg.connect(scratch_database, autocommit=True) as conn:
-        conn.execute('INSERT INTO "LiteLLM_TeamTable" ("team_id") VALUES (%s)', ("no-alias",))
+        conn.execute('INSERT INTO "HangarLLM_TeamTable" ("team_id") VALUES (%s)', ("no-alias",))
 
     ok, summary = ProxyExtrasDBManager.migration_dry_run_summary(use_migrate=True)
     assert ok is False
@@ -1222,7 +1222,7 @@ def test_the_cli_summary_turns_from_postgres_error_to_timings_once_the_rows_are_
     assert "contains null values" in summary
 
     with psycopg.connect(scratch_database, autocommit=True) as conn:
-        conn.execute('UPDATE "LiteLLM_TeamTable" SET "team_alias" = \'filled\' WHERE "team_alias" IS NULL')
+        conn.execute('UPDATE "HangarLLM_TeamTable" SET "team_alias" = \'filled\' WHERE "team_alias" IS NULL')
     ok_after, summary_after = ProxyExtrasDBManager.migration_dry_run_summary(use_migrate=True)
     assert ok_after is True
     assert summary_after.startswith("1 pending migration(s) applied one at a time in a dry run"), summary_after
@@ -1236,20 +1236,20 @@ def test_a_migration_that_depends_on_the_one_before_it_is_replayed_with_it_while
     scratch_database: str, tmp_path: Path
 ) -> None:
     extras: Final = _extras_with_scratch_migration(
-        tmp_path, "20991231000000_add_team_region", 'ALTER TABLE "LiteLLM_TeamTable" ADD COLUMN "region" TEXT;\n'
+        tmp_path, "20991231000000_add_team_region", 'ALTER TABLE "HangarLLM_TeamTable" ADD COLUMN "region" TEXT;\n'
     )
     (extras / "migrations" / "20991231000001_index_team_region").mkdir()
     (extras / "migrations" / "20991231000001_index_team_region" / "migration.sql").write_text(
-        'CREATE INDEX CONCURRENTLY "LiteLLM_TeamTable_region_idx" ON "LiteLLM_TeamTable"("region");\n'
+        'CREATE INDEX CONCURRENTLY "HangarLLM_TeamTable_region_idx" ON "HangarLLM_TeamTable"("region");\n'
     )
     (extras / "migrations" / "20991231000002_index_team_alias").mkdir()
     (extras / "migrations" / "20991231000002_index_team_alias" / "migration.sql").write_text(
-        'CREATE INDEX "LiteLLM_TeamTable_alias_idx" ON "LiteLLM_TeamTable"("team_alias");\n'
+        'CREATE INDEX "HangarLLM_TeamTable_alias_idx" ON "HangarLLM_TeamTable"("team_alias");\n'
     )
     with psycopg.connect(scratch_database, autocommit=True) as conn:
         result: Final = migration_dry_run.dry_run(conn, "public", extras / "migrations")
         region: Final = conn.execute(
-            "SELECT 1 FROM information_schema.columns WHERE table_name = 'LiteLLM_TeamTable' AND column_name = 'region'"
+            "SELECT 1 FROM information_schema.columns WHERE table_name = 'HangarLLM_TeamTable' AND column_name = 'region'"
         ).fetchone()
 
     assert result.rejected is None, result
@@ -1262,7 +1262,7 @@ def test_a_migration_that_depends_on_the_one_before_it_is_replayed_with_it_while
     with psycopg.connect(scratch_database) as conn:
         probe_indexes: Final = conn.execute(
             "SELECT indexname FROM pg_indexes "
-            "WHERE indexname IN ('LiteLLM_TeamTable_region_idx', 'LiteLLM_TeamTable_alias_idx')"
+            "WHERE indexname IN ('HangarLLM_TeamTable_region_idx', 'HangarLLM_TeamTable_alias_idx')"
         ).fetchall()
     assert probe_indexes == [], probe_indexes
 
@@ -1289,7 +1289,7 @@ def test_a_database_with_tables_but_no_ledger_is_judged_by_the_schema_diff_inste
             PACKAGE / "migrations",
             baseline_check=lambda: ProxyExtrasDBManager._baseline_refusal(
                 _extras_with_scratch_migration(
-                    tmp_path, "20991231000000_custom", 'ALTER TABLE "LiteLLM_TeamTable" ADD COLUMN "c" TEXT;\n'
+                    tmp_path, "20991231000000_custom", 'ALTER TABLE "HangarLLM_TeamTable" ADD COLUMN "c" TEXT;\n'
                 )
             ),
         )

@@ -9,9 +9,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.a2a_protocol.providers.pydantic_ai_agents.config import PydanticAIProviderConfig
-from litellm.a2a_protocol.providers.pydantic_ai_agents.transformation import (
+import hangarllm
+from hangarllm.a2a_protocol.providers.pydantic_ai_agents.config import PydanticAIProviderConfig
+from hangarllm.a2a_protocol.providers.pydantic_ai_agents.transformation import (
     PydanticAITransformation,
 )
 
@@ -49,7 +49,7 @@ async def test_send_non_streaming_request_forwards_agent_extra_headers():
     mock_client = _build_mock_client(completed_payload)
 
     with patch(
-        "litellm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
+        "hangarllm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
         return_value=mock_client,
     ):
         await PydanticAITransformation.send_non_streaming_request(
@@ -97,7 +97,7 @@ async def test_send_non_streaming_request_without_headers_preserves_content_type
     mock_client = _build_mock_client(completed_payload)
 
     with patch(
-        "litellm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
+        "hangarllm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
         return_value=mock_client,
     ):
         await PydanticAITransformation.send_non_streaming_request(
@@ -138,7 +138,7 @@ async def test_content_type_is_preserved_when_caller_tries_to_override():
     mock_client = _build_mock_client(completed_payload)
 
     with patch(
-        "litellm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
+        "hangarllm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
         return_value=mock_client,
     ):
         await PydanticAITransformation.send_non_streaming_request(
@@ -161,7 +161,7 @@ async def test_content_type_is_preserved_when_caller_tries_to_override():
 @pytest.mark.asyncio
 async def test_provider_config_threads_agent_extra_headers():
     """End-to-end: PydanticAIProviderConfig forwards agent_extra_headers down the stack."""
-    from litellm.a2a_protocol.providers.pydantic_ai_agents.config import (
+    from hangarllm.a2a_protocol.providers.pydantic_ai_agents.config import (
         PydanticAIProviderConfig,
     )
 
@@ -184,7 +184,7 @@ async def test_provider_config_threads_agent_extra_headers():
     mock_client = _build_mock_client(completed_payload)
 
     with patch(
-        "litellm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
+        "hangarllm.a2a_protocol.providers.pydantic_ai_agents.transformation.get_async_httpx_client",
         return_value=mock_client,
     ):
         await PydanticAIProviderConfig().handle_non_streaming(
@@ -224,7 +224,7 @@ def _user_params() -> dict[str, object]:
 
 @pytest.fixture
 def agent_route(monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter) -> respx.Route:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     return respx_mock.post("http://agent.test/").mock(return_value=httpx.Response(200, json=COMPLETED_TASK))
 
 
@@ -254,7 +254,7 @@ async def test_provider_config_non_streaming_forwards_timeout_and_ignores_unrela
         api_base="http://agent.test",
         timeout=5.5,
         agent_extra_headers={"x-trace-id": "abc-123"},
-        litellm_params={"custom_llm_provider": "pydantic_ai_agents"},
+        hangarllm_params={"custom_llm_provider": "pydantic_ai_agents"},
     )
 
     request: Final = agent_route.calls.last.request

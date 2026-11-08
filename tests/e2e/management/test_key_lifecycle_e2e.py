@@ -37,7 +37,7 @@ from models import (
     KeyInfoResponse,
     KeyMetadata,
     KeyUpdateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     TeamNewBody,
 )
 from proxy_client import Converged, NotConverged, Poller, await_converged, await_converged_everywhere
@@ -70,7 +70,7 @@ def mock_deployment(client: ManagementClient) -> Iterator[str]:
     provider key. The alias carries a unique marker, like every other model this suite
     registers, so concurrent runs never share one model group."""
     model_name: Final = f"e2e-key-lifecycle-{unique_marker()}"
-    model_id: Final = client.proxy.create_model(model_name, LiteLLMParamsBody(model=BACKING_MODEL, mock_response="ok"))
+    model_id: Final = client.proxy.create_model(model_name, HangarLLMParamsBody(model=BACKING_MODEL, mock_response="ok"))
     try:
         yield model_name
     finally:

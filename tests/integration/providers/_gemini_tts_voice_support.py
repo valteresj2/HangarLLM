@@ -78,8 +78,8 @@ PCM_B64: Final = base64.b64encode(PCM).decode()
 AUDIO_MIME: Final = "audio/L16;codec=pcm;rate=24000"
 PROMPT_TOKENS: Final = 5
 AUDIO_TOKENS: Final = 50
-SPEND_BY_ID_SQL: Final = 'SELECT call_type, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
-SPEND_BY_KEY_SQL: Final = 'SELECT call_type, request_id FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+SPEND_BY_ID_SQL: Final = 'SELECT call_type, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
+SPEND_BY_KEY_SQL: Final = 'SELECT call_type, request_id FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 
 
 def marker() -> str:
@@ -236,7 +236,7 @@ def audio_data(payload: Mapping[str, JsonValue]) -> str:
 LIVE_BACKEND: Final = "gemini-3.8-live"
 LIVE_INPUT_TOKENS: Final = 7
 LIVE_OUTPUT_TOKENS: Final = 5
-SPEND_BY_CALL_SQL: Final = 'SELECT call_type, completion_tokens FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = %s'
+SPEND_BY_CALL_SQL: Final = 'SELECT call_type, completion_tokens FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = %s'
 
 
 def voice_in(body: Mapping[str, JsonValue]) -> JsonValue:
@@ -249,7 +249,7 @@ def voice_in(body: Mapping[str, JsonValue]) -> JsonValue:
 
 
 def spend_row_by_call(call_id: str) -> dict[str, JsonValue]:
-    assert call_id, "the response carried no x-litellm-call-id"
+    assert call_id, "the response carried no x-hangarllm-call-id"
     rows: Final = eventually(
         lambda: read_rows(SPEND_BY_CALL_SQL, (call_id,)), lambda values: len(values) == 1, seconds=70
     )
@@ -348,19 +348,19 @@ HEALTH_FABLE: Final = "tts-health-fable"
 def _health_model(name: str, **model_info: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": f"gemini/{BACKEND}", "api_key": GEMINI_API_KEY},
+        "hangarllm_params": {"model": f"gemini/{BACKEND}", "api_key": GEMINI_API_KEY},
         "model_info": {"mode": "audio_speech", **model_info},
     }
 
 
 def owned_config(directory: Path, model_list: Sequence[JsonValue]) -> Path:
     config: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
-    settings: Final = object_value(config["litellm_settings"])
+    settings: Final = object_value(config["hangarllm_settings"])
     cache_params: Final = {**object_value(settings["cache_params"]), "namespace": f"tts-{uuid.uuid4().hex}"}
     merged: Final = {
         **config,
         "model_list": list(model_list),
-        "litellm_settings": {**settings, "cache_params": cache_params},
+        "hangarllm_settings": {**settings, "cache_params": cache_params},
         "router_settings": {**object_value(config["router_settings"]), "num_retries": 0},
     }
     path: Final = directory / f"gemini-tts-{uuid.uuid4().hex}.yaml"

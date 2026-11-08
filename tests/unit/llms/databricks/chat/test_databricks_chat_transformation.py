@@ -13,27 +13,27 @@ from pydantic import TypeAdapter
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.constants import (
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
     RESPONSE_FORMAT_UNFORCED_TOOL_DESCRIPTION,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.databricks.common_utils import DatabricksException
-from litellm.llms.databricks.chat.transformation import (
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.databricks.common_utils import DatabricksException
+from hangarllm.llms.databricks.chat.transformation import (
     DatabricksChatResponseIterator,
     DatabricksConfig,
     _sanitize_empty_content,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponseStream, StreamingChoices
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.utils import ModelResponseStream, StreamingChoices
 import asyncio
 from unittest.mock import Mock
-from litellm._version import version
-from litellm.utils import CustomStreamWrapper
+from hangarllm._version import version
+from hangarllm.utils import CustomStreamWrapper
 from typing import Any, Dict
 from typing import List
 
@@ -64,17 +64,17 @@ JSON_SCHEMA_RESPONSE_FORMAT: Final = {
 
 @pytest.fixture()
 def _use_local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
 
 @pytest.fixture
 def _databricks_httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
-    monkeypatch.setattr(litellm, "sync_transport", None, raising=False)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "sync_transport", None, raising=False)
     yield
     client_cache.flush_cache()
 
@@ -485,7 +485,7 @@ def test_transform_request_preserves_unity_model_service_name():
         model="system.ai.kimi-k3",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -587,7 +587,7 @@ def test_transform_request_collapses_single_plain_text_block_for_non_claude_mode
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     )
@@ -612,7 +612,7 @@ def _outgoing_messages(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params={"drop_params": True} if drop_params else {},
+            hangarllm_params={"drop_params": True} if drop_params else {},
             headers={},
         )
     )
@@ -866,7 +866,7 @@ def test_transform_request_json_object_keeps_message_cache_control_parts_as_sent
 
 
 def test_transform_request_json_object_reads_the_global_drop_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
 
     assert _outgoing_messages(
         "databricks-meta-llama-3-3-70b-instruct",
@@ -876,7 +876,7 @@ def test_transform_request_json_object_reads_the_global_drop_params(monkeypatch:
 
 
 def test_transform_request_strips_thinking_blocks_and_reasoning_content():
-    """Regression for LIT-6762: replaying an assistant turn that litellm decorated with
+    """Regression for LIT-6762: replaying an assistant turn that hangarllm decorated with
     `thinking_blocks` / `reasoning_content` made Databricks 400 with
     'messages.N.thinking_blocks: Extra inputs are not permitted'."""
     config = DatabricksConfig()
@@ -898,7 +898,7 @@ def test_transform_request_strips_thinking_blocks_and_reasoning_content():
         model="databricks-claude-opus-5",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )["messages"]
 
@@ -939,7 +939,7 @@ def test_transform_request_drops_thinking_only_assistant_turn_but_keeps_tool_cal
         model="databricks-claude-opus-5",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )["messages"]
 
@@ -1001,7 +1001,7 @@ def test_transform_request_splits_parallel_tool_calls_for_gpt():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )["messages"]
 
@@ -1030,7 +1030,7 @@ def test_transform_request_pairs_out_of_order_parallel_results():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )["messages"]
 
@@ -1062,7 +1062,7 @@ def test_transform_request_leaves_single_tool_call_untouched():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )["messages"]
 
@@ -1084,7 +1084,7 @@ def test_transform_request_does_not_drop_tool_calls_on_incomplete_results():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )["messages"]
 
@@ -1104,7 +1104,7 @@ def test_transform_request_keeps_parallel_tool_calls_for_claude():
         model="databricks-claude-3-7-sonnet",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )["messages"]
 
@@ -1422,7 +1422,7 @@ def test_completion_merges_leading_system_and_developer_messages_for_chat_templa
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="databricks/my-custom-model",
         messages=[
             {"role": "system", "content": "You are terse."},
@@ -1458,7 +1458,7 @@ def test_completion_merges_system_messages_when_one_has_empty_content(respx_mock
         )
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="databricks/my-custom-model",
         messages=[
             {"role": "system", "content": "You are terse."},
@@ -1508,7 +1508,7 @@ def test_completions_with_sync_http_handler(monkeypatch):
     messages = [{"role": "user", "content": "How are you?"}]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="databricks/dbrx-instruct-071224",
             messages=messages,
             client=sync_handler,
@@ -1562,7 +1562,7 @@ def test_completions_with_async_http_handler(monkeypatch):
         AsyncHTTPHandler, "post", return_value=mock_response
     ) as mock_post:
         response = asyncio.run(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="databricks/dbrx-instruct-071224",
                 messages=messages,
                 client=async_handler,
@@ -1605,7 +1605,7 @@ def test_completions_streaming_with_sync_http_handler(monkeypatch):
     mock_response = mock_http_handler_chat_streaming_response()
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response_stream: CustomStreamWrapper = litellm.completion(
+        response_stream: CustomStreamWrapper = hangarllm.completion(
             model="databricks/dbrx-instruct-071224",
             messages=messages,
             client=sync_handler,
@@ -1656,7 +1656,7 @@ def test_completions_streaming_with_async_http_handler(monkeypatch):
         AsyncHTTPHandler, "post", return_value=mock_response
     ) as mock_post:
         response_stream: CustomStreamWrapper = asyncio.run(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="databricks/dbrx-instruct-071224",
                 messages=messages,
                 client=async_handler,
@@ -1712,7 +1712,7 @@ def test_embeddings_with_sync_http_handler(monkeypatch):
     inputs = ["Hello", "World"]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="databricks/bge-large-en-v1.5",
             input=inputs,
             client=sync_handler,
@@ -1725,7 +1725,7 @@ def test_embeddings_with_sync_http_handler(monkeypatch):
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": f"litellm/{version}",
+                "User-Agent": f"hangarllm/{version}",
             },
             data=json.dumps(
                 {
@@ -1754,7 +1754,7 @@ def test_embeddings_with_async_http_handler(monkeypatch):
         AsyncHTTPHandler, "post", return_value=mock_response
     ) as mock_post:
         response = asyncio.run(
-            litellm.aembedding(
+            hangarllm.aembedding(
                 model="databricks/bge-large-en-v1.5",
                 input=inputs,
                 client=async_handler,
@@ -1768,7 +1768,7 @@ def test_embeddings_with_async_http_handler(monkeypatch):
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": f"litellm/{version}",
+                "User-Agent": f"hangarllm/{version}",
             },
             data=json.dumps(
                 {
@@ -1797,16 +1797,16 @@ async def test_databricks_embeddings(sync_mode, monkeypatch):
     mock_response.status_code = 200
     mock_response.json.return_value = mock_embedding_response()
 
-    inputs = ["good morning from litellm"]
+    inputs = ["good morning from hangarllm"]
     instruction = "Represent this sentence for searching relevant passages:"
 
-    litellm.set_verbose = True
-    litellm.drop_params = True
+    hangarllm.set_verbose = True
+    hangarllm.drop_params = True
 
     if sync_mode:
         sync_handler = HTTPHandler()
         with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="databricks/databricks-bge-large-en",
                 input=inputs,
                 instruction=instruction,
@@ -1822,7 +1822,7 @@ async def test_databricks_embeddings(sync_mode, monkeypatch):
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
-                    "User-Agent": f"litellm/{version}",
+                    "User-Agent": f"hangarllm/{version}",
                 },
                 data=json.dumps(
                     {
@@ -1837,7 +1837,7 @@ async def test_databricks_embeddings(sync_mode, monkeypatch):
         with patch.object(
             AsyncHTTPHandler, "post", return_value=mock_response
         ) as mock_post:
-            response = await litellm.aembedding(
+            response = await hangarllm.aembedding(
                 model="databricks/databricks-bge-large-en",
                 input=inputs,
                 instruction=instruction,
@@ -1853,7 +1853,7 @@ async def test_databricks_embeddings(sync_mode, monkeypatch):
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
-                    "User-Agent": f"litellm/{version}",
+                    "User-Agent": f"hangarllm/{version}",
                 },
                 data=json.dumps(
                     {
@@ -1902,7 +1902,7 @@ def test_completion_with_prompt_caching_anthropic_model_repeat(monkeypatch):
     ]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="databricks/databricks-claude-3-7-sonnet",
             messages=messages,
             client=sync_handler,
@@ -1920,7 +1920,7 @@ def test_completion_with_prompt_caching_anthropic_model_repeat(monkeypatch):
         assert mock_post.call_args.kwargs["stream"] == False
 
         # TODO: add test for entire expected output schema in the future
-        # Check the response object returned from litellm.completion()
+        # Check the response object returned from hangarllm.completion()
         assert "claude-3-7-sonnet" in response["model"]
         assert response["usage"]["cache_read_input_tokens"] == 1545
         assert response["usage"]["cache_creation_input_tokens"] == 0
@@ -1964,7 +1964,7 @@ def test_completion_with_prompt_caching_nonanthropic_model(monkeypatch):
     ]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="databricks/databricks-gpt-oss-20b",
             messages=messages,
             client=sync_handler,
@@ -1982,7 +1982,7 @@ def test_completion_with_prompt_caching_nonanthropic_model(monkeypatch):
         assert mock_post.call_args.kwargs["stream"] == False
 
         # TODO: add test for entire expected output schema in the future
-        # Check the response object returned from litellm.completion()
+        # Check the response object returned from hangarllm.completion()
         assert "gpt-oss-20b" in response["model"]
         assert ("cache_read_input_tokens" not in response["usage"]) or response[
             "usage"
@@ -2002,7 +2002,7 @@ def test_completion_with_prompt_caching_nonanthropic_model(monkeypatch):
 def test_databricks_anthropic_function_call_with_no_schema(model, monkeypatch):
     """
     Test function calling with tools that have no parameters schema using mocked HTTP responses.
-    Relevant Issue: https://github.com/BerriAI/litellm/issues/6012
+    Relevant Issue: upstream issue 6012
     """
     base_url = "https://my.workspace.cloud.databricks.com/serving-endpoints"
     api_key = "dapimykey"
@@ -2062,7 +2062,7 @@ def test_databricks_anthropic_function_call_with_no_schema(model, monkeypatch):
     ]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model=model,
             messages=messages,
             tools=tools,
@@ -2097,7 +2097,7 @@ def test_databricks_anthropic_user_string_content_cache_injection(monkeypatch):
     cache_control_injection_points = [{"location": "message", "role": "user"}]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="databricks/databricks-claude-3-7-sonnet",
             messages=messages,
             client=sync_handler,
@@ -2116,7 +2116,7 @@ def test_databricks_anthropic_user_string_content_cache_injection(monkeypatch):
         assert mock_post.call_args.kwargs["stream"] == False
 
         # TODO: add test for entire expected output schema in the future
-        # Check the response object returned from litellm.completion()
+        # Check the response object returned from hangarllm.completion()
         assert "claude-3-7-sonnet" in response["model"]
         assert response["usage"]["cache_read_input_tokens"] == 0
         assert response["usage"]["cache_creation_input_tokens"] == 1545
@@ -2144,7 +2144,7 @@ def test_databricks_anthropic_system_string_content_cache_injection(monkeypatch)
     cache_control_injection_points = [{"location": "message", "role": "system"}]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="databricks/databricks-claude-3-7-sonnet",
             messages=messages,
             client=sync_handler,
@@ -2163,7 +2163,7 @@ def test_databricks_anthropic_system_string_content_cache_injection(monkeypatch)
         assert mock_post.call_args.kwargs["stream"] == False
 
         # TODO: add test for entire expected output schema in the future
-        # Check the response object returned from litellm.completion()
+        # Check the response object returned from hangarllm.completion()
         assert "claude-3-7-sonnet" in response["model"]
         assert response["usage"]["cache_read_input_tokens"] == 0
         assert response["usage"]["cache_creation_input_tokens"] == 1545
@@ -2198,7 +2198,7 @@ def test_databricks_anthropic_system_string_content_cache_injection_not_enough_t
     cache_control_injection_points = [{"location": "message", "role": "system"}]
 
     with patch.object(HTTPHandler, "post", return_value=mock_response) as mock_post:
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="databricks/databricks-claude-3-7-sonnet",
             messages=messages,
             client=sync_handler,
@@ -2217,7 +2217,7 @@ def test_databricks_anthropic_system_string_content_cache_injection_not_enough_t
         assert mock_post.call_args.kwargs["stream"] == False
 
         # TODO: add test for entire expected output schema in the future
-        # Check the response object returned from litellm.completion()
+        # Check the response object returned from hangarllm.completion()
         assert "claude-3-7-sonnet" in response["model"]
         assert response["usage"]["cache_read_input_tokens"] == 0
         assert response["usage"]["cache_creation_input_tokens"] == 0
@@ -2564,7 +2564,7 @@ def mock_chat_streaming_response_chunks() -> List[str]:
     ),
 )
 def test_databricks_non_claude_json_schema_preserves_refs(model: str) -> None:
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model=model,
         custom_llm_provider="databricks",
         response_format=copy.deepcopy(JSON_SCHEMA_RESPONSE_FORMAT),
@@ -2574,7 +2574,7 @@ def test_databricks_non_claude_json_schema_preserves_refs(model: str) -> None:
 
 
 def test_databricks_claude_json_schema_preserves_refs_in_tool_parameters() -> None:
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model="databricks-claude-haiku-4-5",
         custom_llm_provider="databricks",
         response_format=copy.deepcopy(JSON_SCHEMA_RESPONSE_FORMAT),
@@ -2612,7 +2612,7 @@ def test_databricks_claude_json_schema_preserves_refs_in_tool_parameters() -> No
 def test_databricks_claude_json_tool_is_forced_only_when_the_model_will_not_think(
     local_model_cost_map: None, model: str, thinking_params: dict[str, object], forced: bool
 ) -> None:
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model=model,
         custom_llm_provider="databricks",
         response_format=copy.deepcopy(JSON_SCHEMA_RESPONSE_FORMAT),
@@ -2623,7 +2623,7 @@ def test_databricks_claude_json_tool_is_forced_only_when_the_model_will_not_thin
             model=model,
             messages=[{"role": "user", "content": "Name the capital of France."}],
             optional_params=dict(optional_params),
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     )
@@ -2647,7 +2647,7 @@ def test_databricks_pydantic_json_schema_preserves_nested_refs() -> None:
 
         person: Person
 
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model="databricks-meta-llama-3-3-70b-instruct",
         custom_llm_provider="databricks",
         response_format=Order,
@@ -2687,7 +2687,7 @@ def test_completion_with_prompt_caching_anthropic_model(
         {"role": "user", "content": [cached_block]},
     ]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="databricks/databricks-claude-3-7-sonnet",
         messages=messages,
         temperature=0.5,
@@ -2707,7 +2707,7 @@ def test_completion_with_prompt_caching_anthropic_model(
 
 
 def test_get_optional_params_keeps_service_tier_for_databricks() -> None:
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model="databricks-claude-opus-5",
         custom_llm_provider="databricks",
         service_tier="priority",
@@ -2733,12 +2733,12 @@ def test_transform_response_carries_served_service_tier(served_tier: str | None)
     result: Final = DatabricksConfig().transform_response(
         model="databricks/dbrx",
         raw_response=raw_response,
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         logging_obj=MagicMock(),
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -2756,8 +2756,8 @@ _DATABRICKS_TOOLS_WITH_OPENAI_TOOL_SEARCH: Final = [
 
 
 def test_databricks_claude_answers_400_for_the_openai_tool_search_tool_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         DatabricksConfig().map_openai_params(
             non_default_params={"tools": _DATABRICKS_TOOLS_WITH_OPENAI_TOOL_SEARCH},
             optional_params={},
@@ -2769,7 +2769,7 @@ def test_databricks_claude_answers_400_for_the_openai_tool_search_tool_without_d
 
 
 def test_databricks_claude_drops_the_openai_tool_search_tool_under_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = DatabricksConfig().map_openai_params(
         non_default_params={"tools": _DATABRICKS_TOOLS_WITH_OPENAI_TOOL_SEARCH},
         optional_params={},
@@ -2785,7 +2785,7 @@ def test_databricks_claude_drops_the_openai_tool_search_tool_under_drop_params(m
 def test_databricks_chat_drops_beta_gated_thinking_fields_only_under_drop_params(
     drop_params: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     thinking: Final = {
         "type": "adaptive",
         "block_binding": {"prefix_mismatch_behavior": "error"},
@@ -2806,7 +2806,7 @@ def test_databricks_chat_drops_beta_gated_thinking_fields_only_under_drop_params
 
 
 def test_databricks_chat_keeps_ungated_thinking_display_under_drop_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = DatabricksConfig().map_openai_params(
         non_default_params={"thinking": {"type": "adaptive", "display": "summarized"}},
         optional_params={},
@@ -2899,12 +2899,12 @@ _TEXT_ANSWER_DELTAS: Final = tuple({"content": fragment} for fragment in _JSON_T
 
 
 async def _collect_async_stream(request: dict[str, object]) -> list[ModelResponseStream]:
-    return [chunk async for chunk in await litellm.acompletion(**request, stream=True)]
+    return [chunk async for chunk in await hangarllm.acompletion(**request, stream=True)]
 
 
 def _stream_chunks(request: dict[str, object], call: str) -> list[ModelResponseStream]:
     if call == "completion":
-        return list(litellm.completion(**request, stream=True))
+        return list(hangarllm.completion(**request, stream=True))
     return asyncio.run(_collect_async_stream(request))
 
 
@@ -2952,7 +2952,7 @@ def test_claude_json_schema_stream_returns_the_non_stream_answer(
         "api_key": DATABRICKS_API_KEY,
     }
 
-    answer: Final = litellm.completion(**request).choices[0]
+    answer: Final = hangarllm.completion(**request).choices[0]
     choices: Final = tuple(chunk.choices[0] for chunk in _stream_chunks(request, call) if chunk.choices)
 
     assert answer.message.content == _JSON_ANSWER
@@ -3008,7 +3008,7 @@ def test_claude_json_schema_stream_keeps_the_user_tool_call_to_run(
         "api_key": DATABRICKS_API_KEY,
     }
 
-    answer: Final = litellm.completion(**request).choices[0]
+    answer: Final = hangarllm.completion(**request).choices[0]
     state: Final = ChatCompletionStreamState()
     for chunk in _stream_chunks(request, call):
         state.handle_chunk(ChatCompletionChunk.model_validate(chunk.model_dump()))
@@ -3076,7 +3076,7 @@ def test_claude_json_schema_stream_split_across_json_tools_keeps_the_non_stream_
             200, json=_completion(None, tuple(("json_tool_call", half) for half in halves), "tool_calls")
         )
     )
-    answer: Final = litellm.completion(
+    answer: Final = hangarllm.completion(
         model="databricks/databricks-claude-haiku-5-5",
         messages=[{"role": "user", "content": "Return name Ada, an empty meta object, and empty tags."}],
         response_format=_RECORD_RESPONSE_FORMAT,
@@ -3104,8 +3104,8 @@ _WEATHER_FUNCTION_TOOL: Final = {
 
 
 def test_databricks_claude_answers_400_for_a_hosted_mcp_tool_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         DatabricksConfig().map_openai_params(
             non_default_params={"tools": [_WEATHER_FUNCTION_TOOL, _HOSTED_MCP_TOOL]},
             optional_params={},
@@ -3118,7 +3118,7 @@ def test_databricks_claude_answers_400_for_a_hosted_mcp_tool_without_drop_params
 
 
 def test_databricks_claude_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_function_tool(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     with caplog.at_level("WARNING"):
         mapped: Final = DatabricksConfig().map_openai_params(
             non_default_params={"tools": [_HOSTED_MCP_TOOL, _WEATHER_FUNCTION_TOOL]},
@@ -3133,7 +3133,7 @@ def test_databricks_claude_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_t
 
 
 def test_databricks_claude_sends_no_tools_when_drop_params_drops_every_hosted_mcp_tool(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = DatabricksConfig().map_openai_params(
         non_default_params={"tools": [_HOSTED_MCP_TOOL], "tool_choice": "required"},
         optional_params={},
@@ -3147,7 +3147,7 @@ def test_databricks_claude_sends_no_tools_when_drop_params_drops_every_hosted_mc
 def test_databricks_claude_still_sends_max_completion_tokens_as_max_tokens_when_dropping_a_hosted_mcp_tool(
     monkeypatch,
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = DatabricksConfig().map_openai_params(
         non_default_params={"tools": [_HOSTED_MCP_TOOL, _WEATHER_FUNCTION_TOOL], "max_completion_tokens": 64},
         optional_params={},
@@ -3167,7 +3167,7 @@ def test_databricks_claude_still_sends_max_completion_tokens_as_max_tokens_when_
 def test_databricks_claude_request_over_the_cache_control_cap_keeps_the_newest_four_hints_under_drop_params(
     model: str, base_model: str | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     hint: Final = {"type": "ephemeral"}
     messages: Final = [
         {"role": "system", "content": "system prompt", "cache_control": hint},
@@ -3183,7 +3183,7 @@ def test_databricks_claude_request_over_the_cache_control_cap_keeps_the_newest_f
         model=model,
         messages=messages,
         optional_params={},
-        litellm_params={"drop_params": True, "custom_llm_provider": "databricks", "base_model": base_model},
+        hangarllm_params={"drop_params": True, "custom_llm_provider": "databricks", "base_model": base_model},
         headers={},
     )
 
@@ -3200,7 +3200,7 @@ def test_databricks_claude_request_over_the_cache_control_cap_keeps_the_newest_f
 def test_databricks_claude_cache_control_cap_keeps_room_for_a_top_level_cache_control_under_drop_params(
     optional_params: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     hint: Final = {"type": "ephemeral"}
     messages: Final = [
         {"role": "user", "content": "turn 1", "cache_control": hint},
@@ -3214,7 +3214,7 @@ def test_databricks_claude_cache_control_cap_keeps_room_for_a_top_level_cache_co
         model="databricks-claude-haiku-5-5",
         messages=messages,
         optional_params=copy.deepcopy(optional_params),
-        litellm_params={"drop_params": True, "custom_llm_provider": "databricks"},
+        hangarllm_params={"drop_params": True, "custom_llm_provider": "databricks"},
         headers={},
     )
 

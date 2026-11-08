@@ -1,18 +1,18 @@
 {
-  "name": "litellm-vscode",
-  "displayName": "LiteLLM",
-  "description": "Chat with every model behind your LiteLLM AI Gateway in VS Code, with live pricing and reasoning effort controls in the model picker",
+  "name": "hangarllm-vscode",
+  "displayName": "HangarLLM",
+  "description": "Chat with every model behind your HangarLLM AI Gateway in VS Code, with live pricing and reasoning effort controls in the model picker",
   "version": "0.1.0",
-  "publisher": "litellm",
+  "publisher": "hangarllm",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BerriAI/litellm.git",
+    "url": "https://github.com/valteresj2/HangarLLM.git",
     "directory": "vscode-extension"
   },
-  "homepage": "https://docs.litellm.ai",
+  "homepage": "https://github.com/valteresj2/HangarLLM#readme",
   "bugs": {
-    "url": "https://github.com/BerriAI/litellm/issues"
+    "url": "https://github.com/valteresj2/HangarLLM/issues"
   },
   "engines": {
     "vscode": "^1.115.0"
@@ -22,7 +22,7 @@
     "Chat"
   ],
   "keywords": [
-    "litellm",
+    "hangarllm",
     "ai gateway",
     "llm",
     "chat",
@@ -33,21 +33,21 @@
   "contributes": {
     "languageModelChatProviders": [
       {
-        "vendor": "litellm",
-        "displayName": "LiteLLM",
+        "vendor": "hangarllm",
+        "displayName": "HangarLLM",
         "configuration": {
           "type": "object",
           "properties": {
             "baseUrl": {
               "type": "string",
               "title": "Gateway URL",
-              "description": "Base URL of your LiteLLM AI Gateway, for example https://litellm.example.com",
+              "description": "Base URL of your HangarLLM AI Gateway, for example https://hangarllm.example.com",
               "default": "http://localhost:4000"
             },
             "apiKey": {
               "type": "string",
               "title": "API key",
-              "description": "A LiteLLM virtual key. The models offered are the ones this key can access",
+              "description": "A HangarLLM virtual key. The models offered are the ones this key can access",
               "secret": true
             }
           },
@@ -60,9 +60,9 @@
     ],
     "commands": [
       {
-        "command": "litellm.refreshModels",
+        "command": "hangarllm.refreshModels",
         "title": "Refresh Models",
-        "category": "LiteLLM"
+        "category": "HangarLLM"
       }
     ]
   },

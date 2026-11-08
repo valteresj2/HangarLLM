@@ -3,7 +3,7 @@ from typing import Final
 import pytest
 from starlette.requests import Request
 
-from litellm.proxy.deps.database import DatabaseStateMissingError, get_database
+from hangarllm.proxy.deps.database import DatabaseStateMissingError, get_database
 
 
 @pytest.mark.asyncio

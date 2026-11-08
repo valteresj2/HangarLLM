@@ -1,8 +1,8 @@
 """
 End-to-end tests for Vertex AI rerank `userLabels` propagation.
 
-These tests go through the full `litellm.rerank()` call path with the HTTP
-layer mocked, so they catch plumbing bugs (e.g. `litellm_params` losing
+These tests go through the full `hangarllm.rerank()` call path with the HTTP
+layer mocked, so they catch plumbing bugs (e.g. `hangarllm_params` losing
 `metadata` between the rerank entrypoint and the Vertex transform) that
 unit tests on `VertexAIRerankConfig.transform_rerank_request` miss.
 """
@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-import litellm.llms.vertex_ai.rerank.transformation
+import hangarllm
+import hangarllm.llms.vertex_ai.rerank.transformation
 
 
 def _extract_body(call_kwargs):
@@ -80,7 +80,7 @@ def clean_vertex_env():
 
 def _patch_vertex_auth():
     return patch.object(
-        litellm.llms.vertex_ai.rerank.transformation.VertexAIRerankConfig,
+        hangarllm.llms.vertex_ai.rerank.transformation.VertexAIRerankConfig,
         "_ensure_access_token",
         return_value=("test-access-token", "test-project-2049"),
     )
@@ -88,7 +88,7 @@ def _patch_vertex_auth():
 
 def test_rerank_userlabels_propagates_from_metadata_sync(clean_vertex_env):
     """
-    `litellm.rerank(metadata={"requester_metadata": {...}})` must end up as
+    `hangarllm.rerank(metadata={"requester_metadata": {...}})` must end up as
     `userLabels` on the Discovery Engine `:rank` request body.
     """
     captured = {}
@@ -100,11 +100,11 @@ def test_rerank_userlabels_propagates_from_metadata_sync(clean_vertex_env):
     with (
         _patch_vertex_auth(),
         patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             side_effect=fake_post,
         ),
     ):
-        litellm.rerank(
+        hangarllm.rerank(
             model="vertex_ai/semantic-ranker-default@latest",
             query="what is gemini?",
             documents=["hello", "world"],
@@ -117,14 +117,14 @@ def test_rerank_userlabels_propagates_from_metadata_sync(clean_vertex_env):
     assert body is not None, "expected POST body to be captured"
     assert "userLabels" in body, (
         "Vertex rerank request body is missing `userLabels` — metadata was "
-        "lost between litellm.rerank() and transform_rerank_request. "
+        "lost between hangarllm.rerank() and transform_rerank_request. "
         f"body keys: {sorted(body.keys())}"
     )
     assert body["userLabels"] == {"team": "platform", "env": "prod"}
 
 
 def test_rerank_userlabels_propagates_from_metadata_async(clean_vertex_env):
-    """Same as the sync test, but through `litellm.arerank`."""
+    """Same as the sync test, but through `hangarllm.arerank`."""
     captured = {}
 
     async def fake_post(*args, **kwargs):
@@ -134,12 +134,12 @@ def test_rerank_userlabels_propagates_from_metadata_async(clean_vertex_env):
     with (
         _patch_vertex_auth(),
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             side_effect=fake_post,
         ),
     ):
         asyncio.run(
-            litellm.arerank(
+            hangarllm.arerank(
                 model="vertex_ai/semantic-ranker-default@latest",
                 query="what is gemini?",
                 documents=["hello", "world"],
@@ -165,11 +165,11 @@ def test_rerank_userlabels_absent_when_no_metadata(clean_vertex_env):
     with (
         _patch_vertex_auth(),
         patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             side_effect=fake_post,
         ),
     ):
-        litellm.rerank(
+        hangarllm.rerank(
             model="vertex_ai/semantic-ranker-default@latest",
             query="what is gemini?",
             documents=["hello", "world"],

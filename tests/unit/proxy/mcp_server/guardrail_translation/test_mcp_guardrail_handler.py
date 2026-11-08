@@ -6,18 +6,18 @@ import pytest
 from fastapi import HTTPException
 from mcp.types import CallToolResult, ImageContent, TextContent
 
-import litellm
-import litellm.llms as litellm_llms
-from litellm.caching.caching import DualCache
-from litellm.exceptions import BlockedPiiEntityError
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.mcp_server.guardrail_translation.handler import (
+import hangarllm
+import hangarllm.llms as hangarllm_llms
+from hangarllm.caching.caching import DualCache
+from hangarllm.exceptions import BlockedPiiEntityError
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.mcp_server.guardrail_translation.handler import (
     MCPGuardrailTranslationHandler,
 )
-from litellm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 
 class MockGuardrail(CustomGuardrail):
@@ -126,15 +126,15 @@ class ArgumentMaskingGuardrail(CustomGuardrail):
 def restore_callbacks(monkeypatch):
     """Restore the process-wide state driving pre_call_hook through unified_guardrail.
 
-    litellm.llms memoizes the guardrail translation mappings in a module global, and
-    ProxyLogging caches callback capabilities keyed on id()s of litellm.callbacks,
+    hangarllm.llms memoizes the guardrail translation mappings in a module global, and
+    ProxyLogging caches callback capabilities keyed on id()s of hangarllm.callbacks,
     so leaving either populated leaks into unrelated tests in the same worker.
     """
-    monkeypatch.setattr(litellm, "callbacks", litellm.callbacks)
+    monkeypatch.setattr(hangarllm, "callbacks", hangarllm.callbacks)
     monkeypatch.setattr(
-        litellm_llms,
+        hangarllm_llms,
         "endpoint_guardrail_translation_mappings",
-        litellm_llms.endpoint_guardrail_translation_mappings,
+        hangarllm_llms.endpoint_guardrail_translation_mappings,
     )
     yield
     ProxyLogging._callback_capabilities_cache.clear()
@@ -382,7 +382,7 @@ async def test_masked_arguments_reach_the_outbound_mcp_call(restore_callbacks, m
         default_on=True,
         run_in_parallel=run_in_parallel,
     )
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     arguments = {"query": "contact jane.doe@example.com about the invoice"}
@@ -464,7 +464,7 @@ async def _arguments_sent_upstream(arguments: dict):
 @pytest.mark.asyncio
 async def test_two_sequential_guardrails_both_masks_survive(restore_callbacks, monkeypatch):
     """The recommended config: each guardrail sees the previous one's output."""
-    monkeypatch.setattr(litellm, "callbacks", _two_interleaving_maskers(run_in_parallel=False))
+    monkeypatch.setattr(hangarllm, "callbacks", _two_interleaving_maskers(run_in_parallel=False))
 
     sent = await _arguments_sent_upstream({"note": "mail jane.doe@example.com or call 415-555-0132"})
 
@@ -474,7 +474,7 @@ async def test_two_sequential_guardrails_both_masks_survive(restore_callbacks, m
 @pytest.mark.asyncio
 async def test_two_parallel_guardrails_on_separate_arguments_both_masks_survive(restore_callbacks, monkeypatch):
     """Concurrent rewrites of different leaves compose; neither is lost."""
-    monkeypatch.setattr(litellm, "callbacks", _two_interleaving_maskers(run_in_parallel=True))
+    monkeypatch.setattr(hangarllm, "callbacks", _two_interleaving_maskers(run_in_parallel=True))
 
     sent = await _arguments_sent_upstream({"email": "jane.doe@example.com", "phone": "415-555-0132"})
 
@@ -489,7 +489,7 @@ async def test_two_parallel_guardrails_on_one_argument_block_instead_of_losing_a
     writing either result would silently discard the other's redaction and leak
     the value it was configured to mask.
     """
-    monkeypatch.setattr(litellm, "callbacks", _two_interleaving_maskers(run_in_parallel=True))
+    monkeypatch.setattr(hangarllm, "callbacks", _two_interleaving_maskers(run_in_parallel=True))
     original = "mail jane.doe@example.com or call 415-555-0132"
 
     with pytest.raises(HTTPException) as exc_info:
@@ -698,7 +698,7 @@ async def test_structured_content_nested_too_deeply_is_blocked():
     """Too deep to walk must block rather than pass the deeper values unscanned."""
     from fastapi import HTTPException
 
-    from litellm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
+    from hangarllm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
 
     handler = MCPGuardrailTranslationHandler()
     guardrail = SubstitutingGuardrail("jane@example.com", "<EMAIL_ADDRESS>")
@@ -727,7 +727,7 @@ def test_too_deep_json_returns_a_sentinel_rather_than_raising():
     the helper so this pins the contract without reloading the module and leaking
     that reload into other tests.
     """
-    from litellm.proxy.mcp_server.utils import (
+    from hangarllm.proxy.mcp_server.utils import (
         MAX_STRUCTURED_CONTENT_SCAN_DEPTH,
         json_string_leaves,
     )

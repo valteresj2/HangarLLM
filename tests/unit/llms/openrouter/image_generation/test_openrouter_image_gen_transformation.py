@@ -5,11 +5,11 @@ import httpx
 import pytest
 
 
-from litellm.llms.openrouter.image_generation.transformation import (
+from hangarllm.llms.openrouter.image_generation.transformation import (
     OpenRouterImageGenerationConfig,
 )
-from litellm.llms.openrouter.common_utils import OpenRouterException
-from litellm.types.utils import ImageResponse
+from hangarllm.llms.openrouter.common_utils import OpenRouterException
+from hangarllm.types.utils import ImageResponse
 
 
 class TestOpenRouterImageGenerationTransformation:
@@ -170,7 +170,7 @@ class TestOpenRouterImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == "https://openrouter.ai/api/v1/chat/completions"
@@ -184,7 +184,7 @@ class TestOpenRouterImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == f"{custom_base}/chat/completions"
@@ -198,12 +198,12 @@ class TestOpenRouterImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == custom_base
 
-    @patch("litellm.llms.openrouter.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.openrouter.image_generation.transformation.get_secret_str")
     def test_validate_environment_with_api_key(self, mock_get_secret):
         """Test that validate_environment correctly sets authorization header."""
         headers = {}
@@ -214,14 +214,14 @@ class TestOpenRouterImageGenerationTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
         )
 
         assert result["Authorization"] == f"Bearer {api_key}"
         mock_get_secret.assert_not_called()
 
-    @patch("litellm.llms.openrouter.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.openrouter.image_generation.transformation.get_secret_str")
     def test_validate_environment_with_secret_key(self, mock_get_secret):
         """Test that validate_environment uses secret API key when api_key is None."""
         mock_get_secret.return_value = "secret_api_key"
@@ -232,7 +232,7 @@ class TestOpenRouterImageGenerationTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
         )
 
@@ -248,7 +248,7 @@ class TestOpenRouterImageGenerationTransformation:
             model=self.model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -268,7 +268,7 @@ class TestOpenRouterImageGenerationTransformation:
             model=self.model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -322,7 +322,7 @@ class TestOpenRouterImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -370,7 +370,7 @@ class TestOpenRouterImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -421,7 +421,7 @@ class TestOpenRouterImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -438,7 +438,7 @@ class TestOpenRouterImageGenerationTransformation:
         assert "additional_headers" in result._hidden_params
         assert (
             result._hidden_params["additional_headers"][
-                "llm_provider-x-litellm-response-cost"
+                "llm_provider-x-hangarllm-response-cost"
             ]
             == 0.0387243
         )
@@ -500,7 +500,7 @@ class TestOpenRouterImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -525,7 +525,7 @@ class TestOpenRouterImageGenerationTransformation:
                 logging_obj=self.logging_obj,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -561,7 +561,7 @@ class TestOpenRouterImageGenerationTransformation:
                 logging_obj=self.logging_obj,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -590,7 +590,7 @@ def _transform_generation_response(payload: object) -> ImageResponse:
         logging_obj=MagicMock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

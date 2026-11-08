@@ -1,13 +1,13 @@
 import pytest
 
-from litellm.integrations.opik.opik_payload_builder.extractors import (
+from hangarllm.integrations.opik.opik_payload_builder.extractors import (
     apply_proxy_header_overrides,
     extract_opik_metadata,
 )
 
 
 def test_extract_opik_metadata_fills_missing_keys_from_auth_metadata():
-    litellm_metadata = {"opik": {"project_name": "my-proj"}}
+    hangarllm_metadata = {"opik": {"project_name": "my-proj"}}
     standard_logging_metadata = {
         "user_api_key_auth_metadata": {
             "opik": {
@@ -18,7 +18,7 @@ def test_extract_opik_metadata_fills_missing_keys_from_auth_metadata():
     }
 
     result = extract_opik_metadata(
-        litellm_metadata=litellm_metadata,
+        hangarllm_metadata=hangarllm_metadata,
         standard_logging_metadata=standard_logging_metadata,
     )
 
@@ -29,7 +29,7 @@ def test_extract_opik_metadata_fills_missing_keys_from_auth_metadata():
 
 
 def test_extract_opik_metadata_request_metadata_overrides_auth_metadata():
-    litellm_metadata = {
+    hangarllm_metadata = {
         "opik": {
             "workspace": "request-workspace",
             "thread_id": "request-thread",
@@ -46,7 +46,7 @@ def test_extract_opik_metadata_request_metadata_overrides_auth_metadata():
     }
 
     result = extract_opik_metadata(
-        litellm_metadata=litellm_metadata,
+        hangarllm_metadata=hangarllm_metadata,
         standard_logging_metadata=standard_logging_metadata,
     )
 
@@ -58,7 +58,7 @@ def test_extract_opik_metadata_request_metadata_overrides_auth_metadata():
 
 
 def test_extract_opik_metadata_requester_metadata_overrides_all_other_sources():
-    litellm_metadata = {"opik": {"project_name": "request-project"}}
+    hangarllm_metadata = {"opik": {"project_name": "request-project"}}
     standard_logging_metadata = {
         "user_api_key_auth_metadata": {
             "opik": {
@@ -76,7 +76,7 @@ def test_extract_opik_metadata_requester_metadata_overrides_all_other_sources():
     }
 
     result = extract_opik_metadata(
-        litellm_metadata=litellm_metadata,
+        hangarllm_metadata=hangarllm_metadata,
         standard_logging_metadata=standard_logging_metadata,
     )
 

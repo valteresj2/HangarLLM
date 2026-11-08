@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.anthropic.messages.native.utils import AnthropicMessagesRequestUtils
+from hangarllm.llms.anthropic.messages.native.utils import AnthropicMessagesRequestUtils
 
 REQUEST: Final[dict[str, object]] = {
     "max_tokens": 64,

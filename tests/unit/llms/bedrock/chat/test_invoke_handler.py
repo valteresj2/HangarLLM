@@ -12,13 +12,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm import AmazonInvokeConfig
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import _get_provider_request_id
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.bedrock.chat.invoke_handler import (
+import hangarllm
+from hangarllm import AmazonInvokeConfig
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.hangarllm_logging import _get_provider_request_id
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.bedrock.chat.invoke_handler import (
     AmazonAnthropicClaudeStreamDecoder,
     AmazonOpenAICompatibleStreamDecoder,
     AWSEventStreamDecoder,
@@ -27,10 +27,10 @@ from litellm.llms.bedrock.chat.invoke_handler import (
     make_sync_call,
     response_format_schema_from_request,
 )
-from litellm.llms.bedrock.common_utils import BedrockError, get_bedrock_stream_event_statuses
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.bedrock import BedrockInvokeNovaRequest
-from litellm.types.utils import ModelResponseStream
+from hangarllm.llms.bedrock.common_utils import BedrockError, get_bedrock_stream_event_statuses
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.llms.bedrock import BedrockInvokeNovaRequest
+from hangarllm.types.utils import ModelResponseStream
 from tests.unit.llms.bedrock.slow_upstream import (
     STREAM_TIMEOUT_SECONDS,
     slow_upstream_async_client,
@@ -390,13 +390,13 @@ def _converse_stream_wrapper(events, model=CONVERSE_MODEL):
         completion_stream=bedrock_stream(),
         model=model,
         custom_llm_provider="bedrock",
-        logging_obj=LiteLLMLoggingObj(
+        logging_obj=HangarLLMLoggingObj(
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="completion",
             start_time=datetime.datetime.now(),
-            litellm_call_id="1234",
+            hangarllm_call_id="1234",
             function_id="1234",
         ),
     )
@@ -531,7 +531,7 @@ def test_nova_invoke_remove_empty_system_messages():
         inferenceConfig={"temperature": 0.7},
     )
 
-    litellm.AmazonInvokeNovaConfig()._remove_empty_system_messages(input_request)
+    hangarllm.AmazonInvokeNovaConfig()._remove_empty_system_messages(input_request)
 
     assert "system" not in input_request
     assert "messages" in input_request
@@ -555,7 +555,7 @@ def test_nova_invoke_filter_allowed_fields():
 
     input_request = BedrockInvokeNovaRequest(**_input_request)
 
-    result = litellm.AmazonInvokeNovaConfig()._filter_allowed_fields(input_request)
+    result = hangarllm.AmazonInvokeNovaConfig()._filter_allowed_fields(input_request)
 
     assert "additionalModelRequestFields" not in result
     assert "additionalModelResponseFieldPaths" not in result
@@ -569,7 +569,7 @@ def test_nova_invoke_streaming_chunk_parsing():
     Test that the AWSEventStreamDecoder correctly handles Nova's /bedrock/invoke/ streaming format
     where content is nested under 'contentBlockDelta'.
     """
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from hangarllm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
 
     # Initialize the decoder with a Nova model
     decoder = AWSEventStreamDecoder(model="bedrock/invoke/us.amazon.nova-micro-v1:0")
@@ -657,7 +657,7 @@ def test_invoke_streaming_forwards_bedrock_response_headers():
     client = HTTPHandler()
     client.post = MagicMock(return_value=response)
 
-    stream = litellm.completion(
+    stream = hangarllm.completion(
         model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -683,7 +683,7 @@ async def test_async_invoke_streaming_forwards_bedrock_response_headers():
     client = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=response)
 
-    stream = await litellm.acompletion(
+    stream = await hangarllm.acompletion(
         model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -719,8 +719,8 @@ def test_invoke_streaming_error_forwards_bedrock_response_headers():
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.ServiceUnavailableError) as exc_info:
+        hangarllm.completion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -745,8 +745,8 @@ async def test_async_invoke_streaming_error_forwards_bedrock_response_headers():
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.ServiceUnavailableError) as exc_info:
+        await hangarllm.acompletion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -784,8 +784,8 @@ def test_invoke_streaming_error_forwards_headers_when_body_was_never_read():
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.ServiceUnavailableError) as exc_info:
+        hangarllm.completion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -810,8 +810,8 @@ async def test_async_invoke_streaming_error_forwards_headers_when_body_was_never
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.ServiceUnavailableError) as exc_info:
+        await hangarllm.acompletion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -831,8 +831,8 @@ def test_invoke_streaming_non_200_forwards_bedrock_response_headers():
     client = HTTPHandler()
     client.post = MagicMock(return_value=error_response)
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.ServiceUnavailableError) as exc_info:
+        hangarllm.completion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -851,8 +851,8 @@ async def test_async_invoke_streaming_non_200_forwards_bedrock_response_headers(
     client = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=error_response)
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.ServiceUnavailableError) as exc_info:
+        await hangarllm.acompletion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -935,7 +935,7 @@ def test_moonshot_invoke_stream_yields_openai_shaped_chunks(
     client: Final = HTTPHandler()
     client.post = MagicMock(return_value=response)
 
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "weather as json"}],
         stream=True,
@@ -955,7 +955,7 @@ async def test_moonshot_invoke_async_stream_yields_openai_shaped_chunks(_aws_tes
     client: Final = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=response)
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "weather as json"}],
         stream=True,
@@ -1040,7 +1040,7 @@ def test_iter_bytes_yields_a_complete_stream_without_raising() -> None:
 def _assert_empty_stream_surfaced_as_bad_gateway(error: MidStreamFallbackError) -> None:
     assert error.status_code == 502
     assert error.is_pre_first_chunk is True
-    assert isinstance(error.original_exception, litellm.BadGatewayError)
+    assert isinstance(error.original_exception, hangarllm.BadGatewayError)
     assert "decoded to no events" in str(error)
     assert "req-empty-1" in str(error)
 
@@ -1053,7 +1053,7 @@ def test_converse_stream_with_an_empty_200_body_raises_instead_of_an_empty_turn(
 
     with pytest.raises(MidStreamFallbackError) as exc_info:
         list(
-            litellm.completion(
+            hangarllm.completion(
                 model="bedrock/us.moonshotai.kimi-k3",
                 messages=[{"role": "user", "content": "hi"}],
                 stream=True,
@@ -1076,7 +1076,7 @@ async def test_async_converse_stream_with_an_empty_200_body_raises_instead_of_an
     client: Final = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=response)
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="bedrock/us.moonshotai.kimi-k3",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -1129,7 +1129,7 @@ async def test_converse_streaming_completion_yields_text_and_finish_reason(
     transport: Final = httpx.MockTransport(handle_request)
     if async_mode:
         async_client: Final = AsyncHTTPHandler(transport=transport)
-        async_stream: Final = await litellm.acompletion(
+        async_stream: Final = await hangarllm.acompletion(
             model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=[{"role": "user", "content": "Say hello"}],
             stream=True,
@@ -1139,7 +1139,7 @@ async def test_converse_streaming_completion_yields_text_and_finish_reason(
         _assert_converse_stream_text_and_finish_reason(async_chunks)
     else:
         sync_client: Final = HTTPHandler(client=httpx.Client(transport=transport))
-        sync_stream: Final = litellm.completion(
+        sync_stream: Final = hangarllm.completion(
             model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=[{"role": "user", "content": "Say hello"}],
             stream=True,
@@ -1156,8 +1156,8 @@ async def _stream_chunks(
     request: Mapping[str, object], transport: httpx.MockTransport, async_mode: bool
 ) -> tuple[ModelResponseStream, ...]:
     if not async_mode:
-        return tuple(litellm.completion(**request, client=HTTPHandler(client=httpx.Client(transport=transport))))
-    async_stream: Final = await litellm.acompletion(**request, client=AsyncHTTPHandler(transport=transport))
+        return tuple(hangarllm.completion(**request, client=HTTPHandler(client=httpx.Client(transport=transport))))
+    async_stream: Final = await hangarllm.acompletion(**request, client=AsyncHTTPHandler(transport=transport))
     return tuple([chunk async for chunk in async_stream])
 
 
@@ -1272,7 +1272,7 @@ def test_mistral_invoke_stream_yields_text_and_finish_reason(
 
     transport: Final = httpx.MockTransport(handle_request)
     client: Final = HTTPHandler(client=httpx.Client(transport=transport))
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="bedrock/mistral.mixtral-8x7b-instruct-v0:1",
         messages=[{"role": "user", "content": "Where does a court case go?"}],
         stream=True,
@@ -1330,7 +1330,7 @@ def test_converse_streaming_tool_call_arguments_are_valid_json(
     transport: Final = httpx.MockTransport(handle_request)
     client: Final = HTTPHandler(client=httpx.Client(transport=transport))
     messages: Final = [{"role": "user", "content": "What is the weather in Boston?"}]
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=messages,
         tools=[
@@ -1354,7 +1354,7 @@ def test_converse_streaming_tool_call_arguments_are_valid_json(
         client=client,
     )
     chunks: Final = tuple(stream)
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(chunks), messages=messages)
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(chunks), messages=messages)
     assert assembled.choices[0].message.tool_calls[0].function.name == "get_current_weather"
     assert json.loads(assembled.choices[0].message.tool_calls[0].function.arguments) == {
         "location": "Boston",
@@ -1554,7 +1554,7 @@ def test_iter_bytes_streams_and_fails_normally_with_a_non_ascii_provider_request
 
 
 def _assert_exception_event_surfaced_with_its_modeled_status(error: BaseException, event_type: str) -> None:
-    assert not isinstance(error, litellm.BadGatewayError)
+    assert not isinstance(error, hangarllm.BadGatewayError)
     assert getattr(error, "status_code", None) == _modeled_status(event_type)
     assert event_type in str(error)
     assert _UPSTREAM_REJECTION in str(error)
@@ -1572,7 +1572,7 @@ def test_converse_stream_with_an_exception_event_frame_raises_instead_of_an_empt
 
     with pytest.raises(Exception, match=re.escape(_UPSTREAM_REJECTION)) as exc_info:
         list(
-            litellm.completion(
+            hangarllm.completion(
                 model="bedrock/us.moonshotai.kimi-k3",
                 messages=[{"role": "user", "content": "hi"}],
                 stream=True,
@@ -1597,7 +1597,7 @@ async def test_async_converse_stream_with_an_exception_event_frame_raises_instea
     client: Final = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=response)
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="bedrock/us.moonshotai.kimi-k3",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -1619,7 +1619,7 @@ def test_converse_stream_made_only_of_unknown_events_raises_instead_of_an_empty_
 
     with pytest.raises(MidStreamFallbackError) as exc_info:
         list(
-            litellm.completion(
+            hangarllm.completion(
                 model="bedrock/us.moonshotai.kimi-k3",
                 messages=[{"role": "user", "content": "hi"}],
                 stream=True,
@@ -1629,7 +1629,7 @@ def test_converse_stream_made_only_of_unknown_events_raises_instead_of_an_empty_
 
     assert exc_info.value.status_code == 502
     assert exc_info.value.is_pre_first_chunk is True
-    assert isinstance(exc_info.value.original_exception, litellm.BadGatewayError)
+    assert isinstance(exc_info.value.original_exception, hangarllm.BadGatewayError)
     assert "somethingBedrockAddedLater" in str(exc_info.value)
     assert _UPSTREAM_REJECTION in str(exc_info.value)
 
@@ -1648,13 +1648,13 @@ def _invoke_streaming_kwargs() -> dict[str, object]:
 
 @pytest.mark.asyncio
 async def test_async_invoke_streaming_fails_at_the_request_timeout_not_the_upstreams_pace() -> None:
-    with pytest.raises(litellm.Timeout):
-        await litellm.acompletion(client=slow_upstream_async_client(), **_invoke_streaming_kwargs())
+    with pytest.raises(hangarllm.Timeout):
+        await hangarllm.acompletion(client=slow_upstream_async_client(), **_invoke_streaming_kwargs())
 
 
 def test_sync_invoke_streaming_fails_at_the_request_timeout_not_the_upstreams_pace() -> None:
-    with pytest.raises(litellm.Timeout):
-        litellm.completion(client=slow_upstream_sync_client(), **_invoke_streaming_kwargs())
+    with pytest.raises(hangarllm.Timeout):
+        hangarllm.completion(client=slow_upstream_sync_client(), **_invoke_streaming_kwargs())
 
 
 def test_get_complete_url_basic(bedrock_transformer):
@@ -1665,7 +1665,7 @@ def test_get_complete_url_basic(bedrock_transformer):
         model="anthropic.claude-v2",
         optional_params={},
         stream=False,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://bedrock-runtime.us-east-1.amazonaws.com/model/anthropic.claude-v2/invoke"
 
@@ -1678,7 +1678,7 @@ def test_get_complete_url_streaming(bedrock_transformer):
         model="anthropic.claude-v2",
         optional_params={},
         stream=True,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert (
         url == "https://bedrock-runtime.us-east-1.amazonaws.com/model/anthropic.claude-v2/invoke-with-response-stream"
@@ -1690,7 +1690,7 @@ def test_transform_request_invalid_provider(bedrock_transformer):
     messages = [{"role": "user", "content": "Hello"}]
     with pytest.raises(Exception, match="Bedrock Invoke HTTPX: Unknown provider=None") as exc_info:
         bedrock_transformer.transform_request(
-            model="invalid.model", messages=messages, optional_params={}, litellm_params={}, headers={}
+            model="invalid.model", messages=messages, optional_params={}, hangarllm_params={}, headers={}
         )
     assert "Unknown provider" in str(exc_info.value)
 
@@ -1729,7 +1729,7 @@ def test_transform_request_cohere_command(bedrock_transformer):
     """Test request transformation for Cohere Command model"""
     messages = [{"role": "user", "content": "Hello"}]
     result = bedrock_transformer.transform_request(
-        model="cohere.command-r", messages=messages, optional_params={"max_tokens": 2048}, litellm_params={}, headers={}
+        model="cohere.command-r", messages=messages, optional_params={"max_tokens": 2048}, hangarllm_params={}, headers={}
     )
     print("transformed request for invoke cohere command=", json.dumps(result, indent=4))
     expected_result = {"message": "Hello", "max_tokens": 2048, "chat_history": []}
@@ -1740,7 +1740,7 @@ def test_transform_request_ai21(bedrock_transformer):
     """Test request transformation for AI21"""
     messages = [{"role": "user", "content": "Hello"}]
     result = bedrock_transformer.transform_request(
-        model="ai21.j2-ultra", messages=messages, optional_params={"max_tokens": 2048}, litellm_params={}, headers={}
+        model="ai21.j2-ultra", messages=messages, optional_params={"max_tokens": 2048}, hangarllm_params={}, headers={}
     )
     print("transformed request for invoke ai21=", json.dumps(result, indent=4))
     expected_result = {"prompt": "Hello", "max_tokens": 2048}
@@ -1754,7 +1754,7 @@ def test_transform_request_mistral(bedrock_transformer):
         model="mistral.mistral-7b",
         messages=messages,
         optional_params={"max_tokens": 2048},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     print("transformed request for invoke mistral=", json.dumps(result, indent=4))
@@ -1769,7 +1769,7 @@ def test_transform_request_amazon_titan(bedrock_transformer):
         model="amazon.titan-text-express-v1",
         messages=messages,
         optional_params={"maxTokenCount": 2048},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     print("transformed request for invoke amazon titan=", json.dumps(result, indent=4))
@@ -1779,7 +1779,7 @@ def test_transform_request_amazon_titan(bedrock_transformer):
 
 def test_filter_headers_for_aws_signature():
     """Test that header filtering works correctly for AWS signature calculation"""
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     aws_llm = BaseAWSLLM()
     test_headers = {
@@ -1788,7 +1788,7 @@ def test_filter_headers_for_aws_signature():
         "x-amz-date": "20240101T120000Z",
         "x-amz-security-token": "test-token",
         "x-custom-header": "custom-value",
-        "x-litellm-user-id": "user123",
+        "x-hangarllm-user-id": "user123",
         "x-forwarded-for": "192.168.1.1",
         "authorization": "Bearer test-token",
         "user-agent": "test-agent",
@@ -1805,7 +1805,7 @@ def test_filter_headers_for_aws_signature():
     assert filtered_headers == expected_aws_headers, f"Expected {expected_aws_headers}, got {filtered_headers}"
     excluded_headers = [
         "x-custom-header",
-        "x-litellm-user-id",
+        "x-hangarllm-user-id",
         "x-forwarded-for",
         "user-agent",
         "x-envoy-expected-rq-timeout-ms",
@@ -1824,7 +1824,7 @@ def test_filter_headers_for_aws_signature():
 def test_invoke_decoder_reports_only_missing_aws_dependency(missing):
     from unittest.mock import patch
 
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from hangarllm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
 
     failure = ModuleNotFoundError("missing dependency", name=missing)
     with patch("builtins.__import__", side_effect=failure):
@@ -1960,7 +1960,7 @@ async def test_converse_stream_thinking_merges_into_content_with_think_tags() ->
             request=request,
         )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=[{"role": "user", "content": "Hello who is this?"}],
         stream=True,

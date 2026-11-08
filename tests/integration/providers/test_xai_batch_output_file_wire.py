@@ -54,7 +54,7 @@ def _completion(custom_id: str, content: str) -> dict[str, JsonValue]:
 def _xai_batch(*, completed: bool) -> dict[str, JsonValue]:
     return {
         "batch_id": XAI_BATCH_ID,
-        "name": "litellm-batch",
+        "name": "hangarllm-batch",
         "create_time": "2026-10-09T00:00:00Z",
         "expire_time": "2026-10-10T00:00:00Z",
         "state": {
@@ -206,7 +206,7 @@ def test_xai_batch_output_file_is_sized_by_the_batch_job_and_never_downloaded_or
             lambda detail: detail.get("bytes") == len(content.content),
             seconds=60,
         )
-        assert (sized["filename"], "litellm_details_fallback" in sized) == (raw_batch_id, False)
+        assert (sized["filename"], "hangarllm_details_fallback" in sized) == (raw_batch_id, False)
 
         settled_reads: Final = _stable_results_reads(gateway, batch, raw_batch_id)
         reads: Final = (
@@ -305,8 +305,8 @@ def test_xai_batch_output_file_left_as_a_placeholder_keeps_its_registration_time
         assert retrieved_response.status_code == 200, retrieved_response.text
         output_id: Final = string_value(JSON_OBJECT.validate_json(retrieved_response.content)["output_file_id"])
         write_rows(
-            'UPDATE "LiteLLM_ManagedFileTable" SET file_object = file_object || jsonb_build_object('
-            "'bytes', 0, 'filename', %s::text, 'created_at', %s::bigint, 'litellm_details_fallback', true) "
+            'UPDATE "HangarLLM_ManagedFileTable" SET file_object = file_object || jsonb_build_object('
+            "'bytes', 0, 'filename', %s::text, 'created_at', %s::bigint, 'hangarllm_details_fallback', true) "
             "WHERE unified_file_id = %s",
             (raw_batch_id, str(REGISTERED_AT), output_id),
         )
@@ -322,11 +322,11 @@ def test_xai_batch_output_file_left_as_a_placeholder_keeps_its_registration_time
         )
         assert refreshed["filename"] == raw_batch_id, refreshed
         stored: Final = object_value(
-            read_rows('SELECT file_object FROM "LiteLLM_ManagedFileTable" WHERE unified_file_id=%s', (output_id,))[0][
+            read_rows('SELECT file_object FROM "HangarLLM_ManagedFileTable" WHERE unified_file_id=%s', (output_id,))[0][
                 "file_object"
             ]
         )
-        assert (stored["created_at"], stored["filename"], stored.get("litellm_details_fallback")) == (
+        assert (stored["created_at"], stored["filename"], stored.get("hangarllm_details_fallback")) == (
             REGISTERED_AT,
             raw_batch_id,
             None,

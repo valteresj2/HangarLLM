@@ -5,13 +5,13 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+import hangarllm
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from hangarllm.types.utils import PromptTokensDetailsWrapper, Usage
 
 REPO_ROOT = Path(__file__).parents[2]
 MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PATH = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PATH = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 FLEX_LONG_CONTEXT = {
     "gpt-5.4": {
@@ -98,9 +98,9 @@ NO_PUBLISHED_PRIORITY_LONG_CONTEXT = ("gpt-5.4", "gpt-5.5")
 
 @pytest.fixture(autouse=True)
 def _local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.add_known_models()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.add_known_models()
 
 
 @lru_cache(maxsize=2)
@@ -138,7 +138,7 @@ def test_catalogs_contain_expected_tiered_long_context_rates(path: Path) -> None
 
 def test_get_model_info_preserves_expected_tiered_long_context_rates() -> None:
     assert {
-        model: {key: litellm.get_model_info(model)[key] for key in rates} for model, rates in EXPECTED.items()
+        model: {key: hangarllm.get_model_info(model)[key] for key in rates} for model, rates in EXPECTED.items()
     } == EXPECTED
 
 

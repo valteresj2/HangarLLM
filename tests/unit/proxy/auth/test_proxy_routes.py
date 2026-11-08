@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import io
 
-# this file is to test litellm/proxy
+# this file is to test hangarllm/proxy
 
 import asyncio
 import logging
@@ -13,11 +13,11 @@ import pytest
 from fastapi import Request
 from starlette.datastructures import URL, Headers, QueryParams
 
-import litellm
-from litellm.proxy._types import LiteLLMRoutes
-from litellm.proxy.auth.auth_utils import get_request_route
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.proxy_server import app
+import hangarllm
+from hangarllm.proxy._types import HangarLLMRoutes
+from hangarllm.proxy.auth.auth_utils import get_request_route
+from hangarllm.proxy.auth.route_checks import RouteChecks
+from hangarllm.proxy.proxy_server import app
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +26,7 @@ logging.basicConfig(
 )
 
 
-def test_routes_on_litellm_proxy():
+def test_routes_on_hangarllm_proxy():
     """
     Goal of this test: Test that we have all the critical OpenAI Routes on the Proxy server Fast API router
 
@@ -38,7 +38,7 @@ def test_routes_on_litellm_proxy():
     # missing-route regressions.
     import importlib
 
-    from litellm.proxy._lazy_features import LAZY_FEATURES
+    from hangarllm.proxy._lazy_features import LAZY_FEATURES
 
     registered_paths = [getattr(r, "path", "") for r in app.routes]
     for feat in LAZY_FEATURES:
@@ -59,11 +59,11 @@ def test_routes_on_litellm_proxy():
             _path_as_str = _path_as_str.replace(":path", "")
         _all_routes.append(_path_as_str)
 
-    print("ALL ROUTES on LiteLLM Proxy:", _all_routes)
+    print("ALL ROUTES on HangarLLM Proxy:", _all_routes)
     print("\n\n")
-    print("ALL OPENAI ROUTES:", LiteLLMRoutes.openai_routes.value)
+    print("ALL OPENAI ROUTES:", HangarLLMRoutes.openai_routes.value)
 
-    for route in LiteLLMRoutes.openai_routes.value:
+    for route in HangarLLMRoutes.openai_routes.value:
         # realtime routes - /realtime?model=gpt-4o
         if "realtime" in route:
             assert "/realtime" in _all_routes
@@ -106,7 +106,7 @@ def test_routes_on_litellm_proxy():
         # Bedrock Pass Through Routes
         ("/bedrock/model/cohere.command-r-v1:0/converse", True),
         ("/vertex-ai/model/text-embedding-004/embeddings", True),
-        # LiteLLM native RAG routes
+        # HangarLLM native RAG routes
         ("/rag/ingest", True),
         ("/v1/rag/ingest", True),
         ("/rag/query", True),
@@ -246,13 +246,13 @@ def _is_assistants(req):
 
 
 def _metadata_var_name(req):
-    from litellm.proxy.litellm_pre_call_utils import get_metadata_variable_name
+    from hangarllm.proxy.hangarllm_pre_call_utils import get_metadata_variable_name
 
     return get_metadata_variable_name(req)
 
 
 def _vector_store_id_in_path(req):
-    from litellm.proxy.common_utils.http_parsing_utils import (
+    from hangarllm.proxy.common_utils.http_parsing_utils import (
         _add_vector_store_id_from_path,
     )
 

@@ -1,7 +1,7 @@
 """
-Tests for the RAG query pipeline in litellm/rag/main.py.
+Tests for the RAG query pipeline in hangarllm/rag/main.py.
 
-The RAG pipeline forwards its kwargs (including the parent litellm_logging_obj)
+The RAG pipeline forwards its kwargs (including the parent hangarllm_logging_obj)
 into @client-decorated sub-calls (vector store search, completion). Each logging
 object allows exactly one async_success event, so if sub-calls are not marked as
 internal, the vector store search consumes the slot first and the LLM
@@ -24,13 +24,13 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-import litellm.utils as litellm_utils
-from litellm._internal_context import is_internal_call
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import litellm_logging
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.utils import CallTypes, ModelResponse
+import hangarllm
+import hangarllm.utils as hangarllm_utils
+from hangarllm._internal_context import is_internal_call
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils import hangarllm_logging
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.utils import CallTypes, ModelResponse
 
 
 async def _drain_logging_worker() -> None:
@@ -76,29 +76,29 @@ class RecordingLogger(CustomLogger):
 @pytest.mark.parametrize("use_router", [False, True])
 async def test_aquery_single_billing_event_carries_completion_usage_and_cost(use_router):
     """
-    litellm.aquery must produce exactly one success event, and that event must
+    hangarllm.aquery must produce exactly one success event, and that event must
     carry the LLM completion (a ModelResponse with non-zero usage and cost),
     not the vector store search response. The proxy always passes a router, so
     both the router and non-router completion branches are pinned.
     """
     await _drain_logging_worker()
     recording_logger = RecordingLogger()
-    original_callbacks = litellm.callbacks
-    litellm.callbacks = [recording_logger]
+    original_callbacks = hangarllm.callbacks
+    hangarllm.callbacks = [recording_logger]
 
     router_kwargs = {}
     if use_router:
-        router_kwargs["router"] = litellm.Router(
+        router_kwargs["router"] = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-mini",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                    "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
                 }
             ]
         )
 
     try:
-        response = await litellm.aquery(
+        response = await hangarllm.aquery(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "What is the secret project codename?"}],
             retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": "openai"},
@@ -111,7 +111,7 @@ async def test_aquery_single_billing_event_carries_completion_usage_and_cost(use
 
         await _drain_logging_worker()
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
     assert len(recording_logger.success_events) == 1
     event = recording_logger.success_events[0]
@@ -147,17 +147,17 @@ async def test_aquery_vector_store_search_sub_call_logs_no_sync_success_event_on
             future.set_result(fn(*args, **kwargs))
             return future
 
-    monkeypatch.setattr(litellm_utils, "executor", InlineExecutor())
-    monkeypatch.setattr(litellm_logging, "executor", InlineExecutor())
-    monkeypatch.setattr(litellm, "callbacks", [recording_logger])
+    monkeypatch.setattr(hangarllm_utils, "executor", InlineExecutor())
+    monkeypatch.setattr(hangarllm_logging, "executor", InlineExecutor())
+    monkeypatch.setattr(hangarllm, "callbacks", [recording_logger])
 
     router_kwargs: Final = (
         {
-            "router": litellm.Router(
+            "router": hangarllm.Router(
                 model_list=[
                     {
                         "model_name": "gpt-4o-mini",
-                        "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                        "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
                     }
                 ]
             )
@@ -166,7 +166,7 @@ async def test_aquery_vector_store_search_sub_call_logs_no_sync_success_event_on
         else {}
     )
 
-    response: Final = await litellm.aquery(
+    response: Final = await hangarllm.aquery(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "What is the secret project codename?"}],
         retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": "openai"},
@@ -207,9 +207,9 @@ async def test_aquery_vector_store_search_sub_call_logs_no_sync_success_event_on
 async def test_aquery_response_hidden_params_carry_completion_cost():
     """
     The aquery response must expose the completion's response_cost via hidden
-    params, so the proxy can return the x-litellm-response-cost header.
+    params, so the proxy can return the x-hangarllm-response-cost header.
     """
-    response = await litellm.aquery(
+    response = await hangarllm.aquery(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hello"}],
         retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": "openai"},
@@ -233,12 +233,12 @@ async def test_aquery_billed_cost_includes_priced_vector_store_search():
     """
     await _drain_logging_worker()
     recording_logger = RecordingLogger()
-    original_callbacks = litellm.callbacks
-    litellm.callbacks = [recording_logger]
+    original_callbacks = hangarllm.callbacks
+    hangarllm.callbacks = [recording_logger]
 
     try:
-        with patch("litellm.rag.main.vector_store_search_cost", return_value=(0.002, 0.0)):
-            response = await litellm.aquery(
+        with patch("hangarllm.rag.main.vector_store_search_cost", return_value=(0.002, 0.0)):
+            response = await hangarllm.aquery(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "hello"}],
                 retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": "openai"},
@@ -247,7 +247,7 @@ async def test_aquery_billed_cost_includes_priced_vector_store_search():
 
         await _drain_logging_worker()
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
     assert isinstance(response, ModelResponse)
     total_cost = response._hidden_params.get("response_cost")
@@ -266,12 +266,12 @@ async def test_aquery_with_rerank_bills_once_and_folds_rerank_cost():
     context (no standalone billing event) and its cost must be folded into
     the single aquery billing event.
     """
-    from litellm.types.rerank import RerankResponse
+    from hangarllm.types.rerank import RerankResponse
 
     await _drain_logging_worker()
     recording_logger = RecordingLogger()
-    original_callbacks = litellm.callbacks
-    litellm.callbacks = [recording_logger]
+    original_callbacks = hangarllm.callbacks
+    hangarllm.callbacks = [recording_logger]
     rerank_seen = {}
 
     async def fake_arerank(**kwargs):
@@ -281,8 +281,8 @@ async def test_aquery_with_rerank_bills_once_and_folds_rerank_cost():
         return rerank_result
 
     try:
-        with patch("litellm.arerank", side_effect=fake_arerank):
-            response = await litellm.aquery(
+        with patch("hangarllm.arerank", side_effect=fake_arerank):
+            response = await hangarllm.aquery(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "hello"}],
                 retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": "openai"},
@@ -292,7 +292,7 @@ async def test_aquery_with_rerank_bills_once_and_folds_rerank_cost():
 
         await _drain_logging_worker()
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
     assert rerank_seen["internal"] is True
     assert is_internal_call.get() is False
@@ -318,12 +318,12 @@ async def test_aquery_streaming_bills_sub_call_costs_into_final_event():
     billing event includes it; otherwise a caller passing stream=true incurs
     priced vector search and rerank costs that never reach spend tracking.
     """
-    from litellm.types.rerank import RerankResponse
+    from hangarllm.types.rerank import RerankResponse
 
     await _drain_logging_worker()
     recording_logger = RecordingLogger()
-    original_callbacks = litellm.callbacks
-    litellm.callbacks = [recording_logger]
+    original_callbacks = hangarllm.callbacks
+    hangarllm.callbacks = [recording_logger]
     rerank_seen = {}
 
     async def fake_arerank(**kwargs):
@@ -334,10 +334,10 @@ async def test_aquery_streaming_bills_sub_call_costs_into_final_event():
 
     try:
         with (
-            patch("litellm.rag.main.vector_store_search_cost", return_value=(0.002, 0.0)),
-            patch("litellm.arerank", side_effect=fake_arerank),
+            patch("hangarllm.rag.main.vector_store_search_cost", return_value=(0.002, 0.0)),
+            patch("hangarllm.arerank", side_effect=fake_arerank),
         ):
-            response = await litellm.aquery(
+            response = await hangarllm.aquery(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "hello"}],
                 retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": "openai"},
@@ -350,7 +350,7 @@ async def test_aquery_streaming_bills_sub_call_costs_into_final_event():
 
         await _drain_logging_worker()
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
     assert rerank_seen["internal"] is True
     assert is_internal_call.get() is False
@@ -402,7 +402,7 @@ async def test_aquery_forwards_filters_to_vector_store_search(
     expected_filter_json: str | None,
     monkeypatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     retrieval_config: Final = json.loads(retrieval_config_json)
     top_level_filter: Final = json.loads(top_level_filter_json) if top_level_filter_json is not None else None
     expected_filter: Final = json.loads(expected_filter_json) if expected_filter_json is not None else None
@@ -424,7 +424,7 @@ async def test_aquery_forwards_filters_to_vector_store_search(
                 ),
             )
         )
-        response: Final = await litellm.aquery(
+        response: Final = await hangarllm.aquery(
             model="openai/gpt-4o-mini",
             messages=json.loads('[{"role":"user","content":"most frequent causes of low nicotine"}]'),
             retrieval_config=retrieval_config,
@@ -452,13 +452,13 @@ async def test_aquery_forwards_provider_retrieval_config_and_router_to_search():
     """
     from unittest.mock import AsyncMock
 
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from hangarllm.types.vector_stores import VectorStoreSearchResponse
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
             }
         ]
     )
@@ -468,8 +468,8 @@ async def test_aquery_forwards_provider_retrieval_config_and_router_to_search():
             object="vector_store.search_results.page", search_query="q", data=[]
         )
     )
-    with patch("litellm.vector_stores.asearch", new=fake_search):  # test-quality-ok: asearch is the boundary the forwarding contract under test targets
-        response = await litellm.aquery(
+    with patch("hangarllm.vector_stores.asearch", new=fake_search):  # test-quality-ok: asearch is the boundary the forwarding contract under test targets
+        response = await hangarllm.aquery(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
             retrieval_config={
@@ -507,15 +507,15 @@ async def test_aquery_minimal_retrieval_config_forwards_no_extras():
     """
     from unittest.mock import AsyncMock
 
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from hangarllm.types.vector_stores import VectorStoreSearchResponse
 
     fake_search = AsyncMock(
         return_value=VectorStoreSearchResponse(
             object="vector_store.search_results.page", search_query="q", data=[]
         )
     )
-    with patch("litellm.vector_stores.asearch", new=fake_search):  # test-quality-ok: asearch is the boundary the forwarding contract under test targets
-        await litellm.aquery(
+    with patch("hangarllm.vector_stores.asearch", new=fake_search):  # test-quality-ok: asearch is the boundary the forwarding contract under test targets
+        await hangarllm.aquery(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
             retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": "openai"},
@@ -541,15 +541,15 @@ async def test_aquery_does_not_forward_connection_override_keys_to_search():
     """
     from unittest.mock import AsyncMock
 
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from hangarllm.types.vector_stores import VectorStoreSearchResponse
 
     fake_search = AsyncMock(
         return_value=VectorStoreSearchResponse(
             object="vector_store.search_results.page", search_query="q", data=[]
         )
     )
-    with patch("litellm.vector_stores.asearch", new=fake_search):  # test-quality-ok: asearch is the boundary the forwarding contract under test targets
-        await litellm.aquery(
+    with patch("hangarllm.vector_stores.asearch", new=fake_search):  # test-quality-ok: asearch is the boundary the forwarding contract under test targets
+        await hangarllm.aquery(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
             retrieval_config={
@@ -574,7 +574,7 @@ async def test_aquery_does_not_forward_connection_override_keys_to_search():
 async def test_aquery_forwards_vector_store_params_to_search_but_not_completion():
     """
     Regression for LIT-6773: the server-trusted vector_store_params (a managed
-    store's litellm_params) must reach the search call wholesale, including the
+    store's hangarllm_params) must reach the search call wholesale, including the
     connection keys the caller allowlist blocks, while the caller's own
     retrieval_config overrides stay blocked, the caller's top-level api_key and
     api_base stay on the completion only, and the completion never inherits the
@@ -582,7 +582,7 @@ async def test_aquery_forwards_vector_store_params_to_search_but_not_completion(
     """
     from unittest.mock import AsyncMock
 
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from hangarllm.types.vector_stores import VectorStoreSearchResponse
 
     fake_search = AsyncMock(
         return_value=VectorStoreSearchResponse(
@@ -597,10 +597,10 @@ async def test_aquery_forwards_vector_store_params_to_search_but_not_completion(
         )
     )
     with (
-        patch("litellm.vector_stores.asearch", new=fake_search),  # test-quality-ok: the search boundary under test
-        patch("litellm.acompletion", new=fake_completion),  # test-quality-ok: the completion boundary under test
+        patch("hangarllm.vector_stores.asearch", new=fake_search),  # test-quality-ok: the search boundary under test
+        patch("hangarllm.acompletion", new=fake_completion),  # test-quality-ok: the completion boundary under test
     ):
-        await litellm.aquery(
+        await hangarllm.aquery(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
             api_key="sk-llm-key",
@@ -651,8 +651,8 @@ _UNDECODABLE_FILE: Final = {"filename": "notes.txt", "content": "x"}
 def test_ingest_failure_is_attributed_to_the_vector_store_provider(
     ingest_options: dict[str, object], expected_provider: str | None
 ) -> None:
-    with pytest.raises(litellm.APIConnectionError, match="Invalid base64-encoded string") as raised:
-        litellm.ingest(ingest_options=ingest_options, file=_UNDECODABLE_FILE)
+    with pytest.raises(hangarllm.APIConnectionError, match="Invalid base64-encoded string") as raised:
+        hangarllm.ingest(ingest_options=ingest_options, file=_UNDECODABLE_FILE)
 
     assert raised.value.llm_provider == expected_provider
 
@@ -670,8 +670,8 @@ def test_ingest_failure_is_attributed_to_the_vector_store_provider(
 async def test_aingest_failure_is_attributed_to_the_vector_store_provider(
     ingest_options: dict[str, object], expected_provider: str | None
 ) -> None:
-    with pytest.raises(litellm.APIConnectionError, match="Invalid base64-encoded string") as raised:
-        await litellm.aingest(ingest_options=ingest_options, file=_UNDECODABLE_FILE)
+    with pytest.raises(hangarllm.APIConnectionError, match="Invalid base64-encoded string") as raised:
+        await hangarllm.aingest(ingest_options=ingest_options, file=_UNDECODABLE_FILE)
 
     assert raised.value.llm_provider == expected_provider
 
@@ -681,7 +681,7 @@ def test_ingest_failure_with_a_vector_store_that_is_not_a_mapping_raises_a_valid
     vector_store: object,
 ) -> None:
     with pytest.raises(ValidationError) as raised:
-        litellm.ingest(ingest_options={"vector_store": vector_store}, file=_UNDECODABLE_FILE)
+        hangarllm.ingest(ingest_options={"vector_store": vector_store}, file=_UNDECODABLE_FILE)
 
     assert "sk-test" not in str(raised.value)
 
@@ -692,7 +692,7 @@ async def test_aingest_failure_with_a_vector_store_that_is_not_a_mapping_raises_
     vector_store: object,
 ) -> None:
     with pytest.raises(ValidationError) as raised:
-        await litellm.aingest(ingest_options={"vector_store": vector_store}, file=_UNDECODABLE_FILE)
+        await hangarllm.aingest(ingest_options={"vector_store": vector_store}, file=_UNDECODABLE_FILE)
 
     assert "sk-test" not in str(raised.value)
 
@@ -701,14 +701,14 @@ async def test_aingest_failure_with_a_vector_store_that_is_not_a_mapping_raises_
 @pytest.mark.parametrize("provider", [None, 5])
 async def test_aquery_with_a_provider_that_is_not_a_string_bills_only_the_completion(provider: object) -> None:
     messages: Final = [{"role": "user", "content": "hello"}]
-    default_provider_response: Final = await litellm.aquery(
+    default_provider_response: Final = await hangarllm.aquery(
         model="gpt-4o-mini",
         messages=messages,
         retrieval_config={"vector_store_id": "vs_test_123"},
         mock_response="hi there",
     )
 
-    response: Final = await litellm.aquery(
+    response: Final = await hangarllm.aquery(
         model="gpt-4o-mini",
         messages=messages,
         retrieval_config={"vector_store_id": "vs_test_123", "custom_llm_provider": provider},

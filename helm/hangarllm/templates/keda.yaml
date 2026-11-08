@@ -2,15 +2,15 @@
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
-  name: {{ include "litellm.fullname" . }}
+  name: {{ include "hangarllm.fullname" . }}
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
   {{- if .Values.keda.scaledObject.annotations }}
   annotations: {{ toYaml .Values.keda.scaledObject.annotations | nindent 4 }}
   {{- end }}
 spec:
   scaleTargetRef:
-    name: {{ include "litellm.fullname" . }}
+    name: {{ include "hangarllm.fullname" . }}
   pollingInterval: {{ .Values.keda.pollingInterval }}
   cooldownPeriod: {{ .Values.keda.cooldownPeriod }}
   minReplicaCount: {{ .Values.keda.minReplicas }}
@@ -29,20 +29,20 @@ spec:
 {{- if not $prom.serverAddress }}
 {{- fail "keda.prometheus.serverAddress is required when keda.prometheus.requestsPerSecond or tokensPerSecond is set" }}
 {{- end }}
-{{- $selector := printf "namespace=%q,job=%q" .Release.Namespace (printf "%s%s" (include "litellm.fullname" .) (ternary "-metrics" "" .Values.metricsServer.enabled)) }}
+{{- $selector := printf "namespace=%q,job=%q" .Release.Namespace (printf "%s%s" (include "hangarllm.fullname" .) (ternary "-metrics" "" .Values.metricsServer.enabled)) }}
 {{- with $prom.requestsPerSecond }}
   - type: prometheus
     metadata:
       serverAddress: {{ $prom.serverAddress | quote }}
       threshold: {{ toJson . | trimAll "\"" | quote }}
-      query: {{ printf "sum(rate(litellm_proxy_total_requests_metric_total{%s}[1m]))" $selector | quote }}
+      query: {{ printf "sum(rate(hangarllm_proxy_total_requests_metric_total{%s}[1m]))" $selector | quote }}
 {{- end }}
 {{- with $prom.tokensPerSecond }}
   - type: prometheus
     metadata:
       serverAddress: {{ $prom.serverAddress | quote }}
       threshold: {{ toJson . | trimAll "\"" | quote }}
-      query: {{ printf "sum(rate(litellm_total_tokens_metric_total{%s}[1m]))" $selector | quote }}
+      query: {{ printf "sum(rate(hangarllm_total_tokens_metric_total{%s}[1m]))" $selector | quote }}
 {{- end }}
 {{- end }}
   advanced:

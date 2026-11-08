@@ -9,11 +9,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-from litellm.proxy._types import UI_TEAM_ID, LiteLLM_ObjectPermissionTable, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import AgentAccessGroupCeiling, CeilingResolver
-from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
+from hangarllm.proxy._types import UI_TEAM_ID, HangarLLM_ObjectPermissionTable, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.agent_endpoints.agent_registry import AgentRegistry
+from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import AgentAccessGroupCeiling, CeilingResolver
+from hangarllm.proxy.agent_endpoints.auth.agent_permission_handler import (
     AgentAccess,
     AgentAccessLookup,
     AgentRequestHandler,
@@ -21,7 +21,7 @@ from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
     UnrestrictedAgentAccess,
     accessible_agents,
 )
-from litellm.types.agents import AgentCaller
+from hangarllm.types.agents import AgentCaller
 
 
 def _registry_with(*agent_names: str) -> AgentRegistry:
@@ -160,9 +160,9 @@ class TestAgentRequestHandler:
         admin: Final = UserAPIKeyAuth(
             api_key="admin-key",
             user_id="admin",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
-        string_admin: Final = admin.model_copy(update={"user_role": LitellmUserRoles.PROXY_ADMIN.value})
+        string_admin: Final = admin.model_copy(update={"user_role": HangarllmUserRoles.PROXY_ADMIN.value})
         key_lookup: Final = _lookup(UnrestrictedAgentAccess())
         team_lookup: Final = _lookup(UnrestrictedAgentAccess())
 
@@ -242,7 +242,7 @@ class TestAgentRequestHandler:
         )
 
     async def test_agent_access_default_deny_reads_general_settings(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         auth: Final = UserAPIKeyAuth(api_key="test-key", user_id="test-user")
         monkeypatch.setattr(proxy_server, "prisma_client", None)
@@ -273,7 +273,7 @@ class TestAgentRequestHandler:
         settings: dict[str, object],
         expected_allowed: bool,
     ):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         auth: Final = UserAPIKeyAuth(api_key="test-key", user_id="test-user")
         monkeypatch.setattr(proxy_server, "prisma_client", None)
@@ -324,7 +324,7 @@ class TestAgentRequestHandler:
             api_key="test-key",
             user_id="test-user",
             agent_id=agent_id,
-            object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="obj-1", agents=agent_ids),
+            object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="obj-1", agents=agent_ids),
         )
 
     async def test_agent_access_groups_cap_an_otherwise_unrestricted_key(self):
@@ -384,7 +384,7 @@ class TestAgentRequestHandler:
     async def test_managed_agent_acting_for_a_user_is_capped_at_the_invoking_teams_agents(self):
         """The managed path must honour the invoking team's ceiling the same way the unmanaged path does:
         the agent's own policy grants alpha and beta, but the human who invoked it reaches only beta."""
-        from litellm.types.agents import AgentResponse
+        from hangarllm.types.agents import AgentResponse
 
         managed: Final = UserAPIKeyAuth(api_key="test-key", user_id="test-user", agent_id="actor")
         managed.managed_agent_policy = AgentResponse(
@@ -451,10 +451,10 @@ class TestAgentRequestHandler:
     async def test_empty_access_group_denies_every_agent(self):
         """LIT-5143: a key restricted to an access group that resolves to no agents is
         restricted to nothing, not unrestricted. A failed group lookup still fails open."""
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
         mock_user_auth: Final = UserAPIKeyAuth(api_key="test-key", user_id="test-user")
-        mock_user_auth.object_permission = LiteLLM_ObjectPermissionTable(
+        mock_user_auth.object_permission = HangarLLM_ObjectPermissionTable(
             object_permission_id="obj-1",
             agents=[],
             agent_access_groups=["group-with-no-agents"],
@@ -553,10 +553,10 @@ class TestAgentRequestHandler:
         while a proxy admin with the same lack of grants still lists every agent."""
         registry: Final = _registry_with("alpha", "beta")
         internal_user: Final = UserAPIKeyAuth(
-            api_key="test-key", user_id="alice", team_id="team-no-perms", user_role=LitellmUserRoles.INTERNAL_USER
+            api_key="test-key", user_id="alice", team_id="team-no-perms", user_role=HangarllmUserRoles.INTERNAL_USER
         )
         proxy_admin: Final = UserAPIKeyAuth(
-            api_key="admin-key", user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN
+            api_key="admin-key", user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
 
         async def no_grant_anywhere(user_api_key_auth: UserAPIKeyAuth) -> AgentAccess:
@@ -576,7 +576,7 @@ class TestAgentRequestHandler:
         """A grant for one agent lists that agent and hides the ungranted one."""
         registry: Final = _registry_with("alpha", "beta")
         granted_user: Final = UserAPIKeyAuth(
-            api_key="test-key", user_id="bob", team_id="team-granted", user_role=LitellmUserRoles.INTERNAL_USER
+            api_key="test-key", user_id="bob", team_id="team-granted", user_role=HangarllmUserRoles.INTERNAL_USER
         )
 
         async def alpha_only(user_api_key_auth: UserAPIKeyAuth) -> AgentAccess:
@@ -586,7 +586,7 @@ class TestAgentRequestHandler:
         assert [agent.agent_name for agent in listed] == ["alpha"]
 
     async def test_accessible_agents_resolves_dashboard_session_through_real_teams_and_user(self):
-        """LIT-6862: a dashboard session carries the shared litellm-dashboard team id, which holds no
+        """LIT-6862: a dashboard session carries the shared hangarllm-dashboard team id, which holds no
         grants. Listing must union the grants of the user's real teams and of the user row instead
         of treating the session as ungranted or as unrestricted."""
         registry: Final = _registry_with("alpha", "beta", "gamma")
@@ -594,9 +594,9 @@ class TestAgentRequestHandler:
             api_key="session-key",
             user_id="alice",
             team_id=UI_SESSION_TOKEN_TEAM_ID,
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
-        admitted_user: Final = UserAPIKeyAuth(user_id="alice", user_role=LitellmUserRoles.INTERNAL_USER)
+        admitted_user: Final = UserAPIKeyAuth(user_id="alice", user_role=HangarllmUserRoles.INTERNAL_USER)
         grants: Final = {
             "team-granted": RestrictedAgentAccess(frozenset({_agent_id(registry, "alpha")})),
             "team-no-perms": UnrestrictedAgentAccess(),
@@ -633,7 +633,7 @@ class TestAgentRequestHandler:
 
         with patch.object(AgentRequestHandler, "_get_key_object_permission", return_value=None):
             with patch(
-                "litellm.proxy.auth.auth_checks.get_agent_ids_from_access_groups",
+                "hangarllm.proxy.auth.auth_checks.get_agent_ids_from_access_groups",
                 new_callable=AsyncMock,
                 return_value=["agent-from-ag-1", "agent-from-ag-2"],
             ):
@@ -645,9 +645,9 @@ class TestAgentRequestHandler:
         Test that get_allowed_agents_for_key combines agents from native object_permission
         and key's access_group_ids (unified access groups).
         """
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
-        mock_permission = LiteLLM_ObjectPermissionTable(
+        mock_permission = HangarLLM_ObjectPermissionTable(
             object_permission_id="obj-1",
             agents=["native-agent-1"],
             agent_access_groups=[],
@@ -661,7 +661,7 @@ class TestAgentRequestHandler:
         mock_user_auth.object_permission = mock_permission
 
         with patch(
-            "litellm.proxy.auth.auth_checks.get_agent_ids_from_access_groups",
+            "hangarllm.proxy.auth.auth_checks.get_agent_ids_from_access_groups",
             new_callable=AsyncMock,
             return_value=["agent-from-ag"],
         ):
@@ -689,7 +689,7 @@ class TestAgentRequestHandler:
         mock_user_auth: Final = UserAPIKeyAuth(api_key="test-key", user_id="test-user")
 
         with patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry",
             registry,
         ):
             with patch.object(AgentRequestHandler, "resolve_agent_access") as mock_get_allowed:
@@ -729,7 +729,7 @@ class TestAgentRequestHandler:
         mock_user_auth: Final = UserAPIKeyAuth(api_key="test-key", user_id="test-user", team_id="test-team")
 
         with patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "hangarllm.proxy.agent_endpoints.agent_registry.global_agent_registry",
             registry,
         ):
             with patch.object(AgentRequestHandler, "get_allowed_agents_for_key") as mock_key:
@@ -768,9 +768,9 @@ async def test_managed_invocation_requires_local_and_directory_admission(
 ) -> None:
     from unittest.mock import MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from hangarllm.proxy import proxy_server
+    from hangarllm.types.agents import AgentResponse
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding
 
     binding: Final = AgentIdentityBinding(
         agent_id="target",
@@ -784,9 +784,9 @@ async def test_managed_invocation_requires_local_and_directory_admission(
         agent_id="target", agent_name="Target", agent_card_params={}, identity=binding, identity_managed=True
     ).model_copy(update=state)
     client: Final = MagicMock()
-    client.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=target)
+    client.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=target)
     monkeypatch.setattr(proxy_server, "prisma_client", client)
-    permission: Final = LiteLLM_ObjectPermissionTable(object_permission_id="human-grant", agents=["target"])
+    permission: Final = HangarLLM_ObjectPermissionTable(object_permission_id="human-grant", agents=["target"])
     auth: Final = UserAPIKeyAuth(user_id="human", object_permission=permission)
     assert await AgentRequestHandler.is_agent_allowed("target", auth) is allowed
 
@@ -798,17 +798,17 @@ async def test_managed_agent_invocation_grants_intersect_verified_user_grants(
 ) -> None:
     from unittest.mock import MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_UserTable
-    from litellm.proxy.auth import auth_checks
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding, ManagedAgentContext
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_UserTable
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.types.agents import AgentResponse
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding, ManagedAgentContext
 
     database: Final = MagicMock()
     monkeypatch.setattr(proxy_server, "prisma_client", database)
-    own: Final = LiteLLM_ObjectPermissionTable(object_permission_id="own", agents=["shared", "agent-only"])
-    human_grants: Final = LiteLLM_ObjectPermissionTable(object_permission_id="human", agents=["shared", "human-only"])
-    human: Final = LiteLLM_UserTable(user_id="human", teams=[], object_permission=human_grants)
+    own: Final = HangarLLM_ObjectPermissionTable(object_permission_id="own", agents=["shared", "agent-only"])
+    human_grants: Final = HangarLLM_ObjectPermissionTable(object_permission_id="human", agents=["shared", "human-only"])
+    human: Final = HangarLLM_UserTable(user_id="human", teams=[], object_permission=human_grants)
     monkeypatch.setattr(auth_checks, "get_user_object", AsyncMock(return_value=human))
     auth: Final = UserAPIKeyAuth(agent_id="actor", api_key="verified-jwt")
     auth.managed_agent_policy = AgentResponse(
@@ -834,7 +834,7 @@ async def test_managed_agent_invocation_grants_intersect_verified_user_grants(
             revision="current",
         ),
     )
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=target)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=target)
     assert await AgentRequestHandler.is_agent_allowed("shared", auth) is True
 
 
@@ -847,28 +847,28 @@ async def test_delegated_grants_revoke_with_warm_user_team_and_permission_caches
 ) -> None:
     from unittest.mock import MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_AccessGroupTable, LiteLLM_TeamTable, LiteLLM_UserTable
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import verified_human_agent_grants
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable, HangarLLM_TeamTable, HangarLLM_UserTable
+    from hangarllm.proxy.agent_endpoints.auth.agent_permission_handler import verified_human_agent_grants
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
 
     direct: Final = revoked == "direct-grant"
     grouped: Final = revoked == "access-group"
-    permission: Final = LiteLLM_ObjectPermissionTable(object_permission_id="grant", agents=["target"])
-    human: Final = LiteLLM_UserTable(
+    permission: Final = HangarLLM_ObjectPermissionTable(object_permission_id="grant", agents=["target"])
+    human: Final = HangarLLM_UserTable(
         user_id="human",
         teams=[] if direct else ["team"],
         organization_memberships=[],
         object_permission_id="grant" if direct else None,
     )
-    team: Final = LiteLLM_TeamTable(
+    team: Final = HangarLLM_TeamTable(
         team_id="team",
         models=[],
         members_with_roles=[{"user_id": "human", "role": "user"}],
         object_permission_id=None if grouped else "grant",
         access_group_ids=["group"] if grouped else [],
     )
-    group: Final = LiteLLM_AccessGroupTable(
+    group: Final = HangarLLM_AccessGroupTable(
         access_group_id="group", access_group_name="Group", access_agent_ids=["target"]
     )
     cache: Final = UserApiKeyCache()
@@ -877,63 +877,63 @@ async def test_delegated_grants_revoke_with_warm_user_team_and_permission_caches
     cache.set_cache(object_permission_cache_key("grant"), permission)
     cache.set_cache("access_group_id:group", group)
     client: Final = MagicMock()
-    client.writer_db.litellm_usertable.find_unique = AsyncMock(return_value=human)
-    client.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
-    client.writer_db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
-    client.writer_db.litellm_accessgrouptable.find_unique = AsyncMock(return_value=group)
+    client.writer_db.hangarllm_usertable.find_unique = AsyncMock(return_value=human)
+    client.writer_db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team)
+    client.writer_db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
+    client.writer_db.hangarllm_accessgrouptable.find_unique = AsyncMock(return_value=group)
     monkeypatch.setattr(proxy_server, "prisma_client", client)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
     assert await verified_human_agent_grants("human", "team") == frozenset({"target"})
-    client.writer_db.litellm_usertable.find_unique.return_value = (
+    client.writer_db.hangarllm_usertable.find_unique.return_value = (
         human.model_copy(update={"teams": []}) if revoked == "user" else human
     )
-    client.writer_db.litellm_teamtable.find_unique.return_value = (
+    client.writer_db.hangarllm_teamtable.find_unique.return_value = (
         team.model_copy(update={"members_with_roles": []})
         if revoked == "team-member"
         else team.model_copy(update={"object_permission_id": None})
         if revoked == "team-grant"
         else team
     )
-    client.writer_db.litellm_objectpermissiontable.find_unique.return_value = (
+    client.writer_db.hangarllm_objectpermissiontable.find_unique.return_value = (
         permission.model_copy(update={"agents": []}) if direct or revoked == "team-permission" else permission
     )
-    client.writer_db.litellm_accessgrouptable.find_unique.return_value = (
+    client.writer_db.hangarllm_accessgrouptable.find_unique.return_value = (
         group.model_copy(update={"access_agent_ids": []}) if grouped else group
     )
     assert await verified_human_agent_grants("human", "team") == frozenset()
-    client.db.litellm_usertable.find_unique.assert_not_called()
-    client.db.litellm_teamtable.find_unique.assert_not_called()
-    client.db.litellm_objectpermissiontable.find_unique.assert_not_called()
-    client.db.litellm_accessgrouptable.find_unique.assert_not_called()
+    client.db.hangarllm_usertable.find_unique.assert_not_called()
+    client.db.hangarllm_teamtable.find_unique.assert_not_called()
+    client.db.hangarllm_objectpermissiontable.find_unique.assert_not_called()
+    client.db.hangarllm_accessgrouptable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_strict_legacy_group_grants_ignore_stale_replica(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     stale: Final = AgentResponse(agent_id="revoked", agent_name="Revoked", agent_card_params={})
     registry: Final = AgentRegistry()
     registry.register_agent(stale)
     database: Final = MagicMock()
-    database.db.litellm_agentstable.find_many = AsyncMock(return_value=[stale])
-    database.writer_db.litellm_agentstable.find_many = AsyncMock(return_value=[stale])
+    database.db.hangarllm_agentstable.find_many = AsyncMock(return_value=[stale])
+    database.writer_db.hangarllm_agentstable.find_many = AsyncMock(return_value=[stale])
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
     monkeypatch.setattr(proxy_server, "prisma_client", database)
     auth: Final = UserAPIKeyAuth(
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="permission", agent_access_groups=["group"]
         )
     )
     assert await AgentRequestHandler.get_allowed_agents_for_key(auth, strict=True) == RestrictedAgentAccess(
         frozenset({"revoked"})
     )
-    database.writer_db.litellm_agentstable.find_many.return_value = []
+    database.writer_db.hangarllm_agentstable.find_many.return_value = []
     assert await AgentRequestHandler.get_allowed_agents_for_key(auth, strict=True) == RestrictedAgentAccess(frozenset())
-    database.db.litellm_agentstable.find_many.assert_not_awaited()
+    database.db.hangarllm_agentstable.find_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -949,17 +949,17 @@ async def test_strict_invocation_policy_outage_denies_instead_of_allowing_all(
 ) -> None:
     from fastapi import HTTPException
     from unittest.mock import MagicMock
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     database: Final = MagicMock()
-    database.writer_db.litellm_teamtable.find_unique = AsyncMock(side_effect=ConnectionError("writer unavailable"))
-    database.writer_db.litellm_agentstable.find_many = AsyncMock(side_effect=ConnectionError("writer unavailable"))
+    database.writer_db.hangarllm_teamtable.find_unique = AsyncMock(side_effect=ConnectionError("writer unavailable"))
+    database.writer_db.hangarllm_agentstable.find_many = AsyncMock(side_effect=ConnectionError("writer unavailable"))
     monkeypatch.setattr(proxy_server, "prisma_client", database)
     auth: Final = UserAPIKeyAuth(
         team_id="team" if team else None,
         object_permission=None
         if team
-        else LiteLLM_ObjectPermissionTable(object_permission_id="grant", agent_access_groups=["group"]),
+        else HangarLLM_ObjectPermissionTable(object_permission_id="grant", agent_access_groups=["group"]),
     )
     with pytest.raises(HTTPException, match="policy is unavailable") as denied:
         await AgentRequestHandler.resolve_key_team_agent_access(auth, strict=True)
@@ -970,8 +970,8 @@ async def test_strict_invocation_policy_outage_denies_instead_of_allowing_all(
 @pytest.mark.parametrize("available", [False, True])
 async def test_missing_team_cannot_grant_strict_agent_access(monkeypatch: pytest.MonkeyPatch, available: bool) -> None:
     from unittest.mock import MagicMock
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.auth import auth_checks
 
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock() if available else None)
     monkeypatch.setattr(auth_checks, "get_team_object", AsyncMock(return_value=None))
@@ -987,9 +987,9 @@ async def test_registered_managed_target_cannot_bypass_missing_or_unavailable_po
 ) -> None:
     from fastapi import HTTPException
     from unittest.mock import MagicMock
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     registry: Final = AgentRegistry()
     registry.register_agent(
@@ -997,7 +997,7 @@ async def test_registered_managed_target_cannot_bypass_missing_or_unavailable_po
     )
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=None, side_effect=ConnectionError("unavailable") if outage else None
     )
     monkeypatch.setattr(proxy_server, "prisma_client", database)
@@ -1012,9 +1012,9 @@ async def test_registered_managed_target_cannot_bypass_missing_or_unavailable_po
 @pytest.mark.asyncio
 @pytest.mark.parametrize("grant", [False, True])
 async def test_delegation_without_a_verified_human_never_grants_agents(grant: bool) -> None:
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import ManagedAgentContext
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import verified_human_agent_grants
+    from hangarllm.types.agents import AgentResponse
+    from hangarllm.types.proxy.agent_identity import ManagedAgentContext
+    from hangarllm.proxy.agent_endpoints.auth.agent_permission_handler import verified_human_agent_grants
 
     auth: Final = UserAPIKeyAuth(agent_id="actor")
     auth.managed_agent_policy = AgentResponse(
@@ -1037,12 +1037,12 @@ async def test_managed_target_rechecks_authoritative_key_after_peer_revocation(
 ) -> None:
     from unittest.mock import MagicMock
     from fastapi import HTTPException
-    from litellm.proxy import proxy_server
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.types.agents import AgentResponse
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding
 
-    permission: Final = LiteLLM_ObjectPermissionTable(object_permission_id="grant", agents=["target"])
+    permission: Final = HangarLLM_ObjectPermissionTable(object_permission_id="grant", agents=["target"])
     warm: Final = UserAPIKeyAuth(
         api_key="a" * 64, token="a" * 64, object_permission_id="grant", object_permission=permission
     )
@@ -1061,9 +1061,9 @@ async def test_managed_target_rechecks_authoritative_key_after_peer_revocation(
         ),
     )
     client: Final = MagicMock()
-    client.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=target)
+    client.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=target)
     client.get_data = AsyncMock(return_value=warm)
-    client.writer_db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
+    client.writer_db.hangarllm_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
     cache: Final = UserApiKeyCache()
     cache.set_cache("a" * 64, warm)
     monkeypatch.setattr(proxy_server, "prisma_client", client)
@@ -1079,19 +1079,19 @@ async def test_managed_target_rechecks_authoritative_key_after_peer_revocation(
             "expires": "2000-01-01T00:00:00+00:00" if change == "expired" else None,
         }
     )
-    client.writer_db.litellm_objectpermissiontable.find_unique.return_value = permission.model_copy(
+    client.writer_db.hangarllm_objectpermissiontable.find_unique.return_value = permission.model_copy(
         update={"agents": []}
     )
     if change == "team":
-        from litellm.proxy._types import LiteLLM_TeamTable
-        from litellm.proxy.auth import auth_checks
+        from hangarllm.proxy._types import HangarLLM_TeamTable
+        from hangarllm.proxy.auth import auth_checks
 
-        client.writer_db.litellm_objectpermissiontable.find_unique.return_value = permission
+        client.writer_db.hangarllm_objectpermissiontable.find_unique.return_value = permission
         monkeypatch.setattr(
             auth_checks,
             "get_team_object",
             AsyncMock(
-                return_value=LiteLLM_TeamTable(
+                return_value=HangarLLM_TeamTable(
                     team_id="new-team", object_permission=permission.model_copy(update={"agents": ["other"]})
                 )
             ),
@@ -1099,7 +1099,7 @@ async def test_managed_target_rechecks_authoritative_key_after_peer_revocation(
     if change == "groups":
         warm.object_permission = None
         warm.access_group_ids = ["old-group"]
-        from litellm.proxy.auth import auth_checks
+        from hangarllm.proxy.auth import auth_checks
 
         monkeypatch.setattr(auth_checks, "get_agent_ids_from_access_groups", AsyncMock(return_value=["target"]))
     if change == "deleted":
@@ -1121,12 +1121,12 @@ async def test_managed_target_preserves_ordinary_actor_ceilings_after_key_reload
 ) -> None:
     from unittest.mock import MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_AccessGroupTable, LiteLLM_TeamTable
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable, HangarLLM_TeamTable
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.types.agents import AgentResponse
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding
 
     target: Final = AgentResponse(
         agent_id="target",
@@ -1151,7 +1151,7 @@ async def test_managed_target_preserves_ordinary_actor_ceilings_after_key_reload
     registry: Final = AgentRegistry()
     registry.register_agent(actor)
     registry.register_agent(target)
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = HangarLLM_ObjectPermissionTable(
         object_permission_id="key-grant", agents=[] if ceiling == "group-without-grant" else ["target"]
     )
     persisted: Final = UserAPIKeyAuth(
@@ -1162,27 +1162,27 @@ async def test_managed_target_preserves_ordinary_actor_ceilings_after_key_reload
     )
     auth: Final = persisted.model_copy()
     auth.agent_caller = AgentCaller(team_id="caller-team") if ceiling == "caller-team" else None
-    group: Final = LiteLLM_AccessGroupTable(
+    group: Final = HangarLLM_AccessGroupTable(
         access_group_id="actor-group",
         access_group_name="Actor group",
         access_agent_ids=["target"] if permitted else ["other"],
     )
-    team: Final = LiteLLM_TeamTable(
+    team: Final = HangarLLM_TeamTable(
         team_id="caller-team",
         object_permission_id="caller-grant",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="caller-grant",
             agents=["target"] if permitted else ["other"],
         ),
     )
     database: Final = MagicMock()
     database.get_data = AsyncMock(return_value=persisted)
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=target)
-    database.writer_db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=target)
+    database.writer_db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         side_effect=lambda where: permission if where["object_permission_id"] == "key-grant" else team.object_permission
     )
-    database.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
-    database.writer_db.litellm_accessgrouptable.find_unique = AsyncMock(return_value=group)
+    database.writer_db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team)
+    database.writer_db.hangarllm_accessgrouptable.find_unique = AsyncMock(return_value=group)
     cache: Final = UserApiKeyCache()
     cache.set_cache("access_group_id:actor-group", group.model_copy(update={"access_agent_ids": ["target"]}))
     cache.set_cache("team_id:caller-team", team.model_copy(update={"object_permission": permission}))
@@ -1222,7 +1222,7 @@ async def test_delegated_team_selection_preserves_the_grant_source(
 ) -> None:
     from fastapi import HTTPException
 
-    from litellm.proxy.agent_endpoints.auth import agent_permission_handler as permissions
+    from hangarllm.proxy.agent_endpoints.auth import agent_permission_handler as permissions
 
     sources: Final = [
         (None, frozenset({"actor"}) if direct else frozenset()),
@@ -1246,9 +1246,9 @@ async def test_delegated_team_selection_preserves_the_grant_source(
 async def test_delegated_target_grants_do_not_borrow_another_teams_authority(
     monkeypatch: pytest.MonkeyPatch, team_id: str | None, expected: set[str]
 ) -> None:
-    from litellm.proxy.agent_endpoints.auth import agent_permission_handler as permissions
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import ManagedAgentContext
+    from hangarllm.proxy.agent_endpoints.auth import agent_permission_handler as permissions
+    from hangarllm.types.agents import AgentResponse
+    from hangarllm.types.proxy.agent_identity import ManagedAgentContext
 
     sources: Final = [(None, frozenset({"direct"})), ("a", frozenset({"a-only"})), ("b", frozenset({"b-only"}))]
     monkeypatch.setattr(permissions, "_verified_human_agent_sources", AsyncMock(return_value=sources))
@@ -1281,10 +1281,10 @@ async def test_target_authorization_uses_live_policy_despite_stale_unmanaged_reg
 
     from fastapi import HTTPException
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.types.agents import AgentResponse
+    from hangarllm.types.proxy.agent_identity import AgentIdentityBinding
 
     stale: Final = AgentResponse(agent_id="target", agent_name="Target", agent_card_params={})
     registry: Final = AgentRegistry()
@@ -1306,12 +1306,12 @@ async def test_target_authorization_uses_live_policy_despite_stale_unmanaged_reg
         }
     )
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=current,
         side_effect=ConnectionError("writer unavailable") if outage else None,
     )
     monkeypatch.setattr(proxy_server, "prisma_client", database)
-    permission: Final = LiteLLM_ObjectPermissionTable(object_permission_id="grant", agents=["target"])
+    permission: Final = HangarLLM_ObjectPermissionTable(object_permission_id="grant", agents=["target"])
     auth: Final = UserAPIKeyAuth(object_permission=permission if grant else None)
 
     if outage:
@@ -1342,27 +1342,27 @@ def personal_key_owner_teams(monkeypatch: pytest.MonkeyPatch, request: pytest.Fi
     load."""
     from unittest.mock import MagicMock
 
-    import litellm
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTable, LiteLLM_UserTable
-    from litellm.proxy.auth import auth_checks
+    import hangarllm
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTable, HangarLLM_UserTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
         if team_id == "team-unreadable":
-            return LiteLLM_TeamTable(team_id=team_id, object_permission_id=f"perm-{team_id}")
-        return LiteLLM_TeamTable(
+            return HangarLLM_TeamTable(team_id=team_id, object_permission_id=f"perm-{team_id}")
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
                 agent_access_groups=["grp"] if team_id == "team-grouped" else [],
             ),
         )
 
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", True)
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", True)
     prisma_client: Final = MagicMock()
-    prisma_client.writer_db.litellm_teammembership.find_unique = AsyncMock(return_value=None)
+    prisma_client.writer_db.hangarllm_teammembership.find_unique = AsyncMock(return_value=None)
     user_api_key_cache: Final = MagicMock()
     user_api_key_cache.async_set_cache = AsyncMock()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -1373,7 +1373,7 @@ def personal_key_owner_teams(monkeypatch: pytest.MonkeyPatch, request: pytest.Fi
     monkeypatch.setattr(
         auth_checks,
         "get_user_object",
-        AsyncMock(return_value=LiteLLM_UserTable(user_id="alice", teams=list(request.param))),
+        AsyncMock(return_value=HangarLLM_UserTable(user_id="alice", teams=list(request.param))),
     )
     return UserAPIKeyAuth(api_key="sk-personal", user_id="alice", team_id=None)
 
@@ -1401,16 +1401,16 @@ async def test_empty_owner_team_id_does_not_restrict_agent_access(
     monkeypatch: pytest.MonkeyPatch,
     personal_key_owner_teams: UserAPIKeyAuth,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
         if not team_id:
             raise RuntimeError("empty team id should not be loaded")
-        return LiteLLM_TeamTable(
+        return HangarLLM_TeamTable(
             team_id=team_id,
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=[],
             ),
@@ -1437,7 +1437,7 @@ async def test_empty_owner_team_id_does_not_restrict_agent_access(
 async def test_personal_key_accessible_agents_keep_declared_grants(
     personal_key_owner_teams: UserAPIKeyAuth,
 ) -> None:
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     agents: Final = (
         AgentResponse(agent_id="agent-a", agent_name="agent-a", agent_card_params={}),
@@ -1464,16 +1464,16 @@ async def test_personal_key_strict_agent_access_keeps_declared_grants(
 async def test_personal_key_agent_access_ignores_owner_teams_in_other_org(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
         organization_id: Final = "org-1" if team_id == "team-a" else "org-2" if team_id == "team-x" else None
-        return LiteLLM_TeamTable(
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id=organization_id,
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -1492,15 +1492,15 @@ async def test_personal_key_agent_access_ignores_owner_teams_in_other_org(
 async def test_personal_key_agent_billing_uses_the_team_granting_the_agent(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id=f"org-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -1528,15 +1528,15 @@ async def test_personal_key_agent_billing_preserves_key_organization(
     team_org_id: str | None,
     expected_org_id: str,
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id=team_org_id if team_id == "team-b" else "org-team-a",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -1558,9 +1558,9 @@ async def test_personal_key_agent_billing_preserves_key_organization(
 async def test_personal_key_agent_billing_matches_legacy_agent_ids(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
     entry: Final = {
         "agent_name": "legacy-agent",
@@ -1572,12 +1572,12 @@ async def test_personal_key_agent_billing_matches_legacy_agent_ids(
     assert agent is not None
     legacy_id: Final = next(iter(registry.ids_for_agent(agent.agent_id) - {agent.agent_id}))
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id=f"org-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=[legacy_id] if team_id == "team-b" else ["agent-a"],
             ),
@@ -1596,26 +1596,26 @@ async def test_personal_key_agent_billing_matches_legacy_agent_ids(
 async def test_personal_key_agent_billing_inherits_adopted_organization_limits(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.proxy._types import LiteLLM_OrganizationTable, LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.proxy._types import HangarLLM_OrganizationTable, HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    organization: Final = LiteLLM_OrganizationTable(
+    organization: Final = HangarLLM_OrganizationTable(
         organization_id="org-1",
         organization_alias="org-one",
         budget_id="budget-1",
         created_by="test",
         updated_by="test",
         metadata={"k": "v"},
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=100, rpm_limit=5, tpm_limit=50),
+        hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=100, rpm_limit=5, tpm_limit=50),
     )
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id="org-1" if team_id == "team-b" else "org-team-a",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -1651,18 +1651,18 @@ async def test_personal_key_agent_billing_keeps_team_controls_when_org_lookup_fa
     monkeypatch: pytest.MonkeyPatch,
     personal_key_owner_teams: UserAPIKeyAuth,
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id="org-1" if team_id == "team-b" else None,
             rpm_limit=5 if team_id == "team-b" else None,
             max_budget=40 if team_id == "team-b" else None,
             metadata={"team_private": True} if team_id == "team-b" else None,
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -1694,17 +1694,17 @@ async def test_personal_key_agent_billing_keeps_team_controls_when_membership_lo
     monkeypatch: pytest.MonkeyPatch,
     personal_key_owner_teams: UserAPIKeyAuth,
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             organization_id=None,
             rpm_limit=5 if team_id == "team-b" else None,
             max_budget=40 if team_id == "team-b" else None,
             metadata={"team_private": True} if team_id == "team-b" else None,
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -1742,20 +1742,20 @@ async def test_personal_key_agent_billing_uses_fresh_membership_for_strict_polic
     expected_member_rpm: int,
     expected_metadata: dict[str, str],
 ) -> None:
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.team_membership import LiteLLM_TeamMembership
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.models.team_membership import HangarLLM_TeamMembership
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **kwargs: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **kwargs: object) -> HangarLLM_TeamTable:
         database_value: Final = bool(kwargs.get("check_db_only"))
-        return LiteLLM_TeamTable(
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id=None,
             rpm_limit=7 if database_value else 2,
             metadata={"policy_source": "database" if database_value else "cache"},
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -1763,12 +1763,12 @@ async def test_personal_key_agent_billing_uses_fresh_membership_for_strict_polic
 
     async def _get_team_membership(
         user_id: str, team_id: str, **kwargs: object
-    ) -> LiteLLM_TeamMembership:
+    ) -> HangarLLM_TeamMembership:
         database_value: Final = bool(kwargs.get("check_db_only"))
-        return LiteLLM_TeamMembership(
+        return HangarLLM_TeamMembership(
             user_id=user_id,
             team_id=team_id,
-            litellm_budget_table=LiteLLM_BudgetTable(rpm_limit=8 if database_value else 3),
+            hangarllm_budget_table=HangarLLM_BudgetTable(rpm_limit=8 if database_value else 3),
         )
 
     team_loader: Final = AsyncMock(side_effect=_get_team_object)
@@ -1793,16 +1793,16 @@ async def test_personal_key_agent_billing_uses_fresh_membership_for_strict_polic
 async def test_personal_key_agent_billing_carries_team_rate_limits(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.caching.caching import DualCache
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.team_membership import LiteLLM_TeamMembership
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
-    from litellm.proxy.utils import InternalUsageCache
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.models.team_membership import HangarLLM_TeamMembership
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
+    from hangarllm.proxy.utils import InternalUsageCache
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             team_alias=f"alias-{team_id}",
             organization_id=f"org-{team_id}",
@@ -1810,16 +1810,16 @@ async def test_personal_key_agent_billing_carries_team_rate_limits(
             models=["team-only-model"] if team_id == "team-b" else [],
             metadata={"team_private": True} if team_id == "team-b" else None,
             object_permission_id=f"perm-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
         )
 
-    membership: Final = LiteLLM_TeamMembership(
+    membership: Final = HangarLLM_TeamMembership(
         user_id="alice",
         team_id="team-b",
-        litellm_budget_table=LiteLLM_BudgetTable(rpm_limit=2),
+        hangarllm_budget_table=HangarLLM_BudgetTable(rpm_limit=2),
     )
     monkeypatch.setattr(auth_checks, "get_team_object", _get_team_object)
     monkeypatch.setattr(auth_checks, "get_org_object", AsyncMock(return_value=None))
@@ -1867,7 +1867,7 @@ async def test_agent_billing_auth_returns_non_personal_key_unchanged(
 async def test_personal_key_non_strict_agent_check_denies_ungranted_agent(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
+    from hangarllm.proxy.agent_endpoints.identity_store import AgentIdentityStore
 
     monkeypatch.setattr(AgentIdentityStore, "agent", AsyncMock(return_value=None))
     assert await AgentRequestHandler.is_agent_allowed("agent-b", personal_key_owner_teams) is False
@@ -1891,16 +1891,16 @@ async def test_unreadable_withheld_team_only_adds_conservative_agent_restriction
     expected: AgentAccess,
     strict: bool,
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
         if team_id == "team-b":
-            return LiteLLM_TeamTable(team_id=team_id, blocked=True, object_permission_id=f"perm-{team_id}")
-        return LiteLLM_TeamTable(
+            return HangarLLM_TeamTable(team_id=team_id, blocked=True, object_permission_id=f"perm-{team_id}")
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(team_a_agents),
                 agent_access_groups=[],
@@ -1922,11 +1922,11 @@ async def test_unreadable_eligible_owner_team_still_raises_in_strict_agent_acces
     personal_key_owner_teams: UserAPIKeyAuth,
 ) -> None:
     from fastapi import HTTPException
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(team_id=team_id, object_permission_id=f"perm-{team_id}")
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(team_id=team_id, object_permission_id=f"perm-{team_id}")
 
     monkeypatch.setattr(auth_checks, "get_team_object", _get_team_object)
 
@@ -1940,14 +1940,14 @@ async def test_unreadable_eligible_owner_team_still_raises_in_strict_agent_acces
 async def test_personal_key_unreadable_owner_team_does_not_make_access_unrestricted(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.agent_endpoints.identity_store import AgentIdentityStore
+    from hangarllm.proxy.auth import auth_checks
 
     get_team_object = auth_checks.get_team_object
 
-    async def fail_team_a_lookup(team_id: str, **_: object) -> LiteLLM_TeamTable:
+    async def fail_team_a_lookup(team_id: str, **_: object) -> HangarLLM_TeamTable:
         if team_id == "team-a":
             raise RuntimeError("team lookup failed")
         return await get_team_object(
@@ -1990,16 +1990,16 @@ async def test_personal_key_ui_team_does_not_expand_agent_access(
 async def test_personal_key_over_budget_team_grants_no_agent_access(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        team: Final = LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        team: Final = HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id=f"org-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=list(_PERSONAL_KEY_TEAM_AGENTS[team_id]),
             ),
@@ -2028,17 +2028,17 @@ async def test_personal_key_withheld_restricted_owner_team_denies_all_agents(
     personal_key_owner_teams: UserAPIKeyAuth,
     blocked: bool,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
         if team_id == "team-open":
-            return LiteLLM_TeamTable(team_id=team_id)
-        team: Final = LiteLLM_TeamTable(
+            return HangarLLM_TeamTable(team_id=team_id)
+        team: Final = HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=["agent-a"],
             ),
@@ -2069,14 +2069,14 @@ async def test_personal_key_unrestricted_over_budget_team_stays_unrestricted(
     monkeypatch: pytest.MonkeyPatch,
     personal_key_owner_teams: UserAPIKeyAuth,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
         if team_id == "team-open":
-            return LiteLLM_TeamTable(team_id=team_id)
-        return LiteLLM_TeamTable(team_id=team_id, max_budget=1, spend=5)
+            return HangarLLM_TeamTable(team_id=team_id)
+        return HangarLLM_TeamTable(team_id=team_id, max_budget=1, spend=5)
 
     async def _spend_from_fallback(*, fallback_spend: float, **_: object) -> float:
         return fallback_spend
@@ -2094,12 +2094,12 @@ async def test_personal_key_unrestricted_over_budget_team_stays_unrestricted(
 async def test_personal_key_window_budget_team_is_not_an_owner_grant(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        return LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             budget_limits=(
@@ -2125,17 +2125,17 @@ async def test_strict_personal_key_agent_access_reads_owner_teams_from_the_datab
 ) -> None:
     """Invocation (strict) must see a revoke at once, so the owner's teams are read with check_db_only
     like the team-key branch, while listing keeps the cached read."""
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.auth import auth_checks
 
     seen: Final[list[bool]] = []  # mutable-ok: records each read mode
 
-    async def _get_team_object(team_id: str, **kwargs: object) -> LiteLLM_TeamTable:
+    async def _get_team_object(team_id: str, **kwargs: object) -> HangarLLM_TeamTable:
         seen.append(bool(kwargs.get("check_db_only")))
-        return LiteLLM_TeamTable(
+        return HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}", agents=["agent-a"]
             ),
         )
@@ -2152,12 +2152,12 @@ async def test_personal_key_invocation_uses_fresh_owner_team_membership(
     monkeypatch: pytest.MonkeyPatch,
     personal_key_owner_teams: UserAPIKeyAuth,
 ) -> None:
-    from litellm.proxy._types import LiteLLM_UserTable
-    from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy._types import HangarLLM_UserTable
+    from hangarllm.proxy.agent_endpoints.identity_store import AgentIdentityStore
+    from hangarllm.proxy.auth import auth_checks
 
-    async def _get_user_object(**kwargs: object) -> LiteLLM_UserTable:
-        return LiteLLM_UserTable(
+    async def _get_user_object(**kwargs: object) -> HangarLLM_UserTable:
+        return HangarLLM_UserTable(
             user_id="alice",
             teams=[] if bool(kwargs.get("check_db_only")) else ["team-a"],
         )
@@ -2173,10 +2173,10 @@ async def test_personal_key_invocation_uses_fresh_owner_team_membership(
 
 @pytest.mark.asyncio
 async def test_owner_team_agent_grant_lookup_returns_policy_unavailable_value() -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import AgentPolicyUnavailable
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.agent_endpoints.auth.agent_permission_handler import AgentPolicyUnavailable
 
-    team: Final = LiteLLM_TeamTable(team_id="team-unreadable", object_permission_id="perm-unreadable")
+    team: Final = HangarLLM_TeamTable(team_id="team-unreadable", object_permission_id="perm-unreadable")
 
     assert await AgentRequestHandler._owner_team_agent_grants(team, strict=True) == AgentPolicyUnavailable(
         team_id="team-unreadable"
@@ -2199,9 +2199,9 @@ async def test_keyless_grant_source_of_the_owner_does_not_inherit_its_teams(
 async def test_personal_key_agent_access_is_unchanged_when_flag_off(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", False)
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", False)
     assert (
         await AgentRequestHandler.resolve_key_team_agent_access(personal_key_owner_teams) == UnrestrictedAgentAccess()
     )
@@ -2210,7 +2210,7 @@ async def test_personal_key_agent_access_is_unchanged_when_flag_off(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("personal_key_owner_teams", [("team-a", "team-b")], indirect=True)
 async def test_team_key_agent_access_ignores_its_owner_other_teams(personal_key_owner_teams: UserAPIKeyAuth) -> None:
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy.auth import auth_checks
 
     team_key: Final = personal_key_owner_teams.model_copy(update={"team_id": "team-b"})
     assert await AgentRequestHandler.resolve_key_team_agent_access(team_key) == RestrictedAgentAccess(
@@ -2236,7 +2236,7 @@ async def test_owner_team_whose_grants_cannot_be_read_grants_no_agent(
 async def test_personal_key_agent_access_is_denied_when_owner_teams_cannot_be_read(
     monkeypatch: pytest.MonkeyPatch, personal_key_owner_teams: UserAPIKeyAuth
 ) -> None:
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy.auth import auth_checks
 
     monkeypatch.setattr(
         auth_checks, "personal_key_owner_teams_with_status", AsyncMock(side_effect=RuntimeError("db down"))

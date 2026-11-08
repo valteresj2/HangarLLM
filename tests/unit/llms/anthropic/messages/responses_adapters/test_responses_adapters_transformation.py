@@ -1,6 +1,6 @@
 """
-Tests for LiteLLMAnthropicToResponsesAPIAdapter
-(litellm/llms/anthropic/messages/responses_adapters/transformation.py)
+Tests for HangarLLMAnthropicToResponsesAPIAdapter
+(hangarllm/llms/anthropic/messages/responses_adapters/transformation.py)
 """
 
 import json
@@ -13,30 +13,30 @@ import pytest
 from openai.types.responses import ResponseInputImageParam
 from pydantic import TypeAdapter
 
-from litellm.constants import (
+from hangarllm.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
     TOOL_RESULT_IMAGE_BOUNDARY,
     TOOL_RESULT_IMAGE_PLACEHOLDER,
 )
-from litellm.litellm_core_utils.prompt_templates.reasoning_utils import (
+from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
     encrypted_reasoning_signature,
 )
-from litellm.llms.anthropic.messages.adapters.transformation import (
-    LiteLLMAnthropicMessagesAdapter,
+from hangarllm.llms.anthropic.messages.adapters.transformation import (
+    HangarLLMAnthropicMessagesAdapter,
 )
-from litellm.llms.anthropic.messages.responses_adapters.transformation import (
-    LiteLLMAnthropicToResponsesAPIAdapter,
+from hangarllm.llms.anthropic.messages.responses_adapters.transformation import (
+    HangarLLMAnthropicToResponsesAPIAdapter,
 )
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.llms.anthropic import (
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.types.llms.anthropic import (
     AllAnthropicToolsValues,
     AnthropicMessagesRequest,
 )
-from litellm.types.llms.openai import ResponseAPIUsage
+from hangarllm.types.llms.openai import ResponseAPIUsage
 
 
 def _make_request(**overrides) -> AnthropicMessagesRequest:
@@ -49,7 +49,7 @@ def _make_request(**overrides) -> AnthropicMessagesRequest:
     return AnthropicMessagesRequest(**base)
 
 
-_ADAPTER = LiteLLMAnthropicToResponsesAPIAdapter()
+_ADAPTER = HangarLLMAnthropicToResponsesAPIAdapter()
 _MODEL: Final = "openai/gpt-6.1-sol"
 
 
@@ -200,7 +200,7 @@ class TestOutputConfigStructuredOutput:
         request: Final = _make_request(
             **{format_field: output_format if format_field == "output_format" else {"format": output_format}}
         )
-        chat, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(request)
+        chat, _ = HangarLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(request)
         responses: Final = _ADAPTER.translate_request(request)
 
         assert chat["response_format"]["json_schema"]["strict"] is True
@@ -600,7 +600,7 @@ class TestTranslateMessagesToResponsesInput:
         assert "id" not in result[0]
 
     def test_thinking_block_with_encrypted_signature_replays_the_encrypted_content(self):
-        """Regression for https://github.com/BerriAI/litellm/issues/40288 (inbound fault site)."""
+        """Regression for upstream issue 40288 (inbound fault site)."""
         messages = [
             {
                 "role": "assistant",
@@ -1068,24 +1068,24 @@ class TestTranslateThinkingToReasoning:
 
     def test_summary_added_when_auto_summary_enabled(self):
         """When reasoning_auto_summary is True, summary='detailed' is included."""
-        import litellm
+        import hangarllm
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            hangarllm.reasoning_auto_summary = True
             result = _ADAPTER.translate_thinking_to_reasoning({"type": "enabled", "budget_tokens": 10000}, model=_MODEL)
             assert result == {"effort": "high", "summary": "detailed"}
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
     def test_summary_added_when_env_var_set(self, monkeypatch):
-        """When LITELLM_REASONING_AUTO_SUMMARY env var is true, summary is included."""
-        import litellm
+        """When HANGARLLM_REASONING_AUTO_SUMMARY env var is true, summary is included."""
+        import hangarllm
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
-            monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+            hangarllm.reasoning_auto_summary = False
+            monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
             result = _ADAPTER.translate_thinking_to_reasoning(
                 {
                     "type": "enabled",
@@ -1095,8 +1095,8 @@ class TestTranslateThinkingToReasoning:
             )
             assert result == {"effort": "medium", "summary": "detailed"}
         finally:
-            litellm.reasoning_auto_summary = original
-            os.environ.pop("LITELLM_REASONING_AUTO_SUMMARY", None)
+            hangarllm.reasoning_auto_summary = original
+            os.environ.pop("HANGARLLM_REASONING_AUTO_SUMMARY", None)
 
 
 # ---------------------------------------------------------------------------
@@ -1251,7 +1251,7 @@ class TestTranslateRequestBroaderCoverage:
         assert kwargs["prompt_cache_key"] == "session-42"
 
     def test_metadata_claude_code_sessions_get_distinct_prompt_cache_keys(self):
-        """BerriAI/litellm#39145: the first 64 chars of Claude Code's user_id are the per-install device_id."""
+        """valteresj2/HangarLLM#39145: the first 64 chars of Claude Code's user_id are the per-install device_id."""
         keys = tuple(
             _ADAPTER.translate_request(
                 _make_request(
@@ -1533,7 +1533,7 @@ class TestTranslateResponse:
         assert [block["thinking"] for block in result["content"]] == ["Part one.\n\nPart two."]
 
     def test_encrypted_content_rides_the_thinking_signature(self):
-        """Regression for https://github.com/BerriAI/litellm/issues/40288 (outbound fault site)."""
+        """Regression for upstream issue 40288 (outbound fault site)."""
         reasoning = _make_reasoning_item(["Part one."], item_id="rs_abc123", encrypted_content=_ENCRYPTED_REASONING)
         response = _make_mock_response(output=[reasoning])
         result: Any = _ADAPTER.translate_response(response)
@@ -1569,7 +1569,7 @@ class TestTranslateResponse:
         assert result["content"][0]["signature"] == encrypted_reasoning_signature(_ENCRYPTED_REASONING)
 
     def test_reasoning_item_round_trip_is_byte_stable(self):
-        """Regression for https://github.com/BerriAI/litellm/issues/40288.
+        """Regression for upstream issue 40288
 
         The reasoning item the next turn replays must be the one OpenAI produced, with its
         encrypted reasoning intact, and identical on every later turn so the prompt cache
@@ -1623,7 +1623,7 @@ class TestTranslateResponse:
     )
     def test_thinking_blocks_are_dropped_when_replayed_to_anthropic(self, summaries, encrypted_content):
         """Replaying this turn to an Anthropic model must not send a signature it cannot verify."""
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
             _replayable_thinking_blocks,
         )
 
@@ -1666,7 +1666,7 @@ class TestTranslateResponse:
 
     def test_missing_usage_maps_to_zero_tokens(self):
         """A response without a usage object must map to zeroed Anthropic usage."""
-        assert LiteLLMAnthropicToResponsesAPIAdapter.translate_responses_api_usage_to_anthropic_usage(None) == {
+        assert HangarLLMAnthropicToResponsesAPIAdapter.translate_responses_api_usage_to_anthropic_usage(None) == {
             "input_tokens": 0,
             "output_tokens": 0,
         }
@@ -2445,7 +2445,7 @@ class TestPromptCacheBreakpointToResponses:
         assert log_output == self.LOG_OUTPUT
 
     def test_prompt_cache_options_forwarded_to_responses_kwargs(self):
-        from litellm.llms.anthropic.messages.responses_adapters.handler import (
+        from hangarllm.llms.anthropic.messages.responses_adapters.handler import (
             _build_responses_kwargs,
         )
 

@@ -1,16 +1,16 @@
-# litellm_search_tool Data Source
+# hangarllm_search_tool Data Source
 
-Retrieves information about an existing search tool on the LiteLLM proxy.
+Retrieves information about an existing search tool on the HangarLLM proxy.
 
 ## Example Usage
 
 ```hcl
-data "litellm_search_tool" "existing" {
+data "hangarllm_search_tool" "existing" {
   search_tool_id = "123e4567-e89b-12d3-a456-426614174000"
 }
 
 output "search_tool_name" {
-  value = data.litellm_search_tool.existing.search_tool_name
+  value = data.hangarllm_search_tool.existing.search_tool_name
 }
 ```
 
@@ -31,4 +31,4 @@ In addition to all arguments above, the following attributes are exported:
 
 ## Security Note
 
-`litellm_params` is not exposed through this data source because it may hold provider API keys.
+`hangarllm_params` is not exposed through this data source because it may hold provider API keys.

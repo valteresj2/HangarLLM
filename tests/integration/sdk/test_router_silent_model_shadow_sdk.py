@@ -13,10 +13,10 @@ from integration._support.openai_wire import chat_reply
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm import CustomStreamWrapper, Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.utils import ModelResponseStream
+import hangarllm
+from hangarllm import CustomStreamWrapper, Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.utils import ModelResponseStream
 
 _MODEL: Final = "gpt-5.6"
 _API_KEY: Final = "synthetic-shadow-key"
@@ -51,7 +51,7 @@ def _peer(request: Request) -> Reply:
 def _deployment(name: str, wire: Wire, **extra: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/{name}", "api_key": _API_KEY, **extra},
+        "hangarllm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/{name}", "api_key": _API_KEY, **extra},
     }
 
 
@@ -100,7 +100,7 @@ def test_sync_streamed_completion_streams_and_logs_each_shadow_target(
     targets: tuple[str, ...], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     recorder: Final = _ShadowRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     with wire_server(_peer) as wire:
         silent_model: Final[JsonValue] = targets[0] if len(targets) == 1 else [*targets]
         router: Final = Router(

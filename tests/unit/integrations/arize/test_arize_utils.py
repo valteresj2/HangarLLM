@@ -10,16 +10,16 @@ import httpx
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
 
-import litellm
-from litellm.integrations._types.open_inference import (
+import hangarllm
+from hangarllm.integrations._types.open_inference import (
     MessageAttributes,
     SpanAttributes,
     ToolCallAttributes,
 )
-from litellm.integrations.arize._utils import _coerce_response_obj_for_attrs, _parse_passthrough_response
-from litellm.integrations.arize.arize import ArizeLogger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.utils import Choices, ModelResponse, StandardCallbackDynamicParams
+from hangarllm.integrations.arize._utils import _coerce_response_obj_for_attrs, _parse_passthrough_response
+from hangarllm.integrations.arize.arize import ArizeLogger
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.utils import Choices, ModelResponse, StandardCallbackDynamicParams
 
 
 def test_arize_set_attributes():
@@ -29,7 +29,7 @@ def test_arize_set_attributes():
     """
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     span = MagicMock()  # Mocked tracing span to test attribute setting
 
@@ -68,7 +68,7 @@ def test_arize_set_attributes():
             ],
             "functions": [{"name": "get_weather"}, {"name": "get_stock_price"}],
         },
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
 
     # Simulated LLM response object
@@ -191,7 +191,7 @@ def test_arize_set_attributes_responses_api():
     Verifies that multiple output types are correctly handled.
     """
     from unittest.mock import MagicMock
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponsesAPIResponse,
         ResponseAPIUsage,
         OutputTokensDetails,
@@ -221,7 +221,7 @@ def test_arize_set_attributes_responses_api():
             "stream": True,
             "user": "test_user",
         },
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
 
     # Simulate Responses API response with mixed output
@@ -288,7 +288,7 @@ def test_arize_set_attributes_responses_api():
 
 def test_set_usage_outputs_pydantic_completion_usage():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/13672
+    Regression test for upstream issue 13672
 
     `_set_usage_outputs` previously called `usage.get(...)` which crashes when
     `usage` is a plain Pydantic model (e.g. openai.types.completion_usage.CompletionUsage)
@@ -309,7 +309,7 @@ def test_set_usage_outputs_pydantic_completion_usage():
         CompletionUsage,
     )
 
-    from litellm.integrations.arize._utils import _set_usage_outputs
+    from hangarllm.integrations.arize._utils import _set_usage_outputs
 
     span = MagicMock()
 
@@ -343,11 +343,11 @@ def test_set_usage_outputs_pydantic_response_api_usage():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.arize._utils import _set_usage_outputs
-    from litellm.types.llms.openai import OutputTokensDetails
+    from hangarllm.integrations.arize._utils import _set_usage_outputs
+    from hangarllm.types.llms.openai import OutputTokensDetails
 
     # Build an object that mimics openai ResponsesAPI usage but lacks `.get`
-    # (uses a plain class — not BaseLiteLLMOpenAIResponseObject)
+    # (uses a plain class — not BaseHangarLLMOpenAIResponseObject)
     class PlainResponsesUsage:
         def __init__(self):
             self.total_tokens = 370
@@ -398,10 +398,10 @@ async def test_arize_dynamic_params():
     are received inside the callback logger at runtime.
     """
     test_arize_logger = TestArizeLogger()
-    litellm.callbacks = [test_arize_logger]
+    hangarllm.callbacks = [test_arize_logger]
 
     # Perform a mocked async completion call to trigger logging
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Basic Request Content"}],
         mock_response="test",
@@ -429,7 +429,7 @@ def test_construct_dynamic_arize_headers():
     Test the construct_dynamic_arize_headers method with various input scenarios.
     Ensures that dynamic Arize headers are properly constructed from callback parameters.
     """
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from hangarllm.types.utils import StandardCallbackDynamicParams
 
     # Test with all parameters present
     dynamic_params_full = StandardCallbackDynamicParams(
@@ -487,7 +487,7 @@ def test_arize_emits_cache_tokens_openai_style():
     """OpenAI prompt_tokens_details.cached_tokens → cache_read attr."""
     from unittest.mock import MagicMock
 
-    from litellm.integrations.arize._utils import _set_usage_outputs
+    from hangarllm.integrations.arize._utils import _set_usage_outputs
 
     span = MagicMock()
     response_obj = {
@@ -508,7 +508,7 @@ def test_arize_emits_cache_tokens_anthropic_style():
     """Anthropic/Bedrock cache_read_input_tokens / cache_creation_input_tokens."""
     from unittest.mock import MagicMock
 
-    from litellm.integrations.arize._utils import _set_usage_outputs
+    from hangarllm.integrations.arize._utils import _set_usage_outputs
 
     span = MagicMock()
     response_obj = {
@@ -529,7 +529,7 @@ def test_arize_emits_no_cache_tokens_when_absent():
     """Regression guard: when no cache fields exist, no cache attrs emitted."""
     from unittest.mock import MagicMock
 
-    from litellm.integrations.arize._utils import _set_usage_outputs
+    from hangarllm.integrations.arize._utils import _set_usage_outputs
 
     span = MagicMock()
     response_obj = {
@@ -543,8 +543,8 @@ def test_arize_emits_no_cache_tokens_when_absent():
 
 def test_passthrough_call_type_resolves_to_llm_span_kind():
     """`allm_passthrough_route` should map to LLM (was UNKNOWN before fix)."""
-    from litellm.integrations._types.open_inference import OpenInferenceSpanKindValues
-    from litellm.integrations.arize._utils import _infer_open_inference_span_kind
+    from hangarllm.integrations._types.open_inference import OpenInferenceSpanKindValues
+    from hangarllm.integrations.arize._utils import _infer_open_inference_span_kind
 
     assert (
         _infer_open_inference_span_kind("allm_passthrough_route")
@@ -561,7 +561,7 @@ def test_arize_chat_completion_with_tools_stays_llm_span_kind():
     that passes `tools=[...]` AND returns `tool_calls` must remain LLM."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -584,7 +584,7 @@ def test_arize_chat_completion_with_tools_stays_llm_span_kind():
                 }
             ]
         },
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 10, "completion_tokens": 4, "prompt_tokens": 6},
@@ -622,7 +622,7 @@ def test_arize_emits_assistant_tool_calls_on_output_message():
     """Assistant tool_calls should surface as MESSAGE_TOOL_CALLS.* attrs."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -634,7 +634,7 @@ def test_arize_emits_assistant_tool_calls_on_output_message():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 10, "completion_tokens": 4, "prompt_tokens": 6},
@@ -678,7 +678,7 @@ def test_arize_output_value_falls_back_to_tool_calls_summary():
     pane shows something."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -690,7 +690,7 @@ def test_arize_output_value_falls_back_to_tool_calls_summary():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 10, "completion_tokens": 4, "prompt_tokens": 6},
@@ -726,13 +726,13 @@ def test_arize_output_value_falls_back_to_tool_calls_summary():
 
 
 def test_arize_server_tool_calls_lead_the_output_summary_and_tool_call_attributes() -> None:
-    span: Final = TracerProvider().get_tracer(__name__).start_span("litellm_request")
+    span: Final = TracerProvider().get_tracer(__name__).start_span("hangarllm_request")
     kwargs: Final = {
         "model": "claude-opus-5-5",
         "messages": [{"role": "user", "content": "persimmon facts?"}],
         "standard_logging_object": {"model_parameters": {}, "metadata": {}, "call_type": "completion"},
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "anthropic"},
+        "hangarllm_params": {"custom_llm_provider": "anthropic"},
     }
     response_obj: Final = ModelResponse(
         usage={"total_tokens": 10, "completion_tokens": 4, "prompt_tokens": 6},
@@ -740,7 +740,7 @@ def test_arize_server_tool_calls_lead_the_output_summary_and_tool_call_attribute
             Choices(
                 index=0,
                 finish_reason="tool_calls",
-                message=litellm.Message(
+                message=hangarllm.Message(
                     role="assistant",
                     content=None,
                     tool_calls=[
@@ -797,7 +797,7 @@ def test_arize_output_value_unchanged_when_content_present():
     exactly that content (no summary written)."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -809,7 +809,7 @@ def test_arize_output_value_unchanged_when_content_present():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 4, "completion_tokens": 2, "prompt_tokens": 2},
@@ -840,7 +840,7 @@ def test_arize_emits_tool_call_id_and_name_on_input_tool_message():
     """A tool-result input message should expose tool_call_id + name."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -874,7 +874,7 @@ def test_arize_emits_tool_call_id_and_name_on_input_tool_message():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 10, "completion_tokens": 4, "prompt_tokens": 6},
@@ -900,7 +900,7 @@ def test_arize_emits_multimodal_input_contents():
     legacy MESSAGE_CONTENT (which stays for back-compat)."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -923,7 +923,7 @@ def test_arize_emits_multimodal_input_contents():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 10, "completion_tokens": 4, "prompt_tokens": 6},
@@ -948,7 +948,7 @@ def test_arize_emits_session_and_user_attrs_from_metadata():
     optional_params.user/model_params.user absent)."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -966,7 +966,7 @@ def test_arize_emits_session_and_user_attrs_from_metadata():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 4, "completion_tokens": 2, "prompt_tokens": 2},
@@ -978,19 +978,19 @@ def test_arize_emits_session_and_user_attrs_from_metadata():
     attrs = _collect_calls(span)
     assert attrs[SpanAttributes.SESSION_ID] == "session_99"
     assert attrs[SpanAttributes.USER_ID] == "user_42"
-    assert attrs["litellm.team_id"] == "team_7"
-    assert attrs["litellm.team_alias"] == "alpha"
-    assert attrs["litellm.key_alias"] == "key_alpha"
+    assert attrs["hangarllm.team_id"] == "team_7"
+    assert attrs["hangarllm.team_alias"] == "alpha"
+    assert attrs["hangarllm.key_alias"] == "key_alpha"
 
 
 def test_arize_does_not_use_trace_id_as_session_id_fallback():
     """SESSION_ID must NOT fall back to trace_id (one session-per-request
     would distort Arize Session analytics). trace_id is emitted under its
-    own `litellm.trace_id` key instead.
+    own `hangarllm.trace_id` key instead.
     """
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -1003,7 +1003,7 @@ def test_arize_does_not_use_trace_id_as_session_id_fallback():
             "trace_id": "trace-xyz-123",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 4, "completion_tokens": 2, "prompt_tokens": 2},
@@ -1017,14 +1017,14 @@ def test_arize_does_not_use_trace_id_as_session_id_fallback():
     # SESSION_ID must NOT be derived from trace_id.
     assert SpanAttributes.SESSION_ID not in attrs
     # trace_id surfaces under its own key.
-    assert attrs["litellm.trace_id"] == "trace-xyz-123"
+    assert attrs["hangarllm.trace_id"] == "trace-xyz-123"
 
 
 def test_arize_does_not_overwrite_user_id_from_optional_params():
     """If optional_params.user is set, metadata USER_ID must NOT overwrite."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -1036,7 +1036,7 @@ def test_arize_does_not_overwrite_user_id_from_optional_params():
             "call_type": "completion",
         },
         "optional_params": {"user": "from_optional_params"},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 4, "completion_tokens": 2, "prompt_tokens": 2},
@@ -1057,7 +1057,7 @@ def test_arize_emits_response_cost():
     """StandardLoggingPayload.response_cost → llm.cost.total (+ legacy llm.response.cost)."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -1070,7 +1070,7 @@ def test_arize_emits_response_cost():
             "response_cost": 0.0012345,
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         usage={"total_tokens": 4, "completion_tokens": 2, "prompt_tokens": 2},
@@ -1112,13 +1112,13 @@ _PRICE_LOOKUP_FAILED: Final = {"error_str": "This model isn't mapped yet. model=
 def test_arize_cost_attrs_tell_unpriced_call_from_free_call(
     cost_fields: Mapping[str, object], expected_cost: float | None
 ) -> None:
-    span: Final = TracerProvider().get_tracer(__name__).start_span("litellm_request")
+    span: Final = TracerProvider().get_tracer(__name__).start_span("hangarllm_request")
     kwargs: Final = {
         "model": "unpriced-model",
         "messages": [{"role": "user", "content": "hi"}],
         "standard_logging_object": {"model_parameters": {}, "metadata": {}, "call_type": "completion", **cost_fields},
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj: Final = ModelResponse(
         usage={"total_tokens": 30, "completion_tokens": 20, "prompt_tokens": 10},
@@ -1179,7 +1179,7 @@ def test_arize_passthrough_bedrock_anthropic_normalization():
             "call_type": "allm_passthrough_route",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "bedrock"},
+        "hangarllm_params": {"custom_llm_provider": "bedrock"},
     }
     ArizeLogger.set_arize_attributes(span, kwargs, response_obj)
     attrs = _collect_calls(span)
@@ -1224,7 +1224,7 @@ def test_arize_passthrough_call_type_does_not_run_on_chat_completion():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.arize._utils import _maybe_normalize_passthrough
+    from hangarllm.integrations.arize._utils import _maybe_normalize_passthrough
 
     span = MagicMock()
     _maybe_normalize_passthrough(
@@ -1248,7 +1248,7 @@ def test_arize_passthrough_skipped_when_message_redaction_enabled():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.arize._utils import _maybe_normalize_passthrough
+    from hangarllm.integrations.arize._utils import _maybe_normalize_passthrough
 
     span = MagicMock()
     kwargs = {
@@ -1276,7 +1276,7 @@ def test_arize_passthrough_skipped_when_message_redaction_enabled():
 
 def test_arize_coerce_response_obj_passes_dicts_through_untouched():
     """Regression guard for the BaseModel/dict path."""
-    from litellm.integrations.arize._utils import _coerce_response_obj_for_attrs
+    from hangarllm.integrations.arize._utils import _coerce_response_obj_for_attrs
 
     d = {"id": "x", "model": "m"}
     assert _coerce_response_obj_for_attrs(d) is d
@@ -1293,7 +1293,7 @@ def test_arize_coerce_response_obj_passes_dicts_through_untouched():
 
 def test_arize_coerce_response_obj_parses_httpx_like():
     """httpx.Response-like objects without `.get` should JSON-decode."""
-    from litellm.integrations.arize._utils import _coerce_response_obj_for_attrs
+    from hangarllm.integrations.arize._utils import _coerce_response_obj_for_attrs
 
     class FakeHttpxResponse:
         text = '{"id": "msg_1", "model": "claude"}'
@@ -1303,7 +1303,7 @@ def test_arize_coerce_response_obj_parses_httpx_like():
 
 
 def test_arize_coerce_response_obj_returns_original_on_bad_json():
-    from litellm.integrations.arize._utils import _coerce_response_obj_for_attrs
+    from hangarllm.integrations.arize._utils import _coerce_response_obj_for_attrs
 
     class BadJson:
         text = "not-json"
@@ -1329,7 +1329,7 @@ def test_arize_mcp_call_tool_result_does_not_break_attribute_setting():
             "call_type": "call_mcp_tool",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "mcp"},
+        "hangarllm_params": {"custom_llm_provider": "mcp"},
     }
     response_obj = CallToolResult(
         content=[TextContent(type="text", text="sunny, 21C")], isError=False
@@ -1349,7 +1349,7 @@ def test_arize_mcp_call_tool_result_does_not_break_attribute_setting():
 def test_arize_coerce_response_obj_dumps_pydantic_without_get():
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.integrations.arize._utils import _coerce_response_obj_for_attrs
+    from hangarllm.integrations.arize._utils import _coerce_response_obj_for_attrs
 
     result = CallToolResult(content=[TextContent(type="text", text="hi")], isError=False)
     coerced = _coerce_response_obj_for_attrs(result)
@@ -1373,7 +1373,7 @@ def test_arize_request_attributes_survive_uncoercible_response_obj():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
 
     class Opaque:
@@ -1402,7 +1402,7 @@ def _mcp_kwargs(mcp_tool_call_metadata=None, **overrides):
             "call_type": "call_mcp_tool",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "mcp"},
+        "hangarllm_params": {"custom_llm_provider": "mcp"},
         **overrides,
     }
 
@@ -1476,7 +1476,7 @@ def test_arize_non_mcp_span_gets_no_tool_name():
     """The MCP emitter must not fire on ordinary completions."""
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Choices, ModelResponse
+    from hangarllm.types.utils import Choices, ModelResponse
 
     span = MagicMock()
     kwargs = {
@@ -1488,7 +1488,7 @@ def test_arize_non_mcp_span_gets_no_tool_name():
             "call_type": "completion",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
     }
     response_obj = ModelResponse(
         choices=[Choices(message={"role": "assistant", "content": "hello"})],
@@ -1562,7 +1562,7 @@ def test_arize_list_mcp_tools_response_does_not_break_attribute_setting():
             "call_type": "list_mcp_tools",
         },
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "mcp"},
+        "hangarllm_params": {"custom_llm_provider": "mcp"},
     }
 
     ArizeLogger.set_arize_attributes(span, kwargs, [{"name": "get_weather"}])
@@ -1626,7 +1626,7 @@ def test_arize_mcp_emitter_is_inert_without_a_standard_logging_object():
     kwargs = {
         "model": "MCP: get_weather",
         "optional_params": {},
-        "litellm_params": {"custom_llm_provider": "mcp"},
+        "hangarllm_params": {"custom_llm_provider": "mcp"},
     }
 
     ArizeLogger.set_arize_attributes(span, kwargs, None)

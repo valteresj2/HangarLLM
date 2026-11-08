@@ -9,8 +9,8 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from litellm.proxy.common_utils.custom_openapi_spec import JsonValue
-from litellm.proxy.common_utils.openapi_route import OpenAPISchema, serve_openapi_off_the_event_loop
+from hangarllm.proxy.common_utils.custom_openapi_spec import JsonValue
+from hangarllm.proxy.common_utils.openapi_route import OpenAPISchema, serve_openapi_off_the_event_loop
 
 UNBLOCK_TIMEOUT_SECONDS: Final = 5
 

@@ -12,22 +12,22 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.caching.dual_cache import DualCache
+from hangarllm.caching.dual_cache import DualCache
 
 
 from fastapi import HTTPException
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.tool_permission import (
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.tool_permission import (
     ToolPermissionGuardrail,
 )
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.responses.main import build_web_search_call
-from litellm.types.proxy.guardrails.guardrail_hooks.tool_permission import (
+from hangarllm.types.guardrails import GuardrailEventHooks, HangarllmParams
+from hangarllm.types.responses.main import build_web_search_call
+from hangarllm.types.proxy.guardrails.guardrail_hooks.tool_permission import (
     PermissionError,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     CallTypesLiteral,
     ChatCompletionCustomToolCallPayload,
     ChatCompletionDeltaToolCall,
@@ -919,7 +919,7 @@ class TestToolPermissionGuardrail:
     async def test_async_pre_call_hook_without_tools_logs_skip_at_debug(self, caplog):
         data = {"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}
 
-        with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
             with patch.object(self.guardrail, "should_run_guardrail", return_value=True):
                 result = await self.guardrail.async_pre_call_hook(
                     user_api_key_dict=UserAPIKeyAuth(),
@@ -937,7 +937,7 @@ class TestToolPermissionGuardrail:
     async def test_async_pre_call_hook_denied_tool_logs_at_info(self, caplog):
         data = {"tools": [{"type": "function", "function": {"name": "Read"}}]}
 
-        with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
             with patch.object(self.guardrail, "should_run_guardrail", return_value=True):
                 with pytest.raises(HTTPException):
                     await self.guardrail.async_pre_call_hook(
@@ -960,7 +960,7 @@ class TestToolPermissionGuardrail:
         tool_call = {"function": {"name": "Read", "arguments": "{}"}, "type": "function"}
         response = ModelResponse(choices=[Choices(message={"tool_calls": [tool_call]})])
 
-        with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
             with patch.object(self.guardrail, "should_run_guardrail", return_value=True):
                 with pytest.raises(GuardrailRaisedException):
                     await self.guardrail.async_post_call_success_hook(
@@ -980,7 +980,7 @@ class TestToolPermissionGuardrail:
     def test_parse_tool_call_arguments_malformed_json_logs_warning(self, caplog):
         tool_call = ChatCompletionMessageToolCall(function={"name": "Bash", "arguments": "{not json"}, id="call_1")
 
-        with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
             parsed, error = self.guardrail._parse_tool_call_arguments(tool_call)
 
         assert parsed is None
@@ -1241,7 +1241,7 @@ class TestToolPermissionGuardrail:
             choices=[Choices(message={"content": "Hello, world!"})]
         )
 
-        with patch("litellm.main.stream_chunk_builder", return_value=assembled):
+        with patch("hangarllm.main.stream_chunk_builder", return_value=assembled):
             chunks = []
             async for chunk in self.guardrail.async_post_call_streaming_iterator_hook(
                 user_api_key_dict=UserAPIKeyAuth(),
@@ -1636,8 +1636,8 @@ class TestToolPermissionGuardrailInMemoryUpdate:
             is True
         )
 
-        guardrail.update_in_memory_litellm_params(
-            LitellmParams(
+        guardrail.update_in_memory_hangarllm_params(
+            HangarllmParams(
                 guardrail="tool_permission",
                 mode=["pre_call", "post_call"],
                 default_action="deny",
@@ -1675,8 +1675,8 @@ class TestToolPermissionGuardrailInMemoryUpdate:
         # No rules: default_action allow lets Bash through.
         assert guardrail._get_permission_for_tool_call(self._bash("echo x"))[0] is True
 
-        guardrail.update_in_memory_litellm_params(
-            LitellmParams(
+        guardrail.update_in_memory_hangarllm_params(
+            HangarllmParams(
                 guardrail="tool_permission",
                 mode=["pre_call", "post_call"],
                 default_action="allow",
@@ -1707,8 +1707,8 @@ class TestToolPermissionGuardrailInMemoryUpdate:
 
         # A partial update that does not carry `rules` must NOT wipe the existing
         # ruleset / compiled maps.
-        guardrail.update_in_memory_litellm_params(
-            LitellmParams(
+        guardrail.update_in_memory_hangarllm_params(
+            HangarllmParams(
                 guardrail="tool_permission",
                 mode=["pre_call", "post_call"],
                 default_action="deny",
@@ -1738,8 +1738,8 @@ class TestToolPermissionGuardrailInMemoryUpdate:
         assert guardrail._check_tool_permission("Other")[0] is True
 
         with pytest.raises(ValueError, match="Invalid regex for tool_name in rule 'bad': unterminated"):
-            guardrail.update_in_memory_litellm_params(
-                LitellmParams(
+            guardrail.update_in_memory_hangarllm_params(
+                HangarllmParams(
                     guardrail="tool_permission",
                     mode=["pre_call", "post_call"],
                     default_action="allow",

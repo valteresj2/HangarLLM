@@ -100,7 +100,7 @@ def tool_rig(
     environment: Mapping[str, str] | None = None,
     workers: int = 2,
 ) -> Iterator[Rig]:
-    assert os.environ.get("LITELLM_LICENSE"), "LITELLM_LICENSE must be set: hide-secrets is an enterprise feature"
+    assert os.environ.get("HANGARLLM_LICENSE"), "HANGARLLM_LICENSE must be set: hide-secrets is an enterprise feature"
     product_root: Final = Path(os.environ.get("INTEGRATION_PROXY_ROOT") or Path(__file__).resolve().parents[3])
     with (
         wire_server(respond) as wire,
@@ -111,7 +111,7 @@ def tool_rig(
             "model_list": [
                 {
                     "model_name": "claude",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-sonnet-5",
                         "api_key": "synthetic-provider-key",
                         "api_base": wire.url,
@@ -120,7 +120,7 @@ def tool_rig(
                 },
                 {
                     "model_name": "gpt",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5",
                         "api_key": "synthetic-provider-key",
                         "api_base": wire.url,
@@ -136,7 +136,7 @@ def tool_rig(
                 "proxy_batch_polling_interval": 1,
             },
             "router_settings": {"num_retries": 0},
-            "litellm_settings": {
+            "hangarllm_settings": {
                 "cache": True,
                 "cache_params": {
                     "type": "redis",
@@ -147,7 +147,7 @@ def tool_rig(
             "guardrails": [
                 {
                     "guardrail_name": "hide-secrets",
-                    "litellm_params": {"guardrail": "hide-secrets", "mode": "pre_call", "default_on": True},
+                    "hangarllm_params": {"guardrail": "hide-secrets", "mode": "pre_call", "default_on": True},
                 }
             ],
         }
@@ -156,10 +156,10 @@ def tool_rig(
         config.write_text(yaml.safe_dump(configuration))
         child_environment: Final = {
             "DATABASE_URL": database,
-            "LITELLM_DISABLE_NO_REDIS_WARNING": "true",
+            "HANGARLLM_DISABLE_NO_REDIS_WARNING": "true",
             "ANTHROPIC_API_BASE": wire.url,
             "ANTHROPIC_API_KEY": "synthetic-provider-key",
-            "LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS": "True",
+            "HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS": "True",
             "PYTHONPATH": os.pathsep.join(
                 (str(product_root / "enterprise"), str(product_root), os.environ.get("PYTHONPATH", ""))
             ),
@@ -419,9 +419,9 @@ def test_resent_tool_history_is_scanned_once(single_worker: Rig, shape: str) -> 
 def test_skip_tool_message_in_guardrail_forwards_tool_results(tmp_path: Path, placement: str) -> None:
     def configure(configuration: dict[str, JsonValue]) -> None:
         guardrails: Final = configuration["guardrails"]
-        settings: Final = configuration["litellm_settings"]
+        settings: Final = configuration["hangarllm_settings"]
         assert isinstance(guardrails, list) and isinstance(guardrails[0], dict) and isinstance(settings, dict)
-        params: Final = guardrails[0]["litellm_params"]
+        params: Final = guardrails[0]["hangarllm_params"]
         assert isinstance(params, dict)
         (params if placement == "guardrail" else settings)["skip_tool_message_in_guardrail"] = True
 

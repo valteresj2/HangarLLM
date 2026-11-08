@@ -178,7 +178,7 @@ def accept_events(request: Request) -> Reply:
 def registered_guardrail(name: str, mode: str) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "custom_code",
             "mode": mode,
             "default_on": False,
@@ -254,7 +254,7 @@ def deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": backend,
             "api_base": wire.url + "/v1",
             "api_key": "synthetic-continuation-key",
@@ -276,8 +276,8 @@ def write_config(
     config: Final = {
         **base,
         "model_list": [dict(entry) for entry in model_entries],
-        "litellm_settings": {
-            **object_value(base["litellm_settings"]),
+        "hangarllm_settings": {
+            **object_value(base["hangarllm_settings"]),
             "callbacks": ["generic_api"],
             "DEFAULT_FLUSH_INTERVAL_SECONDS": 1,
         },
@@ -441,7 +441,7 @@ def chat_bodies(wire: Wire, marker: str) -> tuple[dict[str, JsonValue], ...]:
 def spend_rows(rig: Rig, key: str) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, status, spend, prompt_tokens, completion_tokens, metadata FROM "LiteLLM_SpendLogs" '
+            'SELECT request_id, status, spend, prompt_tokens, completion_tokens, metadata FROM "HangarLLM_SpendLogs" '
             "WHERE api_key=%s",
             (hashlib.sha256(key.encode()).hexdigest(),),
             database_url=rig.database_url,

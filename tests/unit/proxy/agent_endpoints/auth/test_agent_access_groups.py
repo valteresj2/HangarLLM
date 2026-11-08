@@ -3,12 +3,12 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.models.access_group import LiteLLM_AccessGroupTable
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import (
+from hangarllm.models.access_group import HangarLLM_AccessGroupTable
+from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import (
     AgentAccessGroupCeiling,
     resolve_agent_access_group_ceiling,
 )
-from litellm.types.agents import AgentResponse
+from hangarllm.types.agents import AgentResponse
 
 _CARD: Final = {"name": "agent", "url": "http://localhost:9999", "version": "1.0.0"}
 
@@ -24,8 +24,8 @@ def _group(
     models: tuple[str, ...] = (),
     mcp_servers: tuple[str, ...] = (),
     agents: tuple[str, ...] = (),
-) -> LiteLLM_AccessGroupTable:
-    return LiteLLM_AccessGroupTable(
+) -> HangarLLM_AccessGroupTable:
+    return HangarLLM_AccessGroupTable(
         access_group_id=group_id,
         access_group_name=group_id,
         access_model_names=list(models),
@@ -34,11 +34,11 @@ def _group(
     )
 
 
-def _loaders(agent: AgentResponse | None, groups: dict[str, LiteLLM_AccessGroupTable]):
+def _loaders(agent: AgentResponse | None, groups: dict[str, HangarLLM_AccessGroupTable]):
     async def load_agent(agent_id: str) -> tuple[str, ...]:
         return tuple(agent.access_group_ids or ()) if agent is not None else ()
 
-    async def load_group(group_id: str) -> LiteLLM_AccessGroupTable | None:
+    async def load_group(group_id: str) -> HangarLLM_AccessGroupTable | None:
         return groups.get(group_id)
 
     return load_agent, load_group
@@ -108,7 +108,7 @@ async def test_only_unloadable_groups_is_an_empty_ceiling_not_unrestricted():
 
 @pytest.mark.asyncio
 async def test_default_agent_loader_reads_the_attached_groups_from_the_registry():
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     g1: Final = _group("g1", models=("gpt-5",))
     _, load_group = _loaders(None, {"g1": g1})
@@ -129,11 +129,11 @@ async def test_default_agent_loader_reads_the_attached_groups_from_the_registry(
 
 @pytest.mark.asyncio
 async def test_default_loader_treats_a_missing_group_as_unreadable(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
+    from hangarllm.proxy.auth import auth_checks
 
-    async def missing_group(**_: object) -> LiteLLM_AccessGroupTable:
+    async def missing_group(**_: object) -> HangarLLM_AccessGroupTable:
         raise HTTPException(status_code=404, detail={"error": "Access group doesn't exist in db."})
 
     monkeypatch.setattr(proxy_server, "prisma_client", object())
@@ -144,12 +144,12 @@ async def test_default_loader_treats_a_missing_group_as_unreadable(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_default_loader_lets_a_provably_absent_group_surface(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.auth.auth_checks import AccessGroupNotFoundError
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.proxy.auth.auth_checks import AccessGroupNotFoundError
 
-    async def absent_group(*, access_group_id: str, **_: object) -> LiteLLM_AccessGroupTable:
+    async def absent_group(*, access_group_id: str, **_: object) -> HangarLLM_AccessGroupTable:
         raise AccessGroupNotFoundError(access_group_id=access_group_id)
 
     monkeypatch.setattr(proxy_server, "prisma_client", object())
@@ -161,15 +161,15 @@ async def test_default_loader_lets_a_provably_absent_group_surface(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_ceiling_drops_a_group_that_does_not_exist_but_keeps_an_unreadable_one():
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import resolve_agent_access_group_ceiling
-    from litellm.proxy.auth.auth_checks import AccessGroupNotFoundError
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import resolve_agent_access_group_ceiling
+    from hangarllm.proxy.auth.auth_checks import AccessGroupNotFoundError
 
-    real = LiteLLM_AccessGroupTable(access_group_id="real", access_group_name="real", access_mcp_server_ids=["srv"])
+    real = HangarLLM_AccessGroupTable(access_group_id="real", access_group_name="real", access_mcp_server_ids=["srv"])
 
     async def ids(_agent_id: str) -> tuple[str, ...]:
         return ("real", "typo-group", "unreadable")
 
-    async def load(group_id: str) -> LiteLLM_AccessGroupTable | None:
+    async def load(group_id: str) -> HangarLLM_AccessGroupTable | None:
         if group_id == "typo-group":
             raise AccessGroupNotFoundError(access_group_id=group_id)
         return real if group_id == "real" else None
@@ -183,13 +183,13 @@ async def test_ceiling_drops_a_group_that_does_not_exist_but_keeps_an_unreadable
 
 @pytest.mark.asyncio
 async def test_ceiling_stays_and_caps_to_nothing_when_every_named_group_does_not_exist():
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import resolve_agent_access_group_ceiling
-    from litellm.proxy.auth.auth_checks import AccessGroupNotFoundError
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import resolve_agent_access_group_ceiling
+    from hangarllm.proxy.auth.auth_checks import AccessGroupNotFoundError
 
     async def ids(_agent_id: str) -> tuple[str, ...]:
         return ("typo-group",)
 
-    async def load(group_id: str) -> LiteLLM_AccessGroupTable | None:
+    async def load(group_id: str) -> HangarLLM_AccessGroupTable | None:
         raise AccessGroupNotFoundError(access_group_id=group_id)
 
     assert await resolve_agent_access_group_ceiling("agent-1", ids, load) == AgentAccessGroupCeiling(
@@ -199,8 +199,8 @@ async def test_ceiling_stays_and_caps_to_nothing_when_every_named_group_does_not
 
 @pytest.mark.asyncio
 async def test_default_loader_returns_nothing_without_a_db(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
 
@@ -214,13 +214,13 @@ async def test_authoritative_group_ceiling_propagates_policy_outages(
 ) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     database: Final = MagicMock()
-    database.db.litellm_accessgrouptable.find_unique = AsyncMock(side_effect=RuntimeError("database unavailable"))
-    database.writer_db.litellm_accessgrouptable.find_unique = AsyncMock(
+    database.db.hangarllm_accessgrouptable.find_unique = AsyncMock(side_effect=RuntimeError("database unavailable"))
+    database.writer_db.hangarllm_accessgrouptable.find_unique = AsyncMock(
         side_effect=RuntimeError("database unavailable")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", database)

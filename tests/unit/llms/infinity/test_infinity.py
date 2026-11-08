@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
+import hangarllm
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -32,10 +32,10 @@ async def test_infinity_rerank():
     }
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.arerank(
+        response = await hangarllm.arerank(
             model="infinity/rerank-model",
             query="hello",
             documents=["hello", "world"],
@@ -87,10 +87,10 @@ async def test_infinity_rerank_with_return_documents():
     mock_response.status_code = 200
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.arerank(
+        response = await hangarllm.arerank(
             model="infinity/rerank-model",
             query="hello",
             documents=["hello", "world"],
@@ -130,10 +130,10 @@ async def test_infinity_rerank_with_env(monkeypatch):
     }
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.arerank(
+        response = await hangarllm.arerank(
             model="infinity/rerank-model",
             query="hello",
             documents=["hello", "world"],
@@ -191,10 +191,10 @@ async def test_infinity_embedding():
     }
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.aembedding(
+        response = await hangarllm.aembedding(
             model="infinity/custom-model/embedding-v1",
             input=["hello world"],
             dimensions=512,
@@ -246,10 +246,10 @@ async def test_infinity_embedding_with_env(monkeypatch):
     }
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.aembedding(
+        response = await hangarllm.aembedding(
             model="infinity/custom-model/embedding-v1",
             input=["hello world"],
             dimensions=512,
@@ -293,10 +293,10 @@ async def test_infinity_embedding_extra_params():
     mock_response.status_code = 200
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.aembedding(
+        response = await hangarllm.aembedding(
             model="infinity/custom-model/embedding-v1",
             input=["test input"],
             dimensions=512,
@@ -333,10 +333,10 @@ async def test_infinity_embedding_prompt_token_mapping():
     mock_response.status_code = 200
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.aembedding(
+        response = await hangarllm.aembedding(
             model="infinity/custom-model/embedding-v1",
             input=["a"],
             dimensions=512,
@@ -369,7 +369,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -379,21 +379,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -402,15 +402,15 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }

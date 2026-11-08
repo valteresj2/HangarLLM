@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.router_strategy.complexity_router import request_models
-from litellm.types.management_endpoints import auto_router_endpoints
+from hangarllm.router_strategy.complexity_router import request_models
+from hangarllm.types.management_endpoints import auto_router_endpoints
 
 
 @pytest.mark.parametrize("name", ["RequestComplexityRouterConfig", "AutoRouterRoutingTestRequest"])

@@ -163,9 +163,9 @@ def test_deleting_a_key_revokes_it(gateway: Gateway, spelling: str) -> None:
         info: Final = gateway.request("GET", "/key/info", params={"key": key_hash})
         assert info.status_code == 200, info.text
         assert _KeyInfoResponse.model_validate_json(info.content).info.status == "deleted", info.text
-        live_rows: Final = read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE token=%s', (key_hash,))
+        live_rows: Final = read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE token=%s', (key_hash,))
         deleted_rows: Final = TypeAdapter(tuple[_DeletedKeyRow, ...]).validate_python(
-            read_rows('SELECT token FROM "LiteLLM_DeletedVerificationToken" WHERE token=%s', (key_hash,))
+            read_rows('SELECT token FROM "HangarLLM_DeletedVerificationToken" WHERE token=%s', (key_hash,))
         )
         assert live_rows == []
         assert deleted_rows == (_DeletedKeyRow(token=key_hash),)

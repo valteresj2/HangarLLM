@@ -6,8 +6,8 @@ import openai
 from integration._support.anthropic_sse import dropping_reply
 from integration._support.wire import Reply, Request, wire_server
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
 
 _PARTIAL_TEXT: Final = "partial answer"
 
@@ -29,7 +29,7 @@ def _cut_after_text(request: Request) -> Reply:
 
 
 def _text(item: object) -> str:
-    if not isinstance(item, litellm.ModelResponseStream):
+    if not isinstance(item, hangarllm.ModelResponseStream):
         return ""
     return "".join(choice.delta.content or "" for choice in item.choices)
 
@@ -44,7 +44,7 @@ async def _items_or_error(stream: AsyncIterable[object]) -> AsyncIterator[object
 
 async def test_sdk_mid_stream_failure_debug_info_names_the_api_base_it_called() -> None:
     with wire_server(_cut_after_text) as wire:
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model="azure/gpt-4o-mini",
             api_base=wire.url,
             api_key="synthetic-azure-key",
@@ -64,6 +64,6 @@ async def test_sdk_mid_stream_failure_debug_info_names_the_api_base_it_called() 
         if isinstance(error, MidStreamFallbackError) and error.original_exception is not None
         else error
     )
-    debug_info: Final = getattr(mapped, "litellm_debug_info", None)
+    debug_info: Final = getattr(mapped, "hangarllm_debug_info", None)
     assert isinstance(debug_info, str), mapped
     assert f"\nAPI Base: `{wire.url}`" in debug_info, debug_info

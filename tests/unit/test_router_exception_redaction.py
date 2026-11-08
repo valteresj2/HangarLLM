@@ -1,5 +1,5 @@
 """
-Tests for `litellm.expose_router_debug_in_errors`.
+Tests for `hangarllm.expose_router_debug_in_errors`.
 
 The Router historically appended internal config names (model_group,
 fallback_model_group, fallback failure detail, deployment timeouts,
@@ -21,9 +21,9 @@ flag OFF the proxy's internal wiring is redacted, and that a raw
 provider credential never appears in the message regardless of the
 flag.
 
-Five leak sites are gated in `litellm/router.py`:
+Five leak sites are gated in `hangarllm/router.py`:
 
-1. Deployment timeout debug after `litellm.Timeout`
+1. Deployment timeout debug after `hangarllm.Timeout`
 2. ContextWindowExceededError fallback hint
 3. ContentPolicyViolationError fallback hint
 4. "no fallback model group was found" when fallbacks dict misses
@@ -41,8 +41,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 _RECEIVED_MODEL_GROUP_PHRASE = "failed with the error above"
 _AVAILABLE_FALLBACKS_PHRASE = "No fallback was attempted"
@@ -57,10 +57,10 @@ def _router_with_rate_limit_failure() -> Router:
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
-                    "mock_response": "litellm.RateLimitError",
+                    "mock_response": "hangarllm.RateLimitError",
                 },
                 "model_info": {"id": "secret-deployment-id"},
             },
@@ -74,10 +74,10 @@ def _router_with_context_window_failure() -> Router:
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
-                    "mock_response": "litellm.ContextWindowExceededError",
+                    "mock_response": "hangarllm.ContextWindowExceededError",
                 },
                 "model_info": {"id": "secret-deployment-id"},
             },
@@ -94,10 +94,10 @@ def _router_with_credentialed_fallback() -> Router:
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
-                    "mock_response": "litellm.RateLimitError",
+                    "mock_response": "hangarllm.RateLimitError",
                 },
                 "model_info": {"id": "secret-deployment-id"},
             },
@@ -108,7 +108,7 @@ def _router_with_credentialed_fallback() -> Router:
                     {
                         "model": "gpt-4o",
                         "api_key": _FALLBACK_CREDENTIAL,
-                        "mock_response": "litellm.RateLimitError",
+                        "mock_response": "hangarllm.RateLimitError",
                     }
                 ]
             }
@@ -120,11 +120,11 @@ def _router_with_credentialed_fallback() -> Router:
 @pytest.fixture(autouse=True)
 def _reset_expose_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     """Each test starts with the flag in its default (on) state."""
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
 
 
 def test_flag_defaults_on():
-    assert litellm.expose_router_debug_in_errors is True
+    assert hangarllm.expose_router_debug_in_errors is True
 
 
 # --- Site 5: fallback outcome on terminal raise --------------------
@@ -132,9 +132,9 @@ def test_flag_defaults_on():
 
 @pytest.mark.asyncio
 async def test_flag_off_does_not_leak_received_model_group(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", False)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", False)
     router = _router_with_rate_limit_failure()
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -147,9 +147,9 @@ async def test_flag_off_does_not_leak_received_model_group(monkeypatch: pytest.M
 
 @pytest.mark.asyncio
 async def test_flag_on_shows_received_model_group(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router = _router_with_rate_limit_failure()
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -165,9 +165,9 @@ async def test_flag_on_shows_received_model_group(monkeypatch: pytest.MonkeyPatc
 
 @pytest.mark.asyncio
 async def test_flag_off_does_not_leak_context_window_fallback_hint(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", False)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", False)
     router = _router_with_context_window_failure()
-    with pytest.raises(litellm.ContextWindowExceededError) as excinfo:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -180,9 +180,9 @@ async def test_flag_off_does_not_leak_context_window_fallback_hint(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_flag_on_shows_context_window_fallback_hint(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router = _router_with_context_window_failure()
-    with pytest.raises(litellm.ContextWindowExceededError) as excinfo:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -200,15 +200,15 @@ async def test_flag_on_shows_context_window_fallback_hint(monkeypatch: pytest.Mo
 
 @pytest.mark.asyncio
 async def test_flag_off_does_not_leak_when_no_fallback_group_found(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", False)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", False)
     router = Router(
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
-                    "mock_response": "litellm.RateLimitError",
+                    "mock_response": "hangarllm.RateLimitError",
                 },
                 "model_info": {"id": "secret-deployment-id"},
             },
@@ -218,7 +218,7 @@ async def test_flag_off_does_not_leak_when_no_fallback_group_found(monkeypatch: 
         fallbacks=[{"some-other-group": ["some-other-target"]}],
         num_retries=0,
     )
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -231,15 +231,15 @@ async def test_flag_off_does_not_leak_when_no_fallback_group_found(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_flag_on_shows_when_no_fallback_group_found(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router = Router(
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
-                    "mock_response": "litellm.RateLimitError",
+                    "mock_response": "hangarllm.RateLimitError",
                 },
                 "model_info": {"id": "secret-deployment-id"},
             },
@@ -247,7 +247,7 @@ async def test_flag_on_shows_when_no_fallback_group_found(monkeypatch: pytest.Mo
         fallbacks=[{"some-other-group": ["some-other-target"]}],
         num_retries=0,
     )
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -261,14 +261,14 @@ async def test_flag_on_shows_when_no_fallback_group_found(monkeypatch: pytest.Mo
     assert msg.count("failed with the error above") == 1, msg
 
 
-# --- Site 1: Deployment timeout debug on litellm.Timeout --------------------
+# --- Site 1: Deployment timeout debug on hangarllm.Timeout --------------------
 
 
 def _router_with_plain_deployment() -> Router:
     """Plain deployment, no preconfigured mock_response — caller supplies via kwargs.
 
-    Exception instances cannot live in `model_list[*].litellm_params` because
-    `Router.__init__` deep-copies model_list and several LiteLLM exceptions
+    Exception instances cannot live in `model_list[*].hangarllm_params` because
+    `Router.__init__` deep-copies model_list and several HangarLLM exceptions
     (Timeout, ContentPolicyViolationError) require positional args that
     `__reduce__` cannot reconstruct. Passing the trigger at call-site bypasses
     the deepcopy entirely.
@@ -277,7 +277,7 @@ def _router_with_plain_deployment() -> Router:
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {"model": "gpt-4o", "api_key": "key"},
+                "hangarllm_params": {"model": "gpt-4o", "api_key": "key"},
                 "model_info": {"id": "secret-deployment-id"},
             },
         ],
@@ -287,9 +287,9 @@ def _router_with_plain_deployment() -> Router:
 
 @pytest.mark.asyncio
 async def test_flag_off_does_not_leak_deployment_timeout_debug(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", False)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", False)
     router = _router_with_plain_deployment()
-    with pytest.raises(litellm.Timeout) as excinfo:
+    with pytest.raises(hangarllm.Timeout) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -302,9 +302,9 @@ async def test_flag_off_does_not_leak_deployment_timeout_debug(monkeypatch: pyte
 
 @pytest.mark.asyncio
 async def test_flag_on_shows_deployment_timeout_debug(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router = _router_with_plain_deployment()
-    with pytest.raises(litellm.Timeout) as excinfo:
+    with pytest.raises(hangarllm.Timeout) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -317,17 +317,17 @@ async def test_flag_on_shows_deployment_timeout_debug(monkeypatch: pytest.Monkey
 
 @pytest.mark.asyncio
 async def test_flag_on_deployment_timeout_debug_names_stream_timeout(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {"model": "gpt-4o", "api_key": "key", "stream_timeout": 7},
+                "hangarllm_params": {"model": "gpt-4o", "api_key": "key", "stream_timeout": 7},
             },
         ],
         num_retries=0,
     )
-    with pytest.raises(litellm.Timeout) as excinfo:
+    with pytest.raises(hangarllm.Timeout) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -341,8 +341,8 @@ async def test_flag_on_deployment_timeout_debug_names_stream_timeout(monkeypatch
 # --- Site 3: ContentPolicyViolationError fallback hint (no fallback set) ----
 
 
-def _content_policy_error() -> litellm.ContentPolicyViolationError:
-    return litellm.ContentPolicyViolationError(
+def _content_policy_error() -> hangarllm.ContentPolicyViolationError:
+    return hangarllm.ContentPolicyViolationError(
         message="mocked policy violation",
         model="gpt-4o",
         llm_provider="openai",
@@ -351,9 +351,9 @@ def _content_policy_error() -> litellm.ContentPolicyViolationError:
 
 @pytest.mark.asyncio
 async def test_flag_off_does_not_leak_content_policy_fallback_hint(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", False)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", False)
     router = _router_with_plain_deployment()
-    with pytest.raises(litellm.ContentPolicyViolationError) as excinfo:
+    with pytest.raises(hangarllm.ContentPolicyViolationError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -366,9 +366,9 @@ async def test_flag_off_does_not_leak_content_policy_fallback_hint(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_flag_on_shows_content_policy_fallback_hint(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router = _router_with_plain_deployment()
-    with pytest.raises(litellm.ContentPolicyViolationError) as excinfo:
+    with pytest.raises(hangarllm.ContentPolicyViolationError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -381,16 +381,16 @@ async def test_flag_on_shows_content_policy_fallback_hint(monkeypatch: pytest.Mo
 
 @pytest.mark.asyncio
 async def test_flag_on_explains_failed_content_policy_fallback(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router = Router(
         model_list=[
-            {"model_name": _INTERNAL_MODEL_GROUP_NAME, "litellm_params": {"model": "gpt-4o", "api_key": "key"}},
-            {"model_name": "policy-safe-group", "litellm_params": {"model": "gpt-4o", "api_key": "key"}},
+            {"model_name": _INTERNAL_MODEL_GROUP_NAME, "hangarllm_params": {"model": "gpt-4o", "api_key": "key"}},
+            {"model_name": "policy-safe-group", "hangarllm_params": {"model": "gpt-4o", "api_key": "key"}},
         ],
         content_policy_fallbacks=[{_INTERNAL_MODEL_GROUP_NAME: ["policy-safe-group"]}],
         num_retries=0,
     )
-    with pytest.raises(litellm.ContentPolicyViolationError) as excinfo:
+    with pytest.raises(hangarllm.ContentPolicyViolationError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -408,9 +408,9 @@ async def test_flag_on_explains_failed_content_policy_fallback(monkeypatch: pyte
 
 @pytest.mark.asyncio
 async def test_flag_off_hides_fallback_credentials(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", False)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", False)
     router = _router_with_credentialed_fallback()
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -422,9 +422,9 @@ async def test_flag_off_hides_fallback_credentials(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.asyncio
 async def test_flag_on_masks_fallback_credentials(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router = _router_with_credentialed_fallback()
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],
@@ -445,22 +445,22 @@ async def test_flag_on_scrubs_credential_from_inner_fallback_exception_string(mo
     on the terminal raise. The router must scrub known secret patterns from it.
     The primary fails with a benign rate-limit; the fallback deployment fails
     with an exception whose text contains the secret."""
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     inner_secret = "sk-INNERFALLBACKEXCEPTIONSECRET1234"
     router = Router(
         model_list=[
             {
                 "model_name": _INTERNAL_MODEL_GROUP_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
-                    "mock_response": "litellm.RateLimitError",
+                    "mock_response": "hangarllm.RateLimitError",
                 },
                 "model_info": {"id": "secret-deployment-id"},
             },
             {
                 "model_name": "fallback-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
                     "mock_response": f"Exception: content_filter_policy - api_key={inner_secret}",
@@ -471,7 +471,7 @@ async def test_flag_on_scrubs_credential_from_inner_fallback_exception_string(mo
         fallbacks=[{_INTERNAL_MODEL_GROUP_NAME: ["fallback-group"]}],
         num_retries=0,
     )
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RateLimitError) as excinfo:
         await router.acompletion(
             model=_INTERNAL_MODEL_GROUP_NAME,
             messages=[{"role": "user", "content": "hi"}],

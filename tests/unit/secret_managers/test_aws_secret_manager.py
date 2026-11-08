@@ -3,7 +3,7 @@ import base64
 import pytest
 from botocore.stub import Stubber
 
-from litellm.secret_managers.aws_secret_manager import AWSKeyManagementService_V2
+from hangarllm.secret_managers.aws_secret_manager import AWSKeyManagementService_V2
 
 _CIPHERTEXT = b"ciphertext-bytes"
 _KEY_ID = "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"
@@ -24,7 +24,7 @@ _KEY_ID = "arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-123456
 )
 def test_decrypt_value_turns_only_boolean_literals_into_bools(monkeypatch, plaintext, expected):
     monkeypatch.setenv("AWS_REGION_NAME", "us-west-2")
-    monkeypatch.setenv("LITELLM_LICENSE", "license-for-test")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "license-for-test")
     monkeypatch.setenv("ENCRYPTED_SETTING", "aws_kms/" + base64.b64encode(_CIPHERTEXT).decode())
     kms = AWSKeyManagementService_V2()
 
@@ -38,7 +38,7 @@ def test_decrypt_value_turns_only_boolean_literals_into_bools(monkeypatch, plain
 
 def test_kms_v2_works_without_a_license(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("AWS_REGION_NAME", "us-west-2")
-    monkeypatch.delenv("LITELLM_LICENSE", raising=False)
-    monkeypatch.delenv("LITELLM_SECRET_AWS_KMS_LITELLM_LICENSE", raising=False)
+    monkeypatch.delenv("HANGARLLM_LICENSE", raising=False)
+    monkeypatch.delenv("HANGARLLM_SECRET_AWS_KMS_HANGARLLM_LICENSE", raising=False)
 
     assert AWSKeyManagementService_V2().kms_client is not None

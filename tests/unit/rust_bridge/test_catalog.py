@@ -5,9 +5,9 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.model_latest_aliases import get_model_latest_aliases
-from litellm.rust_bridge import catalog, configuration, detectors
-from litellm.rust_bridge.catalog import (
+from hangarllm.hangarllm_core_utils.model_latest_aliases import get_model_latest_aliases
+from hangarllm.rust_bridge import catalog, configuration, detectors
+from hangarllm.rust_bridge.catalog import (
     Feature,
     Route,
     RouteContext,
@@ -15,8 +15,8 @@ from litellm.rust_bridge.catalog import (
     Rules,
     Target,
 )
-from litellm.rust_bridge.configuration import Decision, Rollout
-from litellm.rust_bridge.public_call import NativeCall
+from hangarllm.rust_bridge.configuration import Decision, Rollout
+from hangarllm.rust_bridge.public_call import NativeCall
 
 
 @pytest.mark.parametrize(
@@ -46,7 +46,7 @@ def test_latest_alias_messages_falls_back_without_changing_the_pinned_model_roll
 
 @pytest.fixture(autouse=True)
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
-    monkeypatch.delenv("LITELLM_RUST", raising=False)
+    monkeypatch.delenv("HANGARLLM_RUST", raising=False)
     configuration.reset_rust_configuration()
     yield
     configuration.reset_rust_configuration()
@@ -55,7 +55,7 @@ def isolated_configuration(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
 @pytest.mark.parametrize("route", tuple(Route))
 def test_missing_rule_stays_on_python_even_when_rust_is_enabled(monkeypatch: pytest.MonkeyPatch, route: Route) -> None:
     configuration.rust(True)
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("HANGARLLM_RUST", "1")
 
     assert catalog.rollout(RouteContext(route), rules=()) is Rollout.PYTHON_ONLY
     assert catalog.decision(RouteContext(route), rules=()) is Decision.PYTHON
@@ -134,7 +134,7 @@ def test_rollout_switches_and_first_match(
 ) -> None:
     configuration.rust(process)
     if environment is not None:
-        monkeypatch.setenv("LITELLM_RUST", environment)
+        monkeypatch.setenv("HANGARLLM_RUST", environment)
     rules: Final[Rules] = (
         RouteRule(Route.OCR, rollout),
         RouteRule(Route.OCR, Rollout.RUST_REQUIRED),

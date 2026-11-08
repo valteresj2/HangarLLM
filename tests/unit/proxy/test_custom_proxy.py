@@ -11,10 +11,10 @@ def build_app() -> FastAPI:
     load_dotenv()
     os.environ["SERVER_ROOT_PATH"] = "/my-custom-path"
 
-    from litellm.proxy.proxy_server import app as litellm_app
-    from litellm.proxy.proxy_server import proxy_startup_event
+    from hangarllm.proxy.proxy_server import app as hangarllm_app
+    from hangarllm.proxy.proxy_server import proxy_startup_event
 
-    app: Final = FastAPI(title="Custom LiteLLM Server", lifespan=proxy_startup_event)
+    app: Final = FastAPI(title="Custom HangarLLM Server", lifespan=proxy_startup_event)
     custom_path: Final = "/my-custom-path"
 
     app.add_middleware(
@@ -25,13 +25,13 @@ def build_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.mount(custom_path, litellm_app)
+    app.mount(custom_path, hangarllm_app)
 
     @app.get("/")
     async def root() -> dict[str, str]:
         return {
             "message": "Welcome to the API Gateway",
-            "litellm_endpoint": custom_path,
+            "hangarllm_endpoint": custom_path,
         }
 
     @app.get("/health")

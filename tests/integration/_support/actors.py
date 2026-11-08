@@ -12,7 +12,7 @@ import yaml
 from prisma import Prisma
 from pydantic import JsonValue
 
-from litellm.proxy.utils import PrismaClient, hash_token
+from hangarllm.proxy.utils import PrismaClient, hash_token
 from tests.integration._support.client import Gateway, Scenario, string_value
 from tests.integration._support.prisma_clients import connected_proxy_prisma
 from tests.integration._support.process import OwnedState, owned_proxy
@@ -118,10 +118,10 @@ class GatewayClient:
 
 @contextmanager
 def owned_settings_client(
-    client: GatewayClient, directory: Path, litellm_settings: Mapping[str, JsonValue]
+    client: GatewayClient, directory: Path, hangarllm_settings: Mapping[str, JsonValue]
 ) -> Iterator[GatewayClient]:
     base: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config: Final = {**base, "litellm_settings": {**base["litellm_settings"], **litellm_settings}}
+    config: Final = {**base, "hangarllm_settings": {**base["hangarllm_settings"], **hangarllm_settings}}
     path: Final = directory / "owned-settings.yaml"
     path.write_text(yaml.safe_dump(config))
     with owned_proxy(client.gateway, directory, {}, config=path, state=OwnedState.SHARED_WITH_WORKER) as candidate:
@@ -184,10 +184,10 @@ async def create_actor_set(
     proxy_admin_id: Final = scenario.user(user_role="proxy_admin")
     org_admin_a_id: Final = scenario.org_member(org_a_id, "org_admin")
     org_admin_b_id: Final = scenario.org_member(org_b_id, "org_admin")
-    await db.db.litellm_usertable.update(
+    await db.db.hangarllm_usertable.update(
         where={"user_id": org_admin_a_id}, data={"user_role": "org_admin"}
     )
-    await db.db.litellm_usertable.update(
+    await db.db.hangarllm_usertable.update(
         where={"user_id": org_admin_b_id}, data={"user_role": "org_admin"}
     )
     team_alpha_id: Final = scenario.team(
@@ -422,22 +422,22 @@ async def scratch_resources(db: ManagementDatabase) -> AsyncIterator[ScratchReso
     resource: Final = ScratchResources(f"integration-{uuid.uuid4().hex}")
     yield resource
     prefix: Final = resource.prefix
-    await db.db.litellm_verificationtoken.delete_many(
+    await db.db.hangarllm_verificationtoken.delete_many(
         where={"OR": [{"key_alias": {"startswith": prefix}}, {"key_name": {"startswith": prefix}}]}
     )
-    await db.db.litellm_teammembership.delete_many(where={"team_id": {"startswith": prefix}})
-    await db.db.litellm_organizationmembership.delete_many(where={"user_id": {"startswith": prefix}})
-    await db.db.litellm_teamtable.delete_many(where={"team_id": {"startswith": prefix}})
-    await db.db.litellm_usertable.delete_many(
+    await db.db.hangarllm_teammembership.delete_many(where={"team_id": {"startswith": prefix}})
+    await db.db.hangarllm_organizationmembership.delete_many(where={"user_id": {"startswith": prefix}})
+    await db.db.hangarllm_teamtable.delete_many(where={"team_id": {"startswith": prefix}})
+    await db.db.hangarllm_usertable.delete_many(
         where={"OR": [{"user_id": {"startswith": prefix}}, {"user_email": {"startswith": prefix}}]}
     )
-    await db.db.litellm_organizationtable.delete_many(where={"organization_id": {"startswith": prefix}})
-    await db.db.litellm_budgettable.delete_many(where={"budget_id": {"startswith": prefix}})
-    users: Final = await db.db.litellm_usertable.find_many(where={"teams": {"isEmpty": False}})
+    await db.db.hangarllm_organizationtable.delete_many(where={"organization_id": {"startswith": prefix}})
+    await db.db.hangarllm_budgettable.delete_many(where={"budget_id": {"startswith": prefix}})
+    users: Final = await db.db.hangarllm_usertable.find_many(where={"teams": {"isEmpty": False}})
     for user in users:
         teams: Final = [team_id for team_id in user.teams if not team_id.startswith(prefix)]
         if teams != list(user.teams):
-            await db.db.litellm_usertable.update(
+            await db.db.hangarllm_usertable.update(
                 where={"user_id": user.user_id},
                 data={"teams": {"set": teams}},
             )

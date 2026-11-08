@@ -11,7 +11,7 @@ objects back.
 Both halves of the contract are asserted: the recorded state (the proxy
 reports the S3Logger callback active via /health/readiness/details) and the
 enforced behavior (the object in the bucket, with the cost cross-checked
-against the x-litellm-response-cost header of the very response the caller
+against the x-hangarllm-response-cost header of the very response the caller
 received).
 
 The suite requires ``s3_callback_params.s3_use_key_prefix: true`` on the proxy,
@@ -38,7 +38,7 @@ from logging_client import (
     first_ok,
     readiness_details_body,
 )
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from s3_reader import S3LogReader, build_s3_reader
 
 pytestmark = pytest.mark.e2e
@@ -60,7 +60,7 @@ def _assert_s3_configured(client: LoggingClient) -> None:
     body = readiness_details_body(client)
     assert S3_LOGGER_NAME in body, (
         f"the proxy must report the {S3_LOGGER_NAME} callback active "
-        f"(litellm_settings.callbacks: ['s3_v2'] + s3_callback_params in the proxy config); "
+        f"(hangarllm_settings.callbacks: ['s3_v2'] + s3_callback_params in the proxy config); "
         f"got: {body[:400]}"
     )
 
@@ -93,7 +93,7 @@ class TestS3LogDelivery:
             lambda: client.chat_raw(key, CHEAP_ANTHROPIC_MODEL, f"reply with one word {marker}", max_tokens=16),
         )
         assert outcome.response_cost is not None and outcome.response_cost > 0, (
-            f"the response must report x-litellm-response-cost, got {outcome.response_cost!r}"
+            f"the response must report x-hangarllm-response-cost, got {outcome.response_cost!r}"
         )
         body_id = completion_response_id(outcome.body)
         assert body_id is not None, "the completion body must carry an id (it names the s3 object)"
@@ -194,7 +194,7 @@ class TestS3LogDelivery:
         model_name = f"s3-err-{unique_marker()}"
         model_id = client.create_model(
             model_name,
-            LiteLLMParamsBody(model=UNREACHABLE_ANTHROPIC_BACKEND, api_key=INVALID_UPSTREAM_API_KEY),
+            HangarLLMParamsBody(model=UNREACHABLE_ANTHROPIC_BACKEND, api_key=INVALID_UPSTREAM_API_KEY),
         )
         resources.defer(lambda: client.delete_model(model_id))
         alias = f"s3-err-key-{unique_marker()}"

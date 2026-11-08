@@ -136,7 +136,7 @@ def _alias() -> str:
 def _ovalix(name: str, tracker: str, **routing: str) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "ovalix",
             "mode": "pre_call",
             "default_on": False,
@@ -174,7 +174,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
         wire_server(_provider) as provider,
     ):
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"]["cache"] = False
+        config["hangarllm_settings"]["cache"] = False
         config["guardrails"] = [
             _ovalix(
                 PINNED,

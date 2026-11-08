@@ -15,16 +15,16 @@ from typing import Final
 import pytest
 from pydantic_core import to_jsonable_python
 
-import litellm
-from litellm.constants import PROXY_REJECTED_BEFORE_ROUTING_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.proxy.spend_tracking.spend_tracking_utils import (
+import hangarllm
+from hangarllm.constants import PROXY_REJECTED_BEFORE_ROUTING_KEY
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import (
     _get_spend_logs_metadata,  # pyright: ignore[reportPrivateUsage]  # what a failure row keeps
 )
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import AllowedFailsPolicy, RouterRateLimitError
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import AllowedFailsPolicy, RouterRateLimitError
 from tests.unit.test_router.core.fallbacks_helpers import (
     MESSAGES,
     MakeCore,
@@ -40,7 +40,7 @@ UTC_2030: Final = datetime(2030, 1, 1, tzinfo=timezone.utc)
 
 
 class _RecordingLoggingObject:
-    """Stands in for a request's ``litellm_logging_obj``: records the failure dispatches."""
+    """Stands in for a request's ``hangarllm_logging_obj``: records the failure dispatches."""
 
     def __init__(self) -> None:
         self.dispatched: list[dict[str, object]] = []  # mutable-ok: the dispatches, in order
@@ -61,10 +61,10 @@ class _RecordingLogging(Logging):
             stream=False,
             call_type=call_type,
             start_time=datetime.now(tz=timezone.utc),
-            litellm_call_id="c",
+            hangarllm_call_id="c",
             function_id="f",
         )
-        self.update_environment_variables(model="e", user=None, optional_params={}, litellm_params={})
+        self.update_environment_variables(model="e", user=None, optional_params={}, hangarllm_params={})
         self.failures: list[tuple[str, object]] = []  # mutable-ok: the handlers that ran, in order
 
     def failure_handler(self, exception: Exception, traceback_exception: str, *_: object, **__: object) -> None:
@@ -99,10 +99,10 @@ async def test_an_unknown_model_is_dispatched_once_with_the_error_raised(make_co
     logging_obj: Final = _RecordingLoggingObject()
 
     error: Final = await _failed(
-        core, "nope", expected_error=litellm.BadRequestError, litellm_logging_obj=logging_obj, metadata={}
+        core, "nope", expected_error=hangarllm.BadRequestError, hangarllm_logging_obj=logging_obj, metadata={}
     )
 
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     (dispatched,) = logging_obj.dispatched
     assert dispatched["exception"] is error
     assert dispatched["prefer_async_handlers"] is True
@@ -119,7 +119,7 @@ async def test_a_refused_pick_is_logged_with_the_note_when_the_retry_read_does_n
     core: Final = make_core(model_list=list(GROUP_OF_TWO), num_retries=0, fallbacks=[{"a": ["a"]}])
     logging_obj: Final = _RecordingLoggingObject()
 
-    error: Final = await _failed(core, "nope", expected_error=litellm.BadRequestError, litellm_logging_obj=logging_obj)
+    error: Final = await _failed(core, "nope", expected_error=hangarllm.BadRequestError, hangarllm_logging_obj=logging_obj)
 
     note: Final = "no fallback model group was found"
     assert note in str(error)
@@ -141,14 +141,14 @@ async def test_an_oversized_embedding_is_stamped_logged_and_counted_as_its_deplo
     )
     logging_obj: Final = _RecordingLogging(endpoint)
 
-    with pytest.raises(litellm.BadRequestError) as raised:
-        await core.call(endpoint, {"model": "e", "input": ["a", "b"], "litellm_logging_obj": logging_obj})
+    with pytest.raises(hangarllm.BadRequestError) as raised:
+        await core.call(endpoint, {"model": "e", "input": ["a", "b"], "hangarllm_logging_obj": logging_obj})
 
     error: Final = raised.value
     assert getattr(error, "failed_deployment_id", None) == "e1"
     assert getattr(error, "retry_skip_deployment_id", None) == "e1"
     assert [(kind, exception is error) for kind, exception in logging_obj.failures] == [(k, True) for k in handlers]
-    assert logging_obj.model_call_details["litellm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] is True
+    assert logging_obj.model_call_details["hangarllm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] is True
     assert host.calls == []
     assert dict(core.fail_calls) == {"openai/e1": 1}
     assert dict(core.total_calls) == {}
@@ -163,11 +163,11 @@ async def test_an_admitted_embedding_drops_the_rejection_an_earlier_attempt_left
         model_list=[deployment("e", "e1", model_info={"max_embedding_batch_size": 2})], num_retries=0
     )
     logging_obj: Final = _RecordingLogging(endpoint)
-    logging_obj.model_call_details["litellm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] = True
+    logging_obj.model_call_details["hangarllm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] = True
 
-    await core.call(endpoint, {"model": "e", "input": ["a", "b"], "litellm_logging_obj": logging_obj})
+    await core.call(endpoint, {"model": "e", "input": ["a", "b"], "hangarllm_logging_obj": logging_obj})
 
-    assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in logging_obj.model_call_details["litellm_params"]
+    assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in logging_obj.model_call_details["hangarllm_params"]
 
 
 @pytest.mark.asyncio
@@ -175,7 +175,7 @@ async def test_an_unknown_model_stamps_the_walk_on_the_callers_metadata(make_cor
     core: Final = make_core(model_list=list(GROUP_OF_TWO), num_retries=0)
     metadata: Final[dict[str, object]] = {"user_api_key_alias": "k"}  # mutable-ok: the caller's own dict
 
-    _ = await _failed(core, "nope", expected_error=litellm.BadRequestError, metadata=metadata)
+    _ = await _failed(core, "nope", expected_error=hangarllm.BadRequestError, metadata=metadata)
 
     assert metadata["attempted_retries"] == 0
     assert metadata["max_retries"] == 0
@@ -198,16 +198,16 @@ async def test_a_refused_pick_leaves_every_field_of_the_failure_row(make_core: M
         stream=False,
         call_type="acompletion",
         start_time=datetime.now(),  # noqa: DTZ005  # SDK logging uses naive local timestamps
-        litellm_call_id="call",
+        hangarllm_call_id="call",
         function_id="fn",
         applied_guardrails=["g1"],
     )
     logging_obj.update_environment_variables(
-        model="nope", user="", optional_params={}, litellm_params={"metadata": metadata}
+        model="nope", user="", optional_params={}, hangarllm_params={"metadata": metadata}
     )
 
     _ = await _failed(
-        core, "nope", expected_error=litellm.BadRequestError, litellm_logging_obj=logging_obj, metadata=metadata
+        core, "nope", expected_error=hangarllm.BadRequestError, hangarllm_logging_obj=logging_obj, metadata=metadata
     )
 
     payload: Final = logging_obj.model_call_details["standard_logging_object"]
@@ -243,7 +243,7 @@ async def test_all_cooled_deployments_are_dispatched_with_their_cooldown_details
     metadata: Final[dict[str, object]] = {}  # mutable-ok: the caller's own dict
 
     error: Final = await _failed(
-        core, "a", expected_error=RouterRateLimitError, litellm_logging_obj=logging_obj, metadata=metadata
+        core, "a", expected_error=RouterRateLimitError, hangarllm_logging_obj=logging_obj, metadata=metadata
     )
 
     assert isinstance(error, RouterRateLimitError)
@@ -262,9 +262,9 @@ async def test_a_refused_pick_with_retries_settles_the_retry_budget(make_core: M
     core: Final = make_core(model_list=list(GROUP_OF_TWO), num_retries=3)
     metadata: Final[dict[str, object]] = {}  # mutable-ok: the caller's own dict
 
-    error: Final = await _failed(core, "nope", expected_error=litellm.BadRequestError, metadata=metadata)
+    error: Final = await _failed(core, "nope", expected_error=hangarllm.BadRequestError, metadata=metadata)
 
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     # A 400 is not retried: `should_retry_this_error` raises before the budget is written again.
     assert metadata["attempted_retries"] == 0
     assert metadata["max_retries"] == 3
@@ -276,7 +276,7 @@ async def test_a_strategy_with_no_async_selector_does_not_dispatch(make_core: Ma
     logging_obj: Final = _RecordingLoggingObject()
 
     _ = await _failed(
-        core, "nope", expected_error=litellm.BadRequestError, litellm_logging_obj=logging_obj, metadata={}
+        core, "nope", expected_error=hangarllm.BadRequestError, hangarllm_logging_obj=logging_obj, metadata={}
     )
 
     assert logging_obj.dispatched == []
@@ -287,8 +287,8 @@ def test_the_sync_path_stamps_the_walk_and_does_not_dispatch(make_core: MakeCore
     logging_obj: Final = _RecordingLoggingObject()
     metadata: Final[dict[str, object]] = {}  # mutable-ok: the caller's own dict
 
-    with pytest.raises(litellm.BadRequestError):
-        complete_sync(core, "nope", litellm_logging_obj=logging_obj, metadata=metadata)
+    with pytest.raises(hangarllm.BadRequestError):
+        complete_sync(core, "nope", hangarllm_logging_obj=logging_obj, metadata=metadata)
 
     assert logging_obj.dispatched == []
     assert metadata["attempted_retries"] == 0
@@ -310,7 +310,7 @@ async def test_a_refused_image_pick_with_no_logging_object_builds_one_to_dispatc
     monkeypatch.setattr(Logging, "dispatch_failure_handlers", record)
     core: Final = make_core(model_list=list(GROUP_OF_TWO), num_retries=0)
 
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.aimage_generation(prompt="a cat", model="nope")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
     await _let_tasks_run()
 
@@ -328,16 +328,16 @@ async def test_a_refused_pre_call_check_is_dispatched_on_chat_only(make_core: Ma
     logging_obj: Final = _RecordingLoggingObject()
 
     error: Final = await _failed(
-        core, "a", expected_error=litellm.RateLimitError, litellm_logging_obj=logging_obj, metadata={}
+        core, "a", expected_error=hangarllm.RateLimitError, hangarllm_logging_obj=logging_obj, metadata={}
     )
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     (dispatched,) = logging_obj.dispatched
     assert dispatched["exception"] is error
 
     embedding_logging: Final = _RecordingLoggingObject()
-    with pytest.raises(litellm.RateLimitError):
-        await core.aembedding(model="a", input="hi", litellm_logging_obj=embedding_logging)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
+    with pytest.raises(hangarllm.RateLimitError):
+        await core.aembedding(model="a", input="hi", hangarllm_logging_obj=embedding_logging)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
     await _let_tasks_run()
     assert embedding_logging.dispatched == []
 
@@ -355,10 +355,10 @@ async def test_a_provider_failure_stamps_each_field_and_the_router_dispatches_no
     metadata: Final[dict[str, object]] = {}  # mutable-ok: the caller's own dict
 
     error: Final = await _failed(
-        core, "a", expected_error=litellm.InternalServerError, litellm_logging_obj=logging_obj, metadata=metadata
+        core, "a", expected_error=hangarllm.InternalServerError, hangarllm_logging_obj=logging_obj, metadata=metadata
     )
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert metadata["attempted_retries"] == 1
     assert metadata["max_retries"] == 1
     assert metadata["attempted_fallbacks"] == 0
@@ -382,7 +382,7 @@ async def test_a_deployments_retry_budget_replaces_the_routers_in_the_stamp(
     )
     metadata: Final[dict[str, object]] = {}  # mutable-ok: the caller's own dict
 
-    _ = await _failed(core, "a", expected_error=litellm.InternalServerError, metadata=metadata)
+    _ = await _failed(core, "a", expected_error=hangarllm.InternalServerError, metadata=metadata)
 
     assert metadata["max_retries"] == 0
     assert metadata["attempted_retries"] == 0
@@ -396,7 +396,7 @@ async def test_a_fallback_hop_works_on_its_own_copy_of_the_metadata(make_core: M
     )
     metadata: Final[dict[str, object]] = {}  # mutable-ok: the caller's own dict
 
-    _ = await _failed(core, "a", expected_error=litellm.InternalServerError, metadata=metadata)
+    _ = await _failed(core, "a", expected_error=hangarllm.InternalServerError, metadata=metadata)
 
     assert metadata["attempted_fallbacks"] == 0
     assert metadata["attempted_retries"] == 0
@@ -419,9 +419,9 @@ async def test_the_fallbacks_mock_raises_before_the_retry_loop_stamps_anything(m
     _ = await _failed(
         core,
         "a",
-        expected_error=litellm.InternalServerError,
+        expected_error=hangarllm.InternalServerError,
         mock_testing_fallbacks=True,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         metadata=metadata,
     )
 
@@ -441,9 +441,9 @@ async def test_the_rate_limit_mock_raises_inside_the_retry_loop(make_core: MakeC
     _ = await _failed(
         core,
         "a",
-        expected_error=litellm.RateLimitError,
+        expected_error=hangarllm.RateLimitError,
         mock_testing_rate_limit_error=True,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         metadata=metadata,
     )
 
@@ -466,8 +466,8 @@ async def test_a_generic_endpoint_stamps_its_bucket_and_clears_the_siblings_walk
     }
     bucket: Final[dict[str, object]] = {}  # mutable-ok: the caller's own dict
 
-    with pytest.raises(litellm.InternalServerError):
-        await core.aresponses(model="a", input="hi", metadata=sibling, litellm_metadata=bucket)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
+    with pytest.raises(hangarllm.InternalServerError):
+        await core.aresponses(model="a", input="hi", metadata=sibling, hangarllm_metadata=bucket)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
 
     assert "attempted_fallbacks" not in sibling
     assert "original_model_group" not in sibling
@@ -489,10 +489,10 @@ async def test_a_stamped_quality_decision_reaches_the_response_headers(make_core
     response: Final = await complete(core, "a", metadata={"quality_router_decision": decision})
 
     found: Final = headers(response)
-    assert found["x-litellm-quality-router-model"] == "t1"
-    assert found["x-litellm-quality-router-tier"] == "2"
-    assert found["x-litellm-quality-router-via"] == "default"
-    assert "x-litellm-quality-router-keyword" not in found
+    assert found["x-hangarllm-quality-router-model"] == "t1"
+    assert found["x-hangarllm-quality-router-tier"] == "2"
+    assert found["x-hangarllm-quality-router-via"] == "default"
+    assert "x-hangarllm-quality-router-keyword" not in found
 
 
 @pytest.mark.asyncio
@@ -503,7 +503,7 @@ async def test_a_quality_router_stamps_its_decision_headers(make_core: MakeCore)
                 "t1",
                 "t1-21",
                 model="anthropic/claude-3-5-sonnet-20240620",
-                model_info={"litellm_routing_preferences": {"quality_tier": 1}},
+                model_info={"hangarllm_routing_preferences": {"quality_tier": 1}},
             ),
             deployment("qr", "qr0", model="auto_router/quality_router", quality_router_default_model="t1"),
         ],
@@ -512,7 +512,7 @@ async def test_a_quality_router_stamps_its_decision_headers(make_core: MakeCore)
 
     response: Final = await complete(core, "qr")
 
-    assert headers(response)["x-litellm-quality-router-model"] == "t1"
+    assert headers(response)["x-hangarllm-quality-router-model"] == "t1"
 
 
 # --- P9, N9: typed model_info ---------------------------------------------------------------------

@@ -31,7 +31,7 @@ _DEFAULT_METADATA: Final = {
     "requester_ip_address": "127.0.0.1",
     "user_api_key_user_id": "default_user_id",
 }
-_DEFAULT_METADATA_BAGGAGE: Final = frozenset({("litellm.metadata.user_api_key_user_id", "default_user_id")})
+_DEFAULT_METADATA_BAGGAGE: Final = frozenset({("hangarllm.metadata.user_api_key_user_id", "default_user_id")})
 
 
 def _request(
@@ -97,13 +97,13 @@ def _assert_output_tool_call(attributes: dict[str, str], marker: str) -> None:
 
 def _assert_default_allowlist_attributes(attributes: dict[str, str], marker: str) -> None:
     observed_baggage: Final = frozenset(
-        (key, value) for key, value in attributes.items() if key.startswith("litellm.metadata.")
+        (key, value) for key, value in attributes.items() if key.startswith("hangarllm.metadata.")
     )
     assert observed_baggage == _DEFAULT_METADATA_BAGGAGE, attributes
     metadata: Final = _json_object(attributes["metadata"].encode())
     assert metadata == _DEFAULT_METADATA, attributes
     assert "trace_marker" not in metadata, attributes
-    assert "litellm.metadata.trace_marker" not in attributes, attributes
+    assert "hangarllm.metadata.trace_marker" not in attributes, attributes
     _assert_output_tool_call(attributes, marker)
 
 
@@ -113,8 +113,8 @@ def test_arize_otel_v2_c1_absent_allowlist(gateway: Gateway, tmp_path: Path) -> 
         gateway,
         tmp_path,
         _upstream(marker),
-        remove_environment=("LITELLM_OTEL_BAGGAGE_METADATA_KEYS",),
-        disabled_environment=("LITELLM_OTEL_BAGGAGE_METADATA_KEYS",),
+        remove_environment=("HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS",),
+        disabled_environment=("HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS",),
     ) as rig:
         response: Final = _request(rig.proxy, rig.model, marker)
         _assert_success_body(response, marker, rig.model)
@@ -124,12 +124,12 @@ def test_arize_otel_v2_c1_absent_allowlist(gateway: Gateway, tmp_path: Path) -> 
 
 def test_arize_otel_v2_c2_empty_allowlist(gateway: Gateway, tmp_path: Path) -> None:
     marker: Final = "c2-" + uuid.uuid4().hex
-    with _rig(gateway, tmp_path, _upstream(marker), environment={"LITELLM_OTEL_BAGGAGE_METADATA_KEYS": ""}) as rig:
+    with _rig(gateway, tmp_path, _upstream(marker), environment={"HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS": ""}) as rig:
         response: Final = _request(rig.proxy, rig.model, marker)
         _assert_success_body(response, marker, rig.model)
         attributes: Final = _matching_span(rig.destination, marker)
         assert "metadata" not in attributes, attributes
-        assert not any(key.startswith("litellm.metadata.") for key in attributes), attributes
+        assert not any(key.startswith("hangarllm.metadata.") for key in attributes), attributes
         _assert_output_tool_call(attributes, marker)
 
 
@@ -156,7 +156,7 @@ def test_arize_otel_v2_c3_absent_allowlisted_key(gateway: Gateway, tmp_path: Pat
         _assert_success_body(response, marker, rig.model)
         attributes: Final = _matching_span(rig.destination, marker)
         assert "metadata" not in attributes, attributes
-        assert "litellm.metadata.trace_marker" not in attributes, attributes
+        assert "hangarllm.metadata.trace_marker" not in attributes, attributes
         _assert_output_tool_call(attributes, marker)
 
 
@@ -172,7 +172,7 @@ def test_arize_otel_v2_c4_promotes_marker_and_alias(gateway: Gateway, tmp_path: 
             gateway,
             tmp_path,
             upstream,
-            environment={"LITELLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_marker,user_api_key_alias"},
+            environment={"HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_marker,user_api_key_alias"},
         ) as rig,
         rig.proxy.scenario() as scenario,
     ):
@@ -196,8 +196,8 @@ def test_arize_otel_v2_c4_promotes_marker_and_alias(gateway: Gateway, tmp_path: 
             "trace_marker": marker,
             "user_api_key_alias": "alias-c4",
         }, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
-        assert attributes["litellm.metadata.user_api_key_alias"] == "alias-c4", attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.user_api_key_alias"] == "alias-c4", attributes
 
 
 def test_arize_otel_v2_c5_yaml_allowlist_does_not_reach_preset_so_default_applies(
@@ -209,8 +209,8 @@ def test_arize_otel_v2_c5_yaml_allowlist_does_not_reach_preset_so_default_applie
         tmp_path,
         _upstream(marker),
         callback_settings={"otel": {"baggage_metadata_keys": ["requester_metadata.trace_marker"]}},
-        remove_environment=("LITELLM_OTEL_BAGGAGE_METADATA_KEYS",),
-        disabled_environment=("LITELLM_OTEL_BAGGAGE_METADATA_KEYS",),
+        remove_environment=("HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS",),
+        disabled_environment=("HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS",),
     ) as rig:
         response: Final = _request(rig.proxy, rig.model, marker)
         _assert_success_body(response, marker, rig.model)
@@ -226,14 +226,14 @@ def test_arize_otel_v2_c5_yaml_allowlist_reaches_preset(gateway: Gateway, tmp_pa
         tmp_path,
         _upstream(marker),
         callback_settings={"otel": {"baggage_metadata_keys": ["requester_metadata.trace_marker"]}},
-        remove_environment=("LITELLM_OTEL_BAGGAGE_METADATA_KEYS",),
-        disabled_environment=("LITELLM_OTEL_BAGGAGE_METADATA_KEYS",),
+        remove_environment=("HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS",),
+        disabled_environment=("HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS",),
     ) as rig:
         response: Final = _request(rig.proxy, rig.model, marker)
         _assert_success_body(response, marker, rig.model)
         attributes: Final = _matching_marker_span(rig.destination, marker)
         assert _json_object(attributes["metadata"].encode()) == {"trace_marker": marker}, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
 
 
 def test_arize_otel_v2_c6_content_capture_disabled(gateway: Gateway, tmp_path: Path) -> None:
@@ -243,7 +243,7 @@ def test_arize_otel_v2_c6_content_capture_disabled(gateway: Gateway, tmp_path: P
         tmp_path,
         _upstream(marker),
         environment={
-            "LITELLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_marker",
+            "HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_marker",
         },
         remove_environment=("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",),
         disabled_environment=("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",),
@@ -252,7 +252,7 @@ def test_arize_otel_v2_c6_content_capture_disabled(gateway: Gateway, tmp_path: P
         _assert_success_body(response, marker, rig.model)
         attributes: Final = _matching_marker_span(rig.destination, marker)
         assert _json_object(attributes["metadata"].encode()) == {"trace_marker": marker}, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
         assert "gen_ai.input.messages" not in attributes, attributes
         assert "gen_ai.output.messages" not in attributes, attributes
         assert not any(
@@ -286,8 +286,8 @@ def test_arize_otel_v2_c7_key_and_team_logging_callbacks(gateway: Gateway, tmp_p
         team_attributes: Final = _matching_marker_span(rig.destination, team_marker)
         assert _json_object(key_attributes["metadata"].encode()) == {"trace_marker": key_marker}, key_attributes
         assert _json_object(team_attributes["metadata"].encode()) == {"trace_marker": team_marker}, team_attributes
-        assert key_attributes["litellm.metadata.trace_marker"] == key_marker, key_attributes
-        assert team_attributes["litellm.metadata.trace_marker"] == team_marker, team_attributes
+        assert key_attributes["hangarllm.metadata.trace_marker"] == key_marker, key_attributes
+        assert team_attributes["hangarllm.metadata.trace_marker"] == team_marker, team_attributes
         _assert_output_tool_call(key_attributes, key_marker)
         _assert_output_tool_call(team_attributes, team_marker)
 
@@ -305,7 +305,7 @@ def test_arize_otel_v2_c8_request_callback_disable(gateway: Gateway, tmp_path: P
         gateway,
         tmp_path,
         upstream,
-        litellm_settings={"allow_dynamic_callback_disabling": True},
+        hangarllm_settings={"allow_dynamic_callback_disabling": True},
     ) as rig:
         control_response: Final = _request(rig.proxy, rig.model, control_marker, prompt=control_marker)
         _assert_success_body(control_response, control_marker, rig.model)
@@ -317,13 +317,13 @@ def test_arize_otel_v2_c8_request_callback_disable(gateway: Gateway, tmp_path: P
             rig.model,
             disabled_marker,
             prompt=disabled_marker,
-            headers={"x-litellm-disable-callbacks": "arize"},
+            headers={"x-hangarllm-disable-callbacks": "arize"},
         )
         _assert_success_body(disabled_response, disabled_marker, rig.model)
 
 
 def test_arize_otel_v2_c8_disabled_callback_exports_no_span(gateway: Gateway, tmp_path: Path) -> None:
-    pytest.skip("BUG: LIT-9049 x-litellm-disable-callbacks: arize still exports the OTel v2 span")
+    pytest.skip("BUG: LIT-9049 x-hangarllm-disable-callbacks: arize still exports the OTel v2 span")
     disabled_marker: Final = "c8-disabled-" + uuid.uuid4().hex
     sentinel: Final = "c8-sentinel-" + uuid.uuid4().hex
 
@@ -337,7 +337,7 @@ def test_arize_otel_v2_c8_disabled_callback_exports_no_span(gateway: Gateway, tm
         gateway,
         tmp_path,
         upstream,
-        litellm_settings={"allow_dynamic_callback_disabling": True},
+        hangarllm_settings={"allow_dynamic_callback_disabling": True},
         workers=1,
     ) as rig:
         disabled_response: Final = _request(
@@ -345,13 +345,13 @@ def test_arize_otel_v2_c8_disabled_callback_exports_no_span(gateway: Gateway, tm
             rig.model,
             disabled_marker,
             prompt=disabled_marker,
-            headers={"x-litellm-disable-callbacks": "arize"},
+            headers={"x-hangarllm-disable-callbacks": "arize"},
         )
         _assert_success_body(disabled_response, disabled_marker, rig.model)
         sentinel_response: Final = _request(rig.proxy, rig.model, sentinel, prompt=sentinel)
         _assert_success_body(sentinel_response, sentinel, rig.model)
         spans: Final = _llm_spans_through_markers(rig.destination, (sentinel,))
-        assert not any(attributes.get("litellm.metadata.trace_marker") == disabled_marker for attributes in spans), (
+        assert not any(attributes.get("hangarllm.metadata.trace_marker") == disabled_marker for attributes in spans), (
             spans
         )
 
@@ -389,9 +389,9 @@ def test_arize_otel_v2_c9_upstream_failures_are_recorded(failure_status: int, ga
         error_body: Final = _json_object(response.content)
         error_name: Final = {401: "AuthenticationError", 500: "InternalServerError"}[failure_status]
         error_type: Final = {401: "authentication_error", 500: "internal_server_error"}[failure_status]
-        provider_message: Final = f"litellm.{error_name}: {error_name}: OpenAIException - upstream failure"
+        provider_message: Final = f"hangarllm.{error_name}: {error_name}: OpenAIException - upstream failure"
         caller_message: Final = (
-            f"{provider_message}\n\nLiteLLM: model group '{rig.model}' failed with the error above. "
+            f"{provider_message}\n\nHangarLLM: model group '{rig.model}' failed with the error above. "
             "No fallback was attempted."
         )
         assert error_body == {
@@ -406,7 +406,7 @@ def test_arize_otel_v2_c9_upstream_failures_are_recorded(failure_status: int, ga
         metadata: Final = attributes.get("metadata")
         assert metadata is not None, attributes
         assert _json_object(metadata.encode()) == {"trace_marker": marker}, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
         assert attributes["error.message"] == provider_message, attributes
         assert attributes["error.type"] == error_name, attributes
         assert not any(".tool_calls." in key for key in attributes), attributes
@@ -446,7 +446,7 @@ def test_arize_otel_v2_c10_attribute_limit_keeps_tool_prefix(gateway: Gateway, t
         assert observed_tool_call_keys == expected_tool_call_keys, attributes
         assert _json_messages(attributes["output.value"])[0]["tool_calls"] == calls, attributes
         assert _json_object(attributes["metadata"].encode()) == {"trace_marker": marker}, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
 
     history: Final = [{"role": "user", "content": f"history-{index}"} for index in range(40)]
     history_marker: Final = marker + "-history"
@@ -474,7 +474,7 @@ def test_arize_otel_v2_c10_attribute_limit_keeps_tool_prefix(gateway: Gateway, t
         assert _json_object(history_attributes["metadata"].encode()) == {"trace_marker": history_marker}, (
             history_attributes
         )
-        assert history_attributes["litellm.metadata.trace_marker"] == history_marker, history_attributes
+        assert history_attributes["hangarllm.metadata.trace_marker"] == history_marker, history_attributes
         assert tuple(history_attributes[f"llm.input_messages.{index}.message.role"] for index in range(40)) == tuple(
             str(message["role"]) for message in history
         )

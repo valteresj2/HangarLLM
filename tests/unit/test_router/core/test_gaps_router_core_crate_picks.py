@@ -11,12 +11,12 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.core_helpers import as_str_mapping
-from litellm.router import Router
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import RoutingGroup
+import hangarllm
+from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.router import Router
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RoutingGroup
 from tests.unit.test_router.core.registry_helpers import team_deployment
 from tests.unit.test_router.core.retries_health_helpers import MakeCore, attempt, attempt_sync
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
@@ -71,8 +71,8 @@ async def test_a_retry_policy_retries_a_group_whose_deployments_all_cool_down(
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RouterRateLimitError)
-    assert isinstance(error.__context__, litellm.RouterRateLimitError)
+    assert isinstance(error, hangarllm.RouterRateLimitError)
+    assert isinstance(error.__context__, hangarllm.RouterRateLimitError)
     assert host.calls == []
     assert len(host.sleeps) == 2
     assert all(sleep > 0 for sleep in host.sleeps)
@@ -86,9 +86,9 @@ async def test_a_retry_policy_retries_an_unknown_model_and_stamps_the_error(
 
     error: Final = await attempt(core, model="zz")
 
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     assert (getattr(error, "num_retries", None), getattr(error, "max_retries", None)) == (1, 1)
-    assert isinstance(error.__context__, litellm.BadRequestError)
+    assert isinstance(error.__context__, hangarllm.BadRequestError)
     assert len(host.sleeps) == 2
 
 
@@ -114,7 +114,7 @@ async def test_without_a_policy_an_unknown_model_is_raised_at_once(make_core: Ma
 
     error: Final = await attempt(core, model="zz")
 
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     assert error.__context__ is None
     assert host.sleeps == []
 
@@ -130,8 +130,8 @@ async def test_the_last_retry_failure_chains_to_the_hops_first_failure(make_core
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RateLimitError)
-    assert isinstance(error.__context__, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
+    assert isinstance(error.__context__, hangarllm.RateLimitError)
     assert error.__context__ is not error
     assert host.sleeps[0] == 0
     assert type(host.sleeps[0]) is int
@@ -141,9 +141,9 @@ async def test_the_last_retry_failure_chains_to_the_hops_first_failure(make_core
 
 
 UNCOPYABLE_DEFAULTS: Final[list[tuple[object, type[Exception], str]]] = [  # mutable-ok: pytest parameters
-    ({}, KeyError, "'litellm_params'"),
-    ({"model_name": "dm"}, KeyError, "'litellm_params'"),
-    ({"model_name": "dm", "litellm_params": "s", "model_info": {"id": "dd"}}, AttributeError, "no attribute 'copy'"),
+    ({}, KeyError, "'hangarllm_params'"),
+    ({"model_name": "dm"}, KeyError, "'hangarllm_params'"),
+    ({"model_name": "dm", "hangarllm_params": "s", "model_info": {"id": "dd"}}, AttributeError, "no attribute 'copy'"),
     ("str", AttributeError, "'str' object has no attribute 'copy'"),
     (5, AttributeError, "'int' object has no attribute 'copy'"),
     (["a"], TypeError, "list indices must be integers or slices, not str"),
@@ -173,9 +173,9 @@ async def test_a_default_deployment_python_cannot_copy_fails_each_pick_of_an_unk
 
 
 FAILING_DEFAULTS: Final[list[tuple[object, str, object]]] = [  # mutable-ok: pytest parameters
-    ({"litellm_params": {"model": "x"}}, "'model_name'", None),
-    ({"model_name": "dm", "litellm_params": {"model": "x"}}, "'model_info'", None),
-    ({"model_name": "dm", "litellm_params": {"model": "x"}, "model_info": {}}, "'id'", {}),
+    ({"hangarllm_params": {"model": "x"}}, "'model_name'", None),
+    ({"model_name": "dm", "hangarllm_params": {"model": "x"}}, "'model_info'", None),
+    ({"model_name": "dm", "hangarllm_params": {"model": "x"}, "model_info": {}}, "'id'", {}),
 ]
 """Each value, the ``KeyError`` every call to it raises, and the ``model_info`` its pick returns."""
 
@@ -197,7 +197,7 @@ async def test_a_default_deployment_missing_a_field_is_picked_but_every_call_fai
     assert isinstance(called_sync, KeyError)
     assert str(called) == missing
     assert chosen.get("model_info") == model_info
-    assert (as_str_mapping(chosen.get("litellm_params")) or {}).get("model") == "zz"
+    assert (as_str_mapping(chosen.get("hangarllm_params")) or {}).get("model") == "zz"
     assert host.calls == []
     assert host.sleeps == []
 
@@ -270,13 +270,13 @@ async def test_a_stale_routing_group_at_a_fallback_level_is_that_levels_error(
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     events: Final = FallbackEvents()
-    monkeypatch.setattr(litellm, "callbacks", [events])
+    monkeypatch.setattr(hangarllm, "callbacks", [events])
     core: Final = _stale(make_core)
     host.answer("*", rate_limit())
 
     error: Final = await attempt(core, model="x")
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert events.events == [("failure", "gpt", "claude", "KeyError"), ("failure", "x", "gpt", "RateLimitError")]
 
 
@@ -316,7 +316,7 @@ async def test_a_strategy_change_re_inits_the_routing_groups_from_their_last_inp
     assert sorted(core.registry().routing_groups()) == ["G"]
     assert picked_id(await selected(router, "G")) == "a"
     assert picked_id(await selected(router, "gpt")) == "a"
-    assert isinstance(await selected(router, "K"), litellm.BadRequestError)
+    assert isinstance(await selected(router, "K"), hangarllm.BadRequestError)
 
 
 @pytest.mark.asyncio
@@ -359,7 +359,7 @@ async def test_a_default_deployment_whose_id_is_not_a_string_is_picked_and_calle
     core: Final = make_core(model_list=[deployment("g", "a")])
     value: Final = {
         "model_name": "dm",
-        "litellm_params": {"model": "openai/dm", "api_key": "k"},
+        "hangarllm_params": {"model": "openai/dm", "api_key": "k"},
         "model_info": {"id": 5},
     }
     _ = core.apply(ChangeSet(assign={"default_deployment": value}))
@@ -367,6 +367,6 @@ async def test_a_default_deployment_whose_id_is_not_a_string_is_picked_and_calle
     served: Final = await attempt(core, model="zz")
     chosen: Final = await selected(as_router(core), "zz")
 
-    assert isinstance(served, litellm.ModelResponse)
+    assert isinstance(served, hangarllm.ModelResponse)
     assert host.calls[0].kwargs["model"] == "zz"
-    assert chosen == {"model_name": "dm", "litellm_params": {"model": "zz", "api_key": "k"}, "model_info": {"id": 5}}
+    assert chosen == {"model_name": "dm", "hangarllm_params": {"model": "zz", "api_key": "k"}, "model_info": {"id": 5}}

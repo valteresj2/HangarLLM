@@ -31,10 +31,10 @@ from integration.providers._tool_search_support import SEARCH_ID, SEARCH_RESULT
 from openai.types.responses import FunctionTool
 from pydantic import JsonValue
 
-import litellm
-from litellm import Router
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.types.utils import ChatCompletionMessageToolCall, Message, ModelResponse
+import hangarllm
+from hangarllm import Router
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.types.utils import ChatCompletionMessageToolCall, Message, ModelResponse
 
 _CLIENT_MARKED: Final = client_marked()
 
@@ -74,7 +74,7 @@ def _completion_kwargs(wire: Wire, marker: str) -> dict[str, object]:
 def test_pydantic_tool_call_marks_count_against_the_cap_in_process() -> None:
     marker: Final = new_marker()
     with wire_server(anthropic_peer) as wire:
-        response: Final = litellm.completion(**_completion_kwargs(wire, marker))  # pyright: ignore[reportArgumentType]  # Message objects stand in for the dict shapes the signature names
+        response: Final = hangarllm.completion(**_completion_kwargs(wire, marker))  # pyright: ignore[reportArgumentType]  # Message objects stand in for the dict shapes the signature names
         assert isinstance(response, ModelResponse), type(response)
         assert response.choices[0].message.content == "sunny", response  # pyright: ignore[reportAttributeAccessIssue]  # choices are Choices for a non-stream response
         received: Final = wire.drain()
@@ -84,7 +84,7 @@ def test_pydantic_tool_call_marks_count_against_the_cap_in_process() -> None:
 async def test_pydantic_tool_call_marks_count_against_the_cap_in_process_async_stream() -> None:
     marker: Final = new_marker()
     with wire_server(anthropic_peer) as wire:
-        stream: Final = await litellm.acompletion(**_completion_kwargs(wire, marker), stream=True)  # pyright: ignore[reportArgumentType]  # Message objects stand in for the dict shapes the signature names
+        stream: Final = await hangarllm.acompletion(**_completion_kwargs(wire, marker), stream=True)  # pyright: ignore[reportArgumentType]  # Message objects stand in for the dict shapes the signature names
         assert isinstance(stream, CustomStreamWrapper), type(stream)
         chunks: Final = [chunk async for chunk in stream]
         assert "".join(str(chunk.choices[0].delta.content or "") for chunk in chunks) == "sunny", chunks
@@ -118,10 +118,10 @@ def test_injection_points_leave_an_sdk_typed_function_tool_request_as_it_is_with
             "api_key": PROVIDER_KEY,
             "num_retries": 0,
         }
-        without_points: Final = _outcome(lambda: litellm.responses(**request))  # pyright: ignore[reportArgumentType]  # the SDK-typed tool stands in for the dict shape the signature names
+        without_points: Final = _outcome(lambda: hangarllm.responses(**request))  # pyright: ignore[reportArgumentType]  # the SDK-typed tool stands in for the dict shape the signature names
         without_points_received: Final = len(wire.drain())
         with_points: Final = _outcome(
-            lambda: litellm.responses(**request, cache_control_injection_points=POINTS)  # pyright: ignore[reportArgumentType]  # the SDK-typed tool stands in for the dict shape the signature names
+            lambda: hangarllm.responses(**request, cache_control_injection_points=POINTS)  # pyright: ignore[reportArgumentType]  # the SDK-typed tool stands in for the dict shape the signature names
         )
         with_points_received: Final = len(wire.drain())
     assert with_points == without_points
@@ -156,10 +156,10 @@ def test_each_input_shape_reads_the_same_whether_or_not_the_route_keeps_item_mar
             "aws_bedrock_runtime_endpoint": wire.url,
             "num_retries": 0,
         }
-        kept: Final = _outcome(lambda: litellm.responses(input=_shaped_input(shape, kept_marker), **request))  # pyright: ignore[reportArgumentType]  # the shapes a caller can pass, unvalidated
+        kept: Final = _outcome(lambda: hangarllm.responses(input=_shaped_input(shape, kept_marker), **request))  # pyright: ignore[reportArgumentType]  # the shapes a caller can pass, unvalidated
         kept_sent: Final = sent_without_cache_points(wire.drain(), kept_marker)
         stripped: Final = _outcome(
-            lambda: litellm.responses(input=_shaped_input(shape, stripped_marker), drop_params=True, **request)  # pyright: ignore[reportArgumentType]  # the shapes a caller can pass, unvalidated
+            lambda: hangarllm.responses(input=_shaped_input(shape, stripped_marker), drop_params=True, **request)  # pyright: ignore[reportArgumentType]  # the shapes a caller can pass, unvalidated
         )
         stripped_sent: Final = sent_without_cache_points(wire.drain(), stripped_marker)
     assert stripped == kept
@@ -222,12 +222,12 @@ def _bare_anthropic(model: str, wire: Wire) -> dict[str, object]:
     }
 
 
-def _litellm_completion(deployment: dict[str, object], messages: list[JsonValue]) -> object:
-    return litellm.completion(**deployment, messages=messages, max_tokens=64, cache_control_injection_points=POINTS)  # pyright: ignore[reportArgumentType]  # the dict shapes a caller passes, unvalidated
+def _hangarllm_completion(deployment: dict[str, object], messages: list[JsonValue]) -> object:
+    return hangarllm.completion(**deployment, messages=messages, max_tokens=64, cache_control_injection_points=POINTS)  # pyright: ignore[reportArgumentType]  # the dict shapes a caller passes, unvalidated
 
 
 def _router_completion(deployment: dict[str, object], messages: list[JsonValue]) -> object:
-    router: Final = Router(model_list=[{"model_name": _BARE_MODEL, "litellm_params": deployment}], num_retries=0)
+    router: Final = Router(model_list=[{"model_name": _BARE_MODEL, "hangarllm_params": deployment}], num_retries=0)
     return router.completion(model=_BARE_MODEL, messages=messages, max_tokens=64, cache_control_injection_points=POINTS)  # pyright: ignore[reportUnknownMemberType, reportArgumentType]  # Router.completion leaves **kwargs untyped and names a narrower message shape than callers pass
 
 
@@ -240,7 +240,7 @@ def _expected_marks(keeps_mid_conversation_system: bool, marker: str) -> list[st
 @pytest.mark.parametrize(
     "complete",
     [
-        pytest.param(_litellm_completion, id="litellm-completion"),
+        pytest.param(_hangarllm_completion, id="hangarllm-completion"),
         pytest.param(_router_completion, id="router-completion"),
     ],
 )
@@ -261,7 +261,7 @@ def test_bare_model_with_custom_llm_provider_fills_the_cache_mark_budget_like_th
     model: str,
     keeps_mid_conversation_system: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
     marker: Final = new_marker()
     with wire_server(anthropic_peer) as wire:
         response: Final = complete(deployment(model, wire), _client_answer_to_one_of_two_marked_searches(marker))

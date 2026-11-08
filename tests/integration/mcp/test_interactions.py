@@ -255,15 +255,15 @@ def test_continuations_resume_on_another_replica_and_reject_changed_operations(
             "PYTHONPATH": _PROXY_PYTHONPATH,
             "STORE_MODEL_IN_DB": "False",
             "DISABLE_SCHEMA_UPDATE": "true",
-            "LITELLM_SALT_KEY": "shared-interaction-test",
+            "HANGARLLM_SALT_KEY": "shared-interaction-test",
         }
         options: Final = {
             "database_setup": (),
             "remove_environment": (
                 "DATABASE_URL",
                 "DATABASE_URL_READ_REPLICA",
-                "LITELLM_LICENSE",
-                "LITELLM_LICENSE_PATH",
+                "HANGARLLM_LICENSE",
+                "HANGARLLM_LICENSE_PATH",
                 "REDIS_URL",
                 "REDIS_HOST",
             ),
@@ -307,7 +307,7 @@ def test_continuation_reauthenticates_caller_and_rechecks_revoked_permissions(tm
     auth_module.write_text(
         "from pathlib import Path\n"
         "from fastapi import HTTPException, Request\n"
-        "from litellm.proxy._types import UserAPIKeyAuth\n"
+        "from hangarllm.proxy._types import UserAPIKeyAuth\n"
         "async def authenticate(request: Request, api_key: str) -> UserAPIKeyAuth:\n"
         "    if api_key != 'sk-interaction-test':\n"
         "        raise HTTPException(status_code=401, detail='Unknown test caller')\n"
@@ -363,7 +363,7 @@ def test_continuation_reauthenticates_caller_and_rechecks_revoked_permissions(tm
                 "PYTHONPATH": _PROXY_PYTHONPATH,
                 "STORE_MODEL_IN_DB": "False",
                 "DISABLE_SCHEMA_UPDATE": "true",
-                "LITELLM_SALT_KEY": "caller-test-salt",
+                "HANGARLLM_SALT_KEY": "caller-test-salt",
             },
             config=config,
             database_setup=(),
@@ -501,7 +501,7 @@ def test_missing_continuation_key_reports_configuration_for_each_carrier(tmp_pat
                 "PYTHONPATH": _PROXY_PYTHONPATH,
                 "STORE_MODEL_IN_DB": "False",
                 "DISABLE_SCHEMA_UPDATE": "true",
-                "LITELLM_SALT_KEY": "",
+                "HANGARLLM_SALT_KEY": "",
             },
             config=config,
             database_setup=(),
@@ -514,7 +514,7 @@ def test_missing_continuation_key_reports_configuration_for_each_carrier(tmp_pat
             ):
                 response: Final = rpc(gateway, method, params, status=400)
                 assert response["error"]["code"] == -32602, response
-                assert "LITELLM_SALT_KEY" in response["error"]["message"], response
+                assert "HANGARLLM_SALT_KEY" in response["error"]["message"], response
 
 
 @pytest.mark.parametrize(
@@ -658,7 +658,7 @@ def test_modern_subscription_delivers_changes_between_calls_and_refreshes_tools(
     auth_module.write_text(
         "from pathlib import Path\n"
         "from fastapi import HTTPException, Request\n"
-        "from litellm.proxy._types import UserAPIKeyAuth\n"
+        "from hangarllm.proxy._types import UserAPIKeyAuth\n"
         "async def authenticate(request: Request, api_key: str) -> UserAPIKeyAuth:\n"
         "    if api_key not in ('sk-subscriptions-test', 'sk-subscriptions-other'):\n"
         "        raise HTTPException(status_code=401, detail='Unknown caller')\n"
@@ -666,7 +666,7 @@ def test_modern_subscription_delivers_changes_between_calls_and_refreshes_tools(
         "    data = json.loads(Path(__file__).with_suffix('.json').read_text())\n"
         "    change = data.pop('subscription_test_update', None)\n"
         "    if change:\n"
-        "        from litellm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager as manager\n"
+        "        from hangarllm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager as manager\n"
         "        server = manager.config_mcp_servers['subscription-server']\n"
         "        fields = {'authorization_url': 'https://authorization.example/authorize'} if change == 'metadata' else {'url': server.url.rstrip('/') + '/changed'}\n"
         "        manager.config_mcp_servers[server.server_id] = server.model_copy(update=fields)\n"
@@ -803,7 +803,7 @@ def test_modern_subscription_delivers_changes_between_calls_and_refreshes_tools(
     async def exercise(gateway: Gateway) -> None:
         headers = {"Authorization": "Bearer " + gateway.key}
         if access == "fanout":
-            headers = {"x-litellm-api-key": gateway.key, "Authorization": "Bearer upstream-only-test-token"}
+            headers = {"x-hangarllm-api-key": gateway.key, "Authorization": "Bearer upstream-only-test-token"}
         async with httpx2.AsyncClient(headers=headers, timeout=30) as client:
             gateway_url = str(gateway.client.base_url).rstrip("/")
             connection = (
@@ -1225,12 +1225,12 @@ def test_modern_subscription_delivers_changes_between_calls_and_refreshes_tools(
         source: Final = Path(__file__).resolve().parents[3]
         environment: Final = {
             "PYTHONPATH": os.pathsep.join((str(source), str(source / "tests"))),
-            "LITELLM_SALT_KEY": "subscription-pagination-key",
-            **({"LITELLM_MCP_TOOL_LISTING_TIMEOUT": "2"} if access == "probe-timeout" else {}),
+            "HANGARLLM_SALT_KEY": "subscription-pagination-key",
+            **({"HANGARLLM_MCP_TOOL_LISTING_TIMEOUT": "2"} if access == "probe-timeout" else {}),
             "STORE_MODEL_IN_DB": "False",
             "DISABLE_SCHEMA_UPDATE": "true",
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-            "LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true",
+            "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
+            "HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true",
         }
         seed: Final = Gateway(client, "sk-subscriptions-test", upstream_url)
         with owned_proxy(
@@ -1295,11 +1295,11 @@ def test_subscription_partial_setup_releases_upstream_capacity() -> None:
     from starlette.applications import Starlette
     from starlette.routing import Mount
 
-    from litellm.mcp_client.client import MCPClient
-    from litellm.proxy.mcp_server.contracts import OperationContext
-    from litellm.proxy.mcp_server.subscriptions import GatewaySubscriptions, SubscriptionTarget
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer as RegisteredServer
+    from hangarllm.mcp_client.client import MCPClient
+    from hangarllm.proxy.mcp_server.contracts import OperationContext
+    from hangarllm.proxy.mcp_server.subscriptions import GatewaySubscriptions, SubscriptionTarget
+    from hangarllm.types.mcp import MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer as RegisteredServer
 
     disconnected = Event()
 
@@ -1412,7 +1412,7 @@ def test_modern_sampling_obeys_opt_in_and_completes_upstream_interaction(tmp_pat
                     "model_list": [
                         {
                             "model_name": "sampling-model",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "openai/sampling-model",
                                 "api_base": model.url + "/v1",
                                 "api_key": "synthetic-provider-key",
@@ -1432,7 +1432,7 @@ def test_modern_sampling_obeys_opt_in_and_completes_upstream_interaction(tmp_pat
                         "store_model_in_db": False,
                         "mcp_advertised_versions": ["2026-07-28"],
                     },
-                    "litellm_settings": {"default_mcp_sampling_model": "sampling-model"},
+                    "hangarllm_settings": {"default_mcp_sampling_model": "sampling-model"},
                 }
             )
         )
@@ -1440,8 +1440,8 @@ def test_modern_sampling_obeys_opt_in_and_completes_upstream_interaction(tmp_pat
             "PYTHONPATH": _PROXY_PYTHONPATH,
             "STORE_MODEL_IN_DB": "False",
             "DISABLE_SCHEMA_UPDATE": "true",
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-            "LITELLM_SALT_KEY": "sampling-test-salt",
+            "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
+            "HANGARLLM_SALT_KEY": "sampling-test-salt",
         }
         with owned_proxy(
             Gateway(client, _KEY, peer.url),
@@ -1523,7 +1523,7 @@ def test_input_interaction_pairs_preserve_consent_and_never_restart_legacy_work(
                             assert len(consent_requests) == (0 if downstream == "2026-07-28" else 1)
 
         seed = Gateway(http_client, _KEY, peer.url)
-        with owned_proxy(seed, tmp_path / "gateway", {"PYTHONPATH": _PROXY_PYTHONPATH, "STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "interaction-matrix-test"}, config=config, database_setup=(), remove_environment=("DATABASE_URL", "DATABASE_URL_READ_REPLICA", "DIRECT_URL", "REDIS_URL", "REDIS_HOST")) as gateway:
+        with owned_proxy(seed, tmp_path / "gateway", {"PYTHONPATH": _PROXY_PYTHONPATH, "STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "interaction-matrix-test"}, config=config, database_setup=(), remove_environment=("DATABASE_URL", "DATABASE_URL_READ_REPLICA", "DIRECT_URL", "REDIS_URL", "REDIS_HOST")) as gateway:
             asyncio.run(exercise(gateway))
         observed = peer.drain()
         calls = [json.loads(item.body) for item in observed if item.method == "POST" and json.loads(item.body).get("method") == "tools/call"] if modern_upstream else tool_calls(observed)

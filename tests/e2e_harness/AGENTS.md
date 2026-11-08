@@ -4,10 +4,10 @@ Tests of the harness under `tests/e2e/` (the transport, the clients, the fixture
 
 The layout mirrors `tests/e2e/`: `test_e2e_http.py` covers `tests/e2e/e2e_http.py`, `logging/test_datadog_reader.py` covers `tests/e2e/logging/datadog_reader.py`, `claude_code/` covers the driver, builder and probe, `cli_harness/` covers the version resolver, the CLI env lockdown and the rate limiter, and `codex/` covers how the Codex driver reads the CLI's JSONL events and the compactions in a thread's rollout file. Put a new harness test under the folder that mirrors the suite folder whose module it covers
 
-Run them from the repo root. `e2e_config` reads `LITELLM_MASTER_KEY` at import and any value will do, the CI lane sets a dummy:
+Run them from the repo root. `e2e_config` reads `HANGARLLM_MASTER_KEY` at import and any value will do, the CI lane sets a dummy:
 
 ```bash
-LITELLM_MASTER_KEY=sk-harness uv run pytest tests/e2e_harness
+HANGARLLM_MASTER_KEY=sk-harness uv run pytest tests/e2e_harness
 ```
 
 `pytest.ini` here puts `tests/e2e` and the suite folders whose modules are under test on the path, so imports look exactly as they do inside the suite (`from e2e_http import ...`, `from batch_cleanup import ...`). `claude_code/test_request_determinism.py` drives the real `claude` CLI. Deselect it with `-m "not cli_determinism"` when the CLI is not installed

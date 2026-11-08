@@ -2,8 +2,8 @@ from typing import Final
 
 import pytest
 
-from litellm.responses.mcp.parked_stream_dispatch import parked_success
-from litellm.types.utils import ModelResponse
+from hangarllm.responses.mcp.parked_stream_dispatch import parked_success
+from hangarllm.types.utils import ModelResponse
 
 _ASSEMBLED: Final = ModelResponse(id="chatcmpl-parked", model="gpt-5.6")
 

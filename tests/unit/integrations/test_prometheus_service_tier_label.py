@@ -13,22 +13,22 @@ import datetime
 
 import pytest
 
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.litellm_core_utils.service_tier_utils import (
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.hangarllm_core_utils.service_tier_utils import (
     KNOWN_REQUEST_SERVICE_TIERS,
     get_service_tier_from_standard_logging_payload,
 )
-from litellm.types.integrations.prometheus import (
+from hangarllm.types.integrations.prometheus import (
     PrometheusMetricLabels,
     UserAPIKeyLabelNames,
     UserAPIKeyLabelValues,
 )
 
 SERVICE_TIER_METRICS = [
-    "litellm_llm_api_latency_metric",
-    "litellm_llm_api_time_to_first_token_metric",
-    "litellm_request_total_latency_metric",
-    "litellm_spend_metric",
+    "hangarllm_llm_api_latency_metric",
+    "hangarllm_llm_api_time_to_first_token_metric",
+    "hangarllm_request_total_latency_metric",
+    "hangarllm_spend_metric",
 ]
 
 
@@ -88,7 +88,7 @@ def _standard_logging_payload(
             "user_api_key_end_user_id": None,
             "usage_object": usage_object,
         },
-        "hidden_params": {"litellm_overhead_time_ms": None, "additional_headers": None},
+        "hidden_params": {"hangarllm_overhead_time_ms": None, "additional_headers": None},
     }
 
 
@@ -171,7 +171,7 @@ def test_every_known_requested_tier_is_labelled(tier):
     [
         (None, None, None),
         ({"service_tier": None}, {"service_tier": ""}, {"service_tier": None}),
-        ("redacted-by-litellm", None, {}),
+        ("redacted-by-hangarllm", None, {}),
         ({"service_tier": 1}, None, None),
     ],
 )
@@ -202,7 +202,7 @@ async def test_success_event_emits_service_tier_on_latency_and_spend_metrics():
     now = datetime.datetime.now()
     kwargs = {
         "model": "gpt-4o-mini",
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "standard_logging_object": payload,
         "stream": True,
         "start_time": now - datetime.timedelta(seconds=3),
@@ -217,10 +217,10 @@ async def test_success_event_emits_service_tier_on_latency_and_spend_metrics():
         await logger.async_log_success_event(kwargs, None, now, now)
 
         for metric_name in (
-            "litellm_request_total_latency_metric_bucket",
-            "litellm_llm_api_latency_metric_bucket",
-            "litellm_llm_api_time_to_first_token_metric_bucket",
-            "litellm_spend_metric_total",
+            "hangarllm_request_total_latency_metric_bucket",
+            "hangarllm_llm_api_latency_metric_bucket",
+            "hangarllm_llm_api_time_to_first_token_metric_bucket",
+            "hangarllm_spend_metric_total",
         ):
             samples = _collected_samples(metric_name)
             assert samples, f"expected {metric_name} to be emitted"
@@ -235,7 +235,7 @@ async def test_success_event_emits_service_tier_on_latency_and_spend_metrics():
 def test_allowlist_covers_every_modeled_service_tier():
     """A tier modeled for cost calculation is real traffic, so it must resolve
     rather than being dropped as an unknown caller value."""
-    from litellm.types.utils import ServiceTier
+    from hangarllm.types.utils import ServiceTier
 
     missing = {tier.value for tier in ServiceTier} - KNOWN_REQUEST_SERVICE_TIERS
     assert not missing, f"ServiceTier values missing from the allowlist: {sorted(missing)}"

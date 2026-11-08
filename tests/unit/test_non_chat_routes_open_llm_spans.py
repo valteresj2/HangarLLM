@@ -15,8 +15,8 @@ import httpx
 import pytest
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class _PreCallRecorder(CustomLogger):
@@ -28,7 +28,7 @@ class _PreCallRecorder(CustomLogger):
 
     def log_pre_api_call(self, model, messages, kwargs) -> None:
         self.call_types.append(str(kwargs.get("call_type")))
-        self.api_bases.append(str(kwargs.get("litellm_params", {}).get("api_base")))
+        self.api_bases.append(str(kwargs.get("hangarllm_params", {}).get("api_base")))
         self.request_bodies.append(kwargs.get("additional_args", {}).get("complete_input_dict"))
 
 
@@ -121,14 +121,14 @@ class _FakeAsyncAzureOpenAI(AsyncAzureOpenAI):
 @pytest.fixture
 def recorder(monkeypatch):
     recorder: Final = _PreCallRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
     return recorder
 
 
 def test_async_speech_opens_an_llm_span(recorder):
     asyncio.run(
-        litellm.aspeech(
+        hangarllm.aspeech(
             model="openai/tts-1",
             input="hello",
             voice="alloy",
@@ -144,7 +144,7 @@ def test_azure_async_speech_opens_an_llm_span_without_api_base(recorder, monkeyp
     whole callback dispatch was skipped."""
     monkeypatch.delenv("AZURE_API_BASE", raising=False)
     asyncio.run(
-        litellm.aspeech(
+        hangarllm.aspeech(
             model="azure/tts-deployment",
             input="hello",
             voice="alloy",
@@ -162,7 +162,7 @@ def test_azure_async_speech_keeps_caller_headers_out_of_the_logged_body(recorder
     headers: Final = {"authorization": "Bearer caller-secret"}
     client: Final = _FakeAsyncAzureOpenAI()
     asyncio.run(
-        litellm.aspeech(
+        hangarllm.aspeech(
             model="azure/tts-deployment",
             input="hello",
             voice="alloy",
@@ -177,7 +177,7 @@ def test_azure_async_speech_keeps_caller_headers_out_of_the_logged_body(recorder
 
 def test_async_image_generation_opens_an_llm_span(recorder):
     asyncio.run(
-        litellm.aimage_generation(
+        hangarllm.aimage_generation(
             model="openai/dall-e-3",
             prompt="a cat",
             client=_FakeAsyncOpenAI(),
@@ -188,7 +188,7 @@ def test_async_image_generation_opens_an_llm_span(recorder):
 
 def test_async_moderation_opens_an_llm_span(recorder):
     asyncio.run(
-        litellm.amoderation(
+        hangarllm.amoderation(
             model="omni-moderation-latest",
             input="hello",
             client=_FakeAsyncOpenAI(base_url="https://gateway.example/v1"),

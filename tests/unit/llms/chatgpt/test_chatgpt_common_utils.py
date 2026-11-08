@@ -6,9 +6,9 @@ from typing import Final
 import h11
 import pytest
 
-from litellm.constants import SESSION_ID_GENERATED_METADATA_KEY
-from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-from litellm.llms.chatgpt.common_utils import (
+from hangarllm.constants import SESSION_ID_GENERATED_METADATA_KEY
+from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+from hangarllm.llms.chatgpt.common_utils import (
     extract_chatgpt_account_id,
     get_chatgpt_client_credential,
     get_chatgpt_session_id,
@@ -68,7 +68,7 @@ class TestSelectChatGPTClientCredentialHeaders:
             {
                 "Authorization": f"Bearer {CHATGPT_JWT}",
                 "ChatGPT-Account-Id": "acct-explicit",
-                "x-litellm-api-key": "sk-gateway",
+                "x-hangarllm-api-key": "sk-gateway",
                 "user-agent": "codex",
             }
         )
@@ -100,10 +100,10 @@ class TestGetChatGPTSessionId:
     @pytest.mark.parametrize(
         "explicit",
         [
-            {"litellm_session_id": "chosen"},
+            {"hangarllm_session_id": "chosen"},
             {"session_id": "chosen"},
             {"metadata": {"session_id": "chosen"}},
-            get_litellm_params(litellm_session_id="chosen", metadata={"trace_id": "chosen"}),
+            get_hangarllm_params(hangarllm_session_id="chosen", metadata={"trace_id": "chosen"}),
         ],
     )
     def test_explicit_session_id_wins_over_prompt_cache_key(self, explicit: Mapping[str, object]) -> None:
@@ -112,14 +112,14 @@ class TestGetChatGPTSessionId:
     @pytest.mark.parametrize(
         "request_scoped",
         [
-            {"litellm_trace_id": "trace-1"},
-            {"litellm_call_id": "call-1"},
-            get_litellm_params(metadata={"trace_id": "trace-1"}),
-            get_litellm_params(litellm_metadata={"trace_id": "trace-1"}),
-            {"litellm_session_id": "gen-1", "metadata": {"session_id": "gen-1", SESSION_ID_GENERATED_METADATA_KEY: True}},
+            {"hangarllm_trace_id": "trace-1"},
+            {"hangarllm_call_id": "call-1"},
+            get_hangarllm_params(metadata={"trace_id": "trace-1"}),
+            get_hangarllm_params(hangarllm_metadata={"trace_id": "trace-1"}),
+            {"hangarllm_session_id": "gen-1", "metadata": {"session_id": "gen-1", SESSION_ID_GENERATED_METADATA_KEY: True}},
             {
-                "litellm_session_id": "gen-1",
-                "litellm_metadata": {"session_id": "gen-1", SESSION_ID_GENERATED_METADATA_KEY: True},
+                "hangarllm_session_id": "gen-1",
+                "hangarllm_metadata": {"session_id": "gen-1", SESSION_ID_GENERATED_METADATA_KEY: True},
             },
         ],
     )
@@ -130,10 +130,10 @@ class TestGetChatGPTSessionId:
         "mapped_header",
         [
             {
-                "litellm_session_id": "header-session",
+                "hangarllm_session_id": "header-session",
                 "metadata": {"trace_id": "header-session", "session_id": "header-session"},
             },
-            get_litellm_params(metadata={"trace_id": "header-session", "session_id": "header-session"}),
+            get_hangarllm_params(metadata={"trace_id": "header-session", "session_id": "header-session"}),
         ],
     )
     def test_proxy_mapped_session_header_wins_over_body_session_id(self, mapped_header: Mapping[str, object]) -> None:
@@ -144,7 +144,7 @@ class TestGetChatGPTSessionId:
 
     @pytest.mark.parametrize("prompt_cache_key", [{"tenant": "a"}, 12345, True, ["x", "y"]])
     def test_non_string_prompt_cache_key_is_ignored(self, prompt_cache_key: object) -> None:
-        assert get_chatgpt_session_id({"prompt_cache_key": prompt_cache_key, "litellm_call_id": "call-1"}) == "call-1"
+        assert get_chatgpt_session_id({"prompt_cache_key": prompt_cache_key, "hangarllm_call_id": "call-1"}) == "call-1"
 
     @pytest.mark.parametrize(
         "first, second",

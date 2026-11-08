@@ -8,19 +8,19 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 
-import litellm
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.types.utils import ModelResponse
 
 
 @pytest.mark.asyncio
 async def test_router_agenerate_content_method():
     """Test that the new agenerate_content method in Router works correctly"""
     # Create a router instance
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                 },
             }
@@ -58,11 +58,11 @@ async def test_router_agenerate_content_method():
 async def test_router_aadapter_generate_content_method():
     """Test that the new aadapter_generate_content method in Router works correctly"""
     # Create a router instance
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                 },
             }

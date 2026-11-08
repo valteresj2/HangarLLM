@@ -5,15 +5,15 @@ from typing import Final
 import pytest
 from redis import Redis
 
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy.hooks.batch_enqueued_tokens import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.proxy.hooks.batch_enqueued_tokens import (
     BatchEnqueuedTokenOverLimit,
     BatchEnqueuedTokenReservation,
     BatchEnqueuedTokenScope,
     BatchEnqueuedTokenStore,
 )
-from litellm.proxy.utils import InternalUsageCache
+from hangarllm.proxy.utils import InternalUsageCache
 
 
 @pytest.mark.asyncio

@@ -4,17 +4,17 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.anthropic.cost_calculation import cost_per_token
-from litellm.llms.anthropic.prompt_cache_prediction import CountedBreakpoint, CountedPromptCachePlan
-from litellm.proxy.spend_tracking.baseline_accounting import (
+import hangarllm
+from hangarllm.llms.anthropic.cost_calculation import cost_per_token
+from hangarllm.llms.anthropic.prompt_cache_prediction import CountedBreakpoint, CountedPromptCachePlan
+from hangarllm.proxy.spend_tracking.baseline_accounting import (
     BaselineEstimate,
     BaselineHistory,
     BaselineObservation,
     CacheEntry,
     advance_baseline_history,
 )
-from litellm.types.utils import CacheCreationTokenDetails, PromptTokensDetailsWrapper, Usage
+from hangarllm.types.utils import CacheCreationTokenDetails, PromptTokensDetailsWrapper, Usage
 
 
 def _usage() -> Usage:
@@ -201,7 +201,7 @@ def test_modeled_read_cannot_recharge_the_original_private_write_count() -> None
     warm: Final = _replay(_observation("initial", baseline_equivalent=True), _observation("warm", 10001.0))[-1]
     assert warm.usage is not None
     prices: Final = {
-        **litellm.get_model_info("claude-opus-5", custom_llm_provider="anthropic"),
+        **hangarllm.get_model_info("claude-opus-5", custom_llm_provider="anthropic"),
         "input_cost_per_token": 1e-6,
         "output_cost_per_token": 2e-6,
         "cache_read_input_token_cost": 1e-7,

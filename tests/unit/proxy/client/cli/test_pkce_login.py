@@ -14,8 +14,8 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 import requests
 
-from litellm.litellm_core_utils.cli_token_utils import is_cli_token_fresh
-from litellm.proxy.client.cli.commands.pkce_login import (
+from hangarllm.hangarllm_core_utils.cli_token_utils import is_cli_token_fresh
+from hangarllm.proxy.client.cli.commands.pkce_login import (
     CallbackCode,
     CallbackDenied,
     CliAuthContract,
@@ -38,7 +38,7 @@ from litellm.proxy.client.cli.commands.pkce_login import (
 )
 
 BASE = "https://llm.example.com"
-DISCOVERY_URL = f"{BASE}/.well-known/litellm-cli-auth"
+DISCOVERY_URL = f"{BASE}/.well-known/hangarllm-cli-auth"
 CONTRACT_DOC = {
     "contract_version": 1,
     "issuer": BASE,
@@ -150,7 +150,7 @@ def test_loopback_settles_only_on_a_code_for_the_expected_state():
         assert thread.is_alive()
         status, body = _get(f"{base}/callback?state=expected-state&code=the-code")
         assert status == 200
-        assert "Signed in to LiteLLM" in body
+        assert "Signed in to HangarLLM" in body
         thread.join(5)
     assert not thread.is_alive()
     assert result["outcome"] == CallbackCode(code="the-code")
@@ -180,7 +180,7 @@ def test_loopback_drops_an_idle_connection_instead_of_waiting_on_it():
         finally:
             idle.close()
         assert status == 200
-        assert "Signed in to LiteLLM" in body
+        assert "Signed in to HangarLLM" in body
         thread.join(5)
     assert not thread.is_alive()
     assert result["outcome"] == CallbackCode(code="c1")
@@ -239,13 +239,13 @@ def test_discover_refuses_endpoints_on_another_origin_and_names_each_of_them():
     ["https://LLM.example.com:443/", "https://llm.example.com", "HTTPS://llm.example.com/"],
 )
 def test_discover_accepts_the_same_proxy_however_the_user_spelled_it(typed_base_url):
-    discovery_url = f"{typed_base_url.rstrip('/')}/.well-known/litellm-cli-auth"
+    discovery_url = f"{typed_base_url.rstrip('/')}/.well-known/hangarllm-cli-auth"
     http = _FakeHttp({("GET", discovery_url): _FakeResponse(200, CONTRACT_DOC)})
     assert discover_cli_auth(typed_base_url, http) == CONTRACT
 
 
 def test_discover_accepts_a_proxy_mounted_under_a_path_only_at_that_path():
-    mounted = f"{BASE}/litellm"
+    mounted = f"{BASE}/hangarllm"
     doc = {
         **CONTRACT_DOC,
         "issuer": mounted,
@@ -256,7 +256,7 @@ def test_discover_accepts_a_proxy_mounted_under_a_path_only_at_that_path():
         "resource": mounted,
     }
     routes = {
-        ("GET", f"{mounted}/.well-known/litellm-cli-auth"): _FakeResponse(200, doc),
+        ("GET", f"{mounted}/.well-known/hangarllm-cli-auth"): _FakeResponse(200, doc),
         ("GET", DISCOVERY_URL): _FakeResponse(200, doc),
     }
     assert discover_cli_auth(f"{mounted}/", _FakeHttp(routes)) == CliAuthContract.model_validate(doc)
@@ -274,7 +274,7 @@ def test_register_sends_a_public_loopback_client_and_returns_its_id():
             f"{BASE}/register",
             None,
             {
-                "client_name": "litellm-cli",
+                "client_name": "hangarllm-cli",
                 "redirect_uris": ["http://127.0.0.1:5/callback"],
                 "grant_types": ["authorization_code", "refresh_token"],
                 "response_types": ["code"],

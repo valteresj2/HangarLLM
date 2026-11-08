@@ -60,7 +60,7 @@ def test_model_router_alias_without_router_in_name_keeps_selected_model_in_respo
         assert len(wire.drain()) == 1
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT model, model_group, status FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT model, model_group, status FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (body["id"],),
             ),
             lambda values: len(values) == 1,

@@ -97,8 +97,8 @@ class _ProxyOnlyPackageBlocker(importlib.abc.MetaPathFinder):
 def _needs_proxy_extras(module_name: str) -> bool:
     return (
         module_name.partition(".")[0] in PROXY_ONLY_PACKAGES
-        or module_name == "litellm.proxy"
-        or module_name.startswith("litellm.proxy.")
+        or module_name == "hangarllm.proxy"
+        or module_name.startswith("hangarllm.proxy.")
     )
 
 

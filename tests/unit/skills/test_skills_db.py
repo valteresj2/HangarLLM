@@ -1,7 +1,7 @@
 """
-Test LiteLLM Skills SDK with custom_llm_provider=litellm_proxy
+Test HangarLLM Skills SDK with custom_llm_provider=hangarllm_proxy
 
-Tests the SDK-level skills methods when using the LiteLLM database backend:
+Tests the SDK-level skills methods when using the HangarLLM database backend:
 1. Create a skill using SDK and verify it was stored correctly
 2. List skills using SDK
 3. Get a skill by ID using SDK
@@ -18,12 +18,12 @@ from pathlib import Path
 import pytest
 
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy import proxy_server
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.types.utils import LlmProviders
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.types.utils import LlmProviders
 import openai
 
 proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
@@ -65,7 +65,7 @@ def create_skill_zip(skill_name: str):
 @pytest.fixture
 def prisma_client():
     """Set up prisma client for tests."""
-    from litellm.proxy.proxy_cli import append_query_params
+    from hangarllm.proxy.proxy_cli import append_query_params
 
     params = {"connection_limit": 100, "pool_timeout": 60}
     database_url = os.getenv("DATABASE_URL")
@@ -83,7 +83,7 @@ def prisma_client():
 @pytest.mark.asyncio
 async def test_create_skill_sdk(prisma_client):
     """
-    Test creating a skill using SDK with custom_llm_provider=litellm_proxy.
+    Test creating a skill using SDK with custom_llm_provider=hangarllm_proxy.
 
     Verifies that:
     - Skill is created with correct display_title
@@ -93,7 +93,7 @@ async def test_create_skill_sdk(prisma_client):
     setattr(proxy_server, "prisma_client", prisma_client)
     await proxy_server.prisma_client.connect()
 
-    from litellm.skills.main import acreate_skill, adelete_skill
+    from hangarllm.skills.main import acreate_skill, adelete_skill
 
     # Create a skill using SDK
     skill = await acreate_skill(
@@ -102,13 +102,13 @@ async def test_create_skill_sdk(prisma_client):
             "description": "A test skill created via SDK",
             "instructions": "Use this skill for SDK testing",
         },
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
 
     # Verify skill was created correctly
     assert skill is not None
     assert skill.id is not None
-    assert skill.id.startswith("litellm_skill")
+    assert skill.id.startswith("hangarllm_skill")
     assert skill.display_title == "SDK Test Skill"
     assert skill.type == "skill"
     assert skill.source == "custom"
@@ -116,7 +116,7 @@ async def test_create_skill_sdk(prisma_client):
     # Clean up
     await adelete_skill(
         skill_id=skill.id,
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
 
 
@@ -124,7 +124,7 @@ async def test_create_skill_sdk(prisma_client):
 @pytest.mark.asyncio
 async def test_list_skills_sdk(prisma_client):
     """
-    Test listing skills using SDK with custom_llm_provider=litellm_proxy.
+    Test listing skills using SDK with custom_llm_provider=hangarllm_proxy.
 
     Verifies that:
     - Multiple skills can be created
@@ -133,7 +133,7 @@ async def test_list_skills_sdk(prisma_client):
     setattr(proxy_server, "prisma_client", prisma_client)
     await proxy_server.prisma_client.connect()
 
-    from litellm.skills.main import acreate_skill, adelete_skill, alist_skills
+    from hangarllm.skills.main import acreate_skill, adelete_skill, alist_skills
 
     # Create multiple skills
     created_skill_ids = []
@@ -143,14 +143,14 @@ async def test_list_skills_sdk(prisma_client):
             extra_body={
                 "description": f"Test skill {i} for list test",
             },
-            custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+            custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
         )
         created_skill_ids.append(skill.id)
 
     # List skills using SDK
     response = await alist_skills(
         limit=10,
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
 
     # Verify we got skills back
@@ -167,7 +167,7 @@ async def test_list_skills_sdk(prisma_client):
     for skill_id in created_skill_ids:
         await adelete_skill(
             skill_id=skill_id,
-            custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+            custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
         )
 
 
@@ -175,7 +175,7 @@ async def test_list_skills_sdk(prisma_client):
 @pytest.mark.asyncio
 async def test_get_skill_sdk(prisma_client):
     """
-    Test getting a skill by ID using SDK with custom_llm_provider=litellm_proxy.
+    Test getting a skill by ID using SDK with custom_llm_provider=hangarllm_proxy.
 
     Verifies that:
     - Skill can be retrieved by ID
@@ -184,7 +184,7 @@ async def test_get_skill_sdk(prisma_client):
     setattr(proxy_server, "prisma_client", prisma_client)
     await proxy_server.prisma_client.connect()
 
-    from litellm.skills.main import acreate_skill, adelete_skill, aget_skill
+    from hangarllm.skills.main import acreate_skill, adelete_skill, aget_skill
 
     # Create a skill
     created_skill = await acreate_skill(
@@ -192,13 +192,13 @@ async def test_get_skill_sdk(prisma_client):
         extra_body={
             "description": "A skill for get test",
         },
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
 
     # Get the skill by ID using SDK
     retrieved_skill = await aget_skill(
         skill_id=created_skill.id,
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
 
     # Verify retrieved skill matches created skill
@@ -209,7 +209,7 @@ async def test_get_skill_sdk(prisma_client):
     # Clean up
     await adelete_skill(
         skill_id=created_skill.id,
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
 
 
@@ -217,7 +217,7 @@ async def test_get_skill_sdk(prisma_client):
 @pytest.mark.asyncio
 async def test_delete_skill_sdk(prisma_client):
     """
-    Test deleting a skill using SDK with custom_llm_provider=litellm_proxy.
+    Test deleting a skill using SDK with custom_llm_provider=hangarllm_proxy.
 
     Verifies that:
     - Skill can be deleted by ID
@@ -226,7 +226,7 @@ async def test_delete_skill_sdk(prisma_client):
     setattr(proxy_server, "prisma_client", prisma_client)
     await proxy_server.prisma_client.connect()
 
-    from litellm.skills.main import acreate_skill, adelete_skill, aget_skill
+    from hangarllm.skills.main import acreate_skill, adelete_skill, aget_skill
 
     # Create a skill
     created_skill = await acreate_skill(
@@ -234,20 +234,20 @@ async def test_delete_skill_sdk(prisma_client):
         extra_body={
             "description": "A skill to be deleted",
         },
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
 
     # Verify skill exists
     retrieved = await aget_skill(
         skill_id=created_skill.id,
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
     assert retrieved is not None
 
     # Delete the skill using SDK
     result = await adelete_skill(
         skill_id=created_skill.id,
-        custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+        custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
     )
     assert result.id == created_skill.id
     assert result.type == "skill_deleted"
@@ -256,5 +256,5 @@ async def test_delete_skill_sdk(prisma_client):
     with pytest.raises(openai.APIError):
         await aget_skill(
             skill_id=created_skill.id,
-            custom_llm_provider=LlmProviders.LITELLM_PROXY.value,
+            custom_llm_provider=LlmProviders.HANGARLLM_PROXY.value,
         )

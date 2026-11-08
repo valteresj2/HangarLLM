@@ -25,7 +25,7 @@ from e2e_config import unique_marker
 from e2e_http import StreamingResponse
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatTool, ChatToolFunction, LiteLLMParamsBody
+from models import ChatBody, ChatMessage, ChatTool, ChatToolFunction, HangarLLMParamsBody
 from passthrough_client import PassthroughClient
 
 pytestmark = pytest.mark.e2e
@@ -91,7 +91,7 @@ class TestResponsesBridgeChatCompletionsStreaming:
         model = f"e2e-bridge-stream-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=RESPONSES_ONLY_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model=RESPONSES_ONLY_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         return model

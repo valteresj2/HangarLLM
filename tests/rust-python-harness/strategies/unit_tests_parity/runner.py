@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from ...shared.unit_runners.python_runner import BackendSpec, compare_python_runs, run_python_tests
 from ...shared.unit_runners.suite_runner import SuiteExecution
 
-BACKEND: Final = BackendSpec(environment_variable="LITELLM_RUST")
+BACKEND: Final = BackendSpec(environment_variable="HANGARLLM_RUST")
 
 
 class UnitParityExclusion(BaseModel):

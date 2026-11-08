@@ -27,7 +27,7 @@ def _create_tool(gateway: Gateway, scenario: Scenario, name: str, api_base: str)
         {
             "search_tool": {
                 "search_tool_name": name,
-                "litellm_params": {"search_provider": "exa_ai", "api_key": _EXA_KEY, "api_base": api_base},
+                "hangarllm_params": {"search_provider": "exa_ai", "api_key": _EXA_KEY, "api_base": api_base},
                 "search_tool_info": {"description": f"integration tool {name}"},
             }
         },
@@ -145,7 +145,7 @@ def test_search_tools_listing_route_hides_tools_outside_the_key_allowlist(gatewa
 
 def _search_tool_row(identity: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT search_tool_name, litellm_params, search_tool_info, updated_at::text AS updated_at FROM "LiteLLM_SearchToolsTable" '
+        'SELECT search_tool_name, hangarllm_params, search_tool_info, updated_at::text AS updated_at FROM "HangarLLM_SearchToolsTable" '
         "WHERE search_tool_id = %s",
         (identity,),
     )
@@ -159,20 +159,20 @@ def _non_admin_attempts(
         (
             "POST",
             "/search_tools",
-            {"search_tool": {"search_tool_name": attempted_name, "litellm_params": attacker_params}},
+            {"search_tool": {"search_tool_name": attempted_name, "hangarllm_params": attacker_params}},
         ),
         (
             "PUT",
             f"/search_tools/{existing}",
-            {"search_tool": {"search_tool_name": existing_name, "litellm_params": attacker_params}},
+            {"search_tool": {"search_tool_name": existing_name, "hangarllm_params": attacker_params}},
         ),
         ("DELETE", f"/search_tools/{existing}", None),
-        ("POST", "/search_tools/test_connection", {"litellm_params": attacker_params}),
+        ("POST", "/search_tools/test_connection", {"hangarllm_params": attacker_params}),
     )
 
 
 def _delete_tools_named(gateway: Gateway, name: str) -> None:
-    for row in read_rows('SELECT search_tool_id FROM "LiteLLM_SearchToolsTable" WHERE search_tool_name = %s', (name,)):
+    for row in read_rows('SELECT search_tool_id FROM "HangarLLM_SearchToolsTable" WHERE search_tool_name = %s', (name,)):
         gateway.request("DELETE", f"/search_tools/{string_value(row['search_tool_id'])}")
 
 
@@ -197,7 +197,7 @@ def test_non_admin_keys_cannot_create_update_delete_or_probe_search_tools(gatewa
         assert _search_tool_row(existing) == before
         assert (
             read_rows(
-                'SELECT search_tool_id FROM "LiteLLM_SearchToolsTable" WHERE search_tool_name = %s', (attempted_name,)
+                'SELECT search_tool_id FROM "HangarLLM_SearchToolsTable" WHERE search_tool_name = %s', (attempted_name,)
             )
             == []
         )

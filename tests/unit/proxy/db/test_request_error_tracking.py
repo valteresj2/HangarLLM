@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.constants import MAX_REDIS_BUFFER_DEQUEUE_COUNT, REQUEST_ERRORS_MAX_ROWS_PER_UPSERT
-from litellm.proxy.db.request_error_tracking import (
+from hangarllm.constants import MAX_REDIS_BUFFER_DEQUEUE_COUNT, REQUEST_ERRORS_MAX_ROWS_PER_UPSERT
+from hangarllm.proxy.db.request_error_tracking import (
     RequestErrorAccumulator,
     RequestErrorRedisBuffer,
     build_request_errors_upsert,
@@ -15,7 +15,7 @@ from litellm.proxy.db.request_error_tracking import (
     fold_counts,
     status_code_from_metadata,
 )
-from litellm.types.proxy.request_errors import RequestErrorKey
+from hangarllm.types.proxy.request_errors import RequestErrorKey
 
 
 def _key(status_code: int = 429, api_key: str = "hash-1", date: str = "2026-10-08") -> RequestErrorKey:
@@ -125,7 +125,7 @@ def test_upsert_orders_rows_by_conflict_key_and_increments_on_conflict() -> None
     )  # fmt: skip
     assert sql.count("($") == 2
     assert 'ON CONFLICT ("date", "api_key", "team_id", "user_id", "model_group", "status_code")' in sql
-    assert '"failed_requests" = "LiteLLM_DailyRequestErrors"."failed_requests" + EXCLUDED."failed_requests"' in sql
+    assert '"failed_requests" = "HangarLLM_DailyRequestErrors"."failed_requests" + EXCLUDED."failed_requests"' in sql
 
 
 @pytest.mark.asyncio

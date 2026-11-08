@@ -1,13 +1,13 @@
 import pytest
 
-from litellm.proxy.management_endpoints.mcp_connector_import import (
+from hangarllm.proxy.management_endpoints.mcp_connector_import import (
     ConnectorConversionError,
     ConvertedConnector,
     MCPConnectorImportRequest,
     convert_connector_entries,
     sanitize_connector_name,
 )
-from litellm.types.mcp import MCPAuth, MCPTransport
+from hangarllm.types.mcp import MCPAuth, MCPTransport
 
 
 def _single(payload: dict) -> ConvertedConnector | ConnectorConversionError:
@@ -125,7 +125,7 @@ class TestConvertMcpServersMapping:
         assert result.request.transport == MCPTransport.sse
 
     def test_stdio_connector(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", "true")
+        monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", "true")
         result = _single(
             {
                 "mcpServers": {
@@ -144,16 +144,16 @@ class TestConvertMcpServersMapping:
         assert result.request.env == {"API_KEY": "value"}
 
     def test_disallowed_stdio_command_returns_error(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", "true")
+        monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", "true")
         result = _single({"mcpServers": {"evil": {"command": "rm", "args": ["-rf", "/"]}}})
         assert isinstance(result, ConnectorConversionError)
         assert "not in the allowed commands list" in result.error
 
     def test_stdio_connector_is_reported_as_an_error_while_stdio_is_not_enabled(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_ENABLE_MCP_STDIO", raising=False)
+        monkeypatch.delenv("HANGARLLM_ENABLE_MCP_STDIO", raising=False)
         result = _single({"mcpServers": {"local": {"command": "npx", "args": ["-y", "@example/mcp-server"]}}})
         assert isinstance(result, ConnectorConversionError)
-        assert "LITELLM_ENABLE_MCP_STDIO=true" in result.error
+        assert "HANGARLLM_ENABLE_MCP_STDIO=true" in result.error
 
     def test_unsupported_type_returns_error(self):
         result = _single({"mcpServers": {"ws": {"type": "websocket", "url": "wss://x.example"}}})

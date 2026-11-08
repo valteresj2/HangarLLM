@@ -28,19 +28,19 @@ import pytest
 from pydantic import ValidationError
 
 
-import litellm
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import EncryptedContentAffinityCheck
-from litellm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
-from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import PromptCachingDeploymentCheck
-from litellm.types.router import RetryPolicy, UpdateRouterConfig
+import hangarllm
+from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
+from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import EncryptedContentAffinityCheck
+from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
+from hangarllm.router_utils.pre_call_checks.prompt_caching_deployment_check import PromptCachingDeploymentCheck
+from hangarllm.types.router import RetryPolicy, UpdateRouterConfig
 
 
 @pytest.fixture(autouse=True)
-def isolate_litellm_callbacks():
-    callbacks_before: Final = litellm.callbacks.copy()
+def isolate_hangarllm_callbacks():
+    callbacks_before: Final = hangarllm.callbacks.copy()
     yield
-    litellm.callbacks = callbacks_before  # test-quality-ok: required callback-state restoration fixture
+    hangarllm.callbacks = callbacks_before  # test-quality-ok: required callback-state restoration fixture
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ def test_update_router_config_exposes_retry_policy_field():
 def test_update_router_config_accepts_retry_policy_payload():
     """The exact payload the Admin UI Model Retry Settings tab sends must
     round-trip through the schema's ``dict(exclude_none=True)`` form, since
-    that is what /config/update writes to the LiteLLM_Config row."""
+    that is what /config/update writes to the HangarLLM_Config row."""
     payload = {
         "retry_policy": {
             "BadRequestErrorRetries": 5,
@@ -96,12 +96,12 @@ def test_update_router_config_rejects_malformed_model_group_retry_policy():
 # ---------------------------------------------------------------------------
 
 
-def _build_router() -> litellm.Router:
-    return litellm.Router(
+def _build_router() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "api_key": "sk-fake",
                     "api_base": "http://localhost:9999",
@@ -131,7 +131,7 @@ def test_update_settings_clears_omitted_toggleable_pre_call_checks():
     router.update_settings(optional_pre_call_checks=[])
 
     assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in (router.optional_callbacks or []))
-    assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in litellm.callbacks)
+    assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in hangarllm.callbacks)
 
 
 def test_set_optional_pre_call_checks_reconciles_callback_types():
@@ -141,7 +141,7 @@ def test_set_optional_pre_call_checks_reconciles_callback_types():
     router.set_optional_pre_call_checks([])
 
     assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in (router.optional_callbacks or []))
-    assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in litellm.callbacks)
+    assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in hangarllm.callbacks)
 
 
 def test_remove_optional_pre_call_check_keeps_global_callback_for_another_router():
@@ -155,12 +155,12 @@ def test_remove_optional_pre_call_check_keeps_global_callback_for_another_router
 
     assert not any(type(callback) is PromptCachingDeploymentCheck for callback in (router_a.optional_callbacks or []))
     assert any(type(callback) is PromptCachingDeploymentCheck for callback in (router_b.optional_callbacks or []))
-    assert any(type(callback) is PromptCachingDeploymentCheck for callback in litellm.callbacks)
+    assert any(type(callback) is PromptCachingDeploymentCheck for callback in hangarllm.callbacks)
 
     router_b.update_settings(optional_pre_call_checks=[])
 
     assert not any(type(callback) is PromptCachingDeploymentCheck for callback in (router_b.optional_callbacks or []))
-    assert not any(type(callback) is PromptCachingDeploymentCheck for callback in litellm.callbacks)
+    assert not any(type(callback) is PromptCachingDeploymentCheck for callback in hangarllm.callbacks)
 
 
 def test_remove_optional_pre_call_check_keeps_global_callback_when_second_router_clears_first():
@@ -174,11 +174,11 @@ def test_remove_optional_pre_call_check_keeps_global_callback_when_second_router
 
     assert any(type(callback) is PromptCachingDeploymentCheck for callback in (router_a.optional_callbacks or []))
     assert not any(type(callback) is PromptCachingDeploymentCheck for callback in (router_b.optional_callbacks or []))
-    assert any(type(callback) is PromptCachingDeploymentCheck for callback in litellm.callbacks)
+    assert any(type(callback) is PromptCachingDeploymentCheck for callback in hangarllm.callbacks)
 
     router_a.update_settings(optional_pre_call_checks=[])
 
-    assert not any(type(callback) is PromptCachingDeploymentCheck for callback in litellm.callbacks)
+    assert not any(type(callback) is PromptCachingDeploymentCheck for callback in hangarllm.callbacks)
 
 
 def test_update_settings_replaces_toggleable_pre_call_checks():
@@ -188,7 +188,7 @@ def test_update_settings_replaces_toggleable_pre_call_checks():
     router.update_settings(optional_pre_call_checks=["enforce_model_rate_limits"])
 
     assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in (router.optional_callbacks or []))
-    assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in litellm.callbacks)
+    assert not any(isinstance(callback, PromptCachingDeploymentCheck) for callback in hangarllm.callbacks)
     assert any(isinstance(callback, ModelRateLimitingCheck) for callback in (router.optional_callbacks or []))
 
 
@@ -201,7 +201,7 @@ def test_update_settings_clears_omitted_encrypted_content_affinity_check():
     assert not any(
         isinstance(callback, EncryptedContentAffinityCheck) for callback in (router.optional_callbacks or [])
     )
-    assert not any(isinstance(callback, EncryptedContentAffinityCheck) for callback in litellm.callbacks)
+    assert not any(isinstance(callback, EncryptedContentAffinityCheck) for callback in hangarllm.callbacks)
 
 
 @pytest.mark.asyncio
@@ -209,27 +209,27 @@ async def test_update_settings_turning_off_encrypted_content_affinity_stops_flag
     router = _build_router()
 
     router.update_settings(optional_pre_call_checks=["encrypted_content_affinity"])
-    enabled_request: Final = {"litellm_metadata": {}, "input": "hello"}
+    enabled_request: Final = {"hangarllm_metadata": {}, "input": "hello"}
     await router.async_get_available_deployment(model="test-model", request_kwargs=enabled_request)
-    assert enabled_request["litellm_metadata"]["encrypted_content_affinity_enabled"] is True
+    assert enabled_request["hangarllm_metadata"]["encrypted_content_affinity_enabled"] is True
 
     router.update_settings(optional_pre_call_checks=[])
-    disabled_request: Final = {"litellm_metadata": {}, "input": "hello"}
+    disabled_request: Final = {"hangarllm_metadata": {}, "input": "hello"}
     await router.async_get_available_deployment(model="test-model", request_kwargs=disabled_request)
-    assert "encrypted_content_affinity_enabled" not in disabled_request["litellm_metadata"]
+    assert "encrypted_content_affinity_enabled" not in disabled_request["hangarllm_metadata"]
 
     router.update_settings(optional_pre_call_checks=["encrypted_content_affinity"])
-    reenabled_request: Final = {"litellm_metadata": {}, "input": "hello"}
+    reenabled_request: Final = {"hangarllm_metadata": {}, "input": "hello"}
     await router.async_get_available_deployment(model="test-model", request_kwargs=reenabled_request)
-    assert reenabled_request["litellm_metadata"]["encrypted_content_affinity_enabled"] is True
+    assert reenabled_request["hangarllm_metadata"]["encrypted_content_affinity_enabled"] is True
 
 
 def test_update_settings_keeps_per_group_encrypted_content_affinity_when_global_toggle_is_omitted():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "api_key": "sk-fake",
                     "api_base": "http://localhost:9999",
@@ -257,7 +257,7 @@ async def test_update_settings_preserves_router_budget_limiting_when_omitted(mon
         return None
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
+        "hangarllm.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
         _disable_periodic_sync,
     )
     router = _build_router()
@@ -372,7 +372,7 @@ def test_update_settings_unrelated_kwargs_still_skipped():
 # ``dict`` (silently dropping retry_policy on the DB write) or if
 # ``_add_router_settings_from_db_config`` stopped pushing the stored row onto
 # the live router. This drives the real handler chain an Admin UI save
-# triggers — ``POST /config/update`` writes the LiteLLM_Config row,
+# triggers — ``POST /config/update`` writes the HangarLLM_Config row,
 # ``add_deployment`` applies it to ``llm_router``, and
 # ``GET /get/config/callbacks`` serializes it back — so the round trip is
 # pinned, not just the pieces.
@@ -386,7 +386,7 @@ class _FakeConfigRow:
 
 
 class _FakeConfigTable:
-    """Stand-in for ``prisma_client.db.litellm_config``.
+    """Stand-in for ``prisma_client.db.hangarllm_config``.
 
     Reproduces the one behavior the apply path relies on: a value written as a
     JSON string by ``/config/update`` reads back as a parsed dict, which is
@@ -411,15 +411,15 @@ async def test_config_update_persists_and_reads_back_retry_policy(monkeypatch):
     """The exact global retry_policy save the UI performs must survive the
     real ``/config/update`` -> DB -> apply -> ``/get/config/callbacks`` path,
     not snap back to the ``num_retries`` fallback the ticket reported."""
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import ConfigYAML, LitellmUserRoles, UserAPIKeyAuth
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy._types import ConfigYAML, HangarllmUserRoles, UserAPIKeyAuth
 
     router = _build_router()
     assert router.retry_policy is None
 
     fake_table = _FakeConfigTable()
     prisma_client = MagicMock()
-    prisma_client.db.litellm_config = fake_table
+    prisma_client.db.hangarllm_config = fake_table
     prisma_client.writer_db = prisma_client.db
 
     async def _apply_router_settings(*args, **kwargs):
@@ -445,7 +445,7 @@ async def test_config_update_persists_and_reads_back_retry_policy(monkeypatch):
     await proxy_server.update_config(
         config_info=ConfigYAML(router_settings=posted),
         request=request,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876"),
     )
 
     persisted = fake_table.rows["router_settings"].param_value["retry_policy"]
@@ -460,7 +460,7 @@ async def test_config_update_persists_and_reads_back_retry_policy(monkeypatch):
 
     read_back = (
         await proxy_server.get_config(
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876")
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876")
         )
     )["router_settings"]["retry_policy"]
     assert read_back.BadRequestErrorRetries == 5

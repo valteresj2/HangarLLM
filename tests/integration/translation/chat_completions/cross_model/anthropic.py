@@ -23,7 +23,7 @@ from integration.translation.templates.anthropic import ANTHROPIC_AGENT_REQUEST,
 CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_1_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-fable-5-1"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-fable-5-1"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -67,7 +67,7 @@ CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-fable-5-1",
         "choices": [
@@ -121,8 +121,8 @@ CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
 CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_1_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_request, CLAUDE_FABLE_5_1_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_request, CLAUDE_FABLE_5_1_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/messages",
     expected_provider_request={
@@ -197,7 +197,7 @@ CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-fable-5-1",
         "choices": [
@@ -238,9 +238,9 @@ CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -344,10 +344,10 @@ CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_01324ezmdSmGSpmxGX55GvYF", "toolu_01MxHYehH7UYVY2A8WkRJZPu")
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -366,8 +366,8 @@ CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_FABLE_5_TEST_CASE.litellm_request, CLAUDE_FABLE_5_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_FABLE_5_TEST_CASE.hangarllm_request, CLAUDE_FABLE_5_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/messages",
     expected_provider_request={
@@ -443,7 +443,7 @@ CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-fable-5",
         "choices": [
@@ -484,9 +484,9 @@ CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_FABLE_5_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_FABLE_5_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_FABLE_5_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_FABLE_5_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -590,10 +590,10 @@ CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_01UXBJZGdCaY4vxon1j4uapy", "toolu_0124RYbAPnwVoGtdzfPCNPc6")
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -612,7 +612,7 @@ CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_4_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-haiku-4-5"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-haiku-4-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -664,7 +664,7 @@ CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-haiku-4-5",
         "choices": [
@@ -754,8 +754,8 @@ CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_4_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_request, CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/messages",
     expected_provider_request={
@@ -857,7 +857,7 @@ CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-haiku-4-5",
         "choices": [
@@ -977,9 +977,9 @@ CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1127,7 +1127,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_01LQnJgiochDrKWke4nfjbS7", "toolu_01SVGxc454FPrL4yRwc3QMV7"),
         reasoning_content=(
             "The user wants me to:\n"
@@ -1148,7 +1148,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             },
         ),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1237,
         "completion_tokens": 147,
         "total_tokens": 1384,
@@ -1167,7 +1167,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_HAIKU_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-haiku-5-5"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-haiku-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -1211,7 +1211,7 @@ CLAUDE_HAIKU_5_5_AGENT_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-haiku-5-5",
         "choices": [
@@ -1265,8 +1265,8 @@ CLAUDE_HAIKU_5_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_HAIKU_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.litellm_request, CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/messages",
     expected_provider_request={
@@ -1341,7 +1341,7 @@ CLAUDE_HAIKU_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-haiku-5-5",
         "choices": [
@@ -1382,9 +1382,9 @@ CLAUDE_HAIKU_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_HAIKU_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1488,10 +1488,10 @@ CLAUDE_HAIKU_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_0177HUb25ArysRAu8eF3u4DJ", "toolu_011gegGWvYoxPwxWY7LSK4Uk")
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -1510,7 +1510,7 @@ CLAUDE_HAIKU_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-opus-5-5"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-opus-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -1554,7 +1554,7 @@ CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-opus-5-5",
         "choices": [
@@ -1608,8 +1608,8 @@ CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_request, CLAUDE_OPUS_5_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_OPUS_5_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/messages",
     expected_provider_request={
@@ -1684,7 +1684,7 @@ CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-opus-5-5",
         "choices": [
@@ -1725,9 +1725,9 @@ CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1831,10 +1831,10 @@ CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_013mPRCxrKKH6KzYGHKPukwv", "toolu_01FkXiaw4cTiXua3PoMd4wCu")
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -1853,8 +1853,8 @@ CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_OPUS_5_TEST_CASE.litellm_request, CLAUDE_OPUS_5_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_OPUS_5_TEST_CASE.hangarllm_request, CLAUDE_OPUS_5_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/messages",
     expected_provider_request={
@@ -1932,7 +1932,7 @@ CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-opus-5",
         "choices": [
@@ -1976,9 +1976,9 @@ CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_OPUS_5_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_OPUS_5_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_OPUS_5_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_OPUS_5_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2082,10 +2082,10 @@ CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_017r3PoQsgodP2mgcgDnDLxU", "toolu_01T8ECEb4XwFyozSnCKUiuB2")
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1180,
         "completion_tokens": 105,
         "total_tokens": 1285,
@@ -2112,7 +2112,7 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEXT: Final = (
 CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-sonnet-5-5"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-sonnet-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers=CLAUDE_OPUS_5_5_AGENT_TEST_CASE.expected_provider_headers,
     expected_provider_request={
@@ -2153,7 +2153,7 @@ CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-sonnet-5-5",
         "choices": [
@@ -2214,9 +2214,9 @@ CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_request,
-        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.expected_litellm_response,
+    hangarllm_request=followup_request(
+        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_request,
+        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.expected_hangarllm_response,
     ),
     expected_provider_endpoint="/v1/messages",
     expected_provider_request={
@@ -2284,7 +2284,7 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-sonnet-5-5",
         "choices": [
@@ -2322,9 +2322,9 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_SONNET_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2431,10 +2431,10 @@ CLAUDE_SONNET_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCas
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_01LmCacjLUDXcY139vPTCceR", "toolu_011cyQH4o1bcDJYsWQoLSzGT")
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,

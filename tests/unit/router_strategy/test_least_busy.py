@@ -14,15 +14,15 @@ import openai
 import pytest
 import respx
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY, InMemoryCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.router_strategy.least_busy import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY, InMemoryCache
+from hangarllm.caching.redis_cache import RedisCircuitBreakerOpenError
+from hangarllm.constants import HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.router_strategy.least_busy import (
     IN_FLIGHT_COUNT_TTL_SECONDS,
     SELECTION_RESERVATION_TTL_SECONDS,
     LeastBusyLoggingHandler,
@@ -30,7 +30,7 @@ from litellm.router_strategy.least_busy import (
     picks_reserve,
     release_unstarted_picks,
 )
-from litellm.types.utils import CallTypes, ModelResponse
+from hangarllm.types.utils import CallTypes, ModelResponse
 
 GROUP: Final = "least-busy-group"
 DEPLOYMENT_A: Final[dict[str, object]] = {"model_info": {"id": "dep-a"}}
@@ -40,8 +40,8 @@ HEALTHY: Final = [DEPLOYMENT_A, DEPLOYMENT_B]
 
 def _call_kwargs(deployment_id: str, call_id: str = "call-1") -> dict[str, object]:
     return {
-        "litellm_params": {"metadata": {"model_group": GROUP}, "model_info": {"id": deployment_id}},
-        "litellm_call_id": call_id,
+        "hangarllm_params": {"metadata": {"model_group": GROUP}, "model_info": {"id": deployment_id}},
+        "hangarllm_call_id": call_id,
     }
 
 
@@ -140,28 +140,28 @@ def test_sync_pick_reads_the_shared_counts() -> None:
     assert picking_worker.get_available_deployments(GROUP, HEALTHY) is DEPLOYMENT_A
 
 
-def _routed_through_litellm_metadata(deployment_id: str) -> dict[str, object]:
+def _routed_through_hangarllm_metadata(deployment_id: str) -> dict[str, object]:
     return {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"tags": ["caller-tag"]},
-            "litellm_metadata": {"model_group": GROUP},
+            "hangarllm_metadata": {"model_group": GROUP},
             "model_info": {"id": deployment_id},
         },
-        "litellm_call_id": "call-1",
+        "hangarllm_call_id": "call-1",
     }
 
 
-def test_a_request_routed_through_litellm_metadata_counts_while_in_flight() -> None:
+def test_a_request_routed_through_hangarllm_metadata_counts_while_in_flight() -> None:
     shared: Final = SharedRedisCounters()
     calling_worker: Final = _worker(shared)
     picking_worker: Final = _worker(shared)
 
     assert calling_worker.get_available_deployments(GROUP, HEALTHY, reserve=True) is DEPLOYMENT_A
-    calling_worker.log_pre_api_call(model="m", messages=[], kwargs=_routed_through_litellm_metadata("dep-a"))
+    calling_worker.log_pre_api_call(model="m", messages=[], kwargs=_routed_through_hangarllm_metadata("dep-a"))
 
     assert picking_worker.get_available_deployments(GROUP, HEALTHY) is DEPLOYMENT_B
 
-    calling_worker.log_success_event(_routed_through_litellm_metadata("dep-a"), None, None, None)
+    calling_worker.log_success_event(_routed_through_hangarllm_metadata("dep-a"), None, None, None)
 
     assert calling_worker.get_available_deployments(GROUP, HEALTHY) is DEPLOYMENT_A
 
@@ -169,7 +169,7 @@ def test_a_request_routed_through_litellm_metadata_counts_while_in_flight() -> N
 def test_a_closed_realtime_session_leaves_its_deployment_idle() -> None:
     shared: Final = SharedRedisCounters()
     worker: Final = _worker(shared)
-    session_event: Final = {**_routed_through_litellm_metadata("dep-a"), "call_type": CallTypes.arealtime.value}
+    session_event: Final = {**_routed_through_hangarllm_metadata("dep-a"), "call_type": CallTypes.arealtime.value}
 
     for _ in range(5):
         worker.log_pre_api_call(model="m", messages=[], kwargs=session_event)
@@ -272,7 +272,7 @@ def test_calls_without_a_deployment_are_ignored() -> None:
     shared: Final = SharedRedisCounters()
     worker: Final = _worker(shared)
 
-    worker.log_pre_api_call(model="m", messages=[], kwargs={"litellm_params": {"metadata": None}})
+    worker.log_pre_api_call(model="m", messages=[], kwargs={"hangarllm_params": {"metadata": None}})
     worker.log_pre_api_call(model="m", messages=[], kwargs={})
 
     assert shared.counts == {}
@@ -290,7 +290,7 @@ class OpenBreakerRedis(SharedRedisCounters):
 async def test_an_open_circuit_breaker_falls_back_without_a_warning_per_request(caplog: pytest.LogCaptureFixture) -> None:
     worker: Final = _worker(OpenBreakerRedis())
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Router"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Router"):
         worker.log_pre_api_call(model="m", messages=[], kwargs=_call_kwargs("dep-a"))
         picked: Final = worker.get_available_deployments(GROUP, HEALTHY)
 
@@ -303,7 +303,7 @@ def test_model_added():
     test_cache = DualCache()
     least_busy_logger = LeastBusyLoggingHandler(router_cache=test_cache)
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gpt-3.5-turbo",
                 "deployment": "azure/gpt-4.1-mini",
@@ -322,7 +322,7 @@ def test_get_available_deployments():
     model_group = "gpt-3.5-turbo"
     deployment = "azure/gpt-4.1-mini"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": model_group,
                 "deployment": deployment,
@@ -344,7 +344,7 @@ def _least_busy_router(group: str = ROUTER_GROUP, *, use_in_pass_through: bool =
         model_list=[
             {
                 "model_name": group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4.1-mini",
                     "api_key": f"key-{deployment_id}",
                     "use_in_pass_through": use_in_pass_through,
@@ -395,7 +395,7 @@ def _chat_stream(_: httpx.Request) -> httpx.Response:
 async def test_router_spreads_open_chat_streams_across_least_busy_deployments(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(side_effect=_chat_stream)
     router: Final = _least_busy_router()
 
@@ -419,7 +419,7 @@ async def test_router_spreads_open_chat_streams_across_least_busy_deployments(
 async def test_router_spreads_open_text_completion_streams_across_least_busy_deployments(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(side_effect=_chat_stream)
     router: Final = _least_busy_router()
 
@@ -439,7 +439,7 @@ async def test_router_spreads_open_text_completion_streams_across_least_busy_dep
 async def test_router_picks_least_busy_deployment_and_completion_restores_counts(
     use_async: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200,
@@ -481,7 +481,7 @@ async def test_router_picks_least_busy_deployment_and_completion_restores_counts
 async def test_router_spreads_requests_that_start_together(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     burst: Final = 2 * len(ROUTER_DEPLOYMENT_IDS)
     all_started: Final = asyncio.Barrier(burst)
 
@@ -747,7 +747,7 @@ def test_a_call_that_ends_before_reaching_the_provider_frees_its_pick(
 
 def test_a_call_the_proxy_rejected_after_logging_its_start_leaves_no_count_behind() -> None:
     worker: Final = _worker(None)
-    rejected: Final = {**_call_kwargs("dep-a"), LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL: True}
+    rejected: Final = {**_call_kwargs("dep-a"), HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL: True}
 
     worker.log_pre_api_call(model="m", messages=[], kwargs=rejected)
     worker.log_failure_event(rejected, None, None, None)
@@ -835,13 +835,13 @@ def _fallback_router() -> Router:
         model_list=[
             {
                 "model_name": "unreachable-group",
-                "litellm_params": {"model": "openai/gpt-4.1-mini", "api_key": "key-unreachable"},
+                "hangarllm_params": {"model": "openai/gpt-4.1-mini", "api_key": "key-unreachable"},
                 "model_info": {"id": "unreachable"},
             },
             *(
                 {
                     "model_name": ROUTER_GROUP,
-                    "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": f"key-{deployment_id}"},
+                    "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": f"key-{deployment_id}"},
                     "model_info": {"id": deployment_id},
                 }
                 for deployment_id in ROUTER_DEPLOYMENT_IDS
@@ -857,23 +857,23 @@ def _fallback_router() -> Router:
 async def test_a_fallback_hop_rejected_before_its_provider_frees_its_pick_when_every_hop_shares_one_logging_object(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(500, json={"error": {"message": "upstream down"}})
     )
     router: Final = _fallback_router()
-    logging_obj, request = litellm.utils.function_setup(
+    logging_obj, request = hangarllm.utils.function_setup(
         original_function="acompletion",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.datetime(2026, 1, 1),
         model="unreachable-group",
         messages=[{"role": "user", "content": "hi"}],
         logit_bias={"1": 1},
-        litellm_call_id="fallback-call",
+        hangarllm_call_id="fallback-call",
     )
 
-    with pytest.raises(litellm.InternalServerError):
-        await router.acompletion(**request, litellm_logging_obj=logging_obj)
+    with pytest.raises(hangarllm.InternalServerError):
+        await router.acompletion(**request, hangarllm_logging_obj=logging_obj)
     await _drain_logging()
 
     assert {call.request.headers["authorization"] for call in route.calls} == {"Bearer key-unreachable"}
@@ -920,7 +920,7 @@ _REJECTED_BATCH: Final = {"error": {"message": "Invalid input file", "type": "in
 async def test_a_batch_create_does_not_keep_its_deployment_busy(
     provider_response: httpx.Response, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/batches").mock(return_value=provider_response)
     router: Final = _least_busy_router()
 
@@ -943,7 +943,7 @@ _VECTOR_STORE: Final = {
     "status": "completed",
 }
 _REJECTED_VECTOR_STORE: Final = {"error": {"message": "Invalid name", "type": "invalid_request_error"}}
-_CALL_IDENTITIES: Final = ({"litellm_call_id": "least-busy-call"}, {})
+_CALL_IDENTITIES: Final = ({"hangarllm_call_id": "least-busy-call"}, {})
 
 
 @pytest.mark.asyncio
@@ -957,7 +957,7 @@ async def test_a_vector_store_create_does_not_keep_its_deployment_busy(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/vector_stores").mock(return_value=provider_response)
     router: Final = _least_busy_router()
 
@@ -973,7 +973,7 @@ async def test_a_vector_store_create_does_not_keep_its_deployment_busy(
 async def test_listing_fine_tuning_jobs_does_not_keep_its_deployment_busy(
     call_identity: dict[str, str], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.get(url__startswith="https://api.openai.com/v1/fine_tuning/jobs").mock(
         return_value=httpx.Response(200, json={"object": "list", "data": [], "has_more": False})
     )
@@ -992,7 +992,7 @@ TEXT_GROUP: Final = "openai/least-busy-text-group"
 def test_a_sync_text_completion_does_not_keep_its_deployment_busy(
     call_identity: dict[str, str], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/completions").mock(
         return_value=httpx.Response(
             200,
@@ -1020,7 +1020,7 @@ def test_a_sync_responses_call_that_fails_before_reaching_its_provider_frees_its
 ) -> None:
     router: Final = _least_busy_router()
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         router.responses(model=ROUTER_GROUP, input="hi", api_base="not-a-url", **call_identity)
 
     assert _router_pick(router) == ROUTER_DEPLOYMENT_IDS[0]
@@ -1029,7 +1029,7 @@ def test_a_sync_responses_call_that_fails_before_reaching_its_provider_frees_its
 async def test_a_batch_cancel_does_not_keep_its_deployment_busy(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/batches/batch_least_busy/cancel").mock(
         return_value=httpx.Response(200, json={**_BATCH, "status": "cancelling"})
     )

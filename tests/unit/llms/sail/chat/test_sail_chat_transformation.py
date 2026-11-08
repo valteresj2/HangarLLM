@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 from tests.unit.llms.sail.helpers import (
     MODEL,
     SAIL_API_BASE,
@@ -42,8 +42,8 @@ async def test_sail_chat_sends_the_tier_window_and_bills_its_price_columns(
     window: str | None,
     column_suffix: str,
 ) -> None:
-    await litellm.acompletion(
-        model=MODEL, messages=MESSAGES, service_tier=service_tier, litellm_call_id=spend_capture.call_id
+    await hangarllm.acompletion(
+        model=MODEL, messages=MESSAGES, service_tier=service_tier, hangarllm_call_id=spend_capture.call_id
     )
 
     body: Final = sent_body(chat_route)
@@ -68,13 +68,13 @@ async def test_sail_chat_stream_sends_the_tier_window_and_bills_its_price_column
         )
     )
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model=MODEL,
         messages=MESSAGES,
         service_tier=service_tier,
         stream=True,
         stream_options={"include_usage": True},
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
     async for _ in stream:
         pass
@@ -91,7 +91,7 @@ async def test_sail_chat_stream_sends_the_tier_window_and_bills_its_price_column
 def test_sail_sync_chat_sends_the_tier_window(
     sail_env: None, chat_route: respx.Route, service_tier: str | None, window: str | None
 ) -> None:
-    litellm.completion(model=MODEL, messages=MESSAGES, service_tier=service_tier)
+    hangarllm.completion(model=MODEL, messages=MESSAGES, service_tier=service_tier)
 
     body: Final = sent_body(chat_route)
     assert "service_tier" not in body
@@ -103,8 +103,8 @@ def test_sail_sync_chat_sends_the_tier_window(
 async def test_sail_chat_rejects_a_tier_with_no_window_before_sending(
     sail_env: None, chat_route: respx.Route, service_tier: object
 ) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match=re.escape(f"service_tier={service_tier!r}")) as error:
-        await litellm.acompletion(model=MODEL, messages=MESSAGES, service_tier=service_tier)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=re.escape(f"service_tier={service_tier!r}")) as error:
+        await hangarllm.acompletion(model=MODEL, messages=MESSAGES, service_tier=service_tier)
 
     assert error.value.status_code == 400
     assert not chat_route.called
@@ -122,13 +122,13 @@ async def test_sail_chat_drops_an_unknown_tier_under_drop_params_and_bills_asap(
     global_drop: bool,
     request_drop: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", global_drop)
-    await litellm.acompletion(
+    monkeypatch.setattr(hangarllm, "drop_params", global_drop)
+    await hangarllm.acompletion(
         model=MODEL,
         messages=MESSAGES,
         service_tier=service_tier,
         drop_params=request_drop,
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     body: Final = sent_body(chat_route)
@@ -159,12 +159,12 @@ async def test_sail_chat_merges_caller_extra_body_metadata_with_the_tier_window(
     wire_metadata: dict[str, str],
     column_suffix: str,
 ) -> None:
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=MODEL,
         messages=MESSAGES,
         service_tier=service_tier,
         extra_body={"metadata": {"trace_id": "t-1"}, "foo": 1},
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     body: Final = sent_body(chat_route)
@@ -194,8 +194,8 @@ async def test_sail_chat_rejects_a_window_billing_cannot_see_before_sending(
     extra_body: dict[str, object],
     message: str,
 ) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match=message) as error:
-        await litellm.acompletion(model=MODEL, messages=MESSAGES, service_tier=service_tier, extra_body=extra_body)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=message) as error:
+        await hangarllm.acompletion(model=MODEL, messages=MESSAGES, service_tier=service_tier, extra_body=extra_body)
 
     assert error.value.status_code == 400
     assert not chat_route.called
@@ -218,13 +218,13 @@ async def test_sail_chat_drops_a_window_billing_cannot_see_under_drop_params(
     wire_metadata: dict[str, str],
     column_suffix: str,
 ) -> None:
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=MODEL,
         messages=MESSAGES,
         service_tier=service_tier,
         extra_body={"service_tier": "flex", "metadata": {"trace_id": "t-1", "completion_window": "flex"}},
         drop_params=True,
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     body: Final = sent_body(chat_route)
@@ -237,12 +237,12 @@ async def test_sail_chat_drops_a_window_billing_cannot_see_under_drop_params(
 async def test_sail_chat_drops_a_lone_caller_window_under_drop_params_and_bills_asap(
     sail_env: None, chat_http_path: None, chat_route: respx.Route, spend_capture: SpendCapture
 ) -> None:
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=MODEL,
         messages=MESSAGES,
         extra_body={"metadata": {"completion_window": "flex"}},
         drop_params=True,
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     assert "completion_window" not in (sent_body(chat_route).get("metadata") or {})
@@ -253,7 +253,7 @@ async def test_sail_chat_drops_a_lone_caller_window_under_drop_params_and_bills_
 async def test_sail_chat_passes_a_non_mapping_extra_body_metadata_through_untouched(
     sail_env: None, chat_http_path: None, chat_route: respx.Route
 ) -> None:
-    await litellm.acompletion(model=MODEL, messages=MESSAGES, extra_body={"metadata": None, "foo": 1})
+    await hangarllm.acompletion(model=MODEL, messages=MESSAGES, extra_body={"metadata": None, "foo": 1})
 
     body: Final = sent_body(chat_route)
     assert "metadata" in body
@@ -262,8 +262,8 @@ async def test_sail_chat_passes_a_non_mapping_extra_body_metadata_through_untouc
 
 
 def test_sail_sync_chat_rejects_an_unknown_tier_as_unsupported_params(sail_env: None, chat_route: respx.Route) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match="service_tier='scale'"):
-        litellm.completion(model=MODEL, messages=MESSAGES, service_tier="scale")
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="service_tier='scale'"):
+        hangarllm.completion(model=MODEL, messages=MESSAGES, service_tier="scale")
 
     assert not chat_route.called
 
@@ -276,14 +276,14 @@ async def test_sail_chat_keeps_the_window_when_preview_features_forward_caller_m
     spend_capture: SpendCapture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "enable_preview_features", True)
+    monkeypatch.setattr(hangarllm, "enable_preview_features", True)
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=MODEL,
         messages=MESSAGES,
         service_tier="flex",
         metadata={"requester_metadata": {"trace_id": "t-1"}},
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     assert sent_body(chat_route)["metadata"] == {"trace_id": "t-1", "completion_window": "flex"}
@@ -305,18 +305,18 @@ async def test_sail_chat_keeps_the_window_when_preview_features_forward_caller_m
 def test_sail_chat_rejects_params_sail_rejects_unless_dropped(
     sail_env: None, chat_route: respx.Route, rejected: dict[str, object]
 ) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.completion(model=MODEL, messages=MESSAGES, **rejected)
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.completion(model=MODEL, messages=MESSAGES, **rejected)
     assert not chat_route.called
 
-    litellm.completion(model=MODEL, messages=MESSAGES, drop_params=True, **rejected)
+    hangarllm.completion(model=MODEL, messages=MESSAGES, drop_params=True, **rejected)
     assert set(rejected).isdisjoint(sent_body(chat_route))
 
 
 def test_sail_chat_forwards_params_sail_accepts(sail_env: None, chat_route: respx.Route) -> None:
     tools: Final = [{"type": "function", "function": {"name": "f", "parameters": {"type": "object", "properties": {}}}}]
 
-    litellm.completion(
+    hangarllm.completion(
         model=MODEL,
         messages=MESSAGES,
         max_tokens=64,
@@ -339,7 +339,7 @@ def test_sail_chat_forwards_params_sail_accepts(sail_env: None, chat_route: resp
 def test_sail_chat_passes_max_tokens_and_max_completion_tokens_through_as_sent(
     sail_env: None, chat_route: respx.Route
 ) -> None:
-    litellm.completion(model=MODEL, messages=MESSAGES, max_tokens=64, max_completion_tokens=32)
+    hangarllm.completion(model=MODEL, messages=MESSAGES, max_tokens=64, max_completion_tokens=32)
 
     body: Final = sent_body(chat_route)
     assert body["max_tokens"] == 64
@@ -356,6 +356,6 @@ def test_sail_chat_uses_sail_api_base_env_and_key(
         )
     )
 
-    litellm.completion(model=MODEL, messages=MESSAGES)
+    hangarllm.completion(model=MODEL, messages=MESSAGES)
 
     assert route.calls.last.request.headers["Authorization"] == "Bearer sail-test-key"

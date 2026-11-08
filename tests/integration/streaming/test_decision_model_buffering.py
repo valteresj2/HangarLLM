@@ -61,7 +61,7 @@ def test_decision_model_streaming_buffering(
                 "model_list": [
                     {
                         "model_name": "buffering-chat",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "anthropic/scripted-chat" if endpoint == "messages" else "openai/scripted-chat",
                             "api_key": "synthetic",
                             "api_base": chat.api_base(),
@@ -69,7 +69,7 @@ def test_decision_model_streaming_buffering(
                     },
                     {
                         "model_name": "buffering-decider",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/scripted-decider",
                             "api_key": "synthetic",
                             "api_base": decider.api_base(),
@@ -79,7 +79,7 @@ def test_decision_model_streaming_buffering(
                 "guardrails": [
                     {
                         "guardrail_name": "banana-policy",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "decision_model",
                             "mode": "post_call",
                             "default_on": True,

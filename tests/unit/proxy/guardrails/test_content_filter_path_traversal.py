@@ -5,21 +5,21 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.proxy.guardrails.content_filter_data import (
+import hangarllm
+from hangarllm.proxy.guardrails.content_filter_data import (
     CATEGORIES_DIR,
     DATA_DIR,
     LEGACY_DATA_DIR as INSTALLED_LEGACY_DATA_DIR,
 )
 
-LEGACY_DATA_DIR = "litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter"
+LEGACY_DATA_DIR = "hangarllm/proxy/guardrails/guardrail_hooks/hangarllm_content_filter"
 
 
 class TestContentFilterPathTraversal:
     """Tests that _resolve_category_file_path rejects path traversal."""
 
     def _get_guardrail(self):
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
 
@@ -60,7 +60,7 @@ class TestContentFilterPathTraversal:
     def test_every_category_file_published_in_policy_templates_resolves(self, monkeypatch, tmp_path):
         """The proxy fetches policy_templates.json from main, so every path in it must exist in the package."""
         monkeypatch.chdir(tmp_path)
-        published = os.path.join(os.path.dirname(os.path.dirname(litellm.__file__)), "policy_templates.json")
+        published = os.path.join(os.path.dirname(os.path.dirname(hangarllm.__file__)), "policy_templates.json")
         category_files = re.findall(r'"category_file":\s*"([^"]+)"', open(published).read())
         assert category_files
         guardrail = self._get_guardrail()
@@ -68,7 +68,7 @@ class TestContentFilterPathTraversal:
         assert missing == []
 
     def test_invalid_category_name_skipped(self):
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
 
@@ -83,7 +83,7 @@ class TestContentFilterPathTraversal:
         assert "../../etc/passwd" not in guardrail.loaded_categories
 
     def test_category_name_with_slash_skipped(self):
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
 
@@ -97,7 +97,7 @@ class TestContentFilterPathTraversal:
         assert "foo/../../etc/passwd" not in guardrail.loaded_categories
 
     def test_assert_within_data_roots_blocks_parent_traversal(self):
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
 
@@ -105,7 +105,7 @@ class TestContentFilterPathTraversal:
             ContentFilterGuardrail._assert_within_data_roots("/etc/passwd", (CATEGORIES_DIR,))
 
     def test_assert_within_data_roots_allows_valid_file(self, tmp_path):
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
 
@@ -139,7 +139,7 @@ class TestContentFilterPathTraversal:
 
     def test_load_categories_traversal_category_file_skipped(self):
         """Cover the except-ValueError branch in _load_categories (lines 451-454)."""
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
 
@@ -162,9 +162,9 @@ class TestContentFilterPathTraversal:
         assert "valid_name" not in guardrail.loaded_categories
 
     def test_allow_external_paths_env_var_bypasses_jail(self, tmp_path):
-        """LITELLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS=true skips the directory jail."""
+        """HANGARLLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS=true skips the directory jail."""
         import os as _os
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
             ContentFilterGuardrail,
         )
 
@@ -173,7 +173,7 @@ class TestContentFilterPathTraversal:
         external_file = tmp_path / "external_categories.yaml"
         external_file.write_text("category_name: test\n")
 
-        with patch.dict(_os.environ, {"LITELLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS": "true"}):
+        with patch.dict(_os.environ, {"HANGARLLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS": "true"}):
             # Should return the path without raising ValueError.
             result = guardrail._resolve_category_file_path(str(external_file))
         assert result == str(external_file)
@@ -184,13 +184,13 @@ class TestContentFilterPathTraversal:
 
         guardrail = self._get_guardrail()
         with patch.dict(_os.environ, {}, clear=False):
-            _os.environ.pop("LITELLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS", None)
+            _os.environ.pop("HANGARLLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS", None)
             with pytest.raises(ValueError, match="outside the allowed categories"):
                 guardrail._resolve_category_file_path("/etc/passwd")
 
 
 def _fresh_guardrail():
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
 
@@ -216,7 +216,7 @@ keywords:
 @pytest.fixture
 def legacy_root(tmp_path):
     """A stand-in for the pre-move package dir with a deployment's own category file inside."""
-    root = tmp_path / "litellm_content_filter"
+    root = tmp_path / "hangarllm_content_filter"
     (root / "categories").mkdir(parents=True)
     (root / "categories" / "custom_legacy.yaml").write_text(CUSTOM_CATEGORY_YAML)
     return str(root)
@@ -226,7 +226,7 @@ class TestLegacyPackageRootStaysSearchable:
     """Files a deployment copied into the old guardrail package dir must keep working after the move."""
 
     def test_installed_legacy_root_is_the_old_package_dir(self):
-        assert INSTALLED_LEGACY_DATA_DIR.endswith(os.path.join("guardrail_hooks", "litellm_content_filter"))
+        assert INSTALLED_LEGACY_DATA_DIR.endswith(os.path.join("guardrail_hooks", "hangarllm_content_filter"))
         assert os.path.isdir(INSTALLED_LEGACY_DATA_DIR)
 
     def test_custom_category_file_under_legacy_root_resolves(self, legacy_root):
@@ -280,7 +280,7 @@ class TestLegacyPackageRootStaysSearchable:
             _fresh_guardrail()._resolve_category_file_path(str(outside), (DATA_DIR, legacy_root))
 
     def test_ui_listing_includes_legacy_root_and_lists_each_name_once(self, legacy_root):
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.patterns import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.patterns import (
             get_available_content_categories,
         )
 
@@ -292,7 +292,7 @@ class TestLegacyPackageRootStaysSearchable:
         assert names == sorted(names)
 
     def test_ui_listing_prefers_bundled_copy_on_name_clash(self, legacy_root):
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.patterns import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.patterns import (
             get_available_content_categories,
         )
 
@@ -304,7 +304,7 @@ class TestLegacyPackageRootStaysSearchable:
         assert listed["harmful_self_harm"]["display_name"] != "Shadowed Copy"
 
     def test_find_category_file_falls_through_to_legacy_root(self, legacy_root):
-        from litellm.proxy.guardrails.content_filter_data import find_category_file
+        from hangarllm.proxy.guardrails.content_filter_data import find_category_file
 
         roots = (DATA_DIR, legacy_root)
         custom = find_category_file("custom_legacy", roots)
@@ -316,7 +316,7 @@ class TestLegacyPackageRootStaysSearchable:
         assert find_category_file("no_such_category_anywhere", roots) is None
 
     def test_find_category_file_never_escapes_a_category_folder(self, legacy_root, tmp_path):
-        from litellm.proxy.guardrails.content_filter_data import find_category_file
+        from hangarllm.proxy.guardrails.content_filter_data import find_category_file
 
         (tmp_path / "escaped.yaml").write_text(CUSTOM_CATEGORY_YAML)
         assert find_category_file("../../escaped", (DATA_DIR, legacy_root)) is None

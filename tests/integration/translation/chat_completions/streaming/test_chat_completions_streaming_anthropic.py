@@ -14,8 +14,8 @@ from pydantic import JsonValue
 
 CLAUDE_SONNET_5_5_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="streaming",
-    litellm_endpoint=CLAUDE_SONNET_5_5_TEST_CASE.litellm_endpoint,
-    litellm_request={
+    hangarllm_endpoint=CLAUDE_SONNET_5_5_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
         "model": "anthropic/claude-sonnet-5-5",
         "max_tokens": 64,
         "messages": [
@@ -101,7 +101,7 @@ CLAUDE_SONNET_5_5_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(event="message_stop", data={"type": "message_stop"}),
     ),
-    expected_litellm_frames=(
+    expected_hangarllm_frames=(
         SSEFrame(
             data={
                 "id": ANY,
@@ -122,7 +122,7 @@ CLAUDE_SONNET_5_5_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data="[DONE]"),
     ),
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "object": "chat.completion",
         "created": ANY,
@@ -166,8 +166,8 @@ def _place_chunk(delta: dict[str, JsonValue]) -> SSEFrame:
 
 CLAUDE_OPUS_4_8_JSON_SCHEMA_CUT_STREAM_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="json_schema_cut_stream",
-    litellm_endpoint=CLAUDE_OPUS_4_8_TEST_CASE.litellm_endpoint,
-    litellm_request={
+    hangarllm_endpoint=CLAUDE_OPUS_4_8_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
         "model": "anthropic/claude-opus-4-8",
         "max_tokens": 128,
         "messages": [{"role": "user", "content": PLACE_PROMPT}],
@@ -237,7 +237,7 @@ CLAUDE_OPUS_4_8_JSON_SCHEMA_CUT_STREAM_TEST_CASE: Final = StreamingTranslationTe
         _place_delta('try": "'),
         _place_delta('France"}'),
     ),
-    expected_litellm_frames=(
+    expected_hangarllm_frames=(
         _place_chunk({"role": "assistant", "content": '{"city": "Pari'}),
         _place_chunk({"content": 's"'}),
         _place_chunk({"content": ', "coun'}),
@@ -248,7 +248,7 @@ CLAUDE_OPUS_4_8_JSON_SCHEMA_CUT_STREAM_TEST_CASE: Final = StreamingTranslationTe
             data={
                 "error": {
                     "message": (
-                        "litellm.APIConnectionError: AnthropicException - "
+                        "hangarllm.APIConnectionError: AnthropicException - "
                         "Stream ended before a finish_reason was received"
                     ),
                     "type": "internal_server_error",
@@ -259,7 +259,7 @@ CLAUDE_OPUS_4_8_JSON_SCHEMA_CUT_STREAM_TEST_CASE: Final = StreamingTranslationTe
         ),
         SSEFrame(data="[DONE]"),
     ),
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "object": "chat.completion",
         "created": ANY,

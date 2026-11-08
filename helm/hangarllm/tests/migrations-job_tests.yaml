@@ -314,23 +314,23 @@ tests:
       migrationJob:
         enabled: true
       nodeSelector:
-        karpenter.sh/nodepool: litellm-e2e
+        karpenter.sh/nodepool: hangarllm-e2e
       tolerations:
         - key: workload
           operator: Equal
-          value: litellm-e2e
+          value: hangarllm-e2e
           effect: NoSchedule
     asserts:
       - equal:
           path: spec.template.spec.nodeSelector
           value:
-            karpenter.sh/nodepool: litellm-e2e
+            karpenter.sh/nodepool: hangarllm-e2e
       - equal:
           path: spec.template.spec.tolerations
           value:
             - key: workload
               operator: Equal
-              value: litellm-e2e
+              value: hangarllm-e2e
               effect: NoSchedule
 
   - it: bounds the Job with a deadline by default, so a blocked migration cannot stall the release forever

@@ -3,9 +3,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.rust_bridge.host.routes.chat_completions import body_params, connection_defaults, response
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.rust_bridge.host.routes.chat_completions import body_params, connection_defaults, response
+from hangarllm.types.utils import ModelResponse
 
 
 def test_response_builds_the_public_model_response() -> None:
@@ -53,9 +53,9 @@ def test_connection_defaults_preserve_provider_precedence(
     expected_key: str | None,
     expected_base: str | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "api_key", global_key)
-    monkeypatch.setattr(litellm, "anthropic_key", provider_key)
-    monkeypatch.setattr(litellm, "api_base", "https://configured.invalid")
+    monkeypatch.setattr(hangarllm, "api_key", global_key)
+    monkeypatch.setattr(hangarllm, "anthropic_key", provider_key)
+    monkeypatch.setattr(hangarllm, "api_base", "https://configured.invalid")
     assert connection_defaults(provider) == (expected_key, expected_base)
 
 

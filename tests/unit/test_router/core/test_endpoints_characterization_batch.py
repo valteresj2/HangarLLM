@@ -14,10 +14,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.router_core import RouterCore
-from litellm.types.utils import LiteLLMBatch, ModelResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.router_core import RouterCore
+from hangarllm.types.utils import HangarLLMBatch, ModelResponse
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost
 from tests.unit.test_router.core.scripted_host import ScriptedHost, bad_request, deployment
 
@@ -37,8 +37,8 @@ def _bucket(kwargs: Mapping[str, object], name: str) -> Mapping[str, object]:
     return bucket
 
 
-def _batch(batch_id: str = "b1") -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _batch(batch_id: str = "b1") -> HangarLLMBatch:
+    return HangarLLMBatch(
         id=batch_id,
         completion_window="24h",
         created_at=1,
@@ -97,7 +97,7 @@ async def test_acreate_file_keeps_a_non_batch_file_as_sent(make_core: MakeCore, 
     assert json.loads(sent.getvalue().decode().strip())["body"]["model"] == "g"
 
 
-async def test_acreate_file_puts_the_model_group_in_metadata_and_the_deployment_in_litellm_metadata(
+async def test_acreate_file_puts_the_model_group_in_metadata_and_the_deployment_in_hangarllm_metadata(
     make_core: MakeCore, host: EndpointHost
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")])
@@ -105,8 +105,8 @@ async def test_acreate_file_puts_the_model_group_in_metadata_and_the_deployment_
     sent: Final = host.calls[0].kwargs
     assert _bucket(sent, "metadata")["model_group"] == "g"
     assert "deployment" not in _bucket(sent, "metadata")
-    assert _bucket(sent, "litellm_metadata")["deployment"] == "openai/d1"
-    assert "model_group" not in _bucket(sent, "litellm_metadata")
+    assert _bucket(sent, "hangarllm_metadata")["deployment"] == "openai/d1"
+    assert "model_group" not in _bucket(sent, "hangarllm_metadata")
     assert sent["custom_llm_provider"] == "openai"
 
 
@@ -117,26 +117,26 @@ async def test_acreate_file_without_a_purpose_raises_before_calling_the_host(mak
     assert host.calls == []
 
 
-async def test_acreate_file_sends_target_model_names_to_a_litellm_proxy_deployment(
+async def test_acreate_file_sends_target_model_names_to_a_hangarllm_proxy_deployment(
     make_core: MakeCore, host: EndpointHost
 ):
-    core: Final = make_core(model_list=[deployment("g", "d1", model="litellm_proxy/remote-model")])
+    core: Final = make_core(model_list=[deployment("g", "d1", model="hangarllm_proxy/remote-model")])
     await core.acreate_file(model="g", file=_jsonl(), purpose="batch", extra_body={"keep": 1})
     assert dict(host.calls[0].kwargs["extra_body"]) == {"keep": 1, "target_model_names": "remote-model"}  # pyright: ignore[reportArgumentType]  # a mapping
 
 
-async def test_acreate_file_sends_the_deployment_gcs_bucket_in_litellm_metadata(
+async def test_acreate_file_sends_the_deployment_gcs_bucket_in_hangarllm_metadata(
     make_core: MakeCore, host: EndpointHost
 ):
     core: Final = make_core(model_list=[deployment("g", "d1", gcs_bucket_name="bucket-1")])
     await core.acreate_file(model="g", file=_jsonl(), purpose="batch")
-    assert _bucket(host.calls[0].kwargs, "litellm_metadata")["gcs_bucket_name"] == "bucket-1"
+    assert _bucket(host.calls[0].kwargs, "hangarllm_metadata")["gcs_bucket_name"] == "bucket-1"
 
 
 # --- batches --------------------------------------------------------------------------------
 
 
-async def test_acreate_batch_routes_with_litellm_metadata_only(make_core: MakeCore, host: EndpointHost):
+async def test_acreate_batch_routes_with_hangarllm_metadata_only(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=[deployment("g", "d1")])
     response: Final = await core.acreate_batch(
         model="g", input_file_id="f", endpoint="/v1/chat/completions", completion_window="24h"
@@ -149,12 +149,12 @@ async def test_acreate_batch_routes_with_litellm_metadata_only(make_core: MakeCo
         "openai",
     )
     assert "metadata" not in call.kwargs
-    assert _bucket(call.kwargs, "litellm_metadata")["model_group"] == "g"
+    assert _bucket(call.kwargs, "hangarllm_metadata")["model_group"] == "g"
     assert response._hidden_params["model_id"] == "d1"
 
 
 async def test_acreate_batch_is_retried(make_core: MakeCore, host: EndpointHost):
-    host.answer("openai/d1", litellm.InternalServerError(message="boom", llm_provider="openai", model="d1"), _batch())
+    host.answer("openai/d1", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d1"), _batch())
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=1)
     await core.acreate_batch(model="g", input_file_id="f", endpoint="/v1/chat/completions", completion_window="24h")
     assert len(host.calls_to("acreate_batch")) == 2
@@ -162,9 +162,9 @@ async def test_acreate_batch_is_retried(make_core: MakeCore, host: EndpointHost)
 
 async def test_acreate_batch_never_fails_over_to_another_deployment(make_core: MakeCore, host: EndpointHost):
     # The batch belongs to the deployment that created it, so its attempt stamps no failed deployment.
-    host.answer("*", litellm.InternalServerError(message="boom", llm_provider="openai", model="d"))
+    host.answer("*", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d"))
     core: Final = make_core(model_list=TWO_DEPLOYMENTS, num_retries=0, enable_weighted_failover=True)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.acreate_batch(model="g", input_file_id="f", endpoint="/v1/chat/completions", completion_window="24h")
     assert len(host.calls_to("acreate_batch")) == 1
 
@@ -189,7 +189,7 @@ async def test_aretrieve_batch_raises_the_first_error_when_no_deployment_has_the
     host.answer("openai/d1", bad_request("d1", "first missing"))
     host.answer("openai/d2", bad_request("d2", "second missing"))
     core: Final = make_core(model_list=TWO_DEPLOYMENTS)
-    with pytest.raises(litellm.BadRequestError, match="missing"):
+    with pytest.raises(hangarllm.BadRequestError, match="missing"):
         await core.aretrieve_batch(model="g", batch_id="b1")
     assert len(host.calls) == 2
 
@@ -207,7 +207,7 @@ async def test_aretrieve_batch_without_a_model_asks_every_deployment_with_its_ow
 ):
     host.answer("*", bad_request(message="missing"))
     core: Final = make_core(model_list=[*TWO_DEPLOYMENTS, deployment("h", "d3")])
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await core.aretrieve_batch(batch_id="b1")
     assert sorted((call.deployment_id, call.model_group) for call in host.calls) == [
         ("d1", "g"),
@@ -217,14 +217,14 @@ async def test_aretrieve_batch_without_a_model_asks_every_deployment_with_its_ow
 
 
 async def test_aretrieve_batch_is_not_retried(make_core: MakeCore, host: EndpointHost):
-    host.answer("openai/d1", litellm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
+    host.answer("openai/d1", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=3)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.aretrieve_batch(model="g", batch_id="b1")
     assert len(host.calls) == 1
 
 
-async def test_acancel_batch_routes_with_litellm_metadata(make_core: MakeCore, host: EndpointHost):
+async def test_acancel_batch_routes_with_hangarllm_metadata(make_core: MakeCore, host: EndpointHost):
     host.answer("openai/d1", _batch())
     core: Final = make_core(model_list=[deployment("g", "d1", api_base="https://d1.example")])
     response: Final = await core.acancel_batch(model="g", batch_id="b1")
@@ -263,7 +263,7 @@ async def test_alist_batches_sends_the_deployment_params_and_request_without_rou
         "https://request.example",
         None,
     )
-    assert "metadata" not in call.kwargs and "litellm_metadata" not in call.kwargs
+    assert "metadata" not in call.kwargs and "hangarllm_metadata" not in call.kwargs
 
 
 async def test_alist_batches_drops_failing_deployments(make_core: MakeCore, host: EndpointHost):
@@ -296,7 +296,7 @@ async def test_abatch_completion_sends_one_request_to_each_model_and_returns_err
     host.answer("openai/d1", error)
     core: Final = make_core(model_list=[deployment("a", "d1"), deployment("b", "d2")], num_retries=0)
     results: Final = await core.abatch_completion(models=["a", "b"], messages=MESSAGES)
-    assert isinstance(results[0], litellm.BadRequestError)
+    assert isinstance(results[0], hangarllm.BadRequestError)
     assert isinstance(results[1], ModelResponse) and results[1]._hidden_params["model_id"] == "d2"
 
 
@@ -326,7 +326,7 @@ async def test_abatch_completion_one_model_multiple_requests_returns_one_result_
     core: Final = make_core(model_list=[deployment("a", "d1")], num_retries=0)
     results: Final = await core.abatch_completion_one_model_multiple_requests(model="a", messages=[MESSAGES] * 3)
     assert len(results) == 3
-    assert sum(isinstance(result, litellm.BadRequestError) for result in results) == 1
+    assert sum(isinstance(result, hangarllm.BadRequestError) for result in results) == 1
     assert len(host.calls) == 3
 
 
@@ -361,14 +361,14 @@ async def test_schedule_acompletion_marks_the_response_as_prioritized_and_does_n
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")])
     response: Final = await core.schedule_acompletion(model="g", messages=MESSAGES, priority=0)
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
     assert "priority" not in host.calls[0].kwargs
 
 
 async def test_schedule_acompletion_without_a_priority_or_default_raises(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=[deployment("g", "d1")])
     with pytest.raises(
-        litellm.BadRequestError,
+        hangarllm.BadRequestError,
         match=re.escape("priority is required to queue a request, send one or set router_settings.default_priority"),
     ):
         await core.schedule_acompletion(model="g", messages=MESSAGES)
@@ -380,13 +380,13 @@ async def test_schedule_acompletion_without_a_priority_uses_the_default_priority
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")], default_priority=5)
     response: Final = await core.schedule_acompletion(model="g", messages=MESSAGES)
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.parametrize("endpoint", ["schedule_acompletion", "acompletion"])
 async def test_a_non_integer_priority_raises_bad_request(make_core: MakeCore, host: EndpointHost, endpoint: str):
     core: Final = make_core(model_list=[deployment("g", "d1")])
-    with pytest.raises(litellm.BadRequestError, match="priority must be an integer, got str 'high'"):
+    with pytest.raises(hangarllm.BadRequestError, match="priority must be an integer, got str 'high'"):
         await core.call(endpoint, {"model": "g", "messages": MESSAGES, "priority": "high"})
     assert host.calls == []
 
@@ -394,7 +394,7 @@ async def test_a_non_integer_priority_raises_bad_request(make_core: MakeCore, ho
 async def test_a_non_integer_priority_with_drop_params_is_served_unscheduled(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=[deployment("g", "d1")])
     response: Final = await core.acompletion(model="g", messages=MESSAGES, priority="high", drop_params=True)
-    assert "x-litellm-request-prioritization-used" not in response._hidden_params["additional_headers"]
+    assert "x-hangarllm-request-prioritization-used" not in response._hidden_params["additional_headers"]
     assert "priority" not in host.calls[0].kwargs
 
 
@@ -403,7 +403,7 @@ async def test_a_non_integer_priority_with_drop_params_queues_at_the_default_pri
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")], default_priority=5)
     response: Final = await core.acompletion(model="g", messages=MESSAGES, priority="high", drop_params=True)
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.parametrize(
@@ -415,20 +415,20 @@ async def test_a_request_priority_schedules_the_call(
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")])
     response: Final = await core.call(endpoint, {"model": "g", "priority": 3, **request_body})
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True  # pyright: ignore[reportAttributeAccessIssue]  # the scripted response
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True  # pyright: ignore[reportAttributeAccessIssue]  # the scripted response
     assert "priority" not in host.calls[0].kwargs
 
 
 async def test_default_priority_schedules_every_acompletion(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=[deployment("g", "d1")], default_priority=5)
     response: Final = await core.acompletion(model="g", messages=MESSAGES)
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 async def test_a_scheduled_call_error_carries_its_priority(make_core: MakeCore, host: EndpointHost):
     host.answer("openai/d1", bad_request("d1"))
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.acompletion(model="g", messages=MESSAGES, priority=4)
     assert raised.value.priority == 4  # pyright: ignore[reportAttributeAccessIssue]  # stamped by the scheduler
 
@@ -444,14 +444,14 @@ async def test_priority_header_update_parses_the_priority_header(
 # --- prompt management models -----------------------------------------------------------------
 
 
-def _logging_obj() -> LiteLLMLogging:
-    return LiteLLMLogging(
+def _logging_obj() -> HangarLLMLogging:
+    return HangarLLMLogging(
         model="pm",
         messages=MESSAGES,
         stream=False,
         call_type="acompletion",
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="c1",
+        hangarllm_call_id="c1",
         function_id="f1",
     )
 
@@ -459,7 +459,7 @@ def _logging_obj() -> LiteLLMLogging:
 async def test_prompt_management_group_without_a_prompt_id_raises_value_error(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=[deployment("pm", "p1", model="langfuse/gpt-4o")])
     with pytest.raises(ValueError, match=re.escape("Prompt ID is not set or not a string. Got=None")):
-        await core.acompletion(model="pm", messages=MESSAGES, litellm_call_id="c1")
+        await core.acompletion(model="pm", messages=MESSAGES, hangarllm_call_id="c1")
     assert host.calls == []
 
 
@@ -470,50 +470,50 @@ async def test_prompt_management_group_with_non_dict_prompt_variables_raises_val
         model_list=[deployment("pm", "p1", model="langfuse/gpt-4o", prompt_id="p", prompt_variables="x")]
     )
     with pytest.raises(ValueError, match=re.escape("Prompt variables is set but not a dictionary. Got=x")):
-        await core.acompletion(model="pm", messages=MESSAGES, litellm_call_id="c1")
+        await core.acompletion(model="pm", messages=MESSAGES, hangarllm_call_id="c1")
 
 
 async def test_prompt_management_group_without_a_call_id_or_logging_object_raises_key_error(
     make_core: MakeCore, host: EndpointHost
 ):
     core: Final = make_core(model_list=[deployment("pm", "p1", model="langfuse/gpt-4o")])
-    with pytest.raises(KeyError, match="litellm_call_id"):
+    with pytest.raises(KeyError, match="hangarllm_call_id"):
         await core.acompletion(model="pm", messages=MESSAGES)
 
 
-async def test_litellm_agent_group_without_a_logging_object_raises_key_error(make_core: MakeCore, host: EndpointHost):
+async def test_hangarllm_agent_group_without_a_logging_object_raises_key_error(make_core: MakeCore, host: EndpointHost):
     """function_setup consumes original_function, so the direct-call path cannot pop it."""
-    core: Final = make_core(model_list=[deployment("pm", "p1", model="litellm_agent/openai/gpt-4o")])
+    core: Final = make_core(model_list=[deployment("pm", "p1", model="hangarllm_agent/openai/gpt-4o")])
     with pytest.raises(KeyError, match="original_function"):
-        await core.acompletion(model="pm", messages=MESSAGES, litellm_call_id="c1")
+        await core.acompletion(model="pm", messages=MESSAGES, hangarllm_call_id="c1")
     assert host.calls == []
 
 
-async def test_litellm_agent_group_calls_the_stripped_model_directly_with_the_deployment_params(
+async def test_hangarllm_agent_group_calls_the_stripped_model_directly_with_the_deployment_params(
     make_core: MakeCore, host: EndpointHost
 ):
     core: Final = make_core(
-        model_list=[deployment("pm", "p1", model="litellm_agent/openai/gpt-4o", timeout=9, temperature=0.2)]
+        model_list=[deployment("pm", "p1", model="hangarllm_agent/openai/gpt-4o", timeout=9, temperature=0.2)]
     )
-    response: Final = await core.acompletion(model="pm", messages=MESSAGES, litellm_logging_obj=_logging_obj())
+    response: Final = await core.acompletion(model="pm", messages=MESSAGES, hangarllm_logging_obj=_logging_obj())
     call: Final = host.calls[0]
     assert (call.op, call.model, call.deployment_id, call.model_group) == ("acompletion", "openai/gpt-4o", "p1", "pm")
     assert (call.kwargs["timeout"], call.kwargs["temperature"], "original_function" in call.kwargs) == (9.0, 0.2, False)
     assert response._hidden_params == {}
 
 
-async def test_litellm_agent_group_naming_another_group_routes_into_it_with_the_agent_timeout(
+async def test_hangarllm_agent_group_naming_another_group_routes_into_it_with_the_agent_timeout(
     make_core: MakeCore, host: EndpointHost
 ):
     core: Final = make_core(
-        model_list=[deployment("pm", "p1", model="litellm_agent/g", timeout=9), deployment("g", "d1")]
+        model_list=[deployment("pm", "p1", model="hangarllm_agent/g", timeout=9), deployment("g", "d1")]
     )
-    response: Final = await core.acompletion(model="pm", messages=MESSAGES, litellm_logging_obj=_logging_obj())
+    response: Final = await core.acompletion(model="pm", messages=MESSAGES, hangarllm_logging_obj=_logging_obj())
     call: Final = host.calls[0]
     assert (call.model, call.model_group, call.kwargs["timeout"]) == ("openai/d1", "pm", 9.0)
     # The agent deployment's api_key travels as a request credential, so the target gets a request-scoped id.
     assert call.deployment_id != "d1"
-    assert response._hidden_params["additional_headers"]["x-litellm-model-group"] == "g"
+    assert response._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "g"
 
 
 async def test_a_group_with_two_prompt_management_deployments_routes_normally(make_core: MakeCore, host: ScriptedHost):

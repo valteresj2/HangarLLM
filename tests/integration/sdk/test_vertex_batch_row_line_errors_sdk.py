@@ -9,7 +9,7 @@ from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, Wire, wire_server
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
+import hangarllm
 from integration.providers._vertex_batch_rows import (
     BOM,
     BUCKET,
@@ -23,8 +23,8 @@ from integration.providers._vertex_batch_rows import (
     stored_object,
     unconvertible_line_message,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.vertex_ai.common_utils import VertexAIError
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError
 
 Client = Literal["sync", "async_aiohttp", "async_httpx"]
 CLIENTS: Final[tuple[Client, ...]] = ("sync", "async_aiohttp", "async_httpx")
@@ -64,12 +64,12 @@ async def _create_file(client: Client, wire: Wire, content: bytes) -> object:
     file: Final = ("rows.jsonl", content, "application/jsonl")
     match client:
         case "sync":
-            return await asyncio.to_thread(litellm.create_file, file=file, purpose="batch", **_vertex_kwargs(wire))
+            return await asyncio.to_thread(hangarllm.create_file, file=file, purpose="batch", **_vertex_kwargs(wire))
         case "async_aiohttp":
-            return await litellm.acreate_file(file=file, purpose="batch", **_vertex_kwargs(wire))
+            return await hangarllm.acreate_file(file=file, purpose="batch", **_vertex_kwargs(wire))
         case "async_httpx":
             handler: Final = AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport(trust_env=False))
-            return await litellm.acreate_file(file=file, purpose="batch", client=handler, **_vertex_kwargs(wire))
+            return await hangarllm.acreate_file(file=file, purpose="batch", client=handler, **_vertex_kwargs(wire))
 
 
 def _good(custom_id: str) -> bytes:
@@ -117,11 +117,11 @@ async def test_sdk_create_file_names_the_file_line_vertex_cannot_read(
 
 async def test_router_create_file_names_the_line_after_rewriting_each_rows_model() -> None:
     with wire_server(_peer) as wire:
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "vertex-batch",
-                    "litellm_params": {"model": "vertex_ai/gemini-2.5-flash", **_vertex_kwargs(wire)},
+                    "hangarllm_params": {"model": "vertex_ai/gemini-2.5-flash", **_vertex_kwargs(wire)},
                 }
             ]
         )

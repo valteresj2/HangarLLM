@@ -1,4 +1,4 @@
-"""Tests for litellm/llms/a2a/chat/transformation.py response transform."""
+"""Tests for hangarllm/llms/a2a/chat/transformation.py response transform."""
 
 import uuid
 from unittest.mock import MagicMock
@@ -7,10 +7,10 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.a2a.chat.streaming_iterator import A2AModelResponseIterator
-from litellm.llms.a2a.chat.transformation import A2AConfig
-from litellm.llms.a2a.common_utils import A2AError
-from litellm.types.utils import ModelResponse
+from hangarllm.llms.a2a.chat.streaming_iterator import A2AModelResponseIterator
+from hangarllm.llms.a2a.chat.transformation import A2AConfig
+from hangarllm.llms.a2a.common_utils import A2AError
+from hangarllm.types.utils import ModelResponse
 
 
 def _raw_response(text: str) -> MagicMock:
@@ -39,7 +39,7 @@ def test_transform_response_sets_usage():
         request_data={},
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -56,7 +56,7 @@ def test_transform_request_asks_the_agent_for_a_blocking_send():
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -69,7 +69,7 @@ def test_transform_request_streams_without_a_send_configuration():
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params={"stream": True},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -85,7 +85,7 @@ def test_transform_request_tags_the_message_with_its_kind(optional_params: dict)
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -136,7 +136,7 @@ def _transform(payload: object, headers: dict[str, str] | None = None) -> ModelR
         request_data={},
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -220,7 +220,7 @@ def test_transform_response_reports_an_undecodable_body_as_an_agent_error():
             request_data={},
             messages=[{"role": "user", "content": "hi there agent"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 

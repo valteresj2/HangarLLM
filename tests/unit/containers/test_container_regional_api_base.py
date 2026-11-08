@@ -1,7 +1,7 @@
 """
 Tests for OpenAI Containers API regional api_base support.
 
-Validates that litellm.create_container and litellm.upload_container_file
+Validates that hangarllm.create_container and hangarllm.upload_container_file
 correctly use regional endpoints like https://us.api.openai.com/v1 for
 US Data Residency instead of defaulting to https://api.openai.com/v1.
 """
@@ -13,7 +13,7 @@ import httpx
 import pytest
 
 
-import litellm
+import hangarllm
 
 
 class TestContainerRegionalApiBase:
@@ -31,12 +31,12 @@ class TestContainerRegionalApiBase:
             del os.environ["OPENAI_BASE_URL"]
         if "OPENAI_API_BASE" in os.environ:
             del os.environ["OPENAI_API_BASE"]
-        litellm.api_base = None
+        hangarllm.api_base = None
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_create_container_uses_regional_api_base(self, mock_post):
         """
-        Test that litellm.create_container uses the regional api_base when provided.
+        Test that hangarllm.create_container uses the regional api_base when provided.
 
         This validates the fix for US Data Residency support where requests should
         go to https://us.api.openai.com/v1 instead of https://api.openai.com/v1.
@@ -54,7 +54,7 @@ class TestContainerRegionalApiBase:
         }
         mock_post.return_value = mock_response
 
-        litellm.create_container(
+        hangarllm.create_container(
             name="Test Container",
             custom_llm_provider="openai",
             api_base="https://us.api.openai.com/v1",
@@ -69,10 +69,10 @@ class TestContainerRegionalApiBase:
         ), f"Expected US regional URL, got: {called_url}"
         assert called_url == "https://us.api.openai.com/v1/containers"
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_create_container_uses_env_var_openai_base_url(self, mock_post):
         """
-        Test that litellm.create_container uses OPENAI_BASE_URL env var.
+        Test that hangarllm.create_container uses OPENAI_BASE_URL env var.
         """
         os.environ["OPENAI_BASE_URL"] = "https://us.api.openai.com/v1"
 
@@ -89,7 +89,7 @@ class TestContainerRegionalApiBase:
         }
         mock_post.return_value = mock_response
 
-        litellm.create_container(
+        hangarllm.create_container(
             name="Test Container",
             custom_llm_provider="openai",
         )
@@ -102,10 +102,10 @@ class TestContainerRegionalApiBase:
             "us.api.openai.com" in called_url
         ), f"Expected US regional URL, got: {called_url}"
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_create_container_defaults_to_standard_openai(self, mock_post):
         """
-        Test that litellm.create_container defaults to standard OpenAI URL
+        Test that hangarllm.create_container defaults to standard OpenAI URL
         when no regional api_base is configured.
         """
         mock_response = MagicMock(spec=httpx.Response)
@@ -121,7 +121,7 @@ class TestContainerRegionalApiBase:
         }
         mock_post.return_value = mock_response
 
-        litellm.create_container(
+        hangarllm.create_container(
             name="Test Container",
             custom_llm_provider="openai",
         )
@@ -132,10 +132,10 @@ class TestContainerRegionalApiBase:
 
         assert called_url == "https://api.openai.com/v1/containers"
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_upload_container_file_uses_regional_api_base(self, mock_post):
         """
-        Test that litellm.upload_container_file uses the regional api_base when provided.
+        Test that hangarllm.upload_container_file uses the regional api_base when provided.
         """
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
@@ -149,7 +149,7 @@ class TestContainerRegionalApiBase:
         }
         mock_post.return_value = mock_response
 
-        litellm.upload_container_file(
+        hangarllm.upload_container_file(
             container_id="cntr_123456",
             file=("data.csv", b"col1,col2\n1,2", "text/csv"),
             custom_llm_provider="openai",

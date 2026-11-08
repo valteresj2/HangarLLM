@@ -118,9 +118,9 @@ def scan_directory(base_dir: str | os.PathLike[str] = ".") -> tuple[TypingImport
     return tuple(
         violation
         for directory in (
-            base_path / "litellm",
+            base_path / "hangarllm",
             base_path / "enterprise",
-            base_path / "litellm-proxy-extras" / "litellm_proxy_extras",
+            base_path / "hangarllm-proxy-extras" / "hangarllm_proxy_extras",
         )
         if directory.exists()
         for path in directory.rglob("*.py")
@@ -136,7 +136,7 @@ def main() -> None:
                 "Python 3.10-incompatible typing imports found:",
                 *(
                     f"{violation.file}:{violation.line}: {violation.name} is unavailable in Python 3.10; "
-                    "import it from typing_extensions instead because litellm supports Python 3.10"
+                    "import it from typing_extensions instead because hangarllm supports Python 3.10"
                     for violation in violations
                 ),
             )

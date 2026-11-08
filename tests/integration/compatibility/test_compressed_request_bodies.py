@@ -155,7 +155,7 @@ def _respond(gate: threading.Event, request: Request) -> Reply:
 def _deployment(name: str, upstream: Wire) -> Mapping[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": "openai/gpt-4o-mini", "api_base": f"{upstream.url}/v1", "api_key": "sk-fixture"},
+        "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_base": f"{upstream.url}/v1", "api_key": "sk-fixture"},
     }
 
 
@@ -178,8 +178,8 @@ def _config(directory: Path, upstream: Wire) -> Path:
 
 @pytest.fixture(scope="module")
 def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
-    assert os.environ.get("LITELLM_LICENSE"), (
-        "LITELLM_LICENSE must be set: max_request_size_mb is an enterprise feature"
+    assert os.environ.get("HANGARLLM_LICENSE"), (
+        "HANGARLLM_LICENSE must be set: max_request_size_mb is an enterprise feature"
     )
     gate: Final = threading.Event()
     directory: Final = tmp_path_factory.mktemp("compressed-request-bodies")
@@ -274,7 +274,7 @@ def test_a_compressed_chat_body_reaches_the_provider_as_its_plain_twin(
     assert plain.status_code == 200, plain.text
     assert compressed.status_code == 200, compressed.text
     assert _answer(compressed) == _answer(plain)
-    assert compressed.headers["x-litellm-response-cost"] == plain.headers["x-litellm-response-cost"]
+    assert compressed.headers["x-hangarllm-response-cost"] == plain.headers["x-hangarllm-response-cost"]
     calls: Final = rig.calls()
     assert len(calls) == 2, [call.target for call in calls]
     assert JSON_OBJECT.validate_json(calls[1].body) == JSON_OBJECT.validate_json(calls[0].body)
@@ -309,7 +309,7 @@ def test_a_compressed_pass_through_body_reaches_the_vendor_decoded(
         "/anthropic/v1/messages",
         content=encode(body),
         headers={
-            "x-litellm-api-key": rig.gateway.key,
+            "x-hangarllm-api-key": rig.gateway.key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
             "content-encoding": coding,

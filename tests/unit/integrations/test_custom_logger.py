@@ -8,7 +8,7 @@ before any callback receives it. This is useful for:
 - Cost management (less data stored/transmitted)
 
 Example config:
-    litellm_settings:
+    hangarllm_settings:
       success_callback: ["s3"]
       standard_logging_payload_excluded_fields: ["response", "messages"]
 """
@@ -23,10 +23,10 @@ from typing import Dict, Final, Optional
 import pytest
 import pytest_asyncio
 
-import litellm
-from litellm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import hangarllm
+from hangarllm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -108,12 +108,12 @@ class TestStandardLoggingPayloadExcludedFields:
     """Test suite for standard_logging_payload_excluded_fields feature."""
 
     def setup_method(self):
-        """Reset litellm settings before each test."""
-        litellm.standard_logging_payload_excluded_fields = None
+        """Reset hangarllm settings before each test."""
+        hangarllm.standard_logging_payload_excluded_fields = None
 
     def teardown_method(self):
         """Clean up after each test."""
-        litellm.standard_logging_payload_excluded_fields = None
+        hangarllm.standard_logging_payload_excluded_fields = None
 
     def test_no_excluded_fields_no_change(self):
         """Test that payload is unchanged when no fields are excluded."""
@@ -128,7 +128,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_exclude_single_field(self):
         """Test excluding a single field (response)."""
-        litellm.standard_logging_payload_excluded_fields = ["response"]
+        hangarllm.standard_logging_payload_excluded_fields = ["response"]
 
         logger = CustomLogger()
         model_call_details = create_model_call_details()
@@ -141,7 +141,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_exclude_multiple_fields(self):
         """Test excluding multiple fields (response, messages)."""
-        litellm.standard_logging_payload_excluded_fields = ["response", "messages"]
+        hangarllm.standard_logging_payload_excluded_fields = ["response", "messages"]
 
         logger = CustomLogger()
         model_call_details = create_model_call_details()
@@ -155,7 +155,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_exclude_metadata_field(self):
         """Test excluding the metadata field."""
-        litellm.standard_logging_payload_excluded_fields = ["metadata"]
+        hangarllm.standard_logging_payload_excluded_fields = ["metadata"]
 
         logger = CustomLogger()
         payload = create_sample_standard_logging_payload()
@@ -168,7 +168,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_exclude_hidden_params(self):
         """Test excluding hidden_params field."""
-        litellm.standard_logging_payload_excluded_fields = ["hidden_params"]
+        hangarllm.standard_logging_payload_excluded_fields = ["hidden_params"]
 
         logger = CustomLogger()
         payload = create_sample_standard_logging_payload()
@@ -181,7 +181,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_exclude_nonexistent_field_no_error(self):
         """Test that excluding a non-existent field doesn't cause an error."""
-        litellm.standard_logging_payload_excluded_fields = [
+        hangarllm.standard_logging_payload_excluded_fields = [
             "nonexistent_field",
             "response",
         ]
@@ -197,7 +197,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_original_payload_not_modified(self):
         """Test that the original model_call_details is not modified."""
-        litellm.standard_logging_payload_excluded_fields = ["response", "messages"]
+        hangarllm.standard_logging_payload_excluded_fields = ["response", "messages"]
 
         logger = CustomLogger()
         model_call_details = create_model_call_details()
@@ -212,7 +212,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_combined_with_turn_off_message_logging(self):
         """Test that excluded_fields works together with turn_off_message_logging."""
-        litellm.standard_logging_payload_excluded_fields = ["metadata", "hidden_params"]
+        hangarllm.standard_logging_payload_excluded_fields = ["metadata", "hidden_params"]
 
         logger = CustomLogger(turn_off_message_logging=True)
         model_call_details = create_model_call_details()
@@ -224,13 +224,13 @@ class TestStandardLoggingPayloadExcludedFields:
         assert "hidden_params" not in result["standard_logging_object"]
 
         # turn_off_message_logging should redact these
-        redacted_str = "redacted-by-litellm"
+        redacted_str = "redacted-by-hangarllm"
         assert result["standard_logging_object"]["messages"][0]["content"] == redacted_str
         assert result["standard_logging_object"]["response"]["choices"][0]["message"]["content"] == redacted_str
 
     def test_excluded_fields_takes_precedence_over_redaction(self):
         """Test that if a field is both excluded and would be redacted, it's excluded."""
-        litellm.standard_logging_payload_excluded_fields = ["response"]
+        hangarllm.standard_logging_payload_excluded_fields = ["response"]
 
         logger = CustomLogger(turn_off_message_logging=True)
         model_call_details = create_model_call_details()
@@ -241,12 +241,12 @@ class TestStandardLoggingPayloadExcludedFields:
         assert "response" not in result["standard_logging_object"]
 
         # messages should still be redacted
-        redacted_str = "redacted-by-litellm"
+        redacted_str = "redacted-by-hangarllm"
         assert result["standard_logging_object"]["messages"][0]["content"] == redacted_str
 
     def test_exclude_all_sensitive_fields(self):
         """Test excluding all potentially sensitive fields."""
-        litellm.standard_logging_payload_excluded_fields = [
+        hangarllm.standard_logging_payload_excluded_fields = [
             "messages",
             "response",
             "metadata",
@@ -280,7 +280,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_empty_excluded_fields_list(self):
         """Test that an empty list doesn't affect the payload."""
-        litellm.standard_logging_payload_excluded_fields = []
+        hangarllm.standard_logging_payload_excluded_fields = []
 
         logger = CustomLogger()
         model_call_details = create_model_call_details()
@@ -293,7 +293,7 @@ class TestStandardLoggingPayloadExcludedFields:
 
     def test_none_standard_logging_object(self):
         """Test handling when standard_logging_object is None."""
-        litellm.standard_logging_payload_excluded_fields = ["response"]
+        hangarllm.standard_logging_payload_excluded_fields = ["response"]
 
         logger = CustomLogger()
         model_call_details = {"other_key": "other_value"}
@@ -308,14 +308,14 @@ class TestExcludedFieldsIntegration:
     """Integration tests for excluded fields with actual callbacks."""
 
     def setup_method(self):
-        """Reset litellm settings before each test."""
-        litellm.standard_logging_payload_excluded_fields = None
-        litellm.callbacks = []
+        """Reset hangarllm settings before each test."""
+        hangarllm.standard_logging_payload_excluded_fields = None
+        hangarllm.callbacks = []
 
     def teardown_method(self):
         """Clean up after each test."""
-        litellm.standard_logging_payload_excluded_fields = None
-        litellm.callbacks = []
+        hangarllm.standard_logging_payload_excluded_fields = None
+        hangarllm.callbacks = []
 
     def test_custom_callback_receives_filtered_payload(self):
         """Test that a custom callback receives the filtered payload."""
@@ -325,12 +325,12 @@ class TestExcludedFieldsIntegration:
             def log_success_event(self, kwargs, response_obj, start_time, end_time):
                 captured_payloads.append(kwargs.get("standard_logging_object", {}))
 
-        litellm.standard_logging_payload_excluded_fields = ["response", "messages"]
+        hangarllm.standard_logging_payload_excluded_fields = ["response", "messages"]
 
         callback = TestCallback()
         model_call_details = create_model_call_details()
 
-        # Simulate what litellm_logging.py does
+        # Simulate what hangarllm_logging.py does
         filtered_details = callback.redact_standard_logging_payload_from_model_call_details(model_call_details)
 
         callback.log_success_event(
@@ -347,41 +347,41 @@ class TestExcludedFieldsIntegration:
 
 
 class TestExcludedFieldsConfigLoading:
-    """Test that the config is properly loaded from litellm_settings."""
+    """Test that the config is properly loaded from hangarllm_settings."""
 
     def setup_method(self):
-        """Reset litellm settings before each test."""
-        litellm.standard_logging_payload_excluded_fields = None
+        """Reset hangarllm settings before each test."""
+        hangarllm.standard_logging_payload_excluded_fields = None
 
     def teardown_method(self):
         """Clean up after each test."""
-        litellm.standard_logging_payload_excluded_fields = None
+        hangarllm.standard_logging_payload_excluded_fields = None
 
     def test_config_attribute_exists(self):
-        """Test that the config attribute exists on litellm module."""
-        assert hasattr(litellm, "standard_logging_payload_excluded_fields")
+        """Test that the config attribute exists on hangarllm module."""
+        assert hasattr(hangarllm, "standard_logging_payload_excluded_fields")
 
     def test_config_default_is_none(self):
         """Test that the default value is None."""
         # Reset to ensure we're testing the default
-        litellm.standard_logging_payload_excluded_fields = None
-        assert litellm.standard_logging_payload_excluded_fields is None
+        hangarllm.standard_logging_payload_excluded_fields = None
+        assert hangarllm.standard_logging_payload_excluded_fields is None
 
     def test_config_can_be_set_to_list(self):
         """Test that the config can be set to a list."""
-        litellm.standard_logging_payload_excluded_fields = ["response", "messages"]
-        assert litellm.standard_logging_payload_excluded_fields == [
+        hangarllm.standard_logging_payload_excluded_fields = ["response", "messages"]
+        assert hangarllm.standard_logging_payload_excluded_fields == [
             "response",
             "messages",
         ]
 
     def test_config_setattr_simulates_proxy_loading(self):
         """Test that setattr works as the proxy would use it."""
-        # Simulating how proxy_server.py sets litellm_settings
+        # Simulating how proxy_server.py sets hangarllm_settings
         config_value = ["response", "messages", "metadata"]
-        setattr(litellm, "standard_logging_payload_excluded_fields", config_value)
+        setattr(hangarllm, "standard_logging_payload_excluded_fields", config_value)
 
-        assert litellm.standard_logging_payload_excluded_fields == config_value
+        assert hangarllm.standard_logging_payload_excluded_fields == config_value
 
         # Test it actually works in the logger
         logger = CustomLogger()
@@ -402,7 +402,7 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest_asyncio.fixture(loop_scope="function", autouse=True)
-async def drain_logging_worker(isolate_litellm_state: None) -> AsyncIterator[None]:
+async def drain_logging_worker(isolate_hangarllm_state: None) -> AsyncIterator[None]:
     yield
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS)
 
@@ -411,41 +411,41 @@ LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS: Final = LOGGING_WORKER_MAX_TIME_PER_COROUT
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm state to the true defaults captured at conftest import time,
+    Resets hangarllm state to the true defaults captured at conftest import time,
     then restores after the test. This prevents module-level mutations (e.g.
-    `litellm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
+    `hangarllm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
     leaking across tests within the same xdist worker.
     """
-    from litellm.litellm_core_utils import litellm_logging as ll_logging
-    from litellm.proxy.management_helpers import audit_logs as ll_audit_logs
+    from hangarllm.hangarllm_core_utils import hangarllm_logging as ll_logging
+    from hangarllm.proxy.management_helpers import audit_logs as ll_audit_logs
 
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
 
 
 _LIST_ATTRS = (
@@ -479,21 +479,21 @@ _DEFAULTS: dict = {}
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield

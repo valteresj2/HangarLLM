@@ -15,7 +15,7 @@ pytestmark: Final = pytest.mark.shares_worker_state
 
 def _budget_row(team_id: str) -> dict[str, JsonValue]:
     rows: Final = read_rows(
-        'SELECT max_budget, budget_duration, budget_reset_at::text FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+        'SELECT max_budget, budget_duration, budget_reset_at::text FROM "HangarLLM_TeamTable" WHERE team_id = %s',
         (team_id,),
     )
     assert len(rows) == 1, rows
@@ -25,7 +25,7 @@ def _budget_row(team_id: str) -> dict[str, JsonValue]:
 @pytest.mark.covers("mgmt.team.new.explicit_null_budget_duration_overrides_default")
 def test_team_new_explicit_null_budget_duration_is_not_replaced_by_default(gateway: Gateway, tmp_path: Path) -> None:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["default_team_params"] = {"budget_duration": "30d"}
+    config["hangarllm_settings"]["default_team_params"] = {"budget_duration": "30d"}
     path: Final = tmp_path / "team-defaults.yaml"
     path.write_text(yaml.safe_dump(config))
     with (

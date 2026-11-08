@@ -25,7 +25,7 @@ _PNG: Final = base64.b64decode(
 _PNG_DATA_URI: Final = f"data:image/png;base64,{base64.b64encode(_PNG).decode()}"
 _EDITED_URL: Final = "https://dashscope-result.example.com/edited.png"
 _PROMPT: Final = "Turn the red circle into a blue square"
-_TEXT: Final = "Hello from LiteLLM."
+_TEXT: Final = "Hello from HangarLLM."
 _BILLED_CHARACTERS: Final = len(_TEXT)
 _WAV: Final = b"RIFF\x24\x00\x00\x00WAVEfmt " + uuid.uuid4().bytes
 _MP3: Final = b"ID3\x04\x00\x00\x00\x00\x00\x00" + uuid.uuid4().bytes
@@ -74,7 +74,7 @@ def _pooled_database_url(url: str) -> str:
 
 
 def _tts_deployment(name: str, model: str, api_base: str) -> dict[str, JsonValue]:
-    return {"model_name": name, "litellm_params": {"model": model, "api_base": api_base, "api_key": _API_KEY}}
+    return {"model_name": name, "hangarllm_params": {"model": model, "api_base": api_base, "api_key": _API_KEY}}
 
 
 def _error_message(body: bytes) -> str:

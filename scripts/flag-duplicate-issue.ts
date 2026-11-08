@@ -38,7 +38,7 @@ export type FlagVerdict =
   | { readonly kind: "skip"; readonly reason: string };
 
 export const MIN_CONFIDENCE = 0.95;
-export const NOTICE_MARKER_PREFIX = "<!-- litellm:potential-duplicate candidates=";
+export const NOTICE_MARKER_PREFIX = "<!-- hangarllm:potential-duplicate candidates=";
 
 const skip = (reason: string): { readonly kind: "skip"; readonly reason: string } => ({ kind: "skip", reason });
 

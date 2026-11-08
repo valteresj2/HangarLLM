@@ -24,7 +24,7 @@ from integration._support.process import graceful_stop_seconds, owned_proxy
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
 Endpoint = Literal["chat", "messages", "responses"]
 
@@ -258,8 +258,8 @@ def _observe(endpoint: Endpoint, wire: Wire, sent: _Sent, *, stream: bool) -> _O
         served_id=_served_id(endpoint, response, stream=stream) if response.status_code == 200 else "",
         spend_id=_spend_id(response) if response.status_code == 200 and not stream else "",
         text=response.text,
-        attempted=_header(response, "x-litellm-attempted-fallbacks"),
-        errors_header=_header(response, "x-litellm-fallback-errors"),
+        attempted=_header(response, "x-hangarllm-attempted-fallbacks"),
+        errors_header=_header(response, "x-hangarllm-fallback-errors"),
         hit=_hit(posted),
         leaks=_leaks(posted),
     )
@@ -271,7 +271,7 @@ def _spend_id(response: httpx.Response) -> str:
 
 def _spend_row_lands(spend_id: str) -> None:
     eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (spend_id,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (spend_id,)),
         lambda rows: len(rows) == 1,
         seconds=_SPEND_ROW_SECONDS,
     )
@@ -395,7 +395,7 @@ def test_default_gateway_rejects_an_unauthenticated_flagged_request_before_the_w
 def _exposed_deployment(name: str, provider: str) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": provider,
             "api_base": f"{_UPSTREAM_URL_PLACEHOLDER}/{name}",
             "api_key": _API_KEY,
@@ -649,8 +649,8 @@ def _check_burst_row(request: _BurstRequest, response: httpx.Response, posted: t
     assert _hit(own) == _expected_hit(request), (request, own)
     assert _leaks(own) == (), (request, own)
     if request.endpoint == "chat" and not request.stream:
-        assert _header(response, "x-litellm-attempted-fallbacks") == ("1" if request.outage else "0"), request
-        assert _errors_mention_the_outage(_header(response, "x-litellm-fallback-errors")) is request.outage, request
+        assert _header(response, "x-hangarllm-attempted-fallbacks") == ("1" if request.outage else "0"), request
+        assert _errors_mention_the_outage(_header(response, "x-hangarllm-fallback-errors")) is request.outage, request
 
 
 def test_exposed_burst_with_scripted_outages_lands_every_prompt_once_per_hop_with_a_clean_wire(

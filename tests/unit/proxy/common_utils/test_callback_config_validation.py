@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.common_utils.callback_config_validation import (
+from hangarllm.proxy.common_utils.callback_config_validation import (
     callback_config_error,
     conflicting_callback_var_error,
     conflicting_span_scope_error,
@@ -127,8 +127,8 @@ def test_arize_sampling_rate_rejected_on_non_arize_callback():
 
 class TestArizeOtlpProtocol:
     def test_protocol_on_a_non_arize_callback_is_rejected(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
+        from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
         is_otel_v2_enabled.cache_clear()
         try:
@@ -139,8 +139,8 @@ class TestArizeOtlpProtocol:
             is_otel_v2_enabled.cache_clear()
 
     def test_unknown_protocols_are_rejected(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
+        from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
         is_otel_v2_enabled.cache_clear()
         try:
@@ -151,19 +151,19 @@ class TestArizeOtlpProtocol:
             is_otel_v2_enabled.cache_clear()
 
     def test_protocol_is_rejected_while_otel_v2_is_off(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
+        from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
         is_otel_v2_enabled.cache_clear()
         try:
             error = callback_config_error("arize", {"arize_otlp_protocol": "http/protobuf"})
-            assert error is not None and "LITELLM_OTEL_V2" in error
+            assert error is not None and "HANGARLLM_OTEL_V2" in error
         finally:
             is_otel_v2_enabled.cache_clear()
 
     def test_both_protocols_are_accepted_with_otel_v2_on(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
+        from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
         is_otel_v2_enabled.cache_clear()
         try:
@@ -178,8 +178,8 @@ class TestArizeOtlpProtocol:
         assert cross_entry_family_error({"arize_otlp_protocol": "http/protobuf"}, stored) is None
 
     def test_protocol_on_a_key_logging_entry_is_validated(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
+        from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
         is_otel_v2_enabled.cache_clear()
         try:
@@ -209,8 +209,8 @@ class TestArizeOtlpProtocol:
             is_otel_v2_enabled.cache_clear()
 
     def test_failure_only_arize_callbacks_reject_the_protocol(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
+        from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
         is_otel_v2_enabled.cache_clear()
         try:
@@ -225,8 +225,8 @@ class TestArizeOtlpProtocol:
             is_otel_v2_enabled.cache_clear()
 
     def test_failure_only_key_logging_entry_rejects_the_protocol(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
+        from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
         is_otel_v2_enabled.cache_clear()
         try:
@@ -267,9 +267,9 @@ def test_arize_sampling_rates_are_not_family_credentials():
 
 @pytest.fixture
 def otel_v2_on(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
+    from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
     is_otel_v2_enabled.cache_clear()
     yield
     is_otel_v2_enabled.cache_clear()
@@ -290,27 +290,27 @@ def test_excluded_services_is_accepted_on_every_otel_v2_destination(callback_nam
 
 
 def test_capture_message_content_is_rejected_while_otel_v2_is_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
+    from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
     is_otel_v2_enabled.cache_clear()
     try:
         error: Final = callback_config_error("langfuse_otel", {"capture_message_content": "no_content"})
     finally:
         is_otel_v2_enabled.cache_clear()
-    assert error is not None and "capture_message_content" in error and "LITELLM_OTEL_V2" in error
+    assert error is not None and "capture_message_content" in error and "HANGARLLM_OTEL_V2" in error
 
 
 def test_excluded_services_is_rejected_while_otel_v2_is_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
+    from hangarllm.integrations.otel.model.config import is_otel_v2_enabled
 
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
     is_otel_v2_enabled.cache_clear()
     try:
         error: Final = callback_config_error("langfuse_otel", {"excluded_services": "redis"})
     finally:
         is_otel_v2_enabled.cache_clear()
-    assert error is not None and "excluded_services" in error and "LITELLM_OTEL_V2" in error
+    assert error is not None and "excluded_services" in error and "HANGARLLM_OTEL_V2" in error
 
 
 @pytest.mark.parametrize("callback_name", ["langfuse", "datadog", "otel", "arize_phoenix", None])

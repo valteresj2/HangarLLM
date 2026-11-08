@@ -4,8 +4,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.cometapi.image_generation.transformation import CometAPIImageGenerationConfig
-from litellm.types.utils import ImageResponse
+from hangarllm.llms.cometapi.image_generation.transformation import CometAPIImageGenerationConfig
+from hangarllm.types.utils import ImageResponse
 
 
 def _transform(payload: object) -> ImageResponse:
@@ -16,7 +16,7 @@ def _transform(payload: object) -> ImageResponse:
         logging_obj=Mock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

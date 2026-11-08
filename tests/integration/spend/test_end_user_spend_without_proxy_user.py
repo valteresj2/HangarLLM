@@ -55,7 +55,7 @@ def test_end_user_spend_lands_for_key_without_user_id_when_auth_cache_is_redis(g
         assert response.status_code == 200, response.text
         assert response.json()["usage"]["total_tokens"] == 40, response.text
         charged: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_EndUserTable" WHERE user_id=%s', (end_user,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_EndUserTable" WHERE user_id=%s', (end_user,)),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
             seconds=70,
         )
@@ -87,7 +87,7 @@ def _new_customer(gateway: Gateway, user_id: str, **fields: JsonValue) -> None:
 
 def _charged_spend(user_id: str) -> float:
     charged: Final = eventually(
-        lambda: read_rows('SELECT spend FROM "LiteLLM_EndUserTable" WHERE user_id=%s', (user_id,)),
+        lambda: read_rows('SELECT spend FROM "HangarLLM_EndUserTable" WHERE user_id=%s', (user_id,)),
         lambda values: len(values) == 1 and float(str(values[0]["spend"])) >= 0.05,
         seconds=70,
     )
@@ -97,7 +97,7 @@ def _charged_spend(user_id: str) -> float:
 def _assert_daily_row(user_id: str, model: str, upstream_model: str = "openai/gpt-4o-mini") -> None:
     daily: Final = eventually(
         lambda: read_rows(
-            'SELECT model, model_group, spend, api_requests FROM "LiteLLM_DailyEndUserSpend" WHERE end_user_id=%s',
+            'SELECT model, model_group, spend, api_requests FROM "HangarLLM_DailyEndUserSpend" WHERE end_user_id=%s',
             (user_id,),
         ),
         lambda rows: len(rows) == 1,
@@ -137,11 +137,11 @@ def _json_object(raw: bytes) -> dict[str, JsonValue]:
 
 
 _CHAT_SPELLINGS: Final = (
-    pytest.param("x-litellm-end-user-id", id="header-x-litellm-end-user-id"),
-    pytest.param("x-litellm-customer-id", id="header-x-litellm-customer-id"),
-    pytest.param("litellm_metadata.user", id="body-litellm_metadata-user"),
+    pytest.param("x-hangarllm-end-user-id", id="header-x-hangarllm-end-user-id"),
+    pytest.param("x-hangarllm-customer-id", id="header-x-hangarllm-customer-id"),
+    pytest.param("hangarllm_metadata.user", id="body-hangarllm_metadata-user"),
     pytest.param("metadata.user_id", id="body-metadata-user_id"),
-    pytest.param("litellm_metadata.user:json-string", id="body-litellm_metadata-json-string-user"),
+    pytest.param("hangarllm_metadata.user:json-string", id="body-hangarllm_metadata-json-string-user"),
     pytest.param("metadata.user_id:json-string", id="body-metadata-json-string-user_id"),
 )
 
@@ -162,10 +162,10 @@ def _chat_request(
     }
     if spelling.startswith("x-"):
         headers[spelling] = end_user
-    elif spelling == "litellm_metadata.user":
-        body["litellm_metadata"] = {"user": end_user}
-    elif spelling == "litellm_metadata.user:json-string":
-        body["litellm_metadata"] = json.dumps({"user": end_user})
+    elif spelling == "hangarllm_metadata.user":
+        body["hangarllm_metadata"] = {"user": end_user}
+    elif spelling == "hangarllm_metadata.user:json-string":
+        body["hangarllm_metadata"] = json.dumps({"user": end_user})
     elif spelling == "metadata.user_id:json-string":
         body["metadata"] = json.dumps({"user_id": end_user})
     else:
@@ -178,7 +178,7 @@ def _chat_request(
 @pytest.mark.parametrize(
     "spelling",
     (
-        pytest.param("x-litellm-end-user-id", id="header"),
+        pytest.param("x-hangarllm-end-user-id", id="header"),
         pytest.param("metadata.user_id", id="metadata"),
     ),
 )
@@ -494,7 +494,7 @@ def test_end_user_header_wins_over_body_user(gateway: Gateway) -> None:
             "/v1/chat/completions",
             {"model": model, "messages": [{"role": "user", "content": text}], "user": body_user},
             key=key,
-            headers={"x-litellm-end-user-id": header_user},
+            headers={"x-hangarllm-end-user-id": header_user},
         )
         assert served.status_code == 200, served.text
         assert _observed(upstream) == [
@@ -509,11 +509,11 @@ def test_end_user_header_wins_over_body_user(gateway: Gateway) -> None:
         ]
         assert _charged_spend(header_user) == pytest.approx(0.06)
         _assert_daily_row(header_user, model)
-        body_rows: Final = read_rows('SELECT spend FROM "LiteLLM_EndUserTable" WHERE user_id=%s', (body_user,))
+        body_rows: Final = read_rows('SELECT spend FROM "HangarLLM_EndUserTable" WHERE user_id=%s', (body_user,))
         assert all(float(str(row["spend"])) == 0.0 for row in body_rows), body_rows
         assert (
             read_rows(
-                'SELECT id FROM "LiteLLM_DailyEndUserSpend" WHERE end_user_id=%s',
+                'SELECT id FROM "HangarLLM_DailyEndUserSpend" WHERE end_user_id=%s',
                 (body_user,),
             )
             == []
@@ -525,7 +525,7 @@ def test_end_user_header_wins_over_body_user(gateway: Gateway) -> None:
             "/v1/chat/completions",
             {"model": model, "messages": [{"role": "user", "content": f"again {uuid.uuid4().hex}"}], "user": body_user},
             key=key,
-            headers={"x-litellm-end-user-id": header_user},
+            headers={"x-hangarllm-end-user-id": header_user},
         )
         _assert_budget_refusal(denied, header_user)
         assert _observed(upstream) == []
@@ -543,7 +543,7 @@ def _config_with_general_settings(tmp_path: Path, general_settings: Mapping[str,
     ("general_settings", "injects_user_body_field"),
     (
         pytest.param(
-            {"user_header_mappings": [{"header_name": "x-integration-end-user", "litellm_user_role": "customer"}]},
+            {"user_header_mappings": [{"header_name": "x-integration-end-user", "hangarllm_user_role": "customer"}]},
             False,
             id="config-user_header_mappings",
         ),

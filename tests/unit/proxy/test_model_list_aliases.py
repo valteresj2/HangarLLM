@@ -11,18 +11,18 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.utils import ProxyLogging
 
 
 def _deployment(model_name: str, model: str = "openai/gpt-4.1-mini", **model_info: str | bool) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "api_key": "sk-fake"},
+        "hangarllm_params": {"model": model, "api_key": "sk-fake"},
         "model_info": {"id": f"{model_name}-id", **model_info},
     }
 
@@ -77,7 +77,7 @@ def _team_member(
     return UserAPIKeyAuth(
         api_key="sk-test",
         user_id="u",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         team_id=team_id,
         team_models=["gpt-4.1-mini", "model_name_team1_abc"],
         models=models or ["gpt-4.1-mini", "model_name_team1_abc"],
@@ -198,7 +198,7 @@ async def test_alias_the_key_also_lists_reports_its_target_metadata_at_list_and_
 
 
 def _keyholder(*models: str) -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.INTERNAL_USER, models=list(models))
+    return UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.INTERNAL_USER, models=list(models))
 
 
 @pytest.mark.asyncio
@@ -242,7 +242,7 @@ def _alias_holder(**aliases: dict[str, object]) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-test",
         user_id="u",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         models=["gpt-4.1", "fast"],
         **aliases,
     )
@@ -309,7 +309,7 @@ async def test_alias_to_a_model_the_listing_hides_is_not_described_by_it(
 async def test_alias_to_a_model_a_listing_callback_hides_is_not_described_by_it(
     router: Router, monkeypatch: pytest.MonkeyPatch, target: str, gated: str, models: list[str]
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_ListingGate(frozenset({gated}))])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ListingGate(frozenset({gated}))])
     ProxyLogging._callback_capabilities_cache.clear()
     caller = _team_member(models=models, team_model_aliases={"fast": target})
 
@@ -330,7 +330,7 @@ async def test_allow_list_callback_keeps_every_name_it_allows_when_an_alias_poin
     caller = _team_member(models=["gpt-4.1-mini", "legacy", "fast"], team_model_aliases={"fast": "gpt-4.1"})
     listed = await _v1_models(caller)
 
-    monkeypatch.setattr(litellm, "callbacks", [_ListingAllowList(frozenset(listed))])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ListingAllowList(frozenset(listed))])
     ProxyLogging._callback_capabilities_cache.clear()
     assert await _v1_models(caller) == listed
 
@@ -340,7 +340,7 @@ async def test_hidden_router_settings_alias_the_key_does_not_list_is_not_retriev
     caller = UserAPIKeyAuth(
         api_key="sk-test",
         user_id="u",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         models=["gpt-4.1"],
         router_settings={"model_group_alias": {"fast": "gpt-4.1", "quiet": {"model": "gpt-4.1", "hidden": True}}},
     )

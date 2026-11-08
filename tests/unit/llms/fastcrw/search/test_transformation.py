@@ -5,9 +5,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.fastcrw.search.transformation import FastCRWSearchConfig
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.fastcrw.search.transformation import FastCRWSearchConfig
 
 
 def _config() -> FastCRWSearchConfig:
@@ -32,11 +32,11 @@ def test_fastcrw_search_request_body():
     with (
         patch.dict(os.environ, {"CRW_API_KEY": "test-api-key"}),
         patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ) as mock_post,
     ):
-        response = litellm.search(
+        response = hangarllm.search(
             query="test query",
             search_provider="fastcrw",
             max_results=10,

@@ -343,7 +343,7 @@ def test_max_budget_allows_then_denies_and_records_spend(gateway: Gateway) -> No
         assert first.status_code == 200, first.text
         request_id: Final = first.json()["id"]
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
             lambda values: len(values) == 1,
             seconds=70,
         )

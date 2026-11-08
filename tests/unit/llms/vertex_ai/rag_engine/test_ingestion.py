@@ -2,10 +2,10 @@ import asyncio
 import sys
 from types import ModuleType, SimpleNamespace
 
-import litellm
-from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-from litellm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
-from litellm.llms.vertex_ai.rag_engine.ingestion import VertexAIRAGIngestion
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+from hangarllm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
+from hangarllm.llms.vertex_ai.rag_engine.ingestion import VertexAIRAGIngestion
 
 
 def _ingestion_for_bucket(bucket: str) -> VertexAIRAGIngestion:
@@ -28,10 +28,10 @@ def test_upload_lands_in_the_corpus_bucket_when_batch_bucket_env_is_set(monkeypa
     resolver = VertexAIFilesConfig()
 
     async def acreate_file_through_real_bucket_resolver(**kwargs):
-        bucket = resolver._get_configured_bucket_name(get_litellm_params(**kwargs))
+        bucket = resolver._get_configured_bucket_name(get_hangarllm_params(**kwargs))
         return SimpleNamespace(id=f"gs://{bucket}/{kwargs['file'][0]}")
 
-    monkeypatch.setattr(litellm, "acreate_file", acreate_file_through_real_bucket_resolver)
+    monkeypatch.setattr(hangarllm, "acreate_file", acreate_file_through_real_bucket_resolver)
 
     uri = asyncio.run(_ingestion_for_bucket("rag-bucket")._upload_file_to_gcs(b"doc", "doc.txt", "text/plain"))
 
@@ -63,10 +63,10 @@ def test_ingest_runs_end_to_end_through_the_base_pipeline(monkeypatch):
     monkeypatch.setitem(sys.modules, "vertexai.rag", stub.rag)
 
     async def acreate_file_through_real_bucket_resolver(**kwargs):
-        bucket = resolver._get_configured_bucket_name(get_litellm_params(**kwargs))
+        bucket = resolver._get_configured_bucket_name(get_hangarllm_params(**kwargs))
         return SimpleNamespace(id=f"gs://{bucket}/{kwargs['file'][0]}")
 
-    monkeypatch.setattr(litellm, "acreate_file", acreate_file_through_real_bucket_resolver)
+    monkeypatch.setattr(hangarllm, "acreate_file", acreate_file_through_real_bucket_resolver)
 
     result = asyncio.run(_ingestion_for_bucket("rag-bucket").ingest(file_data=("doc.txt", b"doc", "text/plain")))
 

@@ -309,7 +309,7 @@ def complete_converse_stream(body: bytes) -> bool:
     """ConverseStream ends with ``metadata``, not with ``messageStop``.
 
     Requiring the metadata frame rather than the stop frame is deliberate: it
-    carries the token usage litellm prices the call from, so a stream cut between
+    carries the token usage hangarllm prices the call from, so a stream cut between
     the two still names a stop reason but would replay as a free call."""
     events: Final = eventstream_events(body)
     if not events or events[-1][0] != "metadata":

@@ -43,9 +43,9 @@ class TestJwtManagement:
         claims: Final = token_claims(caller.credential)
         assert claims.sub == actor.identity.user_id
         assert claims.iss == actor_factory.idp.issuer
-        assert claims.aud == "litellm-e2e" or "litellm-e2e" in claims.aud
+        assert claims.aud == "hangarllm-e2e" or "hangarllm-e2e" in claims.aud
         assert actor.identity.groups == ()
-        assert ("litellm_proxy_admin" in claims.scope.split()) == (role == "proxy_admin")
+        assert ("hangarllm_proxy_admin" in claims.scope.split()) == (role == "proxy_admin")
         stored: Final = actor_factory.bootstrap.user_info(actor.identity.user_id)
         assert stored.user_id == actor.identity.user_id
         assert stored.user_info.user_role == actor.global_role
@@ -175,7 +175,7 @@ class TestJwtManagement:
         actor: Final = actor_factory.create("team_member", tenants=tenants, profile="group_scoped")
         claims: Final = token_claims(actor.mint_caller(actor_factory.idp).credential)
         assert set(claims.groups) == {tenant.team_id for tenant in tenants}
-        assert "litellm_proxy_admin" not in claims.scope.split()
+        assert "hangarllm_proxy_admin" not in claims.scope.split()
         assert actor.identity.groups == tuple(tenant.team_id for tenant in tenants)
         for tenant in tenants:
             assert {

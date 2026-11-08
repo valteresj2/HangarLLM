@@ -104,7 +104,7 @@ def test_openai_sdk_chat_stream_top_level_rate_limit_is_a_throttling_error_with_
         assert raised.value.status_code == 429
         assert_provider_typed_rate_limit(object_value(raised.value.body))
         _assert_one_attempt(wire, marker)
-        _assert_failure_logged(raised.value.response.headers["x-litellm-call-id"], "429", RATE_LIMIT_MESSAGE)
+        _assert_failure_logged(raised.value.response.headers["x-hangarllm-call-id"], "429", RATE_LIMIT_MESSAGE)
 
 
 async def test_async_openai_sdk_codex_chat_stream_top_level_rate_limit_is_a_throttling_error(gateway: Gateway) -> None:
@@ -152,7 +152,7 @@ def test_top_level_error_code_sets_the_chat_status_and_keeps_the_provider_messag
     client_message: Final = string_value(error["message"])
     assert message in client_message and SENTINEL_PREFIX not in client_message, client_message
     logged_code: Final = code if status == 400 else str(status)
-    _assert_failure_logged(response.headers["x-litellm-call-id"], logged_code, message)
+    _assert_failure_logged(response.headers["x-hangarllm-call-id"], logged_code, message)
 
 
 def test_top_level_rate_limit_after_text_is_a_throttling_error_frame_behind_the_text(gateway: Gateway) -> None:
@@ -278,7 +278,7 @@ def test_native_responses_stream_fails_with_the_provider_code_and_message(gatewa
     )
     assert [frame["type"] for frame in data_frames(response.text)] == ["response.created", "response.failed"]
     _assert_rate_limit_failure(error)
-    _assert_failure_logged(response.headers["x-litellm-call-id"], "429", RATE_LIMIT_MESSAGE)
+    _assert_failure_logged(response.headers["x-hangarllm-call-id"], "429", RATE_LIMIT_MESSAGE)
 
 
 _FLEX_MESSAGE: Final = "Flex processing is temporarily unavailable. Please try again later or use standard processing."
@@ -302,7 +302,7 @@ def _flex_outage(identity: str, kind: str) -> tuple[bytes, ...]:
 def test_native_responses_stream_flex_outage_fails_as_a_rate_limit(gateway: Gateway, kind: str) -> None:
     response, error = _responses_frames(gateway, _flex_outage(_identity(), kind))
     assert error["code"] == "rate_limit_exceeded" and _FLEX_MESSAGE in string_value(error["message"]), error
-    _assert_failure_logged(response.headers["x-litellm-call-id"], "429", _FLEX_MESSAGE)
+    _assert_failure_logged(response.headers["x-hangarllm-call-id"], "429", _FLEX_MESSAGE)
 
 
 @pytest.mark.parametrize("kind", ["error", "response.failed"])
@@ -310,7 +310,7 @@ def test_chat_stream_flex_outage_is_a_throttling_error_like_the_non_streamed_429
     response, _ = _chat(gateway, _flex_outage(_identity(), kind))
     assert response.status_code == 429, response.text
     assert_provider_typed_rate_limit(error_body(response), _FLEX_MESSAGE)
-    _assert_failure_logged(response.headers["x-litellm-call-id"], "429", _FLEX_MESSAGE)
+    _assert_failure_logged(response.headers["x-hangarllm-call-id"], "429", _FLEX_MESSAGE)
 
 
 def test_native_responses_stream_error_after_text_fails_with_the_provider_code(gateway: Gateway) -> None:

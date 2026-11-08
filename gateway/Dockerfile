@@ -1,5 +1,5 @@
-ARG LITELLM_BUILD_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
-ARG LITELLM_RUNTIME_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
+ARG HANGARLLM_BUILD_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
+ARG HANGARLLM_RUNTIME_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.11.7@sha256:240fb85ab0f263ef12f492d8476aa3a2e4e1e333f7d67fbdd923d00a506a516a
 # Checksum from https://www.pgbouncer.org/downloads/ (the Wolfi repo only carries 1.24.x)
 ARG PGBOUNCER_VERSION=1.26.0
@@ -7,7 +7,7 @@ ARG PGBOUNCER_SHA256=afd25dd61ee6775d37b40629b87ce08736b3e6955f3057bb212e410fbf2
 
 FROM $UV_IMAGE AS uvbin
 
-FROM $LITELLM_BUILD_IMAGE AS pgbouncer-builder
+FROM $HANGARLLM_BUILD_IMAGE AS pgbouncer-builder
 ARG PGBOUNCER_VERSION
 ARG PGBOUNCER_SHA256
 USER root
@@ -22,7 +22,7 @@ RUN curl -fsSL -o pgbouncer.tar.gz "https://www.pgbouncer.org/downloads/files/${
 
 # ---------- Rust extension ----------
 # Copies only the native build's inputs, so the fat-LTO compile stays cached across Python-only changes
-FROM $LITELLM_BUILD_IMAGE AS rust-native
+FROM $HANGARLLM_BUILD_IMAGE AS rust-native
 
 WORKDIR /app
 USER root
@@ -39,21 +39,21 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 COPY pyproject.toml README.md rust-toolchain.toml ./
 COPY .cargo ./.cargo
-COPY litellm-rust ./litellm-rust
+COPY hangarllm-rust ./hangarllm-rust
 COPY model_prices_and_context_window.json ./
-COPY packaging/litellm-proxy/pyproject.toml packaging/litellm-proxy/
+COPY packaging/hangarllm-proxy/pyproject.toml packaging/hangarllm-proxy/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    mkdir -p litellm/rust_bridge /wheels && \
-    touch litellm/__init__.py litellm/rust_bridge/__init__.py && \
+    mkdir -p hangarllm/rust_bridge /wheels && \
+    touch hangarllm/__init__.py hangarllm/rust_bridge/__init__.py && \
     uvx --python python3.13 --from maturin==1.15.0 --with puccinialin==0.1.14 \
         python -c "import maturin; maturin.build_wheel('/wheels')" && \
-    cd packaging/litellm-proxy && \
+    cd packaging/hangarllm-proxy && \
     uvx --python python3.13 --from maturin==1.15.0 --with puccinialin==0.1.14 \
         python -c "import maturin; maturin.build_wheel('/wheels')"
 
 # ---------- Builder ----------
-FROM $LITELLM_BUILD_IMAGE AS builder
+FROM $HANGARLLM_BUILD_IMAGE AS builder
 
 WORKDIR /app
 USER root
@@ -88,12 +88,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=enterprise/pyproject.toml,target=enterprise/pyproject.toml \
-    --mount=type=bind,source=litellm-proxy-extras/pyproject.toml,target=litellm-proxy-extras/pyproject.toml \
-    --mount=type=bind,source=packaging/litellm-proxy/pyproject.toml,target=packaging/litellm-proxy/pyproject.toml \
+    --mount=type=bind,source=hangarllm-proxy-extras/pyproject.toml,target=hangarllm-proxy-extras/pyproject.toml \
+    --mount=type=bind,source=packaging/hangarllm-proxy/pyproject.toml,target=packaging/hangarllm-proxy/pyproject.toml \
     uv sync --frozen --no-install-project --no-install-workspace --no-default-groups --no-editable \
         --extra proxy \
         --extra proxy-runtime \
-        --group admin-mcp \
         --extra extra_proxy \
         --extra semantic-router \
         --extra bedrock-realtime \
@@ -103,21 +102,20 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-install-package litellm-proxy --no-default-groups --no-editable \
+    uv sync --frozen --no-install-project --no-install-package hangarllm-proxy --no-default-groups --no-editable \
         --extra proxy \
         --extra proxy-runtime \
-        --group admin-mcp \
         --extra extra_proxy \
         --extra semantic-router \
         --extra bedrock-realtime \
         --python python3.13
 
 RUN --mount=type=bind,from=rust-native,source=/wheels,target=/wheels \
-    uv pip install --python /app/.venv/bin/python --no-deps /wheels/litellm-*.whl /wheels/litellm_proxy-*.whl
+    uv pip install --python /app/.venv/bin/python --no-deps /wheels/hangarllm-*.whl /wheels/hangarllm_proxy-*.whl
 
 # PYTHONPATH=/app makes the source tree shadow the installed package, so the
 # compiled Rust extension must live next to the source or it is never imported.
-RUN cp "$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"/litellm/rust_bridge/_native*.so litellm/rust_bridge/
+RUN cp "$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"/hangarllm/rust_bridge/_native*.so hangarllm/rust_bridge/
 
 RUN HOME=/opt/prisma XDG_CACHE_HOME=/opt/prisma/.cache PRISMA_BINARY_CACHE_DIR=/opt/prisma/binaries \
     npm_config_cache=/root/.npm \
@@ -126,7 +124,7 @@ RUN HOME=/opt/prisma XDG_CACHE_HOME=/opt/prisma/.cache PRISMA_BINARY_CACHE_DIR=/
 RUN sed -i 's/\r$//' docker/component_entrypoint.sh && chmod +x docker/component_entrypoint.sh
 
 # ---------- Runtime ----------
-FROM $LITELLM_RUNTIME_IMAGE AS runtime
+FROM $HANGARLLM_RUNTIME_IMAGE AS runtime
 
 USER root
 
@@ -147,10 +145,10 @@ ENV HOME=/home/nonroot \
     PRISMA_BINARY_CACHE_DIR=/opt/prisma/binaries
 
 COPY --from=builder --chown=nonroot:nonroot /app/.venv /app/.venv
-COPY --from=builder --chown=nonroot:nonroot /app/litellm /app/litellm
+COPY --from=builder --chown=nonroot:nonroot /app/hangarllm /app/hangarllm
 COPY --from=builder --chown=nonroot:nonroot /app/enterprise /app/enterprise
 COPY --from=builder --chown=nonroot:nonroot /app/gateway /app/gateway
-COPY --from=builder --chown=nonroot:nonroot /app/litellm_cli /app/litellm_cli
+COPY --from=builder --chown=nonroot:nonroot /app/hangarllm_cli /app/hangarllm_cli
 COPY --from=builder --chown=nonroot:nonroot /app/docker/component_entrypoint.sh /app/docker/component_entrypoint.sh
 COPY --from=builder --chown=nonroot:nonroot /app/schema.prisma /app/schema.prisma
 COPY --from=builder /opt/prisma /opt/prisma
@@ -160,7 +158,7 @@ RUN find /app/.venv -type f -path "*/tornado/test/*" -delete && \
     find /app/.venv -type d -path "*/tornado/test" -delete && \
     chmod -R a+rX /opt/prisma && \
     python -c "from prisma.client import BINARY_PATHS; paths = list(BINARY_PATHS.query_engine.values()); assert paths and all(p.startswith('/opt/prisma/') for p in paths), paths" && \
-    python -c "import litellm, litellm.rust_bridge._native; assert litellm.__file__ == '/app/litellm/__init__.py', litellm.__file__"
+    python -c "import hangarllm, hangarllm.rust_bridge._native; assert hangarllm.__file__ == '/app/hangarllm/__init__.py', hangarllm.__file__"
 
 USER nonroot
 

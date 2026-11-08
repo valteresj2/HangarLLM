@@ -7,7 +7,7 @@ import redis
 
 from tests._vcr_redis_persister import CASSETTE_REDIS_URL_ENV, _redis_url_from_env
 
-PREFIX = "litellm:vcr:cassette:"
+PREFIX = "hangarllm:vcr:cassette:"
 SCAN_BATCH = 500
 
 

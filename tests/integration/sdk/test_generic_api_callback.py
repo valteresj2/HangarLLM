@@ -10,8 +10,8 @@ import pytest
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly
 
-from litellm.integrations.generic_api.generic_api_callback import LOG_FORMAT_TYPES, GenericAPILogger
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.integrations.generic_api.generic_api_callback import LOG_FORMAT_TYPES, GenericAPILogger
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 from tests.integration._support.wire import Reply as WireReply, Request as WireRequest, wire_server
 
 

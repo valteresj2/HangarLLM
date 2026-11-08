@@ -19,17 +19,17 @@ from mcp.types import (
     Tool,
 )
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.mcp_server import catalog
-from litellm.proxy.mcp_server.contracts import OperationContext
-from litellm.proxy.mcp_server.faults.list_outcomes import (
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.proxy.mcp_server import catalog
+from hangarllm.proxy.mcp_server.contracts import OperationContext
+from hangarllm.proxy.mcp_server.faults.list_outcomes import (
     SERVER_OUTCOMES_META_KEY,
     AggregateToolListing,
     ServerListOk,
 )
-from litellm.types.mcp import MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.mcp import MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 CatalogKind = Literal["tools", "prompts", "resources", "templates"]
 OptionalCatalogResult = ListPromptsResult | ListResourcesResult | ListResourceTemplatesResult
@@ -53,15 +53,15 @@ async def test_catalog_refresh_keeps_selected_toolset_with_current_grants_and_co
 ) -> None:
     from fastapi import HTTPException
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.server import apply_toolset_scope
-    from litellm.proxy.mcp_server.tool_registry import global_mcp_tool_registry
-    from litellm.types.mcp_server.mcp_toolset import MCPToolset, MCPToolsetTool
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.server import apply_toolset_scope
+    from hangarllm.proxy.mcp_server.tool_registry import global_mcp_tool_registry
+    from hangarllm.types.mcp_server.mcp_toolset import MCPToolset, MCPToolsetTool
 
-    grants: Final = LiteLLM_ObjectPermissionTable(
+    grants: Final = HangarLLM_ObjectPermissionTable(
         object_permission_id="catalog-grants", mcp_toolsets=["narrow", "full"]
     )
     live_grants: Final = grants.model_copy(update={"mcp_toolsets": ["full"]}) if revoked else grants
@@ -80,8 +80,8 @@ async def test_catalog_refresh_keeps_selected_toolset_with_current_grants_and_co
         return tuple(toolset for toolset in toolsets if toolset.toolset_id in where["toolset_id"]["in"])
 
     tables: Final = SimpleNamespace(
-        litellm_objectpermissiontable=SimpleNamespace(find_unique=AsyncMock(return_value=live_grants)),
-        litellm_mcptoolsettable=SimpleNamespace(find_many=read_toolsets),
+        hangarllm_objectpermissiontable=SimpleNamespace(find_unique=AsyncMock(return_value=live_grants)),
+        hangarllm_mcptoolsettable=SimpleNamespace(find_many=read_toolsets),
     )
     database: Final = SimpleNamespace(
         db=tables,
@@ -144,10 +144,10 @@ def page(name: str, cursor: str | None = None, revision: str = "stable") -> List
 def rate_limit_catalog_setup(
     monkeypatch: pytest.MonkeyPatch, rejected_server_ids: frozenset[str]
 ) -> tuple[tuple[MCPServer, MCPServer], OperationContext, AsyncMock]:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import operations
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "catalog-rate-limit-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "catalog-rate-limit-test-key")
     servers: Final = (
         MCPServer(server_id="catalog-a", name="catalog-a", transport=MCPTransport.http),
         MCPServer(server_id="catalog-b", name="catalog-b", transport=MCPTransport.http),
@@ -233,7 +233,7 @@ async def listing(
 
 @pytest.mark.asyncio
 async def test_listing_continues_on_another_replica_and_cursor_is_reusable(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def replica_a(server_id: str, cursor: str | None) -> ListToolsResult:
         assert cursor is None
@@ -263,7 +263,7 @@ async def test_listing_continues_on_another_replica_and_cursor_is_reusable(monke
     ],
 )
 async def test_continuation_rejects_changed_binding_before_upstream_dispatch(monkeypatch, changes):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def first_page(server_id: str, cursor: str | None) -> ListToolsResult:
         return page(server_id, "next")
@@ -278,7 +278,7 @@ async def test_continuation_rejects_changed_binding_before_upstream_dispatch(mon
 
 @pytest.mark.asyncio
 async def test_complete_single_page_needs_no_key_but_continuation_does(monkeypatch):
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
 
     async def complete(server_id: str, cursor: str | None) -> ListToolsResult:
         return page(server_id)
@@ -289,13 +289,13 @@ async def test_complete_single_page_needs_no_key_but_continuation_does(monkeypat
     result = await listing(complete)
     assert len(result.tools) == 2
     assert result.next_cursor is None
-    with pytest.raises(MCPError, match="LITELLM_SALT_KEY"):
+    with pytest.raises(MCPError, match="HANGARLLM_SALT_KEY"):
         await listing(incomplete)
 
 
 @pytest.mark.asyncio
 async def test_repeated_upstream_cursor_requires_restart(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def repeated(server_id: str, cursor: str | None) -> ListToolsResult:
         return page(server_id, "repeated")
@@ -307,7 +307,7 @@ async def test_repeated_upstream_cursor_requires_restart(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_changed_upstream_revision_requires_restart(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def original(server_id: str, cursor: str | None) -> ListToolsResult:
         return page(server_id, "next")
@@ -322,9 +322,9 @@ async def test_changed_upstream_revision_requires_restart(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_failed_upstream_remains_visible_when_other_sources_continue(monkeypatch):
-    from litellm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def fetch(server_id: str, cursor: str | None) -> ListToolsResult:
         if server_id == "a":
@@ -343,7 +343,7 @@ async def test_failed_upstream_remains_visible_when_other_sources_continue(monke
 
 @pytest.mark.asyncio
 async def test_cursor_cannot_be_reused_for_a_different_catalog_kind(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def first_page(server_id: str, cursor: str | None) -> ListToolsResult:
         return page(server_id, "next")
@@ -366,10 +366,10 @@ async def test_cursor_cannot_be_reused_for_a_different_catalog_kind(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_authenticated_state_with_invalid_catalog_schema_is_rejected(monkeypatch):
-    from litellm.proxy.mcp_server.outbound_credentials.result import Ok
-    from litellm.proxy.mcp_server.state_tokens import seal_state
+    from hangarllm.proxy.mcp_server.outbound_credentials.result import Ok
+    from hangarllm.proxy.mcp_server.state_tokens import seal_state
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
     token = seal_state({"not": "catalog state"}, purpose="mcp.catalog.list.v1:tools/list", expires_at=200, now=100)
     assert isinstance(token, Ok)
 
@@ -382,7 +382,7 @@ async def test_authenticated_state_with_invalid_catalog_schema_is_rejected(monke
 
 @pytest.mark.asyncio
 async def test_following_page_does_not_extend_original_expiry(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def fetch(server_id, cursor):
         return page(server_id, "second" if cursor is None else "third")
@@ -396,9 +396,9 @@ async def test_following_page_does_not_extend_original_expiry(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_page_limit_rejects_an_unending_upstream(monkeypatch):
-    from litellm import constants
+    from hangarllm import constants
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
     monkeypatch.setattr(constants, "MCP_TOOL_LISTING_MAX_PAGES", 2)
 
     async def fetch(server_id, cursor):
@@ -426,8 +426,8 @@ async def test_page_limit_rejects_an_unending_upstream(monkeypatch):
 def test_caller_binding_covers_identity_scope_and_forwarded_credentials(change):
     from dataclasses import replace
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.mcp_server.contracts import OperationContext
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.mcp_server.contracts import OperationContext
 
     original = OperationContext(_caller=UserAPIKeyAuth(api_key="synthetic-key", user_id="owner"))
     assert catalog._caller_scope(original, ()) != catalog._caller_scope(replace(original, **change), ())
@@ -436,8 +436,8 @@ def test_caller_binding_covers_identity_scope_and_forwarded_credentials(change):
 def test_caller_binding_ignores_transport_headers_and_header_case():
     from dataclasses import replace
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.mcp_server.contracts import OperationContext
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.mcp_server.contracts import OperationContext
 
     original = OperationContext(
         _caller=UserAPIKeyAuth(user_id="owner"), raw_headers={"Authorization": "Bearer synthetic"}
@@ -448,7 +448,7 @@ def test_caller_binding_ignores_transport_headers_and_header_case():
 
 @pytest.mark.asyncio
 async def test_upstream_pages_overlap_and_keep_deterministic_order(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
     both_started = asyncio.Event()
     started = set()
 
@@ -465,9 +465,9 @@ async def test_upstream_pages_overlap_and_keep_deterministic_order(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_cursor_history_allows_the_full_supported_page_count(monkeypatch):
-    from litellm.constants import MCP_TOOL_LISTING_MAX_PAGES
+    from hangarllm.constants import MCP_TOOL_LISTING_MAX_PAGES
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
 
     async def fetch(server_id, cursor):
         index = int(cursor or "0")
@@ -483,7 +483,7 @@ async def test_cursor_history_allows_the_full_supported_page_count(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_failed_page_cancels_and_drains_other_upstream_requests(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "shared-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "shared-test-key")
     pending_started = asyncio.Event()
     pending_closed = asyncio.Event()
 
@@ -509,13 +509,13 @@ async def test_gateway_tools_continuation_rejects_an_upstream_failure(monkeypatc
 
     from mcp.types import PaginatedRequestParams
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.faults.list_outcomes import ServerListOk, classify_list_exception
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import ServerListOk, classify_list_exception
+    from hangarllm.types.mcp import MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "catalog-failure-test")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "catalog-failure-test")
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     server = MCPServer(server_id="pages", name="pages", transport=MCPTransport.http)
     monkeypatch.setattr(operations.global_mcp_server_manager, "registry", {server.server_id: server})
@@ -545,13 +545,13 @@ async def test_optional_gateway_catalog_reports_initial_failure_and_rejects_fail
 
     from mcp import types
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
+    from hangarllm.types.mcp import MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "catalog-failure-test")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "catalog-failure-test")
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     server = MCPServer(server_id="pages", name="pages", transport=MCPTransport.http)
     monkeypatch.setattr(operations.global_mcp_server_manager, "registry", {server.server_id: server})
@@ -761,7 +761,7 @@ async def test_discovery_cache_uses_upstream_freshness_and_configured_cap(
 def test_partial_optional_catalog_never_advertises_freshness() -> None:
     from mcp.types import ListPromptsRequest, ListPromptsResult
 
-    from litellm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
 
     result: Final = catalog.combine_optional_catalog(
         ListPromptsRequest(),

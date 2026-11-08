@@ -16,7 +16,7 @@ from pydantic import JsonValue, TypeAdapter
 from integration._support.client import Gateway, eventually
 from integration._support.database import read_rows
 from integration._support.wire import Reply, Request
-from litellm.responses.utils import ResponsesAPIRequestUtils as _RU
+from hangarllm.responses.utils import ResponsesAPIRequestUtils as _RU
 
 _MODEL: Final = "openai/gpt-5.6"
 
@@ -285,7 +285,7 @@ def _spend_rows(
         )
 
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda candidates: len(matching_rows(candidates)) == 1,
         seconds=60,
     )

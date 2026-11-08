@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.types.utils import LiteLLMFineTuningJob
+import hangarllm
+from hangarllm.types.utils import HangarLLMFineTuningJob
 
 API_BASE: Final = "https://fine-tuning.test"
 BASE_MODEL: Final = "gpt-4.1-nano-2025-04-14"
@@ -42,8 +42,8 @@ async def test_create_sends_the_model_without_the_provider_prefix(
     sent: Final = respx.post(url__startswith=route).mock(return_value=httpx.Response(200, json=PROVIDER_JOB))
 
     async with httpx.AsyncClient() as session:
-        monkeypatch.setattr(litellm, "aclient_session", session)
-        await litellm.acreate_fine_tuning_job(
+        monkeypatch.setattr(hangarllm, "aclient_session", session)
+        await hangarllm.acreate_fine_tuning_job(
             model=f"{custom_llm_provider}/{BASE_MODEL}" if prefixed else BASE_MODEL,
             training_file="file-abc123",
             custom_llm_provider=custom_llm_provider,
@@ -84,11 +84,11 @@ async def test_create_with_api_version_reaches_the_provider_and_only_azure_gets_
     }
 
     async with httpx.AsyncClient() as session:
-        monkeypatch.setattr(litellm, "aclient_session", session)
+        monkeypatch.setattr(hangarllm, "aclient_session", session)
         job: Final = (
-            await litellm.acreate_fine_tuning_job(**request) if is_async else litellm.create_fine_tuning_job(**request)
+            await hangarllm.acreate_fine_tuning_job(**request) if is_async else hangarllm.create_fine_tuning_job(**request)
         )
 
-    assert isinstance(job, LiteLLMFineTuningJob)
+    assert isinstance(job, HangarLLMFineTuningJob)
     assert job.id == PROVIDER_JOB["id"]
     assert sent.calls.last.request.url.params.get("api-version") == sent_api_version

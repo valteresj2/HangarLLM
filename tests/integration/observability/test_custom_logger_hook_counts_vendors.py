@@ -1,6 +1,6 @@
 """Built-in loggers that override both hooks deliver one record per async request outside the async flag list:
 Datadog one log entry and LangSmith one run. OpenTelemetry keeps its own emit-once guard, so it never exports two
-spans for a request either way; its speech, OCR and search spans carry no `litellm.call_id`, so only "never two"
+spans for a request either way; its speech, OCR and search spans carry no `hangarllm.call_id`, so only "never two"
 is checked for it.
 
 A legacy sync callback is configured, because that is what makes the sync handler run for an async call."""
@@ -96,7 +96,7 @@ def _records(request: Request) -> tuple[tuple[str, str], ...]:
         return tuple(("langsmith", json.dumps(run)) for run in runs)
     if request.target.startswith("/otel"):
         spans: Final = decode_spans(request.body, request.headers.get("content-type", ""))
-        return tuple(("otel", json.dumps(span)) for span in spans if "litellm.call_id" in span["attributes"])
+        return tuple(("otel", json.dumps(span)) for span in spans if "hangarllm.call_id" in span["attributes"])
     return ()
 
 

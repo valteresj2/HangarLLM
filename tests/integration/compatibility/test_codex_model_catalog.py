@@ -18,7 +18,7 @@ import pytest
 import yaml
 from pydantic import JsonValue
 
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 from tests.integration._support.client import (
     JSON_OBJECT,
     Gateway,
@@ -43,8 +43,8 @@ RELOAD_MARGIN_SECONDS: Final = 5.0
 PROXY_WORKERS: Final = int(os.environ.get("INTEGRATION_PROXY_WORKERS", "1"))
 WORKER_SYNC_SECONDS: Final = 0.0 if PROXY_WORKERS == 1 else PROXY_CONFIG_RELOAD_INTERVAL_SECONDS + RELOAD_MARGIN_SECONDS
 ROOT: Final = Path(os.environ.get("INTEGRATION_PROXY_ROOT") or Path(__file__).resolve().parents[3])
-BUNDLED_STOCK_PATH: Final = ROOT / "litellm" / "proxy" / "common_utils" / "codex_bundled_models_0.166.0.json"
-BASE_INSTRUCTIONS_PATH: Final = ROOT / "litellm" / "proxy" / "common_utils" / "codex_base_instructions.md"
+BUNDLED_STOCK_PATH: Final = ROOT / "hangarllm" / "proxy" / "common_utils" / "codex_bundled_models_0.166.0.json"
+BASE_INSTRUCTIONS_PATH: Final = ROOT / "hangarllm" / "proxy" / "common_utils" / "codex_base_instructions.md"
 FRESH_CONNECTION: Final = {"Connection": "close"}
 ANTHROPIC_HEADERS: Final = {"anthropic-version": "2023-06-01"}
 USAGE: Final = {"prompt_tokens": 11, "completion_tokens": 4, "total_tokens": 15}
@@ -179,9 +179,9 @@ def _model_info_rows(gateway: Gateway, model_name: str) -> list[dict[str, JsonVa
 
 
 def _delete_model_if_present(gateway: Gateway, identity: str) -> None:
-    if read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (identity,)):
+    if read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (identity,)):
         gateway.post("/model/delete", {"id": identity})
-    assert read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == []
+    assert read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == []
 
 
 def _new_model(
@@ -196,7 +196,7 @@ def _new_model(
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": model,
                 "api_key": "integration-provider-key",
                 "api_base": api_base or f"{scenario.gateway.upstream_url}/v1",
@@ -706,7 +706,7 @@ def _sent_prompt(body: Mapping[str, JsonValue], sent: Sequence[str]) -> str:
 
 def _spend_ids_for_key(key: str) -> list[str]:
     rows: Final = read_rows(
-        'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (sha256(key.encode()).hexdigest(),)
+        'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (sha256(key.encode()).hexdigest(),)
     )
     return [string_value(row["request_id"]) for row in rows]
 

@@ -1,16 +1,16 @@
-# litellm_budget Data Source
+# hangarllm_budget Data Source
 
-Retrieves information about an existing LiteLLM budget by ID
+Retrieves information about an existing HangarLLM budget by ID
 
 ## Example Usage
 
 ```hcl
-data "litellm_budget" "engineering" {
+data "hangarllm_budget" "engineering" {
   budget_id = "engineering-monthly"
 }
 
 output "engineering_max_budget" {
-  value = data.litellm_budget.engineering.max_budget
+  value = data.hangarllm_budget.engineering.max_budget
 }
 ```
 

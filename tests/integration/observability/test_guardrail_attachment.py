@@ -18,7 +18,7 @@ from tests.integration._support.wire import Reply, Request, Wire, wire_server
 
 _ATTACHABLE: Final = "attachable-during-guard"
 _WORDS: Final = "custom-words-during-guard"
-_HEADER: Final = "x-litellm-applied-guardrails"
+_HEADER: Final = "x-hangarllm-applied-guardrails"
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,17 +48,17 @@ def _completion(request: Request) -> Reply:
 
 
 def _allow(request: Request) -> Reply:
-    assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+    assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
     return Reply(body=json.dumps({"action": "NONE"}).encode())
 
 
 def _config(directory: Path, policy: Wire) -> Path:
-    shutil.copy(Path("litellm/proxy/example_config_yaml/custom_guardrail.py"), directory / "custom_guardrail.py")
+    shutil.copy(Path("hangarllm/proxy/example_config_yaml/custom_guardrail.py"), directory / "custom_guardrail.py")
     configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     configuration["guardrails"] = [
         {
             "guardrail_name": _ATTACHABLE,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "generic_guardrail_api",
                 "mode": "during_call",
                 "api_base": policy.url,
@@ -67,7 +67,7 @@ def _config(directory: Path, policy: Wire) -> Path:
         },
         {
             "guardrail_name": _WORDS,
-            "litellm_params": {"guardrail": "custom_guardrail.myCustomGuardrail", "mode": "during_call"},
+            "hangarllm_params": {"guardrail": "custom_guardrail.myCustomGuardrail", "mode": "during_call"},
         },
     ]
     path: Final = directory / "guardrail-attachment.yaml"
@@ -143,11 +143,11 @@ def test_a_team_carrying_a_guardrail_applies_it_to_its_keys_only(rig: _Rig) -> N
 
 
 def test_a_during_call_custom_guardrail_rejects_a_request_naming_the_banned_word(rig: _Rig) -> None:
-    unguarded_prompt: Final = _prompt("what is litellm")
+    unguarded_prompt: Final = _prompt("what is hangarllm")
     _served_without_guardrail(rig, _ask(rig, None, unguarded_prompt), unguarded_prompt)
-    refused: Final = _ask(rig, None, _prompt("what is litellm"), [_WORDS])
+    refused: Final = _ask(rig, None, _prompt("what is hangarllm"), [_WORDS])
     rig.upstream.drain()
     assert refused.status_code >= 400, refused.text
     error: Final = object_value(JSON_OBJECT.validate_json(refused.content)["error"])
-    assert "Guardrail failed words - `litellm` detected" in string_value(error["message"]), refused.text
+    assert "Guardrail failed words - `hangarllm` detected" in string_value(error["message"]), refused.text
     assert rig.policy.drain() == ()

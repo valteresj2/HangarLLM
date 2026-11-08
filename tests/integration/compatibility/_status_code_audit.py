@@ -222,7 +222,7 @@ def deployment(
     identity, handle = register(scenario, name, response)
     return identity, {
         "model_name": name,
-        "litellm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity, **extra},
+        "hangarllm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity, **extra},
     }
 
 

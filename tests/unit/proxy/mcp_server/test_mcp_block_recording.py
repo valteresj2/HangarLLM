@@ -1,7 +1,7 @@
-from litellm.proxy.mcp_server import operations as mcp_operations
+from hangarllm.proxy.mcp_server import operations as mcp_operations
 
 """Tests for guardrail-block recording in
-``litellm.proxy.mcp_server.operations.call_mcp_tool``.
+``hangarllm.proxy.mcp_server.operations.call_mcp_tool``.
 
 A pre-call MCP guardrail block *raises* into ``call_mcp_tool``'s
 ``except Exception``. The failure spend-log row that the Guardrails Monitor's
@@ -13,7 +13,7 @@ handlers must run *before* ``post_call_failure_hook``, otherwise the row persist
 with ``guardrail_information=None`` and the block is never counted. These tests
 pin that ordering.
 
-``call_mcp_tool`` is wrapped by ``@client`` (``litellm.utils.client``), which uses
+``call_mcp_tool`` is wrapped by ``@client`` (``hangarllm.utils.client``), which uses
 ``functools.wraps`` and therefore exposes the raw undecorated coroutine as
 ``__wrapped__``. The tests drive ``__wrapped__`` directly so the except-block
 ordering is observed in isolation, without the wrapper's own post-raise logging
@@ -22,7 +22,7 @@ dedup rests on ``should_run_logging("sync_failure")`` / ``("async_failure")``,
 which has its own coverage in the logging tests.
 
 ``proxy_logging_obj`` is imported lazily inside the except block via
-``from litellm.proxy.proxy_server import proxy_logging_obj``; the real
+``from hangarllm.proxy.proxy_server import proxy_logging_obj``; the real
 ``proxy_server`` module is heavy, so a fake module is injected into ``sys.modules``
 to satisfy that lazy import without loading it.
 """
@@ -35,11 +35,11 @@ from unittest import mock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy.mcp_server import server
+from hangarllm.proxy.mcp_server import server
 
 
 class _RecordingLoggingObj:
-    """Stands in for ``LiteLLMLoggingObj``, recording the failure flush the fix
+    """Stands in for ``HangarLLMLoggingObj``, recording the failure flush the fix
     makes so the test can assert it happens before ``post_call_failure_hook``."""
 
     def __init__(self, order: list) -> None:
@@ -69,13 +69,13 @@ async def _call_block(logging_obj, order: list, *, user_api_key_auth=mock.sentin
 
     fake_proxy_server = types.SimpleNamespace(proxy_logging_obj=proxy_logging_obj, prisma_client=None)
 
-    with mock.patch.dict(sys.modules, {"litellm.proxy.proxy_server": fake_proxy_server}):
+    with mock.patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": fake_proxy_server}):
         with contextlib.suppress(HTTPException):
             await mcp_operations.call_mcp_tool.__wrapped__(
                 name="t",
                 arguments=None,
                 user_api_key_auth=user_api_key_auth,
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
             )
 
 

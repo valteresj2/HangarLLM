@@ -4,7 +4,7 @@ from io import StringIO
 
 import pytest
 
-import litellm
+import hangarllm
 from tests._vcr_conftest_common import (  # noqa: E402
     VCR_DIAG_EMIT_MAX_LINES,
     emit_cassette_cache_session_banner,
@@ -47,7 +47,7 @@ def health_reset():
 def vcr_enabled(monkeypatch):
     """Make :func:`vcr_disabled` return False so the banner emits."""
     monkeypatch.setenv("CASSETTE_REDIS_URL", "redis://stub")
-    monkeypatch.delenv("LITELLM_VCR_DISABLE", raising=False)
+    monkeypatch.delenv("HANGARLLM_VCR_DISABLE", raising=False)
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
 
@@ -152,7 +152,7 @@ def test_banner_silent_when_vcr_disabled(monkeypatch, health_reset, patch_capaci
 
 
 def test_diagnostic_log_dedupes_repeated_blocks(tmp_path, monkeypatch):
-    monkeypatch.setenv("LITELLM_VCR_DIAG_DIR", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_VCR_DIAG_DIR", str(tmp_path))
     (tmp_path / "123.log").write_text(
         "\n".join(["[vcr-key-fingerprint-matcher] differ"] * 40 + ["unique line"]),
         encoding="utf-8",
@@ -169,7 +169,7 @@ def test_diagnostic_log_dedupes_repeated_blocks(tmp_path, monkeypatch):
 
 
 def test_diagnostic_log_caps_unique_lines(tmp_path, monkeypatch):
-    monkeypatch.setenv("LITELLM_VCR_DIAG_DIR", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_VCR_DIAG_DIR", str(tmp_path))
     total = VCR_DIAG_EMIT_MAX_LINES + 50
     (tmp_path / "123.log").write_text("\n".join(f"unique-diagnostic-{i}" for i in range(total)), encoding="utf-8")
     reporter = _FakeTerminalReporter()
@@ -183,7 +183,7 @@ def test_diagnostic_log_caps_unique_lines(tmp_path, monkeypatch):
 
 
 def test_diagnostic_log_silent_when_no_dir(tmp_path, monkeypatch):
-    monkeypatch.setenv("LITELLM_VCR_DIAG_DIR", str(tmp_path / "does-not-exist"))
+    monkeypatch.setenv("HANGARLLM_VCR_DIAG_DIR", str(tmp_path / "does-not-exist"))
     reporter = _FakeTerminalReporter()
 
     emit_vcr_diagnostic_log(reporter)
@@ -204,7 +204,7 @@ def test_banner_silent_on_xdist_worker(monkeypatch, vcr_enabled, health_reset, p
 
 
 # ---------------------------------------------------------------------------
-# Telemetry-leak suppression. Several modules set ``litellm.success_callback``
+# Telemetry-leak suppression. Several modules set ``hangarllm.success_callback``
 # at import time, so observability logging is globally enabled and an async
 # flush can land in an unrelated test's VCR window and be saved as a spurious
 # MISS:RECORDED episode. ``_should_drop_telemetry_record`` refuses to record a
@@ -264,7 +264,7 @@ def current_test(monkeypatch):
             False,
         ),
         # Telemetry EXPORT POSTs are fire-and-forget and dropped even for
-        # telemetry-named tests: litellm's background flush makes them rotate
+        # telemetry-named tests: hangarllm's background flush makes them rotate
         # into a later telemetry test's window as a phantom MISS:RECORDED. The
         # e2e suite mocks the export client and asserts on the mock; read-back
         # tests assert on a GET — neither needs the recorded export POST.
@@ -357,7 +357,7 @@ def test_load_guard_patch_is_idempotent():
     first = cassette_mod.Cassette._load
     common.patch_vcrpy_cassette_load_guard()
     assert cassette_mod.Cassette._load is first
-    assert getattr(cassette_mod.Cassette._load, "_litellm_load_guarded", False)
+    assert getattr(cassette_mod.Cassette._load, "_hangarllm_load_guarded", False)
 
 
 @pytest.fixture(autouse=True)
@@ -379,7 +379,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -389,21 +389,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -412,15 +412,15 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }

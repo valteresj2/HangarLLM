@@ -1,7 +1,7 @@
 """
 Tests for ChatGPT subscription Responses API transformation
 
-Source: litellm/llms/chatgpt/responses/transformation.py
+Source: hangarllm/llms/chatgpt/responses/transformation.py
 """
 
 import base64
@@ -14,25 +14,25 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.chatgpt.authenticator import Authenticator
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.responses.transformation import OPENAI_RESPONSES_API_MIN_MAX_OUTPUT_TOKENS
-from litellm.main import responses_api_bridge_check
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.chatgpt.authenticator import Authenticator
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
+from hangarllm.llms.openai.common_utils import OpenAIError
+from hangarllm.llms.openai.responses.transformation import OPENAI_RESPONSES_API_MIN_MAX_OUTPUT_TOKENS
+from hangarllm.main import responses_api_bridge_check
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 class TestChatGPTResponsesAPITransformation:
@@ -52,7 +52,7 @@ class TestChatGPTResponsesAPITransformation:
                 "max_output_tokens": 16,
                 "prompt_cache_options": {"ttl": "30m"},
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -70,7 +70,7 @@ class TestChatGPTResponsesAPITransformation:
             model="chatgpt/gpt-6.1-sol",
             input=[{"role": "user", "content": "Reply with OK"}],
             response_api_optional_request_params={} if requested_tier is None else {"service_tier": requested_tier},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -89,7 +89,7 @@ class TestChatGPTResponsesAPITransformation:
             model="chatgpt/gpt-6.1-sol",
             input=[system_string_item, user_item, system_blocks_item, developer_item],
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -158,7 +158,7 @@ class TestChatGPTResponsesAPITransformation:
         assert model_info["mode"] == "responses"
         assert resolved_model == model_name
 
-    @patch("litellm.llms.chatgpt.responses.transformation.Authenticator")
+    @patch("hangarllm.llms.chatgpt.responses.transformation.Authenticator")
     def test_chatgpt_responses_endpoint_url(self, mock_authenticator_class):
         mock_auth_instance = MagicMock()
         mock_auth_instance.get_api_base.return_value = "https://chatgpt.example.com"
@@ -166,16 +166,16 @@ class TestChatGPTResponsesAPITransformation:
 
         config = ChatGPTResponsesAPIConfig()
 
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, hangarllm_params={})
         assert url == "https://chatgpt.example.com/responses"
 
-        custom_url = config.get_complete_url(api_base="https://custom.chatgpt.com", litellm_params={})
+        custom_url = config.get_complete_url(api_base="https://custom.chatgpt.com", hangarllm_params={})
         assert custom_url == "https://custom.chatgpt.com/responses"
 
-        url_with_slash = config.get_complete_url(api_base="https://chatgpt.example.com/", litellm_params={})
+        url_with_slash = config.get_complete_url(api_base="https://chatgpt.example.com/", hangarllm_params={})
         assert url_with_slash == "https://chatgpt.example.com/responses"
 
-    @patch("litellm.llms.chatgpt.responses.transformation.Authenticator")
+    @patch("hangarllm.llms.chatgpt.responses.transformation.Authenticator")
     def test_validate_environment_headers(self, mock_authenticator_class):
         mock_auth_instance = MagicMock()
         mock_auth_instance.get_access_token.return_value = "access-123"
@@ -183,11 +183,11 @@ class TestChatGPTResponsesAPITransformation:
         mock_authenticator_class.return_value = mock_auth_instance
 
         config = ChatGPTResponsesAPIConfig()
-        litellm_params = GenericLiteLLMParams(litellm_session_id="session-123")
+        hangarllm_params = GenericHangarLLMParams(hangarllm_session_id="session-123")
         headers = config.validate_environment(
             headers={"originator": "custom-origin"},
             model="gpt-5.2",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert headers["Authorization"] == "Bearer access-123"
@@ -210,7 +210,7 @@ class TestChatGPTResponsesAPITransformation:
             model=model_name,
             input="hi",
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -246,7 +246,7 @@ class TestChatGPTResponsesAPITransformation:
                 "tools": [{"type": "function", "function": {"name": "hello"}}],
                 "tool_choice": {"type": "function", "function": {"name": "hello"}},
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -457,7 +457,7 @@ class TestChatGPTClientCredentialForwarding:
         headers = _config_with(authenticator).validate_environment(
             headers={"Authorization": f"Bearer {token}", "originator": "codex_cli_rs"},
             model="gpt-5.4",
-            litellm_params=GenericLiteLLMParams(api_key="configured-gateway-key", litellm_session_id="session-1"),
+            hangarllm_params=GenericHangarLLMParams(api_key="configured-gateway-key", hangarllm_session_id="session-1"),
         )
 
         assert headers["Authorization"] == f"Bearer {token}"
@@ -473,7 +473,7 @@ class TestChatGPTClientCredentialForwarding:
         headers = _config_with(_gateway_authenticator()).validate_environment(
             headers={"authorization": f"Bearer {token}", "chatgpt-account-id": "acct-from-header"},
             model="gpt-5.4",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
         )
 
         assert headers["ChatGPT-Account-Id"] == "acct-from-header"
@@ -488,7 +488,7 @@ class TestChatGPTClientCredentialForwarding:
         headers = ChatGPTResponsesAPIConfig(authenticator=authenticator).validate_environment(
             headers={"Authorization": bearer},
             model="gpt-5.4",
-            litellm_params=GenericLiteLLMParams(api_key="configured-gateway-key"),
+            hangarllm_params=GenericHangarLLMParams(api_key="configured-gateway-key"),
         )
 
         assert "ChatGPT-Account-Id" not in headers
@@ -500,7 +500,7 @@ class TestChatGPTClientCredentialForwarding:
         headers = _config_with(authenticator).validate_environment(
             headers={},
             model="gpt-5.4",
-            litellm_params=GenericLiteLLMParams(api_key="configured-gateway-key"),
+            hangarllm_params=GenericHangarLLMParams(api_key="configured-gateway-key"),
         )
 
         assert headers["Authorization"] == "Bearer configured-gateway-key"
@@ -510,7 +510,7 @@ class TestChatGPTClientCredentialForwarding:
         headers = _config_with(_gateway_authenticator()).validate_environment(
             headers={},
             model="gpt-5.4",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
         )
 
         assert headers["Authorization"] == "Bearer gateway-access-token"
@@ -523,7 +523,7 @@ class TestChatGPTClientCredentialForwarding:
 
         forwarded = [
             config.validate_environment(
-                headers={"Authorization": f"Bearer {token}"}, model="gpt-5.4", litellm_params=GenericLiteLLMParams()
+                headers={"Authorization": f"Bearer {token}"}, model="gpt-5.4", hangarllm_params=GenericHangarLLMParams()
             )
             for token in (alice, bob, alice)
         ]
@@ -567,17 +567,17 @@ class TestChatGPTResponsesMultiAccount:
         headers_a: Final = config.validate_environment(
             headers={},
             model="gpt-6.1-sol",
-            litellm_params=GenericLiteLLMParams(chatgpt_auth_file=str(file_a)),
+            hangarllm_params=GenericHangarLLMParams(chatgpt_auth_file=str(file_a)),
         )
         headers_b: Final = config.validate_environment(
             headers={},
             model="gpt-6.1-sol",
-            litellm_params=GenericLiteLLMParams(chatgpt_auth_file=str(file_b)),
+            hangarllm_params=GenericHangarLLMParams(chatgpt_auth_file=str(file_b)),
         )
         headers_default: Final = config.validate_environment(
             headers={},
             model="gpt-6.1-sol",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
         )
 
         assert headers_a["Authorization"] == "Bearer token-a"
@@ -667,9 +667,9 @@ def test_prompt_cache_key_keeps_one_session_header_across_requests(call: str) ->
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(upstream)))
     for _ in range(2):
         if call == "responses":
-            litellm.responses(model="chatgpt/gpt-5.5", input="hi", prompt_cache_key="conv-123", client=client)
+            hangarllm.responses(model="chatgpt/gpt-5.5", input="hi", prompt_cache_key="conv-123", client=client)
         else:
-            litellm.completion(
+            hangarllm.completion(
                 model="chatgpt/gpt-5.5",
                 messages=[{"role": "user", "content": "hi"}],
                 prompt_cache_key="conv-123",
@@ -696,7 +696,7 @@ def test_responses_text_reaches_the_codex_backend_whole() -> None:
     upstream: Final = _completed_codex_upstream('{"city": "Paris", "country": "France"}')
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(upstream)))
 
-    litellm.responses(model="chatgpt/gpt-5.5", input="Where is the Eiffel Tower?", text=text, client=client)
+    hangarllm.responses(model="chatgpt/gpt-5.5", input="Where is the Eiffel Tower?", text=text, client=client)
 
     assert json.loads(upstream.call_args.args[0].content)["text"] == text
 
@@ -718,7 +718,7 @@ def test_chat_response_format_reaches_the_codex_backend_as_text_format(
     upstream: Final = _completed_codex_upstream('{"city": "Paris", "country": "France"}')
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(upstream)))
 
-    litellm.completion(
+    hangarllm.completion(
         model="chatgpt/gpt-5.5",
         messages=[{"role": "user", "content": "Where is the Eiffel Tower? Answer in JSON."}],
         response_format=response_format,
@@ -739,7 +739,7 @@ def test_chat_max_tokens_reaches_the_codex_backend_no_lower_than_its_minimum(
     upstream: Final = _completed_codex_upstream("OK")
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(upstream)))
 
-    litellm.completion(
+    hangarllm.completion(
         model="chatgpt/gpt-5.5",
         messages=[{"role": "user", "content": "hi"}],
         max_tokens=max_tokens,
@@ -754,7 +754,7 @@ def test_non_stream_chat_cut_off_by_max_tokens_returns_the_partial_answer() -> N
     upstream: Final = _completed_codex_upstream('{"capitals": ["Paris", "Ber', incomplete_reason="max_output_tokens")
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(upstream)))
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="chatgpt/gpt-5.5",
         messages=[{"role": "user", "content": "List capitals as JSON."}],
         max_tokens=16,

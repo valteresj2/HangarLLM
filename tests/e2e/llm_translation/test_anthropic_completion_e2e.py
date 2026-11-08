@@ -7,7 +7,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import AnthropicExtraBody, AnthropicToolBody, LiteLLMParamsBody
+from models import AnthropicExtraBody, AnthropicToolBody, HangarLLMParamsBody
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from proxy_client import ProxyClient
@@ -56,7 +56,7 @@ def _register_anthropic(
     model: Final = f"{prefix}-{unique_marker()}"
     model_id: Final = proxy.create_model(
         model,
-        LiteLLMParamsBody(model=backend, api_key="os.environ/ANTHROPIC_API_KEY"),
+        HangarLLMParamsBody(model=backend, api_key="os.environ/ANTHROPIC_API_KEY"),
     )
     resources.defer(lambda: proxy.delete_model(model_id))
     return model, sdk.openai(resources.key())

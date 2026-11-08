@@ -10,16 +10,16 @@ import pytest
 import httpx
 import respx
 
-import litellm
-from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS, HTTP_HANDLER_CONNECT_TIMEOUT_SECONDS
-from litellm.llms.chatgpt.authenticator import (
+import hangarllm
+from hangarllm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS, HTTP_HANDLER_CONNECT_TIMEOUT_SECONDS
+from hangarllm.llms.chatgpt.authenticator import (
     TOKEN_REFRESH_TIMEOUT_SECONDS,
     Authenticator,
     get_cached_authenticator,
     get_chatgpt_auth_file,
 )
-from litellm.llms.chatgpt.common_utils import GetAccessTokenError
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.llms.chatgpt.common_utils import GetAccessTokenError
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 def _make_jwt(payload: dict) -> str:
@@ -77,8 +77,8 @@ class TestChatGPTAuthenticator:
         ],
     )
     def test_refresh_tokens_uses_bounded_timeout(self, authenticator, monkeypatch, request_timeout, expected_read):
-        monkeypatch.setattr(litellm, "request_timeout", request_timeout)
-        monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False)
+        monkeypatch.setattr(hangarllm, "request_timeout", request_timeout)
+        monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", False)
         client = MagicMock()
         response = MagicMock()
         response.json.return_value = {
@@ -88,7 +88,7 @@ class TestChatGPTAuthenticator:
         client.post.return_value = response
 
         with patch(  # test-quality-ok: requested seam for asserting timeout propagation
-            "litellm.llms.chatgpt.authenticator.get_httpx_client", return_value=client
+            "hangarllm.llms.chatgpt.authenticator.get_httpx_client", return_value=client
         ):
             refreshed = authenticator._refresh_tokens("refresh-123")
 
@@ -265,8 +265,8 @@ class TestChatGPTMultiAccountAuthenticator:
         assert get_chatgpt_auth_file({}) is None
         assert get_chatgpt_auth_file({"chatgpt_auth_file": ""}) is None
         assert get_chatgpt_auth_file({"chatgpt_auth_file": "/a/auth.json"}) == "/a/auth.json"
-        assert get_chatgpt_auth_file(GenericLiteLLMParams()) is None
-        assert get_chatgpt_auth_file(GenericLiteLLMParams(chatgpt_auth_file="/b/auth.json")) == "/b/auth.json"
+        assert get_chatgpt_auth_file(GenericHangarLLMParams()) is None
+        assert get_chatgpt_auth_file(GenericHangarLLMParams(chatgpt_auth_file="/b/auth.json")) == "/b/auth.json"
 
     def test_relative_and_absolute_auth_file_share_cached_authenticator(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

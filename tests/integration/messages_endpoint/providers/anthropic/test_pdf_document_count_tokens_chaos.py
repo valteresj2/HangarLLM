@@ -68,7 +68,7 @@ def _held(release: threading.Event) -> Callable[[Request], Reply]:
 def _deployment(api_base: str) -> dict[str, JsonValue]:
     return {
         "model_name": _MODEL,
-        "litellm_params": {"model": "anthropic/claude-opus-5-5", "api_base": api_base, "api_key": _PROVIDER_KEY},
+        "hangarllm_params": {"model": "anthropic/claude-opus-5-5", "api_base": api_base, "api_key": _PROVIDER_KEY},
     }
 
 
@@ -106,7 +106,7 @@ async def _fire_messages(
         marker: Final = uuid.uuid4().hex
         body: Final = messages_body(_MODEL, [pdf_document((LETTER,))], f"{_ASK} marker-{marker}")
         response: Final = await client.post("/v1/messages", json=body, headers={"Authorization": f"Bearer {key}"})
-        return _Sent(marker, response.status_code, response.text, response.headers.get("x-litellm-call-id", ""))
+        return _Sent(marker, response.status_code, response.text, response.headers.get("x-hangarllm-call-id", ""))
 
     async with httpx.AsyncClient(base_url=url, timeout=90, trust_env=False) as client:
         results: Final = await asyncio.gather(
@@ -143,7 +143,7 @@ def _single_spend_row(item: _Sent) -> None:
     assert item.status == 200, (item.status, item.text)
     assert item.call_id, item.text
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (item.call_id,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (item.call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -164,7 +164,7 @@ async def test_pdf_local_count_burst_across_two_workers_prices_every_page_and_lo
     gateway: Gateway, tmp_path: Path
 ) -> None:
     with wire_server(_peer) as wire:
-        config: Final = owned_config(tmp_path, [_deployment(wire.url)], litellm_settings={"cache": False})
+        config: Final = owned_config(tmp_path, [_deployment(wire.url)], hangarllm_settings={"cache": False})
         with owned_proxy_process(gateway, tmp_path, {}, config=config, workers=2) as owned:
             eventually(
                 lambda: _STARTED_WORKER.findall(owned.log.read_text()),
@@ -195,7 +195,7 @@ async def test_worker_sigkill_mid_pdf_message_burst_preserves_local_page_pricing
 ) -> None:
     release: Final = threading.Event()
     with wire_server(_held(release)) as wire:
-        config: Final = owned_config(tmp_path, [_deployment(wire.url)], litellm_settings={"cache": False})
+        config: Final = owned_config(tmp_path, [_deployment(wire.url)], hangarllm_settings={"cache": False})
         with owned_proxy_process(gateway, tmp_path, {}, config=config, workers=2) as owned:
             workers: Final[tuple[int, ...]] = eventually(
                 lambda: tuple(int(pid) for pid in _STARTED_WORKER.findall(owned.log.read_text())),

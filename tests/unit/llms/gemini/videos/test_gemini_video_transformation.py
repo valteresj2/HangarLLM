@@ -10,12 +10,12 @@ from typing import Final
 
 import httpx
 import pytest
-from litellm.exceptions import UnsupportedParamsError
+from hangarllm.exceptions import UnsupportedParamsError
 
-from litellm.llms.gemini.videos.transformation import GeminiVideoConfig
-from litellm.llms.openai.cost_calculation import video_generation_cost
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoObject
+from hangarllm.llms.gemini.videos.transformation import GeminiVideoConfig
+from hangarllm.llms.openai.cost_calculation import video_generation_cost
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.main import VideoObject
 
 
 class TestGeminiVideoConfig:
@@ -67,7 +67,7 @@ class TestGeminiVideoConfig:
         url = self.config.get_complete_url(
             model="gemini/veo-3.0-generate-preview",
             api_base="https://generativelanguage.googleapis.com",
-            litellm_params={},
+            hangarllm_params={},
         )
 
         expected = "https://generativelanguage.googleapis.com/v1beta/models/veo-3.0-generate-preview:predictLongRunning"
@@ -76,7 +76,7 @@ class TestGeminiVideoConfig:
     def test_get_complete_url_default_api_base(self):
         """Test URL construction with default API base."""
         url = self.config.get_complete_url(
-            model="gemini/veo-3.0-generate-preview", api_base=None, litellm_params={}
+            model="gemini/veo-3.0-generate-preview", api_base=None, hangarllm_params={}
         )
 
         assert url.startswith("https://generativelanguage.googleapis.com")
@@ -92,7 +92,7 @@ class TestGeminiVideoConfig:
             prompt=prompt,
             api_base=api_base,
             video_create_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -121,7 +121,7 @@ class TestGeminiVideoConfig:
                 "durationSeconds": 8,
                 "resolution": "1080p",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -150,7 +150,7 @@ class TestGeminiVideoConfig:
                 "aspectRatio": "16:9",
                 "durationSeconds": 4,
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -180,7 +180,7 @@ class TestGeminiVideoConfig:
                 "image": image_file,
                 "aspectRatio": "16:9",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -209,7 +209,7 @@ class TestGeminiVideoConfig:
                 "image": None,
                 "aspectRatio": "16:9",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -283,7 +283,7 @@ class TestGeminiVideoConfig:
 
     def test_map_openai_params_with_extra_body(self):
         """Test that extra_body params are merged and extra_body is removed."""
-        from litellm.videos.utils import VideoGenerationRequestUtils
+        from hangarllm.videos.utils import VideoGenerationRequestUtils
 
         params_with_extra_body = {
             "seconds": "4",
@@ -530,7 +530,7 @@ class TestGeminiVideoConfig:
         url, params = self.config.transform_video_status_retrieve_request(
             video_id=video_id,
             api_base="https://generativelanguage.googleapis.com",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -579,7 +579,7 @@ class TestGeminiVideoConfig:
         assert isinstance(result, VideoObject)
         assert result.status == "completed"
 
-    @patch("litellm.module_level_client")
+    @patch("hangarllm.module_level_client")
     def test_transform_video_content_request(self, mock_client):
         """Test transformation of content download request."""
         video_id = "gemini::operations/generate_1234567890::veo-3.0"
@@ -601,7 +601,7 @@ class TestGeminiVideoConfig:
         url, params = self.config.transform_video_content_request(
             video_id=video_id,
             api_base="https://generativelanguage.googleapis.com",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -629,7 +629,7 @@ class TestGeminiVideoConfig:
                 video_id="test_id",
                 prompt="test prompt",
                 api_base="https://test.com",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -638,7 +638,7 @@ class TestGeminiVideoConfig:
         with pytest.raises(NotImplementedError, match="Video list is not supported"):
             self.config.transform_video_list_request(
                 api_base="https://test.com",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -648,7 +648,7 @@ class TestGeminiVideoConfig:
             self.config.transform_video_delete_request(
                 video_id="test_id",
                 api_base="https://test.com",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -672,7 +672,7 @@ class TestGeminiVideoIntegration:
                 "aspectRatio": "16:9",
                 "durationSeconds": 8,
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 

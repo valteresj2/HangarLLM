@@ -123,7 +123,7 @@ def test_file_annotation_reaches_the_caller_in_provider_specific_fields_and_surv
         assert _posted(wire) == 1
         await_entry(redis_store(), identity)
         cached: Final = gateway.request("POST", "/v1/chat/completions", _chat_body(model, marker, stream=False))
-        assert cached.headers.get("x-litellm-cache-key"), dict(cached.headers)
+        assert cached.headers.get("x-hangarllm-cache-key"), dict(cached.headers)
         _assert_split(_message(cached))
         assert _posted(wire) == 0
 

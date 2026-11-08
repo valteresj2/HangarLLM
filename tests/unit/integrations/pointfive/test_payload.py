@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from litellm.integrations.pointfive.payload import chunk_lines, encode_lines, serialize_records
+from hangarllm.integrations.pointfive.payload import chunk_lines, encode_lines, serialize_records
 
 UNBOUNDED = 10_000_000
 

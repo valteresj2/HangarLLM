@@ -6,9 +6,9 @@ from typing import Any, Final
 import httpx
 import pytest
 
-import litellm
-from litellm.harness import endpoint as endpoint_module
-from litellm.harness.endpoint import (
+import hangarllm
+from hangarllm.harness import endpoint as endpoint_module
+from hangarllm.harness.endpoint import (
     ModelEndpoint,
     SSEUsageParser,
     UsageTracker,
@@ -16,12 +16,12 @@ from litellm.harness.endpoint import (
     usage_from_mapping,
     usage_mapping_of_body,
 )
-from litellm.harness.errors import HarnessInstallFailed
-from litellm.harness.context import GatewayTarget
-from litellm.harness.types import Harness, Usage
-from litellm.types.utils import ModelResponse, ModelResponseStream
+from hangarllm.harness.errors import HarnessInstallFailed
+from hangarllm.harness.context import GatewayTarget
+from hangarllm.harness.types import Harness, Usage
+from hangarllm.types.utils import ModelResponse, ModelResponseStream
 
-REAL_COST_PER_TOKEN: Final = litellm.cost_per_token
+REAL_COST_PER_TOKEN: Final = hangarllm.cost_per_token
 CACHED_MODEL: Final = "claude-haiku-5-5"
 
 GATEWAY = GatewayTarget(api_base="https://gw.example.com", api_key="sk-gateway-secret")
@@ -84,7 +84,7 @@ def auth(ep: ModelEndpoint) -> dict[str, str]:
 @pytest.fixture(autouse=True)
 def no_real_cost(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "cost_per_token",
         lambda model, prompt_tokens, completion_tokens, **cache_tokens: (
             prompt_tokens * 0.001,
@@ -137,8 +137,8 @@ async def test_gateway_rewrites_headers_and_model() -> None:
     assert str(sent.url) == "https://gw.example.com/v1/messages"
     assert sent.headers["authorization"] == "Bearer sk-gateway-secret"
     assert "x-api-key" not in sent.headers
-    assert sent.headers["x-litellm-tags"] == "harness,claude_code"
-    assert json.loads(sent.headers["x-litellm-spend-logs-metadata"]) == {"run": "abc"}
+    assert sent.headers["x-hangarllm-tags"] == "harness,claude_code"
+    assert json.loads(sent.headers["x-hangarllm-spend-logs-metadata"]) == {"run": "abc"}
     assert sent.headers["anthropic-version"] == "2023-06-01"
     assert sent.headers["anthropic-beta"] == "tools-2024"
     assert json.loads(sent.content)["model"] == "claude-sonnet"
@@ -174,7 +174,7 @@ async def test_cost_header_preferred_over_computed() -> None:
         httpx.Response(
             200,
             json={"usage": {"prompt_tokens": 100, "completion_tokens": 100}},
-            headers={"x-litellm-response-cost": "0.42"},
+            headers={"x-hangarllm-response-cost": "0.42"},
         )
     )
     async with gateway_endpoint(recorder) as ep:
@@ -222,7 +222,7 @@ async def test_sdk_chat_non_stream(monkeypatch: pytest.MonkeyPatch) -> None:
         response._hidden_params["response_cost"] = 0.5
         return response
 
-    monkeypatch.setattr(litellm, "acompletion", fake_acompletion)
+    monkeypatch.setattr(hangarllm, "acompletion", fake_acompletion)
     async with ModelEndpoint(
         Harness.OPENCODE, "openai/gpt-x", None, api_key="sk-real", api_base="https://x"
     ) as ep:
@@ -248,7 +248,7 @@ async def fake_chat_stream() -> AsyncIterator[ModelResponseStream]:
     yield ModelResponseStream(choices=[{"delta": {"content": "he"}}])
     yield ModelResponseStream(choices=[{"delta": {"content": "llo"}}])
     final = ModelResponseStream(choices=[])
-    final.usage = litellm.Usage(prompt_tokens=6, completion_tokens=2, total_tokens=8)
+    final.usage = hangarllm.Usage(prompt_tokens=6, completion_tokens=2, total_tokens=8)
     yield final
 
 
@@ -259,7 +259,7 @@ async def test_sdk_chat_stream(monkeypatch: pytest.MonkeyPatch) -> None:
         calls.append(kwargs)
         return fake_chat_stream()
 
-    monkeypatch.setattr(litellm, "acompletion", fake_acompletion)
+    monkeypatch.setattr(hangarllm, "acompletion", fake_acompletion)
     async with ModelEndpoint(Harness.OPENCODE, "openai/gpt-x", None) as ep:
         async with httpx.AsyncClient(base_url=ep.url) as client:
             resp = await client.post(
@@ -272,7 +272,7 @@ async def test_sdk_chat_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     assert lines[-1] == "data: [DONE]"
     assert json.loads(lines[0][6:])["choices"][0]["delta"]["content"] == "he"
     assert calls[0]["stream_options"] == {"include_usage": True}
-    assert calls[0]["_litellm_stream_usage_injected"] is True
+    assert calls[0]["_hangarllm_stream_usage_injected"] is True
     assert (ep.usage.input_tokens, ep.usage.output_tokens) == (6, 2)
     assert ep.usage.cost == pytest.approx(6 * 0.001 + 2 * 0.002)
 
@@ -288,7 +288,7 @@ async def test_sdk_messages_stream_handles_dicts_and_bytes(
     async def fake_acreate(**kwargs: Any) -> AsyncIterator[Any]:
         return fake_anthropic_stream()
 
-    monkeypatch.setattr(litellm.anthropic.messages, "acreate", fake_acreate)
+    monkeypatch.setattr(hangarllm.anthropic.messages, "acreate", fake_acreate)
     async with ModelEndpoint(Harness.CLAUDE_CODE, "anthropic/claude", None) as ep:
         async with httpx.AsyncClient(base_url=ep.url) as client:
             resp = await client.post(
@@ -309,7 +309,7 @@ async def chunks_of(chunks: list[dict[str, object]]) -> AsyncIterator[dict[str, 
     [
         (
             "/v1/messages",
-            (litellm.anthropic.messages, "acreate"),
+            (hangarllm.anthropic.messages, "acreate"),
             [
                 {
                     "type": "message_start",
@@ -327,7 +327,7 @@ async def chunks_of(chunks: list[dict[str, object]]) -> AsyncIterator[dict[str, 
         ),
         (
             "/chat/completions",
-            (litellm, "acompletion"),
+            (hangarllm, "acompletion"),
             [
                 {
                     "choices": [],
@@ -341,7 +341,7 @@ async def chunks_of(chunks: list[dict[str, object]]) -> AsyncIterator[dict[str, 
         ),
         (
             "/v1/responses",
-            (litellm, "aresponses"),
+            (hangarllm, "aresponses"),
             [
                 {
                     "type": "response.completed",
@@ -357,7 +357,7 @@ async def chunks_of(chunks: list[dict[str, object]]) -> AsyncIterator[dict[str, 
         ),
         (
             "/chat/completions",
-            (litellm, "acompletion"),
+            (hangarllm, "acompletion"),
             [
                 {
                     "choices": [],
@@ -371,7 +371,7 @@ async def chunks_of(chunks: list[dict[str, object]]) -> AsyncIterator[dict[str, 
         ),
         (
             "/v1/responses",
-            (litellm, "aresponses"),
+            (hangarllm, "aresponses"),
             [
                 {
                     "type": "response.completed",
@@ -388,13 +388,13 @@ async def chunks_of(chunks: list[dict[str, object]]) -> AsyncIterator[dict[str, 
     ],
     ids=["messages", "chat", "responses", "chat cache_write_tokens", "responses cache_write_tokens"],
 )
-async def test_sdk_stream_cost_prices_cached_prompt_tokens_like_litellm(
+async def test_sdk_stream_cost_prices_cached_prompt_tokens_like_hangarllm(
     monkeypatch: pytest.MonkeyPatch, path: str, sdk: tuple[object, str], chunks: list[dict[str, object]]
 ) -> None:
     async def fake_sdk(**kwargs: object) -> AsyncIterator[dict[str, object]]:
         return chunks_of(chunks)
 
-    monkeypatch.setattr(litellm, "cost_per_token", REAL_COST_PER_TOKEN)
+    monkeypatch.setattr(hangarllm, "cost_per_token", REAL_COST_PER_TOKEN)
     monkeypatch.setattr(*sdk, fake_sdk)
     async with ModelEndpoint(Harness.PI, CACHED_MODEL, None) as ep:
         async with httpx.AsyncClient(base_url=ep.url) as client:
@@ -404,7 +404,7 @@ async def test_sdk_stream_cost_prices_cached_prompt_tokens_like_litellm(
             model=CACHED_MODEL,
             prompt_tokens=1000,
             completion_tokens=10,
-            usage_object=litellm.Usage(
+            usage_object=hangarllm.Usage(
                 prompt_tokens=1000,
                 completion_tokens=10,
                 total_tokens=1010,
@@ -443,8 +443,8 @@ async def anthropic_cached_message(**kwargs: object) -> dict[str, object]:
 async def test_claude_code_cost_counts_anthropic_cached_prompt_tokens(
     monkeypatch: pytest.MonkeyPatch, route: str
 ) -> None:
-    monkeypatch.setattr(litellm, "cost_per_token", REAL_COST_PER_TOKEN)
-    monkeypatch.setattr(litellm.anthropic.messages, "acreate", anthropic_cached_message)
+    monkeypatch.setattr(hangarllm, "cost_per_token", REAL_COST_PER_TOKEN)
+    monkeypatch.setattr(hangarllm.anthropic.messages, "acreate", anthropic_cached_message)
     upstream: Final = (
         sse_response(anthropic_cached_sse())
         if route == "gateway stream"
@@ -475,13 +475,13 @@ async def test_claude_code_cost_counts_anthropic_cached_prompt_tokens(
 
 async def test_sdk_error_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:
     async def failing(**kwargs: Any) -> Any:
-        raise litellm.RateLimitError(
+        raise hangarllm.RateLimitError(
             message="too many requests for key sk-real",
             llm_provider="openai",
             model="gpt-x",
         )
 
-    monkeypatch.setattr(litellm, "aresponses", failing)
+    monkeypatch.setattr(hangarllm, "aresponses", failing)
     async with ModelEndpoint(Harness.CODEX, "gpt-x", None, api_key="sk-real") as ep:
         async with httpx.AsyncClient(base_url=ep.url) as client:
             resp = await client.post("/v1/responses", json={}, headers=auth(ep))
@@ -533,6 +533,6 @@ def test_compute_cost_never_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(**kwargs: Any) -> Any:
         raise ValueError("unknown model")
 
-    monkeypatch.setattr(litellm, "cost_per_token", boom)
+    monkeypatch.setattr(hangarllm, "cost_per_token", boom)
     assert compute_cost("mystery", 10, 10) == 0.0
     assert compute_cost(None, 10, 10) == 0.0

@@ -22,19 +22,19 @@
 {{- if not (trim .Values.ui.backendUrl) }}
 {{- fail "ui.backendUrl is required when ingress.componentHosts is configured" }}
 {{- end }}
-{{- $_ := include "litellm.ui.backendOrigin" . }}
+{{- $_ := include "hangarllm.ui.backendOrigin" . }}
 {{- if not (trim .Values.backend.gatewayUrl) }}
 {{- fail "backend.gatewayUrl is required when ingress.componentHosts is configured" }}
 {{- end }}
-{{- $_ := include "litellm.backend.gatewayOrigin" . }}
+{{- $_ := include "hangarllm.backend.gatewayOrigin" . }}
 {{- if not (trim .Values.ui.publicUrl) }}
 {{- fail "ui.publicUrl is required when ingress.componentHosts is configured" }}
 {{- end }}
 {{- end }}
 {{- if .Values.ingress.enabled -}}
-{{- $gatewayName := include "litellm.gateway.fullname" . -}}
-{{- $backendName := include "litellm.backend.fullname" . -}}
-{{- $uiName := include "litellm.ui.fullname" . -}}
+{{- $gatewayName := include "hangarllm.gateway.fullname" . -}}
+{{- $backendName := include "hangarllm.backend.fullname" . -}}
+{{- $uiName := include "hangarllm.ui.fullname" . -}}
 {{- $gatewayPort := .Values.gateway.service.port -}}
 {{- $backendPort := .Values.backend.service.port -}}
 {{- $uiPort := .Values.ui.service.port -}}
@@ -61,7 +61,7 @@
   /__next._tree.txt, ...). The client router fetches these on every soft
   navigation / prefetch as <route>.txt?_rsc=<hash> (the query string is
   irrelevant to path matching). They are not under /ui, /_next, or
-  /litellm-asset-prefix, so without /*.txt they fall to the backend catch-all
+  /hangarllm-asset-prefix, so without /*.txt they fall to the backend catch-all
   → 404 → client-side navigation never settles and the login flow spins in an
   infinite redirect loop (/ ⇄ /ui/login). ui/nginx.conf already serves *.txt
   from the export; the rule only routes the request to it. It needs an
@@ -73,7 +73,7 @@
 {{- $uiPaths := list
     (dict "path" "/" "pathType" "Exact")
     (dict "path" "/favicon.ico" "pathType" "Exact")
-    (dict "path" "/litellm-asset-prefix" "pathType" "Prefix")
+    (dict "path" "/hangarllm-asset-prefix" "pathType" "Prefix")
     (dict "path" "/_next" "pathType" "Prefix")
     (dict "path" "/ui" "pathType" "Prefix")
 -}}
@@ -127,9 +127,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "litellm.fullname" . }}
+  name: {{ include "hangarllm.fullname" . }}
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -186,9 +186,9 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "litellm.fullname" . }}
+  name: {{ include "hangarllm.fullname" . }}
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -209,7 +209,7 @@ spec:
         paths:
           # --- UI (Next.js static export) ---
           {{- range $uiPaths }}
-          {{- $pathType := include "litellm.ingress.pathType" (dict "controller" $controller "path" .path "pathType" .pathType) }}
+          {{- $pathType := include "hangarllm.ingress.pathType" (dict "controller" $controller "path" .path "pathType" .pathType) }}
           {{- $builtinPathKeys = append $builtinPathKeys (printf "%s|%s" .path $pathType) }}
           - path: {{ .path }}
             pathType: {{ $pathType }}
@@ -239,7 +239,7 @@ spec:
                 port:
                   number: {{ $gatewayPort }}
           {{- range $gatewayPrefixes }}
-          {{- $pathType := include "litellm.ingress.pathType" (dict "controller" $controller "path" . "pathType" "Prefix") }}
+          {{- $pathType := include "hangarllm.ingress.pathType" (dict "controller" $controller "path" . "pathType" "Prefix") }}
           {{- $builtinPathKeys = append $builtinPathKeys (printf "%s|%s" . $pathType) }}
           - path: {{ . }}
             pathType: {{ $pathType }}
@@ -309,7 +309,7 @@ spec:
           {{- if not (has $requestedPathType (list "Prefix" "Exact" "ImplementationSpecific")) }}
           {{- fail (printf "ingress.extraPaths[%d] (path %s): unknown pathType %q, expected one of Exact, ImplementationSpecific, Prefix" $idx $extra.path $requestedPathType) }}
           {{- end }}
-          {{- $pathType := include "litellm.ingress.pathType" (dict "controller" $controller "path" $extra.path "pathType" $requestedPathType) }}
+          {{- $pathType := include "hangarllm.ingress.pathType" (dict "controller" $controller "path" $extra.path "pathType" $requestedPathType) }}
           {{- if eq $extra.path "/" }}
           {{- fail (printf "ingress.extraPaths[%d]: path / is already routed in both directions, Exact to ui and Prefix to backend, so no pathType leaves a request for an entry here to capture" $idx) }}
           {{- end }}

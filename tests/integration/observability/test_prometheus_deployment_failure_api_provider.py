@@ -23,14 +23,14 @@ from tests.integration._support.process import owned_proxy
 from tests.integration._support.prometheus_series import Sample, scrape
 from tests.integration._support.wire import Reply, Request, Wire, wire_server
 
-_FAILURES: Final = "litellm_deployment_failure_responses_total"
-_TOTALS: Final = "litellm_deployment_total_requests_total"
+_FAILURES: Final = "hangarllm_deployment_failure_responses_total"
+_TOTALS: Final = "hangarllm_deployment_total_requests_total"
 _SERVED: Final = "limited"
 _UNREACHABLE: Final = "unreachable"
 _STALLED: Final = "stalled"
 _NEVER_RELEASED: Final = threading.Event()
 _IN_HOUSE_HANDLER: Final = """
-from litellm import CustomLLM
+from hangarllm import CustomLLM
 
 
 class InHouse(CustomLLM):
@@ -83,7 +83,7 @@ _STALLED_EMBEDDING: Final = _deployment(
 _JSON_PROVIDER: Final = _deployment("deployment-failure-json-provider", "abliteration/blocked", "abliteration", rpm=0)
 _CUSTOM_PROVIDER: Final = _deployment("deployment-failure-custom-provider", "in-house/blocked", "in-house", rpm=0)
 _PROMPT_MANAGEMENT: Final = _deployment(
-    "deployment-failure-prompt-management", "litellm_agent/anthropic/claude-haiku-4-5", "anthropic"
+    "deployment-failure-prompt-management", "hangarllm_agent/anthropic/claude-haiku-4-5", "anthropic"
 )
 _UNPREFIXED: Final = _deployment("deployment-failure-unprefixed", "gpt-4o-mini", "", rpm=0)
 _FORGED_EMBEDDING: Final = _deployment("deployment-failure-forged-embedding", "openai/refused-forged", "openai")
@@ -172,7 +172,7 @@ def _config(directory: Path, upstream: Wire) -> Path:
         *(
             {
                 "model_name": deployment.group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": deployment.model,
                     "api_key": "sk-fixture",
                     "api_base": upstream.url if deployment.provider != "openai" else f"{upstream.url}/v1",
@@ -184,8 +184,8 @@ def _config(directory: Path, upstream: Wire) -> Path:
         ),
     ]
     (directory / "in_house_handler.py").write_text(_IN_HOUSE_HANDLER)
-    configuration["litellm_settings"]["callbacks"] = ["prometheus"]
-    configuration["litellm_settings"]["custom_provider_map"] = [
+    configuration["hangarllm_settings"]["callbacks"] = ["prometheus"]
+    configuration["hangarllm_settings"]["custom_provider_map"] = [
         {"provider": "in-house", "custom_handler": "in_house_handler.handler"}
     ]
     router_settings: Final = configuration.setdefault("router_settings", {})
@@ -392,9 +392,9 @@ def test_a_caller_cannot_pick_the_label_through_request_metadata(
 ) -> None:
     bucket: Final[dict[str, JsonValue]] = {"deployment": forged, "model_info": {"id": deployment.model_id}}
     body: Final = (
-        _chat(deployment, metadata=bucket, litellm_metadata=bucket)
+        _chat(deployment, metadata=bucket, hangarllm_metadata=bucket)
         if path == "/v1/chat/completions"
-        else {"model": deployment.group, "input": _prompt(), "metadata": bucket, "litellm_metadata": bucket}
+        else {"model": deployment.group, "input": _prompt(), "metadata": bucket, "hangarllm_metadata": bucket}
     )
     response: Final = _post(rig, path, body)
     assert response.status_code == status, response.text
@@ -407,7 +407,7 @@ def test_a_caller_cannot_pick_the_label_through_request_metadata(
 
 def test_an_unauthenticated_request_leaves_the_deployment_series_alone(rig: _Rig) -> None:
     body: Final[dict[str, JsonValue]] = {"model": _UNAUTHENTICATED.group, "input": _prompt()}
-    rejected: Final = rig.gateway.request("POST", "/v1/embeddings", body, key="sk-not-a-litellm-key")
+    rejected: Final = rig.gateway.request("POST", "/v1/embeddings", body, key="sk-not-a-hangarllm-key")
     assert rejected.status_code == 401, rejected.text
     refused: Final = _post(rig, "/v1/embeddings", body)
     assert refused.status_code == 400, refused.text

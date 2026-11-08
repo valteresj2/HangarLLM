@@ -1,7 +1,7 @@
 import os
 
-from litellm.proxy.config_resolvers._descriptors import FieldDescriptor, resolve_fields
-from litellm.proxy.config_resolvers.sso import (
+from hangarllm.proxy.config_resolvers._descriptors import FieldDescriptor, resolve_fields
+from hangarllm.proxy.config_resolvers.sso import (
     SSO_FIELD_ENV_VARS,
     SSO_SECRET_FIELDS,
     resolve_sso_config,

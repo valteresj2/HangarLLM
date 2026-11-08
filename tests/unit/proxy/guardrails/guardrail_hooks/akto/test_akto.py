@@ -10,19 +10,19 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from litellm.exceptions import GuardrailRaisedException, Timeout
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy.guardrails.guardrail_hooks.akto.akto import (
+from hangarllm.exceptions import GuardrailRaisedException, Timeout
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy.guardrails.guardrail_hooks.akto.akto import (
     MALFORMED_ATTACHMENT_REASON,
     UNMASKABLE_REASON,
     AktoGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_registry import (
+from hangarllm.proxy.guardrails.guardrail_registry import (
     guardrail_class_registry,
     guardrail_initializer_registry,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs, ModelResponse
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import GenericGuardrailAPIInputs, ModelResponse
 
 
 def test_akto_in_guardrail_initializer_registry():
@@ -216,14 +216,14 @@ def test_build_akto_payload_custom_account_ids(sample_inputs, sample_request_dat
 
 def test_build_query_params():
     params = AktoGuardrail.build_query_params(guardrails=True, ingest_data=False)
-    assert params == {"akto_connector": "litellm", "guardrails": "true"}
+    assert params == {"akto_connector": "hangarllm", "guardrails": "true"}
 
     params = AktoGuardrail.build_query_params(guardrails=False, ingest_data=True)
-    assert params == {"akto_connector": "litellm", "ingest_data": "true"}
+    assert params == {"akto_connector": "hangarllm", "ingest_data": "true"}
 
     params = AktoGuardrail.build_query_params(guardrails=True, ingest_data=True)
     assert params == {
-        "akto_connector": "litellm",
+        "akto_connector": "hangarllm",
         "guardrails": "true",
         "ingest_data": "true",
     }
@@ -451,7 +451,7 @@ def test_resolve_metadata_value():
     )
     assert (
         AktoGuardrail.resolve_metadata_value(
-            {"litellm_metadata": {"user_api_key_team_id": "t1"}},
+            {"hangarllm_metadata": {"user_api_key_team_id": "t1"}},
             "user_api_key_team_id",
         )
         == "t1"
@@ -463,7 +463,7 @@ def test_resolve_metadata_value():
 def test_resolve_metadata_value_non_dict_containers():
     assert (
         AktoGuardrail.resolve_metadata_value(
-            {"metadata": "invalid", "litellm_metadata": ["bad"]},
+            {"metadata": "invalid", "hangarllm_metadata": ["bad"]},
             "some_key",
         )
         is None
@@ -573,7 +573,7 @@ async def test_post_call_checks_mcp_tool_calls_in_response(akto_post_call, sampl
     rpc = json.loads(payload["requestPayload"])
     assert rpc["method"] == "tools/call" and rpc["params"] == {"name": "delete_repo", "arguments": {"name": "prod"}}
     tag = json.loads(payload["tag"])
-    assert tag["mcp_server_name"] == "github" and tag["mcp-client"] == "litellm" and "gen-ai" not in tag
+    assert tag["mcp_server_name"] == "github" and tag["mcp-client"] == "hangarllm" and "gen-ai" not in tag
 
 
 @pytest.mark.asyncio
@@ -655,7 +655,7 @@ async def test_every_mid_stream_check_is_recorded(akto_post_call, sample_inputs,
     )
 
     [(params, _)] = _calls(akto_post_call)
-    assert params == {"akto_connector": "litellm", "response_guardrails": "true", "ingest_data": "true"}, params
+    assert params == {"akto_connector": "hangarllm", "response_guardrails": "true", "ingest_data": "true"}, params
 
 
 @pytest.mark.asyncio
@@ -669,12 +669,12 @@ async def test_mid_stream_block_records_the_partial_response(akto_post_call, sam
 
     assert (exc_info.value.status_code, exc_info.value.detail) == (403, "PII in response")
     [(params, _)] = _calls(akto_post_call)
-    assert params == {"akto_connector": "litellm", "response_guardrails": "true", "ingest_data": "true"}, params
+    assert params == {"akto_connector": "hangarllm", "response_guardrails": "true", "ingest_data": "true"}, params
 
 
 @pytest.mark.asyncio
 async def test_tag_based_mode_is_checked(sample_inputs, sample_request_data):
-    from litellm.types.guardrails import Mode
+    from hangarllm.types.guardrails import Mode
 
     g = _akto(Mode(tags={"prod": "pre_call"}, default="post_call"))
     g.async_handler.post = AsyncMock(return_value=_mock_blocked_response("PII detected"))
@@ -856,8 +856,8 @@ async def test_post_mcp_call_masks_tool_result():
 async def test_request_headers_drop_credentials_and_carry_session_and_message_ids(akto_pre_call, sample_inputs):
     akto_pre_call.async_handler.post = AsyncMock(return_value=_mock_allowed_response())
     request_data = {
-        "litellm_session_id": "session-1",
-        "litellm_call_id": "call-1",
+        "hangarllm_session_id": "session-1",
+        "hangarllm_call_id": "call-1",
         "proxy_server_request": {
             "headers": {
                 "Authorization": "Bearer sk-1",
@@ -877,7 +877,7 @@ async def test_request_headers_drop_credentials_and_carry_session_and_message_id
         "x-akto-installer-akto_session_id": "session-1",
         "x-akto-installer-akto_message_id": "call-1",
         "user-agent": "opencode",
-    }, "a client header must not override the session LiteLLM tracked"
+    }, "a client header must not override the session HangarLLM tracked"
 
 
 @pytest.mark.asyncio
@@ -911,10 +911,10 @@ async def test_akto_metadata_is_sent_to_akto(sample_inputs, sample_request_data)
     ("configured", "fallback"), [({}, "fail_closed"), ({"unreachable_fallback": "fail_open"}, "fail_open")]
 )
 def test_initializer_settings_survive_a_db_round_trip(configured, fallback):
-    import litellm
-    from litellm.types.guardrails import LitellmParams
+    import hangarllm
+    from hangarllm.types.guardrails import HangarllmParams
 
-    params = LitellmParams(
+    params = HangarllmParams(
         guardrail="akto",
         mode="pre_call",
         akto_base_url="http://localhost:9090",
@@ -925,14 +925,14 @@ def test_initializer_settings_survive_a_db_round_trip(configured, fallback):
         streaming_sampling_rate=1,
         **configured,
     )
-    stored = LitellmParams(**params.model_dump())
+    stored = HangarllmParams(**params.model_dump())
     created = guardrail_initializer_registry["akto"](params, {"guardrail_name": "akto"})
     reloaded = guardrail_initializer_registry["akto"](stored, {"guardrail_name": "akto"})
     try:
         assert (created.unreachable_fallback, dict(created.akto_metadata)) == (
             reloaded.unreachable_fallback,
             dict(reloaded.akto_metadata),
-        ), "a guardrail must behave the same after LiteLLM stores and reloads it"
+        ), "a guardrail must behave the same after HangarLLM stores and reloads it"
         assert created.unreachable_fallback == fallback
         ui_default = AktoGuardrail.get_config_model().model_fields["unreachable_fallback"].default
         if not configured:
@@ -943,7 +943,7 @@ def test_initializer_settings_survive_a_db_round_trip(configured, fallback):
         assert created.streaming_sampling_rate == reloaded.streaming_sampling_rate == 1
     finally:
         for callback in (created, reloaded):
-            litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, callback)
+            hangarllm.logging_callback_manager.remove_callback_from_list_by_object(hangarllm.callbacks, callback)
 
 
 @pytest.mark.asyncio
@@ -1053,7 +1053,7 @@ async def test_post_call_block_of_a_complete_response_is_one_call(akto_post_call
         )
 
     [(params, _)] = _calls(akto_post_call)
-    assert params == {"akto_connector": "litellm", "response_guardrails": "true", "ingest_data": "true"}
+    assert params == {"akto_connector": "hangarllm", "response_guardrails": "true", "ingest_data": "true"}
 
 
 @pytest.mark.asyncio
@@ -1092,7 +1092,7 @@ async def test_mcp_tool_list_scan_is_checked_but_not_recorded():
     await g.apply_guardrail(inputs=GenericGuardrailAPIInputs(texts=[]), request_data=catalog_scan, input_type="request")
 
     [(params, payload)] = _calls(g)
-    assert params == {"akto_connector": "litellm", "guardrails": "true"}
+    assert params == {"akto_connector": "hangarllm", "guardrails": "true"}
     assert json.loads(payload["tag"])["call_type"] == "tool_discovery"
     [tool] = json.loads(payload["requestPayload"])["tools"]
     assert tool == {
@@ -1102,11 +1102,11 @@ async def test_mcp_tool_list_scan_is_checked_but_not_recorded():
     }, "a catalog scan must send the description and schema, where tool poisoning hides"
 
 
-def test_identity_sent_by_the_client_in_litellm_params_is_ignored(sample_request_data):
+def test_identity_sent_by_the_client_in_hangarllm_params_is_ignored(sample_request_data):
     request_data = {
         **sample_request_data,
-        "litellm_logging_obj": SimpleNamespace(model_call_details={}),
-        "litellm_params": {"metadata": {"user_api_key_user_email": "spoof@example.com"}},
+        "hangarllm_logging_obj": SimpleNamespace(model_call_details={}),
+        "hangarllm_params": {"metadata": {"user_api_key_user_email": "spoof@example.com"}},
     }
 
     assert "user_email" not in AktoGuardrail.build_tag_metadata(request_data)
@@ -1118,9 +1118,9 @@ async def test_post_mcp_call_reads_identity_and_headers_from_call_details():
     g.async_handler.post = AsyncMock(return_value=_mock_allowed_response())
     call_details = {
         "call_type": "call_mcp_tool",
-        "litellm_call_id": "call-9",
+        "hangarllm_call_id": "call-9",
         "mcp_tool_call_metadata": {"name": "lookup", "mcp_server_name": "crm"},
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"user_api_key_user_id": "user-1", "headers": {"x-claude-code-session-id": "cc-session-1234"}}
         },
     }
@@ -1199,7 +1199,7 @@ async def test_pre_call_sends_attachments_as_a_file_check_and_blocks_on_its_verd
     payload = json.loads(file_call.kwargs["data"])
     assert payload["files"] == [{"filename": "c.pdf", "type": "file", "content": PDF_B64}]
     assert payload["requestPayload"] == "{}", "the request text goes through the normal check, not the file check"
-    assert file_call.kwargs["params"] == {"akto_connector": "litellm", "file_guardrails": "true"}
+    assert file_call.kwargs["params"] == {"akto_connector": "hangarllm", "file_guardrails": "true"}
     assert file_call.kwargs["url"] == "http://localhost:9090/api/http-proxy"
 
 
@@ -1329,7 +1329,7 @@ def _messages_api_request(call_type):
     return {
         "system": "be brief",
         "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}, document, search_result]}],
-        "litellm_logging_obj": SimpleNamespace(call_type=call_type, model_call_details={}),
+        "hangarllm_logging_obj": SimpleNamespace(call_type=call_type, model_call_details={}),
     }
 
 
@@ -1372,7 +1372,7 @@ def test_a_scoped_guardrail_applies_its_scope_to_the_messages_api_messages(scope
             {"role": "user", "content": [SCOPED_TEXT, SCOPED_TOOL_RESULT]},
             {"role": "user", "content": "plain"},
         ],
-        "litellm_logging_obj": SimpleNamespace(call_type="anthropic_messages", model_call_details={}),
+        "hangarllm_logging_obj": SimpleNamespace(call_type="anthropic_messages", model_call_details={}),
     }
 
     payload = g.build_akto_payload(GenericGuardrailAPIInputs(texts=["hi"]), request_data)
@@ -1387,7 +1387,7 @@ def test_a_scope_that_leaves_nothing_sends_no_messages():
     g.scan_only_tool_results = True  # how the guardrail registry applies an operator's scoping
     request_data = {
         "messages": [{"role": "user", "content": "secret"}],
-        "litellm_logging_obj": SimpleNamespace(call_type="anthropic_messages", model_call_details={}),
+        "hangarllm_logging_obj": SimpleNamespace(call_type="anthropic_messages", model_call_details={}),
     }
 
     payload = g.build_akto_payload(GenericGuardrailAPIInputs(texts=["ok"]), request_data, include_response=True)
@@ -1418,7 +1418,7 @@ def test_request_body_falls_back_to_the_request_messages_model_and_tools(akto_pr
 
 
 def test_response_body_is_the_complete_model_response(akto_post_call, sample_request_data):
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     response = ModelResponse(id="resp-1", choices=[{"message": {"role": "assistant", "content": "hello"}}])
     request_data = {**sample_request_data, "response": response}
@@ -1450,9 +1450,9 @@ async def test_pre_mcp_call_takes_headers_and_ids_from_the_request_logger():
     g.async_handler.post = AsyncMock(return_value=_mock_allowed_response())
     logger = SimpleNamespace(
         model_call_details={
-            "litellm_call_id": "call-7",
-            "litellm_trace_id": "trace-7",
-            "litellm_params": {
+            "hangarllm_call_id": "call-7",
+            "hangarllm_trace_id": "trace-7",
+            "hangarllm_params": {
                 "proxy_server_request": {
                     "headers": {"host": "localhost:4000", "user-agent": "curl/8.7", "authorization": "Bearer sk-1"}
                 }
@@ -1462,7 +1462,7 @@ async def test_pre_mcp_call_takes_headers_and_ids_from_the_request_logger():
     request_data = {
         **MCP_PRE_CALL_DATA,
         "metadata": {"headers": {"user-agent": "curl/8.7"}},
-        "litellm_logging_obj": logger,
+        "hangarllm_logging_obj": logger,
     }
 
     await g.apply_guardrail(
@@ -1492,16 +1492,16 @@ def test_response_record_names_the_requested_model(akto_post_call, sample_reques
 
 @pytest.mark.parametrize("rate", [1, 3])
 def test_streamed_responses_are_checked_at_the_configured_chunk_rate(rate):
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
 
     g = _akto("post_call", streaming_sampling_rate=rate)
     assert UnifiedLLMGuardrails().resolve_streaming_flag(g, "streaming_sampling_rate", 5) == rate
 
 
 def _akto_params(**settings):
-    from litellm.types.guardrails import LitellmParams
+    from hangarllm.types.guardrails import HangarllmParams
 
-    return LitellmParams(
+    return HangarllmParams(
         guardrail="akto", mode="post_call", akto_base_url="http://localhost:9090", akto_api_key="k", **settings
     )
 
@@ -1510,25 +1510,25 @@ def _akto_params(**settings):
     "configured", [{"streaming_sampling_rate": 2}, {"optional_params": {"streaming_sampling_rate": 2}}]
 )
 def test_the_configured_chunk_rate_reaches_the_guardrail(configured):
-    import litellm
+    import hangarllm
 
     g = guardrail_initializer_registry["akto"](_akto_params(**configured), {"guardrail_name": "akto"})
     try:
         assert g.streaming_sampling_rate == 2
     finally:
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, g)
+        hangarllm.logging_callback_manager.remove_callback_from_list_by_object(hangarllm.callbacks, g)
 
 
 @pytest.mark.parametrize("value", [0, -1])
 def test_non_positive_settings_fall_back_to_the_defaults_instead_of_dropping_the_guardrail(value):
-    import litellm
+    import hangarllm
 
     settings = {"guardrail_timeout": value, "file_guardrail_timeout": value, "streaming_sampling_rate": value}
     g = guardrail_initializer_registry["akto"](_akto_params(**settings), {"guardrail_name": "akto"})
     try:
         assert (g.guardrail_timeout, g.file_guardrail_timeout, g.streaming_sampling_rate) == (5, 10, 5)
     finally:
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, g)
+        hangarllm.logging_callback_manager.remove_callback_from_list_by_object(hangarllm.callbacks, g)
 
 
 @pytest.mark.asyncio
@@ -1547,13 +1547,13 @@ async def test_mcp_arguments_json_cant_encode_are_still_checked():
 
 
 def test_an_unconfigured_context_source_defaults_to_agentic():
-    import litellm
+    import hangarllm
 
     g = guardrail_initializer_registry["akto"](_akto_params(), {"guardrail_name": "akto"})
     try:
         assert g.context_source == "AGENTIC", "unconfigured guardrails keep the agentic context they had before"
     finally:
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, g)
+        hangarllm.logging_callback_manager.remove_callback_from_list_by_object(hangarllm.callbacks, g)
 
 
 @pytest.mark.asyncio
@@ -1656,7 +1656,7 @@ def test_a_decoy_messages_key_cannot_replace_the_responses_api_input(akto_post_c
     request_data = {
         "input": [{"role": "user", "content": "the real prompt"}],
         "messages": [{"role": "user", "content": "hello"}],
-        "litellm_logging_obj": SimpleNamespace(call_type="aresponses", model_call_details={}),
+        "hangarllm_logging_obj": SimpleNamespace(call_type="aresponses", model_call_details={}),
     }
 
     payload = akto_post_call.build_akto_payload(
@@ -1708,7 +1708,7 @@ async def test_one_text_masked_two_ways_blocks(akto_pre_call):
 
 @pytest.mark.asyncio
 async def test_masking_a_payload_too_deep_to_map_back_blocks(akto_pre_call):
-    from litellm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
+    from hangarllm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
 
     deep: object = CARD
     for _ in range(MAX_STRUCTURED_CONTENT_SCAN_DEPTH + 1):
@@ -1824,7 +1824,7 @@ def test_mcp_tool_calls_are_read_from_every_choice_and_need_a_server_and_tool():
 
 @pytest.mark.asyncio
 async def test_a_mid_stream_tool_call_check_sends_the_tool_call(akto_post_call):
-    from litellm.types.utils import ChatCompletionMessageToolCall
+    from hangarllm.types.utils import ChatCompletionMessageToolCall
 
     akto_post_call.async_handler.post = AsyncMock(return_value=_mock_allowed_response())
     call = ChatCompletionMessageToolCall(id="c1", function={"name": "send_email", "arguments": '{"to": "a@b.c"}'})
@@ -1873,8 +1873,8 @@ async def test_a_modified_verdict_that_changed_no_text_blocks(akto_pre_call, sam
     assert exc_info.value.message == "Content masked by Akto guardrail policy could not be applied"
 
 
-REQUEST_CHECK: Final = {"akto_connector": "litellm", "guardrails": "true", "ingest_data": "true"}
-RESPONSE_CHECK: Final = {"akto_connector": "litellm", "response_guardrails": "true", "ingest_data": "true"}
+REQUEST_CHECK: Final = {"akto_connector": "hangarllm", "guardrails": "true", "ingest_data": "true"}
+RESPONSE_CHECK: Final = {"akto_connector": "hangarllm", "response_guardrails": "true", "ingest_data": "true"}
 
 
 def _logging_only_akto(
@@ -1896,8 +1896,8 @@ def _logged_call(text: str = "Hello, how are you?") -> dict[str, object]:
     return {
         "model": "gpt-5.5",
         "messages": [{"role": "user", "content": text}],
-        "litellm_call_id": "call-1",
-        "litellm_params": {"metadata": {"user_api_key_request_route": "/v1/chat/completions"}},
+        "hangarllm_call_id": "call-1",
+        "hangarllm_params": {"metadata": {"user_api_key_request_route": "/v1/chat/completions"}},
         "standard_logging_object": {"guardrail_information": []},
     }
 

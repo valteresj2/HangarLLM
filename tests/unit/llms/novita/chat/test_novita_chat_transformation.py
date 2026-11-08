@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 
 
-from litellm.llms.novita.chat.transformation import NovitaConfig
+from hangarllm.llms.novita.chat.transformation import NovitaConfig
 
 
 class TestNovitaConfig:
@@ -28,7 +28,7 @@ class TestNovitaConfig:
             model="novita/meta-llama/llama-3.3-70b-instruct",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base="https://api.novita.ai/v3/openai",
         )
@@ -36,7 +36,7 @@ class TestNovitaConfig:
         # Verify headers
         assert result["Authorization"] == f"Bearer {api_key}"
         assert result["Content-Type"] == "application/json"
-        assert result["X-Novita-Source"] == "litellm"
+        assert result["X-Novita-Source"] == "hangarllm"
 
     def test_missing_api_key(self):
         """Test error handling when API key is missing"""
@@ -48,7 +48,7 @@ class TestNovitaConfig:
                 model="novita/meta-llama/llama-3.3-70b-instruct",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base="https://api.novita.ai/v3/openai",
             )

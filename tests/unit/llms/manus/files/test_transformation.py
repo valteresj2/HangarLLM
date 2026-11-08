@@ -8,14 +8,14 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.manus.files.transformation import ManusFilesConfig
-from litellm.types.llms.openai import OpenAIFileObject
+import hangarllm
+from hangarllm.llms.manus.files.transformation import ManusFilesConfig
+from hangarllm.types.llms.openai import OpenAIFileObject
 
 
 def _list_files(body: object) -> list[OpenAIFileObject]:
     return ManusFilesConfig().transform_list_files_response(
-        raw_response=httpx.Response(200, json=body), logging_obj=Mock(), litellm_params={}
+        raw_response=httpx.Response(200, json=body), logging_obj=Mock(), hangarllm_params={}
     )
 
 
@@ -23,7 +23,7 @@ def test_delete_file_response_is_read_into_a_file_deleted_object():
     deleted = ManusFilesConfig().transform_delete_file_response(
         raw_response=httpx.Response(200, json={"id": "file-1", "deleted": True, "object": "file", "region": "eu"}),
         logging_obj=Mock(),
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert deleted.model_dump() == {"id": "file-1", "deleted": True, "object": "file", "region": "eu"}
@@ -33,7 +33,7 @@ def test_delete_file_response_is_read_into_a_file_deleted_object():
 def test_delete_file_response_rejects_a_body_that_is_not_an_object_without_echoing_it(body: bytes):
     with pytest.raises(ValidationError) as exc_info:
         ManusFilesConfig().transform_delete_file_response(
-            raw_response=httpx.Response(200, content=body), logging_obj=Mock(), litellm_params={}
+            raw_response=httpx.Response(200, content=body), logging_obj=Mock(), hangarllm_params={}
         )
 
     assert "secret-file" not in str(exc_info.value)
@@ -42,7 +42,7 @@ def test_delete_file_response_rejects_a_body_that_is_not_an_object_without_echoi
 def test_delete_file_response_requires_the_file_deleted_fields():
     with pytest.raises(ValidationError, match="FileDeleted"):
         ManusFilesConfig().transform_delete_file_response(
-            raw_response=httpx.Response(200, json={"id": "file-1"}), logging_obj=Mock(), litellm_params={}
+            raw_response=httpx.Response(200, json={"id": "file-1"}), logging_obj=Mock(), hangarllm_params={}
         )
 
 
@@ -136,7 +136,7 @@ def test_list_files_response_rejects_a_file_the_file_object_cannot_hold():
 async def test_manus_file_create_retrieve_list_delete(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     api_base: Final = "https://api.manus.im/v1"
     file_id: Final = "file-123"
     filename: Final = "test-file.txt"
@@ -166,25 +166,25 @@ async def test_manus_file_create_retrieve_list_delete(
         json={"id": file_id, "object": "file", "deleted": True}
     )
 
-    created: Final = await litellm.acreate_file(
+    created: Final = await hangarllm.acreate_file(
         file=(filename, content),
         purpose="assistants",
         custom_llm_provider="manus",
         api_key="test-key",
         api_base=api_base,
     )
-    retrieved: Final = await litellm.afile_retrieve(
+    retrieved: Final = await hangarllm.afile_retrieve(
         file_id=file_id,
         custom_llm_provider="manus",
         api_key="test-key",
         api_base=api_base,
     )
-    listed: Final = await litellm.afile_list(
+    listed: Final = await hangarllm.afile_list(
         custom_llm_provider="manus",
         api_key="test-key",
         api_base=api_base,
     )
-    deleted: Final = await litellm.afile_delete(
+    deleted: Final = await hangarllm.afile_delete(
         file_id=file_id,
         custom_llm_provider="manus",
         api_key="test-key",

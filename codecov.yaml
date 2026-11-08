@@ -4,7 +4,7 @@ codecov:
     wait_for_ci: false # post as soon as expected uploads arrive, don't wait on CI
 
 ignore:
-  - "litellm-rust/**"
+  - "hangarllm-rust/**"
 
 # Uploads are flagged per workflow tier (GHA) or "circleci". carryforward makes
 # a re-upload of a flag replace its prior session instead of accumulating a
@@ -117,10 +117,10 @@ component_management:
       paths:
         - "*/caching/*"
         - ".*redis.*"
-    - component_id: "litellm_logging"
+    - component_id: "hangarllm_logging"
       paths:
         - "*/integrations/*"
-        - ".*litellm_logging.*"
+        - ".*hangarllm_logging.*"
     - component_id: "Proxy_Authentication"
       paths:
         - "*/proxy/auth/**"
@@ -130,19 +130,19 @@ component_management:
     - component_id: "Batches"
       paths:
         - "*/proxy/batches_endpoints/**"
-        - "litellm/batches/**"
+        - "hangarllm/batches/**"
         - "*/llms/*/batches/**"
     - component_id: "Videos"
       paths:
-        - "litellm/videos/**"
+        - "hangarllm/videos/**"
         - "*/proxy/video_endpoints/**"
         - "*/llms/*/videos/**"
     - component_id: "Realtime"
       paths:
-        - "litellm/realtime_api/**"
+        - "hangarllm/realtime_api/**"
         - "*/proxy/realtime_endpoints/**"
         - "*/llms/*/realtime/**"
-        - "litellm/litellm_core_utils/realtime_streaming.py"
+        - "hangarllm/hangarllm_core_utils/realtime_streaming.py"
 comment:
   layout: "header, diff, flags, components"  # show component info in the PR comment
 

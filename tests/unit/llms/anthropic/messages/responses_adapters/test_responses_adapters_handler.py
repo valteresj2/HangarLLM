@@ -12,17 +12,17 @@ import respx
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../..")))
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
     TOOL_RESULT_IMAGE_BOUNDARY,
     TOOL_RESULT_IMAGE_PLACEHOLDER,
 )
-from litellm.llms.anthropic.messages.responses_adapters.handler import (
-    LiteLLMMessagesToResponsesAPIHandler,
+from hangarllm.llms.anthropic.messages.responses_adapters.handler import (
+    HangarLLMMessagesToResponsesAPIHandler,
     _build_responses_kwargs,
 )
-from litellm.router import Router
-from litellm.types.integrations.custom_logger import CONVERTED_STREAM_KEYS, converted_stream_requested
+from hangarllm.router import Router
+from hangarllm.types.integrations.custom_logger import CONVERTED_STREAM_KEYS, converted_stream_requested
 
 MESSAGES = [{"role": "user", "content": "hello"}]
 CLAUDE_CODE_USER_ID = json.dumps({"device_id": "d" * 64, "account_uuid": "", "session_id": "session-abc"})
@@ -121,7 +121,7 @@ def test_build_responses_kwargs_skips_include_for_a_responses_provider_that_reje
 def test_build_responses_kwargs_auto_summary_asks_each_target_for_a_level_it_accepts(
     monkeypatch: pytest.MonkeyPatch, model: str, provider: str, summary: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+    monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
     responses_kwargs: Final = _build_responses_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
@@ -163,7 +163,7 @@ def test_build_responses_kwargs_without_metadata_sets_no_prompt_cache_key():
 )
 async def test_streaming_message_start_reports_the_provider_local_model(requested_model, expected_reported_model):
     """
-    BerriAI/litellm#37716 sends the caller's unresolved id down this bridge so the provider
+    valteresj2/HangarLLM#37716 sends the caller's unresolved id down this bridge so the provider
     resolves it once. ``message_start`` is a reporting field rather than a wire value, so it
     keeps naming the model as the provider knows it, with only the leading provider segment gone.
     """
@@ -172,8 +172,8 @@ async def test_streaming_message_start_reports_the_provider_local_model(requeste
         return
         yield
 
-    with patch.object(litellm, "aresponses", AsyncMock(return_value=empty_stream())):
-        sse = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    with patch.object(hangarllm, "aresponses", AsyncMock(return_value=empty_stream())):
+        sse = await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
             max_tokens=1024,
             messages=MESSAGES,
             model=requested_model,
@@ -194,11 +194,11 @@ async def test_streaming_hands_the_logging_object_the_message_id_the_caller_is_s
     The bridge mints the ``msg_`` id itself, and it is the only request id a streaming
     /v1/messages caller ever sees, so the spend row has to be keyed on that same value.
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-lit6825-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post("https://api.openai.com/v1/responses").respond(
         status_code=200,
         headers={"Content-Type": "text/event-stream"},
@@ -211,17 +211,17 @@ async def test_streaming_hands_the_logging_object_the_message_id_the_caller_is_s
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(datetime.timezone.utc),
-        litellm_call_id="6825beef-0000-4000-8000-000000000003",
+        hangarllm_call_id="6825beef-0000-4000-8000-000000000003",
         function_id="1234",
     )
 
-    sse = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    sse = await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
         max_tokens=1024,
         messages=MESSAGES,
         model="openai/gpt-5.6-luna",
         stream=True,
         custom_llm_provider="openai",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     events = [json.loads(chunk.decode().split("data: ", 1)[1]) async for chunk in sse]
 
@@ -284,7 +284,7 @@ def _classifier_router() -> Router:
         model_list=[
             {
                 "model_name": "classifier",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/classifier",
                     "api_key": "sk-classifier-test",
                     "mock_response": json.dumps(
@@ -306,22 +306,22 @@ async def _bridge_response(
 ) -> object:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-safeguards-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses")
     if stream:
         upstream.respond(status_code=200, headers={"Content-Type": "text/event-stream"}, content=_tool_call_sse_body())
     else:
         upstream.respond(status_code=200, json=TOOL_CALL_RESPONSE)
-    with patch("litellm.proxy.proxy_server.general_settings", dict(settings)):
-        response: Final = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    with patch("hangarllm.proxy.proxy_server.general_settings", dict(settings)):
+        response: Final = await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
             max_tokens=1024,
             messages=MESSAGES,
             model="openai/gpt-5.6-luna",
             tools=[dict(BASH_TOOL)],
             stream=stream,
             custom_llm_provider="openai",
-            litellm_router=_classifier_router(),
-            litellm_metadata={"user_api_key": "hashed-key"},
+            hangarllm_router=_classifier_router(),
+            hangarllm_metadata={"user_api_key": "hashed-key"},
             **extra,
         )
         if not stream:
@@ -570,7 +570,7 @@ def _gpt_5_6_input_for_a_cached_block(drop_params: bool, raw_mark: Mapping[str, 
 def test_a_malformed_raw_marker_beside_cache_control_gives_way_to_it_only_under_drop_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     malformed: Final = {"prompt_cache_breakpoint": "yes"}
 
     assert _gpt_5_6_input_for_a_cached_block(True, malformed) == _gpt_5_6_input_for_a_cached_block(True, {})
@@ -622,7 +622,7 @@ def _tool_result_turn_with(text_block: Mapping[str, object]) -> list[dict[str, o
 
 @pytest.mark.parametrize("text_block", MALFORMED_TEXT_BLOCKS)
 def test_malformed_tool_result_text_answers_400_naming_the_block(text_block: Mapping[str, object]) -> None:
-    with pytest.raises(litellm.BadRequestError) as rejected:
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
         _build_responses_kwargs(
             model="openai/gpt-5.6",
             extra_kwargs=OPENAI_API,
@@ -649,7 +649,7 @@ def test_many_malformed_tool_result_texts_answer_one_bounded_error() -> None:
         }
     ]
 
-    with pytest.raises(litellm.BadRequestError) as rejected:
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
         _build_responses_kwargs(model="openai/gpt-5.6", extra_kwargs=OPENAI_API, max_tokens=1024, messages=messages)
 
     assert rejected.value.status_code == 400
@@ -723,15 +723,15 @@ REASONING_RESPONSE: Final = {
 async def test_recomputed_cost_of_a_served_bridge_response_prices_the_reasoning_tokens(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-bridge-reasoning-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
     monkeypatch.setitem(
-        litellm.model_cost, REASONING_MODEL, {"litellm_provider": "openai", "mode": "responses", **REASONING_RATES}
+        hangarllm.model_cost, REASONING_MODEL, {"hangarllm_provider": "openai", "mode": "responses", **REASONING_RATES}
     )
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post("https://api.openai.com/v1/responses").respond(status_code=200, json=REASONING_RESPONSE)
     logging_obj: Final = Logging(
         model=REASONING_MODEL,
@@ -739,16 +739,16 @@ async def test_recomputed_cost_of_a_served_bridge_response_prices_the_reasoning_
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(datetime.timezone.utc),
-        litellm_call_id="bridge-reasoning-0000-4000-8000-000000000001",
+        hangarllm_call_id="bridge-reasoning-0000-4000-8000-000000000001",
         function_id="1234",
     )
 
-    served: Final = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    served: Final = await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
         max_tokens=412,
         messages=MESSAGES,
         model=f"openai/{REASONING_MODEL}",
         custom_llm_provider="openai",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     assert isinstance(served, dict) and "reasoning" not in json.dumps(served["usage"])
 
@@ -768,8 +768,8 @@ _DEEPWIKI_SERVER: Final = {"type": "url", "url": "https://mcp.deepwiki.com/mcp",
 
 
 def test_mcp_servers_the_responses_bridge_cannot_run_answer_400(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.UnsupportedParamsError) as rejected:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.UnsupportedParamsError) as rejected:
         _build_responses_kwargs(
             model="gpt-5.6",
             extra_kwargs={**OPENAI_API, "mcp_servers": [_DEEPWIKI_SERVER]},
@@ -789,7 +789,7 @@ def test_mcp_servers_the_responses_bridge_cannot_run_answer_400(monkeypatch: pyt
 def test_drop_params_keeps_mcp_servers_off_the_responses_request(
     monkeypatch: pytest.MonkeyPatch, drop_form: Mapping[str, object]
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     responses_kwargs: Final = _build_responses_kwargs(
         model="gpt-5.6",
         extra_kwargs={**OPENAI_API, "mcp_servers": [_DEEPWIKI_SERVER], **drop_form},
@@ -802,7 +802,7 @@ def test_drop_params_keeps_mcp_servers_off_the_responses_request(
 
 
 def test_drop_params_drops_the_mcp_toolset_tools_of_dropped_mcp_servers(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     weather_tool: Final = {"name": "get_weather", "input_schema": {"type": "object", "properties": {}}}
     responses_kwargs: Final = _build_responses_kwargs(
         model="gpt-5.6",
@@ -871,13 +871,13 @@ async def _cleared_bridge(
 ) -> tuple[object, Mapping[str, object]]:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-clear-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses")
     if stream:
         upstream.respond(status_code=200, headers={"Content-Type": "text/event-stream"}, content=RESPONSES_SSE_BODY)
     else:
         upstream.respond(status_code=200, json=TEXT_RESPONSE)
-    response: Final = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    response: Final = await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
         max_tokens=1024,
         messages=_three_reads(),
         model="openai/gpt-5.6-luna",
@@ -898,7 +898,7 @@ async def _cleared_bridge(
 async def test_clear_tool_uses_clears_old_results_before_the_responses_api_call(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
+    from hangarllm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
 
     served, body = await _cleared_bridge(respx_mock, monkeypatch, stream=False, edits=[dict(CLEAR_EDIT)])
 
@@ -943,14 +943,14 @@ async def test_compact_stays_native_while_clear_tool_uses_runs_in_the_gateway(
 async def test_a_malformed_clear_tool_uses_edit_is_a_400_before_the_responses_api_call(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.llms.anthropic.messages.context_management import AnthropicContextManagementError
+    from hangarllm.llms.anthropic.messages.context_management import AnthropicContextManagementError
 
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").respond(
         status_code=200, json=TEXT_RESPONSE
     )
     monkeypatch.setenv("OPENAI_API_KEY", "sk-clear-test")
     with pytest.raises(AnthropicContextManagementError) as raised:
-        await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+        await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
             max_tokens=1024,
             messages=_three_reads(),
             model="openai/gpt-5.6-luna",
@@ -974,8 +974,8 @@ async def test_a_malformed_text_in_a_result_clearing_would_drop_is_still_a_400(
         "role": "user",
         "content": [{"type": "tool_result", "tool_use_id": "toolu_0", "content": [{"type": "text", "text": None}]}],
     }
-    with pytest.raises(litellm.BadRequestError) as rejected:
-        await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
+        await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
             max_tokens=1024,
             messages=[*reads[:2], malformed_oldest_result, *reads[3:]],
             model="openai/gpt-5.6-luna",
@@ -989,16 +989,16 @@ async def test_a_malformed_text_in_a_result_clearing_would_drop_is_still_a_400(
 
 
 def test_the_sync_path_clears_old_results_too(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
+    from hangarllm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-clear-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").respond(
         status_code=200, json=TEXT_RESPONSE
     )
 
-    served: Final = LiteLLMMessagesToResponsesAPIHandler.anthropic_messages_handler(
+    served: Final = HangarLLMMessagesToResponsesAPIHandler.anthropic_messages_handler(
         max_tokens=1024,
         messages=_three_reads(),
         model="openai/gpt-5.6-luna",
@@ -1029,9 +1029,9 @@ async def test_an_openai_style_context_management_list_is_still_not_sent_to_the_
     )
     monkeypatch.setenv("OPENAI_API_KEY", "sk-clear-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
-    served: Final = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    served: Final = await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
         max_tokens=1024,
         messages=_three_reads(),
         model="openai/gpt-5.6-luna",
@@ -1048,7 +1048,7 @@ async def test_an_openai_style_context_management_list_is_still_not_sent_to_the_
 async def test_under_drop_params_a_malformed_edit_still_clears_without_its_bad_field(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
+    from hangarllm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
 
     served, body = await _cleared_bridge(
         respx_mock, monkeypatch, stream=False, edits=[{**CLEAR_EDIT, "exclude_tools": "Bash"}], drop_params=True
@@ -1067,7 +1067,7 @@ async def test_under_drop_params_a_malformed_edit_still_clears_without_its_bad_f
 
 
 def _cleared_outputs(body: Mapping[str, object]) -> list[bool]:
-    from litellm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
+    from hangarllm.llms.anthropic.messages.context_management.constants import CLEARED_TOOL_RESULT_PLACEHOLDER
 
     outputs: Final = {
         item["call_id"]: item["output"] for item in body["input"] if item.get("type") == "function_call_output"
@@ -1102,7 +1102,7 @@ async def test_clear_tool_uses_still_clears_when_the_system_prompt_is_not_text_o
 async def test_input_tokens_trigger_counts_the_text_blocks_of_a_system_list_with_stray_items(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, system: object, expect_cleared: list[bool]
 ) -> None:
-    trigger_between_messages_and_system: Final = litellm.token_counter(model="gpt-4o", messages=_three_reads()) + 1000
+    trigger_between_messages_and_system: Final = hangarllm.token_counter(model="gpt-4o", messages=_three_reads()) + 1000
     edit: Final = {**CLEAR_EDIT, "trigger": {"type": "input_tokens", "value": trigger_between_messages_and_system}}
 
     _, body = await _cleared_bridge(respx_mock, monkeypatch, stream=False, edits=[edit], system=system)
@@ -1116,12 +1116,12 @@ async def test_the_sync_path_reports_its_edits_on_the_streamed_message_delta(
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-clear-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post("https://api.openai.com/v1/responses").respond(
         status_code=200, headers={"Content-Type": "text/event-stream"}, content=RESPONSES_SSE_BODY
     )
 
-    sse: Final = LiteLLMMessagesToResponsesAPIHandler.anthropic_messages_handler(
+    sse: Final = HangarLLMMessagesToResponsesAPIHandler.anthropic_messages_handler(
         max_tokens=1024,
         messages=_three_reads(),
         model="openai/gpt-5.6-luna",

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException
 from httpx import Request, Response
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     Choices,
     Delta,
     Message,
@@ -38,14 +38,14 @@ def _make_model_response_with_content(content: str) -> ModelResponse:
     )
 
 
-import litellm
-from litellm import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+import hangarllm
+from hangarllm import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
     CiscoAIDefenseGuardrail,
     CiscoAIDefenseGuardrailMissingSecrets,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
 
 CISCO_BASE = "https://us.api.inspect.aidefense.security.cisco.com"
 CHAT_URL = f"{CISCO_BASE}/api/v1/inspect/chat"
@@ -202,8 +202,8 @@ def _redact_response(
 
 
 def _responses_api_response(text, role="assistant"):
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.responses.main import GenericResponseOutputItem, OutputText
+    from hangarllm.types.llms.openai import ResponsesAPIResponse
+    from hangarllm.types.responses.main import GenericResponseOutputItem, OutputText
 
     return ResponsesAPIResponse(
         id="resp_1",
@@ -245,14 +245,14 @@ def _make_guardrail(
 
 
 def _find_callback(name):
-    from litellm.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
         CiscoAIDefenseGuardrail,
     )
 
-    for cb in litellm.callbacks:
+    for cb in hangarllm.callbacks:
         if isinstance(cb, CiscoAIDefenseGuardrail) and cb.guardrail_name == name:
             return cb
-    raise AssertionError(f"Cisco guardrail {name!r} not in litellm.callbacks")
+    raise AssertionError(f"Cisco guardrail {name!r} not in hangarllm.callbacks")
 
 
 def _make_streaming_chunks(parts):
@@ -352,7 +352,7 @@ __all__ = [
     "datetime",
     "init_guardrails_v2",
     "json",
-    "litellm",
+    "hangarllm",
     "os",
     "patch",
     "pytest",

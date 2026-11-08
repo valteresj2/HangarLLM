@@ -84,7 +84,7 @@ def _config(directory: Path) -> Path:
     path.write_text(
         "model_list: []\n"
         "general_settings:\n"
-        "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+        "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         "  database_url: os.environ/DATABASE_URL\n"
         "  store_model_in_db: true\n"
         "router_settings:\n"
@@ -198,7 +198,7 @@ def test_anthropic_proxy_credentials_override_caller_credentials(
             "/anthropic/v1/messages",
             json=body,
             headers={
-                "x-litellm-api-key": key,
+                "x-hangarllm-api-key": key,
                 "x-api-key": caller_api_key,
                 "Authorization": caller_authorization,
             },
@@ -297,7 +297,7 @@ def test_credentialless_proxy_forwards_the_caller_anthropic_credential_and_never
     ):
         key: Final = scenario.key()
         response: Final = client.post(
-            "/anthropic/v1/messages", json=body, headers={"x-litellm-api-key": key, credential_header: credential}
+            "/anthropic/v1/messages", json=body, headers={"x-hangarllm-api-key": key, credential_header: credential}
         )
         assert response.status_code == 200, response.text
         message: Final = anthropic.types.Message.model_validate_json(response.content)
@@ -310,9 +310,9 @@ def test_credentialless_proxy_forwards_the_caller_anthropic_credential_and_never
         assert {"authorization", "x-api-key"} & set(upstream.headers) == {credential_header}, upstream.headers
         _assert_virtual_key_absent(upstream, key)
 
-        refused: Final = client.post("/anthropic/v1/messages", json=body, headers={"x-litellm-api-key": key})
+        refused: Final = client.post("/anthropic/v1/messages", json=body, headers={"x-hangarllm-api-key": key})
         assert refused.status_code == 401, refused.text
-        assert "The LiteLLM virtual key is not forwarded to Anthropic" in refused.text, refused.text
+        assert "The HangarLLM virtual key is not forwarded to Anthropic" in refused.text, refused.text
         assert wire.drain() == ()
 
 

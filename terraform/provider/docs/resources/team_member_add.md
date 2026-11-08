@@ -1,4 +1,4 @@
-# Resource: litellm_team_member_add
+# Resource: hangarllm_team_member_add
 
 Add multiple members to a team with a single resource. This resource efficiently manages team members by using the appropriate API endpoints for each operation:
 
@@ -13,7 +13,7 @@ When you modify an existing team member's attributes (like role), the resource w
 ### Basic Usage
 
 ```hcl
-resource "litellm_team_member_add" "example" {
+resource "hangarllm_team_member_add" "example" {
   team_id = "team-123"
   
   member {
@@ -38,7 +38,7 @@ resource "litellm_team_member_add" "example" {
 
 ```hcl
 # First create a team
-resource "litellm_team" "development" {
+resource "hangarllm_team" "development" {
   team_alias = "development-team"
   max_budget = 500.0
   models     = ["gpt-4", "gpt-3.5-turbo"]
@@ -50,8 +50,8 @@ resource "litellm_team" "development" {
 }
 
 # Add members to the team
-resource "litellm_team_member_add" "dev_team_members" {
-  team_id = litellm_team.development.id
+resource "hangarllm_team_member_add" "dev_team_members" {
+  team_id = hangarllm_team.development.id
   
   # Team lead with admin role
   member {
@@ -100,7 +100,7 @@ locals {
   ]
 }
 
-resource "litellm_team_member_add" "dynamic_example" {
+resource "hangarllm_team_member_add" "dynamic_example" {
   team_id = "team-456"
   
   dynamic "member" {
@@ -120,8 +120,8 @@ resource "litellm_team_member_add" "dynamic_example" {
 
 ```hcl
 # This example demonstrates how budget updates work correctly
-resource "litellm_team_member_add" "budget_example" {
-  team_id = litellm_team.example.id
+resource "hangarllm_team_member_add" "budget_example" {
+  team_id = hangarllm_team.example.id
   
   # Initial budget of $100 per member
   max_budget_in_team = 100.0
@@ -168,4 +168,4 @@ Removing `budget_duration`, `tpm_limit`, `rpm_limit`, or `allowed_models` from t
 Team members can be imported using a composite ID of the team ID and user ID:
 
 ```shell
-terraform import litellm_team_member_add.example team-123:user-456
+terraform import hangarllm_team_member_add.example team-123:user-456

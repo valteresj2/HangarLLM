@@ -5,10 +5,10 @@ import httpx
 import pytest
 from pydantic import BaseModel, SecretStr
 
-from litellm.proxy.roi_calculator.observed_analytics import summarize_observed
-from litellm.proxy.roi_calculator.observed_sync import collect_observed
-from litellm.proxy.roi_calculator.source import repository_tag
-from litellm.types.roi_calculator import ROIBranchSpend, ROISettings, ROISpendRecord
+from hangarllm.proxy.roi_calculator.observed_analytics import summarize_observed
+from hangarllm.proxy.roi_calculator.observed_sync import collect_observed
+from hangarllm.proxy.roi_calculator.source import repository_tag
+from hangarllm.types.roi_calculator import ROIBranchSpend, ROISettings, ROISpendRecord
 
 
 class _Variables(BaseModel):

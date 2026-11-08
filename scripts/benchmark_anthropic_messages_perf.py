@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark LiteLLM proxy /v1/messages (Anthropic Messages API) streaming.
+"""Benchmark HangarLLM proxy /v1/messages (Anthropic Messages API) streaming.
 
 Measures the two metrics that matter for an interactive streaming proxy:
 
@@ -9,12 +9,12 @@ Measures the two metrics that matter for an interactive streaming proxy:
 
 It boots a local mock Anthropic provider that speaks the real Anthropic
 streaming SSE wire format (``message_start`` -> ``content_block_delta`` ->
-``message_stop``) and a LiteLLM proxy from any checkout, so commits/branches
+``message_stop``) and a HangarLLM proxy from any checkout, so commits/branches
 can be compared without depending on real provider latency.
 
 Example:
     uv run python scripts/benchmark_anthropic_messages_perf.py \
-        --label baseline --proxy-command ".venv/bin/litellm"
+        --label baseline --proxy-command ".venv/bin/hangarllm"
 
 Compare an already-running proxy:
     uv run python scripts/benchmark_anthropic_messages_perf.py \
@@ -228,11 +228,11 @@ def summarize(samples: list[StreamSample], wall_time_s: float) -> SummaryStats:
     )
 
 
-def get_git_revision(litellm_dir: Path) -> str:
+def get_git_revision(hangarllm_dir: Path) -> str:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=litellm_dir,
+            cwd=hangarllm_dir,
             check=True,
             capture_output=True,
             text=True,
@@ -246,7 +246,7 @@ def write_proxy_config(config_path: Path, provider_base_url: str, api_key: str) 
     config_path.write_text(
         f"""model_list:
   - model_name: {DEFAULT_MODEL}
-    litellm_params:
+    hangarllm_params:
       model: anthropic/{DEFAULT_MODEL}
       api_key: fake-provider-key
       api_base: {provider_base_url}
@@ -254,7 +254,7 @@ def write_proxy_config(config_path: Path, provider_base_url: str, api_key: str) 
 general_settings:
   master_key: {api_key}
 
-litellm_settings:
+hangarllm_settings:
 """,
         encoding="utf-8",
     )
@@ -277,7 +277,7 @@ async def wait_for_proxy(base_url: str, timeout_s: float) -> None:
 
 
 def start_proxy_process(
-    litellm_dir: Path,
+    hangarllm_dir: Path,
     proxy_command: str,
     config_path: Path,
     port: int,
@@ -291,13 +291,13 @@ def start_proxy_process(
     ]
     env = {
         **os.environ,
-        "LITELLM_TELEMETRY": "False",
+        "HANGARLLM_TELEMETRY": "False",
         "PYTHONUNBUFFERED": "1",
     }
     log_file = log_path.open("w", encoding="utf-8")
     return subprocess.Popen(
         command,
-        cwd=litellm_dir,
+        cwd=hangarllm_dir,
         env=env,
         stdout=log_file,
         stderr=subprocess.STDOUT,
@@ -483,13 +483,13 @@ def print_summary(label: str, revision: str, stats: SummaryStats) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="current")
-    parser.add_argument("--litellm-dir", default=str(Path.cwd()))
-    parser.add_argument("--proxy-command", default="uv run litellm")
+    parser.add_argument("--hangarllm-dir", default=str(Path.cwd()))
+    parser.add_argument("--proxy-command", default="uv run hangarllm")
     parser.add_argument("--proxy-host", default="127.0.0.1")
     parser.add_argument("--proxy-port", type=int, default=4000)
     parser.add_argument("--provider-host", default="127.0.0.1")
     parser.add_argument("--provider-port", type=int, default=8098)
-    parser.add_argument("--api-key", default=os.environ.get("LITELLM_MASTER_KEY"))
+    parser.add_argument("--api-key", default=os.environ.get("HANGARLLM_MASTER_KEY"))
     parser.add_argument("--requests", type=int, default=300)
     parser.add_argument("--concurrency", type=int, default=20)
     parser.add_argument("--warmup", type=int, default=30)
@@ -524,7 +524,7 @@ def parse_args() -> argparse.Namespace:
 async def async_main() -> None:
     args = parse_args()
     if args.no_start_proxy and not args.api_key:
-        raise ValueError("Set LITELLM_MASTER_KEY or pass --api-key when using --no-start-proxy")
+        raise ValueError("Set HANGARLLM_MASTER_KEY or pass --api-key when using --no-start-proxy")
     api_key: Final = args.api_key or (
         "sk-"
         + subprocess.run(
@@ -534,8 +534,8 @@ async def async_main() -> None:
             text=True,
         ).stdout.strip()
     )
-    litellm_dir = Path(args.litellm_dir).resolve()
-    revision = get_git_revision(litellm_dir)
+    hangarllm_dir = Path(args.hangarllm_dir).resolve()
+    revision = get_git_revision(hangarllm_dir)
     proxy_base_url = f"http://{args.proxy_host}:{args.proxy_port}"
     proxy_url = f"{proxy_base_url}/v1/messages"
     headers = {
@@ -551,7 +551,7 @@ async def async_main() -> None:
 
     provider: Optional[MockAnthropicProvider] = None
     proxy_process: Optional[subprocess.Popen] = None
-    with tempfile.TemporaryDirectory(prefix="litellm-anthropic-perf-") as tmp_dir_name:
+    with tempfile.TemporaryDirectory(prefix="hangarllm-anthropic-perf-") as tmp_dir_name:
         tmp_dir = Path(tmp_dir_name)
         proxy_log_path = tmp_dir / "proxy.log"
         if args.provider_url:
@@ -572,7 +572,7 @@ async def async_main() -> None:
         try:
             if not args.no_start_proxy:
                 proxy_process = start_proxy_process(
-                    litellm_dir=litellm_dir,
+                    hangarllm_dir=hangarllm_dir,
                     proxy_command=args.proxy_command,
                     config_path=config_path,
                     port=args.proxy_port,

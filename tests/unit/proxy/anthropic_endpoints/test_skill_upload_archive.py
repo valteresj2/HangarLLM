@@ -6,7 +6,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.anthropic_endpoints.claude_code_endpoints.skill_upload_archive import (
+from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints.skill_upload_archive import (
     MAX_SKILL_ARCHIVE_COMPRESSION_RATIO,
     build_uploaded_skill_archive,
 )

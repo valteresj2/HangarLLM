@@ -3,7 +3,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from queue import SimpleQueue
 from typing import Final, cast
 
-import litellm
+import hangarllm
 from integration._support.wire import wire_server
 from integration.providers._tool_search_support import (
     MODEL,
@@ -21,8 +21,8 @@ from integration.providers._tool_search_support import (
     scripted_peer,
     wire_assistant,
 )
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage, ChatCompletionToolParam
-from litellm.types.utils import ChatCompletionMessageToolCall
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage, ChatCompletionToolParam
+from hangarllm.types.utils import ChatCompletionMessageToolCall
 
 _API_KEY: Final = "scripted-anthropic-key"
 _TOOLS: Final = cast(list[ChatCompletionToolParam], TOOLS)
@@ -59,7 +59,7 @@ def _drained(executed: SimpleQueue[str]) -> tuple[str, ...]:
 
 
 def _run(marker: str, wire_url: str, executed: SimpleQueue[str]) -> str | None:
-    return litellm.run_tool_loop(
+    return hangarllm.run_tool_loop(
         model=f"anthropic/{MODEL}",
         messages=_messages(marker),
         tools=_TOOLS,
@@ -87,7 +87,7 @@ async def test_arun_tool_loop_executes_only_the_client_tool_and_replays_the_kept
     marker: Final = uuid.uuid4().hex
     executed: Final[SimpleQueue[str]] = SimpleQueue()
     with wire_server(scripted_peer()) as wire:
-        content: Final = await litellm.arun_tool_loop(
+        content: Final = await hangarllm.arun_tool_loop(
             model=f"anthropic/{MODEL}",
             messages=_messages(marker),
             tools=_TOOLS,

@@ -10,8 +10,8 @@ from typing import Final
 import pytest
 from integration._support.wire import Reply, Request, Wire, wire_server
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 _MODEL: Final = "gpt-5.6"
 _API_KEY: Final = "synthetic-tool-call-fallback-key"
@@ -136,7 +136,7 @@ def _router(wire: Wire, deployments: tuple[str, ...], **settings: object) -> Rou
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/{name}", "api_key": _API_KEY},
+                "hangarllm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/{name}", "api_key": _API_KEY},
             }
             for name in deployments
         ],
@@ -229,7 +229,7 @@ def test_primary_dies_after_tool_call_deltas_streamed(client: str) -> None:
     }
     with wire_server(_peer(replies)) as wire:
         router: Final = _router(wire, ("primary", "backup"), num_retries=2, fallbacks=_PRIMARY_TO_BACKUP)
-        with pytest.raises(litellm.APIConnectionError, match="overloaded"):
+        with pytest.raises(hangarllm.APIConnectionError, match="overloaded"):
             _stream(client, router)
         assert _deployments_hit(wire) == ("primary",)
 
@@ -239,7 +239,7 @@ def test_disable_fallbacks_holds_before_the_tool_call_opens(client: str) -> None
     replies: Final = {"primary": _DIES_BEFORE_CONTENT, "backup": _serves_tool_call("call_backup", "Lisbon")}
     with wire_server(_peer(replies)) as wire:
         router: Final = _router(wire, ("primary", "backup"), num_retries=0, fallbacks=_PRIMARY_TO_BACKUP)
-        with pytest.raises(litellm.APIConnectionError, match="overloaded"):
+        with pytest.raises(hangarllm.APIConnectionError, match="overloaded"):
             _stream(client, router, disable_fallbacks=True)
         assert _deployments_hit(wire) == ("primary",)
 
@@ -258,7 +258,7 @@ def test_primary_dies_before_the_tool_call_opens_is_retried_within_the_group(cli
 def test_request_num_retries_overrides_the_router_budget(client: str) -> None:
     with wire_server(_always(_DIES_BEFORE_CONTENT)) as wire:
         router: Final = _router(wire, ("primary",), num_retries=3, retry_after=0)
-        with pytest.raises(litellm.APIConnectionError, match="overloaded"):
+        with pytest.raises(hangarllm.APIConnectionError, match="overloaded"):
             _stream(client, router, num_retries=1)
         assert _deployments_hit(wire) == ("primary", "primary")
 
@@ -271,7 +271,7 @@ def test_every_stream_dies_before_content_spends_exactly_the_budget(client: str,
         router: Final = _router(
             wire, ("primary", "backup"), num_retries=num_retries, fallbacks=_BOTH_WAYS, retry_after=0
         )
-        with pytest.raises(litellm.APIConnectionError):
+        with pytest.raises(hangarllm.APIConnectionError):
             _stream(client, router)
         assert _deployments_hit(wire) == ("primary",) * (num_retries + 1) + ("backup",) * (num_retries + 1)
 
@@ -283,7 +283,7 @@ def test_every_request_rejected_before_streaming_spends_a_bounded_budget(client:
         router: Final = _router(
             wire, ("primary", "backup"), num_retries=num_retries, fallbacks=_BOTH_WAYS, retry_after=0
         )
-        with pytest.raises(litellm.InternalServerError, match="overloaded"):
+        with pytest.raises(hangarllm.InternalServerError, match="overloaded"):
             _stream(client, router)
         hit: Final = _deployments_hit(wire)
     assert hit == ("primary",) * (num_retries + 1) + ("backup",) * (num_retries + 1), hit

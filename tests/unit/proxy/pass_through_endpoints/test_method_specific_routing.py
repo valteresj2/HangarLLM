@@ -7,7 +7,7 @@ for the same path but different HTTP methods.
 
 import pytest
 
-from litellm.proxy._types import PassThroughGenericEndpoint
+from hangarllm.proxy._types import PassThroughGenericEndpoint
 
 
 def test_pass_through_endpoint_with_methods():
@@ -100,7 +100,7 @@ def test_pass_through_endpoint_serialization():
 
 def test_route_key_generation_with_methods():
     """Test that route keys include methods for uniqueness"""
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 

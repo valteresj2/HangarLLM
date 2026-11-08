@@ -1,5 +1,5 @@
 """
-Tests for litellm/_service_logger.py
+Tests for hangarllm/_service_logger.py
 
 Regression test for KeyError: 'call_type' when async_log_success_event
 is called without call_type in kwargs (e.g. from batch polling callbacks).
@@ -14,11 +14,11 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-import litellm
-from litellm._service_logger import ServiceLogging
-from litellm.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
-from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
-from litellm.types.services import ServiceTypes
+import hangarllm
+from hangarllm._service_logger import ServiceLogging
+from hangarllm.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
+from hangarllm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+from hangarllm.types.services import ServiceTypes
 
 
 @pytest.mark.asyncio
@@ -108,7 +108,7 @@ async def test_async_log_success_event_should_handle_float_duration():
 
 @pytest.mark.asyncio
 async def test_async_log_success_event_forwards_start_and_end_time():
-    """The LITELLM service span must carry its real execution window, so
+    """The HANGARLLM service span must carry its real execution window, so
     ``async_log_success_event`` forwards ``start_time``/``end_time`` to the service
     hook. Without forwarding, the span emits with a synthetic now() boundary
     instead of the call's actual timing."""
@@ -145,9 +145,9 @@ def _make_otel_v2_logger():
         InMemorySpanExporter,
     )
 
-    from litellm.integrations.otel import OpenTelemetryV2Config
-    from litellm.integrations.otel.plumbing import providers
-    from litellm.integrations.otel.logger import OpenTelemetryV2
+    from hangarllm.integrations.otel import OpenTelemetryV2Config
+    from hangarllm.integrations.otel.plumbing import providers
+    from hangarllm.integrations.otel.logger import OpenTelemetryV2
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     exporter = InMemorySpanExporter()
@@ -168,7 +168,7 @@ def test_resolve_otel_service_logger_recognizes_otel_string(monkeypatch):
     # The "otel" string path resolves through the proxy's registered logger, so
     # it needs the proxy server module importable.
     try:
-        import litellm.proxy.proxy_server as proxy_server
+        import hangarllm.proxy.proxy_server as proxy_server
     except ImportError:
         pytest.skip("proxy server dependencies not installed")
     service_logger = ServiceLogging()
@@ -186,16 +186,16 @@ def test_resolve_otel_service_logger_ignores_unrelated_callback():
 
 @pytest.mark.asyncio
 async def test_service_span_emitted_for_v2_logger_in_service_callback(monkeypatch):
-    """End-to-end: a V2 logger registered in ``litellm.service_callback`` produces
+    """End-to-end: a V2 logger registered in ``hangarllm.service_callback`` produces
     a service span when ``async_service_success_hook`` fires with a parent span."""
-    from litellm.integrations.otel.model.spans import SpanRole
+    from hangarllm.integrations.otel.model.spans import SpanRole
 
     v2_logger, exporter = _make_otel_v2_logger()
     parent = v2_logger._emitter.start_span(
         SpanRole.PROXY_REQUEST, "POST /chat/completions"
     )
 
-    monkeypatch.setattr(litellm, "service_callback", [v2_logger])
+    monkeypatch.setattr(hangarllm, "service_callback", [v2_logger])
     service_logger = ServiceLogging()
 
     await service_logger.async_service_success_hook(
@@ -220,10 +220,10 @@ async def test_service_span_not_duplicated_for_string_and_instance(monkeypatch):
     the dedup guard this produced duplicate ``postgres ...`` / ``redis ...`` spans.
     """
     try:
-        import litellm.proxy.proxy_server as proxy_server
+        import hangarllm.proxy.proxy_server as proxy_server
     except ImportError:
         pytest.skip("proxy server dependencies not installed")
-    from litellm.integrations.otel.model.spans import SpanRole
+    from hangarllm.integrations.otel.model.spans import SpanRole
 
     v2_logger, exporter = _make_otel_v2_logger()
     parent = v2_logger._emitter.start_span(
@@ -233,7 +233,7 @@ async def test_service_span_not_duplicated_for_string_and_instance(monkeypatch):
     # The "otel" string resolves to the proxy's registered logger (the same
     # instance), so the list holds two references to one logger.
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", v2_logger, raising=False)
-    monkeypatch.setattr(litellm, "service_callback", ["otel", v2_logger])
+    monkeypatch.setattr(hangarllm, "service_callback", ["otel", v2_logger])
     service_logger = ServiceLogging()
 
     await service_logger.async_service_success_hook(
@@ -245,7 +245,7 @@ async def test_service_span_not_duplicated_for_string_and_instance(monkeypatch):
     parent.end()
 
     db_spans = [
-        s for s in exporter.get_finished_spans() if s.name == "postgres.select LiteLLM_UserTable"
+        s for s in exporter.get_finished_spans() if s.name == "postgres.select HangarLLM_UserTable"
     ]
     assert len(db_spans) == 1
 
@@ -257,10 +257,10 @@ async def test_service_failure_span_not_duplicated_for_string_and_instance(
     """Failure path mirror of the dedup guard — one span per failed service event,
     even with both the ``"otel"`` string and the instance in ``service_callback``."""
     try:
-        import litellm.proxy.proxy_server as proxy_server
+        import hangarllm.proxy.proxy_server as proxy_server
     except ImportError:
         pytest.skip("proxy server dependencies not installed")
-    from litellm.integrations.otel.model.spans import SpanRole
+    from hangarllm.integrations.otel.model.spans import SpanRole
 
     v2_logger, exporter = _make_otel_v2_logger()
     parent = v2_logger._emitter.start_span(
@@ -268,7 +268,7 @@ async def test_service_failure_span_not_duplicated_for_string_and_instance(
     )
 
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", v2_logger, raising=False)
-    monkeypatch.setattr(litellm, "service_callback", ["otel", v2_logger])
+    monkeypatch.setattr(hangarllm, "service_callback", ["otel", v2_logger])
     service_logger = ServiceLogging()
 
     await service_logger.async_service_failure_hook(
@@ -281,7 +281,7 @@ async def test_service_failure_span_not_duplicated_for_string_and_instance(
     parent.end()
 
     db_spans = [
-        s for s in exporter.get_finished_spans() if s.name == "postgres.select LiteLLM_UserTable"
+        s for s in exporter.get_finished_spans() if s.name == "postgres.select HangarLLM_UserTable"
     ]
     assert len(db_spans) == 1
 
@@ -292,16 +292,16 @@ async def test_only_redis_service_spans_carry_the_ambient_key_family(monkeypatch
     task spawned inside that context performs later."""
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-    from litellm._internal_context import service_target
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.model.config import OpenTelemetryV2Config
-    from litellm.integrations.otel.model.semconv import LiteLLM
-    from litellm.integrations.otel.plumbing import providers
+    from hangarllm._internal_context import service_target
+    from hangarllm.integrations.otel.logger import OpenTelemetryV2
+    from hangarllm.integrations.otel.model.config import OpenTelemetryV2Config
+    from hangarllm.integrations.otel.model.semconv import HangarLLM
+    from hangarllm.integrations.otel.plumbing import providers
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     exporter = InMemorySpanExporter()
     otel = OpenTelemetryV2(config=cfg, tracer_provider=providers.build_tracer_provider(cfg, exporter=exporter))
-    monkeypatch.setattr(litellm, "service_callback", [otel])
+    monkeypatch.setattr(hangarllm, "service_callback", [otel])
     service_logger = ServiceLogging()
     start = datetime(2026, 2, 13, 22, 35, 0)
     end = datetime(2026, 2, 13, 22, 35, 1)
@@ -318,7 +318,7 @@ async def test_only_redis_service_spans_carry_the_ambient_key_family(monkeypatch
             end_time=end,
         )
 
-    targets = {span.name: span.attributes.get(LiteLLM.SERVICE_TARGET) for span in exporter.get_finished_spans()}
+    targets = {span.name: span.attributes.get(HangarLLM.SERVICE_TARGET) for span in exporter.get_finished_spans()}
     assert targets == {
         "redis.get router_session_pins": "router_session_pins",
         "batch_write_to_db _PROXY_track_cost_callback": None,
@@ -345,7 +345,7 @@ async def test_generic_otel_logger_receives_service_event_once_beside_langfuse_o
     generic_logger: Final = OpenTelemetry(
         config=OpenTelemetryConfig(exporter="console", skip_set_global=True), tracer_provider=generic_provider
     )
-    monkeypatch.setattr(litellm, "service_callback", [langfuse_logger, generic_logger])
+    monkeypatch.setattr(hangarllm, "service_callback", [langfuse_logger, generic_logger])
     parent: Final = generic_logger.tracer.start_span("parent")
 
     try:

@@ -8,16 +8,16 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
     OpenAIPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_websocket_passthrough_logging_handler import (
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.openai_websocket_passthrough_logging_handler import (
     OpenAIWebsocketPassthroughLoggingHandler,
     openai_websocket_frame_kind,
 )
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_spend_logs_id
-from litellm.types.utils import CallTypes
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_spend_logs_id
+from hangarllm.types.utils import CallTypes
 
 REALTIME_MODEL: Final = "gpt-realtime-2.1"
 RESPONSES_MODEL: Final = "gpt-5.4-mini"
@@ -27,7 +27,7 @@ SESSION_START: Final = datetime(2026, 1, 1, 12, 0, 0)
 
 
 def _logging_obj() -> MagicMock:
-    logging_obj: Final = MagicMock(model_call_details={}, litellm_call_id=str(uuid.uuid4()))
+    logging_obj: Final = MagicMock(model_call_details={}, hangarllm_call_id=str(uuid.uuid4()))
     return logging_obj
 
 
@@ -96,7 +96,7 @@ def _handle(
 
 
 def _realtime_cost(model: str, text_in: int, audio_in: int, text_out: int, audio_out: int) -> float:
-    prices: Final = litellm.model_cost[model]
+    prices: Final = hangarllm.model_cost[model]
     return (
         text_in * prices["input_cost_per_token"]
         + audio_in * prices["input_cost_per_audio_token"]
@@ -145,7 +145,7 @@ def test_responses_turn_is_priced_on_the_model_the_response_reported():
         url_route="/openai_passthrough/v1/responses",
     )
 
-    prices: Final = litellm.model_cost[RESPONSES_MODEL]
+    prices: Final = hangarllm.model_cost[RESPONSES_MODEL]
     expected_cost: Final = 13 * prices["input_cost_per_token"] + 5 * prices["output_cost_per_token"]
     assert handled["kwargs"]["response_cost"] == pytest.approx(expected_cost)
     assert handled["kwargs"]["model"] == RESPONSES_MODEL
@@ -162,7 +162,7 @@ def test_responses_cost_covers_every_turn_of_the_connection():
         url_route="/openai_passthrough/v1/responses",
     )
 
-    prices: Final = litellm.model_cost[RESPONSES_MODEL]
+    prices: Final = hangarllm.model_cost[RESPONSES_MODEL]
     expected_cost: Final = 33 * prices["input_cost_per_token"] + 12 * prices["output_cost_per_token"]
     assert handled["kwargs"]["response_cost"] == pytest.approx(expected_cost)
     assert handled["result"].usage.total_tokens == 45
@@ -201,8 +201,8 @@ def test_each_responses_turn_is_priced_on_the_model_that_turn_ran():
         url_route="/openai_passthrough/v1/responses",
     )
 
-    first: Final = litellm.model_cost[REASONING_MODEL]
-    second: Final = litellm.model_cost[RESPONSES_MODEL]
+    first: Final = hangarllm.model_cost[REASONING_MODEL]
+    second: Final = hangarllm.model_cost[RESPONSES_MODEL]
     expected_cost: Final = (
         13 * first["input_cost_per_token"]
         + 5 * first["output_cost_per_token"]
@@ -222,7 +222,7 @@ def test_a_responses_turn_that_names_no_model_is_priced_on_the_session_model():
         url_route="/openai_passthrough/v1/responses",
     )
 
-    prices: Final = litellm.model_cost[RESPONSES_MODEL]
+    prices: Final = hangarllm.model_cost[RESPONSES_MODEL]
     expected_cost: Final = 13 * prices["input_cost_per_token"] + 5 * prices["output_cost_per_token"]
     assert handled["kwargs"]["response_cost"] == pytest.approx(expected_cost)
 
@@ -231,12 +231,12 @@ def test_a_session_nobody_named_a_model_for_is_left_unpriced():
     logging_obj: Final = _logging_obj()
     handled: Final = _handle(
         [{"type": "response.done", "response": {"usage": {"input_tokens": 10, "output_tokens": 5}}}],
-        kwargs=MappingProxyType({"litellm_call_id": "call-fake"}),
+        kwargs=MappingProxyType({"hangarllm_call_id": "call-fake"}),
         logging_obj=logging_obj,
     )
 
     assert handled["result"] is None
-    assert handled["kwargs"] == {"litellm_call_id": "call-fake"}
+    assert handled["kwargs"] == {"hangarllm_call_id": "call-fake"}
     assert logging_obj.model_call_details == {}
 
 
@@ -276,7 +276,7 @@ def test_the_price_of_a_multi_model_connection_reaches_the_spend_row():
         url_route="/openai_passthrough/v1/responses",
     )
 
-    logged_cost: Final = litellm.response_cost_calculator(
+    logged_cost: Final = hangarllm.response_cost_calculator(
         response_object=handled["result"],
         model=handled["kwargs"]["model"],
         custom_llm_provider="openai",
@@ -284,7 +284,7 @@ def test_the_price_of_a_multi_model_connection_reaches_the_spend_row():
         optional_params={},
     )
 
-    session_prices: Final = litellm.model_cost[RESPONSES_MODEL]
+    session_prices: Final = hangarllm.model_cost[RESPONSES_MODEL]
     priced_on_the_session_model: Final = (
         33 * session_prices["input_cost_per_token"] + 12 * session_prices["output_cost_per_token"]
     )
@@ -377,7 +377,7 @@ def test_a_transcription_session_is_billed_for_every_clip_it_transcribed(usage, 
         url_route="/openai_passthrough/v1/realtime",
     )
 
-    logged_cost: Final = litellm.response_cost_calculator(
+    logged_cost: Final = hangarllm.response_cost_calculator(
         response_object=handled["result"],
         model=handled["kwargs"]["model"],
         custom_llm_provider="openai",
@@ -385,7 +385,7 @@ def test_a_transcription_session_is_billed_for_every_clip_it_transcribed(usage, 
         optional_params={},
     )
 
-    prices: Final = litellm.model_cost[TRANSCRIPTION_MODEL]
+    prices: Final = hangarllm.model_cost[TRANSCRIPTION_MODEL]
     expected_cost: Final = 2 * sum(units * prices[rate] for units, rate in billed_units)
     assert expected_cost > 0
     assert handled["kwargs"]["model"] == TRANSCRIPTION_MODEL
@@ -421,7 +421,7 @@ def test_a_responses_turn_that_ended_early_is_billed_for_the_tokens_it_used(even
         url_route="/openai_passthrough/v1/responses",
     )
 
-    prices: Final = litellm.model_cost[RESPONSES_MODEL]
+    prices: Final = hangarllm.model_cost[RESPONSES_MODEL]
     expected_cost: Final = 13 * prices["input_cost_per_token"] + 5 * prices["output_cost_per_token"]
     assert handled["kwargs"]["response_cost"] == pytest.approx(expected_cost)
     assert handled["result"].usage.total_tokens == 18
@@ -457,11 +457,11 @@ def test_a_responses_turn_falls_back_to_the_requested_model_only_when_its_own_ha
     """
     handled: Final = _handle(
         [_responses_completed(turn_model, input_tokens=13, output_tokens=5)],
-        kwargs=MappingProxyType({"litellm_params": {"metadata": {"model_group": requested_model}}}),
+        kwargs=MappingProxyType({"hangarllm_params": {"metadata": {"model_group": requested_model}}}),
         url_route="/openai_passthrough/v1/responses",
     )
 
-    prices: Final = litellm.model_cost[priced_as]
+    prices: Final = hangarllm.model_cost[priced_as]
     expected_cost: Final = 13 * prices["input_cost_per_token"] + 5 * prices["output_cost_per_token"]
     assert expected_cost > 0
     assert handled["kwargs"]["response_cost"] == pytest.approx(expected_cost)

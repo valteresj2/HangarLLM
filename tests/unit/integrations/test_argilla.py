@@ -6,8 +6,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.argilla import ArgillaLogger
+import hangarllm
+from hangarllm.integrations.argilla import ArgillaLogger
 
 ARGILLA_BASE_URL = "https://argilla.example.test"
 USER_MESSAGE = {"role": "user", "content": "where is my order?"}
@@ -56,7 +56,7 @@ async def test_argilla_logger_sends_the_record_shaped_by_the_configured_field_ma
     standard_logging_object: dict[str, object],
     expected_fields: dict[str, object],
 ) -> None:
-    monkeypatch.setattr(litellm, "argilla_transformation_object", transformation_object)
+    monkeypatch.setattr(hangarllm, "argilla_transformation_object", transformation_object)
     respx_mock.get(f"{ARGILLA_BASE_URL}/api/v1/me/datasets", params={"name": "support-chats"}).mock(
         return_value=httpx.Response(200, json={"items": [{"id": "dataset-403"}]})
     )
@@ -85,7 +85,7 @@ async def test_argilla_logger_sends_the_record_shaped_by_the_configured_field_ma
     [
         pytest.param(
             None,
-            "'litellm.argilla_transformation_object' is required, to log your payload to Argilla.",
+            "'hangarllm.argilla_transformation_object' is required, to log your payload to Argilla.",
             id="mapping-not-configured",
         ),
         pytest.param(
@@ -104,7 +104,7 @@ async def test_argilla_logger_sends_the_record_shaped_by_the_configured_field_ma
 def test_argilla_logger_refuses_to_start_without_a_supported_field_mapping(
     monkeypatch: pytest.MonkeyPatch, transformation_object: object, message: str
 ) -> None:
-    monkeypatch.setattr(litellm, "argilla_transformation_object", transformation_object)
+    monkeypatch.setattr(hangarllm, "argilla_transformation_object", transformation_object)
 
     with pytest.raises(Exception, match=re.escape(message)):
         ArgillaLogger(argilla_api_key="argilla-key")

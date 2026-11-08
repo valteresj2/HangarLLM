@@ -9,9 +9,9 @@ from integration._support.upstream import aws_event_stream_frame
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
 
 _JSON_TOOL: Final = "json_tool_call"
 _FRAGMENT_SIZE: Final = 20
@@ -129,7 +129,7 @@ def _credentials(model: str) -> dict[str, str]:
 def test_sync_json_tool_stream_requires_a_provider_finish_reason(model: str, shape: str, cut: bool) -> None:
     marker_hex: Final = uuid.uuid4().hex
     with wire_server(_peer(marker_hex, shape, cut)) as wire:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=model,
             messages=[{"role": "user", "content": f"Rate the risk {marker_hex}"}],
             response_format=_RESPONSE_FORMAT,

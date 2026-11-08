@@ -7,32 +7,32 @@ import openai
 import pytest
 import respx
 
-import litellm
-from litellm.llms.anthropic.messages.adapters.transformation import (
-    LiteLLMAnthropicMessagesAdapter,
+import hangarllm
+from hangarllm.llms.anthropic.messages.adapters.transformation import (
+    HangarLLMAnthropicMessagesAdapter,
 )
-from litellm.llms.anthropic.messages.native.handler import (
+from hangarllm.llms.anthropic.messages.native.handler import (
     anthropic_messages_handler,
 )
-from litellm.llms.anthropic.messages.native.mcp_handler import (
+from hangarllm.llms.anthropic.messages.native.mcp_handler import (
     _build_tool_result_message,
     _extract_tool_use_blocks,
 )
 
 MCP_REFERENCE = {
     "type": "mcp",
-    "server_label": "litellm",
-    "server_url": "litellm_proxy/mcp/deepwiki",
+    "server_label": "hangarllm",
+    "server_url": "hangarllm_proxy/mcp/deepwiki",
     "require_approval": "never",
 }
 
 
-def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
+def test_anthropic_messages_handler_routes_hangarllm_proxy_mcp_to_the_gateway():
     """
-    Regression test (LIT-4517): /v1/messages must expand a litellm_proxy MCP
+    Regression test (LIT-4517): /v1/messages must expand a hangarllm_proxy MCP
     reference through the MCP gateway.
 
-    Given: A /v1/messages request whose tools carry a litellm_proxy MCP reference
+    Given: A /v1/messages request whose tools carry a hangarllm_proxy MCP reference
     When:  The handler dispatches
     Then:  It hands off to the MCP gateway instead of the provider
 
@@ -43,7 +43,7 @@ def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
     dispatch makes the whole feature unreachable while every unit test still passes.
     """
     with patch(
-        "litellm.llms.anthropic.messages.native.mcp_handler.anthropic_messages_with_mcp",
+        "hangarllm.llms.anthropic.messages.native.mcp_handler.anthropic_messages_with_mcp",
         new=AsyncMock(return_value={"routed": True}),
     ) as routed:
         result = anthropic_messages_handler(
@@ -54,7 +54,7 @@ def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
             custom_llm_provider="anthropic",
         )
 
-    assert routed.called, "A litellm_proxy MCP reference must be dispatched to the MCP gateway"
+    assert routed.called, "A hangarllm_proxy MCP reference must be dispatched to the MCP gateway"
     assert routed.call_args.kwargs["tools"] == [MCP_REFERENCE]
     assert routed.call_args.kwargs["model"] == "claude-sonnet-4-5"
     assert result is not None
@@ -64,30 +64,30 @@ def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
 async def test_anthropic_messages_with_mcp_reaches_an_env_only_deployment_with_its_env_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://example-resource.cognitiveservices.azure.com")
     monkeypatch.setenv("AZURE_AI_API_KEY", "azure-env-key")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with respx.mock(assert_all_called=True) as respx_mock:
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
         with pytest.raises(openai.APIError):
-            await litellm.anthropic.messages.acreate(
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model="azure_ai/gpt-6-luna",
-                tools=[{**MCP_REFERENCE, "server_url": "litellm_proxy"}],
+                tools=[{**MCP_REFERENCE, "server_url": "hangarllm_proxy"}],
             )
 
     assert {call.request.url.host for call in upstream.calls} == {"example-resource.cognitiveservices.azure.com"}
     assert {call.request.headers.get("api-key") for call in upstream.calls} == {"azure-env-key"}
-    assert not any(b"litellm_proxy" in call.request.content for call in upstream.calls)
+    assert not any(b"hangarllm_proxy" in call.request.content for call in upstream.calls)
 
 
 def test_anthropic_messages_handler_skips_the_gateway_on_recursion():
     """The gateway's own follow-up call must not re-enter the gateway."""
     with patch(
-        "litellm.llms.anthropic.messages.native.mcp_handler.anthropic_messages_with_mcp",
+        "hangarllm.llms.anthropic.messages.native.mcp_handler.anthropic_messages_with_mcp",
         new=AsyncMock(return_value={"routed": True}),
     ) as routed:
         with pytest.raises(ValueError, match="anthropic_messages_handler is not implemented for sync calls"):
@@ -106,7 +106,7 @@ def test_anthropic_messages_handler_skips_the_gateway_on_recursion():
 def test_anthropic_messages_handler_leaves_native_tools_alone():
     """A plain Anthropic tool is not an MCP reference and must not reach the gateway."""
     with patch(
-        "litellm.llms.anthropic.messages.native.mcp_handler.anthropic_messages_with_mcp",
+        "hangarllm.llms.anthropic.messages.native.mcp_handler.anthropic_messages_with_mcp",
         new=AsyncMock(return_value={"routed": True}),
     ) as routed:
         with pytest.raises(ValueError, match="anthropic_messages_handler is not implemented for sync calls"):
@@ -118,7 +118,7 @@ def test_anthropic_messages_handler_leaves_native_tools_alone():
                 custom_llm_provider="anthropic",
             )
 
-    assert not routed.called, "Only litellm_proxy MCP references belong to the gateway"
+    assert not routed.called, "Only hangarllm_proxy MCP references belong to the gateway"
 
 
 def test_extract_tool_use_blocks_ignores_text_blocks():
@@ -164,7 +164,7 @@ def test_build_tool_result_message_survives_the_chat_completions_bridge():
         ]
     )
 
-    translated = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    translated = HangarLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         [message], model="hosted_vllm/gpt-4o-mini", custom_llm_provider="hosted_vllm"
     )
 
@@ -189,8 +189,8 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     token, per-user env) silently returns nothing while the model claims it has
     no access. Only a no-auth server would look healthy.
     """
-    from litellm.llms.anthropic.messages.native import mcp_handler
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.llms.anthropic.messages.native import mcp_handler
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
 
     context = MCPRequestContext(
         user_api_key_auth="auth-object",
@@ -199,8 +199,8 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
         oauth2_headers={"authorization": "Bearer oauth"},
         raw_headers={"x-trace": "abc"},
         request_tags=["team-a"],
-        litellm_trace_id="trace-123",
-        litellm_call_id="call-456",
+        hangarllm_trace_id="trace-123",
+        hangarllm_call_id="call-456",
         guardrail_context={"metadata": {"guardrails": ("block-all",)}},
     )
 
@@ -214,20 +214,20 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     with (
         patch.object(MCPRequestContext, "resolve", return_value=context),
         patch.object(
-            mcp_handler.LiteLLM_Proxy_MCP_Handler
-            if hasattr(mcp_handler, "LiteLLM_Proxy_MCP_Handler")
+            mcp_handler.HangarLLM_Proxy_MCP_Handler
+            if hasattr(mcp_handler, "HangarLLM_Proxy_MCP_Handler")
             else __import__(
-                "litellm.responses.mcp.litellm_proxy_mcp_handler", fromlist=["LiteLLM_Proxy_MCP_Handler"]
-            ).LiteLLM_Proxy_MCP_Handler,
+                "hangarllm.responses.mcp.hangarllm_proxy_mcp_handler", fromlist=["HangarLLM_Proxy_MCP_Handler"]
+            ).HangarLLM_Proxy_MCP_Handler,
             "process_mcp_tools_without_openai_transform",
             new=process,
         ),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "execute_tool_calls",
             new=execute,
         ),
-        patch("litellm.anthropic_messages", new=AsyncMock(side_effect=responses)),
+        patch("hangarllm.anthropic_messages", new=AsyncMock(side_effect=responses)),
     ):
         await mcp_handler.anthropic_messages_with_mcp(
             max_tokens=100,
@@ -240,7 +240,7 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     assert listing["mcp_auth_header"] == "legacy-header", "tool listing must use the caller's MCP auth"
     assert listing["mcp_server_auth_headers"] == {"deepwiki": {"authorization": "Bearer per-server"}}
     assert listing["request_tags"] == ["team-a"]
-    assert listing["litellm_trace_id"] == "trace-123"
+    assert listing["hangarllm_trace_id"] == "trace-123"
 
     execution = execute.call_args.kwargs
     assert execution["user_api_key_auth"] == "auth-object"
@@ -248,8 +248,8 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     assert execution["mcp_server_auth_headers"] == {"deepwiki": {"authorization": "Bearer per-server"}}
     assert execution["oauth2_headers"] == {"authorization": "Bearer oauth"}
     assert execution["raw_headers"] == {"x-trace": "abc"}
-    assert execution["litellm_call_id"] == "call-456"
-    assert execution["litellm_trace_id"] == "trace-123"
+    assert execution["hangarllm_call_id"] == "call-456"
+    assert execution["hangarllm_trace_id"] == "trace-123"
     assert execution["request_tags"] == ["team-a"]
 
     assert execution["guardrail_context"] == {"metadata": {"guardrails": ("block-all",)}}
@@ -274,8 +274,8 @@ async def test_anthropic_messages_with_mcp_hands_execution_the_requests_served_t
     """
     from mcp.types import Tool
 
-    from litellm.llms.anthropic.messages.native import mcp_handler
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.llms.anthropic.messages.native import mcp_handler
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
 
     served = [
         Tool(
@@ -300,16 +300,16 @@ async def test_anthropic_messages_with_mcp_hands_execution_the_requests_served_t
     with (
         patch.object(MCPRequestContext, "resolve", return_value=MCPRequestContext(user_api_key_auth="auth")),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "process_mcp_tools_without_openai_transform",
             new=process,
         ),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "execute_tool_calls",
             new=execute,
         ),
-        patch("litellm.anthropic_messages", new=AsyncMock(side_effect=responses)),
+        patch("hangarllm.anthropic_messages", new=AsyncMock(side_effect=responses)),
     ):
         await mcp_handler.anthropic_messages_with_mcp(
             max_tokens=100,
@@ -339,8 +339,8 @@ async def test_anthropic_messages_with_mcp_stops_when_every_tool_call_is_skipped
     Anthropic rejects that, so the caller would get an unhandled 400 from the middle
     of the loop rather than the model's own answer.
     """
-    from litellm.llms.anthropic.messages.native import mcp_handler
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.llms.anthropic.messages.native import mcp_handler
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
 
     tool_use_response = {
         "stop_reason": "tool_use",
@@ -351,16 +351,16 @@ async def test_anthropic_messages_with_mcp_stops_when_every_tool_call_is_skipped
     with (
         patch.object(MCPRequestContext, "resolve", return_value=MCPRequestContext(user_api_key_auth="auth")),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "process_mcp_tools_without_openai_transform",
             new=AsyncMock(return_value=([], {})),
         ),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "execute_tool_calls",
             new=AsyncMock(return_value=[]),
         ),
-        patch("litellm.anthropic_messages", new=anthropic_messages_mock),
+        patch("hangarllm.anthropic_messages", new=anthropic_messages_mock),
     ):
         result = await mcp_handler.anthropic_messages_with_mcp(
             max_tokens=100,
@@ -377,15 +377,15 @@ async def test_anthropic_messages_with_mcp_stops_when_every_tool_call_is_skipped
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_with_mcp_classifies_only_the_response_the_client_gets():
-    from litellm.llms.anthropic.messages.native import mcp_handler
-    from litellm.responses.mcp.request_context import MCPRequestContext
-    from litellm.router import Router
+    from hangarllm.llms.anthropic.messages.native import mcp_handler
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.router import Router
 
     classifier_router = Router(
         model_list=[
             {
                 "model_name": "classifier",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-mini",
                     "api_key": "sk-fake",
                     "mock_response": '{"verdicts": {"toolu_bash": {"flagged": true, "explanation": "unrequested"}}}',
@@ -405,17 +405,17 @@ async def test_anthropic_messages_with_mcp_classifies_only_the_response_the_clie
     with (
         patch.object(MCPRequestContext, "resolve", return_value=MCPRequestContext(user_api_key_auth=None)),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "process_mcp_tools_without_openai_transform",
             new=AsyncMock(return_value=([], {})),
         ),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "execute_tool_calls",
             new=AsyncMock(side_effect=[[{"tool_call_id": "toolu_mcp", "result": "ok", "name": "t"}], []]),
         ),
-        patch("litellm.anthropic_messages", new=backend),
-        patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
+        patch("hangarllm.anthropic_messages", new=backend),
+        patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
     ):
         result = await mcp_handler.anthropic_messages_with_mcp(
             max_tokens=100,
@@ -423,7 +423,7 @@ async def test_anthropic_messages_with_mcp_classifies_only_the_response_the_clie
             model="fireworks_ai/kimi",
             tools=[MCP_REFERENCE],
             safeguards=[{"type": "dangerous_tool_use", "classifier_context": {"permission_mode": "auto"}}],
-            litellm_router=classifier_router,
+            hangarllm_router=classifier_router,
         )
 
     assert backend.await_count == 2
@@ -436,9 +436,9 @@ async def test_anthropic_messages_with_mcp_classifies_only_the_response_the_clie
 async def _mcp_safeguards_turn_recording_beta_map_loads(custom_llm_provider: str, model: str) -> tuple[int, ...]:
     import threading
 
-    from litellm import anthropic_beta_headers_manager
-    from litellm.llms.anthropic.messages.native import mcp_handler
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm import anthropic_beta_headers_manager
+    from hangarllm.llms.anthropic.messages.native import mcp_handler
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
 
     loader_threads: Final[list[int]] = []  # mutable-ok: records the thread each beta map load ran on
 
@@ -451,12 +451,12 @@ async def _mcp_safeguards_turn_recording_beta_map_loads(custom_llm_provider: str
         patch.object(anthropic_beta_headers_manager, "get_beta_headers_config", new=recording_loader),
         patch.object(MCPRequestContext, "resolve", return_value=MCPRequestContext(user_api_key_auth=None)),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("hangarllm.responses.mcp.hangarllm_proxy_mcp_handler").HangarLLM_Proxy_MCP_Handler,
             "process_mcp_tools_without_openai_transform",
             new=AsyncMock(return_value=([], {})),
         ),
-        patch("litellm.anthropic_messages", new=AsyncMock(return_value={"stop_reason": "end_turn", "content": []})),
-        patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
+        patch("hangarllm.anthropic_messages", new=AsyncMock(return_value={"stop_reason": "end_turn", "content": []})),
+        patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
     ):
         await mcp_handler.anthropic_messages_with_mcp(
             max_tokens=100,

@@ -55,9 +55,9 @@ def _config(directory: Path, wire: Wire) -> Path:
             "fallbacks": _json_array({FAILING_SEARCH_TOOL: _json_array(OTHER_SEARCH_TOOL)}),
         },
         "search_tools": _json_array(
-            {"search_tool_name": SEARCH_TOOL, "litellm_params": tool_params},
-            {"search_tool_name": OTHER_SEARCH_TOOL, "litellm_params": tool_params},
-            {"search_tool_name": FAILING_SEARCH_TOOL, "litellm_params": failing_tool_params},
+            {"search_tool_name": SEARCH_TOOL, "hangarllm_params": tool_params},
+            {"search_tool_name": OTHER_SEARCH_TOOL, "hangarllm_params": tool_params},
+            {"search_tool_name": FAILING_SEARCH_TOOL, "hangarllm_params": failing_tool_params},
         ),
     }
     path: Final = directory / "proxy_search_tool_deny_by_default.yaml"

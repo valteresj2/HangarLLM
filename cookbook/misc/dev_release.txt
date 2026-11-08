@@ -1,5 +1,5 @@
 python3 -m build
-twine upload --verbose dist/litellm-1.18.13.dev4.tar.gz -u __token__ - 
+twine upload --verbose dist/hangarllm-1.18.13.dev4.tar.gz -u __token__ - 
 
 
 Note: You might need to make a MANIFEST.ini file on root for build process incase it fails 

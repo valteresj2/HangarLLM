@@ -82,8 +82,8 @@ class TestHealthLifecycle:
 
         details = unwrap(client.readiness_details(MASTER_KEY))
         assert details.status == "healthy", f"authenticated readiness status must be healthy, got {details.status!r}"
-        assert details.litellm_version is not None, (
-            "authenticated diagnostics must expose the litellm version"
+        assert details.hangarllm_version is not None, (
+            "authenticated diagnostics must expose the hangarllm version"
         )
         assert details.db == "connected", (
             f"authenticated diagnostics must report the DB as connected, got {details.db!r}"

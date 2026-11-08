@@ -17,7 +17,7 @@ from mcp import ClientSession, MCPError
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import ListToolsResult, PaginatedRequestParams
 
-REMOVE_DATABASE: Final = ("DATABASE_URL", "DATABASE_URL_READ_REPLICA", "LITELLM_LICENSE", "LITELLM_LICENSE_PATH")
+REMOVE_DATABASE: Final = ("DATABASE_URL", "DATABASE_URL_READ_REPLICA", "HANGARLLM_LICENSE", "HANGARLLM_LICENSE_PATH")
 
 
 @asynccontextmanager
@@ -88,7 +88,7 @@ def _config_file(
 def _call_tool(gateway: Gateway, key: str, server_id: str, name: str) -> httpx.Response:
     return gateway.client.post(
         "/mcp-rest/tools/call",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         json={"name": name, "arguments": {"a": 1, "b": 2}, "server_id": server_id},
     )
 
@@ -127,7 +127,7 @@ def test_shared_redis_enforces_paginated_tools_and_rest_listings(
         peer.drain()
         rest_rejected: Final = second_replica.client.get(
             "/mcp-rest/tools/list",
-            headers={"x-litellm-api-key": second_replica.key},
+            headers={"x-hangarllm-api-key": second_replica.key},
             params={"server_id": "rpm"},
         )
         assert rest_rejected.status_code == 429, rest_rejected.text
@@ -148,8 +148,8 @@ def test_shared_redis_enforces_paginated_tools_and_rest_listings(
         environment: Final = {
             "STORE_MODEL_IN_DB": "False",
             "DISABLE_SCHEMA_UPDATE": "true",
-            "LITELLM_SALT_KEY": "shared-mcp-pagination-rate-limit",
-            "LITELLM_RATE_LIMIT_WINDOW_SIZE": "10",
+            "HANGARLLM_SALT_KEY": "shared-mcp-pagination-rate-limit",
+            "HANGARLLM_RATE_LIMIT_WINDOW_SIZE": "10",
         }
         options: Final = {
             "config": config,
@@ -192,13 +192,13 @@ def test_mcp_key_team_and_server_rpm_limits_share_redis(tmp_path: Path, monkeypa
         )
         environment: Final = {
             "DATABASE_URL": database_url,
-            "LITELLM_SALT_KEY": "shared-mcp-key-team-server-rate-limit",
-            "LITELLM_RATE_LIMIT_WINDOW_SIZE": "30",
+            "HANGARLLM_SALT_KEY": "shared-mcp-key-team-server-rate-limit",
+            "HANGARLLM_RATE_LIMIT_WINDOW_SIZE": "30",
         }
         second_environment: Final = {**environment, "DISABLE_SCHEMA_UPDATE": "true"}
         options: Final = {
             "config": config,
-            "remove_environment": ("DATABASE_URL_READ_REPLICA", "LITELLM_LICENSE", "LITELLM_LICENSE_PATH"),
+            "remove_environment": ("DATABASE_URL_READ_REPLICA", "HANGARLLM_LICENSE", "HANGARLLM_LICENSE_PATH"),
         }
         with (
             owned_proxy(seed, tmp_path / "first", environment, **options) as first_replica,

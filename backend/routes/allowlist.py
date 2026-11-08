@@ -136,7 +136,7 @@ BACKEND_PATH_PREFIXES: tuple[str, ...] = (
     "/get_image",
     "/get_favicon",
     "/.well-known/",
-    "/litellm/.well-known/",
+    "/hangarllm/.well-known/",
     "/ui_discovery/",
     "/ui-config",
     "/sso_settings",

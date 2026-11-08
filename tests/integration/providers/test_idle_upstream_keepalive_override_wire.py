@@ -38,7 +38,7 @@ def pools(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) ->
         session_gateway,
         tmp_path_factory.mktemp("idle-upstream-override"),
         ROWS,
-        {"AIOHTTP_KEEPALIVE_TIMEOUT": "120", "LITELLM_RUST": "1"},
+        {"AIOHTTP_KEEPALIVE_TIMEOUT": "120", "HANGARLLM_RUST": "1"},
         drop_after=None,
     ) as value:
         yield value

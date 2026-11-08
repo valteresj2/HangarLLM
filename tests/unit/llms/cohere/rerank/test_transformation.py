@@ -6,9 +6,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.cohere.rerank.transformation import CohereRerankConfig
-from litellm.types.rerank import RerankResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.cohere.rerank.transformation import CohereRerankConfig
+from hangarllm.types.rerank import RerankResponse
 
 
 def _transform(payload: object) -> RerankResponse:
@@ -96,7 +96,7 @@ def test_transform_rerank_response_preserves_response_shape() -> None:
             stream=False,
             call_type="rerank",
             start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-            litellm_call_id="rerank-test-call",
+            hangarllm_call_id="rerank-test-call",
             function_id="rerank-test-function",
         ),
     )

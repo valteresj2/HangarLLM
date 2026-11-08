@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.proxy.common_utils.validation_error_body import public_validation_errors
+from hangarllm.proxy.common_utils.validation_error_body import public_validation_errors
 
 _PASSWORD: Final = "hunter2-Sup3rSecret!"
 
@@ -34,7 +34,7 @@ def test_public_validation_errors_drops_input_ctx_and_url():
 
 def test_public_validation_errors_keeps_type_loc_and_msg_verbatim_in_order():
     errors: Final = (
-        {"type": "int_parsing", "loc": ("body", "litellm_params", "rpm"), "msg": "Input should be a valid integer"},
+        {"type": "int_parsing", "loc": ("body", "hangarllm_params", "rpm"), "msg": "Input should be a valid integer"},
         {"type": "extra_forbidden", "loc": ("body", "users", 0, "user_emial"), "msg": "Extra inputs are not permitted"},
         {"type": "too_short", "loc": ("body", "users"), "msg": "List should have at least 1 item"},
     )

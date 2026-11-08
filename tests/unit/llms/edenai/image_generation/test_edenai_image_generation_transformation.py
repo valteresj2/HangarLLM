@@ -6,11 +6,11 @@ import json
 import httpx
 import pytest
 
-import litellm
-from litellm.cost_calculator import get_response_cost_from_hidden_params
-from litellm.llms.edenai.image_generation.transformation import EdenAIImageGenerationConfig
-from litellm.types.utils import ImageResponse, LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.cost_calculator import get_response_cost_from_hidden_params
+from hangarllm.llms.edenai.image_generation.transformation import EdenAIImageGenerationConfig
+from hangarllm.types.utils import ImageResponse, LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 EDEN_BASE = "https://api.edenai.run/v3"
 EDEN_IMAGES_URL = f"{EDEN_BASE}/images/generations"
@@ -56,8 +56,8 @@ class TestRegistration:
 
 class TestAuthentication:
     def test_missing_key_is_an_authentication_error_before_any_request(self, no_eden_key, respx_mock):
-        with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
-            litellm.image_generation(model=MODEL, prompt="a red square")
+        with pytest.raises(hangarllm.AuthenticationError, match="EDENAI_API_KEY"):
+            hangarllm.image_generation(model=MODEL, prompt="a red square")
         assert not respx_mock.calls
 
 
@@ -65,9 +65,9 @@ class TestImageGeneration:
     def test_a_param_outside_the_openai_image_set_is_rejected_unless_dropped(self, eden_key, respx_mock):
         respx_mock.post(EDEN_IMAGES_URL).mock(return_value=httpx.Response(200, json=_eden_image()))
 
-        with pytest.raises(litellm.UnsupportedParamsError, match="imageConfig"):
-            litellm.image_generation(model=MODEL, prompt="a red square", imageConfig={"aspectRatio": "16:9"})
-        litellm.image_generation(
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="imageConfig"):
+            hangarllm.image_generation(model=MODEL, prompt="a red square", imageConfig={"aspectRatio": "16:9"})
+        hangarllm.image_generation(
             model=MODEL, prompt="a red square", imageConfig={"aspectRatio": "16:9"}, drop_params=True
         )
 
@@ -76,7 +76,7 @@ class TestImageGeneration:
     def test_posts_to_eden_with_the_bearer_key_and_the_seller_model_id(self, eden_key, respx_mock):
         respx_mock.post(EDEN_IMAGES_URL).mock(return_value=httpx.Response(200, json=_eden_image()))
 
-        response = litellm.image_generation(model=MODEL, prompt="a red square", size="1024x1024", quality="low", n=1)
+        response = hangarllm.image_generation(model=MODEL, prompt="a red square", size="1024x1024", quality="low", n=1)
 
         assert isinstance(response, ImageResponse)
         assert response.data[0].b64_json == PNG_B64
@@ -92,7 +92,7 @@ class TestImageGeneration:
     def test_eden_reported_cost_beats_the_price_map(self, eden_key, respx_mock):
         respx_mock.post(EDEN_IMAGES_URL).mock(return_value=httpx.Response(200, json=_eden_image()))
 
-        response = litellm.image_generation(model=MODEL, prompt="a red square")
+        response = hangarllm.image_generation(model=MODEL, prompt="a red square")
 
         assert get_response_cost_from_hidden_params(response._hidden_params) == EDEN_REPORTED_COST
         assert response._hidden_params["response_cost"] == EDEN_REPORTED_COST
@@ -100,7 +100,7 @@ class TestImageGeneration:
     def test_a_body_without_cost_leaves_pricing_to_the_price_map(self, eden_key, respx_mock):
         respx_mock.post(EDEN_IMAGES_URL).mock(return_value=httpx.Response(200, json=_eden_image(cost=None)))
 
-        response = litellm.image_generation(model=MODEL, prompt="a red square")
+        response = hangarllm.image_generation(model=MODEL, prompt="a red square")
 
         assert get_response_cost_from_hidden_params(response._hidden_params) is None
         assert response.usage is not None
@@ -110,7 +110,7 @@ class TestImageGeneration:
     async def test_async_call_tracks_the_same_cost(self, eden_key, httpx_transport, respx_mock):
         respx_mock.post(EDEN_IMAGES_URL).mock(return_value=httpx.Response(200, json=_eden_image()))
 
-        response = await litellm.aimage_generation(model=MODEL, prompt="a red square")
+        response = await hangarllm.aimage_generation(model=MODEL, prompt="a red square")
 
         assert response.data[0].b64_json == PNG_B64
         assert response._hidden_params["response_cost"] == EDEN_REPORTED_COST
@@ -120,11 +120,11 @@ class TestErrors:
     def test_a_non_object_body_fails_as_an_invalid_response_object(self, eden_key, respx_mock):
         respx_mock.post(EDEN_IMAGES_URL).mock(return_value=httpx.Response(200, json=["unexpected"]))
 
-        with pytest.raises(litellm.APIConnectionError, match="Invalid response object"):
-            litellm.image_generation(model=MODEL, prompt="a red square")
+        with pytest.raises(hangarllm.APIConnectionError, match="Invalid response object"):
+            hangarllm.image_generation(model=MODEL, prompt="a red square")
 
     def test_middleware_401_maps_to_authentication_error(self, eden_key, respx_mock):
         respx_mock.post(EDEN_IMAGES_URL).mock(return_value=httpx.Response(401, json={"detail": "Invalid token."}))
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            litellm.image_generation(model=MODEL, prompt="a red square")
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            hangarllm.image_generation(model=MODEL, prompt="a red square")

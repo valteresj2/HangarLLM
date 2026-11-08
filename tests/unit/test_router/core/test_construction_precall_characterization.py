@@ -19,17 +19,17 @@ from fakeredis import FakeRedis, FakeServer
 from fakeredis.aioredis import FakeConnection
 from redis.asyncio import BlockingConnectionPool
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.router import Router
-from litellm.router_api import ChangeSet, router_init_args
-from litellm.router_core import RouterCore
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import PromptCachingDeploymentCheck
-from litellm.scheduler import FlowItem
-from litellm.types.router import (
+import hangarllm
+from hangarllm._logging import verbose_router_logger
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.router import Router
+from hangarllm.router_api import ChangeSet, router_init_args
+from hangarllm.router_core import RouterCore
+from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
+from hangarllm.router_utils.pre_call_checks.prompt_caching_deployment_check import PromptCachingDeploymentCheck
+from hangarllm.scheduler import FlowItem
+from hangarllm.types.router import (
     AlertingConfig,
     AllowedFailsPolicy,
     CustomRoutingStrategyBase,
@@ -95,10 +95,10 @@ def test_settings_default_of_a_router_built_with_only_a_model_list(
     assert getattr(_one(make_core).settings(), field) == expected
 
 
-def test_default_litellm_params_default_to_no_timeout_no_client_retries_and_no_caching_groups(
+def test_default_hangarllm_params_default_to_no_timeout_no_client_retries_and_no_caching_groups(
     make_core: MakeCore,
 ) -> None:
-    assert _one(make_core).settings().default_litellm_params == {
+    assert _one(make_core).settings().default_hangarllm_params == {
         "timeout": None,
         "max_retries": 0,
         "metadata": {"caching_groups": None},
@@ -205,9 +205,9 @@ async def test_num_retries_from_the_process_settings_governs_the_attempts(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
     host.set_dynamic(num_retries=1)
-    host.answer("openai/a", litellm.InternalServerError(message="boom", llm_provider="openai", model="a"))
+    host.answer("openai/a", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="a"))
     core: Final = _one(make_core)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert len(host.calls) == 2
 
@@ -216,7 +216,7 @@ async def test_num_retries_from_the_process_settings_governs_the_attempts(
     ("argument", "host_max", "host_router_max", "expected"),
     [(3, 9, 11, 3), (0, 9, 11, 0), (None, 9, 11, 9), (None, None, 11, 11)],
 )
-def test_max_fallbacks_comes_from_the_argument_then_litellm_max_fallbacks_then_router_max_fallbacks(
+def test_max_fallbacks_comes_from_the_argument_then_hangarllm_max_fallbacks_then_router_max_fallbacks(
     make_core: MakeCore,
     host: ScriptedHost,
     argument: int | None,
@@ -249,9 +249,9 @@ def test_timeout_comes_from_the_argument_else_the_process_request_timeout(
     assert core.settings().as_dict()["timeout"] == expected
 
 
-def test_timeout_zero_still_reaches_default_litellm_params_as_zero(make_core: MakeCore) -> None:
+def test_timeout_zero_still_reaches_default_hangarllm_params_as_zero(make_core: MakeCore) -> None:
     core: Final = _one(make_core, timeout=0)
-    assert core.settings().default_litellm_params["timeout"] == 0
+    assert core.settings().default_hangarllm_params["timeout"] == 0
 
 
 @pytest.mark.parametrize(("argument", "expected"), [(30, 30), (0.5, 0.5), (0, 5), (None, 5)])
@@ -266,25 +266,25 @@ def test_cooldown_time_defaults_to_five_seconds_and_zero_reads_as_the_default(
 def test_request_timeout_is_unset_without_a_router_timeout(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "request_timeout", 77.0)
+    monkeypatch.setattr(hangarllm, "request_timeout", 77.0)
     assert _one(make_core).request_timeout is None  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_request_timeout_reads_litellm_request_timeout_directly_when_a_router_timeout_is_set(
+def test_request_timeout_reads_hangarllm_request_timeout_directly_when_a_router_timeout_is_set(
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Oddity: this one setting is read from ``litellm.request_timeout`` itself, not from the host's
+    """Oddity: this one setting is read from ``hangarllm.request_timeout`` itself, not from the host's
     process settings (which say 33 here)."""
     host.set_dynamic(request_timeout=33.0)
-    monkeypatch.setattr(litellm, "request_timeout", 77.0)
+    monkeypatch.setattr(hangarllm, "request_timeout", 77.0)
     assert _one(make_core, timeout=10).request_timeout == 77.0  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_request_timeout_is_unset_when_litellm_request_timeout_is_its_untouched_default(
+def test_request_timeout_is_unset_when_hangarllm_request_timeout_is_its_untouched_default(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "request_timeout", 6000)
-    monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False, raising=False)
+    monkeypatch.setattr(hangarllm, "request_timeout", 6000)
+    monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", False, raising=False)
     assert _one(make_core, timeout=10).request_timeout is None  # pyright: ignore[reportAttributeAccessIssue]
 
 
@@ -413,17 +413,17 @@ def test_each_routing_strategy_is_reported_in_settings(make_core: MakeCore, stra
     assert _one(make_core, routing_strategy=strategy).settings().routing_strategy == strategy
 
 
-# --- default_litellm_params ----------------------------------------------------------------
+# --- default_hangarllm_params ----------------------------------------------------------------
 
 
-def test_default_litellm_params_keep_given_values_and_gain_max_retries_and_caching_groups(make_core: MakeCore) -> None:
+def test_default_hangarllm_params_keep_given_values_and_gain_max_retries_and_caching_groups(make_core: MakeCore) -> None:
     core: Final = _one(
         make_core,
         timeout=12.5,
-        default_litellm_params={"timeout": 99, "temperature": 0.1, "metadata": {"x": 1}},
+        default_hangarllm_params={"timeout": 99, "temperature": 0.1, "metadata": {"x": 1}},
         caching_groups=[("a", "b")],
     )
-    assert core.settings().default_litellm_params == {
+    assert core.settings().default_hangarllm_params == {
         "timeout": 99,
         "temperature": 0.1,
         "metadata": {"x": 1, "caching_groups": [("a", "b")]},
@@ -431,13 +431,13 @@ def test_default_litellm_params_keep_given_values_and_gain_max_retries_and_cachi
     }
 
 
-def test_default_litellm_params_timeout_defaults_to_the_router_timeout_argument(make_core: MakeCore) -> None:
-    assert _one(make_core, timeout=12.5).settings().default_litellm_params["timeout"] == 12.5
+def test_default_hangarllm_params_timeout_defaults_to_the_router_timeout_argument(make_core: MakeCore) -> None:
+    assert _one(make_core, timeout=12.5).settings().default_hangarllm_params["timeout"] == 12.5
 
 
-def test_default_litellm_params_argument_is_not_changed_by_construction(make_core: MakeCore) -> None:
+def test_default_hangarllm_params_argument_is_not_changed_by_construction(make_core: MakeCore) -> None:
     given: Final = {"temperature": 0.1}
-    _one(make_core, default_litellm_params=given)
+    _one(make_core, default_hangarllm_params=given)
     assert given == {"temperature": 0.1}
 
 
@@ -663,14 +663,14 @@ async def test_without_redis_each_worker_keeps_its_own_queue(make_core: MakeCore
 
 def test_cache_responses_installs_a_local_response_cache_on_the_host(make_core: MakeCore, host: ScriptedHost) -> None:
     core: Final = _one(make_core, cache_responses=True)
-    assert isinstance(host.cache, litellm.Cache)
+    assert isinstance(host.cache, hangarllm.Cache)
     assert host.cache.type == "local"
     assert core.settings().cache_responses is True
 
 
 def test_cache_responses_with_redis_installs_a_redis_response_cache(make_core: MakeCore, host: ScriptedHost) -> None:
     _one(make_core, cache_responses=True, redis_host="localhost", redis_port=6399)
-    assert isinstance(host.cache, litellm.Cache)
+    assert isinstance(host.cache, hangarllm.Cache)
     assert host.cache.type == "redis"
 
 
@@ -1237,7 +1237,7 @@ def test_get_valid_args_on_a_built_router(make_core: MakeCore) -> None:
 
 SECRET_DEPLOYMENT: Final = {
     "model_name": "g",
-    "litellm_params": {
+    "hangarllm_params": {
         "model": "openai/x",
         "api_key": "sk-abcdef",
         "api_base": "https://h",
@@ -1249,7 +1249,7 @@ SECRET_DEPLOYMENT: Final = {
 
 def test_print_deployment_shows_two_characters_of_the_api_key_then_ten_stars(make_core: MakeCore) -> None:
     printed: Final = _one(make_core).print_deployment(SECRET_DEPLOYMENT)  # pyright: ignore[reportAttributeAccessIssue]
-    assert printed["litellm_params"] == {
+    assert printed["hangarllm_params"] == {
         "model": "openai/x",
         "api_key": "sk**********",
         "api_base": "https://h",
@@ -1260,18 +1260,18 @@ def test_print_deployment_shows_two_characters_of_the_api_key_then_ten_stars(mak
 
 def test_print_deployment_leaves_the_given_deployment_unchanged(make_core: MakeCore) -> None:
     _one(make_core).print_deployment(SECRET_DEPLOYMENT)  # pyright: ignore[reportAttributeAccessIssue]
-    assert SECRET_DEPLOYMENT["litellm_params"]["api_key"] == "sk-abcdef"  # pyright: ignore[reportIndexIssue]
+    assert SECRET_DEPLOYMENT["hangarllm_params"]["api_key"] == "sk-abcdef"  # pyright: ignore[reportIndexIssue]
 
 
 def test_print_deployment_without_an_api_key_returns_an_equal_copy(make_core: MakeCore) -> None:
-    given: Final = {"litellm_params": {"model": "m"}}
+    given: Final = {"hangarllm_params": {"model": "m"}}
     printed: Final = _one(make_core).print_deployment(given)  # pyright: ignore[reportAttributeAccessIssue]
     assert printed == given
     assert printed is not given
 
 
-def test_print_deployment_without_litellm_params_raises_key_error(make_core: MakeCore) -> None:
-    with pytest.raises(KeyError, match="litellm_params"):
+def test_print_deployment_without_hangarllm_params_raises_key_error(make_core: MakeCore) -> None:
+    with pytest.raises(KeyError, match="hangarllm_params"):
         _one(make_core).print_deployment({"model_name": "x"})  # pyright: ignore[reportAttributeAccessIssue]
 
 
@@ -1281,7 +1281,7 @@ def test_print_deployment_with_redaction_masks_every_secret_keeping_its_length(
     core: Final = _one(make_core)
     host.set_dynamic(redact_user_api_key_info=True)
     printed: Final = core.print_deployment(SECRET_DEPLOYMENT)  # pyright: ignore[reportAttributeAccessIssue]
-    assert printed["litellm_params"] == {
+    assert printed["hangarllm_params"] == {
         "model": "openai/x",
         "api_key": "sk*******",
         "api_base": "https://h",

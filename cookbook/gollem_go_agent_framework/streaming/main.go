@@ -1,11 +1,11 @@
-// Streaming responses from gollem through LiteLLM.
+// Streaming responses from gollem through HangarLLM.
 //
 // Uses Go 1.23+ range-over-function iterators for real-time token
-// streaming via LiteLLM's SSE passthrough.
+// streaming via HangarLLM's SSE passthrough.
 //
 // Usage:
 //
-//	litellm --model gpt-4o
+//	hangarllm --model gpt-4o
 //	go run ./streaming
 package main
 
@@ -21,11 +21,11 @@ import (
 
 func main() {
 	proxyURL := "http://localhost:4000"
-	if u := os.Getenv("LITELLM_PROXY_URL"); u != "" {
+	if u := os.Getenv("HANGARLLM_PROXY_URL"); u != "" {
 		proxyURL = u
 	}
 
-	model := openai.NewLiteLLM(proxyURL,
+	model := openai.NewHangarLLM(proxyURL,
 		openai.WithModel("gpt-4o"),
 	)
 

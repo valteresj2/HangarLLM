@@ -13,7 +13,7 @@ def model_cost() -> dict[str, Any]:
 
 
 def test_replicate_models_have_valid_key_prefix(model_cost: dict[str, Any]) -> None:
-    replicate_models = {k for k, v in model_cost.items() if v.get("litellm_provider") == "replicate"}
+    replicate_models = {k for k, v in model_cost.items() if v.get("hangarllm_provider") == "replicate"}
     malformed = [k for k in replicate_models if not k.startswith("replicate/")]
     assert not malformed, (
         f"Replicate models must use 'replicate/owner/model' key format, found malformed keys: {malformed}"
@@ -23,7 +23,7 @@ def test_replicate_models_have_valid_key_prefix(model_cost: dict[str, Any]) -> N
 def test_replicate_backup_matches_main() -> None:
     repo_root = Path(__file__).parents[2]
     main_path = repo_root / "model_prices_and_context_window.json"
-    backup_path = repo_root / "litellm" / "model_prices_and_context_window_backup.json"
+    backup_path = repo_root / "hangarllm" / "model_prices_and_context_window_backup.json"
 
     with open(main_path, encoding="utf-8") as f:
         main_cost: dict[str, Any] = json.load(f)
@@ -31,5 +31,5 @@ def test_replicate_backup_matches_main() -> None:
         backup_cost: dict[str, Any] = json.load(f)
 
     for key in main_cost:
-        if main_cost[key].get("litellm_provider") == "replicate":
+        if main_cost[key].get("hangarllm_provider") == "replicate":
             assert backup_cost.get(key) == main_cost.get(key), f"{key} differs between main and backup model cost maps"

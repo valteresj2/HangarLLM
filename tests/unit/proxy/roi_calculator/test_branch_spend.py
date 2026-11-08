@@ -4,8 +4,8 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.roi_calculator.branch_spend import read_branch_spend
-from litellm.types.roi_calculator import ROIBranchSpend
+from hangarllm.proxy.roi_calculator.branch_spend import read_branch_spend
+from hangarllm.types.roi_calculator import ROIBranchSpend
 
 
 class _SpendDatabase:

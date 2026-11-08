@@ -17,9 +17,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
-from litellm.router_strategy.adaptive_router.signals import Turn
-from litellm.types.router import (
+from hangarllm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
+from hangarllm.router_strategy.adaptive_router.signals import Turn
+from hangarllm.types.router import (
     AdaptiveRouterConfig,
     AdaptiveRouterPreferences,
     AdaptiveRouterWeights,
@@ -54,10 +54,10 @@ def _make_router(
 
 def _make_mock_prisma():
     p = MagicMock()
-    p.db.litellm_adaptiverouterstate.find_unique = AsyncMock(return_value=None)
-    p.db.litellm_adaptiverouterstate.find_many = AsyncMock(return_value=[])
-    p.db.litellm_adaptiverouterstate.upsert = AsyncMock()
-    p.db.litellm_adaptiveroutersession.upsert = AsyncMock()
+    p.db.hangarllm_adaptiverouterstate.find_unique = AsyncMock(return_value=None)
+    p.db.hangarllm_adaptiverouterstate.find_many = AsyncMock(return_value=[])
+    p.db.hangarllm_adaptiverouterstate.upsert = AsyncMock()
+    p.db.hangarllm_adaptiveroutersession.upsert = AsyncMock()
     return p
 
 
@@ -98,13 +98,13 @@ async def test_pick_record_flush_full_cycle():
 
     assert n_state == 1
     assert n_session == 1
-    state_call = prisma.db.litellm_adaptiverouterstate.upsert.call_args
+    state_call = prisma.db.hangarllm_adaptiverouterstate.upsert.call_args
     # satisfaction signal -> +1 alpha, no existing row -> create.alpha == 1.0
     assert state_call.kwargs["data"]["create"]["alpha"] >= 1.0
     assert state_call.kwargs["data"]["create"]["beta"] == 0.0
     assert state_call.kwargs["data"]["create"]["total_samples"] == 1
 
-    session_call = prisma.db.litellm_adaptiveroutersession.upsert.call_args
+    session_call = prisma.db.hangarllm_adaptiveroutersession.upsert.call_args
     assert session_call.kwargs["data"]["create"]["satisfaction_count"] == 1
     assert session_call.kwargs["data"]["create"]["session_id"] == "s1"
     assert session_call.kwargs["data"]["create"]["model_name"] == chosen
@@ -180,7 +180,7 @@ async def test_failure_signal_increments_beta_after_flush():
     prisma = _make_mock_prisma()
     n_state = await router.queue.flush_state_to_db(prisma)
     assert n_state == 1
-    state_call = prisma.db.litellm_adaptiverouterstate.upsert.call_args
+    state_call = prisma.db.hangarllm_adaptiverouterstate.upsert.call_args
     assert state_call.kwargs["data"]["create"]["beta"] >= 1.0
     assert state_call.kwargs["data"]["create"]["alpha"] == 0.0
 
@@ -199,7 +199,7 @@ async def test_load_state_from_db_adds_persisted_delta_to_cold_start():
     fake_row.beta = 10.0
 
     prisma = _make_mock_prisma()
-    prisma.db.litellm_adaptiverouterstate.find_many = AsyncMock(return_value=[fake_row])
+    prisma.db.hangarllm_adaptiverouterstate.find_many = AsyncMock(return_value=[fake_row])
 
     await router.load_state_from_db(prisma)
 
@@ -218,7 +218,7 @@ async def test_load_state_from_db_handles_unknown_request_type():
     bad_row.beta = 50.0
 
     prisma = _make_mock_prisma()
-    prisma.db.litellm_adaptiverouterstate.find_many = AsyncMock(return_value=[bad_row])
+    prisma.db.hangarllm_adaptiverouterstate.find_many = AsyncMock(return_value=[bad_row])
 
     # Should not raise; bad row is silently skipped and cold-start cells remain.
     await router.load_state_from_db(prisma)
@@ -250,11 +250,11 @@ async def test_flush_isolates_writes_per_router_session_model():
     prisma = _make_mock_prisma()
     n = await router.queue.flush_session_to_db(prisma)
     assert n == 2
-    assert prisma.db.litellm_adaptiveroutersession.upsert.call_count == 2
+    assert prisma.db.hangarllm_adaptiveroutersession.upsert.call_count == 2
 
     n_state = await router.queue.flush_state_to_db(prisma)
     assert n_state == 2
-    assert prisma.db.litellm_adaptiverouterstate.upsert.call_count == 2
+    assert prisma.db.hangarllm_adaptiverouterstate.upsert.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -281,5 +281,5 @@ async def test_repeated_flush_drains_queue_and_subsequent_flush_is_noop():
     # Second drain should be a no-op (queue is empty).
     assert await router.queue.flush_state_to_db(prisma) == 0
     assert await router.queue.flush_session_to_db(prisma) == 0
-    assert prisma.db.litellm_adaptiverouterstate.upsert.call_count == 1
-    assert prisma.db.litellm_adaptiveroutersession.upsert.call_count == 1
+    assert prisma.db.hangarllm_adaptiverouterstate.upsert.call_count == 1
+    assert prisma.db.hangarllm_adaptiveroutersession.upsert.call_count == 1

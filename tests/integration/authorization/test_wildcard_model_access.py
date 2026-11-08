@@ -16,7 +16,7 @@ pytestmark: Final = pytest.mark.timeout(180)
 def _deployment(model_name: str, model: str, upstream_url: str) -> dict[str, JsonValue]:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "api_base": f"{upstream_url}/v1", "api_key": "synthetic-wildcard-key"},
+        "hangarllm_params": {"model": model, "api_base": f"{upstream_url}/v1", "api_key": "synthetic-wildcard-key"},
     }
 
 

@@ -455,7 +455,7 @@ class Ledger:
 
 _HIDDEN_PARAMS_PROBE: Final = """
 import httpx
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class HiddenParamsProbe(CustomLogger):
@@ -490,7 +490,7 @@ def sink_config(
 ) -> Path:
     shared: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     settings: Final = {
-        **JSON_OBJECT.validate_python(shared["litellm_settings"]),
+        **JSON_OBJECT.validate_python(shared["hangarllm_settings"]),
         "callbacks": [*sinks, *extra_callbacks],
         "DEFAULT_FLUSH_INTERVAL_SECONDS": 1,
     }
@@ -514,7 +514,7 @@ def sink_config(
             {
                 **shared,
                 "general_settings": general_settings,
-                "litellm_settings": settings,
+                "hangarllm_settings": settings,
                 "callback_settings": callback_settings,
             }
         )

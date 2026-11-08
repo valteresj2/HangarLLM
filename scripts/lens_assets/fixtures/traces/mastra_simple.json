@@ -51,7 +51,7 @@
                     "stringValue": "--env-file=.env"
                   },
                   {
-                    "stringValue": "/home/user/dev/litellm-lens-example/mastra/simple/main.ts"
+                    "stringValue": "/home/user/dev/hangarllm-lens-example/mastra/simple/main.ts"
                   }
                 ]
               }
@@ -78,7 +78,7 @@
           {
             "key": "process.command",
             "value": {
-              "stringValue": "/home/user/dev/litellm-lens-example/mastra/simple/main.ts"
+              "stringValue": "/home/user/dev/hangarllm-lens-example/mastra/simple/main.ts"
             }
           },
           {
@@ -116,7 +116,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -129,7 +129,7 @@
               "endTimeUnixNano": "1791061322404980084",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -159,7 +159,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "afc4951d-7141-4476-b4d5-529b294e56b7"
                   }
@@ -212,7 +212,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -335,13 +335,13 @@
                 {
                   "key": "mastra.metadata.headers",
                   "value": {
-                    "stringValue": "{\"content-encoding\":\"gzip\",\"content-length\":\"508\",\"content-security-policy\":\"frame-ancestors 'none'\",\"content-type\":\"application/json\",\"date\":\"Sat, 03 Oct 2026 21:01:58 GMT\",\"llm_provider-access-control-expose-headers\":\"X-Request-ID, CF-Ray, CF-Ray\",\"llm_provider-alt-svc\":\"h3=\\\":443\\\"; ma=86400\",\"llm_provider-cf-cache-status\":\"DYNAMIC\",\"llm_provider-cf-ray\":\"a44ee2a238354c71-SJC\",\"llm_provider-connection\":\"keep-alive\",\"llm_provider-content-encoding\":\"br\",\"llm_provider-content-type\":\"application/json\",\"llm_provider-date\":\"Sat, 03 Oct 2026 21:02:02 GMT\",\"llm_provider-openai-organization\":\"personal-1e898z\",\"llm_provider-openai-processing-ms\":\"2281\",\"llm_provider-openai-project\":\"proj_WG9WJ3ACNqlcabNE2emRzoqT\",\"llm_provider-openai-version\":\"2020-10-01\",\"llm_provider-server\":\"cloudflare\",\"llm_provider-strict-transport-security\":\"max-age=31536000; includeSubDomains; preload\",\"llm_provider-transfer-encoding\":\"chunked\",\"llm_provider-x-content-type-options\":\"nosniff\",\"llm_provider-x-openai-proxy-wasm\":\"v0.1\",\"llm_provider-x-ratelimit-limit-requests\":\"30000\",\"llm_provider-x-ratelimit-limit-tokens\":\"180000000\",\"llm_provider-x-ratelimit-remaining-requests\":\"29999\",\"llm_provider-x-ratelimit-remaining-tokens\":\"179999985\",\"llm_provider-x-ratelimit-reset-requests\":\"2ms\",\"llm_provider-x-ratelimit-reset-tokens\":\"0s\",\"llm_provider-x-request-id\":\"req_3bdaa67f622f4d60b679a0949bb6de56\",\"vary\":\"Accept-Encoding\",\"x-content-type-options\":\"nosniff\",\"x-frame-options\":\"DENY\",\"x-litellm-attempted-fallbacks\":\"0\",\"x-litellm-attempted-retries\":\"0\",\"x-litellm-call-id\":\"afc4951d-7141-4476-b4d5-529b294e56b7\",\"x-litellm-callback-duration-ms\":\"0.0\",\"x-litellm-key-spend\":\"7.329999999999999e-05\",\"x-litellm-model-api-base\":\"https://api.openai.com\",\"x-litellm-model-group\":\"openai/gpt-6-luna\",\"x-litellm-model-id\":\"e68fbd1ce26aa7a89b059c9a6df12007e624c6a2106cd3e6af492ab7a259f117\",\"x-litellm-model-name\":\"openai/gpt-6-luna\",\"x-litellm-overhead-duration-ms\":\"2.7521\",\"x-litellm-response-cost\":\"7.329999999999999e-05\",\"x-litellm-response-cost-discount-amount\":\"0.0\",\"x-litellm-response-cost-input\":\"2.3e-06\",\"x-litellm-response-cost-margin-amount\":\"0.0\",\"x-litellm-response-cost-margin-percent\":\"0.0\",\"x-litellm-response-cost-original\":\"7.329999999999999e-05\",\"x-litellm-response-cost-output\":\"7.099999999999999e-05\",\"x-litellm-response-cost-reasoning\":\"3.9e-05\",\"__truncated\":\"7 more keys omitted\"}"
+                    "stringValue": "{\"content-encoding\":\"gzip\",\"content-length\":\"508\",\"content-security-policy\":\"frame-ancestors 'none'\",\"content-type\":\"application/json\",\"date\":\"Sat, 03 Oct 2026 21:01:58 GMT\",\"llm_provider-access-control-expose-headers\":\"X-Request-ID, CF-Ray, CF-Ray\",\"llm_provider-alt-svc\":\"h3=\\\":443\\\"; ma=86400\",\"llm_provider-cf-cache-status\":\"DYNAMIC\",\"llm_provider-cf-ray\":\"a44ee2a238354c71-SJC\",\"llm_provider-connection\":\"keep-alive\",\"llm_provider-content-encoding\":\"br\",\"llm_provider-content-type\":\"application/json\",\"llm_provider-date\":\"Sat, 03 Oct 2026 21:02:02 GMT\",\"llm_provider-openai-organization\":\"personal-1e898z\",\"llm_provider-openai-processing-ms\":\"2281\",\"llm_provider-openai-project\":\"proj_WG9WJ3ACNqlcabNE2emRzoqT\",\"llm_provider-openai-version\":\"2020-10-01\",\"llm_provider-server\":\"cloudflare\",\"llm_provider-strict-transport-security\":\"max-age=31536000; includeSubDomains; preload\",\"llm_provider-transfer-encoding\":\"chunked\",\"llm_provider-x-content-type-options\":\"nosniff\",\"llm_provider-x-openai-proxy-wasm\":\"v0.1\",\"llm_provider-x-ratelimit-limit-requests\":\"30000\",\"llm_provider-x-ratelimit-limit-tokens\":\"180000000\",\"llm_provider-x-ratelimit-remaining-requests\":\"29999\",\"llm_provider-x-ratelimit-remaining-tokens\":\"179999985\",\"llm_provider-x-ratelimit-reset-requests\":\"2ms\",\"llm_provider-x-ratelimit-reset-tokens\":\"0s\",\"llm_provider-x-request-id\":\"req_3bdaa67f622f4d60b679a0949bb6de56\",\"vary\":\"Accept-Encoding\",\"x-content-type-options\":\"nosniff\",\"x-frame-options\":\"DENY\",\"x-hangarllm-attempted-fallbacks\":\"0\",\"x-hangarllm-attempted-retries\":\"0\",\"x-hangarllm-call-id\":\"afc4951d-7141-4476-b4d5-529b294e56b7\",\"x-hangarllm-callback-duration-ms\":\"0.0\",\"x-hangarllm-key-spend\":\"7.329999999999999e-05\",\"x-hangarllm-model-api-base\":\"https://api.openai.com\",\"x-hangarllm-model-group\":\"openai/gpt-6-luna\",\"x-hangarllm-model-id\":\"e68fbd1ce26aa7a89b059c9a6df12007e624c6a2106cd3e6af492ab7a259f117\",\"x-hangarllm-model-name\":\"openai/gpt-6-luna\",\"x-hangarllm-overhead-duration-ms\":\"2.7521\",\"x-hangarllm-response-cost\":\"7.329999999999999e-05\",\"x-hangarllm-response-cost-discount-amount\":\"0.0\",\"x-hangarllm-response-cost-input\":\"2.3e-06\",\"x-hangarllm-response-cost-margin-amount\":\"0.0\",\"x-hangarllm-response-cost-margin-percent\":\"0.0\",\"x-hangarllm-response-cost-original\":\"7.329999999999999e-05\",\"x-hangarllm-response-cost-output\":\"7.099999999999999e-05\",\"x-hangarllm-response-cost-reasoning\":\"3.9e-05\",\"__truncated\":\"7 more keys omitted\"}"
                   }
                 },
                 {
                   "key": "mastra.metadata.modelMetadata",
                   "value": {
-                    "stringValue": "{\"modelId\":\"openai/gpt-6-luna\",\"modelVersion\":\"v4\",\"modelProvider\":\"litellm.chat\"}"
+                    "stringValue": "{\"modelId\":\"openai/gpt-6-luna\",\"modelVersion\":\"v4\",\"modelProvider\":\"hangarllm.chat\"}"
                   }
                 }
               ],

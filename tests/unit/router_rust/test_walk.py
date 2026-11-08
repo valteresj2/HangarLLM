@@ -1,13 +1,13 @@
 import pytest
 
-from litellm.router_rust.invoke.walk import WalkMetadata
+from hangarllm.router_rust.invoke.walk import WalkMetadata
 
 
 def _no_base_model(_model_id: str) -> str | None:
     return None
 
 
-@pytest.mark.parametrize("field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("field", ["metadata", "hangarllm_metadata"])
 def test_hop_kwargs_keep_the_requests_key_labels_under_the_walk_stamps(field: str) -> None:
     """The fallback loggers (prometheus' fallback counters) read the caller's key and team off
     the hop's metadata, so a hop keeps the request's bucket and lays its own stamps over it."""

@@ -8,9 +8,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.router import CustomRoutingStrategyBase, RouterRateLimitError
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.types.router import CustomRoutingStrategyBase, RouterRateLimitError
 from tests.unit.test_router.core.fallbacks_helpers import (
     MakeCore,
     build,
@@ -38,7 +38,7 @@ async def test_a_router_level_dict_target_refuses_the_whole_chain(
     core: Final = build(make_core, fallbacks=[{"a": [target, "c"]}])
     host.answer("openai/a", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a"]
@@ -52,7 +52,7 @@ async def test_a_refused_router_level_chain_explains_itself_under_router_debug(
     show_router_debug(host)
     host.answer("openai/a", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
     assert "also failed: Rejected Request: api_key holds an oidc/ secret reference" in str(raised.value)
@@ -65,7 +65,7 @@ async def test_a_content_policy_list_with_a_refused_target_tries_nothing(
     core: Final = build(make_core, content_policy_fallbacks=[{"a": [OIDC_TARGET]}])
     host.answer("openai/a", content_policy())
 
-    with pytest.raises(litellm.ContentPolicyViolationError):
+    with pytest.raises(hangarllm.ContentPolicyViolationError):
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a"]
@@ -104,7 +104,7 @@ def test_a_refused_router_level_chain_is_refused_on_the_sync_path(make_core: Mak
     core: Final = build(make_core, fallbacks=[{"a": [OIDC_TARGET]}])
     host.answer("openai/a", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         complete_sync(core)
 
     assert host.deployments_called("completion") == ["a"]
@@ -123,12 +123,12 @@ _OWN_OR_PUBLIC: Final = [
 @pytest.mark.parametrize(
     ("buckets", "expected"),
     [
-        ({"litellm_metadata": _TEAM}, "own"),
-        ({"metadata": {"trace": "x"}, "litellm_metadata": _TEAM}, "own"),
-        ({"metadata": {"user_api_key_team_id": ""}, "litellm_metadata": _TEAM}, "own"),
-        ({"metadata": {"user_api_key_team_id": "t2"}, "litellm_metadata": _TEAM}, "public"),
+        ({"hangarllm_metadata": _TEAM}, "own"),
+        ({"metadata": {"trace": "x"}, "hangarllm_metadata": _TEAM}, "own"),
+        ({"metadata": {"user_api_key_team_id": ""}, "hangarllm_metadata": _TEAM}, "own"),
+        ({"metadata": {"user_api_key_team_id": "t2"}, "hangarllm_metadata": _TEAM}, "public"),
     ],
-    ids=["only-litellm-metadata", "metadata-without-a-team", "metadata-with-an-empty-team", "metadata-wins"],
+    ids=["only-hangarllm-metadata", "metadata-without-a-team", "metadata-with-an-empty-team", "metadata-wins"],
 )
 async def test_the_first_bucket_holding_a_team_routes_the_call(
     make_core: MakeCore, host: ScriptedHost, buckets: dict[str, dict[str, str]], expected: str
@@ -143,7 +143,7 @@ async def test_the_first_bucket_holding_a_team_routes_the_call(
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("bucket", "raised"),
-    [("metadata", litellm.RateLimitError), ("litellm_metadata", RouterRateLimitError)],
+    [("metadata", hangarllm.RateLimitError), ("hangarllm_metadata", RouterRateLimitError)],
     ids=["one-level-listed-so-the-level-raises-its-own-error", "no-team-listed-so-the-second-level-raises"],
 )
 async def test_the_order_levels_of_a_failed_group_read_only_the_metadata_bucket(
@@ -206,7 +206,7 @@ _SHARED_NAME: Final = [
     deployment("t2-pub", "p2", model_info={"team_id": "T2", "team_public_model_name": "pub"}),
 ]
 _REFUSAL: Final = (
-    "litellm.BadRequestError: Model name 'pub' matches deployments from multiple teams. "
+    "hangarllm.BadRequestError: Model name 'pub' matches deployments from multiple teams. "
     "Specify the deployment ID directly to disambiguate."
 )
 
@@ -246,7 +246,7 @@ async def test_a_shared_name_raises_its_refusal_when_the_fallback_fails(
     core: Final = make_core(model_list=list(_SHARED_NAME), num_retries=0)
     host.answer("openai/gp", rate_limit())
 
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await complete(core, "pub", metadata=_admin(), fallbacks=["g"])
 
     assert raised.value.status_code == 400
@@ -261,7 +261,7 @@ async def test_a_shared_name_explains_the_failed_fallback_under_router_debug(
     show_router_debug(host)
     host.answer("openai/gp", rate_limit())
 
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await complete(core, "pub", metadata=_admin(), fallbacks=["g"])
 
-    assert str(raised.value).startswith(f"{_REFUSAL}\n\nLiteLLM: model group 'pub' failed with the error above.")
+    assert str(raised.value).startswith(f"{_REFUSAL}\n\nHangarLLM: model group 'pub' failed with the error above.")

@@ -1,5 +1,5 @@
 """A streamed `/v1/messages` request served through the Responses bridge bills the same row as the plain request
-when a cost margin or a cost discount is configured. The streamed terminal event carries litellm's own bill in
+when a cost margin or a cost discount is configured. The streamed terminal event carries hangarllm's own bill in
 `usage.cost`, so the spend row must price the tokens the way the plain leg does instead of reading that bill back
 as the provider's charge, which books input 0 / output total and applies the margin or discount a second time.
 
@@ -37,7 +37,7 @@ _LEGS: Final[tuple[CostTrackingTestCase, ...]] = (GPT_6_LUNA_MESSAGES_BRIDGED_JS
 @dataclass(frozen=True, slots=True)
 class _Pricing:
     name: str
-    litellm_settings: Mapping[str, JsonValue]
+    hangarllm_settings: Mapping[str, JsonValue]
     spend_multiplier: float
 
 
@@ -49,9 +49,9 @@ PRICINGS: Final = (
 
 def _config(directory: Path, pricing: _Pricing) -> Path:
     stock: Final = _JSON_OBJECT.validate_python(yaml.safe_load(_STOCK_CONFIG.read_text()))
-    settings: Final = _JSON_OBJECT.validate_python(stock["litellm_settings"])
+    settings: Final = _JSON_OBJECT.validate_python(stock["hangarllm_settings"])
     path: Final = directory / f"{pricing.name}-config.yaml"
-    path.write_text(yaml.safe_dump({**stock, "litellm_settings": {**settings, **pricing.litellm_settings}}))
+    path.write_text(yaml.safe_dump({**stock, "hangarllm_settings": {**settings, **pricing.hangarllm_settings}}))
     return path
 
 
@@ -68,7 +68,7 @@ def proxies(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Mapping[str, O
                     directory,
                     overrides,
                     config=_config(directory, pricing),
-                    remove_environment=("LITELLM_LOCAL_MODEL_COST_MAP",),
+                    remove_environment=("HANGARLLM_LOCAL_MODEL_COST_MAP",),
                 )
             )
 

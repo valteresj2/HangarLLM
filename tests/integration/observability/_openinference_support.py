@@ -670,16 +670,16 @@ def _write_config(
     *,
     callbacks: Sequence[str] = ("arize",),
     callback_settings: Mapping[str, JsonValue] | None = None,
-    litellm_settings: Mapping[str, JsonValue] | None = None,
+    hangarllm_settings: Mapping[str, JsonValue] | None = None,
     general_settings: Mapping[str, JsonValue] | None = None,
 ) -> Path:
     loaded: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     config: Final = {
         **loaded,
-        "litellm_settings": {
-            **loaded["litellm_settings"],
+        "hangarllm_settings": {
+            **loaded["hangarllm_settings"],
             "callbacks": list(callbacks),
-            **(litellm_settings or {}),
+            **(hangarllm_settings or {}),
         },
         **({"callback_settings": dict(callback_settings)} if callback_settings is not None else {}),
         "general_settings": {
@@ -694,10 +694,10 @@ def _write_config(
 
 def _environment(destination: Wire, extra: Mapping[str, str] | None = None) -> dict[str, str]:
     return {
-        "LITELLM_OTEL_V2": "1",
+        "HANGARLLM_OTEL_V2": "1",
         "OTEL_BSP_SCHEDULE_DELAY": "100",
         "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "span_only",
-        "LITELLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_marker",
+        "HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_marker",
         "ARIZE_HTTP_ENDPOINT": destination.url + "/v1/traces",
         "ARIZE_SPACE_ID": "integration-space",
         "ARIZE_API_KEY": "integration-arize-key",
@@ -750,7 +750,7 @@ def _rig(
     *,
     callbacks: Sequence[str] = ("arize",),
     callback_settings: Mapping[str, JsonValue] | None = None,
-    litellm_settings: Mapping[str, JsonValue] | None = None,
+    hangarllm_settings: Mapping[str, JsonValue] | None = None,
     general_settings: Mapping[str, JsonValue] | None = None,
     environment: Mapping[str, str] | None = None,
     remove_environment: tuple[str, ...] = (),
@@ -780,7 +780,7 @@ def _rig(
             directory,
             callbacks=callbacks,
             callback_settings=resolved_settings,
-            litellm_settings=litellm_settings,
+            hangarllm_settings=hangarllm_settings,
             general_settings=general_settings,
         )
         preset_environment: Final = {
@@ -1160,7 +1160,7 @@ def _assert_tool_span(
     else:
         assert json.loads(attributes["metadata"]) == dict(metadata), attributes
     for key, value in (baggage or {}).items():
-        assert attributes.get("litellm.metadata." + key) == value, attributes
+        assert attributes.get("hangarllm.metadata." + key) == value, attributes
 
 
 def _response_tool_calls(identity: str, cities: Sequence[str] = ("Paris",)) -> list[dict[str, JsonValue]]:

@@ -1,18 +1,18 @@
 """
-Unit tests for litellm.compress().
+Unit tests for hangarllm.compress().
 """
 
 import importlib
 
 import pytest
 
-import litellm
-from litellm.compression.scoring.bm25 import bm25_score_messages
-from litellm.compression.scoring.embedding_scorer import embedding_score_messages
-from litellm.compression.content_detection import detect_content_type
-from litellm.compression.message_stubbing import extract_key, stub_message
-from litellm.compression.retrieval_tool import build_retrieval_tool
-from litellm.types.utils import CallTypes
+import hangarllm
+from hangarllm.compression.scoring.bm25 import bm25_score_messages
+from hangarllm.compression.scoring.embedding_scorer import embedding_score_messages
+from hangarllm.compression.content_detection import detect_content_type
+from hangarllm.compression.message_stubbing import extract_key, stub_message
+from hangarllm.compression.retrieval_tool import build_retrieval_tool
+from hangarllm.types.utils import CallTypes
 
 CALL_TYPE = CallTypes.completion
 ANTHROPIC_CALL_TYPE = CallTypes.anthropic_messages
@@ -118,7 +118,7 @@ def test_stub_message():
     stubbed = stub_message(msg, "test_key")
     assert stubbed["role"] == "user"
     assert "test_key" in stubbed["content"]
-    assert "litellm_content_retrieve" in stubbed["content"]
+    assert "hangarllm_content_retrieve" in stubbed["content"]
     assert "3 lines" in stubbed["content"]
 
 
@@ -130,7 +130,7 @@ def test_stub_message():
 def test_retrieval_tool_schema():
     tool = build_retrieval_tool(["auth.py", "utils.py"])
     assert tool["type"] == "function"
-    assert tool["function"]["name"] == "litellm_content_retrieve"
+    assert tool["function"]["name"] == "hangarllm_content_retrieve"
     assert "key" in tool["function"]["parameters"]["properties"]
     assert tool["function"]["parameters"]["properties"]["key"]["enum"] == [
         "auth.py",
@@ -153,7 +153,7 @@ def test_retrieval_tool_description_lists_keys():
 
 def test_compress_below_trigger_passthrough():
     messages = [{"role": "user", "content": "hello"}]
-    result = litellm.compress(messages, model="gpt-4o", call_type=CALL_TYPE)
+    result = hangarllm.compress(messages, model="gpt-4o", call_type=CALL_TYPE)
     assert result["messages"] == messages
     assert result["cache"] == {}
     assert result["tools"] == []
@@ -179,7 +179,7 @@ def test_compress_above_trigger():
         {"role": "user", "content": "Fix the bug in auth.py"},
     ]
 
-    result = litellm.compress(
+    result = hangarllm.compress(
         big_messages,
         model="gpt-4o",
         call_type=CALL_TYPE,
@@ -191,7 +191,7 @@ def test_compress_above_trigger():
     assert result["compression_ratio"] > 0
     assert len(result["cache"]) > 0
     assert len(result["tools"]) == 1
-    assert result["tools"][0]["function"]["name"] == "litellm_content_retrieve"
+    assert result["tools"][0]["function"]["name"] == "hangarllm_content_retrieve"
 
 
 def test_compress_anthropic_list_content_is_boundary_stable():
@@ -223,7 +223,7 @@ def test_compress_anthropic_list_content_is_boundary_stable():
         },
     ]
 
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages=messages,
         model="claude-sonnet-4-20250514",
         call_type=ANTHROPIC_CALL_TYPE,
@@ -237,7 +237,7 @@ def test_compress_anthropic_list_content_is_boundary_stable():
     assert len(result["cache"]) > 0
     assert len(result["tools"]) == 1
     assert result["tools"][0]["type"] == "custom"
-    assert result["tools"][0]["name"] == "litellm_content_retrieve"
+    assert result["tools"][0]["name"] == "hangarllm_content_retrieve"
     assert "input_schema" in result["tools"][0]
 
 
@@ -247,7 +247,7 @@ def test_compress_preserves_system_message():
         {"role": "user", "content": "Large file content. " * 5000},
         {"role": "user", "content": "Fix the bug"},
     ]
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages, model="gpt-4o", call_type=CALL_TYPE, compression_trigger=1000
     )
     assert result["messages"][0]["role"] == "system"
@@ -259,7 +259,7 @@ def test_compress_preserves_last_user_message():
         {"role": "user", "content": "Big context " * 5000},
         {"role": "user", "content": "Fix the bug in auth.py"},
     ]
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages, model="gpt-4o", call_type=CALL_TYPE, compression_trigger=1000
     )
     last_user = [m for m in result["messages"] if m["role"] == "user"][-1]
@@ -272,7 +272,7 @@ def test_compress_preserves_last_assistant_message():
         {"role": "assistant", "content": "I'll help with that. " * 2000},
         {"role": "user", "content": "Now fix the bug"},
     ]
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages, model="gpt-4o", call_type=CALL_TYPE, compression_trigger=1000
     )
     assistant_msgs = [m for m in result["messages"] if m["role"] == "assistant"]
@@ -287,7 +287,7 @@ def test_cache_keys_match_stubs():
         {"role": "user", "content": "# auth.py\n" + "code " * 5000},
         {"role": "user", "content": "Fix it"},
     ]
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages, model="gpt-4o", call_type=CALL_TYPE, compression_trigger=1000
     )
     if result["tools"]:
@@ -302,7 +302,7 @@ def test_compress_default_target():
         {"role": "user", "content": "content " * 5000},
         {"role": "user", "content": "query"},
     ]
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages, model="gpt-4o", call_type=CALL_TYPE, compression_trigger=2000
     )
     # Should have compressed — target = 1000
@@ -342,7 +342,7 @@ def test_compress_nested_tool_result_extracts_text_only():
         },
     ]
 
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages=messages,
         model="claude-sonnet-4-20250514",
         call_type=ANTHROPIC_CALL_TYPE,
@@ -357,7 +357,7 @@ def test_compress_nested_tool_result_extracts_text_only():
 
 
 def test_compress_default_call_type_is_completion():
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages=[
             {"role": "user", "content": "Large context " * 4000},
             {"role": "user", "content": "query"},
@@ -383,11 +383,11 @@ def test_compress_forwards_embedding_model_params(monkeypatch):
         return [0.0] * len(messages)
 
     monkeypatch.setattr(
-        "litellm.compression.scoring.embedding_scorer.embedding_score_messages",
+        "hangarllm.compression.scoring.embedding_scorer.embedding_score_messages",
         fake_embedding_score_messages,
     )
 
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages=[
             {"role": "user", "content": "Authentication code " * 2000},
             {"role": "user", "content": "Fix auth"},
@@ -420,7 +420,7 @@ def test_embedding_scorer_forwards_embedding_model_params(monkeypatch):
         captured.update(kwargs)
         return _MockResponse()
 
-    monkeypatch.setattr(litellm, "embedding", fake_embedding)
+    monkeypatch.setattr(hangarllm, "embedding", fake_embedding)
 
     scores = embedding_score_messages(
         query="auth",
@@ -455,7 +455,7 @@ def test_simple_compression(final_user_message, expected_content):
         {"role": "user", "content": "Unrelated cooking recipes " * 2000},
         {"role": "user", "content": final_user_message},
     ]
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages, model="gpt-4o", call_type=CALL_TYPE, compression_trigger=1000
     )
     if expected_content == "Unrelated cooking recipes ":
@@ -469,7 +469,7 @@ def test_simple_compression(final_user_message, expected_content):
 
 
 def test_compress_anthropic_drops_irrelevant_tool_exchange_span(monkeypatch):
-    compress_module = importlib.import_module("litellm.compression.compress")
+    compress_module = importlib.import_module("hangarllm.compression.compress")
 
     def fake_bm25_score_messages(query, messages):
         assert "final query" in query
@@ -507,7 +507,7 @@ def test_compress_anthropic_drops_irrelevant_tool_exchange_span(monkeypatch):
                 {
                     "type": "tool_use",
                     "id": "toolu_drop",
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "input": {"key": "message_1"},
                 }
             ],
@@ -526,7 +526,7 @@ def test_compress_anthropic_drops_irrelevant_tool_exchange_span(monkeypatch):
         {"role": "user", "content": "final query"},
     ]
 
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages=messages,
         model="claude-sonnet-4-20250514",
         call_type=ANTHROPIC_CALL_TYPE,
@@ -544,7 +544,7 @@ def test_compress_anthropic_drops_irrelevant_tool_exchange_span(monkeypatch):
 
 
 def test_compress_anthropic_keeps_relevant_tool_exchange_span(monkeypatch):
-    compress_module = importlib.import_module("litellm.compression.compress")
+    compress_module = importlib.import_module("hangarllm.compression.compress")
 
     def fake_bm25_score_messages(query, messages):
         assert "final query" in query
@@ -582,7 +582,7 @@ def test_compress_anthropic_keeps_relevant_tool_exchange_span(monkeypatch):
                 {
                     "type": "tool_use",
                     "id": "toolu_keep",
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "input": {"key": "message_1"},
                 }
             ],
@@ -601,7 +601,7 @@ def test_compress_anthropic_keeps_relevant_tool_exchange_span(monkeypatch):
         {"role": "user", "content": "final query"},
     ]
 
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages=messages,
         model="claude-sonnet-4-20250514",
         call_type=ANTHROPIC_CALL_TYPE,
@@ -613,7 +613,7 @@ def test_compress_anthropic_keeps_relevant_tool_exchange_span(monkeypatch):
     assert result["messages"][1]["role"] == "assistant"
     assert result["messages"][2]["role"] == "user"
     # idx=0 should be compressed instead
-    assert "litellm_content_retrieve" in result["messages"][0]["content"]
+    assert "hangarllm_content_retrieve" in result["messages"][0]["content"]
     assert len(result["cache"]) == 1
 
 
@@ -626,7 +626,7 @@ def test_compress_anthropic_malformed_tool_sequence_passes_through():
                 {
                     "type": "tool_use",
                     "id": "toolu_broken",
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "input": {"key": "message_1"},
                 }
             ],
@@ -635,7 +635,7 @@ def test_compress_anthropic_malformed_tool_sequence_passes_through():
         {"role": "user", "content": "final query"},
     ]
 
-    result = litellm.compress(
+    result = hangarllm.compress(
         messages=messages,
         model="claude-sonnet-4-20250514",
         call_type=ANTHROPIC_CALL_TYPE,

@@ -7,13 +7,13 @@ import pytest
 from openai.types import CreateEmbeddingResponse, Embedding
 from openai.types.create_embedding_response import Usage as EmbeddingUsage
 
-import litellm
-from litellm import ModelResponse, completion
+import hangarllm
+from hangarllm import ModelResponse, completion
 from tests.capturing_transport import CapturingTransport
 
 
 def test_embedding_nvidia_nim():
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     from openai import OpenAI
 
     transport: Final = CapturingTransport(
@@ -25,7 +25,7 @@ def test_embedding_nvidia_nim():
         )
     )
     client: Final = OpenAI(api_key="fake-api-key", http_client=httpx.Client(transport=transport))
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="nvidia_nim/nvidia/nv-embedqa-e5-v5",
         input="What is the meaning of life?",
         input_type="passage",
@@ -44,7 +44,7 @@ def test_embedding_nvidia_nim():
 def test_chat_completion_nvidia_nim_with_tools():
     from openai import OpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     model_name = "nvidia_nim/meta/llama3-70b-instruct"
     client = OpenAI(
         api_key="fake-api-key",
@@ -158,11 +158,11 @@ async def test_nvidia_nim_rerank_ranking_endpoint():
     mock_response.status_code = 200
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
         # Use "ranking/" prefix to force /v1/ranking endpoint
-        response = await litellm.arerank(
+        response = await hangarllm.arerank(
             model="nvidia_nim/ranking/nvidia/llama-3.2-nv-rerankqa-1b-v2",
             query="What is the GPU memory bandwidth?",
             documents=[
@@ -202,7 +202,7 @@ async def test_nvidia_nim_rerank_ranking_endpoint():
 def test_completion_nvidia_nim():
     from openai import OpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     model_name = "nvidia_nim/databricks/dbrx-instruct"
     client = OpenAI(
         api_key="fake-api-key",

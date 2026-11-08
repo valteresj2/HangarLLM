@@ -18,33 +18,33 @@ import websockets.exceptions
 from botocore.credentials import RefreshableCredentials
 from h2.events import ConnectionTerminated
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.code_interpreter_interception.handler import (
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.integrations.code_interpreter_interception.handler import (
     CodeInterpreterInterceptionLogger,
-    LITELLM_CODE_EXECUTION_TOOL_NAME,
+    HANGARLLM_CODE_EXECUTION_TOOL_NAME,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.azure.vector_stores.transformation import AzureOpenAIVectorStoreConfig
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.websearch_interception.handler import WebSearchInterceptionLogger
+from hangarllm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from hangarllm.llms.azure.vector_stores.transformation import AzureOpenAIVectorStoreConfig
+from hangarllm.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.base_llm.files.transformation import BaseFilesConfig
-from litellm.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
-from litellm.llms.bedrock.base_aws_llm import SignsRequestsWithAWS
-from litellm.llms.brave.search.transformation import BraveSearchConfig
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.base_llm.image_generation.transformation import BaseImageGenerationConfig
-from litellm.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
-from litellm.llms.chatgpt.authenticator import Authenticator as ChatGPTAuthenticator
-from litellm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import (
+from hangarllm.llms.base_llm.batches.transformation import BaseBatchesConfig
+from hangarllm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from hangarllm.llms.base_llm.files.transformation import BaseFilesConfig
+from hangarllm.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
+from hangarllm.llms.bedrock.base_aws_llm import SignsRequestsWithAWS
+from hangarllm.llms.brave.search.transformation import BraveSearchConfig
+from hangarllm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from hangarllm.llms.base_llm.image_generation.transformation import BaseImageGenerationConfig
+from hangarllm.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
+from hangarllm.llms.chatgpt.authenticator import Authenticator as ChatGPTAuthenticator
+from hangarllm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.custom_httpx.llm_http_handler import (
     BaseLLMHTTPHandler,
     _collect_ws_project_quota_callbacks,
     _collect_ws_token_limit_callbacks,
@@ -52,26 +52,26 @@ from litellm.llms.custom_httpx.llm_http_handler import (
     _has_pre_call_deployment_hook,
     _rust_responses_websocket_enabled,
 )
-from litellm.llms.azure.videos.transformation import AzureVideoConfig
-from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+from hangarllm.llms.azure.videos.transformation import AzureVideoConfig
+from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
     AmazonAnthropicClaudeMessagesConfig,
 )
-from litellm.llms.bedrock.files.transformation import BedrockFilesConfig
-from litellm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
-from litellm.llms.openai.evals.transformation import OpenAIEvalsConfig
-from litellm.llms.mistral.files.transformation import MistralFilesConfig
-from litellm.llms.openai.vector_store_files.transformation import OpenAIVectorStoreFilesConfig
-from litellm.llms.openai.vector_stores.transformation import OpenAIVectorStoreConfig
-from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
-from litellm.llms.tinyfish.search.transformation import TinyfishSearchConfig
-from litellm.responses.streaming_iterator import (
+from hangarllm.llms.bedrock.files.transformation import BedrockFilesConfig
+from hangarllm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
+from hangarllm.llms.openai.evals.transformation import OpenAIEvalsConfig
+from hangarllm.llms.mistral.files.transformation import MistralFilesConfig
+from hangarllm.llms.openai.vector_store_files.transformation import OpenAIVectorStoreFilesConfig
+from hangarllm.llms.openai.vector_stores.transformation import OpenAIVectorStoreConfig
+from hangarllm.llms.openai.videos.transformation import OpenAIVideoConfig
+from hangarllm.llms.tinyfish.search.transformation import TinyfishSearchConfig
+from hangarllm.responses.streaming_iterator import (
     BaseResponsesAPIStreamingIterator,
     MockResponsesAPIStreamingIterator,
 )
-from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
-from litellm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
+from hangarllm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import (
     ImageObject,
     ImageResponse,
     ModelResponse,
@@ -256,7 +256,7 @@ def test_response_api_handler_streams_when_provider_transform_adds_stream():
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -298,7 +298,7 @@ def test_response_api_handler_runs_agentic_hooks_in_sync_path(monkeypatch):
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="openai",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -342,8 +342,8 @@ def test_response_api_handler_runs_responses_pre_call_hook_before_transform():
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
-    old_callbacks = list(litellm.callbacks)
-    litellm.callbacks = [CodeInterpreterInterceptionLogger()]
+    old_callbacks = list(hangarllm.callbacks)
+    hangarllm.callbacks = [CodeInterpreterInterceptionLogger()]
     try:
         response = handler.response_api_handler(
             model="gpt-5",
@@ -353,23 +353,23 @@ def test_response_api_handler_runs_responses_pre_call_hook_before_transform():
                 "tools": [{"type": "code_interpreter", "container": {"type": "auto"}}]
             },
             custom_llm_provider="openai",
-            litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+            hangarllm_params=GenericHangarLLMParams(api_key="sk-test"),
             logging_obj=logging_obj,
             client=client,
         )
     finally:
-        litellm.callbacks = old_callbacks
+        hangarllm.callbacks = old_callbacks
 
     assert response is initial_response
     transform_kwargs = config.transform_responses_api_request.call_args.kwargs
     tools = transform_kwargs["response_api_optional_request_params"]["tools"]
     assert not any(tool.get("type") == "code_interpreter" for tool in tools)
     assert any(
-        tool.get("type") == "function" and tool.get("name") == LITELLM_CODE_EXECUTION_TOOL_NAME for tool in tools
+        tool.get("type") == "function" and tool.get("name") == HANGARLLM_CODE_EXECUTION_TOOL_NAME for tool in tools
     )
-    hook_litellm_params = transform_kwargs["litellm_params"]
-    assert hook_litellm_params.get(_ACTIVE_KEY) is True
-    assert hook_litellm_params.get(_SANDBOX_KEY)
+    hook_hangarllm_params = transform_kwargs["hangarllm_params"]
+    assert hook_hangarllm_params.get(_ACTIVE_KEY) is True
+    assert hook_hangarllm_params.get(_SANDBOX_KEY)
 
 
 class _AgenticLoopKwargsRecorder(CustomLogger):
@@ -425,14 +425,14 @@ def test_response_api_handler_sends_no_stream_options_when_web_search_forces_a_n
     sent: Final = _SentRequestRecorder()
     recorder: Final = _AgenticLoopKwargsRecorder()
     monkeypatch.setattr(
-        litellm, "callbacks", [WebSearchInterceptionLogger(enabled_providers=["azure"]), recorder]
+        hangarllm, "callbacks", [WebSearchInterceptionLogger(enabled_providers=["azure"]), recorder]
     )
     logging_obj: Final = Mock()
     logging_obj.dynamic_success_callbacks = []
 
     BaseLLMHTTPHandler().response_api_handler(
         model="gpt-4o",
-        input="what is new in litellm?",
+        input="what is new in hangarllm?",
         responses_api_provider_config=AzureOpenAIResponsesAPIConfig(),
         response_api_optional_request_params={
             "stream": True,
@@ -440,7 +440,7 @@ def test_response_api_handler_sends_no_stream_options_when_web_search_forces_a_n
             "tools": [{"type": "web_search"}],
         },
         custom_llm_provider="azure",
-        litellm_params=GenericLiteLLMParams(
+        hangarllm_params=GenericHangarLLMParams(
             api_key="sk-test",
             api_base="https://example.openai.azure.com",
             api_version="2025-04-01-preview",
@@ -481,7 +481,7 @@ async def test_async_response_api_handler_streams_when_provider_transform_adds_s
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -514,7 +514,7 @@ async def test_async_response_api_handler_validates_environment_off_the_event_lo
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="test",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=logging_obj,
         client=client,
         extra_headers={"x-override": "caller"},
@@ -571,7 +571,7 @@ def _chatgpt_handler_kwargs(caller_params, client):
         "responses_api_provider_config": _chatgpt_responses_config(),
         "response_api_optional_request_params": caller_params,
         "custom_llm_provider": "chatgpt",
-        "litellm_params": GenericLiteLLMParams(api_key="sk-test", api_base="https://chatgpt.example.com"),
+        "hangarllm_params": GenericHangarLLMParams(api_key="sk-test", api_base="https://chatgpt.example.com"),
         "logging_obj": _chatgpt_responses_logging_obj(),
         "client": client,
     }
@@ -690,7 +690,7 @@ async def test_async_response_api_handler_fake_streams_only_for_a_streaming_call
 async def test_async_response_api_handler_streaming_passes_logging_obj_to_post():
     """LIT-5466: @track_llm_api_timing only records llm_api_duration_ms when the POST
     receives logging_obj; without it streaming /v1/responses never gets
-    x-litellm-overhead-duration-ms (the non-streaming site is pinned by
+    x-hangarllm-overhead-duration-ms (the non-streaming site is pinned by
     test_async_responses_records_llm_api_duration below)."""
     handler = BaseLLMHTTPHandler()
     config = Mock()
@@ -715,7 +715,7 @@ async def test_async_response_api_handler_streaming_passes_logging_obj_to_post()
         responses_api_provider_config=config,
         response_api_optional_request_params={"stream": True},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -749,7 +749,7 @@ async def test_async_response_api_handler_posts_the_async_transform_hook_result(
         responses_api_provider_config=config,
         response_api_optional_request_params={"stream": True},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=Mock(),
         client=client,
     )
@@ -761,7 +761,7 @@ async def test_async_response_api_handler_posts_the_async_transform_hook_result(
 @pytest.mark.asyncio
 async def test_async_responses_records_llm_api_duration():
     """aresponses must feed the httpx timing into the logging obj, so the proxy can emit
-    x-litellm-overhead-duration-ms on /v1/responses (mirrors the arerank regression test)."""
+    x-hangarllm-overhead-duration-ms on /v1/responses (mirrors the arerank regression test)."""
 
     def handle(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -791,15 +791,15 @@ async def test_async_responses_records_llm_api_duration():
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.aresponses(
+    response = await hangarllm.aresponses(
         model="openai/gpt-4o-mini",
         input="ping",
         api_key="fake-key",
         client=client,
     )
 
-    assert response._hidden_params["litellm_overhead_time_ms"] is not None
-    assert response._hidden_params["_response_ms"] >= response._hidden_params["litellm_overhead_time_ms"]
+    assert response._hidden_params["hangarllm_overhead_time_ms"] is not None
+    assert response._hidden_params["_response_ms"] >= response._hidden_params["hangarllm_overhead_time_ms"]
 
 
 def test_get_agentic_loop_settings_defaults_and_overrides():
@@ -825,14 +825,14 @@ def test_get_agentic_loop_settings_defaults_and_overrides():
 def test_has_agentic_completion_hook_detection(monkeypatch):
     """The streaming path skips the agentic wrapper only when no callback
     overrides async_should_run_agentic_loop. Verify both directions."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     handler = BaseLLMHTTPHandler()
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
     # No callbacks at all -> no agentic hook.
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     assert handler._has_agentic_completion_hook(logging_obj) is False
 
     # A plain CustomLogger that does NOT override the gate -> still no hook
@@ -840,7 +840,7 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
     class _PlainLogger(CustomLogger):
         pass
 
-    monkeypatch.setattr(litellm, "callbacks", [_PlainLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_PlainLogger()])
     assert handler._has_agentic_completion_hook(logging_obj) is False
 
     # A logger that overrides the gate (directly) -> hook present.
@@ -850,7 +850,7 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
         ):
             return True, {}
 
-    monkeypatch.setattr(litellm, "callbacks", [_AgenticLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_AgenticLogger()])
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
     # Override inherited through an intermediate class is still detected
@@ -858,11 +858,11 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
     class _DerivedAgenticLogger(_AgenticLogger):
         pass
 
-    monkeypatch.setattr(litellm, "callbacks", [_DerivedAgenticLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_DerivedAgenticLogger()])
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
     # Hook supplied via logging_obj.dynamic_success_callbacks is detected too.
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     logging_obj.dynamic_success_callbacks = [_AgenticLogger()]
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
@@ -873,17 +873,17 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
     # skipped and the buffering wrapper would never fire.
     logging_obj.dynamic_success_callbacks = []
     agentic_via_string = _AgenticLogger()
-    monkeypatch.setattr(litellm, "callbacks", ["fake_string_callback"])
+    monkeypatch.setattr(hangarllm, "callbacks", ["fake_string_callback"])
     monkeypatch.setattr(
-        "litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class",
+        "hangarllm.hangarllm_core_utils.hangarllm_logging.get_custom_logger_compatible_class",
         lambda name: agentic_via_string if name == "fake_string_callback" else None,
     )
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
     # Unresolvable string (returns None) is skipped, no false positive.
-    monkeypatch.setattr(litellm, "callbacks", ["unknown_callback"])
+    monkeypatch.setattr(hangarllm, "callbacks", ["unknown_callback"])
     monkeypatch.setattr(
-        "litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class",
+        "hangarllm.hangarllm_core_utils.hangarllm_logging.get_custom_logger_compatible_class",
         lambda name: None,
     )
     assert handler._has_agentic_completion_hook(logging_obj) is False
@@ -943,7 +943,7 @@ async def test_async_anthropic_messages_handler_extra_headers():
     }
 
     with patch(
-        "litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
+        "hangarllm.hangarllm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
     ) as mock_provider_headers:
         mock_provider_headers.return_value = None
 
@@ -963,7 +963,7 @@ async def test_async_anthropic_messages_handler_extra_headers():
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params={},
                 custom_llm_provider="anthropic",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 logging_obj=mock_logging_obj,
                 client=mock_client,
                 kwargs=kwargs,
@@ -990,7 +990,7 @@ async def test_async_anthropic_messages_handler_streaming_forwards_provider_resp
     """
     from collections.abc import AsyncIterator as ABCAsyncIterator
 
-    from litellm.llms.anthropic.messages.native.transformation import (
+    from hangarllm.llms.anthropic.messages.native.transformation import (
         AnthropicMessagesConfig,
     )
 
@@ -1021,7 +1021,7 @@ async def test_async_anthropic_messages_handler_streaming_forwards_provider_resp
         anthropic_messages_provider_config=AnthropicMessagesConfig(),
         anthropic_messages_optional_request_params={"max_tokens": 32},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=mock_logging_obj,
         client=mock_client,
         api_key="sk-test",
@@ -1052,11 +1052,11 @@ async def test_async_anthropic_messages_handler_agentic_streaming_forwards_provi
     """
     from collections.abc import AsyncIterator as ABCAsyncIterator
 
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.llms.anthropic.messages.native.agentic_streaming_iterator import (
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.llms.anthropic.messages.native.agentic_streaming_iterator import (
         AgenticAnthropicStreamingIterator,
     )
-    from litellm.llms.anthropic.messages.native.transformation import (
+    from hangarllm.llms.anthropic.messages.native.transformation import (
         AnthropicMessagesConfig,
     )
 
@@ -1098,7 +1098,7 @@ async def test_async_anthropic_messages_handler_agentic_streaming_forwards_provi
         anthropic_messages_provider_config=AnthropicMessagesConfig(),
         anthropic_messages_optional_request_params={"max_tokens": 32},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=mock_logging_obj,
         client=mock_client,
         api_key="sk-test",
@@ -1124,7 +1124,7 @@ async def test_anthropic_messages_streaming_response_aclose_closes_upstream_stre
     the upstream stream so provider connections are released on client
     disconnect instead of lingering until garbage collection.
     """
-    from litellm.llms.anthropic.messages.native.streaming_iterator import (
+    from hangarllm.llms.anthropic.messages.native.streaming_iterator import (
         AnthropicMessagesStreamingResponse,
     )
 
@@ -1156,10 +1156,10 @@ async def test_anthropic_messages_streaming_response_aclose_closes_upstream_stre
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_streaming_response_aclose_closes_agentic_upstream_stream():
-    from litellm.llms.anthropic.messages.native.agentic_streaming_iterator import (
+    from hangarllm.llms.anthropic.messages.native.agentic_streaming_iterator import (
         AgenticAnthropicStreamingIterator,
     )
-    from litellm.llms.anthropic.messages.native.streaming_iterator import (
+    from hangarllm.llms.anthropic.messages.native.streaming_iterator import (
         AnthropicMessagesStreamingResponse,
     )
 
@@ -1246,7 +1246,7 @@ async def test_async_anthropic_messages_handler_signs_bedrock_off_the_event_loop
         anthropic_messages_provider_config=_ProbedBedrockMessagesConfig(probe),
         anthropic_messages_optional_request_params={"max_tokens": 16},
         custom_llm_provider="bedrock",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-west-2"),
+        hangarllm_params=GenericHangarLLMParams(aws_region_name="us-west-2"),
         logging_obj=mock_logging_obj,
         client=mock_client,
         stream=False,
@@ -1290,11 +1290,11 @@ _BATCH_LINE: Final = json.dumps(
         "body": {"model": "us.anthropic.claude-sonnet-5-5", "messages": [{"role": "user", "content": "hi"}]},
     }
 ).encode()
-_BATCH_FILE_ID: Final = "s3://batch-inputs/litellm-bedrock-files/batch.jsonl"
+_BATCH_FILE_ID: Final = "s3://batch-inputs/hangarllm-bedrock-files/batch.jsonl"
 _BEDROCK_ENTRY_POINTS: Final[tuple[tuple[str, Callable[[], Awaitable[object]], httpx.Response], ...]] = (
     (
         "anthropic_messages",
-        lambda: litellm.anthropic.messages.acreate(
+        lambda: hangarllm.anthropic.messages.acreate(
             model="bedrock/invoke/us.anthropic.claude-sonnet-5-5",
             messages=[{"role": "user", "content": "hi"}],
             max_tokens=16,
@@ -1303,17 +1303,17 @@ _BEDROCK_ENTRY_POINTS: Final[tuple[tuple[str, Callable[[], Awaitable[object]], h
     ),
     (
         "responses",
-        lambda: litellm.aresponses(model="bedrock/us.openai.gpt-5.6-sol", input="hi"),
+        lambda: hangarllm.aresponses(model="bedrock/us.openai.gpt-5.6-sol", input="hi"),
         httpx.Response(200, json=_BEDROCK_RESPONSE),
     ),
     (
         "compact_responses",
-        lambda: litellm.acompact_responses(model="bedrock/us.openai.gpt-5.6-sol", input="hi"),
+        lambda: hangarllm.acompact_responses(model="bedrock/us.openai.gpt-5.6-sol", input="hi"),
         httpx.Response(200, json=_BEDROCK_RESPONSE),
     ),
     (
         "search",
-        lambda: litellm.asearch(
+        lambda: hangarllm.asearch(
             query="hi",
             search_provider="agentcore",
             api_base="https://gw.gateway.bedrock-agentcore.us-west-2.amazonaws.com/mcp",
@@ -1322,7 +1322,7 @@ _BEDROCK_ENTRY_POINTS: Final[tuple[tuple[str, Callable[[], Awaitable[object]], h
     ),
     (
         "create_file",
-        lambda: litellm.acreate_file(
+        lambda: hangarllm.acreate_file(
             file=("batch.jsonl", _BATCH_LINE, "application/jsonl"),
             purpose="batch",
             custom_llm_provider="bedrock",
@@ -1332,27 +1332,27 @@ _BEDROCK_ENTRY_POINTS: Final[tuple[tuple[str, Callable[[], Awaitable[object]], h
     ),
     (
         "retrieve_file",
-        lambda: litellm.afile_retrieve(file_id=_BATCH_FILE_ID, custom_llm_provider="bedrock"),
+        lambda: hangarllm.afile_retrieve(file_id=_BATCH_FILE_ID, custom_llm_provider="bedrock"),
         httpx.Response(200, content=_BATCH_LINE),
     ),
     (
         "delete_file",
-        lambda: litellm.afile_delete(file_id=_BATCH_FILE_ID, custom_llm_provider="bedrock"),
+        lambda: hangarllm.afile_delete(file_id=_BATCH_FILE_ID, custom_llm_provider="bedrock"),
         httpx.Response(204),
     ),
     (
         "list_files",
-        lambda: litellm.afile_list(custom_llm_provider="bedrock"),
+        lambda: hangarllm.afile_list(custom_llm_provider="bedrock"),
         httpx.Response(200, content=_EMPTY_S3_LISTING),
     ),
     (
         "file_content",
-        lambda: litellm.afile_content(file_id=_BATCH_FILE_ID, custom_llm_provider="bedrock"),
+        lambda: hangarllm.afile_content(file_id=_BATCH_FILE_ID, custom_llm_provider="bedrock"),
         httpx.Response(200, content=_BATCH_LINE),
     ),
     (
         "create_batch",
-        lambda: litellm.acreate_batch(
+        lambda: hangarllm.acreate_batch(
             completion_window="24h",
             endpoint="/v1/chat/completions",
             input_file_id=_BATCH_FILE_ID,
@@ -1365,7 +1365,7 @@ _BEDROCK_ENTRY_POINTS: Final[tuple[tuple[str, Callable[[], Awaitable[object]], h
     ),
     (
         "vector_store_search",
-        lambda: litellm.vector_stores.asearch(vector_store_id="KBID12345", query="hi", custom_llm_provider="bedrock"),
+        lambda: hangarllm.vector_stores.asearch(vector_store_id="KBID12345", query="hi", custom_llm_provider="bedrock"),
         httpx.Response(200, json={"retrievalResults": []}),
     ),
 )
@@ -1382,7 +1382,7 @@ async def test_bedrock_secret_lookups_leave_the_event_loop_free(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIATESTTESTTESTTEST")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
     monkeypatch.setenv("AWS_REGION_NAME", "us-west-2")
@@ -1409,10 +1409,10 @@ async def test_bedrock_secret_lookups_leave_the_event_loop_free(
 
 
 @pytest.mark.asyncio
-async def test_async_anthropic_messages_handler_passes_litellm_metadata():
-    """Ensure litellm_metadata from kwargs is forwarded via update_from_kwargs.
+async def test_async_anthropic_messages_handler_passes_hangarllm_metadata():
+    """Ensure hangarllm_metadata from kwargs is forwarded via update_from_kwargs.
 
-    Routes like /messages store model_info under kwargs['litellm_metadata'].
+    Routes like /messages store model_info under kwargs['hangarllm_metadata'].
     The handler must forward this so that use_custom_pricing_for_model can
     detect custom pricing. Regression test for #23185.
     """
@@ -1450,7 +1450,7 @@ async def test_async_anthropic_messages_handler_passes_litellm_metadata():
         "output_cost_per_token": 0.0015,
     }
     kwargs = {
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "model_info": custom_model_info,
             "deployment": "anthropic/claude-sonnet-4-20250514",
         },
@@ -1463,7 +1463,7 @@ async def test_async_anthropic_messages_handler_passes_litellm_metadata():
             anthropic_messages_provider_config=mock_config,
             anthropic_messages_optional_request_params={},
             custom_llm_provider="anthropic",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             logging_obj=mock_logging_obj,
             client=mock_client,
             kwargs=kwargs,
@@ -1479,19 +1479,19 @@ async def test_async_anthropic_messages_handler_passes_litellm_metadata():
         else call_kwargs[1].get("kwargs", {})
     )
 
-    assert "litellm_metadata" in kwargs_arg
-    assert kwargs_arg["litellm_metadata"]["model_info"] == custom_model_info
+    assert "hangarllm_metadata" in kwargs_arg
+    assert kwargs_arg["hangarllm_metadata"]["model_info"] == custom_model_info
 
 
 @pytest.mark.asyncio
 async def test_async_anthropic_messages_handler_forwards_router_model_info():
-    """Ensure router deployment model_info is forwarded into litellm_params.
+    """Ensure router deployment model_info is forwarded into hangarllm_params.
 
     The Router stamps kwargs['model_info'] on every deployment dispatch via
     _update_kwargs_with_deployment. Downstream cooldown / success callbacks
     (router.deployment_callback_on_failure, deployment_callback_on_success)
-    look up the deployment id via kwargs['litellm_params']['model_info']['id'].
-    If async_anthropic_messages_handler builds its own litellm_params dict
+    look up the deployment id via kwargs['hangarllm_params']['model_info']['id'].
+    If async_anthropic_messages_handler builds its own hangarllm_params dict
     without forwarding model_info, the id is missing and cooldown is silently
     skipped for /v1/messages requests under the Router.
     """
@@ -1535,7 +1535,7 @@ async def test_async_anthropic_messages_handler_forwards_router_model_info():
             anthropic_messages_provider_config=mock_config,
             anthropic_messages_optional_request_params={},
             custom_llm_provider="anthropic",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             logging_obj=mock_logging_obj,
             client=mock_client,
             kwargs={"model_info": deployment_model_info},
@@ -1545,13 +1545,13 @@ async def test_async_anthropic_messages_handler_forwards_router_model_info():
 
     mock_logging_obj.update_from_kwargs.assert_called_once()
     call_kwargs = mock_logging_obj.update_from_kwargs.call_args
-    litellm_params_arg = (
-        call_kwargs.kwargs.get("litellm_params", call_kwargs[1].get("litellm_params", {}))
+    hangarllm_params_arg = (
+        call_kwargs.kwargs.get("hangarllm_params", call_kwargs[1].get("hangarllm_params", {}))
         if call_kwargs.kwargs
-        else call_kwargs[1].get("litellm_params", {})
+        else call_kwargs[1].get("hangarllm_params", {})
     )
 
-    assert litellm_params_arg.get("model_info") == deployment_model_info
+    assert hangarllm_params_arg.get("model_info") == deployment_model_info
 
 
 @pytest.mark.asyncio
@@ -1577,7 +1577,7 @@ async def test_async_anthropic_messages_handler_header_priority():
     }
 
     with patch(
-        "litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
+        "hangarllm.hangarllm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
     ) as mock_provider_headers:
         mock_provider_headers.return_value = {
             "X-Priority": "provider",
@@ -1602,7 +1602,7 @@ async def test_async_anthropic_messages_handler_header_priority():
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params={},
                 custom_llm_provider="anthropic",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 logging_obj=mock_logging_obj,
                 client=mock_client,
                 kwargs=kwargs,
@@ -1684,7 +1684,7 @@ async def test_messages_sends_deployment_and_client_anthropic_betas_upstream(
 ) -> None:
     upstream: Final = _AnthropicMessagesUpstream()
 
-    await litellm.anthropic.messages.acreate(
+    await hangarllm.anthropic.messages.acreate(
         model="azure_ai/claude-sonnet-5-5",
         messages=[{"role": "user", "content": "Hello"}],
         max_tokens=16,
@@ -1750,7 +1750,7 @@ async def test_async_anthropic_messages_handler_drops_top_level_and_nested_param
     }
 
     with patch(
-        "litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
+        "hangarllm.hangarllm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
     ) as mock_provider_headers:
         mock_provider_headers.return_value = None
         try:
@@ -1760,7 +1760,7 @@ async def test_async_anthropic_messages_handler_drops_top_level_and_nested_param
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params=optional_params,
                 custom_llm_provider="bedrock",
-                litellm_params=GenericLiteLLMParams(
+                hangarllm_params=GenericHangarLLMParams(
                     additional_drop_params=[
                         "thinking",
                         "context_management",
@@ -1786,7 +1786,7 @@ def test_google_genai_streaming_hidden_params_model_info_and_router_fallback():
 
     from_model_info = _google_genai_streaming_hidden_params(
         api_base="https://generativelanguage.googleapis.com/v1beta",
-        litellm_params=GenericLiteLLMParams(model_info={"id": "info-id"}),
+        hangarllm_params=GenericHangarLLMParams(model_info={"id": "info-id"}),
         logging_obj=logging_obj,
         response_headers=httpx.Headers({"x-ratelimit-remaining": "10"}),
     )
@@ -1796,7 +1796,7 @@ def test_google_genai_streaming_hidden_params_model_info_and_router_fallback():
 
     from_router = _google_genai_streaming_hidden_params(
         api_base="https://x",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=logging_obj,
         response_headers=httpx.Headers({}),
     )
@@ -1833,7 +1833,7 @@ def test_async_delete_responses_omits_body_for_azure():
 
     async def run():
         with patch.object(AsyncHTTPHandler, "delete", new=fake_async_delete):
-            await litellm.adelete_responses(
+            await hangarllm.adelete_responses(
                 response_id="resp_xyz",
                 custom_llm_provider="azure",
                 api_base="https://test.openai.azure.com",
@@ -1853,7 +1853,7 @@ def test_sync_delete_responses_omits_body_for_azure():
     _, fake_sync_delete = _build_delete_response_mock(captured)
 
     with patch.object(HTTPHandler, "delete", new=fake_sync_delete):
-        litellm.delete_responses(
+        hangarllm.delete_responses(
             response_id="resp_xyz",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -1881,7 +1881,7 @@ def test_async_delete_responses_sets_json_content_type():
 
     async def run():
         with patch.object(AsyncHTTPHandler, "delete", new=fake_async_delete):
-            await litellm.adelete_responses(
+            await hangarllm.adelete_responses(
                 response_id="resp_xyz",
                 custom_llm_provider="openai",
                 api_key="test-key",
@@ -1897,7 +1897,7 @@ def test_sync_delete_responses_sets_json_content_type():
     _, fake_sync_delete = _build_delete_response_mock(captured)
 
     with patch.object(HTTPHandler, "delete", new=fake_sync_delete):
-        litellm.delete_responses(
+        hangarllm.delete_responses(
             response_id="resp_xyz",
             custom_llm_provider="openai",
             api_key="test-key",
@@ -1913,7 +1913,7 @@ def test_sync_delete_responses_sets_json_content_type():
 
 
 @pytest.mark.parametrize(
-    "litellm_params_kwargs, stream, global_timeout, expected",
+    "hangarllm_params_kwargs, stream, global_timeout, expected",
     [
         ({"timeout": 12.0}, False, None, 12.0),
         ({"request_timeout": 30.0}, False, None, 30.0),
@@ -1925,26 +1925,26 @@ def test_sync_delete_responses_sets_json_content_type():
         ({}, True, None, None),
     ],
 )
-def test_resolve_anthropic_messages_timeout(monkeypatch, litellm_params_kwargs, stream, global_timeout, expected):
-    from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+def test_resolve_anthropic_messages_timeout(monkeypatch, hangarllm_params_kwargs, stream, global_timeout, expected):
+    from hangarllm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
 
     if global_timeout is None:
         monkeypatch.setattr(
-            "litellm.request_timeout",
+            "hangarllm.request_timeout",
             float(DEFAULT_REQUEST_TIMEOUT_SECONDS),
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.request_timeout_explicitly_set",
+            "hangarllm.request_timeout_explicitly_set",
             False,
             raising=False,
         )
     else:
-        monkeypatch.setattr("litellm.request_timeout", global_timeout, raising=False)
-        monkeypatch.setattr("litellm.request_timeout_explicitly_set", True, raising=False)
+        monkeypatch.setattr("hangarllm.request_timeout", global_timeout, raising=False)
+        monkeypatch.setattr("hangarllm.request_timeout_explicitly_set", True, raising=False)
 
     resolved = BaseLLMHTTPHandler._resolve_anthropic_messages_timeout(
-        litellm_params=GenericLiteLLMParams(**litellm_params_kwargs),
+        hangarllm_params=GenericHangarLLMParams(**hangarllm_params_kwargs),
         stream=stream,
         custom_llm_provider="anthropic",
     )
@@ -1954,11 +1954,11 @@ def test_resolve_anthropic_messages_timeout(monkeypatch, litellm_params_kwargs, 
 
 @pytest.mark.asyncio
 async def test_async_anthropic_messages_handler_forwards_request_timeout(monkeypatch):
-    from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+    from hangarllm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
 
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
-    monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False)
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
+    monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", False)
     handler = BaseLLMHTTPHandler()
 
     mock_config = Mock()
@@ -1987,7 +1987,7 @@ async def test_async_anthropic_messages_handler_forwards_request_timeout(monkeyp
         anthropic_messages_provider_config=mock_config,
         anthropic_messages_optional_request_params={},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(request_timeout=0.3),
+        hangarllm_params=GenericHangarLLMParams(request_timeout=0.3),
         logging_obj=logging_obj,
         client=mock_client,
         kwargs={},
@@ -1999,11 +1999,11 @@ async def test_async_anthropic_messages_handler_forwards_request_timeout(monkeyp
 
 @pytest.mark.asyncio
 async def test_async_anthropic_messages_handler_forwards_stream_timeout(monkeypatch):
-    from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+    from hangarllm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
 
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
-    monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False)
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
+    monkeypatch.setattr(hangarllm, "request_timeout_explicitly_set", False)
     handler = BaseLLMHTTPHandler()
 
     mock_config = Mock()
@@ -2033,7 +2033,7 @@ async def test_async_anthropic_messages_handler_forwards_stream_timeout(monkeypa
         anthropic_messages_provider_config=mock_config,
         anthropic_messages_optional_request_params={},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(timeout=9.0, stream_timeout=0.7),
+        hangarllm_params=GenericHangarLLMParams(timeout=9.0, stream_timeout=0.7),
         logging_obj=logging_obj,
         client=mock_client,
         stream=True,
@@ -2074,7 +2074,7 @@ async def test_anthropic_post_uses_prebuilt_body_without_redumping():
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         api_key="k",
         model="claude",
     )
@@ -2114,7 +2114,7 @@ async def test_anthropic_post_falls_back_to_json_dumps_when_unsigned_none():
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         api_key="k",
         model="claude",
     )
@@ -2162,7 +2162,7 @@ async def test_anthropic_post_retry_reserializes_mutated_body():
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         api_key="k",
         model="claude",
     )
@@ -2190,7 +2190,7 @@ async def test_anthropic_post_skips_the_thinking_strip_retry_when_block_binding_
 ) -> None:
     """A caller that pinned ``prefix_mismatch_behavior: error`` asked for the 400,
     so the handler must surface it instead of stripping the bound blocks and retrying."""
-    from litellm.llms.anthropic.messages.native.transformation import AnthropicMessagesConfig
+    from hangarllm.llms.anthropic.messages.native.transformation import AnthropicMessagesConfig
 
     handler = BaseLLMHTTPHandler()
     thinking_block = {"type": "thinking", "thinking": "", "signature": "sig"}
@@ -2223,7 +2223,7 @@ async def test_anthropic_post_skips_the_thinking_strip_retry_when_block_binding_
             stream=False,
             logging_obj=logging_obj,
             provider_config=AnthropicMessagesConfig(),
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             api_key="k",
             model="claude-opus-5-5",
         )
@@ -2245,7 +2245,7 @@ def test_base_responses_config_sign_request_is_noop_by_default():
     Guards the 15 existing responses providers from accidental signing when the
     handler starts calling sign_request.
     """
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 
     cfg = OpenAIResponsesAPIConfig()
     headers = {"Authorization": "Bearer sk-existing"}
@@ -2267,9 +2267,9 @@ def _make_responses_handler_call(signed_body):
     signing provider (e.g. Bedrock Mantle).
     """
     from unittest.mock import MagicMock
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.types.router import GenericHangarLLMParams
 
     provider_config = MagicMock()
     provider_config.validate_environment.return_value = {}
@@ -2288,7 +2288,7 @@ def _make_responses_handler_call(signed_body):
         responses_api_provider_config=provider_config,
         response_api_optional_request_params={},
         custom_llm_provider="bedrock_mantle",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2"),
+        hangarllm_params=GenericHangarLLMParams(aws_region_name="us-east-2"),
         logging_obj=MagicMock(),
         client=mock_client,
         _is_async=False,
@@ -2322,10 +2322,10 @@ def test_responses_handler_signs_after_fake_stream_prep_strips_stream():
     We snapshot request_data at sign time and assert "stream" is already gone.
     """
     from unittest.mock import MagicMock
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.types.llms.openai import ResponsesAPIResponse
+    from hangarllm.types.router import GenericHangarLLMParams
 
     provider_config = MagicMock()
     provider_config.validate_environment.return_value = {}
@@ -2361,7 +2361,7 @@ def test_responses_handler_signs_after_fake_stream_prep_strips_stream():
         responses_api_provider_config=provider_config,
         response_api_optional_request_params={"stream": True},
         custom_llm_provider="bedrock_mantle",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2"),
+        hangarllm_params=GenericHangarLLMParams(aws_region_name="us-east-2"),
         logging_obj=MagicMock(),
         client=mock_client,
         _is_async=False,
@@ -2385,9 +2385,9 @@ def _make_compact_handler_call(signed_body, is_async):
     signing provider (e.g. Bedrock Mantle SigV4 / bearer).
     """
     from unittest.mock import MagicMock
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.types.router import GenericHangarLLMParams
 
     compact_url = "https://bedrock-mantle.us-east-2.api.aws/openai/v1/responses/compact"
     provider_config = MagicMock()
@@ -2414,7 +2414,7 @@ def _make_compact_handler_call(signed_body, is_async):
         responses_api_provider_config=provider_config,
         response_api_optional_request_params={},
         custom_llm_provider="bedrock_mantle",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2"),
+        hangarllm_params=GenericHangarLLMParams(aws_region_name="us-east-2"),
         logging_obj=MagicMock(),
         client=mock_client,
         _is_async=is_async,
@@ -2517,9 +2517,9 @@ async def test_async_anthropic_messages_handler_passes_api_key_to_agentic_hooks(
             new=AsyncMock(return_value=mock_httpx_response),
         ),
         patch.object(handler, "_call_agentic_completion_hooks", side_effect=fake_agentic_hooks),
-        patch("litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client"),
+        patch("hangarllm.llms.custom_httpx.llm_http_handler.get_async_httpx_client"),
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers",
+            "hangarllm.hangarllm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers",
             return_value=None,
         ),
     ):
@@ -2529,7 +2529,7 @@ async def test_async_anthropic_messages_handler_passes_api_key_to_agentic_hooks(
             anthropic_messages_provider_config=mock_config,
             anthropic_messages_optional_request_params={"stream": False},
             custom_llm_provider="anthropic",
-            litellm_params=GenericLiteLLMParams(api_key="sk-real-anthropic-key"),
+            hangarllm_params=GenericHangarLLMParams(api_key="sk-real-anthropic-key"),
             logging_obj=mock_logging_obj,
             api_key="sk-real-anthropic-key",
             stream=False,
@@ -2570,8 +2570,8 @@ async def test_async_anthropic_messages_handler_passes_deployment_api_base_to_ag
     both the non-streaming and the streaming path, or the follow-up fails with
     "Missing Azure API Base" and the client gets the dangling tool_use back.
     """
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
 
     monkeypatch.delenv("AZURE_API_BASE", raising=False)
 
@@ -2617,7 +2617,7 @@ async def test_async_anthropic_messages_handler_passes_deployment_api_base_to_ag
         anthropic_messages_provider_config=AzureAnthropicMessagesConfig(),
         anthropic_messages_optional_request_params={"max_tokens": 32},
         custom_llm_provider="azure_ai",
-        litellm_params=GenericLiteLLMParams(api_key="foundry-key", api_base=_FOUNDRY_API_BASE),
+        hangarllm_params=GenericHangarLLMParams(api_key="foundry-key", api_base=_FOUNDRY_API_BASE),
         logging_obj=mock_logging_obj,
         client=mock_client,
         api_key="foundry-key",
@@ -2852,7 +2852,7 @@ class _ScriptedRealtimeClient:
 
 def _realtime_logging_obj():
     logging_obj = Mock()
-    logging_obj.litellm_trace_id = "trace-lit-6974"
+    logging_obj.hangarllm_trace_id = "trace-lit-6974"
     logging_obj.async_success_handler = AsyncMock()
     logging_obj.dispatch_failure_handlers = AsyncMock()
     return logging_obj
@@ -2891,9 +2891,9 @@ async def test_async_realtime_vertex_first_session_update_builds_the_only_setup(
     goes out on the client's first message, built from session.update when that
     comes first. Under drop_params an audio-only model still gets AUDIO, and the
     client learns the downgrade from session.updated."""
-    from litellm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
+    from hangarllm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
 
-    monkeypatch.setattr(litellm, "gemini_live_defer_setup", False, raising=False)
+    monkeypatch.setattr(hangarllm, "gemini_live_defer_setup", False, raising=False)
     backend = _ScriptedRealtimeBackend([_GEMINI_LIVE_SETUP_COMPLETE, *backend_turn, _GEMINI_LIVE_TURN_COMPLETE])
     client_ws = _ScriptedRealtimeClient(
         [
@@ -2991,16 +2991,16 @@ class _JSONBodyAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model,
         messages,
         optional_params,
-        litellm_params,
+        hangarllm_params,
         api_key=None,
         api_base=None,
     ):
         return {**headers, "Authorization": "Bearer test-token"}
 
-    def get_complete_url(self, api_base, api_key, model, optional_params, litellm_params, stream=None):
+    def get_complete_url(self, api_base, api_key, model, optional_params, hangarllm_params, stream=None):
         return "https://transcription.example/recognize"
 
-    def transform_audio_transcription_request(self, model, audio_file, optional_params, litellm_params):
+    def transform_audio_transcription_request(self, model, audio_file, optional_params, hangarllm_params):
         return AudioTranscriptionRequestData(data={"config": {"model": model}, "content": "YXVkaW8="})
 
     def transform_audio_transcription_response(self, raw_response):
@@ -3015,7 +3015,7 @@ def _json_transcription_call_kwargs(provider_config):
         "model": "test-model",
         "audio_file": b"raw-audio",
         "optional_params": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
         "model_response": TranscriptionResponse(),
         "timeout": 10.0,
         "max_retries": 0,
@@ -3151,8 +3151,8 @@ async def test_async_retrieve_file_content_raises_on_http_error():
     as file content, which downstream batch cost tracking would parse as an
     empty results file and bill $0.
     """
-    from litellm.llms.anthropic.common_utils import AnthropicError
-    from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+    from hangarllm.llms.anthropic.common_utils import AnthropicError
+    from hangarllm.llms.anthropic.files.transformation import AnthropicFilesConfig
 
     handler = BaseLLMHTTPHandler()
     client = Mock(spec=AsyncHTTPHandler)
@@ -3167,7 +3167,7 @@ async def test_async_retrieve_file_content_raises_on_http_error():
         await handler.async_retrieve_file_content(
             file_content_request={"file_id": "msgbatch_123"},
             provider_config=AnthropicFilesConfig(),
-            litellm_params={"api_key": "sk-test"},
+            hangarllm_params={"api_key": "sk-test"},
             headers={},
             logging_obj=Mock(),
             client=client,
@@ -3178,8 +3178,8 @@ async def test_async_retrieve_file_content_raises_on_http_error():
 
 
 def test_sync_retrieve_file_content_raises_on_http_error():
-    from litellm.llms.anthropic.common_utils import AnthropicError
-    from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+    from hangarllm.llms.anthropic.common_utils import AnthropicError
+    from hangarllm.llms.anthropic.files.transformation import AnthropicFilesConfig
 
     handler = BaseLLMHTTPHandler()
     client = Mock(spec=HTTPHandler)
@@ -3194,7 +3194,7 @@ def test_sync_retrieve_file_content_raises_on_http_error():
         handler.retrieve_file_content(
             file_content_request={"file_id": "file-abc"},
             provider_config=AnthropicFilesConfig(),
-            litellm_params={"api_key": "sk-test"},
+            hangarllm_params={"api_key": "sk-test"},
             headers={},
             logging_obj=Mock(),
             client=client,
@@ -3207,8 +3207,8 @@ def test_sync_retrieve_file_content_raises_on_http_error():
 async def test_handle_error_surfaces_provider_error_raised_while_aiohttp_streams_the_body(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
 
     monkeypatch.setenv("NO_PROXY", "127.0.0.1")
     monkeypatch.setenv("no_proxy", "127.0.0.1")
@@ -3247,8 +3247,8 @@ def _runtime_error_caused_by(cause: Exception) -> RuntimeError:
 
 
 def test_handle_error_reports_its_own_failure_when_it_is_not_a_transport_error():
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
 
     outer: Final = _runtime_error_caused_by(VertexAIError(status_code=400, message="inner provider error"))
 
@@ -3293,10 +3293,10 @@ async def test_async_retrieve_file_content_wif_exchange_does_not_block_event_loo
     validate_environment directly, so a cold WIF mint on this call site froze the
     event loop until the exchange finished. It must resolve credentials through the
     async facade instead."""
-    from litellm.llms.anthropic import common_utils as anthropic_common_utils
-    from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
-    from litellm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
-    from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+    from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+    from hangarllm.llms.anthropic.files.transformation import AnthropicFilesConfig
+    from hangarllm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
+    from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
     for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"):
         monkeypatch.delenv(name, raising=False)
@@ -3307,12 +3307,12 @@ async def test_async_retrieve_file_content_wif_exchange_does_not_block_event_loo
     engine = JwtBearerTokenExchangeEngine(poster=poster)
     sync_calls = []
 
-    def sync_shim(litellm_params, api_base, model):
+    def sync_shim(hangarllm_params, api_base, model):
         sync_calls.append(model)
-        return get_anthropic_wif_token(litellm_params, api_base, model, engine)
+        return get_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
-    async def async_shim(litellm_params, api_base, model):
-        return await aget_anthropic_wif_token(litellm_params, api_base, model, engine)
+    async def async_shim(hangarllm_params, api_base, model):
+        return await aget_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
     monkeypatch.setattr(anthropic_common_utils, "get_anthropic_wif_token", sync_shim)
     monkeypatch.setattr(anthropic_common_utils, "aget_anthropic_wif_token", async_shim)
@@ -3335,7 +3335,7 @@ async def test_async_retrieve_file_content_wif_exchange_does_not_block_event_loo
         handler.async_retrieve_file_content(
             file_content_request={"file_id": "file-abc"},
             provider_config=AnthropicFilesConfig(),
-            litellm_params={},
+            hangarllm_params={},
             headers={},
             logging_obj=Mock(),
             client=client,
@@ -3386,8 +3386,8 @@ def _sync_handler_returning(status_code: int, body: dict) -> HTTPHandler:
 async def test_aget_responses_surfaces_upstream_error_status_instead_of_500():
     client = _async_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        await litellm.aget_responses(
+    with pytest.raises(hangarllm.NotFoundError) as excinfo:
+        await hangarllm.aget_responses(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -3403,8 +3403,8 @@ async def test_aget_responses_surfaces_upstream_error_status_instead_of_500():
 def test_get_responses_surfaces_upstream_error_status_instead_of_500():
     client = _sync_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        litellm.get_responses(
+    with pytest.raises(hangarllm.NotFoundError) as excinfo:
+        hangarllm.get_responses(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -3420,8 +3420,8 @@ def test_get_responses_surfaces_upstream_error_status_instead_of_500():
 def test_list_input_items_surfaces_upstream_error_status():
     client = _sync_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        litellm.list_input_items(
+    with pytest.raises(hangarllm.NotFoundError) as excinfo:
+        hangarllm.list_input_items(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -3437,8 +3437,8 @@ def test_list_input_items_surfaces_upstream_error_status():
 async def test_alist_input_items_surfaces_upstream_error_status():
     client = _async_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        await litellm.alist_input_items(
+    with pytest.raises(hangarllm.NotFoundError) as excinfo:
+        await hangarllm.alist_input_items(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -3455,7 +3455,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
     """Regression: after Bedrock rejects a replayed thinking block (400 invalid signature),
     the strip-and-retry re-sign must not inherit attempt 1's SigV4 Authorization/X-Amz-Date;
     reusing them over the new stripped body makes AWS return 403 SignatureDoesNotMatch."""
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -3464,7 +3464,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
 
     handler = BaseLLMHTTPHandler()
     provider_config = AmazonAnthropicClaudeMessagesConfig()
-    litellm_params = GenericLiteLLMParams(
+    hangarllm_params = GenericHangarLLMParams(
         aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
         aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         aws_region_name="us-east-1",
@@ -3487,7 +3487,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
     }
     first_attempt_headers, signed_json_body = provider_config.sign_request(
         headers={"Content-Type": "application/json"},
-        optional_params=dict(litellm_params),
+        optional_params=dict(hangarllm_params),
         request_data=request_body,
         api_base=request_url,
         api_key=None,
@@ -3521,7 +3521,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         api_key=None,
         model="test-model",
     )
@@ -3542,7 +3542,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
 
 
 def test_aws_signing_overrides_only_fills_missing_credentials():
-    from litellm.llms.custom_httpx.llm_http_handler import _aws_signing_overrides
+    from hangarllm.llms.custom_httpx.llm_http_handler import _aws_signing_overrides
 
     overrides = _aws_signing_overrides(
         {"temperature": 0.2, "aws_region_name": "us-west-2"},
@@ -3571,7 +3571,7 @@ class TestServerFulfilledToolsInRequest:
         return logging_obj
 
     def test_should_hold_back_when_callback_owns_tool_in_request(self):
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         class RetrievalCallback(CustomLogger):
             server_fulfilled_tool_names = frozenset({"headroom_retrieve"})
@@ -3585,7 +3585,7 @@ class TestServerFulfilledToolsInRequest:
         ) == frozenset({"headroom_retrieve"})
 
     def test_should_stream_live_when_tool_absent_from_request(self):
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         class RetrievalCallback(CustomLogger):
             server_fulfilled_tool_names = frozenset({"headroom_retrieve"})
@@ -3599,7 +3599,7 @@ class TestServerFulfilledToolsInRequest:
         )
 
     def test_should_stream_live_when_no_callback_declares_tool_names(self):
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         tools = [{"name": "headroom_retrieve", "input_schema": {"type": "object"}}]
         assert (
@@ -3617,21 +3617,21 @@ class TestServerFulfilledToolsInRequest:
 
     @pytest.mark.parametrize("hook", ["compression", "headroom", "compresr"])
     def test_a_retrieval_hook_holds_back_a_stream_carrying_its_retrieve_tool(self, hook):
-        from litellm.integrations.compression_interception.handler import (
-            LITELLM_CONTENT_RETRIEVE_TOOL_NAME,
+        from hangarllm.integrations.compression_interception.handler import (
+            HANGARLLM_CONTENT_RETRIEVE_TOOL_NAME,
             CompressionInterceptionLogger,
         )
-        from litellm.proxy.guardrails.guardrail_hooks.compresr.compresr import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.compresr.compresr import (
             COMPRESR_RETRIEVE_TOOL_NAME,
             CompresrGuardrail,
         )
-        from litellm.proxy.guardrails.guardrail_hooks.headroom.headroom import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.headroom.headroom import (
             HEADROOM_RETRIEVE_TOOL_NAME,
             HeadroomGuardrail,
         )
 
         callback, retrieve_tool_name = {
-            "compression": (CompressionInterceptionLogger(), LITELLM_CONTENT_RETRIEVE_TOOL_NAME),
+            "compression": (CompressionInterceptionLogger(), HANGARLLM_CONTENT_RETRIEVE_TOOL_NAME),
             "headroom": (
                 HeadroomGuardrail(api_base="https://headroom.test", api_key="hr-test", guardrail_name="headroom"),
                 HEADROOM_RETRIEVE_TOOL_NAME,
@@ -3652,7 +3652,7 @@ class TestServerFulfilledToolsInRequest:
 
 
 def _make_stub_direct_vector_store_config(response):
-    from litellm.llms.base_llm.vector_store.transformation import (
+    from hangarllm.llms.base_llm.vector_store.transformation import (
         BaseDirectVectorStoreConfig,
     )
 
@@ -3679,14 +3679,14 @@ def test_vector_store_search_handler_direct_config_sync_skips_http():
     config = _make_stub_direct_vector_store_config(stub_response)
     logging_obj = Mock()
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
         result = handler.vector_store_search_handler(
             vector_store_id="vs_direct",
             query="q",
             vector_store_search_optional_params={"max_num_results": 4},
             vector_store_provider_config=config,
             custom_llm_provider="valkey",
-            litellm_params=GenericLiteLLMParams(valkey_host="localhost"),
+            hangarllm_params=GenericHangarLLMParams(valkey_host="localhost"),
             logging_obj=logging_obj,
             timeout=12.5,
             _is_async=False,
@@ -3700,8 +3700,8 @@ def test_vector_store_search_handler_direct_config_sync_skips_http():
     assert call["query"] == "q"
     assert call["timeout"] == 12.5
     assert call["vector_store_search_optional_params"] == {"max_num_results": 4}
-    assert isinstance(call["litellm_params"], dict)
-    assert call["litellm_params"]["valkey_host"] == "localhost"
+    assert isinstance(call["hangarllm_params"], dict)
+    assert call["hangarllm_params"]["valkey_host"] == "localhost"
     pre_call_args = logging_obj.pre_call.call_args.kwargs["additional_args"]
     assert pre_call_args["query"] == "q"
     assert pre_call_args["vector_store_id"] == "vs_direct"
@@ -3714,14 +3714,14 @@ async def test_vector_store_search_handler_direct_config_async_skips_http():
     config = _make_stub_direct_vector_store_config(stub_response)
     logging_obj = Mock()
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client") as mock_get_client:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.get_async_httpx_client") as mock_get_client:
         result = await handler.vector_store_search_handler(
             vector_store_id="vs_direct",
             query=["q1", "q2"],
             vector_store_search_optional_params={},
             vector_store_provider_config=config,
             custom_llm_provider="valkey",
-            litellm_params=GenericLiteLLMParams(valkey_host="localhost"),
+            hangarllm_params=GenericHangarLLMParams(valkey_host="localhost"),
             logging_obj=logging_obj,
             timeout=7.0,
             _is_async=True,
@@ -3731,7 +3731,7 @@ async def test_vector_store_search_handler_direct_config_async_skips_http():
     mock_get_client.assert_not_called()
     assert len(config.async_calls) == 1
     assert config.async_calls[0]["query"] == ["q1", "q2"]
-    assert config.async_calls[0]["litellm_params"]["valkey_host"] == "localhost"
+    assert config.async_calls[0]["hangarllm_params"]["valkey_host"] == "localhost"
     assert config.async_calls[0]["timeout"] == 7.0
     pre_call_args = logging_obj.pre_call.call_args.kwargs["additional_args"]
     assert pre_call_args["query"] == ["q1", "q2"]
@@ -3739,29 +3739,29 @@ async def test_vector_store_search_handler_direct_config_async_skips_http():
 
 
 def _direct_vector_store_debug_logging_obj():
-    from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
 
-    logging_obj = LitellmLogging(
+    logging_obj = HangarllmLogging(
         model="valkey",
         messages=[{"role": "user", "content": "q"}],
         stream=False,
         call_type="vector_store_search",
         start_time=time.time(),
-        litellm_call_id="vs-debug-call-id",
+        hangarllm_call_id="vs-debug-call-id",
         function_id="vs-debug-function-id",
         log_raw_request_response=True,
     )
     logging_obj.update_environment_variables(
         model="valkey",
         optional_params={"vector_store_id": "vs_direct", "query": "q"},
-        litellm_params={
-            "litellm_call_id": "vs-debug-call-id",
+        hangarllm_params={
+            "hangarllm_call_id": "vs-debug-call-id",
             "vector_store_id": "vs_direct",
-            "litellm_request_debug": True,
+            "hangarllm_request_debug": True,
             "metadata": {"user_api_key_alias": "vs-test-key"},
             "valkey_host": "valkey.internal",
             "valkey_password": "sup3r-s3cret-valkey-pw",
-            "litellm_embedding_config": {"api_key": "sk-embedding-s3cret"},
+            "hangarllm_embedding_config": {"api_key": "sk-embedding-s3cret"},
         },
     )
     return logging_obj
@@ -3783,7 +3783,7 @@ def test_direct_vector_store_search_debug_log_omits_stored_credentials(caplog, i
             vector_store_search_optional_params={"max_num_results": 4},
             vector_store_provider_config=config,
             custom_llm_provider="valkey",
-            litellm_params=GenericLiteLLMParams(
+            hangarllm_params=GenericHangarLLMParams(
                 valkey_host="valkey.internal",
                 valkey_password="sup3r-s3cret-valkey-pw",
             ),
@@ -3794,7 +3794,7 @@ def test_direct_vector_store_search_debug_log_omits_stored_credentials(caplog, i
             result = asyncio.run(result)
 
     assert result is stub_response
-    raw_request = logging_obj.model_call_details["litellm_params"]["metadata"]["raw_request"]
+    raw_request = logging_obj.model_call_details["hangarllm_params"]["metadata"]["raw_request"]
     assert "sup3r-s3cret-valkey-pw" not in raw_request
     assert "sk-embedding-s3cret" not in raw_request
     assert "valkey://vs_direct" in raw_request
@@ -3809,8 +3809,8 @@ async def test_async_retrieve_batch_masks_presigned_auth_header_in_raw_request_l
     header inside the transformed request, which pre_call logs verbatim as the raw request
     body, so the provider key landed unmasked in raw_request_typed_dict and every
     raw-request callback."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-    from litellm.llms.mistral.batches.transformation import MistralBatchesConfig
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+    from hangarllm.llms.mistral.batches.transformation import MistralBatchesConfig
 
     provider_key = "mistral-s3cret-provider-key-123456"
     job_payload = {
@@ -3830,25 +3830,25 @@ async def test_async_retrieve_batch_masks_presigned_auth_header_in_raw_request_l
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(_capture))
 
-    logging_obj = LitellmLogging(
+    logging_obj = HangarllmLogging(
         model="mistral/mistral-ocr-latest",
         messages=[],
         stream=False,
         call_type="batch_retrieve",
         start_time=time.time(),
-        litellm_call_id="batch-retrieve-call-id",
+        hangarllm_call_id="batch-retrieve-call-id",
         function_id="batch-retrieve-function-id",
         log_raw_request_response=True,
     )
     logging_obj.update_environment_variables(
         model="mistral/mistral-ocr-latest",
         optional_params={},
-        litellm_params={"litellm_call_id": "batch-retrieve-call-id", "metadata": {}},
+        hangarllm_params={"hangarllm_call_id": "batch-retrieve-call-id", "metadata": {}},
     )
 
     result = await BaseLLMHTTPHandler().retrieve_batch(
         batch_id="batch-1",
-        litellm_params={"api_key": provider_key},
+        hangarllm_params={"api_key": provider_key},
         provider_config=MistralBatchesConfig(),
         headers={},
         api_base=None,
@@ -3876,13 +3876,13 @@ async def test_async_anthropic_messages_handler_carries_deployment_vertex_locati
     import contextlib
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import (
         Logging,
         resolve_vertex_location_for_cost,
     )
 
     monkeypatch.setenv("VERTEXAI_LOCATION", "us-east5")
-    monkeypatch.setattr(litellm, "vertex_location", None)
+    monkeypatch.setattr(hangarllm, "vertex_location", None)
 
     handler = BaseLLMHTTPHandler()
 
@@ -3893,14 +3893,14 @@ async def test_async_anthropic_messages_handler_carries_deployment_vertex_locati
             stream=False,
             call_type="anthropic_messages",
             start_time=datetime.now(),
-            litellm_call_id="vertex-messages-location",
+            hangarllm_call_id="vertex-messages-location",
             function_id="f",
         )
         logging_obj.update_environment_variables(
             model="vertex_ai/claude-haiku-4-5@20251001",
             user="",
             optional_params={},
-            litellm_params={"api_base": ""},
+            hangarllm_params={"api_base": ""},
             custom_llm_provider="vertex_ai",
         )
         mock_config = Mock()
@@ -3917,27 +3917,27 @@ async def test_async_anthropic_messages_handler_carries_deployment_vertex_locati
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params={"max_tokens": 10},
                 custom_llm_provider="vertex_ai",
-                litellm_params=generic_params,
+                hangarllm_params=generic_params,
                 logging_obj=logging_obj,
                 client=AsyncMock(),
                 kwargs={},
             )
         return logging_obj
 
-    global_deployment = await logging_obj_after_handler(GenericLiteLLMParams(vertex_location="global"))
-    assert global_deployment.litellm_params["vertex_location"] == "global"
+    global_deployment = await logging_obj_after_handler(GenericHangarLLMParams(vertex_location="global"))
+    assert global_deployment.hangarllm_params["vertex_location"] == "global"
     assert (
         resolve_vertex_location_for_cost(
             custom_llm_provider="vertex_ai",
-            litellm_params=global_deployment.litellm_params,
+            hangarllm_params=global_deployment.hangarllm_params,
             optional_params=global_deployment.optional_params,
             model="claude-haiku-4-5@20251001",
         )
         == "global"
     )
 
-    unconfigured_deployment = await logging_obj_after_handler(GenericLiteLLMParams())
-    assert "vertex_location" not in unconfigured_deployment.litellm_params
+    unconfigured_deployment = await logging_obj_after_handler(GenericHangarLLMParams())
+    assert "vertex_location" not in unconfigured_deployment.hangarllm_params
 
 
 _GENERIC_STREAM_SSE = (
@@ -3974,7 +3974,7 @@ def test_generic_http_handler_sync_streaming_forwards_provider_response_headers(
     mock_client = Mock(spec=HTTPHandler)
     mock_client.post = Mock(return_value=_generic_stream_upstream_response())
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="hosted_vllm/test-model",
         messages=[{"role": "user", "content": "Hello"}],
         api_base="https://fake-vllm.test/v1",
@@ -3999,7 +3999,7 @@ async def test_generic_http_handler_async_streaming_forwards_provider_response_h
     mock_client = AsyncMock(spec=AsyncHTTPHandler)
     mock_client.post = AsyncMock(return_value=_generic_stream_upstream_response())
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="hosted_vllm/test-model",
         messages=[{"role": "user", "content": "Hello"}],
         api_base="https://fake-vllm.test/v1",
@@ -4018,15 +4018,15 @@ async def test_generic_http_handler_async_streaming_forwards_provider_response_h
 
 @pytest.mark.parametrize("custom_llm_provider", ["openai", "azure", "hosted_vllm", None])
 def test_the_rust_responses_websocket_stays_on_python_with_the_switch_on(custom_llm_provider, monkeypatch):
-    from litellm.rust_bridge import configuration
+    from hangarllm.rust_bridge import configuration
 
     configuration.reset_rust_configuration()
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("HANGARLLM_RUST", "1")
     assert _rust_responses_websocket_enabled(custom_llm_provider) is False
 
 
 def test_a_plain_callback_does_not_advertise_a_pre_call_deployment_hook(monkeypatch):
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     class _PlainLogger(CustomLogger):
         pass
@@ -4034,15 +4034,15 @@ def test_a_plain_callback_does_not_advertise_a_pre_call_deployment_hook(monkeypa
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     assert _has_pre_call_deployment_hook(logging_obj) is False
 
-    monkeypatch.setattr(litellm, "callbacks", [_PlainLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_PlainLogger()])
     assert _has_pre_call_deployment_hook(logging_obj) is False
 
 
 def test_a_callback_that_overrides_the_deployment_hook_is_detected(monkeypatch):
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     class _DeploymentHookLogger(CustomLogger):
         async def async_pre_call_deployment_hook(self, kwargs, call_type):
@@ -4054,13 +4054,13 @@ def test_a_callback_that_overrides_the_deployment_hook_is_detected(monkeypatch):
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
-    monkeypatch.setattr(litellm, "callbacks", [_DeploymentHookLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_DeploymentHookLogger()])
     assert _has_pre_call_deployment_hook(logging_obj) is True
 
-    monkeypatch.setattr(litellm, "callbacks", [_InheritsTheHook()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_InheritsTheHook()])
     assert _has_pre_call_deployment_hook(logging_obj) is True
 
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     logging_obj.dynamic_success_callbacks = [_DeploymentHookLogger()]
     assert _has_pre_call_deployment_hook(logging_obj) is True
 
@@ -4074,7 +4074,7 @@ def test_a_callback_that_overrides_the_deployment_hook_is_detected(monkeypatch):
     ids=["project-quota", "token-limits"],
 )
 def test_only_callbacks_that_can_check_a_frame_are_collected_for_ws_turns(monkeypatch, collect, frame_check):
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     async def check_frame(self, *args, **kwargs):
         return None
@@ -4083,17 +4083,17 @@ def test_only_callbacks_that_can_check_a_frame_are_collected_for_ws_turns(monkey
     checker: Final = type("_FrameChecker", (CustomLogger,), {frame_check: check_frame})()
     decoy: Final = type("_NotCallableAttribute", (), {frame_check: "not a method"})()
 
-    monkeypatch.setattr(litellm, "callbacks", [plain, decoy])
+    monkeypatch.setattr(hangarllm, "callbacks", [plain, decoy])
     assert collect() == ()
 
-    monkeypatch.setattr(litellm, "callbacks", [plain, checker, decoy])
+    monkeypatch.setattr(hangarllm, "callbacks", [plain, checker, decoy])
     assert collect() == (checker,)
 
 
 @pytest.mark.asyncio
 async def test_async_rerank_records_llm_api_duration():
     """arerank must feed the httpx timing into the logging obj, so the proxy can emit
-    x-litellm-overhead-duration-ms / x-litellm-timing-* on /rerank."""
+    x-hangarllm-overhead-duration-ms / x-hangarllm-timing-* on /rerank."""
 
     def handle(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -4108,7 +4108,7 @@ async def test_async_rerank_records_llm_api_duration():
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.arerank(
+    response = await hangarllm.arerank(
         model="cohere/rerank-v3.5",
         query="what is the capital of france",
         documents=["paris", "berlin"],
@@ -4117,8 +4117,8 @@ async def test_async_rerank_records_llm_api_duration():
         client=client,
     )
 
-    assert response._hidden_params["litellm_overhead_time_ms"] is not None
-    assert response._hidden_params["_response_ms"] >= response._hidden_params["litellm_overhead_time_ms"]
+    assert response._hidden_params["hangarllm_overhead_time_ms"] is not None
+    assert response._hidden_params["_response_ms"] >= response._hidden_params["hangarllm_overhead_time_ms"]
 
 
 class _JSONBodyVideoConfig(OpenAIVideoConfig):
@@ -4133,7 +4133,7 @@ def _video_create_call_kwargs(config, **optional_params):
         "video_generation_provider_config": config,
         "video_generation_optional_request_params": {"seconds": "4", **optional_params},
         "custom_llm_provider": "openai",
-        "litellm_params": GenericLiteLLMParams(api_key="sk-test", api_base="https://video.example/v1"),
+        "hangarllm_params": GenericHangarLLMParams(api_key="sk-test", api_base="https://video.example/v1"),
         "logging_obj": Mock(),
         "timeout": 10.0,
     }
@@ -4163,7 +4163,7 @@ def _multipart_text_fields(content_type: str, body: bytes) -> dict:
 def test_video_generation_without_file_sends_multipart_form_data():
     """Regression for #36493: the OpenAI SDK always sends /videos requests as
     multipart/form-data, so OpenAI-compatible backends (SGLang Diffusion,
-    vLLM-Omni) reject the JSON body LiteLLM used to send when no
+    vLLM-Omni) reject the JSON body HangarLLM used to send when no
     input_reference file was attached."""
     captured = {}
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_capture_video_create_request(captured))))
@@ -4290,7 +4290,7 @@ class _RecordedAzureAI:
 
 @pytest.fixture
 def httpx_transport(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
 
 def _rejection(message: str) -> httpx.Response:
@@ -4302,7 +4302,7 @@ def _call_azure_ai(recorder: _RecordedAzureAI, **overrides):
 
     with respx.mock(assert_all_called=True) as router:
         router.post(AZURE_AI_CHAT_COMPLETIONS_URL).mock(side_effect=recorder)
-        return litellm.completion(
+        return hangarllm.completion(
             model="azure_ai/grok-3",
             messages=[{"role": "user", "content": "hi"}],
             tools=[_a_tool_with_an_unsupported_field()],
@@ -4341,7 +4341,7 @@ def test_the_retry_changes_only_the_field_the_provider_named():
 def test_a_provider_that_keeps_rejecting_is_not_retried_forever():
     recorder = _RecordedAzureAI([_rejection(TOOL_LEVEL_REJECTION)])
 
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         _call_azure_ai(recorder)
 
     assert len(recorder.bodies) == 2
@@ -4351,7 +4351,7 @@ def test_a_provider_that_keeps_rejecting_is_not_retried_forever():
 def test_a_rejection_the_provider_cannot_fix_is_not_retried_at_all():
     recorder = _RecordedAzureAI([_rejection(A_REJECTION_THE_PROVIDER_CANNOT_FIX)])
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         _call_azure_ai(recorder)
 
     assert len(recorder.bodies) == 1
@@ -4360,7 +4360,7 @@ def test_a_rejection_the_provider_cannot_fix_is_not_retried_at_all():
 def test_an_extra_input_outside_a_tool_is_not_retried_unless_dropping_params_was_asked_for():
     recorder = _RecordedAzureAI([_rejection(UNRELATED_REJECTION)])
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         _call_azure_ai(recorder)
 
     assert len(recorder.bodies) == 1
@@ -4389,7 +4389,7 @@ async def test_a_tool_field_the_provider_rejects_is_dropped_and_retried_on_the_a
 
     with respx.mock(assert_all_called=True) as router:
         router.post(AZURE_AI_CHAT_COMPLETIONS_URL).mock(side_effect=recorder)
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="azure_ai/grok-3",
             messages=[{"role": "user", "content": "hi"}],
             tools=[_a_tool_with_an_unsupported_field()],
@@ -4413,8 +4413,8 @@ async def test_a_provider_that_keeps_rejecting_is_not_retried_forever_on_the_asy
 
     with respx.mock(assert_all_called=True) as router:
         router.post(AZURE_AI_CHAT_COMPLETIONS_URL).mock(side_effect=recorder)
-        with pytest.raises(litellm.BadRequestError):
-            await litellm.acompletion(
+        with pytest.raises(hangarllm.BadRequestError):
+            await hangarllm.acompletion(
                 model="azure_ai/grok-3",
                 messages=[{"role": "user", "content": "hi"}],
                 tools=[_a_tool_with_an_unsupported_field()],
@@ -4444,7 +4444,7 @@ async def test_create_file_async_awaits_the_provider_credential_hook_instead_of_
 
     result = await BaseLLMHTTPHandler().create_file(
         create_file_data={"file": b"{}", "purpose": "batch"},
-        litellm_params={},
+        hangarllm_params={},
         provider_config=provider_config,
         headers={},
         api_base=None,
@@ -4479,7 +4479,7 @@ def test_create_file_sync_sends_a_presigned_upload_with_its_own_method_url_heade
 
     result = BaseLLMHTTPHandler().create_file(
         create_file_data={"file": b"{}", "purpose": "batch"},
-        litellm_params={},
+        hangarllm_params={},
         provider_config=provider_config,
         headers={},
         api_base=None,
@@ -4512,7 +4512,7 @@ async def test_create_batch_async_validates_credentials_off_the_event_loop():
 
     result = await BaseLLMHTTPHandler().create_batch(
         create_batch_data={"input_file_id": "file_1", "endpoint": "/v1/chat/completions", "completion_window": "24h"},
-        litellm_params={},
+        hangarllm_params={},
         provider_config=provider_config,
         headers={},
         api_base=None,
@@ -4541,7 +4541,7 @@ async def test_create_file_says_which_setting_is_missing_when_the_provider_resol
     with pytest.raises(ValueError, match="api_base is required for create_file"):
         await BaseLLMHTTPHandler().create_file(
             create_file_data={"file": b"{}", "purpose": "batch"},
-            litellm_params={},
+            hangarllm_params={},
             provider_config=provider_config,
             headers={},
             api_base=None,
@@ -4566,7 +4566,7 @@ async def test_create_batch_says_which_setting_is_missing_when_the_provider_reso
     with pytest.raises(ValueError, match="api_base is required for create_batch"):
         await BaseLLMHTTPHandler().create_batch(
             create_batch_data={"input_file_id": "file_1", "endpoint": "/v1/chat/completions", "completion_window": "24h"},
-            litellm_params={},
+            hangarllm_params={},
             provider_config=provider_config,
             headers={},
             api_base=None,
@@ -4622,13 +4622,13 @@ def _container_async_client(response: httpx.Response) -> AsyncHTTPHandler:
 
 
 def test_container_retrieve_handler_raises_upstream_error_status_and_message():
-    from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+    from hangarllm.llms.openai.containers.transformation import OpenAIContainerConfig
 
     with pytest.raises(BaseLLMException) as exc_info:
         BaseLLMHTTPHandler().container_retrieve_handler(
             container_id="cntr_gone",
             container_provider_config=OpenAIContainerConfig(),
-            litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+            hangarllm_params=GenericHangarLLMParams(api_key="sk-test"),
             logging_obj=Mock(),
             client=_container_sync_client(httpx.Response(404, json=CONTAINER_NOT_FOUND_BODY)),
         )
@@ -4639,12 +4639,12 @@ def test_container_retrieve_handler_raises_upstream_error_status_and_message():
 
 @pytest.mark.asyncio
 async def test_async_container_list_handler_raises_upstream_error_status_and_message():
-    from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+    from hangarllm.llms.openai.containers.transformation import OpenAIContainerConfig
 
     with pytest.raises(BaseLLMException) as exc_info:
         await BaseLLMHTTPHandler().async_container_list_handler(
             container_provider_config=OpenAIContainerConfig(),
-            litellm_params=GenericLiteLLMParams(api_key="sk-rejected"),
+            hangarllm_params=GenericHangarLLMParams(api_key="sk-rejected"),
             logging_obj=Mock(),
             client=_container_async_client(httpx.Response(401, json=INVALID_API_KEY_BODY)),
         )
@@ -4655,11 +4655,11 @@ async def test_async_container_list_handler_raises_upstream_error_status_and_mes
 
 @pytest.mark.asyncio
 async def test_async_container_list_handler_transforms_success_response():
-    from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+    from hangarllm.llms.openai.containers.transformation import OpenAIContainerConfig
 
     response = await BaseLLMHTTPHandler().async_container_list_handler(
         container_provider_config=OpenAIContainerConfig(),
-        litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+        hangarllm_params=GenericHangarLLMParams(api_key="sk-test"),
         logging_obj=Mock(),
         limit=1,
         client=_container_async_client(httpx.Response(200, json=CONTAINER_LIST_BODY)),
@@ -4686,15 +4686,15 @@ class _TransformRecordingConfig(BaseConfig):
         return optional_params
 
     def validate_environment(
-        self, headers, model, messages, optional_params, litellm_params, api_key=None, api_base=None
+        self, headers, model, messages, optional_params, hangarllm_params, api_key=None, api_base=None
     ):
         return {}
 
-    def transform_request(self, model, messages, optional_params, litellm_params, headers):
+    def transform_request(self, model, messages, optional_params, hangarllm_params, headers):
         self.transform_calls.append("sync")
         return {"transformed_by": "sync"}
 
-    async def async_transform_request(self, model, messages, optional_params, litellm_params, headers):
+    async def async_transform_request(self, model, messages, optional_params, hangarllm_params, headers):
         self.transform_calls.append("async")
         return {"transformed_by": "async"}
 
@@ -4713,7 +4713,7 @@ class _TransformRecordingConfig(BaseConfig):
         request_data,
         messages,
         optional_params,
-        litellm_params,
+        hangarllm_params,
         encoding,
         api_key=None,
         json_mode=None,
@@ -4725,7 +4725,7 @@ class _TransformRecordingConfig(BaseConfig):
         return BaseLLMException(status_code=status_code, message=error_message, headers=headers)
 
     def get_model_response_iterator(self, streaming_response, sync_stream, json_mode=False):
-        return litellm.OpenAIGPTConfig().get_model_response_iterator(
+        return hangarllm.OpenAIGPTConfig().get_model_response_iterator(
             streaming_response=streaming_response, sync_stream=sync_stream, json_mode=json_mode
         )
 
@@ -4749,7 +4749,7 @@ def _start_async_completion(config, logging_obj=None):
         logging_obj=logging_obj if logging_obj is not None else Mock(dynamic_success_callbacks=None, model_call_details={}),
         optional_params={},
         timeout=10.0,
-        litellm_params={},
+        hangarllm_params={},
         acompletion=True,
         client=client,
         provider_config=config,
@@ -4837,7 +4837,7 @@ def _sse_echoing_transformed_by(request):
 
 
 def _streaming_logging_obj():
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logging_obj = Logging(
         model="stub-model",
@@ -4845,11 +4845,11 @@ def _streaming_logging_obj():
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="async-transform-stream",
+        hangarllm_call_id="async-transform-stream",
         function_id="f",
     )
     logging_obj.update_environment_variables(
-        model="stub-model", user="", optional_params={}, litellm_params={}, custom_llm_provider="openai"
+        model="stub-model", user="", optional_params={}, hangarllm_params={}, custom_llm_provider="openai"
     )
     return logging_obj
 
@@ -4870,7 +4870,7 @@ async def test_completion_streams_after_the_async_transform_request():
         logging_obj=_streaming_logging_obj(),
         optional_params={},
         timeout=10.0,
-        litellm_params={},
+        hangarllm_params={},
         acompletion=True,
         stream=True,
         client=client,
@@ -4904,7 +4904,7 @@ def _json_mode_stream(config, **transport):
         logging_obj=_streaming_logging_obj(),
         optional_params={"json_mode": True},
         timeout=10.0,
-        litellm_params={},
+        hangarllm_params={},
         stream=True,
         provider_config=config,
         **transport,
@@ -4935,7 +4935,7 @@ class _PlainStreamRouteConfig(_TransformRecordingConfig):
     def __init__(self):
         super().__init__(transform_async=False)
 
-    def get_complete_url(self, api_base, api_key, model, optional_params, litellm_params, stream=None):
+    def get_complete_url(self, api_base, api_key, model, optional_params, hangarllm_params, stream=None):
         return f"{api_base}/{'stream' if stream else 'answer'}"
 
 
@@ -4967,7 +4967,7 @@ def _fake_streamed_completion(
         logging_obj=_streaming_logging_obj(),
         optional_params={"fake_stream": fake_stream},
         timeout=10.0,
-        litellm_params={},
+        hangarllm_params={},
         acompletion=acompletion,
         stream=True,
         client=client,
@@ -5027,23 +5027,23 @@ class _ImageEditRecordingConfig(BaseImageEditConfig):
     def map_openai_params(self, image_edit_optional_params, model, drop_params):
         return dict(image_edit_optional_params)
 
-    def validate_environment(self, headers, model, api_key=None, litellm_params=None, api_base=None):
+    def validate_environment(self, headers, model, api_key=None, hangarllm_params=None, api_base=None):
         return {}
 
-    def get_complete_url(self, model, api_base, litellm_params):
+    def get_complete_url(self, model, api_base, hangarllm_params):
         return "https://images.example/v1/edits"
 
     def use_multipart_form_data(self):
         return False
 
     def transform_image_edit_request(
-        self, model, prompt, image, image_edit_optional_request_params, litellm_params, headers
+        self, model, prompt, image, image_edit_optional_request_params, hangarllm_params, headers
     ):
         self.transform_calls.append("sync")
         return {"transformed_by": "sync"}, []
 
     async def async_transform_image_edit_request(
-        self, model, prompt, image, image_edit_optional_request_params, litellm_params, headers
+        self, model, prompt, image, image_edit_optional_request_params, hangarllm_params, headers
     ):
         self.transform_calls.append("async")
         return {"transformed_by": "async"}, []
@@ -5073,7 +5073,7 @@ async def test_async_image_edit_handler_awaits_the_async_transform():
         image_edit_provider_config=config,
         image_edit_optional_request_params={},
         custom_llm_provider="openai",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=Mock(),
         timeout=10.0,
         client=client,
@@ -5097,7 +5097,7 @@ def test_image_edit_handler_keeps_the_sync_transform():
         image_edit_provider_config=config,
         image_edit_optional_request_params={},
         custom_llm_provider="openai",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=Mock(),
         timeout=10.0,
         client=client,
@@ -5143,8 +5143,8 @@ async def test_async_realtime_bridges_a_transcription_session_through_the_provid
         StreamingRecognizeResponse,
     )
 
-    from litellm.llms.vertex_ai.audio_transcription.realtime_backend import SpeechStreamingBackend
-    from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
+    from hangarllm.llms.vertex_ai.audio_transcription.realtime_backend import SpeechStreamingBackend
+    from hangarllm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
 
     def google_response(transcript: str, is_final: bool, billed: float) -> StreamingRecognizeResponse:
         return StreamingRecognizeResponse(
@@ -5214,7 +5214,7 @@ async def test_async_realtime_bridges_a_transcription_session_through_the_provid
         last_event_type="conversation.item.input_audio_transcription.completed",
     )
     logging_obj = Mock()
-    logging_obj.litellm_trace_id = "trace_1"
+    logging_obj.hangarllm_trace_id = "trace_1"
     logging_obj.model_call_details = {}
     logging_obj.dispatch_success_handlers = AsyncMock()
     logging_obj.dispatch_failure_handlers = AsyncMock()
@@ -5282,7 +5282,7 @@ class _FakeSonioxSocket:
 async def test_async_realtime_bridges_a_soniox_transcription_through_the_wrapped_websocket():
     import websockets.exceptions  # noqa: F401  # binds the submodule so async_realtime's except clause resolves, as in the proxy process
 
-    from litellm.llms.soniox.realtime.transformation import SonioxRealtimeBackend, SonioxRealtimeConfig
+    from hangarllm.llms.soniox.realtime.transformation import SonioxRealtimeBackend, SonioxRealtimeConfig
 
     upstream = _FakeSonioxSocket()
     wrapped: list[object] = []
@@ -5313,7 +5313,7 @@ async def test_async_realtime_bridges_a_soniox_transcription_through_the_wrapped
         last_event_type="conversation.item.input_audio_transcription.completed",
     )
     logging_obj = Mock()
-    logging_obj.litellm_trace_id = "trace_1"
+    logging_obj.hangarllm_trace_id = "trace_1"
     logging_obj.model_call_details = {}
     logging_obj.dispatch_success_handlers = AsyncMock()
     logging_obj.dispatch_failure_handlers = AsyncMock()
@@ -5360,7 +5360,7 @@ async def test_async_realtime_bridges_a_soniox_transcription_through_the_wrapped
 async def test_async_realtime_soniox_rejects_a_bad_session_update_and_still_transcribes_audio_sent_without_one():
     import websockets.exceptions  # noqa: F401  # binds the submodule so async_realtime's except clause resolves, as in the proxy process
 
-    from litellm.llms.soniox.realtime.transformation import SonioxRealtimeConfig
+    from hangarllm.llms.soniox.realtime.transformation import SonioxRealtimeConfig
 
     upstream = _FakeSonioxSocket()
     audio = b"\x00\x01" * 800
@@ -5378,7 +5378,7 @@ async def test_async_realtime_soniox_rejects_a_bad_session_update_and_still_tran
         last_event_type="conversation.item.input_audio_transcription.completed",
     )
     logging_obj = Mock()
-    logging_obj.litellm_trace_id = "trace_1"
+    logging_obj.hangarllm_trace_id = "trace_1"
     logging_obj.model_call_details = {}
     logging_obj.dispatch_success_handlers = AsyncMock()
     logging_obj.dispatch_failure_handlers = AsyncMock()
@@ -5411,8 +5411,8 @@ async def test_async_realtime_soniox_rejects_a_bad_session_update_and_still_tran
 @pytest.mark.asyncio
 async def test_responses_agentic_followup_does_not_repeat_request_params_from_plan_kwargs(monkeypatch):
     """A plan whose kwargs repeat a request param must not crash the Responses follow-up with a duplicate keyword"""
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
 
     followup_calls: list[dict[str, object]] = []
 
@@ -5420,7 +5420,7 @@ async def test_responses_agentic_followup_does_not_repeat_request_params_from_pl
         followup_calls.append(kwargs)
         return "followup-response"
 
-    monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+    monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
     request_kwargs: Final = {"prompt_cache_key": "thread-1", "metadata": {"user": "u1"}}
     plan: Final = AgenticLoopPlan(
         run_agentic_loop=True,
@@ -5436,7 +5436,7 @@ async def test_responses_agentic_followup_does_not_repeat_request_params_from_pl
         plan=plan,
         model="gpt-5",
         response_api_optional_request_params={"prompt_cache_key": "thread-1"},
-        logging_obj=Mock(litellm_call_id="call-1"),
+        logging_obj=Mock(hangarllm_call_id="call-1"),
         kwargs=dict(request_kwargs),
         depth=0,
         max_loops=3,
@@ -5454,8 +5454,8 @@ async def test_responses_agentic_followup_does_not_repeat_request_params_from_pl
 
 @pytest.mark.asyncio
 async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_stale_kwargs_copy(monkeypatch):
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
 
     followup_calls: list[dict[str, object]] = []
 
@@ -5463,7 +5463,7 @@ async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_s
         followup_calls.append(kwargs)
         return "followup-response"
 
-    monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+    monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
 
     await BaseLLMHTTPHandler()._execute_responses_agentic_plan(
         plan=AgenticLoopPlan(
@@ -5477,7 +5477,7 @@ async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_s
         ),
         model="gpt-5",
         response_api_optional_request_params={"prompt_cache_key": "from-request"},
-        logging_obj=Mock(litellm_call_id="call-1"),
+        logging_obj=Mock(hangarllm_call_id="call-1"),
         kwargs={},
         depth=0,
         max_loops=3,
@@ -5490,7 +5490,7 @@ async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_s
 
 
 class _PlannedChatLoop(CustomLogger):
-    def __init__(self, plan: AgenticLoopPlan, claimed_call_name: str = "litellm_web_search") -> None:
+    def __init__(self, plan: AgenticLoopPlan, claimed_call_name: str = "hangarllm_web_search") -> None:
         super().__init__()
         self._plan = plan
         self._claimed_call_name = claimed_call_name
@@ -5543,7 +5543,7 @@ class _RunOnlyChatLoop(CustomLogger):
         custom_llm_provider: str,
         kwargs: Mapping[str, object],
     ) -> tuple[bool, dict[str, object]]:
-        return True, {"tool_calls": [{"id": "call_search", "name": "litellm_web_search"}]}
+        return True, {"tool_calls": [{"id": "call_search", "name": "hangarllm_web_search"}]}
 
     async def async_run_chat_completion_agentic_loop(
         self,
@@ -5568,11 +5568,11 @@ def _tool_calls_of(response: object) -> list:
 async def _run_chat_completion_agentic_hooks(
     response: ModelResponse, *callbacks: CustomLogger, kwargs: Mapping[str, object] = MappingProxyType({})
 ) -> object:
-    logging_obj: Final = Mock(litellm_call_id="call-1", dynamic_success_callbacks=list(callbacks), model_call_details={})
+    logging_obj: Final = Mock(hangarllm_call_id="call-1", dynamic_success_callbacks=list(callbacks), model_call_details={})
     return await BaseLLMHTTPHandler()._call_agentic_chat_completion_hooks(
         response=response,
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": "what is new in litellm?"}],
+        messages=[{"role": "user", "content": "what is new in hangarllm?"}],
         optional_params={},
         logging_obj=logging_obj,
         stream=False,
@@ -5587,11 +5587,11 @@ async def test_chat_completion_agentic_hooks_surface_a_failed_follow_up_instead_
         run_agentic_loop=True,
         request_patch=AgenticLoopRequestPatch(
             messages=[{"role": "user", "content": "here are the search results"}],
-            kwargs={"mock_response": "litellm.RateLimitError"},
+            kwargs={"mock_response": "hangarllm.RateLimitError"},
         ),
     )
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await _run_chat_completion_agentic_hooks(ModelResponse(), _PlannedChatLoop(rate_limited_follow_up))
 
 
@@ -5630,7 +5630,7 @@ async def test_chat_completion_agentic_hooks_at_the_cap_drop_every_hooks_interna
                     "content": None,
                     "tool_calls": [
                         {"id": f"call_{name}", "type": "function", "function": {"name": name, "arguments": "{}"}}
-                        for name in ("litellm_web_search", "litellm_code_execution", "lookup")
+                        for name in ("hangarllm_web_search", "hangarllm_code_execution", "lookup")
                     ],
                 },
             }
@@ -5638,7 +5638,7 @@ async def test_chat_completion_agentic_hooks_at_the_cap_drop_every_hooks_interna
     )
     searching: Final = _PlannedChatLoop(AgenticLoopPlan(run_agentic_loop=True))
     running_code: Final = _PlannedChatLoop(
-        AgenticLoopPlan(run_agentic_loop=True), claimed_call_name="litellm_code_execution"
+        AgenticLoopPlan(run_agentic_loop=True), claimed_call_name="hangarllm_code_execution"
     )
 
     result: Final = await _run_chat_completion_agentic_hooks(
@@ -5651,7 +5651,7 @@ async def test_chat_completion_agentic_hooks_at_the_cap_drop_every_hooks_interna
 @pytest.mark.asyncio
 async def test_chat_completion_agentic_followup_does_not_repeat_request_params_from_plan_kwargs(monkeypatch):
     """A plan whose kwargs repeat a request param, or the explicitly passed model, must not crash the chat follow-up with a duplicate keyword"""
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+    from hangarllm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
 
     followup_calls: list[dict[str, object]] = []
 
@@ -5659,7 +5659,7 @@ async def test_chat_completion_agentic_followup_does_not_repeat_request_params_f
         followup_calls.append(kwargs)
         return "followup-response"
 
-    monkeypatch.setattr(litellm, "acompletion", fake_acompletion)
+    monkeypatch.setattr(hangarllm, "acompletion", fake_acompletion)
     request_kwargs: Final = {"temperature": 0.2, "api_base": "https://a", "model": "gpt-5"}
     plan: Final = AgenticLoopPlan(
         run_agentic_loop=True,
@@ -5677,7 +5677,7 @@ async def test_chat_completion_agentic_followup_does_not_repeat_request_params_f
         messages=[{"role": "user", "content": "x"}],
         optional_params={"temperature": 0.2},
         logging_obj=Mock(
-            litellm_call_id="call-1", dynamic_success_callbacks=[_PlannedChatLoop(plan)], model_call_details={}
+            hangarllm_call_id="call-1", dynamic_success_callbacks=[_PlannedChatLoop(plan)], model_call_details={}
         ),
         stream=False,
         custom_llm_provider="openai",
@@ -5710,7 +5710,7 @@ def _a_search_tool_call_turn(call_number: int) -> httpx.Response:
                             {
                                 "id": f"call-{call_number}",
                                 "type": "function",
-                                "function": {"name": "litellm_web_search", "arguments": '{"query": "weather"}'},
+                                "function": {"name": "hangarllm_web_search", "arguments": '{"query": "weather"}'},
                             }
                         ],
                     },
@@ -5739,7 +5739,7 @@ class _SearchAgainLoop(CustomLogger):
         searches: Final = [
             {"id": call.id, "name": call.function.name}
             for call in response.choices[0].message.tool_calls or []
-            if call.function.name == "litellm_web_search"
+            if call.function.name == "hangarllm_web_search"
         ]
         return bool(searches), {"tool_calls": searches}
 
@@ -5770,14 +5770,14 @@ async def test_hosted_vllm_bills_the_first_call_on_the_failure_log_when_the_foll
             run_agentic_loop=True,
             request_patch=AgenticLoopRequestPatch(
                 messages=[{"role": "user", "content": "here are the search results"}],
-                kwargs={"mock_response": "litellm.RateLimitError"},
+                kwargs={"mock_response": "hangarllm.RateLimitError"},
             ),
         )
     )
-    monkeypatch.setattr(litellm, "callbacks", [loop])
+    monkeypatch.setattr(hangarllm, "callbacks", [loop])
 
-    with pytest.raises(litellm.RateLimitError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.RateLimitError):
+        await hangarllm.acompletion(
             model="hosted_vllm/served-model",
             api_base="https://fake-vllm.test/v1",
             api_key="transport-only",
@@ -5803,10 +5803,10 @@ async def test_hosted_vllm_ends_the_turn_at_max_agentic_loops_without_the_intern
         return _a_search_tool_call_turn(upstream_calls.qsize())
 
     client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(always_search))
-    monkeypatch.setattr(litellm, "callbacks", [_SearchAgainLoop(client)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_SearchAgainLoop(client)])
 
     response: Final = await asyncio.wait_for(
-        litellm.acompletion(
+        hangarllm.acompletion(
             model="hosted_vllm/served-model",
             api_base="https://fake-vllm.test/v1",
             api_key="transport-only",
@@ -5877,7 +5877,7 @@ def _image_edit_call_kwargs() -> dict:
         "image_edit_provider_config": _ImageEditRecordingConfig(),
         "image_edit_optional_request_params": {},
         "custom_llm_provider": "openai",
-        "litellm_params": GenericLiteLLMParams(),
+        "hangarllm_params": GenericHangarLLMParams(),
         "logging_obj": Mock(),
         "timeout": 10.0,
     }
@@ -5909,10 +5909,10 @@ class _HeaderImageGenerationConfig(BaseImageGenerationConfig):
     def map_openai_params(self, non_default_params, optional_params, model, drop_params):
         return optional_params
 
-    def get_complete_url(self, api_base, api_key, model, optional_params, litellm_params, stream=None):
+    def get_complete_url(self, api_base, api_key, model, optional_params, hangarllm_params, stream=None):
         return "https://images.example/v1/generations"
 
-    def transform_image_generation_request(self, model, prompt, optional_params, litellm_params, headers):
+    def transform_image_generation_request(self, model, prompt, optional_params, hangarllm_params, headers):
         return {"prompt": prompt}
 
     def transform_image_generation_response(
@@ -5923,7 +5923,7 @@ class _HeaderImageGenerationConfig(BaseImageGenerationConfig):
         logging_obj,
         request_data,
         optional_params,
-        litellm_params,
+        hangarllm_params,
         encoding,
         api_key=None,
         json_mode=None,
@@ -5938,7 +5938,7 @@ def _image_generation_call_kwargs() -> dict:
         "image_generation_provider_config": _HeaderImageGenerationConfig(),
         "image_generation_optional_request_params": {},
         "custom_llm_provider": "openai",
-        "litellm_params": {},
+        "hangarllm_params": {},
         "logging_obj": Mock(),
         "timeout": 10.0,
     }
@@ -5977,10 +5977,10 @@ class _HeaderTextToSpeechConfig(BaseTextToSpeechConfig):
     def validate_environment(self, headers, model, api_key=None, api_base=None):
         return {}
 
-    def get_complete_url(self, model, api_base, litellm_params):
+    def get_complete_url(self, model, api_base, hangarllm_params):
         return "https://tts.example/v1/speech"
 
-    def transform_text_to_speech_request(self, model, input, voice, optional_params, litellm_params, headers):
+    def transform_text_to_speech_request(self, model, input, voice, optional_params, hangarllm_params, headers):
         return {"dict_body": {"input": input}}
 
     def transform_text_to_speech_response(self, model, raw_response, logging_obj):
@@ -5995,7 +5995,7 @@ def _text_to_speech_call_kwargs() -> dict:
         "text_to_speech_provider_config": _HeaderTextToSpeechConfig(),
         "text_to_speech_optional_params": {},
         "custom_llm_provider": "openai",
-        "litellm_params": {},
+        "hangarllm_params": {},
         "logging_obj": Mock(),
         "timeout": 10.0,
     }
@@ -6032,7 +6032,7 @@ async def _get_by_id_with_upstream(handler_name: str, upstream_response: httpx.R
             url="https://api.example.test/v1/evals/eval_missing",
             evals_api_provider_config=OpenAIEvalsConfig(),
             custom_llm_provider="openai",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             logging_obj=Mock(),
             client=async_client,
         )
@@ -6040,7 +6040,7 @@ async def _get_by_id_with_upstream(handler_name: str, upstream_response: httpx.R
         url="https://api.example.test/v1/skills/skill_missing",
         skills_api_provider_config=AnthropicSkillsConfig(),
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         logging_obj=Mock(),
         client=async_client,
     )
@@ -6068,7 +6068,7 @@ def _clients_answering_with(upstream_response: httpx.Response) -> tuple[HTTPHand
 
 def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncHTTPHandler) -> object:
     handler: Final = BaseLLMHTTPHandler()
-    vector_store_params: Final = GenericLiteLLMParams(api_base="https://api.example.test/v1", api_key="sk-test")
+    vector_store_params: Final = GenericHangarLLMParams(api_base="https://api.example.test/v1", api_key="sk-test")
     files_params: Final = {"api_base": "https://api.example.test", "api_key": "sk-test"}
     match name:
         case "vector_store_retrieve":
@@ -6076,7 +6076,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 vector_store_id="vs_missing",
                 vector_store_provider_config=OpenAIVectorStoreConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6089,7 +6089,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 order=None,
                 vector_store_provider_config=OpenAIVectorStoreConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6100,7 +6100,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 query_params={},
                 vector_store_files_provider_config=OpenAIVectorStoreFilesConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6111,7 +6111,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 file_id="file_missing",
                 vector_store_files_provider_config=OpenAIVectorStoreFilesConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6120,7 +6120,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
             return handler.retrieve_file(
                 file_id="file_missing",
                 provider_config=MistralFilesConfig(),
-                litellm_params=files_params,
+                hangarllm_params=files_params,
                 headers={},
                 logging_obj=Mock(),
                 _is_async=is_async,
@@ -6132,7 +6132,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 file_id="file_missing",
                 vector_store_files_provider_config=OpenAIVectorStoreFilesConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6143,7 +6143,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 query_params={},
                 evals_api_provider_config=OpenAIEvalsConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6153,7 +6153,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 url="https://api.example.test/v1/evals/eval_missing",
                 evals_api_provider_config=OpenAIEvalsConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6164,7 +6164,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 query_params={},
                 evals_api_provider_config=OpenAIEvalsConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6174,7 +6174,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 url="https://api.example.test/v1/evals/eval_missing/runs/run_missing",
                 evals_api_provider_config=OpenAIEvalsConfig(),
                 custom_llm_provider="openai",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6185,7 +6185,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 query_params={},
                 skills_api_provider_config=AnthropicSkillsConfig(),
                 custom_llm_provider="anthropic",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6195,7 +6195,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
                 url="https://api.example.test/v1/skills/skill_missing",
                 skills_api_provider_config=AnthropicSkillsConfig(),
                 custom_llm_provider="anthropic",
-                litellm_params=vector_store_params,
+                hangarllm_params=vector_store_params,
                 logging_obj=Mock(),
                 client=client,
                 _is_async=is_async,
@@ -6204,7 +6204,7 @@ def _call_lookup_handler(name: str, is_async: bool, client: HTTPHandler | AsyncH
             return handler.list_files(
                 purpose=None,
                 provider_config=MistralFilesConfig(),
-                litellm_params=files_params,
+                hangarllm_params=files_params,
                 headers={},
                 logging_obj=Mock(),
                 _is_async=is_async,
@@ -6273,7 +6273,7 @@ async def test_retrieve_file_accepts_bedrock_successful_range_responses(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-    file_id = "s3://my-bucket/litellm-batch-outputs/job-123/output.jsonl"
+    file_id = "s3://my-bucket/hangarllm-batch-outputs/job-123/output.jsonl"
     transport = httpx.MockTransport(
         lambda request: httpx.Response(
             status_code,
@@ -6298,7 +6298,7 @@ async def test_retrieve_file_accepts_bedrock_successful_range_responses(
             result = await handler.async_retrieve_file(
                 file_id=file_id,
                 provider_config=BedrockFilesConfig(),
-                litellm_params=params,
+                hangarllm_params=params,
                 headers={},
                 logging_obj=Mock(),
                 client=client,
@@ -6312,7 +6312,7 @@ async def test_retrieve_file_accepts_bedrock_successful_range_responses(
             result = handler.retrieve_file(
                 file_id=file_id,
                 provider_config=BedrockFilesConfig(),
-                litellm_params=params,
+                hangarllm_params=params,
                 headers={},
                 logging_obj=Mock(),
                 client=client,
@@ -6331,7 +6331,7 @@ async def test_retrieve_file_rejects_unverified_bedrock_range_error(
     is_async: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-    file_id = "s3://my-bucket/litellm-batch-outputs/job-123/output.jsonl"
+    file_id = "s3://my-bucket/hangarllm-batch-outputs/job-123/output.jsonl"
     transport = httpx.MockTransport(
         lambda request: httpx.Response(
             416,
@@ -6356,7 +6356,7 @@ async def test_retrieve_file_rejects_unverified_bedrock_range_error(
                 await handler.async_retrieve_file(
                     file_id=file_id,
                     provider_config=BedrockFilesConfig(),
-                    litellm_params=params,
+                    hangarllm_params=params,
                     headers={},
                     logging_obj=Mock(),
                     client=client,
@@ -6371,7 +6371,7 @@ async def test_retrieve_file_rejects_unverified_bedrock_range_error(
                 handler.retrieve_file(
                     file_id=file_id,
                     provider_config=BedrockFilesConfig(),
-                    litellm_params=params,
+                    hangarllm_params=params,
                     headers={},
                     logging_obj=Mock(),
                     client=client,
@@ -6404,7 +6404,7 @@ async def test_anthropic_messages_dropped_safeguards_send_neither_the_field_nor_
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(anthropic_answers))
     try:
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=16,
             messages=[{"role": "user", "content": "hi"}],
             model="anthropic/claude-sonnet-4-6",
@@ -6447,12 +6447,12 @@ async def _search_through(transport: httpx.MockTransport, is_async: bool) -> obj
     search_kwargs: Final = {"vector_store_id": "vs_1", "query": "q", "custom_llm_provider": "openai", "api_key": "sk-test"}
     if not is_async:
         with httpx.Client(transport=transport) as sync_client:
-            return litellm.vector_stores.search(**search_kwargs, client=HTTPHandler(client=sync_client))
+            return hangarllm.vector_stores.search(**search_kwargs, client=HTTPHandler(client=sync_client))
     async with httpx.AsyncClient(transport=transport) as async_client:
         client: Final = AsyncHTTPHandler()
         await client.close()
         client.client = async_client
-        return await litellm.vector_stores.asearch(**search_kwargs, client=client)
+        return await hangarllm.vector_stores.asearch(**search_kwargs, client=client)
 
 
 @pytest.mark.asyncio
@@ -6505,14 +6505,14 @@ async def test_messages_opencode_session_header(
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(respond))
     try:
-        result: Final = await litellm.anthropic.messages.acreate(
+        result: Final = await hangarllm.anthropic.messages.acreate(
             model="anthropic/claude-haiku-5-5",
             messages=[{"role": "user", "content": "hello"}],
             max_tokens=128000,
             api_base=None if environment_base and api_base == "https://opencode.ai/inference/go/anthropic" else api_base,
             api_key="test-key",
             stream=stream,
-            litellm_session_id="conversation-123",
+            hangarllm_session_id="conversation-123",
             client=upstream,
             extra_headers={"X-OpenCode-Session": explicit_header} if explicit_header else {"x-existing": "unchanged"},
         )
@@ -6551,7 +6551,7 @@ def test_vector_store_retrieve_handler_sends_id_before_azure_api_version_query()
         vector_store_id="vs_abc",
         vector_store_provider_config=AzureOpenAIVectorStoreConfig(),
         custom_llm_provider="azure",
-        litellm_params=GenericLiteLLMParams(
+        hangarllm_params=GenericHangarLLMParams(
             api_base="https://x.openai.azure.com",
             api_key="azure-test-key",
             api_version="2025-04-01-preview",
@@ -6579,7 +6579,7 @@ async def test_vector_store_search_sends_again_once_after_an_http2_goaway(is_asy
 @pytest.mark.parametrize("is_async", (False, True))
 async def test_vector_store_search_sends_once_when_the_connection_drops_without_a_goaway(is_async: bool) -> None:
     sends: Final = iter((_hang_up, _answer_search))
-    with pytest.raises(litellm.InternalServerError, match="Server disconnected"):
+    with pytest.raises(hangarllm.InternalServerError, match="Server disconnected"):
         await _search_through(httpx.MockTransport(lambda request: next(sends)(request)), is_async)
     assert next(sends) is _answer_search
 
@@ -6609,7 +6609,7 @@ async def test_non_chatgpt_responses_preserves_caller_headers_after_validation(
         "client": client,
     }
     try:
-        response: Final = await litellm.aresponses(**kwargs) if is_async else litellm.responses(**kwargs)
+        response: Final = await hangarllm.aresponses(**kwargs) if is_async else hangarllm.responses(**kwargs)
         assert response.status == "completed"
         assert route.calls[0].request.headers["authorization"] == "Bearer fake-caller-key"
         expected_content_types: Final = (
@@ -6631,7 +6631,7 @@ _BETA_THE_TABLE_DOES_NOT_LIST: Final = "not-in-the-beta-table-2099-01-01"
 def _anthropic_messages_logging_obj():
     from datetime import datetime, timezone
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     return Logging(
         model="claude-sonnet-4-6",
@@ -6639,7 +6639,7 @@ def _anthropic_messages_logging_obj():
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        litellm_call_id="foundry-beta-row",
+        hangarllm_call_id="foundry-beta-row",
         function_id="foundry-beta-row",
     )
 
@@ -6685,12 +6685,12 @@ async def test_async_anthropic_messages_handler_picks_the_beta_row_by_deployment
     foundry_api_base: str,
     forwarded_betas: str,
 ) -> None:
-    from litellm import anthropic_beta_headers_manager
-    from litellm.llms.anthropic.messages.native.transformation import AnthropicMessagesConfig
-    from litellm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
-    from litellm.llms.openai_like.messages.transformation import OpenAILikeAnthropicMessagesConfig
+    from hangarllm import anthropic_beta_headers_manager
+    from hangarllm.llms.anthropic.messages.native.transformation import AnthropicMessagesConfig
+    from hangarllm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
+    from hangarllm.llms.openai_like.messages.transformation import OpenAILikeAnthropicMessagesConfig
 
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
     assert _BETA_THE_TABLE_DOES_NOT_LIST not in anthropic_beta_headers_manager._load_beta_headers_config()["azure_ai"]
     configs: Final = {
@@ -6706,7 +6706,7 @@ async def test_async_anthropic_messages_handler_picks_the_beta_row_by_deployment
         anthropic_messages_provider_config=configs[messages_config](),
         anthropic_messages_optional_request_params={"max_tokens": 8},
         custom_llm_provider=custom_llm_provider,
-        litellm_params=GenericLiteLLMParams(api_base=foundry_api_base),
+        hangarllm_params=GenericHangarLLMParams(api_base=foundry_api_base),
         logging_obj=_anthropic_messages_logging_obj(),
         api_key="sk-test",
         api_base=foundry_api_base,
@@ -6727,11 +6727,11 @@ async def test_async_anthropic_messages_handler_picks_the_beta_row_by_deployment
 async def test_first_foundry_request_with_betas_fetches_the_beta_table_off_the_event_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm import anthropic_beta_headers_manager, anthropic_beta_headers_url
-    from litellm.llms.anthropic.messages.native.transformation import AnthropicMessagesConfig
+    from hangarllm import anthropic_beta_headers_manager, anthropic_beta_headers_url
+    from hangarllm.llms.anthropic.messages.native.transformation import AnthropicMessagesConfig
 
-    monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
-    monkeypatch.delenv("LITELLM_OFFLINE_MODE", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+    monkeypatch.delenv("HANGARLLM_OFFLINE_MODE", raising=False)
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
     bundled_table: Final = anthropic_beta_headers_manager.GetAnthropicBetaHeadersConfig.load_local_beta_headers_config()
     foundry_api_base: Final = "https://my-resource.services.ai.azure.com/anthropic"
@@ -6749,7 +6749,7 @@ async def test_first_foundry_request_with_betas_fetches_the_beta_table_off_the_e
             anthropic_messages_provider_config=AnthropicMessagesConfig(),
             anthropic_messages_optional_request_params={"max_tokens": 8},
             custom_llm_provider="anthropic",
-            litellm_params=GenericLiteLLMParams(api_base=foundry_api_base),
+            hangarllm_params=GenericHangarLLMParams(api_base=foundry_api_base),
             logging_obj=_anthropic_messages_logging_obj(),
             api_key="sk-test",
             api_base=foundry_api_base,
@@ -6767,8 +6767,8 @@ async def test_a_stream_answered_with_one_json_body_is_not_replayed_for_a_provid
 ) -> None:
     with respx.mock(assert_all_called=True) as router:
         router.post("https://api.openai.com/v1/responses").respond(json={"error": {"message": "quota exceeded"}})
-        stream: Final = await litellm.aresponses(
+        stream: Final = await hangarllm.aresponses(
             model="openai/gpt-5.5", input="Hello", api_key="fake-key", stream=True
         )
-        with pytest.raises(litellm.exceptions.MidStreamFallbackError, match="before any terminal event"):
+        with pytest.raises(hangarllm.exceptions.MidStreamFallbackError, match="before any terminal event"):
             _ = tuple([event async for event in stream])

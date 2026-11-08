@@ -54,7 +54,7 @@ def _chat_stream_frames(marker: str) -> tuple[bytes, ...]:
 def _spend_row(digest: str, call_type: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_tags, metadata, team_id FROM "LiteLLM_SpendLogs" WHERE api_key=%s AND call_type=%s',
+            'SELECT request_tags, metadata, team_id FROM "HangarLLM_SpendLogs" WHERE api_key=%s AND call_type=%s',
             (digest, call_type),
         ),
         lambda values: len(values) == 1,
@@ -66,7 +66,7 @@ def _spend_row(digest: str, call_type: str) -> dict[str, JsonValue]:
 def _spend_row_tagged(tag: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_tags, metadata, team_id, api_key FROM "LiteLLM_SpendLogs" WHERE request_tags::text LIKE %s',
+            'SELECT request_tags, metadata, team_id, api_key FROM "HangarLLM_SpendLogs" WHERE request_tags::text LIKE %s',
             (f'%"{tag}"%',),
         ),
         lambda values: len(values) == 1,
@@ -179,7 +179,7 @@ def test_configured_passthrough_spend_row_matches_native_route_tags_and_spend_lo
         model: Final = scenario.model(api_base=wire.url + "/v1")
         path: Final = _configured_passthrough(gateway, scenario, marker, wire.url + "/echo", auth=True)
         key, digest = _tagged_key(scenario, marker, models=[model], allowed_passthrough_routes=[path])
-        headers: Final = {"x-litellm-tags": f"caller-{marker},key-{marker}", "User-Agent": "integration-tags/1"}
+        headers: Final = {"x-hangarllm-tags": f"caller-{marker},key-{marker}", "User-Agent": "integration-tags/1"}
         body: Final[dict[str, JsonValue]] = {"model": model, "messages": [{"role": "user", "content": marker}]}
 
         native: Final = gateway.request("POST", "/v1/chat/completions", body, key=key, headers=headers)
@@ -197,7 +197,7 @@ def test_configured_passthrough_spend_row_matches_native_route_tags_and_spend_lo
         assert _spend_logs_metadata(passthrough_row) == {"cost_center": marker, "team_field": marker}, passthrough_row
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "hangarllm_metadata"])
 def test_configured_passthrough_body_tags_lead_and_body_spend_logs_metadata_wins_over_key_and_team(
     gateway: Gateway, bucket: str
 ) -> None:
@@ -231,7 +231,7 @@ def test_configured_passthrough_streaming_upstream_row_carries_key_team_project_
             path,
             {"stream": True, "messages": [{"role": "user", "content": marker}]},
             key=key,
-            headers={"x-litellm-tags": f"caller-{marker}"},
+            headers={"x-hangarllm-tags": f"caller-{marker}"},
         )
         assert response.status_code == 200, response.text
         assert response.content == b"".join(_chat_stream_frames(marker)), response.text
@@ -255,7 +255,7 @@ def test_configured_passthrough_key_outside_any_team_carries_its_own_tags_and_sp
             path,
             {"messages": [{"role": "user", "content": marker}]},
             key=key,
-            headers={"x-litellm-tags": f"caller-{marker}"},
+            headers={"x-hangarllm-tags": f"caller-{marker}"},
         )
         assert response.status_code == 200, response.text
         row: Final = _spend_row(_digest(key), "pass_through_endpoint")
@@ -276,7 +276,7 @@ def test_configured_passthrough_untagged_key_row_keeps_only_caller_tag_and_no_sp
             path,
             {"messages": [{"role": "user", "content": marker}]},
             key=key,
-            headers={"x-litellm-tags": f"caller-{marker}"},
+            headers={"x-hangarllm-tags": f"caller-{marker}"},
         )
         assert response.status_code == 200, response.text
         row: Final = _spend_row(_digest(key), "pass_through_endpoint")
@@ -292,7 +292,7 @@ def test_open_passthrough_without_auth_row_carries_only_caller_tag(gateway: Gate
         response: Final = gateway.client.post(
             path,
             json={"messages": [{"role": "user", "content": marker}]},
-            headers={"x-litellm-tags": f"caller-{marker}"},
+            headers={"x-hangarllm-tags": f"caller-{marker}"},
         )
         assert response.status_code == 200, response.text
         row: Final = _spend_row_tagged(f"caller-{marker}")
@@ -343,7 +343,7 @@ def test_configured_passthrough_body_cannot_forge_user_api_key_attribution_field
         row: Final = _spend_row(digest, "pass_through_endpoint")
         assert row["team_id"] != forged_team, row
         assert _policy_tags(row) == [f"key-{marker}", f"team-{marker}", f"project-{marker}"], row
-        assert read_rows('SELECT api_key FROM "LiteLLM_SpendLogs" WHERE team_id=%s', (forged_team,)) == [], forged_team
+        assert read_rows('SELECT api_key FROM "HangarLLM_SpendLogs" WHERE team_id=%s', (forged_team,)) == [], forged_team
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -366,11 +366,11 @@ def test_native_routes_carry_key_team_project_and_caller_tags_and_key_over_team_
             route,
             body,
             key=key,
-            headers={"x-litellm-tags": f"caller-{marker}", "User-Agent": "integration-tags/1"},
+            headers={"x-hangarllm-tags": f"caller-{marker}", "User-Agent": "integration-tags/1"},
         )
         assert response.status_code == 200, response.text
         rows: Final = eventually(
-            lambda: read_rows('SELECT request_tags, metadata FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (digest,)),
+            lambda: read_rows('SELECT request_tags, metadata FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (digest,)),
             lambda values: len(values) == 1,
             seconds=70,
         )
@@ -394,7 +394,7 @@ def test_anthropic_passthrough_spend_row_carries_key_team_project_tags_and_spend
     config.write_text(
         "model_list: []\n"
         "general_settings:\n"
-        "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+        "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         "  database_url: os.environ/DATABASE_URL\n"
         "  store_model_in_db: true\n"
         "  disable_spend_logs: false\n"
@@ -415,7 +415,7 @@ def test_anthropic_passthrough_spend_row_carries_key_team_project_tags_and_spend
                     "messages": [{"role": "user", "content": marker}],
                 },
                 key=key,
-                headers={"x-litellm-tags": f"caller-{marker}", "User-Agent": "integration-tags/1"},
+                headers={"x-hangarllm-tags": f"caller-{marker}", "User-Agent": "integration-tags/1"},
             )
             assert response.status_code == 200, response.text
             assert json.loads(response.content) == _anthropic_reply(marker)
@@ -454,7 +454,7 @@ def _readback(gateway: Gateway, endpoint_id: str) -> list[dict[str, JsonValue]]:
 
 
 def _stored_endpoint_ids() -> list[JsonValue]:
-    rows: Final = read_rows('SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s', ("general_settings",))
+    rows: Final = read_rows('SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s', ("general_settings",))
     assert len(rows) == 1, rows
     settings: Final = object_value(rows[0]["param_value"])
     stored: Final = _ENDPOINTS.validate_python(settings.get("pass_through_endpoints") or [])
@@ -462,7 +462,7 @@ def _stored_endpoint_ids() -> list[JsonValue]:
 
 
 def _stored_endpoint(endpoint_id: str) -> dict[str, JsonValue]:
-    rows: Final = read_rows('SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s', ("general_settings",))
+    rows: Final = read_rows('SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s', ("general_settings",))
     assert len(rows) == 1, rows
     settings: Final = object_value(rows[0]["param_value"])
     stored: Final = _ENDPOINTS.validate_python(settings.get("pass_through_endpoints") or [])

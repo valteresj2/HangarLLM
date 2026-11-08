@@ -34,7 +34,7 @@ from types import MappingProxyType
 from typing import Final, NamedTuple, TypeAlias
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
-CACHE_DIR_NAME: Final = "litellm-lint-cache"
+CACHE_DIR_NAME: Final = "hangarllm-lint-cache"
 CACHE_KEEP_ENTRIES: Final = 8
 GH_TIMEOUT_SECONDS: Final = 10
 

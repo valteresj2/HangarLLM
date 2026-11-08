@@ -24,10 +24,10 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
         config: Final = {
             **yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()),
             "model_list": [
-                {"model_name": "openai/*", "litellm_params": {"model": "openai/*", **credentials}},
+                {"model_name": "openai/*", "hangarllm_params": {"model": "openai/*", **credentials}},
                 {
                     "model_name": "priced-chat",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "input_cost_per_token": 0.000001,
                         "output_cost_per_token": 0.000002,
@@ -35,11 +35,11 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
                     },
                     "model_info": {"id": _PRICED_DEPLOYMENT_ID},
                 },
-                {"model_name": "ai21/*", "litellm_params": {"model": "ai21/*", **credentials}},
+                {"model_name": "ai21/*", "hangarllm_params": {"model": "ai21/*", **credentials}},
                 {
                     "model_name": "house-jamba",
-                    "litellm_params": {"model": f"ai21/{_REGISTERED_AI21_CHAT_MODEL}", **credentials},
-                    "model_info": {"litellm_provider": "ai21", "mode": "chat"},
+                    "hangarllm_params": {"model": f"ai21/{_REGISTERED_AI21_CHAT_MODEL}", **credentials},
+                    "model_info": {"hangarllm_provider": "ai21", "mode": "chat"},
                 },
             ],
         }

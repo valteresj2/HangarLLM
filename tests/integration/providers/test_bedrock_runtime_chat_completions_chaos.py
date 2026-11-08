@@ -147,7 +147,7 @@ def _assert_answered_with_its_own_marker(served: _Served) -> None:
 
 def _spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=60,
     )
@@ -196,7 +196,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
     ) as response:
         raw: Final = await response.aread()
     return _Served(
-        call=call, status=response.status_code, text=raw.decode(), call_id=response.headers.get("x-litellm-call-id")
+        call=call, status=response.status_code, text=raw.decode(), call_id=response.headers.get("x-hangarllm-call-id")
     )
 
 
@@ -261,7 +261,7 @@ def _chaos_config(endpoints: Mapping[str, str], directory: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"bedrock/{BEDROCK_MODEL}",
                 "api_key": TOKEN,
                 "aws_region_name": "us-east-1",
@@ -391,7 +391,7 @@ def _wait_for_replacement_worker(log: Path, original: tuple[int, ...]) -> None:
 def _landed_once(ids: tuple[str, ...]) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)',
             (list(ids),),  # pyright: ignore[reportArgumentType]  # psycopg adapts the list to a text array
         ),
         lambda found: len(found) >= len(ids),

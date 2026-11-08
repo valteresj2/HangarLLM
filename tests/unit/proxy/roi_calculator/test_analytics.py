@@ -2,8 +2,8 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final, Literal
 
-from litellm.proxy.roi_calculator.analytics import match_identity, normalize_email, summarize
-from litellm.types.roi_calculator import (
+from hangarllm.proxy.roi_calculator.analytics import match_identity, normalize_email, summarize
+from hangarllm.types.roi_calculator import (
     ROIPullRecord,
     ROIReport,
     ROISummaryMetrics,
@@ -148,7 +148,7 @@ def test_email_normalization_rejects_private_or_unusable_addresses() -> None:
 
 
 def test_branch_costs_are_independent_of_identity_and_never_count_reused_branches_twice() -> None:
-    from litellm.types.roi_calculator import ROIBranchSpend
+    from hangarllm.types.roi_calculator import ROIBranchSpend
 
     base: Final = _pull(emails=())
     pulls: Final[tuple[ROIPullRecord, ...]] = (

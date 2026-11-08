@@ -1,8 +1,8 @@
-# Docker to build LiteLLM Proxy from litellm pip package
+# Docker to build HangarLLM Proxy from hangarllm pip package
 
 ### When to use this ?
 
-If you need to build LiteLLM Proxy from litellm pip package, you can use this Dockerfile as a reference.
+If you need to build HangarLLM Proxy from hangarllm pip package, you can use this Dockerfile as a reference.
 
 ### Why build from pip package ?
 

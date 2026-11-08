@@ -17,9 +17,9 @@ import pytest
 import respx
 from anthropic.types.anthropic_beta_param import AnthropicBetaParam
 
-import litellm
-from litellm import anthropic_beta_headers_manager
-from litellm.anthropic_beta_headers_manager import (
+import hangarllm
+from hangarllm import anthropic_beta_headers_manager
+from hangarllm.anthropic_beta_headers_manager import (
     GetAnthropicBetaHeadersConfig,
     filter_and_transform_beta_headers,
     get_beta_headers_config,
@@ -43,15 +43,15 @@ class TestAnthropicBetaHeadersFiltering:
     def setup(self, monkeypatch):
         """Load the beta headers config for testing."""
         # Force use of local config file for tests
-        monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+        monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
 
         # Clear the cached config to ensure fresh load with local config
-        from litellm import anthropic_beta_headers_manager
+        from hangarllm import anthropic_beta_headers_manager
 
         anthropic_beta_headers_manager._BETA_HEADERS_CONFIG = None
 
         config_path = os.path.join(
-            os.path.dirname(litellm.__file__),
+            os.path.dirname(hangarllm.__file__),
             "anthropic_beta_headers_config.json",
         )
         with open(config_path, "r") as f:
@@ -169,7 +169,7 @@ class TestAnthropicBetaHeadersFiltering:
         unsupported = self.get_unsupported_headers("anthropic")
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.get_async_httpx_client"
+            "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"
         ) as mock_client_factory:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -189,7 +189,7 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_factory.return_value = mock_client
 
             try:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="anthropic/claude-3-5-sonnet-20241022",
                     messages=[{"role": "user", "content": "Hi"}],
                     extra_headers={"anthropic-beta": ",".join(all_headers)},
@@ -217,7 +217,7 @@ class TestAnthropicBetaHeadersFiltering:
         unsupported = self.get_unsupported_headers("azure_ai")
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.get_async_httpx_client"
+            "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"
         ) as mock_client_factory:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -237,7 +237,7 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_factory.return_value = mock_client
 
             try:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="azure_ai/claude-3-5-sonnet-20241022",
                     messages=[{"role": "user", "content": "Hi"}],
                     api_key="test-key",
@@ -285,7 +285,7 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
             try:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     messages=[{"role": "user", "content": "Hi"}],
                     aws_access_key_id="test",
@@ -334,7 +334,7 @@ class TestAnthropicBetaHeadersFiltering:
         unsupported = self.get_unsupported_headers("vertex_ai")
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.get_async_httpx_client"
+            "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client"
         ) as mock_client_factory:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -354,12 +354,12 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_factory.return_value = mock_client
 
             with patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token"
+                "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token"
             ) as mock_token:
                 mock_token.return_value = ("test-token", "test-project")
 
                 try:
-                    await litellm.acompletion(
+                    await hangarllm.acompletion(
                         model="vertex_ai/claude-3-5-sonnet-20241022",
                         messages=[{"role": "user", "content": "Hi"}],
                         vertex_project="test-project",
@@ -657,11 +657,11 @@ class TestAnthropicBetaHeadersFiltering:
         assert update_headers_with_filtered_beta(headers, "bedrock_mantle") == {"anthropic-version": "2023-06-01"}
 
 
-@pytest.mark.parametrize("flag", ["LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "LITELLM_OFFLINE_MODE"])
+@pytest.mark.parametrize("flag", ["HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "HANGARLLM_OFFLINE_MODE"])
 def test_local_flags_load_bundled_beta_headers_without_fetching(monkeypatch, flag):
-    monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
     monkeypatch.setenv(flag, "True")
-    with patch("litellm.anthropic_beta_headers_manager.httpx.get") as remote_get:
+    with patch("hangarllm.anthropic_beta_headers_manager.httpx.get") as remote_get:
         config = get_beta_headers_config(url="https://example.test/anthropic_beta_headers_config.json")
     remote_get.assert_not_called()
     assert config == GetAnthropicBetaHeadersConfig.load_local_beta_headers_config()
@@ -681,16 +681,16 @@ PRESERVED_THINKING_BETAS: Final = (
 
 @pytest.fixture
 def bundled_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     anthropic_beta_headers_manager._BETA_HEADERS_CONFIG = None
 
 
 def test_requests_without_betas_never_fetch_the_beta_table(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
-    monkeypatch.delenv("LITELLM_OFFLINE_MODE", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+    monkeypatch.delenv("HANGARLLM_OFFLINE_MODE", raising=False)
     anthropic_beta_headers_manager._BETA_HEADERS_CONFIG = None
     with respx.mock(assert_all_called=False) as router:
-        remote_table: Final = router.get(litellm.anthropic_beta_headers_url).respond(
+        remote_table: Final = router.get(hangarllm.anthropic_beta_headers_url).respond(
             json=GetAnthropicBetaHeadersConfig.load_local_beta_headers_config()
         )
         for api_base in (None, DIRECT_API_BASE, FOUNDRY_API_BASE):

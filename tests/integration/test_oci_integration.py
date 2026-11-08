@@ -146,9 +146,9 @@ _WEATHER_TOOL = {
 
 @pytest.mark.parametrize("m", CHAT_MODELS)
 def test_basic_completion(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=f"oci/{m.model}",
         messages=[{"role": "user", "content": "Reply with only the word: pong"}],
         max_tokens=m.max_tokens,
@@ -162,9 +162,9 @@ def test_basic_completion(m: _M, oci_params):
 
 @pytest.mark.parametrize("m", CHAT_MODELS)
 def test_usage_populated(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=f"oci/{m.model}",
         messages=[{"role": "user", "content": "What is 2+2?"}],
         max_tokens=m.max_tokens,
@@ -176,9 +176,9 @@ def test_usage_populated(m: _M, oci_params):
 
 @pytest.mark.parametrize("m", CHAT_MODELS)
 def test_system_message(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=f"oci/{m.model}",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
@@ -192,10 +192,10 @@ def test_system_message(m: _M, oci_params):
 
 @pytest.mark.parametrize("m", CHAT_MODELS)
 def test_streaming(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
     chunks = list(
-        litellm.completion(
+        hangarllm.completion(
             model=f"oci/{m.model}",
             messages=[{"role": "user", "content": "Count to 3."}],
             max_tokens=m.max_tokens,
@@ -223,11 +223,11 @@ def test_cohere_streaming_no_doubling(model, oci_params):
     Reported by @gotsysdba on PR #25177. Fix: drop terminal text when
     `chatHistory` is present in `handle_cohere_stream_chunk`.
     """
-    import litellm
+    import hangarllm
 
     streamed = "".join(
         (c.choices[0].delta.content or "")
-        for c in litellm.completion(
+        for c in hangarllm.completion(
             model=f"oci/{model}",
             messages=[{"role": "user", "content": "Hello!"}],
             max_tokens=64,
@@ -243,7 +243,7 @@ def test_cohere_streaming_no_doubling(model, oci_params):
     # assembly is ~2x the real response; without it the two are the same order
     # of magnitude (the model is non-deterministic, so allow generous slack).
     non_streamed = (
-        litellm.completion(
+        hangarllm.completion(
             model=f"oci/{model}",
             messages=[{"role": "user", "content": "Hello!"}],
             max_tokens=64,
@@ -272,9 +272,9 @@ def test_cohere_streaming_no_doubling(model, oci_params):
 
 @pytest.mark.parametrize("m", CHAT_MODELS)
 def test_multi_turn(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=f"oci/{m.model}",
         messages=[
             {"role": "user", "content": "My name is Alice."},
@@ -298,9 +298,9 @@ def test_multi_turn(m: _M, oci_params):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("m", CHAT_MODELS)
 async def test_async_completion(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
-    resp = await litellm.acompletion(
+    resp = await hangarllm.acompletion(
         model=f"oci/{m.model}",
         messages=[{"role": "user", "content": "Reply with only the word: pong"}],
         max_tokens=m.max_tokens,
@@ -315,10 +315,10 @@ async def test_async_completion(m: _M, oci_params):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("m", CHAT_MODELS)
 async def test_async_streaming(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
     chunks = []
-    async for chunk in await litellm.acompletion(
+    async for chunk in await hangarllm.acompletion(
         model=f"oci/{m.model}",
         messages=[{"role": "user", "content": "Count to 3."}],
         max_tokens=m.max_tokens,
@@ -350,7 +350,7 @@ def _assert_tool_call(resp, expected_tool: str = "get_weather"):
 
 @pytest.mark.parametrize("m", TOOL_USE_MODELS)
 def test_tool_use(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
     call_kwargs = dict(
         model=f"oci/{m.model}",
@@ -362,14 +362,14 @@ def test_tool_use(m: _M, oci_params):
     if m.tool_choice is not None:
         call_kwargs["tool_choice"] = m.tool_choice
 
-    resp = litellm.completion(**call_kwargs)
+    resp = hangarllm.completion(**call_kwargs)
     _assert_tool_call(resp)
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("m", TOOL_USE_MODELS)
 async def test_async_tool_use(m: _M, oci_params):
-    import litellm
+    import hangarllm
 
     call_kwargs = dict(
         model=f"oci/{m.model}",
@@ -381,7 +381,7 @@ async def test_async_tool_use(m: _M, oci_params):
     if m.tool_choice is not None:
         call_kwargs["tool_choice"] = m.tool_choice
 
-    resp = await litellm.acompletion(**call_kwargs)
+    resp = await hangarllm.acompletion(**call_kwargs)
     _assert_tool_call(resp)
 
 
@@ -397,9 +397,9 @@ _REASONING_MODEL = "google.gemini-2.5-flash"
 def test_reasoning_effort_lowercase_accepted(effort, oci_params):
     """OpenAI clients send lowercase reasoning_effort; OCI requires uppercase.
     The transform layer should uppercase it transparently."""
-    import litellm
+    import hangarllm
 
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=f"oci/{_REASONING_MODEL}",
         messages=[{"role": "user", "content": "What is 2+2? One word."}],
         max_tokens=200,
@@ -413,9 +413,9 @@ def test_reasoning_effort_lowercase_accepted(effort, oci_params):
 def test_reasoning_effort_disable_mapped_to_none(oci_params):
     """OpenAI's 'disable' maps to OCI's 'NONE'. Without this mapping the
     request 400s."""
-    import litellm
+    import hangarllm
 
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=f"oci/{_REASONING_MODEL}",
         messages=[{"role": "user", "content": "What is 2+2? One word."}],
         max_tokens=200,
@@ -427,10 +427,10 @@ def test_reasoning_effort_disable_mapped_to_none(oci_params):
 
 def test_reasoning_tokens_in_usage(oci_params):
     """OCI returns completionTokensDetails.reasoningTokens on reasoning models;
-    LiteLLM should surface it on Usage.completion_tokens_details."""
-    import litellm
+    HangarLLM should surface it on Usage.completion_tokens_details."""
+    import hangarllm
 
-    resp = litellm.completion(
+    resp = hangarllm.completion(
         model=f"oci/{_REASONING_MODEL}",
         messages=[{"role": "user", "content": "What is 2+2? One word."}],
         max_tokens=200,
@@ -450,9 +450,9 @@ def test_reasoning_tokens_in_usage(oci_params):
 class TestOCIEmbeddings:
 
     def test_english_v3_basic(self, oci_params):
-        import litellm
+        import hangarllm
 
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-english-v3.0",
             input=["Hello world"],
             input_type="SEARCH_DOCUMENT",
@@ -463,14 +463,14 @@ class TestOCIEmbeddings:
         assert resp.usage.prompt_tokens > 0
 
     def test_english_v3_batch(self, oci_params):
-        import litellm
+        import hangarllm
 
         texts = [
             "The quick brown fox",
             "jumps over the lazy dog",
             "Paris is the capital of France",
         ]
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-english-v3.0",
             input=texts,
             input_type="SEARCH_DOCUMENT",
@@ -482,9 +482,9 @@ class TestOCIEmbeddings:
             assert len(item["embedding"]) == 1024
 
     def test_multilingual_v3(self, oci_params):
-        import litellm
+        import hangarllm
 
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-multilingual-v3.0",
             input=["Bonjour le monde", "Hola mundo"],
             input_type="SEARCH_DOCUMENT",
@@ -494,9 +494,9 @@ class TestOCIEmbeddings:
         assert len(resp.data[0]["embedding"]) == 1024
 
     def test_search_query_input_type(self, oci_params):
-        import litellm
+        import hangarllm
 
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-english-v3.0",
             input=["What is the capital of France?"],
             input_type="SEARCH_QUERY",
@@ -506,9 +506,9 @@ class TestOCIEmbeddings:
 
     def test_semantic_similarity(self, oci_params):
         """Semantically similar texts should have higher cosine similarity."""
-        import litellm
+        import hangarllm
 
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-english-v3.0",
             input=[
                 "The cat sat on the mat",
@@ -535,9 +535,9 @@ class TestOCIEmbeddings:
         ), f"Expected similar sentences to score higher ({sim_cats:.3f} vs {sim_diff:.3f})"
 
     def test_embed_v4(self, oci_params):
-        import litellm
+        import hangarllm
 
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-v4.0",
             input=["Hello world"],
             input_type="SEARCH_DOCUMENT",
@@ -547,9 +547,9 @@ class TestOCIEmbeddings:
         assert len(resp.data[0]["embedding"]) == 1536
 
     def test_usage_tokens(self, oci_params):
-        import litellm
+        import hangarllm
 
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-english-v3.0",
             input=["short text", "another short text"],
             input_type="SEARCH_DOCUMENT",
@@ -568,9 +568,9 @@ class TestOCIAsyncEmbeddings:
 
     @pytest.mark.asyncio
     async def test_async_embedding_basic(self, oci_params):
-        import litellm
+        import hangarllm
 
-        resp = await litellm.aembedding(
+        resp = await hangarllm.aembedding(
             model="oci/cohere.embed-english-v3.0",
             input=["Hello world"],
             input_type="SEARCH_DOCUMENT",
@@ -582,10 +582,10 @@ class TestOCIAsyncEmbeddings:
 
     @pytest.mark.asyncio
     async def test_async_embedding_batch(self, oci_params):
-        import litellm
+        import hangarllm
 
         texts = ["The quick brown fox", "jumps over the lazy dog"]
-        resp = await litellm.aembedding(
+        resp = await hangarllm.aembedding(
             model="oci/cohere.embed-english-v3.0",
             input=texts,
             input_type="SEARCH_DOCUMENT",
@@ -596,9 +596,9 @@ class TestOCIAsyncEmbeddings:
 
     @pytest.mark.asyncio
     async def test_async_embedding_multilingual(self, oci_params):
-        import litellm
+        import hangarllm
 
-        resp = await litellm.aembedding(
+        resp = await hangarllm.aembedding(
             model="oci/cohere.embed-multilingual-v3.0",
             input=["Bonjour le monde"],
             input_type="SEARCH_DOCUMENT",
@@ -631,9 +631,9 @@ class TestOCIEnvVarCredentials:
         monkeypatch.setenv("OCI_KEY", key_pem)
         monkeypatch.setenv("OCI_COMPARTMENT_ID", config["tenancy"])
 
-        import litellm
+        import hangarllm
 
-        resp = litellm.completion(
+        resp = hangarllm.completion(
             model="oci/meta.llama-3.3-70b-instruct",
             messages=[{"role": "user", "content": "Reply with only the word: pong"}],
             max_tokens=10,
@@ -655,9 +655,9 @@ class TestOCIEnvVarCredentials:
         monkeypatch.setenv("OCI_KEY", key_pem)
         monkeypatch.setenv("OCI_COMPARTMENT_ID", config["tenancy"])
 
-        import litellm
+        import hangarllm
 
-        resp = litellm.embedding(
+        resp = hangarllm.embedding(
             model="oci/cohere.embed-english-v3.0",
             input=["hello"],
             input_type="SEARCH_DOCUMENT",

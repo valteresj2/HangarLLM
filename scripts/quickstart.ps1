@@ -1,9 +1,9 @@
-# LiteLLM Gateway quickstart for Windows: the gateway, Postgres, and the admin UI in one command.
-#   powershell -c "irm https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.ps1 | iex"
+# HangarLLM Gateway quickstart for Windows: the gateway, Postgres, and the admin UI in one command.
+#   powershell -c "irm https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.ps1 | iex"
 # On macOS and Linux, scripts/quickstart.sh does the same.
 #
 # To read it before running it:
-#   irm https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.ps1 -OutFile quickstart.ps1
+#   irm https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.ps1 -OutFile quickstart.ps1
 #   notepad quickstart.ps1
 #   powershell -ExecutionPolicy Bypass -File quickstart.ps1
 #
@@ -13,49 +13,49 @@
 # It asks nothing when input is not a console, under CI or Claude Code, or
 # with -Yes.
 #
-# It also takes an action, which the litellm-gateway command it installs takes too:
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.ps1))) stop
+# It also takes an action, which the hangarllm-gateway command it installs takes too:
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.ps1))) stop
 #   status, start (up), stop (down), restart, logs, open, update, uninstall
 #
-#   -Yes, or LITELLM_YES=1   no questions: install to ~\litellm-gateway, don't open a browser,
+#   -Yes, or HANGARLLM_YES=1   no questions: install to ~\hangarllm-gateway, don't open a browser,
 #                            and let uninstall delete the database without asking
-#   LITELLM_DIR              folder to install into (skips the folder question)
-#   LITELLM_PORT             port for the gateway (default 4000, or the next free one)
+#   HANGARLLM_DIR              folder to install into (skips the folder question)
+#   HANGARLLM_PORT             port for the gateway (default 4000, or the next free one)
 #   NO_COLOR                 plain output, which agents, CI, and log files always get
 #
 # New installs listen on this machine only (127.0.0.1). To reach the gateway
-# from other machines, remove LITELLM_BIND from .env and put it behind TLS.
+# from other machines, remove HANGARLLM_BIND from .env and put it behind TLS.
 #
 # Keys and the database password are random, written only to .env, which only
 # your Windows account can read, and never printed. When you ask, the admin
 # password goes straight to your clipboard. Needs Docker Desktop, Podman, or
 # Rancher Desktop.
 # Works in Windows PowerShell 5.1 and PowerShell 7. Everything runs inside
-# Invoke-LiteLLMQuickstart, so a partial download runs nothing.
+# Invoke-HangarLLMQuickstart, so a partial download runs nothing.
 param([switch]$Yes)
 
-function Invoke-LiteLLMQuickstart {
+function Invoke-HangarLLMQuickstart {
   param([switch]$Yes, [object[]]$Rest = @())
   $ErrorActionPreference = 'Stop'
   # Windows PowerShell draws a progress bar for every web request, which makes them crawl.
   $ProgressPreference = 'SilentlyContinue'
   Set-StrictMode -Version 2
 
-  $composeUrl = 'https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml'
-  if ($env:LITELLM_COMPOSE_URL) { $composeUrl = $env:LITELLM_COMPOSE_URL }
-  $scriptUrl = 'https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.ps1'
-  if ($env:LITELLM_SCRIPT_URL) { $scriptUrl = $env:LITELLM_SCRIPT_URL }
+  $composeUrl = 'https://raw.githubusercontent.com/valteresj2/HangarLLM/main/docker/docker-compose.quickstart.yml'
+  if ($env:HANGARLLM_COMPOSE_URL) { $composeUrl = $env:HANGARLLM_COMPOSE_URL }
+  $scriptUrl = 'https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.ps1'
+  if ($env:HANGARLLM_SCRIPT_URL) { $scriptUrl = $env:HANGARLLM_SCRIPT_URL }
   $onWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or ((Test-Path variable:IsWindows) -and $IsWindows)
 
   # A step that cannot go on stops the whole run with exit code 1, from any depth.
-  $exitSignal = 'LITELLM_QUICKSTART_EXIT'
+  $exitSignal = 'HANGARLLM_QUICKSTART_EXIT'
   function Stop-Quickstart { throw $exitSignal }
 
   function Show-Usage([IO.TextWriter]$To) {
     @(
       'Usage: quickstart.ps1 [-Yes] [action]'
       ''
-      'With no action it installs the LiteLLM Gateway, or shows a menu to manage the'
+      'With no action it installs the HangarLLM Gateway, or shows a menu to manage the'
       'install it finds. Actions:'
       '  status      whether it is running, and where'
       '  start       start it (also: up)'
@@ -70,14 +70,14 @@ function Invoke-LiteLLMQuickstart {
       '  -Yes, -y    ask nothing; without a console, uninstall needs it'
       ''
       'From the install command:'
-      '  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/quickstart.ps1))) status'
+      '  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/quickstart.ps1))) status'
     ) | ForEach-Object { $To.WriteLine($_) }
   }
 
   # Windows PowerShell passes -y and --yes through as plain arguments.
   $noQuestions = [bool]$Yes
-  # A port set by the caller is never moved; later steps set LITELLM_PORT too.
-  $portPinned = [bool]$env:LITELLM_PORT
+  # A port set by the caller is never moved; later steps set HANGARLLM_PORT too.
+  $portPinned = [bool]$env:HANGARLLM_PORT
   $action = ''
   foreach ($arg in $Rest) {
     $a = "$arg"
@@ -99,7 +99,7 @@ function Invoke-LiteLLMQuickstart {
     }
   }
   if ($action -eq 'up') { $action = 'start' } elseif ($action -eq 'down') { $action = 'stop' }
-  if ($env:LITELLM_YES) { $noQuestions = $true }
+  if ($env:HANGARLLM_YES) { $noQuestions = $true }
 
   # ------------------------------------------------------------ output
 
@@ -405,14 +405,14 @@ function Invoke-LiteLLMQuickstart {
   # never to the screen.
   function Copy-Password([string]$Folder) {
     $pw = Get-Content -LiteralPath (Join-Path $Folder '.env') |
-      Where-Object { $_.StartsWith('LITELLM_MASTER_KEY=') } | Select-Object -First 1
-    if (-not $pw) { Warn ('No LITELLM_MASTER_KEY in ' + (Lit (Join-Path (Tildify $Folder) '.env')) + '.'); return }
+      Where-Object { $_.StartsWith('HANGARLLM_MASTER_KEY=') } | Select-Object -First 1
+    if (-not $pw) { Warn ('No HANGARLLM_MASTER_KEY in ' + (Lit (Join-Path (Tildify $Folder) '.env')) + '.'); return }
     try {
-      Set-Clipboard -Value $pw.Substring('LITELLM_MASTER_KEY='.Length) -ErrorAction Stop
+      Set-Clipboard -Value $pw.Substring('HANGARLLM_MASTER_KEY='.Length) -ErrorAction Stop
       Step 'Copied the admin password. Paste it into the sign-in page.'
     } catch {
       # Another app can hold the Windows clipboard open.
-      Warn ('Could not copy it. The password is LITELLM_MASTER_KEY in ' + (Lit (Join-Path (Tildify $Folder) '.env')) + '.')
+      Warn ('Could not copy it. The password is HANGARLLM_MASTER_KEY in ' + (Lit (Join-Path (Tildify $Folder) '.env')) + '.')
     } finally {
       $pw = $null
     }
@@ -454,18 +454,18 @@ function Invoke-LiteLLMQuickstart {
     return ''
   }
 
-  # An existing install: LITELLM_DIR, this folder, .\litellm-gateway, or
-  # ~\litellm-gateway, whichever has a .env first. Empty when there is none.
+  # An existing install: HANGARLLM_DIR, this folder, .\hangarllm-gateway, or
+  # ~\hangarllm-gateway, whichever has a .env first. Empty when there is none.
   function Find-Install {
     $here = (Get-Location).ProviderPath
-    if ($env:LITELLM_DIR) {
-      if (Test-Path -LiteralPath (Join-Path $env:LITELLM_DIR '.env')) { return $env:LITELLM_DIR }
+    if ($env:HANGARLLM_DIR) {
+      if (Test-Path -LiteralPath (Join-Path $env:HANGARLLM_DIR '.env')) { return $env:HANGARLLM_DIR }
     } elseif ((Test-Path -LiteralPath (Join-Path $here '.env')) -and (Test-Path -LiteralPath (Join-Path $here 'docker-compose.quickstart.yml'))) {
       return $here
-    } elseif (Test-Path -LiteralPath (Join-Path $here 'litellm-gateway/.env')) {
-      return (Join-Path $here 'litellm-gateway')
-    } elseif (Test-Path -LiteralPath (Join-Path $HOME 'litellm-gateway/.env')) {
-      return (Join-Path $HOME 'litellm-gateway')
+    } elseif (Test-Path -LiteralPath (Join-Path $here 'hangarllm-gateway/.env')) {
+      return (Join-Path $here 'hangarllm-gateway')
+    } elseif (Test-Path -LiteralPath (Join-Path $HOME 'hangarllm-gateway/.env')) {
+      return (Join-Path $HOME 'hangarllm-gateway')
     }
     return ''
   }
@@ -491,8 +491,8 @@ function Invoke-LiteLLMQuickstart {
       # Only another quickstart install keeps its project, since that is the one
       # this script offers to stop. Whoever started the container set the label,
       # so it must also be a name Compose would accept.
-      if ($o.Project -cmatch '^litellm-gateway[a-z0-9_-]*$') {
-        $o.Owner = "another LiteLLM quickstart install ($engineName project $($o.Project))"
+      if ($o.Project -cmatch '^hangarllm-gateway[a-z0-9_-]*$') {
+        $o.Owner = "another HangarLLM quickstart install ($engineName project $($o.Project))"
         $o.FreeIt = "$engine compose -p $($o.Project) stop"
       } else {
         $o.Project = ''
@@ -522,8 +522,8 @@ function Invoke-LiteLLMQuickstart {
       }
     }
     if (-not $procId) { return $o }
-    if ($args0 -match 'litellm') {
-      $o.Owner = "a litellm server (pid $procId), maybe one started after pip install litellm"
+    if ($args0 -match 'hangarllm') {
+      $o.Owner = "a hangarllm server (pid $procId), maybe one started after pip install hangarllm"
     } else {
       if (-not $name) { $name = 'a program' }
       $o.Owner = "$name (pid $procId)"
@@ -532,9 +532,9 @@ function Invoke-LiteLLMQuickstart {
   }
 
   function Select-Port {
-    $saved = Read-EnvValue 'LITELLM_PORT'
-    if ($env:LITELLM_PORT) {
-      $port = [int]$env:LITELLM_PORT
+    $saved = Read-EnvValue 'HANGARLLM_PORT'
+    if ($env:HANGARLLM_PORT) {
+      $port = [int]$env:HANGARLLM_PORT
     } elseif ($saved) {
       $port = [int]$saved
     } elseif (Test-Path -LiteralPath '.env') {
@@ -544,7 +544,7 @@ function Invoke-LiteLLMQuickstart {
       while (-not (Test-PortFree $port)) {
         $port++
         if ($port -gt 4099) {
-          Fail 'Ports 4000 to 4099 are all in use.' 'Set LITELLM_PORT to a free port and run this again.'
+          Fail 'Ports 4000 to 4099 are all in use.' 'Set HANGARLLM_PORT to a free port and run this again.'
           Stop-Quickstart
         }
       }
@@ -553,22 +553,22 @@ function Invoke-LiteLLMQuickstart {
       } else {
         $o = Get-PortOwner 4000
         $by = if ($o.Owner) { ' by ' + (Lit $o.Owner) } else { '' }
-        Warn "Port 4000 is in use$by, so LiteLLM will use {b:$port}"
+        Warn "Port 4000 is in use$by, so HangarLLM will use {b:$port}"
       }
     }
-    $env:LITELLM_PORT = "$port"
+    $env:HANGARLLM_PORT = "$port"
     return $port
   }
 
   # Compose prefers values already set in the environment over .env, so drop
   # inherited ones: .env stays the only source for keys and the project name.
   function Clear-ComposeEnv {
-    foreach ($name in 'LITELLM_MASTER_KEY', 'LITELLM_SALT_KEY', 'POSTGRES_PASSWORD', 'COMPOSE_PROJECT_NAME') {
+    foreach ($name in 'HANGARLLM_MASTER_KEY', 'HANGARLLM_SALT_KEY', 'POSTGRES_PASSWORD', 'COMPOSE_PROJECT_NAME') {
       Remove-Item "Env:$name" -ErrorAction SilentlyContinue
     }
     # The bind address follows .env when .env sets it. For an older .env without
     # it, a value already in the environment is kept.
-    if (Get-Content -LiteralPath '.env' | Where-Object { $_ -match '^LITELLM_BIND=' }) { Remove-Item Env:LITELLM_BIND -ErrorAction SilentlyContinue }
+    if (Get-Content -LiteralPath '.env' | Where-Object { $_ -match '^HANGARLLM_BIND=' }) { Remove-Item Env:HANGARLLM_BIND -ErrorAction SilentlyContinue }
   }
 
   function Use-Install([string]$Dir) {
@@ -598,14 +598,14 @@ function Invoke-LiteLLMQuickstart {
     return (-not $onWindows) -and (@($env:PATH -split ':') -contains $bin) -and (Test-Path -LiteralPath $bin -PathType Container)
   }
 
-  # The litellm-gateway command: the copy of this script kept beside .env, run
+  # The hangarllm-gateway command: the copy of this script kept beside .env, run
   # against this folder, so up, down, status, and the rest work from anywhere.
   function Install-Command {
     $dir = $inst.Dir
     $tmp = Join-Path $dir ('quickstart.ps1.' + [IO.Path]::GetRandomFileName())
     try {
       Invoke-WebRequest -UseBasicParsing -Uri $scriptUrl -OutFile $tmp
-      if ([IO.File]::ReadAllText($tmp) -match '(?m)^\$code = Invoke-LiteLLMQuickstart') {
+      if ([IO.File]::ReadAllText($tmp) -match '(?m)^\$code = Invoke-HangarLLMQuickstart') {
         Move-Item -LiteralPath $tmp -Destination (Join-Path $dir 'quickstart.ps1') -Force
       }
     } catch {
@@ -617,24 +617,24 @@ function Invoke-LiteLLMQuickstart {
     if ($onWindows) {
       # cmd reads a batch file line by line as it runs, so the last line exits
       # before uninstall has deleted the file under it.
-      $path = Join-Path $dir 'litellm-gateway.cmd'
+      $path = Join-Path $dir 'hangarllm-gateway.cmd'
       $text = (@(
           '@echo off'
           'setlocal'
-          'rem Manages the LiteLLM Gateway in this folder. Run it for a menu, or with one of'
+          'rem Manages the HangarLLM Gateway in this folder. Run it for a menu, or with one of'
           'rem status, up, down, restart, logs, open, update, uninstall'
-          'set "LITELLM_DIR=%~dp0."'
+          'set "HANGARLLM_DIR=%~dp0."'
           'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0quickstart.ps1" %* & exit /b'
         ) -join "`r`n") + "`r`n"
     } else {
-      $path = Join-Path $dir 'litellm-gateway'
+      $path = Join-Path $dir 'hangarllm-gateway'
       $shell = if (Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue) { 'pwsh' } else { (Get-Process -Id $PID).Path }
       $text = (@(
           '#!/bin/sh'
-          '# Manages the LiteLLM Gateway in this folder. Run it for a menu, or with one of'
+          '# Manages the HangarLLM Gateway in this folder. Run it for a menu, or with one of'
           '# status, up, down, restart, logs, open, update, uninstall'
-          ("export LITELLM_DIR='" + $dir.Replace("'", "'\''") + "'")
-          ("exec '" + $shell.Replace("'", "'\''") + "' -NoProfile -File `"`$LITELLM_DIR/quickstart.ps1`" `"`$@`"")
+          ("export HANGARLLM_DIR='" + $dir.Replace("'", "'\''") + "'")
+          ("exec '" + $shell.Replace("'", "'\''") + "' -NoProfile -File `"`$HANGARLLM_DIR/quickstart.ps1`" `"`$@`"")
         ) -join "`n") + "`n"
     }
     $current = if (Test-Path -LiteralPath $path) { [IO.File]::ReadAllText($path) } else { '' }
@@ -645,7 +645,7 @@ function Invoke-LiteLLMQuickstart {
     # stays, unless that install is gone.
     if (-not (Test-BinOnPath)) { return }
     $bin = Join-Path $HOME '.local/bin'
-    $link = Join-Path $bin 'litellm-gateway'
+    $link = Join-Path $bin 'hangarllm-gateway'
     $target = Get-LinkTarget $link
     if ($target) {
       if ($target -eq $path -or (Test-Path -LiteralPath ([IO.Path]::Combine($bin, $target)))) { return }
@@ -656,21 +656,21 @@ function Invoke-LiteLLMQuickstart {
     try { $null = New-Item -ItemType SymbolicLink -Path $link -Target $path } catch { <# not allowed: the full path still works #> }
   }
 
-  # How this install's litellm-gateway command runs from anywhere, or nothing.
+  # How this install's hangarllm-gateway command runs from anywhere, or nothing.
   function Find-Command {
-    $name = if ($onWindows) { 'litellm-gateway.cmd' } else { 'litellm-gateway' }
+    $name = if ($onWindows) { 'hangarllm-gateway.cmd' } else { 'hangarllm-gateway' }
     $path = Join-Path $inst.Dir $name
     if (-not (Test-Path -LiteralPath $path)) { return '' }
-    if ((Test-BinOnPath) -and (Get-LinkTarget (Join-Path $HOME '.local/bin/litellm-gateway')) -eq $path) { return 'litellm-gateway' }
+    if ((Test-BinOnPath) -and (Get-LinkTarget (Join-Path $HOME '.local/bin/hangarllm-gateway')) -eq $path) { return 'hangarllm-gateway' }
     $command = Tildify $path
     if ($command -match ' ') { $command = "& `"$command`"" }
     return $command
   }
 
-  # The command for an action: the litellm-gateway command, or Compose itself.
+  # The command for an action: the hangarllm-gateway command, or Compose itself.
   function Hint([string]$What) {
     if ($inst.Command) { return "$($inst.Command) $What" }
-    $verb = switch ($What) { 'up' { 'up -d' } 'down' { 'stop' } 'uninstall' { 'down --volumes' } 'logs' { 'logs litellm' } default { $What } }
+    $verb = switch ($What) { 'up' { 'up -d' } 'down' { 'stop' } 'uninstall' { 'down --volumes' } 'logs' { 'logs hangarllm' } default { $What } }
     $where = Tildify $inst.Dir
     if ($where -match ' ') { $where = "`"$where`"" }
     return "cd $where; $engine compose -f docker-compose.quickstart.yml $verb"
@@ -679,7 +679,7 @@ function Invoke-LiteLLMQuickstart {
   # The gateway container's status, such as "Up 2 hours", or nothing when there is none.
   function Get-GatewayStatus {
     $r = Invoke-Native $docker @('ps', '-a', '--filter', "label=com.docker.compose.project=$($inst.Project)",
-      '--filter', 'label=com.docker.compose.service=litellm', '--format', '{{.Status}}')
+      '--filter', 'label=com.docker.compose.service=hangarllm', '--format', '{{.Status}}')
     return "$($r.Out | Select-Object -First 1)"
   }
 
@@ -705,7 +705,7 @@ function Invoke-LiteLLMQuickstart {
   # How many requests the gateway has handled, failed ones included, counted
   # from its request logs. It needs the admin key. Empty when the gateway cannot say.
   function Get-RequestCount {
-    $key = Read-EnvValue 'LITELLM_MASTER_KEY'
+    $key = Read-EnvValue 'HANGARLLM_MASTER_KEY'
     if (-not $key) { return '' }
     $today = [DateTime]::UtcNow.ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)
     try {
@@ -725,9 +725,9 @@ function Invoke-LiteLLMQuickstart {
   # place keeps its permissions, so only you can still read the keys.
   function Move-Port([int]$Port) {
     $p = Join-Path $inst.Dir '.env'
-    $lines = @(Get-Content -LiteralPath $p -ErrorAction Stop | Where-Object { -not $_.StartsWith('LITELLM_PORT=') })
-    Write-PlainText $p ((($lines + "LITELLM_PORT=$Port") -join "`n") + "`n")
-    $env:LITELLM_PORT = "$Port"
+    $lines = @(Get-Content -LiteralPath $p -ErrorAction Stop | Where-Object { -not $_.StartsWith('HANGARLLM_PORT=') })
+    Write-PlainText $p ((($lines + "HANGARLLM_PORT=$Port") -join "`n") + "`n")
+    $env:HANGARLLM_PORT = "$Port"
     $inst.Port = $Port
     $inst.Url = "http://localhost:$Port/ui"
   }
@@ -757,13 +757,13 @@ function Invoke-LiteLLMQuickstart {
         $choice = Menu "Port $port is in use by $who. Use port $next instead?" 1 @(@("Yes, use $next", $where), @('No'))
         if ($choice -eq 1) {
           Move-Port $next
-          Step "LiteLLM moved from port $port to {b:$next}"
+          Step "HangarLLM moved from port $port to {b:$next}"
           return
         }
       }
     }
     $instead = if ($next) { ", such as $next" } else { '' }
-    Fail (Lit "Port $port is in use by $who.") ('Free it, or set LITELLM_PORT in ' + (Lit (Join-Path (Tildify $inst.Dir) '.env')) + " to another port$instead.")
+    Fail (Lit "Port $port is in use by $who.") ('Free it, or set HANGARLLM_PORT in ' + (Lit (Join-Path (Tildify $inst.Dir) '.env')) + " to another port$instead.")
     if ($o.FreeIt) { Say ('  To free it:  ' + (Lit $o.FreeIt)) -Err }
     Stop-Quickstart
   }
@@ -776,9 +776,9 @@ function Invoke-LiteLLMQuickstart {
     foreach ($image in Get-Images) {
       if ((Invoke-Native $docker @('image', 'inspect', $image)).Code -ne 0) { $detail = 'downloading images, first run only' }
     }
-    if (-not $style) { if ($detail) { Say "Starting LiteLLM and Postgres ($detail)..." } else { Say 'Starting LiteLLM and Postgres...' } }
-    if ((Invoke-WithSpinner 'Starting LiteLLM and Postgres' $detail $docker ($cf + @('up', '-d'))) -ne 0) {
-      Fail "$engineName could not start LiteLLM and Postgres." 'Its output is above.'
+    if (-not $style) { if ($detail) { Say "Starting HangarLLM and Postgres ($detail)..." } else { Say 'Starting HangarLLM and Postgres...' } }
+    if ((Invoke-WithSpinner 'Starting HangarLLM and Postgres' $detail $docker ($cf + @('up', '-d'))) -ne 0) {
+      Fail "$engineName could not start HangarLLM and Postgres." 'Its output is above.'
       Stop-Quickstart
     }
     if (-not (Wait-Ready $inst.Port)) {
@@ -786,21 +786,21 @@ function Invoke-LiteLLMQuickstart {
       Say ('    ' + (Lit (Hint 'logs'))) -Err
       Stop-Quickstart
     }
-    Step "LiteLLM is up at {a:$($inst.Url)} {d:$($sym.Dot) $(Elapsed $started)}"
+    Step "HangarLLM is up at {a:$($inst.Url)} {d:$($sym.Dot) $(Elapsed $started)}"
   }
 
   function Stop-Gateway {
-    if (-not (Test-HasContainers)) { Step 'LiteLLM is already stopped'; return }
-    if ((Invoke-WithSpinner 'Stopping LiteLLM and Postgres' '' $docker ($cf + @('stop'))) -ne 0) {
-      Fail "$engineName could not stop LiteLLM and Postgres." 'Its output is above.'
+    if (-not (Test-HasContainers)) { Step 'HangarLLM is already stopped'; return }
+    if ((Invoke-WithSpinner 'Stopping HangarLLM and Postgres' '' $docker ($cf + @('stop'))) -ne 0) {
+      Fail "$engineName could not stop HangarLLM and Postgres." 'Its output is above.'
       Stop-Quickstart
     }
-    Step ("Stopped LiteLLM. Your models, keys, and logs are kept {d:$($sym.Dot) start it again: " + (Lit (Hint 'up')) + '}')
+    Step ("Stopped HangarLLM. Your models, keys, and logs are kept {d:$($sym.Dot) start it again: " + (Lit (Hint 'up')) + '}')
   }
 
   function Restart-Gateway {
-    if ((Test-HasContainers) -and (Invoke-WithSpinner 'Stopping LiteLLM and Postgres' '' $docker ($cf + @('stop'))) -ne 0) {
-      Fail "$engineName could not stop LiteLLM and Postgres." 'Its output is above.'
+    if ((Test-HasContainers) -and (Invoke-WithSpinner 'Stopping HangarLLM and Postgres' '' $docker ($cf + @('stop'))) -ne 0) {
+      Fail "$engineName could not stop HangarLLM and Postgres." 'Its output is above.'
       Stop-Quickstart
     }
     Start-Gateway
@@ -817,7 +817,7 @@ function Invoke-LiteLLMQuickstart {
         $r = Invoke-Native $docker @('image', 'inspect', '--format', '{{.Id}}', $image)
         if ($r.Code -eq 0) { "$($r.Out | Select-Object -First 1)" }
       })
-    if (-not $style) { Say 'Downloading the latest LiteLLM and Postgres images...' }
+    if (-not $style) { Say 'Downloading the latest HangarLLM and Postgres images...' }
     if ((Invoke-WithSpinner 'Downloading the latest images' '' $docker ($cf + @('pull'))) -ne 0) {
       Fail "$engineName could not download the images." 'Its output is above.'
       Stop-Quickstart
@@ -831,24 +831,24 @@ function Invoke-LiteLLMQuickstart {
     }
     $after = Get-GatewayVersion
     if ($before -and $before -eq $after) {
-      Step "LiteLLM $after is already the latest"
+      Step "HangarLLM $after is already the latest"
     } elseif ($before -and $after) {
-      Step "Updated LiteLLM from $before to $after"
+      Step "Updated HangarLLM from $before to $after"
     } elseif ($after) {
-      Step "LiteLLM $after is on the latest image"
+      Step "HangarLLM $after is on the latest image"
     } else {
-      Step 'LiteLLM is on the latest image'
+      Step 'HangarLLM is on the latest image'
     }
   }
 
   function Show-Logs([switch]$Follow) {
-    if (-not (Test-HasContainers -All)) { Step 'No logs yet: start LiteLLM first'; return }
+    if (-not (Test-HasContainers -All)) { Step 'No logs yet: start HangarLLM first'; return }
     if ($Follow) {
       Say '{d:The gateway logs. Press Ctrl+C to stop following them.}'
-      $null = Invoke-Shown $docker ($cf + @('logs', '-f', '--tail', '100', 'litellm'))
+      $null = Invoke-Shown $docker ($cf + @('logs', '-f', '--tail', '100', 'hangarllm'))
       return
     }
-    $null = Invoke-Shown $docker ($cf + @('logs', '--tail', '100', 'litellm'))
+    $null = Invoke-Shown $docker ($cf + @('logs', '--tail', '100', 'hangarllm'))
   }
 
   function Get-DesktopNote {
@@ -860,7 +860,7 @@ function Invoke-LiteLLMQuickstart {
 
   function Show-Status {
     $status = Get-GatewayStatus
-    $image = "$(Get-Images | Where-Object { $_ -match 'litellm' } | Select-Object -First 1)"
+    $image = "$(Get-Images | Where-Object { $_ -match 'hangarllm' } | Select-Object -First 1)"
     $desktop = Get-DesktopNote
     $rows = New-Object System.Collections.ArrayList
     if ($status -like 'Up*') {
@@ -877,19 +877,19 @@ function Invoke-LiteLLMQuickstart {
       $null = $rows.Add(@('Image', $image))
       if ($desktop) { $null = $rows.Add(@('Desktop', $desktop)) }
       $null = $rows.Add(@('Stop it', (Hint 'down')))
-      Show-Box 'LiteLLM is running' $rows.ToArray()
+      Show-Box 'HangarLLM is running' $rows.ToArray()
     } else {
       $null = $rows.Add(@('Folder', (Tildify $inst.Dir)))
       $null = $rows.Add(@('Image', $image))
       if ($desktop) { $null = $rows.Add(@('Desktop', $desktop)) }
       $null = $rows.Add(@('Start it', (Hint 'up')))
       $null = $rows.Add(@('Remove it', (Hint 'uninstall')))
-      Show-Box 'LiteLLM is stopped' $rows.ToArray()
+      Show-Box 'HangarLLM is stopped' $rows.ToArray()
     }
   }
 
   function Open-UI {
-    if (Test-Running) { Open-Url $inst.Url } else { Warn ('LiteLLM is stopped. Start it with: ' + (Lit (Hint 'up'))) }
+    if (Test-Running) { Open-Url $inst.Url } else { Warn ('HangarLLM is stopped. Start it with: ' + (Lit (Hint 'up'))) }
   }
 
   # Returns $false when the person keeps the install, so the menu can carry on.
@@ -901,25 +901,25 @@ function Invoke-LiteLLMQuickstart {
     $link = ''
     if (-not $onWindows) {
       $bin = Join-Path $HOME '.local/bin'
-      if ((Get-LinkTarget (Join-Path $bin 'litellm-gateway')) -eq (Join-Path $dir 'litellm-gateway')) { $link = Join-Path $bin 'litellm-gateway' }
+      if ((Get-LinkTarget (Join-Path $bin 'hangarllm-gateway')) -eq (Join-Path $dir 'hangarllm-gateway')) { $link = Join-Path $bin 'hangarllm-gateway' }
     }
     if ($interactive) {
       Write-Host ''
-      Say ('{b:This removes LiteLLM from ' + (Lit (Tildify $dir)) + ':}')
+      Say ('{b:This removes HangarLLM from ' + (Lit (Tildify $dir)) + ':}')
       Say "  - its containers ($engineName project $($inst.Project))"
       Say "  - its database, the $engineName volume $volume, with your models, keys, and spend logs"
       Say ('  - its files in ' + (Lit (Tildify $dir)) + ', including .env with the admin password')
-      if ($link) { Say ('  - the litellm-gateway command in ' + (Lit (Tildify $bin))) }
-      if ((Menu 'Remove LiteLLM and delete its database?' 2 @(@('Yes, remove it'), @('No, keep it'))) -ne 1) {
-        Step 'Kept LiteLLM and its data'
+      if ($link) { Say ('  - the hangarllm-gateway command in ' + (Lit (Tildify $bin))) }
+      if ((Menu 'Remove HangarLLM and delete its database?' 2 @(@('Yes, remove it'), @('No, keep it'))) -ne 1) {
+        Step 'Kept HangarLLM and its data'
         return $false
       }
     } elseif (-not $noQuestions) {
-      Fail "Removing LiteLLM deletes its database ($engineName volume $volume)." 'To confirm, run it again with -Yes.'
+      Fail "Removing HangarLLM deletes its database ($engineName volume $volume)." 'To confirm, run it again with -Yes.'
       Stop-Quickstart
     }
 
-    if (-not $style) { Say 'Removing the LiteLLM and Postgres containers and the database...' }
+    if (-not $style) { Say 'Removing the HangarLLM and Postgres containers and the database...' }
     if ((Invoke-WithSpinner 'Removing the containers and the database' '' $docker ($cf + @('down', '--volumes', '--remove-orphans'))) -ne 0) {
       Fail "$engineName could not remove them." 'Its output is above.'
       Stop-Quickstart
@@ -941,7 +941,7 @@ function Invoke-LiteLLMQuickstart {
         }
       }
       $total = if ($bytes -gt 0) { ' (' + ($bytes / 1e9).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + ' GB)' } else { '' }
-      $choice = Menu "Also delete the LiteLLM and Postgres images$($total)?" 2 @(@('Yes, delete them'), @('No, keep them', 'a reinstall starts faster'))
+      $choice = Menu "Also delete the HangarLLM and Postgres images$($total)?" 2 @(@('Yes, delete them'), @('No, keep them', 'a reinstall starts faster'))
       if ($choice -eq 1) {
         foreach ($image in @($kept.ToArray())) {
           if ((Invoke-Native $docker @('image', 'rm', $image)).Code -eq 0) {
@@ -954,7 +954,7 @@ function Invoke-LiteLLMQuickstart {
       }
     }
 
-    foreach ($name in '.env', 'docker-compose.quickstart.yml', 'quickstart.ps1', 'quickstart.sh', 'litellm-gateway', 'litellm-gateway.cmd') {
+    foreach ($name in '.env', 'docker-compose.quickstart.yml', 'quickstart.ps1', 'quickstart.sh', 'hangarllm-gateway', 'hangarllm-gateway.cmd') {
       Remove-Item -LiteralPath (Join-Path $dir $name) -Force -ErrorAction SilentlyContinue
     }
     $ignore = Join-Path $dir '.gitignore'
@@ -971,7 +971,7 @@ function Invoke-LiteLLMQuickstart {
       Step ('Deleted ' + (Lit (Tildify $dir)))
     } catch {
       $why = if (@(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue).Count) { 'it has other files' } else { 'a program is using it' }
-      Step ('Deleted the LiteLLM files in ' + (Lit (Tildify $dir)) + " {d:(the folder stays: $why)}")
+      Step ('Deleted the HangarLLM files in ' + (Lit (Tildify $dir)) + " {d:(the folder stays: $why)}")
     }
 
     $left = New-Object System.Collections.ArrayList
@@ -982,7 +982,7 @@ function Invoke-LiteLLMQuickstart {
       Warn ('Still there: ' + (Lit ($left.ToArray() -join ', ')))
       return $true
     }
-    Step 'LiteLLM is removed. Nothing is left running, and its data is deleted'
+    Step 'HangarLLM is removed. Nothing is left running, and its data is deleted'
     if ($kept.Count) {
       Say ("  {d:The images stay, so a reinstall starts faster. To delete them:} $engine image rm " + ($kept.ToArray() -join ' '))
     }
@@ -998,7 +998,7 @@ function Invoke-LiteLLMQuickstart {
   }
 
   # The menu a rerun shows for an existing install. Its options follow whether
-  # LiteLLM is running, and come back after each choice until Done.
+  # HangarLLM is running, and come back after each choice until Done.
   function Show-ManageMenu {
     Show-Status
     $canCopy = Test-CanCopy
@@ -1006,7 +1006,7 @@ function Invoke-LiteLLMQuickstart {
     while ($true) {
       $options = New-Object System.Collections.ArrayList
       if (Test-Running) {
-        $question = "LiteLLM is running at $($inst.Url). What next?"
+        $question = "HangarLLM is running at $($inst.Url). What next?"
         $null = $options.Add(@('Open the admin UI in your browser'))
         if ($canCopy) { $null = $options.Add(@('Copy the admin password', 'to the clipboard, ready to paste')) }
         $null = $options.Add(@('Stop it', 'keeps your models, keys, and logs'))
@@ -1016,7 +1016,7 @@ function Invoke-LiteLLMQuickstart {
         $null = $options.Add(@('Remove it', 'delete its containers, database, and files'))
         $null = $options.Add(@('Done'))
       } else {
-        $question = 'LiteLLM is stopped. What next?'
+        $question = 'HangarLLM is stopped. What next?'
         $null = $options.Add(@('Start it', "at $($inst.Url)"))
         $null = $options.Add(@('Update it', 'download the latest image and start'))
         $null = $options.Add(@('Show the logs', 'the last 100 lines'))
@@ -1045,7 +1045,7 @@ function Invoke-LiteLLMQuickstart {
 
   $savedEncoding = $null
   $savedLocation = (Get-Location).ProviderPath
-  $savedPort = $env:LITELLM_PORT
+  $savedPort = $env:HANGARLLM_PORT
   try {
     if ($unicode -and $onWindows) {
       # Windows PowerShell writes the console in the OEM code page, which has no check marks.
@@ -1061,11 +1061,11 @@ function Invoke-LiteLLMQuickstart {
       # An action prints only its own result.
     } elseif ($style) {
       Write-Host ''
-      Say "{u:$($sym.Head) LiteLLM quickstart}"
+      Say "{u:$($sym.Head) HangarLLM quickstart}"
       Say '{d:  The gateway, Postgres, and the admin UI in one command}'
       Write-Host ''
     } else {
-      Say 'LiteLLM quickstart'
+      Say 'HangarLLM quickstart'
     }
 
     # Podman and Rancher Desktop (nerdctl in containerd mode; its dockerd mode
@@ -1075,13 +1075,13 @@ function Invoke-LiteLLMQuickstart {
       if ($c) { $c; break }
     }
     if (-not $engineCmd) {
-      Fail 'No container engine found (docker, podman, or nerdctl).' 'The LiteLLM Gateway runs in a container alongside a Postgres database.'
+      Fail 'No container engine found (docker, podman, or nerdctl).' 'The HangarLLM Gateway runs in a container alongside a Postgres database.'
       $install = if ($onWindows) { 'https://docs.docker.com/desktop/setup/install/windows-install/' } else { 'https://docs.docker.com/get-docker/' }
       Say '' -Err
       Say "  Install Docker Desktop ($install)," -Err
       Say '  Podman (https://podman.io), or Rancher Desktop (https://rancherdesktop.io), then run this again.' -Err
-      Say '  Or deploy in one click (Railway or Render):  https://docs.litellm.ai/docs/proxy/docker_quick_start' -Err
-      Say '  Only need to call models from Python?  pip install litellm' -Err
+      Say '  Or deploy in one click (Railway or Render):  https://github.com/valteresj2/HangarLLM#readme' -Err
+      Say '  Only need to call models from Python?  pip install hangarllm' -Err
       return 1
     }
     $docker = $engineCmd.Source
@@ -1103,8 +1103,8 @@ function Invoke-LiteLLMQuickstart {
       $existing = Find-Install
       if (-not $existing) {
         $s = [IO.Path]::DirectorySeparatorChar
-        $places = if ($env:LITELLM_DIR) { $env:LITELLM_DIR } else { "this folder, .${s}litellm-gateway, or ~${s}litellm-gateway" }
-        Fail 'No LiteLLM install found' ('in ' + (Lit $places) + '.')
+        $places = if ($env:HANGARLLM_DIR) { $env:HANGARLLM_DIR } else { "this folder, .${s}hangarllm-gateway, or ~${s}hangarllm-gateway" }
+        Fail 'No HangarLLM install found' ('in ' + (Lit $places) + '.')
         $runner = if ($onWindows) { 'powershell' } else { 'pwsh' }
         Say "  Install it with:  $runner -c `"irm $scriptUrl | iex`"" -Err
         return 1
@@ -1113,7 +1113,7 @@ function Invoke-LiteLLMQuickstart {
       $inst.Command = Find-Command
       switch ($action) {
         'status' { Show-Status }
-        'start' { if (Test-Running) { Step "LiteLLM is already running at {a:$($inst.Url)}" } else { Start-Gateway } }
+        'start' { if (Test-Running) { Step "HangarLLM is already running at {a:$($inst.Url)}" } else { Start-Gateway } }
         'stop' { Stop-Gateway }
         'restart' { Restart-Gateway }
         'logs' { if ($interactive) { Show-Logs -Follow } else { Show-Logs } }
@@ -1129,18 +1129,18 @@ function Invoke-LiteLLMQuickstart {
     $composeVersion = "$($compose.Out[0])".TrimStart('v')
     Step "$engineName ${engineVersion}with Compose $composeVersion is running"
 
-    $homeDir = Join-Path $HOME 'litellm-gateway'
-    $hereDir = Join-Path (Get-Location).ProviderPath 'litellm-gateway'
+    $homeDir = Join-Path $HOME 'hangarllm-gateway'
+    $hereDir = Join-Path (Get-Location).ProviderPath 'hangarllm-gateway'
     $dir = Find-Install
     $found = [bool]$dir
     if ($found) {
       # installed before
-    } elseif ($env:LITELLM_DIR) {
-      $dir = $env:LITELLM_DIR
+    } elseif ($env:HANGARLLM_DIR) {
+      $dir = $env:HANGARLLM_DIR
     } elseif ($hereDir -eq $homeDir) {
       $dir = $homeDir
     } else {
-      $pick = Menu 'Where should LiteLLM keep its files (.env with your keys, and the compose file)?' 1 @(
+      $pick = Menu 'Where should HangarLLM keep its files (.env with your keys, and the compose file)?' 1 @(
         , @((Tildify $homeDir), 'recommended, reruns always find it')
         , @((Tildify $hereDir), 'this folder'))
       $dir = if ($pick -eq 2) { $hereDir } else { $homeDir }
@@ -1159,7 +1159,7 @@ function Invoke-LiteLLMQuickstart {
       # would show up as a change to commit.
       Fail 'Git tracks a .env file in this folder,' 'so your keys could be committed.'
       Say '' -Err
-      Say '  Install into another folder (set LITELLM_DIR), or stop tracking the file' -Err
+      Say '  Install into another folder (set HANGARLLM_DIR), or stop tracking the file' -Err
       Say '  first with:  git rm --cached .env' -Err
       return 1
     }
@@ -1198,13 +1198,13 @@ function Invoke-LiteLLMQuickstart {
 
     # The engine names containers and the database volume after the project, so
     # an install outside the home folder gets its own name and never shares a
-    # database with another litellm-gateway folder. Windows paths ignore case,
+    # database with another hangarllm-gateway folder. Windows paths ignore case,
     # so there the name does too.
     $envFile = Join-Path $dir '.env'
-    $project = 'litellm-gateway'
+    $project = 'hangarllm-gateway'
     if ($dir -ne $homeDir) {
       $key = if ($onWindows) { $dir.ToLowerInvariant() } else { $dir }
-      $project = "litellm-gateway-$(Get-Cksum $key)"
+      $project = "hangarllm-gateway-$(Get-Cksum $key)"
     }
     if (-not (Test-Path -LiteralPath $envFile)) {
       # Postgres keeps the password it was created with, so a new password over an
@@ -1250,8 +1250,8 @@ function Invoke-LiteLLMQuickstart {
           & chmod 600 $tmp
           if ($LASTEXITCODE -ne 0) { throw "Could not restrict the permissions of $tmp." }
         }
-        Write-PlainText $tmp (("LITELLM_MASTER_KEY=sk-{0}`nLITELLM_SALT_KEY=sk-{1}`nPOSTGRES_PASSWORD={2}`n" +
-          "LITELLM_PORT={3}`nLITELLM_BIND=127.0.0.1:`nCOMPOSE_PROJECT_NAME={4}`n") -f (& $hex 32), (& $hex 32), (& $hex 24), $port, $project)
+        Write-PlainText $tmp (("HANGARLLM_MASTER_KEY=sk-{0}`nHANGARLLM_SALT_KEY=sk-{1}`nPOSTGRES_PASSWORD={2}`n" +
+          "HANGARLLM_PORT={3}`nHANGARLLM_BIND=127.0.0.1:`nCOMPOSE_PROJECT_NAME={4}`n") -f (& $hex 32), (& $hex 32), (& $hex 24), $port, $project)
         [IO.File]::Move($tmp, $envFile)
       } finally {
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
@@ -1267,11 +1267,11 @@ function Invoke-LiteLLMQuickstart {
     $url = $inst.Url
     Write-Host ''
     $canCopy = Test-CanCopy
-    $password = "the LITELLM_MASTER_KEY value in $(Join-Path (Tildify $dir) '.env')"
-    if ($canCopy) { $password = "copy it below, or LITELLM_MASTER_KEY in $(Join-Path (Tildify $dir) '.env')" }
-    # A rerun finds ~\litellm-gateway on its own; any other folder needs naming.
+    $password = "the HANGARLLM_MASTER_KEY value in $(Join-Path (Tildify $dir) '.env')"
+    if ($canCopy) { $password = "copy it below, or HANGARLLM_MASTER_KEY in $(Join-Path (Tildify $dir) '.env')" }
+    # A rerun finds ~\hangarllm-gateway on its own; any other folder needs naming.
     $rerun = 'rerun the install command'
-    if ($dir -ne $homeDir) { $rerun += " with LITELLM_DIR=$(Tildify $dir)" }
+    if ($dir -ne $homeDir) { $rerun += " with HANGARLLM_DIR=$(Tildify $dir)" }
     $manage = if ($inst.Command) { "run $($inst.Command), or $rerun" } else { $rerun }
     $rows = New-Object System.Collections.ArrayList
     $null = $rows.Add(@('Admin UI', $url))
@@ -1284,7 +1284,7 @@ function Invoke-LiteLLMQuickstart {
     $desktop = Get-DesktopNote
     if ($desktop) { $null = $rows.Add(@('Desktop', $desktop)) }
     $null = $rows.Add(@('Manage', $manage))
-    Show-Box 'LiteLLM is running' $rows.ToArray()
+    Show-Box 'HangarLLM is running' $rows.ToArray()
 
     if ($canCopy) {
       # Come back to the menu after each choice, with the next step as the default.
@@ -1307,12 +1307,12 @@ function Invoke-LiteLLMQuickstart {
     throw
   } finally {
     if ($savedEncoding) { [Console]::OutputEncoding = $savedEncoding }
-    if ($savedPort) { $env:LITELLM_PORT = $savedPort } else { Remove-Item Env:LITELLM_PORT -ErrorAction SilentlyContinue }
+    if ($savedPort) { $env:HANGARLLM_PORT = $savedPort } else { Remove-Item Env:HANGARLLM_PORT -ErrorAction SilentlyContinue }
     if (Test-Path -LiteralPath $savedLocation) { Set-Location -LiteralPath $savedLocation }
   }
 }
 
-$code = Invoke-LiteLLMQuickstart -Yes:$Yes -Rest $args | Select-Object -Last 1
+$code = Invoke-HangarLLMQuickstart -Yes:$Yes -Rest $args | Select-Object -Last 1
 $global:LASTEXITCODE = $code
 # Run from a file, or as `powershell -c "irm ... | iex"`, the exit code should
 # reach the caller. Pasted into an open window, `exit` would close that window,

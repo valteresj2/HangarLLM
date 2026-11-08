@@ -1,5 +1,5 @@
 import pytest
-from litellm.proxy._types import NewProjectRequest, UpdateProjectRequest
+from hangarllm.proxy._types import NewProjectRequest, UpdateProjectRequest
 from pydantic import ValidationError
 
 

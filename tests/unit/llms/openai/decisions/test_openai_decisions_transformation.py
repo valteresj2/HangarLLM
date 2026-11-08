@@ -6,18 +6,18 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.llms.base_llm.decisions.transformation import (
+from hangarllm.llms.base_llm.decisions.transformation import (
     DecisionsResponseValidationError,
     ir_to_systemone_response,
     systemone_request_to_ir,
 )
-from litellm.llms.openai.decisions.transformation import (
+from hangarllm.llms.openai.decisions.transformation import (
     OpenAIDecisionsConfig,
     ir_to_openai_request,
     ir_to_openai_response,
     openai_request_to_ir,
 )
-from litellm.types.decisions import (
+from hangarllm.types.decisions import (
     DecisionsIRRequest,
     DecisionsRequestBody,
     OpenAIDecisionRequestBody,

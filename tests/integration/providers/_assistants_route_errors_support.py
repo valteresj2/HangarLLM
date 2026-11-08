@@ -22,10 +22,10 @@ from pydantic import JsonValue
 
 MARKER: Final = re.compile(r"m[0-9a-f]{32}")
 TRACEBACK: Final = "Traceback (most recent call last)"
-BUG_NOTICE: Final = "This looks like a bug in LiteLLM"
+BUG_NOTICE: Final = "This looks like a bug in HangarLLM"
 ASSISTANT_MODEL: Final = "scripted-assistant-model"
 CONTROL_MODEL: Final = "assistants-route-errors-control"
-SESSION_HEADER: Final = MappingProxyType({"x-litellm-session-id": "assistants-route-errors"})
+SESSION_HEADER: Final = MappingProxyType({"x-hangarllm-session-id": "assistants-route-errors"})
 STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
 
 
@@ -309,9 +309,9 @@ def openai_assistants_config(directory: Path, upstream_port: int, timeout_second
     }
     control: Final[dict[str, JsonValue]] = {
         "model_name": CONTROL_MODEL,
-        "litellm_params": {"model": "openai/scripted-chat-model", **deployment},
+        "hangarllm_params": {"model": "openai/scripted-chat-model", **deployment},
     }
-    return owned_config(directory, (control,), {"custom_llm_provider": "openai", "litellm_params": deployment})
+    return owned_config(directory, (control,), {"custom_llm_provider": "openai", "hangarllm_params": deployment})
 
 
 def worker_pids(log: Path) -> tuple[int, ...]:

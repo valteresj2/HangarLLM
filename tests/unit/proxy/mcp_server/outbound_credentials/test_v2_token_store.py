@@ -2,7 +2,7 @@
 
 import pytest
 
-from litellm.proxy.mcp_server.outbound_credentials.v2_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.v2_token_store import (
     V2PerUserTokenStore,
 )
 

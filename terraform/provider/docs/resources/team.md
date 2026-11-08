@@ -1,13 +1,13 @@
-# litellm_team Resource
+# hangarllm_team Resource
 
-Manages a team configuration in LiteLLM. Teams allow you to group users and manage their access to models and usage limits.
+Manages a team configuration in HangarLLM. Teams allow you to group users and manage their access to models and usage limits.
 
 ## Example Usage
 
 ### Basic Team Configuration
 
 ```hcl
-resource "litellm_team" "engineering" {
+resource "hangarllm_team" "engineering" {
   team_alias = "engineering-team"
   models     = ["gpt-4-proxy", "claude-2"]
   max_budget = 1000.0
@@ -17,7 +17,7 @@ resource "litellm_team" "engineering" {
 ### Team with a Custom ID
 
 ```hcl
-resource "litellm_team" "platform" {
+resource "hangarllm_team" "platform" {
   team_id    = "platform-team"
   team_alias = "platform"
   models     = ["gpt-4-proxy"]
@@ -27,7 +27,7 @@ resource "litellm_team" "platform" {
 ### Team with Comprehensive Configuration
 
 ```hcl
-resource "litellm_team" "advanced_team" {
+resource "hangarllm_team" "advanced_team" {
   team_alias      = "ai-research-team"
   organization_id = "org_123456"
   models          = ["gpt-4-proxy", "claude-2", "gpt-3.5-turbo"]
@@ -67,14 +67,14 @@ resource "litellm_team" "advanced_team" {
 
 ```hcl
 # First create models
-resource "litellm_model" "gpt4" {
+resource "hangarllm_model" "gpt4" {
   model_name          = "gpt-4-proxy"
   custom_llm_provider = "openai"
   base_model          = "gpt-4"
   model_api_key       = var.openai_api_key
 }
 
-resource "litellm_model" "claude" {
+resource "hangarllm_model" "claude" {
   model_name          = "claude-proxy"
   custom_llm_provider = "anthropic"
   base_model          = "claude-3-sonnet-20240229"
@@ -82,11 +82,11 @@ resource "litellm_model" "claude" {
 }
 
 # Then create team with access to these models
-resource "litellm_team" "model_dependent_team" {
+resource "hangarllm_team" "model_dependent_team" {
   team_alias = "model-users"
   models = [
-    litellm_model.gpt4.model_name,
-    litellm_model.claude.model_name
+    hangarllm_model.gpt4.model_name,
+    hangarllm_model.claude.model_name
   ]
   
   max_budget      = 500.0
@@ -101,7 +101,7 @@ resource "litellm_team" "model_dependent_team" {
 ### Team with Per-Member Model Budgets
 
 ```hcl
-resource "litellm_team" "engineering" {
+resource "hangarllm_team" "engineering" {
   team_alias = "engineering"
   models     = ["claude-opus", "claude-sonnet"]
 
@@ -130,7 +130,7 @@ The following arguments are supported:
 
 * `metadata` - (Optional) A map of string metadata key-value pairs associated with the team. `tags` and `soft_budget_alerting_emails` are stored by the proxy under metadata but are managed through their own attributes below, not this map.
 
-* `tags` - (Optional) List of tags applied to the team, used for [spend tracking](https://docs.litellm.ai/docs/proxy/enterprise#tracking-spend-for-custom-tags) and [tag-based routing](https://docs.litellm.ai/docs/proxy/tag_routing).
+* `tags` - (Optional) List of tags applied to the team, used for [spend tracking](https://github.com/valteresj2/HangarLLM#readme) and [tag-based routing](https://github.com/valteresj2/HangarLLM#readme).
 
 * `blocked` - (Optional) Whether the team is blocked from making requests. Default is `false`.
 
@@ -168,7 +168,7 @@ The following arguments are supported:
 
 * `team_member_key_duration` - (Optional) Lifetime for keys created by team members (e.g. `1d`, `1w`).
 
-* `team_member_model_max_budget` - (Optional) JSON string of per-model budgets applied to each individual team member, e.g. `jsonencode({"claude-opus" = {budget_limit = 400, time_period = "1d"}})`. Each model maps to an object with `budget_limit` (or `max_budget`) and `time_period` (or `budget_duration`). The proxy rejects `tpm_limit` and `rpm_limit` on team budgets, so the provider rejects them at plan time. A member who reaches a model's cap is blocked on that model only and can keep calling the team's other models until `team_member_budget` runs out. The key is matched against the model name on the request, so for a router alias the cap applies to the alias, not the model the router picks. Remove the attribute to clear every per-model member budget. Requires a LiteLLM Enterprise license on the proxy, and a proxy that includes [#43887](https://github.com/BerriAI/litellm/pull/43887). Older proxies, including v1.105.0 and v1.106.0-rc.1, accept the field but silently drop it, so every plan shows a diff.
+* `team_member_model_max_budget` - (Optional) JSON string of per-model budgets applied to each individual team member, e.g. `jsonencode({"claude-opus" = {budget_limit = 400, time_period = "1d"}})`. Each model maps to an object with `budget_limit` (or `max_budget`) and `time_period` (or `budget_duration`). The proxy rejects `tpm_limit` and `rpm_limit` on team budgets, so the provider rejects them at plan time. A member who reaches a model's cap is blocked on that model only and can keep calling the team's other models until `team_member_budget` runs out. The key is matched against the model name on the request, so for a router alias the cap applies to the alias, not the model the router picks. Remove the attribute to clear every per-model member budget. Requires a HangarLLM Enterprise license on the proxy, and a proxy that includes [#43887](upstream issue 43887). Older proxies, including v1.105.0 and v1.106.0-rc.1, accept the field but silently drop it, so every plan shows a diff.
 
 * `model_rpm_limit` - (Optional) Map of model name to requests per minute limit for that model.
 
@@ -191,11 +191,11 @@ In addition to the arguments above, the following attributes are exported:
 Teams can be imported using the team ID:
 
 ```shell
-terraform import litellm_team.engineering <team-id>
+terraform import hangarllm_team.engineering <team-id>
 ```
 
 Note: Unless `team_id` is set, the team ID is generated when the team is created and is different from the `team_alias`.
 
 ## Note on Team Members
 
-Team members are managed through the separate `litellm_team_member` resource. This allows for more granular control over team membership and permissions. See the `litellm_team_member` resource documentation for details on managing team members.
+Team members are managed through the separate `hangarllm_team_member` resource. This allows for more granular control over team membership and permissions. See the `hangarllm_team_member` resource documentation for details on managing team members.

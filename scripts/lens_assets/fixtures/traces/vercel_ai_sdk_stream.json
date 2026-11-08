@@ -51,7 +51,7 @@
                     "stringValue": "--env-file=.env"
                   },
                   {
-                    "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
+                    "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
                   },
                   {
                     "stringValue": "streaming"
@@ -81,7 +81,7 @@
           {
             "key": "process.command",
             "value": {
-              "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
+              "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
             }
           },
           {
@@ -119,7 +119,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -132,7 +132,7 @@
               "endTimeUnixNano": "1791061397062535042",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -162,7 +162,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "d269912a-2203-4e1f-8fd8-640a09f9cb40"
                   }
@@ -196,7 +196,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -299,7 +299,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {

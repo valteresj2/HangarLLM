@@ -13,11 +13,11 @@ success handler, capturing every span in an InMemorySpanExporter:
   * non-streaming: _init_kwargs_for_pass_through_endpoint -> async_success_handler
   * streaming:     _route_streaming_logging_to_handler over real Anthropic SSE
 
-Before the fix the parent span is never wired in, so the litellm_request span
+Before the fix the parent span is never wired in, so the hangarllm_request span
 orphans into its own trace and the SERVER root span is never ended. Each test
 asserts the SERVER root is exported (ended) and that nothing escapes into a
-foreign trace; the USE_OTEL_LITELLM_REQUEST_SPAN variants additionally assert
-the litellm_request child is parented to the SERVER root.
+foreign trace; the USE_OTEL_HANGARLLM_REQUEST_SPAN variants additionally assert
+the hangarllm_request child is parented to the SERVER root.
 """
 
 import asyncio
@@ -27,24 +27,24 @@ from typing import Optional, Tuple
 import pytest
 from starlette.requests import Request
 
-import litellm
-from litellm.integrations.opentelemetry import LITELLM_PROXY_REQUEST_SPAN_NAME
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+import hangarllm
+from hangarllm.integrations.opentelemetry import HANGARLLM_PROXY_REQUEST_SPAN_NAME
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
     HttpPassThroughEndpointHelpers,
 )
-from litellm.proxy.pass_through_endpoints.streaming_handler import (
+from hangarllm.proxy.pass_through_endpoints.streaming_handler import (
     PassThroughStreamingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     EndpointType,
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from hangarllm.types.utils import Choices, Message, ModelResponse, Usage
 
 URL_ROUTE = "https://api.anthropic.com/v1/messages"
 MODEL = "claude-sonnet-4-5-20250929"
@@ -53,11 +53,11 @@ MODEL = "claude-sonnet-4-5-20250929"
 @pytest.fixture
 def otel_success_callback(otel_with_exporter, monkeypatch):
     """Register our in-memory OTEL instance where async_success_handler looks
-    for success callbacks (litellm._async_success_callback), so the real
+    for success callbacks (hangarllm._async_success_callback), so the real
     logging path drives it."""
     otel, exporter = otel_with_exporter
-    monkeypatch.setattr(litellm, "callbacks", [otel])
-    monkeypatch.setattr(litellm, "_async_success_callback", [otel])
+    monkeypatch.setattr(hangarllm, "callbacks", [otel])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [otel])
     return otel, exporter
 
 
@@ -79,7 +79,7 @@ def _make_request() -> Request:
 
 def _build_logging_obj_wired_to_root(
     root_span, *, stream: bool, extra_body: Optional[dict] = None
-) -> Tuple[LiteLLMLoggingObj, dict, datetime]:
+) -> Tuple[HangarLLMLoggingObj, dict, datetime]:
     """Mirror pass_through_endpoints.py: build the logging object and run the
     real _init_kwargs + update_environment_variables so the parent span lands
     on model_call_details exactly the way production wires it."""
@@ -89,13 +89,13 @@ def _build_logging_obj_wired_to_root(
         body.update(extra_body)
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", parent_otel_span=root_span)
     start_time = datetime.now()
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "hi"}],
         stream=stream,
         call_type="pass_through_endpoint",
         start_time=start_time,
-        litellm_call_id="lit-3443-call",
+        hangarllm_call_id="lit-3443-call",
         function_id="1245",
     )
     payload = PassthroughStandardLoggingPayload(
@@ -107,16 +107,16 @@ def _build_logging_obj_wired_to_root(
         passthrough_logging_payload=payload,
         logging_obj=logging_obj,
         _parsed_body=body,
-        litellm_call_id="lit-3443-call",
+        hangarllm_call_id="lit-3443-call",
     )
     logging_obj.update_environment_variables(
         model="unknown",
         user="unknown",
         optional_params={},
-        litellm_params=kwargs["litellm_params"],
+        hangarllm_params=kwargs["hangarllm_params"],
         call_type="pass_through_endpoint",
     )
-    logging_obj.model_call_details["litellm_call_id"] = "lit-3443-call"
+    logging_obj.model_call_details["hangarllm_call_id"] = "lit-3443-call"
     return logging_obj, kwargs, start_time
 
 
@@ -149,7 +149,7 @@ def _assert_root_closed_and_no_orphan(exporter, root_span, where):
     finished = exporter.get_finished_spans()
     root_ctx = root_span.get_span_context()
 
-    server_spans = [s for s in finished if s.name == LITELLM_PROXY_REQUEST_SPAN_NAME]
+    server_spans = [s for s in finished if s.name == HANGARLLM_PROXY_REQUEST_SPAN_NAME]
     assert server_spans, (
         f"{where}: SERVER root span was never ended/exported — exporter saw "
         f"{[s.name for s in finished]}"
@@ -169,12 +169,12 @@ def _assert_child_parented_to_root(exporter, root_span, where):
     children = [
         s
         for s in finished
-        if s.name != LITELLM_PROXY_REQUEST_SPAN_NAME
+        if s.name != HANGARLLM_PROXY_REQUEST_SPAN_NAME
         and s.parent is not None
         and s.parent.span_id == root_ctx.span_id
     ]
     assert children, (
-        f"{where}: no litellm_request child parented to the SERVER root — "
+        f"{where}: no hangarllm_request child parented to the SERVER root — "
         f"finished={[(s.name, s.parent and hex(s.parent.span_id)) for s in finished]}"
     )
     for child in children:
@@ -192,7 +192,7 @@ def test_non_streaming_passthrough_links_to_server_root(
     use_request_span,
 ):
     if use_request_span:
-        monkeypatch.setenv("USE_OTEL_LITELLM_REQUEST_SPAN", "true")
+        monkeypatch.setenv("USE_OTEL_HANGARLLM_REQUEST_SPAN", "true")
     _otel, exporter = otel_success_callback
     root = server_span_factory("/anthropic/v1/messages")
 
@@ -224,7 +224,7 @@ def test_streaming_passthrough_links_to_server_root(
     use_request_span,
 ):
     if use_request_span:
-        monkeypatch.setenv("USE_OTEL_LITELLM_REQUEST_SPAN", "true")
+        monkeypatch.setenv("USE_OTEL_HANGARLLM_REQUEST_SPAN", "true")
     _otel, exporter = otel_success_callback
     root = server_span_factory("/anthropic/v1/messages")
 
@@ -235,7 +235,7 @@ def test_streaming_passthrough_links_to_server_root(
     end_time = datetime.now()
     asyncio.run(
         PassThroughStreamingHandler._route_streaming_logging_to_handler(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=PassThroughEndpointLogging(),
             url_route=URL_ROUTE,
             request_body={"model": MODEL, "stream": True},
@@ -258,18 +258,18 @@ def test_client_body_metadata_cannot_clobber_parent_span(
     monkeypatch,
 ):
     """A passthrough request body whose metadata mirrors the internal
-    litellm_parent_otel_span key must not override the real parent span. The
+    hangarllm_parent_otel_span key must not override the real parent span. The
     internal span is wired after the client-metadata merge, so the SERVER root
     still links and closes. With the old ordering the JSON scalar would win and
-    the litellm_request span would orphan."""
-    monkeypatch.setenv("USE_OTEL_LITELLM_REQUEST_SPAN", "true")
+    the hangarllm_request span would orphan."""
+    monkeypatch.setenv("USE_OTEL_HANGARLLM_REQUEST_SPAN", "true")
     _otel, exporter = otel_success_callback
     root = server_span_factory("/anthropic/v1/messages")
 
     logging_obj, kwargs, start_time = _build_logging_obj_wired_to_root(
         root,
         stream=False,
-        extra_body={"metadata": {"litellm_parent_otel_span": "not-a-real-span"}},
+        extra_body={"metadata": {"hangarllm_parent_otel_span": "not-a-real-span"}},
     )
     end_time = datetime.now()
     asyncio.run(
@@ -290,7 +290,7 @@ def test_client_body_metadata_cannot_clobber_parent_span(
 def test_init_kwargs_internal_keys_resist_client_metadata(server_span_factory):
     """Deterministic contract test on _init_kwargs_for_pass_through_endpoint:
     a request body whose metadata mirrors the internal user_api_key and
-    litellm_parent_otel_span keys must not override the authenticated values.
+    hangarllm_parent_otel_span keys must not override the authenticated values.
     Pure dict assertion, no async or OTEL execution. Fails on the old ordering
     where the client values were merged in last."""
     real_span = server_span_factory("/anthropic/v1/messages")
@@ -302,16 +302,16 @@ def test_init_kwargs_internal_keys_resist_client_metadata(server_span_factory):
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": {
             "user_api_key": "sk-SPOOFED",
-            "litellm_parent_otel_span": "not-a-real-span",
+            "hangarllm_parent_otel_span": "not-a-real-span",
         },
     }
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="lit-3443-clobber",
+        hangarllm_call_id="lit-3443-clobber",
         function_id="1245",
     )
     payload = PassthroughStandardLoggingPayload(
@@ -323,11 +323,11 @@ def test_init_kwargs_internal_keys_resist_client_metadata(server_span_factory):
         passthrough_logging_payload=payload,
         logging_obj=logging_obj,
         _parsed_body=body,
-        litellm_call_id="lit-3443-clobber",
+        hangarllm_call_id="lit-3443-clobber",
     )
-    md = kwargs["litellm_params"]["metadata"]
+    md = kwargs["hangarllm_params"]["metadata"]
     # api_key is stored hashed on the auth object; the authenticated value must
     # win over the client-supplied spoof.
     assert md["user_api_key"] == user_api_key_dict.api_key
     assert md["user_api_key"] != "sk-SPOOFED"
-    assert md["litellm_parent_otel_span"] is real_span
+    assert md["hangarllm_parent_otel_span"] is real_span

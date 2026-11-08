@@ -43,7 +43,7 @@ tests:
               pathType: Prefix
               backend:
                 service:
-                  name: RELEASE-NAME-litellm-ui
+                  name: RELEASE-NAME-hangarllm-ui
                   port:
                     number: 3000
       - equal:
@@ -56,7 +56,7 @@ tests:
               pathType: Prefix
               backend:
                 service:
-                  name: RELEASE-NAME-litellm-backend
+                  name: RELEASE-NAME-hangarllm-backend
                   port:
                     number: 4001
       - equal:
@@ -69,7 +69,7 @@ tests:
               pathType: Prefix
               backend:
                 service:
-                  name: RELEASE-NAME-litellm-gateway
+                  name: RELEASE-NAME-hangarllm-gateway
                   port:
                     number: 4000
 
@@ -231,20 +231,20 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_GATEWAY_URL
+            name: HANGARLLM_GATEWAY_URL
             value: https://gateway.example.com
 
   - it: preserves the backend gateway URL verbatim in single-host mode
     set:
       ingress.enabled: true
-      ingress.host: litellm.example.com
+      ingress.host: hangarllm.example.com
       backend.gatewayUrl: "  https://gateway.example.com/api/  "
     template: backend/deployment.yaml
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_GATEWAY_URL
+            name: HANGARLLM_GATEWAY_URL
             value: "  https://gateway.example.com/api/  "
 
   - it: exposes the backend URL in the UI Deployment
@@ -261,20 +261,20 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_BACKEND_URL
+            name: HANGARLLM_BACKEND_URL
             value: https://backend.example.com
 
   - it: omits the backend URL from the UI Deployment in single-host mode
     set:
       ingress.enabled: true
-      ingress.host: litellm.example.com
-      ui.backendUrl: https://litellm.example.com/api
+      ingress.host: hangarllm.example.com
+      ui.backendUrl: https://hangarllm.example.com/api
     template: ui/deployment.yaml
     asserts:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_BACKEND_URL
+            name: HANGARLLM_BACKEND_URL
           any: true
 
   - it: enables credentialed CORS from the public UI origin on the backend
@@ -285,45 +285,45 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_CORS_ORIGINS
+            name: HANGARLLM_CORS_ORIGINS
             value: https://ui.example.com
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_CORS_ALLOW_CREDENTIALS
+            name: HANGARLLM_CORS_ALLOW_CREDENTIALS
             value: "true"
 
   - it: lets backend extraEnv override generated CORS values
     set:
       ui.publicUrl: https://ui.example.com
       backend.extraEnv:
-        - name: LITELLM_CORS_ORIGINS
+        - name: HANGARLLM_CORS_ORIGINS
           value: https://backend-override.example.com
-        - name: LITELLM_CORS_ALLOW_CREDENTIALS
+        - name: HANGARLLM_CORS_ALLOW_CREDENTIALS
           value: "false"
     template: backend/deployment.yaml
     asserts:
       - equal:
           path: spec.template.spec.containers[0].env[0].name
-          value: LITELLM_CORS_ORIGINS
+          value: HANGARLLM_CORS_ORIGINS
       - equal:
           path: spec.template.spec.containers[0].env[0].value
           value: https://ui.example.com
       - equal:
           path: spec.template.spec.containers[0].env[1].name
-          value: LITELLM_CORS_ALLOW_CREDENTIALS
+          value: HANGARLLM_CORS_ALLOW_CREDENTIALS
       - equal:
           path: spec.template.spec.containers[0].env[1].value
           value: "true"
       - equal:
           path: spec.template.spec.containers[0].env[10].name
-          value: LITELLM_CORS_ORIGINS
+          value: HANGARLLM_CORS_ORIGINS
       - equal:
           path: spec.template.spec.containers[0].env[10].value
           value: https://backend-override.example.com
       - equal:
           path: spec.template.spec.containers[0].env[11].name
-          value: LITELLM_CORS_ALLOW_CREDENTIALS
+          value: HANGARLLM_CORS_ALLOW_CREDENTIALS
       - equal:
           path: spec.template.spec.containers[0].env[11].value
           value: "false"
@@ -336,12 +336,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_CORS_ORIGINS
+            name: HANGARLLM_CORS_ORIGINS
             value: https://ui.example.com
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_CORS_ALLOW_CREDENTIALS
+            name: HANGARLLM_CORS_ALLOW_CREDENTIALS
             value: "true"
 
   - it: trims the public UI origin before setting backend CORS
@@ -352,7 +352,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_CORS_ORIGINS
+            name: HANGARLLM_CORS_ORIGINS
             value: https://ui.example.com
 
   - it: trims the public UI origin before setting gateway CORS
@@ -363,7 +363,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_CORS_ORIGINS
+            name: HANGARLLM_CORS_ORIGINS
             value: https://ui.example.com
 
   - it: rejects a UI public URL with a path
@@ -378,19 +378,19 @@ tests:
     set:
       ui.publicUrl: https://ui.example.com
       gateway.extraEnv:
-        - name: LITELLM_CORS_ORIGINS
+        - name: HANGARLLM_CORS_ORIGINS
           value: https://gateway-override.example.com
     template: gateway/deployment.yaml
     asserts:
       - equal:
           path: spec.template.spec.containers[0].env[0].name
-          value: LITELLM_CORS_ORIGINS
+          value: HANGARLLM_CORS_ORIGINS
       - equal:
           path: spec.template.spec.containers[0].env[0].value
           value: https://ui.example.com
       - equal:
           path: spec.template.spec.containers[0].env[9].name
-          value: LITELLM_CORS_ORIGINS
+          value: HANGARLLM_CORS_ORIGINS
       - equal:
           path: spec.template.spec.containers[0].env[9].value
           value: https://gateway-override.example.com

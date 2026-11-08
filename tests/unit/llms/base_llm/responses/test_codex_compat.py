@@ -11,7 +11,7 @@ from functools import partial
 
 import pytest
 
-from litellm.llms.base_llm.responses.codex_compat import normalize_codex_input_items
+from hangarllm.llms.base_llm.responses.codex_compat import normalize_codex_input_items
 
 normalize = partial(normalize_codex_input_items, keep_encrypted_agent_messages=True)
 

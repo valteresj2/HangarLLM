@@ -12,9 +12,9 @@ from typing import Final
 
 import pytest
 from integration._support.tls import server_context, write_self_signed_cert
-import litellm
-from litellm import Router, completion
-from litellm.caching.caching import Cache, LiteLLMCacheType
+import hangarllm
+from hangarllm import Router, completion
+from hangarllm.caching.caching import Cache, HangarLLMCacheType
 from redis import Redis
 
 PAYLOAD: Final = {"transport": "tls"}
@@ -71,7 +71,7 @@ def _router(redis_url: str) -> Router:
         model_list=[
             {
                 "model_name": "tls-cache",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "synthetic-tls-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "synthetic-tls-key"},
             }
         ],
         redis_url=redis_url,
@@ -112,9 +112,9 @@ def test_sync_router_cache_built_from_a_rediss_url_talks_tls_to_redis(tmp_path: 
 def test_caching_v2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with tls_relay(tmp_path) as relay:
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "cache",
-            Cache(type=LiteLLMCacheType.REDIS, url=relay.url),
+            Cache(type=HangarLLMCacheType.REDIS, url=relay.url),
         )
         messages: Final = [{"role": "user", "content": f"tls cache {uuid.uuid4().hex}"}]
         first: Final = completion(
@@ -135,13 +135,13 @@ def test_caching_v2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_caching_router(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", None)
+    monkeypatch.setattr(hangarllm, "cache", None)
     with tls_relay(tmp_path) as relay:
         router: Final = Router(
             model_list=[
                 {
                     "model_name": "tls-cache",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "synthetic-tls-key",
                         "mock_response": "cached through router",

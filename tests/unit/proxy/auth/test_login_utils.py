@@ -20,13 +20,13 @@ import pytest
 import respx
 
 if TYPE_CHECKING:
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
 
 def _unlimited_throttle():
     """A throttle wired to real in-memory stores with limits no test can reach."""
-    from litellm.caching.in_memory_cache import InMemoryCache
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.caching.in_memory_cache import InMemoryCache
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     return LoginThrottle(
         client_ip="1.2.3.4",
@@ -39,16 +39,16 @@ def _unlimited_throttle():
     )
 
 
-from litellm.constants import LITELLM_PROXY_ADMIN_NAME
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import (
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+from hangarllm.constants import HANGARLLM_PROXY_ADMIN_NAME
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import (
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     ProxyErrorTypes,
     ProxyException,
     hash_token,
 )
-from litellm.proxy.auth.login_utils import (
+from hangarllm.proxy.auth.login_utils import (
     LoginResult,
     authenticate_user,
     get_ui_credentials,
@@ -63,7 +63,7 @@ _SESSION_SECRET = "unit-test-session-secret-0123456789abcdef"
 _POLICY_NO_BREACH_CHECK = {"password_policy_check_breached_passwords": False}
 
 
-from litellm.hangar.proxy.ui_session import SESSION_COOKIE, seal  # noqa: E402
+from hangarllm.hangar.proxy.ui_session import SESSION_COOKIE, seal  # noqa: E402
 
 
 def test_get_ui_credentials_prefers_explicit_password():
@@ -82,7 +82,7 @@ def test_get_ui_credentials_prefers_explicit_password():
 def test_get_ui_credentials_uses_master_key_only_after_explicit_opt_in():
     with patch.dict(
         os.environ,
-        {"UI_USERNAME": "fallback-admin", "LITELLM_ALLOW_MASTER_KEY_UI_LOGIN": "true"},
+        {"UI_USERNAME": "fallback-admin", "HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN": "true"},
         clear=True,
     ):
         username, password = get_ui_credentials(master_key="fallback-key")
@@ -117,7 +117,7 @@ async def test_authenticate_user_admin_login_with_ui_credentials():
     ui_password = MASTER_KEY
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
     with patch.dict(
         os.environ,
@@ -128,21 +128,21 @@ async def test_authenticate_user_admin_login_with_ui_credentials():
         },
     ):
         with patch(
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key:
             mock_generate_key.return_value = {
                 "token": "test-token-123",
-                "user_id": LITELLM_PROXY_ADMIN_NAME,
+                "user_id": HANGARLLM_PROXY_ADMIN_NAME,
             }
 
             with patch(
-                "litellm.proxy.auth.login_utils.user_update",
+                "hangarllm.proxy.auth.login_utils.user_update",
                 new_callable=AsyncMock,
                 return_value=None,
             ) as mock_user_update:
                 with patch(
-                    "litellm.proxy.auth.login_utils.get_secret_bool",
+                    "hangarllm.proxy.auth.login_utils.get_secret_bool",
                     return_value=False,
                 ):
                     result = await authenticate_user(
@@ -154,22 +154,22 @@ async def test_authenticate_user_admin_login_with_ui_credentials():
                     )
 
                     assert isinstance(result, LoginResult)
-                    assert result.user_id == LITELLM_PROXY_ADMIN_NAME
+                    assert result.user_id == HANGARLLM_PROXY_ADMIN_NAME
                     assert result.key == "test-token-123"
                     assert result.user_email is None
-                    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+                    assert result.user_role == HangarllmUserRoles.PROXY_ADMIN
                     assert result.login_method == "username_password"
 
 
 @pytest.mark.asyncio
 async def test_authenticate_user_admin_login_with_master_key_as_password(monkeypatch):
     """With the explicit opt-in, admin login falls back to master_key when UI_PASSWORD is not set."""
-    monkeypatch.setenv("LITELLM_ALLOW_MASTER_KEY_UI_LOGIN", "true")
+    monkeypatch.setenv("HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN", "true")
     master_key = MASTER_KEY
     ui_username = "admin"
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
     env_vars = {
         "UI_USERNAME": ui_username,
@@ -187,21 +187,21 @@ async def test_authenticate_user_admin_login_with_master_key_as_password(monkeyp
         # Explicitly remove UI_PASSWORD if it exists
         monkeypatch.delenv("UI_PASSWORD", raising=False)
         with patch(
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key:
             mock_generate_key.return_value = {
                 "token": "test-token-123",
-                "user_id": LITELLM_PROXY_ADMIN_NAME,
+                "user_id": HANGARLLM_PROXY_ADMIN_NAME,
             }
 
             with patch(
-                "litellm.proxy.auth.login_utils.user_update",
+                "hangarllm.proxy.auth.login_utils.user_update",
                 new_callable=AsyncMock,
                 return_value=None,
             ) as mock_user_update:
                 with patch(
-                    "litellm.proxy.auth.login_utils.get_secret_bool",
+                    "hangarllm.proxy.auth.login_utils.get_secret_bool",
                     return_value=False,
                 ):
                     result = await authenticate_user(
@@ -213,8 +213,8 @@ async def test_authenticate_user_admin_login_with_master_key_as_password(monkeyp
                     )
 
                     assert isinstance(result, LoginResult)
-                    assert result.user_id == LITELLM_PROXY_ADMIN_NAME
-                    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+                    assert result.user_id == HANGARLLM_PROXY_ADMIN_NAME
+                    assert result.user_role == HangarllmUserRoles.PROXY_ADMIN
 
 
 @pytest.mark.asyncio
@@ -225,7 +225,7 @@ async def test_authenticate_user_invalid_credentials():
     wrong_password = "wrong-password"
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
     with patch.dict(os.environ, {"UI_USERNAME": ui_username, "UI_PASSWORD": "correct-password"}):
         with pytest.raises(ProxyException) as exc_info:
@@ -271,15 +271,15 @@ async def test_authenticate_user_wrong_password():
     wrong_password = "wrong-password"
     hashed_password = hash_token(token=correct_password)
 
-    mock_user = LiteLLM_UserTable(
+    mock_user = HangarLLM_UserTable(
         user_id="test-user-123",
         user_email=user_email,
         password=hashed_password,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=mock_user)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=mock_user)
 
     with patch.dict(
         os.environ,
@@ -312,13 +312,13 @@ async def test_authenticate_user_email_case_insensitive_login():
     correct_password = "correct-password"
     hashed_password = hash_token(token=correct_password)
 
-    # `LiteLLM_UserTable` does not define a `password` field, but `authenticate_user()`
+    # `HangarLLM_UserTable` does not define a `password` field, but `authenticate_user()`
     # expects `user_row.password` to exist (invite-link login). Use a simple object.
     mock_user = MagicMock()
     mock_user.user_id = "test-user-123"
     mock_user.user_email = stored_email
     mock_user.password = hashed_password
-    mock_user.user_role = LitellmUserRoles.INTERNAL_USER
+    mock_user.user_role = HangarllmUserRoles.INTERNAL_USER
 
     def mock_find_first(**kwargs):
         where = kwargs.get("where", {})
@@ -330,7 +330,7 @@ async def test_authenticate_user_email_case_insensitive_login():
         return None
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(side_effect=mock_find_first)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(side_effect=mock_find_first)
 
     with patch.dict(
         os.environ,
@@ -341,7 +341,7 @@ async def test_authenticate_user_email_case_insensitive_login():
         },
     ):
         with patch(
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key:
             mock_generate_key.side_effect = [
@@ -369,7 +369,7 @@ async def test_authenticate_user_email_case_insensitive_login():
     assert result_mixed.user_id == result_lower.user_id == "test-user-123"
     assert result_mixed.user_email == result_lower.user_email == stored_email
 
-    calls = mock_prisma_client.db.litellm_usertable.find_first.await_args_list
+    calls = mock_prisma_client.db.hangarllm_usertable.find_first.await_args_list
     assert len(calls) == 2
     for call, expected_username in zip(calls, [login_email_mixed_case, stored_email]):
         where = call.kwargs["where"]
@@ -385,11 +385,11 @@ async def test_authenticate_user_database_required_for_admin(monkeypatch):
     ui_password = MASTER_KEY
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
     with patch.dict(os.environ, {"UI_USERNAME": ui_username, "UI_PASSWORD": ui_password}):
         with patch(
-            "litellm.proxy.auth.login_utils.user_update",
+            "hangarllm.proxy.auth.login_utils.user_update",
             new_callable=AsyncMock,
             return_value=None,
         ):
@@ -424,7 +424,7 @@ async def test_authenticate_user_admin_login_with_non_ascii_characters():
     ui_password = "sk-9876£pass"
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
     with patch.dict(
         os.environ,
@@ -435,21 +435,21 @@ async def test_authenticate_user_admin_login_with_non_ascii_characters():
         },
     ):
         with patch(
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key:
             mock_generate_key.return_value = {
                 "token": "test-token-123",
-                "user_id": LITELLM_PROXY_ADMIN_NAME,
+                "user_id": HANGARLLM_PROXY_ADMIN_NAME,
             }
 
             with patch(
-                "litellm.proxy.auth.login_utils.user_update",
+                "hangarllm.proxy.auth.login_utils.user_update",
                 new_callable=AsyncMock,
                 return_value=None,
             ) as mock_user_update:
                 with patch(
-                    "litellm.proxy.auth.login_utils.get_secret_bool",
+                    "hangarllm.proxy.auth.login_utils.get_secret_bool",
                     return_value=False,
                 ):
                     result = await authenticate_user(
@@ -461,9 +461,9 @@ async def test_authenticate_user_admin_login_with_non_ascii_characters():
                     )
 
                     assert isinstance(result, LoginResult)
-                    assert result.user_id == LITELLM_PROXY_ADMIN_NAME
+                    assert result.user_id == HANGARLLM_PROXY_ADMIN_NAME
                     assert result.key == "test-token-123"
-                    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+                    assert result.user_role == HangarllmUserRoles.PROXY_ADMIN
 
 
 def test_authenticate_user_non_ascii_direct_comparison():
@@ -498,7 +498,7 @@ async def test_authenticate_user_multiple_logins_generate_unique_tokens():
     ui_password = MASTER_KEY
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
     with patch.dict(
         os.environ,
@@ -509,23 +509,23 @@ async def test_authenticate_user_multiple_logins_generate_unique_tokens():
         },
     ):
         with patch(
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key:
             # Each login should generate a unique token
             mock_generate_key.side_effect = [
-                {"token": "session-token-1", "user_id": LITELLM_PROXY_ADMIN_NAME},
-                {"token": "session-token-2", "user_id": LITELLM_PROXY_ADMIN_NAME},
-                {"token": "session-token-3", "user_id": LITELLM_PROXY_ADMIN_NAME},
+                {"token": "session-token-1", "user_id": HANGARLLM_PROXY_ADMIN_NAME},
+                {"token": "session-token-2", "user_id": HANGARLLM_PROXY_ADMIN_NAME},
+                {"token": "session-token-3", "user_id": HANGARLLM_PROXY_ADMIN_NAME},
             ]
 
             with patch(
-                "litellm.proxy.auth.login_utils.user_update",
+                "hangarllm.proxy.auth.login_utils.user_update",
                 new_callable=AsyncMock,
                 return_value=None,
             ):
                 with patch(
-                    "litellm.proxy.auth.login_utils.get_secret_bool",
+                    "hangarllm.proxy.auth.login_utils.get_secret_bool",
                     return_value=False,
                 ):
                     # Simulate multiple logins from the same user
@@ -575,7 +575,7 @@ async def test_authenticate_user_database_login_with_non_ascii_password():
     mock_user.user_id = "test-user-123"
     mock_user.user_email = user_email
     mock_user.password = hashed_password
-    mock_user.user_role = LitellmUserRoles.INTERNAL_USER
+    mock_user.user_role = HangarllmUserRoles.INTERNAL_USER
 
     def mock_find_first(**kwargs):
         where = kwargs.get("where", {})
@@ -585,7 +585,7 @@ async def test_authenticate_user_database_login_with_non_ascii_password():
         return None
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(side_effect=mock_find_first)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(side_effect=mock_find_first)
 
     with patch.dict(
         os.environ,
@@ -596,7 +596,7 @@ async def test_authenticate_user_database_login_with_non_ascii_password():
         },
     ):
         with patch(
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key:
             mock_generate_key.return_value = {"token": "token-123"}
@@ -628,12 +628,12 @@ class TestEncodeUiSessionJwt:
     def test_encoded_cookie_carries_bounded_exp(self):
         import time
 
-        from litellm.proxy.auth.login_utils import encode_ui_session_jwt
+        from hangarllm.proxy.auth.login_utils import encode_ui_session_jwt
 
         token_object = {"user_id": "u1", "key": "sk-abc", "login_method": "username_password"}
         with (
-            patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "24h"),
-            patch.dict(os.environ, {"LITELLM_UI_SESSION_SECRET": _SESSION_SECRET}),
+            patch("hangarllm.proxy.auth.login_utils.HANGARLLM_UI_SESSION_DURATION", "24h"),
+            patch.dict(os.environ, {"HANGARLLM_UI_SESSION_SECRET": _SESSION_SECRET}),
         ):
             token = encode_ui_session_jwt(token_object)
         claims = self._decode(token)
@@ -645,11 +645,11 @@ class TestEncodeUiSessionJwt:
     def test_duration_is_honored_from_env(self):
         import time
 
-        from litellm.proxy.auth.login_utils import encode_ui_session_jwt
+        from hangarllm.proxy.auth.login_utils import encode_ui_session_jwt
 
         with (
-            patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "1h"),
-            patch.dict(os.environ, {"LITELLM_UI_SESSION_SECRET": _SESSION_SECRET}),
+            patch("hangarllm.proxy.auth.login_utils.HANGARLLM_UI_SESSION_DURATION", "1h"),
+            patch.dict(os.environ, {"HANGARLLM_UI_SESSION_SECRET": _SESSION_SECRET}),
         ):
             token = encode_ui_session_jwt({"user_id": "u1"})
         remaining = self._decode(token)["exp"] - int(time.time())
@@ -662,15 +662,15 @@ class TestEncodeUiSessionJwt:
         this helper must now be accepted."""
         from unittest.mock import MagicMock
 
-        from litellm.proxy.auth.login_utils import encode_ui_session_jwt
-        from litellm.proxy.mcp_server.byok_oauth_endpoints import (
+        from hangarllm.proxy.auth.login_utils import encode_ui_session_jwt
+        from hangarllm.proxy.mcp_server.byok_oauth_endpoints import (
             user_id_from_session_cookie,
         )
 
         token_object = {"user_id": "cornell-user", "key": "sk-abc", "login_method": "sso"}
         with (
-            patch("litellm.proxy.auth.login_utils.LITELLM_UI_SESSION_DURATION", "24h"),
-            patch.dict(os.environ, {"LITELLM_UI_SESSION_SECRET": _SESSION_SECRET}),
+            patch("hangarllm.proxy.auth.login_utils.HANGARLLM_UI_SESSION_DURATION", "24h"),
+            patch.dict(os.environ, {"HANGARLLM_UI_SESSION_SECRET": _SESSION_SECRET}),
         ):
             token = encode_ui_session_jwt(token_object)
             request = MagicMock()
@@ -688,8 +688,8 @@ def _throttle(
     redis_cache=None,
 ):
     """A throttle over real in-memory stores, so the tests exercise the true counters and blocks."""
-    from litellm.caching.in_memory_cache import InMemoryCache
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.caching.in_memory_cache import InMemoryCache
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     counters, blocks = stores if stores is not None else (InMemoryCache(), InMemoryCache())
     return LoginThrottle(
@@ -705,19 +705,19 @@ def _throttle(
 
 
 def _set_throttle_clock(monkeypatch: pytest.MonkeyPatch, now: float) -> None:
-    from litellm.proxy.auth import login_throttle
+    from hangarllm.proxy.auth import login_throttle
 
     monkeypatch.setattr(login_throttle, "time", SimpleNamespace(time=lambda: now))
 
 
 def _stores():
-    from litellm.caching.in_memory_cache import InMemoryCache
+    from hangarllm.caching.in_memory_cache import InMemoryCache
 
     return InMemoryCache(), InMemoryCache()
 
 
 async def _guess(throttle, username: str = "admin", password: str = "wrong"):
-    from litellm.proxy.auth.login_utils import authenticate_user
+    from hangarllm.proxy.auth.login_utils import authenticate_user
 
     return await authenticate_user(
         username=username,
@@ -730,7 +730,7 @@ async def _guess(throttle, username: str = "admin", password: str = "wrong"):
 
 async def _fail(throttle, username: str = "admin") -> str:
     """One wrong guess; returns the status code it was answered with."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     with pytest.raises(ProxyException) as exc:
         await _guess(throttle, username=username)
@@ -750,20 +750,20 @@ def _known_user(email: str = "known@example.com"):
 
 async def _db_login(throttle, username: str, password: str, *, correct: bool):
     """A database user's sign-in with the stored hash faked, so no database or scrypt is needed."""
-    from litellm.proxy.auth.login_utils import authenticate_user
+    from hangarllm.proxy.auth.login_utils import authenticate_user
 
     with (
         patch(  # test-quality-ok: the user lookup is the database boundary; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.UserRepository", _known_user(username)
+            "hangarllm.proxy.auth.login_utils.UserRepository", _known_user(username)
         ),
         patch(  # test-quality-ok: reaches the known-DB-user branch without a database
-            "litellm.proxy.auth.login_utils.verify_password", return_value=correct
+            "hangarllm.proxy.auth.login_utils.verify_password", return_value=correct
         ),
         patch(  # test-quality-ok: the rehash writes to the database; faked so no DB is needed
-            "litellm.proxy.auth.login_utils._rehash_password_if_needed", new=AsyncMock()
+            "hangarllm.proxy.auth.login_utils._rehash_password_if_needed", new=AsyncMock()
         ),
         patch(  # test-quality-ok: success mints a UI key; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
         ),
     ):
         return await authenticate_user(
@@ -784,7 +784,7 @@ def _local_count(throttle, key: str) -> int:
 async def test_too_many_failures_for_one_username_block_that_pair_and_carry_retry_after(monkeypatch):
     """One failure past the pair limit blocks the source for that username; the next guess is answered 429
     with the block's remaining time, and the counter is not touched by blocked guesses."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -807,8 +807,8 @@ async def test_too_many_failures_for_one_username_block_that_pair_and_carry_retr
 async def test_a_blocked_key_is_refused_before_the_password_is_looked_at(monkeypatch):
     """The block is the rate cap: once a key is blocked, nothing from it reaches the user lookup or the
     password check, so a guessing script gets no verification work out of the proxy."""
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.login_utils import authenticate_user
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.auth.login_utils import authenticate_user
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -821,10 +821,10 @@ async def test_a_blocked_key_is_refused_before_the_password_is_looked_at(monkeyp
     verify = MagicMock(return_value=True)
     with (
         patch(  # test-quality-ok: the user lookup is the database boundary; a blocked attempt must not reach it
-            "litellm.proxy.auth.login_utils.UserRepository", lookup
+            "hangarllm.proxy.auth.login_utils.UserRepository", lookup
         ),
         patch(  # test-quality-ok: the password check is the expensive step; a blocked attempt must not reach it
-            "litellm.proxy.auth.login_utils.verify_password", verify
+            "hangarllm.proxy.auth.login_utils.verify_password", verify
         ),
         pytest.raises(ProxyException) as refused,
     ):
@@ -948,7 +948,7 @@ async def test_too_many_failures_across_usernames_block_the_whole_source(monkeyp
 async def test_without_trusted_proxy_ranges_the_source_scope_is_off(monkeypatch):
     """Behind an ingress every client shares the peer address, so a source-wide block would block them all.
     The pair scope still applies."""
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -969,7 +969,7 @@ async def test_without_trusted_proxy_ranges_the_source_scope_is_off(monkeypatch)
 async def test_an_empty_trusted_proxy_ranges_means_the_peer_is_the_client_and_the_source_scope_is_on(monkeypatch):
     """An explicit empty list says there are no proxies: the peer address is the client, the forwarded header
     is ignored, and the source-wide limit applies. Only an unset key means the topology is unknown."""
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1011,7 +1011,7 @@ def test_a_trusted_proxy_ranges_value_that_names_no_ranges_leaves_the_topology_u
     """Only a list of valid ranges or an explicit empty list counts as a declaration; anything else, including a
     list with one bad entry, is the same as unset, so a typo cannot switch the source-wide block on against
     the shared ingress address and lock out everyone behind it."""
-    from litellm.proxy.auth.login_throttle import LoginThrottle, declared_proxy_ranges
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle, declared_proxy_ranges
 
     settings = {"trusted_proxy_ranges": configured} if configured is not None else {}
     assert declared_proxy_ranges(settings) is None
@@ -1026,7 +1026,7 @@ def test_a_trusted_proxy_ranges_value_that_names_no_ranges_leaves_the_topology_u
 
 
 def test_declared_proxy_ranges_distinguishes_none_from_empty_from_configured():
-    from litellm.proxy.auth.login_throttle import declared_proxy_ranges
+    from hangarllm.proxy.auth.login_throttle import declared_proxy_ranges
 
     assert declared_proxy_ranges({}) is None
     assert declared_proxy_ranges({"trusted_proxy_ranges": []}) == ()
@@ -1043,7 +1043,7 @@ def test_declared_proxy_ranges_distinguishes_none_from_empty_from_configured():
 @pytest.mark.asyncio
 async def test_with_trusted_proxy_ranges_the_source_is_the_forwarded_client(monkeypatch):
     """The header is walked right to left past the trusted hops, so a forged left-most entry cannot pick the bucket."""
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1066,7 +1066,7 @@ async def test_with_trusted_proxy_ranges_the_source_is_the_forwarded_client(monk
 
 def test_source_overrides_pick_the_most_specific_matching_range():
     """An exact address beats a /16 beats a /8; an address in none of them keeps the default."""
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     settings = {
         "trusted_proxy_ranges": ["10.0.0.0/8"],
@@ -1115,7 +1115,7 @@ def test_equivalent_override_keys_resolve_to_the_exemption_then_the_higher_limit
 
 def test_ipv6_sources_are_grouped_by_their_64_bit_prefix():
     """A /64 holder has 2^64 addresses; counting each one separately would hand them unlimited fresh buckets."""
-    from litellm.proxy.auth.login_throttle import source_group
+    from hangarllm.proxy.auth.login_throttle import source_group
 
     assert source_group("2001:db8:1:2::1") == source_group("2001:db8:1:2:ffff:ffff:ffff:ffff") == "2001:db8:1:2::/64"
     assert source_group("2001:db8:1:3::1") != source_group("2001:db8:1:2::1")
@@ -1213,7 +1213,7 @@ async def test_the_block_time_is_fixed_and_not_refreshed_by_blocked_guesses(monk
 async def test_the_configured_admin_credentials_are_not_exempt_from_the_block(monkeypatch):
     """Exempting the env credentials would make them the one password worth guessing without limit, so the
     right UI_PASSWORD is refused while its pair is blocked, and signs in normally once the block lapses."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1224,10 +1224,10 @@ async def test_the_configured_admin_credentials_are_not_exempt_from_the_block(mo
 
     with (
         patch(  # test-quality-ok: the admin sign-in upserts the admin row; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.user_update", new=AsyncMock()
+            "hangarllm.proxy.auth.login_utils.user_update", new=AsyncMock()
         ),
         patch(  # test-quality-ok: success mints a UI key and persists the user; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
         ),
     ):
         with pytest.raises(ProxyException) as refused:
@@ -1243,7 +1243,7 @@ async def test_the_configured_admin_credentials_are_not_exempt_from_the_block(mo
 async def test_the_master_key_used_as_the_ui_password_is_not_exempt_from_the_block(monkeypatch):
     """Without UI_PASSWORD the master key doubles as the admin password; it gets no special treatment here
     either. Lockout recovery is the master key as a bearer token over the API, which never enters this path."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.delenv("UI_PASSWORD", raising=False)
@@ -1260,7 +1260,7 @@ async def test_the_master_key_used_as_the_ui_password_is_not_exempt_from_the_blo
 @pytest.mark.asyncio
 async def test_a_configuration_error_never_counts(monkeypatch):
     """A 500 from an unset master key is not a guess and must not consume the budget."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     throttle = _throttle(user_limit=2)
     for _ in range(5):
@@ -1289,7 +1289,7 @@ async def test_the_username_is_case_folded_into_one_pair(monkeypatch):
 @pytest.mark.asyncio
 async def test_both_credential_rejections_are_indistinguishable(monkeypatch):
     """One message for the known and the unknown username, so responses do not enumerate."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1306,7 +1306,7 @@ async def test_both_credential_rejections_are_indistinguishable(monkeypatch):
 @pytest.mark.asyncio
 async def test_a_user_with_no_password_set_does_not_consume_the_budget(monkeypatch):
     """That 401 is deterministic and guards no secret, so counting it would only let someone burn the pair."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1321,7 +1321,7 @@ async def test_a_user_with_no_password_set_does_not_consume_the_budget(monkeypat
     repo.return_value.table.find_first = AsyncMock(return_value=passwordless)
 
     with patch(  # test-quality-ok: reaches the passwordless-DB-user branch without a database
-        "litellm.proxy.auth.login_utils.UserRepository", repo
+        "hangarllm.proxy.auth.login_utils.UserRepository", repo
     ):
         for _ in range(5):
             with pytest.raises(ProxyException) as exc:
@@ -1340,7 +1340,7 @@ async def test_a_user_with_no_password_set_does_not_consume_the_budget(monkeypat
 @pytest.mark.asyncio
 async def test_a_wrong_password_for_a_known_user_also_counts(monkeypatch):
     """The database-user branch must charge the pair too, not just the unknown-user branch."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1360,7 +1360,7 @@ async def test_a_wrong_password_for_a_known_user_also_counts(monkeypatch):
 async def test_a_source_block_outranks_a_pair_block_in_the_retry_after(monkeypatch):
     """When both scopes are blocked, the answer carries the source block's time, which is the one that
     still applies to every other username from that address."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1407,7 +1407,7 @@ class _FakeRedis:
         self.scripts: list[str] = []
 
     def async_register_script(self, script: str):
-        from litellm.proxy.auth import login_throttle as lt
+        from hangarllm.proxy.auth import login_throttle as lt
 
         async def _run(keys, args):
             self.scripts.append(script)
@@ -1457,7 +1457,7 @@ class _DownRedis(_FakeRedis):
 @pytest.mark.asyncio
 async def test_redis_is_the_only_counter_while_it_answers(monkeypatch):
     """Every worker must spend the same budget, see the same block, and a success must clear the pair for all."""
-    from litellm.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
+    from hangarllm.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1490,8 +1490,8 @@ async def test_a_redis_outage_falls_back_to_this_workers_own_counter(monkeypatch
     """With Redis raising, guesses are still counted and blocked per worker, with a warning, instead of unbounded."""
     import logging
 
-    from litellm._logging import verbose_proxy_logger
-    from litellm.proxy._types import ProxyException
+    from hangarllm._logging import verbose_proxy_logger
+    from hangarllm.proxy._types import ProxyException
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1534,9 +1534,9 @@ async def test_a_failed_redis_delete_still_clears_this_workers_counter(monkeypat
 @pytest.mark.asyncio
 async def test_counters_do_not_share_the_key_authentication_cache(monkeypatch):
     """Regression: throttle entries must not evict cached credentials from user_api_key_cache."""
-    from litellm.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
+    from hangarllm.proxy import proxy_server as ps
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1557,7 +1557,7 @@ async def test_counters_do_not_share_the_key_authentication_cache(monkeypatch):
 
 def test_settings_that_arrive_as_environment_strings_are_honored():
     """An `os.environ/VAR` reference in general_settings resolves to a string, not an int."""
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     request = MagicMock()
     request.headers = {"x-forwarded-for": "203.0.113.9"}
@@ -1582,7 +1582,7 @@ def test_settings_that_arrive_as_environment_strings_are_honored():
 
 
 def test_the_defaults_are_the_agreed_ones():
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     request = MagicMock()
     request.headers = {"x-forwarded-for": "203.0.113.9"}
@@ -1608,13 +1608,13 @@ def test_the_defaults_are_the_agreed_ones():
 def test_the_per_username_allowance_is_half_the_address_allowance_rounded_down_at_least_one(
     source_limit, expected_user_limit
 ):
-    from litellm.proxy.auth.login_throttle import user_limit_for
+    from hangarllm.proxy.auth.login_throttle import user_limit_for
 
     assert user_limit_for(source_limit) == expected_user_limit
 
 
 def _throttle_behind_trusted_proxy(client_ip: str, settings: Mapping[str, object]) -> "LoginThrottle":
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     request = MagicMock()
     request.headers = {"x-forwarded-for": client_ip}
@@ -1662,7 +1662,7 @@ async def test_an_override_of_zero_exempts_that_address_from_both_limits():
 
 def test_the_per_username_allowance_follows_the_peer_override_when_the_source_scope_is_off():
     """Without trusted_proxy_ranges the address is not blocked, but its override still sizes the pair limit."""
-    from litellm.proxy.auth.login_throttle import LoginThrottle
+    from hangarllm.proxy.auth.login_throttle import LoginThrottle
 
     request = MagicMock()
     request.headers = {}
@@ -1680,7 +1680,7 @@ def test_the_per_username_allowance_follows_the_peer_override_when_the_source_sc
 
 def test_the_disable_flag_is_read_once_not_per_login_attempt(monkeypatch):
     """Regression: the kill switch was read through the secret manager on every unauthenticated request."""
-    from litellm.proxy.auth import login_throttle
+    from hangarllm.proxy.auth import login_throttle
 
     reads: Final[list[str]] = []  # mutable-ok: test-only call recorder
     monkeypatch.setattr(
@@ -1696,7 +1696,7 @@ def test_the_disable_flag_is_read_once_not_per_login_attempt(monkeypatch):
         assert login_throttle.LoginThrottle.from_request(request, general_settings={}, redis_cache=None).enabled is True
 
     login_throttle._rate_limit_disabled.cache_clear()
-    assert reads == ["LITELLM_DISABLE_LOGIN_RATE_LIMIT"]
+    assert reads == ["HANGARLLM_DISABLE_LOGIN_RATE_LIMIT"]
 
 
 @pytest.mark.asyncio
@@ -1704,7 +1704,7 @@ async def test_a_blocked_username_cannot_forge_log_lines(monkeypatch):
     """The username reaches a warning log, so it must not carry newlines or control bytes."""
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from hangarllm._logging import verbose_proxy_logger
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1732,9 +1732,9 @@ async def test_a_blocked_username_cannot_forge_log_lines(monkeypatch):
 async def test_a_username_spray_cannot_evict_an_active_block(monkeypatch):
     """Counters and blocks live in separate bounded stores, so a flood of made-up pairs fills the counter
     store while the blocks it already earned stay in force."""
-    from litellm.caching.in_memory_cache import InMemoryCache
-    from litellm.constants import LOGIN_THROTTLE_MAX_TRACKED_BLOCKS, LOGIN_THROTTLE_MAX_TRACKED_COUNTERS
-    from litellm.proxy.auth.login_throttle import _BLOCKS, _COUNTERS, LoginThrottle
+    from hangarllm.caching.in_memory_cache import InMemoryCache
+    from hangarllm.constants import LOGIN_THROTTLE_MAX_TRACKED_BLOCKS, LOGIN_THROTTLE_MAX_TRACKED_COUNTERS
+    from hangarllm.proxy.auth.login_throttle import _BLOCKS, _COUNTERS, LoginThrottle
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right")
@@ -1764,7 +1764,7 @@ async def test_a_username_spray_cannot_evict_an_active_block(monkeypatch):
 def _patch_sso_configured(stack: ExitStack, *, configured: bool) -> None:
     stack.enter_context(
         patch(  # test-quality-ok: no HTTP boundary here; same internal the pre-existing tests above already mock
-            "litellm.proxy.auth.login_utils.is_sso_provider_fully_configured", return_value=configured
+            "hangarllm.proxy.auth.login_utils.is_sso_provider_fully_configured", return_value=configured
         )
     )
 
@@ -1776,21 +1776,21 @@ def _patch_successful_admin_login_deps(stack: ExitStack) -> None:
     don't each repeat the same three-mock wiring."""
     stack.enter_context(
         patch(  # test-quality-ok: internal orchestration, no HTTP boundary; matches pre-existing tests
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
             new_callable=AsyncMock,
-            return_value={"token": "test-token", "user_id": LITELLM_PROXY_ADMIN_NAME},
+            return_value={"token": "test-token", "user_id": HANGARLLM_PROXY_ADMIN_NAME},
         )
     )
     stack.enter_context(
         patch(  # test-quality-ok: internal orchestration, no HTTP boundary; matches pre-existing tests
-            "litellm.proxy.auth.login_utils.user_update",
+            "hangarllm.proxy.auth.login_utils.user_update",
             new_callable=AsyncMock,
             return_value=None,
         )
     )
     stack.enter_context(
         patch(  # test-quality-ok: internal orchestration, no HTTP boundary; matches pre-existing tests
-            "litellm.proxy.auth.login_utils.get_secret_bool",
+            "hangarllm.proxy.auth.login_utils.get_secret_bool",
             return_value=False,
         )
     )
@@ -1809,7 +1809,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
         ui_username = "admin"
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
         with patch.dict(os.environ, {"UI_USERNAME": ui_username, "UI_PASSWORD": master_key}):
             with ExitStack() as stack:
@@ -1827,7 +1827,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
         assert exc_info.value.type == ProxyErrorTypes.auth_error
         assert exc_info.value.code == "403"
         # The credential comparison must never even run.
-        mock_prisma_client.db.litellm_usertable.find_first.assert_not_called()
+        mock_prisma_client.db.hangarllm_usertable.find_first.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_rejects_correct_db_user_credentials_when_sso_configured(self):
@@ -1835,14 +1835,14 @@ class TestDisablePasswordLoginWhenSSOEnabled:
         user_email = "test@example.com"
         password = "correct-password"
 
-        mock_user = LiteLLM_UserTable(
+        mock_user = HangarLLM_UserTable(
             user_id="test-user-123",
             user_email=user_email,
             password=hash_token(token=password),
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=mock_user)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=mock_user)
 
         with patch.dict(os.environ, {"UI_USERNAME": "admin", "UI_PASSWORD": "unrelated"}):
             with ExitStack() as stack:
@@ -1858,7 +1858,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
                     )
 
         assert exc_info.value.code == "403"
-        mock_prisma_client.db.litellm_usertable.find_first.assert_not_called()
+        mock_prisma_client.db.hangarllm_usertable.find_first.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_allows_password_login_when_setting_enabled_but_sso_not_configured(self):
@@ -1868,7 +1868,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
         ui_username = "admin"
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
         with patch.dict(
             os.environ,
@@ -1892,7 +1892,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
                 )
 
         assert isinstance(result, LoginResult)
-        assert result.user_id == LITELLM_PROXY_ADMIN_NAME
+        assert result.user_id == HANGARLLM_PROXY_ADMIN_NAME
 
     @pytest.mark.asyncio
     async def test_allows_password_login_when_sso_env_is_incomplete(self):
@@ -1905,7 +1905,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
         ui_username = "admin"
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
         with patch.dict(
             os.environ,
@@ -1929,7 +1929,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
                 )
 
         assert isinstance(result, LoginResult)
-        assert result.user_id == LITELLM_PROXY_ADMIN_NAME
+        assert result.user_id == HANGARLLM_PROXY_ADMIN_NAME
 
     @pytest.mark.asyncio
     async def test_allows_password_login_when_sso_configured_but_setting_not_enabled(self):
@@ -1939,7 +1939,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
         ui_username = "admin"
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
         with patch.dict(
             os.environ,
@@ -1963,7 +1963,7 @@ class TestDisablePasswordLoginWhenSSOEnabled:
                 )
 
         assert isinstance(result, LoginResult)
-        assert result.user_id == LITELLM_PROXY_ADMIN_NAME
+        assert result.user_id == HANGARLLM_PROXY_ADMIN_NAME
 
 
 class TestDisableEnvCredentialLogin:
@@ -1979,7 +1979,7 @@ class TestDisableEnvCredentialLogin:
         ui_password = "env-only-password"
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
         with patch.dict(os.environ, {"UI_USERNAME": ui_username, "UI_PASSWORD": ui_password}):
             with pytest.raises(ProxyException) as exc_info:
@@ -2004,7 +2004,7 @@ class TestDisableEnvCredentialLogin:
         master_key = MASTER_KEY
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
         with patch.dict(os.environ, {"UI_USERNAME": "admin"}, clear=True):
             with pytest.raises(ProxyException) as exc_info:
@@ -2030,14 +2030,14 @@ class TestDisableEnvCredentialLogin:
             return_value=httpx.Response(200, text="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:41")
         )
 
-        mock_user = LiteLLM_UserTable(
+        mock_user = HangarLLM_UserTable(
             user_id="db-admin-1",
             user_email=user_email,
             password=hash_token(token=password),
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         )
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=mock_user)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=mock_user)
 
         with patch.dict(
             os.environ,
@@ -2051,7 +2051,7 @@ class TestDisableEnvCredentialLogin:
             with ExitStack() as stack:
                 stack.enter_context(
                     patch(  # test-quality-ok: internal orchestration, no HTTP boundary; matches pre-existing tests
-                        "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+                        "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
                         new_callable=AsyncMock,
                         return_value={"token": "db-user-token"},
                     )
@@ -2067,7 +2067,7 @@ class TestDisableEnvCredentialLogin:
 
         assert isinstance(result, LoginResult)
         assert result.user_id == "db-admin-1"
-        assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+        assert result.user_role == HangarllmUserRoles.PROXY_ADMIN
 
     @pytest.mark.asyncio
     async def test_env_login_still_works_when_setting_absent(self):
@@ -2077,7 +2077,7 @@ class TestDisableEnvCredentialLogin:
         ui_username = "admin"
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
         with patch.dict(
             os.environ,
@@ -2100,7 +2100,7 @@ class TestDisableEnvCredentialLogin:
                 )
 
         assert isinstance(result, LoginResult)
-        assert result.user_id == LITELLM_PROXY_ADMIN_NAME
+        assert result.user_id == HANGARLLM_PROXY_ADMIN_NAME
 
 
 class TestIsEnvCredentialLoginEnabled:
@@ -2136,7 +2136,7 @@ def _db_user_row(*, password: str, password_reset_required: bool | None = None, 
     row.user_id = "reset-user-1"
     row.user_email = "reset@example.com"
     row.password = hashed
-    row.user_role = LitellmUserRoles.INTERNAL_USER
+    row.user_role = HangarllmUserRoles.INTERNAL_USER
     row.password_reset_required = password_reset_required
     row.last_breach_check_at = last_breach_check_at
     return row
@@ -2144,8 +2144,8 @@ def _db_user_row(*, password: str, password_reset_required: bool | None = None, 
 
 def _prisma_with_user(row) -> MagicMock:
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_usertable.find_first = AsyncMock(return_value=row)
-    mock_prisma_client.db.litellm_usertable.update = AsyncMock(return_value=row)
+    mock_prisma_client.db.hangarllm_usertable.find_first = AsyncMock(return_value=row)
+    mock_prisma_client.db.hangarllm_usertable.update = AsyncMock(return_value=row)
     return mock_prisma_client
 
 
@@ -2165,7 +2165,7 @@ class TestPasswordResetRequiredSessionMinting:
     async def _login(self, mock_prisma_client) -> tuple[LoginResult, dict]:
         with patch.dict(os.environ, _DB_LOGIN_ENV):
             with patch(  # test-quality-ok: asserting the minted key's restriction requires seeing its kwargs
-                "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+                "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
                 new_callable=AsyncMock,
                 return_value={"token": "session-token"},
             ) as mock_generate_key:
@@ -2200,13 +2200,13 @@ class TestPasswordResetRequiredSessionMinting:
     async def _login_with_screen_result(self, mock_prisma_client, breached: bool) -> tuple[LoginResult, dict, dict]:
         with patch.dict(os.environ, _DB_LOGIN_ENV):
             with patch(  # test-quality-ok: asserting the minted key's restriction requires seeing its kwargs
-                "litellm.proxy.auth.login_utils.generate_key_helper_fn",
+                "hangarllm.proxy.auth.login_utils.generate_key_helper_fn",
                 new_callable=AsyncMock,
                 return_value={"token": "session-token"},
             ) as mock_generate_key:
                 with (
                     patch(  # test-quality-ok: authenticate_user has no HIBP client seam; the screen itself is tested against MockTransport below
-                        "litellm.proxy.auth.login_utils.screen_login_password_for_breach",
+                        "hangarllm.proxy.auth.login_utils.screen_login_password_for_breach",
                         new_callable=AsyncMock,
                         return_value=breached,
                     ) as mock_screen
@@ -2297,7 +2297,7 @@ class TestScreenLoginPasswordForBreach:
         )
 
         assert breached is True
-        update_kwargs = mock_prisma_client.db.litellm_usertable.update.call_args.kwargs
+        update_kwargs = mock_prisma_client.db.hangarllm_usertable.update.call_args.kwargs
         assert update_kwargs["where"] == {"user_id": "reset-user-1"}
         assert update_kwargs["data"]["password_reset_required"] is True
         assert isinstance(update_kwargs["data"]["last_breach_check_at"], datetime)
@@ -2316,7 +2316,7 @@ class TestScreenLoginPasswordForBreach:
         )
 
         assert breached is False
-        update_kwargs = mock_prisma_client.db.litellm_usertable.update.call_args.kwargs
+        update_kwargs = mock_prisma_client.db.hangarllm_usertable.update.call_args.kwargs
         assert "password_reset_required" not in update_kwargs["data"]
         assert isinstance(update_kwargs["data"]["last_breach_check_at"], datetime)
 
@@ -2334,7 +2334,7 @@ class TestScreenLoginPasswordForBreach:
         )
 
         assert breached is False
-        mock_prisma_client.db.litellm_usertable.update.assert_not_called()
+        mock_prisma_client.db.hangarllm_usertable.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_rechecks_when_last_check_is_older_than_24_hours(self):
@@ -2352,7 +2352,7 @@ class TestScreenLoginPasswordForBreach:
 
         assert breached is True
         assert (
-            mock_prisma_client.db.litellm_usertable.update.call_args.kwargs["data"]["password_reset_required"] is True
+            mock_prisma_client.db.hangarllm_usertable.update.call_args.kwargs["data"]["password_reset_required"] is True
         )
 
     @pytest.mark.asyncio
@@ -2369,7 +2369,7 @@ class TestScreenLoginPasswordForBreach:
         )
 
         assert breached is False
-        mock_prisma_client.db.litellm_usertable.update.assert_not_called()
+        mock_prisma_client.db.hangarllm_usertable.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_db_failure_never_raises_but_still_reports_the_breach(self):
@@ -2377,7 +2377,7 @@ class TestScreenLoginPasswordForBreach:
         still has to restrict the session being minted right now."""
         password = "Password123!"
         mock_prisma_client = _prisma_with_user(None)
-        mock_prisma_client.db.litellm_usertable.update = AsyncMock(side_effect=RuntimeError("db down"))
+        mock_prisma_client.db.hangarllm_usertable.update = AsyncMock(side_effect=RuntimeError("db down"))
 
         assert (
             await screen_login_password_for_breach(
@@ -2408,16 +2408,16 @@ _SCRYPT_ROW: Final = "scrypt:AAECAwQFBgcICQoLDA0OD7hIwlM/k8ytnffjFDt6AuO+BvqtmZv
     ids=["scrypt", "pbkdf2", "sha256"],
 )
 async def test_login_rehash_rewrites_only_a_legacy_row(stored: str, schemes_written: list[str]) -> None:
-    from litellm.proxy.auth.login_utils import _rehash_password_if_needed
+    from hangarllm.proxy.auth.login_utils import _rehash_password_if_needed
 
     prisma: Final = MagicMock()
-    prisma.db.litellm_usertable.update = AsyncMock()
+    prisma.db.hangarllm_usertable.update = AsyncMock()
     with patch(  # test-quality-ok: the rehash reads proxy_server's prisma_client global; no injection seam
-        "litellm.proxy.proxy_server.prisma_client", prisma
+        "hangarllm.proxy.proxy_server.prisma_client", prisma
     ):
         await _rehash_password_if_needed("u-1", _PBKDF2_PASSWORD, stored)
 
-    updates: Final = prisma.db.litellm_usertable.update.await_args_list
+    updates: Final = prisma.db.hangarllm_usertable.update.await_args_list
     assert [update.kwargs["data"]["password"].split(":")[0] for update in updates] == schemes_written
 
 
@@ -2426,7 +2426,7 @@ async def test_login_rehash_rewrites_only_a_legacy_row(stored: str, schemes_writ
 async def test_fips_login_runs_one_pbkdf2_off_the_event_loop_and_writes_no_row(
     monkeypatch: pytest.MonkeyPatch, pbkdf2_on_event_loop: list[bool]
 ) -> None:
-    from litellm.proxy.auth.login_utils import authenticate_user
+    from hangarllm.proxy.auth.login_utils import authenticate_user
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://stub")
     repository: Final = _known_user("user@corp.com")
@@ -2434,13 +2434,13 @@ async def test_fips_login_runs_one_pbkdf2_off_the_event_loop_and_writes_no_row(
     repository.return_value.table.update = AsyncMock()
     with (
         patch(  # test-quality-ok: the user lookup and rehash write are the database boundary
-            "litellm.proxy.auth.login_utils.UserRepository", repository
+            "hangarllm.proxy.auth.login_utils.UserRepository", repository
         ),
         patch(  # test-quality-ok: the rehash reads proxy_server's prisma_client global; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: success mints a UI key; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
         ),
     ):
         result: Final = await authenticate_user(
@@ -2458,7 +2458,7 @@ async def test_fips_login_runs_one_pbkdf2_off_the_event_loop_and_writes_no_row(
 
 
 async def _login_whose_user_gets_blocked_during_the_row_lookup(monkeypatch: pytest.MonkeyPatch, row: str):
-    from litellm.proxy.auth.login_utils import authenticate_user
+    from hangarllm.proxy.auth.login_utils import authenticate_user
 
     throttle: Final = _throttle(user_limit=1)
     repository: Final = _known_user()
@@ -2474,13 +2474,13 @@ async def _login_whose_user_gets_blocked_during_the_row_lookup(monkeypatch: pyte
     monkeypatch.setenv("DATABASE_URL", "postgresql://stub")
     with (
         patch(  # test-quality-ok: the user lookup is the database boundary
-            "litellm.proxy.auth.login_utils.UserRepository", repository
+            "hangarllm.proxy.auth.login_utils.UserRepository", repository
         ),
         patch(  # test-quality-ok: the rehash reads proxy_server's prisma_client global; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: success mints a UI key; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
+            "hangarllm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
         ),
     ):
         return await authenticate_user(
@@ -2498,7 +2498,7 @@ async def _login_whose_user_gets_blocked_during_the_row_lookup(monkeypatch: pyte
 async def test_fips_login_hides_the_right_password_when_its_user_got_blocked_while_it_waited(
     monkeypatch: pytest.MonkeyPatch, pbkdf2_on_event_loop: list[bool]
 ) -> None:
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     with pytest.raises(ProxyException) as blocked:
         await _login_whose_user_gets_blocked_during_the_row_lookup(monkeypatch, _PBKDF2_ROW)
@@ -2512,14 +2512,14 @@ async def test_fips_login_hides_the_right_password_when_its_user_got_blocked_whi
 async def test_fips_burst_of_wrong_passwords_stops_deriving_once_its_user_is_blocked(
     monkeypatch: pytest.MonkeyPatch, pbkdf2_on_event_loop: list[bool]
 ) -> None:
-    from litellm.proxy.auth.login_utils import authenticate_user
+    from hangarllm.proxy.auth.login_utils import authenticate_user
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://stub")
     repository: Final = _known_user()
     repository.return_value.table.find_first.return_value.password = _PBKDF2_ROW
     throttle: Final = _throttle(user_limit=1)
     with patch(  # test-quality-ok: the user lookup is the database boundary
-        "litellm.proxy.auth.login_utils.UserRepository", repository
+        "hangarllm.proxy.auth.login_utils.UserRepository", repository
     ):
         refusals: Final = await asyncio.gather(
             *(

@@ -4,8 +4,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.e2b.sandbox.transformation import E2BSandboxConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.e2b.sandbox.transformation import E2BSandboxConfig
 
 
 def _client_answering(body: bytes) -> AsyncHTTPHandler:

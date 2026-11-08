@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.json_fragment_accumulator import JSONFragmentAccumulator
+from hangarllm.hangarllm_core_utils.json_fragment_accumulator import JSONFragmentAccumulator
 
 CONCATENATED_VALUES: Final = 20_000
 

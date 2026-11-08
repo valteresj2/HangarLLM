@@ -8,15 +8,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.exceptions import RejectedRequestError
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import CallTypesLiteral
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.exceptions import RejectedRequestError
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import CallTypesLiteral
 
 
 def _load(module: str, name: str):
@@ -126,7 +126,7 @@ async def test_pre_call_hook_invokes_pre_call_override(proxy_logging, make_user_
             captured.update(kwargs)
             return {"messages": [{"x": "modified"}], "model": "m", "temperature": 0.1}
 
-    monkeypatch.setattr(litellm, "callbacks", [_Cb()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Cb()])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     out = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -153,7 +153,7 @@ async def test_pre_call_hook_propagates_callback_error_raises(proxy_logging, mak
         async def async_pre_call_hook(self, **kwargs):  # type: ignore[override]
             raise RuntimeError("rejected")
 
-    monkeypatch.setattr(litellm, "callbacks", [_BadCb()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BadCb()])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     with pytest.raises(RuntimeError, match="rejected"):
         await proxy_logging.pre_call_hook(
@@ -196,7 +196,7 @@ async def test_guardrails_only_skips_non_guardrail_pre_call_callbacks(
             calls.append("ran")
             return None
 
-    monkeypatch.setattr(litellm, "callbacks", [_RateLimiterLike()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RateLimiterLike()])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
 
     await proxy_logging.pre_call_hook(
@@ -217,7 +217,7 @@ async def test_guardrails_only_skips_non_guardrail_pre_call_callbacks(
 
 @pytest.mark.asyncio
 async def test_guardrails_only_skips_the_hanging_request_alert(proxy_logging, make_user_api_key_auth, monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     alerting = MagicMock(alerting=True)
     proxy_logging.slack_alerting_instance = alerting
 
@@ -233,14 +233,14 @@ async def test_guardrails_only_skips_the_hanging_request_alert(proxy_logging, ma
 @pytest.mark.asyncio
 async def test_guardrails_only_skips_prompt_template_rewriting(proxy_logging, make_user_api_key_auth, monkeypatch):
     """A prompt template would rewrite messages, which a per-record content diff would misread."""
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     process = AsyncMock()
     monkeypatch.setattr(proxy_logging, "_process_prompt_template", process)
 
     await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={"messages": [{"x": "input"}], "model": "m", "prompt_id": "p1", "litellm_logging_obj": MagicMock()},
+        data={"messages": [{"x": "input"}], "model": "m", "prompt_id": "p1", "hangarllm_logging_obj": MagicMock()},
         call_type="acompletion",
         guardrails_only=True,
     )
@@ -253,22 +253,22 @@ async def test_guardrails_only_skips_prompt_template_rewriting(proxy_logging, ma
 )
 def test_has_pre_call_guardrails_follows_the_guardrail_event_hook(proxy_logging, monkeypatch, event_hook, expected):
     """A post-call-only guardrail must not make callers pay for pre-call work."""
-    from litellm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
 
     guardrail = CustomGuardrail(guardrail_name="g", event_hook=event_hook, default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     assert proxy_logging.has_pre_call_guardrails({}) is expected
 
 
 def test_has_pre_call_guardrails_is_false_without_callbacks(proxy_logging, monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
     assert proxy_logging.has_pre_call_guardrails({}) is False
 
 
 def test_has_pre_call_guardrails_is_true_for_a_configured_pipeline(proxy_logging, monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
     assert proxy_logging.has_pre_call_guardrails({"_guardrail_pipelines": ["p1"]}) is True
 
@@ -276,7 +276,7 @@ def test_has_pre_call_guardrails_is_true_for_a_configured_pipeline(proxy_logging
 @pytest.mark.asyncio
 async def test_default_path_still_arms_the_hanging_request_alert(proxy_logging, make_user_api_key_auth, monkeypatch):
     """Pins the other side of the gate: without the flag, the alert must still fire."""
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     alerting = MagicMock(alerting=True)
     alerting.response_taking_too_long = AsyncMock()
     proxy_logging.slack_alerting_instance = alerting
@@ -291,14 +291,14 @@ async def test_default_path_still_arms_the_hanging_request_alert(proxy_logging, 
 
 @pytest.mark.asyncio
 async def test_default_path_still_applies_prompt_templates(proxy_logging, make_user_api_key_auth, monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     process = AsyncMock()
     monkeypatch.setattr(proxy_logging, "_process_prompt_template", process)
 
     await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={"messages": [{"x": "input"}], "model": "m", "prompt_id": "p1", "litellm_logging_obj": MagicMock()},
+        data={"messages": [{"x": "input"}], "model": "m", "prompt_id": "p1", "hangarllm_logging_obj": MagicMock()},
         call_type="acompletion",
     )
     process.assert_awaited_once()
@@ -307,14 +307,14 @@ async def test_default_path_still_applies_prompt_templates(proxy_logging, make_u
 @pytest.mark.asyncio
 async def test_aresponses_call_type_applies_prompt_templates_before_routing(proxy_logging, make_user_api_key_auth, monkeypatch):
     """The responses surface must process registry prompts pre-routing so credentials follow the swapped model."""
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     process = AsyncMock()
     monkeypatch.setattr(proxy_logging, "_process_prompt_template", process)
 
     await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
-        data={"input": "hi", "model": "m", "prompt_id": "p1", "litellm_logging_obj": MagicMock()},
+        data={"input": "hi", "model": "m", "prompt_id": "p1", "hangarllm_logging_obj": MagicMock()},
         call_type="aresponses",
     )
     process.assert_awaited_once()
@@ -355,7 +355,7 @@ class _Accountant(CustomLogger):
 @pytest.mark.parametrize("guardrails_only", [False, True])
 async def test_a_content_enforcer_runs_in_both_walks(proxy_logging, monkeypatch, guardrails_only):
     enforcer = _Enforcer()
-    monkeypatch.setattr(litellm, "callbacks", [enforcer])
+    monkeypatch.setattr(hangarllm, "callbacks", [enforcer])
 
     await proxy_logging.pre_call_hook(
         user_api_key_dict=MagicMock(),
@@ -371,7 +371,7 @@ async def test_a_content_enforcer_runs_in_both_walks(proxy_logging, monkeypatch,
 async def test_an_accounting_hook_is_skipped_by_a_guardrails_only_walk(proxy_logging, monkeypatch):
     """Charging budget or taking a rate-limit slot once per batch record is the bug this prevents."""
     accountant = _Accountant()
-    monkeypatch.setattr(litellm, "callbacks", [accountant])
+    monkeypatch.setattr(hangarllm, "callbacks", [accountant])
 
     await proxy_logging.pre_call_hook(
         user_api_key_dict=MagicMock(),
@@ -392,10 +392,10 @@ async def test_an_accounting_hook_is_skipped_by_a_guardrails_only_walk(proxy_log
 
 def test_has_pre_call_guardrails_counts_a_content_enforcer(proxy_logging, monkeypatch):
     """The batch scan is gated on this, so an enforcer-only proxy must still stream the file."""
-    monkeypatch.setattr(litellm, "callbacks", [_Accountant()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Accountant()])
     assert proxy_logging.has_pre_call_guardrails({}) is False
 
-    monkeypatch.setattr(litellm, "callbacks", [_Enforcer()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Enforcer()])
     # required: the list keeps length one, so a reused object address could hit a stale entry
     ProxyLogging._callback_capabilities_cache.clear()
     assert proxy_logging.has_pre_call_guardrails({}) is True
@@ -408,8 +408,8 @@ async def test_registered_hooks_do_not_enforce_user_budget(proxy_logging, monkey
     zero-cost models. A hook re-checking the same counter without that
     exemption is what 429'd free models once a user was over budget.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):
         proxy_logging._add_proxy_hooks(llm_router=None)
     ProxyLogging._callback_capabilities_cache.clear()
 
@@ -422,7 +422,7 @@ async def test_registered_hooks_do_not_enforce_user_budget(proxy_logging, monkey
     )
     data = {"model": "free-model", "messages": [{"role": "user", "content": "hi"}]}
 
-    with patch("litellm.proxy.proxy_server.get_current_spend", new=AsyncMock(return_value=5.0)):
+    with patch("hangarllm.proxy.proxy_server.get_current_spend", new=AsyncMock(return_value=5.0)):
         out = await proxy_logging.pre_call_hook(
             user_api_key_dict=over_budget_user,
             data=data,
@@ -455,18 +455,18 @@ def test_every_pre_call_customlogger_is_deliberately_classified():
         "_PROXY_SensitiveDataRoutingHandler",
         "ResponsesIDSecurity",
         "SkillsInjectionHook",
-        "_PROXY_LiteLLMManagedFiles",
-        "_PROXY_LiteLLMManagedVectorStores",
+        "_PROXY_HangarLLMManagedFiles",
+        "_PROXY_HangarLLMManagedVectorStores",
     }
 
-    from litellm.proxy.hooks import PROXY_HOOKS
+    from hangarllm.proxy.hooks import PROXY_HOOKS
 
     registered = dict(PROXY_HOOKS)
     for name, cls in (
-        ("banned_keywords", _load("litellm.hangar.guardrails.banned_keywords", "ENTERPRISE_BannedKeywords")),
-        ("blocked_user_check", _load("litellm.hangar.guardrails.blocked_user_list", "ENTERPRISE_BlockedUserList")),
-        ("detect_prompt_injection", _load("litellm.proxy.hooks.prompt_injection_detection", "OPTIONAL_PromptInjectionDetection")),
-        ("azure_content_safety", _load("litellm.proxy.hooks.azure_content_safety", "PROXY_AzureContentSafety")),
+        ("banned_keywords", _load("hangarllm.hangar.guardrails.banned_keywords", "ENTERPRISE_BannedKeywords")),
+        ("blocked_user_check", _load("hangarllm.hangar.guardrails.blocked_user_list", "ENTERPRISE_BlockedUserList")),
+        ("detect_prompt_injection", _load("hangarllm.proxy.hooks.prompt_injection_detection", "OPTIONAL_PromptInjectionDetection")),
+        ("azure_content_safety", _load("hangarllm.proxy.hooks.azure_content_safety", "PROXY_AzureContentSafety")),
     ):
         if cls is not None:
             registered[name] = cls
@@ -551,7 +551,7 @@ async def test_yaml_order_changes_enforcement_without_scan_raw_request(
     """Baseline (the bug): declaring the redactor before the blocker lets a
     request through that would have been blocked in the opposite order,
     because the blocker only ever sees the already-redacted content."""
-    monkeypatch.setattr(litellm, "callbacks", [_RedactingGuardrail(), _BlockOnSecretGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RedactingGuardrail(), _BlockOnSecretGuardrail()])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     out = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -566,7 +566,7 @@ async def test_reversed_yaml_order_blocks_the_same_request(proxy_logging, make_u
     """Same two guardrails, opposite declaration order: the blocker now runs
     first against the still-raw content and correctly rejects the request.
     Confirms the baseline test above is a real order-dependence, not a fluke."""
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(), _RedactingGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(), _RedactingGuardrail()])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     with pytest.raises(HTTPException, match="blocked"):
         await proxy_logging.pre_call_hook(
@@ -578,12 +578,12 @@ async def test_reversed_yaml_order_blocks_the_same_request(proxy_logging, make_u
 
 @pytest.mark.asyncio
 async def test_scan_raw_request_makes_blocking_order_independent(proxy_logging, make_user_api_key_auth, monkeypatch):
-    """Maintainer finding on BerriAI/litellm#34940: with scan_raw_request=True
+    """Maintainer finding on valteresj2/HangarLLM#34940: with scan_raw_request=True
     on the blocker, declaring the redactor first no longer lets the request
     through -- the blocker evaluates the pre-loop snapshot regardless of its
     position in the guardrails list."""
     monkeypatch.setattr(
-        litellm, "callbacks", [_RedactingGuardrail(), _BlockOnSecretGuardrail(scan_raw_request=True)]
+        hangarllm, "callbacks", [_RedactingGuardrail(), _BlockOnSecretGuardrail(scan_raw_request=True)]
     )
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     with pytest.raises(HTTPException, match="blocked"):
@@ -619,7 +619,7 @@ async def test_scan_raw_request_guardrail_does_not_undo_later_masking(
             return None
 
     monkeypatch.setattr(
-        litellm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True), _PiiRedactor()]
+        hangarllm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True), _PiiRedactor()]
     )
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     out = await proxy_logging.pre_call_hook(
@@ -632,7 +632,7 @@ async def test_scan_raw_request_guardrail_does_not_undo_later_masking(
 
 class _Unpicklable:
     """Mirrors a real otel span: deepcopy always raises, matching what
-    safe_deep_copy exists to handle (see litellm_core_utils/core_helpers.py)."""
+    safe_deep_copy exists to handle (see hangarllm_core_utils/core_helpers.py)."""
 
     def __deepcopy__(self, memo):
         raise TypeError("cannot deepcopy this object")
@@ -643,18 +643,18 @@ async def test_scan_raw_request_snapshot_survives_unpicklable_metadata(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: the scan_raw_request snapshot
+    Bugbot finding on valteresj2/HangarLLM#34940: the scan_raw_request snapshot
     used a bare copy.deepcopy, which raises on request payloads carrying
-    unpicklable objects (e.g. metadata["litellm_parent_otel_span"] when
+    unpicklable objects (e.g. metadata["hangarllm_parent_otel_span"] when
     tracing is enabled) -- failing every guarded request, not just ones
     that actually use scan_raw_request. Must use safe_deep_copy instead.
     """
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True)])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     data = {
         "messages": [{"role": "user", "content": "hello, nothing flagged here"}],
         "model": "m",
-        "metadata": {"litellm_parent_otel_span": _Unpicklable()},
+        "metadata": {"hangarllm_parent_otel_span": _Unpicklable()},
     }
     out = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -669,24 +669,24 @@ async def test_scan_raw_request_isolation_survives_unpicklable_top_level_field(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: real proxy requests carry
-    data["litellm_logging_obj"] (a Logging instance nesting a live OTel span
+    Bugbot finding on valteresj2/HangarLLM#34940: real proxy requests carry
+    data["hangarllm_logging_obj"] (a Logging instance nesting a live OTel span
     with a real lock) by the time pre_call_hook runs -- a top-level field, not
     inside metadata, so the otel-span placeholder substitution never touches
     it. A whole-dict copy.deepcopy over the entire payload (the previous
     _independent_snapshot) fails on that field on every real request and
     silently falls back to the live, unisolated data with no warning,
     defeating the entire feature in production even though every test above
-    passes (none of them set litellm_logging_obj). The isolation guarantee
+    passes (none of them set hangarllm_logging_obj). The isolation guarantee
     (blocking order-independence) must hold even when such a field is
     present.
     """
     monkeypatch.setattr(
-        litellm, "callbacks", [_RedactingGuardrail(), _BlockOnSecretGuardrail(scan_raw_request=True)]
+        hangarllm, "callbacks", [_RedactingGuardrail(), _BlockOnSecretGuardrail(scan_raw_request=True)]
     )
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     data = _secret_request()
-    data["litellm_logging_obj"] = _Unpicklable()
+    data["hangarllm_logging_obj"] = _Unpicklable()
     with pytest.raises(HTTPException, match="blocked"):
         await proxy_logging.pre_call_hook(
             user_api_key_dict=make_user_api_key_auth(),
@@ -700,7 +700,7 @@ async def test_scan_raw_request_snapshot_taken_before_pipelines(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    veria-ai finding on BerriAI/litellm#34940: the raw snapshot was taken
+    veria-ai finding on valteresj2/HangarLLM#34940: the raw snapshot was taken
     after _maybe_execute_pipelines ran, so a pipeline that masks content
     ahead of a non-pipelined scan_raw_request guardrail could still hide
     the violation from it. Simulates a pipeline-style rewrite by having
@@ -715,7 +715,7 @@ async def test_scan_raw_request_snapshot_taken_before_pipelines(
         return data, None
 
     monkeypatch.setattr(ProxyLogging, "_maybe_execute_pipelines", fake_pipelines)
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True)])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     with pytest.raises(HTTPException, match="blocked"):
         await proxy_logging.pre_call_hook(
@@ -730,7 +730,7 @@ async def test_scan_raw_request_warns_when_guardrail_mutation_discarded(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    veria-ai finding on BerriAI/litellm#34940: scan_raw_request is accepted
+    veria-ai finding on valteresj2/HangarLLM#34940: scan_raw_request is accepted
     even for a guardrail that mutates the request (e.g. a masking
     integration), silently discarding its redaction and forwarding raw
     content. Config-time rejection isn't generically possible (no marker
@@ -755,11 +755,11 @@ async def test_scan_raw_request_warns_when_guardrail_mutation_discarded(
                 msg["content"] = msg["content"].replace("SECRET", "[REDACTED]")
             return data
 
-    from litellm.proxy import utils as proxy_utils_module
+    from hangarllm.proxy import utils as proxy_utils_module
 
     mock_logger = MagicMock()
     monkeypatch.setattr(proxy_utils_module, "verbose_proxy_logger", mock_logger)
-    monkeypatch.setattr(litellm, "callbacks", [_MutatingScanner()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_MutatingScanner()])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -775,8 +775,8 @@ async def test_scan_raw_request_baseline_does_not_leak_marker_under_safe_memory_
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    veria-ai finding on BerriAI/litellm#34940: safe_deep_copy returns the
-    original object unchanged when litellm.safe_memory_mode is True, so
+    veria-ai finding on valteresj2/HangarLLM#34940: safe_deep_copy returns the
+    original object unchanged when hangarllm.safe_memory_mode is True, so
     calling the mutating mark_pre_call_hook_ran on the "expected baseline"
     copy actually mutates the shared raw_request_snapshot -- writing this
     guardrail's execution marker into metadata even when should_run_guardrail
@@ -784,7 +784,7 @@ async def test_scan_raw_request_baseline_does_not_leak_marker_under_safe_memory_
     guardrail sharing the same guardrail_name would then see the marker via
     _pre_call_hook_already_ran and skip real inspection, a security bypass.
     """
-    monkeypatch.setattr(litellm, "safe_memory_mode", True)
+    monkeypatch.setattr(hangarllm, "safe_memory_mode", True)
 
     class _SkippedScanner(_BlockOnSecretGuardrail):
         def __init__(self, **kwargs):
@@ -792,7 +792,7 @@ async def test_scan_raw_request_baseline_does_not_leak_marker_under_safe_memory_
             super().__init__(scan_raw_request=True, **kwargs)
 
     callback = _SkippedScanner()
-    monkeypatch.setattr(litellm, "callbacks", [callback])
+    monkeypatch.setattr(hangarllm, "callbacks", [callback])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     out = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -807,7 +807,7 @@ async def test_scan_raw_request_stamps_live_request_when_guardrail_actually_ran(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: a scan_raw_request guardrail only
+    Bugbot finding on valteresj2/HangarLLM#34940: a scan_raw_request guardrail only
     stamped mark_pre_call_hook_ran on its own throwaway snapshot copies, never
     on the live request returned to the caller. A later
     async_pre_call_deployment_hook (router-level guardrail re-check) reads
@@ -819,7 +819,7 @@ async def test_scan_raw_request_stamps_live_request_when_guardrail_actually_ran(
     the guardrail actually ran (not skipped).
     """
     callback = _BlockOnSecretGuardrail(scan_raw_request=True)
-    monkeypatch.setattr(litellm, "callbacks", [callback])
+    monkeypatch.setattr(hangarllm, "callbacks", [callback])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     out = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -840,7 +840,7 @@ async def test_scan_raw_request_stamps_live_request_in_parallel_path(
     snapshot _input_for built, never the live, shared data object.
     """
     callback = _BlockOnSecretGuardrail(scan_raw_request=True, run_in_parallel=True)
-    monkeypatch.setattr(litellm, "callbacks", [callback])
+    monkeypatch.setattr(hangarllm, "callbacks", [callback])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     out = await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -855,18 +855,18 @@ async def test_scan_raw_request_does_not_warn_when_guardrail_only_blocks(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
     """
-    Bugbot finding on BerriAI/litellm#34940: _process_guardrail_callback always
+    Bugbot finding on valteresj2/HangarLLM#34940: _process_guardrail_callback always
     returns a dict once a guardrail actually runs (it only returns None when
     should_run_guardrail is False), so checking `result is not None` is true on
     every single request -- a correctly configured, non-mutating scan_raw_request
     blocker (like _BlockOnSecretGuardrail here) would warn on every call, not just
     when it actually mutates something.
     """
-    from litellm.proxy import utils as proxy_utils_module
+    from hangarllm.proxy import utils as proxy_utils_module
 
     mock_logger = MagicMock()
     monkeypatch.setattr(proxy_utils_module, "verbose_proxy_logger", mock_logger)
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(scan_raw_request=True)])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -888,7 +888,7 @@ async def test_scan_raw_request_warns_on_in_place_mutation_returning_none(
     given, so an identity check (`result is input_data`) would wrongly say
     nothing changed.
     """
-    from litellm.proxy import utils as proxy_utils_module
+    from hangarllm.proxy import utils as proxy_utils_module
 
     class _ScanningRedactor(_RedactingGuardrail):
         def __init__(self, **kwargs):
@@ -897,7 +897,7 @@ async def test_scan_raw_request_warns_on_in_place_mutation_returning_none(
 
     mock_logger = MagicMock()
     monkeypatch.setattr(proxy_utils_module, "verbose_proxy_logger", mock_logger)
-    monkeypatch.setattr(litellm, "callbacks", [_ScanningRedactor()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ScanningRedactor()])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     await proxy_logging.pre_call_hook(
         user_api_key_dict=make_user_api_key_auth(),
@@ -920,7 +920,7 @@ async def test_scan_raw_request_warns_on_in_place_mutation_returning_none(
 async def test_pre_call_block_names_the_blocking_guardrail_in_applied_guardrails(
     proxy_logging, make_user_api_key_auth, monkeypatch, blocker_kwargs
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(**blocker_kwargs)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(**blocker_kwargs)])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     data = _secret_request()
     with pytest.raises(HTTPException, match="blocked"):
@@ -936,7 +936,7 @@ async def test_pre_call_block_names_the_blocking_guardrail_in_applied_guardrails
 async def test_pre_call_block_keeps_request_declared_guardrail_in_applied_guardrails(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(default_on=False)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(default_on=False)])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
     data = {**_secret_request(), "metadata": {"guardrails": ["blocker", "declared-post-call"]}}
     with pytest.raises(HTTPException, match="blocked"):
@@ -951,7 +951,7 @@ async def test_pre_call_block_keeps_request_declared_guardrail_in_applied_guardr
 @pytest.mark.asyncio
 async def test_skip_guardrails_still_runs_non_guardrail_callbacks(proxy_logging, make_user_api_key_auth, monkeypatch):
     accountant = _Accountant()
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(), accountant])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(), accountant])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
 
     data = _secret_request()
@@ -969,7 +969,7 @@ async def test_skip_guardrails_still_runs_non_guardrail_callbacks(proxy_logging,
 @pytest.mark.asyncio
 async def test_default_walk_still_blocks_on_the_same_setup(proxy_logging, make_user_api_key_auth, monkeypatch):
     accountant = _Accountant()
-    monkeypatch.setattr(litellm, "callbacks", [_BlockOnSecretGuardrail(), accountant])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockOnSecretGuardrail(), accountant])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
 
     with pytest.raises(HTTPException, match="blocked"):
@@ -985,7 +985,7 @@ async def test_default_walk_still_blocks_on_the_same_setup(proxy_logging, make_u
 async def test_guardrails_only_and_skip_guardrails_are_mutually_exclusive(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     proxy_logging.slack_alerting_instance = MagicMock(alerting=None)
 
     with pytest.raises(ValueError, match="mutually exclusive"):
@@ -1002,15 +1002,15 @@ async def test_guardrails_only_and_skip_guardrails_are_mutually_exclusive(
     "request_data, expected",
     [
         ({"metadata": {"_guardrail_pipelines": ["p1"]}}, True),
-        ({"metadata": {"user_id": "u"}, "litellm_metadata": {"_guardrail_pipelines": ["p1"]}}, True),
+        ({"metadata": {"user_id": "u"}, "hangarllm_metadata": {"_guardrail_pipelines": ["p1"]}}, True),
         ({"metadata": {"_guardrail_pipelines": 5}}, True),
         ({"metadata": {"user_id": "u"}}, False),
     ],
-    ids=["pipeline-in-metadata", "pipeline-in-litellm-metadata", "non-list-pipeline-value", "no-pipeline"],
+    ids=["pipeline-in-metadata", "pipeline-in-hangarllm-metadata", "non-list-pipeline-value", "no-pipeline"],
 )
 def test_request_has_pre_call_guardrails_reads_pipelines_from_both_metadata_buckets(
     proxy_logging, monkeypatch, request_data, expected
 ):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
     assert proxy_logging.request_has_pre_call_guardrails(request_data) is expected

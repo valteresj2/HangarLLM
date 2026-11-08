@@ -1,6 +1,6 @@
-"""Unit tests for litellm.setup_wizard — pure functions only, no network calls."""
+"""Unit tests for hangarllm.setup_wizard — pure functions only, no network calls."""
 
-from litellm.setup_wizard import SetupWizard, _yaml_escape
+from hangarllm.setup_wizard import SetupWizard, _yaml_escape
 
 # ---------------------------------------------------------------------------
 # _yaml_escape
@@ -124,8 +124,8 @@ def test_build_config_does_not_mutate_env_vars():
     """_build_config must not modify the caller's env_vars dict."""
     env_vars = {
         "AZURE_AI_API_KEY": "az-key",
-        "_LITELLM_AZURE_AI_API_BASE_AZURE": "https://my.azure.com",
-        "_LITELLM_AZURE_DEPLOYMENT_AZURE": "my-deployment",
+        "_HANGARLLM_AZURE_AI_API_BASE_AZURE": "https://my.azure.com",
+        "_HANGARLLM_AZURE_DEPLOYMENT_AZURE": "my-deployment",
     }
     original_keys = set(env_vars.keys())
     SetupWizard._build_config([_AZURE], env_vars, "sk-master")
@@ -135,8 +135,8 @@ def test_build_config_does_not_mutate_env_vars():
 def test_build_config_azure_uses_deployment_name():
     env_vars = {
         "AZURE_AI_API_KEY": "az-key",
-        "_LITELLM_AZURE_AI_API_BASE_AZURE": "https://my.azure.com",
-        "_LITELLM_AZURE_DEPLOYMENT_AZURE": "my-gpt4o",
+        "_HANGARLLM_AZURE_AI_API_BASE_AZURE": "https://my.azure.com",
+        "_HANGARLLM_AZURE_DEPLOYMENT_AZURE": "my-gpt4o",
     }
     config = SetupWizard._build_config([_AZURE], env_vars, "sk-master")
     assert "model: azure/my-gpt4o" in config
@@ -158,7 +158,7 @@ def test_build_config_no_display_name_collision_openai_and_azure():
     env_vars = {
         "OPENAI_API_KEY": "sk-openai",
         "AZURE_AI_API_KEY": "az-key",
-        "_LITELLM_AZURE_DEPLOYMENT_AZURE": "gpt-4o",
+        "_HANGARLLM_AZURE_DEPLOYMENT_AZURE": "gpt-4o",
     }
     config = SetupWizard._build_config([_OPENAI, _AZURE], env_vars, "sk-master")
     assert "model_name: gpt-4o" in config  # OpenAI
@@ -179,10 +179,10 @@ def test_build_config_master_key_in_general_settings():
 
 
 def test_build_config_internal_sentinel_keys_excluded():
-    """_LITELLM_ prefixed sentinel keys must not appear in environment_variables."""
+    """_HANGARLLM_ prefixed sentinel keys must not appear in environment_variables."""
     env_vars = {
         "OPENAI_API_KEY": "sk-real",
-        "_LITELLM_AZURE_AI_API_BASE_AZURE": "https://x.azure.com",
+        "_HANGARLLM_AZURE_AI_API_BASE_AZURE": "https://x.azure.com",
     }
     config = SetupWizard._build_config([_OPENAI], env_vars, "sk-master")
-    assert "_LITELLM_" not in config
+    assert "_HANGARLLM_" not in config

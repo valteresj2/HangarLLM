@@ -16,24 +16,24 @@ from opentelemetry.context import Context  # noqa: E402  # needs the importorski
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: E402
 from opentelemetry.trace import SpanKind  # noqa: E402
 
-import litellm  # noqa: E402
-from litellm.caching.dual_cache import DualCache  # noqa: E402
-from litellm.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger  # noqa: E402
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config, is_otel_v2_enabled  # noqa: E402
-from litellm.integrations.otel.model.destination import OtelDestination  # noqa: E402
-from litellm.integrations.otel.model.spans import LITELLM_PROXY_REQUEST_SPAN_NAME, SpanRole  # noqa: E402
-from litellm.integrations.otel.plumbing import context as otel_context  # noqa: E402
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
-from litellm.integrations.otel.plumbing.context import set_request_root_span  # noqa: E402
-from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2  # noqa: E402
-from litellm.proxy._types import UserAPIKeyAuth  # noqa: E402
-from litellm.proxy.utils import ProxyLogging  # noqa: E402
-from litellm.types.llms.openai import (  # noqa: E402
+import hangarllm  # noqa: E402
+from hangarllm.caching.dual_cache import DualCache  # noqa: E402
+from hangarllm.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger  # noqa: E402
+from hangarllm.integrations.otel.model.config import OpenTelemetryV2Config, is_otel_v2_enabled  # noqa: E402
+from hangarllm.integrations.otel.model.destination import OtelDestination  # noqa: E402
+from hangarllm.integrations.otel.model.spans import HANGARLLM_PROXY_REQUEST_SPAN_NAME, SpanRole  # noqa: E402
+from hangarllm.integrations.otel.plumbing import context as otel_context  # noqa: E402
+from hangarllm.integrations.otel.plumbing import providers  # noqa: E402
+from hangarllm.integrations.otel.plumbing.context import set_request_root_span  # noqa: E402
+from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2  # noqa: E402
+from hangarllm.proxy._types import UserAPIKeyAuth  # noqa: E402
+from hangarllm.proxy.utils import ProxyLogging  # noqa: E402
+from hangarllm.types.llms.openai import (  # noqa: E402
     ResponseCompletedEvent,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.utils import (  # noqa: E402
+from hangarllm.types.utils import (  # noqa: E402
     Choices,
     Delta,
     Embedding,
@@ -67,14 +67,14 @@ def _logger(*, capture: str = "span_only", mappers: Sequence[str] = ("genai", "l
 
 
 def _start_root(logger: OpenTelemetryV2, parent_context: Context | None = None):
-    root: Final = logger._emitter.start_span(SpanRole.PROXY_REQUEST, LITELLM_PROXY_REQUEST_SPAN_NAME, parent_context)
+    root: Final = logger._emitter.start_span(SpanRole.PROXY_REQUEST, HANGARLLM_PROXY_REQUEST_SPAN_NAME, parent_context)
     set_request_root_span(root)
     return root
 
 
 def _root_attrs(exporter):
     by_name = {span.name: span for span in exporter.get_finished_spans()}
-    return dict(by_name[LITELLM_PROXY_REQUEST_SPAN_NAME].attributes or {})
+    return dict(by_name[HANGARLLM_PROXY_REQUEST_SPAN_NAME].attributes or {})
 
 
 def _run_request(logger, data: dict, call_type: str, response: object):
@@ -257,7 +257,7 @@ def test_root_observation_io_survives_the_root_ending_before_the_success_callbac
     logger.log_pre_api_call(
         model="gpt-5.4-mini",
         messages=[],
-        kwargs={"litellm_call_id": "call_1", "litellm_params": {"metadata": {}}},
+        kwargs={"hangarllm_call_id": "call_1", "hangarllm_params": {"metadata": {}}},
     )
     asyncio.run(
         logger.async_post_call_success_hook(data=CHAT_DATA, user_api_key_dict=UserAPIKeyAuth(), response=response)
@@ -271,19 +271,19 @@ def test_root_observation_io_survives_the_root_ending_before_the_success_callbac
         "messages": CHAT_DATA["messages"],
         "response": response.model_dump(),
         "status": "success",
-        "litellm_call_id": "call_1",
+        "hangarllm_call_id": "call_1",
         "metadata": {},
         "hidden_params": {},
     }
     asyncio.run(
         logger.async_log_success_event(
-            {"standard_logging_object": payload, "litellm_params": {"metadata": {}}}, response, None, None
+            {"standard_logging_object": payload, "hangarllm_params": {"metadata": {}}}, response, None, None
         )
     )
 
     attrs = _root_attrs(exporter)
     assert INPUT_ATTR in attrs and OUTPUT_ATTR in attrs
-    generation = next(span for span in exporter.get_finished_spans() if span.name != LITELLM_PROXY_REQUEST_SPAN_NAME)
+    generation = next(span for span in exporter.get_finished_spans() if span.name != HANGARLLM_PROXY_REQUEST_SPAN_NAME)
     assert OUTPUT_ATTR in dict(generation.attributes or {})
 
 
@@ -346,7 +346,7 @@ def _inbound_traceparent() -> Context:
 def _run_named_request(
     logger: OpenTelemetryV2,
     exporter: InMemorySpanExporter,
-    litellm_params: Mapping[str, object],
+    hangarllm_params: Mapping[str, object],
     parent_context: Context | None = None,
 ) -> tuple[Mapping[str, object], Mapping[str, object]]:
     response: Final = ModelResponse(choices=[Choices(message=Message(role="assistant", content="pong"))])
@@ -354,7 +354,7 @@ def _run_named_request(
     logger.log_pre_api_call(
         model="gpt-5.4-mini",
         messages=[],
-        kwargs={"litellm_call_id": "call_1", "litellm_params": litellm_params, "call_type": "acompletion"},
+        kwargs={"hangarllm_call_id": "call_1", "hangarllm_params": hangarllm_params, "call_type": "acompletion"},
     )
     root.end()
     payload: Final = {
@@ -364,17 +364,17 @@ def _run_named_request(
         "messages": CHAT_DATA["messages"],
         "response": response.model_dump(),
         "status": "success",
-        "litellm_call_id": "call_1",
+        "hangarllm_call_id": "call_1",
         "metadata": {},
         "hidden_params": {},
     }
     asyncio.run(
         logger.async_log_success_event(
-            {"standard_logging_object": payload, "litellm_params": litellm_params}, response, None, None
+            {"standard_logging_object": payload, "hangarllm_params": hangarllm_params}, response, None, None
         )
     )
     generation: Final = next(
-        span for span in exporter.get_finished_spans() if span.name != LITELLM_PROXY_REQUEST_SPAN_NAME
+        span for span in exporter.get_finished_spans() if span.name != HANGARLLM_PROXY_REQUEST_SPAN_NAME
     )
     return _root_attrs(exporter), dict(generation.attributes or {})
 
@@ -412,7 +412,7 @@ def test_unnamed_request_derives_the_trace_name_on_the_root_only():
 
     root_attrs, generation_attrs = _run_named_request(logger, exporter, {"proxy_server_request": {"headers": {}}})
 
-    assert root_attrs[TRACE_NAME_ATTR] == "litellm-acompletion"
+    assert root_attrs[TRACE_NAME_ATTR] == "hangarllm-acompletion"
     assert TRACE_NAME_ATTR not in generation_attrs
 
 
@@ -454,17 +454,17 @@ def _root_trace_name_after(
     root_logger: OpenTelemetryV2 | None = None,
 ) -> object:
     root: Final = _start_root(root_logger or logger)
-    for index, (call_type, litellm_params) in enumerate(calls):
+    for index, (call_type, hangarllm_params) in enumerate(calls):
         logger.log_pre_api_call(
             model="gpt-5.4-mini",
             messages=[],
-            kwargs={"litellm_call_id": f"call_{index}", "litellm_params": litellm_params, "call_type": call_type},
+            kwargs={"hangarllm_call_id": f"call_{index}", "hangarllm_params": hangarllm_params, "call_type": call_type},
         )
     root.end()
     return dict(root.attributes or {}).get(TRACE_NAME_ATTR)
 
 
-@pytest.mark.parametrize("later", [JUDGE_PARAMS, UNNAMED], ids=["litellm-sub-call", "untagged-call"])
+@pytest.mark.parametrize("later", [JUDGE_PARAMS, UNNAMED], ids=["hangarllm-sub-call", "untagged-call"])
 @pytest.mark.parametrize("caller", CALLER_NAMES, ids=["body", "header"])
 def test_a_later_call_in_the_request_keeps_the_caller_trace_name_on_the_root(
     caller: Mapping[str, object], later: Mapping[str, object]
@@ -486,16 +486,16 @@ def test_a_later_call_keeps_the_trace_name_the_first_call_derived():
 
     assert (
         _root_trace_name_after(logger, (("anthropic_messages", UNNAMED), ("acompletion", UNNAMED)))
-        == "litellm-anthropic_messages"
+        == "hangarllm-anthropic_messages"
     )
 
 
-def test_a_litellm_sub_call_before_the_request_call_leaves_the_trace_name_to_the_request_call():
+def test_a_hangarllm_sub_call_before_the_request_call_leaves_the_trace_name_to_the_request_call():
     logger, _ = _logger()
 
     assert (
         _root_trace_name_after(logger, (("acompletion", JUDGE_PARAMS), ("anthropic_messages", UNNAMED)))
-        == "litellm-anthropic_messages"
+        == "hangarllm-anthropic_messages"
     )
 
 
@@ -536,7 +536,7 @@ def test_body_metadata_user_session_and_tags_land_on_the_root_and_the_generation
         assert attrs["user.id"] == "user-42"
         assert attrs["session.id"] == "session-7"
         assert tuple(attrs["langfuse.trace.tags"]) == ("prod", "eval", "nightly")
-    assert root_attrs[TRACE_NAME_ATTR] == "litellm-acompletion"
+    assert root_attrs[TRACE_NAME_ATTR] == "hangarllm-acompletion"
     assert TRACE_NAME_ATTR not in generation_attrs
 
 
@@ -562,11 +562,11 @@ def test_langfuse_user_and_session_headers_beat_body_metadata_on_both_spans():
 def test_caller_metadata_cannot_override_the_proxy_team_identity():
     logger, exporter = _logger()
     response: Final = ModelResponse(choices=[Choices(message=Message(role="assistant", content="pong"))])
-    litellm_params: Final = {
+    hangarllm_params: Final = {
         "metadata": {"trace_user_id": "u", "trace_metadata": {"team_id": "spoofed"}, "team_id": "spoofed"}
     }
     logger.log_pre_api_call(
-        model="gpt-5.4-mini", messages=[], kwargs={"litellm_call_id": "call_1", "litellm_params": litellm_params}
+        model="gpt-5.4-mini", messages=[], kwargs={"hangarllm_call_id": "call_1", "hangarllm_params": hangarllm_params}
     )
     payload: Final = {
         "call_type": "acompletion",
@@ -575,7 +575,7 @@ def test_caller_metadata_cannot_override_the_proxy_team_identity():
         "messages": CHAT_DATA["messages"],
         "response": response.model_dump(),
         "status": "success",
-        "litellm_call_id": "call_1",
+        "hangarllm_call_id": "call_1",
         "metadata": {
             "user_api_key_team_id": "real-team",
             "user_api_key_team_alias": "real-alias",
@@ -586,7 +586,7 @@ def test_caller_metadata_cannot_override_the_proxy_team_identity():
     }
     asyncio.run(
         logger.async_log_success_event(
-            {"standard_logging_object": payload, "litellm_params": litellm_params}, response, None, None
+            {"standard_logging_object": payload, "hangarllm_params": hangarllm_params}, response, None, None
         )
     )
 
@@ -608,7 +608,7 @@ def test_a_request_without_trace_controls_stamps_none_of_them():
 
     caller_only: Final = tuple(attr for attr in TRACE_CONTROL_ATTRS if attr != TRACE_NAME_ATTR)
     assert set(caller_only).isdisjoint(root_attrs)
-    assert root_attrs[TRACE_NAME_ATTR] == "litellm-acompletion"
+    assert root_attrs[TRACE_NAME_ATTR] == "hangarllm-acompletion"
     assert set(TRACE_CONTROL_ATTRS).isdisjoint(generation_attrs)
 
 
@@ -636,13 +636,13 @@ def test_langfuse_mapper_relays_streams_for_per_request_content_capture(
     monkeypatch: pytest.MonkeyPatch, capture: str, mappers: tuple[str, ...], relays_streams: bool
 ) -> None:
     logger, _ = _logger(capture=capture, mappers=mappers)
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
 
     assert ProxyLogging._callback_capabilities().has_iterator_override is relays_streams
 
 
 def test_langfuse_otel_preset_builds_a_logger_that_stamps_the_root(monkeypatch):
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
     monkeypatch.setenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
@@ -668,7 +668,7 @@ def test_langfuse_otel_preset_builds_a_logger_that_stamps_the_root(monkeypatch):
 def _llm_call_kwargs(optional_params: Mapping[str, object], completion_start: datetime | None) -> dict[str, object]:
     return {
         "standard_logging_object": {
-            "litellm_call_id": "call_1",
+            "hangarllm_call_id": "call_1",
             "call_type": "acompletion",
             "custom_llm_provider": "openai",
             "model": "gpt-5.4-mini",
@@ -676,7 +676,7 @@ def _llm_call_kwargs(optional_params: Mapping[str, object], completion_start: da
             "status": "success",
             "completionStartTime": datetime(2026, 10, 9, 12, 0, 9, tzinfo=timezone.utc).timestamp(),
         },
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "optional_params": optional_params,
         "api_call_start_time": datetime(2026, 10, 9, 12, 0, 0, tzinfo=timezone.utc),
         "completion_start_time": completion_start,
@@ -699,7 +699,7 @@ def _generation_attrs(kwargs: dict[str, object], *, fail: bool = False) -> Mappi
         pytest.param({}, id="not_streamed_or_pass_through_stream"),
     ],
 )
-def test_generation_carries_litellms_completion_start_time_like_the_default_emitter(
+def test_generation_carries_hangarllms_completion_start_time_like_the_default_emitter(
     optional_params: Mapping[str, object],
 ) -> None:
     completion_start: Final = datetime(2026, 10, 9, 12, 0, 0, 250000, tzinfo=timezone.utc)

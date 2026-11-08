@@ -11,18 +11,18 @@ import pytest
 import respx
 from google.oauth2.credentials import Credentials
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.anthropic_beta_headers_manager import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.anthropic_beta_headers_manager import (
     update_headers_with_filtered_beta,
     update_request_with_filtered_beta,
 )
-from litellm.llms.anthropic.common_utils import AnthropicError
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+from hangarllm.llms.anthropic.common_utils import AnthropicError
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
     VertexAIAnthropicConfig,
 )
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.vertex_ai import VertexPartnerProvider
+from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
+from hangarllm.types.llms.vertex_ai import VertexPartnerProvider
 from tests.unit.llms.anthropic.anthropic_docs_refusal import ANTHROPIC_DOCS_REFUSAL_MESSAGE
 
 
@@ -61,7 +61,7 @@ def test_vertex_anthropic_labels_move_from_body_to_header(
         model="claude-sonnet-5-5",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={"max_tokens": 16, "anthropic_version": "vertex-2023-10-16", "labels": labels},
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
     sent_labels: Final = next((value for name, value in headers.items() if name.lower() == "x-vertex-ai-labels"), None)
@@ -80,7 +80,7 @@ def test_vertex_anthropic_request_body_and_endpoint(stream: bool, operation: str
         model="claude-sonnet-4",
         messages=[{"role": "user", "content": "Hello, can you tell me a short joke?"}],
         optional_params={"max_tokens": 100, "anthropic_version": "vertex-2023-10-16"},
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
     url: Final = VertexBase.create_vertex_url(
@@ -117,7 +117,7 @@ def test_get_supported_params_thinking():
 def test_vertex_ai_anthropic_web_search_header_in_completion():
     """Test that web search tool adds the required beta header for Vertex AI completion requests"""
 
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     # Create the config instance
     model_info = AnthropicModelInfo()
@@ -167,7 +167,7 @@ def test_vertex_ai_anthropic_chat_adds_the_betas_for_bound_thinking_with_display
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"thinking": thinking, "max_tokens": 100, "is_vertex_request": True},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert result["thinking"] == thinking
@@ -192,7 +192,7 @@ def test_vertex_ai_anthropic_context_management_compact_beta_header():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -230,7 +230,7 @@ def test_vertex_ai_anthropic_context_management_mixed_edits():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -247,7 +247,7 @@ def test_vertex_ai_anthropic_context_management_mixed_edits():
 
 def test_vertex_ai_anthropic_structured_output_header_not_added():
     """Test that structured output beta headers are NOT added for Vertex AI requests"""
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
 
     config = AnthropicConfig()
 
@@ -374,7 +374,7 @@ def test_vertex_ai_claude_sonnet_4_5_structured_output_fix():
     original_transform = config.__class__.__bases__[0].transform_request
 
     def mock_transform_request(
-        self, model, messages, optional_params, litellm_params, headers
+        self, model, messages, optional_params, hangarllm_params, headers
     ):
         # Return test data that includes output_format
         return test_data.copy()
@@ -387,7 +387,7 @@ def test_vertex_ai_claude_sonnet_4_5_structured_output_fix():
             model="claude-3-5-sonnet-20241022",
             messages=messages,
             optional_params=result_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -462,7 +462,7 @@ def test_vertex_ai_anthropic_extra_headers_beta_propagation():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -493,7 +493,7 @@ def test_vertex_ai_anthropic_inline_tools_beta_survives_the_chat_beta_filter(loc
         model="claude-opus-5-5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
     filtered_headers, filtered_request = update_request_with_filtered_beta(
@@ -523,7 +523,7 @@ def test_vertex_ai_anthropic_extra_headers_beta_merged_with_auto_betas():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -549,7 +549,7 @@ def test_vertex_ai_anthropic_extra_headers_comma_separated_betas():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -573,7 +573,7 @@ def test_vertex_ai_anthropic_no_extra_headers_unchanged():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -589,9 +589,9 @@ async def test_vertex_ai_anthropic_prompt_caching_does_not_add_beta_header(
     monkeypatch: pytest.MonkeyPatch,
     sync_mode: bool,
 ) -> None:
-    from litellm.main import vertex_partner_models_chat_completion
+    from hangarllm.main import vertex_partner_models_chat_completion
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setitem(
         vertex_partner_models_chat_completion._credentials_project_mapping,
         ("test-vertex-credentials", "test-project"),
@@ -629,9 +629,9 @@ async def test_vertex_ai_anthropic_prompt_caching_does_not_add_beta_header(
     }
 
     if sync_mode:
-        litellm.completion(**call_params)
+        hangarllm.completion(**call_params)
     else:
-        await litellm.acompletion(**call_params)
+        await hangarllm.acompletion(**call_params)
 
     assert route.call_count == 1
     request: Final = route.calls[0].request
@@ -668,7 +668,7 @@ def test_vertex_ai_anthropic_output_config_effort_only_forwarded():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -707,7 +707,7 @@ def test_vertex_ai_anthropic_output_config_format_passes_through():
         model="claude-3-5-sonnet-20241022",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -736,7 +736,7 @@ def test_vertex_ai_anthropic_output_config_format_plus_effort_preserved():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -756,7 +756,7 @@ def test_vertex_ai_anthropic_output_config_non_dict_dropped():
         model="claude-3-5-sonnet-20241022",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -796,7 +796,7 @@ def test_vertex_ai_anthropic_output_format_and_output_config_effort_preserved():
     original_transform = config.__class__.__bases__[0].transform_request
 
     def mock_transform_request(
-        self, model, messages, optional_params, litellm_params, headers
+        self, model, messages, optional_params, hangarllm_params, headers
     ):
         return test_data.copy()
 
@@ -807,7 +807,7 @@ def test_vertex_ai_anthropic_output_format_and_output_config_effort_preserved():
             model="claude-opus-4-6",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -823,7 +823,7 @@ def test_sanitize_vertex_anthropic_output_params_unit():
     """Direct unit coverage for the helper itself (used by both Vertex
     Anthropic transformation paths). Mirrors the integration assertions
     above without going through the full ``transform_request`` stack."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
         sanitize_vertex_anthropic_output_params,
     )
 
@@ -862,7 +862,7 @@ def test_sanitize_strips_effort_for_haiku_45():
     ``effort`` into every Messages payload, so the helper must strip it for
     models that don't advertise output_config support while leaving it intact
     for Opus/Sonnet 4.6+."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
         sanitize_vertex_anthropic_output_params,
     )
 
@@ -938,7 +938,7 @@ _CALLER_FORMAT: Final = {
     ],
 )
 def test_sanitize_folds_output_format_into_output_config(model: str, data: dict, expected_output_config: dict):
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
         sanitize_vertex_anthropic_output_params,
     )
 
@@ -950,13 +950,13 @@ def test_sanitize_folds_output_format_into_output_config(model: str, data: dict,
 
 
 def _vertex_chat_request_with_output_format(
-    output_format: object, litellm_params: Mapping[str, object]
+    output_format: object, hangarllm_params: Mapping[str, object]
 ) -> Mapping[str, object]:
     return VertexAIAnthropicConfig().transform_request(
         model="claude-opus-4-6",
         messages=[{"role": "user", "content": "What is 6 times 7?"}],
         optional_params={"max_tokens": 64, "output_format": output_format},
-        litellm_params=dict(litellm_params),
+        hangarllm_params=dict(hangarllm_params),
         headers={},
     )
 
@@ -971,7 +971,7 @@ def test_vertex_chat_request_drops_a_malformed_output_format_under_per_request_d
 def test_vertex_chat_request_drops_a_malformed_output_format_under_the_global_drop_params_flag(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
 
     request: Final = _vertex_chat_request_with_output_format("json", {})
 
@@ -980,11 +980,11 @@ def test_vertex_chat_request_drops_a_malformed_output_format_under_the_global_dr
 
 
 def test_vertex_chat_request_rejects_a_malformed_output_format_without_drop_params_naming_the_proxy_setting():
-    with pytest.raises(litellm.UnsupportedParamsError) as error:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as error:
         _vertex_chat_request_with_output_format("json", {})
 
     assert error.value.status_code == 400
-    assert "litellm_settings:\n drop_params: true" in str(error.value)
+    assert "hangarllm_settings:\n drop_params: true" in str(error.value)
 
 
 def test_vertex_ai_native_response_format_reaches_vertex_as_output_config_format(local_model_cost_map):
@@ -1004,7 +1004,7 @@ def test_vertex_ai_native_response_format_reaches_vertex_as_output_config_format
         model="claude-fable-5-1",
         messages=[{"role": "user", "content": "Return the result"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1042,7 +1042,7 @@ def test_vertex_ai_fable_5_1_response_format_uses_native_output_format(local_mod
 
 def _is_tool_based_vertex_claude_rejecting_forced_tools(info: Mapping[str, object]) -> bool:
     return (
-        info.get("litellm_provider") == "vertex_ai-anthropic_models"
+        info.get("hangarllm_provider") == "vertex_ai-anthropic_models"
         and info.get("supports_forced_tool_use") is False
         and info.get("supports_native_structured_output") is not True
     )
@@ -1051,7 +1051,7 @@ def _is_tool_based_vertex_claude_rejecting_forced_tools(info: Mapping[str, objec
 def test_vertex_ai_tool_based_response_format_skips_forced_tool_choice_when_model_rejects_it(local_model_cost_map):
     model: Final = next(
         name.removeprefix("vertex_ai/")
-        for name, info in litellm.model_cost.items()
+        for name, info in hangarllm.model_cost.items()
         if _is_tool_based_vertex_claude_rejecting_forced_tools(info)
     )
     result_params: Final = VertexAIAnthropicConfig().map_openai_params(
@@ -1118,7 +1118,7 @@ def test_chat_unflagged_model_converts_mid_conversation_system_instead_of_hoisti
         model="claude-opus-4-7",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1134,7 +1134,7 @@ def test_chat_flagged_model_keeps_mid_conversation_system_role_in_place(local_mo
         model="claude-opus-4-8",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1188,7 +1188,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
     request must be a byte-identical prefix of turn N+1's or the block is dropped."""
     requests = [
         VertexAIAnthropicConfig().transform_request(
-            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, litellm_params={}, headers={}
+            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, hangarllm_params={}, headers={}
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
     ]
@@ -1203,12 +1203,12 @@ def test_refusal_stop_details_kept_through_vertex_anthropic_transform():
     result: Final = VertexAIAnthropicConfig().transform_response(
         model="claude-sonnet-5-5",
         raw_response=httpx.Response(status_code=200, headers={}, json=body),
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         logging_obj=MagicMock(),
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -1222,12 +1222,12 @@ _SIGNED_COMPACTION_BLOCK: Final = {"type": "compaction", "content": "summary so 
 _CLEAR_TOOL_USES: Final = {"edits": [{"type": "clear_tool_uses_20250919"}]}
 
 
-def _vertex_request(optional_params: dict[str, object], headers: dict[str, str], litellm_params: dict[str, object] | None = None) -> dict:
+def _vertex_request(optional_params: dict[str, object], headers: dict[str, str], hangarllm_params: dict[str, object] | None = None) -> dict:
     return VertexAIAnthropicConfig().transform_request(
         model="claude-opus-4-6",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"max_tokens": 100, "is_vertex_request": True, **optional_params},
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
         headers=headers,
     )
 
@@ -1268,7 +1268,7 @@ def test_vertex_ai_anthropic_native_compaction_adds_compact_2026_09_04_beta(
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
     filtered_headers, filtered_body = update_request_with_filtered_beta(
@@ -1349,7 +1349,7 @@ def test_vertex_ai_anthropic_client_sent_body_header_only_beta_moves_to_the_head
     ],
     ids=["body_beta", "header_only_beta"],
 )
-def test_vertex_ai_anthropic_litellm_betas_merge_with_the_client_body_betas(
+def test_vertex_ai_anthropic_hangarllm_betas_merge_with_the_client_body_betas(
     local_beta_headers_config: None, client_beta: str, body: list[str], header: str
 ) -> None:
     headers: Final[dict[str, str]] = {}
@@ -1404,14 +1404,14 @@ def test_vertex_ai_anthropic_malformed_anthropic_beta_answers_400_naming_its_fie
 
 @_MALFORMED_BETAS
 @_MALFORMED_BETA_SOURCES
-@pytest.mark.parametrize("auto_beta", [False, True], ids=["alone", "next_to_litellm_beta"])
+@pytest.mark.parametrize("auto_beta", [False, True], ids=["alone", "next_to_hangarllm_beta"])
 def test_vertex_ai_anthropic_malformed_anthropic_beta_is_dropped_under_drop_params(
     local_beta_headers_config: None, malformed: object, source: str, field: str, auto_beta: bool
 ) -> None:
     headers: Final[dict[str, str]] = {}
     params: Final = {**_malformed_beta_params(source, malformed), **({"context_management": _CLEAR_TOOL_USES} if auto_beta else {})}
 
-    result: Final = _vertex_request(params, headers, litellm_params={"drop_params": True})
+    result: Final = _vertex_request(params, headers, hangarllm_params={"drop_params": True})
 
     assert result.get("anthropic_beta") == (["context-management-2025-06-27"] if auto_beta else None)
     assert headers.get("anthropic-beta") == ("context-management-2025-06-27" if auto_beta else None)
@@ -1441,10 +1441,10 @@ def test_vertex_ai_anthropic_completion_sends_compact_2026_09_04_beta_on_the_wir
     client.post.return_value = mock_response
 
     with patch(
-        "litellm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
+        "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
         return_value=("token", "test-project"),
     ):
-        litellm.completion(
+        hangarllm.completion(
             model="vertex_ai/claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Reply with the single word: pong"}],
             compaction={"type": "summarize"},
@@ -1466,8 +1466,8 @@ def test_vertex_ai_anthropic_completion_sends_compact_2026_09_04_beta_on_the_wir
 def test_chat_preserves_thinking_display_and_beta(thinking_type: str, display: str) -> None:
     from typing import Final
 
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import VertexAIAnthropicConfig
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import VertexAIAnthropicConfig
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     config: Final = VertexAIAnthropicConfig()
     optional_params: Final = config.map_openai_params(
@@ -1482,7 +1482,7 @@ def test_chat_preserves_thinking_display_and_beta(thinking_type: str, display: s
         model="claude-fable-5-1",
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -1496,12 +1496,12 @@ def test_chat_preserves_thinking_display_and_beta(thinking_type: str, display: s
 def test_beta_detection_preserves_unrecognized_thinking(thinking: object) -> None:
     from typing import Final
 
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     headers: Final = {}
     result: Final = VertexAIAnthropicConfig().transform_request(
         model="claude-fable-5-1", messages=[{"role": "user", "content": "Hello"}],
-        optional_params={"thinking": thinking}, litellm_params={}, headers=headers,
+        optional_params={"thinking": thinking}, hangarllm_params={}, headers=headers,
     )
 
     assert result["thinking"] == thinking

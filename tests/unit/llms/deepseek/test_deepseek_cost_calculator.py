@@ -4,18 +4,18 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm._internal_context import pinned_billing_time
-from litellm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
+import hangarllm
+from hangarllm._internal_context import pinned_billing_time
+from hangarllm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 PEAK_MOMENTS: Final = (
@@ -51,7 +51,7 @@ def one_million_in_and_out_with_400k_cache_hits(model: str) -> ModelResponse:
 
 def deepseek_cost_at(model: str, moment: datetime) -> float:
     with pinned_billing_time(moment):
-        return litellm.completion_cost(
+        return hangarllm.completion_cost(
             completion_response=one_million_in_and_out_with_400k_cache_hits(model),
             model=model,
             custom_llm_provider="deepseek",

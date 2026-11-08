@@ -36,7 +36,7 @@ from integration.translation.templates.bedrock_converse import (
 CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_1_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-fable-5-1"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-fable-5-1"},
     expected_provider_endpoint="/model/global.anthropic.claude-fable-5-1/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -145,7 +145,7 @@ CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
             "totalTokens": 1289,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-fable-5-1",
         "choices": [
@@ -193,8 +193,8 @@ CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
 CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_1_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_request, CLAUDE_FABLE_5_1_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_request, CLAUDE_FABLE_5_1_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.anthropic.claude-fable-5-1/converse",
     expected_provider_request={
@@ -348,7 +348,7 @@ CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 1662,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-fable-5-1",
         "choices": [
@@ -386,9 +386,9 @@ CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -582,10 +582,10 @@ CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("tooluse_1scOGH6yqKg2qgAQuDrITO", "tooluse_e14xz2GhG71KhrznKTu7ZR"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -603,8 +603,8 @@ CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_FABLE_5_TEST_CASE.litellm_request, CLAUDE_FABLE_5_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_FABLE_5_TEST_CASE.hangarllm_request, CLAUDE_FABLE_5_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.anthropic.claude-fable-5/converse",
     expected_provider_request={
@@ -757,7 +757,7 @@ CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 1633,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-fable-5",
         "choices": [
@@ -794,9 +794,9 @@ CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_FABLE_5_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_FABLE_5_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_FABLE_5_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_FABLE_5_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -998,10 +998,10 @@ CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("tooluse_7je3KtzalxPnlZ5FGwfYSx", "tooluse_VfjLWMwJQpLJ9b1u33bw0F"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -1019,7 +1019,7 @@ CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_4_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={
+    hangarllm_request={
         **CODING_AGENT_REQUEST,
         "model": "bedrock/converse/global.anthropic.claude-haiku-4-5-20251001-v1:0",
     },
@@ -1144,7 +1144,7 @@ CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
             "totalTokens": 1393,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-haiku-4-5-20251001-v1:0",
         "choices": [
@@ -1239,8 +1239,8 @@ CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_4_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_request, CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.anthropic.claude-haiku-4-5-20251001-v1%3A0/converse",
     expected_provider_request={
@@ -1440,7 +1440,7 @@ CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 1847,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-haiku-4-5-20251001-v1:0",
         "choices": [
@@ -1629,9 +1629,9 @@ CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1916,7 +1916,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("tooluse_gjENiEmnd8v2Cwbb0CS4iu", "tooluse_i14f63N6Z3OKUAGDUZyNvd"),
         reasoning_content=(
             "The user wants me to:\n"
@@ -1937,7 +1937,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             },
         ),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1237,
         "completion_tokens": 155,
         "total_tokens": 1392,
@@ -1955,7 +1955,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_HAIKU_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-haiku-5-5"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-haiku-5-5"},
     expected_provider_endpoint="/model/global.anthropic.claude-haiku-5-5/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -2062,7 +2062,7 @@ CLAUDE_HAIKU_5_5_AGENT_TEST_CASE: Final = replace(
             "totalTokens": 1274,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-haiku-5-5",
         "choices": [
@@ -2142,8 +2142,8 @@ CLAUDE_HAIKU_5_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_HAIKU_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.litellm_request, CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.anthropic.claude-haiku-5-5/converse",
     expected_provider_request={
@@ -2294,7 +2294,7 @@ CLAUDE_HAIKU_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 1603,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-haiku-5-5",
         "choices": [
@@ -2331,9 +2331,9 @@ CLAUDE_HAIKU_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_HAIKU_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_HAIKU_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2575,7 +2575,7 @@ CLAUDE_HAIKU_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("tooluse_vcdBZHtRE7Rcccknxsqz8v", "tooluse_RQ4zQ01K7BjSGttKrLDP3p"),
         reasoning_content=(
             "I'll run the search and the tests concurrently, then wait for both to finish before continuing.\n\n"
@@ -2590,7 +2590,7 @@ CLAUDE_HAIKU_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             },
         ),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1144,
         "completion_tokens": 129,
         "total_tokens": 1273,
@@ -2608,7 +2608,7 @@ CLAUDE_HAIKU_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-opus-5-5"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-opus-5-5"},
     expected_provider_endpoint="/model/global.anthropic.claude-opus-5-5/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -2705,7 +2705,7 @@ CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
             "totalTokens": 1249,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-opus-5-5",
         "choices": [
@@ -2753,8 +2753,8 @@ CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_request, CLAUDE_OPUS_5_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_OPUS_5_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.anthropic.claude-opus-5-5/converse",
     expected_provider_request={
@@ -2906,7 +2906,7 @@ CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 1594,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-opus-5-5",
         "choices": [
@@ -2979,9 +2979,9 @@ CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -3175,10 +3175,10 @@ CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("tooluse_KDUbO8FtozzPrRkLBLseP8", "tooluse_6Y9Zbb8KWmGmufNdN2AMiT"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1144,
         "completion_tokens": 105,
         "total_tokens": 1249,
@@ -3264,7 +3264,7 @@ BEDROCK_CONVERSE_AGENT_PROVIDER_REQUEST: Final = {
 CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/us.anthropic.claude-sonnet-5-5"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/us.anthropic.claude-sonnet-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-sonnet-5-5/converse",
     expected_provider_headers={
         "authorization": "Bearer synthetic-bedrock-key",
@@ -3309,7 +3309,7 @@ CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
             "totalTokens": 1249,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/us.anthropic.claude-sonnet-5-5",
         "choices": [
@@ -3356,9 +3356,9 @@ CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
 
 CLAUDE_SONNET_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -3471,10 +3471,10 @@ CLAUDE_SONNET_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCas
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("tooluse_6cLTZNBlXnKXY9x3Rp4wNo", "tooluse_uoozKiVjrkiFbYLgq52Lh1"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1144,
         "completion_tokens": 105,
         "total_tokens": 1249,
@@ -3556,9 +3556,9 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_PROVIDER_REQUEST: Final = {
 CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_request,
-        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.expected_litellm_response,
+    hangarllm_request=followup_request(
+        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_request,
+        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.expected_hangarllm_response,
     ),
     expected_provider_endpoint="/model/us.anthropic.claude-sonnet-5-5/converse",
     expected_provider_request=CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_PROVIDER_REQUEST,
@@ -3594,7 +3594,7 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 1615,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/us.anthropic.claude-sonnet-5-5",
         "choices": [
@@ -3635,8 +3635,8 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_OPUS_5_TEST_CASE.litellm_request, CLAUDE_OPUS_5_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_OPUS_5_TEST_CASE.hangarllm_request, CLAUDE_OPUS_5_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.anthropic.claude-opus-5/converse",
     expected_provider_request={
@@ -3780,7 +3780,7 @@ CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 1636,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-opus-5",
         "choices": [
@@ -3820,9 +3820,9 @@ CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_OPUS_5_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_OPUS_5_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_OPUS_5_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_OPUS_5_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -4024,10 +4024,10 @@ CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("tooluse_xkzgC2ZDeF1Pt8XMhFk9zc", "tooluse_H5ziLCR1MOfF30pTWKLjGx"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1140,
         "completion_tokens": 105,
         "total_tokens": 1245,
@@ -4045,8 +4045,8 @@ CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_5_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_6_LUNA_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_6_LUNA_TEST_CASE.litellm_request, GPT_5_6_LUNA_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_5_6_LUNA_TEST_CASE.hangarllm_request, GPT_5_6_LUNA_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.openai.gpt-5.6-luna/converse",
     expected_provider_request={
@@ -4180,7 +4180,7 @@ GPT_5_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 685,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-5.6-luna",
         "choices": [
@@ -4215,9 +4215,9 @@ GPT_5_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_6_LUNA_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_5_6_LUNA_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_5_6_LUNA_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_5_6_LUNA_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -4414,11 +4414,11 @@ GPT_5_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_56e00189845b5c3e9db58f1c533f8ffa", "call_5bc228109f6b50aab59208a1bb87a278"),
         thinking_blocks=({"type": "redacted_thinking", "data": "synthetic-redacted-content"},),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 65,
         "total_tokens": 513,
@@ -4436,8 +4436,8 @@ GPT_5_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_5_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_6_SOL_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_6_SOL_TEST_CASE.litellm_request, GPT_5_6_SOL_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_5_6_SOL_TEST_CASE.hangarllm_request, GPT_5_6_SOL_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.openai.gpt-5.6-sol/converse",
     expected_provider_request={
@@ -4571,7 +4571,7 @@ GPT_5_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 693,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-5.6-sol",
         "choices": [
@@ -4607,9 +4607,9 @@ GPT_5_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_6_SOL_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_5_6_SOL_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_5_6_SOL_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_5_6_SOL_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -4802,10 +4802,10 @@ GPT_5_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_1f91223677b85208a50c2e468f13bec6", "call_22c1b20e86fc5591a38991235c16a738"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -4823,8 +4823,8 @@ GPT_5_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_5_6_TERRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_5_6_TERRA_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_5_6_TERRA_TEST_CASE.litellm_request, GPT_5_6_TERRA_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_5_6_TERRA_TEST_CASE.hangarllm_request, GPT_5_6_TERRA_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.openai.gpt-5.6-terra/converse",
     expected_provider_request={
@@ -4958,7 +4958,7 @@ GPT_5_6_TERRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 688,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-5.6-terra",
         "choices": [
@@ -4994,9 +4994,9 @@ GPT_5_6_TERRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_5_6_TERRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_5_6_TERRA_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_5_6_TERRA_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_5_6_TERRA_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_5_6_TERRA_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -5189,10 +5189,10 @@ GPT_5_6_TERRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_0134ef3fc4655cf1bce3682ad64e2402", "call_158da03b42155f8698a5e305286b575a"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -5210,8 +5210,8 @@ GPT_5_6_TERRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_ASTRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_ASTRA_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_ASTRA_TEST_CASE.litellm_request, GPT_6_ASTRA_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_6_ASTRA_TEST_CASE.hangarllm_request, GPT_6_ASTRA_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.openai.gpt-6-astra/converse",
     expected_provider_request={
@@ -5345,7 +5345,7 @@ GPT_6_ASTRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 687,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6-astra",
         "choices": [
@@ -5380,9 +5380,9 @@ GPT_6_ASTRA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_ASTRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_ASTRA_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_6_ASTRA_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_6_ASTRA_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_6_ASTRA_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -5579,10 +5579,10 @@ GPT_6_ASTRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_8d938f5c31c25860ac7afbfabc6842e7", "call_50e1bcf30f0f530999ba77cb7a9af6e1"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -5600,8 +5600,8 @@ GPT_6_ASTRA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_LUNA_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_LUNA_TEST_CASE.litellm_request, GPT_6_LUNA_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_6_LUNA_TEST_CASE.hangarllm_request, GPT_6_LUNA_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.openai.gpt-6-luna/converse",
     expected_provider_request={
@@ -5735,7 +5735,7 @@ GPT_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 678,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6-luna",
         "choices": [
@@ -5770,8 +5770,8 @@ GPT_6_LUNA_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_LUNA_TEST_CASE.litellm_endpoint,
-    litellm_request={**GPT_6_LUNA_TEST_CASE.litellm_request, "stream": True, "stream_options": {"include_usage": True}},
+    hangarllm_endpoint=GPT_6_LUNA_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={**GPT_6_LUNA_TEST_CASE.hangarllm_request, "stream": True, "stream_options": {"include_usage": True}},
     expected_provider_headers=GPT_6_LUNA_TEST_CASE.expected_provider_headers,
     expected_provider_endpoint="/model/global.openai.gpt-6-luna/converse-stream",
     expected_provider_request={
@@ -5961,10 +5961,10 @@ GPT_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_79fad04d4dc15725a47b94036fad121d", "call_5998b5b7890a5492b44686f49fdce50a"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -5982,8 +5982,8 @@ GPT_6_LUNA_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_SOL_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_SOL_TEST_CASE.litellm_request, GPT_6_SOL_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_6_SOL_TEST_CASE.hangarllm_request, GPT_6_SOL_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.openai.gpt-6-sol/converse",
     expected_provider_request={
@@ -6117,7 +6117,7 @@ GPT_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 681,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6-sol",
         "choices": [
@@ -6152,8 +6152,8 @@ GPT_6_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_SOL_TEST_CASE.litellm_endpoint,
-    litellm_request={**GPT_6_SOL_TEST_CASE.litellm_request, "stream": True, "stream_options": {"include_usage": True}},
+    hangarllm_endpoint=GPT_6_SOL_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={**GPT_6_SOL_TEST_CASE.hangarllm_request, "stream": True, "stream_options": {"include_usage": True}},
     expected_provider_headers=GPT_6_SOL_TEST_CASE.expected_provider_headers,
     expected_provider_endpoint="/model/global.openai.gpt-6-sol/converse-stream",
     expected_provider_request={
@@ -6339,10 +6339,10 @@ GPT_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_27bae639df025a45b45f9d6f390cf640", "call_e1ff6a882dec5541999379a8e5ce6b4d"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,
@@ -6360,8 +6360,8 @@ GPT_6_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 GPT_6_1_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GPT_6_1_SOL_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GPT_6_1_SOL_TEST_CASE.litellm_request, GPT_6_1_SOL_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GPT_6_1_SOL_TEST_CASE.hangarllm_request, GPT_6_1_SOL_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/model/global.openai.gpt-6.1-sol/converse",
     expected_provider_request={
@@ -6495,7 +6495,7 @@ GPT_6_1_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "totalTokens": 691,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6.1-sol",
         "choices": [
@@ -6531,9 +6531,9 @@ GPT_6_1_SOL_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GPT_6_1_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GPT_6_1_SOL_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GPT_6_1_SOL_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GPT_6_1_SOL_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GPT_6_1_SOL_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -6718,10 +6718,10 @@ GPT_6_1_SOL_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             headers={":event-type": "metadata", ":content-type": "application/json", ":message-type": "event"},
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_cfd44aa11ede5a6c99cf18ae774b7085", "call_027b2f22e5e959a38f6861130f2dc7df"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 448,
         "completion_tokens": 53,
         "total_tokens": 501,

@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
 ROOT: Final = Path(__file__).resolve().parents[1]
 TOOLING: Final = ROOT / "scripts/trace_codegen"
-GENERATED: Final = ROOT / "litellm/tracing/generated"
+GENERATED: Final = ROOT / "hangarllm/tracing/generated"
 ASSETS: Final = ROOT / "scripts/lens_assets"
 SCHEMAS: Final = TypeAdapter(dict[str, dict[str, JsonValue]])
 
@@ -99,7 +99,7 @@ def generate(
             "--output-model-type",
             "pydantic_v2.BaseModel",
             "--base-class",
-            "litellm.types.llms.base.LiteLLMBaseModel",
+            "hangarllm.types.llms.base.HangarLLMBaseModel",
             "--enable-faux-immutability",
             "--additional-imports",
             "collections.abc.Mapping,typing.TypeAlias,pydantic.JsonValue",

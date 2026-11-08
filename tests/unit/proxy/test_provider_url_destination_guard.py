@@ -2,7 +2,7 @@
 
 Some providers (HuggingFace, Oobabooga, Gemini files) accept a URL in the
 identifier field and use it as the outbound destination. On the proxy that is
-an SSRF primitive — guarded centrally in ``litellm_pre_call_utils`` so SDK
+an SSRF primitive — guarded centrally in ``hangarllm_pre_call_utils`` so SDK
 users keep working but proxy users default-deny.
 """
 
@@ -11,11 +11,11 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException, Request
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import (
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.hangarllm_pre_call_utils import (
     _reject_url_valued_destinations,
-    add_litellm_data_to_request,
+    add_hangarllm_data_to_request,
 )
 
 
@@ -68,7 +68,7 @@ class TestRejectUrlValuedDestinations:
 
     def test_provider_prefixed_url_respects_allowlist(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "provider_url_destination_allowed_hosts",
             ["trusted.example"],
         )
@@ -97,7 +97,7 @@ class TestRejectUrlValuedDestinations:
 
     def test_allowlisted_host_passes(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "provider_url_destination_allowed_hosts",
             ["trusted.example"],
         )
@@ -105,7 +105,7 @@ class TestRejectUrlValuedDestinations:
 
     def test_allowlisted_origin_rejects_mismatched_scheme(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "provider_url_destination_allowed_hosts",
             ["https://trusted.example"],
         )
@@ -115,7 +115,7 @@ class TestRejectUrlValuedDestinations:
 
     def test_allowlisted_host_port_rejects_other_ports(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "provider_url_destination_allowed_hosts",
             ["trusted.example:8443"],
         )
@@ -126,7 +126,7 @@ class TestRejectUrlValuedDestinations:
     def test_userinfo_in_url_rejected_even_when_host_allowlisted(self, monkeypatch):
         # Embedded credentials in URL are an exfil channel — must never pass.
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "provider_url_destination_allowed_hosts",
             ["trusted.example"],
         )
@@ -150,7 +150,7 @@ def _make_request_mock() -> Request:
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_rejects_url_valued_model():
+async def test_add_hangarllm_data_to_request_rejects_url_valued_model():
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-key",
         metadata={},
@@ -164,7 +164,7 @@ async def test_add_litellm_data_to_request_rejects_url_valued_model():
     data = {"model": "https://attacker.example/v1", "messages": []}
 
     with pytest.raises(HTTPException) as exc_info:
-        await add_litellm_data_to_request(
+        await add_hangarllm_data_to_request(
             data=data,
             request=_make_request_mock(),
             user_api_key_dict=user_api_key_dict,

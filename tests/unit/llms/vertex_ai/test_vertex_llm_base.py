@@ -16,13 +16,13 @@ import pytest
 import requests
 import responses
 
-from litellm.constants import DEFAULT_MAX_LRU_CACHE_SIZE, DEFAULT_MAX_RECURSE_DEPTH
+from hangarllm.constants import DEFAULT_MAX_LRU_CACHE_SIZE, DEFAULT_MAX_RECURSE_DEPTH
 
 
-import litellm
-from litellm.llms.vertex_ai.vertex_ai_aws_wif import VertexAIAwsWifAuth
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.vertex_ai import VertexPartnerProvider
+import hangarllm
+from hangarllm.llms.vertex_ai.vertex_ai_aws_wif import VertexAIAwsWifAuth
+from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
+from hangarllm.types.llms.vertex_ai import VertexPartnerProvider
 
 
 def run_sync(coro):
@@ -1512,7 +1512,7 @@ class TestVertexBase:
         # The imports happen inside the function via `from X import Y`, so
         # the mock must replace the class in its defining module.
         with (
-            patch("litellm.llms.bedrock.base_aws_llm.BaseAWSLLM") as MockBaseAWSLLM,
+            patch("hangarllm.llms.bedrock.base_aws_llm.BaseAWSLLM") as MockBaseAWSLLM,
             patch(
                 "google.auth.aws.Credentials",
             ) as MockAwsCredentials,
@@ -1593,7 +1593,7 @@ class TestVertexBase:
 
         with (
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_aws_wif.VertexAIAwsWifAuth.credentials_from_explicit_aws",
+                "hangarllm.llms.vertex_ai.vertex_ai_aws_wif.VertexAIAwsWifAuth.credentials_from_explicit_aws",
                 return_value=mock_creds,
             ) as mock_explicit_auth,
             patch.object(
@@ -1656,7 +1656,7 @@ class TestVertexBase:
 
         with (
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_aws_wif.VertexAIAwsWifAuth.credentials_from_explicit_aws",
+                "hangarllm.llms.vertex_ai.vertex_ai_aws_wif.VertexAIAwsWifAuth.credentials_from_explicit_aws",
             ) as mock_explicit_auth,
             patch.object(
                 vertex_base,
@@ -1691,7 +1691,7 @@ class TestVertexBase:
 
     def test_aws_credentials_supplier(self):
         """Test AwsCredentialsSupplier: wraps credentials provider, handles token=None."""
-        from litellm.llms.vertex_ai.aws_credentials_supplier import (
+        from hangarllm.llms.vertex_ai.aws_credentials_supplier import (
             AwsCredentialsSupplier,
         )
 
@@ -1733,7 +1733,7 @@ class TestVertexBase:
         """Test that AwsCredentialsSupplier returns AwsSecurityCredentials dataclass."""
         from google.auth.aws import AwsSecurityCredentials
 
-        from litellm.llms.vertex_ai.aws_credentials_supplier import (
+        from hangarllm.llms.vertex_ai.aws_credentials_supplier import (
             AwsCredentialsSupplier,
         )
 
@@ -2231,7 +2231,7 @@ _ENCODED_VERTEX_KEY: Final = base64.b64encode(
 class TestVertexCredentialsSource:
     """A `vertex_credentials` path that cannot be read must not be reported as malformed JSON.
 
-    Regression for https://github.com/BerriAI/litellm/issues/40166: dispatching on
+    Regression for upstream issue 40166 dispatching on
     os.path.exists() sent a missing or unreadable path down the inline-JSON branch,
     where the path string itself was parsed and every failure came back as a
     JSONDecodeError blaming the key material.
@@ -2242,7 +2242,7 @@ class TestVertexCredentialsSource:
     def test_missing_credentials_file_names_the_read_failure_in_the_log(self, tmp_path, caplog):
         missing = tmp_path / "vertexai.json"
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE) as exc_info:
                 VertexBase().load_auth(credentials=str(missing), project_id="p")
 
@@ -2258,7 +2258,7 @@ class TestVertexCredentialsSource:
         unreadable = tmp_path / "vertexai.json"
         unreadable.mkdir()
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE) as exc_info:
                 VertexBase().load_auth(credentials=str(unreadable), project_id="p")
 
@@ -2271,7 +2271,7 @@ class TestVertexCredentialsSource:
         malformed = tmp_path / "vertexai.json"
         malformed.write_text('{"type": "service_account", "private_key": "-----BEGIN\nPRIVATE KEY-----"}')
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE) as exc_info:
                 VertexBase().load_auth(credentials=str(malformed), project_id="p")
 
@@ -2302,7 +2302,7 @@ class TestVertexCredentialsSource:
             return str(exc_info.value)
 
         assert {message_for(path) for path in paths} == {
-            "Unable to load the vertex credentials file. LiteLLM's log names the path and the reason."
+            "Unable to load the vertex credentials file. HangarLLM's log names the path and the reason."
         }
 
     NOT_A_KEY: Final = '{"hello": "world"}'
@@ -2316,7 +2316,7 @@ class TestVertexCredentialsSource:
         not_a_key = tmp_path / "settings.json"
         not_a_key.write_text(self.NOT_A_KEY)
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE) as exc_info:
                 VertexBase().load_auth(credentials=str(not_a_key), project_id="p")
 
@@ -2333,7 +2333,7 @@ class TestVertexCredentialsSource:
 
         assert self.FILE_FAILURE not in str(exc_info.value)
 
-    def test_litellm_rejecting_a_credentials_file_is_not_blamed_on_google_auth(self, tmp_path, caplog):
+    def test_hangarllm_rejecting_a_credentials_file_is_not_blamed_on_google_auth(self, tmp_path, caplog):
         wif_without_region = tmp_path / "wif.json"
         wif_without_region.write_text(
             json.dumps(
@@ -2345,7 +2345,7 @@ class TestVertexCredentialsSource:
             )
         )
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials=str(wif_without_region), project_id="p")
 
@@ -2356,7 +2356,7 @@ class TestVertexCredentialsSource:
         oversized = tmp_path / "vertexai.json"
         oversized.write_text("{" + " " * (1 << 20) + "}")
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials=str(oversized), project_id="p")
 
@@ -2366,7 +2366,7 @@ class TestVertexCredentialsSource:
         double_encoded = tmp_path / "vertexai.json"
         double_encoded.write_text(json.dumps(json.dumps({"type": "service_account"})))
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials=str(double_encoded), project_id="p")
 
@@ -2374,19 +2374,19 @@ class TestVertexCredentialsSource:
         assert "not valid JSON" not in caplog.text
 
     def test_a_path_with_a_newline_cannot_forge_a_log_line(self, tmp_path, caplog):
-        forged = str(tmp_path / "vertexai.json") + "\nLiteLLM:ERROR: forged entry"
+        forged = str(tmp_path / "vertexai.json") + "\nHangarLLM:ERROR: forged entry"
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials=forged, project_id="p")
 
-        assert "\nLiteLLM:ERROR: forged entry" not in caplog.text
-        assert "\\nLiteLLM:ERROR: forged entry" in caplog.text
+        assert "\nHangarLLM:ERROR: forged entry" not in caplog.text
+        assert "\\nHangarLLM:ERROR: forged entry" in caplog.text
 
     def test_a_value_too_long_to_be_a_path_is_logged_by_length_only(self, caplog):
         not_a_path = "not a path, " * 25
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials=not_a_path, project_id="p")
 
@@ -2459,7 +2459,7 @@ class TestVertexCredentialsSource:
         """The path reaches the log, so a credential put in that field must be scrubbed first."""
         pem = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADA\n-----END PRIVATE KEY-----"
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials=pem, project_id="p")
 
@@ -2468,7 +2468,7 @@ class TestVertexCredentialsSource:
 
     def test_a_path_open_rejects_outright_is_reported_not_raised_raw(self, caplog):
         """open() rejects some paths with a bare ValueError before any filesystem call."""
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials="creds" + chr(0) + ".json", project_id="p")
 
@@ -2509,7 +2509,7 @@ class TestVertexCredentialsSource:
         ],
     )
     def test_base64_encoded_credentials_are_named_and_kept_out_of_the_log(self, encoded, caplog):
-        with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+        with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
             with pytest.raises(ValueError, match="is base64-encoded JSON") as exc_info:
                 VertexBase().load_auth(credentials=encoded, project_id="p")
 
@@ -2549,7 +2549,7 @@ class TestVertexCredentialsSource:
         (tmp_path / "{vertex}.json").write_text('{"type": "service_account",')
         monkeypatch.chdir(tmp_path)
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials="{vertex}.json", project_id="p")
 
@@ -2562,7 +2562,7 @@ class TestVertexCredentialsSource:
         braced.chmod(0)
         monkeypatch.chdir(tmp_path)
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials="{vertex}.json", project_id="p")
 
@@ -2572,7 +2572,7 @@ class TestVertexCredentialsSource:
         not_text = tmp_path / "vertexai.json"
         not_text.write_bytes(bytes([0xFF, 0xFE, 0x00, 0x01]))
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM"):
             with pytest.raises(ValueError, match=self.FILE_FAILURE):
                 VertexBase().load_auth(credentials=str(not_text), project_id="p")
 
@@ -2582,7 +2582,7 @@ class TestVertexCredentialsSource:
 def test_get_access_token_reraises_malformed_service_account_credentials_without_caching(caplog):
     vertex_base: Final = VertexBase()
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         with pytest.raises(google.auth.exceptions.MalformedError):
             vertex_base.get_access_token(
                 credentials=json.dumps({"type": "service_account", "project_id": "project-1"}),

@@ -1,11 +1,11 @@
-# litellm_budget Resource
+# hangarllm_budget Resource
 
-Manages a budget object on the LiteLLM proxy. Budgets can be attached to keys, teams, organizations, and end users to enforce spend limits
+Manages a budget object on the HangarLLM proxy. Budgets can be attached to keys, teams, organizations, and end users to enforce spend limits
 
 ## Example Usage
 
 ```hcl
-resource "litellm_budget" "engineering" {
+resource "hangarllm_budget" "engineering" {
   budget_id             = "engineering-monthly"
   max_budget            = 500.0
   soft_budget           = 400.0
@@ -44,5 +44,5 @@ resource "litellm_budget" "engineering" {
 Budgets can be imported using the budget ID:
 
 ```shell
-terraform import litellm_budget.engineering <budget-id>
+terraform import hangarllm_budget.engineering <budget-id>
 ```

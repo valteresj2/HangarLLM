@@ -3,8 +3,8 @@ from collections.abc import Callable
 
 import pytest
 
-from litellm.proxy.common_utils.token_count_log import logged_token_count
-from litellm.types.utils import TokenCountResponse
+from hangarllm.proxy.common_utils.token_count_log import logged_token_count
+from hangarllm.types.utils import TokenCountResponse
 
 
 class _TokenizerPanic(BaseException):
@@ -24,7 +24,7 @@ async def test_a_count_ending_in_a_base_exception_logs_a_500(
 
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "count-log-panic",
+            "hangarllm_call_id": "count-log-panic",
             "request_model": "count-log-gpt",
             "model_id": None,
             "model_used": None,

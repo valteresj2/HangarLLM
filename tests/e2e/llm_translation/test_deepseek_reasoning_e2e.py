@@ -3,7 +3,7 @@
 DeepSeek's reasoner defaults thinking ON and surfaces the chain as
 ``message.reasoning_content``. Two documented ways to disable it are
 ``reasoning_effort="none"`` and ``thinking={"type": "disabled"}``. The DeepSeek
-param mapper (``litellm/llms/deepseek/chat/transformation.py``
+param mapper (``hangarllm/llms/deepseek/chat/transformation.py``
 ``map_openai_params``) forwards both as ``thinking={"type": "disabled"}`` so the
 outbound body carries a real disable signal and the reasoning model returns no
 ``reasoning_content``. This is the behavior tracked by LIT-3686 / GH #27453.
@@ -23,7 +23,7 @@ from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from e2e_http import unwrap
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatResponse, LiteLLMParamsBody, ThinkingParam
+from models import ChatBody, ChatMessage, ChatResponse, HangarLLMParamsBody, ThinkingParam
 from passthrough_client import PassthroughClient
 
 pytestmark = pytest.mark.e2e
@@ -36,7 +36,7 @@ def _register_reasoner(client: PassthroughClient, resources: ResourceManager) ->
     model = f"e2e-deepseek-reasoner-{unique_marker()}"
     model_id = client.proxy.create_model(
         model,
-        LiteLLMParamsBody(model=REASONER, api_key="os.environ/DEEPSEEK_API_KEY"),
+        HangarLLMParamsBody(model=REASONER, api_key="os.environ/DEEPSEEK_API_KEY"),
     )
     resources.defer(lambda: client.proxy.delete_model(model_id))
     return model

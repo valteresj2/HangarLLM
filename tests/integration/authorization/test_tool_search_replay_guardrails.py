@@ -37,7 +37,7 @@ class _Guarded:
 def _permission(name: str, shell: str, action: str) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "tool_permission",
             "mode": "pre_call",
             "default_on": False,
@@ -56,16 +56,16 @@ def _config(directory: Path, model: str, upstream: str, shell: str) -> Path:
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {"model": pcb.MODEL, "api_base": f"{upstream}/v1", "api_key": "sk-upstream"},
+                        "hangarllm_params": {"model": pcb.MODEL, "api_base": f"{upstream}/v1", "api_key": "sk-upstream"},
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                 },
                 "router_settings": {"disable_cooldowns": True},
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "cache": True,
                     "cache_params": {
                         "type": "redis",
@@ -77,7 +77,7 @@ def _config(directory: Path, model: str, upstream: str, shell: str) -> Path:
                 "guardrails": [
                     {
                         "guardrail_name": _POLICY,
-                        "litellm_params": {"guardrail": "tool_policy", "mode": "pre_call", "default_on": True},
+                        "hangarllm_params": {"guardrail": "tool_policy", "mode": "pre_call", "default_on": True},
                     },
                     _permission(_BLOCK, shell, "block"),
                     _permission(_REWRITE, shell, "rewrite"),
@@ -107,7 +107,7 @@ def guarded(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) 
         ):
             yield _Guarded(proxy, wire, model, shell, blocked)
     finally:
-        write_rows('DELETE FROM "LiteLLM_ToolTable" WHERE tool_name = %s', (blocked,))
+        write_rows('DELETE FROM "HangarLLM_ToolTable" WHERE tool_name = %s', (blocked,))
 
 
 def _call(marker: str, name: str) -> dict[str, JsonValue]:
@@ -175,7 +175,7 @@ def _cache(guarded: _Guarded, marker: str, body: dict[str, JsonValue], key: str 
     assert populated.status_code == 200, populated.text
     await_entry(redis_store(), str(rv.JSON_OBJECT.validate_json(populated.text)["id"]))
     hit: Final = guarded.proxy.request("POST", "/v1/chat/completions", body, key=key)
-    assert hit.status_code == 200 and hit.headers.get("x-litellm-cache-key"), (hit.text, dict(hit.headers))
+    assert hit.status_code == 200 and hit.headers.get("x-hangarllm-cache-key"), (hit.text, dict(hit.headers))
     assert ts.first_message(hit.text)["content"] == rv.answer(marker), hit.text
     assert len(_posts(guarded.wire, marker)) == 1
 
@@ -276,6 +276,6 @@ def test_tool_permission_rewrite_mode_is_not_served_the_cached_unrewritten_answe
     assert guarded.shell not in posted.body.decode()
     await_entry(redis_store(), str(rv.JSON_OBJECT.validate_json(first.text)["id"]))
     hit: Final = guarded.proxy.request("POST", "/v1/chat/completions", rewritten)
-    assert hit.status_code == 200 and hit.headers.get("x-litellm-cache-key"), (hit.text, dict(hit.headers))
+    assert hit.status_code == 200 and hit.headers.get("x-hangarllm-cache-key"), (hit.text, dict(hit.headers))
     assert ts.first_message(hit.text)["content"] == rv.answer(marker), hit.text
     assert _posts(guarded.wire, marker) == ()

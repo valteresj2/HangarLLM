@@ -13,12 +13,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.policy_engine.attachment_registry import (
+from hangarllm.proxy.policy_engine.attachment_registry import (
     AttachmentRegistry,
     get_attachment_registry,
 )
-from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-from litellm.types.proxy.policy_engine import Policy, PolicyCondition, PolicyGuardrails, PolicyMatchContext
+from hangarllm.proxy.policy_engine.policy_matcher import PolicyMatcher
+from hangarllm.types.proxy.policy_engine import Policy, PolicyCondition, PolicyGuardrails, PolicyMatchContext
 
 
 class _TraceFunction(Protocol):
@@ -688,7 +688,7 @@ def _make_db_attachment_row(
 
 def _prisma_with_attachment_rows(rows: list[MagicMock]) -> MagicMock:
     prisma = MagicMock()
-    prisma.configure_mock(**{"db.litellm_policyattachmenttable.find_many": AsyncMock(return_value=rows)})
+    prisma.configure_mock(**{"db.hangarllm_policyattachmenttable.find_many": AsyncMock(return_value=rows)})
     return prisma
 
 

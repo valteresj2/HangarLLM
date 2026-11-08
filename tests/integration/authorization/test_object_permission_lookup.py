@@ -13,7 +13,7 @@ STATS_FLUSH_WINDOW_SECONDS: Final = 11.0
 def _object_permission_reads() -> int:
     rows: Final = read_rows(
         "SELECT seq_scan + idx_scan AS reads FROM pg_stat_user_tables WHERE relname = %s",
-        ("LiteLLM_ObjectPermissionTable",),
+        ("HangarLLM_ObjectPermissionTable",),
     )
     reads: Final = rows[0]["reads"]
     assert isinstance(reads, int), rows

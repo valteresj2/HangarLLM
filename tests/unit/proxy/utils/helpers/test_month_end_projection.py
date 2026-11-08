@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.utils import (
+from hangarllm.proxy.utils import (
     _get_month_end_date,
     get_projected_spend_over_limit,
     is_projected_spend_over_limit,
@@ -20,7 +20,7 @@ def _freeze_today(monkeypatch, frozen):
         def today(cls):
             return frozen
 
-    monkeypatch.setattr("litellm.proxy.utils.date", _FrozenDate)
+    monkeypatch.setattr("hangarllm.proxy.utils.date", _FrozenDate)
 
 
 @pytest.mark.parametrize(
@@ -109,7 +109,7 @@ def test_is_projected_spend_over_limit_raises_when_today_missing(monkeypatch):
         def today(cls):
             raise RuntimeError("clock unavailable")
 
-    monkeypatch.setattr("litellm.proxy.utils.date", _Broken)
+    monkeypatch.setattr("hangarllm.proxy.utils.date", _Broken)
     with pytest.raises(RuntimeError):
         is_projected_spend_over_limit(current_spend=1.0, soft_budget_limit=1.0)
 
@@ -209,7 +209,7 @@ def test_get_projected_spend_over_limit_raises_when_today_missing(monkeypatch):
         def today(cls):
             raise RuntimeError("clock unavailable")
 
-    monkeypatch.setattr("litellm.proxy.utils.date", _Broken)
+    monkeypatch.setattr("hangarllm.proxy.utils.date", _Broken)
     with pytest.raises(RuntimeError):
         get_projected_spend_over_limit(current_spend=1.0, soft_budget_limit=1.0)
 

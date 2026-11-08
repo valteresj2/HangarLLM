@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from prometheus_client import REGISTRY
 
-from litellm.integrations.prometheus import PrometheusLogger
+from hangarllm.integrations.prometheus import PrometheusLogger
 
 
 @pytest.fixture(autouse=True)
@@ -43,16 +43,16 @@ class TestPrometheusUserTeamCountMetrics:
     def test_user_team_count_metrics_initialization(self, prometheus_logger):
         """Test that user and team count metrics are properly initialized"""
         # Verify that the metrics exist
-        assert hasattr(prometheus_logger, "litellm_total_users_metric")
-        assert hasattr(prometheus_logger, "litellm_teams_count_metric")
+        assert hasattr(prometheus_logger, "hangarllm_total_users_metric")
+        assert hasattr(prometheus_logger, "hangarllm_teams_count_metric")
 
         # Verify the metrics are not None
-        assert prometheus_logger.litellm_total_users_metric is not None
-        assert prometheus_logger.litellm_teams_count_metric is not None
+        assert prometheus_logger.hangarllm_total_users_metric is not None
+        assert prometheus_logger.hangarllm_teams_count_metric is not None
 
     def test_user_count_metric_has_no_labels(self, prometheus_logger):
-        """Test that litellm_total_users metric has no labels (as specified)"""
-        metric = prometheus_logger.litellm_total_users_metric
+        """Test that hangarllm_total_users metric has no labels (as specified)"""
+        metric = prometheus_logger.hangarllm_total_users_metric
 
         # The metric should be callable without labels
         # Try to set a value directly
@@ -61,22 +61,22 @@ class TestPrometheusUserTeamCountMetrics:
             # If we get here, the metric accepts direct set() calls (no labels)
             assert True
         except Exception as e:
-            pytest.fail(f"litellm_total_users_metric should not require labels: {e}")
+            pytest.fail(f"hangarllm_total_users_metric should not require labels: {e}")
 
     def test_teams_count_metric_has_no_labels(self, prometheus_logger):
-        """Test that litellm_teams_count metric has no labels (as specified)"""
-        metric = prometheus_logger.litellm_teams_count_metric
+        """Test that hangarllm_teams_count metric has no labels (as specified)"""
+        metric = prometheus_logger.hangarllm_teams_count_metric
 
         # The metric should be callable without labels
         try:
             metric.set(5)
             assert True
         except Exception as e:
-            pytest.fail(f"litellm_teams_count_metric should not require labels: {e}")
+            pytest.fail(f"hangarllm_teams_count_metric should not require labels: {e}")
 
     def test_user_count_metric_accepts_various_values(self, prometheus_logger):
         """Test that user count metric accepts various realistic values"""
-        metric = prometheus_logger.litellm_total_users_metric
+        metric = prometheus_logger.hangarllm_total_users_metric
 
         test_values = [0, 1, 10, 100, 1000, 10000]
 
@@ -85,12 +85,12 @@ class TestPrometheusUserTeamCountMetrics:
                 metric.set(value)
             except Exception as e:
                 pytest.fail(
-                    f"litellm_total_users_metric should accept value {value}: {e}"
+                    f"hangarllm_total_users_metric should accept value {value}: {e}"
                 )
 
     def test_team_count_metric_accepts_various_values(self, prometheus_logger):
         """Test that team count metric accepts various realistic values"""
-        metric = prometheus_logger.litellm_teams_count_metric
+        metric = prometheus_logger.hangarllm_teams_count_metric
 
         test_values = [0, 1, 5, 20, 50, 100]
 
@@ -99,14 +99,14 @@ class TestPrometheusUserTeamCountMetrics:
                 metric.set(value)
             except Exception as e:
                 pytest.fail(
-                    f"litellm_teams_count_metric should accept value {value}: {e}"
+                    f"hangarllm_teams_count_metric should accept value {value}: {e}"
                 )
 
 
     def test_metrics_can_be_updated_multiple_times(self, prometheus_logger):
         """Test that metrics can be updated multiple times (simulating refresh cycle)"""
-        user_metric = prometheus_logger.litellm_total_users_metric
-        team_metric = prometheus_logger.litellm_teams_count_metric
+        user_metric = prometheus_logger.hangarllm_total_users_metric
+        team_metric = prometheus_logger.hangarllm_teams_count_metric
 
         # First update
         user_metric.set(10)
@@ -126,8 +126,8 @@ class TestPrometheusUserTeamCountMetrics:
     def test_metrics_can_be_collected_by_prometheus(self, prometheus_logger):
         """Test that the metrics can be collected by Prometheus registry"""
         # Set some values
-        prometheus_logger.litellm_total_users_metric.set(100)
-        prometheus_logger.litellm_teams_count_metric.set(20)
+        prometheus_logger.hangarllm_total_users_metric.set(100)
+        prometheus_logger.hangarllm_teams_count_metric.set(20)
 
         # Collect metrics from registry
         metrics = {}
@@ -137,10 +137,10 @@ class TestPrometheusUserTeamCountMetrics:
 
         # Verify our metrics are in the collected metrics
         assert (
-            "litellm_total_users" in metrics or "litellm_total_users_total" in metrics
+            "hangarllm_total_users" in metrics or "hangarllm_total_users_total" in metrics
         )
         assert (
-            "litellm_teams_count" in metrics or "litellm_teams_count_total" in metrics
+            "hangarllm_teams_count" in metrics or "hangarllm_teams_count_total" in metrics
         )
 
     def test_initialize_user_and_team_count_metrics_method_exists(
@@ -171,37 +171,37 @@ class TestPrometheusUserTeamCountMetrics:
         prometheus_logger._initialize_user_and_team_count_metrics.assert_called_once()
 
     def test_active_users_metric_initialized(self, prometheus_logger):
-        """litellm_active_users gauge must exist alongside litellm_total_users."""
-        assert hasattr(prometheus_logger, "litellm_active_users_metric")
-        assert prometheus_logger.litellm_active_users_metric is not None
+        """hangarllm_active_users gauge must exist alongside hangarllm_total_users."""
+        assert hasattr(prometheus_logger, "hangarllm_active_users_metric")
+        assert prometheus_logger.hangarllm_active_users_metric is not None
 
     @pytest.mark.asyncio
     async def test_initialize_counts_total_and_active_users(self, prometheus_logger):
-        """litellm_total_users counts every row; litellm_active_users counts only
+        """hangarllm_total_users counts every row; hangarllm_active_users counts only
         billable (non SCIM-deactivated) users."""
         import sys
 
-        prometheus_logger.litellm_total_users_metric = MagicMock()
-        prometheus_logger.litellm_active_users_metric = MagicMock()
-        prometheus_logger.litellm_teams_count_metric = MagicMock()
+        prometheus_logger.hangarllm_total_users_metric = MagicMock()
+        prometheus_logger.hangarllm_active_users_metric = MagicMock()
+        prometheus_logger.hangarllm_teams_count_metric = MagicMock()
 
         async def _user_count(*args, where=None, **kwargs):
             # 10 rows, 2 of them SCIM-deactivated -> 8 billable
             return 2 if where is not None else 10
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_usertable.count = _user_count
-        mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=4)
+        mock_prisma.db.hangarllm_usertable.count = _user_count
+        mock_prisma.db.hangarllm_teamtable.count = AsyncMock(return_value=4)
 
         mock_proxy_server = MagicMock()
         mock_proxy_server.prisma_client = mock_prisma
 
-        with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+        with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
             await prometheus_logger._initialize_user_and_team_count_metrics()
 
-        prometheus_logger.litellm_total_users_metric.set.assert_called_once_with(10)
-        prometheus_logger.litellm_active_users_metric.set.assert_called_once_with(8)
-        prometheus_logger.litellm_teams_count_metric.set.assert_called_once_with(4)
+        prometheus_logger.hangarllm_total_users_metric.set.assert_called_once_with(10)
+        prometheus_logger.hangarllm_active_users_metric.set.assert_called_once_with(8)
+        prometheus_logger.hangarllm_teams_count_metric.set.assert_called_once_with(4)
 
     def test_metrics_have_correct_type(self, prometheus_logger):
         """Test that metrics are Gauge type (not Counter or Histogram)"""
@@ -209,16 +209,16 @@ class TestPrometheusUserTeamCountMetrics:
 
         # The metrics should be Gauge instances (or wrapped gauges)
         # We can test this by checking they have the set() method
-        assert hasattr(prometheus_logger.litellm_total_users_metric, "set")
-        assert hasattr(prometheus_logger.litellm_teams_count_metric, "set")
+        assert hasattr(prometheus_logger.hangarllm_total_users_metric, "set")
+        assert hasattr(prometheus_logger.hangarllm_teams_count_metric, "set")
 
         # Gauges have set() method, Counters only have inc()
-        assert callable(prometheus_logger.litellm_total_users_metric.set)
-        assert callable(prometheus_logger.litellm_teams_count_metric.set)
+        assert callable(prometheus_logger.hangarllm_total_users_metric.set)
+        assert callable(prometheus_logger.hangarllm_teams_count_metric.set)
 
     def test_user_count_metric_realistic_scenario(self, prometheus_logger):
         """Test realistic scenario: system starts with users, more are added"""
-        metric = prometheus_logger.litellm_total_users_metric
+        metric = prometheus_logger.hangarllm_total_users_metric
 
         # System starts with existing users
         metric.set(1000)
@@ -233,7 +233,7 @@ class TestPrometheusUserTeamCountMetrics:
 
     def test_team_count_metric_realistic_scenario(self, prometheus_logger):
         """Test realistic scenario: teams are created and possibly removed"""
-        metric = prometheus_logger.litellm_teams_count_metric
+        metric = prometheus_logger.hangarllm_teams_count_metric
 
         # Start with some teams
         metric.set(50)
@@ -250,8 +250,8 @@ class TestPrometheusUserTeamCountMetrics:
 
     def test_concurrent_metric_updates(self, prometheus_logger):
         """Test that both metrics can be updated concurrently without interference"""
-        user_metric = prometheus_logger.litellm_total_users_metric
-        team_metric = prometheus_logger.litellm_teams_count_metric
+        user_metric = prometheus_logger.hangarllm_total_users_metric
+        team_metric = prometheus_logger.hangarllm_teams_count_metric
 
         # Update both metrics in quick succession
         user_metric.set(500)
@@ -266,8 +266,8 @@ class TestPrometheusUserTeamCountMetrics:
 
     def test_metrics_handle_large_values(self, prometheus_logger):
         """Test that metrics can handle large enterprise-scale values"""
-        user_metric = prometheus_logger.litellm_total_users_metric
-        team_metric = prometheus_logger.litellm_teams_count_metric
+        user_metric = prometheus_logger.hangarllm_total_users_metric
+        team_metric = prometheus_logger.hangarllm_teams_count_metric
 
         # Large enterprise scale
         try:
@@ -296,7 +296,7 @@ async def test_assemble_team_object_uses_db_max_budget_when_metadata_is_none(
     db_team.max_budget = 3000.0
     db_team.budget_reset_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
 
-    with patch("litellm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
+    with patch("hangarllm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
         mock_get_team.return_value = db_team
         team_object = await prometheus_logger._assemble_team_object(
             team_id="c5c33858-4379-4c90-8733-d9c58c312c10",
@@ -323,7 +323,7 @@ async def test_assemble_team_object_does_not_override_metadata_max_budget(
     db_team.max_budget = 9999.0
     db_team.budget_reset_at = None
 
-    with patch("litellm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
+    with patch("hangarllm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
         mock_get_team.return_value = db_team
         team_object = await prometheus_logger._assemble_team_object(
             team_id="team-1",
@@ -345,15 +345,15 @@ async def test_set_team_budget_metrics_after_api_request_no_inf_when_metadata_bu
     End-to-end: when user_api_key_team_max_budget is None in request metadata
     but the team has a real budget in the DB, the metric must NOT be set to +Inf.
     """
-    prometheus_logger.litellm_remaining_team_budget_metric = MagicMock()
-    prometheus_logger.litellm_team_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_team_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_team_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_team_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_team_budget_remaining_hours_metric = MagicMock()
 
     db_team = MagicMock()
     db_team.max_budget = 3000.0
     db_team.budget_reset_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
 
-    with patch("litellm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
+    with patch("hangarllm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
         mock_get_team.return_value = db_team
         await prometheus_logger._set_team_budget_metrics_after_api_request(
             user_api_team="c5c33858-4379-4c90-8733-d9c58c312c10",
@@ -364,7 +364,7 @@ async def test_set_team_budget_metrics_after_api_request_no_inf_when_metadata_bu
         )
 
     set_call_args = (
-        prometheus_logger.litellm_remaining_team_budget_metric.labels().set.call_args
+        prometheus_logger.hangarllm_remaining_team_budget_metric.labels().set.call_args
     )
     assert (
         set_call_args is not None
@@ -386,15 +386,15 @@ async def test_set_team_budget_metrics_after_api_request_inf_when_genuinely_no_b
     When the team genuinely has no budget (max_budget=None in both metadata and
     DB), +Inf is the correct value and must be preserved.
     """
-    prometheus_logger.litellm_remaining_team_budget_metric = MagicMock()
-    prometheus_logger.litellm_team_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_team_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_team_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_team_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_team_budget_remaining_hours_metric = MagicMock()
 
     db_team = MagicMock()
     db_team.max_budget = None
     db_team.budget_reset_at = None
 
-    with patch("litellm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
+    with patch("hangarllm.proxy.auth.auth_checks.get_team_object") as mock_get_team:
         mock_get_team.return_value = db_team
         await prometheus_logger._set_team_budget_metrics_after_api_request(
             user_api_team="team-no-budget",
@@ -405,7 +405,7 @@ async def test_set_team_budget_metrics_after_api_request_inf_when_genuinely_no_b
         )
 
     set_call_args = (
-        prometheus_logger.litellm_remaining_team_budget_metric.labels().set.call_args
+        prometheus_logger.hangarllm_remaining_team_budget_metric.labels().set.call_args
     )
     assert set_call_args is not None
     actual_value = set_call_args[0][0]
@@ -432,7 +432,7 @@ async def test_assemble_user_object_uses_db_max_budget_when_metadata_is_none(
     db_user.max_budget = 500.0
     db_user.budget_reset_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
 
-    with patch("litellm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
+    with patch("hangarllm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
         mock_get_user.return_value = db_user
         user_object = await prometheus_logger._assemble_user_object(
             user_id="user-abc-123",
@@ -458,7 +458,7 @@ async def test_assemble_user_object_does_not_override_metadata_max_budget(
     db_user.max_budget = 9999.0
     db_user.budget_reset_at = None
 
-    with patch("litellm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
+    with patch("hangarllm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
         mock_get_user.return_value = db_user
         user_object = await prometheus_logger._assemble_user_object(
             user_id="user-abc-123",
@@ -481,7 +481,7 @@ async def test_assemble_user_object_populates_user_email_and_alias_from_db(
     db_user.user_email = "alice@example.com"
     db_user.user_alias = "Alice"
 
-    with patch("litellm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
+    with patch("hangarllm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
         mock_get_user.return_value = db_user
         user_object = await prometheus_logger._assemble_user_object(
             user_id="user-abc-123",
@@ -498,12 +498,12 @@ def test_set_user_budget_metrics_default_no_email_alias_labels(
     prometheus_logger,
 ):
     """By default (flag off), only user label is emitted."""
-    import litellm
-    from litellm.proxy._types import LiteLLM_UserTable
+    import hangarllm
+    from hangarllm.proxy._types import HangarLLM_UserTable
 
-    litellm.prometheus_user_budget_label_include_email_alias = False
+    hangarllm.prometheus_user_budget_label_include_email_alias = False
 
-    user = LiteLLM_UserTable(
+    user = HangarLLM_UserTable(
         user_id="user-abc-123",
         user_email="alice@example.com",
         user_alias="Alice",
@@ -512,13 +512,13 @@ def test_set_user_budget_metrics_default_no_email_alias_labels(
         budget_reset_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
     )
 
-    prometheus_logger.litellm_remaining_user_budget_metric = MagicMock()
-    prometheus_logger.litellm_user_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_user_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_user_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_user_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_user_budget_remaining_hours_metric = MagicMock()
 
     prometheus_logger._set_user_budget_metrics(user)
 
-    prometheus_logger.litellm_remaining_user_budget_metric.labels.assert_called_once_with(
+    prometheus_logger.hangarllm_remaining_user_budget_metric.labels.assert_called_once_with(
         user="user-abc-123",
     )
 
@@ -530,15 +530,15 @@ def test_set_user_budget_metrics_includes_user_email_and_alias_labels_when_opted
     so it must be enabled before the PrometheusLogger is built (mirroring how the
     proxy applies config at startup before instantiating callbacks).
     """
-    import litellm
-    from litellm.proxy._types import LiteLLM_UserTable
+    import hangarllm
+    from hangarllm.proxy._types import HangarLLM_UserTable
 
-    litellm.prometheus_user_budget_label_include_email_alias = True
+    hangarllm.prometheus_user_budget_label_include_email_alias = True
 
     try:
         prometheus_logger = PrometheusLogger()
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="user-abc-123",
             user_email="alice@example.com",
             user_alias="Alice",
@@ -547,32 +547,32 @@ def test_set_user_budget_metrics_includes_user_email_and_alias_labels_when_opted
             budget_reset_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
         )
 
-        prometheus_logger.litellm_remaining_user_budget_metric = MagicMock()
-        prometheus_logger.litellm_user_max_budget_metric = MagicMock()
-        prometheus_logger.litellm_user_budget_remaining_hours_metric = MagicMock()
+        prometheus_logger.hangarllm_remaining_user_budget_metric = MagicMock()
+        prometheus_logger.hangarllm_user_max_budget_metric = MagicMock()
+        prometheus_logger.hangarllm_user_budget_remaining_hours_metric = MagicMock()
 
         prometheus_logger._set_user_budget_metrics(user)
 
-        prometheus_logger.litellm_remaining_user_budget_metric.labels.assert_called_once_with(
+        prometheus_logger.hangarllm_remaining_user_budget_metric.labels.assert_called_once_with(
             user="user-abc-123",
             user_email="alice@example.com",
             user_alias="Alice",
         )
-        prometheus_logger.litellm_remaining_user_budget_metric.labels().set.assert_called_once_with(
+        prometheus_logger.hangarllm_remaining_user_budget_metric.labels().set.assert_called_once_with(
             75.0
         )
-        prometheus_logger.litellm_user_max_budget_metric.labels.assert_called_once_with(
+        prometheus_logger.hangarllm_user_max_budget_metric.labels.assert_called_once_with(
             user="user-abc-123",
             user_email="alice@example.com",
             user_alias="Alice",
         )
-        prometheus_logger.litellm_user_budget_remaining_hours_metric.labels.assert_called_once_with(
+        prometheus_logger.hangarllm_user_budget_remaining_hours_metric.labels.assert_called_once_with(
             user="user-abc-123",
             user_email="alice@example.com",
             user_alias="Alice",
         )
     finally:
-        litellm.prometheus_user_budget_label_include_email_alias = False
+        hangarllm.prometheus_user_budget_label_include_email_alias = False
 
 
 async def test_set_user_budget_metrics_after_api_request_no_inf_when_metadata_budget_none(
@@ -582,15 +582,15 @@ async def test_set_user_budget_metrics_after_api_request_no_inf_when_metadata_bu
     End-to-end: when user_max_budget is None in request metadata but the user
     has a real budget in the DB, the metric must NOT be set to +Inf.
     """
-    prometheus_logger.litellm_remaining_user_budget_metric = MagicMock()
-    prometheus_logger.litellm_user_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_user_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_user_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_user_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_user_budget_remaining_hours_metric = MagicMock()
 
     db_user = MagicMock()
     db_user.max_budget = 500.0
     db_user.budget_reset_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
 
-    with patch("litellm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
+    with patch("hangarllm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
         mock_get_user.return_value = db_user
         await prometheus_logger._set_user_budget_metrics_after_api_request(
             user_id="user-abc-123",
@@ -600,7 +600,7 @@ async def test_set_user_budget_metrics_after_api_request_no_inf_when_metadata_bu
         )
 
     set_call_args = (
-        prometheus_logger.litellm_remaining_user_budget_metric.labels().set.call_args
+        prometheus_logger.hangarllm_remaining_user_budget_metric.labels().set.call_args
     )
     assert (
         set_call_args is not None
@@ -622,15 +622,15 @@ async def test_set_user_budget_metrics_after_api_request_inf_when_genuinely_no_b
     When the user genuinely has no budget (max_budget=None in both metadata and
     DB), +Inf is the correct value and must be preserved.
     """
-    prometheus_logger.litellm_remaining_user_budget_metric = MagicMock()
-    prometheus_logger.litellm_user_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_user_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_user_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_user_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_user_budget_remaining_hours_metric = MagicMock()
 
     db_user = MagicMock()
     db_user.max_budget = None
     db_user.budget_reset_at = None
 
-    with patch("litellm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
+    with patch("hangarllm.proxy.auth.auth_checks.get_user_object") as mock_get_user:
         mock_get_user.return_value = db_user
         await prometheus_logger._set_user_budget_metrics_after_api_request(
             user_id="user-no-budget",
@@ -640,7 +640,7 @@ async def test_set_user_budget_metrics_after_api_request_inf_when_genuinely_no_b
         )
 
     set_call_args = (
-        prometheus_logger.litellm_remaining_user_budget_metric.labels().set.call_args
+        prometheus_logger.hangarllm_remaining_user_budget_metric.labels().set.call_args
     )
     assert set_call_args is not None
     actual_value = set_call_args[0][0]
@@ -651,11 +651,11 @@ async def test_set_user_budget_metrics_after_api_request_inf_when_genuinely_no_b
 
 def test_per_request_metrics_emit_all_identity_labels(prometheus_logger):
     """Verify org labels appear when flag is on and are absent when flag is off."""
-    import litellm
-    from litellm.types.integrations.prometheus import UserAPIKeyLabelValues
+    import hangarllm
+    from hangarllm.types.integrations.prometheus import UserAPIKeyLabelValues
 
-    prometheus_logger.litellm_requests_metric = MagicMock()
-    prometheus_logger.litellm_spend_metric = MagicMock()
+    prometheus_logger.hangarllm_requests_metric = MagicMock()
+    prometheus_logger.hangarllm_spend_metric = MagicMock()
 
     enum_values = UserAPIKeyLabelValues(
         hashed_api_key="hashed-key",
@@ -685,29 +685,29 @@ def test_per_request_metrics_emit_all_identity_labels(prometheus_logger):
         prometheus_logger._increment_top_level_request_and_spend_metrics(
             **common_kwargs
         )
-        label_kwargs = prometheus_logger.litellm_requests_metric.labels.call_args.kwargs
+        label_kwargs = prometheus_logger.hangarllm_requests_metric.labels.call_args.kwargs
         assert label_kwargs["org_id"] == "org-abc"
         assert label_kwargs["org_alias"] == "my-org"
         assert label_kwargs["team"] == "team-abc"
         assert label_kwargs["user"] == "user-1"
 
         # Metrics not in the org-emission list must NOT get org labels
-        from litellm.types.integrations.prometheus import PrometheusMetricLabels
+        from hangarllm.types.integrations.prometheus import PrometheusMetricLabels
 
         for metric in (
-            "litellm_remaining_api_key_budget_metric",
-            "litellm_remaining_team_budget_metric",
+            "hangarllm_remaining_api_key_budget_metric",
+            "hangarllm_remaining_team_budget_metric",
         ):
             labels = PrometheusMetricLabels.get_labels(metric)
             assert "org_id" not in labels, f"{metric} should not have org_id"
             assert "org_alias" not in labels, f"{metric} should not have org_alias"
 
         # org_id in custom_prometheus_metadata_labels must not produce duplicate labels
-        litellm.custom_prometheus_metadata_labels = ["org_id"]
-        labels = PrometheusMetricLabels.get_labels("litellm_requests_metric")
+        hangarllm.custom_prometheus_metadata_labels = ["org_id"]
+        labels = PrometheusMetricLabels.get_labels("hangarllm_requests_metric")
         assert labels.count("org_id") == 1
     finally:
-        litellm.custom_prometheus_metadata_labels = []
+        hangarllm.custom_prometheus_metadata_labels = []
 
 
 # ---------------------------------------------------------------------------
@@ -717,19 +717,19 @@ def test_per_request_metrics_emit_all_identity_labels(prometheus_logger):
 
 def test_org_budget_metrics_initialized(prometheus_logger):
     """Test that the 3 org budget gauge metrics are initialized."""
-    assert hasattr(prometheus_logger, "litellm_remaining_org_budget_metric")
-    assert hasattr(prometheus_logger, "litellm_org_max_budget_metric")
-    assert hasattr(prometheus_logger, "litellm_org_budget_remaining_hours_metric")
-    assert prometheus_logger.litellm_remaining_org_budget_metric is not None
-    assert prometheus_logger.litellm_org_max_budget_metric is not None
-    assert prometheus_logger.litellm_org_budget_remaining_hours_metric is not None
+    assert hasattr(prometheus_logger, "hangarllm_remaining_org_budget_metric")
+    assert hasattr(prometheus_logger, "hangarllm_org_max_budget_metric")
+    assert hasattr(prometheus_logger, "hangarllm_org_budget_remaining_hours_metric")
+    assert prometheus_logger.hangarllm_remaining_org_budget_metric is not None
+    assert prometheus_logger.hangarllm_org_max_budget_metric is not None
+    assert prometheus_logger.hangarllm_org_budget_remaining_hours_metric is not None
 
 
 def test_set_org_budget_metrics_remaining_budget(prometheus_logger):
     """_set_org_budget_metrics sets remaining budget gauge correctly."""
-    prometheus_logger.litellm_remaining_org_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_org_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric = MagicMock()
 
     prometheus_logger._set_org_budget_metrics(
         org_id="org-abc",
@@ -739,7 +739,7 @@ def test_set_org_budget_metrics_remaining_budget(prometheus_logger):
         budget_reset_at=None,
     )
 
-    set_call = prometheus_logger.litellm_remaining_org_budget_metric.labels().set
+    set_call = prometheus_logger.hangarllm_remaining_org_budget_metric.labels().set
     set_call.assert_called_once()
     actual = set_call.call_args[0][0]
     assert abs(actual - 300.0) < 0.01, f"Expected 300.0, got {actual}"
@@ -747,9 +747,9 @@ def test_set_org_budget_metrics_remaining_budget(prometheus_logger):
 
 def test_set_org_budget_metrics_max_budget(prometheus_logger):
     """_set_org_budget_metrics sets max budget gauge when max_budget is not None."""
-    prometheus_logger.litellm_remaining_org_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_org_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric = MagicMock()
 
     prometheus_logger._set_org_budget_metrics(
         org_id="org-abc",
@@ -759,16 +759,16 @@ def test_set_org_budget_metrics_max_budget(prometheus_logger):
         budget_reset_at=None,
     )
 
-    prometheus_logger.litellm_org_max_budget_metric.labels().set.assert_called_once_with(
+    prometheus_logger.hangarllm_org_max_budget_metric.labels().set.assert_called_once_with(
         1000.0
     )
 
 
 def test_set_org_budget_metrics_no_max_budget(prometheus_logger):
     """_set_org_budget_metrics does not set max budget gauge when max_budget is None."""
-    prometheus_logger.litellm_remaining_org_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_org_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric = MagicMock()
 
     prometheus_logger._set_org_budget_metrics(
         org_id="org-abc",
@@ -778,14 +778,14 @@ def test_set_org_budget_metrics_no_max_budget(prometheus_logger):
         budget_reset_at=None,
     )
 
-    prometheus_logger.litellm_org_max_budget_metric.labels().set.assert_not_called()
+    prometheus_logger.hangarllm_org_max_budget_metric.labels().set.assert_not_called()
 
 
 def test_set_org_budget_metrics_remaining_hours(prometheus_logger):
     """_set_org_budget_metrics sets remaining hours gauge when budget_reset_at is set."""
-    prometheus_logger.litellm_remaining_org_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_org_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric = MagicMock()
 
     future_reset = datetime(2099, 1, 1, tzinfo=timezone.utc)
     prometheus_logger._set_org_budget_metrics(
@@ -796,7 +796,7 @@ def test_set_org_budget_metrics_remaining_hours(prometheus_logger):
         budget_reset_at=future_reset,
     )
 
-    prometheus_logger.litellm_org_budget_remaining_hours_metric.labels().set.assert_called_once()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric.labels().set.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -804,9 +804,9 @@ async def test_set_org_budget_metrics_after_api_request(prometheus_logger):
     """_set_org_budget_metrics_after_api_request uses cache helper and accounts for response_cost."""
     import sys
 
-    prometheus_logger.litellm_remaining_org_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_org_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric = MagicMock()
 
     budget_mock = MagicMock()
     budget_mock.max_budget = 1000.0
@@ -816,7 +816,7 @@ async def test_set_org_budget_metrics_after_api_request(prometheus_logger):
     org_mock.organization_id = "org-xyz"
     org_mock.organization_alias = "test-org"
     org_mock.spend = 300.0
-    org_mock.litellm_budget_table = budget_mock
+    org_mock.hangarllm_budget_table = budget_mock
 
     mock_prisma = MagicMock()
     mock_proxy_server = MagicMock()
@@ -824,9 +824,9 @@ async def test_set_org_budget_metrics_after_api_request(prometheus_logger):
     mock_proxy_server.user_api_key_cache = MagicMock()
 
     with (
-        patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}),
+        patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}),
         patch(
-            "litellm.proxy.auth.auth_checks.get_org_object",
+            "hangarllm.proxy.auth.auth_checks.get_org_object",
             AsyncMock(return_value=org_mock),
         ),
     ):
@@ -837,32 +837,32 @@ async def test_set_org_budget_metrics_after_api_request(prometheus_logger):
 
     # remaining budget should reflect spend + response_cost (300 + 50 = 350, remaining = 1000 - 350 = 650)
     remaining_call = (
-        prometheus_logger.litellm_remaining_org_budget_metric.labels().set.call_args
+        prometheus_logger.hangarllm_remaining_org_budget_metric.labels().set.call_args
     )
     assert remaining_call is not None
     assert remaining_call[0][0] == pytest.approx(650.0)
 
-    prometheus_logger.litellm_org_max_budget_metric.labels().set.assert_called_once_with(
+    prometheus_logger.hangarllm_org_max_budget_metric.labels().set.assert_called_once_with(
         1000.0
     )
-    prometheus_logger.litellm_org_budget_remaining_hours_metric.labels().set.assert_called_once()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric.labels().set.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_set_org_budget_metrics_after_api_request_no_org_id(prometheus_logger):
     """_set_org_budget_metrics_after_api_request is a no-op when org_id is None."""
-    prometheus_logger.litellm_remaining_org_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_org_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric = MagicMock()
 
     await prometheus_logger._set_org_budget_metrics_after_api_request(
         org_id=None,
         response_cost=1.0,
     )
 
-    prometheus_logger.litellm_remaining_org_budget_metric.labels().set.assert_not_called()
-    prometheus_logger.litellm_org_max_budget_metric.labels().set.assert_not_called()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric.labels().set.assert_not_called()
+    prometheus_logger.hangarllm_remaining_org_budget_metric.labels().set.assert_not_called()
+    prometheus_logger.hangarllm_org_max_budget_metric.labels().set.assert_not_called()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric.labels().set.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -870,9 +870,9 @@ async def test_initialize_org_budget_metrics(prometheus_logger):
     """_initialize_org_budget_metrics fetches all orgs and sets gauges for each."""
     import sys
 
-    prometheus_logger.litellm_remaining_org_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_max_budget_metric = MagicMock()
-    prometheus_logger.litellm_org_budget_remaining_hours_metric = MagicMock()
+    prometheus_logger.hangarllm_remaining_org_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_max_budget_metric = MagicMock()
+    prometheus_logger.hangarllm_org_budget_remaining_hours_metric = MagicMock()
 
     budget_mock = MagicMock()
     budget_mock.max_budget = 500.0
@@ -882,33 +882,33 @@ async def test_initialize_org_budget_metrics(prometheus_logger):
     org_mock.organization_id = "org-init"
     org_mock.organization_alias = "init-org"
     org_mock.spend = 100.0
-    org_mock.litellm_budget_table = budget_mock
+    org_mock.hangarllm_budget_table = budget_mock
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_organizationtable.find_many = AsyncMock(
+    mock_prisma.db.hangarllm_organizationtable.find_many = AsyncMock(
         return_value=[org_mock]
     )
-    mock_prisma.db.litellm_organizationtable.count = AsyncMock(return_value=1)
+    mock_prisma.db.hangarllm_organizationtable.count = AsyncMock(return_value=1)
 
     mock_proxy_server = MagicMock()
     mock_proxy_server.prisma_client = mock_prisma
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._initialize_org_budget_metrics()
 
-    prometheus_logger.litellm_remaining_org_budget_metric.labels().set.assert_called_once()
-    prometheus_logger.litellm_org_max_budget_metric.labels().set.assert_called_once_with(
+    prometheus_logger.hangarllm_remaining_org_budget_metric.labels().set.assert_called_once()
+    prometheus_logger.hangarllm_org_max_budget_metric.labels().set.assert_called_once_with(
         500.0
     )
 
 
 @pytest.fixture
 def customer_metrics_enabled(monkeypatch):
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "enable_end_user_cost_tracking_prometheus_only", True)
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", False)
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", None)
+    monkeypatch.setattr(hangarllm, "enable_end_user_cost_tracking_prometheus_only", True)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", False)
+    monkeypatch.setattr(hangarllm, "max_end_user_budget_id", None)
 
 
 def _customer_sample(metric_name: str, end_user_id: str):
@@ -922,7 +922,7 @@ def _mock_customer_row(user_id: str, spend: float, max_budget: float | None, bud
     row = MagicMock()
     row.user_id = user_id
     row.spend = spend
-    row.litellm_budget_table = budget_mock
+    row.hangarllm_budget_table = budget_mock
     return row
 
 
@@ -940,11 +940,11 @@ def test_set_customer_budget_metrics_emits_remaining_and_max_budget(
         budget_reset_at=None,
     )
 
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-1") == pytest.approx(
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-1") == pytest.approx(
         expected_remaining
     )
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-1") == pytest.approx(max_budget)
-    assert _customer_sample("litellm_customer_budget_remaining_hours_metric", "cust-1") is None
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-1") == pytest.approx(max_budget)
+    assert _customer_sample("hangarllm_customer_budget_remaining_hours_metric", "cust-1") is None
 
 
 def test_set_customer_budget_metrics_remaining_hours(prometheus_logger, customer_metrics_enabled):
@@ -957,16 +957,16 @@ def test_set_customer_budget_metrics_remaining_hours(prometheus_logger, customer
     )
 
     expected_hours = (reset_at - datetime.now(timezone.utc)).total_seconds() / 3600
-    assert _customer_sample("litellm_customer_budget_remaining_hours_metric", "cust-1") == pytest.approx(
+    assert _customer_sample("hangarllm_customer_budget_remaining_hours_metric", "cust-1") == pytest.approx(
         expected_hours, abs=0.1
     )
 
 
 def test_set_customer_budget_metrics_not_emitted_when_end_user_tracking_off(prometheus_logger, monkeypatch):
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "enable_end_user_cost_tracking_prometheus_only", False)
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", False)
+    monkeypatch.setattr(hangarllm, "enable_end_user_cost_tracking_prometheus_only", False)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", False)
 
     prometheus_logger._set_customer_budget_metrics(
         end_user_id="cust-off",
@@ -975,9 +975,9 @@ def test_set_customer_budget_metrics_not_emitted_when_end_user_tracking_off(prom
         budget_reset_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
     )
 
-    assert prometheus_logger.litellm_remaining_customer_budget_metric._metrics == {}
-    assert prometheus_logger.litellm_customer_max_budget_metric._metrics == {}
-    assert prometheus_logger.litellm_customer_budget_remaining_hours_metric._metrics == {}
+    assert prometheus_logger.hangarllm_remaining_customer_budget_metric._metrics == {}
+    assert prometheus_logger.hangarllm_customer_max_budget_metric._metrics == {}
+    assert prometheus_logger.hangarllm_customer_budget_remaining_hours_metric._metrics == {}
 
 
 def test_set_customer_budget_metrics_without_budget_only_emits_remaining(prometheus_logger, customer_metrics_enabled):
@@ -988,9 +988,9 @@ def test_set_customer_budget_metrics_without_budget_only_emits_remaining(prometh
         budget_reset_at=None,
     )
 
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-free") == float("inf")
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-free") is None
-    assert _customer_sample("litellm_customer_budget_remaining_hours_metric", "cust-free") is None
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-free") == float("inf")
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-free") is None
+    assert _customer_sample("hangarllm_customer_budget_remaining_hours_metric", "cust-free") is None
 
 
 @pytest.mark.asyncio
@@ -999,15 +999,15 @@ async def test_increment_remaining_budget_metrics_emits_customer_gauges_from_cac
 ):
     import sys
 
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.end_user import LiteLLM_EndUserTable
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.models.end_user import HangarLLM_EndUserTable
 
-    end_user = LiteLLM_EndUserTable(
+    end_user = HangarLLM_EndUserTable(
         user_id="cust-req",
         blocked=False,
         spend=300.0,
         budget_id="budget-1",
-        litellm_budget_table=LiteLLM_BudgetTable(budget_id="budget-1", max_budget=1000.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(budget_id="budget-1", max_budget=1000.0),
     )
     get_end_user_object = AsyncMock()
     mock_proxy_server = MagicMock()
@@ -1015,15 +1015,15 @@ async def test_increment_remaining_budget_metrics_emits_customer_gauges_from_cac
     mock_proxy_server.user_api_key_cache.async_get_cache = AsyncMock(return_value=end_user)
 
     with (
-        patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}),
-        patch("litellm.proxy.auth.auth_checks.get_end_user_object", get_end_user_object),  # test-quality-ok: [TQ008] assert the request path never reaches the DB-backed auth lookup
+        patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}),
+        patch("hangarllm.proxy.auth.auth_checks.get_end_user_object", get_end_user_object),  # test-quality-ok: [TQ008] assert the request path never reaches the DB-backed auth lookup
     ):
         await prometheus_logger._increment_remaining_budget_metrics(
             user_api_team=None,
             user_api_team_alias=None,
             user_api_key=None,
             user_api_key_alias=None,
-            litellm_params={"metadata": {}},
+            hangarllm_params={"metadata": {}},
             response_cost=50.0,
             end_user_id="cust-req",
         )
@@ -1032,8 +1032,8 @@ async def test_increment_remaining_budget_metrics_emits_customer_gauges_from_cac
     cache_read = mock_proxy_server.user_api_key_cache.async_get_cache
     cache_read.assert_awaited_once()
     assert cache_read.await_args.kwargs["key"] == "end_user_id:cust-req"
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-req") == pytest.approx(650.0)
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-req") == pytest.approx(1000.0)
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-req") == pytest.approx(650.0)
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-req") == pytest.approx(1000.0)
 
 
 @pytest.mark.asyncio
@@ -1042,27 +1042,27 @@ async def test_set_customer_budget_metrics_after_api_request_uses_cached_default
 ):
     import sys
 
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.end_user import LiteLLM_EndUserTable
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.models.end_user import HangarLLM_EndUserTable
 
-    end_user = LiteLLM_EndUserTable(
+    end_user = HangarLLM_EndUserTable(
         user_id="cust-default",
         blocked=False,
         spend=0.5,
         budget_id=None,
-        litellm_budget_table=LiteLLM_BudgetTable(budget_id="default-budget", max_budget=3.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(budget_id="default-budget", max_budget=3.0),
     )
     mock_proxy_server = MagicMock()
     mock_proxy_server.user_api_key_cache.async_get_cache = AsyncMock(return_value=end_user)
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._set_customer_budget_metrics_after_api_request(
             end_user_id="cust-default",
             response_cost=0.5,
         )
 
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-default") == pytest.approx(2.0)
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-default") == pytest.approx(3.0)
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-default") == pytest.approx(2.0)
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-default") == pytest.approx(3.0)
 
 
 @pytest.mark.asyncio
@@ -1071,20 +1071,20 @@ async def test_set_customer_budget_metrics_after_api_request_without_budget_only
 ):
     import sys
 
-    from litellm.models.end_user import LiteLLM_EndUserTable
+    from hangarllm.models.end_user import HangarLLM_EndUserTable
 
-    end_user = LiteLLM_EndUserTable(user_id="cust-no-budget", blocked=False, spend=2.0, budget_id=None)
+    end_user = HangarLLM_EndUserTable(user_id="cust-no-budget", blocked=False, spend=2.0, budget_id=None)
     mock_proxy_server = MagicMock()
     mock_proxy_server.user_api_key_cache.async_get_cache = AsyncMock(return_value=end_user)
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._set_customer_budget_metrics_after_api_request(
             end_user_id="cust-no-budget",
             response_cost=1.0,
         )
 
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-no-budget") == float("inf")
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-no-budget") is None
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-no-budget") == float("inf")
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-no-budget") is None
 
 
 @pytest.mark.asyncio
@@ -1099,8 +1099,8 @@ async def test_set_customer_budget_metrics_after_api_request_skips_uncached_cust
     mock_proxy_server.user_api_key_cache.async_get_cache = AsyncMock(return_value=None)
 
     with (
-        patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}),
-        patch("litellm.proxy.auth.auth_checks.get_end_user_object", get_end_user_object),  # test-quality-ok: [TQ008] assert a cache miss does not fall back to the DB-backed auth lookup
+        patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}),
+        patch("hangarllm.proxy.auth.auth_checks.get_end_user_object", get_end_user_object),  # test-quality-ok: [TQ008] assert a cache miss does not fall back to the DB-backed auth lookup
     ):
         await prometheus_logger._set_customer_budget_metrics_after_api_request(
             end_user_id="cust-uncached",
@@ -1109,7 +1109,7 @@ async def test_set_customer_budget_metrics_after_api_request_skips_uncached_cust
 
     get_end_user_object.assert_not_awaited()
     mock_proxy_server.prisma_client.assert_not_called()
-    assert prometheus_logger.litellm_remaining_customer_budget_metric._metrics == {}
+    assert prometheus_logger.hangarllm_remaining_customer_budget_metric._metrics == {}
 
 
 @pytest.mark.asyncio
@@ -1119,14 +1119,14 @@ async def test_set_customer_budget_metrics_after_api_request_without_end_user_is
     mock_proxy_server = MagicMock()
     mock_proxy_server.user_api_key_cache.async_get_cache = AsyncMock()
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._set_customer_budget_metrics_after_api_request(
             end_user_id=None,
             response_cost=1.0,
         )
 
     mock_proxy_server.user_api_key_cache.async_get_cache.assert_not_awaited()
-    assert prometheus_logger.litellm_remaining_customer_budget_metric._metrics == {}
+    assert prometheus_logger.hangarllm_remaining_customer_budget_metric._metrics == {}
 
 
 @pytest.mark.asyncio
@@ -1135,21 +1135,21 @@ async def test_set_customer_budget_metrics_after_api_request_skips_cache_when_en
 ):
     import sys
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "enable_end_user_cost_tracking_prometheus_only", False)
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", False)
+    monkeypatch.setattr(hangarllm, "enable_end_user_cost_tracking_prometheus_only", False)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", False)
     mock_proxy_server = MagicMock()
     mock_proxy_server.user_api_key_cache.async_get_cache = AsyncMock()
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._set_customer_budget_metrics_after_api_request(
             end_user_id="cust-off",
             response_cost=1.0,
         )
 
     mock_proxy_server.user_api_key_cache.async_get_cache.assert_not_awaited()
-    assert prometheus_logger.litellm_remaining_customer_budget_metric._metrics == {}
+    assert prometheus_logger.hangarllm_remaining_customer_budget_metric._metrics == {}
 
 
 @pytest.mark.asyncio
@@ -1165,21 +1165,21 @@ async def test_initialize_customer_budget_metrics_emits_gauges_for_budgeted_cust
     ]
     find_many = AsyncMock(return_value=rows)
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = find_many
-    mock_prisma.db.litellm_endusertable.count = AsyncMock(return_value=len(rows))
+    mock_prisma.db.hangarllm_endusertable.find_many = find_many
+    mock_prisma.db.hangarllm_endusertable.count = AsyncMock(return_value=len(rows))
     mock_proxy_server = MagicMock()
     mock_proxy_server.prisma_client = mock_prisma
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._initialize_customer_budget_metrics()
 
     assert find_many.await_args.kwargs["where"] == {"budget_id": {"not": None}}
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-a") == pytest.approx(400.0)
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-a") == pytest.approx(500.0)
-    assert _customer_sample("litellm_customer_budget_remaining_hours_metric", "cust-a") is None
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-b") == pytest.approx(30.0)
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-b") == pytest.approx(50.0)
-    assert _customer_sample("litellm_customer_budget_remaining_hours_metric", "cust-b") > 0
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-a") == pytest.approx(400.0)
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-a") == pytest.approx(500.0)
+    assert _customer_sample("hangarllm_customer_budget_remaining_hours_metric", "cust-a") is None
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-b") == pytest.approx(30.0)
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-b") == pytest.approx(50.0)
+    assert _customer_sample("hangarllm_customer_budget_remaining_hours_metric", "cust-b") > 0
 
 
 @pytest.mark.parametrize(
@@ -1192,23 +1192,23 @@ async def test_initialize_customer_budget_metrics_skips_when_end_user_tracking_o
 ):
     import sys
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "enable_end_user_cost_tracking_prometheus_only", enable_prometheus_only)
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", disable_end_user)
+    monkeypatch.setattr(hangarllm, "enable_end_user_cost_tracking_prometheus_only", enable_prometheus_only)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", disable_end_user)
 
     find_many = AsyncMock(return_value=[_mock_customer_row("cust-a", 100.0, 500.0, None)])
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = find_many
-    mock_prisma.db.litellm_endusertable.count = AsyncMock(return_value=1)
+    mock_prisma.db.hangarllm_endusertable.find_many = find_many
+    mock_prisma.db.hangarllm_endusertable.count = AsyncMock(return_value=1)
     mock_proxy_server = MagicMock()
     mock_proxy_server.prisma_client = mock_prisma
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._initialize_customer_budget_metrics()
 
     find_many.assert_not_awaited()
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-a") is None
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-a") is None
 
 
 @pytest.mark.asyncio
@@ -1216,17 +1216,17 @@ async def test_initialize_remaining_budget_metrics_includes_customers(prometheus
     import sys
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = AsyncMock(
+    mock_prisma.db.hangarllm_endusertable.find_many = AsyncMock(
         return_value=[_mock_customer_row("cust-startup", 5.0, 25.0, None)]
     )
-    mock_prisma.db.litellm_endusertable.count = AsyncMock(return_value=1)
+    mock_prisma.db.hangarllm_endusertable.count = AsyncMock(return_value=1)
     mock_proxy_server = MagicMock()
     mock_proxy_server.prisma_client = mock_prisma
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._initialize_remaining_budget_metrics()
 
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-startup") == pytest.approx(20.0)
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-startup") == pytest.approx(20.0)
 
 
 @pytest.mark.asyncio
@@ -1241,17 +1241,17 @@ async def test_initialize_customer_budget_metrics_counts_once_across_pages(prome
     find_many = AsyncMock(side_effect=pages)
     count = AsyncMock(return_value=101)
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = find_many
-    mock_prisma.db.litellm_endusertable.count = count
+    mock_prisma.db.hangarllm_endusertable.find_many = find_many
+    mock_prisma.db.hangarllm_endusertable.count = count
     mock_proxy_server = MagicMock()
     mock_proxy_server.prisma_client = mock_prisma
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._initialize_customer_budget_metrics()
 
     assert find_many.await_count == 3
     count.assert_awaited_once()
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-100") == pytest.approx(9.0)
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-100") == pytest.approx(9.0)
 
 
 @pytest.mark.asyncio
@@ -1260,83 +1260,83 @@ async def test_initialize_customer_budget_metrics_applies_default_budget_to_unbu
 ):
     import sys
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", "default-customer-budget")
+    monkeypatch.setattr(hangarllm, "max_end_user_budget_id", "default-customer-budget")
     reset_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
     default_budget = MagicMock()
     default_budget.max_budget = 10.0
     default_budget.budget_reset_at = reset_at
     explicit_row = _mock_customer_row("cust-explicit", 5.0, 100.0, None)
     default_row = _mock_customer_row("cust-default", 2.0, None, None)
-    default_row.litellm_budget_table = None
+    default_row.hangarllm_budget_table = None
     find_many = AsyncMock(return_value=[explicit_row, default_row])
     find_unique = AsyncMock(return_value=default_budget)
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = find_many
-    mock_prisma.db.litellm_endusertable.count = AsyncMock(return_value=2)
-    mock_prisma.db.litellm_budgettable.find_unique = find_unique
+    mock_prisma.db.hangarllm_endusertable.find_many = find_many
+    mock_prisma.db.hangarllm_endusertable.count = AsyncMock(return_value=2)
+    mock_prisma.db.hangarllm_budgettable.find_unique = find_unique
     mock_proxy_server = MagicMock()
     mock_proxy_server.prisma_client = mock_prisma
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await prometheus_logger._initialize_customer_budget_metrics()
 
     assert find_unique.await_args.kwargs["where"] == {"budget_id": "default-customer-budget"}
     assert find_many.await_args.kwargs["where"] is None
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-explicit") == pytest.approx(95.0)
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-explicit") == pytest.approx(100.0)
-    assert _customer_sample("litellm_remaining_customer_budget_metric", "cust-default") == pytest.approx(8.0)
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-default") == pytest.approx(10.0)
-    assert _customer_sample("litellm_customer_budget_remaining_hours_metric", "cust-default") > 0
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-explicit") == pytest.approx(95.0)
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-explicit") == pytest.approx(100.0)
+    assert _customer_sample("hangarllm_remaining_customer_budget_metric", "cust-default") == pytest.approx(8.0)
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-default") == pytest.approx(10.0)
+    assert _customer_sample("hangarllm_customer_budget_remaining_hours_metric", "cust-default") > 0
 
 
 @pytest.mark.asyncio
 async def test_customer_max_budget_gauge_emitted_when_only_it_is_configured(customer_metrics_enabled, monkeypatch):
     import sys
 
-    import litellm
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.end_user import LiteLLM_EndUserTable
-    from litellm.types.integrations.prometheus import NoOpMetric
+    import hangarllm
+    from hangarllm.models.budget import HangarLLM_BudgetTable
+    from hangarllm.models.end_user import HangarLLM_EndUserTable
+    from hangarllm.types.integrations.prometheus import NoOpMetric
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "prometheus_metrics_config",
-        [{"group": "customer-max-only", "metrics": ["litellm_customer_max_budget_metric"]}],
+        [{"group": "customer-max-only", "metrics": ["hangarllm_customer_max_budget_metric"]}],
     )
     logger = PrometheusLogger()
-    assert isinstance(logger.litellm_remaining_customer_budget_metric, NoOpMetric)
-    assert not isinstance(logger.litellm_customer_max_budget_metric, NoOpMetric)
+    assert isinstance(logger.hangarllm_remaining_customer_budget_metric, NoOpMetric)
+    assert not isinstance(logger.hangarllm_customer_max_budget_metric, NoOpMetric)
 
-    end_user = LiteLLM_EndUserTable(
+    end_user = HangarLLM_EndUserTable(
         user_id="cust-max-only",
         blocked=False,
         spend=1.0,
         budget_id="budget-1",
-        litellm_budget_table=LiteLLM_BudgetTable(budget_id="budget-1", max_budget=40.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(budget_id="budget-1", max_budget=40.0),
     )
     mock_proxy_server = MagicMock()
     mock_proxy_server.prisma_client = None
     mock_proxy_server.user_api_key_cache.async_get_cache = AsyncMock(return_value=end_user)
 
-    with patch.dict(sys.modules, {"litellm.proxy.proxy_server": mock_proxy_server}):
+    with patch.dict(sys.modules, {"hangarllm.proxy.proxy_server": mock_proxy_server}):
         await logger._increment_remaining_budget_metrics(
             user_api_team=None,
             user_api_team_alias=None,
             user_api_key=None,
             user_api_key_alias=None,
-            litellm_params={"metadata": {}},
+            hangarllm_params={"metadata": {}},
             response_cost=1.0,
             end_user_id="cust-max-only",
         )
 
-    assert _customer_sample("litellm_customer_max_budget_metric", "cust-max-only") == pytest.approx(40.0)
+    assert _customer_sample("hangarllm_customer_max_budget_metric", "cust-max-only") == pytest.approx(40.0)
 
 
 def test_default_latency_buckets(prometheus_logger):
     """PrometheusLogger uses the new reduced default latency buckets."""
-    from litellm.types.integrations.prometheus import LATENCY_BUCKETS
+    from hangarllm.types.integrations.prometheus import LATENCY_BUCKETS
 
     assert prometheus_logger.latency_buckets == LATENCY_BUCKETS
     # 420 and 600 should be present
@@ -1348,12 +1348,12 @@ def test_default_latency_buckets(prometheus_logger):
 
 
 def test_custom_latency_buckets():
-    """prometheus_latency_buckets in litellm settings overrides the defaults."""
-    import litellm
+    """prometheus_latency_buckets in hangarllm settings overrides the defaults."""
+    import hangarllm
     from prometheus_client import REGISTRY
 
     custom_buckets = [0.1, 0.5, 1.0, 5.0, 10.0]
-    original = litellm.prometheus_latency_buckets
+    original = hangarllm.prometheus_latency_buckets
     # Clear registry before creating a new PrometheusLogger
     for collector in list(REGISTRY._collector_to_names.keys()):
         try:
@@ -1361,11 +1361,11 @@ def test_custom_latency_buckets():
         except Exception:
             pass
     try:
-        litellm.prometheus_latency_buckets = custom_buckets
+        hangarllm.prometheus_latency_buckets = custom_buckets
         logger = PrometheusLogger()
         assert logger.latency_buckets == tuple(custom_buckets)
     finally:
-        litellm.prometheus_latency_buckets = original
+        hangarllm.prometheus_latency_buckets = original
         for collector in list(REGISTRY._collector_to_names.keys()):
             try:
                 REGISTRY.unregister(collector)
@@ -1374,23 +1374,23 @@ def test_custom_latency_buckets():
 
 
 class TestSetTeamMembersMetric:
-    """litellm_team_members_metric tracks the current member count per team."""
+    """hangarllm_team_members_metric tracks the current member count per team."""
 
     def _gauge_value(self, team_id, team_alias):
         return REGISTRY.get_sample_value(
-            "litellm_team_members_metric",
+            "hangarllm_team_members_metric",
             {"team": team_id, "team_alias": team_alias},
         )
 
     def test_metric_initialized(self, prometheus_logger):
-        assert hasattr(prometheus_logger, "litellm_team_members_metric")
-        assert prometheus_logger.litellm_team_members_metric is not None
+        assert hasattr(prometheus_logger, "hangarllm_team_members_metric")
+        assert prometheus_logger.hangarllm_team_members_metric is not None
 
     @pytest.mark.parametrize("count", [0, 1, 3, 7])
     def test_sets_gauge_to_member_count(self, prometheus_logger, count):
-        from litellm.proxy._types import LiteLLM_TeamTable, Member
+        from hangarllm.proxy._types import HangarLLM_TeamTable, Member
 
-        team = LiteLLM_TeamTable(
+        team = HangarLLM_TeamTable(
             team_id="team-a",
             team_alias="Acme",
             members_with_roles=[
@@ -1402,10 +1402,10 @@ class TestSetTeamMembersMetric:
 
     def test_gauge_reflects_latest_count_not_delta(self, prometheus_logger):
         """Re-emitting overwrites with the authoritative count (set, not inc/dec)."""
-        from litellm.proxy._types import LiteLLM_TeamTable, Member
+        from hangarllm.proxy._types import HangarLLM_TeamTable, Member
 
         members = [Member(user_id=f"u{i}", role="user") for i in range(4)]
-        team = LiteLLM_TeamTable(
+        team = HangarLLM_TeamTable(
             team_id="team-b", team_alias="Beta", members_with_roles=members
         )
         prometheus_logger.set_team_members_metric(team)
@@ -1417,9 +1417,9 @@ class TestSetTeamMembersMetric:
         assert self._gauge_value("team-b", "Beta") == 2.0
 
     def test_none_alias_falls_back_to_empty_string(self, prometheus_logger):
-        from litellm.proxy._types import LiteLLM_TeamTable, Member
+        from hangarllm.proxy._types import HangarLLM_TeamTable, Member
 
-        team = LiteLLM_TeamTable(
+        team = HangarLLM_TeamTable(
             team_id="team-c",
             team_alias=None,
             members_with_roles=[Member(user_id="solo", role="admin")],
@@ -1428,14 +1428,14 @@ class TestSetTeamMembersMetric:
         assert self._gauge_value("team-c", "") == 1.0
 
     def test_teams_isolated_by_label(self, prometheus_logger):
-        from litellm.proxy._types import LiteLLM_TeamTable, Member
+        from hangarllm.proxy._types import HangarLLM_TeamTable, Member
 
-        team_one = LiteLLM_TeamTable(
+        team_one = HangarLLM_TeamTable(
             team_id="team-1",
             team_alias="One",
             members_with_roles=[Member(user_id="a", role="user")],
         )
-        team_two = LiteLLM_TeamTable(
+        team_two = HangarLLM_TeamTable(
             team_id="team-2",
             team_alias="Two",
             members_with_roles=[

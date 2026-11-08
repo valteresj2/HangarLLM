@@ -83,7 +83,7 @@ async def _fire(owned_url: str, key: str, *, tolerate_transport_errors: bool = F
         path, body = _surface_request(surface, marker)
         response: Final = await client.post(path, json=body, headers={"Authorization": f"Bearer {key}"})
         return _Sent(
-            surface, marker, response.status_code, response.text, response.headers.get("x-litellm-call-id", "")
+            surface, marker, response.status_code, response.text, response.headers.get("x-hangarllm-call-id", "")
         )
 
     async with httpx.AsyncClient(base_url=owned_url, timeout=30, trust_env=False) as client:
@@ -132,7 +132,7 @@ def _assert_outage_error(item: _Sent, received: Sequence[Request]) -> None:
 
 
 def _spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (call_id,))
+    return read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (call_id,))
 
 
 def _single_spend_row(item: _Sent) -> None:
@@ -227,7 +227,7 @@ def test_yaml_auto_caching_stands_down_for_tool_call_marks_and_outranks_a_key_op
         config: Final = owned_config(
             tmp_path,
             [anthropic_deployment(_MODEL, wire.url)],
-            litellm_settings={"enable_anthropic_prompt_caching": True},
+            hangarllm_settings={"enable_anthropic_prompt_caching": True},
         )
         with owned_proxy_process(gateway, tmp_path, {}, config=config, workers=2) as owned:
             with owned.gateway.scenario() as scenario:

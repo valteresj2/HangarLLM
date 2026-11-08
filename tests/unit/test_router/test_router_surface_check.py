@@ -33,8 +33,8 @@ def test_instance_and_dynamic_access_are_uses(surface_check):
 
 
 def test_class_level_calls_are_uses(surface_check):
-    assert _uses(surface_check, "litellm.Router.get_valid_args()") == {"get_valid_args"}
-    assert _uses(surface_check, "from litellm import Router\nRouter.get_valid_args()") == {"get_valid_args"}
+    assert _uses(surface_check, "hangarllm.Router.get_valid_args()") == {"get_valid_args"}
+    assert _uses(surface_check, "from hangarllm import Router\nRouter.get_valid_args()") == {"get_valid_args"}
 
 
 def test_container_file_endpoints_registered_by_name_are_members(surface_check):
@@ -45,13 +45,13 @@ def test_container_file_endpoints_registered_by_name_are_members(surface_check):
 
 def test_unlisted_class_level_use_fails_the_fence(surface_check):
     found = {
-        "members": {"outside": {"get_valid_args": {"litellm/new_module.py"}}, "router_family": {}},
+        "members": {"outside": {"get_valid_args": {"hangarllm/new_module.py"}}, "router_family": {}},
         "router_utils_imports": {},
     }
     allow = {"members_outside": [], "members_router_family": [], "router_utils_imports_outside": []}
     errors = surface_check.compare(allow, found)
     assert len(errors) == 1
-    assert "'get_valid_args' in litellm/new_module.py" in errors[0]
+    assert "'get_valid_args' in hangarllm/new_module.py" in errors[0]
 
 
 def test_unrelated_receivers_are_not_uses(surface_check):

@@ -7,13 +7,13 @@ from typing import Final
 MINIMUM_MCP_VERSION: Final[tuple[int, int, int]] = (2, 2, 0)
 
 IMPORTED_MODULES: Final[tuple[str, ...]] = (
-    "litellm",
-    "litellm.mcp_client",
-    "litellm.mcp_client.client",
-    "litellm.proxy.mcp_server.server",
-    "litellm.proxy.mcp_server.mcp_server_manager",
-    "litellm.proxy.mcp_server.rest_endpoints",
-    "litellm.proxy.proxy_server",
+    "hangarllm",
+    "hangarllm.mcp_client",
+    "hangarllm.mcp_client.client",
+    "hangarllm.proxy.mcp_server.server",
+    "hangarllm.proxy.mcp_server.mcp_server_manager",
+    "hangarllm.proxy.mcp_server.rest_endpoints",
+    "hangarllm.proxy.proxy_server",
 )
 
 
@@ -51,7 +51,7 @@ def main() -> int:
             "path": "/mcp",
             "headers": [(b"mcp-protocol-version", b"2026-07-28")],
         }
-        mcp_server: Final = sys.modules["litellm.proxy.mcp_server.server"]
+        mcp_server: Final = sys.modules["hangarllm.proxy.mcp_server.server"]
         if mcp_server.unsupported_protocol_version(scope) != "2026-07-28":
             sys.stderr.write("unsupported_protocol_version accepted a modern-only version\n")
             return 1
@@ -63,12 +63,12 @@ def main() -> int:
             return 1
 
     sys.stdout.write(
-        "python {} mcp {} httpx2 {} pydantic {} litellm {}\n".format(
+        "python {} mcp {} httpx2 {} pydantic {} hangarllm {}\n".format(
             sys.version.split()[0],
             importlib.metadata.version("mcp"),
             importlib.metadata.version("httpx2"),
             importlib.metadata.version("pydantic"),
-            importlib.metadata.version("litellm"),
+            importlib.metadata.version("hangarllm"),
         )
     )
     return 0

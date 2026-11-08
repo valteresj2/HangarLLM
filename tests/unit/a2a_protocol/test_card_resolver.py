@@ -1,5 +1,5 @@
 """
-Mock tests for LiteLLMA2ACardResolver.
+Mock tests for HangarLLMA2ACardResolver.
 
 Tests that the card resolver tries both old and new well-known paths.
 """
@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.a2a_protocol.card_resolver import (
-    LiteLLMA2ACardResolver,
+from hangarllm.a2a_protocol.card_resolver import (
+    HangarLLMA2ACardResolver,
     fix_agent_card_url,
     get_agent_card_url,
     is_localhost_or_internal_url,
@@ -20,7 +20,7 @@ from litellm.a2a_protocol.card_resolver import (
     resolve_a2a_protocol_version,
     set_agent_card_url,
 )
-from litellm.a2a_protocol.exceptions import A2AAgentCardDiscoveryError
+from hangarllm.a2a_protocol.exceptions import A2AAgentCardDiscoveryError
 
 
 @pytest.mark.asyncio
@@ -53,11 +53,11 @@ async def test_card_resolver_fallback_from_new_to_old_path():
     # Patch the parent class's get_agent_card method
     # We need to patch the actual parent class method that super() calls
     with patch.object(
-        LiteLLMA2ACardResolver.__bases__[0],
+        HangarLLMA2ACardResolver.__bases__[0],
         "get_agent_card",
         mock_parent_get_agent_card,
     ):
-        resolver = LiteLLMA2ACardResolver(httpx_client=mock_httpx_client, base_url="http://test-agent:8000")
+        resolver = HangarLLMA2ACardResolver(httpx_client=mock_httpx_client, base_url="http://test-agent:8000")
         result = await resolver.get_agent_card()
 
         # Verify both paths were tried in correct order
@@ -284,7 +284,7 @@ async def test_card_resolver_falls_through_to_the_foundry_card_path():
         },
     )
 
-    resolver = LiteLLMA2ACardResolver(httpx_client=httpx_client, base_url=_FOUNDRY_BASE_URL)
+    resolver = HangarLLMA2ACardResolver(httpx_client=httpx_client, base_url=_FOUNDRY_BASE_URL)
     result = await resolver.get_agent_card()
 
     assert httpx_client.calls == ["/.well-known/agent-card.json", "/.well-known/agent.json", "/agentCard/v1.0"]
@@ -299,7 +299,7 @@ async def test_card_resolver_explicit_path_skips_the_probes():
         responses={"/agentCard/v1.0": (200, dict(_FOUNDRY_CARD_JSON))},
     )
 
-    resolver = LiteLLMA2ACardResolver(httpx_client=httpx_client, base_url=_FOUNDRY_BASE_URL)
+    resolver = HangarLLMA2ACardResolver(httpx_client=httpx_client, base_url=_FOUNDRY_BASE_URL)
     result = await resolver.get_agent_card(relative_card_path="agentCard/v1.0")
 
     assert httpx_client.calls == ["/agentCard/v1.0"]
@@ -317,7 +317,7 @@ async def test_card_resolver_names_every_probed_path_when_discovery_fails():
         },
     )
 
-    resolver = LiteLLMA2ACardResolver(httpx_client=httpx_client, base_url=_FOUNDRY_BASE_URL)
+    resolver = HangarLLMA2ACardResolver(httpx_client=httpx_client, base_url=_FOUNDRY_BASE_URL)
     with pytest.raises(A2AAgentCardDiscoveryError) as raised:
         await resolver.get_agent_card()
 
@@ -331,7 +331,7 @@ async def test_card_resolver_names_every_probed_path_when_discovery_fails():
 
 @pytest.mark.asyncio
 async def test_card_resolver_discovery_error_is_404_when_every_probe_is_404():
-    resolver = LiteLLMA2ACardResolver(
+    resolver = HangarLLMA2ACardResolver(
         httpx_client=_FakeHttpxClient(
             base_url=_FOUNDRY_BASE_URL,
             responses={

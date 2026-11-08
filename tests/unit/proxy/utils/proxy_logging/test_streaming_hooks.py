@@ -4,7 +4,7 @@ Covers ``_wrap_streaming_iterator_with_enrichment``,
 ``async_post_call_streaming_hook``,
 ``async_post_call_streaming_iterator_hook``, ``_fire_deferred_stream_logging``,
 ``is_a2a_streaming_response``, ``_init_response_taking_too_long_task``,
-``post_call_response_headers_hook``, ``_build_litellm_call_info``.
+``post_call_response_headers_hook``, ``_build_hangarllm_call_info``.
 """
 
 from __future__ import annotations
@@ -18,18 +18,18 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.exceptions import GuardrailRaisedException
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.anthropic.messages.native.streaming_iterator import (
+import hangarllm
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.anthropic.messages.native.streaming_iterator import (
     BaseAnthropicMessagesStreamingIterator,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import Usage
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import Usage
 
 
 @pytest.fixture(autouse=True)
@@ -71,18 +71,18 @@ def test_is_a2a_streaming_response_invalid_input_raises(proxy_logging):
 
 
 # ---------------------------------------------------------------------------
-# _build_litellm_call_info
+# _build_hangarllm_call_info
 # ---------------------------------------------------------------------------
 
 
-def test_build_litellm_call_info_pulls_from_hidden_params_and_metadata(proxy_logging):
+def test_build_hangarllm_call_info_pulls_from_hidden_params_and_metadata(proxy_logging):
     response = MagicMock()
     response._hidden_params = {
         "custom_llm_provider": "openai",
         "api_base": "https://api.openai.com",
         "model_id": "model-1",
     }
-    info = proxy_logging._build_litellm_call_info(
+    info = proxy_logging._build_hangarllm_call_info(
         data={"metadata": {"model_info": {"name": "gpt-4o-mini"}}},
         response=response,
     )
@@ -94,11 +94,11 @@ def test_build_litellm_call_info_pulls_from_hidden_params_and_metadata(proxy_log
     }
 
 
-def test_build_litellm_call_info_fallbacks_to_litellm_metadata(proxy_logging):
+def test_build_hangarllm_call_info_fallbacks_to_hangarllm_metadata(proxy_logging):
     response = MagicMock()
     response._hidden_params = {"custom_llm_provider": "azure"}
-    info = proxy_logging._build_litellm_call_info(
-        data={"litellm_metadata": {"model_info": {"alias": "azure-gpt"}}},
+    info = proxy_logging._build_hangarllm_call_info(
+        data={"hangarllm_metadata": {"model_info": {"alias": "azure-gpt"}}},
         response=response,
     )
     snapshot = {
@@ -115,9 +115,9 @@ def test_build_litellm_call_info_fallbacks_to_litellm_metadata(proxy_logging):
     }
 
 
-def test_build_litellm_call_info_invalid_data_raises(proxy_logging):
+def test_build_hangarllm_call_info_invalid_data_raises(proxy_logging):
     with pytest.raises(AttributeError):
-        proxy_logging._build_litellm_call_info(data=None, response=MagicMock())  # type: ignore[arg-type]
+        proxy_logging._build_hangarllm_call_info(data=None, response=MagicMock())  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ async def test_init_response_taking_too_long_task_runs_when_alerting(proxy_loggi
         captured["request_data"] = request_data
 
     proxy_logging.slack_alerting_instance.response_taking_too_long = fake_resp_too_long
-    payload = {"req": "y", "litellm_call_id": "c1", "model": "m"}
+    payload = {"req": "y", "hangarllm_call_id": "c1", "model": "m"}
     proxy_logging._init_response_taking_too_long_task(data=payload)
     await asyncio.sleep(0)
     snapshot = {
@@ -347,7 +347,7 @@ async def test_async_post_call_streaming_hook_fast_path_returns_response(proxy_l
         "out_is_input": out is resp,
         "out_value": out,
         "type": type(out).__name__,
-        "callbacks_empty": len(litellm.callbacks) == 0,
+        "callbacks_empty": len(hangarllm.callbacks) == 0,
     }
     assert snapshot == {
         "out_is_input": True,
@@ -364,9 +364,9 @@ async def test_async_post_call_streaming_hook_invokes_per_chunk_callback(proxy_l
             return "modified-" + str(kwargs.get("response", ""))
 
     cb = _Per()
-    monkeypatch.setattr(litellm, "callbacks", [cb])
+    monkeypatch.setattr(hangarllm, "callbacks", [cb])
 
-    from litellm import ModelResponse
+    from hangarllm import ModelResponse
 
     fake_resp = ModelResponse(
         id="rid",
@@ -390,9 +390,9 @@ async def test_async_post_call_streaming_hook_callback_error_raises(proxy_loggin
         async def async_post_call_streaming_hook(self, **kwargs):  # type: ignore[override]
             raise RuntimeError("hook-fail")
 
-    monkeypatch.setattr(litellm, "callbacks", [_Per()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Per()])
 
-    from litellm import ModelResponse
+    from hangarllm import ModelResponse
 
     fake_resp = ModelResponse(
         id="rid",
@@ -446,7 +446,7 @@ async def test_async_post_call_streaming_iterator_hook_with_override_chains_call
             async for ch in kwargs["response"]:
                 yield ch + "*"
 
-    monkeypatch.setattr(litellm, "callbacks", [_IterOverride()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_IterOverride()])
 
     async def gen():
         for ch in ("a", "b"):
@@ -497,13 +497,13 @@ def _armed_native_messages_stream(test_name: str, request_data: Dict[str, Any], 
     logging_obj carries the deferred-dispatch callback the proxy arms in
     common_request_processing. The callback records what the guardrail
     metadata contained at the moment the deferred logging was dispatched."""
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="bedrock/invoke/anthropic.claude-sonnet-4-20250514-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id=test_name,
+        hangarllm_call_id=test_name,
         function_id=test_name,
     )
 
@@ -518,9 +518,9 @@ def _armed_native_messages_stream(test_name: str, request_data: Dict[str, Any], 
         logging_coroutine.close()
 
     logging_obj._on_deferred_stream_complete = _dispatch_deferred_logging
-    request_data["litellm_logging_obj"] = logging_obj
+    request_data["hangarllm_logging_obj"] = logging_obj
 
-    iterator = BaseAnthropicMessagesStreamingIterator(litellm_logging_obj=logging_obj, request_body={})
+    iterator = BaseAnthropicMessagesStreamingIterator(hangarllm_logging_obj=logging_obj, request_body={})
 
     async def _upstream():
         for event in _NATIVE_MESSAGES_STREAM_EVENTS:
@@ -555,7 +555,7 @@ async def test_native_messages_stream_logging_fires_after_guardrail_end_of_strea
             ]
             events.append("scan_appended")
 
-    monkeypatch.setattr(litellm, "callbacks", [_EndOfStreamScanGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_EndOfStreamScanGuardrail()])
 
     async for _ in proxy_logging.async_post_call_streaming_iterator_hook(
         response=native_stream,
@@ -590,7 +590,7 @@ async def test_native_messages_stream_logging_fires_when_guardrail_blocks_after_
                 yield chunk
             raise HTTPException(status_code=400, detail={"error": "Violated guardrail policy"})
 
-    monkeypatch.setattr(litellm, "callbacks", [_BlockingGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockingGuardrail()])
 
     with pytest.raises(HTTPException):
         async for _ in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -608,29 +608,29 @@ async def test_native_messages_stream_logging_fires_when_guardrail_blocks_after_
 
 def _armed_chat_stream(
     test_name: str, request_data: dict[str, object], events: list[str]
-) -> tuple[LiteLLMLoggingObj, AsyncIterator[dict[str, object]]]:
+) -> tuple[HangarLLMLoggingObj, AsyncIterator[dict[str, object]]]:
     """A /chat/completions stream whose CSW shape parks ``(assembled ModelResponse, cache_hit)``
     at upstream exhaustion, with the deferred dispatch recording into ``events``."""
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="acompletion",
         start_time=datetime.now(),
-        litellm_call_id=test_name,
+        hangarllm_call_id=test_name,
         function_id=test_name,
     )
     logging_obj.optional_params = {}
-    logging_obj.litellm_params = {}
+    logging_obj.hangarllm_params = {}
     logging_obj.standard_built_in_tools_params = None
 
     async def _dispatch_deferred_logging(*args: object) -> None:
         events.append("success_dispatched")
 
     logging_obj._on_deferred_stream_complete = _dispatch_deferred_logging
-    request_data["litellm_logging_obj"] = logging_obj
+    request_data["hangarllm_logging_obj"] = logging_obj
 
-    assembled = litellm.ModelResponse(
+    assembled = hangarllm.ModelResponse(
         model="gpt-4o-mini",
         choices=[{"index": 0, "message": {"role": "assistant", "content": "BANANA"}}],
         usage=Usage(prompt_tokens=3, completion_tokens=5, total_tokens=8),
@@ -670,7 +670,7 @@ async def test_chat_stream_guardrail_block_after_stream_end_logs_failure_not_suc
     request_data: dict[str, object] = {"metadata": {}}
     logging_obj, upstream = _armed_chat_stream("test_chat_stream_guardrail_block", request_data, events)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [_raising_at_end_of_stream(GuardrailRaisedException(guardrail_name="g", message="blocked"))],
     )
@@ -715,7 +715,7 @@ async def test_chat_stream_generic_callback_error_after_stream_end_still_flushes
     events: list[str] = []
     request_data: dict[str, object] = {"metadata": {}}
     logging_obj, upstream = _armed_chat_stream("test_chat_stream_generic_callback_error", request_data, events)
-    monkeypatch.setattr(litellm, "callbacks", [_raising_at_end_of_stream(RuntimeError("callback crashed"))])
+    monkeypatch.setattr(hangarllm, "callbacks", [_raising_at_end_of_stream(RuntimeError("callback crashed"))])
 
     with pytest.raises(RuntimeError):
         async for _ in proxy_logging.async_post_call_streaming_iterator_hook(
@@ -751,7 +751,7 @@ async def test_fire_deferred_stream_logging_fires_callback():
     logging_obj._on_deferred_stream_complete = deferred
     logging_obj._deferred_stream_complete_args = ("payload",)
 
-    ProxyLogging._fire_deferred_stream_logging(request_data={"litellm_logging_obj": logging_obj})
+    ProxyLogging._fire_deferred_stream_logging(request_data={"hangarllm_logging_obj": logging_obj})
     await asyncio.sleep(0)
     snapshot = {
         "arg": captured["arg"],
@@ -795,7 +795,7 @@ async def test_post_call_response_headers_hook_merges_callback_headers(proxy_log
         async def async_post_call_response_headers_hook(self, **kwargs):  # type: ignore[override]
             return {"X-Common": "second", "X-Three": "3"}
 
-    monkeypatch.setattr(litellm, "callbacks", [_Cb(), _Cb2()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Cb(), _Cb2()])
     response = MagicMock()
     response._hidden_params = {}
     out = await proxy_logging.post_call_response_headers_hook(
@@ -812,7 +812,7 @@ async def test_post_call_response_headers_hook_swallows_callback_error(proxy_log
         async def async_post_call_response_headers_hook(self, **kwargs):  # type: ignore[override]
             raise RuntimeError("bad header")
 
-    monkeypatch.setattr(litellm, "callbacks", [_Cb()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Cb()])
     response = MagicMock()
     response._hidden_params = {}
     out = await proxy_logging.post_call_response_headers_hook(
@@ -867,8 +867,8 @@ async def _failing_provider_stream() -> AsyncGenerator[object, None]:
 async def test_stream_guardrail_block_names_the_blocking_guardrail_in_applied_guardrails(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_StreamBlocker()])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_StreamBlocker()])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
     request_data: dict[str, object] = {"metadata": {}}
     with pytest.raises(HTTPException):
@@ -880,8 +880,8 @@ async def test_stream_guardrail_block_names_the_blocking_guardrail_in_applied_gu
 async def test_stream_block_by_inner_guardrail_does_not_name_the_outer_layers(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_StreamBlocker(), _StreamPasser("outer-a"), _StreamPasser("outer-b")])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_StreamBlocker(), _StreamPasser("outer-a"), _StreamPasser("outer-b")])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
     request_data: dict[str, object] = {"metadata": {}}
     with pytest.raises(HTTPException) as info:
@@ -894,8 +894,8 @@ async def test_stream_block_by_inner_guardrail_does_not_name_the_outer_layers(
 async def test_stream_provider_failure_is_not_attributed_to_any_guardrail(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_StreamPasser("outer-a"), _StreamPasser("outer-b")])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None, raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [_StreamPasser("outer-a"), _StreamPasser("outer-b")])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None, raising=False)
 
     request_data: dict[str, object] = {"metadata": {}}
     with pytest.raises(RuntimeError, match="provider connection dropped"):

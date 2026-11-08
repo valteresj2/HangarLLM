@@ -3,29 +3,29 @@ from datetime import datetime
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.router_strategy.lowest_cost import LowestCostLoggingHandler
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.router_strategy.lowest_cost import LowestCostLoggingHandler
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 DEPLOYMENT_ID = "9876"
 COST_KEY = "cost_map:gpt-5.5-pool"
 LATENCY_KEYS = ("gpt-5.5-pool_map", "gpt-5.5-pool_cost_map")
 KWARGS = {
-    "litellm_params": {
+    "hangarllm_params": {
         "metadata": {"model_group": "gpt-5.5-pool"},
         "model_info": {"id": DEPLOYMENT_ID},
     }
 }
 
 
-def _chat_response_with_no_completion_tokens() -> litellm.ModelResponse:
-    return litellm.ModelResponse(
+def _chat_response_with_no_completion_tokens() -> hangarllm.ModelResponse:
+    return hangarllm.ModelResponse(
         model="gpt-5.5",
         choices=[{"index": 0, "message": {"role": "assistant", "content": ""}, "finish_reason": "length"}],
-        usage=litellm.Usage(prompt_tokens=12, completion_tokens=0, total_tokens=12),
+        usage=hangarllm.Usage(prompt_tokens=12, completion_tokens=0, total_tokens=12),
     )
 
 
@@ -80,7 +80,7 @@ async def test_async_get_available_deployments_applies_rpm_limit_from_the_cost_e
     handler = LowestCostLoggingHandler(router_cache=cache)
     precise_minute = datetime.now().strftime("%Y-%m-%d-%H-%M")
     cache.set_cache(key=COST_KEY, value={DEPLOYMENT_ID: {precise_minute: {"tpm": 12, "rpm": 1}}})
-    healthy_deployments = [{"model_info": {"id": DEPLOYMENT_ID}, "litellm_params": {"model": "gpt-5.5", "rpm": 1}}]
+    healthy_deployments = [{"model_info": {"id": DEPLOYMENT_ID}, "hangarllm_params": {"model": "gpt-5.5", "rpm": 1}}]
 
     picked = await handler.async_get_available_deployments(
         model_group="gpt-5.5-pool",
@@ -114,11 +114,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -130,18 +130,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -151,78 +151,78 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_get_available_deployments():
     test_cache = DualCache()
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "openai-gpt-4"},
         },
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "groq/openai/gpt-oss-20b"},
+            "hangarllm_params": {"model": "groq/openai/gpt-oss-20b"},
             "model_info": {"id": "groq-llama"},
         },
     ]
@@ -240,19 +240,19 @@ async def test_get_available_deployments():
     assert selected_model["model_info"]["id"] == "groq-llama"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_get_available_deployments_custom_price():
     import logging
 
-    from litellm._logging import verbose_router_logger
+    from hangarllm._logging import verbose_router_logger
 
     verbose_router_logger.setLevel(logging.DEBUG)
     test_cache = DualCache()
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-4.1-mini",
                 "input_cost_per_token": 0.00003,
                 "output_cost_per_token": 0.00003,
@@ -261,7 +261,7 @@ async def test_get_available_deployments_custom_price():
         },
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/chatgpt-v-1",
                 "input_cost_per_token": 0.000000001,
                 "output_cost_per_token": 0.00000001,
@@ -270,7 +270,7 @@ async def test_get_available_deployments_custom_price():
         },
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/chatgpt-v-5",
                 "input_cost_per_token": 10,
                 "output_cost_per_token": 12,
@@ -294,7 +294,7 @@ async def test_get_available_deployments_custom_price():
 
 async def _deploy(lowest_cost_logger, deployment_id, tokens_used, duration):
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gpt-3.5-turbo",
                 "deployment": "gpt-4",
@@ -314,7 +314,7 @@ async def _deploy(lowest_cost_logger, deployment_id, tokens_used, duration):
     )
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("ans_rpm", [1, 5])  # 1 should produce nothing, 10 should select first
 @pytest.mark.asyncio
 async def test_get_available_endpoints_tpm_rpm_check_async(ans_rpm):
@@ -327,7 +327,7 @@ async def test_get_available_endpoints_tpm_rpm_check_async(ans_rpm):
     """
     import logging
 
-    from litellm._logging import verbose_router_logger
+    from hangarllm._logging import verbose_router_logger
 
     verbose_router_logger.setLevel(logging.DEBUG)
     test_cache = DualCache()
@@ -339,12 +339,12 @@ async def test_get_available_endpoints_tpm_rpm_check_async(ans_rpm):
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
             "model_info": {"id": "1234", "rpm": ans_rpm},
         },
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "groq/llama-3.1-8b-instant"},
+            "hangarllm_params": {"model": "groq/llama-3.1-8b-instant"},
             "model_info": {"id": "5678", "rpm": non_ans_rpm},
         },
     ]
@@ -371,7 +371,7 @@ _TWO_DOLLARS_PER_TOKEN = {"input_cost_per_token": 1.0, "output_cost_per_token": 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "azure_litellm_params, base_model",
+    "azure_hangarllm_params, base_model",
     [
         ({"model": "azure/my-gpt4-deploy"}, "azure/gpt-4.1"),
         ({"model": "azure/gpt-4.1"}, "azure/not-a-real-model"),
@@ -379,18 +379,18 @@ _TWO_DOLLARS_PER_TOKEN = {"input_cost_per_token": 1.0, "output_cost_per_token": 
     ids=["base_model_priced", "unmapped_base_model_falls_back_to_deployment_model"],
 )
 async def test_cost_based_routing_prices_an_azure_deployment_through_its_base_model(
-    azure_litellm_params: dict, base_model: str
+    azure_hangarllm_params: dict, base_model: str
 ):
     handler = LowestCostLoggingHandler(router_cache=DualCache())
     healthy_deployments = [
         {
             "model_name": "gpt-4.1",
-            "litellm_params": {"model": "openai/gpt-4.1", **_TWO_DOLLARS_PER_TOKEN},
+            "hangarllm_params": {"model": "openai/gpt-4.1", **_TWO_DOLLARS_PER_TOKEN},
             "model_info": {"id": "openai-two-dollars"},
         },
         {
             "model_name": "gpt-4.1",
-            "litellm_params": azure_litellm_params,
+            "hangarllm_params": azure_hangarllm_params,
             "model_info": {"id": "azure-cost-map-priced", "base_model": base_model},
         },
     ]

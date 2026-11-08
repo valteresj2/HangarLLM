@@ -7,8 +7,8 @@ from types import MappingProxyType
 from typing import Final
 
 import pytest
-from litellm_proxy_extras.migration_lock import MIGRATION_LOCK_KEY
-from litellm_proxy_extras.utils import INDEX_REPAIR_ADVISORY_LOCK_KEY, ProxyExtrasDBManager, _InvalidIndex
+from hangarllm_proxy_extras.migration_lock import MIGRATION_LOCK_KEY
+from hangarllm_proxy_extras.utils import INDEX_REPAIR_ADVISORY_LOCK_KEY, ProxyExtrasDBManager, _InvalidIndex
 
 psycopg = pytest.importorskip("psycopg")
 
@@ -19,14 +19,14 @@ requires_db: Final = pytest.mark.skipif(
     reason="requires a postgres database (DATABASE_URL)",
 )
 
-HEALTH_TABLE: Final = "LiteLLM_HealthCheckTable"
-HEALTH_INDEX: Final = "LiteLLM_HealthCheckTable_model_id_model_name_checked_at_idx"
+HEALTH_TABLE: Final = "HangarLLM_HealthCheckTable"
+HEALTH_INDEX: Final = "HangarLLM_HealthCheckTable_model_id_model_name_checked_at_idx"
 HEALTH_INDEX_COLUMNS: Final = '"model_id", "model_name", "checked_at" DESC'
-SECOND_HEALTH_INDEX: Final = "LiteLLM_HealthCheckTable_model_name_idx"
-LOOKALIKE_TABLE: Final = "LiteLLMLookalikeTable"
-LOOKALIKE_INDEX: Final = "LiteLLMLookalikeTable_id_idx"
-PARTITIONED_TABLE: Final = "LiteLLM_PartitionedTable"
-PARTITIONED_INDEX: Final = "LiteLLM_PartitionedTable_id_idx"
+SECOND_HEALTH_INDEX: Final = "HangarLLM_HealthCheckTable_model_name_idx"
+LOOKALIKE_TABLE: Final = "HangarLLMLookalikeTable"
+LOOKALIKE_INDEX: Final = "HangarLLMLookalikeTable_id_idx"
+PARTITIONED_TABLE: Final = "HangarLLM_PartitionedTable"
+PARTITIONED_INDEX: Final = "HangarLLM_PartitionedTable_id_idx"
 
 
 def _base_url() -> str:
@@ -89,7 +89,7 @@ def scratch_schema(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
 def fresh_database(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     """A brand-new database, what a first deploy sees. A scratch schema would
     not do: the migrations guard on pg_constraint by name across every schema,
-    so a LiteLLM schema already pushed into public makes them skip and then
+    so a HangarLLM schema already pushed into public makes them skip and then
     fail, which is exactly what CI's database looks like."""
     admin_url: Final = _base_url()
     name: Final = f"invalid_index_{uuid.uuid4().hex[:8]}"
@@ -105,7 +105,7 @@ def fresh_database(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
 
 
 @requires_db
-def test_repair_rebuilds_invalid_litellm_indexes_and_leaves_lookalike_tables_alone(scratch_schema: str) -> None:
+def test_repair_rebuilds_invalid_hangarllm_indexes_and_leaves_lookalike_tables_alone(scratch_schema: str) -> None:
     _leave_invalid_index(scratch_schema, HEALTH_TABLE, HEALTH_INDEX, HEALTH_INDEX_COLUMNS)
     _leave_invalid_index(scratch_schema, LOOKALIKE_TABLE, LOOKALIKE_INDEX, "id")
     assert _index_validity(scratch_schema) == {HEALTH_INDEX: False, LOOKALIKE_INDEX: False}
@@ -280,7 +280,7 @@ def test_repair_outlives_a_statement_timeout_passed_through_database_url_options
 
 @requires_db
 def test_repair_defaults_to_the_public_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    table: Final = f"LiteLLM_ScratchTable_{uuid.uuid4().hex[:8]}"
+    table: Final = f"HangarLLM_ScratchTable_{uuid.uuid4().hex[:8]}"
     index: Final = f"{table}_id_idx"
     monkeypatch.setenv("DATABASE_URL", _base_url())
     with psycopg.connect(_base_url(), autocommit=True) as conn:

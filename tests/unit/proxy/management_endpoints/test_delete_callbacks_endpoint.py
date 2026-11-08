@@ -4,13 +4,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     CallbackDelete,
     ConfigYAML,
-    LitellmUserRoles,
+    HangarllmUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.proxy_server import app
+from hangarllm.proxy.proxy_server import app
 
 client = TestClient(app)
 
@@ -19,7 +19,7 @@ class MockPrismaClient:
     def __init__(self):
         self.db = MagicMock()
         self.config_data = {
-            "litellm_settings": {"success_callback": ["langfuse"]},
+            "hangarllm_settings": {"success_callback": ["langfuse"]},
             "environment_variables": {
                 "LANGFUSE_PUBLIC_KEY": "any-public-key",
                 "LANGFUSE_SECRET_KEY": "any-secret-key",
@@ -28,10 +28,10 @@ class MockPrismaClient:
         }
 
         # Mock the config update/upsert
-        self.db.litellm_config.upsert = AsyncMock()
+        self.db.hangarllm_config.upsert = AsyncMock()
 
         # Mock config retrieval for get_config/callbacks
-        self.db.litellm_config.find_first = AsyncMock(side_effect=self._mock_find_first)
+        self.db.hangarllm_config.find_first = AsyncMock(side_effect=self._mock_find_first)
 
         # Mock for get_generic_data
         self.get_generic_data = AsyncMock(side_effect=self._mock_get_generic_data)
@@ -46,10 +46,10 @@ class MockPrismaClient:
         """Mock find_first to return config data based on param_name"""
         if where and "param_name" in where:
             param_name = where["param_name"]
-            if param_name == "litellm_settings":
+            if param_name == "hangarllm_settings":
                 return MagicMock(
-                    param_name="litellm_settings",
-                    param_value=self.config_data["litellm_settings"],
+                    param_name="hangarllm_settings",
+                    param_value=self.config_data["hangarllm_settings"],
                 )
             elif param_name == "environment_variables":
                 return MagicMock(
@@ -61,10 +61,10 @@ class MockPrismaClient:
     async def _mock_get_generic_data(self, key=None, value=None, table_name=None):
         """Mock get_generic_data for _update_config_from_db"""
         if key == "param_name" and table_name == "config":
-            if value == "litellm_settings":
+            if value == "hangarllm_settings":
                 return MagicMock(
-                    param_name="litellm_settings",
-                    param_value=self.config_data["litellm_settings"],
+                    param_name="hangarllm_settings",
+                    param_value=self.config_data["hangarllm_settings"],
                 )
             elif value == "environment_variables":
                 return MagicMock(
@@ -77,8 +77,8 @@ class MockPrismaClient:
 
     def remove_callback_from_config(self, callback_name):
         """Remove callback from the mock config"""
-        if "success_callback" in self.config_data["litellm_settings"]:
-            callbacks = self.config_data["litellm_settings"]["success_callback"]
+        if "success_callback" in self.config_data["hangarllm_settings"]:
+            callbacks = self.config_data["hangarllm_settings"]["success_callback"]
             if callback_name in callbacks:
                 callbacks.remove(callback_name)
 
@@ -87,7 +87,7 @@ class MockPrismaClient:
 def mock_auth():
     """Mock admin user authentication"""
     return UserAPIKeyAuth(
-        user_id="test_admin", user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876"
+        user_id="test_admin", user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876"
     )
 
 

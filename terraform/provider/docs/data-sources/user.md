@@ -1,16 +1,16 @@
-# litellm_user Data Source
+# hangarllm_user Data Source
 
-Retrieves information about an existing LiteLLM user by ID
+Retrieves information about an existing HangarLLM user by ID
 
 ## Example Usage
 
 ```hcl
-data "litellm_user" "alice" {
+data "hangarllm_user" "alice" {
   user_id = "alice-user-id"
 }
 
 output "alice_email" {
-  value = data.litellm_user.alice.user_email
+  value = data.hangarllm_user.alice.user_email
 }
 ```
 

@@ -3,7 +3,7 @@ Provider attribution headers (`BaseConfig.get_attribution_headers`) must reach
 the outbound request on every OpenAI-compatible chat path, and a caller header
 with the same name must win.
 
-Requests go through a real `litellm.completion` into an in-process httpx
+Requests go through a real `hangarllm.completion` into an in-process httpx
 transport that records what would have been sent, because the default path
 (OpenAI SDK) never calls `validate_environment`.
 """
@@ -16,9 +16,9 @@ import httpx
 import openai
 import pytest
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import with_attribution_headers
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+import hangarllm
+from hangarllm.llms.base_llm.chat.transformation import with_attribution_headers
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
 _API_BASE: Final = "https://provider.invalid/v1"
 _COMPLETION_BODY: Final = json.dumps(
@@ -117,7 +117,7 @@ async def _adrain(response: object) -> None:
 def test_attribution_header_sent_sync(
     transport: _HeaderCapturingTransport, handler_path: str, model: str, header: str, stream: bool
 ) -> None:
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         api_base=_API_BASE,
@@ -128,7 +128,7 @@ def test_attribution_header_sent_sync(
     if stream:
         _drain(response)
 
-    assert transport.last(header) == ["litellm"]
+    assert transport.last(header) == ["hangarllm"]
 
 
 @pytest.mark.asyncio
@@ -137,7 +137,7 @@ def test_attribution_header_sent_sync(
 async def test_attribution_header_sent_async(
     transport: _HeaderCapturingTransport, handler_path: str, model: str, header: str, stream: bool
 ) -> None:
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         api_base=_API_BASE,
@@ -148,7 +148,7 @@ async def test_attribution_header_sent_async(
     if stream:
         await _adrain(response)
 
-    assert transport.last(header) == ["litellm"]
+    assert transport.last(header) == ["hangarllm"]
 
 
 @pytest.mark.parametrize(("model", "header"), _ATTRIBUTED)
@@ -158,7 +158,7 @@ def test_caller_header_overrides_attribution_any_casing(
 ) -> None:
     caller_headers: Final = {header.upper(): "my-app"}
 
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         api_base=_API_BASE,
@@ -172,7 +172,7 @@ def test_caller_header_overrides_attribution_any_casing(
 
 
 def test_provider_without_attribution_sends_none(transport: _HeaderCapturingTransport, handler_path: str) -> None:
-    litellm.completion(
+    hangarllm.completion(
         model="deepinfra/meta-llama/Meta-Llama-3-8B-Instruct",
         messages=[{"role": "user", "content": "hi"}],
         api_base=_API_BASE,
@@ -184,13 +184,13 @@ def test_provider_without_attribution_sends_none(transport: _HeaderCapturingTran
     assert transport.last("x-pplx-integration") == []
 
 
-def test_global_litellm_headers_still_apply_and_are_not_mutated(
+def test_global_hangarllm_headers_still_apply_and_are_not_mutated(
     transport: _HeaderCapturingTransport, handler_path: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     global_headers: Final = {"X-Global": "1"}
-    monkeypatch.setattr(litellm, "headers", global_headers)
+    monkeypatch.setattr(hangarllm, "headers", global_headers)
 
-    litellm.completion(
+    hangarllm.completion(
         model=_NOVITA_MODEL,
         messages=[{"role": "user", "content": "hi"}],
         api_base=_API_BASE,
@@ -199,7 +199,7 @@ def test_global_litellm_headers_still_apply_and_are_not_mutated(
     )
 
     assert transport.last("x-global") == ["1"]
-    assert transport.last("x-novita-source") == ["litellm"]
+    assert transport.last("x-novita-source") == ["hangarllm"]
     assert global_headers == {"X-Global": "1"}
 
 

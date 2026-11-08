@@ -20,41 +20,41 @@ import httpx
 import pytest
 import respx
 
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
-from litellm.llms.custom_llm import CustomLLM
-from litellm.llms.databricks.responses.transformation import (
+from hangarllm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from hangarllm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
+from hangarllm.llms.custom_llm import CustomLLM
+from hangarllm.llms.databricks.responses.transformation import (
     DatabricksResponsesAPIConfig,
 )
-from litellm.llms.fireworks_ai.responses.transformation import (
+from hangarllm.llms.fireworks_ai.responses.transformation import (
     FireworksAIResponsesAPIConfig,
 )
-from litellm.llms.github_copilot.responses.transformation import (
+from hangarllm.llms.github_copilot.responses.transformation import (
     GithubCopilotResponsesAPIConfig,
 )
-from litellm.llms.hosted_vllm.responses.transformation import (
+from hangarllm.llms.hosted_vllm.responses.transformation import (
     HostedVLLMResponsesAPIConfig,
 )
-from litellm.llms.litellm_proxy.responses.transformation import (
-    LiteLLMProxyResponsesAPIConfig,
+from hangarllm.llms.hangarllm_proxy.responses.transformation import (
+    HangarLLMProxyResponsesAPIConfig,
 )
-from litellm.llms.manus.responses.transformation import ManusResponsesAPIConfig
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.llms.openrouter.responses.transformation import (
+from hangarllm.llms.manus.responses.transformation import ManusResponsesAPIConfig
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.llms.openrouter.responses.transformation import (
     OpenRouterResponsesAPIConfig,
 )
-from litellm.llms.perplexity.responses.transformation import PerplexityResponsesConfig
-from litellm.llms.volcengine.responses.transformation import (
+from hangarllm.llms.perplexity.responses.transformation import PerplexityResponsesConfig
+from hangarllm.llms.volcengine.responses.transformation import (
     VolcEngineResponsesAPIConfig,
 )
-from litellm.llms.xai.responses.transformation import XAIResponsesAPIConfig
-from litellm.types.utils import GenericStreamingChunk
+from hangarllm.llms.xai.responses.transformation import XAIResponsesAPIConfig
+from hangarllm.types.utils import GenericStreamingChunk
 
 if TYPE_CHECKING:
-    from litellm.caching.dual_cache import DualCache
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.responses.streaming_iterator import ResponsesWsTurnAdmission
-    from litellm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.responses.streaming_iterator import ResponsesWsTurnAdmission
+    from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
 
 
 class TestResponsesAPIWebSocketSupport:
@@ -79,7 +79,7 @@ class TestResponsesAPIWebSocketSupport:
         config = AzureOpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
             api_base="https://myresource.cognitiveservices.azure.com",
-            litellm_params={"api_version": "2025-04-01-preview"},
+            hangarllm_params={"api_version": "2025-04-01-preview"},
         )
         assert url == "wss://myresource.cognitiveservices.azure.com/openai/v1/responses"
         assert "api-version" not in url
@@ -89,7 +89,7 @@ class TestResponsesAPIWebSocketSupport:
         config = AzureOpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
             api_base="https://myresource.cognitiveservices.azure.com/openai/responses",
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "wss://myresource.cognitiveservices.azure.com/openai/v1/responses"
 
@@ -97,14 +97,14 @@ class TestResponsesAPIWebSocketSupport:
         config = AzureOpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
             api_base="https://myresource.cognitiveservices.azure.com/openai/responses?api-version=2024-05-01-preview",
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "wss://myresource.cognitiveservices.azure.com/openai/v1/responses"
 
     def test_azure_websocket_url_requires_api_base(self):
         config = AzureOpenAIResponsesAPIConfig()
         with pytest.raises(ValueError, match='api_base is required for Azure WebSocket'):
-            config.get_websocket_url(api_base=None, litellm_params={})
+            config.get_websocket_url(api_base=None, hangarllm_params={})
 
     def test_azure_model_not_in_websocket_url(self):
         """Azure sends the model in the body, so it must not be appended to the URL"""
@@ -114,7 +114,7 @@ class TestResponsesAPIWebSocketSupport:
         """The base get_websocket_url default converts the HTTP endpoint to wss://"""
         config = OpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
-            api_base="https://api.openai.com/v1", litellm_params={}
+            api_base="https://api.openai.com/v1", hangarllm_params={}
         )
         assert url == "wss://api.openai.com/v1/responses"
 
@@ -148,12 +148,12 @@ class TestResponsesAPIWebSocketSupport:
             config.supports_native_websocket() is False
         ), "ChatGPT should use managed websocket handler"
 
-    def test_litellm_proxy_uses_managed_websocket(self):
-        """LiteLLM Proxy should use managed websocket handler"""
-        config = LiteLLMProxyResponsesAPIConfig()
+    def test_hangarllm_proxy_uses_managed_websocket(self):
+        """HangarLLM Proxy should use managed websocket handler"""
+        config = HangarLLMProxyResponsesAPIConfig()
         assert (
             config.supports_native_websocket() is False
-        ), "LiteLLM Proxy should use managed websocket handler"
+        ), "HangarLLM Proxy should use managed websocket handler"
 
     def test_volcengine_uses_managed_websocket(self):
         """VolcEngine should use managed websocket handler"""
@@ -206,8 +206,8 @@ class TestManagedWebSocketHandlerIntegration:
         """Test that ManagedResponsesWebSocketHandler can be instantiated"""
         from unittest.mock import MagicMock
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -218,7 +218,7 @@ class TestManagedWebSocketHandlerIntegration:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            hangarllm_call_id="test-id",
             function_id="test-func",
         )
 
@@ -227,7 +227,7 @@ class TestManagedWebSocketHandlerIntegration:
             model="test-model",
             logging_obj=mock_logging_obj,
             user_api_key_dict=None,
-            litellm_metadata={},
+            hangarllm_metadata={},
             api_key="test-key",
             api_base="https://api.example.com",
             timeout=30.0,
@@ -244,16 +244,16 @@ class TestManagedWebSocketHandlerIntegration:
     async def test_frame_alias_resolves_to_connection_model(self, monkeypatch):
         """
         A response.create frame that repeats the public model alias must reach
-        litellm.aresponses with the router-resolved deployment model, not the
+        hangarllm.aresponses with the router-resolved deployment model, not the
         raw alias (which fails in get_llm_provider). Regression for codex
         WebSocket sessions against managed providers like bedrock_mantle.
         """
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -268,7 +268,7 @@ class TestManagedWebSocketHandlerIntegration:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
 
         mock_websocket = MagicMock()
         mock_websocket.send_text = AsyncMock()
@@ -282,10 +282,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"model_group": "gpt-5.5-mantle"},
+            hangarllm_metadata={"model_group": "gpt-5.5-mantle"},
         )
 
         frame = json.dumps(
@@ -304,9 +304,9 @@ class TestManagedWebSocketHandlerIntegration:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import GuardedResponsesWsFrame, ManagedResponsesWebSocketHandler
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import GuardedResponsesWsFrame, ManagedResponsesWebSocketHandler
 
         async def guard(frame: str) -> GuardedResponsesWsFrame:
             body = json.loads(frame)
@@ -322,7 +322,7 @@ class TestManagedWebSocketHandlerIntegration:
             yield {}
 
         aresponses: Final = AsyncMock(side_effect=lambda **kwargs: empty_stream())
-        monkeypatch.setattr(litellm, "aresponses", aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", aresponses)
         websocket: Final = MagicMock()
         websocket.send_text = AsyncMock()
         handler: Final = ManagedResponsesWebSocketHandler(
@@ -334,10 +334,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"user_api_key_hash": "k1"},
+            hangarllm_metadata={"user_api_key_hash": "k1"},
             frame_guard=guard,
         )
 
@@ -349,8 +349,8 @@ class TestManagedWebSocketHandlerIntegration:
         assert error_event["error"] == {"type": "invalid_request_error", "message": "blocked by guardrail"}
         sent: Final = aresponses.await_args.kwargs
         assert sent["input"] == "HELLO"
-        assert sent["litellm_metadata"]["user_api_key_hash"] == "k1"
-        assert sent["litellm_metadata"]["standard_logging_guardrail_information"] == [
+        assert sent["hangarllm_metadata"]["user_api_key_hash"] == "k1"
+        assert sent["hangarllm_metadata"]["standard_logging_guardrail_information"] == [
             {"guardrail_name": "g", "guardrail_cost": 0.5}
         ]
 
@@ -359,9 +359,9 @@ class TestManagedWebSocketHandlerIntegration:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import GuardedResponsesWsFrame, ManagedResponsesWebSocketHandler
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import GuardedResponsesWsFrame, ManagedResponsesWebSocketHandler
 
         presidio = _FakeWSGuardrail()
 
@@ -391,7 +391,7 @@ class TestManagedWebSocketHandlerIntegration:
 
             return stream()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
         websocket: Final = MagicMock()
         websocket.send_text = AsyncMock()
         handler: Final = ManagedResponsesWebSocketHandler(
@@ -403,7 +403,7 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
             frame_guard=guard,
@@ -424,7 +424,7 @@ class TestManagedWebSocketHandlerIntegration:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         guard: Final = AsyncMock(side_effect=ValueError("blocked by guardrail"))
         websocket: Final = MagicMock()
@@ -449,9 +449,9 @@ class TestManagedWebSocketHandlerIntegration:
     async def test_truncated_turn_is_kept_as_history_for_the_next_turn(self, monkeypatch, terminal_type: str):
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         terminal_response: Final = {
             "type": terminal_type,
@@ -476,7 +476,7 @@ class TestManagedWebSocketHandlerIntegration:
             yield {}
 
         aresponses_mock: Final = AsyncMock(side_effect=(first_stream(), empty_stream()))
-        monkeypatch.setattr(litellm, "aresponses", aresponses_mock)
+        monkeypatch.setattr(hangarllm, "aresponses", aresponses_mock)
 
         websocket: Final = MagicMock()
         websocket.send_text = AsyncMock()
@@ -489,10 +489,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"model_group": "gpt-5.5-mantle"},
+            hangarllm_metadata={"model_group": "gpt-5.5-mantle"},
         )
 
         turn_one_user: Final[dict[str, object]] = {
@@ -541,9 +541,9 @@ class TestManagedWebSocketHandlerIntegration:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -554,7 +554,7 @@ class TestManagedWebSocketHandlerIntegration:
             called = True
             raise AssertionError("provider must not be called for a warmup frame")
 
-        monkeypatch.setattr(litellm, "aresponses", fail_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fail_aresponses)
 
         mock_websocket = MagicMock()
         mock_websocket.send_text = AsyncMock()
@@ -568,10 +568,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"model_group": "gpt-5.5-mantle"},
+            hangarllm_metadata={"model_group": "gpt-5.5-mantle"},
         )
 
         frame = json.dumps(
@@ -603,9 +603,9 @@ class TestManagedWebSocketHandlerIntegration:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -620,7 +620,7 @@ class TestManagedWebSocketHandlerIntegration:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
 
         mock_websocket = MagicMock()
         mock_websocket.send_text = AsyncMock()
@@ -634,10 +634,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"model_group": "gpt-5.5-mantle"},
+            hangarllm_metadata={"model_group": "gpt-5.5-mantle"},
         )
 
         await handler._process_response_create(
@@ -679,7 +679,7 @@ class TestChunkTransformation:
 
     def test_serialize_chunk_with_dict(self):
         """Test serialization of dict chunks"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -695,7 +695,7 @@ class TestChunkTransformation:
 
     def test_serialize_chunk_handles_invalid_json(self):
         """Test that chunks with circular references are handled"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -708,7 +708,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_with_text_content(self):
         """Test extraction of output messages with text content"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -736,7 +736,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_with_multiple_content_parts(self):
         """Test extraction with multiple content parts"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -765,7 +765,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_with_function_calls(self):
         """Test that function calls are preserved"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -794,7 +794,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_filters_empty_text(self):
         """Test that messages with empty text are filtered out"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -825,7 +825,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_handles_non_dict_items(self):
         """Test that non-dict items are skipped"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -854,7 +854,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_with_string(self):
         """Test conversion of string input to messages"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -867,7 +867,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_with_list(self):
         """Test conversion of list input to messages"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -886,7 +886,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_filters_non_dict_items(self):
         """Test that non-dict items in list input are filtered"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -906,7 +906,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_handles_empty_input(self):
         """Test that empty input returns empty list"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -918,24 +918,24 @@ class TestChunkTransformation:
 class TestUpdateProxyRequest:
     """Regression tests for ManagedResponsesWebSocketHandler._update_proxy_request.
 
-    The managed WebSocket path calls ``litellm.aresponses(model=..., **call_kwargs)``.
-    ``litellm_params`` is not a Responses API request field, so passing it as a
+    The managed WebSocket path calls ``hangarllm.aresponses(model=..., **call_kwargs)``.
+    ``hangarllm_params`` is not a Responses API request field, so passing it as a
     top-level kwarg leaks it into the provider request body and providers that
     forbid extra inputs (e.g. Anthropic) reject the call with
-    ``litellm_params: Extra inputs are not permitted``. The request-tracking data
-    must ride along as ``proxy_server_request`` instead, which litellm consumes
+    ``hangarllm_params: Extra inputs are not permitted``. The request-tracking data
+    must ride along as ``proxy_server_request`` instead, which hangarllm consumes
     internally and never forwards to the provider.
     """
 
-    def test_does_not_inject_litellm_params_kwarg(self):
-        from litellm.responses.streaming_iterator import (
+    def test_does_not_inject_hangarllm_params_kwarg(self):
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
         call_kwargs = {
             "input": "hello",
             "store": True,
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "proxy_server_request": {"headers": {}, "body": {}},
             },
         }
@@ -944,27 +944,27 @@ class TestUpdateProxyRequest:
             call_kwargs, "anthropic/claude-sonnet-4-5"
         )
 
-        assert "litellm_params" not in call_kwargs
+        assert "hangarllm_params" not in call_kwargs
         assert call_kwargs["proxy_server_request"]["body"]["model"] == (
             "anthropic/claude-sonnet-4-5"
         )
         assert call_kwargs["proxy_server_request"]["body"]["input"] == "hello"
 
     def test_proxy_server_request_matches_metadata(self):
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
         call_kwargs = {
             "input": "hi",
-            "litellm_metadata": {"proxy_server_request": {"body": {}}},
+            "hangarllm_metadata": {"proxy_server_request": {"body": {}}},
         }
 
         ManagedResponsesWebSocketHandler._update_proxy_request(call_kwargs, "gpt-4o")
 
         assert (
             call_kwargs["proxy_server_request"]
-            == call_kwargs["litellm_metadata"]["proxy_server_request"]
+            == call_kwargs["hangarllm_metadata"]["proxy_server_request"]
         )
 
 
@@ -973,7 +973,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_created_event_dict(self):
         """Test serialization of response.created event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -995,7 +995,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_in_progress_event_dict(self):
         """Test serialization of response.in_progress event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1007,7 +1007,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_item_added_event_dict(self):
         """Test serialization of response.output_item.added event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1026,7 +1026,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_text_delta_event_dict(self):
         """Test serialization of response.output_text.delta event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1046,7 +1046,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_text_done_event_dict(self):
         """Test serialization of response.output_text.done event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1066,7 +1066,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_content_part_done_event_dict(self):
         """Test serialization of response.content_part.done event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1085,7 +1085,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_item_done_event_dict(self):
         """Test serialization of response.output_item.done event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1104,7 +1104,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_completed_event_dict(self):
         """Test serialization of response.completed event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1130,7 +1130,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_failed_event_dict(self):
         """Test serialization of response.failed event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1151,7 +1151,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_incomplete_event_dict(self):
         """Test serialization of response.incomplete event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1176,7 +1176,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_output_messages_preserves_multiple_messages(self):
         """Test that multiple output messages are all preserved"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1215,7 +1215,7 @@ class TestMultiTurnSessionHistory:
 
     def test_input_to_messages_with_mixed_content_types(self):
         """Test input conversion with mixed content types"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1238,7 +1238,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_output_messages_with_mixed_text_types(self):
         """Test that both 'output_text' and 'text' types are extracted"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1267,7 +1267,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_response_id_from_completed_event(self):
         """Test extraction of response ID from completed event"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1283,7 +1283,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_response_id_handles_missing_response(self):
         """Test that missing response dict returns None"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1303,8 +1303,8 @@ class TestWebSocketErrorHandling:
         """Test that invalid JSON in response.create is handled gracefully"""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1318,7 +1318,7 @@ class TestWebSocketErrorHandling:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            hangarllm_call_id="test-id",
             function_id="test-func",
         )
 
@@ -1348,10 +1348,10 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_managed_handler_blocks_frame_rejected_by_quota_callback(self, monkeypatch: pytest.MonkeyPatch):
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.exceptions import RateLimitError
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import hangarllm
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1361,7 +1361,7 @@ class TestWebSocketProjectQuotaEnforcement:
             nonlocal aresponses_called
             aresponses_called = True
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(
@@ -1376,7 +1376,7 @@ class TestWebSocketProjectQuotaEnforcement:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            hangarllm_call_id="test-id",
             function_id="test-func",
         )
         handler = ManagedResponsesWebSocketHandler(
@@ -1398,9 +1398,9 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_managed_handler_forwards_frame_allowed_by_quota_callback(self, monkeypatch: pytest.MonkeyPatch):
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1416,7 +1416,7 @@ class TestWebSocketProjectQuotaEnforcement:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(return_value=None)
@@ -1429,7 +1429,7 @@ class TestWebSocketProjectQuotaEnforcement:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            hangarllm_call_id="test-id",
             function_id="test-func",
         )
         handler = ManagedResponsesWebSocketHandler(
@@ -1448,8 +1448,8 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_native_handler_blocks_frame_rejected_by_quota_callback(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.exceptions import RateLimitError
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(
@@ -1485,11 +1485,11 @@ class TestWebSocketProjectQuotaEnforcement:
     ):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.responses.streaming_iterator import GuardedResponsesWsFrame, ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import GuardedResponsesWsFrame, ResponsesWebSocketStreaming
 
         def connection_logging():
             logging_obj = MagicMock()
-            logging_obj.litellm_params = {
+            logging_obj.hangarllm_params = {
                 "metadata": {
                     "standard_logging_guardrail_information": [{"guardrail_name": "admission", "guardrail_cost": 9.0}]
                 }
@@ -1524,7 +1524,7 @@ class TestWebSocketProjectQuotaEnforcement:
         sent = [json.loads(call.args[0]) for call in mock_backend_ws.send.call_args_list]
         assert [frame["input"] for frame in sent] == ["hi [guarded]", "hello [guarded]"]
         assert [
-            turn.logging_obj.litellm_params["metadata"]["standard_logging_guardrail_information"]
+            turn.logging_obj.hangarllm_params["metadata"]["standard_logging_guardrail_information"]
             for turn in handler._open_turns
         ] == [
             [{"guardrail_name": "turn", "guardrail_cost": pytest.approx(0.2)}],
@@ -1535,7 +1535,7 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_native_handler_drops_a_frame_the_guard_rejects_and_keeps_the_socket_open(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.responses.streaming_iterator import GuardedResponsesWsFrame, ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import GuardedResponsesWsFrame, ResponsesWebSocketStreaming
 
         async def guard(frame: str) -> GuardedResponsesWsFrame:
             if "forbidden" in frame:
@@ -1574,7 +1574,7 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_native_handler_forwards_frame_allowed_by_quota_callback(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(return_value=None)
@@ -1602,7 +1602,7 @@ def _turn_frames() -> tuple[str, str, str]:
 def _admission_refusing_the_next_turn():
     from unittest.mock import AsyncMock
 
-    from litellm.exceptions import RateLimitError
+    from hangarllm.exceptions import RateLimitError
 
     return AsyncMock(side_effect=[RateLimitError(message="crossed budget", llm_provider="", model=""), {}])
 
@@ -1622,15 +1622,15 @@ class _TokenLimits:
 
 
 def _out_of_tokens() -> Exception:
-    from litellm.exceptions import RateLimitError
+    from hangarllm.exceptions import RateLimitError
 
     return RateLimitError(message="key is out of tokens", llm_provider="", model="")
 
 
 def _counters_unverifiable() -> Exception:
-    from litellm.exceptions import ServiceUnavailableError
+    from hangarllm.exceptions import ServiceUnavailableError
 
-    return ServiceUnavailableError(message="counters could not be verified", llm_provider="litellm_proxy", model="")
+    return ServiceUnavailableError(message="counters could not be verified", llm_provider="hangarllm_proxy", model="")
 
 
 _TURN_REFUSALS: Final = pytest.mark.parametrize(
@@ -1680,7 +1680,7 @@ def _admission_crashing_the_next_turn():
 
 
 def _guard_blocking(word: str):
-    from litellm.responses.streaming_iterator import GuardedResponsesWsFrame
+    from hangarllm.responses.streaming_iterator import GuardedResponsesWsFrame
 
     async def guard(frame: str) -> GuardedResponsesWsFrame:
         if word in json.loads(frame)["input"]:
@@ -1691,7 +1691,7 @@ def _guard_blocking(word: str):
 
 
 def _guard_recording(bill_refusal: MagicMock):
-    from litellm.responses.streaming_iterator import GuardedResponsesWsFrame
+    from hangarllm.responses.streaming_iterator import GuardedResponsesWsFrame
 
     async def guard(frame: str) -> GuardedResponsesWsFrame:
         return GuardedResponsesWsFrame(
@@ -1706,7 +1706,7 @@ _TURNED_ON: Final = "global_router:ws-dep:openai/gpt-5-mini:otpm:12-35"
 _OPENED_AT: Final = datetime(2026, 1, 1, 12, 34, 56, tzinfo=timezone.utc)
 _TURNED_AT: Final = datetime(2026, 1, 1, 12, 35, 5, tzinfo=timezone.utc)
 _WS_DEPLOYMENT: Final = {
-    "litellm_params": {"model": "openai/gpt-5-mini", "otpm": 4096},
+    "hangarllm_params": {"model": "openai/gpt-5-mini", "otpm": 4096},
     "model_info": {"id": "ws-dep"},
 }
 _OTHER_USAGE: Final = 10
@@ -1729,7 +1729,7 @@ def _turn_completed() -> str:
 
 
 async def _socket_opened_on(dual_cache: "DualCache") -> Mapping[str, object]:
-    from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import async_admit_io_token_turn
+    from hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check import async_admit_io_token_turn
 
     await dual_cache.async_increment_cache(key=_OPENED_ON, value=_OTHER_USAGE, ttl=60)
     await dual_cache.async_increment_cache(key=_TURNED_ON, value=_OTHER_USAGE, ttl=60)
@@ -1738,19 +1738,19 @@ async def _socket_opened_on(dual_cache: "DualCache") -> Mapping[str, object]:
 
 def _turns_finish_at(monkeypatch: pytest.MonkeyPatch, finished_at: datetime) -> None:
     monkeypatch.setattr(
-        "litellm.router_utils.pre_call_checks.io_token_rate_limit_check.get_utc_datetime", lambda: finished_at
+        "hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check.get_utc_datetime", lambda: finished_at
     )
 
 
 def _later_turns_admitted_through(dual_cache: "DualCache") -> "ResponsesWsTurnAdmission":
-    from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import async_admit_io_token_turn
+    from hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check import async_admit_io_token_turn
 
     return partial(async_admit_io_token_turn, dual_cache, _WS_DEPLOYMENT, _TURNED_AT)
 
 
 _ITPM_OPENED_ON: Final = "global_router:ws-dep:openai/gpt-5-mini:itpm:12-34"
 _ITPM_DEPLOYMENT: Final = {
-    "litellm_params": {"model": "openai/gpt-5-mini", "itpm": 40_000},
+    "hangarllm_params": {"model": "openai/gpt-5-mini", "itpm": 40_000},
     "model_info": {"id": "ws-dep"},
 }
 _TURN_INPUT_TOKENS: Final = 1_000
@@ -1778,8 +1778,8 @@ def _turn_completed_reading_cache(cached_tokens: int) -> str:
 def _connection_logged_through(rate_limits: "ModelRateLimitingCheck", opened_with: Mapping[str, object]) -> "Logging":
     import time
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.utils import CallTypes
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.types.utils import CallTypes
 
     connection: Final = Logging(
         model="gpt-5-mini",
@@ -1787,13 +1787,13 @@ def _connection_logged_through(rate_limits: "ModelRateLimitingCheck", opened_wit
         stream=False,
         call_type=CallTypes.aresponses_websocket.value,
         start_time=time.time(),
-        litellm_call_id="connection-call",
+        hangarllm_call_id="connection-call",
         function_id="connection-call",
         dynamic_async_success_callbacks=[rate_limits],
         dynamic_async_failure_callbacks=[rate_limits],
     )
     connection.update_environment_variables(
-        litellm_params={"metadata": dict(opened_with), CallTypes.aresponses_websocket.value: True},
+        hangarllm_params={"metadata": dict(opened_with), CallTypes.aresponses_websocket.value: True},
         optional_params={},
     )
     return connection
@@ -1876,9 +1876,9 @@ async def _run_managed_relay(
     turn_admission: "ResponsesWsTurnAdmission | None",
     opened_with: Mapping[str, object],
 ) -> _ClientSocket:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "ws-turn-llm", "custom_handler": provider}])
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "ws-turn-llm", "custom_handler": provider}])
     return await _relay_turns_to(monkeypatch, "ws-turn-llm/turns", rate_limits, frames, turn_admission, opened_with)
 
 
@@ -1891,12 +1891,12 @@ async def _relay_turns_to(
     opened_with: Mapping[str, object],
     **connection: object,
 ) -> _ClientSocket:
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-    from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler, drain_logging_tasks
+    import hangarllm
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler, drain_logging_tasks
 
-    monkeypatch.setattr(litellm, "callbacks", [rate_limits])
+    monkeypatch.setattr(hangarllm, "callbacks", [rate_limits])
     first, *later = frames
     websocket: Final = _ClientSocket(*later)
     handler: Final = ManagedResponsesWebSocketHandler(
@@ -1908,10 +1908,10 @@ async def _relay_turns_to(
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            hangarllm_call_id="test-id",
             function_id="test-func",
         ),
-        litellm_metadata={"user_api_key_hash": "k1", **opened_with},
+        hangarllm_metadata={"user_api_key_hash": "k1", **opened_with},
         first_message=first,
         turn_admission=turn_admission,
         **connection,
@@ -1968,7 +1968,7 @@ class TestWebSocketTurnAdmission:
     async def test_native_relay_reports_a_refused_turn_as_the_socket_failure(self):
         from unittest.mock import AsyncMock
 
-        from litellm.exceptions import RateLimitError
+        from hangarllm.exceptions import RateLimitError
 
         first, second, _ = _turn_frames()
         backend_ws: Final = MagicMock()
@@ -2004,9 +2004,9 @@ class TestWebSocketTurnAdmission:
     ) -> None:
         import websockets.exceptions  # noqa: F401  (lazy submodule must be importable)
 
-        from litellm.caching.dual_cache import DualCache
-        from litellm.responses.streaming_iterator import drain_logging_tasks
-        from litellm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
+        from hangarllm.caching.dual_cache import DualCache
+        from hangarllm.responses.streaming_iterator import drain_logging_tasks
+        from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
 
         _turns_finish_at(monkeypatch, _TURNED_AT)
         dual_cache: Final = DualCache()
@@ -2049,10 +2049,10 @@ class TestWebSocketTurnAdmission:
     ) -> None:
         import websockets.exceptions  # noqa: F401  (lazy submodule must be importable)
 
-        from litellm.caching.dual_cache import DualCache
-        from litellm.responses.streaming_iterator import drain_logging_tasks
-        from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import async_admit_io_token_turn
-        from litellm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
+        from hangarllm.caching.dual_cache import DualCache
+        from hangarllm.responses.streaming_iterator import drain_logging_tasks
+        from hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check import async_admit_io_token_turn
+        from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
 
         _turns_finish_at(monkeypatch, _OPENED_AT)
         dual_cache: Final = DualCache()
@@ -2086,8 +2086,8 @@ class TestWebSocketTurnAdmission:
     async def test_managed_relay_counts_every_turn_on_the_minute_it_finishes(
         self, monkeypatch: pytest.MonkeyPatch, failing_turns: frozenset[int], first_turn_tokens: int
     ) -> None:
-        from litellm.caching.dual_cache import DualCache
-        from litellm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
+        from hangarllm.caching.dual_cache import DualCache
+        from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
 
         _turns_finish_at(monkeypatch, _TURNED_AT)
         dual_cache: Final = DualCache()
@@ -2112,12 +2112,12 @@ class TestWebSocketTurnAdmission:
     async def test_managed_relay_sends_the_provider_only_the_metadata_each_turn_carries(
         self, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
     ) -> None:
-        import litellm
-        from litellm.caching.dual_cache import DualCache
-        from litellm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
+        import hangarllm
+        from hangarllm.caching.dual_cache import DualCache
+        from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import ModelRateLimitingCheck
 
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         _turns_finish_at(monkeypatch, _TURNED_AT)
         provider: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(side_effect=_provider_turn_stream)
         client_metadata: Final = {"session": "abc", "team": "search"}
@@ -2148,9 +2148,9 @@ class TestWebSocketTurnAdmission:
     ) -> None:
         from unittest.mock import patch
 
-        from litellm import Router
+        from hangarllm import Router
 
-        monkeypatch.setenv("LITELLM_RUST", "false")
+        monkeypatch.setenv("HANGARLLM_RUST", "false")
         provider: Final = _ProviderResponsesSocket()
         client_metadata: Final = {"session": "abc", "team": "search"}
         first, second, _ = _turn_frames()
@@ -2158,7 +2158,7 @@ class TestWebSocketTurnAdmission:
             model_list=[
                 {
                     "model_name": "ws-io",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5-mini",
                         "api_key": "sk-fake",
                         "itpm": 40_000,
@@ -2184,10 +2184,10 @@ class TestWebSocketTurnAdmission:
     async def test_managed_relay_skips_a_later_turn_the_deployment_refuses(self, monkeypatch: pytest.MonkeyPatch):
         from unittest.mock import AsyncMock
 
-        import litellm
-        from litellm.exceptions import RateLimitError
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        import hangarllm
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         answered: Final[list[object]] = []
 
@@ -2200,7 +2200,7 @@ class TestWebSocketTurnAdmission:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
         first, second, third = _turn_frames()
         turn_admission: Final = _admission_refusing_the_next_turn()
         websocket: Final = MagicMock()
@@ -2215,7 +2215,7 @@ class TestWebSocketTurnAdmission:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
             first_message=first,
@@ -2242,17 +2242,17 @@ class TestWebSocketTurnAdmission:
     async def test_managed_socket_checks_token_limits_before_every_later_turn_and_marks_each_turn(
         self, monkeypatch: pytest.MonkeyPatch, refusal: Exception, refusal_frame: tuple[int, str]
     ) -> None:
-        import litellm
-        from litellm.constants import RESPONSES_WEBSOCKET_CALL_ID_METADATA_KEY
-        from litellm.litellm_core_utils.core_helpers import as_str_mapping
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm
+        from hangarllm.constants import RESPONSES_WEBSOCKET_CALL_ID_METADATA_KEY
+        from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         answered: Final[list[tuple[str, object]]] = []
 
         async def fake_aresponses(*args: object, **kwargs: object):
-            turn_metadata: Final = as_str_mapping(kwargs.get("litellm_metadata"))
+            turn_metadata: Final = as_str_mapping(kwargs.get("hangarllm_metadata"))
             answered.append(
                 (
                     json.dumps(kwargs.get("input")),
@@ -2266,9 +2266,9 @@ class TestWebSocketTurnAdmission:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
         token_limits: Final = _TokenLimits(refusal, None)
-        monkeypatch.setattr(litellm, "callbacks", [token_limits])
+        monkeypatch.setattr(hangarllm, "callbacks", [token_limits])
         deployment_admission: Final = AsyncMock(return_value={})
         user_api_key_dict: Final = UserAPIKeyAuth(api_key="hashed-key", tpm_limit=1000)
         first, second, third = _turn_frames()
@@ -2283,12 +2283,12 @@ class TestWebSocketTurnAdmission:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="socket-open",
+                hangarllm_call_id="socket-open",
                 function_id="test-func",
             ),
             responses_api_provider_config=None,
             user_api_key_dict=user_api_key_dict,
-            litellm_metadata={"model_group": "claude-ws"},
+            hangarllm_metadata={"model_group": "claude-ws"},
             first_message=first,
             turn_admission=deployment_admission,
         )
@@ -2320,12 +2320,12 @@ class TestWebSocketTurnAdmission:
     ) -> None:
         from unittest.mock import patch
 
-        import litellm
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         token_limits: Final = _TokenLimits(refusal, None)
-        monkeypatch.setattr(litellm, "callbacks", [token_limits])
+        monkeypatch.setattr(hangarllm, "callbacks", [token_limits])
         provider: Final = _ProviderResponsesSocket()
         config: Final = MagicMock(spec=OpenAIResponsesAPIConfig)
         config.supports_native_websocket.return_value = True
@@ -2385,9 +2385,9 @@ class TestWebSocketTurnAdmission:
     async def test_managed_relay_runs_the_guardrail_before_the_deployment_counts_a_turn(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         answered: Final[list[object]] = []
 
@@ -2400,7 +2400,7 @@ class TestWebSocketTurnAdmission:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
         first, second, third = _turn_frames()
         turn_admission: Final = _admission_refusing_the_next_turn()
         websocket: Final = _ClientSocket(second, third)
@@ -2413,7 +2413,7 @@ class TestWebSocketTurnAdmission:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
             first_message=first,
@@ -2435,7 +2435,7 @@ class TestWebSocketTurnAdmission:
     async def test_native_relay_leaves_a_refused_turn_s_guardrail_records_to_the_close_time_failure_row(self):
         from unittest.mock import AsyncMock
 
-        from litellm.exceptions import RateLimitError
+        from hangarllm.exceptions import RateLimitError
 
         first, second, third = _turn_frames()
         refusal: Final = RateLimitError(message="crossed budget", llm_provider="", model="")
@@ -2463,7 +2463,7 @@ class TestWebSocketTurnAdmission:
     async def test_a_refused_turn_is_recorded_even_when_the_relay_is_cancelled_while_answering_it(self):
         from unittest.mock import AsyncMock
 
-        from litellm.exceptions import RateLimitError
+        from hangarllm.exceptions import RateLimitError
 
         first, second, third = _turn_frames()
         refusal: Final = RateLimitError(message="crossed budget", llm_provider="", model="")
@@ -2496,10 +2496,10 @@ class TestWebSocketTurnAdmission:
     ):
         from unittest.mock import AsyncMock
 
-        import litellm
-        from litellm.exceptions import RateLimitError
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        import hangarllm
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         answered: Final[list[object]] = []
 
@@ -2512,7 +2512,7 @@ class TestWebSocketTurnAdmission:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
         first, second, third = _turn_frames()
         refusal: Final = RateLimitError(message="crossed budget", llm_provider="", model="")
         bill_refusal: Final = MagicMock()
@@ -2525,7 +2525,7 @@ class TestWebSocketTurnAdmission:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
             first_message=first,
@@ -2571,9 +2571,9 @@ class TestWebSocketTurnAdmission:
     async def test_managed_relay_answers_a_crashed_turn_check_with_a_500_and_keeps_serving(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        import hangarllm
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         answered: Final[list[object]] = []
 
@@ -2586,7 +2586,7 @@ class TestWebSocketTurnAdmission:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(hangarllm, "aresponses", fake_aresponses)
         first, second, third = _turn_frames()
         websocket: Final = _ClientSocket(second, third)
         handler: Final = ManagedResponsesWebSocketHandler(
@@ -2598,7 +2598,7 @@ class TestWebSocketTurnAdmission:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                hangarllm_call_id="test-id",
                 function_id="test-func",
             ),
             first_message=first,
@@ -2615,7 +2615,7 @@ class TestWebSocketTurnAdmission:
 def _deployment_defaults():
     from types import MappingProxyType
 
-    from litellm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
+    from hangarllm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
 
     return ResponsesWebSocketRequestDefaults(
         fill_missing=MappingProxyType({"reasoning": {"effort": "high"}, "service_tier": "priority"}),
@@ -2624,10 +2624,10 @@ def _deployment_defaults():
 
 
 class TestNativeWebSocketDeploymentDefaults:
-    """The native relay merges deployment litellm_params into every response.create like HTTP does."""
+    """The native relay merges deployment hangarllm_params into every response.create like HTTP does."""
 
     def test_builder_maps_router_kwargs_like_the_http_path(self):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from hangarllm.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults(
             {
@@ -2640,9 +2640,9 @@ class TestNativeWebSocketDeploymentDefaults:
                 "max_retries": 2,
                 "caching": False,
                 "custom_llm_provider": "openai",
-                "litellm_metadata": {"user_api_key": "hashed"},
+                "hangarllm_metadata": {"user_api_key": "hashed"},
                 "user_api_key_dict": MagicMock(),
-                "litellm_logging_obj": MagicMock(),
+                "hangarllm_logging_obj": MagicMock(),
                 "websocket": MagicMock(),
             }
         )
@@ -2651,7 +2651,7 @@ class TestNativeWebSocketDeploymentDefaults:
         assert dict(defaults.overrides) == {"provider_default": "configured"}
 
     def test_builder_keeps_explicit_reasoning_over_reasoning_effort(self):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from hangarllm.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults(
             {"model": "gpt-5-pro", "reasoning": {"effort": "low"}, "reasoning_effort": "high"}
@@ -2661,7 +2661,7 @@ class TestNativeWebSocketDeploymentDefaults:
         assert dict(defaults.overrides) == {}
 
     def test_builder_copies_dict_valued_reasoning_effort_like_the_http_path(self):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from hangarllm.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults(
             {"model": "gpt-5-pro", "reasoning_effort": {"effort": "xhigh", "summary": "auto"}}
@@ -2673,7 +2673,7 @@ class TestNativeWebSocketDeploymentDefaults:
     def test_builder_forwards_non_enum_reasoning_effort_like_the_http_path(
         self, reasoning_effort: int | list[str] | str
     ):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from hangarllm.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults({"model": "gpt-5-pro", "reasoning_effort": reasoning_effort})
 
@@ -2683,7 +2683,7 @@ class TestNativeWebSocketDeploymentDefaults:
     async def test_extra_body_type_key_never_replaces_the_frame_type(self):
         from types import MappingProxyType
 
-        from litellm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
+        from hangarllm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
 
         handler = _make_streaming(
             authorized_model="gpt-5-pro",
@@ -2819,7 +2819,7 @@ class TestNativeWebSocketDeploymentDefaults:
         import asyncio
         from unittest.mock import AsyncMock, patch
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         class FakeBackend:
             def __init__(self):
@@ -2890,7 +2890,7 @@ class TestNativeWebSocketDeploymentDefaults:
         import importlib
         from unittest.mock import AsyncMock
 
-        responses_main = importlib.import_module("litellm.responses.main")
+        responses_main = importlib.import_module("hangarllm.responses.main")
 
         stub = MagicMock()
         stub.async_responses_websocket = AsyncMock()
@@ -2900,7 +2900,7 @@ class TestNativeWebSocketDeploymentDefaults:
             model="openai/gpt-5-pro",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             reasoning_effort="high",
             service_tier="priority",
             extra_body={"provider_default": "configured"},
@@ -2917,7 +2917,7 @@ class TestNativeWebSocketDeploymentDefaults:
         import importlib
         from unittest.mock import AsyncMock
 
-        responses_main = importlib.import_module("litellm.responses.main")
+        responses_main = importlib.import_module("hangarllm.responses.main")
 
         stub = MagicMock()
         stub.async_responses_websocket = AsyncMock()
@@ -2927,9 +2927,9 @@ class TestNativeWebSocketDeploymentDefaults:
             model="openai/gpt-5-pro",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             reasoning_effort="high",
-            input=[{"id": "encitem_abc", "type": "reasoning", "encrypted_content": "litellm_enc:abc"}],
+            input=[{"id": "encitem_abc", "type": "reasoning", "encrypted_content": "hangarllm_enc:abc"}],
             previous_response_id="resp_first_turn",
         )
 
@@ -2945,7 +2945,7 @@ class TestNativeWebSocketGuardrails:
         import json
         from unittest.mock import MagicMock
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         handler = ResponsesWebSocketStreaming(
             websocket=MagicMock(),
@@ -2970,7 +2970,7 @@ class TestNativeWebSocketGuardrails:
     async def test_completed_event_with_null_response_passes_through(self):
         from unittest.mock import MagicMock
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         class Guardrail:
             def get_presidio_settings_from_request_data(self, request_data):
@@ -3000,7 +3000,7 @@ class TestNativeWebSocketGuardrails:
 
         import websockets.exceptions
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         class RecordingGuardrail:
             def __init__(self):
@@ -3075,7 +3075,7 @@ class TestNativeWebSocketGuardrails:
 
         import websockets.exceptions
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         class MaskingGuardrail:
             def __init__(self):
@@ -3204,7 +3204,7 @@ class _FakeWSGuardrail:
 def _make_streaming(**kwargs):
     from unittest.mock import MagicMock
 
-    from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+    from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
     kwargs.setdefault("websocket", MagicMock())
     kwargs.setdefault("backend_ws", MagicMock())
@@ -3219,7 +3219,7 @@ class TestNativeWebSocketGuardrailMasking:
     async def test_a_reply_to_a_frame_the_guard_masked_is_unmasked_with_the_guard_s_tokens(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.responses.streaming_iterator import GuardedResponsesWsFrame
+        from hangarllm.responses.streaming_iterator import GuardedResponsesWsFrame
 
         guardrail = _FakeWSGuardrail()
 
@@ -4051,7 +4051,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_function_call_chunk(self):
         """Test serialization of function call chunks"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -4072,7 +4072,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_function_call_arguments_delta(self):
         """Test serialization of function call arguments delta"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -4092,7 +4092,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_function_call_arguments_done(self):
         """Test serialization of function call arguments done"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -4112,7 +4112,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_reasoning_content_delta(self):
         """Test serialization of reasoning content delta"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -4132,7 +4132,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_reasoning_content_done(self):
         """Test serialization of reasoning content done"""
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -4158,7 +4158,7 @@ class TestResponsesWebSocketCredentials:
         from types import TracebackType
         from unittest.mock import AsyncMock, patch
 
-        from litellm.responses import main as responses_main
+        from hangarllm.responses import main as responses_main
 
         captured_headers: Final[Future[Mapping[str, str]]] = get_running_loop().create_future()
 
@@ -4188,7 +4188,7 @@ class TestResponsesWebSocketCredentials:
         with patch("websockets.connect", FakeConnect):
             await responses_main._aresponses_websocket.__wrapped__(
                 websocket=websocket,
-                litellm_logging_obj=MagicMock(),
+                hangarllm_logging_obj=MagicMock(),
                 **call_kwargs,
             )
 
@@ -4212,12 +4212,12 @@ class TestResponsesWebSocketCredentials:
         global_key: str | None,
         expected_key: str,
     ) -> None:
-        import litellm
+        import hangarllm
 
-        monkeypatch.setattr(litellm, "api_key", global_key)
-        monkeypatch.setattr(litellm, "openai_key", None)
+        monkeypatch.setattr(hangarllm, "api_key", global_key)
+        monkeypatch.setattr(hangarllm, "openai_key", None)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.setenv("LITELLM_RUST", "false")
+        monkeypatch.setenv("HANGARLLM_RUST", "false")
 
         headers: Final = await self._upstream_handshake_headers(
             model="gpt-6-astra",
@@ -4232,15 +4232,15 @@ class TestResponsesWebSocketCredentials:
     async def test_azure_websocket_without_its_own_key_never_gets_the_openai_key(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import litellm
+        import hangarllm
 
-        monkeypatch.setattr(litellm, "api_key", None)
-        monkeypatch.setattr(litellm, "openai_key", None)
-        monkeypatch.setattr(litellm, "azure_key", None)
+        monkeypatch.setattr(hangarllm, "api_key", None)
+        monkeypatch.setattr(hangarllm, "openai_key", None)
+        monkeypatch.setattr(hangarllm, "azure_key", None)
         monkeypatch.setenv("OPENAI_API_KEY", "openai-global-key")
         monkeypatch.setenv("AZURE_API_KEY", "azure-env-key")
         monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
-        monkeypatch.setenv("LITELLM_RUST", "false")
+        monkeypatch.setenv("HANGARLLM_RUST", "false")
 
         headers: Final = await self._upstream_handshake_headers(
             model="gpt-6-astra",
@@ -4274,8 +4274,8 @@ class TestResponsesWebSocketCredentials:
         import httpx
         import respx
 
-        import litellm
-        from litellm.responses import main as responses_main
+        import hangarllm
+        from hangarllm.responses import main as responses_main
 
         chunks: Final = (
             {"choices": [{"index": 0, "delta": {"role": "assistant", "content": "OK"}, "finish_reason": None}]},
@@ -4289,13 +4289,13 @@ class TestResponsesWebSocketCredentials:
         def refuse_native_socket(*_args: object, **_kwargs: object) -> None:
             raise ConnectionRefusedError("this host has no Responses WebSocket")
 
-        monkeypatch.setattr(litellm, "api_key", None)
-        monkeypatch.setattr(litellm, "openai_key", None)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "api_key", None)
+        monkeypatch.setattr(hangarllm, "openai_key", None)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         monkeypatch.setenv("OPENAI_API_KEY", "openai-env-key")
         monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-env-key")
         monkeypatch.setenv("MISTRAL_API_KEY", "mistral-env-key")
-        monkeypatch.setenv("LITELLM_RUST", "false")
+        monkeypatch.setenv("HANGARLLM_RUST", "false")
         websocket: Final = MagicMock()
         websocket.send_text = AsyncMock()
         websocket.close = AsyncMock()
@@ -4314,7 +4314,7 @@ class TestResponsesWebSocketCredentials:
                 api_key=deployment_key,
                 first_message=json.dumps({"type": "response.create", "model": "astra-chat", "input": "Reply OK"}),
                 websocket=websocket,
-                litellm_logging_obj=MagicMock(),
+                hangarllm_logging_obj=MagicMock(),
             )
 
         sent_types: Final = [json.loads(call.args[0]).get("type") for call in websocket.send_text.await_args_list]
@@ -4356,7 +4356,7 @@ class TestNativeWebSocketUrlConstruction:
         mock_logging = MagicMock()
         mock_logging.pre_call = MagicMock()
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         handler = BaseLLMHTTPHandler()
 
@@ -4407,7 +4407,7 @@ class TestNativeWebSocketUrlConstruction:
         mock_logging = MagicMock()
         mock_logging.pre_call = MagicMock()
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         handler = BaseLLMHTTPHandler()
         mock_ws = MagicMock()
@@ -4434,7 +4434,7 @@ class TestNativeWebSocketUrlConstruction:
         ], f"existing param lost: {captured_urls[0]}"
 
     @pytest.mark.asyncio
-    async def test_ws_passes_litellm_params_to_get_websocket_url(self):
+    async def test_ws_passes_hangarllm_params_to_get_websocket_url(self):
         """Deployment api_version must reach get_websocket_url (Azure WS URL)."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -4448,7 +4448,7 @@ class TestNativeWebSocketUrlConstruction:
         mock_logging = MagicMock()
         mock_logging.pre_call = MagicMock()
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         handler = BaseLLMHTTPHandler()
         mock_ws = MagicMock()
@@ -4477,7 +4477,7 @@ class TestNativeWebSocketUrlConstruction:
 
         mock_config.get_websocket_url.assert_called_once()
         _, call_kwargs = mock_config.get_websocket_url.call_args
-        assert call_kwargs["litellm_params"]["api_version"] == "2025-04-01-preview"
+        assert call_kwargs["hangarllm_params"]["api_version"] == "2025-04-01-preview"
 
 
 _AFFINITY_METADATA = {
@@ -4487,7 +4487,7 @@ _AFFINITY_METADATA = {
 
 
 def _wrapped_reasoning_item():
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     return {
         "type": "reasoning",
@@ -4504,7 +4504,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
     async def test_client_to_backend_restores_wrapped_ids(self, nested: bool):
         from unittest.mock import AsyncMock
 
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
         wrapped_previous = ResponsesAPIRequestUtils._build_responses_api_response_id(
             custom_llm_provider="openai", model_id="dep-1", response_id="resp_orig"
@@ -4551,7 +4551,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
 
         import websockets.exceptions  # noqa: F401  (lazy submodule must be importable)
 
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
         reasoning_item = {"type": "reasoning", "id": "rs_1", "encrypted_content": "gAAAA-blob", "summary": []}
         websocket = MagicMock()
@@ -4576,7 +4576,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
             websocket=websocket,
             backend_ws=backend_ws,
             logging_obj=logging_obj,
-            request_data={"litellm_metadata": dict(_AFFINITY_METADATA)},
+            request_data={"hangarllm_metadata": dict(_AFFINITY_METADATA)},
             custom_llm_provider="openai",
         )
 
@@ -4603,7 +4603,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
 
         import websockets.exceptions  # noqa: F401  (lazy submodule must be importable)
 
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
         reasoning_item = {"type": "reasoning", "id": "rs_1", "encrypted_content": "gAAAA-blob", "summary": []}
         websocket = MagicMock()
@@ -4623,7 +4623,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
             websocket=websocket,
             backend_ws=backend_ws,
             logging_obj=logging_obj,
-            request_data={"litellm_metadata": {"model_info": {"id": "dep-1"}}},
+            request_data={"hangarllm_metadata": {"model_info": {"id": "dep-1"}}},
             custom_llm_provider="openai",
         )
 
@@ -4721,9 +4721,9 @@ class TestNativeWebSocketEncryptedContentAffinity:
 
         import websockets.exceptions  # noqa: F401  (lazy submodule must be importable)
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.types.utils import CallTypes
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.types.utils import CallTypes
 
         pre_calls: list[tuple[str, object]] = []
         successes: list[tuple[str, list[object]]] = []
@@ -4731,27 +4731,27 @@ class TestNativeWebSocketEncryptedContentAffinity:
         partial_usage: list[tuple[str, int, float]] = []
 
         def record_pre_call(self, input, api_key, model=None, additional_args=None):
-            pre_calls.append((self.litellm_call_id, self.model_call_details["messages"]))
+            pre_calls.append((self.hangarllm_call_id, self.model_call_details["messages"]))
 
         reservations: dict[str, tuple[object, object]] = {}
 
         def record_reservation(self):
-            metadata = self.litellm_params["metadata"]
-            reservations[self.litellm_call_id] = (
+            metadata = self.hangarllm_params["metadata"]
+            reservations[self.hangarllm_call_id] = (
                 metadata.get("user_api_key_budget_reservation"),
                 metadata["user_api_key_auth"].budget_reservation,
             )
 
         async def record_success(self, result, **kwargs):
             record_reservation(self)
-            successes.append((self.litellm_call_id, [event["type"] for event in result]))
+            successes.append((self.hangarllm_call_id, [event["type"] for event in result]))
 
         async def record_failure(self, exception, traceback_exception, **kwargs):
             record_reservation(self)
-            failures.append((self.litellm_call_id, exception))
+            failures.append((self.hangarllm_call_id, exception))
 
         def record_partial(self, usage, response_cost):
-            partial_usage.append((self.litellm_call_id, usage.total_tokens, response_cost))
+            partial_usage.append((self.hangarllm_call_id, usage.total_tokens, response_cost))
 
         monkeypatch.setattr(Logging, "pre_call", record_pre_call)
         monkeypatch.setattr(Logging, "dispatch_success_handlers", record_success)
@@ -4764,11 +4764,11 @@ class TestNativeWebSocketEncryptedContentAffinity:
             stream=False,
             call_type=CallTypes.aresponses_websocket.value,
             start_time=time.time(),
-            litellm_call_id="connection-call",
+            hangarllm_call_id="connection-call",
             function_id="connection-call",
         )
         reservation = {"reserved_cost": 0.5, "entries": [], "finalized": False}
-        connection_logging.litellm_params = {
+        connection_logging.hangarllm_params = {
             "metadata": {
                 "user_api_key_budget_reservation": reservation,
                 "user_api_key_auth": UserAPIKeyAuth(api_key="sk-hashed", budget_reservation=reservation),
@@ -4814,7 +4814,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
         assert failed_turn == second_turn
         assert "bad turn" in str(exception)
         assert partial_usage == [(second_turn, 0, 0.01)]
-        assert connection_logging.litellm_call_id == "connection-call"
+        assert connection_logging.hangarllm_call_id == "connection-call"
         assert reservations[first_turn] == (reservation, reservation)
         assert reservations[second_turn] == (None, None)
 

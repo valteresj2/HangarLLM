@@ -23,7 +23,7 @@ _RELOAD_SECONDS: Final = 5
 _PROPAGATION_SECONDS: Final = 6 * _RELOAD_SECONDS
 _ATTRIBUTION_ON: Final = MappingProxyType(
     {
-        "LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True",
+        "HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True",
         "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": str(_RELOAD_SECONDS),
     }
 )
@@ -77,7 +77,7 @@ def _ptu_terms(shares: Mapping[str, JsonValue] | None, count: int) -> dict[str, 
 def _deployment(wire_url: str, name: str, model_info: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "azure/ptu-guard",
             "api_base": wire_url,
             "api_key": "synthetic-azure-key",
@@ -92,16 +92,16 @@ def _model_name() -> str:
 
 
 def _stored_models(name: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT model_id, model_info FROM "LiteLLM_ProxyModelTable" WHERE model_name = %s', (name,))
+    return read_rows('SELECT model_id, model_info FROM "HangarLLM_ProxyModelTable" WHERE model_name = %s', (name,))
 
 
 def _team_rows(team_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    return read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
 
 
 def _organization_rows(organization_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT organization_id FROM "LiteLLM_OrganizationTable" WHERE organization_id = %s', (organization_id,)
+        'SELECT organization_id FROM "HangarLLM_OrganizationTable" WHERE organization_id = %s', (organization_id,)
     )
 
 
@@ -405,7 +405,7 @@ def test_shares_are_stored_as_whole_ptus_and_served_on_every_worker(guarded: _Gu
     first_key: Final = _team_key(guarded.proxy, first)
     name, identity = cleanups.enter_context(_shared_model(guarded, _ptu_terms({first: 2.0, second: 1}, 3)))
 
-    info: Final = guarded.proxy.get("/model/info", {"litellm_model_id": identity})["data"]
+    info: Final = guarded.proxy.get("/model/info", {"hangarllm_model_id": identity})["data"]
     assert isinstance(info, list) and len(info) == 1, info
     assert object_value(object_value(info[0])["model_info"])["ptu_shares"] == {first: 2, second: 1}
     assert [object_value(row["model_info"])["ptu_shares"] for row in _stored_models(name)] == [{first: 2, second: 1}]

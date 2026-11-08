@@ -8,16 +8,16 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.proxy._types import PassThroughEndpointLoggingTypedDict
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
     VertexPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
-from litellm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
-from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
-from litellm.types.utils import EmbeddingResponse, ModelResponse
+from hangarllm.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
+from hangarllm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+from hangarllm.types.utils import EmbeddingResponse, ModelResponse
 
 _PREDICT_ROUTE = "/v1/projects/p/locations/us-central1/publishers/google/models/text-embedding-004:predict"
 _INTERACTIONS_ROUTE = "https://aiplatform.googleapis.com/v1beta1/projects/p/locations/global/interactions"
@@ -30,7 +30,7 @@ def _handle(url_route: str, payload: object) -> PassThroughEndpointLoggingTypedD
         stream=False,
         call_type="pass_through_endpoint",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
     )
     logging_obj.optional_params = {}
@@ -114,19 +114,19 @@ def regional_uplift_rate_card(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
     rates: Final = {
         "input_cost_per_token": _UPLIFT_INPUT_RATE,
         "output_cost_per_token": _UPLIFT_OUTPUT_RATE,
-        "litellm_provider": "vertex_ai-language-models",
+        "hangarllm_provider": "vertex_ai-language-models",
         "mode": "chat",
     }
-    monkeypatch.setitem(litellm.model_cost, _UPLIFT_MODEL, rates)
-    monkeypatch.setattr(litellm, "vertex_language_models", {*litellm.vertex_language_models, _UPLIFT_MODEL})
+    monkeypatch.setitem(hangarllm.model_cost, _UPLIFT_MODEL, rates)
+    monkeypatch.setattr(hangarllm, "vertex_language_models", {*hangarllm.vertex_language_models, _UPLIFT_MODEL})
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"vertex_ai/{_UPLIFT_MODEL}",
         {**rates, "regional_endpoint_uplift_multiplier": _UPLIFT_MULTIPLIER},
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _generate_content_payload() -> dict[str, object]:
@@ -153,20 +153,20 @@ def _cost_the_logger_records_for(
         stream=stream,
         call_type="pass_through_endpoint",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
     )
     logging_obj.update_environment_variables(
-        litellm_params={"metadata": {"model_info": model_info}} if model_info is not None else {}, optional_params={}
+        hangarllm_params={"metadata": {"model_info": model_info}} if model_info is not None else {}, optional_params={}
     )
     if route_provider is not None:
         logging_obj.model_call_details["custom_llm_provider"] = route_provider
     if base_model is not None:
-        logging_obj.model_call_details["litellm_params"] = {"base_model": base_model}
+        logging_obj.model_call_details["hangarllm_params"] = {"base_model": base_model}
     if stream:
         asyncio.run(
             PassThroughStreamingHandler.route_streaming_logging_to_handler(
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
                 passthrough_success_handler_obj=PassThroughEndpointLogging(),
                 url_route=url_route,
                 request_body={},
@@ -227,12 +227,12 @@ def test_gemini_route_spend_has_no_vertex_uplift_whatever_host_serves_it(
     regional_uplift_rate_card: None, monkeypatch: pytest.MonkeyPatch, gemini_api_base: str, stream: bool
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"gemini/{_UPLIFT_MODEL}",
         {
             "input_cost_per_token": _UPLIFT_INPUT_RATE,
             "output_cost_per_token": _UPLIFT_OUTPUT_RATE,
-            "litellm_provider": "gemini",
+            "hangarllm_provider": "gemini",
             "mode": "chat",
         },
     )
@@ -271,12 +271,12 @@ def test_a_subdomain_of_the_gemini_host_bills_the_gemini_price(
     regional_uplift_rate_card: None, monkeypatch: pytest.MonkeyPatch, stream: bool
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"gemini/{_UPLIFT_MODEL}",
         {
             "input_cost_per_token": _UPLIFT_INPUT_RATE,
             "output_cost_per_token": _UPLIFT_OUTPUT_RATE,
-            "litellm_provider": "gemini",
+            "hangarllm_provider": "gemini",
             "mode": "chat",
         },
     )
@@ -324,7 +324,7 @@ def test_generate_content_spend_uses_the_deployment_custom_price(
 ) -> None:
     custom_rates: Final = {"input_cost_per_token": _CUSTOM_INPUT_RATE, "output_cost_per_token": _CUSTOM_OUTPUT_RATE}
     monkeypatch.setitem(
-        litellm.model_cost, _CUSTOM_PRICED_DEPLOYMENT, {**custom_rates, "litellm_provider": "vertex_ai", "mode": "chat"}
+        hangarllm.model_cost, _CUSTOM_PRICED_DEPLOYMENT, {**custom_rates, "hangarllm_provider": "vertex_ai", "mode": "chat"}
     )
     expected: Final = 7 * _CUSTOM_INPUT_RATE + 1 * _CUSTOM_OUTPUT_RATE
 
@@ -347,20 +347,20 @@ def claude_regional_uplift_rate_card(monkeypatch: pytest.MonkeyPatch) -> Iterato
         "output_cost_per_token": _CLAUDE_OUTPUT_RATE,
         "mode": "chat",
     }
-    monkeypatch.setitem(litellm.model_cost, _CLAUDE_UPLIFT_MODEL, {**rates, "litellm_provider": "anthropic"})
-    monkeypatch.setattr(litellm, "anthropic_models", {*litellm.anthropic_models, _CLAUDE_UPLIFT_MODEL})
+    monkeypatch.setitem(hangarllm.model_cost, _CLAUDE_UPLIFT_MODEL, {**rates, "hangarllm_provider": "anthropic"})
+    monkeypatch.setattr(hangarllm, "anthropic_models", {*hangarllm.anthropic_models, _CLAUDE_UPLIFT_MODEL})
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"vertex_ai/{_CLAUDE_UPLIFT_MODEL}",
         {
             **rates,
-            "litellm_provider": "vertex_ai-anthropic_models",
+            "hangarllm_provider": "vertex_ai-anthropic_models",
             "regional_endpoint_uplift_multiplier": _UPLIFT_MULTIPLIER,
         },
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _claude_message() -> dict[str, object]:
@@ -412,7 +412,7 @@ def test_claude_raw_predict_spend_uses_the_deployment_custom_price(
 ) -> None:
     custom_rates: Final = {"input_cost_per_token": _CUSTOM_INPUT_RATE, "output_cost_per_token": _CUSTOM_OUTPUT_RATE}
     monkeypatch.setitem(
-        litellm.model_cost, _CUSTOM_PRICED_DEPLOYMENT, {**custom_rates, "litellm_provider": "vertex_ai", "mode": "chat"}
+        hangarllm.model_cost, _CUSTOM_PRICED_DEPLOYMENT, {**custom_rates, "hangarllm_provider": "vertex_ai", "mode": "chat"}
     )
     method: Final = "streamRawPredict" if stream else "rawPredict"
     url_route: Final = (
@@ -435,16 +435,16 @@ def test_a_claude_stream_through_a_configured_vertex_gateway_with_a_short_path_b
     claude_regional_uplift_rate_card: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"vertex_ai/{_CLAUDE_UPLIFT_MODEL}",
         {
             "input_cost_per_token": _CLAUDE_INPUT_RATE,
             "output_cost_per_token": _CLAUDE_OUTPUT_RATE,
-            "litellm_provider": "vertex_ai-anthropic_models",
+            "hangarllm_provider": "vertex_ai-anthropic_models",
             "mode": "chat",
         },
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
     recorded: Final = _cost_the_logger_records_for(
         f"https://vertex-gateway.internal.example/vxc/models/{_CLAUDE_UPLIFT_MODEL}:streamRawPredict",
@@ -463,10 +463,10 @@ def test_build_complete_streaming_response_assembles_stream_generate_content_sse
         stream=True,
         call_type="pass_through_endpoint",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
     )
-    logging_obj.update_environment_variables(litellm_params={}, optional_params={}, model="gemini-2.5-flash")
+    logging_obj.update_environment_variables(hangarllm_params={}, optional_params={}, model="gemini-2.5-flash")
     first_chunk: Final = {"candidates": [{"content": {"parts": [{"text": "Hello"}], "role": "model"}, "index": 0}]}
     last_chunk: Final = {
         "candidates": [
@@ -477,7 +477,7 @@ def test_build_complete_streaming_response_assembles_stream_generate_content_sse
 
     response: Final = VertexPassthroughLoggingHandler._build_complete_streaming_response(
         all_chunks=[f"data: {json.dumps(first_chunk)}", f"data: {json.dumps(last_chunk)}"],
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         model="gemini-2.5-flash",
         url_route="/v1/projects/p/locations/us-central1/publishers/google/models/gemini-2.5-flash:streamGenerateContent",
     )

@@ -1,6 +1,6 @@
 import pytest
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.types.guardrails import GuardrailEventHooks
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.types.guardrails import GuardrailEventHooks
 import json
 
 

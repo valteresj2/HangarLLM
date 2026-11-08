@@ -35,8 +35,8 @@ DROP_AFTER_SECONDS: Final = 16.0
 REUSE_IDLE_SECONDS: Final = 5.0
 QUIET_STREAM_SECONDS: Final = 16.0
 PROVIDER_KEY: Final = "sk-idle-upstream-provider"
-CALL_ID: Final = "x-litellm-call-id"
-RUST_SERVED: Final = "x-litellm-rust"
+CALL_ID: Final = "x-hangarllm-call-id"
+RUST_SERVED: Final = "x-hangarllm-rust"
 GUARDRAIL: Final = "idle-upstream-guardrail"
 PASS_THROUGH: Final = "/idle-upstream-pass-through"
 EMBEDDING: Final = (0.25, 0.5)
@@ -111,7 +111,7 @@ def _model_reply(target: str, marker: str, body: Mapping[str, JsonValue]) -> Rep
 def answer(request: Request) -> Reply:
     marker: Final = _marker_of(request)
     target: Final = request.target.split("?", 1)[0]
-    if target.endswith("/beta/litellm_basic_guardrail_api"):
+    if target.endswith("/beta/hangarllm_basic_guardrail_api"):
         return Reply(body=json.dumps({"action": "NONE"}).encode())
     if target.startswith("/passthrough"):
         return Reply(body=json.dumps({"echo": expected_text(marker)}).encode())
@@ -451,7 +451,7 @@ def openai_deployment(model: str, url: str, _steady: str) -> ConfigPart:
         models=(
             {
                 "model_name": model,
-                "litellm_params": {"model": "openai/idle-upstream", "api_base": url, "api_key": PROVIDER_KEY},
+                "hangarllm_params": {"model": "openai/idle-upstream", "api_base": url, "api_key": PROVIDER_KEY},
             },
         )
     )
@@ -462,7 +462,7 @@ def embedding_deployment(model: str, url: str, _steady: str) -> ConfigPart:
         models=(
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-idle-upstream",
                     "api_base": url,
                     "api_key": PROVIDER_KEY,
@@ -478,7 +478,7 @@ def anthropic_deployment(model: str, url: str, _steady: str) -> ConfigPart:
         models=(
             {
                 "model_name": model,
-                "litellm_params": {"model": "anthropic/claude-idle-upstream", "api_base": url, "api_key": PROVIDER_KEY},
+                "hangarllm_params": {"model": "anthropic/claude-idle-upstream", "api_base": url, "api_key": PROVIDER_KEY},
             },
         )
     )
@@ -489,7 +489,7 @@ def ocr_deployment(model: str, url: str, _steady: str) -> ConfigPart:
         models=(
             {
                 "model_name": model,
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_base": url, "api_key": PROVIDER_KEY},
+                "hangarllm_params": {"model": "mistral/mistral-ocr-latest", "api_base": url, "api_key": PROVIDER_KEY},
             },
         )
     )
@@ -500,7 +500,7 @@ def transcription_deployment(model: str, url: str, _steady: str) -> ConfigPart:
         models=(
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/mistral.voxtral-mini-3b-2507",
                     "api_base": url,
                     "aws_access_key_id": "AKIAIDLEUPSTREAM0000",
@@ -525,7 +525,7 @@ def guardrail_deployment(
         guardrails=(
             {
                 "guardrail_name": guardrail,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": False,
@@ -632,7 +632,7 @@ def spend_statuses(sents: tuple[Sent, ...]) -> tuple[str, ...]:
     call_ids: Final = ",".join(sorted(sent.answer.call_id for sent in sents if sent.answer.call_id))
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = ANY(string_to_array(%s, %s))',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = ANY(string_to_array(%s, %s))',
             (call_ids, ","),
         ),
         lambda found: len(found) >= len(sents),

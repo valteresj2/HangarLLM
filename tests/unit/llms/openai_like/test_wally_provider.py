@@ -5,9 +5,9 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
 _DEFAULT_API_BASE: Final = "https://inference.runanywhere.ai/v1"
 _CHAT_COMPLETIONS_URL: Final = f"{_DEFAULT_API_BASE}/chat/completions"
@@ -37,14 +37,14 @@ _EXPECTED_ENDPOINTS: Final = {
     "batches": False,
     "rerank": False,
 }
-WALLY_MODELS: Final = tuple(sorted(name for name in litellm.model_cost if name.startswith("wally/")))
+WALLY_MODELS: Final = tuple(sorted(name for name in hangarllm.model_cost if name.startswith("wally/")))
 
 
 def test_wally_is_a_registered_provider():
-    assert litellm.LlmProviders.WALLY.value == "wally"
-    assert "wally" in litellm.provider_list
-    assert "wally" in litellm.constants.openai_compatible_providers
-    assert _DEFAULT_API_BASE in litellm.constants.openai_compatible_endpoints
+    assert hangarllm.LlmProviders.WALLY.value == "wally"
+    assert "wally" in hangarllm.provider_list
+    assert "wally" in hangarllm.constants.openai_compatible_providers
+    assert _DEFAULT_API_BASE in hangarllm.constants.openai_compatible_endpoints
 
 
 def test_wally_provider_resolution(monkeypatch: pytest.MonkeyPatch):
@@ -113,8 +113,8 @@ def test_wally_api_base_autodetects_provider(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.parametrize("model", WALLY_MODELS)
 def test_wally_model_cost_and_capabilities(model: str):
-    from litellm.cost_calculator import cost_per_token
-    from litellm.utils import (
+    from hangarllm.cost_calculator import cost_per_token
+    from hangarllm.utils import (
         supports_function_calling,
         supports_prompt_caching,
         supports_reasoning,
@@ -123,7 +123,7 @@ def test_wally_model_cost_and_capabilities(model: str):
         supports_vision,
     )
 
-    entry: Final = litellm.model_cost[model]
+    entry: Final = hangarllm.model_cost[model]
     prompt_cost, completion_cost = cost_per_token(
         model=model,
         prompt_tokens=1_000_000,
@@ -137,13 +137,13 @@ def test_wally_model_cost_and_capabilities(model: str):
         cache_read_input_tokens=1_000_000,
         custom_llm_provider="wally",
     )
-    model_info: Final = litellm.get_model_info(model)
+    model_info: Final = hangarllm.get_model_info(model)
 
     assert prompt_cost == pytest.approx(entry["input_cost_per_token"] * 1_000_000)
     assert completion_cost == pytest.approx(entry["output_cost_per_token"] * 1_000_000)
     assert cached_prompt_cost == pytest.approx(entry["cache_read_input_token_cost"] * 1_000_000)
     assert model_info["max_tokens"] == entry["max_output_tokens"]
-    assert model_info["litellm_provider"] == "wally"
+    assert model_info["hangarllm_provider"] == "wally"
     assert supports_function_calling(model) is entry["supports_function_calling"]
     assert supports_tool_choice(model) is entry["supports_tool_choice"]
     assert supports_reasoning(model) is entry["supports_reasoning"]
@@ -154,20 +154,20 @@ def test_wally_model_cost_and_capabilities(model: str):
 
 @pytest.mark.usefixtures("local_model_cost_map")
 def test_wally_wildcard_expands_to_every_wally_row():
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     assert set(get_known_models_from_wildcard("wally/*")) == set(WALLY_MODELS)
 
 
 def test_wally_model_missing_from_cost_map_uses_provider_defaults():
-    from litellm.utils import supports_function_calling, supports_reasoning
+    from hangarllm.utils import supports_function_calling, supports_reasoning
 
     assert supports_function_calling("wally/a-model-not-in-the-cost-map") is True
     assert supports_reasoning("wally/a-model-not-in-the-cost-map") is True
 
 
 def test_wally_backup_registry_mirrors_cost_map():
-    package_root: Final = Path(litellm.__file__).parent
+    package_root: Final = Path(hangarllm.__file__).parent
     cost_map: Final = json.loads((package_root.parent / "model_prices_and_context_window.json").read_text())
     backup: Final = json.loads((package_root / "model_prices_and_context_window_backup.json").read_text())
     wally_entries: Final = {name: entry for name, entry in cost_map.items() if name.startswith("wally/")}
@@ -178,9 +178,9 @@ def test_wally_backup_registry_mirrors_cost_map():
 
 
 def test_wally_is_available_in_add_model_form():
-    fields_path: Final = Path(litellm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
+    fields_path: Final = Path(hangarllm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
     providers: Final = json.loads(fields_path.read_text())
-    wally: Final = next(provider for provider in providers if provider["litellm_provider"] == "wally")
+    wally: Final = next(provider for provider in providers if provider["hangarllm_provider"] == "wally")
 
     assert wally["provider"] == "WALLY"
     assert wally["provider_display_name"] == "Wally"
@@ -192,8 +192,8 @@ def test_wally_is_available_in_add_model_form():
 
 
 def test_wally_supported_endpoints():
-    backup_path: Final = Path(litellm.__file__).parent / "provider_endpoints_support_backup.json"
-    root_path: Final = Path(litellm.__file__).parent.parent / "provider_endpoints_support.json"
+    backup_path: Final = Path(hangarllm.__file__).parent / "provider_endpoints_support_backup.json"
+    root_path: Final = Path(hangarllm.__file__).parent.parent / "provider_endpoints_support.json"
 
     backup: Final = json.loads(backup_path.read_text())["providers"]["wally"]["endpoints"]
     root: Final = json.loads(root_path.read_text())["providers"]["wally"]["endpoints"]
@@ -206,7 +206,7 @@ def test_wally_supported_endpoints():
 def test_wally_chat_completion_request(reasoning_effort: str):
     with respx.mock() as upstream:
         route: Final = upstream.post(_CHAT_COMPLETIONS_URL).respond(200, json=_CHAT_COMPLETION)
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="wally/glm-5.3-flash",
             messages=[{"role": "user", "content": "Say hello"}],
             max_completion_tokens=64,
@@ -230,7 +230,7 @@ def test_wally_chat_completion_request(reasoning_effort: str):
 def test_wally_responses_request_is_bridged_to_chat_completions():
     with respx.mock() as upstream:
         route: Final = upstream.post(_CHAT_COMPLETIONS_URL).respond(200, json=_CHAT_COMPLETION)
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="wally/glm-5.3-flash",
             input="Say hello",
             api_key="wally-test-key",
@@ -248,11 +248,11 @@ def test_wally_responses_request_is_bridged_to_chat_completions():
 
 @pytest.mark.asyncio
 async def test_wally_anthropic_messages_request_is_bridged_to_chat_completions(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock() as upstream:
         route: Final = upstream.post(_CHAT_COMPLETIONS_URL).respond(200, json=_CHAT_COMPLETION)
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model="wally/glm-5.3-flash",
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,

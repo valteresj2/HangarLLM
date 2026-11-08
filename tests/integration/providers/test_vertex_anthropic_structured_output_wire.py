@@ -793,7 +793,7 @@ def _messages_stream_text(response: httpx.Response) -> JsonValue:
 
 
 def _vertex_deployment(
-    gateway: Gateway, scenario: Scenario, api_base: str, backend: str, **litellm_params: JsonValue
+    gateway: Gateway, scenario: Scenario, api_base: str, backend: str, **hangarllm_params: JsonValue
 ) -> str:
     return scenario.model(
         model=f"vertex_ai/{backend}",
@@ -802,7 +802,7 @@ def _vertex_deployment(
         vertex_project=_PROJECT,
         vertex_location=_LOCATION,
         vertex_credentials=service_account_json(_PROJECT, gateway.upstream_url.rstrip("/")),
-        **litellm_params,
+        **hangarllm_params,
     )
 
 
@@ -823,7 +823,7 @@ def _rejects_forced_tools_without_native_output(row: Mapping[str, JsonValue]) ->
 
 
 def _claude_rejecting_forced_tools(gateway: Gateway, namespace: str, family: str) -> str:
-    rows: Final = gateway.get("/public/litellm_model_cost_map")
+    rows: Final = gateway.get("/public/hangarllm_model_cost_map")
     names: Final = sorted(
         name.removeprefix(namespace)
         for name, row in rows.items()
@@ -862,12 +862,12 @@ def _family_deployment(gateway: Gateway, scenario: Scenario, api_base: str, memb
 
 
 def _output_format_deployment(
-    gateway: Gateway, scenario: Scenario, api_base: str, route: str, **litellm_params: JsonValue
+    gateway: Gateway, scenario: Scenario, api_base: str, route: str, **hangarllm_params: JsonValue
 ) -> str:
     if route.startswith("vertex_"):
-        return _vertex_deployment(gateway, scenario, api_base, _NATIVE_MODEL, **litellm_params)
+        return _vertex_deployment(gateway, scenario, api_base, _NATIVE_MODEL, **hangarllm_params)
     return scenario.model(
-        model=f"anthropic/{_NATIVE_MODEL}", api_base=api_base, api_key=_ANTHROPIC_KEY, **litellm_params
+        model=f"anthropic/{_NATIVE_MODEL}", api_base=api_base, api_key=_ANTHROPIC_KEY, **hangarllm_params
     )
 
 
@@ -897,7 +897,7 @@ def _owned_config(path: Path, gateway: Gateway, api_base: str) -> Path:
                 "model_list": [
                     {
                         "model_name": _OWNED_MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"vertex_ai/{_TOOL_MODEL}",
                             "api_base": api_base,
                             "vertex_project": _PROJECT,
@@ -907,7 +907,7 @@ def _owned_config(path: Path, gateway: Gateway, api_base: str) -> Path:
                     },
                     {
                         "model_name": _NIM_GROUP,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"nvidia_nim/{_NIM_GROUP}",
                             "api_base": api_base,
                             "api_key": _SCRIPTED_KEY,
@@ -1057,7 +1057,7 @@ def _seen_once(delivered: tuple[_Delivery, ...], marker_hexes: tuple[str, ...]) 
 def _pass_through_spend_rows(key: str) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, model, call_type FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s',
+            'SELECT request_id, model, call_type FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s',
             (sha256(key.encode()).hexdigest(), "pass_through_endpoint"),
         ),
         lambda rows: len(rows) == 1,
@@ -1067,7 +1067,7 @@ def _pass_through_spend_rows(key: str) -> list[dict[str, JsonValue]]:
 
 def _spend_rows(request_id: str) -> list[dict[str, JsonValue]]:
     return eventually(
-        lambda: read_rows('SELECT request_id, model FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
+        lambda: read_rows('SELECT request_id, model FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
         lambda rows: len(rows) == 1,
         seconds=70,
     )

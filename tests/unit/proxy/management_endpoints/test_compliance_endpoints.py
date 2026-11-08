@@ -4,8 +4,8 @@ Unit tests for compliance check endpoints (EU AI Act and GDPR).
 
 import pytest
 
-from litellm.proxy.compliance_checks import ComplianceChecker
-from litellm.types.proxy.compliance_endpoints import ComplianceCheckRequest
+from hangarllm.proxy.compliance_checks import ComplianceChecker
+from hangarllm.types.proxy.compliance_endpoints import ComplianceCheckRequest
 
 # ---------------------------------------------------------------------------
 # EU AI Act — Non-compliant cases (Task #3)
@@ -383,7 +383,7 @@ class TestGdprCompliant:
 class TestModeMatching:
     """Direct coverage of ComplianceChecker._mode_matches for every shape.
 
-    LitellmParams.mode is Union[str, List[str], Mode], so a spend-log
+    HangarllmParams.mode is Union[str, List[str], Mode], so a spend-log
     guardrail_mode can be None / str / list / tuple / dict. A prior
     implementation compared `g_mode == mode`, which silently failed for the
     non-str shapes and reported NON-COMPLIANT for every multi-mode guardrail.

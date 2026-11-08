@@ -2,10 +2,10 @@
 
 import pytest
 
-from litellm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
-from litellm.proxy.mcp_server.outbound_credentials.presented_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.presented_token_store import (
     PresentedOAuthTokenStore,
 )
 

@@ -165,7 +165,7 @@ test.describe("Logs page", () => {
     await expect(drawer.getByText(MOCK_RESPONSE_TEXT, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
   });
 
-  test("a served request's Logs row and drawer show its x-litellm-call-id", async ({ page, request }) => {
+  test("a served request's Logs row and drawer show its x-hangarllm-call-id", async ({ page, request }) => {
     const prompt = `logs-call-id-prompt-${uniqueSuffix()}`;
     const { requestId, callId } = await sendChatCompletionWithCallId(request, {
       model: CHAT_MODEL_A,
@@ -197,12 +197,12 @@ test.describe("Logs page", () => {
     await row.click();
     const drawer = page.getByRole("dialog").first();
     await expect(drawer.getByText("Request & Response")).toBeVisible({ timeout: 20_000 });
-    await expect(drawer.getByText("x-litellm-call-id:"), "drawer header lacks the x-litellm-call-id line").toBeVisible({
+    await expect(drawer.getByText("x-hangarllm-call-id:"), "drawer header lacks the x-hangarllm-call-id line").toBeVisible({
       timeout: 10_000,
     });
     await expect(
       drawer.getByText(callId, { exact: false }).first(),
-      `drawer does not show x-litellm-call-id ${callId}`,
+      `drawer does not show x-hangarllm-call-id ${callId}`,
     ).toBeVisible({ timeout: 10_000 });
   });
 

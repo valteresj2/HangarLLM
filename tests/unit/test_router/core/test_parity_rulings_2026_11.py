@@ -15,9 +15,9 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
-from litellm.utils import get_deployment_order
+import hangarllm
+from hangarllm.router_core import RouterCore
+from hangarllm.utils import get_deployment_order
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
 from tests.unit.test_router.core.streaming_helpers import (
     MESSAGE_START,
@@ -110,7 +110,7 @@ async def test_an_entry_appended_to_the_fallbacks_list_is_ignored(make_core: Mak
     host.answer("openai/d1", rate_limit())
     listed.append({"g": ["fb"]})
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await _async(core, "acompletion")(model="g", messages=MESSAGES)
 
     assert host.deployments_called("acompletion") == ["d1"]
@@ -173,10 +173,10 @@ _TWO: Final = [deployment("g", "d1"), deployment("g", "d2")]
 
 
 def _failure(
-    deployment_id: str, exception: Exception, **litellm_params: object
+    deployment_id: str, exception: Exception, **hangarllm_params: object
 ) -> dict[str, object]:  # mutable-ok: logging kwargs
     return {
-        "litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": deployment_id}, **litellm_params},
+        "hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": deployment_id}, **hangarllm_params},
         "call_type": "acompletion",
         "exception": exception,
     }
@@ -228,7 +228,7 @@ def test_a_ptu_share_wider_than_64_bits_is_refused_at_build_and_on_add(make_core
     core: Final = make_core(model_list=[deployment("g", "free")])
     with pytest.raises(ValueError, match=r"ptu_shares\.T1 .* outside"):
         _sync(core, "add_deployment")(
-            litellm.Deployment.model_validate(
+            hangarllm.Deployment.model_validate(
                 deployment("g", "late", model_info={"db_model": True, "ptu_shares": {"T1": 10**20}})
             )
         )
@@ -257,7 +257,7 @@ async def test_an_empty_fallback_entry_is_skipped(make_core: MakeCore, host: Scr
     ids=["int", "digits", "padded", "whole-float", "fraction", "bool", "word", "unset"],
 )
 def test_a_deployment_order_reads_as_a_whole_number(order: object, expected: int | None) -> None:
-    assert get_deployment_order({"litellm_params": {"order": order}}) == expected
+    assert get_deployment_order({"hangarllm_params": {"order": order}}) == expected
 
 
 # --- a /v1/messages stream that raises before its first frame ----------------------------------------

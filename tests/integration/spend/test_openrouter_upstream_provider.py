@@ -138,7 +138,7 @@ def _send(
 def _spend_metadata(request_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (request_id,),
         ),
         lambda values: len(values) == 1,

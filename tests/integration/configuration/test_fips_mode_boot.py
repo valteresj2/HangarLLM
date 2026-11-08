@@ -17,7 +17,7 @@ def _config(directory: Path, upstream_url: str, fips_mode: object) -> Path:
                 "model_list": [
                     {
                         "model_name": "fips-model",
-                        "litellm_params": {"model": "openai/fips-model", "api_base": upstream_url, "api_key": "sk-x"},
+                        "hangarllm_params": {"model": "openai/fips-model", "api_base": upstream_url, "api_key": "sk-x"},
                     }
                 ],
                 "general_settings": {"fips_mode": fips_mode},

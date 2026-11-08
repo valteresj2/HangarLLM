@@ -23,11 +23,11 @@ from prisma import Prisma
 from psycopg import sql
 from pydantic import TypeAdapter
 
-from litellm import constants
-from litellm.proxy.management_endpoints.common_daily_activity import get_daily_activity_aggregated
-from litellm.repositories.chunked_in import find_many_in
-from litellm.repositories.daily_activity_repository import DailyActivityDatabase, DailyActivityRepository
-from litellm.types.repositories.daily_activity import (
+from hangarllm import constants
+from hangarllm.proxy.management_endpoints.common_daily_activity import get_daily_activity_aggregated
+from hangarllm.repositories.chunked_in import find_many_in
+from hangarllm.repositories.daily_activity_repository import DailyActivityDatabase, DailyActivityRepository
+from hangarllm.types.repositories.daily_activity import (
     DailyActivityProxyReads,
     DailyActivityScope,
     DailyActivityTable,
@@ -142,7 +142,7 @@ class _ProxyReads(DailyActivityProxyReads):
         self, resolved: Mapping[str, KeyMetadataRow], api_keys: frozenset[str], window: SpendLogsWindow | None
     ) -> Mapping[str, KeyMetadataRow]:
         user_ids: Final = frozenset(row.user_id for row in resolved.values() if row.user_id)
-        user_rows: Final = await find_many_in(self.database.litellm_usertable, "user_id", user_ids) if user_ids else ()
+        user_rows: Final = await find_many_in(self.database.hangarllm_usertable, "user_id", user_ids) if user_ids else ()
         user_emails: Final = MappingProxyType({row.user_id: row.user_email for row in user_rows if row.user_email})
         return MappingProxyType(
             {
@@ -280,7 +280,7 @@ async def test_search_keys_matches_token_metadata_outside_top_n_and_respects_sco
     async with _daily_activity_database() as database:
         await database.execute_raw(
             """
-            INSERT INTO "LiteLLM_DailyTeamSpend" (
+            INSERT INTO "HangarLLM_DailyTeamSpend" (
                 id, team_id, date, api_key, model, model_group, custom_llm_provider,
                 mcp_namespaced_tool_name, endpoint, prompt_tokens, completion_tokens,
                 cache_read_input_tokens, cache_creation_input_tokens, spend, api_requests,
@@ -311,7 +311,7 @@ async def test_search_keys_matches_token_metadata_outside_top_n_and_respects_sco
         )
         await database.execute_raw(
             """
-            INSERT INTO "LiteLLM_VerificationToken" (token, key_alias, team_id, user_id, metadata, models)
+            INSERT INTO "HangarLLM_VerificationToken" (token, key_alias, team_id, user_id, metadata, models)
             VALUES ($1, $2, $3, $4, $5::jsonb, $6::text[])
             """,
             "needle-key",
@@ -323,7 +323,7 @@ async def test_search_keys_matches_token_metadata_outside_top_n_and_respects_sco
         )
         await database.execute_raw(
             """
-            INSERT INTO "LiteLLM_UserTable" (user_id, user_email, models)
+            INSERT INTO "HangarLLM_UserTable" (user_id, user_email, models)
             VALUES ($1, $2, $3::text[])
             """,
             "needle-user",
@@ -381,7 +381,7 @@ async def test_tag_entity_rollups_bound_keys_and_preserve_full_scope_totals() ->
                 SELECT tag, date, SUM(spend)::float AS spend,
                        SUM(api_requests)::bigint AS api_requests,
                        SUM(prompt_tokens)::bigint AS prompt_tokens
-                FROM "LiteLLM_DailyTagSpend"
+                FROM "HangarLLM_DailyTagSpend"
                 WHERE date >= $1 AND date <= $2
                 GROUP BY tag, date
                 """,
@@ -393,7 +393,7 @@ async def test_tag_entity_rollups_bound_keys_and_preserve_full_scope_totals() ->
             await database.query_raw(
                 """
                 SELECT tag, COUNT(DISTINCT api_key)::bigint AS distinct_api_keys
-                FROM "LiteLLM_DailyTagSpend"
+                FROM "HangarLLM_DailyTagSpend"
                 WHERE date >= $1 AND date <= $2 AND api_key <> $3
                 GROUP BY tag
                 """,
@@ -406,7 +406,7 @@ async def test_tag_entity_rollups_bound_keys_and_preserve_full_scope_totals() ->
             await database.query_raw(
                 """
                 SELECT api_key, COUNT(DISTINCT tag)::bigint AS tag_count
-                FROM "LiteLLM_DailyTagSpend"
+                FROM "HangarLLM_DailyTagSpend"
                 WHERE date >= $1 AND date <= $2
                 GROUP BY api_key
                 """,
@@ -494,7 +494,7 @@ async def test_key_pages_match_full_tag_ranking_and_aggregate_top_keys() -> None
             await database.query_raw(
                 """
                 SELECT api_key
-                FROM "LiteLLM_DailyTagSpend"
+                FROM "HangarLLM_DailyTagSpend"
                 WHERE date >= $1 AND date <= $2 AND api_key <> $3
                 GROUP BY api_key
                 ORDER BY SUM(spend::numeric) DESC, api_key
@@ -509,7 +509,7 @@ async def test_key_pages_match_full_tag_ranking_and_aggregate_top_keys() -> None
             await database.query_raw(
                 """
                 SELECT COUNT(DISTINCT api_key)::bigint AS total_api_keys
-                FROM "LiteLLM_DailyTagSpend"
+                FROM "HangarLLM_DailyTagSpend"
                 WHERE date >= $1 AND date <= $2 AND api_key <> $3
                 """,
                 "2026-06-01",
@@ -539,7 +539,7 @@ async def test_top_api_key_rank_is_order_independent_for_float_ties() -> None:
             await database.query_raw(
                 """
                 SELECT api_key, SUM(spend)::float AS spend
-                FROM "LiteLLM_DailyTagSpend"
+                FROM "HangarLLM_DailyTagSpend"
                 WHERE tag = $1 AND date = $2
                 GROUP BY api_key
                 """,
@@ -640,7 +640,7 @@ async def test_team_exclusion_keeps_null_and_empty_entity_rows() -> None:
             table=DailyActivityTable.TEAM,
             entity_id_field="team_id",
             entity_ids=None,
-            exclude_entity_ids=("litellm-dashboard",),
+            exclude_entity_ids=("hangarllm-dashboard",),
             api_keys=None,
             start_date="2026-06-04",
             end_date="2026-06-04",

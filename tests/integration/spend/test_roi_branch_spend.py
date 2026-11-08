@@ -11,8 +11,8 @@ import pytest
 from prisma import Prisma
 from psycopg import sql
 
-from litellm.proxy.roi_calculator.branch_spend import read_branch_spend
-from litellm.types.roi_calculator import ROIBranchSpend
+from hangarllm.proxy.roi_calculator.branch_spend import read_branch_spend
+from hangarllm.types.roi_calculator import ROIBranchSpend
 from tests.integration._support.client import Gateway, JsonValue, object_value
 
 
@@ -32,7 +32,7 @@ async def test_branch_spend_uses_request_tags_once_and_respects_utc_window() -> 
         ("2026-09-15 00:00:00", 100, tags + ("branch:conflict",)),
         ("2026-09-15 00:00:00", 100, tags + ("repo:gitlab.com/other/project",)),
         ("2026-09-15 00:00:00", 100, ("branch:feature/one",)),
-        ("2026-09-15 00:00:00", 11, tags + ("litellm-roi-estimator",)),
+        ("2026-09-15 00:00:00", 11, tags + ("hangarllm-roi-estimator",)),
         ("2026-09-15 00:00:00", 0, (f"repo:{repo}", "branch:free")),
         ("2026-09-15 00:00:00", 7, (f"repo:{repo}", "branch:Feature/one")),
     )
@@ -41,33 +41,33 @@ async def test_branch_spend_uses_request_tags_once_and_respects_utc_window() -> 
         try:
             setup.execute(
                 sql.SQL(
-                    'CREATE TABLE {}."LiteLLM_SpendLogs" '
+                    'CREATE TABLE {}."HangarLLM_SpendLogs" '
                     '("startTime" timestamp, spend float, request_tags jsonb, metadata jsonb)'
                 ).format(sql.Identifier(schema))
             )
             for timestamp, spend, request_tags in rows:
                 setup.execute(
                     sql.SQL(
-                        'INSERT INTO {}."LiteLLM_SpendLogs" ("startTime", spend, request_tags) '
+                        'INSERT INTO {}."HangarLLM_SpendLogs" ("startTime", spend, request_tags) '
                         "VALUES (%s::timestamp, %s, %s::jsonb)"
                     ).format(sql.Identifier(schema)),
                     (timestamp, spend, json.dumps(request_tags)),
                 )
             for marker, spend, extra_tags in (
                 (True, 100, ()),
-                (True, 100, ("litellm-roi-estimator",)),
-                (False, 13, ("litellm-roi-estimator",)),
-                (None, 100, ("litellm-roi-estimator",)),
+                (True, 100, ("hangarllm-roi-estimator",)),
+                (False, 13, ("hangarllm-roi-estimator",)),
+                (None, 100, ("hangarllm-roi-estimator",)),
             ):
                 setup.execute(
                     sql.SQL(
-                        'INSERT INTO {}."LiteLLM_SpendLogs" VALUES (%s::timestamp, %s, %s::jsonb, %s::jsonb)'
+                        'INSERT INTO {}."HangarLLM_SpendLogs" VALUES (%s::timestamp, %s, %s::jsonb, %s::jsonb)'
                     ).format(sql.Identifier(schema)),
                     (
                         "2026-09-15 00:00:00",
                         spend,
                         json.dumps(tags + extra_tags),
-                        json.dumps({"litellm_roi_estimator": marker}),
+                        json.dumps({"hangarllm_roi_estimator": marker}),
                     ),
                 )
             database: Final = Prisma(datasource={"url": scoped})
@@ -86,7 +86,7 @@ def test_documented_header_and_body_tags_reach_recorded_branch_and_pr_cost(gatew
     import asyncio
     from datetime import datetime, timezone
 
-    from litellm.proxy.roi_calculator.branch_spend import attribute_branch_keys
+    from hangarllm.proxy.roi_calculator.branch_spend import attribute_branch_keys
     from tests.integration._support.client import eventually
     from tests.integration._support.database import read_rows
     from tests.integration._support.wire import Reply, Request, wire_server
@@ -98,7 +98,7 @@ def test_documented_header_and_body_tags_reach_recorded_branch_and_pr_cost(gatew
 
     def respond(request: Request) -> Reply:
         body: Final = object_value(json.loads(request.body))
-        assert "tags" not in body and "x-litellm-tags" not in request.headers
+        assert "tags" not in body and "x-hangarllm-tags" not in request.headers
         return Reply(
             body=json.dumps(
                 {
@@ -121,7 +121,7 @@ def test_documented_header_and_body_tags_reach_recorded_branch_and_pr_cost(gatew
         examples: Final[tuple[tuple[Mapping[str, JsonValue], Mapping[str, str]], ...]] = (
             ({"metadata": {"tags": tags}}, {}),
             ({"tags": tags}, {}),
-            ({}, {"x-litellm-tags": ", ".join(tags + tags)}),
+            ({}, {"x-hangarllm-tags": ", ".join(tags + tags)}),
         )
         for index, (payload, headers) in enumerate(examples):
             response: Final = gateway.request(
@@ -138,7 +138,7 @@ def test_documented_header_and_body_tags_reach_recorded_branch_and_pr_cost(gatew
         assert len(upstream.drain()) == 3
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_tags @> %s::jsonb', (json.dumps(tags),)
+                'SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_tags @> %s::jsonb', (json.dumps(tags),)
             ),
             lambda values: len(values) == 3,
             seconds=70,

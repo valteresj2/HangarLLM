@@ -95,7 +95,7 @@ def test_non_admin_cannot_opt_key_out_of_default_on_guardrail(gateway: Gateway, 
 
 
 def _team_metadata(team_id: str) -> dict[str, object]:
-    rows: Final = read_rows('SELECT metadata FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    rows: Final = read_rows('SELECT metadata FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
     assert len(rows) == 1, rows
     return rows[0]["metadata"]
 
@@ -158,7 +158,7 @@ def test_non_admin_flag_denied_on_every_key_write_route(gateway: Gateway, tmp_pa
             )
             _drop_created_key(scenario, service_denied)
             assert (
-                read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE key_alias = %s', (service_alias,)) == []
+                read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE key_alias = %s', (service_alias,)) == []
             ), service_denied.text
 
 
@@ -178,7 +178,7 @@ def test_non_admin_flag_denied_on_team_new(gateway: Gateway, tmp_path: Path) -> 
                 {"team_alias": alias, "models": [model], "disable_global_guardrails": True},
                 key=caller,
             )
-            created: Final = read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_alias = %s', (alias,))
+            created: Final = read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_alias = %s', (alias,))
             for row in created:
                 scenario.cleanups.callback(scenario.delete_team, str(row["team_id"]))
             assert denied.status_code == 403, denied.text
@@ -269,7 +269,7 @@ def test_non_admin_resave_omit_and_revoke_sequences(gateway: Gateway, tmp_path: 
 
 def test_generate_ignores_server_default_metadata_flag(gateway: Gateway, tmp_path: Path) -> None:
     raw: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    raw.setdefault("litellm_settings", {})["default_key_generate_params"] = {
+    raw.setdefault("hangarllm_settings", {})["default_key_generate_params"] = {
         "metadata": {"disable_global_guardrails": True}
     }
     path: Final = tmp_path / "server-defaults.yaml"
@@ -342,7 +342,7 @@ def test_sad_flag_inputs_on_key_generate(gateway: Gateway, tmp_path: Path) -> No
             )
             _drop_created_key(scenario, repeated)
             assert repeated.status_code == 403, repeated.text
-        assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE key_alias = %s', (repeat_alias,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE key_alias = %s', (repeat_alias,)) == []
 
 
 def test_falsy_metadata_flag_shapes_stay_stored_and_guarded(gateway: Gateway, tmp_path: Path) -> None:

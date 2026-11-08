@@ -85,7 +85,7 @@ def _responses(native: _Native, model: str, input: Sequence[JsonValue], *, strea
 def _answered(response: httpx.Response, marker: str) -> str:
     assert response.status_code == 200, response.text
     assert rv.answer(marker) in response.text, response.text
-    return response.headers["x-litellm-call-id"]
+    return response.headers["x-hangarllm-call-id"]
 
 
 def _wire_body(request: Request, *, stream: bool = False) -> dict[str, JsonValue]:
@@ -123,7 +123,7 @@ def test_openai_sdk_cache_control_reaches_the_wire_as_a_prompt_cache_breakpoint_
     assert pcb.answers(response.id, marker), response
     assert response.output_text == rv.answer(marker), response
     _assert_marked_history_on_wire(_wire_body(pcb.posted(native.wire, marker)), marker)
-    native.spend.landed(native.reading, raw.headers["x-litellm-call-id"], marker)
+    native.spend.landed(native.reading, raw.headers["x-hangarllm-call-id"], marker)
 
 
 def test_stream_carries_the_marks_the_same_way(native: _Native) -> None:

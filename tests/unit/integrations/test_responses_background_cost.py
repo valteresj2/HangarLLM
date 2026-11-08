@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from litellm.constants import MAX_OBJECTS_PER_POLL_CYCLE
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+from hangarllm.constants import MAX_OBJECTS_PER_POLL_CYCLE
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
 
 class TestResponsesBackgroundCostTracking:
@@ -77,7 +77,7 @@ class TestResponsesBackgroundCostTracking:
                     await mock_managed_files_obj.store_unified_object_id(
                         unified_object_id=response.id,
                         file_object=response,
-                        litellm_parent_otel_span=None,
+                        hangarllm_parent_otel_span=None,
                         model_object_id=response.id,
                         file_purpose="response",
                         user_api_key_dict=user_api_key_dict,
@@ -195,7 +195,7 @@ class TestResponsesBackgroundCostTracking:
                     await mock_managed_files_obj.store_unified_object_id(
                         unified_object_id=response.id,
                         file_object=response,
-                        litellm_parent_otel_span=None,
+                        hangarllm_parent_otel_span=None,
                         model_object_id=response.id,
                         file_purpose="response",
                         user_api_key_dict=user_api_key_dict,
@@ -244,7 +244,7 @@ class TestResponsesBackgroundCostTracking:
                         await mock_managed_files_obj.store_unified_object_id(
                             unified_object_id=response.id,
                             file_object=response,
-                            litellm_parent_otel_span=None,
+                            hangarllm_parent_otel_span=None,
                             model_object_id=response.id,
                             file_purpose="response",
                             user_api_key_dict=user_api_key_dict,
@@ -258,9 +258,9 @@ class TestResponsesBackgroundCostTracking:
 
 
 def _check_responses_cost_module_available():
-    """Check if litellm.hangar.proxy.cost_jobs module is available"""
+    """Check if hangarllm.hangar.proxy.cost_jobs module is available"""
     try:
-        from litellm.hangar.proxy.cost_jobs import (  # noqa: F401
+        from hangarllm.hangar.proxy.cost_jobs import (  # noqa: F401
             CheckResponsesCost,
         )
 
@@ -271,7 +271,7 @@ def _check_responses_cost_module_available():
 
 @pytest.mark.skipif(
     not _check_responses_cost_module_available(),
-    reason="litellm.hangar.proxy.cost_jobs module not available (enterprise-only feature)",
+    reason="hangarllm.hangar.proxy.cost_jobs module not available (enterprise-only feature)",
 )
 class TestCheckResponsesCost:
     """Tests for the CheckResponsesCost polling class"""
@@ -281,13 +281,13 @@ class TestCheckResponsesCost:
         """Create a mock Prisma client"""
         client = MagicMock()
         client.db = MagicMock()
-        client.db.litellm_managedobjecttable = MagicMock()
-        client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-        client.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
-        client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-        client.db.litellm_deprecatedverificationtoken.find_unique = AsyncMock(return_value=None)
-        client.db.litellm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
-        client.db.litellm_deletedteamtable.find_first = AsyncMock(return_value=None)
+        client.db.hangarllm_managedobjecttable = MagicMock()
+        client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+        client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
+        client.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
+        client.db.hangarllm_deprecatedverificationtoken.find_unique = AsyncMock(return_value=None)
+        client.db.hangarllm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
+        client.db.hangarllm_deletedteamtable.find_first = AsyncMock(return_value=None)
         return client
 
     @pytest.fixture
@@ -305,7 +305,7 @@ class TestCheckResponsesCost:
         self, mock_proxy_logging_obj, mock_prisma_client, mock_llm_router
     ):
         """Test CheckResponsesCost initialization"""
-        from litellm.hangar.proxy.cost_jobs import (
+        from hangarllm.hangar.proxy.cost_jobs import (
             CheckResponsesCost,
         )
 
@@ -324,12 +324,12 @@ class TestCheckResponsesCost:
         self, mock_proxy_logging_obj, mock_prisma_client, mock_llm_router
     ):
         """Test polling when there are no jobs"""
-        from litellm.hangar.proxy.cost_jobs import (
+        from hangarllm.hangar.proxy.cost_jobs import (
             CheckResponsesCost,
         )
 
         # Mock find_many to return empty list
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedobjecttable.find_many = AsyncMock(
             return_value=[]
         )
 
@@ -343,7 +343,7 @@ class TestCheckResponsesCost:
         await checker.check_responses_cost()
 
         # Verify find_many was called with correct parameters (includes pagination)
-        mock_prisma_client.db.litellm_managedobjecttable.find_many.assert_called_once_with(
+        mock_prisma_client.db.hangarllm_managedobjecttable.find_many.assert_called_once_with(
             where={
                 "status": {"in": ["queued", "in_progress"]},
                 "file_purpose": "response",
@@ -357,7 +357,7 @@ class TestCheckResponsesCost:
         self, mock_proxy_logging_obj, mock_prisma_client, mock_llm_router
     ):
         """Test polling with a completed job"""
-        from litellm.hangar.proxy.cost_jobs import (
+        from hangarllm.hangar.proxy.cost_jobs import (
             CheckResponsesCost,
         )
 
@@ -369,11 +369,11 @@ class TestCheckResponsesCost:
         mock_job.file_object = {"model": "gpt-4o", "id": "resp_test_id"}
 
         # Mock find_many to return the job
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
+        mock_prisma_client.db.hangarllm_managedobjecttable.update_many = AsyncMock(return_value=1)
 
         # Create a completed response
         completed_response = ResponsesAPIResponse(
@@ -395,8 +395,8 @@ class TestCheckResponsesCost:
             llm_router=mock_llm_router,
         )
 
-        # Mock litellm.aget_responses to return completed response
-        with patch("litellm.aget_responses", new_callable=AsyncMock) as mock_aget:
+        # Mock hangarllm.aget_responses to return completed response
+        with patch("hangarllm.aget_responses", new_callable=AsyncMock) as mock_aget:
             mock_aget.return_value = completed_response
 
             await checker.check_responses_cost()
@@ -404,7 +404,7 @@ class TestCheckResponsesCost:
             # Verify update_many was called to mark job as completed
             # (stale cleanup also calls update_many, so check the specific completion call)
             update_many_calls = (
-                mock_prisma_client.db.litellm_managedobjecttable.update_many.call_args_list
+                mock_prisma_client.db.hangarllm_managedobjecttable.update_many.call_args_list
             )
             completion_calls = [
                 c
@@ -423,7 +423,7 @@ class TestCheckResponsesCost:
         self, mock_proxy_logging_obj, mock_prisma_client, mock_llm_router
     ):
         """Test polling with a failed job"""
-        from litellm.hangar.proxy.cost_jobs import (
+        from hangarllm.hangar.proxy.cost_jobs import (
             CheckResponsesCost,
         )
 
@@ -434,10 +434,10 @@ class TestCheckResponsesCost:
         mock_job.created_by = "test-user"
         mock_job.file_object = {"model": "gpt-4o", "id": "resp_failed"}
 
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock()
+        mock_prisma_client.db.hangarllm_managedobjecttable.update_many = AsyncMock()
 
         # Create a failed response
         failed_response = ResponsesAPIResponse(
@@ -455,7 +455,7 @@ class TestCheckResponsesCost:
             llm_router=mock_llm_router,
         )
 
-        with patch("litellm.aget_responses", new_callable=AsyncMock) as mock_aget:
+        with patch("hangarllm.aget_responses", new_callable=AsyncMock) as mock_aget:
             mock_aget.return_value = failed_response
 
             await checker.check_responses_cost()
@@ -463,7 +463,7 @@ class TestCheckResponsesCost:
             # Verify job was marked as completed even though it failed
             # (stale cleanup also calls update_many, so check the specific completion call)
             update_many_calls = (
-                mock_prisma_client.db.litellm_managedobjecttable.update_many.call_args_list
+                mock_prisma_client.db.hangarllm_managedobjecttable.update_many.call_args_list
             )
             completion_calls = [
                 c
@@ -477,7 +477,7 @@ class TestCheckResponsesCost:
         self, mock_proxy_logging_obj, mock_prisma_client, mock_llm_router
     ):
         """Test polling with a job still in progress"""
-        from litellm.hangar.proxy.cost_jobs import (
+        from hangarllm.hangar.proxy.cost_jobs import (
             CheckResponsesCost,
         )
 
@@ -487,10 +487,10 @@ class TestCheckResponsesCost:
         mock_job.unified_object_id = "resp_in_progress"
         mock_job.created_by = "test-user"
 
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock()
+        mock_prisma_client.db.hangarllm_managedobjecttable.update_many = AsyncMock()
 
         # Create an in-progress response
         in_progress_response = ResponsesAPIResponse(
@@ -508,7 +508,7 @@ class TestCheckResponsesCost:
             llm_router=mock_llm_router,
         )
 
-        with patch("litellm.aget_responses", new_callable=AsyncMock) as mock_aget:
+        with patch("hangarllm.aget_responses", new_callable=AsyncMock) as mock_aget:
             mock_aget.return_value = in_progress_response
 
             await checker.check_responses_cost()
@@ -516,7 +516,7 @@ class TestCheckResponsesCost:
             # Verify no completion update_many was called (job still in progress)
             # (stale cleanup may still call update_many, so filter for completion calls)
             update_many_calls = (
-                mock_prisma_client.db.litellm_managedobjecttable.update_many.call_args_list
+                mock_prisma_client.db.hangarllm_managedobjecttable.update_many.call_args_list
             )
             completion_calls = [
                 c
@@ -530,7 +530,7 @@ class TestCheckResponsesCost:
         self, mock_proxy_logging_obj, mock_prisma_client, mock_llm_router
     ):
         """Test that errors when querying responses are handled gracefully"""
-        from litellm.hangar.proxy.cost_jobs import (
+        from hangarllm.hangar.proxy.cost_jobs import (
             CheckResponsesCost,
         )
 
@@ -540,10 +540,10 @@ class TestCheckResponsesCost:
         mock_job.unified_object_id = "resp_error"
         mock_job.created_by = "test-user"
 
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock()
+        mock_prisma_client.db.hangarllm_managedobjecttable.update_many = AsyncMock()
 
         checker = CheckResponsesCost(
             proxy_logging_obj=mock_proxy_logging_obj,
@@ -551,9 +551,9 @@ class TestCheckResponsesCost:
             llm_router=mock_llm_router,
         )
 
-        # Mock litellm.aget_responses to raise an exception
+        # Mock hangarllm.aget_responses to raise an exception
         with patch(
-            "litellm.aget_responses",
+            "hangarllm.aget_responses",
             new_callable=AsyncMock,
             side_effect=Exception("API error"),
         ):
@@ -563,7 +563,7 @@ class TestCheckResponsesCost:
             # Verify no completion update_many was called (error occurred)
             # (stale cleanup may still call update_many, so filter for completion calls)
             update_many_calls = (
-                mock_prisma_client.db.litellm_managedobjecttable.update_many.call_args_list
+                mock_prisma_client.db.hangarllm_managedobjecttable.update_many.call_args_list
             )
             completion_calls = [
                 c

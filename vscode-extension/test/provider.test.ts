@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 import type { GatewayClient, GatewayConfig, ModelGroupsResult } from "../src/gateway";
 import { ESTIMATED_TOKENS_PER_IMAGE } from "../src/messages";
-import { LiteLLMChatProvider, TRUNCATED_MESSAGE, type LiteLLMModel } from "../src/provider";
+import { HangarLLMChatProvider, TRUNCATED_MESSAGE, type HangarLLMModel } from "../src/provider";
 import { CancellationTokenSource, LanguageModelTextPart, LanguageModelToolCallPart } from "./vscode-mock";
 
 interface StreamRequest {
@@ -69,7 +69,7 @@ const prepare = (configuration: Record<string, unknown> | undefined): vscode.Pre
 
 const gateway: GatewayConfig = { baseUrl: "http://127.0.0.1:4000", apiKey: "sk-test" };
 
-const model = (overrides: Partial<LiteLLMModel> = {}): LiteLLMModel => ({
+const model = (overrides: Partial<HangarLLMModel> = {}): HangarLLMModel => ({
   id: "gpt-5.6",
   name: "gpt-5.6",
   family: "gpt-5.6",
@@ -88,7 +88,7 @@ const responseOptions = (overrides: Partial<vscode.ProvideLanguageModelChatRespo
   ({ toolMode: 1, ...overrides }) as vscode.ProvideLanguageModelChatResponseOptions;
 
 const collect = (
-  provider: LiteLLMChatProvider,
+  provider: HangarLLMChatProvider,
   cancellation: CancellationTokenSource = new CancellationTokenSource(),
 ): { readonly parts: readonly vscode.LanguageModelResponsePart[]; readonly run: Promise<void> } => {
   const parts: vscode.LanguageModelResponsePart[] = [];
@@ -105,27 +105,27 @@ const collect = (
 describe("provideLanguageModelChatInformation", () => {
   it("returns nothing for the unconfigured probe without touching the gateway", async () => {
     const client = fakeGateway();
-    expect(await new LiteLLMChatProvider(client).provideLanguageModelChatInformation(prepare(undefined), token())).toEqual([]);
+    expect(await new HangarLLMChatProvider(client).provideLanguageModelChatInformation(prepare(undefined), token())).toEqual([]);
     expect(client.listCalls).toEqual([]);
   });
 
   it("names the API key when the stored secret is gone instead of listing nothing", async () => {
     const client = fakeGateway();
     await expect(
-      new LiteLLMChatProvider(client).provideLanguageModelChatInformation(prepare({ baseUrl: "http://127.0.0.1:4000" }), token()),
+      new HangarLLMChatProvider(client).provideLanguageModelChatInformation(prepare({ baseUrl: "http://127.0.0.1:4000" }), token()),
     ).rejects.toThrow(/missing its API key/);
     expect(client.listCalls).toEqual([]);
   });
 
   it("rejects a gateway URL that is not http or https", async () => {
     await expect(
-      new LiteLLMChatProvider(fakeGateway()).provideLanguageModelChatInformation(prepare({ baseUrl: "litellm.example.com", apiKey: "sk" }), token()),
-    ).rejects.toThrow(/"litellm.example.com" is not an http or https URL/);
+      new HangarLLMChatProvider(fakeGateway()).provideLanguageModelChatInformation(prepare({ baseUrl: "hangarllm.example.com", apiKey: "sk" }), token()),
+    ).rejects.toThrow(/"hangarllm.example.com" is not an http or https URL/);
   });
 
   it("lists the gateway's chat models with pricing, effort choices, and the gateway attached", async () => {
     const client = fakeGateway();
-    const models = await new LiteLLMChatProvider(client).provideLanguageModelChatInformation(
+    const models = await new HangarLLMChatProvider(client).provideLanguageModelChatInformation(
       prepare({ baseUrl: "http://127.0.0.1:4000/v1/", apiKey: "sk-test" }),
       token(),
     );
@@ -147,11 +147,11 @@ describe("provideLanguageModelChatInformation", () => {
       error: { message: "Authentication Error, Invalid proxy server token passed", type: "auth_error", param: "sk-...abcd", code: "401" },
     });
     await expect(
-      new LiteLLMChatProvider(fakeGateway({ kind: "http_error", status: 401, body })).provideLanguageModelChatInformation(
+      new HangarLLMChatProvider(fakeGateway({ kind: "http_error", status: 401, body })).provideLanguageModelChatInformation(
         prepare({ baseUrl: "http://127.0.0.1:4000", apiKey: "sk-bad" }),
         token(),
       ),
-    ).rejects.toThrow("LiteLLM gateway at http://127.0.0.1:4000 answered 401 for /model_group/info: Authentication Error, Invalid proxy server token passed");
+    ).rejects.toThrow("HangarLLM gateway at http://127.0.0.1:4000 answered 401 for /model_group/info: Authentication Error, Invalid proxy server token passed");
   });
 });
 
@@ -165,7 +165,7 @@ describe("provideLanguageModelChatResponse", () => {
       })(),
     );
     const parts: vscode.LanguageModelResponsePart[] = [];
-    await new LiteLLMChatProvider(client).provideLanguageModelChatResponse(
+    await new HangarLLMChatProvider(client).provideLanguageModelChatResponse(
       model(),
       [userMessage([{ value: "read a" }])],
       responseOptions({ toolMode: 2, tools: [{ name: "read_file", description: "Read" }], modelConfiguration: { reasoningEffort: "high" } }),
@@ -190,7 +190,7 @@ describe("provideLanguageModelChatResponse", () => {
         throw new Error("Request was aborted.");
       })(),
     );
-    const { parts, run } = collect(new LiteLLMChatProvider(client), cancellation);
+    const { parts, run } = collect(new HangarLLMChatProvider(client), cancellation);
     await new Promise((resolve) => setTimeout(resolve, 0));
     cancellation.cancel();
     await expect(run).resolves.toBeUndefined();
@@ -205,7 +205,7 @@ describe("provideLanguageModelChatResponse", () => {
         throw new Error("502 Bad Gateway");
       })(),
     );
-    const { run } = collect(new LiteLLMChatProvider(client), cancellation);
+    const { run } = collect(new HangarLLMChatProvider(client), cancellation);
     await expect(run).rejects.toThrow("502 Bad Gateway");
     expect(cancellation.disposedListeners).toBe(1);
   });
@@ -217,7 +217,7 @@ describe("provideLanguageModelChatResponse", () => {
         yield chunk({}, "length");
       })(),
     );
-    const { parts, run } = collect(new LiteLLMChatProvider(client));
+    const { parts, run } = collect(new HangarLLMChatProvider(client));
     await expect(run).rejects.toThrow(TRUNCATED_MESSAGE);
     expect(parts).toEqual([new LanguageModelTextPart("half an ans")]);
   });
@@ -228,13 +228,13 @@ describe("provideLanguageModelChatResponse", () => {
         yield chunk({ tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "grep", arguments: "{oops" } }] });
       })(),
     );
-    const { run } = collect(new LiteLLMChatProvider(client));
+    const { run } = collect(new HangarLLMChatProvider(client));
     await expect(run).rejects.toThrow("invalid JSON arguments for tool grep");
   });
 });
 
 describe("provideTokenCount", () => {
-  const provider = new LiteLLMChatProvider(fakeGateway());
+  const provider = new HangarLLMChatProvider(fakeGateway());
 
   it("estimates plain text at four characters per token", async () => {
     expect(await provider.provideTokenCount(model(), "abcdefgh")).toBe(2);

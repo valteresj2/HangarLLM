@@ -9,15 +9,15 @@ When contributing to this directory, please first discuss the change you wish to
 
 ## Setup
 
-The suites run against a live proxy, so bring one up first by running the litellm proxy locally. Point it at a config that prewires the example models the suites use (`gpt-5.5`, `claude-haiku-4-5`, `gemini-2.5-flash`, `openai-text-embedding-3-small`) with keys from your `.env`, and enables prompt storage, a redis cache, the fast budget rescheduler the quota suites rely on, and `router_settings.optional_pre_call_checks: ["prompt_caching"]`, which the router suite's prompt-cache affinity test reads back from `GET /router/settings` and fails without. If your test needs another model, a pricing override, or a guardrail declared up front, add it to that config and read it back in the test rather than hardcoding values
+The suites run against a live proxy, so bring one up first by running the hangarllm proxy locally. Point it at a config that prewires the example models the suites use (`gpt-5.5`, `claude-haiku-4-5`, `gemini-2.5-flash`, `openai-text-embedding-3-small`) with keys from your `.env`, and enables prompt storage, a redis cache, the fast budget rescheduler the quota suites rely on, and `router_settings.optional_pre_call_checks: ["prompt_caching"]`, which the router suite's prompt-cache affinity test reads back from `GET /router/settings` and fails without. If your test needs another model, a pricing override, or a guardrail declared up front, add it to that config and read it back in the test rather than hardcoding values
 
 ## Running the tests locally
 
-1. Generate a master key with `export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 32)"`. Create a `.env` file in this directory with the provider keys the example models use and the Postgres/Redis coordinates your config reads back:
+1. Generate a master key with `export HANGARLLM_MASTER_KEY="sk-$(openssl rand -hex 32)"`. Create a `.env` file in this directory with the provider keys the example models use and the Postgres/Redis coordinates your config reads back:
 
    ```bash
-   LITELLM_MASTER_KEY="sk-<your-master-key>"
-   DATABASE_URL="postgresql://llmproxy:dbpassword9090@localhost:5432/litellm"
+   HANGARLLM_MASTER_KEY="sk-<your-master-key>"
+   DATABASE_URL="postgresql://llmproxy:dbpassword9090@localhost:5432/hangarllm"
    REDIS_HOST="localhost"
    REDIS_PORT="6379"
    OPENAI_API_KEY="sk-..."
@@ -27,38 +27,38 @@ The suites run against a live proxy, so bring one up first by running the litell
 
 2. Bring up a Postgres and a Redis for the proxy to use. The repo-root `docker-compose.yml` already defines a Postgres on `5432`; a `docker run -p 6379:6379 redis:7` covers Redis. Point `DATABASE_URL` / `REDIS_HOST` / `REDIS_PORT` at whatever you run. Tests that read Redis directly default to the deployed shape (TLS + cluster mode) whenever `REDIS_HOST` is set, so for a local standalone Redis also set `REDIS_CLUSTER=false` and `REDIS_SSL=false` (plus `REDIS_PASSWORD` when your Redis requires auth)
 
-3. Start the identity provider the JWT API tests authenticate against, then the litellm proxy against your config, and confirm both are live. It is a real Keycloak, running the realm in `tests/e2e/idp_realm.json`, and the proxy trusts it because `JWT_PUBLIC_KEY_URL` points at that realm's JWKS. The proxy caches the JWKS for `public_key_ttl` (600s) and does not refetch on an unknown `kid`, so keep its data volume across restarts; restart the proxy if you deliberately replace that volume:
+3. Start the identity provider the JWT API tests authenticate against, then the hangarllm proxy against your config, and confirm both are live. It is a real Keycloak, running the realm in `tests/e2e/idp_realm.json`, and the proxy trusts it because `JWT_PUBLIC_KEY_URL` points at that realm's JWKS. The proxy caches the JWKS for `public_key_ttl` (600s) and does not refetch on an unknown `kid`, so keep its data volume across restarts; restart the proxy if you deliberately replace that volume:
 
    ```bash
-   docker run -d --name litellm-e2e-idp -p 8480:8080 \
+   docker run -d --name hangarllm-e2e-idp -p 8480:8080 \
      -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
      -v "$PWD/tests/e2e/idp_realm.json:/opt/keycloak/data/import/realm.json:ro" \
-     -v litellm-e2e-idp-data:/opt/keycloak/data \
+     -v hangarllm-e2e-idp-data:/opt/keycloak/data \
      quay.io/keycloak/keycloak:26.7.3 start-dev --import-realm
-   curl -fs --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:8480/realms/litellm-e2e/.well-known/openid-configuration
-   export JWT_ISSUER=http://127.0.0.1:8480/realms/litellm-e2e
-   export JWT_AUDIENCE=litellm-e2e
+   curl -fs --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:8480/realms/hangarllm-e2e/.well-known/openid-configuration
+   export JWT_ISSUER=http://127.0.0.1:8480/realms/hangarllm-e2e
+   export JWT_AUDIENCE=hangarllm-e2e
    export JWT_PUBLIC_KEY_URL="$JWT_ISSUER/protocol/openid-connect/certs"
-   litellm --config <your-e2e-config>.yml --port 4000
+   hangarllm --config <your-e2e-config>.yml --port 4000
    curl -fs http://localhost:4000/health/liveliness
    ```
 
-   The tests reach Keycloak at `E2E_KEYCLOAK_URL` (default `http://127.0.0.1:8480`) and provision their identities through its admin API, so they also need `E2E_KEYCLOAK_ADMIN_USER` and `E2E_KEYCLOAK_ADMIN_PASSWORD` (`admin` / `admin` for the throwaway container above; the deployed stacks take theirs from a secret). JWT auth is an enterprise feature, so the proxy needs `LITELLM_LICENSE` in its environment, and its config needs the JWT block below. `enable_jwt_auth` only routes bearer tokens with three dot-separated segments into the JWT path, so `sk-` virtual keys and the master key keep working for every other suite. `proxy_batch_write_at` is lowered so the JWT spend-attribution test sees its row well inside the poll deadline:
+   The tests reach Keycloak at `E2E_KEYCLOAK_URL` (default `http://127.0.0.1:8480`) and provision their identities through its admin API, so they also need `E2E_KEYCLOAK_ADMIN_USER` and `E2E_KEYCLOAK_ADMIN_PASSWORD` (`admin` / `admin` for the throwaway container above; the deployed stacks take theirs from a secret). JWT auth is an enterprise feature, so the proxy needs `HANGARLLM_LICENSE` in its environment, and its config needs the JWT block below. `enable_jwt_auth` only routes bearer tokens with three dot-separated segments into the JWT path, so `sk-` virtual keys and the master key keep working for every other suite. `proxy_batch_write_at` is lowered so the JWT spend-attribution test sees its row well inside the poll deadline:
 
    ```yaml
    general_settings:
      proxy_batch_write_at: 5
      enable_jwt_auth: true
-     litellm_jwtauth:
+     hangarllm_jwtauth:
        user_id_jwt_field: sub
        user_email_jwt_field: email
        team_ids_jwt_field: groups
        user_id_upsert: true
    ```
 
-   Set `JWT_ISSUER` to the exact realm URL used by the test runner and `JWT_AUDIENCE=litellm-e2e`. The realm explicitly maps this audience, `sub`, `email`, and `groups`; the proxy fetches real signing keys from its JWKS endpoint. The rejection tests obtain signed tokens with a different audience or issuer and verify the corresponding rejection reason. The issuer test uses a different HTTP Host when requesting a token from the isolated, dynamically named test IdP.
+   Set `JWT_ISSUER` to the exact realm URL used by the test runner and `JWT_AUDIENCE=hangarllm-e2e`. The realm explicitly maps this audience, `sub`, `email`, and `groups`; the proxy fetches real signing keys from its JWKS endpoint. The rejection tests obtain signed tokens with a different audience or issuer and verify the corresponding rejection reason. The issuer test uses a different HTTP Host when requesting a token from the isolated, dynamically named test IdP.
 
-   Keycloak's password grant is a test-only provisioning shortcut, not a production login recommendation. The `litellm-e2e-admin` client adds the proxy's admin scope; the normal client does not. Never reuse this permissive realm outside an isolated test stack.
+   Keycloak's password grant is a test-only provisioning shortcut, not a production login recommendation. The `hangarllm-e2e-admin` client adds the proxy's admin scope; the normal client does not. Never reuse this permissive realm outside an isolated test stack.
 
    Management tests can bind a credential once with `client.with_caller(Caller(...))`; direct calls, delegated helpers and replica read-backs then retain that caller. Explicit `caller_key` arguments override the binding. Keep the original master-backed client for bootstrap and cleanup. `actor_factory` lazily provisions database roles and tenant memberships, with `database_role` tokens carrying no groups and `group_scoped` actors retaining the existing team route gate. Token minting is explicit through `actor.mint_caller(idp)`. The factory runs requests without backend retries and reports cleanup failures. `coverage_registry/management_cases.py` records exact canary nodes and non-secret actor labels; the CI execution assertion rejects a missing or skipped actor row
 
@@ -75,7 +75,7 @@ The suites run against a live proxy, so bring one up first by running the litell
 
    Buildkite runs this suite against a Keycloak deployed beside the ephemeral stack by project-releaser. It fetches the realm from the test-runner revision even when it reuses a gateway image from another commit. The runner configures issuer/audience validation and stores the realm, keys and users in a separate schema in the stack's PostgreSQL, so replacing Keycloak preserves token validity. It waits for realm discovery before running tests. Losing the whole ephemeral database invalidates the stack. Keycloak skips imports into an existing realm, so changes to the realm export require a fresh stack (or deliberately replacing the local data volume). A stack without it fails the JWT tests rather than skipping them
 
-4. Run a suite against it; the harness reads `LITELLM_PROXY_URL` (default `http://localhost:4000`). The suites' client dependencies (the provider SDKs, websockets) live in the `e2e-dev` dependency group; `make bootstrap` installs it, and naming the group on the run keeps the command working from any environment state:
+4. Run a suite against it; the harness reads `HANGARLLM_PROXY_URL` (default `http://localhost:4000`). The suites' client dependencies (the provider SDKs, websockets) live in the `e2e-dev` dependency group; `make bootstrap` installs it, and naming the group on the run keeps the command working from any environment state:
 
    ```bash
    uv run --group e2e-dev pytest tests/e2e/llm_translation/ -v
@@ -90,7 +90,7 @@ The suites run against a live proxy, so bring one up first by running the litell
 
    They also need a proxy whose bundled UI contains the change under test, so run the proxy from your branch (an editable install serves the UI your checkout builds)
 
-Some suites need extra services the bare proxy does not start. The `logging/` OTEL trace-completeness tests read spans back from a jaeger query API at `http://localhost:16686` (override with `E2E_OTEL_QUERY_URL`); run a `jaegertracing/all-in-one` and start the proxy with `LITELLM_OTEL_V2=true`, the `otel` callback, and `OTEL_EXPORTER_OTLP_ENDPOINT` pointing at its OTLP ingest. The `mcp/` suite needs the deterministic upstream MCP server in `mcp_tests/mcp_e2e_upstream_server.py` reachable by the proxy.
+Some suites need extra services the bare proxy does not start. The `logging/` OTEL trace-completeness tests read spans back from a jaeger query API at `http://localhost:16686` (override with `E2E_OTEL_QUERY_URL`); run a `jaegertracing/all-in-one` and start the proxy with `HANGARLLM_OTEL_V2=true`, the `otel` callback, and `OTEL_EXPORTER_OTLP_ENDPOINT` pointing at its OTLP ingest. The `mcp/` suite needs the deterministic upstream MCP server in `mcp_tests/mcp_e2e_upstream_server.py` reachable by the proxy.
 
 ### Secret manager lanes
 
@@ -98,9 +98,9 @@ Some suites need extra services the bare proxy does not start. The `logging/` OT
 
 ```bash
 bash tests/e2e/secret_manager/backend.sh up cyberark
-(set -a; . ~/.cache/litellm-e2e-secret-manager/cyberark/proxy.env; set +a; env -u OPENAI_API_KEY LITELLM_LICENSE=... \
-  LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" DATABASE_URL=... uv run litellm --config tests/e2e/gateway/secret_manager_cyberark_ci_config.yml --port 4000)
-(set -a; . ~/.cache/litellm-e2e-secret-manager/cyberark/tests.env; set +a; OPENAI_API_KEY=... \
+(set -a; . ~/.cache/hangarllm-e2e-secret-manager/cyberark/proxy.env; set +a; env -u OPENAI_API_KEY HANGARLLM_LICENSE=... \
+  HANGARLLM_MASTER_KEY="$HANGARLLM_MASTER_KEY" DATABASE_URL=... uv run hangarllm --config tests/e2e/gateway/secret_manager_cyberark_ci_config.yml --port 4000)
+(set -a; . ~/.cache/hangarllm-e2e-secret-manager/cyberark/tests.env; set +a; OPENAI_API_KEY=... \
   uv run --group e2e-dev pytest tests/e2e/secret_manager/ -v)
 bash tests/e2e/secret_manager/backend.sh down cyberark
 ```
@@ -111,7 +111,7 @@ A backend declares what it supports in its `SecretBackend.capabilities`, and a t
 
 To add a backend, leave the tests and markers alone and add:
 
-1. `secret_manager/secret_store_<system>.py`: a `SecretStore` (`write`, `read` returning None when absent, idempotent `destroy`) over the manager's own API through `e2e_http`'s external helpers, read from `E2E_<SYSTEM>_*` env vars, and a `SecretBackend` whose `system` is the litellm `KeyManagementSystem` value and whose `capabilities` lists what it supports
+1. `secret_manager/secret_store_<system>.py`: a `SecretStore` (`write`, `read` returning None when absent, idempotent `destroy`) over the manager's own API through `e2e_http`'s external helpers, read from `E2E_<SYSTEM>_*` env vars, and a `SecretBackend` whose `system` is the hangarllm `KeyManagementSystem` value and whose `capabilities` lists what it supports
 2. its entry in `secret_backends.BACKENDS`
 3. `gateway/secret_manager_<system>_ci_config.yml`, a copy of an existing lane's with only `key_management_system` changed
 4. an `up_<system>` function in `secret_manager/backend.sh` that starts the manager and writes `proxy.env` and `tests.env`
@@ -130,7 +130,7 @@ Bundles stay local. `tests/e2e/.fixtures` is gitignored because a bundle holds v
 
 In CI the `.github/workflows/e2e_record_replay.yml` lane runs record and replay on a schedule. A Saturday cron records the `replayable` marker's tests against the real providers and publishes the bundle as a private `e2e-fixtures-bundle` artifact carrying a SHA-256 sidecar; weekday crons pull that artifact by its pinned digest, verify the checksum before extracting, and replay it with provider credentials deliberately set to bogus values, so a run that ever reached a real provider would fail instead of passing. An egress sentinel (`.github/scripts/e2e_egress_sentinel.py`) pins the provider hostnames to a local sink for the whole replay job and counts every connection that reaches them, and the job asserts that count is zero, so hermeticity is proven by measurement rather than by an absent bill. A red Saturday publishes no bundle, so the next weekday finds nothing fresh and fails loudly rather than replaying a week-old recording, and the seven-day freshness gate hard-fails any bundle that has drifted too far from the live providers. Run the lane on demand from the Actions tab with the `mode` input: `record` re-records and republishes, `replay` replays the current bundle. A test joins the lane by carrying `@pytest.mark.replayable` on top of its edge wiring, so add that marker only to a test whose provider traffic actually replays with zero egress
 
-One sharp edge: a replayed response reuses the recorded provider response id, and that id is the primary key of `LiteLLM_SpendLogs`, so replaying against a database that still holds the record run's rows silently dedupes the spend writes and a spend assertion fails with zero rows. Run both commands above with `E2E_RESET_SPEND_LOGS=1` (and `DATABASE_URL` set in the pytest env) so each session truncates the spend log table after itself, or point replay at a fresh database
+One sharp edge: a replayed response reuses the recorded provider response id, and that id is the primary key of `HangarLLM_SpendLogs`, so replaying against a database that still holds the record run's rows silently dedupes the spend writes and a spend assertion fails with zero rows. Run both commands above with `E2E_RESET_SPEND_LOGS=1` (and `DATABASE_URL` set in the pytest env) so each session truncates the spend log table after itself, or point replay at a fresh database
 
 Another sharp edge, same root: record and replay derive every per-test token deterministically (the model name included, so a replay regenerates the exact requests the record run sent), which means an edge-wired deployment left in the database by an interrupted earlier run carries the same model name as the fresh one the current run registers. The proxy then holds two deployments under one model group and load-balances across both, and because the leftover's `api_base` points at the earlier run's edge process, which is gone, the calls that land on it fail with a connection error that reads like a transport bug rather than the stale row it is. Give each record or replay run a fresh database, or let a run finish so its own teardown deletes what it registered, and never reuse one long-lived proxy across back-to-back record/replay sessions. CI hands every job its own empty database and its own proxy, so it never sees this
 
@@ -218,7 +218,7 @@ Each suite provides its own `client` fixture (see `llm_translation/passthrough_c
 
 Request and response bodies are typed pydantic models in `models.py`. Only the fields a test reads are modelled, and nothing passes raw dicts. Outcomes come back as a `Result[R]` tagged union (`Success`, `NetworkError`, `UnauthorizedError`, `RateLimitedError`, `ValidationError`, `UnknownApiError`). Handle them with `match`, or call `unwrap(...)` when a non-success should fail the test. The harness hard-fails and never skips: a test marked `e2e` fails when no proxy answers its liveness probe, and once a request reaches the proxy any wrong behavior is likewise a hard failure, so a missing proxy turns the run red instead of being mistaken for a pass
 
-Mark live tests with `@pytest.mark.e2e` (on the class or the module). Pure coverage of the harness itself lives in `tests/e2e_harness/` and runs without a proxy (`LITELLM_MASTER_KEY=sk-harness uv run pytest tests/e2e_harness`). A test that needs proxy configuration the default stack does not carry goes behind an opt-in marker (`managed_files`, `prompt_caching_stack`, `weekly`), each deselected unless its env var is set; `OPT_IN_MARKERS` in `conftest.py` maps marker to env var, and the coverage collector counts such a cell only where the env var is set. Use `scoped_key` for a fresh all-models key that auto-deletes, `resources` when you need to create and tear down more than a key, and `unique_marker()` from `e2e_config` to keep prompts, tags, and customer ids from colliding across concurrent runs and the shared response cache
+Mark live tests with `@pytest.mark.e2e` (on the class or the module). Pure coverage of the harness itself lives in `tests/e2e_harness/` and runs without a proxy (`HANGARLLM_MASTER_KEY=sk-harness uv run pytest tests/e2e_harness`). A test that needs proxy configuration the default stack does not carry goes behind an opt-in marker (`managed_files`, `prompt_caching_stack`, `weekly`), each deselected unless its env var is set; `OPT_IN_MARKERS` in `conftest.py` maps marker to env var, and the coverage collector counts such a cell only where the env var is set. Use `scoped_key` for a fresh all-models key that auto-deletes, `resources` when you need to create and tear down more than a key, and `unique_marker()` from `e2e_config` to keep prompts, tags, and customer ids from colliding across concurrent runs and the shared response cache
 
 ## Pre-commit steps
 
@@ -228,10 +228,10 @@ Before you push
 
 2. Add the models your test needs to the config your local proxy loads
 
-3. Start the litellm proxy locally and run your suite against it:
+3. Start the hangarllm proxy locally and run your suite against it:
 
    ```bash
-   litellm --config <your-e2e-config>.yml --port 4000
+   hangarllm --config <your-e2e-config>.yml --port 4000
    uv run --group e2e-dev pytest tests/e2e/<your_suite>/ -v
    ```
 

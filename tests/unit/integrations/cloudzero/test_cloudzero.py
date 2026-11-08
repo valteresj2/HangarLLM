@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import polars as pl
 import pytest
 
-from litellm.integrations.cloudzero.cloudzero import CloudZeroLogger
-from litellm.integrations.cloudzero.cz_stream_api import CloudZeroStreamer
-from litellm.integrations.cloudzero.database import LiteLLMDatabase
+from hangarllm.integrations.cloudzero.cloudzero import CloudZeroLogger
+from hangarllm.integrations.cloudzero.cz_stream_api import CloudZeroStreamer
+from hangarllm.integrations.cloudzero.database import HangarLLMDatabase
 
 
 class TestCloudZeroHourlyExport:
@@ -66,10 +66,10 @@ class TestCloudZeroHourlyExport:
 
         with (
             patch.object(
-                LiteLLMDatabase, "_ensure_prisma_client"
+                HangarLLMDatabase, "_ensure_prisma_client"
             ) as mock_prisma_client_getter,
             patch.object(CloudZeroStreamer, "send_batched") as send_batched_mock,
-            patch("litellm.integrations.cloudzero.cloudzero.datetime") as mock_datetime,
+            patch("hangarllm.integrations.cloudzero.cloudzero.datetime") as mock_datetime,
         ):
             fake_client = MagicMock()
             fake_db = MagicMock()
@@ -149,9 +149,9 @@ class TestCloudZeroHourlyExport:
                 return joined
 
             fake_db.query_raw = AsyncMock(side_effect=query_raw_mock)
-            fake_db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-            fake_db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-            fake_db.litellm_usertable.find_many = AsyncMock(return_value=[])
+            fake_db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
+            fake_db.hangarllm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+            fake_db.hangarllm_usertable.find_many = AsyncMock(return_value=[])
             fake_client.db = fake_db
             mock_prisma_client_getter.return_value = fake_client
 
@@ -168,7 +168,7 @@ class TestCloudZeroHourlyExport:
             await logger._hourly_usage_data_export()
 
 
-class TestLiteLLMDatabaseUsageData:
+class TestHangarLLMDatabaseUsageData:
     @pytest.mark.asyncio
     async def test_builds_frame_from_rows_recovered_for_double_hashed_keys(self, monkeypatch: pytest.MonkeyPatch):
         double_hashed = hashlib.sha256(b"sk-hashed-token").hexdigest()
@@ -182,7 +182,7 @@ class TestLiteLLMDatabaseUsageData:
 
         fake_client = MagicMock()
         fake_client.db.query_raw = AsyncMock(side_effect=query_raw)
-        db = LiteLLMDatabase()
+        db = HangarLLMDatabase()
         monkeypatch.setattr(db, "_ensure_prisma_client", lambda: fake_client)
 
         result = await db.get_usage_data()

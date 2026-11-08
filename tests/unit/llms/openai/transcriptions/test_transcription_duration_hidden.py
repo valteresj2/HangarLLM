@@ -11,12 +11,12 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.cost_calculator import completion_cost
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+import hangarllm
+from hangarllm.cost_calculator import completion_cost
+from hangarllm.hangarllm_core_utils.llm_response_utils.convert_dict_to_response import (
     convert_to_model_response_object,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     TranscriptionResponse,
     TranscriptionUsageDurationObject,
 )
@@ -127,7 +127,7 @@ class TestCostCalculatorReadsDurationFromHiddenParams:
     """The cost calculator should read duration from _hidden_params via completion_cost()."""
 
     @patch(  # test-quality-ok: isolates duration selection from the model pricing table
-        "litellm.cost_calculator.openai_cost_per_second"
+        "hangarllm.cost_calculator.openai_cost_per_second"
     )
     def test_completion_cost_prefers_measured_duration_over_provider_usage_duration(self, mock_cost_fn):
         mock_cost_fn.return_value = (0.001, 0.0)
@@ -163,9 +163,9 @@ class TestCostCalculatorReadsDurationFromHiddenParams:
         model: str,
         provider: str,
     ):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-        monkeypatch.setitem(litellm.model_cost, model, {**litellm.model_cost[model], "input_cost_per_second": 0.0125})
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+        monkeypatch.setitem(hangarllm.model_cost, model, {**hangarllm.model_cost[model], "input_cost_per_second": 0.0125})
         response = TranscriptionResponse(
             text="test",
             usage={"type": "duration", "seconds": 60.0},
@@ -181,7 +181,7 @@ class TestCostCalculatorReadsDurationFromHiddenParams:
 
         assert actual == pytest.approx(60.0 * 0.0125)
 
-    @patch("litellm.cost_calculator.openai_cost_per_second")
+    @patch("hangarllm.cost_calculator.openai_cost_per_second")
     def test_completion_cost_uses_hidden_params_duration(self, mock_cost_fn):
         """
         completion_cost() should pass the duration from _hidden_params to
@@ -206,7 +206,7 @@ class TestCostCalculatorReadsDurationFromHiddenParams:
         _, kwargs = mock_cost_fn.call_args
         assert kwargs["duration"] == 17.5
 
-    @patch("litellm.cost_calculator.openai_cost_per_second")
+    @patch("hangarllm.cost_calculator.openai_cost_per_second")
     def test_completion_cost_falls_back_to_response_duration(self, mock_cost_fn):
         """
         When _hidden_params doesn't have duration (e.g. verbose_json response
@@ -231,7 +231,7 @@ class TestCostCalculatorReadsDurationFromHiddenParams:
         _, kwargs = mock_cost_fn.call_args
         assert kwargs["duration"] == 42.7
 
-    @patch("litellm.cost_calculator.openai_cost_per_second")
+    @patch("hangarllm.cost_calculator.openai_cost_per_second")
     def test_completion_cost_defaults_to_zero_duration(self, mock_cost_fn):
         """When neither hidden params nor response has duration, use 0.0."""
         mock_cost_fn.return_value = (0.0, 0.0)

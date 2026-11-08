@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, call, patch
 
 from botocore.credentials import Credentials
 
-from litellm.llms.sagemaker.completion.handler import SagemakerLLM
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.sagemaker.completion.handler import SagemakerLLM
+from hangarllm.types.utils import EmbeddingResponse
 
 
 class TestSagemakerEmbeddingRoleAssumption:
@@ -137,7 +137,7 @@ class TestSagemakerEmbeddingRoleAssumption:
 
             optional_params = {
                 "aws_role_name": "arn:aws:iam::123456789012:role/CrossAccountRole",
-                "aws_session_name": "litellm-embedding-session",
+                "aws_session_name": "hangarllm-embedding-session",
                 "aws_region_name": "us-east-1",
             }
 
@@ -158,7 +158,7 @@ class TestSagemakerEmbeddingRoleAssumption:
                 call_args[1]["RoleArn"]
                 == "arn:aws:iam::123456789012:role/CrossAccountRole"
             )
-            assert call_args[1]["RoleSessionName"] == "litellm-embedding-session"
+            assert call_args[1]["RoleSessionName"] == "hangarllm-embedding-session"
 
     def test_embedding_without_role_assumption(self):
         """

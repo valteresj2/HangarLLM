@@ -84,12 +84,12 @@ def _owned_scim_config(path: Path, settings: Mapping[str, JsonValue]) -> Path:
     config: Final = object_value(
         SCIM_CONFIG.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     )
-    litellm_settings: Final = object_value(config["litellm_settings"])
+    hangarllm_settings: Final = object_value(config["hangarllm_settings"])
     path.write_text(
         yaml.safe_dump(
             {
                 **config,
-                "litellm_settings": {**litellm_settings, **settings},
+                "hangarllm_settings": {**hangarllm_settings, **settings},
             }
         )
     )
@@ -97,21 +97,21 @@ def _owned_scim_config(path: Path, settings: Mapping[str, JsonValue]) -> Path:
 
 
 def _delete_user_if_present(gateway: Gateway, user_id: str) -> None:
-    if read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,)):
+    if read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,)):
         deleted: Final = gateway.request("POST", "/user/delete", {"user_ids": [user_id]})
         assert deleted.status_code == 200 and deleted.json() == 1, deleted.text
-    assert read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,)) == []
+    assert read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,)) == []
 
 
 def _delete_group_if_present(gateway: Gateway, group_id: str) -> None:
-    if read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (group_id,)):
+    if read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (group_id,)):
         deleted: Final = gateway.request(
             "DELETE",
             f"/scim/v2/Groups/{group_id}",
             headers=SCIM_HEADERS,
         )
         assert deleted.status_code == 204, deleted.text
-    assert read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (group_id,)) == []
+    assert read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (group_id,)) == []
 
 
 def _user_role(gateway: Gateway, user_id: str) -> str:
@@ -120,7 +120,7 @@ def _user_role(gateway: Gateway, user_id: str) -> str:
 
 
 def _database_user_role(user_id: str) -> str:
-    rows: Final = read_rows('SELECT user_role FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,))
+    rows: Final = read_rows('SELECT user_role FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,))
     return string_value(rows[0]["user_role"])
 
 
@@ -311,7 +311,7 @@ def _scim_admin_group_fixture(
         unrelated_group_alias: Final = f"{group_name}-unrelated"
         unrelated_group_id: Final = scenario.team(team_alias=unrelated_group_alias)
         assert read_rows(
-            'SELECT team_alias FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT team_alias FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (unrelated_group_id,),
         ) == [{"team_alias": unrelated_group_alias}]
         before_filter: Final = _group_filter_response(owned.gateway, group_name)
@@ -358,7 +358,7 @@ def _scim_admin_group_fixture(
         default_role: Final = _database_user_role(user)
         assert _user_role(owned.gateway, user) == default_role
         member_rows: Final = read_rows(
-            'SELECT user_email FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT user_email FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         member_email: Final = member_rows[0]["user_email"]

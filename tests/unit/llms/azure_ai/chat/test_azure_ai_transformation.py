@@ -10,14 +10,14 @@ import pytest
 import respx
 from httpx import Response
 
-import litellm
-from litellm import Router
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
-from litellm.llms.azure_ai.azure_model_router.transformation import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.hangarllm_core_utils.get_model_cost_map import get_model_cost_map
+from hangarllm.llms.azure_ai.azure_model_router.transformation import (
     AzureModelRouterConfig,
 )
-from litellm.llms.azure_ai.chat.transformation import AzureAIStudioConfig
+from hangarllm.llms.azure_ai.chat.transformation import AzureAIStudioConfig
 
 
 @pytest.mark.asyncio
@@ -89,7 +89,7 @@ def test_azure_ai_validate_environment():
         model="azure_ai/gpt-4o-mini",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert headers["Content-Type"] == "application/json"
 
@@ -105,7 +105,7 @@ def test_azure_ai_validate_environment_with_api_key():
         model="Kimi-K2.5",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-api-key",
         api_base="https://my-endpoint.services.ai.azure.com",
     )
@@ -137,7 +137,7 @@ async def test_azure_ai_acompletion_posts_the_conversation_to_the_models_endpoin
         {"role": "user", "content": "hi"},
     ]
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         custom_llm_provider="azure_ai",
         api_key="azure-ai-test-key",
         api_base="https://example-resource.services.ai.azure.com/models",
@@ -184,7 +184,7 @@ def test_azure_ai_completion_routes_flexible_api_base(
     )
     messages: Final = [{"role": "user", "content": "What is the meaning of life?"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure_ai/gpt-4.1-mini",
         api_base=api_base,
         api_key="azure-ai-test-key",
@@ -215,7 +215,7 @@ def test_azure_model_router_stream_chunks_report_selected_model(respx_mock: resp
         )
     )
     chunks: Final = tuple(
-        litellm.completion(
+        hangarllm.completion(
             model="azure_ai/model_router/test-router",
             messages=[{"role": "user", "content": "hello"}],
             api_base="https://example-resource.services.ai.azure.com/models",
@@ -250,7 +250,7 @@ def test_azure_ai_completion_cost_uses_response_usage(respx_mock: respx.MockRout
     }
     route: Final = respx_mock.post(url__startswith=api_url).mock(return_value=Response(200, json=response_body))
     messages: Final = [{"role": "user", "content": "hello"}]
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure_ai/gpt-4.1-mini",
         messages=messages,
         api_base="https://example-resource.services.ai.azure.com/models",
@@ -258,14 +258,14 @@ def test_azure_ai_completion_cost_uses_response_usage(respx_mock: respx.MockRout
         api_version="2024-05-01-preview",
     )
     request_body: Final = json.loads(route.calls[0].request.content)
-    model_info: Final = litellm.get_model_info(model="gpt-4.1-mini", custom_llm_provider="azure_ai")
+    model_info: Final = hangarllm.get_model_info(model="gpt-4.1-mini", custom_llm_provider="azure_ai")
     expected_cost: Final = 11 * model_info["input_cost_per_token"] + 3 * model_info["output_cost_per_token"]
 
     assert route.call_count == 1
     assert request_body == {"model": "gpt-4.1-mini", "messages": messages}
     assert response.choices[0].message.content == "hello"
     assert response._hidden_params["response_cost"] == pytest.approx(expected_cost, rel=1e-9)
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(expected_cost, rel=1e-9)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(expected_cost, rel=1e-9)
 
 
 def test_azure_ai_validate_environment_with_azure_ad_token():
@@ -273,29 +273,29 @@ def test_azure_ai_validate_environment_with_azure_ad_token():
     Test that when no api_key is provided but Azure AD credentials are available,
     the Authorization header is set with a Bearer token.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/20759
+    Regression test for upstream issue 20759
     """
-    import litellm
+    import hangarllm
 
     config = AzureAIStudioConfig()
     with (
         patch(
-            "litellm.llms.azure.common_utils.get_azure_ad_token",
+            "hangarllm.llms.azure.common_utils.get_azure_ad_token",
             return_value="fake-azure-ad-token",
         ),
         patch(
-            "litellm.llms.azure.common_utils.get_secret_str",
+            "hangarllm.llms.azure.common_utils.get_secret_str",
             return_value=None,
         ),
-        patch.object(litellm, "api_key", None),
-        patch.object(litellm, "azure_key", None),
+        patch.object(hangarllm, "api_key", None),
+        patch.object(hangarllm, "azure_key", None),
     ):
         headers = config.validate_environment(
             headers={},
             model="Kimi-K2.5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base="https://my-endpoint.services.ai.azure.com",
         )
@@ -306,8 +306,8 @@ def test_azure_ai_validate_environment_with_azure_ad_token():
 
 @pytest.fixture
 def _local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=litellm.model_cost_map_url))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", get_model_cost_map(url=hangarllm.model_cost_map_url))
 
 
 def test_foundry_gpt_6_sol_keeps_sampling_params_when_reasoning_effort_is_none(_local_model_cost_map):
@@ -325,7 +325,7 @@ def test_foundry_gpt_6_sol_keeps_sampling_params_when_reasoning_effort_is_none(_
 
 
 def test_foundry_gpt_6_astra_refuses_reasoning_effort_none_before_the_call(_local_model_cost_map):
-    with pytest.raises(litellm.utils.UnsupportedParamsError):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError):
         AzureAIStudioConfig().map_openai_params(
             non_default_params={"reasoning_effort": "none"},
             optional_params={},
@@ -386,13 +386,13 @@ def test_azure_ai_grok_bills_reasoning_tokens_reported_outside_completion_tokens
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure_ai/grok-4.7",
         messages=[{"role": "user", "content": "What is the meaning of life?"}],
         api_base="https://example-resource.services.ai.azure.com/models",
         api_key="azure-ai-test-key",
     )
-    model_info: Final = litellm.get_model_info(model="grok-4.7", custom_llm_provider="azure_ai")
+    model_info: Final = hangarllm.get_model_info(model="grok-4.7", custom_llm_provider="azure_ai")
     expected_cost: Final = 14 * model_info["input_cost_per_token"] + 322 * model_info["output_cost_per_token"]
 
     assert route.call_count == 1
@@ -450,7 +450,7 @@ def test_azure_ai_counts_reasoning_tokens_once_whatever_the_deployment_is_named(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure_ai/team-reasoner",
         messages=[{"role": "user", "content": "What is the meaning of life?"}],
         api_base="https://example-resource.services.ai.azure.com/models",
@@ -479,7 +479,7 @@ def test_azure_ai_grok_stream_folds_reasoning_tokens_into_the_usage_chunk(respx_
     )
 
     chunks: Final = tuple(
-        litellm.completion(
+        hangarllm.completion(
             model="azure_ai/grok-4.7",
             messages=[{"role": "user", "content": "What is the meaning of life?"}],
             api_base="https://example-resource.services.ai.azure.com/models",
@@ -535,7 +535,7 @@ def test_azure_ai_stream_counts_reasoning_tokens_once_whatever_the_chunks_call_t
     )
 
     chunks: Final = tuple(
-        litellm.completion(
+        hangarllm.completion(
             model="azure_ai/team-reasoner",
             messages=[{"role": "user", "content": "What is the meaning of life?"}],
             api_base="https://example-resource.services.ai.azure.com/models",
@@ -564,8 +564,8 @@ def test_azure_model_router_response_shows_actual_model():
     """
     from httpx import Response
 
-    from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.base_llm.chat.transformation import HangarLLMLoggingObj
+    from hangarllm.types.utils import ModelResponse
 
     config = AzureModelRouterConfig()
 
@@ -602,7 +602,7 @@ def test_azure_model_router_response_shows_actual_model():
     model_response = ModelResponse()
 
     # Create mock logging object with required methods
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     logging_obj.post_call = MagicMock()
     logging_obj.model_call_details = {}
 
@@ -615,7 +615,7 @@ def test_azure_model_router_response_shows_actual_model():
         request_data={},
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={"model": "azure_ai/model-router"},  # Original request model
+        hangarllm_params={"model": "azure_ai/model-router"},  # Original request model
         encoding=None,
         api_key="test-key",
         json_mode=False,
@@ -636,12 +636,12 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
     """
     from httpx import Response
 
-    from litellm.llms.azure_ai.common_utils import (
+    from hangarllm.llms.azure_ai.common_utils import (
         AZURE_MODEL_ROUTER_SELECTED_MODEL_KEY,
         AzureFoundryModelInfo,
     )
-    from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.base_llm.chat.transformation import HangarLLMLoggingObj
+    from hangarllm.types.utils import ModelResponse
 
     raw_response_json = {
         "id": "chatcmpl-test456",
@@ -663,7 +663,7 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
     mock_response.text = json.dumps(raw_response_json)
     mock_response.headers = {}
 
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    logging_obj = MagicMock(spec=HangarLLMLoggingObj)
     logging_obj.post_call = MagicMock()
     logging_obj.model_call_details = {}
 
@@ -675,7 +675,7 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
         request_data={},
         messages=[{"role": "user", "content": "Reply with just pong"}],
         optional_params={},
-        litellm_params={"model": "azure_ai/model_router/smart-pick"},
+        hangarllm_params={"model": "azure_ai/model_router/smart-pick"},
         encoding=None,
         api_key="test-key",
         json_mode=False,
@@ -700,7 +700,7 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
 def test_drop_tool_level_extra_fields_strips_copilot_mcp_server_name():
     """
     Regression test: Azure AI returns 400 when tools contain copilot_mcp_server_name.
-    LiteLLM should strip the field and retry automatically.
+    HangarLLM should strip the field and retry automatically.
     """
     import httpx
 
@@ -781,7 +781,7 @@ def test_extra_parameters_error_drops_reasoning_effort_with_one_warning(caplog: 
         "reasoning_effort": "high",
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         retried: Final = AzureAIStudioConfig().transform_request_on_unprocessable_entity_error(error, request_data)
     drop_warnings: Final = [record.getMessage() for record in caplog.records if "Dropping" in record.getMessage()]
 
@@ -808,7 +808,7 @@ def test_extra_inputs_error_names_drop_params_in_the_reasoning_drop_warning(capl
         "reasoning_effort": "high",
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         retried: Final = AzureAIStudioConfig().transform_request_on_unprocessable_entity_error(error, request_data)
     drop_warnings: Final = [record.getMessage() for record in caplog.records if "Dropping" in record.getMessage()]
 
@@ -831,7 +831,7 @@ def _find_key_anywhere(obj, key: str) -> bool:
 
 def test_azure_ai_strips_non_openai_spec_message_fields():
     """
-    Regression for https://github.com/BerriAI/litellm/issues/33961.
+    Regression for upstream issue 33961
 
     Azure AI Foundry backends set additionalProperties=false, so any message
     field outside the OpenAI chat-completions schema causes a 400 "Extra inputs
@@ -877,7 +877,7 @@ def test_azure_ai_strips_non_openai_spec_message_fields():
         model="fw-glm-5.2",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -895,7 +895,7 @@ def test_azure_ai_strips_non_openai_spec_message_fields():
 
 def test_azure_ai_stripping_does_not_mutate_caller_messages():
     """
-    The stripping must not touch the caller's messages. LiteLLM reuses the same
+    The stripping must not touch the caller's messages. HangarLLM reuses the same
     message objects when falling back to another provider, so stripping in place
     would hand the fallback a conversation history with its thinking blocks and
     provider metadata already destroyed.
@@ -929,7 +929,7 @@ def test_azure_ai_stripping_does_not_mutate_caller_messages():
         model="fw-glm-5.2",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -966,7 +966,7 @@ def test_azure_ai_keeps_prompt_cache_breakpoint_for_a_model_that_supports_it(_lo
             {"role": "user", "content": [{"type": "text", "text": "hi"}]},
         ],
         optional_params={"prompt_cache_options": {"mode": "explicit"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -991,7 +991,7 @@ def test_azure_ai_still_flattens_list_content_for_a_model_without_the_breakpoint
             {"role": "user", "content": [{"type": "text", "text": "hi"}]},
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1027,7 +1027,7 @@ def test_azure_ai_drops_thinking_parts_from_history_while_keeping_the_breakpoint
             {"role": "user", "content": [{"type": "text", "text": "thanks"}]},
         ],
         optional_params={"prompt_cache_options": {"mode": "explicit"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1052,7 +1052,7 @@ def test_azure_ai_renames_a_cache_control_mark_to_a_breakpoint_for_a_model_that_
             {"role": "user", "content": "hi", "cache_control": {"type": "ephemeral"}},
         ],
         optional_params={"prompt_cache_options": {"mode": "explicit"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1077,10 +1077,10 @@ def test_azure_ai_drops_a_file_part_next_to_the_breakpoint_like_the_string_conve
     ]
 
     kept: Final = AzureAIStudioConfig().transform_request(
-        model="gpt-6-astra", messages=messages, optional_params={}, litellm_params={}, headers={}
+        model="gpt-6-astra", messages=messages, optional_params={}, hangarllm_params={}, headers={}
     )
     flattened: Final = AzureAIStudioConfig().transform_request(
-        model="gpt-4o", messages=messages, optional_params={}, litellm_params={}, headers={}
+        model="gpt-4o", messages=messages, optional_params={}, hangarllm_params={}, headers={}
     )
 
     assert kept["messages"][0]["content"] == [
@@ -1099,7 +1099,7 @@ def test_azure_ai_sends_a_pdf_part_next_to_the_breakpoint_as_is(_local_model_cos
         model="gpt-6-astra",
         messages=[{"role": "user", "content": content}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1120,7 +1120,7 @@ def test_azure_ai_puts_a_message_level_mark_on_the_last_text_part_when_a_file_pa
             }
         ],
         optional_params={"prompt_cache_options": {"mode": "explicit"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1132,22 +1132,22 @@ def test_azure_ai_puts_a_message_level_mark_on_the_last_text_part_when_a_file_pa
 @pytest.mark.parametrize(
     ("registered", "keeps_parts"),
     [
-        ({"azure_ai/qa-foundry-alias": {"litellm_provider": "azure_ai", "supports_prompt_cache_breakpoint": True}}, True),
-        ({"qa-foundry-alias": {"litellm_provider": "openai", "supports_prompt_cache_breakpoint": True}}, False),
+        ({"azure_ai/qa-foundry-alias": {"hangarllm_provider": "azure_ai", "supports_prompt_cache_breakpoint": True}}, True),
+        ({"qa-foundry-alias": {"hangarllm_provider": "openai", "supports_prompt_cache_breakpoint": True}}, False),
     ],
     ids=["azure_ai-entry-opts-in", "openai-entry-does-not-speak-for-azure_ai"],
 )
 def test_azure_ai_keeps_parts_only_when_the_azure_ai_entry_reads_breakpoints(
     _local_model_cost_map, registered: dict[str, dict[str, object]], keeps_parts: bool
 ):
-    litellm.register_model(model_cost=registered, persist_across_reloads=False, add_to_provider_model_sets=False)
+    hangarllm.register_model(model_cost=registered, persist_across_reloads=False, add_to_provider_model_sets=False)
     breakpoint_part: Final = {"type": "text", "text": "stable", "prompt_cache_breakpoint": {"mode": "explicit"}}
 
     request: Final = AzureAIStudioConfig().transform_request(
         model="qa-foundry-alias",
         messages=[{"role": "system", "content": [breakpoint_part]}],
         optional_params={},
-        litellm_params={"custom_llm_provider": "azure_ai", "drop_params": True},
+        hangarllm_params={"custom_llm_provider": "azure_ai", "drop_params": True},
         headers={},
     )
 
@@ -1169,7 +1169,7 @@ def test_azure_ai_deployment_reads_only_its_own_breakpoint_flag_not_a_siblings_s
     def deployment(host: str, model_info: dict[str, object]) -> dict[str, object]:
         return {
             "model_name": host,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure_ai/qa-shared-deployment",
                 "api_base": f"https://{host}.services.ai.azure.com/models",
                 "api_key": "azure-ai-test-key",
@@ -1217,14 +1217,14 @@ def test_azure_ai_deployment_reads_only_its_own_breakpoint_flag_not_a_siblings_s
 
 
 @pytest.mark.parametrize(
-    "litellm_params",
+    "hangarllm_params",
     [
         {"base_model": "azure_ai/gpt-6-astra"},
         {"base_model": "azure_ai/gpt-6-astra", "model_info": {"id": "my-astra-deployment-id"}},
     ],
 )
 def test_azure_ai_keeps_parts_for_a_custom_deployment_name_whose_base_model_reads_breakpoints(
-    _local_model_cost_map, litellm_params: dict[str, object]
+    _local_model_cost_map, hangarllm_params: dict[str, object]
 ):
     breakpoint_part: Final = {"type": "text", "text": "stable", "prompt_cache_breakpoint": {"mode": "explicit"}}
 
@@ -1232,7 +1232,7 @@ def test_azure_ai_keeps_parts_for_a_custom_deployment_name_whose_base_model_read
         model="my-astra-deployment",
         messages=[{"role": "system", "content": [breakpoint_part]}],
         optional_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
 
@@ -1240,14 +1240,14 @@ def test_azure_ai_keeps_parts_for_a_custom_deployment_name_whose_base_model_read
 
 
 @pytest.mark.parametrize(
-    "litellm_params",
+    "hangarllm_params",
     [
         {"base_model": "azure/cost-tracking-row"},
         {"base_model": "azure/cost-tracking-row", "model_info": {"id": "astra-deployment-id"}},
     ],
 )
 def test_azure_ai_falls_back_to_the_model_name_when_the_base_model_row_does_not_read_breakpoints(
-    _local_model_cost_map, litellm_params: dict[str, object]
+    _local_model_cost_map, hangarllm_params: dict[str, object]
 ):
     breakpoint_part: Final = {"type": "text", "text": "stable", "prompt_cache_breakpoint": {"mode": "explicit"}}
 
@@ -1255,7 +1255,7 @@ def test_azure_ai_falls_back_to_the_model_name_when_the_base_model_row_does_not_
         model="gpt-6-astra",
         messages=[{"role": "system", "content": [breakpoint_part]}],
         optional_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
 
@@ -1263,7 +1263,7 @@ def test_azure_ai_falls_back_to_the_model_name_when_the_base_model_row_does_not_
 
 
 @pytest.mark.parametrize(
-    "sent_marker, litellm_params, wire_part",
+    "sent_marker, hangarllm_params, wire_part",
     [
         (
             {"mode": "explicit", "ttl": "30m"},
@@ -1287,7 +1287,7 @@ def test_azure_ai_falls_back_to_the_model_name_when_the_base_model_row_does_not_
 def test_azure_ai_reshapes_breakpoints_for_foundry_only_under_drop_params(
     _local_model_cost_map,
     sent_marker: dict[str, object],
-    litellm_params: dict[str, object],
+    hangarllm_params: dict[str, object],
     wire_part: dict[str, object],
 ):
     request: Final = AzureAIStudioConfig().transform_request(
@@ -1296,7 +1296,7 @@ def test_azure_ai_reshapes_breakpoints_for_foundry_only_under_drop_params(
             {"role": "system", "content": [{"type": "text", "text": "stable", "prompt_cache_breakpoint": sent_marker}]}
         ],
         optional_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
 
@@ -1322,7 +1322,7 @@ def test_azure_ai_reference_only_tool_result_is_sent_as_empty_text():
         model="fw-glm-5.2",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1333,33 +1333,33 @@ def test_azure_ai_reference_only_tool_result_is_sent_as_empty_text():
     "api_base, expected_url",
     [
         (
-            "https://litellm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview",
-            "https://litellm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview",
+            "https://hangarllm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview",
+            "https://hangarllm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview",
         ),
         (
-            "https://litellm8397336933.services.ai.azure.com/models/chat/completions",
-            "https://litellm8397336933.services.ai.azure.com/models/chat/completions",
+            "https://hangarllm8397336933.services.ai.azure.com/models/chat/completions",
+            "https://hangarllm8397336933.services.ai.azure.com/models/chat/completions",
         ),
         (
-            "https://litellm8397336933.services.ai.azure.com/models",
-            "https://litellm8397336933.services.ai.azure.com/models/chat/completions",
+            "https://hangarllm8397336933.services.ai.azure.com/models",
+            "https://hangarllm8397336933.services.ai.azure.com/models/chat/completions",
         ),
         (
-            "https://litellm8397336933.services.ai.azure.com",
-            "https://litellm8397336933.services.ai.azure.com/models/chat/completions",
+            "https://hangarllm8397336933.services.ai.azure.com",
+            "https://hangarllm8397336933.services.ai.azure.com/models/chat/completions",
         ),
     ],
 )
 def test_azure_ai_services_handler(api_base, expected_url):
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     client = HTTPHandler()
 
     with patch.object(client, "post") as mock_client:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="azure_ai/Llama-3.3-70B-Instruct",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 api_key="my-fake-api-key",
@@ -1378,18 +1378,18 @@ def test_azure_ai_services_handler(api_base, expected_url):
 
 
 def test_azure_ai_services_with_api_version():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler, AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler, AsyncHTTPHandler
 
     client = HTTPHandler()
 
     with patch.object(client, "post") as mock_client:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="azure_ai/Llama-3.3-70B-Instruct",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 api_key="my-fake-api-key",
                 api_version="2024-05-01-preview",
-                api_base="https://litellm8397336933.services.ai.azure.com/models",
+                api_base="https://hangarllm8397336933.services.ai.azure.com/models",
                 client=client,
             )
         except Exception as e:
@@ -1399,7 +1399,7 @@ def test_azure_ai_services_with_api_version():
         assert mock_client.call_args.kwargs["headers"]["api-key"] == "my-fake-api-key"
         assert (
             mock_client.call_args.kwargs["url"]
-            == "https://litellm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview"
+            == "https://hangarllm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview"
         )
 
 
@@ -1410,15 +1410,15 @@ async def test_azure_ai_with_image_url():
 
     Test that Azure AI studio can handle image_url passed when content is a list containing both text and image_url
     """
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     client = AsyncHTTPHandler()
 
     with patch.object(client, "post") as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="azure_ai/Phi-3-5-vision-instruct-dcvov",
                 api_base="https://Phi-3-5-vision-instruct-dcvov.eastus2.models.ai.azure.com",
                 messages=[
@@ -1432,7 +1432,7 @@ async def test_azure_ai_with_image_url():
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png"
+                                    "url": "https://hangarllm-listing.s3.amazonaws.com/hangarllm_logo.png"
                                 },
                             },
                         ],
@@ -1460,7 +1460,7 @@ async def test_azure_ai_with_image_url():
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": "https://litellm-listing.s3.amazonaws.com/litellm_logo.png"
+                            "url": "https://hangarllm-listing.s3.amazonaws.com/hangarllm_logo.png"
                         },
                     },
                 ],
@@ -1497,10 +1497,10 @@ def test_azure_deepseek_reasoning_content():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="azure_ai/deepseek-r1",
             messages=[{"role": "user", "content": "Hello, world!"}],
-            api_base="https://litellm8397336933.services.ai.azure.com/models/chat/completions",
+            api_base="https://hangarllm8397336933.services.ai.azure.com/models/chat/completions",
             api_key="my-fake-api-key",
             client=client,
         )
@@ -1518,7 +1518,7 @@ def test_azure_deepseek_reasoning_content():
     ],
 )
 def test_map_azure_model_group(model_group_header, expected_model):
-    from litellm.llms.azure_ai.embed.cohere_transformation import AzureAICohereConfig
+    from hangarllm.llms.azure_ai.embed.cohere_transformation import AzureAICohereConfig
 
     config = AzureAICohereConfig()
     assert config._map_azure_model_group(model_group_header) == expected_model
@@ -1535,7 +1535,7 @@ def test_azure_ai_sends_file_parts_instead_of_flattening_them_to_text() -> None:
         model="Kimi-K2.6",
         messages=[{"role": "user", "content": content}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1549,7 +1549,7 @@ def test_azure_ai_passes_dict_message_content_through_for_the_provider_to_judge(
         model="gpt-5.6-sol",
         messages=[{"role": "user", "content": content}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1569,7 +1569,7 @@ def test_azure_ai_flattens_a_non_pdf_file_part_to_its_text_as_before(file: dict[
         model="Llama-3.3-70B-Instruct",
         messages=[{"role": "user", "content": [{"type": "text", "text": "summarize"}, {"type": "file", "file": file}]}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

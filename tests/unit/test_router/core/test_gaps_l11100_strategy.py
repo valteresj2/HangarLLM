@@ -10,8 +10,8 @@ from typing import Final
 
 import pytest
 
-from litellm.router_api import ChangeSet
-from litellm.types.router import Deployment
+from hangarllm.router_api import ChangeSet
+from hangarllm.types.router import Deployment
 from tests.unit.test_router.core.gaps_l11100_helpers import (
     TIERS,
     MakeCore,
@@ -50,15 +50,15 @@ HEURISTIC_V2_LIMIT_MESSAGE: Final = (
         (
             {},
             "auto_router_config_path or auto_router_config is required for auto-router deployments. "
-            "Please set it in the litellm_params",
+            "Please set it in the hangarllm_params",
         ),
         (
             {"auto_router_config": "{}"},
-            "auto_router_default_model is required for auto-router deployments. Please set it in the litellm_params",
+            "auto_router_default_model is required for auto-router deployments. Please set it in the hangarllm_params",
         ),
         (
             {"auto_router_config": "{}", "auto_router_default_model": "big"},
-            "auto_router_embedding_model is required for auto-router deployments. Please set it in the litellm_params",
+            "auto_router_embedding_model is required for auto-router deployments. Please set it in the hangarllm_params",
         ),
     ],
     ids=["no-config", "no-default-model", "no-embedding-model"],
@@ -82,7 +82,7 @@ def test_a_quality_router_marker_without_a_default_model_is_rejected(make_core: 
         make_core(model_list=[*PLAIN, marker("q", "m", "auto_router/quality_router")])
     assert str(raised.value) == (
         "quality_router_default_model is required for quality-router deployments, or set default_model in "
-        "quality_router_config. Please configure it in the litellm_params"
+        "quality_router_config. Please configure it in the hangarllm_params"
     )
 
 
@@ -297,7 +297,7 @@ def test_a_failed_edit_rolls_back_to_the_serving_router_even_above_a_tightened_l
     assert registered_tags(core, "complexity") == {"one": [()], "two": [()]}
     restored: Final = core.registry().deployment("m2")
     assert restored is not None
-    assert restored.litellm_params.tags is None
+    assert restored.hangarllm_params.tags is None
 
 
 def test_a_failed_edit_without_ignore_invalid_deployments_raises_and_leaves_the_router_removed(
@@ -340,7 +340,7 @@ def _adaptive_list() -> list[dict[str, object]]:  # mutable-ok: a model_list
 
 
 def _hook_counts(host: ScriptedHost) -> tuple[int, int]:
-    from litellm.router_strategy.adaptive_router.hooks import (
+    from hangarllm.router_strategy.adaptive_router.hooks import (
         AdaptiveRouterPostCallHook,
         AdaptiveRouterResponseHeaderHook,
     )
@@ -353,7 +353,7 @@ def _hook_counts(host: ScriptedHost) -> tuple[int, int]:
 
 
 def test_an_adaptive_router_is_built_after_the_whole_list_from_the_models_it_names(make_core: MakeCore) -> None:
-    """The marker is listed before x and y, yet sees them: litellm_params pricing wins over model_info
+    """The marker is listed before x and y, yet sees them: hangarllm_params pricing wins over model_info
     pricing, preferences come from model_info, and z (not configured) gets neither."""
     core: Final = make_core(model_list=_adaptive_list())
     registry: Final = core.registry().plugins("adaptive")

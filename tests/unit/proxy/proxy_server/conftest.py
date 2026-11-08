@@ -19,13 +19,13 @@ import pytest
 if TYPE_CHECKING:
     import respx
 
-    from litellm import Router
+    from hangarllm import Router
 
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 # Repo root, anchored to this file (not CWD) so the path is correct no
 # matter where pytest is invoked from. With the project installed via
-# uv this is defensive — `litellm` already resolves through site-packages
+# uv this is defensive — `hangarllm` already resolves through site-packages
 # — but it lets the harness work in editable-source layouts too.
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -44,7 +44,7 @@ VOLATILE_KEYS = frozenset(
         "request_id",
         "expires",
         "expires_at",
-        "litellm_call_id",
+        "hangarllm_call_id",
         "key_alias",
         "created",
     }
@@ -81,8 +81,8 @@ def app():
     Module import still runs once; module-level globals are harmless.
     """
     with pytest.MonkeyPatch.context() as environment:
-        environment.setenv("LITELLM_LOG", os.environ.get("LITELLM_LOG", "ERROR"))
-        from litellm.proxy.proxy_server import app as _app
+        environment.setenv("HANGARLLM_LOG", os.environ.get("HANGARLLM_LOG", "ERROR"))
+        from hangarllm.proxy.proxy_server import app as _app
 
     return _app
 
@@ -107,36 +107,36 @@ def client(app):
 # Tables most-touched by proxy_server.py routes. Add to this list if a
 # test discovers a missing table.
 _PRISMA_TABLES: List[str] = [
-    "litellm_verificationtoken",
-    "litellm_teamtable",
-    "litellm_usertable",
-    "litellm_endusertable",
-    "litellm_organizationtable",
-    "litellm_organizationmembership",
-    "litellm_proxymodeltable",
-    "litellm_modeltable",
-    "litellm_budgettable",
-    "litellm_spendlogs",
-    "litellm_invitationlink",
-    "litellm_credentialstable",
-    "litellm_mcpservertable",
-    "litellm_objectpermissiontable",
-    "litellm_configtable",
-    "litellm_audit_log",
-    "litellm_dailyuserspend",
-    "litellm_dailyteamspend",
-    "litellm_dailytagspend",
-    "litellm_managed_object_table",
-    "litellm_managed_vector_stores_table",
-    "litellm_promptstable",
-    "litellm_guardrailstable",
-    "litellm_managed_files",
-    "litellm_session_token_table",
-    "litellm_passthrough_endpoint_table",
-    "litellm_cron_job",
-    "litellm_passthrough_logs",
-    "litellm_health_check_table",
-    "litellm_mcpusercredentials",
+    "hangarllm_verificationtoken",
+    "hangarllm_teamtable",
+    "hangarllm_usertable",
+    "hangarllm_endusertable",
+    "hangarllm_organizationtable",
+    "hangarllm_organizationmembership",
+    "hangarllm_proxymodeltable",
+    "hangarllm_modeltable",
+    "hangarllm_budgettable",
+    "hangarllm_spendlogs",
+    "hangarllm_invitationlink",
+    "hangarllm_credentialstable",
+    "hangarllm_mcpservertable",
+    "hangarllm_objectpermissiontable",
+    "hangarllm_configtable",
+    "hangarllm_audit_log",
+    "hangarllm_dailyuserspend",
+    "hangarllm_dailyteamspend",
+    "hangarllm_dailytagspend",
+    "hangarllm_managed_object_table",
+    "hangarllm_managed_vector_stores_table",
+    "hangarllm_promptstable",
+    "hangarllm_guardrailstable",
+    "hangarllm_managed_files",
+    "hangarllm_session_token_table",
+    "hangarllm_passthrough_endpoint_table",
+    "hangarllm_cron_job",
+    "hangarllm_passthrough_logs",
+    "hangarllm_health_check_table",
+    "hangarllm_mcpusercredentials",
 ]
 
 
@@ -165,7 +165,7 @@ def mock_prisma() -> MagicMock:
     Default returns: find_unique/find_first -> None, find_many/group_by -> [],
     count -> 0. Override in a test with::
 
-        mock_prisma.db.litellm_teamtable.find_unique.return_value = ...
+        mock_prisma.db.hangarllm_teamtable.find_unique.return_value = ...
     """
     client_mock = MagicMock()
     client_mock.db = MagicMock()
@@ -189,15 +189,15 @@ def auth_as(app) -> Callable[..., contextlib.AbstractContextManager]:
     Usage::
 
         def test_admin_only(client, auth_as):
-            from litellm.proxy._types import LitellmUserRoles
-            with auth_as(LitellmUserRoles.PROXY_ADMIN):
+            from hangarllm.proxy._types import HangarllmUserRoles
+            with auth_as(HangarllmUserRoles.PROXY_ADMIN):
                 response = client.get("/some/admin/route")
                 assert response.status_code == 200
 
     Outside the ``with`` block the override is removed so other tests see
     the real dependency.
     """
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     @contextlib.contextmanager
     def _auth_as(
@@ -207,10 +207,10 @@ def auth_as(app) -> Callable[..., contextlib.AbstractContextManager]:
         api_key: str = "sk-test-key",
         **kwargs: Any,
     ) -> Iterator[Any]:
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
         if role is None:
-            role = LitellmUserRoles.PROXY_ADMIN
+            role = HangarllmUserRoles.PROXY_ADMIN
 
         fake_auth = UserAPIKeyAuth(
             api_key=api_key,
@@ -256,7 +256,7 @@ def make_acompletion_response(
         - A tool-call shape when ``tools`` is non-empty
         - A plain text response otherwise
     """
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionMessageToolCall,
         Choices,
         Function,
@@ -297,7 +297,7 @@ def make_acompletion_response(
 async def _stream_chunks(
     model: str = "gpt-4", content: str = "Hi"
 ) -> AsyncIterator[Any]:
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         Delta,
         ModelResponseStream,
         StreamingChoices,
@@ -325,7 +325,7 @@ def make_embedding_response(
     dimensions: int = 8,
     **kwargs: Any,
 ) -> Any:
-    from litellm.types.utils import EmbeddingResponse
+    from hangarllm.types.utils import EmbeddingResponse
 
     if isinstance(input, list):
         n = len(input)
@@ -345,7 +345,7 @@ def make_embedding_response(
 
 
 def make_image_response(model: str = "dall-e-3", **kwargs: Any) -> Any:
-    from litellm.types.utils import ImageResponse
+    from hangarllm.types.utils import ImageResponse
 
     return ImageResponse(
         created=0,
@@ -359,7 +359,7 @@ def make_speech_response(**kwargs: Any) -> bytes:
 
 
 def make_transcription_response(**kwargs: Any) -> Any:
-    from litellm.types.utils import TranscriptionResponse
+    from hangarllm.types.utils import TranscriptionResponse
 
     return TranscriptionResponse(text="hello world")
 
@@ -413,14 +413,14 @@ def mock_router() -> MagicMock:
     router.atranscription = AsyncMock(side_effect=_atranscription)
     router.amoderation = AsyncMock(side_effect=_amoderation)
     router.model_list = [
-        {"model_name": "gpt-4", "litellm_params": {"model": "gpt-4"}},
+        {"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4"}},
         {
             "model_name": "claude-sonnet",
-            "litellm_params": {"model": "anthropic/claude-3-5-sonnet-latest"},
+            "hangarllm_params": {"model": "anthropic/claude-3-5-sonnet-latest"},
         },
         {
             "model_name": "bedrock-claude",
-            "litellm_params": {"model": "bedrock/anthropic.claude-3-5-sonnet"},
+            "hangarllm_params": {"model": "bedrock/anthropic.claude-3-5-sonnet"},
         },
     ]
     router.model_names = ["gpt-4", "claude-sonnet", "bedrock-claude"]
@@ -435,8 +435,8 @@ def mock_router() -> MagicMock:
 
 @pytest.fixture(autouse=True)
 def mock_callbacks_disabled(monkeypatch) -> None:
-    """Wipe ``litellm.callbacks`` and friends so tests don't leak side effects."""
-    import litellm
+    """Wipe ``hangarllm.callbacks`` and friends so tests don't leak side effects."""
+    import hangarllm
 
     for attr in (
         "callbacks",
@@ -447,8 +447,8 @@ def mock_callbacks_disabled(monkeypatch) -> None:
         "input_callback",
         "service_callback",
     ):
-        if hasattr(litellm, attr):
-            monkeypatch.setattr(litellm, attr, [], raising=False)
+        if hasattr(hangarllm, attr):
+            monkeypatch.setattr(hangarllm, attr, [], raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -464,12 +464,12 @@ def make_user(
     spend: float = 0.0,
     **kwargs: Any,
 ) -> Any:
-    from litellm.proxy._types import LiteLLM_UserTable, LitellmUserRoles
+    from hangarllm.proxy._types import HangarLLM_UserTable, HangarllmUserRoles
 
     if role is None:
-        role = LitellmUserRoles.INTERNAL_USER
+        role = HangarllmUserRoles.INTERNAL_USER
 
-    return LiteLLM_UserTable(
+    return HangarLLM_UserTable(
         user_id=user_id,
         user_role=role,
         teams=teams or [],
@@ -487,9 +487,9 @@ def make_team(
     members_with_roles: Optional[List[Dict[str, Any]]] = None,
     **kwargs: Any,
 ) -> Any:
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from hangarllm.proxy._types import HangarLLM_TeamTable
 
-    return LiteLLM_TeamTable(
+    return HangarLLM_TeamTable(
         team_id=team_id,
         team_alias=team_alias,
         max_budget=max_budget,
@@ -508,9 +508,9 @@ def make_key(
     max_budget: Optional[float] = None,
     **kwargs: Any,
 ) -> Any:
-    from litellm.proxy._types import LiteLLM_VerificationToken
+    from hangarllm.proxy._types import HangarLLM_VerificationToken
 
-    return LiteLLM_VerificationToken(
+    return HangarLLM_VerificationToken(
         token=token,
         key_alias=key_alias,
         team_id=team_id,
@@ -529,9 +529,9 @@ def reset_login_throttle(monkeypatch):
     window, so without this a failed sign-in test could block unrelated tests later.
     Only the throttle's own keys are removed, so other cache entries remain untouched.
     """
-    from litellm.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy.auth.login_throttle import _BLOCKS, _COUNTERS
+    from hangarllm.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
+    from hangarllm.proxy import proxy_server as ps
+    from hangarllm.proxy.auth.login_throttle import _BLOCKS, _COUNTERS
 
     def _drop_throttle_keys() -> None:
         for store in (_COUNTERS, _BLOCKS):
@@ -547,14 +547,14 @@ def reset_login_throttle(monkeypatch):
 
 @pytest.fixture
 def openai_only_router(monkeypatch: pytest.MonkeyPatch) -> Router:
-    from litellm import Router
-    from litellm.proxy import proxy_server
+    from hangarllm import Router
+    from hangarllm.proxy import proxy_server
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                 "model_info": {"id": "gpt-4-id"},
             }
         ]
@@ -573,14 +573,14 @@ def failed_spend_row(
 ) -> Iterator[Callable[[], tuple[str, str]]]:
     """Route tts-1, whisper-1 and omni-moderation to an OpenAI deployment whose provider answers 400,
     and return a reader for the (status, call_type) of the spend row the failure wrote."""
-    import litellm
-    from litellm import Router
-    from litellm.proxy import proxy_server
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-    from litellm.proxy.proxy_server import ProxyConfig
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.proxy.utils import ProxyLogging
+    import hangarllm
+    from hangarllm import Router
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+    from hangarllm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.proxy.utils import ProxyLogging
 
     api_base: Final = "https://failing-provider.example/v1"
     respx_mock.post(url__startswith=api_base).respond(
@@ -590,7 +590,7 @@ def failed_spend_row(
         model_list=[
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/{provider_model}",
                     "api_base": api_base,
                     "api_key": "provider-key",
@@ -607,8 +607,8 @@ def failed_spend_row(
     )
     cache: Final = UserApiKeyCache()
     spend_writer: Final = MagicMock(update_database=AsyncMock())
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
     for name, value in (
         ("llm_router", router),
         ("llm_model_list", router.model_list),

@@ -12,15 +12,15 @@ import pytest
 from fakeredis import FakeRedis, FakeServer
 from fakeredis.aioredis import FakeRedis as FakeAsyncRedis
 
-import litellm
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
-from litellm.constants import NO_MAX_TOKENS_TPM_RESERVATION_FRACTION
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
+from hangarllm.constants import NO_MAX_TOKENS_TPM_RESERVATION_FRACTION
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObject
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check import (
     ITPM_CACHE_KEY,
     ITPM_RESERVED_KEY,
     OTPM_CACHE_KEY,
@@ -38,26 +38,26 @@ from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import (
     refund_stale_reservation_before_retry,
     set_io_token_rate_limit_request_kwargs,
 )
-from litellm.router_utils.pre_call_checks.model_rate_limit_check import (
+from hangarllm.router_utils.pre_call_checks.model_rate_limit_check import (
     ModelRateLimitingCheck,
 )
-from litellm.types.llms.openai import InputTokensDetails, ResponseAPIUsage, ResponsesAPIResponse
-from litellm.types.router import RouterCacheEnum
-from litellm.types.utils import ModelResponse, Usage
-from litellm.utils import get_utc_datetime
+from hangarllm.types.llms.openai import InputTokensDetails, ResponseAPIUsage, ResponsesAPIResponse
+from hangarllm.types.router import RouterCacheEnum
+from hangarllm.types.utils import ModelResponse, Usage
+from hangarllm.utils import get_utc_datetime
 
 MANTLE_OPUS = "bedrock_mantle/anthropic.claude-opus-4-7"
-MANTLE_OPUS_MAX_OUTPUT = litellm.get_model_info(model=MANTLE_OPUS)["max_output_tokens"]
-UNMAPPED_MODEL = "openai/litellm-io-unmapped-model"
+MANTLE_OPUS_MAX_OUTPUT = hangarllm.get_model_info(model=MANTLE_OPUS)["max_output_tokens"]
+UNMAPPED_MODEL = "openai/hangarllm-io-unmapped-model"
 UNMAPPED_MODEL_DEFAULT_MAX_OUTPUT = 4096
 AZURE_BASE_MODEL = "azure/gpt-5"
-AZURE_BASE_MODEL_MAX_OUTPUT = litellm.get_model_info(model=AZURE_BASE_MODEL)["max_output_tokens"]
+AZURE_BASE_MODEL_MAX_OUTPUT = hangarllm.get_model_info(model=AZURE_BASE_MODEL)["max_output_tokens"]
 
 
 class TestIOTokenRateLimitHelpers:
     def test_deployment_has_io_token_limits(self):
-        assert deployment_has_io_token_limits({"litellm_params": {"itpm": 100, "otpm": 50}})
-        assert not deployment_has_io_token_limits({"litellm_params": {"model": "x"}})
+        assert deployment_has_io_token_limits({"hangarllm_params": {"itpm": 100, "otpm": 50}})
+        assert not deployment_has_io_token_limits({"hangarllm_params": {"model": "x"}})
 
     def test_reservation_value_minimal_when_estimate_fails(self):
         # A failed/empty estimate (0) must reserve a minimal slot, not the
@@ -103,12 +103,12 @@ class TestIOTokenRateLimitHelpers:
 class TestModelRateLimitingCheckIOTokens:
     @pytest.mark.asyncio
     async def test_itpm_reservation_and_reconcile(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 100,
                 "otpm": 50,
@@ -132,7 +132,7 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-test-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
+                "hidden_params": {"hangarllm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
                 "metadata": dict(request_kwargs["metadata"]),
             },
             "metadata": request_kwargs["metadata"],
@@ -160,7 +160,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 5,
             },
@@ -184,21 +184,21 @@ class TestModelRateLimitingCheckIOTokens:
             metadata_channel="metadata",
         )
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(hangarllm.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "ITPM limit=5" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_otpm_atomic_reservation_no_overshoot_under_concurrency(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         otpm_limit = 10
         max_tokens = 4
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "otpm": otpm_limit,
             },
@@ -219,7 +219,7 @@ class TestModelRateLimitingCheckIOTokens:
             try:
                 await check.async_pre_call_check(deployment)
                 return True
-            except litellm.RateLimitError:
+            except hangarllm.RateLimitError:
                 return False
 
         results = await asyncio.gather(*[_attempt() for _ in range(8)])
@@ -245,13 +245,13 @@ class TestModelRateLimitingCheckIOTokens:
         concurrent request is rejected until it completes - effectively
         serializing traffic to the deployment.
         """
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         itpm_limit = 5
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": itpm_limit,
             },
@@ -272,7 +272,7 @@ class TestModelRateLimitingCheckIOTokens:
             try:
                 await check.async_pre_call_check(deployment)
                 return True
-            except litellm.RateLimitError:
+            except hangarllm.RateLimitError:
                 return False
 
         results = await asyncio.gather(*[_attempt() for _ in range(8)])
@@ -289,8 +289,8 @@ class TestModelRateLimitingCheckIOTokens:
         assert successes == itpm_limit
 
     @pytest.mark.asyncio
-    async def test_reservation_read_prefers_top_level_metadata_over_litellm_params(self):
-        from litellm.utils import get_utc_datetime
+    async def test_reservation_read_prefers_top_level_metadata_over_hangarllm_params(self):
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -298,16 +298,16 @@ class TestModelRateLimitingCheckIOTokens:
         itpm_key = f"global_router:io-lp-id:bedrock_mantle/test:itpm:{minute}"
         await dual_cache.async_increment_cache(key=itpm_key, value=20, ttl=60)
 
-        # Production kwargs commonly carry litellm_params.metadata; the stashed
+        # Production kwargs commonly carry hangarllm_params.metadata; the stashed
         # reservation lives in the top-level metadata and must still be found.
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-lp-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"hangarllm_model_name": "bedrock_mantle/test"},
                 "metadata": {},
             },
             "metadata": {ITPM_RESERVED_KEY: 20, ITPM_CACHE_KEY: itpm_key},
-            "litellm_params": {"metadata": {"user_api_key_hash": "abc123"}},
+            "hangarllm_params": {"metadata": {"user_api_key_hash": "abc123"}},
         }
         await check.async_log_failure_event(kwargs, None, None, None)
 
@@ -316,12 +316,12 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_reconcile_tracks_actual_usage_when_estimate_zero(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 100,
             },
@@ -342,7 +342,7 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-zero-est-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
+                "hidden_params": {"hangarllm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
                 "metadata": dict(request_kwargs["metadata"]),
             },
             "metadata": request_kwargs["metadata"],
@@ -365,7 +365,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 2,
             },
@@ -382,7 +382,7 @@ class TestModelRateLimitingCheckIOTokens:
 
         # A third exceeds the limit and is rejected.
         set_io_token_rate_limit_request_kwargs({"max_tokens": 5, "metadata": {}}, metadata_channel="metadata")
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await check.async_pre_call_check(deployment)
 
     @pytest.mark.asyncio
@@ -390,7 +390,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "otpm": 5,
             },
@@ -437,7 +437,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache: Final = DualCache()
         check: Final = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment: Final = {
-            "litellm_params": {"model": model, "otpm": otpm_limit},
+            "hangarllm_params": {"model": model, "otpm": otpm_limit},
             "model_info": {"id": f"io-no-max-tokens-{otpm_limit}"},
             "model_name": "no-max-tokens",
         }
@@ -465,7 +465,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache: Final = DualCache()
         check: Final = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment: Final = {
-            "litellm_params": {"model": model, "otpm": otpm_limit},
+            "hangarllm_params": {"model": model, "otpm": otpm_limit},
             "model_info": {"id": "io-no-max-tokens-race-id"},
             "model_name": "no-max-tokens",
         }
@@ -475,7 +475,7 @@ class TestModelRateLimitingCheckIOTokens:
             set_io_token_rate_limit_request_kwargs(request_kwargs, metadata_channel="metadata")
             try:
                 await check.async_pre_call_check(deployment)
-            except litellm.RateLimitError:
+            except hangarllm.RateLimitError:
                 return None
             return request_kwargs["metadata"]
 
@@ -498,7 +498,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache: Final = DualCache()
         check: Final = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment: Final = {
-            "litellm_params": {"model": model, "otpm": model_max_output * 10},
+            "hangarllm_params": {"model": model, "otpm": model_max_output * 10},
             "model_info": {"id": "io-no-max-tokens-roomy-id"},
             "model_name": "roomy",
         }
@@ -512,7 +512,7 @@ class TestModelRateLimitingCheckIOTokens:
     @pytest.mark.asyncio
     async def test_otpm_reservation_uses_each_deployments_output_limit(self) -> None:
         backend_model: Final = "openai/gpt-4o-mini"
-        catalog_max_output: Final = litellm.get_model_info(model=backend_model)["max_output_tokens"]
+        catalog_max_output: Final = hangarllm.get_model_info(model=backend_model)["max_output_tokens"]
         assert isinstance(catalog_max_output, int)
         otpm_limit: Final = int(max(catalog_max_output, 987) / NO_MAX_TOKENS_TPM_RESERVATION_FRACTION) + 1
         check: Final = ModelRateLimitingCheck(dual_cache=DualCache())
@@ -525,7 +525,7 @@ class TestModelRateLimitingCheckIOTokens:
             }
             set_io_token_rate_limit_request_kwargs(request_kwargs, metadata_channel="metadata")
             deployment: Final = {
-                "litellm_params": {"model": backend_model, "otpm": otpm_limit},
+                "hangarllm_params": {"model": backend_model, "otpm": otpm_limit},
                 "model_info": {"id": deployment_id, **model_info},
             }
             await check.async_pre_call_check(deployment)
@@ -549,7 +549,7 @@ class TestModelRateLimitingCheckIOTokens:
             request_kwargs: Final = {"messages": [{"role": "user", "content": "hello"}], "metadata": {}}
             set_io_token_rate_limit_request_kwargs(request_kwargs, metadata_channel="metadata")
             deployment: Final = {
-                "litellm_params": {"model": "azure/litellm-io-custom-deployment", "otpm": otpm_limit},
+                "hangarllm_params": {"model": "azure/hangarllm-io-custom-deployment", "otpm": otpm_limit},
                 "model_info": model_info,
                 "model_name": "custom-name",
             }
@@ -570,7 +570,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache: Final = DualCache()
         check: Final = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment: Final = {
-            "litellm_params": {"model": MANTLE_OPUS, "itpm": 2000, "otpm": 2000},
+            "hangarllm_params": {"model": MANTLE_OPUS, "itpm": 2000, "otpm": 2000},
             "model_info": {"id": "io-bad-max-tokens-id"},
             "model_name": "opus",
         }
@@ -598,7 +598,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache: Final = DualCache()
         check: Final = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment: Final = {
-            "litellm_params": {"model": MANTLE_OPUS, "otpm": 100},
+            "hangarllm_params": {"model": MANTLE_OPUS, "otpm": 100},
             "model_info": {"id": "io-explicit-max-tokens-id"},
             "model_name": "opus",
         }
@@ -611,7 +611,7 @@ class TestModelRateLimitingCheckIOTokens:
         set_io_token_rate_limit_request_kwargs(
             {"messages": [{"role": "user", "content": "hi"}], "metadata": {}}, metadata_channel="metadata"
         )
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await check.async_pre_call_check(deployment)
 
     @pytest.mark.asyncio
@@ -619,7 +619,7 @@ class TestModelRateLimitingCheckIOTokens:
     async def test_deployment_max_tokens_sets_the_reservation_unless_the_request_sets_one(self, use_sync_check: bool):
         check: Final = ModelRateLimitingCheck(dual_cache=DualCache())
         deployment: Final = {
-            "litellm_params": {"model": MANTLE_OPUS, "otpm": 4000, "max_tokens": 100},
+            "hangarllm_params": {"model": MANTLE_OPUS, "otpm": 4000, "max_tokens": 100},
             "model_info": {"id": "io-deployment-max-tokens-id"},
             "model_name": "opus",
         }
@@ -647,7 +647,7 @@ class TestModelRateLimitingCheckIOTokens:
             set_io_token_rate_limit_request_kwargs(request_kwargs, metadata_channel="metadata")
             await check.async_pre_call_check(
                 {
-                    "litellm_params": {"model": MANTLE_OPUS, "otpm": 4000, **deployment_cap},
+                    "hangarllm_params": {"model": MANTLE_OPUS, "otpm": 4000, **deployment_cap},
                     "model_info": {"id": f"io-sent-cap-{sorted(deployment_cap)}-{sorted(request_shape)}"},
                     "model_name": "opus",
                 }
@@ -675,7 +675,7 @@ class TestModelRateLimitingCheckIOTokens:
             request_kwargs: Final = {"messages": [{"role": "user", "content": "hello"}], "metadata": {}}
             set_io_token_rate_limit_request_kwargs(request_kwargs, metadata_channel="metadata")
             deployment: Final = {
-                "litellm_params": {"model": UNMAPPED_MODEL, "otpm": otpm_limit, **deployment_cap},
+                "hangarllm_params": {"model": UNMAPPED_MODEL, "otpm": otpm_limit, **deployment_cap},
                 "model_info": {"id": f"io-deployment-cap-above-default-{deployment_cap}"},
                 "model_name": "unmapped",
             }
@@ -691,12 +691,12 @@ class TestModelRateLimitingCheckIOTokens:
         assert await reserved({"max_tokens": otpm_limit * 2}) == default
 
     def test_sync_io_pre_call_reserves_and_reconciles(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 100,
                 "otpm": 50,
@@ -718,10 +718,10 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-sync-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
+                "hidden_params": {"hangarllm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
                 "metadata": {},
             },
-            "litellm_params": {"metadata": request_kwargs["metadata"]},
+            "hangarllm_params": {"metadata": request_kwargs["metadata"]},
         }
         response = ModelResponse(
             choices=[{"message": {"role": "assistant", "content": "hi"}, "index": 0, "finish_reason": "stop"}],
@@ -743,7 +743,7 @@ class TestModelRateLimitingCheckIOTokens:
         # IO reconciliation must still run off the stashed cache key.
         kwargs = {
             "standard_logging_object": {
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"hangarllm_model_name": "bedrock_mantle/test"},
                 "metadata": {},
             },
             "metadata": {ITPM_RESERVED_KEY: 10, ITPM_CACHE_KEY: itpm_key},
@@ -758,7 +758,7 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_failure_clears_reservation_so_retry_is_not_poisoned(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -772,7 +772,7 @@ class TestModelRateLimitingCheckIOTokens:
             "metadata": metadata,
             "standard_logging_object": {
                 "model_id": "io-first",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"hangarllm_model_name": "bedrock_mantle/test"},
                 "metadata": {},
             },
         }
@@ -787,7 +787,7 @@ class TestModelRateLimitingCheckIOTokens:
             "metadata": metadata,
             "standard_logging_object": {
                 "model_id": "non-io-second",
-                "hidden_params": {"litellm_model_name": "openai/gpt-4o-mini"},
+                "hidden_params": {"hangarllm_model_name": "openai/gpt-4o-mini"},
                 "metadata": {},
                 "total_tokens": 12,
             },
@@ -816,7 +816,7 @@ class TestModelRateLimitingCheckIOTokens:
         elevated by the reservation until its TTL expires, and the
         now-orphaned sentinels must not leak into B's accounting either.
         """
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         minute = get_utc_datetime().strftime("%H-%M")
@@ -858,16 +858,16 @@ class TestModelRateLimitingCheckIOTokens:
         # must be removed before the router captures the request kwargs.
         forged = {
             "metadata": {ITPM_RESERVED_KEY: 999999, ITPM_CACHE_KEY: "attacker:key:itpm:00-00"},
-            "litellm_metadata": {OTPM_RESERVED_KEY: 7},
-            "litellm_params": {"metadata": {OTPM_CACHE_KEY: "attacker:key:otpm:00-00"}},
+            "hangarllm_metadata": {OTPM_RESERVED_KEY: 7},
+            "hangarllm_params": {"metadata": {OTPM_CACHE_KEY: "attacker:key:otpm:00-00"}},
         }
         set_io_token_rate_limit_request_kwargs(forged, metadata_channel="metadata")
         stored = get_io_token_rate_limit_request_kwargs()
 
         assert ITPM_RESERVED_KEY not in stored["metadata"]
         assert ITPM_CACHE_KEY not in stored["metadata"]
-        assert OTPM_RESERVED_KEY not in stored["litellm_metadata"]
-        assert OTPM_CACHE_KEY not in stored["litellm_params"]["metadata"]
+        assert OTPM_RESERVED_KEY not in stored["hangarllm_metadata"]
+        assert OTPM_CACHE_KEY not in stored["hangarllm_params"]["metadata"]
 
     @pytest.mark.asyncio
     async def test_forged_reservation_cannot_decrement_counter(self):
@@ -881,7 +881,7 @@ class TestModelRateLimitingCheckIOTokens:
             "metadata": {ITPM_RESERVED_KEY: 100, ITPM_CACHE_KEY: victim_key},
             "standard_logging_object": {
                 "model_id": "m",
-                "hidden_params": {"litellm_model_name": "model"},
+                "hidden_params": {"hangarllm_model_name": "model"},
                 "metadata": {},
                 "total_tokens": 2,
             },
@@ -899,7 +899,7 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_otpm_reservation_error_rolls_back_itpm(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         class _OtpmFailCache(DualCache):
             async def async_increment_cache(self, key, **kwargs):
@@ -909,7 +909,7 @@ class TestModelRateLimitingCheckIOTokens:
 
         dual_cache = _OtpmFailCache()
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 1000,
                 "otpm": 1000,
@@ -964,10 +964,10 @@ class TestModelRateLimitingCheckIOTokens:
 
         check = ModelRateLimitingCheck(dual_cache=DualCache())
         deployment = {
-            "litellm_params": {"model": "openai/gpt-4o-mini", "itpm": 100, "tpm": 1000},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "itpm": 100, "tpm": 1000},
             "model_info": {},
         }
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
             check._warn_io_token_and_tpm_rpm_coexist_once(deployment)
             check._warn_io_token_and_tpm_rpm_coexist_once(deployment)
 
@@ -979,7 +979,7 @@ class TestModelRateLimitingCheckIOTokens:
     async def test_missing_deployment_id_skips_io_reservation(self):
         dual_cache = DualCache()
         deployment = {
-            "litellm_params": {"model": "openai/gpt-4o-mini", "itpm": 100},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "itpm": 100},
             "model_info": {},  # no id -> cannot build a per-deployment cache key
             "model_name": "opus",
         }
@@ -1164,14 +1164,14 @@ class TestModelRateLimitingCheckIOTokens:
     async def test_io_and_tpm_rpm_limits_both_enforced_with_warning(self, caplog):
         import logging
 
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         model_id = "io-mixed-id"
         deployment_name = "bedrock_mantle/anthropic.claude-opus-4-7"
         deployment = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": deployment_name,
                 "itpm": 100,
                 "rpm": 1,
@@ -1192,8 +1192,8 @@ class TestModelRateLimitingCheckIOTokens:
         }
         set_io_token_rate_limit_request_kwargs(request_kwargs, metadata_channel="metadata")
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
-            with pytest.raises(litellm.RateLimitError):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
+            with pytest.raises(hangarllm.RateLimitError):
                 await check.async_pre_call_check(deployment)
 
         assert await dual_cache.async_get_cache(key=rpm_key) == 5, "the rejected request hands its rpm count back"
@@ -1208,7 +1208,7 @@ class TestModelRateLimitingCheckIOTokens:
         success, otherwise the tpm_key the pre-call check reads is never written
         and the tpm_limit can never be enforced.
         """
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -1224,7 +1224,7 @@ class TestModelRateLimitingCheckIOTokens:
             "standard_logging_object": {
                 "model_id": model_id,
                 "total_tokens": 7,
-                "hidden_params": {"litellm_model_name": deployment_name},
+                "hidden_params": {"hangarllm_model_name": deployment_name},
             },
         }
         response = ModelResponse(
@@ -1240,7 +1240,7 @@ class TestModelRateLimitingCheckIOTokens:
         assert await dual_cache.async_get_cache(key=tpm_key) == 7
 
     def test_io_success_still_tracks_tpm_for_mixed_deployment_sync(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -1256,7 +1256,7 @@ class TestModelRateLimitingCheckIOTokens:
             "standard_logging_object": {
                 "model_id": model_id,
                 "total_tokens": 7,
-                "hidden_params": {"litellm_model_name": deployment_name},
+                "hidden_params": {"hangarllm_model_name": deployment_name},
             },
         }
         response = ModelResponse(
@@ -1271,7 +1271,7 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_failure_refunds_itpm_reservation(self):
-        from litellm.utils import get_utc_datetime
+        from hangarllm.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -1283,7 +1283,7 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-refund-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"hangarllm_model_name": "bedrock_mantle/test"},
                 "metadata": dict(reservation),
             },
             "metadata": dict(reservation),
@@ -1303,7 +1303,7 @@ def _router_with_io_limits() -> Router:
         model_list=[
             {
                 "model_name": "limited",
-                "litellm_params": {"model": ROUTER_IO_MODEL, "api_key": "sk-test", "itpm": 50000, "otpm": 50000},
+                "hangarllm_params": {"model": ROUTER_IO_MODEL, "api_key": "sk-test", "itpm": 50000, "otpm": 50000},
             }
         ],
         optional_pre_call_checks=["enforce_model_rate_limits"],
@@ -1321,7 +1321,7 @@ def _counter(router: Router, template: RouterCacheEnum, minutes: frozenset[str])
         router.cache.get_cache(
             key=template.value.format(
                 id=deployment["model_info"]["id"],
-                model=deployment["litellm_params"]["model"],
+                model=deployment["hangarllm_params"]["model"],
                 current_minute=minute,
             )
         )
@@ -1363,7 +1363,7 @@ async def _proxy_responses(router: Router, mock_response: str | Exception) -> tu
         model="limited",
         input="hello there",
         max_output_tokens=100,
-        litellm_metadata={"user_api_key_hash": "hashed-key"},
+        hangarllm_metadata={"user_api_key_hash": "hashed-key"},
         mock_response=mock_response,
     )
     return response.usage.input_tokens, response.usage.output_tokens
@@ -1374,30 +1374,30 @@ async def _proxy_messages(router: Router, mock_response: str | Exception) -> tup
         model="limited",
         messages=[{"role": "user", "content": "hello there"}],
         max_tokens=100,
-        litellm_metadata={"user_api_key_hash": "hashed-key"},
+        hangarllm_metadata={"user_api_key_hash": "hashed-key"},
         mock_response=mock_response,
     )
     return response["usage"]["input_tokens"], response["usage"]["output_tokens"]
 
 
-ProxyCallSharingLogging = Callable[[Router, str | Exception, LiteLLMLoggingObject], Awaitable[object]]
+ProxyCallSharingLogging = Callable[[Router, str | Exception, HangarLLMLoggingObject], Awaitable[object]]
 PROXY_MESSAGES: Final = [{"role": "user", "content": "hello there"}]
 
 
-def _logging_obj_shared_across_attempts(original_function: str) -> LiteLLMLoggingObject:
-    logging_obj, _ = litellm.utils.function_setup(
+def _logging_obj_shared_across_attempts(original_function: str) -> HangarLLMLoggingObject:
+    logging_obj, _ = hangarllm.utils.function_setup(
         original_function,
-        litellm.utils.Rules(),
+        hangarllm.utils.Rules(),
         datetime.now(),
         model="limited",
         messages=PROXY_MESSAGES,
-        litellm_call_id="proxy-call",
+        hangarllm_call_id="proxy-call",
     )
     return logging_obj
 
 
 async def _proxy_chat_sharing_logging(
-    router: Router, mock_error: str | Exception, logging_obj: LiteLLMLoggingObject
+    router: Router, mock_error: str | Exception, logging_obj: HangarLLMLoggingObject
 ) -> object:
     return await router.acompletion(
         model="limited",
@@ -1405,36 +1405,36 @@ async def _proxy_chat_sharing_logging(
         max_tokens=100,
         metadata={"user_api_key_hash": "hashed-key"},
         mock_response=mock_error,
-        litellm_call_id="proxy-call",
-        litellm_logging_obj=logging_obj,
+        hangarllm_call_id="proxy-call",
+        hangarllm_logging_obj=logging_obj,
     )
 
 
 async def _proxy_responses_sharing_logging(
-    router: Router, mock_error: str | Exception, logging_obj: LiteLLMLoggingObject
+    router: Router, mock_error: str | Exception, logging_obj: HangarLLMLoggingObject
 ) -> object:
     return await router.aresponses(
         model="limited",
         input="hello there",
         max_output_tokens=100,
-        litellm_metadata={"user_api_key_hash": "hashed-key"},
+        hangarllm_metadata={"user_api_key_hash": "hashed-key"},
         mock_response=mock_error,
-        litellm_call_id="proxy-call",
-        litellm_logging_obj=logging_obj,
+        hangarllm_call_id="proxy-call",
+        hangarllm_logging_obj=logging_obj,
     )
 
 
 async def _proxy_messages_sharing_logging(
-    router: Router, mock_error: str | Exception, logging_obj: LiteLLMLoggingObject
+    router: Router, mock_error: str | Exception, logging_obj: HangarLLMLoggingObject
 ) -> object:
     return await router.aanthropic_messages(
         model="limited",
         messages=PROXY_MESSAGES,
         max_tokens=100,
-        litellm_metadata={"user_api_key_hash": "hashed-key"},
+        hangarllm_metadata={"user_api_key_hash": "hashed-key"},
         mock_response=mock_error,
-        litellm_call_id="proxy-call",
-        litellm_logging_obj=logging_obj,
+        hangarllm_call_id="proxy-call",
+        hangarllm_logging_obj=logging_obj,
     )
 
 
@@ -1443,7 +1443,7 @@ class TestRouterIOTokenIntegration:
     @pytest.mark.parametrize(
         "call",
         [_sdk_chat, _proxy_chat, _proxy_responses, _proxy_messages],
-        ids=["sdk_chat", "proxy_chat_metadata", "proxy_responses_litellm_metadata", "proxy_messages_litellm_metadata"],
+        ids=["sdk_chat", "proxy_chat_metadata", "proxy_responses_hangarllm_metadata", "proxy_messages_hangarllm_metadata"],
     )
     async def test_success_reconciles_io_counters_to_real_usage(self, call: RouterCall):
         router: Final = _router_with_io_limits()
@@ -1459,11 +1459,11 @@ class TestRouterIOTokenIntegration:
         [
             (
                 _proxy_responses,
-                litellm.InternalServerError(message="mock 500", llm_provider="anthropic", model=ROUTER_IO_MODEL),
+                hangarllm.InternalServerError(message="mock 500", llm_provider="anthropic", model=ROUTER_IO_MODEL),
             ),
-            (_proxy_messages, "litellm.InternalServerError"),
+            (_proxy_messages, "hangarllm.InternalServerError"),
         ],
-        ids=["proxy_responses_litellm_metadata", "proxy_messages_litellm_metadata"],
+        ids=["proxy_responses_hangarllm_metadata", "proxy_messages_hangarllm_metadata"],
     )
     async def test_retried_failure_refunds_each_io_reservation_once(
         self, call: RouterCall, mock_error: str | Exception
@@ -1471,7 +1471,7 @@ class TestRouterIOTokenIntegration:
         router: Final = _router_with_io_limits()
         first_minute: Final = _current_minute()
 
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(hangarllm.InternalServerError):
             await call(router, mock_error)
 
         assert await _io_counters_since(router, first_minute) == (0, 0)
@@ -1480,13 +1480,13 @@ class TestRouterIOTokenIntegration:
     @pytest.mark.parametrize(
         ("call", "original_function", "mock_error"),
         [
-            (_proxy_chat_sharing_logging, "acompletion", "litellm.InternalServerError"),
+            (_proxy_chat_sharing_logging, "acompletion", "hangarllm.InternalServerError"),
             (
                 _proxy_responses_sharing_logging,
                 "aresponses",
-                litellm.InternalServerError(message="mock 500", llm_provider="anthropic", model=ROUTER_IO_MODEL),
+                hangarllm.InternalServerError(message="mock 500", llm_provider="anthropic", model=ROUTER_IO_MODEL),
             ),
-            (_proxy_messages_sharing_logging, "anthropic_messages", "litellm.InternalServerError"),
+            (_proxy_messages_sharing_logging, "anthropic_messages", "hangarllm.InternalServerError"),
         ],
         ids=["proxy_chat", "proxy_responses", "proxy_messages"],
     )
@@ -1496,7 +1496,7 @@ class TestRouterIOTokenIntegration:
         router: Final = _router_with_io_limits()
         first_minute: Final = _current_minute()
 
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(hangarllm.InternalServerError):
             await call(router, mock_error, _logging_obj_shared_across_attempts(original_function))
 
         assert await _io_counters_since(router, first_minute) == (0, 0)
@@ -1507,7 +1507,7 @@ class TestRouterIOTokenIntegration:
             model_list=[
                 {
                     "model_name": "opus",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                         "itpm": 100,
                         "otpm": 20,
@@ -1564,14 +1564,14 @@ async def test_custom_azure_deployment_name_reserves_itpm_on_its_base_models_tok
 
     named = await reserved_input(
         {
-            "litellm_params": {"model": "azure/my-gpt-6", "base_model": "azure/gpt-6.1-sol", "itpm": 100_000},
+            "hangarllm_params": {"model": "azure/my-gpt-6", "base_model": "azure/gpt-6.1-sol", "itpm": 100_000},
             "model_info": {"id": "named-deployment"},
             "model_name": "named",
         }
     )
     served = await reserved_input(
         {
-            "litellm_params": {"model": "azure/gpt-6.1-sol", "itpm": 100_000},
+            "hangarllm_params": {"model": "azure/gpt-6.1-sol", "itpm": 100_000},
             "model_info": {"id": "served-deployment"},
             "model_name": "served",
         }
@@ -1593,9 +1593,9 @@ def _reply_using(prompt_tokens: int, completion_tokens: int) -> ModelResponse:
 
 def _proxy_success_kwargs(reservation: Mapping[str, object]) -> dict[str, object]:
     return {
-        "litellm_params": {"metadata": {**reservation, "user_api_key_hash": "hashed-key"}},
+        "hangarllm_params": {"metadata": {**reservation, "user_api_key_hash": "hashed-key"}},
         "standard_logging_object": {
-            "hidden_params": {"litellm_model_name": "openai/gpt-5-mini"},
+            "hidden_params": {"hangarllm_model_name": "openai/gpt-5-mini"},
             "metadata": {"user_api_key_hash": "hashed-key"},
         },
     }
@@ -1615,7 +1615,7 @@ async def _deliver_success(
     "deliveries",
     [("async",), ("sync",), ("async", "async"), ("async", "sync"), ("sync", "async"), ("sync", "sync")],
 )
-async def test_success_settles_a_reservation_held_only_in_litellm_params_metadata_exactly_once(
+async def test_success_settles_a_reservation_held_only_in_hangarllm_params_metadata_exactly_once(
     deliveries: tuple[str, ...],
 ) -> None:
     dual_cache: Final = DualCache()
@@ -1640,7 +1640,7 @@ _ACTUAL_TOKENS: Final = {"itpm": 5, "otpm": 2}
 
 
 def _turn_deployment(kind: str) -> dict[str, object]:
-    return {"litellm_params": {"model": "openai/gpt-5-mini", kind: 100}, "model_info": {"id": f"ws-turn-{kind}"}}
+    return {"hangarllm_params": {"model": "openai/gpt-5-mini", kind: 100}, "model_info": {"id": f"ws-turn-{kind}"}}
 
 
 def _turn_key(kind: str, minute: str = "12-34") -> str:
@@ -1650,7 +1650,7 @@ def _turn_key(kind: str, minute: str = "12-34") -> str:
 @pytest.fixture
 def settled_on_the_turn_s_minute(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "litellm.router_utils.pre_call_checks.io_token_rate_limit_check.get_utc_datetime", lambda: _TURN_AT
+        "hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check.get_utc_datetime", lambda: _TURN_AT
     )
 
 
@@ -1661,7 +1661,7 @@ async def test_turn_admission_refuses_once_the_minutes_tokens_reach_the_limit(ki
     dual_cache: Final = DualCache()
     await dual_cache.async_increment_cache(key=_turn_key(kind), value=used, ttl=60)
 
-    with pytest.raises(litellm.RateLimitError, match=f"{kind.upper()} limit=100, current usage={used}"):
+    with pytest.raises(hangarllm.RateLimitError, match=f"{kind.upper()} limit=100, current usage={used}"):
         await async_admit_io_token_turn(dual_cache, _turn_deployment(kind), _TURN_AT)
 
 
@@ -1689,8 +1689,8 @@ async def test_an_admitted_turn_reserves_nothing_and_counts_its_actual_tokens(ki
 @pytest.mark.parametrize(
     "deployment",
     [
-        {"litellm_params": {"model": "openai/gpt-5-mini", "tpm": 1}, "model_info": {"id": "ws-turn-unlimited"}},
-        {"litellm_params": {"model": "openai/gpt-5-mini", "otpm": 1}},
+        {"hangarllm_params": {"model": "openai/gpt-5-mini", "tpm": 1}, "model_info": {"id": "ws-turn-unlimited"}},
+        {"hangarllm_params": {"model": "openai/gpt-5-mini", "otpm": 1}},
     ],
 )
 async def test_a_turn_without_io_token_counters_is_admitted_with_nothing_to_settle(
@@ -1742,7 +1742,7 @@ async def test_a_turn_is_refused_on_this_instance_s_count_when_reading_the_share
     server.connected = False
     await dual_cache.in_memory_cache.async_increment(key=_turn_key(kind), value=100)
 
-    with pytest.raises(litellm.RateLimitError, match=f"{kind.upper()} limit=100, current usage=100"):
+    with pytest.raises(hangarllm.RateLimitError, match=f"{kind.upper()} limit=100, current usage=100"):
         await async_admit_io_token_turn(dual_cache, _turn_deployment(kind), _TURN_AT)
 
 
@@ -1753,7 +1753,7 @@ async def test_a_turn_finishing_in_the_next_minute_counts_its_actual_tokens_on_t
     kind: str, delivery: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "litellm.router_utils.pre_call_checks.io_token_rate_limit_check.get_utc_datetime",
+        "hangarllm.router_utils.pre_call_checks.io_token_rate_limit_check.get_utc_datetime",
         lambda: datetime(2026, 1, 1, 12, 35, 10, tzinfo=timezone.utc),
     )
     dual_cache: Final = DualCache()
@@ -1838,7 +1838,7 @@ def _shared_counter_answering(answer: int | Exception) -> DualCache:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["itpm", "otpm"])
 async def test_a_later_turn_is_refused_when_another_instance_filled_the_shared_minute(kind: str) -> None:
-    with pytest.raises(litellm.RateLimitError, match=f"{kind.upper()} limit=100, current usage=100"):
+    with pytest.raises(hangarllm.RateLimitError, match=f"{kind.upper()} limit=100, current usage=100"):
         await async_admit_io_token_turn(_shared_counter_answering(100), _turn_deployment(kind), _TURN_AT)
 
 

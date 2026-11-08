@@ -24,7 +24,7 @@ from typing import Final
 import pytest
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody, SpendLogRow
+from models import HangarLLMParamsBody, SpendLogRow
 from pydantic import BaseModel
 from realtime_client import (
     PROVIDERS,
@@ -79,7 +79,7 @@ TEXT_PARAMS: Final = tuple(
                 domain=Domain.LLM_TRANSLATION,
                 route=Route.REALTIME,
                 providers=(Provider(p.id),),
-                models=(p.litellm_params.model,),
+                models=(p.hangarllm_params.model,),
                 mode=Mode.WEBSOCKET,
             )
         ),
@@ -101,7 +101,7 @@ TOOL_PARAMS: Final = tuple(
                     domain=Domain.LLM_TRANSLATION,
                     route=Route.REALTIME,
                     providers=(Provider(p.id),),
-                    models=(p.litellm_params.model,),
+                    models=(p.hangarllm_params.model,),
                     capabilities=(Capability.FUNCTION_CALLING,),
                     mode=Mode.WEBSOCKET,
                 )
@@ -247,7 +247,7 @@ _REFUSED_UPSTREAMS = (
     RealtimeProvider(
         "azure-bad-key",
         "azure-realtime-refused",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=AZURE_REALTIME_MODEL,
             api_key="invalid-e2e-key",
             api_version="2025-08-28",
@@ -317,7 +317,7 @@ def audio_marks(provider: RealtimeProvider, capability: str) -> tuple[pytest.Mar
                 domain=Domain.LLM_TRANSLATION,
                 route=Route.REALTIME,
                 providers=(Provider(provider.id),),
-                models=(provider.litellm_params.model,),
+                models=(provider.hangarllm_params.model,),
                 capabilities=(Capability.AUDIO_INPUT,),
                 mode=Mode.WEBSOCKET,
             )
@@ -329,12 +329,12 @@ TRANSLATION_PROVIDERS: Final = (
     RealtimeProvider(
         "openai",
         "openai-translate",
-        LiteLLMParamsBody(model="openai/gpt-realtime-translate", api_key="os.environ/OPENAI_API_KEY"),
+        HangarLLMParamsBody(model="openai/gpt-realtime-translate", api_key="os.environ/OPENAI_API_KEY"),
     ),
     RealtimeProvider(
         "azure",
         "azure-translate",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="azure/gpt-realtime-translate",
             api_base="os.environ/AZURE_API_BASE",
             api_key="os.environ/AZURE_API_KEY",
@@ -346,12 +346,12 @@ LIVE_TRANSCRIPTION_PROVIDERS: Final = (
     RealtimeProvider(
         "openai",
         "openai-live-transcribe",
-        LiteLLMParamsBody(model="openai/gpt-live-transcribe", api_key="os.environ/OPENAI_API_KEY"),
+        HangarLLMParamsBody(model="openai/gpt-live-transcribe", api_key="os.environ/OPENAI_API_KEY"),
     ),
     RealtimeProvider(
         "azure",
         "azure-live-transcribe",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="azure/gpt-live-transcribe",
             api_base="os.environ/AZURE_API_BASE",
             api_key="os.environ/AZURE_API_KEY",
@@ -477,7 +477,7 @@ class TestRealtimeLiveTranscription:
         domain=Domain.LLM_TRANSLATION,
         route=Route.REALTIME,
         providers=(Provider.AZURE,),
-        models=(AZURE_GA_PROVIDER.litellm_params.model,),
+        models=(AZURE_GA_PROVIDER.hangarllm_params.model,),
         mode=Mode.WEBSOCKET,
     )
 )

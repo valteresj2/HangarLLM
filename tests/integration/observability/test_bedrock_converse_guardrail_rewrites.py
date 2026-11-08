@@ -36,7 +36,7 @@ _PIPELINED_ACTIONS: Final = {
 _CARD: Final = "4111 1111 1111 1111"
 _CARD_PATTERN: Final = re.compile(r"\b(?:\d{4} ){3}\d{4}\b")
 _MASK: Final = "****"
-_GUARD_PATH: Final = "/beta/litellm_basic_guardrail_api"
+_GUARD_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
 _PNG: Final = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
 _JSON: Final = TypeAdapter(JsonValue)
 _UNAPPLIABLE: Final = "rewrote the request in a way this endpoint cannot apply"
@@ -247,7 +247,7 @@ def _bedrock(request: Request) -> Reply:
 
 
 def _guardrail(name: str, params: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
-    return {"guardrail_name": name, "litellm_params": {"mode": "pre_call", "default_on": False, **params}}
+    return {"guardrail_name": name, "hangarllm_params": {"mode": "pre_call", "default_on": False, **params}}
 
 
 def _generic(vendor: _Vendor) -> str:
@@ -285,7 +285,7 @@ def _config(directory: Path, guardrails: tuple[dict[str, JsonValue], ...], bedro
         *(
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"bedrock/{_MODEL_ID}",
                     "api_base": bedrock.url,
                     "aws_access_key_id": "AKIASCRIPTEDPROVIDER",
@@ -633,7 +633,7 @@ def test_tool_policy_refuses_a_converse_tool_whose_input_policy_is_blocked(rig: 
 def _end_user_on_github_only(rig: _Rig) -> dict[str, str]:
     end_user: Final = f"converse-mcp-{uuid.uuid4().hex[:8]}"
     rig.gateway.post("/customer/new", {"user_id": end_user, "object_permission": {"mcp_servers": ["github"]}})
-    return {"x-litellm-end-user-id": end_user}
+    return {"x-hangarllm-end-user-id": end_user}
 
 
 def test_mcp_end_user_permission_drops_tools_of_servers_the_end_user_cannot_use(rig: _Rig) -> None:

@@ -10,11 +10,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_api import RoutingContext
-from litellm.router_core import RouterCore
-from litellm.router_strategy.complexity_router.context_compaction import CompactionState
-from litellm.types.router import Deployment, LiteLLM_Params, RouterRateLimitError
+import hangarllm
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_core import RouterCore
+from hangarllm.router_strategy.complexity_router.context_compaction import CompactionState
+from hangarllm.types.router import Deployment, HangarLLM_Params, RouterRateLimitError
 from tests.unit.test_router.core.construction_precall_helpers import windowed
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost
 from tests.unit.test_router.core.scripted_host import deployment
@@ -76,7 +76,7 @@ async def test_async_text_completion_counts_the_prompt_against_the_context_windo
     make_core: MakeCore, host: EndpointHost
 ) -> None:
     core: Final = make_core(model_list=[windowed("g", "small", 5)], enable_pre_call_checks=True, num_retries=0)
-    with pytest.raises(litellm.ContextWindowExceededError, match="Context Window exceeded for given call"):
+    with pytest.raises(hangarllm.ContextWindowExceededError, match="Context Window exceeded for given call"):
         await core.call("atext_completion", {"model": "g", "prompt": LONG_TEXT})
     assert host.calls_to("atext_completion") == []
 
@@ -85,7 +85,7 @@ def test_sync_text_completion_counts_the_prompt_against_the_context_window(
     make_core: MakeCore, host: EndpointHost
 ) -> None:
     core: Final = make_core(model_list=[windowed("g", "small", 5)], enable_pre_call_checks=True, num_retries=0)
-    with pytest.raises(litellm.ContextWindowExceededError, match="Context Window exceeded for given call"):
+    with pytest.raises(hangarllm.ContextWindowExceededError, match="Context Window exceeded for given call"):
         core.text_completion(model="g", prompt=LONG_TEXT)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls_to("text_completion") == []
 
@@ -135,18 +135,18 @@ async def test_speech_counts_its_stand_in_message_and_not_its_input(make_core: M
 
 
 def test_print_deployment_masks_the_key_of_a_deployment_and_returns_a_deployment(make_core: MakeCore) -> None:
-    given: Final = Deployment(model_name="g", litellm_params=LiteLLM_Params(model="openai/x", api_key="sk-obj-123456"))
+    given: Final = Deployment(model_name="g", hangarllm_params=HangarLLM_Params(model="openai/x", api_key="sk-obj-123456"))
     core: Final = make_core(model_list=[deployment("g", "a")])
     printed: Final = core.print_deployment(given)  # pyright: ignore[reportAttributeAccessIssue]
     assert isinstance(printed, Deployment)
-    assert printed.litellm_params.api_key == "sk**********"
-    assert given.litellm_params.api_key == "sk-obj-123456"
+    assert printed.hangarllm_params.api_key == "sk**********"
+    assert given.hangarllm_params.api_key == "sk-obj-123456"
 
 
 def test_print_deployment_refuses_a_list_of_pairs(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[deployment("g", "a")])
     with pytest.raises(TypeError):
-        core.print_deployment([["litellm_params", {"api_key": "sk-pairs-1234"}]])  # pyright: ignore[reportAttributeAccessIssue]
+        core.print_deployment([["hangarllm_params", {"api_key": "sk-pairs-1234"}]])  # pyright: ignore[reportAttributeAccessIssue]
 
 
 # --- N10: context compaction -----------------------------------------------------------------
@@ -158,7 +158,7 @@ def _complexity_router_over_a_small_window() -> list[dict[str, object]]:  # muta
         deployment("o47", "o47", model="anthropic/claude-opus-4-7"),
         {
             "model_name": "smart",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": {
                     "tiers": {"SIMPLE": "mini", "REASONING": "o47"},
@@ -179,7 +179,7 @@ async def test_an_auto_router_refuses_a_prompt_compaction_cannot_fit(make_core: 
         {"role": "assistant", "content": "earlier answer"},
         {"role": "user", "content": "and next?"},
     ]
-    with pytest.raises(litellm.ContextWindowExceededError, match="Context compaction"):
+    with pytest.raises(hangarllm.ContextWindowExceededError, match="Context compaction"):
         await core.call("acompletion", {"model": "smart", "messages": messages})
     assert host.calls_to("acompletion") == []
 
@@ -229,7 +229,7 @@ def test_the_routing_context_needs_messages_or_input_to_count(make_core: MakeCor
 def test_the_routing_context_pre_call_checks_refuse_a_count_over_the_window(make_core: MakeCore) -> None:
     small: Final = windowed("g", "small", 5)
     ctx: Final = RoutingContext(make_core(model_list=[small]))  # pyright: ignore[reportArgumentType]
-    with pytest.raises(litellm.ContextWindowExceededError, match="Context Window exceeded for given call"):
+    with pytest.raises(hangarllm.ContextWindowExceededError, match="Context Window exceeded for given call"):
         ctx.pre_call_checks(
             model="g",
             healthy_deployments=[small],

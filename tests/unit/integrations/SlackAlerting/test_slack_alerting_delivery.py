@@ -10,22 +10,22 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-import litellm.proxy.proxy_server as proxy_server
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.langfuse.langfuse import LangFuseLogger, installed_langfuse_version
-from litellm.integrations.langfuse.langfuse_sdk import (
+import hangarllm
+import hangarllm.proxy.proxy_server as proxy_server
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.langfuse.langfuse import LangFuseLogger, installed_langfuse_version
+from hangarllm.integrations.langfuse.langfuse_sdk import (
     build_langfuse_client,
     build_langfuse_tracing,
     resolve_trace_id,
 )
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.integrations.SlackAlerting.utils import add_langfuse_trace_id_to_alert
-from litellm.litellm_core_utils import litellm_logging
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.integrations.slack_alerting import AlertType
+from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from hangarllm.integrations.SlackAlerting.utils import add_langfuse_trace_id_to_alert
+from hangarllm.hangarllm_core_utils import hangarllm_logging
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.integrations.slack_alerting import AlertType
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 _WEBHOOK: Final = "https://hooks.slack.example/services/delivery"
@@ -53,7 +53,7 @@ _PAYLOAD: Final = TypeAdapter(_SlackPayload)
 
 @pytest.fixture(autouse=True)
 def _slack_webhook(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("SLACK_WEBHOOK_URL", _WEBHOOK)
 
 
@@ -79,7 +79,7 @@ async def test_slow_response_alert_names_the_azure_api_base_and_reaches_the_webh
         kwargs={
             "model": "chatgpt-v-3",
             "messages": messages,
-            "litellm_params": {"api_base": _AZURE_BASE, "custom_llm_provider": "azure"},
+            "hangarllm_params": {"api_base": _AZURE_BASE, "custom_llm_provider": "azure"},
         },
         start_time=start,
         end_time=start + datetime.timedelta(seconds=150),
@@ -205,12 +205,12 @@ async def test_daily_report_lists_router_latency_after_success_and_failures_afte
         alerting=["slack"], internal_usage_cache=DualCache(), alert_types=[AlertType.daily_reports]
     )
     settled: Final = _DeploymentSettled(model_id)
-    monkeypatch.setattr(litellm, "callbacks", [slack_alerting, settled])
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "callbacks", [slack_alerting, settled])
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "daily-report-model",
-                "litellm_params": {"model": "openai/gpt-5-mini", "api_key": "sk-daily", "api_base": _DAILY_BASE},
+                "hangarllm_params": {"model": "openai/gpt-5-mini", "api_key": "sk-daily", "api_base": _DAILY_BASE},
                 "model_info": {"id": model_id},
             }
         ]
@@ -222,7 +222,7 @@ async def test_daily_report_lists_router_latency_after_success_and_failures_afte
     after_success: Final = await slack_alerting.send_daily_reports(router=router)
     await slack_alerting.flush_queue()
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(model="daily-report-model", messages=list(request))
     await asyncio.wait_for(settled.failed.wait(), timeout=5)
     after_failure: Final = await slack_alerting.send_daily_reports(router=router)
@@ -247,7 +247,7 @@ class _CallLogged(CustomLogger):
     def log_success_event(
         self, kwargs: dict[str, object], response_obj: object, start_time: object, end_time: object
     ) -> None:
-        if kwargs.get("litellm_call_id") == self.call_id:
+        if kwargs.get("hangarllm_call_id") == self.call_id:
             self.loop.call_soon_threadsafe(self.logged.set)
 
 
@@ -264,30 +264,30 @@ async def test_langfuse_trace_link_ends_with_the_trace_id_the_logger_emitted(mon
     call_id: Final = "slack-alert-langfuse-trace"
     logged: Final = _CallLogged(call_id, asyncio.get_running_loop())
     monkeypatch.setenv("LANGFUSE_HOST", _LANGFUSE_HOST)
-    monkeypatch.setattr(litellm_logging, "langFuseLogger", logger)
-    monkeypatch.setattr(litellm, "success_callback", ["langfuse", logged])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm_logging, "langFuseLogger", logger)
+    monkeypatch.setattr(hangarllm, "success_callback", ["langfuse", logged])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     logging_obj: Final = Logging(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
         start_time=datetime.datetime.now(),
         function_id=call_id,
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "Hey how's it going?"}],
         mock_response="Hey!",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     await asyncio.wait_for(logged.logged.wait(), timeout=5)
-    trace_url: Final = await add_langfuse_trace_id_to_alert(request_data={"litellm_logging_obj": logging_obj})
+    trace_url: Final = await add_langfuse_trace_id_to_alert(request_data={"hangarllm_logging_obj": logging_obj})
 
-    expected_trace_id: Final = resolve_trace_id(logging_obj.litellm_trace_id)
+    expected_trace_id: Final = resolve_trace_id(logging_obj.hangarllm_trace_id)
     assert logging_obj.get_trace_id(service_name="langfuse") == expected_trace_id
     assert trace_url == f"{_LANGFUSE_HOST}/trace/{expected_trace_id}"
 

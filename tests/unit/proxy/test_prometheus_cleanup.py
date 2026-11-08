@@ -1,5 +1,5 @@
 """
-Tests for litellm.proxy.prometheus_cleanup.wipe_directory and
+Tests for hangarllm.proxy.prometheus_cleanup.wipe_directory and
 ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir.
 """
 
@@ -15,14 +15,14 @@ from unittest.mock import patch
 import pytest
 from prometheus_client import CollectorRegistry, multiprocess
 
-from litellm.constants import PROMETHEUS_ADMITTED_SERIES_FILE_PREFIX
-from litellm.proxy.prometheus_cleanup import mark_dead_workers, mark_worker_exit, wipe_directory
-from litellm.proxy.proxy_cli import ProxyInitializationHelpers
+from hangarllm.constants import PROMETHEUS_ADMITTED_SERIES_FILE_PREFIX
+from hangarllm.proxy.prometheus_cleanup import mark_dead_workers, mark_worker_exit, wipe_directory
+from hangarllm.proxy.proxy_cli import ProxyInitializationHelpers
 
 _WORKER: Final = """
 import sys, time
 from prometheus_client import Gauge
-Gauge("litellm_in_flight", "", multiprocess_mode="livesum").set(float(sys.argv[1]))
+Gauge("hangarllm_in_flight", "", multiprocess_mode="livesum").set(float(sys.argv[1]))
 print("ready", flush=True)
 if sys.argv[2] == "stay":
     time.sleep(120)
@@ -41,7 +41,7 @@ def _spawn_worker(directory: Path, in_flight: str, lifetime: str) -> subprocess.
 def _livesum(directory: Path) -> float:
     registry = CollectorRegistry()
     multiprocess.MultiProcessCollector(registry, path=str(directory))
-    value = registry.get_sample_value("litellm_in_flight")
+    value = registry.get_sample_value("hangarllm_in_flight")
     return 0.0 if value is None else value
 
 
@@ -117,19 +117,19 @@ class TestMaybeSetupPrometheusMultiprocDir:
     def test_respects_existing_env_var(self, tmp_path):
         """When PROMETHEUS_MULTIPROC_DIR is already set, don't override it."""
         custom_dir = str(tmp_path / "custom_prom")
-        litellm_settings = {"callbacks": ["prometheus"]}
+        hangarllm_settings = {"callbacks": ["prometheus"]}
 
         with patch.dict(os.environ, {"PROMETHEUS_MULTIPROC_DIR": custom_dir}):
             ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
                 num_workers=4,
-                litellm_settings=litellm_settings,
+                hangarllm_settings=hangarllm_settings,
             )
 
             assert os.environ["PROMETHEUS_MULTIPROC_DIR"] == custom_dir
             assert os.path.isdir(custom_dir)
 
     @pytest.mark.parametrize(
-        "litellm_settings",
+        "hangarllm_settings",
         [
             {"callbacks": "prometheus"},
             {"success_callback": "prometheus"},
@@ -137,7 +137,7 @@ class TestMaybeSetupPrometheusMultiprocDir:
             {"callbacks": "custom_callback"},  # string but not prometheus
         ],
     )
-    def test_handles_string_callbacks(self, litellm_settings):
+    def test_handles_string_callbacks(self, hangarllm_settings):
         """When callbacks are specified as a string instead of a list, should not crash."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
@@ -146,40 +146,40 @@ class TestMaybeSetupPrometheusMultiprocDir:
             # Should not raise TypeError
             ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
                 num_workers=4,
-                litellm_settings=litellm_settings,
+                hangarllm_settings=hangarllm_settings,
             )
 
             # Cleanup
             os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
 
     @pytest.mark.parametrize(
-        "num_workers, litellm_settings",
+        "num_workers, hangarllm_settings",
         [
             (1, {"callbacks": ["prometheus"]}),
             (4, {"callbacks": ["langfuse"]}),
             (4, None),
         ],
     )
-    def test_noop_when_setup_not_needed(self, num_workers, litellm_settings):
+    def test_noop_when_setup_not_needed(self, num_workers, hangarllm_settings):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
             os.environ.pop("prometheus_multiproc_dir", None)
 
             ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
                 num_workers=num_workers,
-                litellm_settings=litellm_settings,
+                hangarllm_settings=hangarllm_settings,
             )
 
             assert os.environ.get("PROMETHEUS_MULTIPROC_DIR") is None
 
     @pytest.mark.parametrize(
-        "litellm_settings",
+        "hangarllm_settings",
         [
             {"callbacks": ["prometheus"]},
             {"success_callback": ["prometheus"]},
         ],
     )
-    def test_auto_creates_dir_when_prometheus_configured(self, litellm_settings):
+    def test_auto_creates_dir_when_prometheus_configured(self, hangarllm_settings):
         """When multiple workers + prometheus callback, auto-creates temp dir."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
@@ -187,7 +187,7 @@ class TestMaybeSetupPrometheusMultiprocDir:
 
             ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
                 num_workers=4,
-                litellm_settings=litellm_settings,
+                hangarllm_settings=hangarllm_settings,
             )
 
             result_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
@@ -198,14 +198,14 @@ class TestMaybeSetupPrometheusMultiprocDir:
             os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
 
     @pytest.mark.parametrize(
-        "litellm_settings",
+        "hangarllm_settings",
         [
             {"callbacks": ["prometheus"]},
             {"callbacks": ["langfuse"]},
             None,
         ],
     )
-    def test_separate_metrics_port_forces_dir_for_single_worker(self, litellm_settings):
+    def test_separate_metrics_port_forces_dir_for_single_worker(self, hangarllm_settings):
         """The separate metrics process reads the samples, so one worker still needs the shared dir, even when
         prometheus is not in config.yaml (callbacks can be turned on from the DB after startup)."""
         with patch.dict(os.environ, {}, clear=False):
@@ -214,7 +214,7 @@ class TestMaybeSetupPrometheusMultiprocDir:
 
             result_dir = ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
                 num_workers=1,
-                litellm_settings=litellm_settings,
+                hangarllm_settings=hangarllm_settings,
                 prometheus_metrics_port=4001,
             )
 
@@ -231,7 +231,7 @@ class TestMaybeSetupPrometheusMultiprocDir:
 
             result_dir = ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
                 num_workers=4,
-                litellm_settings={"callbacks": "prometheus"},
+                hangarllm_settings={"callbacks": "prometheus"},
             )
 
             assert result_dir == str(tmp_path)
@@ -241,7 +241,7 @@ class TestMaybeSetupPrometheusMultiprocDir:
         """One worker and no metrics server still wipe the operator's directory at boot: the docs promise a
         restart frees every capped slot, and the exited worker's samples would otherwise keep the merged scrape
         past the cap."""
-        admitted: Final = tmp_path / f"{PROMETHEUS_ADMITTED_SERIES_FILE_PREFIX}litellm_requests_metric"
+        admitted: Final = tmp_path / f"{PROMETHEUS_ADMITTED_SERIES_FILE_PREFIX}hangarllm_requests_metric"
         admitted.write_text('\n["user-a"]\n')
         samples: Final = tmp_path / "counter_123.db"
         samples.write_bytes(b"operator-owned samples")
@@ -250,7 +250,7 @@ class TestMaybeSetupPrometheusMultiprocDir:
 
             result_dir = ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
                 num_workers=1,
-                litellm_settings={"callbacks": ["prometheus"]},
+                hangarllm_settings={"callbacks": ["prometheus"]},
             )
 
             assert result_dir is None

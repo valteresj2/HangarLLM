@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-      - "litellm_**"
+      - "hangarllm_**"
 
 permissions:
   contents: read
@@ -109,14 +109,14 @@ jobs:
       - name: Generate Prisma client
         if: steps.changes.outputs.decision != 'skip'
         run: |
-          uv run --no-sync prisma generate --schema litellm/proxy/schema.prisma
+          uv run --no-sync prisma generate --schema hangarllm/proxy/schema.prisma
 
       - name: Check ruff format
         if: steps.changes.outputs.decision != 'skip'
         run: |
-          git diff --name-only --diff-filter=ACMR "$GATE_BASE_SHA" HEAD -- ':(glob)litellm/**/*.py' | grep -v '^litellm/enterprise/' > "$RUNNER_TEMP/ruff_format_files.txt" || true
+          git diff --name-only --diff-filter=ACMR "$GATE_BASE_SHA" HEAD -- ':(glob)hangarllm/**/*.py' | grep -v '^hangarllm/enterprise/' > "$RUNNER_TEMP/ruff_format_files.txt" || true
           if [ ! -s "$RUNNER_TEMP/ruff_format_files.txt" ]; then
-            echo "No changed litellm Python files to check with ruff format."
+            echo "No changed hangarllm Python files to check with ruff format."
             exit 0
           fi
           xargs uv run --no-sync ruff format --check --exclude '/enterprise/' < "$RUNNER_TEMP/ruff_format_files.txt"
@@ -129,7 +129,7 @@ jobs:
           echo "Last 3 commits:"
           git log --oneline -3
           echo "File content around line 43:"
-          head -50 litellm/litellm_core_utils/custom_logger_registry.py | tail -10
+          head -50 hangarllm/hangarllm_core_utils/custom_logger_registry.py | tail -10
 
       - name: Check MCP operation boundary
         if: steps.changes.outputs.decision != 'skip'
@@ -138,7 +138,7 @@ jobs:
       - name: Run Ruff linting
         if: steps.changes.outputs.decision != 'skip'
         run: |
-          cd litellm
+          cd hangarllm
           uv run --no-sync ruff check .
           cd ..
 
@@ -161,7 +161,7 @@ jobs:
         run: |
           uv run --no-sync python scripts/type_discipline_gate.py --base "$GATE_BASE_SHA"
 
-      - name: Check test quality (zero-assert / mock-echo tests, sys.path.insert, raw env writes, litellm global mutation, credential-gated skips, conftest snapshot inventory, delta vs merge-base counts)
+      - name: Check test quality (zero-assert / mock-echo tests, sys.path.insert, raw env writes, hangarllm global mutation, credential-gated skips, conftest snapshot inventory, delta vs merge-base counts)
         if: steps.changes.outputs.decision != 'skip'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -200,7 +200,7 @@ jobs:
       - name: Run the e2e harness tests
         if: steps.changes.outputs.decision != 'skip'
         env:
-          LITELLM_MASTER_KEY: sk-e2e-harness-tests-reach-no-proxy
+          HANGARLLM_MASTER_KEY: sk-e2e-harness-tests-reach-no-proxy
           E2E_CACHE_TEST_REDIS_URL: redis://127.0.0.1:6379/0
         run: |
           if ! git diff --name-only --diff-filter=ACMRD "$GATE_BASE_SHA" HEAD -- tests/e2e tests/e2e_harness ':(exclude)tests/e2e/ui' tests/code_coverage_tests/test_provider_replay_harness.py tests/code_coverage_tests/test_provider_cache.py pyproject.toml uv.lock .github/workflows/test-linting.yml | grep -q .; then
@@ -218,14 +218,14 @@ jobs:
       - name: Check for circular imports
         if: steps.changes.outputs.decision != 'skip'
         run: |
-          cd litellm
+          cd hangarllm
           uv run --no-sync python ../tests/documentation_tests/test_circular_imports.py
           cd ..
 
       - name: Check import safety
         if: steps.changes.outputs.decision != 'skip'
         run: |
-          uv run --no-sync python -c "from litellm import *" || (echo '🚨 import failed, this means you introduced unprotected imports! 🚨'; exit 1)
+          uv run --no-sync python -c "from hangarllm import *" || (echo '🚨 import failed, this means you introduced unprotected imports! 🚨'; exit 1)
   secret-scan:
     permissions:
       contents: read
@@ -271,7 +271,7 @@ jobs:
     timeout-minutes: 8
     defaults:
       run:
-        working-directory: ui/litellm-dashboard
+        working-directory: ui/hangarllm-dashboard
 
     steps:
       - name: Checkout repository
@@ -315,9 +315,9 @@ jobs:
         if: steps.changed.outputs.has_files == 'true'
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version-file: ui/litellm-dashboard/.nvmrc
+          node-version-file: ui/hangarllm-dashboard/.nvmrc
           cache: "npm"
-          cache-dependency-path: ui/litellm-dashboard/package-lock.json
+          cache-dependency-path: ui/hangarllm-dashboard/package-lock.json
 
       - name: Install dependencies
         if: steps.changed.outputs.has_files == 'true'
@@ -375,10 +375,10 @@ jobs:
             exit 0
           fi
           files="$(git diff --name-only "$base" HEAD)"
-          if grep -Eq '^(litellm/|enterprise/|(pyproject\.toml|uv\.lock)$|ui/litellm-dashboard/(src/lib/http/schema\.d\.ts|scripts/gen-api-types\.mjs|package(-lock)?\.json)$|\.github/workflows/test-linting\.yml$)' <<< "$files"; then
+          if grep -Eq '^(hangarllm/|enterprise/|(pyproject\.toml|uv\.lock)$|ui/hangarllm-dashboard/(src/lib/http/schema\.d\.ts|scripts/gen-api-types\.mjs|package(-lock)?\.json)$|\.github/workflows/test-linting\.yml$)' <<< "$files"; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No litellm, enterprise, dependency or generator changes in this pull request, nothing to verify."
+            echo "No hangarllm, enterprise, dependency or generator changes in this pull request, nothing to verify."
             echo "relevant=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -419,22 +419,22 @@ jobs:
 
       - name: Generate Prisma client
         if: steps.changes.outputs.relevant == 'true'
-        run: uv run --no-sync prisma generate --schema litellm/proxy/schema.prisma
+        run: uv run --no-sync prisma generate --schema hangarllm/proxy/schema.prisma
 
       - name: Regenerate the lazy OpenAPI snapshot
         if: steps.changes.outputs.relevant == 'true'
-        run: uv run --no-sync python -m litellm.proxy._lazy_openapi_snapshot
+        run: uv run --no-sync python -m hangarllm.proxy._lazy_openapi_snapshot
 
       - name: Fail if the lazy OpenAPI snapshot is stale
         if: steps.changes.outputs.relevant == 'true'
         run: |
-          if ! git diff --exit-code -- litellm/proxy/_lazy_openapi_snapshot.json; then
-            echo "::error file=litellm/proxy/_lazy_openapi_snapshot.json::The lazy OpenAPI snapshot is out of sync with the lazily loaded routes."
+          if ! git diff --exit-code -- hangarllm/proxy/_lazy_openapi_snapshot.json; then
+            echo "::error file=hangarllm/proxy/_lazy_openapi_snapshot.json::The lazy OpenAPI snapshot is out of sync with the lazily loaded routes."
             echo ""
             echo "A lazily loaded route or model changed without regenerating the snapshot that /openapi.json serves for unloaded features."
             echo "To fix, run from the repo root:"
-            echo "  uv run python -m litellm.proxy._lazy_openapi_snapshot"
-            echo "then run npm run gen:api from ui/litellm-dashboard and commit both files."
+            echo "  uv run python -m hangarllm.proxy._lazy_openapi_snapshot"
+            echo "then run npm run gen:api from ui/hangarllm-dashboard and commit both files."
             exit 1
           fi
           echo "_lazy_openapi_snapshot.json is in sync with the lazily loaded routes."
@@ -443,30 +443,30 @@ jobs:
         if: steps.changes.outputs.relevant == 'true'
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version-file: ui/litellm-dashboard/.nvmrc
+          node-version-file: ui/hangarllm-dashboard/.nvmrc
           cache: "npm"
-          cache-dependency-path: ui/litellm-dashboard/package-lock.json
+          cache-dependency-path: ui/hangarllm-dashboard/package-lock.json
 
       - name: Install dashboard dependencies
         if: steps.changes.outputs.relevant == 'true'
-        working-directory: ui/litellm-dashboard
+        working-directory: ui/hangarllm-dashboard
         run: npm ci
 
       - name: Regenerate types from the live spec
         if: steps.changes.outputs.relevant == 'true'
-        working-directory: ui/litellm-dashboard
+        working-directory: ui/hangarllm-dashboard
         env:
-          LITELLM_PYTHON: "uv run --no-sync python"
+          HANGARLLM_PYTHON: "uv run --no-sync python"
         run: npm run gen:api
 
       - name: Fail if types are stale
         if: steps.changes.outputs.relevant == 'true'
         run: |
-          if ! git diff --exit-code -- ui/litellm-dashboard/src/lib/http/schema.d.ts; then
-            echo "::error file=ui/litellm-dashboard/src/lib/http/schema.d.ts::Generated API types are out of sync with the proxy OpenAPI spec."
+          if ! git diff --exit-code -- ui/hangarllm-dashboard/src/lib/http/schema.d.ts; then
+            echo "::error file=ui/hangarllm-dashboard/src/lib/http/schema.d.ts::Generated API types are out of sync with the proxy OpenAPI spec."
             echo ""
             echo "A backend route or model changed without regenerating the dashboard types."
-            echo "To fix, run from ui/litellm-dashboard:"
+            echo "To fix, run from ui/hangarllm-dashboard:"
             echo "  npm run gen:api"
             echo "then commit the updated src/lib/http/schema.d.ts."
             exit 1
@@ -484,10 +484,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Checkout litellm-docs into docs/my-website (for documentation_tests)
+      - name: Checkout hangarllm-docs into docs/my-website (for documentation_tests)
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
-          repository: BerriAI/litellm-docs
+          repository: valteresj2/HangarLLM-docs
           path: docs/my-website
           persist-credentials: false
 
@@ -551,7 +551,7 @@ jobs:
         env:
           PYTHONPATH: tests/e2e
         run: |
-          export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 16)"
+          export HANGARLLM_MASTER_KEY="sk-$(openssl rand -hex 16)"
           uv run --no-sync pytest -q --noconftest -p no:cacheprovider -c /dev/null tests/code_coverage_tests/test_e2e_metadata.py tests/code_coverage_tests/test_e2e_junit_report.py
 
       - name: Check merge smoke harness
@@ -593,8 +593,8 @@ jobs:
       - name: test_router_strategy_async
         run: uv run --no-sync python ./tests/code_coverage_tests/test_router_strategy_async.py
 
-      - name: litellm_logging_code_coverage
-        run: uv run --no-sync python ./tests/code_coverage_tests/litellm_logging_code_coverage.py
+      - name: hangarllm_logging_code_coverage
+        run: uv run --no-sync python ./tests/code_coverage_tests/hangarllm_logging_code_coverage.py
 
       - name: ensure_async_clients_test
         run: uv run --no-sync python ./tests/code_coverage_tests/ensure_async_clients_test.py

@@ -24,7 +24,7 @@ from tests.integration._support.process import owned_proxy
 from tests.integration._support.wire import Reply, Request, wire_server
 
 KEY_ID: Final = "integration-jwt-map-existing-key"
-MAPPING_INSERT: Final = b'INSERT INTO "public"."LiteLLM_JWTKeyMapping"'
+MAPPING_INSERT: Final = b'INSERT INTO "public"."HangarLLM_JWTKeyMapping"'
 
 pytestmark: Final = [pytest.mark.timeout(240), pytest.mark.shares_worker_state]
 
@@ -46,7 +46,7 @@ def _config(
     config["general_settings"] = {
         **config["general_settings"],
         "enable_jwt_auth": True,
-        "litellm_jwtauth": {
+        "hangarllm_jwtauth": {
             "user_id_jwt_field": "sub",
             "user_email_jwt_field": "email",
             "virtual_key_claim_field": claim_field,
@@ -96,7 +96,7 @@ def _chat(candidate: Gateway, model: str, token: str) -> httpx.Response:
 
 def _mapped_token(claim_name: str, claim_value: str) -> str:
     rows: Final = read_rows(
-        'SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_name = %s AND jwt_claim_value = %s',
+        'SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_name = %s AND jwt_claim_value = %s',
         (claim_name, claim_value),
     )
     assert len(rows) == 1, rows
@@ -104,14 +104,14 @@ def _mapped_token(claim_name: str, claim_value: str) -> str:
 
 
 def _user_key_hashes(user: str) -> frozenset[str]:
-    rows: Final = read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE user_id = %s', (user,))
+    rows: Final = read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE user_id = %s', (user,))
     return frozenset(string_value(row["token"]) for row in rows)
 
 
 def _billed_key(response: httpx.Response) -> str:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT api_key FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (str(response.json()["id"]),)
+            'SELECT api_key FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (str(response.json()["id"]),)
         ),
         lambda values: len(values) == 1,
         seconds=70,
@@ -269,7 +269,7 @@ def test_shared_client_claim_never_maps_a_second_user_onto_the_first_users_perso
         mapped: Final = _mapped_token("client_id", client_id)
         assert mapped != _hash(personal), "the shared client claim was mapped to the first user's personal key"
         assert (_billed_key(first), _billed_key(second)) == (mapped, mapped)
-        assert read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE api_key = %s', (_hash(personal),)) == []
+        assert read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE api_key = %s', (_hash(personal),)) == []
 
 
 @pytest.mark.parametrize("behavior", ["auto_register", "link_only"])
@@ -343,7 +343,7 @@ def test_link_only_rejects_without_writes_then_links_a_newly_available_key(
             assert first.status_code == 403, first.text
             assert repeated.status_code == 403, repeated.text
             assert _user_key_hashes(user) == keys_before
-            assert read_rows('SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (user,)) == []
+            assert read_rows('SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (user,)) == []
             available: Final = scenario.key(user_id=user)
             accepted: Final = _chat(candidate, model, token)
         assert accepted.status_code == 200, accepted.text
@@ -370,8 +370,8 @@ def test_link_only_rejects_shared_or_missing_claims_without_linking_a_personal_k
             response: Final = _chat(candidate, model, _token(private_key, user, client_id=shared_claim))
         assert response.status_code == 403, response.text
         assert _user_key_hashes(user) == frozenset({_hash(key)})
-        assert read_rows('SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE token=%s', (_hash(key),)) == []
-        assert read_rows('SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (shared_claim,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE token=%s', (_hash(key),)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (shared_claim,)) == []
 
 
 @pytest.mark.parametrize("restriction", ["models", "allowed_routes"])
@@ -436,7 +436,7 @@ def test_link_only_exempts_proxy_admins_but_rechecks_the_role_after_a_cached_exe
     with _issuer() as (private_key, jwks_url), gateway.scenario() as scenario:
         model: Final = scenario.model()
         user: Final = scenario.user(user_role="internal_user")
-        admin: Final = _token(private_key, user, scope="litellm_proxy_admin")
+        admin: Final = _token(private_key, user, scope="hangarllm_proxy_admin")
         ordinary: Final = _token(private_key, user)
         with owned_proxy(
             gateway,
@@ -453,7 +453,7 @@ def test_link_only_exempts_proxy_admins_but_rechecks_the_role_after_a_cached_exe
         assert denied.status_code == 403, denied.text
         assert forbidden_route.status_code == 401, forbidden_route.text
         assert _user_key_hashes(user) == frozenset()
-        assert read_rows('SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (user,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (user,)) == []
 
 
 @pytest.mark.parametrize("user_id_upsert", [False, True])
@@ -474,12 +474,12 @@ def test_link_only_keeps_user_provisioning_independent_of_key_creation(
             ) as candidate:
                 response: Final = _chat(candidate, model, _token(private_key, subject))
             assert response.status_code == (403 if user_id_upsert else 401), response.text
-            users: Final = read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id=%s', (subject,))
+            users: Final = read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id=%s', (subject,))
             assert users == ([{"user_id": subject}] if user_id_upsert else [])
             assert _user_key_hashes(subject) == frozenset()
-            assert read_rows('SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (subject,)) == []
+            assert read_rows('SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (subject,)) == []
         finally:
-            if read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id=%s', (subject,)):
+            if read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id=%s', (subject,)):
                 scenario.delete_user(subject)
 
 
@@ -513,7 +513,7 @@ def test_issuer_specific_registration_mode_overrides_the_global_mode(
         assert response.status_code == (403 if issuer_behavior == "link_only" else 200), response.text
         if issuer_behavior == "link_only":
             assert _user_key_hashes(user) == frozenset()
-            assert read_rows('SELECT token FROM "LiteLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (user,)) == []
+            assert read_rows('SELECT token FROM "HangarLLM_JWTKeyMapping" WHERE jwt_claim_value=%s', (user,)) == []
         else:
             assert len(_user_key_hashes(user)) == 1
             assert _mapped_token("sub", user) in _user_key_hashes(user)

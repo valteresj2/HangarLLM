@@ -14,9 +14,9 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 )
 
-import litellm
-from litellm.llms.openai_like.dynamic_config import create_config_class
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+import hangarllm
+from hangarllm.llms.openai_like.dynamic_config import create_config_class
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
 EMPIRIOLABS_BASE_URL = "https://api.empiriolabs.ai/v1"
 
@@ -63,7 +63,7 @@ def test_empiriolabs_complete_url_appends_endpoint():
         api_key="test-key",
         model="empiriolabs/qwen3-7-plus",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url == f"{EMPIRIOLABS_BASE_URL}/chat/completions"
@@ -93,14 +93,14 @@ def test_empiriolabs_chat_models_still_route_through_the_json_provider(
                 "usage": {"prompt_tokens": 4, "completion_tokens": 5, "total_tokens": 9},
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="empiriolabs/qwen3-7-plus",
             messages=[{"role": "user", "content": "Say hello"}],
             max_completion_tokens=16,
         )
 
     request: Final = route.calls.last.request
-    assert litellm.get_llm_provider("empiriolabs/qwen3-7-plus") == (
+    assert hangarllm.get_llm_provider("empiriolabs/qwen3-7-plus") == (
         "qwen3-7-plus",
         "empiriolabs",
         "environment-key",
@@ -127,7 +127,7 @@ EMBEDDING_RESPONSE: Final = {
 def test_empiriolabs_embeddings_post_to_v1_embeddings_with_the_bearer_key():
     with respx.mock() as upstream:
         route: Final = upstream.post(f"{EMPIRIOLABS_BASE_URL}/embeddings").respond(200, json=EMBEDDING_RESPONSE)
-        response: Final = litellm.embedding(
+        response: Final = hangarllm.embedding(
             model="empiriolabs/text-embedding-v4",
             input=["Say hello"],
             api_key="empiriolabs-test-key",
@@ -165,16 +165,16 @@ SEARCHED_CHAT_RESPONSE: Final = {
 def test_empiriolabs_web_search_calls_in_tool_usage_are_billed_per_call(local_model_cost_map: None) -> None:
     with respx.mock() as upstream:
         upstream.post(f"{EMPIRIOLABS_BASE_URL}/chat/completions").respond(200, json=SEARCHED_CHAT_RESPONSE)
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="empiriolabs/qwen3-7-plus",
             messages=[{"role": "user", "content": "Search twice"}],
             api_key="empiriolabs-test-key",
         )
 
-    row: Final = litellm.model_cost["empiriolabs/qwen3-7-plus"]
+    row: Final = hangarllm.model_cost["empiriolabs/qwen3-7-plus"]
     token_cost: Final = 4 * row["input_cost_per_token"] + 5 * row["output_cost_per_token"]
     per_search: Final = row["search_context_cost_per_query"]["search_context_size_medium"]
     assert response.usage.server_tool_use.web_search_requests == 2
-    assert litellm.completion_cost(
+    assert hangarllm.completion_cost(
         completion_response=response, model="empiriolabs/qwen3-7-plus", custom_llm_provider="empiriolabs"
     ) == pytest.approx(token_cost + 2 * per_search)

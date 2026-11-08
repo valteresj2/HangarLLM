@@ -7,8 +7,8 @@ import json
 import pytest
 
 
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-from litellm.types.llms.bedrock import ServiceTierBlock
+from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from hangarllm.types.llms.bedrock import ServiceTierBlock
 
 
 def test_service_tier_block_type():
@@ -44,7 +44,7 @@ def test_transform_request_with_service_tier():
         model="bedrock/converse/qwen.qwen3-235b-a22b-2507-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -71,7 +71,7 @@ def test_transform_request_with_default_tier():
         model="bedrock/converse/anthropic.claude-3-sonnet-20240229-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -92,7 +92,7 @@ def test_transform_request_with_flex_tier():
         model="bedrock/converse/anthropic.claude-3-sonnet-20240229-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -111,7 +111,7 @@ def test_transform_request_without_service_tier():
         model="bedrock/converse/anthropic.claude-3-sonnet-20240229-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -133,7 +133,7 @@ def test_service_tier_with_other_config_blocks():
         model="bedrock/converse/anthropic.claude-3-sonnet-20240229-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -228,7 +228,7 @@ def test_transform_response_with_service_tier():
 
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AmazonConverseConfig()
 
@@ -264,7 +264,7 @@ def test_transform_response_with_service_tier():
         request_data={},
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -279,7 +279,7 @@ def test_transform_response_with_service_tier_default():
 
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AmazonConverseConfig()
 
@@ -314,7 +314,7 @@ def test_transform_response_with_service_tier_default():
         request_data={},
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -328,7 +328,7 @@ def test_transform_response_with_service_tier_flex():
 
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AmazonConverseConfig()
 
@@ -363,7 +363,7 @@ def test_transform_response_with_service_tier_flex():
         request_data={},
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -377,7 +377,7 @@ def test_transform_response_without_service_tier():
 
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AmazonConverseConfig()
 
@@ -413,7 +413,7 @@ def test_transform_response_without_service_tier():
         request_data={},
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

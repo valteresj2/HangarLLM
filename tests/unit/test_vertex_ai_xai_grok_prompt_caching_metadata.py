@@ -2,10 +2,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm import get_model_info
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.utils import supports_prompt_caching
+import hangarllm
+from hangarllm import get_model_info
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.utils import supports_prompt_caching
 
 MODEL: Final = "vertex_ai/xai/grok-4.6"
 GROK_KEY_PREFIXES: Final = ("vertex_ai/xai/grok-", "azure_ai/grok-", "xai/grok-")
@@ -15,7 +15,7 @@ GROK_KEY_PREFIXES: Final = ("vertex_ai/xai/grok-", "azure_ai/grok-", "xai/grok-"
 def test_grok_models_with_cache_read_price_advertise_prompt_caching() -> None:
     cached_grok_models: Final = tuple(
         key
-        for key, entry in litellm.model_cost.items()
+        for key, entry in hangarllm.model_cost.items()
         if key.startswith(GROK_KEY_PREFIXES) and entry.get("cache_read_input_token_cost")
     )
     assert cached_grok_models, "expected at least one grok model with a cache read price"
@@ -34,7 +34,7 @@ def test_vertex_ai_grok_4_6_supports_prompt_caching_via_get_model_info() -> None
     assert (routed_model, provider) == ("xai/grok-4.6", "vertex_ai")
 
     routed_info: Final = get_model_info(model=routed_model, custom_llm_provider=provider)
-    assert routed_info["litellm_provider"] == "vertex_ai"
+    assert routed_info["hangarllm_provider"] == "vertex_ai"
     assert routed_info.get("supports_prompt_caching") is True
     assert routed_info.get("cache_read_input_token_cost")
 

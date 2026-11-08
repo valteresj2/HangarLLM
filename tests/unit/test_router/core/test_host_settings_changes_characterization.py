@@ -15,13 +15,13 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.core_helpers import as_str_mapping
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.router_utils.kubernetes_pod_discovery import KubernetesPodDiscovery
-from litellm.types.router import Deployment, RouterGeneralSettings
+import hangarllm
+from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
+from hangarllm.router_utils.kubernetes_pod_discovery import KubernetesPodDiscovery
+from hangarllm.types.router import Deployment, RouterGeneralSettings
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost, patch_direct_endpoints
 from tests.unit.test_router.core.retries_health_helpers import cooled_down
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
@@ -30,8 +30,8 @@ from tests.unit.test_router.core.streaming_helpers import chat_stream, collect_t
 
 MakeCore = Callable[..., RouterCore]
 MESSAGES: Final = [{"role": "user", "content": "hi"}]
-SEARCH_TOOLS: Final = [{"search_tool_name": "s", "litellm_params": {"search_provider": "tavily", "api_key": "tk"}}]
-GUARDRAILS: Final = [{"guardrail_name": "gr", "litellm_params": {"guardrail": "presidio", "mode": "pre_call"}}]
+SEARCH_TOOLS: Final = [{"search_tool_name": "s", "hangarllm_params": {"search_provider": "tavily", "api_key": "tk"}}]
+GUARDRAILS: Final = [{"guardrail_name": "gr", "hangarllm_params": {"guardrail": "presidio", "mode": "pre_call"}}]
 PROVIDER_BUDGET: Final = {"openai": {"budget_limit": 1, "time_period": "1d"}}
 
 ASSIGNED: Final[list[tuple[str, object]]] = [  # mutable-ok: pytest parameters
@@ -170,7 +170,7 @@ async def test_a_default_max_parallel_requests_assigned_later_limits_the_next_re
     core: Final = make_core(model_list=[deployment("a", "a")], num_retries=0)
     _ = core.apply(ChangeSet(assign={"default_max_parallel_requests": 1}))
     first: Final = await _open_stream(core)
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await asyncio.wait_for(_open_stream(core), 5)
     assert await collect_texts(first) == "x"
 
@@ -184,7 +184,7 @@ async def test_a_deployment_keeps_the_slot_limit_it_was_given_before_a_change(
     assert await collect_texts(await _open_stream(core)) == "x"
     _ = core.apply(ChangeSet(assign={"default_max_parallel_requests": 5}))
     first: Final = await _open_stream(core)
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await asyncio.wait_for(_open_stream(core), 5)
     assert await collect_texts(first) == "x"
 
@@ -232,11 +232,11 @@ def test_settings_guardrail_with_an_unknown_name_raises_value_error(make_core: M
 
 def test_settings_guardrail_picks_among_same_named_guardrails_by_weight(make_core: MakeCore) -> None:
     guardrails: Final = [
-        {"guardrail_name": "gr", "litellm_params": {"guardrail": "never", "weight": 0}},
-        {"guardrail_name": "gr", "litellm_params": {"guardrail": "always", "weight": 1}},
+        {"guardrail_name": "gr", "hangarllm_params": {"guardrail": "never", "weight": 0}},
+        {"guardrail_name": "gr", "hangarllm_params": {"guardrail": "always", "weight": 1}},
     ]
     core: Final = make_core(model_list=[deployment("g", "d1")], guardrail_list=guardrails)
-    assert {core.settings().guardrail("gr")["litellm_params"]["guardrail"] for _ in range(20)} == {"always"}
+    assert {core.settings().guardrail("gr")["hangarllm_params"]["guardrail"] for _ in range(20)} == {"always"}
 
 
 def test_settings_guardrail_reads_a_guardrail_list_assigned_after_construction(make_core: MakeCore) -> None:
@@ -258,7 +258,7 @@ async def test_a_float_default_max_parallel_requests_limits_the_slots(
     if assigned:
         _ = core.apply(ChangeSet(assign={"default_max_parallel_requests": 1.0}))
     first: Final = await _open_stream(core)
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await asyncio.wait_for(_open_stream(core), 5)
     assert await collect_texts(first) == "x"
 
@@ -307,7 +307,7 @@ async def test_an_assigned_provider_default_deployment_never_cools_down(
     host.answer("openai/a", rate_limit())
     core: Final = make_core(model_list=[deployment("g", "a"), deployment("g", "b")], num_retries=0)
     _ = core.apply(ChangeSet(assign={"provider_default_deployment_ids": default_ids}))
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.call("acompletion", {"model": "a", "messages": MESSAGES})
     assert sorted(cooled_down(core, ["a", "b"])) == cooled
 
@@ -320,7 +320,7 @@ async def test_wildcard_deployments_never_cool_down(make_core: MakeCore, host: S
         num_retries=0,
     )
     for _ in range(3):
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await core.call("acompletion", {"model": "openai/x", "messages": MESSAGES})
     assert cooled_down(core, ["w", "w2"]) == {}
     assert len(host.calls) == 3
@@ -332,7 +332,7 @@ async def test_an_added_wildcard_deployment_never_cools_down(make_core: MakeCore
     _ = core.apply(ChangeSet(upsert=[Deployment.model_validate(deployment("openai/*", "w2", model="openai/*"))]))
     assert core.settings().provider_default_deployment_ids == ["w", "w2"]
     for _ in range(3):
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await core.call("acompletion", {"model": "openai/x", "messages": MESSAGES})
     assert cooled_down(core, ["w", "w2"]) == {}
 
@@ -349,10 +349,10 @@ class _RecordingDiscovery(KubernetesPodDiscovery):
 
     def _pod(self, deployment: object) -> object:
         record: Final = dict(as_str_mapping(deployment) or {})
-        params: Final = as_str_mapping(record.get("litellm_params")) or {}
+        params: Final = as_str_mapping(record.get("hangarllm_params")) or {}
         if params.get("kubernetes_pod_discovery") is not True:
             return deployment
-        record["litellm_params"] = {**params, "api_base": "http://10.0.0.7:4000"}
+        record["hangarllm_params"] = {**params, "api_base": "http://10.0.0.7:4000"}
         return record
 
     def resolve_deployment(self, deployment: object, request_kwargs: Mapping[str, object] | None = None) -> object:  # pyright: ignore[reportIncompatibleMethodOverride]  # the resolver's generic signature, read as objects
@@ -382,7 +382,7 @@ async def test_an_assigned_pod_discovery_resolves_each_attempt(make_core: MakeCo
     core: Final = make_core(model_list=[_pod_deployment("a")], num_retries=1)
     _ = core.apply(ChangeSet(assign={"kubernetes_pod_discovery": discovery}))
     assert core.settings().kubernetes_pod_discovery is discovery
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.call("acompletion", {"model": "g", "messages": MESSAGES})
     assert [call.kwargs["api_base"] for call in host.calls] == ["http://10.0.0.7:4000"] * 2
     assert discovery.seen == [0, 1]
@@ -398,7 +398,7 @@ def test_an_assigned_pod_discovery_resolves_a_sync_attempt(make_core: MakeCore, 
 
 
 def _api_base(record: object) -> object:
-    return (as_str_mapping((as_str_mapping(record) or {}).get("litellm_params")) or {}).get("api_base")
+    return (as_str_mapping((as_str_mapping(record) or {}).get("hangarllm_params")) or {}).get("api_base")
 
 
 async def test_a_pick_is_resolved_to_a_pod_and_a_healthy_listing_is_not(make_core: MakeCore) -> None:

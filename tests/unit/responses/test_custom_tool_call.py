@@ -2,7 +2,7 @@
 Test custom_tool_call adaptation for apply_patch and other custom tools.
 
 This test verifies that when Codex sends custom tools (type="custom"),
-LiteLLM bridge correctly:
+HangarLLM bridge correctly:
 1. Converts them to function tools for Chat Completions providers
 2. Converts function_call responses back to custom_tool_call output items
 3. Unwraps the JSON-wrapping arguments to extract the actual input content
@@ -14,10 +14,10 @@ from typing import Dict, Any, List
 
 from openai.types.responses import ResponseFunctionToolCall
 
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from hangarllm.responses.hangarllm_completion_transformation.transformation import (
+    HangarLLMCompletionResponsesConfig,
 )
-from litellm.responses.litellm_completion_transformation.custom_tools import (
+from hangarllm.responses.hangarllm_completion_transformation.custom_tools import (
     extract_custom_tool_names,
     is_custom_tool_call,
     openai_shaped_tool_call_item_id,
@@ -27,7 +27,7 @@ from litellm.responses.litellm_completion_transformation.custom_tools import (
     _MAX_ARGUMENTS_LEN,
 )
 
-from litellm.types.responses.main import CustomToolCallOutputItem
+from hangarllm.types.responses.main import CustomToolCallOutputItem
 
 
 class TestCustomToolUtilities:
@@ -223,7 +223,7 @@ class TestTransformationCustomTools:
     def test_transform_apply_patch_function_call_to_custom_tool_call(self):
         """Test that apply_patch function_call is converted to custom_tool_call."""
         # Simulate a Chat Completion response with apply_patch function call
-        from litellm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
 
         tool_call = ChatCompletionMessageToolCall(
             id="call_abc123",
@@ -247,7 +247,7 @@ class TestTransformationCustomTools:
             "tools": [{"type": "custom", "name": "apply_patch"}, {"type": "function", "name": "regular_tool"}]
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
+        result = HangarLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
             response, responses_api_request=responses_api_request
         )
 
@@ -276,7 +276,7 @@ class TestTransformationCustomTools:
             if arguments is not None:
                 item["arguments"] = arguments
             messages = (
-                LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+                HangarLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
                     function_call=item
                 )
             )
@@ -305,7 +305,7 @@ class TestTransformationCustomTools:
             },
         ):
             messages = (
-                LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+                HangarLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
                     function_call=item
                 )
             )
@@ -314,7 +314,7 @@ class TestTransformationCustomTools:
 
     def test_transform_regular_function_call_unchanged(self):
         """Test that regular function calls remain as ResponseFunctionToolCall."""
-        from litellm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
 
         tool_call = ChatCompletionMessageToolCall(
             id="call_xyz789",
@@ -335,7 +335,7 @@ class TestTransformationCustomTools:
             "tools": [{"type": "custom", "name": "apply_patch"}, {"type": "function", "name": "regular_tool"}]
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
+        result = HangarLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
             response, responses_api_request=responses_api_request
         )
 
@@ -351,7 +351,7 @@ class TestTransformationCustomTools:
         """Anthropic tool ids (toolu_/srvtoolu_) surfacing through the bridge
         must be emitted with fc/ctc-prefixed item ids so a Responses client can
         replay them to OpenAI verbatim, while call_id stays raw for pairing."""
-        from litellm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
 
         client_call = ChatCompletionMessageToolCall(
             id="toolu_01ClientCall",
@@ -378,7 +378,7 @@ class TestTransformationCustomTools:
             "tools": [{"type": "custom", "name": "apply_patch"}, {"type": "function", "name": "get_weather"}]
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
+        result = HangarLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
             response, responses_api_request=responses_api_request
         )
 
@@ -397,7 +397,7 @@ class TestTransformationCustomTools:
 
     def test_transform_mixed_tool_calls(self):
         """Test transformation with both custom and regular tool calls."""
-        from litellm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ModelResponse, Choices, Message, ChatCompletionMessageToolCall, Function
 
         custom_call = ChatCompletionMessageToolCall(
             id="call_001",
@@ -421,7 +421,7 @@ class TestTransformationCustomTools:
             "tools": [{"type": "custom", "name": "apply_patch"}, {"type": "function", "name": "get_weather"}]
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
+        result = HangarLLMCompletionResponsesConfig.transform_chat_completion_tools_to_responses_tools(
             response, responses_api_request=responses_api_request
         )
 

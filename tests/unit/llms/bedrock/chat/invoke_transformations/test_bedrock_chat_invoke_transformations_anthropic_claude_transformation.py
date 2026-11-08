@@ -11,14 +11,14 @@ import httpx
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-# Ensure the project root is on the import path so `litellm` can be imported when
+# Ensure the project root is on the import path so `hangarllm` can be imported when
 # tests are executed from any working directory.
-import litellm
-from litellm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
-from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+import hangarllm
+from hangarllm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
+from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
     AmazonAnthropicClaudeConfig,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from tests.unit.conftest import NativeStructuredOutputKey
 from tests.unit.llms.anthropic.anthropic_docs_refusal import ANTHROPIC_DOCS_REFUSAL_MESSAGE
@@ -30,8 +30,8 @@ ONE_PIXEL_PNG = base64.b64decode(
 
 @pytest.fixture
 def async_only_image_fetch(monkeypatch):
-    from litellm.litellm_core_utils.prompt_templates import factory, image_handling
-    from litellm.llms.gemini.chat import transformation as gemini_chat_transformation
+    from hangarllm.hangarllm_core_utils.prompt_templates import factory, image_handling
+    from hangarllm.llms.gemini.chat import transformation as gemini_chat_transformation
 
     fetch = SimpleNamespace(
         fetched=[],
@@ -40,7 +40,7 @@ def async_only_image_fetch(monkeypatch):
     )
 
     def forbid_sync_fetch(client, url, **kwargs):
-        raise litellm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
+        raise hangarllm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
 
     async def serve_png(client, url, **kwargs):
         fetch.fetched.append(url)
@@ -53,7 +53,7 @@ def async_only_image_fetch(monkeypatch):
 
     def forbid_sync_convert(url, *args, **kwargs):
         if url.startswith(("http://", "https://")):
-            raise litellm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
+            raise hangarllm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
         return url
 
     monkeypatch.setattr(image_handling, "safe_get", forbid_sync_fetch)
@@ -71,24 +71,24 @@ def local_model_cost_map(monkeypatch):
     ``get_model_info`` is lru_cached, so swapping ``model_cost`` is not enough on its
     own; clear on the way in and out so entries warmed against either map never leak
     across tests."""
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    original_model_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+    hangarllm.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        hangarllm.model_cost = original_model_cost
+        hangarllm.get_model_info.cache_clear()
 
 
 @pytest.fixture
 def local_beta_headers_config(monkeypatch):
     """Pin the bundled ``anthropic_beta_headers_config.json`` so beta header assertions
     do not depend on the network-fetched copy or on what earlier tests left cached."""
-    from litellm.anthropic_beta_headers_manager import reload_beta_headers_config
+    from hangarllm.anthropic_beta_headers_manager import reload_beta_headers_config
 
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     reload_beta_headers_config()
     yield
     reload_beta_headers_config()
@@ -141,7 +141,7 @@ def test_aws_params_filtered_from_request_body():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params=optional_params.copy(),  # Copy to avoid mutation
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -187,10 +187,10 @@ def test_output_format_conversion_to_inline_schema():
     """
     Test that output_format is converted to inline schema in message content for Bedrock Invoke.
 
-    Bedrock Invoke doesn't support the output_format parameter, so LiteLLM converts it by
+    Bedrock Invoke doesn't support the output_format parameter, so HangarLLM converts it by
     embedding the schema directly into the user message content.
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -226,7 +226,7 @@ def test_output_format_conversion_to_inline_schema():
         model="anthropic.claude-sonnet-4-20250514-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -267,7 +267,7 @@ def test_output_format_conversion_with_string_content():
     """
     Test that output_format conversion works when message content is a string (not a list).
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -291,7 +291,7 @@ def test_output_format_conversion_with_string_content():
         model="anthropic.claude-sonnet-4-20250514-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -315,7 +315,7 @@ def test_output_format_with_no_schema():
     """
     Test that if output_format has no schema, the conversion is skipped gracefully.
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -336,7 +336,7 @@ def test_output_format_with_no_schema():
         model="anthropic.claude-sonnet-4-20250514-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -354,7 +354,7 @@ def test_opus_4_5_model_detection():
     Test that the _is_claude_opus_4_5 method correctly identifies Opus 4.5 models
     with various naming conventions.
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -393,7 +393,7 @@ def test_opus_4_5_model_detection():
 #     "invalid beta flag" error for others (e.g., structured-outputs, mcp-servers).
 #     This test ensures unsupported headers are filtered while keeping supported ones.
 
-#     Fixes: https://github.com/BerriAI/litellm/issues/16726
+#     Fixes: upstream issue 16726
 #     """
 #     config = AmazonAnthropicClaudeConfig()
 
@@ -406,7 +406,7 @@ def test_opus_4_5_model_detection():
 #         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
 #         messages=messages,
 #         optional_params={},
-#         litellm_params={},
+#         hangarllm_params={},
 #         headers=headers,
 #     )
 
@@ -422,7 +422,7 @@ def test_opus_4_5_model_detection():
 #         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
 #         messages=messages,
 #         optional_params={},
-#         litellm_params={},
+#         hangarllm_params={},
 #         headers=headers,
 #     )
 
@@ -438,7 +438,7 @@ def test_opus_4_5_model_detection():
 #         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
 #         messages=messages,
 #         optional_params={},
-#         litellm_params={},
+#         hangarllm_params={},
 #         headers=headers,
 #     )
 
@@ -467,7 +467,7 @@ def test_output_config_forwarded_for_bedrock_chat_invoke_request():
         model="anthropic.claude-opus-4-7",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -485,7 +485,7 @@ def test_output_config_format_converted_for_bedrock_chat_invoke_request():
     }
 
     with patch(  # test-quality-ok: pin non-native path
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         side_effect=lambda _model, key, *_: key == "supports_output_config",
     ):
         result = config.transform_request(
@@ -498,7 +498,7 @@ def test_output_config_format_converted_for_bedrock_chat_invoke_request():
                     "format": {"type": "json_schema", "schema": schema},
                 },
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -523,7 +523,7 @@ def test_output_config_format_inlined_for_bedrock_chat_invoke_profile_without_na
             "max_tokens": 100,
             "output_config": {"effort": "xhigh", "format": {"type": "json_schema", "schema": schema}},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -699,7 +699,7 @@ def test_output_config_format_forwarded_for_bedrock_chat_invoke_request(local_mo
             "max_tokens": 100,
             "output_config": {"effort": "max", "format": schema_format},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -726,7 +726,7 @@ def test_output_config_effort_normalized_for_bedrock_chat_invoke_request(model, 
             "max_tokens": 100,
             "output_config": {"effort": "xhigh"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -739,14 +739,14 @@ def test_bedrock_chat_invoke_checks_output_config_support_with_bedrock_provider(
     optional_params = {"max_tokens": 100, "output_config": {"effort": "high"}}
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ) as mock_supports_factory:
         result = config.transform_request(
             model="us.anthropic.claude-opus-4-7",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -781,7 +781,7 @@ def test_output_format_removed_from_bedrock_invoke_request():
         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -814,7 +814,7 @@ def test_bedrock_chat_invoke_forwards_output_config_format_natively(local_model_
             "max_tokens": 100,
             "output_config": {"format": schema_format},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -825,9 +825,9 @@ def test_bedrock_chat_invoke_forwards_output_config_format_natively(local_model_
 def test_bedrock_chat_invoke_drop_params_keeps_native_output_config_format(local_model_cost_map, monkeypatch):
     """``drop_params=True`` must not eat ``output_config.format`` before the
     native-forwarding router runs (Sonnet 4.5 has no effort flags)."""
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     schema_format = {
         "type": "json_schema",
         "schema": {"type": "object", "properties": {"zebra_count": {"type": "integer"}}, "additionalProperties": False},
@@ -837,7 +837,7 @@ def test_bedrock_chat_invoke_drop_params_keeps_native_output_config_format(local
         model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=[{"role": "user", "content": "say hello"}],
         optional_params={"max_tokens": 100, "output_config": {"format": schema_format}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -847,9 +847,9 @@ def test_bedrock_chat_invoke_drop_params_keeps_native_output_config_format(local
 def test_bedrock_chat_invoke_drop_params_still_inlines_for_non_native(local_model_cost_map, monkeypatch):
     """``drop_params=True`` on a model without native structured-output support
     still reaches the inline-schema fallback instead of losing the schema."""
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     schema = {"type": "object", "properties": {"zebra_count": {"type": "integer"}}}
 
     result = AmazonAnthropicClaudeConfig().transform_request(
@@ -859,7 +859,7 @@ def test_bedrock_chat_invoke_drop_params_still_inlines_for_non_native(local_mode
             "max_tokens": 100,
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -989,7 +989,7 @@ async def test_bedrock_invoke_claude_async_completion_inlines_remote_images_off_
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="bedrock/invoke/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -1036,7 +1036,7 @@ async def test_bedrock_invoke_claude_async_completion_inlines_document_url_sourc
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="bedrock/invoke/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -1062,7 +1062,7 @@ async def test_bedrock_invoke_claude_async_completion_inlines_document_url_sourc
 
 
 def test_bedrock_invoke_claude_sync_completion_downloads_a_pdf_link_once_and_sends_it_as_a_base64_document(monkeypatch):
-    from litellm.litellm_core_utils.prompt_templates import image_handling
+    from hangarllm.hangarllm_core_utils.prompt_templates import image_handling
 
     pdf_url = f"https://docs.example/{uuid.uuid4()}/report.pdf"
     pdf_bytes = b"%PDF-1.7\n" + b"0" * 64
@@ -1094,7 +1094,7 @@ def test_bedrock_invoke_claude_sync_completion_downloads_a_pdf_link_once_and_sen
     client = HTTPHandler()
     client.client = httpx.Client(transport=httpx.MockTransport(handle))
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/invoke/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -1157,7 +1157,7 @@ def test_bedrock_chat_invoke_tool_search_beta_follows_model_map(
                 },
             ],
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1167,7 +1167,7 @@ def test_bedrock_chat_invoke_tool_search_beta_follows_model_map(
 def test_bedrock_chat_invoke_adds_thinking_display_updates_beta(
     local_model_cost_map, local_beta_headers_config
 ) -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     config: Final = AmazonAnthropicClaudeConfig()
     model: Final = "us.anthropic.claude-opus-5"
@@ -1184,7 +1184,7 @@ def test_bedrock_chat_invoke_adds_thinking_display_updates_beta(
         model=model,
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1195,7 +1195,7 @@ def test_bedrock_chat_invoke_adds_thinking_display_updates_beta(
 def test_bedrock_chat_invoke_preserves_display_when_translating_legacy_thinking(
     local_model_cost_map, local_beta_headers_config
 ) -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     config: Final = AmazonAnthropicClaudeConfig()
     model: Final = "us.anthropic.claude-opus-5"
@@ -1212,7 +1212,7 @@ def test_bedrock_chat_invoke_preserves_display_when_translating_legacy_thinking(
         model=model,
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1246,7 +1246,7 @@ def test_bedrock_chat_invoke_keeps_block_binding_with_display_updates(
         model=model,
         messages=[{"role": "user", "content": "Reply with OK"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1272,7 +1272,7 @@ def _chat_invoke_request_with_tools(
         model=model,
         messages=[{"role": "user", "content": "write a big file"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers or {},
     )
 
@@ -1321,7 +1321,7 @@ def _chat_invoke_betas(extra_optional_params: dict[str, object]) -> object:
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={**optional_params, **extra_optional_params},
-        litellm_params={},
+        hangarllm_params={},
         headers={"anthropic-beta": f"claude-code-20250219,{DANGEROUS_TOOL_USE_BETA}"},
     ).get("anthropic_beta")
 
@@ -1359,7 +1359,7 @@ def test_chat_unflagged_model_converts_mid_conversation_system_instead_of_hoisti
         model="invoke/us.anthropic.claude-opus-4-7",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1375,7 +1375,7 @@ def test_chat_flagged_model_keeps_mid_conversation_system_role_in_place(local_mo
         model="invoke/us.anthropic.claude-opus-4-8",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1436,7 +1436,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
             model="invoke/us.anthropic.claude-fable-5-1",
             messages=copy.deepcopy(turn),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
@@ -1466,7 +1466,7 @@ def event_loop():
 
 @pytest.fixture(scope="function")
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -1476,21 +1476,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -1499,17 +1499,17 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 LARGE_DOCUMENT_FOR_CACHING = (
@@ -1596,10 +1596,10 @@ class TestBedrockAnthropicPromptCachingRegression:
         - bedrock/invoke uses cache_control directly in the Anthropic Messages API format
         - bedrock/converse should transform to cachePoint format
         """
-        from litellm.llms.bedrock.chat.converse_transformation import (
+        from hangarllm.llms.bedrock.chat.converse_transformation import (
             AmazonConverseConfig,
         )
-        from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
             AmazonAnthropicClaudeConfig,
         )
 
@@ -1626,7 +1626,7 @@ class TestBedrockAnthropicPromptCachingRegression:
                 model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -1648,7 +1648,7 @@ class TestBedrockAnthropicPromptCachingRegression:
                 model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -1677,13 +1677,13 @@ class TestBedrockAnthropicPromptCachingRegression:
         Regression test: Bedrock recognizes prompt caching via cache_control in the
         request body, NOT through beta headers. Adding the beta header breaks requests.
 
-        This was a critical bug where litellm was incorrectly adding the Anthropic API
+        This was a critical bug where hangarllm was incorrectly adding the Anthropic API
         beta header to Bedrock requests.
         """
-        from litellm.llms.bedrock.chat.converse_transformation import (
+        from hangarllm.llms.bedrock.chat.converse_transformation import (
             AmazonConverseConfig,
         )
-        from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
             AmazonAnthropicClaudeConfig,
         )
 
@@ -1715,7 +1715,7 @@ class TestBedrockAnthropicPromptCachingRegression:
                 model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -1759,10 +1759,10 @@ class TestBedrockAnthropic1MContextRegression:
 
         This test verifies the transformation layer directly to avoid async complexity.
         """
-        from litellm.llms.bedrock.chat.converse_transformation import (
+        from hangarllm.llms.bedrock.chat.converse_transformation import (
             AmazonConverseConfig,
         )
-        from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
             AmazonAnthropicClaudeConfig,
         )
 
@@ -1798,7 +1798,7 @@ class TestBedrockAnthropic1MContextRegression:
                 model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers=headers,
             )
 
@@ -1824,10 +1824,10 @@ class TestBedrockAnthropic1MContextRegression:
         This is a unit test that verifies the transformation logic directly without
         making actual API calls.
         """
-        from litellm.llms.bedrock.chat.converse_transformation import (
+        from hangarllm.llms.bedrock.chat.converse_transformation import (
             AmazonConverseConfig,
         )
-        from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
             AmazonAnthropicClaudeConfig,
         )
 
@@ -1856,7 +1856,7 @@ class TestBedrockAnthropic1MContextRegression:
                 model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers=headers,
             )
 
@@ -1878,10 +1878,10 @@ class TestBedrockAnthropic1MContextRegression:
         Ensures that multiple anthropic-beta values (comma-separated) are all
         correctly passed through.
         """
-        from litellm.llms.bedrock.chat.converse_transformation import (
+        from hangarllm.llms.bedrock.chat.converse_transformation import (
             AmazonConverseConfig,
         )
-        from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
             AmazonAnthropicClaudeConfig,
         )
 
@@ -1908,7 +1908,7 @@ class TestBedrockAnthropic1MContextRegression:
                 model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers=headers,
             )
 
@@ -1939,10 +1939,10 @@ class TestBedrockAnthropicCombinedRegressions:
         This is a real-world scenario where a user might want to use both features
         simultaneously.
         """
-        from litellm.llms.bedrock.chat.converse_transformation import (
+        from hangarllm.llms.bedrock.chat.converse_transformation import (
             AmazonConverseConfig,
         )
-        from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
             AmazonAnthropicClaudeConfig,
         )
 
@@ -1988,7 +1988,7 @@ class TestBedrockAnthropicCombinedRegressions:
                 model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 headers=headers,
             )
 
@@ -2010,12 +2010,12 @@ def test_refusal_stop_details_kept_through_bedrock_invoke_transform():
     result: Final = AmazonAnthropicClaudeConfig().transform_response(
         model="anthropic.claude-sonnet-5-5-v1:0",
         raw_response=httpx.Response(status_code=200, headers={}, json=body),
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         logging_obj=MagicMock(),
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -2128,10 +2128,10 @@ def test_invoke_model_that_cannot_force_the_json_tool_gets_native_output_without
     native: bool,
 ) -> None:
     model: Final = "us.anthropic.claude-haiku-5-5"
-    monkeypatch.setitem(litellm.model_cost[model], "supports_forced_tool_use", forced_tool_use)
+    monkeypatch.setitem(hangarllm.model_cost[model], "supports_forced_tool_use", forced_tool_use)
     set_native_structured_output(model, "bedrock" if map_flag else None)
     if map_flag is None:
-        monkeypatch.delitem(litellm.model_cost[model], "supports_bedrock_native_structured_output")
+        monkeypatch.delitem(hangarllm.model_cost[model], "supports_bedrock_native_structured_output")
 
     config: Final = AmazonAnthropicClaudeConfig(model_info=model_info)
     optional_params: Final = config.map_openai_params(
@@ -2144,7 +2144,7 @@ def test_invoke_model_that_cannot_force_the_json_tool_gets_native_output_without
         model=model,
         messages=[{"role": "user", "content": "Capital of France?"}],
         optional_params=optional_params,
-        litellm_params={} if model_info is None else {"model_info": model_info},
+        hangarllm_params={} if model_info is None else {"model_info": model_info},
         headers={},
     )
 
@@ -2173,10 +2173,10 @@ def test_invoke_caller_schema_drops_unsupported_constraints_before_going_native(
     native_key: NativeStructuredOutputKey,
     caller_schema_param: Callable[[Mapping[str, object]], dict[str, object]],
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost[model], "supports_forced_tool_use", forced_tool_use)
+    monkeypatch.setitem(hangarllm.model_cost[model], "supports_forced_tool_use", forced_tool_use)
     set_native_structured_output(model, native_key)
     if native_key is None:
-        monkeypatch.delitem(litellm.model_cost[model], "supports_bedrock_native_structured_output")
+        monkeypatch.delitem(hangarllm.model_cost[model], "supports_bedrock_native_structured_output")
     schema: Final = {
         "type": "object",
         "properties": {"age": {"type": "integer", "minimum": 0}},
@@ -2188,7 +2188,7 @@ def test_invoke_caller_schema_drops_unsupported_constraints_before_going_native(
         model=model,
         messages=[{"role": "user", "content": "How old is the oldest tree?"}],
         optional_params={**caller_schema_param(schema), "max_tokens": 2048},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2208,14 +2208,14 @@ BEDROCK_HAIKU_45_BASE_ID: Final = "anthropic.claude-haiku-4-5-20251001-v1:0"
     ],
 )
 def test_bedrock_invoke_claude_default_max_tokens_comes_from_base_model(local_model_cost_map, model: str):
-    mapped_cap: Final = litellm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID)
+    mapped_cap: Final = hangarllm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID)
     assert mapped_cap != DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS, "the model's mapped cap must differ from the fallback"
 
     body: Final = AmazonAnthropicClaudeConfig().transform_request(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2229,7 +2229,7 @@ def test_bedrock_invoke_claude_explicit_max_tokens_is_kept(local_model_cost_map)
         model=f"invoke/us.{BEDROCK_HAIKU_45_BASE_ID}",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"max_tokens": 123},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2238,13 +2238,13 @@ def test_bedrock_invoke_claude_explicit_max_tokens_is_kept(local_model_cost_map)
 
 def test_bedrock_invoke_claude_default_max_tokens_takes_the_deployments_own_cap(local_model_cost_map):
     deployment_cap: Final = 8192
-    assert litellm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID) != deployment_cap
+    assert hangarllm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID) != deployment_cap
 
     body: Final = AmazonAnthropicClaudeConfig().transform_request(
         model=f"invoke/us.{BEDROCK_HAIKU_45_BASE_ID}",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={"model_info": {"max_output_tokens": deployment_cap}},
+        hangarllm_params={"model_info": {"max_output_tokens": deployment_cap}},
         headers={},
     )
 
@@ -2253,14 +2253,14 @@ def test_bedrock_invoke_claude_default_max_tokens_takes_the_deployments_own_cap(
 
 def test_bedrock_invoke_claude_default_max_tokens_ignores_a_sibling_deployments_cap(local_model_cost_map):
     regional_id: Final = f"us.{BEDROCK_HAIKU_45_BASE_ID}"
-    mapped_cap: Final = litellm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID)
-    litellm.register_model(model_cost={regional_id: {"max_output_tokens": 50}}, persist_across_reloads=False)
+    mapped_cap: Final = hangarllm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID)
+    hangarllm.register_model(model_cost={regional_id: {"max_output_tokens": 50}}, persist_across_reloads=False)
 
     body: Final = AmazonAnthropicClaudeConfig().transform_request(
         model=f"invoke/{regional_id}",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2269,7 +2269,7 @@ def test_bedrock_invoke_claude_default_max_tokens_ignores_a_sibling_deployments_
 
 def test_bedrock_invoke_claude_default_max_tokens_yields_to_anthropic_config(local_model_cost_map):
     configured_max_tokens: Final = 1000
-    assert litellm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID) != configured_max_tokens
+    assert hangarllm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID) != configured_max_tokens
 
     body: Final = AmazonAnthropicClaudeConfig(
         read_configured_max_tokens=lambda: configured_max_tokens
@@ -2277,7 +2277,7 @@ def test_bedrock_invoke_claude_default_max_tokens_yields_to_anthropic_config(loc
         model=f"invoke/us.{BEDROCK_HAIKU_45_BASE_ID}",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2296,7 +2296,7 @@ def test_bedrock_invoke_claude_default_max_tokens_is_the_lower_of_anthropic_conf
         model=f"invoke/us.{BEDROCK_HAIKU_45_BASE_ID}",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={"model_info": {"max_output_tokens": deployment_cap}},
+        hangarllm_params={"model_info": {"max_output_tokens": deployment_cap}},
         headers={},
     )
 
@@ -2304,14 +2304,14 @@ def test_bedrock_invoke_claude_default_max_tokens_is_the_lower_of_anthropic_conf
 
 
 def test_bedrock_invoke_claude_default_max_tokens_reads_an_inference_profile_arns_base_model(local_model_cost_map):
-    mapped_cap: Final = litellm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID)
+    mapped_cap: Final = hangarllm.get_max_tokens(BEDROCK_HAIKU_45_BASE_ID)
     assert mapped_cap != DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS, "the model's mapped cap must differ from the fallback"
 
     body: Final = AmazonAnthropicClaudeConfig().transform_request(
         model="invoke/anthropic/arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={"base_model": BEDROCK_HAIKU_45_BASE_ID},
+        hangarllm_params={"base_model": BEDROCK_HAIKU_45_BASE_ID},
         headers={},
     )
 
@@ -2323,7 +2323,7 @@ def test_bedrock_invoke_claude_default_max_tokens_reads_an_inference_profile_arn
 def test_bedrock_chat_invoke_adds_the_binding_beta_so_block_binding_is_kept(
     drop_params: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     block_binding: Final = {"prefix_mismatch_behavior": "error"}
     result: Final = AmazonAnthropicClaudeConfig().transform_request(
         model="us.anthropic.claude-sonnet-4-6",
@@ -2332,7 +2332,7 @@ def test_bedrock_chat_invoke_adds_the_binding_beta_so_block_binding_is_kept(
             "max_tokens": 2048,
             "thinking": {"type": "enabled", "budget_tokens": 1024, "block_binding": block_binding},
         },
-        litellm_params={"drop_params": drop_params},
+        hangarllm_params={"drop_params": drop_params},
         headers={},
     )
 

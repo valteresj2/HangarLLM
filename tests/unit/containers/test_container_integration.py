@@ -6,13 +6,13 @@ import pytest
 import httpx
 
 
-import litellm
-from litellm.types.containers.main import (
+import hangarllm
+from hangarllm.types.containers.main import (
     ContainerObject,
     ContainerListResponse,
     DeleteContainerResult,
 )
-from litellm.containers.main import (
+from hangarllm.containers.main import (
     create_container,
     acreate_container,
     list_containers,
@@ -37,7 +37,7 @@ class TestContainerIntegration:
         if "OPENAI_API_KEY" in os.environ:
             del os.environ["OPENAI_API_KEY"]
 
-    @patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler")
+    @patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler")
     def test_container_create_full_flow(self, mock_http_handler):
         """Test the complete container creation flow with mocked HTTP."""
         # Setup mock HTTP response
@@ -58,7 +58,7 @@ class TestContainerIntegration:
         mock_client.post.return_value = mock_response
         mock_http_handler.return_value = mock_client
 
-        with patch("litellm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
+        with patch("hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
             mock_get_client.return_value = mock_client
 
             # Execute
@@ -74,7 +74,7 @@ class TestContainerIntegration:
             assert response.name == "Integration Test Container"
             assert response.status == "running"
 
-    @patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler")
+    @patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler")
     def test_container_list_full_flow(self, mock_http_handler):
         """Test the complete container listing flow with mocked HTTP."""
         # Setup mock HTTP response
@@ -112,7 +112,7 @@ class TestContainerIntegration:
         mock_client.get.return_value = mock_response
         mock_http_handler.return_value = mock_client
 
-        with patch("litellm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
+        with patch("hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
             mock_get_client.return_value = mock_client
 
             # Execute
@@ -125,7 +125,7 @@ class TestContainerIntegration:
             assert response.data[1].id == "cntr_list_2"
             assert response.has_more == False
 
-    @patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler")
+    @patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler")
     def test_container_retrieve_full_flow(self, mock_http_handler):
         """Test the complete container retrieval flow with mocked HTTP."""
         container_id = "cntr_retrieve_integration"
@@ -148,7 +148,7 @@ class TestContainerIntegration:
         mock_client.get.return_value = mock_response
         mock_http_handler.return_value = mock_client
 
-        with patch("litellm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
+        with patch("hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
             mock_get_client.return_value = mock_client
 
             # Execute
@@ -159,7 +159,7 @@ class TestContainerIntegration:
             assert response.id == container_id
             assert response.name == "Retrieved Integration Container"
 
-    @patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler")
+    @patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler")
     def test_container_delete_full_flow(self, mock_http_handler):
         """Test the complete container deletion flow with mocked HTTP."""
         container_id = "cntr_delete_integration"
@@ -178,7 +178,7 @@ class TestContainerIntegration:
         mock_client.delete.return_value = mock_response
         mock_http_handler.return_value = mock_client
 
-        with patch("litellm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
+        with patch("hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client") as mock_get_client:
             mock_get_client.return_value = mock_client
 
             # Execute
@@ -191,7 +191,7 @@ class TestContainerIntegration:
             assert response.object == "container.deleted"
 
     @pytest.mark.asyncio
-    @patch("litellm.llms.custom_httpx.llm_http_handler.AsyncHTTPHandler")
+    @patch("hangarllm.llms.custom_httpx.llm_http_handler.AsyncHTTPHandler")
     async def test_async_container_create_full_flow(self, mock_async_http_handler):
         """Test the complete async container creation flow with mocked HTTP."""
         # Setup mock HTTP response
@@ -217,7 +217,7 @@ class TestContainerIntegration:
         mock_async_http_handler.return_value = mock_client
 
         with patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client"
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_async_httpx_client"
         ) as mock_get_async_client:
             mock_get_async_client.return_value = mock_client
 
@@ -234,7 +234,7 @@ class TestContainerIntegration:
             assert response.name == "Async Integration Container"
 
     @pytest.mark.asyncio
-    @patch("litellm.llms.custom_httpx.llm_http_handler.AsyncHTTPHandler")
+    @patch("hangarllm.llms.custom_httpx.llm_http_handler.AsyncHTTPHandler")
     async def test_async_container_list_full_flow(self, mock_async_http_handler):
         """Test the complete async container listing flow with mocked HTTP."""
         # Setup mock HTTP response
@@ -268,7 +268,7 @@ class TestContainerIntegration:
         mock_async_http_handler.return_value = mock_client
 
         with patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client"
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_async_httpx_client"
         ) as mock_get_async_client:
             mock_get_async_client.return_value = mock_client
 
@@ -314,7 +314,7 @@ class TestContainerIntegration:
             "deleted": True,
         }
 
-        with patch("litellm.containers.main.base_llm_http_handler") as mock_handler:
+        with patch("hangarllm.containers.main.base_llm_http_handler") as mock_handler:
             # Setup different responses for different operations
             mock_handler.container_create_handler.return_value = ContainerObject(
                 **create_response.json.return_value
@@ -358,25 +358,25 @@ class TestContainerIntegration:
     def test_error_handling_integration(self):
         """Test error handling in the integration flow."""
         import importlib
-        import litellm.containers.main as containers_main_module
+        import hangarllm.containers.main as containers_main_module
 
         # Reload the module to ensure it has a fresh reference to base_llm_http_handler
-        # after conftest reloads litellm
+        # after conftest reloads hangarllm
         importlib.reload(containers_main_module)
 
         # Re-import the function after reload
-        from litellm.containers.main import create_container as create_container_fresh
+        from hangarllm.containers.main import create_container as create_container_fresh
 
-        with patch("litellm.containers.main.base_llm_http_handler") as mock_handler:
+        with patch("hangarllm.containers.main.base_llm_http_handler") as mock_handler:
             # Simulate an API error
-            mock_handler.container_create_handler.side_effect = litellm.APIError(
+            mock_handler.container_create_handler.side_effect = hangarllm.APIError(
                 status_code=400,
                 message="API Error occurred",
                 llm_provider="openai",
                 model="",
             )
 
-            with pytest.raises(litellm.APIError):
+            with pytest.raises(hangarllm.APIError):
                 create_container_fresh(
                     name="Error Test Container", custom_llm_provider="openai"
                 )
@@ -385,13 +385,13 @@ class TestContainerIntegration:
     def test_provider_support(self, provider):
         """Test that the container API works with supported providers."""
         import importlib
-        import litellm.containers.main as containers_main_module
+        import hangarllm.containers.main as containers_main_module
 
         # Reload the module to ensure it has a fresh reference to base_llm_http_handler
-        # after conftest reloads litellm (same pattern as test_error_handling_integration)
+        # after conftest reloads hangarllm (same pattern as test_error_handling_integration)
         importlib.reload(containers_main_module)
 
-        from litellm.containers.main import create_container as create_container_fresh
+        from hangarllm.containers.main import create_container as create_container_fresh
 
         mock_response = ContainerObject(
             id="cntr_provider_test",
@@ -403,7 +403,7 @@ class TestContainerIntegration:
             name="Provider Test Container",
         )
 
-        with patch("litellm.containers.main.base_llm_http_handler") as mock_handler:
+        with patch("hangarllm.containers.main.base_llm_http_handler") as mock_handler:
             mock_handler.container_create_handler.return_value = mock_response
 
             response = create_container_fresh(

@@ -15,12 +15,12 @@ from unittest.mock import AsyncMock, patch, Mock, MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm import completion, acompletion
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.anthropic.messages.adapters.transformation import LiteLLMAnthropicMessagesAdapter
-from litellm.llms.snowflake.chat.transformation import SnowflakeConfig, SnowflakeStreamingHandler
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm import completion, acompletion
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.anthropic.messages.adapters.transformation import HangarLLMAnthropicMessagesAdapter
+from hangarllm.llms.snowflake.chat.transformation import SnowflakeConfig, SnowflakeStreamingHandler
+from hangarllm.types.utils import ModelResponse
 
 
 class TestSnowflakeToolTransformation:
@@ -65,7 +65,7 @@ class TestSnowflakeToolTransformation:
             model="llama3.1-70b",
             messages=[{"role": "user", "content": "What's the weather?"}],
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -88,7 +88,7 @@ class TestSnowflakeToolTransformation:
             model="llama3.1-70b",
             messages=[{"role": "user", "content": "What's the weather?"}],
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -111,7 +111,7 @@ class TestSnowflakeToolTransformation:
                 model="llama3.1-70b",
                 messages=[{"role": "user", "content": "Test"}],
                 optional_params=optional_params,
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -160,7 +160,7 @@ class TestSnowflakeToolTransformation:
             headers={"Content-Type": "application/json"},
         )
 
-        model_response = ModelResponse(choices=[litellm.Choices(index=0, message=litellm.Message())])
+        model_response = ModelResponse(choices=[hangarllm.Choices(index=0, message=hangarllm.Message())])
 
         logging_obj = MagicMock()
 
@@ -172,7 +172,7 @@ class TestSnowflakeToolTransformation:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding={},
         )
 
@@ -231,7 +231,7 @@ class TestSnowflakeToolTransformation:
             headers={"Content-Type": "application/json"},
         )
 
-        model_response = ModelResponse(choices=[litellm.Choices(index=0, message=litellm.Message())])
+        model_response = ModelResponse(choices=[hangarllm.Choices(index=0, message=hangarllm.Message())])
 
         logging_obj = MagicMock()
 
@@ -243,7 +243,7 @@ class TestSnowflakeToolTransformation:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding={},
         )
 
@@ -277,7 +277,7 @@ class TestSnowflakeToolTransformation:
             headers={"Content-Type": "application/json"},
         )
 
-        model_response = ModelResponse(choices=[litellm.Choices(index=0, message=litellm.Message())])
+        model_response = ModelResponse(choices=[hangarllm.Choices(index=0, message=hangarllm.Message())])
 
         logging_obj = MagicMock()
 
@@ -289,7 +289,7 @@ class TestSnowflakeToolTransformation:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding={},
         )
 
@@ -320,7 +320,7 @@ class TestSnowflakeCortexClaudeFixes:
             model="snowflake/claude-sonnet-4-6",
             messages=messages,
             optional_params=optional_params or {},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -481,7 +481,7 @@ class TestSnowflakeCortexClaudeFixes:
         ]
 
     def test_messages_api_pdf_reaches_cortex_claude_as_a_document_block(self) -> None:
-        translated: Final = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+        translated: Final = HangarLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
             messages=[
                 {
                     "role": "user",
@@ -758,11 +758,11 @@ class TestSnowFlakeCompletion:
         "usage": {"prompt_tokens": 16, "completion_tokens": 18, "total_tokens": 34},
     }
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_snowflake_jwt_account_id(self, mock_post):
         mock_post().json.return_value = copy.deepcopy(self.response)
 
-        response = litellm.completion(
+        response = hangarllm.completion(
             f"snowflake/{self.model_name}",
             messages=self.messages,
             api_key="00000",
@@ -784,11 +784,11 @@ class TestSnowFlakeCompletion:
         # uses native endpoint
         assert post_kwargs["url"].endswith("cortex/v1/chat/completions")
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_snowflake_pat_key_account_id(self, mock_post):
         mock_post().json.return_value = copy.deepcopy(self.response)
 
-        response = litellm.completion(
+        response = hangarllm.completion(
             f"snowflake/{self.model_name}",
             messages=self.messages,
             api_key="pat/xxxxx",
@@ -805,14 +805,14 @@ class TestSnowFlakeCompletion:
         # account id was used
         assert "AAAA-BBBB" in post_kwargs["url"]
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_snowflake_env(self, mock_post):
         mock_post().json.return_value = copy.deepcopy(self.response)
 
         os.environ["SNOWFLAKE_ACCOUNT_ID"] = "AAAA-BBBB"
         os.environ["SNOWFLAKE_JWT"] = "00000"
 
-        response = litellm.completion(
+        response = hangarllm.completion(
             f"snowflake/{self.model_name}",
             messages=self.messages,
         )
@@ -1004,7 +1004,7 @@ async def test_snowflake_claude_async_completion_inlines_remote_images_off_the_e
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="snowflake/claude-sonnet-4-6",
         messages=[
             {

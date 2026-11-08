@@ -260,12 +260,12 @@ ADAPTIVE_THINKING: Final[Mapping[str, JsonValue]] = {"type": "adaptive"}
 GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_TEST_CASE,
     scenario="thoughts_off",
-    litellm_request={**GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "thinking": dict(ADAPTIVE_THINKING)},
+    hangarllm_request={**GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "thinking": dict(ADAPTIVE_THINKING)},
     expected_provider_request=with_thinking_config(
         GEMINI_3_8_FLASH_TEST_CASE.expected_provider_request, {"thinkingLevel": "high", "includeThoughts": False}
     ),
     mock_provider_response=GEMINI_3_8_FLASH_THOUGHTS_OFF_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         **GEMINI_MESSAGES_RESPONSE,
         "id": "1C3RatW-Jtuc_uMPhaLroA0",
         "model": "gemini/gemini-3.8-flash",
@@ -294,7 +294,7 @@ def with_thinking(case: TranslationTestCase, scenario: str, field: str, value: J
     return replace(
         case,
         scenario=scenario,
-        litellm_request={**case.litellm_request, "thinking": {**ADAPTIVE_THINKING, field: value}},
+        hangarllm_request={**case.hangarllm_request, "thinking": {**ADAPTIVE_THINKING, field: value}},
     )
 
 
@@ -346,7 +346,7 @@ def test_a_streamed_turn_keeps_thinking_and_billing_reasoning_without_thought_te
         )
     )
     response: Final = thoughts_off.request(
-        "POST", "/v1/messages", {**GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE.litellm_request, "stream": True}
+        "POST", "/v1/messages", {**GEMINI_3_8_FLASH_THOUGHTS_OFF_TEST_CASE.hangarllm_request, "stream": True}
     )
     assert_provider_request(
         provider.received(),

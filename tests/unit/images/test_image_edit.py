@@ -10,10 +10,10 @@ import respx
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict, override
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.types.utils import FileTypes, ImageResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.types.utils import FileTypes, ImageResponse
 
 _PNG_SIGNATURE: Final = b"\x89PNG\r\n\x1a\n"
 _FIRST_IMAGE: Final = _PNG_SIGNATURE + b"first-reference-image"
@@ -81,10 +81,10 @@ class _SuccessLogger(CustomLogger):
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def _multipart_image_parts(request: httpx.Request) -> tuple[bytes, ...]:
@@ -97,8 +97,8 @@ def _multipart_image_parts(request: httpx.Request) -> tuple[bytes, ...]:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("image", (None, []), ids=("none", "empty-list"))
 async def test_bfl_image_edit_missing_image_returns_bad_request(image: list[FileTypes] | None) -> None:
-    with pytest.raises(litellm.BadRequestError, match="No image provided") as exc_info:
-        await litellm.aimage_edit(
+    with pytest.raises(hangarllm.BadRequestError, match="No image provided") as exc_info:
+        await hangarllm.aimage_edit(
             model="black_forest_labs/flux-kontext-pro",
             prompt="make it blue",
             image=image,
@@ -113,7 +113,7 @@ def test_openai_image_edit_sync_accepts_bytesio_images(respx_mock: respx.MockRou
         return_value=httpx.Response(200, json=_EDIT_RESPONSE)
     )
 
-    result: Final = litellm.image_edit(
+    result: Final = hangarllm.image_edit(
         prompt="combine the reference images",
         model="gpt-image-1",
         image=io.BytesIO(_FIRST_IMAGE),
@@ -133,7 +133,7 @@ def test_openai_image_edit_without_a_model_leaves_model_out_of_the_request(
         return_value=httpx.Response(200, json=_EDIT_RESPONSE)
     )
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         prompt="combine the reference images",
         image=io.BytesIO(_FIRST_IMAGE),
         custom_llm_provider="openai",
@@ -150,7 +150,7 @@ async def test_openai_image_edit_accepts_bytesio_images(respx_mock: respx.MockRo
         return_value=httpx.Response(200, json=_EDIT_RESPONSE)
     )
 
-    result: Final = await litellm.aimage_edit(
+    result: Final = await hangarllm.aimage_edit(
         prompt="combine the reference images",
         model="gpt-image-1",
         image=[io.BytesIO(_FIRST_IMAGE), io.BytesIO(_SECOND_IMAGE)],
@@ -171,7 +171,7 @@ async def test_openai_image_edit_accepts_mixed_bytes_and_bytesio(
         return_value=httpx.Response(200, json=_EDIT_RESPONSE)
     )
 
-    result: Final = await litellm.aimage_edit(
+    result: Final = await hangarllm.aimage_edit(
         prompt="Create a cohesive artistic style across all images",
         model="gpt-image-1",
         image=[_FIRST_IMAGE, io.BytesIO(_SECOND_IMAGE)],
@@ -190,12 +190,12 @@ async def test_azure_image_edit_logs_deployment_model_and_positive_cost(
     respx_mock: respx.MockRouter, httpx_transport: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     logger: Final = _SuccessLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
     route: Final = respx_mock.post(
         url__startswith="https://fake.openai.azure.com/openai/deployments/CUSTOM_AZURE_DEPLOYMENT_NAME/images/edits"
     ).mock(return_value=httpx.Response(200, json=_EDIT_RESPONSE))
 
-    result: Final = await litellm.aimage_edit(
+    result: Final = await hangarllm.aimage_edit(
         prompt="combine the reference images",
         model="azure/CUSTOM_AZURE_DEPLOYMENT_NAME",
         base_model="azure/gpt-image-1",
@@ -212,7 +212,7 @@ async def test_azure_image_edit_logs_deployment_model_and_positive_cost(
     assert payload is not None
     assert payload["model"] == "CUSTOM_AZURE_DEPLOYMENT_NAME"
     assert payload["custom_llm_provider"] == "azure"
-    pricing: Final = litellm.model_cost["azure/gpt-image-1"]
+    pricing: Final = hangarllm.model_cost["azure/gpt-image-1"]
     expected_cost: Final = (
         _TEXT_TOKENS * pricing["input_cost_per_token"]
         + _IMAGE_TOKENS * pricing["input_cost_per_image_token"]
@@ -229,11 +229,11 @@ async def test_router_image_edit_returns_the_provider_image(
     route: Final = respx_mock.post("https://api.openai.com/v1/images/edits").mock(
         return_value=httpx.Response(200, json=_EDIT_RESPONSE)
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-image-1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-image-1",
                     "api_key": "fake-key",
                 },
@@ -277,15 +277,15 @@ async def test_an_edit_bills_the_deployment_price_at_its_size_on_a_logging_objec
         stream=False,
         call_type="aimage_edit",
         start_time=datetime.now(),
-        litellm_call_id="edit-call",
+        hangarllm_call_id="edit-call",
         function_id="edit-call",
     )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "qwen-image-edit",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "dashscope/qwen-image-2.0",
                     "api_key": "fake-key",
                     **deployment_price,
@@ -299,8 +299,8 @@ async def test_an_edit_bills_the_deployment_price_at_its_size_on_a_logging_objec
         image=_FIRST_IMAGE,
         prompt="Turn the circle into a square",
         size=size,
-        litellm_logging_obj=logging_made_before_routing,
-        litellm_call_id="edit-call",
+        hangarllm_logging_obj=logging_made_before_routing,
+        hangarllm_call_id="edit-call",
     )
 
     assert isinstance(result, ImageResponse)
@@ -321,15 +321,15 @@ async def test_a_fal_edit_bills_the_deployment_price_per_image_on_a_logging_obje
         stream=False,
         call_type="aimage_edit",
         start_time=datetime.now(),
-        litellm_call_id="fal-edit-call",
+        hangarllm_call_id="fal-edit-call",
         function_id="fal-edit-call",
     )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "flux-edit",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "fal_ai/fal-ai/flux-2/edit",
                     "api_key": "fake-key",
                     "output_cost_per_image": 0.0456,
@@ -342,8 +342,8 @@ async def test_a_fal_edit_bills_the_deployment_price_per_image_on_a_logging_obje
         model="flux-edit",
         image=_FIRST_IMAGE,
         prompt="Turn the circle into a square",
-        litellm_logging_obj=logging_made_before_routing,
-        litellm_call_id="fal-edit-call",
+        hangarllm_logging_obj=logging_made_before_routing,
+        hangarllm_call_id="fal-edit-call",
     )
 
     assert isinstance(result, ImageResponse)

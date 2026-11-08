@@ -12,10 +12,10 @@ import pytest
 from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, Wire, wire_server
 
-import litellm
-from litellm import Router
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+import hangarllm
+from hangarllm import Router
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
 
 Route: TypeAlias = Literal["gemini", "vertex_ai", "codestral", "predibase", "openai", "azure", "anthropic"]
 Call: TypeAlias = Literal["completion", "acompletion", "responses", "aresponses", "text_completion", "atext_completion"]
@@ -158,19 +158,19 @@ async def _drain_async(response: object) -> None:
 async def _invoke_async(call: Call, deployment: dict[str, str], marker: str, stream: bool) -> None:
     match call:
         case "acompletion":
-            completion: Final = await litellm.acompletion(
+            completion: Final = await hangarllm.acompletion(
                 **deployment, messages=_messages(marker), stream=stream, num_retries=0
             )
             if stream:
                 await _drain_async(completion)
         case "aresponses":
-            responses: Final = await litellm.aresponses(
+            responses: Final = await hangarllm.aresponses(
                 **deployment, input=f"stream open probe marker-{marker}", stream=stream, num_retries=0
             )
             if stream:
                 await _drain_async(responses)
         case "atext_completion":
-            text: Final = await litellm.atext_completion(
+            text: Final = await hangarllm.atext_completion(
                 **deployment, prompt=f"stream open probe marker-{marker}", stream=stream, num_retries=0
             )
             if stream:
@@ -182,19 +182,19 @@ async def _invoke_async(call: Call, deployment: dict[str, str], marker: str, str
 def _invoke(call: Call, deployment: dict[str, str], marker: str, stream: bool) -> None:
     match call:
         case "completion":
-            completion: Final = litellm.completion(
+            completion: Final = hangarllm.completion(
                 **deployment, messages=_messages(marker), stream=stream, num_retries=0
             )
             if stream:
                 _drain_sync(completion)
         case "responses":
-            responses: Final = litellm.responses(
+            responses: Final = hangarllm.responses(
                 **deployment, input=f"stream open probe marker-{marker}", stream=stream, num_retries=0
             )
             if stream:
                 _drain_sync(responses)
         case "text_completion":
-            text: Final = litellm.text_completion(
+            text: Final = hangarllm.text_completion(
                 **deployment, prompt=f"stream open probe marker-{marker}", stream=stream, num_retries=0
             )
             if stream:
@@ -212,7 +212,7 @@ def _raised(invoke: Callable[[], None]) -> Exception:
 
 
 def _carried(error: Exception) -> Mapping[str, str]:
-    headers: Final = getattr(error, "litellm_response_headers", None) or {}
+    headers: Final = getattr(error, "hangarllm_response_headers", None) or {}
     return MappingProxyType({str(name).lower(): str(value) for name, value in dict(headers).items()})
 
 
@@ -252,11 +252,11 @@ def test_stream_open_rate_limit_carries_the_provider_headers_of_its_non_stream_t
     marker: Final = uuid.uuid4().hex
     headers: Final = _headers(marker)
     twin, raised = _twin_and_stream_errors(route, call, 429, headers, marker)
-    assert isinstance(twin, litellm.RateLimitError), repr(twin)
+    assert isinstance(twin, hangarllm.RateLimitError), repr(twin)
     assert dict(_scripted(twin)) == dict(headers), dict(_carried(twin))
     assert isinstance(raised, MidStreamFallbackError), repr(raised)
     assert raised.status_code == 429 and raised.is_pre_first_chunk and raised.generated_content == "", repr(raised)
-    assert isinstance(raised.original_exception, litellm.RateLimitError), repr(raised.original_exception)
+    assert isinstance(raised.original_exception, hangarllm.RateLimitError), repr(raised.original_exception)
     assert dict(_scripted(raised)) == dict(headers), dict(_carried(raised))
     assert sorted(_carried(raised)) == sorted(_carried(twin)), (dict(_carried(raised)), dict(_carried(twin)))
 
@@ -311,7 +311,7 @@ def test_eager_stream_opener_raises_the_same_error_as_its_non_stream_twin(route:
     headers: Final = _headers(marker)
     twin, raised = _twin_and_stream_errors(route, call, 429, headers, marker)
     assert not isinstance(raised, MidStreamFallbackError), repr(raised)
-    assert type(raised) is type(twin) and isinstance(raised, litellm.RateLimitError), (repr(raised), repr(twin))
+    assert type(raised) is type(twin) and isinstance(raised, hangarllm.RateLimitError), (repr(raised), repr(twin))
     assert dict(_scripted(raised)) == dict(_scripted(twin)) == dict(headers), dict(_carried(raised))
 
 
@@ -439,7 +439,7 @@ def test_in_band_stream_error_wraps_without_another_requests_provider_headers(
 async def test_messages_bridge_stream_open_rate_limit_answers_an_in_band_rate_limit_error_frame() -> None:
     marker: Final = uuid.uuid4().hex
     with wire_server(_failing("gemini", 429, _headers(marker))) as wire:
-        stream: Final = await litellm.anthropic.messages.acreate(
+        stream: Final = await hangarllm.anthropic.messages.acreate(
             **_deployment("gemini", wire), max_tokens=16, messages=_messages(marker), stream=True
         )
         assert hasattr(stream, "__aiter__"), type(stream)
@@ -455,10 +455,10 @@ async def test_messages_bridge_stream_open_rate_limit_answers_an_in_band_rate_li
 
 def _router(primary: Wire, fallback: Wire | None, num_retries: int) -> Router:
     healthy: Final = (
-        ({"model_name": "healthy", "litellm_params": _deployment("gemini", fallback)},) if fallback is not None else ()
+        ({"model_name": "healthy", "hangarllm_params": _deployment("gemini", fallback)},) if fallback is not None else ()
     )
     return Router(
-        model_list=[{"model_name": "limited", "litellm_params": _deployment("gemini", primary)}, *healthy],
+        model_list=[{"model_name": "limited", "hangarllm_params": _deployment("gemini", primary)}, *healthy],
         num_retries=num_retries,
         retry_after=0,
         fallbacks=[{"limited": ["healthy"]}] if fallback is not None else [],

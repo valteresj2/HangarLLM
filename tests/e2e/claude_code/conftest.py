@@ -424,7 +424,7 @@ def _print_rate_limit_summary(summary: Dict[str, Any]) -> None:
     if totals.get("rate_limited", 0):
         lines.append(
             "[compat] WARNING: at least one cell hit a rate-limit-shaped error; "
-            "lower the corresponding LITELLM_COMPAT_RATE_<PROVIDER> and retry"
+            "lower the corresponding HANGARLLM_COMPAT_RATE_<PROVIDER> and retry"
         )
     print("\n".join(lines), file=sys.stderr, flush=True)
 
@@ -607,7 +607,7 @@ def _register_deployments(proxy, deployments: tuple[CompatDeployment, ...]):
         tuple(
             ModelNewBody(
                 model_name=deployment.model_name,
-                litellm_params=deployment.litellm_params,
+                hangarllm_params=deployment.hangarllm_params,
                 model_info=ModelInfoBody(),
             )
             for deployment in deployments
@@ -622,7 +622,7 @@ def _compat_models_registered() -> Any:
     tear them all down on session exit.
 
     Skips silently if the proxy env is not configured (no
-    ``LITELLM_PROXY_URL``/``LITELLM_MASTER_KEY``) so unit-test runs
+    ``HANGARLLM_PROXY_URL``/``HANGARLLM_MASTER_KEY``) so unit-test runs
     stay hermetic.
 
     Design note: we always attempt to register all 15 deployments,

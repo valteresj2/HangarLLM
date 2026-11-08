@@ -153,7 +153,7 @@ def local_beta_map_gateway(tmp_path_factory: pytest.TempPathFactory) -> Iterator
         owned_proxy(
             shared,
             tmp_path_factory.mktemp("azure-ai-local-beta-map"),
-            {"LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"},
+            {"HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS": "true"},
         ) as owned,
     ):
         yield owned

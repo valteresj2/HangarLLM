@@ -6,8 +6,8 @@ from integration.translation.case import TranslationTestCase
 """
 PPLX_DECIDER_V1_27B_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/decisions",
-    litellm_request={
+    hangarllm_endpoint="/v1/decisions",
+    hangarllm_request={
         "model": "perplexity/pplx-decider-v1-27b",
         "input": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": [
@@ -65,7 +65,7 @@ PPLX_DECIDER_V1_27B_TEST_CASE: Final = TranslationTestCase(
         },
         "usage": {"input_tokens": 318, "output_tokens": 3},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "pplx-decider-v1-27b",
         "answers": [
             {"type": "predicate", "name": "defect", "probability": 0.9989100737587077},
@@ -101,8 +101,8 @@ PPLX_DECIDER_V1_27B_TEST_CASE: Final = TranslationTestCase(
 )
 PPLX_DECIDER_V1_27B_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
     scenario="systemone",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "perplexity/pplx-decider-v1-27b",
         "state": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": {
@@ -151,7 +151,7 @@ PPLX_DECIDER_V1_27B_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
         },
         "usage": {"input_tokens": 318, "output_tokens": 3},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "pplx-decider-v1-27b",
         "answers": {
             "defect": {"type": "noul", "noul": 0.9989100737587077},

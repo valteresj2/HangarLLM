@@ -3,10 +3,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.proxy._types import DailyTagSpendTransaction
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-from litellm.proxy.db.rollup_lock_timeout import ROLLUP_LOCK_TIMEOUT_SQL
-from litellm.proxy.utils import update_daily_tag_spend
+from hangarllm.proxy._types import DailyTagSpendTransaction
+from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from hangarllm.proxy.db.rollup_lock_timeout import ROLLUP_LOCK_TIMEOUT_SQL
+from hangarllm.proxy.utils import update_daily_tag_spend
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,7 @@ async def test_update_daily_tag_spend_logs_error_and_does_not_raise():
     proxy_logging_obj.db_spend_update_writer.commit_daily_tag_spend_to_db = AsyncMock(side_effect=ValueError("boom"))
     proxy_logging_obj.db_spend_update_writer.commit_daily_tag_spend_to_db_with_redis = AsyncMock()
 
-    with patch("litellm.proxy.utils.verbose_proxy_logger.error") as error_logger:
+    with patch("hangarllm.proxy.utils.verbose_proxy_logger.error") as error_logger:
         await update_daily_tag_spend(
             prisma_client,
             proxy_logging_obj,

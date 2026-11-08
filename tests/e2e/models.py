@@ -153,7 +153,7 @@ class KeyInfoParams(BaseModel):
     key: str
 
 
-class LiteLLMBudgetTable(BaseModel):
+class HangarLLMBudgetTable(BaseModel):
     max_budget: float | None = None
     soft_budget: float | None = None
     budget_duration: str | None = None
@@ -176,7 +176,7 @@ class KeyInfo(BaseModel):
     budget_duration: str | None = None
     budget_reset_at: str | None = None
     budget_id: str | None = None
-    litellm_budget_table: LiteLLMBudgetTable | None = None
+    hangarllm_budget_table: HangarLLMBudgetTable | None = None
     budget_limits: list[BudgetWindowState] | None = None
     object_permission: ObjectPermission | None = None
 
@@ -400,7 +400,7 @@ class RouterSettingsOverride(BaseModel):
 
 
 class DeploymentExtraBody(BaseModel):
-    """`litellm_params.extra_body` of a deployment whose upstream is another LiteLLM
+    """`hangarllm_params.extra_body` of a deployment whose upstream is another HangarLLM
     proxy: forwarded verbatim in every request body, so the inner proxy honors the
     same per-request router knobs an end user could send it."""
 
@@ -558,7 +558,7 @@ class ToolInputSchema(BaseModel):
 
 class AnthropicServerTool(BaseModel):
     """An Anthropic-managed tool the upstream executes itself. It carries no
-    `input_schema`; `type` is the SDK-version-pinned identifier LiteLLM keys its
+    `input_schema`; `type` is the SDK-version-pinned identifier HangarLLM keys its
     per-provider translation on, and `name` is the unsuffixed canonical name the
     upstream accepts."""
 
@@ -692,7 +692,7 @@ class CountTokensBody(BaseModel):
 
 class AnthropicMessagesResponse(BaseModel):
     """A /v1/messages answer. `content` is the Anthropic-native passthrough
-    shape; `choices` is the OpenAI-normalized shape LiteLLM emits for some
+    shape; `choices` is the OpenAI-normalized shape HangarLLM emits for some
     providers (e.g. Bedrock Converse). Presence of either proves the proxy
     accepted and round-tripped the request. `extra="allow"` keeps the other
     top-level keys so a shape-check failure can report the actual response keys
@@ -708,19 +708,19 @@ class AnthropicMessagesResponse(BaseModel):
 TokenCountSource = Literal["provider", "token_count_model", "local_estimate"]
 
 
-class LitellmCountSource(BaseModel, frozen=True):
-    litellm_count_source: TokenCountSource | None = None
-    litellm_count_model: str | None = None
+class HangarllmCountSource(BaseModel, frozen=True):
+    hangarllm_count_source: TokenCountSource | None = None
+    hangarllm_count_model: str | None = None
 
 
-class CountTokensResponse(LitellmCountSource, frozen=True):
+class CountTokensResponse(HangarllmCountSource, frozen=True):
     """`/v1/messages/count_tokens` answer. `input_tokens` is required so a 200
     whose body lacks it fails validation instead of passing vacuously."""
 
     input_tokens: int
 
 
-class ResponsesInputTokensResponse(LitellmCountSource, frozen=True):
+class ResponsesInputTokensResponse(HangarllmCountSource, frozen=True):
     object: str
     input_tokens: int
 
@@ -988,13 +988,13 @@ class SearchResponse(BaseModel):
     results: list[SearchResultItem] = []
 
 
-class SearchToolLiteLLMParamsBody(BaseModel):
+class SearchToolHangarLLMParamsBody(BaseModel):
     search_provider: str
 
 
 class SearchToolBody(BaseModel):
     search_tool_name: str
-    litellm_params: SearchToolLiteLLMParamsBody
+    hangarllm_params: SearchToolHangarLLMParamsBody
 
 
 class SearchToolCreateBody(BaseModel):
@@ -1099,7 +1099,7 @@ class SpendLogRow(BaseModel):
     metadata: SpendLogMetadata | None = None
     proxy_server_request: JsonValue = None
     response: JsonValue = None
-    litellm_call_id: str | None = None
+    hangarllm_call_id: str | None = None
 
 
 class SpendLogs(RootModel[list[SpendLogRow]]):
@@ -1201,7 +1201,7 @@ class OpenAPISchema(BaseModel):
 
 class CustomPricing(BaseModel):
     """The per-token custom-pricing fields a deployment can override in
-    litellm_params - the token-cost subset of litellm's CustomPricingLiteLLMParams
+    hangarllm_params - the token-cost subset of hangarllm's CustomPricingHangarLLMParams
     the proxy applies to chat spend. All optional: a config sets only what it
     overrides, and /model/info echoes the rates the proxy resolved."""
 
@@ -1232,13 +1232,13 @@ class CustomPricing(BaseModel):
 
 
 class ModelInfoEntry(BaseModel):
-    """One /model/info row. `litellm_params` is the configured deployment (carries
+    """One /model/info row. `hangarllm_params` is the configured deployment (carries
     any custom-pricing override); `model_info` is the price the proxy resolved for
     it - the override merged over the cost-map defaults."""
 
     model_config = ConfigDict(protected_namespaces=())
     model_name: str
-    litellm_params: CustomPricing = CustomPricing()
+    hangarllm_params: CustomPricing = CustomPricing()
     model_info: CustomPricing = CustomPricing()
 
 
@@ -1276,7 +1276,7 @@ class ConfigFieldList(RootModel[tuple[ConfigField, ...]]):
 
 class CostMapEntry(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    litellm_provider: str | None = None
+    hangarllm_provider: str | None = None
     mode: str | None = None
     deprecation_date: str | None = None
     input_cost_per_token: float | None = None
@@ -1301,7 +1301,7 @@ class BedrockGuardrailParams(BaseModel):
 
 class BedrockGuardrailSpec(BaseModel):
     guardrail_name: str
-    litellm_params: BedrockGuardrailParams
+    hangarllm_params: BedrockGuardrailParams
 
 
 class GuardrailCreateBody(BaseModel):
@@ -1351,8 +1351,8 @@ class PromptCacheOptions(BaseModel):
     mode: Literal["implicit", "explicit"]
 
 
-class LiteLLMParamsBody(BaseModel):
-    """POST /model/new litellm_params: `model` is the only required field; `api_key`
+class HangarLLMParamsBody(BaseModel):
+    """POST /model/new hangarllm_params: `model` is the only required field; `api_key`
     et al may be an `os.environ/FOO` reference the proxy resolves at call time.
     The `*_cost_per_token` / `*_token_cost` fields register a per-deployment custom
     pricing override (the cache and service-tier rates only apply when both base
@@ -1362,7 +1362,7 @@ class LiteLLMParamsBody(BaseModel):
 
     model: str
     api_key: str | None = Field(default=None, repr=False)
-    litellm_credential_name: str | None = None
+    hangarllm_credential_name: str | None = None
     api_base: str | None = Field(default=None, repr=False)
     api_version: str | None = None
     responses_api_version: str | None = None
@@ -1450,7 +1450,7 @@ class ModelInfoBody(BaseModel):
 class ModelNewBody(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
     model_name: str
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
     model_info: ModelInfoBody
 
 
@@ -1461,12 +1461,12 @@ class ModelNewResponse(BaseModel):
 
 class ModelUpdateBody(BaseModel):
     """POST /model/update body: the target deployment (`model_info.id`) plus the
-    `litellm_params` to merge over its stored params. The handler overlays only the
+    `hangarllm_params` to merge over its stored params. The handler overlays only the
     non-null fields, so a body carrying `input_cost_per_token` re-prices the
     deployment while leaving its other params intact."""
 
     model_config = ConfigDict(protected_namespaces=())
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
     model_info: ModelInfoBody
 
 
@@ -1502,7 +1502,7 @@ class ConnectionTestBody(BaseModel):
     rejects `os.environ/` references, so credentials are either literal values or
     omitted to fall through to the proxy's own environment."""
 
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
     mode: Literal["chat", "completion", "embedding", "responses"]
 
 
@@ -1865,5 +1865,5 @@ class ReadinessDetailsResponse(ReadinessResponse):
     """GET /health/readiness/details (authenticated). Extends the public payload
     with the diagnostics only an authenticated caller may read."""
 
-    litellm_version: str | None = None
+    hangarllm_version: str | None = None
     success_callbacks: list[str] = []

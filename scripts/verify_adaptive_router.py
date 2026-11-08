@@ -2,10 +2,10 @@
 End-to-end verification script for the adaptive router.
 
 Requires:
-  - LiteLLM proxy running on http://localhost:4000 with adaptive_router configured
-    (see litellm/proxy/example_config_yaml/adaptive_router_example.yaml).
+  - HangarLLM proxy running on http://localhost:4000 with adaptive_router configured
+    (see hangarllm/proxy/example_config_yaml/adaptive_router_example.yaml).
   - Postgres reachable via DATABASE_URL (same one the proxy uses).
-  - LITELLM_PROXY_KEY env var set (a valid key with permission to send requests).
+  - HANGARLLM_PROXY_KEY env var set (a valid key with permission to send requests).
   - Two model deployments configured under one adaptive_router:
        * "fast"  (cheap,  lower quality)
        * "smart" (expensive, higher quality)
@@ -14,7 +14,7 @@ Run:
   uv run python scripts/verify_adaptive_router.py
 
 Optional env:
-  LITELLM_PROXY_URL    (default: http://localhost:4000)
+  HANGARLLM_PROXY_URL    (default: http://localhost:4000)
   ADAPTIVE_ROUTER_NAME (default: smart-cheap-router)
   EXPECTED_WINNER      (default: smart) -- model expected to dominate after training
   TRAIN_SESSIONS       (default: 20)    -- training sessions in phase 1
@@ -33,12 +33,12 @@ from typing import List, Optional
 
 import httpx
 
-PROXY_URL: str = os.environ.get("LITELLM_PROXY_URL", "http://localhost:4000")
+PROXY_URL: str = os.environ.get("HANGARLLM_PROXY_URL", "http://localhost:4000")
 try:
-    PROXY_KEY: str = os.environ["LITELLM_PROXY_KEY"]
+    PROXY_KEY: str = os.environ["HANGARLLM_PROXY_KEY"]
 except KeyError:
     print(
-        "ERROR: LITELLM_PROXY_KEY env var must be set (a proxy key with /chat/completions perms).",
+        "ERROR: HANGARLLM_PROXY_KEY env var must be set (a proxy key with /chat/completions perms).",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -69,7 +69,7 @@ async def _post_chat(
     body = {
         "model": ROUTER_NAME,
         "messages": [{"role": "user", "content": prompt}],
-        "metadata": {"litellm_session_id": session_id},
+        "metadata": {"hangarllm_session_id": session_id},
     }
     last_exc: Optional[Exception] = None
     for attempt in range(1, RETRY_ATTEMPTS + 1):

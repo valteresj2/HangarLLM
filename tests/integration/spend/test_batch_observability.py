@@ -138,7 +138,7 @@ def _input_file(model_name: str) -> bytes:
 def _retrieval_rows(key: str) -> tuple[dict[str, JsonValue], ...]:
     return tuple(
         read_rows(
-            'SELECT prompt_tokens, completion_tokens, metadata FROM "LiteLLM_SpendLogs" '
+            'SELECT prompt_tokens, completion_tokens, metadata FROM "HangarLLM_SpendLogs" '
             "WHERE api_key=%s AND call_type='aretrieve_batch'",
             (sha256(key.encode()).hexdigest(),),
         )

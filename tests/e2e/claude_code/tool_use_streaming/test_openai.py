@@ -1,14 +1,14 @@
 """tool_use_streaming x OpenAI (GPT-5.6).
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Anthropic Messages
+mode against a running HangarLLM proxy that routes Anthropic Messages
 requests to OpenAI's GPT-5.6 family (Sol, Terra, Luna), ask the model
 to invoke a built-in tool (`Bash`), and assert that the upstream (a)
 emitted a `tool_use` content block and (b) streamed the tool input
 incrementally as `input_json_delta` events.
 
 OpenAI streams tool arguments as incremental `tool_calls` argument
-fragments; LiteLLM must re-emit them as Anthropic `input_json_delta`
+fragments; HangarLLM must re-emit them as Anthropic `input_json_delta`
 deltas rather than buffering the full input into one complete block.
 
 Bash is restricted to the exact command `echo pong` plus

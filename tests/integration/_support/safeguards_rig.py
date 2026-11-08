@@ -175,7 +175,7 @@ def dispatch(scripts: Scripts) -> Responder:
 def deployment(name: str, model: str, api_base: str, **extra: JsonValue) -> Mapping[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, "api_base": api_base, "api_key": f"synthetic-{name}-key", **extra},
+        "hangarllm_params": {"model": model, "api_base": api_base, "api_key": f"synthetic-{name}-key", **extra},
     }
 
 
@@ -206,7 +206,7 @@ def write_config(
     classifier_model: JsonValue | Omitted = CLASSIFIER_MODEL,
     general_settings: Mapping[str, JsonValue] | None = None,
     extra_models: ExtraModels = no_extra_models,
-    litellm_settings: Mapping[str, JsonValue] | None = None,
+    hangarllm_settings: Mapping[str, JsonValue] | None = None,
     top_level: TopLevel = no_top_level,
 ) -> Path:
     base: Final = object_value(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
@@ -222,7 +222,7 @@ def write_config(
             **classifier_setting,
             **(general_settings or {}),
         },
-        "litellm_settings": {**object_value(base["litellm_settings"]), **(litellm_settings or {})},
+        "hangarllm_settings": {**object_value(base["hangarllm_settings"]), **(hangarllm_settings or {})},
     }
     path: Final = directory / f"safeguards-{uuid.uuid4().hex}.yaml"
     path.write_text(yaml.safe_dump(configuration))
@@ -292,7 +292,7 @@ def safeguards_rig(
     classifier_model: JsonValue | Omitted = CLASSIFIER_MODEL,
     general_settings: Mapping[str, JsonValue] | None = None,
     extra_models: ExtraModels = no_extra_models,
-    litellm_settings: Mapping[str, JsonValue] | None = None,
+    hangarllm_settings: Mapping[str, JsonValue] | None = None,
     top_level: TopLevel = no_top_level,
 ) -> Iterator[Rig]:
     scripts: Final = Scripts()
@@ -303,7 +303,7 @@ def safeguards_rig(
             classifier_model=classifier_model,
             general_settings=general_settings,
             extra_models=extra_models,
-            litellm_settings=litellm_settings,
+            hangarllm_settings=hangarllm_settings,
             top_level=top_level,
         )
         with owned_proxy_process(
@@ -708,7 +708,7 @@ def native_backend(
 def spend_rows(caller_key: str) -> tuple[Mapping[str, object], ...]:
     return tuple(
         read_rows(
-            'SELECT model, call_type, spend, api_key, request_tags, cache_hit FROM "LiteLLM_SpendLogs"'
+            'SELECT model, call_type, spend, api_key, request_tags, cache_hit FROM "HangarLLM_SpendLogs"'
             ' WHERE api_key = %s ORDER BY "startTime"',
             (key_hash(caller_key),),
         )

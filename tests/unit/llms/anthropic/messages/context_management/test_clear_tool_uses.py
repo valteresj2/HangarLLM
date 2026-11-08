@@ -9,21 +9,21 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm.llms.anthropic.messages.adapters.handler import _run_polyfill_if_enabled, prepare_context_managed_request
-from litellm.llms.anthropic.messages.context_management import (
+import hangarllm
+from hangarllm.llms.anthropic.messages.adapters.handler import _run_polyfill_if_enabled, prepare_context_managed_request
+from hangarllm.llms.anthropic.messages.context_management import (
     AnthropicContextManagementError,
     PolyfillResult,
     apply_context_management,
 )
-from litellm.llms.anthropic.messages.context_management.constants import (
+from hangarllm.llms.anthropic.messages.context_management.constants import (
     CLEARED_TOOL_RESULT_PLACEHOLDER,
     COMPACT_SUMMARY_MODEL_SETTING_KEY,
 )
-from litellm.llms.anthropic.messages.context_management.editors.clear_tool_uses import (
+from hangarllm.llms.anthropic.messages.context_management.editors.clear_tool_uses import (
     apply_clear_tool_uses_20250919,
 )
-from litellm.types.llms.anthropic import AppliedEdit
+from hangarllm.types.llms.anthropic import AppliedEdit
 
 MODEL = "xai/grok-4"
 
@@ -248,7 +248,7 @@ def _clear_above(
 
 def test_an_input_tokens_trigger_skips_blocks_no_adapter_sends() -> None:
     history: Final = _make_history(n_pairs=3)
-    sent_tokens: Final = litellm.token_counter(model=MODEL, messages=history)
+    sent_tokens: Final = hangarllm.token_counter(model=MODEL, messages=history)
     turn: Final = SERVER_TOOL_TURN
     messages: Final = [history[0], turn, *history[1:]]
 
@@ -271,7 +271,7 @@ def test_an_input_tokens_trigger_skips_blocks_no_adapter_sends_inside_a_tool_res
     history: Final = _make_history(n_pairs=3)
     result_text: Final = {"type": "text", "text": "Result 0: " + "x" * 200}
     search_result: Final = {"type": "web_search_result", "url": "https://example.com", "title": "rain " * 300}
-    sent_tokens: Final = litellm.token_counter(
+    sent_tokens: Final = hangarllm.token_counter(
         model=MODEL, messages=[*history[:2], _first_result_with([result_text]), *history[3:]]
     )
     messages: Final = [*history[:2], _first_result_with([result_text, search_result]), *history[3:]]
@@ -333,7 +333,7 @@ def _cleared_ids(messages: list[dict[str, object]]) -> set[object]:
 
 
 def _result_tokens(text: str) -> int:
-    return litellm.token_counter(model=MODEL, text=text)
+    return hangarllm.token_counter(model=MODEL, text=text)
 
 
 def test_clear_at_least_clears_in_batches_and_leaves_an_incomplete_batch():
@@ -742,7 +742,7 @@ async def test_drop_params_drops_only_the_malformed_field(field: str, value: obj
             tools=None,
             system=None,
             context_management_spec={"edits": [{**_VALID_EDIT, field: value, "clear_tool_inputs": True}]},
-            litellm_metadata={},
+            hangarllm_metadata={},
             additional_drop_params=None,
             llm_router=None,
             drop_invalid_edits=drop_invalid_edits,
@@ -767,7 +767,7 @@ async def test_drop_params_treats_a_malformed_trigger_or_keep_as_never_sent(fiel
             tools=None,
             system=None,
             context_management_spec={"edits": [edit]},
-            litellm_metadata={},
+            hangarllm_metadata={},
             additional_drop_params=None,
             llm_router=None,
             drop_invalid_edits=drop_invalid_edits,
@@ -783,7 +783,7 @@ async def test_drop_params_treats_a_malformed_trigger_or_keep_as_never_sent(fiel
 async def test_malformed_edit_is_rejected_before_a_compact_summary_is_paid_for(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, COMPACT_SUMMARY_MODEL_SETTING_KEY, "summary-model")
     router: Final = MagicMock()
@@ -853,7 +853,7 @@ def test_tool_uses_trigger_does_not_count_excluded_tools(trigger_value: int, tri
 def test_input_tokens_trigger_counts_the_system_prompt(system: str | list[dict[str, object]]) -> None:
     """Like the API, the trigger compares the whole prompt: a system prompt can push it over."""
     messages = _make_history(n_pairs=3)
-    history_tokens: Final = litellm.token_counter(model=MODEL, messages=messages)
+    history_tokens: Final = hangarllm.token_counter(model=MODEL, messages=messages)
     edit_spec: Final = {
         "type": "clear_tool_uses_20250919",
         "trigger": {"type": "input_tokens", "value": history_tokens + 100},
@@ -885,7 +885,7 @@ async def test_input_tokens_trigger_counts_a_client_compaction_summary(compact_p
     tail: Final = _make_history(n_pairs=3)
     edit_spec: Final = {
         "type": "clear_tool_uses_20250919",
-        "trigger": {"type": "input_tokens", "value": litellm.token_counter(model=MODEL, messages=tail) + 100},
+        "trigger": {"type": "input_tokens", "value": hangarllm.token_counter(model=MODEL, messages=tail) + 100},
         "keep": {"type": "tool_uses", "value": 1},
     }
     compaction: Final = {"type": "compaction", "content": "Earlier work. " * 400}
@@ -902,7 +902,7 @@ async def test_input_tokens_trigger_counts_a_client_compaction_summary(compact_p
             tools=None,
             system=None,
             context_management_spec={"edits": edits},
-            litellm_metadata=None,
+            hangarllm_metadata=None,
             additional_drop_params=None,
             llm_router=None,
         )
@@ -919,7 +919,7 @@ async def test_input_tokens_trigger_counts_a_client_compaction_summary(compact_p
 
 
 async def test_compact_after_clearing_replaces_the_client_compaction_summary(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, COMPACT_SUMMARY_MODEL_SETTING_KEY, "summary-model")
     summary: Final = MagicMock()
@@ -943,7 +943,7 @@ async def test_compact_after_clearing_replaces_the_client_compaction_summary(mon
                 {"type": "compact_20260112", "trigger": {"type": "input_tokens", "value": 50_000}},
             ]
         },
-        litellm_metadata=None,
+        hangarllm_metadata=None,
         additional_drop_params=None,
         llm_router=router,
     )
@@ -981,7 +981,7 @@ def test_clear_at_least_counts_the_tool_inputs_it_clears():
         assistant_msg, user_msg = _make_pair(f"toolu_{i:02d}", "ok", name="write_file")
         assistant_msg["content"][0]["input"] = {"path": f"file{i}.txt", "content": "lorem ipsum " * 300}
         messages.extend((assistant_msg, user_msg))
-    one_input = litellm.token_counter(model=MODEL, text="lorem ipsum " * 300)
+    one_input = hangarllm.token_counter(model=MODEL, text="lorem ipsum " * 300)
     new_messages, applied = apply_clear_tool_uses_20250919(
         model=MODEL,
         messages=messages,

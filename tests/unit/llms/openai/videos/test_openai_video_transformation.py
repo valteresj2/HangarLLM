@@ -3,11 +3,11 @@ from typing import Final
 
 import pytest
 
-from litellm.exceptions import UnsupportedParamsError
+from hangarllm.exceptions import UnsupportedParamsError
 
-from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.utils import encode_character_id_with_provider
+from hangarllm.llms.openai.videos.transformation import OpenAIVideoConfig
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.utils import encode_character_id_with_provider
 
 
 def test_video_content_request_encodes_video_id_path_segment():
@@ -16,7 +16,7 @@ def test_video_content_request_encodes_video_id_path_segment():
     url, params = config.transform_video_content_request(
         video_id="../../responses?x=1#frag",
         api_base="https://api.openai.com/v1/videos",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -36,7 +36,7 @@ def test_video_content_request_encodes_variant_query_param():
     url, _ = config.transform_video_content_request(
         video_id="vid_123",
         api_base="https://api.openai.com/v1/videos",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
         variant="thumbnail&extra=1",
     )
@@ -48,7 +48,7 @@ def test_video_content_request_encodes_variant_query_param():
     url2, _ = config.transform_video_content_request(
         video_id="vid_123",
         api_base="https://api.openai.com/v1/videos",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
         variant="thumbnail",
     )
@@ -66,7 +66,7 @@ def test_wrapped_character_id_is_decoded_then_encoded_as_path_segment():
     url, params = config.transform_video_get_character_request(
         character_id=character_id,
         api_base="https://api.openai.com/v1/videos",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -88,7 +88,7 @@ def test_video_edit_request_forwards_uploaded_file_as_multipart():
         prompt="make it nighttime",
         video_id="",
         api_base="https://api.openai.com/v1/videos",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
         video_file=source,
     )
@@ -113,7 +113,7 @@ def test_video_edit_request_without_file_sends_json_id_reference():
         prompt="brighter",
         video_id="video_abc123",
         api_base="https://api.openai.com/v1/videos",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 

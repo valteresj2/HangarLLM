@@ -1,10 +1,10 @@
 """
-Tests for litellm.llms.gigachat.utils
+Tests for hangarllm.llms.gigachat.utils
 """
 
 import pytest
-from litellm.llms.gigachat.utils import convert_usage
-from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+from hangarllm.llms.gigachat.utils import convert_usage
+from hangarllm.types.utils import PromptTokensDetailsWrapper, Usage
 
 
 class TestConvertUsage:

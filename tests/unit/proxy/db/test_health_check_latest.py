@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.db.health_check_latest import (
+from hangarllm.proxy.db.health_check_latest import (
     LATEST_HEALTH_CHECKS_FOR_MODELS_SQL,
     LATEST_HEALTH_CHECKS_SQL,
     LatestHealthCheckRow,
@@ -130,7 +130,7 @@ async def test_the_latest_health_check_read_renders_a_postgres_select_span(
     postgres_span_names: Callable[[], Awaitable[tuple[str, ...]]],
 ) -> None:
     assert await fetch_latest_health_checks(_prisma([])) == ()
-    assert await postgres_span_names() == ("postgres.select LiteLLM_HealthCheckTable",)
+    assert await postgres_span_names() == ("postgres.select HangarLLM_HealthCheckTable",)
 
 
 def _latest_row(**overrides) -> LatestHealthCheckRow:

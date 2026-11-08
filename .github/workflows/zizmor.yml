@@ -6,7 +6,7 @@ on:
   pull_request:
     branches:
       - main
-      - "litellm_**"
+      - "hangarllm_**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

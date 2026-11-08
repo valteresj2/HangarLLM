@@ -11,9 +11,9 @@ from unittest.mock import patch, MagicMock
 import asyncio
 import pytest
 
-import litellm
-from litellm.integrations.arize.arize import ArizeLogger
-from litellm.types.utils import StandardCallbackDynamicParams
+import hangarllm
+from hangarllm.integrations.arize.arize import ArizeLogger
+from hangarllm.types.utils import StandardCallbackDynamicParams
 
 
 class TestArizeHealthCheck:
@@ -72,7 +72,7 @@ class TestArizeHealthCheck:
 
 
 class TestArizeIntegrationWithProxy:
-    """Test Arize integration with LiteLLM completion requests."""
+    """Test Arize integration with HangarLLM completion requests."""
 
     @pytest.mark.asyncio
     async def test_arize_logging_with_completion(self):
@@ -91,16 +91,16 @@ class TestArizeIntegrationWithProxy:
 
             # Store original callbacks
             original_callbacks = (
-                litellm.success_callback.copy() if litellm.success_callback else []
+                hangarllm.success_callback.copy() if hangarllm.success_callback else []
             )
 
             try:
                 # Add ArizeLogger to callbacks
-                litellm.success_callback = [arize_logger]
+                hangarllm.success_callback = [arize_logger]
 
                 # Make completion request
-                response = await litellm.acompletion(
-                    model="openai/litellm-mock-response-model",
+                response = await hangarllm.acompletion(
+                    model="openai/hangarllm-mock-response-model",
                     messages=[
                         {
                             "role": "user",
@@ -123,7 +123,7 @@ class TestArizeIntegrationWithProxy:
 
             finally:
                 # Restore original callbacks
-                litellm.success_callback = original_callbacks
+                hangarllm.success_callback = original_callbacks
 
     def test_arize_get_config(self):
         """Test ArizeLogger.get_arize_config() method."""

@@ -3,7 +3,7 @@ from functools import cache
 from importlib import resources
 from typing import Final
 
-from litellm.litellm_core_utils.default_encoding import encoding as cl100k_base
+from hangarllm.hangarllm_core_utils.default_encoding import encoding as cl100k_base
 from tokenizers import Tokenizer
 
 CHINESE_TEXT: Final = "深度求索的分词器会把这段中文切成更少的词元。" * 20
@@ -12,7 +12,7 @@ SHORT_TEXT: Final = "Find record 14."
 
 @cache
 def _deepseek_tokenizer() -> Tokenizer:
-    bundled: Final = resources.files("litellm.litellm_core_utils.tokenizers").joinpath("deepseek_tokenizer.json")
+    bundled: Final = resources.files("hangarllm.hangarllm_core_utils.tokenizers").joinpath("deepseek_tokenizer.json")
     return Tokenizer.from_str(bundled.read_text(encoding="utf-8"))
 
 

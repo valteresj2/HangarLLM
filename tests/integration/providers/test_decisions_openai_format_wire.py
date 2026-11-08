@@ -15,11 +15,11 @@ from integration._support.upstream import ScenarioHandle, delete_scenario, regis
 from integration.cost_calculation.cost_tracking_case import JsonResponse
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
+import hangarllm
 
 _API_KEY: Final = "synthetic-decisions-key"
 _SAFETY_IDENTIFIER: Final = "end-user-7"
-_DROPPING_DEPLOYMENT: Final = "decisions-under-litellm-settings-drop-params"
+_DROPPING_DEPLOYMENT: Final = "decisions-under-hangarllm-settings-drop-params"
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _INPUT: Final = "Ticket (billing): The export job hangs at 99%"
 _FOLLOW_UP: Final = "Customer: still stuck after retrying"
@@ -102,7 +102,7 @@ _AI_DECIDE_ANSWERS: Final[dict[str, JsonValue]] = {
 _SDK_QUESTIONS: Final = TypeAdapter(list[dict[str, object]]).validate_python(_QUESTIONS)
 _SPEND_QUERY: Final = (
     "SELECT spend, status, call_type, model_group, custom_llm_provider, api_base, prompt_tokens, completion_tokens, "
-    'request_tags FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+    'request_tags FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 )
 
 
@@ -144,7 +144,7 @@ class _Provider:
         }
         return {"result": answer, "success": True} if self.wraps_result else answer
 
-    def litellm_response(self) -> dict[str, JsonValue]:
+    def hangarllm_response(self) -> dict[str, JsonValue]:
         if self.ai_decide:
             return {"model": self.model, "answers": _ANSWERS, "usage": _NO_USAGE}
         return {"model": self.body_model, "answers": _ANSWERS, "usage": _USAGE}
@@ -275,7 +275,7 @@ _MESSAGE_LIST_INPUT: Final[list[JsonValue]] = [
 
 
 def _response_cost(response: httpx.Response) -> float:
-    return float(response.headers["x-litellm-response-cost"]) if "x-litellm-response-cost" in response.headers else 0.0
+    return float(response.headers["x-hangarllm-response-cost"]) if "x-hangarllm-response-cost" in response.headers else 0.0
 
 
 def _provider_id(provider: _Provider) -> str:
@@ -371,11 +371,11 @@ def _drop_params_config(directory: Path, api_base: str) -> Path:
     base: Final = _JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     config: Final = {
         **base,
-        "litellm_settings": {**object_value(base["litellm_settings"]), "drop_params": True},
+        "hangarllm_settings": {**object_value(base["hangarllm_settings"]), "drop_params": True},
         "model_list": [
             {
                 "model_name": _DROPPING_DEPLOYMENT,
-                "litellm_params": {"model": _PERPLEXITY.model, "api_base": api_base, "api_key": _API_KEY},
+                "hangarllm_params": {"model": _PERPLEXITY.model, "api_base": api_base, "api_key": _API_KEY},
             }
         ],
     }
@@ -392,14 +392,14 @@ def test_each_provider_gets_its_own_path_key_and_body_and_is_billed(gateway: Gat
         model: Final = _deployment(scenario, handle, provider)
         response: Final = _decide(gateway, model)
         assert response.status_code == 200, response.text
-        assert response.json() == provider.litellm_response()
-        assert response.headers["x-litellm-model-group"] == model
+        assert response.json() == provider.hangarllm_response()
+        assert response.headers["x-hangarllm-model-group"] == model
         assert math.isclose(_response_cost(response), expected_spend, rel_tol=1e-9)
         (call,) = _upstream_calls(gateway, handle)
         assert call["path"] == f"/{handle.scenario_id}{provider.path}"
         assert call["authorization"] == (f"Bearer {provider.api_key}" if provider.api_key else "")
         assert call["body"] == provider.upstream_body()
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (
             row["status"],
             row["call_type"],
@@ -425,7 +425,7 @@ def test_the_unversioned_alias_serves_the_same_request(gateway: Gateway) -> None
         model: Final = _deployment(scenario, handle, _PERPLEXITY)
         response: Final = _decide(gateway, model, route="/decisions")
         assert response.status_code == 200, response.text
-        assert response.json() == _PERPLEXITY.litellm_response()
+        assert response.json() == _PERPLEXITY.hangarllm_response()
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == _PERPLEXITY.upstream_body()
 
@@ -436,7 +436,7 @@ def test_repeated_identical_requests_each_reach_the_upstream_and_are_each_billed
         model: Final = _deployment(scenario, handle, _PERPLEXITY)
         responses: Final = tuple(_decide(gateway, model) for _ in range(2))
         assert [response.status_code for response in responses] == [200, 200], [r.text for r in responses]
-        call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+        call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
         assert len(set(call_ids)) == 2, call_ids
         assert len(_upstream_calls(gateway, handle)) == 2
         for call_id in call_ids:
@@ -446,14 +446,14 @@ def test_repeated_identical_requests_each_reach_the_upstream_and_are_each_billed
 async def test_sdk_sync_and_async_clients_send_the_same_request(gateway: Gateway) -> None:
     with gateway.scenario() as scenario:
         handle: Final = _register(scenario, _TYPESAFE.upstream_reply())
-        synchronous: Final = litellm.decisions(
+        synchronous: Final = hangarllm.decisions(
             model=_TYPESAFE.model, input=_INPUT, questions=_SDK_QUESTIONS, api_base=handle.api_base(), api_key=_API_KEY
         )
-        asynchronous: Final = await litellm.adecisions(
+        asynchronous: Final = await hangarllm.adecisions(
             model=_TYPESAFE.model, input=_INPUT, questions=_SDK_QUESTIONS, api_base=handle.api_base(), api_key=_API_KEY
         )
         for response in (synchronous, asynchronous):
-            assert response.model_dump(mode="json") == _TYPESAFE.litellm_response()
+            assert response.model_dump(mode="json") == _TYPESAFE.hangarllm_response()
         calls: Final = _upstream_calls(gateway, handle)
         assert len(calls) == 2, calls
         for call in calls:
@@ -473,7 +473,7 @@ def test_gateway_only_fields_stay_at_the_gateway_and_tags_reach_the_spend_log(ga
         assert response.status_code == 200, response.text
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == _PERPLEXITY.upstream_body()
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         tags: Final = row["request_tags"]
         assert isinstance(tags, list) and tag in tags, row
 
@@ -512,7 +512,7 @@ def test_cloudflare_receives_images_from_either_format_in_its_images_field(gatew
         model: Final = _deployment(scenario, handle, _CLOUDFLARE)
         openai_format, system_one_format = _decide_with_images_in_both_formats(gateway, model)
         assert openai_format.status_code == 200, openai_format.text
-        assert openai_format.json() == _CLOUDFLARE.litellm_response()
+        assert openai_format.json() == _CLOUDFLARE.hangarllm_response()
         assert system_one_format.status_code == 200, system_one_format.text
         assert system_one_format.json()["answers"] == _SYSTEM_ONE_ANSWERS
         expected_body: Final = {**_CLOUDFLARE.upstream_body(), "images": [_PNG_DATA_URL]}
@@ -553,14 +553,14 @@ def test_a_message_list_input_reaches_a_system_one_provider_as_its_flattened_tex
         model: Final = _deployment(scenario, handle, _PERPLEXITY)
         response: Final = _decide(gateway, model, input=_MESSAGE_LIST_INPUT)
         assert response.status_code == 200, response.text
-        assert response.json() == _PERPLEXITY.litellm_response()
+        assert response.json() == _PERPLEXITY.hangarllm_response()
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == {
             "model": _PERPLEXITY.body_model,
             "state": f"{_INPUT}\n\n{_FOLLOW_UP}",
             "questions": _SYSTEM_ONE_QUESTIONS,
         }
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], row["prompt_tokens"], row["completion_tokens"]) == (
             "success",
             "adecisions",
@@ -583,10 +583,10 @@ def test_safety_identifier_is_refused_by_system_one_providers_unless_the_deploym
         dropping: Final = _deployment(scenario, handle, provider, drop_params=True)
         accepted: Final = _decide(gateway, dropping, safety_identifier=_SAFETY_IDENTIFIER)
         assert accepted.status_code == 200, accepted.text
-        assert accepted.json() == provider.litellm_response()
+        assert accepted.json() == provider.hangarllm_response()
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == provider.upstream_body()
-        row: Final = _spend_row(accepted.headers["x-litellm-call-id"])
+        row: Final = _spend_row(accepted.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], row["model_group"]) == ("success", "adecisions", dropping)
 
 
@@ -609,7 +609,7 @@ def test_a_request_body_drop_params_drops_the_safety_identifier_like_chat(gatewa
         strict: Final = _deployment(scenario, handle, _PERPLEXITY)
         response: Final = _decide(gateway, strict, safety_identifier=_SAFETY_IDENTIFIER, drop_params=True)
         assert response.status_code == 200, response.text
-        assert response.json() == _PERPLEXITY.litellm_response()
+        assert response.json() == _PERPLEXITY.hangarllm_response()
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == _PERPLEXITY.upstream_body()
 
@@ -620,7 +620,7 @@ def test_openai_keeps_the_safety_identifier_on_the_wire_without_drop_params(gate
         model: Final = _deployment(scenario, handle, _OPENAI)
         response: Final = _decide(gateway, model, safety_identifier=_SAFETY_IDENTIFIER)
         assert response.status_code == 200, response.text
-        assert response.json() == _OPENAI.litellm_response()
+        assert response.json() == _OPENAI.hangarllm_response()
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == {**_OPENAI.upstream_body(), "safety_identifier": _SAFETY_IDENTIFIER}
 
@@ -671,7 +671,7 @@ def test_a_non_string_safety_identifier_is_refused_as_invalid_unless_the_deploym
         assert call["body"] == _OPENAI.upstream_body()
 
 
-def test_litellm_settings_drop_params_drops_the_safety_identifier_for_a_strict_deployment(
+def test_hangarllm_settings_drop_params_drops_the_safety_identifier_for_a_strict_deployment(
     gateway: Gateway, tmp_path: Path
 ) -> None:
     with gateway.scenario() as scenario:
@@ -680,6 +680,6 @@ def test_litellm_settings_drop_params_drops_the_safety_identifier_for_a_strict_d
         with owned_proxy_process(gateway, tmp_path, {}, config=config) as owned:
             response: Final = _decide(owned.gateway, _DROPPING_DEPLOYMENT, safety_identifier=_SAFETY_IDENTIFIER)
         assert response.status_code == 200, response.text
-        assert response.json() == _PERPLEXITY.litellm_response()
+        assert response.json() == _PERPLEXITY.hangarllm_response()
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == _PERPLEXITY.upstream_body()

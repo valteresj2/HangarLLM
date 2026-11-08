@@ -9,9 +9,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.tavily.search.transformation import TavilySearchConfig
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.tavily.search.transformation import TavilySearchConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -48,13 +48,13 @@ class TestTavilySearch:
 
         # Mock the httpx AsyncClient post method
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
             # Make the search call
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="latest developments in AI",
                 search_provider="tavily",
                 max_results=5,
@@ -103,14 +103,14 @@ def _transform(payload: object) -> SearchResponse:
 def test_tavily_results_keep_provider_order_and_carry_raw_content_score_favicon_and_response_envelope():
     response = _transform(
         {
-            "query": "litellm",
-            "answer": "LiteLLM is a gateway.",
+            "query": "hangarllm",
+            "answer": "HangarLLM is a gateway.",
             "follow_up_questions": None,
             "images": [{"url": "https://example.com/image.png", "description": "logo"}],
             "results": [
                 {
-                    "title": "LiteLLM",
-                    "url": "https://example.com/litellm",
+                    "title": "HangarLLM",
+                    "url": "https://example.com/hangarllm",
                     "content": "Call every LLM API",
                     "score": 0.81,
                     "raw_content": None,
@@ -128,8 +128,8 @@ def test_tavily_results_keep_provider_order_and_carry_raw_content_score_favicon_
         "object": "search",
         "results": [
             {
-                "title": "LiteLLM",
-                "url": "https://example.com/litellm",
+                "title": "HangarLLM",
+                "url": "https://example.com/hangarllm",
                 "snippet": "Call every LLM API",
                 "date": None,
                 "last_updated": None,
@@ -147,8 +147,8 @@ def test_tavily_results_keep_provider_order_and_carry_raw_content_score_favicon_
             },
         ],
         "provider_metadata": {
-            "query": "litellm",
-            "answer": "LiteLLM is a gateway.",
+            "query": "hangarllm",
+            "answer": "HangarLLM is a gateway.",
             "follow_up_questions": None,
             "images": [{"url": "https://example.com/image.png", "description": "logo"}],
             "response_time": 1.67,
@@ -178,7 +178,7 @@ def test_tavily_result_without_title_url_or_content_gets_empty_strings():
 
 @pytest.mark.parametrize(
     "payload",
-    [{}, {"query": "litellm", "answer": None}, {"results": []}, {"results": ""}, {"results": {}}],
+    [{}, {"query": "hangarllm", "answer": None}, {"results": []}, {"results": ""}, {"results": {}}],
 )
 def test_tavily_response_without_results_is_empty(payload):
     assert _transform(payload).results == []

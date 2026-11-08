@@ -89,7 +89,7 @@ def test_fal_moondream3_chat_sends_prompt_image_and_reasoning(gateway: Gateway) 
             }
         ]
         assert payload["usage"] == {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18}
-        cost: Final = float(response.headers["x-litellm-response-cost"])
+        cost: Final = float(response.headers["x-hangarllm-response-cost"])
         assert cost == _approx(
             11 * _catalog_cost(f"fal_ai/{_MODEL}", "input_cost_per_token")
             + 7 * _catalog_cost(f"fal_ai/{_MODEL}", "output_cost_per_token")

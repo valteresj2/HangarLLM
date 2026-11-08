@@ -4,21 +4,21 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 
 def test_base_http_handler_sends_a_caller_extra_body_over_the_request_unchanged(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER", "True")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route = respx_mock.post(url__regex=r"https://api\.deepseek\.com/.*chat/completions").mock(
         return_value=httpx.Response(
             200, json={"id": "c", "object": "chat.completion", "created": 0, "model": "m", "choices": []}
         )
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="deepseek/deepseek-chat",
         messages=[{"role": "user", "content": "hi"}],
         api_key="sk-test",

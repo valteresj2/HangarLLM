@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-import litellm
+import hangarllm
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 MOCK_TINYFISH_RESPONSE = {
@@ -62,12 +62,12 @@ class TestTinyfishSearch:
         mock_response = _make_mock_response(MOCK_TINYFISH_RESPONSE)
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="web automation tools",
                 search_provider="tinyfish",
             )
@@ -102,12 +102,12 @@ class TestTinyfishSearch:
         mock_response = _make_mock_response(MOCK_TINYFISH_RESPONSE)
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="test",
                 search_provider="tinyfish",
                 country="US",
@@ -125,12 +125,12 @@ class TestTinyfishSearch:
         mock_response = _make_mock_response(MOCK_TINYFISH_RESPONSE)
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="python tutorials",
                 search_provider="tinyfish",
                 search_domain_filter=["arxiv.org", "github.com"],
@@ -151,12 +151,12 @@ class TestTinyfishSearch:
         mock_response = _make_mock_response(MOCK_TINYFISH_RESPONSE)
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="test",
                 search_provider="tinyfish",
                 language="en",
@@ -172,7 +172,7 @@ class TestTinyfishSearch:
         # End-to-end check: caller passes `fetch=...` (JSON-encoded fetch
         # config); param reaches TinyFish on the request side and the nested
         # `fetch` object on each result surfaces back to the SearchResult on the
-        # response side. No LiteLLM-side support code is required.
+        # response side. No HangarLLM-side support code is required.
         os.environ["TINYFISH_API_KEY"] = "sk-tinyfish-test"
 
         fetched_response = {
@@ -193,12 +193,12 @@ class TestTinyfishSearch:
         mock_response = _make_mock_response(fetched_response)
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="tinyfish",
                 search_provider="tinyfish",
                 fetch="{}",
@@ -215,7 +215,7 @@ class TestTinyfishSearch:
             assert fetch_field["text"] == "Page body text."
 
     def test_max_results_truncates_response(self):
-        from litellm.llms.tinyfish.search.transformation import TinyfishSearchConfig
+        from hangarllm.llms.tinyfish.search.transformation import TinyfishSearchConfig
 
         config = TinyfishSearchConfig()
         # max_results is threaded through self by transform_search_request;
@@ -244,19 +244,19 @@ class TestTinyfishSearch:
     @pytest.mark.asyncio
     async def test_top_level_extras_surface_end_to_end(self):
         # Envelope extras (`query`, `total_results`, `page`) must survive the
-        # full asearch dispatch — proves LiteLLM's entry-point plumbing outside
+        # full asearch dispatch — proves HangarLLM's entry-point plumbing outside
         # our transformer doesn't accidentally strip them.
         os.environ["TINYFISH_API_KEY"] = "sk-tinyfish-test"
 
         mock_response = _make_mock_response(MOCK_TINYFISH_RESPONSE)
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="web automation tools",
                 search_provider="tinyfish",
             )
@@ -277,12 +277,12 @@ class TestTinyfishSearch:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="test",
                 search_provider="tinyfish",
             )
@@ -306,12 +306,12 @@ class TestTinyfishSearch:
         mock_response = _make_mock_response(empty_response)
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="xyznonexistent",
                 search_provider="tinyfish",
             )
@@ -322,7 +322,7 @@ class TestTinyfishSearch:
     def test_missing_api_key(self):
         os.environ.pop("TINYFISH_API_KEY", None)
 
-        from litellm.llms.tinyfish.search.transformation import TinyfishSearchConfig
+        from hangarllm.llms.tinyfish.search.transformation import TinyfishSearchConfig
 
         config = TinyfishSearchConfig()
         with pytest.raises(ValueError, match="TINYFISH_API_KEY"):

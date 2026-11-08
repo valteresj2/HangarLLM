@@ -9,10 +9,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import DEFAULT_COOLDOWN_TIME_SECONDS, DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS
-from litellm.router_utils.cooldown_handlers import mark_advisor_orchestration_failure
-from litellm.types.router import AllowedFailsPolicy, Deployment
+import hangarllm
+from hangarllm.constants import DEFAULT_COOLDOWN_TIME_SECONDS, DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS
+from hangarllm.router_utils.cooldown_handlers import mark_advisor_orchestration_failure
+from hangarllm.types.router import AllowedFailsPolicy, Deployment
 from tests.unit.test_router.core.retries_health_helpers import (
     BackgroundSuccessLoggingHost,
     ErrorBuilder,
@@ -39,7 +39,7 @@ from tests.unit.test_router.core.scripted_host import (
 
 def group(
     *ids: str, **params: object
-) -> list[dict[str, object]]:  # kwargs-ok: litellm_params  # mutable-ok: a model_list
+) -> list[dict[str, object]]:  # kwargs-ok: hangarllm_params  # mutable-ok: a model_list
     return [deployment("g", deployment_id, **params) for deployment_id in ids]
 
 
@@ -49,10 +49,10 @@ def unhealthy(*ids: str, age: float = 0.0) -> dict[str, dict[str, object]]:  # m
 
 def failure_kwargs(
     model_info: object, exception: Exception, **extra: object
-) -> dict[str, object]:  # kwargs-ok: logging kwargs  # mutable-ok: litellm's logging kwargs
-    litellm_params: Final = {"metadata": {"model_group": "g"}, "model_info": model_info}
-    litellm_params.update(extra.pop("litellm_params", {}))  # pyright: ignore[reportCallIssue, reportArgumentType]  # test extras
-    return {"exception": exception, "litellm_params": litellm_params, **extra}
+) -> dict[str, object]:  # kwargs-ok: logging kwargs  # mutable-ok: hangarllm's logging kwargs
+    hangarllm_params: Final = {"metadata": {"model_group": "g"}, "model_info": model_info}
+    hangarllm_params.update(extra.pop("hangarllm_params", {}))  # pyright: ignore[reportCallIssue, reportArgumentType]  # test extras
+    return {"exception": exception, "hangarllm_params": hangarllm_params, **extra}
 
 
 # --- which failures cool a deployment down -------------------------------------------------------
@@ -71,7 +71,7 @@ async def test_a_lone_deployment_cools_down_on_a_401_or_404(
 
     assert type(first) is type(builder())
     assert set(cooled_down(core, ["a"])) == {"a"}
-    assert isinstance(second, litellm.RouterRateLimitError)
+    assert isinstance(second, hangarllm.RouterRateLimitError)
     assert host.deployments_called("acompletion") == ["a"]
 
 
@@ -119,7 +119,7 @@ async def test_successes_this_minute_keep_the_failure_rate_under_the_default_thr
     core: Final = make_core(model_list=group("a", "b"))
     for _ in range(5):
         core.sync_deployment_callback_on_success(  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
-            {"litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}}}, None, 0.0, 0.0
+            {"hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}}}, None, 0.0, 0.0
         )
 
     outcomes: Final = [core.health().record_failure("a", server_error(), 500) for _ in range(6)]
@@ -411,7 +411,7 @@ async def test_failure_callback_ignores_an_advisor_orchestration_failure(make_co
     "extra",
     [
         {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": "g", "internal_call_origin": "background_response_status_poll"}
             }
         },
@@ -443,7 +443,7 @@ async def test_failure_callback_ignores_a_408_from_the_callers_own_timeout(make_
     kwargs: Final = failure_kwargs(
         {"id": "a"},
         timeout(),
-        litellm_params={"client_side_timeout": True, "timeout": 1.0},
+        hangarllm_params={"client_side_timeout": True, "timeout": 1.0},
         start_time=start,
         end_time=start + timedelta(seconds=2),
     )
@@ -455,22 +455,22 @@ async def test_failure_callback_ignores_a_408_from_the_callers_own_timeout(make_
 
 
 @pytest.mark.parametrize(
-    ("model_info", "litellm_params", "expected"),
+    ("model_info", "hangarllm_params", "expected"),
     [
         ({"id": "a", "cooldown_time": 3}, {"cooldown_time": 4}, 3),
         ({"id": "a"}, {"cooldown_time": 4}, 4),
         ({"id": "a", "cooldown_time": -1}, {}, 60),
     ],
-    ids=["model-info-first", "litellm-params", "negative-ignored"],
+    ids=["model-info-first", "hangarllm-params", "negative-ignored"],
 )
 @pytest.mark.asyncio
 async def test_failure_callback_cooldown_time_resolution(
-    make_core: MakeCore, model_info: dict[str, object], litellm_params: dict[str, object], expected: float
+    make_core: MakeCore, model_info: dict[str, object], hangarllm_params: dict[str, object], expected: float
 ) -> None:
     core: Final = make_core(model_list=group("a", "b"), allowed_fails=0, cooldown_time=60)
 
     core.deployment_callback_on_failure(  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
-        failure_kwargs(model_info, server_error(), litellm_params=litellm_params), None, 0.0, 0.0
+        failure_kwargs(model_info, server_error(), hangarllm_params=hangarllm_params), None, 0.0, 0.0
     )
 
     (entry,) = cooled_down(core, ["a", "b"]).values()
@@ -483,7 +483,7 @@ async def test_failure_callback_cooldown_time_resolution(
 @pytest.mark.asyncio
 async def test_sync_success_callback_counts_a_success_and_returns_its_key(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=group("a", "b"))
-    kwargs: Final = {"litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}}}
+    kwargs: Final = {"hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}}}
 
     key: Final = core.sync_deployment_callback_on_success(kwargs, None, 0.0, 0.0)  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
     core.sync_deployment_callback_on_success(kwargs, None, 0.0, 0.0)  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
@@ -497,7 +497,7 @@ async def test_sync_success_callback_turns_an_integer_id_into_a_string_key(make_
     core: Final = make_core(model_list=group("a"))
 
     key: Final = core.sync_deployment_callback_on_success(  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
-        {"litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": 7}}}, None, 0.0, 0.0
+        {"hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": 7}}}, None, 0.0, 0.0
     )
 
     assert key == "7:successes"
@@ -506,12 +506,12 @@ async def test_sync_success_callback_turns_an_integer_id_into_a_string_key(make_
 @pytest.mark.parametrize(
     "kwargs",
     [
-        {"litellm_params": {"metadata": None, "model_info": {"id": "a"}}},
-        {"litellm_params": {"metadata": {}, "model_info": {"id": "a"}}},
-        {"litellm_params": {"metadata": {"model_group": "g"}, "model_info": None}},
+        {"hangarllm_params": {"metadata": None, "model_info": {"id": "a"}}},
+        {"hangarllm_params": {"metadata": {}, "model_info": {"id": "a"}}},
+        {"hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": None}},
         {
             "call_type": "aretrieve_batch",
-            "litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
+            "hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
         },
     ],
     ids=["no-metadata", "no-group", "no-model-info", "batch-retrieve"],
@@ -531,7 +531,7 @@ async def test_sync_success_callback_counts_nothing_without_a_group_and_id(
     [
         {"call_type": "_arealtime"},
         {"call_type": "aretrieve_batch"},
-        {"litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}}},
+        {"hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}}},
     ],
     ids=["realtime", "batch-retrieve", "no-standard-logging-object"],
 )
@@ -541,11 +541,11 @@ async def test_async_success_callback_skips_calls_it_does_not_track(
 ) -> None:
     core: Final = make_core(model_list=group("a", rpm=100))
     full: Final = {
-        "litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
+        "hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
         "standard_logging_object": {"total_tokens": 10},
         **kwargs,
     }
-    if "litellm_params" in kwargs:
+    if "hangarllm_params" in kwargs:
         del full["standard_logging_object"]
 
     result: Final = await core.deployment_callback_on_success(full, None, 0.0, 0.0)  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
@@ -561,7 +561,7 @@ async def test_async_success_callback_for_an_unknown_deployment_counts_nothing(m
 
     await core.deployment_callback_on_success(  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
         {
-            "litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "zz"}},
+            "hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "zz"}},
             "standard_logging_object": {"total_tokens": 10},
         },
         None,
@@ -580,7 +580,7 @@ async def test_async_success_callback_writes_tokens_and_a_request_for_a_tracked_
 
     await core.deployment_callback_on_success(  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
         {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": "g", "deployment": "openai/a"},
                 "model_info": {"id": "a"},
             },
@@ -601,11 +601,11 @@ async def test_async_success_callback_adds_only_tokens_not_yet_counted(make_core
 
     await core.deployment_callback_on_success(  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
         {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "model_group": "g",
                     "deployment": "openai/a",
-                    "_litellm_router_usage_counted_tokens": 8,
+                    "_hangarllm_router_usage_counted_tokens": 8,
                 },
                 "model_info": {"id": "a"},
             },
@@ -625,7 +625,7 @@ async def test_async_success_callback_counts_successes_for_an_untracked_deployme
 
     await core.deployment_callback_on_success(  # pyright: ignore[reportAttributeAccessIssue]  # PythonCore's public member
         {
-            "litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
+            "hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
             "standard_logging_object": {"total_tokens": 12},
         },
         None,
@@ -712,7 +712,7 @@ async def test_a_group_with_every_deployment_blocked_raises_no_deployments_avail
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RouterRateLimitError)
+    assert isinstance(error, hangarllm.RouterRateLimitError)
     assert "No deployments available for selected model" in str(error)
     assert host.calls == []
     assert core.health().fully_blocked_model_names() == {"g"}
@@ -817,7 +817,7 @@ async def test_an_unhealthy_deployment_stays_excluded_when_the_healthy_one_is_co
     error: Final = await attempt(core)
 
     assert set(cooled_down(core, ["a", "b"])) == {"b"}
-    assert isinstance(error, litellm.RouterRateLimitError)
+    assert isinstance(error, hangarllm.RouterRateLimitError)
     assert "cooldown_list=['b']" in str(error)
     assert host.deployments_called("acompletion") == ["b"]
 

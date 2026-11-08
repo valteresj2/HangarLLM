@@ -2,7 +2,7 @@ import base64
 import uuid
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.wire import Reply, Request, wire_server
 
@@ -18,7 +18,7 @@ def test_topaz_image_variation_reaches_one_single_slash_url(trailing: str) -> No
         return Reply(body=enhanced, content_type="image/jpeg")
 
     with wire_server(respond) as wire:
-        response: Final = litellm.image_variation(
+        response: Final = hangarllm.image_variation(
             image=b"\x89PNG\r\n\x1a\n" + marker,
             model="topaz/Standard V2",
             api_key=_KEY,

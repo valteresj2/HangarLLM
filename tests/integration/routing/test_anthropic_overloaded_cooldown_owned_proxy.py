@@ -74,7 +74,7 @@ def _respond(request: Request) -> Reply:
 
 
 def _deployment(name: str, model: str, api_base: str, api_key: str, **params: JsonValue) -> dict[str, JsonValue]:
-    return {"model_name": name, "litellm_params": {"model": model, "api_base": api_base, "api_key": api_key, **params}}
+    return {"model_name": name, "hangarllm_params": {"model": model, "api_base": api_base, "api_key": api_key, **params}}
 
 
 def _config(wire: Wire, directory: Path) -> Path:
@@ -105,7 +105,7 @@ def _config(wire: Wire, directory: Path) -> Path:
         "redis_host": os.environ["REDIS_HOST"],
         "redis_port": int(os.environ["REDIS_PORT"]),
     }
-    config["litellm_settings"]["disable_token_counter"] = True
+    config["hangarllm_settings"]["disable_token_counter"] = True
     config["general_settings"]["enable_claude_code_gateway"] = True
     path: Final = directory / "anthropic-overloaded-cooldown.yaml"
     path.write_text(yaml.safe_dump(config).replace(_UPSTREAM_URL_PLACEHOLDER, wire.url))

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.proxy.proxy_server import ProxyStartupEvent
-from litellm.secret_managers.main import get_secret_str as real_get_secret_str
+from hangarllm.proxy.proxy_server import ProxyStartupEvent
+from hangarllm.secret_managers.main import get_secret_str as real_get_secret_str
 
 
 def _mock_pyroscope_module():
@@ -29,21 +29,21 @@ def _patch_pyroscope_grafana_secrets(user: Optional[str], token: Optional[str]):
         return real_get_secret_str(secret_name, default_value)
 
     return patch(
-        "litellm.proxy.proxy_server.get_secret_str",
+        "hangarllm.proxy.proxy_server.get_secret_str",
         side_effect=side_effect,
     )
 
 
 def test_init_pyroscope_returns_cleanly_when_disabled():
-    """When LITELLM_ENABLE_PYROSCOPE is false, _init_pyroscope returns without error."""
+    """When HANGARLLM_ENABLE_PYROSCOPE is false, _init_pyroscope returns without error."""
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=False,
         ),
         patch.dict(
             os.environ,
-            {"LITELLM_ENABLE_PYROSCOPE": "false"},
+            {"HANGARLLM_ENABLE_PYROSCOPE": "false"},
             clear=False,
         ),
     ):
@@ -51,11 +51,11 @@ def test_init_pyroscope_returns_cleanly_when_disabled():
 
 
 def test_init_pyroscope_raises_when_enabled_but_missing_app_name():
-    """When LITELLM_ENABLE_PYROSCOPE is true but PYROSCOPE_APP_NAME is not set, raises ValueError."""
+    """When HANGARLLM_ENABLE_PYROSCOPE is true but PYROSCOPE_APP_NAME is not set, raises ValueError."""
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         patch.dict(
@@ -65,7 +65,7 @@ def test_init_pyroscope_raises_when_enabled_but_missing_app_name():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "",
                 "PYROSCOPE_SERVER_ADDRESS": "http://localhost:4040",
             },
@@ -77,11 +77,11 @@ def test_init_pyroscope_raises_when_enabled_but_missing_app_name():
 
 
 def test_init_pyroscope_raises_when_enabled_but_missing_server_address():
-    """When LITELLM_ENABLE_PYROSCOPE is true but PYROSCOPE_SERVER_ADDRESS is not set, raises ValueError."""
+    """When HANGARLLM_ENABLE_PYROSCOPE is true but PYROSCOPE_SERVER_ADDRESS is not set, raises ValueError."""
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         patch.dict(
@@ -91,7 +91,7 @@ def test_init_pyroscope_raises_when_enabled_but_missing_server_address():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "",
             },
@@ -107,7 +107,7 @@ def test_init_pyroscope_raises_when_sample_rate_invalid():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         patch.dict(
@@ -117,7 +117,7 @@ def test_init_pyroscope_raises_when_sample_rate_invalid():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "http://localhost:4040",
                 "PYROSCOPE_SAMPLE_RATE": "not-a-number",
@@ -136,7 +136,7 @@ def test_init_pyroscope_accepts_integer_sample_rate():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         patch.dict(
@@ -146,7 +146,7 @@ def test_init_pyroscope_accepts_integer_sample_rate():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "http://localhost:4040",
                 "PYROSCOPE_SAMPLE_RATE": "100",
@@ -169,7 +169,7 @@ def test_init_pyroscope_accepts_float_sample_rate_parsed_as_int():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         patch.dict(
@@ -179,7 +179,7 @@ def test_init_pyroscope_accepts_float_sample_rate_parsed_as_int():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "http://localhost:4040",
                 "PYROSCOPE_SAMPLE_RATE": "100.7",
@@ -199,7 +199,7 @@ def test_init_pyroscope_configures_grafana_cloud_basic_auth():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         _patch_pyroscope_grafana_secrets("123456", "glc_test_token"),
@@ -210,7 +210,7 @@ def test_init_pyroscope_configures_grafana_cloud_basic_auth():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "https://profiles-prod-001.grafana.net",
             },
@@ -228,7 +228,7 @@ def test_init_pyroscope_raises_when_grafana_token_missing_user():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         _patch_pyroscope_grafana_secrets("", "glc_test_token"),
@@ -239,7 +239,7 @@ def test_init_pyroscope_raises_when_grafana_token_missing_user():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "https://profiles-prod-001.grafana.net",
             },
@@ -255,7 +255,7 @@ def test_init_pyroscope_raises_when_grafana_user_missing_token():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         _patch_pyroscope_grafana_secrets("123456", ""),
@@ -266,7 +266,7 @@ def test_init_pyroscope_raises_when_grafana_user_missing_token():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "https://profiles-prod-001.grafana.net",
             },
@@ -282,7 +282,7 @@ def test_init_pyroscope_raises_when_grafana_user_whitespace_only_with_token():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         _patch_pyroscope_grafana_secrets("   \t", "glc_test_token"),
@@ -293,7 +293,7 @@ def test_init_pyroscope_raises_when_grafana_user_whitespace_only_with_token():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "https://profiles-prod-001.grafana.net",
             },
@@ -309,7 +309,7 @@ def test_init_pyroscope_strips_grafana_credentials_for_basic_auth():
     mock_pyroscope = _mock_pyroscope_module()
     with (
         patch(
-            "litellm.proxy.proxy_server.get_secret_bool",
+            "hangarllm.proxy.proxy_server.get_secret_bool",
             return_value=True,
         ),
         _patch_pyroscope_grafana_secrets("  123456  ", "  glc_test_token\n"),
@@ -320,7 +320,7 @@ def test_init_pyroscope_strips_grafana_credentials_for_basic_auth():
         patch.dict(
             os.environ,
             {
-                "LITELLM_ENABLE_PYROSCOPE": "true",
+                "HANGARLLM_ENABLE_PYROSCOPE": "true",
                 "PYROSCOPE_APP_NAME": "myapp",
                 "PYROSCOPE_SERVER_ADDRESS": "https://profiles-prod-001.grafana.net",
             },

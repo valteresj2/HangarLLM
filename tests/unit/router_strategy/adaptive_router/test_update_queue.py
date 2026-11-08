@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.update_queue import (
+from hangarllm.router_strategy.adaptive_router.update_queue import (
     AdaptiveRouterUpdateQueue,
 )
 
@@ -17,9 +17,9 @@ def queue():
 def mock_prisma():
     """Prisma client with both adaptive router models stubbed as AsyncMocks."""
     p = MagicMock()
-    p.db.litellm_adaptiverouterstate.find_unique = AsyncMock(return_value=None)
-    p.db.litellm_adaptiverouterstate.upsert = AsyncMock()
-    p.db.litellm_adaptiveroutersession.upsert = AsyncMock()
+    p.db.hangarllm_adaptiverouterstate.find_unique = AsyncMock(return_value=None)
+    p.db.hangarllm_adaptiverouterstate.upsert = AsyncMock()
+    p.db.hangarllm_adaptiveroutersession.upsert = AsyncMock()
     return p
 
 
@@ -52,7 +52,7 @@ async def test_add_session_state_last_write_wins(queue):
     async def upsert(**kwargs):
         flushed.append(kwargs)
 
-    p.db.litellm_adaptiveroutersession.upsert = upsert
+    p.db.hangarllm_adaptiveroutersession.upsert = upsert
     await queue.flush_session_to_db(p)
     assert len(flushed) == 1
     assert flushed[0]["data"]["update"]["misalignment_count"] == 5
@@ -74,7 +74,7 @@ async def test_flush_state_sums_correctly(queue, mock_prisma):
     await queue.add_state_delta("r1", "general", "gpt-4", 2.0, 1.0)
     await queue.flush_state_to_db(mock_prisma)
     # find_unique returned None (cold start), so alpha = 1+2 = 3, beta = 0+1 = 1
-    call = mock_prisma.db.litellm_adaptiverouterstate.upsert.call_args
+    call = mock_prisma.db.hangarllm_adaptiverouterstate.upsert.call_args
     assert call.kwargs["data"]["create"]["alpha"] == 3.0
     assert call.kwargs["data"]["create"]["beta"] == 1.0
     assert call.kwargs["data"]["create"]["total_samples"] == 2

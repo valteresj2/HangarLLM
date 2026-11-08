@@ -20,10 +20,10 @@ from integration._support.openai_wire import answering_model_discovery, chat_str
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 _BACKEND: Final = "gpt-4o-mini"
 _PROVIDER_KEY: Final = "integration-provider-key"
@@ -50,7 +50,7 @@ class _CallbackProbe(CustomLogger):
         self, kwargs: dict[str, object], response_obj: object, start_time: object, end_time: object
     ) -> None:
         with self._lock:
-            self._successes.append((kwargs.get("litellm_call_id"), kwargs.get("standard_logging_object")))
+            self._successes.append((kwargs.get("hangarllm_call_id"), kwargs.get("standard_logging_object")))
 
     def failures(self) -> tuple[object, ...]:
         with self._lock:
@@ -78,14 +78,14 @@ def _upstream(marker: str) -> Callable[[Request], Reply]:
 
 
 async def _stream(wire: Wire, prompt: str, model: str = f"hosted_vllm/{_BACKEND}") -> tuple[SseEvent, ...]:
-    response: Final = await litellm.anthropic.messages.acreate(
+    response: Final = await hangarllm.anthropic.messages.acreate(
         model=model,
         api_base=wire.url if model.startswith("anthropic/") else wire.url + "/v1",
         api_key=_PROVIDER_KEY,
         max_tokens=16,
         stream=True,
         messages=[{"role": "user", "content": prompt}],
-        litellm_call_id=prompt,
+        hangarllm_call_id=prompt,
     )
     assert isinstance(response, AsyncIterable), response
     frames: Final = [frame async for frame in response]
@@ -99,7 +99,7 @@ async def _settled(read: Callable[[], tuple[object, ...]]) -> tuple[object, ...]
 
 async def test_sdk_bridged_stream_failing_after_content_reports_the_provider_error_once() -> None:
     probe: Final = _CallbackProbe()
-    litellm.callbacks.append(probe)
+    hangarllm.callbacks.append(probe)
     marker: Final = uuid.uuid4().hex
     with wire_server(_upstream(marker)) as wire:
         failing: Final = await _stream(wire, f"{_DROPS_AFTER_CONTENT}:{marker}")
@@ -120,7 +120,7 @@ async def test_sdk_bridged_stream_failing_after_content_reports_the_provider_err
 
 async def test_sdk_native_messages_stream_delivers_one_success_callback_with_usage() -> None:
     probe: Final = _CallbackProbe()
-    litellm.callbacks.append(probe)
+    hangarllm.callbacks.append(probe)
     prompt: Final = uuid.uuid4().hex
     model: Final = "claude-sonnet-5-5"
 

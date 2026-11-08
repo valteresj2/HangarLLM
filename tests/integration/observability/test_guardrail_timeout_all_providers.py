@@ -1,4 +1,4 @@
-"""litellm_params.timeout bounds every HTTP guardrail's outbound call, through a real proxy.
+"""hangarllm_params.timeout bounds every HTTP guardrail's outbound call, through a real proxy.
 
 Each guardrail is configured against an owned sink that records the request and then sleeps
 ~20s. With `timeout: 1` the outbound call must abort near the bound, so the chat round trip
@@ -49,11 +49,11 @@ TOKEN_REPLY: Final = json.dumps(
 
 EXCLUDED: Final = {
     "microsoft_purview": "token endpoint is the fixed login.microsoftonline.com and cannot point at a sink",
-    "agent_365": "honors its own request_timeout param, not litellm_params.timeout",
+    "agent_365": "honors its own request_timeout param, not hangarllm_params.timeout",
     "mcp_jwt_signer": "only runs for pre_mcp_call, which /v1/chat/completions cannot trigger",
-    "semantic_guard": "routes through litellm embeddings, not a guardrail provider HTTP client",
-    "llm_as_a_judge": "routes through litellm completions, not a guardrail provider HTTP client",
-    "litellm_content_filter": "local pattern matching with no outbound HTTP",
+    "semantic_guard": "routes through hangarllm embeddings, not a guardrail provider HTTP client",
+    "llm_as_a_judge": "routes through hangarllm completions, not a guardrail provider HTTP client",
+    "hangarllm_content_filter": "local pattern matching with no outbound HTTP",
     "tool_permission": "policy evaluation with no outbound HTTP",
     "mcp_end_user_permission": "policy evaluation with no outbound HTTP",
     "block_code_execution": "local code analysis with no outbound HTTP",
@@ -61,9 +61,9 @@ EXCLUDED: Final = {
     "hide-secrets": "in-process masking with no outbound HTTP",
     "mcp_security": "MCP tool scanning with no provider HTTP client",
     "unified_guardrail": "delegates to other guardrails, makes no HTTP call of its own",
-    "conduct": "requires the optional conduct-litellm-guard package, which is not installed",
-    "grayswan": "honors its own guardrail_timeout param, not litellm_params.timeout",
-    "akto": "honors its own guardrail_timeout param, not litellm_params.timeout",
+    "conduct": "requires the optional conduct-hangarllm-guard package, which is not installed",
+    "grayswan": "honors its own guardrail_timeout param, not hangarllm_params.timeout",
+    "akto": "honors its own guardrail_timeout param, not hangarllm_params.timeout",
 }
 
 
@@ -278,7 +278,7 @@ def _guardrail(
     base: Final = f"{sink}/slow/{name}/" if timeout is not None else f"{sink}/fast/{name}/"
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": provider,
             "mode": mode,
             "default_on": False,
@@ -332,7 +332,7 @@ def _provider_values() -> Iterator[tuple[str, str, dict[str, object], str, bool]
 
 def _rig_config(sink_url: str, root: Path) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["guardrails"] = [
         _guardrail(name, provider, sink_url, GUARDRAIL_TIMEOUT_SECONDS, dict(extra), mode)
         for name, provider, extra, mode, _ in _provider_values()
@@ -430,7 +430,7 @@ def outcomes(rig: Rig) -> Mapping[str, Outcome]:
 
 
 @pytest.mark.parametrize("name,provider,extra,mode,exchange", PROVIDERS)
-def test_litellm_params_timeout_bounds_outbound_call(
+def test_hangarllm_params_timeout_bounds_outbound_call(
     rig: Rig,
     outcomes: Mapping[str, Outcome],
     name: str,

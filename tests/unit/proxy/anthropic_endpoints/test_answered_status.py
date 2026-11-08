@@ -3,14 +3,14 @@ from typing import Final
 import openai
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.proxy._types import ProxyException
-from litellm.proxy.anthropic_endpoints.answered_status import with_answered_status
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.anthropic_endpoints.answered_status import with_answered_status
 
 
-def _anthropic_internal_server_error(provider_status_code: int | None) -> litellm.InternalServerError:
-    return litellm.InternalServerError(
+def _anthropic_internal_server_error(provider_status_code: int | None) -> hangarllm.InternalServerError:
+    return hangarllm.InternalServerError(
         message="AnthropicError - Overloaded",
         llm_provider="anthropic",
         model="claude-opus-5-5",
@@ -32,7 +32,7 @@ def test_a_proxy_exception_passes_through_unchanged(code: int) -> None:
     ("exc", "answered", "copy"),
     [
         pytest.param(
-            litellm.ServiceUnavailableError(message="BedrockException", llm_provider="bedrock", model="m"),
+            hangarllm.ServiceUnavailableError(message="BedrockException", llm_provider="bedrock", model="m"),
             503,
             False,
             id="service-unavailable-503",
@@ -68,14 +68,14 @@ def test_a_proxy_exception_passes_through_unchanged(code: int) -> None:
             id="nested-fallback-over-an-anthropic-overload",
         ),
         pytest.param(
-            litellm.RateLimitError(message="slow down", llm_provider="anthropic", model="m"),
+            hangarllm.RateLimitError(message="slow down", llm_provider="anthropic", model="m"),
             429,
             False,
             id="rate-limit",
         ),
     ],
 )
-def test_a_litellm_exception_answers_the_status_anthropic_gives_its_failure(
+def test_a_hangarllm_exception_answers_the_status_anthropic_gives_its_failure(
     exc: openai.APIStatusError, answered: int, copy: bool
 ) -> None:
     raised_status: Final = exc.status_code
@@ -91,7 +91,7 @@ def _raise_a_bedrock_overload_caused_by_a_reset() -> None:
     try:
         raise ConnectionError("upstream reset")
     except ConnectionError as upstream:
-        raise litellm.InternalServerError(
+        raise hangarllm.InternalServerError(
             message="AnthropicError - Overloaded",
             llm_provider="anthropic",
             model="m",
@@ -100,7 +100,7 @@ def _raise_a_bedrock_overload_caused_by_a_reset() -> None:
 
 
 def test_the_answered_copy_keeps_the_raised_exceptions_cause_and_traceback() -> None:
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         _raise_a_bedrock_overload_caused_by_a_reset()
 
     answered_exc: Final = with_answered_status(raised.value)

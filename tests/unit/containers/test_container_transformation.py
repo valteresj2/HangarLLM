@@ -6,15 +6,15 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
-from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-from litellm.types.containers.main import (
+import hangarllm
+from hangarllm.llms.openai.containers.transformation import OpenAIContainerConfig
+from hangarllm.llms.base_llm.containers.transformation import BaseContainerConfig
+from hangarllm.types.containers.main import (
     ContainerObject,
     ContainerListResponse,
     DeleteContainerResult,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
 
 class TestOpenAIContainerTransformation:
@@ -23,13 +23,13 @@ class TestOpenAIContainerTransformation:
     def setup_method(self):
         """Set up test fixtures."""
         self.config = OpenAIContainerConfig()
-        self.logging_obj = LiteLLMLogging(
+        self.logging_obj = HangarLLMLogging(
             model="",
             messages=[],
             stream=False,
             call_type="create_container",
             start_time=None,
-            litellm_call_id="test_call_id",
+            hangarllm_call_id="test_call_id",
             function_id="test_function_id",
         )
 
@@ -44,7 +44,7 @@ class TestOpenAIContainerTransformation:
 
     def test_map_openai_params_basic(self):
         """Test basic parameter mapping for OpenAI."""
-        from litellm.types.containers.main import ContainerCreateOptionalRequestParams
+        from hangarllm.types.containers.main import ContainerCreateOptionalRequestParams
 
         optional_params = ContainerCreateOptionalRequestParams(
             {
@@ -76,10 +76,10 @@ class TestOpenAIContainerTransformation:
     def test_get_complete_url(self):
         """Test complete URL generation."""
         api_base = "https://api.openai.com/v1"
-        litellm_params = {}
+        hangarllm_params = {}
 
         url = self.config.get_complete_url(
-            api_base=api_base, litellm_params=litellm_params
+            api_base=api_base, hangarllm_params=hangarllm_params
         )
 
         assert url == "https://api.openai.com/v1/containers"
@@ -87,19 +87,19 @@ class TestOpenAIContainerTransformation:
     def test_get_complete_url_with_custom_base(self):
         """Test complete URL generation with custom API base."""
         api_base = "https://custom.openai.com/v1"
-        litellm_params = {}
+        hangarllm_params = {}
 
         url = self.config.get_complete_url(
-            api_base=api_base, litellm_params=litellm_params
+            api_base=api_base, hangarllm_params=hangarllm_params
         )
 
         assert url == "https://custom.openai.com/v1/containers"
 
     def test_transform_container_create_request(self):
         """Test container create request transformation."""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {"Authorization": "Bearer sk-test123"}
         name = "Test Container"
         container_create_optional_request_params = {
@@ -110,7 +110,7 @@ class TestOpenAIContainerTransformation:
         data = self.config.transform_container_create_request(
             name=name,
             container_create_optional_request_params=container_create_optional_request_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -148,7 +148,7 @@ class TestOpenAIContainerTransformation:
     def test_transform_container_list_request(self):
         """Test container list request transformation."""
         api_base = "https://api.openai.com/v1/containers"
-        litellm_params = {}
+        hangarllm_params = {}
         headers = {"Authorization": "Bearer sk-test123"}
         after = "cntr_123"
         limit = 10
@@ -156,7 +156,7 @@ class TestOpenAIContainerTransformation:
 
         url, params = self.config.transform_container_list_request(
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
             after=after,
             limit=limit,
@@ -213,13 +213,13 @@ class TestOpenAIContainerTransformation:
         """Test container retrieve request transformation."""
         container_id = "cntr_test123"
         api_base = "https://api.openai.com/v1/containers"
-        litellm_params = {}
+        hangarllm_params = {}
         headers = {"Authorization": "Bearer sk-test123"}
 
         url, params = self.config.transform_container_retrieve_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -233,7 +233,7 @@ class TestOpenAIContainerTransformation:
         url, params = self.config.transform_container_retrieve_request(
             container_id="../../vector_stores?x=1#frag",
             api_base=api_base,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -269,13 +269,13 @@ class TestOpenAIContainerTransformation:
         """Test container delete request transformation."""
         container_id = "cntr_delete_123"
         api_base = "https://api.openai.com/v1/containers"
-        litellm_params = {}
+        hangarllm_params = {}
         headers = {"Authorization": "Bearer sk-test123"}
 
         url, params = self.config.transform_container_delete_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -304,7 +304,7 @@ class TestOpenAIContainerTransformation:
     def test_get_error_class(self):
         """Test error class handling."""
         import httpx
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 
         with pytest.raises(BaseLLMException) as exc_info:
             self.config.get_error_class(
@@ -315,9 +315,9 @@ class TestOpenAIContainerTransformation:
 
     def test_transform_with_none_optional_params(self):
         """Test transformation handles None optional parameters correctly."""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {"Authorization": "Bearer sk-test123"}
         name = "Test Container"
         container_create_optional_request_params = {
@@ -328,7 +328,7 @@ class TestOpenAIContainerTransformation:
         data = self.config.transform_container_create_request(
             name=name,
             container_create_optional_request_params=container_create_optional_request_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -340,10 +340,10 @@ class TestOpenAIContainerTransformation:
     def test_container_create_response_includes_cost(self, monkeypatch):
         """Test that container create response includes code interpreter cost calculation."""
         # Force use of local model cost map for CI/CD consistency
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        litellm.model_cost = litellm.get_model_cost_map(url="")
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
-        from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+        from hangarllm.hangarllm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
             StandardBuiltInToolCostTracking,
         )
 
@@ -373,7 +373,7 @@ class TestOpenAIContainerTransformation:
         assert container._hidden_params is not None
         assert "additional_headers" in container._hidden_params
         assert (
-            "llm_provider-x-litellm-response-cost"
+            "llm_provider-x-hangarllm-response-cost"
             in container._hidden_params["additional_headers"]
         )
 
@@ -381,7 +381,7 @@ class TestOpenAIContainerTransformation:
             sessions=1, provider="openai"
         )
         actual_cost = container._hidden_params["additional_headers"][
-            "llm_provider-x-litellm-response-cost"
+            "llm_provider-x-hangarllm-response-cost"
         ]
 
         assert actual_cost == expected_cost

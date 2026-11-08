@@ -17,7 +17,7 @@ CALL_COST: Final = 20 * 0.001 + 20 * 0.002
 
 def _membership_spend(user_id: str, team_id: str) -> float:
     rows: Final = read_rows(
-        'SELECT spend FROM "LiteLLM_TeamMembership" WHERE user_id = %s AND team_id = %s', (user_id, team_id)
+        'SELECT spend FROM "HangarLLM_TeamMembership" WHERE user_id = %s AND team_id = %s', (user_id, team_id)
     )
     return float(str(rows[0]["spend"])) if rows else 0.0
 
@@ -54,7 +54,7 @@ def test_team_member_budget_thresholds_email_member_and_configured_recipients(ga
                 key=key,
             )
             assert first.status_code == 200, first.text
-            assert float(first.headers["x-litellm-response-cost"]) == pytest.approx(CALL_COST)
+            assert float(first.headers["x-hangarllm-response-cost"]) == pytest.approx(CALL_COST)
             eventually(
                 lambda: _membership_spend(user_id, team_id), lambda spend: spend == pytest.approx(CALL_COST), seconds=70
             )

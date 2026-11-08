@@ -16,7 +16,7 @@ from openai.types import ContainerListResponse, ContainerRetrieveResponse
 from openai.types.containers import FileListResponse, FileRetrieveResponse
 from pydantic import BaseModel, TypeAdapter
 
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
 _FILE_ID: Final = "cfile_ownership"
 _FILE_BYTES: Final = b"tenant secret contents"
@@ -147,7 +147,7 @@ def _create(client: OpenAI, model: str, index: int) -> str:
 
 def _owner_rows(original_container_id: str) -> list[dict[str, object]]:
     return read_rows(
-        'SELECT unified_object_id, file_purpose, created_by FROM "LiteLLM_ManagedObjectTable" WHERE model_object_id=%s',
+        'SELECT unified_object_id, file_purpose, created_by FROM "HangarLLM_ManagedObjectTable" WHERE model_object_id=%s',
         (f"container:openai:{original_container_id}",),
     )
 

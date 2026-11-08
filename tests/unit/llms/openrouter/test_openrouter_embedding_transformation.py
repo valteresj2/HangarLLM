@@ -9,9 +9,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.openrouter.embedding.transformation import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.openrouter.embedding.transformation import (
     OpenrouterEmbeddingConfig,
 )
 
@@ -65,7 +65,7 @@ def test_openrouter_embedding_validate_environment():
         model="test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-api-key",
     )
 
@@ -87,7 +87,7 @@ def test_openrouter_embedding_validate_environment():
         model="test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
     )
 
@@ -107,7 +107,7 @@ def test_openrouter_embedding_get_complete_url():
         api_key="test-key",
         model="test-model",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://openrouter.ai/api/v1/embeddings"
@@ -118,7 +118,7 @@ def test_openrouter_embedding_get_complete_url():
         api_key="test-key",
         model="test-model",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://openrouter.ai/api/v1/embeddings"
@@ -159,7 +159,7 @@ def test_openrouter_embedding_request_and_response(respx_mock: respx.MockRouter)
     )
     inputs: Final = ["Hello world", "How are you?"]
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="openrouter/openai/text-embedding-3-small",
         input=inputs,
         api_key="test-api-key",

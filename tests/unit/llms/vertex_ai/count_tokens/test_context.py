@@ -12,24 +12,24 @@ from unittest.mock import patch
 import pytest
 from pydantic import JsonValue
 
-import litellm
-from litellm.llms.anthropic.messages.adapters.transformation import (
-    LiteLLMAnthropicMessagesAdapter,
+import hangarllm
+from hangarllm.llms.anthropic.messages.adapters.transformation import (
+    HangarLLMAnthropicMessagesAdapter,
     truncate_tool_name,
 )
-from litellm.llms.anthropic.messages.context_management.inference_view import (
+from hangarllm.llms.anthropic.messages.context_management.inference_view import (
     CountContextEdits,
     InferenceRequestView,
     inference_request_view,
 )
-from litellm.llms.vertex_ai.count_tokens.context import (
+from hangarllm.llms.vertex_ai.count_tokens.context import (
     VertexGeminiCountContext,
     VertexGeminiCountContextError,
     gemini_count_contents,
     unconvertible_messages_error,
     vertex_gemini_count_context,
 )
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
 
 _SCHEMA: Final[JsonValue] = {
     "type": "object",
@@ -180,7 +180,7 @@ def test_empty_context_is_omitted(system: JsonValue | None, tools: JsonValue | N
     ids=("unnamed", "anthropic-hosted"),
 )
 def test_anthropic_tools_count_the_same_declarations_inference_sends(tool: dict[str, JsonValue]) -> None:
-    translated_tools, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_tools_to_openai([tool])  # pyright: ignore[reportArgumentType]  # raw Anthropic tool dict
+    translated_tools, _ = HangarLLMAnthropicMessagesAdapter().translate_anthropic_tools_to_openai([tool])  # pyright: ignore[reportArgumentType]  # raw Anthropic tool dict
     inference_tools: Final = VertexGeminiConfig().map_function(
         value=[dict(translated) for translated in translated_tools],
         optional_params={},
@@ -346,7 +346,7 @@ async def _run_loop_once_download_starts(probe: _LoopProbe) -> None:
 async def test_remote_image_downloads_without_blocking_the_event_loop(
     custom_llm_provider: Literal["vertex_ai", "gemini"], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     probe: Final = _LoopProbe()
     with _png_server_waiting_for_loop(probe) as base_url:
         image_url: Final = f"{base_url}/{uuid.uuid4().hex}.png"
@@ -395,7 +395,7 @@ class _MissingImageHandler(BaseHTTPRequestHandler):
 async def test_image_that_cannot_be_fetched_returns_an_error_value(
     custom_llm_provider: Literal["vertex_ai", "gemini"], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     with ThreadingHTTPServer(("127.0.0.1", 0), _MissingImageHandler) as server:
         Thread(target=server.serve_forever, daemon=True).start()
         try:
@@ -427,7 +427,7 @@ async def test_image_that_cannot_be_fetched_returns_an_error_value(
 
 async def test_gcs_media_type_lookup_uses_the_deployment_vertex_project() -> None:
     with patch(
-        "litellm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
+        "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
         return_value="image/png",
     ) as lookup:
         contents: Final = await gemini_count_contents(
@@ -456,7 +456,7 @@ async def test_gcs_media_type_lookup_uses_the_deployment_vertex_project() -> Non
 async def test_anthropic_replayed_web_search_result_is_counted_as_its_text(
     custom_llm_provider: Literal["vertex_ai", "gemini"],
 ) -> None:
-    snippet: Final = "LiteLLM ships a weekly release candidate and a stable line."
+    snippet: Final = "HangarLLM ships a weekly release candidate and a stable line."
     messages: Final = (
         {"role": "user", "content": "What is new?"},
         {
@@ -469,7 +469,7 @@ async def test_anthropic_replayed_web_search_result_is_counted_as_its_text(
                     "content": [
                         {
                             "type": "web_search_result",
-                            "url": "https://docs.litellm.ai/release_notes",
+                            "url": "https://github.com/valteresj2/HangarLLM#readme",
                             "title": "Release notes",
                             "encrypted_content": "",
                             "snippet": snippet,
@@ -519,9 +519,9 @@ async def test_anthropic_view_names_the_block_gemini_cannot_count_when_an_edit_t
             "content": [
                 {
                     "type": "search_result",
-                    "source": "https://docs.litellm.ai",
+                    "source": "https://github.com/valteresj2/HangarLLM#readme",
                     "title": "Docs",
-                    "content": [{"type": "text", "text": "LiteLLM docs"}],
+                    "content": [{"type": "text", "text": "HangarLLM docs"}],
                 }
             ],
         },

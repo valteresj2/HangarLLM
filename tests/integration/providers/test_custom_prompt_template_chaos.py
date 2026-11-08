@@ -177,7 +177,7 @@ def _response_id(served: _Served) -> str | None:
 
 def _spend_statuses(model: str, expected: int) -> MappingProxyType[str, str]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=70,
     )
@@ -295,14 +295,14 @@ def _owned_config(
     wires: tuple[Wire, ...],
     tmp_path: Path,
     template: Mapping[str, JsonValue],
-    litellm_settings: Mapping[str, JsonValue],
+    hangarllm_settings: Mapping[str, JsonValue],
     router_settings: Mapping[str, JsonValue] = MappingProxyType({}),
 ) -> Path:
     base: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     deployments: Final = [
         {
             "model_name": _CONFIG_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"ollama/{_BACKEND}",
                 "api_base": wire.url,
                 "api_key": _API_KEY,
@@ -315,7 +315,7 @@ def _owned_config(
     config: Final = {
         **base,
         "model_list": deployments,
-        "litellm_settings": {**base.get("litellm_settings", {}), **litellm_settings},
+        "hangarllm_settings": {**base.get("hangarllm_settings", {}), **hangarllm_settings},
         "router_settings": {**base.get("router_settings", {}), **router_settings},
     }
     path: Final = tmp_path / "ollama-custom-template-chaos.yaml"
@@ -416,15 +416,15 @@ def _served_from_cache(candidate: Gateway, field: str) -> bool:
     marker: Final = uuid.uuid4().hex
     first: Final = _cached_chat(candidate, marker, field, "<first>")
     assert first.status_code == 200, first.text
-    assert "x-litellm-cache-key" not in first.headers, sorted(first.headers)
+    assert "x-hangarllm-cache-key" not in first.headers, sorted(first.headers)
     eventually(
         lambda: _cached_chat(candidate, marker, field, "<first>"),
-        lambda found: "x-litellm-cache-key" in found.headers,
+        lambda found: "x-hangarllm-cache-key" in found.headers,
         seconds=20,
     )
     changed: Final = _cached_chat(candidate, marker, field, "<second>")
     assert changed.status_code == 200, changed.text
-    return "x-litellm-cache-key" in changed.headers
+    return "x-hangarllm-cache-key" in changed.headers
 
 
 @pytest.mark.timeout(_OWNED_PROXY_CELL_SECONDS)
@@ -478,7 +478,7 @@ def _anthropic_text_reply(_: Request) -> Reply:
 
 
 def _boot_deployment(name: str, model: str, wire: Wire) -> dict[str, JsonValue]:
-    return {"model_name": name, "litellm_params": {"model": model, "api_base": wire.url, "api_key": _API_KEY}}
+    return {"model_name": name, "hangarllm_params": {"model": model, "api_base": wire.url, "api_key": _API_KEY}}
 
 
 def _boot_chat(candidate: Gateway, model: str, extra: Mapping[str, JsonValue]) -> None:
@@ -519,9 +519,9 @@ def test_boot_time_custom_prompt_dict_renders_partial_templates(gateway: Gateway
             _boot_deployment("anthropic-text-roles", "anthropic_text/claude-2.1", anthropic_text),
             _boot_deployment("anthropic-text-values", "anthropic_text/claude-instant-1.2", anthropic_text),
         ]
-        settings: Final = {**base.get("litellm_settings", {}), "custom_prompt_dict": templates}
+        settings: Final = {**base.get("hangarllm_settings", {}), "custom_prompt_dict": templates}
         path: Final = tmp_path / "boot-time-custom-prompt-dict.yaml"
-        path.write_text(yaml.safe_dump({**base, "model_list": deployments, "litellm_settings": settings}))
+        path.write_text(yaml.safe_dump({**base, "model_list": deployments, "hangarllm_settings": settings}))
         with owned_proxy_process(gateway, tmp_path, {}, config=path, workers=2) as owned:
             _boot_chat(
                 owned.gateway,

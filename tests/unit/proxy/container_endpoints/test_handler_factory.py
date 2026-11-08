@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.container_endpoints import endpoints, handler_factory
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.container_endpoints import endpoints, handler_factory
 
 PROXY_SERVER_STUB = SimpleNamespace(
     general_settings={},
@@ -33,7 +33,7 @@ def _client() -> TestClient:
 
 
 def test_list_container_files_forwards_declared_query_params(monkeypatch):
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", PROXY_SERVER_STUB)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", PROXY_SERVER_STUB)
     monkeypatch.setattr(
         handler_factory,
         "assert_user_can_access_container",

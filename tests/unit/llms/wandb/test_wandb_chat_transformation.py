@@ -11,9 +11,9 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm import completion
-from litellm.llms.wandb.chat.transformation import WandbConfig
+import hangarllm
+from hangarllm import completion
+from hangarllm.llms.wandb.chat.transformation import WandbConfig
 
 
 WANDB_REASONING_MODELS: Final = (
@@ -42,8 +42,8 @@ WANDB_REASONING_MODELS: Final = (
 
 @pytest.fixture
 def wandb_test_config(local_model_cost_map, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
 
 @pytest.fixture
@@ -72,8 +72,8 @@ class TestWandbConfig:
 
     @pytest.mark.parametrize("model", WANDB_REASONING_MODELS)
     def test_map_openai_params_preserves_reasoning_effort(self, wandb_test_config, model: str):
-        assert litellm.model_cost[f"wandb/{model}"].get("supports_reasoning") is True
-        supported_params = litellm.get_supported_openai_params(model=f"wandb/{model}")
+        assert hangarllm.model_cost[f"wandb/{model}"].get("supports_reasoning") is True
+        supported_params = hangarllm.get_supported_openai_params(model=f"wandb/{model}")
         assert supported_params is not None
         assert "reasoning_effort" in supported_params
 
@@ -98,7 +98,7 @@ class TestWandbConfig:
             model="wandb/openai/gpt-oss-20b",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base=None,  # Not providing api_base
         )
@@ -118,7 +118,7 @@ class TestWandbConfig:
         This test mocks the actual HTTP request to test the integration properly.
         """
 
-        litellm.disable_aiohttp_transport = (
+        hangarllm.disable_aiohttp_transport = (
             True  # since this uses respx, we need to set use_aiohttp_transport to False
         )
 
@@ -140,7 +140,7 @@ class TestWandbConfig:
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": '```python\nprint("Hey from LiteLLM!")\n```\n\nThis simple Python code prints a greeting message from LiteLLM.',
+                            "content": '```python\nprint("Hey from HangarLLM!")\n```\n\nThis simple Python code prints a greeting message from HangarLLM.',
                         },
                         "finish_reason": "stop",
                     }
@@ -154,11 +154,11 @@ class TestWandbConfig:
             status_code=200,
         )
 
-        # Make the actual API call through LiteLLM
+        # Make the actual API call through HangarLLM
         response = completion(
             model=model,
             messages=[
-                {"role": "user", "content": "write code for saying hey from LiteLLM"}
+                {"role": "user", "content": "write code for saying hey from HangarLLM"}
             ],
             api_key=api_key,
             api_base=api_base,
@@ -193,7 +193,7 @@ class TestWandbConfig:
                 content = choice.message.content
             assert content is not None
             assert "```python" in content
-            assert "Hey from LiteLLM" in content
+            assert "Hey from HangarLLM" in content
         else:
             # Non-streaming response
             choices = getattr(response, "choices", None)
@@ -207,7 +207,7 @@ class TestWandbConfig:
 
             # Check for specific content in the response
             assert "```python" in content
-            assert "Hey from LiteLLM" in content
+            assert "Hey from HangarLLM" in content
 
     @pytest.mark.respx()
     @pytest.mark.parametrize(
@@ -259,7 +259,7 @@ class TestWandbConfig:
     ):
         with monkeypatch.context() as context:
             if explicit_false:
-                context.setitem(litellm.model_cost[f"wandb/{model}"], "supports_reasoning", False)
+                context.setitem(hangarllm.model_cost[f"wandb/{model}"], "supports_reasoning", False)
 
             kwargs = {
                 "model": f"wandb/{model}",
@@ -270,7 +270,7 @@ class TestWandbConfig:
                 "drop_params": drop_params,
             }
             if not drop_params:
-                with pytest.raises(litellm.UnsupportedParamsError, match="reasoning_effort"):
+                with pytest.raises(hangarllm.UnsupportedParamsError, match="reasoning_effort"):
                     completion(**kwargs)
                 assert len(respx_mock.calls) == 0
                 return
@@ -281,7 +281,7 @@ class TestWandbConfig:
             assert request_body["model"] == model
             assert "reasoning_effort" not in request_body
 
-            supported_params = litellm.get_supported_openai_params(model=f"wandb/{model}")
+            supported_params = hangarllm.get_supported_openai_params(model=f"wandb/{model}")
             assert supported_params is not None
             assert "reasoning_effort" not in supported_params
 
@@ -294,7 +294,7 @@ class TestWandbConfig:
         the provider instead of raising. W&B adds reasoning models faster than this
         registry names them, and an exact entry still wins wherever one exists."""
         model: Final = "zai-org/GLM-6-Turbo"
-        assert f"wandb/{model}" not in litellm.model_cost
+        assert f"wandb/{model}" not in hangarllm.model_cost
 
         completion(
             model=f"wandb/{model}",

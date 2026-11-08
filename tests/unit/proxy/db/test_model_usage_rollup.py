@@ -7,23 +7,23 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.proxy.db import rollup_lock_timeout
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-from litellm.proxy.db.model_usage_rollup import (
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.proxy.db import rollup_lock_timeout
+from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from hangarllm.proxy.db.model_usage_rollup import (
     ModelUsageKey,
     ModelUsageTransaction,
     build_model_usage_transaction,
     flush_model_usage_transactions,
     model_usage_task_type,
 )
-from litellm.proxy.db.rollup_lock_timeout import ROLLUP_LOCK_TIMEOUT_SQL
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+from hangarllm.proxy.db.rollup_lock_timeout import ROLLUP_LOCK_TIMEOUT_SQL
+from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
 
 class _FakeBatcher:
     def __init__(self) -> None:
-        self.litellm_dailymodelusage = MagicMock()
+        self.hangarllm_dailymodelusage = MagicMock()
         self.execute_raw = MagicMock()
 
     async def __aenter__(self) -> "_FakeBatcher":
@@ -137,7 +137,7 @@ async def test_flush_aggregates_each_rollup_row_into_one_upsert() -> None:
 
     upserts = {
         call.kwargs["where"]["date_model_group_model_custom_llm_provider_task_type"]["model"]: call.kwargs["data"]
-        for call in batcher.litellm_dailymodelusage.upsert.call_args_list
+        for call in batcher.hangarllm_dailymodelusage.upsert.call_args_list
     }
     assert list(upserts) == ["claude", "gpt-5"]
     gpt = upserts["gpt-5"]
@@ -172,7 +172,7 @@ async def test_a_background_response_billing_row_adds_spend_but_no_request() -> 
 
     await flush_model_usage_transactions(prisma_client=prisma, transactions=[create, billing])
 
-    (upsert,) = batcher.litellm_dailymodelusage.upsert.call_args_list
+    (upsert,) = batcher.hangarllm_dailymodelusage.upsert.call_args_list
     created = upsert.kwargs["data"]["create"]
     assert created["spend"] == 0.5
     assert created["prompt_tokens"] == 20
@@ -190,12 +190,12 @@ async def test_flush_with_no_transactions_touches_nothing() -> None:
 async def test_flush_retries_connection_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     batcher = _FakeBatcher()
     prisma = _prisma(MagicMock(side_effect=[httpx.ConnectError("down"), batcher]))
-    monkeypatch.setattr("litellm.proxy.db.model_usage_rollup.asyncio.sleep", _no_sleep)
+    monkeypatch.setattr("hangarllm.proxy.db.model_usage_rollup.asyncio.sleep", _no_sleep)
 
     await flush_model_usage_transactions(prisma_client=prisma, transactions=[_transaction("gpt-5", 0.1)])
 
     assert prisma.db.batch_.call_count == 2
-    batcher.litellm_dailymodelusage.upsert.assert_called_once()
+    batcher.hangarllm_dailymodelusage.upsert.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -222,12 +222,12 @@ async def test_request_time_path_queues_usage_instead_of_writing_to_the_db() -> 
         org_id=None,
         end_user_id=None,
         prisma_client=prisma,
-        litellm_proxy_budget_name=None,
+        hangarllm_proxy_budget_name=None,
         payload=_payload(request_id="req-1"),
     )
 
     assert [transaction.key.model for transaction in prisma.model_usage_transactions] == ["openai/gpt-5.4-mini"]
-    prisma.db.litellm_dailymodelusage.upsert.assert_not_called()
+    prisma.db.hangarllm_dailymodelusage.upsert.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -239,7 +239,7 @@ async def test_rollup_transaction_sets_the_lock_timeout_before_its_first_upsert(
     prisma = _prisma(MagicMock(return_value=batcher))
     order: list[str] = []
     batcher.execute_raw.side_effect = lambda *_: order.append("lock_timeout")
-    batcher.litellm_dailymodelusage.upsert.side_effect = lambda **_: order.append("upsert")
+    batcher.hangarllm_dailymodelusage.upsert.side_effect = lambda **_: order.append("upsert")
 
     await flush_model_usage_transactions(
         prisma_client=prisma,

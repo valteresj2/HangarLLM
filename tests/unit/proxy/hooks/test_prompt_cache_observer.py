@@ -6,14 +6,14 @@ from datetime import datetime
 import httpx
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.anthropic.prompt_cache_prediction import cache_scope, lookup, parse_prompt
-from litellm.proxy.hooks.prompt_cache_prediction import PromptCacheObserver
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.anthropic.prompt_cache_prediction import cache_scope, lookup, parse_prompt
+from hangarllm.proxy.hooks.prompt_cache_prediction import PromptCacheObserver
+from hangarllm.proxy.utils import InternalUsageCache
+from hangarllm.types.utils import ModelResponse
 
 MODEL = "claude-sonnet-5"
 CALLER = "a" * 64
@@ -258,7 +258,7 @@ class TransportChunks(httpx.AsyncByteStream):
 async def test_native_production_callback_records_only_completed_wire_requests(stream, completed, provider_error, transport):
     cache = DualCache()
     observer = RecordingObserver(cache)
-    litellm.logging_callback_manager.add_litellm_callback(observer)
+    hangarllm.logging_callback_manager.add_hangarllm_callback(observer)
 
     def provider(request):
         if stream:
@@ -280,10 +280,10 @@ async def test_native_production_callback_records_only_completed_wire_requests(s
     try:
         request_body = body(ttl="1h")
         before = time.time()
-        result = await litellm.anthropic_messages(
+        result = await hangarllm.anthropic_messages(
             **{**request_body, "model": f"anthropic/{MODEL}"},
             api_key=KEY, client=client, stream=stream, model_info={"id": DEPLOYMENT},
-            litellm_metadata={"user_api_key_hash": CALLER, "model_info": {"id": DEPLOYMENT}},
+            hangarllm_metadata={"user_api_key_hash": CALLER, "model_info": {"id": DEPLOYMENT}},
         )
         if stream:
             async for _ in result:
@@ -297,5 +297,5 @@ async def test_native_production_callback_records_only_completed_wire_requests(s
         else:
             assert found is None
     finally:
-        litellm.logging_callback_manager.remove_callback_from_all_lists(observer)
+        hangarllm.logging_callback_manager.remove_callback_from_all_lists(observer)
         await client.client.aclose()

@@ -1,10 +1,10 @@
 """
 Test for fixing null text values in output_text content blocks.
 
-This test verifies that LiteLLM properly handles streaming responses where
+This test verifies that HangarLLM properly handles streaming responses where
 text content is None, preventing TypeErrors in downstream OpenAI-compatible SDKs.
 
-Related issue: When using LiteLLM as an OpenAI-compatible proxy for self-hosted
+Related issue: When using HangarLLM as an OpenAI-compatible proxy for self-hosted
 models, streamed responses can contain output_text content blocks where text is null.
 These responses are forwarded unchanged to downstream SDKs which expect text to always
 be a string (or omitted), causing TypeErrors.
@@ -12,7 +12,7 @@ be a string (or omitted), causing TypeErrors.
 
 import pytest
 
-from litellm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.llms.openai import ResponsesAPIResponse
 
 
 class TestNullTextHandling:
@@ -210,10 +210,10 @@ class TestStreamingIteratorTextHandling:
         """
         from unittest.mock import Mock
 
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        from hangarllm.responses.hangarllm_completion_transformation.streaming_iterator import (
+            HangarLLMCompletionStreamingIterator,
         )
-        from litellm.types.llms.openai import (
+        from hangarllm.types.llms.openai import (
             ResponseInputParam,
             ResponsesAPIOptionalRequestParams,
         )
@@ -222,9 +222,9 @@ class TestStreamingIteratorTextHandling:
         mock_wrapper = Mock()
         mock_wrapper.logging_obj = Mock()
 
-        iterator = LiteLLMCompletionStreamingIterator(
+        iterator = HangarLLMCompletionStreamingIterator(
             model="gpt-oss-120b",
-            litellm_custom_stream_wrapper=mock_wrapper,
+            hangarllm_custom_stream_wrapper=mock_wrapper,
             request_input="test input",
             responses_api_request={},
         )
@@ -247,18 +247,18 @@ class TestStreamingIteratorTextHandling:
         """
         from unittest.mock import Mock
 
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        from hangarllm.responses.hangarllm_completion_transformation.streaming_iterator import (
+            HangarLLMCompletionStreamingIterator,
         )
-        from litellm.types.utils import Delta, StreamingChoices
+        from hangarllm.types.utils import Delta, StreamingChoices
 
         # Create a mock stream wrapper
         mock_wrapper = Mock()
         mock_wrapper.logging_obj = Mock()
 
-        iterator = LiteLLMCompletionStreamingIterator(
+        iterator = HangarLLMCompletionStreamingIterator(
             model="gpt-oss-120b",
-            litellm_custom_stream_wrapper=mock_wrapper,
+            hangarllm_custom_stream_wrapper=mock_wrapper,
             request_input="test input",
             responses_api_request={},
         )

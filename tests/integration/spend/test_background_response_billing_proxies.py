@@ -89,7 +89,7 @@ def _with_chat(response: RoutedResponse) -> RoutedResponse:
 def _deployment(handle: ScenarioHandle, model_info: Mapping[str, JsonValue] | None = None) -> dict[str, JsonValue]:
     return {
         "model_name": handle.scenario_id,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_key": "sk-scripted-provider",
             "api_base": handle.api_base(),
@@ -118,7 +118,7 @@ def _config(
     )
     settings: Final = {
         name: {**object_value(shared[name]), **sections.get(name, {})}
-        for name in ("general_settings", "litellm_settings", "router_settings")
+        for name in ("general_settings", "hangarllm_settings", "router_settings")
     }
     extra: Final = {name: dict(section) for name, section in sections.items() if name not in settings}
     return _write_config(
@@ -150,7 +150,7 @@ def _team_member_key(scenario: Scenario) -> str:
 
 def _billed_rows_of(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND spend > 0', (hashed(key),)
+        'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND spend > 0', (hashed(key),)
     )
 
 
@@ -175,7 +175,7 @@ def test_a_proxy_without_a_database_bills_every_read_of_a_finished_background_re
             tmp_path,
             {
                 "model_list": [_deployment(handle)],
-                "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY"},
+                "general_settings": {"master_key": "os.environ/HANGARLLM_MASTER_KEY"},
             },
         )
         overrides: Final = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true"}
@@ -189,7 +189,7 @@ def test_a_proxy_without_a_database_bills_every_read_of_a_finished_background_re
             reads: Final = (
                 read_response(proxy, proxy.key, response_id),
                 read_response(proxy, proxy.key, response_id),
-                read_response(proxy, proxy.key, response_id, {"metadata": forged, "litellm_metadata": forged}),
+                read_response(proxy, proxy.key, response_id, {"metadata": forged, "hangarllm_metadata": forged}),
             )
     assert [(read.status, read.text) for read in reads] == [("completed", "pong")] * 3
     assert [read.cost for read in reads] == pytest.approx([PRICE] * 3)
@@ -212,7 +212,7 @@ def test_with_the_cost_poll_off_the_first_finished_read_bills_the_creator_once_a
         config: Final = _config(
             tmp_path,
             (handle,),
-            litellm_settings={"callbacks": ["otel"]},
+            hangarllm_settings={"callbacks": ["otel"]},
             callback_settings={
                 "otel": {"exporter": "http/json", "endpoint": sinks.operator, "use_simple_processor": True}
             },
@@ -242,7 +242,7 @@ def test_the_read_that_finishes_a_background_response_does_not_wait_on_a_slow_sp
     gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with _scripted(background_routes("queued")) as (handle,), owned_sinks(tmp_path / "sinks") as sinks:
-        config: Final = _config(tmp_path, (handle,), litellm_settings={"callbacks": ["openmeter"]})
+        config: Final = _config(tmp_path, (handle,), hangarllm_settings={"callbacks": ["openmeter"]})
         overrides: Final = {
             **POLL_OFF,
             "OPENMETER_API_KEY": "om-scripted-key",
@@ -459,14 +459,14 @@ def _billing_claims_refused() -> Iterator[None]:
         (),
     )
     write_rows(
-        'CREATE TRIGGER audit_refuse_billing_claim BEFORE UPDATE ON "LiteLLM_ManagedObjectTable" '
+        'CREATE TRIGGER audit_refuse_billing_claim BEFORE UPDATE ON "HangarLLM_ManagedObjectTable" '
         "FOR EACH ROW EXECUTE FUNCTION audit_refuse_billing_claim()",
         (),
     )
     try:
         yield
     finally:
-        write_rows('DROP TRIGGER audit_refuse_billing_claim ON "LiteLLM_ManagedObjectTable"', ())
+        write_rows('DROP TRIGGER audit_refuse_billing_claim ON "HangarLLM_ManagedObjectTable"', ())
         write_rows("DROP FUNCTION audit_refuse_billing_claim()", ())
 
 
@@ -495,7 +495,7 @@ def test_a_finished_read_whose_bill_fails_to_settle_bills_the_creator_once_after
             assert [row["status"] for row in managed_rows(response_id)] == ["completed"]
 
 
-REMAINING_KEY_BUDGET: Final = "litellm_remaining_api_key_budget_metric"
+REMAINING_KEY_BUDGET: Final = "hangarllm_remaining_api_key_budget_metric"
 KEY_BUDGET: Final = 10.0
 
 
@@ -512,7 +512,7 @@ def test_a_background_response_the_poll_bills_lowers_its_creating_keys_remaining
     gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with _scripted(background_routes("completed")) as (handle,):
-        config: Final = _config(tmp_path, (handle,), litellm_settings={"callbacks": ["prometheus"]})
+        config: Final = _config(tmp_path, (handle,), hangarllm_settings={"callbacks": ["prometheus"]})
         with _scratch_proxy(gateway, tmp_path, monkeypatch, config) as proxy, proxy.scenario() as scenario:
             key: Final = scenario.key(max_budget=KEY_BUDGET)
             response_id: Final = create_background_response(scenario, key, handle.scenario_id)
@@ -554,7 +554,7 @@ def test_a_background_response_polled_through_the_cache_reports_its_alias_and_bi
 ) -> None:
     body, provider_sees_background = CACHE_POLLED_CREATES[create]
     with _scripted(streamed_reply(background=provider_sees_background)) as (handle,):
-        config: Final = _config(tmp_path, (handle,), litellm_settings=CACHE_POLLING)
+        config: Final = _config(tmp_path, (handle,), hangarllm_settings=CACHE_POLLING)
         with _scratch_proxy(gateway, tmp_path, monkeypatch, config, POLL_OFF) as proxy, proxy.scenario() as scenario:
             key: Final = _team_member_key(scenario)
             polling_id: Final = _cache_polled_create(proxy, key, handle.scenario_id, body)

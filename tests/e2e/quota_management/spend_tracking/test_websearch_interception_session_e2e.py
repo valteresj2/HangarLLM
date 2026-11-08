@@ -1,7 +1,7 @@
 """Intercepted web searches are billed under the LLM request's session.
 
 The websearch_interception callback turns an Anthropic ``web_search`` server tool
-into a ``litellm.asearch`` call against a configured search tool, so each search is
+into a ``hangarllm.asearch`` call against a configured search tool, so each search is
 its own spend row (call_type ``asearch``) next to the ``anthropic_messages`` row for
 the turn that asked for it. Claude Code and the Admin UI group spend by
 ``session_id``, so the search row has to carry the same session as the turn that
@@ -24,7 +24,7 @@ from models import (
     AnthropicMessagesBody,
     AnthropicWebSearchTool,
     ChatMessage,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     SpendLogRow,
 )
 from proxy_client import ProxyClient
@@ -76,7 +76,7 @@ class TestWebSearchInterceptionSession:
         marker: Final = unique_marker()
         model: Final = f"e2e-websearch-session-{marker}"
         model_id: Final = proxy.create_model(
-            model, LiteLLMParamsBody(model=BEDROCK_INVOKE_BACKEND, aws_region_name="us-east-1")
+            model, HangarLLMParamsBody(model=BEDROCK_INVOKE_BACKEND, aws_region_name="us-east-1")
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         key: Final = resources.key(models=[model])

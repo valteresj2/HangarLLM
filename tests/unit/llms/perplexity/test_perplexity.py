@@ -4,7 +4,7 @@ import pytest
 import httpx
 import respx
 
-import litellm
+import hangarllm
 
 
 class TestPerplexityWebSearch:
@@ -15,7 +15,7 @@ class TestPerplexityWebSearch:
         """
         Test that web_search_options is in the list of supported parameters for Perplexity sonar models
         """
-        from litellm.llms.perplexity.chat.transformation import PerplexityChatConfig
+        from hangarllm.llms.perplexity.chat.transformation import PerplexityChatConfig
 
         config = PerplexityChatConfig()
         supported_params = config.get_supported_openai_params(model=model)
@@ -30,8 +30,8 @@ def test_perplexity_401_maps_to_authentication_error(respx_mock: respx.MockRoute
         return_value=httpx.Response(401, json={"error": {"message": "invalid API key"}})
     )
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        hangarllm.completion(
             model="perplexity/mistral-7b-instruct",
             messages=[{"role": "user", "content": "hello"}],
             api_key="bad-perplexity-key",

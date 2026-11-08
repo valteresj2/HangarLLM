@@ -54,7 +54,7 @@ class TestRowRewritesAreFlagged:
 
     def test_the_incident_migration_is_flagged(self, tmp_path):
         sql = (
-            'UPDATE "LiteLLM_SpendLogs"\n'
+            'UPDATE "HangarLLM_SpendLogs"\n'
             '   SET "created_at" = "endTime",\n'
             '       "updated_at" = "endTime"\n'
             ' WHERE "created_at" > "endTime" + interval \'1 hour\';\n'
@@ -91,86 +91,86 @@ class TestSchemaStatementsPass:
         assert _keywords(tmp_path, "-- nothing to do here\n") == ()
 
 
-SPEND_LOGS_DEFAULT = 'ADD COLUMN ... DEFAULT on "LiteLLM_SpendLogs"'
+SPEND_LOGS_DEFAULT = 'ADD COLUMN ... DEFAULT on "HangarLLM_SpendLogs"'
 
 
 class TestDefaultedColumnsOnRequestLogTables:
     def test_the_shipped_timestamp_migration_is_flagged(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs"\n'
+            'ALTER TABLE "HangarLLM_SpendLogs"\n'
             'ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n'
             'ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;\n'
         )
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_nullable_column_with_a_default_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN IF NOT EXISTS "proxy_server_request" JSONB DEFAULT \'{}\';'
+        sql = 'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN IF NOT EXISTS "proxy_server_request" JSONB DEFAULT \'{}\';'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_error_logs_is_a_request_log_table(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_ErrorLogs" ADD COLUMN "status" TEXT DEFAULT \'failure\';'
-        assert _keywords(tmp_path, sql) == ('ADD COLUMN ... DEFAULT on "LiteLLM_ErrorLogs"',)
+        sql = 'ALTER TABLE "HangarLLM_ErrorLogs" ADD COLUMN "status" TEXT DEFAULT \'failure\';'
+        assert _keywords(tmp_path, sql) == ('ADD COLUMN ... DEFAULT on "HangarLLM_ErrorLogs"',)
 
     def test_a_column_without_a_default_passes(self, tmp_path):
-        assert _keywords(tmp_path, 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN IF NOT EXISTS "status" TEXT;') == ()
+        assert _keywords(tmp_path, 'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN IF NOT EXISTS "status" TEXT;') == ()
 
     def test_set_default_on_an_existing_column_passes(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ALTER COLUMN "status" SET DEFAULT \'success\';'
+        sql = 'ALTER TABLE "HangarLLM_SpendLogs" ALTER COLUMN "status" SET DEFAULT \'success\';'
         assert _keywords(tmp_path, sql) == ()
 
     def test_adding_a_column_and_defaulting_another_passes(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" TEXT, ALTER COLUMN "b" SET DEFAULT 1;'
+        sql = 'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" TEXT, ALTER COLUMN "b" SET DEFAULT 1;'
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_referential_set_default_on_the_new_column_passes(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "team_id" TEXT '
-            'REFERENCES "LiteLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
+            'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "team_id" TEXT '
+            'REFERENCES "HangarLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
         )
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_column_default_beside_a_referential_set_default_is_flagged(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "team_id" TEXT DEFAULT \'t\' '
-            'REFERENCES "LiteLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
+            'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "team_id" TEXT DEFAULT \'t\' '
+            'REFERENCES "HangarLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
         )
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_block_comment_before_the_table_name_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE /* audit */ "LiteLLM_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
+        sql = 'ALTER TABLE /* audit */ "HangarLLM_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_line_comment_before_the_table_name_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE IF EXISTS -- audit\n"LiteLLM_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
+        sql = 'ALTER TABLE IF EXISTS -- audit\n"HangarLLM_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_defaulted_column_among_other_actions_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" TEXT, ADD COLUMN "b" INTEGER DEFAULT 0;'
+        sql = 'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" TEXT, ADD COLUMN "b" INTEGER DEFAULT 0;'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_comma_inside_the_type_does_not_split_the_action(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" NUMERIC(10, 2) DEFAULT 0;'
+        sql = 'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" NUMERIC(10, 2) DEFAULT 0;'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_foreign_key_set_default_action_passes(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD CONSTRAINT "fk" FOREIGN KEY ("team_id") '
-            'REFERENCES "LiteLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
+            'ALTER TABLE "HangarLLM_SpendLogs" ADD CONSTRAINT "fk" FOREIGN KEY ("team_id") '
+            'REFERENCES "HangarLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
         )
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_default_inside_a_check_constraint_passes(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD CONSTRAINT "c" CHECK ("status" IS DISTINCT FROM DEFAULT);'
+        sql = 'ALTER TABLE "HangarLLM_SpendLogs" ADD CONSTRAINT "c" CHECK ("status" IS DISTINCT FROM DEFAULT);'
         assert _keywords(tmp_path, sql) == ()
 
     def test_other_tables_pass(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_DailyUserSpend" ADD COLUMN "a" INTEGER NOT NULL DEFAULT 0;'
+        sql = 'ALTER TABLE "HangarLLM_DailyUserSpend" ADD COLUMN "a" INTEGER NOT NULL DEFAULT 0;'
         assert _keywords(tmp_path, sql) == ()
 
     def test_schema_qualified_and_if_exists_forms_are_flagged(self, tmp_path):
         sql = (
-            'ALTER TABLE "public"."LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
-            'ALTER TABLE IF EXISTS ONLY "LiteLLM_SpendLogs" ADD COLUMN "b" INTEGER DEFAULT 0;\n'
+            'ALTER TABLE "public"."HangarLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
+            'ALTER TABLE IF EXISTS ONLY "HangarLLM_SpendLogs" ADD COLUMN "b" INTEGER DEFAULT 0;\n'
         )
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT, SPEND_LOGS_DEFAULT)
 
@@ -178,119 +178,119 @@ class TestDefaultedColumnsOnRequestLogTables:
         sql = (
             "DO $$\nBEGIN\n"
             "    IF NOT EXISTS (SELECT 1 FROM information_schema.columns\n"
-            "                   WHERE table_name = 'LiteLLM_SpendLogs' AND column_name = 'a') THEN\n"
-            '        ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
+            "                   WHERE table_name = 'HangarLLM_SpendLogs' AND column_name = 'a') THEN\n"
+            '        ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
             "    END IF;\nEND $$;\n"
         )
         violations = _scan(tmp_path, sql)
         assert [(violation.line, violation.keyword) for violation in violations] == [(5, SPEND_LOGS_DEFAULT)]
 
     def test_handed_to_execute_is_flagged(self, tmp_path):
-        sql = 'DO $$ BEGIN EXECUTE \'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0\'; END $$;'
+        sql = 'DO $$ BEGIN EXECUTE \'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0\'; END $$;'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_in_a_comment_passes(self, tmp_path):
-        sql = '-- ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\nSELECT 1;'
+        sql = '-- ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\nSELECT 1;'
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_marker_exempts_it(self, tmp_path):
         sql = (
             "-- data-migration-ok: table is created empty two statements up\n"
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
+            'ALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
         )
         assert _keywords(tmp_path, sql) == ()
 
     def test_the_report_names_the_table(self, tmp_path):
-        sql = '\nALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
+        sql = '\nALTER TABLE "HangarLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
         rendered = _scan(tmp_path, sql)[0].render()
         assert "20260101000000_fixture/migration.sql:2" in rendered
-        assert 'ADD COLUMN ... DEFAULT on "LiteLLM_SpendLogs" rewrites existing rows at boot' in rendered
+        assert 'ADD COLUMN ... DEFAULT on "HangarLLM_SpendLogs" rewrites existing rows at boot' in rendered
 
 
 class TestIndexesOnLogTables:
     """Every CREATE INDEX on a request-log table is rejected: a plain one blocks writes for
     the whole build and a concurrent one fails on a partitioned parent, so the migration job
-    (litellm_proxy_extras/request_log_indexes.py) builds those instead."""
+    (hangarllm_proxy_extras/request_log_indexes.py) builds those instead."""
 
     def test_the_original_spend_log_index_statement_is_flagged(self, tmp_path):
         sql = (
             "-- CreateIndex\n"
-            'CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_api_key_startTime_idx" '
-            'ON "LiteLLM_SpendLogs"("api_key", "startTime");'
+            'CREATE INDEX IF NOT EXISTS "HangarLLM_SpendLogs_api_key_startTime_idx" '
+            'ON "HangarLLM_SpendLogs"("api_key", "startTime");'
         )
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',)
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',)
 
     def test_the_original_concurrent_call_id_index_statement_is_flagged(self, tmp_path):
         sql = (
-            'CREATE INDEX CONCURRENTLY IF NOT EXISTS "LiteLLM_SpendLogs_litellm_call_id_idx" '
-            'ON "LiteLLM_SpendLogs"("litellm_call_id");'
+            'CREATE INDEX CONCURRENTLY IF NOT EXISTS "HangarLLM_SpendLogs_hangarllm_call_id_idx" '
+            'ON "HangarLLM_SpendLogs"("hangarllm_call_id");'
         )
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',)
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',)
 
     def test_unique_index_with_if_not_exists_on_error_logs_is_flagged(self, tmp_path):
-        sql = 'CREATE UNIQUE INDEX IF NOT EXISTS "ix" ON "LiteLLM_ErrorLogs" ("request_id");'
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_ErrorLogs"',)
+        sql = 'CREATE UNIQUE INDEX IF NOT EXISTS "ix" ON "HangarLLM_ErrorLogs" ("request_id");'
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_ErrorLogs"',)
 
     def test_a_unique_concurrent_index_on_error_logs_is_flagged(self, tmp_path):
-        sql = 'CREATE UNIQUE INDEX CONCURRENTLY "ix" ON "LiteLLM_ErrorLogs" ("request_id");'
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_ErrorLogs"',)
+        sql = 'CREATE UNIQUE INDEX CONCURRENTLY "ix" ON "HangarLLM_ErrorLogs" ("request_id");'
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_ErrorLogs"',)
 
     def test_lowercase_schema_qualified_and_only_forms_are_flagged(self, tmp_path):
         sql = (
-            'create index on "public"."LiteLLM_SpendLogs" ("api_key");\n'
-            'CREATE INDEX "ix" ON ONLY "LiteLLM_SpendLogs" ("api_key");\n'
-            'CREATE INDEX CONCURRENTLY "iy" ON "public"."LiteLLM_SpendLogs" ("api_key");'
+            'create index on "public"."HangarLLM_SpendLogs" ("api_key");\n'
+            'CREATE INDEX "ix" ON ONLY "HangarLLM_SpendLogs" ("api_key");\n'
+            'CREATE INDEX CONCURRENTLY "iy" ON "public"."HangarLLM_SpendLogs" ("api_key");'
         )
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',) * 3
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',) * 3
 
     def test_a_comment_between_on_and_the_table_is_flagged(self, tmp_path):
-        sql = 'CREATE INDEX CONCURRENTLY "ix" ON /* table */ "LiteLLM_SpendLogs" ("api_key");'
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',)
+        sql = 'CREATE INDEX CONCURRENTLY "ix" ON /* table */ "HangarLLM_SpendLogs" ("api_key");'
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',)
 
     def test_a_concurrent_index_with_comments_and_line_breaks_is_flagged(self, tmp_path):
         sql = (
             "-- CreateIndex\n"
             'CREATE INDEX CONCURRENTLY IF NOT EXISTS "ix"\n'
-            '  ON "LiteLLM_SpendLogs" /* partitioned in some deployments */\n'
+            '  ON "HangarLLM_SpendLogs" /* partitioned in some deployments */\n'
             '  ("api_key", "startTime");\n'
         )
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',)
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',)
 
     def test_indexes_on_a_non_log_table_pass_concurrent_or_not(self, tmp_path):
         sql = (
-            'CREATE INDEX "ix" ON "LiteLLM_VerificationToken" ("token");\n'
-            'CREATE INDEX CONCURRENTLY "iy" ON "LiteLLM_VerificationToken" ("token");'
+            'CREATE INDEX "ix" ON "HangarLLM_VerificationToken" ("token");\n'
+            'CREATE INDEX CONCURRENTLY "iy" ON "HangarLLM_VerificationToken" ("token");'
         )
         assert _keywords(tmp_path, sql) == ()
 
     def test_an_index_run_by_execute_is_flagged(self, tmp_path):
-        sql = 'DO $$ BEGIN EXECUTE \'CREATE INDEX "ix" ON "LiteLLM_SpendLogs" ("api_key")\'; END $$;'
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',)
+        sql = 'DO $$ BEGIN EXECUTE \'CREATE INDEX "ix" ON "HangarLLM_SpendLogs" ("api_key")\'; END $$;'
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',)
 
     def test_a_marker_does_not_exempt_the_index(self, tmp_path):
         sql = (
-            '-- data-migration-ok: table is empty at this point\nCREATE INDEX "ix" ON "LiteLLM_SpendLogs" ("api_key");'
+            '-- data-migration-ok: table is empty at this point\nCREATE INDEX "ix" ON "HangarLLM_SpendLogs" ("api_key");'
         )
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',)
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',)
 
     def test_a_marker_on_a_rewrite_still_leaves_the_index_below_it_flagged(self, tmp_path):
         sql = (
             "-- data-migration-ok: one row\n"
-            'UPDATE "LiteLLM_SpendLogs" SET "api_key" = \'k\' WHERE "request_id" = \'r\';\n'
-            'CREATE INDEX CONCURRENTLY "ix" ON "LiteLLM_SpendLogs" ("api_key");'
+            'UPDATE "HangarLLM_SpendLogs" SET "api_key" = \'k\' WHERE "request_id" = \'r\';\n'
+            'CREATE INDEX CONCURRENTLY "ix" ON "HangarLLM_SpendLogs" ("api_key");'
         )
-        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "LiteLLM_SpendLogs"',)
+        assert _keywords(tmp_path, sql) == ('CREATE INDEX on "HangarLLM_SpendLogs"',)
 
     def test_render_points_at_the_migration_job_index_list(self, tmp_path):
-        sql = 'CREATE INDEX CONCURRENTLY "ix" ON "public"."LiteLLM_SpendLogs" ("api_key");'
+        sql = 'CREATE INDEX CONCURRENTLY "ix" ON "public"."HangarLLM_SpendLogs" ("api_key");'
         rendered = _scan(tmp_path, sql)[0].render()
         assert "20260101000000_fixture/migration.sql:1" in rendered
         assert "blocks writes until the build finishes, or fails on a partitioned table" in rendered
-        assert "REQUEST_LOG_INDEXES in litellm_proxy_extras/request_log_indexes.py" in rendered
+        assert "REQUEST_LOG_INDEXES in hangarllm_proxy_extras/request_log_indexes.py" in rendered
 
     @pytest.mark.parametrize(
         "name",
-        ("20260823000000_add_spend_logs_api_key_starttime_index", "20260831120001_spend_logs_litellm_call_id_index"),
+        ("20260823000000_add_spend_logs_api_key_starttime_index", "20260831120001_spend_logs_hangarllm_call_id_index"),
     )
     def test_the_inert_index_migrations_scan_clean_without_a_grandfather(self, name):
         assert checker.scan_migration(checker.MIGRATIONS_DIR / name) == ()

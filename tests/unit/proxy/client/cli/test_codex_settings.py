@@ -7,13 +7,13 @@ from typing import Final
 import pytest
 import tomlkit
 
-from litellm.litellm_core_utils.private_json import commit_staged_json
-from litellm.proxy.client.cli.commands import codex_settings as codex_settings_module
-from litellm.proxy.client.cli.commands.agents import (
+from hangarllm.hangarllm_core_utils.private_json import commit_staged_json
+from hangarllm.proxy.client.cli.commands import codex_settings as codex_settings_module
+from hangarllm.proxy.client.cli.commands.agents import (
     agent_launch_args,
     codex_config_path,
 )
-from litellm.proxy.client.cli.commands.codex_settings import (
+from hangarllm.proxy.client.cli.commands.codex_settings import (
     CodexSettingsError,
     _snapshot,
     _with,
@@ -30,8 +30,8 @@ MODEL: Final = "gateway-codex-model"
 
 @pytest.mark.parametrize("path,existing,first_value,second_value", [
     ("model", 'model = "original" # starting model\n', 'value = "first"\n', 'value = "second"\n'),
-    ("model_providers.litellm", '', '[value]\nname = "first"\n', '[value]\nname = "second"\n'),
-    ("model_providers.litellm", '[model_providers.litellm]\nname = "original" # provider\n',
+    ("model_providers.hangarllm", '', '[value]\nname = "first"\n', '[value]\nname = "second"\n'),
+    ("model_providers.hangarllm", '[model_providers.hangarllm]\nname = "original" # provider\n',
      '[value]\nname = "first"\n', '[value]\nname = "second"\n'),
 ])
 def test_toml_transitions_leave_source_and_independent_results_unchanged(
@@ -63,10 +63,10 @@ def test_persistent_provider_is_complete_and_preserves_unrelated_toml(tmp_path: 
     path.write_text(
         '# user settings\nmodel = "old-model" # starting model\n'
         'model_provider = "openai"\nprofile = "work"\n'
-        '[model_providers.litellm]\nname = "old gateway"\n'
+        '[model_providers.hangarllm]\nname = "old gateway"\n'
         'base_url = "https://old.example.com/v1"\nenv_key = "OLD_KEY"\n'
         'experimental_bearer_token = "sk-old"\nrequires_openai_auth = true\n'
-        '[model_providers.litellm.auth]\ncommand = "old-token-helper"\n'
+        '[model_providers.hangarllm.auth]\ncommand = "old-token-helper"\n'
         '[model_providers.other]\nname = "Keep me" # other provider\n'
         '[profiles.work]\nmodel = "work-model"\n'
         '[[hooks.Stop]]\nhooks = [{type = "command", command = "echo done"}]\n'
@@ -75,10 +75,10 @@ def test_persistent_provider_is_complete_and_preserves_unrelated_toml(tmp_path: 
     configure_codex_settings(GATEWAY, KEY, MODEL, path)
     configured: Final = tomlkit.parse(path.read_text())
     assert configured["model"] == MODEL
-    assert configured["model_provider"] == "litellm"
+    assert configured["model_provider"] == "hangarllm"
     assert "profile" not in configured
-    assert configured["model_providers"]["litellm"] == {
-        "name": "LiteLLM proxy",
+    assert configured["model_providers"]["hangarllm"] == {
+        "name": "HangarLLM proxy",
         "base_url": GATEWAY + "/v1",
         "wire_api": "responses",
         "supports_websockets": False,
@@ -140,13 +140,13 @@ def test_repeat_setup_restores_the_user_value_it_displaced(tmp_path: Path) -> No
 
 def test_undo_keeps_provider_credentials_and_endpoint_together(tmp_path: Path) -> None:
     path: Final = tmp_path / "config.toml"
-    path.write_text('[model_providers.litellm]\nbase_url = "https://old.example.com/v1"\n'
+    path.write_text('[model_providers.hangarllm]\nbase_url = "https://old.example.com/v1"\n'
                     'http_headers = { Authorization = "Bearer old-key" }\n')
     configure_codex_settings(GATEWAY, KEY, MODEL, path)
     path.write_text(path.read_text().replace(GATEWAY, "https://user.example.com"))
     outcome: Final = unconfigure_codex_settings(path)
-    provider: Final = tomlkit.parse(path.read_text())["model_providers"]["litellm"]
-    assert outcome.kept == ("model_providers.litellm",)
+    provider: Final = tomlkit.parse(path.read_text())["model_providers"]["hangarllm"]
+    assert outcome.kept == ("model_providers.hangarllm",)
     assert provider["base_url"] == "https://user.example.com/v1"
     assert provider["http_headers"] == {"Authorization": "Bearer " + KEY}
     assert "old-key" not in path.read_text()
@@ -189,7 +189,7 @@ def test_code_home_and_symlink_aliases_share_receipt_and_write_target(tmp_path: 
 @pytest.mark.parametrize("invalid", [
     'token = "sk-secret\n',
     'model_providers = "sk-secret"\n',
-    '[model_providers]\nlitellm = "sk-secret"\n',
+    '[model_providers]\nhangarllm = "sk-secret"\n',
 ])
 def test_invalid_settings_are_unchanged_and_errors_hide_content(tmp_path: Path, invalid: str) -> None:
     path: Final = tmp_path / "config.toml"
@@ -263,13 +263,13 @@ def test_failed_undo_keeps_the_settings_and_receipt_for_retry(tmp_path: Path) ->
 def test_wrapper_and_persistent_provider_agree_except_credential_source(tmp_path: Path) -> None:
     path: Final = tmp_path / "config.toml"
     configure_codex_settings(GATEWAY, KEY, MODEL, path)
-    provider: Final = tomlkit.parse(path.read_text())["model_providers"]["litellm"]
+    provider: Final = tomlkit.parse(path.read_text())["model_providers"]["hangarllm"]
     args: Final = agent_launch_args("codex", GATEWAY)
     overrides: Final = dict(argument.split("=", 1) for argument in args[1::2])
     for field in ("name", "base_url", "wire_api", "supports_websockets", "requires_openai_auth"):
-        assert json.loads(overrides[f"model_providers.litellm.{field}"]) == provider[field]
-    assert overrides["model_providers.litellm.http_headers"] == "{}"
-    assert overrides["model_providers.litellm.env_key"] == '"OPENAI_API_KEY"'
+        assert json.loads(overrides[f"model_providers.hangarllm.{field}"]) == provider[field]
+    assert overrides["model_providers.hangarllm.http_headers"] == "{}"
+    assert overrides["model_providers.hangarllm.env_key"] == '"OPENAI_API_KEY"'
 
 
 @pytest.mark.parametrize("version", [

@@ -14,7 +14,7 @@ lint.extend-select = [
 # RUF100 (unused-noqa) only knows the rules enabled in THIS config, so it would strip
 # `# noqa` directives that protect rules enforced elsewhere. List those codes as external
 # so RUF100 leaves their directives alone: the strict gate (ruff-strict.toml) and upstream
-# litellm's own ruff config both rely on suppressions this config can't see.
+# hangarllm's own ruff config both rely on suppressions this config can't see.
 lint.external = [
     # Enforced by the strict-rule gate (scripts/ruff_strict_gate.py + ruff-strict.toml).
     # Family entries whose every strict rule graduated into extend-select above (FURB), and
@@ -23,7 +23,7 @@ lint.external = [
     "ANN", "ASYNC230", "B", "C", "D202", "D403", "D417", "D419", "DTZ", "EXE", "LOG015", "N999", "PERF",
     "PIE", "PL", "PYI", "RET", "RUF012", "RUF015", "RUF019",
     "RUF046", "RUF059", "S110", "S112", "SIM", "TC", "TID251", "TRY", "UP",
-    # Enforced by upstream litellm's ruff config, but not run in this repo's CI
+    # Enforced by upstream hangarllm's ruff config, but not run in this repo's CI
     "PLC0415", "E402", "BLE001", "ARG002", "S102", "S324", "S606", "D401", "F403", "F405",
 ]
 line-length = 120
@@ -32,25 +32,25 @@ format.exclude = ["**/enterprise/**"]
 
 # Was the top-level `exclude`. Scoped to lint so `ruff format` still formats these paths
 # (Black did) while `ruff check` keeps skipping them.
-lint.exclude = ["litellm/__init__.py", "litellm/proxy/example_config_yaml/*", "tests/*"]
+lint.exclude = ["hangarllm/__init__.py", "hangarllm/proxy/example_config_yaml/*", "tests/*"]
 
 
 [lint.flake8-tidy-imports]
 banned-module-level-imports = ["prisma"]
 
 [lint.per-file-ignores]
-"litellm/main.py" = ["F401"]
-"litellm/types/caching.py" = ["F401"]
-"litellm/types/integrations/slack_alerting.py" = ["F401"]
-"litellm/types/llms/custom_http.py" = ["F401"]
-"litellm/types/llms/openai.py" = ["F401"]
-"litellm/types/proxy/management_endpoints/scim_v2.py" = ["F401"]
-"litellm/types/responses/main.py" = ["F401"]
-"litellm/utils.py" = ["F401"]
-"litellm/proxy/proxy_server.py" = ["F401"]
-"litellm/caching/__init__.py" = ["F401"]
-"litellm/llms/anthropic/chat/__init__.py" = ["F401"]
-"litellm/llms/azure_ai/embed/__init__.py" = ["F401"]
-"litellm/llms/azure_ai/rerank/__init__.py" = ["F401"]
-"litellm/llms/bedrock/chat/__init__.py" = ["F401"]
-"litellm/proxy/utils.py" = ["F401"]
+"hangarllm/main.py" = ["F401"]
+"hangarllm/types/caching.py" = ["F401"]
+"hangarllm/types/integrations/slack_alerting.py" = ["F401"]
+"hangarllm/types/llms/custom_http.py" = ["F401"]
+"hangarllm/types/llms/openai.py" = ["F401"]
+"hangarllm/types/proxy/management_endpoints/scim_v2.py" = ["F401"]
+"hangarllm/types/responses/main.py" = ["F401"]
+"hangarllm/utils.py" = ["F401"]
+"hangarllm/proxy/proxy_server.py" = ["F401"]
+"hangarllm/caching/__init__.py" = ["F401"]
+"hangarllm/llms/anthropic/chat/__init__.py" = ["F401"]
+"hangarllm/llms/azure_ai/embed/__init__.py" = ["F401"]
+"hangarllm/llms/azure_ai/rerank/__init__.py" = ["F401"]
+"hangarllm/llms/bedrock/chat/__init__.py" = ["F401"]
+"hangarllm/proxy/utils.py" = ["F401"]

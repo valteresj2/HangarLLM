@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import ValidationError
 
-from litellm.models.gateway_activity import GatewayRouteActivity, GatewayStatusCodeActivity
-from litellm.repositories.gateway_activity_repository import GatewayActivityRepository
+from hangarllm.models.gateway_activity import GatewayRouteActivity, GatewayStatusCodeActivity
+from hangarllm.repositories.gateway_activity_repository import GatewayActivityRepository
 
 
 @pytest.mark.asyncio

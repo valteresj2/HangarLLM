@@ -7,7 +7,7 @@ users, orgs, and models it creates. External Langfuse reads go through
 
 Uses the ``langfuse_otel`` callback (OTLP to ``{host}/api/public/otel``), not
 the classic ``langfuse`` SDK callback. OTEL generations land as name
-``litellm_request``; correlate by unique prompt marker and ``user_api_key_alias``
+``hangarllm_request``; correlate by unique prompt marker and ``user_api_key_alias``
 in metadata. Spend is on ``calculatedTotalCost`` (StandardLogging response_cost).
 """
 
@@ -48,7 +48,7 @@ from models import (
     KeyLoggingCallback,
     KeyLoggingCallbackVars,
     KeyMetadata,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     OrgDeleteBody,
     OrgNewBody,
     OrgNewResponse,
@@ -62,7 +62,7 @@ from models import (
 )
 
 # Deliberately invalid *upstream provider* key for failure-path tests.
-# Not a LiteLLM virtual key; OpenAI must reject it after the proxy accepts the call.
+# Not a HangarLLM virtual key; OpenAI must reject it after the proxy accepts the call.
 INVALID_UPSTREAM_API_KEY = "sk-upstream-invalid-for-langfuse-e2e-only"
 
 WEATHER_TOOL = ChatTool(
@@ -100,7 +100,7 @@ class TeamCallbackResponse(BaseModel):
     status: str
 
 
-class GuardrailLitellmParams(BaseModel):
+class GuardrailHangarllmParams(BaseModel):
     guardrail: str
     mode: str
     default_on: bool = False
@@ -111,7 +111,7 @@ class GuardrailLitellmParams(BaseModel):
 
 class GuardrailSpec(BaseModel):
     guardrail_name: str
-    litellm_params: GuardrailLitellmParams
+    hangarllm_params: GuardrailHangarllmParams
 
 
 class CreateGuardrailBody(BaseModel):
@@ -183,7 +183,7 @@ def is_otel_v2_generation(obs: LangfuseObservation, *, key_alias: str) -> bool:
     attributes = otel_attributes(obs)
     return (
         attributes.get("langfuse.observation.type") == "generation"
-        and attributes.get("litellm.metadata.user_api_key_alias") == key_alias
+        and attributes.get("hangarllm.metadata.user_api_key_alias") == key_alias
     )
 
 
@@ -259,7 +259,7 @@ _COMPLETION_BODY_ADAPTER: TypeAdapter[dict[str, JsonValue]] = TypeAdapter(dict[s
 
 
 def completion_response_id(body: str) -> str | None:
-    """SpendLogs.request_id is the chat completion body id, not x-litellm-call-id."""
+    """SpendLogs.request_id is the chat completion body id, not x-hangarllm-call-id."""
     if not body or body == "<streamed>":
         return None
     try:
@@ -273,7 +273,7 @@ def completion_response_id(body: str) -> str | None:
 def _matches_run(obs: LangfuseObservation, *, key_alias: str, prompt_marker: str) -> bool:
     """Match a Langfuse generation for this run.
 
-    langfuse_otel names generations ``litellm_request`` (not ``litellm:{alias}``).
+    langfuse_otel names generations ``hangarllm_request`` (not ``hangarllm:{alias}``).
     Prefer the unique prompt marker in input; fall back to key alias in metadata
     (user_api_key_alias) or the classic SDK generation name.
     """
@@ -282,7 +282,7 @@ def _matches_run(obs: LangfuseObservation, *, key_alias: str, prompt_marker: str
     meta_blob = json.dumps(obs.metadata, default=str) if obs.metadata is not None else ""
     if key_alias and key_alias in meta_blob:
         return True
-    if obs.name == f"litellm:{key_alias}":
+    if obs.name == f"hangarllm:{key_alias}":
         return True
     return False
 
@@ -442,7 +442,7 @@ class LoggingClient:
                 json=CreateGuardrailBody(
                     guardrail=GuardrailSpec(
                         guardrail_name=name,
-                        litellm_params=GuardrailLitellmParams(
+                        hangarllm_params=GuardrailHangarllmParams(
                             guardrail="tool_permission",
                             mode="post_call",
                             default_on=False,
@@ -475,9 +475,9 @@ class LoggingClient:
             response_type=NoBody,
         )
 
-    @step("Add a deployment named {model_name} that calls {litellm_params.model}")
-    def create_model(self, model_name: str, litellm_params: LiteLLMParamsBody) -> str:
-        return self.proxy.create_model(model_name, litellm_params)
+    @step("Add a deployment named {model_name} that calls {hangarllm_params.model}")
+    def create_model(self, model_name: str, hangarllm_params: HangarLLMParamsBody) -> str:
+        return self.proxy.create_model(model_name, hangarllm_params)
 
     @step("Delete the deployment")
     def delete_model(self, model_id: str) -> None:
@@ -531,7 +531,7 @@ class LoggingClient:
         self, key: str, model: str, text: str, *, max_tokens: int = 16, stream: bool = False
     ) -> StreamingResponse:
         """POST /v1/messages (Anthropic-native body): raw outcome judged by
-        status/body/headers, for tests that need x-litellm-call-id. With
+        status/body/headers, for tests that need x-hangarllm-call-id. With
         ``stream=True`` the SSE body is consumed and its events counted."""
         body = AnthropicMessagesBody(
             model=model,
@@ -548,7 +548,7 @@ class LoggingClient:
         self, key: str, model: str, text: str, *, max_output_tokens: int = 64, stream: bool = False
     ) -> StreamingResponse:
         """POST /v1/responses (OpenAI Responses API): raw outcome judged by
-        status/body/headers, for tests that need x-litellm-call-id.
+        status/body/headers, for tests that need x-hangarllm-call-id.
         max_output_tokens caps reasoning-model output cost; a capped response is
         still a 200 and still exports the trace. With ``stream=True`` the SSE
         body is consumed and its events counted."""
@@ -628,9 +628,9 @@ class LoggingClient:
         key_alias: str,
         prompt_marker: str,
     ) -> LangfuseObservation | None:
-        # langfuse_otel generations are named litellm_request; classic SDK used
-        # litellm:{key_alias}. Search both, then a recent unfiltered page.
-        for name in ("litellm_request", f"litellm:{key_alias}"):
+        # langfuse_otel generations are named hangarllm_request; classic SDK used
+        # hangarllm:{key_alias}. Search both, then a recent unfiltered page.
+        for name in ("hangarllm_request", f"hangarllm:{key_alias}"):
             for obs in self.list_langfuse_observations(creds, name=name):
                 if _matches_run(obs, key_alias=key_alias, prompt_marker=prompt_marker):
                     return obs

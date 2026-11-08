@@ -8,15 +8,15 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.soniox.audio_transcription.handler import (
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.soniox.audio_transcription.handler import (
     SonioxAudioTranscriptionHandler,
 )
-from litellm.llms.soniox.audio_transcription.transformation import (
+from hangarllm.llms.soniox.audio_transcription.transformation import (
     SonioxAudioTranscriptionConfig,
 )
-from litellm.llms.soniox.common_utils import SonioxException
-from litellm.types.utils import TranscriptionResponse
+from hangarllm.llms.soniox.common_utils import SonioxException
+from hangarllm.types.utils import TranscriptionResponse
 
 
 def _make_response(payload: Dict[str, Any], status_code: int = 200) -> httpx.Response:
@@ -128,7 +128,7 @@ class TestSyncAudioUrl:
         resp = handler.audio_transcriptions(
             audio_file=None,
             optional_params={"audio_url": "https://example.com/a.wav"},
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -173,7 +173,7 @@ class TestSyncFileUpload:
         resp = handler.audio_transcriptions(
             audio_file=("clip.wav", b"RIFFfake", "audio/wav"),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -211,7 +211,7 @@ class TestSyncPolling:
                 "audio_url": "https://example.com/a.wav",
                 "soniox_polling_interval": 0,
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -233,7 +233,7 @@ class TestSyncPolling:
             SonioxAudioTranscriptionHandler().audio_transcriptions(
                 audio_file=None,
                 optional_params={"audio_url": "https://example.com/a.wav"},
-                litellm_params={},
+                hangarllm_params={},
                 atranscription=False,
                 **_common_call_kwargs(client),
             )
@@ -260,7 +260,7 @@ class TestSyncPolling:
                     "soniox_polling_interval": 0,
                     "soniox_max_polling_attempts": 2,
                 },
-                litellm_params={},
+                hangarllm_params={},
                 atranscription=False,
                 **_common_call_kwargs(client),
             )
@@ -289,7 +289,7 @@ class TestGetRequestTimeoutForwarding:
                 "audio_url": "https://example.com/a.wav",
                 "soniox_cleanup": None,
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -319,7 +319,7 @@ class TestGetRequestTimeoutForwarding:
                     "audio_url": "https://example.com/a.wav",
                     "soniox_cleanup": None,
                 },
-                litellm_params={},
+                hangarllm_params={},
                 atranscription=True,
                 **_common_call_kwargs(client),
             )
@@ -348,7 +348,7 @@ class TestPollLimitsClamping:
                     "enable_speaker_diarization": "maybe",
                     "audio_url": "https://example.com/a.wav",
                 },
-                litellm_params={},
+                hangarllm_params={},
                 api_key="sk-test",
                 api_base=None,
                 provider_config=SonioxAudioTranscriptionConfig(),
@@ -362,7 +362,7 @@ class TestPollLimitsClamping:
             SonioxAudioTranscriptionHandler()._prepare(
                 audio_file=None,
                 optional_params={"soniox_polling_interval": "abc", "audio_url": "https://example.com/a.wav"},
-                litellm_params={},
+                hangarllm_params={},
                 api_key="sk-test",
                 api_base=None,
                 provider_config=SonioxAudioTranscriptionConfig(),
@@ -372,12 +372,12 @@ class TestPollLimitsClamping:
         assert "soniox_polling_interval" in str(exc_info.value)
 
     def test_should_use_default_poll_interval_for_bad_value_when_drop_params_is_set(self):
-        from litellm.llms.soniox.common_utils import SONIOX_DEFAULT_POLL_INTERVAL
+        from hangarllm.llms.soniox.common_utils import SONIOX_DEFAULT_POLL_INTERVAL
 
         _, _, _, opts = SonioxAudioTranscriptionHandler()._prepare(
             audio_file=None,
             optional_params={"soniox_polling_interval": "abc", "audio_url": "https://example.com/a.wav"},
-            litellm_params={"drop_params": True},
+            hangarllm_params={"drop_params": True},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -390,7 +390,7 @@ class TestPollLimitsClamping:
         _, _, _, opts = SonioxAudioTranscriptionHandler()._prepare(
             audio_file=None,
             optional_params={"soniox_max_polling_attempts": raw, "audio_url": "https://example.com/a.wav"},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -399,7 +399,7 @@ class TestPollLimitsClamping:
         assert opts["max_attempts"] == expected
 
     def test_should_clamp_poll_interval_to_minimum(self):
-        from litellm.llms.soniox.common_utils import SONIOX_MIN_POLL_INTERVAL
+        from hangarllm.llms.soniox.common_utils import SONIOX_MIN_POLL_INTERVAL
 
         handler = SonioxAudioTranscriptionHandler()
         _, _, _, handler_opts = handler._prepare(
@@ -408,7 +408,7 @@ class TestPollLimitsClamping:
                 "soniox_polling_interval": 0,
                 "audio_url": "https://example.com/a.wav",
             },
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -417,7 +417,7 @@ class TestPollLimitsClamping:
         assert handler_opts["poll_interval"] == SONIOX_MIN_POLL_INTERVAL
 
     def test_should_clamp_negative_poll_interval_to_minimum(self):
-        from litellm.llms.soniox.common_utils import SONIOX_MIN_POLL_INTERVAL
+        from hangarllm.llms.soniox.common_utils import SONIOX_MIN_POLL_INTERVAL
 
         handler = SonioxAudioTranscriptionHandler()
         _, _, _, handler_opts = handler._prepare(
@@ -426,7 +426,7 @@ class TestPollLimitsClamping:
                 "soniox_polling_interval": -10,
                 "audio_url": "https://example.com/a.wav",
             },
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -442,7 +442,7 @@ class TestPollLimitsClamping:
                 "soniox_polling_interval": 5.0,
                 "audio_url": "https://example.com/a.wav",
             },
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -451,7 +451,7 @@ class TestPollLimitsClamping:
         assert handler_opts["poll_interval"] == 5.0
 
     def test_should_clamp_max_attempts_to_upper_bound(self):
-        from litellm.llms.soniox.common_utils import SONIOX_MAX_POLL_ATTEMPTS
+        from hangarllm.llms.soniox.common_utils import SONIOX_MAX_POLL_ATTEMPTS
 
         handler = SonioxAudioTranscriptionHandler()
         _, _, _, handler_opts = handler._prepare(
@@ -460,7 +460,7 @@ class TestPollLimitsClamping:
                 "soniox_max_polling_attempts": 10**9,
                 "audio_url": "https://example.com/a.wav",
             },
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -476,7 +476,7 @@ class TestPollLimitsClamping:
                 "soniox_max_polling_attempts": 0,
                 "audio_url": "https://example.com/a.wav",
             },
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -492,7 +492,7 @@ class TestPollLimitsClamping:
                 "soniox_max_polling_attempts": 10,
                 "audio_url": "https://example.com/a.wav",
             },
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -523,7 +523,7 @@ class TestSyncCleanupBehavior:
                 "audio_url": "https://example.com/a.wav",
                 "soniox_cleanup": [],
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -554,7 +554,7 @@ class TestSyncCleanupBehavior:
             SonioxAudioTranscriptionHandler().audio_transcriptions(
                 audio_file=("clip.wav", b"x", "audio/wav"),
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 atranscription=False,
                 **_common_call_kwargs(client),
             )
@@ -649,7 +649,7 @@ class TestCleanupExceptionMasking:
         resp = SonioxAudioTranscriptionHandler().audio_transcriptions(
             audio_file=("clip.wav", b"x", "audio/wav"),
             optional_params={"soniox_cleanup": ["file", "transcription"]},
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -683,7 +683,7 @@ class TestCleanupExceptionMasking:
         coro = SonioxAudioTranscriptionHandler().audio_transcriptions(
             audio_file=("clip.wav", b"x", "audio/wav"),
             optional_params={"soniox_cleanup": ["file", "transcription"]},
-            litellm_params={},
+            hangarllm_params={},
             atranscription=True,
             **_common_call_kwargs(client),
         )
@@ -701,7 +701,7 @@ class TestMissingInput:
             SonioxAudioTranscriptionHandler().audio_transcriptions(
                 audio_file=None,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 atranscription=False,
                 **_common_call_kwargs(client),
             )
@@ -729,7 +729,7 @@ class TestCleanupNormalization:
                 "audio_url": "https://example.com/a.wav",
                 "soniox_cleanup": None,
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -758,7 +758,7 @@ class TestCleanupNormalization:
                 "audio_url": "https://example.com/a.wav",
                 "soniox_cleanup": "transcription",
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -770,7 +770,7 @@ class TestCleanupNormalization:
         _, _, _, opts = SonioxAudioTranscriptionHandler()._prepare(
             audio_file=None,
             optional_params={"soniox_cleanup": ["transcription", 1, None], "audio_url": "https://example.com/a.wav"},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
             api_base=None,
             provider_config=SonioxAudioTranscriptionConfig(),
@@ -783,7 +783,7 @@ class TestCleanupNormalization:
         [("en,es", ["en", "es"]), (["es"], ["es"]), (None, ["de"])],
     )
     def test_should_use_language_only_without_language_hints(self, language_hints, expected, monkeypatch):
-        import litellm
+        import hangarllm
 
         monkeypatch.setattr("time.sleep", lambda *_: None)
         client = _MockSyncClient(
@@ -796,7 +796,7 @@ class TestCleanupNormalization:
                 "DELETE https://api.soniox.com/v1/transcriptions/tx_1": [_make_response({})],
             }
         )
-        litellm.transcription(
+        hangarllm.transcription(
             model="soniox/stt-async-v4",
             file=("a.wav", b"RIFF", "audio/wav"),
             language="de",
@@ -812,10 +812,10 @@ class TestCleanupNormalization:
 
 class TestProxyFormFields:
     def test_should_send_soniox_types_for_fields_the_proxy_parsed_from_an_sdk_form(self, monkeypatch):
-        import litellm
+        import hangarllm
         from starlette.requests import Request
 
-        from litellm.proxy.common_utils.http_parsing_utils import get_form_data
+        from hangarllm.proxy.common_utils.http_parsing_utils import get_form_data
 
         monkeypatch.setattr("time.sleep", lambda *_: None)
         multipart = httpx.Request(
@@ -859,7 +859,7 @@ class TestProxyFormFields:
                 "DELETE https://api.soniox.com/v1/transcriptions/tx_1": [_make_response({})],
             }
         )
-        litellm.transcription(
+        hangarllm.transcription(
             file=("a.wav", b"RIFF", "audio/wav"),
             api_key="sk-test",
             client=client,
@@ -885,7 +885,7 @@ class TestErrorResponses:
             SonioxAudioTranscriptionHandler().audio_transcriptions(
                 audio_file=None,
                 optional_params={"audio_url": "https://example.com/a.wav"},
-                litellm_params={},
+                hangarllm_params={},
                 atranscription=False,
                 **_common_call_kwargs(client),
             )
@@ -904,7 +904,7 @@ class TestErrorResponses:
             SonioxAudioTranscriptionHandler().audio_transcriptions(
                 audio_file=None,
                 optional_params={"audio_url": "https://example.com/a.wav"},
-                litellm_params={},
+                hangarllm_params={},
                 atranscription=False,
                 **_common_call_kwargs(client),
             )
@@ -938,7 +938,7 @@ class TestPassthroughBodyBuilding:
                 "audio_url": "https://example.com/a.wav",
                 "context": None,
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -976,7 +976,7 @@ class TestPassthroughBodyBuilding:
         SonioxAudioTranscriptionHandler().audio_transcriptions(
             audio_file=None,
             optional_params=form_params,
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **_common_call_kwargs(client),
         )
@@ -995,7 +995,7 @@ class TestSecretRedaction:
     """Secret-bearing fields must be redacted before reaching logging callbacks.
 
     `webhook_auth_header_value` is forwarded to Soniox so it can authenticate
-    its webhook callbacks to the caller. It must NOT leak into LiteLLM logging
+    its webhook callbacks to the caller. It must NOT leak into HangarLLM logging
     callbacks: anyone with access to those sinks could otherwise forge webhook
     requests. The HTTP request to Soniox itself must still carry the real
     value.
@@ -1067,7 +1067,7 @@ class TestSecretRedaction:
                 "webhook_auth_header_name": "X-Webhook-Auth",
                 "webhook_auth_header_value": "super-secret-token",
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=False,
             **call_kwargs,
         )
@@ -1118,7 +1118,7 @@ class TestAsyncFlow:
         coro = SonioxAudioTranscriptionHandler().audio_transcriptions(
             audio_file=None,
             optional_params={"audio_url": "https://example.com/a.wav"},
-            litellm_params={},
+            hangarllm_params={},
             atranscription=True,
             **_common_call_kwargs(client),
         )
@@ -1158,7 +1158,7 @@ class TestAsyncFlow:
         coro = SonioxAudioTranscriptionHandler().audio_transcriptions(
             audio_file=("clip.wav", b"RIFFfake", "audio/wav"),
             optional_params={"soniox_polling_interval": 0},
-            litellm_params={},
+            hangarllm_params={},
             atranscription=True,
             **_common_call_kwargs(client),
         )
@@ -1189,7 +1189,7 @@ class TestAsyncFlow:
                 "audio_url": "https://example.com/a.wav",
                 "soniox_cleanup": [],
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=True,
             **_common_call_kwargs(client),
         )
@@ -1222,7 +1222,7 @@ class TestAsyncFlow:
                 "soniox_max_polling_attempts": 2,
                 "soniox_cleanup": [],
             },
-            litellm_params={},
+            hangarllm_params={},
             atranscription=True,
             **_common_call_kwargs(client),
         )
@@ -1235,7 +1235,7 @@ class TestAsyncFlow:
         coro = SonioxAudioTranscriptionHandler().audio_transcriptions(
             audio_file=None,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             atranscription=True,
             **_common_call_kwargs(client),
         )
@@ -1254,15 +1254,15 @@ class TestSpendTracking:
 
     @pytest.fixture(autouse=True)
     def _use_local_model_cost_map(self, monkeypatch):
-        import litellm
+        import hangarllm
 
-        original_model_cost = litellm.model_cost
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        litellm.model_cost = litellm.get_model_cost_map(url="")
-        litellm.get_model_info.cache_clear()
+        original_model_cost = hangarllm.model_cost
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+        hangarllm.get_model_info.cache_clear()
         try:
             yield
         finally:
-            litellm.model_cost = original_model_cost
-            litellm.get_model_info.cache_clear()
+            hangarllm.model_cost = original_model_cost
+            hangarllm.get_model_info.cache_clear()
 

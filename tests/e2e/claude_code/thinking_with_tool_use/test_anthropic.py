@@ -1,6 +1,6 @@
 """thinking_with_tool_use x Anthropic.
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 to Anthropic, enable extended thinking via `--effort high`, allow
 the built-in `Bash` tool, and ask Claude to plan-and-execute a task
 that requires both reasoning and a tool call. Assert the upstream
@@ -102,7 +102,7 @@ def _has_block_type(
     )
 )
 def test_thinking_with_tool_use_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy with thinking
+    """Drive the `claude` CLI against the HangarLLM proxy with thinking
     enabled and tool use, and assert both `thinking` and `tool_use`
     content blocks landed in the same turn."""
     base_url, api_key = require_proxy(compat_result)

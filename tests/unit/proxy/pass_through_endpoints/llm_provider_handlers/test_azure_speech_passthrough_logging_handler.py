@@ -8,11 +8,11 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.azure_speech_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.azure_speech_passthrough_logging_handler import (
     AzureSpeechPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
 
@@ -61,10 +61,10 @@ def _pcm16_wav(seconds: float) -> bytes:
 @pytest.fixture(autouse=True)
 def azure_stt_price(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/speech/azure-stt",
         {
-            "litellm_provider": "azure",
+            "hangarllm_provider": "azure",
             "mode": "audio_transcription",
             "input_cost_per_second": PRICE_PER_SECOND,
             "output_cost_per_second": 0.0,
@@ -79,7 +79,7 @@ def _make_response(url: str, uploaded: bytes = b"") -> httpx.Response:
 
 def _make_logging_obj() -> MagicMock:
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "test-call-id"
+    logging_obj.hangarllm_call_id = "test-call-id"
     logging_obj.model_call_details = {}
     return logging_obj
 
@@ -219,7 +219,7 @@ class TestAzureSpeechPassthroughHandler:
         assert handler_result["kwargs"]["response_cost"] == 0.0
 
     def test_missing_price_entry_still_logs_the_row_at_zero_cost(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delitem(litellm.model_cost, "azure/speech/azure-stt")
+        monkeypatch.delitem(hangarllm.model_cost, "azure/speech/azure-stt")
 
         handler_result = AzureSpeechPassthroughLoggingHandler.azure_speech_passthrough_handler(
             httpx_response=_make_response(SHORT_AUDIO_URL),

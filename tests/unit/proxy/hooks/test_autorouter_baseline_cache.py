@@ -14,15 +14,15 @@ import respx
 from pydantic import JsonValue, TypeAdapter
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.anthropic.prompt_cache_prediction import NativePredictionTarget, TokenCounter
-from litellm.proxy.hooks.autorouter_baseline_cache import AutoRouterBaselineCache, CapturedBaselineObservation
-from litellm.router import Router
-from litellm.router_rust.steps.prerouting import _record_routing_decision  # pyright: ignore[reportPrivateUsage]  # production trusted stamp owner
-from litellm.types.router import RetryPolicy
-from litellm.types.utils import CallTypes, StandardLoggingRoutingDecision
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.anthropic.prompt_cache_prediction import NativePredictionTarget, TokenCounter
+from hangarllm.proxy.hooks.autorouter_baseline_cache import AutoRouterBaselineCache, CapturedBaselineObservation
+from hangarllm.router import Router
+from hangarllm.router_rust.steps.prerouting import _record_routing_decision  # pyright: ignore[reportPrivateUsage]  # production trusted stamp owner
+from hangarllm.types.router import RetryPolicy
+from hangarllm.types.utils import CallTypes, StandardLoggingRoutingDecision
 
 pytestmark: Final = pytest.mark.asyncio
 
@@ -42,13 +42,13 @@ _MESSAGES_JSON: Final = """[{"role":"user","content":[
 
 
 _MODELS: Final = _MESSAGES.validate_json("""[
-    {"model_name":"test-router","litellm_params":{"model":"auto_router/complexity_router",
+    {"model_name":"test-router","hangarllm_params":{"model":"auto_router/complexity_router",
       "complexity_router_config":{"tiers":{"SIMPLE":"sonnet","MEDIUM":"sonnet","COMPLEX":"sonnet",
-      "REASONING":{"model_name":"opus","litellm_params":{"max_tokens":16}}},"session_affinity":false,
+      "REASONING":{"model_name":"opus","hangarllm_params":{"max_tokens":16}}},"session_affinity":false,
       "keyword_tier_rules":[{"keywords":["USE_OPUS"],"tier":"REASONING"}]}}},
-    {"model_name":"sonnet","litellm_params":{"model":"anthropic/claude-sonnet-5","api_key":"test-selected"},
+    {"model_name":"sonnet","hangarllm_params":{"model":"anthropic/claude-sonnet-5","api_key":"test-selected"},
       "model_info":{"id":"selected"}},
-    {"model_name":"opus","litellm_params":{"model":"anthropic/claude-opus-5","api_key":"test-selected"},
+    {"model_name":"opus","hangarllm_params":{"model":"anthropic/claude-opus-5","api_key":"test-selected"},
       "model_info":{"id":"baseline"}}]""")
 
 
@@ -77,15 +77,15 @@ async def _count(model: str, api_key: str, body: Mapping[str, JsonValue]) -> int
 
 
 class _CallContext(TypedDict):
-    litellm_logging_obj: NotRequired[ReadOnly[Logging]]
-    litellm_call_id: ReadOnly[str]
-    litellm_metadata: ReadOnly[Mapping[str, object]]
-    litellm_session_id: ReadOnly[str]
+    hangarllm_logging_obj: NotRequired[ReadOnly[Logging]]
+    hangarllm_call_id: ReadOnly[str]
+    hangarllm_metadata: ReadOnly[Mapping[str, object]]
+    hangarllm_session_id: ReadOnly[str]
 
 
 def _kwargs(logging_obj: Logging, trusted: bool = True, *, explicit_logging: bool = True) -> _CallContext:
     context: Final = _OBJECTS.validate_json(
-        '{"max_tokens":16,"litellm_metadata":{"user_api_key_hash":"test-caller-hash"}}'
+        '{"max_tokens":16,"hangarllm_metadata":{"user_api_key_hash":"test-caller-hash"}}'
     )
     _record_routing_decision(
         context,
@@ -99,17 +99,17 @@ def _kwargs(logging_obj: Logging, trusted: bool = True, *, explicit_logging: boo
             savings_baseline_deployment_id="baseline",
         ),
     )
-    metadata: Final = _OBJECTS.validate_python(context["litellm_metadata"])
+    metadata: Final = _OBJECTS.validate_python(context["hangarllm_metadata"])
     if not trusted:
         metadata["_autorouter_baseline_route"] = _JSON_OBJECT.validate_json(
             '{"router_name":"test-router","baseline_model":"anthropic/claude-opus-5","baseline_deployment_id":"baseline"}'
         )
     envelope: Final[_CallContext] = {
-        "litellm_call_id": logging_obj.litellm_call_id,
-        "litellm_session_id": "baseline-session",
-        "litellm_metadata": metadata,
+        "hangarllm_call_id": logging_obj.hangarllm_call_id,
+        "hangarllm_session_id": "baseline-session",
+        "hangarllm_metadata": metadata,
     }
-    supplied: Final[_CallContext] = {**envelope, "litellm_logging_obj": logging_obj}
+    supplied: Final[_CallContext] = {**envelope, "hangarllm_logging_obj": logging_obj}
     return supplied if explicit_logging else envelope
 
 
@@ -173,7 +173,7 @@ async def _call(
     messages: str = _MESSAGES_JSON,
     explicit_logging: bool = True,
 ) -> None:
-    invoke: Final = target.anthropic_messages if target else litellm.anthropic_messages  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # legacy native call signatures
+    invoke: Final = target.anthropic_messages if target else hangarllm.anthropic_messages  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # legacy native call signatures
     options: Final = _NativeOptions() if target else _NativeOptions(api_key="test-selected", num_retries=0)
     response: Final[object] = await invoke(  # pyright: ignore[reportUnknownVariableType]  # native Router returns an opaque SDK result
         model="test-router" if target else "anthropic/claude-sonnet-5",
@@ -199,7 +199,7 @@ class _Capture(CustomLogger):
         self, kwargs: Mapping[str, object], response_obj: object, start_time: datetime, end_time: datetime
     ) -> None:
         payload: Final = _OBJECTS.validate_python(kwargs.get("standard_logging_object"))
-        if payload.get("litellm_call_id") == self.call_id:
+        if payload.get("hangarllm_call_id") == self.call_id:
             self.payloads.put_nowait(payload)
 
     async def payload(self) -> Mapping[str, object]:
@@ -228,13 +228,13 @@ class _Rig:
         self.hook: Final = AutoRouterBaselineCache(None, router=router, token_counter=count)
         self.call_id: Final = uuid4().hex
         self.capture: Final = _Capture(self.call_id)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         for name in ("ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"):
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setattr(litellm, "callbacks", [self.hook])
+        monkeypatch.setattr(hangarllm, "callbacks", [self.hook])
         for name in ("success_callback", "failure_callback", "_async_failure_callback"):
-            monkeypatch.setattr(litellm, name, [])
-        monkeypatch.setattr(litellm, "_async_success_callback", [self.capture])
+            monkeypatch.setattr(hangarllm, name, [])
+        monkeypatch.setattr(hangarllm, "_async_success_callback", [self.capture])
 
     def logging(self, stream: bool = False) -> Logging:
         return Logging(
@@ -243,9 +243,9 @@ class _Rig:
             stream=stream,
             call_type=CallTypes.anthropic_messages.value,
             start_time=datetime.now(),
-            litellm_call_id=self.call_id,
+            hangarllm_call_id=self.call_id,
             function_id=self.call_id,
-            kwargs={"litellm_session_id": "baseline-session"},
+            kwargs={"hangarllm_session_id": "baseline-session"},
         )
 
 
@@ -375,19 +375,19 @@ async def test_native_tier_switch_uses_baseline_settings_and_preserves_history(
     automatic_system: str | list[dict[str, str]] | None,
     caching: str,
 ) -> None:
-    from litellm.proxy.spend_tracking.baseline_accounting import BaselineHistory, advance_baseline_history
+    from hangarllm.proxy.spend_tracking.baseline_accounting import BaselineHistory, advance_baseline_history
 
     models: Final = _MESSAGES.validate_python(
         [
             {
                 "model_name": "test-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "tiers": {
-                            "SIMPLE": {"model_name": "sonnet", "litellm_params": {"reasoning_effort": "low"}},
-                            "MEDIUM": {"model_name": "sonnet", "litellm_params": {"reasoning_effort": "low"}},
-                            "COMPLEX": {"model_name": "sonnet", "litellm_params": {"reasoning_effort": "high"}},
+                            "SIMPLE": {"model_name": "sonnet", "hangarllm_params": {"reasoning_effort": "low"}},
+                            "MEDIUM": {"model_name": "sonnet", "hangarllm_params": {"reasoning_effort": "low"}},
+                            "COMPLEX": {"model_name": "sonnet", "hangarllm_params": {"reasoning_effort": "high"}},
                             "REASONING": "opus",
                         },
                         "session_affinity": False,
@@ -399,7 +399,7 @@ async def test_native_tier_switch_uses_baseline_settings_and_preserves_history(
             {
                 "model_name": "opus",
                 "model_info": {"id": "baseline"},
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-opus-5",
                     "api_key": "test-selected",
                     **({"reasoning_effort": baseline_effort} if baseline_effort else {}),
@@ -408,7 +408,7 @@ async def test_native_tier_switch_uses_baseline_settings_and_preserves_history(
         ]
     )
     rig: Final = _Rig(monkeypatch, models=models)
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", caching == "global")
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", caching == "global")
     controls: Final = (
         {
             "cache_control_injection_points": [
@@ -433,10 +433,10 @@ async def test_native_tier_switch_uses_baseline_settings_and_preserves_history(
                 ),
                 system=automatic_system,
                 **controls,
-                litellm_logging_obj=log,
-                litellm_call_id=rig.call_id,
-                litellm_metadata={"user_api_key_hash": "test-caller-hash"},
-                litellm_session_id="native-tiers",
+                hangarllm_logging_obj=log,
+                hangarllm_call_id=rig.call_id,
+                hangarllm_metadata={"user_api_key_hash": "test-caller-hash"},
+                hangarllm_session_id="native-tiers",
             )
             captures.put_nowait(_observation(await rig.capture.payload()))
         first_wire, second_wire = (_JSON_OBJECT.validate_json(call.request.content) for call in route.calls)
@@ -474,8 +474,8 @@ async def test_plain_requests_do_not_initialize_or_warn(
     logging: Final = rig.logging()
     await rig.hook.async_pre_call_deployment_hook(
         {
-            "litellm_logging_obj": logging,
-            "litellm_metadata": {"session_id": "ordinary"},
+            "hangarllm_logging_obj": logging,
+            "hangarllm_metadata": {"session_id": "ordinary"},
         },
         call_type,
     )
@@ -489,7 +489,7 @@ async def test_plain_fallback_invalidates_existing_autorouter_capture(monkeypatc
     logging: Final = rig.logging()
     await rig.hook.async_pre_call_deployment_hook(_kwargs(logging), CallTypes.anthropic_messages)
     assert logging.baseline_cache_context is not None
-    await rig.hook.async_pre_call_deployment_hook({"litellm_logging_obj": logging}, CallTypes.anthropic_messages)
+    await rig.hook.async_pre_call_deployment_hook({"hangarllm_logging_obj": logging}, CallTypes.anthropic_messages)
     assert logging.baseline_observation is not None
     assert logging.baseline_observation.observation.reason == "retried_request"
 
@@ -497,8 +497,8 @@ async def test_plain_fallback_invalidates_existing_autorouter_capture(monkeypatc
 async def test_native_count_finishing_after_quarter_worker_budget_keeps_plan_and_spend(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.litellm_core_utils import logging_worker
-    from litellm.litellm_core_utils.logging_worker import LoggingWorker
+    from hangarllm.hangarllm_core_utils import logging_worker
+    from hangarllm.hangarllm_core_utils.logging_worker import LoggingWorker
 
     counted: Final = asyncio.Event()
     loop: Final = asyncio.get_running_loop()
@@ -549,8 +549,8 @@ async def test_native_baseline_identity_keeps_the_actual_transformed_body(
             *_MODELS[:2],
             {
                 **_MODELS[2],
-                "litellm_params": {
-                    **_JSON_OBJECT.validate_python(_MODELS[2]["litellm_params"]),
+                "hangarllm_params": {
+                    **_JSON_OBJECT.validate_python(_MODELS[2]["hangarllm_params"]),
                     **(options if on_deployment else {}),
                 },
             },
@@ -563,10 +563,10 @@ async def test_native_baseline_identity_keeps_the_actual_transformed_body(
             model="test-router",
             max_tokens=16,
             messages=_MESSAGES.validate_json(_MESSAGES_JSON.replace("question", "question USE_OPUS")),
-            litellm_logging_obj=log,
-            litellm_call_id=rig.call_id,
-            litellm_metadata={"user_api_key_hash": "test-caller-hash"},
-            litellm_session_id="native-identical",
+            hangarllm_logging_obj=log,
+            hangarllm_call_id=rig.call_id,
+            hangarllm_metadata={"user_api_key_hash": "test-caller-hash"},
+            hangarllm_session_id="native-identical",
             **({} if on_deployment else options),
         )
         observed: Final = _observation(await rig.capture.payload()).observation
@@ -577,7 +577,7 @@ async def test_native_baseline_identity_keeps_the_actual_transformed_body(
         log.baseline_cache_context.selected_body_digest,
     )
 
-    from litellm.proxy.spend_tracking.baseline_accounting import BaselineHistory, advance_baseline_history
+    from hangarllm.proxy.spend_tracking.baseline_accounting import BaselineHistory, advance_baseline_history
 
     _, estimates = advance_baseline_history(BaselineHistory(), (observed,))
     assert estimates[0].provenance == "observed_identical" and estimates[0].usage == observed.usage
@@ -592,12 +592,12 @@ async def test_native_baseline_identity_respects_caller_limit_and_tier_override(
         [
             {
                 "model_name": "test-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "tiers": {
-                            "SIMPLE": {"model_name": "opus", "litellm_params": {"max_tokens": tier_limit}},
-                            "MEDIUM": {"model_name": "opus", "litellm_params": {"max_tokens": tier_limit}},
+                            "SIMPLE": {"model_name": "opus", "hangarllm_params": {"max_tokens": tier_limit}},
+                            "MEDIUM": {"model_name": "opus", "hangarllm_params": {"max_tokens": tier_limit}},
                             "COMPLEX": "opus",
                             "REASONING": "opus",
                         },
@@ -605,7 +605,7 @@ async def test_native_baseline_identity_respects_caller_limit_and_tier_override(
                     },
                 },
             },
-            {**_MODELS[2], "litellm_params": {**_MODELS[2]["litellm_params"], "max_tokens": 64}},
+            {**_MODELS[2], "hangarllm_params": {**_MODELS[2]["hangarllm_params"], "max_tokens": 64}},
         ]
     )
     rig: Final = _Rig(monkeypatch, models=models)
@@ -614,10 +614,10 @@ async def test_native_baseline_identity_respects_caller_limit_and_tier_override(
             model="test-router",
             max_tokens=8,
             messages=_MESSAGES.validate_json(_MESSAGES_JSON),
-            litellm_logging_obj=rig.logging(),
-            litellm_call_id=rig.call_id,
-            litellm_metadata={"user_api_key_hash": "test-caller-hash"},
-            litellm_session_id="native-limits",
+            hangarllm_logging_obj=rig.logging(),
+            hangarllm_call_id=rig.call_id,
+            hangarllm_metadata={"user_api_key_hash": "test-caller-hash"},
+            hangarllm_session_id="native-limits",
             extra_body=extra,
         )
         observed: Final = _observation(await rig.capture.payload()).observation
@@ -641,8 +641,8 @@ async def test_native_baseline_projection_matches_wire_parameter_placement(
         [
             {
                 **entry,
-                "litellm_params": {
-                    **_JSON_OBJECT.validate_python(entry["litellm_params"]),
+                "hangarllm_params": {
+                    **_JSON_OBJECT.validate_python(entry["hangarllm_params"]),
                     "model": "anthropic/claude-opus-5",
                 },
             }
@@ -658,10 +658,10 @@ async def test_native_baseline_projection_matches_wire_parameter_placement(
             model="test-router",
             max_tokens=4096,
             messages=_MESSAGES.validate_json(_MESSAGES_JSON),
-            litellm_logging_obj=rig.logging(),
-            litellm_call_id=rig.call_id,
-            litellm_metadata={"user_api_key_hash": "test-caller-hash"},
-            litellm_session_id="native-placement",
+            hangarllm_logging_obj=rig.logging(),
+            hangarllm_call_id=rig.call_id,
+            hangarllm_metadata={"user_api_key_hash": "test-caller-hash"},
+            hangarllm_session_id="native-placement",
             **({"extra_body": settings} if nested else settings),
         )
         captured: Final = _observation(await rig.capture.payload())
@@ -750,18 +750,18 @@ async def test_native_baseline_projection_matches_direct_baseline_request(
             _MODELS[0],
             {
                 **_MODELS[1],
-                "litellm_params": {**_JSON_OBJECT.validate_python(_MODELS[1]["litellm_params"]), **selected},
+                "hangarllm_params": {**_JSON_OBJECT.validate_python(_MODELS[1]["hangarllm_params"]), **selected},
             },
             {
                 **_MODELS[2],
-                "litellm_params": {**_JSON_OBJECT.validate_python(_MODELS[2]["litellm_params"]), **baseline},
+                "hangarllm_params": {**_JSON_OBJECT.validate_python(_MODELS[2]["hangarllm_params"]), **baseline},
             },
         ]
     )
     rig: Final = _Rig(monkeypatch, models=models, count=count)
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", False)
-    monkeypatch.setattr(litellm, "reasoning_auto_summary", summary)
-    monkeypatch.delenv("LITELLM_REASONING_AUTO_SUMMARY", raising=False)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", False)
+    monkeypatch.setattr(hangarllm, "reasoning_auto_summary", summary)
+    monkeypatch.delenv("HANGARLLM_REASONING_AUTO_SUMMARY", raising=False)
     request: Final = {
         "messages": [{"role": "user", "content": "question"}],
         **({"system": "stable system"} if "system" not in selected and "system" not in baseline else {}),
@@ -774,10 +774,10 @@ async def test_native_baseline_projection_matches_direct_baseline_request(
         direct: Final = _JSON_OBJECT.validate_json(route.calls.last.request.content)
         await rig.router.anthropic_messages(
             model="test-router",
-            litellm_logging_obj=rig.logging(),
-            litellm_call_id=rig.call_id,
-            litellm_metadata={"user_api_key_hash": "test-caller-hash"},
-            litellm_session_id="native-projection-parity",
+            hangarllm_logging_obj=rig.logging(),
+            hangarllm_call_id=rig.call_id,
+            hangarllm_metadata={"user_api_key_hash": "test-caller-hash"},
+            hangarllm_session_id="native-projection-parity",
             **_JSON_OBJECT.validate_python(request),
         )
         captured: Final = _observation(await rig.capture.payload())
@@ -803,9 +803,9 @@ async def test_native_baseline_prices_projected_settings_without_changing_actual
     observed_value: str,
     multiplier: float,
 ) -> None:
-    from litellm.proxy.spend_tracking.baseline_accounting import BaselineHistory, advance_baseline_history
-    from litellm.proxy.spend_tracking.savings import baseline_cost_snapshot, price_baseline_comparison
-    from litellm.types.utils import ModelInfo
+    from hangarllm.proxy.spend_tracking.baseline_accounting import BaselineHistory, advance_baseline_history
+    from hangarllm.proxy.spend_tracking.savings import baseline_cost_snapshot, price_baseline_comparison
+    from hangarllm.types.utils import ModelInfo
 
     def upstream(request: httpx.Request) -> httpx.Response:
         body: Final = _JSON_OBJECT.validate_json(request.content)
@@ -833,32 +833,32 @@ async def test_native_baseline_prices_projected_settings_without_changing_actual
                 _MODELS[0],
                 {
                     **_MODELS[1],
-                    "litellm_params": {
-                        **_JSON_OBJECT.validate_python(_MODELS[1]["litellm_params"]),
+                    "hangarllm_params": {
+                        **_JSON_OBJECT.validate_python(_MODELS[1]["hangarllm_params"]),
                         **selected,
                     },
                 },
                 {
                     **_MODELS[2],
-                    "litellm_params": {
-                        **_JSON_OBJECT.validate_python(_MODELS[2]["litellm_params"]),
+                    "hangarllm_params": {
+                        **_JSON_OBJECT.validate_python(_MODELS[2]["hangarllm_params"]),
                         **baseline,
                     },
                 },
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", False)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", False)
     with _transport(upstream):
         response: Final = _JSON_OBJECT.validate_python(
             await rig.router.anthropic_messages(
                 model="test-router",
                 max_tokens=16,
                 messages=[{"role": "user", "content": "question"}],
-                litellm_logging_obj=rig.logging(),
-                litellm_call_id=rig.call_id,
-                litellm_metadata={"user_api_key_hash": "test-caller-hash"},
-                litellm_session_id="baseline-speed",
+                hangarllm_logging_obj=rig.logging(),
+                hangarllm_call_id=rig.call_id,
+                hangarllm_metadata={"user_api_key_hash": "test-caller-hash"},
+                hangarllm_session_id="baseline-speed",
             )
         )
         payload: Final = await rig.capture.payload()
@@ -900,7 +900,7 @@ async def test_native_request_rewritten_after_capture_preserves_spend_without_gu
             return {**kwargs, "system": "hook system"}
 
     rig: Final = _Rig(monkeypatch)
-    monkeypatch.setattr(litellm, "callbacks", [rig.hook, RewriteSystem()])
+    monkeypatch.setattr(hangarllm, "callbacks", [rig.hook, RewriteSystem()])
     with _transport(_upstream) as route:
         await _call(rig.router, rig.logging())
         payload: Final = await rig.capture.payload()
@@ -937,13 +937,13 @@ async def test_native_baseline_models_long_and_non_ascii_history(monkeypatch: py
 
 
 async def test_native_baseline_abstains_after_selected_tier_compaction(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.router_strategy.complexity_router.context_compaction import compaction_executor
+    from hangarllm.router_strategy.complexity_router.context_compaction import compaction_executor
 
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "summary-fixture",
         {
-            "litellm_provider": "anthropic",
+            "hangarllm_provider": "anthropic",
             "mode": "chat",
             "max_input_tokens": 32000,
             "max_output_tokens": 4096,
@@ -954,7 +954,7 @@ async def test_native_baseline_abstains_after_selected_tier_compaction(monkeypat
         [
             {
                 "model_name": "test-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "tiers": {"SIMPLE": "sonnet", "MEDIUM": "opus", "COMPLEX": "opus", "REASONING": "opus"},
@@ -968,17 +968,17 @@ async def test_native_baseline_abstains_after_selected_tier_compaction(monkeypat
             },
             {
                 "model_name": "sonnet",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "test-selected"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "test-selected"},
                 "model_info": {"id": "selected", "max_input_tokens": 512, "max_output_tokens": 64},
             },
             {
                 "model_name": "opus",
-                "litellm_params": {"model": "anthropic/claude-opus-5", "api_key": "test-selected"},
+                "hangarllm_params": {"model": "anthropic/claude-opus-5", "api_key": "test-selected"},
                 "model_info": {"id": "baseline", "max_input_tokens": 200000, "max_output_tokens": 4096},
             },
             {
                 "model_name": "compactor",
-                "litellm_params": {"model": "anthropic/summary-fixture", "api_key": "test-compactor"},
+                "hangarllm_params": {"model": "anthropic/summary-fixture", "api_key": "test-compactor"},
                 "model_info": {"id": "compactor"},
             },
         ]
@@ -1020,7 +1020,7 @@ async def test_selected_tier_cache_markers_do_not_hide_an_unmarked_baseline_plan
             _MODELS[0],
             {
                 "model_name": "sonnet",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-5",
                     "api_key": "test-selected",
                     "cache_control_injection_points": [{"location": "message", "role": "user", "index": -1}],
@@ -1048,12 +1048,12 @@ async def test_selected_tier_cache_markers_do_not_hide_an_unmarked_baseline_plan
 async def test_tier_pins_never_enter_the_caller_snapshot_on_later_routing_passes(
     monkeypatch: pytest.MonkeyPatch, recovery: str
 ) -> None:
-    pinned: Final = {"model_name": "first", "litellm_params": {"reasoning_effort": "high", "max_tokens": 777}}
+    pinned: Final = {"model_name": "first", "hangarllm_params": {"reasoning_effort": "high", "max_tokens": 777}}
     models: Final = _MESSAGES.validate_python(
         [
             {
                 "model_name": "test-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "tiers": {"SIMPLE": pinned, "MEDIUM": pinned, "COMPLEX": pinned, "REASONING": "opus"},
@@ -1063,7 +1063,7 @@ async def test_tier_pins_never_enter_the_caller_snapshot_on_later_routing_passes
             },
             {
                 "model_name": "fallback-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "tiers": {"SIMPLE": "sonnet", "MEDIUM": "sonnet", "COMPLEX": "sonnet", "REASONING": "opus"},
@@ -1073,7 +1073,7 @@ async def test_tier_pins_never_enter_the_caller_snapshot_on_later_routing_passes
             },
             {
                 "model_name": "first",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-5" if recovery == "retry" else "anthropic/claude-haiku-5",
                     "api_key": "test-selected",
                 },

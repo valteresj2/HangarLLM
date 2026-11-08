@@ -9,12 +9,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-import litellm
-import litellm.litellm_core_utils
-import litellm.litellm_core_utils.litellm_logging
-from litellm import completion
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.guardrails import BaseLitellmParams, LitellmParams
+import hangarllm
+import hangarllm.hangarllm_core_utils
+import hangarllm.hangarllm_core_utils.hangarllm_logging
+from hangarllm import completion
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.guardrails import BaseHangarllmParams, HangarllmParams
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -46,7 +46,7 @@ def test_guardrail_masking_logging_only():
     callback = CustomLoggingIntegration()
 
     with patch.object(callback, "log_success_event", new=MagicMock()) as mock_call:
-        litellm.callbacks = [callback]
+        hangarllm.callbacks = [callback]
         messages = [{"role": "user", "content": "Hey, my name is Peter."}]
         response = completion(model="gpt-5-mini", messages=messages, mock_response="Hi Peter!")
 
@@ -59,8 +59,8 @@ def test_guardrail_masking_logging_only():
 
 
 def test_guardrail_list_of_event_hooks():
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.types.guardrails import GuardrailEventHooks
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.types.guardrails import GuardrailEventHooks
 
     cg = CustomGuardrail(guardrail_name="custom-guard", event_hook=["pre_call", "post_call"])
 
@@ -73,27 +73,27 @@ def test_guardrail_list_of_event_hooks():
 
 
 def test_guardrail_info_response():
-    from litellm.types.guardrails import (
+    from hangarllm.types.guardrails import (
         GuardrailInfoResponse,
-        LitellmParams,
+        HangarllmParams,
     )
 
     guardrail_info = GuardrailInfoResponse(
         guardrail_name="aporia-pre-guard",
-        litellm_params=LitellmParams(
+        hangarllm_params=HangarllmParams(
             guardrail="aporia",
             mode="pre_call",
         ),
         guardrail_info={
             "guardrail_name": "aporia-pre-guard",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "aporia",
                 "mode": "always_on",
             },
         },
     )
 
-    assert guardrail_info.litellm_params.default_on == False
+    assert guardrail_info.hangarllm_params.default_on == False
 
 
 @pytest.fixture(autouse=True)
@@ -104,11 +104,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Saves and restores litellm callback/global state so tests don't leak
+    Saves and restores hangarllm callback/global state so tests don't leak
     side effects. Works safely under pytest-xdist parallel execution.
     """
     original_state = {}
@@ -119,76 +119,76 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("set_verbose", "cache", "num_retries"):
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in ("success_callback", "failure_callback", "_async_success_callback", "_async_failure_callback"):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
 @pytest.mark.parametrize("blank", ["", "   "])
-def test_litellm_params_treats_blank_values_as_unset(blank: str) -> None:
+def test_hangarllm_params_treats_blank_values_as_unset(blank: str) -> None:
     """
     Regression: `os.environ/X` with X exported blank resolves to "", which pydantic rejected on
     bool fields (default_on, mask_request_content, fail_on_error), so the guardrail was dropped at
     boot. Blank now means unset, so the field keeps the same default as when it is omitted.
     """
-    with_blank_values = LitellmParams(
+    with_blank_values = HangarllmParams(
         guardrail="presidio",
         mode="pre_call",
         default_on=blank,
         mask_request_content=blank,
         api_key=blank,
     )
-    omitted = LitellmParams(guardrail="presidio", mode="pre_call")
+    omitted = HangarllmParams(guardrail="presidio", mode="pre_call")
     assert with_blank_values.model_dump() == omitted.model_dump()
 
-    assert BaseLitellmParams(fail_on_error=blank).model_dump() == BaseLitellmParams().model_dump()
+    assert BaseHangarllmParams(fail_on_error=blank).model_dump() == BaseHangarllmParams().model_dump()
 
 
 @pytest.mark.parametrize(("configured", "loaded"), [("2", 2), (2, 2), ("0", 0), (5, 5), ("", None)])
 def test_num_retries_loads_the_dashboard_string_and_blank_means_unset(configured: object, loaded: int | None) -> None:
     assert (
-        LitellmParams(guardrail="generic_guardrail_api", mode="pre_call", num_retries=configured).num_retries == loaded
+        HangarllmParams(guardrail="generic_guardrail_api", mode="pre_call", num_retries=configured).num_retries == loaded
     )
 
 
 @pytest.mark.parametrize("configured", [-1, 6, "1.5", "twice"])
 def test_num_retries_rejects_values_that_are_not_a_retry_count(configured: object) -> None:
     with pytest.raises(ValidationError, match="num_retries"):
-        LitellmParams(guardrail="generic_guardrail_api", mode="pre_call", num_retries=configured)
+        HangarllmParams(guardrail="generic_guardrail_api", mode="pre_call", num_retries=configured)

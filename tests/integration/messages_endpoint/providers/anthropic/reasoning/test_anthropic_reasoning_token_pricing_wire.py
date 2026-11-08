@@ -52,7 +52,7 @@ def test_reported_thinking_tokens_are_billed_at_the_reasoning_rate_and_the_rest_
         assert response.status_code == 200, response.text
         assert len(wire.drain()) == 1
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
             lambda values: len(values) == 1,
             seconds=70,
         )

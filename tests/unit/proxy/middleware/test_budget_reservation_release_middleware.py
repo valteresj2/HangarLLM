@@ -2,7 +2,7 @@
 Tests for BudgetReservationReleaseMiddleware.
 
 Auth reserves budget before the handler runs and hands the reservation to the
-request or socket state. A litellm call made through the async client wrapper
+request or socket state. A hangarllm call made through the async client wrapper
 claims it for the cost callback that runs after the call; anything still unclaimed
 when the response is done or the socket has closed would keep the spend counter
 pinned until its TTL, so the middleware releases it.
@@ -21,23 +21,23 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette.websockets import WebSocket
 
-import litellm
-from litellm.caching import DualCache
-from litellm.proxy import proxy_server
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.middleware.budget_reservation_release_middleware import (
+import hangarllm
+from hangarllm.caching import DualCache
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.middleware.budget_reservation_release_middleware import (
     BudgetReservationReleaseMiddleware,
 )
-from litellm.proxy.spend_tracking.budget_reservation import (
+from hangarllm.proxy.spend_tracking.budget_reservation import (
     reconcile_budget_reservation,
     release_unbound_budget_reservation,
     reserve_budget_for_request,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.utils import Rules, function_setup
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.spend_counters import SpendCounterStore
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.utils import Rules, function_setup
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.spend_counters import SpendCounterStore
 
 KEY_TOKEN: Final = "hashed-release-middleware-key"
 COUNTER_KEY: Final = f"spend:key:{KEY_TOKEN}"
@@ -61,7 +61,7 @@ def no_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        monkeypatch.setattr(litellm, callback_list_name, [])
+        monkeypatch.setattr(hangarllm, callback_list_name, [])
 
 
 async def _reserve() -> dict:
@@ -82,7 +82,7 @@ async def _reserve() -> dict:
 
 
 async def _chat(reservation: dict, **kwargs: object) -> object:
-    return await litellm.acompletion(
+    return await hangarllm.acompletion(
         **CHAT_BODY,
         metadata={"user_api_key_budget_reservation": reservation},
         **kwargs,
@@ -95,7 +95,7 @@ def _proxy_pre_call_setup(route_type: str, reservation: dict) -> None:
         rules_obj=Rules(),
         start_time=datetime.now(),
         **CHAT_BODY,
-        litellm_call_id="proxy-pre-call-setup",
+        hangarllm_call_id="proxy-pre-call-setup",
         metadata={"user_api_key_budget_reservation": reservation},
     )
 
@@ -196,14 +196,14 @@ async def test_reservation_of_a_failed_call_is_released_after_the_error_response
     spend_counter_store: SpendCounterStore, no_callbacks: None
 ):
     reservation: Final = await _reserve()
-    refused: Final = litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o")
+    refused: Final = hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o")
 
     async def handler(request: Request) -> Response:
         request.state.budget_reservation = reservation
         _proxy_pre_call_setup("acompletion", reservation)
         try:
             await _chat(reservation, mock_response=refused)
-        except litellm.AuthenticationError:
+        except hangarllm.AuthenticationError:
             return JSONResponse({"error": {"message": "bad key"}}, status_code=401)
         raise AssertionError("the mocked call must fail")
 

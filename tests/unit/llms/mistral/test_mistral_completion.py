@@ -2,7 +2,7 @@ import json
 
 import pytest
 import respx
-import litellm
+import hangarllm
 import httpx
 from typing import Final
 
@@ -61,7 +61,7 @@ def mistral_api_response_with_empty_content():
 @pytest.mark.asyncio
 async def test_mistral_basic_completion(sync_mode, respx_mock, mistral_api_response):
     """Test basic Mistral completion functionality."""
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     model = "mistral/mistral-medium-latest"
     messages = [{"role": "user", "content": "Hello, how are you?"}]
@@ -72,9 +72,9 @@ async def test_mistral_basic_completion(sync_mode, respx_mock, mistral_api_respo
     )
 
     if sync_mode:
-        response = litellm.completion(model=model, messages=messages)
+        response = hangarllm.completion(model=model, messages=messages)
     else:
-        response = await litellm.acompletion(model=model, messages=messages)
+        response = await hangarllm.acompletion(model=model, messages=messages)
 
     # Verify response
     assert (
@@ -97,7 +97,7 @@ async def test_mistral_transform_response_empty_content_conversion(
     This test verifies that the _handle_empty_content_response method in
     MistralConfig.transform_response is being applied.
     """
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     model = "mistral/mistral-medium-latest"
     messages = [{"role": "user", "content": "Generate an empty response"}]
@@ -108,9 +108,9 @@ async def test_mistral_transform_response_empty_content_conversion(
     )
 
     if sync_mode:
-        response = litellm.completion(model=model, messages=messages)
+        response = hangarllm.completion(model=model, messages=messages)
     else:
-        response = await litellm.acompletion(model=model, messages=messages)
+        response = await hangarllm.acompletion(model=model, messages=messages)
 
     # Verify that the transform_response method was called by checking that
     # empty string content was converted to None (Mistral-specific behavior)
@@ -131,7 +131,7 @@ async def test_mistral_transform_request_name_field_removal(
     This test verifies that the _handle_name_in_message method in
     MistralConfig._transform_messages is being applied.
     """
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     model = "mistral/mistral-medium-latest"
     # Include a message with 'name' field that should be removed for non-tool messages
@@ -147,9 +147,9 @@ async def test_mistral_transform_request_name_field_removal(
     )
 
     if sync_mode:
-        response = litellm.completion(model=model, messages=messages)
+        response = hangarllm.completion(model=model, messages=messages)
     else:
-        response = await litellm.acompletion(model=model, messages=messages)
+        response = await hangarllm.acompletion(model=model, messages=messages)
 
     # Verify the response works (if transform_request wasn't called, the API would reject the request)
     assert (
@@ -180,8 +180,8 @@ def test_mistral_401_maps_to_authentication_error(respx_mock):
         return_value=httpx.Response(401, json={"message": "invalid API key"})
     )
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        hangarllm.completion(
             model="mistral/mistral-tiny",
             messages=[{"role": "user", "content": "hello"}],
             api_key="bad-mistral-key",
@@ -196,7 +196,7 @@ def test_mistral_401_maps_to_authentication_error(respx_mock):
 def test_mistral_streaming_function_call_arguments_are_assembled(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     chunks: Final = (
         {
             "id": "chatcmpl-stream",
@@ -265,7 +265,7 @@ def test_mistral_streaming_function_call_arguments_are_assembled(
         headers={"content-type": "text/event-stream"},
     )
     messages: Final = [{"role": "user", "content": "What is the weather in Boston?"}]
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="mistral/mistral-medium-latest",
         messages=messages,
         tools=[
@@ -297,7 +297,7 @@ def test_mistral_streaming_function_call_arguments_are_assembled(
     assert "".join(argument or "" for argument in argument_fragments) == (
         '{"location":"Boston","unit":"fahrenheit"}'
     )
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
     assert assembled is not None
     assert assembled.choices[0].message.tool_calls[0].function.name == "get_current_weather"
     assert json.loads(assembled.choices[0].message.tool_calls[0].function.arguments) == {
@@ -312,7 +312,7 @@ def test_mistral_completion_cost_is_priced_from_the_returned_usage(
 ):
     route: Final = respx_mock.post("https://api.mistral.ai/v1/chat/completions").respond(json=mistral_api_response)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="mistral/mistral-medium-latest",
         messages=[{"role": "user", "content": "Hey, how's it going?"}],
         max_tokens=5,

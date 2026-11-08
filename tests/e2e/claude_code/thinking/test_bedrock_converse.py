@@ -1,6 +1,6 @@
 """thinking x Bedrock (Converse).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to AWS Bedrock via the unified `Converse` API path,
 enable extended thinking via `--effort high`, and assert that the
 upstream returned a `thinking` content block.
@@ -68,7 +68,7 @@ def _has_thinking_block(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_thinking_bedrock_converse(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy with thinking
+    """Drive the `claude` CLI against the HangarLLM proxy with thinking
     enabled and assert a `thinking` content block was emitted."""
     base_url, api_key = require_proxy(compat_result)
 

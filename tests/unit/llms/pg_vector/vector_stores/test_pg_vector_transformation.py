@@ -1,7 +1,7 @@
 """
 Unit tests for PG Vector Store transformation.
 
-This test file mirrors litellm/llms/pg_vector/vector_stores/transformation.py
+This test file mirrors hangarllm/llms/pg_vector/vector_stores/transformation.py
 and contains mocked tests for the PGVectorStoreConfig class.
 """
 
@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from litellm.llms.pg_vector.vector_stores.transformation import PGVectorStoreConfig
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.llms.pg_vector.vector_stores.transformation import PGVectorStoreConfig
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 class TestPGVectorStoreConfig:
@@ -18,15 +18,15 @@ class TestPGVectorStoreConfig:
 
     def test_validate_environment_with_api_key_in_params(self):
         """
-        Test that validate_environment works when api_key is provided in litellm_params.
+        Test that validate_environment works when api_key is provided in hangarllm_params.
 
         This test validates that API key from params is correctly set in headers.
         """
         config = PGVectorStoreConfig()
-        litellm_params = GenericLiteLLMParams(api_key="test_pg_vector_key_123")
+        hangarllm_params = GenericHangarLLMParams(api_key="test_pg_vector_key_123")
         headers = {}
 
-        result_headers = config.validate_environment(headers, litellm_params)
+        result_headers = config.validate_environment(headers, hangarllm_params)
 
         assert "Authorization" in result_headers
         assert result_headers["Authorization"] == "Bearer test_pg_vector_key_123"
@@ -39,11 +39,11 @@ class TestPGVectorStoreConfig:
         This test validates that proper error handling occurs for missing credentials.
         """
         config = PGVectorStoreConfig()
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {}
 
         with pytest.raises(ValueError, match='PG Vector API key is required\\. Set PG_VECTOR_API_KEY') as exc_info:
-            config.validate_environment(headers, litellm_params)
+            config.validate_environment(headers, hangarllm_params)
 
         assert "PG Vector API key is required" in str(exc_info.value)
 
@@ -55,9 +55,9 @@ class TestPGVectorStoreConfig:
         """
         config = PGVectorStoreConfig()
         api_base = "https://my-pg-vector-service.example.com"
-        litellm_params = {}
+        hangarllm_params = {}
 
-        result_url = config.get_complete_url(api_base, litellm_params)
+        result_url = config.get_complete_url(api_base, hangarllm_params)
 
         assert result_url == "https://my-pg-vector-service.example.com/v1/vector_stores"
 
@@ -69,9 +69,9 @@ class TestPGVectorStoreConfig:
         """
         config = PGVectorStoreConfig()
         api_base = "https://my-pg-vector-service.example.com/"
-        litellm_params = {}
+        hangarllm_params = {}
 
-        result_url = config.get_complete_url(api_base, litellm_params)
+        result_url = config.get_complete_url(api_base, hangarllm_params)
 
         assert result_url == "https://my-pg-vector-service.example.com/v1/vector_stores"
 
@@ -82,10 +82,10 @@ class TestPGVectorStoreConfig:
         This test validates that proper error handling occurs for missing API base.
         """
         config = PGVectorStoreConfig()
-        litellm_params = {}
+        hangarllm_params = {}
 
         with pytest.raises(ValueError, match='PG Vector API base URL is required\\. Set') as exc_info:
-            config.get_complete_url(None, litellm_params)
+            config.get_complete_url(None, hangarllm_params)
 
         assert "PG Vector API base URL is required" in str(exc_info.value)
 
@@ -95,7 +95,7 @@ class TestPGVectorStoreConfig:
 
         This test validates that PG Vector config inherits OpenAI-compatible methods.
         """
-        from litellm.llms.openai.vector_stores.transformation import (
+        from hangarllm.llms.openai.vector_stores.transformation import (
             OpenAIVectorStoreConfig,
         )
 
@@ -133,8 +133,8 @@ class TestPGVectorStoreConfig:
         config = PGVectorStoreConfig()
 
         # Test with valid parameters
-        litellm_params = GenericLiteLLMParams(api_key="test_key")
-        headers = config.validate_environment({}, litellm_params)
+        hangarllm_params = GenericHangarLLMParams(api_key="test_key")
+        headers = config.validate_environment({}, hangarllm_params)
         url = config.get_complete_url("https://example.com", {})
 
         # Verify results
@@ -149,8 +149,8 @@ class TestPGVectorStoreConfig:
             query="hello",
             vector_store_search_optional_params={},
             api_base="https://example.com/v1/vector_stores",
-            litellm_logging_obj=Mock(),
-            litellm_params={},
+            hangarllm_logging_obj=Mock(),
+            hangarllm_params={},
         )
 
         assert (
@@ -172,9 +172,9 @@ class TestPGVectorStoreConfig:
 
         # Test API key from environment variable
         with patch.dict(os.environ, {"PG_VECTOR_API_KEY": "env_api_key_123"}):
-            litellm_params = GenericLiteLLMParams()  # No API key in params
+            hangarllm_params = GenericHangarLLMParams()  # No API key in params
 
-            headers = config.validate_environment({}, litellm_params)
+            headers = config.validate_environment({}, hangarllm_params)
 
             assert headers["Authorization"] == "Bearer env_api_key_123"
             assert headers["Content-Type"] == "application/json"
@@ -189,15 +189,15 @@ class TestPGVectorStoreConfig:
 
         # Test that params take precedence over environment variables
         with patch.dict(os.environ, {"PG_VECTOR_API_KEY": "env_key"}):
-            litellm_params = GenericLiteLLMParams(api_key="param_key")
+            hangarllm_params = GenericHangarLLMParams(api_key="param_key")
 
-            headers = config.validate_environment({}, litellm_params)
+            headers = config.validate_environment({}, hangarllm_params)
 
             # Param key should take precedence over environment variable
             assert headers["Authorization"] == "Bearer param_key"
             assert headers["Content-Type"] == "application/json"
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_pg_vector_search_request_construction(self, mock_post):
         """
         Test that PG Vector search constructs the correct URL and request body.
@@ -205,11 +205,11 @@ class TestPGVectorStoreConfig:
         This test validates the complete request construction for PG Vector search
         operations, including URL, headers, and request body.
         """
-        import litellm
+        import hangarllm
 
         # Clear any existing vector store registry to prevent interference with test data
-        original_registry = getattr(litellm, "vector_store_registry", None)
-        litellm.vector_store_registry = None
+        original_registry = getattr(hangarllm, "vector_store_registry", None)
+        hangarllm.vector_store_registry = None
 
         try:
             # Mock successful response
@@ -243,17 +243,17 @@ class TestPGVectorStoreConfig:
             )
             query = "what are remote working hours for BerriAI"
 
-            # Call litellm vector store search
+            # Call hangarllm vector store search
             exception_raised = None
             response = None
             try:
-                response = litellm.vector_stores.search(
+                response = hangarllm.vector_stores.search(
                     query=query,
                     vector_store_id=vector_store_id,
                     api_base=api_base,
                     api_key=api_key,
                     custom_llm_provider="pg_vector",
-                    mock_response=None,  # Explicitly disable LiteLLM's automatic mocking
+                    mock_response=None,  # Explicitly disable HangarLLM's automatic mocking
                 )
                 print(f"✅ Search completed successfully: {response}")
             except Exception as e:
@@ -312,4 +312,4 @@ class TestPGVectorStoreConfig:
             print(f"   Body: {json_data}")
         finally:
             # Restore original registry
-            litellm.vector_store_registry = original_registry
+            hangarllm.vector_store_registry = original_registry

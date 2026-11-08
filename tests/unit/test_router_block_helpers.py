@@ -1,6 +1,6 @@
 """Unit tests for Router block helper methods (coverage gate)."""
 
-from litellm import Router
+from hangarllm import Router
 
 
 def _make_router(model_name: str, blocked: bool = False) -> Router:
@@ -8,7 +8,7 @@ def _make_router(model_name: str, blocked: bool = False) -> Router:
         model_list=[
             {
                 "model_name": model_name,
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
                 "model_info": {"blocked": blocked},
             }
         ]
@@ -26,12 +26,12 @@ class TestAreAllDeploymentsBlocked:
             model_list=[
                 {
                     "model_name": "gpt-4o",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                    "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
                     "model_info": {"blocked": True},
                 },
                 {
                     "model_name": "gpt-4o",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "fake",
                     },

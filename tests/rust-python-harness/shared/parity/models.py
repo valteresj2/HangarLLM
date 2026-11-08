@@ -49,7 +49,7 @@ class CallbackObservation(BaseModel):
     phase: Literal["success", "failure"]
     model: str | None
     call_type: str | None
-    litellm_call_id: str | None
+    hangarllm_call_id: str | None
     metadata: JsonValue
     kwargs: JsonValue
     payload: JsonValue

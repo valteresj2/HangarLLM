@@ -20,8 +20,8 @@ pytestmark = pytest.mark.e2e
 
 class TestApplyGuardrailEndpoint:
     @pytest.mark.covers(
-        "guardrail.litellm_content_filter.apply_endpoint.blocks",
-        "guardrail.litellm_content_filter.apply_endpoint.allows",
+        "guardrail.hangarllm_content_filter.apply_endpoint.blocks",
+        "guardrail.hangarllm_content_filter.apply_endpoint.allows",
         exercised_on=["chat_completions"],
     )
     @meta(

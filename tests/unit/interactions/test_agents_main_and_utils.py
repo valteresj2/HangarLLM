@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/interactions/agents/utils.py and main.py
+Unit tests for hangarllm/interactions/agents/utils.py and main.py
 focused on the managed agents SDK surface added in the
 "Gemini managed agents support" PR.
 
@@ -19,8 +19,8 @@ import pytest
 import respx
 
 
-import litellm
-from litellm.interactions.agents import (
+import hangarllm
+from hangarllm.interactions.agents import (
     acreate,
     adelete,
     aget,
@@ -32,16 +32,16 @@ from litellm.interactions.agents import (
     list as list_agents,
     list_versions,
 )
-from litellm.interactions.agents.main import (
+from hangarllm.interactions.agents.main import (
     _get_agents_api_config,
     _make_logging_obj,
 )
-from litellm.interactions.agents.utils import get_provider_agents_api_config
-from litellm.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
-from litellm.llms.gemini.agents.transformation import GeminiAgentsConfig
+from hangarllm.interactions.agents.utils import get_provider_agents_api_config
+from hangarllm.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
+from hangarllm.llms.gemini.agents.transformation import GeminiAgentsConfig
 
 
-_HANDLER_PATH = "litellm.interactions.agents.main.agents_http_handler"
+_HANDLER_PATH = "hangarllm.interactions.agents.main.agents_http_handler"
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ class TestGetAgentsApiConfig:
         assert isinstance(cfg, GeminiAgentsConfig)
 
     def test_raises_bad_request_for_unsupported_provider(self):
-        with pytest.raises(litellm.BadRequestError) as excinfo:
+        with pytest.raises(hangarllm.BadRequestError) as excinfo:
             _get_agents_api_config("openai")
         assert "does not have a native" in str(excinfo.value)
 
@@ -89,7 +89,7 @@ class TestGetAgentsApiConfig:
 class TestMakeLoggingObj:
     def test_calls_update_from_kwargs_and_returns_same_obj(self):
         logging_obj = MagicMock()
-        kwargs = {"litellm_logging_obj": logging_obj, "litellm_call_id": "abc-123"}
+        kwargs = {"hangarllm_logging_obj": logging_obj, "hangarllm_call_id": "abc-123"}
 
         returned = _make_logging_obj(
             kwargs=kwargs,
@@ -105,7 +105,7 @@ class TestMakeLoggingObj:
         assert kwargs_call["model"] == "my-agent"
         assert kwargs_call["optional_params"] == {"foo": "bar"}
         assert kwargs_call["custom_llm_provider"] == "gemini"
-        assert kwargs_call["litellm_params"]["litellm_call_id"] == "abc-123"
+        assert kwargs_call["hangarllm_params"]["hangarllm_call_id"] == "abc-123"
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ class TestSyncEntryPoints:
         assert isinstance(cfg, GeminiAgentsConfig)
 
     def test_create_raises_for_unsupported_provider(self):
-        with pytest.raises(litellm.exceptions.BadRequestError):
+        with pytest.raises(hangarllm.exceptions.BadRequestError):
             create(name="agent-x", custom_llm_provider="openai", api_key="sk-x")
 
     def test_list_passes_args_to_handler(self):
@@ -308,7 +308,7 @@ class TestAsyncEntryPoints:
 
 class TestAsyncErrorWrapping:
     """If the underlying handler raises, async entry points re-raise via
-    litellm.exception_type so users get a normalised provider error."""
+    hangarllm.exception_type so users get a normalised provider error."""
 
     @pytest.mark.asyncio
     async def test_acreate_wraps_exception(self):
@@ -316,7 +316,7 @@ class TestAsyncErrorWrapping:
         handler.create_agent.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(hangarllm.APIConnectionError):
                 await acreate(name="waverunner", api_key="AIza")
 
     @pytest.mark.asyncio
@@ -325,7 +325,7 @@ class TestAsyncErrorWrapping:
         handler.get_agent.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(hangarllm.APIConnectionError):
                 await aget(name="waverunner", api_key="AIza")
 
     @pytest.mark.asyncio
@@ -334,7 +334,7 @@ class TestAsyncErrorWrapping:
         handler.list_agents.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(hangarllm.APIConnectionError):
                 await alist(api_key="AIza")
 
     @pytest.mark.asyncio
@@ -343,7 +343,7 @@ class TestAsyncErrorWrapping:
         handler.delete_agent.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(hangarllm.APIConnectionError):
                 await adelete(name="waverunner", api_key="AIza")
 
     @pytest.mark.asyncio
@@ -352,7 +352,7 @@ class TestAsyncErrorWrapping:
         handler.list_agent_versions.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(hangarllm.APIConnectionError):
                 await alist_versions(name="waverunner", api_key="AIza")
 
 
@@ -438,7 +438,7 @@ class TestCreateRequestBody:
     def test_create_rejects_a_malformed_identifier_or_instruction(
         self, respx_mock: respx.MockRouter, fields: Mapping[str, str]
     ) -> None:
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             create(**fields, api_key="AIza-test")
 
         assert exc_info.value.status_code == 400
@@ -478,7 +478,7 @@ class TestCreateRequestBody:
         assert _sent_json(route) == {"id": "slides", "system_instruction": "Make slides."}
 
     def test_create_with_drop_params_still_rejects_a_clashing_identifier(self, respx_mock: respx.MockRouter) -> None:
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             create(id="slides", name="decks", drop_params=True, api_key="AIza-test")
 
         assert exc_info.value.status_code == 400
@@ -508,7 +508,7 @@ class TestCreateRequestBody:
     def test_create_rejects_invalid_fields_by_the_names_the_caller_sent(
         self, respx_mock: respx.MockRouter, fields: Mapping[str, object], expected_message: str
     ) -> None:
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             create(**fields, api_key="AIza-test")
 
         assert exc_info.value.status_code == 400
@@ -588,7 +588,7 @@ class TestAgentIdentifier:
         operation: Callable[..., object],
         identifier: Mapping[str, str],
     ) -> None:
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             operation(**identifier, api_key="AIza-test")
 
         assert exc_info.value.status_code == 400
@@ -596,7 +596,7 @@ class TestAgentIdentifier:
 
     @pytest.mark.asyncio
     async def test_aget_rejects_a_missing_identifier(self, respx_mock: respx.MockRouter) -> None:
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             await aget(api_key="AIza-test")
 
         assert exc_info.value.status_code == 400

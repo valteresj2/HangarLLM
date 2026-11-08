@@ -92,7 +92,7 @@ def _member(scenario: Scenario, permissions: list[JsonValue] | None) -> Member:
 
 def _team_key_row(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT team_id, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        'SELECT team_id, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
 
@@ -107,7 +107,7 @@ def _update_team_key(proxy: Gateway, member: Member, owner: str) -> httpx.Respon
 
 
 def _team_key_count(team_id: str) -> int:
-    return len(read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE team_id = %s', (team_id,)))
+    return len(read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE team_id = %s', (team_id,)))
 
 
 def _refused(response: httpx.Response, status: int, error_type: str | None = None) -> None:
@@ -133,7 +133,7 @@ def _team_permission_rows(team_ids: tuple[str, ...]) -> tuple[_TeamPermissionRow
     return tuple(
         _TeamPermissionRow.model_validate(row)
         for row in read_rows(
-            'SELECT team_id, team_member_permissions FROM "LiteLLM_TeamTable" WHERE team_id = ANY(%s) ORDER BY team_id',
+            'SELECT team_id, team_member_permissions FROM "HangarLLM_TeamTable" WHERE team_id = ANY(%s) ORDER BY team_id',
             (list(team_ids),),
         )
     )
@@ -142,12 +142,12 @@ def _team_permission_rows(team_ids: tuple[str, ...]) -> tuple[_TeamPermissionRow
 def _restore_team_permissions(team_id: str, permissions: list[str] | None) -> None:
     if permissions is None:
         write_rows(
-            'UPDATE "LiteLLM_TeamTable" SET team_member_permissions = NULL WHERE team_id = %s',
+            'UPDATE "HangarLLM_TeamTable" SET team_member_permissions = NULL WHERE team_id = %s',
             (team_id,),
         )
         return
     write_rows(
-        'UPDATE "LiteLLM_TeamTable" SET team_member_permissions = ARRAY(SELECT jsonb_array_elements_text(%s::jsonb)) WHERE team_id = %s',
+        'UPDATE "HangarLLM_TeamTable" SET team_member_permissions = ARRAY(SELECT jsonb_array_elements_text(%s::jsonb)) WHERE team_id = %s',
         (json.dumps(permissions), team_id),
     )
 
@@ -168,7 +168,7 @@ def test_permissions_update_persists_requested_member_permissions(gateway: Gatew
         readback: Final = _permissions(gateway, team)
         assert readback.team_member_permissions == requested, repr(readback)
         assert read_rows(
-            'SELECT team_member_permissions FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT team_member_permissions FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [{"team_member_permissions": requested}], updated.text
         observed: Final = _observed_models(upstream)
@@ -202,7 +202,7 @@ def test_permissions_update_grants_and_revokes_key_generate_and_key_update_for_a
         added: Final = _permissions(gateway, team)
         assert added.team_member_permissions == granted_permissions, repr(added)
         assert read_rows(
-            'SELECT team_member_permissions FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT team_member_permissions FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [{"team_member_permissions": granted_permissions}], granted.text
         generated_gateway: Final = gateway.request("POST", "/key/generate", {"team_id": team}, key=member_key)
@@ -230,7 +230,7 @@ def test_permissions_update_grants_and_revokes_key_generate_and_key_update_for_a
         revoked_readback: Final = _permissions(gateway, team)
         assert revoked_readback.team_member_permissions == revoked_permissions, repr(revoked_readback)
         assert read_rows(
-            'SELECT team_member_permissions FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT team_member_permissions FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [{"team_member_permissions": revoked_permissions}], revoked.text
         _refused(_update_team_key(gateway, holder, "member after revoke"), 401, PERMISSION_ERROR)
@@ -326,7 +326,7 @@ def test_permissions_bulk_update_appends_only_to_the_listed_teams(
         all_before: Final = tuple(
             _TeamPermissionRow.model_validate(row)
             for row in read_rows(
-                'SELECT team_id, team_member_permissions FROM "LiteLLM_TeamTable" ORDER BY team_id',
+                'SELECT team_id, team_member_permissions FROM "HangarLLM_TeamTable" ORDER BY team_id',
                 (),
             )
         )
@@ -351,7 +351,7 @@ def test_permissions_bulk_update_appends_only_to_the_listed_teams(
         all_after: Final = tuple(
             _TeamPermissionRow.model_validate(row)
             for row in read_rows(
-                'SELECT team_id, team_member_permissions FROM "LiteLLM_TeamTable" ORDER BY team_id',
+                'SELECT team_id, team_member_permissions FROM "HangarLLM_TeamTable" ORDER BY team_id',
                 (),
             )
         )

@@ -1,5 +1,5 @@
 """
-Ensure litellm.completion() forwards timeout to Azure Anthropic handler (main.py dispatch).
+Ensure hangarllm.completion() forwards timeout to Azure Anthropic handler (main.py dispatch).
 """
 
 import os
@@ -10,8 +10,8 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 )
 
-from litellm import completion
-from litellm.types.utils import ModelResponse
+from hangarllm import completion
+from hangarllm.types.utils import ModelResponse
 
 
 def test_main_azure_ai_claude_completion_passes_timeout_to_azure_anthropic_handler():
@@ -21,7 +21,7 @@ def test_main_azure_ai_claude_completion_passes_timeout_to_azure_anthropic_handl
         captured.update(kwargs)
         return ModelResponse()
 
-    with patch("litellm.main.azure_anthropic_chat_completions") as mock_azure_anthropic:
+    with patch("hangarllm.main.azure_anthropic_chat_completions") as mock_azure_anthropic:
         mock_azure_anthropic.completion = MagicMock(
             side_effect=fake_azure_anthropic_completion
         )

@@ -4,10 +4,10 @@ Tests for encrypted_content_affinity pre-call check.
 The mechanism works without any cache and supports two encoding strategies:
 
 1. **Items with IDs**: item IDs for output items with `encrypted_content` are rewritten to
-   `encitem_{base64("litellm:model_id:{model_id};item_id:{original_id}")}`.
+   `encitem_{base64("hangarllm:model_id:{model_id};item_id:{original_id}")}`.
 
 2. **Items without IDs** (Codex): encrypted_content itself is wrapped with model_id metadata:
-   `litellm_enc:{base64("model_id:{model_id}")};{original_encrypted_content}`.
+   `hangarllm_enc:{base64("model_id:{model_id}")};{original_encrypted_content}`.
 
 - On routing: `EncryptedContentAffinityCheck` decodes from either item IDs or wrapped
   encrypted_content to extract `model_id` and pins the request to that deployment.
@@ -23,21 +23,21 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.models.credentials import CredentialItem
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.router_api import RoutingContext
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+import hangarllm
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.models.credentials import CredentialItem
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.router_api import RoutingContext
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 
 @pytest.fixture(autouse=True)
-def isolate_litellm_router_state():
+def isolate_hangarllm_router_state():
     saved = {
-        name: getattr(litellm, name).copy()
-        if isinstance(getattr(litellm, name, None), list)
-        else getattr(litellm, name, None)
+        name: getattr(hangarllm, name).copy()
+        if isinstance(getattr(hangarllm, name, None), list)
+        else getattr(hangarllm, name, None)
         for name in (
             "callbacks",
             "input_callback",
@@ -49,11 +49,11 @@ def isolate_litellm_router_state():
             "model_fallbacks",
             "cache",
         )
-        if hasattr(litellm, name)
+        if hasattr(hangarllm, name)
     }
     yield
     for name, value in saved.items():
-        setattr(litellm, name, value)
+        setattr(hangarllm, name, value)
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +164,7 @@ class TestEncryptedContentWrapping:
         model_id = "deployment-1"
         original_content = "gAAAAABpnW_yEYmSNEyOG_original_encrypted_data"
         wrapped = ResponsesAPIRequestUtils.wrap_encrypted_content_with_model_id(original_content, model_id)
-        assert wrapped.startswith("litellm_enc:")
+        assert wrapped.startswith("hangarllm_enc:")
         assert wrapped != original_content
 
         (
@@ -200,7 +200,7 @@ class TestEncryptedContentWrapping:
         result = ResponsesAPIRequestUtils._update_encrypted_content_item_ids_in_response(response, model_id)
         assert result["output"][0].get("encrypted_content") is None
         wrapped = result["output"][1]["encrypted_content"]
-        assert wrapped.startswith("litellm_enc:")
+        assert wrapped.startswith("hangarllm_enc:")
 
         (
             model_id_extracted,
@@ -280,11 +280,11 @@ async def test_encrypted_content_affinity_tracks_and_routes():
         ],
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -292,7 +292,7 @@ async def test_encrypted_content_affinity_tracks_and_routes():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -312,12 +312,12 @@ async def test_encrypted_content_affinity_tracks_and_routes():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -365,11 +365,11 @@ async def test_encrypted_content_affinity_no_effect_on_chat_completions():
     """
     Encrypted content affinity should not affect regular chat completions.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "mock_response": "Hello from chat completion!",
@@ -411,11 +411,11 @@ async def test_encrypted_content_affinity_bypasses_rpm_limits():
         response_id="resp_mock-rpm-test",
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -423,7 +423,7 @@ async def test_encrypted_content_affinity_bypasses_rpm_limits():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -444,12 +444,12 @@ async def test_encrypted_content_affinity_bypasses_rpm_limits():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -499,11 +499,11 @@ async def test_encrypted_content_affinity_no_match_normal_routing():
         response_id="resp_mock-no-match",
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -511,7 +511,7 @@ async def test_encrypted_content_affinity_no_match_normal_routing():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -523,7 +523,7 @@ async def test_encrypted_content_affinity_no_match_normal_routing():
     )
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=mock_resp,
     ):
@@ -554,11 +554,11 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
         response_id="resp_mock-wrapped-content",
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -566,7 +566,7 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -586,12 +586,12 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -610,7 +610,7 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
             if hasattr(first_item, "encrypted_content")
             else first_item.get("encrypted_content")
         )
-        assert wrapped_content.startswith("litellm_enc:"), f"Expected wrapped content but got {wrapped_content[:50]}..."
+        assert wrapped_content.startswith("hangarllm_enc:"), f"Expected wrapped content but got {wrapped_content[:50]}..."
 
         # Verify we can extract model_id from wrapped content
         (
@@ -646,7 +646,7 @@ def test_encrypted_content_wrapping_preserves_original_content():
 
     wrapped = ResponsesAPIRequestUtils.wrap_encrypted_content_with_model_id(original_encrypted_content, model_id)
 
-    assert wrapped.startswith("litellm_enc:")
+    assert wrapped.startswith("hangarllm_enc:")
     assert wrapped != original_encrypted_content
 
     (
@@ -680,23 +680,23 @@ def test_encrypted_content_wrapping_with_multiple_semicolons():
 # Regression tests: affinity check must not break tag-based routing
 # ---------------------------------------------------------------------------
 
-from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
     EncryptedContentAffinityCheck,
 )
 
 
 @pytest.mark.asyncio
-async def test_encrypted_content_affinity_does_not_create_litellm_metadata_for_chat():
+async def test_encrypted_content_affinity_does_not_create_hangarllm_metadata_for_chat():
     """
     For chat completions / embeddings, request_kwargs uses 'metadata' (not
-    'litellm_metadata').  The affinity check must NOT create a spurious
-    'litellm_metadata' key, because that would cause
-    _get_metadata_variable_name_from_kwargs to return 'litellm_metadata'
+    'hangarllm_metadata').  The affinity check must NOT create a spurious
+    'hangarllm_metadata' key, because that would cause
+    _get_metadata_variable_name_from_kwargs to return 'hangarllm_metadata'
     and tag-based routing would look for tags in the wrong dict.
     """
     check = EncryptedContentAffinityCheck()
     deployments = [
-        {"model_info": {"id": "dep-1"}, "litellm_params": {"model": "gpt-4"}},
+        {"model_info": {"id": "dep-1"}, "hangarllm_params": {"model": "gpt-4"}},
     ]
     request_kwargs = {"metadata": {"tags": ["prod"]}}
 
@@ -707,8 +707,8 @@ async def test_encrypted_content_affinity_does_not_create_litellm_metadata_for_c
         request_kwargs=request_kwargs,
     )
 
-    # Must not inject litellm_metadata
-    assert "litellm_metadata" not in request_kwargs
+    # Must not inject hangarllm_metadata
+    assert "hangarllm_metadata" not in request_kwargs
     # Tags must be untouched
     assert request_kwargs["metadata"]["tags"] == ["prod"]
     # All deployments returned (no pinning)
@@ -716,17 +716,17 @@ async def test_encrypted_content_affinity_does_not_create_litellm_metadata_for_c
 
 
 @pytest.mark.asyncio
-async def test_encrypted_content_affinity_preserves_litellm_metadata_for_responses():
+async def test_encrypted_content_affinity_preserves_hangarllm_metadata_for_responses():
     """
-    For Responses API calls, litellm_metadata already exists.  The affinity
+    For Responses API calls, hangarllm_metadata already exists.  The affinity
     check should set the flag there and preserve existing keys.
     """
     check = EncryptedContentAffinityCheck()
     deployments = [
-        {"model_info": {"id": "dep-1"}, "litellm_params": {"model": "gpt-5.1-codex"}},
+        {"model_info": {"id": "dep-1"}, "hangarllm_params": {"model": "gpt-5.1-codex"}},
     ]
     request_kwargs = {
-        "litellm_metadata": {"model_info": {"id": "dep-1"}},
+        "hangarllm_metadata": {"model_info": {"id": "dep-1"}},
     }
 
     await check.async_filter_deployments(
@@ -736,8 +736,8 @@ async def test_encrypted_content_affinity_preserves_litellm_metadata_for_respons
         request_kwargs=request_kwargs,
     )
 
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"] is True
-    assert request_kwargs["litellm_metadata"]["model_info"] == {"id": "dep-1"}
+    assert request_kwargs["hangarllm_metadata"]["encrypted_content_affinity_enabled"] is True
+    assert request_kwargs["hangarllm_metadata"]["model_info"] == {"id": "dep-1"}
 
 
 def test_encrypted_content_wrapping_empty_string():
@@ -749,7 +749,7 @@ def test_encrypted_content_wrapping_empty_string():
 
     wrapped = ResponsesAPIRequestUtils.wrap_encrypted_content_with_model_id(original_content, model_id)
 
-    assert wrapped.startswith("litellm_enc:")
+    assert wrapped.startswith("hangarllm_enc:")
 
     (
         extracted_model_id,
@@ -802,11 +802,11 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
     ACCOUNT_B_BASE = "https://account-b.openai.azure.com/"
     ACCOUNT_B_KEY = "key-b"
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -816,7 +816,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
             },
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -826,7 +826,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
             },
             {
                 "model_name": "gpt-5.4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.4",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -836,7 +836,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
             },
             {
                 "model_name": "gpt-5.4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.4",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -850,7 +850,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
     )
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=first_resp,
     ):
@@ -863,7 +863,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
 
     # Affinity narrows the candidate pool to the origin's account regardless of which one shuffle picks.
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=second_resp,
     ):
@@ -884,7 +884,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
 @pytest.mark.asyncio
 async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
     """
-    LIT-2531 alias path: gpt-5.2-codex is a LiteLLM alias that points at the
+    LIT-2531 alias path: gpt-5.2-codex is a HangarLLM alias that points at the
     same underlying Azure model as gpt-5.3-codex. Different model_name groups
     in the router, so model_id-based pinning misses, but the encryption
     boundary (api_base + api_key) is identical -> follow-up must still pin.
@@ -918,11 +918,11 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
     ACCOUNT_B_BASE = "https://account-b.openai.azure.com/"
     ACCOUNT_B_KEY = "key-b"
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -932,7 +932,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
             },
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -942,7 +942,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
             },
             {
                 "model_name": "gpt-5.2-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -952,7 +952,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
             },
             {
                 "model_name": "gpt-5.2-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -966,7 +966,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
     )
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=first_resp,
     ):
@@ -978,7 +978,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
     assert encoded_id.startswith("encitem_")
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=second_resp,
     ):
@@ -1001,7 +1001,7 @@ def test_boundary_fallback_no_router_ref_returns_empty():
     Standalone use (no router wired in) -> the boundary lookup short-circuits
     to ``[]`` instead of crashing on ``None.registry()``.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1009,7 +1009,7 @@ def test_boundary_fallback_no_router_ref_returns_empty():
     healthy = [
         {
             "model_info": {"id": "dep-1"},
-            "litellm_params": {"api_base": "https://x", "api_key": "k"},
+            "hangarllm_params": {"api_base": "https://x", "api_key": "k"},
         }
     ]
     matches, originating = check._find_deployments_on_same_encryption_boundary(
@@ -1028,7 +1028,7 @@ def test_boundary_fallback_originating_deployment_removed_returns_empty():
     """
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1039,7 +1039,7 @@ def test_boundary_fallback_originating_deployment_removed_returns_empty():
     healthy = [
         {
             "model_info": {"id": "dep-1"},
-            "litellm_params": {"api_base": "https://x", "api_key": "k"},
+            "hangarllm_params": {"api_base": "https://x", "api_key": "k"},
         }
     ]
     matches, originating = check._find_deployments_on_same_encryption_boundary(
@@ -1051,23 +1051,23 @@ def test_boundary_fallback_originating_deployment_removed_returns_empty():
     mock_ctx.registry().deployment.assert_called_once_with("dep-removed")
 
 
-def test_boundary_key_accepts_pydantic_litellm_params_instance():
+def test_boundary_key_accepts_pydantic_hangarllm_params_instance():
     """
     Regression: ``_encryption_boundary_key`` must accept any object exposing
-    dict-style ``.get()`` (incl. ``LiteLLM_Params`` Pydantic instances) — not
+    dict-style ``.get()`` (incl. ``HangarLLM_Params`` Pydantic instances) — not
     just plain dicts.
 
     A stricter ``isinstance(dict)`` guard would silently return ``None`` for a
-    ``LiteLLM_Params`` value, drop the deployment from boundary matching, and
+    ``HangarLLM_Params`` value, drop the deployment from boundary matching, and
     fall back to the full pool — which is the exact ``invalid_encrypted_content``
     failure this check exists to prevent.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.types.router import HangarLLM_Params
 
-    pydantic_params = LiteLLM_Params(
+    pydantic_params = HangarLLM_Params(
         model="azure/gpt-5.3-codex",
         api_base="https://mateo-resource.openai.azure.com",
         api_key="fake-azure-resource-key-a",
@@ -1086,12 +1086,12 @@ def test_boundary_key_accepts_pydantic_litellm_params_instance():
 
 
 def test_boundary_key_resolves_missing_values_from_named_credential():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     with patch.object(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -1104,7 +1104,7 @@ def test_boundary_key_resolves_missing_values_from_named_credential():
             )
         ],
     ):
-        boundary = EncryptedContentAffinityCheck._encryption_boundary_key({"litellm_credential_name": "account-a"})
+        boundary = EncryptedContentAffinityCheck._encryption_boundary_key({"hangarllm_credential_name": "account-a"})
 
     assert boundary is not None
     assert boundary == EncryptedContentAffinityCheck._encryption_boundary_key(
@@ -1126,17 +1126,17 @@ def test_boundary_key_resolves_missing_values_from_named_credential():
 def test_boundary_key_resolves_named_credential_values_the_way_the_request_does(
     monkeypatch: pytest.MonkeyPatch, deployment_values: dict[str, str]
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
-    from litellm.utils import with_named_credential
+    from hangarllm.utils import with_named_credential
 
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "openai_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "openai_key", None)
     monkeypatch.setenv("OPENAI_API_KEY", "env-key")
-    deployment: Final = {"model": "openai/gpt-5.5", **deployment_values, "litellm_credential_name": "account-a"}
+    deployment: Final = {"model": "openai/gpt-5.5", **deployment_values, "hangarllm_credential_name": "account-a"}
     with patch.object(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -1154,17 +1154,17 @@ def test_boundary_key_resolves_named_credential_values_the_way_the_request_does(
 
     assert boundary is not None
     assert boundary == EncryptedContentAffinityCheck._encryption_boundary_key(
-        {key: value for key, value in sent_params.items() if key != "litellm_credential_name"}
+        {key: value for key, value in sent_params.items() if key != "hangarllm_credential_name"}
     )
 
 
 def test_boundary_fallback_matches_deployments_with_same_named_credential_values():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     with patch.object(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -1193,13 +1193,13 @@ def test_boundary_fallback_matches_deployments_with_same_named_credential_values
             ),
         ],
     ):
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-5.3-codex",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/gpt-5.3-codex",
-                        "litellm_credential_name": "account-a",
+                        "hangarllm_credential_name": "account-a",
                     },
                     "model_info": {"id": "origin"},
                 }
@@ -1210,16 +1210,16 @@ def test_boundary_fallback_matches_deployments_with_same_named_credential_values
         healthy_deployments = [
             {
                 "model_info": {"id": "peer-same-boundary"},
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.4",
-                    "litellm_credential_name": "account-a-peer",
+                    "hangarllm_credential_name": "account-a-peer",
                 },
             },
             {
                 "model_info": {"id": "peer-different-boundary"},
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.4",
-                    "litellm_credential_name": "account-b",
+                    "hangarllm_credential_name": "account-b",
                 },
             },
         ]
@@ -1239,7 +1239,7 @@ def test_boundary_key_rejects_non_dict_like_inputs():
     Guards against accidentally treating a stray non-dict-like value as a
     valid boundary.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1260,7 +1260,7 @@ def _make_originating_mock(api_base: str, api_key: str, model_name: str = "gpt-5
 
     originating = MagicMock()
     originating.model_name = model_name
-    originating.litellm_params.model_dump.return_value = {
+    originating.hangarllm_params.model_dump.return_value = {
         "api_base": api_base,
         "api_key": api_key,
     }
@@ -1298,7 +1298,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_non_429():
     degrade: strip the encrypted reasoning and dispatch to the healthy pool
     rather than failing the request.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1325,7 +1325,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_non_429():
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1363,7 +1363,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_429():
     encrypted reasoning and dispatch to the healthy pool rather than surfacing
     a rate-limit error to the caller.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1391,7 +1391,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_429():
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1419,7 +1419,7 @@ async def test_affinity_strips_and_dispatches_when_origin_filtered_without_coold
     with no active cooldown entry and no boundary peer. The check degrades:
     strip the encrypted reasoning and dispatch to the healthy pool.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1434,7 +1434,7 @@ async def test_affinity_strips_and_dispatches_when_origin_filtered_without_coold
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1463,7 +1463,7 @@ async def test_affinity_serves_sibling_when_candidate_origin_has_no_boundary_pee
     healthy_deployments, and no (api_base, api_key) peer exists. The turn must
     degrade on a sibling with its encrypted reasoning stripped, not fail.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1477,16 +1477,16 @@ async def test_affinity_serves_sibling_when_candidate_origin_has_no_boundary_pee
         {
             "model_info": {"id": "region-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {"api_base": "https://region-b.example.com/v1", "api_key": "shared-key"},
+            "hangarllm_params": {"api_base": "https://region-b.example.com/v1", "api_key": "shared-key"},
         },
         {
             "model_info": {"id": "region-c"},
             "model_name": "gpt-5.4",
-            "litellm_params": {"api_base": "https://region-c.example.com/v1", "api_key": "shared-key"},
+            "hangarllm_params": {"api_base": "https://region-c.example.com/v1", "api_key": "shared-key"},
         },
     ]
     request_kwargs = {
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {
@@ -1526,7 +1526,7 @@ async def test_affinity_strips_and_dispatches_when_origin_is_unknown_or_removed(
     """
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1539,7 +1539,7 @@ async def test_affinity_strips_and_dispatches_when_origin_is_unknown_or_removed(
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1547,7 +1547,7 @@ async def test_affinity_strips_and_dispatches_when_origin_is_unknown_or_removed(
         }
     ]
     request_kwargs = {
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {
@@ -1580,12 +1580,12 @@ async def test_affinity_does_not_raise_when_boundary_peer_available():
     """
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     originating = MagicMock()
-    originating.litellm_params.model_dump.return_value = {
+    originating.hangarllm_params.model_dump.return_value = {
         "api_base": "https://account-a.openai.azure.com/",
         "api_key": "key-a",
     }
@@ -1596,7 +1596,7 @@ async def test_affinity_does_not_raise_when_boundary_peer_available():
     encoded_id = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-a", "rs_test")
     peer = {
         "model_info": {"id": "deployment-a-peer"},
-        "litellm_params": {
+        "hangarllm_params": {
             "api_base": "https://account-a.openai.azure.com/",
             "api_key": "key-a",
             "model": "azure/gpt-5.4",
@@ -1619,20 +1619,20 @@ async def test_affinity_does_not_raise_when_boundary_peer_available():
 
 @pytest.mark.asyncio
 async def test_model_group_affinity_config_enables_encrypted_content_affinity():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     model_group = "openai.gpt-5.1-codex"
     target_deployment = {
         "model_name": model_group,
-        "litellm_params": {"model": "openai/gpt-5.1-codex"},
+        "hangarllm_params": {"model": "openai/gpt-5.1-codex"},
         "model_info": {"id": "deployment-b"},
     }
     healthy_deployments = [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.1-codex"},
+            "hangarllm_params": {"model": "openai/gpt-5.1-codex"},
             "model_info": {"id": "deployment-a"},
         },
         target_deployment,
@@ -1640,7 +1640,7 @@ async def test_model_group_affinity_config_enables_encrypted_content_affinity():
     encoded_id = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-b", "rs_test")
     request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
     }
     check = EncryptedContentAffinityCheck(
         enable_global_affinity=False,
@@ -1657,26 +1657,26 @@ async def test_model_group_affinity_config_enables_encrypted_content_affinity():
     )
 
     assert filtered == [target_deployment]
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"]
+    assert request_kwargs["hangarllm_metadata"]["encrypted_content_affinity_enabled"]
     assert request_kwargs.get("_encrypted_content_affinity_pinned") is True
 
 
 @pytest.mark.asyncio
 async def test_model_group_affinity_config_does_not_disable_global_encrypted_content_affinity():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     model_group = "openai.gpt-5.1-codex"
     target_deployment = {
         "model_name": model_group,
-        "litellm_params": {"model": "openai/gpt-5.1-codex"},
+        "hangarllm_params": {"model": "openai/gpt-5.1-codex"},
         "model_info": {"id": "deployment-b"},
     }
     healthy_deployments = [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.1-codex"},
+            "hangarllm_params": {"model": "openai/gpt-5.1-codex"},
             "model_info": {"id": "deployment-a"},
         },
         target_deployment,
@@ -1684,7 +1684,7 @@ async def test_model_group_affinity_config_does_not_disable_global_encrypted_con
     encoded_id = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-b", "rs_test")
     request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
     }
     check = EncryptedContentAffinityCheck(
         enable_global_affinity=True,
@@ -1701,16 +1701,16 @@ async def test_model_group_affinity_config_does_not_disable_global_encrypted_con
     )
 
     assert filtered == [target_deployment]
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"]
+    assert request_kwargs["hangarllm_metadata"]["encrypted_content_affinity_enabled"]
     assert request_kwargs.get("_encrypted_content_affinity_pinned") is True
 
 
 @pytest.mark.asyncio
 async def test_model_group_encrypted_content_affinity_overrides_global_deployment_affinity():
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1718,7 +1718,7 @@ async def test_model_group_encrypted_content_affinity_overrides_global_deploymen
     user_api_key_hash = "test-user-key"
     deployment_a = {
         "model_name": model_group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-a",
         },
@@ -1726,13 +1726,13 @@ async def test_model_group_encrypted_content_affinity_overrides_global_deploymen
     }
     deployment_b = {
         "model_name": model_group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-b",
         },
         "model_info": {"id": "deployment-b"},
     }
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[deployment_a, deployment_b],
         optional_pre_call_checks=["deployment_affinity"],
         model_group_affinity_config={
@@ -1767,7 +1767,7 @@ async def test_model_group_encrypted_content_affinity_overrides_global_deploymen
                 }
             ],
             "metadata": {"user_api_key_hash": user_api_key_hash},
-            "litellm_metadata": {},
+            "hangarllm_metadata": {},
         }
 
         after_deployment_affinity = await deployment_callback.async_filter_deployments(
@@ -1801,8 +1801,8 @@ async def test_encrypted_content_affinity_pins_anthropic_messages_replayed_throu
     """
     check = EncryptedContentAffinityCheck()
     deployments = [
-        {"model_info": {"id": "openai-org-a"}, "litellm_params": {"model": "openai/gpt-5.1"}},
-        {"model_info": {"id": "openai-org-b"}, "litellm_params": {"model": "openai/gpt-5.1"}},
+        {"model_info": {"id": "openai-org-a"}, "hangarllm_params": {"model": "openai/gpt-5.1"}},
+        {"model_info": {"id": "openai-org-b"}, "hangarllm_params": {"model": "openai/gpt-5.1"}},
     ]
     request_kwargs = {"model": "gpt-5.1"}
 
@@ -1825,11 +1825,11 @@ def _bridge_replayed_anthropic_messages(minted_by: str) -> list:
             "role": "assistant",
             "content": [
                 {"type": "thinking", "thinking": "Anthropic minted this one", "signature": "ErcCCpIBCBEYAipA"},
-                {"type": "redacted_thinking", "data": f"litellm_encrypted_reasoning:{wrapped}"},
+                {"type": "redacted_thinking", "data": f"hangarllm_encrypted_reasoning:{wrapped}"},
                 {
                     "type": "thinking",
                     "thinking": "The bridge packed this one",
-                    "signature": f"litellm_encrypted_reasoning:{wrapped}",
+                    "signature": f"hangarllm_encrypted_reasoning:{wrapped}",
                 },
                 {"type": "text", "text": "The zebra owner lives in the green house."},
             ],
@@ -1852,7 +1852,7 @@ async def test_encrypted_content_affinity_strips_bridge_reasoning_from_messages_
         originating, cooldown_entries=[], routed_group_model_ids=["openai-org-b"]
     )
     check = EncryptedContentAffinityCheck(ctx=mock_ctx)
-    routed_pool = [{"model_info": {"id": "openai-org-b"}, "litellm_params": {"model": "openai/gpt-5-nano"}}]
+    routed_pool = [{"model_info": {"id": "openai-org-b"}, "hangarllm_params": {"model": "openai/gpt-5-nano"}}]
     messages = _bridge_replayed_anthropic_messages(minted_by="openai-org-a")
     assistant_content = messages[1]["content"]
     request_kwargs = {"model": "gpt-5.1"}
@@ -1948,11 +1948,11 @@ class TestStripEncryptedReasoningFromInput:
 
 @pytest.mark.asyncio
 async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_origin():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-openai",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "key-openai",
@@ -1961,7 +1961,7 @@ async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_o
             },
             {
                 "model_name": "gpt-azure",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.1-codex",
                     "api_base": "https://res-b.openai.azure.com/",
                     "api_key": "key-azure",
@@ -2004,8 +2004,8 @@ async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_o
         )
 
         assert deployment["model_info"]["id"] == "dep-openai"
-        assert deployment["litellm_params"]["model"] == "openai/gpt-5.1-codex"
-        assert deployment["litellm_params"]["api_base"] == "https://api.openai.com/v1"
+        assert deployment["hangarllm_params"]["model"] == "openai/gpt-5.1-codex"
+        assert deployment["hangarllm_params"]["api_base"] == "https://api.openai.com/v1"
         assert request_kwargs["input"] == [
             {"type": "message", "role": "user", "content": "first question"},
             {
@@ -2029,11 +2029,11 @@ async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_o
 
 @pytest.mark.asyncio
 async def test_affinity_pin_yields_to_the_fallback_hops_target_order_and_strips_the_origins_reasoning():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6-astra",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "key-openai",
@@ -2043,7 +2043,7 @@ async def test_affinity_pin_yields_to_the_fallback_hops_target_order_and_strips_
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock_mantle/openai.gpt-6-astra",
                     "api_base": "https://bedrock-mantle.us-east-1.api.aws",
                     "api_key": "key-mantle",
@@ -2094,7 +2094,7 @@ async def test_affinity_pin_yields_to_the_fallback_hops_target_order_and_strips_
 
 @pytest.mark.asyncio
 async def test_affinity_keeps_mixed_origins_on_the_same_encryption_boundary():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2104,11 +2104,11 @@ async def test_affinity_keeps_mixed_origins_on_the_same_encryption_boundary():
     mock_ctx = _make_router_mock_with_cooldown(origin_d2, cooldown_entries=[], routed_group_model_ids=["d1", "d2"])
     deployment_d1 = {
         "model_info": {"id": "d1"},
-        "litellm_params": {"api_base": shared_api_base, "api_key": shared_api_key},
+        "hangarllm_params": {"api_base": shared_api_base, "api_key": shared_api_key},
     }
     deployment_d2 = {
         "model_info": {"id": "d2"},
-        "litellm_params": {"api_base": shared_api_base, "api_key": shared_api_key},
+        "hangarllm_params": {"api_base": shared_api_base, "api_key": shared_api_key},
     }
     d2_item = {
         "type": "reasoning",
@@ -2141,7 +2141,7 @@ async def test_affinity_keeps_mixed_origins_on_the_same_encryption_boundary():
 
 @pytest.mark.asyncio
 async def test_boundary_pin_strips_reasoning_from_a_different_origin():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2154,7 +2154,7 @@ async def test_boundary_pin_strips_reasoning_from_a_different_origin():
     }.get(model_id)
     peer_a = {
         "model_info": {"id": "peer-a"},
-        "litellm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
+        "hangarllm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
     }
     request_kwargs = {
         "input": [
@@ -2198,7 +2198,7 @@ async def test_boundary_pin_strips_reasoning_from_a_different_origin():
 
 @pytest.mark.asyncio
 async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2211,11 +2211,11 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
     }.get(model_id)
     deployment_a = {
         "model_info": {"id": "origin-a"},
-        "litellm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
+        "hangarllm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
     }
     deployment_b = {
         "model_info": {"id": "origin-b"},
-        "litellm_params": {"api_base": "https://account-b.openai.azure.com/", "api_key": "key-b"},
+        "hangarllm_params": {"api_base": "https://account-b.openai.azure.com/", "api_key": "key-b"},
     }
     messages = _bridge_replayed_anthropic_messages(minted_by="origin-a")
     foreign_messages = _bridge_replayed_anthropic_messages(minted_by="origin-b")
@@ -2237,7 +2237,7 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
         {
             "type": "redacted_thinking",
             "data": (
-                "litellm_encrypted_reasoning:"
+                "hangarllm_encrypted_reasoning:"
                 f"{ResponsesAPIRequestUtils.wrap_encrypted_content_with_model_id('gAAAAA_turn_one', 'origin-a')}"
             ),
         },
@@ -2245,7 +2245,7 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
             "type": "thinking",
             "thinking": "The bridge packed this one",
             "signature": (
-                "litellm_encrypted_reasoning:"
+                "hangarllm_encrypted_reasoning:"
                 f"{ResponsesAPIRequestUtils.wrap_encrypted_content_with_model_id('gAAAAA_turn_one', 'origin-a')}"
             ),
         },
@@ -2257,7 +2257,7 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
 async def test_affinity_strips_unknown_origins_but_leaves_unmarked_encrypted_content():
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2265,7 +2265,7 @@ async def test_affinity_strips_unknown_origins_but_leaves_unmarked_encrypted_con
     mock_ctx.registry.return_value.deployment.return_value = None
     deployment_a = {
         "model_info": {"id": "origin-a"},
-        "litellm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
+        "hangarllm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
     }
     openai_item = {
         "type": "reasoning",
@@ -2311,11 +2311,11 @@ async def test_affinity_strips_unknown_origins_but_leaves_unmarked_encrypted_con
 
 
 def _router_without_the_origin():
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6-astra",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "openai-key",
@@ -2334,7 +2334,7 @@ def _router_without_the_origin():
     "unmarked_origin", ["origin-removed", None], ids=["failed deployment named", "failed deployment unknown"]
 )
 def test_hop_strip_drops_unmarked_reasoning_whose_origin_cannot_be_resolved(ctx, unmarked_origin):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2349,7 +2349,7 @@ def test_hop_strip_drops_unmarked_reasoning_whose_origin_cannot_be_resolved(ctx,
     ]
     target = {
         "model_info": {"id": "target-order-2"},
-        "litellm_params": {"api_base": "https://api.openai.com/v1", "api_key": "openai-key"},
+        "hangarllm_params": {"api_base": "https://api.openai.com/v1", "api_key": "openai-key"},
     }
 
     EncryptedContentAffinityCheck.strip_reasoning_the_targets_cannot_decrypt(
@@ -2365,7 +2365,7 @@ def test_hop_strip_drops_unmarked_reasoning_whose_origin_cannot_be_resolved(ctx,
 def _cross_group_request_kwargs():
     wrapped = ResponsesAPIRequestUtils.wrap_encrypted_content_with_model_id("gAAAAA-blob", "deployment-a")
     return {
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
         "input": [
             {"role": "user", "content": "ZEBRA: why is the sky blue?"},
             {
@@ -2387,7 +2387,7 @@ async def test_affinity_strips_encrypted_reasoning_when_routed_to_another_model_
     healthy, so a 503 would be wrong; the follow-up dispatches to the routed
     pool with the origin's encrypted reasoning stripped and its summary kept.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2400,7 +2400,7 @@ async def test_affinity_strips_encrypted_reasoning_when_routed_to_another_model_
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-simple-tier",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://gateway.example/v1",
                 "api_key": "key-b",
                 "model": "openai/gpt-5-nano",
@@ -2419,7 +2419,7 @@ async def test_affinity_strips_encrypted_reasoning_when_routed_to_another_model_
 
     assert result is routed_pool
     assert "_encrypted_content_affinity_pinned" not in request_kwargs
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"] is True
+    assert request_kwargs["hangarllm_metadata"]["encrypted_content_affinity_enabled"] is True
     assert request_kwargs["input"] is original_input
     assert [item.get("type") or item["role"] for item in original_input] == [
         "user",
@@ -2443,7 +2443,7 @@ async def test_affinity_degrades_within_the_origins_own_group():
     failing: the encrypted reasoning is stripped and the request dispatches
     to the sibling.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2458,7 +2458,7 @@ async def test_affinity_degrades_within_the_origins_own_group():
         {
             "model_info": {"id": "deployment-a2"},
             "model_name": "gpt-reasoning-tier",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://account-a2.openai.azure.com/",
                 "api_key": "key-a2",
                 "model": "azure/gpt-5.4",
@@ -2487,7 +2487,7 @@ async def test_affinity_strips_when_group_is_spelled_differently_but_same_by_id(
     boundary peer, so the check degrades: strip the encrypted reasoning and
     dispatch to the sibling pool.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2501,7 +2501,7 @@ async def test_affinity_strips_when_group_is_spelled_differently_but_same_by_id(
         {
             "model_info": {"id": "deployment-mini-b"},
             "model_name": "gpt-5.4-mini",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://gateway.example/v1",
                 "api_key": "key-b",
                 "model": "openai/gpt-5.4-mini",
@@ -2509,7 +2509,7 @@ async def test_affinity_strips_when_group_is_spelled_differently_but_same_by_id(
         }
     ]
     request_kwargs = {
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {
@@ -2539,7 +2539,7 @@ async def test_affinity_strips_for_team_and_pattern_routes():
     so an unavailable origin there also degrades rather than failing: the
     encrypted reasoning is stripped and the request dispatches to the sibling.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2553,7 +2553,7 @@ async def test_affinity_strips_for_team_and_pattern_routes():
         {
             "model_info": {"id": "deployment-team-b"},
             "model_name": "team-public-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://gateway.example/v1",
                 "api_key": "key-b",
                 "model": "openai/gpt-5.4-mini",
@@ -2561,7 +2561,7 @@ async def test_affinity_strips_for_team_and_pattern_routes():
         }
     ]
     request_kwargs = {
-        "litellm_metadata": {"user_api_key_team_id": "teamA"},
+        "hangarllm_metadata": {"user_api_key_team_id": "teamA"},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {
@@ -2587,7 +2587,7 @@ async def test_affinity_strips_for_team_and_pattern_routes():
 def _region_deployment(region: str) -> dict[str, object]:
     return {
         "model_name": "gpt-5.4",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-5.4",
             "api_base": f"https://{region}.example.com/v1",
             "api_key": f"key-{region}",
@@ -2624,11 +2624,11 @@ _ORIGIN_FAILED_THIS_REQUEST: Final = pytest.mark.parametrize(
 async def test_affinity_strips_and_dispatches_when_origin_already_failed_this_request(
     failed_in_request: dict[str, object], continuing: dict[str, object]
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    router: Final = litellm.Router(model_list=[_region_deployment("region-a"), _region_deployment("region-b")])
+    router: Final = hangarllm.Router(model_list=[_region_deployment("region-a"), _region_deployment("region-b")])
     group: Final = router.model_list
     reasoning_input: Final = _reasoning_input_minted_by("region-a")
 
@@ -2636,7 +2636,7 @@ async def test_affinity_strips_and_dispatches_when_origin_already_failed_this_re
         model="gpt-5.4",
         healthy_deployments=group,
         messages=None,
-        request_kwargs={"litellm_metadata": {}, "input": reasoning_input, **failed_in_request, **continuing},
+        request_kwargs={"hangarllm_metadata": {}, "input": reasoning_input, **failed_in_request, **continuing},
     )
 
     assert result is group
@@ -2648,7 +2648,7 @@ async def test_affinity_strips_and_dispatches_when_origin_already_failed_this_re
 async def test_affinity_keeps_origin_and_reasoning_when_previous_response_id_binds_the_failed_origin(
     failed_in_request: dict[str, object],
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2657,13 +2657,13 @@ async def test_affinity_keeps_origin_and_reasoning_when_previous_response_id_bin
     original_reasoning: Final = dict(reasoning_input[0])
 
     assert await EncryptedContentAffinityCheck(
-        ctx=RoutingContext(litellm.Router(model_list=list(pool)))
+        ctx=RoutingContext(hangarllm.Router(model_list=list(pool)))
     ).async_filter_deployments(
         model="gpt-5.4",
         healthy_deployments=list(pool),
         messages=None,
         request_kwargs={
-            "litellm_metadata": {},
+            "hangarllm_metadata": {},
             "input": reasoning_input,
             "previous_response_id": _previous_response_id_from("region-a"),
             **failed_in_request,
@@ -2675,11 +2675,11 @@ async def test_affinity_keeps_origin_and_reasoning_when_previous_response_id_bin
 @pytest.mark.asyncio
 @pytest.mark.parametrize("regions", [("region-a",), ("region-a", "region-b")])
 async def test_affinity_keeps_reasoning_when_every_deployment_already_refused_the_request(regions: tuple[str, ...]):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    router: Final = litellm.Router(model_list=[_region_deployment(region) for region in regions])
+    router: Final = hangarllm.Router(model_list=[_region_deployment(region) for region in regions])
     reasoning_input: Final = _reasoning_input_minted_by("region-a")
     original_reasoning: Final = dict(reasoning_input[0])
 
@@ -2687,15 +2687,15 @@ async def test_affinity_keeps_reasoning_when_every_deployment_already_refused_th
         model="gpt-5.4",
         healthy_deployments=router.model_list,
         messages=None,
-        request_kwargs={"litellm_metadata": {}, "input": reasoning_input, "_retry_skipped_deployment_ids": regions},
+        request_kwargs={"hangarllm_metadata": {}, "input": reasoning_input, "_retry_skipped_deployment_ids": regions},
     )
 
     assert [deployment["model_info"]["id"] for deployment in result] == ["region-a"]
     assert reasoning_input[0] == original_reasoning
 
 
-def _default_endpoint_deployment(model_id: str, litellm_params: Mapping[str, object]) -> dict[str, object]:
-    return {"model_name": "gpt-5.5", "litellm_params": dict(litellm_params), "model_info": {"id": model_id}}
+def _default_endpoint_deployment(model_id: str, hangarllm_params: Mapping[str, object]) -> dict[str, object]:
+    return {"model_name": "gpt-5.5", "hangarllm_params": dict(hangarllm_params), "model_info": {"id": model_id}}
 
 
 def _deployment_of(ctx: RoutingContext, model_id: str) -> dict[str, object]:
@@ -2711,7 +2711,7 @@ OPENAI_SHARED_KEY: Final = {"model": "openai/gpt-5.5", "api_key": "shared-key"}
 
 @pytest.fixture
 def no_process_wide_api_base(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.delenv("AZURE_API_BASE", raising=False)
 
 
@@ -2833,11 +2833,11 @@ def no_process_wide_api_base(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_hop_strip_keeps_reasoning_between_same_key_deployments_on_the_default_endpoint(
     origin_params: dict[str, object], target_params: dict[str, object], target_can_decrypt: bool, marked: bool
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", origin_params),
             _default_endpoint_deployment("target", target_params),
@@ -2871,15 +2871,15 @@ def test_hop_strip_keeps_reasoning_between_same_key_deployments_on_the_default_e
 def test_hop_strip_resolves_a_missing_key_from_the_environment(
     monkeypatch: pytest.MonkeyPatch, target_api_key: str | None, target_can_decrypt: bool
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "openai_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "openai_key", None)
     monkeypatch.setenv("OPENAI_API_KEY", "env-key")
     target_params: Final = {"model": "openai/gpt-5.5", **({"api_key": target_api_key} if target_api_key else {})}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", {"model": "openai/gpt-5.5"}),
             _default_endpoint_deployment("target", target_params),
@@ -2898,7 +2898,7 @@ def test_hop_strip_resolves_a_missing_key_from_the_environment(
 
 
 def test_hop_strip_leaves_input_items_that_are_not_objects_as_sent():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2943,12 +2943,12 @@ def test_hop_strip_keeps_accounts_that_sign_in_through_headers_apart(
     target_params: dict[str, object],
     target_can_decrypt: bool,
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     monkeypatch.setenv("OPENAI_API_KEY", "env-key")
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", origin_params),
             _default_endpoint_deployment("target", target_params),
@@ -2977,14 +2977,14 @@ def test_hop_strip_keeps_accounts_that_sign_in_through_headers_apart(
 def test_hop_strip_matches_an_explicit_key_and_the_environment_key_on_one_api_base(
     monkeypatch: pytest.MonkeyPatch, environment_key: str, target_model: str, target_can_decrypt: bool
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "openai_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "openai_key", None)
     monkeypatch.setenv("OPENAI_API_KEY", environment_key)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", {**GATEWAY_BASE, "api_key": "shared-key"}),
             _default_endpoint_deployment("target", {**GATEWAY_BASE, "model": target_model}),
@@ -3034,11 +3034,11 @@ class _SecretReadCounter(CustomSecretManager):
 def test_hop_strip_reads_no_secrets_when_no_default_boundary_needs_resolving(
     monkeypatch: pytest.MonkeyPatch, deployment_params: dict[str, object], reasoning_minted_by: str | None
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", deployment_params),
             _default_endpoint_deployment("target", deployment_params),
@@ -3046,9 +3046,9 @@ def test_hop_strip_reads_no_secrets_when_no_default_boundary_needs_resolving(
     )
     ctx: Final = RoutingContext(router)
     secret_reads: Final = _SecretReadCounter()
-    monkeypatch.setattr(litellm, "secret_manager_client", secret_reads)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", secret_reads)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
     request_input: Final = (
         _reasoning_input_minted_by(reasoning_minted_by)
         if reasoning_minted_by
@@ -3066,7 +3066,7 @@ def test_hop_strip_reads_no_secrets_when_no_default_boundary_needs_resolving(
     "unreadable_params",
     [
         pytest.param(
-            {"model": "openai/gpt-5.5", "litellm_credential_name": "mistyped"},
+            {"model": "openai/gpt-5.5", "hangarllm_credential_name": "mistyped"},
             id="named credential with a value of the wrong type",
         ),
         pytest.param(
@@ -3078,12 +3078,12 @@ def test_hop_strip_reads_no_secrets_when_no_default_boundary_needs_resolving(
 def test_hop_strip_keeps_reasoning_a_target_can_decrypt_beside_a_target_with_unreadable_params(
     monkeypatch: pytest.MonkeyPatch, unreadable_params: dict[str, object]
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -3094,7 +3094,7 @@ def test_hop_strip_keeps_reasoning_a_target_can_decrypt_beside_a_target_with_unr
         ],
     )
     shared_pair: Final = {**GATEWAY_BASE, "api_key": "shared-key"}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", shared_pair),
             _default_endpoint_deployment("unreadable", unreadable_params),
@@ -3118,12 +3118,12 @@ def test_hop_strip_keeps_reasoning_a_target_can_decrypt_beside_a_target_with_unr
 
 
 def test_boundary_key_puts_pydantic_and_plain_params_on_one_default_endpoint_boundary():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
-    from litellm.types.router import LiteLLM_Params
+    from hangarllm.types.router import HangarLLM_Params
 
-    pydantic_key: Final = EncryptedContentAffinityCheck._encryption_boundary_key(LiteLLM_Params(**OPENAI_SHARED_KEY))
+    pydantic_key: Final = EncryptedContentAffinityCheck._encryption_boundary_key(HangarLLM_Params(**OPENAI_SHARED_KEY))
     plain_key: Final = EncryptedContentAffinityCheck._encryption_boundary_key(dict(OPENAI_SHARED_KEY))
 
     assert pydantic_key is not None
@@ -3133,7 +3133,7 @@ def test_boundary_key_puts_pydantic_and_plain_params_on_one_default_endpoint_bou
 
 
 def test_boundary_key_has_no_default_endpoint_for_a_model_no_provider_claims():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -3143,23 +3143,23 @@ def test_boundary_key_has_no_default_endpoint_for_a_model_no_provider_claims():
 
 
 def test_boundary_key_has_no_default_key_for_a_custom_provider(monkeypatch: pytest.MonkeyPatch):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "qa-custom"])
-    monkeypatch.setattr(litellm, "_custom_providers", ["qa-custom"])
+    monkeypatch.setattr(hangarllm, "provider_list", [*hangarllm.provider_list, "qa-custom"])
+    monkeypatch.setattr(hangarllm, "_custom_providers", ["qa-custom"])
 
     assert EncryptedContentAffinityCheck._encryption_boundary_key({"model": "qa-custom/some-model"}) is None
 
 
 @pytest.mark.asyncio
 async def test_affinity_pins_to_the_same_key_peer_on_the_default_endpoint_when_the_origin_cannot_serve():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", OPENAI_SHARED_KEY),
             _default_endpoint_deployment("peer", OPENAI_SHARED_KEY),
@@ -3175,7 +3175,7 @@ async def test_affinity_pins_to_the_same_key_peer_on_the_default_endpoint_when_t
         model="gpt-5.5",
         healthy_deployments=[peer, _deployment_of(ctx, "other-org")],
         messages=None,
-        request_kwargs={"litellm_metadata": {}, "input": reasoning_input},
+        request_kwargs={"hangarllm_metadata": {}, "input": reasoning_input},
     )
 
     assert result == [peer]
@@ -3192,16 +3192,16 @@ class _HandAdvancedClock:
 
 def _count_secret_reads(monkeypatch: pytest.MonkeyPatch) -> _SecretReadCounter:
     secret_reads: Final = _SecretReadCounter()
-    monkeypatch.setattr(litellm, "secret_manager_client", secret_reads)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", secret_reads)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
     return secret_reads
 
 
 async def _pin_a_turn_minted_by_the_origin(
     affinity: object, healthy_deployments: list[dict[str, object]]
 ) -> tuple[list[dict[str, object]], Mapping[str, object]]:
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -3211,7 +3211,7 @@ async def _pin_a_turn_minted_by_the_origin(
         model="gpt-5.5",
         healthy_deployments=list(healthy_deployments),
         messages=None,
-        request_kwargs={"litellm_metadata": {}, "input": reasoning_input},
+        request_kwargs={"hangarllm_metadata": {}, "input": reasoning_input},
     )
     return result, reasoning_input[0]
 
@@ -3220,11 +3220,11 @@ async def _pin_a_turn_minted_by_the_origin(
 async def test_repeated_pins_to_a_default_endpoint_peer_ask_the_secret_manager_once_a_minute(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment("origin", OPENAI_SHARED_KEY),
             _default_endpoint_deployment("peer", OPENAI_SHARED_KEY),
@@ -3258,7 +3258,7 @@ async def test_repeated_pins_to_a_default_endpoint_peer_ask_the_secret_manager_o
 async def test_a_changed_named_credential_moves_the_pin_within_the_secret_manager_refresh_minute(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -3267,11 +3267,11 @@ async def test_a_changed_named_credential_moves_the_pin_within_the_secret_manage
             CredentialItem(credential_name="origin-account", credential_values={"api_key": api_key}, credential_info={})
         ]
 
-    monkeypatch.setattr(litellm, "credential_list", origin_credential("shared-key"))
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "credential_list", origin_credential("shared-key"))
+    router: Final = hangarllm.Router(
         model_list=[
             _default_endpoint_deployment(
-                "origin", {"model": "openai/gpt-5.5", "litellm_credential_name": "origin-account"}
+                "origin", {"model": "openai/gpt-5.5", "hangarllm_credential_name": "origin-account"}
             ),
             _default_endpoint_deployment("peer", OPENAI_SHARED_KEY),
             _default_endpoint_deployment("other-org", {**OPENAI_SHARED_KEY, "api_key": "other-key"}),
@@ -3285,7 +3285,7 @@ async def test_a_changed_named_credential_moves_the_pin_within_the_secret_manage
     affinity: Final = EncryptedContentAffinityCheck(ctx=ctx, clock=_HandAdvancedClock())
 
     pin_before_the_change, _ = await _pin_a_turn_minted_by_the_origin(affinity, [peer, other_org])
-    monkeypatch.setattr(litellm, "credential_list", origin_credential("other-key"))
+    monkeypatch.setattr(hangarllm, "credential_list", origin_credential("other-key"))
     pin_after_the_change, reasoning_after_the_change = await _pin_a_turn_minted_by_the_origin(
         affinity, [peer, other_org]
     )

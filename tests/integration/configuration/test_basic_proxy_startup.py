@@ -30,7 +30,7 @@ async def test_health_and_chat_completion(provider: SharedProvider) -> None:
         async with session.get(f"{base_url}/health/liveness") as response:
             assert response.status == 200, await response.text()
         headers: Final = {
-            "Authorization": f"Bearer {os.environ['LITELLM_MASTER_KEY']}",
+            "Authorization": f"Bearer {os.environ['HANGARLLM_MASTER_KEY']}",
             "Content-Type": "application/json",
         }
         if INTEGRATION_RIG:

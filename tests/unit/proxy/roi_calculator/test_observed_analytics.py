@@ -3,13 +3,13 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.roi_calculator.observed_analytics import (
+from hangarllm.proxy.roi_calculator.observed_analytics import (
     declared_requester,
     merge_hours,
     reporting_windows,
     summarize_observed,
 )
-from litellm.types.roi_observed import ObservedData, ObservedIssue, ObservedPeriodData, ObservedPull, ObservedWindow
+from hangarllm.types.roi_observed import ObservedData, ObservedIssue, ObservedPeriodData, ObservedPull, ObservedWindow
 
 _NOW: Final = datetime(2026, 10, 3, tzinfo=timezone.utc)
 _WINDOW: Final = ObservedWindow(start=date(2026, 9, 5), end=date(2026, 10, 2))

@@ -33,7 +33,7 @@ def _tagged_request(
         **({"tags": tags} if tag_source == "root" else {}),
     }
     headers: Final[dict[str, str]] = (
-        {"x-litellm-tags": f"{_untracked_tag(tag)}, {tag}"} if tag_source == "header" else {}
+        {"x-hangarllm-tags": f"{_untracked_tag(tag)}, {tag}"} if tag_source == "header" else {}
     )
     request_key: Final[str | None] = key if tag_source == "key" else None
     return gateway.request(
@@ -480,7 +480,7 @@ def test_tag_budget_duration_can_be_cleared_and_limits_are_read_back(gateway: Ga
         info_response: Final = gateway.request("POST", "/tag/info", {"names": [tag]})
         assert info_response.status_code == 200, info_response.text
         tag_info: Final = object_value(info_response.json())[tag]
-        budget_info: Final = object_value(object_value(tag_info)["litellm_budget_table"])
+        budget_info: Final = object_value(object_value(tag_info)["hangarllm_budget_table"])
         assert {
             "max_budget": budget_info["max_budget"],
             "rpm_limit": budget_info["rpm_limit"],
@@ -488,10 +488,10 @@ def test_tag_budget_duration_can_be_cleared_and_limits_are_read_back(gateway: Ga
             "budget_reset_at": budget_info["budget_reset_at"],
         } == {"max_budget": 100, "rpm_limit": 1, "budget_duration": None, "budget_reset_at": None}, info_response.text
 
-        tag_rows: Final = read_rows('SELECT budget_id FROM "LiteLLM_TagTable" WHERE tag_name = %s', (tag,))
+        tag_rows: Final = read_rows('SELECT budget_id FROM "HangarLLM_TagTable" WHERE tag_name = %s', (tag,))
         assert len(tag_rows) == 1, tag_rows
         budget_rows: Final = read_rows(
-            'SELECT max_budget, rpm_limit, budget_duration, budget_reset_at FROM "LiteLLM_BudgetTable" '
+            'SELECT max_budget, rpm_limit, budget_duration, budget_reset_at FROM "HangarLLM_BudgetTable" '
             "WHERE budget_id = %s",
             (str(tag_rows[0]["budget_id"]),),
         )
@@ -525,7 +525,7 @@ def test_tag_delete_evicts_blocked_limit(
         assert deleted.status_code == 200, deleted.text
         restored: Final = _tagged_request(gateway, model, tag, tag_source, f"tag deleted {tag}", key=tag_key)
         assert restored.status_code == 200, restored.text
-        tag_rows: Final = read_rows('SELECT tag_name FROM "LiteLLM_TagTable" WHERE tag_name = %s', (tag,))
+        tag_rows: Final = read_rows('SELECT tag_name FROM "HangarLLM_TagTable" WHERE tag_name = %s', (tag,))
         assert tag_rows == [], tag_rows
 
 

@@ -7,7 +7,7 @@ from typing import Final
 
 import pytest
 
-from litellm.router_strategy.auto_router.auto_router_tuning_baseline import (
+from hangarllm.router_strategy.auto_router.auto_router_tuning_baseline import (
     DEFAULT_TUNING_FINGERPRINT,
     HEURISTIC_V1_TUNING_FIELDS,
     heuristic_v1_router_fingerprint,
@@ -18,7 +18,7 @@ from litellm.router_strategy.auto_router.auto_router_tuning_baseline import (
     tuning_limit_violation,
     tuning_quota_violation,
 )
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig
+from hangarllm.router_strategy.complexity_router.config import ComplexityRouterConfig
 
 _TIERS = {"SIMPLE": "cheap", "MEDIUM": "mid", "COMPLEX": "strong", "REASONING": "top"}
 _ALT_TIERS = {**_TIERS, "COMPLEX": "other-strong"}
@@ -44,12 +44,12 @@ def _router(
     db_id: str | None = None,
     model: str = "auto_router/complexity_router",
 ) -> dict[str, object]:
-    litellm_params: dict[str, object] = {"model": model}
+    hangarllm_params: dict[str, object] = {"model": model}
     if config is not None:
-        litellm_params["complexity_router_config"] = dict(config)
+        hangarllm_params["complexity_router_config"] = dict(config)
     if tags is not None:
-        litellm_params["tags"] = tags
-    row: dict[str, object] = {"model_name": name, "litellm_params": litellm_params}
+        hangarllm_params["tags"] = tags
+    row: dict[str, object] = {"model_name": name, "hangarllm_params": hangarllm_params}
     if db_id is not None:
         row["model_info"] = {"id": db_id, "db_model": True}
     return row
@@ -109,7 +109,7 @@ class TestTuningFingerprint:
     def test_tier_model_overrides_do_not_change_the_fingerprint(self) -> None:
         plain = tuning_fingerprint({"tiers": {"SIMPLE": "x"}})
         with_override = tuning_fingerprint(
-            {"tiers": {"SIMPLE": {"model_name": "x", "litellm_params": {"temperature": 0.1}}}}
+            {"tiers": {"SIMPLE": {"model_name": "x", "hangarllm_params": {"temperature": 0.1}}}}
         )
         assert plain == with_override == DEFAULT_TUNING_FINGERPRINT
 
@@ -121,8 +121,8 @@ class TestTuningFingerprint:
             **({"heuristic_first_max_tier": "MEDIUM"} if classifier_type == "heuristic_first" else {}),
             **({"hybrid_boundary_margin": 0.1} if classifier_type == "hybrid" else {}),
             "tiers": _ALT_TIERS,
-            "escalation_keywords": ["LITELLM ESCALATE"],
-            "tier_model_configs": {"COMPLEX": [{"model_name": "other-strong", "litellm_params": {"temperature": 0.1}}]},
+            "escalation_keywords": ["HANGARLLM ESCALATE"],
+            "tier_model_configs": {"COMPLEX": [{"model_name": "other-strong", "hangarllm_params": {"temperature": 0.1}}]},
         }
         tuned: Final = _router("tuned", {"dimension_weights": {"codePresence": 0.9}})
         model_only: Final = _router("model-only", {"tiers": _TIERS})
@@ -145,13 +145,13 @@ class TestTuningFingerprint:
     def test_a_release_changing_a_shipped_default_is_not_an_operator_edit(self, monkeypatch) -> None:
         """An omitted setting follows the shipped default and stays off the quota when that default moves;
         only what the operator wrote is fingerprinted, so an explicit value equal to the old default still counts."""
-        import litellm.router_strategy.complexity_router.config as config_module
+        import hangarllm.router_strategy.complexity_router.config as config_module
 
         untouched = _router("a", {})
         tiers_only = _router("b", {"tiers": _TIERS})
         pinned = _router("c", {"dimension_weights": dict(config_module.DEFAULT_DIMENSION_WEIGHTS)})
         baselines = snapshot_tuning_baselines([untouched, tiers_only, pinned])
-        assert tuning_fingerprint(pinned["litellm_params"]["complexity_router_config"]) != DEFAULT_TUNING_FINGERPRINT
+        assert tuning_fingerprint(pinned["hangarllm_params"]["complexity_router_config"]) != DEFAULT_TUNING_FINGERPRINT
 
         monkeypatch.setattr(
             config_module,
@@ -179,7 +179,7 @@ class TestRouterIdentity:
         assert router_identity(_router("a", {"tiers": _TIERS}, tags=["x"])) != router_identity(
             _router("a", {"tiers": _TIERS})
         )
-        assert router_identity({"litellm_params": {"model": "auto_router/complexity_router"}}) is None
+        assert router_identity({"hangarllm_params": {"model": "auto_router/complexity_router"}}) is None
 
 
 class TestHeuristicV1Scope:

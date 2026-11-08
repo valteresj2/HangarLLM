@@ -23,14 +23,14 @@ from dataclasses import asdict, dataclass
 from typing import List
 from unittest.mock import MagicMock
 
-os.environ.setdefault("LITELLM_LOG", "ERROR")
-logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+os.environ.setdefault("HANGARLLM_LOG", "ERROR")
+logging.getLogger("HangarLLM").setLevel(logging.ERROR)
 
-import litellm  # noqa: E402
+import hangarllm  # noqa: E402
 
-litellm.suppress_debug_info = True
+hangarllm.suppress_debug_info = True
 
-from litellm.litellm_core_utils.streaming_handler import (
+from hangarllm.hangarllm_core_utils.streaming_handler import (
     CustomStreamWrapper,
 )  # noqa: E402
 
@@ -39,7 +39,7 @@ def _make_logging_obj(provider: str) -> MagicMock:
     logging_obj = MagicMock()
     logging_obj.model_call_details = {
         "custom_llm_provider": provider,
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
     logging_obj.call_type = "completion"
     logging_obj.stream_options = None

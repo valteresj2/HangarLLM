@@ -10,10 +10,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.llms.openrouter.chat.transformation import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from hangarllm.llms.openrouter.chat.transformation import (
     OpenRouterChatCompletionStreamingHandler,
     OpenrouterConfig,
     OpenRouterException,
@@ -94,11 +94,11 @@ def test_openrouter_extra_body_transformation():
         model="openrouter/deepseek/deepseek-chat",
         messages=[{"role": "user", "content": "Hello, world!"}],
         optional_params={"extra_body": {"provider": {"order": ["DeepSeek"]}}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
-    # https://github.com/BerriAI/litellm/issues/8425, validate its not contained in extra_body still
+    # upstream issue 8425 validate its not contained in extra_body still
     assert transformed_request["provider"]["order"] == ["DeepSeek"]
     assert transformed_request["messages"] == [
         {"role": "user", "content": "Hello, world!"}
@@ -125,7 +125,7 @@ def test_openrouter_cache_control_flag_removal():
             }
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert transformed_request["messages"][0].get("cache_control") is None
@@ -183,7 +183,7 @@ def test_openrouter_transform_request_with_cache_control():
         model="openrouter/anthropic/claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -254,7 +254,7 @@ def test_openrouter_transform_request_with_cache_control_list_content():
         model="openrouter/anthropic/claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -313,7 +313,7 @@ def test_openrouter_transform_request_with_cache_control_gemini():
         model="openrouter/google/gemini-2.0-flash-exp:free",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -360,7 +360,7 @@ def test_openrouter_transform_request_multiple_cache_controls():
         model="openrouter/anthropic/claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -389,7 +389,7 @@ def test_openrouter_cost_tracking_non_streaming():
     2. Response extracts cost from usage.cost and stores in _hidden_params
     """
     from unittest.mock import Mock, patch
-    from litellm.types.utils import ModelResponse, Choices, Message, Usage
+    from hangarllm.types.utils import ModelResponse, Choices, Message, Usage
 
     config = OpenrouterConfig()
 
@@ -398,7 +398,7 @@ def test_openrouter_cost_tracking_non_streaming():
         model="openrouter/anthropic/claude-sonnet-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "usage" in transformed_request
@@ -451,18 +451,18 @@ def test_openrouter_cost_tracking_non_streaming():
             request_data={},
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
     assert hasattr(result, "_hidden_params")
     assert (
-        "llm_provider-x-litellm-response-cost"
+        "llm_provider-x-hangarllm-response-cost"
         in result._hidden_params["additional_headers"]
     )
     assert (
         result._hidden_params["additional_headers"][
-            "llm_provider-x-litellm-response-cost"
+            "llm_provider-x-hangarllm-response-cost"
         ]
         == 0.00015
     )
@@ -485,16 +485,16 @@ def test_openrouter_chat_leaves_a_non_finite_provider_cost_out_of_the_response_h
         raw_response=httpx.Response(
             200, content=json.dumps(body).encode(), headers={"content-type": "application/json"}
         ),
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         logging_obj=MagicMock(),
         request_data={},
         messages=[{"role": "user", "content": "Reply with ok"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
-    assert "llm_provider-x-litellm-response-cost" not in result._hidden_params.get("additional_headers", {})
+    assert "llm_provider-x-hangarllm-response-cost" not in result._hidden_params.get("additional_headers", {})
 
 def test_openrouter_cost_tracking_streaming():
     """
@@ -512,7 +512,7 @@ def test_openrouter_cost_tracking_streaming():
         model="openrouter/anthropic/claude-sonnet-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "usage" in transformed_request
@@ -659,7 +659,7 @@ def test_openrouter_reasoning_effort_high_passes_through():
     assert result["reasoning_effort"] == "high"
 
 
-OPENROUTER_COST_HEADER = "llm_provider-x-litellm-response-cost"
+OPENROUTER_COST_HEADER = "llm_provider-x-hangarllm-response-cost"
 
 
 def _complete_with_openrouter_usage(usage):
@@ -676,7 +676,7 @@ def _complete_with_openrouter_usage(usage):
             },
         )
 
-    return litellm.completion(
+    return hangarllm.completion(
         model="openrouter/openai/gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         api_key="sk-test",
@@ -737,7 +737,7 @@ def test_openrouter_completion_without_usable_cost_returns_response_without_cost
     ],
 )
 def test_openrouter_completion_with_non_object_usage_raises_api_connection_error(usage):
-    with pytest.raises(litellm.APIConnectionError):
+    with pytest.raises(hangarllm.APIConnectionError):
         _complete_with_openrouter_usage(usage)
 
 
@@ -798,7 +798,7 @@ async def test_openrouter_streaming_completion_assembles_text_and_finish_reason(
     )
     client: Final = AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport())
     try:
-        stream: Final = await litellm.acompletion(**kwargs, client=client) if async_stream else litellm.completion(**kwargs)
+        stream: Final = await hangarllm.acompletion(**kwargs, client=client) if async_stream else hangarllm.completion(**kwargs)
         stream_chunks: Final = tuple([chunk async for chunk in stream]) if async_stream else tuple(stream)
     finally:
         await client.client.aclose()
@@ -810,7 +810,7 @@ async def test_openrouter_streaming_completion_assembles_text_and_finish_reason(
     assert "".join(
         chunk.choices[0].delta.content or "" for chunk in stream_chunks if chunk.choices
     ) == "The Supreme Court hears federal cases."
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
     assert assembled is not None
     assert assembled.model == chunks[0]["model"]
     assert assembled.choices[0].message.content == "The Supreme Court hears federal cases."
@@ -867,7 +867,7 @@ def test_openrouter_streaming_reasoning_is_preserved() -> None:
     ).chunk_parser(chunks[0])
     assert parsed_reasoning_chunk.choices[0]["delta"]["reasoning_content"] == "Consider the evidence. "
     messages: Final = [{"role": "user", "content": "Explain the decision briefly."}]
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="openrouter/anthropic/claude-sonnet-4.5",
         messages=messages,
         stream=True,
@@ -883,7 +883,7 @@ def test_openrouter_streaming_reasoning_is_preserved() -> None:
         if chunk.choices
     )
     assert reasoning_deltas == ("Consider the evidence. ", "Apply the rule.", None)
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
     assert assembled is not None
     assert assembled.choices[0].message.reasoning_content == "Consider the evidence. Apply the rule."
 
@@ -923,7 +923,7 @@ def _cached_texts(node: object) -> Iterator[str]:
 def test_openrouter_claude_request_over_the_cache_control_cap_drops_the_oldest_hints_only_under_drop_params(
     drop_params: bool | str, expected_cached_texts: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     messages: Final = _five_message_level_cache_hints()
     messages_before: Final = copy.deepcopy(messages)
 
@@ -931,7 +931,7 @@ def test_openrouter_claude_request_over_the_cache_control_cap_drops_the_oldest_h
         model="anthropic/claude-haiku-5.5",
         messages=messages,
         optional_params={},
-        litellm_params={"drop_params": drop_params, "custom_llm_provider": "openrouter"},
+        hangarllm_params={"drop_params": drop_params, "custom_llm_provider": "openrouter"},
         headers={},
     )
 
@@ -940,16 +940,16 @@ def test_openrouter_claude_request_over_the_cache_control_cap_drops_the_oldest_h
     assert messages == messages_before
 
 
-def _transform_openrouter_response(body: dict[str, object]) -> litellm.ModelResponse:
+def _transform_openrouter_response(body: dict[str, object]) -> hangarllm.ModelResponse:
     return OpenrouterConfig().transform_response(
         model="openrouter/openai/gpt-4o-mini",
         raw_response=httpx.Response(200, json=body),
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         logging_obj=MagicMock(),
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

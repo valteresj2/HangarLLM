@@ -17,7 +17,7 @@ from typing import Final
 import pytest
 
 
-from litellm.proxy.management_helpers.access_group_team_sync import (
+from hangarllm.proxy.management_helpers.access_group_team_sync import (
     reconcile_team_access_group_membership,
     sync_team_access_group_membership,
 )
@@ -28,8 +28,8 @@ _XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER", "master")
 TEAM = f"ags-team-a-{_XDIST_WORKER}"
 OTHER_TEAM = f"ags-team-b-{_XDIST_WORKER}"
 GROUPS = tuple(f"ags-group-{n}-{_XDIST_WORKER}" for n in (1, 2, 3))
-_DELETE_SEEDED = 'DELETE FROM "LiteLLM_AccessGroupTable" WHERE access_group_id = ANY($1::TEXT[])'
-_DELETE_TEAMS = 'DELETE FROM "LiteLLM_TeamTable" WHERE team_id = ANY($1::TEXT[])'
+_DELETE_SEEDED = 'DELETE FROM "HangarLLM_AccessGroupTable" WHERE access_group_id = ANY($1::TEXT[])'
+_DELETE_TEAMS = 'DELETE FROM "HangarLLM_TeamTable" WHERE team_id = ANY($1::TEXT[])'
 
 
 @asynccontextmanager
@@ -55,7 +55,7 @@ async def _clean_db():
 
 async def _seed(db, assignments):
     for group_id, team_ids in assignments.items():
-        await db.litellm_accessgrouptable.create(
+        await db.hangarllm_accessgrouptable.create(
             data={
                 "access_group_id": group_id,
                 "access_group_name": group_id,
@@ -66,7 +66,7 @@ async def _seed(db, assignments):
 
 async def _read(db):
     rows = await db.query_raw(
-        'SELECT access_group_id, assigned_team_ids FROM "LiteLLM_AccessGroupTable" '
+        'SELECT access_group_id, assigned_team_ids FROM "HangarLLM_AccessGroupTable" '
         "WHERE access_group_id = ANY($1::TEXT[])",
         list(GROUPS),
     )
@@ -78,7 +78,7 @@ async def _set_team_groups(db, team_id, access_group_ids):
     if access_group_ids is None:
         await db.execute_raw(_DELETE_TEAMS, [team_id])
         return
-    await db.litellm_teamtable.upsert(
+    await db.hangarllm_teamtable.upsert(
         where={"team_id": team_id},
         data={
             "create": {"team_id": team_id, "access_group_ids": list(access_group_ids)},
@@ -92,7 +92,7 @@ def _cache_key(access_group_id: str) -> str:
 
 
 async def _sync(db, team_id, access_group_ids) -> frozenset[str]:
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from hangarllm.proxy.proxy_server import user_api_key_cache
 
     await _set_team_groups(db, team_id, access_group_ids)
     for group in GROUPS:
@@ -143,7 +143,7 @@ async def test_reconcile_handles_a_null_array_column():
     async with _clean_db() as db:
         await _seed(db, {GROUPS[0]: [], GROUPS[1]: []})
         await db.execute_raw(
-            'UPDATE "LiteLLM_AccessGroupTable" SET assigned_team_ids = NULL WHERE access_group_id = $1',
+            'UPDATE "HangarLLM_AccessGroupTable" SET assigned_team_ids = NULL WHERE access_group_id = $1',
             GROUPS[0],
         )
 
@@ -175,7 +175,7 @@ async def test_a_failed_mirror_takes_the_new_team_row_with_it():
 
         async def _blow_up_after_reconcile():
             async with db.tx() as tx:
-                await tx.litellm_teamtable.create(data={"team_id": TEAM, "access_group_ids": [GROUPS[0]]})
+                await tx.hangarllm_teamtable.create(data={"team_id": TEAM, "access_group_ids": [GROUPS[0]]})
                 await reconcile_team_access_group_membership(tx, TEAM)
                 raise RuntimeError("the cache handoff blew up")
 
@@ -183,7 +183,7 @@ async def test_a_failed_mirror_takes_the_new_team_row_with_it():
             await _blow_up_after_reconcile()
 
         assert await _read(db) == {GROUPS[0]: [], GROUPS[1]: [OTHER_TEAM]}
-        assert await db.litellm_teamtable.find_unique(where={"team_id": TEAM}) is None
+        assert await db.hangarllm_teamtable.find_unique(where={"team_id": TEAM}) is None
 
 
 @pytest.mark.asyncio
@@ -231,7 +231,7 @@ async def test_a_concurrent_writer_cannot_replay_a_stale_team_row_over_a_newer_o
                 assert blocked[0]["blocked"] == 1
                 assert not task.done(), "the mirror did not wait on the team's advisory lock"
                 await held.execute_raw(
-                    'UPDATE "LiteLLM_TeamTable" SET access_group_ids = $1 WHERE team_id = $2',
+                    'UPDATE "HangarLLM_TeamTable" SET access_group_ids = $1 WHERE team_id = $2',
                     [GROUPS[1]],
                     TEAM,
                 )

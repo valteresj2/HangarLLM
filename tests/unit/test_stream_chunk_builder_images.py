@@ -1,14 +1,14 @@
 """
 Test that stream_chunk_builder correctly preserves images from streaming chunks.
 
-This tests the fix for https://github.com/BerriAI/litellm/issues/19478
+This tests the fix for upstream issue 19478
 where images from models like gemini-2.5-flash-image were lost when
 rebuilding the response from streaming chunks.
 """
 
 import pytest
-import litellm
-from litellm import stream_chunk_builder
+import hangarllm
+from hangarllm import stream_chunk_builder
 
 
 def test_stream_chunk_builder_preserves_images():
@@ -73,7 +73,7 @@ def test_stream_chunk_builder_preserves_images():
 
     chunks = []
     for chunk in init_chunks:
-        chunks.append(litellm.ModelResponseStream(**chunk))
+        chunks.append(hangarllm.ModelResponseStream(**chunk))
 
     response = stream_chunk_builder(chunks=chunks)
 
@@ -172,7 +172,7 @@ def test_stream_chunk_builder_preserves_multiple_images():
 
     chunks = []
     for chunk in init_chunks:
-        chunks.append(litellm.ModelResponseStream(**chunk))
+        chunks.append(hangarllm.ModelResponseStream(**chunk))
 
     response = stream_chunk_builder(chunks=chunks)
 
@@ -239,7 +239,7 @@ def test_stream_chunk_builder_no_images():
 
     chunks = []
     for chunk in init_chunks:
-        chunks.append(litellm.ModelResponseStream(**chunk))
+        chunks.append(hangarllm.ModelResponseStream(**chunk))
 
     response = stream_chunk_builder(chunks=chunks)
 

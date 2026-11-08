@@ -66,7 +66,7 @@ YAML_UPLOADS: Final = 4
 ROOMY: Final = 1000
 DAY_ROOM_SECONDS: Final = 120
 MINUTE_ROOM_SECONDS: Final = 30
-INVALIDATION_CHANNEL: Final = "litellm_proxy.auth_cache_invalidation"
+INVALIDATION_CHANNEL: Final = "hangarllm_proxy.auth_cache_invalidation"
 UPLOAD_ROUTES: Final = ("/v1/files", "/files", "/openai/v1/files")
 DOWNLOAD_ROUTES: Final = ("/v1/files/{}/content", "/files/{}/content", "/openai/v1/files/{}/content")
 ROTATIONS: Final = (
@@ -123,7 +123,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 RECORDS: YAML_RECORDS,
                 UPLOADS: YAML_UPLOADS,
                 "enable_jwt_auth": True,
-                "litellm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True},
+                "hangarllm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True},
             },
         )
         environment: Final = {**provider_environment(files.url), "JWT_PUBLIC_KEY_URL": keys.url}
@@ -273,7 +273,7 @@ def test_yaml_daily_upload_limit_counts_one_key_across_proxy_processes(rig: Rig)
         assert counter.count == YAML_UPLOADS, counter
         assert 0 < counter.ttl <= DAY_SECONDS, counter
         assert counter.name.endswith(
-            f"litellm:file_usage:{UPLOADS}:key:{hashed(key)}::{int(day_ends) - DAY_SECONDS}"
+            f"hangarllm:file_usage:{UPLOADS}:key:{hashed(key)}::{int(day_ends) - DAY_SECONDS}"
         ), counter
 
 
@@ -563,7 +563,7 @@ def test_key_download_limit_counts_one_file_per_key_across_proxy_processes(rig: 
         assert counter.count == 3, counter
         assert 0 < counter.ttl <= MINUTE_SECONDS, counter
         assert counter.name.endswith(
-            f"litellm:file_usage:{DOWNLOADS}:key:{hashed(key)}:{file_id}:{int(minute_ends) - MINUTE_SECONDS}"
+            f"hangarllm:file_usage:{DOWNLOADS}:key:{hashed(key)}:{file_id}:{int(minute_ends) - MINUTE_SECONDS}"
         ), counter
 
 

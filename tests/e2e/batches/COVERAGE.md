@@ -39,7 +39,7 @@ is asserted byte-equal to the upload. Vertex (GCS) and Bedrock (S3) transform li
 upload time, so those assert a 200 with non-empty parseable JSON lines instead. Gemini
 (non-Vertex) raises `NotImplementedError` for file content and has no cell here.
 
-## Routing scenarios (per `litellm/proxy/batches_endpoints/endpoints.py`)
+## Routing scenarios (per `hangarllm/proxy/batches_endpoints/endpoints.py`)
 
 Each create-capable provider runs all four. The test asserts the returned file id
 and batch id carry the shape that scenario must produce (`matches_id_shape`):
@@ -51,8 +51,8 @@ and batch id carry the shape that scenario must produce (`matches_id_shape`):
 | `model_param` | raw file (provider-fallback upload) -> create with `model` in the body | raw | model-encoded |
 | `provider_fallback` | raw file -> `POST /{provider}/v1/batches`, env creds, no model | raw | raw (native provider shape) |
 
-"managed" ids base64-decode to a `litellm_proxy` marker; "model-encoded" ids keep the
-provider prefix and base64-encode `litellm:<id>;model,<model>`; "raw" ids are the
+"managed" ids base64-decode to a `hangarllm_proxy` marker; "model-encoded" ids keep the
+provider prefix and base64-encode `hangarllm:<id>;model,<model>`; "raw" ids are the
 provider's native ids. Asserting these catches a proxy that returns a raw id where it
 should manage it, or vice versa. On top of the id shape, a misroute to the wrong
 provider also fails create (the file id / model do not belong there), and the
@@ -90,7 +90,7 @@ File delete asserts `object=="file"` and `deleted==True`.
 
 ## require_managed_files enforcement (separate stack phase)
 
-`litellm_settings.require_managed_files` is a boot-time module global with no per-key
+`hangarllm_settings.require_managed_files` is a boot-time module global with no per-key
 or runtime override, and turning it on 400s every upload that lacks
 `target_model_names`, including the files_settings-routed `provider_fallback`
 scenario above. So its pins cannot share a proxy with the rest of this suite:
@@ -116,7 +116,7 @@ file's embedded model (foreign-id precedence).
 
 ## Second hop (two chained gateways)
 
-`TestBatchSecondHop` registers a `litellm_proxy/<inner model>` deployment pointing at
+`TestBatchSecondHop` registers a `hangarllm_proxy/<inner model>` deployment pointing at
 the proxy's own base URL with a freshly minted virtual key, so unified upload and
 create traverse gateway -> gateway -> OpenAI (LIT-5347, PR #36240). The pin:
 `target_model_names` is rewritten to the inner deployment on the second hop and the
@@ -134,7 +134,7 @@ failures up to three times. Teardown attempts every registered cleanup before
 reporting failures as test errors. Already deleted files and batches that are
 terminal are safe to clean up again. Managed batch cancellation polls for up to two minutes
 before input deletion. A managed batch still `cancelling` after that is left for the provider to
-finish, and its input file is left in place because LiteLLM refuses to delete a file a non-terminal
+finish, and its input file is left in place because HangarLLM refuses to delete a file a non-terminal
 batch references. Both are reported as `UserWarning`s naming their ids rather than
 failing the test. Any other status or error still fails
 Accepted cancellation may still report validating or in_progress while the provider
@@ -176,7 +176,7 @@ window (25h-73h band, within the newest 100-item list page) must be terminal.
 
 The cost assertion is the LIT-5730 headline: retrieving a completed model-encoded
 batch must write a positive spend row with call_type `aretrieve_batch` and token
-usage. Before the fix in `litellm/batches/batch_utils.py`, the retrieve endpoint
+usage. Before the fix in `hangarllm/batches/batch_utils.py`, the retrieve endpoint
 re-encoded the response's `output_file_id` in place before the queued logging
 worker ran, the worker sent that encoded id to OpenAI, got a 404, and the spend row
 never landed.

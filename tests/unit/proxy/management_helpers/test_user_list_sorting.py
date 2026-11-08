@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-from litellm.proxy.management_helpers.user_list_sorting import sorted_user_ids
+from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
+from hangarllm.proxy.management_helpers.user_list_sorting import sorted_user_ids
 
 
 @pytest.mark.parametrize("sort_by", ("status", "key_count"))

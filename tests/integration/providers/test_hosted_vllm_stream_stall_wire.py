@@ -45,8 +45,8 @@ _PAUSE_SECONDS: Final = 3.0
 _ROW_SECONDS: Final = 60
 _HOLD_SECONDS: Final = 2.0 * _ROW_SECONDS
 _EXTRA: Final[dict[str, JsonValue]] = {"num_retries": 0, "cache": {"no-cache": True}}
-_ROWS: Final = 'SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s'
-_EITHER_GROUP_ROWS: Final = 'SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE model_group IN (%s, %s)'
+_ROWS: Final = 'SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s'
+_EITHER_GROUP_ROWS: Final = 'SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE model_group IN (%s, %s)'
 _OWNED_PROXY: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
 
 Endpoint = Literal["chat", "responses", "messages"]
@@ -188,7 +188,7 @@ def test_a_chat_stream_that_stalls_past_its_stream_timeout_ends_with_a_408_timeo
         assert _chat_errors(events[:-1]) == () and "error" in events[-1].data, response.text
         error: Final = object_value(events[-1].data["error"])
         observed: Final = (error["code"], _error_class(error["message"]), *_logged_failure(gateway, model))
-        assert observed == ("408", "litellm.Timeout", "408", "Timeout"), (error, observed)
+        assert observed == ("408", "hangarllm.Timeout", "408", "Timeout"), (error, observed)
         assert _upstream_targets(wire) == (target,)
 
 
@@ -222,7 +222,7 @@ def test_a_messages_stream_that_stalls_past_its_stream_timeout_ends_with_a_timeo
         assert types[-1] == "error", response.text
         error: Final = object_value(events[-1].data["error"])
         observed: Final = (_error_class(error["message"]), *_logged_failure(gateway, model))
-        assert observed == ("litellm.Timeout", "408", "Timeout"), (error, observed)
+        assert observed == ("hangarllm.Timeout", "408", "Timeout"), (error, observed)
         assert _upstream_targets(wire) == (_CHAT_TARGET,)
 
 

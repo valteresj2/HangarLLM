@@ -6,8 +6,8 @@ mode="${2:-standard}"
 side="${3:-}"
 requested_workers="${INTEGRATION_WORKERS:-}"
 license_env=()
-if [ -n "${LITELLM_LICENSE:-}" ]; then
-  license_env=("LITELLM_LICENSE=$LITELLM_LICENSE")
+if [ -n "${HANGARLLM_LICENSE:-}" ]; then
+  license_env=("HANGARLLM_LICENSE=$HANGARLLM_LICENSE")
 fi
 if [ "$mode" = replica ]; then
   results="test-results/integration-${suite}-replica"
@@ -26,7 +26,7 @@ guard_created=false
 guard_installed=false
 guard6_created=false
 guard6_installed=false
-egress_cgroup=litellm-integration
+egress_cgroup=hangarllm-integration
 cleanup() {
   original_status=$?
   trap - EXIT INT TERM
@@ -72,30 +72,30 @@ export PATH="$PWD/.venv/bin:$PATH"
 export PYTHONPATH="$PWD:$PWD/tests:$PWD/tests/e2e"
 export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/circle_test"
 export REDIS_HOST=127.0.0.1 REDIS_PORT=6379
-export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 16)" LITELLM_SALT_KEY=sk-integration-salt
-export LITELLM_MODE=PRODUCTION LITELLM_LOCAL_MODEL_COST_MAP=True
+export HANGARLLM_MASTER_KEY="sk-$(openssl rand -hex 16)" HANGARLLM_SALT_KEY=sk-integration-salt
+export HANGARLLM_MODE=PRODUCTION HANGARLLM_LOCAL_MODEL_COST_MAP=True
 export STORE_MODEL_IN_DB=True AWS_EC2_METADATA_DISABLED=true DO_NOT_TRACK=1
 export INTEGRATION_PROXY_URL=http://127.0.0.1:4000
 export INTEGRATION_PEER_URL=""
 export INTEGRATION_UPSTREAM_URL=http://127.0.0.1:8190
-export INTEGRATION_MASTER_KEY="$LITELLM_MASTER_KEY"
-export LITELLM_UI_PATH="$PWD/litellm/proxy/_experimental/out"
+export INTEGRATION_MASTER_KEY="$HANGARLLM_MASTER_KEY"
+export HANGARLLM_UI_PATH="$PWD/hangarllm/proxy/_experimental/out"
 if [ "$suite" = browser ]; then
-  export LITELLM_UI_PATH="$PWD/ui/litellm-dashboard/out"
-  test -f "$LITELLM_UI_PATH/index.html"
+  export HANGARLLM_UI_PATH="$PWD/ui/hangarllm-dashboard/out"
+  test -f "$HANGARLLM_UI_PATH/index.html"
 fi
 export INTEGRATION_SEED="$(.venv/bin/python -c 'import hashlib,os; print(int(hashlib.sha256(((os.environ.get("CIRCLE_SHA1") or os.environ.get("GITHUB_SHA") or "local") + (os.environ.get("CIRCLE_WORKFLOW_ID") or os.environ.get("GITHUB_RUN_ID") or "local")).encode()).hexdigest()[:8],16))')"
 export INTEGRATION_ORDER_SEED="$INTEGRATION_SEED"
 
-uv run --no-sync prisma generate --schema litellm/proxy/schema.prisma > "$results/prisma-generate.log" 2>&1
+uv run --no-sync prisma generate --schema hangarllm/proxy/schema.prisma > "$results/prisma-generate.log" 2>&1
 
 export INTEGRATION_PROXY_DATABASE_URL=""
 export INTEGRATION_PROXY_READ_REPLICA_URL=""
 export INTEGRATION_ROUTING=""
 if [ "$mode" = replica ] || [ "$mode" = parity ]; then
   .venv/bin/python .circleci/scripts/prepare_replica_roles.py > "$results/prepare-replica-roles.log" 2>&1
-  export INTEGRATION_PROXY_DATABASE_URL="postgresql://litellm_writer:litellm-writer@127.0.0.1:5432/circle_test"
-  export INTEGRATION_PROXY_READ_REPLICA_URL="postgresql://litellm_reader:litellm-reader@127.0.0.1:5432/circle_test"
+  export INTEGRATION_PROXY_DATABASE_URL="postgresql://hangarllm_writer:hangarllm-writer@127.0.0.1:5432/circle_test"
+  export INTEGRATION_PROXY_READ_REPLICA_URL="postgresql://hangarllm_reader:hangarllm-reader@127.0.0.1:5432/circle_test"
 fi
 if [ "$mode" = parity ]; then
   export INTEGRATION_ROUTING=capture
@@ -171,7 +171,7 @@ start_proxy() {
   local -a cost_map_env
   if [ "$suite" = cost ]; then
     cost_map_env=(
-      "LITELLM_MODEL_COST_MAP_URL=$INTEGRATION_UPSTREAM_URL/_cost_map"
+      "HANGARLLM_MODEL_COST_MAP_URL=$INTEGRATION_UPSTREAM_URL/_cost_map"
       "MODEL_COST_MAP_MIN_MODEL_COUNT=1"
       "MODEL_COST_MAP_MAX_SHRINK_RATIO=0"
       "GEMINI_API_BASE=$INTEGRATION_UPSTREAM_URL"
@@ -180,7 +180,7 @@ start_proxy() {
       "ANTHROPIC_API_KEY=sk-scripted-provider"
     )
   else
-    cost_map_env=("LITELLM_LOCAL_MODEL_COST_MAP=True")
+    cost_map_env=("HANGARLLM_LOCAL_MODEL_COST_MAP=True")
   fi
   local -a database_env=("DATABASE_URL=${INTEGRATION_PROXY_DATABASE_URL:-$DATABASE_URL}")
   if [ -n "$INTEGRATION_PROXY_READ_REPLICA_URL" ]; then
@@ -189,9 +189,9 @@ start_proxy() {
   setsid env -i PATH="$PATH" HOME="$HOME" PYTHONPATH="$PYTHONPATH" INTEGRATION_RUN_ID="$integration_identity" \
     "${database_env[@]}" REDIS_HOST="$REDIS_HOST" REDIS_PORT="$REDIS_PORT" \
     INTEGRATION_UPSTREAM_URL="$INTEGRATION_UPSTREAM_URL" \
-    LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" LITELLM_SALT_KEY="$LITELLM_SALT_KEY" LITELLM_UI_PATH="$LITELLM_UI_PATH" PROXY_BASE_URL="http://127.0.0.1:$port" \
+    HANGARLLM_MASTER_KEY="$HANGARLLM_MASTER_KEY" HANGARLLM_SALT_KEY="$HANGARLLM_SALT_KEY" HANGARLLM_UI_PATH="$HANGARLLM_UI_PATH" PROXY_BASE_URL="http://127.0.0.1:$port" \
     "${license_env[@]}" \
-    LITELLM_MODE=PRODUCTION STORE_MODEL_IN_DB=True LITELLM_ENABLE_MCP_STDIO=true "${cost_map_env[@]}" \
+    HANGARLLM_MODE=PRODUCTION STORE_MODEL_IN_DB=True HANGARLLM_ENABLE_MCP_STDIO=true "${cost_map_env[@]}" \
     AWS_EC2_METADATA_DISABLED=true DO_NOT_TRACK=1 COVERAGE_FILE="$coverage_data" \
     "${proxy_command[@]}" --config tests/integration/proxy_config.yaml \
     --host 127.0.0.1 --port "$port" --num_workers 1 --telemetry False \
@@ -204,7 +204,7 @@ if [ "$isolated_workers" = false ]; then
   proxy_pid="$launched_pid"
   .venv/bin/python .circleci/scripts/wait_integration_services.py
   curl --noproxy '*' -sSf -X POST "$INTEGRATION_PROXY_URL/config/update" \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer $HANGARLLM_MASTER_KEY" -H 'Content-Type: application/json' \
     -d '{"router_settings": {"num_retries": 0}}' > "$results/seed-router-settings.json"
   if [ "$suite" = management ] || [ "$suite" = mcp ] || [ "$suite" = accounting ]; then
     export INTEGRATION_PEER_URL=http://127.0.0.1:4001
@@ -231,7 +231,7 @@ if [ "$suite" = browser ]; then
     INTEGRATION_RUN_ID="$integration_identity" DATABASE_URL="$DATABASE_URL" \
     INTEGRATION_UPSTREAM_URL="$INTEGRATION_UPSTREAM_URL" INTEGRATION_PYTHON="$INTEGRATION_PYTHON" \
     E2E_UI_BASE_URL="$E2E_UI_BASE_URL" E2E_UI_ARTIFACT_DIR="$E2E_UI_ARTIFACT_DIR" \
-    LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" CI=true \
+    HANGARLLM_MASTER_KEY="$HANGARLLM_MASTER_KEY" CI=true \
     node tests/e2e/ui/node_modules/@playwright/test/cli.js test --config tests/e2e/ui/integration.config.ts
   .venv/bin/python .circleci/scripts/verify_integration_browser.py "$results/browser-results.json"
   exit 0
@@ -261,12 +261,12 @@ env -i PATH="$PATH" HOME="$HOME" PYTHONPATH="$PYTHONPATH" \
   DATABASE_URL="$DATABASE_URL" \
   "${shared_services[@]}" "${worker_coverage[@]}" \
   INTEGRATION_WORKERS="${INTEGRATION_WORKERS:-1}" \
-  LITELLM_MODE=PRODUCTION \
+  HANGARLLM_MODE=PRODUCTION \
   "${license_env[@]}" \
   INTEGRATION_SEED="$INTEGRATION_SEED" \
   INTEGRATION_ORDER_SEED="$INTEGRATION_ORDER_SEED" \
   INTEGRATION_CASE_SHARDS="${CIRCLE_NODE_TOTAL:-1}" INTEGRATION_CASE_SHARD_INDEX="${CIRCLE_NODE_INDEX:-0}" \
-  LITELLM_LOCAL_MODEL_COST_MAP=True AWS_EC2_METADATA_DISABLED=true DO_NOT_TRACK=1 \
+  HANGARLLM_LOCAL_MODEL_COST_MAP=True AWS_EC2_METADATA_DISABLED=true DO_NOT_TRACK=1 \
   INTEGRATION_PROXY_DATABASE_URL="$INTEGRATION_PROXY_DATABASE_URL" \
   INTEGRATION_PROXY_READ_REPLICA_URL="$INTEGRATION_PROXY_READ_REPLICA_URL" \
   INTEGRATION_ROUTING="$INTEGRATION_ROUTING" \

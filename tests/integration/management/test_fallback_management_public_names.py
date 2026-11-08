@@ -108,7 +108,7 @@ def _available_models(response: httpx.Response) -> list[str]:
 
 
 def _stored_fallbacks(fallback_key: str = "fallbacks") -> list[JsonValue]:
-    rows: Final = read_rows('SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s', ("router_settings",))
+    rows: Final = read_rows('SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s', ("router_settings",))
     if not rows:
         return []
     settings: Final = object_value(rows[0]["param_value"])
@@ -149,7 +149,7 @@ def _team_model(gateway: Gateway, scenario: Scenario, team: str, provider_model:
         "/model/new",
         {
             "model_name": public,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{provider_model}",
                 "api_key": PROVIDER_KEY,
                 "api_base": f"{gateway.upstream_url}/v1",

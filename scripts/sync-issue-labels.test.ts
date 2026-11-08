@@ -43,7 +43,7 @@ describe("syncLabels", () => {
     const writes: string[] = [];
     const api: GitHubApi = {
       request: async <T>(method: string, path: string, body?: object): Promise<T> => {
-        if (method === "GET" && path.startsWith("/repos/BerriAI/litellm/labels")) {
+        if (method === "GET" && path.startsWith("/repos/valteresj2/HangarLLM/labels")) {
           return existing as T;
         }
         if (method === "GET") {
@@ -58,17 +58,17 @@ describe("syncLabels", () => {
 
   test("a real run creates and patches, and never deletes", async () => {
     const { api, writes } = fakeApi([{ name: "priority:p0", color: "000000", description: "Bleeding" }, { name: "stale", color: "ededed", description: null }]);
-    await syncLabels(api, { repo: "BerriAI/litellm", dryRun: false }, small);
+    await syncLabels(api, { repo: "valteresj2/HangarLLM", dryRun: false }, small);
     expect(writes).toEqual([
-      'POST /repos/BerriAI/litellm/labels {"name":"domain:caching","color":"1C6E5B","description":"Response cache"}',
-      'PATCH /repos/BerriAI/litellm/labels/priority%3Ap0 {"color":"B60205","description":"Bleeding"}',
-      'POST /repos/BerriAI/litellm/labels {"name":"needs:template","color":"E99695","description":"Template sections missing"}',
+      'POST /repos/valteresj2/HangarLLM/labels {"name":"domain:caching","color":"1C6E5B","description":"Response cache"}',
+      'PATCH /repos/valteresj2/HangarLLM/labels/priority%3Ap0 {"color":"B60205","description":"Bleeding"}',
+      'POST /repos/valteresj2/HangarLLM/labels {"name":"needs:template","color":"E99695","description":"Template sections missing"}',
     ]);
   });
 
   test("a dry run returns the plan and writes nothing", async () => {
     const { api, writes } = fakeApi([]);
-    const plan = await syncLabels(api, { repo: "BerriAI/litellm", dryRun: true }, small);
+    const plan = await syncLabels(api, { repo: "valteresj2/HangarLLM", dryRun: true }, small);
     expect(plan.map((action) => action.kind)).toEqual(["create", "create", "create"]);
     expect(writes).toEqual([]);
   });
@@ -76,9 +76,9 @@ describe("syncLabels", () => {
 
 describe("readConfig", () => {
   test("reads the repo and the dry-run flag", () => {
-    expect(readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "BerriAI/litellm", DRY_RUN: "true" })).toEqual({
+    expect(readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "valteresj2/HangarLLM", DRY_RUN: "true" })).toEqual({
       token: "t",
-      repo: "BerriAI/litellm",
+      repo: "valteresj2/HangarLLM",
       dryRun: true,
     });
     expect(() => readConfig({ GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "nope" })).toThrow("GITHUB_REPOSITORY");

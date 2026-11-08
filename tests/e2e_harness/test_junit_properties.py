@@ -33,7 +33,7 @@ def collected_item(request: pytest.FixtureRequest, name: str) -> pytest.Item:
 
 
 def repo_root() -> Path | None:
-    """The litellm checkout above this file, or None when there isn't one."""
+    """The hangarllm checkout above this file, or None when there isn't one."""
     return next((p for p in Path(__file__).resolve().parents if (p / ".git").exists()), None)
 
 

@@ -31,8 +31,8 @@ pytestmark: Final = [pytest.mark.timeout(2 * graceful_stop_seconds() + 120), pyt
 
 _ANTHROPIC_KEY: Final = "scripted-anthropic-key"
 _ANTHROPIC_BASE: Final = "http://api.anthropic.com"
-_BY_REQUEST_ID: Final = 'SELECT response FROM "LiteLLM_SpendLogs" WHERE request_id=%s AND status=%s'
-_BY_DEPLOYMENT: Final = 'SELECT response FROM "LiteLLM_SpendLogs" WHERE model_group=%s AND status=%s'
+_BY_REQUEST_ID: Final = 'SELECT response FROM "HangarLLM_SpendLogs" WHERE request_id=%s AND status=%s'
+_BY_DEPLOYMENT: Final = 'SELECT response FROM "HangarLLM_SpendLogs" WHERE model_group=%s AND status=%s'
 _NATIVE_TOOLS: Final[list[JsonValue]] = [{"type": "tool_search_tool_bm25_20251119", "name": SEARCH_TOOL}]
 
 

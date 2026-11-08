@@ -7,7 +7,7 @@ from e2e_config import provider_edge_base, unique_marker
 from e2e_http import require_successful_call
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatStreamOptions, LiteLLMParamsBody, Usage
+from models import ChatBody, ChatMessage, ChatStreamOptions, HangarLLMParamsBody, Usage
 from proxy_client import ProxyClient
 from pydantic import BaseModel
 
@@ -47,7 +47,7 @@ class TestChatStreamContract:
         base: Final = provider_edge_base("openai")
         model_id: Final = proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=OPENAI_BACKEND,
                 api_key="os.environ/OPENAI_API_KEY",
                 api_base=f"{base}/v1" if base else None,

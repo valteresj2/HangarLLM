@@ -13,17 +13,17 @@ from typing import Final
 
 import pytest
 
-from litellm.integrations.otel import GenAIOperation
-from litellm.integrations.otel.mappers import (
+from hangarllm.integrations.otel import GenAIOperation
+from hangarllm.integrations.otel.mappers import (
     LangfuseMapper,
     LangtraceMapper,
     OpenInferenceMapper,
     WeaveMapper,
     resolve_mappers,
 )
-from litellm.integrations.otel.mappers.openinference import fit_indexed_messages
-from litellm.integrations.otel.model.baggage import DEFAULT_BAGGAGE_METADATA_KEYS
-from litellm.integrations.otel.model.payloads import (
+from hangarllm.integrations.otel.mappers.openinference import fit_indexed_messages
+from hangarllm.integrations.otel.model.baggage import DEFAULT_BAGGAGE_METADATA_KEYS
+from hangarllm.integrations.otel.model.payloads import (
     EmbeddingOutput,
     LLMCallSpanData,
     LLMRequestParams,
@@ -32,7 +32,7 @@ from litellm.integrations.otel.model.payloads import (
     ServerInfo,
     ToolDefinition,
 )
-from litellm.integrations.otel.model.trace_controls import TraceControls
+from hangarllm.integrations.otel.model.trace_controls import TraceControls
 from tests.unit.integrations.otel.test_otel_v2_sources_of_truth import _responses_payload
 
 
@@ -101,7 +101,7 @@ def test_openinference_mapper_input_output_messages():
 
 
 def test_openinference_mapper_skips_non_llm_roles():
-    from litellm.integrations.otel.model.payloads import GuardrailSpanData
+    from hangarllm.integrations.otel.model.payloads import GuardrailSpanData
 
     assert OpenInferenceMapper().map(GuardrailSpanData("presidio")) == {}
 
@@ -510,7 +510,7 @@ def test_openinference_payload_tool_arguments_with_raw_objects_map_without_raisi
         },
         "metadata": {"user_api_key_alias": "edge-key"},
         "status": "success",
-        "litellm_call_id": "call_raw_args",
+        "hangarllm_call_id": "call_raw_args",
         "hidden_params": {},
     }
     data: Final = LLMCallSpanData.from_standard_logging_payload(
@@ -641,7 +641,7 @@ def test_langfuse_mapper_sends_the_completion_start_time_as_the_sdks_json_string
     assert sent == datetime(2026, 10, 9, 12, 0, 0, 250000, tzinfo=timezone.utc)
 
 
-def test_langfuse_mapper_ignores_the_payloads_end_time_fallback_when_litellm_recorded_no_completion_start():
+def test_langfuse_mapper_ignores_the_payloads_end_time_fallback_when_hangarllm_recorded_no_completion_start():
     attrs: Final = LangfuseMapper().map(LLMCallSpanData.from_standard_logging_payload(_langfuse_payload()))
 
     assert "langfuse.observation.completion_start_time" not in attrs
@@ -962,9 +962,9 @@ def test_langfuse_mapper_skips_empty_identity_values():
 
 
 def test_langfuse_mapper_redacts_user_api_key_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "redact_user_api_key_info", True)
+    monkeypatch.setattr(hangarllm, "redact_user_api_key_info", True)
     attrs: Final = _langfuse_attrs(
         {
             "user_api_key_alias": "prod-key",
@@ -1016,7 +1016,7 @@ def test_langfuse_mapper_carries_the_caller_trace_name_on_the_generation() -> No
 @pytest.mark.parametrize(
     ("trace", "call_type", "expected"),
     [
-        (TraceControls(), "aresponses", {"langfuse.trace.name": "litellm-aresponses"}),
+        (TraceControls(), "aresponses", {"langfuse.trace.name": "hangarllm-aresponses"}),
         (TraceControls(name="caller-trace"), "aresponses", {"langfuse.trace.name": "caller-trace"}),
         (TraceControls(), None, {}),
     ],

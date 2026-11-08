@@ -119,10 +119,10 @@ def test_arize_otel_v2_d1_metadata_value_shapes(
         attributes: Final = _matching_marker_span(rig.destination, marker)
         if expected_trace is None:
             assert "metadata" not in attributes, attributes
-            assert "litellm.metadata.trace_marker" not in attributes, attributes
+            assert "hangarllm.metadata.trace_marker" not in attributes, attributes
         else:
             assert json.loads(attributes["metadata"]) == {"trace_marker": expected_trace}, attributes
-            assert attributes["litellm.metadata.trace_marker"] == expected_trace, attributes
+            assert attributes["hangarllm.metadata.trace_marker"] == expected_trace, attributes
 
 
 def test_arize_otel_v2_d2_duplicate_json_metadata_keys(gateway: Gateway, tmp_path: Path) -> None:
@@ -160,7 +160,7 @@ def test_arize_otel_v2_d2_duplicate_json_metadata_keys(gateway: Gateway, tmp_pat
         assert _json_object(response.content) == _chat_caller_response(_success(marker), rig.model), response.text
         attributes: Final = _matching_marker_span(rig.destination, marker)
         assert _json_object(attributes["metadata"].encode()) == {"trace_marker": marker}, attributes
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
 
 
 def test_arize_otel_v2_d4_unauthenticated_request_has_no_span(gateway: Gateway, tmp_path: Path) -> None:
@@ -237,9 +237,9 @@ def test_arize_otel_v2_d6_sink_rejections_do_not_change_caller_response(gateway:
 
     def sink(request: Request) -> Reply:
         exported_markers: Final = tuple(
-            attributes.get("litellm.metadata.trace_marker")
+            attributes.get("hangarllm.metadata.trace_marker")
             for attributes in _span_attributes(request)
-            if "litellm.metadata.trace_marker" in attributes
+            if "hangarllm.metadata.trace_marker" in attributes
         )
         if markers[0] in exported_markers:
             return Reply(status=403, body=b"rejected")
@@ -260,11 +260,11 @@ def test_arize_otel_v2_d6_sink_rejections_do_not_change_caller_response(gateway:
         first: Final = _call(rig.proxy, rig.model, markers[0], prompt=markers[0])
         assert first.status_code == 200, first.text
         assert _json_object(first.content) == _chat_caller_response(_success(markers[0]), rig.model), first.text
-        assert _matching_marker_span(rig.destination, markers[0])["litellm.metadata.trace_marker"] == markers[0]
+        assert _matching_marker_span(rig.destination, markers[0])["hangarllm.metadata.trace_marker"] == markers[0]
         second: Final = _call(rig.proxy, rig.model, markers[1], prompt=markers[1])
         assert second.status_code == 200, second.text
         assert _json_object(second.content) == _chat_caller_response(_success(markers[1]), rig.model), second.text
-        assert _matching_marker_span(rig.destination, markers[1])["litellm.metadata.trace_marker"] == markers[1]
+        assert _matching_marker_span(rig.destination, markers[1])["hangarllm.metadata.trace_marker"] == markers[1]
         unrelated: Final = _call(
             rig.proxy,
             rig.model,
@@ -277,7 +277,7 @@ def test_arize_otel_v2_d6_sink_rejections_do_not_change_caller_response(gateway:
             unrelated.text
         )
         assert (
-            _matching_marker_span(rig.destination, unrelated_marker)["litellm.metadata.trace_marker"]
+            _matching_marker_span(rig.destination, unrelated_marker)["hangarllm.metadata.trace_marker"]
             == unrelated_marker
         )
 
@@ -299,7 +299,7 @@ def test_arize_otel_v2_d7_missing_space_id_is_stable(gateway: Gateway, tmp_path:
         response: Final = _call(rig.proxy, rig.model, marker)
         assert response.status_code == 200, response.text
         assert _json_object(response.content) == _chat_caller_response(_success(marker), rig.model), response.text
-        assert _matching_marker_span(rig.destination, marker)["litellm.metadata.trace_marker"] == marker
+        assert _matching_marker_span(rig.destination, marker)["hangarllm.metadata.trace_marker"] == marker
 
 
 def test_arize_otel_v2_e1_uncached_request_exports_one_llm_span(gateway: Gateway, tmp_path: Path) -> None:
@@ -360,7 +360,7 @@ def test_arize_otel_v2_e2_concurrent_unique_markers(gateway: Gateway, tmp_path: 
         ) == tuple({"trace_marker": marker} for marker in markers), spans
         assert (
             tuple(
-                next(span for span in spans if marker in span.values())["litellm.metadata.trace_marker"]
+                next(span for span in spans if marker in span.values())["hangarllm.metadata.trace_marker"]
                 for marker in markers
             )
             == markers

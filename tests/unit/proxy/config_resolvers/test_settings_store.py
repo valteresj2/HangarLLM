@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.proxy.config_resolvers.settings_rules import JsonValue
-from litellm.proxy.config_resolvers.settings_store import ConfigOwnedKeyError, SettingsStore
+from hangarllm.proxy.config_resolvers.settings_rules import JsonValue
+from hangarllm.proxy.config_resolvers.settings_store import ConfigOwnedKeyError, SettingsStore
 
 
 def test_settings_store_matches_plain_dict_mapping_operations() -> None:
@@ -282,14 +282,14 @@ def test_settings_store_keeps_an_empty_database_list_without_a_config_value() ->
 
 @pytest.mark.asyncio
 async def test_load_config_returns_and_binds_the_general_settings_store(tmp_path, monkeypatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     config_path = tmp_path / "config.yaml"
     config_path.write_text("model_list: []\ngeneral_settings:\n  max_file_size_mb: 5\n")
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     monkeypatch.setattr(proxy_server, "store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     proxy_config: Final = ProxyConfig()
     _router, _models, returned_store = await proxy_config.load_config(router=None, config_file_path=str(config_path))
@@ -385,62 +385,62 @@ def test_settings_store_refusal_stays_quiet_about_the_database_when_nothing_is_s
 
 def test_settings_store_keeps_a_resolved_runtime_value_when_a_db_row_repeats_it() -> None:
     store: Final = SettingsStore("general_settings")
-    store.apply_db_row("general_settings", {"litellm_key_header_name": "os.environ/HDR"})
-    store.apply_runtime_values({"litellm_key_header_name": "X-Resolved-Header"})
+    store.apply_db_row("general_settings", {"hangarllm_key_header_name": "os.environ/HDR"})
+    store.apply_runtime_values({"hangarllm_key_header_name": "X-Resolved-Header"})
 
-    store.apply_db_row("general_settings", {"litellm_key_header_name": "os.environ/HDR"})
+    store.apply_db_row("general_settings", {"hangarllm_key_header_name": "os.environ/HDR"})
 
-    assert store["litellm_key_header_name"] == "X-Resolved-Header"
+    assert store["hangarllm_key_header_name"] == "X-Resolved-Header"
 
 
 def test_settings_store_drops_a_resolved_runtime_value_when_a_db_row_changes_it() -> None:
     store: Final = SettingsStore("general_settings")
-    store.apply_db_row("general_settings", {"litellm_key_header_name": "os.environ/HDR"})
-    store.apply_runtime_values({"litellm_key_header_name": "X-Resolved-Header"})
+    store.apply_db_row("general_settings", {"hangarllm_key_header_name": "os.environ/HDR"})
+    store.apply_runtime_values({"hangarllm_key_header_name": "X-Resolved-Header"})
 
-    store.apply_db_row("general_settings", {"litellm_key_header_name": "os.environ/OTHER"})
+    store.apply_db_row("general_settings", {"hangarllm_key_header_name": "os.environ/OTHER"})
 
-    assert store["litellm_key_header_name"] == "os.environ/OTHER"
+    assert store["hangarllm_key_header_name"] == "os.environ/OTHER"
 
 
 def test_settings_store_accepts_the_writes_it_does_not_report_as_rejected() -> None:
     store: Final = SettingsStore("general_settings")
-    store.load_yaml({"litellm_key_header_name": "os.environ/HDR"})
-    store.apply_runtime_values({"litellm_key_header_name": "X-Resolved-Header"})
-    incoming: Final[dict[str, JsonValue]] = {"litellm_key_header_name": "X-Resolved-Header"}
+    store.load_yaml({"hangarllm_key_header_name": "os.environ/HDR"})
+    store.apply_runtime_values({"hangarllm_key_header_name": "X-Resolved-Header"})
+    incoming: Final[dict[str, JsonValue]] = {"hangarllm_key_header_name": "X-Resolved-Header"}
 
     assert store.rejected_writes(incoming) == ()
-    store["litellm_key_header_name"] = "X-Resolved-Header"
-    assert store["litellm_key_header_name"] == "X-Resolved-Header"
+    store["hangarllm_key_header_name"] = "X-Resolved-Header"
+    assert store["hangarllm_key_header_name"] == "X-Resolved-Header"
 
 
 def test_settings_store_reports_a_rejected_write_the_store_itself_refuses() -> None:
     store: Final = SettingsStore("general_settings")
-    store.load_yaml({"litellm_key_header_name": "os.environ/HDR"})
-    store.apply_runtime_values({"litellm_key_header_name": "X-Resolved-Header"})
+    store.load_yaml({"hangarllm_key_header_name": "os.environ/HDR"})
+    store.apply_runtime_values({"hangarllm_key_header_name": "X-Resolved-Header"})
 
-    assert store.rejected_writes({"litellm_key_header_name": "X-Other-Header"}) == ("litellm_key_header_name",)
+    assert store.rejected_writes({"hangarllm_key_header_name": "X-Other-Header"}) == ("hangarllm_key_header_name",)
     with pytest.raises(ConfigOwnedKeyError):
-        store["litellm_key_header_name"] = "X-Other-Header"
+        store["hangarllm_key_header_name"] = "X-Other-Header"
 
 
 def test_settings_store_reports_no_shadowing_when_the_database_repeats_the_config_template() -> None:
     store: Final = SettingsStore("general_settings")
-    store.load_yaml({"litellm_key_header_name": "os.environ/HDR"})
-    store.apply_db_row("general_settings", {"litellm_key_header_name": "os.environ/HDR"})
-    store.apply_runtime_values({"litellm_key_header_name": "X-Resolved-Header"})
+    store.load_yaml({"hangarllm_key_header_name": "os.environ/HDR"})
+    store.apply_db_row("general_settings", {"hangarllm_key_header_name": "os.environ/HDR"})
+    store.apply_runtime_values({"hangarllm_key_header_name": "X-Resolved-Header"})
 
     assert store.shadowed_db_keys() == ()
-    assert store.shadows_db_value("litellm_key_header_name") is False
+    assert store.shadows_db_value("hangarllm_key_header_name") is False
 
 
 def test_settings_store_still_reports_shadowing_when_the_database_holds_another_template() -> None:
     store: Final = SettingsStore("general_settings")
-    store.load_yaml({"litellm_key_header_name": "os.environ/HDR"})
-    store.apply_db_row("general_settings", {"litellm_key_header_name": "os.environ/OTHER"})
-    store.apply_runtime_values({"litellm_key_header_name": "X-Resolved-Header"})
+    store.load_yaml({"hangarllm_key_header_name": "os.environ/HDR"})
+    store.apply_db_row("general_settings", {"hangarllm_key_header_name": "os.environ/OTHER"})
+    store.apply_runtime_values({"hangarllm_key_header_name": "X-Resolved-Header"})
 
-    assert store.shadowed_db_keys() == ("litellm_key_header_name",)
+    assert store.shadowed_db_keys() == ("hangarllm_key_header_name",)
 
 
 def test_settings_store_truthiness_stops_at_the_first_key() -> None:

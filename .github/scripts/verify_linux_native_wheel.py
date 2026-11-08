@@ -53,7 +53,7 @@ def _wheel_metadata_tags(archive: zipfile.ZipFile, members: tuple[zipfile.ZipInf
 
 
 def _load_native_module(native_path: Path) -> ModuleType | None:
-    module_spec: Final = importlib.util.spec_from_file_location("litellm.rust_bridge._native", native_path)
+    module_spec: Final = importlib.util.spec_from_file_location("hangarllm.rust_bridge._native", native_path)
     if module_spec is None or module_spec.loader is None:
         return None
     try:
@@ -84,7 +84,7 @@ def main(
         return 1
 
     wheel_identity: Final = wheel_tags[0].split("-")
-    if len(wheel_identity) != 2 or wheel_identity[0] != "litellm" or not wheel_identity[1]:
+    if len(wheel_identity) != 2 or wheel_identity[0] != "hangarllm" or not wheel_identity[1]:
         sys.stderr.write(f"unexpected wheel identity: {wheel_tags[0]}\n")
         return 1
 
@@ -118,7 +118,7 @@ def main(
         native_members: Final = tuple(
             member
             for member in wheel_members
-            if member.filename.startswith("litellm/rust_bridge/_native.") and member.filename.endswith(".so")
+            if member.filename.startswith("hangarllm/rust_bridge/_native.") and member.filename.endswith(".so")
         )
         if len(native_members) != 1:
             sys.stderr.write(f"expected one native extension, found {len(native_members)}\n")
@@ -139,7 +139,7 @@ def main(
         duplicated_vocabularies: Final = tuple(
             member.filename
             for member in wheel_members
-            if member.filename.startswith("litellm/litellm_core_utils/tokenizers/")
+            if member.filename.startswith("hangarllm/hangarllm_core_utils/tokenizers/")
             and re.fullmatch(r"[0-9a-f]{40}", PurePosixPath(member.filename).name)
             and member.file_size > 0
             and archive.read(member) in native_bytes

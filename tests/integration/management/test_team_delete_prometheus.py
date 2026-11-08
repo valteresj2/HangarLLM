@@ -2,7 +2,7 @@
 
 An owned single-worker proxy registers the ``prometheus`` callback, so ``GET /metrics/`` serves the
 in-process registry (one worker, so no ``PROMETHEUS_MULTIPROC_DIR``). A team with an alias takes three
-users in one bulk ``/team/member_add``; the ``litellm_team_members_metric`` series carrying that team's
+users in one bulk ``/team/member_add``; the ``hangarllm_team_members_metric`` series carrying that team's
 id then reads 3.0. ``/team/delete`` re-emits the gauge with an empty roster instead of dropping the
 series, so the same series afterwards reads 0.0.
 
@@ -26,15 +26,15 @@ from tests.integration._support.process import graceful_stop_seconds, owned_prox
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
-METRIC: Final = "litellm_team_members_metric"
+METRIC: Final = "hangarllm_team_members_metric"
 METRICS_ROUTE: Final = "/metrics/"
 MEMBERS: Final = 3
-TEAM_SQL: Final = 'SELECT team_id, members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s'
+TEAM_SQL: Final = 'SELECT team_id, members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s'
 
 
 def _prometheus_config(tmp_path: Path) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["callbacks"] = ["prometheus"]
+    config["hangarllm_settings"]["callbacks"] = ["prometheus"]
     config["general_settings"]["disable_auto_add_proxy_admin_to_teams"] = True
     path: Final = tmp_path / "prometheus.yaml"
     path.write_text(yaml.safe_dump(config))
@@ -47,7 +47,7 @@ def _labels(text: str) -> dict[str, str]:
 
 
 def _team_members_series(scrape: str, team_id: str) -> tuple[dict[str, str], float] | None:
-    """The one ``litellm_team_members_metric`` sample whose ``team`` label is ``team_id``, as (labels, value)."""
+    """The one ``hangarllm_team_members_metric`` sample whose ``team`` label is ``team_id``, as (labels, value)."""
     samples: Final = tuple(
         (labels, float(value))
         for line in scrape.splitlines()

@@ -5,13 +5,13 @@ import time
 import pytest
 from fastapi import HTTPException
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.logging_endpoints.callback_logs_endpoints import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.logging_endpoints.callback_logs_endpoints import (
     CallbackLogsReplayer,
     ingest_callback_logs,
 )
-from litellm.types.proxy.callback_logs_endpoints import (
+from hangarllm.types.proxy.callback_logs_endpoints import (
     CallbackLogRecord,
     CallbackLogsRequest,
 )
@@ -22,7 +22,7 @@ REQ_ID = "cb-logs-unit-test-1"
 def _sample_payload(**overrides):
     payload = {
         "id": REQ_ID,
-        "litellm_call_id": REQ_ID,
+        "hangarllm_call_id": REQ_ID,
         "call_type": "acompletion",
         "stream": False,
         "response_cost": 0.0123,
@@ -59,7 +59,7 @@ def test_build_logging_obj_seeds_model_call_details():
     assert details["response_cost"] == 0.0123
     assert details["call_type"] == "acompletion"
     # Metadata is mapped to the keys the cost-tracking callback reads.
-    md = details["litellm_params"]["metadata"]
+    md = details["hangarllm_params"]["metadata"]
     assert md["user_api_key"] == "rust-gateway-test-key"
     assert md["user_api_key_hash"] == "rust-gateway-test-key"
     assert md["user_api_key_user_id"] == "user-cb-logs-test"
@@ -83,7 +83,7 @@ async def test_success_record_invokes_success_handler(monkeypatch):
         )
         captured["result"] = result
 
-    monkeypatch.setattr(LiteLLMLogging, "async_success_handler", fake_success)
+    monkeypatch.setattr(HangarLLMLogging, "async_success_handler", fake_success)
 
     body = CallbackLogsRequest(
         records=[
@@ -93,7 +93,7 @@ async def test_success_record_invokes_success_handler(monkeypatch):
         ]
     )
     resp = await ingest_callback_logs(
-        body, user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        body, user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     )
     assert resp.processed == 1 and resp.failed == 0
     assert captured["standard_logging_object"]["id"] == REQ_ID
@@ -109,7 +109,7 @@ async def test_failure_record_invokes_failure_handler(monkeypatch):
     ):
         captured["exception"] = str(exception)
 
-    monkeypatch.setattr(LiteLLMLogging, "async_failure_handler", fake_failure)
+    monkeypatch.setattr(HangarLLMLogging, "async_failure_handler", fake_failure)
 
     body = CallbackLogsRequest(
         records=[
@@ -121,7 +121,7 @@ async def test_failure_record_invokes_failure_handler(monkeypatch):
         ]
     )
     resp = await ingest_callback_logs(
-        body, user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        body, user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     )
     assert resp.processed == 1 and resp.failed == 0
     assert captured["exception"] == "upstream exploded"
@@ -132,7 +132,7 @@ async def test_non_admin_is_rejected(monkeypatch):
     async def fake_success(self, **kwargs):
         return None
 
-    monkeypatch.setattr(LiteLLMLogging, "async_success_handler", fake_success)
+    monkeypatch.setattr(HangarLLMLogging, "async_success_handler", fake_success)
 
     body = CallbackLogsRequest(
         records=[
@@ -144,7 +144,7 @@ async def test_non_admin_is_rejected(monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         await ingest_callback_logs(
             body,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER),
         )
     assert exc_info.value.status_code == 403
 
@@ -160,7 +160,7 @@ async def test_one_bad_record_does_not_sink_the_batch(monkeypatch):
         if calls["n"] == 1:
             raise ValueError("boom on first record")
 
-    monkeypatch.setattr(LiteLLMLogging, "async_success_handler", flaky_success)
+    monkeypatch.setattr(HangarLLMLogging, "async_success_handler", flaky_success)
 
     body = CallbackLogsRequest(
         records=[
@@ -173,7 +173,7 @@ async def test_one_bad_record_does_not_sink_the_batch(monkeypatch):
         ]
     )
     resp = await ingest_callback_logs(
-        body, user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        body, user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     )
     assert resp.processed == 1 and resp.failed == 1
     # The failed record is reported back by index + error, not silently dropped.
@@ -183,7 +183,7 @@ async def test_one_bad_record_does_not_sink_the_batch(monkeypatch):
 
 
 def test_batch_over_limit_is_rejected():
-    from litellm.constants import MAX_CALLBACK_LOG_RECORDS
+    from hangarllm.constants import MAX_CALLBACK_LOG_RECORDS
     from pydantic import ValidationError
 
     # One over the cap must fail validation (422 at the API boundary), bounding

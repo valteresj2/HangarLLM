@@ -11,8 +11,8 @@ from typing import Final
 import pytest
 from botocore.credentials import RefreshableCredentials
 
-import litellm
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+import hangarllm
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 REFRESH_RELEASE_TIMEOUT_SECONDS: Final = 2.0
 REFRESH_START_TIMEOUT_SECONDS: Final = 10.0
@@ -77,10 +77,10 @@ class LoopProbingVault:
 
 def host_in_loop_probing_vault(monkeypatch: pytest.MonkeyPatch, *secret_names: str) -> LoopProbingVault:
     vault: Final = LoopProbingVault()
-    monkeypatch.setattr(litellm, "secret_manager_client", vault)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.HASHICORP_VAULT)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", vault)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.HASHICORP_VAULT)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "_key_management_settings",
         KeyManagementSettings(access_mode="read_only", hosted_keys=list(secret_names)),
     )

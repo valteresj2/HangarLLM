@@ -125,7 +125,7 @@ def assert_upgraded(before: frozenset[str], after: frozenset[str]) -> frozenset[
     applied: Final = after - before
     assert applied, (
         "The candidate applied no migrations the baseline release had not: the pinned "
-        "LITELLM_MIGRATION_BASELINE_IMAGE is at or ahead of the candidate, so this suite proves nothing"
+        "HANGARLLM_MIGRATION_BASELINE_IMAGE is at or ahead of the candidate, so this suite proves nothing"
     )
     assert not before - after, "The upgrade removed migration history the baseline release had already applied"
     return applied

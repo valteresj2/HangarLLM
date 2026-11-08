@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
-from litellm.types.router import (
+from hangarllm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
+from hangarllm.types.router import (
     AdaptiveRouterConfig,
     PreRoutingHookResponse,
     RequestType,
@@ -68,7 +68,7 @@ async def test_pick_model_is_not_passed_session_id():
 
     await r.async_pre_routing_hook(
         model="smart-cheap-router",
-        request_kwargs={"metadata": {"litellm_session_id": "sess-A"}},
+        request_kwargs={"metadata": {"hangarllm_session_id": "sess-A"}},
         messages=[{"role": "user", "content": "hi"}],
     )
 
@@ -80,7 +80,7 @@ async def test_stashes_chosen_model_in_existing_metadata():
     r = _make_router()
     r.pick_model = AsyncMock(return_value="smart")  # type: ignore[method-assign]
 
-    request_kwargs: dict = {"metadata": {"litellm_session_id": "sess-A"}}
+    request_kwargs: dict = {"metadata": {"hangarllm_session_id": "sess-A"}}
     await r.async_pre_routing_hook(
         model="smart-cheap-router",
         request_kwargs=request_kwargs,
@@ -88,7 +88,7 @@ async def test_stashes_chosen_model_in_existing_metadata():
     )
 
     assert request_kwargs["metadata"]["adaptive_router_chosen_model"] == "smart"
-    assert request_kwargs["metadata"]["litellm_session_id"] == "sess-A"
+    assert request_kwargs["metadata"]["hangarllm_session_id"] == "sess-A"
 
 
 @pytest.mark.asyncio
@@ -142,13 +142,13 @@ async def test_returns_messages_unchanged_in_response():
 
 @pytest.mark.asyncio
 async def test_min_quality_tier_from_header_is_forwarded_to_pick_model():
-    """`x-litellm-min-quality-tier` header should reach pick_model."""
+    """`x-hangarllm-min-quality-tier` header should reach pick_model."""
     r = _make_router()
     r.pick_model = AsyncMock(return_value="smart")  # type: ignore[method-assign]
 
     await r.async_pre_routing_hook(
         model="smart-cheap-router",
-        request_kwargs={"headers": {"x-litellm-min-quality-tier": "3"}},
+        request_kwargs={"headers": {"x-hangarllm-min-quality-tier": "3"}},
         messages=[{"role": "user", "content": "hi"}],
     )
 
@@ -164,7 +164,7 @@ async def test_min_quality_tier_from_header_case_insensitive():
 
     await r.async_pre_routing_hook(
         model="smart-cheap-router",
-        request_kwargs={"headers": {"X-LiteLLM-Min-Quality-Tier": "2"}},
+        request_kwargs={"headers": {"X-HangarLLM-Min-Quality-Tier": "2"}},
         messages=[{"role": "user", "content": "hi"}],
     )
 
@@ -198,7 +198,7 @@ async def test_header_takes_precedence_over_metadata():
     await r.async_pre_routing_hook(
         model="smart-cheap-router",
         request_kwargs={
-            "headers": {"x-litellm-min-quality-tier": "3"},
+            "headers": {"x-hangarllm-min-quality-tier": "3"},
             "metadata": {"min_quality_tier": 1},
         },
         messages=[{"role": "user", "content": "hi"}],
@@ -233,7 +233,7 @@ async def test_invalid_min_quality_tier_header_treated_as_none():
 
     await r.async_pre_routing_hook(
         model="smart-cheap-router",
-        request_kwargs={"headers": {"x-litellm-min-quality-tier": "not-a-number"}},
+        request_kwargs={"headers": {"x-hangarllm-min-quality-tier": "not-a-number"}},
         messages=[{"role": "user", "content": "hi"}],
     )
 

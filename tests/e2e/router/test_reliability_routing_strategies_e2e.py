@@ -65,7 +65,7 @@ from e2e_config import unique_marker
 from e2e_http import StreamChunk, StreamHead, StreamStep, StreamTruncation
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody, ModelInfoBody, ModelNewBody, RouterSettingsOverride, RoutingStrategy
+from models import HangarLLMParamsBody, ModelInfoBody, ModelNewBody, RouterSettingsOverride, RoutingStrategy
 from reliability_support import REAL_KEY, REAL_MODEL, chat_override, model_id_of, open_chat_stream
 
 pytestmark = pytest.mark.e2e
@@ -75,9 +75,9 @@ SHUFFLE_CALLS = 10
 LATENCY_CONVERGENCE_CALLS = 12
 
 
-def _register(client: ComplexityRouterClient, resources: ResourceManager, group: str, params: LiteLLMParamsBody) -> str:
+def _register(client: ComplexityRouterClient, resources: ResourceManager, group: str, params: HangarLLMParamsBody) -> str:
     model_id = client.proxy.register_model(
-        ModelNewBody(model_name=group, litellm_params=params, model_info=ModelInfoBody())
+        ModelNewBody(model_name=group, hangarllm_params=params, model_info=ModelInfoBody())
     )
     resources.defer(lambda: client.proxy.delete_model(model_id))
     return model_id
@@ -90,8 +90,8 @@ def _real(
     timeout: float | None = None,
     input_cost_per_token: float | None = None,
     output_cost_per_token: float | None = None,
-) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=REAL_MODEL,
         api_key=REAL_KEY,
         weight=weight,
@@ -112,7 +112,7 @@ def _pick(client: ComplexityRouterClient, key: str, group: str, strategy: Routin
     )
     assert resp.status_code == 200, f"{strategy} call failed with {resp.status_code}: {resp.body[:300]}"
     model_id = model_id_of(resp)
-    assert model_id is not None, f"{strategy} response is missing the x-litellm-model-id header"
+    assert model_id is not None, f"{strategy} response is missing the x-hangarllm-model-id header"
     return model_id
 
 
@@ -308,7 +308,7 @@ class TestReliabilityRoutingStrategies:
             max_tokens=3000,
         )
         assert isinstance(head, StreamHead), f"opening the long stream failed: {head}"
-        busy = head.headers.get("x-litellm-model-id")
+        busy = head.headers.get("x-hangarllm-model-id")
         try:
             assert head.status_code == 200, f"the long stream should have opened with a 200, got {head.status_code}"
             assert busy in deployments, f"the long stream landed on {busy!r}, not one of {sorted(deployments)}"

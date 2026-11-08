@@ -121,7 +121,7 @@ async def test_check_team_key_limits_aggregate(
     if detail_substring is not None:
         assert detail_substring in resp.text, resp.text
 
-    rows = await db.db.litellm_verificationtoken.find_many(
+    rows = await db.db.hangarllm_verificationtoken.find_many(
         where={"key_alias": resources.prefix}
     )
     if expected_status == 200:
@@ -204,7 +204,7 @@ async def test_check_team_key_limits_model_specific(
     ), f"{body!r} → {resp.status_code}: {resp.text}"
     if detail_substring is not None:
         assert detail_substring in resp.text, resp.text
-    rows = await db.db.litellm_verificationtoken.find_many(
+    rows = await db.db.hangarllm_verificationtoken.find_many(
         where={"key_alias": resources.prefix}
     )
     assert len(rows) == (1 if expected_status == 200 else 0)
@@ -215,7 +215,7 @@ async def test_check_team_key_limits_model_specific(
 #
 # Behavior pin, not a regression target: /key/generate (line 889) and
 # /key/update (line 2310) both call `get_org_object` WITHOUT
-# `include_budget_table=True`, so `org_table.litellm_budget_table` is None
+# `include_budget_table=True`, so `org_table.hangarllm_budget_table` is None
 # at guard time and the aggregate path silently no-ops. Over-bound payloads
 # therefore land as 200, not 400. Documenting that here so a future change
 # that flips include_budget_table=True or moves the guard pre-load would
@@ -295,7 +295,7 @@ async def test_check_org_key_limits_aggregate(
     ), f"{body!r} → {resp.status_code}: {resp.text}"
     if detail_substring is not None:
         assert detail_substring in resp.text, resp.text
-    rows = await db.db.litellm_verificationtoken.find_many(
+    rows = await db.db.hangarllm_verificationtoken.find_many(
         where={"key_alias": resources.prefix}
     )
     assert len(rows) == (1 if expected_status == 200 else 0)
@@ -369,7 +369,7 @@ async def test_check_org_key_limits_model_specific(
     ), f"{body!r} → {resp.status_code}: {resp.text}"
     if detail_substring is not None:
         assert detail_substring in resp.text, resp.text
-    rows = await db.db.litellm_verificationtoken.find_many(
+    rows = await db.db.hangarllm_verificationtoken.find_many(
         where={"key_alias": resources.prefix}
     )
     assert len(rows) == (1 if expected_status == 200 else 0)
@@ -377,7 +377,7 @@ async def test_check_org_key_limits_model_specific(
 
 # ---------------------------------------------------------------------------
 # Project sub-family deferral — see plan §4-F1 ("project surface proves thin"):
-# `get_project_object` requires an LiteLLM_ProjectTable seeder + cache wiring
+# `get_project_object` requires an HangarLLM_ProjectTable seeder + cache wiring
 # that the harness does not yet ship; pinning it would force a wider
 # conftest change for a single-helper close-out. Tracked as "deferred" in
 # the PR4.M3 follow-up box.

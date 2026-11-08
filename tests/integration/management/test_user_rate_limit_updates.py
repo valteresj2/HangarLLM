@@ -177,7 +177,7 @@ def test_user_rate_limit_lowered_on_gateway_is_enforced_by_peer(gateway: Gateway
         expected_tpm: Final = 1 if field == "tpm_limit" else 100000
         expected_rpm: Final = 1 if field == "rpm_limit" else 1000
         rows: Final = read_rows(
-            'SELECT tpm_limit, rpm_limit FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT tpm_limit, rpm_limit FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         assert rows == [{"tpm_limit": expected_tpm, "rpm_limit": expected_rpm}], (
@@ -208,7 +208,7 @@ def test_user_rate_limit_explicit_null_clears_and_omitted_limit_is_untouched(gat
         gateway.post("/user/update", {"user_id": user, "rpm_limit": None})
 
         cleared_rows: Final = read_rows(
-            'SELECT tpm_limit, rpm_limit FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT tpm_limit, rpm_limit FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         assert cleared_rows == [{"tpm_limit": 100000, "rpm_limit": None}], (
@@ -233,7 +233,7 @@ def test_user_rate_limit_explicit_null_clears_and_omitted_limit_is_untouched(gat
 
         gateway.post("/user/update", {"user_id": user, "tpm_limit": 50000})
         omitted_rows: Final = read_rows(
-            'SELECT tpm_limit, rpm_limit FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT tpm_limit, rpm_limit FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         assert omitted_rows == [{"tpm_limit": 50000, "rpm_limit": None}], (
@@ -286,7 +286,7 @@ def test_user_rpm_lowered_on_gateway_is_enforced_by_peer_on_llm_route(
 
         gateway.post("/user/update", {"user_id": user, "rpm_limit": 1})
         rows: Final = read_rows(
-            'SELECT tpm_limit, rpm_limit FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT tpm_limit, rpm_limit FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         assert rows == [{"tpm_limit": 100000, "rpm_limit": 1}], f"User RPM update changed the wrong limits: {rows!r}"
@@ -317,7 +317,7 @@ def test_internal_user_cannot_clear_own_rpm_limit(gateway: Gateway) -> None:
         assert "Route=/user/update" in denied.text, context
 
         rows: Final = read_rows(
-            'SELECT tpm_limit, rpm_limit FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT tpm_limit, rpm_limit FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user,),
         )
         assert rows == [{"tpm_limit": 100000, "rpm_limit": 1}], f"Denied self-update changed user limits: {rows!r}"
@@ -369,7 +369,7 @@ def test_bulk_update_lowered_rpm_is_enforced_on_every_proxy(gateway: Gateway, pe
         ), results
 
         rows: Final = read_rows(
-            'SELECT user_id, tpm_limit, rpm_limit FROM "LiteLLM_UserTable" WHERE user_id IN (%s, %s) ORDER BY user_id',
+            'SELECT user_id, tpm_limit, rpm_limit FROM "HangarLLM_UserTable" WHERE user_id IN (%s, %s) ORDER BY user_id',
             (first_user, second_user),
         )
         expected_rows: Final = tuple(

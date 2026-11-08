@@ -4,15 +4,15 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.singulr.singulr import SingulrGuardrail
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.singulr import (
+import hangarllm
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.singulr.singulr import SingulrGuardrail
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.proxy.guardrails.guardrail_hooks.singulr import (
     SingulrGuardrailConfigModel,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 
 
 @pytest.fixture
@@ -114,7 +114,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_model_and_messages_are_forwarded(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"model": "gpt-4o", "litellm_call_id": "call-1"}
+        request_data = {"model": "gpt-4o", "hangarllm_call_id": "call-1"}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["How do I reset my password?"], "model": "gpt-4o"},
@@ -228,7 +228,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_alias_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_alias": "my-key-alias"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_alias": "my-key-alias"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -254,7 +254,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_user_id_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_user_id": "my-user-id"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_user_id": "my-user-id"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -280,7 +280,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_user_email_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_user_email": "user@example.com"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_user_email": "user@example.com"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -293,7 +293,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_organization_alias_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_org_alias": "Acme Org"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_org_alias": "Acme Org"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -306,7 +306,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_team_alias_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_team_alias": "AI Content Security Team"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_team_alias": "AI Content Security Team"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -319,7 +319,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_org_id_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_org_id": "org-123"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_org_id": "org-123"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -332,7 +332,7 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_team_id_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_team_id": "team-456"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_team_id": "team-456"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -345,8 +345,8 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_user_api_key_user_role_is_forwarded_in_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        auth = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY)
-        request_data = {"litellm_metadata": {"user_api_key_auth": auth}}
+        auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY)
+        request_data = {"hangarllm_metadata": {"user_api_key_auth": auth}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -354,12 +354,12 @@ class TestSingulrRequestPayload:
                 input_type="request",
             )
         sent_payload = mock_post.call_args.kwargs["json"]
-        assert sent_payload["metadata"] == {"user_api_key_user_role": LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value}
+        assert sent_payload["metadata"] == {"user_api_key_user_role": HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY.value}
 
     @pytest.mark.asyncio
     async def test_no_user_role_available_omits_role_from_metadata(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        request_data = {"litellm_metadata": {"user_api_key_alias": "my-key-alias"}}
+        request_data = {"hangarllm_metadata": {"user_api_key_alias": "my-key-alias"}}
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
                 inputs={"texts": ["hi"]},
@@ -372,9 +372,9 @@ class TestSingulrRequestPayload:
     @pytest.mark.asyncio
     async def test_all_user_metadata_fields_forwarded_together(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        auth = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY)
+        auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY)
         request_data = {
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "user_api_key_alias": "my-key-alias",
                 "user_api_key_user_id": "my-user-id",
                 "user_api_key_user_email": "user@example.com",
@@ -400,7 +400,7 @@ class TestSingulrRequestPayload:
             "user_api_key_org_alias": "Acme Org",
             "user_api_key_team_id": "team-456",
             "user_api_key_team_alias": "AI Content Security Team",
-            "user_api_key_user_role": LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+            "user_api_key_user_role": HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
         }
 
     @pytest.mark.asyncio
@@ -829,13 +829,13 @@ class TestSingulrMcpResponse:
             assert exc_info.value.blocked_content is True
 
     @pytest.mark.asyncio
-    async def test_mcp_response_resolves_metadata_from_nested_litellm_params(self, singulr_guardrail):
+    async def test_mcp_response_resolves_metadata_from_nested_hangarllm_params(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
-        auth = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY)
+        auth = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY)
         request_data = {
             "call_type": "call_mcp_tool",
             "mcp_tool_name": "search_docs",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_alias": "my-key-alias",
                     "user_api_key_user_id": "my-user-id",
@@ -863,17 +863,17 @@ class TestSingulrMcpResponse:
             "user_api_key_org_alias": "Acme Org",
             "user_api_key_team_id": "team-456",
             "user_api_key_team_alias": "AI Content Security Team",
-            "user_api_key_user_role": LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+            "user_api_key_user_role": HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
         }
 
     @pytest.mark.asyncio
-    async def test_mcp_response_prefers_top_level_metadata_over_nested_litellm_params(self, singulr_guardrail):
+    async def test_mcp_response_prefers_top_level_metadata_over_nested_hangarllm_params(self, singulr_guardrail):
         resp = _make_response({"should_block": False})
         request_data = {
             "call_type": "call_mcp_tool",
             "mcp_tool_name": "search_docs",
-            "litellm_metadata": {"user_api_key_alias": "top-level-alias"},
-            "litellm_params": {"metadata": {"user_api_key_alias": "nested-alias"}},
+            "hangarllm_metadata": {"user_api_key_alias": "top-level-alias"},
+            "hangarllm_params": {"metadata": {"user_api_key_alias": "nested-alias"}},
         }
         with patch.object(singulr_guardrail.async_handler, "post", return_value=resp) as mock_post:
             await singulr_guardrail.apply_guardrail(
@@ -944,8 +944,8 @@ class TestSingulrLoggingHook:
         kwargs = {
             "model": "gpt-4o",
             "messages": [{"role": "user", "content": "hi"}],
-            "litellm_call_id": "call-1",
-            "litellm_params": {"metadata": {"user_api_key_alias": "my-key-alias", "user_api_key_org_id": "org-123"}},
+            "hangarllm_call_id": "call-1",
+            "hangarllm_params": {"metadata": {"user_api_key_alias": "my-key-alias", "user_api_key_org_id": "org-123"}},
             "standard_logging_object": {"guardrail_information": []},
         }
         return {**kwargs, **overrides}
@@ -994,7 +994,7 @@ class TestSingulrLoggingHook:
 
     @pytest.mark.asyncio
     async def test_vendor_timeout_is_recorded_as_failed_to_respond(self, logging_only_guardrail):
-        timeout = litellm.Timeout("Singulr timed out", model="gpt-4o", llm_provider="singulr")
+        timeout = hangarllm.Timeout("Singulr timed out", model="gpt-4o", llm_provider="singulr")
         with patch.object(logging_only_guardrail.async_handler, "post", side_effect=timeout):
             updated_kwargs, returned = await logging_only_guardrail.async_logging_hook(
                 kwargs=self._logged_call(), result=None, call_type="acompletion"
@@ -1055,7 +1055,7 @@ class TestSingulrRequestWiring:
             )
         call_kwargs = mock_post.call_args.kwargs
         assert call_kwargs["timeout"] == 5.0
-        assert call_kwargs["url"] == "https://api.test.singulr.ai/api/v1/ai-gateway/litellm-v2"
+        assert call_kwargs["url"] == "https://api.test.singulr.ai/api/v1/ai-gateway/hangarllm-v2"
 
 
 class TestSingulrBuildHeaders:
@@ -1242,19 +1242,19 @@ class TestSingulrConfigModel:
 
 class TestSingulrInitializer:
     def test_guardrail_initializer_registry_has_entry(self):
-        from litellm.proxy.guardrails.guardrail_hooks.singulr import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.singulr import (
             initialize_guardrail,
         )
 
         assert callable(initialize_guardrail)
 
     def test_initialize_guardrail_reads_singulr_prefixed_fields(self):
-        from litellm.proxy.guardrails.guardrail_hooks.singulr import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.singulr import (
             initialize_guardrail,
         )
-        from litellm.types.guardrails import Guardrail, LitellmParams
+        from hangarllm.types.guardrails import Guardrail, HangarllmParams
 
-        litellm_params = LitellmParams(
+        hangarllm_params = HangarllmParams(
             guardrail="singulr",
             mode="pre_call",
             singulr_api_base="https://configured.singulr.ai",
@@ -1264,21 +1264,21 @@ class TestSingulrInitializer:
         )
         guardrail: Guardrail = {
             "guardrail_name": "test-singulr",
-            "litellm_params": litellm_params,
+            "hangarllm_params": hangarllm_params,
         }
 
-        cb = initialize_guardrail(litellm_params, guardrail)
+        cb = initialize_guardrail(hangarllm_params, guardrail)
 
         assert cb.singulr_application_id == "configured_app_id"
         assert cb.singulr_guardrail_id == "configured_guardrail_id"
 
     def test_initialize_guardrail_wires_timeout(self):
-        from litellm.proxy.guardrails.guardrail_hooks.singulr import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.singulr import (
             initialize_guardrail,
         )
-        from litellm.types.guardrails import Guardrail, LitellmParams
+        from hangarllm.types.guardrails import Guardrail, HangarllmParams
 
-        litellm_params = LitellmParams(
+        hangarllm_params = HangarllmParams(
             guardrail="singulr",
             mode="pre_call",
             singulr_api_key="configured_key",
@@ -1286,9 +1286,9 @@ class TestSingulrInitializer:
         )
         guardrail: Guardrail = {
             "guardrail_name": "test-singulr",
-            "litellm_params": litellm_params,
+            "hangarllm_params": hangarllm_params,
         }
 
-        cb = initialize_guardrail(litellm_params, guardrail)
+        cb = initialize_guardrail(hangarllm_params, guardrail)
 
         assert cb.timeout == 12.5

@@ -2,7 +2,7 @@
 Unit tests for GigaChat OAuth authenticator.
 
 Tests get_access_token and get_access_token_async covering token resolution
-from litellm_params/env, credential validation, caching, and error handling.
+from hangarllm_params/env, credential validation, caching, and error handling.
 """
 
 import time
@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.gigachat import authenticator
-from litellm.llms.gigachat.authenticator import (
+from hangarllm.llms.gigachat import authenticator
+from hangarllm.llms.gigachat.authenticator import (
     GigaChatAuthError,
     TOKEN_EXPIRY_BUFFER_MS,
     get_access_token,
@@ -20,7 +20,7 @@ from litellm.llms.gigachat.authenticator import (
 )
 
 
-AUTH_MODULE = "litellm.llms.gigachat.authenticator"
+AUTH_MODULE = "hangarllm.llms.gigachat.authenticator"
 
 
 def _future_expires_at_ms(offset_seconds: float = 3600) -> int:
@@ -41,8 +41,8 @@ def _isolate_token_cache():
 
 
 class TestGetAccessTokenSync:
-    def test_returns_token_from_litellm_params(self):
-        token = get_access_token(litellm_params={"gigachat_access_token": "param-token"})
+    def test_returns_token_from_hangarllm_params(self):
+        token = get_access_token(hangarllm_params={"gigachat_access_token": "param-token"})
         assert token == "param-token"
         authenticator._token_cache.get_cache.assert_not_called()
 
@@ -158,11 +158,11 @@ class TestGetAccessTokenSync:
     @patch(f"{AUTH_MODULE}._get_scope", return_value="GIGACHAT_API_PERS")
     @patch(f"{AUTH_MODULE}._get_credentials", return_value="env-creds")
     @patch(f"{AUTH_MODULE}.get_secret_str", return_value=None)
-    def test_litellm_params_override_scope_and_auth_url(self, mock_get_secret, mock_creds, mock_scope, mock_auth_url, mock_request):  # test-quality-ok: mock-echo of internal wiring
+    def test_hangarllm_params_override_scope_and_auth_url(self, mock_get_secret, mock_creds, mock_scope, mock_auth_url, mock_request):  # test-quality-ok: mock-echo of internal wiring
         mock_request.return_value = ("token", _future_expires_at_ms())
 
         get_access_token(
-            litellm_params={
+            hangarllm_params={
                 "gigachat_scope": "GIGACHAT_API_CORP",
                 "gigachat_auth_url": "https://params-auth.example.com",
             }
@@ -184,7 +184,7 @@ class TestGetAccessTokenSync:
             credentials="explicit-creds",
             scope="EXPLICIT_SCOPE",
             auth_url="https://explicit.example.com",
-            litellm_params={
+            hangarllm_params={
                 "gigachat_scope": "PARAM_SCOPE",
                 "gigachat_auth_url": "https://params.example.com",
             },
@@ -210,9 +210,9 @@ class TestGetAccessTokenSync:
 
 class TestGetAccessTokenAsync:
     @pytest.mark.asyncio
-    async def test_returns_token_from_litellm_params(self):
+    async def test_returns_token_from_hangarllm_params(self):
         token = await get_access_token_async(
-            litellm_params={"gigachat_access_token": "param-token"}
+            hangarllm_params={"gigachat_access_token": "param-token"}
         )
         assert token == "param-token"
         authenticator._token_cache.get_cache.assert_not_called()
@@ -318,13 +318,13 @@ class TestGetAccessTokenAsync:
     @patch(f"{AUTH_MODULE}._get_scope", return_value="GIGACHAT_API_PERS")
     @patch(f"{AUTH_MODULE}._get_credentials", return_value="env-creds")
     @patch(f"{AUTH_MODULE}.get_secret_str", return_value=None)
-    async def test_litellm_params_override_scope_and_auth_url(  # test-quality-ok: mock-echo of internal wiring
+    async def test_hangarllm_params_override_scope_and_auth_url(  # test-quality-ok: mock-echo of internal wiring
         self, mock_get_secret, mock_creds, mock_scope, mock_auth_url, mock_request
     ):
         mock_request.return_value = ("token", _future_expires_at_ms())
 
         await get_access_token_async(
-            litellm_params={
+            hangarllm_params={
                 "gigachat_scope": "GIGACHAT_API_CORP",
                 "gigachat_auth_url": "https://params-auth.example.com",
             }
@@ -349,7 +349,7 @@ class TestGetAccessTokenAsync:
             credentials="explicit-creds",
             scope="EXPLICIT_SCOPE",
             auth_url="https://explicit.example.com",
-            litellm_params={
+            hangarllm_params={
                 "gigachat_scope": "PARAM_SCOPE",
                 "gigachat_auth_url": "https://params.example.com",
             },
@@ -386,7 +386,7 @@ class TestRequestTokenSyncErrorMapping:
         client.post.side_effect = http_error
         mock_get_client.return_value = client
 
-        from litellm.llms.gigachat.authenticator import _request_token_sync
+        from hangarllm.llms.gigachat.authenticator import _request_token_sync
 
         with pytest.raises(GigaChatAuthError) as exc_info:
             _request_token_sync("creds", "GIGACHAT_API_PERS", "https://auth.example.com")
@@ -399,7 +399,7 @@ class TestRequestTokenSyncErrorMapping:
         client.post.side_effect = httpx.ConnectError("connection refused")
         mock_get_client.return_value = client
 
-        from litellm.llms.gigachat.authenticator import _request_token_sync
+        from hangarllm.llms.gigachat.authenticator import _request_token_sync
 
         with pytest.raises(GigaChatAuthError) as exc_info:
             _request_token_sync("creds", "GIGACHAT_API_PERS", "https://auth.example.com")
@@ -418,7 +418,7 @@ class TestRequestTokenAsyncErrorMapping:
         client.post = AsyncMock(side_effect=http_error)
         mock_get_client.return_value = client
 
-        from litellm.llms.gigachat.authenticator import _request_token_async
+        from hangarllm.llms.gigachat.authenticator import _request_token_async
 
         with pytest.raises(GigaChatAuthError) as exc_info:
             await _request_token_async("creds", "GIGACHAT_API_PERS", "https://auth.example.com")
@@ -432,7 +432,7 @@ class TestRequestTokenAsyncErrorMapping:
         client.post = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
         mock_get_client.return_value = client
 
-        from litellm.llms.gigachat.authenticator import _request_token_async
+        from hangarllm.llms.gigachat.authenticator import _request_token_async
 
         with pytest.raises(GigaChatAuthError) as exc_info:
             await _request_token_async("creds", "GIGACHAT_API_PERS", "https://auth.example.com")
@@ -451,7 +451,7 @@ class TestParseTokenResponse:
         )
 
     def test_parses_tok_exp_fields(self):
-        from litellm.llms.gigachat.authenticator import _parse_token_response
+        from hangarllm.llms.gigachat.authenticator import _parse_token_response
 
         token, expires_at = _parse_token_response(
             self._make_response({"tok": "abc", "exp": 1700000000000})
@@ -460,7 +460,7 @@ class TestParseTokenResponse:
         assert expires_at == 1700000000000
 
     def test_parses_access_token_expires_at_fields(self):
-        from litellm.llms.gigachat.authenticator import _parse_token_response
+        from hangarllm.llms.gigachat.authenticator import _parse_token_response
 
         token, expires_at = _parse_token_response(
             self._make_response({"access_token": "xyz", "expires_at": 1700000000000})
@@ -469,7 +469,7 @@ class TestParseTokenResponse:
         assert expires_at == 1700000000000
 
     def test_parses_string_expires_at(self):
-        from litellm.llms.gigachat.authenticator import _parse_token_response
+        from hangarllm.llms.gigachat.authenticator import _parse_token_response
 
         token, expires_at = _parse_token_response(
             self._make_response({"tok": "abc", "exp": "1700000000000"})
@@ -479,7 +479,7 @@ class TestParseTokenResponse:
         assert isinstance(expires_at, int)
 
     def test_raises_when_no_access_token(self):
-        from litellm.llms.gigachat.authenticator import _parse_token_response
+        from hangarllm.llms.gigachat.authenticator import _parse_token_response
 
         with pytest.raises(GigaChatAuthError) as exc_info:
             _parse_token_response(self._make_response({"exp": 1700000000000}))

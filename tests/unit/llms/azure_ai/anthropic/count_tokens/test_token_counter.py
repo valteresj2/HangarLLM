@@ -9,24 +9,24 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm import anthropic_beta_headers_manager
-from litellm.llms.azure_ai.anthropic.count_tokens.token_counter import AzureAIAnthropicTokenCounter
-from litellm.types.utils import CountContextManagement, TokenCountResponse
+import hangarllm
+from hangarllm import anthropic_beta_headers_manager
+from hangarllm.llms.azure_ai.anthropic.count_tokens.token_counter import AzureAIAnthropicTokenCounter
+from hangarllm.types.utils import CountContextManagement, TokenCountResponse
 
 API_BASE: Final = "https://my-resource.services.ai.azure.com"
 COUNT_URL: Final = f"{API_BASE}/anthropic/v1/messages/count_tokens"
 
 
 async def _count(monkeypatch: pytest.MonkeyPatch, response: httpx.Response) -> TokenCountResponse | None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         respx.post(COUNT_URL).mock(return_value=response)
         return await AzureAIAnthropicTokenCounter().count_tokens(
             model_to_use="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "azure-key", "api_base": API_BASE}},
+            deployment={"hangarllm_params": {"api_key": "azure-key", "api_base": API_BASE}},
             request_model="azure_ai/claude-sonnet-4-5",
         )
 
@@ -175,8 +175,8 @@ async def test_upstream_error_status_becomes_an_error_response_with_that_status_
 async def test_entra_rejecting_the_deployment_oidc_token_becomes_a_401_error_response_without_counting(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setenv("LITELLM_QA_FEDERATED_TOKEN", "federated-token")
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setenv("HANGARLLM_QA_FEDERATED_TOKEN", "federated-token")
     monkeypatch.delenv("AZURE_AUTHORITY_HOST", raising=False)
     with respx.mock:
         respx.post("https://login.microsoftonline.com/qa-tenant/oauth2/v2.0/token").mock(
@@ -185,7 +185,7 @@ async def test_entra_rejecting_the_deployment_oidc_token_becomes_a_401_error_res
                 json={
                     "error": "invalid_client",
                     "error_description": "AADSTS700211: No matching federated identity record found for presented "
-                    "assertion issuer 'https://oidc.litellm-qa.invalid'. Trace ID: 0f5c2b1e",
+                    "assertion issuer 'https://oidc.hangarllm-qa.invalid'. Trace ID: 0f5c2b1e",
                     "error_codes": [700211],
                 },
             )
@@ -196,11 +196,11 @@ async def test_entra_rejecting_the_deployment_oidc_token_becomes_a_401_error_res
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_base": API_BASE,
                     "tenant_id": "qa-tenant",
                     "client_id": "qa-client",
-                    "azure_ad_token": "oidc/env/LITELLM_QA_FEDERATED_TOKEN",
+                    "azure_ad_token": "oidc/env/HANGARLLM_QA_FEDERATED_TOKEN",
                 }
             },
             request_model="azure_ai/claude-sonnet-4-5",
@@ -216,8 +216,8 @@ async def test_entra_rejecting_the_deployment_oidc_token_becomes_a_401_error_res
 async def test_entra_throttling_the_deployment_oidc_token_exchange_keeps_its_429(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setenv("LITELLM_QA_FEDERATED_TOKEN", "federated-token")
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setenv("HANGARLLM_QA_FEDERATED_TOKEN", "federated-token")
     monkeypatch.delenv("AZURE_AUTHORITY_HOST", raising=False)
     with respx.mock:
         respx.post("https://login.microsoftonline.com/throttled-tenant/oauth2/v2.0/token").mock(
@@ -229,11 +229,11 @@ async def test_entra_throttling_the_deployment_oidc_token_exchange_keeps_its_429
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_base": API_BASE,
                     "tenant_id": "throttled-tenant",
                     "client_id": "qa-client",
-                    "azure_ad_token": "oidc/env/LITELLM_QA_FEDERATED_TOKEN",
+                    "azure_ad_token": "oidc/env/HANGARLLM_QA_FEDERATED_TOKEN",
                 }
             },
             request_model="azure_ai/claude-sonnet-4-5",
@@ -270,22 +270,22 @@ async def test_undecodable_count_body_becomes_a_500_error_response_carrying_the_
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("set_base", ("env", "global"), ids=("AZURE_API_BASE", "litellm.api_base"))
+@pytest.mark.parametrize("set_base", ("env", "global"), ids=("AZURE_API_BASE", "hangarllm.api_base"))
 async def test_count_uses_the_shared_api_base_chat_would_use(monkeypatch: pytest.MonkeyPatch, set_base: str) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("AZURE_AI_API_BASE", raising=False)
     monkeypatch.delenv("AZURE_API_BASE", raising=False)
     if set_base == "env":
         monkeypatch.setenv("AZURE_API_BASE", API_BASE)
     else:
-        monkeypatch.setattr(litellm, "api_base", API_BASE)
+        monkeypatch.setattr(hangarllm, "api_base", API_BASE)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 6}))
         result: Final = await AzureAIAnthropicTokenCounter().count_tokens(
             model_to_use="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "azure-key"}},
+            deployment={"hangarllm_params": {"api_key": "azure-key"}},
             request_model="azure_ai/claude-sonnet-4-5",
         )
     assert result is not None
@@ -308,7 +308,7 @@ async def test_count_uses_the_shared_api_base_chat_would_use(monkeypatch: pytest
 async def test_count_sends_the_compact_beta_only_when_the_history_replays_a_compaction_block(
     monkeypatch: pytest.MonkeyPatch, assistant_content: object, expected_beta: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 376}))
         result: Final = await AzureAIAnthropicTokenCounter().count_tokens(
@@ -318,7 +318,7 @@ async def test_count_sends_the_compact_beta_only_when_the_history_replays_a_comp
                 {"role": "user", "content": "What tables did we pick?"},
             ],
             contents=None,
-            deployment={"litellm_params": {"api_key": "azure-key", "api_base": API_BASE}},
+            deployment={"hangarllm_params": {"api_key": "azure-key", "api_base": API_BASE}},
             request_model="azure_ai/claude-sonnet-5-5",
         )
     assert result is not None
@@ -328,7 +328,7 @@ async def test_count_sends_the_compact_beta_only_when_the_history_replays_a_comp
 
 @pytest.mark.asyncio
 async def test_count_sends_the_tool_change_beta_when_the_history_adds_a_tool(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock:
         route: Final = respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 541}))
         result: Final = await AzureAIAnthropicTokenCounter().count_tokens(
@@ -338,7 +338,7 @@ async def test_count_sends_the_tool_change_beta_when_the_history_adds_a_tool(mon
                 {"role": "system", "content": [{"type": "tool_addition", "tool": {"type": "tool_reference", "name": "ping"}}]},
             ],
             contents=None,
-            deployment={"litellm_params": {"api_key": "azure-key", "api_base": API_BASE}},
+            deployment={"hangarllm_params": {"api_key": "azure-key", "api_base": API_BASE}},
             request_model="azure_ai/claude-sonnet-5-5",
         )
     assert result is not None
@@ -363,7 +363,7 @@ async def _betas_azure_inference_sends(context_management: Mapping[str, object])
                 },
             )
         )
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=64,
             messages=[{"role": "user", "content": "Summarize the thread."}],
             model="azure_ai/claude-sonnet-5-5",
@@ -380,7 +380,7 @@ async def _betas_azure_inference_sends(context_management: Mapping[str, object])
 async def test_count_forwards_the_context_edits_with_the_betas_azure_inference_sends(
     monkeypatch: pytest.MonkeyPatch, edit_type: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     spec: Final = {"edits": [{"type": edit_type}]}
     inference_betas: Final = await _betas_azure_inference_sends(spec)
     with respx.mock:
@@ -389,7 +389,7 @@ async def test_count_forwards_the_context_edits_with_the_betas_azure_inference_s
             model_to_use="claude-sonnet-5-5",
             messages=[{"role": "user", "content": "Summarize the thread."}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "azure-key", "api_base": API_BASE}},
+            deployment={"hangarllm_params": {"api_key": "azure-key", "api_base": API_BASE}},
             request_model="azure_ai/claude-sonnet-5-5",
             context_management=CountContextManagement(spec=spec, drop_invalid_edits=False),
         )
@@ -413,18 +413,18 @@ class _FetchThreads:
 async def test_count_with_an_edit_fetches_the_remote_beta_config_off_the_event_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.delenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
     fetch_threads: Final = _FetchThreads()
     with respx.mock:
-        respx.get(litellm.anthropic_beta_headers_url).mock(side_effect=fetch_threads)
+        respx.get(hangarllm.anthropic_beta_headers_url).mock(side_effect=fetch_threads)
         respx.post(COUNT_URL).mock(return_value=httpx.Response(200, json={"input_tokens": 88}))
         result: Final = await AzureAIAnthropicTokenCounter().count_tokens(
             model_to_use="claude-sonnet-5-5",
             messages=[{"role": "user", "content": "Summarize the thread."}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "azure-key", "api_base": API_BASE}},
+            deployment={"hangarllm_params": {"api_key": "azure-key", "api_base": API_BASE}},
             request_model="azure_ai/claude-sonnet-5-5",
             context_management=CountContextManagement(
                 spec={"edits": [{"type": "clear_tool_uses_20250919"}]}, drop_invalid_edits=False

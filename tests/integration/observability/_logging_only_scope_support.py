@@ -31,8 +31,8 @@ from openai import AsyncOpenAI, OpenAI
 from openai.types.chat import ChatCompletionChunk
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.callback_utils import CALLBACK_VAR_ENCRYPTED_PREFIX
-from litellm.proxy.guardrails.guardrail_registry import decrypt_guardrail_litellm_params
+from hangarllm.proxy.common_utils.callback_utils import CALLBACK_VAR_ENCRYPTED_PREFIX
+from hangarllm.proxy.guardrails.guardrail_registry import decrypt_guardrail_hangarllm_params
 from tests.integration.cost_calculation.cost_tracking_case import JsonResponse, SseResponse
 
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
@@ -138,7 +138,7 @@ def _chaos_model_list(deployments: tuple[ChaosDeployment, ...]) -> tuple[dict[st
     return tuple(
         {
             "model_name": deployment.model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": deployment.model,
                 "api_base": deployment.api_base,
                 "api_key": "synthetic-provider-key",
@@ -154,7 +154,7 @@ def _chaos_control_configuration(
     model_list: tuple[dict[str, JsonValue], ...],
 ) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["model_list"] = list(model_list)
     config["guardrails"] = []
     path: Final = tmp_path / f"{identity}-models.yaml"
@@ -202,7 +202,7 @@ def _proxy_url(gateway: Gateway) -> str:
 
 
 def _is_base_audit_leg() -> bool:
-    leg: Final = os.environ.get("LITELLM_LOGGING_ONLY_SCOPE_AUDIT_LEG", "head")
+    leg: Final = os.environ.get("HANGARLLM_LOGGING_ONLY_SCOPE_AUDIT_LEG", "head")
     assert leg in ("base", "head"), leg
     return leg == "base"
 
@@ -333,7 +333,7 @@ def _call_sync(
             response: Final = client.post(
                 "/v1/chat/completions",
                 json=body,
-                headers={"Authorization": f"Bearer {key}", "x-litellm-call-id": call_id},
+                headers={"Authorization": f"Bearer {key}", "x-hangarllm-call-id": call_id},
             )
         return _caller_result(endpoint, response.status_code, JSON_OBJECT.validate_json(response.content))
     if client_kind == "anthropic_sync":
@@ -348,7 +348,7 @@ def _call_sync(
                     model=model,
                     max_tokens=32,
                     messages=[{"role": "user", "content": prompt}],
-                    extra_headers={"x-litellm-call-id": call_id},
+                    extra_headers={"x-hangarllm-call-id": call_id},
                 ) as stream_response:
                     message: Final = stream_response.get_final_message()
                 return _stream_result(
@@ -360,7 +360,7 @@ def _call_sync(
                 model=model,
                 max_tokens=32,
                 messages=[{"role": "user", "content": prompt}],
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             return _caller_result(endpoint, 200, JSON_OBJECT.validate_python(message.model_dump(mode="json")))
     assert client_kind == "openai_sync", client_kind
@@ -370,7 +370,7 @@ def _call_sync(
         max_retries=0,
         http_client=httpx.Client(timeout=30, trust_env=False),
     ) as client:
-        headers: Final = {"x-litellm-call-id": call_id}
+        headers: Final = {"x-hangarllm-call-id": call_id}
         if endpoint == "chat":
             if stream:
                 chunks: Final = tuple(
@@ -424,7 +424,7 @@ async def _call_async(
                     model=model,
                     max_tokens=32,
                     messages=[{"role": "user", "content": prompt}],
-                    extra_headers={"x-litellm-call-id": call_id},
+                    extra_headers={"x-hangarllm-call-id": call_id},
                 ) as stream_response:
                     message: Final = await stream_response.get_final_message()
                 return _stream_result(
@@ -436,7 +436,7 @@ async def _call_async(
                 model=model,
                 max_tokens=32,
                 messages=[{"role": "user", "content": prompt}],
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
             return _caller_result(endpoint, 200, JSON_OBJECT.validate_python(message.model_dump(mode="json")))
     assert client_kind == "openai_async", client_kind
@@ -446,7 +446,7 @@ async def _call_async(
         max_retries=0,
         http_client=httpx.AsyncClient(timeout=30, trust_env=False),
     ) as client:
-        headers: Final = {"x-litellm-call-id": call_id}
+        headers: Final = {"x-hangarllm-call-id": call_id}
         if endpoint == "chat":
             assert stream, "The audit only uses the async OpenAI chat client for streaming rows"
             stream_response: Final = await client.chat.completions.create(
@@ -517,7 +517,7 @@ def _call_cache_client(endpoint: Endpoint, gateway: Gateway, model: str, prompt:
         response: Final = client.post(
             f"{_proxy_url(gateway)}{path}",
             json=body,
-            headers={"Authorization": f"Bearer {gateway.key}", "x-litellm-call-id": call_id},
+            headers={"Authorization": f"Bearer {gateway.key}", "x-hangarllm-call-id": call_id},
         )
     assert response.status_code == 200, response.text
     return _caller_result(
@@ -643,9 +643,9 @@ def _configuration(
     model_list: tuple[dict[str, JsonValue], ...] = (),
 ) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = cache
+    config["hangarllm_settings"]["cache"] = cache
     if num_retries is not None:
-        config["litellm_settings"]["num_retries"] = num_retries
+        config["hangarllm_settings"]["num_retries"] = num_retries
     config["model_list"] = list(model_list)
     params: Final = {
         "guardrail": "generic_guardrail_api",
@@ -653,7 +653,7 @@ def _configuration(
         "default_on": default_on,
         "api_base": policy_url,
         "api_key": "synthetic-guardrail-key",
-        "extra_headers": ["x-litellm-call-id"],
+        "extra_headers": ["x-hangarllm-call-id"],
         **({"logging_only_scope": scope} if include_scope else {}),
         **(
             {"logging_only_continue_on_input_failure": continue_on_input_failure}
@@ -661,7 +661,7 @@ def _configuration(
             else {}
         ),
     }
-    config["guardrails"] = [{"guardrail_name": identity, "litellm_params": params}]
+    config["guardrails"] = [{"guardrail_name": identity, "hangarllm_params": params}]
     scope_name: Final = scope if scope is not None else "unset"
     path: Final = tmp_path / f"{identity}-{scope_name}.yaml"
     path.write_text(yaml.safe_dump(config))
@@ -670,12 +670,12 @@ def _configuration(
 
 def _content_filter_configuration(tmp_path: Path, identity: str, scope: str, blocked_word: str) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["guardrails"] = [
         {
             "guardrail_name": identity,
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "hangarllm_params": {
+                "guardrail": "hangarllm_content_filter",
                 "mode": "logging_only",
                 "logging_only_scope": scope,
                 "default_on": True,
@@ -696,7 +696,7 @@ def _presidio_configuration(
     scope: str | None,
 ) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     params: Final = {
         "guardrail": "presidio",
         "mode": "logging_only",
@@ -706,7 +706,7 @@ def _presidio_configuration(
         "pii_entities_config": {"PERSON": "MASK"},
         **({"logging_only_scope": scope} if scope is not None else {}),
     }
-    config["guardrails"] = [{"guardrail_name": identity, "litellm_params": params}]
+    config["guardrails"] = [{"guardrail_name": identity, "hangarllm_params": params}]
     scope_name: Final = scope if scope is not None else "unset"
     path: Final = tmp_path / f"{identity}-{scope_name}.yaml"
     path.write_text(yaml.safe_dump(config))
@@ -715,7 +715,7 @@ def _presidio_configuration(
 
 def _empty_proxy_configuration(tmp_path: Path, identity: str, reload_seconds: int = 30) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["guardrails"] = []
     config["general_settings"]["proxy_config_reload_interval_seconds"] = reload_seconds
     path: Final = tmp_path / f"{identity}.yaml"
@@ -743,11 +743,11 @@ def _model_armor_configuration(tmp_path: Path, identity: str, api_endpoint: str,
         "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/integration",
     }
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["guardrails"] = [
         {
             "guardrail_name": identity,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "model_armor",
                 "mode": "logging_only",
                 "logging_only_scope": scope,
@@ -780,7 +780,7 @@ def _insert_database_guardrail(
         "default_on": default_on,
         "api_base": policy_url,
         "api_key": "synthetic-guardrail-key",
-        "extra_headers": ["x-litellm-call-id"],
+        "extra_headers": ["x-hangarllm-call-id"],
         **({"logging_only_scope": scope} if scope is not None else {}),
         **(
             {"logging_only_continue_on_input_failure": continue_on_input_failure}
@@ -789,8 +789,8 @@ def _insert_database_guardrail(
         ),
     }
     write_rows(
-        'INSERT INTO "LiteLLM_GuardrailsTable" '
-        "(guardrail_id, guardrail_name, litellm_params, guardrail_info, updated_at) "
+        'INSERT INTO "HangarLLM_GuardrailsTable" '
+        "(guardrail_id, guardrail_name, hangarllm_params, guardrail_info, updated_at) "
         "VALUES (%s, %s, %s::jsonb, %s::jsonb, NOW())",
         (str(uuid.uuid5(uuid.NAMESPACE_URL, identity)), identity, json.dumps(params), "{}"),
     )
@@ -814,7 +814,7 @@ def _database_guardrail(
 
 
 def _delete_database_guardrail(gateway: Gateway, identity: str) -> None:
-    rows: Final = read_rows('SELECT guardrail_id FROM "LiteLLM_GuardrailsTable" WHERE guardrail_name=%s', (identity,))
+    rows: Final = read_rows('SELECT guardrail_id FROM "HangarLLM_GuardrailsTable" WHERE guardrail_name=%s', (identity,))
     responses: Final = tuple(
         gateway.request("DELETE", f"/guardrails/{string_value(row['guardrail_id'])}") for row in rows
     )
@@ -843,7 +843,7 @@ def _post_guardrail_body(
             if provider == "presidio"
             else {"api_base": api_base, "api_key": "synthetic-guardrail-key"}
         ),
-        **({"extra_headers": ["x-litellm-call-id"]} if provider == "generic_guardrail_api" else {}),
+        **({"extra_headers": ["x-hangarllm-call-id"]} if provider == "generic_guardrail_api" else {}),
         **({"logging_only_scope": scope} if include_scope else {}),
         **(
             {"logging_only_continue_on_input_failure": continue_on_input_failure}
@@ -854,7 +854,7 @@ def _post_guardrail_body(
     return {
         "guardrail": {
             "guardrail_name": identity,
-            "litellm_params": params,
+            "hangarllm_params": params,
             "guardrail_info": {"description": "phase-12 logging scope audit"},
         }
     }
@@ -863,7 +863,7 @@ def _post_guardrail_body(
 def _create_guardrail(candidate: Gateway, identity: str, params: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
     guardrail_params: Final = {
         **params,
-        **({"extra_headers": ["x-litellm-call-id"]} if params.get("guardrail") == "generic_guardrail_api" else {}),
+        **({"extra_headers": ["x-hangarllm-call-id"]} if params.get("guardrail") == "generic_guardrail_api" else {}),
     }
     response: Final = candidate.request(
         "POST",
@@ -871,7 +871,7 @@ def _create_guardrail(candidate: Gateway, identity: str, params: Mapping[str, Js
         {
             "guardrail": {
                 "guardrail_name": identity,
-                "litellm_params": guardrail_params,
+                "hangarllm_params": guardrail_params,
                 "guardrail_info": {"description": "phase-12 logging scope audit"},
             }
         },
@@ -884,20 +884,20 @@ def _management_guardrail_rows(identity: str) -> tuple[dict[str, JsonValue], ...
     rows: Final = tuple(
         object_value(row)
         for row in read_rows(
-            "SELECT guardrail_id, guardrail_name, litellm_params, guardrail_info "
-            'FROM "LiteLLM_GuardrailsTable" WHERE guardrail_name=%s',
+            "SELECT guardrail_id, guardrail_name, hangarllm_params, guardrail_info "
+            'FROM "HangarLLM_GuardrailsTable" WHERE guardrail_name=%s',
             (identity,),
         )
     )
-    return tuple({**row, "litellm_params": _decrypted_management_litellm_params(row["litellm_params"])} for row in rows)
+    return tuple({**row, "hangarllm_params": _decrypted_management_hangarllm_params(row["hangarllm_params"])} for row in rows)
 
 
-def _decrypted_management_litellm_params(stored_value: JsonValue) -> dict[str, JsonValue]:
+def _decrypted_management_hangarllm_params(stored_value: JsonValue) -> dict[str, JsonValue]:
     stored: Final = object_value(stored_value)
-    salt_key: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+    salt_key: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setenv("LITELLM_SALT_KEY", salt_key)
-        decrypted: Final = JSON_OBJECT.validate_python(decrypt_guardrail_litellm_params(stored))
+        monkeypatch.setenv("HANGARLLM_SALT_KEY", salt_key)
+        decrypted: Final = JSON_OBJECT.validate_python(decrypt_guardrail_hangarllm_params(stored))
     assert _decryption_only_changes_encrypted_values(stored, decrypted)
     return decrypted
 
@@ -972,24 +972,24 @@ def _record_audit_properties(
 
 
 def _policy_call_id_matches(payload: Mapping[str, JsonValue], call_id: str) -> bool:
-    actual: Final = payload.get("litellm_call_id")
+    actual: Final = payload.get("hangarllm_call_id")
     if actual == call_id:
         return True
     headers: Final = payload.get("request_headers")
     return isinstance(headers, dict) and any(
-        key.lower() == "x-litellm-call-id" and value == call_id for key, value in headers.items()
+        key.lower() == "x-hangarllm-call-id" and value == call_id for key, value in headers.items()
     )
 
 
 def _policy_call_id(payload: Mapping[str, JsonValue]) -> str | None:
-    actual: Final = payload.get("litellm_call_id")
+    actual: Final = payload.get("hangarllm_call_id")
     if isinstance(actual, str):
         return actual
     headers: Final = payload.get("request_headers")
     if not isinstance(headers, dict):
         return None
     return next(
-        (value for key, value in headers.items() if key.lower() == "x-litellm-call-id" and isinstance(value, str)),
+        (value for key, value in headers.items() if key.lower() == "x-hangarllm-call-id" and isinstance(value, str)),
         None,
     )
 
@@ -999,7 +999,7 @@ def _chat_request(gateway: Gateway, model: str, prompt: str, call_id: str) -> ht
         "POST",
         "/v1/chat/completions",
         {"model": model, "messages": [{"role": "user", "content": prompt}]},
-        headers={"x-litellm-call-id": call_id},
+        headers={"x-hangarllm-call-id": call_id},
     )
 
 
@@ -1028,7 +1028,7 @@ def _guardrail_mode_status_pairs(
 def _spend_row_for_response_id(response_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT request_id, metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (response_id,),
         ),
         lambda values: len(values) == 1,
@@ -1042,7 +1042,7 @@ def _spend_row_for_response_id(response_id: str) -> dict[str, JsonValue]:
 def _spend_rows(model: str, minimum: int) -> tuple[dict[str, JsonValue], ...]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, metadata, cache_hit FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+            'SELECT request_id, metadata, cache_hit FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
             (model,),
         ),
         lambda rows: len(rows) >= minimum,
@@ -1062,7 +1062,7 @@ def _spend_rows_for_calls(
     model_placeholders: Final = ", ".join("%s" for _ in models)
     query: Final = (
         "SELECT model_group, request_id, metadata, cache_hit "
-        f'FROM "LiteLLM_SpendLogs" WHERE model_group IN ({model_placeholders})'
+        f'FROM "HangarLLM_SpendLogs" WHERE model_group IN ({model_placeholders})'
     )
     rows: Final = eventually(
         lambda: tuple(read_rows(query, models)),
@@ -1084,14 +1084,14 @@ def _spend_rows_matching_call(
     return tuple(
         row
         for row in rows
-        if row["model_group"] == model and object_value(row["metadata"]).get("litellm_call_id") == call_id
+        if row["model_group"] == model and object_value(row["metadata"]).get("hangarllm_call_id") == call_id
     )
 
 
 def _spend_row_for_call_id(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT request_id, metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (call_id,),
         ),
         lambda values: len(values) == 1,

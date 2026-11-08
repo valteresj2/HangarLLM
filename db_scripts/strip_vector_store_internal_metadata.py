@@ -9,7 +9,7 @@ from typing import Final, Literal, TextIO
 import httpx
 from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
 
-from litellm.vector_stores.utils import is_litellm_written_metadata_key
+from hangarllm.vector_stores.utils import is_hangarllm_written_metadata_key
 
 DEFAULT_API_BASE: Final = "https://api.openai.com/v1"
 LIST_PAGE_SIZE: Final = "100"
@@ -59,7 +59,7 @@ class StoreResult:
 
 
 def is_proxy_written_key(key: str, extra_keys: frozenset[str]) -> bool:
-    return is_litellm_written_metadata_key(key) or key in extra_keys
+    return is_hangarllm_written_metadata_key(key) or key in extra_keys
 
 
 def matching_keys(store: VectorStore, extra_keys: frozenset[str]) -> tuple[str, ...]:
@@ -157,7 +157,7 @@ def run(options: Options, client: httpx.Client, out: TextIO) -> int:
 
 def parse_options(argv: Sequence[str] | None) -> Options:
     parser: Final = argparse.ArgumentParser(
-        description="Remove LiteLLM proxy-written keys from OpenAI vector store metadata. Dry run by default."
+        description="Remove HangarLLM proxy-written keys from OpenAI vector store metadata. Dry run by default."
     )
     parser.add_argument("--api-key", default=os.environ.get("OPENAI_API_KEY"), help="defaults to $OPENAI_API_KEY")
     parser.add_argument("--api-base", default=DEFAULT_API_BASE)

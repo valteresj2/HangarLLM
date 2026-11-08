@@ -258,7 +258,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
         headers={"Authorization": f"Bearer {key}", "anthropic-version": "2023-06-01"},
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers.get("x-litellm-call-id", ""))
+    return _Served(call, response.status_code, raw.decode(), response.headers.get("x-hangarllm-call-id", ""))
 
 
 async def _burst(
@@ -323,7 +323,7 @@ def _assert_forwarded_with_tool_search(request: Request) -> None:
 
 def _spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=70,
     )
@@ -429,7 +429,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": _CONFIG_MODEL,
-            "litellm_params": {"model": f"anthropic/{_CLAUDE}", "api_base": wire.url, "api_key": cc.ANTHROPIC_API_KEY},
+            "hangarllm_params": {"model": f"anthropic/{_CLAUDE}", "api_base": wire.url, "api_key": cc.ANTHROPIC_API_KEY},
         }
     ]
     path: Final = tmp_path / "responses-bridge-tool-search-chaos.yaml"
@@ -547,7 +547,7 @@ def test_a_previous_response_id_turn_replays_the_search_call_beside_the_function
         assert "tool_search_call" in types and "function_call" in types, types
         response_id: Final = str(payload["id"])
         eventually(
-            lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+            lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
             lambda rows: any(rv.same_response(str(row["request_id"]), response_id) for row in rows),
             seconds=70,
         )
@@ -597,7 +597,7 @@ def test_anthropic_pass_through_relays_the_search_frames_untouched(owned_rig: _O
     assert _TOOL_SEARCH_BETA in _betas(received[0]), dict(received[0].headers)
     assert rv.JSON_OBJECT.validate_json(received[0].body)["tools"] == body["tools"], received[0].body
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (f"msg_{marker}",)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (f"msg_{marker}",)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -637,7 +637,7 @@ def test_bedrock_invoke_pass_through_relays_the_search_frames_untouched(owned_ri
         ], received
         assert rv.JSON_OBJECT.validate_json(received[0].body)["tools"] == body["tools"], received[0].body
         rows: Final = eventually(
-            lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (deployment,)),
+            lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (deployment,)),
             lambda found: len(found) == 1,
             seconds=70,
         )
@@ -825,7 +825,7 @@ def _stored_first_turn(proxy: Gateway, model: str, marker: str) -> str:
     assert "tool_search_call" in types, types
     response_id: Final = str(payload["id"])
     eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda rows: any(rv.same_response(str(row["request_id"]), response_id) for row in rows),
         seconds=70,
     )
@@ -959,9 +959,9 @@ def drop_params_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Owne
     config: Final = rv.JSON_OBJECT.validate_python(
         yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     )
-    settings: Final = rv.JSON_OBJECT.validate_python(config["litellm_settings"])
+    settings: Final = rv.JSON_OBJECT.validate_python(config["hangarllm_settings"])
     path: Final = directory / "responses-bridge-tool-search-drop-params.yaml"
-    path.write_text(yaml.safe_dump({**config, "litellm_settings": {**settings, "drop_params": True}}))
+    path.write_text(yaml.safe_dump({**config, "hangarllm_settings": {**settings, "drop_params": True}}))
     with (
         gateway_from_environment() as gateway,
         owned_proxy_process(gateway, directory, {}, config=path, workers=2) as owned,
@@ -1249,7 +1249,7 @@ def _bridge_chaos_config(wire: Wire, directory: Path) -> Path:
         "model_list": [
             {
                 "model_name": _CONFIG_MODEL,
-                "litellm_params": {"model": pcb.MODEL, "api_base": f"{wire.url}/v1", "api_key": "sk-upstream"},
+                "hangarllm_params": {"model": pcb.MODEL, "api_base": f"{wire.url}/v1", "api_key": "sk-upstream"},
             }
         ],
     }

@@ -1,13 +1,13 @@
 import httpx
 import pytest
 
-from litellm.llms.fal_ai.image_generation import (
+from hangarllm.llms.fal_ai.image_generation import (
     FalAIFluxDevConfig,
     FalAIFluxSchnellConfig,
     FalAIImageGenerationConfig,
     get_fal_ai_image_generation_config,
 )
-from litellm.types.utils import ImageResponse
+from hangarllm.types.utils import ImageResponse
 
 
 @pytest.mark.parametrize("model", ["fal-ai/flux/dev", "flux/dev", "flux-dev"])
@@ -25,7 +25,7 @@ def test_flux_schnell_still_routes_to_schnell():
 
 def test_flux_dev_url_targets_dev_endpoint():
     url = FalAIFluxDevConfig().get_complete_url(
-        api_base=None, api_key="k", model="fal-ai/flux/dev", optional_params={}, litellm_params={}
+        api_base=None, api_key="k", model="fal-ai/flux/dev", optional_params={}, hangarllm_params={}
     )
     assert url == "https://fal.run/fal-ai/flux/dev"
 
@@ -39,7 +39,7 @@ def test_flux_dev_maps_openai_params_and_builds_request():
         drop_params=False,
     )
     body = config.transform_image_generation_request(
-        model="fal-ai/flux/dev", prompt="a cat", optional_params=optional_params, litellm_params={}, headers={}
+        model="fal-ai/flux/dev", prompt="a cat", optional_params=optional_params, hangarllm_params={}, headers={}
     )
     assert body["prompt"] == "a cat"
     assert body["num_images"] == 2
@@ -63,7 +63,7 @@ def test_flux_dev_response_yields_one_image_object_per_fal_image():
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert [image.url for image in response.data] == ["https://fal.media/a.png", "https://fal.media/b.png"]
@@ -82,7 +82,7 @@ def test_flux_dev_response_omits_provider_specific_fields_when_fal_omits_metadat
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert response.data[0].provider_specific_fields is None
@@ -120,7 +120,7 @@ def test_flux_dev_response_drops_invalid_dimension_metadata(invalid_field, inval
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert response.data[0].provider_specific_fields == expected_fields

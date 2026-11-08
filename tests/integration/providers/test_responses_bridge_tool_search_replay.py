@@ -402,7 +402,7 @@ def _cached_twin(
     await_entry(redis_store(), first_id)
     second: Final = gateway.request("POST", "/v1/chat/completions", dict(body))
     assert second.status_code == 200, second.text
-    assert second.headers.get("x-litellm-cache-key"), dict(second.headers)
+    assert second.headers.get("x-hangarllm-cache-key"), dict(second.headers)
     return first, second
 
 

@@ -4,8 +4,8 @@ from typing import Final
 import pytest
 import pytest_asyncio
 
-import litellm
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import hangarllm
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 CALLBACK_LISTS: Final = (
     "callbacks",
@@ -19,9 +19,9 @@ CALLBACK_LISTS: Final = (
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="function")
-async def isolate_litellm_callback_lists(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[None]:
+async def isolate_hangarllm_callback_lists(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[None]:
     for name in CALLBACK_LISTS:
-        monkeypatch.setattr(litellm, name, list(getattr(litellm, name)))
+        monkeypatch.setattr(hangarllm, name, list(getattr(hangarllm, name)))
     try:
         yield
     finally:

@@ -24,8 +24,8 @@ from botocore.auth import SigV4Auth
 from botocore.credentials import Credentials
 from botocore.exceptions import ClientError, NoCredentialsError
 
-import litellm
-from litellm.llms.bedrock.base_aws_llm import (
+import hangarllm
+from hangarllm.llms.bedrock.base_aws_llm import (
     AwsAuthError,
     BaseAWSLLM,
     Boto3CredentialsInfo,
@@ -33,14 +33,14 @@ from litellm.llms.bedrock.base_aws_llm import (
     run_off_loop_if_aws,
 )
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
-from litellm.llms.bedrock.common_utils import BedrockModelInfo
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 # Global variable for the base_aws_llm.py file path
 
 BASE_AWS_LLM_PATH = os.path.join(
-    os.path.dirname(__file__), "../../../../litellm/llms/bedrock/base_aws_llm.py"
+    os.path.dirname(__file__), "../../../../hangarllm/llms/bedrock/base_aws_llm.py"
 )
 
 
@@ -300,7 +300,7 @@ def test_web_identity_token_oidc_reference_still_resolved():
     base = BaseAWSLLM()
     env = _os_environ_without_aws_keys()
     with patch.dict(os.environ, env, clear=True), patch(
-        "litellm.llms.bedrock.base_aws_llm.get_secret", return_value=None
+        "hangarllm.llms.bedrock.base_aws_llm.get_secret", return_value=None
     ):
         with pytest.raises(AwsAuthError) as exc:
             base.get_credentials(
@@ -367,7 +367,7 @@ def test_boto3_init_tracer_wrapping():
     """
     Test that all boto3 initializations are wrapped in tracer.trace or @tracer.wrap
 
-    Ensures observability of boto3 calls in litellm.
+    Ensures observability of boto3 calls in hangarllm.
     """
     # Get the source code of base_aws_llm.py
     with open(BASE_AWS_LLM_PATH, "r") as f:
@@ -407,7 +407,7 @@ def test_auth_functions_tracer_wrapping():
     """
     Test that all _auth functions in base_aws_llm.py are wrapped with @tracer.wrap
 
-    Ensures observability of AWS authentication calls in litellm.
+    Ensures observability of AWS authentication calls in hangarllm.
     """
     # Get the source code of base_aws_llm.py
     with open(BASE_AWS_LLM_PATH, "r") as f:
@@ -445,7 +445,7 @@ def test_get_aws_region_name_boto3_fallback():
     base_aws_llm = BaseAWSLLM()
 
     # Test case 1: boto3.Session() returns a configured region
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("hangarllm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
         mock_get_secret.return_value = None  # No region in env vars
 
         with patch("boto3.Session") as mock_boto3_session:
@@ -460,7 +460,7 @@ def test_get_aws_region_name_boto3_fallback():
             mock_boto3_session.assert_called_once()
 
     # Test case 2: boto3.Session() returns None for region (should default to us-west-2)
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("hangarllm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
         mock_get_secret.return_value = None  # No region in env vars
 
         with patch("boto3.Session") as mock_boto3_session:
@@ -475,7 +475,7 @@ def test_get_aws_region_name_boto3_fallback():
             mock_boto3_session.assert_called_once()
 
     # Test case 3: boto3 import/session creation raises exception (should default to us-west-2)
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("hangarllm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
         mock_get_secret.return_value = None  # No region in env vars
 
         with patch("boto3.Session") as mock_boto3_session:
@@ -496,7 +496,7 @@ def test_get_aws_region_name_boto3_fallback():
         mock_boto3_session.assert_not_called()
 
     # Test case 5: aws_region_name found in environment variables (should not use boto3)
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("hangarllm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
 
         def side_effect(key, default=None):
             if key == "AWS_REGION_NAME":
@@ -566,7 +566,7 @@ def test_get_aws_region_name_rejects_malformed_region_from_env():
     """
     base_aws_llm = BaseAWSLLM()
 
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("hangarllm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
 
         def side_effect(key, default=None):
             if key == "AWS_REGION_NAME":
@@ -599,7 +599,7 @@ def test_get_aws_region_name_for_non_llm_api_calls_rejects_malformed_env():
     """
     base_aws_llm = BaseAWSLLM()
 
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("hangarllm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
 
         def side_effect(key, default=None):
             if key == "AWS_REGION_NAME":
@@ -875,7 +875,7 @@ def test_role_assumption_without_session_name():
     # Test case 1: aws_role_name provided without aws_session_name
     with patch("boto3.client", return_value=mock_sts_client):
         credentials = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
         )
 
         # Verify assume_role was called
@@ -885,10 +885,10 @@ def test_role_assumption_without_session_name():
         call_args = mock_sts_client.assume_role.call_args
         assert (
             call_args[1]["RoleArn"]
-            == "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            == "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
         )
-        # Session name should be auto-generated with format "litellm-session-{timestamp}"
-        assert call_args[1]["RoleSessionName"].startswith("litellm-session-")
+        # Session name should be auto-generated with format "hangarllm-session-{timestamp}"
+        assert call_args[1]["RoleSessionName"].startswith("hangarllm-session-")
 
         # Verify credentials are returned correctly
         assert isinstance(credentials, Credentials)
@@ -900,7 +900,7 @@ def test_role_assumption_without_session_name():
     mock_sts_client.reset_mock()
     with patch("boto3.client", return_value=mock_sts_client):
         credentials = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+            aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
             aws_session_name="my-custom-session",
         )
 
@@ -914,11 +914,11 @@ def test_role_assumption_without_session_name():
     mock_sts_client.reset_mock()
     with patch("boto3.client", return_value=mock_sts_client):
         credentials1 = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
         )
 
         credentials2 = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
         )
 
         assert mock_sts_client.assume_role.call_count == 1
@@ -954,7 +954,7 @@ def test_assume_role_path_uses_process_iam_cache():
     """Repeat calls with identical AssumeRole args make no further STS calls of either kind."""
     base_aws_llm = BaseAWSLLM()
     mock_sts_client = _assume_role_sts_mock()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -988,7 +988,7 @@ def test_assume_role_cache_is_scoped_per_session_name():
         }
         for session_name in ("attributed-user-1", "attributed-user-2")
     ]
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -1017,7 +1017,7 @@ def test_assume_role_cache_entry_expires_with_the_sts_session():
     """The cache entry is written with the STS lifetime, not an indefinite or default TTL."""
     base_aws_llm = BaseAWSLLM()
     mock_sts_client = _assume_role_sts_mock()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -1036,7 +1036,7 @@ def test_assume_role_credentials_expired_in_cache_trigger_a_fresh_sts_call():
     """Once the STS session lapses the next call re-assumes rather than serving dead credentials."""
     base_aws_llm = BaseAWSLLM()
     mock_sts_client = _assume_role_sts_mock()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -1058,7 +1058,7 @@ def test_assume_role_credentials_expired_in_cache_trigger_a_fresh_sts_call():
 def test_concurrent_cold_cache_calls_for_one_identity_make_a_single_sts_call():
     """Concurrent misses on one identity single-flight instead of each issuing its own AssumeRole."""
     base_aws_llm = BaseAWSLLM()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
 
     calling_threads = set()
     threads_lock = threading.Lock()
@@ -1109,11 +1109,11 @@ def test_concurrent_cold_cache_calls_for_one_identity_make_a_single_sts_call():
 def test_ambient_identity_matching_target_role_is_cached_without_repeating_the_probe():
     """The skip-AssumeRole branch caches too, so GetCallerIdentity stops running per request."""
     base_aws_llm = BaseAWSLLM()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole"
 
     mock_sts_client = MagicMock()
     mock_sts_client.get_caller_identity.return_value = {
-        "Arn": "arn:aws:sts::2222222222222:assumed-role/LitellmEvalBedrockRole/session-name",
+        "Arn": "arn:aws:sts::2222222222222:assumed-role/HangarllmEvalBedrockRole/session-name",
     }
 
     mock_ambient_credentials = MagicMock()
@@ -1146,14 +1146,14 @@ def test_cache_keys_are_different_for_different_roles():
     args1 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::1111111111111:role/LitellmRole",
+        "aws_role_name": "arn:aws:iam::1111111111111:role/HangarllmRole",
         "aws_session_name": "test-session-1",
     }
 
     args2 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+        "aws_role_name": "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
         "aws_session_name": "test-session-2",
     }
 
@@ -1176,14 +1176,14 @@ def test_different_roles_without_session_names_should_not_share_cache():
     args1 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::1111111111111:role/LitellmRole",
+        "aws_role_name": "arn:aws:iam::1111111111111:role/HangarllmRole",
         "aws_session_name": None,
     }
 
     args2 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+        "aws_role_name": "arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
         "aws_session_name": None,
     }
 
@@ -1248,13 +1248,13 @@ def test_eks_irsa_ambient_credentials_used(role_kwargs, expected_client_kwargs):
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 aws_session_name="test-session",
                 **role_kwargs,
             )
             mock_boto3_client.assert_called_once_with("sts", **expected_client_kwargs)
             mock_sts_client.assume_role.assert_called_once_with(
-                RoleArn="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                RoleArn="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 RoleSessionName="test-session",
             )
             assert credentials.access_key == "assumed-access-key"
@@ -1467,7 +1467,7 @@ def test_assume_role_sts_client_uses_configured_cn_region() -> None:
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws-cn:iam::2222222222222:role/LitellmBedrockRole",
+                aws_role_name="arn:aws-cn:iam::2222222222222:role/HangarllmBedrockRole",
                 aws_session_name="test-session",
                 aws_region_name="cn-north-1",
             )
@@ -1598,7 +1598,7 @@ def test_web_identity_token_sts_client_uses_build_sts_client_kwargs():
     with patch.dict(os.environ, {"AWS_REGION": "eu-west-1"}, clear=True):
         with patch("boto3.client", return_value=mock_sts_client) as mock_boto3_client:
             with patch(
-                "litellm.llms.bedrock.base_aws_llm.get_secret",
+                "hangarllm.llms.bedrock.base_aws_llm.get_secret",
                 return_value="oidc-token",
             ):
                 base_aws_llm._auth_with_web_identity_token(
@@ -1641,7 +1641,7 @@ def test_sts_uses_workload_region_not_bedrock_region():
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 aws_session_name="test-session",
                 aws_region_name="eu-central-1",
             )
@@ -1687,7 +1687,7 @@ def test_sts_endpoint_region_matches_bedrock_region_param():
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 aws_session_name="test-session",
                 aws_region_name="eu-central-1",
                 aws_sts_endpoint="https://sts.eu-west-1.amazonaws.com",
@@ -1770,13 +1770,13 @@ def test_explicit_credentials_used_when_provided(role_kwargs, expected_client_kw
                 aws_access_key_id="explicit-access-key",
                 aws_secret_access_key="explicit-secret-key",
                 aws_session_token="assumed-session-token",
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 aws_session_name="test-session",
                 **role_kwargs,
             )
             mock_boto3_client.assert_called_once_with("sts", **expected_client_kwargs)
             mock_sts_client.assume_role.assert_called_once_with(
-                RoleArn="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                RoleArn="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 RoleSessionName="test-session",
             )
             assert credentials.access_key == "assumed-access-key"
@@ -1825,7 +1825,7 @@ def test_partial_credentials_still_use_ambient():
                 aws_access_key_id="AKIAEXAMPLE",
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 aws_session_name="test-session",
             )
 
@@ -1840,7 +1840,7 @@ def test_partial_credentials_still_use_ambient():
 
             # Should still call assume_role
             mock_sts_client.assume_role.assert_called_once_with(
-                RoleArn="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                RoleArn="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
                 RoleSessionName="test-session",
             )
 
@@ -1937,13 +1937,13 @@ def test_role_assumption_with_custom_session_name():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::1111111111111:role/LitellmRole",
+            aws_role_name="arn:aws:iam::1111111111111:role/HangarllmRole",
             aws_session_name="evals-bedrock-session",
         )
 
         # Should call assume_role with custom session name
         mock_sts_client.assume_role.assert_called_once_with(
-            RoleArn="arn:aws:iam::1111111111111:role/LitellmRole",
+            RoleArn="arn:aws:iam::1111111111111:role/HangarllmRole",
             RoleSessionName="evals-bedrock-session",
         )
 
@@ -1981,7 +1981,7 @@ def test_role_assumption_ttl_calculation():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::1111111111111:role/LitellmRole",
+            aws_role_name="arn:aws:iam::1111111111111:role/HangarllmRole",
             aws_session_name="ttl-test-session",
         )
 
@@ -2132,7 +2132,7 @@ def test_multiple_role_assumptions_in_sequence():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::1111111111111:role/LitellmRole",
+            aws_role_name="arn:aws:iam::1111111111111:role/HangarllmRole",
             aws_session_name="session-1",
         )
 
@@ -2141,7 +2141,7 @@ def test_multiple_role_assumptions_in_sequence():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+            aws_role_name="arn:aws:iam::2222222222222:role/HangarllmEvalBedrockRole",
             aws_session_name="session-2",
         )
 
@@ -2253,7 +2253,7 @@ def test_auth_with_aws_role_same_role_irsa():
     with patch.dict(
         os.environ,
         {
-            "AWS_ROLE_ARN": "arn:aws:iam::111111111111:role/LitellmRole",
+            "AWS_ROLE_ARN": "arn:aws:iam::111111111111:role/HangarllmRole",
             "AWS_WEB_IDENTITY_TOKEN_FILE": "/var/run/secrets/eks.amazonaws.com/serviceaccount/token",
         },
     ):
@@ -2271,7 +2271,7 @@ def test_auth_with_aws_role_same_role_irsa():
             creds = base_llm.get_credentials(
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
-                aws_role_name="arn:aws:iam::111111111111:role/LitellmRole",  # Same as AWS_ROLE_ARN
+                aws_role_name="arn:aws:iam::111111111111:role/HangarllmRole",  # Same as AWS_ROLE_ARN
                 aws_session_name="test-session",
                 aws_region_name="us-east-1",
             )
@@ -2369,7 +2369,7 @@ class _TagAwareSTSClient:
         self.assume_role_calls: list = []
 
     def get_caller_identity(self):
-        return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+        return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
     def assume_role_with_web_identity(self, **params):
         return {
@@ -2634,7 +2634,7 @@ def test_sign_request_signs_with_the_tagged_sts_session():
 
 def test_converse_handler_external_id_extraction():
     """Test that BedrockConverseLLM properly extracts and passes aws_external_id parameter"""
-    from litellm.llms.bedrock.chat.converse_handler import BedrockConverseLLM
+    from hangarllm.llms.bedrock.chat.converse_handler import BedrockConverseLLM
 
     converse_llm = BedrockConverseLLM()
 
@@ -2654,12 +2654,12 @@ def test_converse_handler_external_id_extraction():
                 "get_runtime_endpoint",
                 return_value=("https://test", "https://test"),
             ):
-                with patch("litellm.AmazonConverseConfig") as mock_config:
+                with patch("hangarllm.AmazonConverseConfig") as mock_config:
                     mock_config.return_value._transform_request.return_value = {"test": "data"}
                     with patch.object(converse_llm, "get_request_headers") as mock_headers:
                         mock_headers.return_value = MagicMock()
                         mock_headers.return_value.headers = {"Authorization": "test"}
-                        with patch("litellm.llms.custom_httpx.http_handler.get_httpx_client") as mock_client:
+                        with patch("hangarllm.llms.custom_httpx.http_handler.get_httpx_client") as mock_client:
                             mock_http_client = MagicMock()
                             mock_response = MagicMock()
                             mock_response.raise_for_status.return_value = None
@@ -2688,7 +2688,7 @@ def test_converse_handler_external_id_extraction():
                                     optional_params=optional_params,
                                     acompletion=False,
                                     timeout=None,
-                                    litellm_params={},
+                                    hangarllm_params={},
                                 )
                             except Exception:
                                 # We expect this to fail due to mocking, but that's OK
@@ -3177,7 +3177,7 @@ class TestGetBedrockModelIdArnHandling:
     ARN = "arn:aws:bedrock:us-east-1:086734376398:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
     def _call(self, model: str, optional_params: dict | None = None) -> str:
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         provider = BaseAWSLLM.get_bedrock_invoke_provider(model)
         return BaseAWSLLM.get_bedrock_model_id(
@@ -3228,7 +3228,7 @@ class TestGetBedrockModelIdArnHandling:
     def test_arn_url_matches_expected(self):
         """Full URL built from messages config must match expected encoded form."""
         import urllib.parse
-        from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+        from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
             AmazonAnthropicClaudeMessagesConfig,
         )
 
@@ -3238,7 +3238,7 @@ class TestGetBedrockModelIdArnHandling:
             api_key=None,
             model=f"bedrock/{self.ARN}",
             optional_params={"aws_region_name": "us-east-1"},
-            litellm_params={},
+            hangarllm_params={},
             stream=True,
         )
         encoded_arn = urllib.parse.quote(self.ARN, safe="")
@@ -3425,12 +3425,12 @@ class TestGetRequestHeadersResign:
             headers={
                 "Content-Type": "application/json",
                 "anthropic-version": "bedrock-2023-05-31",
-                "user-agent": "litellm-test-client",
+                "user-agent": "hangarllm-test-client",
             },
             data=json.dumps({"messages": []}),
         )
         assert prepped.headers["anthropic-version"] == "bedrock-2023-05-31"
-        assert prepped.headers["user-agent"] == "litellm-test-client"
+        assert prepped.headers["user-agent"] == "hangarllm-test-client"
         assert prepped.headers["Content-Type"] == "application/json"
 
     def test_extra_headers_bearer_authorization_still_overrides_signature(self):
@@ -3531,15 +3531,15 @@ def _recording_boto3_client(recorded: dict[str, dict[str, object]]) -> Callable[
 
 def test_resolve_credentials_forwards_static_keys_role_session_and_external_id():
     """Every field the role-assumption route reads must reach STS, so a dropped struct field fails here."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from hangarllm.types.llms.bedrock import AwsAuthParams
 
     auth_params = AwsAuthParams(
         aws_access_key_id="AKIACALLER",
         aws_secret_access_key="caller-secret",
         aws_session_token="caller-token",
-        aws_role_name="arn:aws:iam::123456789012:role/litellm-target",
-        aws_session_name="litellm-session",
-        aws_external_id="litellm-external-id",
+        aws_role_name="arn:aws:iam::123456789012:role/hangarllm-target",
+        aws_session_name="hangarllm-session",
+        aws_external_id="hangarllm-external-id",
         aws_sts_endpoint="https://custom-sts.example",
         aws_session_tags=[{"Key": "team", "Value": "genai"}, {"Key": "cost-center", "Value": "42"}],
     )
@@ -3555,9 +3555,9 @@ def test_resolve_credentials_forwards_static_keys_role_session_and_external_id()
     assert recorded["client_kwargs"]["aws_secret_access_key"] == "caller-secret"
     assert recorded["client_kwargs"]["aws_session_token"] == "caller-token"
     assert recorded["client_kwargs"]["endpoint_url"] == "https://custom-sts.example"
-    assert recorded["assume_role"]["RoleArn"] == "arn:aws:iam::123456789012:role/litellm-target"
-    assert recorded["assume_role"]["RoleSessionName"] == "litellm-session"
-    assert recorded["assume_role"]["ExternalId"] == "litellm-external-id"
+    assert recorded["assume_role"]["RoleArn"] == "arn:aws:iam::123456789012:role/hangarllm-target"
+    assert recorded["assume_role"]["RoleSessionName"] == "hangarllm-session"
+    assert recorded["assume_role"]["ExternalId"] == "hangarllm-external-id"
     assert recorded["assume_role"]["Tags"] == (
         {"Key": "cost-center", "Value": "42"},
         {"Key": "team", "Value": "genai"},
@@ -3576,11 +3576,11 @@ def test_resolve_credentials_forwards_static_keys_role_session_and_external_id()
 )
 def test_resolve_credentials_rejects_malformed_session_tags(malformed_tags):
     """A struct built from raw config must surface the friendly session-tag error before STS is called."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from hangarllm.types.llms.bedrock import AwsAuthParams
 
     auth_params = AwsAuthParams(
-        aws_role_name="arn:aws:iam::123456789012:role/litellm-target",
-        aws_session_name="litellm-session",
+        aws_role_name="arn:aws:iam::123456789012:role/hangarllm-target",
+        aws_session_name="hangarllm-session",
         aws_session_tags=malformed_tags,
     )
     recorded: dict[str, dict[str, object]] = {}
@@ -3597,12 +3597,12 @@ def test_resolve_credentials_rejects_malformed_session_tags(malformed_tags):
 
 def test_resolve_credentials_forwards_web_identity_token():
     """A struct carrying a web-identity token must take the web-identity route, not plain role assumption."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from hangarllm.types.llms.bedrock import AwsAuthParams
 
     auth_params = AwsAuthParams(
         aws_web_identity_token="unresolvable-oidc-token",
-        aws_role_name="arn:aws:iam::123456789012:role/litellm-wif",
-        aws_session_name="litellm-wif-session",
+        aws_role_name="arn:aws:iam::123456789012:role/hangarllm-wif",
+        aws_session_name="hangarllm-wif-session",
     )
     recorded: dict[str, dict[str, object]] = {}
 
@@ -3619,9 +3619,9 @@ def test_resolve_credentials_forwards_web_identity_token():
 
 def test_resolve_credentials_forwards_profile_name():
     """The profile route must receive the struct's profile name rather than the ambient session."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from hangarllm.types.llms.bedrock import AwsAuthParams
 
-    auth_params = AwsAuthParams(aws_profile_name="litellm-qa-profile")
+    auth_params = AwsAuthParams(aws_profile_name="hangarllm-qa-profile")
     session_instance = MagicMock()
     session_instance.get_credentials.return_value = Credentials(
         access_key="AKIAPROFILE", secret_key="profile-secret", token=None
@@ -3633,7 +3633,7 @@ def test_resolve_credentials_forwards_profile_name():
     ):
         credentials = BaseAWSLLM().resolve_credentials(auth_params, "us-east-1")
 
-    assert mock_session_cls.call_args.kwargs["profile_name"] == "litellm-qa-profile"
+    assert mock_session_cls.call_args.kwargs["profile_name"] == "hangarllm-qa-profile"
     assert credentials.access_key == "AKIAPROFILE"
 
 
@@ -3654,7 +3654,7 @@ def event_loop():
 
 @pytest.fixture(scope="function")
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -3664,21 +3664,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -3686,17 +3686,17 @@ def setup_and_teardown(event_loop):
         event_loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 @pytest.fixture
@@ -3719,7 +3719,7 @@ def test_get_cache_key(base_aws_llm):
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 @patch("boto3.client")
-@patch("litellm.llms.bedrock.base_aws_llm.get_secret")  # Add this patch
+@patch("hangarllm.llms.bedrock.base_aws_llm.get_secret")  # Add this patch
 def test_auth_with_web_identity_token(mock_get_secret, mock_boto3_client, base_aws_llm):
     # Mock get_secret to return a token
     mock_get_secret.return_value = "mocked_oidc_token"
@@ -3862,7 +3862,7 @@ def _pr4_bedrock_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("_pr4_bedrock_env", "_vcr_outcome_gate", "setup_and_teardown")
 def test_bedrock_completion_with_region_name():
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     client = HTTPHandler()
 
     with patch.object(client, "post") as mock_post:
@@ -3889,7 +3889,7 @@ def test_bedrock_completion_with_region_name():
         mock_post.return_value = mock_response
 
         # Pass the client so that the HTTP call will be intercepted.
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="bedrock/cohere.command-r-v1:0",
             messages=[{"role": "user", "content": "Hello, world!"}],
             aws_region_name="us-west-12",
@@ -3918,7 +3918,7 @@ def test_bedrock_completion_with_region_name():
 
 @pytest.mark.usefixtures("_pr4_bedrock_env", "_vcr_outcome_gate", "setup_and_teardown")
 def test_bedrock_completion_with_dynamic_authentication_params():
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     client = HTTPHandler()
 
     with patch.object(client, "post") as mock_post:
@@ -3945,7 +3945,7 @@ def test_bedrock_completion_with_dynamic_authentication_params():
         mock_post.return_value = mock_response
 
         # Pass the client so that the HTTP call will be intercepted.
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="bedrock/cohere.command-r-v1:0",
             messages=[{"role": "user", "content": "Hello, world!"}],
             aws_access_key_id="dynamically_generated_access_key_id",
@@ -3968,7 +3968,7 @@ def test_bedrock_completion_with_dynamic_authentication_params():
 
 @pytest.mark.usefixtures("_pr4_bedrock_env", "_vcr_outcome_gate", "setup_and_teardown")
 def test_bedrock_completion_with_dynamic_bedrock_runtime_endpoint():
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     client = HTTPHandler()
 
     with patch.object(client, "post") as mock_post:
@@ -3995,7 +3995,7 @@ def test_bedrock_completion_with_dynamic_bedrock_runtime_endpoint():
         mock_post.return_value = mock_response
 
         # Pass the client so that the HTTP call will be intercepted.
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="bedrock/cohere.command-r-v1:0",
             messages=[{"role": "user", "content": "Hello, world!"}],
             aws_bedrock_runtime_endpoint="https://my-fake-endpoint.com",
@@ -4036,7 +4036,7 @@ class DummyCredentials:
 )
 def test_dynamic_aws_params_propagation(model, param_name, param_value, expected_credentials_value):
     """
-    When passed to litellm.completion, each dynamic AWS authentication parameter
+    When passed to hangarllm.completion, each dynamic AWS authentication parameter
     should propagate down to the get_credentials() call in BaseAWSLLM.
 
     Also tests different model parameter values.
@@ -4108,8 +4108,8 @@ def test_dynamic_aws_params_propagation(model, param_name, param_value, expected
                 mock_response.json = lambda: json.loads(mock_response.text)
                 mock_post.return_value = mock_response
 
-                # Call litellm.completion with our base & dynamic parameters.
-                litellm.completion(**base_params)
+                # Call hangarllm.completion with our base & dynamic parameters.
+                hangarllm.completion(**base_params)
 
                 print(
                     "get_credentials.called_kwargs",
@@ -4162,7 +4162,7 @@ def test_signing_preserves_unrelated_import_failure(missing):
 @pytest.mark.parametrize("missing", ["botocore", "unrelated_dependency"])
 @pytest.mark.parametrize("shared_signer", [False, True])
 def test_json_signers_report_only_missing_aws_dependency(missing, shared_signer):
-    from litellm.llms.bedrock.base_aws_llm import sign_aws_json_post
+    from hangarllm.llms.bedrock.base_aws_llm import sign_aws_json_post
 
     llm = BaseAWSLLM()
     failure = ModuleNotFoundError("missing dependency", name=missing)
@@ -4210,7 +4210,7 @@ def test_direct_credentials_report_missing_aws_without_masking_other_imports(mis
 
 
 def test_shared_json_signer_preserves_body_and_signs_for_the_requested_service():
-    from litellm.llms.bedrock.base_aws_llm import sign_aws_json_post
+    from hangarllm.llms.bedrock.base_aws_llm import sign_aws_json_post
 
     body = '{"message":"ping"}'
     request = sign_aws_json_post(
@@ -4240,7 +4240,7 @@ def test_explicit_aws_credentials_sign_the_converse_request(model: str, respx_mo
     route: Final = respx_mock.post(
         re.compile(r"https://bedrock-runtime\.us-west-2\.amazonaws\.com/model/[^/]+/converse")
     ).mock(return_value=httpx.Response(200, json=_CONVERSE_SIGNED_RESPONSE))
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "sign this request"}],
         aws_access_key_id="AKIAUNITTESTKEY",
@@ -4272,7 +4272,7 @@ def test_external_boto3_client_supplies_credentials_and_region(respx_mock: respx
         aws_secret_access_key="external-client-secret",
         aws_session_token="external-client-session",
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "use the external client"}],
         aws_bedrock_client=bedrock_client,
@@ -4320,10 +4320,10 @@ async def test_extra_headers_and_authorization_override_reach_converse_and_invok
         "aws_region_name": "us-east-1",
         "client": AsyncHTTPHandler(transport=httpx.MockTransport(respond)),
     }
-    converse_response: Final = await litellm.acompletion(
+    converse_response: Final = await hangarllm.acompletion(
         model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0", **request_args
     )
-    invoke_response: Final = await litellm.acompletion(
+    invoke_response: Final = await hangarllm.acompletion(
         model="bedrock/invoke/anthropic.claude-3-sonnet-20240229-v1:0", **request_args
     )
     converse_request, invoke_request = requests

@@ -1,9 +1,9 @@
 """Gateway entrypoint.
 
-Reuses the existing FastAPI app from `litellm.proxy.proxy_server` and trims its
+Reuses the existing FastAPI app from `hangarllm.proxy.proxy_server` and trims its
 route table to just the LLM data-plane surface. The trim is purely additive —
 no existing module is modified, the full app continues to work via the legacy
-entrypoint (`litellm.proxy.proxy_server:app`).
+entrypoint (`hangarllm.proxy.proxy_server:app`).
 
 Run with:
     uvicorn gateway.main:app --host 0.0.0.0 --port 4000
@@ -23,11 +23,11 @@ from starlette.types import Lifespan
 # CLI flow does this in proxy_cli.py; we bypass proxy_cli by uvicorn'ing the
 # app directly, so without this Prisma initializes with the placeholder URL
 # and every DB-needing endpoint returns "Database not connected".
-from litellm.proxy.db.db_url_settings import DatabaseURLSettings
+from hangarllm.proxy.db.db_url_settings import DatabaseURLSettings
 
 DatabaseURLSettings.from_env().apply_to_env()
 
-from litellm.proxy.proxy_server import app
+from hangarllm.proxy.proxy_server import app
 
 from gateway.routes.allowlist import (
     GATEWAY_EXACT_PATHS,

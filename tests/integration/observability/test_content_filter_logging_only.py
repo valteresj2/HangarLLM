@@ -1,4 +1,4 @@
-"""`litellm_content_filter` in `mode: logging_only`, driven through a real proxy.
+"""`hangarllm_content_filter` in `mode: logging_only`, driven through a real proxy.
 
 The provider is the only double, an owned wire peer. The proxy, its guardrail registry, Postgres and Redis run
 for real with two workers. Every check reads the spend row, which is written after the logging-only scans finish
@@ -146,8 +146,8 @@ def _provider(request: Request) -> Reply:
 def _content_filter(name: str, mode: str, action: str, *, default_on: bool) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
-            "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+            "guardrail": "hangarllm_content_filter",
             "mode": mode,
             "default_on": default_on,
             "patterns": [
@@ -162,13 +162,13 @@ def _content_filter(name: str, mode: str, action: str, *, default_on: bool) -> d
 def _observe_only(name: str, **rules: object) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {"guardrail": "litellm_content_filter", "mode": "logging_only", "default_on": False, **rules},
+        "hangarllm_params": {"guardrail": "hangarllm_content_filter", "mode": "logging_only", "default_on": False, **rules},
     }
 
 
 def _rig_config(root: Path) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["general_settings"]["store_prompts_in_spend_logs"] = True
     config["guardrails"] = [
         _content_filter(OBSERVE_BLOCK, "logging_only", "BLOCK", default_on=True),
@@ -215,7 +215,7 @@ class Rig:
 
     def entries(self, response_id: str, name: str) -> tuple[dict[str, object], ...]:
         return _named_entries(
-            'SELECT request_id, status, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (response_id,), name
+            'SELECT request_id, status, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (response_id,), name
         )
 
 
@@ -406,7 +406,7 @@ def test_logging_only_block_records_every_match_on_an_mcp_tool_call(rig: Rig, en
         assert [call["body"]["params"]["arguments"] for call in tool_calls(peer.drain())] == [arguments]
 
     entries: Final = _named_entries(
-        'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s',
+        'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s',
         (sha256(key.encode()).hexdigest(), "call_mcp_tool"),
         OBSERVE_BLOCK,
     )
@@ -508,7 +508,7 @@ def _advertised_modes(rig: Rig) -> dict[str, object]:
     return object_value(response.json()["supported_modes_by_provider"])
 
 
-@pytest.mark.parametrize("provider", ["litellm_content_filter", "generic_guardrail_api", "bedrock", "akto"])
+@pytest.mark.parametrize("provider", ["hangarllm_content_filter", "generic_guardrail_api", "bedrock", "akto"])
 def test_dashboard_offers_logging_only_where_the_config_accepts_it(rig: Rig, provider: str) -> None:
     modes: Final = _advertised_modes(rig)
     offered: Final = modes[provider]
@@ -584,7 +584,7 @@ def test_guardrails_monitor_counts_observe_only_matches_as_flagged_not_blocked(r
     ("environment", "name_key", "status_key"),
     (
         pytest.param({}, "guardrail_name", "guardrail_status", id="otel-v1"),
-        pytest.param({"LITELLM_OTEL_V2": "1"}, "litellm.guardrail.name", "litellm.guardrail.status", id="otel-v2"),
+        pytest.param({"HANGARLLM_OTEL_V2": "1"}, "hangarllm.guardrail.name", "hangarllm.guardrail.status", id="otel-v2"),
     ),
 )
 def test_otel_guardrail_spans_carry_the_flagged_status_without_an_error(
@@ -656,7 +656,7 @@ def _burst_call(rig: Rig, index: int) -> tuple[str, int, str, str]:
             },
             headers={"Authorization": f"Bearer {rig.proxy.key}"},
         )
-        return "outage", failed.status_code, marker, failed.headers.get("x-litellm-call-id", "")
+        return "outage", failed.status_code, marker, failed.headers.get("x-hangarllm-call-id", "")
     endpoint: Final = list(SYNC_CALLS)[index % len(SYNC_CALLS)]
     response_id, answer = SYNC_CALLS[endpoint](rig, f"{marker} {SECRETS}\n{FORBIDDEN_WORD}")
     assert answer == _answer(marker), (endpoint, answer)
@@ -665,7 +665,7 @@ def _burst_call(rig: Rig, index: int) -> tuple[str, int, str, str]:
 
 def _failure_row(call_id: str) -> tuple[object, tuple[dict[str, object], ...]]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
+        lambda: read_rows('SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
         lambda values: len(values) >= 1,
         seconds=70,
     )

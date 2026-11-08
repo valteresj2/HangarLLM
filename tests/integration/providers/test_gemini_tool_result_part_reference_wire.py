@@ -24,7 +24,7 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from openai.types.responses import ResponseCompletedEvent
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
 _BACKEND: Final = "gemini-2.5-flash"
 _ARGON: Final = "gemini-4-argon"
@@ -33,7 +33,7 @@ _PROJECT: Final = "scripted-project"
 _LOCATION: Final = "us-central1"
 _BUCKET: Final = "scripted-bucket"
 _UPLOAD_PREFIX: Final = f"/upload/storage/v1/b/{_BUCKET}/o?uploadType=media&name="
-_SALT: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+_SALT: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 _QUESTION: Final = "Which type does the value property of Config use?"
 _FOLLOW_UP: Final = "Answer in one word."
 _ANSWER: Final = "A humanScalar string."
@@ -512,7 +512,7 @@ def _spend_rows(request_ids: Sequence[str], expected: int) -> tuple[Mapping[str,
     rows: Final = eventually(
         lambda: read_rows(
             "SELECT request_id, model_group, call_type, status, prompt_tokens, completion_tokens "
-            'FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)',
+            'FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)',
             (list(request_ids),),  # pyright: ignore[reportArgumentType]  # psycopg adapts the list to a text array
         ),
         lambda found: len(found) >= expected,

@@ -107,8 +107,8 @@ GEMINI_3_8_FLASH_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "gemini/gemini-3.8-flash"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "gemini/gemini-3.8-flash"},
     expected_provider_endpoint="/models/gemini-3.8-flash:generateContent",
     expected_provider_headers={"content-type": "application/json", "x-goog-api-key": "synthetic-gemini-key"},
     expected_provider_request={
@@ -116,7 +116,7 @@ GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
         "system_instruction": {"parts": [{"text": RESPONSES_REQUEST["instructions"]}]},
     },
     mock_provider_response={**GEMINI_GENERATE_CONTENT_RESPONSE, **GEMINI_3_8_FLASH_RESPONSE_FIELDS},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **GEMINI_RESPONSES_RESPONSE,
         "model": "gemini/gemini-3.8-flash",
         "output": [
@@ -256,8 +256,8 @@ GEMINI_3_1_PRO_PREVIEW_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "gemini/gemini-3.1-pro-preview"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "gemini/gemini-3.1-pro-preview"},
     expected_provider_endpoint="/models/gemini-3.1-pro-preview:generateContent",
     expected_provider_headers={"content-type": "application/json", "x-goog-api-key": "synthetic-gemini-key"},
     expected_provider_request={
@@ -265,7 +265,7 @@ GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
         "system_instruction": {"parts": [{"text": RESPONSES_REQUEST["instructions"]}]},
     },
     mock_provider_response={**GEMINI_GENERATE_CONTENT_RESPONSE, **GEMINI_3_1_PRO_PREVIEW_RESPONSE_FIELDS},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **GEMINI_RESPONSES_RESPONSE,
         "model": "gemini/gemini-3.1-pro-preview",
         "output": [
@@ -418,8 +418,8 @@ GEMINI_4_ARGON_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 GEMINI_4_ARGON_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "gemini/gemini-4-argon"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "gemini/gemini-4-argon"},
     expected_provider_endpoint="/models/gemini-4-argon:generateContent",
     expected_provider_headers={"content-type": "application/json", "x-goog-api-key": "synthetic-gemini-key"},
     expected_provider_request={
@@ -427,7 +427,7 @@ GEMINI_4_ARGON_TEST_CASE: Final = TranslationTestCase(
         "system_instruction": {"parts": [{"text": RESPONSES_REQUEST["instructions"]}]},
     },
     mock_provider_response={**GEMINI_GENERATE_CONTENT_RESPONSE, **GEMINI_4_ARGON_RESPONSE_FIELDS},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **GEMINI_RESPONSES_RESPONSE,
         "model": "gemini/gemini-4-argon",
         "output": [
@@ -501,8 +501,8 @@ GEMINI_3_5_FLASH_THOUGHT_SIGNATURE: Final = "ErkECrYEAWkUfRORlQ5j/gkLmyx08FVeIMg
 
 GEMINI_3_5_FLASH_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "gemini/gemini-3.5-flash",
         "max_output_tokens": 1024,
         "instructions": "You are a terse assistant.",
@@ -538,7 +538,7 @@ GEMINI_3_5_FLASH_TEST_CASE: Final = TranslationTestCase(
         "modelVersion": "gemini-3.5-flash",
         "responseId": "4hjEav32Mt6P6dkPn5iDqAg",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,

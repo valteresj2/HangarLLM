@@ -17,7 +17,7 @@ PADDING: Final = "".join(f"line {number}: the quick brown fox jumps over the laz
     "deployment",
     with_expected_failure(
         "claude_bedrock",
-        reason="LiteLLM's Responses-to-chat bridge ignores Codex's compaction_trigger item, so Codex gets no"
+        reason="HangarLLM's Responses-to-chat bridge ignores Codex's compaction_trigger item, so Codex gets no"
         " compaction back and fails the turn",
     ),
 )

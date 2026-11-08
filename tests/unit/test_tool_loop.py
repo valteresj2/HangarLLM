@@ -5,10 +5,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.tool_loop import ToolLoopMaxRoundsExceeded
-from litellm.types.llms.openai import ChatCompletionToolMessage
-from litellm.types.utils import ChatCompletionMessageToolCall
+import hangarllm
+from hangarllm.tool_loop import ToolLoopMaxRoundsExceeded
+from hangarllm.types.llms.openai import ChatCompletionToolMessage
+from hangarllm.types.utils import ChatCompletionMessageToolCall
 
 OPENAI_CHAT_COMPLETIONS_URL: Final = "https://api.openai.com/v1/chat/completions"
 WEATHER_TOOLS: Final = (
@@ -75,7 +75,7 @@ def test_final_answer_without_tool_calls_returns_content(respx_mock: respx.MockR
         executor_called.append(tc)
         return _tool_result(tc)
 
-    answer: Final = litellm.run_tool_loop(
+    answer: Final = hangarllm.run_tool_loop(
         model="openai/gpt-5-mini",
         messages=[{"role": "user", "content": "hi"}],
         tools=WEATHER_TOOLS,
@@ -108,7 +108,7 @@ def test_two_rounds_appends_assistant_and_tool_messages_in_order(respx_mock: res
     messages: Final = [{"role": "user", "content": "weather in Paris and Tokyo?"}]
     messages_snapshot: Final = [dict(message) for message in messages]
 
-    answer: Final = litellm.run_tool_loop(
+    answer: Final = hangarllm.run_tool_loop(
         model="openai/gpt-5-mini",
         messages=messages,
         tools=WEATHER_TOOLS,
@@ -170,7 +170,7 @@ def test_response_format_and_tools_forwarded_every_round(respx_mock: respx.MockR
         },
     }
 
-    litellm.run_tool_loop(
+    hangarllm.run_tool_loop(
         model="openai/gpt-5-mini",
         messages=[{"role": "user", "content": "weather?"}],
         tools=WEATHER_TOOLS,
@@ -198,7 +198,7 @@ def test_max_rounds_exceeded_raises_without_executing_last_round(respx_mock: res
         return _tool_result(tc)
 
     with pytest.raises(ToolLoopMaxRoundsExceeded) as exc_info:
-        litellm.run_tool_loop(
+        hangarllm.run_tool_loop(
             model="openai/gpt-5-mini",
             messages=[{"role": "user", "content": "weather?"}],
             tools=WEATHER_TOOLS,
@@ -218,7 +218,7 @@ def test_max_rounds_below_one_rejected_before_any_request(respx_mock: respx.Mock
     )
 
     with pytest.raises(ValueError, match="max_rounds must be >= 1"):
-        litellm.run_tool_loop(
+        hangarllm.run_tool_loop(
             model="openai/gpt-5-mini",
             messages=[{"role": "user", "content": "hi"}],
             tools=WEATHER_TOOLS,
@@ -236,7 +236,7 @@ def test_stream_rejected_before_any_request(respx_mock: respx.MockRouter) -> Non
     )
 
     with pytest.raises(ValueError, match="stream=True is not supported"):
-        litellm.run_tool_loop(
+        hangarllm.run_tool_loop(
             model="openai/gpt-5-mini",
             messages=[{"role": "user", "content": "hi"}],
             tools=WEATHER_TOOLS,
@@ -263,7 +263,7 @@ def test_custom_tool_call_raises_type_error_without_executing(respx_mock: respx.
         return _tool_result(tc)
 
     with pytest.raises(TypeError, match="custom tool call call_custom"):
-        litellm.run_tool_loop(
+        hangarllm.run_tool_loop(
             model="openai/gpt-5-mini",
             messages=[{"role": "user", "content": "hi"}],
             tools=WEATHER_TOOLS,
@@ -337,7 +337,7 @@ def test_responses_bridge_replays_reasoning_items_across_rounds(respx_mock: resp
         executed.append(tc)
         return _tool_result(tc)
 
-    answer: Final = litellm.run_tool_loop(
+    answer: Final = hangarllm.run_tool_loop(
         model="openai/responses/gpt-5.5",
         messages=[{"role": "user", "content": "weather in Paris?"}],
         tools=WEATHER_TOOLS,
@@ -400,7 +400,7 @@ def test_responses_bridge_replays_tool_search_items_across_rounds(respx_mock: re
         side_effect=[httpx.Response(200, json=round_one), httpx.Response(200, json=round_two)]
     )
 
-    litellm.run_tool_loop(
+    hangarllm.run_tool_loop(
         model="openai/responses/gpt-5.5",
         messages=[{"role": "user", "content": "weather in Paris?"}],
         tools=({"type": "tool_search"}, *WEATHER_TOOLS),
@@ -422,10 +422,10 @@ def test_responses_bridge_replays_tool_search_items_across_rounds(respx_mock: re
 
 
 async def test_arun_tool_loop_two_rounds(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "module_level_aclient", AsyncHTTPHandler())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "module_level_aclient", AsyncHTTPHandler())
     tool_calls: Final = [
         _tool_call("call_1", "get_weather", {"city": "Paris"}),
         _tool_call("call_2", "get_weather", {"city": "Tokyo"}),
@@ -445,7 +445,7 @@ async def test_arun_tool_loop_two_rounds(respx_mock: respx.MockRouter, monkeypat
     messages: Final = [{"role": "user", "content": "weather in Paris and Tokyo?"}]
     messages_snapshot: Final = [dict(message) for message in messages]
 
-    answer: Final = await litellm.arun_tool_loop(
+    answer: Final = await hangarllm.arun_tool_loop(
         model="openai/gpt-5-mini",
         messages=messages,
         tools=WEATHER_TOOLS,
@@ -529,7 +529,7 @@ def test_tool_search_call_is_replayed_with_its_result_instead_of_executed(respx_
         executed.append(tc.function.name)
         return _tool_result(tc)
 
-    answer: Final = litellm.run_tool_loop(
+    answer: Final = hangarllm.run_tool_loop(
         model="anthropic/claude-opus-5-5",
         messages=[{"role": "user", "content": "weather in Paris?"}],
         tools=WEATHER_TOOLS,
@@ -547,10 +547,10 @@ def test_tool_search_call_is_replayed_with_its_result_instead_of_executed(respx_
 async def test_arun_tool_loop_answers_after_a_search_that_found_nothing(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "module_level_aclient", AsyncHTTPHandler())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "module_level_aclient", AsyncHTTPHandler())
     route: Final = respx_mock.post(ANTHROPIC_MESSAGES_URL).mock(
         return_value=httpx.Response(
             200,
@@ -566,7 +566,7 @@ async def test_arun_tool_loop_answers_after_a_search_that_found_nothing(
         executed.append(tc.function.name)
         return _tool_result(tc)
 
-    answer: Final = await litellm.arun_tool_loop(
+    answer: Final = await hangarllm.arun_tool_loop(
         model="anthropic/claude-opus-5-5",
         messages=[{"role": "user", "content": "book me a flight"}],
         tools=WEATHER_TOOLS,
@@ -594,7 +594,7 @@ def test_client_tool_turn_is_replayed_without_its_provider_specific_fields(respx
         ]
     )
 
-    answer: Final = litellm.run_tool_loop(
+    answer: Final = hangarllm.run_tool_loop(
         model="openai/gpt-5-mini",
         messages=[{"role": "user", "content": "weather in Paris?"}],
         tools=WEATHER_TOOLS,
@@ -648,7 +648,7 @@ def test_responses_bridge_replays_commentary_reasoning_and_tool_call_in_order(re
         side_effect=[httpx.Response(200, json=round_one), httpx.Response(200, json=round_two)]
     )
 
-    answer: Final = litellm.run_tool_loop(
+    answer: Final = hangarllm.run_tool_loop(
         model="openai/responses/gpt-5.6",
         messages=[{"role": "user", "content": "weather in Paris?"}],
         tools=WEATHER_TOOLS,

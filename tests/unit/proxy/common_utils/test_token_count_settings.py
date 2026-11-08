@@ -4,15 +4,15 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.bedrock.common_utils import get_bedrock_base_model
-from litellm.proxy.common_utils.token_count_settings import (
+from hangarllm.llms.bedrock.common_utils import get_bedrock_base_model
+from hangarllm.proxy.common_utils.token_count_settings import (
     ProviderCountFailure,
     TokenCountModel,
     TokenCountSettings,
     count_source_fields,
     resolve_token_count_settings,
 )
-from litellm.types.utils import TokenCountResponse
+from hangarllm.types.utils import TokenCountResponse
 
 _OPUS_US_EAST_1: Final = TokenCountModel(model="anthropic.claude-opus-5-5", region="us-east-1")
 _DEFAULT: Final = {
@@ -38,11 +38,11 @@ def _in_us_west_2() -> str:
             ),
         ),
         (
-            {"token_count_model": {"model": "custom-model", "litellm_provider": "bedrock_mantle"}},
+            {"token_count_model": {"model": "custom-model", "hangarllm_provider": "bedrock_mantle"}},
             TokenCountSettings(
                 framing=97,
                 count_model=TokenCountModel(
-                    model="custom-model", region=None, litellm_provider="bedrock_mantle", configured=True
+                    model="custom-model", region=None, hangarllm_provider="bedrock_mantle", configured=True
                 ),
             ),
         ),
@@ -242,7 +242,7 @@ def test_no_setting_anywhere_means_the_model_counts_itself_without_framing() -> 
     ("value", "expected"),
     [("kimi_k3", "kimi_k3"), ("cl100k_base", None), (None, None), (True, None)],
 )
-def test_only_a_tokenizer_litellm_ships_is_taken_from_the_cost_map(value: object, expected: str | None) -> None:
+def test_only_a_tokenizer_hangarllm_ships_is_taken_from_the_cost_map(value: object, expected: str | None) -> None:
     settings: Final = resolve_token_count_settings(
         configured={}, default={"token_count_tokenizer": value}, deployment_region=_in_us_west_2
     )
@@ -263,11 +263,11 @@ def _counted(source: str | None, model_used: str = "us.anthropic.claude-opus-5-5
     ("source", "expected"),
     [
         (None, {}),
-        ("provider", {"litellm_count_source": "provider"}),
-        ("local_estimate", {"litellm_count_source": "local_estimate"}),
+        ("provider", {"hangarllm_count_source": "provider"}),
+        ("local_estimate", {"hangarllm_count_source": "local_estimate"}),
         (
             "token_count_model",
-            {"litellm_count_source": "token_count_model", "litellm_count_model": "us.anthropic.claude-opus-5-5"},
+            {"hangarllm_count_source": "token_count_model", "hangarllm_count_model": "us.anthropic.claude-opus-5-5"},
         ),
     ],
 )
@@ -282,7 +282,7 @@ def test_every_shipped_token_count_model_resolves_to_a_mapped_aws_model() -> Non
     aws_models: Final = frozenset(
         get_bedrock_base_model(name)
         for name, entry in cost_map.items()
-        if isinstance(entry, dict) and entry.get("litellm_provider") in ("bedrock", "bedrock_converse")
+        if isinstance(entry, dict) and entry.get("hangarllm_provider") in ("bedrock", "bedrock_converse")
     )
     count_models: Final = {
         name: entry["token_count_model"]
@@ -293,7 +293,7 @@ def test_every_shipped_token_count_model_resolves_to_a_mapped_aws_model() -> Non
     for name, count_model in count_models.items():
         model: Final = count_model["model"]
         assert get_bedrock_base_model(model) in aws_models
-        assert cost_map[name]["litellm_provider"] in ("bedrock", "bedrock_converse", "bedrock_mantle")
+        assert cost_map[name]["hangarllm_provider"] in ("bedrock", "bedrock_converse", "bedrock_mantle")
         assert "region" not in count_model or count_model["region"].strip()
 
 
@@ -333,7 +333,7 @@ def test_hint_lands_in_the_upstream_error_message_and_keeps_its_envelope(message
 
 
 def test_hint_stays_off_an_error_raised_before_any_provider_call() -> None:
-    message: Final = "Invalid request for token counting: LiteLLM cannot count a tool of type 'mcp' for this model"
+    message: Final = "Invalid request for token counting: HangarLLM cannot count a tool of type 'mcp' for this model"
     failure: Final = ProviderCountFailure(status_code=400, message=message, rejected_before_provider_call=True)
 
     assert failure.with_hint("Enable eu-west-1").message == message

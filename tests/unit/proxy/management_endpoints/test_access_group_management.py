@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm import Router
-from litellm.proxy.management_endpoints.model_management_endpoints import (
+from hangarllm import Router
+from hangarllm.proxy.management_endpoints.model_management_endpoints import (
     ReconcileOutcome,
 )
 
@@ -27,11 +27,11 @@ async def test_create_duplicate_access_group_fails():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
@@ -40,7 +40,7 @@ async def test_create_duplicate_access_group_fails():
         model_list=[
             {
                 "model_name": "gpt-4",  # Exact model name
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4",
                     "api_key": "fake-key",
                 },
@@ -49,7 +49,7 @@ async def test_create_duplicate_access_group_fails():
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(
         return_value=[
             MagicMock(
                 model_id="1",
@@ -61,7 +61,7 @@ async def test_create_duplicate_access_group_fails():
 
     mock_user = UserAPIKeyAuth(
         user_id="test_admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     request_data = NewModelGroupRequest(
@@ -71,8 +71,8 @@ async def test_create_duplicate_access_group_fails():
 
     # Mock the imported dependencies from proxy_server (where they're actually imported from)
     with (
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
     ):
 
         # Should raise 409 Conflict
@@ -89,28 +89,28 @@ async def test_create_access_group_with_model_ids_tags_only_specific_deployments
     Test that using model_ids only tags the specific deployments, not all
     deployments sharing the same model_name.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/21544
+    Fixes: upstream issue 21544
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
     deploy_a = MagicMock(model_id="deploy-A", model_name="gpt-4o", model_info={})
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_proxymodeltable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique = AsyncMock(
         return_value=deploy_a
     )
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
 
     mock_user = UserAPIKeyAuth(
         user_id="test_admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     request_data = NewModelGroupRequest(
@@ -119,10 +119,10 @@ async def test_create_access_group_with_model_ids_tags_only_specific_deployments
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
@@ -132,11 +132,11 @@ async def test_create_access_group_with_model_ids_tags_only_specific_deployments
 
     assert response.models_updated == 1
     assert response.model_ids == ["deploy-A"]
-    mock_prisma.db.litellm_proxymodeltable.find_unique.assert_called_once_with(
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique.assert_called_once_with(
         where={"model_id": "deploy-A"}
     )
-    assert mock_prisma.db.litellm_proxymodeltable.update.call_count == 1
-    update_call = mock_prisma.db.litellm_proxymodeltable.update.call_args
+    assert mock_prisma.db.hangarllm_proxymodeltable.update.call_count == 1
+    update_call = mock_prisma.db.hangarllm_proxymodeltable.update.call_args
     assert update_call.kwargs["where"] == {"model_id": "deploy-A"}
 
 
@@ -145,11 +145,11 @@ async def test_create_access_group_with_model_names_tags_all_deployments():
     """
     Test backward compat: model_names still tags ALL deployments sharing that model_name.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
@@ -161,7 +161,7 @@ async def test_create_access_group_with_model_names_tags_all_deployments():
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "gpt-4o", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "gpt-4o", "api_key": "fake-key"},
                 "model_info": {"id": deployment_id, "db_model": True},
             }
             for deployment_id in ("deploy-A", "deploy-B", "deploy-C")
@@ -169,14 +169,14 @@ async def test_create_access_group_with_model_names_tags_all_deployments():
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(
         side_effect=[[], [deploy_a, deploy_b, deploy_c]]
     )
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
 
     mock_user = UserAPIKeyAuth(
         user_id="test_admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     request_data = NewModelGroupRequest(
@@ -184,10 +184,10 @@ async def test_create_access_group_with_model_names_tags_all_deployments():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
@@ -197,7 +197,7 @@ async def test_create_access_group_with_model_names_tags_all_deployments():
 
     assert response.models_updated == 3
     assert response.model_names == ["gpt-4o"]
-    assert mock_prisma.db.litellm_proxymodeltable.update.call_count == 3
+    assert mock_prisma.db.hangarllm_proxymodeltable.update.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -205,26 +205,26 @@ async def test_create_access_group_model_ids_takes_priority_over_model_names():
     """
     Test that when both model_ids and model_names are provided, model_ids is used.
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
     deploy_a = MagicMock(model_id="deploy-A", model_name="gpt-4o", model_info={})
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_proxymodeltable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique = AsyncMock(
         return_value=deploy_a
     )
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
 
     mock_user = UserAPIKeyAuth(
         user_id="test_admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     request_data = NewModelGroupRequest(
@@ -234,10 +234,10 @@ async def test_create_access_group_model_ids_takes_priority_over_model_names():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
@@ -246,7 +246,7 @@ async def test_create_access_group_model_ids_takes_priority_over_model_names():
         )
 
     assert response.models_updated == 1
-    mock_prisma.db.litellm_proxymodeltable.find_unique.assert_called_once_with(
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique.assert_called_once_with(
         where={"model_id": "deploy-A"}
     )
 
@@ -257,24 +257,24 @@ async def test_create_access_group_requires_model_names_or_model_ids():
     Test that creating an access group without model_names or model_ids fails.
     """
     from fastapi import HTTPException
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
     mock_user = UserAPIKeyAuth(
         user_id="test_admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     request_data = NewModelGroupRequest(access_group="production-models")
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await create_model_group(data=request_data, user_api_key_dict=mock_user)
@@ -288,21 +288,21 @@ async def test_create_access_group_invalid_model_id_returns_400():
     Test that passing a non-existent model_id returns 400 error.
     """
     from fastapi import HTTPException
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_proxymodeltable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique = AsyncMock(return_value=None)
 
     mock_user = UserAPIKeyAuth(
         user_id="test_admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     request_data = NewModelGroupRequest(
@@ -311,10 +311,10 @@ async def test_create_access_group_invalid_model_id_returns_400():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
@@ -330,30 +330,30 @@ async def test_create_access_group_surfaces_dropped_models():
     pod must report the drop through this file's HTTPException contract, not a 200."""
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
     deploy_a = MagicMock(model_id="deploy-A", model_name="gpt-4o", model_info={})
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_proxymodeltable.find_unique = AsyncMock(return_value=deploy_a)
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique = AsyncMock(return_value=deploy_a)
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
 
-    mock_user = UserAPIKeyAuth(user_id="test_admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    mock_user = UserAPIKeyAuth(user_id="test_admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     wiped_router = MagicMock()
     wiped_router.registry.return_value.names.side_effect = [["deploy-A"], []]
     with (
-        patch("litellm.proxy.proxy_server.llm_router", wiped_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", wiped_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
@@ -373,28 +373,28 @@ async def test_create_access_group_trusts_reload_snapshot_over_post_lock_fresh_r
     """A concurrent reconcile sampled after the lock is released must not make this
     write's reload look like it dropped the tagged model: the verdict has to judge from
     the ReconcileOutcome the reload captured under the lock, not a fresh router read."""
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
     deploy_a = MagicMock(model_id="deploy-A", model_name="gpt-4o", model_info={})
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_proxymodeltable.find_unique = AsyncMock(return_value=deploy_a)
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_proxymodeltable.find_unique = AsyncMock(return_value=deploy_a)
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
 
     concurrently_wiped_router = MagicMock()
     concurrently_wiped_router.registry.return_value.names.side_effect = [["deploy-A"], []]
     with (
-        patch("litellm.proxy.proxy_server.llm_router", concurrently_wiped_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", concurrently_wiped_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(
                 return_value=ReconcileOutcome(
                     still_desired=frozenset({"deploy-A"}), live_after=frozenset({"deploy-A"})
@@ -404,7 +404,7 @@ async def test_create_access_group_trusts_reload_snapshot_over_post_lock_fresh_r
     ):
         response = await create_model_group(
             data=NewModelGroupRequest(access_group="production-models", model_ids=["deploy-A"]),
-            user_api_key_dict=UserAPIKeyAuth(user_id="test_admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="test_admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     assert response.models_updated == 1
@@ -416,12 +416,12 @@ async def test_create_access_group_trusts_reload_snapshot_over_post_lock_fresh_r
 async def test_tag_deployment_parses_string_model_info_and_refuses_corrupt():
     """The model_info column can arrive as its JSON string; tagging must parse it rather
     than crash, and must refuse to rewrite a present-but-unreadable value."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         _tag_deployment_with_access_group,
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
 
     pair = await _tag_deployment_with_access_group(
         model_id="deploy-str",
@@ -452,44 +452,44 @@ async def test_delete_access_group_ignores_models_that_were_already_dead():
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[deploy_broken])
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
-    mock_prisma.db.litellm_modelaccessgroupbudgettable.delete = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[deploy_broken])
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_modelaccessgroupbudgettable.delete = AsyncMock(return_value=None)
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group,
     )
 
     never_served_router = MagicMock()
     never_served_router.registry.return_value.names.return_value = []
     with (
-        patch("litellm.proxy.proxy_server.llm_router", never_served_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.llm_router", never_served_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
         response = await delete_access_group(
             access_group="doomed-group",
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
             auth_cache=_FakeAuthCache(),
         )
 
     assert response.models_updated == 1
-    mock_prisma.db.litellm_proxymodeltable.update.assert_awaited_once()
+    mock_prisma.db.hangarllm_proxymodeltable.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_create_access_group_read_through_recovers_model_created_on_sibling_replica():
     """Regression: an access group referencing a model that another replica just wrote
     to the DB must be created instead of 400ing until the periodic config reload."""
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
@@ -499,7 +499,7 @@ async def test_create_access_group_read_through_recovers_model_created_on_siblin
     db_row = SimpleNamespace(
         model_id=f"{model_name}-id",
         model_name=model_name,
-        litellm_params={"model": "openai/gpt-4o", "api_key": "fake", "mock_response": "hi"},
+        hangarllm_params={"model": "openai/gpt-4o", "api_key": "fake", "mock_response": "hi"},
         model_info={},
         blocked=False,
     )
@@ -508,32 +508,32 @@ async def test_create_access_group_read_through_recovers_model_created_on_siblin
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(side_effect=[[db_row], [], [db_row]])
-    mock_prisma.db.litellm_proxymodeltable.update = AsyncMock()
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(side_effect=[[db_row], [], [db_row]])
+    mock_prisma.db.hangarllm_proxymodeltable.update = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         patch(
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
         response = await create_model_group(
             data=NewModelGroupRequest(access_group="replica-lag-group", model_names=[model_name]),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
 
     assert response.models_updated == 1
     assert response.model_names == [model_name]
-    assert mock_prisma.db.litellm_proxymodeltable.find_many.await_args_list[0].kwargs["where"] == {
+    assert mock_prisma.db.hangarllm_proxymodeltable.find_many.await_args_list[0].kwargs["where"] == {
         "model_name": model_name
     }
 
@@ -542,11 +542,11 @@ async def test_create_access_group_read_through_recovers_model_created_on_siblin
 async def test_create_access_group_model_missing_everywhere_still_400s():
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         create_model_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         NewModelGroupRequest,
     )
 
@@ -555,22 +555,22 @@ async def test_create_access_group_model_missing_everywhere_still_400s():
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=[])
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await create_model_group(
                 data=NewModelGroupRequest(access_group="ghost-group", model_names=[model_name]),
-                user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+                user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
             )
 
     assert exc_info.value.status_code == 400
@@ -590,7 +590,7 @@ class _FakeAccessGroupBudgetRow:
     access_group_name: str
     budget_id: str | None = None
     spend: float = 0.0
-    litellm_budget_table: _FakeBudgetRow | None = None
+    hangarllm_budget_table: _FakeBudgetRow | None = None
 
 
 @dataclass
@@ -601,7 +601,7 @@ class _FakeDeployment:
 
 
 class _FakeBudgetTable:
-    """Stands in for litellm_budgettable so a test can see whether a budget row was created,
+    """Stands in for hangarllm_budgettable so a test can see whether a budget row was created,
     updated in place, or left orphaned."""
 
     def __init__(self, journal: list[str]) -> None:
@@ -646,7 +646,7 @@ class _FakeBudgetTable:
 
 
 class _FakeAccessGroupBudgetTable:
-    """Stands in for litellm_modelaccessgroupbudgettable, resolving `include` against the fake
+    """Stands in for hangarllm_modelaccessgroupbudgettable, resolving `include` against the fake
     budget table the way prisma resolves the relation."""
 
     def __init__(self, journal: list[str], budget_table: _FakeBudgetTable) -> None:
@@ -658,7 +658,7 @@ class _FakeAccessGroupBudgetTable:
     def _resolve(self, row, include):
         if row is None:
             return None
-        row.litellm_budget_table = (
+        row.hangarllm_budget_table = (
             self.budget_table.rows.get(row.budget_id) if include and row.budget_id is not None else None
         )
         return row
@@ -770,7 +770,7 @@ class _FakeModelTableBatch:
     def __init__(self, model_table: _FakeModelTable) -> None:
         self.model_table = model_table
         self.queued: list[tuple[dict, dict]] = []
-        self.litellm_proxymodeltable = SimpleNamespace(update=self._queue_update)
+        self.hangarllm_proxymodeltable = SimpleNamespace(update=self._queue_update)
 
     def _queue_update(self, where, data):
         self.queued.append((dict(where), dict(data)))
@@ -795,7 +795,7 @@ class _FakeModelTableTx:
     def __init__(self, journal: list[str], model_table: _FakeModelTable) -> None:
         self.journal = journal
         self.model_table = model_table
-        self.litellm_proxymodeltable = SimpleNamespace(find_many=self._find_many)
+        self.hangarllm_proxymodeltable = SimpleNamespace(find_many=self._find_many)
 
     async def query_raw(self, query, *args):
         if "advisory_xact_lock" in query:
@@ -829,9 +829,9 @@ class _FakePrismaClient:
         self.access_group_budget_table = _FakeAccessGroupBudgetTable(journal, self.budget_table)
         self.model_table = _FakeModelTable(journal, deployments, failing_model_ids)
         self.db = SimpleNamespace(
-            litellm_budgettable=self.budget_table,
-            litellm_modelaccessgroupbudgettable=self.access_group_budget_table,
-            litellm_proxymodeltable=self.model_table,
+            hangarllm_budgettable=self.budget_table,
+            hangarllm_modelaccessgroupbudgettable=self.access_group_budget_table,
+            hangarllm_proxymodeltable=self.model_table,
             tx=lambda timeout=None: _FakeModelTableTx(journal, self.model_table),
         )
 
@@ -853,9 +853,9 @@ class _FakeAuthCache:
 
 
 def _admin():
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
-    return UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 def _deployment(model_id="deploy-1", model_name="gpt-4o", access_groups=("prod-models",)):
@@ -878,7 +878,7 @@ def _seed_budget(prisma, access_group, spend=0.0, budget_id="budget-seed", **bud
 @contextmanager
 def _proxy(prisma):
     with patch(  # test-quality-ok: the endpoints import proxy_server.prisma_client themselves; no parameter to inject
-        "litellm.proxy.proxy_server.prisma_client", prisma
+        "hangarllm.proxy.proxy_server.prisma_client", prisma
     ):
         yield
 
@@ -893,10 +893,10 @@ def _proxy_with_stubbed_reload(prisma):
     with (
         _proxy(prisma),
         patch(  # test-quality-ok: live_model_ids_snapshot() reads the llm_router global; the endpoint takes no router
-            "litellm.proxy.proxy_server.llm_router", never_served_router
+            "hangarllm.proxy.proxy_server.llm_router", never_served_router
         ),
         patch(  # test-quality-ok: the endpoint calls its module-level clear_cache import; there is no parameter for it
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.clear_cache",
             new=AsyncMock(return_value=ReconcileOutcome(still_desired=None, live_after=None)),
         ),
     ):
@@ -911,7 +911,7 @@ def _serve_model_groups(router, model_groups):
 
 def _eviction_journal(access_group):
     """Both auth cache keys, in the order a write path has to evict them."""
-    from litellm.proxy.common_utils.user_api_key_cache import (
+    from hangarllm.proxy.common_utils.user_api_key_cache import (
         model_access_group_cache_key,
         model_access_group_registry_cache_key,
     )
@@ -934,10 +934,10 @@ def _assert_evicted_after_write(journal, access_group, write_entry):
 async def test_put_access_group_budget_creates_the_row_and_its_budget():
     """First PUT has to create both halves: the budget row it links, and the access group row
     that carries the link and the shared spend."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -966,10 +966,10 @@ async def test_put_access_group_budget_creates_the_row_and_its_budget():
 async def test_second_put_replaces_the_budget_instead_of_creating_another():
     """PUT is idempotent: a second call must update the budget already linked to the group,
     not leave a second budget row (and a second group row) behind."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1001,10 +1001,10 @@ async def test_second_put_replaces_the_budget_instead_of_creating_another():
 
 @pytest.mark.asyncio
 async def test_put_access_group_budget_links_an_existing_budget_without_creating_one():
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1032,10 +1032,10 @@ async def test_put_access_group_budget_rejects_an_empty_body():
     """An empty PUT would register the group as budgeted while enforcing nothing."""
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1059,10 +1059,10 @@ async def test_put_access_group_budget_rejects_an_empty_body():
 async def test_put_access_group_budget_rejects_explicit_null_max_budget():
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1088,10 +1088,10 @@ async def test_put_access_group_budget_rejects_an_unparseable_duration():
     """An unparseable duration can only be discovered by the reset job, long after the write."""
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1116,7 +1116,7 @@ def test_access_group_budget_request_rejects_rate_limit_fields():
     promise rate limiting that never happens."""
     from pydantic import ValidationError
 
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1127,7 +1127,7 @@ def test_access_group_budget_request_rejects_rate_limit_fields():
 
 @pytest.mark.asyncio
 async def test_get_access_group_budget_returns_the_budget_and_the_shared_spend():
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         get_access_group_budget,
     )
 
@@ -1147,7 +1147,7 @@ async def test_get_access_group_budget_returns_the_budget_and_the_shared_spend()
 @pytest.mark.asyncio
 async def test_get_access_group_budget_on_a_budgetless_group_is_200_not_404():
     """A real group that simply has no budget is not an error; only an unknown group is."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         get_access_group_budget,
     )
 
@@ -1164,12 +1164,12 @@ async def test_get_access_group_budget_on_a_budgetless_group_is_200_not_404():
 async def test_access_group_budget_routes_404_on_an_unknown_group():
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group_budget,
         get_access_group_budget,
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1200,9 +1200,9 @@ async def test_access_group_budget_routes_404_on_an_unknown_group():
 
 @pytest.mark.asyncio
 async def test_delete_access_group_budget_drops_the_row_and_spares_the_shared_budget():
-    """The group row goes; the LiteLLM_BudgetTable row it linked survives, as /tag/delete leaves a
+    """The group row goes; the HangarLLM_BudgetTable row it linked survives, as /tag/delete leaves a
     tag's. That row can be shared, so deleting it would be data loss for whatever else points at it."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group_budget,
     )
 
@@ -1223,7 +1223,7 @@ async def test_delete_access_group_budget_drops_the_row_and_spares_the_shared_bu
 async def test_delete_access_group_budget_on_a_budgetless_group_still_evicts():
     """budget_deleted is False, but the group can still be sitting in the cached registry of
     budgeted groups, so the eviction has to run whether or not a row was there to drop."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group_budget,
     )
 
@@ -1243,8 +1243,8 @@ async def test_delete_access_group_budget_on_a_budgetless_group_still_evicts():
 async def test_deleting_the_access_group_strips_deployments_before_dropping_the_budget():
     """Ordering is the point: stripping first means a failure leaves an unreachable budget row,
     while the reverse leaves a live group whose enforcement silently vanished. The shared
-    LiteLLM_BudgetTable row survives here too."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    HangarLLM_BudgetTable row survives here too."""
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group,
     )
 
@@ -1267,7 +1267,7 @@ async def test_deleting_the_access_group_strips_deployments_before_dropping_the_
 
 @pytest.mark.asyncio
 async def test_access_group_info_surfaces_the_budget_and_spend():
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         get_access_group_info,
     )
 
@@ -1288,7 +1288,7 @@ async def test_access_group_info_surfaces_the_budget_and_spend():
 async def test_list_access_groups_carries_each_group_budget_and_spend():
     """The dashboard renders the budget column straight off the listing, so a group's budget has to
     ride along with it rather than needing a follow-up read per row."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         list_access_groups,
     )
 
@@ -1316,7 +1316,7 @@ async def test_list_access_groups_carries_each_group_budget_and_spend():
 
 @pytest.mark.asyncio
 async def test_list_access_groups_reports_a_budgetless_group_as_unbudgeted_rather_than_omitting_it():
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         list_access_groups,
     )
 
@@ -1336,10 +1336,10 @@ async def test_put_access_group_budget_evicts_both_auth_cache_keys():
     """Auth reads the per-group row and the registry of budgeted groups cache-first with no
     freshness check, so a PUT that skips either eviction returns 200 and enforces nothing until
     the TTL expires. Both keys, after the write."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         set_access_group_budget,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         AccessGroupBudgetRequest,
     )
 
@@ -1362,7 +1362,7 @@ async def test_put_access_group_budget_evicts_both_auth_cache_keys():
 async def test_delete_access_group_budget_evicts_both_auth_cache_keys():
     """Clearing a budget has the same window as setting one: until both keys are dropped, auth
     keeps enforcing the budget that is already gone."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group_budget,
     )
 
@@ -1380,7 +1380,7 @@ async def test_delete_access_group_budget_evicts_both_auth_cache_keys():
 @pytest.mark.asyncio
 async def test_deleting_the_access_group_evicts_both_auth_cache_keys():
     """The group-delete cascade drops the budget row too, so it owes the same two evictions."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group,
     )
 
@@ -1399,7 +1399,7 @@ async def test_deleting_the_access_group_evicts_both_auth_cache_keys():
 async def test_deleting_an_access_group_that_never_had_a_budget_still_evicts():
     """The cascade's delete finds no row and reports nothing dropped, but the group can still be
     sitting in the cached registry of budgeted groups, so both keys have to go regardless."""
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         delete_access_group,
     )
 
@@ -1425,12 +1425,12 @@ async def test_deleting_an_access_group_that_never_had_a_budget_still_evicts():
 async def test_updating_an_access_group_writes_only_the_deployments_that_join_or_leave_it(selection):
     import json
 
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1467,13 +1467,13 @@ async def test_updating_an_access_group_writes_only_the_deployments_that_join_or
 async def test_updating_an_access_group_reads_the_primary_not_a_lagging_replica(selection):
     import json
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.db.prisma_client import PrismaWrapper
-    from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.db.prisma_client import PrismaWrapper
+    from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1518,11 +1518,11 @@ async def test_updating_an_access_group_reads_the_primary_not_a_lagging_replica(
 async def test_a_failed_access_group_update_leaves_every_deployment_unchanged(failing_model_id):
     from fastapi import HTTPException
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1550,11 +1550,11 @@ async def test_a_failed_access_group_update_leaves_every_deployment_unchanged(fa
 async def test_an_access_group_update_keeps_a_model_info_field_another_admin_set_while_names_were_validated():
     import json
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1598,10 +1598,10 @@ async def test_an_access_group_update_keeps_a_model_info_field_another_admin_set
 
 @pytest.mark.asyncio
 async def test_an_access_group_update_locks_the_rows_it_reads_and_tells_other_workers_after_the_commit():
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1621,7 +1621,7 @@ async def test_an_access_group_update_locks_the_rows_it_reads_and_tells_other_wo
     with (
         _proxy_with_stubbed_reload(prisma),
         patch(  # test-quality-ok: the endpoint publishes through its module-level import; Redis is the real seam
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.publish_model_rows_written",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.publish_model_rows_written",
             new=record_publish,
         ),
     ):
@@ -1644,10 +1644,10 @@ async def test_an_access_group_update_locks_the_rows_it_reads_and_tells_other_wo
 
 @pytest.mark.asyncio
 async def test_an_access_group_update_that_changes_no_membership_writes_and_announces_nothing():
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1667,7 +1667,7 @@ async def test_an_access_group_update_that_changes_no_membership_writes_and_anno
     with (
         _proxy_with_stubbed_reload(prisma),
         patch(  # test-quality-ok: the endpoint publishes through its module-level import; Redis is the real seam
-            "litellm.proxy.management_endpoints.model_access_group_management_endpoints.publish_model_rows_written",
+            "hangarllm.proxy.management_endpoints.model_access_group_management_endpoints.publish_model_rows_written",
             new=record_publish,
         ),
     ):
@@ -1693,10 +1693,10 @@ async def test_an_access_group_update_goes_through_while_another_session_holds_a
 ):
     import json
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1730,10 +1730,10 @@ async def test_an_access_group_update_goes_through_while_another_session_holds_a
 async def test_an_access_group_update_retries_a_locked_row_and_keeps_the_edit_committed_there():
     import json
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1765,10 +1765,10 @@ async def test_an_access_group_update_retries_a_locked_row_and_keeps_the_edit_co
 async def test_an_access_group_emptied_while_the_update_retried_a_locked_row_answers_404_and_writes_nothing():
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1811,10 +1811,10 @@ async def test_an_access_group_update_answers_409_and_writes_nothing_while_anoth
 ):
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         _rewrite_membership_once_unlocked,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1849,10 +1849,10 @@ async def test_an_access_group_update_answers_409_and_writes_nothing_while_anoth
     "hold", [_another_session_holds_a_member_row, _another_edit_holds_the_group], ids=["member_row", "group"]
 )
 async def test_an_access_group_update_waits_out_a_lock_held_for_over_ten_seconds_and_writes_the_edit(hold):
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         _rewrite_membership_once_unlocked,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1884,11 +1884,11 @@ async def test_an_access_group_update_waits_out_a_lock_held_for_over_ten_seconds
 async def test_updating_a_missing_access_group_answers_404_before_checking_the_model_names():
     from fastapi import HTTPException
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1913,10 +1913,10 @@ async def test_updating_a_missing_access_group_answers_404_before_checking_the_m
 async def test_an_access_group_update_answers_500_when_the_deployments_cannot_be_read():
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1939,10 +1939,10 @@ async def test_an_access_group_update_answers_500_when_the_deployments_cannot_be
 async def test_updating_an_access_group_with_an_unknown_model_id_writes_no_deployment(model_ids):
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1966,10 +1966,10 @@ async def test_updating_an_access_group_with_an_unknown_model_id_writes_no_deplo
 async def test_updating_an_access_group_no_deployment_carries_answers_404_and_writes_nothing():
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 
@@ -1990,11 +1990,11 @@ async def test_updating_an_access_group_no_deployment_carries_answers_404_and_wr
 async def test_updating_an_access_group_with_a_model_name_only_the_config_serves_writes_no_deployment():
     from fastapi import HTTPException
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.management_endpoints.model_access_group_management_endpoints import (
         update_access_group,
     )
-    from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.types.proxy.management_endpoints.model_management_endpoints import (
         UpdateModelGroupRequest,
     )
 

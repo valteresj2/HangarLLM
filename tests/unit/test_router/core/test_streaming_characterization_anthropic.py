@@ -11,10 +11,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
-from litellm.types.router import RetryPolicy
-from litellm.types.utils import Usage
+import hangarllm
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RetryPolicy
+from hangarllm.types.utils import Usage
 from tests.unit.test_router.core.scripted_host import (
     ScriptedHost,
     agentic_followup_failure,
@@ -151,7 +151,7 @@ async def test_when_the_fallback_after_an_error_frame_fails_the_frames_error_is_
     host.answer("openai/b", server_error())
     core = make_core(model_list=GROUPS_AB, fallbacks=[{"a": ["b"]}], num_retries=0)
     stream = await open_stream(core)
-    with pytest.raises(litellm.InternalServerError, match="primary overloaded"):
+    with pytest.raises(hangarllm.InternalServerError, match="primary overloaded"):
         await collect_bytes(stream)
     assert host.deployments_called() == ["a", "b"]
 
@@ -226,7 +226,7 @@ async def test_a_raised_bad_request_before_content_is_raised_without_fallback(
     host.answer("openai/b", fallback_ok())
     core = make_core(model_list=GROUPS_AB, fallbacks=[{"a": ["b"]}], num_retries=0)
     stream = await open_stream(core)
-    with pytest.raises(litellm.BadRequestError, match="raised 400"):
+    with pytest.raises(hangarllm.BadRequestError, match="raised 400"):
         await collect_bytes(stream)
     assert host.deployments_called() == ["a"]
 
@@ -236,7 +236,7 @@ async def test_a_raised_error_after_content_is_raised_without_fallback(make_core
     host.answer("openai/b", fallback_ok())
     core = make_core(model_list=GROUPS_AB, fallbacks=[{"a": ["b"]}], num_retries=0)
     stream = await open_stream(core)
-    with pytest.raises(litellm.RateLimitError, match="after"):
+    with pytest.raises(hangarllm.RateLimitError, match="after"):
         await collect_bytes(stream)
     assert host.deployments_called() == ["a"]
 
@@ -279,7 +279,7 @@ async def test_a_stream_retry_carries_the_superseded_attempt_usage(make_core: Ma
 
     host.answer("openai/a", fails_after_usage, answered_ok())
     core = make_core(model_list=[deployment("a", "a")], num_retries=1)
-    await collect_bytes(await open_stream(core, litellm_logging_obj=logging_obj))
+    await collect_bytes(await open_stream(core, hangarllm_logging_obj=logging_obj))
     assert host.deployments_called() == ["a", "a"]
     assert logging_obj.model_call_details["failed_attempts_usage"] == ((usage, 0.0),)
 
@@ -294,8 +294,8 @@ async def test_an_error_frame_before_content_is_retried_within_the_group(
     assert frames == [MESSAGE_START, text_delta("A"), MESSAGE_STOP]
     assert host.deployments_called() == ["a", "a"]
     assert len(host.sleeps) == 1
-    assert headers(stream)["x-litellm-attempted-retries"] == 1
-    assert headers(stream)["x-litellm-max-retries"] == 2
+    assert headers(stream)["x-hangarllm-attempted-retries"] == 1
+    assert headers(stream)["x-hangarllm-max-retries"] == 2
 
 
 async def test_a_retry_policy_grants_stream_retries_when_num_retries_is_zero(
@@ -309,7 +309,7 @@ async def test_a_retry_policy_grants_stream_retries_when_num_retries_is_zero(
     frames = await collect_bytes(stream)
     assert frames == [MESSAGE_START, text_delta("A"), MESSAGE_STOP]
     assert host.deployments_called() == ["a", "a"]
-    assert headers(stream)["x-litellm-max-retries"] == 2
+    assert headers(stream)["x-hangarllm-max-retries"] == 2
 
 
 async def test_request_num_retries_zero_opts_out_of_the_retry_policy_for_a_stream(
@@ -331,7 +331,7 @@ async def test_the_deployment_num_retries_is_the_stream_retry_budget(make_core: 
     stream = await open_stream(core)
     frames = await collect_bytes(stream)
     assert frames == [MESSAGE_START, text_delta("A"), MESSAGE_STOP]
-    assert headers(stream)["x-litellm-max-retries"] == 1
+    assert headers(stream)["x-hangarllm-max-retries"] == 1
 
 
 async def test_stream_retries_stop_at_the_budget_and_forward_the_last_error_frame(
@@ -466,9 +466,9 @@ async def test_a_stream_without_recovery_reports_the_serving_deployment(
     await collect_bytes(stream)
     assert hidden(stream)["model_id"] == "a"
     assert headers(stream) == {
-        "x-litellm-model-group": "a",
-        "x-litellm-attempted-retries": 0,
-        "x-litellm-attempted-fallbacks": 0,
+        "x-hangarllm-model-group": "a",
+        "x-hangarllm-attempted-retries": 0,
+        "x-hangarllm-attempted-fallbacks": 0,
     }
 
 
@@ -482,9 +482,9 @@ async def test_after_a_stream_fallback_the_stream_carries_the_fallbacks_hidden_p
     await collect_bytes(stream)
     assert hidden(stream)["model_id"] == "b-stream"
     assert headers(stream) == {
-        "x-litellm-model-group": "b",
-        "x-litellm-attempted-retries": 0,
-        "x-litellm-attempted-fallbacks": 1,
+        "x-hangarllm-model-group": "b",
+        "x-hangarllm-attempted-retries": 0,
+        "x-hangarllm-attempted-fallbacks": 1,
         "x-provider-request-id": "req-b",
     }
 
@@ -498,10 +498,10 @@ async def test_after_retries_then_a_fallback_the_retry_budget_header_lingers(
     stream = await open_stream(core)
     await collect_bytes(stream)
     assert headers(stream) == {
-        "x-litellm-model-group": "b",
-        "x-litellm-attempted-retries": 0,
-        "x-litellm-attempted-fallbacks": 1,
-        "x-litellm-max-retries": 1,
+        "x-hangarllm-model-group": "b",
+        "x-hangarllm-attempted-retries": 0,
+        "x-hangarllm-attempted-fallbacks": 1,
+        "x-hangarllm-max-retries": 1,
     }
 
 
@@ -514,4 +514,4 @@ async def test_a_stream_retry_keeps_reporting_the_first_deployment_when_the_retr
     await collect_bytes(stream)
     first, _retried = host.deployments_called()
     assert hidden(stream)["model_id"] == first
-    assert headers(stream)["x-litellm-attempted-retries"] == 1
+    assert headers(stream)["x-hangarllm-attempted-retries"] == 1

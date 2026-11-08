@@ -28,9 +28,9 @@ from integration._support.upstream import _aws_event_frame, aws_event_stream_fra
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.litellm_logging import _get_provider_request_id
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.hangarllm_logging import _get_provider_request_id
 
 _MODEL: Final = "bedrock/converse/anthropic.claude-sonnet-4-5-20250929-v1:0"
 _BEDROCK_RESPONSES_MODEL: Final = "bedrock/us.openai.gpt-5.6-sol"
@@ -182,7 +182,7 @@ def _streamed_response(gateway: Gateway, model: str, prompt: str) -> httpx.Respo
 
 async def _consume_sdk_stream(asynchronous: bool, api_base: str, identity: str) -> None:
     if asynchronous:
-        async_stream: Final = await litellm.aresponses(
+        async_stream: Final = await hangarllm.aresponses(
             model="openai/gpt-6",
             input=identity,
             stream=True,
@@ -194,7 +194,7 @@ async def _consume_sdk_stream(asynchronous: bool, api_base: str, identity: str) 
             pass
         return
     tuple(
-        litellm.responses(
+        hangarllm.responses(
             model="openai/gpt-6",
             input=identity,
             stream=True,
@@ -234,11 +234,11 @@ def test_bedrock_500_keeps_amzn_request_id_on_error_headers_and_failure_log(gate
         )
         assert response.status_code >= 400, response.text
         assert response.headers.get("llm_provider-x-amzn-requestid") == amzn_request_id, dict(response.headers)
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         assert len(wire.drain()) == 1
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)
+                'SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)
             ),
             lambda values: len(values) == 1,
             seconds=70,
@@ -276,7 +276,7 @@ def test_responses_stream_failure_log_retains_provider_request_id(
         assert ("partial output" in response.text) is (shape != "error-before-output"), response.text
         assert response.headers.get("llm_provider-x-amzn-requestid") == provider_request_id, dict(response.headers)
         assert len(wire.drain()) == 1
-        information: Final = _failure_information(response.headers["x-litellm-call-id"])
+        information: Final = _failure_information(response.headers["x-hangarllm-call-id"])
         assert information["error_provider_request_id"] == provider_request_id, information
 
 
@@ -295,7 +295,7 @@ def test_responses_stream_failure_without_provider_request_id_logs_none(gateway:
         assert message in response.text, response.text
         assert "llm_provider-x-amzn-requestid" not in response.headers, dict(response.headers)
         assert len(wire.drain()) == 1
-        information: Final = _failure_information(response.headers["x-litellm-call-id"])
+        information: Final = _failure_information(response.headers["x-hangarllm-call-id"])
         assert information["error_class"] == "InternalServerError", information
         assert information["error_provider_request_id"] is None, information
 
@@ -328,7 +328,7 @@ def test_bedrock_responses_stream_server_error_logs_amzn_request_id(gateway: Gat
         assert "partial output" in response.text and message in response.text, response.text
         assert response.headers.get("llm_provider-x-amzn-requestid") == amzn_request_id, dict(response.headers)
         assert len(wire.drain()) == 1
-        information: Final = _failure_information(response.headers["x-litellm-call-id"])
+        information: Final = _failure_information(response.headers["x-hangarllm-call-id"])
         assert information["llm_provider"] == "bedrock", information
         assert information["error_provider_request_id"] == amzn_request_id, information
 
@@ -351,7 +351,7 @@ def test_responses_stream_failure_log_reads_openai_x_request_id(gateway: Gateway
         response: Final = _streamed_response(gateway, model, identity)
         assert message in response.text, response.text
         assert len(wire.drain()) == 1
-        information: Final = _failure_information(response.headers["x-litellm-call-id"])
+        information: Final = _failure_information(response.headers["x-hangarllm-call-id"])
         assert information["error_provider_request_id"] == provider_request_id, information
 
 
@@ -409,7 +409,7 @@ def test_concurrent_responses_failures_keep_distinct_request_ids_and_recover(gat
         def call(prompt: str) -> str:
             response: Final = _streamed_response(gateway, model, prompt)
             assert (prompt if prompt != recovery else "recovered") in response.text, response.text
-            return response.headers["x-litellm-call-id"]
+            return response.headers["x-hangarllm-call-id"]
 
         with ThreadPoolExecutor(max_workers=4) as workers:
             call_ids: Final = tuple(workers.map(call, prompts))
@@ -470,7 +470,7 @@ def test_bedrock_event_stream_failure_log_retains_amzn_request_id(
         assert status == _bedrock_client_status(endpoint, failure, after_output), text
         assert _bedrock_failure_text(failure, message) in text and ("partial output" in text) is after_output, text
         assert len(wire.drain()) == 1
-        information: Final = _failure_information(response_headers["x-litellm-call-id"])
+        information: Final = _failure_information(response_headers["x-hangarllm-call-id"])
         assert (information["error_class"], information["error_code"]) == _bedrock_logged_error(endpoint, failure)
         assert information["error_provider_request_id"] == amzn_request_id, information
         if status != 200 and not invoke:
@@ -519,7 +519,7 @@ def test_bedrock_event_stream_failure_without_amzn_request_id_logs_none(
         assert message in text, text
         assert not any("amzn" in name for name in response_headers), response_headers
         assert len(wire.drain()) == 1
-        information: Final = _failure_information(response_headers["x-litellm-call-id"])
+        information: Final = _failure_information(response_headers["x-hangarllm-call-id"])
         assert (information["error_class"], information["error_code"]) == _bedrock_logged_error(
             endpoint, "exception-event"
         )
@@ -555,7 +555,7 @@ def test_bedrock_non_stream_500_logs_amzn_request_id_on_every_endpoint(
         if endpoint == "responses":
             assert response.headers.get("llm_provider-x-amzn-requestid") == amzn_request_id, dict(response.headers)
         assert len(wire.drain()) == 1
-        information: Final = _failure_information(response.headers["x-litellm-call-id"])
+        information: Final = _failure_information(response.headers["x-hangarllm-call-id"])
         assert information["error_provider_request_id"] == amzn_request_id, information
 
 
@@ -578,8 +578,8 @@ def test_bedrock_stream_failure_logs_odd_request_ids_like_the_non_stream_error(
         assert status == 200 and "odd id" in text, text
         assert non_stream.status_code == 503, non_stream.text
         assert len(wire.drain()) == 2
-        streamed: Final = _failure_information(stream_headers["x-litellm-call-id"])
-        unstreamed: Final = _failure_information(non_stream.headers["x-litellm-call-id"])
+        streamed: Final = _failure_information(stream_headers["x-hangarllm-call-id"])
+        unstreamed: Final = _failure_information(non_stream.headers["x-hangarllm-call-id"])
         assert streamed["error_provider_request_id"] == unstreamed["error_provider_request_id"], (streamed, unstreamed)
 
 
@@ -641,11 +641,11 @@ def test_concurrent_bedrock_stream_failures_on_every_endpoint_keep_distinct_requ
             status, text, response_headers = outcomes[token]
             assert status == _bedrock_client_status(endpoint, failure, after_output), (token, text)
             assert _bedrock_failure_text(failure, token) in text, (token, text)
-            information = _failure_information(response_headers["x-litellm-call-id"])
+            information = _failure_information(response_headers["x-hangarllm-call-id"])
             assert information["error_provider_request_id"] == token, (token, information)
         for token, (status, text, response_headers) in recovered.items():
             assert status == 200 and "recovered" in text, (token, text)
-            assert spend_row(response_headers["x-litellm-call-id"])["status"] == "success"
+            assert spend_row(response_headers["x-hangarllm-call-id"])["status"] == "success"
 
 
 def _sdk_stream_text(
@@ -684,7 +684,7 @@ def _sdk_stream_text(
                 seen.extend(repr(event) for event in raw.parse())
             except (openai.APIError, anthropic.APIError) as error:
                 seen.append(str(error))
-            return raw.headers["x-litellm-call-id"], "\n".join(seen)
+            return raw.headers["x-hangarllm-call-id"], "\n".join(seen)
 
     async def run() -> str:
         async with httpx.AsyncClient(timeout=15, trust_env=False) as transport:
@@ -701,7 +701,7 @@ def _sdk_stream_text(
                     seen.append(repr(event))
             except (openai.APIError, anthropic.APIError) as error:
                 seen.append(str(error))
-            return raw.headers["x-litellm-call-id"]
+            return raw.headers["x-hangarllm-call-id"]
 
     return asyncio.run(run()), "\n".join(seen)
 
@@ -740,13 +740,13 @@ async def _consume_bedrock_sdk_stream(api: Literal["chat", "responses"], asynchr
     turn: Final[list[JsonValue]] = [{"role": "user", "content": "probe"}]
     match api, asynchronous:
         case "chat", True:
-            return "".join([repr(chunk) async for chunk in await litellm.acompletion(messages=turn, **common)])
+            return "".join([repr(chunk) async for chunk in await hangarllm.acompletion(messages=turn, **common)])
         case "chat", False:
-            return "".join(repr(chunk) for chunk in litellm.completion(messages=turn, **common))
+            return "".join(repr(chunk) for chunk in hangarllm.completion(messages=turn, **common))
         case "responses", True:
-            return "".join([repr(event) async for event in await litellm.aresponses(input="probe", **common)])
+            return "".join([repr(event) async for event in await hangarllm.aresponses(input="probe", **common)])
         case "responses", False:
-            return "".join(repr(event) for event in litellm.responses(input="probe", **common))
+            return "".join(repr(event) for event in hangarllm.responses(input="probe", **common))
 
 
 @pytest.mark.parametrize("asynchronous", (False, True), ids=("sync", "async"))
@@ -771,7 +771,7 @@ async def test_bedrock_sdk_stream_exception_carries_amzn_request_id(
             await _consume_bedrock_sdk_stream(api, asynchronous, wire.url)
         assert len(wire.drain()) == 1
     provider_error: Final = raised.value.original_exception
-    assert isinstance(provider_error, litellm.ServiceUnavailableError), provider_error
+    assert isinstance(provider_error, hangarllm.ServiceUnavailableError), provider_error
     assert raised.value.generated_content == "partial output"
     assert message in str(provider_error)
     assert _get_provider_request_id(provider_error) == amzn_request_id

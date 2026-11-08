@@ -19,11 +19,11 @@ def _proxy_config(directory: Path, model: str, upstream_url: str) -> Path:
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {"model": model, "api_base": upstream_url + "/v1", "api_key": "sk-upstream"},
+                        "hangarllm_params": {"model": model, "api_base": upstream_url + "/v1", "api_key": "sk-upstream"},
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                 },
@@ -40,7 +40,7 @@ def test_config_deployment_dropped_by_stale_boot_cost_map_is_restored_after_relo
 ) -> None:
     model: Final = "integration-fresh-" + uuid.uuid4().hex
     remote_map: Final = json.dumps(
-        {model: {"litellm_provider": "openai", "mode": "chat", "input_cost_per_token": 0, "output_cost_per_token": 0}}
+        {model: {"hangarllm_provider": "openai", "mode": "chat", "input_cost_per_token": 0, "output_cost_per_token": 0}}
     ).encode()
     fresh_map_published: Final = threading.Event()
 
@@ -57,9 +57,9 @@ def test_config_deployment_dropped_by_stale_boot_cost_map_is_restored_after_relo
         with owned_proxy(
             gateway,
             tmp_path,
-            {**overrides, "LITELLM_MODEL_COST_MAP_URL": peer.url + "/model_prices.json"},
+            {**overrides, "HANGARLLM_MODEL_COST_MAP_URL": peer.url + "/model_prices.json"},
             config=config,
-            remove_environment=("LITELLM_LOCAL_MODEL_COST_MAP",),
+            remove_environment=("HANGARLLM_LOCAL_MODEL_COST_MAP",),
         ) as candidate:
             assert model not in tuple(entry["id"] for entry in candidate.get("/v1/models")["data"])
             fresh_map_published.set()

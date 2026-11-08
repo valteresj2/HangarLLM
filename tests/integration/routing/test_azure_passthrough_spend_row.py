@@ -120,7 +120,7 @@ def _one_row(model: str) -> dict[str, JsonValue]:
     rows: Final = held(
         lambda: read_rows(
             "SELECT request_id, status, custom_llm_provider, prompt_tokens, completion_tokens, spend "
-            'FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+            'FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
             (model,),
         ),
         lambda found: len(found) >= 1,

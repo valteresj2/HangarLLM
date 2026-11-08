@@ -85,7 +85,7 @@ def _resolve(text: str, pull_request: Mapping[str, str] | None) -> str:
     def value(match: re.Match[str]) -> str:
         expression: Final = match.group(1)
         if expression == "github.repository":
-            return "BerriAI/litellm"
+            return "valteresj2/HangarLLM"
         if expression == "github.token":
             return "token"
         field: Final = expression.removeprefix("github.event.pull_request.")

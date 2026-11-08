@@ -213,15 +213,15 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
         wire_server(_fallback_peer) as fallback,
     ):
         model_list: Final[list[JsonValue]] = [
-            {"model_name": names["ia_cwf"], "litellm_params": _vendor(f"inferenceapis/{_BACKEND}", ia_overflow)},
-            {"model_name": names["ia_plain"], "litellm_params": _vendor(f"inferenceapis/{_BACKEND}", ia_plain)},
-            {"model_name": names["mimo_fb"], "litellm_params": _vendor("xiaomi_mimo/mimo-v2.6-flash", mimo_overflow)},
-            {"model_name": names["ia_ok"], "litellm_params": _vendor(f"inferenceapis/{_BACKEND}", healthy)},
-            {"model_name": names["ia_slow"], "litellm_params": _vendor(f"inferenceapis/{_BACKEND}", slow)},
-            {"model_name": names["ia_held"], "litellm_params": _vendor(f"inferenceapis/{_BACKEND}", held_wire)},
+            {"model_name": names["ia_cwf"], "hangarllm_params": _vendor(f"inferenceapis/{_BACKEND}", ia_overflow)},
+            {"model_name": names["ia_plain"], "hangarllm_params": _vendor(f"inferenceapis/{_BACKEND}", ia_plain)},
+            {"model_name": names["mimo_fb"], "hangarllm_params": _vendor("xiaomi_mimo/mimo-v2.6-flash", mimo_overflow)},
+            {"model_name": names["ia_ok"], "hangarllm_params": _vendor(f"inferenceapis/{_BACKEND}", healthy)},
+            {"model_name": names["ia_slow"], "hangarllm_params": _vendor(f"inferenceapis/{_BACKEND}", slow)},
+            {"model_name": names["ia_held"], "hangarllm_params": _vendor(f"inferenceapis/{_BACKEND}", held_wire)},
             {
                 "model_name": names["fallback"],
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{fallback.url}/v1",
                     "api_key": _OPENAI_KEY,
@@ -351,7 +351,7 @@ def _post_chat(rig: Rig, label: str) -> tuple[int, str]:
 
 def _spend_rows(identities: tuple[str, ...]) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(string_to_array(%s, \',\'))',
+        'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(string_to_array(%s, \',\'))',
         (",".join(identities),),
     )
 

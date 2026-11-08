@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 from openai._legacy_response import LegacyAPIResponse
 from pydantic import BaseModel
 
-from litellm.llms.volcengine.chat.transformation import (
+from hangarllm.llms.volcengine.chat.transformation import (
     VolcEngineChatConfig as VolcEngineConfig,
 )
-from litellm.utils import get_optional_params
+from hangarllm.utils import get_optional_params
 
 
 class TestVolcEngineConfig:
@@ -113,8 +113,8 @@ class TestVolcEngineConfig:
     def test_e2e_completion(self):
         from openai import OpenAI
 
-        from litellm import completion
-        from litellm.types.utils import ModelResponse
+        from hangarllm import completion
+        from hangarllm.types.utils import ModelResponse
 
         client = OpenAI(api_key="test_api_key")
 

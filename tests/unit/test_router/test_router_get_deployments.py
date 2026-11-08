@@ -10,8 +10,8 @@ from typing import Final, Literal
 
 import pytest
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_wildcard_openai_routing():
         model_list = [
             {
                 "model_name": "*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                 },
@@ -85,11 +85,11 @@ def test_get_available_deployment_for_pass_through():
     - Tests that BadRequestError is raised when no pass-through deployments exist
     """
     try:
-        litellm.set_verbose = False
+        hangarllm.set_verbose = False
         model_list = [
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                     "use_in_pass_through": True,
@@ -97,7 +97,7 @@ def test_get_available_deployment_for_pass_through():
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_base": os.getenv("AZURE_API_BASE"),
@@ -112,8 +112,8 @@ def test_get_available_deployment_for_pass_through():
 
         # Test that only pass-through deployment is returned
         selected_model = router.get_available_deployment_for_pass_through("gpt-3.5-turbo")
-        assert selected_model["litellm_params"]["model"] == "gpt-3.5-turbo"
-        assert selected_model["litellm_params"]["use_in_pass_through"] is True
+        assert selected_model["hangarllm_params"]["model"] == "gpt-3.5-turbo"
+        assert selected_model["hangarllm_params"]["use_in_pass_through"] is True
 
         router.reset()
     except Exception as e:
@@ -127,11 +127,11 @@ def test_get_available_deployment_for_pass_through_no_deployments():
     when no deployments have use_in_pass_through=True
     """
     try:
-        litellm.set_verbose = False
+        hangarllm.set_verbose = False
         model_list = [
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                     "use_in_pass_through": False,
@@ -139,7 +139,7 @@ def test_get_available_deployment_for_pass_through_no_deployments():
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_base": os.getenv("AZURE_API_BASE"),
@@ -153,14 +153,14 @@ def test_get_available_deployment_for_pass_through_no_deployments():
         )
 
         # Test that BadRequestError is raised when no pass-through deployments exist
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             router.get_available_deployment_for_pass_through("gpt-3.5-turbo")
         e = exc_info.value
         assert "use_in_pass_through=True" in str(e)
 
         router.reset()
     except Exception as e:
-        if isinstance(e, litellm.BadRequestError):
+        if isinstance(e, hangarllm.BadRequestError):
             pass  # Expected error
         else:
             traceback.print_exc()
@@ -175,11 +175,11 @@ async def test_async_get_available_deployment_for_pass_through():
     - Tests async version works correctly
     """
     try:
-        litellm.set_verbose = False
+        hangarllm.set_verbose = False
         model_list = [
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                     "use_in_pass_through": True,
@@ -187,7 +187,7 @@ async def test_async_get_available_deployment_for_pass_through():
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_base": os.getenv("AZURE_API_BASE"),
@@ -204,8 +204,8 @@ async def test_async_get_available_deployment_for_pass_through():
         selected_model = await router.async_get_available_deployment_for_pass_through(
             model="gpt-3.5-turbo", request_kwargs={}
         )
-        assert selected_model["litellm_params"]["model"] == "gpt-3.5-turbo"
-        assert selected_model["litellm_params"]["use_in_pass_through"] is True
+        assert selected_model["hangarllm_params"]["model"] == "gpt-3.5-turbo"
+        assert selected_model["hangarllm_params"]["use_in_pass_through"] is True
 
         router.reset()
     except Exception as e:
@@ -249,12 +249,12 @@ def test_weighted_selection_router(
     )
     low_deployment: Final = {
         "model_name": "shared",
-        "litellm_params": low_params,
+        "hangarllm_params": low_params,
         "model_info": {"id": "low"},
     } | ({metric: low_limit} if placement == "router" else {})
     high_deployment: Final = {
         "model_name": "shared",
-        "litellm_params": high_params,
+        "hangarllm_params": high_params,
         "model_info": {"id": "high"},
     } | ({metric: high_limit} if placement == "router" else {})
     router: Final = Router(model_list=[low_deployment, high_deployment])
@@ -272,17 +272,17 @@ def test_weighted_selection_router_no_rpm_set() -> None:
         model_list=[
             {
                 "model_name": "shared",
-                "litellm_params": {"model": "openai/low", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/low", "api_key": "test-key"},
                 "model_info": {"id": "low"},
             },
             {
                 "model_name": "shared",
-                "litellm_params": {"model": "openai/high", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/high", "api_key": "test-key"},
                 "model_info": {"id": "high"},
             },
             {
                 "model_name": "unrelated",
-                "litellm_params": {"model": "openai/unrelated", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/unrelated", "api_key": "test-key"},
                 "model_info": {"id": "unrelated"},
             },
         ]
@@ -297,7 +297,7 @@ def test_model_group_aliases_select_the_target_group() -> None:
         model_list=[
             {
                 "model_name": "target",
-                "litellm_params": {"model": "openai/target", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/target", "api_key": "test-key"},
                 "model_info": {"id": "target-deployment"},
             }
         ],
@@ -312,17 +312,17 @@ def test_model_group_aliases_select_the_target_group() -> None:
 _ROUTABLE_MODEL_LIST: Final = [
     {
         "model_name": "shared",
-        "litellm_params": {"model": "openai/shared-low", "api_key": "test-key"},
+        "hangarllm_params": {"model": "openai/shared-low", "api_key": "test-key"},
         "model_info": {"id": "low"},
     },
     {
         "model_name": "shared",
-        "litellm_params": {"model": "openai/shared-high", "api_key": "test-key"},
+        "hangarllm_params": {"model": "openai/shared-high", "api_key": "test-key"},
         "model_info": {"id": "high"},
     },
     {
         "model_name": "unrelated",
-        "litellm_params": {"model": "openai/unrelated", "api_key": "test-key"},
+        "hangarllm_params": {"model": "openai/unrelated", "api_key": "test-key"},
         "model_info": {"id": "unrelated"},
     },
 ]
@@ -349,9 +349,9 @@ _ROUTABLE_MODEL_LIST: Final = [
     ids=(
         "model-group",
         "deployment-id",
-        "litellm-model-name",
+        "hangarllm-model-name",
         "default-fallback",
-        "alias-to-a-litellm-model-name",
+        "alias-to-a-hangarllm-model-name",
         "unroutable",
     ),
 )

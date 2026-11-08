@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.llms.vertex_ai.common_utils import (
+from hangarllm.llms.vertex_ai.common_utils import (
     _get_embedding_url,
     get_vertex_base_url,
     get_vertex_url,
@@ -77,7 +77,7 @@ class TestChatCompletionURLs:
     def test_chat_url_construction(self, vertex_location, stream, expected_url_pattern):
         """Test that chat URLs are correctly constructed for regional and global locations."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             url, endpoint = get_vertex_url(
@@ -109,7 +109,7 @@ class TestChatCompletionURLs:
     def test_finetuned_model_url_construction(self, vertex_location, stream):
         """Test that fine-tuned models (numeric IDs) use endpoints/ path correctly."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             url, endpoint = get_vertex_url(
@@ -226,7 +226,7 @@ class TestCountTokensURLs:
     def test_count_tokens_url_construction(self, vertex_location, expected_url_pattern):
         """Test that count_tokens URLs are correctly constructed for regional and global locations."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             url, endpoint = get_vertex_url(
@@ -277,7 +277,7 @@ class TestImageGenerationURLs:
     def test_image_generation_url_construction(self, vertex_location, model, expected_url_pattern):
         """Test that image_generation URLs are correctly constructed for regional and global locations."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             url, endpoint = get_vertex_url(
@@ -308,7 +308,7 @@ class TestAPIVersions:
     def test_api_versions_in_urls(self, api_version, vertex_location):
         """Test that API version is correctly included in URLs for all locations."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             url, _ = get_vertex_url(
@@ -341,7 +341,7 @@ class TestEdgeCases:
     def test_all_modes_support_global(self, mode):
         """Test that all URL modes support global location."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             if mode == "embedding":
@@ -371,7 +371,7 @@ class TestEdgeCases:
 
         for location in test_locations:
             with patch(
-                "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+                "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
                 side_effect=lambda model: model,
             ):
                 url, _ = get_vertex_url(
@@ -393,7 +393,7 @@ class TestBackwardCompatibility:
     def test_regional_urls_unchanged(self):
         """Test that regional URL construction hasn't changed."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             url, _ = get_vertex_url(
@@ -414,7 +414,7 @@ class TestBackwardCompatibility:
     def test_streaming_urls_unchanged(self):
         """Test that streaming URL construction hasn't changed."""
         with patch(
-            "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+            "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
             side_effect=lambda model: model,
         ):
             url, _ = get_vertex_url(

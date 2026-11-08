@@ -11,8 +11,8 @@ from integration._support.client import Gateway, eventually, object_value, strin
 from integration._support.database import read_rows
 from pydantic import JsonValue
 
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
 
 TAKE_TEAM_LOCK_SQL: Final = "SELECT pg_advisory_xact_lock(hashtext(%s))"
@@ -72,13 +72,13 @@ def _blocked_key_error() -> dict[str, JsonValue]:
 
 def _user_rows(user_id: str) -> dict[str, list[dict[str, JsonValue]]]:
     return {
-        "user": read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id=%s', (user_id,)),
-        "keys": read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE user_id=%s', (user_id,)),
-        "team_memberships": read_rows('SELECT user_id FROM "LiteLLM_TeamMembership" WHERE user_id=%s', (user_id,)),
+        "user": read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id=%s', (user_id,)),
+        "keys": read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE user_id=%s', (user_id,)),
+        "team_memberships": read_rows('SELECT user_id FROM "HangarLLM_TeamMembership" WHERE user_id=%s', (user_id,)),
         "org_memberships": read_rows(
-            'SELECT user_id FROM "LiteLLM_OrganizationMembership" WHERE user_id=%s', (user_id,)
+            'SELECT user_id FROM "HangarLLM_OrganizationMembership" WHERE user_id=%s', (user_id,)
         ),
-        "invitations": read_rows('SELECT id FROM "LiteLLM_InvitationLink" WHERE user_id=%s', (user_id,)),
+        "invitations": read_rows('SELECT id FROM "HangarLLM_InvitationLink" WHERE user_id=%s', (user_id,)),
     }
 
 
@@ -156,7 +156,7 @@ def test_user_delete_revokes_keys_and_memberships(gateway: Gateway, peer: Gatewa
             "org_memberships": [],
             "invitations": [],
         }
-        team_row: Final = read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id=%s', (team_id,))
+        team_row: Final = read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id=%s', (team_id,))
         assert team_row == [
             {"members_with_roles": [{"role": "admin", "user_email": None, "user_id": "default_user_id"}]}
         ]
@@ -273,7 +273,7 @@ def test_org_admin_can_only_delete_users_inside_their_orgs(
 
 
 def test_scim_user_delete_revokes_keys(gateway: Gateway, peer: Gateway, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt"))
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt"))
     with (
         gateway.scenario() as scenario,
         httpx.Client(base_url=gateway.upstream_url, timeout=5, trust_env=False) as upstream,
@@ -283,7 +283,7 @@ def test_scim_user_delete_revokes_keys(gateway: Gateway, peer: Gateway, monkeypa
         remaining_user_id: Final = _new_user(gateway)
         scenario.cleanups.callback(gateway.request, "POST", "/user/delete", {"user_ids": [remaining_user_id]})
         ui_token: Final = ExperimentalUIJWTToken.get_experimental_ui_login_jwt_auth_token(
-            LiteLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
+            HangarLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
         )
         team_id: Final = scenario.team(
             members_with_roles=[
@@ -292,7 +292,7 @@ def test_scim_user_delete_revokes_keys(gateway: Gateway, peer: Gateway, monkeypa
             ]
         )
         initial_team_rows: Final = read_rows(
-            'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id=%s',
+            'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id=%s',
             (team_id,),
         )
         assert len(initial_team_rows) == 1, initial_team_rows
@@ -363,7 +363,7 @@ def test_scim_user_delete_revokes_keys(gateway: Gateway, peer: Gateway, monkeypa
         assert rows["invitations"] == []
         assert rows["keys"] == [{"token": hashed}]
         team_rows: Final = read_rows(
-            'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id=%s',
+            'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id=%s',
             (team_id,),
         )
         assert len(team_rows) == 1, team_rows
@@ -379,12 +379,12 @@ def test_scim_user_delete_revokes_keys(gateway: Gateway, peer: Gateway, monkeypa
         assert member_id_roles == expected_remaining_members, team_rows
         assert (
             read_rows(
-                'SELECT user_id FROM "LiteLLM_OrganizationMembership" WHERE organization_id=%s',
+                'SELECT user_id FROM "HangarLLM_OrganizationMembership" WHERE organization_id=%s',
                 (organization_id,),
             )
             == []
         )
-        assert read_rows('SELECT blocked FROM "LiteLLM_VerificationToken" WHERE token=%s', (hashed,)) == [
+        assert read_rows('SELECT blocked FROM "HangarLLM_VerificationToken" WHERE token=%s', (hashed,)) == [
             {"blocked": True}
         ]
 
@@ -417,12 +417,12 @@ def test_user_delete_deletes_a_user_whose_team_is_deleted_while_it_waits_on_the_
             _ = eventually(
                 lambda: _sessions_blocked_by(holder.info.backend_pid), lambda waiting: waiting >= 1, seconds=30
             )
-            _ = holder.execute('DELETE FROM "LiteLLM_TeamMembership" WHERE team_id = %s', (team_id,))
+            _ = holder.execute('DELETE FROM "HangarLLM_TeamMembership" WHERE team_id = %s', (team_id,))
             _ = holder.execute(
-                'UPDATE "LiteLLM_UserTable" SET teams = array_remove(teams, %s) WHERE %s = ANY(teams)',
+                'UPDATE "HangarLLM_UserTable" SET teams = array_remove(teams, %s) WHERE %s = ANY(teams)',
                 (team_id, team_id),
             )
-            _ = holder.execute('DELETE FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+            _ = holder.execute('DELETE FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
             assert not deletion.done(), deletion.result().text
         deleted: Final = deletion.result()
     assert deleted.status_code == 200, deleted.text

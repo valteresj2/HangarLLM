@@ -4,14 +4,14 @@ from typing import Final, cast
 
 import pytest
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.router_utils.prompt_caching_cache import (
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.router_utils.prompt_caching_cache import (
     PROMPT_CACHE_ONE_HOUR_PIN_TTL_SECONDS,
     PROMPT_CACHE_PIN_TTL_SECONDS,
     PromptCachingCache,
 )
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
 
 
 class _ManualClock:
@@ -298,7 +298,7 @@ def test_extract_cacheable_prefix_with_string_content_and_message_level_cache_co
     - content is a string (not a list of content blocks)
     - cache_control is a sibling key at the message level
 
-    This is a valid message format per LiteLLM's ChatCompletionUserMessage type:
+    This is a valid message format per HangarLLM's ChatCompletionUserMessage type:
     {"role": "user", "content": "...", "cache_control": {"type": "ephemeral"}}
 
     Regression test for issue #19228.
@@ -406,7 +406,7 @@ def test_prompt_cache_breakpoint_marks_the_same_cacheable_prefix_as_cache_contro
 
 @pytest.mark.asyncio
 async def test_same_cacheable_prefix_routes_to_same_deployment() -> None:
-    from litellm import Router
+    from hangarllm import Router
 
     def _messages(user_content: str):
         return [
@@ -431,7 +431,7 @@ async def test_same_cacheable_prefix_routes_to_same_deployment() -> None:
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-5-mini",
                     "api_key": f"test-key-{i}",
                 },
@@ -460,7 +460,7 @@ async def test_same_cacheable_prefix_routes_to_same_deployment() -> None:
     model_id_1: Final = response1._hidden_params["model_id"]
     assert model_id_1 in {"deployment-1", "deployment-2", "deployment-3"}
 
-    from litellm.integrations.anthropic_cache_control_hook import (
+    from hangarllm.integrations.anthropic_cache_control_hook import (
         AnthropicCacheControlHook,
     )
 
@@ -599,7 +599,7 @@ def test_a_retimed_or_moved_tool_breakpoint_keeps_the_same_key():
 
 def test_a_nested_function_cache_control_marks_a_boundary_and_strips_from_the_key():
     """
-    LiteLLM also honors the OpenAI-style mark nested inside `function` (the Anthropic transform
+    HangarLLM also honors the OpenAI-style mark nested inside `function` (the Anthropic transform
     maps it to the tool's cache_control), so it has to mark a boundary and hash away exactly like
     the top-level form, or a client that marks that way loses affinity to a breakpoint that moved.
     """

@@ -1,7 +1,7 @@
 """Boundary coverage for reasoning effort normalization on the ``/v1/messages`` adapter.
 
 ``test_reasoning_effort_fields.py`` pins ``normalize_reasoning_effort_value`` itself. These tests
-sit one layer out, on the kwargs the handler actually hands to ``litellm.acompletion``, so the
+sit one layer out, on the kwargs the handler actually hands to ``hangarllm.acompletion``, so the
 regression they guard is the one a caller sees: a tier the proxy advertises has to be the tier that
 leaves the adapter, in the shape the target expects.
 """
@@ -16,19 +16,19 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.anthropic.messages.adapters.handler import (
-    LiteLLMMessagesToCompletionTransformationHandler,
+import hangarllm
+from hangarllm.llms.anthropic.messages.adapters.handler import (
+    HangarLLMMessagesToCompletionTransformationHandler,
 )
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
-from litellm.router import Router
-from litellm.utils import reasoning_effort_with_summary_alias
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+from hangarllm.router import Router
+from hangarllm.utils import reasoning_effort_with_summary_alias
 
 MESSAGES = [{"role": "user", "content": "hello"}]
 
 
 def _reasoning_effort_sent(model: str, provider: str, reasoning_effort: object) -> object:
-    completion_kwargs, _ = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    completion_kwargs, _ = HangarLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model=model,
@@ -62,7 +62,7 @@ def _completion_kwargs_for_thinking(
         for key, value in (("custom_llm_provider", provider), ("api_base", api_base), ("model_info", model_info))
         if value is not None
     }
-    completion_kwargs, _ = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    completion_kwargs, _ = HangarLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model=model,
@@ -133,7 +133,7 @@ class TestAThinkingSummaryAskReachesGemini:
         thinking: dict[str, object],
         sends_thoughts: bool,
     ) -> None:
-        monkeypatch.setattr(litellm, "gemini_include_thoughts_default", False)
+        monkeypatch.setattr(hangarllm, "gemini_include_thoughts_default", False)
 
         sent: Final = _completion_kwargs_for_thinking(model, provider, thinking)
         gemini: Final = VertexGeminiConfig()
@@ -150,8 +150,8 @@ class TestAThinkingSummaryAskReachesGemini:
     def test_auto_summary_leaves_the_gateway_default_in_charge(
         self, local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "gemini_include_thoughts_default", False)
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        monkeypatch.setattr(hangarllm, "gemini_include_thoughts_default", False)
+        monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
 
         sent: Final = _reasoning_effort_sent_for_thinking("gemini/gemini-3.1-pro-preview", "gemini", PLAIN_THINKING)
 
@@ -185,7 +185,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
     def test_auto_summary_stays_a_plain_tier_on_a_chat_target(
         self, local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
 
         sent: Final = _reasoning_effort_sent_for_thinking(
             "databricks/databricks-qwen35-122b-a10b", "databricks", PLAIN_THINKING
@@ -198,7 +198,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
     ) -> None:
         """A ``mode: chat`` pin sends that deployment to chat completions even though its shared row
         says ``responses``, so the adapter has to read the pin too or chat gets the Responses-only dict."""
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
         model: Final = "bedrock_mantle/openai.gpt-5.4"
 
         unpinned = _reasoning_effort_sent_for_thinking(model, "bedrock_mantle", PLAIN_THINKING)
@@ -225,7 +225,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
     def test_auto_summary_still_reaches_a_bridged_target(
         self, local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
 
         sent: Final = _reasoning_effort_sent_for_thinking("azure/responses/gpt-5-mini", "azure", PLAIN_THINKING)
 
@@ -242,7 +242,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
         self, local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch, model: str, provider: str, summary: str
     ) -> None:
         """Mantle's OpenAI path accepts only ``auto``, so the opt-in summary must not send it ``detailed``."""
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
 
         sent = _reasoning_effort_sent_for_thinking(model, provider, PLAIN_THINKING)
 
@@ -275,7 +275,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
         assert sent == "high"
 
     def test_a_chained_gateway_keeps_the_dict_for_its_own_bridge(self, local_model_cost_map: None) -> None:
-        sent: Final = _reasoning_effort_sent_for_thinking("litellm_proxy/gpt-5.4", "litellm_proxy", SUMMARIZED_THINKING)
+        sent: Final = _reasoning_effort_sent_for_thinking("hangarllm_proxy/gpt-5.4", "hangarllm_proxy", SUMMARIZED_THINKING)
 
         assert sent == {"effort": "high", "summary": "auto"}
 
@@ -421,7 +421,7 @@ _MALFORMED_BUDGET_TARGETS: Final = [
 
 async def _body_sent_upstream(
     respx_mock: respx.MockRouter,
-    litellm_params: Mapping[str, object],
+    hangarllm_params: Mapping[str, object],
     model_info: Mapping[str, object],
     upstream_url: str,
     upstream_body: Mapping[str, object],
@@ -429,7 +429,7 @@ async def _body_sent_upstream(
 ) -> Mapping[str, object]:
     route: Final = respx_mock.post(url__regex=upstream_url).mock(return_value=httpx.Response(200, json=upstream_body))
     router: Final = Router(
-        model_list=[{"model_name": "group", "litellm_params": {**litellm_params}, "model_info": {**model_info}}]
+        model_list=[{"model_name": "group", "hangarllm_params": {**hangarllm_params}, "model_info": {**model_info}}]
     )
     await router.aanthropic_messages(model="group", messages=MESSAGES, max_tokens=4096, **messages_params)
     return json.loads(route.calls.last.request.read())
@@ -438,7 +438,7 @@ async def _body_sent_upstream(
 class TestADeclaredDeploymentRoundsTheMessagesTierOntoItsLevels:
     @pytest.fixture(autouse=True)
     def _httpx_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -485,21 +485,21 @@ class TestADeclaredDeploymentRoundsTheMessagesTierOntoItsLevels:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("budget", ["2048", True])
-    @pytest.mark.parametrize("litellm_params, model_info, upstream_url, upstream_body", _MALFORMED_BUDGET_TARGETS)
+    @pytest.mark.parametrize("hangarllm_params, model_info, upstream_url, upstream_body", _MALFORMED_BUDGET_TARGETS)
     async def test_a_non_numeric_budget_is_rejected_with_a_400(
         self,
         local_model_cost_map: None,
         respx_mock: respx.MockRouter,
-        litellm_params: Mapping[str, object],
+        hangarllm_params: Mapping[str, object],
         model_info: Mapping[str, object],
         upstream_url: str,
         upstream_body: Mapping[str, object],
         budget: object,
     ) -> None:
-        with pytest.raises(litellm.BadRequestError, match=r"thinking\.budget_tokens must be a number") as rejected:
+        with pytest.raises(hangarllm.BadRequestError, match=r"thinking\.budget_tokens must be a number") as rejected:
             await _body_sent_upstream(
                 respx_mock,
-                litellm_params,
+                hangarllm_params,
                 model_info,
                 upstream_url,
                 upstream_body,
@@ -510,22 +510,22 @@ class TestADeclaredDeploymentRoundsTheMessagesTierOntoItsLevels:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("budget", ["2048", True])
-    @pytest.mark.parametrize("litellm_params, model_info, upstream_url, upstream_body", _MALFORMED_BUDGET_TARGETS)
+    @pytest.mark.parametrize("hangarllm_params, model_info, upstream_url, upstream_body", _MALFORMED_BUDGET_TARGETS)
     async def test_drop_params_drops_a_non_numeric_budget_with_one_warning(
         self,
         local_model_cost_map: None,
         respx_mock: respx.MockRouter,
         caplog: pytest.LogCaptureFixture,
-        litellm_params: Mapping[str, object],
+        hangarllm_params: Mapping[str, object],
         model_info: Mapping[str, object],
         upstream_url: str,
         upstream_body: Mapping[str, object],
         budget: object,
     ) -> None:
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             sent: Final = await _body_sent_upstream(
                 respx_mock,
-                {**litellm_params, "drop_params": True},
+                {**hangarllm_params, "drop_params": True},
                 model_info,
                 upstream_url,
                 upstream_body,
@@ -537,7 +537,7 @@ class TestADeclaredDeploymentRoundsTheMessagesTierOntoItsLevels:
         assert len(dropped) == 1
         assert f"thinking.budget_tokens={budget!r}" in dropped[0]
         assert "(drop_params=True)" in dropped[0]
-        assert str(litellm_params["model"]).split("/", 1)[1] in dropped[0]
+        assert str(hangarllm_params["model"]).split("/", 1)[1] in dropped[0]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -569,7 +569,7 @@ class TestADeclaredDeploymentRoundsTheMessagesTierOntoItsLevels:
             return_value=httpx.Response(200, json=upstream_body)
         )
 
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             model=model,
             api_base=api_base,
             api_key="fake-key",

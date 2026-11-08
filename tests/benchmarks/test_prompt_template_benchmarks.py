@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.prompt_templates.factory import anthropic_messages_pt
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import anthropic_messages_pt
 
 LONG_RUN_OF_EMPTY_CACHED_USER_MESSAGES: Final[tuple[Mapping[str, object], ...]] = (
     {"role": "user", "content": "hi"},

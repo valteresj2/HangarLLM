@@ -7,23 +7,23 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import Request, Response
 
-import litellm
-from litellm.caching.caching_handler import _PENDING_CACHE_WRITES
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.guardrails.guardrail_hooks.llm_shield_proxy.llm_shield_proxy import (
+import hangarllm
+from hangarllm.caching.caching_handler import _PENDING_CACHE_WRITES
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy.guardrails.guardrail_hooks.llm_shield_proxy.llm_shield_proxy import (
     GUARDRAIL_NAME,
     LLMShieldProxyGuardrail,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import (
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.llms.openai import (
     FunctionCallArgumentsDeltaEvent,
     OutputTextDeltaEvent,
     OutputTextDoneEvent,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     Choices,
     Delta,
     Message,
@@ -163,20 +163,20 @@ async def _restore_stream(guardrail: LLMShieldProxyGuardrail, chunks: list) -> l
 
 def test_llm_shield_guardrail_config(monkeypatch: pytest.MonkeyPatch):
     """Should register through init_guardrails_v2 like any other provider."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
     monkeypatch.setenv("LLM_SHIELD_PROXY_API_KEY", "test-key")
 
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "llm_shield_proxy",
-                "litellm_params": {"guardrail": "llm_shield_proxy", "mode": "pre_call", "default_on": True},
+                "hangarllm_params": {"guardrail": "llm_shield_proxy", "mode": "pre_call", "default_on": True},
             }
         ],
         config_file_path="",
     )
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, LLMShieldProxyGuardrail)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, LLMShieldProxyGuardrail)]
     assert len(registered) == 1
     assert registered[0].guardrail_name == "llm_shield_proxy"
 
@@ -439,7 +439,7 @@ class TestRequestCoverage:
 
     @pytest.mark.asyncio
     async def test_extra_body_overrides_are_redacted(self):
-        """LiteLLM merges `extra_body` over the request just before sending, so its fields win on the wire."""
+        """HangarLLM merges `extra_body` over the request just before sending, so its fields win on the wire."""
         guardrail = _guardrail()
         mock = _mock_post(guardrail, {"texts": ["safe", "Mail [EMAIL_1]", "[EMAIL_1]"]})
 
@@ -699,7 +699,7 @@ class TestRequestCoverage:
 
     @pytest.mark.asyncio
     async def test_completions_suffix_is_redacted(self):
-        """LiteLLM forwards the legacy `suffix` to providers that support it."""
+        """HangarLLM forwards the legacy `suffix` to providers that support it."""
         guardrail = _guardrail()
         _mock_post(guardrail, {"texts": ["signed [EMAIL_1]", "write to [EMAIL_1]"]})
 
@@ -1033,19 +1033,19 @@ class TestVaultIsolation:
         data = {
             "messages": [{"role": "user", "content": "a@b.com"}],
             "metadata": {"llm_shield_session_id": "victim-session"},
-            "litellm_session_id": "victim-session",
+            "hangarllm_session_id": "victim-session",
         }
         await guardrail.async_pre_call_hook(user_api_key_dict=None, cache=None, data=data, call_type="completion")
 
         used = mock.call_args_list[0].kwargs["headers"]["X-Session-ID"]
         assert used != "victim-session"
-        assert data["litellm_metadata"]["llm_shield_session_id"] == used
+        assert data["hangarllm_metadata"]["llm_shield_session_id"] == used
 
     @pytest.mark.asyncio
     async def test_session_id_is_not_forwarded_to_the_provider(self):
         """The vault id is a capability, so it must stay out of provider-visible metadata.
 
-        `metadata` is forwarded upstream on /v1/responses; `litellm_metadata` is not. A
+        `metadata` is forwarded upstream on /v1/responses; `hangarllm_metadata` is not. A
         provider holding both the placeholders and the session id could call the shield's
         rehydrate endpoint and read back exactly what this guardrail withholds.
         """
@@ -1057,7 +1057,7 @@ class TestVaultIsolation:
 
         used = mock.call_args_list[0].kwargs["headers"]["X-Session-ID"]
         assert "llm_shield_session_id" not in data["metadata"]
-        assert data["litellm_metadata"]["llm_shield_session_id"] == used
+        assert data["hangarllm_metadata"]["llm_shield_session_id"] == used
 
     @pytest.mark.asyncio
     async def test_restore_ignores_a_foreign_session_id(self):
@@ -1558,7 +1558,7 @@ class TestApplyGuardrailToolCalls:
         guardrail = _guardrail(event_hook="post_call")
         _mock_post(guardrail, {"texts": ["hi", '{"email": "a@b.com"}']})
 
-        data = {"litellm_metadata": {"llm_shield_session_id": "shield-abc"}}
+        data = {"hangarllm_metadata": {"llm_shield_session_id": "shield-abc"}}
         inputs = {
             "texts": ["hi"],
             "tool_calls": [{"function": {"name": "send", "arguments": '{"email": "[EMAIL_1]"}'}}],
@@ -1865,10 +1865,10 @@ class TestResponsesStreamRestoration:
 
 
 class TestResponseCacheIsolation:
-    """The reply LiteLLM caches must keep its placeholders.
+    """The reply HangarLLM caches must keep its placeholders.
 
     Placeholders are numbered per request, so two callers' redacted requests can be
-    identical and share a cache key. LiteLLM keeps the provider's reply object -- for a
+    identical and share a cache key. HangarLLM keeps the provider's reply object -- for a
     native Anthropic dict or an in-memory cache, the object itself -- so restoring it in
     place would hand one caller's values to the next caller who hits that key.
     """
@@ -1895,7 +1895,7 @@ class TestResponseCacheIsolation:
     @pytest.mark.asyncio
     async def test_a_model_response_is_restored_as_a_copy(self):
         """A reply as `acompletion` returns it, hidden params and all."""
-        reply = await litellm.acompletion(
+        reply = await hangarllm.acompletion(
             model="gpt-4o-mini", messages=[{"role": "user", "content": "hi"}], mock_response="Mail [EMAIL_1]"
         )
         guardrail, _ = _shielded({"[EMAIL_1]": "a@example.com"})
@@ -1922,7 +1922,7 @@ class TestResponseCacheIsolation:
 
     @pytest.mark.asyncio
     async def test_stream_chunks_are_restored_as_copies(self):
-        """LiteLLM assembles the reply it caches from the chunks it yielded."""
+        """HangarLLM assembles the reply it caches from the chunks it yielded."""
         guardrail, _ = _shielded({"[EMAIL_1]": "a@example.com"})
         chunk = _chunk("Mail [EMAIL_1]", finish_reason="stop")
         event = OutputTextDeltaEvent(
@@ -1988,7 +1988,7 @@ class TestProxyWiring:
 
     @pytest.mark.asyncio
     async def test_the_deployment_hook_leaves_a_proxy_reply_for_the_proxy_hook(self):
-        """Inside the proxy the deployment hook must not restore: LiteLLM caches what it returns.
+        """Inside the proxy the deployment hook must not restore: HangarLLM caches what it returns.
 
         A proxy request was redacted by the proxy's pre-call hook, so it carries no
         deployment-restore marker, and the proxy's post-call hook restores it after the cache
@@ -1996,9 +1996,9 @@ class TestProxyWiring:
         """
         guardrail, shield = _shielded({"[EMAIL_1]": "a@example.com"})
         reply = ModelResponse(choices=[Choices(index=0, message=Message(role="assistant", content="[EMAIL_1]"))])
-        data = {"messages": [], "guardrails": [GUARDRAIL_NAME], "litellm_metadata": {}}
+        data = {"messages": [], "guardrails": [GUARDRAIL_NAME], "hangarllm_metadata": {}}
         LLMShieldProxyGuardrail._mint_session_id(data)
-        data["litellm_metadata"]["llm_shield_restore_at_deployment"] = "caller-chosen"
+        data["hangarllm_metadata"]["llm_shield_restore_at_deployment"] = "caller-chosen"
 
         result = await guardrail.async_post_call_success_deployment_hook(
             request_data=data, response=reply, call_type=None
@@ -2030,18 +2030,18 @@ class TestProxyWiring:
         guardrail = _guardrail(event_hook=["pre_call", "post_call"], default_on=False)
         guardrail.async_handler.post = shield
         cache = InMemoryCache()
-        monkeypatch.setattr(litellm, "callbacks", [guardrail])
-        monkeypatch.setattr(litellm, "cache", litellm.Cache(type="local"))
-        monkeypatch.setattr(litellm.cache, "cache", cache)
+        monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
+        monkeypatch.setattr(hangarllm, "cache", hangarllm.Cache(type="local"))
+        monkeypatch.setattr(hangarllm.cache, "cache", cache)
 
-        reply = await litellm.acompletion(
+        reply = await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "Repeat alice@example.com"}],
             mock_response="Repeat [EMAIL_1]",
             guardrails=[GUARDRAIL_NAME],
         )
 
-        # LiteLLM writes the cache from background tasks; let them land before looking.
+        # HangarLLM writes the cache from background tasks; let them land before looking.
         await asyncio.gather(*_PENDING_CACHE_WRITES)
 
         assert reply.choices[0].message.content == "Repeat alice@example.com"
@@ -2053,12 +2053,12 @@ class TestProxyWiring:
         guardrail = _guardrail(event_hook=["pre_call", "post_call"], default_on=False)
         _mock_post(guardrail, {"texts": ["Repeat [EMAIL_1]"]})
         cache = InMemoryCache()
-        monkeypatch.setattr(litellm, "callbacks", [guardrail])
-        monkeypatch.setattr(litellm, "cache", litellm.Cache(type="local"))
-        monkeypatch.setattr(litellm.cache, "cache", cache)
+        monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
+        monkeypatch.setattr(hangarllm, "cache", hangarllm.Cache(type="local"))
+        monkeypatch.setattr(hangarllm.cache, "cache", cache)
 
         with pytest.raises(GuardrailRaisedException, match="cannot restore a streamed reply"):
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "Repeat alice@example.com"}],
                 mock_response="Repeat [EMAIL_1]",

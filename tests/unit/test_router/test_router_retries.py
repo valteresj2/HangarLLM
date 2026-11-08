@@ -10,31 +10,31 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router import AllowedFailsPolicy, RetryPolicy
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router import AllowedFailsPolicy, RetryPolicy
 import os
 
-internal_server_error = litellm.InternalServerError(
+internal_server_error = hangarllm.InternalServerError(
     message="internal server error",
     model="gpt-12",
     llm_provider="azure",
 )
 
-rate_limit_error = litellm.RateLimitError(
+rate_limit_error = hangarllm.RateLimitError(
     message="rate limit error",
     model="gpt-12",
     llm_provider="azure",
 )
 
-service_unavailable_error = litellm.ServiceUnavailableError(
+service_unavailable_error = hangarllm.ServiceUnavailableError(
     message="service unavailable error",
     model="gpt-12",
     llm_provider="azure",
 )
 
-timeout_error = litellm.Timeout(
+timeout_error = hangarllm.Timeout(
     message="timeout error",
     model="gpt-12",
     llm_provider="azure",
@@ -45,7 +45,7 @@ class _RetryAttemptTracker(CustomLogger):
     previous_models: int = 0
 
     def log_pre_api_call(self, model: str, messages: list[object], kwargs: dict[str, object]) -> None:
-        params: Final = TypeAdapter(dict[str, object]).validate_python(kwargs["litellm_params"])
+        params: Final = TypeAdapter(dict[str, object]).validate_python(kwargs["hangarllm_params"])
         raw_metadata: Final = params.get("metadata")
         metadata: Final = (
             TypeAdapter(dict[str, object]).validate_python(raw_metadata) if isinstance(raw_metadata, dict) else {}
@@ -59,7 +59,7 @@ def _retry_test_router() -> Router:
         model_list=[
             {
                 "model_name": "retry-test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/retry-test-model",
                     "api_key": "test-key",
                 },
@@ -86,7 +86,7 @@ def _retry_tracking_router(num_retries: int) -> Router:
     model_list: Final = [
         {
             "model_name": "retry-test-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/retry-test-model",
                 "api_key": "test-key",
             },
@@ -113,26 +113,26 @@ def _patch_asyncio_sleep(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 async def test_router_retries_errors(sync_mode: bool, error_type: str, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_asyncio_sleep(monkeypatch)
     tracker: Final = _RetryAttemptTracker()
-    monkeypatch.setattr(litellm, "callbacks", [tracker])
+    monkeypatch.setattr(hangarllm, "callbacks", [tracker])
     router: Final = Router(
         model_list=[
             {
                 "model_name": "retry-test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/retry-test-model",
                     "api_key": "test-key",
                 },
             },
             {
                 "model_name": "retry-test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/retry-test-model",
                     "api_key": "test-key",
                 },
             },
             {
                 "model_name": "retry-test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/retry-test-model",
                     "api_key": "test-key",
                 },
@@ -167,7 +167,7 @@ async def test_router_retries_errors(sync_mode: bool, error_type: str, monkeypat
     ["ContentPolicyViolationErrorRetries"],  # "AuthenticationErrorRetries",
 )
 async def test_router_retry_policy(error_type):
-    from litellm.router import AllowedFailsPolicy, RetryPolicy
+    from hangarllm.router import AllowedFailsPolicy, RetryPolicy
 
     retry_policy = RetryPolicy(ContentPolicyViolationErrorRetries=3, AuthenticationErrorRetries=0)
 
@@ -180,7 +180,7 @@ async def test_router_retry_policy(error_type):
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -189,7 +189,7 @@ async def test_router_retry_policy(error_type):
             },
             {
                 "model_name": "bad-model",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "azure/gpt-4.1-mini",
                     "api_key": "bad-key",
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -202,7 +202,7 @@ async def test_router_retry_policy(error_type):
     )
 
     customHandler = MyCustomHandler()
-    litellm.callbacks = [customHandler]
+    hangarllm.callbacks = [customHandler]
     data = {}
     if error_type == "AuthenticationErrorRetries":
         model = "bad-model"
@@ -215,7 +215,7 @@ async def test_router_retry_policy(error_type):
         data = {"model": model, "messages": messages, "mock_response": mock_response}
 
     try:
-        litellm.set_verbose = True
+        hangarllm.set_verbose = True
         await router.acompletion(**data)
     except Exception as e:
         print("got an exception", e)
@@ -235,12 +235,12 @@ async def test_router_retry_policy(error_type):
 async def test_dynamic_router_retry_policy(model_group: str, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_asyncio_sleep(monkeypatch)
     tracker: Final = _RetryAttemptTracker()
-    monkeypatch.setattr(litellm, "callbacks", [tracker])
+    monkeypatch.setattr(hangarllm, "callbacks", [tracker])
     router: Final = Router(
         model_list=[
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/retry-policy-test-model",
                     "api_key": "test-key",
                 },
@@ -248,7 +248,7 @@ async def test_dynamic_router_retry_policy(model_group: str, monkeypatch: pytest
             },
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/retry-policy-test-model",
                     "api_key": "test-key",
                 },
@@ -256,7 +256,7 @@ async def test_dynamic_router_retry_policy(model_group: str, monkeypatch: pytest
             },
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/retry-policy-test-model",
                     "api_key": "test-key",
                 },
@@ -270,7 +270,7 @@ async def test_dynamic_router_retry_policy(model_group: str, monkeypatch: pytest
         ),
     )
 
-    with pytest.raises(litellm.ContentPolicyViolationError):
+    with pytest.raises(hangarllm.ContentPolicyViolationError):
         await router.acompletion(
             model=model_group,
             messages=[{"role": "user", "content": "Retry policy test"}],
@@ -287,7 +287,7 @@ async def test_authentication_errors_are_not_retried(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             401,
@@ -314,7 +314,7 @@ async def test_authentication_errors_are_not_retried(
     model_list: Final = [
         {
             "model_name": "retry-test-model",
-            "litellm_params": {"model": model, "api_key": "test-key"},
+            "hangarllm_params": {"model": model, "api_key": "test-key"},
             "model_info": {"id": deployment_id},
         }
         for deployment_id, model in deployment_models
@@ -325,7 +325,7 @@ async def test_authentication_errors_are_not_retried(
         **policy_kwargs,
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="retry-test-model",
             messages=[{"role": "user", "content": "retry test"}],
@@ -343,11 +343,11 @@ def test_retry_rate_limit_error_with_healthy_deployments():
         "deployment2",
     ]  # multiple healthy deployments mocked up
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -378,7 +378,7 @@ def test_do_retry_rate_limit_error_with_no_fallbacks_and_no_healthy_deployments(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -401,7 +401,7 @@ def test_raise_context_window_exceeded_error():
     """
     Trigger Context Window fallback, when context_window_fallbacks is not None
     """
-    context_window_error = litellm.ContextWindowExceededError(
+    context_window_error = hangarllm.ContextWindowExceededError(
         message="Context window exceeded",
         response=httpx.Response(
             status_code=400,
@@ -416,7 +416,7 @@ def test_raise_context_window_exceeded_error():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -441,7 +441,7 @@ def test_raise_context_window_exceeded_error_no_retry():
     """
     Do not Retry Context Window Exceeded Error, when context_window_fallbacks is None
     """
-    context_window_error = litellm.ContextWindowExceededError(
+    context_window_error = hangarllm.ContextWindowExceededError(
         message="Context window exceeded",
         response=httpx.Response(
             status_code=400,
@@ -456,7 +456,7 @@ def test_raise_context_window_exceeded_error_no_retry():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -473,7 +473,7 @@ def test_raise_context_window_exceeded_error_no_retry():
             context_window_fallbacks=context_window_fallbacks,
         )
         assert response == True, "Should not have raised exception since we do not have context window fallbacks"
-    except litellm.ContextWindowExceededError:
+    except hangarllm.ContextWindowExceededError:
         pass
 
 
@@ -484,7 +484,7 @@ def test_no_retry_for_not_found_error_404():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -495,7 +495,7 @@ def test_no_retry_for_not_found_error_404():
     )
 
     # Act & Assert
-    error = litellm.NotFoundError(
+    error = hangarllm.NotFoundError(
         message="404 model not found",
         model="gpt-12",
         llm_provider="azure",
@@ -520,7 +520,7 @@ def test_no_retry_for_bad_request_error_400():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -531,7 +531,7 @@ def test_no_retry_for_bad_request_error_400():
     )
 
     # Act & Assert
-    error = litellm.BadRequestError(
+    error = hangarllm.BadRequestError(
         message="400 Invalid request parameters",
         model="gpt-3.5-turbo",
         llm_provider="azure",
@@ -539,7 +539,7 @@ def test_no_retry_for_bad_request_error_400():
     try:
         response = router.should_retry_this_error(error=error, healthy_deployments=healthy_deployments)
         pytest.fail("Should have raised BadRequestError - 400 errors should never be retried")
-    except litellm.BadRequestError as e:
+    except hangarllm.BadRequestError as e:
         print("Correctly raised BadRequestError without retry:", e)
 
 
@@ -553,7 +553,7 @@ def test_no_retry_for_unprocessable_entity_error_422():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -564,7 +564,7 @@ def test_no_retry_for_unprocessable_entity_error_422():
     )
 
     # Act & Assert
-    error = litellm.UnprocessableEntityError(
+    error = hangarllm.UnprocessableEntityError(
         message="422 Unprocessable Entity",
         model="gpt-3.5-turbo",
         llm_provider="azure",
@@ -576,7 +576,7 @@ def test_no_retry_for_unprocessable_entity_error_422():
     try:
         response = router.should_retry_this_error(error=error, healthy_deployments=healthy_deployments)
         pytest.fail("Should have raised UnprocessableEntityError - 422 errors should never be retried")
-    except litellm.UnprocessableEntityError as e:
+    except hangarllm.UnprocessableEntityError as e:
         print("Correctly raised UnprocessableEntityError without retry:", e)
 
 
@@ -587,7 +587,7 @@ def test_no_retry_when_no_healthy_deployments():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -614,12 +614,12 @@ def test_no_retry_when_no_healthy_deployments():
 
 @pytest.mark.asyncio
 async def test_router_retries_model_specific_and_global():
-    litellm.num_retries = 0
+    hangarllm.num_retries = 0
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "sk-test",
                     "num_retries": 1,
@@ -628,11 +628,11 @@ async def test_router_retries_model_specific_and_global():
         ]
     )
 
-    with pytest.raises(litellm.RateLimitError) as exc_info:
+    with pytest.raises(hangarllm.RateLimitError) as exc_info:
         await router.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="hangarllm.RateLimitError",
         )
 
     assert exc_info.value.num_retries == 1
@@ -643,13 +643,13 @@ async def test_router_retries_model_specific_and_global():
 async def test_router_timeout_model_specific_and_global():
     from unittest.mock import MagicMock, patch
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     router = Router(
         model_list=[
             {
                 "model_name": "anthropic-claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"anthropic/{os.environ.get('CI_CD_DEFAULT_ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001')}",
                     "timeout": 1,
                 },
@@ -687,24 +687,24 @@ async def test_router_retry_num_retries_tracking():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
             }
         ],
         num_retries=2,
     )
 
-    with pytest.raises(litellm.RateLimitError) as exc_info:
+    with pytest.raises(hangarllm.RateLimitError) as exc_info:
         await router.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="hangarllm.RateLimitError",
         )
 
     e = exc_info.value
     assert e.num_retries == 2
     assert e.max_retries == 2
-    assert "LiteLLM Retried: 2 times" in str(e)
-    assert "LiteLLM Max Retries: 2" in str(e)
+    assert "HangarLLM Retried: 2 times" in str(e)
+    assert "HangarLLM Max Retries: 2" in str(e)
 
 
 @pytest.mark.asyncio
@@ -716,17 +716,17 @@ async def test_router_retry_num_retries_single_retry():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
             }
         ],
         num_retries=1,
     )
 
-    with pytest.raises(litellm.InternalServerError) as exc_info:
+    with pytest.raises(hangarllm.InternalServerError) as exc_info:
         await router.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello"}],
-            mock_response="litellm.InternalServerError",
+            mock_response="hangarllm.InternalServerError",
         )
 
     assert exc_info.value.num_retries == 1
@@ -740,10 +740,10 @@ class MyCustomHandler(CustomLogger):
 
     def log_pre_api_call(self, model, messages, kwargs):
         print(f"Pre-API Call")
-        print(f"previous_models: {kwargs['litellm_params']['metadata'].get('previous_models', None)}")
+        print(f"previous_models: {kwargs['hangarllm_params']['metadata'].get('previous_models', None)}")
         self.previous_models = len(
-            kwargs["litellm_params"]["metadata"].get("previous_models", [])
-        )  # {"previous_models": [{"model": litellm_model_name, "exception_type": AuthenticationError, "exception_string": <complete_traceback>}]}
+            kwargs["hangarllm_params"]["metadata"].get("previous_models", [])
+        )  # {"previous_models": [{"model": hangarllm_model_name, "exception_type": AuthenticationError, "exception_string": <complete_traceback>}]}
         print(f"self.previous_models: {self.previous_models}")
 
     def log_post_api_call(self, kwargs, response_obj, start_time, end_time):
@@ -765,21 +765,21 @@ class MyCustomHandler(CustomLogger):
         print(f"On Failure")
 
 
-internal_server_error = litellm.InternalServerError(
+internal_server_error = hangarllm.InternalServerError(
     message="internal server error",
     model="gpt-12",
     llm_provider="azure",
 )
 
 
-service_unavailable_error = litellm.ServiceUnavailableError(
+service_unavailable_error = hangarllm.ServiceUnavailableError(
     message="service unavailable error",
     model="gpt-12",
     llm_provider="azure",
 )
 
 
-timeout_error = litellm.Timeout(
+timeout_error = hangarllm.Timeout(
     message="timeout error",
     model="gpt-12",
     llm_provider="azure",

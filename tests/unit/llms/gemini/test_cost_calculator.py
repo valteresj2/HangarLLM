@@ -1,18 +1,18 @@
 import pytest
 
-import litellm
-from litellm.cost_calculator import completion_cost
-from litellm.llms.gemini.cost_calculator import (
+import hangarllm
+from hangarllm.cost_calculator import completion_cost
+from hangarllm.llms.gemini.cost_calculator import (
     cost_per_google_maps_grounding_request,
     cost_per_web_search_request,
 )
-from litellm.llms.gemini.image_edit.cost_calculator import (
+from hangarllm.llms.gemini.image_edit.cost_calculator import (
     cost_calculator as gemini_image_edit_cost_calculator,
 )
-from litellm.llms.gemini.image_generation.cost_calculator import (
+from hangarllm.llms.gemini.image_generation.cost_calculator import (
     cost_calculator as gemini_image_generation_cost_calculator,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     ImageObject,
     ImageResponse,
     ImageUsage,
@@ -85,7 +85,7 @@ def test_no_usage_details():
 
 
 def _make_server_tool_use_usage(web_search_requests: int) -> Usage:
-    from litellm.types.utils import ServerToolUse
+    from hangarllm.types.utils import ServerToolUse
 
     return Usage(
         prompt_tokens=100,
@@ -123,7 +123,7 @@ def test_server_tool_use_fallback_per_prompt_clamps_to_one():
 
 def test_prompt_tokens_details_take_precedence_over_server_tool_use():
     """The native Gemini field wins when both counts are present."""
-    from litellm.types.utils import ServerToolUse
+    from hangarllm.types.utils import ServerToolUse
 
     model_info = {
         "key": "gemini/gemini-3-flash-preview",
@@ -246,11 +246,11 @@ def test_map_traffic_type_to_service_tier(
     traffic_type: str | None, expected_service_tier: str | None
 ):
     """
-    Gemini/Vertex usageMetadata.trafficType maps to the LiteLLM service_tier
+    Gemini/Vertex usageMetadata.trafficType maps to the HangarLLM service_tier
     that selects flex/priority cost keys. ON_DEMAND_FLEX (Vertex's flex opt-in
     value) must map to "flex" so flex-tier requests are not billed as standard.
     """
-    from litellm.cost_calculator import _map_traffic_type_to_service_tier
+    from hangarllm.cost_calculator import _map_traffic_type_to_service_tier
 
     assert (
         _map_traffic_type_to_service_tier(traffic_type) == expected_service_tier
@@ -270,8 +270,8 @@ def test_map_traffic_type_to_service_tier(
 def test_latest_aliases_cost_the_same_as_their_current_target(
     monkeypatch, alias, target
 ):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
     usage = Usage(
         prompt_tokens=1_000,
@@ -301,11 +301,11 @@ def test_latest_aliases_cost_the_same_as_their_current_target(
     ],
 )
 def test_flash_latest_alias_spellings_price_identically(monkeypatch, prefixed, bare):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
-    prefixed_entry = litellm.model_cost[prefixed]
-    bare_entry = litellm.model_cost[bare]
+    prefixed_entry = hangarllm.model_cost[prefixed]
+    bare_entry = hangarllm.model_cost[bare]
 
     for cost_key in (
         "input_cost_per_token",

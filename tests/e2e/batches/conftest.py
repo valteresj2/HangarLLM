@@ -53,7 +53,7 @@ def batch_deployments(client: BatchClient) -> Iterator[None]:
     try:
         for provider in PROVIDERS:
             registered.append(
-                client.create_model(provider.model, provider.litellm_params())
+                client.create_model(provider.model, provider.hangarllm_params())
             )
         yield
     finally:

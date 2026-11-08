@@ -9,10 +9,10 @@ import uuid
 
 import pytest
 
-from litellm_proxy_extras.replica_identity import (
+from hangarllm_proxy_extras.replica_identity import (
     REPLICA_IDENTITY_FULL_ENV_VAR,
 )
-from litellm_proxy_extras.utils import ProxyExtrasDBManager
+from hangarllm_proxy_extras.utils import ProxyExtrasDBManager
 
 psycopg = pytest.importorskip("psycopg")
 
@@ -39,14 +39,14 @@ def _replica_identities(schema: str) -> dict:
 
 @pytest.fixture
 def scratch_schema(monkeypatch):
-    """A schema holding two LiteLLM tables and one foreign table, all at the default."""
+    """A schema holding two HangarLLM tables and one foreign table, all at the default."""
     schema = f"replica_identity_{uuid.uuid4().hex[:8]}"
     with psycopg.connect(_base_url(), autocommit=True) as conn:
         conn.execute(f'CREATE SCHEMA "{schema}"')
         conn.execute(
-            f'CREATE TABLE "{schema}"."LiteLLM_ScratchTable" (id TEXT PRIMARY KEY, note TEXT)'
+            f'CREATE TABLE "{schema}"."HangarLLM_ScratchTable" (id TEXT PRIMARY KEY, note TEXT)'
         )
-        conn.execute(f'CREATE TABLE "{schema}"."LiteLLM_ScratchSibling" (id TEXT PRIMARY KEY)')
+        conn.execute(f'CREATE TABLE "{schema}"."HangarLLM_ScratchSibling" (id TEXT PRIMARY KEY)')
         conn.execute(f'CREATE TABLE "{schema}"."ScratchForeignTable" (id TEXT PRIMARY KEY)')
 
     monkeypatch.setenv("DATABASE_URL", f"{_base_url()}?schema={schema}")
@@ -57,14 +57,14 @@ def scratch_schema(monkeypatch):
 
 
 @requires_db
-def test_applies_full_to_litellm_tables_only(scratch_schema, monkeypatch):
+def test_applies_full_to_hangarllm_tables_only(scratch_schema, monkeypatch):
     monkeypatch.setenv(REPLICA_IDENTITY_FULL_ENV_VAR, "true")
 
     assert ProxyExtrasDBManager.apply_replica_identity_full_if_requested() is True
 
     identities = _replica_identities(scratch_schema)
-    assert identities["LiteLLM_ScratchTable"] == "f"
-    assert identities["LiteLLM_ScratchSibling"] == "f"
+    assert identities["HangarLLM_ScratchTable"] == "f"
+    assert identities["HangarLLM_ScratchSibling"] == "f"
     assert identities["ScratchForeignTable"] == "d"
 
 
@@ -75,12 +75,12 @@ def test_a_locked_table_does_not_block_the_others(scratch_schema, monkeypatch):
     monkeypatch.setenv(REPLICA_IDENTITY_FULL_ENV_VAR, "true")
 
     with psycopg.connect(_base_url()) as holder:
-        holder.execute(f'SELECT * FROM "{scratch_schema}"."LiteLLM_ScratchTable"')
+        holder.execute(f'SELECT * FROM "{scratch_schema}"."HangarLLM_ScratchTable"')
         assert ProxyExtrasDBManager.apply_replica_identity_full_if_requested() is True
 
     identities = _replica_identities(scratch_schema)
-    assert identities["LiteLLM_ScratchTable"] == "d"
-    assert identities["LiteLLM_ScratchSibling"] == "f"
+    assert identities["HangarLLM_ScratchTable"] == "d"
+    assert identities["HangarLLM_ScratchSibling"] == "f"
 
 
 @requires_db
@@ -88,7 +88,7 @@ def test_leaves_tables_alone_when_not_requested(scratch_schema, monkeypatch):
     monkeypatch.delenv(REPLICA_IDENTITY_FULL_ENV_VAR, raising=False)
 
     assert ProxyExtrasDBManager.apply_replica_identity_full_if_requested() is False
-    assert _replica_identities(scratch_schema)["LiteLLM_ScratchTable"] == "d"
+    assert _replica_identities(scratch_schema)["HangarLLM_ScratchTable"] == "d"
 
 
 @requires_db
@@ -98,7 +98,7 @@ def test_is_idempotent_across_runs(scratch_schema, monkeypatch):
     assert ProxyExtrasDBManager.apply_replica_identity_full_if_requested() is True
     assert ProxyExtrasDBManager.apply_replica_identity_full_if_requested() is True
 
-    assert _replica_identities(scratch_schema)["LiteLLM_ScratchTable"] == "f"
+    assert _replica_identities(scratch_schema)["HangarLLM_ScratchTable"] == "f"
 
 
 @requires_db
@@ -112,7 +112,7 @@ def test_reports_failure_without_raising(scratch_schema, monkeypatch):
     )
 
     assert ProxyExtrasDBManager.apply_replica_identity_full_if_requested() is False
-    assert _replica_identities(scratch_schema)["LiteLLM_ScratchTable"] == "d"
+    assert _replica_identities(scratch_schema)["HangarLLM_ScratchTable"] == "d"
 
 
 

@@ -42,39 +42,39 @@ def test_client_fixture_returns_testclient(client):
 
 
 def test_mock_prisma_has_team_table(mock_prisma):
-    assert hasattr(mock_prisma.db, "litellm_teamtable")
-    assert callable(mock_prisma.db.litellm_teamtable.find_unique)
-    assert callable(mock_prisma.db.litellm_teamtable.find_many)
+    assert hasattr(mock_prisma.db, "hangarllm_teamtable")
+    assert callable(mock_prisma.db.hangarllm_teamtable.find_unique)
+    assert callable(mock_prisma.db.hangarllm_teamtable.find_many)
 
 
 def test_mock_prisma_has_key_table(mock_prisma):
-    assert hasattr(mock_prisma.db, "litellm_verificationtoken")
-    assert callable(mock_prisma.db.litellm_verificationtoken.find_unique)
+    assert hasattr(mock_prisma.db, "hangarllm_verificationtoken")
+    assert callable(mock_prisma.db.hangarllm_verificationtoken.find_unique)
 
 
 def test_auth_as_admin_overrides_dependency(app, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         assert user_api_key_auth in app.dependency_overrides
 
 
 def test_auth_as_internal_user_overrides_dependency(app, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER) as fake_auth:
+    with auth_as(HangarllmUserRoles.INTERNAL_USER) as fake_auth:
         assert user_api_key_auth in app.dependency_overrides
-        assert fake_auth.user_role == LitellmUserRoles.INTERNAL_USER
+        assert fake_auth.user_role == HangarllmUserRoles.INTERNAL_USER
 
 
 def test_auth_as_cleans_up_on_exit(app, auth_as):
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     assert user_api_key_auth not in app.dependency_overrides
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         pass
     assert user_api_key_auth not in app.dependency_overrides
 
@@ -146,9 +146,9 @@ def _write_cov_xml(tmp_path: Path, line_rate: float, branch_rate: float) -> Path
         <?xml version="1.0" ?>
         <coverage version="7.0">
           <packages>
-            <package name="litellm.proxy">
+            <package name="hangarllm.proxy">
               <classes>
-                <class filename="litellm/proxy/proxy_server.py"
+                <class filename="hangarllm/proxy/proxy_server.py"
                        line-rate="{line_rate}" branch-rate="{branch_rate}"/>
               </classes>
             </package>

@@ -6,11 +6,11 @@ from functools import reduce
 import pytest
 from pydantic import JsonValue
 
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.proxy import proxy_server
-from litellm.proxy.auth.master_key_boot_check import MIGRATE_FROM_MASTER_KEY_ENV_VAR, SALT_KEY_ENV_VAR
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
-from litellm.proxy.db.master_key_migration import (
+from hangarllm.constants import DEFAULT_MAX_RECURSE_DEPTH
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy.auth.master_key_boot_check import MIGRATE_FROM_MASTER_KEY_ENV_VAR, SALT_KEY_ENV_VAR
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
+from hangarllm.proxy.db.master_key_migration import (
     _SECRET_COLUMNS,
     Migrated,
     MigrationFailed,
@@ -58,12 +58,12 @@ class _FakeDatabase:
         select = re.fullmatch(r'SELECT "(\w+)", "(\w+)" FROM "(\w+)" WHERE "\2" IS NOT NULL(.*)', query)
         assert select is not None, query
         primary_key, column, table, row_filter = select.groups()
-        assert row_filter in ("", f" AND \"{column}\"::text LIKE '%litellm_enc::%'")
+        assert row_filter in ("", f" AND \"{column}\"::text LIKE '%hangarllm_enc::%'")
         assert table not in self.tables_missing_from_the_schema, f'relation "{table}" does not exist'
         return [
             {primary_key: row[primary_key], column: json.loads(json.dumps(row[column]))}
             for row in self.tables.get(table, [])
-            if row.get(column) is not None and (not row_filter or "litellm_enc::" in json.dumps(row[column]))
+            if row.get(column) is not None and (not row_filter or "hangarllm_enc::" in json.dumps(row[column]))
         ]
 
     async def execute_raw(self, query: str, *args: object) -> int:
@@ -90,10 +90,10 @@ class _DatabaseThatMustNotBeTouched:
 
 def _seeded_tables() -> Tables:
     return {
-        "LiteLLM_ProxyModelTable": [
+        "HangarLLM_ProxyModelTable": [
             {
                 "model_id": "model-1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_key": _encrypted("provider-key"),
                     "model": _encrypted("openai/gpt-5.4-mini"),
                     "rpm": 10,
@@ -101,14 +101,14 @@ def _seeded_tables() -> Tables:
                     "api_base": None,
                 },
             },
-            {"model_id": "model-2", "litellm_params": {"api_key": _encrypted("other-deployment", UNRELATED_KEY)}},
+            {"model_id": "model-2", "hangarllm_params": {"api_key": _encrypted("other-deployment", UNRELATED_KEY)}},
         ],
-        "LiteLLM_Config": [
+        "HangarLLM_Config": [
             {"param_name": "environment_variables", "param_value": {"LANGFUSE_SECRET_KEY": _encrypted("env-secret")}},
             {"param_name": "general_settings", "param_value": {"proxy_batch_write_at": 10, "ui_name": "plain text"}},
             {"param_name": "cleared", "param_value": None},
         ],
-        "LiteLLM_MCPServerTable": [
+        "HangarLLM_MCPServerTable": [
             {
                 "server_id": "mcp-1",
                 "credentials": {"auth_value": _encrypted("mcp-token"), "aws_region_name": "us-east-1"},
@@ -120,8 +120,8 @@ def _seeded_tables() -> Tables:
                 "env": {},
             }
         ],
-        "LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}],
-        "LiteLLM_TeamTable": [
+        "HangarLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}],
+        "HangarLLM_TeamTable": [
             {
                 "team_id": "team-1",
                 "metadata": {
@@ -130,7 +130,7 @@ def _seeded_tables() -> Tables:
                             "callback_name": "langfuse",
                             "callback_vars": {
                                 "langfuse_host": "https://example.invalid",
-                                "langfuse_secret_key": "litellm_enc::" + _encrypted("team-callback-secret"),
+                                "langfuse_secret_key": "hangarllm_enc::" + _encrypted("team-callback-secret"),
                             },
                         }
                     ]
@@ -148,53 +148,53 @@ _VALUES_UNDER_THE_PREVIOUS_KEY = 8
 async def test_reencryption_moves_every_stored_shape_to_the_new_key_and_nothing_else():
     tables = _seeded_tables()
     untouched_before = json.dumps(
-        [tables["LiteLLM_ProxyModelTable"][1], tables["LiteLLM_Config"][1:], tables["LiteLLM_TeamTable"][1]]
+        [tables["HangarLLM_ProxyModelTable"][1], tables["HangarLLM_Config"][1:], tables["HangarLLM_TeamTable"][1]]
     )
 
     migrated = await reencrypt_stored_values(_FakeDatabase(tables), from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert migrated == _VALUES_UNDER_THE_PREVIOUS_KEY
-    model_params = tables["LiteLLM_ProxyModelTable"][0]["litellm_params"]
+    model_params = tables["HangarLLM_ProxyModelTable"][0]["hangarllm_params"]
     assert isinstance(model_params, dict)
     assert decrypt_if_encrypted_with(model_params["api_key"], NEW_KEY) == "provider-key"
     assert decrypt_if_encrypted_with(model_params["model"], NEW_KEY) == "openai/gpt-5.4-mini"
     assert decrypt_if_encrypted_with(model_params["api_key"], PREVIOUS_KEY) is None
     assert (model_params["rpm"], model_params["use_in_pass_through"], model_params["api_base"]) == (10, False, None)
-    mcp_server = tables["LiteLLM_MCPServerTable"][0]
+    mcp_server = tables["HangarLLM_MCPServerTable"][0]
     assert decrypt_if_encrypted_with(mcp_server["static_headers"], NEW_KEY) == '{"X-Api-Key": "header-secret"}'
     assert mcp_server["credentials"]["aws_region_name"] == "us-east-1"
     assert decrypt_if_encrypted_with(mcp_server["env_vars"][0]["value"], NEW_KEY) == "global-env"
     assert mcp_server["env_vars"][1] == {"name": "PER_USER", "scope": "user", "value": ""}
     assert (
-        decrypt_if_encrypted_with(tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"], NEW_KEY) == "byok-secret"
+        decrypt_if_encrypted_with(tables["HangarLLM_MCPUserCredentials"][0]["credential_b64"], NEW_KEY) == "byok-secret"
     )
-    callback_secret = tables["LiteLLM_TeamTable"][0]["metadata"]["logging"][0]["callback_vars"]["langfuse_secret_key"]
-    assert callback_secret.startswith("litellm_enc::")
-    assert decrypt_if_encrypted_with(callback_secret.removeprefix("litellm_enc::"), NEW_KEY) == "team-callback-secret"
+    callback_secret = tables["HangarLLM_TeamTable"][0]["metadata"]["logging"][0]["callback_vars"]["langfuse_secret_key"]
+    assert callback_secret.startswith("hangarllm_enc::")
+    assert decrypt_if_encrypted_with(callback_secret.removeprefix("hangarllm_enc::"), NEW_KEY) == "team-callback-secret"
     assert untouched_before == json.dumps(
-        [tables["LiteLLM_ProxyModelTable"][1], tables["LiteLLM_Config"][1:], tables["LiteLLM_TeamTable"][1]]
+        [tables["HangarLLM_ProxyModelTable"][1], tables["HangarLLM_Config"][1:], tables["HangarLLM_TeamTable"][1]]
     )
 
 
 @pytest.mark.asyncio
-async def test_search_tool_litellm_params_are_moved_to_the_new_key():
+async def test_search_tool_hangarllm_params_are_moved_to_the_new_key():
     tables: Tables = {
-        "LiteLLM_SearchToolsTable": [
+        "HangarLLM_SearchToolsTable": [
             {
                 "search_tool_id": "search-tool-1",
-                "litellm_params": {"search_provider": _encrypted("tavily"), "api_key": _encrypted("tvly-secret")},
+                "hangarllm_params": {"search_provider": _encrypted("tavily"), "api_key": _encrypted("tvly-secret")},
             },
-            {"search_tool_id": "legacy-search-tool", "litellm_params": {"api_key": "tvly-plaintext"}},
+            {"search_tool_id": "legacy-search-tool", "hangarllm_params": {"api_key": "tvly-plaintext"}},
         ]
     }
 
     migrated = await reencrypt_stored_values(_FakeDatabase(tables), from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert migrated == 2
-    search_tool_params = tables["LiteLLM_SearchToolsTable"][0]["litellm_params"]
+    search_tool_params = tables["HangarLLM_SearchToolsTable"][0]["hangarllm_params"]
     assert decrypt_if_encrypted_with(search_tool_params["api_key"], NEW_KEY) == "tvly-secret"
     assert decrypt_if_encrypted_with(search_tool_params["search_provider"], NEW_KEY) == "tavily"
-    assert tables["LiteLLM_SearchToolsTable"][1]["litellm_params"] == {"api_key": "tvly-plaintext"}
+    assert tables["HangarLLM_SearchToolsTable"][1]["hangarllm_params"] == {"api_key": "tvly-plaintext"}
 
 
 @pytest.mark.asyncio
@@ -218,13 +218,13 @@ async def test_only_rows_holding_values_under_the_previous_key_are_written():
     await reencrypt_stored_values(database, from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert sorted(database.writes) == [
-        ("LiteLLM_Config", "param_value", "environment_variables"),
-        ("LiteLLM_MCPServerTable", "credentials", "mcp-1"),
-        ("LiteLLM_MCPServerTable", "env_vars", "mcp-1"),
-        ("LiteLLM_MCPServerTable", "static_headers", "mcp-1"),
-        ("LiteLLM_MCPUserCredentials", "credential_b64", "cred-row-1"),
-        ("LiteLLM_ProxyModelTable", "litellm_params", "model-1"),
-        ("LiteLLM_TeamTable", "metadata", "team-1"),
+        ("HangarLLM_Config", "param_value", "environment_variables"),
+        ("HangarLLM_MCPServerTable", "credentials", "mcp-1"),
+        ("HangarLLM_MCPServerTable", "env_vars", "mcp-1"),
+        ("HangarLLM_MCPServerTable", "static_headers", "mcp-1"),
+        ("HangarLLM_MCPUserCredentials", "credential_b64", "cred-row-1"),
+        ("HangarLLM_ProxyModelTable", "hangarllm_params", "model-1"),
+        ("HangarLLM_TeamTable", "metadata", "team-1"),
     ]
 
 
@@ -232,9 +232,9 @@ async def test_only_rows_holding_values_under_the_previous_key_are_written():
 async def test_plaintext_that_base64_decodes_to_nothing_is_neither_counted_nor_rewritten():
     settings = {"allowed_routes": ["*"], "ui_name": "-", "separator": "...", "blank": " ", "shape": "{}"}
     tables: Tables = {
-        "LiteLLM_Config": [{"param_name": "general_settings", "param_value": dict(settings)}],
-        "LiteLLM_VerificationToken": [
-            {"token": "hashed", "metadata": {"notes": "...", "secret": "litellm_enc::" + _encrypted("callback-secret")}}
+        "HangarLLM_Config": [{"param_name": "general_settings", "param_value": dict(settings)}],
+        "HangarLLM_VerificationToken": [
+            {"token": "hashed", "metadata": {"notes": "...", "secret": "hangarllm_enc::" + _encrypted("callback-secret")}}
         ],
     }
     database = _FakeDatabase(tables)
@@ -243,14 +243,14 @@ async def test_plaintext_that_base64_decodes_to_nothing_is_neither_counted_nor_r
     migrated = await reencrypt_stored_values(database, from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert found == migrated == 1
-    assert tables["LiteLLM_Config"][0]["param_value"] == settings
-    assert tables["LiteLLM_VerificationToken"][0]["metadata"]["notes"] == "..."
-    assert database.writes == [("LiteLLM_VerificationToken", "metadata", "hashed")]
+    assert tables["HangarLLM_Config"][0]["param_value"] == settings
+    assert tables["HangarLLM_VerificationToken"][0]["metadata"]["notes"] == "..."
+    assert database.writes == [("HangarLLM_VerificationToken", "metadata", "hashed")]
 
 
 @pytest.mark.asyncio
 async def test_schema_without_some_of_the_tables_is_migrated_for_the_tables_it_has():
-    missing = frozenset({"LiteLLM_MCPUserCredentials", "LiteLLM_SSOIdentityAssertion"})
+    missing = frozenset({"HangarLLM_MCPUserCredentials", "HangarLLM_SSOIdentityAssertion"})
     tables = _seeded_tables()
     database = _FakeDatabase(tables, tables_missing_from_the_schema=missing)
 
@@ -258,37 +258,37 @@ async def test_schema_without_some_of_the_tables_is_migrated_for_the_tables_it_h
     migrated = await reencrypt_stored_values(database, from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert found == migrated == _VALUES_UNDER_THE_PREVIOUS_KEY - 1
-    assert decrypt_if_encrypted_with(str(tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"]), PREVIOUS_KEY)
+    assert decrypt_if_encrypted_with(str(tables["HangarLLM_MCPUserCredentials"][0]["credential_b64"]), PREVIOUS_KEY)
 
 
 class _SomeoneEditsEachRowAfterItIsRead(_FakeDatabase):
     async def query_raw(self, query: str, *args: object) -> Sequence[Mapping[str, object]]:
         rows = await super().query_raw(query, *args)
-        for row in self.tables.get("LiteLLM_MCPUserCredentials", []):
+        for row in self.tables.get("HangarLLM_MCPUserCredentials", []):
             row["credential_b64"] = "edited-by-an-admin"
         return rows
 
 
 @pytest.mark.asyncio
 async def test_value_edited_while_the_migration_runs_is_not_overwritten():
-    tables: Tables = {"LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
+    tables: Tables = {"HangarLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
 
     migrated = await reencrypt_stored_values(
         _SomeoneEditsEachRowAfterItIsRead(tables), from_key=PREVIOUS_KEY, to_key=NEW_KEY
     )
 
     assert migrated == 0
-    assert tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"] == "edited-by-an-admin"
+    assert tables["HangarLLM_MCPUserCredentials"][0]["credential_b64"] == "edited-by-an-admin"
 
 
 def test_replacing_ciphertexts_keeps_structure_markers_and_non_strings():
-    value = {"keep": [1, True, None, "plain"], "swap": ["old", {"nested": "litellm_enc::old"}]}
+    value = {"keep": [1, True, None, "plain"], "swap": ["old", {"nested": "hangarllm_enc::old"}]}
 
     replaced, count = replace_ciphertexts(value, lambda text: "new" if text == "old" else None)
 
-    assert replaced == {"keep": [1, True, None, "plain"], "swap": ["new", {"nested": "litellm_enc::new"}]}
+    assert replaced == {"keep": [1, True, None, "plain"], "swap": ["new", {"nested": "hangarllm_enc::new"}]}
     assert count == 2
-    assert value["swap"] == ["old", {"nested": "litellm_enc::old"}]
+    assert value["swap"] == ["old", {"nested": "hangarllm_enc::old"}]
 
 
 def _nested(levels: int, leaf: str) -> JsonValue:
@@ -355,13 +355,13 @@ async def test_variable_left_set_after_the_migration_is_a_no_op_with_one_notice(
 
 @pytest.mark.asyncio
 async def test_empty_previous_master_key_migrates_like_any_other():
-    tables: Tables = {"LiteLLM_CredentialsTable": [{"credential_id": "c1", "credential_values": {"api_key": "x"}}]}
-    tables["LiteLLM_CredentialsTable"][0]["credential_values"] = {"api_key": _encrypted_with_empty_key("cred-secret")}
+    tables: Tables = {"HangarLLM_CredentialsTable": [{"credential_id": "c1", "credential_values": {"api_key": "x"}}]}
+    tables["HangarLLM_CredentialsTable"][0]["credential_values"] = {"api_key": _encrypted_with_empty_key("cred-secret")}
 
     outcome, _ = await _run(_FakeDatabase(tables), previous_master_key="")
 
     assert outcome == Migrated(migrated=1, remaining=0)
-    stored = tables["LiteLLM_CredentialsTable"][0]["credential_values"]
+    stored = tables["HangarLLM_CredentialsTable"][0]["credential_values"]
     assert isinstance(stored, dict)
     assert decrypt_if_encrypted_with(stored["api_key"], NEW_KEY) == "cred-secret"
 
@@ -369,7 +369,7 @@ async def test_empty_previous_master_key_migrates_like_any_other():
 def _encrypted_with_empty_key(plaintext: str) -> str:
     import base64
 
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value
 
     return base64.urlsafe_b64encode(encrypt_value(value=plaintext, signing_key="")).decode()
 
@@ -422,7 +422,7 @@ async def test_worker_that_loses_the_race_reports_nothing_left_instead_of_zero_v
 
 @pytest.mark.asyncio
 async def test_values_that_could_not_be_written_keep_the_variable_in_place():
-    tables: Tables = {"LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
+    tables: Tables = {"HangarLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
 
     class _EveryWriteLosesToACurrentEdit(_FakeDatabase):
         async def execute_raw(self, query: str, *args: object) -> int:
@@ -453,12 +453,12 @@ def test_salt_key_outcome_names_the_salt_key_as_the_reason():
 
 @pytest.mark.asyncio
 async def test_encrypted_empty_string_is_migrated_like_any_other_value():
-    tables: Tables = {"LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("")}]}
+    tables: Tables = {"HangarLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("")}]}
 
     migrated = await reencrypt_stored_values(_FakeDatabase(tables), from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert migrated == 1
-    assert decrypt_if_encrypted_with(str(tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"]), NEW_KEY) == ""
+    assert decrypt_if_encrypted_with(str(tables["HangarLLM_MCPUserCredentials"][0]["credential_b64"]), NEW_KEY) == ""
 
 
 class _DatabaseIsDown(_FakeDatabase):
@@ -520,7 +520,7 @@ async def test_boot_continues_past_a_failed_migration_when_the_outage_is_tolerat
 @pytest.mark.parametrize("previous_master_key", [PREVIOUS_KEY, ""])
 async def test_boot_migrates_from_the_environment_variable_to_the_running_master_key(previous_master_key: str):
     tables: Tables = {
-        "LiteLLM_CredentialsTable": [
+        "HangarLLM_CredentialsTable": [
             {
                 "credential_id": "cred-1",
                 "credential_values": {
@@ -542,7 +542,7 @@ async def test_boot_migrates_from_the_environment_variable_to_the_running_master
     )
 
     assert outcome == Migrated(migrated=1, remaining=0)
-    stored = tables["LiteLLM_CredentialsTable"][0]["credential_values"]
+    stored = tables["HangarLLM_CredentialsTable"][0]["credential_values"]
     assert isinstance(stored, dict)
     assert decrypt_if_encrypted_with(stored["api_key"], NEW_KEY) == "sk-provider"
     assert "Done re-encrypting 1 stored value(s)" in logged[-1]
@@ -589,23 +589,23 @@ async def test_boot_leaves_the_database_alone_unless_a_migration_was_requested_a
 async def test_guardrail_params_move_to_the_new_key_and_legacy_plaintext_rows_are_left_alone():
     legacy_params = {"guardrail": "generic_guardrail_api", "api_key": "legacy-plaintext-key"}
     tables: Tables = {
-        "LiteLLM_GuardrailsTable": [
+        "HangarLLM_GuardrailsTable": [
             {
                 "guardrail_id": "guardrail-1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
-                    "api_key": "litellm_enc::" + _encrypted("guardrail-vendor-key"),
+                    "api_key": "hangarllm_enc::" + _encrypted("guardrail-vendor-key"),
                 },
             },
-            {"guardrail_id": "guardrail-legacy", "litellm_params": dict(legacy_params)},
+            {"guardrail_id": "guardrail-legacy", "hangarllm_params": dict(legacy_params)},
         ]
     }
     database = _FakeDatabase(tables)
 
     assert await reencrypt_stored_values(database, from_key=PREVIOUS_KEY, to_key=NEW_KEY) == 1
 
-    migrated_key = tables["LiteLLM_GuardrailsTable"][0]["litellm_params"]["api_key"]
-    assert migrated_key.startswith("litellm_enc::")
-    assert decrypt_if_encrypted_with(migrated_key.removeprefix("litellm_enc::"), NEW_KEY) == "guardrail-vendor-key"
-    assert tables["LiteLLM_GuardrailsTable"][1]["litellm_params"] == legacy_params
-    assert database.writes == [("LiteLLM_GuardrailsTable", "litellm_params", "guardrail-1")]
+    migrated_key = tables["HangarLLM_GuardrailsTable"][0]["hangarllm_params"]["api_key"]
+    assert migrated_key.startswith("hangarllm_enc::")
+    assert decrypt_if_encrypted_with(migrated_key.removeprefix("hangarllm_enc::"), NEW_KEY) == "guardrail-vendor-key"
+    assert tables["HangarLLM_GuardrailsTable"][1]["hangarllm_params"] == legacy_params
+    assert database.writes == [("HangarLLM_GuardrailsTable", "hangarllm_params", "guardrail-1")]

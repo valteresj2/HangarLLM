@@ -2,8 +2,8 @@
 import pytest
 
 
-import litellm
-from litellm.llms.azure_ai.rerank.transformation import AzureAIRerankConfig
+import hangarllm
+from hangarllm.llms.azure_ai.rerank.transformation import AzureAIRerankConfig
 
 
 class TestAzureAIRerankConfigGetCompleteUrl:
@@ -107,12 +107,12 @@ class TestAzureAIRerankConfigValidateEnvironment:
 
     def test_falls_back_to_entra_token(self, monkeypatch, no_ambient_azure_credentials):
         monkeypatch.delenv("AZURE_AI_API_KEY", raising=False)
-        monkeypatch.setattr(litellm, "azure_key", None)
+        monkeypatch.setattr(hangarllm, "azure_key", None)
 
         headers = AzureAIRerankConfig().validate_environment(
             headers={},
             model="azure_ai/cohere-rerank-v4.0-pro",
-            litellm_params={"azure_ad_token": "entra-token"},
+            hangarllm_params={"azure_ad_token": "entra-token"},
         )
 
         assert headers["Authorization"] == "Bearer entra-token"

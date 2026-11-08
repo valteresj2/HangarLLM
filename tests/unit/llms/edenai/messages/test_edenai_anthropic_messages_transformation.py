@@ -10,13 +10,13 @@ import uuid
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.edenai.messages.transformation import EdenAIAnthropicMessagesConfig
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.edenai.messages.transformation import EdenAIAnthropicMessagesConfig
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 EDEN_BASE = "https://api.edenai.run/v3"
 EDEN_EU_BASE = "https://api.eu.edenai.run/v3"
@@ -83,7 +83,7 @@ def _logging_obj() -> Logging:
         stream=False,
         call_type="anthropic_messages",
         start_time=time.time(),
-        litellm_call_id="eden-messages-unit",
+        hangarllm_call_id="eden-messages-unit",
         function_id="eden-messages-unit",
     )
 
@@ -100,7 +100,7 @@ class TestRegistration:
 class TestEndpointResolution:
     def _url(self, api_base: str | None) -> str:
         return EdenAIAnthropicMessagesConfig().get_complete_url(
-            api_base=api_base, api_key=None, model=SELLER_MODEL, optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model=SELLER_MODEL, optional_params={}, hangarllm_params={}
         )
 
     def test_defaults_to_the_global_endpoint(self, eden_key):
@@ -124,7 +124,7 @@ class TestAuthentication:
             model=SELLER_MODEL,
             messages=MESSAGES,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
         )
         return resolved
@@ -148,7 +148,7 @@ class TestAuthentication:
         assert "authorization" not in headers
 
     def test_missing_key_is_an_authentication_error(self, no_eden_key):
-        with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
+        with pytest.raises(hangarllm.AuthenticationError, match="EDENAI_API_KEY"):
             self._headers({})
 
 
@@ -181,7 +181,7 @@ class TestMessages:
     ):
         respx_mock.post(EDEN_MESSAGES_URL).mock(return_value=httpx.Response(200, json=_eden_message()))
 
-        response = await litellm.anthropic.messages.acreate(
+        response = await hangarllm.anthropic.messages.acreate(
             model=MODEL,
             max_tokens=16,
             messages=MESSAGES,
@@ -205,7 +205,7 @@ class TestMessages:
     ):
         respx_mock.post(EDEN_MESSAGES_URL).mock(return_value=httpx.Response(200, json=_eden_message()))
 
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             model=MODEL, max_tokens=16, messages=MESSAGES, system=[BILLING_BLOCK, SYSTEM_BLOCK]
         )
 
@@ -216,8 +216,8 @@ class TestMessages:
         self, eden_key, httpx_transport, respx_mock, spend_capture
     ):
         respx_mock.post(EDEN_MESSAGES_URL).mock(return_value=httpx.Response(200, json=_eden_message()))
-        await litellm.anthropic.messages.acreate(
-            model=MODEL, max_tokens=16, messages=MESSAGES, litellm_call_id=spend_capture.call_id
+        await hangarllm.anthropic.messages.acreate(
+            model=MODEL, max_tokens=16, messages=MESSAGES, hangarllm_call_id=spend_capture.call_id
         )
         await spend_capture.settle()
 
@@ -229,7 +229,7 @@ class TestStreaming:
     async def test_stream_forwards_eden_events_verbatim(self, eden_key, httpx_transport, respx_mock):
         respx_mock.post(EDEN_MESSAGES_URL).mock(return_value=_eden_stream())
 
-        stream = await litellm.anthropic.messages.acreate(model=MODEL, max_tokens=16, messages=MESSAGES, stream=True)
+        stream = await hangarllm.anthropic.messages.acreate(model=MODEL, max_tokens=16, messages=MESSAGES, stream=True)
         body = b"".join([chunk async for chunk in stream]).decode()
 
         assert _request_body(respx_mock)["stream"] is True
@@ -243,5 +243,5 @@ class TestErrors:
     async def test_401_detail_body_is_an_authentication_error(self, eden_key, httpx_transport, respx_mock):
         respx_mock.post(EDEN_MESSAGES_URL).mock(return_value=httpx.Response(401, json={"detail": "Invalid token"}))
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            await litellm.anthropic.messages.acreate(model=MODEL, max_tokens=16, messages=MESSAGES)
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            await hangarllm.anthropic.messages.acreate(model=MODEL, max_tokens=16, messages=MESSAGES)

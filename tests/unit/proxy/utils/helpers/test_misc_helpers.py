@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy.utils import (
+from hangarllm.proxy.utils import (
     construct_database_url_from_env_vars,
     get_prisma_client_or_throw,
     is_valid_api_key,
@@ -14,7 +14,7 @@ def normalize(value):
 
 def test_get_prisma_client_or_throw_happy_path_returns_client(monkeypatch):
     sentinel = object()
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", sentinel, raising=False)
     result = get_prisma_client_or_throw("some message")
@@ -31,7 +31,7 @@ def test_get_prisma_client_or_throw_happy_path_returns_client(monkeypatch):
 
 
 def test_get_prisma_client_or_throw_raises_when_client_none(monkeypatch):
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", None, raising=False)
     with pytest.raises(HTTPException) as exc_info:
@@ -109,7 +109,7 @@ def test_construct_database_url_from_env_vars_happy_path_full(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "db.example.com")
     monkeypatch.setenv("DATABASE_USERNAME", "user")
     monkeypatch.setenv("DATABASE_PASSWORD", "pass")
-    monkeypatch.setenv("DATABASE_NAME", "litellm")
+    monkeypatch.setenv("DATABASE_NAME", "hangarllm")
     monkeypatch.delenv("DATABASE_SCHEMA", raising=False)
     result = construct_database_url_from_env_vars()
     summary = {
@@ -119,7 +119,7 @@ def test_construct_database_url_from_env_vars_happy_path_full(monkeypatch):
         "has_password": "pass" in (result or ""),
     }
     assert summary == {
-        "result": "postgresql://user:pass@db.example.com/litellm",
+        "result": "postgresql://user:pass@db.example.com/hangarllm",
         "host": "db.example.com",
         "scheme": "postgresql",
         "has_password": True,
@@ -130,7 +130,7 @@ def test_construct_database_url_from_env_vars_happy_path_no_password(monkeypatch
     monkeypatch.setenv("DATABASE_HOST", "db.example.com")
     monkeypatch.setenv("DATABASE_USERNAME", "user")
     monkeypatch.delenv("DATABASE_PASSWORD", raising=False)
-    monkeypatch.setenv("DATABASE_NAME", "litellm")
+    monkeypatch.setenv("DATABASE_NAME", "hangarllm")
     monkeypatch.delenv("DATABASE_SCHEMA", raising=False)
     result = construct_database_url_from_env_vars()
     summary = {
@@ -140,7 +140,7 @@ def test_construct_database_url_from_env_vars_happy_path_no_password(monkeypatch
         "user": "user",
     }
     assert summary == {
-        "result": "postgresql://user@db.example.com/litellm",
+        "result": "postgresql://user@db.example.com/hangarllm",
         "no_colon_password": True,
         "host": "db.example.com",
         "user": "user",
@@ -172,7 +172,7 @@ def test_construct_database_url_from_env_vars_with_schema(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "db.example.com")
     monkeypatch.setenv("DATABASE_USERNAME", "user")
     monkeypatch.setenv("DATABASE_PASSWORD", "pass")
-    monkeypatch.setenv("DATABASE_NAME", "litellm")
+    monkeypatch.setenv("DATABASE_NAME", "hangarllm")
     monkeypatch.setenv("DATABASE_SCHEMA", "public")
     result = construct_database_url_from_env_vars()
     summary = {
@@ -181,7 +181,7 @@ def test_construct_database_url_from_env_vars_with_schema(monkeypatch):
         "host": "db.example.com",
     }
     assert summary == {
-        "result": "postgresql://user:pass@db.example.com/litellm?schema=public",
+        "result": "postgresql://user:pass@db.example.com/hangarllm?schema=public",
         "schema_appended": True,
         "host": "db.example.com",
     }
@@ -193,12 +193,12 @@ def test_construct_database_url_from_env_vars_carries_tls_env(monkeypatch: pytes
     monkeypatch.setenv("DATABASE_HOST", "db.example.com")
     monkeypatch.setenv("DATABASE_USERNAME", "user")
     monkeypatch.setenv("DATABASE_PASSWORD", "pass")
-    monkeypatch.setenv("DATABASE_NAME", "litellm")
+    monkeypatch.setenv("DATABASE_NAME", "hangarllm")
     monkeypatch.setenv("DATABASE_SCHEMA", "public")
     monkeypatch.setenv("DATABASE_SSLMODE", "verify-full")
     monkeypatch.setenv("DATABASE_SSLROOTCERT", "/etc/ssl/certs/ca-certificates.crt")
     assert construct_database_url_from_env_vars() == (
-        "postgresql://user:pass@db.example.com/litellm"
+        "postgresql://user:pass@db.example.com/hangarllm"
         "?schema=public&sslmode=verify-full&sslrootcert=%2Fetc%2Fssl%2Fcerts%2Fca-certificates.crt"
     )
 
@@ -206,12 +206,12 @@ def test_construct_database_url_from_env_vars_carries_tls_env(monkeypatch: pytes
 def test_construct_database_url_from_env_vars_error_path_missing_host(monkeypatch):
     monkeypatch.delenv("DATABASE_HOST", raising=False)
     monkeypatch.setenv("DATABASE_USERNAME", "user")
-    monkeypatch.setenv("DATABASE_NAME", "litellm")
+    monkeypatch.setenv("DATABASE_NAME", "hangarllm")
     assert construct_database_url_from_env_vars() is None
 
 
 def test_construct_database_url_from_env_vars_error_path_missing_username(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "db.example.com")
     monkeypatch.delenv("DATABASE_USERNAME", raising=False)
-    monkeypatch.setenv("DATABASE_NAME", "litellm")
+    monkeypatch.setenv("DATABASE_NAME", "hangarllm")
     assert construct_database_url_from_env_vars() is None

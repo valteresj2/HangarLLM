@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Final
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 from pydantic import JsonValue
 
@@ -105,8 +105,8 @@ def test_chat_per_second_pricing_is_charged_once_and_not_forwarded(
             )
             body: Final = _observed_request_body(upstream)
             assert response.status_code == 200, f"{pricing_case}: {response.text}"
-            response_cost: Final = float(response.headers.get("x-litellm-response-cost", "0"))
-            duration_ms: Final = float(response.headers.get("x-litellm-response-duration-ms", "0"))
+            response_cost: Final = float(response.headers.get("x-hangarllm-response-cost", "0"))
+            duration_ms: Final = float(response.headers.get("x-hangarllm-response-duration-ms", "0"))
             assert response_cost > 0, f"{pricing_case}: cost={response_cost}, duration_ms={duration_ms}, body={body}"
             assert response_cost == pytest.approx(RATE * duration_ms / 1000, rel=1e-3), (
                 f"{pricing_case}: cost={response_cost}, duration_ms={duration_ms}, body={body}"
@@ -116,7 +116,7 @@ def test_chat_per_second_pricing_is_charged_once_and_not_forwarded(
         request_id: Final = string_value(object_value(response.json())["id"])
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                'SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                 (request_id,),
             ),
             lambda values: len(values) == 1,
@@ -180,7 +180,7 @@ def test_streaming_chat_per_second_pricing_covers_the_full_stream(
                 'SELECT spend, request_duration_ms, '
                 'CAST(EXTRACT(EPOCH FROM ("endTime" - "startTime")) * 1000 AS DOUBLE PRECISION) '
                 'AS elapsed_duration_ms '
-                'FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                'FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                 (request_id,),
             ),
             lambda values: len(values) == 1,
@@ -211,13 +211,13 @@ def test_streaming_chat_per_second_pricing_covers_the_full_stream(
 def test_transcription_per_second_model_bills_request_time_through_cost_per_token(
     model: str, custom_llm_provider: str, expected_cost: tuple[float, float]
 ) -> None:
-    cost: Final = litellm.cost_per_token(model=model, custom_llm_provider=custom_llm_provider, response_time_ms=10_000.0)
+    cost: Final = hangarllm.cost_per_token(model=model, custom_llm_provider=custom_llm_provider, response_time_ms=10_000.0)
 
     assert cost == pytest.approx(expected_cost)
 
 
 def test_transcription_per_second_model_bills_audio_length_through_cost_per_token() -> None:
-    cost: Final = litellm.cost_per_token(
+    cost: Final = hangarllm.cost_per_token(
         model="deepgram/nova-3",
         custom_llm_provider="deepgram",
         response_time_ms=10_000.0,
@@ -228,10 +228,10 @@ def test_transcription_per_second_model_bills_audio_length_through_cost_per_toke
 
 
 def test_transcription_response_still_bills_audio_length_through_completion_cost() -> None:
-    response: Final = litellm.TranscriptionResponse(text="hello")
+    response: Final = hangarllm.TranscriptionResponse(text="hello")
     response.duration = 60.0
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=response, model="deepgram/nova-3", custom_llm_provider="deepgram", total_time=10.0
     )
 

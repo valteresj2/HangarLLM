@@ -1,15 +1,15 @@
 """
-The ``litellm.Router`` facade's own helpers in litellm/router.py: how it binds the constructor
+The ``hangarllm.Router`` facade's own helpers in hangarllm/router.py: how it binds the constructor
 arguments and which members it leaves to the facade.
 """
 
 import pytest
 
-from litellm.router import Router, _class_descriptor, router_arguments
+from hangarllm.router import Router, _class_descriptor, router_arguments
 
 
 def test_router_arguments_binds_positional_arguments_to_their_parameter_names():
-    model_list = [{"model_name": "g", "litellm_params": {"model": "openai/gpt-4o-mini"}}]
+    model_list = [{"model_name": "g", "hangarllm_params": {"model": "openai/gpt-4o-mini"}}]
 
     arguments = router_arguments(model_list, num_retries=2)
 

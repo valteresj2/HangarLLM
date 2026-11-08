@@ -231,7 +231,7 @@ class TestVectorStores:
         key = resources.key()
         marker = f"azure-falcon-{unique_marker()}"
         content = (
-            b"LiteLLM e2e vector store document.\n"
+            b"HangarLLM e2e vector store document.\n"
             b"The secret project codename is "
             + marker.encode()
             + b".\nSearch should find that codename when queried.\n"

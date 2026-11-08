@@ -4,9 +4,9 @@ Static checks on the root Dockerfile's apk repository configuration.
 The base image (cgr.dev/chainguard/wolfi-base) only configures the
 authenticated Chainguard apk repo (https://apk.cgr.dev/chainguard) in
 /etc/apk/repositories, which requires a Chainguard enterprise subscription.
-Anyone pulling the published litellm image and running `apk add` inside it
+Anyone pulling the published hangarllm image and running `apk add` inside it
 hits SSL/auth failures with no fallback repo configured, so nothing can be
-installed. See https://github.com/BerriAI/litellm/issues/33518
+installed. See upstream issue 33518
 """
 
 import os
@@ -48,5 +48,5 @@ def test_runtime_stage_adds_public_wolfi_repo():
         "Runtime stage must append the public Wolfi apk repo "
         '(RUN echo "https://packages.wolfi.dev/os" >> /etc/apk/repositories) '
         "so `apk add` works without Chainguard enterprise credentials. "
-        "See https://github.com/BerriAI/litellm/issues/33518"
+        "See upstream issue 33518"
     )

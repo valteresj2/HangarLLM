@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-from litellm.proxy._types import LiteLLM_VerificationToken
-from litellm.proxy.common_utils.key_rotation_manager import KeyRotationManager
+from hangarllm.proxy._types import HangarLLM_VerificationToken
+from hangarllm.proxy.common_utils.key_rotation_manager import KeyRotationManager
 
 
 class TestKeyRotationLock:
@@ -42,7 +42,7 @@ class TestKeyRotationLock:
         # Verify lock was acquired with custom TTL
         mock_pod_lock_manager.acquire_lock.assert_called_once()
         call_kwargs = mock_pod_lock_manager.acquire_lock.call_args
-        assert call_kwargs.kwargs["cronjob_id"] == "litellm_key_rotation_job"
+        assert call_kwargs.kwargs["cronjob_id"] == "hangarllm_key_rotation_job"
         assert call_kwargs.kwargs["ttl"] >= 300  # At least 5 minutes
 
         # Verify rotation logic ran (cleanup + find keys called)
@@ -51,7 +51,7 @@ class TestKeyRotationLock:
 
         # Verify lock was released
         mock_pod_lock_manager.release_lock.assert_called_once_with(
-            cronjob_id="litellm_key_rotation_job",
+            cronjob_id="hangarllm_key_rotation_job",
         )
 
     @pytest.mark.asyncio
@@ -101,7 +101,7 @@ class TestKeyRotationLock:
         )
 
         # Simulate finding and rotating a key successfully
-        mock_key = LiteLLM_VerificationToken(
+        mock_key = HangarLLM_VerificationToken(
             token="test-token",
             auto_rotate=True,
             rotation_interval="30s",
@@ -120,7 +120,7 @@ class TestKeyRotationLock:
 
         # Verify lock was released after success
         mock_pod_lock_manager.release_lock.assert_called_once_with(
-            cronjob_id="litellm_key_rotation_job",
+            cronjob_id="hangarllm_key_rotation_job",
         )
 
     @pytest.mark.asyncio
@@ -148,7 +148,7 @@ class TestKeyRotationLock:
 
         # Verify lock was still released despite the error
         mock_pod_lock_manager.release_lock.assert_called_once_with(
-            cronjob_id="litellm_key_rotation_job",
+            cronjob_id="hangarllm_key_rotation_job",
         )
 
     @pytest.mark.asyncio

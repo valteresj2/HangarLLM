@@ -456,7 +456,7 @@ def assert_no_search_and_no_deferral(body: Mapping[str, JsonValue], names: Seque
 
 def _spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=70,
     )

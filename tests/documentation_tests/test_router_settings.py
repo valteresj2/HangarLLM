@@ -3,7 +3,7 @@ import re
 import inspect
 from typing import Type
 
-import litellm
+import hangarllm
 
 
 def get_init_params(cls: Type) -> list[str]:
@@ -28,7 +28,7 @@ def get_init_params(cls: Type) -> list[str]:
     return argspec.args[1:]  # Exclude 'self'
 
 
-router_init_params = set(get_init_params(litellm.router.Router))
+router_init_params = set(get_init_params(hangarllm.router.Router))
 print(router_init_params)
 router_init_params.remove("model_list")
 

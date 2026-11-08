@@ -42,7 +42,7 @@ def application_user(database: Database) -> Generator[Database]:
 
 @contextmanager
 def pool(database: Database, output: Path) -> Generator[str]:
-    name: Final = f"litellm-migration-pool-{uuid4().hex[:12]}"
+    name: Final = f"hangarllm-migration-pool-{uuid4().hex[:12]}"
     url: Final = urlsplit(database.container_url)
     directory: Final = output / name
     directory.mkdir(parents=True)
@@ -61,7 +61,7 @@ def pool(database: Database, output: Path) -> Generator[str]:
             "--name",
             name,
             "--label",
-            "litellm-migration-test=true",
+            "hangarllm-migration-test=true",
             "--add-host",
             "host.docker.internal:host-gateway",
             "-p",

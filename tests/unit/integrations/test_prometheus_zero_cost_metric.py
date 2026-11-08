@@ -5,11 +5,11 @@ import pytest
 from prometheus_client import REGISTRY
 from prometheus_client.samples import Sample
 
-import litellm
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.types.utils import StandardLoggingZeroCostDiagnostic
+import hangarllm
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.types.utils import StandardLoggingZeroCostDiagnostic
 
-METRIC: Final = "litellm_zero_cost_requests_total"
+METRIC: Final = "hangarllm_zero_cost_requests_total"
 MISSING_KEY_DIAGNOSTIC: Final[StandardLoggingZeroCostDiagnostic] = {
     "reason": "missing_pricing_key",
     "pricing_model": "dep-1",
@@ -66,7 +66,7 @@ def _payload(zero_cost_diagnostic: StandardLoggingZeroCostDiagnostic | None) -> 
             "user_api_key_end_user_id": None,
             "usage_object": None,
         },
-        "hidden_params": {"litellm_overhead_time_ms": None, "additional_headers": None},
+        "hidden_params": {"hangarllm_overhead_time_ms": None, "additional_headers": None},
     }
 
 
@@ -76,7 +76,7 @@ async def _log_success(
     now: Final = datetime.datetime.now()
     kwargs: Final = {
         "model": "openai/gpt-5.4-nano",
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "standard_logging_object": _payload(zero_cost_diagnostic),
         "stream": False,
         "start_time": now - datetime.timedelta(seconds=3),
@@ -93,7 +93,7 @@ async def _log_failure(
     now: Final = datetime.datetime.now()
     kwargs: Final = {
         "model": "openai/gpt-5.4-nano",
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "standard_logging_object": {**_payload(zero_cost_diagnostic), "status": "failure"},
         "exception": Exception("stream cut off after the usage chunk"),
         "stream": True,
@@ -163,8 +163,8 @@ async def test_request_without_a_diagnostic_leaves_the_counter_untouched() -> No
 @pytest.mark.asyncio
 async def test_label_filter_that_drops_reason_still_counts_the_request() -> None:
     _clear_prometheus_registry()
-    previous_config: Final = litellm.prometheus_metrics_config
-    litellm.prometheus_metrics_config = [
+    previous_config: Final = hangarllm.prometheus_metrics_config
+    hangarllm.prometheus_metrics_config = [
         {"group": "zero_cost", "metrics": [METRIC], "include_labels": ["requested_model"]}
     ]
     try:
@@ -175,5 +175,5 @@ async def test_label_filter_that_drops_reason_still_counts_the_request() -> None
         assert samples[0].labels == {"requested_model": "per-second-priced-chat"}
         assert samples[0].value == 1.0
     finally:
-        litellm.prometheus_metrics_config = previous_config
+        hangarllm.prometheus_metrics_config = previous_config
         _clear_prometheus_registry()

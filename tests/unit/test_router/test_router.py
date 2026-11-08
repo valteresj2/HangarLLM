@@ -28,27 +28,27 @@ from fastapi import HTTPException
 from opentelemetry import trace
 from pydantic import BaseModel, TypeAdapter
 
-import litellm
-from litellm import APIConnectionError, Router
-from litellm._logging import verbose_logger, verbose_router_logger
-from litellm.caching import RedisClusterCache
-from litellm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY
-from litellm.caching.redis_cache import _redis_circuit_breaker_guard
-from litellm.exceptions import GuardrailRaisedException, MidStreamFallbackError, ModifyResponseException
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.otel.plumbing.context import set_request_root_span
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.llms.anthropic.messages.native.streaming_iterator import closing_superseded_attempt
-from litellm.llms.anthropic.messages.native.agentic_streaming_iterator import (
+import hangarllm
+from hangarllm import APIConnectionError, Router
+from hangarllm._logging import verbose_logger, verbose_router_logger
+from hangarllm.caching import RedisClusterCache
+from hangarllm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY
+from hangarllm.caching.redis_cache import _redis_circuit_breaker_guard
+from hangarllm.exceptions import GuardrailRaisedException, MidStreamFallbackError, ModifyResponseException
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.otel.plumbing.context import set_request_root_span
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.llms.anthropic.messages.native.streaming_iterator import closing_superseded_attempt
+from hangarllm.llms.anthropic.messages.native.agentic_streaming_iterator import (
     AGENTIC_LOOP_LIMIT_ERROR_SSE_BYTES,
     SERVER_FULFILLED_TOOL_LEAK_ERROR_SSE_BYTES,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.models.access_group import LiteLLM_AccessGroupTable
-from litellm.proxy._types import LiteLLM_TeamTable, LitellmUserRoles, Member, ProxyException, UserAPIKeyAuth
-from litellm.router_rust.invoke.streaming import (
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.models.access_group import HangarLLM_AccessGroupTable
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarllmUserRoles, Member, ProxyException, UserAPIKeyAuth
+from hangarllm.router_rust.invoke.streaming import (
     MAX_BUFFERED_PRE_CONTENT_ANTHROPIC_CHUNKS,
     MAX_HELD_PRE_OUTPUT_RESPONSES_EVENTS,
     FallbackAwareAnthropicMessagesStream,
@@ -61,33 +61,33 @@ from litellm.router_rust.invoke.streaming import (
     _is_retriable_anthropic_status,
     _responses_stream_holds_event,
 )  # noqa: PLC2701
-from litellm.router_rust.surface.registry import _search_tool_support  # noqa: PLC2701
-from litellm.proxy.response_polling.polling_handler import should_use_polling_for_request
-from litellm.router_strategy import simple_shuffle
-from litellm.router_strategy.complexity_router.complexity_router import ComplexityRouter
-from litellm.router_strategy.savings_baseline import Baseline, _models_in
-from litellm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
-from litellm.router_utils.cooldown_handlers import (
+from hangarllm.router_rust.surface.registry import _search_tool_support  # noqa: PLC2701
+from hangarllm.proxy.response_polling.polling_handler import should_use_polling_for_request
+from hangarllm.router_strategy import simple_shuffle
+from hangarllm.router_strategy.complexity_router.complexity_router import ComplexityRouter
+from hangarllm.router_strategy.savings_baseline import Baseline, _models_in
+from hangarllm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
+from hangarllm.router_utils.cooldown_handlers import (
     _async_get_cooldown_deployments,
     _is_cooldown_required,
     async_get_cooldown_deployments,
     get_cooldown_deployments,
 )
-from litellm.router_utils.fallback_event_handlers import (
+from hangarllm.router_utils.fallback_event_handlers import (
     DISABLE_FALLBACKS_METADATA_KEY,
     MID_STREAM_FALLBACK_CONTROLS_KEY,
 )
-from litellm.router_utils.prompt_caching_cache import PromptCachingCache
-from litellm.router_utils.router_callbacks.track_deployment_metrics import get_deployment_successes_for_current_minute
-from litellm.scheduler import FlowItem
-from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionRequest
-from litellm.router_api import RoutingContext as RouterContext
-from litellm.types.router import (
+from hangarllm.router_utils.prompt_caching_cache import PromptCachingCache
+from hangarllm.router_utils.router_callbacks.track_deployment_metrics import get_deployment_successes_for_current_minute
+from hangarllm.scheduler import FlowItem
+from hangarllm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionRequest
+from hangarllm.router_api import RoutingContext as RouterContext
+from hangarllm.types.router import (
     CustomRoutingStrategyBase,
     Deployment,
     DeploymentTypedDict,
-    LiteLLM_Params,
+    HangarLLM_Params,
     ModelGroupInfo,
     ModelInfo,
     PreRoutingHookResponse,
@@ -95,13 +95,13 @@ from litellm.types.router import (
     RouterRateLimitError,
     RoutingContext,
 )
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.base_llm.vector_store.transformation import (
-    LiteLLMVectorStoreEmbeddingExecutor,
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.base_llm.vector_store.transformation import (
+    HangarLLMVectorStoreEmbeddingExecutor,
     RouterVectorStoreEmbeddingExecutor,
 )
-from litellm.types.utils import CallTypes, CredentialItem, Usage
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.types.utils import CallTypes, CredentialItem, Usage
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from tests.fake_openai_endpoint import FAKE_OPENAI_API_BASE
 from tests.large_text import text
@@ -113,7 +113,7 @@ from typing import List, Optional
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-    from litellm.integrations.otel.logger import OpenTelemetryV2
+    from hangarllm.integrations.otel.logger import OpenTelemetryV2
 
 
 _ROUTER_DECISIONS_RESPONSE: Final[Mapping[str, object]] = {
@@ -145,7 +145,7 @@ _BEDROCK_DECISIONS_PARAMS: Final[Mapping[str, object]] = {
 def _decisions_leg(leg_id: str, params: Mapping[str, object], weight: int | None = None) -> dict[str, object]:
     return {
         "model_name": "decision-group",
-        "litellm_params": params if weight is None else {**params, "weight": weight},
+        "hangarllm_params": params if weight is None else {**params, "weight": weight},
         "model_info": {"id": leg_id},
     }
 
@@ -160,10 +160,10 @@ def _mixed_decisions_group_router(*legs: dict[str, object]) -> Router:
 
 @pytest.fixture
 def _router_httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
@@ -210,7 +210,7 @@ async def test_decisions_on_a_group_with_no_capable_leg_still_returns_the_provid
         model_list=[
             {
                 "model_name": "bedrock-only",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.openai.gpt-5.6-terra",
                     "aws_access_key_id": "fake",
                     "aws_secret_access_key": "fake",
@@ -221,7 +221,7 @@ async def test_decisions_on_a_group_with_no_capable_leg_still_returns_the_provid
         ]
     )
 
-    with pytest.raises(litellm.BadRequestError, match="Unknown Decisions provider 'bedrock'"):
+    with pytest.raises(hangarllm.BadRequestError, match="Unknown Decisions provider 'bedrock'"):
         await router.adecisions(
             model="bedrock-only",
             input=[{"role": "user", "content": "The package arrived with a broken screen."}],
@@ -249,21 +249,21 @@ async def test_chat_on_a_mixed_group_still_reaches_the_leg_without_decisions_sup
 
 @pytest.mark.asyncio
 async def test_encrypted_content_affinity_model_group_config_is_additive():
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     model_group = "openai.gpt-5.1-codex"
     target_deployment = {
         "model_name": model_group,
-        "litellm_params": {"model": "openai/gpt-5.1-codex"},
+        "hangarllm_params": {"model": "openai/gpt-5.1-codex"},
         "model_info": {"id": "deployment-b"},
     }
     healthy_deployments = [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.1-codex"},
+            "hangarllm_params": {"model": "openai/gpt-5.1-codex"},
             "model_info": {"id": "deployment-a"},
         },
         target_deployment,
@@ -281,7 +281,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
     request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
     }
     filtered = await per_group_check.async_filter_deployments(
         model=model_group,
@@ -291,7 +291,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
 
     assert filtered == [target_deployment]
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"]
+    assert request_kwargs["hangarllm_metadata"]["encrypted_content_affinity_enabled"]
 
     disabled_check = EncryptedContentAffinityCheck(
         enable_global_affinity=False,
@@ -301,7 +301,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
     disabled_request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
     }
     unfiltered = await disabled_check.async_filter_deployments(
         model=model_group,
@@ -311,7 +311,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
 
     assert unfiltered == healthy_deployments
-    assert "encrypted_content_affinity_enabled" not in disabled_request_kwargs["litellm_metadata"]
+    assert "encrypted_content_affinity_enabled" not in disabled_request_kwargs["hangarllm_metadata"]
 
     global_check = EncryptedContentAffinityCheck(
         enable_global_affinity=True,
@@ -321,7 +321,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
     global_request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
     }
     globally_filtered = await global_check.async_filter_deployments(
         model=model_group,
@@ -331,16 +331,16 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
 
     assert globally_filtered == [target_deployment]
-    assert global_request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"]
+    assert global_request_kwargs["hangarllm_metadata"]["encrypted_content_affinity_enabled"]
 
 
 @pytest.mark.asyncio
 async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity():
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -348,7 +348,7 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
     user_api_key_hash = "test-user-key"
     deployment_a = {
         "model_name": model_group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-a",
         },
@@ -356,18 +356,18 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
     }
     deployment_b = {
         "model_name": model_group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-b",
         },
         "model_info": {"id": "deployment-b"},
     }
-    original_callbacks = list(litellm.callbacks)
-    litellm.callbacks = []
+    original_callbacks = list(hangarllm.callbacks)
+    hangarllm.callbacks = []
     router = None
 
     try:
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[deployment_a, deployment_b],
             model_group_affinity_config={
                 model_group: [
@@ -381,7 +381,7 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
         deployment_callback = next(cb for cb in callbacks if isinstance(cb, DeploymentAffinityCheck))
         encrypted_content_callback = next(cb for cb in callbacks if isinstance(cb, EncryptedContentAffinityCheck))
         assert callbacks.index(encrypted_content_callback) < callbacks.index(deployment_callback)
-        assert litellm.callbacks.index(encrypted_content_callback) < (litellm.callbacks.index(deployment_callback))
+        assert hangarllm.callbacks.index(encrypted_content_callback) < (hangarllm.callbacks.index(deployment_callback))
 
         cache_key = DeploymentAffinityCheck.get_affinity_cache_key(
             model_group=model_group,
@@ -395,7 +395,7 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
         encoded_id = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-b", "rs_test")
         request_kwargs = {
             "input": [{"type": "reasoning", "id": encoded_id}],
-            "litellm_metadata": {"user_api_key_hash": user_api_key_hash},
+            "hangarllm_metadata": {"user_api_key_hash": user_api_key_hash},
         }
 
         filtered = await router.async_callback_filter_deployments(
@@ -411,7 +411,7 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
     finally:
         if router is not None:
             router.discard()
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
 
 @pytest.mark.asyncio
@@ -419,13 +419,13 @@ async def test_arouter_with_tags_and_fallbacks():
     """
     If fallback model missing tag, raise error
     """
-    from litellm import Router
+    from hangarllm import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "mock_response": "Hello, world!",
                     "tags": ["test"],
@@ -433,7 +433,7 @@ async def test_arouter_with_tags_and_fallbacks():
             },
             {
                 "model_name": "anthropic-claude-3-5-sonnet",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "claude-sonnet-4-5-20250929",
                     "mock_response": "Hello, world 2!",
                 },
@@ -445,7 +445,7 @@ async def test_arouter_with_tags_and_fallbacks():
         enable_tag_filtering=True,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         response = await router.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, world!"}],
@@ -461,17 +461,17 @@ async def test_async_router_acreate_file():
     """
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             },
-            {"model_name": "gpt-3.5-turbo", "litellm_params": {"model": "gpt-4o-mini"}},
+            {"model_name": "gpt-3.5-turbo", "hangarllm_params": {"model": "gpt-4o-mini"}},
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("hangarllm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         mock_acreate_file.return_value = MagicMock()
         response = await router.acreate_file(
             model="gpt-3.5-turbo",
@@ -516,20 +516,20 @@ async def test_async_router_acreate_file_with_jsonl():
     non_jsonl_file = BytesIO(non_jsonl_content.encode("utf-8"))
     non_jsonl_file.name = "test.txt"
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo-router",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             },
             {
                 "model_name": "gpt-3.5-turbo-router",
-                "litellm_params": {"model": "gpt-4o-mini"},
+                "hangarllm_params": {"model": "gpt-4o-mini"},
             },
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("hangarllm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         # Test with JSONL file
         response = await router.acreate_file(
             model="gpt-3.5-turbo-router",
@@ -573,22 +573,22 @@ async def test_async_router_acreate_file_with_jsonl():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "litellm_params, uploaded_rows",
+    "hangarllm_params, uploaded_rows",
     [
         ({"model": "gpt-5.5"}, ["a", "c"]),
         ({"model": "vertex_ai/gemini-3.8-flash", "vertex_project": "p"}, [None, "a", None, "c"]),
     ],
     ids=["openai", "vertex_ai"],
 )
-async def test_async_router_acreate_file_keeps_blank_lines_only_for_vertex(litellm_params, uploaded_rows):
+async def test_async_router_acreate_file_keeps_blank_lines_only_for_vertex(hangarllm_params, uploaded_rows):
     import json
     from io import BytesIO
     from unittest.mock import MagicMock, patch
 
     content = b'\n{"custom_id": "a", "body": {"model": "batch-model"}}\n\n{"custom_id": "c", "body": {"model": "batch-model"}}\n'
-    router = litellm.Router(model_list=[{"model_name": "batch-model", "litellm_params": litellm_params}])
+    router = hangarllm.Router(model_list=[{"model_name": "batch-model", "hangarllm_params": hangarllm_params}])
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("hangarllm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(model="batch-model", purpose="batch", file=BytesIO(content))
 
     lines = mock_acreate_file.call_args.kwargs["file"].read().decode("utf-8").split("\n")
@@ -605,16 +605,16 @@ async def test_async_router_acreate_file_passthrough_keeps_the_file_and_forwards
     jsonl_content = (
         b'{"custom_id": "r1", "method": "POST", "url": "/v1/chat/completions", "body": {"model": "vertex-batch"}}\n'
     )
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vertex-batch",
-                "litellm_params": {"model": "vertex_ai/gemini-2.5-flash", "vertex_project": "p"},
+                "hangarllm_params": {"model": "vertex_ai/gemini-2.5-flash", "vertex_project": "p"},
             }
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("hangarllm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(model="vertex-batch", purpose="batch", file=BytesIO(jsonl_content), passthrough=True)
         forwarded = mock_acreate_file.call_args.kwargs
         assert forwarded["passthrough"] is True
@@ -635,11 +635,11 @@ async def test_async_router_acreate_file_does_not_fall_back_across_model_groups(
     and the later batch create against the named group permanently fails."""
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/my-azure-deployment",
                     "api_base": "http://127.0.0.1:9",
                     "api_key": "dummy-key",
@@ -648,7 +648,7 @@ async def test_async_router_acreate_file_does_not_fall_back_across_model_groups(
             },
             {
                 "model_name": "openai-gpt",
-                "litellm_params": {"model": "gpt-4o-mini"},
+                "hangarllm_params": {"model": "gpt-4o-mini"},
             },
         ],
         fallbacks=[{"azure-gpt": ["openai-gpt"]}],
@@ -656,15 +656,15 @@ async def test_async_router_acreate_file_does_not_fall_back_across_model_groups(
 
     def fail_azure(*args: object, **kwargs: object) -> MagicMock:
         if kwargs.get("model") == "azure/my-azure-deployment":
-            raise litellm.APIConnectionError(
+            raise hangarllm.APIConnectionError(
                 message="Connection error.",
                 llm_provider="azure",
                 model="azure/my-azure-deployment",
             )
         return MagicMock()
 
-    with patch("litellm.acreate_file", side_effect=fail_azure) as mock_acreate_file:
-        with pytest.raises(litellm.APIConnectionError):
+    with patch("hangarllm.acreate_file", side_effect=fail_azure) as mock_acreate_file:
+        with pytest.raises(hangarllm.APIConnectionError):
             await router.acreate_file(
                 model="azure-gpt",
                 purpose="batch",
@@ -684,12 +684,12 @@ async def test_async_router_acancel_batch_does_not_fall_back_across_model_groups
     issued, which can only answer not-found. The router re-raises the owner's error after
     that wasted round trip, so the pin's observable is the foreign call never happening."""
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/my-azure-deployment",
                     "api_base": "http://127.0.0.1:9",
                     "api_key": "dummy-key",
@@ -699,7 +699,7 @@ async def test_async_router_acancel_batch_does_not_fall_back_across_model_groups
             },
             {
                 "model_name": "openai-gpt",
-                "litellm_params": {"model": "gpt-4o-mini", "api_key": "dummy-key"},
+                "hangarllm_params": {"model": "gpt-4o-mini", "api_key": "dummy-key"},
             },
         ],
         default_fallbacks=["openai-gpt"],
@@ -736,11 +736,11 @@ async def test_async_router_acreate_file_uses_deployment_custom_llm_provider():
     """
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "team-azure-batch",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4.1-mini",
                     "custom_llm_provider": "azure",
                     "api_base": "https://example-resource.openai.azure.com",
@@ -749,7 +749,7 @@ async def test_async_router_acreate_file_uses_deployment_custom_llm_provider():
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("hangarllm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(
             model="team-azure-batch",
             purpose="batch",
@@ -761,7 +761,7 @@ async def test_async_router_acreate_file_uses_deployment_custom_llm_provider():
 
 
 @pytest.mark.asyncio
-async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_proxy():
+async def test_async_router_acreate_file_forwards_target_model_names_to_hangarllm_proxy():
     import json
     from io import BytesIO
     from unittest.mock import MagicMock, patch
@@ -773,12 +773,12 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
     )
     jsonl_file.name = "test.jsonl"
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "chained-batch",
-                "litellm_params": {
-                    "model": "litellm_proxy/gpt-4.1-batch",
+                "hangarllm_params": {
+                    "model": "hangarllm_proxy/gpt-4.1-batch",
                     "api_base": "http://localhost:4001/v1",
                     "api_key": "sk-proxy-b",
                 },
@@ -786,7 +786,7 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("hangarllm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(
             model="chained-batch",
             purpose="batch",
@@ -795,7 +795,7 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
 
         assert mock_acreate_file.call_count == 1
         call_kwargs = mock_acreate_file.call_args.kwargs
-        assert call_kwargs["custom_llm_provider"] == "litellm_proxy"
+        assert call_kwargs["custom_llm_provider"] == "hangarllm_proxy"
         assert call_kwargs["extra_body"] == {"target_model_names": "gpt-4.1-batch"}
         uploaded_line = json.loads(call_kwargs["file"].read().decode("utf-8").split("\n")[0])
         assert uploaded_line["body"]["model"] == "gpt-4.1-batch"
@@ -805,16 +805,16 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
 async def test_async_router_acreate_file_does_not_inject_target_model_names_for_other_providers():
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4.1-batch",
-                "litellm_params": {"model": "gpt-4.1"},
+                "hangarllm_params": {"model": "gpt-4.1"},
             },
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("hangarllm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(
             model="gpt-4.1-batch",
             purpose="batch",
@@ -826,7 +826,7 @@ async def test_async_router_acreate_file_does_not_inject_target_model_names_for_
 
 
 @pytest.mark.asyncio
-async def test_async_router_acreate_file_litellm_proxy_sends_target_model_names_in_multipart_form():
+async def test_async_router_acreate_file_hangarllm_proxy_sends_target_model_names_in_multipart_form():
     import json
     from io import BytesIO
 
@@ -839,12 +839,12 @@ async def test_async_router_acreate_file_litellm_proxy_sends_target_model_names_
     )
     jsonl_file.name = "test.jsonl"
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "chained-batch",
-                "litellm_params": {
-                    "model": "litellm_proxy/gpt-4.1-batch",
+                "hangarllm_params": {
+                    "model": "hangarllm_proxy/gpt-4.1-batch",
                     "api_base": "http://localhost:4001/v1",
                     "api_key": "sk-proxy-b",
                 },
@@ -888,13 +888,13 @@ async def test_async_router_afile_content_uses_deployment_custom_llm_provider():
     This prevents "None is not a valid LlmProviders" errors when calling file content operations.
     """
     from unittest.mock import AsyncMock, MagicMock, patch
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from hangarllm.types.llms.openai import HttpxBinaryResponseContent
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "team-azure-batch",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4.1-mini",  # No provider prefix
                     "custom_llm_provider": "azure",
                     "api_base": "https://example-resource.openai.azure.com",
@@ -909,7 +909,7 @@ async def test_async_router_afile_content_uses_deployment_custom_llm_provider():
     mock_response.response = MagicMock()
 
     with patch(
-        "litellm.llms.azure.files.handler.AzureOpenAIFilesAPI.afile_content",
+        "hangarllm.llms.azure.files.handler.AzureOpenAIFilesAPI.afile_content",
         return_value=mock_response,
     ) as mock_afile_content:
         result = await router.afile_content(
@@ -927,11 +927,11 @@ async def test_arouter_async_get_healthy_deployments():
     """
     Test that afile_content returns the correct file content
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             },
         ],
     )
@@ -947,18 +947,18 @@ async def test_arouter_async_get_healthy_deployments():
 
     assert len(result) == 1
     assert result[0]["model_name"] == "gpt-3.5-turbo"
-    assert result[0]["litellm_params"]["model"] == "gpt-3.5-turbo"
+    assert result[0]["hangarllm_params"]["model"] == "gpt-3.5-turbo"
 
 
 def test_arouter_test_team_model():
     """
     Test that router.test_team_model returns the correct model
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "test-team",
                     "team_public_model_name": "test-model",
@@ -975,11 +975,11 @@ def test_team_public_model_names_of_lists_only_that_teams_live_public_names():
     def team_deployment(deployment_id: str, team_id: str, public_model_name: str) -> DeploymentTypedDict:
         return {
             "model_name": f"model_name_{team_id}_{deployment_id}",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
             "model_info": {"id": deployment_id, "team_id": team_id, "team_public_model_name": public_model_name},
         }
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             team_deployment("team-a-1", "team-a", "shared-model"),
             team_deployment("team-a-2", "team-a", "shared-model"),
@@ -987,7 +987,7 @@ def test_team_public_model_names_of_lists_only_that_teams_live_public_names():
             team_deployment("team-b-1", "team-b", "team-b-model"),
             {
                 "model_name": "plain-model",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                 "model_info": {"id": "plain-1"},
             },
         ],
@@ -1007,7 +1007,7 @@ def test_team_model_has_alternatives():
     ) -> DeploymentTypedDict:
         return {
             "model_name": f"model_name_{team_id}_{deployment_id}",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
             "model_info": {
                 "id": deployment_id,
                 "team_id": team_id,
@@ -1016,7 +1016,7 @@ def test_team_model_has_alternatives():
             },
         }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             team_deployment("team-a-1", "team-a", "shared-model"),
             team_deployment("team-a-2", "team-a", "shared-model"),
@@ -1026,7 +1026,7 @@ def test_team_model_has_alternatives():
             team_deployment("team-c-paused", "team-c", "paused-sibling-model", blocked=True),
             {
                 "model_name": "plain-model",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                 "model_info": {"id": "plain-1"},
             },
         ],
@@ -1045,13 +1045,13 @@ def test_arouter_ignore_invalid_deployments():
     """
     Test that router.ignore_invalid_deployments is set to True
     """
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "my-bad-model"},
+                "hangarllm_params": {"model": "my-bad-model"},
             },
         ],
         ignore_invalid_deployments=True,
@@ -1064,7 +1064,7 @@ def test_arouter_ignore_invalid_deployments():
     router.upsert_deployment(
         Deployment(
             model_name="gpt-3.5-turbo",
-            litellm_params={"model": "my-bad-model"},  # type: ignore
+            hangarllm_params={"model": "my-bad-model"},  # type: ignore
             model_info={"tpm": 1000, "rpm": 1000},
         )
     )
@@ -1077,11 +1077,11 @@ async def test_arouter_aretrieve_batch():
     """
     Test that router.aretrieve_batch returns the correct response
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "custom_llm_provider": "azure",
                     "api_key": "my-custom-key",
@@ -1091,7 +1091,7 @@ async def test_arouter_aretrieve_batch():
         ],
     )
 
-    with patch.object(litellm, "aretrieve_batch", return_value=AsyncMock()) as mock_aretrieve_batch:
+    with patch.object(hangarllm, "aretrieve_batch", return_value=AsyncMock()) as mock_aretrieve_batch:
         try:
             response = await router.aretrieve_batch(
                 model="gpt-3.5-turbo",
@@ -1174,11 +1174,11 @@ class _BatchPayloadCollector(CustomLogger):
 
 
 def _batch_model_group_router():
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1207,7 +1207,7 @@ async def test_arouter_aretrieve_batch_without_model_stamps_model_group(monkeypa
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
+    monkeypatch.setattr(hangarllm, "callbacks", [collector])
     router = _batch_model_group_router()
 
     with respx.mock(assert_all_called=True) as respx_mock:
@@ -1227,7 +1227,7 @@ async def test_arouter_aretrieve_batch_with_model_stamps_requested_model_group(m
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
+    monkeypatch.setattr(hangarllm, "callbacks", [collector])
     router = _batch_model_group_router()
 
     with respx.mock(assert_all_called=True) as respx_mock:
@@ -1261,12 +1261,12 @@ async def test_arouter_aretrieve_batch_does_not_consume_deployment_rate_limits(m
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "callbacks", [collector])
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1277,7 +1277,7 @@ async def test_arouter_aretrieve_batch_does_not_consume_deployment_rate_limits(m
             },
             {
                 "model_name": _UNRELATED_BATCH_GROUP,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _UNRELATED_BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1316,11 +1316,11 @@ async def test_arouter_aretrieve_batch_does_not_consume_deployment_rate_limits(m
 def test_sync_deployment_callback_on_success_skips_batch_retrieves(
     call_type: str, expected_key: str | None, expected_successes: int
 ):
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {"model": _BATCH_DEPLOYMENT_MODEL, "api_base": _BATCH_API_BASE, "api_key": "sk-fake"},
+                "hangarllm_params": {"model": _BATCH_DEPLOYMENT_MODEL, "api_base": _BATCH_API_BASE, "api_key": "sk-fake"},
                 "model_info": {"id": "batch-dep"},
             }
         ]
@@ -1329,7 +1329,7 @@ def test_sync_deployment_callback_on_success_skips_batch_retrieves(
     key = router.sync_deployment_callback_on_success(
         kwargs={
             "call_type": call_type,
-            "litellm_params": {"metadata": {"model_group": _BATCH_GROUP}, "model_info": {"id": "batch-dep"}},
+            "hangarllm_params": {"metadata": {"model_group": _BATCH_GROUP}, "model_info": {"id": "batch-dep"}},
         },
         completion_response=None,
         start_time=datetime.now(),
@@ -1363,12 +1363,12 @@ async def _moved_routing_counters(router, timeout: float = 2.0) -> list[str]:
 
 
 def _batch_fan_out_router(routing_strategy: str):
-    return litellm.Router(
+    return hangarllm.Router(
         routing_strategy=routing_strategy,
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1377,7 +1377,7 @@ def _batch_fan_out_router(routing_strategy: str):
             },
             {
                 "model_name": _UNRELATED_BATCH_GROUP,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _UNRELATED_BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1411,8 +1411,8 @@ async def test_arouter_aretrieve_batch_does_not_feed_routing_strategies(
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [collector])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
     router = _batch_fan_out_router(routing_strategy)
 
     with respx.mock(assert_all_called=True) as respx_mock:
@@ -1435,12 +1435,12 @@ async def test_arouter_aretrieve_file_content():
     Test that router.acreate_file with JSONL file returns the correct response
     """
 
-    with patch.object(litellm, "afile_content", return_value=AsyncMock()) as mock_afile_content:
-        router = litellm.Router(
+    with patch.object(hangarllm, "afile_content", return_value=AsyncMock()) as mock_afile_content:
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "custom_llm_provider": "azure",
                         "api_key": "my-custom-key",
@@ -1471,13 +1471,13 @@ async def test_arouter_filter_team_based_models():
     """
     Test that router.filter_team_based_models filters out models that are not in the team
     """
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "test-team",
                 },
@@ -1509,7 +1509,7 @@ async def test_arouter_filter_team_based_models():
     router.add_deployment(
         Deployment(
             model_name="gpt-3.5-turbo",
-            litellm_params={"model": "gpt-3.5-turbo"},  # type: ignore
+            hangarllm_params={"model": "gpt-3.5-turbo"},  # type: ignore
             model_info={"tpm": 1000, "rpm": 1000},
         )
     )
@@ -1533,11 +1533,11 @@ def test_arouter_should_include_deployment():
     2. Returns True if: model_name matches AND deployment has no team_id
     3. Otherwise returns False
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "test-team",
                 },
@@ -1635,13 +1635,13 @@ def test_arouter_responses_api_bridge():
     """
     from unittest.mock import MagicMock, patch
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "[IP-approved] o3-pro",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/responses/o_series/webinterface-o3-pro",
                     "api_base": "https://webhook.site/fba79dae-220a-4bb7-9a3a-8caa49604e55",
                     "api_key": "sk-9876567890",
@@ -1658,7 +1658,7 @@ def test_arouter_responses_api_bridge():
 
     ## CONFIRM BRIDGE IS CALLED
     # an empty stream: the Router reads the first chunk before returning, and a stream of mocks never produces one
-    with patch.object(litellm, "responses", return_value=iter([])) as mock_responses:
+    with patch.object(hangarllm, "responses", return_value=iter([])) as mock_responses:
         result = router.completion(
             model="[IP-approved] o3-pro",
             messages=[{"role": "user", "content": "Hello, world!"}],
@@ -1703,18 +1703,18 @@ async def test_router_v1_messages_fallbacks():
     """
     Test that router.v1_messages_fallbacks returns the correct response
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude-sonnet-4-5-20250929",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "hangarllm.InternalServerError",
                 },
             },
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic.claude-haiku-4-5-20251001-v1:0",
                     "mock_response": "Hello, world I am a fallback!",
                 },
@@ -1740,13 +1740,13 @@ def test_add_invalid_provider_to_router():
     """
     Test that router.add_deployment raises an error if the provider is invalid
     """
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
     )
@@ -1755,7 +1755,7 @@ def test_add_invalid_provider_to_router():
         router.add_deployment(
             Deployment(
                 model_name="vertex_ai/*",
-                litellm_params={
+                hangarllm_params={
                     "model": "vertex_ai/*",
                     "custom_llm_provider": "vertex_ai_eu",
                 },
@@ -1767,33 +1767,33 @@ def test_add_invalid_provider_to_router():
 
 @pytest.fixture
 def registered_custom_provider(monkeypatch: pytest.MonkeyPatch) -> str:
-    from litellm import CustomLLM
-    from litellm.types.utils import ModelResponse
+    from hangarllm import CustomLLM
+    from hangarllm.types.utils import ModelResponse
 
     class OnPremLLM(CustomLLM):
         def completion(self, *args, **kwargs) -> ModelResponse:
-            return litellm.completion(
+            return hangarllm.completion(
                 model="gpt-5.6", messages=[{"role": "user", "content": "hi"}], mock_response="served by onprem handler"
             )
 
     monkeypatch.setattr(
-        litellm, "custom_provider_map", [{"provider": "test-onprem-llm", "custom_handler": OnPremLLM()}]
+        hangarllm, "custom_provider_map", [{"provider": "test-onprem-llm", "custom_handler": OnPremLLM()}]
     )
-    monkeypatch.setattr(litellm, "provider_list", list(litellm.provider_list))
-    monkeypatch.setattr(litellm, "_custom_providers", list(litellm._custom_providers))
+    monkeypatch.setattr(hangarllm, "provider_list", list(hangarllm.provider_list))
+    monkeypatch.setattr(hangarllm, "_custom_providers", list(hangarllm._custom_providers))
     return "test-onprem-llm"
 
 
 def test_router_init_accepts_custom_provider_map_prefix_before_first_completion(registered_custom_provider: str):
-    assert registered_custom_provider not in litellm.provider_list
+    assert registered_custom_provider not in hangarllm.provider_list
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "onprem", "litellm_params": {"model": f"{registered_custom_provider}/my-model"}},
+            {"model_name": "onprem", "hangarllm_params": {"model": f"{registered_custom_provider}/my-model"}},
         ],
     )
 
-    assert router.get_model_list(model_name="onprem")[0]["litellm_params"]["model"] == (
+    assert router.get_model_list(model_name="onprem")[0]["hangarllm_params"]["model"] == (
         f"{registered_custom_provider}/my-model"
     )
     response = router.completion(model="onprem", messages=[{"role": "user", "content": "hi"}])
@@ -1803,29 +1803,29 @@ def test_router_init_accepts_custom_provider_map_prefix_before_first_completion(
 def test_router_add_deployment_accepts_explicit_custom_provider_from_custom_provider_map(
     registered_custom_provider: str,
 ):
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
-    router = litellm.Router(model_list=[])
+    router = hangarllm.Router(model_list=[])
 
     router.add_deployment(
         Deployment(
             model_name="onprem",
-            litellm_params={"model": "my-model", "custom_llm_provider": registered_custom_provider},
+            hangarllm_params={"model": "my-model", "custom_llm_provider": registered_custom_provider},
         )
     )
 
-    assert router.get_model_list(model_name="onprem")[0]["litellm_params"]["model"] == "my-model"
+    assert router.get_model_list(model_name="onprem")[0]["hangarllm_params"]["model"] == "my-model"
 
 
 def test_router_get_model_access_groups_team_only_models():
     """
     Test that Router._core_get_model_access_groups returns the correct response for team-only models
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "my-custom-model-name",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "team_1",
                     "access_groups": ["default-models"],
@@ -1846,11 +1846,11 @@ def test_model_group_info_cost_none_for_unpriced_deployment_but_zero_when_declar
     """A deployment with no cost fields anywhere must report None, not the 0 that
     get_model_info defaults to, so the reported price matches what the zero-cost
     budget bypass accepts. A deployment declaring 0 keeps reporting 0."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vllm-unpriced",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-vllm-unpriced",
                     "api_key": "fake",
                     "api_base": "http://localhost:8000/v1",
@@ -1858,7 +1858,7 @@ def test_model_group_info_cost_none_for_unpriced_deployment_but_zero_when_declar
             },
             {
                 "model_name": "vllm-free",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-vllm-free",
                     "api_key": "fake",
                     "api_base": "http://localhost:8000/v1",
@@ -1868,7 +1868,7 @@ def test_model_group_info_cost_none_for_unpriced_deployment_but_zero_when_declar
             },
             {
                 "model_name": "gpt-priced",
-                "litellm_params": {"model": "gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "gpt-4o", "api_key": "fake"},
             },
         ]
     )
@@ -1905,8 +1905,8 @@ _HUB_PRICES: Final = MappingProxyType(
 
 
 def _cost_map_model(key: str, entry: Mapping[str, object]) -> str:
-    litellm.register_model(
-        {key: {"litellm_provider": "openai", "mode": "chat", **entry}},
+    hangarllm.register_model(
+        {key: {"hangarllm_provider": "openai", "mode": "chat", **entry}},
         persist_across_reloads=False,
         add_to_provider_model_sets=False,
     )
@@ -1915,7 +1915,7 @@ def _cost_map_model(key: str, entry: Mapping[str, object]) -> str:
 
 def test_model_group_info_lists_every_cost_map_price_of_a_deployment(local_model_cost_map: None) -> None:
     model: Final = _cost_map_model("hub-pricing-model", {**_HUB_PRICES, "max_input_tokens": 400000})
-    router: Final = litellm.Router(model_list=[{"model_name": "hub", "litellm_params": {"model": model}}])
+    router: Final = hangarllm.Router(model_list=[{"model_name": "hub", "hangarllm_params": {"model": model}}])
 
     group: Final = router.registry().group("hub")
 
@@ -1930,11 +1930,11 @@ def test_model_group_info_lists_each_deployments_price_once_next_to_the_unchange
 ) -> None:
     model: Final = _cost_map_model("hub-pricing-model", _HUB_PRICES)
     override: Final = 3 * _HUB_PRICES["input_cost_per_token"]
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "hub", "litellm_params": {"model": model, "api_base": "https://a.example"}},
-            {"model_name": "hub", "litellm_params": {"model": model, "api_base": "https://b.example"}},
-            {"model_name": "hub", "litellm_params": {"model": model, "input_cost_per_token": override}},
+            {"model_name": "hub", "hangarllm_params": {"model": model, "api_base": "https://a.example"}},
+            {"model_name": "hub", "hangarllm_params": {"model": model, "api_base": "https://b.example"}},
+            {"model_name": "hub", "hangarllm_params": {"model": model, "input_cost_per_token": override}},
         ]
     )
 
@@ -1975,8 +1975,8 @@ def _usage_billed_at(cost_key: str, prompt_tokens: int = 1000) -> tuple[Usage, s
 
 
 def _billed_rate(model: str, deployment_id: str, usage: Usage, service_tier: str | None) -> float:
-    cost: Final = litellm.completion_cost(
-        completion_response=litellm.ModelResponse(usage=usage),
+    cost: Final = hangarllm.completion_cost(
+        completion_response=hangarllm.ModelResponse(usage=usage),
         model=model,
         custom_llm_provider="openai",
         custom_pricing=True,
@@ -1990,11 +1990,11 @@ def test_model_group_info_shows_an_overridden_deployment_only_the_prices_billing
     local_model_cost_map: None,
 ) -> None:
     model: Final = _cost_map_model("hub-pricing-model", _HUB_PRICES)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "hub",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "input_cost_per_token": 3 * _HUB_PRICES["input_cost_per_token"],
                     "output_cost_per_token": 3 * _HUB_PRICES["output_cost_per_token"],
@@ -2026,10 +2026,10 @@ def test_model_group_info_shows_a_vertex_deployment_the_token_prices_billing_cha
     local_model_cost_map: None, vertex_location: str
 ) -> None:
     model: Final = "vertex_ai/hub-vertex-model"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model: {
-                "litellm_provider": "vertex_ai-language-models",
+                "hangarllm_provider": "vertex_ai-language-models",
                 "mode": "chat",
                 "input_cost_per_token": 1e-06,
                 "output_cost_per_token": 4e-06,
@@ -2040,11 +2040,11 @@ def test_model_group_info_shows_a_vertex_deployment_the_token_prices_billing_cha
         persist_across_reloads=False,
         add_to_provider_model_sets=False,
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "hub",
-                "litellm_params": {"model": model, "vertex_project": "p", "vertex_location": vertex_location},
+                "hangarllm_params": {"model": model, "vertex_project": "p", "vertex_location": vertex_location},
                 "model_info": {"id": "hub-vertex"},
             }
         ]
@@ -2057,8 +2057,8 @@ def test_model_group_info_shows_a_vertex_deployment_the_token_prices_billing_cha
 
     def billed(cost_key: str) -> float:
         usage, _ = _usage_billed_at(cost_key)
-        cost: Final = litellm.completion_cost(
-            completion_response=litellm.ModelResponse(usage=usage),
+        cost: Final = hangarllm.completion_cost(
+            completion_response=hangarllm.ModelResponse(usage=usage),
             model=model,
             custom_llm_provider="vertex_ai",
             router_model_id="hub-vertex",
@@ -2076,12 +2076,12 @@ def test_model_group_info_lists_tiered_pricing_ranges(local_model_cost_map: None
         {"range": [256000, 1000000], "input_cost_per_token": 2.5e-07, "output_cost_per_token": 2e-06},
     )
     model: Final = _cost_map_model("hub-tiered-model", {"tiered_pricing": list(tiers)})
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "tiered", "litellm_params": {"model": model}},
+            {"model_name": "tiered", "hangarllm_params": {"model": model}},
             {
                 "model_name": "tiered",
-                "litellm_params": {"model": model, "input_cost_per_token": 1e-06, "output_cost_per_token": 4e-06},
+                "hangarllm_params": {"model": model, "input_cost_per_token": 1e-06, "output_cost_per_token": 4e-06},
             },
         ]
     )
@@ -2105,12 +2105,12 @@ def test_model_group_info_reads_prices_written_as_text_the_way_billing_does(loca
     model: Final = _cost_map_model(
         "hub-text-priced-model", {"tiered_pricing": [tier], "cache_read_input_token_cost": "N/A"}
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "tiered", "litellm_params": {"model": model}},
+            {"model_name": "tiered", "hangarllm_params": {"model": model}},
             {
                 "model_name": "flat",
-                "litellm_params": {"model": model, "input_cost_per_token": "3e-7", "output_cost_per_token": "1.2e-6"},
+                "hangarllm_params": {"model": model, "input_cost_per_token": "3e-7", "output_cost_per_token": "1.2e-6"},
                 "model_info": {"id": "hub-text-override"},
             },
         ]
@@ -2133,16 +2133,16 @@ def test_model_group_info_reads_prices_written_as_text_the_way_billing_does(loca
 
 
 def test_model_group_info_lists_custom_prices_of_an_unmapped_deployment_and_skips_an_unpriced_one() -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "self-hosted",
-                "litellm_params": {"model": "openai/hub-unpriced", "api_base": "http://localhost:8000/v1"},
+                "hangarllm_params": {"model": "openai/hub-unpriced", "api_base": "http://localhost:8000/v1"},
                 "model_info": {"cost_tracking_exempt": True},
             },
             {
                 "model_name": "self-hosted",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/hub-priced",
                     "api_base": "http://localhost:8001/v1",
                     "input_cost_per_token": 1e-06,
@@ -2169,16 +2169,16 @@ def test_model_group_info_description_from_model_info():
     model_info.description set in the config should surface on ModelGroupInfo,
     including when only a later deployment in the group carries it.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake"},
+                "hangarllm_params": {"model": "gpt-4", "api_key": "fake"},
                 "model_info": {},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake2"},
+                "hangarllm_params": {"model": "gpt-4", "api_key": "fake2"},
                 "model_info": {"description": "State-of-the-art language model."},
             },
         ]
@@ -2229,8 +2229,8 @@ def test_model_group_info_lists_cost_map_batch_only_for_providers_that_batch_on_
     so its cost map listing stands."""
     cost_map_name, cost_map_endpoints = next(
         (name, tuple(info["supported_endpoints"]))
-        for name, info in litellm.model_cost.items()
-        if info.get("litellm_provider") == provider
+        for name, info in hangarllm.model_cost.items()
+        if info.get("hangarllm_provider") == provider
         and info.get("mode") == "chat"
         and "/v1/batch" in (info.get("supported_endpoints") or ())
     )
@@ -2238,7 +2238,7 @@ def test_model_group_info_lists_cost_map_batch_only_for_providers_that_batch_on_
         model_list=[
             {
                 "model_name": "gpt-chat",
-                "litellm_params": {"model": f"{provider}/{cost_map_name.removeprefix(f'{provider}/')}"},
+                "hangarllm_params": {"model": f"{provider}/{cost_map_name.removeprefix(f'{provider}/')}"},
             }
         ]
     )
@@ -2328,7 +2328,7 @@ def _alias_cost_router() -> Router:
         model_list=[
             {
                 "model_name": "vllm-free",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-vllm-free",
                     "api_key": "fake",
                     "api_base": "http://localhost:8000/v1",
@@ -2338,7 +2338,7 @@ def _alias_cost_router() -> Router:
             },
             {
                 "model_name": "gpt-priced",
-                "litellm_params": {"model": "gpt-4o", "api_key": "fake"},
+                "hangarllm_params": {"model": "gpt-4o", "api_key": "fake"},
             },
         ],
         model_group_alias={"hidden-free": {"model": "vllm-free", "hidden": True}, "visible": "vllm-free"},
@@ -2384,11 +2384,11 @@ async def test_update_settings_fallback_rule_of_every_kind_is_used_on_its_error(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": "gpt-5.4-mini", "api_key": "fake", "mock_response": "primary answered"},
+                "hangarllm_params": {"model": "gpt-5.4-mini", "api_key": "fake", "mock_response": "primary answered"},
             },
             {
                 "model_name": "backup",
-                "litellm_params": {"model": "gpt-5.4-nano", "api_key": "fake", "mock_response": "backup answered"},
+                "hangarllm_params": {"model": "gpt-5.4-nano", "api_key": "fake", "mock_response": "backup answered"},
             },
         ],
         num_retries=0,
@@ -2409,7 +2409,7 @@ _PAID_OUTPUT_COST_PER_TOKEN: Final = 1.5e-05
 def _free_ollama_deployment(model_name: str) -> dict:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "ollama/qwen3:0.6b",
             "api_base": "http://localhost:11434",
             "input_cost_per_token": 0,
@@ -2421,7 +2421,7 @@ def _free_ollama_deployment(model_name: str) -> dict:
 def _paid_openai_deployment(model_name: str, model: str) -> dict:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": model,
             "api_key": "fake",
             "input_cost_per_token": _PAID_INPUT_COST_PER_TOKEN,
@@ -2477,7 +2477,7 @@ def test_get_model_group_info_prices_an_alias_chain_from_the_wildcard_route_serv
 
 
 def _served_models(deployments: list[DeploymentTypedDict] | None) -> list[str]:
-    return [deployment["litellm_params"]["model"] for deployment in deployments or ()]
+    return [deployment["hangarllm_params"]["model"] for deployment in deployments or ()]
 
 
 def test_get_model_list_of_routed_group_reads_the_groups_own_deployments_only():
@@ -2517,13 +2517,13 @@ def test_get_model_access_groups_caching():
     Test that get_model_access_groups caches the no-args result
     and invalidates on deployment changes.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from hangarllm.types.router import Deployment, HangarLLM_Params
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"access_groups": ["premium"]},
             },
         ]
@@ -2545,7 +2545,7 @@ def test_get_model_access_groups_caching():
     router.add_deployment(
         Deployment(
             model_name="gpt-3.5",
-            litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+            hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo"),
             model_info={"access_groups": ["default"]},
         )
     )
@@ -2572,11 +2572,11 @@ def test_get_model_access_groups_cache_invalidation_set_model_list():
     """
     Test that set_model_list invalidates the access groups cache.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"access_groups": ["premium"]},
             },
         ]
@@ -2591,7 +2591,7 @@ def test_get_model_access_groups_cache_invalidation_set_model_list():
         [
             {
                 "model_name": "claude-3",
-                "litellm_params": {"model": "anthropic/claude-3-opus-20240229"},
+                "hangarllm_params": {"model": "anthropic/claude-3-opus-20240229"},
                 "model_info": {"access_groups": ["research"]},
             },
         ]
@@ -2606,13 +2606,13 @@ def test_get_model_access_groups_cache_invalidation_upsert_deployment():
     """
     Test that upsert_deployment invalidates the access groups cache.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from hangarllm.types.router import Deployment, HangarLLM_Params
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"access_groups": ["premium"]},
             },
         ]
@@ -2629,7 +2629,7 @@ def test_get_model_access_groups_cache_invalidation_upsert_deployment():
     router.upsert_deployment(
         Deployment(
             model_name="gpt-4-updated",
-            litellm_params=LiteLLM_Params(model="gpt-4-turbo"),
+            hangarllm_params=HangarLLM_Params(model="gpt-4-turbo"),
             model_info={"id": existing_id, "access_groups": ["updated-group"]},
         )
     )
@@ -2682,7 +2682,7 @@ class _SpendRecorder(CustomLogger):
         self.succeeded: Final = asyncio.Event()
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time) -> None:
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
         self.successes.append(kwargs["standard_logging_object"])
         self.spend_rows.append(get_logging_payload(kwargs, response_obj, start_time, end_time))
@@ -2699,7 +2699,7 @@ class _SlowFailureRecorder(_SpendRecorder):
 
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time) -> None:
         await asyncio.sleep(0.05)
-        self.failed_deployment_ids.append(kwargs["litellm_params"]["metadata"]["model_info"]["id"])
+        self.failed_deployment_ids.append(kwargs["hangarllm_params"]["metadata"]["model_info"]["id"])
         await super().async_log_failure_event(kwargs, response_obj, start_time, end_time)
 
 
@@ -2708,9 +2708,9 @@ class _SlowFailureRecorder(_SpendRecorder):
 async def test_continued_stream_success_log_bills_every_cut_leg(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter, cut_groups: tuple[str, ...]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     recorder: Final = _SpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200, headers={"content-type": "text/event-stream"}, stream=_CutSSE("Transformers use")
@@ -2726,7 +2726,7 @@ async def test_continued_stream_success_log_bills_every_cut_leg(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "k1",
                     "input_cost_per_token": 0.001,
@@ -2735,14 +2735,14 @@ async def test_continued_stream_success_log_bills_every_cut_leg(
             },
             {
                 "model_name": "middle",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "deepseek/deepseek-chat",
                     "api_key": "k2",
                     "input_cost_per_token": 0.003,
                     "output_cost_per_token": 0.004,
                 },
             },
-            {"model_name": "backup", "litellm_params": {"model": "mistral/mistral-large-latest", "api_key": "k3"}},
+            {"model_name": "backup", "hangarllm_params": {"model": "mistral/mistral-large-latest", "api_key": "k3"}},
         ],
         fallbacks=[{"primary": ["middle" if "middle" in cut_groups else "backup"]}, {"middle": ["backup"]}],
         enable_mid_stream_fallback_continuation=True,
@@ -2758,7 +2758,7 @@ async def test_continued_stream_success_log_bills_every_cut_leg(
     await asyncio.wait_for(recorder.succeeded.wait(), timeout=10)
     await asyncio.sleep(0.5)
 
-    backup_prompt_cost, backup_completion_cost = litellm.cost_per_token(
+    backup_prompt_cost, backup_completion_cost = hangarllm.cost_per_token(
         model="mistral/mistral-large-latest", prompt_tokens=91, completion_tokens=5
     )
     success: Final = recorder.successes[-1]
@@ -2793,9 +2793,9 @@ async def test_continued_stream_success_log_bills_every_cut_leg(
 async def test_continued_stream_sharing_the_proxy_logging_object_bills_the_cut_to_its_own_deployment(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     recorder: Final = _SlowFailureRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200, headers={"content-type": "text/event-stream"}, stream=_CutSSE("Transformers use")
@@ -2808,7 +2808,7 @@ async def test_continued_stream_sharing_the_proxy_logging_object_bills_the_cut_t
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "k1",
                     "input_cost_per_token": 0.001,
@@ -2816,20 +2816,20 @@ async def test_continued_stream_sharing_the_proxy_logging_object_bills_the_cut_t
                 },
                 "model_info": {"id": "primary-deployment"},
             },
-            {"model_name": "backup", "litellm_params": {"model": "mistral/mistral-large-latest", "api_key": "k3"}},
+            {"model_name": "backup", "hangarllm_params": {"model": "mistral/mistral-large-latest", "api_key": "k3"}},
         ],
         fallbacks=[{"primary": ["backup"]}],
         enable_mid_stream_fallback_continuation=True,
     )
     messages: Final = [{"role": "user", "content": "How do transformers work?"}]
-    shared_logging, _ = litellm.utils.function_setup(
+    shared_logging, _ = hangarllm.utils.function_setup(
         original_function="acompletion",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.now(),
         model="primary",
         messages=messages,
         stream=True,
-        litellm_call_id="shared-call",
+        hangarllm_call_id="shared-call",
     )
 
     response: Final = await router.acompletion(
@@ -2837,14 +2837,14 @@ async def test_continued_stream_sharing_the_proxy_logging_object_bills_the_cut_t
         messages=messages,
         stream=True,
         stream_options={"include_usage": True},
-        litellm_call_id="shared-call",
-        litellm_logging_obj=shared_logging,
+        hangarllm_call_id="shared-call",
+        hangarllm_logging_obj=shared_logging,
     )
     _ = [chunk async for chunk in response]
     await asyncio.wait_for(recorder.succeeded.wait(), timeout=10)
     await asyncio.sleep(0.5)
 
-    backup_prompt_cost, backup_completion_cost = litellm.cost_per_token(
+    backup_prompt_cost, backup_completion_cost = hangarllm.cost_per_token(
         model="mistral/mistral-large-latest", prompt_tokens=91, completion_tokens=5
     )
     (failure,) = recorder.failures
@@ -2875,7 +2875,7 @@ _AGENTIC_FIRST_CALL_BODY: Final = {
                     {
                         "id": "call_abc",
                         "type": "function",
-                        "function": {"name": "litellm_code_execution", "arguments": "{}"},
+                        "function": {"name": "hangarllm_code_execution", "arguments": "{}"},
                     }
                 ],
             },
@@ -2905,7 +2905,7 @@ class _ScriptedAgenticFollowUps(CustomLogger):
         custom_llm_provider: str,
         kwargs: Mapping[str, object],
     ) -> tuple[bool, dict[str, object]]:
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         return bool(response.choices[0].message.tool_calls), {"tool_calls": [{"id": "call_abc"}]}
 
     async def async_build_agentic_loop_plan(
@@ -2935,7 +2935,7 @@ class _ScriptedAgenticFollowUps(CustomLogger):
     async def async_log_success_event(
         self, kwargs: Mapping[str, object], response_obj: object, start_time: datetime, end_time: datetime
     ) -> None:
-        if kwargs.get("litellm_call_id") == "shared-agentic-call":
+        if kwargs.get("hangarllm_call_id") == "shared-agentic-call":
             self.shared_call_succeeded.set()
 
 
@@ -2960,10 +2960,10 @@ async def _route_agentic_request(
     model: str = "m",
     first_call_replies: tuple[httpx.Response, ...] = (),
     fallbacks: tuple[str, ...] = (),
-) -> tuple[object, LiteLLMLogging, respx.Route, _ScriptedAgenticFollowUps]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+) -> tuple[object, HangarLLMLogging, respx.Route, _ScriptedAgenticFollowUps]:
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     hook: Final = _ScriptedAgenticFollowUps(follow_ups)
-    monkeypatch.setattr(litellm, "callbacks", [hook])
+    monkeypatch.setattr(hangarllm, "callbacks", [hook])
     first_calls: Final = (
         respx_mock.post("https://api.openai.com/v1/chat/completions").mock(side_effect=list(first_call_replies))
         if first_call_replies
@@ -2976,10 +2976,10 @@ async def _route_agentic_request(
     )
     router: Final = Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+            {"model_name": "m", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
             {
                 "model_name": "backup",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-test",
                     "api_base": "https://backup.test/v1",
@@ -2991,26 +2991,26 @@ async def _route_agentic_request(
         fallbacks=[{"m": list(fallbacks)}] if fallbacks else [],
     )
     messages: Final = [{"role": "user", "content": "what is 6*7?"}]
-    shared_logging, _ = litellm.utils.function_setup(
+    shared_logging, _ = hangarllm.utils.function_setup(
         original_function="acompletion",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.now(),
         model=model,
         messages=messages,
-        litellm_call_id="shared-agentic-call",
+        hangarllm_call_id="shared-agentic-call",
     )
     try:
         outcome: object = await router.acompletion(
-            model=model, messages=messages, litellm_call_id="shared-agentic-call", litellm_logging_obj=shared_logging
+            model=model, messages=messages, hangarllm_call_id="shared-agentic-call", hangarllm_logging_obj=shared_logging
         )
-    except (litellm.RateLimitError, litellm.APIConnectionError) as error:
+    except (hangarllm.RateLimitError, hangarllm.APIConnectionError) as error:
         outcome = error
     return outcome, shared_logging, first_calls, hook
 
 
 def _gpt_4o_mini_cost(usage: Mapping[str, int]) -> float:
     return sum(
-        litellm.cost_per_token(
+        hangarllm.cost_per_token(
             model="gpt-4o-mini", prompt_tokens=usage["prompt_tokens"], completion_tokens=usage["completion_tokens"]
         )
     )
@@ -3020,14 +3020,14 @@ def _gpt_4o_mini_cost(usage: Mapping[str, int]) -> float:
 async def test_agentic_request_whose_follow_up_fails_is_not_retried_and_bills_its_one_first_call(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     outcome, shared_logging, first_calls, _ = await _route_agentic_request(
-        monkeypatch, respx_mock, ("litellm.RateLimitError",)
+        monkeypatch, respx_mock, ("hangarllm.RateLimitError",)
     )
 
-    lifted: Final = _failure_fields_to_lift({"litellm_logging_obj": shared_logging})
-    assert isinstance(outcome, litellm.RateLimitError)
+    lifted: Final = _failure_fields_to_lift({"hangarllm_logging_obj": shared_logging})
+    assert isinstance(outcome, hangarllm.RateLimitError)
     assert outcome.status_code == 429
     assert first_calls.call_count == 1
     assert lifted["combined_usage_object"].prompt_tokens == _AGENTIC_FIRST_CALL_USAGE["prompt_tokens"]
@@ -3041,7 +3041,7 @@ async def test_agentic_request_whose_plan_build_crashes_after_the_first_call_is_
 ) -> None:
     outcome, _, first_calls, hook = await _route_agentic_request(monkeypatch, respx_mock, (_CRASH_THE_PLAN,))
 
-    assert isinstance(outcome, litellm.APIConnectionError)
+    assert isinstance(outcome, hangarllm.APIConnectionError)
     assert first_calls.call_count == 1
     assert hook.plans_built == 1
 
@@ -3060,7 +3060,7 @@ async def test_agentic_request_whose_first_call_fails_is_still_retried(
         ),
     )
 
-    assert isinstance(outcome, litellm.ModelResponse)
+    assert isinstance(outcome, hangarllm.ModelResponse)
     assert first_calls.call_count == 2
     assert hook.plans_built == 1
 
@@ -3072,13 +3072,13 @@ async def _successful_agentic_request_billing(
     model: str,
     fallbacks: tuple[str, ...] = (),
 ) -> tuple[Mapping[str, object], Mapping[str, str | None]]:
-    from litellm.proxy.common_request_processing import cost_headers
+    from hangarllm.proxy.common_request_processing import cost_headers
 
     outcome, shared_logging, _, hook = await _route_agentic_request(
         monkeypatch, respx_mock, follow_ups, model=model, fallbacks=fallbacks
     )
     await asyncio.wait_for(hook.shared_call_succeeded.wait(), timeout=10)
-    assert isinstance(outcome, litellm.ModelResponse)
+    assert isinstance(outcome, hangarllm.ModelResponse)
     success: Final = shared_logging.model_call_details["standard_logging_object"]
     return success, cost_headers(success["response_cost"], shared_logging)
 
@@ -3091,7 +3091,7 @@ async def test_fallback_after_a_failed_agentic_follow_up_bills_the_primarys_firs
         monkeypatch, respx_mock, ("42",), model="backup"
     )
     recovered, recovered_headers = await _successful_agentic_request_billing(
-        monkeypatch, respx_mock, ("litellm.RateLimitError",), model="m", fallbacks=("backup",)
+        monkeypatch, respx_mock, ("hangarllm.RateLimitError",), model="m", fallbacks=("backup",)
     )
 
     first_call_cost: Final = _gpt_4o_mini_cost(_AGENTIC_FIRST_CALL_USAGE)
@@ -3105,9 +3105,9 @@ async def test_fallback_after_a_failed_agentic_follow_up_bills_the_primarys_firs
     )
     assert recovered["cost_breakdown"]["total_cost"] == pytest.approx(recovered["response_cost"])
     assert recovered["cost_breakdown"]["additional_costs"]["failed_attempts_cost"] == pytest.approx(first_call_cost)
-    assert float(recovered_headers["x-litellm-response-cost"]) == pytest.approx(recovered["response_cost"])
-    assert {key: value for key, value in recovered_headers.items() if key != "x-litellm-response-cost"} == {
-        key: value for key, value in first_try_headers.items() if key != "x-litellm-response-cost"
+    assert float(recovered_headers["x-hangarllm-response-cost"]) == pytest.approx(recovered["response_cost"])
+    assert {key: value for key, value in recovered_headers.items() if key != "x-hangarllm-response-cost"} == {
+        key: value for key, value in first_try_headers.items() if key != "x-hangarllm-response-cost"
     }
 
 
@@ -3131,9 +3131,9 @@ def _responses_envelope(response_id: str, model: str, status: str, **fields: obj
 async def test_responses_fallback_sharing_the_proxy_logging_object_logs_the_fallback_usage(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     recorder: Final = _SpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post("https://primary.example/v1/responses").mock(
         return_value=httpx.Response(
             200,
@@ -3196,11 +3196,11 @@ async def test_responses_fallback_sharing_the_proxy_logging_object_logs_the_fall
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k1", "api_base": "https://primary.example/v1"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k1", "api_base": "https://primary.example/v1"},
             },
             {
                 "model_name": "backup",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "k2",
                     "api_base": "https://backup.example/v1",
@@ -3210,22 +3210,22 @@ async def test_responses_fallback_sharing_the_proxy_logging_object_logs_the_fall
         fallbacks=[{"primary": ["backup"]}],
         num_retries=0,
     )
-    shared_logging, _ = litellm.utils.function_setup(
+    shared_logging, _ = hangarllm.utils.function_setup(
         original_function="aresponses",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.now(),
         model="primary",
         input="Tell me a story",
         stream=True,
-        litellm_call_id="shared-call",
+        hangarllm_call_id="shared-call",
     )
 
     response: Final = await router.aresponses(
         model="primary",
         input="Tell me a story",
         stream=True,
-        litellm_call_id="shared-call",
-        litellm_logging_obj=shared_logging,
+        hangarllm_call_id="shared-call",
+        hangarllm_logging_obj=shared_logging,
     )
     _ = [event async for event in response]
     await asyncio.wait_for(recorder.succeeded.wait(), timeout=10)
@@ -3255,17 +3255,17 @@ async def test_responses_fallback_sharing_the_proxy_logging_object_logs_the_fall
 async def test_continuation_routes_only_to_deployments_that_can_continue_under_every_routing_strategy(
     routing_strategy: str,
 ) -> None:
-    from litellm.router_utils.pre_call_checks.continuation_prefill_check import (
+    from hangarllm.router_utils.pre_call_checks.continuation_prefill_check import (
         MID_STREAM_CONTINUATION_KWARG,
         MID_STREAM_CONTINUATION_MARKER,
     )
-    from litellm.types.router import RouterRateLimitError
+    from hangarllm.types.router import RouterRateLimitError
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "backup",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k1"},
+                "hangarllm_params": {"model": "gpt-4o", "api_key": "k1"},
                 "model_info": {"id": "no-prefill-deployment", "supports_assistant_prefill": False},
             },
         ],
@@ -3312,7 +3312,7 @@ async def test_set_response_headers_exposes_complexity_decision_on_every_respons
                     "tier": "SIMPLE",
                     "cause": "heuristic_scorer",
                     "score": 0.25,
-                    "tier_litellm_params": {"reasoning_effort": "low"},
+                    "tier_hangarllm_params": {"reasoning_effort": "low"},
                 }
             }
         },
@@ -3321,18 +3321,18 @@ async def test_set_response_headers_exposes_complexity_decision_on_every_respons
     additional_headers = hidden_params["additional_headers"]
 
     assert additional_headers == {
-        "x-litellm-model-group": None,
-        "x-litellm-complexity-router-tier": "SIMPLE",
-        "x-litellm-complexity-router-cause": "heuristic_scorer",
-        "x-litellm-complexity-router-score": "0.25",
-        "x-litellm-complexity-router-reasoning-effort": "low",
+        "x-hangarllm-model-group": None,
+        "x-hangarllm-complexity-router-tier": "SIMPLE",
+        "x-hangarllm-complexity-router-cause": "heuristic_scorer",
+        "x-hangarllm-complexity-router-score": "0.25",
+        "x-hangarllm-complexity-router-reasoning-effort": "low",
     }
 
 
 @pytest.mark.asyncio
 async def test_set_response_headers_is_the_only_complexity_header_source_for_proxy_headers() -> None:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     router = Router(model_list=[])
     response = await router.set_response_headers(response={}, request_kwargs={})
@@ -3345,14 +3345,14 @@ async def test_set_response_headers_is_the_only_complexity_header_source_for_pro
                     "router_type": "complexity",
                     "tier": "REASONING",
                     "cause": "heuristic_scorer",
-                    "tier_litellm_params": {"reasoning_effort": "xhigh"},
+                    "tier_hangarllm_params": {"reasoning_effort": "xhigh"},
                 }
             }
         },
         **additional_headers,
     )
 
-    assert not {key for key in proxy_headers if key.startswith("x-litellm-complexity-router-")}
+    assert not {key for key in proxy_headers if key.startswith("x-hangarllm-complexity-router-")}
 
 
 def test_completion_streaming_fallback_resumes_chain_without_retrying_primary():
@@ -3372,7 +3372,7 @@ def test_completion_streaming_fallback_resumes_chain_without_retrying_primary():
                 llm_provider="openai",
                 generated_content="",
                 is_pre_first_chunk=True,
-                original_exception=litellm.InternalServerError(
+                original_exception=hangarllm.InternalServerError(
                     message=f"provider 500 from {self.model}", model=self.model, llm_provider="openai"
                 ),
             )
@@ -3381,16 +3381,16 @@ def test_completion_streaming_fallback_resumes_chain_without_retrying_primary():
         def __init__(self, model: str):
             super().__init__(model)
             self._chunks = iter(
-                [litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
+                [hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
             )
 
         def __next__(self):
             return next(self._chunks)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "backup", "litellm_params": {"model": "openai/backup-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "hangarllm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "backup", "hangarllm_params": {"model": "openai/backup-model", "api_key": "fake-key"}},
         ],
         fallbacks=[{"primary": ["backup"]}],
         num_retries=0,
@@ -3405,7 +3405,7 @@ def test_completion_streaming_fallback_resumes_chain_without_retrying_primary():
             raise RuntimeError("primary group retried")
         return FailingStream(kwargs["model"])
 
-    with patch("litellm.completion", side_effect=fake_completion) as provider_calls:
+    with patch("hangarllm.completion", side_effect=fake_completion) as provider_calls:
         response: Final = router.completion(model="primary", messages=[{"role": "user", "content": "hi"}], stream=True)
         content: Final = "".join(chunk.choices[0].delta.content or "" for chunk in response)
 
@@ -3433,7 +3433,7 @@ def test_completion_mid_stream_fallback_walks_every_entry_of_the_configured_list
                 llm_provider="openai",
                 generated_content="",
                 is_pre_first_chunk=True,
-                original_exception=litellm.InternalServerError(
+                original_exception=hangarllm.InternalServerError(
                     message=f"provider 500 from {self.model}", model=self.model, llm_provider="openai"
                 ),
             )
@@ -3442,7 +3442,7 @@ def test_completion_mid_stream_fallback_walks_every_entry_of_the_configured_list
         def __init__(self, model: str):
             super().__init__(model)
             self._chunks = iter(
-                [litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
+                [hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
             )
 
         def __next__(self):
@@ -3453,17 +3453,17 @@ def test_completion_mid_stream_fallback_walks_every_entry_of_the_configured_list
             return OkStream(kwargs["model"])
         return FailingStream(kwargs["model"])
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "fb1", "litellm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
-            {"model_name": "fb2", "litellm_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "hangarllm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "fb1", "hangarllm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
+            {"model_name": "fb2", "hangarllm_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
         ],
         fallbacks=[{"primary": ["fb1", "fb2"]}],
         num_retries=0,
     )
 
-    with patch("litellm.completion", side_effect=fake_completion) as provider_calls:
+    with patch("hangarllm.completion", side_effect=fake_completion) as provider_calls:
         response: Final = router.completion(model="primary", messages=[{"role": "user", "content": "hi"}], stream=True)
         content: Final = "".join(chunk.choices[0].delta.content or "" for chunk in response if chunk is not None)
 
@@ -3485,8 +3485,8 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
     """
     from unittest.mock import MagicMock, patch
 
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from hangarllm.exceptions import MidStreamFallbackError
+    from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
 
     class FailingStream(CustomStreamWrapper):
         def __init__(self, model: str):
@@ -3504,7 +3504,7 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
                 llm_provider="openai",
                 generated_content="",
                 is_pre_first_chunk=True,
-                original_exception=litellm.InternalServerError(
+                original_exception=hangarllm.InternalServerError(
                     message=f"provider 500 from {self.model}", model=self.model, llm_provider="openai"
                 ),
             )
@@ -3513,7 +3513,7 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
         def __init__(self, model: str):
             super().__init__(model)
             self._chunks = iter(
-                [litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
+                [hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
             )
 
         async def __anext__(self):
@@ -3527,17 +3527,17 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
             return OkStream(kwargs["model"])
         return FailingStream(kwargs["model"])
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "fb1", "litellm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
-            {"model_name": "fb2", "litellm_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "hangarllm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "fb1", "hangarllm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
+            {"model_name": "fb2", "hangarllm_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
         ],
         fallbacks=[{"primary": ["fb1", "fb2"]}],
         num_retries=0,
     )
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion) as mock_acompletion:
+    with patch("hangarllm.acompletion", side_effect=fake_acompletion) as mock_acompletion:
         response = await router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}], stream=True)
         content: Final = "".join(
             [chunk.choices[0].delta.content or "" async for chunk in response if chunk is not None]
@@ -3562,7 +3562,7 @@ class _DiesBeforeFirstChunk(CustomStreamWrapper):
             llm_provider="openai",
             generated_content="",
             is_pre_first_chunk=True,
-            original_exception=litellm.InternalServerError(
+            original_exception=hangarllm.InternalServerError(
                 message=f"provider 500 from {self.model}", model=self.model, llm_provider="openai"
             ),
         )
@@ -3584,7 +3584,7 @@ class _Answers(_DiesBeforeFirstChunk):
     def __init__(self, model: str):
         super().__init__(model)
         self._chunks = iter(
-            [litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
+            [hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
         )
 
     def __next__(self):
@@ -3597,11 +3597,11 @@ class _Answers(_DiesBeforeFirstChunk):
             raise StopAsyncIteration from None
 
 
-def _primary_and_backup_router(**settings: object) -> litellm.Router:
-    return litellm.Router(
+def _primary_and_backup_router(**settings: object) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "backup", "litellm_params": {"model": "openai/backup-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "hangarllm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "backup", "hangarllm_params": {"model": "openai/backup-model", "api_key": "fake-key"}},
         ],
         num_retries=0,
         **settings,
@@ -3627,7 +3627,7 @@ def _router_internals_reached_the_provider(provider_calls: MagicMock) -> bool:
 def test_completion_mid_stream_fallback_honors_the_per_request_list():
     router: Final = _primary_and_backup_router()
 
-    with patch("litellm.completion", side_effect=_stream_for) as provider_calls:
+    with patch("hangarllm.completion", side_effect=_stream_for) as provider_calls:
         response: Final = router.completion(
             model="primary",
             messages=[{"role": "user", "content": "hi"}],
@@ -3648,7 +3648,7 @@ async def test_acompletion_mid_stream_fallback_honors_the_per_request_list():
     async def fake_acompletion(**kwargs):
         return _stream_for(**kwargs)
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion) as provider_calls:
+    with patch("hangarllm.acompletion", side_effect=fake_acompletion) as provider_calls:
         response: Final = await router.acompletion(
             model="primary",
             messages=[{"role": "user", "content": "hi"}],
@@ -3671,8 +3671,8 @@ async def test_acompletion_mid_stream_fallback_honors_a_per_request_fallbacks_no
     async def fake_acompletion(**kwargs):
         return _stream_for(**kwargs)
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion) as provider_calls:
-        with pytest.raises(litellm.InternalServerError, match="provider 500 from openai/primary-model"):
+    with patch("hangarllm.acompletion", side_effect=fake_acompletion) as provider_calls:
+        with pytest.raises(hangarllm.InternalServerError, match="provider 500 from openai/primary-model"):
             await router.acompletion(
                 model="primary", messages=[{"role": "user", "content": "hi"}], stream=True, fallbacks=None
             )
@@ -3705,7 +3705,7 @@ async def test_aresponses_mid_stream_order_fallback_hop_drops_the_encrypted_reas
     """A Codex-style multi-turn history replays the order-1 provider's encrypted reasoning. When that
     provider's stream breaks before its first output chunk, the order-2 hop must not replay reasoning
     the next provider cannot decrypt; the readable summary stays."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     def history() -> list:
         return [
@@ -3780,16 +3780,16 @@ async def test_aresponses_mid_stream_order_fallback_hop_drops_the_encrypted_reas
         )
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_key": "openai-key", "order": 1},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_key": "openai-key", "order": 1},
                 "model_info": {"id": "openai-order-1"},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock_mantle/openai.gpt-6-astra",
                     "api_key": "mantle-bearer-token",
                     "aws_region_name": "us-east-1",
@@ -3820,7 +3820,7 @@ async def test_aresponses_mid_stream_order_fallback_hop_keeps_the_encrypted_reas
     """The mid-stream hop re-enters the chain on a snapshot taken before routing, so the snapshot has to
     carry the deployment that streamed and failed: a same-boundary order-2 deployment can decrypt that
     deployment's unmarked reasoning and must receive it unchanged."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     def history() -> list:
         return [
@@ -3895,11 +3895,11 @@ async def test_aresponses_mid_stream_order_fallback_hop_keeps_the_encrypted_reas
         ]
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6-astra",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "openai-key",
@@ -3909,7 +3909,7 @@ async def test_aresponses_mid_stream_order_fallback_hop_keeps_the_encrypted_reas
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6-astra-mini",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "openai-key",
@@ -4016,16 +4016,16 @@ def _background_output_then_completed(background: bool) -> tuple[dict[str, objec
 
 def _background_router(
     model_name: str,
-    litellm_params: dict[str, object],
+    hangarllm_params: dict[str, object],
     fallbacks: list[dict[str, list[str]]] | None,
     content_policy_fallbacks: list[dict[str, list[str]]] | None = None,
 ) -> Router:
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
-            {"model_name": model_name, "litellm_params": litellm_params},
+            {"model_name": model_name, "hangarllm_params": hangarllm_params},
             {
                 "model_name": "backup",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6.1-terra",
                     "api_key": "backup-key",
                     "api_base": "https://backup.openai.test/v1",
@@ -4061,7 +4061,7 @@ async def test_aresponses_background_stream_hands_the_response_id_to_the_client_
     fallbacks: list[dict[str, list[str]]] | None,
     request_kwargs: dict[str, bool],
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     output_may_start: Final = asyncio.Event()
     upstream_paused: Final = asyncio.Event()
     respx_mock.post(_BACKGROUND_PRIMARY_URL).mock(
@@ -4089,7 +4089,7 @@ async def test_aresponses_background_stream_hands_the_response_id_to_the_client_
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "background", "fallbacks"),
+    ("hangarllm_params", "background", "fallbacks"),
     [
         pytest.param({"model": "openai/gpt-6.1-terra", "api_key": "k"}, False, None, id="foreground-request"),
         pytest.param(
@@ -4112,11 +4112,11 @@ async def test_aresponses_background_stream_hands_the_response_id_to_the_client_
 async def test_aresponses_stream_keeps_holding_lifecycle_events_until_output_off_the_eligible_background_route(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
-    litellm_params: dict[str, object],
+    hangarllm_params: dict[str, object],
     background: bool,
     fallbacks: list[dict[str, list[str]]] | None,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     output_may_start: Final = asyncio.Event()
     upstream_paused: Final = asyncio.Event()
     respx_mock.route(method="POST", path__regex=r"/responses$").mock(
@@ -4124,7 +4124,7 @@ async def test_aresponses_stream_keeps_holding_lifecycle_events_until_output_off
             output_may_start, upstream_paused, background, _background_output_then_completed(background)
         )
     )
-    router: Final = _background_router("gpt-bg", litellm_params, fallbacks)
+    router: Final = _background_router("gpt-bg", hangarllm_params, fallbacks)
 
     stream: Final = await router.aresponses(model="gpt-bg", input="hi", background=background, stream=True)
     first: Final = asyncio.ensure_future(anext(stream))
@@ -4146,7 +4146,7 @@ async def test_aresponses_stream_keeps_holding_lifecycle_events_until_output_off
 async def test_aresponses_background_stream_surfaces_a_later_error_instead_of_a_fallback_once_its_id_is_out(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     output_may_start: Final = asyncio.Event()
     upstream_paused: Final = asyncio.Event()
     backup_output_may_start: Final = asyncio.Event()
@@ -4177,7 +4177,7 @@ async def test_aresponses_background_stream_surfaces_a_later_error_instead_of_a_
     assert arrived_before_output is True
     assert created.type == "response.created"
     assert [item.type for item in rest[:-1]] == ["response.queued"]
-    assert isinstance(rest[-1], litellm.InternalServerError)
+    assert isinstance(rest[-1], hangarllm.InternalServerError)
     assert "upstream died" in str(rest[-1])
     assert primary_route.call_count == 1
     assert backup_route.call_count == 0
@@ -4209,7 +4209,7 @@ async def test_aresponses_background_stream_content_policy_error_reads_the_same_
     output_before_refusal: tuple[dict[str, object], ...],
     router_note_expected: bool,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     released_output_may_start: Final = asyncio.Event()
     released_upstream_paused: Final = asyncio.Event()
     held_output_may_start: Final = asyncio.Event()
@@ -4246,9 +4246,9 @@ async def test_aresponses_background_stream_content_policy_error_reads_the_same_
     held_error: Final = [item async for item in _events_until_error(held)][-1]
 
     assert arrived_before_output is True
-    assert isinstance(released_error, litellm.ContentPolicyViolationError)
-    assert isinstance(held_error, litellm.ContentPolicyViolationError)
-    assert ("LiteLLM: model group 'gpt-bg' failed with the error above" in held_error.message) is router_note_expected
+    assert isinstance(released_error, hangarllm.ContentPolicyViolationError)
+    assert isinstance(held_error, hangarllm.ContentPolicyViolationError)
+    assert ("HangarLLM: model group 'gpt-bg' failed with the error above" in held_error.message) is router_note_expected
     assert released_error.message == held_error.message
     assert primary_route.call_count == 2
     assert backup_route.call_count == 0
@@ -4256,11 +4256,11 @@ async def test_aresponses_background_stream_content_policy_error_reads_the_same_
 
 def test_should_include_deployment():
     """Test that Router._core_should_include_deployment returns the correct response"""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "model_name_a28a12f9-3e44-4861-bd4f-325f2d309ce8_cd5dc6fb-b046-4e05-ae1d-32ba4d936266",
-                "litellm_params": {"model": "openai/*"},
+                "hangarllm_params": {"model": "openai/*"},
                 "model_info": {
                     "team_id": "a28a12f9-3e44-4861-bd4f-325f2d309ce8",
                     "team_public_model_name": "openai/*",
@@ -4271,11 +4271,11 @@ def test_should_include_deployment():
 
     model = {
         "model_name": "model_name_a28a12f9-3e44-4861-bd4f-325f2d309ce8_cd5dc6fb-b046-4e05-ae1d-32ba4d936266",
-        "litellm_params": {
+        "hangarllm_params": {
             "api_key": "sk-proj-1234567890",
             "custom_llm_provider": "openai",
             "use_in_pass_through": False,
-            "use_litellm_proxy": False,
+            "use_hangarllm_proxy": False,
             "merge_reasoning_content_in_choices": False,
             "model": "openai/*",
         },
@@ -4301,16 +4301,16 @@ def test_should_include_deployment():
 _MULTILINGUAL_PROMPT: Final = [{"role": "user", "content": "日本語のテキストとहिन्दी पाठ और русский текст. " * 20}]
 
 
-def _context_limited_router(*served: str) -> litellm.Router:
+def _context_limited_router(*served: str) -> hangarllm.Router:
     limit: Final = (
-        litellm.token_counter(model="openai/gpt-6.1-sol", messages=_MULTILINGUAL_PROMPT)
-        + litellm.token_counter(model="prod", messages=_MULTILINGUAL_PROMPT)
+        hangarllm.token_counter(model="openai/gpt-6.1-sol", messages=_MULTILINGUAL_PROMPT)
+        + hangarllm.token_counter(model="prod", messages=_MULTILINGUAL_PROMPT)
     ) // 2
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "prod",
-                "litellm_params": {"model": model, "api_key": "sk-test"},
+                "hangarllm_params": {"model": model, "api_key": "sk-test"},
                 "model_info": {"max_input_tokens": limit},
             }
             for model in served
@@ -4332,7 +4332,7 @@ def test_pre_call_checks_count_a_group_of_one_openai_model_with_that_models_toke
 def test_pre_call_checks_count_a_group_mixing_in_another_vendor_by_its_own_name():
     router: Final = _context_limited_router("openai/gpt-6.1-sol", "anthropic/claude-sonnet-5-5")
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         router._pre_call_checks(
             model="prod", healthy_deployments=router.get_model_list(model_name="prod"), messages=_MULTILINGUAL_PROMPT
         )
@@ -4342,12 +4342,12 @@ _EMBEDDING_CONTEXT_WINDOW: Final = 8_192
 _EMBEDDING_IMAGE_INPUT: Final = f"data:image/png;base64,{base64.b64encode(bytes(range(256)) * 1024).decode()}"
 
 
-def _embedding_context_router(backend: str, window: int = _EMBEDDING_CONTEXT_WINDOW) -> litellm.Router:
-    return litellm.Router(
+def _embedding_context_router(backend: str, window: int = _EMBEDDING_CONTEXT_WINDOW) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "embedder",
-                "litellm_params": {"model": backend, "api_key": "sk-test"},
+                "hangarllm_params": {"model": backend, "api_key": "sk-test"},
                 "model_info": {"max_input_tokens": window},
             }
         ],
@@ -4366,7 +4366,7 @@ def _embedding_context_router(backend: str, window: int = _EMBEDDING_CONTEXT_WIN
     ],
 )
 def test_context_window_pre_call_check_leaves_embedding_media_to_the_backend(backend: str, shape: str):
-    window: Final = litellm.get_model_info(backend)["max_input_tokens"]
+    window: Final = hangarllm.get_model_info(backend)["max_input_tokens"]
     assert window is not None
     router: Final = _embedding_context_router(backend, window)
     pdf: Final = f"data:application/pdf;base64,{base64.b64encode(bytes(window * 8)).decode()}"
@@ -4388,7 +4388,7 @@ def test_context_window_pre_call_check_leaves_embedding_media_to_the_backend(bac
 def test_context_window_pre_call_check_counts_an_embedding_image_as_text_on_a_text_only_backend():
     router: Final = _embedding_context_router("text-embedding-3-small")
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         router._pre_call_checks(
             model="embedder",
             healthy_deployments=router.registry().deployments("embedder"),
@@ -4408,14 +4408,14 @@ def test_context_window_pre_call_check_on_a_caption_next_to_an_embedding_image(b
     router: Final = _embedding_context_router(backend, window=20)
     deployments: Final = router.registry().deployments("embedder")
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Router"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Router"):
         if fits:
             kept: Final = router._pre_call_checks(
                 model="embedder", healthy_deployments=deployments, input=[caption, _EMBEDDING_IMAGE_INPUT]
             )
             assert len(kept) == 1
         else:
-            with pytest.raises(litellm.ContextWindowExceededError):
+            with pytest.raises(hangarllm.ContextWindowExceededError):
                 router._pre_call_checks(
                     model="embedder", healthy_deployments=deployments, input=[caption, _EMBEDDING_IMAGE_INPUT]
                 )
@@ -4425,7 +4425,7 @@ def test_context_window_pre_call_check_on_a_caption_next_to_an_embedding_image(b
 
 @pytest.mark.asyncio
 async def test_an_async_pre_call_check_reads_embedding_media_off_the_event_loop():
-    from tests.unit.litellm_core_utils.event_loop_lag import assert_loop_stayed_free, timed_with_loop_lags
+    from tests.unit.hangarllm_core_utils.event_loop_lag import assert_loop_stayed_free, timed_with_loop_lags
 
     router: Final = _embedding_context_router("vertex_ai/gemini-embedding-2", window=20)
     caption_and_images: Final = ["a red square", *[_EMBEDDING_IMAGE_INPUT] * 400]
@@ -4434,20 +4434,20 @@ async def test_an_async_pre_call_check_reads_embedding_media_off_the_event_loop(
         lambda: router.select("embedder", {}, input=caption_and_images)
     )
 
-    assert deployment["litellm_params"]["model"] == "vertex_ai/gemini-embedding-2"
+    assert deployment["hangarllm_params"]["model"] == "vertex_ai/gemini-embedding-2"
     assert_loop_stayed_free(took, lags)
 
 
 async def test_a_wildcard_route_checks_the_context_window_with_the_requested_openai_models_tokenizer():
     limit: Final = (
-        litellm.token_counter(model="openai/gpt-6.1-sol", messages=_MULTILINGUAL_PROMPT)
-        + litellm.token_counter(model="my-model", messages=_MULTILINGUAL_PROMPT)
+        hangarllm.token_counter(model="openai/gpt-6.1-sol", messages=_MULTILINGUAL_PROMPT)
+        + hangarllm.token_counter(model="my-model", messages=_MULTILINGUAL_PROMPT)
     ) // 2
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "sk-test"},
                 "model_info": {"max_input_tokens": limit},
             }
         ],
@@ -4475,11 +4475,11 @@ async def test_aanthropic_messages_enforces_context_window_with_system_and_tools
     context-window check instead of being dispatched (the deployment uses mock_response,
     so reaching the provider handler would return a response rather than raise).
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "small-ctx",
-                "litellm_params": {"model": "anthropic/claude-3-5-haiku-20241022", "mock_response": "hi"},
+                "hangarllm_params": {"model": "anthropic/claude-3-5-haiku-20241022", "mock_response": "hi"},
                 "model_info": {"max_input_tokens": 20},
             }
         ],
@@ -4490,14 +4490,14 @@ async def test_aanthropic_messages_enforces_context_window_with_system_and_tools
     response = await router.aanthropic_messages(model="small-ctx", messages=messages, max_tokens=5)
     assert response is not None
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await router.aanthropic_messages(
             model="small-ctx",
             messages=messages,
             max_tokens=5,
             system="You are a meticulous assistant. " * 40,
         )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await router.aanthropic_messages(
             model="small-ctx",
             messages=messages,
@@ -4517,9 +4517,9 @@ def test_count_pre_call_check_tokens_across_api_surfaces():
     _count_pre_call_check_tokens must count tokens from chat `messages`, a Responses
     API string `input`, and a Responses API list `input`, and raise when given neither.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "hangarllm_params": {"model": "gpt-3.5-turbo"}},
         ],
     )
 
@@ -4540,7 +4540,7 @@ def test_count_pre_call_check_tokens_across_api_surfaces():
 
 
 def test_count_pre_call_check_tokens_skips_the_history_a_compaction_item_replaces():
-    router = litellm.Router(model_list=[{"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}}])
+    router = hangarllm.Router(model_list=[{"model_name": "m", "hangarllm_params": {"model": "gpt-3.5-turbo"}}])
     summary: Final = "The user planned a Tokyo trip."
     compaction_item: Final = {
         "type": "compaction",
@@ -4572,29 +4572,29 @@ async def test_aresponses_enforces_context_window_pre_call_check():
     wiring that forwards `input` from the generic-call path into deployment selection
     (the deployment uses mock_response, so the check must trip before any real call).
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "small-ctx",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
                 "model_info": {"max_input_tokens": 5},
             }
         ],
         enable_pre_call_checks=True,
     )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await router.aresponses(
             model="small-ctx",
             input="this responses input is definitely much longer than five tokens for sure",
         )
 
 
-def _embedding_router(max_input_tokens: int) -> litellm.Router:
-    return litellm.Router(
+def _embedding_router(max_input_tokens: int) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "embed",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "sk-test",
                     "mock_response": [0.1, 0.2],
@@ -4618,7 +4618,7 @@ def _embedding_router(max_input_tokens: int) -> litellm.Router:
 async def test_aembedding_accepts_a_batch_whose_inputs_each_fit_the_context_window(embedding_input, caplog):
     router: Final = _embedding_router(max_input_tokens=10)
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Router"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Router"):
         response: Final = await router.aembedding(model="embed", input=embedding_input)
 
     assert response.data
@@ -4637,14 +4637,14 @@ async def test_aembedding_accepts_a_batch_whose_inputs_each_fit_the_context_wind
 async def test_aembedding_rejects_a_batch_with_one_input_over_the_context_window(embedding_input):
     router: Final = _embedding_router(max_input_tokens=10)
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await router.aembedding(model="embed", input=embedding_input)
 
 
 def test_embedding_rejects_a_batch_with_one_input_over_the_context_window():
     router: Final = _embedding_router(max_input_tokens=10)
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         router.embedding(model="embed", input=["one", " ".join(["word"] * 20)])
 
 
@@ -4658,7 +4658,7 @@ def test_embedding_rejects_a_batch_with_one_input_over_the_context_window():
     ],
 )
 async def test_aembedding_skips_the_context_window_check_when_token_counting_is_disabled(embedding_input, monkeypatch):
-    monkeypatch.setattr(litellm, "disable_token_counter", True)
+    monkeypatch.setattr(hangarllm, "disable_token_counter", True)
     router: Final = _embedding_router(max_input_tokens=10)
 
     response: Final = await router.aembedding(model="embed", input=embedding_input)
@@ -4667,8 +4667,8 @@ async def test_aembedding_skips_the_context_window_check_when_token_counting_is_
 
 
 async def _until_every_count_slot_is_taken() -> None:
-    from litellm.constants import TOKEN_COUNTER_MAX_CONCURRENT_COUNTS
-    from litellm.litellm_core_utils.token_counter import _count_offload_limiter_for_this_loop
+    from hangarllm.constants import TOKEN_COUNTER_MAX_CONCURRENT_COUNTS
+    from hangarllm.hangarllm_core_utils.token_counter import _count_offload_limiter_for_this_loop
 
     while _count_offload_limiter_for_this_loop().borrowed_tokens < TOKEN_COUNTER_MAX_CONCURRENT_COUNTS:
         await asyncio.sleep(0)
@@ -4676,14 +4676,14 @@ async def _until_every_count_slot_is_taken() -> None:
 
 @pytest.mark.asyncio
 async def test_a_chat_pre_call_count_does_not_wait_behind_long_embedding_batches():
-    from litellm.constants import TOKEN_COUNTER_MAX_CONCURRENT_COUNTS
+    from hangarllm.constants import TOKEN_COUNTER_MAX_CONCURRENT_COUNTS
 
     window: Final = {"max_input_tokens": 10000}
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "embed",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "sk-test",
                     "mock_response": [0.1],
@@ -4692,7 +4692,7 @@ async def test_a_chat_pre_call_count_does_not_wait_behind_long_embedding_batches
             },
             {
                 "model_name": "chat",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test", "mock_response": "hi"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test", "mock_response": "hi"},
                 "model_info": window,
             },
         ],
@@ -4716,7 +4716,7 @@ def test_a_routing_plugin_counts_an_embedding_text_batch_by_its_longest_text():
     long_text: Final = "word " * 4000
     context: Final = RouterContext(_embedding_router(max_input_tokens=10))
 
-    assert context.count_pre_call_check_tokens(None, ["one", long_text]) == litellm.token_counter(text=long_text)
+    assert context.count_pre_call_check_tokens(None, ["one", long_text]) == hangarllm.token_counter(text=long_text)
 
 
 @pytest.mark.asyncio
@@ -4741,18 +4741,18 @@ def test_a_routing_plugin_counts_an_embedding_text_batch_by_its_longest_text():
     ],
 )
 async def test_aresponses_with_empty_input_still_counts_its_other_prompt_content(prompt_kwargs):
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "small-ctx",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
                 "model_info": {"max_input_tokens": 50},
             }
         ],
         enable_pre_call_checks=True,
     )
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await router.aresponses(model="small-ctx", input=[], **prompt_kwargs)
 
 
@@ -4760,11 +4760,11 @@ def test_get_deployment_model_info_base_model_flow():
     """Test that get_deployment_model_info correctly handles the base model flow"""
     from unittest.mock import patch
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
     )
@@ -4784,30 +4784,30 @@ def test_get_deployment_model_info_base_model_flow():
         "max_output_tokens": 4096,
         "input_cost_per_token": 0.0015,  # This should be overridden by custom model info
         "output_cost_per_token": 0.002,
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "chat",
         "supported_openai_params": ["temperature", "max_tokens"],
     }
 
-    mock_litellm_model_name_info = {
+    mock_hangarllm_model_name_info = {
         "key": "test-model",
         "max_tokens": 2048,
         "max_input_tokens": 2048,
         "max_output_tokens": 2048,
         "input_cost_per_token": 0.0005,
         "output_cost_per_token": 0.001,
-        "litellm_provider": "test_provider",
+        "hangarllm_provider": "test_provider",
         "mode": "completion",
         "supported_openai_params": ["temperature"],
     }
 
     # Test Case 1: Base model flow with custom model info that has base_model
-    with patch.object(litellm, "model_cost", {"test-custom-model": mock_custom_model_info}):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+    with patch.object(hangarllm, "model_cost", {"test-custom-model": mock_custom_model_info}):
+        with patch.object(hangarllm, "get_model_info") as mock_get_model_info:
             # Configure mock returns
             mock_get_model_info.side_effect = lambda model: {
                 "gpt-3.5-turbo": mock_base_model_info,
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_hangarllm_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(model_id="test-custom-model", model_name="test-model")
@@ -4822,7 +4822,7 @@ def test_get_deployment_model_info_base_model_flow():
 
             # Test the correct merging behavior after fix:
             # 1. base_model_info provides defaults, custom_model_info overrides (correct priority)
-            # 2. The result of step 1 gets merged into litellm_model_name_info (custom+base override litellm)
+            # 2. The result of step 1 gets merged into hangarllm_model_name_info (custom+base override hangarllm)
 
             # Fields from custom model (should override base model values)
             assert result["input_cost_per_token"] == 0.001  # From custom model (overrides base 0.0015)
@@ -4831,12 +4831,12 @@ def test_get_deployment_model_info_base_model_flow():
 
             # Fields from base model that weren't overridden by custom
             assert result["max_tokens"] == 4096  # From base model
-            assert result["litellm_provider"] == "openai"  # From base model
-            assert result["mode"] == "chat"  # From base model (overrides litellm "completion")
+            assert result["hangarllm_provider"] == "openai"  # From base model
+            assert result["mode"] == "chat"  # From base model (overrides hangarllm "completion")
 
-            # The key field comes from base model since both base and litellm have it
-            # and base model info overrides litellm model name info in final merge
-            assert result["key"] == "gpt-3.5-turbo"  # From base model (overrides litellm key)
+            # The key field comes from base model since both base and hangarllm have it
+            # and base model info overrides hangarllm model name info in final merge
+            assert result["key"] == "gpt-3.5-turbo"  # From base model (overrides hangarllm key)
 
     # Test Case 2: Custom model info without base_model
     mock_custom_model_info_no_base = {
@@ -4846,13 +4846,13 @@ def test_get_deployment_model_info_base_model_flow():
     }
 
     with patch.object(
-        litellm,
+        hangarllm,
         "model_cost",
         {"test-custom-model-no-base": mock_custom_model_info_no_base},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(hangarllm, "get_model_info") as mock_get_model_info:
             mock_get_model_info.side_effect = lambda model: {
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_hangarllm_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(model_id="test-custom-model-no-base", model_name="test-model")
@@ -4864,15 +4864,15 @@ def test_get_deployment_model_info_base_model_flow():
             # Verify the result contains merged information
             assert result is not None
             assert result["input_cost_per_token"] == 0.001  # From custom model
-            assert result["max_tokens"] == 2048  # From litellm model name info
+            assert result["max_tokens"] == 2048  # From hangarllm model name info
             assert result["custom_field"] == "custom_value"  # From custom model
-            assert result["mode"] == "completion"  # From litellm model name info
+            assert result["mode"] == "completion"  # From hangarllm model name info
 
-    # Test Case 3: No custom model info, only litellm model name info
-    with patch.object(litellm, "model_cost", {}):  # Empty model cost
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+    # Test Case 3: No custom model info, only hangarllm model name info
+    with patch.object(hangarllm, "model_cost", {}):  # Empty model cost
+        with patch.object(hangarllm, "get_model_info") as mock_get_model_info:
             mock_get_model_info.side_effect = lambda model: {
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_hangarllm_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(model_id="non-existent-model", model_name="test-model")
@@ -4881,9 +4881,9 @@ def test_get_deployment_model_info_base_model_flow():
             assert mock_get_model_info.call_count == 1
             mock_get_model_info.assert_called_with(model="test-model")
 
-            # Result should be just the litellm model name info
+            # Result should be just the hangarllm model name info
             assert result is not None
-            assert result == mock_litellm_model_name_info
+            assert result == mock_hangarllm_model_name_info
 
     # Test Case 4: Base model info retrieval fails (exception handling)
     mock_custom_model_info_invalid_base = {
@@ -4893,17 +4893,17 @@ def test_get_deployment_model_info_base_model_flow():
     }
 
     with patch.object(
-        litellm,
+        hangarllm,
         "model_cost",
         {"test-custom-model-invalid": mock_custom_model_info_invalid_base},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(hangarllm, "get_model_info") as mock_get_model_info:
             # Mock get_model_info to raise exception for invalid base model
             def mock_get_model_info_side_effect(model):
                 if model == "invalid-base-model":
                     raise Exception("Model not found")
                 elif model == "test-model":
-                    return mock_litellm_model_name_info
+                    return mock_hangarllm_model_name_info
                 return None
 
             mock_get_model_info.side_effect = mock_get_model_info_side_effect
@@ -4913,17 +4913,17 @@ def test_get_deployment_model_info_base_model_flow():
             # Should handle exception gracefully and still return merged result
             assert result is not None
             assert result["input_cost_per_token"] == 0.001  # From custom model
-            assert result["mode"] == "completion"  # From litellm model name info
+            assert result["mode"] == "completion"  # From hangarllm model name info
 
     # Test Case 5: Both model_cost.get() and get_model_info() return None
-    with patch.object(litellm, "model_cost", {}):
-        with patch.object(litellm, "get_model_info", side_effect=Exception("Not found")):
+    with patch.object(hangarllm, "model_cost", {}):
+        with patch.object(hangarllm, "get_model_info", side_effect=Exception("Not found")):
             result = router.get_deployment_model_info(model_id="non-existent", model_name="non-existent")
 
             # Should return None when no model info is found
             assert result is None
 
-    # Test Case 6: custom_model_info present but litellm_model_name_model_info is None
+    # Test Case 6: custom_model_info present but hangarllm_model_name_model_info is None
     # (model has custom pricing in config but is not in built-in model_prices_and_context_window.json)
     mock_custom_pricing_only = {
         "input_cost_per_token": 1.74e-06,
@@ -4933,24 +4933,24 @@ def test_get_deployment_model_info_base_model_flow():
     }
 
     with patch.object(
-        litellm,
+        hangarllm,
         "model_cost",
         {"custom-model-id": mock_custom_pricing_only},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(hangarllm, "get_model_info") as mock_get_model_info:
             # Model NOT in built-in cost map — raise exception
             mock_get_model_info.side_effect = Exception("Model not in cost map")
 
             result = router.get_deployment_model_info(model_id="custom-model-id", model_name="unknown-model")
 
-            # Should return custom_model_info even when litellm_model_name_model_info is None
+            # Should return custom_model_info even when hangarllm_model_name_model_info is None
             assert result is not None
             assert result["input_cost_per_token"] == 1.74e-06
             assert result["output_cost_per_token"] == 3.48e-06
             assert result["cache_read_input_token_cost"] == 1.45e-08
             assert result["mode"] == "chat"
 
-    # Test Case 7: custom_model_info with base_model but litellm_model_name_model_info None
+    # Test Case 7: custom_model_info with base_model but hangarllm_model_name_model_info None
     mock_custom_with_base = {
         "base_model": "some-base-model",
         "input_cost_per_token": 0.01,
@@ -4960,15 +4960,15 @@ def test_get_deployment_model_info_base_model_flow():
         "key": "some-base-model",
         "max_tokens": 8192,
         "mode": "chat",
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
     }
 
     with patch.object(
-        litellm,
+        hangarllm,
         "model_cost",
         {"custom-with-base": mock_custom_with_base},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(hangarllm, "get_model_info") as mock_get_model_info:
 
             def get_info_side_effect(model):
                 if model == "some-base-model":
@@ -4983,21 +4983,21 @@ def test_get_deployment_model_info_base_model_flow():
             assert result is not None
             assert result["input_cost_per_token"] == 0.01  # From custom (overrides base)
             assert result["max_tokens"] == 8192  # From base model
-            assert result["litellm_provider"] == "openai"  # From base model
+            assert result["hangarllm_provider"] == "openai"  # From base model
 
     print("✓ All base model flow test cases passed!")
 
 
-@patch("litellm.model_cost", {})
+@patch("hangarllm.model_cost", {})
 def test_get_deployment_model_info_base_model_merge_priority():
     """Test that base model info merging respects the correct priority order"""
     from unittest.mock import patch
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
     )
@@ -5015,24 +5015,24 @@ def test_get_deployment_model_info_base_model_merge_priority():
         "max_tokens": 4096,  # Should be overridden by custom model
         "input_cost_per_token": 0.03,  # Should be overridden by custom model
         "output_cost_per_token": 0.06,  # Should be preserved (not in custom)
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "base_only_field": "base_value",
     }
 
-    mock_litellm_model_name_info = {
+    mock_hangarllm_model_name_info = {
         "key": "test-model",
         "max_tokens": 2048,  # Should be overridden by final custom model info
         "input_cost_per_token": 0.005,  # Should be overridden by final custom model info
         "output_cost_per_token": 0.01,  # Should be overridden by final custom model info
         "mode": "completion",
-        "litellm_only_field": "litellm_value",
+        "hangarllm_only_field": "hangarllm_value",
     }
 
-    with patch.object(litellm, "model_cost", {"custom-model-id": mock_custom_model_info}):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+    with patch.object(hangarllm, "model_cost", {"custom-model-id": mock_custom_model_info}):
+        with patch.object(hangarllm, "get_model_info") as mock_get_model_info:
             mock_get_model_info.side_effect = lambda model: {
                 "gpt-4": mock_base_model_info,
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_hangarllm_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(model_id="custom-model-id", model_name="test-model")
@@ -5042,7 +5042,7 @@ def test_get_deployment_model_info_base_model_merge_priority():
             # Test correct merge priority after fix:
             # 1. base_model_info provides defaults
             # 2. custom_model_info overrides base_model_info
-            # 3. Result from steps 1-2 overrides litellm_model_name_info
+            # 3. Result from steps 1-2 overrides hangarllm_model_name_info
 
             # Fields that should come from custom model info (highest priority)
             assert result["input_cost_per_token"] == 0.01  # From custom model (overrides base 0.03)
@@ -5051,17 +5051,17 @@ def test_get_deployment_model_info_base_model_merge_priority():
 
             # Fields that should come from base model (not overridden by custom)
             assert result["output_cost_per_token"] == 0.06  # From base model (not in custom)
-            assert result["litellm_provider"] == "openai"  # From base model (not in custom)
+            assert result["hangarllm_provider"] == "openai"  # From base model (not in custom)
             assert result["base_only_field"] == "base_value"  # From base model (not in custom)
 
-            # Fields that should come from litellm model name info (not overridden by custom+base)
-            assert result["mode"] == "completion"  # From litellm model name info (not in custom or base)
+            # Fields that should come from hangarllm model name info (not overridden by custom+base)
+            assert result["mode"] == "completion"  # From hangarllm model name info (not in custom or base)
             assert (
-                result["litellm_only_field"] == "litellm_value"
-            )  # From litellm model name info (not in custom or base)
+                result["hangarllm_only_field"] == "hangarllm_value"
+            )  # From hangarllm model name info (not in custom or base)
 
-            # Key comes from base model since both base and litellm have key fields
-            # and the merged custom+base overrides litellm in the final merge
+            # Key comes from base model since both base and hangarllm have key fields
+            # and the merged custom+base overrides hangarllm in the final merge
             assert result["key"] == "gpt-4"
 
     print("✓ Base model merge priority test passed!")
@@ -5077,7 +5077,7 @@ async def test_router_acompletion_with_unknown_model_and_default_fallback():
     model_list = [
         {
             "model_name": "gpt-4o",  # This is the fallback model
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-4o-real",  # The actual underlying model name
                 "api_key": "fake-key",
                 "api_base": "https://fake-endpoint.openai.azure.com/",
@@ -5087,7 +5087,7 @@ async def test_router_acompletion_with_unknown_model_and_default_fallback():
     ]
 
     # Initialize the router with a default fallback
-    router = litellm.Router(model_list=model_list, default_fallbacks=["gpt-4o"])
+    router = hangarllm.Router(model_list=model_list, default_fallbacks=["gpt-4o"])
 
     messages = [{"role": "user", "content": "This call should succeed by falling back."}]
 
@@ -5114,7 +5114,7 @@ async def test_router_acompletion_with_unknown_model_and_no_fallback():
     model_list = [
         {
             "model_name": "gpt-4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-4o-real",
                 "api_key": "fake-key",
                 "mock_response": "this should not be called",
@@ -5123,12 +5123,12 @@ async def test_router_acompletion_with_unknown_model_and_no_fallback():
     ]
 
     # Initialize the router WITHOUT any default fallbacks
-    router = litellm.Router(model_list=model_list)
+    router = hangarllm.Router(model_list=model_list)
 
     messages = [{"role": "user", "content": "This call should fail."}]
 
     # Use pytest.raises to assert that a BadRequestError is thrown.
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(hangarllm.BadRequestError) as excinfo:
         await router.acompletion(model="completely-unknown-model", messages=messages)
 
     # Check that the error message is correct.
@@ -5144,11 +5144,11 @@ async def test_router_unknown_model_error_message_renders_model_name_literally()
     literal text, not re-interpreted as a format template, which would distort
     the message and balloon its length.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "azure/gpt-4o-real", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "azure/gpt-4o-real", "api_key": "fake-key"},
             }
         ]
     )
@@ -5156,7 +5156,7 @@ async def test_router_unknown_model_error_message_renders_model_name_literally()
     weird_model = "ghost{:>200}model"
     messages = [{"role": "user", "content": "hi"}]
 
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(hangarllm.BadRequestError) as excinfo:
         await router.acompletion(model=weird_model, messages=messages)
 
     message = str(excinfo.value)
@@ -5168,11 +5168,11 @@ def test_get_credential_deployment_is_the_deployment_credentials_resolve_to():
     """Regression: a batch retrieved with credentials resolved by model name was priced
     without its deployment id, so per-deployment pricing never applied. The deployment
     behind the credentials must be reachable by name and by id, carrying its model_info."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "mistral-ocr",
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
+                "hangarllm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
                 "model_info": {"id": "ocr-dep", "ocr_cost_per_page_batches": 0.0123},
             }
         ]
@@ -5189,11 +5189,11 @@ def test_get_credential_deployment_is_the_deployment_credentials_resolve_to():
 
 
 def test_get_credential_deployment_skips_a_paused_deployment():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "paused-ocr",
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
+                "hangarllm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
                 "model_info": {"id": "paused-dep", "blocked": True},
             }
         ]
@@ -5215,16 +5215,16 @@ def test_team_byok_wildcard_is_served_before_a_proxy_wide_wildcard_of_the_same_n
     team_id: str | None, expected_id: str
 ):
     """Regression: a proxy-wide openrouter/* shadowed a team's own openrouter/* BYOK deployment for that team's keys."""
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "model_name_team-a_internal",
-                "litellm_params": {"model": "openrouter/*", "api_key": "sk-team-a"},
+                "hangarllm_params": {"model": "openrouter/*", "api_key": "sk-team-a"},
                 "model_info": {"id": "team-a-byok", "team_id": "team-a", "team_public_model_name": "openrouter/*"},
             },
             {
                 "model_name": "openrouter/*",
-                "litellm_params": {"model": "openrouter/*", "api_key": "sk-shared"},
+                "hangarllm_params": {"model": "openrouter/*", "api_key": "sk-shared"},
                 "model_info": {"id": "shared-openrouter"},
             },
         ]
@@ -5239,13 +5239,13 @@ def test_team_byok_wildcard_is_served_before_a_proxy_wide_wildcard_of_the_same_n
 def test_get_deployment_credentials_with_provider_aws_bedrock_runtime_endpoint():
     """
     Test that get_deployment_credentials_with_provider correctly copies
-    aws_bedrock_runtime_endpoint from deployment litellm_params to credentials.
+    aws_bedrock_runtime_endpoint from deployment hangarllm_params to credentials.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_access_key_id": "test-access-key",
                     "aws_secret_access_key": "test-secret-key",
@@ -5268,15 +5268,15 @@ def test_get_deployment_credentials_with_provider_aws_bedrock_runtime_endpoint()
 
 def test_get_deployment_credentials_with_provider_includes_bucket_name():
     """
-    Regression: bucket_name must survive the CredentialLiteLLMParams filter so
+    Regression: bucket_name must survive the CredentialHangarLLMParams filter so
     managed-files batch retrieval can resolve the GCS/S3 bucket. Previously it was
     dropped, causing "GCS bucket_name is required" when fetching batch output files.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-3.5-flash",
                     "vertex_project": "my-project",
                     "vertex_location": "global",
@@ -5295,11 +5295,11 @@ def test_get_deployment_credentials_with_provider_includes_bucket_name():
 
 
 def test_get_deployment_credentials_with_provider_keeps_legacy_bucket_name():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-3.5-flash",
                     "vertex_project": "my-project",
                     "vertex_location": "global",
@@ -5317,11 +5317,11 @@ def test_get_deployment_credentials_with_provider_keeps_legacy_bucket_name():
 
 
 def test_get_deployment_credentials_with_provider_keeps_both_bucket_keys():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-3.5-flash",
                     "vertex_project": "my-project",
                     "vertex_location": "global",
@@ -5342,12 +5342,12 @@ def test_get_deployment_credentials_with_provider_keeps_both_bucket_keys():
 def test_get_deployment_credentials_with_provider_resolves_credential_name():
     """
     Test that get_deployment_credentials_with_provider correctly resolves
-    litellm_credential_name to actual credential values (for UI-created models).
+    hangarllm_credential_name to actual credential values (for UI-created models).
     """
-    from litellm.types.utils import CredentialItem
+    from hangarllm.types.utils import CredentialItem
 
     # Setup credential list with a test credential
-    litellm.credential_list = [
+    hangarllm.credential_list = [
         CredentialItem(
             credential_name="test-azure-cred",
             credential_info={"custom_llm_provider": "azure"},
@@ -5359,13 +5359,13 @@ def test_get_deployment_credentials_with_provider_resolves_credential_name():
         )
     ]
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4",
-                    "litellm_credential_name": "test-azure-cred",
+                    "hangarllm_credential_name": "test-azure-cred",
                 },
             }
         ],
@@ -5379,10 +5379,10 @@ def test_get_deployment_credentials_with_provider_resolves_credential_name():
     assert credentials["api_version"] == "2024-02-01"
     assert credentials["custom_llm_provider"] == "azure"
     # Ensure credential name is removed after resolution
-    assert "litellm_credential_name" not in credentials
+    assert "hangarllm_credential_name" not in credentials
 
     # Cleanup
-    litellm.credential_list = []
+    hangarllm.credential_list = []
 
 
 def test_get_deployment_credentials_with_provider_bedrock_batch_fields():
@@ -5391,11 +5391,11 @@ def test_get_deployment_credentials_with_provider_bedrock_batch_fields():
     model and the Bedrock batch/S3 fields (s3_region_name, s3_encryption_key_id,
     aws_batch_role_arn) instead of silently dropping them (#25104).
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_region_name": "us-west-2",
                     "s3_bucket_name": "my-batch-bucket",
@@ -5440,11 +5440,11 @@ def test_get_deployment_credentials_with_provider_preserves_aws_auth_params():
         "aws_sts_endpoint": "https://sts.us-west-2.amazonaws.com",
         "aws_external_id": "deployment-external-id",
     }
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     **aws_auth_params,
                 },
@@ -5468,11 +5468,11 @@ def test_get_deployment_credentials_preserves_azure_entra_id_params():
         "azure_username": "deployment-user",
         "azure_password": "deployment-password",
     }
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-5.4",
                     "api_base": "https://example.openai.azure.com/",
                     "api_version": "2024-10-21",
@@ -5497,7 +5497,7 @@ def test_get_deployment_credentials_preserves_azure_entra_id_params():
 def _team_wildcard_model(api_key: str, model_id: str = "team-wildcard-id") -> dict:
     return {
         "model_name": f"model_name_team-1_{model_id}",
-        "litellm_params": {"model": "openai/*", "api_key": api_key},
+        "hangarllm_params": {"model": "openai/*", "api_key": api_key},
         "model_info": {
             "id": model_id,
             "team_id": "team-1",
@@ -5512,11 +5512,11 @@ def test_get_deployment_credentials_with_provider_team_wildcard_priority():
     team's own wildcard entry. When team_id is provided, the team wildcard
     deployment's credentials win; without team_id the global one is used.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "global-key"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "global-key"},
             },
             _team_wildcard_model(api_key="team-key"),
         ],
@@ -5537,11 +5537,11 @@ def test_get_deployment_credentials_with_provider_skips_other_team_deployment():
     deployment must never resolve for another team's (or an unscoped) caller,
     even when it is indexed first; the shared global deployment wins instead.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "team-b-project",
                 },
@@ -5553,7 +5553,7 @@ def test_get_deployment_credentials_with_provider_skips_other_team_deployment():
             },
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "shared-project",
                 },
@@ -5581,11 +5581,11 @@ def test_get_deployment_credentials_with_provider_no_fallback_to_other_team_only
     When the only deployments under a model name belong to another team, other
     callers must get None (env fallback) instead of that team's credentials.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "team-b-project",
                 },
@@ -5607,11 +5607,11 @@ def test_get_deployment_credentials_with_provider_skips_other_team_wildcard():
     Global wildcard resolution must skip a team-scoped wildcard deployment for
     callers outside that team, falling through to the shared wildcard entry.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "team-b-key"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "team-b-key"},
                 "model_info": {
                     "id": "team-b-wildcard",
                     "team_id": "team-b",
@@ -5620,7 +5620,7 @@ def test_get_deployment_credentials_with_provider_skips_other_team_wildcard():
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "global-key"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "global-key"},
             },
         ],
     )
@@ -5641,7 +5641,7 @@ def test_team_wildcard_credentials_not_usable_after_delete_deployment():
     Regression: team_pattern_routers retained deleted deployments, so a team
     user could keep resolving credentials of a deleted wildcard deployment.
     """
-    router = litellm.Router(model_list=[_team_wildcard_model(api_key="old-key")])
+    router = hangarllm.Router(model_list=[_team_wildcard_model(api_key="old-key")])
 
     assert router.get_deployment_credentials_with_provider(model_id="openai/gpt-5.2", team_id="team-1") is not None
 
@@ -5656,13 +5656,13 @@ def test_global_wildcard_pattern_router_evicts_stale_entry_on_upsert_and_delete(
     model_list but left it in the global pattern_router, so wildcard requests
     round-robined between the stale and the corrected deployment.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from hangarllm.types.router import Deployment, HangarLLM_Params
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/openai/*", "api_key": "sk-old"},
+                "hangarllm_params": {"model": "openai/openai/*", "api_key": "sk-old"},
                 "model_info": {"id": "global-wildcard"},
             }
         ]
@@ -5671,14 +5671,14 @@ def test_global_wildcard_pattern_router_evicts_stale_entry_on_upsert_and_delete(
     router.upsert_deployment(
         Deployment(
             model_name="openai/*",
-            litellm_params=LiteLLM_Params(model="openai/*", api_key="sk-new"),
+            hangarllm_params=HangarLLM_Params(model="openai/*", api_key="sk-new"),
             model_info={"id": "global-wildcard"},
         )
     )
 
     matches = router.pattern_router.route("openai/gpt-5.2")
     assert matches is not None
-    assert [m["litellm_params"]["api_key"] for m in matches] == ["sk-new"]
+    assert [m["hangarllm_params"]["api_key"] for m in matches] == ["sk-new"]
 
     router.delete_deployment(id="global-wildcard")
     assert router.pattern_router.patterns == {}
@@ -5689,16 +5689,16 @@ def test_pattern_match_router_remove_deployment():
     remove_deployment must drop only the deployment with the given model id and
     delete patterns whose deployment list becomes empty.
     """
-    from litellm.litellm_core_utils.pattern_match_deployments import PatternMatchRouter
+    from hangarllm.hangarllm_core_utils.pattern_match_deployments import PatternMatchRouter
 
     pattern_router = PatternMatchRouter()
     pattern_router.add_pattern(
         "openai/*",
-        {"litellm_params": {"model": "openai/*", "api_key": "key-a"}, "model_info": {"id": "dep-a"}},
+        {"hangarllm_params": {"model": "openai/*", "api_key": "key-a"}, "model_info": {"id": "dep-a"}},
     )
     pattern_router.add_pattern(
         "openai/*",
-        {"litellm_params": {"model": "openai/*", "api_key": "key-b"}, "model_info": {"id": "dep-b"}},
+        {"hangarllm_params": {"model": "openai/*", "api_key": "key-b"}, "model_info": {"id": "dep-b"}},
     )
 
     pattern_router.remove_deployment(model_id="dep-a")
@@ -5716,9 +5716,9 @@ def test_team_wildcard_credentials_refreshed_on_upsert_and_set_model_list():
     Regression: replacing a team wildcard deployment (upsert or model list
     reload) must serve the new credentials, not the stale cached ones.
     """
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
-    router = litellm.Router(model_list=[_team_wildcard_model(api_key="old-key")])
+    router = hangarllm.Router(model_list=[_team_wildcard_model(api_key="old-key")])
 
     router.upsert_deployment(deployment=Deployment(**_team_wildcard_model(api_key="new-key")))
     credentials = router.get_deployment_credentials_with_provider(model_id="openai/gpt-5.2", team_id="team-1")
@@ -5735,15 +5735,15 @@ def test_get_available_guardrail_single_deployment():
     """
     guardrail_config = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "hangarllm_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-1",
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[guardrail_config],
@@ -5759,20 +5759,20 @@ def test_get_available_guardrail_multiple_deployments():
     """
     guardrail_1 = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "hangarllm_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-1",
     }
     guardrail_2 = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "hangarllm_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-2",
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[guardrail_1, guardrail_2],
@@ -5792,11 +5792,11 @@ def test_get_available_guardrail_not_found():
     """
     Test get_available_guardrail raises ValueError when guardrail not found.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[],
@@ -5813,15 +5813,15 @@ async def test_aguardrail():
     """
     guardrail_config = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "hangarllm_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-1",
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[guardrail_config],
@@ -5851,11 +5851,11 @@ async def test_anthropic_messages_call_type_is_cached():
     """
     import asyncio
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import (
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.router_utils.pre_call_checks.prompt_caching_deployment_check import (
         PromptCachingDeploymentCheck,
     )
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         StandardLoggingHiddenParams,
         StandardLoggingMetadata,
         StandardLoggingModelInformation,
@@ -5966,19 +5966,19 @@ async def test_retry_does_not_narrow_tag_filtered_group_to_failed_deployments_ta
         model_list=[
             {
                 "model_name": "tagged-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5",
                     "api_key": "fake-key",
                     "tags": ["free"],
                     "input_cost_per_token": 0.000001,
                     "output_cost_per_token": 0.000001,
-                    "mock_response": "litellm.ContextWindowExceededError",
+                    "mock_response": "hangarllm.ContextWindowExceededError",
                 },
                 "model_info": {"id": "tagged-failing"},
             },
             {
                 "model_name": "tagged-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5",
                     "api_key": "fake-key",
                     "input_cost_per_token": 0.001,
@@ -6012,11 +6012,11 @@ async def test_team_scoped_model_fallback():
     When a team-scoped model fails and the fallback model is also team-scoped,
     the router should find the fallback deployment by matching team_public_model_name.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "team-a-primary-internal",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-a",
                     "team_public_model_name": "primary-model",
@@ -6024,7 +6024,7 @@ async def test_team_scoped_model_fallback():
             },
             {
                 "model_name": "team-a-fallback-internal",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4",
                     "api_key": "fake",
                     "mock_response": "fallback success from team-a",
@@ -6056,11 +6056,11 @@ async def test_team_scoped_model_fallback_to_global():
     Global models (no team_id on deployment) should be accessible as fallback
     targets for team-scoped requests.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "team-a-primary-internal",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-a",
                     "team_public_model_name": "primary-model",
@@ -6068,7 +6068,7 @@ async def test_team_scoped_model_fallback_to_global():
             },
             {
                 "model_name": "global-fallback",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4",
                     "api_key": "fake",
                     "mock_response": "global fallback success",
@@ -6096,11 +6096,11 @@ async def test_team_scoped_model_fallback_cross_team_blocked():
     When team-a's model fails and the fallback target is scoped to team-b,
     the router should NOT use it (team isolation).
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "team-a-primary-internal",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-a",
                     "team_public_model_name": "primary-model",
@@ -6108,7 +6108,7 @@ async def test_team_scoped_model_fallback_cross_team_blocked():
             },
             {
                 "model_name": "team-b-fallback-internal",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4",
                     "api_key": "fake",
                     "mock_response": "team-b response - should not reach here",
@@ -6122,7 +6122,7 @@ async def test_team_scoped_model_fallback_cross_team_blocked():
         fallbacks=[{"primary-model": ["fallback-model"]}],
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await router.acompletion(
             model="primary-model",
             messages=[{"role": "user", "content": "Hello"}],
@@ -6132,15 +6132,15 @@ async def test_team_scoped_model_fallback_cross_team_blocked():
 
 
 @pytest.mark.asyncio
-def _shared_ptu_deployment(model_name: str, deployment_id: str, **litellm_params: str) -> dict[str, object]:
+def _shared_ptu_deployment(model_name: str, deployment_id: str, **hangarllm_params: str) -> dict[str, object]:
     """A one-PTU Azure deployment whose whole reservation is team-a's share."""
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "azure/gpt-4.1",
             "api_key": "fake",
             "api_base": "https://ptu.example",
-            **litellm_params,
+            **hangarllm_params,
         },
         "model_info": {
             "id": deployment_id,
@@ -6157,14 +6157,14 @@ async def test_a_ptu_share_holders_failed_call_is_retried_on_its_shared_deployme
     """A shared PTU deployment is only servable to the teams holding a share, so the retry loop
     has to look it up as the calling team; looked up with no team it finds no healthy deployment
     and gives up after the first failure."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "true")
-    router = litellm.Router(
-        model_list=[_shared_ptu_deployment("gpt-4.1-ptu", "shared-ptu", mock_response="litellm.InternalServerError")],
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "true")
+    router = hangarllm.Router(
+        model_list=[_shared_ptu_deployment("gpt-4.1-ptu", "shared-ptu", mock_response="hangarllm.InternalServerError")],
         num_retries=2,
         retry_after=0,
     )
 
-    with pytest.raises(litellm.InternalServerError) as failed:
+    with pytest.raises(hangarllm.InternalServerError) as failed:
         await router.acompletion(
             model="gpt-4.1-ptu",
             messages=[{"role": "user", "content": "Hello"}],
@@ -6179,11 +6179,11 @@ def test_get_all_deployments_with_team_id():
     Test that _get_all_deployments with team_id can find deployments
     by team_public_model_name when the model_name is not in the index.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "internal-team-deployment",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake"},
+                "hangarllm_params": {"model": "gpt-4", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-x",
                     "team_public_model_name": "gpt-4",
@@ -6214,11 +6214,11 @@ def test_multiregion_team_deployments_unique_model_names():
     Verifies that _get_all_deployments returns ALL regional deployments
     for a team when queried by team_public_model_name.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "metis-claude-us-east-1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "aws_region_name": "us-east-1",
                     "api_key": "fake",
@@ -6230,7 +6230,7 @@ def test_multiregion_team_deployments_unique_model_names():
             },
             {
                 "model_name": "metis-claude-us-west-2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "aws_region_name": "us-west-2",
                     "api_key": "fake",
@@ -6275,11 +6275,11 @@ async def test_multiregion_team_failover_between_regions():
 
     This is the exact scenario Sean Glover from athenahealth will demonstrate.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "metis-claude-us-east-1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "api_key": "fake",
                     "mock_response": "response from us-east-1",
@@ -6291,7 +6291,7 @@ async def test_multiregion_team_failover_between_regions():
             },
             {
                 "model_name": "metis-claude-us-west-2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "api_key": "fake",
                     "mock_response": "response from us-west-2",
@@ -6323,18 +6323,18 @@ async def test_multiregion_team_failover_between_regions():
 
 
 def _router_with_two_deployments(blocked_flags):
-    import litellm
+    import hangarllm
 
     model_list = []
     for idx, blocked in enumerate(blocked_flags):
         model_list.append(
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": f"openai/gpt-4o-{idx}"},
+                "hangarllm_params": {"model": f"openai/gpt-4o-{idx}"},
                 "model_info": {"id": f"dep-{idx}", "blocked": blocked},
             }
         )
-    return litellm.Router(model_list=model_list)
+    return hangarllm.Router(model_list=model_list)
 
 
 def test_get_fully_blocked_model_names_marks_name_when_all_deployments_blocked():
@@ -6348,13 +6348,13 @@ def test_get_fully_blocked_model_names_keeps_name_when_partial_blocked():
 
 
 def test_get_fully_blocked_model_names_treats_missing_key_as_unblocked():
-    import litellm
+    import hangarllm
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "hangarllm_params": {"model": "openai/gpt-4o"},
                 "model_info": {"id": "dep-0"},
             }
         ]
@@ -6401,13 +6401,13 @@ async def test_health_probe_preserves_normal_caller_policy(
     strict_ids: tuple[str, ...],
 ) -> None:
     import time
-    from litellm.types.router import AllowedFailsPolicy, RouterRateLimitError
+    from hangarllm.types.router import AllowedFailsPolicy, RouterRateLimitError
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "health-group",
-                "litellm_params": {"model": "openai/gpt-5.6", "api_key": "test-only"},
+                "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "test-only"},
                 "model_info": {"id": model_id},
             }
             for model_id in ("dep-0", "dep-1")
@@ -6459,13 +6459,13 @@ async def test_async_get_fully_unhealthy_model_names_ignores_stale_state():
 
 @pytest.mark.asyncio
 async def test_async_get_fully_unhealthy_model_names_includes_team_alias():
-    import litellm
+    import hangarllm
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "hangarllm_params": {"model": "openai/gpt-4o"},
                 "model_info": {
                     "id": "dep-0",
                     "team_id": "team-1",
@@ -6483,7 +6483,7 @@ async def test_async_get_fully_unhealthy_model_names_includes_team_alias():
 
 @pytest.mark.asyncio
 async def test_async_get_fully_unhealthy_model_names_noop_with_allowed_fails_policy():
-    from litellm.types.router import AllowedFailsPolicy
+    from hangarllm.types.router import AllowedFailsPolicy
 
     router = _router_with_two_deployments([False, False])
     router.allowed_fails_policy = AllowedFailsPolicy(BadRequestErrorAllowedFails=1)
@@ -6508,10 +6508,10 @@ def test_public_get_available_deployment_skips_blocked_on_primary_path():
 
 
 def test_get_available_deployment_raises_when_addressed_dict_is_blocked():
-    import litellm
+    import hangarllm
 
     router = _router_with_two_deployments([True, True])
-    with pytest.raises(litellm.ServiceUnavailableError):
+    with pytest.raises(hangarllm.ServiceUnavailableError):
         router.get_available_deployment(model="dep-0", request_kwargs={})
 
 
@@ -6519,7 +6519,7 @@ def _cool_down(router: Router, *deployment_ids: str) -> None:
     for deployment_id in deployment_ids:
         router.cooldown_cache.add_deployment_to_cooldown(
             model_id=deployment_id,
-            original_exception=litellm.RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o"),
+            original_exception=hangarllm.RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o"),
             exception_status=429,
             cooldown_time=60,
         )
@@ -6535,7 +6535,7 @@ async def _select_deployment(router: Router, use_async: bool) -> None:
 @pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
 @pytest.mark.asyncio
 async def test_get_available_deployment_names_cooldown_when_every_deployment_is_cooled_down(use_async: bool):
-    from litellm.types.router import RouterErrors, RouterRateLimitError
+    from hangarllm.types.router import RouterErrors, RouterRateLimitError
 
     router: Final = _router_with_two_deployments([False, False])
     _cool_down(router, "dep-0", "dep-1")
@@ -6550,7 +6550,7 @@ async def test_get_available_deployment_names_cooldown_when_every_deployment_is_
 @pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
 @pytest.mark.asyncio
 async def test_get_available_deployment_keeps_generic_error_when_cooldown_is_partial(use_async: bool):
-    from litellm.types.router import RouterErrors, RouterRateLimitError
+    from hangarllm.types.router import RouterErrors, RouterRateLimitError
 
     router: Final = _router_with_two_deployments([False, True])
     _cool_down(router, "dep-0")
@@ -6562,14 +6562,14 @@ async def test_get_available_deployment_keeps_generic_error_when_cooldown_is_par
 
 
 def _router_with_two_pass_through_deployments(blocked_flags):
-    import litellm
+    import hangarllm
 
     model_list = []
     for idx, blocked in enumerate(blocked_flags):
         model_list.append(
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/gpt-4o-{idx}",
                     "api_key": "sk-fake-for-tests",
                     "use_in_pass_through": True,
@@ -6577,7 +6577,7 @@ def _router_with_two_pass_through_deployments(blocked_flags):
                 "model_info": {"id": f"pt-{idx}", "blocked": blocked},
             }
         )
-    return litellm.Router(model_list=model_list)
+    return hangarllm.Router(model_list=model_list)
 
 
 def test_get_available_deployment_for_pass_through_skips_blocked():
@@ -6587,21 +6587,21 @@ def test_get_available_deployment_for_pass_through_skips_blocked():
 
 
 def test_get_available_deployment_for_pass_through_raises_when_dict_blocked():
-    import litellm
+    import hangarllm
 
     router = _router_with_two_pass_through_deployments([True, True])
-    with pytest.raises(litellm.ServiceUnavailableError):
+    with pytest.raises(hangarllm.ServiceUnavailableError):
         router.get_available_deployment_for_pass_through(model="pt-0", request_kwargs={})
 
 
 def test_get_available_deployment_for_pass_through_names_cooldown_despite_healthy_non_pass_through():
-    from litellm.types.router import RouterRateLimitError
+    from hangarllm.types.router import RouterRateLimitError
 
     router: Final = _router_with_two_pass_through_deployments([False, False])
     router.add_deployment(
         Deployment(
             model_name="gpt-4o",
-            litellm_params=LiteLLM_Params(model="openai/gpt-4o-plain", api_key="sk-fake-for-tests"),
+            hangarllm_params=HangarLLM_Params(model="openai/gpt-4o-plain", api_key="sk-fake-for-tests"),
             model_info=ModelInfo(id="plain-0"),
         )
     )
@@ -6617,13 +6617,13 @@ def test_initialize_deployment_for_pass_through_keeps_bedrock_iam_deployment():
     Bedrock deployments using IAM/OIDC auth have no api_key; pass-through
     init must not raise and drop them from routing (#27728).
     """
-    import litellm
+    import hangarllm
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
                     "aws_role_name": "arn:aws:iam::123456789012:role/my-role",
                     "aws_session_name": "my-session",
@@ -6637,7 +6637,7 @@ def test_initialize_deployment_for_pass_through_keeps_bedrock_iam_deployment():
 
 
 def test_pass_through_deployment_api_key_resolves_via_get_credentials():
-    from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+    from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
         PassthroughEndpointRouter,
     )
 
@@ -6665,7 +6665,7 @@ def test_synchronous_text_completion_rejects_a_restricted_model_before_the_provi
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_base": "https://sync-router.invalid/v1",
                     "api_key": "unit-provider-key",
@@ -6687,7 +6687,7 @@ def test_synchronous_text_completion_rejects_a_restricted_model_before_the_provi
                 "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
             },
         )
-        with pytest.raises(litellm.BadRequestError, match="/v1/completions is not supported"):
+        with pytest.raises(hangarllm.BadRequestError, match="/v1/completions is not supported"):
             router.text_completion(model=model, prompt="test")
         assert provider.call_count == 0
 
@@ -6697,11 +6697,11 @@ def test_routable_deployments_leave_out_models_that_refuse_the_call_type() -> No
         model_list=[
             {
                 "model_name": "available",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "unit-provider-key"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "unit-provider-key"},
             },
             {
                 "model_name": "embed-only",
-                "litellm_params": {"model": "openai/text-embedding-3-small", "api_key": "unit-provider-key"},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_key": "unit-provider-key"},
                 "model_info": {"enforce_supported_endpoints": True, "supported_endpoints": ["/v1/embeddings"]},
             },
         ],
@@ -6732,7 +6732,7 @@ def test_routing_groups_legacy_property_forwards_to_public_attribute():
 
 
 class TestRouterRequestTimeoutPropagation:
-    """litellm_settings.request_timeout must act as an independent per-attempt timeout.
+    """hangarllm_settings.request_timeout must act as an independent per-attempt timeout.
 
     Regression for LIT-2369: request_timeout was shadowed by router_settings.timeout,
     so Bedrock (and other provider) calls fell back to the hardcoded 600s httpx
@@ -6740,11 +6740,11 @@ class TestRouterRequestTimeoutPropagation:
     """
 
     def _make_router(self, timeout=None, stream_timeout=None):
-        return litellm.Router(
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4",
                         "api_key": "sk-test",
                     },
@@ -6756,15 +6756,15 @@ class TestRouterRequestTimeoutPropagation:
 
     @pytest.fixture
     def explicit_request_timeout(self):
-        original_value = litellm.request_timeout
-        original_flag = litellm.request_timeout_explicitly_set
-        litellm.request_timeout = 300
-        litellm.request_timeout_explicitly_set = True
+        original_value = hangarllm.request_timeout
+        original_flag = hangarllm.request_timeout_explicitly_set
+        hangarllm.request_timeout = 300
+        hangarllm.request_timeout_explicitly_set = True
         try:
             yield 300
         finally:
-            litellm.request_timeout = original_value
-            litellm.request_timeout_explicitly_set = original_flag
+            hangarllm.request_timeout = original_value
+            hangarllm.request_timeout_explicitly_set = original_flag
 
     def test_request_timeout_stored_independently_when_both_set(self, explicit_request_timeout):
         router = self._make_router(timeout=330)
@@ -6772,17 +6772,17 @@ class TestRouterRequestTimeoutPropagation:
         assert router.request_timeout == 300
 
     def test_request_timeout_none_when_not_explicitly_configured(self):
-        original_value = litellm.request_timeout
-        original_flag = litellm.request_timeout_explicitly_set
-        litellm.request_timeout = litellm.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS
-        litellm.request_timeout_explicitly_set = False
+        original_value = hangarllm.request_timeout
+        original_flag = hangarllm.request_timeout_explicitly_set
+        hangarllm.request_timeout = hangarllm.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS
+        hangarllm.request_timeout_explicitly_set = False
         try:
             router = self._make_router(timeout=330)
             assert router.timeout == 330
             assert router.request_timeout is None
         finally:
-            litellm.request_timeout = original_value
-            litellm.request_timeout_explicitly_set = original_flag
+            hangarllm.request_timeout = original_value
+            hangarllm.request_timeout_explicitly_set = original_flag
 
 
 # ---------------------------------------------------------------------------
@@ -6796,11 +6796,11 @@ class TestAdvisorSubCallCooldown:
     callers to the same model group."""
 
     def _router(self):
-        return litellm.Router(
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": "claude-sonnet-5",
-                    "litellm_params": {"model": "bedrock/us.anthropic.claude-opus-4-8"},
+                    "hangarllm_params": {"model": "bedrock/us.anthropic.claude-opus-4-8"},
                     "model_info": {"id": "dep-1"},
                 }
             ],
@@ -6809,11 +6809,11 @@ class TestAdvisorSubCallCooldown:
     def _kwargs(self, exception):
         return {
             "exception": exception,
-            "litellm_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
+            "hangarllm_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
         }
 
     def _auth_error(self):
-        return litellm.AuthenticationError(
+        return hangarllm.AuthenticationError(
             message="x-api-key header is required",
             llm_provider="anthropic",
             model="claude-opus-4-8",
@@ -6835,7 +6835,7 @@ class TestAdvisorSubCallCooldown:
     def test_advisor_orchestration_failure_does_not_cool_down_deployment(self):
         from datetime import datetime
 
-        from litellm.router_utils.cooldown_handlers import (
+        from hangarllm.router_utils.cooldown_handlers import (
             mark_advisor_orchestration_failure,
         )
 
@@ -6850,16 +6850,16 @@ class TestAdvisorSubCallCooldown:
 
 class TestBackgroundResponseCostPollCooldown:
     def _router(self):
-        return litellm.Router(
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-4.1",
-                    "litellm_params": {"model": "openai/gpt-4.1"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1"},
                     "model_info": {"id": "dep-1"},
                 },
                 {
                     "model_name": "gpt-4.1",
-                    "litellm_params": {"model": "openai/gpt-4.1"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1"},
                     "model_info": {"id": "dep-2"},
                 },
             ],
@@ -6871,7 +6871,7 @@ class TestBackgroundResponseCostPollCooldown:
         return [entry[0] for entry in active]
 
     def _not_found(self):
-        return litellm.NotFoundError(
+        return hangarllm.NotFoundError(
             message="Response with id 'resp_gone' not found.", llm_provider="openai", model="gpt-4.1"
         )
 
@@ -6889,7 +6889,7 @@ class TestBackgroundResponseCostPollCooldown:
                 router,
                 {
                     "exception": self._not_found(),
-                    "litellm_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
+                    "hangarllm_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
                 },
             )
             is True
@@ -6902,8 +6902,8 @@ class TestBackgroundResponseCostPollCooldown:
         poll read says nothing about the deployment's health."""
         from datetime import datetime
 
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-        from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+        from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from hangarllm.router_utils.router_callbacks.track_deployment_metrics import (
             get_deployment_failures_for_current_minute,
         )
 
@@ -6913,9 +6913,9 @@ class TestBackgroundResponseCostPollCooldown:
             router.deployment_callback_on_failure(
                 {
                     "exception": self._not_found(),
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model_info": {"id": "dep-1"},
-                        "litellm_metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: poll_origin},
+                        "hangarllm_metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: poll_origin},
                     },
                 },
                 None,
@@ -6930,20 +6930,20 @@ class TestBackgroundResponseCostPollCooldown:
 
     @pytest.mark.asyncio
     async def test_cost_poll_non_404_still_cools_down_deployment(self):
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-        from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+        from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
         router = self._router()
         assert (
             self._deployment_callback_on_failure(
                 router,
                 {
-                    "exception": litellm.InternalServerError(
+                    "exception": hangarllm.InternalServerError(
                         message="upstream 500", llm_provider="openai", model="gpt-4.1"
                     ),
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model_info": {"id": "dep-1"},
-                        "litellm_metadata": {
+                        "hangarllm_metadata": {
                             INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
                         },
                     },
@@ -6955,8 +6955,8 @@ class TestBackgroundResponseCostPollCooldown:
 
     @pytest.mark.asyncio
     async def test_other_internal_origin_not_found_still_cools_down_deployment(self):
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-        from litellm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+        from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from hangarllm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
 
         router = self._router()
         assert (
@@ -6964,9 +6964,9 @@ class TestBackgroundResponseCostPollCooldown:
                 router,
                 {
                     "exception": self._not_found(),
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model_info": {"id": "dep-1"},
-                        "litellm_metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: AUTOROUTER_CLASSIFIER_CALL_ORIGIN},
+                        "hangarllm_metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: AUTOROUTER_CLASSIFIER_CALL_ORIGIN},
                     },
                 },
             )
@@ -6976,23 +6976,23 @@ class TestBackgroundResponseCostPollCooldown:
 
 
 class TestCallerTimeoutCooldown:
-    """A timeout the caller set (the proxy's `timeout` body field or x-litellm-timeout
+    """A timeout the caller set (the proxy's `timeout` body field or x-hangarllm-timeout
     header) comes back as a 408 whatever the deployment's health, so it must neither
     count toward allowed_fails nor bench the deployment. A 408 without that marker, or
     one that arrives before the caller's deadline could have fired, is the provider's
     and keeps cooling the deployment down."""
 
     def _router(self):
-        return litellm.Router(
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": "slow-model",
-                    "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
                     "model_info": {"id": "dep-1"},
                 },
                 {
                     "model_name": "slow-model",
-                    "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
                     "model_info": {"id": "dep-2"},
                 },
             ],
@@ -7002,16 +7002,16 @@ class TestCallerTimeoutCooldown:
         )
 
     def _kwargs(self, marker, started=None, ended=None):
-        exception = litellm.Timeout(message="Request timed out", model="gpt-5.6", llm_provider="openai")
+        exception = hangarllm.Timeout(message="Request timed out", model="gpt-5.6", llm_provider="openai")
         return {
             "exception": exception,
             "api_call_start_time": started,
             "end_time": ended,
-            "litellm_params": {"model_info": {"id": "dep-1"}, "metadata": {}, **marker},
+            "hangarllm_params": {"model_info": {"id": "dep-1"}, "metadata": {}, **marker},
         }
 
     def _fail_count(self, router):
-        from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+        from hangarllm.router_utils.router_callbacks.track_deployment_metrics import (
             get_deployment_failures_for_current_minute,
         )
 
@@ -7062,9 +7062,9 @@ class TestCallerTimeoutCooldown:
             seen.append(kwargs)
             recorded.set()
 
-        litellm.failure_callback.append(record)
+        hangarllm.failure_callback.append(record)
         try:
-            with pytest.raises(litellm.Timeout):
+            with pytest.raises(hangarllm.Timeout):
                 await router.acompletion(
                     model="slow-model",
                     messages=[{"role": "user", "content": "hello"}],
@@ -7074,15 +7074,15 @@ class TestCallerTimeoutCooldown:
                 )
             assert await asyncio.to_thread(recorded.wait, 5)
         finally:
-            litellm.failure_callback.remove(record)
-        assert seen[0]["litellm_params"]["client_side_timeout"] is True
+            hangarllm.failure_callback.remove(record)
+        assert seen[0]["hangarllm_params"]["client_side_timeout"] is True
         assert self._fail_count(router) == 0
         assert self._cooled_down_ids(router) == []
 
 
 def test_stream_chunks_have_generated_content_detects_text_and_non_text():
-    from litellm.router_rust.invoke.streaming import _stream_chunks_have_generated_content  # noqa: PLC2701
-    from litellm.types.utils import (
+    from hangarllm.router_rust.invoke.streaming import _stream_chunks_have_generated_content  # noqa: PLC2701
+    from hangarllm.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -7090,7 +7090,7 @@ def test_stream_chunks_have_generated_content_detects_text_and_non_text():
     )
 
     def _chunk(delta):
-        return litellm.ModelResponseStream(
+        return hangarllm.ModelResponseStream(
             id="chatcmpl-1",
             model="gpt-4",
             object="chat.completion.chunk",
@@ -7145,11 +7145,11 @@ def test_stream_chunks_have_generated_content_detects_text_and_non_text():
 
 
 def test_get_configured_token_limits_reads_deployment_model_info():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": 32000, "max_output_tokens": 8000},
             }
         ]
@@ -7159,11 +7159,11 @@ def test_get_configured_token_limits_reads_deployment_model_info():
 
 
 def test_get_configured_token_limits_returns_none_for_unset_or_unknown():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "no-limits-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -7173,11 +7173,11 @@ def test_get_configured_token_limits_returns_none_for_unset_or_unknown():
 
 
 def test_get_configured_token_limits_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "hangarllm_params": {"model": "bedrock/*"},
                 "model_info": {"max_input_tokens": 12345},
             }
         ]
@@ -7189,11 +7189,11 @@ def test_get_configured_token_limits_skips_wildcard_pattern_matching():
 
 def test_get_configured_token_limits_treats_malformed_values_as_absent():
     malformed = ["", "unlimited", "128,000", [128000], {"max": 128000}, True]
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": f"bad-limit-{i}",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": bad, "max_output_tokens": bad},
             }
             for i, bad in enumerate(malformed)
@@ -7205,11 +7205,11 @@ def test_get_configured_token_limits_treats_malformed_values_as_absent():
 
 
 def test_get_configured_token_limits_coerces_numeric_strings():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "quoted-limits-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": "32000", "max_output_tokens": "8000"},
             }
         ]
@@ -7218,14 +7218,14 @@ def test_get_configured_token_limits_coerces_numeric_strings():
     assert router.get_configured_token_limits("quoted-limits-model") == (32000, 8000)
 
 
-def test_get_model_listing_info_prefers_base_model_over_litellm_params_model():
+def test_get_model_listing_info_prefers_base_model_over_hangarllm_params_model():
     """The cost-map key comes from base_model when set, so a deployment pointing at an
     opaque backend name still resolves the real catalog entry."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-opus-5",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "hangarllm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
                 "model_info": {"base_model": "eu.anthropic.claude-opus-5"},
             }
         ]
@@ -7236,12 +7236,12 @@ def test_get_model_listing_info_prefers_base_model_over_litellm_params_model():
     assert info.cost_map_keys == ("eu.anthropic.claude-opus-5",)
 
 
-def test_get_model_listing_info_falls_back_to_litellm_params_model():
-    router = litellm.Router(
+def test_get_model_listing_info_falls_back_to_hangarllm_params_model():
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-opus-5",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "hangarllm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
             }
         ]
     )
@@ -7253,11 +7253,11 @@ def test_get_model_listing_info_falls_back_to_litellm_params_model():
 
 def test_get_model_listing_info_ignores_blank_base_model():
     """A base_model set to an empty string is absent, not a cost-map key."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-opus-5",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "hangarllm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
                 "model_info": {"base_model": ""},
             }
         ]
@@ -7269,11 +7269,11 @@ def test_get_model_listing_info_ignores_blank_base_model():
 
 
 def test_get_model_listing_info_returns_none_for_unknown_name():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "no-limits-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -7282,11 +7282,11 @@ def test_get_model_listing_info_returns_none_for_unknown_name():
 
 
 def test_get_model_listing_info_carries_configured_limits():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": 32000, "max_output_tokens": 8000},
             }
         ]
@@ -7299,15 +7299,15 @@ def test_get_model_listing_info_carries_configured_limits():
 
 def test_get_model_listing_info_dedupes_interchangeable_deployments():
     """The ordinary group is N deployments of one model, so it yields exactly one key."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-a"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-a"},
             },
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-b"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-b"},
             },
         ]
     )
@@ -7318,15 +7318,15 @@ def test_get_model_listing_info_dedupes_interchangeable_deployments():
 
 
 def test_get_model_listing_info_collects_every_model_in_a_mixed_group():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "house-claude",
-                "litellm_params": {"model": "anthropic/claude-3-haiku-20240307"},
+                "hangarllm_params": {"model": "anthropic/claude-3-haiku-20240307"},
             },
             {
                 "model_name": "house-claude",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "hangarllm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
             },
         ]
     )
@@ -7341,16 +7341,16 @@ def test_get_model_listing_info_collects_every_model_in_a_mixed_group():
 
 def test_get_model_listing_info_reports_widest_configured_limits_in_a_mixed_group():
     """Matches how get_model_group_info aggregates for the Admin UI, so the two agree."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "house-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": 32000, "max_output_tokens": 4096},
             },
             {
                 "model_name": "house-model",
-                "litellm_params": {"model": "openai/another-unmapped-model"},
+                "hangarllm_params": {"model": "openai/another-unmapped-model"},
                 "model_info": {"max_input_tokens": 128000, "max_output_tokens": 16384},
             },
         ]
@@ -7361,13 +7361,13 @@ def test_get_model_listing_info_reports_widest_configured_limits_in_a_mixed_grou
     assert (info.max_input_tokens, info.max_output_tokens) == (128000, 16384)
 
 
-def test_get_model_listing_info_reads_base_model_from_litellm_params():
+def test_get_model_listing_info_reads_base_model_from_hangarllm_params():
     """base_model resolution mirrors get_router_model_info, which also accepts it there."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-deployment",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/my-azure-deployment-name",
                     "base_model": "azure/gpt-4o",
                     "api_key": "sk-a",
@@ -7383,11 +7383,11 @@ def test_get_model_listing_info_reads_base_model_from_litellm_params():
 
 
 def test_get_model_listing_info_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "hangarllm_params": {"model": "bedrock/*"},
                 "model_info": {"max_input_tokens": 12345},
             }
         ]
@@ -7398,11 +7398,11 @@ def test_get_model_listing_info_skips_wildcard_pattern_matching():
 
 
 def test_get_configured_mode_reads_deployment_model_info():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "tts-model",
-                "litellm_params": {"model": "openai/some-unmapped-tts-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-tts-model"},
                 "model_info": {"mode": "audio_speech"},
             }
         ]
@@ -7412,11 +7412,11 @@ def test_get_configured_mode_reads_deployment_model_info():
 
 
 def test_get_configured_mode_returns_none_for_unset_or_unknown():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "no-mode-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -7426,11 +7426,11 @@ def test_get_configured_mode_returns_none_for_unset_or_unknown():
 
 
 def test_get_configured_mode_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "hangarllm_params": {"model": "bedrock/*"},
                 "model_info": {"mode": "chat"},
             }
         ]
@@ -7442,11 +7442,11 @@ def test_get_configured_mode_skips_wildcard_pattern_matching():
 
 def test_get_configured_mode_treats_malformed_values_as_absent():
     malformed = ["", "   ", 12345, ["chat"], {"mode": "chat"}, True]
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": f"bad-mode-{i}",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"mode": bad},
             }
             for i, bad in enumerate(malformed)
@@ -7458,11 +7458,11 @@ def test_get_configured_mode_treats_malformed_values_as_absent():
 
 
 def test_get_configured_display_name_reads_deployment_model_info():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "Kimi K3-claude-compatible",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"display_name": "Kimi K3"},
             }
         ]
@@ -7472,11 +7472,11 @@ def test_get_configured_display_name_reads_deployment_model_info():
 
 
 def test_get_configured_display_name_returns_none_for_unset_or_unknown():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "no-display-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -7486,11 +7486,11 @@ def test_get_configured_display_name_returns_none_for_unset_or_unknown():
 
 
 def test_get_configured_display_name_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "hangarllm_params": {"model": "bedrock/*"},
                 "model_info": {"display_name": "Bedrock"},
             }
         ]
@@ -7505,11 +7505,11 @@ def test_get_configured_display_name_skips_wildcard_pattern_matching():
     [["ultrafast"], ["priority", {"id": "ultrafast", "name": "Ultrafast", "description": "Fastest"}], [], "not-a-list"],
 )
 def test_get_configured_service_tiers_returns_the_deployment_model_info_value_as_set(configured):
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra"},
                 "model_info": {"service_tiers": configured},
             }
         ]
@@ -7519,20 +7519,20 @@ def test_get_configured_service_tiers_returns_the_deployment_model_info_value_as
 
 
 def test_get_configured_service_tiers_returns_one_value_per_deployment_in_model_list_order():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra"},
                 "model_info": {"service_tiers": ["ultrafast"]},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://a.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://a.example"},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://b.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://b.example"},
                 "model_info": {"service_tiers": ["priority", "ultrafast"]},
             },
         ]
@@ -7542,11 +7542,11 @@ def test_get_configured_service_tiers_returns_one_value_per_deployment_in_model_
 
 
 def test_get_configured_service_tiers_returns_none_for_an_unset_deployment_and_nothing_for_an_unknown_name():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "no-tiers-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -7556,11 +7556,11 @@ def test_get_configured_service_tiers_returns_none_for_an_unset_deployment_and_n
 
 
 def test_get_configured_service_tiers_does_not_apply_a_wildcard_deployment_to_matched_names():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*"},
+                "hangarllm_params": {"model": "openai/*"},
                 "model_info": {"service_tiers": ["ultrafast"]},
             }
         ]
@@ -7570,21 +7570,21 @@ def test_get_configured_service_tiers_does_not_apply_a_wildcard_deployment_to_ma
 
 
 def test_get_configured_service_tiers_reads_only_the_deployments_a_request_can_route_to():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra"},
                 "model_info": {"service_tiers": ["ultrafast"]},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://paused.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://paused.example"},
                 "model_info": {"blocked": True},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
                 "model_info": {"team_id": "team-2"},
             },
         ]
@@ -7596,7 +7596,7 @@ def test_get_configured_service_tiers_reads_only_the_deployments_a_request_can_r
 
 
 @pytest.mark.parametrize(
-    "litellm_params, model_info, expected",
+    "hangarllm_params, model_info, expected",
     [
         ({"model": "anthropic/claude-fable-5-1"}, None, True),
         ({"model": "bedrock/invoke/us.anthropic.claude-fable-5-1"}, None, True),
@@ -7617,22 +7617,22 @@ def test_get_configured_service_tiers_reads_only_the_deployments_a_request_can_r
     ],
 )
 def test_get_search_tool_support_defaults_from_the_provider_and_lets_model_info_override(
-    litellm_params: dict[str, str], model_info: dict[str, bool] | None, expected: bool | None
+    hangarllm_params: dict[str, str], model_info: dict[str, bool] | None, expected: bool | None
 ):
-    deployment: Final = {"model_name": "codex-model", "litellm_params": litellm_params}
-    router: Final = litellm.Router(model_list=[{**deployment, "model_info": model_info} if model_info else deployment])
+    deployment: Final = {"model_name": "codex-model", "hangarllm_params": hangarllm_params}
+    router: Final = hangarllm.Router(model_list=[{**deployment, "model_info": model_info} if model_info else deployment])
 
     assert router.get_search_tool_support("codex-model") == (expected,)
 
 
 def test_get_search_tool_support_reports_each_routable_deployment_of_the_group():
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "mixed", "litellm_params": {"model": "anthropic/claude-fable-5-1"}},
-            {"model_name": "mixed", "litellm_params": {"model": "openai/gpt-6-astra"}},
+            {"model_name": "mixed", "hangarllm_params": {"model": "anthropic/claude-fable-5-1"}},
+            {"model_name": "mixed", "hangarllm_params": {"model": "openai/gpt-6-astra"}},
             {
                 "model_name": "mixed",
-                "litellm_params": {"model": "anthropic/claude-fable-5-1", "api_base": "https://paused.example"},
+                "hangarllm_params": {"model": "anthropic/claude-fable-5-1", "api_base": "https://paused.example"},
                 "model_info": {"blocked": True, "supports_search_tool": False},
             },
         ]
@@ -7669,7 +7669,7 @@ async def test_search_tool_catalog_lookup_needs_no_credentials(
         else {"model": f"{provider}/catalog-model"}
     )
 
-    assert _search_tool_support({"model_name": "catalog-model", "litellm_params": params}) is None
+    assert _search_tool_support({"model_name": "catalog-model", "hangarllm_params": params}) is None
     assert len(respx_mock.calls) == 0
 
 
@@ -7683,8 +7683,8 @@ async def test_search_tool_catalog_lookup_needs_no_credentials(
     ids=["string-alias", "item-alias", "malformed-alias-is-itself"],
 )
 def test_routable_model_group_is_the_alias_target_else_the_name_itself(alias_value, expected_group):
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-6-astra", "litellm_params": {"model": "openai/gpt-6-astra"}}],
+    router = hangarllm.Router(
+        model_list=[{"model_name": "gpt-6-astra", "hangarllm_params": {"model": "openai/gpt-6-astra"}}],
         model_group_alias={"gpt-6": alias_value},
     )
 
@@ -7694,16 +7694,16 @@ def test_routable_model_group_is_the_alias_target_else_the_name_itself(alias_val
 
 
 def test_get_configured_service_tiers_reads_an_alias_off_its_target_deployments():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra"},
                 "model_info": {"service_tiers": ["ultrafast"]},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_base": "https://team-2.example"},
                 "model_info": {"team_id": "team-2", "service_tiers": ["priority"]},
             },
         ],
@@ -7717,34 +7717,34 @@ def test_get_configured_service_tiers_reads_an_alias_off_its_target_deployments(
 
 
 def _router_with_team_owned_deployments():
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "owned-by-teams",
-                "litellm_params": {"model": "openai/gpt-5.5"},
+                "hangarllm_params": {"model": "openai/gpt-5.5"},
                 "model_info": {"team_id": "team-1", "service_tiers": ["priority"]},
             },
             {
                 "model_name": "owned-by-teams",
-                "litellm_params": {"model": "openai/paused-model"},
+                "hangarllm_params": {"model": "openai/paused-model"},
                 "model_info": {"team_id": "team-2", "blocked": True, "service_tiers": ["paused"]},
             },
             {
                 "model_name": "owned-by-teams",
-                "litellm_params": {"model": "openai/team-2-model"},
+                "hangarllm_params": {"model": "openai/team-2-model"},
                 "model_info": {"team_id": "team-2", "service_tiers": ["flex"]},
             },
             {
                 "model_name": "owned-and-shared",
-                "litellm_params": {"model": "openai/team-1-model"},
+                "hangarllm_params": {"model": "openai/team-1-model"},
                 "model_info": {"team_id": "team-1", "service_tiers": ["priority"]},
             },
             {
                 "model_name": "owned-and-shared",
-                "litellm_params": {"model": "openai/shared-model"},
+                "hangarllm_params": {"model": "openai/shared-model"},
                 "model_info": {"service_tiers": ["flex"]},
             },
-            {"model_name": "openai/*", "litellm_params": {"model": "openai/*"}},
+            {"model_name": "openai/*", "hangarllm_params": {"model": "openai/*"}},
         ],
         model_group_alias={"nickname": "owned-by-teams"},
     )
@@ -7776,18 +7776,18 @@ def test_upstream_model_and_service_tiers_are_read_off_the_deployments_the_team_
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "provider"),
+    ("hangarllm_params", "provider"),
     [
         ({"model": "us.openai.gpt-6.1-sol", "custom_llm_provider": "bedrock"}, "bedrock"),
         ({"model": "bedrock_mantle/openai.gpt-6.1-sol"}, "bedrock_mantle"),
         ({"model": "gpt-6.1-sol"}, None),
     ],
 )
-def test_the_upstream_provider_is_the_one_the_routable_deployment_declares(litellm_params, provider):
-    router = litellm.Router(
+def test_the_upstream_provider_is_the_one_the_routable_deployment_declares(hangarllm_params, provider):
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "sol", "litellm_params": litellm_params, "model_info": {"team_id": "team-1"}},
-            {"model_name": "sol", "litellm_params": {"model": "azure/sol-deployment"}, "model_info": {"team_id": "t2"}},
+            {"model_name": "sol", "hangarllm_params": hangarllm_params, "model_info": {"team_id": "team-1"}},
+            {"model_name": "sol", "hangarllm_params": {"model": "azure/sol-deployment"}, "model_info": {"team_id": "t2"}},
         ]
     )
 
@@ -7798,11 +7798,11 @@ def test_the_upstream_provider_is_the_one_the_routable_deployment_declares(litel
 
 def test_get_configured_display_name_treats_malformed_values_as_absent():
     malformed = ["", "   ", 12345, ["Kimi K3"], {"name": "Kimi K3"}, True]
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": f"bad-display-{i}",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"display_name": bad},
             }
             for i, bad in enumerate(malformed)
@@ -7825,22 +7825,22 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
         model = kwargs["model"]
         attempted_models.append(model)
         if model.startswith("azure/"):
-            raise litellm.BadRequestError(
+            raise hangarllm.BadRequestError(
                 message="Error code: 400 - {'error': {'code': 'quotaExceeded'}}",
                 model=model,
                 llm_provider="azure",
             )
-        raise litellm.BadRequestError(
+        raise hangarllm.BadRequestError(
             message=completion_window_error,
             model=model,
             llm_provider="openai",
         )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "my-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-owning",
                     "order": 1,
@@ -7849,7 +7849,7 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
             },
             {
                 "model_name": "my-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini-backup",
                     "api_key": "sk-owning",
                     "order": 2,
@@ -7858,7 +7858,7 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
             },
             {
                 "model_name": "my-azure-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4o-mini",
                     "api_key": "sk-fallback",
                     "api_base": "https://fallback.openai.azure.com",
@@ -7871,8 +7871,8 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
         num_retries=0,
     )
 
-    with patch.object(litellm, "acreate_batch", new=_acreate_batch):
-        with pytest.raises(litellm.BadRequestError) as raised:
+    with patch.object(hangarllm, "acreate_batch", new=_acreate_batch):
+        with pytest.raises(hangarllm.BadRequestError) as raised:
             await router.acreate_batch(
                 model="my-gpt",
                 input_file_id="file-owned-by-my-gpt",
@@ -7888,7 +7888,7 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
 def _azure_sku_deployment(model_group: str, sku_host: str, mode: str, **model_info: object) -> dict[str, object]:
     return {
         "model_name": model_group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"azure/{sku_host}",
             "api_base": f"https://{sku_host}.openai.azure.com",
             "api_key": "dummy-key",
@@ -7921,7 +7921,7 @@ async def _create_batches(router: Router, model_group: str, attempts: int) -> No
 
 def _azure_chat_row_with_provider_param() -> dict[str, object]:
     row: Final = _azure_sku_deployment("gpt-mixed", "chat-sku", "chat")
-    return {**row, "litellm_params": {**row["litellm_params"], "model": "chat-sku", "custom_llm_provider": "azure"}}
+    return {**row, "hangarllm_params": {**row["hangarllm_params"], "model": "chat-sku", "custom_llm_provider": "azure"}}
 
 
 _AZURE_CHAT_ROWS: Final = {
@@ -7942,8 +7942,8 @@ async def test_acreate_batch_on_a_mixed_group_only_reaches_batch_deployments(
     """Azure answers 400 invalid_deployment_type when a batch is created on a GlobalStandard
     (chat) deployment, so a group mixing chat and batch deployments must send every batch
     create to the deployment that /model_group/info names as the one listing /v1/batch."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             build_chat_row(),
             _azure_sku_deployment("gpt-mixed", "batch-sku", "batch"),
@@ -7971,7 +7971,7 @@ async def test_acreate_batch_on_a_mixed_group_only_reaches_batch_deployments(
 def _azure_wildcard_deployment(sku_host: str, mode: str) -> dict[str, object]:
     return {
         "model_name": "mixed-wild/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "azure/*",
             "api_base": f"https://{sku_host}.openai.azure.com",
             "api_key": "dummy-key",
@@ -7987,8 +7987,8 @@ async def test_acreate_batch_on_a_mixed_wildcard_group_only_reaches_batch_deploy
 ):
     """A wildcard group resolves its deployments before the named-group path does, and its batch
     creates must still only reach the deployments declared with model_info.mode batch."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[_azure_wildcard_deployment("chat-sku", "chat"), _azure_wildcard_deployment("batch-sku", "batch")],
         num_retries=0,
     )
@@ -8015,8 +8015,8 @@ async def test_chat_calls_after_a_batch_create_still_use_every_deployment_in_the
 ):
     """Only the batch create itself is narrowed to mode batch deployments. Chat calls the same task makes
     afterwards keep load balancing across the whole group."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             _azure_sku_deployment("gpt-mixed", "chat-sku", "chat", id="chat-deployment"),
             _azure_sku_deployment("gpt-mixed", "batch-sku", "batch", id="batch-deployment"),
@@ -8048,8 +8048,8 @@ async def test_acreate_batch_on_a_group_without_batch_deployments_still_uses_eve
 ):
     """Bedrock and OpenAI batch through the same deployment that serves chat, so a group with
     no mode batch deployment keeps load balancing batch creates across all of them."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             _azure_sku_deployment("gpt-chat-only", "first-chat-sku", "chat"),
             _azure_sku_deployment("gpt-chat-only", "second-chat-sku", "chat"),
@@ -8078,8 +8078,8 @@ async def test_acreate_batch_prefers_only_the_batch_deployments_the_caller_may_u
 ):
     """A batch deployment owned by one team must not take a mixed group's batch creates away from callers
     outside that team, who still reach the group's shared deployments."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             _azure_sku_deployment("gpt-mixed", "chat-sku", "chat"),
             _azure_sku_deployment("gpt-mixed", "batch-sku", "batch", team_id="team-a"),
@@ -8113,8 +8113,8 @@ async def test_acreate_batch_on_a_legacy_routing_strategy_keeps_shared_deploymen
 ):
     """usage-based-routing picks through the sync path, which keeps every team's deployments, so a batch deployment
     owned by one team must not pull the creates of callers outside that team onto its credentials."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             _azure_sku_deployment("gpt-mixed", "chat-sku", "chat"),
             _azure_sku_deployment("gpt-mixed", "batch-sku", "batch", team_id="team-a"),
@@ -8180,8 +8180,8 @@ async def test_acreate_batch_on_a_mixed_group_reaches_chat_as_on_main_while_its_
 ):
     """While the batch deployment cools down, a create goes where main sends it, so the caller keeps getting
     Azure's 400 instead of a router 429 that main never returned for this request."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             _azure_sku_deployment("gpt-mixed", "chat-sku", "chat"),
             _azure_sku_deployment("gpt-mixed", "batch-sku", "batch"),
@@ -8206,13 +8206,13 @@ async def test_acreate_batch_with_tags_that_match_only_the_chat_deployment_reach
 ):
     """Tag routing runs before the batch filter, so tags that leave only the chat deployment get Azure's 400 as
     on main instead of a router error saying no deployment matches the tags."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     chat: Final = _azure_sku_deployment("gpt-mixed", "chat-sku", "chat")
     batch: Final = _azure_sku_deployment("gpt-mixed", "batch-sku", "batch")
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {**chat, "litellm_params": {**chat["litellm_params"], "tags": ["chat-pin"]}},
-            {**batch, "litellm_params": {**batch["litellm_params"], "tags": ["batch-pin"]}},
+            {**chat, "hangarllm_params": {**chat["hangarllm_params"], "tags": ["chat-pin"]}},
+            {**batch, "hangarllm_params": {**batch["hangarllm_params"], "tags": ["batch-pin"]}},
         ],
         enable_tag_filtering=True,
         num_retries=0,
@@ -8231,14 +8231,14 @@ async def test_acreate_batch_with_tags_that_match_only_the_chat_deployment_reach
                 input_file_id="file-batch-input",
                 endpoint="/v1/chat/completions",
                 completion_window="24h",
-                litellm_metadata={"tags": ["chat-pin"]},
+                hangarllm_metadata={"tags": ["chat-pin"]},
             )
         await router.acreate_batch(
             model="gpt-mixed",
             input_file_id="file-batch-input",
             endpoint="/v1/chat/completions",
             completion_window="24h",
-            litellm_metadata={"tags": ["batch-pin"]},
+            hangarllm_metadata={"tags": ["batch-pin"]},
         )
 
     assert (chat_route.call_count, batch_route.call_count) == (1, 1)
@@ -8247,7 +8247,7 @@ async def test_acreate_batch_with_tags_that_match_only_the_chat_deployment_reach
 def _openai_deployment(model_group: str, host: str, mode: str, **model_info: object) -> dict[str, object]:
     return {
         "model_name": model_group,
-        "litellm_params": {"model": "openai/gpt-5.4-mini", "api_base": f"https://{host}/v1", "api_key": "dummy-key"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_base": f"https://{host}/v1", "api_key": "dummy-key"},
         "model_info": {"mode": mode, **model_info},
     }
 
@@ -8258,8 +8258,8 @@ async def test_acreate_batch_on_an_openai_group_falls_back_to_chat_while_its_bat
 ):
     """OpenAI runs batches on the deployment that serves chat, so only Azure groups skip chat deployments for
     batch creates and an OpenAI group keeps serving them while its batch deployment cools down."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             _openai_deployment("gpt-mixed", "chat.openai.test", "chat"),
             _openai_deployment("gpt-mixed", "batch.openai.test", "batch"),
@@ -8281,15 +8281,15 @@ async def test_acreate_batch_on_an_openai_group_falls_back_to_chat_while_its_bat
 async def test_acreate_batch_request_bedrock_tags_override_deployment_tags():
     import httpx
 
-    from litellm.llms.bedrock.common_utils import CommonBatchFilesUtils
+    from hangarllm.llms.bedrock.common_utils import CommonBatchFilesUtils
 
     deployment_tags = [{"key": "application", "value": "config-level"}]
     request_tags = [{"key": "application", "value": "request-level"}]
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.anthropic.claude-sonnet-5",
                     "aws_batch_role_arn": "arn:aws:iam::123:role/batch-role",
                     "aws_region_name": "us-west-2",
@@ -8318,7 +8318,7 @@ async def test_acreate_batch_request_bedrock_tags_override_deployment_tags():
             return_value=({"Authorization": "signed"}, b"{}"),
         ) as mock_sign,
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client",
+            "hangarllm.llms.custom_httpx.llm_http_handler.get_async_httpx_client",
             return_value=mock_client,
         ),
     ):
@@ -8347,20 +8347,20 @@ async def test_avector_store_search_injects_router():
     SDK search call so provider transforms can resolve router-managed
     embedding models (e.g. S3 Vectors query embeddings).
     """
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from hangarllm.types.vector_stores import VectorStoreSearchResponse
 
     expected_response = VectorStoreSearchResponse(object="vector_store.search_results.page", search_query="q", data=[])
     mock_asearch = AsyncMock(return_value=expected_response)
     # Router.__init__ binds asearch via a local import, so patch the module
     # attribute before constructing the Router.
     with patch(
-        "litellm.vector_stores.main.asearch", new=mock_asearch
+        "hangarllm.vector_stores.main.asearch", new=mock_asearch
     ):  # test-quality-ok: the SDK call is the only place the injected router kwarg is observable
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                    "hangarllm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
                 }
             ]
         )
@@ -8381,16 +8381,16 @@ async def test_avector_store_create_does_not_inject_router():
     mock_acreate = AsyncMock(return_value=expected_response)
     # avector_store_create(model=None) resolves acreate via a local import at
     # call time, so patching after Router construction works here.
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
             }
         ]
     )
     with patch(
-        "litellm.vector_stores.main.acreate", new=mock_acreate
+        "hangarllm.vector_stores.main.acreate", new=mock_acreate
     ):  # test-quality-ok: the SDK call is the only place a leaked router kwarg would surface
         create_response = await router.avector_store_create(model=None, custom_llm_provider="openai")
 
@@ -8405,20 +8405,20 @@ def test_vector_store_search_injects_router():
     the router down to the SDK search call so provider transforms can resolve
     router-managed embedding models, same as avector_store_search.
     """
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from hangarllm.types.vector_stores import VectorStoreSearchResponse
 
     expected_response = VectorStoreSearchResponse(object="vector_store.search_results.page", search_query="q", data=[])
     mock_search = MagicMock(return_value=expected_response)
     # Router.__init__ binds search via a local import, so patch the module
     # attribute before constructing the Router.
     with patch(
-        "litellm.vector_stores.main.search", new=mock_search
+        "hangarllm.vector_stores.main.search", new=mock_search
     ):  # test-quality-ok: the SDK call is the only place the injected router kwarg is observable
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                    "hangarllm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
                 }
             ]
         )
@@ -8437,13 +8437,13 @@ def test_vector_store_create_does_not_inject_router():
     # Router.__init__ binds create via a local import, so patch the module
     # attribute before constructing the Router.
     with patch(
-        "litellm.vector_stores.main.create", new=mock_create
+        "hangarllm.vector_stores.main.create", new=mock_create
     ):  # test-quality-ok: the SDK call is the only place a leaked router kwarg would surface
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                    "hangarllm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
                 }
             ]
         )
@@ -8479,14 +8479,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         }
 
     @classmethod
-    def _router_with_complexity_router(cls, default_model: str = "gpt-4o") -> "litellm.Router":
-        return litellm.Router(
+    def _router_with_complexity_router(cls, default_model: str = "gpt-4o") -> "hangarllm.Router":
+        return hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "gpt-4o-mini"}},
                 {
                     "model_name": "smart-router",
-                    "litellm_params": cls._complexity_router_params(default_model),
+                    "hangarllm_params": cls._complexity_router_params(default_model),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -8494,18 +8494,18 @@ class TestPreRoutingStrategyRegistryLifecycle:
         )
 
     @staticmethod
-    def _model_names(router: "litellm.Router") -> list:
+    def _model_names(router: "hangarllm.Router") -> list:
         return [model["model_name"] for model in router.model_list]
 
     def test_upsert_of_edited_router_keeps_it_routable(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         router = self._router_with_complexity_router()
 
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="smart-router",
-                litellm_params=LiteLLM_Params(**self._complexity_router_params("gpt-4o-mini")),
+                hangarllm_params=HangarLLM_Params(**self._complexity_router_params("gpt-4o-mini")),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -8517,7 +8517,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert registered[0].strategy.config.default_model == "gpt-4o-mini"
 
     def test_unchanged_upsert_leaves_router_untouched(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         router = self._router_with_complexity_router()
         strategy_before = router.complexity_routers["smart-router"][0].strategy
@@ -8526,7 +8526,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
             router.upsert_deployment(
                 deployment=Deployment(
                     model_name="smart-router",
-                    litellm_params=LiteLLM_Params(**self._complexity_router_params("gpt-4o")),
+                    hangarllm_params=HangarLLM_Params(**self._complexity_router_params("gpt-4o")),
                     model_info=ModelInfo(id="router-1", db_model=True),
                 )
             )
@@ -8535,7 +8535,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert router.complexity_routers["smart-router"][0].strategy is strategy_before
 
     def test_delete_frees_the_name_for_a_new_router(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         router = self._router_with_complexity_router()
 
@@ -8545,7 +8545,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.add_deployment(
             deployment=Deployment(
                 model_name="smart-router",
-                litellm_params=LiteLLM_Params(**self._complexity_router_params("gpt-4o-mini")),
+                hangarllm_params=HangarLLM_Params(**self._complexity_router_params("gpt-4o-mini")),
                 model_info=ModelInfo(id="router-2", db_model=True),
             )
         )
@@ -8554,18 +8554,18 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert router.complexity_routers["smart-router"][0].strategy.config.default_model == "gpt-4o-mini"
 
     def test_delete_only_frees_the_matching_tag_slot(self):
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "gpt-4o-mini"}},
                 {
                     "model_name": "shared-router",
-                    "litellm_params": self._complexity_router_params("gpt-4o", tags=["team-a"]),
+                    "hangarllm_params": self._complexity_router_params("gpt-4o", tags=["team-a"]),
                     "model_info": {"id": "router-a"},
                 },
                 {
                     "model_name": "shared-router",
-                    "litellm_params": self._complexity_router_params("gpt-4o-mini", tags=["team-b"]),
+                    "hangarllm_params": self._complexity_router_params("gpt-4o-mini", tags=["team-b"]),
                     "model_info": {"id": "router-b"},
                 },
             ],
@@ -8580,18 +8580,18 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert remaining[0].tags == ("team-b",)
 
     def test_delete_of_regular_model_preserves_router_sharing_its_name(self):
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "gpt-4o-mini"}},
                 {
                     "model_name": "shared-name",
-                    "litellm_params": self._complexity_router_params("gpt-4o"),
+                    "hangarllm_params": self._complexity_router_params("gpt-4o"),
                     "model_info": {"id": "router-1"},
                 },
                 {
                     "model_name": "shared-name",
-                    "litellm_params": {"model": "openai/gpt-4o"},
+                    "hangarllm_params": {"model": "openai/gpt-4o"},
                     "model_info": {"id": "regular-1"},
                 },
             ],
@@ -8607,7 +8607,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         """Adaptive routers are built by set_model_list()'s deferred pass, not by
         add_deployment(), so releasing the slot on edit must be paired with a rebuild -
         otherwise the edit silently turns adaptive routing off."""
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         def adaptive_params(available_models: list) -> dict:
             return {
@@ -8615,13 +8615,13 @@ class TestPreRoutingStrategyRegistryLifecycle:
                 "adaptive_router_config": {"available_models": available_models},
             }
 
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "adaptive-router",
-                    "litellm_params": adaptive_params(["gpt-4o-mini"]),
+                    "hangarllm_params": adaptive_params(["gpt-4o-mini"]),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -8632,7 +8632,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="adaptive-router",
-                litellm_params=LiteLLM_Params(**adaptive_params(["gpt-4o", "gpt-4o-mini"])),
+                hangarllm_params=HangarLLM_Params(**adaptive_params(["gpt-4o", "gpt-4o-mini"])),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -8647,8 +8647,8 @@ class TestPreRoutingStrategyRegistryLifecycle:
         and adaptive_routers under the same (model_name, tags). Releasing only the first
         match leaves the adaptive strategy live, so a deleted alias stays routable and its
         post-call hook keeps recording."""
-        import litellm as litellm_module
-        from litellm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
+        import hangarllm as hangarllm_module
+        from hangarllm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
 
         params = {
             "model": "auto_router/complexity_router",
@@ -8658,13 +8658,13 @@ class TestPreRoutingStrategyRegistryLifecycle:
             },
             "complexity_router_default_model": "gpt-4o",
         }
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "hybrid-router",
-                    "litellm_params": params,
+                    "hangarllm_params": params,
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -8672,14 +8672,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         )
         assert "hybrid-router" in router.complexity_routers
         assert "hybrid-router" in router.adaptive_routers
-        hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
+        hooks = hangarllm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
         assert len(hooks) == 1
 
         router.delete_deployment(id="router-1")
 
         assert "hybrid-router" not in router.complexity_routers
         assert "hybrid-router" not in router.adaptive_routers
-        remaining_hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(
+        remaining_hooks = hangarllm_module.logging_callback_manager.get_custom_loggers_for_type(
             AdaptiveRouterPostCallHook
         )
         assert remaining_hooks == []
@@ -8687,7 +8687,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
     def test_upsert_of_edited_quality_router_keeps_it_routable(self):
         """_unregister_pre_routing_strategy_for_deployment dispatches on four prefixes;
         quality_router is one of them and would otherwise go unexercised."""
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         def quality_params(default_model: str) -> dict:
             return {
@@ -8695,13 +8695,13 @@ class TestPreRoutingStrategyRegistryLifecycle:
                 "quality_router_default_model": default_model,
             }
 
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "quality-router",
-                    "litellm_params": quality_params("gpt-4o"),
+                    "hangarllm_params": quality_params("gpt-4o"),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -8712,7 +8712,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="quality-router",
-                litellm_params=LiteLLM_Params(**quality_params("gpt-4o-mini")),
+                hangarllm_params=HangarLLM_Params(**quality_params("gpt-4o-mini")),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -8731,14 +8731,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         }
 
     @classmethod
-    def _router_with_hybrid_router(cls) -> "litellm.Router":
-        return litellm.Router(
+    def _router_with_hybrid_router(cls) -> "hangarllm.Router":
+        return hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "hangarllm_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "hybrid-router",
-                    "litellm_params": cls._hybrid_router_params({"SIMPLE": "gpt-4o-mini", "MEDIUM": "gpt-4o"}),
+                    "hangarllm_params": cls._hybrid_router_params({"SIMPLE": "gpt-4o-mini", "MEDIUM": "gpt-4o"}),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -8751,9 +8751,9 @@ class TestPreRoutingStrategyRegistryLifecycle:
         `auto_router/adaptive_router` deployments) or the rebuilt complexity router keeps
         routing while bandit recording, DB persistence and /adaptive_router/state all
         silently stop until the next full reload."""
-        import litellm as litellm_module
-        from litellm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        import hangarllm as hangarllm_module
+        from hangarllm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         router = self._router_with_hybrid_router()
         assert "hybrid-router" in router.adaptive_routers
@@ -8761,7 +8761,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="hybrid-router",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     **self._hybrid_router_params({"SIMPLE": "gpt-4o-mini", "MEDIUM": "gpt-4o", "COMPLEX": "gpt-4o"})
                 ),
                 model_info=ModelInfo(id="router-1", db_model=True),
@@ -8773,14 +8773,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert "hybrid-router" in router.adaptive_routers
         rebuilt = router.complexity_routers["hybrid-router"][0].strategy
         assert router.adaptive_routers["hybrid-router"][0].strategy is rebuilt.adaptive_router
-        hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
+        hooks = hangarllm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
         assert len(hooks) == 1
 
     def test_upsert_turning_adaptive_on_builds_the_companion(self):
         """An edit that flips `adaptive: true` on an existing complexity router must
         register the companion immediately; neither side of the old prefix-only gate
         matches a complexity deployment, so the flip was a silent no-op until restart."""
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         router = self._router_with_complexity_router()
         assert "smart-router" not in router.adaptive_routers
@@ -8790,7 +8790,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="smart-router",
-                litellm_params=LiteLLM_Params(**params),
+                hangarllm_params=HangarLLM_Params(**params),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -8800,15 +8800,15 @@ class TestPreRoutingStrategyRegistryLifecycle:
     def test_sync_adaptive_router_hooks_keeps_one_hook_per_registered_router(self):
         """Re-syncing must replace, not accumulate: a duplicated hook double-fires
         bandit signal recording for every request."""
-        import litellm as litellm_module
-        from litellm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
+        import hangarllm as hangarllm_module
+        from hangarllm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
 
         router = self._router_with_hybrid_router()
 
         router._sync_adaptive_router_hooks()
         router._sync_adaptive_router_hooks()
 
-        hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
+        hooks = hangarllm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
         assert len(hooks) == 1
 
 
@@ -8816,18 +8816,18 @@ def test_model_info_is_active_for_environment_matrix(monkeypatch):
     """The model-write endpoints consult this predicate to tell a deliberately
     environment-inactive model from one dropped by a failed reload; the Router's own
     deployment gate delegates to it, so the two can never diverge."""
-    from litellm.router import model_info_is_active_for_environment
+    from hangarllm.router import model_info_is_active_for_environment
 
     assert model_info_is_active_for_environment(model_info=None) is True
     assert model_info_is_active_for_environment(model_info={"id": "m1"}) is True
     assert model_info_is_active_for_environment(model_info={"supported_environments": None}) is True
 
-    monkeypatch.setenv("LITELLM_ENVIRONMENT", "development")
+    monkeypatch.setenv("HANGARLLM_ENVIRONMENT", "development")
     assert model_info_is_active_for_environment(model_info={"supported_environments": ["development"]}) is True
     assert model_info_is_active_for_environment(model_info={"supported_environments": ["production"]}) is False
 
-    monkeypatch.delenv("LITELLM_ENVIRONMENT")
-    with pytest.raises(ValueError, match="LITELLM_ENVIRONMENT"):
+    monkeypatch.delenv("HANGARLLM_ENVIRONMENT")
+    with pytest.raises(ValueError, match="HANGARLLM_ENVIRONMENT"):
         model_info_is_active_for_environment(model_info={"supported_environments": ["production"]})
 
 
@@ -8837,30 +8837,30 @@ def test_pre_call_checks_keeps_deployment_when_provider_is_unresolvable(monkeypa
     a request. A deployment whose provider cannot be resolved simply skips the
     supported-params check instead of raising out of deployment selection.
     """
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "custom-alias",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         enable_pre_call_checks=True,
     )
 
     def _raise_no_provider(**kwargs):
-        raise litellm.BadRequestError(
+        raise hangarllm.BadRequestError(
             message="LLM Provider NOT provided.",
             model="custom-alias",
             llm_provider="",
         )
 
-    monkeypatch.setattr(litellm, "get_llm_provider", _raise_no_provider)
+    monkeypatch.setattr(hangarllm, "get_llm_provider", _raise_no_provider)
 
     deployments = [
         {
-            "litellm_params": {"model": "some-unresolvable-model"},
+            "hangarllm_params": {"model": "some-unresolvable-model"},
             "model_info": {"id": "d1"},
         }
     ]
@@ -8885,13 +8885,13 @@ class TestUpsertDeploymentRollback:
     """
 
     def test_failed_upsert_keeps_previous_deployment_serving(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "prod-model",
-                    "litellm_params": {"model": "gpt-4o", "api_key": "sk-old"},
+                    "hangarllm_params": {"model": "gpt-4o", "api_key": "sk-old"},
                     "model_info": {"id": "prod-1", "db_model": True},
                 }
             ],
@@ -8901,7 +8901,7 @@ class TestUpsertDeploymentRollback:
         result = router.upsert_deployment(
             deployment=Deployment(
                 model_name="prod-model",
-                litellm_params=LiteLLM_Params(model="auto_router/broken"),
+                hangarllm_params=HangarLLM_Params(model="auto_router/broken"),
                 model_info=ModelInfo(id="prod-1", db_model=True),
             )
         )
@@ -8909,18 +8909,18 @@ class TestUpsertDeploymentRollback:
         assert result is None
         restored = router.get_deployment(model_id="prod-1")
         assert restored is not None
-        assert restored.litellm_params.model == "gpt-4o"
+        assert restored.hangarllm_params.model == "gpt-4o"
         assert [model["model_name"] for model in router.model_list] == ["prod-model"]
 
     def test_failed_fresh_add_returns_none_without_restore(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-        router = litellm.Router(model_list=[], ignore_invalid_deployments=True)
+        router = hangarllm.Router(model_list=[], ignore_invalid_deployments=True)
 
         result = router.upsert_deployment(
             deployment=Deployment(
                 model_name="fresh-router",
-                litellm_params=LiteLLM_Params(model="auto_router/broken"),
+                hangarllm_params=HangarLLM_Params(model="auto_router/broken"),
                 model_info=ModelInfo(id="fresh-1", db_model=True),
             )
         )
@@ -8933,18 +8933,18 @@ class TestUpsertDeploymentRollback:
 class TestUpsertDeploymentRename:
     """
     Issue #38360: renaming a model wrote the new `model_name` to the db, but the reload's
-    `upsert_deployment` compared only `litellm_params` and `model_info`. A rename with no
+    `upsert_deployment` compared only `hangarllm_params` and `model_info`. A rename with no
     other edit therefore compared equal and the router kept the old name until a restart,
     so `/model/info` and `/v1/models` served the stale name and the new one was unroutable.
     """
 
     @staticmethod
-    def _router() -> "litellm.Router":
-        return litellm.Router(
+    def _router() -> "hangarllm.Router":
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": "old-name",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
                     "model_info": {"id": "rename-1", "db_model": True},
                 }
             ]
@@ -8952,11 +8952,11 @@ class TestUpsertDeploymentRename:
 
     @staticmethod
     def _deployment(model_name: str, tpm: int | None = None):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         return Deployment(
             model_name=model_name,
-            litellm_params=LiteLLM_Params(model="openai/gpt-4o", api_key="sk-test", tpm=tpm),
+            hangarllm_params=HangarLLM_Params(model="openai/gpt-4o", api_key="sk-test", tpm=tpm),
             model_info=ModelInfo(id="rename-1", db_model=True),
         )
 
@@ -8986,7 +8986,7 @@ class TestUpsertDeploymentRename:
         assert router.get_model_ids(model_name="new-name") == ["rename-1"]
         renamed = router.get_deployment(model_id="rename-1")
         assert renamed is not None
-        assert renamed.litellm_params.tpm == 1234
+        assert renamed.hangarllm_params.tpm == 1234
 
     def test_unchanged_deployment_is_still_a_no_op(self):
         router = self._router()
@@ -9008,18 +9008,18 @@ class TestConsumedRequestTagsStamp:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False, call_type=None
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from hangarllm.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(model=self.rewrite_to, messages=messages)
 
     @classmethod
-    def _router(cls, marker_tags=("route",)) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    def _router(cls, marker_tags=("route",)) -> "hangarllm.Router":
+        from hangarllm.types.router import TaggedPreRoutingStrategy
 
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
-                {"model_name": "gpt4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gemini-flash", "litellm_params": {"model": "gemini/gemini-3.6-flash"}},
+                {"model_name": "gpt4o", "hangarllm_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gemini-flash", "hangarllm_params": {"model": "gemini/gemini-3.6-flash"}},
             ],
             enable_tag_filtering=True,
         )
@@ -9030,8 +9030,8 @@ class TestConsumedRequestTagsStamp:
 
     @pytest.mark.asyncio
     async def test_stamps_the_rewritten_group_when_request_tags_selected_the_router(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
-        from litellm.types.router import ConsumedRequestTagsStamp
+        from hangarllm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from hangarllm.types.router import ConsumedRequestTagsStamp
 
         router = self._router()
         request_kwargs = {"metadata": {"tags": ["route"]}}
@@ -9043,22 +9043,22 @@ class TestConsumedRequestTagsStamp:
         )
 
     @pytest.mark.asyncio
-    async def test_stamps_into_litellm_metadata_when_the_request_uses_that_bucket(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
-        from litellm.types.router import ConsumedRequestTagsStamp
+    async def test_stamps_into_hangarllm_metadata_when_the_request_uses_that_bucket(self):
+        from hangarllm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from hangarllm.types.router import ConsumedRequestTagsStamp
 
         router = self._router()
-        request_kwargs = {"litellm_metadata": {"tags": ["route"]}}
+        request_kwargs = {"hangarllm_metadata": {"tags": ["route"]}}
 
         await router.async_pre_routing_hook(model="gpt4o", request_kwargs=request_kwargs)
 
-        assert request_kwargs["litellm_metadata"][CONSUMED_REQUEST_TAGS_METADATA_KEY] == ConsumedRequestTagsStamp(
+        assert request_kwargs["hangarllm_metadata"][CONSUMED_REQUEST_TAGS_METADATA_KEY] == ConsumedRequestTagsStamp(
             model_group="gemini-flash", tags=("route",)
         )
 
     @pytest.mark.asyncio
     async def test_fallback_reentry_with_a_plain_group_clears_the_stale_stamp(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from hangarllm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
 
         router = self._router()
         request_kwargs = {"metadata": {"tags": ["route"]}}
@@ -9070,7 +9070,7 @@ class TestConsumedRequestTagsStamp:
 
     @pytest.mark.asyncio
     async def test_no_stamp_when_the_request_is_untagged(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from hangarllm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
 
         router = self._router()
         request_kwargs = {"metadata": {}}
@@ -9081,7 +9081,7 @@ class TestConsumedRequestTagsStamp:
 
     @pytest.mark.asyncio
     async def test_no_stamp_when_the_selected_strategy_carries_no_tags(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from hangarllm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
 
         router = self._router(marker_tags=())
         request_kwargs = {"metadata": {"tags": ["route"]}}
@@ -9099,7 +9099,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False, call_type=None
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from hangarllm.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(
                 model=self.routed_model,
@@ -9117,18 +9117,18 @@ class TestClaudeCodeSubagentSessionRouterBinding:
         cls,
         cheap_response: str = "cheap response",
         fallbacks: list[dict[str, list[str]]] | None = None,
-    ) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    ) -> "hangarllm.Router":
+        from hangarllm.types.router import TaggedPreRoutingStrategy
 
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "cheap-model",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "mock_response": cheap_response},
+                    "hangarllm_params": {"model": "openai/gpt-4o-mini", "mock_response": cheap_response},
                 },
                 {
                     "model_name": "expensive-model",
-                    "litellm_params": {"model": "openai/gpt-4o", "mock_response": "expensive response"},
+                    "hangarllm_params": {"model": "openai/gpt-4o", "mock_response": "expensive response"},
                 },
             ],
             fallbacks=fallbacks,
@@ -9326,7 +9326,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
     @pytest.mark.asyncio
     async def test_subagent_can_fallback_to_its_original_requested_model(self):
         router = self._router(
-            cheap_response="litellm.RateLimitError",
+            cheap_response="hangarllm.RateLimitError",
             fallbacks=[{"cheap-model": ["expensive-model"]}],
         )
 
@@ -9349,7 +9349,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
     @pytest.mark.asyncio
     async def test_subagent_can_use_the_bound_router_name_fallback(self):
         router = self._router(
-            cheap_response="litellm.RateLimitError",
+            cheap_response="hangarllm.RateLimitError",
             fallbacks=[{"smart-router": ["expensive-model"]}],
         )
 
@@ -9369,31 +9369,31 @@ class TestClaudeCodeSubagentSessionRouterBinding:
 
     @pytest.mark.asyncio
     async def test_anthropic_subagent_four_fallback_hops_use_each_current_model_chain(self):
-        from litellm.types.router import TaggedPreRoutingStrategy
+        from hangarllm.types.router import TaggedPreRoutingStrategy
 
         failing_groups = ("cheap-model", "fallback-1", "fallback-2", "fallback-3")
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 *(
                     {
                         "model_name": group,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "anthropic/claude-3-haiku-20240307",
-                            "mock_response": "litellm.RateLimitError",
+                            "mock_response": "hangarllm.RateLimitError",
                         },
                     }
                     for group in failing_groups
                 ),
                 {
                     "model_name": "requested-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-3-haiku-20240307",
                         "mock_response": "requested response",
                     },
                 },
                 {
                     "model_name": "fallback-4",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-3-haiku-20240307",
                         "mock_response": "fourth fallback response",
                     },
@@ -9412,10 +9412,10 @@ class TestClaudeCodeSubagentSessionRouterBinding:
             "smart-router": (TaggedPreRoutingStrategy(tags=(), strategy=self._RewriteStrategy()),)
         }
         main_kwargs = self._request_kwargs()
-        main_kwargs["litellm_metadata"] = main_kwargs.pop("metadata")
+        main_kwargs["hangarllm_metadata"] = main_kwargs.pop("metadata")
         await router.async_pre_routing_hook(model="smart-router", request_kwargs=main_kwargs)
         subagent_kwargs = self._request_kwargs(agent_id="agent-1234")
-        subagent_kwargs["litellm_metadata"] = subagent_kwargs.pop("metadata")
+        subagent_kwargs["hangarllm_metadata"] = subagent_kwargs.pop("metadata")
 
         response = await router.aanthropic_messages(
             model="requested-model",
@@ -9449,14 +9449,14 @@ class TestAutoRouterMaxInputCharsWiring:
     """
 
     @staticmethod
-    def _router(**extra_params) -> "litellm.Router":
+    def _router(**extra_params) -> "hangarllm.Router":
         pytest.importorskip("semantic_router", reason="auto-router needs the semantic-router extra")
-        return litellm.Router(
+        return hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}},
                 {
                     "model_name": "my-auto-router",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/my-auto-router",
                         "auto_router_config": json.dumps(
                             {"routes": [{"name": "gpt-4o", "utterances": ["write me code"]}]}
@@ -9470,7 +9470,7 @@ class TestAutoRouterMaxInputCharsWiring:
         )
 
     @staticmethod
-    def _registered_auto_router(router: "litellm.Router"):
+    def _registered_auto_router(router: "hangarllm.Router"):
         return router.auto_routers["my-auto-router"][0].strategy
 
     def test_should_pass_the_configured_cap_to_the_auto_router(self):
@@ -9479,7 +9479,7 @@ class TestAutoRouterMaxInputCharsWiring:
         assert self._registered_auto_router(router).max_input_chars == 512
 
     def test_should_fall_back_to_the_shared_default_when_the_deployment_omits_it(self):
-        from litellm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
+        from hangarllm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
 
         router = self._router()
 
@@ -9497,11 +9497,11 @@ class TestTaggedAutoRouterOnSharedModelName:
             return RouteChoice(name="gemini-flash")
 
     @classmethod
-    def _router(cls, marker_tags, include_plain_sibling: bool, enable_tag_filtering: bool) -> "litellm.Router":
+    def _router(cls, marker_tags, include_plain_sibling: bool, enable_tag_filtering: bool) -> "hangarllm.Router":
         pytest.importorskip("semantic_router", reason="auto-router needs the semantic-router extra")
         marker = {
             "model_name": "gpt4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/gpt4o-router",
                 "auto_router_config": json.dumps(
                     {"routes": [{"name": "gemini-flash", "utterances": ["capital city questions"]}]}
@@ -9511,9 +9511,9 @@ class TestTaggedAutoRouterOnSharedModelName:
                 **({"tags": marker_tags} if marker_tags else {}),
             },
         }
-        plain = {"model_name": "gpt4o", "litellm_params": {"model": "openai/gpt-4o"}}
-        tier = {"model_name": "gemini-flash", "litellm_params": {"model": "gemini/gemini-3.6-flash"}}
-        router = litellm.Router(
+        plain = {"model_name": "gpt4o", "hangarllm_params": {"model": "openai/gpt-4o"}}
+        tier = {"model_name": "gemini-flash", "hangarllm_params": {"model": "gemini/gemini-3.6-flash"}}
+        router = hangarllm.Router(
             model_list=[plain, marker, tier] if include_plain_sibling else [marker, tier],
             enable_tag_filtering=enable_tag_filtering,
         )
@@ -9521,7 +9521,7 @@ class TestTaggedAutoRouterOnSharedModelName:
         return router
 
     @staticmethod
-    async def _hook_response(router: "litellm.Router", request_kwargs: dict):
+    async def _hook_response(router: "hangarllm.Router", request_kwargs: dict):
         return await router.async_pre_routing_hook(
             model="gpt4o",
             request_kwargs=request_kwargs,
@@ -9586,7 +9586,7 @@ class TestTaggedAutoRouterOnSharedModelName:
                 request_kwargs={},
                 messages=[{"role": "user", "content": "What is the capital of France?"}],
             )
-            assert deployment["litellm_params"]["model"] == "openai/gpt-4o"
+            assert deployment["hangarllm_params"]["model"] == "openai/gpt-4o"
 
 
 class TestAutoRouterSharedModelNameConnectionParams:
@@ -9603,11 +9603,11 @@ class TestAutoRouterSharedModelNameConnectionParams:
             return RouteChoice(name="gemini-flash")
 
     @classmethod
-    def _router(cls, plain_entry_first: bool) -> "litellm.Router":
+    def _router(cls, plain_entry_first: bool) -> "hangarllm.Router":
         pytest.importorskip("semantic_router", reason="auto-router needs the semantic-router extra")
         plain = {
             "model_name": "gpt4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": cls.PLAIN_API_KEY,
                 "api_base": cls.PLAIN_API_BASE,
@@ -9615,7 +9615,7 @@ class TestAutoRouterSharedModelNameConnectionParams:
         }
         marker = {
             "model_name": "gpt4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/gpt4o-router",
                 "auto_router_config": json.dumps(
                     {"routes": [{"name": "gemini-flash", "utterances": ["capital city questions"]}]}
@@ -9627,10 +9627,10 @@ class TestAutoRouterSharedModelNameConnectionParams:
         }
         tier = {
             "model_name": "gemini-flash",
-            "litellm_params": {"model": "gemini/gemini-3.6-flash", "api_key": "sk-tier-key"},
+            "hangarllm_params": {"model": "gemini/gemini-3.6-flash", "api_key": "sk-tier-key"},
         }
         shared_name_entries = [plain, marker] if plain_entry_first else [marker, plain]
-        router = litellm.Router(model_list=[*shared_name_entries, tier])
+        router = hangarllm.Router(model_list=[*shared_name_entries, tier])
         router.auto_routers["gpt4o"][0].strategy.routelayer = cls._FixedRouteLayer()
         return router
 
@@ -9650,7 +9650,7 @@ class TestAutoRouterSharedModelNameConnectionParams:
     async def test_routed_tier_call_goes_out_on_its_own_endpoint_and_credentials(self, plain_entry_first):
         """The outbound provider request for the routed tier hits the tier's own Gemini host
         with the tier's own key, never the plain sibling's api_base or api_key."""
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         router = self._router(plain_entry_first)
 
@@ -9674,51 +9674,51 @@ class TestAutoRouterSharedModelNameConnectionParams:
 
 
 class TestGetAllowedFailsFromPolicy:
-    def _make_router(self, **policy_kwargs) -> litellm.Router:
-        from litellm.types.router import AllowedFailsPolicy
+    def _make_router(self, **policy_kwargs) -> hangarllm.Router:
+        from hangarllm.types.router import AllowedFailsPolicy
 
-        return litellm.Router(
-            model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4", "api_key": "fake"}}],
+        return hangarllm.Router(
+            model_list=[{"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4", "api_key": "fake"}}],
             allowed_fails_policy=AllowedFailsPolicy(**policy_kwargs),
         )
 
     def test_no_policy_returns_none(self):
-        router = litellm.Router(
-            model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4", "api_key": "fake"}}],
+        router = hangarllm.Router(
+            model_list=[{"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4", "api_key": "fake"}}],
         )
-        assert router.get_allowed_fails_from_policy(litellm.RateLimitError("429", "openai", "gpt-4")) is None
+        assert router.get_allowed_fails_from_policy(hangarllm.RateLimitError("429", "openai", "gpt-4")) is None
 
     def test_internal_server_error_allowed_fails(self):
         router = self._make_router(InternalServerErrorAllowedFails=7)
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = hangarllm.InternalServerError("500", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 7
 
     def test_service_unavailable_error_allowed_fails(self):
         router = self._make_router(ServiceUnavailableErrorAllowedFails=4)
-        exc = litellm.ServiceUnavailableError("503", "openai", "gpt-4")
+        exc = hangarllm.ServiceUnavailableError("503", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 4
 
     def test_bad_gateway_error_allowed_fails(self):
         router = self._make_router(BadGatewayErrorAllowedFails=2)
-        exc = litellm.BadGatewayError("502", "openai", "gpt-4")
+        exc = hangarllm.BadGatewayError("502", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 2
 
     def test_not_found_error_allowed_fails(self):
         router = self._make_router(NotFoundErrorAllowedFails=1)
-        exc = litellm.NotFoundError("404", "openai", "gpt-4")
+        exc = hangarllm.NotFoundError("404", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 1
 
     def test_payment_required_error_uses_bad_request_allowed_fails(self):
         assert (
             self._make_router(BadRequestErrorAllowedFails=6).get_allowed_fails_from_policy(
-                litellm.PaymentRequiredError("402 error", "openai", "gpt-4")
+                hangarllm.PaymentRequiredError("402 error", "openai", "gpt-4")
             )
             == 6
         )
 
     def test_unmatched_exception_returns_none(self):
         router = self._make_router(InternalServerErrorAllowedFails=5)
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) is None
 
 
@@ -9746,14 +9746,14 @@ class _FallbackAttemptRecorder(CustomLogger):
 
 def _cyclic_fallback_router(num_retries=0):
     groups = ["group-a", "group-b", "group-c", "group-d"]
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "hangarllm.InternalServerError",
                 },
                 "model_info": {"id": f"{group}-deployment"},
             }
@@ -9770,20 +9770,20 @@ def _cyclic_fallback_router(num_retries=0):
 
 
 async def _drive_cyclic_fallback(router, capture, recorder=None, **request_kwargs):
-    router_logger = logging.getLogger("LiteLLM Router")
+    router_logger = logging.getLogger("HangarLLM Router")
     previous_level = router_logger.level
     router_logger.setLevel(capture.level)
     router_logger.addHandler(capture)
     if recorder is not None:
-        litellm.callbacks.append(recorder)
+        hangarllm.callbacks.append(recorder)
     try:
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(hangarllm.InternalServerError):
             await router.acompletion(model="group-a", messages=[{"role": "user", "content": "hi"}], **request_kwargs)
     finally:
         router_logger.removeHandler(capture)
         router_logger.setLevel(previous_level)
         if recorder is not None:
-            litellm.callbacks.remove(recorder)
+            hangarllm.callbacks.remove(recorder)
 
 
 @pytest.mark.asyncio
@@ -9877,14 +9877,14 @@ async def test_retry_records_never_carry_a_forwarded_credential(container_key, r
 
 
 def _always_failing_router(num_retries):
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "broken-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "hangarllm.InternalServerError",
                 },
             }
         ],
@@ -9892,7 +9892,7 @@ def _always_failing_router(num_retries):
     )
 
 
-async def _fail_one_proxy_shaped_request(router, request_marker, expected_error=litellm.InternalServerError):
+async def _fail_one_proxy_shaped_request(router, request_marker, expected_error=hangarllm.InternalServerError):
     """The proxy hands the router a metadata dict and a proxy_server_request whose body is a
     shallow copy of the request, so body["metadata"] is the very same dict the router later
     stamps previous_models onto."""
@@ -9954,10 +9954,10 @@ async def test_retry_records_keep_only_the_last_four_attempts():
 
 @pytest.mark.asyncio
 async def test_num_retries_per_request_stops_retries_at_caps_above_four(monkeypatch):
-    monkeypatch.setattr(litellm, "num_retries_per_request", 5)
+    monkeypatch.setattr(hangarllm, "num_retries_per_request", 5)
     router = _always_failing_router(num_retries=6)
 
-    records = await _fail_one_proxy_shaped_request(router, "request-1", expected_error=litellm.APIConnectionError)
+    records = await _fail_one_proxy_shaped_request(router, "request-1", expected_error=hangarllm.APIConnectionError)
 
     assert [record["attempted_retries"] for record in records] == [3, 4, 5, 6]
     assert ["Max retries per request hit!" in record["exception_string"] for record in records] == [
@@ -9968,20 +9968,20 @@ async def test_num_retries_per_request_stops_retries_at_caps_above_four(monkeypa
     ]
 
 
-def _failing_group_with_healthy_fallback_router(num_retries: int) -> litellm.Router:
-    return litellm.Router(
+def _failing_group_with_healthy_fallback_router(num_retries: int) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "broken-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "hangarllm.InternalServerError",
                 },
             },
             {
                 "model_name": "healthy-group",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake", "mock_response": "ok"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake", "mock_response": "ok"},
             },
         ],
         fallbacks=[{"broken-group": ["healthy-group"]}],
@@ -10002,10 +10002,10 @@ async def test_num_retries_per_request_counts_retries_across_fallback_hops(
     fresh per-hop attempted_retries at zero, so a cap read from that counter let every hop retry from zero
     and a request could spend far more retries than the cap allows. A caller who plants a negative count
     in the request metadata must not push the cap further away either."""
-    monkeypatch.setattr(litellm, "num_retries_per_request", cap)
+    monkeypatch.setattr(hangarllm, "num_retries_per_request", cap)
     router = _failing_group_with_healthy_fallback_router(num_retries=1)
     recorder = _FallbackAttemptRecorder()
-    litellm.callbacks.append(recorder)
+    hangarllm.callbacks.append(recorder)
     try:
         metadata = {} if planted_count is None else {"request_retry_count": planted_count}
         request = router.acompletion(
@@ -10014,10 +10014,10 @@ async def test_num_retries_per_request_counts_retries_across_fallback_hops(
         if not hop_refused:
             assert (await request).choices[0].message.content == "ok"
             return
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(hangarllm.InternalServerError):
             await request
     finally:
-        litellm.callbacks.remove(recorder)
+        hangarllm.callbacks.remove(recorder)
 
     assert recorder.failed_targets == ["healthy-group"]
     hop_refusals = [
@@ -10052,7 +10052,7 @@ async def test_fallback_failure_detail_from_upstream_is_bounded():
     await _drive_cyclic_fallback(
         _cyclic_fallback_router(),
         capture,
-        mock_response=litellm.InternalServerError(message=huge_message, llm_provider="openai", model="group-a"),
+        mock_response=hangarllm.InternalServerError(message=huge_message, llm_provider="openai", model="group-a"),
     )
 
     assert capture.messages, "the fallback failure path did not log at ERROR"
@@ -10074,16 +10074,16 @@ def test_complexity_router_registers_affinity_callback_for_deployment_pin(comple
     means a bare config registers one. Opting out must skip the callback entirely rather than
     register a filter that can never fire, including when session_affinity is on, since the two
     pins are independent."""
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
+            {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}},
             {
                 "model_name": "my-complexity-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": complexity_router_config,
                 },
@@ -10095,49 +10095,49 @@ def test_complexity_router_registers_affinity_callback_for_deployment_pin(comple
         assert registered is expect_callback
     finally:
         for cb in router.optional_callbacks or []:
-            litellm.logging_callback_manager.remove_callback_from_all_lists(cb)
+            hangarllm.logging_callback_manager.remove_callback_from_all_lists(cb)
 
 
 def test_get_router_model_info_does_not_wipe_cached_pricing():
     """A Deployment's model_info declares the mirrored pricing fields with None defaults;
     merging it must not write those Nones into the lru_cache'd dict get_model_info() owns,
     or /model/info loses built-in prices for every model a worker serves."""
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-    litellm.get_model_info.cache_clear()
-    expected = copy.deepcopy(litellm.get_model_info(model="anthropic/claude-sonnet-4-5"))
+    hangarllm.get_model_info.cache_clear()
+    expected = copy.deepcopy(hangarllm.get_model_info(model="anthropic/claude-sonnet-4-5"))
 
-    router = litellm.Router(model_list=[])
+    router = hangarllm.Router(model_list=[])
     merged = router.get_router_model_info(
         deployment=Deployment(
             model_name="sonnet",
-            litellm_params=LiteLLM_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
+            hangarllm_params=HangarLLM_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
             model_info=ModelInfo(id="sonnet-1"),
         ),
         received_model_name="sonnet",
     )
 
-    assert litellm.get_model_info(model="anthropic/claude-sonnet-4-5") == expected
+    assert hangarllm.get_model_info(model="anthropic/claude-sonnet-4-5") == expected
     for field in ("input_cost_per_token", "output_cost_per_token", "cache_read_input_token_cost"):
         assert merged[field] == expected[field]
 
 
 def test_get_router_model_info_keeps_explicit_pricing_overrides():
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
-    litellm.get_model_info.cache_clear()
-    router = litellm.Router(model_list=[])
+    hangarllm.get_model_info.cache_clear()
+    router = hangarllm.Router(model_list=[])
     merged = router.get_router_model_info(
         deployment=Deployment(
             model_name="sonnet",
-            litellm_params=LiteLLM_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
+            hangarllm_params=HangarLLM_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
             model_info=ModelInfo(id="sonnet-1", input_cost_per_token=1e-08),
         ),
         received_model_name="sonnet",
     )
 
     assert merged["input_cost_per_token"] == 1e-08
-    assert litellm.get_model_info(model="anthropic/claude-sonnet-4-5")["input_cost_per_token"] != 1e-08
+    assert hangarllm.get_model_info(model="anthropic/claude-sonnet-4-5")["input_cost_per_token"] != 1e-08
 
 
 class TestModelGroupAliasReachesPreRoutingStrategies:
@@ -10153,20 +10153,20 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False, call_type=None
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from hangarllm.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(model="gemini-flash", messages=messages)
 
     @classmethod
-    def _router(cls, registry_name: str | None) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    def _router(cls, registry_name: str | None) -> "hangarllm.Router":
+        from hangarllm.types.router import TaggedPreRoutingStrategy
 
         tiers = dict.fromkeys(("SIMPLE", "MEDIUM", "COMPLEX", "REASONING"), "gemini-flash")
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "smart-route",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/complexity_router",
                         "complexity_router_config": {"tiers": tiers},
                         "complexity_router_default_model": "gemini-flash",
@@ -10175,7 +10175,7 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
                 },
                 {
                     "model_name": "gemini-flash",
-                    "litellm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
+                    "hangarllm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
                 },
             ],
             model_group_alias={"smart-alias": "smart-route"},
@@ -10226,7 +10226,7 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
             model="smart-alias", request_kwargs={"metadata": {}}, messages=self._messages()
         )
 
-        assert deployment["litellm_params"]["model"] == "gemini/gemini-3.6-flash"
+        assert deployment["hangarllm_params"]["model"] == "gemini/gemini-3.6-flash"
 
     @pytest.mark.asyncio
     async def test_alias_call_completes_and_still_bills_the_name_the_caller_sent(self):
@@ -10242,7 +10242,7 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
     def test_a_group_of_only_markers_is_not_a_callable_model(self):
         router = self._router(None)
 
-        with pytest.raises(litellm.BadRequestError, match="strategy router marker"):
+        with pytest.raises(hangarllm.BadRequestError, match="strategy router marker"):
             router.get_available_deployment(
                 model="smart-route", messages=self._messages(), request_kwargs={"metadata": {}}
             )
@@ -10270,7 +10270,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False, call_type=None
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from hangarllm.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(model=self.rewrite_to, messages=messages)
 
@@ -10279,7 +10279,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
         tiers = dict.fromkeys(("SIMPLE", "MEDIUM", "COMPLEX", "REASONING"), "gemini-flash")
         return {
             "model_name": internal_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": {"tiers": tiers},
                 "complexity_router_default_model": "gemini-flash",
@@ -10297,19 +10297,19 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
         extra_deployments: tuple[dict, ...] = (),
         markers: tuple[dict, ...] | None = None,
         enable_tag_filtering: bool = False,
-    ) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    ) -> "hangarllm.Router":
+        from hangarllm.types.router import TaggedPreRoutingStrategy
 
         markers = markers if markers is not None else (cls._team_marker(cls.INTERNAL_NAME),)
         tier = {
             "model_name": "gemini-flash",
-            "litellm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
+            "hangarllm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
         }
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[*markers, tier, *extra_deployments],
             enable_tag_filtering=enable_tag_filtering,
         )
-        tags_by_name = {m["model_name"]: tuple(m["litellm_params"].get("tags") or ()) for m in markers}
+        tags_by_name = {m["model_name"]: tuple(m["hangarllm_params"].get("tags") or ()) for m in markers}
         for name in cls.REGISTRY_NAMES:
             setattr(router, name, {})
         setattr(
@@ -10352,7 +10352,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             model=self.PUBLIC_NAME, request_kwargs=request_kwargs, messages=self._messages()
         )
 
-        assert deployment["litellm_params"]["model"] == "gemini/gemini-3.6-flash"
+        assert deployment["hangarllm_params"]["model"] == "gemini/gemini-3.6-flash"
         assert request_kwargs["timeout"] == self.MARKER_TIMEOUT
 
     @pytest.mark.asyncio
@@ -10365,7 +10365,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             )
             is None
         )
-        with pytest.raises(litellm.BadRequestError):
+        with pytest.raises(hangarllm.BadRequestError):
             await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=self._team_request(self.OTHER_TEAM), messages=self._messages()
             )
@@ -10395,11 +10395,11 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
 
     @pytest.mark.asyncio
     async def test_team_public_name_shadows_a_global_model_for_that_team_only(self):
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 self._team_marker(self.INTERNAL_NAME),
-                {"model_name": "gemini-flash", "litellm_params": {"model": "gemini/gemini-3.6-flash"}},
-                {"model_name": self.PUBLIC_NAME, "litellm_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gemini-flash", "hangarllm_params": {"model": "gemini/gemini-3.6-flash"}},
+                {"model_name": self.PUBLIC_NAME, "hangarllm_params": {"model": "openai/gpt-4o"}},
             ],
         )
 
@@ -10417,7 +10417,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             deployment = await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=request_kwargs, messages=self._messages()
             )
-            return deployment["litellm_params"]["model"]
+            return deployment["hangarllm_params"]["model"]
 
         assert await routed(self._team_request()) == "gemini-flash"
         assert await selected(self._team_request()) == "gemini/gemini-3.6-flash"
@@ -10429,7 +10429,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
     async def test_tag_filtering_hands_untagged_team_requests_to_the_team_plain_sibling(self):
         plain_sibling = {
             "model_name": self.SIBLING_INTERNAL_NAME,
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"team_id": self.TEAM, "team_public_model_name": self.PUBLIC_NAME},
         }
         router = self._router(
@@ -10447,18 +10447,18 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             deployment = await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=self._team_request(), messages=self._messages()
             )
-            assert deployment["litellm_params"]["model"] == "openai/gpt-4o"
+            assert deployment["hangarllm_params"]["model"] == "openai/gpt-4o"
 
     @pytest.mark.asyncio
     async def test_marker_only_team_resolution_is_rejected_as_uncallable(self):
         import re
 
-        from litellm.types.router import RouterErrors
+        from hangarllm.types.router import RouterErrors
 
         router = self._router({})
 
         with pytest.raises(
-            litellm.BadRequestError, match=re.escape(RouterErrors.only_strategy_marker_deployments.value)
+            hangarllm.BadRequestError, match=re.escape(RouterErrors.only_strategy_marker_deployments.value)
         ):
             await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=self._team_request(), messages=self._messages()
@@ -10477,10 +10477,10 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
         assert response.model == "gemini-flash"
 
     def test_compression_policy_follows_the_same_resolution_for_every_principal(self):
-        from litellm.proxy.guardrails.auto_router_compression import AutoRouterCompressionPolicy, policy_for_model
+        from hangarllm.proxy.guardrails.auto_router_compression import AutoRouterCompressionPolicy, policy_for_model
 
         marker = self._team_marker(self.INTERNAL_NAME)
-        marker["litellm_params"]["auto_router_routing_compression"] = "headroom-team"
+        marker["hangarllm_params"]["auto_router_routing_compression"] = "headroom-team"
         router = self._router({}, markers=(marker,))
         admin = {"metadata": {"user_api_key_auth": SimpleNamespace(user_role="proxy_admin")}}
         expected = AutoRouterCompressionPolicy(routing="headroom-team", model=None)
@@ -10507,7 +10507,7 @@ class TestAutoRouterCompressionDecoupling:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False, call_type=None
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from hangarllm.types.router import PreRoutingHookResponse
 
             self.received_messages = messages
             return PreRoutingHookResponse(model="gemini-flash", messages=messages)
@@ -10527,24 +10527,24 @@ class TestAutoRouterCompressionDecoupling:
     def _messages() -> list[dict[str, str]]:
         return [{"role": "user", "content": "What is the capital of France?"}]
 
-    def _router(self, marker_litellm_params: dict) -> tuple[litellm.Router, "_RecordingStrategy"]:
-        from litellm.types.router import TaggedPreRoutingStrategy
+    def _router(self, marker_hangarllm_params: dict) -> tuple[hangarllm.Router, "_RecordingStrategy"]:
+        from hangarllm.types.router import TaggedPreRoutingStrategy
 
         tiers = dict.fromkeys(("SIMPLE", "MEDIUM", "COMPLEX", "REASONING"), "gemini-flash")
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "smart-router",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/complexity_router",
                         "complexity_router_config": {"tiers": tiers},
                         "complexity_router_default_model": "gemini-flash",
-                        **marker_litellm_params,
+                        **marker_hangarllm_params,
                     },
                 },
                 {
                     "model_name": "gemini-flash",
-                    "litellm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
+                    "hangarllm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
                 },
             ],
         )
@@ -10556,15 +10556,15 @@ class TestAutoRouterCompressionDecoupling:
 
     @pytest.fixture
     def registered_guardrail(self, monkeypatch):
-        from litellm.proxy.guardrails import guardrail_registry
+        from hangarllm.proxy.guardrails import guardrail_registry
 
         # Registered under a compression provider name: both hops refuse a name that
         # does not resolve to one, so a bare callback would never be used.
         monkeypatch.setitem(guardrail_registry.guardrail_class_registry, "headroom", self._CompressingGuardrail)
         guardrail = self._CompressingGuardrail(guardrail_name="fake-compress")
-        litellm.logging_callback_manager.add_litellm_callback(guardrail)
+        hangarllm.logging_callback_manager.add_hangarllm_callback(guardrail)
         yield guardrail
-        litellm.logging_callback_manager.remove_callback_from_all_lists(guardrail)
+        hangarllm.logging_callback_manager.remove_callback_from_all_lists(guardrail)
 
     @pytest.mark.asyncio
     async def test_routing_side_compression_never_reaches_the_caller_messages(self, registered_guardrail):
@@ -10634,7 +10634,7 @@ class TestAutoRouterCompressionDecoupling:
         arms the model-side guardrail and nothing has compressed anything, so reusing a
         model-hop result that was never produced would serve the request with no
         compression on either hop, silently ignoring the configuration."""
-        from litellm.proxy.guardrails import auto_router_compression
+        from hangarllm.proxy.guardrails import auto_router_compression
 
         router, strategy = self._router(
             {
@@ -10657,7 +10657,7 @@ class TestAutoRouterCompressionDecoupling:
         compression twice: by the time the router runs, `messages` already reflects
         whatever the ordinary pre-call guardrail pipeline did for the model call, so
         the routing decision must reuse it rather than calling the guardrail again."""
-        from litellm.proxy.guardrails import auto_router_compression
+        from hangarllm.proxy.guardrails import auto_router_compression
 
         router, strategy = self._router(
             {
@@ -10708,11 +10708,11 @@ class TestAzureBaseModelFallbackLogging:
     names. Issue #33172."""
 
     def _router_with_azure_deployment(self, deployment_model: str):
-        return litellm.Router(
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": "my-group",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": deployment_model,
                         "api_key": "fake-key",
                         "api_base": "https://fake.openai.azure.com",
@@ -10723,11 +10723,11 @@ class TestAzureBaseModelFallbackLogging:
         )
 
     def test_explicit_base_model_still_wins(self):
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "my-group",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/some-deployment",
                         "api_key": "fake-key",
                         "api_base": "https://fake.openai.azure.com",
@@ -10743,7 +10743,7 @@ class TestAzureBaseModelFallbackLogging:
         model_info = router.get_router_model_info(
             deployment=None, received_model_name="my-group", id="azure-base-model-test-id"
         )
-        assert model_info["max_input_tokens"] == litellm.model_cost["azure/gpt-4o-mini"]["max_input_tokens"]
+        assert model_info["max_input_tokens"] == hangarllm.model_cost["azure/gpt-4o-mini"]["max_input_tokens"]
 
 
 @pytest.mark.parametrize(
@@ -10769,7 +10769,7 @@ def test_model_group_info_fast_mode_uses_exact_provider_catalog(
         model_list=[
             {
                 "model_name": "fast-group",
-                "litellm_params": {"model": model, "custom_llm_provider": provider, "api_key": "fake-key"},
+                "hangarllm_params": {"model": model, "custom_llm_provider": provider, "api_key": "fake-key"},
                 "model_info": {"supports_fast_mode": operator_flag},
             }
         ]
@@ -10786,16 +10786,16 @@ def test_model_group_info_fast_mode_fails_closed_without_explicit_boolean(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch, flag: object
 ) -> None:
     entry: Final = {
-        key: value for key, value in litellm.model_cost["claude-opus-5"].items() if key != "supports_fast_mode"
+        key: value for key, value in hangarllm.model_cost["claude-opus-5"].items() if key != "supports_fast_mode"
     }
     if flag is not None:
         entry["supports_fast_mode"] = flag
-    monkeypatch.setitem(litellm.model_cost, "claude-opus-5", entry)
+    monkeypatch.setitem(hangarllm.model_cost, "claude-opus-5", entry)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "fast-group",
-                "litellm_params": {"model": "anthropic/claude-opus-5", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "anthropic/claude-opus-5", "api_key": "fake-key"},
                 "model_info": {"supports_fast_mode": True},
             }
         ]
@@ -10826,7 +10826,7 @@ def test_model_group_info_fast_mode_requires_every_deployment(
         model_list=[
             {
                 "model_name": "fast-group",
-                "litellm_params": {"model": model, "api_key": "fake-key"},
+                "hangarllm_params": {"model": model, "api_key": "fake-key"},
             }
             for model in models
         ]
@@ -10840,11 +10840,11 @@ def test_model_group_info_fast_mode_requires_every_deployment(
 
 class TestAddDeploymentApiBaseProviderResolution:
     def test_bare_model_with_known_api_base_initializes(self):
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "groq-pinned",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "llama-3.3-70b-versatile",
                         "api_base": "https://api.groq.com/openai/v1",
                         "api_key": "fake-key",
@@ -10852,7 +10852,7 @@ class TestAddDeploymentApiBaseProviderResolution:
                 },
                 {
                     "model_name": "deepseek-pinned",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "deepseek-chat",
                         "api_base": "https://api.deepseek.com/v1",
                         "api_key": "fake-key",
@@ -10866,12 +10866,12 @@ class TestAddDeploymentApiBaseProviderResolution:
         assert {m["model_name"] for m in model_list} == {"groq-pinned", "deepseek-pinned"}
 
     def test_bare_model_with_unknown_api_base_still_raises(self):
-        with pytest.raises(litellm.BadRequestError, match="LLM Provider NOT provided"):
-            litellm.Router(
+        with pytest.raises(hangarllm.BadRequestError, match="LLM Provider NOT provided"):
+            hangarllm.Router(
                 model_list=[
                     {
                         "model_name": "mystery",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "some-unknown-model",
                             "api_base": "https://llm.internal.example.com/v1",
                             "api_key": "fake-key",
@@ -10881,11 +10881,11 @@ class TestAddDeploymentApiBaseProviderResolution:
             )
 
     def test_explicit_custom_llm_provider_beats_api_base_endpoint_match(self):
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "openai-via-gateway",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "custom_llm_provider": "openai",
                         "api_base": "https://api.groq.com/openai/v1",
@@ -10897,7 +10897,7 @@ class TestAddDeploymentApiBaseProviderResolution:
 
         deployment = router.get_deployment_by_model_group_name("openai-via-gateway")
         assert deployment is not None
-        assert deployment.litellm_params.custom_llm_provider == "openai"
+        assert deployment.hangarllm_params.custom_llm_provider == "openai"
 
 
 # =====================================================================
@@ -11012,16 +11012,16 @@ def test_anthropic_stream_commits_now_direct_call():
 def _mid_stream_opt_out_router() -> Router:
     return Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/gpt-5.4", "api_key": "k1"}},
-            {"model_name": "fallback", "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "k2"}},
+            {"model_name": "primary", "hangarllm_params": {"model": "openai/gpt-5.4", "api_key": "k1"}},
+            {"model_name": "fallback", "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "k2"}},
         ],
         fallbacks=[{"primary": ["fallback"]}],
         num_retries=0,
     )
 
 
-def _mid_stream_opt_out_primary_error() -> litellm.InternalServerError:
-    return litellm.InternalServerError(message="primary failed at stream start", llm_provider="openai", model="primary")
+def _mid_stream_opt_out_primary_error() -> hangarllm.InternalServerError:
+    return hangarllm.InternalServerError(message="primary failed at stream start", llm_provider="openai", model="primary")
 
 
 def _mid_stream_opt_out_trigger(primary_error: Exception) -> MidStreamFallbackError:
@@ -11064,8 +11064,8 @@ async def test_acompletion_disable_fallbacks_reaches_the_mid_stream_hop():
     async def primary_stream(**kwargs):
         return _MidStreamOptOutChatStream(_mid_stream_opt_out_trigger(primary_error), model=kwargs["model"])
 
-    with patch("litellm.acompletion", side_effect=primary_stream) as provider_calls:
-        with pytest.raises(litellm.InternalServerError) as raised:
+    with patch("hangarllm.acompletion", side_effect=primary_stream) as provider_calls:
+        with pytest.raises(hangarllm.InternalServerError) as raised:
             await router.acompletion(
                 model="primary", messages=[{"role": "user", "content": "Hi"}], stream=True, disable_fallbacks=True
             )
@@ -11082,8 +11082,8 @@ def test_completion_disable_fallbacks_reaches_the_mid_stream_hop():
     def primary_stream(**kwargs):
         return _MidStreamOptOutChatStream(_mid_stream_opt_out_trigger(primary_error), model=kwargs["model"])
 
-    with patch("litellm.completion", side_effect=primary_stream) as provider_calls:
-        with pytest.raises(litellm.InternalServerError) as raised:
+    with patch("hangarllm.completion", side_effect=primary_stream) as provider_calls:
+        with pytest.raises(hangarllm.InternalServerError) as raised:
             router.completion(
                 model="primary", messages=[{"role": "user", "content": "Hi"}], stream=True, disable_fallbacks=True
             )
@@ -11124,12 +11124,12 @@ def test_anthropic_stream_raised_error_status_reads_every_status_shape(error, ex
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_stamps_zero_attempted_fallbacks():
     """A request served by the primary model group records attempted_fallbacks=0 and
-    the requested model group in metadata, mirroring the x-litellm-attempted-fallbacks header."""
-    router = litellm.Router(
+    the requested model group in metadata, mirroring the x-hangarllm-attempted-fallbacks header."""
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -11146,43 +11146,43 @@ async def test_async_function_with_fallbacks_stamps_zero_attempted_fallbacks():
 
 
 @pytest.mark.asyncio
-async def test_async_function_with_fallbacks_stamps_route_bucket_not_litellm_metadata():
+async def test_async_function_with_fallbacks_stamps_route_bucket_not_hangarllm_metadata():
     """A chat completion carrying both metadata buckets gets stamped in the route's bucket
     (metadata), matching where run_async_fallback rewrites, so the two never diverge."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
     metadata = {}
-    litellm_metadata = {"client_key": "client_value"}
+    hangarllm_metadata = {"client_key": "client_value"}
 
     await router.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hey"}],
         metadata=metadata,
-        litellm_metadata=litellm_metadata,
+        hangarllm_metadata=hangarllm_metadata,
     )
 
     assert metadata["attempted_fallbacks"] == 0
     assert metadata["original_model_group"] == "gpt-3.5-turbo"
-    assert litellm_metadata["client_key"] == "client_value"
-    assert "attempted_fallbacks" not in litellm_metadata
-    assert "original_model_group" not in litellm_metadata
+    assert hangarllm_metadata["client_key"] == "client_value"
+    assert "attempted_fallbacks" not in hangarllm_metadata
+    assert "original_model_group" not in hangarllm_metadata
 
 
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_overrides_client_supplied_stamp_values():
     """Client-supplied attempted_fallbacks and original_model_group are replaced on entry,
     so a reused metadata dict or a spoofed value cannot leak stale attribution into logs."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -11201,13 +11201,13 @@ async def test_async_function_with_fallbacks_overrides_client_supplied_stamp_val
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_stamps_despite_forged_reentry_params():
     """A client injecting fallback_depth or a JSON-shaped attempted_targets via request
-    litellm params cannot skip the entry stamp; only the router's own in-process
+    hangarllm params cannot skip the entry stamp; only the router's own in-process
     AttemptedFallbackTargets instance marks a genuine re-entrant hop."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -11229,13 +11229,13 @@ async def test_async_function_with_fallbacks_stamps_despite_forged_reentry_param
 async def test_async_function_with_fallbacks_skips_stamp_on_genuine_reentrant_hop():
     """A re-entrant hop carrying the router's own AttemptedFallbackTargets instance keeps
     the per-hop metadata that run_async_fallback wrote instead of resetting it to zero."""
-    from litellm.router_utils.fallback_event_handlers import AttemptedFallbackTargets
+    from hangarllm.router_utils.fallback_event_handlers import AttemptedFallbackTargets
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -11258,17 +11258,17 @@ async def test_run_async_fallback_keeps_caller_metadata_keys_on_the_wire(monkeyp
     string pairs of request metadata to the provider body, so the fallback hop must
     spread caller keys before the router's own stamps: a stamp inserted first evicts
     the caller's 16th key from the wire while the internal stamp rides in its place."""
-    monkeypatch.setattr(litellm, "enable_preview_features", True)
+    monkeypatch.setattr(hangarllm, "enable_preview_features", True)
     caller_metadata = {f"user_key_{i}": f"value_{i}" for i in range(16)}
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "primary-group",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
             },
             {
                 "model_name": "fallback-group",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
             },
         ],
         fallbacks=[{"primary-group": ["fallback-group"]}],
@@ -11324,8 +11324,8 @@ async def test_run_async_fallback_keeps_caller_metadata_keys_on_the_wire(monkeyp
     assert small_wire["model_group"] == "fallback-group"
 
 
-def _permission_denied_error() -> litellm.PermissionDeniedError:
-    return litellm.PermissionDeniedError(
+def _permission_denied_error() -> hangarllm.PermissionDeniedError:
+    return hangarllm.PermissionDeniedError(
         message="OpenrouterException - this key has no access to the model",
         llm_provider="openrouter",
         model="openrouter/openai/gpt-4o",
@@ -11334,13 +11334,13 @@ def _permission_denied_error() -> litellm.PermissionDeniedError:
 
 
 def test_permission_denied_error_is_not_retried_against_a_single_deployment():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "gpt-4o", "litellm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "gpt-4o", "hangarllm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
         ]
     )
 
-    with pytest.raises(litellm.PermissionDeniedError):
+    with pytest.raises(hangarllm.PermissionDeniedError):
         router.should_retry_this_error(
             error=_permission_denied_error(),
             healthy_deployments=router.model_list,
@@ -11349,10 +11349,10 @@ def test_permission_denied_error_is_not_retried_against_a_single_deployment():
 
 
 def test_permission_denied_error_is_retried_when_other_deployments_exist():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "gpt-4o", "litellm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
-            {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "gpt-4o", "hangarllm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "gpt-4o", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
         ]
     )
 
@@ -11381,7 +11381,7 @@ def _router_with_failing_primary(fallback_access_check) -> Router:
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/primary",
                     "api_key": "k",
                     "mock_response": Exception("primary is down"),
@@ -11389,7 +11389,7 @@ def _router_with_failing_primary(fallback_access_check) -> Router:
             },
             {
                 "model_name": "secret-fallback",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/secret",
                     "api_key": "k",
                     "mock_response": "served by secret-fallback",
@@ -11417,7 +11417,7 @@ def _router_with_failing_fallback_chain(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/primary",
                     "api_key": "k",
                     "mock_response": Exception("primary is down"),
@@ -11426,7 +11426,7 @@ def _router_with_failing_fallback_chain(
             *(
                 {
                     "model_name": target,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{target}",
                         "api_key": "k",
                         "mock_response": Exception(f"{target} is down"),
@@ -11455,14 +11455,14 @@ async def test_fallback_access_check_blocks_config_fallback_the_caller_cannot_us
 
 @pytest.mark.asyncio
 async def test_fallback_access_check_reports_denied_fallback_as_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     access_check: Final = _AllowlistFallbackAccessCheck(allowed_models=frozenset())
     router: Final = _router_with_failing_primary(access_check)
     primary_only_router: Final = Router(model_list=router.model_list, fallbacks=[], num_retries=0)
 
-    with pytest.raises(litellm.InternalServerError) as primary_exception:
+    with pytest.raises(hangarllm.InternalServerError) as primary_exception:
         await primary_only_router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}])
-    with pytest.raises(litellm.InternalServerError) as fallback_exception:
+    with pytest.raises(hangarllm.InternalServerError) as fallback_exception:
         await router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}])
 
     message: Final = str(fallback_exception.value)
@@ -11475,14 +11475,14 @@ async def test_fallback_access_check_reports_denied_fallback_as_skipped(monkeypa
 
 @pytest.mark.asyncio
 async def test_fallback_access_check_separates_denied_and_failed_targets(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     access_check: Final = _AllowlistFallbackAccessCheck(allowed_models=frozenset({"allowed-fallback"}))
     router: Final = _router_with_failing_fallback_chain(
         ("secret-fallback", "allowed-fallback"),
         fallback_access_check=access_check,
     )
 
-    with pytest.raises(litellm.InternalServerError) as exception:
+    with pytest.raises(hangarllm.InternalServerError) as exception:
         await router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}])
 
     message: Final = str(exception.value)
@@ -11492,13 +11492,13 @@ async def test_fallback_access_check_separates_denied_and_failed_targets(monkeyp
 
 @pytest.mark.asyncio
 async def test_fallback_budget_check_reports_skipped_targets(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router: Final = _router_with_failing_fallback_chain(
         ("paid-fallback",),
         fallback_budget_check=_DenyFallbackBudgetCheck(),
     )
 
-    with pytest.raises(litellm.InternalServerError) as exception:
+    with pytest.raises(hangarllm.InternalServerError) as exception:
         await router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}])
 
     message: Final = str(exception.value)
@@ -11527,10 +11527,10 @@ async def test_router_without_fallback_access_check_attempts_every_config_fallba
 def _resolution_router() -> Router:
     return Router(
         model_list=[
-            {"model_name": "pinned", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
-            {"model_name": "pooled", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
-            {"model_name": "pooled", "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-test"}},
-            {"model_name": "bedrock/*", "litellm_params": {"model": "bedrock/*", "api_key": "sk-test"}},
+            {"model_name": "pinned", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "pooled", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+            {"model_name": "pooled", "hangarllm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-test"}},
+            {"model_name": "bedrock/*", "hangarllm_params": {"model": "bedrock/*", "api_key": "sk-test"}},
         ],
         model_group_alias={"nickname": "pinned"},
     )
@@ -11547,7 +11547,7 @@ def _resolution_router() -> Router:
     ],
     ids=["exact-name", "model-group-alias", "every-member-of-a-pool", "wildcard-expands", "resolves-to-nothing"],
 )
-def test_resolved_litellm_models_answers_through_every_channel_a_request_uses(
+def test_resolved_hangarllm_models_answers_through_every_channel_a_request_uses(
     model_name: str, expected: tuple[str, ...]
 ) -> None:
     """A caller comparing two names by what serves them needs each channel the request path
@@ -11556,24 +11556,24 @@ def test_resolved_litellm_models_answers_through_every_channel_a_request_uses(
     `resolves-to-nothing` is the contract that keeps the fallback out of here: an empty
     result is not "the call fails", so what to do about it stays each caller's policy.
     """
-    assert set(_resolution_router().resolved_litellm_models(model_name)) == set(expected)
+    assert set(_resolution_router().resolved_hangarllm_models(model_name)) == set(expected)
 
 
-def test_resolved_litellm_models_base_model_precedence_is_opt_in() -> None:
+def test_resolved_hangarllm_models_base_model_precedence_is_opt_in() -> None:
     router: Final = Router(
         model_list=[
             {
                 "model_name": "pooled",
-                "litellm_params": {"model": "openai/deployment-a", "api_key": "sk-test", "base_model": "gpt-5.5"},
+                "hangarllm_params": {"model": "openai/deployment-a", "api_key": "sk-test", "base_model": "gpt-5.5"},
                 "model_info": {"base_model": "gpt-6-astra"},
             },
             {
                 "model_name": "pooled",
-                "litellm_params": {"model": "openai/deployment-b", "api_key": "sk-test", "base_model": "gpt-5.6-sol"},
+                "hangarllm_params": {"model": "openai/deployment-b", "api_key": "sk-test", "base_model": "gpt-5.6-sol"},
             },
             {
                 "model_name": "team-deployment",
-                "litellm_params": {"model": "openai/deployment-c", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/deployment-c", "api_key": "sk-test"},
                 "model_info": {
                     "base_model": "gpt-6-astra",
                     "team_id": "test-team",
@@ -11583,11 +11583,11 @@ def test_resolved_litellm_models_base_model_precedence_is_opt_in() -> None:
         ],
         model_group_alias={"nickname": "pooled"},
     )
-    assert router.resolved_litellm_models("nickname") == ("openai/deployment-a", "openai/deployment-b")
-    assert router.resolved_litellm_models("nickname", use_base_model=True) == ("gpt-6-astra", "gpt-5.6-sol")
-    assert router.resolved_litellm_models("team-model", "test-team") == ("openai/deployment-c",)
-    assert router.resolved_litellm_models("team-model", "test-team", use_base_model=True) == ("gpt-6-astra",)
-    assert router.resolved_litellm_models("never-configured", use_base_model=True) == ()
+    assert router.resolved_hangarllm_models("nickname") == ("openai/deployment-a", "openai/deployment-b")
+    assert router.resolved_hangarllm_models("nickname", use_base_model=True) == ("gpt-6-astra", "gpt-5.6-sol")
+    assert router.resolved_hangarllm_models("team-model", "test-team") == ("openai/deployment-c",)
+    assert router.resolved_hangarllm_models("team-model", "test-team", use_base_model=True) == ("gpt-6-astra",)
+    assert router.resolved_hangarllm_models("never-configured", use_base_model=True) == ()
 
 
 @pytest.mark.asyncio
@@ -11595,7 +11595,7 @@ async def test_router_aspeech_without_voice_dispatches_ref_audio_cloning(respx_m
     import base64
 
     monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     audio_bytes = b"RIFFfake-wav-bytes"
     respx_mock.post("https://api.mistral.ai/v1/audio/speech").respond(
         json={"audio_data": base64.b64encode(audio_bytes).decode()}
@@ -11604,7 +11604,7 @@ async def test_router_aspeech_without_voice_dispatches_ref_audio_cloning(respx_m
         model_list=[
             {
                 "model_name": "voxtral-tts",
-                "litellm_params": {"model": "mistral/voxtral-mini-tts-2603"},
+                "hangarllm_params": {"model": "mistral/voxtral-mini-tts-2603"},
             }
         ]
     )
@@ -11621,7 +11621,7 @@ async def test_router_aspeech_without_voice_keeps_deployment_default_voice(respx
     import base64
 
     monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     audio_bytes = b"RIFFfake-wav-bytes"
     respx_mock.post("https://api.mistral.ai/v1/audio/speech").respond(
         json={"audio_data": base64.b64encode(audio_bytes).decode()}
@@ -11630,7 +11630,7 @@ async def test_router_aspeech_without_voice_keeps_deployment_default_voice(respx
         model_list=[
             {
                 "model_name": "voxtral-tts",
-                "litellm_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
+                "hangarllm_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
             }
         ]
     )
@@ -11646,7 +11646,7 @@ async def test_router_aspeech_request_voice_overrides_deployment_default(respx_m
     import base64
 
     monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     audio_bytes = b"RIFFfake-wav-bytes"
     respx_mock.post("https://api.mistral.ai/v1/audio/speech").respond(
         json={"audio_data": base64.b64encode(audio_bytes).decode()}
@@ -11655,7 +11655,7 @@ async def test_router_aspeech_request_voice_overrides_deployment_default(respx_m
         model_list=[
             {
                 "model_name": "voxtral-tts",
-                "litellm_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
+                "hangarllm_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
             }
         ]
     )
@@ -11674,13 +11674,13 @@ async def test_prompt_management_factory_marks_injection_for_every_deployment(mo
     the provisional deployment's id, or a differently-billed deployment loses the credit."""
     import time
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "cached-claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic_cache_control_hook/claude-sonnet-5",
                     "prompt_id": "cache-points",
                 },
@@ -11692,16 +11692,16 @@ async def test_prompt_management_factory_marks_injection_for_every_deployment(mo
 
     async def _capture_acompletion(**kwargs):
         captured.update(kwargs)
-        return litellm.ModelResponse()
+        return hangarllm.ModelResponse()
 
-    monkeypatch.setattr(litellm, "acompletion", _capture_acompletion)
-    logging_obj = LiteLLMLogging(
+    monkeypatch.setattr(hangarllm, "acompletion", _capture_acompletion)
+    logging_obj = HangarLLMLogging(
         model="cached-claude",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="lit-6445",
+        hangarllm_call_id="lit-6445",
         function_id="f",
     )
     await router.acompletion(
@@ -11711,35 +11711,35 @@ async def test_prompt_management_factory_marks_injection_for_every_deployment(mo
             {"role": "user", "content": "hi"},
         ],
         cache_control_injection_points=[{"location": "message", "role": "system"}],
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
-    bucket = captured.get("litellm_metadata") or captured["metadata"]
+    bucket = captured.get("hangarllm_metadata") or captured["metadata"]
     assert captured["model_info"]["id"] == "provisional-dep"
-    assert bucket["litellm_gateway_injected_cache"] == ""
+    assert bucket["hangarllm_gateway_injected_cache"] == ""
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "retry_policy,upstream_status,error_type,expected_upstream_calls",
     [
-        ({"ServiceUnavailableErrorRetries": 0}, 503, litellm.ServiceUnavailableError, 1),
-        ({"ServiceUnavailableErrorRetries": 1}, 503, litellm.ServiceUnavailableError, 2),
-        ({"InternalServerErrorRetries": 0}, 500, litellm.InternalServerError, 1),
-        ({"DefaultRetries": 0}, 502, litellm.BadGatewayError, 1),
-        ({"DefaultRetries": 0, "ServiceUnavailableErrorRetries": 1}, 503, litellm.ServiceUnavailableError, 2),
-        ({"ServiceUnavailableErrorRetries": 0}, 502, litellm.BadGatewayError, 3),
-        ({"BadRequestErrorRetries": 2}, 400, litellm.BadRequestError, 3),
+        ({"ServiceUnavailableErrorRetries": 0}, 503, hangarllm.ServiceUnavailableError, 1),
+        ({"ServiceUnavailableErrorRetries": 1}, 503, hangarllm.ServiceUnavailableError, 2),
+        ({"InternalServerErrorRetries": 0}, 500, hangarllm.InternalServerError, 1),
+        ({"DefaultRetries": 0}, 502, hangarllm.BadGatewayError, 1),
+        ({"DefaultRetries": 0, "ServiceUnavailableErrorRetries": 1}, 503, hangarllm.ServiceUnavailableError, 2),
+        ({"ServiceUnavailableErrorRetries": 0}, 502, hangarllm.BadGatewayError, 3),
+        ({"BadRequestErrorRetries": 2}, 400, hangarllm.BadRequestError, 3),
     ],
 )
 async def test_router_retry_policy_controls_upstream_attempt_count(
     monkeypatch: pytest.MonkeyPatch, retry_policy, upstream_status, error_type, expected_upstream_calls
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://retry-policy.local/v1",
@@ -11769,8 +11769,8 @@ async def test_router_retry_policy_controls_upstream_attempt_count(
 @pytest.mark.parametrize(
     "error_body,error_type",
     [
-        ({"message": "model is down", "type": "server_error"}, litellm.NotFoundError),
-        ({"message": "Response with id 'resp_x' not found.", "type": "invalid_request_error"}, litellm.NotFoundError),
+        ({"message": "model is down", "type": "server_error"}, hangarllm.NotFoundError),
+        ({"message": "Response with id 'resp_x' not found.", "type": "invalid_request_error"}, hangarllm.NotFoundError),
     ],
 )
 @pytest.mark.parametrize(
@@ -11784,12 +11784,12 @@ async def test_router_retry_policy_controls_upstream_attempt_count(
 async def test_router_not_found_retries_governs_every_404_shape(
     monkeypatch: pytest.MonkeyPatch, retry_policy, expected_upstream_calls, error_body, error_type
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://retry-policy.local/v1",
@@ -11814,12 +11814,12 @@ async def test_router_not_found_retries_governs_every_404_shape(
 
 @pytest.mark.asyncio
 async def test_generic_call_keeps_the_deployment_name_of_an_azure_ai_model_on_an_azure_openai_host(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "aoai-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure_ai/gpt-5.4-mini",
                     "api_base": "https://my-resource.openai.azure.com",
                     "api_key": "deployment-key",
@@ -11880,12 +11880,12 @@ async def test_generic_call_keeps_the_deployment_name_of_an_azure_ai_model_on_an
 async def test_router_retry_policy_400_retries_on_sibling_deployment(
     monkeypatch: pytest.MonkeyPatch, retry_policy, upstream_error
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://rejecting.local/v1",
@@ -11895,7 +11895,7 @@ async def test_router_retry_policy_400_retries_on_sibling_deployment(
             },
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://accepting.local/v1",
@@ -11933,20 +11933,20 @@ async def test_router_retry_policy_400_retries_on_sibling_deployment(
     assert rejecting.call_count == 1
     assert accepting.call_count == 1
     assert response.choices[0].message.content == "hi back"
-    assert response._hidden_params["additional_headers"]["x-litellm-attempted-retries"] == 1
+    assert response._hidden_params["additional_headers"]["x-hangarllm-attempted-retries"] == 1
 
 
 _UPSTREAM_400 = {"message": "upstream refused this request", "type": "invalid_request_error", "code": "bad_request"}
 
 
-def _retry_skip_deployment(deployment_id, host, litellm_params=None, model_info=None):
+def _retry_skip_deployment(deployment_id, host, hangarllm_params=None, model_info=None):
     return {
         "model_name": "gpt-5.6",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-5.6",
             "api_key": "sk-fake",
             "api_base": f"https://{host}.local/v1",
-            **(litellm_params or {}),
+            **(hangarllm_params or {}),
         },
         "model_info": {"id": deployment_id, **(model_info or {})},
     }
@@ -11967,7 +11967,7 @@ def _retry_skip_deployment(deployment_id, host, litellm_params=None, model_info=
     ],
 )
 def test_router_as_retry_skipped_deployment_ids_keeps_only_a_tuple_of_strings(value, expected):
-    from litellm.litellm_core_utils.routing_common_utils import as_retry_skipped_deployment_ids
+    from hangarllm.hangarllm_core_utils.routing_common_utils import as_retry_skipped_deployment_ids
 
     assert as_retry_skipped_deployment_ids(value) == expected
 
@@ -11990,7 +11990,7 @@ def test_router_as_retry_skipped_deployment_ids_keeps_only_a_tuple_of_strings(va
 )
 @pytest.mark.asyncio
 async def test_router_healthy_deployments_keep_the_last_candidate_a_retry_skipped(deployment_ids, skipped, expected):
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[_retry_skip_deployment(deployment_id, deployment_id) for deployment_id in deployment_ids],
         disable_cooldowns=True,
     )
@@ -12007,8 +12007,8 @@ async def test_router_healthy_deployments_keep_the_last_candidate_a_retry_skippe
 async def test_router_retry_policy_400_keeps_upstream_error_when_a_client_forges_the_skip_list(
     monkeypatch: pytest.MonkeyPatch, client_supplied
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[_retry_skip_deployment("rejecting", "rejecting"), _retry_skip_deployment("sibling", "sibling")],
         num_retries=2,
         retry_policy={"BadRequestErrorRetries": 2},
@@ -12022,7 +12022,7 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_a_client_forges
         respx_mock.post("https://sibling.local/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": _UPSTREAM_400})
         )
-        with pytest.raises(litellm.BadRequestError) as raised:
+        with pytest.raises(hangarllm.BadRequestError) as raised:
             await router.acompletion(
                 model="gpt-5.6",
                 messages=[{"role": "user", "content": "hi"}],
@@ -12034,11 +12034,11 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_a_client_forges
 
 @pytest.mark.asyncio
 async def test_router_retry_policy_400_keeps_upstream_error_on_order_fallback_hop(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
-            _retry_skip_deployment("order1", "order1", litellm_params={"order": 1}),
-            _retry_skip_deployment("order2", "order2", litellm_params={"order": 2}),
+            _retry_skip_deployment("order1", "order1", hangarllm_params={"order": 1}),
+            _retry_skip_deployment("order2", "order2", hangarllm_params={"order": 2}),
         ],
         num_retries=2,
         retry_policy={"BadRequestErrorRetries": 2},
@@ -12052,7 +12052,7 @@ async def test_router_retry_policy_400_keeps_upstream_error_on_order_fallback_ho
         order2 = respx_mock.post("https://order2.local/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": _UPSTREAM_400})
         )
-        with pytest.raises(litellm.BadRequestError) as raised:
+        with pytest.raises(hangarllm.BadRequestError) as raised:
             await router.acompletion(model="gpt-5.6", messages=[{"role": "user", "content": "hi"}])
 
     assert "upstream refused this request" in str(raised.value)
@@ -12065,11 +12065,11 @@ async def test_router_retry_policy_400_keeps_upstream_error_on_order_fallback_ho
 async def test_router_retry_policy_400_keeps_upstream_error_when_tags_narrow_the_group(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
             _retry_skip_deployment(
-                "tagged", "tagged", litellm_params={"tags": ["free"]}, model_info={"enable_tag_filtering": True}
+                "tagged", "tagged", hangarllm_params={"tags": ["free"]}, model_info={"enable_tag_filtering": True}
             ),
             _retry_skip_deployment("untagged", "untagged", model_info={"enable_tag_filtering": True}),
         ],
@@ -12085,7 +12085,7 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_tags_narrow_the
         untagged = respx_mock.post("https://untagged.local/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": _UPSTREAM_400})
         )
-        with pytest.raises(litellm.BadRequestError) as raised:
+        with pytest.raises(hangarllm.BadRequestError) as raised:
             await router.acompletion(
                 model="gpt-5.6",
                 messages=[{"role": "user", "content": "hi"}],
@@ -12102,12 +12102,12 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_tags_narrow_the
 async def test_router_retry_policy_400_never_returns_to_a_deployment_that_already_refused(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router = hangarllm.Router(
         model_list=[
-            _retry_skip_deployment("first-refuser", "first-refuser", litellm_params={"weight": 1}),
-            _retry_skip_deployment("second-refuser", "second-refuser", litellm_params={"weight": 0}),
-            _retry_skip_deployment("accepting", "accepting", litellm_params={"weight": 0}),
+            _retry_skip_deployment("first-refuser", "first-refuser", hangarllm_params={"weight": 1}),
+            _retry_skip_deployment("second-refuser", "second-refuser", hangarllm_params={"weight": 0}),
+            _retry_skip_deployment("accepting", "accepting", hangarllm_params={"weight": 0}),
         ],
         num_retries=3,
         retry_policy={"BadRequestErrorRetries": 3},
@@ -12176,18 +12176,18 @@ class _PassthroughAdapter(CustomLogger):
     def translate_completion_input_params(self, kwargs: ChatCompletionRequest) -> ChatCompletionRequest:
         return ChatCompletionRequest(**kwargs)
 
-    def translate_completion_output_params(self, response: litellm.ModelResponse) -> litellm.ModelResponse:
+    def translate_completion_output_params(self, response: hangarllm.ModelResponse) -> hangarllm.ModelResponse:
         return response
 
 
-def _lit_7114_router(litellm_model: str) -> litellm.Router:
-    api_base_suffix: Final = "" if litellm_model.startswith("cohere/") else "/v1"
-    return litellm.Router(
+def _lit_7114_router(hangarllm_model: str) -> hangarllm.Router:
+    api_base_suffix: Final = "" if hangarllm_model.startswith("cohere/") else "/v1"
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
-                    "model": litellm_model,
+                "hangarllm_params": {
+                    "model": hangarllm_model,
                     "api_key": "sk-fake",
                     "api_base": f"https://{host}.local{api_base_suffix}",
                     "weight": weight,
@@ -12220,7 +12220,7 @@ def _lit_7114_mock_upstreams(
 
 
 _LIT_7114_ASYNC_ENTRYPOINTS: Final[
-    Mapping[str, tuple[str, str, int, Mapping[str, object] | bytes, Callable[[litellm.Router], Awaitable[object]]]]
+    Mapping[str, tuple[str, str, int, Mapping[str, object] | bytes, Callable[[hangarllm.Router], Awaitable[object]]]]
 ] = {
     "aembedding": (
         "openai/text-embedding-3-large",
@@ -12297,10 +12297,10 @@ _LIT_7114_ASYNC_ENTRYPOINTS: Final[
 async def test_router_retry_moves_off_the_refusing_deployment_on_every_async_entrypoint(
     monkeypatch: pytest.MonkeyPatch, entrypoint: str
 ):
-    litellm_model, path, refusal_status, success_body, call = _LIT_7114_ASYNC_ENTRYPOINTS[entrypoint]
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "adapters", [{"id": "lit-7114", "adapter": _PassthroughAdapter()}])
-    router: Final = _lit_7114_router(litellm_model)
+    hangarllm_model, path, refusal_status, success_body, call = _LIT_7114_ASYNC_ENTRYPOINTS[entrypoint]
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "adapters", [{"id": "lit-7114", "adapter": _PassthroughAdapter()}])
+    router: Final = _lit_7114_router(hangarllm_model)
 
     with respx.mock as respx_mock:
         rejecting, accepting = _lit_7114_mock_upstreams(respx_mock, path, refusal_status, success_body)
@@ -12312,7 +12312,7 @@ async def test_router_retry_moves_off_the_refusing_deployment_on_every_async_ent
 
 
 _LIT_7114_SYNC_ENTRYPOINTS: Final[
-    Mapping[str, tuple[str, str, Mapping[str, object], Callable[[litellm.Router], object]]]
+    Mapping[str, tuple[str, str, Mapping[str, object], Callable[[hangarllm.Router], object]]]
 ] = {
     "embedding": (
         "openai/text-embedding-3-large",
@@ -12333,9 +12333,9 @@ _LIT_7114_SYNC_ENTRYPOINTS: Final[
 def test_router_retry_policy_400_moves_off_the_refusing_deployment_on_every_sync_entrypoint(
     monkeypatch: pytest.MonkeyPatch, entrypoint: str
 ):
-    litellm_model, path, success_body, call = _LIT_7114_SYNC_ENTRYPOINTS[entrypoint]
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = _lit_7114_router(litellm_model)
+    hangarllm_model, path, success_body, call = _LIT_7114_SYNC_ENTRYPOINTS[entrypoint]
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = _lit_7114_router(hangarllm_model)
 
     with respx.mock as respx_mock:
         rejecting, accepting = _lit_7114_mock_upstreams(respx_mock, path, 400, success_body)
@@ -12351,12 +12351,12 @@ _TRANSCRIPTION_API_BASE: Final = "https://transcriber.local/v1"
 
 
 def _transcription_deployment(
-    model_name: str, deployment_id: str, litellm_model: str, weight: int
+    model_name: str, deployment_id: str, hangarllm_model: str, weight: int
 ) -> DeploymentTypedDict:
     return {
         "model_name": model_name,
-        "litellm_params": {
-            "model": litellm_model,
+        "hangarllm_params": {
+            "model": hangarllm_model,
             "api_key": "sk-fake",
             "api_base": _TRANSCRIPTION_API_BASE,
             "weight": weight,
@@ -12377,9 +12377,9 @@ async def test_router_retries_a_transcription_off_a_deployment_whose_provider_ca
     policy_scope: Literal["none", "router", "model_group", "request"],
     caller_credentials: Mapping[str, str],
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     policy: Final = RetryPolicy(BadRequestErrorRetries=0)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _transcription_deployment("transcriber", "cannot-transcribe", "anthropic/claude-sonnet-5-5", weight=1),
             _transcription_deployment("transcriber", "can-transcribe", "openai/gpt-transcribe", weight=0),
@@ -12413,7 +12413,7 @@ async def test_router_retries_a_transcription_off_a_deployment_whose_provider_ca
 async def test_router_tries_each_deployment_that_cannot_transcribe_once_then_answers_400(
     deployment_count: int, caller_credentials: Mapping[str, str]
 ) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _transcription_deployment("transcriber", f"cannot-transcribe-{index}", "anthropic/claude-sonnet-5-5", 1)
             for index in range(deployment_count)
@@ -12422,7 +12422,7 @@ async def test_router_tries_each_deployment_that_cannot_transcribe_once_then_ans
         disable_cooldowns=True,
     )
 
-    with respx.mock as respx_mock, pytest.raises(litellm.UnsupportedEndpointError) as raised:
+    with respx.mock as respx_mock, pytest.raises(hangarllm.UnsupportedEndpointError) as raised:
         await router.atranscription(model="transcriber", file=_TRANSCRIPTION_AUDIO, **caller_credentials)
 
     assert raised.value.status_code == 400
@@ -12434,8 +12434,8 @@ async def test_router_tries_each_deployment_that_cannot_transcribe_once_then_ans
 async def test_router_falls_back_from_a_group_that_cannot_transcribe_when_unsupported_params_do_not(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             _transcription_deployment("chat-only", "cannot-transcribe", "anthropic/claude-sonnet-5-5", weight=1),
             _transcription_deployment("transcriber", "can-transcribe", "openai/gpt-transcribe", weight=1),
@@ -12457,13 +12457,13 @@ async def test_router_falls_back_from_a_group_that_cannot_transcribe_when_unsupp
 
 
 def _make_failure_logging_obj():
-    return LiteLLMLogging(
+    return HangarLLMLogging(
         model="gpt-5.6",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
         start_time=datetime.now(),
-        litellm_call_id="lit-6960",
+        hangarllm_call_id="lit-6960",
         function_id="f",
     )
 
@@ -12500,7 +12500,7 @@ async def _assert_router_failure_logging_is_coordinated(logging_obj, trigger, ex
 @pytest.mark.parametrize(
     "hook_error",
     [
-        litellm.RateLimitError(message="rpm exceeded", llm_provider="openai", model="gpt-5.6"),
+        hangarllm.RateLimitError(message="rpm exceeded", llm_provider="openai", model="gpt-5.6"),
         RuntimeError("pre call check blew up"),
     ],
 )
@@ -12509,13 +12509,13 @@ async def test_async_routing_strategy_pre_call_checks_failure_logging_is_coordin
         async def async_pre_call_check(self, deployment, parent_otel_span):
             raise hook_error
 
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = hangarllm.Router(
+        model_list=[{"model_name": "gpt-5.6", "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     deployment = router.model_list[0]
     logging_obj = _make_failure_logging_obj()
 
-    with patch.object(litellm, "callbacks", [_RaisingPreCallCheck()]):  # test-quality-ok: router reads this global
+    with patch.object(hangarllm, "callbacks", [_RaisingPreCallCheck()]):  # test-quality-ok: router reads this global
         await _assert_router_failure_logging_is_coordinated(
             logging_obj,
             lambda: router.async_routing_strategy_pre_call_checks(
@@ -12531,12 +12531,12 @@ async def test_async_callback_filter_deployments_failure_logging_is_coordinated(
         async def async_filter_deployments(self, *args, **kwargs):
             raise RuntimeError("filter blew up")
 
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = hangarllm.Router(
+        model_list=[{"model_name": "gpt-5.6", "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     logging_obj = _make_failure_logging_obj()
 
-    with patch.object(litellm, "callbacks", [_RaisingFilter()]):  # test-quality-ok: router reads this global
+    with patch.object(hangarllm, "callbacks", [_RaisingFilter()]):  # test-quality-ok: router reads this global
         await _assert_router_failure_logging_is_coordinated(
             logging_obj,
             lambda: router.async_callback_filter_deployments(
@@ -12553,8 +12553,8 @@ async def test_async_callback_filter_deployments_failure_logging_is_coordinated(
 
 @pytest.mark.asyncio
 async def test_async_get_available_deployment_failure_logging_is_coordinated():
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = hangarllm.Router(
+        model_list=[{"model_name": "gpt-5.6", "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     logging_obj = _make_failure_logging_obj()
 
@@ -12562,17 +12562,17 @@ async def test_async_get_available_deployment_failure_logging_is_coordinated():
         logging_obj,
         lambda: router.async_get_available_deployment(
             model="model-that-is-not-configured",
-            request_kwargs={"litellm_logging_obj": logging_obj},
+            request_kwargs={"hangarllm_logging_obj": logging_obj},
             messages=[{"role": "user", "content": "hi"}],
         ),
-        litellm.BadRequestError,
+        hangarllm.BadRequestError,
     )
 
 
 @pytest.mark.asyncio
 async def test_async_get_available_deployment_for_pass_through_failure_logging_is_coordinated():
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = hangarllm.Router(
+        model_list=[{"model_name": "gpt-5.6", "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     logging_obj = _make_failure_logging_obj()
 
@@ -12580,9 +12580,9 @@ async def test_async_get_available_deployment_for_pass_through_failure_logging_i
         logging_obj,
         lambda: router.async_get_available_deployment_for_pass_through(
             model="gpt-5.6",
-            request_kwargs={"litellm_logging_obj": logging_obj},
+            request_kwargs={"hangarllm_logging_obj": logging_obj},
         ),
-        litellm.BadRequestError,
+        hangarllm.BadRequestError,
     )
 
 
@@ -12640,7 +12640,7 @@ def _max_parallel_router(max_parallel_requests: int) -> Router:
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel.local/v1",
@@ -12657,7 +12657,7 @@ def _max_parallel_router(max_parallel_requests: int) -> Router:
 async def test_router_max_parallel_requests_admits_the_cap_and_rejects_the_rest_with_429(
     monkeypatch: pytest.MonkeyPatch, stream: bool
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     tracker: Final = _InFlightTracker()
     router: Final = _max_parallel_router(max_parallel_requests=2)
 
@@ -12685,7 +12685,7 @@ async def test_router_max_parallel_requests_admits_the_cap_and_rejects_the_rest_
             response = await router.acompletion(
                 model="gpt-5.6", messages=[{"role": "user", "content": "hi"}], stream=stream
             )
-        except litellm.RateLimitError as e:
+        except hangarllm.RateLimitError as e:
             return f"rejected:{e.status_code}"
         if stream:
             async for _ in response:
@@ -12707,7 +12707,7 @@ async def test_router_max_parallel_requests_admits_the_cap_and_rejects_the_rest_
 async def test_router_max_parallel_requests_slot_held_until_stream_closed_then_released(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     tracker: Final = _InFlightTracker()
     router: Final = _max_parallel_router(max_parallel_requests=1)
 
@@ -12730,7 +12730,7 @@ async def test_router_max_parallel_requests_slot_held_until_stream_closed_then_r
                 pass
 
         assert tracker.current == 1
-        with pytest.raises(litellm.RateLimitError) as while_streaming:
+        with pytest.raises(hangarllm.RateLimitError) as while_streaming:
             await second_call()
         assert while_streaming.value.status_code == 429
         await first.aclose()
@@ -12744,12 +12744,12 @@ async def test_router_max_parallel_requests_slot_held_until_stream_closed_then_r
 async def test_router_max_parallel_requests_overflow_is_429_without_cooldown_or_provider_call(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel.local/v1",
@@ -12759,7 +12759,7 @@ async def test_router_max_parallel_requests_overflow_is_429_without_cooldown_or_
             },
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-sibling.local/v1",
@@ -12801,7 +12801,7 @@ async def test_router_max_parallel_requests_overflow_is_429_without_cooldown_or_
 
     rejected: Final = [r for r in results if isinstance(r, BaseException)]
     assert len(rejected) == 2 and len(results) == 3
-    assert all(isinstance(r, litellm.RateLimitError) and r.status_code == 429 for r in rejected)
+    assert all(isinstance(r, hangarllm.RateLimitError) and r.status_code == 429 for r in rejected)
     assert all("capped-deployment" in r.message and "max_parallel_requests=1" in r.message for r in rejected)
     assert route.call_count == 1
     assert sibling_route.call_count == 0
@@ -12812,12 +12812,12 @@ async def test_router_max_parallel_requests_overflow_is_429_without_cooldown_or_
 async def test_router_embedding_path_rejects_past_max_parallel_requests_without_orphan_coroutines(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "embed",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-embed.local/v1",
@@ -12857,7 +12857,7 @@ async def test_router_embedding_path_rejects_past_max_parallel_requests_without_
 
     rejected: Final = [r for r in results if isinstance(r, BaseException)]
     assert len(rejected) == 2 and len(results) == 3
-    assert all(isinstance(r, litellm.RateLimitError) and r.status_code == 429 for r in rejected)
+    assert all(isinstance(r, hangarllm.RateLimitError) and r.status_code == 429 for r in rejected)
     assert all("embed-capped-deployment" in r.message for r in rejected)
     assert route.call_count == 1
     assert [str(w.message) for w in caught if "never awaited" in str(w.message)] == []
@@ -12867,12 +12867,12 @@ async def test_router_embedding_path_rejects_past_max_parallel_requests_without_
 async def test_router_max_parallel_requests_overflow_takes_the_ordinary_429_fallback_path(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-primary.local/v1",
@@ -12882,7 +12882,7 @@ async def test_router_max_parallel_requests_overflow_takes_the_ordinary_429_fall
             },
             {
                 "model_name": "gpt-5.6-fallback",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-fallback.local/v1",
@@ -12929,14 +12929,14 @@ async def test_router_max_parallel_requests_overflow_takes_the_ordinary_429_fall
 
 @pytest.mark.asyncio
 async def test_router_deployment_drop_params_string_true_is_honored(monkeypatch):
-    from litellm import Router
+    from hangarllm import Router
 
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5-nano",
                     "api_key": "sk-fake",
                     "temperature": 1,
@@ -12951,7 +12951,7 @@ async def test_router_deployment_drop_params_string_true_is_honored(monkeypatch)
 
     deployment = router.get_deployment_by_model_group_name(model_group_name="gpt-5-nano")
     assert deployment is not None
-    assert deployment.litellm_params.drop_params is True
+    assert deployment.hangarllm_params.drop_params is True
 
     response = await router.acompletion(
         model="gpt-5-nano",
@@ -12963,30 +12963,30 @@ async def test_router_deployment_drop_params_string_true_is_honored(monkeypatch)
 
 @pytest.mark.parametrize("value", ["ture", "enabled"])
 def test_router_warns_when_a_deployment_drop_params_string_is_not_a_flag(value, caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-5-nano",
-                    "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
+                    "hangarllm_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
                 }
             ]
         )
 
     deployment = router.get_deployment_by_model_group_name(model_group_name="gpt-5-nano")
     assert deployment is not None
-    assert deployment.litellm_params.drop_params == value
+    assert deployment.hangarllm_params.drop_params == value
     assert f"model=gpt-5-nano drop_params={value!r} is not a flag value, treating it as unset" in caplog.text
 
 
 @pytest.mark.parametrize("value", [True, "true", "off", None])
 def test_router_stays_quiet_when_a_deployment_drop_params_is_a_flag(value, caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         Router(
             model_list=[
                 {
                     "model_name": "gpt-5-nano",
-                    "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
+                    "hangarllm_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
                 }
             ]
         )
@@ -13008,17 +13008,17 @@ def test_get_candidate_model_ids_for_route_covers_model_name_and_pattern():
         model_list=[
             {
                 "model_name": "grp",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-a", "api_base": "https://x.invalid"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-a", "api_base": "https://x.invalid"},
                 "model_info": {"id": "dep-a"},
             },
             {
                 "model_name": "grp",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b", "api_base": "https://x.invalid"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b", "api_base": "https://x.invalid"},
                 "model_info": {"id": "dep-b"},
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "sk-c", "api_base": "https://x.invalid"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "sk-c", "api_base": "https://x.invalid"},
                 "model_info": {"id": "dep-wild"},
             },
         ]
@@ -13035,7 +13035,7 @@ def test_cached_model_info_lookups_match_uncached_and_reset_on_model_list_change
     def deployment(max_output_tokens: int) -> Deployment:
         return Deployment(
             model_name="grp",
-            litellm_params=LiteLLM_Params(model="openai/gpt-4o", api_key="sk-a"),
+            hangarllm_params=HangarLLM_Params(model="openai/gpt-4o", api_key="sk-a"),
             model_info=ModelInfo(id="dep-a", max_output_tokens=max_output_tokens),
         )
 
@@ -13054,16 +13054,16 @@ def test_cached_model_info_lookups_match_uncached_and_reset_on_model_list_change
 
 @pytest.mark.asyncio
 async def test_model_name_colliding_with_a_deployment_id_still_load_balances_the_group():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
+                "hangarllm_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
                 "model_info": {"id": "gpt-5-nano"},
             },
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
+                "hangarllm_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
                 "model_info": {"id": "gpt-5-mini-dep"},
             },
         ],
@@ -13079,16 +13079,16 @@ async def test_model_name_colliding_with_a_deployment_id_still_load_balances_the
 
 
 def test_sync_completion_routes_a_model_name_colliding_with_a_deployment_id_by_group():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
+                "hangarllm_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
                 "model_info": {"id": "gpt-5-nano"},
             },
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
+                "hangarllm_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
                 "model_info": {"id": "gpt-5-mini-dep"},
             },
         ],
@@ -13106,11 +13106,11 @@ def test_sync_completion_routes_a_model_name_colliding_with_a_deployment_id_by_g
 class TestMemberAutoRouterInference:
     @pytest.fixture(autouse=True)
     def runtime(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
-        from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
         self.cache = UserApiKeyCache()
-        self.team = LiteLLM_TeamTable(
+        self.team = HangarLLM_TeamTable(
             team_id="router-team",
             models=["member-router", "permitted-model"],
             members_with_roles=[Member(user_id="router-member", role="user")],
@@ -13118,16 +13118,16 @@ class TestMemberAutoRouterInference:
         self.actor = UserAPIKeyAuth(
             user_id="router-member",
             team_id="router-team",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             models=["member-router", "permitted-model"],
             api_key="test-key-hash",
             config={"timeout": 60},
         )
         self.database = SimpleNamespace(
             db=SimpleNamespace(
-                litellm_teamtable=SimpleNamespace(find_unique=AsyncMock(return_value=self.team)),
-                litellm_teammembership=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
-                litellm_accessgrouptable=SimpleNamespace(find_unique=AsyncMock()),
+                hangarllm_teamtable=SimpleNamespace(find_unique=AsyncMock(return_value=self.team)),
+                hangarllm_teammembership=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+                hangarllm_accessgrouptable=SimpleNamespace(find_unique=AsyncMock()),
             )
         )
         monkeypatch.setattr(proxy_server, "user_api_key_cache", self.cache)
@@ -13138,7 +13138,7 @@ class TestMemberAutoRouterInference:
         target: Final = "permitted-model" if member else "restricted-model"
         return {
             "model_name": "model_name_router-team_member-router",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_default_model": target,
                 "complexity_router_config": {
@@ -13163,13 +13163,13 @@ class TestMemberAutoRouterInference:
                 *(markers or (cls._marker(),)),
                 {
                     "model_name": "permitted-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "test-key",
                         "api_base": "https://api.openai.com/v1",
                     },
                 },
-                {"model_name": "restricted-model", "litellm_params": {"model": "openai/gpt-4o", "api_key": "test-key"}},
+                {"model_name": "restricted-model", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "test-key"}},
             ]
         )
 
@@ -13180,14 +13180,14 @@ class TestMemberAutoRouterInference:
         metadata_name: str = "metadata",
         tag: str = "member",
     ) -> dict[str, object]:
-        from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+        from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 
-        return LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+        return HangarLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
             data={
                 metadata_name: {"tags": [tag]},
                 **(
                     {"metadata": {"user_api_key_auth": {"user_role": "proxy_admin"}}}
-                    if metadata_name == "litellm_metadata"
+                    if metadata_name == "hangarllm_metadata"
                     else {}
                 ),
             },
@@ -13210,14 +13210,14 @@ class TestMemberAutoRouterInference:
         return response
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("metadata_name", ("metadata", "litellm_metadata"))
+    @pytest.mark.parametrize("metadata_name", ("metadata", "hangarllm_metadata"))
     async def test_cached_roster_revocation_blocks_classifier_and_session_rebinding(
         self,
         metadata_name: str,
         respx_mock: respx.MockRouter,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from litellm.proxy.auth.auth_checks import delete_cache_team_object
+        from hangarllm.proxy.auth.auth_checks import delete_cache_team_object
 
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
         router: Final = self._router(self._marker(classifier=True))
@@ -13251,9 +13251,9 @@ class TestMemberAutoRouterInference:
         assert first.model == "permitted-model" and first.routing_decision is not None
         assert first.routing_decision["cause"] == "llm_classifier"
         assert (await self._route(router, request)).model == "permitted-model"
-        assert self.database.db.litellm_teamtable.find_unique.await_count == 1
-        assert self.database.db.litellm_teammembership.find_unique.await_count == 1
-        self.database.db.litellm_teamtable.find_unique.return_value = self.team.model_copy(
+        assert self.database.db.hangarllm_teamtable.find_unique.await_count == 1
+        assert self.database.db.hangarllm_teammembership.find_unique.await_count == 1
+        self.database.db.hangarllm_teamtable.find_unique.return_value = self.team.model_copy(
             update={"members_with_roles": []}
         )
         await delete_cache_team_object(
@@ -13281,7 +13281,7 @@ class TestMemberAutoRouterInference:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("state", ("forged", "blocked", "deleted", "unavailable", "empty-user"))
     async def test_member_router_fails_closed(self, state: str, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         request: Final = (
             {
@@ -13300,7 +13300,7 @@ class TestMemberAutoRouterInference:
                 )
             )
         )
-        self.database.db.litellm_teamtable.find_unique.return_value = (
+        self.database.db.hangarllm_teamtable.find_unique.return_value = (
             None if state == "deleted" else self.team.model_copy(update={"blocked": state == "blocked"})
         )
         if state == "unavailable":
@@ -13311,10 +13311,10 @@ class TestMemberAutoRouterInference:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "user_id,role", [(None, LitellmUserRoles.INTERNAL_USER), ("admin", LitellmUserRoles.PROXY_ADMIN)]
+        "user_id,role", [(None, HangarllmUserRoles.INTERNAL_USER), ("admin", HangarllmUserRoles.PROXY_ADMIN)]
     )
     async def test_service_key_and_admin_preserve_runtime_access(
-        self, user_id: str | None, role: LitellmUserRoles
+        self, user_id: str | None, role: HangarllmUserRoles
     ) -> None:
         assert (
             await self._route(
@@ -13328,13 +13328,13 @@ class TestMemberAutoRouterInference:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("ceiling", ("team", "key", "member", "organization", "project"))
     async def test_runtime_dependency_ceilings_use_cached_auth_state(self, ceiling: str) -> None:
-        from litellm.models.budget import LiteLLM_BudgetTable
-        from litellm.models.organization import LiteLLM_OrganizationTable
-        from litellm.models.team_membership import LiteLLM_TeamMembership
-        from litellm.proxy._types import LiteLLM_ProjectTableCachedObj
-        from litellm.proxy.common_utils.user_api_key_cache import team_membership_reservation_cache_key
+        from hangarllm.models.budget import HangarLLM_BudgetTable
+        from hangarllm.models.organization import HangarLLM_OrganizationTable
+        from hangarllm.models.team_membership import HangarLLM_TeamMembership
+        from hangarllm.proxy._types import HangarLLM_ProjectTableCachedObj
+        from hangarllm.proxy.common_utils.user_api_key_cache import team_membership_reservation_cache_key
 
-        self.database.db.litellm_teamtable.find_unique.return_value = self.team.model_copy(
+        self.database.db.hangarllm_teamtable.find_unique.return_value = self.team.model_copy(
             update={
                 "models": ["member-router"] if ceiling == "team" else self.team.models,
                 "organization_id": "router-org" if ceiling == "organization" else None,
@@ -13343,34 +13343,34 @@ class TestMemberAutoRouterInference:
         if ceiling == "member":
             await self.cache.async_set_cache(
                 key=team_membership_reservation_cache_key(user_id="router-member", team_id="router-team"),
-                value=LiteLLM_TeamMembership(
+                value=HangarLLM_TeamMembership(
                     user_id="router-member",
                     team_id="router-team",
-                    litellm_budget_table=LiteLLM_BudgetTable(allowed_models=["restricted-model"]),
+                    hangarllm_budget_table=HangarLLM_BudgetTable(allowed_models=["restricted-model"]),
                 ),
-                model_type=LiteLLM_TeamMembership,
+                model_type=HangarLLM_TeamMembership,
             )
         elif ceiling == "organization":
             await self.cache.async_set_cache(
                 key="org_id:router-org",
-                value=LiteLLM_OrganizationTable(
+                value=HangarLLM_OrganizationTable(
                     organization_id="router-org",
                     budget_id="org-budget",
                     created_by="admin",
                     updated_by="admin",
                     models=["restricted-model"],
                 ),
-                model_type=LiteLLM_OrganizationTable,
+                model_type=HangarLLM_OrganizationTable,
             )
         elif ceiling == "project":
             await self.cache.async_set_cache(
                 key="project_id:router-project",
-                value=LiteLLM_ProjectTableCachedObj(
+                value=HangarLLM_ProjectTableCachedObj(
                     project_id="router-project",
                     team_id="router-team",
                     models=["restricted-model"],
                 ),
-                model_type=LiteLLM_ProjectTableCachedObj,
+                model_type=HangarLLM_ProjectTableCachedObj,
             )
         with pytest.raises(ProxyException, match="is not available for this API key"):
             await self._route(
@@ -13388,15 +13388,15 @@ class TestMemberAutoRouterInference:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("group_owner", ("team", "key"))
     async def test_access_group_grants_are_cached_and_revoked(self, group_owner: str) -> None:
-        from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+        from hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
 
-        group: Final = LiteLLM_AccessGroupTable(
+        group: Final = HangarLLM_AccessGroupTable(
             access_group_id="router-group",
             access_group_name="Router targets",
             access_model_names=["permitted-model"],
         )
-        self.database.db.litellm_accessgrouptable.find_unique.return_value = group
-        self.database.db.litellm_teamtable.find_unique.return_value = self.team.model_copy(
+        self.database.db.hangarllm_accessgrouptable.find_unique.return_value = group
+        self.database.db.hangarllm_teamtable.find_unique.return_value = self.team.model_copy(
             update={
                 "models": ["member-router"] if group_owner == "team" else self.team.models,
                 "access_group_ids": ["router-group"] if group_owner == "team" else [],
@@ -13413,20 +13413,20 @@ class TestMemberAutoRouterInference:
         router: Final = self._router()
         assert (await self._route(router, request)).model == "permitted-model"
         assert (await self._route(router, request)).model == "permitted-model"
-        assert self.database.db.litellm_accessgrouptable.find_unique.await_count == 1
-        self.database.db.litellm_accessgrouptable.find_unique.return_value = group.model_copy(
+        assert self.database.db.hangarllm_accessgrouptable.find_unique.await_count == 1
+        self.database.db.hangarllm_accessgrouptable.find_unique.return_value = group.model_copy(
             update={"access_model_names": []}
         )
         await evict_and_broadcast(cache_keys=("access_group_id:router-group",), user_api_key_cache=self.cache)
         with pytest.raises(ProxyException, match="is not available for this API key"):
             await self._route(router, request)
-        assert self.database.db.litellm_accessgrouptable.find_unique.await_count == 2
+        assert self.database.db.hangarllm_accessgrouptable.find_unique.await_count == 2
 
     @pytest.mark.asyncio
     async def test_sdk_router_does_not_import_proxy_dependencies(self, monkeypatch: pytest.MonkeyPatch) -> None:
         router: Final = self._router(self._marker(member=False))
         monkeypatch.setitem(sys.modules, "fastapi", None)
-        monkeypatch.delitem(sys.modules, "litellm.proxy.auth.auto_router_checks", raising=False)
+        monkeypatch.delitem(sys.modules, "hangarllm.proxy.auth.auto_router_checks", raising=False)
         assert (
             await self._route(router, {"metadata": {"user_api_key_team_id": "router-team"}})
         ).model == "restricted-model"
@@ -13438,7 +13438,7 @@ def test_access_windows_invalid_timezone_fails_router_construction():
             model_list=[
                 {
                     "model_name": "gpt-4o-ptu",
-                    "litellm_params": {"model": "gpt-4o", "mock_response": "x"},
+                    "hangarllm_params": {"model": "gpt-4o", "mock_response": "x"},
                     "model_info": {
                         "access_windows": [
                             {
@@ -13459,7 +13459,7 @@ def _scheduled_router(timeout: float) -> Router:
         model_list=[
             {
                 "model_name": "sched-model",
-                "litellm_params": {"model": "openai/sched-model", "api_key": "sk-fake", "mock_response": "hi"},
+                "hangarllm_params": {"model": "openai/sched-model", "api_key": "sk-fake", "mock_response": "hi"},
                 "model_info": {"id": "sched-deployment"},
             }
         ],
@@ -13484,7 +13484,7 @@ async def _send_scheduled_text(router: Router, priority: int) -> object:
 async def test_admitted_prioritized_request_does_not_block_later_request_during_cooldown(
     send: Callable[[Router, int], Awaitable[object]],
 ):
-    from litellm.types.router import RouterRateLimitError
+    from hangarllm.types.router import RouterRateLimitError
 
     router: Final = _scheduled_router(timeout=1)
     await send(router, 1)
@@ -13506,7 +13506,7 @@ async def test_prioritized_request_leaves_queue_when_it_stops_waiting(stop_waiti
 
     if stop_waiting == "cancel":
         waiting.cancel()
-    with pytest.raises(asyncio.CancelledError if stop_waiting == "cancel" else litellm.Timeout):
+    with pytest.raises(asyncio.CancelledError if stop_waiting == "cancel" else hangarllm.Timeout):
         await waiting
 
     assert await router.scheduler.get_queue("sched-model") == [(0, "head-of-queue")]
@@ -13516,7 +13516,7 @@ async def test_prioritized_request_leaves_queue_when_it_stops_waiting(stop_waiti
 async def test_a_ptu_share_holders_prioritized_request_is_admitted_while_its_shared_deployment_is_healthy(monkeypatch):
     """The scheduler has to look the group's health up as the calling team; looked up with no team a
     shared PTU deployment looks unhealthy, so the share holder waits behind the queue until it times out."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "true")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "true")
     router: Final = Router(
         model_list=[_shared_ptu_deployment("sched-ptu", "shared-ptu", mock_response="hi")],
         timeout=0.5,
@@ -13538,19 +13538,19 @@ async def test_bare_model_group_served_by_wildcard_deployment_uses_provider_pref
     """Claude Code sends the bare "claude-sonnet-4-6" to /v1/messages; routing serves it through the
     "anthropic/*" wildcard, so a fallback keyed the way that wildcard is written ("anthropic/claude-sonnet-4-6",
     which is what the Admin UI offers) must catch the failure instead of surfacing the provider error."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/*",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "hangarllm.InternalServerError",
                 },
             },
             {
                 "model_name": "openai/gpt-5.5-pro",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5-pro",
                     "api_key": "sk-fake",
                     "mock_response": "served by the fallback",
@@ -13576,19 +13576,19 @@ async def test_bare_model_group_served_by_wildcard_deployment_uses_provider_pref
 ):
     """The context-window chain is keyed the same way the ordinary chain is, so a key spelled like the
     wildcard deployment ("anthropic/claude-sonnet-4-6") must catch the bare group's context-window error too."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/*",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.ContextWindowExceededError",
+                    "mock_response": "hangarllm.ContextWindowExceededError",
                 },
             },
             {
                 "model_name": "openai/gpt-5.5-pro",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5-pro",
                     "api_key": "sk-fake",
                     "mock_response": "served by the context window fallback",
@@ -13612,7 +13612,7 @@ def _shared_ptu_model_list() -> list:
     return [
         {
             "model_name": "gpt-4.1-ptu",
-            "litellm_params": {"model": "gpt-4.1", "mock_response": "shared"},
+            "hangarllm_params": {"model": "gpt-4.1", "mock_response": "shared"},
             "model_info": {
                 "id": "shared-deployment",
                 "base_model": "azure/gpt-4.1",
@@ -13624,7 +13624,7 @@ def _shared_ptu_model_list() -> list:
         },
         {
             "model_name": "gpt-4.1-ptu",
-            "litellm_params": {"model": "gpt-4.1", "mock_response": "open"},
+            "hangarllm_params": {"model": "gpt-4.1", "mock_response": "open"},
             "model_info": {"id": "open-deployment"},
         },
     ]
@@ -13650,7 +13650,7 @@ def test_team_ptu_ceiling_follows_shares_moved_on_the_live_model_list():
 
 
 def test_a_shared_ptu_deployment_whose_shares_do_not_add_up_is_refused_at_registration(monkeypatch):
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     model_list = _shared_ptu_model_list()[:1]
     model_list[0]["model_info"]["ptu_shares"] = {"team-a": 30}
     with pytest.raises(ValueError, match=r"gpt-4\.1-ptu.*30 of 50 allocated"):
@@ -13658,7 +13658,7 @@ def test_a_shared_ptu_deployment_whose_shares_do_not_add_up_is_refused_at_regist
 
 
 def test_a_shared_ptu_deployment_with_a_fractional_count_is_refused_at_registration(monkeypatch):
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     model_list = _shared_ptu_model_list()[:1]
     model_list[0]["model_info"]["ptu_count"] = 50.5
     with pytest.raises(ValueError, match="ptu_count"):
@@ -13669,11 +13669,11 @@ def test_a_shared_ptu_deployment_with_a_fractional_count_is_refused_at_registrat
 def test_an_unsized_shared_ptu_deployment_is_warned_about_at_registration_only_with_the_feature_on(
     monkeypatch, caplog, flag, warned
 ):
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", flag)
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", flag)
     model_list = _shared_ptu_model_list()[:1]
-    model_list[0]["litellm_params"]["model"] = "azure/my-ptu-deployment"
+    model_list[0]["hangarllm_params"]["model"] = "azure/my-ptu-deployment"
     del model_list[0]["model_info"]["base_model"]
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         Router(model_list=model_list)
     assert ("'gpt-4.1-ptu'" in caplog.text and "base_model" in caplog.text) is warned
 
@@ -13681,7 +13681,7 @@ def test_an_unsized_shared_ptu_deployment_is_warned_about_at_registration_only_w
 def test_a_config_entry_declaring_shares_without_terms_is_refused_even_while_the_feature_is_off(monkeypatch):
     """The split is enforced with the flag off, so its shape is checked with the flag off too: a
     malformed one is refused at boot instead of being honoured or ignored without a word."""
-    monkeypatch.delenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", raising=False)
     model_list = _shared_ptu_model_list()[:1]
     model_list[0]["model_info"] = {"id": "shared-deployment", "ptu_shares": {"team-a": 30, "team-b": 20}}
     with pytest.raises(ValueError, match=r"ptu_count and cost_per_ptu_per_hour are required when ptu_shares is set"):
@@ -13701,19 +13701,19 @@ async def test_a_guardrail_verdict_is_neither_retried_nor_fallen_back(verdict: E
     async def fake_acompletion(**kwargs):
         if kwargs["metadata"]["model_group"] == "primary":
             raise verdict
-        return litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "ok"}}])
+        return hangarllm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "ok"}}])
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-sibling", "api_key": "fake-key"}},
-            {"model_name": "fb1", "litellm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "hangarllm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "hangarllm_params": {"model": "openai/primary-sibling", "api_key": "fake-key"}},
+            {"model_name": "fb1", "hangarllm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
         ],
         fallbacks=[{"primary": ["fb1"]}],
         num_retries=2,
     )
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion) as mock_acompletion:
+    with patch("hangarllm.acompletion", side_effect=fake_acompletion) as mock_acompletion:
         with pytest.raises(type(verdict)):
             await router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}])
 
@@ -13722,7 +13722,7 @@ async def test_a_guardrail_verdict_is_neither_retried_nor_fallen_back(verdict: E
 
 def test_get_deployment_credentials_with_provider_preserves_anthropic_wif_params():
     """
-    Test that get_deployment_credentials_with_provider preserves a litellm_params-configured
+    Test that get_deployment_credentials_with_provider preserves a hangarllm_params-configured
     Anthropic workload identity federation setup (both the legacy token_file fields and the
     Phase 1 internal_issuer/keycloak identity-source fields) so files/batches/passthrough
     deployments using WIF do not silently fall back to a missing credential.
@@ -13732,14 +13732,14 @@ def test_get_deployment_credentials_with_provider_preserves_anthropic_wif_params
         "anthropic_organization_id": "org-deployment",
         "anthropic_identity_source": "keycloak",
         "anthropic_keycloak_token_url": "https://keycloak.internal.example/realms/r/protocol/openid-connect/token",
-        "anthropic_keycloak_client_id": "litellm",
+        "anthropic_keycloak_client_id": "hangarllm",
         "anthropic_keycloak_client_secret_ref": "oidc/env/KEYCLOAK_CLIENT_SECRET",
     }
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "anthropic-wif-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5",
                     **wif_params,
                 },
@@ -13761,22 +13761,22 @@ def test_router_keeps_wif_secret_pointers_unresolved(monkeypatch):
         model_list=[
             {
                 "model_name": "claude-wif",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-haiku-4-5",
                     "anthropic_federation_rule_id": "os.environ/WIF_TEST_FDRL",
                     "anthropic_identity_source": "keycloak",
                     "anthropic_keycloak_token_url": "https://keycloak.example/token",
-                    "anthropic_keycloak_client_id": "litellm",
+                    "anthropic_keycloak_client_id": "hangarllm",
                     "anthropic_keycloak_client_secret_ref": "os.environ/WIF_TEST_KC_SECRET",
                 },
             }
         ]
     )
 
-    litellm_params = router.get_model_list()[0]["litellm_params"]
+    hangarllm_params = router.get_model_list()[0]["hangarllm_params"]
 
-    assert litellm_params["anthropic_federation_rule_id"] == "fdrl_from_env"
-    assert litellm_params["anthropic_keycloak_client_secret_ref"] == "os.environ/WIF_TEST_KC_SECRET"
+    assert hangarllm_params["anthropic_federation_rule_id"] == "fdrl_from_env"
+    assert hangarllm_params["anthropic_keycloak_client_secret_ref"] == "os.environ/WIF_TEST_KC_SECRET"
 
 
 @pytest.mark.asyncio
@@ -13785,7 +13785,7 @@ async def test_a_failed_call_still_counts_one_rpm():
         model_list=[
             {
                 "model_name": "gpt-group",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake", "mock_response": "hi"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake", "mock_response": "hi"},
                 "model_info": {"id": "dep-1"},
             }
         ]
@@ -13793,7 +13793,7 @@ async def test_a_failed_call_still_counts_one_rpm():
     await router.async_deployment_callback_on_failure(
         kwargs={
             "call_type": "acompletion",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"deployment": "openai/gpt-4o", "model_group": "gpt-group"},
                 "model_info": {"id": "dep-1"},
             },
@@ -13822,10 +13822,10 @@ async def _usage_settles(router: Router, group: str, kinds: int) -> dict[str, in
 def v2_span_exporter(monkeypatch):
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-    from litellm.integrations.otel import OpenTelemetryV2Config
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.plumbing import providers
-    from litellm.proxy import proxy_server
+    from hangarllm.integrations.otel import OpenTelemetryV2Config
+    from hangarllm.integrations.otel.logger import OpenTelemetryV2
+    from hangarllm.integrations.otel.plumbing import providers
+    from hangarllm.proxy import proxy_server
 
     config = OpenTelemetryV2Config(exporter="in_memory")
     exporter = InMemorySpanExporter()
@@ -13845,12 +13845,12 @@ async def test_deployment_selection_runs_inside_a_route_phase_named_after_the_mo
         model_list=[
             {
                 "model_name": "gpt-group",
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake", "mock_response": "a"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake", "mock_response": "a"},
                 "model_info": {"id": "dep-a"},
             },
             {
                 "model_name": "gpt-group",
-                "litellm_params": {"model": "openai/gpt-5.4", "api_key": "fake", "mock_response": "b"},
+                "hangarllm_params": {"model": "openai/gpt-5.4", "api_key": "fake", "mock_response": "b"},
                 "model_info": {"id": "dep-b"},
             },
         ]
@@ -13869,10 +13869,10 @@ class TestAutoRouterTraceProvenance:
     @pytest.fixture
     def _tracing(self, monkeypatch: pytest.MonkeyPatch) -> "tuple[OpenTelemetryV2, InMemorySpanExporter]":
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-        from litellm.integrations.otel import OpenTelemetryV2Config
-        from litellm.integrations.otel.logger import OpenTelemetryV2
-        from litellm.integrations.otel.plumbing import providers
-        from litellm.proxy import proxy_server
+        from hangarllm.integrations.otel import OpenTelemetryV2Config
+        from hangarllm.integrations.otel.logger import OpenTelemetryV2
+        from hangarllm.integrations.otel.plumbing import providers
+        from hangarllm.proxy import proxy_server
 
         config: Final = OpenTelemetryV2Config(exporter="in_memory")
         exporter: Final = InMemorySpanExporter()
@@ -13887,7 +13887,7 @@ class TestAutoRouterTraceProvenance:
         return {
             "model_name": "traced-router",
             "model_info": {"id": f"definition-{tag}", "updated_at": "2026-10-01T12:00:00+00:00"},
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "tags": [tag],
                 "complexity_router_config": {
@@ -13911,7 +13911,7 @@ class TestAutoRouterTraceProvenance:
                 return context
 
             async def classify(self, context: RoutingContext) -> str:
-                await litellm.acompletion(
+                await hangarllm.acompletion(
                     model="openai/gpt-5.6-luna",
                     api_key="test",
                     mock_response="SIMPLE",
@@ -13926,13 +13926,13 @@ class TestAutoRouterTraceProvenance:
             ) -> None:
                 completed.set()
 
-        monkeypatch.setattr(litellm, "_async_success_callback", [logger, CallbackComplete()])
+        monkeypatch.setattr(hangarllm, "_async_success_callback", [logger, CallbackComplete()])
         classifier: Final = ObservedClassifier()
         router: Final = Router(
             model_list=[
                 {
                     **self._marker("blue"),
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/complexity_router",
                         "complexity_router_config": {
                             "classifier_type": "custom",
@@ -13943,12 +13943,12 @@ class TestAutoRouterTraceProvenance:
                         },
                     },
                 },
-                {"model_name": "answer", "litellm_params": {"model": "openai/gpt-5.6-luna", "api_key": "test"}},
+                {"model_name": "answer", "hangarllm_params": {"model": "openai/gpt-5.6-luna", "api_key": "test"}},
             ],
             plugins=[classifier],
         )
         stale: Final = {"routing_decision": {"router_model_name": "previous"}, "_autorouter_baseline_route": "old"}
-        request: Final = {"metadata": {**stale}, "litellm_metadata": {**stale, "user_api_key_team_id": "team"}}
+        request: Final = {"metadata": {**stale}, "hangarllm_metadata": {**stale, "user_api_key_team_id": "team"}}
         with logger.tracer.start_as_current_span("request") as root:
             set_request_root_span(root)
             await router.async_get_available_deployment(
@@ -13958,15 +13958,15 @@ class TestAutoRouterTraceProvenance:
         classifier_span: Final = next(
             span
             for span in exporter.get_finished_spans()
-            if (span.attributes or {}).get("litellm.request.purpose") == "autorouter_classifier"
+            if (span.attributes or {}).get("hangarllm.request.purpose") == "autorouter_classifier"
         )
-        assert not any(key.startswith("litellm.routing.") for key in classifier_span.attributes)
+        assert not any(key.startswith("hangarllm.routing.") for key in classifier_span.attributes)
         assert "routing_decision" not in classifier.prelude
         assert "_autorouter_baseline_route" not in classifier.prelude
         assert classifier.prelude["user_api_key_team_id"] == "team"
         assert "routing_decision" not in request["metadata"]
         assert "_autorouter_baseline_route" not in request["metadata"]
-        assert request["litellm_metadata"]["routing_decision"]["cause"] == "classifier_plugin"
+        assert request["hangarllm_metadata"]["routing_decision"]["cause"] == "classifier_plugin"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("build_fails", [False, True])
@@ -13978,7 +13978,7 @@ class TestAutoRouterTraceProvenance:
         build_fails: bool,
     ) -> None:
         logger, exporter = _tracing
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         query_statuses: Final = iter((503, 200))
 
         def embedding_response(request: httpx.Request) -> httpx.Response:
@@ -14006,7 +14006,7 @@ class TestAutoRouterTraceProvenance:
                 {
                     "model_name": "semantic",
                     "model_info": {"id": "semantic-definition"},
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/semantic-router",
                         "auto_router_default_model": "answer",
                         "auto_router_embedding_model": "embed",
@@ -14017,7 +14017,7 @@ class TestAutoRouterTraceProvenance:
                     {
                         "model_name": "embed",
                         "model_info": {"id": f"embed-{index}"},
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/text-embedding-3-small",
                             "api_base": "https://embedding.example/v1",
                             "api_key": "test",
@@ -14026,13 +14026,13 @@ class TestAutoRouterTraceProvenance:
                     }
                     for index in range(2)
                 ),
-                {"model_name": "answer", "litellm_params": {"model": "openai/gpt-5.6-luna", "api_key": "test"}},
+                {"model_name": "answer", "hangarllm_params": {"model": "openai/gpt-5.6-luna", "api_key": "test"}},
             ],
             num_retries=1,
             retry_after=0,
         )
         stale: Final = {"routing_decision": {"router_model_name": "previous"}, "_autorouter_baseline_route": "old"}
-        request: Final = {"metadata": {**stale}, "litellm_metadata": {**stale}}
+        request: Final = {"metadata": {**stale}, "hangarllm_metadata": {**stale}}
         with logger.tracer.start_as_current_span("request") as root:
             set_request_root_span(root)
             call: Final = router.async_get_available_deployment(
@@ -14044,18 +14044,18 @@ class TestAutoRouterTraceProvenance:
             else:
                 await call
         spans: Final = {span.name: span for span in exporter.get_finished_spans()}
-        assert spans["route semantic"].attributes["litellm.routing.router_config_id"] == "semantic-definition"
-        assert not any(event.name == "litellm.routing.retry" for event in spans["request"].events)
+        assert spans["route semantic"].attributes["hangarllm.routing.router_config_id"] == "semantic-definition"
+        assert not any(event.name == "hangarllm.routing.retry" for event in spans["request"].events)
         if build_fails:
             assert all(
                 "routing_decision" not in bucket and "_autorouter_baseline_route" not in bucket
-                for bucket in (request["metadata"], request["litellm_metadata"])
+                for bucket in (request["metadata"], request["hangarllm_metadata"])
             )
         else:
             assert sum(json.loads(call.request.content)["input"] == ["query-retry"] for call in upstream.calls) == 2
-            assert request["litellm_metadata"]["routing_decision"]["cause"] == "semantic_match"
+            assert request["hangarllm_metadata"]["routing_decision"]["cause"] == "semantic_match"
             assert sum(span.name == "route embed" for span in exporter.get_finished_spans()) == 2
-            assert any(event.name == "litellm.request.deployment_selected" for event in spans["request"].events)
+            assert any(event.name == "hangarllm.request.deployment_selected" for event in spans["request"].events)
 
     @pytest.mark.asyncio
     async def test_same_alias_and_tags_across_strategy_families_keep_selected_definition(
@@ -14068,7 +14068,7 @@ class TestAutoRouterTraceProvenance:
                 {
                     "model_name": "traced-router",
                     "model_info": {"id": "definition-semantic"},
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/semantic-router",
                         "tags": ["blue"],
                         "auto_router_config": json.dumps({"routes": [{"name": "answer", "utterances": ["hello"]}]}),
@@ -14085,8 +14085,8 @@ class TestAutoRouterTraceProvenance:
         assert response is None
         span: Final = next(span for span in exporter.get_finished_spans() if span.name == "route traced-router")
         assert span.attributes is not None
-        assert span.attributes["litellm.routing.router_config_id"] == router.model_list[1]["model_info"]["id"]
-        assert span.attributes["litellm.routing.router_type"] == "semantic"
+        assert span.attributes["hangarllm.routing.router_config_id"] == router.model_list[1]["model_info"]["id"]
+        assert span.attributes["hangarllm.routing.router_type"] == "semantic"
 
     @pytest.mark.asyncio
     async def test_semantic_team_alias_keeps_registered_identity_after_routing_and_retry(
@@ -14096,7 +14096,7 @@ class TestAutoRouterTraceProvenance:
         respx_mock: respx.MockRouter,
     ) -> None:
         logger, exporter = _tracing
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         respx_mock.post("https://embedding.example/v1/embeddings").respond(
             200,
             json={
@@ -14115,7 +14115,7 @@ class TestAutoRouterTraceProvenance:
                         "team_id": "trace-team",
                         "team_public_model_name": "public-router",
                     },
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/semantic-router",
                         "auto_router_config": json.dumps({"routes": [{"name": "answer", "utterances": ["hello"]}]}),
                         "auto_router_default_model": "answer",
@@ -14124,13 +14124,13 @@ class TestAutoRouterTraceProvenance:
                 },
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/text-embedding-3-small",
                         "api_base": "https://embedding.example/v1",
                         "api_key": "test",
                     },
                 },
-                {"model_name": "answer", "litellm_params": {"model": "openai/gpt-5.6-luna", "api_key": "test"}},
+                {"model_name": "answer", "hangarllm_params": {"model": "openai/gpt-5.6-luna", "api_key": "test"}},
             ]
         )
         request: Final = {"metadata": {"user_api_key_team_id": "trace-team"}}
@@ -14145,14 +14145,14 @@ class TestAutoRouterTraceProvenance:
         assert decision["cause"] == "semantic_match"
         spans: Final = {span.name: span for span in exporter.get_finished_spans()}
         assert (
-            spans["route public-router"].attributes["litellm.routing.router_model_name"]
+            spans["route public-router"].attributes["hangarllm.routing.router_model_name"]
             == decision["router_model_name"]
         )
         assert (
-            spans["route public-router"].attributes["litellm.routing.router_config_id"] == decision["router_config_id"]
+            spans["route public-router"].attributes["hangarllm.routing.router_config_id"] == decision["router_config_id"]
         )
-        retry: Final = next(event for event in spans["request"].events if event.name == "litellm.routing.retry")
-        assert retry.attributes["litellm.routing.router_model_name"] == decision["router_model_name"]
+        retry: Final = next(event for event in spans["request"].events if event.name == "hangarllm.routing.retry")
+        assert retry.attributes["hangarllm.routing.router_model_name"] == decision["router_model_name"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("passthrough", [False, True])
@@ -14166,7 +14166,7 @@ class TestAutoRouterTraceProvenance:
                 self._marker("green"),
                 {
                     "model_name": "answer",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5.6-luna",
                         "api_key": "test",
                         "use_in_pass_through": True,
@@ -14176,7 +14176,7 @@ class TestAutoRouterTraceProvenance:
             ],
             enable_tag_filtering=True,
         )
-        request: Final = {"metadata": {"tags": ["green"]}, "litellm_metadata": {"tags": ["green"]}}
+        request: Final = {"metadata": {"tags": ["green"]}, "hangarllm_metadata": {"tags": ["green"]}}
         pick: Final = (
             router.async_get_available_deployment_for_pass_through
             if passthrough
@@ -14184,7 +14184,7 @@ class TestAutoRouterTraceProvenance:
         )
         with logger.tracer.start_as_current_span("request"):
             await pick(model="traced-router", request_kwargs=request, messages=[{"role": "user", "content": "hello"}])
-            decision: Final = request["litellm_metadata"]["routing_decision"]
+            decision: Final = request["hangarllm_metadata"]["routing_decision"]
             assert decision["router_config_id"] == "definition-green"
             assert decision["router_config_updated_at"] == "2026-10-01T12:00:00+00:00"
             assert (
@@ -14194,14 +14194,14 @@ class TestAutoRouterTraceProvenance:
             assert "routing_decision" not in request["metadata"]
             router.log_retry({**request, "model": "answer"}, ValueError("private-error-text"))
             await pick(model="answer", request_kwargs=request, messages=[{"role": "user", "content": "hello"}])
-        assert "routing_decision" not in request["litellm_metadata"]
+        assert "routing_decision" not in request["hangarllm_metadata"]
         spans: Final = {span.name: span for span in exporter.get_finished_spans()}
-        assert spans["route traced-router"].attributes["litellm.routing.router_config_id"] == "definition-green"
-        assert spans["route traced-router"].attributes["litellm.routing.routed_model"] == "answer"
-        assert not any(key.startswith("litellm.routing.") for key in spans["route answer"].attributes)
-        retry: Final = next(event for event in spans["request"].events if event.name == "litellm.routing.retry")
+        assert spans["route traced-router"].attributes["hangarllm.routing.router_config_id"] == "definition-green"
+        assert spans["route traced-router"].attributes["hangarllm.routing.routed_model"] == "answer"
+        assert not any(key.startswith("hangarllm.routing.") for key in spans["route answer"].attributes)
+        retry: Final = next(event for event in spans["request"].events if event.name == "hangarllm.routing.retry")
         assert retry.attributes["error.type"] == "ValueError"
-        assert retry.attributes["litellm.retry.count"] == 1
+        assert retry.attributes["hangarllm.retry.count"] == 1
         assert "private-error-text" not in str(retry.attributes)
 
 
@@ -14213,11 +14213,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -14229,18 +14229,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -14250,66 +14250,66 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @patch("azure.identity.get_bearer_token_provider")
 @patch("azure.identity.ClientSecretCredential")
 def test_router_init_azure_service_principal_with_secret_with_environment_variables(
@@ -14327,7 +14327,7 @@ def test_router_init_azure_service_principal_with_secret_with_environment_variab
     monkeypatch.delenv("AZURE_AI_API_KEY", raising=False)
     monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("AZURE_API_KEY", raising=False)
-    litellm.enable_azure_ad_token_refresh = True
+    hangarllm.enable_azure_ad_token_refresh = True
     # mock the token provider function
     mocked_func_generating_token = MagicMock(return_value="test_token")
     mocked_get_bearer_token_provider.return_value = mocked_func_generating_token
@@ -14343,7 +14343,7 @@ def test_router_init_azure_service_principal_with_secret_with_environment_variab
         {
             # test case for Azure Service Principal with Secret authentication
             "model_name": "gpt-4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 # checkout there is no api_key here -
                 # AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and AZURE_TENANT_ID environment variables should be used instead
                 "model": "gpt-4o",
@@ -14391,13 +14391,13 @@ def test_router_init_azure_service_principal_with_secret_with_environment_variab
     mocked_func_generating_token.assert_called()
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_update_kwargs_before_fallbacks_unit_test():
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": "bad-key",
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -14414,18 +14414,18 @@ def test_update_kwargs_before_fallbacks_unit_test():
         kwargs=kwargs,
     )
 
-    assert kwargs["litellm_trace_id"] is not None
+    assert kwargs["hangarllm_trace_id"] is not None
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_router_get_model_info_wildcard_routes():
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     router = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": 1},
             },
         ]
@@ -14437,17 +14437,17 @@ def test_router_get_model_info_wildcard_routes():
     assert model_info["rpm"] is not None
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 @pytest.mark.flaky(retries=3, delay=1)
 async def test_router_get_model_group_usage_wildcard_routes():
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     router = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": 1},
             },
         ]
@@ -14468,14 +14468,14 @@ async def test_router_get_model_group_usage_wildcard_routes():
     assert rpm is not None, "rpm is None"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_call_router_callbacks_on_success():
     router = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": 1},
             },
         ]
@@ -14492,7 +14492,7 @@ async def test_call_router_callbacks_on_success():
     }
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.serial
 @pytest.mark.asyncio
 async def test_call_router_callbacks_on_failure():
@@ -14500,17 +14500,17 @@ async def test_call_router_callbacks_on_failure():
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": 1},
             },
         ]
     )
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(
             model="gemini/gemini-2.5-flash",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="hangarllm.RateLimitError",
             num_retries=0,
         )
     assert await _usage_settles(router, "gemini/gemini-2.5-flash", kinds=1) == {"rpm": 1}
@@ -14521,21 +14521,21 @@ async def test_rate_limit_error_callback():
     """
     Assert a callback is hit, if a model group starts hitting rate limit errors
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/4096
+    Relevant issue: upstream issue 4096
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
     customHandler = CompletionCustomHandler()
-    litellm.callbacks = [customHandler]
-    litellm.success_callback = []
+    hangarllm.callbacks = [customHandler]
+    hangarllm.success_callback = []
 
     router = Router(
         model_list=[
             {
                 "model_name": "my-test-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-5-mini",
-                    "mock_response": "litellm.RateLimitError",
+                    "mock_response": "hangarllm.RateLimitError",
                 },
             }
         ],
@@ -14543,12 +14543,12 @@ async def test_rate_limit_error_callback():
         num_retries=0,
     )
 
-    litellm_logging_obj = LiteLLMLogging(
+    hangarllm_logging_obj = HangarLLMLogging(
         model="my-test-gpt",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
-        litellm_call_id="1234",
+        hangarllm_call_id="1234",
         start_time=datetime.now(),
         function_id="1234",
     )
@@ -14568,9 +14568,9 @@ async def test_rate_limit_error_callback():
             _ = await router.acompletion(
                 model="my-test-gpt",
                 messages=[{"role": "user", "content": "Hey, how's it going?"}],
-                litellm_logging_obj=litellm_logging_obj,
+                hangarllm_logging_obj=hangarllm_logging_obj,
             )
-        except (litellm.RateLimitError, ValueError):
+        except (hangarllm.RateLimitError, ValueError):
             pass
 
         await asyncio.sleep(3)
@@ -14580,18 +14580,18 @@ async def test_rate_limit_error_callback():
         assert mock_client.call_args.kwargs["original_model_group"] == "my-test-gpt"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_router_model_group_headers():
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    from litellm.types.utils import OPENAI_RESPONSE_HEADERS
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+    from hangarllm.types.utils import OPENAI_RESPONSE_HEADERS
 
     router = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": 1},
             }
         ]
@@ -14605,24 +14605,24 @@ async def test_router_model_group_headers():
         )
         await asyncio.sleep(1)
 
-    assert resp._hidden_params["additional_headers"]["x-litellm-model-group"] == "gemini/gemini-2.5-flash"
+    assert resp._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "gemini/gemini-2.5-flash"
 
     assert "x-ratelimit-remaining-requests" in resp._hidden_params["additional_headers"]
     assert "x-ratelimit-remaining-tokens" in resp._hidden_params["additional_headers"]
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 async def test_get_remaining_model_group_usage():
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    from litellm.types.utils import OPENAI_RESPONSE_HEADERS
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+    from hangarllm.types.utils import OPENAI_RESPONSE_HEADERS
 
     router = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": 1},
             }
         ]
@@ -14643,7 +14643,7 @@ async def test_get_remaining_model_group_usage():
     assert "x-ratelimit-remaining-tokens" in remaining_usage
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize(
     "potential_access_group, expected_result",
     [("gemini-models", True), ("gemini-models-2", False), ("gemini/*", False)],
@@ -14653,7 +14653,7 @@ def test_router_get_model_access_groups(potential_access_group, expected_result)
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": 1, "access_groups": ["gemini-models"]},
             },
         ]
@@ -14662,9 +14662,9 @@ def test_router_get_model_access_groups(potential_access_group, expected_result)
     assert access_groups == expected_result
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_router_redis_cache():
-    router = Router(model_list=[{"model_name": "gemini/*", "litellm_params": {"model": "gemini/*"}}])
+    router = Router(model_list=[{"model_name": "gemini/*", "hangarllm_params": {"model": "gemini/*"}}])
 
     redis_cache = redis_cache_double()
 
@@ -14673,7 +14673,7 @@ def test_router_redis_cache():
     assert router.cache.redis_cache == redis_cache
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 async def test_router_clientside_credential_not_reused_by_other_callers(respx_mock, monkeypatch: pytest.MonkeyPatch):
     """End-to-end regression test for LIT-7811.
 
@@ -14683,7 +14683,7 @@ async def test_router_clientside_credential_not_reused_by_other_callers(respx_mo
     plain follow-up calls with no override of their own could be load-balanced
     onto it and reach the provider with the first caller's key.
     """
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     route = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
@@ -14702,7 +14702,7 @@ async def test_router_clientside_credential_not_reused_by_other_callers(respx_mo
         model_list=[
             {
                 "model_name": "shared-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "configured-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "configured-key"},
                 "model_info": {"id": "configured-deployment"},
             }
         ]
@@ -14731,25 +14731,25 @@ async def test_router_clientside_credential_not_reused_by_other_callers(respx_mo
     assert used_auth_headers == {"Bearer configured-key"}
 
 
-def _caused_by_an_entra_rejection(error: litellm.AuthenticationError) -> litellm.AuthenticationError:
-    from litellm.llms.azure.common_utils import EntraRejectionError
+def _caused_by_an_entra_rejection(error: hangarllm.AuthenticationError) -> hangarllm.AuthenticationError:
+    from hangarllm.llms.azure.common_utils import EntraRejectionError
 
     try:
         raise error from EntraRejectionError(status_code=401, message=error.message)
-    except litellm.AuthenticationError as raised:
+    except hangarllm.AuthenticationError as raised:
         return raised
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("caller_credential", ["client_secret", "azure_password", "azure_ad_token"])
 async def test_router_caller_entra_credential_rejection_leaves_the_shared_deployment_routable(caller_credential):
     router = Router(
         model_list=[
             {
                 "model_name": "entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "tenant_id": "configured-tenant",
                     "client_id": "configured-client",
@@ -14760,12 +14760,12 @@ async def test_router_caller_entra_credential_rejection_leaves_the_shared_deploy
         ]
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
             mock_response=_caused_by_an_entra_rejection(
-                litellm.AuthenticationError(
+                hangarllm.AuthenticationError(
                     message="Failed to get Azure AD token: AADSTS7000215: Invalid client secret provided.",
                     llm_provider="azure",
                     model="gpt-4.1",
@@ -14783,7 +14783,7 @@ async def test_router_caller_entra_credential_rejection_leaves_the_shared_deploy
     assert response.choices[0].message.content == "hi"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize(
     "caller_field",
     [
@@ -14803,9 +14803,9 @@ async def test_router_caller_entra_field_that_changes_the_deployment_credential_
         model_list=[
             {
                 "model_name": "entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "tenant_id": "configured-tenant",
                     "client_id": "configured-client",
@@ -14817,12 +14817,12 @@ async def test_router_caller_entra_field_that_changes_the_deployment_credential_
         ]
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
             mock_response=_caused_by_an_entra_rejection(
-                litellm.AuthenticationError(
+                hangarllm.AuthenticationError(
                     message="Failed to get Azure AD token: AADSTS7000215: Invalid client secret provided.",
                     llm_provider="azure",
                     model="gpt-4.1",
@@ -14840,12 +14840,12 @@ async def test_router_caller_entra_field_that_changes_the_deployment_credential_
     assert response.choices[0].message.content == "hi"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize(
     ("deployment_secret", "router_default_secret"),
     [
         pytest.param({"client_secret": "configured-secret"}, None, id="deployment"),
-        pytest.param({}, {"client_secret": "configured-secret"}, id="router_default_litellm_params"),
+        pytest.param({}, {"client_secret": "configured-secret"}, id="router_default_hangarllm_params"),
     ],
 )
 async def test_router_configured_entra_credential_rejection_cools_down_the_deployment(
@@ -14855,9 +14855,9 @@ async def test_router_configured_entra_credential_rejection_cools_down_the_deplo
         model_list=[
             {
                 "model_name": "entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "tenant_id": "configured-tenant",
                     "client_id": "configured-client",
@@ -14866,21 +14866,21 @@ async def test_router_configured_entra_credential_rejection_cools_down_the_deplo
                 "model_info": {"id": "configured-deployment"},
             }
         ],
-        default_litellm_params=router_default_secret,
+        default_hangarllm_params=router_default_secret,
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(
+            mock_response=hangarllm.AuthenticationError(
                 message="Failed to get Azure AD token: AADSTS7000222: The provided client secret keys are expired.",
                 llm_provider="azure",
                 model="gpt-4.1",
             ),
         )
 
-    with pytest.raises(litellm.RouterRateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RouterRateLimitError) as excinfo:
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -14890,7 +14890,7 @@ async def test_router_configured_entra_credential_rejection_cools_down_the_deplo
     assert excinfo.value.all_deployments_in_cooldown is True
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize(
     "caller_fields",
     [
@@ -14908,9 +14908,9 @@ async def test_router_caller_entra_field_that_changes_nothing_still_cools_down_a
         model_list=[
             {
                 "model_name": "entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "tenant_id": "configured-tenant",
                     "client_id": "configured-client",
@@ -14920,12 +14920,12 @@ async def test_router_caller_entra_field_that_changes_nothing_still_cools_down_a
         ]
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
             mock_response=_caused_by_an_entra_rejection(
-                litellm.AuthenticationError(
+                hangarllm.AuthenticationError(
                     message="Failed to get Azure AD token: AADSTS7000215: Invalid client secret provided.",
                     llm_provider="azure",
                     model="gpt-4.1",
@@ -14934,7 +14934,7 @@ async def test_router_caller_entra_field_that_changes_nothing_still_cools_down_a
             **caller_fields,
         )
 
-    with pytest.raises(litellm.RouterRateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RouterRateLimitError) as excinfo:
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -14944,16 +14944,16 @@ async def test_router_caller_entra_field_that_changes_nothing_still_cools_down_a
     assert excinfo.value.all_deployments_in_cooldown is True
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 async def test_router_caller_repeating_the_secret_an_empty_router_default_selects_still_cools_down(monkeypatch):
     monkeypatch.setenv("AZURE_CLIENT_SECRET", "environment-secret")
     router = Router(
         model_list=[
             {
                 "model_name": "entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "tenant_id": "configured-tenant",
                     "client_id": "configured-client",
@@ -14962,15 +14962,15 @@ async def test_router_caller_repeating_the_secret_an_empty_router_default_select
                 "model_info": {"id": "configured-deployment"},
             }
         ],
-        default_litellm_params={"client_secret": ""},
+        default_hangarllm_params={"client_secret": ""},
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
             mock_response=_caused_by_an_entra_rejection(
-                litellm.AuthenticationError(
+                hangarllm.AuthenticationError(
                     message="Failed to get Azure AD token: AADSTS7000215: Invalid client secret provided.",
                     llm_provider="azure",
                     model="gpt-4.1",
@@ -14979,7 +14979,7 @@ async def test_router_caller_repeating_the_secret_an_empty_router_default_select
             client_secret="environment-secret",
         )
 
-    with pytest.raises(litellm.RouterRateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RouterRateLimitError) as excinfo:
         await router.acompletion(
             model="entra-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -14989,13 +14989,13 @@ async def test_router_caller_repeating_the_secret_an_empty_router_default_select
     assert excinfo.value.all_deployments_in_cooldown is True
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 async def test_router_caller_entra_field_keeps_the_shared_deployment():
     router = Router(
         model_list=[
             {
                 "model_name": "shared-model",
-                "litellm_params": {"model": "openai/gpt-4.1-mini", "api_key": "configured-key"},
+                "hangarllm_params": {"model": "openai/gpt-4.1-mini", "api_key": "configured-key"},
                 "model_info": {"id": "shared-deployment"},
             }
         ]
@@ -15011,15 +15011,15 @@ async def test_router_caller_entra_field_keeps_the_shared_deployment():
     assert response._hidden_params["model_id"] == "shared-deployment"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize(
-    ("litellm_params", "provider"),
+    ("hangarllm_params", "provider"),
     [
         pytest.param({"model": "openai/gpt-4.1-mini", "api_key": "revoked-key"}, "openai", id="openai"),
         pytest.param(
             {
                 "model": "azure/gpt-4.1",
-                "api_base": "https://litellm-qa.openai.azure.com",
+                "api_base": "https://hangarllm-qa.openai.azure.com",
                 "api_version": "2025-04-01-preview",
                 "api_key": "revoked-key",
             },
@@ -15030,29 +15030,29 @@ async def test_router_caller_entra_field_keeps_the_shared_deployment():
 )
 @pytest.mark.parametrize("caller_entra_field", ["client_id", "azure_scope"])
 async def test_router_auth_failure_entra_did_not_cause_cools_down_despite_a_caller_entra_field(
-    litellm_params, provider, caller_entra_field
+    hangarllm_params, provider, caller_entra_field
 ):
     router = Router(
         model_list=[
             {
                 "model_name": "shared-model",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "model_info": {"id": "shared-deployment"},
             }
         ]
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="shared-model",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(
-                message="Incorrect API key provided.", llm_provider=provider, model=litellm_params["model"]
+            mock_response=hangarllm.AuthenticationError(
+                message="Incorrect API key provided.", llm_provider=provider, model=hangarllm_params["model"]
             ),
             **{caller_entra_field: "caller-value"},
         )
 
-    with pytest.raises(litellm.RouterRateLimitError) as excinfo:
+    with pytest.raises(hangarllm.RouterRateLimitError) as excinfo:
         await router.acompletion(
             model="shared-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -15062,21 +15062,21 @@ async def test_router_auth_failure_entra_did_not_cause_cools_down_despite_a_call
     assert excinfo.value.all_deployments_in_cooldown is True
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 async def test_router_fallback_auth_failure_after_an_entra_rejection_still_cools_down_the_fallback(monkeypatch):
     from azure.core.exceptions import ClientAuthenticationError
 
     def rejected_token() -> str:
         raise ClientAuthenticationError(message="AADSTS7000215: Invalid client secret provided.")
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router = Router(
         model_list=[
             {
                 "model_name": "entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "azure_ad_token_provider": rejected_token,
                 },
@@ -15084,9 +15084,9 @@ async def test_router_fallback_auth_failure_after_an_entra_rejection_still_cools
             },
             {
                 "model_name": "key-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa-fallback.openai.azure.com",
+                    "api_base": "https://hangarllm-qa-fallback.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "api_key": "revoked-key",
                 },
@@ -15097,19 +15097,19 @@ async def test_router_fallback_auth_failure_after_an_entra_rejection_still_cools
     )
 
     with respx.mock:
-        fallback_route: Final = respx.post(url__startswith="https://litellm-qa-fallback.openai.azure.com").mock(
+        fallback_route: Final = respx.post(url__startswith="https://hangarllm-qa-fallback.openai.azure.com").mock(
             return_value=httpx.Response(
                 401, json={"error": {"code": "401", "message": "Access denied due to invalid subscription key."}}
             )
         )
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             await router.acompletion(
                 model="entra-model",
                 messages=[{"role": "user", "content": "hi"}],
                 client_secret="not-the-credential",
             )
 
-        with pytest.raises(litellm.RouterRateLimitError) as excinfo:
+        with pytest.raises(hangarllm.RouterRateLimitError) as excinfo:
             await router.acompletion(
                 model="key-model",
                 messages=[{"role": "user", "content": "hi"}],
@@ -15119,7 +15119,7 @@ async def test_router_fallback_auth_failure_after_an_entra_rejection_still_cools
     assert excinfo.value.all_deployments_in_cooldown is True
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize(
     "stream_request",
     [
@@ -15150,14 +15150,14 @@ async def test_router_caller_entra_rejection_on_a_stream_leaves_the_shared_deplo
     def rejected_token() -> str:
         raise ClientAuthenticationError(message="AADSTS7000215: Invalid client secret provided.")
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "entra-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1",
-                    "api_base": "https://litellm-qa.openai.azure.com",
+                    "api_base": "https://hangarllm-qa.openai.azure.com",
                     "api_version": "2025-04-01-preview",
                     "azure_ad_token_provider": rejected_token,
                 },
@@ -15166,20 +15166,20 @@ async def test_router_caller_entra_rejection_on_a_stream_leaves_the_shared_deplo
         ]
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await stream_request(router, client_secret="not-the-credential")
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await stream_request(router)
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_router_get_deployment_credentials():
     router = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*", "api_key": "123"},
+                "hangarllm_params": {"model": "gemini/*", "api_key": "123"},
                 "model_info": {"id": "1"},
             }
         ]
@@ -15189,7 +15189,7 @@ def test_router_get_deployment_credentials():
     assert credentials["api_key"] == "123"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_router_get_deployment_credentials_with_provider():
     """
     Test that get_deployment_credentials_with_provider returns credentials with provider info.
@@ -15198,7 +15198,7 @@ def test_router_get_deployment_credentials_with_provider():
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "sk-test-123",
                     "api_base": "https://api.openai.com/v1",
@@ -15207,7 +15207,7 @@ def test_router_get_deployment_credentials_with_provider():
             },
             {
                 "model_name": "claude-3",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-3-sonnet",
                     "api_key": "sk-ant-123",
                 },
@@ -15234,7 +15234,7 @@ def test_router_get_deployment_credentials_with_provider():
     assert credentials3 is None
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_router_get_deployment_credentials_with_provider_wildcard():
     """
     Test that get_deployment_credentials_with_provider handles wildcard patterns.
@@ -15246,7 +15246,7 @@ def test_router_get_deployment_credentials_with_provider_wildcard():
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": "sk-wildcard-123",
                     "api_base": "https://api.openai.com/v1",
@@ -15255,7 +15255,7 @@ def test_router_get_deployment_credentials_with_provider_wildcard():
             },
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/*",
                     "api_key": "sk-ant-wildcard-456",
                 },
@@ -15282,13 +15282,13 @@ def test_router_get_deployment_credentials_with_provider_wildcard():
     assert credentials3 is None
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_router_get_deployment_model_info():
     router = Router(
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*"},
+                "hangarllm_params": {"model": "gemini/*"},
                 "model_info": {"id": "1"},
             }
         ]
@@ -15307,20 +15307,20 @@ def _vcr_outcome_gate_router_unit(request, vcr):
 @pytest.fixture(scope="function")
 def setup_and_teardown_router_unit():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+            importlib.reload(hangarllm.proxy.proxy_server)
     except Exception as e:
-        print(f"Error reloading litellm.proxy.proxy_server: {e}")
+        print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
-    print(litellm)
+    print(hangarllm)
     yield
     loop.close()
     asyncio.set_event_loop(None)
@@ -15332,14 +15332,14 @@ async def test_acompletion_deployment_not_mutated():
     """
     Test async completion doesn't mutate deployment when .copy() is removed.
 
-    Optimization: Remove deployment["litellm_params"].copy() in _acompletion
+    Optimization: Remove deployment["hangarllm_params"].copy() in _acompletion
     since data is only read and spread into input_kwargs dict.
     """
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-5-mini",
                     "api_key": "test-key",
                     "temperature": 0.7,
@@ -15350,10 +15350,10 @@ async def test_acompletion_deployment_not_mutated():
 
     deployment_before = router.get_deployment_by_model_group_name("gpt-3.5")
     assert deployment_before is not None
-    original_params = deployment_before.litellm_params.model_dump()
+    original_params = deployment_before.hangarllm_params.model_dump()
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
-        from litellm import ModelResponse
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        from hangarllm import ModelResponse
 
         mock_acompletion.return_value = ModelResponse(
             id="test",
@@ -15373,7 +15373,7 @@ async def test_acompletion_deployment_not_mutated():
     # Critical: Deployment params must be unchanged
     deployment_after = router.get_deployment_by_model_group_name("gpt-3.5")
     assert deployment_after is not None
-    assert deployment_after.litellm_params.model_dump() == original_params
+    assert deployment_after.hangarllm_params.model_dump() == original_params
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate_router_unit", "setup_and_teardown_router_unit")
@@ -15381,14 +15381,14 @@ def test_completion_deployment_not_mutated():
     """
     Test sync completion doesn't mutate deployment when .copy() is removed.
 
-    Optimization: Remove deployment["litellm_params"].copy() in _completion
+    Optimization: Remove deployment["hangarllm_params"].copy() in _completion
     since data is only read and spread into input_kwargs dict.
     """
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-5-mini",
                     "api_key": "test-key",
                     "max_tokens": 100,
@@ -15399,10 +15399,10 @@ def test_completion_deployment_not_mutated():
 
     deployment_before = router.get_deployment_by_model_group_name("gpt-3.5")
     assert deployment_before is not None
-    original_params = deployment_before.litellm_params.model_dump()
+    original_params = deployment_before.hangarllm_params.model_dump()
 
-    with patch("litellm.completion", new_callable=Mock) as mock_completion:
-        from litellm import ModelResponse
+    with patch("hangarllm.completion", new_callable=Mock) as mock_completion:
+        from hangarllm import ModelResponse
 
         mock_completion.return_value = ModelResponse(
             id="test",
@@ -15422,7 +15422,7 @@ def test_completion_deployment_not_mutated():
     # Critical: Deployment params must be unchanged
     deployment_after = router.get_deployment_by_model_group_name("gpt-3.5")
     assert deployment_after is not None
-    assert deployment_after.litellm_params.model_dump() == original_params
+    assert deployment_after.hangarllm_params.model_dump() == original_params
 
 
 class NoItemsAliasDict(dict):
@@ -15436,7 +15436,7 @@ def test_get_model_list_from_model_alias_should_not_iterate_for_non_alias_lookup
         model_list=[
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini"},
+                "hangarllm_params": {"model": "gpt-5-mini"},
             }
         ],
         model_group_alias={"alias-1": "gpt-5.5"},
@@ -15455,7 +15455,7 @@ def test_map_team_model_should_not_iterate_aliases_for_non_alias_team_model_name
         model_list=[
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini"},
+                "hangarllm_params": {"model": "gpt-5-mini"},
                 "model_info": {
                     "team_id": "team-1",
                     "team_public_model_name": "team-model",
@@ -15476,13 +15476,13 @@ def test_map_team_model_should_not_iterate_aliases_for_non_alias_team_model_name
 
 def _team_deployment(
     public_name: str,
-    litellm_model: str,
+    hangarllm_model: str,
     team_id: str = "team-a",
     deployment_id: str | None = None,
 ) -> DeploymentTypedDict:
     return {
         "model_name": f"internal-{team_id}-{public_name}",
-        "litellm_params": {"model": litellm_model},
+        "hangarllm_params": {"model": hangarllm_model},
         "model_info": {
             "id": deployment_id or f"{team_id}-{public_name}",
             "team_id": team_id,
@@ -15558,7 +15558,7 @@ def test_map_team_model_without_model_picks_deployment_serving_the_requested_pro
     result = router.map_team_model(None, "team-a", custom_llm_provider=custom_llm_provider)
 
     assert result == expected, (
-        f"team models {[m['litellm_params']['model'] for m in team_models]}, provider {custom_llm_provider}"
+        f"team models {[m['hangarllm_params']['model'] for m in team_models]}, provider {custom_llm_provider}"
     )
 
 
@@ -15591,12 +15591,12 @@ class TestPreCallChecksOptimization:
             model_list=[
                 {
                     "model_name": "gpt-5-mini",
-                    "litellm_params": {"model": "gpt-5-mini", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "gpt-5-mini", "api_key": "sk-test"},
                     "model_info": {"id": "test-1"},
                 },
                 {
                     "model_name": "gpt-5-mini",
-                    "litellm_params": {"model": "gpt-5.5", "api_key": "sk-test2"},
+                    "hangarllm_params": {"model": "gpt-5.5", "api_key": "sk-test2"},
                     "model_info": {"id": "test-2"},
                 },
             ],
@@ -15610,7 +15610,7 @@ class TestPreCallChecksOptimization:
         # Capture the original state
         original_length = len(deployments)
         original_deployment_ids = [id(d) for d in deployments]
-        original_litellm_params_ids = [id(d["litellm_params"]) for d in deployments]
+        original_hangarllm_params_ids = [id(d["hangarllm_params"]) for d in deployments]
         snapshot = copy.deepcopy(deployments)
 
         # Call the function under test
@@ -15626,7 +15626,7 @@ class TestPreCallChecksOptimization:
         # 2. Same deployment objects (not replaced with copies)
         assert [id(d) for d in deployments] == original_deployment_ids, "Deployment dicts replaced!"
         # 3. Same nested objects (not replaced with copies)
-        assert [id(d["litellm_params"]) for d in deployments] == original_litellm_params_ids, "Nested dicts replaced!"
+        assert [id(d["hangarllm_params"]) for d in deployments] == original_hangarllm_params_ids, "Nested dicts replaced!"
         # 4. Same values (catches any mutation)
         assert deployments == snapshot, "Values were mutated!"
 
@@ -15641,12 +15641,12 @@ class TestPreCallChecksOptimization:
             model_list=[
                 {
                     "model_name": "test",
-                    "litellm_params": {"model": "gpt-5-mini", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "gpt-5-mini", "api_key": "sk-test"},
                     "model_info": {"id": "small", "max_input_tokens": 50},
                 },
                 {
                     "model_name": "test",
-                    "litellm_params": {"model": "gpt-5.5", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "gpt-5.5", "api_key": "sk-test"},
                     "model_info": {"id": "large", "max_input_tokens": 10000},
                 },
             ],
@@ -15691,7 +15691,7 @@ def router():
         model_list=[
             {
                 "model_name": "gpt-5.5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-5.5",
                     "api_key": "fake-key",
                 },
@@ -15703,12 +15703,12 @@ def router():
 @pytest.mark.usefixtures("_vcr_outcome_gate_router_unit", "setup_and_teardown_router_unit")
 @pytest.mark.asyncio
 async def test_router_acancel_batch(router):
-    """Test that router.acancel_batch() calls litellm.acancel_batch with correct params"""
+    """Test that router.acancel_batch() calls hangarllm.acancel_batch with correct params"""
     mock_response = MagicMock()
     mock_response.id = "batch_123"
     mock_response.status = "cancelled"
 
-    with patch.object(litellm, "acancel_batch", new_callable=AsyncMock) as mock_cancel:
+    with patch.object(hangarllm, "acancel_batch", new_callable=AsyncMock) as mock_cancel:
         mock_cancel.return_value = mock_response
 
         # This tests that the router method exists and can be called
@@ -15727,7 +15727,7 @@ async def test_router_acancel_batch(router):
 @pytest.mark.usefixtures("_vcr_outcome_gate_router_unit", "setup_and_teardown_router_unit")
 @pytest.mark.asyncio
 async def test_router_acancel_batch_resolves_credential_name():
-    litellm.credential_list = [
+    hangarllm.credential_list = [
         CredentialItem(
             credential_name="openai-test-credential",
             credential_info={"custom_llm_provider": "openai"},
@@ -15738,9 +15738,9 @@ async def test_router_acancel_batch_resolves_credential_name():
         model_list=[
             {
                 "model_name": "gpt-5.5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.5",
-                    "litellm_credential_name": "openai-test-credential",
+                    "hangarllm_credential_name": "openai-test-credential",
                 },
             }
         ]
@@ -15750,7 +15750,7 @@ async def test_router_acancel_batch_resolves_credential_name():
     mock_response.status = "cancelled"
 
     try:
-        with patch.object(litellm, "acancel_batch", new_callable=AsyncMock) as mock_cancel:
+        with patch.object(hangarllm, "acancel_batch", new_callable=AsyncMock) as mock_cancel:
             mock_cancel.return_value = mock_response
 
             await router.acancel_batch(
@@ -15760,20 +15760,20 @@ async def test_router_acancel_batch_resolves_credential_name():
 
         call_kwargs = mock_cancel.call_args.kwargs
         assert call_kwargs["api_key"] == "resolved-openai-key"
-        assert "litellm_credential_name" not in call_kwargs
+        assert "hangarllm_credential_name" not in call_kwargs
     finally:
-        litellm.credential_list = []
+        hangarllm.credential_list = []
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate_router_unit", "setup_and_teardown_router_unit")
 class TestRouterEmbeddingHeaders:
     """Test that embedding methods properly propagate headers from router configuration."""
 
-    def test_embedding_propagates_default_litellm_params(self):
+    def test_embedding_propagates_default_hangarllm_params(self):
         """
-        Test that embedding calls properly propagate default_litellm_params including headers.
+        Test that embedding calls properly propagate default_hangarllm_params including headers.
 
-        This is the main fix - ensuring that headers set in default_litellm_params
+        This is the main fix - ensuring that headers set in default_hangarllm_params
         are included in the embedding request.
         """
         custom_headers = {"X-Custom-Header": "test-value", "X-API-Version": "v2"}
@@ -15781,30 +15781,30 @@ class TestRouterEmbeddingHeaders:
         model_list = [
             {
                 "model_name": "text-embedding-3-small",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "fake-key",
                 },
             }
         ]
 
-        # Create router with default_litellm_params containing headers
+        # Create router with default_hangarllm_params containing headers
         router = Router(
             model_list=model_list,
-            default_litellm_params={
+            default_hangarllm_params={
                 "headers": custom_headers,
                 "metadata": {"test_key": "test_value"},
             },
         )
 
-        with patch("litellm.embedding") as mock_litellm_embedding:
-            mock_litellm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
+        with patch("hangarllm.embedding") as mock_hangarllm_embedding:
+            mock_hangarllm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
 
             router.embedding(model="text-embedding-3-small", input=["test input"])
 
-            # Verify that litellm.embedding was called with the headers
-            mock_litellm_embedding.assert_called_once()
-            call_kwargs = mock_litellm_embedding.call_args[1]
+            # Verify that hangarllm.embedding was called with the headers
+            mock_hangarllm_embedding.assert_called_once()
+            call_kwargs = mock_hangarllm_embedding.call_args[1]
 
             # Check that headers were included
             assert "headers" in call_kwargs
@@ -15816,39 +15816,39 @@ class TestRouterEmbeddingHeaders:
             assert call_kwargs["metadata"]["model_group"] == "text-embedding-3-small"
 
     @pytest.mark.asyncio
-    async def test_aembedding_propagates_default_litellm_params(self):
+    async def test_aembedding_propagates_default_hangarllm_params(self):
         """
-        Test that async embedding calls properly propagate default_litellm_params including headers.
+        Test that async embedding calls properly propagate default_hangarllm_params including headers.
         """
         custom_headers = {"X-Custom-Header": "test-value", "X-API-Version": "v2"}
 
         model_list = [
             {
                 "model_name": "text-embedding-3-small",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "fake-key",
                 },
             }
         ]
 
-        # Create router with default_litellm_params containing headers
+        # Create router with default_hangarllm_params containing headers
         router = Router(
             model_list=model_list,
-            default_litellm_params={
+            default_hangarllm_params={
                 "headers": custom_headers,
                 "metadata": {"test_key": "test_value"},
             },
         )
 
-        with patch("litellm.aembedding", new_callable=AsyncMock) as mock_litellm_aembedding:
-            mock_litellm_aembedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
+        with patch("hangarllm.aembedding", new_callable=AsyncMock) as mock_hangarllm_aembedding:
+            mock_hangarllm_aembedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
 
             await router.aembedding(model="text-embedding-3-small", input=["test input"])
 
-            # Verify that litellm.aembedding was called with the headers
-            mock_litellm_aembedding.assert_called_once()
-            call_kwargs = mock_litellm_aembedding.call_args[1]
+            # Verify that hangarllm.aembedding was called with the headers
+            mock_hangarllm_aembedding.assert_called_once()
+            call_kwargs = mock_hangarllm_aembedding.call_args[1]
 
             # Check that headers were included
             assert "headers" in call_kwargs
@@ -15868,7 +15868,7 @@ class TestRouterEmbeddingHeaders:
         model_list = [
             {
                 "model_name": "test-embedding-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "fake-key",
                 },
@@ -15877,12 +15877,12 @@ class TestRouterEmbeddingHeaders:
 
         router = Router(model_list=model_list)
 
-        with patch("litellm.embedding") as mock_litellm_embedding:
-            mock_litellm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
+        with patch("hangarllm.embedding") as mock_hangarllm_embedding:
+            mock_hangarllm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
 
             router.embedding(model="test-embedding-model", input=["test input"])
 
-            call_kwargs = mock_litellm_embedding.call_args[1]
+            call_kwargs = mock_hangarllm_embedding.call_args[1]
 
             # Verify metadata contains model_group
             assert "metadata" in call_kwargs
@@ -15898,7 +15898,7 @@ class TestRouterEmbeddingHeaders:
         model_list = [
             {
                 "model_name": "text-embedding-3-small",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "fake-key",
                 },
@@ -15908,26 +15908,26 @@ class TestRouterEmbeddingHeaders:
         # Create router with num_retries set
         router = Router(model_list=model_list, num_retries=3)
 
-        with patch("litellm.embedding") as mock_litellm_embedding:
-            mock_litellm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
+        with patch("hangarllm.embedding") as mock_hangarllm_embedding:
+            mock_hangarllm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
 
             router.embedding(model="text-embedding-3-small", input=["test input"])
 
             # Verify num_retries was not set in the call (it's handled by function_with_fallbacks)
             # The important thing is that it was set in kwargs before being passed to function_with_fallbacks
             # We verify this indirectly by checking that _update_kwargs_before_fallbacks was called
-            mock_litellm_embedding.assert_called_once()
+            mock_hangarllm_embedding.assert_called_once()
 
-    def test_embedding_sets_litellm_trace_id(self):
+    def test_embedding_sets_hangarllm_trace_id(self):
         """
-        Test that embedding calls include a litellm_trace_id.
+        Test that embedding calls include a hangarllm_trace_id.
 
         This is generated and set by _update_kwargs_before_fallbacks.
         """
         model_list = [
             {
                 "model_name": "text-embedding-3-small",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "fake-key",
                 },
@@ -15936,17 +15936,17 @@ class TestRouterEmbeddingHeaders:
 
         router = Router(model_list=model_list)
 
-        with patch("litellm.embedding") as mock_litellm_embedding:
-            mock_litellm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
+        with patch("hangarllm.embedding") as mock_hangarllm_embedding:
+            mock_hangarllm_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
 
             router.embedding(model="text-embedding-3-small", input=["test input"])
 
-            call_kwargs = mock_litellm_embedding.call_args[1]
+            call_kwargs = mock_hangarllm_embedding.call_args[1]
 
-            # Verify litellm_trace_id was set
-            assert "litellm_trace_id" in call_kwargs
-            assert isinstance(call_kwargs["litellm_trace_id"], str)
-            assert len(call_kwargs["litellm_trace_id"]) > 0
+            # Verify hangarllm_trace_id was set
+            assert "hangarllm_trace_id" in call_kwargs
+            assert isinstance(call_kwargs["hangarllm_trace_id"], str)
+            assert len(call_kwargs["hangarllm_trace_id"]) > 0
 
     def test_embedding_consistency_with_completion(self):
         """
@@ -15959,24 +15959,24 @@ class TestRouterEmbeddingHeaders:
         model_list = [
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-5-mini",
                     "api_key": "fake-key",
                 },
             },
             {
                 "model_name": "text-embedding-3-small",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "fake-key",
                 },
             },
         ]
 
-        router = Router(model_list=model_list, default_litellm_params={"headers": custom_headers})
+        router = Router(model_list=model_list, default_hangarllm_params={"headers": custom_headers})
 
         # Test completion
-        with patch("litellm.completion") as mock_completion:
+        with patch("hangarllm.completion") as mock_completion:
             mock_completion.return_value = MagicMock()
 
             router.completion(model="gpt-5-mini", messages=[{"role": "user", "content": "test"}])
@@ -15984,14 +15984,14 @@ class TestRouterEmbeddingHeaders:
             completion_kwargs = mock_completion.call_args[1]
 
         # Test embedding
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2, 0.3]}])
 
             router.embedding(model="text-embedding-3-small", input=["test input"])
 
             embedding_kwargs = mock_embedding.call_args[1]
 
-        # Both should have headers from default_litellm_params
+        # Both should have headers from default_hangarllm_params
         assert "headers" in completion_kwargs
         assert "headers" in embedding_kwargs
         assert completion_kwargs["headers"] == custom_headers
@@ -16003,18 +16003,18 @@ class TestRouterEmbeddingHeaders:
         assert "model_group" in completion_kwargs["metadata"]
         assert "model_group" in embedding_kwargs["metadata"]
 
-        # Both should have litellm_trace_id
-        assert "litellm_trace_id" in completion_kwargs
-        assert "litellm_trace_id" in embedding_kwargs
+        # Both should have hangarllm_trace_id
+        assert "hangarllm_trace_id" in completion_kwargs
+        assert "hangarllm_trace_id" in embedding_kwargs
 
 
 if __name__ == "__main__":
     # Run a simple test
     test = TestRouterEmbeddingHeaders()
     test.test_embedding_calls_update_kwargs_before_fallbacks()
-    test.test_embedding_propagates_default_litellm_params()
+    test.test_embedding_propagates_default_hangarllm_params()
     test.test_embedding_metadata_includes_model_group()
-    test.test_embedding_sets_litellm_trace_id()
+    test.test_embedding_sets_hangarllm_trace_id()
     test.test_embedding_consistency_with_completion()
     print("All tests passed!")  # noqa: T201
 
@@ -16050,7 +16050,7 @@ def _alias_router() -> Router:
         model_list=[
             {
                 "model_name": "team-alias",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "deployment-key",
                 },
@@ -16067,11 +16067,11 @@ class TestRouterEmbeddingIntegration:
     async def test_vector_store_embedding_executors_cover_sdk_and_router_paths(
         self, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
     ):
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         openai_route = _mock_embedding_route(respx_mock, OPENAI_EMBEDDINGS_URL)
         store_route = _mock_embedding_route(respx_mock, STORE_EMBEDDINGS_URL)
-        sdk_executor = LiteLLMVectorStoreEmbeddingExecutor()
+        sdk_executor = HangarLLMVectorStoreEmbeddingExecutor()
 
         sync_response = sdk_executor.embed("openai/text-embedding-3-small", "sync", {"api_key": "explicit"})
         async_response = await sdk_executor.aembed("openai/text-embedding-3-small", "async", {"api_key": "explicit"})
@@ -16122,7 +16122,7 @@ class TestRouterEmbeddingIntegration:
     async def test_router_executor_falls_back_to_sdk_for_models_the_router_does_not_serve(
         self, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
     ):
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         store_route = _mock_embedding_route(respx_mock, STORE_EMBEDDINGS_URL)
         executor = RouterVectorStoreEmbeddingExecutor(
@@ -16143,7 +16143,7 @@ class TestRouterEmbeddingIntegration:
     async def test_router_executor_embeds_unserved_models_through_the_sdk(
         self, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
     ):
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         monkeypatch.setenv("OPENAI_API_KEY", "env-key")
         openai_route = _mock_embedding_route(respx_mock, OPENAI_EMBEDDINGS_URL)
         executor = RouterVectorStoreEmbeddingExecutor(
@@ -16181,7 +16181,7 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "embedding-deployment-1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "key-1",
                     "headers": {"X-Deployment": "deployment-1"},
@@ -16189,7 +16189,7 @@ class TestRouterEmbeddingIntegration:
             },
             {
                 "model_name": "embedding-deployment-2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "key-2",
                     "headers": {"X-Deployment": "deployment-2"},
@@ -16200,7 +16200,7 @@ class TestRouterEmbeddingIntegration:
         router = Router(model_list=model_list)
 
         # Test first deployment
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
             router.embedding(model="embedding-deployment-1", input=["test"])
@@ -16209,7 +16209,7 @@ class TestRouterEmbeddingIntegration:
             assert call_kwargs["api_key"] == "key-1"
 
         # Test second deployment
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
             router.embedding(model="embedding-deployment-2", input=["test"])
@@ -16226,7 +16226,7 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "test-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "test-key",
                 },
@@ -16235,7 +16235,7 @@ class TestRouterEmbeddingIntegration:
 
         router = Router(
             model_list=model_list,
-            default_litellm_params={
+            default_hangarllm_params={
                 "headers": {
                     "X-Router-Header": "router-value",
                     "X-Common-Header": "router-common",
@@ -16244,7 +16244,7 @@ class TestRouterEmbeddingIntegration:
         )
 
         # Test: No request headers - router headers should be used
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
             router.embedding(
@@ -16268,7 +16268,7 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "test-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "test-key",
                 },
@@ -16277,10 +16277,10 @@ class TestRouterEmbeddingIntegration:
 
         router = Router(
             model_list=model_list,
-            default_litellm_params={"metadata": {"environment": "test", "service": "embedding-service"}},
+            default_hangarllm_params={"metadata": {"environment": "test", "service": "embedding-service"}},
         )
 
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
             router.embedding(
@@ -16299,7 +16299,7 @@ class TestRouterEmbeddingIntegration:
             assert "model_group" in metadata
             assert metadata["model_group"] == "test-embedding"
 
-            # From default_litellm_params
+            # From default_hangarllm_params
             assert "environment" in metadata
             assert metadata["environment"] == "test"
             assert "service" in metadata
@@ -16319,7 +16319,7 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "test-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "test-key",
                 },
@@ -16328,7 +16328,7 @@ class TestRouterEmbeddingIntegration:
 
         router = Router(model_list=model_list, num_retries=2)
 
-        with patch("litellm.aembedding", new_callable=AsyncMock) as mock_aembedding:
+        with patch("hangarllm.aembedding", new_callable=AsyncMock) as mock_aembedding:
             mock_aembedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
             await router.aembedding(model="test-embedding", input=["test"])
@@ -16343,7 +16343,7 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "test-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "test-key",
                 },
@@ -16352,7 +16352,7 @@ class TestRouterEmbeddingIntegration:
 
         router = Router(model_list=model_list, timeout=30.0)
 
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
             router.embedding(model="test-embedding", input=["test"])
@@ -16371,14 +16371,14 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "shared-embedding-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "key-1",
                 },
             },
             {
                 "model_name": "shared-embedding-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "key-2",
                 },
@@ -16387,12 +16387,12 @@ class TestRouterEmbeddingIntegration:
 
         router = Router(
             model_list=model_list,
-            default_litellm_params={"headers": {"X-Shared-Header": "shared-value"}},
+            default_hangarllm_params={"headers": {"X-Shared-Header": "shared-value"}},
         )
 
         # Make multiple calls and verify headers are always present
         for i in range(5):
-            with patch("litellm.embedding") as mock_embedding:
+            with patch("hangarllm.embedding") as mock_embedding:
                 mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
                 router.embedding(model="shared-embedding-model", input=[f"test {i}"])
@@ -16411,14 +16411,14 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "primary-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "primary-key",
                 },
             },
             {
                 "model_name": "fallback-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-embedding-3-small",
                     "api_key": "fallback-key",
                 },
@@ -16428,11 +16428,11 @@ class TestRouterEmbeddingIntegration:
         router = Router(
             model_list=model_list,
             fallbacks=[{"primary-embedding": ["fallback-embedding"]}],
-            default_litellm_params={"headers": {"X-Fallback-Test": "test-value"}},
+            default_hangarllm_params={"headers": {"X-Fallback-Test": "test-value"}},
         )
 
         # Simulate primary failing, fallback succeeding
-        with patch("litellm.aembedding", new_callable=AsyncMock) as mock_aembedding:
+        with patch("hangarllm.aembedding", new_callable=AsyncMock) as mock_aembedding:
             call_count = 0
 
             async def side_effect(*args, **kwargs):
@@ -16467,7 +16467,7 @@ class TestRouterEmbeddingIntegration:
         model_list = [
             {
                 "model_name": "azure-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/text-embedding-3-small",
                     "api_key": "azure-key",
                     "api_base": "https://example.openai.azure.com",
@@ -16478,10 +16478,10 @@ class TestRouterEmbeddingIntegration:
 
         router = Router(
             model_list=model_list,
-            default_litellm_params={"headers": {"X-Custom-Azure-Header": "azure-value"}},
+            default_hangarllm_params={"headers": {"X-Custom-Azure-Header": "azure-value"}},
         )
 
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             mock_embedding.return_value = MagicMock(data=[{"embedding": [0.1, 0.2]}])
 
             router.embedding(model="azure-embedding", input=["test"])
@@ -16518,7 +16518,7 @@ def _priority_router(default_priority: int | None) -> Router:
         model_list=[
             {
                 "model_name": "qa-chat",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire"},
             }
         ],
         default_priority=default_priority,
@@ -16526,7 +16526,7 @@ def _priority_router(default_priority: int | None) -> Router:
 
 
 def _priority_provider(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> respx.Route:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     return respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(200, json=_PRIORITY_CHAT_COMPLETION)
     )
@@ -16556,7 +16556,7 @@ async def test_acompletion_queues_the_resolved_priority_exactly_once(
         )
     assert add_request.await_count == 1
     assert add_request.await_args.kwargs["request"].priority == queued_priority
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 async def test_acompletion_without_any_priority_never_enters_the_scheduler() -> None:
@@ -16564,7 +16564,7 @@ async def test_acompletion_without_any_priority_never_enters_the_scheduler() -> 
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         response: Final = await router.acompletion(model="qa-chat", messages=_PRIORITY_MESSAGES, mock_response="pong")
     assert add_request.await_count == 0
-    assert "x-litellm-request-prioritization-used" not in response._hidden_params.get("additional_headers", {})
+    assert "x-hangarllm-request-prioritization-used" not in response._hidden_params.get("additional_headers", {})
 
 
 @pytest.mark.parametrize(
@@ -16577,7 +16577,7 @@ async def test_a_request_pinned_to_a_deployment_id_is_served_while_an_earlier_on
         model_list=[
             {
                 "model_name": "qa-chat",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire"},
                 "model_info": {"id": "qa-chat-deployment"},
             }
         ],
@@ -16591,7 +16591,7 @@ async def test_a_request_pinned_to_a_deployment_id_is_served_while_an_earlier_on
         timeout=5,
     )
     assert response.choices[0].message.content == "pong"
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.parametrize("priority", ["high", [1], 1.5])
@@ -16600,7 +16600,7 @@ async def test_acompletion_rejects_a_non_integer_priority_before_the_provider_se
 ) -> None:
     provider: Final = _priority_provider(respx_mock, monkeypatch)
     router: Final = _priority_router(3)
-    with pytest.raises(litellm.BadRequestError, match="priority must be an integer") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="priority must be an integer") as raised:
         await router.acompletion(model="qa-chat", messages=_PRIORITY_MESSAGES, priority=priority)
     assert raised.value.param == "priority"
     assert not provider.called
@@ -16633,7 +16633,7 @@ async def test_schedule_acompletion_under_a_default_priority_queues_the_explicit
         )
     assert add_request.await_count == 1
     assert add_request.await_args.kwargs["request"].priority == 1
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.parametrize(
@@ -16653,18 +16653,18 @@ async def test_acompletion_drops_a_non_integer_priority_under_the_router_or_depl
         model_list=[
             {
                 "model_name": "qa-chat",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", **deployment_params},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", **deployment_params},
             }
         ],
         default_priority=3,
-        default_litellm_params=router_defaults,
+        default_hangarllm_params=router_defaults,
     )
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         response: Final = await router.acompletion(
             model="qa-chat", messages=_PRIORITY_MESSAGES, mock_response="pong", priority="high"
         )
     assert add_request.await_args.kwargs["request"].priority == 3
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.parametrize(
@@ -16673,7 +16673,7 @@ async def test_acompletion_drops_a_non_integer_priority_under_the_router_or_depl
         (
             {
                 "model_name": "model_name_team-a_team-a-chat",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", "drop_params": True},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", "drop_params": True},
                 "model_info": {"id": "team-a-chat", "team_id": "team-a", "team_public_model_name": "team-chat"},
             },
             "team-chat",
@@ -16682,7 +16682,7 @@ async def test_acompletion_drops_a_non_integer_priority_under_the_router_or_depl
         (
             {
                 "model_name": "qa-chat",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", "drop_params": True},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", "drop_params": True},
                 "model_info": {"id": "qa-chat-deployment"},
             },
             "qa-chat-deployment",
@@ -16691,7 +16691,7 @@ async def test_acompletion_drops_a_non_integer_priority_under_the_router_or_depl
         (
             {
                 "model_name": "qa-chat",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", "drop_params": True},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "sk-priority-wire", "drop_params": True},
             },
             "openai/gpt-5.4-nano",
             {"specific_deployment": True},
@@ -16705,7 +16705,7 @@ async def test_deployment_drop_params_drop_a_non_integer_priority_on_every_deplo
     routing_fields: dict[str, object],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     router: Final = Router(model_list=[deployment], default_priority=3)
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         response: Final = await router.acompletion(
@@ -16716,7 +16716,7 @@ async def test_deployment_drop_params_drop_a_non_integer_priority_on_every_deplo
             **routing_fields,
         )
     assert add_request.await_args.kwargs["request"].priority == 3
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 async def test_schedule_acompletion_queues_a_prompt_management_model(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -16724,7 +16724,7 @@ async def test_schedule_acompletion_queues_a_prompt_management_model(monkeypatch
         model_list=[
             {
                 "model_name": "cached-chat",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic_cache_control_hook/openai/gpt-5.4-nano",
                     "api_key": "sk-priority-wire",
                     "prompt_id": "cache-points",
@@ -16732,26 +16732,26 @@ async def test_schedule_acompletion_queues_a_prompt_management_model(monkeypatch
             }
         ]
     )
-    provider: Final = AsyncMock(return_value=litellm.ModelResponse())
-    monkeypatch.setattr(litellm, "acompletion", provider)
-    logging_obj: Final = LiteLLMLogging(
+    provider: Final = AsyncMock(return_value=hangarllm.ModelResponse())
+    monkeypatch.setattr(hangarllm, "acompletion", provider)
+    logging_obj: Final = HangarLLMLogging(
         model="cached-chat",
         messages=_PRIORITY_MESSAGES,
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="prompt-management-priority",
+        hangarllm_call_id="prompt-management-priority",
         function_id="f",
     )
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         response: Final = await router.schedule_acompletion(
-            model="cached-chat", messages=_PRIORITY_MESSAGES, priority=1, litellm_logging_obj=logging_obj
+            model="cached-chat", messages=_PRIORITY_MESSAGES, priority=1, hangarllm_logging_obj=logging_obj
         )
     assert add_request.await_count == 1
     assert add_request.await_args.kwargs["request"].priority == 1
     assert provider.await_count == 1
     assert "priority" not in provider.await_args.kwargs
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.parametrize(
@@ -16767,7 +16767,7 @@ def test_the_router_parses_default_priority_once_at_init(configured: object, exp
 def test_an_invalid_default_priority_is_ignored_with_a_warning(
     configured: object, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         router: Final = _priority_router(configured)
     assert router.default_priority is None
     assert any("default_priority is ignored" in record.getMessage() for record in caplog.records), caplog.records
@@ -16778,7 +16778,7 @@ async def test_an_invalid_default_priority_leaves_every_request_unscheduled() ->
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         response: Final = await router.acompletion(model="qa-chat", messages=_PRIORITY_MESSAGES, mock_response="pong")
     assert add_request.await_count == 0
-    assert "x-litellm-request-prioritization-used" not in response._hidden_params.get("additional_headers", {})
+    assert "x-hangarllm-request-prioritization-used" not in response._hidden_params.get("additional_headers", {})
 
 
 async def test_schedule_acompletion_without_a_priority_or_a_default_is_rejected_before_the_provider(
@@ -16786,7 +16786,7 @@ async def test_schedule_acompletion_without_a_priority_or_a_default_is_rejected_
 ) -> None:
     provider: Final = _priority_provider(respx_mock, monkeypatch)
     router: Final = _priority_router(None)
-    with pytest.raises(litellm.BadRequestError, match="priority is required") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="priority is required") as raised:
         await router.schedule_acompletion(model="qa-chat", messages=_PRIORITY_MESSAGES)
     assert raised.value.param == "priority"
     assert not provider.called
@@ -16800,7 +16800,7 @@ async def test_schedule_acompletion_without_a_priority_queues_the_default_once()
         )
     assert add_request.await_count == 1
     assert add_request.await_args.kwargs["request"].priority == 3
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
 
 
 @pytest.mark.parametrize(
@@ -16827,7 +16827,7 @@ async def test_atext_completion_queues_the_resolved_priority_exactly_once(
         response: Final = await router.atext_completion(model="qa-chat", prompt="pong?", **request_kwargs)
     assert add_request.await_count == 1
     assert add_request.await_args.kwargs["request"].priority == queued_priority
-    assert response._hidden_params["additional_headers"]["x-litellm-request-prioritization-used"] is True
+    assert response._hidden_params["additional_headers"]["x-hangarllm-request-prioritization-used"] is True
     assert "priority" not in json.loads(provider.calls.last.request.content)
 
 
@@ -16839,7 +16839,7 @@ async def test_atext_completion_without_any_priority_never_enters_the_scheduler(
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         response: Final = await router.atext_completion(model="qa-chat", prompt="pong?")
     assert add_request.await_count == 0
-    assert "x-litellm-request-prioritization-used" not in response._hidden_params.get("additional_headers", {})
+    assert "x-hangarllm-request-prioritization-used" not in response._hidden_params.get("additional_headers", {})
     assert provider.called
 
 
@@ -16849,7 +16849,7 @@ async def test_atext_completion_rejects_a_non_integer_priority_before_the_provid
 ) -> None:
     provider: Final = _priority_provider(respx_mock, monkeypatch)
     router: Final = _priority_router(3)
-    with pytest.raises(litellm.BadRequestError, match="priority must be an integer") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="priority must be an integer") as raised:
         await router.atext_completion(model="qa-chat", prompt="pong?", priority=priority)
     assert raised.value.param == "priority"
     assert not provider.called
@@ -16860,11 +16860,11 @@ def test_router_multi_org_list() -> None:
     Pass list of orgs in 1 model definition,
     expect a unique deployment for each to be created
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": "my-key",
                     "api_base": "https://api.openai.com/v1",
@@ -16885,7 +16885,7 @@ def test_router_specific_model_via_id():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "my-fake-key",
                     "mock_response": "Hello world",
@@ -16910,7 +16910,7 @@ def test_router_order() -> None:
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                     "mock_response": "Hello world",
@@ -16920,7 +16920,7 @@ def test_router_order() -> None:
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad-key",
                     "mock_response": Exception("this is a bad key"),
@@ -16940,7 +16940,7 @@ def test_router_order() -> None:
             messages=[{"role": "user", "content": "Hey, how's it going?"}],
         )
 
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         assert response._hidden_params["model_id"] == "1"
 
 
@@ -16953,14 +16953,14 @@ def test_router_context_window_check_pre_call_check_in_group_custom_model_info()
     """
     import os
 
-    litellm.set_verbose = False
+    hangarllm.set_verbose = False
 
     print(f"len(text): {len(text)}")
     try:
         model_list = [
             {
                 "model_name": "gpt-3.5-turbo",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_AI_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -16972,7 +16972,7 @@ def test_router_context_window_check_pre_call_check_in_group_custom_model_info()
             },
             {
                 "model_name": "gpt-3.5-turbo",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "gpt-3.5-turbo-1106",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                     "mock_response": "Hello world 2!",
@@ -17006,14 +17006,14 @@ def test_router_context_window_check_pre_call_check():
     """
     import os
 
-    litellm.set_verbose = False
+    hangarllm.set_verbose = False
 
     print(f"len(text): {len(text)}")
     try:
         model_list = [
             {
                 "model_name": "gpt-3.5-turbo",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_AI_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -17025,7 +17025,7 @@ def test_router_context_window_check_pre_call_check():
             },
             {
                 "model_name": "gpt-3.5-turbo",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "gpt-3.5-turbo-1106",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                     "mock_response": "Hello world 2!",
@@ -17059,14 +17059,14 @@ def test_router_context_window_check_pre_call_check_out_group():
     """
     import os
 
-    litellm.set_verbose = False
+    hangarllm.set_verbose = False
 
     print(f"len(text): {len(text)}")
     try:
         model_list = [
             {
                 "model_name": "gpt-3.5-turbo-small",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_AI_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -17076,7 +17076,7 @@ def test_router_context_window_check_pre_call_check_out_group():
             },
             {
                 "model_name": "gpt-3.5-turbo-large",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "gpt-4.1-mini",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                     "mock_response": "Alexander was a great conqueror.",
@@ -17117,14 +17117,14 @@ def test_filter_invalid_params_pre_call_check():
         model_list = [
             {
                 "model_name": "gpt-3.5-turbo",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "gpt-3.5-turbo",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo-16k",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                 },
@@ -17153,7 +17153,7 @@ def test_router_region_pre_call_check(allowed_model_region):
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",  # openai model name
-            "litellm_params": {  # params for litellm completion/embedding call
+            "hangarllm_params": {  # params for hangarllm completion/embedding call
                 "model": "azure/gpt-4.1-mini",
                 "api_key": os.getenv("AZURE_AI_API_KEY"),
                 "api_version": os.getenv("AZURE_API_VERSION"),
@@ -17165,7 +17165,7 @@ def test_router_region_pre_call_check(allowed_model_region):
         },
         {
             "model_name": "gpt-3.5-turbo-large",  # openai model name
-            "litellm_params": {  # params for litellm completion/embedding call
+            "hangarllm_params": {  # params for hangarllm completion/embedding call
                 "model": "gpt-4.1-mini",
                 "api_key": os.getenv("OPENAI_API_KEY"),
                 "mock_response": "This is a mock response.",
@@ -17197,7 +17197,7 @@ def test_model_group_info() -> None:
         model_list=[
             {
                 "model_name": "nova-2-lite",
-                "litellm_params": {"model": "bedrock/amazon.nova-2-lite-v1:0"},
+                "hangarllm_params": {"model": "bedrock/amazon.nova-2-lite-v1:0"},
             }
         ]
     )
@@ -17212,7 +17212,7 @@ def test_model_group_info() -> None:
 
 def test_consistent_model_id() -> None:
     """
-    - For a given model group + litellm params, assert the model id is always the same
+    - For a given model group + hangarllm params, assert the model id is always the same
 
     Test on `generate_model_id`
 
@@ -17221,16 +17221,16 @@ def test_consistent_model_id() -> None:
     Test on `_add_deployment`
     """
     model_group = "gpt-3.5-turbo"
-    litellm_params = {
+    hangarllm_params = {
         "model": "openai/my-fake-model",
         "api_key": "my-fake-key",
         "api_base": "https://openai-function-calling-workers.tasslexyz.workers.dev/",
         "stream_timeout": 0.001,
     }
 
-    id1 = Router().generate_model_id(model_group=model_group, litellm_params=litellm_params)
+    id1 = Router().generate_model_id(model_group=model_group, hangarllm_params=hangarllm_params)
 
-    id2 = Router().generate_model_id(model_group=model_group, litellm_params=litellm_params)
+    id2 = Router().generate_model_id(model_group=model_group, hangarllm_params=hangarllm_params)
 
     assert id1 == id2
 
@@ -17239,7 +17239,7 @@ def test_router_add_deployment():
     initial_model_list = [
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/my-fake-model",
                 "api_key": "my-fake-key",
                 "api_base": "https://openai-function-calling-workers.tasslexyz.workers.dev/",
@@ -17255,7 +17255,7 @@ def test_router_add_deployment():
     router.add_deployment(
         deployment=Deployment(
             model_name="gpt-instruct",
-            litellm_params=LiteLLM_Params(model="gpt-3.5-turbo-instruct"),
+            hangarllm_params=HangarLLM_Params(model="gpt-3.5-turbo-instruct"),
             model_info=ModelInfo(),
         )
     )
@@ -17288,7 +17288,7 @@ def test_router_get_model_info(model: str, base_model: str | None, llm_provider:
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_key": "my-fake-key",
                     "api_base": "my-fake-base",
@@ -17328,7 +17328,7 @@ def test_router_context_window_pre_call_check(model, base_model, llm_provider):
         model_list = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_key": "my-fake-key",
                     "api_base": "my-fake-base",
@@ -17343,13 +17343,13 @@ def test_router_context_window_pre_call_check(model, base_model, llm_provider):
             num_retries=0,
         )
 
-        litellm.token_counter = MagicMock()
+        hangarllm.token_counter = MagicMock()
 
         def token_counter_side_effect(*args, **kwargs):
             # Process args and kwargs if needed
             return 1000000
 
-        litellm.token_counter.side_effect = token_counter_side_effect
+        hangarllm.token_counter.side_effect = token_counter_side_effect
         try:
             updated_list = router._pre_call_checks(
                 model="gpt-4",
@@ -17371,7 +17371,7 @@ def test_router_context_window_pre_call_check(model, base_model, llm_provider):
 @pytest.mark.asyncio
 async def test_aaarouter_dynamic_cooldown_message_retry_time(sync_mode):
     """
-    User feedback: litellm says "No deployments available for selected model, Try again in 60 seconds"
+    User feedback: hangarllm says "No deployments available for selected model, Try again in 60 seconds"
     but Azure says to retry in at most 9s
 
     Tests that:
@@ -17386,13 +17386,13 @@ async def test_aaarouter_dynamic_cooldown_message_retry_time(sync_mode):
         model_list=[
             {
                 "model_name": "text-embedding-ada-002",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-ada-002",
                 },
             },
             {
                 "model_name": "text-embedding-ada-002",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-ada-002",
                 },
             },
@@ -17401,7 +17401,7 @@ async def test_aaarouter_dynamic_cooldown_message_retry_time(sync_mode):
     )
 
     # Build a 429 exception with retry-after header, matching what the OpenAI SDK raises
-    mock_exception = litellm.RateLimitError(
+    mock_exception = hangarllm.RateLimitError(
         message="Rate Limit Error!",
         llm_provider="openai",
         model="text-embedding-ada-002",
@@ -17424,7 +17424,7 @@ async def test_aaarouter_dynamic_cooldown_message_retry_time(sync_mode):
     for model_id in model_ids:
         deployment_kwargs = {
             "exception": mock_exception,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model_info": {"id": model_id},
             },
         }
@@ -17444,14 +17444,14 @@ async def test_aaarouter_dynamic_cooldown_message_retry_time(sync_mode):
 
     # Verify that a subsequent call raises RouterRateLimitError with correct cooldown_time
     if sync_mode:
-        with pytest.raises(litellm.types.router.RouterRateLimitError) as exc_info:
+        with pytest.raises(hangarllm.types.router.RouterRateLimitError) as exc_info:
             router.embedding(
                 model="text-embedding-ada-002",
                 input="Hello world!",
                 mock_response=[0.1, 0.2, 0.3],
             )
     else:
-        with pytest.raises(litellm.types.router.RouterRateLimitError) as exc_info:
+        with pytest.raises(hangarllm.types.router.RouterRateLimitError) as exc_info:
             await router.aembedding(
                 model="text-embedding-ada-002",
                 input="Hello world!",
@@ -17469,7 +17469,7 @@ async def test_router_weighted_pick(sync_mode: bool) -> None:
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "weight": 2,
                     "mock_response": "Hello world 1!",
@@ -17478,7 +17478,7 @@ async def test_router_weighted_pick(sync_mode: bool) -> None:
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "weight": 1,
                     "mock_response": "Hello world 2!",
@@ -17518,9 +17518,9 @@ def test_model_group_alias(hidden: bool) -> None:
     _model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "hangarllm_params": {"model": "gpt-3.5-turbo"},
         },
-        {"model_name": "gpt-4", "litellm_params": {"model": "gpt-4"}},
+        {"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4"}},
     ]
     router = Router(
         model_list=_model_list,
@@ -17544,7 +17544,7 @@ def test_router_get_model_list_from_model_alias() -> None:
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         model_group_alias={"my-special-fake-model-alias-name": "fake-openai-endpoint-3"},
@@ -17564,7 +17564,7 @@ def test_router_dynamic_credentials() -> None:
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-3.5-turbo",
                     "api_key": original_api_key,
                     "mock_response": "fake_response",
@@ -17576,7 +17576,7 @@ def test_router_dynamic_credentials() -> None:
 
     deployment = router.get_deployment(model_id=original_model_id)
     assert deployment is not None
-    assert deployment.litellm_params.api_key == original_api_key
+    assert deployment.hangarllm_params.api_key == original_api_key
 
     response = router.completion(
         model="gpt-3.5-turbo",
@@ -17594,7 +17594,7 @@ def test_router_dynamic_credentials() -> None:
 
     deployment = router.get_deployment(model_id=original_model_id)
     assert deployment is not None
-    assert deployment.litellm_params.api_key == original_api_key
+    assert deployment.hangarllm_params.api_key == original_api_key
 
 
 def test_router_get_model_group_info() -> None:
@@ -17602,11 +17602,11 @@ def test_router_get_model_group_info() -> None:
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
             },
         ],
     )
@@ -17622,12 +17622,12 @@ def test_pre_call_checks_keep_deployment_whose_rpm_is_reached():
     model_list: Final = [
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "rpm": 0},
+            "hangarllm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "rpm": 0},
             "model_info": {"id": "rpm-zero"},
         },
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key"},
             "model_info": {"id": "uncapped"},
         },
     ]
@@ -17648,7 +17648,7 @@ async def test_enable_pre_call_checks_alone_serves_past_deployment_rpm():
         model_list=[
             {
                 "model_name": "fake-openai-endpoint",
-                "litellm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "rpm": 1},
+                "hangarllm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "rpm": 1},
                 "model_info": {"id": "rpm-one"},
             }
         ],
@@ -17675,7 +17675,7 @@ async def test_enforce_model_rate_limits_returns_429_at_deployment_rpm():
         model_list=[
             {
                 "model_name": "fake-openai-endpoint",
-                "litellm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "rpm": 1},
+                "hangarllm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "rpm": 1},
                 "model_info": {"id": "rpm-one"},
             }
         ],
@@ -17685,14 +17685,14 @@ async def test_enforce_model_rate_limits_returns_429_at_deployment_rpm():
     )
 
     with patch(
-        "litellm.router_utils.pre_call_checks.model_rate_limit_check.get_utc_datetime", return_value=frozen_minute
+        "hangarllm.router_utils.pre_call_checks.model_rate_limit_check.get_utc_datetime", return_value=frozen_minute
     ):
         first: Final = await router.acompletion(
             model="fake-openai-endpoint",
             messages=[{"role": "user", "content": "Hey, how's it going?"}],
             mock_response="served",
         )
-        with pytest.raises(litellm.RateLimitError) as rate_limited:
+        with pytest.raises(hangarllm.RateLimitError) as rate_limited:
             await router.acompletion(
                 model="fake-openai-endpoint",
                 messages=[{"role": "user", "content": "Hey, how's it going?"}],
@@ -17705,7 +17705,7 @@ async def test_enforce_model_rate_limits_returns_429_at_deployment_rpm():
 
 class CompletionCustomHandler(
     CustomLogger
-):  # https://docs.litellm.ai/docs/observability/custom_callback#callback-class
+):  # https://github.com/valteresj2/HangarLLM#readme
     """
     The set of expected inputs to a custom handler for a
     """
@@ -17741,19 +17741,19 @@ class CompletionCustomHandler(
             assert isinstance(kwargs["model"], str)
             assert isinstance(kwargs["messages"], list)
             assert isinstance(kwargs["optional_params"], dict)
-            assert isinstance(kwargs["litellm_params"], dict)
+            assert isinstance(kwargs["hangarllm_params"], dict)
             assert isinstance(kwargs["start_time"], (datetime, type(None)))
             assert isinstance(kwargs["stream"], bool)
             assert isinstance(kwargs["user"], (str, type(None)))
             ### ROUTER-SPECIFIC KWARGS
-            assert isinstance(kwargs["litellm_params"]["metadata"], dict)
-            assert isinstance(kwargs["litellm_params"]["metadata"]["model_group"], str)
-            assert isinstance(kwargs["litellm_params"]["metadata"]["deployment"], str)
-            assert isinstance(kwargs["litellm_params"]["model_info"], dict)
-            assert isinstance(kwargs["litellm_params"]["model_info"]["id"], str)
-            assert isinstance(kwargs["litellm_params"]["proxy_server_request"], (str, type(None)))
-            assert isinstance(kwargs["litellm_params"]["preset_cache_key"], (str, type(None)))
-            assert isinstance(kwargs["litellm_params"]["stream_response"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"]["model_group"], str)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"]["deployment"], str)
+            assert isinstance(kwargs["hangarllm_params"]["model_info"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["model_info"]["id"], str)
+            assert isinstance(kwargs["hangarllm_params"]["proxy_server_request"], (str, type(None)))
+            assert isinstance(kwargs["hangarllm_params"]["preset_cache_key"], (str, type(None)))
+            assert isinstance(kwargs["hangarllm_params"]["stream_response"], dict)
         except Exception as e:
             print(f"Assertion Error: {traceback.format_exc()}")
             self.errors.append(traceback.format_exc())
@@ -17771,28 +17771,28 @@ class CompletionCustomHandler(
             assert isinstance(kwargs["model"], str)
             assert isinstance(kwargs["messages"], list)
             assert isinstance(kwargs["optional_params"], dict)
-            assert isinstance(kwargs["litellm_params"], dict)
+            assert isinstance(kwargs["hangarllm_params"], dict)
             assert isinstance(kwargs["start_time"], (datetime, type(None)))
             assert isinstance(kwargs["stream"], bool)
             assert isinstance(kwargs["user"], (str, type(None)))
             assert isinstance(kwargs["input"], (list, dict, str))
             assert isinstance(kwargs["api_key"], (str, type(None)))
             assert (
-                isinstance(kwargs["original_response"], (str, litellm.CustomStreamWrapper))
+                isinstance(kwargs["original_response"], (str, hangarllm.CustomStreamWrapper))
                 or inspect.iscoroutine(kwargs["original_response"])
                 or inspect.isasyncgen(kwargs["original_response"])
             )
             assert isinstance(kwargs["additional_args"], (dict, type(None)))
             assert isinstance(kwargs["log_event_type"], str)
             ### ROUTER-SPECIFIC KWARGS
-            assert isinstance(kwargs["litellm_params"]["metadata"], dict)
-            assert isinstance(kwargs["litellm_params"]["metadata"]["model_group"], str)
-            assert isinstance(kwargs["litellm_params"]["metadata"]["deployment"], str)
-            assert isinstance(kwargs["litellm_params"]["model_info"], dict)
-            assert isinstance(kwargs["litellm_params"]["model_info"]["id"], str)
-            assert isinstance(kwargs["litellm_params"]["proxy_server_request"], (str, type(None)))
-            assert isinstance(kwargs["litellm_params"]["preset_cache_key"], (str, type(None)))
-            assert isinstance(kwargs["litellm_params"]["stream_response"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"]["model_group"], str)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"]["deployment"], str)
+            assert isinstance(kwargs["hangarllm_params"]["model_info"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["model_info"]["id"], str)
+            assert isinstance(kwargs["hangarllm_params"]["proxy_server_request"], (str, type(None)))
+            assert isinstance(kwargs["hangarllm_params"]["preset_cache_key"], (str, type(None)))
+            assert isinstance(kwargs["hangarllm_params"]["stream_response"], dict)
         except Exception:
             print(f"Assertion Error: {traceback.format_exc()}")
             self.errors.append(traceback.format_exc())
@@ -17805,12 +17805,12 @@ class CompletionCustomHandler(
             ## END TIME
             assert isinstance(end_time, datetime)
             ## RESPONSE OBJECT
-            assert isinstance(response_obj, litellm.ModelResponseStream)
+            assert isinstance(response_obj, hangarllm.ModelResponseStream)
             ## KWARGS
             assert isinstance(kwargs["model"], str)
             assert isinstance(kwargs["messages"], list) and isinstance(kwargs["messages"][0], dict)
             assert isinstance(kwargs["optional_params"], dict)
-            assert isinstance(kwargs["litellm_params"], dict)
+            assert isinstance(kwargs["hangarllm_params"], dict)
             assert isinstance(kwargs["start_time"], (datetime, type(None)))
             assert isinstance(kwargs["stream"], bool)
             assert isinstance(kwargs["user"], (str, type(None)))
@@ -17819,7 +17819,7 @@ class CompletionCustomHandler(
             )
             assert isinstance(kwargs["api_key"], (str, type(None)))
             assert (
-                isinstance(kwargs["original_response"], (str, litellm.CustomStreamWrapper))
+                isinstance(kwargs["original_response"], (str, hangarllm.CustomStreamWrapper))
                 or inspect.isasyncgen(kwargs["original_response"])
                 or inspect.iscoroutine(kwargs["original_response"])
             )
@@ -17837,12 +17837,12 @@ class CompletionCustomHandler(
             ## END TIME
             assert isinstance(end_time, datetime)
             ## RESPONSE OBJECT
-            assert isinstance(response_obj, litellm.ModelResponse)
+            assert isinstance(response_obj, hangarllm.ModelResponse)
             ## KWARGS
             assert isinstance(kwargs["model"], str)
             assert isinstance(kwargs["messages"], list) and isinstance(kwargs["messages"][0], dict)
             assert isinstance(kwargs["optional_params"], dict)
-            assert isinstance(kwargs["litellm_params"], dict)
+            assert isinstance(kwargs["hangarllm_params"], dict)
             assert isinstance(kwargs["start_time"], (datetime, type(None)))
             assert isinstance(kwargs["stream"], bool)
             assert isinstance(kwargs["user"], (str, type(None)))
@@ -17850,7 +17850,7 @@ class CompletionCustomHandler(
                 kwargs["input"], (dict, str)
             )
             assert isinstance(kwargs["api_key"], (str, type(None)))
-            assert isinstance(kwargs["original_response"], (str, litellm.CustomStreamWrapper))
+            assert isinstance(kwargs["original_response"], (str, hangarllm.CustomStreamWrapper))
             assert isinstance(kwargs["additional_args"], (dict, type(None)))
             assert isinstance(kwargs["log_event_type"], str)
             assert kwargs["cache_hit"] is None or isinstance(kwargs["cache_hit"], bool)
@@ -17871,7 +17871,7 @@ class CompletionCustomHandler(
             assert isinstance(kwargs["model"], str)
             assert isinstance(kwargs["messages"], list) and isinstance(kwargs["messages"][0], dict)
             assert isinstance(kwargs["optional_params"], dict)
-            assert isinstance(kwargs["litellm_params"], dict)
+            assert isinstance(kwargs["hangarllm_params"], dict)
             assert isinstance(kwargs["start_time"], (datetime, type(None)))
             assert isinstance(kwargs["stream"], bool)
             assert isinstance(kwargs["user"], (str, type(None)))
@@ -17880,7 +17880,7 @@ class CompletionCustomHandler(
             )
             assert isinstance(kwargs["api_key"], (str, type(None)))
             assert (
-                isinstance(kwargs["original_response"], (str, litellm.CustomStreamWrapper))
+                isinstance(kwargs["original_response"], (str, hangarllm.CustomStreamWrapper))
                 or kwargs["original_response"] == None
             )
             assert isinstance(kwargs["additional_args"], (dict, type(None)))
@@ -17913,23 +17913,23 @@ class CompletionCustomHandler(
             ## END TIME
             assert isinstance(end_time, datetime)
             ## RESPONSE OBJECT
-            assert isinstance(response_obj, (litellm.ModelResponse, litellm.EmbeddingResponse))
+            assert isinstance(response_obj, (hangarllm.ModelResponse, hangarllm.EmbeddingResponse))
             ## KWARGS
             assert isinstance(kwargs["model"], str)
 
             # checking we use base_model for azure cost calculation
-            base_model = litellm.utils.get_base_model_from_metadata(model_call_details=kwargs)
+            base_model = hangarllm.utils.get_base_model_from_metadata(model_call_details=kwargs)
 
             if kwargs["model"] == "chatgpt-v-3" and base_model is not None and kwargs["stream"] != True:
                 # when base_model is set for azure, we should use pricing for the base_model
-                # this checks response_cost == litellm.cost_per_token(model=base_model)
+                # this checks response_cost == hangarllm.cost_per_token(model=base_model)
                 assert isinstance(kwargs["response_cost"], float)
                 response_cost = kwargs["response_cost"]
                 print(f"response_cost: {response_cost}, for model: {kwargs['model']} and base_model: {base_model}")
                 prompt_tokens = response_obj.usage.prompt_tokens
                 completion_tokens = response_obj.usage.completion_tokens
                 # ensure the pricing is based on the base_model here
-                prompt_price, completion_price = litellm.cost_per_token(
+                prompt_price, completion_price = hangarllm.cost_per_token(
                     model=base_model,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
@@ -17942,14 +17942,14 @@ class CompletionCustomHandler(
 
             assert isinstance(kwargs["messages"], list)
             assert isinstance(kwargs["optional_params"], dict)
-            assert isinstance(kwargs["litellm_params"], dict)
+            assert isinstance(kwargs["hangarllm_params"], dict)
             assert isinstance(kwargs["start_time"], (datetime, type(None)))
             assert isinstance(kwargs["stream"], bool)
             assert isinstance(kwargs["user"], (str, type(None)))
             assert isinstance(kwargs["input"], (list, dict, str))
             assert isinstance(kwargs["api_key"], (str, type(None)))
             assert (
-                isinstance(kwargs["original_response"], (str, litellm.CustomStreamWrapper))
+                isinstance(kwargs["original_response"], (str, hangarllm.CustomStreamWrapper))
                 or inspect.isasyncgen(kwargs["original_response"])
                 or inspect.iscoroutine(kwargs["original_response"])
             )
@@ -17957,14 +17957,14 @@ class CompletionCustomHandler(
             assert isinstance(kwargs["log_event_type"], str)
             assert kwargs["cache_hit"] is None or isinstance(kwargs["cache_hit"], bool)
             ### ROUTER-SPECIFIC KWARGS
-            assert isinstance(kwargs["litellm_params"]["metadata"], dict)
-            assert isinstance(kwargs["litellm_params"]["metadata"]["model_group"], str)
-            assert isinstance(kwargs["litellm_params"]["metadata"]["deployment"], str)
-            assert isinstance(kwargs["litellm_params"]["model_info"], dict)
-            assert isinstance(kwargs["litellm_params"]["model_info"]["id"], str)
-            assert isinstance(kwargs["litellm_params"]["proxy_server_request"], (str, type(None)))
-            assert isinstance(kwargs["litellm_params"]["preset_cache_key"], (str, type(None)))
-            assert isinstance(kwargs["litellm_params"]["stream_response"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"]["model_group"], str)
+            assert isinstance(kwargs["hangarllm_params"]["metadata"]["deployment"], str)
+            assert isinstance(kwargs["hangarllm_params"]["model_info"], dict)
+            assert isinstance(kwargs["hangarllm_params"]["model_info"]["id"], str)
+            assert isinstance(kwargs["hangarllm_params"]["proxy_server_request"], (str, type(None)))
+            assert isinstance(kwargs["hangarllm_params"]["preset_cache_key"], (str, type(None)))
+            assert isinstance(kwargs["hangarllm_params"]["stream_response"], dict)
         except Exception:
             print(f"Assertion Error: {traceback.format_exc()}")
             self.errors.append(traceback.format_exc())
@@ -17983,14 +17983,14 @@ class CompletionCustomHandler(
             assert isinstance(kwargs["model"], str)
             assert isinstance(kwargs["messages"], list)
             assert isinstance(kwargs["optional_params"], dict)
-            assert isinstance(kwargs["litellm_params"], dict)
+            assert isinstance(kwargs["hangarllm_params"], dict)
             assert isinstance(kwargs["start_time"], (datetime, type(None)))
             assert isinstance(kwargs["stream"], bool)
             assert isinstance(kwargs["user"], (str, type(None)))
             assert isinstance(kwargs["input"], (list, str, dict))
             assert isinstance(kwargs["api_key"], (str, type(None)))
             assert (
-                isinstance(kwargs["original_response"], (str, litellm.CustomStreamWrapper))
+                isinstance(kwargs["original_response"], (str, hangarllm.CustomStreamWrapper))
                 or inspect.isasyncgen(kwargs["original_response"])
                 or inspect.iscoroutine(kwargs["original_response"])
                 or kwargs["original_response"] == None
@@ -18019,7 +18019,7 @@ def _fallback_wire_router() -> Router:
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-primary",
                     "api_base": _FALLBACK_WIRE_PRIMARY,
@@ -18028,7 +18028,7 @@ def _fallback_wire_router() -> Router:
             },
             {
                 "model_name": "backup",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-backup",
                     "api_base": _FALLBACK_WIRE_BACKUP,
@@ -18058,11 +18058,11 @@ def _assert_fallback_errors_reached_the_caller_and_not_the_wire(
         assert route.called
         for call in route.calls:
             assert "include_fallback_errors" not in json.loads(call.request.content)
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     assert response.choices[0].message.content == "pong"
     headers = response._hidden_params["additional_headers"]
-    assert headers["x-litellm-attempted-fallbacks"] == 1
-    errors = json.loads(headers["x-litellm-fallback-errors"])
+    assert headers["x-hangarllm-attempted-fallbacks"] == 1
+    errors = json.loads(headers["x-hangarllm-fallback-errors"])
     assert len(errors) == 1
     assert "primary overloaded" in errors[0]["message"]
 
@@ -18078,7 +18078,7 @@ def test_sync_completion_keeps_include_fallback_errors_off_the_wire_and_returns_
 
 @pytest.mark.asyncio
 async def test_acompletion_keeps_include_fallback_errors_off_the_wire_and_returns_the_errors(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock(assert_all_called=True) as respx_mock:
         primary, backup = _mock_fallback_wire(respx_mock)
         response = await _fallback_wire_router().acompletion(
@@ -18092,7 +18092,7 @@ def _create_custom_routing_router():
         model_list=[
             {
                 "model_name": "azure-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/very-special-endpoint",
                     "api_base": FAKE_OPENAI_API_BASE,
                     "api_key": "fake-key",
@@ -18101,7 +18101,7 @@ def _create_custom_routing_router():
             },
             {
                 "model_name": "azure-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/fast-endpoint",
                     "api_base": FAKE_OPENAI_API_BASE,
                     "api_key": "fake-key",
@@ -18131,7 +18131,7 @@ class SpecialEndpointRoutingStrategy(CustomRoutingStrategyBase):
         print("router model list=", model_list)
         for model in model_list:
             if isinstance(model, dict):
-                if model["litellm_params"]["model"] == "openai/very-special-endpoint":
+                if model["hangarllm_params"]["model"] == "openai/very-special-endpoint":
                     return model
         pass
 
@@ -18163,7 +18163,7 @@ async def test_azure_router_acompletion_passes_deployment_credentials_for_plain_
     monkeypatch.delenv("AZURE_API_KEY", raising=False)
     monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("AZURE_AI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     api_key: Final = "deployment-api-key"
     api_base: Final = "https://router-azure.example.com"
@@ -18202,7 +18202,7 @@ async def test_azure_router_acompletion_passes_deployment_credentials_for_plain_
         model_list=[
             {
                 "model_name": "azure-routed",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": api_key,
                     "api_base": api_base,
@@ -18232,7 +18232,7 @@ def test_multiple_deployments_route_to_a_configured_model(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     def _deployment_response(request: httpx.Request) -> httpx.Response:
         request_body: Final = json.loads(request.content)
@@ -18260,12 +18260,12 @@ def test_multiple_deployments_route_to_a_configured_model(
         model_list=[
             {
                 "model_name": "test-group",
-                "litellm_params": {"model": "openai/first", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/first", "api_key": "test-key"},
                 "model_info": {"id": "first"},
             },
             {
                 "model_name": "test-group",
-                "litellm_params": {"model": "openai/second", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/second", "api_key": "test-key"},
                 "model_info": {"id": "second"},
             },
         ],
@@ -18289,7 +18289,7 @@ async def test_custom_routing_uses_the_strategy_selected_deployment(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(f"{FAKE_OPENAI_API_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
@@ -18382,7 +18382,7 @@ def _openai_chat_stream_response(content: str = "streamed reply") -> httpx.Respo
 def test_router_deployment_typing_routes_typed_deployment() -> None:
     deployment: Final = DeploymentTypedDict(
         model_name="typed-model",
-        litellm_params={
+        hangarllm_params={
             "model": "openai/gpt-4o-mini",
             "mock_response": "typed deployment response",
         },
@@ -18403,7 +18403,7 @@ def test_router_retries_transient_server_error(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=[
             httpx.Response(500, json={"error": {"message": "temporary failure"}}),
@@ -18414,7 +18414,7 @@ def test_router_retries_transient_server_error(
         model_list=[
             {
                 "model_name": "retry-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
@@ -18436,7 +18436,7 @@ def test_router_authentication_error_is_not_swallowed(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=[
             httpx.Response(
@@ -18463,14 +18463,14 @@ def test_router_authentication_error_is_not_swallowed(
         model_list=[
             {
                 "model_name": "auth-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "first-test-key",
                 },
             },
             {
                 "model_name": "auth-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "second-test-key",
                 },
@@ -18496,7 +18496,7 @@ def test_router_does_not_log_model_list_api_key_after_auth_failure(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     for logger in (verbose_logger, verbose_router_logger):
         caplog.set_level("DEBUG", logger=logger.name)
         logger.addHandler(caplog.handler)
@@ -18511,7 +18511,7 @@ def test_router_does_not_log_model_list_api_key_after_auth_failure(
         model_list=[
             {
                 "model_name": "auth-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": api_key,
                 },
@@ -18534,7 +18534,7 @@ def test_router_reads_api_key_from_model_list(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=[_openai_chat_response(), _openai_chat_stream_response()]
     )
@@ -18542,7 +18542,7 @@ def test_router_reads_api_key_from_model_list(
         model_list=[
             {
                 "model_name": "keyed-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "model-list-key",
                 },
@@ -18575,7 +18575,7 @@ def test_router_calls_requested_specific_deployment(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=_openai_chat_response()
     )
@@ -18583,7 +18583,7 @@ def test_router_calls_requested_specific_deployment(
         model_list=[
             {
                 "model_name": "openai/gpt-4o-mini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4.1-mini",
                     "api_key": "group-key",
                 },
@@ -18591,7 +18591,7 @@ def test_router_calls_requested_specific_deployment(
             },
             {
                 "model_name": "specific-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "specific-key",
                 },
@@ -18619,7 +18619,7 @@ async def test_router_context_window_error_uses_configured_fallback(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=[
             httpx.Response(
@@ -18639,14 +18639,14 @@ async def test_router_context_window_error_uses_configured_fallback(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4.1-mini",
                     "api_key": "test-key",
                 },
@@ -18670,7 +18670,7 @@ def test_router_function_calling_sends_tools_and_returns_tool_call(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200,
@@ -18725,7 +18725,7 @@ def test_router_function_calling_sends_tools_and_returns_tool_call(
         model_list=[
             {
                 "model_name": "tools-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
@@ -18749,7 +18749,7 @@ async def test_router_openai_completion_supports_sync_async_and_streaming(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=[
             _openai_chat_response("async reply"),
@@ -18762,7 +18762,7 @@ async def test_router_openai_completion_supports_sync_async_and_streaming(
         model_list=[
             {
                 "model_name": "openai-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
@@ -18805,7 +18805,7 @@ async def test_router_moderation_returns_provider_result(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/moderations").mock(
         return_value=httpx.Response(
             200,
@@ -18826,7 +18826,7 @@ async def test_router_moderation_returns_provider_result(
         model_list=[
             {
                 "model_name": "moderation-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "omni-moderation-latest",
                     "api_key": "test-key",
                 },
@@ -18845,7 +18845,7 @@ def test_router_anthropic_key_comes_from_model_list(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.anthropic.com/v1/messages").mock(
         return_value=httpx.Response(
             200,
@@ -18865,7 +18865,7 @@ def test_router_anthropic_key_comes_from_model_list(
         model_list=[
             {
                 "model_name": "anthropic-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-haiku-4-5-20251001",
                     "api_key": "model-list-anthropic-key",
                 },
@@ -18891,7 +18891,7 @@ def test_router_does_not_cool_down_api_connection_errors() -> None:
             ctx=router._core_ctx,
             model_id="connection-deployment",
             exception_status=500,
-            exception_str="litellm.APIConnectionError: connection refused",
+            exception_str="hangarllm.APIConnectionError: connection refused",
         )
         is False
     )
@@ -18901,7 +18901,7 @@ def test_router_preserves_provider_rate_limit_error(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             429,
@@ -18918,7 +18918,7 @@ def test_router_preserves_provider_rate_limit_error(
         model_list=[
             {
                 "model_name": "rate-limit-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
@@ -18927,7 +18927,7 @@ def test_router_preserves_provider_rate_limit_error(
         num_retries=0,
     )
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         router.completion(
             model="rate-limit-model",
             messages=[{"role": "user", "content": "preserve provider error"}],
@@ -18941,7 +18941,7 @@ def test_router_completion_with_model_id_routes_to_deployment() -> None:
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "mock_response": "deployment response",
                 },
@@ -18960,12 +18960,12 @@ def test_router_completion_with_model_id_routes_to_deployment() -> None:
     assert response._hidden_params["model_id"] == "deployment-123"
 
 
-def _batch_router() -> litellm.Router:
-    return litellm.Router(
+def _batch_router() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/{name}",
                     "api_key": "test-key",
                     "api_base": "https://batch-router.test/v1",
@@ -19003,12 +19003,12 @@ def _batch_response(request: httpx.Request) -> httpx.Response:
 async def test_batch_completion_multiple_models_returns_each_model_response(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://batch-router.test/v1/chat/completions").mock(side_effect=_batch_response)
     router: Final = _batch_router()
 
     responses: Final = cast(
-        list[litellm.ModelResponse],
+        list[hangarllm.ModelResponse],
         await router.abatch_completion(
             models=["first", "second"],
             messages=[{"role": "user", "content": "same prompt"}],
@@ -19026,12 +19026,12 @@ async def test_batch_completion_multiple_models_returns_each_model_response(
 async def test_batch_completion_multiple_models_and_messages_preserves_each_pair(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://batch-router.test/v1/chat/completions").mock(side_effect=_batch_response)
     router: Final = _batch_router()
 
     responses: Final = cast(
-        list[list[litellm.ModelResponse]],
+        list[list[hangarllm.ModelResponse]],
         await router.abatch_completion(
             models=["first", "second"],
             messages=[
@@ -19052,7 +19052,7 @@ async def test_batch_completion_multiple_models_and_messages_preserves_each_pair
 async def test_batch_completion_fastest_response_prefers_the_mocked_deployment(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     release_provider: Final = asyncio.Event()
 
     async def response(request: httpx.Request) -> httpx.Response:
@@ -19060,11 +19060,11 @@ async def test_batch_completion_fastest_response_prefers_the_mocked_deployment(
         return _batch_response(request)
 
     respx_mock.post("https://batch-router.test/v1/chat/completions").mock(side_effect=response)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "first",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/first",
                     "api_key": "test-key",
                     "api_base": "https://batch-router.test/v1",
@@ -19073,7 +19073,7 @@ async def test_batch_completion_fastest_response_prefers_the_mocked_deployment(
             },
             {
                 "model_name": "second",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/second",
                     "api_key": "test-key",
                     "api_base": "https://batch-router.test/v1",
@@ -19121,12 +19121,12 @@ async def test_prompt_caching_pins_do_not_evict_router_state():
         model_list=[
             {
                 "model_name": "claude",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                 "model_info": {"id": "dep-a"},
             },
             {
                 "model_name": "claude",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                 "model_info": {"id": "dep-b"},
             },
         ],
@@ -19158,12 +19158,12 @@ async def test_one_hour_pins_past_the_routers_default_cache_size_keep_fresh_five
         model_list=[
             {
                 "model_name": "claude",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                 "model_info": {"id": "dep-a"},
             },
             {
                 "model_name": "claude",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                 "model_info": {"id": "dep-b"},
             },
         ],
@@ -19206,12 +19206,12 @@ async def test_flush_cache_drops_prompt_caching_pins():
         model_list=[
             {
                 "model_name": "claude",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                 "model_info": {"id": "dep-a"},
             },
             {
                 "model_name": "claude",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                 "model_info": {"id": "dep-b"},
             },
         ],
@@ -19260,11 +19260,11 @@ class _FirstPullStream:
 
 
 def _first_chunk_cases():
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm.exceptions import MidStreamFallbackError
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     chunk = ModelResponseStream(choices=[StreamingChoices(delta=Delta(content="hi"))])
-    provider_error = litellm.InternalServerError(
+    provider_error = hangarllm.InternalServerError(
         message="primary died at stream start", llm_provider="openai", model="m"
     )
     wrapped = MidStreamFallbackError(
@@ -19283,7 +19283,7 @@ def _first_chunk_cases():
 
 @pytest.mark.parametrize("first, expected, raised", _first_chunk_cases())
 def test_read_first_chunk_direct_call(first, expected, raised):
-    from litellm.router_rust.invoke.streaming import _read_first_chunk  # noqa: PLC2701
+    from hangarllm.router_rust.invoke.streaming import _read_first_chunk  # noqa: PLC2701
 
     stream = _FirstPullStream(first)
     if raised is None:
@@ -19298,7 +19298,7 @@ def test_read_first_chunk_direct_call(first, expected, raised):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("first, expected, raised", _first_chunk_cases())
 async def test_aread_first_chunk_direct_call(first, expected, raised):
-    from litellm.router_rust.invoke.streaming import _aread_first_chunk  # noqa: PLC2701
+    from hangarllm.router_rust.invoke.streaming import _aread_first_chunk  # noqa: PLC2701
 
     stream = _FirstPullStream(first)
     if raised is None:
@@ -19315,7 +19315,7 @@ class _IterationHandedOffStream(CustomStreamWrapper):
     own and hands iteration to another object from __aiter__ / __iter__, a fresh one per call so a second
     __aiter__ would replay the first chunk."""
 
-    def __init__(self, chunks: list[litellm.ModelResponseStream]) -> None:
+    def __init__(self, chunks: list[hangarllm.ModelResponseStream]) -> None:
         super().__init__(completion_stream=None, model="gpt-5.4", custom_llm_provider="openai", logging_obj=MagicMock())
         self._chunks: Final = chunks
 
@@ -19326,9 +19326,9 @@ class _IterationHandedOffStream(CustomStreamWrapper):
         return iter(self._chunks)
 
 
-def _handed_off_chunks() -> list[litellm.ModelResponseStream]:
+def _handed_off_chunks() -> list[hangarllm.ModelResponseStream]:
     return [
-        litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": text}}]) for text in ("tool ", "answer")
+        hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": text}}]) for text in ("tool ", "answer")
     ]
 
 
@@ -19339,7 +19339,7 @@ async def test_acompletion_streams_a_wrapper_that_hands_iteration_to_another_ite
     router = _mid_stream_opt_out_router()
     chunks = _handed_off_chunks()
 
-    with patch("litellm.acompletion", new=AsyncMock(return_value=_IterationHandedOffStream(chunks))):
+    with patch("hangarllm.acompletion", new=AsyncMock(return_value=_IterationHandedOffStream(chunks))):
         response = await router.acompletion(model="primary", messages=[{"role": "user", "content": "Hi"}], stream=True)
         streamed = [chunk async for chunk in response]
 
@@ -19351,7 +19351,7 @@ def test_completion_streams_a_wrapper_that_hands_iteration_to_another_iterator()
     router = _mid_stream_opt_out_router()
     chunks = _handed_off_chunks()
 
-    with patch("litellm.completion", return_value=_IterationHandedOffStream(chunks)):
+    with patch("hangarllm.completion", return_value=_IterationHandedOffStream(chunks)):
         response = router.completion(model="primary", messages=[{"role": "user", "content": "Hi"}], stream=True)
         streamed = list(response)
 
@@ -19372,12 +19372,12 @@ def test_pre_call_checks_filters_deployment_when_token_count_exceeds_limit():
     model_list: Final = [
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key"},
             "model_info": {"id": "small", "max_input_tokens": 5},
         },
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {"model": "openai/my-other-fake-model", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/my-other-fake-model", "api_key": "my-fake-key"},
             "model_info": {"id": "large", "max_input_tokens": 10000},
         },
     ]
@@ -19396,7 +19396,7 @@ def test_pre_call_checks_context_window_check_is_skipped_but_not_fatal_when_toke
     model_list: Final = [
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key"},
             "model_info": {"max_input_tokens": 100},
         },
     ]
@@ -19412,15 +19412,15 @@ def test_pre_call_checks_context_window_check_is_skipped_but_not_fatal_when_toke
 
 
 def test_pre_call_checks_keeps_unsupported_param_filter_when_token_counting_fails(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     no_json_mode_model: Final = "gpt-3.5-turbo-16k"
     assert "response_format" not in (
-        litellm.get_supported_openai_params(model=no_json_mode_model, custom_llm_provider="openai") or []
+        hangarllm.get_supported_openai_params(model=no_json_mode_model, custom_llm_provider="openai") or []
     )
     model_list: Final = [
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {"model": f"openai/{deployment_model}", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": f"openai/{deployment_model}", "api_key": "my-fake-key"},
             "model_info": {"id": deployment_model, "max_input_tokens": 100},
         }
         for deployment_model in (no_json_mode_model, "gpt-4o")
@@ -19441,7 +19441,7 @@ async def test_async_get_healthy_deployments_keeps_region_check_when_token_count
     model_list: Final = [
         {
             "model_name": "fake-openai-endpoint",
-            "litellm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "region_name": region},
+            "hangarllm_params": {"model": "openai/my-fake-model", "api_key": "my-fake-key", "region_name": region},
             "model_info": {"id": f"{region}-deployment", "max_input_tokens": 100},
         }
         for region in ("eu", "us")
@@ -19468,12 +19468,12 @@ async def test_async_get_healthy_deployments_keeps_region_check_when_token_count
 def test_completion_answers_400_when_no_deployment_supports_the_requested_param(
     monkeypatch: pytest.MonkeyPatch, messages: list[dict[str, object]]
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "no-json-mode",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
+                "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
                 "model_info": {"max_input_tokens": 100},
             }
         ],
@@ -19481,7 +19481,7 @@ def test_completion_answers_400_when_no_deployment_supports_the_requested_param(
         num_retries=2,
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError) as error:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as error:
         router.completion(
             model="no-json-mode",
             messages=messages,
@@ -19507,11 +19507,11 @@ def test_completion_answers_400_when_no_deployment_supports_the_requested_param(
 def test_pre_call_checks_keeps_deployment_whose_unsupported_param_is_allowed_or_dropped(
     monkeypatch: pytest.MonkeyPatch, deployment_params: Mapping[str, object], request_kwargs: Mapping[str, object]
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     model_list: Final = [
         {
             "model_name": "no-json-mode",
-            "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", **deployment_params},
+            "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", **deployment_params},
             "model_info": {"id": "only", "max_input_tokens": 100},
         }
     ]
@@ -19530,17 +19530,17 @@ def test_pre_call_checks_keeps_deployment_whose_unsupported_param_is_allowed_or_
 def test_completion_uses_context_window_fallback_when_the_small_deployment_also_lacks_the_param(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "small",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
+                "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
                 "model_info": {"id": "small-id", "max_input_tokens": 5},
             },
             {
                 "model_name": "big",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key"},
                 "model_info": {"id": "big-id"},
             },
         ],
@@ -19573,16 +19573,16 @@ def test_completion_uses_context_window_fallback_when_the_small_deployment_also_
 def test_pre_call_checks_prefers_a_deployment_that_takes_the_param_over_dropping_it(
     monkeypatch: pytest.MonkeyPatch, deployment_params: Mapping[str, object], request_kwargs: Mapping[str, object]
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     model_list: Final = [
         {
             "model_name": "mixed-json-mode",
-            "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", **deployment_params},
+            "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", **deployment_params},
             "model_info": {"id": "gpt-3.5-turbo-16k", "max_input_tokens": 100},
         },
         {
             "model_name": "mixed-json-mode",
-            "litellm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key"},
             "model_info": {"id": "gpt-4o", "max_input_tokens": 100},
         },
     ]
@@ -19601,16 +19601,16 @@ def test_pre_call_checks_prefers_a_deployment_that_takes_the_param_over_dropping
 def test_pre_call_checks_drops_the_param_when_the_capable_deployment_is_outside_the_region(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     model_list: Final = [
         {
             "model_name": "regional-json-mode",
-            "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", "region_name": "eu"},
+            "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", "region_name": "eu"},
             "model_info": {"id": "eu-without-json-mode", "max_input_tokens": 100},
         },
         {
             "model_name": "regional-json-mode",
-            "litellm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key", "region_name": "us"},
+            "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key", "region_name": "us"},
             "model_info": {"id": "us-with-json-mode", "max_input_tokens": 100},
         },
     ]
@@ -19629,18 +19629,18 @@ def test_pre_call_checks_drops_the_param_when_the_capable_deployment_is_outside_
 def test_pre_call_checks_filters_an_authenticating_provider_deployment_that_lacks_the_param(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
     (tmp_path / "api-key.json").write_text(json.dumps({"token": "tid=test", "expires_at": 4102444800}))
     model_list: Final = [
         {
             "model_name": "mixed-json-mode",
-            "litellm_params": {"model": "github_copilot/gpt-4"},
+            "hangarllm_params": {"model": "github_copilot/gpt-4"},
             "model_info": {"id": "copilot-gpt-4", "max_input_tokens": 100},
         },
         {
             "model_name": "mixed-json-mode",
-            "litellm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "my-fake-key"},
             "model_info": {"id": "gpt-4o", "max_input_tokens": 100},
         },
     ]
@@ -19657,17 +19657,17 @@ def test_pre_call_checks_filters_an_authenticating_provider_deployment_that_lack
 
 
 def test_pre_call_checks_answers_400_when_the_group_name_lists_no_deployments(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     model_list: Final = [
         {
             "model_name": "no-json-mode",
-            "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
             "model_info": {"id": "only", "max_input_tokens": 100},
         }
     ]
     router: Final = Router(model_list=model_list, enable_pre_call_checks=True, num_retries=0)
 
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         router._pre_call_checks(
             model="team-public-name",
             healthy_deployments=model_list,
@@ -19677,16 +19677,16 @@ def test_pre_call_checks_answers_400_when_the_group_name_lists_no_deployments(mo
 
 
 def test_pre_call_checks_lets_a_request_setting_replace_the_deployment_setting(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     model_list: Final = [
         {
             "model_name": "no-json-mode",
-            "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", "drop_params": True},
+            "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key", "drop_params": True},
             "model_info": {"id": "drops-it", "max_input_tokens": 100},
         },
         {
             "model_name": "no-json-mode",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4",
                 "api_key": "my-fake-key",
                 "allowed_openai_params": ["response_format"],
@@ -19718,7 +19718,7 @@ async def _select_team_json_deployment(router: Router, entrypoint: str, selectio
 @pytest.mark.parametrize(
     ("deployment_models", "cooled_down", "expected_error"),
     [
-        pytest.param(("gpt-3.5-turbo-16k", "gpt-4"), (), litellm.UnsupportedParamsError, id="none-takes-it"),
+        pytest.param(("gpt-3.5-turbo-16k", "gpt-4"), (), hangarllm.UnsupportedParamsError, id="none-takes-it"),
         pytest.param(("gpt-3.5-turbo-16k", "gpt-4o"), ("gpt-4o",), RouterRateLimitError, id="capable-cooling-down"),
     ],
 )
@@ -19730,12 +19730,12 @@ async def test_team_public_model_name_answers_400_only_when_no_team_deployment_t
     cooled_down: tuple[str, ...],
     expected_error: type[Exception],
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     router: Final = Router(
         model_list=[
             {
                 "model_name": f"team-json-{deployment_model}",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/{deployment_model}",
                     "api_key": "my-fake-key",
                     "use_in_pass_through": True,
@@ -19767,11 +19767,11 @@ async def test_team_public_model_name_answers_400_only_when_no_team_deployment_t
 
 
 def test_pre_call_checks_ignores_an_image_response_format_string(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     model_list: Final = [
         {
             "model_name": "image-model",
-            "litellm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
+            "hangarllm_params": {"model": "openai/gpt-3.5-turbo-16k", "api_key": "my-fake-key"},
             "model_info": {"id": "only", "max_input_tokens": 100},
         }
     ]
@@ -19809,14 +19809,14 @@ async def test_router_configured_stream_usage_keeps_a_choice_on_the_usage_chunk(
         model_list=[
             {
                 "model_name": "m",
-                "litellm_params": (
+                "hangarllm_params": (
                     deployment_params
                     if deployment_stream_options is None
                     else {**deployment_params, "stream_options": deployment_stream_options}
                 ),
             }
         ],
-        default_litellm_params=None if default_stream_options is None else {"stream_options": default_stream_options},
+        default_hangarllm_params=None if default_stream_options is None else {"stream_options": default_stream_options},
     )
     request_kwargs: Final = {} if request_stream_options is None else {"stream_options": request_stream_options}
 
@@ -19833,7 +19833,7 @@ async def test_router_configured_stream_usage_keeps_a_choice_on_the_usage_chunk(
 def _concurrent_delete_deployment(index: int) -> dict[str, object]:
     return {
         "model_name": f"model-{index}",
-        "litellm_params": {"model": f"openai/gpt-{index}", "api_key": "k"},
+        "hangarllm_params": {"model": f"openai/gpt-{index}", "api_key": "k"},
         "model_info": {
             "id": f"deployment-{index}",
             "team_id": "team-1",
@@ -19854,7 +19854,7 @@ def test_delete_of_an_unknown_deployment_returns_none_and_keeps_the_list() -> No
 
 
 def test_get_model_ids_by_name_skips_team_deployments_only_when_asked() -> None:
-    shared: Final = {"model_name": "shared", "litellm_params": {"model": "openai/gpt-shared", "api_key": "k"}}
+    shared: Final = {"model_name": "shared", "hangarllm_params": {"model": "openai/gpt-shared", "api_key": "k"}}
     router: Final = Router(
         model_list=[
             {**shared, "model_info": {"id": "global"}},
@@ -19878,17 +19878,17 @@ _IMAGE_RESPONSES_INPUT = [
     }
 ]
 _VISION_LEG: Final[dict[str, object]] = {
-    "litellm_params": {"model": "openai/gpt-5.6-terra"},
+    "hangarllm_params": {"model": "openai/gpt-5.6-terra"},
     "model_info": {"id": "vision"},
 }
 _DECLARED_TEXT_LEG: Final[dict[str, object]] = {
-    "litellm_params": {"model": "bedrock/openai.gpt-oss-120b-1:0"},
+    "hangarllm_params": {"model": "bedrock/openai.gpt-oss-120b-1:0"},
     "model_info": {"id": "declared-text", "supports_vision": False},
 }
 
 
-def _mixed_router(*deployments: dict[str, object], routing_strategy: str = "latency-based-routing") -> litellm.Router:
-    return litellm.Router(
+def _mixed_router(*deployments: dict[str, object], routing_strategy: str = "latency-based-routing") -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[{"model_name": "mixed", **deployment} for deployment in deployments],
         routing_strategy=routing_strategy,
     )
@@ -19912,7 +19912,7 @@ async def test_async_router_picks_the_vision_leg_for_responses_images_without_en
 
 
 def test_router_sends_an_image_to_the_text_only_leg_when_pre_call_checks_drop_the_vision_leg():
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {"model_name": "mixed", **_VISION_LEG, "model_info": {"id": "vision", "max_input_tokens": 1}},
             {"model_name": "mixed", **_DECLARED_TEXT_LEG},
@@ -19932,16 +19932,16 @@ def test_router_sends_an_image_to_the_text_only_leg_when_the_vision_leg_is_cooli
 
 
 @pytest.mark.asyncio
-@pytest.mark.usefixtures("isolate_litellm_state")
+@pytest.mark.usefixtures("isolate_hangarllm_state")
 @pytest.mark.parametrize("surface", ["chat", "messages"])
 @pytest.mark.parametrize("credential_kind", ["oauth", "api_key"])
 async def test_anthropic_caller_rate_limit_does_not_block_other_credentials(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, surface: str, credential_kind: str
 ) -> None:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.types.router import AllowedFailsPolicy
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.types.router import AllowedFailsPolicy
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr("time.time", lambda: 1767225600.0)
 
     def upstream(request: httpx.Request) -> httpx.Response:
@@ -19970,7 +19970,7 @@ async def test_anthropic_caller_rate_limit_does_not_block_other_credentials(
         model_list=[
             {
                 "model_name": "claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-5-5",
                     "api_key": "fake-gateway-key",
                 },
@@ -20000,7 +20000,7 @@ async def test_anthropic_caller_rate_limit_does_not_block_other_credentials(
             else {}
         )
         if surface == "messages":
-            max_tokens: Final = litellm.get_max_tokens("anthropic/claude-sonnet-5-5")
+            max_tokens: Final = hangarllm.get_max_tokens("anthropic/claude-sonnet-5-5")
             assert max_tokens is not None
             return await router.aanthropic_messages(
                 model="claude",
@@ -20018,7 +20018,7 @@ async def test_anthropic_caller_rate_limit_does_not_block_other_credentials(
 
     try:
         for _ in range(2):
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await call("limited")
             await GLOBAL_LOGGING_WORKER.flush()
         limited_calls: Final = len(route.calls)
@@ -20039,8 +20039,8 @@ async def test_anthropic_caller_rate_limit_does_not_block_other_credentials(
 
 
 _FALLBACK_VALIDATION_MODEL_LIST: Final = (
-    {"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4", "api_key": "fake-key"}},
-    {"model_name": "gpt-3.5", "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "fake-key"}},
+    {"model_name": "gpt-4", "hangarllm_params": {"model": "openai/gpt-4", "api_key": "fake-key"}},
+    {"model_name": "gpt-3.5", "hangarllm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "fake-key"}},
 )
 
 
@@ -20126,11 +20126,11 @@ def _sagemaker_router(
         model_list=[
             {
                 "model_name": model_name,
-                "litellm_params": {"model": model, **_SAGEMAKER_ROUTER_CREDENTIALS, **deployment_params},
+                "hangarllm_params": {"model": model, **_SAGEMAKER_ROUTER_CREDENTIALS, **deployment_params},
                 "model_info": {"mode": mode},
             }
         ],
-        default_litellm_params=dict(router_defaults),
+        default_hangarllm_params=dict(router_defaults),
     )
 
 
@@ -20293,7 +20293,7 @@ async def test_a_component_header_on_a_non_sagemaker_deployment_leaves_the_clien
         model_list=[
             {
                 "model_name": "gateway-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/served-model",
                     "api_base": "https://gateway.local/v1",
                     "api_key": "test-key",
@@ -20311,12 +20311,12 @@ async def test_a_component_header_on_a_non_sagemaker_deployment_leaves_the_clien
 
 
 def test_router_warns_when_a_deployment_enforces_endpoints_without_a_list(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         router: Final = Router(
             model_list=[
                 {
                     "model_name": "embed-from-config",
-                    "litellm_params": {"model": "openai/text-embedding-3-small", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_key": "sk-fake"},
                     "model_info": {"enforce_supported_endpoints": True},
                 }
             ]
@@ -20324,7 +20324,7 @@ def test_router_warns_when_a_deployment_enforces_endpoints_without_a_list(caplog
         router.add_deployment(
             Deployment(
                 model_name="embed-from-api",
-                litellm_params=LiteLLM_Params(model="openai/text-embedding-3-small", api_key="sk-fake"),
+                hangarllm_params=HangarLLM_Params(model="openai/text-embedding-3-small", api_key="sk-fake"),
                 model_info=ModelInfo(enforce_supported_endpoints=True, supported_endpoints=["/v1/embeddings", 7]),
             )
         )

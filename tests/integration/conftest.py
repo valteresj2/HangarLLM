@@ -419,6 +419,6 @@ def peer(gateway: Gateway) -> Iterator[Gateway]:
     url: Final = os.environ["INTEGRATION_PEER_URL"]
     assert url.rstrip("/") != str(gateway.client.base_url).rstrip("/")
     with Redis(host=os.environ["REDIS_HOST"], port=int(os.environ["REDIS_PORT"])) as cache:
-        eventually(lambda: cache.pubsub_numsub("litellm_proxy.auth_cache_invalidation")[0][1], lambda count: count >= 2)
+        eventually(lambda: cache.pubsub_numsub("hangarllm_proxy.auth_cache_invalidation")[0][1], lambda count: count >= 2)
     with httpx.Client(base_url=url, timeout=15, trust_env=False) as client:
         yield Gateway(client, gateway.key, gateway.upstream_url)

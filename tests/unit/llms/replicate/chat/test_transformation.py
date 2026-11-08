@@ -6,12 +6,12 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.replicate.chat.handler import async_completion
-from litellm.llms.replicate.chat.handler import completion as replicate_completion
-from litellm.llms.replicate.chat.transformation import ReplicateConfig
-from litellm.llms.replicate.common_utils import ReplicateError
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.llms.replicate.chat.handler import async_completion
+from hangarllm.llms.replicate.chat.handler import completion as replicate_completion
+from hangarllm.llms.replicate.chat.transformation import ReplicateConfig
+from hangarllm.llms.replicate.common_utils import ReplicateError
+from hangarllm.types.utils import ModelResponse
 
 
 def _transform(raw_response: httpx.Response) -> ModelResponse:
@@ -23,7 +23,7 @@ def _transform(raw_response: httpx.Response) -> ModelResponse:
         request_data={"input": {"prompt": "Hello"}},
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -107,7 +107,7 @@ def test_transform_response_reports_an_unsuccessful_prediction_body_as_received(
         _transform(httpx.Response(500, json=body, headers={"retry-after": "3"}))
 
     assert exc_info.value.status_code == 422
-    assert exc_info.value.message == f"LiteLLM Error - prediction not succeeded - {reported}"
+    assert exc_info.value.message == f"HangarLLM Error - prediction not succeeded - {reported}"
     assert exc_info.value.headers["retry-after"] == "3"
 
 
@@ -161,8 +161,8 @@ def test_init_called_again_with_none_keeps_the_value_stored_earlier() -> None:
 
 
 @pytest.mark.asyncio
-@patch("litellm.llms.replicate.chat.handler.asyncio.sleep", new_callable=AsyncMock)
-@patch("litellm.llms.replicate.chat.handler.get_async_httpx_client")
+@patch("hangarllm.llms.replicate.chat.handler.asyncio.sleep", new_callable=AsyncMock)
+@patch("hangarllm.llms.replicate.chat.handler.get_async_httpx_client")
 async def test_async_completion_handles_starting_status(mock_get_client, mock_sleep):
     """Test that async completion polls correctly when status is 'starting'"""
     mock_client = AsyncMock()
@@ -192,9 +192,9 @@ async def test_async_completion_handles_starting_status(mock_get_client, mock_sl
     get_response_succeeded.text = json.dumps(get_response_succeeded.json.return_value)
     get_response_succeeded.headers = {}
     mock_client.get = AsyncMock(side_effect=[get_response_starting, get_response_processing, get_response_succeeded])
-    model_response = litellm.ModelResponse()
-    model_response.choices = [litellm.Choices()]
-    model_response.choices[0].message = litellm.Message(content="")
+    model_response = hangarllm.ModelResponse()
+    model_response.choices = [hangarllm.Choices()]
+    model_response.choices[0].message = hangarllm.Message(content="")
     mock_logging = Mock()
     mock_logging.post_call = Mock()
     result = await async_completion(
@@ -203,7 +203,7 @@ async def test_async_completion_handles_starting_status(mock_get_client, mock_sl
         messages=[{"role": "user", "content": "Hi"}],
         encoding=None,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         version_id="deepseek-ai/deepseek-v3",
         input_data={"input": {"prompt": "test"}},
         api_key="test-key",
@@ -221,7 +221,7 @@ class TestReplicateOutputFormats:
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_transform_response_list_output(self):
         """Test standard list output format"""
-        from litellm.llms.replicate.chat.transformation import ReplicateConfig
+        from hangarllm.llms.replicate.chat.transformation import ReplicateConfig
 
         config = ReplicateConfig()
 
@@ -235,9 +235,9 @@ class TestReplicateOutputFormats:
         mock_response.text = json.dumps(mock_response.json.return_value)
         mock_response.headers = {}
 
-        model_response = litellm.ModelResponse()
-        model_response.choices = [litellm.Choices()]
-        model_response.choices[0].message = litellm.Message(content="")
+        model_response = hangarllm.ModelResponse()
+        model_response.choices = [hangarllm.Choices()]
+        model_response.choices[0].message = hangarllm.Message(content="")
 
         mock_logging = Mock()
         mock_logging.post_call = Mock()
@@ -250,7 +250,7 @@ class TestReplicateOutputFormats:
             request_data={"input": {"prompt": "test"}},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
             api_key="test-key",
         )
@@ -260,7 +260,7 @@ class TestReplicateOutputFormats:
 
 def test_transform_response_string_output():
     """Test string output format (as used by some DeepSeek models)"""
-    from litellm.llms.replicate.chat.transformation import ReplicateConfig
+    from hangarllm.llms.replicate.chat.transformation import ReplicateConfig
 
     config = ReplicateConfig()
     mock_response = Mock()
@@ -268,9 +268,9 @@ def test_transform_response_string_output():
     mock_response.json.return_value = {"status": "succeeded", "output": "Hello from DeepSeek"}
     mock_response.text = json.dumps(mock_response.json.return_value)
     mock_response.headers = {}
-    model_response = litellm.ModelResponse()
-    model_response.choices = [litellm.Choices()]
-    model_response.choices[0].message = litellm.Message(content="")
+    model_response = hangarllm.ModelResponse()
+    model_response.choices = [hangarllm.Choices()]
+    model_response.choices[0].message = hangarllm.Message(content="")
     mock_logging = Mock()
     mock_logging.post_call = Mock()
     result = config.transform_response(
@@ -281,7 +281,7 @@ def test_transform_response_string_output():
         request_data={"input": {"prompt": "test"}},
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         api_key="test-key",
     )
@@ -306,9 +306,9 @@ DEEPSEEK_V3_TOKENIZER_CONFIG = {
 
 
 @pytest.mark.respx(assert_all_called=False)
-@patch("litellm.llms.replicate.chat.handler.get_httpx_client")
+@patch("hangarllm.llms.replicate.chat.handler.get_httpx_client")
 def test_sync_completion_handles_starting_status(mock_get_client, monkeypatch, respx_mock):
-    monkeypatch.setattr(litellm, "known_tokenizer_config", dict(litellm.known_tokenizer_config))
+    monkeypatch.setattr(hangarllm, "known_tokenizer_config", dict(hangarllm.known_tokenizer_config))
     respx_mock.get("https://huggingface.co/deepseek-ai/deepseek-v3/raw/main/tokenizer_config.json").respond(
         200, json=DEEPSEEK_V3_TOKENIZER_CONFIG
     )
@@ -345,9 +345,9 @@ def test_sync_completion_handles_starting_status(mock_get_client, monkeypatch, r
 
     mock_client.get.side_effect = [get_response_starting, get_response_succeeded]
 
-    model_response = litellm.ModelResponse()
-    model_response.choices = [litellm.Choices()]
-    model_response.choices[0].message = litellm.Message(content="")
+    model_response = hangarllm.ModelResponse()
+    model_response.choices = [hangarllm.Choices()]
+    model_response.choices[0].message = hangarllm.Message(content="")
 
     mock_logging = Mock()
     mock_logging.post_call = Mock()
@@ -360,7 +360,7 @@ def test_sync_completion_handles_starting_status(mock_get_client, monkeypatch, r
             model_response=model_response,
             print_verbose=print,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             logging_obj=mock_logging,
             api_key="test-key",
             encoding=None,

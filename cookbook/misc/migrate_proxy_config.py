@@ -1,5 +1,5 @@
 """
-LiteLLM Migration Script!
+HangarLLM Migration Script!
 
 Takes a config.yaml and calls /model/new 
 
@@ -32,16 +32,16 @@ def migrate_models(config_file, proxy_base_url):
 
         model_name = model.get("model_name")
         print("\nAdding model: ", model_name)
-        litellm_params = model.get("litellm_params", {})
-        api_base = litellm_params.get("api_base", "")
+        hangarllm_params = model.get("hangarllm_params", {})
+        api_base = hangarllm_params.get("api_base", "")
         print("api_base on config.yaml: ", api_base)
 
-        litellm_model_name = litellm_params.get("model", "") or ""
-        if "vertex_ai/" in litellm_model_name:
+        hangarllm_model_name = hangarllm_params.get("model", "") or ""
+        if "vertex_ai/" in hangarllm_model_name:
             print("\033[91m\nSkipping Vertex AI model\033[0m", model)
             continue
 
-        for param, value in litellm_params.items():
+        for param, value in hangarllm_params.items():
             if isinstance(value, str) and value.startswith("os.environ/"):
                 # check if value is in _in_memory_os_variables
                 if value in _in_memory_os_variables:
@@ -55,12 +55,12 @@ def migrate_models(config_file, proxy_base_url):
                 else:
                     new_value = input(f"Enter value for {value}: ")
                     _in_memory_os_variables[value] = new_value
-                litellm_params[param] = new_value
-        if "api_key" not in litellm_params:
+                hangarllm_params[param] = new_value
+        if "api_key" not in hangarllm_params:
             new_value = input(f"Enter api key for {model_name}: ")
-            litellm_params["api_key"] = new_value
+            hangarllm_params["api_key"] = new_value
 
-        print("\nlitellm_params: ", litellm_params)
+        print("\nhangarllm_params: ", hangarllm_params)
         # Confirm before sending POST request
         confirm = input(
             "\033[92mDo you want to send the POST request with the above parameters? (y/n): \033[0m"
@@ -75,7 +75,7 @@ def migrate_models(config_file, proxy_base_url):
             "Content-Type": "application/json",
             "Authorization": f"Bearer {master_key}",
         }
-        data = {"model_name": model_name, "litellm_params": litellm_params}
+        data = {"model_name": model_name, "hangarllm_params": hangarllm_params}
         print("POSTING data to proxy url", url)
         response = requests.post(url, headers=headers, json=data)
         if response.status_code != 200:
@@ -91,7 +91,7 @@ def migrate_models(config_file, proxy_base_url):
 # Usage
 config_file = "config.yaml"
 proxy_base_url = "http://0.0.0.0:4000"
-master_key = os.environ["LITELLM_MASTER_KEY"]
+master_key = os.environ["HANGARLLM_MASTER_KEY"]
 print(f"config_file: {config_file}")
 print(f"proxy_base_url: {proxy_base_url}")
 migrate_models(config_file, proxy_base_url)

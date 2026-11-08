@@ -9,20 +9,20 @@ from datetime import datetime, timezone
 from typing import Final
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
-from litellm import CustomLogger, Router
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+from hangarllm import CustomLogger, Router
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.router_utils.router_callbacks.track_deployment_metrics import (
     get_deployment_successes_for_current_minute,
 )
-from litellm.types.llms.openai import HttpxBinaryResponseContent
-from litellm.types.router import RoutingStrategy
-from litellm.types.utils import ImageResponse, ModelResponse, RerankResponse
-from litellm.types.videos.utils import encode_video_id_with_provider
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent
+from hangarllm.types.router import RoutingStrategy
+from hangarllm.types.utils import ImageResponse, ModelResponse, RerankResponse
+from hangarllm.types.videos.utils import encode_video_id_with_provider
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 
@@ -45,10 +45,10 @@ CHAT_RESPONSE: Final = {
 
 @pytest.fixture(autouse=True)
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ def _rpm_tpm_router(model_id: str) -> Router:
         model_list=[
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini", "api_key": "sk-fake", "tpm": 1000, "rpm": 100},
+                "hangarllm_params": {"model": "gpt-5-mini", "api_key": "sk-fake", "tpm": 1000, "rpm": 100},
                 "model_info": {"id": model_id},
             }
         ]
@@ -107,7 +107,7 @@ def _azure_router_client() -> AsyncAzureOpenAI:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("litellm_params", "build_client", "route_url"),
+    ("hangarllm_params", "build_client", "route_url"),
     [
         (
             {"model": "whisper-1", "api_key": "sk-fake"},
@@ -128,7 +128,7 @@ def _azure_router_client() -> AsyncAzureOpenAI:
     ids=["openai", "azure"],
 )
 async def test_router_transcription_reuses_router_level_client_for_each_deployment(
-    litellm_params: dict[str, str],
+    hangarllm_params: dict[str, str],
     build_client: Callable[[], AsyncOpenAI],
     route_url: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -136,9 +136,9 @@ async def test_router_transcription_reuses_router_level_client_for_each_deployme
 ) -> None:
     model_id: Final = f"whisper-{uuid.uuid4().hex}"
     capture: Final = _RouterLoggingCapture(model_id)
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     router: Final = Router(
-        model_list=[{"model_name": "whisper", "litellm_params": dict(litellm_params), "model_info": {"id": model_id}}]
+        model_list=[{"model_name": "whisper", "hangarllm_params": dict(hangarllm_params), "model_info": {"id": model_id}}]
     )
     router_level_client: Final = build_client()
     router.cache.set_cache(key=f"{model_id}_async_client", value=router_level_client, local_only=True)
@@ -176,12 +176,12 @@ async def test_router_speech_returns_binary_content_and_logs_model_group(
 ) -> None:
     model_id: Final = f"tts-{uuid.uuid4().hex}"
     capture: Final = _RouterLoggingCapture(model_id)
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     router: Final = Router(
         model_list=[
             {
                 "model_name": "tts",
-                "litellm_params": {"model": "openai/tts-1", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/tts-1", "api_key": "sk-fake"},
                 "model_info": {"id": model_id},
             }
         ]
@@ -207,7 +207,7 @@ async def test_router_rerank_returns_valid_response_on_every_call(
         model_list=[
             {
                 "model_name": "cohere-rerank",
-                "litellm_params": {"model": "cohere/rerank-english-v3.0", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "cohere/rerank-english-v3.0", "api_key": "sk-fake"},
             }
         ]
     )
@@ -271,11 +271,11 @@ async def test_router_moderation_routes_through_wildcard_deployments(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "sk-openai-wildcard"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "sk-openai-wildcard"},
             },
             {
                 "model_name": "*",
-                "litellm_params": {"model": "openai/*", "api_key": "sk-catch-all"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "sk-catch-all"},
             },
         ]
     )
@@ -310,7 +310,7 @@ async def test_router_image_generation_returns_valid_image_response(
         model_list=[
             {
                 "model_name": "gpt-image-1",
-                "litellm_params": {"model": "openai/gpt-image-1", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-image-1", "api_key": "sk-fake"},
             }
         ]
     )
@@ -339,7 +339,7 @@ async def test_router_acompletion_headers_read_post_increment_counter_and_count_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     capture: Final = _RouterLoggingCapture("lit-3058-async")
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     router: Final = _rpm_tpm_router("lit-3058-async")
 
     response: Final = await router.acompletion(
@@ -364,7 +364,7 @@ async def test_router_stream_counts_request_before_headers_and_tokens_once_on_co
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     capture: Final = _RouterLoggingCapture("lit-3058-stream")
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     router: Final = _rpm_tpm_router("lit-3058-stream")
     stream: Final = await router.acompletion(
         model="gpt-5-mini",
@@ -400,7 +400,7 @@ def test_router_validate_fallbacks_accepts_well_formed_and_rejects_malformed_ent
 def _routing_deployment(deployment_id: str, extra_params: dict[str, float]) -> dict[str, object]:
     return {
         "model_name": "gpt",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_key": "sk-fake",
             "api_base": f"https://{deployment_id}.test/v1",
@@ -469,7 +469,7 @@ async def test_router_latency_based_routing_avoids_deployment_that_timed_out(
     for _ in range(5):
         if timed_out.called:
             break
-        with contextlib.suppress(litellm.Timeout):
+        with contextlib.suppress(hangarllm.Timeout):
             await router.acompletion(model="gpt", messages=list(ROUTING_MESSAGES), max_retries=0)
 
     assert timed_out.called
@@ -629,7 +629,7 @@ def _sora_deployment(
 ) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": "openai/sora-2", "api_key": api_key},
+        "hangarllm_params": {"model": "openai/sora-2", "api_key": api_key},
         "model_info": {"id": deployment_id, "access_groups": list(access_groups)},
     }
 
@@ -658,7 +658,7 @@ async def _poll_status_keys(
     video_id: Final = encode_video_id_with_provider("video_raw", "openai", "sora", deployment_id=deployment_id)
     metadata: Final = {} if caller is None else {"user_api_key_auth": caller}
     for _ in range(10):
-        await router.avideo_status(model=model, video_id=video_id, litellm_metadata=dict(metadata))
+        await router.avideo_status(model=model, video_id=video_id, hangarllm_metadata=dict(metadata))
     return {call.request.headers["authorization"] for call in route.calls}
 
 
@@ -693,7 +693,7 @@ async def test_video_status_on_a_wildcard_polls_the_deployment_that_created_the_
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": key},
+                "hangarllm_params": {"model": "openai/*", "api_key": key},
                 "model_info": {"id": dep},
             }
             for dep, key in (("wc-a", "key-a"), ("wc-b", "key-b"))
@@ -710,7 +710,7 @@ async def test_video_status_never_pins_to_a_deployment_in_cooldown(respx_mock: r
     router: Final = _two_account_sora_router()
     router.cooldown_cache.add_deployment_to_cooldown(
         model_id="dep-b",
-        original_exception=litellm.RateLimitError(message="upstream 429", llm_provider="openai", model="sora-2"),
+        original_exception=hangarllm.RateLimitError(message="upstream 429", llm_provider="openai", model="sora-2"),
         exception_status=429,
         cooldown_time=60,
     )
@@ -778,7 +778,7 @@ async def test_pinned_video_status_logs_the_requested_model_group(
     model: str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     capture: Final = _RouterLoggingCapture("dep-b")
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
 
     keys: Final = await _poll_status_keys(_two_account_sora_router(), model, "dep-b", respx_mock)
     _, standard_logging_object = await capture.next_event()
@@ -793,7 +793,7 @@ def _ordered_chat_router() -> Router:
         model_list=[
             {
                 "model_name": "chat-ordered",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": key, "order": order},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": key, "order": order},
                 "model_info": {"id": deployment_id},
             }
             for deployment_id, key, order in (("dep-primary", "key-a", 1), ("dep-backup", "key-b", 2))
@@ -834,7 +834,7 @@ async def test_video_lookup_404_never_cools_down_the_deployment_that_answered(re
     video_id: Final = encode_video_id_with_provider("video_gone", "openai", "sora", deployment_id="dep-b")
 
     for _ in range(3):
-        with pytest.raises(litellm.NotFoundError):
+        with pytest.raises(hangarllm.NotFoundError):
             await router.avideo_status(model="sora", video_id=video_id)
 
     assert await router.cooldown_cache.async_get_active_cooldowns(["dep-a", "dep-b"], parent_otel_span=None) == []
@@ -860,7 +860,7 @@ async def test_response_lookup_404_never_cools_down_the_deployment_that_answered
         model_list=[
             {
                 "model_name": "gpt",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": api_key},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": api_key},
                 "model_info": {"id": deployment_id},
             }
             for api_key, deployment_id in (("key-a", "dep-a"), ("key-b", "dep-b"))
@@ -871,7 +871,7 @@ async def test_response_lookup_404_never_cools_down_the_deployment_that_answered
     response_id: Final = ResponsesAPIRequestUtils._build_responses_api_response_id("openai", "dep-b", "resp_gone")
 
     for _ in range(3):
-        with pytest.raises(litellm.NotFoundError):
+        with pytest.raises(hangarllm.NotFoundError):
             await getattr(router, endpoint)(response_id=response_id)
 
     assert await router.cooldown_cache.async_get_active_cooldowns(["dep-a", "dep-b"], parent_otel_span=None) == []
@@ -886,12 +886,12 @@ async def test_chat_404_still_cools_down_the_deployment(respx_mock: respx.MockRo
         model_list=[
             {
                 "model_name": "chat",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "key-a"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "key-a"},
                 "model_info": {"id": "dep-chat"},
             },
             {
                 "model_name": "chat",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "key-b"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "key-b"},
                 "model_info": {"id": "dep-chat-b"},
             },
         ],
@@ -900,7 +900,7 @@ async def test_chat_404_still_cools_down_the_deployment(respx_mock: respx.MockRo
     )
 
     for _ in range(3):
-        with contextlib.suppress(litellm.NotFoundError, litellm.RateLimitError):
+        with contextlib.suppress(hangarllm.NotFoundError, hangarllm.RateLimitError):
             await router.acompletion(model="chat", messages=list(ROUTING_MESSAGES))
 
     assert await router.cooldown_cache.async_get_active_cooldowns(["dep-chat", "dep-chat-b"], parent_otel_span=None)

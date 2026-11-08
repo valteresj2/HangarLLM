@@ -1,11 +1,11 @@
 """Proxy strips client-supplied pricing parameters from request bodies.
 
-`litellm.completion` accepts pricing fields (`input_cost_per_token`,
-`output_cost_per_token`, the rest of `CustomPricingLiteLLMParams`,
+`hangarllm.completion` accepts pricing fields (`input_cost_per_token`,
+`output_cost_per_token`, the rest of `CustomPricingHangarLLMParams`,
 `metadata.model_info`) as part of its kwarg surface. On direct SDK use that
 is intentional. On the proxy, those same fields would let any caller rewrite
-their own per-request cost and — via `litellm.register_model` — mutate
-`litellm.model_cost` for every subsequent caller in the worker. The proxy
+their own per-request cost and — via `hangarllm.register_model` — mutate
+`hangarllm.model_cost` for every subsequent caller in the worker. The proxy
 strips them at the boundary; an opt-in key/team flag preserves the override
 for operators who actually want it.
 """
@@ -15,16 +15,16 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import Request
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import (
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.hangarllm_pre_call_utils import (
     _CLIENT_PRICING_CONTROL_FIELDS,
     _CLIENT_PRICING_METADATA_FIELDS,
     _strip_client_pricing_overrides,
-    add_litellm_data_to_request,
+    add_hangarllm_data_to_request,
     strip_client_guardrail_information,
 )
-from litellm.types.utils import CustomPricingLiteLLMParams
+from hangarllm.types.utils import CustomPricingHangarLLMParams
 
 
 def _make_request_mock() -> Request:
@@ -58,7 +58,7 @@ class TestStripClientPricingOverrides:
         # The strip set is built from the model so additions are picked up
         # automatically — this test guards against the model and the strip
         # set drifting apart if someone replaces the auto-derivation later.
-        assert _CLIENT_PRICING_CONTROL_FIELDS >= frozenset(CustomPricingLiteLLMParams.model_fields.keys())
+        assert _CLIENT_PRICING_CONTROL_FIELDS >= frozenset(CustomPricingHangarLLMParams.model_fields.keys())
         # Sanity: the obvious top-level pricing fields are in the set.
         for field in (
             "input_cost_per_token",
@@ -106,13 +106,13 @@ class TestStripClientPricingOverrides:
                 "user_session": "keep-me",
                 "model_info": {"input_cost_per_token": 0.0},
             },
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "model_info": {"output_cost_per_token": 0.0},
             },
         }
         _strip_client_pricing_overrides(data)
         assert data["metadata"] == {"user_session": "keep-me"}
-        assert data["litellm_metadata"] == {}
+        assert data["hangarllm_metadata"] == {}
 
     def test_metadata_guardrail_information_dropped(self):
         # Client-seeded guardrail entries would otherwise be summed into
@@ -130,13 +130,13 @@ class TestStripClientPricingOverrides:
                     }
                 ],
             },
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "standard_logging_guardrail_information": [{"guardrail_cost": 5.0}],
             },
         }
         strip_client_guardrail_information(data)
         assert data["metadata"] == {"user_session": "keep-me"}
-        assert data["litellm_metadata"] == {}
+        assert data["hangarllm_metadata"] == {}
 
     def test_non_pricing_fields_untouched(self):
         data = {
@@ -161,7 +161,7 @@ class TestStripClientPricingOverrides:
         # metadata, but the strip mustn't crash if a malformed body sneaks in.
         _strip_client_pricing_overrides({"metadata": "not-a-dict"})
         _strip_client_pricing_overrides({"metadata": None})
-        _strip_client_pricing_overrides({"litellm_metadata": ["a", "b"]})
+        _strip_client_pricing_overrides({"hangarllm_metadata": ["a", "b"]})
 
     def test_metadata_field_set_contains_model_info(self):
         assert "model_info" in _CLIENT_PRICING_METADATA_FIELDS
@@ -171,7 +171,7 @@ class TestStripClientPricingOverrides:
         # working override stopped applying after the strip landed.
         import logging
 
-        from litellm._logging import verbose_proxy_logger
+        from hangarllm._logging import verbose_proxy_logger
 
         verbose_proxy_logger.setLevel(logging.DEBUG)
         with caplog.at_level(logging.DEBUG, logger=verbose_proxy_logger.name):
@@ -192,7 +192,7 @@ class TestStripClientPricingOverrides:
         # every legitimate request.
         import logging
 
-        from litellm._logging import verbose_proxy_logger
+        from hangarllm._logging import verbose_proxy_logger
 
         verbose_proxy_logger.setLevel(logging.DEBUG)
         with caplog.at_level(logging.DEBUG, logger=verbose_proxy_logger.name):
@@ -201,7 +201,7 @@ class TestStripClientPricingOverrides:
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_root_pricing_fields():
+async def test_add_hangarllm_data_to_request_strips_root_pricing_fields():
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
@@ -209,7 +209,7 @@ async def test_add_litellm_data_to_request_strips_root_pricing_fields():
         "output_cost_per_token": 0.0,
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=_user_api_key_auth(),
@@ -223,14 +223,14 @@ async def test_add_litellm_data_to_request_strips_root_pricing_fields():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_preserves_caller_streaming_request():
+async def test_add_hangarllm_data_to_request_preserves_caller_streaming_request():
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
         "is_streaming_request": True,
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=_user_api_key_auth(),
@@ -243,7 +243,7 @@ async def test_add_litellm_data_to_request_preserves_caller_streaming_request():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_client_disconnect_metadata():
+async def test_add_hangarllm_data_to_request_strips_client_disconnect_metadata():
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
@@ -257,7 +257,7 @@ async def test_add_litellm_data_to_request_strips_client_disconnect_metadata():
         },
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=_user_api_key_auth(),
@@ -271,14 +271,14 @@ async def test_add_litellm_data_to_request_strips_client_disconnect_metadata():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_metadata_model_info():
+async def test_add_hangarllm_data_to_request_strips_metadata_model_info():
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": {"model_info": {"input_cost_per_token": 0.0}},
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=_user_api_key_auth(),
@@ -291,7 +291,7 @@ async def test_add_litellm_data_to_request_strips_metadata_model_info():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_skips_strip_with_key_opt_in():
+async def test_add_hangarllm_data_to_request_skips_strip_with_key_opt_in():
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
@@ -301,7 +301,7 @@ async def test_add_litellm_data_to_request_skips_strip_with_key_opt_in():
     }
 
     user_auth = _user_api_key_auth(metadata={"allow_client_pricing_override": True})
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=user_auth,
@@ -317,7 +317,7 @@ async def test_add_litellm_data_to_request_skips_strip_with_key_opt_in():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("opt_in_field", ["metadata", "team_metadata"])
-async def test_add_litellm_data_to_request_strips_guardrail_information_despite_pricing_opt_in(opt_in_field):
+async def test_add_hangarllm_data_to_request_strips_guardrail_information_despite_pricing_opt_in(opt_in_field):
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
@@ -328,7 +328,7 @@ async def test_add_litellm_data_to_request_strips_guardrail_information_despite_
         },
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=_user_api_key_auth(**{opt_in_field: {"allow_client_pricing_override": True}}),
@@ -343,8 +343,8 @@ async def test_add_litellm_data_to_request_strips_guardrail_information_despite_
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_json_string_litellm_metadata():
-    """``litellm_metadata`` may arrive as a JSON-encoded string (multipart/
+async def test_add_hangarllm_data_to_request_strips_json_string_hangarllm_metadata():
+    """``hangarllm_metadata`` may arrive as a JSON-encoded string (multipart/
     form-data or ``extra_body``). The strip has to run after the proxy parses
     it into a dict but before the chat-route fold into ``metadata``; otherwise
     ``model_info`` survives via the string path and lands in the folded bucket.
@@ -354,10 +354,10 @@ async def test_add_litellm_data_to_request_strips_json_string_litellm_metadata()
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_metadata": json.dumps({"model_info": {"input_cost_per_token": 0.0}}),
+        "hangarllm_metadata": json.dumps({"model_info": {"input_cost_per_token": 0.0}}),
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=_user_api_key_auth(),
@@ -366,12 +366,12 @@ async def test_add_litellm_data_to_request_strips_json_string_litellm_metadata()
         version="test-version",
     )
 
-    assert "litellm_metadata" not in updated
+    assert "hangarllm_metadata" not in updated
     assert "model_info" not in updated["metadata"]
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_skips_strip_with_team_opt_in():
+async def test_add_hangarllm_data_to_request_skips_strip_with_team_opt_in():
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
@@ -379,7 +379,7 @@ async def test_add_litellm_data_to_request_skips_strip_with_team_opt_in():
     }
 
     user_auth = _user_api_key_auth(team_metadata={"allow_client_pricing_override": True})
-    updated = await add_litellm_data_to_request(
+    updated = await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=user_auth,
@@ -393,10 +393,10 @@ async def test_add_litellm_data_to_request_skips_strip_with_team_opt_in():
 
 @pytest.mark.asyncio
 async def test_global_model_cost_unmutated_after_stripped_request(monkeypatch):
-    """After a stripped request, ``litellm.model_cost`` must not carry the
+    """After a stripped request, ``hangarllm.model_cost`` must not carry the
     caller's submitted pricing for the model. The mutation only happens when
-    the pricing fields reach ``litellm.completion``; the strip prevents that."""
-    snapshot = dict(litellm.model_cost)
+    the pricing fields reach ``hangarllm.completion``; the strip prevents that."""
+    snapshot = dict(hangarllm.model_cost)
     data = {
         "model": "test-pricing-canary-model",
         "messages": [{"role": "user", "content": "hi"}],
@@ -404,7 +404,7 @@ async def test_global_model_cost_unmutated_after_stripped_request(monkeypatch):
         "output_cost_per_token": 0.0,
     }
 
-    await add_litellm_data_to_request(
+    await add_hangarllm_data_to_request(
         data=data,
         request=_make_request_mock(),
         user_api_key_dict=_user_api_key_auth(),
@@ -415,6 +415,6 @@ async def test_global_model_cost_unmutated_after_stripped_request(monkeypatch):
 
     # The strip prevents the pricing fields from ever reaching the path that
     # would mutate the global model_cost map.
-    assert "test-pricing-canary-model" not in litellm.model_cost
+    assert "test-pricing-canary-model" not in hangarllm.model_cost
     # And no other entries were mutated as a side effect.
-    assert litellm.model_cost == snapshot
+    assert hangarllm.model_cost == snapshot

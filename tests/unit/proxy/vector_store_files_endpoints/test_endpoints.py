@@ -1,5 +1,5 @@
 """
-require_managed_files enforcement for litellm/proxy/vector_store_files_endpoints/endpoints.py
+require_managed_files enforcement for hangarllm/proxy/vector_store_files_endpoints/endpoints.py
 
 Every vector-store file route (create, retrieve, content, update, delete) resolves its
 caller-supplied file id through _update_request_data_with_managed_file_id before the
@@ -21,15 +21,15 @@ import pytest
 
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.vector_store_files_endpoints.endpoints import (
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.vector_store_files_endpoints.endpoints import (
     _update_request_data_with_managed_file_id,
     _with_managed_file_list_ids,
     _with_provider_file_id_cursors,
 )
-from litellm.types.utils import SpecialEnums
-from litellm.types.vector_store_files import (
+from hangarllm.types.utils import SpecialEnums
+from hangarllm.types.vector_store_files import (
     VectorStoreFileListResponse,
     VectorStoreFileObject,
     VectorStoreFileStatus,
@@ -76,7 +76,7 @@ class ManagedFileIdResolverStub:
 
 
 def _unified_file_id(provider_file_id: str = RAW_FILE_ID) -> str:
-    unified = SpecialEnums.LITELLM_MANAGED_FILE_COMPLETE_STR.value.format(
+    unified = SpecialEnums.HANGARLLM_MANAGED_FILE_COMPLETE_STR.value.format(
         "application/json",
         "victim-unified-id",
         "gpt-4o-mini",
@@ -223,7 +223,7 @@ def test_vector_store_file_list_translates_managed_cursors_and_preserves_raw_aft
 
 @pytest.mark.asyncio
 async def test_raw_file_id_rejected_when_managed_files_required():
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(HTTPException) as exc:
             await _resolve(RAW_FILE_ID)
 
@@ -234,11 +234,11 @@ async def test_raw_file_id_rejected_when_managed_files_required():
 async def test_model_encoded_file_id_rejected_when_managed_files_required():
     """encode_file_id_with_model output is client-forgeable and carries no ownership
     row, so it is not a managed file id."""
-    from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+    from hangarllm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
     encoded = encode_file_id_with_model(RAW_FILE_ID, "gpt-4o-mini", id_type="file")
 
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(HTTPException) as exc:
             await _resolve(encoded)
 
@@ -250,7 +250,7 @@ async def test_forged_unified_file_id_rejected_without_ownership_record():
     forged_id = _unified_file_id()
     data = {"vector_store_id": "vs-test", "file_id": forged_id}
 
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(HTTPException) as exc:
             await _update_request_data_with_managed_file_id(
                 data=data,
@@ -267,7 +267,7 @@ async def test_forged_unified_file_id_rejected_without_ownership_record():
 
 @pytest.mark.asyncio
 async def test_other_teams_unified_file_id_rejected():
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         with pytest.raises(HTTPException) as exc:
             await _resolve(_unified_file_id(), file_access="deny")
 
@@ -276,7 +276,7 @@ async def test_other_teams_unified_file_id_rejected():
 
 @pytest.mark.asyncio
 async def test_owned_unified_file_id_allowed_when_managed_files_required():
-    with patch.object(litellm, "require_managed_files", True):
+    with patch.object(hangarllm, "require_managed_files", True):
         data, original = await _resolve(_unified_file_id())
 
     assert original == _unified_file_id()
@@ -285,7 +285,7 @@ async def test_owned_unified_file_id_allowed_when_managed_files_required():
 
 @pytest.mark.asyncio
 async def test_raw_file_id_allowed_when_managed_files_not_required():
-    with patch.object(litellm, "require_managed_files", False):
+    with patch.object(hangarllm, "require_managed_files", False):
         data, original = await _resolve(RAW_FILE_ID)
 
     assert original is None

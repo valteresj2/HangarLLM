@@ -1,7 +1,7 @@
 import base64
 from typing import Final
 
-from litellm.proxy.guardrails.guardrail_hooks.ovalix.ovalix_extraction import (
+from hangarllm.proxy.guardrails.guardrail_hooks.ovalix.ovalix_extraction import (
     extract_file_parts_from_images,
     extract_file_parts_from_messages,
     extract_tool_results,

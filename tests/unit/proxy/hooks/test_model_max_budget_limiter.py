@@ -10,13 +10,13 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.litellm_core_utils.model_latest_aliases import get_model_latest_aliases
-from litellm.proxy._types import Litellm_EntityType, UserAPIKeyAuth
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import WindowSpendTransaction
-from litellm.proxy.hooks.model_budget_shared_windows import DatabaseSharedWindows, SharedWindows
-from litellm.proxy.hooks.model_max_budget_limiter import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.hangarllm_core_utils.model_latest_aliases import get_model_latest_aliases
+from hangarllm.proxy._types import Hangarllm_EntityType, UserAPIKeyAuth
+from hangarllm.proxy.db.db_transaction_queue.window_spend_update_queue import WindowSpendTransaction
+from hangarllm.proxy.hooks.model_budget_shared_windows import DatabaseSharedWindows, SharedWindows
+from hangarllm.proxy.hooks.model_max_budget_limiter import (
     PROXY_VirtualKeyModelMaxBudgetLimiter,
     build_model_max_budget_usage,
     model_access_groups_of,
@@ -25,11 +25,11 @@ from litellm.proxy.hooks.model_max_budget_limiter import (
     routed_models_of,
     team_member_budget_entity_id,
 )
-from litellm.router import Router
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.utils import LiteLLMBatch, Usage
-from litellm.types.videos.main import VideoObject
-from litellm.types.videos.utils import POLLED_VIDEO_STATUS_KWARG
+from hangarllm.router import Router
+from hangarllm.types.caching import RedisPipelineIncrementOperation
+from hangarllm.types.utils import HangarLLMBatch, Usage
+from hangarllm.types.videos.main import VideoObject
+from hangarllm.types.videos.utils import POLLED_VIDEO_STATUS_KWARG
 
 KEY_HASH: Final = "key-hash-batch"
 USER_ID: Final = "user-batch"
@@ -41,8 +41,8 @@ KEY_SPEND_KEY: Final = f"virtual_key_spend:{KEY_HASH}:{MODEL_GROUP}:1d"
 USER_SPEND_KEY: Final = f"user_model_spend:{USER_ID}:{MODEL_GROUP}:1d"
 
 
-def _batch(batch_id: str, status: str) -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _batch(batch_id: str, status: str) -> HangarLLMBatch:
+    return HangarLLMBatch(
         id=batch_id,
         completion_window="24h",
         created_at=1,
@@ -77,7 +77,7 @@ def _event(
                 "user_api_key_team_id": team_id,
             },
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_model_max_budget": {MODEL_GROUP: {"budget_limit": 0.0001, "time_period": "1d"}},
                 "user_api_key_user_model_max_budget": {MODEL_GROUP: {"budget_limit": 0.0001, "time_period": "1d"}},
@@ -97,7 +97,7 @@ async def _log_success(
     await limiter.async_log_success_event(event, response_obj=response_obj, start_time=None, end_time=None)
 
 
-async def _poll(limiter: PROXY_VirtualKeyModelMaxBudgetLimiter, batch: LiteLLMBatch, response_cost: float) -> None:
+async def _poll(limiter: PROXY_VirtualKeyModelMaxBudgetLimiter, batch: HangarLLMBatch, response_cost: float) -> None:
     await _log_success(limiter, _event("aretrieve_batch", response_cost), response_obj=batch)
 
 
@@ -136,14 +136,14 @@ async def test_team_member_budget_is_charged_and_enforced_after_success():
 
     entity_id: Final = team_member_budget_entity_id(user_id=USER_ID, team_id=TEAM_ID)
     spend_key: Final = model_budget_spend_cache_key(
-        entity_type=Litellm_EntityType.TEAM_MEMBER,
+        entity_type=Hangarllm_EntityType.TEAM_MEMBER,
         entity_id=entity_id,
         budget_model=MODEL_GROUP,
         budget_duration="1d",
     )
     assert await _spend(limiter, spend_key) == CHAT_COST
 
-    with pytest.raises(litellm.BudgetExceededError, match="LiteLLM Team Member"):
+    with pytest.raises(hangarllm.BudgetExceededError, match="HangarLLM Team Member"):
         await limiter.is_team_member_within_model_budget(
             user_id=USER_ID,
             team_id=TEAM_ID,
@@ -160,13 +160,13 @@ def test_team_member_budget_entity_id_is_unambiguous():
     assert second_entity_id == "1:a:b:c"
 
     first_spend_key: Final = model_budget_spend_cache_key(
-        entity_type=Litellm_EntityType.TEAM_MEMBER,
+        entity_type=Hangarllm_EntityType.TEAM_MEMBER,
         entity_id=first_entity_id,
         budget_model=MODEL_GROUP,
         budget_duration="1d",
     )
     second_spend_key: Final = model_budget_spend_cache_key(
-        entity_type=Litellm_EntityType.TEAM_MEMBER,
+        entity_type=Hangarllm_EntityType.TEAM_MEMBER,
         entity_id=second_entity_id,
         budget_model=MODEL_GROUP,
         budget_duration="1d",
@@ -199,7 +199,7 @@ async def test_team_member_budget_spend_isolated_by_user_and_team():
 async def test_zero_team_member_model_budget_rejects_first_request():
     limiter: Final = PROXY_VirtualKeyModelMaxBudgetLimiter(dual_cache=DualCache())
 
-    with pytest.raises(litellm.BudgetExceededError, match="LiteLLM Team Member"):
+    with pytest.raises(hangarllm.BudgetExceededError, match="HangarLLM Team Member"):
         await limiter.is_team_member_within_model_budget(
             user_id=USER_ID,
             team_id=TEAM_ID,
@@ -414,7 +414,7 @@ class _WindowSpendDatabase:
         self.reachable = True
 
     @property
-    def litellm_budgetwindowspend(self) -> "_WindowSpendDatabase":
+    def hangarllm_budgetwindowspend(self) -> "_WindowSpendDatabase":
         return self
 
     async def find_unique(self, where: Mapping[str, Mapping[str, str]]) -> _WindowRow | None:
@@ -502,7 +502,7 @@ async def test_latest_alias_is_blocked_by_either_model_budget(scope: str, prefix
         if scope == "key"
         else limiter.is_team_within_model_budget(TEAM_ID, budget, None, "anthropic/claude-opus-latest")
     )
-    with pytest.raises(litellm.BudgetExceededError, match="exceeded budget"):
+    with pytest.raises(hangarllm.BudgetExceededError, match="exceeded budget"):
         await admission
 
 
@@ -516,7 +516,7 @@ async def test_latest_alias_budget_does_not_govern_other_requests(model: str) ->
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("scope", (Litellm_EntityType.KEY, Litellm_EntityType.TEAM))
+@pytest.mark.parametrize("scope", (Hangarllm_EntityType.KEY, Hangarllm_EntityType.TEAM))
 @pytest.mark.parametrize(
     "entries",
     (
@@ -528,7 +528,7 @@ async def test_latest_alias_budget_does_not_govern_other_requests(model: str) ->
 )
 @pytest.mark.parametrize("requested", ("anthropic/claude-opus-latest", "anthropic/claude-opus-5-5"))
 async def test_latest_alias_spend_charges_each_governing_counter_once(
-    scope: Litellm_EntityType, entries: tuple[str, ...], requested: str
+    scope: Hangarllm_EntityType, entries: tuple[str, ...], requested: str
 ) -> None:
     budget: Final = {entry: FAMILY_CAP for entry in entries}
     cache: Final = DualCache()
@@ -543,10 +543,10 @@ async def test_latest_alias_spend_charges_each_governing_counter_once(
                 "response_cost": CHAT_COST,
                 "metadata": {"user_api_key_hash": KEY_HASH, "user_api_key_team_id": TEAM_ID},
             },
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
-                    "user_api_key_model_max_budget": budget if scope == Litellm_EntityType.KEY else {},
-                    "user_api_key_team_model_max_budget": budget if scope == Litellm_EntityType.TEAM else {},
+                    "user_api_key_model_max_budget": budget if scope == Hangarllm_EntityType.KEY else {},
+                    "user_api_key_team_model_max_budget": budget if scope == Hangarllm_EntityType.TEAM else {},
                 }
             },
         },
@@ -554,7 +554,7 @@ async def test_latest_alias_spend_charges_each_governing_counter_once(
     for entry in entries:
         spend_key: Final = model_budget_spend_cache_key(
             entity_type=scope,
-            entity_id=KEY_HASH if scope == Litellm_EntityType.KEY else TEAM_ID,
+            entity_id=KEY_HASH if scope == Hangarllm_EntityType.KEY else TEAM_ID,
             budget_model=entry,
             budget_duration="1d",
         )
@@ -566,10 +566,10 @@ async def test_latest_alias_spend_charges_each_governing_counter_once(
         assert await cache.async_get_cache(spend_key, local_only=True) == expected
     admission: Final = (
         limiter.is_key_within_model_budget(_key(budget), requested)
-        if scope == Litellm_EntityType.KEY
+        if scope == Hangarllm_EntityType.KEY
         else limiter.is_team_within_model_budget(TEAM_ID, budget, None, requested)
     )
-    with pytest.raises(litellm.BudgetExceededError, match="exceeded budget"):
+    with pytest.raises(hangarllm.BudgetExceededError, match="exceeded budget"):
         await admission
 
 
@@ -587,7 +587,7 @@ async def _spend_on(
                 "model_group": model,
                 "metadata": {"user_api_key_hash": KEY_HASH},
             },
-            "litellm_params": {"metadata": {"user_api_key_model_max_budget": dict(model_max_budget)}},
+            "hangarllm_params": {"metadata": {"user_api_key_model_max_budget": dict(model_max_budget)}},
         },
     )
 
@@ -602,7 +602,7 @@ async def test_every_opus_version_draws_from_one_family_entry(family_entry: str)
     await _spend_on(limiter, model="claude-opus-4-8", model_max_budget=budget)
 
     with pytest.raises(
-        litellm.BudgetExceededError, match=rf"model=claude-opus-5-5, budget_model={re.escape(family_entry)}$"
+        hangarllm.BudgetExceededError, match=rf"model=claude-opus-5-5, budget_model={re.escape(family_entry)}$"
     ):
         await limiter.is_key_within_model_budget(user_api_key_dict=_key(budget), model="claude-opus-5-5")
     assert await limiter.is_key_within_model_budget(user_api_key_dict=_key(budget), model="claude-sonnet-5")
@@ -620,7 +620,7 @@ async def test_a_model_added_to_the_access_group_later_is_covered_with_no_key_ch
     await _spend_on(before_group_change, model="claude-opus-4-8", model_max_budget=budget)
 
     assert await before_group_change.is_key_within_model_budget(user_api_key_dict=_key(budget), model="claude-opus-6")
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await after_group_change.is_key_within_model_budget(user_api_key_dict=_key(budget), model="claude-opus-6")
 
 
@@ -645,7 +645,7 @@ async def test_the_most_specific_entry_takes_the_spend_and_gates_the_request(
     await _spend_on(limiter, model="claude-opus-4-8", model_max_budget=budget)
 
     if blocked:
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await limiter.is_key_within_model_budget(user_api_key_dict=_key(budget), model=checked_model)
     else:
         assert await limiter.is_key_within_model_budget(user_api_key_dict=_key(budget), model=checked_model)
@@ -658,7 +658,7 @@ async def test_an_exact_entry_refusal_reads_as_before_for_a_provider_prefixed_mo
 
     await _spend_on(limiter, model="claude-opus-4-8", model_max_budget=budget)
 
-    with pytest.raises(litellm.BudgetExceededError, match=r"model=anthropic/claude-opus-4-8$"):
+    with pytest.raises(hangarllm.BudgetExceededError, match=r"model=anthropic/claude-opus-4-8$"):
         await limiter.is_key_within_model_budget(user_api_key_dict=_key(budget), model="anthropic/claude-opus-4-8")
 
 
@@ -679,7 +679,7 @@ async def _spend_on_team_key(
                 "model_group": model,
                 "metadata": {"user_api_key_hash": KEY_HASH, "user_api_key_team_id": TEAM_ID},
             },
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_model_max_budget": dict(key_model_max_budget),
                     "user_api_key_team_model_max_budget": dict(team_model_max_budget),
@@ -714,7 +714,7 @@ async def test_a_key_entry_named_after_the_model_replaces_only_the_team_entry_of
     )
 
     if team_blocks:
-        with pytest.raises(litellm.BudgetExceededError, match=r"budget_model="):
+        with pytest.raises(hangarllm.BudgetExceededError, match=r"budget_model="):
             await team_check
     else:
         assert await team_check
@@ -730,7 +730,7 @@ async def test_a_team_model_is_gated_and_charged_under_its_public_name(budget_en
         model_list=[
             {
                 "model_name": f"model_name_{TEAM_ID}_opus",
-                "litellm_params": {"model": "anthropic/claude-opus-4-8", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-opus-4-8", "api_key": "sk-test"},
                 "model_info": {
                     "id": "team-opus-deployment",
                     "team_id": TEAM_ID,
@@ -760,7 +760,7 @@ async def test_a_team_model_is_gated_and_charged_under_its_public_name(budget_en
                 "model_group": f"model_name_{TEAM_ID}_opus",
                 "metadata": {"user_api_key_hash": KEY_HASH, "user_api_key_team_id": TEAM_ID},
             },
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_model_max_budget": budget,
                     "model_info": router.get_deployment(model_id="team-opus-deployment").model_info.model_dump(),
@@ -769,7 +769,7 @@ async def test_a_team_model_is_gated_and_charged_under_its_public_name(budget_en
         },
     )
 
-    with pytest.raises(litellm.BudgetExceededError, match=rf"budget_model={re.escape(budget_entry)}$"):
+    with pytest.raises(hangarllm.BudgetExceededError, match=rf"budget_model={re.escape(budget_entry)}$"):
         await limiter.is_key_within_model_budget(user_api_key_dict=team_key, model="claude-opus-4-8")
 
 
@@ -794,7 +794,7 @@ async def test_spend_charged_while_the_database_is_unreachable_reaches_the_share
     database.flush()
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=KEY_HASH,
         model_max_budget=budget,
         cache=DualCache(),
@@ -825,13 +825,13 @@ async def test_end_user_windows_stay_on_the_replica_without_redis():
                 "end_user": "end-user-1",
                 "metadata": {},
             },
-            "litellm_params": {"metadata": {"user_api_key_end_user_model_max_budget": budget}},
+            "hangarllm_params": {"metadata": {"user_api_key_end_user_model_max_budget": budget}},
         },
     )
     table.flush()
 
     assert dict(table.rows) == {}
-    with pytest.raises(litellm.BudgetExceededError, match="model=claude-opus-5-5"):
+    with pytest.raises(hangarllm.BudgetExceededError, match="model=claude-opus-5-5"):
         await limiter.is_end_user_within_model_budget(
             end_user_id="end-user-1", end_user_model_max_budget=budget, model="claude-opus-5-5"
         )
@@ -842,12 +842,12 @@ def test_an_access_group_named_after_a_served_model_never_widens_that_models_ent
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
                 "model_info": {"access_groups": ["gpt-4o", "openai-models"]},
             },
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                 "model_info": {"access_groups": ["gpt-4o", "openai-models"]},
             },
         ]
@@ -876,7 +876,7 @@ async def test_key_info_usage_reports_the_family_total():
     await _spend_on(limiter, model="claude-opus-5-5", model_max_budget=budget)
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=KEY_HASH,
         model_max_budget=budget,
         cache=limiter.dual_cache,
@@ -915,7 +915,7 @@ async def test_replicas_without_redis_enforce_one_family_cap_together():
     await _spend_on(replica_a, model="claude-opus-4-8", model_max_budget=budget)
     table.flush()
 
-    with pytest.raises(litellm.BudgetExceededError, match="model=claude-opus-5-5"):
+    with pytest.raises(hangarllm.BudgetExceededError, match="model=claude-opus-5-5"):
         await replica_b.is_key_within_model_budget(user_api_key_dict=_key(budget), model="claude-opus-5-5")
 
 
@@ -937,7 +937,7 @@ async def test_replicas_sharing_redis_enforce_the_family_cap_without_the_databas
     await _drain_redis_pushes()
     table.flush()
 
-    with pytest.raises(litellm.BudgetExceededError, match="model=claude-opus-5-5"):
+    with pytest.raises(hangarllm.BudgetExceededError, match="model=claude-opus-5-5"):
         await replica_b.is_key_within_model_budget(user_api_key_dict=_key(budget), model="claude-opus-5-5")
     assert dict(table.rows) == {}
 
@@ -958,7 +958,7 @@ async def test_a_replica_charges_the_open_shared_window_instead_of_restarting_it
     table.flush()
 
     for replica in (replica_a, replica_b):
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await replica.is_key_within_model_budget(user_api_key_dict=_key(budget), model="claude-opus-5-5")
 
 
@@ -974,7 +974,7 @@ async def test_key_info_on_one_replica_reports_spend_from_every_replica():
     table.flush()
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=KEY_HASH,
         model_max_budget=budget,
         cache=replica_a.dual_cache,
@@ -1000,7 +1000,7 @@ async def test_replicas_starting_a_window_moments_apart_keep_each_others_spend(b
     table.flush()
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=KEY_HASH,
         model_max_budget=budget,
         cache=DualCache(),
@@ -1023,7 +1023,7 @@ async def test_concurrent_first_charges_on_one_replica_both_count():
     )
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=KEY_HASH,
         model_max_budget=budget,
         cache=limiter.dual_cache,

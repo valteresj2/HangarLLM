@@ -10,23 +10,23 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 import os
 from tests.fake_openai_endpoint import FAKE_OPENAI_API_BASE
-from litellm.integrations.custom_logger import CustomLogger
-from litellm._logging import verbose_logger, verbose_proxy_logger, verbose_router_logger
-from litellm.llms.custom_httpx.async_client_cleanup import close_litellm_async_clients
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm._logging import verbose_logger, verbose_proxy_logger, verbose_router_logger
+from hangarllm.llms.custom_httpx.async_client_cleanup import close_hangarllm_async_clients
 
 
 @pytest.mark.asyncio
 async def test_async_fallbacks_streaming():
     """Test that router.acompletion with stream=True and mock_response works correctly."""
-    litellm.set_verbose = False
+    hangarllm.set_verbose = False
     model_list = [
         {
             "model_name": "azure/gpt-3.5-turbo",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-4.1-mini",
                 "api_key": "fake-key",
                 "api_version": "2024-01-01",
@@ -37,7 +37,7 @@ async def test_async_fallbacks_streaming():
         },
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-4o-mini",
                 "api_key": "fake-key",
             },
@@ -52,7 +52,7 @@ async def test_async_fallbacks_streaming():
         set_verbose=False,
     )
     customHandler = MyCustomHandler()
-    litellm.callbacks = [customHandler]
+    hangarllm.callbacks = [customHandler]
     user_message = "Hello, how are you?"
     try:
         response = await router.acompletion(
@@ -66,7 +66,7 @@ async def test_async_fallbacks_streaming():
             chunks.append(chunk)
         assert len(chunks) > 0, "Expected at least one streaming chunk"
         router.reset()
-    except litellm.Timeout as e:
+    except hangarllm.Timeout as e:
         pass
     except Exception as e:
         pytest.fail(f"An exception occurred: {e}")
@@ -75,35 +75,35 @@ async def test_async_fallbacks_streaming():
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
-@pytest.mark.parametrize("litellm_module_fallbacks", [True, False])
+@pytest.mark.parametrize("hangarllm_module_fallbacks", [True, False])
 @pytest.mark.asyncio
-async def test_default_model_fallbacks(sync_mode, litellm_module_fallbacks):
+async def test_default_model_fallbacks(sync_mode, hangarllm_module_fallbacks):
     """
-    Related issue - https://github.com/BerriAI/litellm/issues/3623
+    Related issue - upstream issue 3623
 
     If model misconfigured, setup a default model for generic fallback
     """
-    if litellm_module_fallbacks:
-        litellm.default_fallbacks = ["my-good-model"]
+    if hangarllm_module_fallbacks:
+        hangarllm.default_fallbacks = ["my-good-model"]
     router = Router(
         model_list=[
             {
                 "model_name": "bad-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-bad-model",
                     "api_key": "my-bad-api-key",
                 },
             },
             {
                 "model_name": "my-good-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                 },
             },
         ],
         default_fallbacks=(
-            ["my-good-model"] if litellm_module_fallbacks is False else None
+            ["my-good-model"] if hangarllm_module_fallbacks is False else None
         ),
     )
 
@@ -122,7 +122,7 @@ async def test_default_model_fallbacks(sync_mode, litellm_module_fallbacks):
             mock_response="Hey! nice day",
         )
 
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     assert response.model is not None and response.model == "gpt-4o"
 
 
@@ -140,14 +140,14 @@ async def test_client_side_fallbacks_list(sync_mode):
         model_list=[
             {
                 "model_name": "bad-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-bad-model",
                     "api_key": "my-bad-api-key",
                 },
             },
             {
                 "model_name": "my-good-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                 },
@@ -172,7 +172,7 @@ async def test_client_side_fallbacks_list(sync_mode):
             mock_response="Hey! nice day",
         )
 
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     assert response.model is not None and response.model == "gpt-4o"
 
 
@@ -183,21 +183,21 @@ async def test_client_side_fallbacks_list(sync_mode):
 async def test_router_content_policy_fallbacks(
     sync_mode, content_filter_response_exception, fallback_type
 ):
-    os.environ["LITELLM_LOG"] = "DEBUG"
+    os.environ["HANGARLLM_LOG"] = "DEBUG"
 
     if content_filter_response_exception:
         mock_response = Exception("content filtering policy")
     else:
-        mock_response = litellm.ModelResponse(
-            choices=[litellm.Choices(finish_reason="content_filter")],
+        mock_response = hangarllm.ModelResponse(
+            choices=[hangarllm.Choices(finish_reason="content_filter")],
             model="gpt-3.5-turbo",
-            usage=litellm.Usage(prompt_tokens=10, completion_tokens=0, total_tokens=10),
+            usage=hangarllm.Usage(prompt_tokens=10, completion_tokens=0, total_tokens=10),
         )
     router = Router(
         model_list=[
             {
                 "model_name": "claude-sonnet-4-5-20250929",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
                     "api_key": "",
                     "mock_response": mock_response,
@@ -205,7 +205,7 @@ async def test_router_content_policy_fallbacks(
             },
             {
                 "model_name": "my-fallback-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-fake-model",
                     "api_key": "",
                     "mock_response": "This works!",
@@ -213,7 +213,7 @@ async def test_router_content_policy_fallbacks(
             },
             {
                 "model_name": "my-default-fallback-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-fake-model",
                     "api_key": "",
                     "mock_response": "This works 2!",
@@ -221,7 +221,7 @@ async def test_router_content_policy_fallbacks(
             },
             {
                 "model_name": "my-general-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
                     "api_key": "",
                     "mock_response": Exception("Should not have called this."),
@@ -229,7 +229,7 @@ async def test_router_content_policy_fallbacks(
             },
             {
                 "model_name": "my-context-window-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
                     "api_key": "",
                     "mock_response": Exception("Should not have called this."),
@@ -272,8 +272,8 @@ def mock_post_streaming(url: str, **kwargs: object) -> MagicMock:
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio
 async def test_anthropic_streaming_fallbacks(sync_mode):
-    litellm.set_verbose = True
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    hangarllm.set_verbose = True
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
     if sync_mode:
         client = HTTPHandler(concurrent_limit=1)
@@ -284,13 +284,13 @@ async def test_anthropic_streaming_fallbacks(sync_mode):
         model_list=[
             {
                 "model_name": "anthropic/claude-sonnet-4-5-20250929",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "mock_response": "Hey, how's it going?",
                 },
@@ -336,12 +336,12 @@ def test_router_fallbacks_with_custom_model_costs():
     Goal: make sure custom model doesn't override default model costs.
     """
 
-    default_model_info = litellm.get_model_info(model="claude-sonnet-4-5-20250929")
+    default_model_info = hangarllm.get_model_info(model="claude-sonnet-4-5-20250929")
 
     model_list = [
         {
             "model_name": "claude-sonnet-4-5-20250929",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "claude-sonnet-4-5-20250929",
                 "api_key": os.environ.get("ANTHROPIC_API_KEY", "fake-key"),
                 "input_cost_per_token": 30,
@@ -351,7 +351,7 @@ def test_router_fallbacks_with_custom_model_costs():
         },
         {
             "model_name": "claude-3-5-sonnet-aihubmix",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/claude-sonnet-4-5-20250929",
                 "input_cost_per_token": 0.000003,  # 3$/M
                 "output_cost_per_token": 0.000015,  # 15$/M
@@ -372,11 +372,11 @@ def test_router_fallbacks_with_custom_model_costs():
         messages=[{"role": "user", "content": "Hey, how's it going?"}],
     )
 
-    model_info = litellm.get_model_info(model="claude-sonnet-4-5-20250929")
+    model_info = hangarllm.get_model_info(model="claude-sonnet-4-5-20250929")
 
     print(f"key: {model_info['key']}")
 
-    assert model_info["litellm_provider"] == "anthropic"
+    assert model_info["hangarllm_provider"] == "anthropic"
 
     response = router.completion(
         model="claude-sonnet-4-5-20250929",
@@ -387,7 +387,7 @@ def test_router_fallbacks_with_custom_model_costs():
 
     assert response._hidden_params["response_cost"] > 10
 
-    model_info = litellm.get_model_info(model="claude-sonnet-4-5-20250929")
+    model_info = hangarllm.get_model_info(model="claude-sonnet-4-5-20250929")
 
     print(f"key: {model_info['key']}")
 
@@ -400,14 +400,14 @@ def test_router_fallbacks_with_wildcard_model_name():
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": os.getenv("OPENAI_API_KEY"),
                 },
             },
             {
                 "model_name": "claude-3-haiku",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "claude-haiku-4-5-20251001",
                     "api_key": os.getenv("ANTHROPIC_API_KEY"),
                     "mock_response": "Hi this is claude!",
@@ -428,7 +428,7 @@ def test_router_fallbacks_with_wildcard_model_name():
 
 
 def test_get_fallback_model_group():
-    from litellm.router_utils.fallback_event_handlers import get_fallback_model_group
+    from hangarllm.router_utils.fallback_event_handlers import get_fallback_model_group
 
     args = {
         "fallbacks": [
@@ -450,7 +450,7 @@ async def test_router_attempted_fallbacks_in_response(
         model_list=[
             {
                 "model_name": "working-fake-endpoint",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/working-fake-endpoint",
                     "api_key": "test-key",
                     "mock_response": "Hello",
@@ -458,7 +458,7 @@ async def test_router_attempted_fallbacks_in_response(
             },
             {
                 "model_name": "badly-configured-openai-endpoint",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/my-fake-model",
                     "api_base": "https://example.invalid",
                 },
@@ -473,7 +473,7 @@ async def test_router_attempted_fallbacks_in_response(
     )
 
     assert (
-        response._hidden_params["additional_headers"]["x-litellm-attempted-fallbacks"] == expected_attempted_fallbacks
+        response._hidden_params["additional_headers"]["x-hangarllm-attempted-fallbacks"] == expected_attempted_fallbacks
     )
 
 
@@ -485,11 +485,11 @@ class MyCustomHandler(CustomLogger):
     def log_pre_api_call(self, model, messages, kwargs):
         print(f"Pre-API Call")
         print(
-            f"previous_models: {kwargs['litellm_params']['metadata'].get('previous_models', None)}"
+            f"previous_models: {kwargs['hangarllm_params']['metadata'].get('previous_models', None)}"
         )
         self.previous_models = len(
-            kwargs["litellm_params"]["metadata"].get("previous_models", [])
-        )  # {"previous_models": [{"model": litellm_model_name, "exception_type": AuthenticationError, "exception_string": <complete_traceback>}]}
+            kwargs["hangarllm_params"]["metadata"].get("previous_models", [])
+        )  # {"previous_models": [{"model": hangarllm_model_name, "exception_type": AuthenticationError, "exception_string": <complete_traceback>}]}
         print(f"self.previous_models: {self.previous_models}")
 
     def log_post_api_call(self, kwargs, response_obj, start_time, end_time):
@@ -514,10 +514,10 @@ class MyCustomHandler(CustomLogger):
 
 
 def test_async_fallbacks(caplog, respx_mock: respx.MockRouter, monkeypatch):
-    monkeypatch.setattr(litellm, "set_verbose", False)
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "set_verbose", False)
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             401,
@@ -536,7 +536,7 @@ def test_async_fallbacks(caplog, respx_mock: respx.MockRouter, monkeypatch):
     model_list = [
         {
             "model_name": "azure/gpt-3.5-turbo",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-4.1-mini",
                 "api_key": os.getenv("AZURE_AI_API_KEY"),
                 "api_version": os.getenv("AZURE_API_VERSION"),
@@ -548,7 +548,7 @@ def test_async_fallbacks(caplog, respx_mock: respx.MockRouter, monkeypatch):
         },
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-3.5-turbo",
                 "api_key": "bad-key",
             },
@@ -570,13 +570,13 @@ def test_async_fallbacks(caplog, respx_mock: respx.MockRouter, monkeypatch):
         try:
             await router.acompletion(model="gpt-3.5-turbo", messages=messages, max_tokens=1)
             router.reset()
-        except litellm.Timeout:
+        except hangarllm.Timeout:
             pass
         except Exception as e:
             pytest.fail(f"An exception occurred: {e}")
         finally:
             router.reset()
-            await close_litellm_async_clients()
+            await close_hangarllm_async_clients()
 
     asyncio.run(_make_request())
     captured_logs = [rec.message for rec in caplog.records]
@@ -597,7 +597,7 @@ def test_async_fallbacks(caplog, respx_mock: respx.MockRouter, monkeypatch):
 
     expected_logs = [
         "Falling back to model_group = azure/gpt-3.5-turbo",
-        "litellm.acompletion(model=azure/gpt-4.1-mini)\x1b[32m 200 OK\x1b[0m",
+        "hangarllm.acompletion(model=azure/gpt-4.1-mini)\x1b[32m 200 OK\x1b[0m",
         "Successful fallback b/w models.",
     ]
 
@@ -612,7 +612,7 @@ def _fallback_router(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/primary",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -620,7 +620,7 @@ def _fallback_router(
             },
             {
                 "model_name": "backup",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/backup",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -669,7 +669,7 @@ def _fallback_unavailable_response(status_code: int = 503) -> httpx.Response:
 async def test_static_fallback_routes_after_service_unavailable(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router()
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         side_effect=(
@@ -711,7 +711,7 @@ def test_dynamic_fallback_routes_sync_request(respx_mock: respx.MockRouter) -> N
 async def test_dynamic_fallback_routes_async_request(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router(fallbacks=[])
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         side_effect=(
@@ -735,13 +735,13 @@ async def test_dynamic_fallback_routes_async_request(
 async def test_disable_fallbacks_stops_after_primary_error(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router()
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         return_value=_fallback_unavailable_response()
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError):
+    with pytest.raises(hangarllm.ServiceUnavailableError):
         await router.acompletion(
             model="primary",
             messages=[{"role": "user", "content": "fallback prompt"}],
@@ -755,7 +755,7 @@ async def test_disable_fallbacks_stops_after_primary_error(
 async def test_fallback_preserves_original_messages(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router()
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         side_effect=(
@@ -776,12 +776,12 @@ async def test_fallback_preserves_original_messages(
 async def test_embedding_fallback_routes_after_primary_error(
     sync_mode: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "primary-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -790,7 +790,7 @@ async def test_embedding_fallback_routes_after_primary_error(
             },
             {
                 "model_name": "backup-embedding",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -831,12 +831,12 @@ async def test_embedding_fallback_routes_after_primary_error(
 def test_model_id_fallback_returns_selected_deployment(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/primary",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -845,7 +845,7 @@ def test_model_id_fallback_returns_selected_deployment(
             },
             {
                 "model_name": "backup",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/backup",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -877,7 +877,7 @@ def test_model_id_fallback_returns_selected_deployment(
 async def test_default_fallback_serves_after_primary_error(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router(fallbacks=[], default_fallbacks=["backup"])
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         side_effect=(
@@ -900,7 +900,7 @@ def test_usage_based_routing_falls_back_after_rpm_exhaustion() -> None:
         model_list=[
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "test-key",
                 },
@@ -939,12 +939,12 @@ def test_usage_based_routing_falls_back_after_rpm_exhaustion() -> None:
 async def test_fallback_request_does_not_retry_primary_when_retries_are_disabled(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/primary",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -957,7 +957,7 @@ async def test_fallback_request_does_not_retry_primary_when_retries_are_disabled
         return_value=_fallback_unavailable_response()
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError):
+    with pytest.raises(hangarllm.ServiceUnavailableError):
         await router.acompletion(
             model="primary", messages=[{"role": "user", "content": "retry control"}]
         )
@@ -969,7 +969,7 @@ async def test_fallback_request_does_not_retry_primary_when_retries_are_disabled
 async def test_default_and_model_fallbacks_do_not_repeat_failed_models(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router(default_fallbacks=["primary"])
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         side_effect=(
@@ -979,7 +979,7 @@ async def test_default_and_model_fallbacks_do_not_repeat_failed_models(
         )
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="primary", messages=[{"role": "user", "content": "fallback prompt"}]
         )
@@ -992,14 +992,14 @@ async def test_default_and_model_fallbacks_do_not_repeat_failed_models(
 async def test_unknown_default_fallback_raises_after_primary_failure(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "expose_router_debug_in_errors", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "expose_router_debug_in_errors", True)
     router: Final = _fallback_router(fallbacks=[], default_fallbacks=["missing"])
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         return_value=_fallback_unavailable_response()
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
+    with pytest.raises(hangarllm.ServiceUnavailableError) as exc_info:
         await router.acompletion(
             model="primary", messages=[{"role": "user", "content": "fallback prompt"}]
         )
@@ -1054,7 +1054,7 @@ def _context_error_response_stream(
 async def test_responses_context_error_uses_the_configured_fallback_before_output(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, event_type: str, context_fallback: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router(fallbacks=[{"primary": ["missing"]}] if context_fallback else None)
     route: Final = respx_mock.post("https://fallback-migration.local/v1/responses").mock(
         side_effect=(
@@ -1080,7 +1080,7 @@ async def test_responses_context_error_uses_the_configured_fallback_before_outpu
 async def test_responses_context_error_does_not_restart_committed_or_disabled_streams(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, barrier: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router(fallbacks=[] if barrier == "unconfigured" else None)
     preceding: Final = {
         "text": {
@@ -1107,7 +1107,7 @@ async def test_responses_context_error_does_not_restart_committed_or_disabled_st
     stream: Final = await router.aresponses(
         model="primary", input="oversized prompt", stream=True, disable_fallbacks=barrier == "disabled"
     )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         async for _ in stream:
             pass
     assert route.call_count == 1
@@ -1119,7 +1119,7 @@ async def test_responses_context_error_does_not_restart_committed_or_disabled_st
 async def test_chat_context_error_falls_back_after_role_only_but_not_after_output(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool, emission: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _fallback_router(fallbacks=[{"primary": ["missing"]}])
     delta: Final = (
         {"role": "assistant", "tool_calls": [{
@@ -1152,7 +1152,7 @@ async def test_chat_context_error_falls_back_after_role_only_but_not_after_outpu
     }
     stream: Final = router.completion(**request) if sync_mode else await router.acompletion(**request)
     if emission != "role":
-        with pytest.raises(litellm.ContextWindowExceededError):
+        with pytest.raises(hangarllm.ContextWindowExceededError):
             tuple(stream) if sync_mode else tuple([chunk async for chunk in stream])
         assert route.call_count == 1
         return
@@ -1175,10 +1175,10 @@ async def test_chat_context_error_falls_back_after_role_only_but_not_after_outpu
 def test_context_stream_fallback_obeys_all_output_receipts(
     wrapped: bool, has_output: bool, generated_content: str, disqualifying: bool, recoverable: bool
 ) -> None:
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.router_rust.invoke.streaming import _context_window_stream_fallback_error  # noqa: PLC2701
+    from hangarllm.exceptions import MidStreamFallbackError
+    from hangarllm.router_rust.invoke.streaming import _context_window_stream_fallback_error  # noqa: PLC2701
 
-    original: Final = litellm.ContextWindowExceededError(message="too long", model="primary", llm_provider="openai")
+    original: Final = hangarllm.ContextWindowExceededError(message="too long", model="primary", llm_provider="openai")
     error: Final = (
         MidStreamFallbackError(
             message="too long", model="primary", llm_provider="openai", original_exception=original,
@@ -1188,7 +1188,7 @@ def test_context_stream_fallback_obeys_all_output_receipts(
         else original
     )
     if not recoverable:
-        with pytest.raises(litellm.ContextWindowExceededError) as raised:
+        with pytest.raises(hangarllm.ContextWindowExceededError) as raised:
             _context_window_stream_fallback_error(error, "primary", "openai", has_output)
         assert raised.value is original
         return
@@ -1200,8 +1200,8 @@ def test_context_stream_fallback_obeys_all_output_receipts(
 
 
 def test_context_stream_fallback_preserves_other_errors_for_existing_continuation_policy() -> None:
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.router_rust.invoke.streaming import _context_window_stream_fallback_error  # noqa: PLC2701
+    from hangarllm.exceptions import MidStreamFallbackError
+    from hangarllm.router_rust.invoke.streaming import _context_window_stream_fallback_error  # noqa: PLC2701
 
     error: Final = MidStreamFallbackError(
         message="provider unavailable", model="primary", llm_provider="openai", generated_content="already visible"
@@ -1220,7 +1220,7 @@ def _context_fallback_precedence_router(context_key: str | None, ordered: bool) 
         model_list=[
             {
                 "model_name": group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/{model}",
                     "api_key": "test-key",
                     "api_base": "https://fallback-migration.local/v1",
@@ -1259,7 +1259,7 @@ async def test_context_fallback_precedence_is_specific_to_the_requested_group(
     flat_fallbacks: bool,
     expected_model: str,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _context_fallback_precedence_router(context_key, ordered)
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         side_effect=(
@@ -1302,7 +1302,7 @@ async def test_context_fallback_exhaustion_preserves_the_selected_chain(
     monkeypatch: pytest.MonkeyPatch,
     matching_context: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _context_fallback_precedence_router("primary" if matching_context else "unrelated", True)
     refusal: Final = httpx.Response(
         400,
@@ -1313,7 +1313,7 @@ async def test_context_fallback_exhaustion_preserves_the_selected_chain(
     )
 
     if matching_context:
-        with pytest.raises(litellm.ContextWindowExceededError):
+        with pytest.raises(hangarllm.ContextWindowExceededError):
             await router.acompletion(model="primary", messages=[{"role": "user", "content": "long prompt"}])
         assert tuple(json.loads(call.request.content)["model"] for call in route.calls) == ("primary", "context")
         return
@@ -1334,13 +1334,13 @@ async def test_ordered_fallback_failures_preserve_the_original_context_error(
     context_error: bool,
     backup_status: int,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     router: Final = _context_fallback_precedence_router("unrelated", True)
     original_message: Final = (
         "This model's maximum context length is 10 tokens" if context_error else "primary unavailable"
     )
-    backup_error: Final = litellm.RateLimitError if backup_status == 429 else litellm.ServiceUnavailableError
-    expected_error: Final = litellm.ContextWindowExceededError if context_error else backup_error
+    backup_error: Final = hangarllm.RateLimitError if backup_status == 429 else hangarllm.ServiceUnavailableError
+    expected_error: Final = hangarllm.ContextWindowExceededError if context_error else backup_error
     route: Final = respx_mock.post("https://fallback-migration.local/v1/chat/completions").mock(
         side_effect=(
             httpx.Response(400 if context_error else 503, json={"error": {"message": original_message}}),

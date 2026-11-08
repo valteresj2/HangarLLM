@@ -1,9 +1,9 @@
 """
-Simple Interactive Claude Agent SDK CLI using LiteLLM Gateway
+Simple Interactive Claude Agent SDK CLI using HangarLLM Gateway
 
-This example demonstrates an interactive CLI chat with the Anthropic Agent SDK using LiteLLM as a proxy.
-LiteLLM acts as a unified interface, allowing you to use any LLM provider (OpenAI, Azure, Bedrock, etc.)
-through the Claude Agent SDK by pointing it to the LiteLLM gateway.
+This example demonstrates an interactive CLI chat with the Anthropic Agent SDK using HangarLLM as a proxy.
+HangarLLM acts as a unified interface, allowing you to use any LLM provider (OpenAI, Azure, Bedrock, etc.)
+through the Claude Agent SDK by pointing it to the HangarLLM gateway.
 """
 
 import asyncio
@@ -11,7 +11,7 @@ from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
 from common import (
     Config,
     fetch_available_models,
-    setup_litellm_env,
+    setup_hangarllm_env,
     print_header,
     handle_model_list,
     handle_model_switch,
@@ -25,17 +25,17 @@ async def interactive_chat():
     """
     config = Config()
 
-    # Configure Anthropic SDK to point to LiteLLM gateway
-    litellm_base_url = setup_litellm_env(config)
+    # Configure Anthropic SDK to point to HangarLLM gateway
+    hangarllm_base_url = setup_hangarllm_env(config)
 
     # Fetch available models from proxy
     available_models = await fetch_available_models(
-        litellm_base_url, config.LITELLM_API_KEY
+        hangarllm_base_url, config.HANGARLLM_API_KEY
     )
 
-    current_model = config.LITELLM_MODEL
+    current_model = config.HANGARLLM_MODEL
 
-    print_header(litellm_base_url, current_model)
+    print_header(hangarllm_base_url, current_model)
 
     while True:
         # Configure agent options for each conversation

@@ -3,33 +3,33 @@ from typing import Final, Protocol, cast
 
 import pytest
 
-from litellm.litellm_core_utils.hidden_params import HIDDEN_PARAMS_ATTR
-from litellm.types.agents import (
+from hangarllm.hangarllm_core_utils.hidden_params import HIDDEN_PARAMS_ATTR
+from hangarllm.types.agents import (
     AgentCreateResponse,
     AgentDeleteResult,
     AgentListResponse,
     AgentVersionsResponse,
-    LiteLLMSendMessageResponse,
+    HangarLLMSendMessageResponse,
 )
-from litellm.types.containers.main import ContainerFileObject, ContainerObject
-from litellm.types.google_genai.main import GenerateContentResponse
-from litellm.types.interactions.generated import (
+from hangarllm.types.containers.main import ContainerFileObject, ContainerObject
+from hangarllm.types.google_genai.main import GenerateContentResponse
+from hangarllm.types.interactions.generated import (
     CancelInteractionResult,
     DeleteInteractionResult,
     InteractionsAPIResponse,
     InteractionsAPIStreamingResponse,
 )
-from litellm.types.responses.main import DeleteResponseResult
-from litellm.types.utils import (
+from hangarllm.types.responses.main import DeleteResponseResult
+from hangarllm.types.utils import (
     EmbeddingResponse,
     HiddenParams,
     ImageObject,
     ImageResponse,
-    LiteLLMBatch,
+    HangarLLMBatch,
     ModelResponse,
     ModelResponseStream,
     TextCompletionResponse,
-    all_litellm_params,
+    all_hangarllm_params,
     is_decisions_model_mode,
     Usage,
     text_tokens_without_nested_reasoning,
@@ -52,8 +52,8 @@ def test_is_decisions_model_mode(mode: str | None, expected: bool) -> None:
     assert is_decisions_model_mode(mode) is expected
 
 
-def test_rust_is_a_known_litellm_param():
-    assert "rust" in all_litellm_params
+def test_rust_is_a_known_hangarllm_param():
+    assert "rust" in all_hangarllm_params
 
 
 def test_hidden_params_response_ms():
@@ -110,7 +110,7 @@ def test_image_response_hidden_params_setter_preserves_identity() -> None:
         AgentDeleteResult.model_construct(),
         AgentListResponse.model_construct(),
         AgentVersionsResponse.model_construct(),
-        LiteLLMSendMessageResponse.model_construct(),
+        HangarLLMSendMessageResponse.model_construct(),
         ContainerObject.model_construct(),
         ContainerFileObject.model_construct(),
         GenerateContentResponse(),
@@ -133,7 +133,7 @@ def test_hidden_params_public_accessor_updates_its_backing_storage(
 
 
 def test_chat_completion_delta_tool_call():
-    from litellm.types.utils import ChatCompletionDeltaToolCall, Function
+    from hangarllm.types.utils import ChatCompletionDeltaToolCall, Function
 
     tool = ChatCompletionDeltaToolCall(
         id="call_m87w",
@@ -149,13 +149,13 @@ def test_chat_completion_delta_tool_call():
 
 
 def test_empty_choices():
-    from litellm.types.utils import Choices
+    from hangarllm.types.utils import Choices
 
     Choices()
 
 
 def test_usage_dump():
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         CompletionTokensDetailsWrapper,
         PromptTokensDetailsWrapper,
         Usage,
@@ -193,7 +193,7 @@ def test_prompt_tokens_details_maps_nested_cache_creation_input_tokens():
     cache_creation_input_tokens inside prompt_tokens_details. It must populate
     the canonical cache_write_tokens/cache_creation_tokens pair, without
     overriding an explicitly provided canonical value."""
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from hangarllm.types.utils import PromptTokensDetailsWrapper
 
     nested: Final = PromptTokensDetailsWrapper(
         cached_tokens=0, text_tokens=2059, cache_creation_input_tokens=2048
@@ -212,7 +212,7 @@ def test_prompt_tokens_details_maps_nested_cache_creation_input_tokens():
 
 
 def test_prompt_tokens_details_preserves_qwen_cache_type():
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from hangarllm.types.utils import PromptTokensDetailsWrapper
 
     details = PromptTokensDetailsWrapper(
         cached_tokens=1889,
@@ -226,7 +226,7 @@ def test_prompt_tokens_details_preserves_qwen_cache_type():
 
 @pytest.mark.parametrize("cache_type", [1, {"mode": "explicit"}, ["ephemeral"]])
 def test_usage_ignores_a_non_string_cache_type(cache_type: object):
-    from litellm.types.utils import Usage
+    from hangarllm.types.utils import Usage
 
     usage = Usage(
         prompt_tokens=1000,
@@ -240,9 +240,9 @@ def test_usage_ignores_a_non_string_cache_type(cache_type: object):
 
 
 def test_custom_pricing_accepts_qwen_explicit_cache_rate():
-    from litellm.types.utils import CustomPricingLiteLLMParams
+    from hangarllm.types.utils import CustomPricingHangarLLMParams
 
-    pricing = CustomPricingLiteLLMParams(
+    pricing = CustomPricingHangarLLMParams(
         cache_read_input_token_cost=2e-07,
         explicit_cache_read_input_token_cost=1e-07,
     )
@@ -252,7 +252,7 @@ def test_custom_pricing_accepts_qwen_explicit_cache_rate():
 
 
 def test_usage_server_tool_use_dict_is_coerced_and_round_trips():
-    from litellm.types.utils import ServerToolUse, Usage
+    from hangarllm.types.utils import ServerToolUse, Usage
 
     current_usage = Usage(
         completion_tokens=1,
@@ -270,7 +270,7 @@ def test_usage_server_tool_use_dict_is_coerced_and_round_trips():
 
 
 def test_usage_converts_server_tool_use_dict():
-    from litellm.types.utils import ServerToolUse, Usage
+    from hangarllm.types.utils import ServerToolUse, Usage
 
     usage = Usage(
         completion_tokens=2,
@@ -294,7 +294,7 @@ def test_usage_converts_server_tool_use_dict():
 
 
 def test_usage_completion_tokens_details_text_tokens():
-    from litellm.types.utils import Usage
+    from hangarllm.types.utils import Usage
 
     # Test data from the reported issue
     usage_data = {
@@ -355,9 +355,9 @@ def test_chat_completion_token_logprob_null_top_logprobs():
     Some providers return null for top_logprobs when logprobs=true but
     top_logprobs is unset. The OpenAI spec requires top_logprobs to be an array.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/21932
+    Regression test for upstream issue 21932
     """
-    from litellm.types.utils import ChatCompletionTokenLogprob
+    from hangarllm.types.utils import ChatCompletionTokenLogprob
 
     logprob = ChatCompletionTokenLogprob(
         token="Hello",
@@ -373,7 +373,7 @@ def test_chat_completion_token_logprob_valid_top_logprobs():
     """
     Test that ChatCompletionTokenLogprob still accepts valid top_logprobs arrays.
     """
-    from litellm.types.utils import ChatCompletionTokenLogprob, TopLogprob
+    from hangarllm.types.utils import ChatCompletionTokenLogprob, TopLogprob
 
     logprob = ChatCompletionTokenLogprob(
         token="Hello",
@@ -395,9 +395,9 @@ def test_choice_logprobs_with_null_top_logprobs():
     Test that ChoiceLogprobs correctly parses content tokens that have
     null top_logprobs (the full nested parsing path).
 
-    Regression test for https://github.com/BerriAI/litellm/issues/21932
+    Regression test for upstream issue 21932
     """
-    from litellm.types.utils import ChoiceLogprobs
+    from hangarllm.types.utils import ChoiceLogprobs
 
     logprobs_dict = {
         "content": [
@@ -432,7 +432,7 @@ def test_chat_completion_token_logprob_invalid_top_logprobs_rejected():
     """
     from pydantic import ValidationError
 
-    from litellm.types.utils import ChatCompletionTokenLogprob
+    from hangarllm.types.utils import ChatCompletionTokenLogprob
 
     with pytest.raises(ValidationError):
         ChatCompletionTokenLogprob(
@@ -453,21 +453,21 @@ class TestNativeFinishReason:
     when it differs from the mapped OpenAI-compatible value."""
 
     def test_provider_reason_exposed_when_mapped(self):
-        from litellm.types.utils import Choices
+        from hangarllm.types.utils import Choices
 
         choice = Choices(finish_reason="end_turn")
         assert choice.finish_reason == "stop"
         assert choice.provider_specific_fields["native_finish_reason"] == "end_turn"
 
     def test_provider_reason_not_set_when_already_openai(self):
-        from litellm.types.utils import Choices
+        from hangarllm.types.utils import Choices
 
         choice = Choices(finish_reason="stop")
         assert choice.finish_reason == "stop"
         assert not hasattr(choice, "provider_specific_fields")
 
     def test_provider_reason_merged_with_existing_fields(self):
-        from litellm.types.utils import Choices
+        from hangarllm.types.utils import Choices
 
         choice = Choices(
             finish_reason="max_tokens",
@@ -480,21 +480,21 @@ class TestNativeFinishReason:
         ]
 
     def test_gemini_safety_reason_exposed(self):
-        from litellm.types.utils import Choices
+        from hangarllm.types.utils import Choices
 
         choice = Choices(finish_reason="SAFETY")
         assert choice.finish_reason == "content_filter"
         assert choice.provider_specific_fields["native_finish_reason"] == "SAFETY"
 
     def test_anthropic_tool_use_reason_exposed(self):
-        from litellm.types.utils import Choices
+        from hangarllm.types.utils import Choices
 
         choice = Choices(finish_reason="tool_use")
         assert choice.finish_reason == "tool_calls"
         assert choice.provider_specific_fields["native_finish_reason"] == "tool_use"
 
     def test_max_tokens_reason_exposed(self):
-        from litellm.types.utils import Choices
+        from hangarllm.types.utils import Choices
 
         choice = Choices(finish_reason="MAX_TOKENS")
         assert choice.finish_reason == "length"
@@ -506,9 +506,9 @@ def test_delta_maps_reasoning_to_reasoning_content():
     Test that Delta maps 'reasoning' field to 'reasoning_content'.
 
     Providers like Cerebras and Groq return delta.reasoning for gpt-oss models,
-    but LiteLLM expects delta.reasoning_content.
+    but HangarLLM expects delta.reasoning_content.
     """
-    from litellm.types.utils import Delta
+    from hangarllm.types.utils import Delta
 
     # When provider sends 'reasoning' (e.g., Cerebras gpt-oss streaming)
     delta = Delta(content=None, role="assistant", reasoning="thinking step by step")
@@ -536,7 +536,7 @@ def test_message_accepts_thinking_block_with_null_signature():
     success-logging handler can build the StandardLoggingObject instead of silently
     dropping the log record. Regression for LIT-4007.
     """
-    from litellm.types.utils import Choices, Message
+    from hangarllm.types.utils import Choices, Message
 
     thinking_blocks = [
         {"type": "thinking", "thinking": "step by step reasoning", "signature": None}
@@ -587,7 +587,7 @@ def test_delta_serialization_contract():
     images, annotations) absent unless explicitly provided. This guards that
     contract for both the default dump and the exclude_unset dump.
     """
-    from litellm.types.utils import Delta
+    from hangarllm.types.utils import Delta
 
     base_keys = {"content", "role", "function_call", "tool_calls", "audio"}
 
@@ -691,7 +691,7 @@ def test_safe_attribute_model_delattr():
     is omitted from model_dump (OpenAI spec), whether the field is a declared
     model field or an extra, and deleting a missing attribute must be a no-op.
     """
-    from litellm.types.utils import Message
+    from hangarllm.types.utils import Message
 
     # Unset optional declared fields are dropped during __init__ -> absent from dump
     msg = Message(content="hi", role="assistant")
@@ -730,7 +730,7 @@ def test_delattr_fast_path_matches_pydantic_exactly():
     __pydantic_fields_set__ the two diverge and this fails rather than silently
     shifting the serialization contract.
     """
-    from litellm.types.utils import Message, SafeAttributeModel
+    from hangarllm.types.utils import Message, SafeAttributeModel
 
     def observe(m: Message) -> tuple:
         return (
@@ -764,7 +764,7 @@ def test_delattr_fast_path_missing_attribute_is_noop():
     _VanishingDict reports every key as present (passing the guard) while storing
     nothing, so the real object.__delattr__ still raises AttributeError.
     """
-    from litellm.types.utils import SafeAttributeModel
+    from hangarllm.types.utils import SafeAttributeModel
 
     class _VanishingDict(dict):
         def __contains__(self, key: object) -> bool:
@@ -784,7 +784,7 @@ def test_delattr_fast_path_missing_attribute_is_noop():
     del racy.x
     del racy.x
 def test_chat_completion_tool_call_from_dict_custom():
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionMessageCustomToolCall,
         ChatCompletionMessageToolCall,
         chat_completion_tool_call_from_dict,
@@ -806,7 +806,7 @@ def test_chat_completion_tool_call_from_dict_custom():
 
 
 def test_chat_completion_tool_call_from_dict_custom_strips_null_function():
-    from litellm.types.utils import chat_completion_tool_call_from_dict
+    from hangarllm.types.utils import chat_completion_tool_call_from_dict
 
     sdk_shaped = {
         "id": "call_x",
@@ -824,7 +824,7 @@ def test_chat_completion_tool_call_from_dict_typeless_custom_payload():
     Classifying on ``type == "custom"`` alone sent these to the function branch,
     which raised TypeError (missing ``function``) on a payload the streaming path
     accepts as custom."""
-    from litellm.types.utils import ChatCompletionMessageCustomToolCall, chat_completion_tool_call_from_dict
+    from hangarllm.types.utils import ChatCompletionMessageCustomToolCall, chat_completion_tool_call_from_dict
 
     typeless = {"id": "call_1", "custom": {"name": "ApplyPatch", "input": "*** Begin Patch"}}
     parsed = chat_completion_tool_call_from_dict(typeless)
@@ -840,7 +840,7 @@ def test_custom_tool_call_classification_agrees_across_streaming_and_non_streami
     """The streaming Delta coercion and the non-streaming from_dict parser must
     classify the same tool-call dict identically, or a provider payload becomes a
     custom tool call mid-stream and something else on the completed message."""
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionDeltaCustomToolCall,
         ChatCompletionMessageCustomToolCall,
         Delta,
@@ -861,7 +861,7 @@ def test_custom_tool_call_classification_agrees_across_streaming_and_non_streami
 
 
 def test_message_with_mixed_function_and_custom_tool_calls():
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionMessageCustomToolCall,
         ChatCompletionMessageToolCall,
         Message,
@@ -883,7 +883,7 @@ def test_message_with_mixed_function_and_custom_tool_calls():
 
 
 def test_delta_custom_tool_call_first_and_continuation_chunks():
-    from litellm.types.utils import ChatCompletionDeltaCustomToolCall, Delta
+    from hangarllm.types.utils import ChatCompletionDeltaCustomToolCall, Delta
 
     first_chunk_tc = {
         "index": 0,
@@ -909,7 +909,7 @@ def test_delta_custom_tool_call_first_and_continuation_chunks():
 
 
 def test_delta_function_tool_call_unchanged_by_custom_support():
-    from litellm.types.utils import ChatCompletionDeltaToolCall, Delta
+    from hangarllm.types.utils import ChatCompletionDeltaToolCall, Delta
 
     delta = Delta(tool_calls=[{"index": 0, "id": "c2", "type": "function", "function": {"name": "g", "arguments": ""}}])
     assert isinstance(delta.tool_calls[0], ChatCompletionDeltaToolCall)
@@ -917,7 +917,7 @@ def test_delta_function_tool_call_unchanged_by_custom_support():
 
 
 def test_image_response_keeps_background():
-    """https://github.com/BerriAI/litellm/issues/38649"""
+    """upstream issue 38649"""
     response = ImageResponse(created=1, data=[{"b64_json": "aGk="}], background="transparent", output_format="png")
     assert response.background == "transparent"
     assert response.model_dump()["background"] == "transparent"
@@ -1029,7 +1029,7 @@ _PROVIDER_BATCH_USAGE: Final = {
 }
 
 
-def _batch_token_counts(batch: LiteLLMBatch) -> tuple[int, int, int, int | None, int | None]:
+def _batch_token_counts(batch: HangarLLMBatch) -> tuple[int, int, int, int | None, int | None]:
     assert batch.usage is not None
     assert batch.usage.prompt_tokens_details is not None
     assert batch.usage.completion_tokens_details is not None
@@ -1053,7 +1053,7 @@ def _batch_token_counts(batch: LiteLLMBatch) -> tuple[int, int, int, int | None,
     ),
 )
 def test_batch_usage_reads_token_counts_from_the_provider_batch_usage(usage: dict[str, object]) -> None:
-    batch: Final = LiteLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
+    batch: Final = HangarLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
 
     assert _batch_token_counts(batch) == (21, 543, 564, 5, 448)
     assert batch.usage is not None
@@ -1061,7 +1061,7 @@ def test_batch_usage_reads_token_counts_from_the_provider_batch_usage(usage: dic
 
 
 def test_batch_usage_keeps_chat_shaped_usage_as_is() -> None:
-    batch: Final = LiteLLMBatch.model_validate(
+    batch: Final = HangarLLMBatch.model_validate(
         {**_BATCH_FIELDS, "usage": {"prompt_tokens": 28, "completion_tokens": 8, "total_tokens": 36}}
     )
 
@@ -1090,7 +1090,7 @@ def test_batch_usage_keeps_chat_shaped_usage_as_is() -> None:
     ),
 )
 def test_batch_usage_reads_token_counts_from_partial_provider_batch_usage(usage: dict[str, object]) -> None:
-    batch: Final = LiteLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
+    batch: Final = HangarLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
     dumped_usage: Final = json.loads(batch.model_dump_json())["usage"]
 
     assert batch.usage is not None
@@ -1115,18 +1115,18 @@ def test_batch_usage_reads_token_counts_from_partial_provider_batch_usage(usage:
     ),
 )
 def test_batch_dump_carries_the_chat_and_provider_batch_usage_fields(usage: dict[str, object] | Usage) -> None:
-    batch: Final = LiteLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
+    batch: Final = HangarLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
     dumped: Final = batch.model_dump_json()
     dumped_usage: Final = json.loads(dumped)["usage"]
 
     assert {key: dumped_usage[key] for key in _PROVIDER_BATCH_USAGE} == _PROVIDER_BATCH_USAGE
     assert (dumped_usage["prompt_tokens"], dumped_usage["completion_tokens"]) == (21, 543)
     assert batch.model_dump()["usage"] == dumped_usage
-    assert _batch_token_counts(LiteLLMBatch.model_validate_json(dumped)) == (21, 543, 564, 5, 448)
+    assert _batch_token_counts(HangarLLMBatch.model_validate_json(dumped)) == (21, 543, 564, 5, 448)
 
 
 def test_batch_dump_keeps_cache_write_tokens_from_billed_usage() -> None:
-    batch: Final = LiteLLMBatch.model_validate(_BATCH_FIELDS).model_copy(
+    batch: Final = HangarLLMBatch.model_validate(_BATCH_FIELDS).model_copy(
         update={"usage": Usage(prompt_tokens=30, completion_tokens=4, total_tokens=34, cache_creation_input_tokens=7)}
     )
     dumped: Final = batch.model_dump_json()
@@ -1136,17 +1136,17 @@ def test_batch_dump_keeps_cache_write_tokens_from_billed_usage() -> None:
     assert (dumped_usage["completion_tokens"], dumped_usage["output_tokens"]) == (4, 4)
     assert dumped_usage["prompt_tokens_details"]["cache_write_tokens"] == 7
     assert None not in batch.model_dump(exclude_none=True)["usage"]["prompt_tokens_details"].values()
-    assert json.loads(LiteLLMBatch.model_validate_json(dumped).model_dump_json())["usage"] == dumped_usage
+    assert json.loads(HangarLLMBatch.model_validate_json(dumped).model_dump_json())["usage"] == dumped_usage
 
 
 def test_batch_json_keeps_usage_that_skipped_validation() -> None:
-    batch: Final = LiteLLMBatch.model_validate(_BATCH_FIELDS).model_copy(update={"usage": {"prompt_tokens": 3}})
+    batch: Final = HangarLLMBatch.model_validate(_BATCH_FIELDS).model_copy(update={"usage": {"prompt_tokens": 3}})
 
     assert json.loads(batch.model_dump_json(warnings=False))["usage"] == {"prompt_tokens": 3}
 
 
 def test_batch_dump_applies_nested_include_and_exclude_to_both_usage_shapes() -> None:
-    batch: Final = LiteLLMBatch.model_validate({**_BATCH_FIELDS, "usage": _PROVIDER_BATCH_USAGE})
+    batch: Final = HangarLLMBatch.model_validate({**_BATCH_FIELDS, "usage": _PROVIDER_BATCH_USAGE})
 
     excluded: Final = batch.model_dump(exclude={"usage": {"prompt_tokens_details", "input_tokens_details"}})["usage"]
     included: Final = batch.model_dump(include={"usage": {"prompt_tokens", "input_tokens"}})["usage"]
@@ -1157,7 +1157,7 @@ def test_batch_dump_applies_nested_include_and_exclude_to_both_usage_shapes() ->
 
 
 def test_batch_dump_applies_exclude_defaults_to_the_chat_usage_keys() -> None:
-    batch: Final = LiteLLMBatch.model_validate(
+    batch: Final = HangarLLMBatch.model_validate(
         {**_BATCH_FIELDS, "usage": Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)}
     )
 
@@ -1170,7 +1170,7 @@ def test_batch_dump_applies_exclude_defaults_to_the_chat_usage_keys() -> None:
 
 
 def test_batch_dump_forwards_every_provider_usage_detail_field() -> None:
-    batch: Final = LiteLLMBatch.model_validate(
+    batch: Final = HangarLLMBatch.model_validate(
         {
             **_BATCH_FIELDS,
             "usage": {
@@ -1197,7 +1197,7 @@ def test_batch_dump_forwards_every_provider_usage_detail_field() -> None:
     ],
 )
 def test_batch_dump_serves_unparsed_provider_usage_unchanged(usage: dict[str, object]) -> None:
-    batch: Final = LiteLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
+    batch: Final = HangarLLMBatch.model_validate({**_BATCH_FIELDS, "usage": usage})
 
     python_usage: Final = batch.model_dump()["usage"]
     json_usage: Final = json.loads(batch.model_dump_json(warnings=False))["usage"]
@@ -1207,7 +1207,7 @@ def test_batch_dump_serves_unparsed_provider_usage_unchanged(usage: dict[str, ob
 
 
 def test_batch_dump_applies_exclude_none_to_provider_usage_detail_fields() -> None:
-    batch: Final = LiteLLMBatch.model_validate(
+    batch: Final = HangarLLMBatch.model_validate(
         {
             **_BATCH_FIELDS,
             "usage": {**_PROVIDER_BATCH_USAGE, "input_tokens_details": {"cached_tokens": 5, "audio_tokens": None}},

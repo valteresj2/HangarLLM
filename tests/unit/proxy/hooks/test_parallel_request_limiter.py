@@ -9,14 +9,14 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.hooks.parallel_request_limiter import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.proxy.hooks.parallel_request_limiter import (
     PROXY_MaxParallelRequestsHandler,
 )
-from litellm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
-from litellm.types.utils import CallTypes, EmbeddingResponse, ModelResponse, TextCompletionResponse, Usage
+from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
+from hangarllm.types.utils import CallTypes, EmbeddingResponse, ModelResponse, TextCompletionResponse, Usage
 
 FROZEN_INSTANT: Final = datetime(2026, 1, 31, 23, 59, 30)
 LAST_MICROSECOND_OF_JANUARY: Final = datetime(2026, 1, 31, 23, 59, 59, 999999)
@@ -92,7 +92,7 @@ async def test_pre_call_hook_counts_a_cli_session_under_the_per_user_alias_not_t
 
     precise_minute = FROZEN_INSTANT.strftime("%Y-%m-%d-%H-%M")
     counted = await handler.internal_usage_cache.async_get_cache(
-        key=f"cli-session-alice::{precise_minute}::request_count", litellm_parent_otel_span=None
+        key=f"cli-session-alice::{precise_minute}::request_count", hangarllm_parent_otel_span=None
     )
     assert counted == {"current_requests": 1, "current_tpm": 0, "current_rpm": 1}, counted
 
@@ -120,7 +120,7 @@ async def test_async_log_success_event_counts_non_chat_response_tokens(response_
     """
     _api_key = hash_token("sk-98765")
     user_id = "ishaan"
-    team_id = "litellm-team"
+    team_id = "hangarllm-team"
     end_user_id = "customer-1"
 
     parallel_request_handler = PROXY_MaxParallelRequestsHandler(
@@ -134,11 +134,11 @@ async def test_async_log_success_event_counts_non_chat_response_tokens(response_
         await parallel_request_handler.internal_usage_cache.async_set_cache(
             key=f"{scope_id}::{precise_minute}::request_count",
             value={"current_requests": 1, "current_tpm": 0, "current_rpm": 1},
-            litellm_parent_otel_span=None,
+            hangarllm_parent_otel_span=None,
         )
 
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": _api_key,
                 "user_api_key_user_id": user_id,
@@ -159,7 +159,7 @@ async def test_async_log_success_event_counts_non_chat_response_tokens(response_
     for scope_id in scope_ids:
         current = await parallel_request_handler.internal_usage_cache.async_get_cache(
             key=f"{scope_id}::{precise_minute}::request_count",
-            litellm_parent_otel_span=None,
+            hangarllm_parent_otel_span=None,
         )
         assert current["current_tpm"] == 50, (
             f"expected 50 tokens counted for {scope_id}, "
@@ -202,13 +202,13 @@ async def test_async_log_success_event_counts_socket_session_tokens(
         await handler.internal_usage_cache.async_set_cache(
             key=f"{scope_id}::{precise_minute}::request_count",
             value={"current_requests": 1, "current_tpm": 0, "current_rpm": 1},
-            litellm_parent_otel_span=None,
+            hangarllm_parent_otel_span=None,
         )
 
     await handler.async_log_success_event(
         kwargs={
             "call_type": call_type,
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key": api_key,
                     "user_api_key_user_id": "socket-user",
@@ -226,7 +226,7 @@ async def test_async_log_success_event_counts_socket_session_tokens(
     counted: Final = [
         (
             await handler.internal_usage_cache.async_get_cache(
-                key=f"{scope_id}::{precise_minute}::request_count", litellm_parent_otel_span=None
+                key=f"{scope_id}::{precise_minute}::request_count", hangarllm_parent_otel_span=None
             )
         )["current_tpm"]
         for scope_id in scope_ids
@@ -248,11 +248,11 @@ async def test_a_pre_call_across_a_minute_rollover_lands_in_the_bucket_of_its_fi
     )
 
     assert await internal_usage_cache.async_get_cache(
-        key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count", litellm_parent_otel_span=None
+        key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count", hangarllm_parent_otel_span=None
     ) == {"current_requests": 1, "current_tpm": 0, "current_rpm": 1}
     for torn_minute in (FIRST_MINUTE_OF_FEBRUARY, TORN_MINUTE_OF_JANUARY):
         assert await internal_usage_cache.async_get_cache(
-            key=f"{api_key}::{torn_minute}::request_count", litellm_parent_otel_span=None
+            key=f"{api_key}::{torn_minute}::request_count", hangarllm_parent_otel_span=None
         ) is None
 
 
@@ -266,12 +266,12 @@ async def test_a_success_event_across_a_minute_rollover_lands_in_the_bucket_of_i
     await internal_usage_cache.async_set_cache(
         key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count",
         value={"current_requests": 1, "current_tpm": 0, "current_rpm": 1},
-        litellm_parent_otel_span=None,
+        hangarllm_parent_otel_span=None,
     )
 
     await handler.async_log_success_event(
         kwargs={
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"user_api_key": api_key, "user_api_key_model_max_budget": {}}
             }
         },
@@ -281,11 +281,11 @@ async def test_a_success_event_across_a_minute_rollover_lands_in_the_bucket_of_i
     )
 
     assert await internal_usage_cache.async_get_cache(
-        key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count", litellm_parent_otel_span=None
+        key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count", hangarllm_parent_otel_span=None
     ) == {"current_requests": 0, "current_tpm": 7, "current_rpm": 1}
     for torn_minute in (FIRST_MINUTE_OF_FEBRUARY, TORN_MINUTE_OF_JANUARY):
         assert await internal_usage_cache.async_get_cache(
-            key=f"{api_key}::{torn_minute}::request_count", litellm_parent_otel_span=None
+            key=f"{api_key}::{torn_minute}::request_count", hangarllm_parent_otel_span=None
         ) is None
 
 
@@ -299,12 +299,12 @@ async def test_a_failure_event_across_a_minute_rollover_lands_in_the_bucket_of_i
     await internal_usage_cache.async_set_cache(
         key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count",
         value={"current_requests": 1, "current_tpm": 0, "current_rpm": 1},
-        litellm_parent_otel_span=None,
+        hangarllm_parent_otel_span=None,
     )
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_params": {"metadata": {"user_api_key": api_key}},
+            "hangarllm_params": {"metadata": {"user_api_key": api_key}},
             "exception": Exception("upstream boom"),
         },
         response_obj=None,
@@ -313,11 +313,11 @@ async def test_a_failure_event_across_a_minute_rollover_lands_in_the_bucket_of_i
     )
 
     assert await internal_usage_cache.async_get_cache(
-        key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count", litellm_parent_otel_span=None
+        key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count", hangarllm_parent_otel_span=None
     ) == {"current_requests": 0, "current_tpm": 0, "current_rpm": 1}
     for torn_minute in (FIRST_MINUTE_OF_FEBRUARY, TORN_MINUTE_OF_JANUARY):
         assert await internal_usage_cache.async_get_cache(
-            key=f"{api_key}::{torn_minute}::request_count", litellm_parent_otel_span=None
+            key=f"{api_key}::{torn_minute}::request_count", hangarllm_parent_otel_span=None
         ) is None
 
 
@@ -332,7 +332,7 @@ async def test_a_post_call_headers_read_across_a_minute_rollover_uses_the_bucket
     await internal_usage_cache.async_set_cache(
         key=f"{api_key}::{LAST_MINUTE_OF_JANUARY}::request_count",
         value={"current_requests": 1, "current_tpm": 10, "current_rpm": 1},
-        litellm_parent_otel_span=None,
+        hangarllm_parent_otel_span=None,
     )
     response: Final = ModelResponse()
     response._hidden_params = {}
@@ -369,7 +369,7 @@ async def test_a_request_in_one_minute_is_not_counted_by_a_pre_call_in_the_next_
     )
 
     assert await internal_usage_cache.async_get_cache(
-        key=f"{api_key}::2026-03-10-12-01::request_count", litellm_parent_otel_span=None
+        key=f"{api_key}::2026-03-10-12-01::request_count", hangarllm_parent_otel_span=None
     ) == {"current_requests": 1, "current_tpm": 0, "current_rpm": 1}
 
 
@@ -401,11 +401,11 @@ async def test_websocket_turn_callbacks_keep_the_sockets_slot_until_the_disconne
     await handler.internal_usage_cache.async_set_cache(
         key=bucket,
         value={"current_requests": 1, "current_tpm": 0, "current_rpm": 1},
-        litellm_parent_otel_span=None,
+        hangarllm_parent_otel_span=None,
     )
     turn_kwargs = {
         "call_type": CallTypes.aresponses_websocket.value,
-        "litellm_params": {"metadata": {"user_api_key": api_key}},
+        "hangarllm_params": {"metadata": {"user_api_key": api_key}},
         "exception": RuntimeError("provider rejected the turn"),
     }
 
@@ -415,11 +415,11 @@ async def test_websocket_turn_callbacks_keep_the_sockets_slot_until_the_disconne
     await handler.async_log_failure_event(
         kwargs=turn_kwargs, response_obj=None, start_time=FROZEN_INSTANT, end_time=FROZEN_INSTANT
     )
-    after_two_turns = await handler.internal_usage_cache.async_get_cache(key=bucket, litellm_parent_otel_span=None)
+    after_two_turns = await handler.internal_usage_cache.async_get_cache(key=bucket, hangarllm_parent_otel_span=None)
     assert after_two_turns["current_requests"] == 1, after_two_turns
 
     await handler.async_release_max_parallel_requests_on_disconnect(UserAPIKeyAuth(api_key=api_key))
-    after_disconnect = await handler.internal_usage_cache.async_get_cache(key=bucket, litellm_parent_otel_span=None)
+    after_disconnect = await handler.internal_usage_cache.async_get_cache(key=bucket, hangarllm_parent_otel_span=None)
     assert after_disconnect["current_requests"] == 0, after_disconnect
 
 
@@ -431,16 +431,16 @@ async def test_a_rejected_realtime_attempt_does_not_free_a_slot_it_never_took():
     await handler.internal_usage_cache.async_set_cache(
         key=bucket,
         value={"current_requests": 1, "current_tpm": 0, "current_rpm": 1},
-        litellm_parent_otel_span=None,
+        hangarllm_parent_otel_span=None,
     )
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     proxy_logging_obj.proxy_hook_mapping["parallel_request_limiter"] = handler
     auth = UserAPIKeyAuth(api_key=api_key, max_parallel_requests=1)
 
     await proxy_logging_obj.arelease_max_parallel_requests_on_disconnect(auth)
-    after_rejection = await handler.internal_usage_cache.async_get_cache(key=bucket, litellm_parent_otel_span=None)
+    after_rejection = await handler.internal_usage_cache.async_get_cache(key=bucket, hangarllm_parent_otel_span=None)
     assert after_rejection["current_requests"] == 1, after_rejection
 
     await proxy_logging_obj.arelease_responses_websocket_slot(auth)
-    after_socket_close = await handler.internal_usage_cache.async_get_cache(key=bucket, litellm_parent_otel_span=None)
+    after_socket_close = await handler.internal_usage_cache.async_get_cache(key=bucket, hangarllm_parent_otel_span=None)
     assert after_socket_close["current_requests"] == 0, after_socket_close

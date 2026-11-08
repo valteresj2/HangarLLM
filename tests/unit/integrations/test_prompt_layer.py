@@ -5,16 +5,16 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.prompt_layer import PromptLayerLogger
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import hangarllm
+from hangarllm.integrations.prompt_layer import PromptLayerLogger
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 CALL_TIME: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
 REQUEST_KWARGS: Final = {
     "model": "gpt-4o",
     "messages": [{"role": "user", "content": "hi"}],
     "optional_params": {"temperature": 0.2},
-    "litellm_params": {"metadata": {"pl_tags": ["prod"], "team": "search"}},
+    "hangarllm_params": {"metadata": {"pl_tags": ["prod"], "team": "search"}},
 }
 
 
@@ -32,7 +32,7 @@ def _log_to_promptlayer(
 
     monkeypatch.setenv("PROMPTLAYER_API_KEY", "pl-key")
     monkeypatch.setattr(
-        litellm, "module_level_client", HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(promptlayer)))
+        hangarllm, "module_level_client", HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(promptlayer)))
     )
     PromptLayerLogger().log_event(
         kwargs=REQUEST_KWARGS,

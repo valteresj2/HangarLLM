@@ -1,7 +1,7 @@
 """
 Retries and cooldowns of a router core, driven through its public surface on a ``ScriptedHost``.
 
-Backoff values carry litellm's random jitter (up to ``JITTER`` seconds), so sleeps are asserted
+Backoff values carry hangarllm's random jitter (up to ``JITTER`` seconds), so sleeps are asserted
 inside ``[base, base + JITTER)`` rather than exactly.
 """
 
@@ -11,11 +11,11 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.constants import DEFAULT_COOLDOWN_TIME_SECONDS, INITIAL_RETRY_DELAY, JITTER
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import AllowedFailsPolicy, RetryPolicy
+import hangarllm
+from hangarllm.constants import DEFAULT_COOLDOWN_TIME_SECONDS, INITIAL_RETRY_DELAY, JITTER
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import AllowedFailsPolicy, RetryPolicy
 from tests.unit.test_router.core.scripted_host import (
     Call,
     ScriptedHost,
@@ -35,23 +35,23 @@ MakeCore = Callable[..., RouterCore]
 ErrorBuilder = Callable[[], Exception]
 
 
-class LitellmParamsLoggingHost(ScriptedHost):
-    """``ScriptedHost`` whose failure logging carries the call's ``cooldown_time`` in ``litellm_params``, as
-    litellm's own logging does (``get_litellm_params``)."""
+class HangarllmParamsLoggingHost(ScriptedHost):
+    """``ScriptedHost`` whose failure logging carries the call's ``cooldown_time`` in ``hangarllm_params``, as
+    hangarllm's own logging does (``get_hangarllm_params``)."""
 
     def _logging_kwargs(
         self, call: Call, error: BaseException | None, response: object
-    ) -> dict[str, object]:  # mutable-ok: litellm's logging kwargs
+    ) -> dict[str, object]:  # mutable-ok: hangarllm's logging kwargs
         logged: Final = super()._logging_kwargs(call, error, response)
-        litellm_params: Final = logged["litellm_params"]
-        if isinstance(litellm_params, dict) and "cooldown_time" in call.kwargs:
-            litellm_params["cooldown_time"] = call.kwargs["cooldown_time"]
+        hangarllm_params: Final = logged["hangarllm_params"]
+        if isinstance(hangarllm_params, dict) and "cooldown_time" in call.kwargs:
+            hangarllm_params["cooldown_time"] = call.kwargs["cooldown_time"]
         return logged
 
 
 @pytest.fixture
 def host() -> ScriptedHost:
-    return LitellmParamsLoggingHost()
+    return HangarllmParamsLoggingHost()
 
 
 def fresh(builder: ErrorBuilder) -> Callable[..., Exception]:
@@ -59,9 +59,9 @@ def fresh(builder: ErrorBuilder) -> Callable[..., Exception]:
     return lambda **_: builder()
 
 
-def rate_limited(retry_after: str | None = None) -> litellm.RateLimitError:
+def rate_limited(retry_after: str | None = None) -> hangarllm.RateLimitError:
     headers: Final = {"retry-after": retry_after} if retry_after is not None else {}
-    return litellm.RateLimitError(
+    return hangarllm.RateLimitError(
         message="slow down", llm_provider="openai", model="gpt-4o", response=httpx.Response(429, headers=headers)
     )
 
@@ -85,7 +85,7 @@ def headers_of(response: object) -> Mapping[str, object]:
 
 def two_deployments(
     **params: object,
-) -> list[dict[str, object]]:  # kwargs-ok: litellm_params  # mutable-ok: a model_list
+) -> list[dict[str, object]]:  # kwargs-ok: hangarllm_params  # mutable-ok: a model_list
     return [deployment("g", "a", **params), deployment("g", "b", **params)]
 
 
@@ -123,7 +123,7 @@ async def test_num_retries_comes_from_request_then_constructor_then_process_then
 
     error: Final = await attempt(core, **request)
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert host.deployments_called("acompletion") == ["a"] * (expected_retries + 1)
 
 
@@ -203,7 +203,7 @@ async def test_auth_error_retries_on_the_other_deployment_of_the_group(make_core
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.AuthenticationError)
+    assert isinstance(error, hangarllm.AuthenticationError)
     assert sorted(host.deployments_called("acompletion")) == ["a", "b"]
 
 
@@ -216,7 +216,7 @@ async def test_rate_limits_stop_retrying_once_every_deployment_is_cooling_down(
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert sorted(host.deployments_called("acompletion")) == ["a", "b"]
     assert set(cooled_down(core, ["a", "b"])) == {"a", "b"}
 
@@ -248,7 +248,7 @@ async def test_exhausted_retries_stamp_num_retries_and_max_retries_on_the_final_
 
     assert getattr(error, "num_retries", None) == num_retries
     assert getattr(error, "max_retries", None) == num_retries
-    assert f"LiteLLM Retried: {num_retries} times" in str(error)
+    assert f"HangarLLM Retried: {num_retries} times" in str(error)
 
 
 @pytest.mark.asyncio
@@ -389,7 +389,7 @@ async def test_deployment_num_retries_beats_the_router_but_not_the_request(
 
     error: Final = await attempt(core, **request_kwargs)
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert len(host.calls_to("acompletion")) == expected_calls
 
 
@@ -480,9 +480,9 @@ async def test_success_after_retries_reports_attempted_and_max_retries(
     response: Final = await attempt(core)
 
     headers: Final = headers_of(response)
-    assert headers["x-litellm-attempted-retries"] == failures_first
-    assert headers["x-litellm-max-retries"] == 3
-    assert headers["x-litellm-model-group"] == "g"
+    assert headers["x-hangarllm-attempted-retries"] == failures_first
+    assert headers["x-hangarllm-max-retries"] == 3
+    assert headers["x-hangarllm-model-group"] == "g"
 
 
 @pytest.mark.asyncio
@@ -492,8 +492,8 @@ async def test_first_try_success_reports_zero_retries_and_no_max(make_core: Make
     response: Final = await attempt(core)
 
     headers: Final = headers_of(response)
-    assert headers["x-litellm-attempted-retries"] == 0
-    assert "x-litellm-max-retries" not in headers
+    assert headers["x-hangarllm-attempted-retries"] == 0
+    assert "x-hangarllm-max-retries" not in headers
 
 
 @pytest.mark.asyncio
@@ -505,8 +505,8 @@ async def test_success_headers_report_the_retry_policy_budget(make_core: MakeCor
 
     response: Final = await attempt(core)
 
-    assert headers_of(response)["x-litellm-attempted-retries"] == 2
-    assert headers_of(response)["x-litellm-max-retries"] == 4
+    assert headers_of(response)["x-hangarllm-attempted-retries"] == 2
+    assert headers_of(response)["x-hangarllm-max-retries"] == 4
 
 
 # --- allowed fails and cooldowns ----------------------------------------------------------------
@@ -566,7 +566,7 @@ async def test_a_group_with_every_deployment_cooling_down_raises_without_calling
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RouterRateLimitError)
+    assert isinstance(error, hangarllm.RouterRateLimitError)
     assert len(host.calls_to("acompletion")) == 2
 
 
@@ -663,7 +663,7 @@ async def test_bad_request_does_not_cool_down_without_a_deployment_policy(
     ids=[
         "default",
         "constructor",
-        "litellm_params",
+        "hangarllm_params",
         "model_info",
         "retry-after",
         "header-over-router",
@@ -778,7 +778,7 @@ async def test_an_allowed_fails_policy_naming_the_error_cools_down_a_single_depl
     error: Final = await attempt(core)
 
     assert set(cooled_down(core, ["a"])) == {"a"}
-    assert isinstance(error, litellm.RouterRateLimitError)
+    assert isinstance(error, hangarllm.RouterRateLimitError)
     assert host.deployments_called("acompletion") == ["a"]
 
 

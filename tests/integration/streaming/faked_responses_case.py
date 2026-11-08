@@ -14,7 +14,7 @@ from pydantic import JsonValue, TypeAdapter
 
 API_KEY: Final = "synthetic-faked-stream-key"
 AZURE_API_VERSION: Final = "2025-03-01-preview"
-CALL_ID: Final = "x-litellm-call-id"
+CALL_ID: Final = "x-hangarllm-call-id"
 NO_CACHE: Final[dict[str, JsonValue]] = {"no-cache": True}
 FAKED_STREAM: Final[dict[str, JsonValue]] = {"supports_native_streaming": False}
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
@@ -321,7 +321,7 @@ def assert_each_value_arrives_once(
 
 def spend_statuses(call_id: str) -> list[JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (call_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (call_id,)),
         lambda found: len(found) >= 1,
         seconds=70,
     )

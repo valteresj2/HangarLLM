@@ -68,9 +68,9 @@ _SYSTEM_NOTE: Final = "Answer in one sentence."
 
 def _modify_params_config(directory: Path) -> Path:
     lane: Final = object_value(yaml.safe_load(_LANE_CONFIG.read_text()))
-    settings: Final = object_value(lane["litellm_settings"])
+    settings: Final = object_value(lane["hangarllm_settings"])
     path: Final = directory / "proxy_config_modify_params.yaml"
-    path.write_text(yaml.safe_dump({**lane, "litellm_settings": {**settings, "modify_params": True}}, sort_keys=False))
+    path.write_text(yaml.safe_dump({**lane, "hangarllm_settings": {**settings, "modify_params": True}}, sort_keys=False))
     return path
 
 

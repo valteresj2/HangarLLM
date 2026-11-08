@@ -11,7 +11,7 @@ from mcp.types import (
 )
 from mcp.types import Tool as MCPTool
 
-from litellm.mcp_client.tools import (
+from hangarllm.mcp_client.tools import (
     _get_function_arguments,
     _normalize_mcp_input_schema,
     call_mcp_tool,
@@ -129,7 +129,7 @@ async def test_load_mcp_tools_follows_pagination(mock_session):
 @pytest.mark.asyncio()
 @pytest.mark.parametrize("require_complete", [False, True])
 async def test_pagination_walk_stops_at_page_cap(mock_session, monkeypatch, require_complete):
-    monkeypatch.setattr("litellm.mcp_client.tools.MCP_TOOL_LISTING_MAX_PAGES", 2)
+    monkeypatch.setattr("hangarllm.mcp_client.tools.MCP_TOOL_LISTING_MAX_PAGES", 2)
     mock_session.list_tools.side_effect = [
         ListToolsResult(
             tools=[MCPTool(name="tool_0", description="0", inputSchema={})],
@@ -187,10 +187,10 @@ async def test_pagination_walk_treats_empty_cursor_as_terminal(mock_session):
 async def test_pagination_walk_stops_at_whole_walk_deadline(mock_session, monkeypatch, require_complete):
     import anyio
 
-    from litellm.mcp_client.tools import list_tools_with_pagination
+    from hangarllm.mcp_client.tools import list_tools_with_pagination
 
-    monkeypatch.setattr("litellm.mcp_client.tools.MCP_CLIENT_TIMEOUT", 0.2)
-    monkeypatch.setattr("litellm.mcp_client.tools.MCP_TOOL_LISTING_TIMEOUT", 0.2)
+    monkeypatch.setattr("hangarllm.mcp_client.tools.MCP_CLIENT_TIMEOUT", 0.2)
+    monkeypatch.setattr("hangarllm.mcp_client.tools.MCP_TOOL_LISTING_TIMEOUT", 0.2)
 
     async def slow_page(params=None):
         await anyio.sleep(0.15)
@@ -216,10 +216,10 @@ async def test_pagination_walk_stops_at_whole_walk_deadline(mock_session, monkey
 async def test_pagination_walk_honors_explicit_deadline_over_globals(mock_session, monkeypatch):
     import anyio
 
-    from litellm.mcp_client.tools import list_tools_with_pagination
+    from hangarllm.mcp_client.tools import list_tools_with_pagination
 
-    monkeypatch.setattr("litellm.mcp_client.tools.MCP_CLIENT_TIMEOUT", 0.1)
-    monkeypatch.setattr("litellm.mcp_client.tools.MCP_TOOL_LISTING_TIMEOUT", 0.1)
+    monkeypatch.setattr("hangarllm.mcp_client.tools.MCP_CLIENT_TIMEOUT", 0.1)
+    monkeypatch.setattr("hangarllm.mcp_client.tools.MCP_TOOL_LISTING_TIMEOUT", 0.1)
 
     async def slow_page(params=None):
         await anyio.sleep(0.15)
@@ -359,13 +359,13 @@ def test_transform_mcp_tool_to_openai_responses_api_tool():
     """Test transformation to OpenAI Responses API tool format with schema normalization."""
     # Test case 1: Tool with minimal schema (the problematic case from the error)
     minimal_tool = MCPTool(
-        name="GitMCP-fetch_litellm_documentation",
+        name="GitMCP-fetch_hangarllm_documentation",
         description="Fetch entire documentation file from GitHub repository",
         inputSchema={"type": "object"},  # This was causing the error
     )
 
     openai_tool = transform_mcp_tool_to_openai_responses_api_tool(minimal_tool)
-    assert openai_tool["name"] == "GitMCP-fetch_litellm_documentation"
+    assert openai_tool["name"] == "GitMCP-fetch_hangarllm_documentation"
     assert openai_tool["type"] == "function"
     assert openai_tool["strict"] == False
     assert openai_tool["parameters"]["type"] == "object"
@@ -452,7 +452,7 @@ def test_transform_mcp_tool_to_anthropic_tool_strips_keys_anthropic_rejects():
     routes diverged: a clean-schema server (deepwiki) worked on both, but a server
     with a richer schema would be rejected only on messages.
     """
-    from litellm.types.llms.anthropic import AnthropicInputSchema
+    from hangarllm.types.llms.anthropic import AnthropicInputSchema
 
     tool = MCPTool(
         name="rich",

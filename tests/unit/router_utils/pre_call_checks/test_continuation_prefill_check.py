@@ -1,7 +1,7 @@
 import pytest
 
-import litellm
-from litellm.router_utils.pre_call_checks.continuation_prefill_check import (
+import hangarllm
+from hangarllm.router_utils.pre_call_checks.continuation_prefill_check import (
     MID_STREAM_CONTINUATION_KWARG,
     MID_STREAM_CONTINUATION_MARKER,
     RESPONSES_CONTINUATION_KWARG,
@@ -17,7 +17,7 @@ from litellm.router_utils.pre_call_checks.continuation_prefill_check import (
     responses_continuation_input,
     responses_continuation_input_for,
 )
-from litellm.types.llms.openai import OutputTextDeltaEvent, ResponsesAPIStreamEvents
+from hangarllm.types.llms.openai import OutputTextDeltaEvent, ResponsesAPIStreamEvents
 
 PREFILL_MODEL = "anthropic/prefill-capable-test-model"
 CLAUDE_PREFILL_MODEL = "anthropic/claude-prefill-capable-test-model"
@@ -28,45 +28,45 @@ UNMAPPED_MODEL = "openai/unmapped-test-model"
 
 @pytest.fixture(autouse=True)
 def _synthetic_cost_map_entries() -> None:
-    litellm.register_model(
+    hangarllm.register_model(
         {
-            PREFILL_MODEL: {"litellm_provider": "anthropic", "mode": "chat", "supports_assistant_prefill": True},
-            NON_PREFILL_MODEL: {"litellm_provider": "openai", "mode": "chat"},
-            CLAUDE_PREFILL_MODEL: {"litellm_provider": "anthropic", "mode": "chat", "supports_assistant_prefill": True},
+            PREFILL_MODEL: {"hangarllm_provider": "anthropic", "mode": "chat", "supports_assistant_prefill": True},
+            NON_PREFILL_MODEL: {"hangarllm_provider": "openai", "mode": "chat"},
+            CLAUDE_PREFILL_MODEL: {"hangarllm_provider": "anthropic", "mode": "chat", "supports_assistant_prefill": True},
             CLAUDE_NON_PREFILL_MODEL: {
-                "litellm_provider": "anthropic",
+                "hangarllm_provider": "anthropic",
                 "mode": "chat",
                 "supports_assistant_prefill": False,
             },
         },
         persist_across_reloads=False,
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _deployment(model: str, dep_id: str) -> dict[str, object]:
-    return {"litellm_params": {"model": model}, "model_info": {"id": dep_id}}
+    return {"hangarllm_params": {"model": model}, "model_info": {"id": dep_id}}
 
 
 def test_deployment_supports_prefill_reads_capability():
     assert deployment_supports_prefill(_deployment(PREFILL_MODEL, "a")) is True
     assert deployment_supports_prefill(_deployment(NON_PREFILL_MODEL, "b")) is False
-    assert deployment_supports_prefill({"litellm_params": {"model": PREFILL_MODEL}}) is True
-    assert deployment_supports_prefill({"litellm_params": {"model": PREFILL_MODEL}, "model_info": "bogus"}) is True
+    assert deployment_supports_prefill({"hangarllm_params": {"model": PREFILL_MODEL}}) is True
+    assert deployment_supports_prefill({"hangarllm_params": {"model": PREFILL_MODEL}, "model_info": "bogus"}) is True
 
 
 def test_deployment_model_info_override_wins_over_cost_map():
     # model_info True opts in a model that is not in the cost map
     assert (
         deployment_supports_prefill(
-            {"litellm_params": {"model": "vendor/custom-model"}, "model_info": {"supports_assistant_prefill": True}}
+            {"hangarllm_params": {"model": "vendor/custom-model"}, "model_info": {"supports_assistant_prefill": True}}
         )
         is True
     )
     # model_info False opts out a model the cost map would otherwise allow
     assert (
         deployment_supports_prefill(
-            {"litellm_params": {"model": PREFILL_MODEL}, "model_info": {"supports_assistant_prefill": False}}
+            {"hangarllm_params": {"model": PREFILL_MODEL}, "model_info": {"supports_assistant_prefill": False}}
         )
         is False
     )
@@ -77,25 +77,25 @@ def test_deployment_model_info_override_wins_over_cost_map():
 @pytest.mark.parametrize(
     "deployment,expected",
     [
-        ({"litellm_params": {"model": "bedrock/arn:custom-import", "base_model": PREFILL_MODEL}}, True),
-        ({"litellm_params": {"model": "azure/my-deployment"}, "model_info": {"base_model": PREFILL_MODEL}}, True),
+        ({"hangarllm_params": {"model": "bedrock/arn:custom-import", "base_model": PREFILL_MODEL}}, True),
+        ({"hangarllm_params": {"model": "azure/my-deployment"}, "model_info": {"base_model": PREFILL_MODEL}}, True),
         (
             {
-                "litellm_params": {"model": "azure/my-deployment", "base_model": NON_PREFILL_MODEL},
+                "hangarllm_params": {"model": "azure/my-deployment", "base_model": NON_PREFILL_MODEL},
                 "model_info": {"base_model": PREFILL_MODEL},
             },
             True,
         ),
         (
             {
-                "litellm_params": {"model": PREFILL_MODEL, "base_model": NON_PREFILL_MODEL},
+                "hangarllm_params": {"model": PREFILL_MODEL, "base_model": NON_PREFILL_MODEL},
                 "model_info": {"base_model": NON_PREFILL_MODEL},
             },
             False,
         ),
     ],
     ids=[
-        "litellm_params_base_model",
+        "hangarllm_params_base_model",
         "model_info_base_model",
         "model_info_base_model_wins",
         "base_model_wins_over_model",
@@ -107,7 +107,7 @@ def test_deployment_supports_prefill_reads_the_cost_map_key_of_the_base_model(de
 
 def test_deployment_supports_prefill_rejects_malformed_deployments():
     assert deployment_supports_prefill({}) is False
-    assert deployment_supports_prefill({"litellm_params": {}}) is False
+    assert deployment_supports_prefill({"hangarllm_params": {}}) is False
     assert deployment_supports_prefill("not-a-dict") is False
 
 
@@ -178,7 +178,7 @@ async def test_filter_drops_deployments_whose_own_params_constrain_the_continuat
     check = ContinuationPrefillDeploymentCheck()
     plain = _deployment(PREFILL_MODEL, "plain")
     constrained = [
-        {"litellm_params": {"model": PREFILL_MODEL, **params}, "model_info": {"id": dep_id}}
+        {"hangarllm_params": {"model": PREFILL_MODEL, **params}, "model_info": {"id": dep_id}}
         for dep_id, params in (
             ("json", {"response_format": {"type": "json_object"}}),
             ("two_choices", {"extra_body": {"n": 2}}),
@@ -196,8 +196,8 @@ async def test_filter_drops_deployments_whose_own_params_constrain_the_continuat
     assert [d["model_info"]["id"] for d in result] == ["plain"]
 
 
-def _text_chunk(text: str) -> litellm.ModelResponseStream:
-    return litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": text}}])
+def _text_chunk(text: str) -> hangarllm.ModelResponseStream:
+    return hangarllm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": text}}])
 
 
 @pytest.mark.parametrize(
@@ -385,7 +385,7 @@ def test_constrains_responses_continuation_lets_allowed_tools_in_auto_mode_answe
         (_deployment(CLAUDE_NON_PREFILL_MODEL, "b"), False),
         (_deployment(PREFILL_MODEL, "c"), False),
         (
-            {"litellm_params": {"model": "anthropic/support-model-v1"}, "model_info": {"id": "d", "base_model": CLAUDE_PREFILL_MODEL}},
+            {"hangarllm_params": {"model": "anthropic/support-model-v1"}, "model_info": {"id": "d", "base_model": CLAUDE_PREFILL_MODEL}},
             True,
         ),
     ],

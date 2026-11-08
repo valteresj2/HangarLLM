@@ -6,10 +6,10 @@ import pytest
 from pydantic import JsonValue, TypeAdapter
 from respx import MockRouter
 
-import litellm
-from litellm.google_genai import agenerate_content_stream
-from litellm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
-from litellm.llms.vertex_ai.common_utils import GEMINI_MAX_ENUM_CHARACTERS
+import hangarllm
+from hangarllm.google_genai import agenerate_content_stream
+from hangarllm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
+from hangarllm.llms.vertex_ai.common_utils import GEMINI_MAX_ENUM_CHARACTERS
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _PROMPT: Final = "Hello, can you tell me a short joke?"
@@ -161,7 +161,7 @@ def test_generate_content_request_preserves_tool_declarations() -> None:
 async def test_generate_content_stream_returns_text_and_usage(
     respx_mock: MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse"
     ).mock(
@@ -215,7 +215,7 @@ async def test_generate_content_stream_returns_text_and_usage(
 async def test_generate_content_stream_parses_function_call(
     respx_mock: MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse"
     ).mock(

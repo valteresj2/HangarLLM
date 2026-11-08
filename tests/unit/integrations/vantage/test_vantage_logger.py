@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.integrations.vantage.vantage_logger import VantageLogger
-from litellm.proxy import proxy_server
+from hangarllm.integrations.vantage.vantage_logger import VantageLogger
+from hangarllm.proxy import proxy_server
 
 FOCUS_LOCK = "cronjob_lock:focus_export_usage_data"
 VANTAGE_LOCK = "cronjob_lock:vantage_export_usage_data"

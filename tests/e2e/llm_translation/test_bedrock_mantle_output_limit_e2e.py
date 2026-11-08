@@ -18,7 +18,7 @@ from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
 from llm_translation.sdk_clients import NO_PROXY_CACHE, SdkClients
-from models import LiteLLMParamsBody, ModelInfoBody, ModelNewBody
+from models import HangarLLMParamsBody, ModelInfoBody, ModelNewBody
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -53,7 +53,7 @@ def _register_mantle_chat_model(
     model_id: Final = client.proxy.register_model(
         ModelNewBody(
             model_name=model,
-            litellm_params=LiteLLMParamsBody(
+            hangarllm_params=HangarLLMParamsBody(
                 model=MANTLE_BACKEND,
                 custom_llm_provider="bedrock_mantle",
                 api_key="os.environ/AWS_BEARER_TOKEN_BEDROCK",

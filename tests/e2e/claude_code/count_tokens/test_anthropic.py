@@ -22,7 +22,7 @@ stream-json parser can pick up, so we can't test the endpoint round
 trip through the CLI surface.
 
 The proxy *is* expected to expose `/v1/messages/count_tokens` for
-every Claude-style provider it routes to -- LiteLLM has historically
+every Claude-style provider it routes to -- HangarLLM has historically
 had provider-specific bugs in this endpoint (Vertex AI `count_tokens`
 returned 400 to proxy gateways; see Claude Code release notes 2.1.121).
 Treating it as a matrix row keeps regressions in the cron's daily

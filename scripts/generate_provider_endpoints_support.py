@@ -16,7 +16,7 @@ COST_MAP_PATH: Final = ROOT / "model_prices_and_context_window.json"
 SOURCE_PATH: Final = ROOT / "provider_endpoints_support.json"
 OUTPUT_PATHS: Final = (
     SOURCE_PATH,
-    ROOT / "litellm/provider_endpoints_support_backup.json",
+    ROOT / "hangarllm/provider_endpoints_support_backup.json",
 )
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 
@@ -80,7 +80,7 @@ def _provider_slug(provider: str) -> str:
 def _model_provider_slug(model: JsonValue) -> str | None:
     if not isinstance(model, dict):
         return None
-    provider: Final = model.get("litellm_provider")
+    provider: Final = model.get("hangarllm_provider")
     if not isinstance(provider, str) or not provider:
         return None
     return _provider_slug(provider)

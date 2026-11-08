@@ -11,14 +11,14 @@ zero; a pre-call block never invoked the LLM, so usage is zero.
 
 import pytest
 
-import litellm
-from litellm.proxy.proxy_server import _blocked_response_usage
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+import hangarllm
+from hangarllm.proxy.proxy_server import _blocked_response_usage
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
 
 def test_uses_original_response_usage():
-    resp = litellm.ModelResponse()
-    resp.usage = litellm.Usage(prompt_tokens=42, completion_tokens=7, total_tokens=49)
+    resp = hangarllm.ModelResponse()
+    resp.usage = hangarllm.Usage(prompt_tokens=42, completion_tokens=7, total_tokens=49)
 
     usage = _blocked_response_usage(resp)
 
@@ -41,13 +41,13 @@ async def test_success_hook_attaches_original_response_on_block():
     LLM response to ModifyResponseException so its real usage isn't discarded."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    import litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail as ug
-    from litellm.integrations.custom_guardrail import ModifyResponseException
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.utils import CallTypes
+    import hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail as ug
+    from hangarllm.integrations.custom_guardrail import ModifyResponseException
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.types.utils import CallTypes
 
-    response = litellm.ModelResponse()
-    response.usage = litellm.Usage(prompt_tokens=15, completion_tokens=3, total_tokens=18)
+    response = hangarllm.ModelResponse()
+    response.usage = hangarllm.Usage(prompt_tokens=15, completion_tokens=3, total_tokens=18)
 
     guardrail = MagicMock()
     guardrail.should_run_guardrail.return_value = True
@@ -91,7 +91,7 @@ def test_responses_api_blocked_reply_carries_real_usage():
     """
     import time
 
-    from litellm.llms.base_llm.guardrail_translation.utils import (
+    from hangarllm.llms.base_llm.guardrail_translation.utils import (
         blocked_responses_api_usage,
     )
 
@@ -114,7 +114,7 @@ def test_responses_api_blocked_reply_carries_real_usage():
 
 def test_responses_api_blocked_reply_zero_usage_when_no_original_response():
     """Pre-call block has no original_response, so usage must be zero."""
-    from litellm.llms.base_llm.guardrail_translation.utils import (
+    from hangarllm.llms.base_llm.guardrail_translation.utils import (
         blocked_responses_api_usage,
     )
 
@@ -128,12 +128,12 @@ def test_responses_api_blocked_reply_zero_usage_when_no_original_response():
 def test_responses_api_blocked_reply_maps_bridged_chat_usage():
     """A chat model bridged through /v1/responses blocks with a ModelResponse whose
     Usage fields must map prompt_tokens -> input_tokens and completion_tokens -> output_tokens."""
-    from litellm.llms.base_llm.guardrail_translation.utils import (
+    from hangarllm.llms.base_llm.guardrail_translation.utils import (
         blocked_responses_api_usage,
     )
 
-    resp = litellm.ModelResponse()
-    resp.usage = litellm.Usage(prompt_tokens=14, completion_tokens=18, total_tokens=32)
+    resp = hangarllm.ModelResponse()
+    resp.usage = hangarllm.Usage(prompt_tokens=14, completion_tokens=18, total_tokens=32)
 
     usage = blocked_responses_api_usage(resp)
 
@@ -145,13 +145,13 @@ def test_responses_api_blocked_reply_maps_bridged_chat_usage():
 def test_raise_passthrough_exception_attaches_original_response():
     """Post-call guardrails raising through the blessed helper must be able to
     attach the blocked response so its real usage reaches the synthetic reply."""
-    from litellm.integrations.custom_guardrail import (
+    from hangarllm.integrations.custom_guardrail import (
         CustomGuardrail,
         ModifyResponseException,
     )
 
-    resp = litellm.ModelResponse()
-    resp.usage = litellm.Usage(prompt_tokens=5, completion_tokens=2, total_tokens=7)
+    resp = hangarllm.ModelResponse()
+    resp.usage = hangarllm.Usage(prompt_tokens=5, completion_tokens=2, total_tokens=7)
     guardrail = CustomGuardrail(guardrail_name="passthrough-usage")
 
     with pytest.raises(ModifyResponseException) as excinfo:

@@ -4,20 +4,20 @@ from hashlib import sha256
 
 import pytest
 
-import litellm
-from litellm.batches.batch_line_items import (
+import hangarllm
+from hangarllm.batches.batch_line_items import (
     BatchLineItemSource,
     batch_line_item_parts,
     dispatch_batch_line_items,
     line_item_metadata,
     without_request_and_response,
 )
-from litellm.batches.batch_utils import calculate_batch_cost_and_usage, get_file_content_as_dictionary
-from litellm.constants import BATCH_LINE_ITEMS_MAX_PART_BYTES
-from litellm.integrations.batch_line_item_objects import batch_line_items_ndjson, batch_line_items_object_name
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.vertex_ai.files.transformation import VertexAIFilesConfig, _OpenAIToVertexBatchUploadStream
-from litellm.types.utils import ModelInfo, StandardBatchLineItemsPayload
+from hangarllm.batches.batch_utils import calculate_batch_cost_and_usage, get_file_content_as_dictionary
+from hangarllm.constants import BATCH_LINE_ITEMS_MAX_PART_BYTES
+from hangarllm.integrations.batch_line_item_objects import batch_line_items_ndjson, batch_line_items_object_name
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.vertex_ai.files.transformation import VertexAIFilesConfig, _OpenAIToVertexBatchUploadStream
+from hangarllm.types.utils import ModelInfo, StandardBatchLineItemsPayload
 
 INPUT_RATE = 0.001
 OUTPUT_RATE = 0.002
@@ -390,7 +390,7 @@ def test_files_with_no_readable_line_make_no_part():
     [
         (ALICE_KEY_HASH, ALICE_KEY_HASH),
         ("ya29.opaque-oauth2-access-token", sha256(b"ya29.opaque-oauth2-access-token").hexdigest()),
-        ("litellm_proxy_master_key", sha256(b"litellm_proxy_master_key").hexdigest()),
+        ("hangarllm_proxy_master_key", sha256(b"hangarllm_proxy_master_key").hexdigest()),
         (None, None),
     ],
     ids=["virtual key hash", "oauth2 token", "master key alias", "nothing saved"],
@@ -422,7 +422,7 @@ async def test_a_logger_gets_the_request_and_response_unless_message_logging_is_
         _RecordingLogger(turn_off_message_logging=True),
         _RecordingLogger(message_logging=False),
     )
-    monkeypatch.setattr(litellm, "batch_line_item_callbacks", (open_logger, quiet_logger, legacy_logger))
+    monkeypatch.setattr(hangarllm, "batch_line_item_callbacks", (open_logger, quiet_logger, legacy_logger))
 
     await dispatch_batch_line_items(payload, redact_bodies=False)
 
@@ -435,7 +435,7 @@ async def test_a_logger_gets_the_request_and_response_unless_message_logging_is_
 async def test_redacted_dispatch_never_hands_a_logger_the_bodies(monkeypatch):
     payload = _payload()
     logger = _RecordingLogger()
-    monkeypatch.setattr(litellm, "batch_line_item_callbacks", (logger,))
+    monkeypatch.setattr(hangarllm, "batch_line_item_callbacks", (logger,))
 
     await dispatch_batch_line_items(payload, redact_bodies=True)
 
@@ -446,9 +446,9 @@ async def test_redacted_dispatch_never_hands_a_logger_the_bodies(monkeypatch):
 async def test_a_failing_or_unknown_sink_is_logged_and_the_other_sinks_still_get_the_lines(monkeypatch, caplog):
     payload = _payload()
     logger = _RecordingLogger()
-    monkeypatch.setattr(litellm, "batch_line_item_callbacks", (_FailingLogger(), "langfuse", logger))
+    monkeypatch.setattr(hangarllm, "batch_line_item_callbacks", (_FailingLogger(), "langfuse", logger))
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         await dispatch_batch_line_items(payload, redact_bodies=False)
 
     assert logger.received == [payload]

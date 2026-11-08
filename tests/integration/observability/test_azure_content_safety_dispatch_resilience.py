@@ -57,7 +57,7 @@ def _anthropic_model(scenario: Scenario, provider: Wire) -> str:
 
 def _assert_spend(request_id: str, response_text: str) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT litellm_call_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (request_id,)),
+        lambda: read_rows('SELECT hangarllm_call_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (request_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -242,7 +242,7 @@ def test_h20_yaml_default_on_scans_tuple_attack_and_benign(
             assert allowed.status_code == 200, allowed.text
             assert azure_texts(azure) == (benign,), allowed.text
             assert provider_texts(provider) == (benign,), allowed.text
-            _assert_spend(allowed.headers["x-litellm-call-id"], allowed.text)
+            _assert_spend(allowed.headers["x-hangarllm-call-id"], allowed.text)
 
 
 def test_x1_azure_server_stop_restart_during_mixed_burst(
@@ -316,7 +316,7 @@ def test_x1_azure_server_stop_restart_during_mixed_burst(
                     )
                     for result in (*up_results, *down_results, *recovery_results):
                         if result.status == 200:
-                            _assert_spend(result.headers["x-litellm-call-id"], result.text)
+                            _assert_spend(result.headers["x-hangarllm-call-id"], result.text)
         finally:
             first_azure_lifetime.close()
 
@@ -358,7 +358,7 @@ def test_x2_slow_azure_edge_completes_twenty_concurrent_requests(
             assert set(scanned_prompts) == set(prompts), responses[-1].text
             assert set(provider_texts(provider)) == set(prompts), responses[-1].text
             for response in responses:
-                _assert_spend(response.headers["x-litellm-call-id"], response.text)
+                _assert_spend(response.headers["x-hangarllm-call-id"], response.text)
 
 
 def test_x3_killing_one_worker_leaves_the_other_serving(
@@ -403,7 +403,7 @@ def test_x3_killing_one_worker_leaves_the_other_serving(
             assert set(azure_texts(azure)).issuperset(prompts), surviving_responses[-1].text
             assert set(provider_texts(provider)).issuperset(prompts), surviving_responses[-1].text
             for response in surviving_responses:
-                _assert_spend(response.headers["x-litellm-call-id"], response.text)
+                _assert_spend(response.headers["x-hangarllm-call-id"], response.text)
 
 
 @pytest.mark.timeout(180)
@@ -443,7 +443,7 @@ def test_x4_proxy_restart_preserves_completed_spend_rows(
                     response.text for response in completed
                 )
                 for response in completed:
-                    _assert_spend(response.headers["x-litellm-call-id"], response.text)
+                    _assert_spend(response.headers["x-hangarllm-call-id"], response.text)
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     interrupted_prompts: Final = tuple(f"X4_WAIT {uuid.uuid4().hex}" for _ in range(10))
                     interrupted: Final = tuple(
@@ -476,8 +476,8 @@ def test_x4_proxy_restart_preserves_completed_spend_rows(
                         )
                         assert recovered.status_code == 200, recovered.text
                         for response in completed:
-                            _assert_spend(response.headers["x-litellm-call-id"], response.text)
-                        _assert_spend(recovered.headers["x-litellm-call-id"], recovered.text)
+                            _assert_spend(response.headers["x-hangarllm-call-id"], response.text)
+                        _assert_spend(recovered.headers["x-hangarllm-call-id"], recovered.text)
                         azure_received: Final = azure_texts(azure)
                         azure_prompts: Final = frozenset(azure_received)
                         provider_received: Final = provider_texts(provider)

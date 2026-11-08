@@ -4,7 +4,7 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 
 @pytest.mark.parametrize("cached_tokens", [0, 80])
@@ -34,7 +34,7 @@ def test_morph_forwards_chat_options_and_prices_cached_input(local_model_cost_ma
                 },
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="morph/morph-dsv41flash",
             api_key="fake-test-key",
             messages=messages,
@@ -55,13 +55,13 @@ def test_morph_forwards_chat_options_and_prices_cached_input(local_model_cost_ma
         "prompt_cache_key": "example-conversation",
     }
     assert response.usage.prompt_tokens_details.cached_tokens == cached_tokens
-    rates: Final = litellm.model_cost["morph/morph-dsv41flash"]
+    rates: Final = hangarllm.model_cost["morph/morph-dsv41flash"]
     expected: Final = (
         (100 - cached_tokens) * rates["input_cost_per_token"]
         + cached_tokens * rates["cache_read_input_token_cost"]
         + 5 * rates["output_cost_per_token"]
     )
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(expected)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(expected)
 
 
 def test_morph_preserves_tool_calls_and_stream_usage() -> None:
@@ -113,9 +113,9 @@ def test_morph_preserves_tool_calls_and_stream_usage() -> None:
             headers={"content-type": "text/event-stream"},
             text="".join("data: " + json.dumps(chunk) + "\n\n" for chunk in chunks) + "data: [DONE]\n\n",
         )
-        response: Final = litellm.stream_chunk_builder(
+        response: Final = hangarllm.stream_chunk_builder(
             list(
-                litellm.completion(
+                hangarllm.completion(
                     model="morph/morph-dsv41flash",
                     api_key="fake-test-key",
                     messages=[{"role": "user", "content": "Get Paris temperature"}],
@@ -136,8 +136,8 @@ def test_morph_preserves_tool_calls_and_stream_usage() -> None:
 
 @pytest.mark.parametrize("model", ["morph-v3-fast", "morph-v3-large"])
 def test_morph_apply_keeps_rejecting_chat_only_options(model: str) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.completion(
             model="morph/" + model,
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "Apply an edit"}],

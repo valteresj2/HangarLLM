@@ -3,13 +3,13 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.mcp_server.outbound_credentials.result import Error, Ok
-from litellm.proxy.mcp_server.state_tokens import StateTokenError, open_state, seal_state
+from hangarllm.proxy.mcp_server.outbound_credentials.result import Error, Ok
+from hangarllm.proxy.mcp_server.state_tokens import StateTokenError, open_state, seal_state
 
 
 @pytest.fixture(autouse=True)
 def state_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "synthetic-shared-pagination-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "synthetic-shared-pagination-key")
 
 
 def test_state_is_portable_repeatable_and_preserves_json() -> None:
@@ -40,17 +40,17 @@ def test_state_cannot_be_opened_for_another_purpose(purpose: str) -> None:
 def test_rotating_the_key_invalidates_existing_state(monkeypatch: pytest.MonkeyPatch) -> None:
     sealed: Final = seal_state("private", purpose="pagination", expires_at=200, now=100)
     assert isinstance(sealed, Ok)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "different-synthetic-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "different-synthetic-key")
     assert open_state(sealed.ok, purpose="pagination", now=100) == Error(StateTokenError.INVALID)
 
 
 @pytest.mark.parametrize("missing", (True, False))
 def test_master_key_cannot_replace_missing_or_empty_salt(monkeypatch: pytest.MonkeyPatch, missing: bool) -> None:
-    monkeypatch.setenv("LITELLM_MASTER_KEY", "synthetic-master-key")
+    monkeypatch.setenv("HANGARLLM_MASTER_KEY", "synthetic-master-key")
     if missing:
-        monkeypatch.delenv("LITELLM_SALT_KEY")
+        monkeypatch.delenv("HANGARLLM_SALT_KEY")
     else:
-        monkeypatch.setenv("LITELLM_SALT_KEY", "")
+        monkeypatch.setenv("HANGARLLM_SALT_KEY", "")
     assert seal_state("private", purpose="pagination", expires_at=200, now=100) == Error(StateTokenError.MISSING_KEY)
     assert open_state("forged", purpose="pagination", now=100) == Error(StateTokenError.MISSING_KEY)
 

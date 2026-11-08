@@ -24,8 +24,8 @@ def _register_guardrail(gateway: Gateway, scenario: Scenario, name: str) -> None
         {
             "guardrail": {
                 "guardrail_name": name,
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "hangarllm_params": {
+                    "guardrail": "hangarllm_content_filter",
                     "mode": "pre_call",
                     "default_on": True,
                     "realtime_violation_message": "That request was blocked by the content filter.",

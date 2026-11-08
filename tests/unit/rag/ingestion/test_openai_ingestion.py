@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
+import hangarllm
+from hangarllm.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
 
 _API_BASE: Final = "https://openai.example/v1"
 _STATIC_CHUNKING: Final = {"type": "static", "static": {"max_chunk_size_tokens": 800, "chunk_overlap_tokens": 400}}
@@ -45,8 +45,8 @@ def _ingestion(chunking_strategy: object) -> OpenAIRAGIngestion:
 
 @pytest.fixture
 def attach_file(monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter) -> respx.Route:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     return respx_mock.post(f"{_API_BASE}/vector_stores/vs_1/files").mock(
         return_value=httpx.Response(200, json=_ATTACHED_FILE)
     )

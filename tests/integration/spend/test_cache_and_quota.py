@@ -77,7 +77,7 @@ def test_generated_cache_sequences_preserve_content_usage_and_zero_hit_cost(gate
             expected_calls: Final = 0 if marker in self.seen else 1
             assert len(observed) == expected_calls, observed
             if marker not in self.seen:
-                assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(0.06)
+                assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(0.06)
             if marker in self.identities:
                 assert body["id"] == self.identities[marker]
             else:
@@ -92,7 +92,7 @@ def test_generated_cache_sequences_preserve_content_usage_and_zero_hit_cost(gate
                     rows: Final = eventually(
                         lambda: read_rows(
                             "SELECT request_id, spend, cache_hit, prompt_tokens, "
-                            'completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+                            'completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
                             (sha256(self.key.encode()).hexdigest(),),
                         ),
                         lambda values: len(values) == self.requests,
@@ -152,7 +152,7 @@ def test_repeated_hits_keep_response_identity_and_create_distinct_zero_cost_rows
             assert result["usage"]["total_tokens"] == 40
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, spend, cache_hit FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+                'SELECT request_id, spend, cache_hit FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
                 (sha256(key.encode()).hexdigest(),),
             ),
             lambda values: len(values) == 3,
@@ -181,7 +181,7 @@ def test_key_budget_at_boundary_blocks_provider_then_explicit_reset_restores(gat
         assert first["usage"]["total_tokens"] == 40
         digest: Final = sha256(key.encode()).hexdigest()
         spent: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
             seconds=70,
         )
@@ -197,12 +197,12 @@ def test_key_budget_at_boundary_blocks_provider_then_explicit_reset_restores(gat
         assert upstream.get("/__observations").json()["requests"] == []
         assert gateway.chat(model, key=control, text=f"control {uuid.uuid4().hex}")["usage"]["total_tokens"] == 40
         gateway.post("/key/update", {"key": key, "spend": 0})
-        assert read_rows('SELECT spend, max_budget FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)) == [
+        assert read_rows('SELECT spend, max_budget FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)) == [
             {"spend": 0.0, "max_budget": 0.06}
         ]
         assert gateway.chat(model, key=key, text=f"reset {uuid.uuid4().hex}")["usage"]["total_tokens"] == 40
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
             seconds=70,
         )
@@ -219,7 +219,7 @@ def test_key_budget_at_boundary_blocks_provider_then_explicit_reset_restores(gat
         assert upstream.get("/__observations").json()["requests"] == []
 
 
-RESET_SWEEP_QUERY: Final = b'"LiteLLM_VerificationToken"."budget_reset_at" < $'
+RESET_SWEEP_QUERY: Final = b'"HangarLLM_VerificationToken"."budget_reset_at" < $'
 
 
 @pytest.mark.covers("quota_management.budget.key.scheduled_reset_survives_transient_db_outage")
@@ -247,7 +247,7 @@ def test_scheduled_budget_reset_reconnects_after_db_transport_failure_and_unbloc
             "/model/new",
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": f"{gateway.upstream_url}/v1",
@@ -262,7 +262,7 @@ def test_scheduled_budget_reset_reconnects_after_db_transport_failure_and_unbloc
         )
         digest: Final = sha256(key.encode()).hexdigest()
         row_query: Final = (
-            'SELECT spend, budget_reset_at::text AS budget_reset_at FROM "LiteLLM_VerificationToken" WHERE token=%s'
+            'SELECT spend, budget_reset_at::text AS budget_reset_at FROM "HangarLLM_VerificationToken" WHERE token=%s'
         )
         assert candidate.chat(model, key=key, text=f"spend it {uuid.uuid4().hex}")["usage"]["total_tokens"] == 40
         exhausted: Final = eventually(
@@ -394,13 +394,13 @@ def test_repeated_count_tokens_on_budgeted_key_does_not_reserve_budget_or_block_
         assert completion_requests[0]["path"] == f"/{counting_upstream.scenario_id}/v1/chat/completions"
         assert completion_requests[0]["body"]["messages"] == [{"role": "user", "content": completion_prompt}]
         spent: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda values: len(values) == 1 and float(values[0]["spend"]) > 0,
             seconds=70,
         )
         assert float(spent[0]["spend"]) == pytest.approx(20 * 0.001 + 20 * 0.002)
         rows: Final = eventually(
-            lambda: read_rows('SELECT call_type, spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (digest,)),
+            lambda: read_rows('SELECT call_type, spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (digest,)),
             lambda values: len(values) >= 1,
             seconds=70,
         )
@@ -457,7 +457,7 @@ def test_in_flight_count_tokens_does_not_reserve_key_budget_away_from_a_completi
         assert count.json() == {
             "totalTokens": 12,
             "promptTokensDetails": [{"modality": "TEXT", "tokenCount": 12}],
-            "litellm_count_source": "provider",
+            "hangarllm_count_source": "provider",
         }, count.text
         provider_calls: Final = wire.drain()
         assert [(call.method, call.target) for call in provider_calls] == [

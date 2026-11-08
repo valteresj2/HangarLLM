@@ -28,7 +28,7 @@ from e2e_config import CHEAP_ANTHROPIC_MODEL, CHEAP_OPENAI_MODEL, OTEL_EXPORTER_
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
 from logging_client import INVALID_UPSTREAM_API_KEY, LoggingClient, first_ok, readiness_details_body
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from otel_client import TTFT_TAG, CallTraces, JaegerSpan, JaegerTrace, OtelReader, one_served_genai_span
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -54,7 +54,7 @@ def _assert_otel_destination_configured(client: LoggingClient) -> None:
     details = _ReadinessDetails.model_validate_json(readiness_details_body(client))
     assert OTEL_V2_LOGGER_NAME in details.success_callbacks, (
         f"the proxy must report the {OTEL_V2_LOGGER_NAME} callback active "
-        f"(LITELLM_OTEL_V2=true + the otel callback in the stack config); got: {details.success_callbacks}"
+        f"(HANGARLLM_OTEL_V2=true + the otel callback in the stack config); got: {details.success_callbacks}"
     )
 
 
@@ -183,8 +183,8 @@ EXPECTED_ERROR_SPAN_ATTRIBUTES: dict[str, str] = {
     "error": "True",
     "error.type": "AuthenticationError",
     "otel.status_code": "ERROR",
-    "litellm.provider.error.code": "401",
-    "litellm.provider.error.llm_provider": "anthropic",
+    "hangarllm.provider.error.code": "401",
+    "hangarllm.provider.error.llm_provider": "anthropic",
 }
 
 
@@ -227,7 +227,7 @@ def _assert_error_span_contract(span: JaegerSpan) -> None:
     except ValidationError:
         pytest.fail(f"the embedded provider error JSON does not parse (truncated?): {message[:300]}")
     assert provider_error.error.type == "authentication_error", (
-        f"the span must carry anthropic's own auth error object rather than a litellm "
+        f"the span must carry anthropic's own auth error object rather than a hangarllm "
         f"stand-in; parsed: {provider_error}"
     )
     assert provider_error.error.message.strip(), (
@@ -236,8 +236,8 @@ def _assert_error_span_contract(span: JaegerSpan) -> None:
     assert span.tag("otel.status_description") == message, (
         "the span status description must carry the same untruncated message as error.message"
     )
-    stack = span.tag("litellm.provider.error.stack_trace")
-    assert isinstance(stack, str) and stack, "the error span must carry a non-empty litellm.provider.error.stack_trace"
+    stack = span.tag("hangarllm.provider.error.stack_trace")
+    assert isinstance(stack, str) and stack, "the error span must carry a non-empty hangarllm.provider.error.stack_trace"
 
 
 class TestOtelTraceCompleteness:
@@ -278,7 +278,7 @@ class TestOtelTraceCompleteness:
 
         marker = unique_marker()
         outcome = first_ok(client, lambda: client.chat_raw(key, MODEL, f"reply with one word {marker}", max_tokens=16))
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
 
         traces = _poll(otel_reader, call_id=outcome.call_id, route=route, genai_span=f"chat {MODEL}")
         assert_complete_trace(traces, route=route, genai_span=f"chat {MODEL}")
@@ -311,7 +311,7 @@ class TestOtelTraceCompleteness:
         outcome: Final = first_ok(
             client, lambda: client.chat_raw(key, MODEL, f"reply with one word {marker}", max_tokens=16)
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
 
         hits: Final = _poll(otel_reader, call_id=outcome.call_id, route=route, genai_span=f"chat {MODEL}")
         assert_complete_trace(hits, route=route, genai_span=f"chat {MODEL}")
@@ -349,7 +349,7 @@ class TestOtelTraceCompleteness:
         outcome = first_ok(
             client, lambda: client.messages_raw(key, MODEL, f"reply with one word {marker}", max_tokens=16)
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
 
         traces = _poll(otel_reader, call_id=outcome.call_id, route=route, genai_span=f"chat {MODEL}")
         assert_complete_trace(traces, route=route, genai_span=f"chat {MODEL}")
@@ -387,7 +387,7 @@ class TestOtelTraceCompleteness:
             client,
             lambda: client.responses_raw(key, CHEAP_OPENAI_MODEL, f"reply with one word {marker}"),
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
 
         genai_span = f"chat {CHEAP_OPENAI_MODEL}"
         traces = _poll(otel_reader, call_id=outcome.call_id, route=route, genai_span=genai_span)
@@ -420,7 +420,7 @@ class TestOtelTraceCompleteness:
 
         * The response actually streams.
         * Exactly one gen-AI span is created for the request.
-        * The gen-AI span contains `litellm.request.streaming=true`.
+        * The gen-AI span contains `hangarllm.request.streaming=true`.
         """
         route = "/chat/completions"
         _assert_otel_destination_configured(client)
@@ -433,7 +433,7 @@ class TestOtelTraceCompleteness:
             client,
             lambda: client.chat_raw(key, MODEL, f"reply with one word {marker}", stream=True, max_tokens=16),
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
         assert outcome.is_streaming, f"response must be an event stream, got content-type {outcome.content_type!r}"
         assert outcome.chunks > 0, "the stream must deliver at least one event"
         assert outcome.stream_error is None, (
@@ -445,8 +445,8 @@ class TestOtelTraceCompleteness:
         assert_complete_trace(traces, route=route, genai_span=genai_span)
 
         served = one_served_genai_span(traces.hits[0], genai_span)
-        assert served.tag("litellm.request.streaming") is True, (
-            "the gen-AI span must record litellm.request.streaming=true; its absence means "
+        assert served.tag("hangarllm.request.streaming") is True, (
+            "the gen-AI span must record hangarllm.request.streaming=true; its absence means "
             "the stream flag was dropped before the model call"
         )
 
@@ -477,7 +477,7 @@ class TestOtelTraceCompleteness:
 
         * The response actually streams.
         * Exactly one gen-AI span is created for the request.
-        * The gen-AI span contains `litellm.request.streaming=true`.
+        * The gen-AI span contains `hangarllm.request.streaming=true`.
         """
         route = "/v1/messages"
         _assert_otel_destination_configured(client)
@@ -490,7 +490,7 @@ class TestOtelTraceCompleteness:
             client,
             lambda: client.messages_raw(key, MODEL, f"reply with one word {marker}", max_tokens=16, stream=True),
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
         assert outcome.is_streaming, f"response must be an event stream, got content-type {outcome.content_type!r}"
         assert outcome.chunks > 0, "the stream must deliver at least one event"
         assert outcome.stream_error is None, (
@@ -502,8 +502,8 @@ class TestOtelTraceCompleteness:
         assert_complete_trace(traces, route=route, genai_span=genai_span)
 
         served = one_served_genai_span(traces.hits[0], genai_span)
-        assert served.tag("litellm.request.streaming") is True, (
-            "the gen-AI span must record litellm.request.streaming=true; its absence means "
+        assert served.tag("hangarllm.request.streaming") is True, (
+            "the gen-AI span must record hangarllm.request.streaming=true; its absence means "
             "the stream flag was dropped before the model call"
         )
 
@@ -547,7 +547,7 @@ class TestOtelTraceCompleteness:
             client,
             lambda: client.responses_raw(key, CHEAP_OPENAI_MODEL, f"reply with one word {marker}", stream=True),
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
         assert outcome.is_streaming, f"response must be an event stream, got content-type {outcome.content_type!r}"
         assert outcome.chunks > 0, "the stream must deliver at least one event"
         assert outcome.stream_error is None, (
@@ -604,7 +604,7 @@ class TestOtelTraceCompleteness:
             client,
             lambda: client.chat_raw(key, MODEL, f"reply with one word {marker}", stream=True, max_tokens=16),
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
         assert outcome.is_streaming, f"response must be an event stream, got content-type {outcome.content_type!r}"
         assert outcome.chunks > 0, "the stream must deliver at least one event"
         assert outcome.stream_error is None, (
@@ -651,7 +651,7 @@ class TestOtelTraceCompleteness:
             client,
             lambda: client.messages_raw(key, MODEL, f"reply with one word {marker}", max_tokens=16, stream=True),
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
         assert outcome.is_streaming, f"response must be an event stream, got content-type {outcome.content_type!r}"
         assert outcome.chunks > 0, "the stream must deliver at least one event"
         assert outcome.stream_error is None, (
@@ -698,7 +698,7 @@ class TestOtelTraceCompleteness:
             client,
             lambda: client.responses_raw(key, CHEAP_OPENAI_MODEL, f"reply with one word {marker}", stream=True),
         )
-        assert outcome.call_id is not None, "success response must carry x-litellm-call-id"
+        assert outcome.call_id is not None, "success response must carry x-hangarllm-call-id"
         assert outcome.is_streaming, f"response must be an event stream, got content-type {outcome.content_type!r}"
         assert outcome.chunks > 0, "the stream must deliver at least one event"
         assert outcome.stream_error is None, (
@@ -730,7 +730,7 @@ class TestOtelTraceCompleteness:
         record the same 401 response returned to the client.
 
         The test uses a deployment with an invalid upstream API key. This
-        allows the request to pass LiteLLM’s proxy authentication and fail at
+        allows the request to pass HangarLLM’s proxy authentication and fail at
         the provider, which is necessary to generate a model-call error span."""
         route = "/chat/completions"
         _assert_otel_destination_configured(client)
@@ -738,7 +738,7 @@ class TestOtelTraceCompleteness:
         model_name = f"otel-err-{unique_marker()}"
         model_id = client.create_model(
             model_name,
-            LiteLLMParamsBody(model=FAILING_BACKEND_MODEL, api_key=INVALID_UPSTREAM_API_KEY),
+            HangarLLMParamsBody(model=FAILING_BACKEND_MODEL, api_key=INVALID_UPSTREAM_API_KEY),
         )
         resources.defer(lambda: client.delete_model(model_id))
         key = client.key_with_alias(f"otel-err-{unique_marker()}", models=[model_name])
@@ -758,7 +758,7 @@ class TestOtelTraceCompleteness:
         assert outcome.status_code == 401, (
             f"an upstream auth failure must map to 401, got {outcome.status_code}: {outcome.body[:200]}"
         )
-        assert outcome.call_id is not None, "failed responses must still carry x-litellm-call-id"
+        assert outcome.call_id is not None, "failed responses must still carry x-hangarllm-call-id"
 
         genai_span = f"chat {model_name}"
         traces = _poll(otel_reader, call_id=outcome.call_id, route=route, genai_span=genai_span)
@@ -789,7 +789,7 @@ class TestOtelTraceCompleteness:
         async messages entrypoint used to surface the provider handler's raw
         BaseLLMException to the failure logger, so the model-call span came
         out with error.type=BaseLLMException and no
-        litellm.provider.error.llm_provider attribute.
+        hangarllm.provider.error.llm_provider attribute.
 
         Same setup as the chat sibling: a deployment with an invalid upstream
         API key passes proxy auth and fails at the provider with a real 401."""
@@ -799,7 +799,7 @@ class TestOtelTraceCompleteness:
         model_name = f"otel-err-{unique_marker()}"
         model_id = client.create_model(
             model_name,
-            LiteLLMParamsBody(model=FAILING_BACKEND_MODEL, api_key=INVALID_UPSTREAM_API_KEY),
+            HangarLLMParamsBody(model=FAILING_BACKEND_MODEL, api_key=INVALID_UPSTREAM_API_KEY),
         )
         resources.defer(lambda: client.delete_model(model_id))
         key = client.key_with_alias(f"otel-err-{unique_marker()}", models=[model_name])
@@ -820,7 +820,7 @@ class TestOtelTraceCompleteness:
         assert outcome.status_code == 401, (
             f"an upstream auth failure must map to 401, got {outcome.status_code}: {outcome.body[:200]}"
         )
-        assert outcome.call_id is not None, "failed responses must still carry x-litellm-call-id"
+        assert outcome.call_id is not None, "failed responses must still carry x-hangarllm-call-id"
 
         genai_span = f"chat {model_name}"
         traces = _poll(otel_reader, call_id=outcome.call_id, route=route, genai_span=genai_span)

@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.vertex_ai.image_generation.image_generation_handler import VertexImageGeneration
-from litellm.types.utils import ImageResponse
+from hangarllm.llms.vertex_ai.image_generation.image_generation_handler import VertexImageGeneration
+from hangarllm.types.utils import ImageResponse
 
 
 def _process(json_response: dict[str, object]) -> ImageResponse:

@@ -28,7 +28,7 @@ METRICS_ROUTE: Final = "/metrics/"
 
 
 def enable_prometheus(config: dict[str, object], _provider_url: str) -> None:
-    settings: Final = config["litellm_settings"]
+    settings: Final = config["hangarllm_settings"]
     assert isinstance(settings, dict)
     settings["callbacks"] = [*settings["callbacks"], "prometheus"]
 

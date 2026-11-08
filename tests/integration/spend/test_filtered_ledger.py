@@ -61,7 +61,7 @@ def test_rotated_keys_users_and_model_groups_preserve_success_failure_cache_ledg
         digests: Final = tuple(sha256(key.encode()).hexdigest() for key in active)
         ledger: dict[str, tuple[str, str, str]] = {}
         for owner, model, key, digest in zip(owners, models, active, digests, strict=True):
-            assert read_rows('SELECT user_id FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)) == [
+            assert read_rows('SELECT user_id FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)) == [
                 {"user_id": owner}
             ]
             prompt: Final = uuid.uuid4().hex
@@ -94,14 +94,14 @@ def test_rotated_keys_users_and_model_groups_preserve_success_failure_cache_ledg
                 key=key,
             )
             assert rejected.status_code == 400 and "synthetic ledger rejection" in rejected.text
-            ledger[digest] = (replies[0], rejected.headers["x-litellm-call-id"], model)
+            ledger[digest] = (replies[0], rejected.headers["x-hangarllm-call-id"], model)
         observed: Final = wire.drain()
         assert len(observed) == 4
         assert sum(json.loads(item.body)["messages"][-1]["content"].endswith("reject") for item in observed) == 2
         rows: Final = eventually(
             lambda: read_rows(
                 'SELECT request_id, api_key, "user", model_group, status, cache_hit, spend, '
-                'prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=ANY(%s)',
+                'prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=ANY(%s)',
                 (list(digests),),
             ),
             lambda values: len(values) == 6,

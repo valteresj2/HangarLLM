@@ -1,7 +1,7 @@
 suite: lens connection
 templates:
   - deployment.yaml
-  - configmap-litellm.yaml
+  - configmap-hangarllm.yaml
   - ingress.yaml
 tests:
   - it: connects the proxy to an external Lens
@@ -16,12 +16,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_URL
+            name: HANGARLLM_LENS_URL
             value: http://lens.lens.svc:4318
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_PUBLIC_URL
+            name: HANGARLLM_LENS_PUBLIC_URL
             value: https://lens.example.com/lens-ingest
       - contains:
           path: spec.template.spec.containers[0].env
@@ -34,7 +34,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_SERVICE_TOKEN
+            name: HANGARLLM_LENS_SERVICE_TOKEN
             valueFrom:
               secretKeyRef:
                 name: lens-service

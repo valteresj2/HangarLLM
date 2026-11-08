@@ -7,8 +7,8 @@ from typing import Final
 import pytest
 from integration._support.client import eventually
 from integration._support.wire import Reply, Request, Wire, wire_server
-from litellm import Router
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm import Router
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 from redis import Redis
 
 COUNTER_TTL_SECONDS: Final = 60
@@ -40,7 +40,7 @@ def _router(wire: Wire, deployment_id: str) -> Router:
         model_list=[
             {
                 "model_name": "usage-ttl",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{wire.url}/v1",
                     "api_key": "synthetic-usage-ttl-key",

@@ -8,17 +8,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler import (
     GeminiPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
-from litellm.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
+from hangarllm.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
 
@@ -78,13 +78,13 @@ class TestGeminiPassthroughLoggingHandler:
         mock_response.headers = {"content-type": "application/json"}
         return mock_response
 
-    def _create_mock_logging_obj(self) -> LiteLLMLoggingObj:
+    def _create_mock_logging_obj(self) -> HangarLLMLoggingObj:
         """Create a mock logging object for testing"""
-        mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
         mock_logging_obj.model_call_details = {}
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-123"
+        mock_logging_obj.hangarllm_params = {}
+        mock_logging_obj.hangarllm_call_id = "test-call-id-123"
         return mock_logging_obj
 
     def _create_passthrough_logging_payload(self) -> PassthroughStandardLoggingPayload:
@@ -97,7 +97,7 @@ class TestGeminiPassthroughLoggingHandler:
 
     def test_is_gemini_route(self):
         """Test that Gemini routes are correctly identified"""
-        from litellm.proxy.pass_through_endpoints.success_handler import (
+        from hangarllm.proxy.pass_through_endpoints.success_handler import (
             PassThroughEndpointLogging,
         )
 
@@ -144,9 +144,9 @@ class TestGeminiPassthroughLoggingHandler:
         )
         assert model == "gemini-1.5-pro"
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     @patch(
-        "litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload"
+        "hangarllm.hangarllm_core_utils.hangarllm_logging.get_standard_logging_object_payload"
     )
     def test_gemini_passthrough_handler_success(
         self, mock_get_standard_logging, mock_completion_cost
@@ -194,7 +194,7 @@ class TestGeminiPassthroughLoggingHandler:
         assert mock_logging_obj.model_call_details["model"] == "gemini-1.5-flash"
         assert mock_logging_obj.model_call_details["custom_llm_provider"] == "gemini"
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_gemini_passthrough_handler_streaming(self, mock_completion_cost):
         """Test cost tracking for Gemini streaming endpoint"""
         # Arrange
@@ -275,7 +275,7 @@ class TestGeminiPassthroughLoggingHandler:
 
     @pytest.mark.asyncio
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler.litellm.completion_cost",
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler.hangarllm.completion_cost",
         return_value=0.000050,
     )
     async def test_pass_through_success_handler_gemini_routing(
@@ -324,7 +324,7 @@ class TestGeminiPassthroughLoggingHandler:
         assert call_kwargs["model"] == "gemini-2.0-flash"
         assert call_kwargs["custom_llm_provider"] == "gemini"
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_veo3_passthrough_cost_tracking(self, mock_completion_cost):
         """Test Veo3 video generation cost tracking for passthrough requests"""
         # Mock the completion_cost to return the expected video generation cost
@@ -422,9 +422,9 @@ class TestGeminiPassthroughLoggingHandler:
             "status": "completed",
             "usage": usage,
         }
-        mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = MagicMock(spec=HangarLLMLoggingObj)
         mock_logging_obj.model_call_details = {}
-        mock_logging_obj.litellm_call_id = "call-6896"
+        mock_logging_obj.hangarllm_call_id = "call-6896"
 
         result = GeminiPassthroughLoggingHandler.gemini_passthrough_handler(
             httpx_response=mock_httpx_response,
@@ -438,7 +438,7 @@ class TestGeminiPassthroughLoggingHandler:
             request_body={"model": "gemini-omni-flash-preview", "input": "make a clip"},
         )
 
-        model_info = litellm.get_model_info(model="gemini-omni-flash-preview", custom_llm_provider="gemini")
+        model_info = hangarllm.get_model_info(model="gemini-omni-flash-preview", custom_llm_provider="gemini")
         expected_cost = (
             10 * model_info["input_cost_per_token"]
             + 20 * model_info["output_cost_per_token"]
@@ -452,16 +452,16 @@ class TestGeminiPassthroughLoggingHandler:
 
 
 def test_build_complete_streaming_response_assembles_gemini_sse_chunks():
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="gemini-2.5-flash",
         messages=[{"role": "user", "content": "Hello"}],
         stream=True,
         call_type="pass_through_endpoint",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="gemini-stream-call-id",
+        hangarllm_call_id="gemini-stream-call-id",
         function_id="gemini-stream-function-id",
     )
-    logging_obj.update_environment_variables(litellm_params={}, optional_params={}, model="gemini-2.5-flash")
+    logging_obj.update_environment_variables(hangarllm_params={}, optional_params={}, model="gemini-2.5-flash")
     first_chunk: Final = {"candidates": [{"content": {"parts": [{"text": "Hello"}], "role": "model"}, "index": 0}]}
     last_chunk: Final = {
         "candidates": [
@@ -472,12 +472,12 @@ def test_build_complete_streaming_response_assembles_gemini_sse_chunks():
 
     response: Final = GeminiPassthroughLoggingHandler._build_complete_streaming_response(
         all_chunks=[f"data: {json.dumps(first_chunk)}", f"data: {json.dumps(last_chunk)}"],
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         model="gemini-2.5-flash",
         url_route="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent",
     )
 
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     assert response.choices[0].message.content == "Hello there!"
     assert response.choices[0].finish_reason == "stop"
     assert (response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.total_tokens) == (10, 8, 18)
@@ -500,37 +500,37 @@ def probe_rate_card(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     rates: Final = {
         "input_cost_per_token": _LIST_INPUT_RATE,
         "output_cost_per_token": _LIST_OUTPUT_RATE,
-        "litellm_provider": "gemini",
+        "hangarllm_provider": "gemini",
         "mode": "chat",
     }
-    monkeypatch.setitem(litellm.model_cost, f"gemini/{_PROBE_MODEL}", rates)
+    monkeypatch.setitem(hangarllm.model_cost, f"gemini/{_PROBE_MODEL}", rates)
     monkeypatch.setitem(
-        litellm.model_cost, _CUSTOM_PRICED_DEPLOYMENT, {**_CUSTOM_RATES, "litellm_provider": "gemini", "mode": "chat"}
+        hangarllm.model_cost, _CUSTOM_PRICED_DEPLOYMENT, {**_CUSTOM_RATES, "hangarllm_provider": "gemini", "mode": "chat"}
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _cost_the_logger_records_for_gemini(*, stream: bool, model_info: dict[str, object] | None) -> float:
     method: Final = "streamGenerateContent?alt=sse" if stream else "generateContent"
     url_route: Final = f"https://generativelanguage.googleapis.com/v1beta/models/{_PROBE_MODEL}:{method}"
-    logging_obj: Final = LiteLLMLoggingObj(
+    logging_obj: Final = HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "ping"}],
         stream=stream,
         call_type="pass_through_endpoint",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
     )
     logging_obj.update_environment_variables(
-        litellm_params={"metadata": {"model_info": model_info}} if model_info is not None else {}, optional_params={}
+        hangarllm_params={"metadata": {"model_info": model_info}} if model_info is not None else {}, optional_params={}
     )
     if stream:
         asyncio.run(
             PassThroughStreamingHandler.route_streaming_logging_to_handler(
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
                 passthrough_success_handler_obj=PassThroughEndpointLogging(),
                 url_route=url_route,
                 request_body={},

@@ -2,11 +2,11 @@
 Common naming + label helpers shared by gateway, backend, and ui templates.
 */}}
 
-{{- define "litellm.name" -}}
+{{- define "hangarllm.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "litellm.fullname" -}}
+{{- define "hangarllm.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
@@ -15,19 +15,19 @@ Common naming + label helpers shared by gateway, backend, and ui templates.
 {{- end -}}
 {{- end -}}
 
-{{- define "litellm.gateway.fullname" -}}
-{{- printf "%s-gateway" (include "litellm.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- define "hangarllm.gateway.fullname" -}}
+{{- printf "%s-gateway" (include "hangarllm.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "litellm.backend.fullname" -}}
-{{- printf "%s-backend" (include "litellm.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- define "hangarllm.backend.fullname" -}}
+{{- printf "%s-backend" (include "hangarllm.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "litellm.ui.fullname" -}}
-{{- printf "%s-ui" (include "litellm.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- define "hangarllm.ui.fullname" -}}
+{{- printf "%s-ui" (include "hangarllm.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "litellm.ui.publicOrigin" -}}
+{{- define "hangarllm.ui.publicOrigin" -}}
 {{- $origin := .Values.ui.publicUrl | trim | trimSuffix "/" -}}
 {{- if not (regexMatch "^https?://[^/\\s]+$" $origin) -}}
 {{- fail "ui.publicUrl must be an origin like https://ui.example.com, without a path" -}}
@@ -35,7 +35,7 @@ Common naming + label helpers shared by gateway, backend, and ui templates.
 {{- $origin -}}
 {{- end -}}
 
-{{- define "litellm.ui.backendOrigin" -}}
+{{- define "hangarllm.ui.backendOrigin" -}}
 {{- $origin := .Values.ui.backendUrl | trim | trimSuffix "/" -}}
 {{- if not (regexMatch "^https?://[^/\\s]+$" $origin) -}}
 {{- fail "ui.backendUrl must be an origin like https://backend.example.com, without a path, when ingress.componentHosts is set" -}}
@@ -43,7 +43,7 @@ Common naming + label helpers shared by gateway, backend, and ui templates.
 {{- $origin -}}
 {{- end -}}
 
-{{- define "litellm.backend.gatewayOrigin" -}}
+{{- define "hangarllm.backend.gatewayOrigin" -}}
 {{- $origin := .Values.backend.gatewayUrl | trim | trimSuffix "/" -}}
 {{- if not (regexMatch "^https?://[^/\\s]+$" $origin) -}}
 {{- fail "backend.gatewayUrl must be an origin like https://gateway.example.com, without a path, when ingress.componentHosts is set" -}}
@@ -51,30 +51,30 @@ Common naming + label helpers shared by gateway, backend, and ui templates.
 {{- $origin -}}
 {{- end -}}
 
-{{- define "litellm.commonLabels" -}}
-app.kubernetes.io/name: {{ include "litellm.name" . }}
+{{- define "hangarllm.commonLabels" -}}
+app.kubernetes.io/name: {{ include "hangarllm.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 {{- end -}}
 
-{{- define "litellm.billingMetricsEnv" -}}
-- name: LITELLM_BILLING_METRICS_ENDPOINT
+{{- define "hangarllm.billingMetricsEnv" -}}
+- name: HANGARLLM_BILLING_METRICS_ENDPOINT
   value: {{ required "billingMetrics.endpoint is required when billingMetrics.enabled is true" .Values.billingMetrics.endpoint | quote }}
-- name: LITELLM_BILLING_METRICS_TOKEN_URL
+- name: HANGARLLM_BILLING_METRICS_TOKEN_URL
   value: {{ required "billingMetrics.tokenUrl is required when billingMetrics.enabled is true" .Values.billingMetrics.tokenUrl | quote }}
-- name: LITELLM_BILLING_METRICS_CLIENT_ID
+- name: HANGARLLM_BILLING_METRICS_CLIENT_ID
   valueFrom:
     secretKeyRef:
       name: {{ required "billingMetrics.secretName is required when billingMetrics.enabled is true" .Values.billingMetrics.secretName }}
       key: client-id
-- name: LITELLM_BILLING_METRICS_CLIENT_SECRET
+- name: HANGARLLM_BILLING_METRICS_CLIENT_SECRET
   valueFrom:
     secretKeyRef:
       name: {{ required "billingMetrics.secretName is required when billingMetrics.enabled is true" .Values.billingMetrics.secretName }}
       key: client-secret
 {{- with .Values.billingMetrics.exportIntervalMs }}
-- name: LITELLM_BILLING_METRICS_EXPORT_INTERVAL_MS
+- name: HANGARLLM_BILLING_METRICS_EXPORT_INTERVAL_MS
   value: {{ . | quote }}
 {{- end }}
 {{- end -}}
@@ -83,20 +83,20 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 {{/*
 Per-component selector labels — used in both Service selectors and Deployment matchLabels.
 */}}
-{{- define "litellm.gateway.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "litellm.name" . }}
+{{- define "hangarllm.gateway.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hangarllm.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: gateway
 {{- end -}}
 
-{{- define "litellm.backend.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "litellm.name" . }}
+{{- define "hangarllm.backend.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hangarllm.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: backend
 {{- end -}}
 
-{{- define "litellm.ui.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "litellm.name" . }}
+{{- define "hangarllm.ui.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hangarllm.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: ui
 {{- end -}}
@@ -106,28 +106,28 @@ Per-component ServiceAccount name helpers.
 
 Each component (gateway, backend, ui) has its own SA config under
 .Values.serviceAccounts.<component>. When `create` is true and `name` is
-empty the chart defaults to "<release>-litellm-<component>". When `create`
+empty the chart defaults to "<release>-hangarllm-<component>". When `create`
 is false the chart uses the provided name, or the namespace `default` SA.
 */}}
-{{- define "litellm.gateway.serviceAccountName" -}}
+{{- define "hangarllm.gateway.serviceAccountName" -}}
 {{- if .Values.serviceAccounts.gateway.create -}}
-{{ default (include "litellm.gateway.fullname" .) .Values.serviceAccounts.gateway.name }}
+{{ default (include "hangarllm.gateway.fullname" .) .Values.serviceAccounts.gateway.name }}
 {{- else -}}
 {{ default "default" .Values.serviceAccounts.gateway.name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "litellm.backend.serviceAccountName" -}}
+{{- define "hangarllm.backend.serviceAccountName" -}}
 {{- if .Values.serviceAccounts.backend.create -}}
-{{ default (include "litellm.backend.fullname" .) .Values.serviceAccounts.backend.name }}
+{{ default (include "hangarllm.backend.fullname" .) .Values.serviceAccounts.backend.name }}
 {{- else -}}
 {{ default "default" .Values.serviceAccounts.backend.name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "litellm.ui.serviceAccountName" -}}
+{{- define "hangarllm.ui.serviceAccountName" -}}
 {{- if .Values.serviceAccounts.ui.create -}}
-{{ default (include "litellm.ui.fullname" .) .Values.serviceAccounts.ui.name }}
+{{ default (include "hangarllm.ui.fullname" .) .Values.serviceAccounts.ui.name }}
 {{- else -}}
 {{ default "default" .Values.serviceAccounts.ui.name }}
 {{- end -}}
@@ -150,13 +150,13 @@ sharing it.
 that needs credentials of its own (IRSA / Workload Identity for IAM database
 auth) gets them.
 */}}
-{{- define "litellm.migrations.serviceAccountName" -}}
+{{- define "hangarllm.migrations.serviceAccountName" -}}
 {{- if .Values.migrationJob.serviceAccountName -}}
 {{ .Values.migrationJob.serviceAccountName }}
 {{- else if .Values.serviceAccounts.backend.create -}}
 default
 {{- else -}}
-{{ include "litellm.backend.serviceAccountName" . }}
+{{ include "hangarllm.backend.serviceAccountName" . }}
 {{- end -}}
 {{- end -}}
 
@@ -176,7 +176,7 @@ instead, so the operator gets the reason here rather than an opaque
 The migrations Job takes podLabels unvalidated: a Job's selector is generated
 by the controller rather than declared, so nothing there can collide.
 */}}
-{{- define "litellm.podLabels" -}}
+{{- define "hangarllm.podLabels" -}}
 {{- $componentName := .componentName -}}
 {{- range $key, $value := .podLabels }}
 {{- if has $key (list "app.kubernetes.io/name" "app.kubernetes.io/instance" "app.kubernetes.io/component") }}
@@ -202,7 +202,7 @@ database.writer.passwordSecret.urlKey is set, the chart passes the operator's
 URL through from the Secret. Otherwise it emits only the discrete
 DATABASE_HOST/PORT/USER/NAME/SCHEMA (+ DATABASE_PASSWORD for password auth)
 vars; the proxy's entrypoint (DatabaseURLSettings in
-litellm/proxy/db/db_url_settings.py) builds the URL from them and
+hangarllm/proxy/db/db_url_settings.py) builds the URL from them and
 percent-encodes the credentials. Assembling the URL here via Kubernetes
 `$(VAR)` substitution would embed the raw secret value, corrupting the URL
 whenever the password contains a URL-reserved character (@, /, ?, %, +,
@@ -226,16 +226,16 @@ same way. Reader token auth only takes effect when the writer uses the same
 token source, since the proxy gates URL minting on the single global
 IAM_TOKEN_DB_AUTH / AZURE_POSTGRESQL_AUTH toggle that only the writer sets.
 */}}
-{{- define "litellm.serverEnv" -}}
+{{- define "hangarllm.serverEnv" -}}
 {{- $root := .root -}}
 {{- $component := .component -}}
-- name: LITELLM_MASTER_KEY
+- name: HANGARLLM_MASTER_KEY
   valueFrom:
     secretKeyRef:
       name: {{ required "masterKey.secretName is required (the chart no longer accepts an inline master key)" $root.Values.masterKey.secretName }}
       key: {{ $root.Values.masterKey.secretKey | default "master-key" }}
 {{- if $component.logLevel }}
-- name: LITELLM_LOG
+- name: HANGARLLM_LOG
   value: {{ $component.logLevel | quote }}
 {{- end }}
 {{- with $root.Values.database.writer }}
@@ -475,13 +475,13 @@ harmless no-op for the Job and authoritative for the app pods.
 {{/*
 In-container PgBouncer env for the gateway container. Under IAM or Entra auth the pooler mints and renews the database token itself.
 */}}
-{{- define "litellm.connectionPoolEnv" -}}
+{{- define "hangarllm.connectionPoolEnv" -}}
 {{- with .Values.database.connectionPool -}}
-- name: LITELLM_PGBOUNCER_ENABLED
+- name: HANGARLLM_PGBOUNCER_ENABLED
   value: "true"
-- name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+- name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
   value: {{ required "database.connectionPool.maxDbConnections is required when the pool is enabled" .maxDbConnections | quote }}
-- name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+- name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
   value: {{ required "database.connectionPool.maxClientConn is required when the pool is enabled" .maxClientConn | quote }}
 {{- end }}
 {{- end -}}
@@ -491,8 +491,8 @@ PodDisruptionBudget shared by gateway, backend, and ui.
 
 Invoke with a dict:
   (dict "root" $ "component" .Values.gateway "componentName" "gateway"
-        "fullname" (include "litellm.gateway.fullname" .)
-        "selectorLabels" (include "litellm.gateway.selectorLabels" .))
+        "fullname" (include "hangarllm.gateway.fullname" .)
+        "selectorLabels" (include "hangarllm.gateway.selectorLabels" .))
 
 Renders nothing unless both the component and its `pdb.enabled` are on.
 Only one of minAvailable / maxUnavailable should be set; if both are,
@@ -503,7 +503,7 @@ an enabled-but-unconfigured PDB still permits node drains.
 `maxUnavailable: 0` to forbid all voluntary disruptions) is honored rather
 than silently replaced by the fallback.
 */}}
-{{- define "litellm.pdb" -}}
+{{- define "hangarllm.pdb" -}}
 {{- $root := .root -}}
 {{- $component := .component -}}
 {{- $min := $component.pdb.minAvailable -}}
@@ -516,7 +516,7 @@ kind: PodDisruptionBudget
 metadata:
   name: {{ .fullname }}
   labels:
-    {{- include "litellm.commonLabels" $root | nindent 4 }}
+    {{- include "hangarllm.commonLabels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ .componentName }}
 spec:
   selector:
@@ -540,7 +540,7 @@ Secret into the container's env via configMapRef / secretRef.
 Invoke with just the component dict, e.g. `.Values.gateway`. Emits nothing
 when both lists are empty so the container spec stays clean.
 */}}
-{{- define "litellm.envFrom" -}}
+{{- define "hangarllm.envFrom" -}}
 {{- $component := . -}}
 {{- if or $component.envConfigMaps $component.envSecrets }}
 envFrom:
@@ -560,7 +560,7 @@ ingress-nginx's admission webhook rejects a dot in an Exact or Prefix path
 (strict-validate-path-type) and serves ImplementationSpecific as a plain
 prefix location, so a dotted path takes that type there.
 */}}
-{{- define "litellm.ingress.pathType" -}}
+{{- define "hangarllm.ingress.pathType" -}}
 {{- if and (eq .controller "nginx") (contains "." .path) -}}
 ImplementationSpecific
 {{- else -}}
@@ -568,40 +568,40 @@ ImplementationSpecific
 {{- end -}}
 {{- end -}}
 
-{{- define "litellm.gateway.prometheusMultiprocDir" -}}/tmp/litellm_prometheus_multiproc{{- end -}}
+{{- define "hangarllm.gateway.prometheusMultiprocDir" -}}/tmp/hangarllm_prometheus_multiproc{{- end -}}
 
 {{/*
 Directory of the collector's unix socket, shared by the gateway and
 collector containers through an emptyDir. Empty when the sidecar is off
 or gateway.collector.address is a tcp://127.0.0.1:<port> address.
 */}}
-{{- define "litellm.gateway.collectorSocketDir" -}}
+{{- define "hangarllm.gateway.collectorSocketDir" -}}
 {{- if and .Values.gateway.collector.enabled (hasPrefix "unix://" .Values.gateway.collector.address) -}}
 {{- dir (trimPrefix "unix://" .Values.gateway.collector.address) -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-LITELLM_COLLECTOR_* env shared by the producer (gateway container) and the
+HANGARLLM_COLLECTOR_* env shared by the producer (gateway container) and the
 consumer (collector container), so both agree on the transport and the
 shutdown drain window.
 */}}
-{{- define "litellm.gateway.collectorEnv" -}}
+{{- define "hangarllm.gateway.collectorEnv" -}}
 {{- with .Values.gateway.collector }}
-- name: LITELLM_COLLECTOR_ENABLED
+- name: HANGARLLM_COLLECTOR_ENABLED
   value: "true"
-- name: LITELLM_COLLECTOR_ADDRESS
+- name: HANGARLLM_COLLECTOR_ADDRESS
   value: {{ .address | quote }}
-- name: LITELLM_COLLECTOR_BUFFER_SIZE
+- name: HANGARLLM_COLLECTOR_BUFFER_SIZE
   value: {{ .bufferSize | quote }}
-- name: LITELLM_COLLECTOR_ON_UNAVAILABLE
+- name: HANGARLLM_COLLECTOR_ON_UNAVAILABLE
   value: {{ .onUnavailable | quote }}
-- name: LITELLM_COLLECTOR_DRAIN_TIMEOUT_SECONDS
+- name: HANGARLLM_COLLECTOR_DRAIN_TIMEOUT_SECONDS
   value: {{ .drainTimeoutSeconds | quote }}
 {{- end }}
 {{- end -}}
 
-{{- define "litellm.lensConnectionEnv" -}}
+{{- define "hangarllm.lensConnectionEnv" -}}
 {{- with .Values.lensWorker }}
 {{- if or .enabled (and .mode (ne .mode "disabled")) }}
 {{- fail "lensWorker was removed; deploy Lens from its own chart and set lens.* instead, see the chart README" }}
@@ -609,16 +609,16 @@ shutdown drain window.
 {{- end }}
 {{- with .Values.lens }}
 {{- if .enabled }}
-- name: LITELLM_LENS_URL
+- name: HANGARLLM_LENS_URL
   value: {{ required "lens.url is required when lens.enabled is true" .url | quote }}
-- name: LITELLM_LENS_PUBLIC_URL
+- name: HANGARLLM_LENS_PUBLIC_URL
   value: {{ required "lens.publicUrl is required when lens.enabled is true" .publicUrl | quote }}
 - name: LENS_GATEWAY_SECRET
   valueFrom:
     secretKeyRef:
       name: {{ required "lens.gatewaySecret.name is required when lens.enabled is true" .gatewaySecret.name | quote }}
       key: {{ .gatewaySecret.key | quote }}
-- name: LITELLM_LENS_SERVICE_TOKEN
+- name: HANGARLLM_LENS_SERVICE_TOKEN
   valueFrom:
     secretKeyRef:
       name: {{ required "lens.serviceTokenSecret.name is required when lens.enabled is true" .serviceTokenSecret.name | quote }}

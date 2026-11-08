@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, TEAM_BETA, Actor
 from tests.integration._support.actors import create_scratch_key
@@ -88,7 +88,7 @@ async def test_key_delete_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value} {target_shape}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": target_hashed}
     )
     auth_check = await gateway_client.get(

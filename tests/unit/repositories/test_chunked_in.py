@@ -6,7 +6,7 @@ import pytest
 from prisma import models as prisma_models
 from prisma.builder import QueryBuilder
 
-from litellm.repositories.chunked_in import (
+from hangarllm.repositories.chunked_in import (
     IN_LIST_CHUNK_SIZE,
     MAX_IN_LIST_CHUNK_SIZE,
     ChunkedFieldWriteError,
@@ -170,7 +170,7 @@ async def test_writes_require_an_atomicity_decision() -> None:
 
 def _find_many_query(where: Mapping[str, object]) -> str:
     return QueryBuilder(
-        method="find_many", model=prisma_models.LiteLLM_Config, arguments={"where": where}
+        method="find_many", model=prisma_models.HangarLLM_Config, arguments={"where": where}
     ).build_query()
 
 

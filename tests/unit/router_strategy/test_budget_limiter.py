@@ -1,7 +1,7 @@
 """
 Spend tracking in RouterBudgetLimiting.async_log_success_event.
 
-Only chat completions puts custom_llm_provider into litellm_params. The responses,
+Only chat completions puts custom_llm_provider into hangarllm_params. The responses,
 anthropic_messages, embedding and rerank surfaces leave it unset, which used to make
 the callback raise before any spend was recorded, so those budgets never moved.
 """
@@ -10,15 +10,15 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 
-from litellm import Router
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.types.utils import BudgetConfig
-from litellm.types.videos.utils import POLLED_VIDEO_STATUS_KWARG
+from hangarllm import Router
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
+from hangarllm.types.utils import BudgetConfig
+from hangarllm.types.videos.utils import POLLED_VIDEO_STATUS_KWARG
 import sys, os, asyncio, time, random
 
 
@@ -28,14 +28,14 @@ def disable_budget_sync(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
+        "hangarllm.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
         noop,
     )
 
 
 def _success_kwargs(
     *,
-    provider_in_litellm_params: str | None,
+    provider_in_hangarllm_params: str | None,
     provider_in_payload: str | None,
     call_type: str = "aresponses",
     response_cost: float = 0.25,
@@ -43,13 +43,13 @@ def _success_kwargs(
     guardrail_information: tuple[dict[str, object], ...] = (),
 ) -> dict[str, object]:
     provider_params: Final[dict[str, str]] = (
-        {} if provider_in_litellm_params is None else {"custom_llm_provider": provider_in_litellm_params}
+        {} if provider_in_hangarllm_params is None else {"custom_llm_provider": provider_in_hangarllm_params}
     )
-    litellm_params: Final[dict[str, str]] = {"model": "openai/gpt-4o", **provider_params}
+    hangarllm_params: Final[dict[str, str]] = {"model": "openai/gpt-4o", **provider_params}
 
     return {
         "call_type": call_type,
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "standard_logging_object": {
             "response_cost": response_cost,
             "model_id": model_id,
@@ -67,7 +67,7 @@ async def _log_success(limiter: RouterBudgetLimiting, kwargs: dict[str, object])
 @pytest.mark.parametrize(
     "call_type", ["aresponses", "_aresponses_websocket", "anthropic_messages", "aembedding", "arerank"]
 )
-async def test_provider_spend_tracked_when_litellm_params_omits_provider(disable_budget_sync, call_type):
+async def test_provider_spend_tracked_when_hangarllm_params_omits_provider(disable_budget_sync, call_type):
     """Non-chat surfaces carry the provider only on the standard logging payload."""
     limiter = RouterBudgetLimiting(
         dual_cache=DualCache(),
@@ -77,7 +77,7 @@ async def test_provider_spend_tracked_when_litellm_params_omits_provider(disable
     await _log_success(
         limiter,
         _success_kwargs(
-            provider_in_litellm_params=None,
+            provider_in_hangarllm_params=None,
             provider_in_payload="openai",
             call_type=call_type,
         ),
@@ -97,7 +97,7 @@ async def test_chat_completions_spend_still_tracked(disable_budget_sync):
     await _log_success(
         limiter,
         _success_kwargs(
-            provider_in_litellm_params="openai",
+            provider_in_hangarllm_params="openai",
             provider_in_payload="openai",
             call_type="acompletion",
         ),
@@ -116,7 +116,7 @@ async def test_budget_of_other_provider_is_untouched(disable_budget_sync):
 
     await _log_success(
         limiter,
-        _success_kwargs(provider_in_litellm_params=None, provider_in_payload="anthropic"),
+        _success_kwargs(provider_in_hangarllm_params=None, provider_in_payload="anthropic"),
     )
 
     assert await limiter.dual_cache.async_get_cache("provider_spend:openai:1d") in (None, 0.0)
@@ -127,12 +127,12 @@ async def test_tag_spend_is_incremented_for_request_metadata(
     disable_budget_sync: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "tag_budget_config", {"release": {"budget_limit": 5.0, "time_period": "1h"}})
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr(hangarllm, "tag_budget_config", {"release": {"budget_limit": 5.0, "time_period": "1h"}})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     limiter = RouterBudgetLimiting(dual_cache=DualCache(), provider_budget_config=None)
     kwargs: Final = {
         **_success_kwargs(
-            provider_in_litellm_params=None,
+            provider_in_hangarllm_params=None,
             provider_in_payload=None,
             response_cost=0.73,
         ),
@@ -153,7 +153,7 @@ async def test_deployment_budget_tracked_when_provider_is_unresolvable(disable_b
         model_list=[
             {
                 "model_name": "some-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o",
                     "max_budget": 10.0,
                     "budget_duration": "1d",
@@ -165,7 +165,7 @@ async def test_deployment_budget_tracked_when_provider_is_unresolvable(disable_b
 
     await _log_success(
         limiter,
-        _success_kwargs(provider_in_litellm_params=None, provider_in_payload=None),
+        _success_kwargs(provider_in_hangarllm_params=None, provider_in_payload=None),
     )
 
     assert await limiter.dual_cache.async_get_cache("deployment_spend:deployment-1:1d") == 0.25
@@ -173,7 +173,7 @@ async def test_deployment_budget_tracked_when_provider_is_unresolvable(disable_b
 
 _MONTHLY_DEPLOYMENT: Final = {
     "model_name": "some-model",
-    "litellm_params": {"model": "openai/gpt-4o", "max_budget": 10.0, "budget_duration": "1mo"},
+    "hangarllm_params": {"model": "openai/gpt-4o", "max_budget": 10.0, "budget_duration": "1mo"},
     "model_info": {"id": "deployment-1"},
 }
 
@@ -237,8 +237,8 @@ async def test_a_monthly_router_budget_ends_a_calendar_month_after_it_opens(
     Regression: it was a month counted from the charge, so a window opened on January 15
     and charged on February 1 unblocked on February 12 instead of February 15.
     """
-    monkeypatch.setattr(litellm, "tag_budget_config", tag_budget_config)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr(hangarllm, "tag_budget_config", tag_budget_config)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     limiter = RouterBudgetLimiting(
         dual_cache=DualCache(in_memory_cache=InMemoryCache(clock=charged_at.timestamp)),
         clock=charged_at.timestamp,
@@ -249,7 +249,7 @@ async def test_a_monthly_router_budget_ends_a_calendar_month_after_it_opens(
     await _log_success(
         limiter,
         {
-            **_success_kwargs(provider_in_litellm_params="openai", provider_in_payload="openai"),
+            **_success_kwargs(provider_in_hangarllm_params="openai", provider_in_payload="openai"),
             "metadata": {"tags": ["release"]},
         },
     )
@@ -325,10 +325,10 @@ async def test_get_current_provider_spend():
 async def test_get_llm_provider_for_deployment_resolves_provider_prefixes() -> None:
     provider_budget: Final = RouterBudgetLimiting(dual_cache=DualCache(), provider_budget_config={})
 
-    assert provider_budget._get_llm_provider_for_deployment({"litellm_params": {"model": "openai/gpt-4o"}}) == "openai"
+    assert provider_budget._get_llm_provider_for_deployment({"hangarllm_params": {"model": "openai/gpt-4o"}}) == "openai"
     assert (
         provider_budget._get_llm_provider_for_deployment(
-            {"litellm_params": {"model": "azure/gpt-4o", "api_base": "https://example.azure.com"}}
+            {"hangarllm_params": {"model": "azure/gpt-4o", "api_base": "https://example.azure.com"}}
         )
         == "azure"
     )
@@ -380,7 +380,7 @@ async def test_redis_less_limiter_tracks_spend_without_queueing_redis_increments
     )
 
     for _ in range(3):
-        await _log_success(limiter, _success_kwargs(provider_in_litellm_params="openai", provider_in_payload="openai"))
+        await _log_success(limiter, _success_kwargs(provider_in_hangarllm_params="openai", provider_in_payload="openai"))
 
     assert await limiter.dual_cache.async_get_cache("provider_spend:openai:1d") == pytest.approx(0.75)
     assert limiter.redis_increment_operation_queue == []
@@ -393,7 +393,7 @@ async def test_deployment_budget_filter_keeps_unspent_deployment(
     deployments: Final = [
         {
             "model_name": "shared",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "mock_response": "spent deployment",
                 "max_budget": 1.0,
@@ -403,7 +403,7 @@ async def test_deployment_budget_filter_keeps_unspent_deployment(
         },
         {
             "model_name": "shared",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "mock_response": "available deployment",
                 "max_budget": 10.0,
@@ -456,9 +456,9 @@ def cleanup_redis():
 
 
 def _completed_budget_batch(batch_id: str):
-    from litellm.types.utils import LiteLLMBatch
+    from hangarllm.types.utils import HangarLLMBatch
 
-    return LiteLLMBatch(
+    return HangarLLMBatch(
         id=batch_id,
         completion_window="24h",
         created_at=1,
@@ -473,8 +473,8 @@ def _completed_budget_batch(batch_id: str):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("call_type", ("aretrieve_batch", "retrieve_batch"))
 async def test_batch_polls_charge_each_router_budget_once(monkeypatch, call_type):
-    monkeypatch.setattr(litellm, "tag_budget_config", {"release": {"budget_limit": 100, "time_period": "1d"}})
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr(hangarllm, "tag_budget_config", {"release": {"budget_limit": 100, "time_period": "1d"}})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     cache: Final = DualCache()
     limiter: Final = RouterBudgetLimiting(
         dual_cache=cache,
@@ -482,13 +482,13 @@ async def test_batch_polls_charge_each_router_budget_once(monkeypatch, call_type
         model_list=[
             {
                 "model_name": "batch-budget",
-                "litellm_params": {"model": "openai/batch-budget", "max_budget": 100, "budget_duration": "1d"},
+                "hangarllm_params": {"model": "openai/batch-budget", "max_budget": 100, "budget_duration": "1d"},
                 "model_info": {"id": "deployment-1"},
             }
         ],
     )
     kwargs: Final = {
-        **_success_kwargs(provider_in_litellm_params=None, provider_in_payload="openai", call_type=call_type),
+        **_success_kwargs(provider_in_hangarllm_params=None, provider_in_payload="openai", call_type=call_type),
         "metadata": {"tags": ["release"]},
     }
     response: Final = _completed_budget_batch("batch-first")
@@ -506,7 +506,7 @@ async def test_batch_polls_charge_each_router_budget_once(monkeypatch, call_type
 
 @pytest.mark.asyncio
 async def test_a_batch_retrieve_before_its_cost_is_final_charges_no_router_budget_even_for_its_guardrail():
-    from litellm.types.utils import LiteLLMBatch
+    from hangarllm.types.utils import HangarLLMBatch
 
     cache: Final = DualCache()
     limiter: Final = RouterBudgetLimiting(
@@ -515,21 +515,21 @@ async def test_a_batch_retrieve_before_its_cost_is_final_charges_no_router_budge
         model_list=[
             {
                 "model_name": "batch-budget",
-                "litellm_params": {"model": "openai/batch-budget", "max_budget": 100, "budget_duration": "1d"},
+                "hangarllm_params": {"model": "openai/batch-budget", "max_budget": 100, "budget_duration": "1d"},
                 "model_info": {"id": "deployment-1"},
             }
         ],
     )
     retrieve: Final = partial(
         _success_kwargs,
-        provider_in_litellm_params=None,
+        provider_in_hangarllm_params=None,
         provider_in_payload="openai",
         call_type="aretrieve_batch",
         guardrail_information=({"guardrail_name": "priced", "guardrail_cost": 0.01},),
     )
 
-    def polled(status: str, output_file_id: str | None = None) -> LiteLLMBatch:
-        return LiteLLMBatch(
+    def polled(status: str, output_file_id: str | None = None) -> HangarLLMBatch:
+        return HangarLLMBatch(
             id="batch-running",
             completion_window="24h",
             created_at=1,
@@ -555,7 +555,7 @@ async def test_a_batch_retrieve_before_its_cost_is_final_charges_no_router_budge
 @pytest.mark.asyncio
 @pytest.mark.parametrize("call_type", ("avideo_status", "video_status"))
 async def test_video_polls_charge_each_router_budget_once(call_type):
-    from litellm.types.videos.main import VideoObject
+    from hangarllm.types.videos.main import VideoObject
 
     cache: Final = DualCache()
     limiter: Final = RouterBudgetLimiting(
@@ -564,13 +564,13 @@ async def test_video_polls_charge_each_router_budget_once(call_type):
         model_list=[
             {
                 "model_name": "video-budget",
-                "litellm_params": {"model": "openai/sora-2", "max_budget": 100, "budget_duration": "1d"},
+                "hangarllm_params": {"model": "openai/sora-2", "max_budget": 100, "budget_duration": "1d"},
                 "model_info": {"id": "deployment-1"},
             }
         ],
     )
     kwargs: Final = {
-        **_success_kwargs(provider_in_litellm_params=None, provider_in_payload="openai", call_type=call_type),
+        **_success_kwargs(provider_in_hangarllm_params=None, provider_in_payload="openai", call_type=call_type),
         POLLED_VIDEO_STATUS_KWARG: "completed",
     }
     video: Final = VideoObject(id="video-first", object="video", status="completed")
@@ -587,7 +587,7 @@ async def test_video_polls_charge_each_router_budget_once(call_type):
 
 @pytest.mark.asyncio
 async def test_every_video_poll_pays_its_guardrail_and_only_the_finished_poll_pays_the_router_for_the_video():
-    from litellm.types.videos.main import VideoObject
+    from hangarllm.types.videos.main import VideoObject
 
     cache: Final = DualCache()
     limiter: Final = RouterBudgetLimiting(
@@ -596,7 +596,7 @@ async def test_every_video_poll_pays_its_guardrail_and_only_the_finished_poll_pa
         model_list=[
             {
                 "model_name": "video-budget",
-                "litellm_params": {"model": "openai/sora-2", "max_budget": 100, "budget_duration": "1d"},
+                "hangarllm_params": {"model": "openai/sora-2", "max_budget": 100, "budget_duration": "1d"},
                 "model_info": {"id": "deployment-1"},
             }
         ],
@@ -604,7 +604,7 @@ async def test_every_video_poll_pays_its_guardrail_and_only_the_finished_poll_pa
     priced: Final = ({"guardrail_name": "priced", "guardrail_cost": 0.01},)
     poll: Final = partial(
         _success_kwargs,
-        provider_in_litellm_params=None,
+        provider_in_hangarllm_params=None,
         provider_in_payload="openai",
         call_type="avideo_status",
         guardrail_information=priced,
@@ -632,13 +632,13 @@ async def test_batch_charge_is_shared_across_workers_and_requires_redis_confirma
     from fakeredis import FakeServer, FakeRedis as FakeSyncRedis
     from redis.exceptions import ConnectionError as RedisConnectionError
     from fakeredis.aioredis import FakeRedis
-    from litellm.caching.redis_cache import RedisCache
+    from hangarllm.caching.redis_cache import RedisCache
 
     server: Final = FakeServer()
     client: Final = FakeRedis(server=server)
     sync_client: Final = FakeSyncRedis(server=server)
     redis_cache: Final = RedisCache(host="router-batch-fixture", connection_pool=sync_client.connection_pool)
-    litellm.in_memory_llm_clients_cache.set_cache(key=redis_cache._get_async_client_cache_key(), value=client)
+    hangarllm.in_memory_llm_clients_cache.set_cache(key=redis_cache._get_async_client_cache_key(), value=client)
     first: Final = RouterBudgetLimiting(
         dual_cache=DualCache(redis_cache=redis_cache),
         provider_budget_config={"openai": {"budget_limit": 100, "time_period": "1d"}},
@@ -648,7 +648,7 @@ async def test_batch_charge_is_shared_across_workers_and_requires_redis_confirma
         provider_budget_config={"openai": {"budget_limit": 100, "time_period": "1d"}},
     )
     kwargs: Final = _success_kwargs(
-        provider_in_litellm_params=None, provider_in_payload="openai", call_type="aretrieve_batch"
+        provider_in_hangarllm_params=None, provider_in_payload="openai", call_type="aretrieve_batch"
     )
     response: Final = _completed_budget_batch("batch-shared")
     await asyncio.gather(

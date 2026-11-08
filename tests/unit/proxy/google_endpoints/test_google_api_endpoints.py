@@ -10,14 +10,14 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from litellm.types.utils import TokenCountResponse
+from hangarllm.types.utils import TokenCountResponse
 
 
 def _build_test_client():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.google_endpoints.endpoints import router as google_router
+    from hangarllm.proxy.google_endpoints.endpoints import router as google_router
 
     app = FastAPI()
     app.include_router(google_router)
@@ -31,7 +31,7 @@ def _patch_base_process(return_value=None):
     if return_value is None:
         return_value = {"test": "response"}
     return patch(
-        "litellm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+        "hangarllm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
         new_callable=AsyncMock,
         return_value=return_value,
     )
@@ -70,7 +70,7 @@ def test_google_stream_generate_content_endpoint():
     with (
         _patch_base_process() as mock_base,
         patch(
-            "litellm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
+            "hangarllm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
             return_value=None,
         ) as mock_init,
     ):
@@ -88,8 +88,8 @@ def test_google_stream_generate_content_endpoint():
         # stream=True must be forced into the data the processor receives.
         init_kwargs = mock_init.call_args.kwargs
         assert init_kwargs["data"]["stream"] is True
-        assert init_kwargs["data"]["_litellm_raw_sse_stream"] is True
-        assert init_kwargs["data"]["_litellm_skip_openai_stream_done"] is True
+        assert init_kwargs["data"]["_hangarllm_raw_sse_stream"] is True
+        assert init_kwargs["data"]["_hangarllm_skip_openai_stream_done"] is True
         assert init_kwargs["data"]["model"] == "test-model"
         assert init_kwargs["data"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
 
@@ -105,7 +105,7 @@ def test_google_generate_content_data_flows_through_processor():
     with (
         _patch_base_process(),
         patch(
-            "litellm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
+            "hangarllm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
             return_value=None,
         ) as mock_init,
     ):
@@ -132,7 +132,7 @@ def test_google_generate_content_data_flows_through_processor():
 
 
 def test_google_generate_content_forwards_call_id_header():
-    """The endpoint must forward the x-litellm-call-id header to the processor
+    """The endpoint must forward the x-hangarllm-call-id header to the processor
     so the helper can stamp it on the logging object. Trace continuity from
     client → callbacks (S3, Langfuse, etc.) depends on this header surviving
     the hop through these endpoints."""
@@ -145,11 +145,11 @@ def test_google_generate_content_forwards_call_id_header():
         client.post(
             "/v1beta/models/test-model:generateContent",
             json={"contents": [{"role": "user", "parts": [{"text": "Hello"}]}]},
-            headers={"x-litellm-call-id": "trace-abc-123"},
+            headers={"x-hangarllm-call-id": "trace-abc-123"},
         )
 
         forwarded_request = mock_base.call_args.kwargs["request"]
-        assert forwarded_request.headers.get("x-litellm-call-id") == "trace-abc-123"
+        assert forwarded_request.headers.get("x-hangarllm-call-id") == "trace-abc-123"
 
 
 def test_google_count_tokens_unchanged():
@@ -172,7 +172,7 @@ def test_google_count_tokens_unchanged():
     )
 
     with patch(
-        "litellm.proxy.proxy_server.token_counter",
+        "hangarllm.proxy.proxy_server.token_counter",
         new_callable=AsyncMock,
         return_value=fake_response,
     ):
@@ -184,7 +184,7 @@ def test_google_count_tokens_unchanged():
         assert response.status_code == 200
         body = response.json()
         assert body["totalTokens"] == 7
-        assert body["litellm_count_source"] == "provider"
+        assert body["hangarllm_count_source"] == "provider"
 
 
 def test_google_count_tokens_unexpected_failure_uses_the_google_error_envelope():
@@ -194,7 +194,7 @@ def test_google_count_tokens_unexpected_failure_uses_the_google_error_envelope()
         pytest.skip(f"Skipping test due to missing dependency: {e}")
 
     with patch(
-        "litellm.proxy.proxy_server.token_counter",
+        "hangarllm.proxy.proxy_server.token_counter",
         new_callable=AsyncMock,
         side_effect=RuntimeError("tokenizer unavailable"),
     ):
@@ -227,7 +227,7 @@ def test_google_count_tokens_uses_normalized_total_when_provider_shape_differs()
     )
 
     with patch(
-        "litellm.proxy.proxy_server.token_counter",
+        "hangarllm.proxy.proxy_server.token_counter",
         new_callable=AsyncMock,
         return_value=fake_response,
     ):
@@ -240,18 +240,18 @@ def test_google_count_tokens_uses_normalized_total_when_provider_shape_differs()
         body: Final = response.json()
         assert body["totalTokens"] == 2167
         assert body["promptTokensDetails"] == []
-        assert body["litellm_count_source"] == "token_count_model"
-        assert body["litellm_count_model"] == "us.anthropic.claude-opus-5-5"
+        assert body["hangarllm_count_source"] == "token_count_model"
+        assert body["hangarllm_count_model"] == "us.anthropic.claude-opus-5-5"
 
 
 @pytest.mark.parametrize("path", ["/v1beta/models/count-log-claude:countTokens", "/models/count-log-claude:countTokens"])
 def test_google_count_tokens_logs_one_line_with_the_callers_call_id_model_and_count(
     monkeypatch: pytest.MonkeyPatch, token_count_log_lines: Callable[[], tuple[dict[str, object], ...]], path: str
 ) -> None:
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm import Router
-    from litellm.llms.anthropic.count_tokens import handler as anthropic_count_tokens_handler
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm import Router
+    from hangarllm.llms.anthropic.count_tokens import handler as anthropic_count_tokens_handler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     claude: Final = {"model": "anthropic/claude-zeta-9", "api_key": "test-key", "api_base": "https://count-tokens.test"}
     monkeypatch.setattr(
@@ -261,7 +261,7 @@ def test_google_count_tokens_logs_one_line_with_the_callers_call_id_model_and_co
             model_list=[
                 {
                     "model_name": "count-log-claude",
-                    "litellm_params": claude,
+                    "hangarllm_params": claude,
                     "model_info": {"id": "count-log-gemini-deployment"},
                 }
             ]
@@ -280,13 +280,13 @@ def test_google_count_tokens_logs_one_line_with_the_callers_call_id_model_and_co
     response: Final = _build_test_client().post(
         path,
         json={"contents": [{"role": "user", "parts": [{"text": "Hello"}]}]},
-        headers={"x-litellm-call-id": "count-log-gemini"},
+        headers={"x-hangarllm-call-id": "count-log-gemini"},
     )
 
     assert (response.status_code, response.json()["totalTokens"]) == (200, 77), response.text
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "count-log-gemini",
+            "hangarllm_call_id": "count-log-gemini",
             "request_model": "count-log-claude",
             "model_id": "count-log-gemini-deployment",
             "model_used": "claude-zeta-9",
@@ -303,13 +303,13 @@ def test_google_count_tokens_rejected_body_logs_the_400_it_answers(
     response: Final = _build_test_client().post(
         "/v1beta/models/count-log-claude:countTokens",
         json={"contents": "not a list"},
-        headers={"x-litellm-call-id": "count-log-gemini-bad-body"},
+        headers={"x-hangarllm-call-id": "count-log-gemini-bad-body"},
     )
 
     assert response.status_code == 400, response.text
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "count-log-gemini-bad-body",
+            "hangarllm_call_id": "count-log-gemini-bad-body",
             "request_model": "count-log-claude",
             "model_id": None,
             "model_used": None,

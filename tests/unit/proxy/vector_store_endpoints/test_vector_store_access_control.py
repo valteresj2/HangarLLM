@@ -11,15 +11,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import (
-    LiteLLM_ObjectPermissionTable,
-    LitellmUserRoles,
+from hangarllm.proxy._types import (
+    HangarLLM_ObjectPermissionTable,
+    HangarllmUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.vector_store_endpoints.management_endpoints import (
+from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
     _check_vector_store_access,
 )
-from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
+from hangarllm.types.vector_stores import HangarLLM_ManagedVectorStore
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_check_vector_store_access():
     """Test core access control logic for team-based vector store access"""
 
     # Test 1: Legacy vector stores (no team_id) are accessible to all
-    vector_store: LiteLLM_ManagedVectorStore = {
+    vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "vs_legacy",
         "custom_llm_provider": "openai",
         "team_id": None,
@@ -57,12 +57,12 @@ async def test_check_vector_store_access():
 @pytest.mark.asyncio
 async def test_check_vector_store_access_proxy_admin_bypass():
     """PROXY_ADMIN can access a vector store even if teams don't match."""
-    vector_store: LiteLLM_ManagedVectorStore = {
+    vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "vs_team",
         "custom_llm_provider": "openai",
         "team_id": "team_456",
     }
-    admin = UserAPIKeyAuth(team_id="team_999", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(team_id="team_999", user_role=HangarllmUserRoles.PROXY_ADMIN)
     assert await _check_vector_store_access(vector_store, admin) is True
 
 
@@ -70,14 +70,14 @@ async def test_check_vector_store_access_proxy_admin_bypass():
 async def test_check_vector_store_access_key_object_permission_grants_access():
     """A key whose object_permission.vector_stores allowlists the store can access it
     even if its team_id does not match the store's team_id."""
-    vector_store: LiteLLM_ManagedVectorStore = {
+    vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "vs_explicit",
         "custom_llm_provider": "openai",
         "team_id": "team_456",
     }
     user = UserAPIKeyAuth(
         team_id="team_789",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-1",
             vector_stores=["vs_explicit"],
         ),
@@ -89,14 +89,14 @@ async def test_check_vector_store_access_key_object_permission_grants_access():
 async def test_check_vector_store_access_key_object_permission_wrong_store_denied():
     """A key whose object_permission.vector_stores lists *other* stores is still denied
     when the key has no other reason to access this store."""
-    vector_store: LiteLLM_ManagedVectorStore = {
+    vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "vs_target",
         "custom_llm_provider": "openai",
         "team_id": "team_456",
     }
     user = UserAPIKeyAuth(
         team_id="team_789",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-1",
             vector_stores=["vs_other"],
         ),
@@ -107,10 +107,10 @@ async def test_check_vector_store_access_key_object_permission_wrong_store_denie
 @pytest.mark.asyncio
 async def test_delete_vector_store_checks_access():
     """Test that delete endpoint enforces team access control"""
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         delete_vector_store,
     )
-    from litellm.types.vector_stores import VectorStoreDeleteRequest
+    from hangarllm.types.vector_stores import VectorStoreDeleteRequest
 
     mock_prisma = MagicMock()
     mock_vector_store = MagicMock(
@@ -120,17 +120,17 @@ async def test_delete_vector_store_checks_access():
             "team_id": "team_456",
         }
     )
-    mock_prisma.db.litellm_managedvectorstorestable.find_unique = AsyncMock(return_value=mock_vector_store)
+    mock_prisma.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(return_value=mock_vector_store)
 
     # User from different team should get 403
     user_api_key_dict = UserAPIKeyAuth(team_id="team_789")
     request = VectorStoreDeleteRequest(vector_store_id="vs_123")
 
     with patch(
-        "litellm.proxy.proxy_server.prisma_client",
+        "hangarllm.proxy.proxy_server.prisma_client",
         mock_prisma,
     ):
-        with patch("litellm.vector_store_registry", None):
+        with patch("hangarllm.vector_store_registry", None):
             with pytest.raises(HTTPException) as exc_info:
                 await delete_vector_store(data=request, user_api_key_dict=user_api_key_dict)
 
@@ -138,30 +138,30 @@ async def test_delete_vector_store_checks_access():
             assert "Access denied" in exc_info.value.detail
 
 
-_UNSCOPED: LiteLLM_ManagedVectorStore = {
+_UNSCOPED: HangarLLM_ManagedVectorStore = {
     "vector_store_id": "vs_unscoped",
     "custom_llm_provider": "openai",
     "team_id": None,
 }
-_TEAM_A_OWNED: LiteLLM_ManagedVectorStore = {
+_TEAM_A_OWNED: HangarLLM_ManagedVectorStore = {
     "vector_store_id": "vs_team_a",
     "custom_llm_provider": "openai",
     "team_id": "team_a",
 }
-_UI_CREATED: LiteLLM_ManagedVectorStore = {
+_UI_CREATED: HangarLLM_ManagedVectorStore = {
     "vector_store_id": "vs_ui_created",
     "custom_llm_provider": "openai",
-    "team_id": "litellm-dashboard",
+    "team_id": "hangarllm-dashboard",
 }
 
 
 async def _listed_ids(user_api_key_dict: UserAPIKeyAuth) -> list[str]:
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         list_vector_stores,
     )
 
     with patch(  # test-quality-ok: the list route reads rows through this module-level DB helper, no injection seam
-        "litellm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
+        "hangarllm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
         new=AsyncMock(return_value=[_UNSCOPED, _TEAM_A_OWNED, _UI_CREATED]),
     ):
         response = await list_vector_stores(user_api_key_dict=user_api_key_dict)
@@ -177,18 +177,18 @@ async def test_list_vector_stores_hides_ungranted_stores_from_non_admin_keys():
     assert await _listed_ids(
         UserAPIKeyAuth(
             team_id="team_b",
-            object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="op-1", vector_stores=["vs_unscoped"]),
+            object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="op-1", vector_stores=["vs_unscoped"]),
         )
     ) == ["vs_unscoped"]
     assert await _listed_ids(
         UserAPIKeyAuth(
             team_id="team_b",
-            team_object_permission=LiteLLM_ObjectPermissionTable(
+            team_object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id="op-2", vector_stores=["vs_unscoped"]
             ),
         )
     ) == ["vs_unscoped"]
-    assert await _listed_ids(UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)) == [
+    assert await _listed_ids(UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)) == [
         "vs_team_a",
         "vs_ui_created",
         "vs_unscoped",
@@ -209,37 +209,37 @@ async def test_list_vector_stores_dashboard_session_resolves_real_teams(
     user_team_ids: list[str], session_key_grants: list[str] | None, expected: list[str]
 ):
     """A dashboard session lists through the user's real teams plus the session key's own grants: stores created
-    from the dashboard (team_id litellm-dashboard) are not visible just because every session shares that team id,
+    from the dashboard (team_id hangarllm-dashboard) are not visible just because every session shares that team id,
     while stores owned by or granted to one of the user's teams, or granted to the session key itself, are."""
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
+    from hangarllm.models.team import HangarLLM_TeamTableCachedObj
 
     alice = UserAPIKeyAuth(
-        team_id="litellm-dashboard",
+        team_id="hangarllm-dashboard",
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         object_permission=(
-            LiteLLM_ObjectPermissionTable(object_permission_id="op-4", vector_stores=session_key_grants)
+            HangarLLM_ObjectPermissionTable(object_permission_id="op-4", vector_stores=session_key_grants)
             if session_key_grants is not None
             else None
         ),
     )
     teams = {
-        "team_a": LiteLLM_TeamTableCachedObj(team_id="team_a"),
-        "team_granted": LiteLLM_TeamTableCachedObj(
+        "team_a": HangarLLM_TeamTableCachedObj(team_id="team_a"),
+        "team_granted": HangarLLM_TeamTableCachedObj(
             team_id="team_granted",
-            object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="op-3", vector_stores=["vs_unscoped"]),
+            object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="op-3", vector_stores=["vs_unscoped"]),
         ),
     }
 
-    async def fake_get_team_object(team_id: str, **_kwargs: object) -> LiteLLM_TeamTableCachedObj:
+    async def fake_get_team_object(team_id: str, **_kwargs: object) -> HangarLLM_TeamTableCachedObj:
         return teams[team_id]
 
     with (
         patch(  # test-quality-ok: team rows come from the module-level prisma client, no injection seam
-            "litellm.proxy.auth.auth_checks.get_team_object", new=fake_get_team_object
+            "hangarllm.proxy.auth.auth_checks.get_team_object", new=fake_get_team_object
         ),
         patch(  # test-quality-ok: the user row comes from the module-level prisma client, no injection seam
-            "litellm.proxy.vector_store_endpoints.utils.resolve_ui_session_team_ids",
+            "hangarllm.proxy.vector_store_endpoints.utils.resolve_ui_session_team_ids",
             new=AsyncMock(return_value=user_team_ids),
         ),
     ):
@@ -259,24 +259,24 @@ async def test_get_vector_store_info_dashboard_session_resolves_real_teams(
     user_team_ids: list[str], expected_status: int
 ):
     """Regression for LIT-7132: /vector_store/info must grant a dashboard session the same team-owned stores
-    /vector_store/list shows it, instead of judging the session's reserved litellm-dashboard team id."""
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    /vector_store/list shows it, instead of judging the session's reserved hangarllm-dashboard team id."""
+    from hangarllm.models.team import HangarLLM_TeamTableCachedObj
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         get_vector_store_info,
     )
-    from litellm.types.vector_stores import VectorStoreInfoRequest
+    from hangarllm.types.vector_stores import VectorStoreInfoRequest
 
     alice = UserAPIKeyAuth(
-        team_id="litellm-dashboard",
+        team_id="hangarllm-dashboard",
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
-    async def fake_get_team_object(team_id: str, **_kwargs: object) -> LiteLLM_TeamTableCachedObj:
-        return LiteLLM_TeamTableCachedObj(team_id=team_id)
+    async def fake_get_team_object(team_id: str, **_kwargs: object) -> HangarLLM_TeamTableCachedObj:
+        return HangarLLM_TeamTableCachedObj(team_id=team_id)
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
         return_value=MagicMock(model_dump=lambda: dict(_TEAM_A_OWNED))
     )
 
@@ -292,16 +292,16 @@ async def test_get_vector_store_info_dashboard_session_resolves_real_teams(
 
     with (
         patch(  # test-quality-ok: the endpoint reads the store row through the module-level prisma client, no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch(  # test-quality-ok: the endpoint consults the module-level registry before the DB, no injection seam
-            "litellm.vector_store_registry", None
+            "hangarllm.vector_store_registry", None
         ),
         patch(  # test-quality-ok: team rows come from the module-level prisma client, no injection seam
-            "litellm.proxy.auth.auth_checks.get_team_object", new=fake_get_team_object
+            "hangarllm.proxy.auth.auth_checks.get_team_object", new=fake_get_team_object
         ),
         patch(  # test-quality-ok: the user row comes from the module-level prisma client, no injection seam
-            "litellm.proxy.vector_store_endpoints.utils.resolve_ui_session_team_ids",
+            "hangarllm.proxy.vector_store_endpoints.utils.resolve_ui_session_team_ids",
             new=AsyncMock(return_value=user_team_ids),
         ),
     ):

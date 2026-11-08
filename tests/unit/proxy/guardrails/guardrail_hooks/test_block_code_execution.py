@@ -3,16 +3,16 @@
 import pytest
 from fastapi import HTTPException
 
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.proxy.guardrails.guardrail_hooks.block_code_execution import (
+from hangarllm.integrations.custom_guardrail import ModifyResponseException
+from hangarllm.proxy.guardrails.guardrail_hooks.block_code_execution import (
     DEFAULT_EVENT_HOOKS,
     BlockCodeExecutionGuardrail,
     initialize_guardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.block_code_execution.block_code_execution import (
+from hangarllm.proxy.guardrails.guardrail_hooks.block_code_execution.block_code_execution import (
     _normalize_escaped_newlines,
 )
-from litellm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.guardrails import GuardrailEventHooks
 
 
 class TestBlockCodeExecutionGuardrail:
@@ -208,7 +208,7 @@ print(factorial(5))  # Output: 120
             input_type="response",
         )
         meta = (
-            request_data.get("metadata") or request_data.get("litellm_metadata") or {}
+            request_data.get("metadata") or request_data.get("hangarllm_metadata") or {}
         )
         guardrail_info = meta.get("standard_logging_guardrail_information") or []
         assert len(guardrail_info) >= 1
@@ -235,15 +235,15 @@ print(factorial(5))  # Output: 120
         """initialize_guardrail with no mode uses DEFAULT_EVENT_HOOKS (pre_call + post_call)."""
         from unittest.mock import MagicMock
 
-        litellm_params = MagicMock()
-        litellm_params.guardrail = "block_code_execution"
-        litellm_params.blocked_languages = ["python"]
-        litellm_params.action = "block"
-        litellm_params.confidence_threshold = 0.7
-        litellm_params.default_on = False
-        litellm_params.mode = None  # not set
+        hangarllm_params = MagicMock()
+        hangarllm_params.guardrail = "block_code_execution"
+        hangarllm_params.blocked_languages = ["python"]
+        hangarllm_params.action = "block"
+        hangarllm_params.confidence_threshold = 0.7
+        hangarllm_params.default_on = False
+        hangarllm_params.mode = None  # not set
         guardrail = {"guardrail_name": "block-code-test"}
-        instance = initialize_guardrail(litellm_params, guardrail)
+        instance = initialize_guardrail(hangarllm_params, guardrail)
         assert instance.event_hook == DEFAULT_EVENT_HOOKS
         assert GuardrailEventHooks.pre_call.value in instance.event_hook
         assert GuardrailEventHooks.post_call.value in instance.event_hook

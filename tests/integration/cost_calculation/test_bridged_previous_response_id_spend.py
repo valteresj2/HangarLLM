@@ -1,5 +1,5 @@
 """A /v1/responses deployment bridged to chat completions (`use_chat_completions_api: true`) answers a
-`previous_response_id` follow-up with the prior turn replayed from LiteLLM_SpendLogs, and bills the follow-up
+`previous_response_id` follow-up with the prior turn replayed from HangarLLM_SpendLogs, and bills the follow-up
 from its own usage (LIT-9604, #46398)"""
 
 import json
@@ -64,14 +64,14 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
     with gateway_from_environment() as gateway, wire_server(_respond) as wire:
         overrides: Final = {**cost_map_environment(gateway.upstream_url), "STORE_PROMPTS_IN_SPEND_LOGS": "true"}
         with owned_proxy_process(
-            gateway, directory, overrides, remove_environment=("LITELLM_LOCAL_MODEL_COST_MAP",)
+            gateway, directory, overrides, remove_environment=("HANGARLLM_LOCAL_MODEL_COST_MAP",)
         ) as owned:
             yield _Rig(wire, owned)
 
 
 def _spend_rows(model: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id, spend, status FROM "LiteLLM_SpendLogs" WHERE model_group = %s ORDER BY "startTime"',
+        'SELECT request_id, spend, status FROM "HangarLLM_SpendLogs" WHERE model_group = %s ORDER BY "startTime"',
         (model,),
     )
 

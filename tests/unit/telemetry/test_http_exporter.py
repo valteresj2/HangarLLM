@@ -5,16 +5,16 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.telemetry.histogram import ATTEMPT_BOUNDS, BLOCK_COUNT_BOUNDS, LATENCY_BOUNDS_MS
-from litellm.telemetry.records import InstanceInfo, RequestRecord, StatusClass, TelemetryGroup
-from litellm.telemetry.report import Report, RequestKey, RequestMetrics
-from litellm.telemetry.http_exporter import HttpExporter
-from litellm.telemetry.sink import ExportOutcome
+from hangarllm.telemetry.histogram import ATTEMPT_BOUNDS, BLOCK_COUNT_BOUNDS, LATENCY_BOUNDS_MS
+from hangarllm.telemetry.records import InstanceInfo, RequestRecord, StatusClass, TelemetryGroup
+from hangarllm.telemetry.report import Report, RequestKey, RequestMetrics
+from hangarllm.telemetry.http_exporter import HttpExporter
+from hangarllm.telemetry.sink import ExportOutcome
 
 _RECORD: Final = RequestRecord(
     endpoint="/v1/messages",
     stream=True,
-    litellm_status=StatusClass.SUCCESS,
+    hangarllm_status=StatusClass.SUCCESS,
     provider="anthropic",
     provider_status=StatusClass.SUCCESS,
     latency_to_first_byte_ms=120.0,
@@ -28,7 +28,7 @@ def _metrics_of(record: RequestRecord) -> RequestMetrics:
 
 
 _REPORT: Final = Report(
-    instance=InstanceInfo(instance_id="i", litellm_version="1.2.3", groups=frozenset(TelemetryGroup)),
+    instance=InstanceInfo(instance_id="i", hangarllm_version="1.2.3", groups=frozenset(TelemetryGroup)),
     window_start=10.0,
     window_end=70.0,
     requests=((RequestKey.of(_RECORD), _metrics_of(_RECORD)),),
@@ -58,7 +58,7 @@ async def test_posts_the_report_as_json() -> None:
         "schema_version": 1,
         "instance": {
             "instance_id": "i",
-            "litellm_version": "1.2.3",
+            "hangarllm_version": "1.2.3",
             "groups": sorted(group.value for group in TelemetryGroup),
             "config_keys": [],
         },
@@ -70,9 +70,9 @@ async def test_posts_the_report_as_json() -> None:
                 "endpoint": "/v1/messages",
                 "provider": "anthropic",
                 "deployment_hash": None,
-                "litellm_status": "2xx",
+                "hangarllm_status": "2xx",
                 "provider_status": "2xx",
-                "litellm_cache_hit": False,
+                "hangarllm_cache_hit": False,
                 "handled_by_rust": False,
                 "provider_cache_hit": False,
                 "stream": True,

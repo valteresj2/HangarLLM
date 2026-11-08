@@ -40,7 +40,7 @@ from integration._support.upstream import (
 from integration.cost_calculation.cost_tracking_case import JsonResponse, RoutedResponse
 from pydantic import JsonValue
 
-from litellm.proxy.spend_tracking.budget_reservation import DEFAULT_MAX_OUTPUT_TOKENS_FALLBACK
+from hangarllm.proxy.spend_tracking.budget_reservation import DEFAULT_MAX_OUTPUT_TOKENS_FALLBACK
 
 pytestmark: Final = [pytest.mark.timeout(900), pytest.mark.shares_worker_state]
 
@@ -75,35 +75,35 @@ _EAGER_RESUMER_POLL: Final = {**_RESUMER_POLL, "BACKGROUND_INTERACTION_COST_POLL
 _LATE_RESUMER_POLL: Final = {**_RESUMER_POLL, "BACKGROUND_INTERACTION_COST_POLL_TIMEOUT_SECONDS": "30"}
 _SPEND_QUERY: Final = (
     "SELECT request_id, spend, call_type, status, model, prompt_tokens, completion_tokens, request_tags "
-    'FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+    'FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 )
 _SETTLEMENT_QUERY: Final = (
     "SELECT interaction_id, claimed_by, outcome, claimed_at IS NOT NULL AS claimed, "
-    'settled_at IS NOT NULL AS settled, create_context FROM "LiteLLM_BackgroundInteractionSettlement" '
+    'settled_at IS NOT NULL AS settled, create_context FROM "HangarLLM_BackgroundInteractionSettlement" '
     "WHERE interaction_id = %s"
 )
 _ABANDONED_CLAIM: Final = (
-    'UPDATE "LiteLLM_BackgroundInteractionSettlement" SET claimed_by = %s, '
+    'UPDATE "HangarLLM_BackgroundInteractionSettlement" SET claimed_by = %s, '
     "claimed_at = (now() AT TIME ZONE 'UTC') - interval '10 minutes', settled_at = NULL, outcome = NULL, "
     "create_context = %s::jsonb WHERE interaction_id = %s"
 )
 _DEAD_SETTLER: Final = "dead-settler:1"
 _CREATED_AN_HOUR_AGO: Final = (
-    'UPDATE "LiteLLM_BackgroundInteractionSettlement" '
+    'UPDATE "HangarLLM_BackgroundInteractionSettlement" '
     "SET created_at = (now() AT TIME ZONE 'UTC') - interval '1 hour' WHERE interaction_id = %s"
 )
 _SETTLEMENT_TABLE_PRESENT_QUERY: Final = "SELECT to_regclass(%s) IS NOT NULL AS present"
-_SETTLEMENT_TABLE: Final = '"LiteLLM_BackgroundInteractionSettlement"'
+_SETTLEMENT_TABLE: Final = '"HangarLLM_BackgroundInteractionSettlement"'
 _SETTLEMENT_BY_CALL_QUERY: Final = (
-    'SELECT interaction_id FROM "LiteLLM_BackgroundInteractionSettlement" WHERE create_context->>%s = %s'
+    'SELECT interaction_id FROM "HangarLLM_BackgroundInteractionSettlement" WHERE create_context->>%s = %s'
 )
 _OUTAGE_RENAME: Final = (
-    'ALTER TABLE IF EXISTS "LiteLLM_BackgroundInteractionSettlement" '
-    'RENAME TO "LiteLLM_BackgroundInteractionSettlement_outage"'
+    'ALTER TABLE IF EXISTS "HangarLLM_BackgroundInteractionSettlement" '
+    'RENAME TO "HangarLLM_BackgroundInteractionSettlement_outage"'
 )
 _OUTAGE_RESTORE: Final = (
-    'ALTER TABLE IF EXISTS "LiteLLM_BackgroundInteractionSettlement_outage" '
-    'RENAME TO "LiteLLM_BackgroundInteractionSettlement"'
+    'ALTER TABLE IF EXISTS "HangarLLM_BackgroundInteractionSettlement_outage" '
+    'RENAME TO "HangarLLM_BackgroundInteractionSettlement"'
 )
 
 
@@ -183,7 +183,7 @@ def _write_config(directory: Path, upstream_url: str, models: Deployments) -> Pa
     model_list: Final = [
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": _MODEL,
                 "api_base": f"{upstream_url}/{name}",
                 "api_key": _DEPLOYMENT_KEY,
@@ -227,7 +227,7 @@ def _with_rotated_key(entry: JsonValue, model_name: str) -> JsonValue:
         return deployment
     return {
         **deployment,
-        "litellm_params": {**object_value(deployment["litellm_params"]), "api_key": _ROTATED_DEPLOYMENT_KEY},
+        "hangarllm_params": {**object_value(deployment["hangarllm_params"]), "api_key": _ROTATED_DEPLOYMENT_KEY},
     }
 
 
@@ -325,7 +325,7 @@ def _settlement_if_stored(interaction_id: str) -> dict[str, JsonValue] | None:
 
 
 def _settlements_by_call_if_stored(call_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows(_SETTLEMENT_BY_CALL_QUERY, ("litellm_call_id", call_id)) if _settlement_table_present() else []
+    return read_rows(_SETTLEMENT_BY_CALL_QUERY, ("hangarllm_call_id", call_id)) if _settlement_table_present() else []
 
 
 def _await_spend_row(interaction_id: str, seconds: float = 30) -> dict[str, JsonValue]:
@@ -520,7 +520,7 @@ def test_a_replica_booting_later_resumes_and_bills_unclaimed_interactions(rig: R
         model: Final = rig.models.in_progress
         key: Final = scenario.key()
         created_after: Final = time.time()
-        created: Final = tuple(_create(rig.creator, model, key, headers={"x-litellm-tags": _TAG}) for _ in range(3))
+        created: Final = tuple(_create(rig.creator, model, key, headers={"x-hangarllm-tags": _TAG}) for _ in range(3))
         for item in created:
             _state(rig, item, _completed())
         rates: Final = _rates(rig.creator, model)
@@ -733,14 +733,14 @@ def test_reading_an_interaction_never_bills_it(rig: Rig) -> None:
         _state(rig, created, InteractionState(status="in_progress"))
         read_ids: Final = tuple(str(uuid.uuid4()) for _ in range(2))
         first: Final = rig.settler.request(
-            "GET", f"/v1beta/interactions/{created}", key=key, headers={"x-litellm-call-id": read_ids[0]}
+            "GET", f"/v1beta/interactions/{created}", key=key, headers={"x-hangarllm-call-id": read_ids[0]}
         )
         assert first.status_code == 200 and JSON_OBJECT.validate_json(first.content)["status"] == "in_progress", (
             first.text
         )
         _state(rig, created, _completed())
         second: Final = rig.settler.request(
-            "GET", f"/v1beta/interactions/{created}", key=key, headers={"x-litellm-call-id": read_ids[1]}
+            "GET", f"/v1beta/interactions/{created}", key=key, headers={"x-hangarllm-call-id": read_ids[1]}
         )
         assert second.status_code == 200 and JSON_OBJECT.validate_json(second.content)["usage"] == _USAGE, second.text
         assert _key_spend(rig.creator, key) == 0
@@ -794,7 +794,7 @@ def test_a_failed_create_registers_nothing(rig: Rig) -> None:
             "/v1beta/interactions",
             {"model": model, "input": f"settle {uuid.uuid4().hex}", "background": True},
             key=key,
-            headers={"x-litellm-call-id": call_id},
+            headers={"x-hangarllm-call-id": call_id},
         )
         assert response.status_code >= 500, response.text
         assert _key_spend(rig.creator, key) == 0

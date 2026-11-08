@@ -16,12 +16,12 @@ from psycopg import sql
 from psycopg.types.json import Jsonb
 from pydantic import JsonValue
 
-USER_SPEND: Final = "LiteLLM_DailyUserSpend"
-TEAM_SPEND: Final = "LiteLLM_DailyTeamSpend"
-TAG_SPEND: Final = "LiteLLM_DailyTagSpend"
-ORGANIZATION_SPEND: Final = "LiteLLM_DailyOrganizationSpend"
-END_USER_SPEND: Final = "LiteLLM_DailyEndUserSpend"
-AGENT_SPEND: Final = "LiteLLM_DailyAgentSpend"
+USER_SPEND: Final = "HangarLLM_DailyUserSpend"
+TEAM_SPEND: Final = "HangarLLM_DailyTeamSpend"
+TAG_SPEND: Final = "HangarLLM_DailyTagSpend"
+ORGANIZATION_SPEND: Final = "HangarLLM_DailyOrganizationSpend"
+END_USER_SPEND: Final = "HangarLLM_DailyEndUserSpend"
+AGENT_SPEND: Final = "HangarLLM_DailyAgentSpend"
 DAY: Final = "2026-02-03"
 AGGREGATED_USER_ACTIVITY: Final = "/user/daily/activity/aggregated"
 
@@ -32,19 +32,19 @@ INSERT_DAILY_ROW: Final = sql.SQL(
 )
 DELETE_DAILY_ROWS: Final = sql.SQL("DELETE FROM {table} WHERE api_key = ANY(%s)")
 INSERT_SPEND_LOG: Final = (
-    'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", metadata)'
+    'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", metadata)'
     " VALUES (%s, 'acompletion', %s, %s::timestamp, %s::timestamp, %s)"
 )
-DELETE_SPEND_LOG: Final = 'DELETE FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+DELETE_SPEND_LOG: Final = 'DELETE FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 INSERT_SPEND_LOG_ROW: Final = (
-    'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", metadata, team_id, "user")'
+    'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", metadata, team_id, "user")'
     " VALUES (%s, 'acompletion', %s, %s::timestamp, %s::timestamp, %s, %s, %s)"
 )
-DELETE_SPEND_LOG_ROWS: Final = 'DELETE FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)'
-DELETE_KEY_ROW: Final = 'DELETE FROM "LiteLLM_VerificationToken" WHERE token = %s'
-DELETE_ARCHIVED_KEY_ROW: Final = 'DELETE FROM "LiteLLM_DeletedVerificationToken" WHERE token = %s'
+DELETE_SPEND_LOG_ROWS: Final = 'DELETE FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)'
+DELETE_KEY_ROW: Final = 'DELETE FROM "HangarLLM_VerificationToken" WHERE token = %s'
+DELETE_ARCHIVED_KEY_ROW: Final = 'DELETE FROM "HangarLLM_DeletedVerificationToken" WHERE token = %s'
 LOCK_TABLE: Final = sql.SQL("LOCK TABLE {table} IN ACCESS EXCLUSIVE MODE")
-SPEND_LOGS_TABLE: Final = "LiteLLM_SpendLogs"
+SPEND_LOGS_TABLE: Final = "HangarLLM_SpendLogs"
 FIRST_SPEND_LOG_AT: Final = datetime(2026, 2, 3, 12, 0, 0)
 
 

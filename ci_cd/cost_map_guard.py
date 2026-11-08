@@ -7,9 +7,9 @@ otherwise) still holds in the tree that merging the pull request into its base b
 a pin was added cannot lower it, and a pull request that deletes the pins file fails too. A pull request that leaves
 all three untouched skips them, since merging it keeps the base branch's copies and its head tree only carries
 whatever state the branch was cut from. Pull requests from the cost map sync bot (branches named
-litellm_cost_map_sync_*) always get the file checks and additionally may only touch the two cost map files and may
+hangarllm_cost_map_sync_*) always get the file checks and additionally may only touch the two cost map files and may
 only add or update models, so a sync can never lower a pinned capability or edit the pins. Price sync pull requests
-(branches named litellm-providers/price-sync*) and pull requests a bot account opened (COST_MAP_GUARD_AUTHOR_TYPE is
+(branches named hangarllm-providers/price-sync*) and pull requests a bot account opened (COST_MAP_GUARD_AUTHOR_TYPE is
 Bot) get the human checks and may not touch the pins file either.
 """
 
@@ -26,12 +26,12 @@ from types import MappingProxyType
 from typing import Final
 
 COST_MAP_PATH: Final = "model_prices_and_context_window.json"
-BACKUP_PATH: Final = "litellm/model_prices_and_context_window_backup.json"
+BACKUP_PATH: Final = "hangarllm/model_prices_and_context_window_backup.json"
 PINS_PATH: Final = "ci_cd/cost_map_pins.json"
 GUARDED_PATHS: Final = (COST_MAP_PATH, BACKUP_PATH)
 CHECKED_PATHS: Final = (*GUARDED_PATHS, PINS_PATH)
-BOT_BRANCH_PREFIX: Final = "litellm_cost_map_sync_"
-PRICE_SYNC_BRANCH_PREFIX: Final = "litellm-providers/price-sync"
+BOT_BRANCH_PREFIX: Final = "hangarllm_cost_map_sync_"
+PRICE_SYNC_BRANCH_PREFIX: Final = "hangarllm-providers/price-sync"
 TARGET_ENV: Final = "COST_MAP_GUARD_TARGET"
 AUTHOR_TYPE_ENV: Final = "COST_MAP_GUARD_AUTHOR_TYPE"
 BOT_AUTHOR_TYPE: Final = "Bot"

@@ -12,12 +12,12 @@ from httpx import Request, Response
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly
 
-import litellm
-import litellm.integrations.datadog.datadog as datadog_module
-from litellm.caching.caching import Cache
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.integrations.datadog.datadog import DataDogLogger
-from litellm.integrations.datadog.datadog_handler import (
+import hangarllm
+import hangarllm.integrations.datadog.datadog as datadog_module
+from hangarllm.caching.caching import Cache
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.integrations.datadog.datadog import DataDogLogger
+from hangarllm.integrations.datadog.datadog_handler import (
     get_datadog_env,
     get_datadog_hostname,
     get_datadog_pod_name,
@@ -25,9 +25,9 @@ from litellm.integrations.datadog.datadog_handler import (
     get_datadog_source,
     get_datadog_tags,
 )
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.integrations.datadog import DatadogInitParams, DatadogPayload, DataDogStatus
-from litellm.types.utils import (
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.integrations.datadog import DatadogInitParams, DatadogPayload, DataDogStatus
+from hangarllm.types.utils import (
     StandardLoggingHiddenParams,
     StandardLoggingMetadata,
     StandardLoggingModelInformation,
@@ -79,7 +79,7 @@ def _standard_logging_payload() -> StandardLoggingPayload:
         id="test_id",
         trace_id="trace-id",
         session_id="session-id",
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         call_type="completion",
         stream=False,
         response_cost=0.1,
@@ -145,11 +145,11 @@ def _standard_logging_payload() -> StandardLoggingPayload:
 def datadog_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DD_API_KEY", "test_api_key")
     monkeypatch.setenv("DD_SITE", "test.datadoghq.com")
-    monkeypatch.delenv("LITELLM_DD_AGENT_HOST", raising=False)
-    monkeypatch.delenv("LITELLM_DD_AGENT_PORT", raising=False)
+    monkeypatch.delenv("HANGARLLM_DD_AGENT_HOST", raising=False)
+    monkeypatch.delenv("HANGARLLM_DD_AGENT_PORT", raising=False)
     monkeypatch.delenv("DD_BASE_URL", raising=False)
-    monkeypatch.setattr(litellm, "datadog_params", None)
-    monkeypatch.setattr(litellm, "datadog_use_v1", False)
+    monkeypatch.setattr(hangarllm, "datadog_params", None)
+    monkeypatch.setattr(hangarllm, "datadog_use_v1", False)
 
 
 @pytest.fixture
@@ -168,7 +168,7 @@ async def test_add_trace_context_uses_current_span(monkeypatch):
 
     dd_logger = DataDogLogger()
     payload = DatadogPayload(
-        ddsource="litellm",
+        ddsource="hangarllm",
         ddtags="env:test",
         hostname="host",
         message="{}",
@@ -193,7 +193,7 @@ async def test_add_trace_context_falls_back_to_root_span(monkeypatch):
 
     dd_logger = DataDogLogger()
     payload = DatadogPayload(
-        ddsource="litellm",
+        ddsource="hangarllm",
         ddtags="env:test",
         hostname="host",
         message="{}",
@@ -214,7 +214,7 @@ async def test_add_trace_context_handles_missing_tracer(monkeypatch):
 
     dd_logger = DataDogLogger()
     payload = DatadogPayload(
-        ddsource="litellm",
+        ddsource="hangarllm",
         ddtags="env:test",
         hostname="host",
         message="{}",
@@ -236,7 +236,7 @@ async def test_add_trace_context_ignores_span_without_trace_id(monkeypatch):
 
     dd_logger = DataDogLogger()
     payload = DatadogPayload(
-        ddsource="litellm",
+        ddsource="hangarllm",
         ddtags="env:test",
         hostname="host",
         message="{}",
@@ -260,15 +260,15 @@ async def test_datadog_logging_http_request():
     - each element in a DatadogPayload.message contains all the valid fields
     """
     try:
-        from litellm.integrations.datadog.datadog import DataDogLogger
+        from hangarllm.integrations.datadog.datadog import DataDogLogger
 
         os.environ["DD_SITE"] = "https://fake.datadoghq.com"
         os.environ["DD_API_KEY"] = "anything"
         dd_logger = DataDogLogger()
 
-        litellm.callbacks = [dd_logger]
+        hangarllm.callbacks = [dd_logger]
 
-        litellm.set_verbose = True
+        hangarllm.set_verbose = True
 
         # Create a mock for the async_client's post method
         mock_post = AsyncMock()
@@ -279,7 +279,7 @@ async def test_datadog_logging_http_request():
         # Make the completion call
         for _ in range(5):
             response = await _await_with_spawned_tasks(
-                litellm.acompletion(
+                hangarllm.acompletion(
                     model="gpt-4.1-mini",
                     messages=[{"role": "user", "content": "what llm are u"}],
                     max_tokens=10,
@@ -506,14 +506,14 @@ def test_datadog_static_methods():
     """Test the static helper methods in DataDogLogger class"""
 
     # Test with default environment variables
-    assert get_datadog_source() == "litellm"
-    assert get_datadog_service() == "litellm-server"
+    assert get_datadog_source() == "hangarllm"
+    assert get_datadog_service() == "hangarllm-server"
     assert get_datadog_hostname() is not None
     assert get_datadog_env() == "unknown"
     assert get_datadog_pod_name() == "unknown"
 
     # Test tags format with default values
-    assert "env:unknown,service:litellm-server,version:unknown,HOSTNAME:" in ",".join(
+    assert "env:unknown,service:hangarllm-server,version:unknown,HOSTNAME:" in ",".join(
         get_datadog_tags()
     )
 
@@ -635,11 +635,11 @@ def test_get_datadog_tags():
 async def test_datadog_message_redaction():
     """
     Test that DataDog logger correctly initializes with turn_off_message_logging=True
-    from litellm.datadog_params
+    from hangarllm.datadog_params
     """
     try:
-        # Test using litellm.datadog_params pattern
-        litellm.datadog_params = DatadogInitParams(turn_off_message_logging=True)
+        # Test using hangarllm.datadog_params pattern
+        hangarllm.datadog_params = DatadogInitParams(turn_off_message_logging=True)
 
         os.environ["DD_SITE"] = "https://fake.datadoghq.com"
         os.environ["DD_API_KEY"] = "anything"
@@ -648,7 +648,7 @@ async def test_datadog_message_redaction():
         with patch("asyncio.create_task"):
             dd_logger = DataDogLogger()
 
-        # Verify that turn_off_message_logging was set correctly from litellm.datadog_params
+        # Verify that turn_off_message_logging was set correctly from hangarllm.datadog_params
         assert hasattr(
             dd_logger, "turn_off_message_logging"
         ), "DataDogLogger should have turn_off_message_logging attribute"
@@ -683,7 +683,7 @@ async def test_datadog_message_redaction():
                 model_call_details
             )
         )
-        redacted_str = "redacted-by-litellm"
+        redacted_str = "redacted-by-hangarllm"
 
         # Verify that messages are redacted
         redacted_standard_obj = redacted_details["standard_logging_object"]
@@ -703,20 +703,20 @@ async def test_datadog_message_redaction():
         pytest.fail(f"Test failed with exception: {str(e)}")
     finally:
         # Clean up
-        litellm.datadog_params = None
-        litellm.callbacks = []
+        hangarllm.datadog_params = None
+        hangarllm.callbacks = []
 
 
 def test_datadog_agent_configuration():
     """
-    Test that DataDog logger correctly configures agent endpoint when LITELLM_DD_AGENT_HOST is set.
+    Test that DataDog logger correctly configures agent endpoint when HANGARLLM_DD_AGENT_HOST is set.
 
-    Note: We use LITELLM_DD_AGENT_HOST instead of DD_AGENT_HOST to avoid conflicts
+    Note: We use HANGARLLM_DD_AGENT_HOST instead of DD_AGENT_HOST to avoid conflicts
     with ddtrace which automatically sets DD_AGENT_HOST for APM tracing.
     """
     test_env = {
-        "LITELLM_DD_AGENT_HOST": "localhost",
-        "LITELLM_DD_AGENT_PORT": "10518",
+        "HANGARLLM_DD_AGENT_HOST": "localhost",
+        "HANGARLLM_DD_AGENT_PORT": "10518",
     }
 
     # Remove DD_SITE and DD_API_KEY to verify they're not required for agent mode
@@ -740,18 +740,18 @@ def test_datadog_agent_configuration():
 
 def test_datadog_ignores_ddtrace_agent_host():
     """
-    Regression test: Ensure DD_AGENT_HOST set by ddtrace doesn't interfere with LiteLLM logging.
+    Regression test: Ensure DD_AGENT_HOST set by ddtrace doesn't interfere with HangarLLM logging.
 
     When users have ddtrace installed for APM tracing, it automatically sets DD_AGENT_HOST.
-    LiteLLM should ignore DD_AGENT_HOST and only use LITELLM_DD_AGENT_HOST for agent mode.
+    HangarLLM should ignore DD_AGENT_HOST and only use HANGARLLM_DD_AGENT_HOST for agent mode.
 
     This prevents the 404 error when ddtrace's DD_AGENT_HOST points to an APM endpoint
     that doesn't support /api/v2/logs.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/16379
+    Regression test for: upstream issue 16379
     """
     test_env = {
-        # User's explicit config for LiteLLM logging (direct API)
+        # User's explicit config for HangarLLM logging (direct API)
         "DD_API_KEY": "fake-api-key",
         "DD_SITE": "us5.datadoghq.com",
         # ddtrace automatically sets these for APM tracing
@@ -767,7 +767,7 @@ def test_datadog_ignores_ddtrace_agent_host():
         expected_url = "https://http-intake.logs.us5.datadoghq.com/api/v2/logs"
         assert dd_logger.intake_url == expected_url, (
             f"Expected direct API URL '{expected_url}', got '{dd_logger.intake_url}'. "
-            "DD_AGENT_HOST (set by ddtrace) should be ignored - only LITELLM_DD_AGENT_HOST should trigger agent mode."
+            "DD_AGENT_HOST (set by ddtrace) should be ignored - only HANGARLLM_DD_AGENT_HOST should trigger agent mode."
         )
 
         # Verify API key is set correctly
@@ -839,8 +839,8 @@ class _ServiceEventMessage(TypedDict):
 def delivery(
     datadog_env: None, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> tuple[DataDogLogger, respx.Route]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     monkeypatch.delenv("DD_SOURCE", raising=False)
     monkeypatch.delenv("DD_SERVICE", raising=False)
     with patch("asyncio.create_task", side_effect=_discard_periodic_flush):
@@ -871,8 +871,8 @@ async def test_a_successful_request_is_delivered_as_an_info_log_carrying_the_sta
     assert intake.call_count == 1
     logs: Final = _delivered_logs(intake)
     assert len(logs) == 1
-    assert logs[0]["ddsource"] == "litellm"
-    assert logs[0]["service"] == "litellm-server"
+    assert logs[0]["ddsource"] == "hangarllm"
+    assert logs[0]["service"] == "hangarllm-server"
     assert logs[0]["status"] == DataDogStatus.INFO
     assert TypeAdapter(dict[str, object]).validate_json(logs[0]["message"]) == standard_payload
 
@@ -911,12 +911,12 @@ async def test_a_failing_redis_cache_is_delivered_to_datadog_as_redis_warnings(
     absent_socket: Final = str(socket_dir / "absent.sock")
     redis_cache: Final = Cache(type="redis", url=f"unix://{absent_socket}")
     monkeypatch.setattr(redis_cache.cache.service_logger_obj, "dd_logger", datadog_logger, raising=False)
-    monkeypatch.setattr(litellm, "service_callback", ["datadog"])
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "cache", redis_cache)
+    monkeypatch.setattr(hangarllm, "service_callback", ["datadog"])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "cache", redis_cache)
 
     for _ in range(3):
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-4.1-mini",
             messages=[{"role": "user", "content": "what llm are u"}],
             mock_response="Accepted",

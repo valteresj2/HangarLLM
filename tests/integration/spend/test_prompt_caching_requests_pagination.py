@@ -8,7 +8,7 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.types.management_endpoints.prompt_caching_requests import (
+from hangarllm.types.management_endpoints.prompt_caching_requests import (
     PromptCachingRequestFilter,
     PromptCachingRequestsResponse,
 )
@@ -18,7 +18,7 @@ from tests.integration._support.database import write_rows
 _JSON_OBJECT: Final = TypeAdapter(dict[str, object])
 _JSON_ROWS: Final = TypeAdapter(list[Mapping[str, object]])
 _URL: Final = "/cost_optimization/prompt_caching/requests"
-_MARKER: Final = "litellm_gateway_injected_cache"
+_MARKER: Final = "hangarllm_gateway_injected_cache"
 
 _EXPECTED: Final = {
     "injected": ("injected-empty", "injected-deployment"),
@@ -87,7 +87,7 @@ def _seed(prefix: str, cases: tuple[_Case, ...] = _CASES) -> None:
     shift: Final = _window(prefix)[0] - datetime(2011, 9, 1)
     for case in cases:
         write_rows(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model,'
+            'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model,'
             " model_id, custom_llm_provider, spend, metadata, cache_hit)"
             " VALUES (%s, 'acompletion', %s, %s::timestamp, %s::timestamp, %s, %s, %s, %s, %s::jsonb, %s)",
             (
@@ -106,7 +106,7 @@ def _seed(prefix: str, cases: tuple[_Case, ...] = _CASES) -> None:
 
 
 def _clean(prefix: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s', (f"{prefix}%",))
+    write_rows('DELETE FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s', (f"{prefix}%",))
 
 
 def _strip(prefix: str, request_id: str) -> str:
@@ -247,17 +247,17 @@ async def test_cursor_keeps_remaining_requests_once_during_insertions_and_deleti
         assert tuple(_strip(prefix, row.request_id) for row in first_page.requests) == expected[:2]
         assert first_page.next_cursor is not None
         write_rows(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model,'
+            'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model,'
             " model_id, custom_llm_provider, spend, metadata, cache_hit)"
             ' SELECT %s, call_type, api_key, %s, "endTime", model, model_id, custom_llm_provider, spend,'
-            ' metadata, cache_hit FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+            ' metadata, cache_hit FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
             (f"{prefix}newer-request", (window[0] + timedelta(hours=13)).isoformat(), f"{prefix}{expected[0]}"),
         )
         write_rows(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model,'
+            'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, api_key, "startTime", "endTime", model,'
             " model_id, custom_llm_provider, spend, metadata, cache_hit)"
             ' SELECT %s, call_type, api_key, %s, "endTime", model, model_id, custom_llm_provider, spend,'
-            ' metadata, cache_hit FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+            ' metadata, cache_hit FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
             (
                 f"{prefix}zz-higher-id",
                 (cases[0].start_time + (window[0] - datetime(2011, 9, 1))).isoformat(),
@@ -265,7 +265,7 @@ async def test_cursor_keeps_remaining_requests_once_during_insertions_and_deleti
             ),
         )
         if delete_before_cursor:
-            write_rows('DELETE FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (f"{prefix}{expected[0]}",))
+            write_rows('DELETE FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (f"{prefix}{expected[0]}",))
         following: Final = gateway.request(
             "GET",
             _URL,

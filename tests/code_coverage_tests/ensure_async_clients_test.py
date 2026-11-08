@@ -3,31 +3,31 @@ import os
 
 ALLOWED_FILES = [
     # Lens data traffic owns one pool per app lifespan, isolated from model traffic and closed on shutdown.
-    "../../litellm/tracing/remote.py",
-    "./litellm/tracing/remote.py",
+    "../../hangarllm/tracing/remote.py",
+    "./hangarllm/tracing/remote.py",
     # Only a guardrail check retry opens a client, on purpose to get a new connection, and closes it right after.
-    "../../litellm/proxy/guardrails/guardrail_hooks/generic_guardrail_api/generic_guardrail_api.py",
-    "./litellm/proxy/guardrails/guardrail_hooks/generic_guardrail_api/generic_guardrail_api.py",
+    "../../hangarllm/proxy/guardrails/guardrail_hooks/generic_guardrail_api/generic_guardrail_api.py",
+    "./hangarllm/proxy/guardrails/guardrail_hooks/generic_guardrail_api/generic_guardrail_api.py",
     # local files
-    "../../litellm/__init__.py",
-    "../../litellm/llms/custom_httpx/http_handler.py",
-    "../../litellm/router_utils/client_initalization_utils.py",
-    "../../litellm/llms/custom_httpx/http_handler.py",
-    "../../litellm/llms/huggingface_restapi.py",
-    "../../litellm/llms/base.py",
-    "../../litellm/llms/custom_httpx/httpx_handler.py",
-    "../../litellm/llms/openai/common_utils.py",
-    "../../litellm/mcp_client/client.py",
+    "../../hangarllm/__init__.py",
+    "../../hangarllm/llms/custom_httpx/http_handler.py",
+    "../../hangarllm/router_utils/client_initalization_utils.py",
+    "../../hangarllm/llms/custom_httpx/http_handler.py",
+    "../../hangarllm/llms/huggingface_restapi.py",
+    "../../hangarllm/llms/base.py",
+    "../../hangarllm/llms/custom_httpx/httpx_handler.py",
+    "../../hangarllm/llms/openai/common_utils.py",
+    "../../hangarllm/mcp_client/client.py",
     # when running on ci/cd
-    "./litellm/__init__.py",
-    "./litellm/llms/custom_httpx/http_handler.py",
-    "./litellm/router_utils/client_initalization_utils.py",
-    "./litellm/llms/custom_httpx/http_handler.py",
-    "./litellm/llms/huggingface_restapi.py",
-    "./litellm/llms/base.py",
-    "./litellm/llms/custom_httpx/httpx_handler.py",
-    "./litellm/llms/openai/common_utils.py",
-    "./litellm/mcp_client/client.py",
+    "./hangarllm/__init__.py",
+    "./hangarllm/llms/custom_httpx/http_handler.py",
+    "./hangarllm/router_utils/client_initalization_utils.py",
+    "./hangarllm/llms/custom_httpx/http_handler.py",
+    "./hangarllm/llms/huggingface_restapi.py",
+    "./hangarllm/llms/base.py",
+    "./hangarllm/llms/custom_httpx/httpx_handler.py",
+    "./hangarllm/llms/openai/common_utils.py",
+    "./hangarllm/mcp_client/client.py",
 ]
 
 warning_msg = "this is a serious violation that can impact latency. Creating Async clients per request can add +500ms per request"
@@ -101,9 +101,9 @@ def test_no_async_http_handler_usage():
     """
     Test to ensure AsyncHttpHandler is not used anywhere in the codebase.
     """
-    base_dir = "./litellm"  # Adjust this path as needed
+    base_dir = "./hangarllm"  # Adjust this path as needed
 
-    # base_dir = "../../litellm"  # LOCAL TESTING
+    # base_dir = "../../hangarllm"  # LOCAL TESTING
     violations = scan_directory_for_async_handler(base_dir)
 
     if violations:

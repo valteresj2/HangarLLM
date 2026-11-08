@@ -37,11 +37,11 @@ def remote_and_clone(tmp_path: Path) -> tuple[Path, Path]:
     ):
         shutil.copyfile(ROOT / "scripts" / name, seed / "scripts" / name)
     shutil.copyfile(ROOT / "Makefile", seed / "Makefile")
-    (seed / "litellm").mkdir()
-    (seed / "litellm" / "example.py").write_text("value = 0\n")
+    (seed / "hangarllm").mkdir()
+    (seed / "hangarllm" / "example.py").write_text("value = 0\n")
     _commit(seed, "staging base")
     _git(seed, "checkout", "-qb", "main")
-    (seed / "litellm" / "example.py").write_text("value = 1\n")
+    (seed / "hangarllm" / "example.py").write_text("value = 1\n")
     _commit(seed, "main base")
     remote: Final = tmp_path / "remote.git"
     _git(tmp_path, "clone", "-q", "--bare", str(seed), str(remote))
@@ -116,17 +116,17 @@ def test_explicit_base_works_without_remote_access(
     assert result.stdout.strip() == base_ref
     checked: Final = _make(repo, "lint-format-check-changed", f"BASE_REF={base_ref}")
     assert checked.returncode == 0, checked.stderr
-    assert "No changed litellm Python files" in checked.stdout
+    assert "No changed hangarllm Python files" in checked.stdout
 
 
 def test_format_check_reads_staged_renames(remote_and_clone: tuple[Path, Path]) -> None:
     _, repo = remote_and_clone
-    (repo / "litellm" / "before_move.py").write_text("value = 2\n")
+    (repo / "hangarllm" / "before_move.py").write_text("value = 2\n")
     _commit(repo, "add module")
-    _git(repo, "mv", "litellm/before_move.py", "litellm/after_move.py")
+    _git(repo, "mv", "hangarllm/before_move.py", "hangarllm/after_move.py")
     checked: Final = _make(repo, "lint-format-check-changed", "BASE_REF=origin/release_branch", "UV_RUN=echo")
     assert checked.returncode == 0, checked.stdout + checked.stderr
-    assert "litellm/after_move.py" in checked.stdout
+    assert "hangarllm/after_move.py" in checked.stdout
     assert "before_move.py" not in checked.stdout
 
 

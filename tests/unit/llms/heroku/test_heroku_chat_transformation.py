@@ -1,10 +1,10 @@
 import os
 import pytest
-import litellm
-from litellm import completion
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import hangarllm
+from hangarllm import completion
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 from unittest.mock import patch
-from litellm.llms.heroku.chat.transformation import HerokuChatConfig
+from hangarllm.llms.heroku.chat.transformation import HerokuChatConfig
 
 os.environ["HEROKU_API_BASE"] = "https://us.inference.heroku.com"
 os.environ["HEROKU_API_KEY"] = "fake-heroku-key"
@@ -23,7 +23,7 @@ class TestHerokuChatConfig:
             model="claude-3-5-haiku",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base=None,  # Not providing api_base
         )
@@ -36,7 +36,7 @@ class TestHerokuChatConfig:
     def test_heroku_chat_mock(self, respx_mock):
         """Test that the Heroku chat API is called correctly"""
 
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
 
         model = "heroku/claude-3-5-haiku"
         model_name = "claude-3-5-haiku"
@@ -69,7 +69,7 @@ class TestHerokuChatConfig:
         response = completion(
             model=model,
             messages=[
-                {"role": "user", "content": "write code for saying hey from LiteLLM"}
+                {"role": "user", "content": "write code for saying hey from HangarLLM"}
             ],
             extended_thinking={"enabled": True, "include_reasoning": True},
         )
@@ -92,7 +92,7 @@ class TestHerokuChatConfig:
         headers = {}
         api_key = "fake-heroku-key"
 
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
 
         model = "heroku/claude-4-sonnet"
 
@@ -192,7 +192,7 @@ class TestHerokuChatConfig:
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         HerokuChatConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="claude-4-sonnet", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="claude-4-sonnet", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/heroku/v1/chat/completions"
     )

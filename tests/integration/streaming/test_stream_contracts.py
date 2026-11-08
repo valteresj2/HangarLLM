@@ -56,7 +56,7 @@ def text_stream(identity: str) -> tuple[bytes, ...]:
 
 @pytest.mark.covers("other.streaming.byte_partitions.preserve_text_identity_and_usage")
 def test_generated_tcp_partitions_preserve_unicode_text_identity_and_final_usage() -> None:
-    import litellm
+    import hangarllm
 
     body: Final = b"".join(text_stream("stream-partition-control"))
 
@@ -68,7 +68,7 @@ def test_generated_tcp_partitions_preserve_unicode_text_identity_and_final_usage
         boundaries: Final = (0, *sorted(cuts), len(body))
         pieces: Final = tuple(body[left:right] for left, right in zip(boundaries, boundaries[1:]))
         with wire_server(lambda request: Reply(content_type="text/event-stream", chunks=pieces)) as wire:
-            stream: Final = litellm.completion(
+            stream: Final = hangarllm.completion(
                 model="openai/gpt-4o-mini",
                 api_base=wire.url + "/v1",
                 api_key="synthetic-stream-key",
@@ -99,7 +99,7 @@ def test_generated_tcp_partitions_preserve_unicode_text_identity_and_final_usage
 
 @pytest.mark.covers("other.streaming.tools.fragmented_calls_keep_independent_arguments")
 def test_fragmented_tool_names_and_arguments_keep_each_call_identity() -> None:
-    import litellm
+    import hangarllm
 
     identity: Final = "stream-tools-control"
     deltas: Final = (
@@ -129,7 +129,7 @@ def test_fragmented_tool_names_and_arguments_keep_each_call_identity() -> None:
         b"data: [DONE]\n\n",
     )
     with wire_server(lambda request: Reply(content_type="text/event-stream", chunks=frames)) as wire:
-        stream: Final = litellm.completion(
+        stream: Final = hangarllm.completion(
             model="openai/gpt-4o-mini",
             api_base=wire.url + "/v1",
             api_key="synthetic-stream-key",
@@ -207,7 +207,7 @@ def test_proxy_stream_usage_visibility_keeps_exact_persisted_charge(gateway: Gat
                 assert json.loads(requests[0].body)["stream_options"]["include_usage"] is True
                 rows: Final = eventually(
                     lambda identity=identity: read_rows(
-                        'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                        'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                         (identity,),
                     ),
                     lambda values: len(values) == 1,
@@ -217,7 +217,7 @@ def test_proxy_stream_usage_visibility_keeps_exact_persisted_charge(gateway: Gat
                 assert float(rows[0]["spend"]) == pytest.approx(0.019)
 
 
-_STREAM_USAGE_INJECTED_FLAG: Final = "_litellm_stream_usage_injected"
+_STREAM_USAGE_INJECTED_FLAG: Final = "_hangarllm_stream_usage_injected"
 
 
 def _registered_model_names(gateway: Gateway) -> tuple[JsonValue, ...]:
@@ -307,7 +307,7 @@ def test_stream_usage_the_deployment_adds_keeps_one_empty_choice(gateway: Gatewa
             "model_list": [
                 {
                     "model_name": "deployment-usage",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "synthetic-deployment-usage-key",
                         "api_base": wire.url + "/v1",
@@ -710,7 +710,7 @@ def test_perplexity_stream_with_cost_breakdown_object_completes_and_bills_total_
         assert outbound["messages"] == [{"role": "user", "content": identity}], outbound
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (identity,),
             ),
             lambda values: len(values) == 1,
@@ -756,7 +756,7 @@ def test_primary_stream_with_empty_first_chunk_then_disconnect_falls_back_and_bi
         config["model_list"] = [
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "synthetic-fallback-key",
                     "api_base": server.url + "/v1",
@@ -806,7 +806,7 @@ def test_primary_stream_with_empty_first_chunk_then_disconnect_falls_back_and_bi
             ) == (body["messages"],)
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT spend, prompt_tokens, completion_tokens, status FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                    'SELECT spend, prompt_tokens, completion_tokens, status FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                     (identity,),
                 ),
                 lambda values: len(values) == 1,
@@ -948,7 +948,7 @@ def test_native_messages_and_responses_routes_fall_back_and_bill_the_fallback(
         config["model_list"] = [
             {
                 "model_name": model_group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"{'anthropic' if is_messages else 'openai'}/{model}",
                     "api_key": "synthetic-native-fallback-key",
                     "api_base": server.url if is_messages else server.url + "/v1",
@@ -970,7 +970,7 @@ def test_native_messages_and_responses_routes_fall_back_and_bill_the_fallback(
         proxy_config.write_text(yaml.safe_dump(config))
         with owned_proxy(gateway, tmp_path, {}, config=proxy_config) as candidate:
             request_headers: Final = {
-                "x-litellm-call-id": identity,
+                "x-hangarllm-call-id": identity,
                 **(
                     {"x-api-key": candidate.key, "anthropic-version": "2023-06-01"}
                     if is_messages
@@ -980,7 +980,7 @@ def test_native_messages_and_responses_routes_fall_back_and_bill_the_fallback(
             with candidate.client.stream("POST", path, json=client_body, headers=request_headers) as response:
                 response_text: Final = response.read().decode()
             assert response.status_code == 200, response_text
-            assert response.headers.get("x-litellm-attempted-fallbacks") == "1", response_text
+            assert response.headers.get("x-hangarllm-attempted-fallbacks") == "1", response_text
             assert tuple(call_order.get_nowait() for _ in range(call_order.qsize())) == ("primary", "fallback")
             assert tuple(
                 (name, request.method, request.target, json.loads(request.body))
@@ -1080,7 +1080,7 @@ def test_native_messages_and_responses_routes_fall_back_and_bill_the_fallback(
             rows: Final = eventually(
                 lambda: read_rows(
                     "SELECT model, model_group, spend, prompt_tokens, completion_tokens, status "
-                    'FROM "LiteLLM_SpendLogs" WHERE request_id=%s OR litellm_call_id=%s',
+                    'FROM "HangarLLM_SpendLogs" WHERE request_id=%s OR hangarllm_call_id=%s',
                     (identity, identity),
                 ),
                 lambda values: len(values) == 1,
@@ -1094,7 +1094,7 @@ def test_native_messages_and_responses_routes_fall_back_and_bill_the_fallback(
 
 @pytest.mark.covers("other.streaming.failure.truncated_transport_raises_and_control_recovers")
 def test_truncated_http_stream_is_an_error_and_next_stream_succeeds() -> None:
-    import litellm
+    import hangarllm
 
     for truncated in (True, False):
         with wire_server(
@@ -1104,7 +1104,7 @@ def test_truncated_http_stream_is_an_error_and_next_stream_succeeds() -> None:
                 abort_after=1 if truncated else None,
             )
         ) as wire:
-            stream: Final = litellm.completion(
+            stream: Final = hangarllm.completion(
                 model="openai/gpt-4o-mini",
                 api_base=wire.url + "/v1",
                 api_key="synthetic-stream-key",
@@ -1116,10 +1116,10 @@ def test_truncated_http_stream_is_an_error_and_next_stream_succeeds() -> None:
             try:
                 if truncated:
                     with pytest.raises(
-                        litellm.exceptions.MidStreamFallbackError, match="incomplete chunked read"
+                        hangarllm.exceptions.MidStreamFallbackError, match="incomplete chunked read"
                     ) as failure:
                         tuple(stream)
-                    assert isinstance(failure.value.original_exception, litellm.APIConnectionError)
+                    assert isinstance(failure.value.original_exception, hangarllm.APIConnectionError)
                     assert failure.value.generated_content == "Hello "
                     assert failure.value.is_pre_first_chunk is False
                 else:
@@ -1136,7 +1136,7 @@ def test_truncated_http_stream_is_an_error_and_next_stream_succeeds() -> None:
 
 @pytest.mark.covers("other.streaming.cancellation.closes_actual_provider_connection")
 def test_client_cancellation_releases_the_actual_provider_connection() -> None:
-    import litellm
+    import hangarllm
 
     gate: Final = threading.Event()
     frames: Final = (
@@ -1147,7 +1147,7 @@ def test_client_cancellation_releases_the_actual_provider_connection() -> None:
     with wire_server(
         lambda request: Reply(content_type="text/event-stream", chunks=frames, gate_after_first=gate)
     ) as wire:
-        stream: Final = litellm.completion(
+        stream: Final = hangarllm.completion(
             model="openai/gpt-4o-mini",
             api_base=wire.url + "/v1",
             api_key="synthetic-stream-key",

@@ -7,8 +7,8 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.evals.main import cancel_run, create_run, get_run
+import hangarllm
+from hangarllm.evals.main import cancel_run, create_run, get_run
 
 FAKE_KEY: Final = "sk-fake"
 FAKE_AWS: Final[Mapping[str, str]] = MappingProxyType(
@@ -31,19 +31,19 @@ def received_paths() -> Iterator[Callable[[], tuple[str, ...]]]:
 
 
 def _drain(result: object) -> None:
-    if isinstance(result, litellm.CustomStreamWrapper):
+    if isinstance(result, hangarllm.CustomStreamWrapper):
         for _ in result:
             pass
 
 
 def _completion(model: str, stream: bool = False, **kwargs: object) -> Callable[[str], object]:
     return lambda api_base: _drain(
-        litellm.completion(model=model, messages=list(MESSAGES), api_base=api_base, stream=stream, timeout=5, **kwargs)
+        hangarllm.completion(model=model, messages=list(MESSAGES), api_base=api_base, stream=stream, timeout=5, **kwargs)
     )
 
 
 def _embedding(model: str, **kwargs: object) -> Callable[[str], object]:
-    return lambda api_base: litellm.embedding(model=model, input=["hi"], api_base=api_base, timeout=5, **kwargs)
+    return lambda api_base: hangarllm.embedding(model=model, input=["hi"], api_base=api_base, timeout=5, **kwargs)
 
 
 ROUTES: Final[Mapping[str, Callable[[str], object]]] = MappingProxyType(
@@ -62,23 +62,23 @@ ROUTES: Final[Mapping[str, Callable[[str], object]]] = MappingProxyType(
         "ollama-embedding": _embedding("ollama/nomic-embed-text"),
         "oobabooga-chat": _completion("oobabooga/local-model"),
         "oobabooga-embedding": _embedding("oobabooga/local-model"),
-        "bedrock-rerank": lambda api_base: litellm.rerank(
+        "bedrock-rerank": lambda api_base: hangarllm.rerank(
             model="bedrock/arn:aws:bedrock:us-west-2::foundation-model/amazon.rerank-v1:0",
             query="hi",
             documents=["a"],
             api_base=api_base,
             **FAKE_AWS,
         ),
-        "bedrock-image-generation": lambda api_base: litellm.image_generation(
+        "bedrock-image-generation": lambda api_base: hangarllm.image_generation(
             model="bedrock/amazon.nova-canvas-v1:0", prompt="a cat", api_base=api_base, timeout=5, **FAKE_AWS
         ),
-        "gemini-interaction-get": lambda api_base: litellm.interactions.get(
+        "gemini-interaction-get": lambda api_base: hangarllm.interactions.get(
             interaction_id="interaction-1", api_base=api_base, api_key=FAKE_KEY
         ),
-        "gemini-interaction-delete": lambda api_base: litellm.interactions.delete(
+        "gemini-interaction-delete": lambda api_base: hangarllm.interactions.delete(
             interaction_id="interaction-1", api_base=api_base, api_key=FAKE_KEY
         ),
-        "gemini-interaction-cancel": lambda api_base: litellm.interactions.cancel(
+        "gemini-interaction-cancel": lambda api_base: hangarllm.interactions.cancel(
             interaction_id="interaction-1", api_base=api_base, api_key=FAKE_KEY
         ),
         "openai-eval-run-create": lambda api_base: create_run(
@@ -90,11 +90,11 @@ ROUTES: Final[Mapping[str, Callable[[str], object]]] = MappingProxyType(
         "openai-eval-run-cancel": lambda api_base: cancel_run(
             eval_id="eval-1", run_id="run-1", api_base=api_base, api_key=FAKE_KEY
         ),
-        "edenai-model-list": lambda api_base: litellm.get_valid_models(
+        "edenai-model-list": lambda api_base: hangarllm.get_valid_models(
             check_provider_endpoint=True, custom_llm_provider="edenai", api_key=FAKE_KEY, api_base=api_base
         ),
         "gemini-rag-ingest": lambda api_base: asyncio.run(
-            litellm.aingest(
+            hangarllm.aingest(
                 ingest_options={
                     "vector_store": {"custom_llm_provider": "gemini", "api_base": api_base, "api_key": FAKE_KEY}
                 },
@@ -110,7 +110,7 @@ def test_api_base_with_a_trailing_slash_reaches_the_gateway_path_with_single_sla
     received_paths: Callable[[], tuple[str, ...]], route: Callable[[str], object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GIGACHAT_ACCESS_TOKEN", FAKE_KEY)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with contextlib.suppress(Exception):
         route(f"http://{GATEWAY_HOST}{GATEWAY_PATH}")
 

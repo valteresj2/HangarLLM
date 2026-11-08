@@ -4,9 +4,9 @@ from itertools import combinations
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.proxy.common_utils.model_listing_utils import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.proxy.common_utils.model_listing_utils import (
     CallerAliases,
     ClaudeCodeRoutingNames,
     alias_listing_entries,
@@ -38,7 +38,7 @@ def _row(name, limit=1000000):
 def _router(*names, aliases=None):
     return Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}} for name in names
+            {"model_name": name, "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}} for name in names
         ],
         model_group_alias=aliases,
     )
@@ -110,7 +110,7 @@ def test_only_claude_code_gets_the_view(headers, enabled):
 def test_configured_names_outrank_generated_ids_even_when_hidden_from_listing(monkeypatch, layer):
     encoded = _encoded("foo")
     alias = {encoded: "other"}
-    monkeypatch.setattr(litellm, "model_alias_map", alias if layer == "global" else {})
+    monkeypatch.setattr(hangarllm, "model_alias_map", alias if layer == "global" else {})
     router = _router(
         "foo",
         "other",
@@ -158,7 +158,7 @@ def test_alias_colliding_with_a_deployed_listed_model_keeps_that_model_at_list_a
     monkeypatch: pytest.MonkeyPatch, layer: str
 ) -> None:
     alias = {"fast": "gpt-4.1-mini"}
-    monkeypatch.setattr(litellm, "model_alias_map", alias if layer == "global" else {})
+    monkeypatch.setattr(hangarllm, "model_alias_map", alias if layer == "global" else {})
     maps = _caller(alias if layer == "team" else None, alias if layer == "key" else None)
     entries = [("fast", "fast"), ("gpt-4.1-mini", "gpt-4.1-mini")]
     deployed = frozenset({"fast", "gpt-4.1-mini"})
@@ -245,7 +245,7 @@ def test_team_aliases_only_apply_when_listing_the_team_the_key_authenticated_as(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     key_aliases, team_aliases, global_aliases = {"k": "gpt-4.1"}, {"t": "gpt-4.1-mini"}, {"g": "gpt-4.1"}
-    monkeypatch.setattr(litellm, "model_alias_map", global_aliases)
+    monkeypatch.setattr(hangarllm, "model_alias_map", global_aliases)
     own_team = caller_alias_maps(key_aliases, team_aliases, "team-a", None)
     assert own_team.rewrite == (team_aliases, key_aliases, global_aliases, key_aliases)
     assert caller_alias_maps(key_aliases, team_aliases, "team-a", "team-a") == own_team
@@ -255,7 +255,7 @@ def test_team_aliases_only_apply_when_listing_the_team_the_key_authenticated_as(
 def test_global_alias_rewrites_between_the_two_key_passes_like_chat_completions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "model_alias_map", {"b": "d"})
+    monkeypatch.setattr(hangarllm, "model_alias_map", {"b": "d"})
     key_aliases = {"a": "b", "b": "c"}
     entries = [("c", "c"), ("d", "d")]
     maps = caller_alias_maps(key_aliases, None, "team-a", None)
@@ -266,7 +266,7 @@ def test_global_alias_rewrites_between_the_two_key_passes_like_chat_completions(
 
 
 def test_global_aliases_rewrite_but_are_not_listed_as_caller_rows(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_alias_map", {"g": "gpt-4.1-mini"})
+    monkeypatch.setattr(hangarllm, "model_alias_map", {"g": "gpt-4.1-mini"})
     entries = [("gpt-4.1-mini", "gpt-4.1-mini")]
     maps = caller_alias_maps({"k": "g"}, None, "team-a", None)
     deployed = frozenset({"gpt-4.1-mini"})
@@ -280,7 +280,7 @@ def test_team_public_name_uses_the_same_scope_at_list_and_request():
         model_list=[
             {
                 "model_name": "model_name_team-a_id",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                 "model_info": {"team_id": "team-a", "team_public_model_name": "shared"},
             }
         ]

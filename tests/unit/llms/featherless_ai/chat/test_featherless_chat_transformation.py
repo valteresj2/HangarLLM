@@ -9,7 +9,7 @@ Featherless AI is an OpenAI-compatible provider with a few customizations.
 import pytest
 
 
-from litellm.llms.featherless_ai.chat.transformation import FeatherlessAIConfig
+from hangarllm.llms.featherless_ai.chat.transformation import FeatherlessAIConfig
 
 
 class TestFeatherlessAIConfig:
@@ -26,7 +26,7 @@ class TestFeatherlessAIConfig:
             model="featherless-ai/Qwerky-72B",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base="https://api.featherless.ai/v1/",
         )
@@ -45,7 +45,7 @@ class TestFeatherlessAIConfig:
                 model="featherless-ai/Qwerky-72B",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
                 api_base="https://api.featherless.ai/v1/",
             )
@@ -56,7 +56,7 @@ class TestFeatherlessAIConfig:
         """Test proper inheritance from OpenAIGPTConfig"""
         config = FeatherlessAIConfig()
 
-        from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+        from hangarllm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 
         assert isinstance(config, OpenAIGPTConfig)
         assert hasattr(config, "get_supported_openai_params")
@@ -107,7 +107,7 @@ class TestFeatherlessAIConfig:
             "tool_choice": {"type": "function", "function": {"name": "get_weather"}}
         }
         optional_params = {}
-        with pytest.raises(Exception, match="litellm\\.UnsupportedParamsError: Featherless AI doesn't") as excinfo:
+        with pytest.raises(Exception, match="hangarllm\\.UnsupportedParamsError: Featherless AI doesn't") as excinfo:
             config.map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
@@ -133,7 +133,7 @@ class TestFeatherlessAIConfig:
         assert "tools" not in result
 
         # Test with tools and drop_params=False
-        with pytest.raises(Exception, match="litellm\\.UnsupportedParamsError: Featherless AI doesn't") as excinfo:
+        with pytest.raises(Exception, match="hangarllm\\.UnsupportedParamsError: Featherless AI doesn't") as excinfo:
             config.map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
@@ -199,7 +199,7 @@ class TestFeatherlessAIConfig:
             model="featherless-ai/Qwerky-72B",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base=None,  # Not providing api_base
         )
@@ -217,12 +217,12 @@ class TestFeatherlessAIConfig:
         Mock test for Featherless AI completion using the model format from docs.
         This test mocks the actual HTTP request to test the integration properly.
         """
-        import litellm
+        import hangarllm
 
-        litellm.disable_aiohttp_transport = (
+        hangarllm.disable_aiohttp_transport = (
             True  # since this uses respx, we need to set use_aiohttp_transport to False
         )
-        from litellm import completion
+        from hangarllm import completion
 
         # Set up environment variables for the test
         api_key = "fake-featherless-key"
@@ -242,7 +242,7 @@ class TestFeatherlessAIConfig:
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": '```python\nprint("Hi from LiteLLM!")\n```\n\nThis simple Python code prints a greeting message from LiteLLM.',
+                            "content": '```python\nprint("Hi from HangarLLM!")\n```\n\nThis simple Python code prints a greeting message from HangarLLM.',
                         },
                         "finish_reason": "stop",
                     }
@@ -256,11 +256,11 @@ class TestFeatherlessAIConfig:
             status_code=200,
         )
 
-        # Make the actual API call through LiteLLM
+        # Make the actual API call through HangarLLM
         response = completion(
             model=model,
             messages=[
-                {"role": "user", "content": "write code for saying hi from LiteLLM"}
+                {"role": "user", "content": "write code for saying hi from HangarLLM"}
             ],
             api_key=api_key,
             api_base=api_base,
@@ -276,4 +276,4 @@ class TestFeatherlessAIConfig:
 
         # Check for specific content in the response
         assert "```python" in response.choices[0].message.content
-        assert "Hi from LiteLLM" in response.choices[0].message.content
+        assert "Hi from HangarLLM" in response.choices[0].message.content

@@ -25,8 +25,8 @@ async def test_async_realtime_upstream_handshake_refusal_sends_error_event_then_
     from websockets.exceptions import InvalidStatus
     from websockets.http11 import Response
 
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
-    from litellm.types.realtime import RealtimeErrorEvent
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.types.realtime import RealtimeErrorEvent
 
     handler = AzureOpenAIRealtime()
     model = "gpt-realtime"
@@ -57,8 +57,8 @@ async def test_async_realtime_upstream_handshake_refusal_sends_error_event_then_
 
 @pytest.mark.asyncio
 async def test_async_realtime_unexpected_error_sends_error_event_then_internal_close():
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
-    from litellm.types.realtime import RealtimeErrorEvent
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.types.realtime import RealtimeErrorEvent
 
     handler = AzureOpenAIRealtime()
     model = "gpt-realtime"

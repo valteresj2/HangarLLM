@@ -8,10 +8,10 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 
-from litellm.integrations.galileo import GalileoObserve
-from litellm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import (
+from hangarllm.integrations.galileo import GalileoObserve
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
+from hangarllm.types.rerank import RerankResponse
+from hangarllm.types.utils import (
     Choices,
     EmbeddingResponse,
     ImageObject,
@@ -976,7 +976,7 @@ def _chat_response_carrying(message: object) -> ModelResponse:
         (None, ""),
     ],
 )
-def test_galileo_output_str_of_a_chat_response_whose_message_is_not_a_litellm_message(
+def test_galileo_output_str_of_a_chat_response_whose_message_is_not_a_hangarllm_message(
     galileo_v2_env: None, message: object, expected_output: str
 ) -> None:
     output: Final = GalileoObserve().get_output_str_from_response(

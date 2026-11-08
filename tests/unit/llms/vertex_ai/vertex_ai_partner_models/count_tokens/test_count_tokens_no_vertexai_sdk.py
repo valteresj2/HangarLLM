@@ -6,7 +6,7 @@ used to gate on `import vertexai` even though the actual count-tokens path goes
 through `VertexAIPartnerModelsTokenCounter.handle_count_tokens_request`, which
 talks to the publisher's `:rawPredict` endpoint over plain httpx and never
 touches the Gemini SDK. The unused gate broke `/v1/messages/count_tokens` for
-any LiteLLM install that did not pull in `google-cloud-aiplatform` (which is
+any HangarLLM install that did not pull in `google-cloud-aiplatform` (which is
 not in the default `proxy` / `proxy-dev` extras).
 
 These tests pin the absence of that gate by:
@@ -22,10 +22,10 @@ import sys
 
 import pytest
 
-from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
     VertexAIPartnerModelsTokenCounter,
 )
-from litellm.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
 
 
 @pytest.mark.asyncio
@@ -74,7 +74,7 @@ async def test_count_tokens_does_not_require_vertexai_sdk(monkeypatch):
             captured["json"] = json
             return FakeResponse()
 
-    import litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
+    import hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
 
     monkeypatch.setattr(
         handler_mod, "get_async_httpx_client", lambda **kwargs: FakeClient()
@@ -83,7 +83,7 @@ async def test_count_tokens_does_not_require_vertexai_sdk(monkeypatch):
     result = await VertexAIPartnerModels().count_tokens(
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
-        litellm_params={"vertex_location": "us-east5"},
+        hangarllm_params={"vertex_location": "us-east5"},
         vertex_project="test-project",
         vertex_location="us-east5",
         vertex_credentials=None,
@@ -113,7 +113,7 @@ def test_handler_module_does_not_import_vertexai_sdk():
     # Re-import the handler module to verify it stays SDK-free.
     import importlib
 
-    import litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
+    import hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
 
     importlib.reload(handler_mod)
 

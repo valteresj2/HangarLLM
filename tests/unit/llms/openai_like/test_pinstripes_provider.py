@@ -2,7 +2,7 @@
 Tests for Pinstripes provider configuration and integration.
 """
 
-import litellm
+import hangarllm
 
 
 class TestPinstripeProviderConfig:
@@ -10,23 +10,23 @@ class TestPinstripeProviderConfig:
 
     def test_pinstripes_in_provider_list(self):
         """Test that pinstripes is in the provider list"""
-        from litellm import LlmProviders
+        from hangarllm import LlmProviders
 
         assert hasattr(LlmProviders, "PINSTRIPES")
         assert LlmProviders.PINSTRIPES.value == "pinstripes"
-        assert "pinstripes" in litellm.provider_list
+        assert "pinstripes" in hangarllm.provider_list
 
 
     def test_pinstripes_in_openai_compatible_providers(self):
         """Test that pinstripes is in the openai_compatible_providers list"""
-        from litellm.constants import openai_compatible_providers
+        from hangarllm.constants import openai_compatible_providers
 
         assert "pinstripes" in openai_compatible_providers
 
 
     def test_pinstripes_api_base_override(self):
         """Test that an explicit api_base / api_key overrides the default"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="pinstripes/ps/glm-4.5-air",
@@ -41,7 +41,7 @@ class TestPinstripeProviderConfig:
 
     def test_pinstripes_url_autodetection(self):
         """Test that api_base=pinstripes.io/v1 auto-sets custom_llm_provider=pinstripes"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="ps/glm-4.5-air",
@@ -54,13 +54,13 @@ class TestPinstripeProviderConfig:
 
     def test_pinstripes_router_config(self):
         """Test that pinstripes can be used in Router configuration"""
-        from litellm import Router
+        from hangarllm import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "pinstripes-chat",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "pinstripes/ps/glm-4.5-air",
                         "api_key": "test-key",
                     },

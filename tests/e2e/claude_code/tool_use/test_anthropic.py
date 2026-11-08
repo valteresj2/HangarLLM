@@ -1,6 +1,6 @@
 """tool_use x Anthropic.
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 to Anthropic, ask Claude to invoke a built-in tool (`Bash`), and assert
 that the upstream returned a `tool_use` content block. This proves the
 proxy preserves Claude Code's tool-call wire shape end-to-end.
@@ -84,7 +84,7 @@ def _has_tool_use_event(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_tool_use_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     tool call was emitted on the wire."""
     base_url, api_key = require_proxy(compat_result)
 

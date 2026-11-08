@@ -17,7 +17,7 @@ tests:
             name: DATABASE_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: litellm-writer-secret
+                name: hangarllm-writer-secret
                 key: password
           any: true
       - notContains:
@@ -157,7 +157,7 @@ tests:
     template: gateway/deployment.yaml
     set:
       database.reader.host: reader.example.com
-      database.reader.dbname: litellm
+      database.reader.dbname: hangarllm
       database.reader.useAzureEntraAuth: true
     asserts:
       - failedTemplate:
@@ -168,7 +168,7 @@ tests:
     set:
       database.writer.useAzureEntraAuth: true
       database.reader.host: reader.example.com
-      database.reader.dbname: litellm
+      database.reader.dbname: hangarllm
       database.reader.useAzureEntraAuth: true
     asserts:
       - contains:
@@ -183,7 +183,7 @@ tests:
             name: DATABASE_USER_READ_REPLICA
             valueFrom:
               secretKeyRef:
-                name: litellm-reader-secret
+                name: hangarllm-reader-secret
                 key: username
           any: true
       - notContains:
@@ -205,7 +205,7 @@ tests:
             name: DATABASE_HOST
             valueFrom:
               secretKeyRef:
-                name: litellm-writer-secret
+                name: hangarllm-writer-secret
                 key: hostname
       - contains:
           path: spec.template.spec.containers[0].env
@@ -236,7 +236,7 @@ tests:
             name: DATABASE_URL
             valueFrom:
               secretKeyRef:
-                name: litellm-writer-secret
+                name: hangarllm-writer-secret
                 key: connection-url
         template: gateway/deployment.yaml
       - notContains:
@@ -306,7 +306,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
         template: gateway/deployment.yaml
       - contains:
@@ -315,7 +315,7 @@ tests:
             name: DATABASE_URL
             valueFrom:
               secretKeyRef:
-                name: litellm-writer-secret
+                name: hangarllm-writer-secret
                 key: connection-url
         template: gateway/deployment.yaml
       - notContains:
@@ -336,13 +336,13 @@ tests:
             name: DATABASE_URL
             valueFrom:
               secretKeyRef:
-                name: litellm-writer-secret
+                name: hangarllm-writer-secret
                 key: connection-url
         template: gateway/deployment.yaml
       - contains:
           path: spec.template.spec.containers[2].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
         template: gateway/deployment.yaml
       - contains:
@@ -351,7 +351,7 @@ tests:
             name: DATABASE_URL
             valueFrom:
               secretKeyRef:
-                name: litellm-writer-secret
+                name: hangarllm-writer-secret
                 key: connection-url
         template: backend/deployment.yaml
       - notContains:
@@ -380,7 +380,7 @@ tests:
             name: DATABASE_URL
             valueFrom:
               secretKeyRef:
-                name: litellm-writer-secret
+                name: hangarllm-writer-secret
                 key: connection-url
         template: migrations-job.yaml
       - notContains:
@@ -485,7 +485,7 @@ tests:
     set:
       database.writer.useIAMAuth: true
       database.reader.passwordSecret.hostKey: hostname
-      database.reader.dbname: litellm
+      database.reader.dbname: hangarllm
       database.reader.useIAMAuth: true
     asserts:
       - contains:
@@ -494,13 +494,13 @@ tests:
             name: DATABASE_HOST_READ_REPLICA
             valueFrom:
               secretKeyRef:
-                name: litellm-reader-secret
+                name: hangarllm-reader-secret
                 key: hostname
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: DATABASE_NAME_READ_REPLICA
-            value: litellm
+            value: hangarllm
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -518,7 +518,7 @@ tests:
             name: DATABASE_URL_READ_REPLICA
             valueFrom:
               secretKeyRef:
-                name: litellm-reader-secret
+                name: hangarllm-reader-secret
                 key: connection-url
       - notContains:
           path: spec.template.spec.containers[0].env
@@ -564,7 +564,7 @@ tests:
     template: gateway/deployment.yaml
     set:
       database.reader.passwordSecret.urlKey: connection-url
-      database.reader.dbname: litellm
+      database.reader.dbname: hangarllm
       database.reader.schema: public
     asserts:
       - failedTemplate:

@@ -13,10 +13,10 @@ from itertools import chain
 from dataclasses import dataclass
 from typing import Final
 
-import litellm
+import hangarllm
 import openai
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
 from prometheus_client import REGISTRY
 from pydantic import TypeAdapter
 
@@ -27,10 +27,10 @@ OPERATOR_KEY: Final = "rotated-operator-key"
 ROUTER_CALLER_KEY: Final = "rotated-router-caller-key"
 DIRECT_CALL: Final = "direct-sdk-call"
 DIRECT_KEY: Final = "rotated-direct-call-key"
-FAILURES: Final = "litellm_deployment_failure_responses_total"
-TOTALS: Final = "litellm_deployment_total_requests_total"
-LLM_FAILED: Final = "litellm_llm_api_failed_requests_metric_total"
-STATE: Final = "litellm_deployment_state"
+FAILURES: Final = "hangarllm_deployment_failure_responses_total"
+TOTALS: Final = "hangarllm_deployment_total_requests_total"
+LLM_FAILED: Final = "hangarllm_llm_api_failed_requests_metric_total"
+STATE: Final = "hangarllm_deployment_state"
 DEPLOYMENT_SERIES: Final = frozenset({FAILURES, TOTALS, LLM_FAILED, STATE})
 WORKER_TIMEOUT_SECONDS: Final = 120
 
@@ -100,21 +100,21 @@ def _deployment_series() -> tuple[Series, ...]:
     )
 
 
-def _router(api_base: str) -> litellm.Router:
-    return litellm.Router(
+def _router(api_base: str) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": COPILOT_DEPLOYMENT,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "github_copilot/gpt-4o",
-                    "litellm_credential_name": "copilot-per-user",
+                    "hangarllm_credential_name": "copilot-per-user",
                     "github_copilot_auth_type": "per_user_oauth",
                 },
                 "model_info": {"id": COPILOT_DEPLOYMENT},
             },
             {
                 "model_name": OPERATOR_DEPLOYMENT,
-                "litellm_params": {"model": "openai/gpt-5.6", "api_base": api_base, "api_key": OPERATOR_KEY},
+                "hangarllm_params": {"model": "openai/gpt-5.6", "api_base": api_base, "api_key": OPERATOR_KEY},
                 "model_info": {"id": OPERATOR_DEPLOYMENT},
             },
         ],
@@ -123,7 +123,7 @@ def _router(api_base: str) -> litellm.Router:
     )
 
 
-async def _attempt(router: litellm.Router, model: str, **extra: object) -> Outcome:
+async def _attempt(router: hangarllm.Router, model: str, **extra: object) -> Outcome:
     try:
         await router.acompletion(model=model, messages=[{"role": "user", "content": f"{model} worker"}], **extra)
     except openai.APIStatusError as error:
@@ -133,7 +133,7 @@ async def _attempt(router: litellm.Router, model: str, **extra: object) -> Outco
 
 async def _direct_attempt(api_base: str) -> Outcome:
     try:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="openai/gpt-5.6",
             api_base=api_base,
             api_key=DIRECT_KEY,
@@ -145,7 +145,7 @@ async def _direct_attempt(api_base: str) -> Outcome:
 
 
 async def main(api_base: str) -> None:
-    litellm.callbacks = [PrometheusLogger()]  # test-quality-ok: this worker process exits right after the report
+    hangarllm.callbacks = [PrometheusLogger()]  # test-quality-ok: this worker process exits right after the report
     session: Final = GithubCopilotUserSession(token=CALLER_SESSION_TOKEN, api_base=api_base)
     router: Final = _router(api_base)
     outcomes: Final = (

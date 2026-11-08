@@ -13,13 +13,13 @@ import openai
 import pytest
 import respx
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.router_utils.cooldown_handlers import is_caller_timeout_408
-from litellm.types.integrations.custom_logger import WEBSEARCH_INTERCEPTION_PREFIX, as_converted_stream
-from litellm.types.llms.openai import AllMessageValues
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.router_utils.cooldown_handlers import is_caller_timeout_408
+from hangarllm.types.integrations.custom_logger import WEBSEARCH_INTERCEPTION_PREFIX, as_converted_stream
+from hangarllm.types.llms.openai import AllMessageValues
 import time
 from unittest.mock import patch, MagicMock
 
@@ -34,7 +34,7 @@ from tests.unit.llms.bedrock.slow_upstream import (
 
 @pytest.fixture
 def restore_request_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "request_timeout", litellm.request_timeout)
+    monkeypatch.setattr(hangarllm, "request_timeout", hangarllm.request_timeout)
 
 
 @pytest.mark.parametrize(
@@ -46,16 +46,16 @@ def test_router_timeout_with_retries_anthropic_model(num_retries, expected_call_
     """
     If request hits custom timeout, ensure it's retried.
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-    litellm.num_retries = num_retries
-    litellm.request_timeout = 0.000001
+    hangarllm.num_retries = num_retries
+    hangarllm.request_timeout = 0.000001
 
     router = Router(
         model_list=[
             {
                 "model_name": "claude-3-haiku",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"anthropic/{os.environ.get('CI_CD_DEFAULT_ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001')}",
                 },
             }
@@ -78,7 +78,7 @@ def test_router_timeout_with_retries_anthropic_model(num_retries, expected_call_
                 messages=[{"role": "user", "content": "hello, who are u"}],
                 client=custom_client,
             )
-        except litellm.Timeout:
+        except hangarllm.Timeout:
             pass
 
         assert mock_client.call_count == expected_call_count
@@ -86,17 +86,17 @@ def test_router_timeout_with_retries_anthropic_model(num_retries, expected_call_
 
 async def _timeout_sent_to_the_provider_call(router: Router, request_kwargs: Mapping[str, object]) -> object:
     sent: Final[list[object]] = []
-    real_acompletion: Final = litellm.acompletion
+    real_acompletion: Final = hangarllm.acompletion
 
     async def spy(*args: object, **kwargs: object) -> object:
-        # A stream is bounded by the stream timeout litellm.acompletion is handed, any other call by its timeout
+        # A stream is bounded by the stream timeout hangarllm.acompletion is handed, any other call by its timeout
         stream_timeout = kwargs.get("stream_timeout")
         sent.append(
             stream_timeout if kwargs.get("stream") is True and stream_timeout is not None else kwargs.get("timeout")
         )
         return await real_acompletion(*args, **kwargs)
 
-    with patch.object(litellm, "acompletion", spy):
+    with patch.object(hangarllm, "acompletion", spy):
         response = await router.acompletion(
             model="openai-gpt-5.1", messages=[{"role": "user", "content": "hi"}], mock_response="ok", **request_kwargs
         )
@@ -126,7 +126,7 @@ async def test_the_deployment_timeout_for_the_requests_service_tier_wins_over_it
         model_list=[
             {
                 "model_name": "openai-gpt-5.1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1",
                     "api_key": "sk-test",
                     "timeout": 610,
@@ -147,7 +147,7 @@ async def test_a_stream_keeps_the_deployment_stream_timeout_when_only_the_reques
         model_list=[
             {
                 "model_name": "openai-gpt-5.1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1",
                     "api_key": "sk-test",
                     "timeout": 610,
@@ -171,16 +171,16 @@ async def _drain_responses_stream(router: Router) -> None:
 async def test_live_responses_stream_through_the_router_fails_at_the_stream_timeout(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://api.openai.com/v1/responses").mock(side_effect=slow_upstream_answer())
     router: Final = Router(
-        model_list=[{"model_name": "gpt", "litellm_params": {"model": "openai/gpt-4.1", "api_key": "fake"}}],
+        model_list=[{"model_name": "gpt", "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "fake"}}],
         timeout=UPSTREAM_FIRST_BYTE_SECONDS * 2,
         stream_timeout=STREAM_TIMEOUT_SECONDS,
         num_retries=0,
     )
 
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         await _drain_responses_stream(router)
 
 
@@ -190,11 +190,11 @@ async def test_prompt_managed_stream_keeps_the_target_deployments_own_stream_tim
         model_list=[
             {
                 "model_name": "claude-agent",
-                "litellm_params": {"model": "litellm_agent/claude-target"},
+                "hangarllm_params": {"model": "hangarllm_agent/claude-target"},
             },
             {
                 "model_name": "claude-target",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-sonnet-4-5-v1:0",
                     "aws_access_key_id": "fake",
                     "aws_secret_access_key": "fake",
@@ -209,19 +209,19 @@ async def test_prompt_managed_stream_keeps_the_target_deployments_own_stream_tim
     )
     messages: Final[list[AllMessageValues]] = [{"role": "user", "content": "hi"}]
 
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         await router.acompletion(
             model="claude-agent",
             messages=messages,
             stream=True,
             client=slow_upstream_async_client(),
-            litellm_logging_obj=LiteLLMLogging(
+            hangarllm_logging_obj=HangarLLMLogging(
                 model="claude-agent",
                 messages=messages,
                 stream=True,
                 call_type="acompletion",
                 start_time=datetime.now(),
-                litellm_call_id="prompt-managed-stream",
+                hangarllm_call_id="prompt-managed-stream",
                 function_id="f",
             ),
         )
@@ -243,11 +243,11 @@ async def test_prompt_managed_fake_stream_keeps_the_timeout_its_caller_or_target
         model_list=[
             {
                 "model_name": "jamba-agent",
-                "litellm_params": {"model": "litellm_agent/jamba-target", **agent_params},
+                "hangarllm_params": {"model": "hangarllm_agent/jamba-target", **agent_params},
             },
             {
                 "model_name": "jamba-target",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/converse/ai21.jamba-1-5-large-v1:0",
                     "aws_access_key_id": "fake",
                     "aws_secret_access_key": "fake",
@@ -268,18 +268,18 @@ async def test_prompt_managed_fake_stream_keeps_the_timeout_its_caller_or_target
         stream=True,
         client=slow_upstream_async_client(CONVERSE_ANSWER),
         **request_params,
-        litellm_logging_obj=LiteLLMLogging(
+        hangarllm_logging_obj=HangarLLMLogging(
             model="jamba-agent",
             messages=messages,
             stream=True,
             call_type="acompletion",
             start_time=datetime.now(),
-            litellm_call_id="prompt-managed-fake-stream",
+            hangarllm_call_id="prompt-managed-fake-stream",
             function_id="f",
         ),
     )
 
-    assert isinstance(response, litellm.CustomStreamWrapper)
+    assert isinstance(response, hangarllm.CustomStreamWrapper)
     assert "".join([chunk.choices[0].delta.content or "" async for chunk in response]) == "hi"
 
 
@@ -336,8 +336,8 @@ async def test_stream_a_deployment_hook_answers_in_one_piece_gets_the_longer_lim
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [_AnswersStreamsInOnePiece()])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [_AnswersStreamsInOnePiece()])
     respx_mock.post(url__regex=r"https://bedrock-runtime\.us-east-1\.amazonaws\.com/.*").mock(
         side_effect=slow_upstream_answer(answer)
     )
@@ -345,7 +345,7 @@ async def test_stream_a_deployment_hook_answers_in_one_piece_gets_the_longer_lim
         model_list=[
             {
                 "model_name": "claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "aws_access_key_id": "fake",
                     "aws_secret_access_key": "fake",
@@ -405,9 +405,9 @@ async def test_native_live_stream_cut_at_the_stream_timeout_is_not_blamed_on_the
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     failure_details: Final = _FailureDetails()
-    monkeypatch.setattr(litellm, "callbacks", [failure_details])
+    monkeypatch.setattr(hangarllm, "callbacks", [failure_details])
     respx_mock.post(url__regex=r"https://(bedrock-runtime\.us-east-1\.amazonaws\.com|api\.openai\.com)/.*").mock(
         side_effect=slow_upstream_answer()
     )
@@ -415,7 +415,7 @@ async def test_native_live_stream_cut_at_the_stream_timeout_is_not_blamed_on_the
         model_list=[
             {
                 "model_name": "native",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_key": "fake",
                     "aws_access_key_id": "fake",
@@ -429,7 +429,7 @@ async def test_native_live_stream_cut_at_the_stream_timeout_is_not_blamed_on_the
         num_retries=0,
     )
 
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         await drain(router)
     await asyncio.wait_for(failure_details.logged.wait(), timeout=10)
 
@@ -445,7 +445,7 @@ async def test_bedrock_timeout_preserves_the_provider_timeout_error(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
@@ -457,7 +457,7 @@ async def test_bedrock_timeout_preserves_the_provider_timeout_error(
         model_list=[
             {
                 "model_name": "bedrock-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"bedrock/{model_id}",
                     "aws_region_name": "us-east-1",
                     "timeout": 0.0001,
@@ -481,7 +481,7 @@ def test_stream_timeout_uses_the_configured_fallback(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     stream_body: Final = "\n\n".join(
         (
             f"data: {json.dumps({'id': 'chatcmpl-fallback', 'object': 'chat.completion.chunk', 'created': 1, 'model': 'fallback', 'choices': [{'index': 0, 'delta': {'content': 'fallback'}, 'finish_reason': 'stop'}]})}",
@@ -499,11 +499,11 @@ def test_stream_timeout_uses_the_configured_fallback(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": "openai/primary", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/primary", "api_key": "test-key"},
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {"model": "openai/fallback", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/fallback", "api_key": "test-key"},
             },
         ],
         fallbacks=[{"primary": ["fallback"]}],
@@ -528,13 +528,13 @@ def test_openai_timeout_raises_provider_timeout_for_scripted_failure(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=httpx.ReadTimeout("scripted upstream timeout")
     )
 
     with pytest.raises(openai.APITimeoutError):
-        litellm.completion(
+        hangarllm.completion(
             model="openai/gpt-4o-mini",
             api_key="scripted-timeout-key",
             timeout=0.01,
@@ -556,7 +556,7 @@ async def test_anthropic_timeout_raises_for_sync_and_streaming(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.anthropic.com/v1/messages").mock(
         side_effect=httpx.ReadTimeout("scripted Anthropic timeout")
     )
@@ -569,20 +569,20 @@ async def test_anthropic_timeout_raises_for_sync_and_streaming(
     }
 
     async def run_async_request() -> None:
-        response: Final = await litellm.acompletion(**request_kwargs)
+        response: Final = await hangarllm.acompletion(**request_kwargs)
         if stream:
             _ = tuple([chunk async for chunk in response])
 
     def run_sync_request() -> None:
-        response: Final = litellm.completion(**request_kwargs)
+        response: Final = hangarllm.completion(**request_kwargs)
         if stream:
             _ = tuple(response)
 
     if async_mode:
-        with pytest.raises(litellm.Timeout):
+        with pytest.raises(hangarllm.Timeout):
             await run_async_request()
     else:
-        with pytest.raises(litellm.Timeout):
+        with pytest.raises(hangarllm.Timeout):
             run_sync_request()
 
     assert route.call_count == 1
@@ -592,7 +592,7 @@ def test_openai_router_timeout_raises_after_httpx_read_timeout(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=httpx.ReadTimeout("scripted OpenAI timeout")
     )
@@ -600,7 +600,7 @@ def test_openai_router_timeout_raises_after_httpx_read_timeout(
         model_list=[
             {
                 "model_name": "timeout-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "scripted-openai-key",
                     "timeout": 0.001,
@@ -610,7 +610,7 @@ def test_openai_router_timeout_raises_after_httpx_read_timeout(
         num_retries=0,
     )
 
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         router.completion(
             model="timeout-model",
             messages=[{"role": "user", "content": "timeout contract"}],
@@ -623,7 +623,7 @@ def test_azure_router_timeout_raises_after_httpx_read_timeout(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://azure.example.com/openai/deployments/gpt-4o-mini/chat/completions").mock(
         side_effect=httpx.ReadTimeout("scripted Azure timeout")
     )
@@ -631,7 +631,7 @@ def test_azure_router_timeout_raises_after_httpx_read_timeout(
         model_list=[
             {
                 "model_name": "azure-timeout",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4o-mini",
                     "api_base": "https://azure.example.com",
                     "api_version": "2024-10-21",
@@ -643,7 +643,7 @@ def test_azure_router_timeout_raises_after_httpx_read_timeout(
         num_retries=0,
     )
 
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         router.completion(
             model="azure-timeout",
             messages=[{"role": "user", "content": "timeout contract"}],

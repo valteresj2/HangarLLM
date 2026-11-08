@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import httpx
 
-from litellm.llms.vertex_ai.rerank.transformation import VertexAIRerankConfig
+from hangarllm.llms.vertex_ai.rerank.transformation import VertexAIRerankConfig
 
 
 class TestVertexAIRerankIntegration:
@@ -20,7 +20,7 @@ class TestVertexAIRerankIntegration:
         Test complete rerank flow from request to response.
 
         Uses instance-level mocking to avoid class-reference issues caused by
-        importlib.reload(litellm) in conftest.py.
+        importlib.reload(hangarllm) in conftest.py.
         """
         # Mock authentication at instance level
         mock_ensure_access_token = MagicMock(
@@ -95,7 +95,7 @@ class TestVertexAIRerankIntegration:
         mock_logging = MagicMock()
 
         # Transform response
-        from litellm.types.rerank import RerankResponse
+        from hangarllm.types.rerank import RerankResponse
 
         model_response = RerankResponse()
 
@@ -150,7 +150,7 @@ class TestVertexAIRerankIntegration:
         mock_logging = MagicMock()
 
         # Transform response
-        from litellm.types.rerank import RerankResponse
+        from hangarllm.types.rerank import RerankResponse
 
         model_response = RerankResponse()
 

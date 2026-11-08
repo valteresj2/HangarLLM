@@ -19,8 +19,8 @@ from integration.translation.templates.bedrock_converse import (
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         "max_tokens": 64,
         "messages": [
@@ -51,7 +51,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 22,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -77,8 +77,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_FABLE_5_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-fable-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-fable-5"},
     expected_provider_endpoint="/model/global.anthropic.claude-fable-5/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -187,7 +187,7 @@ CLAUDE_FABLE_5_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 1289,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-fable-5",
         "choices": [
@@ -234,8 +234,8 @@ CLAUDE_FABLE_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_5_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-opus-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.anthropic.claude-opus-5"},
     expected_provider_endpoint="/model/global.anthropic.claude-opus-5/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -332,7 +332,7 @@ CLAUDE_OPUS_5_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 1245,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.anthropic.claude-opus-5",
         "choices": [
@@ -379,8 +379,8 @@ CLAUDE_OPUS_5_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-5.6-luna"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-5.6-luna"},
     expected_provider_endpoint="/model/global.openai.gpt-5.6-luna/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -469,7 +469,7 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-5.6-luna",
         "choices": [
@@ -516,8 +516,8 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-5.6-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-5.6-sol"},
     expected_provider_endpoint="/model/global.openai.gpt-5.6-sol/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -606,7 +606,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-5.6-sol",
         "choices": [
@@ -653,8 +653,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-5.6-terra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-5.6-terra"},
     expected_provider_endpoint="/model/global.openai.gpt-5.6-terra/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -743,7 +743,7 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-5.6-terra",
         "choices": [
@@ -790,8 +790,8 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6-astra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6-astra"},
     expected_provider_endpoint="/model/global.openai.gpt-6-astra/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -880,7 +880,7 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6-astra",
         "choices": [
@@ -927,8 +927,8 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6-luna"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6-luna"},
     expected_provider_endpoint="/model/global.openai.gpt-6-luna/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -1017,7 +1017,7 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6-luna",
         "choices": [
@@ -1064,8 +1064,8 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6-sol"},
     expected_provider_endpoint="/model/global.openai.gpt-6-sol/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -1154,7 +1154,7 @@ GPT_6_SOL_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6-sol",
         "choices": [
@@ -1201,8 +1201,8 @@ GPT_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "bedrock/converse/global.openai.gpt-6.1-sol"},
     expected_provider_endpoint="/model/global.openai.gpt-6.1-sol/converse",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer synthetic-agent-key"},
     expected_provider_request={
@@ -1291,7 +1291,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 501,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "bedrock/converse/global.openai.gpt-6.1-sol",
         "choices": [
@@ -1337,8 +1337,8 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/converse/us.anthropic.claude-sonnet-4-6",
         "max_tokens": 64,
         "messages": [
@@ -1369,7 +1369,7 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 23,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/converse/us.anthropic.claude-sonnet-4-6",
@@ -1394,8 +1394,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/converse/us.anthropic.claude-sonnet-5",
         "max_tokens": 64,
         "messages": [
@@ -1427,7 +1427,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 27,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/converse/us.anthropic.claude-sonnet-5",
@@ -1452,8 +1452,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/converse/us.anthropic.claude-opus-4-8",
         "max_tokens": 64,
         "messages": [
@@ -1484,7 +1484,7 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 27,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/converse/us.anthropic.claude-opus-4-8",
@@ -1509,13 +1509,13 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-haiku-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-haiku-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-haiku-5-5/converse",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={**BEDROCK_CONVERSE_REQUEST},
     mock_provider_response={**BEDROCK_CONVERSE_RESPONSE},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/converse/us.anthropic.claude-haiku-5-5",
         "choices": [
@@ -1597,8 +1597,8 @@ CLAUDE_SONNET_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-sonnet-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-sonnet-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-sonnet-5-5/converse",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={**BEDROCK_CONVERSE_REQUEST},
@@ -1648,7 +1648,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 1097,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/converse/us.anthropic.claude-sonnet-5-5",
         "choices": [
@@ -1730,8 +1730,8 @@ CLAUDE_OPUS_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-opus-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-opus-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-opus-5-5/converse",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={**BEDROCK_CONVERSE_REQUEST},
@@ -1781,7 +1781,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 1083,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/converse/us.anthropic.claude-opus-5-5",
         "choices": [
@@ -1862,8 +1862,8 @@ CLAUDE_FABLE_5_1_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-fable-5-1"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/converse/us.anthropic.claude-fable-5-1"},
     expected_provider_endpoint="/model/us.anthropic.claude-fable-5-1/converse",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={
@@ -1957,7 +1957,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
             "totalTokens": 1147,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/converse/us.anthropic.claude-fable-5-1",
         "choices": [

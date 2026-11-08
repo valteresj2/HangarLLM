@@ -109,7 +109,7 @@ def grant(
             )
             assert response.status_code == 200, response.text
             scenario.cleanups.callback(delete_end_user, gateway, end_user)
-            return Caller(scenario.key(object_permission=_mcp_permission(ceiling)), {"x-litellm-end-user-id": end_user})
+            return Caller(scenario.key(object_permission=_mcp_permission(ceiling)), {"x-hangarllm-end-user-id": end_user})
         case "agent":
             agent: Final = gateway.post(
                 "/v1/agents",

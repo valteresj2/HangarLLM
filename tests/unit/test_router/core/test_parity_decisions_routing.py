@@ -15,9 +15,9 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
-from litellm.types.router import RouterRateLimitError
+import hangarllm
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RouterRateLimitError
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost, patch_direct_endpoints
 from tests.unit.test_router.core.scripted_host import auth_error, deployment
 
@@ -32,7 +32,7 @@ CLIP: Final = [{"url": "https://media.example/clip"}]
 
 @pytest.fixture
 def host(monkeypatch: pytest.MonkeyPatch) -> EndpointHost:
-    """``litellm.decisions`` and ``litellm.systemone`` are bound directly, so they answer from this host."""
+    """``hangarllm.decisions`` and ``hangarllm.systemone`` are bound directly, so they answer from this host."""
     endpoint_host: Final = EndpointHost()
     patch_direct_endpoints(monkeypatch, endpoint_host)
     return endpoint_host
@@ -124,7 +124,7 @@ def test_the_route_filter_runs_before_cooldown(make_core: MakeCore, host: Endpoi
     host.answer("openai/gpt-4o", auth_error())
     core: Final = make_core(model_list=[_OPENAI, _ANTHROPIC], num_retries=0)
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         _call(core, "adecisions", model="e", **QUESTION)
     with pytest.raises(RouterRateLimitError, match=r"(?i)no deployments available"):
         _call(core, "adecisions", model="e", **QUESTION)
@@ -138,7 +138,7 @@ def test_the_retry_count_reads_the_group_before_the_route_filter(make_core: Make
     host.answer("openai/gpt-4o", auth_error())
     core: Final = make_core(model_list=[_OPENAI, _ANTHROPIC], num_retries=2, retry_after=0, disable_cooldowns=True)
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         _call(core, "adecisions", model="e", **QUESTION)
 
     assert host.deployments_called("adecisions") == ["p7-openai"] * 3
@@ -198,7 +198,7 @@ def test_a_call_without_media_keeps_the_deployment_refusing_media(
 
 @pytest.mark.parametrize(
     ("router_arguments", "request_extra"),
-    [({"default_litellm_params": {"drop_params": True}}, {}), ({}, {"drop_params": True})],
+    [({"default_hangarllm_params": {"drop_params": True}}, {}), ({}, {"drop_params": True})],
     ids=["router-default", "request"],
 )
 def test_drop_params_keeps_the_deployment_refusing_media(
@@ -217,8 +217,8 @@ def test_drop_params_keeps_the_deployment_refusing_media(
 
 def test_the_media_filter_runs_before_order(make_core: MakeCore, host: EndpointHost) -> None:
     refuse, take = _media_group()
-    cast("dict[str, object]", refuse["litellm_params"])["order"] = 1  # cast-ok: a model_list entry
-    cast("dict[str, object]", take["litellm_params"])["order"] = 2  # cast-ok: a model_list entry
+    cast("dict[str, object]", refuse["hangarllm_params"])["order"] = 1  # cast-ok: a model_list entry
+    cast("dict[str, object]", take["hangarllm_params"])["order"] = 2  # cast-ok: a model_list entry
     core: Final = make_core(model_list=[refuse, take], num_retries=0)
 
     _call(core, "adecisions", model="m", audio=CLIP, **QUESTION)

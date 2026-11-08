@@ -14,26 +14,26 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.dashscope.qwen_ai_platform import QwenAIPlatformVideoConfig
-from litellm.llms.dashscope.qwencloud import QwenCloudVideoConfig
-from litellm.llms.dashscope.videos.transformation import (
+import hangarllm
+from hangarllm.exceptions import UnsupportedParamsError
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.dashscope.qwen_ai_platform import QwenAIPlatformVideoConfig
+from hangarllm.llms.dashscope.qwencloud import QwenCloudVideoConfig
+from hangarllm.llms.dashscope.videos.transformation import (
     DashScopeVideoConfig,
     DashScopeVideoError,
     _parse_task_response,
     _video_url_from_task,
 )
-from litellm.proxy.auth.auth_checks import _can_object_call_model
-from litellm.proxy.auth.auth_utils import _resolve_model_id_with_router
-from litellm.router import Router
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.utils import (
+from hangarllm.proxy.auth.auth_checks import _can_object_call_model
+from hangarllm.proxy.auth.auth_utils import _resolve_model_id_with_router
+from hangarllm.router import Router
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.utils import (
     decode_video_id_with_provider,
     encode_video_id_with_provider,
 )
-from litellm.videos.main import avideo_content, avideo_generation, avideo_status, video_content
+from hangarllm.videos.main import avideo_content, avideo_generation, avideo_status, video_content
 
 PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -80,7 +80,7 @@ def _create(params: dict, model: str = "wan3.0-video", prompt: str = "a cat on a
         prompt=prompt,
         api_base=API_BASE,
         video_create_optional_request_params=params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -147,7 +147,7 @@ class TestDashScopeVideoCreateRequest:
             prompt="a cat on a roof",
             api_base=API_BASE,
             video_create_optional_request_params={"resolution": "480P", "duration": 5},
-            litellm_params=GenericLiteLLMParams(drop_params=True),
+            hangarllm_params=GenericHangarLLMParams(drop_params=True),
             headers={},
         )
         assert dropped["parameters"] == {"duration": 5}
@@ -175,7 +175,7 @@ class TestDashScopeVideoCreateRequest:
             prompt="a cat on a roof",
             api_base=API_BASE,
             video_create_optional_request_params={**params, "resolution": "720P"},
-            litellm_params=GenericLiteLLMParams(drop_params=True),
+            hangarllm_params=GenericHangarLLMParams(drop_params=True),
             headers={},
         )
         assert dropped["parameters"] == {"resolution": "720P"}
@@ -377,7 +377,7 @@ class TestDashScopeVideoMapOpenAIParams:
 
     def test_size_on_a_model_missing_from_the_cost_map_raises_unless_dropped(self):
         """Regression: older models take a WIDTH*HEIGHT size, ignored the ratio and tier
-        litellm mapped size onto, and silently rendered at their default size."""
+        hangarllm mapped size onto, and silently rendered at their default size."""
         with pytest.raises(UnsupportedParamsError, match="inside parameters") as raised:
             DashScopeVideoConfig().map_openai_params(
                 video_create_optional_params={"size": "1280x720"},
@@ -395,7 +395,7 @@ class TestDashScopeVideoMapOpenAIParams:
 
     @pytest.mark.asyncio
     async def test_per_call_drop_params_drops_a_malformed_value(self):
-        """Regression: only the global litellm.drop_params reached the mapping, so drop_params
+        """Regression: only the global hangarllm.drop_params reached the mapping, so drop_params
         set on the call or the deployment still answered 400."""
         sent: Final[list[dict]] = []
 
@@ -445,7 +445,7 @@ class TestDashScopeVideoMapOpenAIParams:
 
     def test_parameters_block_reaches_dashscope_as_sent(self):
         """Regression: only a fixed list of parameter names was copied into the body,
-        so a field DashScope documents but litellm did not list was silently dropped."""
+        so a field DashScope documents but hangarllm did not list was silently dropped."""
         mapped = DashScopeVideoConfig().map_openai_params(
             video_create_optional_params={"parameters": {"prompt_extend": True, "audio": False, "shot_type": "multi"}},
             model="wan3.0-video",
@@ -457,7 +457,7 @@ class TestDashScopeVideoMapOpenAIParams:
     @pytest.mark.parametrize("params", [{"seconds": "-1"}, {"parameters": {"duration": -1}}])
     def test_smart_duration_is_rejected_because_it_cannot_be_billed(self, params):
         """duration -1 lets DashScope pick the length after the create call,
-        which is the only call litellm bills, so it would record $0 for a
+        which is the only call hangarllm bills, so it would record $0 for a
         video DashScope charges for."""
         mapped = DashScopeVideoConfig().map_openai_params(
             video_create_optional_params=params, model="wan3.0-video", drop_params=False
@@ -471,7 +471,7 @@ class TestDashScopeVideoMapOpenAIParams:
 
 class TestDashScopeVideoCreateResponse:
     def test_task_id_is_encoded_with_provider_and_model(self):
-        """The create response only carries task_id, so litellm must wrap it for
+        """The create response only carries task_id, so hangarllm must wrap it for
         later status/content calls to route back to dashscope."""
         video_obj = DashScopeVideoConfig().transform_video_create_response(
             model="wan3.0-video",
@@ -526,7 +526,7 @@ class TestDashScopeVideoCreateResponse:
     def test_a_model_group_the_id_format_cannot_carry_falls_back_to_the_model(self):
         """The id joins its fields with ';', so a group name holding one would decode
         to a truncated model id that no deployment matches."""
-        logging_obj = Mock(litellm_params={"litellm_metadata": {"model_group": "wan3;beijing"}})
+        logging_obj = Mock(hangarllm_params={"hangarllm_metadata": {"model_group": "wan3;beijing"}})
 
         video_obj = DashScopeVideoConfig().transform_video_create_response(
             model="wan3.0-video",
@@ -578,11 +578,11 @@ def _two_region_router(
         model_list=[
             {
                 "model_name": "wan3-singapore",
-                "litellm_params": {"model": singapore_model, "api_key": "sg-key", "api_base": SINGAPORE_HOST},
+                "hangarllm_params": {"model": singapore_model, "api_key": "sg-key", "api_base": SINGAPORE_HOST},
             },
             {
                 "model_name": "wan3-beijing",
-                "litellm_params": {"model": "dashscope/wan3.0-video", "api_key": "cn-key", "api_base": BEIJING_HOST},
+                "hangarllm_params": {"model": "dashscope/wan3.0-video", "api_key": "cn-key", "api_base": BEIJING_HOST},
             },
         ],
         routing_groups=routing_groups,
@@ -684,11 +684,11 @@ def test_a_key_scoped_to_the_requested_alias_or_wildcard_name_can_poll_its_video
         model_list=[
             {
                 "model_name": "wan3",
-                "litellm_params": {"model": "dashscope/wan3.0-video", "api_key": "cn-key", "api_base": BEIJING_HOST},
+                "hangarllm_params": {"model": "dashscope/wan3.0-video", "api_key": "cn-key", "api_base": BEIJING_HOST},
             },
             {
                 "model_name": "dashscope/*",
-                "litellm_params": {"model": "dashscope/*", "api_key": "wildcard-key", "api_base": SINGAPORE_HOST},
+                "hangarllm_params": {"model": "dashscope/*", "api_key": "wildcard-key", "api_base": SINGAPORE_HOST},
             },
         ],
         model_group_alias={"video-alias": "wan3"},
@@ -851,7 +851,7 @@ class TestDashScopeVideoStatus:
         dropping it from the returned id sent follow-up polls and downloads to
         the default provider credentials instead of the deployment's."""
         polled_id = encode_video_id_with_provider("17ed7e50", "dashscope", "wan3-prod-deployment")
-        logging_obj = Mock(litellm_params={"video_id": polled_id})
+        logging_obj = Mock(hangarllm_params={"video_id": polled_id})
 
         video_obj = DashScopeVideoConfig().transform_video_status_retrieve_response(
             raw_response=_mock_response(self.SUCCEEDED), logging_obj=logging_obj, custom_llm_provider="dashscope"
@@ -934,7 +934,7 @@ class TestDashScopeVideoStatus:
     def test_request_decodes_task_id_from_wrapped_video_id(self):
         encoded = encode_video_id_with_provider("17ed7e50", "dashscope", "wan3.0-video")
         url, params = DashScopeVideoConfig().transform_video_status_retrieve_request(
-            video_id=encoded, api_base=API_BASE, litellm_params=GenericLiteLLMParams(), headers={}
+            video_id=encoded, api_base=API_BASE, hangarllm_params=GenericHangarLLMParams(), headers={}
         )
 
         assert url == f"{API_BASE}/api/v1/tasks/17ed7e50"
@@ -945,7 +945,7 @@ class TestDashScopeVideoContent:
     def test_content_request_targets_the_task_endpoint(self):
         encoded = encode_video_id_with_provider("17ed7e50", "dashscope", "wan3.0-video")
         url, params = DashScopeVideoConfig().transform_video_content_request(
-            video_id=encoded, api_base=API_BASE, litellm_params=GenericLiteLLMParams(), headers={}
+            video_id=encoded, api_base=API_BASE, hangarllm_params=GenericHangarLLMParams(), headers={}
         )
 
         assert url == f"{API_BASE}/api/v1/tasks/17ed7e50"
@@ -960,7 +960,7 @@ class TestDashScopeVideoContent:
 
     @pytest.mark.parametrize("task_status", ["PENDING", "RUNNING", "SUSPENDED"])
     def test_pending_task_raises_still_processing(self, task_status):
-        """400, which litellm neither retries nor counts toward a deployment cooldown.
+        """400, which hangarllm neither retries nor counts toward a deployment cooldown.
         A 404 put the deployment in cooldown, so a client downloading early took the
         model out of rotation for everyone else."""
         response = _mock_response({"output": {"task_id": "t1", "task_status": task_status}})
@@ -1037,7 +1037,7 @@ class TestDashScopeVideoContentDownload:
             handler: Final = AsyncHTTPHandler()
             await handler.close()
             handler.client = http_client
-            with pytest.raises(litellm.BadRequestError, match="still processing") as raised:
+            with pytest.raises(hangarllm.BadRequestError, match="still processing") as raised:
                 await avideo_content(video_id=encoded, api_key="sk-test", api_base=API_BASE, client=handler)
 
         assert raised.value.status_code == 400
@@ -1056,7 +1056,7 @@ class TestDashScopeVideoContentDownload:
             handler: Final = AsyncHTTPHandler()
             await handler.close()
             handler.client = http_client
-            with pytest.raises(litellm.BadRequestError, match="24 hours") as raised:
+            with pytest.raises(hangarllm.BadRequestError, match="24 hours") as raised:
                 await avideo_status(video_id=encoded, api_key="sk-test", api_base=API_BASE, client=handler)
 
         assert raised.value.status_code == 400
@@ -1079,26 +1079,26 @@ class TestDashScopeVideoEnvironment:
         """DashScope rejects video-synthesis calls without X-DashScope-Async,
         with 'current user api does not support synchronous calls'."""
         headers = DashScopeVideoConfig().validate_environment(
-            headers={}, model="wan3.0-video", api_key="sk-test", litellm_params=GenericLiteLLMParams()
+            headers={}, model="wan3.0-video", api_key="sk-test", hangarllm_params=GenericHangarLLMParams()
         )
 
         assert headers["X-DashScope-Async"] == "enable"
         assert headers["Authorization"] == "Bearer sk-test"
 
-    def test_api_key_from_litellm_params(self):
+    def test_api_key_from_hangarllm_params(self):
         headers = DashScopeVideoConfig().validate_environment(
-            headers={}, model="wan3.0-video", api_key=None, litellm_params=GenericLiteLLMParams(api_key="sk-params")
+            headers={}, model="wan3.0-video", api_key=None, hangarllm_params=GenericHangarLLMParams(api_key="sk-params")
         )
 
         assert headers["Authorization"] == "Bearer sk-params"
 
     def test_missing_api_key_raises(self, monkeypatch):
         monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
-        monkeypatch.setattr("litellm.api_key", None)
+        monkeypatch.setattr("hangarllm.api_key", None)
 
         with pytest.raises(ValueError, match="DASHSCOPE_API_KEY"):
             DashScopeVideoConfig().validate_environment(
-                headers={}, model="wan3.0-video", api_key=None, litellm_params=GenericLiteLLMParams()
+                headers={}, model="wan3.0-video", api_key=None, hangarllm_params=GenericHangarLLMParams()
             )
 
     def test_compatible_mode_chat_base_is_stripped_back_to_the_host(self):
@@ -1107,14 +1107,14 @@ class TestDashScopeVideoEnvironment:
         url = DashScopeVideoConfig().get_complete_url(
             model="wan3.0-video",
             api_base="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == API_BASE
 
     def test_workspace_scoped_host_is_preserved(self):
         url = DashScopeVideoConfig().get_complete_url(
-            model="wan3.0-video", api_base="https://ws-123.cn-beijing.maas.aliyuncs.com/", litellm_params={}
+            model="wan3.0-video", api_base="https://ws-123.cn-beijing.maas.aliyuncs.com/", hangarllm_params={}
         )
 
         assert url == "https://ws-123.cn-beijing.maas.aliyuncs.com"
@@ -1128,7 +1128,7 @@ class TestDashScopeVideoEnvironment:
             f"{workspace}/api/v1",
         ):
             url: Final = DashScopeVideoConfig().get_complete_url(
-                model="wan3.0-video", api_base=api_base, litellm_params={}
+                model="wan3.0-video", api_base=api_base, hangarllm_params={}
             )
 
             assert url == workspace
@@ -1138,7 +1138,7 @@ class TestDashScopeVideoEnvironment:
         monkeypatch.delenv("DASHSCOPE_API_BASE", raising=False)
 
         assert (
-            DashScopeVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, litellm_params={}) == API_BASE
+            DashScopeVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, hangarllm_params={}) == API_BASE
         )
 
     def test_chat_api_base_env_points_video_at_the_same_region(self, monkeypatch):
@@ -1148,7 +1148,7 @@ class TestDashScopeVideoEnvironment:
         monkeypatch.setenv("DASHSCOPE_API_BASE", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
 
         assert (
-            DashScopeVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, litellm_params={})
+            DashScopeVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, hangarllm_params={})
             == "https://dashscope-intl.aliyuncs.com"
         )
 
@@ -1158,7 +1158,7 @@ class TestDashScopeVideoBrandAliases:
         monkeypatch.delenv("QWENCLOUD_API_BASE_VIDEO", raising=False)
 
         assert (
-            QwenCloudVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, litellm_params={})
+            QwenCloudVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, hangarllm_params={})
             == "https://dashscope-intl.aliyuncs.com"
         )
 
@@ -1166,17 +1166,17 @@ class TestDashScopeVideoBrandAliases:
         monkeypatch.delenv("QWEN_AI_PLATFORM_API_BASE_VIDEO", raising=False)
 
         assert (
-            QwenAIPlatformVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, litellm_params={})
+            QwenAIPlatformVideoConfig().get_complete_url(model="wan3.0-video", api_base=None, hangarllm_params={})
             == API_BASE
         )
 
     def test_brand_alias_falls_back_to_the_shared_dashscope_key(self, monkeypatch):
         monkeypatch.delenv("QWENCLOUD_API_KEY", raising=False)
         monkeypatch.setenv("DASHSCOPE_API_KEY", "sk-shared")
-        monkeypatch.setattr("litellm.api_key", None)
+        monkeypatch.setattr("hangarllm.api_key", None)
 
         headers = QwenCloudVideoConfig().validate_environment(
-            headers={}, model="wan3.0-video", api_key=None, litellm_params=GenericLiteLLMParams()
+            headers={}, model="wan3.0-video", api_key=None, hangarllm_params=GenericHangarLLMParams()
         )
 
         assert headers["Authorization"] == "Bearer sk-shared"
@@ -1190,13 +1190,13 @@ class TestDashScopeVideoUnsupportedOperations:
         config = DashScopeVideoConfig()
         calls = {
             "remix": lambda: config.transform_video_remix_request(
-                video_id="v", prompt="p", api_base=API_BASE, litellm_params=GenericLiteLLMParams(), headers={}
+                video_id="v", prompt="p", api_base=API_BASE, hangarllm_params=GenericHangarLLMParams(), headers={}
             ),
             "list": lambda: config.transform_video_list_request(
-                api_base=API_BASE, litellm_params=GenericLiteLLMParams(), headers={}
+                api_base=API_BASE, hangarllm_params=GenericHangarLLMParams(), headers={}
             ),
             "delete": lambda: config.transform_video_delete_request(
-                video_id="v", api_base=API_BASE, litellm_params=GenericLiteLLMParams(), headers={}
+                video_id="v", api_base=API_BASE, hangarllm_params=GenericHangarLLMParams(), headers={}
             ),
         }
 
@@ -1213,13 +1213,13 @@ class TestDashScopeVideoUnsupportedOperations:
     ],
 )
 def test_provider_resolves_to_a_video_config(provider, expected):
-    """Without this registration litellm answers 'video generation is not
+    """Without this registration hangarllm answers 'video generation is not
     supported for dashscope' before any transform runs."""
-    import litellm
-    from litellm.utils import ProviderConfigManager
+    import hangarllm
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_video_config(
-        model="wan3.0-video", provider=litellm.LlmProviders(provider)
+        model="wan3.0-video", provider=hangarllm.LlmProviders(provider)
     )
 
     assert type(config) is expected
@@ -1248,7 +1248,7 @@ class TestDashScopeVideoPricing:
         """A tier without its own rate falls back to the base rate, so a 480P
         video would silently bill at the 1080P price; a missing alias entry
         bills the whole video at zero."""
-        from litellm import get_model_info
+        from hangarllm import get_model_info
 
         info = get_model_info(model=model, custom_llm_provider=provider)
 
@@ -1263,7 +1263,7 @@ class TestDashScopeVideoPricing:
         ],
     )
     def test_delivered_tier_and_duration_bill_at_that_tier_rate(self, usage, expected_cost):
-        from litellm.llms.openai.cost_calculation import video_generation_cost
+        from hangarllm.llms.openai.cost_calculation import video_generation_cost
 
         model_info = {
             "output_cost_per_second": 0.3,
@@ -1293,7 +1293,7 @@ class TestDashScopeVideoPricing:
     def test_higher_tiers_never_bill_less_and_1080p_is_the_default(self, provider, model, tiers):
         """DashScope defaults to 1080P, so an unlabelled video must bill at the
         1080P rate rather than the cheapest tier."""
-        from litellm import get_model_info
+        from hangarllm import get_model_info
 
         info = get_model_info(model=model, custom_llm_provider=provider)
         rates = [info[f"output_cost_per_second_{tier}"] for tier in tiers]
@@ -1306,7 +1306,7 @@ class TestDashScopeVideoPricing:
         """dashscope and qwen_ai_platform default to the Beijing host and
         qwencloud to the international one, so the two Beijing-routed prefixes
         must share a rate card."""
-        from litellm import get_model_info
+        from hangarllm import get_model_info
 
         dashscope = get_model_info(model=model, custom_llm_provider="dashscope")
         qwen_ai_platform = get_model_info(model=model, custom_llm_provider="qwen_ai_platform")
@@ -1316,7 +1316,7 @@ class TestDashScopeVideoPricing:
 
 class TestDashScopeVideoEndToEndRequest:
     """
-    Drive the real litellm entrypoint rather than calling the transform directly.
+    Drive the real hangarllm entrypoint rather than calling the transform directly.
 
     ``video_generation()`` runs map_openai_params first and passes only the
     *mapped* params to transform_video_create_request, so anything the mapper
@@ -1416,9 +1416,9 @@ class TestDashScopeVideoEndToEndRequest:
         assert captured["serialized"]["parameters"]["duration"] == 15
 
     @pytest.mark.asyncio
-    async def test_extra_body_fields_reach_dashscope_but_litellm_call_options_do_not(self):
+    async def test_extra_body_fields_reach_dashscope_but_hangarllm_call_options_do_not(self):
         """Regression: extra_body fields were silently dropped from the body. Unlisted
-        kwargs still stay behind, since litellm's own call options arrive the same way."""
+        kwargs still stay behind, since hangarllm's own call options arrive the same way."""
         captured = await self._wire_request(
             model="dashscope/wan3.0-video",
             prompt="p",

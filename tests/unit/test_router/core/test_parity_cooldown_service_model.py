@@ -7,9 +7,9 @@ string, which the native calls cannot take.
 ``tests/unit/test_router/core/conftest.py`` skips a test that reaches ``RustCoreUnsupported``. These
 members are served, so ``served`` turns that refusal into a failure.
 
-The scripted host runs a failure callback where the test puts it. ``litellm`` runs it on the loop's
+The scripted host runs a failure callback where the test puts it. ``hangarllm`` runs it on the loop's
 thread for an async call, inline for a sync one, and on a thread with no loop for a stream; in every
-case ``CustomLogger.log_event`` swallows what the callback raises. ``logged_like_litellm`` and
+case ``CustomLogger.log_event`` swallows what the callback raises. ``logged_like_hangarllm`` and
 ``streams_log_off_the_loop`` give the host those two behaviours.
 """
 
@@ -26,13 +26,13 @@ from typing import Final, TypeVar
 import pydantic
 import pytest
 
-import litellm
-from litellm._service_logger import ServiceLogging
-from litellm.constants import DEFAULT_COOLDOWN_TIME_SECONDS
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_core import RouterCore
-from litellm.router_utils import cooldown_callbacks, cooldown_handlers
-from litellm.types.services import ServiceTypes
+import hangarllm
+from hangarllm._service_logger import ServiceLogging
+from hangarllm.constants import DEFAULT_COOLDOWN_TIME_SECONDS
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router_core import RouterCore
+from hangarllm.router_utils import cooldown_callbacks, cooldown_handlers
+from hangarllm.types.services import ServiceTypes
 from tests.unit.test_router.core.retries_health_helpers import (
     MESSAGES,
     api_connection,
@@ -55,7 +55,7 @@ STRATEGY: Final = "<routing_strategy>.async_get_available_deployments"
 
 
 def _refused(error: BaseException) -> None:
-    from litellm.router_rust.core import RustCoreUnsupported
+    from hangarllm.router_rust.core import RustCoreUnsupported
 
     if isinstance(error, RustCoreUnsupported) or isinstance(error.__cause__, RustCoreUnsupported):
         pytest.fail(f"the Rust core stopped serving this: {error}")
@@ -111,7 +111,7 @@ def events(monkeypatch: pytest.MonkeyPatch) -> CooldownEvents:
 
 
 @pytest.fixture
-def logged_like_litellm(monkeypatch: pytest.MonkeyPatch) -> None:
+def logged_like_hangarllm(monkeypatch: pytest.MonkeyPatch) -> None:
     """``CustomLogger.log_event``: what a sync failure callback raises stops at the logging."""
     log_sync: Final = ScriptedHost.log_sync
 
@@ -123,7 +123,7 @@ def logged_like_litellm(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def streams_log_off_the_loop(monkeypatch: pytest.MonkeyPatch, logged_like_litellm: None) -> None:
+def streams_log_off_the_loop(monkeypatch: pytest.MonkeyPatch, logged_like_hangarllm: None) -> None:
     """``dispatch_failure_handlers``: a stream's sync callbacks run in ``executor.submit``, off the loop."""
 
     def dispatch(logging: HostLogging, exception: Exception, _traceback: str) -> Coroutine[None, None, None]:
@@ -160,7 +160,7 @@ async def test_a_failed_attempt_fires_one_event_with_the_status_and_the_cooldown
     core: Final = make_core(**lone(cooldown_time=7))
     host.answer("openai/a", fresh(not_found))
 
-    assert isinstance(await attempt(core), litellm.NotFoundError)
+    assert isinstance(await attempt(core), hangarllm.NotFoundError)
     await settle()
 
     assert fired_exactly(events) == [repr(("a", 404, 7))]
@@ -174,7 +174,7 @@ async def test_a_second_call_refused_by_the_cooldown_fires_nothing_more(
     host.answer("openai/a", fresh(not_found))
 
     _ = await attempt(core)
-    assert isinstance(await attempt(core), litellm.RouterRateLimitError)
+    assert isinstance(await attempt(core), hangarllm.RouterRateLimitError)
     await settle()
 
     assert [fired[0] for fired in events.fired] == ["a"]
@@ -229,7 +229,7 @@ async def test_a_sync_call_on_a_running_loop_fires_on_that_loop(
     core: Final = make_core(**lone())
     host.answer("openai/a", fresh(not_found))
 
-    assert isinstance(attempt_sync(core), litellm.NotFoundError)
+    assert isinstance(attempt_sync(core), hangarllm.NotFoundError)
     await settle()
 
     assert fired_exactly(events) == [repr(("a", 404, DEFAULT_COOLDOWN_TIME_SECONDS))]
@@ -237,13 +237,13 @@ async def test_a_sync_call_on_a_running_loop_fires_on_that_loop(
 
 @served
 def test_a_sync_call_with_no_loop_cools_down_and_fires_on_its_own_loop(
-    make_core: MakeCore, host: ScriptedHost, events: CooldownEvents, logged_like_litellm: None
+    make_core: MakeCore, host: ScriptedHost, events: CooldownEvents, logged_like_hangarllm: None
 ) -> None:
     """``function_with_fallbacks`` runs the sync walk on a private loop, which the event's task lands on."""
     core: Final = make_core(**lone())
     host.answer("openai/a", fresh(not_found))
 
-    assert isinstance(attempt_sync(core), litellm.NotFoundError)
+    assert isinstance(attempt_sync(core), hangarllm.NotFoundError)
 
     assert set(cooled_down(core, ["a"])) == {"a"}
     assert fired_exactly(events) == [repr(("a", 404, DEFAULT_COOLDOWN_TIME_SECONDS))]
@@ -259,11 +259,11 @@ SYNC_ENDPOINTS: Final[Mapping[str, Callable[[RouterCore], object]]] = {
 @served
 @pytest.mark.parametrize("endpoint", sorted(SYNC_ENDPOINTS))
 def test_every_sync_endpoint_fires_the_default_cooldown_as_the_int_it_is(
-    make_core: MakeCore, host: ScriptedHost, events: CooldownEvents, logged_like_litellm: None, endpoint: str
+    make_core: MakeCore, host: ScriptedHost, events: CooldownEvents, logged_like_hangarllm: None, endpoint: str
 ) -> None:
     host.answer("openai/a", fresh(not_found))
 
-    with pytest.raises(litellm.NotFoundError, match="no such model"):
+    with pytest.raises(hangarllm.NotFoundError, match="no such model"):
         _ = SYNC_ENDPOINTS[endpoint](make_core(**lone()))
 
     assert fired_exactly(events) == [repr(("a", 404, DEFAULT_COOLDOWN_TIME_SECONDS))]
@@ -311,14 +311,14 @@ def test_the_event_carries_the_number_python_chose_as_it_was_written(
     make_core: MakeCore,
     host: ScriptedHost,
     events: CooldownEvents,
-    logged_like_litellm: None,
+    logged_like_hangarllm: None,
     arguments: Mapping[str, object],
     request_fields: Mapping[str, object],
     expected: float,
 ) -> None:
     host.answer("openai/a", fresh(not_found))
 
-    assert isinstance(attempt_sync(make_core(**lone(**arguments)), **request_fields), litellm.NotFoundError)
+    assert isinstance(attempt_sync(make_core(**lone(**arguments)), **request_fields), hangarllm.NotFoundError)
 
     assert fired_exactly(events) == [repr(("a", 404, expected))]
 
@@ -335,7 +335,7 @@ def test_a_retry_after_header_fires_as_the_int_python_reads(
     make_core: MakeCore,
     host: ScriptedHost,
     events: CooldownEvents,
-    logged_like_litellm: None,
+    logged_like_hangarllm: None,
     arguments: Mapping[str, object],
     expected: int,
 ) -> None:
@@ -345,7 +345,7 @@ def test_a_retry_after_header_fires_as_the_int_python_reads(
         model_list=[deployment("g", "a"), deployment("g", "b")], num_retries=0, allowed_fails=0, **arguments
     )
 
-    assert isinstance(attempt_sync(core), litellm.RateLimitError)
+    assert isinstance(attempt_sync(core), hangarllm.RateLimitError)
 
     assert {repr(fired[1:]) for fired in events.fired} == {repr((429, expected))}
 
@@ -358,7 +358,7 @@ async def test_an_async_stream_failure_cools_down_and_fires_nothing(
     core: Final = make_core(**ordered())
 
     stream: Final = await core.acompletion(model="g", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match="mid stream"):
+    with pytest.raises(hangarllm.RateLimitError, match="mid stream"):
         await collect_texts(stream)
     await asyncio.sleep(0.05)
     await settle()
@@ -369,13 +369,13 @@ async def test_an_async_stream_failure_cools_down_and_fires_nothing(
 
 @served
 async def test_a_sync_stream_failure_on_a_running_loop_fires_nothing(
-    make_core: MakeCore, host: ScriptedHost, events: CooldownEvents, logged_like_litellm: None
+    make_core: MakeCore, host: ScriptedHost, events: CooldownEvents, logged_like_hangarllm: None
 ) -> None:
     host.answer("openai/a", chat_stream("partial", error=rate_limit(message="mid stream"), logged=True, sync=True))
     core: Final = make_core(**ordered())
 
     stream: Final = core.completion(model="g", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match="mid stream"):
+    with pytest.raises(hangarllm.RateLimitError, match="mid stream"):
         collect_texts_sync(stream)
     await asyncio.sleep(0.05)
     await settle()
@@ -397,7 +397,7 @@ async def test_a_refusing_pre_call_check_fires_the_cooldown_it_sets(
         model_list=[deployment("g", "a"), deployment("g", "b")], num_retries=0, allowed_fails=0, cooldown_time=7
     )
 
-    assert isinstance(await attempt(core), litellm.RateLimitError)
+    assert isinstance(await attempt(core), hangarllm.RateLimitError)
     await settle()
 
     assert len(events.fired) == 1
@@ -430,7 +430,7 @@ async def test_a_refusing_pre_call_check_fires_the_routers_own_cooldown(
         cooldown_time=cooldown_time,
     )
 
-    assert isinstance(await attempt(core), litellm.RateLimitError)
+    assert isinstance(await attempt(core), hangarllm.RateLimitError)
     await settle()
 
     assert [repr(fired[1:]) for fired in events.fired] == [repr((429, expected))]
@@ -480,7 +480,7 @@ async def test_a_recorded_failure_fires_the_routers_own_cooldown(
 
 @served
 @pytest.mark.parametrize(
-    ("model_info", "litellm_params", "cooldown_time", "error", "expected"),
+    ("model_info", "hangarllm_params", "cooldown_time", "error", "expected"),
     [
         pytest.param({}, {}, 7, server_error, 7, id="router-int"),
         pytest.param({}, {}, 7.0, server_error, 7.0, id="router-float"),
@@ -496,7 +496,7 @@ async def test_a_logged_failure_fires_the_callbacks_precedence(
     make_core: MakeCore,
     events: CooldownEvents,
     model_info: Mapping[str, object],
-    litellm_params: Mapping[str, object],
+    hangarllm_params: Mapping[str, object],
     cooldown_time: float | None,
     error: Callable[[], Exception],
     expected: float,
@@ -506,10 +506,10 @@ async def test_a_logged_failure_fires_the_callbacks_precedence(
     )
     logged: Final = {
         "exception": error(),
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_group": "g"},
             "model_info": {"id": "a", **model_info},
-            **litellm_params,
+            **hangarllm_params,
         },
     }
 
@@ -592,7 +592,7 @@ async def test_a_served_acompletion_logs_the_pick_and_the_call(make_core: MakeCo
     recorded: Final = service_events(core)
     span: Final = object()
 
-    _ = await attempt(core, metadata={"litellm_parent_otel_span": span})
+    _ = await attempt(core, metadata={"hangarllm_parent_otel_span": span})
     await settle()
 
     assert sorted(map(str, recorded.call_types())) == sorted([ACQUIRE, "acompletion"])
@@ -637,7 +637,7 @@ async def test_a_refused_pick_logs_nothing(make_core: MakeCore) -> None:
     core: Final = make_core(**lone())
     recorded: Final = service_events(core)
 
-    assert isinstance(await attempt(core, model="nope"), litellm.BadRequestError)
+    assert isinstance(await attempt(core, model="nope"), hangarllm.BadRequestError)
     await settle()
 
     assert recorded.call_types() == []
@@ -773,7 +773,7 @@ async def test_a_model_no_search_can_read_raises_that_search(make_core: MakeCore
     [
         {"mock_testing_fallbacks": True},
         {"mock_testing_rate_limit_error": True},
-        {"mock_response": "litellm.RateLimitError"},
+        {"mock_response": "hangarllm.RateLimitError"},
     ],
     ids=["fallbacks", "rate_limit", "response"],
 )
@@ -824,7 +824,7 @@ async def test_a_model_the_lookups_accept_is_a_name_no_deployment_serves(
 ) -> None:
     core: Final = make_core(**lone())
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(f"You passed in model={value}. There are no healthy")):
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(f"You passed in model={value}. There are no healthy")):
         await ENDPOINTS[endpoint](core, value)
 
 
@@ -833,9 +833,9 @@ async def test_a_model_the_lookups_accept_is_a_name_no_deployment_serves(
 async def test_a_mock_failure_names_the_model_as_given(make_core: MakeCore, value: object) -> None:
     core: Final = make_core(**lone())
 
-    with pytest.raises(litellm.InternalServerError, match=re.escape(f"This is a mock exception for model={value},")):
+    with pytest.raises(hangarllm.InternalServerError, match=re.escape(f"This is a mock exception for model={value},")):
         await core.aimage_generation(model=value, prompt="hi", mock_testing_fallbacks=True)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # endpoint method
-    with pytest.raises(litellm.RateLimitError, match=re.escape(f"This is a mock exception for model={value},")):
+    with pytest.raises(hangarllm.RateLimitError, match=re.escape(f"This is a mock exception for model={value},")):
         await core.acompletion(model=value, messages=MESSAGES, mock_testing_rate_limit_error=True)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # endpoint method
 
 
@@ -866,7 +866,7 @@ async def test_a_selection_raises_as_a_call_does(make_core: MakeCore, kind: str)
 
     with pytest.raises(TypeError, match=r"^a bytes-like object is required, not 'str'$"):
         await core.select(b"bytes", kind=kind)  # pyright: ignore[reportArgumentType]  # raising is the point
-    with pytest.raises(litellm.BadRequestError, match=r"You passed in model=0\. There are no healthy"):
+    with pytest.raises(hangarllm.BadRequestError, match=r"You passed in model=0\. There are no healthy"):
         await core.select(0, kind=kind)  # pyright: ignore[reportArgumentType]  # see above
 
 
@@ -878,7 +878,7 @@ def test_the_sync_pick_and_text_completion_raise_as_a_call_does(make_core: MakeC
         core.get_available_deployment(model=b"bytes")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # the legacy member
     with pytest.raises(TypeError, match=r"^a bytes-like object is required, not 'str'$"):
         core.text_completion(model=b"bytes", prompt="hi")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # endpoint method
-    with pytest.raises(litellm.BadRequestError, match=r"You passed in model=0\. There are no healthy"):
+    with pytest.raises(hangarllm.BadRequestError, match=r"You passed in model=0\. There are no healthy"):
         core.text_completion(model=0, prompt="hi")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # endpoint method
 
 

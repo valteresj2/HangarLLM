@@ -9,9 +9,9 @@ import openai
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.token_counter import token_counter
-from litellm.llms.openai.common_utils import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.token_counter import token_counter
+from hangarllm.llms.openai.common_utils import (
     BaseOpenAILLM,
     drop_params_from_unprocessable_entity_error,
     is_openai_backed_api_base,
@@ -91,7 +91,7 @@ async def test_openai_client_reuse(function_name, is_async, args):
     """
 
     # Determine which client class to mock based on whether the test is async
-    client_path = "litellm.llms.openai.openai.AsyncOpenAI" if is_async else "litellm.llms.openai.openai.OpenAI"
+    client_path = "hangarllm.llms.openai.openai.AsyncOpenAI" if is_async else "hangarllm.llms.openai.openai.OpenAI"
 
     # Create the appropriate patches
     with (
@@ -109,10 +109,10 @@ async def test_openai_client_reuse(function_name, is_async, args):
                 # Call the appropriate function based on parameters
                 if is_async:
                     # Add 'a' prefix for async functions
-                    func = getattr(litellm, f"a{function_name}")
+                    func = getattr(hangarllm, f"a{function_name}")
                     await func(**args)
                 else:
-                    func = getattr(litellm, function_name)
+                    func = getattr(hangarllm, function_name)
                     func(**args)
             except Exception:
                 # We expect exceptions since we're mocking the client
@@ -140,7 +140,7 @@ def test_precomputed_init_params_match_inspect_signature():
 
     from openai import AzureOpenAI, OpenAI
 
-    from litellm.llms.openai.common_utils import (
+    from hangarllm.llms.openai.common_utils import (
         _AZURE_OPENAI_INIT_PARAMS,
         _OPENAI_INIT_PARAMS,
     )
@@ -195,24 +195,24 @@ def test_get_openai_client_cache_key(client_type):
 
 
 def test_evicting_a_client_built_on_the_callers_session_leaves_that_session_open(monkeypatch):
-    """`litellm.aclient_session` belongs to the caller, who goes on using it.
+    """`hangarllm.aclient_session` belongs to the caller, who goes on using it.
 
     `_get_async_http_client` hands that session straight back, so the SDK client
-    litellm builds around it is only a wrapper. The SDK's `close()` closes
-    whatever http client it was given, so treating the wrapper as litellm's to
+    hangarllm builds around it is only a wrapper. The SDK's `close()` closes
+    whatever http client it was given, so treating the wrapper as hangarllm's to
     close would close the caller's shared session out from under them.
     """
     import httpx
 
-    from litellm.caching.evicted_client_closer import EvictedClientCloser
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.openai.openai import OpenAIChatCompletion
+    from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.llms.openai.openai import OpenAIChatCompletion
 
     shared_session = httpx.AsyncClient()
     closer = EvictedClientCloser(grace_seconds=0.0)
-    monkeypatch.setattr(litellm, "aclient_session", shared_session)
+    monkeypatch.setattr(hangarllm, "aclient_session", shared_session)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "in_memory_llm_clients_cache",
         LLMClientCache(evicted_client_closer=closer),
     )
@@ -234,17 +234,17 @@ def test_evicting_a_client_built_on_the_callers_session_leaves_that_session_open
     assert shared_session.is_closed is False, "closed the session the caller configured"
 
 
-def test_a_client_litellm_built_its_own_http_client_for_is_still_closed(monkeypatch):
+def test_a_client_hangarllm_built_its_own_http_client_for_is_still_closed(monkeypatch):
     """The ownership check must not turn the reclaim off for the ordinary case."""
-    from litellm.caching.evicted_client_closer import EvictedClientCloser
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.openai.openai import OpenAIChatCompletion
+    from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.llms.openai.openai import OpenAIChatCompletion
 
     closer = EvictedClientCloser(grace_seconds=0.0)
-    monkeypatch.setattr(litellm, "aclient_session", None)
-    monkeypatch.setattr(litellm, "client_session", None)
+    monkeypatch.setattr(hangarllm, "aclient_session", None)
+    monkeypatch.setattr(hangarllm, "client_session", None)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "in_memory_llm_clients_cache",
         LLMClientCache(evicted_client_closer=closer),
     )
@@ -259,7 +259,7 @@ def test_a_client_litellm_built_its_own_http_client_for_is_still_closed(monkeypa
     assert wrapper is not None
     closer.schedule(wrapper)
 
-    assert closer.pending_count == 1, "litellm built this client's http client, so it owns it"
+    assert closer.pending_count == 1, "hangarllm built this client's http client, so it owns it"
 
     closer.reap()
 
@@ -365,13 +365,13 @@ async def _complete_through_the_422_retry(call_shape: str) -> str:
     }
     if call_shape == "sync":
         sync_client: Final = openai.OpenAI(api_key="sk-not-a-real-key", http_client=httpx.Client(transport=transport))
-        return litellm.completion(**kwargs, client=sync_client).choices[0].message.content
+        return hangarllm.completion(**kwargs, client=sync_client).choices[0].message.content
     async_client: Final = openai.AsyncOpenAI(
         api_key="sk-not-a-real-key", http_client=httpx.AsyncClient(transport=transport)
     )
     if call_shape == "async":
-        return (await litellm.acompletion(**kwargs, client=async_client)).choices[0].message.content
-    stream: Final = await litellm.acompletion(**kwargs, client=async_client, stream=True)
+        return (await hangarllm.acompletion(**kwargs, client=async_client)).choices[0].message.content
+    stream: Final = await hangarllm.acompletion(**kwargs, client=async_client, stream=True)
     return "".join([chunk.choices[0].delta.content or "" async for chunk in stream])
 
 
@@ -379,8 +379,8 @@ async def _complete_through_the_422_retry(call_shape: str) -> str:
 def test_a_422_naming_reasoning_effort_drops_it_with_one_warning(
     call_shape: str, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    monkeypatch.setattr(hangarllm, "drop_params", True)
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         content: Final = asyncio.run(_complete_through_the_422_retry(call_shape))
     drop_warnings: Final = [record.getMessage() for record in caplog.records if "Dropping" in record.getMessage()]
 
@@ -405,12 +405,12 @@ def test_a_422_with_an_unhashable_loc_still_drops_reasoning_effort_with_one_warn
             return httpx.Response(422, json={"error": {"message": json.dumps({"detail": detail})}})
         return httpx.Response(200, json=_CHAT_COMPLETION)
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     client: Final = openai.OpenAI(
         api_key="sk-not-a-real-key", http_client=httpx.Client(transport=httpx.MockTransport(answer))
     )
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
-        response: Final = litellm.completion(
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
+        response: Final = hangarllm.completion(
             model="gpt-6.1-sol",
             messages=[{"role": "user", "content": "hi"}],
             reasoning_effort="high",
@@ -425,7 +425,7 @@ def test_a_422_with_an_unhashable_loc_still_drops_reasoning_effort_with_one_warn
 
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 def test_sync_output_limit_400_maps_to_length_truncated_response(provider):
-    response = litellm.completion(
+    response = hangarllm.completion(
         **_completion_kwargs(provider, _sync_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE))
     )
 
@@ -440,13 +440,13 @@ def test_mapped_response_still_bills_the_prompt_the_provider_processed(provider)
     expected_prompt_tokens = token_counter(model="gpt-5.6-sol", messages=messages)
     assert expected_prompt_tokens > 100, "the fixture prompt must be big enough for a zeroed count to stand out"
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         **_completion_kwargs(provider, _sync_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), messages=messages)
     )
 
     assert response.usage.prompt_tokens == expected_prompt_tokens
     assert response.usage.completion_tokens == 0
-    assert litellm.completion_cost(completion_response=response) > 0
+    assert hangarllm.completion_cost(completion_response=response) > 0
 
 
 @pytest.mark.parametrize("provider", ["openai", "azure"])
@@ -460,10 +460,10 @@ async def test_mapped_response_bills_a_custom_named_deployment_with_its_base_mod
     messages: Final = [{"role": "user", "content": "日本語のテキストとहिन्दी पाठ और русский текст. " * 20}]
     overrides: Final = {"model": f"{provider}/my-gpt-6", "messages": messages, "base_model": base_model}
 
-    sync_response: Final = litellm.completion(
+    sync_response: Final = hangarllm.completion(
         **_completion_kwargs(provider, _sync_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), **overrides)
     )
-    async_response: Final = await litellm.acompletion(
+    async_response: Final = await hangarllm.acompletion(
         **_completion_kwargs(provider, _async_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), **overrides)
     )
 
@@ -475,7 +475,7 @@ async def test_mapped_response_bills_a_custom_named_deployment_with_its_base_mod
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.asyncio
 async def test_async_output_limit_400_maps_to_length_truncated_response(provider):
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         **_completion_kwargs(provider, _async_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE))
     )
 
@@ -486,7 +486,7 @@ async def test_async_output_limit_400_maps_to_length_truncated_response(provider
 
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 def test_sync_streaming_output_limit_400_maps_to_length_truncated_stream(provider):
-    stream = litellm.completion(
+    stream = hangarllm.completion(
         **_completion_kwargs(provider, _sync_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), stream=True)
     )
     chunks = list(stream)
@@ -498,7 +498,7 @@ def test_sync_streaming_output_limit_400_maps_to_length_truncated_stream(provide
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.asyncio
 async def test_async_streaming_output_limit_400_maps_to_length_truncated_stream(provider):
-    stream = await litellm.acompletion(
+    stream = await hangarllm.acompletion(
         **_completion_kwargs(provider, _async_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), stream=True)
     )
     chunks = [chunk async for chunk in stream]
@@ -511,12 +511,12 @@ async def test_async_streaming_output_limit_400_maps_to_length_truncated_stream(
 @pytest.mark.parametrize("stream", [False, True])
 def test_sync_genuine_bad_request_still_raises(provider, stream):
     def _call_and_drain():
-        result = litellm.completion(
+        result = hangarllm.completion(
             **_completion_kwargs(provider, _sync_client_raising(provider, GENUINE_400_MESSAGE), stream=stream)
         )
         list(result)
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         _call_and_drain()
 
 
@@ -525,13 +525,13 @@ def test_sync_genuine_bad_request_still_raises(provider, stream):
 @pytest.mark.asyncio
 async def test_async_genuine_bad_request_still_raises(provider, stream):
     async def _call_and_drain():
-        result = await litellm.acompletion(
+        result = await hangarllm.acompletion(
             **_completion_kwargs(provider, _async_client_raising(provider, GENUINE_400_MESSAGE), stream=stream)
         )
         async for _ in result:
             pass
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await _call_and_drain()
 
 
@@ -560,10 +560,10 @@ def _sdk_api_client(
     timeout: float | httpx.Timeout | openai.Timeout | None,
     client: openai.OpenAI | openai.AsyncOpenAI | None = None,
 ) -> openai.OpenAI | openai.AsyncOpenAI | None:
-    from litellm.llms.azure.common_utils import BaseAzureLLM
-    from litellm.llms.openai.fine_tuning.handler import OpenAIFineTuningAPI
-    from litellm.llms.openai.image_variations.handler import OpenAIImageVariationsHandler
-    from litellm.llms.openai.openai import OpenAIAssistantsAPI, OpenAIBatchesAPI, OpenAIFilesAPI
+    from hangarllm.llms.azure.common_utils import BaseAzureLLM
+    from hangarllm.llms.openai.fine_tuning.handler import OpenAIFineTuningAPI
+    from hangarllm.llms.openai.image_variations.handler import OpenAIImageVariationsHandler
+    from hangarllm.llms.openai.openai import OpenAIAssistantsAPI, OpenAIBatchesAPI, OpenAIFilesAPI
 
     kwargs: Final = {
         "api_key": "transport-only",
@@ -590,7 +590,7 @@ def _sdk_api_client(
                 timeout=timeout,
                 max_retries=0,
                 organization=None,
-                litellm_params={},
+                hangarllm_params={},
             )
             if is_async
             else variation_factory.get_sync_client(
@@ -600,7 +600,7 @@ def _sdk_api_client(
                 timeout=timeout,
                 max_retries=0,
                 organization=None,
-                litellm_params={},
+                hangarllm_params={},
             )
         )
     if api == "azure_gateway":
@@ -610,7 +610,7 @@ def _sdk_api_client(
             api_version="2024-02-01",
             max_retries=0,
             timeout=timeout,
-            litellm_params={},
+            hangarllm_params={},
             api_key="transport-only",
             azure_ad_token=None,
             azure_ad_token_provider=None,
@@ -670,7 +670,7 @@ async def test_azure_gateway_and_image_variations_use_the_callers_async_session(
 
     from openai._types import Response as SDKResponse
 
-    from litellm.images.main import aimage_variation
+    from hangarllm.images.main import aimage_variation
 
     http_module: Final = httpx if backend == "httpx" else import_module(SDKResponse.__module__)
     transport: Final = http_module.MockTransport(
@@ -679,8 +679,8 @@ async def test_azure_gateway_and_image_variations_use_the_callers_async_session(
         )
     )
     async with http_module.AsyncClient(transport=transport) as session:
-        monkeypatch.setattr(litellm, "aclient_session", session)
-        monkeypatch.setattr(litellm, "client_session", None)
+        monkeypatch.setattr(hangarllm, "aclient_session", session)
+        monkeypatch.setattr(hangarllm, "client_session", None)
         azure_client: Final = _sdk_api_client("azure_gateway", True, 7)
         assert azure_client is not None
         assert azure_client._client is session
@@ -703,7 +703,7 @@ def test_reasoning_drop_warning_caps_a_large_caller_value(caplog: pytest.LogCapt
     )
     data: Final[dict[str, object]] = {"model": "gpt-6.1-sol", "messages": [], "reasoning_effort": "x" * 5000}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         retried: Final = drop_params_from_unprocessable_entity_error(
             error, data, model="gpt-6.1-sol", drop_params_gated=True
         )

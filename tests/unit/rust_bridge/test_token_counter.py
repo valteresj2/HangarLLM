@@ -12,15 +12,15 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS
-from litellm.litellm_core_utils.token_counter import openai_tokenizer_encoding
-from litellm.proxy.spend_tracking.input_tokens import count_input_tokens_for_model
-from litellm.rust_bridge import _native as native
-from litellm.rust_bridge import token_counter as bridge
-from litellm.rust_bridge import tokenizer as tokenizer_dispatch
-from litellm.rust_bridge._native import Tokenizer
-from litellm.utils import claude_json_str
+import hangarllm
+from hangarllm.constants import TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS
+from hangarllm.hangarllm_core_utils.token_counter import openai_tokenizer_encoding
+from hangarllm.proxy.spend_tracking.input_tokens import count_input_tokens_for_model
+from hangarllm.rust_bridge import _native as native
+from hangarllm.rust_bridge import token_counter as bridge
+from hangarllm.rust_bridge import tokenizer as tokenizer_dispatch
+from hangarllm.rust_bridge._native import Tokenizer
+from hangarllm.utils import claude_json_str
 
 MODEL: Final = "claude-sonnet-4-5-20250929"
 CL100K_MODEL: Final = "gpt-4"
@@ -172,14 +172,14 @@ def test_rust_tokenizer_mirrors_python_tokenizer_selection(model: str, expected:
 def test_rust_tokenizer_declines_tiktoken_encodings_rust_does_not_have(
     monkeypatch: pytest.MonkeyPatch, model: str, python_encoding: str
 ) -> None:
-    monkeypatch.setattr(litellm, "open_ai_chat_completion_models", litellm.open_ai_chat_completion_models | {model})
+    monkeypatch.setattr(hangarllm, "open_ai_chat_completion_models", hangarllm.open_ai_chat_completion_models | {model})
 
     assert openai_tokenizer_encoding(model).name == python_encoding
     assert bridge.rust_tokenizer(model) is None
 
 
 def test_rust_tokenizer_declines_the_cohere_tokenizer_download(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cohere_models", litellm.cohere_models | {"command-r-plus"})
+    monkeypatch.setattr(hangarllm, "cohere_models", hangarllm.cohere_models | {"command-r-plus"})
 
     assert bridge.rust_tokenizer("command-r-plus") is None
 
@@ -189,12 +189,12 @@ def test_rust_tokenizer_declines_legacy_message_accounting_python_prices_differe
     monkeypatch: pytest.MonkeyPatch, legacy_model: str
 ) -> None:
     monkeypatch.setattr(
-        litellm, "open_ai_chat_completion_models", litellm.open_ai_chat_completion_models | {"gpt-3.5-turbo-0301"}
+        hangarllm, "open_ai_chat_completion_models", hangarllm.open_ai_chat_completion_models | {"gpt-3.5-turbo-0301"}
     )
-    monkeypatch.setattr(litellm, "azure_llms", {**litellm.azure_llms, "gpt-35-turbo-0301": "azure"})
+    monkeypatch.setattr(hangarllm, "azure_llms", {**hangarllm.azure_llms, "gpt-35-turbo-0301": "azure"})
     messages: Final = [{"role": "user", "name": "bob", "content": "hello there"}]
 
-    assert litellm.token_counter(model=legacy_model, messages=messages) != litellm.token_counter(
+    assert hangarllm.token_counter(model=legacy_model, messages=messages) != hangarllm.token_counter(
         model=CL100K_MODEL, messages=messages
     )
     assert bridge.rust_tokenizer(legacy_model) is None
@@ -206,7 +206,7 @@ def test_rust_tokenizer_names_the_encoding_python_actually_counts_with(model: st
     text: Final = (
         "Hello, world! camelCase ABCdef \u00e9\u00e8 12345 \u3053\u3093\u306b\u3061\u306f <|endoftext|>\r\n" * 9
     )
-    python_count: Final = litellm.token_counter(model=model, text=text)
+    python_count: Final = hangarllm.token_counter(model=model, text=text)
     cl100k_count: Final = Tokenizer.from_tiktoken("cl100k_base").count(text)
     o200k_count: Final = Tokenizer.from_tiktoken("o200k_base").count(text)
     assert cl100k_count != o200k_count
@@ -223,7 +223,7 @@ def test_rust_tokenizer_names_the_encoding_python_actually_counts_with(model: st
 
 
 def test_disabled_hf_download_routes_anthropic_models_to_cl100k_like_python(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_hf_tokenizer_download", True)
+    monkeypatch.setattr(hangarllm, "disable_hf_tokenizer_download", True)
 
     assert bridge.rust_tokenizer(MODEL) == "cl100k_base"
     assert bridge.rust_tokenizer("meta-llama/Llama-3-8b") == "cl100k_base"
@@ -231,7 +231,7 @@ def test_disabled_hf_download_routes_anthropic_models_to_cl100k_like_python(monk
 
 
 def test_disabled_token_counter_declines_every_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_token_counter", True)
+    monkeypatch.setattr(hangarllm, "disable_token_counter", True)
 
     assert bridge.rust_tokenizer(MODEL) is None
     assert bridge.rust_tokenizer(CL100K_MODEL) is None

@@ -18,16 +18,16 @@ import anthropic
 import httpx
 import pytest
 
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+from hangarllm.hangarllm_core_utils.llm_response_utils.convert_dict_to_response import (
     convert_to_streaming_response,
     convert_to_streaming_response_async,
 )
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
     _CombinedChunkSplitter,
 )
-from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-from litellm.types.utils import (
+from hangarllm.llms.base_llm.base_model_iterator import MockResponseIterator
+from hangarllm.types.utils import (
     Choices,
     Delta,
     Message,

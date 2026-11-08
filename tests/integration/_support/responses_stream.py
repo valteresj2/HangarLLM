@@ -11,8 +11,8 @@ from pydantic import JsonValue
 AZURE_TARGET: Final = "/openai/v1/responses?api-version="
 OPENAI_TARGET: Final = "/responses"
 RATE_LIMIT_MESSAGE: Final = "Your requests to gpt-6 have exceeded token rate limit."
-RATE_LIMIT_PREFIX: Final = "litellm.RateLimitError: "
-SENTINEL_PREFIX: Final = "litellm.MidStreamFallbackError: "
+RATE_LIMIT_PREFIX: Final = "hangarllm.RateLimitError: "
+SENTINEL_PREFIX: Final = "hangarllm.MidStreamFallbackError: "
 
 
 def frame(event: Mapping[str, JsonValue]) -> bytes:
@@ -195,7 +195,7 @@ def sse_events(text: str) -> tuple[tuple[str, Mapping[str, JsonValue]], ...]:
 def spend_row(call_id: str) -> Mapping[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT litellm_call_id, status, model_group, metadata FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = %s',
+            'SELECT hangarllm_call_id, status, model_group, metadata FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = %s',
             (call_id,),
         ),
         lambda found: len(found) >= 1,

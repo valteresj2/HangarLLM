@@ -10,19 +10,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.constants import _DEFAULT_TTL_FOR_HTTPX_CLIENTS, INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.azure_storage import azure_storage as azure_storage_module
-from litellm.integrations.azure_storage.azure_storage import (
+from hangarllm.constants import _DEFAULT_TTL_FOR_HTTPX_CLIENTS, INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.integrations.azure_storage import azure_storage as azure_storage_module
+from hangarllm.integrations.azure_storage.azure_storage import (
     AzureBlobStorageLogger,
     _cached_credential_chain_token_provider,
     adls_safe_file_name,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     SETTLES_BACKGROUND_RESPONSE_KWARG,
     BackgroundResponseSettlement,
 )
-from litellm.types.secret_managers.get_azure_ad_token_provider import AzureCredentialType
-from litellm.types.utils import (
+from hangarllm.types.secret_managers.get_azure_ad_token_provider import AzureCredentialType
+from hangarllm.types.utils import (
     BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN,
     StandardAuditLogPayload,
     StandardLoggingPayload,
@@ -74,8 +74,8 @@ async def test_async_upload_payload_to_azure_blob_storage(mock_env_vars):
     a payload to Azure Blob Storage using the 3-step process (create, append, flush).
     """
     with (
-        patch("litellm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client,
-        patch("litellm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id") as mock_get_token,
+        patch("hangarllm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client,
+        patch("hangarllm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id") as mock_get_token,
     ):
         # Create mock HTTP client
         mock_http_client = AsyncMock()
@@ -143,7 +143,7 @@ async def test_async_upload_payload_uses_configured_endpoint_suffix(mock_gov_env
     AZURE_STORAGE_ENDPOINT_SUFFIX must reach the Entra-ID REST upload path so a
     sovereign-cloud account is addressed instead of the commercial dfs host.
     """
-    with patch("litellm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client:
+    with patch("hangarllm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client:
         mock_http_client = AsyncMock()
         mock_response = MagicMock()
         mock_http_client.put.return_value = mock_response
@@ -188,7 +188,7 @@ async def test_upload_authenticates_through_the_credential_chain_under_workload_
 ):
     build_provider = MagicMock(return_value=lambda: "workload-identity-token")
     with patch(  # test-quality-ok: REST client is created inside the method; assert emitted request headers
-        "litellm.integrations.azure_storage.azure_storage.get_async_httpx_client"
+        "hangarllm.integrations.azure_storage.azure_storage.get_async_httpx_client"
     ) as mock_get_client:
         mock_http_client = AsyncMock()
         mock_http_client.put.return_value = MagicMock()
@@ -211,7 +211,7 @@ def test_default_chain_provider_is_storage_scoped_and_built_once_per_process():
     _cached_credential_chain_token_provider.cache_clear()
     with (
         patch(  # test-quality-ok: assert the default factory's fixed scope and credential type without constructing Azure SDK credentials
-            "litellm.integrations.azure_storage.azure_storage.get_azure_ad_token_provider",
+            "hangarllm.integrations.azure_storage.azure_storage.get_azure_ad_token_provider",
             return_value=lambda: "chain-token",
         ) as mock_builder
     ):
@@ -304,7 +304,7 @@ async def test_client_secret_auth_still_uses_the_storage_scoped_service_principa
     build_provider = MagicMock()
     with (
         patch(  # test-quality-ok: assert the storage scope passed to the shared token factory without making an external auth call
-            "litellm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id",
+            "hangarllm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id",
             return_value=lambda: "client-secret-token",
         ) as mock_entra_id
     ):
@@ -552,8 +552,8 @@ async def test_account_key_upload_names_the_file_adls_safe_and_keeps_the_origina
 @pytest.mark.asyncio
 async def test_entra_upload_names_the_file_adls_safe_and_keeps_the_original_id(mock_env_vars):
     with (
-        patch("litellm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client,
-        patch("litellm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id") as mock_get_token,
+        patch("hangarllm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client,
+        patch("hangarllm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id") as mock_get_token,
     ):
         mock_http_client = AsyncMock()
         mock_response = MagicMock()
@@ -594,7 +594,7 @@ def _key_created_audit_log(audit_log_id: str) -> StandardAuditLogPayload:
         changed_by="admin-user",
         changed_by_api_key="hashed-admin-key",
         action="created",
-        table_name="LiteLLM_VerificationToken",
+        table_name="HangarLLM_VerificationToken",
         object_id="hashed-new-key",
         before_value=None,
         updated_values=json.dumps({"key_alias": "audit-key"}),
@@ -606,7 +606,7 @@ async def test_audit_log_is_uploaded_to_a_dated_audit_logs_path_with_a_service_p
     monkeypatch.setattr(azure_storage_module, "datetime", _FrozenDatetime)
     audit_log = _key_created_audit_log("audit-id-sp")
     with patch(  # test-quality-ok: REST client is created inside the method; assert emitted requests
-        "litellm.integrations.azure_storage.azure_storage.get_async_httpx_client"
+        "hangarllm.integrations.azure_storage.azure_storage.get_async_httpx_client"
     ) as mock_get_client:
         mock_http_client = AsyncMock()
         mock_http_client.put.return_value = MagicMock()
@@ -662,13 +662,13 @@ async def test_audit_log_is_uploaded_to_a_dated_audit_logs_path_with_an_account_
 BACKGROUND_RESPONSE_ID: Final = "resp_YWJjZA=="
 BACKGROUND_COST_POLL_KWARGS: Final = {
     "call_type": "aget_responses",
-    "litellm_params": {
+    "hangarllm_params": {
         "metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN},
     },
 }
 PASSTHROUGH_SETTLEMENT_KWARGS: Final = {
     "call_type": "pass_through_endpoint",
-    "litellm_params": {"metadata": {}},
+    "hangarllm_params": {"metadata": {}},
     SETTLES_BACKGROUND_RESPONSE_KWARG: BackgroundResponseSettlement.SETTLES,
 }
 
@@ -685,16 +685,16 @@ def _background_create_cost_and_other_events(
     ordinary: Final = StandardLoggingPayload(id="chatcmpl-ordinary", call_type="acompletion")
     batch_retrieve: Final = StandardLoggingPayload(id="batch_abc123", call_type="aretrieve_batch", response_cost=0.07)
     return (
-        ({"call_type": "aresponses", "litellm_params": {"metadata": {}}, "standard_logging_object": create}, create),
+        ({"call_type": "aresponses", "hangarllm_params": {"metadata": {}}, "standard_logging_object": create}, create),
         ({**cost_kwargs, "standard_logging_object": cost}, cost),
         (
-            {"call_type": "acompletion", "litellm_params": {"metadata": {}}, "standard_logging_object": ordinary},
+            {"call_type": "acompletion", "hangarllm_params": {"metadata": {}}, "standard_logging_object": ordinary},
             ordinary,
         ),
         (
             {
                 "call_type": "aretrieve_batch",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
                 "standard_logging_object": batch_retrieve,
             },
             batch_retrieve,
@@ -733,10 +733,10 @@ async def _log_and_flush(
 async def test_background_cost_event_keeps_its_own_file_beside_the_create_on_the_entra_path(
     mock_env_vars, monkeypatch, cost_kwargs
 ):
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     events: Final = _background_create_cost_and_other_events(cost_kwargs)
     with patch(  # test-quality-ok: REST client is created inside the method; assert emitted requests
-        "litellm.integrations.azure_storage.azure_storage.get_async_httpx_client"
+        "hangarllm.integrations.azure_storage.azure_storage.get_async_httpx_client"
     ) as mock_get_client:
         mock_http_client = AsyncMock()
         mock_http_client.put.return_value = MagicMock()
@@ -760,10 +760,10 @@ async def test_background_cost_event_keeps_its_own_file_beside_the_create_on_the
 
 @pytest.mark.asyncio
 async def test_failure_event_is_uploaded_to_a_file_named_after_its_id(mock_env_vars, monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     failure: Final = StandardLoggingPayload(id="chatcmpl-failed", call_type="acompletion", error_str="provider failure")
     with patch(  # test-quality-ok: REST client is created inside the method; assert emitted requests
-        "litellm.integrations.azure_storage.azure_storage.get_async_httpx_client"
+        "hangarllm.integrations.azure_storage.azure_storage.get_async_httpx_client"
     ) as mock_get_client:
         mock_http_client = AsyncMock()
         mock_http_client.put.return_value = MagicMock()
@@ -774,7 +774,7 @@ async def test_failure_event_is_uploaded_to_a_file_named_after_its_id(mock_env_v
         logger.azure_auth_token = "mock-azure-ad-token"
         logger.token_expiry = None
         await logger.async_log_failure_event(
-            {"call_type": "acompletion", "litellm_params": {"metadata": {}}, "standard_logging_object": failure},
+            {"call_type": "acompletion", "hangarllm_params": {"metadata": {}}, "standard_logging_object": failure},
             None,
             None,
             None,
@@ -793,7 +793,7 @@ async def test_background_cost_event_keeps_its_own_file_beside_the_create_with_a
     workload_identity_env_vars, monkeypatch
 ):
     monkeypatch.setenv("AZURE_STORAGE_ACCOUNT_KEY", "dGVzdC1rZXk=")
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     monkeypatch.setattr(azure_storage_module, "datetime", _FrozenDatetime)
     events: Final = _background_create_cost_and_other_events(BACKGROUND_COST_POLL_KWARGS)
 

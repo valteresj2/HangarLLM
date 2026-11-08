@@ -83,7 +83,7 @@ UV_LOCK = REPO_ROOT / "uv.lock"
 TYPECHECK_ENV_DIR = REPO_ROOT / ".venv-typecheck"
 TYPECHECK_DEP_GROUPS = ("proxy-dev", "e2e-dev")
 PRISMA_GENERATE_SCRIPT = REPO_ROOT / "scripts" / "prisma_generate_if_needed.py"
-PRISMA_SCHEMA = REPO_ROOT / "litellm" / "proxy" / "schema.prisma"
+PRISMA_SCHEMA = REPO_ROOT / "hangarllm" / "proxy" / "schema.prisma"
 
 # basedpyright's node process needs more than the ~4 GB default heap on this
 # repo; appended last so it wins node's last-flag-wins resolution over any

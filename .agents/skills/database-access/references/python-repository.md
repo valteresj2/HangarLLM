@@ -6,21 +6,21 @@ Use this when a feature needs a read or write that no repository offers yet, inc
 
 ### Before starting
 
-- Search `litellm/repositories` for a repository that already owns the table, and extend it instead of adding a second one
-- Check `litellm/models/<feature>.py` for an existing Protocol and domain types
+- Search `hangarllm/repositories` for a repository that already owns the table, and extend it instead of adding a second one
+- Check `hangarllm/models/<feature>.py` for an existing Protocol and domain types
 - Decide the route's behavior when no database is configured, and where that check sits relative to authorization and validation
 
 ### Steps
 
-1. Domain types and Protocol in `litellm/models/<feature>.py`
+1. Domain types and Protocol in `hangarllm/models/<feature>.py`
    - The Protocol takes and returns domain types, never Prisma models, raw rows or serialized payloads
    - Add the Protocol together with the provider, not for repositories nothing injects
-2. Repository in `litellm/repositories/<feature>_repository.py`
+2. Repository in `hangarllm/repositories/<feature>_repository.py`
    - Implement the operation with Prisma, a Rust port is not required
    - Compose the Prisma client and type the tables it touches with `TableActions` from `prisma_protocols.py`, never inherit `PrismaTableRepository`
    - Parse and serialize stored values here, so callers only see domain types
    - Never import FastAPI, connect, disconnect or choose replicas per call
-3. Provider and `Annotated` alias in `litellm/proxy/deps/repositories.py`, see [dependency injection](python-fastapi.md#dependency-injection)
+3. Provider and `Annotated` alias in `hangarllm/proxy/deps/repositories.py`, see [dependency injection](python-fastapi.md#dependency-injection)
 4. The route takes `<Feature>RepositoryDep`, handles `None` with the behavior decided above, and calls the operation
 5. Jobs and helpers that need the operation receive the repository as an explicit argument, built by their caller from the handle it already holds
 
@@ -47,8 +47,8 @@ Use this when code calls Prisma directly, through `prisma_client.db.<table>` or 
 
 ### Steps
 
-1. Move the existing Prisma code into the relevant repository in `litellm/repositories` without rewriting the queries
-2. Add domain types and a Protocol in `litellm/models/<feature>.py` when a route will inject the repository
+1. Move the existing Prisma code into the relevant repository in `hangarllm/repositories` without rewriting the queries
+2. Add domain types and a Protocol in `hangarllm/models/<feature>.py` when a route will inject the repository
 3. Replace each direct call with the repository operation, through a provider for routes and explicit arguments for jobs and helpers, see [Python and FastAPI](python-fastapi.md)
 4. Calls sharing a transaction move into the same repository or unit of work in one change
 5. State which legacy reads remain and why, when the change does not move all of them
@@ -81,19 +81,19 @@ Use this only when a port is explicitly requested. Repository extraction does no
 
 - Identify the repository's inputs, outputs, errors and transaction boundary
 - List repositories that share a transaction with it, they move together
-- Check `litellm-rust/crates/db` for an equivalent query and reuse it when its behavior matches
+- Check `hangarllm-rust/crates/db` for an equivalent query and reuse it when its behavior matches
 
 ### Steps
 
-1. Rust queries, following `litellm-rust/crates/db/AGENTS.md`
+1. Rust queries, following `hangarllm-rust/crates/db/AGENTS.md`
    - Static SQL in `queries/`, compile-checked with SQLx, typed inputs and row projections in `src/`
    - Dynamic filters and sort keys become closed Rust enums that select static SQL, every value is bound
    - Refresh SQLx query metadata after SQL changes
 2. PyO3 surface exposing typed operations, never SQL text, table names or column names from Python. TBD: where it lives and how the handle reaches it
-3. Native repository implementing the same Protocol in `litellm/repositories`
+3. Native repository implementing the same Protocol in `hangarllm/repositories`
    - Converts typed PyO3 results to domain types, preserving defaults, invalid-data handling and storage errors
    - Python conversion stays in the bridge, not in `crates/db`
-4. Switch the provider in `litellm/proxy/deps/repositories.py`, the Protocol and routes stay unchanged
+4. Switch the provider in `hangarllm/proxy/deps/repositories.py`, the Protocol and routes stay unchanged
 
 ```diff
  async def get_user_banner_repository(database: DatabaseDep) -> UserBannerStore | None:
@@ -106,7 +106,7 @@ Use this only when a port is explicitly requested. Repository extraction does no
 ### Done when
 
 - Behavior is verified against real PostgreSQL, covering null handling, conflicts, ordering, errors and transaction semantics
-- `DATABASE_URL=... cargo test -p litellm-db --locked -- --include-ignored` passes against a Prisma-migrated database
+- `DATABASE_URL=... cargo test -p hangarllm-db --locked -- --include-ignored` passes against a Prisma-migrated database
 - Live proxy requests show unchanged responses. TBD: a Python-side real-PostgreSQL test harness
 
 ### Rollback

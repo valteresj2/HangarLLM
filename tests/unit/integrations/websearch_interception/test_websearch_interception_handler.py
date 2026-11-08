@@ -10,25 +10,25 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
-from litellm.constants import LITELLM_WEB_SEARCH_TOOL_NAME
-from litellm.integrations.websearch_interception.handler import (
+from hangarllm.constants import HANGARLLM_WEB_SEARCH_TOOL_NAME
+from hangarllm.integrations.websearch_interception.handler import (
     WebSearchInterceptionLogger,
 )
-from litellm.llms.base_llm.search.transformation import SearchResponse
-from litellm.proxy._types import (
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+from hangarllm.llms.base_llm.search.transformation import SearchResponse
+from hangarllm.proxy._types import (
+    HangarLLM_ObjectPermissionTable,
+    HangarLLM_TeamTable,
+    HangarllmUserRoles,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.router_api import RouterSettings
-from litellm.types.utils import CallTypes, LlmProviders
+from hangarllm.router_api import RouterSettings
+from hangarllm.types.utils import CallTypes, LlmProviders
 
 
 def test_initialize_from_proxy_config():
-    """Test initialization from proxy config with litellm_settings"""
-    litellm_settings = {
+    """Test initialization from proxy config with hangarllm_settings"""
+    hangarllm_settings = {
         "websearch_interception_params": {
             "enabled_providers": ["bedrock", "vertex_ai"],
             "search_tool_name": "my-search",
@@ -37,7 +37,7 @@ def test_initialize_from_proxy_config():
     callback_specific_params = {}
 
     logger = WebSearchInterceptionLogger.initialize_from_proxy_config(
-        litellm_settings=litellm_settings,
+        hangarllm_settings=hangarllm_settings,
         callback_specific_params=callback_specific_params,
     )
 
@@ -56,7 +56,7 @@ def test_initialize_from_proxy_config_ignores_non_dict_callback_specific_params(
     The value is ignored and the logger falls back to defaults.
     """
     logger = WebSearchInterceptionLogger.initialize_from_proxy_config(
-        litellm_settings={},
+        hangarllm_settings={},
         callback_specific_params={"websearch_interception": True},
     )
 
@@ -66,7 +66,7 @@ def test_initialize_from_proxy_config_ignores_non_dict_callback_specific_params(
 def test_initialize_from_proxy_config_honors_dict_callback_specific_params():
     """A valid dict under callback_settings.websearch_interception is applied."""
     logger = WebSearchInterceptionLogger.initialize_from_proxy_config(
-        litellm_settings={},
+        hangarllm_settings={},
         callback_specific_params={"websearch_interception": {"search_tool_name": "ws-tool"}},
     )
 
@@ -113,7 +113,7 @@ async def test_async_build_agentic_loop_plan_returns_request_patch():
     """Callback should return a typed patch for base handler reruns."""
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
     logger._execute_search = AsyncMock(  # type: ignore
-        return_value="Title: LiteLLM\nURL: docs\nSnippet: test"
+        return_value="Title: HangarLLM\nURL: docs\nSnippet: test"
     )
 
     tools_dict = {
@@ -121,8 +121,8 @@ async def test_async_build_agentic_loop_plan_returns_request_patch():
             {
                 "id": "toolu_123",
                 "type": "tool_use",
-                "name": "litellm_web_search",
-                "input": {"query": "what is litellm"},
+                "name": "hangarllm_web_search",
+                "input": {"query": "what is hangarllm"},
             }
         ],
         "response_format": "anthropic",
@@ -132,18 +132,18 @@ async def test_async_build_agentic_loop_plan_returns_request_patch():
     kwargs = {
         "temperature": 0.2,
         "_websearch_interception_converted_stream": True,
-        "litellm_logging_obj": object(),
+        "hangarllm_logging_obj": object(),
     }
 
     plan = await logger.async_build_agentic_loop_plan(
         tools=tools_dict,
         model="claude-3-5-sonnet",
-        messages=[{"role": "user", "content": "search LiteLLM"}],
+        messages=[{"role": "user", "content": "search HangarLLM"}],
         response=None,
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={
             "max_tokens": 1024,
-            "tools": [{"name": "litellm_web_search"}],
+            "tools": [{"name": "hangarllm_web_search"}],
         },
         logging_obj=logging_obj,
         stream=False,
@@ -157,7 +157,7 @@ async def test_async_build_agentic_loop_plan_returns_request_patch():
     assert plan.request_patch.messages is not None
     assert len(plan.request_patch.messages) == 3
     assert "_websearch_interception_converted_stream" not in plan.request_patch.kwargs
-    assert "litellm_logging_obj" not in plan.request_patch.kwargs
+    assert "hangarllm_logging_obj" not in plan.request_patch.kwargs
     assert plan.request_patch.kwargs["temperature"] == 0.2
 
 
@@ -192,9 +192,9 @@ async def test_internal_flags_filtered_from_followup_kwargs():
 
 
 @pytest.mark.asyncio
-async def test_execute_search_passes_selected_search_tool_litellm_params(monkeypatch):
-    import litellm
-    from litellm.proxy import proxy_server
+async def test_execute_search_passes_selected_search_tool_hangarllm_params(monkeypatch):
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(
         enabled_providers=["bedrock"],
@@ -205,7 +205,7 @@ async def test_execute_search_passes_selected_search_tool_litellm_params(monkeyp
         search_tools=[
             {
                 "search_tool_name": "ui-tavily",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "tavily",
                     "api_key": "fake-ui-key",
                     "api_base": "https://api.tavily.com",
@@ -218,22 +218,22 @@ async def test_execute_search_passes_selected_search_tool_litellm_params(monkeyp
     )
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
     user_api_key_auth = UserAPIKeyAuth(
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-allowed-search",
             search_tools=["ui-tavily"],
         )
     )
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
     await logger._execute_search(
-        "what is litellm",
-        kwargs={"litellm_params": {"metadata": {"user_api_key_auth": user_api_key_auth}}},
+        "what is hangarllm",
+        kwargs={"hangarllm_params": {"metadata": {"user_api_key_auth": user_api_key_auth}}},
     )
 
     forwarded_kwargs = mock_asearch.await_args.kwargs
-    assert forwarded_kwargs["query"] == "what is litellm"
+    assert forwarded_kwargs["query"] == "what is hangarllm"
     assert forwarded_kwargs["search_provider"] == "tavily"
     assert forwarded_kwargs["api_key"] == "fake-ui-key"
     assert forwarded_kwargs["api_base"] == "https://api.tavily.com"
@@ -243,8 +243,8 @@ async def test_execute_search_passes_selected_search_tool_litellm_params(monkeyp
 
 @pytest.mark.asyncio
 async def test_execute_search_attributes_cli_session_spend_to_the_per_user_alias_not_the_login_token(monkeypatch):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="perplexity-sonar-pro")
     router = MagicMock()
@@ -252,7 +252,7 @@ async def test_execute_search_attributes_cli_session_spend_to_the_per_user_alias
         search_tools=[
             {
                 "search_tool_name": "perplexity-sonar-pro",
-                "litellm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
+                "hangarllm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
             }
         ]
     )
@@ -264,14 +264,14 @@ async def test_execute_search_attributes_cli_session_spend_to_the_per_user_alias
         is_session_token=True,
     )
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
     await logger._execute_search(
-        "what is litellm",
-        kwargs={"litellm_params": {"metadata": {"user_api_key_auth": session}}},
+        "what is hangarllm",
+        kwargs={"hangarllm_params": {"metadata": {"user_api_key_auth": session}}},
     )
 
-    forwarded_metadata = mock_asearch.await_args.kwargs["litellm_metadata"]
+    forwarded_metadata = mock_asearch.await_args.kwargs["hangarllm_metadata"]
     assert forwarded_metadata["user_api_key"] == "cli-session-alice"
     assert forwarded_metadata["user_api_key_hash"] == "cli-session-alice"
 
@@ -283,9 +283,9 @@ async def test_execute_search_attributes_spend_to_the_calling_key(monkeypatch):
     Without the forwarded attribution metadata the proxy's spend hook skips the search
     entirely, so its provider cost never reaches SpendLogs or any budget.
     """
-    import litellm
-    from litellm.proxy import proxy_server
-    from litellm.proxy.hooks.proxy_track_cost_callback import _should_track_cost_callback
+    import hangarllm
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import _should_track_cost_callback
 
     logger = WebSearchInterceptionLogger(
         enabled_providers=["bedrock"],
@@ -296,7 +296,7 @@ async def test_execute_search_attributes_spend_to_the_calling_key(monkeypatch):
         search_tools=[
             {
                 "search_tool_name": "perplexity-sonar-pro",
-                "litellm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
+                "hangarllm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
             }
         ]
     )
@@ -309,14 +309,14 @@ async def test_execute_search_attributes_spend_to_the_calling_key(monkeypatch):
     )
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
     await logger._execute_search(
-        "what is litellm",
-        kwargs={"litellm_params": {"metadata": {"user_api_key_auth": user_api_key_auth}}},
+        "what is hangarllm",
+        kwargs={"hangarllm_params": {"metadata": {"user_api_key_auth": user_api_key_auth}}},
     )
 
-    forwarded_metadata = mock_asearch.await_args.kwargs["litellm_metadata"]
+    forwarded_metadata = mock_asearch.await_args.kwargs["hangarllm_metadata"]
     assert forwarded_metadata["user_api_key"] == "hashed-sk-9876"
     assert forwarded_metadata["user_api_key_hash"] == "hashed-sk-9876"
     assert forwarded_metadata["user_api_key_alias"] == "alice-key"
@@ -341,7 +341,7 @@ def _perplexity_router() -> MagicMock:
         search_tools=[
             {
                 "search_tool_name": "perplexity-sonar-pro",
-                "litellm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
+                "hangarllm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
             }
         ]
     )
@@ -354,9 +354,9 @@ def _perplexity_router() -> MagicMock:
     [
         pytest.param(
             {
-                "litellm_call_id": "parent-call-1",
-                "litellm_trace_id": "trace-abc",
-                "litellm_session_id": "session-abc",
+                "hangarllm_call_id": "parent-call-1",
+                "hangarllm_trace_id": "trace-abc",
+                "hangarllm_session_id": "session-abc",
                 "metadata": {
                     "user_api_key_auth": UserAPIKeyAuth(api_key="hashed-sk-9876"),
                     "session_id": "session-abc",
@@ -366,22 +366,22 @@ def _perplexity_router() -> MagicMock:
         ),
         pytest.param(
             {
-                "litellm_call_id": "parent-call-1",
-                "litellm_metadata": {
+                "hangarllm_call_id": "parent-call-1",
+                "hangarllm_metadata": {
                     "user_api_key_auth": UserAPIKeyAuth(api_key="hashed-sk-9876"),
                     "session_id": "session-abc",
                     "trace_id": "trace-abc",
                 },
             },
-            id="anthropic-messages-litellm-metadata",
+            id="anthropic-messages-hangarllm-metadata",
         ),
         pytest.param(
             {
-                "litellm_params": {
-                    "litellm_call_id": "parent-call-1",
-                    "litellm_trace_id": "trace-abc",
+                "hangarllm_params": {
+                    "hangarllm_call_id": "parent-call-1",
+                    "hangarllm_trace_id": "trace-abc",
                     "metadata": {"user_api_key_auth": UserAPIKeyAuth(api_key="hashed-sk-9876")},
-                    "litellm_metadata": {"session_id": "session-abc"},
+                    "hangarllm_metadata": {"session_id": "session-abc"},
                 }
             },
             id="logging-payload-with-both-metadata-keys",
@@ -393,30 +393,30 @@ async def test_execute_search_inherits_parent_request_session_and_trace(
 ):
     """The intercepted asearch is billed as its own call but must land in the parent request's
     session and trace, otherwise every search shows up as a separate one-call session in SpendLogs."""
-    import litellm
-    from litellm.proxy import proxy_server
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
+    import hangarllm
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="perplexity-sonar-pro")
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
     monkeypatch.setattr(proxy_server, "llm_router", _perplexity_router())
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
-    await logger._execute_search("what is litellm", kwargs=parent_kwargs)
+    await logger._execute_search("what is hangarllm", kwargs=parent_kwargs)
 
     forwarded = mock_asearch.await_args.kwargs
-    assert forwarded["litellm_session_id"] == "session-abc"
-    assert forwarded["litellm_trace_id"] == "trace-abc"
-    assert forwarded["litellm_metadata"]["session_id"] == "session-abc"
-    assert forwarded["litellm_metadata"]["trace_id"] == "trace-abc"
-    assert forwarded["litellm_metadata"]["parent_request_id"] == "parent-call-1"
-    assert forwarded["litellm_metadata"]["user_api_key"] == "hashed-sk-9876"
-    assert forwarded["litellm_metadata"]["model_group"] == "perplexity-sonar-pro"
-    assert "litellm_call_id" not in forwarded
+    assert forwarded["hangarllm_session_id"] == "session-abc"
+    assert forwarded["hangarllm_trace_id"] == "trace-abc"
+    assert forwarded["hangarllm_metadata"]["session_id"] == "session-abc"
+    assert forwarded["hangarllm_metadata"]["trace_id"] == "trace-abc"
+    assert forwarded["hangarllm_metadata"]["parent_request_id"] == "parent-call-1"
+    assert forwarded["hangarllm_metadata"]["user_api_key"] == "hashed-sk-9876"
+    assert forwarded["hangarllm_metadata"]["model_group"] == "perplexity-sonar-pro"
+    assert "hangarllm_call_id" not in forwarded
     assert (
         _get_session_id_for_spend_log(
-            kwargs={"litellm_trace_id": forwarded["litellm_trace_id"]},
-            metadata=forwarded["litellm_metadata"],
+            kwargs={"hangarllm_trace_id": forwarded["hangarllm_trace_id"]},
+            metadata=forwarded["hangarllm_metadata"],
             standard_logging_payload=None,
             omit_when_missing=True,
         )
@@ -426,56 +426,56 @@ async def test_execute_search_inherits_parent_request_session_and_trace(
 
 @pytest.mark.asyncio
 async def test_execute_search_forwards_parent_otel_span_from_key_auth(monkeypatch: pytest.MonkeyPatch):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="perplexity-sonar-pro")
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
     monkeypatch.setattr(proxy_server, "llm_router", _perplexity_router())
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
     parent_span = object()
 
     await logger._execute_search(
-        "what is litellm",
+        "what is hangarllm",
         kwargs={"metadata": {"user_api_key_auth": UserAPIKeyAuth(api_key="sk", parent_otel_span=parent_span)}},
     )
 
-    assert mock_asearch.await_args.kwargs["litellm_metadata"]["litellm_parent_otel_span"] is parent_span
+    assert mock_asearch.await_args.kwargs["hangarllm_metadata"]["hangarllm_parent_otel_span"] is parent_span
 
 
 @pytest.mark.asyncio
 async def test_execute_search_without_parent_session_does_not_invent_one(monkeypatch: pytest.MonkeyPatch):
     """A parent request with no session/trace must not stamp empty correlation keys on the search."""
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="perplexity-sonar-pro")
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
     monkeypatch.setattr(proxy_server, "llm_router", _perplexity_router())
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
     await logger._execute_search(
-        "what is litellm",
-        kwargs={"litellm_params": {"metadata": {"user_api_key_auth": UserAPIKeyAuth(api_key="sk"), "prompt": "x"}}},
+        "what is hangarllm",
+        kwargs={"hangarllm_params": {"metadata": {"user_api_key_auth": UserAPIKeyAuth(api_key="sk"), "prompt": "x"}}},
     )
 
     forwarded = mock_asearch.await_args.kwargs
-    assert "litellm_session_id" not in forwarded
-    assert "litellm_trace_id" not in forwarded
-    assert not {"session_id", "trace_id", "parent_request_id", "prompt"} & forwarded["litellm_metadata"].keys()
+    assert "hangarllm_session_id" not in forwarded
+    assert "hangarllm_trace_id" not in forwarded
+    assert not {"session_id", "trace_id", "parent_request_id", "prompt"} & forwarded["hangarllm_metadata"].keys()
 
 
 @pytest.mark.asyncio
 async def test_concurrent_searches_keep_their_own_parent_session(monkeypatch: pytest.MonkeyPatch):
     import asyncio
 
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="perplexity-sonar-pro")
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
     monkeypatch.setattr(proxy_server, "llm_router", _perplexity_router())
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
     await asyncio.gather(
         *(
@@ -488,7 +488,7 @@ async def test_concurrent_searches_keep_their_own_parent_session(monkeypatch: py
     )
 
     seen = {
-        call.kwargs["query"]: call.kwargs["litellm_metadata"]["session_id"] for call in mock_asearch.await_args_list
+        call.kwargs["query"]: call.kwargs["hangarllm_metadata"]["session_id"] for call in mock_asearch.await_args_list
     }
     assert seen == {f"query {i}": f"session-{i}" for i in range(5)}
 
@@ -496,8 +496,8 @@ async def test_concurrent_searches_keep_their_own_parent_session(monkeypatch: py
 @pytest.mark.asyncio
 async def test_execute_search_without_proxy_auth_context_stays_sdk_only(monkeypatch):
     """SDK callers have no key to attribute the search to, so no proxy metadata is invented."""
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(
         enabled_providers=["bedrock"],
@@ -508,24 +508,24 @@ async def test_execute_search_without_proxy_auth_context_stays_sdk_only(monkeypa
         search_tools=[
             {
                 "search_tool_name": "perplexity-sonar-pro",
-                "litellm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
+                "hangarllm_params": {"search_provider": "perplexity", "api_key": "fake-key"},
             }
         ]
     )
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
-    await logger._execute_search("what is litellm", kwargs={"litellm_params": {}})
+    await logger._execute_search("what is hangarllm", kwargs={"hangarllm_params": {}})
 
-    assert "litellm_metadata" not in mock_asearch.await_args.kwargs
+    assert "hangarllm_metadata" not in mock_asearch.await_args.kwargs
 
 
 @pytest.mark.asyncio
 async def test_execute_search_enforces_key_search_tool_permission(monkeypatch):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(
         enabled_providers=["bedrock"],
@@ -536,7 +536,7 @@ async def test_execute_search_enforces_key_search_tool_permission(monkeypatch):
         search_tools=[
             {
                 "search_tool_name": "blocked-search",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "tavily",
                     "api_key": "fake-ui-key",
                 },
@@ -545,18 +545,18 @@ async def test_execute_search_enforces_key_search_tool_permission(monkeypatch):
     )
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
     user_api_key_auth = UserAPIKeyAuth(
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-key-search",
             search_tools=["allowed-search"],
         )
     )
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
     with pytest.raises(ProxyException):
         await logger._execute_search(
-            "what is litellm",
+            "what is hangarllm",
             kwargs={"metadata": {"user_api_key_auth": user_api_key_auth}},
         )
 
@@ -565,8 +565,8 @@ async def test_execute_search_enforces_key_search_tool_permission(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_execute_search_enforces_team_search_tool_permission(monkeypatch):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(
         enabled_providers=["bedrock"],
@@ -577,7 +577,7 @@ async def test_execute_search_enforces_team_search_tool_permission(monkeypatch):
         search_tools=[
             {
                 "search_tool_name": "blocked-search",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "tavily",
                     "api_key": "fake-ui-key",
                 },
@@ -586,9 +586,9 @@ async def test_execute_search_enforces_team_search_tool_permission(monkeypatch):
     )
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
     team_key_auth = UserAPIKeyAuth(team_id="team-1")
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-1",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-team-search",
             search_tools=["allowed-search"],
         ),
@@ -596,12 +596,12 @@ async def test_execute_search_enforces_team_search_tool_permission(monkeypatch):
     mock_get_team_object = AsyncMock(return_value=team_object)
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_team_object", mock_get_team_object)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_team_object", mock_get_team_object)
 
     with pytest.raises(ProxyException):
         await logger._execute_search(
-            "what is litellm",
+            "what is hangarllm",
             kwargs={"metadata": {"user_api_key_auth": team_key_auth}},
         )
 
@@ -613,16 +613,16 @@ async def test_execute_search_enforces_team_search_tool_permission(monkeypatch):
 async def test_async_pre_call_deployment_hook_provider_from_top_level_kwargs():
     """Test that async_pre_call_deployment_hook finds custom_llm_provider at top-level kwargs.
 
-    Regression test for bug where the hook only checked kwargs["litellm_params"]["custom_llm_provider"]
+    Regression test for bug where the hook only checked kwargs["hangarllm_params"]["custom_llm_provider"]
     but the router places custom_llm_provider at the top level of kwargs.
     """
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
 
     # Simulate kwargs as they arrive from the router path:
-    # custom_llm_provider is at the TOP LEVEL (not nested under litellm_params)
+    # custom_llm_provider is at the TOP LEVEL (not nested under hangarllm_params)
     kwargs = {
         "model": "anthropic.claude-haiku-4-5-20251001-v1:0",
-        "messages": [{"role": "user", "content": "Search the web for LiteLLM"}],
+        "messages": [{"role": "user", "content": "Search the web for HangarLLM"}],
         "tools": [
             {"type": "web_search_20250305", "name": "web_search", "max_uses": 3},
             {"type": "function", "function": {"name": "other_tool", "parameters": {}}},
@@ -635,9 +635,9 @@ async def test_async_pre_call_deployment_hook_provider_from_top_level_kwargs():
 
     # Should NOT be None — the hook should have triggered
     assert result is not None
-    # The web_search tool should be converted to litellm_web_search (OpenAI format)
+    # The web_search tool should be converted to hangarllm_web_search (OpenAI format)
     assert any(
-        t.get("type") == "function" and t.get("function", {}).get("name") == "litellm_web_search"
+        t.get("type") == "function" and t.get("function", {}).get("name") == "hangarllm_web_search"
         for t in result["tools"]
     )
     # The non-web-search tool should be preserved
@@ -679,7 +679,7 @@ async def test_async_pre_call_deployment_hook_returns_full_kwargs():
     assert result["custom_llm_provider"] == "openai"
     # Tools should be converted
     assert any(
-        t.get("type") == "function" and t.get("function", {}).get("name") == "litellm_web_search"
+        t.get("type") == "function" and t.get("function", {}).get("name") == "hangarllm_web_search"
         for t in result["tools"]
     )
 
@@ -708,7 +708,7 @@ async def test_deployment_hook_intercepts_bare_web_search_type_and_keeps_user_we
     )
 
     assert result is not None
-    assert [t.get("function", {}).get("name") for t in result["tools"]] == [LITELLM_WEB_SEARCH_TOOL_NAME, "web_search"]
+    assert [t.get("function", {}).get("name") for t in result["tools"]] == [HANGARLLM_WEB_SEARCH_TOOL_NAME, "web_search"]
     assert result["tools"][1] == user_web_search_function
 
 
@@ -765,10 +765,10 @@ async def test_async_pre_call_deployment_hook_skips_no_websearch_tools():
 
 
 @pytest.mark.asyncio
-async def test_async_pre_call_deployment_hook_nested_litellm_params_fallback():
-    """Test that the hook still works when custom_llm_provider is in nested litellm_params.
+async def test_async_pre_call_deployment_hook_nested_hangarllm_params_fallback():
+    """Test that the hook still works when custom_llm_provider is in nested hangarllm_params.
 
-    This is the Anthropic experimental pass-through path where litellm_params is
+    This is the Anthropic experimental pass-through path where hangarllm_params is
     explicitly constructed with custom_llm_provider inside it.
     """
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
@@ -777,7 +777,7 @@ async def test_async_pre_call_deployment_hook_nested_litellm_params_fallback():
         "model": "anthropic.claude-haiku-4-5-20251001-v1:0",
         "messages": [{"role": "user", "content": "test"}],
         "tools": [{"type": "web_search_20250305", "name": "web_search"}],
-        "litellm_params": {
+        "hangarllm_params": {
             "custom_llm_provider": "bedrock",
         },
     }
@@ -786,7 +786,7 @@ async def test_async_pre_call_deployment_hook_nested_litellm_params_fallback():
 
     assert result is not None
     assert any(
-        t.get("type") == "function" and t.get("function", {}).get("name") == "litellm_web_search"
+        t.get("type") == "function" and t.get("function", {}).get("name") == "hangarllm_web_search"
         for t in result["tools"]
     )
     # Full kwargs preserved
@@ -798,7 +798,7 @@ async def test_async_pre_call_deployment_hook_provider_derived_from_model_name()
     """Test that async_pre_call_deployment_hook derives custom_llm_provider from the model name.
 
     Regression test for the router _acompletion path where custom_llm_provider is NOT
-    in kwargs at all — neither at top-level nor in litellm_params. The hook must derive
+    in kwargs at all — neither at top-level nor in hangarllm_params. The hook must derive
     the provider from the model name (e.g., "openai/gpt-4o-mini" → "openai").
     """
     logger = WebSearchInterceptionLogger(enabled_providers=["openai"])
@@ -807,7 +807,7 @@ async def test_async_pre_call_deployment_hook_provider_derived_from_model_name()
     # NO custom_llm_provider key anywhere — only model name contains the provider
     kwargs = {
         "model": "openai/gpt-4o-mini",
-        "messages": [{"role": "user", "content": "Search the web for LiteLLM"}],
+        "messages": [{"role": "user", "content": "Search the web for HangarLLM"}],
         "tools": [
             {"type": "web_search_20250305", "name": "web_search", "max_uses": 3},
         ],
@@ -819,7 +819,7 @@ async def test_async_pre_call_deployment_hook_provider_derived_from_model_name()
     # Should NOT be None — the hook should derive "openai" from "openai/gpt-4o-mini"
     assert result is not None
     assert any(
-        t.get("type") == "function" and t.get("function", {}).get("name") == "litellm_web_search"
+        t.get("type") == "function" and t.get("function", {}).get("name") == "hangarllm_web_search"
         for t in result["tools"]
     )
     # Full kwargs preserved
@@ -846,7 +846,7 @@ async def test_deployment_hook_converts_stream_and_logging_obj_syncs():
 
     kwargs = {
         "model": "anthropic.claude-opus-4-6-20250219-v1:0",
-        "messages": [{"role": "user", "content": "Search for LiteLLM"}],
+        "messages": [{"role": "user", "content": "Search for HangarLLM"}],
         "tools": [
             {"type": "web_search_20250305", "name": "web_search", "max_uses": 3},
         ],
@@ -913,13 +913,13 @@ async def test_converted_stream_moves_stream_options_out_of_the_provider_request
     logger: Final = WebSearchInterceptionLogger(enabled_providers=["azure"])
     kwargs: Final = {
         "model": "azure/gpt-4o",
-        "messages": [{"role": "user", "content": "Search for LiteLLM"}],
+        "messages": [{"role": "user", "content": "Search for HangarLLM"}],
         "custom_llm_provider": "azure",
-        "litellm_params": {"custom_llm_provider": "azure"},
+        "hangarllm_params": {"custom_llm_provider": "azure"},
         "tools": [
             {
                 "type": "function",
-                "function": {"name": LITELLM_WEB_SEARCH_TOOL_NAME, "parameters": {"type": "object"}},
+                "function": {"name": HANGARLLM_WEB_SEARCH_TOOL_NAME, "parameters": {"type": "object"}},
             }
         ],
         "stream": True,
@@ -939,18 +939,18 @@ async def test_converted_stream_moves_stream_options_out_of_the_provider_request
 
 def test_sync_forced_tool_choice_repoints_converted_web_search():
     """Regression (tool_choice 400): a forced tool_choice naming the original
-    web_search tool must be repointed to litellm_web_search after conversion.
+    web_search tool must be repointed to hangarllm_web_search after conversion.
 
     Native clients (e.g. Claude Code) send
     tool_choice={"type": "tool", "name": "web_search"}. The tool definition is
-    renamed to litellm_web_search, so an unrewritten tool_choice points at a
+    renamed to hangarllm_web_search, so an unrewritten tool_choice points at a
     tool that no longer exists and Anthropic rejects with
     "Tool 'web_search' not found in provided tools".
     """
     converted_tools = [
         {
             "type": "function",
-            "function": {"name": LITELLM_WEB_SEARCH_TOOL_NAME, "parameters": {}},
+            "function": {"name": HANGARLLM_WEB_SEARCH_TOOL_NAME, "parameters": {}},
         }
     ]
 
@@ -958,19 +958,19 @@ def test_sync_forced_tool_choice_repoints_converted_web_search():
         {"type": "tool", "name": "web_search"}, converted_tools
     )
 
-    assert result == {"type": "tool", "name": LITELLM_WEB_SEARCH_TOOL_NAME}
+    assert result == {"type": "tool", "name": HANGARLLM_WEB_SEARCH_TOOL_NAME}
 
 
 def test_sync_forced_tool_choice_leaves_existing_tool_untouched():
     """A native Anthropic tool_choice already naming a tool on the converted
     list (top-level name, no function wrapper) must not be rewritten."""
-    converted_tools = [{"name": LITELLM_WEB_SEARCH_TOOL_NAME}]
+    converted_tools = [{"name": HANGARLLM_WEB_SEARCH_TOOL_NAME}]
 
     result = WebSearchInterceptionLogger._sync_forced_tool_choice(
-        {"type": "tool", "name": LITELLM_WEB_SEARCH_TOOL_NAME}, converted_tools
+        {"type": "tool", "name": HANGARLLM_WEB_SEARCH_TOOL_NAME}, converted_tools
     )
 
-    assert result == {"type": "tool", "name": LITELLM_WEB_SEARCH_TOOL_NAME}
+    assert result == {"type": "tool", "name": HANGARLLM_WEB_SEARCH_TOOL_NAME}
 
 
 def test_sync_forced_tool_choice_preserves_extra_tool_choice_fields():
@@ -978,7 +978,7 @@ def test_sync_forced_tool_choice_preserves_extra_tool_choice_fields():
     converted_tools = [
         {
             "type": "function",
-            "function": {"name": LITELLM_WEB_SEARCH_TOOL_NAME, "parameters": {}},
+            "function": {"name": HANGARLLM_WEB_SEARCH_TOOL_NAME, "parameters": {}},
         }
     ]
 
@@ -989,7 +989,7 @@ def test_sync_forced_tool_choice_preserves_extra_tool_choice_fields():
 
     assert result == {
         "type": "tool",
-        "name": LITELLM_WEB_SEARCH_TOOL_NAME,
+        "name": HANGARLLM_WEB_SEARCH_TOOL_NAME,
         "disable_parallel_tool_use": True,
     }
 
@@ -1001,7 +1001,7 @@ def test_sync_forced_tool_choice_preserves_extra_tool_choice_fields():
 def test_sync_forced_tool_choice_leaves_non_forced_untouched(tool_choice):
     """Only a forced {"type": "tool", ...} choice is rewritten; auto/any/string
     and None pass through unchanged."""
-    converted_tools = [{"name": LITELLM_WEB_SEARCH_TOOL_NAME}]
+    converted_tools = [{"name": HANGARLLM_WEB_SEARCH_TOOL_NAME}]
 
     result = WebSearchInterceptionLogger._sync_forced_tool_choice(tool_choice, converted_tools)
 
@@ -1016,7 +1016,7 @@ async def test_pre_request_hook_syncs_forced_tool_choice():
     logger = WebSearchInterceptionLogger(enabled_providers=["anthropic"])
 
     kwargs = {
-        "litellm_params": {"custom_llm_provider": "anthropic"},
+        "hangarllm_params": {"custom_llm_provider": "anthropic"},
         "tools": [{"type": "web_search_20250305", "name": "web_search"}],
         "tool_choice": {"type": "tool", "name": "web_search"},
     }
@@ -1030,7 +1030,7 @@ async def test_pre_request_hook_syncs_forced_tool_choice():
     assert result is not None
     assert result["tool_choice"] == {
         "type": "tool",
-        "name": LITELLM_WEB_SEARCH_TOOL_NAME,
+        "name": HANGARLLM_WEB_SEARCH_TOOL_NAME,
     }
 
 
@@ -1040,7 +1040,7 @@ def _single_search_tool_router(search_tool_name):
         search_tools=[
             {
                 "search_tool_name": search_tool_name,
-                "litellm_params": {"search_provider": "tavily", "api_key": "fake-ui-key"},
+                "hangarllm_params": {"search_provider": "tavily", "api_key": "fake-ui-key"},
             }
         ]
     )
@@ -1058,7 +1058,7 @@ def _virtual_key(
         object_permission=(
             None
             if key_search_tools is None
-            else LiteLLM_ObjectPermissionTable(object_permission_id="op-key", search_tools=key_search_tools)
+            else HangarLLM_ObjectPermissionTable(object_permission_id="op-key", search_tools=key_search_tools)
         ),
     )
     token.via_virtual_key = True
@@ -1083,34 +1083,34 @@ async def test_execute_search_team_key_follows_search_tool_deny_by_default(
     team_search_tools: list[str] | None,
     expect_search: bool,
 ):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="team-search")
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-1",
         object_permission_id=None if team_search_tools is None else "op-team",
         object_permission=(
             None
             if team_search_tools is None
-            else LiteLLM_ObjectPermissionTable(object_permission_id="op-team", search_tools=team_search_tools)
+            else HangarLLM_ObjectPermissionTable(object_permission_id="op-team", search_tools=team_search_tools)
         ),
     )
 
     monkeypatch.setattr(proxy_server, "llm_router", _single_search_tool_router("team-search"))
     monkeypatch.setattr(proxy_server, "general_settings", general_settings)
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_team_object", AsyncMock(return_value=team_object))
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_team_object", AsyncMock(return_value=team_object))
     kwargs = {"metadata": {"user_api_key_auth": _virtual_key("team-1", key_search_tools)}}
 
     if expect_search:
-        await logger._execute_search("what is litellm", kwargs=kwargs)
+        await logger._execute_search("what is hangarllm", kwargs=kwargs)
         mock_asearch.assert_awaited_once()
     else:
         with pytest.raises(ProxyException) as exc_info:
-            await logger._execute_search("what is litellm", kwargs=kwargs)
+            await logger._execute_search("what is hangarllm", kwargs=kwargs)
         assert exc_info.value.code == "403"
         mock_asearch.assert_not_awaited()
 
@@ -1119,8 +1119,8 @@ async def test_execute_search_team_key_follows_search_tool_deny_by_default(
 async def test_execute_search_key_without_grant_is_denied_under_search_tool_deny_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="any-search")
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
@@ -1128,10 +1128,10 @@ async def test_execute_search_key_without_grant_is_denied_under_search_tool_deny
     monkeypatch.setattr(proxy_server, "llm_router", _single_search_tool_router("any-search"))
     monkeypatch.setattr(proxy_server, "general_settings", {"search_tool_deny_by_default": True})
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
     with pytest.raises(ProxyException) as exc_info:
-        await logger._execute_search("what is litellm", kwargs={"metadata": {"user_api_key_auth": _virtual_key()}})
+        await logger._execute_search("what is hangarllm", kwargs={"metadata": {"user_api_key_auth": _virtual_key()}})
 
     assert exc_info.value.code == "403"
     mock_asearch.assert_not_awaited()
@@ -1145,10 +1145,10 @@ async def test_execute_search_key_without_grant_is_denied_under_search_tool_deny
         ({"search_tool_deny_by_default": True}, _virtual_key(key_search_tools=["any"]), False),
         (
             {"search_tool_deny_by_default": True},
-            UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
             False,
         ),
-        ({"search_tool_deny_by_default": True}, _virtual_key(api_key="litellm_proxy_master_key"), True),
+        ({"search_tool_deny_by_default": True}, _virtual_key(api_key="hangarllm_proxy_master_key"), True),
         ({"search_tool_deny_by_default": True}, None, True),
     ],
     ids=["omitted", "false", "virtual-key", "proxy-admin-not-exempt", "master-key-exempt", "sdk-without-proxy-auth"],
@@ -1160,8 +1160,8 @@ async def test_execute_search_unregistered_fallback_follows_search_tool_deny_by_
     caller: UserAPIKeyAuth | None,
     expect_search: bool,
 ):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
     router = MagicMock()
@@ -1170,15 +1170,15 @@ async def test_execute_search_unregistered_fallback_follows_search_tool_deny_by_
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "general_settings", general_settings)
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
     kwargs = {"metadata": {} if caller is None else {"user_api_key_auth": caller}}
 
     if expect_search:
-        await logger._execute_search("what is litellm", kwargs=kwargs)
+        await logger._execute_search("what is hangarllm", kwargs=kwargs)
         assert mock_asearch.await_args.kwargs["search_provider"] == "perplexity"
     else:
         with pytest.raises(ProxyException) as exc_info:
-            await logger._execute_search("what is litellm", kwargs=kwargs)
+            await logger._execute_search("what is hangarllm", kwargs=kwargs)
         assert exc_info.value.code == "403"
         mock_asearch.assert_not_awaited()
 
@@ -1193,28 +1193,28 @@ async def test_execute_search_registered_tool_without_provider_follows_unregiste
     general_settings: dict[str, bool],
     expect_search: bool,
 ):
-    import litellm
-    from litellm.proxy import proxy_server
+    import hangarllm
+    from hangarllm.proxy import proxy_server
 
     logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"], search_tool_name="no-provider")
     router = MagicMock()
     router.settings.return_value = RouterSettings(
-        search_tools=[{"search_tool_name": "no-provider", "litellm_params": {}}]
+        search_tools=[{"search_tool_name": "no-provider", "hangarllm_params": {}}]
     )
     mock_asearch = AsyncMock(return_value=SearchResponse(object="search", results=[]))
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "general_settings", general_settings)
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
-    monkeypatch.setattr(litellm, "asearch", mock_asearch)
+    monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
     kwargs = {"metadata": {"user_api_key_auth": _virtual_key(key_search_tools=["no-provider"])}}
 
     if expect_search:
-        await logger._execute_search("what is litellm", kwargs=kwargs)
+        await logger._execute_search("what is hangarllm", kwargs=kwargs)
         assert mock_asearch.await_args.kwargs["search_provider"] == "perplexity"
     else:
         with pytest.raises(ProxyException) as exc_info:
-            await logger._execute_search("what is litellm", kwargs=kwargs)
+            await logger._execute_search("what is hangarllm", kwargs=kwargs)
         assert exc_info.value.code == "403"
         mock_asearch.assert_not_awaited()
 
@@ -1229,10 +1229,10 @@ def test_is_web_search_tool_detection():
     print("UNIT TEST: Web Search Tool Detection")
     print("=" * 80)
 
-    from litellm.integrations.websearch_interception import is_web_search_tool
+    from hangarllm.integrations.websearch_interception import is_web_search_tool
 
     test_cases = [
-        ({"name": "litellm_web_search"}, True, "LiteLLM standard tool"),
+        ({"name": "hangarllm_web_search"}, True, "HangarLLM standard tool"),
         (
             {"type": "web_search_20250305", "name": "web_search", "max_uses": 8},
             True,

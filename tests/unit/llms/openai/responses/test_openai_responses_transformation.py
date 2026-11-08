@@ -12,19 +12,19 @@ import respx
 from openai.types.responses.response_compaction_item import ResponseCompactionItem
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.azure_ai.responses.transformation import AzureAIResponsesAPIConfig
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.bedrock.responses.transformation import BedrockOpenAIResponsesConfig
-from litellm.llms.bedrock_mantle.responses.transformation import BedrockMantleResponsesAPIConfig
-from litellm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.llms.xai.responses.transformation import XAIResponsesAPIConfig
-from litellm.responses.litellm_completion_transformation.transformation import LiteLLMCompletionResponsesConfig
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from hangarllm.llms.azure_ai.responses.transformation import AzureAIResponsesAPIConfig
+from hangarllm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from hangarllm.llms.bedrock.responses.transformation import BedrockOpenAIResponsesConfig
+from hangarllm.llms.bedrock_mantle.responses.transformation import BedrockMantleResponsesAPIConfig
+from hangarllm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.llms.xai.responses.transformation import XAIResponsesAPIConfig
+from hangarllm.responses.hangarllm_completion_transformation.transformation import HangarLLMCompletionResponsesConfig
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.llms.openai import (
     ImageGenerationPartialImageEvent,
     IncompleteDetails,
     OutputTextDeltaEvent,
@@ -34,8 +34,8 @@ from litellm.types.llms.openai import (
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import Choices, Message, ModelResponse
 from tests.unit.proxy.conftest import httpx_transport
 import time
 
@@ -43,8 +43,8 @@ _ARTIFACT_FIELD_PATTERN: Final = r'^(?!__.*__$)[^\p{Cc}\p{Cf}\p{Zl}\p{Zp}"\\./[\
 
 
 @pytest.fixture
-def restore_litellm_set_verbose(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "set_verbose", litellm.set_verbose)
+def restore_hangarllm_set_verbose(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hangarllm, "set_verbose", hangarllm.set_verbose)
 
 
 def validate_responses_api_response(response: ResponsesAPIResponse, final_chunk: bool = False) -> bool:
@@ -114,8 +114,8 @@ def _undeferred(tool: Mapping[str, object]) -> dict[str, object]:
 def _openai_model(supports_tool_search: bool) -> str:
     return next(
         name
-        for name, info in litellm.model_cost.items()
-        if info.get("litellm_provider") == "openai" and info.get("supports_tool_search", False) is supports_tool_search
+        for name, info in hangarllm.model_cost.items()
+        if info.get("hangarllm_provider") == "openai" and info.get("supports_tool_search", False) is supports_tool_search
     )
 
 
@@ -222,7 +222,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_text,
             response_api_optional_request_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -262,7 +262,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="Find a tool",
             response_api_optional_request_params={"tools": tools},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -284,7 +284,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="Find a tool",
             response_api_optional_request_params={"tools": tools},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -313,7 +313,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="Find a tool",
             response_api_optional_request_params={"tools": tools},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -329,7 +329,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="Find a tool",
             response_api_optional_request_params={"tools": tools},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -346,7 +346,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=history,
             response_api_optional_request_params={"tools": tools},
-            litellm_params=_OTHER_HOST,
+            hangarllm_params=_OTHER_HOST,
             headers={},
         )
 
@@ -358,7 +358,7 @@ class TestOpenAIResponsesAPIConfig:
             model=model,
             input="Find a tool",
             response_api_optional_request_params={"tools": tools},
-            litellm_params=GenericLiteLLMParams(api_base="https://api.openai.com/v1", drop_params=drop_params),
+            hangarllm_params=GenericHangarLLMParams(api_base="https://api.openai.com/v1", drop_params=drop_params),
             headers={},
         )["tools"]
 
@@ -460,7 +460,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=history,
             response_api_optional_request_params={"tools": [_BM25_TOOL, _DEFERRED_WEATHER]},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -473,7 +473,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=history,
             response_api_optional_request_params={"tools": [_undeferred(_DEFERRED_WEATHER)]},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -506,7 +506,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_with_cache_control,
             response_api_optional_request_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -537,7 +537,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="hi",
             response_api_optional_request_params={"tools": tools_with_cache_control},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -580,7 +580,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_with_cache_control,
             response_api_optional_request_params={"tools": tools_with_cache_control},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -601,7 +601,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_clean,
             response_api_optional_request_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -644,7 +644,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=replayed_input,
             response_api_optional_request_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -660,7 +660,7 @@ class TestOpenAIResponsesAPIConfig:
     def test_transform_keeps_foreign_tool_call_item_ids_for_other_providers(self):
         """Providers reusing this config that do not enforce OpenAI's id
         shapes must keep replayed ids untouched."""
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         class _OpenRouterLikeConfig(OpenAIResponsesAPIConfig):
             @property
@@ -681,7 +681,7 @@ class TestOpenAIResponsesAPIConfig:
             model="openrouter/some-model",
             input=replayed_input,
             response_api_optional_request_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -702,7 +702,7 @@ class TestOpenAIResponsesAPIConfig:
             response_api_optional_request_params={
                 "tools": [{"type": "function", "name": "get_weather", "parameters": raw_parameters}]
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -721,7 +721,7 @@ class TestOpenAIResponsesAPIConfig:
                 "tools": [{"type": "function", "name": "get_weather", "parameters": '{"type": "object"}'}]
             },
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -730,7 +730,7 @@ class TestOpenAIResponsesAPIConfig:
     @pytest.mark.parametrize("raw_parameters", ['"just a string"', "not json at all", "[1, 2, 3]", 42])
     def test_transform_rejects_tool_parameters_that_are_not_an_object(self, raw_parameters: object):
         """Neither an object nor a string encoding one is a client error naming the tool index."""
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             self.config.transform_responses_api_request(
                 model=self.model,
                 input="weather in Paris",
@@ -740,7 +740,7 @@ class TestOpenAIResponsesAPIConfig:
                         {"type": "function", "name": "get_weather", "parameters": raw_parameters},
                     ]
                 },
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -761,7 +761,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="weather in Paris",
             response_api_optional_request_params={"tools": tools},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -788,7 +788,7 @@ class TestOpenAIResponsesAPIConfig:
             input=replayed_input,
             response_api_optional_request_params={},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -865,9 +865,9 @@ class TestOpenAIResponsesAPIConfig:
         # Test with provided API key
         headers = {}
         api_key = "test_api_key"
-        litellm_params = GenericLiteLLMParams(api_key=api_key)
+        hangarllm_params = GenericHangarLLMParams(api_key=api_key)
         result = self.config.validate_environment(
-            headers=headers, model=self.model, litellm_params=litellm_params
+            headers=headers, model=self.model, hangarllm_params=hangarllm_params
         )
 
         assert "Authorization" in result
@@ -877,23 +877,23 @@ class TestOpenAIResponsesAPIConfig:
         # Test with empty headers
         headers = {}
 
-        with patch("litellm.api_key", "litellm_api_key"):
-            litellm_params = GenericLiteLLMParams()
+        with patch("hangarllm.api_key", "hangarllm_api_key"):
+            hangarllm_params = GenericHangarLLMParams()
             result = self.config.validate_environment(
-                headers=headers, model=self.model, litellm_params=litellm_params
+                headers=headers, model=self.model, hangarllm_params=hangarllm_params
             )
 
             assert "Authorization" in result
-            assert result["Authorization"] == "Bearer litellm_api_key"
+            assert result["Authorization"] == "Bearer hangarllm_api_key"
 
         # Test with existing headers
         headers = {"Content-Type": "application/json"}
 
-        with patch("litellm.openai_key", "openai_key"):
-            with patch("litellm.api_key", None):
-                litellm_params = GenericLiteLLMParams()
+        with patch("hangarllm.openai_key", "openai_key"):
+            with patch("hangarllm.api_key", None):
+                hangarllm_params = GenericHangarLLMParams()
                 result = self.config.validate_environment(
-                    headers=headers, model=self.model, litellm_params=litellm_params
+                    headers=headers, model=self.model, hangarllm_params=hangarllm_params
                 )
 
                 assert "Authorization" in result
@@ -904,15 +904,15 @@ class TestOpenAIResponsesAPIConfig:
         # Test with environment variable
         headers = {}
 
-        with patch("litellm.api_key", None):
-            with patch("litellm.openai_key", None):
+        with patch("hangarllm.api_key", None):
+            with patch("hangarllm.openai_key", None):
                 with patch(
-                    "litellm.llms.openai.responses.transformation.get_secret_str",
+                    "hangarllm.llms.openai.responses.transformation.get_secret_str",
                     return_value="env_api_key",
                 ):
-                    litellm_params = GenericLiteLLMParams()
+                    hangarllm_params = GenericHangarLLMParams()
                     result = self.config.validate_environment(
-                        headers=headers, model=self.model, litellm_params=litellm_params
+                        headers=headers, model=self.model, hangarllm_params=hangarllm_params
                     )
 
                     assert "Authorization" in result
@@ -925,42 +925,42 @@ class TestOpenAIResponsesAPIConfig:
 
         result = self.config.get_complete_url(
             api_base=api_base,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == "https://custom-openai.example.com/v1/responses"
 
-        # Test with litellm.api_base
-        with patch("litellm.api_base", "https://litellm-api-base.example.com/v1"):
+        # Test with hangarllm.api_base
+        with patch("hangarllm.api_base", "https://hangarllm-api-base.example.com/v1"):
             result = self.config.get_complete_url(
                 api_base=None,
-                litellm_params={},
+                hangarllm_params={},
             )
 
-            assert result == "https://litellm-api-base.example.com/v1/responses"
+            assert result == "https://hangarllm-api-base.example.com/v1/responses"
 
         # Test with environment variable
-        with patch("litellm.api_base", None):
+        with patch("hangarllm.api_base", None):
             with patch(
-                "litellm.llms.openai.responses.transformation.get_secret_str",
+                "hangarllm.llms.openai.responses.transformation.get_secret_str",
                 return_value="https://env-api-base.example.com/v1",
             ):
                 result = self.config.get_complete_url(
                     api_base=None,
-                    litellm_params={},
+                    hangarllm_params={},
                 )
 
                 assert result == "https://env-api-base.example.com/v1/responses"
 
         # Test with default API base
-        with patch("litellm.api_base", None):
+        with patch("hangarllm.api_base", None):
             with patch(
-                "litellm.llms.openai.responses.transformation.get_secret_str",
+                "hangarllm.llms.openai.responses.transformation.get_secret_str",
                 return_value=None,
             ):
                 result = self.config.get_complete_url(
                     api_base=None,
-                    litellm_params={},
+                    hangarllm_params={},
                 )
 
                 assert result == "https://api.openai.com/v1/responses"
@@ -970,7 +970,7 @@ class TestOpenAIResponsesAPIConfig:
 
         result = self.config.get_complete_url(
             api_base=api_base,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert result == "https://custom-openai.example.com/v1/responses"
@@ -983,7 +983,7 @@ class TestOpenAIResponsesAPIConfig:
         url, data = self.config.transform_list_input_items_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -995,7 +995,7 @@ class TestOpenAIResponsesAPIConfig:
 
     def test_get_event_model_class_generic_event(self):
         """Test that get_event_model_class returns the correct event model class"""
-        from litellm.types.llms.openai import GenericEvent
+        from hangarllm.types.llms.openai import GenericEvent
 
         event_type = "test"
         result = self.config.get_event_model_class(event_type)
@@ -1003,7 +1003,7 @@ class TestOpenAIResponsesAPIConfig:
 
     def test_transform_streaming_response_generic_event(self):
         """Test that transform_streaming_response returns the correct event model class"""
-        from litellm.types.llms.openai import GenericEvent
+        from hangarllm.types.llms.openai import GenericEvent
 
         chunk = {"type": "test", "test": "test"}
         result = self.config.transform_streaming_response(
@@ -1084,7 +1084,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_text,
             response_api_optional_request_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -1114,7 +1114,7 @@ class TestOpenAIResponsesAPIConfig:
                 model=self.model,
                 input=input_text,
                 response_api_optional_request_params=optional_params,
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
 
@@ -1126,7 +1126,7 @@ class TestOpenAIResponsesAPIConfig:
         transform_streaming_response coalesces it to 'unknown_error' and returns
         an ErrorEvent instance without raising a ValidationError.
         """
-        from litellm.types.llms.openai import ErrorEvent
+        from hangarllm.types.llms.openai import ErrorEvent
 
         parsed_chunk = {
             "type": "error",
@@ -1154,9 +1154,9 @@ class TestOpenAIResponsesAPIConfig:
         """Test that ResponseCreatedEvent with missing required fields (created_at,
         output) does not crash but falls back to model_construct.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces upstream issue 20570
         """
-        from litellm.types.llms.openai import ResponseCreatedEvent
+        from hangarllm.types.llms.openai import ResponseCreatedEvent
 
         # Minimal payload an OpenAI-compatible provider might send,
         # omitting `created_at` and `output` inside the response object.
@@ -1183,9 +1183,9 @@ class TestOpenAIResponsesAPIConfig:
         """Test that OutputTextDeltaEvent with missing output_index and
         content_index falls back to model_construct without crashing.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces upstream issue 20570
         """
-        from litellm.types.llms.openai import OutputTextDeltaEvent
+        from hangarllm.types.llms.openai import OutputTextDeltaEvent
 
         # Provider omits output_index and content_index
         parsed_chunk = {
@@ -1209,9 +1209,9 @@ class TestOpenAIResponsesAPIConfig:
         """Test that ContentPartAddedEvent with missing output_index and
         content_index falls back to model_construct without crashing.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces upstream issue 20570
         """
-        from litellm.types.llms.openai import ContentPartAddedEvent
+        from hangarllm.types.llms.openai import ContentPartAddedEvent
 
         # Provider omits output_index and content_index
         parsed_chunk = {
@@ -1234,9 +1234,9 @@ class TestOpenAIResponsesAPIConfig:
         """Test that OutputItemAddedEvent with missing output_index falls back
         to model_construct without crashing.
 
-        Reproduces https://github.com/BerriAI/litellm/issues/20570
+        Reproduces upstream issue 20570
         """
-        from litellm.types.llms.openai import OutputItemAddedEvent
+        from hangarllm.types.llms.openai import OutputItemAddedEvent
 
         # Provider omits output_index
         parsed_chunk = {
@@ -1316,7 +1316,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_items,
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"][0].get("namespace") == "my_tools"
@@ -1347,7 +1347,7 @@ class TestOpenAIResponsesAPIConfig:
                 )
             ],
         )
-        bridged = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        bridged = HangarLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Weather in Paris?", responses_api_request={}, chat_completion_response=claude_turn
         )
         return list(bridged.output)
@@ -1384,14 +1384,14 @@ class TestOpenAIResponsesAPIConfig:
             model="gpt-5.6",
             input=history,
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
         outbound = request["input"]
         assert len(outbound) == len(history) - 1
         assert [item["id"] for item in outbound if item.get("type") == "reasoning"] == [openai_reasoning["id"]]
-        assert LiteLLMCompletionResponsesConfig._decode_thinking_blocks_from_input_item(bridge_reasoning[0]) == (
+        assert HangarLLMCompletionResponsesConfig._decode_thinking_blocks_from_input_item(bridge_reasoning[0]) == (
             {"type": "thinking", "thinking": "Check Paris first.", "signature": "sig-paris"},
         )
 
@@ -1402,7 +1402,7 @@ class TestOpenAIResponsesAPIConfig:
             model="gpt-5.6",
             input=history,
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1429,7 +1429,7 @@ class TestOpenAIResponsesAPIConfig:
             model="gpt-5.6",
             input=[reasoning_item, {"role": "user", "content": "And Berlin?"}],
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1465,7 +1465,7 @@ class TestOpenAIResponsesAPIConfig:
             model="gpt-5.6",
             input=[item, {"role": "user", "content": "And Berlin?"}],
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1503,7 +1503,7 @@ class TestOpenAIResponsesAPIConfig:
             model="gpt-5.6",
             input=cast("list[dict[str, object]]", [item]),  # cast-ok: an SDK item stands in for its JSON shape
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(drop_params=True),
+            hangarllm_params=GenericHangarLLMParams(drop_params=True),
             headers={},
         )
 
@@ -1523,7 +1523,7 @@ class TestAzureResponsesAPIConfig:
             model=self.model,
             input=[{**compaction, "created_by": "user_1"}],
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(drop_params=True),
+            hangarllm_params=GenericHangarLLMParams(drop_params=True),
             headers={},
         )
 
@@ -1537,7 +1537,7 @@ class TestAzureResponsesAPIConfig:
             response_api_optional_request_params={
                 "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": '{"type":"object"}'}}]
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1550,7 +1550,7 @@ class TestAzureResponsesAPIConfig:
             model=self.model,
             input="Find a tool",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -1558,36 +1558,36 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_get_complete_url_with_version_types(self):
         """Test Azure get_complete_url with different API version types"""
-        base_url = "https://litellm8397336933.openai.azure.com"
+        base_url = "https://hangarllm8397336933.openai.azure.com"
 
         # Test with preview version - should use openai/v1/responses
         result_preview = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "preview"},
+            hangarllm_params={"api_version": "preview"},
         )
         assert (
             result_preview
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
+            == "https://hangarllm8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
         )
 
         # Test with latest version - should use openai/v1/responses
         result_latest = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "latest"},
+            hangarllm_params={"api_version": "latest"},
         )
         assert (
             result_latest
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
+            == "https://hangarllm8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
         )
 
         # Test with date-based version - should use openai/responses
         result_date = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "2025-04-01-preview"},
+            hangarllm_params={"api_version": "2025-04-01-preview"},
         )
         assert (
             result_date
-            == "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
+            == "https://hangarllm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
         )
 
     def test_azure_transform_then_normalize_strips_custom_tool_call_namespace(self):
@@ -1621,7 +1621,7 @@ class TestAzureResponsesAPIConfig:
             model=self.model,
             input=input_items,
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"][1].get("namespace") == "None"
@@ -1644,7 +1644,7 @@ class TestTransformListInputItemsRequest:
         self.azure_config = AzureOpenAIResponsesAPIConfig()
         self.response_id = "resp_abc123"
         self.api_base = "https://api.openai.com/v1/responses"
-        self.litellm_params = GenericLiteLLMParams()
+        self.hangarllm_params = GenericHangarLLMParams()
         self.headers = {"Authorization": "Bearer test-key"}
 
     def test_openai_transform_list_input_items_request_minimal(self):
@@ -1653,7 +1653,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
         )
 
@@ -1668,7 +1668,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             after="cursor_after_123",
             before="cursor_before_456",
@@ -1695,7 +1695,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             include=["metadata", "content", "annotations"],
         )
@@ -1709,7 +1709,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             after=None,
             before=None,
@@ -1731,7 +1731,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             include=[],
         )
@@ -1750,7 +1750,7 @@ class TestTransformListInputItemsRequest:
             input="hello",
             response_api_optional_request_params={},
             api_base=azure_style_api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
         )
 
@@ -1770,7 +1770,7 @@ class TestTransformListInputItemsRequest:
             input="hello",
             response_api_optional_request_params={},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
         )
 
@@ -1788,7 +1788,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.azure_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=AZURE_AI_API_BASE,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
         )
 
@@ -1806,7 +1806,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.azure_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=AZURE_AI_API_BASE,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
         )
 
@@ -1825,7 +1825,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.azure_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=AZURE_AI_API_BASE,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             after="cursor_after_123",
             before="cursor_before_456",
@@ -1844,11 +1844,11 @@ class TestTransformListInputItemsRequest:
         }
         assert params == expected_params
 
-    @patch("litellm.router.Router")
-    def test_mock_litellm_router_with_transform_list_input_items_request(
+    @patch("hangarllm.router.Router")
+    def test_mock_hangarllm_router_with_transform_list_input_items_request(
         self, mock_router
     ):
-        """Mock test using litellm.router for transform_list_input_items_request"""
+        """Mock test using hangarllm.router for transform_list_input_items_request"""
         # Setup mock router
         mock_router_instance = Mock()
         mock_router.return_value = mock_router_instance
@@ -1872,7 +1872,7 @@ class TestTransformListInputItemsRequest:
         url, params = mock_provider_config.transform_list_input_items_request(
             response_id=response_id,
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={"Authorization": "Bearer test"},
             after="cursor_123",
             include=["metadata"],
@@ -1883,7 +1883,7 @@ class TestTransformListInputItemsRequest:
         mock_provider_config.transform_list_input_items_request.assert_called_once_with(
             response_id=response_id,
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={"Authorization": "Bearer test"},
             after="cursor_123",
             include=["metadata"],
@@ -1892,9 +1892,9 @@ class TestTransformListInputItemsRequest:
         assert url == "https://api.openai.com/v1/responses/resp_123/input_items"
         assert params == {"limit": 20, "order": "desc"}
 
-    @patch("litellm.list_input_items")
-    def test_mock_litellm_list_input_items_integration(self, mock_list_input_items):
-        """Test integration with litellm.list_input_items function"""
+    @patch("hangarllm.list_input_items")
+    def test_mock_hangarllm_list_input_items_integration(self, mock_list_input_items):
+        """Test integration with hangarllm.list_input_items function"""
         # Setup mock response
         mock_response = {
             "object": "list",
@@ -1937,7 +1937,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             limit=0,
         )
@@ -1947,7 +1947,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             limit=1000,
         )
@@ -1957,7 +1957,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
             include=["metadata"],
         )
@@ -1984,7 +1984,7 @@ class TestTransformListInputItemsRequest:
             url, params = self.openai_config.transform_list_input_items_request(
                 response_id=self.response_id,
                 api_base=case["api_base"],
-                litellm_params=self.litellm_params,
+                hangarllm_params=self.hangarllm_params,
                 headers=self.headers,
             )
             assert url.endswith(case["expected_suffix"])
@@ -1994,7 +1994,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            hangarllm_params=self.hangarllm_params,
             headers=self.headers,
         )
 
@@ -2031,12 +2031,12 @@ class TestPhaseParameter:
 
     @staticmethod
     def _make_output_text(text: str):
-        from litellm.types.responses.main import OutputText
+        from hangarllm.types.responses.main import OutputText
 
         return OutputText(type="output_text", text=text, annotations=[])
 
     def test_generic_response_output_item_accepts_phase_commentary(self):
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from hangarllm.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -2049,7 +2049,7 @@ class TestPhaseParameter:
         assert item.phase == "commentary"
 
     def test_generic_response_output_item_accepts_phase_final_answer(self):
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from hangarllm.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -2062,7 +2062,7 @@ class TestPhaseParameter:
         assert item.phase == "final_answer"
 
     def test_generic_response_output_item_phase_defaults_to_none(self):
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from hangarllm.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -2074,7 +2074,7 @@ class TestPhaseParameter:
         assert item.phase is None
 
     def test_output_function_tool_call_accepts_phase(self):
-        from litellm.types.responses.main import OutputFunctionToolCall
+        from hangarllm.types.responses.main import OutputFunctionToolCall
 
         item = OutputFunctionToolCall(
             type="function_call",
@@ -2125,7 +2125,7 @@ class TestPhaseParameter:
 
     def test_input_passthrough_pydantic_preserves_non_null_phase(self):
         """Pydantic input items must preserve non-null phase values."""
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from hangarllm.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -2185,7 +2185,7 @@ class TestPhaseParameter:
 
     def test_streaming_output_item_done_preserves_phase(self):
         """OutputItemDoneEvent must preserve phase on its item."""
-        from litellm.types.llms.openai import (
+        from hangarllm.types.llms.openai import (
             OutputItemDoneEvent,
             ResponsesAPIStreamEvents,
         )
@@ -2214,7 +2214,7 @@ class TestPhaseParameter:
 
     def test_streaming_output_item_added_preserves_phase(self):
         """OutputItemAddedEvent must preserve phase on its item."""
-        from litellm.types.llms.openai import (
+        from hangarllm.types.llms.openai import (
             OutputItemAddedEvent,
             ResponsesAPIStreamEvents,
         )
@@ -2341,7 +2341,7 @@ class TestPromptCacheOptionsOnResponsesPath:
     OPTIONS = {"mode": "explicit", "ttl": "30m"}
 
     def test_prompt_cache_options_survives_optional_param_filter(self):
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
         result = ResponsesAPIRequestUtils.get_requested_response_api_optional_param(
             {"prompt_cache_options": dict(self.OPTIONS), "temperature": 0.2, "not_a_responses_param": 1}
@@ -2361,7 +2361,7 @@ class TestPromptCacheOptionsOnResponsesPath:
             model="gpt-5.6",
             input="hi",
             response_api_optional_request_params=mapped,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert result["prompt_cache_options"] == self.OPTIONS
@@ -2383,7 +2383,7 @@ class TestPromptCacheOptionsOnResponsesPath:
                 }
             ],
             response_api_optional_request_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert result["input"][0]["content"][0] == {
@@ -2459,7 +2459,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
         (https://developers.openai.com/api/docs/models/gpt-6.1-sol, via #43910), and a local proxy
         got OpenAI's 400 for none and minimal through /v1/responses on 2026-09-30."""
         forwarded = (
-            level == "max" or litellm.model_cost["gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is not False
+            level == "max" or hangarllm.model_cost["gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is not False
         )
         dropped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": level}},
@@ -2475,7 +2475,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
             )
             assert kept["reasoning"] == {"effort": level}
         else:
-            with pytest.raises(litellm.UnsupportedParamsError):
+            with pytest.raises(hangarllm.UnsupportedParamsError):
                 OpenAIResponsesAPIConfig().map_openai_params(
                     response_api_optional_params={"reasoning": {"effort": level}},
                     model="gpt-6.1-sol",
@@ -2502,13 +2502,13 @@ class TestResponsesSurfaceSharesTheEffortRule:
         so the gate flips with the flags alone. max is the one level no flag can turn off here,
         since the same model honors it on this route and refuses it on chat. The chat test module
         pins the real row's facts."""
-        real_row = litellm.model_cost["gpt-6.1-sol"]
+        real_row = hangarllm.model_cost["gpt-6.1-sol"]
         without_flags = {
             field: value
             for field, value in real_row.items()
             if not (field.startswith("supports_") and field.endswith("_reasoning_effort"))
         }
-        monkeypatch.setitem(litellm.model_cost, "gpt-6.1-sol", {**without_flags, **flags})
+        monkeypatch.setitem(hangarllm.model_cost, "gpt-6.1-sol", {**without_flags, **flags})
         dropped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": level}},
             model="gpt-6.1-sol",
@@ -2516,7 +2516,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
         )
         assert ("reasoning" in dropped) is forwarded
         if not forwarded:
-            with pytest.raises(litellm.UnsupportedParamsError):
+            with pytest.raises(hangarllm.UnsupportedParamsError):
                 OpenAIResponsesAPIConfig().map_openai_params(
                     response_api_optional_params={"reasoning": {"effort": level}},
                     model="gpt-6.1-sol",
@@ -2527,7 +2527,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
         refused = next(
             level
             for level in ("none", "minimal", "low")
-            if litellm.model_cost["gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is False
+            if hangarllm.model_cost["gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is False
         )
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": refused, "summary": "auto"}},
@@ -2551,9 +2551,9 @@ class TestResponsesSurfaceSharesTheEffortRule:
         refused: Final = next(
             level
             for level in ("none", "minimal", "low")
-            if litellm.model_cost["gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is False
+            if hangarllm.model_cost["gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is False
         )
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             mapped: Final = ResponsesAPIRequestUtils.get_optional_params_responses_api(
                 model="gpt-6.1-sol",
                 responses_api_provider_config=OpenAIResponsesAPIConfig(),
@@ -2572,7 +2572,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
     def test_dropping_reasoning_for_a_model_without_supports_reasoning_logs_one_warning(
         self, local_model_cost_map: None, caplog: pytest.LogCaptureFixture
     ) -> None:
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             mapped: Final = OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"reasoning": {"effort": "medium"}},
                 model="gpt-4o",
@@ -2587,7 +2587,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
     def test_turning_reasoning_off_for_a_model_without_supports_reasoning_drops_it_silently(
         self, local_model_cost_map: None, caplog: pytest.LogCaptureFixture
     ) -> None:
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             mapped: Final = OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"reasoning": {"effort": "none", "summary": "auto"}},
                 model="gpt-4o",
@@ -2600,17 +2600,17 @@ class TestResponsesSurfaceSharesTheEffortRule:
     def test_turning_reasoning_off_warns_when_only_custom_pricing_describes_the_model(
         self, local_model_cost_map: None, caplog: pytest.LogCaptureFixture
     ) -> None:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 "pricing-only-test-model": {
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "responses",
                     "input_cost_per_token": 0.000001,
                     "output_cost_per_token": 0.000002,
                 }
             }
         )
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             mapped: Final = OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"reasoning": {"effort": "none"}},
                 model="pricing-only-test-model",
@@ -2625,7 +2625,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
     def test_a_forwarded_effort_logs_no_drop_warning(
         self, local_model_cost_map: None, caplog: pytest.LogCaptureFixture
     ) -> None:
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             mapped: Final = OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"reasoning": {"effort": "medium"}},
                 model="gpt-6.1-sol",
@@ -2642,7 +2642,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
         with 200 (effort echoed back) and minimal and max with 400 unsupported_value naming none,
         low, medium, high and xhigh, so the row takes none and xhigh and turns minimal off."""
         forwarded = (
-            level == "max" or litellm.model_cost["gpt-5.3-codex"].get(f"supports_{level}_reasoning_effort") is not False
+            level == "max" or hangarllm.model_cost["gpt-5.3-codex"].get(f"supports_{level}_reasoning_effort") is not False
         )
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": level}},
@@ -2655,13 +2655,13 @@ class TestResponsesSurfaceSharesTheEffortRule:
         """Pinned on purpose so the row-derived test above cannot go vacuous: the live answers of
         2026-10-01 listed above. When OpenAI changes the set, flip the row and this assertion
         together."""
-        row = litellm.model_cost["gpt-5.3-codex"]
+        row = hangarllm.model_cost["gpt-5.3-codex"]
         assert row["supports_none_reasoning_effort"] is True
         assert row["supports_xhigh_reasoning_effort"] is True
         assert row["supports_minimal_reasoning_effort"] is False
 
     def test_top_p_raises_without_drop_params(self, local_model_cost_map):
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"top_p": 0.9},
                 model="gpt-5.5",
@@ -2730,7 +2730,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2746,7 +2746,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [self._codex_namespace_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2761,7 +2761,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2778,7 +2778,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [clean_tool]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2791,20 +2791,20 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
         assert "anyOf" in tool["parameters"]
 
     def test_non_openai_subclass_does_not_flatten(self):
-        from litellm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
+        from hangarllm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
 
         result = HostedVLLMResponsesAPIConfig().transform_responses_api_request(
             model="hosted_vllm/qwen",
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2828,7 +2828,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model=model,
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2844,7 +2844,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model=model,
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2857,7 +2857,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [opaque_tool, self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2893,7 +2893,7 @@ class TestToolSchemaRegexPatternWiring:
             model=model,
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2911,7 +2911,7 @@ class TestToolSchemaRegexPatternWiring:
             model="gpt-5.6",
             input="hi",
             response_api_optional_request_params={"tools": [namespace]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -2923,14 +2923,14 @@ class TestToolSchemaRegexPatternWiring:
             input="hi",
             response_api_optional_request_params={"tools": [self._artifact_tool()]},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
         assert data["tools"][0]["parameters"]["properties"]["field"] == {"type": "string"}
 
     def test_non_openai_subclass_keeps_patterns(self):
-        from litellm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
+        from hangarllm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
 
         tool = self._artifact_tool()
 
@@ -2938,15 +2938,15 @@ class TestToolSchemaRegexPatternWiring:
             model="hosted_vllm/qwen",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
         assert result["tools"][0] is tool
 
 
-_OPENAI_API: Final = GenericLiteLLMParams(api_base="https://api.openai.com/v1")
-_OTHER_HOST: Final = GenericLiteLLMParams(api_base="https://gateway.example/v1")
+_OPENAI_API: Final = GenericHangarLLMParams(api_base="https://api.openai.com/v1")
+_OTHER_HOST: Final = GenericHangarLLMParams(api_base="https://gateway.example/v1")
 _EXPLICIT_OPT_IN: Final = {"prompt_cache_options": {"mode": "explicit"}}
 _EPHEMERAL: Final = {"type": "ephemeral"}
 _EXPLICIT_BREAKPOINT: Final = {"mode": "explicit"}
@@ -2982,14 +2982,14 @@ def _marked_tool(cache_control: dict[str, str] | None) -> dict[str, object]:
 
 
 def _openai_like_responses_config() -> OpenAIResponsesAPIConfig:
-    from litellm.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
+    from hangarllm.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
 
     return OpenAILikeResponsesConfig()
 
 
 def _generated_sail_responses_config() -> OpenAIResponsesAPIConfig:
-    from litellm.llms.openai_like.dynamic_config import create_responses_config_class
-    from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+    from hangarllm.llms.openai_like.dynamic_config import create_responses_config_class
+    from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
     sail = JSONProviderRegistry.get("sail")
     assert sail is not None
@@ -3005,12 +3005,12 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
     def _no_openai_api_base_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-        monkeypatch.setattr(litellm, "api_base", None)
+        monkeypatch.setattr(hangarllm, "api_base", None)
 
     def _transform(
         self,
         model: str,
-        litellm_params: GenericLiteLLMParams,
+        hangarllm_params: GenericHangarLLMParams,
         cache_control: dict[str, str] | None,
         extra_params: dict[str, object] | None = None,
         config: OpenAIResponsesAPIConfig | None = None,
@@ -3019,25 +3019,25 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
             model=model,
             input=_marked_input(cache_control),
             response_api_optional_request_params={"tools": [_marked_tool(cache_control)], **(extra_params or {})},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
     @pytest.mark.parametrize(
-        ("litellm_params", "extra_params"),
+        ("hangarllm_params", "extra_params"),
         [
             pytest.param(_OPENAI_API, {}, id="api.openai.com"),
             pytest.param(
-                GenericLiteLLMParams(base_url="https://api.openai.com/v1"), {}, id="api.openai.com-as-base_url"
+                GenericHangarLLMParams(base_url="https://api.openai.com/v1"), {}, id="api.openai.com-as-base_url"
             ),
-            pytest.param(GenericLiteLLMParams(), {}, id="default-host"),
+            pytest.param(GenericHangarLLMParams(), {}, id="default-host"),
             pytest.param(_OTHER_HOST, _EXPLICIT_OPT_IN, id="other-host-opted-in"),
         ],
     )
     def test_marks_reach_gpt_5_6_as_explicit_breakpoints_on_the_same_blocks(
-        self, litellm_params: GenericLiteLLMParams, extra_params: dict[str, object]
+        self, hangarllm_params: GenericHangarLLMParams, extra_params: dict[str, object]
     ) -> None:
-        result = self._transform("gpt-5.6", litellm_params, {**_EPHEMERAL, "ttl": "1h"}, extra_params)
+        result = self._transform("gpt-5.6", hangarllm_params, {**_EPHEMERAL, "ttl": "1h"}, extra_params)
 
         assert result["input"] == [
             {
@@ -3087,7 +3087,7 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
                 }
             ],
             response_api_optional_request_params={},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -3103,26 +3103,26 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
         ]
 
     @pytest.mark.parametrize(
-        ("model", "litellm_params"),
+        ("model", "hangarllm_params"),
         [
             pytest.param("gpt-4o", _OPENAI_API, id="model-older-than-gpt-5.6"),
             pytest.param("gpt-5.6", _OTHER_HOST, id="other-host-not-opted-in"),
             pytest.param(
-                "gpt-5.6", GenericLiteLLMParams(base_url="https://gateway.example/v1"), id="other-host-as-base_url"
+                "gpt-5.6", GenericHangarLLMParams(base_url="https://gateway.example/v1"), id="other-host-as-base_url"
             ),
         ],
     )
     def test_marks_are_still_stripped_where_the_deployment_does_not_read_breakpoints(
-        self, model: str, litellm_params: GenericLiteLLMParams
+        self, model: str, hangarllm_params: GenericHangarLLMParams
     ) -> None:
-        marked = self._transform(model, litellm_params, _EPHEMERAL)
-        unmarked = self._transform(model, litellm_params, None)
+        marked = self._transform(model, hangarllm_params, _EPHEMERAL)
+        unmarked = self._transform(model, hangarllm_params, None)
 
         assert marked == unmarked
         assert "prompt_cache_breakpoint" not in json.dumps(marked)
 
     def test_non_openai_subclass_still_strips_on_a_gpt_5_6_deployment(self) -> None:
-        from litellm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
+        from hangarllm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
 
         config = HostedVLLMResponsesAPIConfig()
         marked = self._transform("gpt-5.6", _OPENAI_API, _EPHEMERAL, _EXPLICIT_OPT_IN, config=config)
@@ -3169,7 +3169,7 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
                 },
             ],
             response_api_optional_request_params={},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -3191,7 +3191,7 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
                 },
             ],
             response_api_optional_request_params={},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -3222,7 +3222,7 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
                 {"role": "user", "content": "look", "cache_control": _EPHEMERAL},
             ],
             response_api_optional_request_params={},
-            litellm_params=_OPENAI_API,
+            hangarllm_params=_OPENAI_API,
             headers={},
         )
 
@@ -3240,7 +3240,7 @@ class TestCacheControlBecomesPromptCacheBreakpoint:
             model="gpt-5.6",
             input=[{"role": "user", "content": "look", "cache_control": _EPHEMERAL}],
             response_api_optional_request_params=dict(_EXPLICIT_OPT_IN),
-            litellm_params=_OTHER_HOST,
+            hangarllm_params=_OTHER_HOST,
             headers={},
             api_base="https://gateway.example/v1/responses",
         )
@@ -3298,9 +3298,9 @@ class TestReasoningFollowsModelSupport:
     ):
         lagging = {
             name: {field: value for field, value in entry.items() if field != "supports_reasoning"}
-            for name, entry in litellm.model_cost.items()
+            for name, entry in hangarllm.model_cost.items()
         }
-        monkeypatch.setattr(litellm, "model_cost", lagging)
+        monkeypatch.setattr(hangarllm, "model_cost", lagging)
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": "medium"}},
             model=model,
@@ -3308,9 +3308,9 @@ class TestReasoningFollowsModelSupport:
         )
         assert ("reasoning" in mapped) is reasoning_survives
 
-    def test_without_drop_params_the_error_is_litellms_400(self, local_model_cost_map, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
-        with pytest.raises(litellm.UnsupportedParamsError) as excinfo:
+    def test_without_drop_params_the_error_is_hangarllms_400(self, local_model_cost_map, monkeypatch):
+        monkeypatch.setattr(hangarllm, "drop_params", False)
+        with pytest.raises(hangarllm.UnsupportedParamsError) as excinfo:
             OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"reasoning": {"effort": "medium"}},
                 model="gpt-4o",
@@ -3328,7 +3328,7 @@ class TestReasoningFollowsModelSupport:
     def test_reasoning_without_an_effort_passes_through_on_non_reasoning_models(
         self, local_model_cost_map, monkeypatch, drop_params, reasoning
     ):
-        monkeypatch.setattr(litellm, "drop_params", drop_params)
+        monkeypatch.setattr(hangarllm, "drop_params", drop_params)
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": dict(reasoning)},
             model="gpt-4o",
@@ -3339,9 +3339,9 @@ class TestReasoningFollowsModelSupport:
     def test_an_explicit_supports_reasoning_false_beats_the_bundled_floor(self, local_model_cost_map, monkeypatch):
         overridden = {
             name: ({**entry, "supports_reasoning": False} if name == "o3" else entry)
-            for name, entry in litellm.model_cost.items()
+            for name, entry in hangarllm.model_cost.items()
         }
-        monkeypatch.setattr(litellm, "model_cost", overridden)
+        monkeypatch.setattr(hangarllm, "model_cost", overridden)
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": "medium"}},
             model="o3",
@@ -3359,7 +3359,7 @@ class TestReasoningFollowsModelSupport:
 
 
 @pytest.mark.asyncio
-async def test_openai_responses_litellm_router_no_metadata():
+async def test_openai_responses_hangarllm_router_no_metadata():
     """
     Test that metadata is not passed through when using the Router for responses API
     """
@@ -3415,18 +3415,18 @@ async def test_openai_responses_litellm_router_no_metadata():
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
         mock_post.return_value = MockResponse(mock_response, 200)
 
-        litellm.turn_on_debug()
-        router = litellm.Router(
+        hangarllm.turn_on_debug()
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt4o-special-alias",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-5.5",
                         "api_key": "fake-key",
                     },
@@ -3452,7 +3452,7 @@ async def test_openai_responses_litellm_router_no_metadata():
 
 
 @pytest.mark.asyncio
-async def test_openai_responses_litellm_router_with_metadata():
+async def test_openai_responses_hangarllm_router_with_metadata():
     """
     Test that metadata is correctly passed through when explicitly provided to the Router for responses API
     """
@@ -3513,18 +3513,18 @@ async def test_openai_responses_litellm_router_with_metadata():
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
         mock_post.return_value = MockResponse(mock_response, 200)
 
-        litellm.turn_on_debug()
-        router = litellm.Router(
+        hangarllm.turn_on_debug()
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt4o-special-alias",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-5.5",
                         "api_key": "fake-key",
                     },
@@ -3551,13 +3551,13 @@ async def test_openai_responses_litellm_router_with_metadata():
 
 
 @pytest.mark.asyncio
-async def test_openai_responses_litellm_router_with_prompt():
+async def test_openai_responses_hangarllm_router_with_prompt():
     """Test that prompt object is passed through the Router for responses API"""
 
     prompt_obj = {
         "id": "pmpt_abc123",
         "version": "2",
-        "variables": {"random_variable": "ishaan_from_litellm"},
+        "variables": {"random_variable": "ishaan_from_hangarllm"},
     }
 
     mock_response = {
@@ -3596,17 +3596,17 @@ async def test_openai_responses_litellm_router_with_prompt():
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(mock_response, 200)
 
-        litellm.turn_on_debug()
-        router = litellm.Router(
+        hangarllm.turn_on_debug()
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt4o-special-alias",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-5.5",
                         "api_key": "fake-key",
                     },
@@ -3628,9 +3628,9 @@ async def test_openai_responses_litellm_router_with_prompt():
 def test_bad_request_bad_param_error():
     """Raise a BadRequestError when an invalid parameter value is provided"""
     try:
-        litellm.responses(model="gpt-5.5", input="This should fail", temperature=2000)
+        hangarllm.responses(model="gpt-5.5", input="This should fail", temperature=2000)
         pytest.fail("Expected BadRequestError but no exception was raised")
-    except litellm.BadRequestError as e:
+    except hangarllm.BadRequestError as e:
         print(f"Exception raised: {e}")
         print(f"Exception type: {type(e)}")
         print(f"Exception args: {e.args}")
@@ -3643,11 +3643,11 @@ def test_bad_request_bad_param_error():
 async def test_async_bad_request_bad_param_error():
     """Raise a BadRequestError when an invalid parameter value is provided"""
     try:
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="gpt-5.5", input="This should fail", temperature=2000
         )
         pytest.fail("Expected BadRequestError but no exception was raised")
-    except litellm.BadRequestError as e:
+    except hangarllm.BadRequestError as e:
         print(f"Exception raised: {e}")
         print(f"Exception type: {type(e)}")
         print(f"Exception args: {e.args}")
@@ -3660,7 +3660,7 @@ async def test_async_bad_request_bad_param_error():
 @pytest.mark.parametrize("sync_mode", [True, False])
 async def test_openai_o1_pro_response_api(sync_mode):
     """
-    Test that LiteLLM correctly handles an incomplete response from OpenAI's o1-pro model
+    Test that HangarLLM correctly handles an incomplete response from OpenAI's o1-pro model
     due to reaching max_output_tokens limit.
     """
     # Mock response from o1-pro
@@ -3713,17 +3713,17 @@ async def test_openai_o1_pro_response_api(sync_mode):
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
         mock_post.return_value = MockResponse(mock_response, 200)
 
-        litellm.turn_on_debug()
-        litellm.set_verbose = True
+        hangarllm.turn_on_debug()
+        hangarllm.set_verbose = True
 
         # Call o1-pro with max_output_tokens=20
-        response = await litellm.aresponses(
+        response = await hangarllm.aresponses(
             model="openai/o1-pro",
             input="Write a detailed essay about artificial intelligence and its impact on society",
             max_output_tokens=20,
@@ -3757,7 +3757,7 @@ async def test_openai_o1_pro_response_api(sync_mode):
 @pytest.mark.parametrize("sync_mode", [True, False])
 async def test_openai_o1_pro_response_api_streaming(sync_mode):
     """
-    Test that LiteLLM correctly handles an incomplete response from OpenAI's o1-pro model
+    Test that HangarLLM correctly handles an incomplete response from OpenAI's o1-pro model
     due to reaching max_output_tokens limit in both sync and async streaming modes.
     """
     # Mock response from o1-pro
@@ -3810,23 +3810,23 @@ async def test_openai_o1_pro_response_api_streaming(sync_mode):
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
         mock_post.return_value = MockResponse(mock_response, 200)
 
-        litellm.turn_on_debug()
-        litellm.set_verbose = True
+        hangarllm.turn_on_debug()
+        hangarllm.set_verbose = True
 
         # Verify the request was made correctly
         if sync_mode:
             # For sync mode, we need to patch the sync HTTP handler
             with patch(
-                "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+                "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
                 return_value=MockResponse(mock_response, 200),
             ) as mock_sync_post:
-                response = litellm.responses(
+                response = hangarllm.responses(
                     model="openai/o1-pro",
                     input="Write a detailed essay about artificial intelligence and its impact on society",
                     max_output_tokens=20,
@@ -3837,7 +3837,7 @@ async def test_openai_o1_pro_response_api_streaming(sync_mode):
                 event_count = 0
                 for event in response:
                     print(
-                        f"Sync litellm response #{event_count}:",
+                        f"Sync hangarllm response #{event_count}:",
                         json.dumps(event, indent=4, default=str),
                     )
                     event_count += 1
@@ -3850,7 +3850,7 @@ async def test_openai_o1_pro_response_api_streaming(sync_mode):
                 assert "stream" not in request_body
         else:
             # For async mode
-            response = await litellm.aresponses(
+            response = await hangarllm.aresponses(
                 model="openai/o1-pro",
                 input="Write a detailed essay about artificial intelligence and its impact on society",
                 max_output_tokens=20,
@@ -3861,7 +3861,7 @@ async def test_openai_o1_pro_response_api_streaming(sync_mode):
             event_count = 0
             async for event in response:
                 print(
-                    f"Async litellm response #{event_count}:",
+                    f"Async hangarllm response #{event_count}:",
                     json.dumps(event, indent=4, default=str),
                 )
                 event_count += 1
@@ -3876,9 +3876,9 @@ async def test_openai_o1_pro_response_api_streaming(sync_mode):
 
 def test_basic_computer_use_preview_tool_call():
     """
-    Test that LiteLLM correctly handles a computer_use_preview tool call where the environment is set to "linux"
+    Test that HangarLLM correctly handles a computer_use_preview tool call where the environment is set to "linux"
 
-    linux is an unsupported environment for the computer_use_preview tool, but litellm users should still be able to pass it to openai
+    linux is an unsupported environment for the computer_use_preview tool, but hangarllm users should still be able to pass it to openai
     """
     # Mock response from OpenAI
 
@@ -3931,14 +3931,14 @@ def test_basic_computer_use_preview_tool_call():
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
         return_value=MockResponse(mock_response, 200),
     ) as mock_post:
-        litellm.turn_on_debug()
-        litellm.set_verbose = True
+        hangarllm.turn_on_debug()
+        hangarllm.set_verbose = True
 
         # Call the responses API with computer_use_preview tool
-        response = litellm.responses(
+        response = hangarllm.responses(
             model="openai/computer-use-preview",
             tools=[
                 {
@@ -3980,13 +3980,13 @@ async def test_store_field_transformation():
     config = OpenAIResponsesAPIConfig()
 
     # Initialize logging object with required parameters
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="gpt-5.5",
         messages=[],
         stream=False,
         call_type="aresponses",
         start_time=time.time(),
-        litellm_call_id="test-call-id",
+        hangarllm_call_id="test-call-id",
         function_id="test-function-id",
     )
 
@@ -4093,7 +4093,7 @@ async def test_store_field_transformation():
 async def test_aresponses_service_tier_and_safety_identifier():
     """
     Test that service_tier and safety_identifier parameters are correctly sent in the request body
-    when using litellm.aresponses.
+    when using hangarllm.aresponses.
     """
     mock_response = {
         "id": "resp_01234567890abcdef",
@@ -4144,17 +4144,17 @@ async def test_aresponses_service_tier_and_safety_identifier():
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
         mock_post.return_value = MockResponse(mock_response, 200)
 
-        litellm.turn_on_debug()
-        litellm.set_verbose = True
+        hangarllm.turn_on_debug()
+        hangarllm.set_verbose = True
 
         # Call aresponses with service_tier and safety_identifier
-        response = await litellm.aresponses(
+        response = await hangarllm.aresponses(
             model="openai/gpt-5.5",
             input="Test with service tier and safety identifier",
             service_tier="flex",
@@ -4241,17 +4241,17 @@ async def test_openai_gpt5_reasoning_effort_parameter():
             return self._json_data
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
         mock_post.return_value = MockResponse(mock_response, 200)
 
-        litellm.turn_on_debug()
-        litellm.set_verbose = True
+        hangarllm.turn_on_debug()
+        hangarllm.set_verbose = True
 
         # Call aresponses with reasoning_effort parameter
-        response = await litellm.aresponses(
+        response = await hangarllm.aresponses(
             model="openai/gpt-5-mini",
             input="What is the capital of France?",
             reasoning={"effort": "minimal"},
@@ -4318,12 +4318,12 @@ def extra_body_mock_response_data():
 async def test_aresponses_extra_body_params_passed(extra_body_mock_response_data):
     """Test that extra_body parameters are passed in async mode."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(extra_body_mock_response_data, 200)
 
-        response = await litellm.aresponses(
+        response = await hangarllm.aresponses(
             model="gpt-5.5",
             input="Test input",
             max_output_tokens=20,
@@ -4352,10 +4352,10 @@ async def test_aresponses_extra_body_params_passed(extra_body_mock_response_data
 def test_responses_extra_body_params_passed_sync(extra_body_mock_response_data):
     """Test that extra_body parameters are passed in sync mode."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
         return_value=MockResponse(extra_body_mock_response_data, 200),
     ) as mock_post:
-        response = litellm.responses(
+        response = hangarllm.responses(
             model="gpt-5.5",
             input="Sync test",
             max_output_tokens=20,
@@ -4381,12 +4381,12 @@ def test_responses_extra_body_params_passed_sync(extra_body_mock_response_data):
 async def test_extra_body_merges_with_request_data(extra_body_mock_response_data):
     """Test that extra_body is merged into the request data."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(extra_body_mock_response_data, 200)
 
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="gpt-5.5",
             input="Test",
             temperature=1,
@@ -4422,13 +4422,13 @@ def _marked_message(part_type: str, marker: object) -> list[dict[str, object]]:
 
 
 def _transformed_input(
-    config: BaseResponsesAPIConfig, input: str | list[dict[str, object]], litellm_params: GenericLiteLLMParams
+    config: BaseResponsesAPIConfig, input: str | list[dict[str, object]], hangarllm_params: GenericHangarLLMParams
 ) -> object:
     request: Final = config.transform_responses_api_request(
         model="gpt-6.1-sol",
         input=cast("ResponseInputParam", input),  # cast-ok: plain dicts shaped like the SDK's input items
         response_api_optional_request_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
     return request["input"]
@@ -4446,9 +4446,9 @@ def _single_part(transformed_input: object) -> Mapping[str, object]:
 def test_malformed_prompt_cache_breakpoint_is_dropped_under_deployment_drop_params(
     monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig, part_type: str, marker: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     transformed: Final = _transformed_input(
-        config, _marked_message(part_type, marker), GenericLiteLLMParams(drop_params=True)
+        config, _marked_message(part_type, marker), GenericHangarLLMParams(drop_params=True)
     )
     assert _single_part(transformed) == _PARTS[part_type]
 
@@ -4457,8 +4457,8 @@ def test_malformed_prompt_cache_breakpoint_is_dropped_under_deployment_drop_para
 def test_malformed_prompt_cache_breakpoint_is_dropped_under_global_drop_params(
     monkeypatch: pytest.MonkeyPatch, marker: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
-    transformed: Final = _transformed_input(_CONFIGS[0], _marked_message("input_text", marker), GenericLiteLLMParams())
+    monkeypatch.setattr(hangarllm, "drop_params", True)
+    transformed: Final = _transformed_input(_CONFIGS[0], _marked_message("input_text", marker), GenericHangarLLMParams())
     assert _single_part(transformed) == _PARTS["input_text"]
 
 
@@ -4467,18 +4467,18 @@ def test_malformed_prompt_cache_breakpoint_is_dropped_under_global_drop_params(
 def test_malformed_prompt_cache_breakpoint_is_forwarded_verbatim_without_drop_params(
     monkeypatch: pytest.MonkeyPatch, marker: object, drop_params: bool | None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", marker)
-    assert _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=drop_params)) == input
+    assert _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=drop_params)) == input
 
 
 @pytest.mark.parametrize("marker", _MALFORMED_MARKERS, ids=_MALFORMED_MARKER_IDS)
 def test_a_non_flag_deployment_drop_params_keeps_the_marker_like_the_param_mapper_does(
     monkeypatch: pytest.MonkeyPatch, marker: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", marker)
-    assert _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params="maybe")) == input
+    assert _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params="maybe")) == input
 
 
 @pytest.mark.parametrize("drop_params", (True, False), ids=("drop", "keep"))
@@ -4486,9 +4486,9 @@ def test_a_non_flag_deployment_drop_params_keeps_the_marker_like_the_param_mappe
 def test_valid_prompt_cache_breakpoint_reaches_the_wire_under_both_settings(
     monkeypatch: pytest.MonkeyPatch, marker: Mapping[str, str], drop_params: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", marker)
-    assert _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=drop_params)) == input
+    assert _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=drop_params)) == input
 
 
 @pytest.mark.parametrize("config", _CONFIGS, ids=_CONFIG_IDS)
@@ -4496,11 +4496,11 @@ def test_valid_prompt_cache_breakpoint_reaches_the_wire_under_both_settings(
 def test_an_unsupported_ttl_is_dropped_and_the_explicit_mode_kept_under_drop_params(
     monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig, part_type: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message(part_type, _UNSUPPORTED_TTL_MARKER)
-    trimmed: Final = _transformed_input(config, input, GenericLiteLLMParams(drop_params=True))
+    trimmed: Final = _transformed_input(config, input, GenericHangarLLMParams(drop_params=True))
     assert _single_part(trimmed) == {**_PARTS[part_type], "prompt_cache_breakpoint": {"mode": "explicit"}}
-    assert _transformed_input(config, input, GenericLiteLLMParams(drop_params=False)) == input
+    assert _transformed_input(config, input, GenericHangarLLMParams(drop_params=False)) == input
 
 
 @pytest.mark.parametrize(
@@ -4521,62 +4521,62 @@ def test_drop_params_keeps_only_a_ttl_the_target_responses_api_accepts(
 ) -> None:
     """Azure OpenAI Responses answered 400 for a 12h breakpoint ttl and 200 for 30m on 2026-10-29, and Azure AI
     Foundry Responses did the same on 2026-10-30."""
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", marker)
-    trimmed: Final = _transformed_input(config, input, GenericLiteLLMParams(drop_params=True))
+    trimmed: Final = _transformed_input(config, input, GenericHangarLLMParams(drop_params=True))
     assert _single_part(trimmed) == {**_PARTS["input_text"], "prompt_cache_breakpoint": wire_marker}
-    assert _transformed_input(config, input, GenericLiteLLMParams(drop_params=False)) == input
+    assert _transformed_input(config, input, GenericHangarLLMParams(drop_params=False)) == input
 
 
 @pytest.mark.parametrize(
-    "config, litellm_params",
+    "config, hangarllm_params",
     [
-        (XAIResponsesAPIConfig(), GenericLiteLLMParams(drop_params=True)),
-        (HostedVLLMResponsesAPIConfig(), GenericLiteLLMParams(drop_params=True, api_base="http://localhost:8000/v1")),
-        (OpenAIResponsesAPIConfig(), GenericLiteLLMParams(drop_params=True, api_base="http://localhost:8000/v1")),
+        (XAIResponsesAPIConfig(), GenericHangarLLMParams(drop_params=True)),
+        (HostedVLLMResponsesAPIConfig(), GenericHangarLLMParams(drop_params=True, api_base="http://localhost:8000/v1")),
+        (OpenAIResponsesAPIConfig(), GenericHangarLLMParams(drop_params=True, api_base="http://localhost:8000/v1")),
     ],
     ids=("xai", "hosted-vllm", "openai-compatible-host"),
 )
 def test_a_responses_api_not_known_to_take_breakpoints_gets_a_marker_whole_or_not_at_all(
-    monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig, litellm_params: GenericLiteLLMParams
+    monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig, hangarllm_params: GenericHangarLLMParams
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     unsupported_ttl: Final = _marked_message("input_text", _UNSUPPORTED_TTL_MARKER)
-    assert _single_part(_transformed_input(config, unsupported_ttl, litellm_params)) == _PARTS["input_text"]
+    assert _single_part(_transformed_input(config, unsupported_ttl, hangarllm_params)) == _PARTS["input_text"]
     openai_ttl: Final = _marked_message("input_text", {"mode": "explicit", "ttl": "12h"})
-    assert _transformed_input(config, openai_ttl, litellm_params) == openai_ttl
+    assert _transformed_input(config, openai_ttl, hangarllm_params) == openai_ttl
 
 
 def test_a_custom_host_opted_in_with_prompt_cache_options_keeps_the_mode_of_a_marker_with_an_unsupported_ttl(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     request: Final = OpenAIResponsesAPIConfig().transform_responses_api_request(
         model="gpt-6.1-sol",
         input=cast("ResponseInputParam", _marked_message("input_text", _UNSUPPORTED_TTL_MARKER)),
         response_api_optional_request_params={"prompt_cache_options": {"mode": "explicit"}},
-        litellm_params=GenericLiteLLMParams(drop_params=True, api_base="https://gateway.example/v1"),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True, api_base="https://gateway.example/v1"),
         headers={},
     )
     assert _single_part(request["input"]) == {**_PARTS["input_text"], "prompt_cache_breakpoint": {"mode": "explicit"}}
 
 
 def test_prompt_cache_breakpoint_unknown_key_is_trimmed_under_drop_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", {"mode": "explicit", "note": "kept"})
-    dropped: Final = _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=True))
+    dropped: Final = _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=True))
     assert _single_part(dropped)["prompt_cache_breakpoint"] == {"mode": "explicit"}
-    assert _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=False)) == input
+    assert _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=False)) == input
 
 
 def test_malformed_prompt_cache_breakpoint_on_a_tool_output_part_is_dropped_under_drop_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     marked_output: Final = [{"type": "input_text", "text": "42", "prompt_cache_breakpoint": "yes"}]
     input: Final[list[dict[str, object]]] = [{"type": "function_call_output", "call_id": "call_1", "output": marked_output}]
     (item,) = cast(
-        list[Mapping[str, object]], _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=True))
+        list[Mapping[str, object]], _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=True))
     )
     assert item["output"] == [{"type": "input_text", "text": "42"}]
 
@@ -4585,21 +4585,21 @@ def test_malformed_prompt_cache_breakpoint_on_a_tool_output_part_is_dropped_unde
 def test_input_without_a_marker_is_untouched_under_drop_params(
     monkeypatch: pytest.MonkeyPatch, input: str | list[dict[str, object]]
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    assert _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=True)) == input
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    assert _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=True)) == input
 
 
 def _transformed_input_for(
     model: str,
     input: list[dict[str, object]],
-    litellm_params: GenericLiteLLMParams,
+    hangarllm_params: GenericHangarLLMParams,
     config: BaseResponsesAPIConfig = _CONFIGS[0],
 ) -> object:
     request: Final = config.transform_responses_api_request(
         model=model,
         input=cast("ResponseInputParam", input),  # cast-ok: plain dicts shaped like the SDK's input items
         response_api_optional_request_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
     return request["input"]
@@ -4611,11 +4611,11 @@ def _transformed_input_for(
 def test_every_prompt_cache_breakpoint_is_dropped_under_drop_params_for_a_model_without_breakpoints(
     monkeypatch: pytest.MonkeyPatch, marker: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", marker)
-    dropped: Final = _transformed_input_for("gpt-5.4-mini", input, GenericLiteLLMParams(drop_params=True))
+    dropped: Final = _transformed_input_for("gpt-5.4-mini", input, GenericHangarLLMParams(drop_params=True))
     assert _single_part(dropped) == _PARTS["input_text"]
-    assert _transformed_input_for("gpt-5.4-mini", input, GenericLiteLLMParams(drop_params=False)) == input
+    assert _transformed_input_for("gpt-5.4-mini", input, GenericHangarLLMParams(drop_params=False)) == input
 
 
 @pytest.mark.parametrize(
@@ -4626,9 +4626,9 @@ def test_every_prompt_cache_breakpoint_is_dropped_under_drop_params_for_a_model_
 def test_a_valid_marker_is_dropped_under_drop_params_on_a_model_known_to_lack_breakpoints(
     monkeypatch: pytest.MonkeyPatch, model: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", {"mode": "explicit"})
-    dropped: Final = _transformed_input_for(model, input, GenericLiteLLMParams(drop_params=True))
+    dropped: Final = _transformed_input_for(model, input, GenericHangarLLMParams(drop_params=True))
     assert _single_part(dropped) == _PARTS["input_text"]
 
 
@@ -4636,23 +4636,23 @@ def test_a_valid_marker_is_dropped_under_drop_params_on_a_model_known_to_lack_br
 def test_a_cost_map_entry_registered_under_the_deployment_name_keeps_a_valid_marker_under_drop_params(
     monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    registered: Final = {"id": "litellm-qa-sol-alias", "supports_vision": True, "input_cost_per_token": 1e-6}
-    monkeypatch.setitem(litellm.model_cost, "litellm-qa-sol-alias", registered)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    registered: Final = {"id": "hangarllm-qa-sol-alias", "supports_vision": True, "input_cost_per_token": 1e-6}
+    monkeypatch.setitem(hangarllm.model_cost, "hangarllm-qa-sol-alias", registered)
     valid: Final = _marked_message("input_text", {"mode": "explicit"})
-    assert _transformed_input_for("litellm-qa-sol-alias", valid, GenericLiteLLMParams(drop_params=True), config) == valid
+    assert _transformed_input_for("hangarllm-qa-sol-alias", valid, GenericHangarLLMParams(drop_params=True), config) == valid
 
 
 @pytest.mark.parametrize("config", _CONFIGS, ids=_CONFIG_IDS)
 def test_a_valid_marker_survives_drop_params_on_a_deployment_name_with_unknown_breakpoint_support(
     monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    litellm_params: Final = GenericLiteLLMParams(drop_params=True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    hangarllm_params: Final = GenericHangarLLMParams(drop_params=True)
     valid: Final = _marked_message("input_text", {"mode": "explicit"})
     malformed: Final = _marked_message("input_text", {"mode": "bogus"})
-    assert _transformed_input_for("litellm-qa-sol-alias", valid, litellm_params, config) == valid
-    dropped: Final = _transformed_input_for("litellm-qa-sol-alias", malformed, litellm_params, config)
+    assert _transformed_input_for("hangarllm-qa-sol-alias", valid, hangarllm_params, config) == valid
+    dropped: Final = _transformed_input_for("hangarllm-qa-sol-alias", malformed, hangarllm_params, config)
     assert _single_part(dropped) == _PARTS["input_text"]
 
 
@@ -4665,12 +4665,12 @@ def test_a_valid_marker_survives_drop_params_on_a_deployment_name_with_unknown_b
 def test_a_deployment_with_unknown_breakpoint_support_gets_a_marker_whole_or_not_at_all(
     monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig, ttl: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    litellm_params: Final = GenericLiteLLMParams(drop_params=True)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    hangarllm_params: Final = GenericHangarLLMParams(drop_params=True)
     supported_ttl: Final = _marked_message("input_text", {"mode": "explicit", "ttl": ttl})
     unsupported_ttl: Final = _marked_message("input_text", _UNSUPPORTED_TTL_MARKER)
-    assert _transformed_input_for("litellm-qa-sol-alias", supported_ttl, litellm_params, config) == supported_ttl
-    dropped: Final = _transformed_input_for("litellm-qa-sol-alias", unsupported_ttl, litellm_params, config)
+    assert _transformed_input_for("hangarllm-qa-sol-alias", supported_ttl, hangarllm_params, config) == supported_ttl
+    dropped: Final = _transformed_input_for("hangarllm-qa-sol-alias", unsupported_ttl, hangarllm_params, config)
     assert _single_part(dropped) == _PARTS["input_text"]
 
 
@@ -4680,24 +4680,24 @@ def test_a_deployment_with_unknown_breakpoint_support_gets_a_marker_whole_or_not
 def test_an_azure_deployment_declaring_a_breakpoint_reader_keeps_the_mode_of_a_marker_with_an_unsupported_ttl(
     monkeypatch: pytest.MonkeyPatch, config: BaseResponsesAPIConfig
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    litellm_params: Final = GenericLiteLLMParams(drop_params=True, base_model="gpt-6.1-sol")
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    hangarllm_params: Final = GenericHangarLLMParams(drop_params=True, base_model="gpt-6.1-sol")
     unsupported_ttl: Final = _marked_message("input_text", _UNSUPPORTED_TTL_MARKER)
-    trimmed: Final = _transformed_input_for("litellm-qa-sol-alias", unsupported_ttl, litellm_params, config)
+    trimmed: Final = _transformed_input_for("hangarllm-qa-sol-alias", unsupported_ttl, hangarllm_params, config)
     assert _single_part(trimmed) == {**_PARTS["input_text"], "prompt_cache_breakpoint": {"mode": "explicit"}}
 
 
-def _declaring_base_model(where: str, base_model: str) -> GenericLiteLLMParams:
-    if where == "litellm_params":
-        return GenericLiteLLMParams(drop_params=True, base_model=base_model)
-    return GenericLiteLLMParams(drop_params=True, model_info={"base_model": base_model})
+def _declaring_base_model(where: str, base_model: str) -> GenericHangarLLMParams:
+    if where == "hangarllm_params":
+        return GenericHangarLLMParams(drop_params=True, base_model=base_model)
+    return GenericHangarLLMParams(drop_params=True, model_info={"base_model": base_model})
 
 
-@pytest.mark.parametrize("where", ("litellm_params", "model_info"))
+@pytest.mark.parametrize("where", ("hangarllm_params", "model_info"))
 def test_a_declared_base_model_decides_whether_a_valid_marker_survives_drop_params(
     monkeypatch: pytest.MonkeyPatch, where: str
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     input: Final = _marked_message("input_text", {"mode": "explicit"})
     kept: Final = _transformed_input_for("gpt-5.4-mini-prod", input, _declaring_base_model(where, "gpt-6.1-sol"))
     assert kept == input
@@ -4708,7 +4708,7 @@ def test_a_declared_base_model_decides_whether_a_valid_marker_survives_drop_para
 def test_a_deployment_that_marks_cache_control_keeps_the_callers_own_marker_whatever_its_base_model_says(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     cached: Final = {"type": "input_text", "text": "a", "cache_control": {"type": "ephemeral"}}
     marked: Final = {"type": "input_text", "text": "b", "prompt_cache_breakpoint": {"mode": "explicit"}}
     input: Final = [{"type": "message", "role": "user", "content": [cached, marked]}]
@@ -4721,7 +4721,7 @@ def test_a_deployment_that_marks_cache_control_keeps_the_callers_own_marker_what
 def test_a_model_that_takes_markers_sends_kept_parts_byte_for_byte_and_drops_only_the_rejected_marker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     kept: Final = [
         {"type": "input_text", "text": "a", "prompt_cache_breakpoint": None},
         {"prompt_cache_breakpoint": {"mode": "explicit"}, "type": "input_text", "text": "b"},
@@ -4732,7 +4732,7 @@ def test_a_model_that_takes_markers_sends_kept_parts_byte_for_byte_and_drops_onl
         {"type": "message", "role": "user", "content": kept},
         {"type": "message", "role": "user", "content": [{**bogus_mode, **rejected}]},
     ]
-    transformed: Final = _transformed_input_for("gpt-6.1-sol", input, GenericLiteLLMParams(drop_params=True))
+    transformed: Final = _transformed_input_for("gpt-6.1-sol", input, GenericHangarLLMParams(drop_params=True))
     assert json.dumps(transformed) == json.dumps(
         [{"type": "message", "role": "user", "content": kept}, {"type": "message", "role": "user", "content": [rejected]}]
     )
@@ -4743,20 +4743,20 @@ def test_a_model_that_takes_markers_sends_kept_parts_byte_for_byte_and_drops_onl
 def test_a_prompt_cache_breakpoint_on_the_message_item_is_dropped_under_drop_params(
     monkeypatch: pytest.MonkeyPatch, content: object, marker: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     unmarked: Final[dict[str, object]] = {"type": "message", "role": "user", "content": content}
     input: Final = [{**unmarked, "prompt_cache_breakpoint": marker}]
-    assert _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=True)) == [unmarked]
-    assert _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=False)) == input
+    assert _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=True)) == [unmarked]
+    assert _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=False)) == input
 
 
 def test_cache_control_still_marks_a_part_whose_own_marker_is_malformed_under_drop_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     part: Final = {"type": "input_text", "text": "Say ok", "cache_control": {"type": "ephemeral"}}
     input: Final = [{"type": "message", "role": "user", "content": [{**part, "prompt_cache_breakpoint": "yes"}]}]
-    transformed: Final = _transformed_input(_CONFIGS[0], input, GenericLiteLLMParams(drop_params=True))
+    transformed: Final = _transformed_input(_CONFIGS[0], input, GenericHangarLLMParams(drop_params=True))
     assert _single_part(transformed) == {
         "type": "input_text",
         "text": "Say ok",
@@ -4791,7 +4791,7 @@ def _caller_input_after_transform(model: str, marker: object) -> str:
         model=model,
         input=cast("ResponseInputParam", input),  # cast-ok: plain dicts shaped like the SDK's input items
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={},
     )
     return json.dumps(input)
@@ -4802,7 +4802,7 @@ def _caller_input_after_transform(model: str, marker: object) -> str:
 def test_a_marker_leaves_the_caller_request_that_fallbacks_and_logs_read_as_an_unmarked_one_would(
     monkeypatch: pytest.MonkeyPatch, model: str, marker: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     marker_json: Final = f', "prompt_cache_breakpoint": {json.dumps(marker)}'
     unmarked: Final = _caller_input_after_transform(model, None)
     assert _caller_input_after_transform(model, marker).replace(marker_json, "") == unmarked
@@ -4813,7 +4813,7 @@ def test_a_marker_leaves_the_caller_request_that_fallbacks_and_logs_read_as_an_u
 def test_the_caller_input_keeps_its_cache_control_hints_for_a_fallback_deployment(
     monkeypatch: pytest.MonkeyPatch, model: str, marker: object
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     assert _caller_input_after_transform(model, marker) == json.dumps(_hinted_caller_input(marker))
 
 
@@ -4879,13 +4879,13 @@ async def test_aresponses_forwards_previous_response_id_to_openai() -> None:
                 httpx.Response(status_code=200, json=response_payloads[1]),
             ]
         )
-        first_response: Final = await litellm.aresponses(
+        first_response: Final = await hangarllm.aresponses(
             model="openai/gpt-4o",
             api_key="sk-test",
             input=first_input,
         )
         assert isinstance(first_response, ResponsesAPIResponse)
-        second_response: Final = await litellm.aresponses(
+        second_response: Final = await hangarllm.aresponses(
             model="openai/gpt-4o",
             api_key="sk-test",
             input=second_input,
@@ -4968,7 +4968,7 @@ def test_compact_request_omits_metadata_and_user_and_keeps_the_rest_without_drop
             "temperature": 0.2,
         },
         api_base=api_base,
-        litellm_params=GenericLiteLLMParams(drop_params=False),
+        hangarllm_params=GenericHangarLLMParams(drop_params=False),
         headers={},
     )
 
@@ -5001,7 +5001,7 @@ def test_compact_request_drops_params_compact_rejects_under_drop_params(
             "text": {"format": {"type": "text"}},
         },
         api_base=api_base,
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={},
     )
 
@@ -5028,7 +5028,7 @@ def test_compact_request_forwards_every_param_for_providers_not_known_to_reject_
         input="hi",
         response_api_optional_request_params={"metadata": {"ticket": "qa-1"}, "user": "end-user-1", "temperature": 0.2},
         api_base=api_base,
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={},
     )
 
@@ -5047,7 +5047,7 @@ def test_compact_request_keeps_stream_under_drop_params(config: OpenAIResponsesA
         input="hi",
         response_api_optional_request_params={"stream": True, "stream_options": {"include_obfuscation": False}},
         api_base=api_base,
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={},
     )
 

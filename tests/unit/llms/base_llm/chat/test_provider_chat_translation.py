@@ -13,14 +13,14 @@ from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 from respx import MockRouter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.constants import (
+import hangarllm
+from hangarllm.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
 )
-from litellm.llms.base_llm.base_utils import type_to_response_format_param
-from litellm.types.utils import CallTypes
-from litellm.utils import ProviderConfigManager, return_raw_request
+from hangarllm.llms.base_llm.base_utils import type_to_response_format_param
+from hangarllm.types.utils import CallTypes
+from hangarllm.utils import ProviderConfigManager, return_raw_request
 
 _Shape = Literal[
     "openai",
@@ -321,7 +321,7 @@ _PNG_BYTES: Final = base64.b64decode(
 )
 _PNG_B64: Final = base64.b64encode(_PNG_BYTES).decode()
 _PNG_URLS: Final = (
-    "https://cdn.jsdelivr.net/gh/BerriAI/litellm@d769e81c90d453240c61fc572cdb27fae06a89d0/ui/litellm-dashboard/public/assets/logos/litellm_logo.jpg",
+    "https://cdn.jsdelivr.net/gh/valteresj2/HangarLLM@d769e81c90d453240c61fc572cdb27fae06a89d0/ui/hangarllm-dashboard/public/assets/logos/hangarllm_logo.jpg",
     "https://awsmp-logos.s3.amazonaws.com/seller-xw5kijmvmzasy/c233c9ade2ccb5491072ae232c814942.png",
 )
 
@@ -574,39 +574,39 @@ def _register(
 _ROUTER_MODEL_LIST: Final = [
     {
         "model_name": "offline-router-model",
-        "litellm_params": {"model": "gpt-4o-mini", "api_key": "sk-offline"},
+        "hangarllm_params": {"model": "gpt-4o-mini", "api_key": "sk-offline"},
     }
 ]
 
 
-def _call(case: _Case, params: Mapping[str, JsonValue]) -> litellm.ModelResponse | litellm.CustomStreamWrapper:
+def _call(case: _Case, params: Mapping[str, JsonValue]) -> hangarllm.ModelResponse | hangarllm.CustomStreamWrapper:
     extra: Final = copy.deepcopy(params)
     if case["router"]:
-        router: Final = litellm.Router(model_list=copy.deepcopy(_ROUTER_MODEL_LIST))
+        router: Final = hangarllm.Router(model_list=copy.deepcopy(_ROUTER_MODEL_LIST))
         return router.completion(model="offline-router-model", **extra)
-    return litellm.completion(**case["kwargs"], **extra)
+    return hangarllm.completion(**case["kwargs"], **extra)
 
 
-def _complete(case: _Case, params: Mapping[str, JsonValue]) -> litellm.ModelResponse:
+def _complete(case: _Case, params: Mapping[str, JsonValue]) -> hangarllm.ModelResponse:
     response: Final = _call(case, params)
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     return response
 
 
-def _stream(case: _Case, params: Mapping[str, JsonValue]) -> litellm.CustomStreamWrapper:
+def _stream(case: _Case, params: Mapping[str, JsonValue]) -> hangarllm.CustomStreamWrapper:
     response: Final = _call(case, {**params, "stream": True})
-    assert isinstance(response, litellm.CustomStreamWrapper)
+    assert isinstance(response, hangarllm.CustomStreamWrapper)
     return response
 
 
-async def _acomplete(case: _Case, params: Mapping[str, JsonValue]) -> litellm.ModelResponse:
+async def _acomplete(case: _Case, params: Mapping[str, JsonValue]) -> hangarllm.ModelResponse:
     extra: Final = copy.deepcopy(params)
     if case["router"]:
-        router: Final = litellm.Router(model_list=copy.deepcopy(_ROUTER_MODEL_LIST))
+        router: Final = hangarllm.Router(model_list=copy.deepcopy(_ROUTER_MODEL_LIST))
         response: Final = await router.acompletion(model="offline-router-model", **extra)
     else:
-        response = await litellm.acompletion(**case["kwargs"], **extra)
-    assert isinstance(response, litellm.ModelResponse)
+        response = await hangarllm.acompletion(**case["kwargs"], **extra)
+    assert isinstance(response, hangarllm.ModelResponse)
     return response
 
 
@@ -843,7 +843,7 @@ def test_tool_call_with_property_type_array(case: _Case, respx_mock: MockRouter)
 _TOOL_ENUM_SCHEMA: Final[Mapping[str, JsonValue]] = {
     "type": "function",
     "function": {
-        "name": "litellm_product_search",
+        "name": "hangarllm_product_search",
         "description": "Search for product information",
         "parameters": {
             "properties": {
@@ -891,7 +891,7 @@ def test_tool_call_with_empty_enum_property(case: _Case, respx_mock: MockRouter)
         },
     )
     body: Final = _request_body(route)
-    assert _tool_names(case, body) == ("litellm_product_search",)
+    assert _tool_names(case, body) == ("hangarllm_product_search",)
     schema: Final = _tool_input_schema(case, body)
     search_mode: Final = _mapping(_mapping(schema["properties"])["search_mode"])
     enum_values: Final = _items(search_mode["enum"])
@@ -928,7 +928,7 @@ def test_tool_call_with_empty_enum_property(case: _Case, respx_mock: MockRouter)
 )
 def test_pydantic_model_input(case: _Case, respx_mock: MockRouter) -> None:
     route: Final = _register(case, respx_mock, f"canned-{case['id']}")
-    messages: Final = [litellm.Message(content="Hello, how are you?", role="user")]
+    messages: Final = [hangarllm.Message(content="Hello, how are you?", role="user")]
     response: Final = _complete(case, {"messages": messages})
     assert "Hello, how are you?" in _user_texts(case, _request_body(route))
     assert response.choices[0].message.content == f"canned-{case['id']}"
@@ -1126,9 +1126,9 @@ def test_response_format_type_text_with_tool_calls_no_tool_choice(case: _Case, r
     ids=_case_id,
 )
 def test_response_format_type_text(case: _Case) -> None:
-    _, provider, _, _ = litellm.get_llm_provider(model=case["kwargs"]["model"])
+    _, provider, _, _ = hangarllm.get_llm_provider(model=case["kwargs"]["model"])
     provider_config: Final = ProviderConfigManager.get_provider_chat_config(
-        case["kwargs"]["model"], litellm.LlmProviders(provider)
+        case["kwargs"]["model"], hangarllm.LlmProviders(provider)
     )
     translated_params: Final = provider_config.map_openai_params(
         non_default_params={"response_format": {"type": "text"}},
@@ -1358,7 +1358,7 @@ def test_json_response_format_stream(case: _Case, respx_mock: MockRouter) -> Non
     ids=_case_id,
 )
 @pytest.mark.parametrize("detail", (None, "low", "high"), ids=("detail_none", "detail_low", "detail_high"))
-@pytest.mark.parametrize("image_url", _PNG_URLS, ids=("litellm_logo", "awsmp_png"))
+@pytest.mark.parametrize("image_url", _PNG_URLS, ids=("hangarllm_logo", "awsmp_png"))
 def test_image_url(case: _Case, detail: str | None, image_url: str, respx_mock: MockRouter) -> None:
     route: Final = _register(case, respx_mock, f"canned-{case['id']}")
     image_url_part: Final[Mapping[str, JsonValue]] = (
@@ -1480,7 +1480,7 @@ def _cost_model_key(case: _Case) -> str | None:
     model: Final = cast(str, case["kwargs"]["model"])
     stripped: Final = model.split("/", 1)[-1]
     for candidate in (stripped, model):
-        if candidate in litellm.model_cost:
+        if candidate in hangarllm.model_cost:
             return candidate
     return None
 
@@ -1519,17 +1519,17 @@ async def test_completion_cost(case: _Case, respx_mock: MockRouter) -> None:
     assert usage.completion_tokens == 5
     assert usage.total_tokens == 15
     model_key: Final = _cost_model_key(case)
-    cost_entry: Final = litellm.model_cost.get(model_key) if model_key is not None else None
+    cost_entry: Final = hangarllm.model_cost.get(model_key) if model_key is not None else None
     actual_cost: Final = response._hidden_params["response_cost"]
     if cost_entry is not None and "input_cost_per_token" in cost_entry:
         expected: Final = 10 * cost_entry["input_cost_per_token"] + 5 * cost_entry["output_cost_per_token"]
         assert actual_cost == pytest.approx(expected)
     else:
         try:
-            expected_cost: Final = litellm.completion_cost(
+            expected_cost: Final = hangarllm.completion_cost(
                 completion_response=response, model=cast(str, case["kwargs"]["model"])
             )
-        except litellm.exceptions.ModelNotMappedError:
+        except hangarllm.exceptions.ModelNotMappedError:
             assert actual_cost is None
         else:
             assert actual_cost == expected_cost
@@ -1572,7 +1572,7 @@ def test_supports_audio_input_gemini(input_type: str) -> None:
 def test_reasoning_effort_gemini(respx_mock: MockRouter) -> None:
     case: Final = _BY_ID["gemini_25flash"]
     route: Final = _register(case, respx_mock, "canned-gemini")
-    optional_params: Final = litellm.get_optional_params(
+    optional_params: Final = hangarllm.get_optional_params(
         model="gemini/gemini-2.5-flash",
         custom_llm_provider="gemini",
         reasoning_effort="high",

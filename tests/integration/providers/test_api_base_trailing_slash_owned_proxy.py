@@ -157,7 +157,7 @@ def test_perplexity_search_with_no_api_base_uses_the_env_base_without_a_double_s
             {
                 "search_tool": {
                     "search_tool_name": name,
-                    "litellm_params": {"search_provider": "perplexity", "api_key": KEY},
+                    "hangarllm_params": {"search_provider": "perplexity", "api_key": KEY},
                 }
             },
         )

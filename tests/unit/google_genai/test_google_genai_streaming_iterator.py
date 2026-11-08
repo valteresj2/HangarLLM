@@ -7,13 +7,13 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.google_genai.streaming_iterator import (
+from hangarllm.google_genai.streaming_iterator import (
     AsyncGoogleGenAIGenerateContentStreamingIterator,
     GoogleGenAIGenerateContentStreamingIterator,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
 
 class _SuccessRecorder(CustomLogger):
@@ -29,14 +29,14 @@ class _SuccessRecorder(CustomLogger):
 
 def _logging_obj(
     start_time: datetime = datetime(2026, 10, 9, 12, 0, 0), recorder: _SuccessRecorder | None = None
-) -> LiteLLMLoggingObj:
-    logging_obj: Final = LiteLLMLoggingObj(
+) -> HangarLLMLoggingObj:
+    logging_obj: Final = HangarLLMLoggingObj(
         model="gemini-3.1-flash",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="agenerate_content_stream",
         start_time=start_time,
-        litellm_call_id="google-genai-stream",
+        hangarllm_call_id="google-genai-stream",
         function_id="google-genai-stream",
         dynamic_async_success_callbacks=[recorder] if recorder else None,
     )
@@ -44,7 +44,7 @@ def _logging_obj(
         model="gemini-3.1-flash",
         user="",
         optional_params={},
-        litellm_params={"custom_llm_provider": "gemini"},
+        hangarllm_params={"custom_llm_provider": "gemini"},
         custom_llm_provider="gemini",
     )
     return logging_obj
@@ -74,7 +74,7 @@ def test_streaming_logging_targets_the_provider_that_served_the_request(
         model="gemini-3.1-flash-image",
         logging_obj=_logging_obj(),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider=custom_llm_provider,
     )
 
@@ -113,7 +113,7 @@ async def test_async_streaming_iterator_yields_complete_sse_events():
         model="gemini-3.1-flash-image-preview",
         logging_obj=_logging_obj(),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -132,7 +132,7 @@ def test_sync_streaming_iterator_yields_complete_sse_events():
         model="gemini-3.1-flash-image-preview",
         logging_obj=_logging_obj(),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -151,7 +151,7 @@ async def test_async_streaming_iterator_preserves_multi_field_sse_event():
         model="gemini-test",
         logging_obj=_logging_obj(),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -166,7 +166,7 @@ async def test_async_streaming_iterator_forwards_sse_comment_events():
         model="gemini-test",
         logging_obj=_logging_obj(),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -202,7 +202,7 @@ async def test_streaming_iterator_keeps_unicode_line_separators_inside_the_event
         model="gemini-3.8-flash",
         logging_obj=_logging_obj(),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -235,7 +235,7 @@ async def test_async_stream_logs_its_first_chunk_time_measured_from_the_call_sta
         model="gemini-3.1-flash",
         logging_obj=logging_obj,
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        hangarllm_metadata={},
         custom_llm_provider="gemini",
     )
     tasks_before: Final = asyncio.all_tasks()

@@ -3,7 +3,7 @@ connect (LIT-4577).
 
 The OpenAI SDK drives the OpenAI-compatible surface (/responses, /embeddings,
 /images/generations, /moderations, /audio/*) and the Anthropic SDK drives
-/v1/messages, each authenticated with a litellm virtual key. Errors surface as
+/v1/messages, each authenticated with a hangarllm virtual key. Errors surface as
 the SDK's own exceptions, exactly what an end user sees. Retries are disabled
 so a proxy fault fails the test instead of being papered over, and the timeout
 matches the shared transport's request budget.

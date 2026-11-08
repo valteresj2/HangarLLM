@@ -1,23 +1,23 @@
 import os
 import unittest
-from litellm._uuid import uuid
+from hangarllm._uuid import uuid
 from datetime import datetime, timezone
 from typing import Final
 from unittest.mock import MagicMock, patch
 
-from litellm.integrations.deepeval.api import Endpoints, HttpMethods
-from litellm.integrations.deepeval.deepeval import DeepEvalLogger
-from litellm.integrations.deepeval.types import SpanApiType, TraceSpanApiStatus
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.litellm_core_utils.internal_call_metadata import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+from hangarllm.integrations.deepeval.api import Endpoints, HttpMethods
+from hangarllm.integrations.deepeval.deepeval import DeepEvalLogger
+from hangarllm.integrations.deepeval.types import SpanApiType, TraceSpanApiStatus
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.hangarllm_core_utils.internal_call_metadata import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
+from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
 
 class TestDeepEvalLogger(unittest.TestCase):
     @patch.dict(os.environ, {"CONFIDENT_API_KEY": "test-api-key"})
     def setUp(self):
         # Mock the Api class before initializing DeepEvalLogger
-        self.api_patcher = patch("litellm.integrations.deepeval.deepeval.Api")
+        self.api_patcher = patch("hangarllm.integrations.deepeval.deepeval.Api")
         self.mock_api_class = self.api_patcher.start()
         self.mock_api_instance = MagicMock()
         self.mock_api_class.return_value = self.mock_api_instance
@@ -57,9 +57,9 @@ class TestDeepEvalLogger(unittest.TestCase):
         self.assertEqual(llm_span["uuid"], self.span_id)
 
         expected_name = (
-            "litellm_success_callback"
+            "hangarllm_success_callback"
             if expected_status == TraceSpanApiStatus.SUCCESS
-            else "litellm_failure_callback"
+            else "hangarllm_failure_callback"
         )
         self.assertEqual(llm_span["name"], expected_name)
 
@@ -108,13 +108,13 @@ class TestDeepEvalLogger(unittest.TestCase):
         create_kwargs: Final = {
             "input": self.input_str,
             "call_type": "aresponses",
-            "litellm_params": {"metadata": {}},
+            "hangarllm_params": {"metadata": {}},
             "standard_logging_object": standard_logging_object,
         }
         cost_kwargs: Final = {
             "input": self.input_str,
             "call_type": "aget_responses",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN}
             },
             "standard_logging_object": standard_logging_object,

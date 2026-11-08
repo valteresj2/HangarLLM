@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
+import hangarllm
 
 
 @pytest.mark.asyncio
@@ -69,11 +69,11 @@ async def test_async_responses_api_routing_with_previous_response_id():
         def json(self):
             return self._json_data
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview",
                     "api_key": "mock-api-key",
                     "api_version": "mock-api-version",
@@ -82,7 +82,7 @@ async def test_async_responses_api_routing_with_previous_response_id():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -95,14 +95,14 @@ async def test_async_responses_api_routing_with_previous_response_id():
     MODEL = "azure-computer-use-preview"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
         mock_post.return_value = MockResponse(mock_response_data, 200)
 
         # Make the initial request
-        # litellm.turn_on_debug()
+        # hangarllm.turn_on_debug()
         response = await router.aresponses(
             model=MODEL,
             input="Hello, how are you?",
@@ -186,11 +186,11 @@ async def test_async_routing_without_previous_response_id():
             return self._json_data
 
     # Create a router with two identical deployments to test load balancing
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -199,7 +199,7 @@ async def test_async_routing_without_previous_response_id():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version",
@@ -208,7 +208,7 @@ async def test_async_routing_without_previous_response_id():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview",
                     "api_key": "mock-api-key-3",
                     "api_version": "mock-api-version",
@@ -217,7 +217,7 @@ async def test_async_routing_without_previous_response_id():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview",
                     "api_key": "mock-api-key-4",
                     "api_version": "mock-api-version",
@@ -231,7 +231,7 @@ async def test_async_routing_without_previous_response_id():
     MODEL = "azure-computer-use-preview"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
@@ -312,11 +312,11 @@ async def test_async_previous_response_id_not_in_cache():
         def json(self):
             return self._json_data
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -325,7 +325,7 @@ async def test_async_previous_response_id_not_in_cache():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version",
@@ -339,7 +339,7 @@ async def test_async_previous_response_id_not_in_cache():
     MODEL = "azure-computer-use-preview"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # Configure the mock to return our response
@@ -466,11 +466,11 @@ async def test_async_multiple_response_ids_routing():
         def json(self):
             return self._json_data
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -479,7 +479,7 @@ async def test_async_multiple_response_ids_routing():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version",
@@ -493,7 +493,7 @@ async def test_async_multiple_response_ids_routing():
     MODEL = "azure-computer-use-preview"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         # For the first request, return response from deployment 1

@@ -25,17 +25,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.proxy._types import (
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.proxy._types import (
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     UserAPIKeyAuth,
-    LiteLLM_TeamMembership,
+    HangarLLM_TeamMembership,
     hash_token,
 )
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.proxy.auth.auth_checks import (
     get_key_object,
     get_team_membership,
     get_team_object,
@@ -112,13 +112,13 @@ def _create_valid_token(
         team_models=["gpt-4", "gpt-3.5-turbo"],
         team_member_spend=5.0 if has_team_member_spend else None,
         last_refreshed_at=time.time(),
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
 
-def _create_team_object(team_id: str) -> LiteLLM_TeamTableCachedObj:
+def _create_team_object(team_id: str) -> HangarLLM_TeamTableCachedObj:
     """Create a team table object for caching."""
-    return LiteLLM_TeamTableCachedObj(
+    return HangarLLM_TeamTableCachedObj(
         team_id=team_id,
         models=["gpt-4", "gpt-3.5-turbo"],
         max_budget=1000.0,
@@ -129,16 +129,16 @@ def _create_team_object(team_id: str) -> LiteLLM_TeamTableCachedObj:
     )
 
 
-def _create_user_object(user_id: str) -> LiteLLM_UserTable:
+def _create_user_object(user_id: str) -> HangarLLM_UserTable:
     """Create a user table object for caching."""
-    return LiteLLM_UserTable(
+    return HangarLLM_UserTable(
         user_id=user_id,
         max_budget=500.0,
         spend=25.0,
         models=["gpt-4"],
         tpm_limit=5000,
         rpm_limit=50,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_email="test@example.com",
     )
 
@@ -254,8 +254,8 @@ async def test_get_team_object_warm_cache():
 
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
-    mock_prisma.db.litellm_teamtable = MagicMock()
-    mock_prisma.db.litellm_teamtable.find_unique = AsyncMock()
+    mock_prisma.db.hangarllm_teamtable = MagicMock()
+    mock_prisma.db.hangarllm_teamtable.find_unique = AsyncMock()
 
     await get_team_object(
         team_id=team_id,
@@ -271,7 +271,7 @@ async def test_get_team_object_warm_cache():
     assert cache_key in summary["cache_read_keys"]
 
     # DB should NOT have been called
-    mock_prisma.db.litellm_teamtable.find_unique.assert_not_called()
+    mock_prisma.db.hangarllm_teamtable.find_unique.assert_not_called()
 
 
 # ============================================================================
@@ -295,8 +295,8 @@ async def test_get_user_object_warm_cache():
 
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
-    mock_prisma.db.litellm_usertable = MagicMock()
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock()
+    mock_prisma.db.hangarllm_usertable = MagicMock()
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock()
 
     await get_user_object(
         user_id=user_id,
@@ -313,7 +313,7 @@ async def test_get_user_object_warm_cache():
     assert user_id in summary["cache_read_keys"]
 
     # DB should NOT have been called
-    mock_prisma.db.litellm_usertable.find_unique.assert_not_called()
+    mock_prisma.db.hangarllm_usertable.find_unique.assert_not_called()
 
 
 # ============================================================================
@@ -334,7 +334,7 @@ async def test_get_team_membership_warm_cache():
         "team_id": team_id,
         "spend": 3.0,
         "budget_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
 
     cache = DualCache(in_memory_cache=InMemoryCache())
@@ -347,8 +347,8 @@ async def test_get_team_membership_warm_cache():
 
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
-    mock_prisma.db.litellm_teammembership = MagicMock()
-    mock_prisma.db.litellm_teammembership.find_unique = AsyncMock()
+    mock_prisma.db.hangarllm_teammembership = MagicMock()
+    mock_prisma.db.hangarllm_teammembership.find_unique = AsyncMock()
 
     await get_team_membership(
         user_id=user_id,
@@ -365,7 +365,7 @@ async def test_get_team_membership_warm_cache():
     assert cache_key in summary["cache_read_keys"]
 
     # DB should NOT have been called
-    mock_prisma.db.litellm_teammembership.find_unique.assert_not_called()
+    mock_prisma.db.hangarllm_teammembership.find_unique.assert_not_called()
 
 
 # ============================================================================
@@ -434,12 +434,12 @@ async def test_full_hot_path_network_count():
     )
     team_obj = _create_team_object(team_id)
     user_obj = _create_user_object(user_id)
-    membership_data = LiteLLM_TeamMembership(
+    membership_data = HangarLLM_TeamMembership(
         user_id=user_id,
         team_id=team_id,
         spend=3.0,
         budget_id=None,
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
     )
 
     # Pre-populate cache with all data
@@ -533,8 +533,8 @@ async def test_get_user_object_missing_user_negative_cache():
 
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
-    mock_prisma.db.litellm_usertable = MagicMock()
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_usertable = MagicMock()
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
 
     for _ in range(3):
         with pytest.raises(ValueError, match="User doesn't exist in db\\."):
@@ -547,7 +547,7 @@ async def test_get_user_object_missing_user_negative_cache():
                 user_id_upsert=False,
             )
 
-    assert mock_prisma.db.litellm_usertable.find_unique.call_count == 1
+    assert mock_prisma.db.hangarllm_usertable.find_unique.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -556,7 +556,7 @@ async def test_get_user_object_missing_user_rechecks_after_expiry():
     The negative cache must expire: a user created after a miss becomes
     visible once the db_cache_expiry window has passed.
     """
-    from litellm.proxy.auth.auth_checks import db_cache_expiry, last_db_access_time
+    from hangarllm.proxy.auth.auth_checks import db_cache_expiry, last_db_access_time
 
     user_id = "user-missing-expiry-recheck"
 
@@ -564,8 +564,8 @@ async def test_get_user_object_missing_user_rechecks_after_expiry():
 
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
-    mock_prisma.db.litellm_usertable = MagicMock()
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_usertable = MagicMock()
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
 
     with pytest.raises(ValueError, match="User doesn't exist in db\\."):
         await get_user_object(
@@ -576,7 +576,7 @@ async def test_get_user_object_missing_user_rechecks_after_expiry():
             proxy_logging_obj=None,
             user_id_upsert=False,
         )
-    assert mock_prisma.db.litellm_usertable.find_unique.call_count == 1
+    assert mock_prisma.db.hangarllm_usertable.find_unique.call_count == 1
 
     last_db_access_time[f"user_id:{user_id}"] = (
         None,
@@ -592,7 +592,7 @@ async def test_get_user_object_missing_user_rechecks_after_expiry():
             proxy_logging_obj=None,
             user_id_upsert=False,
         )
-    assert mock_prisma.db.litellm_usertable.find_unique.call_count == 2
+    assert mock_prisma.db.hangarllm_usertable.find_unique.call_count == 2
 
 
 def test_should_check_db_negative_entry_throttles_then_expires():
@@ -601,8 +601,8 @@ def test_should_check_db_negative_entry_throttles_then_expires():
     window and allows them again after it. Exercises the timestamp element
     of the stored (value, time) tuple directly.
     """
-    from litellm.caching.dual_cache import LimitedSizeOrderedDict
-    from litellm.proxy.auth.auth_checks import (
+    from hangarllm.caching.dual_cache import LimitedSizeOrderedDict
+    from hangarllm.proxy.auth.auth_checks import (
         _should_check_db,
         _update_last_db_access_time,
     )

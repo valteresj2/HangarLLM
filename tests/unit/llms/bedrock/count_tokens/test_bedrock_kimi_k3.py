@@ -16,9 +16,9 @@ import pytest
 import respx
 import tiktoken
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.bedrock.count_tokens.kimi_k3 import (
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.llms.bedrock.count_tokens.kimi_k3 import (
     HUGGING_FACE_SOURCE,
     KIMI_K3_RANKS_FILE,
     KIMI_K3_REVISION,
@@ -28,7 +28,7 @@ from litellm.llms.bedrock.count_tokens.kimi_k3 import (
     kimi_k3_tokens,
     load_kimi_k3_encoding,
 )
-from litellm.responses.litellm_completion_transformation.transformation import LiteLLMCompletionResponsesConfig
+from hangarllm.responses.hangarllm_completion_transformation.transformation import HangarLLMCompletionResponsesConfig
 
 MODEL: Final = "us.moonshotai.kimi-k3"
 _CONTROL: Final = re.compile(r"<\|(?:open|close|sep|end_of_msg)\|>")
@@ -342,7 +342,7 @@ def test_tool_bedrock_inference_drops_counts_like_the_function_tools_alone(
 def test_responses_custom_tool_counts_like_the_function_tool_inference_sends(pair_encoding: tiktoken.Encoding):
     messages: Final = [{"role": "user", "content": "Weather in Paris?"}]
     custom_tool: Final = {"type": "custom", "name": "grammar", "description": "Free-form SQL"}
-    sent_to_inference, _ = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+    sent_to_inference, _ = HangarLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
         [dict(custom_tool)]
     )
 
@@ -358,7 +358,7 @@ def test_responses_custom_tool_counts_like_the_function_tool_inference_sends(pai
 def test_counting_a_request_with_an_image_url_never_downloads_the_image(
     pair_encoding: tiktoken.Encoding, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     image: Final = respx_mock.get("https://images.example/cat.png").mock(return_value=httpx.Response(200))
     messages: Final = [
         {
@@ -541,8 +541,8 @@ def test_offline_mode_and_disabled_downloads_never_ask_hugging_face_for_the_toke
     monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_CACHE", str(tmp_path / "hub"))
     monkeypatch.setattr(huggingface_hub.constants, "AGENT_HARNESSES_PATH", str(tmp_path / "agent_harnesses.json"))
     monkeypatch.setattr(huggingface_hub.utils._detect_agent, "_registry", None)
-    monkeypatch.setenv("LITELLM_OFFLINE_MODE", offline_mode)
-    monkeypatch.setattr(litellm, "disable_hf_tokenizer_download", disable_download)
+    monkeypatch.setenv("HANGARLLM_OFFLINE_MODE", offline_mode)
+    monkeypatch.setattr(hangarllm, "disable_hf_tokenizer_download", disable_download)
     with respx.mock(assert_all_called=False) as router:
         hub: Final = router.route(host="huggingface.co").mock(return_value=httpx.Response(503))
         with contextlib.suppress(Exception):
@@ -557,7 +557,7 @@ def test_offline_mode_reads_the_tokenizer_from_the_hugging_face_cache(monkeypatc
     cached.parent.mkdir(parents=True)
     cached.write_bytes(b"cached ranks")
     monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_CACHE", str(tmp_path))
-    monkeypatch.setenv("LITELLM_OFFLINE_MODE", "true")
+    monkeypatch.setenv("HANGARLLM_OFFLINE_MODE", "true")
     with respx.mock(assert_all_called=False) as router:
         hub: Final = router.route(host="huggingface.co").mock(return_value=httpx.Response(503))
         path: Final = HUGGING_FACE_SOURCE.ranks_path()

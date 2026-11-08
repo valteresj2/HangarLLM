@@ -43,7 +43,7 @@ from anthropic.types import Message, MessageParam, TextBlockParam
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from pydantic import BaseModel
 from sdk_clients import NO_PROXY_CACHE, SdkClients
@@ -55,16 +55,16 @@ CACHE_PRIMING_INTERVAL_SECONDS = 3.0
 CACHE_WARM_CONSECUTIVE_READS = 3
 
 
-def _azure_params(model: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _azure_params(model: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=model,
         api_base="os.environ/AZURE_AI_API_BASE",
         api_key="os.environ/AZURE_AI_API_KEY",
     )
 
 
-def _vertex_params(model: str, location: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _vertex_params(model: str, location: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=model,
         vertex_project="os.environ/VERTEXAI_PROJECT",
         vertex_location=location,
@@ -115,7 +115,7 @@ def _send(client: Anthropic, model: str, system_block: TextBlockParam, messages:
     )
 
 
-def _register_deployment(proxy: ProxyClient, resources: ResourceManager, params: LiteLLMParamsBody) -> str:
+def _register_deployment(proxy: ProxyClient, resources: ResourceManager, params: HangarLLMParamsBody) -> str:
     model = f"e2e-midsys-{unique_marker()}"
     model_id = proxy.create_model(model, params)
     resources.defer(lambda: proxy.delete_model(model_id))
@@ -219,20 +219,20 @@ def _reminder_turn_messages(primed: PrimedCache) -> tuple[MessageParam, ...]:
 #:
 #: Measured cache_read_input_tokens on the reminder turn, same conversation shape:
 #:   direct to api.anthropic.com            7013  preserved
-#:   litellm -> anthropic/claude-opus-4-8   7013  preserved
-#:   litellm -> vertex_ai/claude-opus-4-8      0  destroyed
+#:   hangarllm -> anthropic/claude-opus-4-8   7013  preserved
+#:   hangarllm -> vertex_ai/claude-opus-4-8      0  destroyed
 #: and the Vertex control with the same added turns but no reminder reads 7013,
 #: so it is the reminder on the non-first-party paths, not the extra turns.
 MID_CONVERSATION_CACHE_SKIP_REASON = (
     "LIT-4873: a mid-conversation role='system' reminder invalidates the prompt cache on the "
     "vertex_ai / azure_ai / bedrock_invoke Messages paths, while the same request preserves it "
-    "both direct to Anthropic and through litellm's first-party anthropic path. Product bug, not "
+    "both direct to Anthropic and through hangarllm's first-party anthropic path. Product bug, not "
     "a test defect: the assertion here is correct and must be restored unchanged with the fix"
 )
 
 
 def _assert_flagged_model_keeps_cache(
-    proxy: ProxyClient, resources: ResourceManager, sdk: SdkClients, params: LiteLLMParamsBody
+    proxy: ProxyClient, resources: ResourceManager, sdk: SdkClients, params: HangarLLMParamsBody
 ) -> None:
     model = _register_deployment(proxy, resources, params)
     client = sdk.anthropic(resources.key(models=[model]))
@@ -255,7 +255,7 @@ def _assert_flagged_model_keeps_cache(
 
 
 def _assert_unflagged_model_converts_and_succeeds(
-    proxy: ProxyClient, resources: ResourceManager, sdk: SdkClients, params: LiteLLMParamsBody
+    proxy: ProxyClient, resources: ResourceManager, sdk: SdkClients, params: HangarLLMParamsBody
 ) -> None:
     model = _register_deployment(proxy, resources, params)
     client = sdk.anthropic(resources.key(models=[model]))

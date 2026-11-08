@@ -7,7 +7,7 @@ from tests.integration._support.wire import Reply, Request, wire_server
 
 
 def _delete_model_if_present(gateway: Gateway, identity: str) -> None:
-    if gateway.request("GET", "/model/info", params={"litellm_model_id": identity}).status_code == 200:
+    if gateway.request("GET", "/model/info", params={"hangarllm_model_id": identity}).status_code == 200:
         gateway.post("/model/delete", {"id": identity})
 
 
@@ -43,7 +43,7 @@ def test_model_deployment_can_be_used_and_deleted(gateway: Gateway) -> None:
                 "/model/new",
                 {
                     "model_name": model,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": f"{provider.url}/v1",
                         "api_key": "synthetic-model-key",
@@ -64,7 +64,7 @@ def test_model_deployment_can_be_used_and_deleted(gateway: Gateway) -> None:
 
             deleted: Final = gateway.request("POST", "/model/delete", {"id": identity})
             assert deleted.status_code == 200, deleted.text
-            remaining: Final = gateway.request("GET", "/model/info", params={"litellm_model_id": identity})
+            remaining: Final = gateway.request("GET", "/model/info", params={"hangarllm_model_id": identity})
             assert remaining.status_code == 400, remaining.text
             assert f"Model id = {identity} not found" in remaining.text
 

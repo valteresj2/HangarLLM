@@ -243,7 +243,7 @@ class TestSpendLogDecoding:
                 "metadata": {"guardrail_information": [{"guardrail_mode": mode, "guardrail_status": "success"}]},
                 "response": {"content": "<CREDIT_CARD>"},
             },
-            {"request_id": "health-call", "api_key": "litellm-health-check", "request_tags": ["litellm-health-check"]},
+            {"request_id": "health-call", "api_key": "hangarllm-health-check", "request_tags": ["hangarllm-health-check"]},
         ]
         payload: Final = (
             {"data": rows, "total": 2, "page": 1, "page_size": 100, "total_pages": 1} if paginated else rows
@@ -255,9 +255,9 @@ class TestSpendLogDecoding:
         decoded: Final = result.data.data if isinstance(result.data, SpendLogsPage) else result.data.root
         assert [(row.request_id, row.api_key) for row in decoded] == [
             ("guarded-call", "scoped-key-hash"),
-            ("health-call", "litellm-health-check"),
+            ("health-call", "hangarllm-health-check"),
         ]
-        assert decoded[1].request_tags == ["litellm-health-check"]
+        assert decoded[1].request_tags == ["hangarllm-health-check"]
         assert decoded[0].response == {"content": "<CREDIT_CARD>"}
         metadata: Final = decoded[0].metadata
         assert metadata is not None and metadata.guardrail_information is not None

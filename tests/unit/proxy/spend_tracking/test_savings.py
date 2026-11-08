@@ -2,10 +2,10 @@ from typing import Final, Literal
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.llms.anthropic.cost_calculation import cost_per_token as anthropic_cost_per_token
-from litellm.proxy.spend_tracking.savings import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from hangarllm.llms.anthropic.cost_calculation import cost_per_token as anthropic_cost_per_token
+from hangarllm.proxy.spend_tracking.savings import (
     _baseline_usage,
     _resolve_model,
     compute_autorouter_savings,
@@ -13,9 +13,9 @@ from litellm.proxy.spend_tracking.savings import (
     marks_gateway_injection,
     prompt_caching_savings_for_request,
 )
-from litellm.router import Router
-from litellm.types.router import Deployment, LiteLLM_Params
-from litellm.types.utils import Usage
+from hangarllm.router import Router
+from hangarllm.types.router import Deployment, HangarLLM_Params
+from hangarllm.types.utils import Usage
 
 pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
@@ -34,7 +34,7 @@ def test_prompt_cache_estimate_distinguishes_unknown_from_zero(model: str | None
 def test_prompt_cache_estimate_uses_the_rollup_pricing_and_retains_write_premiums() -> None:
     router: Final = Router(model_list=[{
         "model_name": "negotiated",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "anthropic/claude-sonnet-5", "input_cost_per_token": 1e-6,
             "cache_creation_input_token_cost": 1.25e-6, "cache_read_input_token_cost": 1e-7,
         },
@@ -74,7 +74,7 @@ def test_baseline_preserves_anthropic_pricing_fields(modifier: dict[str, str], c
 
 def test_anthropic_baseline_keeps_negotiated_prices_with_provider_multiplier() -> None:
     info: Final = {
-        **litellm.get_model_info("claude-opus-5", "anthropic"),
+        **hangarllm.get_model_info("claude-opus-5", "anthropic"),
         "input_cost_per_token": 1e-6, "output_cost_per_token": 2e-6, "cache_read_input_token_cost": 3e-7,
     }
     usage: Final = _usage(1000, 1000, 0, 100).model_copy(update={"speed": "fast"})
@@ -85,7 +85,7 @@ def test_anthropic_baseline_keeps_negotiated_prices_with_provider_multiplier() -
 
 
 def _anthropic_costs(model: str) -> tuple[float, float]:
-    info = litellm.get_model_info(model=model, custom_llm_provider="anthropic")
+    info = hangarllm.get_model_info(model=model, custom_llm_provider="anthropic")
     input_cost = info["input_cost_per_token"] or 0.0
     cache_read_cost = info.get("cache_read_input_token_cost") or input_cost
     return input_cost, cache_read_cost
@@ -115,7 +115,7 @@ def _cost_on(model: str, usage_object: dict) -> float:
 
 
 def _flat_rates(model: str) -> tuple[float, float, float]:
-    info = litellm.get_model_info(model=model, custom_llm_provider="anthropic")
+    info = hangarllm.get_model_info(model=model, custom_llm_provider="anthropic")
     input_cost = info["input_cost_per_token"] or 0.0
     return (
         input_cost,
@@ -142,7 +142,7 @@ def test_an_overflowing_deployment_price_records_finite_savings() -> None:
         model_list=[
             {
                 "model_name": "overflowing-sonnet",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-5-5",
                     "input_cost_per_token": 1e308,
                     "cache_read_input_token_cost": 1e-07,
@@ -250,7 +250,7 @@ def test_caching_savings_agree_with_biller_on_the_request_pricing_basis(
     region: str | None,
     location: str | None,
 ) -> None:
-    pricing: Final = litellm.get_model_info(model=model, custom_llm_provider=provider)
+    pricing: Final = hangarllm.get_model_info(model=model, custom_llm_provider=provider)
     usage: Final = Usage(
         prompt_tokens=prompt,
         completion_tokens=100,
@@ -530,7 +530,7 @@ def test_observed_initial_uses_provider_billing_and_effective_rates(
     provenance: Literal["modeled", "observed_initial"] | None,
 ) -> None:
     usage: Final = _usage(1000, 2000, 3000, 100).model_copy(update=modifier)
-    info: Final = litellm.get_model_info("claude-opus-5", "anthropic").copy()
+    info: Final = hangarllm.get_model_info("claude-opus-5", "anthropic").copy()
     if negotiated:
         info["input_cost_per_token"] = 1e-6
         info["output_cost_per_token"] = 2e-6
@@ -563,7 +563,7 @@ def test_initial_provenance_cannot_override_mismatched_evidence(
 ) -> None:
     usage: Final = _usage(1000, 0, 1000, 100)
     billed: Final = anthropic_cost_per_token("claude-opus-5", usage)
-    info: Final = litellm.get_model_info(model, "anthropic").copy()
+    info: Final = hangarllm.get_model_info(model, "anthropic").copy()
     if known == "prices":
         info["cache_read_input_token_cost"] = 0.001  # No reads here: equal charge alone cannot establish equal rates.
     assert compute_autorouter_savings(
@@ -578,8 +578,8 @@ def test_initial_provenance_cannot_override_mismatched_evidence(
 
 def test_uncached_request_is_the_plain_rate_difference():
     usage = _usage(fresh=2000, cached=0, written=0, out=500)
-    sonnet = litellm.get_model_info("claude-sonnet-5", "anthropic")
-    haiku = litellm.get_model_info("claude-haiku-4-5", "anthropic")
+    sonnet = hangarllm.get_model_info("claude-sonnet-5", "anthropic")
+    haiku = hangarllm.get_model_info("claude-haiku-4-5", "anthropic")
     assert _savings("claude-sonnet-5", "claude-haiku-4-5", usage) == pytest.approx(
         2000 * (sonnet["input_cost_per_token"] - haiku["input_cost_per_token"])
         + 500 * (sonnet["output_cost_per_token"] - haiku["output_cost_per_token"])
@@ -686,9 +686,9 @@ def test_a_baseline_that_prices_caching_implicitly_still_pays_for_its_prompt():
         baseline_usage=first_turn,
     )
 
-    gpt5 = litellm.get_model_info("gpt-5", "openai")
+    gpt5 = hangarllm.get_model_info("gpt-5", "openai")
     assert gpt5.get("cache_creation_input_token_cost") is None, "pick a baseline with no cache-write rate"
-    haiku = litellm.get_model_info("claude-haiku-4-5", "anthropic")
+    haiku = hangarllm.get_model_info("claude-haiku-4-5", "anthropic")
     baseline_pays_input = 20_000 * gpt5["input_cost_per_token"] + 1_000 * gpt5["output_cost_per_token"]
     actually_paid = 20_000 * haiku["cache_creation_input_token_cost"] + 1_000 * haiku["output_cost_per_token"]
     assert reported == pytest.approx(baseline_pays_input - actually_paid)
@@ -701,9 +701,9 @@ def _priced_chat_model_without_cache_read_rate() -> tuple[str, str, str]:
     prices that model's cache reads, which is exactly how this test's premise last broke.
     Candidates go through the savings module's own resolver, so the pick is one the code
     under test can actually price."""
-    for key in sorted(litellm.model_cost):
-        entry = litellm.model_cost[key]
-        provider = entry.get("litellm_provider")
+    for key in sorted(hangarllm.model_cost):
+        entry = hangarllm.model_cost[key]
+        provider = entry.get("hangarllm_provider")
         if not isinstance(provider, str) or not key.startswith(f"{provider}/"):
             continue
         if entry.get("mode") != "chat" or entry.get("cache_read_input_token_cost") is not None:
@@ -740,9 +740,9 @@ def test_a_baseline_with_no_cache_read_rate_is_charged_its_input_rate():
         baseline_usage=_usage(0, 20000, 0, 1000),
     )
 
-    baseline = litellm.get_model_info(baseline_name, baseline_provider)
+    baseline = hangarllm.get_model_info(baseline_name, baseline_provider)
     assert baseline.get("cache_read_input_token_cost") is None, "pick a baseline with no cache-read rate"
-    haiku = litellm.get_model_info("claude-haiku-4-5", "anthropic")
+    haiku = hangarllm.get_model_info("claude-haiku-4-5", "anthropic")
     baseline_pays_input = 20_000 * baseline["input_cost_per_token"] + 1_000 * baseline["output_cost_per_token"]
     actually_paid = 20_000 * haiku["cache_creation_input_token_cost"] + 1_000 * haiku["output_cost_per_token"]
     assert reported == pytest.approx(baseline_pays_input - actually_paid)
@@ -782,7 +782,7 @@ def test_the_served_arm_is_read_from_the_record_not_repriced():
         ),
     )
 
-    opus = litellm.get_model_info("claude-opus-5", "anthropic")
+    opus = hangarllm.get_model_info("claude-opus-5", "anthropic")
     public = 20_000 * opus["input_cost_per_token"] + 1_000 * opus["output_cost_per_token"]
     assert reported == pytest.approx(public - (negotiated_input + negotiated_output))
 
@@ -808,8 +808,8 @@ def test_the_baseline_is_priced_on_the_basis_the_request_was_billed_at(basis, ex
     unchanged. The non-string case guards the JSON round trip, where `.lower()` inside
     the pricer would raise and be swallowed into a silent $0.00 for the whole row.
     """
-    gpt = litellm.get_model_info("gpt-5.5", "openai")
-    haiku = litellm.get_model_info("claude-haiku-4-5", "anthropic")
+    gpt = hangarllm.get_model_info("gpt-5.5", "openai")
+    haiku = hangarllm.get_model_info("claude-haiku-4-5", "anthropic")
     assert gpt.get("input_cost_per_token_priority") == pytest.approx(2.5 * gpt["input_cost_per_token"])
     assert gpt.get("output_cost_per_token_priority") == pytest.approx(2.5 * gpt["output_cost_per_token"])
     assert gpt.get("regional_processing_uplift_multiplier_eu") == 1.1
@@ -837,11 +837,11 @@ def test_the_baseline_is_priced_on_the_vertex_location_the_request_was_billed_at
     regional-endpoint uplift, so the counterfactual single-model operator would
     have paid it too. The served model carries no uplift field, so only the
     baseline moves with the recorded location."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
-    gemini = litellm.get_model_info("gemini-3.5-flash", "vertex_ai")
-    haiku = litellm.get_model_info("claude-haiku-4-5", "anthropic")
+    gemini = hangarllm.get_model_info("gemini-3.5-flash", "vertex_ai")
+    haiku = hangarllm.get_model_info("claude-haiku-4-5", "anthropic")
     assert gemini.get("regional_endpoint_uplift_multiplier") == 1.1
     assert haiku.get("regional_endpoint_uplift_multiplier") is None, "served model must not move with the basis"
 
@@ -884,9 +884,9 @@ def test_a_baseline_recorded_on_the_decision_turns_the_driver_on():
 
 
 def test_a_leftover_configured_baseline_does_not_override_the_recorded_one(monkeypatch):
-    """The proxy config loader setattrs unknown litellm_settings keys, so a stale
+    """The proxy config loader setattrs unknown hangarllm_settings keys, so a stale
     autorouter_savings_baseline_model key must stay inert."""
-    monkeypatch.setattr(litellm, "autorouter_savings_baseline_model", "claude-sonnet-5", raising=False)
+    monkeypatch.setattr(hangarllm, "autorouter_savings_baseline_model", "claude-sonnet-5", raising=False)
     result = compute_savings_spend(
         model="claude-haiku-4-5",
         custom_llm_provider="anthropic",
@@ -926,7 +926,7 @@ def test_prompt_caching_prices_at_the_deployment_rate_not_the_public_one():
         model_list=[
             {
                 "model_name": "cheap-sonnet",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5",
                     "input_cost_per_token": 1e-06,
                     "cache_creation_input_token_cost": 1.25e-06,
@@ -986,7 +986,7 @@ def test_autorouter_savings_distinguishes_priced_deployments(
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-opus-5",
                     "api_key": "test-key",
                     "input_cost_per_token": 1e-5 * multiplier,
@@ -1022,7 +1022,7 @@ def test_autorouter_savings_recognizes_one_deployment_under_its_base_model(selec
         model_list=[
             {
                 "model_name": "contract",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/contract-deployment",
                     "api_key": "test-key",
                     "api_base": "https://example.openai.azure.com",
@@ -1064,7 +1064,7 @@ def test_a_recorded_baseline_deployment_prices_at_its_configured_rate():
         model_list=[
             {
                 "model_name": "top",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-opus-5",
                     "input_cost_per_token": 0.001,
                     "output_cost_per_token": 0.002,
@@ -1103,7 +1103,7 @@ def test_savings_follow_a_deployments_updated_price() -> None:
     def deployment(input_cost_per_token: float) -> Deployment:
         return Deployment(
             model_name="negotiated",
-            litellm_params=LiteLLM_Params(
+            hangarllm_params=HangarLLM_Params(
                 model="anthropic/claude-sonnet-5", input_cost_per_token=input_cost_per_token
             ),
             model_info={"id": "repriced"},
@@ -1173,7 +1173,7 @@ def test_a_boolean_is_not_a_recorded_savings_figure():
 
 @pytest.mark.parametrize("continuing", [False, True])
 def test_legacy_cache_rows_without_an_estimate_do_not_invent_a_new_figure(continuing: bool) -> None:
-    from litellm.proxy.spend_tracking.savings import autorouter_savings_for_request
+    from hangarllm.proxy.spend_tracking.savings import autorouter_savings_for_request
 
     recomputed = compute_savings_spend(
         model="claude-haiku-4-5",
@@ -1196,7 +1196,7 @@ def test_legacy_cache_rows_without_an_estimate_do_not_invent_a_new_figure(contin
 def test_driver_off_is_none_not_zero_for_the_request_helper():
     """None and 0.0 are different facts on the logging payload: absence means the
     request was never auto-routed, zero is a real figure for a routed request."""
-    from litellm.proxy.spend_tracking.savings import autorouter_savings_for_request
+    from hangarllm.proxy.spend_tracking.savings import autorouter_savings_for_request
 
     assert (
         autorouter_savings_for_request(
@@ -1222,7 +1222,7 @@ def test_logging_payload_never_stamps_internal_calls():
     """Shadow eval and classifier sub-calls carry a real routing decision but are not
     requests the caller made; a stamped figure would report savings for traffic no
     user sent, which the spend writer deliberately zeroes."""
-    from litellm.proxy.spend_tracking.savings import autorouter_savings_for_logging_payload
+    from hangarllm.proxy.spend_tracking.savings import autorouter_savings_for_logging_payload
 
     routed_metadata = {"routing_decision": _routed_decision()}
     stamped = autorouter_savings_for_logging_payload(
@@ -1250,7 +1250,7 @@ def test_savings_are_net_of_a_priced_classifier():
     """The classifier call is part of what routing cost, so the per-request figure
     deducts it; a charge big enough to outweigh the model saving goes negative,
     since the figure is signed on purpose (GH #38816)."""
-    from litellm.proxy.spend_tracking.savings import autorouter_savings_for_request
+    from hangarllm.proxy.spend_tracking.savings import autorouter_savings_for_request
 
     gross = autorouter_savings_for_request(
         model="claude-haiku-4-5",
@@ -1269,7 +1269,7 @@ def test_savings_are_net_of_a_priced_classifier():
 
 @pytest.mark.parametrize("classifier_cost", [0.0, "bogus", True])
 def test_an_unpriced_classifier_deducts_nothing(classifier_cost: object):
-    from litellm.proxy.spend_tracking.savings import autorouter_savings_for_request
+    from hangarllm.proxy.spend_tracking.savings import autorouter_savings_for_request
 
     gross = autorouter_savings_for_request(
         model="claude-haiku-4-5",
@@ -1377,24 +1377,24 @@ def test_attribution_does_not_touch_compression_or_autorouter_legs():
 
 def test_marks_gateway_injection_credits_only_the_deployment_that_was_injected():
     """Every retry, failover and fallback of a request shares one metadata bucket and one
-    litellm_call_id, so the deployment is what tells those legs apart. A marker naming a
+    hangarllm_call_id, so the deployment is what tells those legs apart. A marker naming a
     sibling has to read here as no injection; that is what keeps the credit on the leg
     that earned it without any seam having to strip it. Anything that is not this row's
     own deployment, the missing key included, is fail-closed."""
     assert marks_gateway_injection(None, "dep-a") is False
     assert marks_gateway_injection({}, "dep-a") is False
-    assert marks_gateway_injection({"litellm_gateway_injected_cache": "dep-a"}, "dep-a") is True
-    assert marks_gateway_injection({"litellm_gateway_injected_cache": "dep-a"}, "dep-b") is False
-    assert marks_gateway_injection({"litellm_gateway_injected_cache": "dep-a"}, None) is False
+    assert marks_gateway_injection({"hangarllm_gateway_injected_cache": "dep-a"}, "dep-a") is True
+    assert marks_gateway_injection({"hangarllm_gateway_injected_cache": "dep-a"}, "dep-b") is False
+    assert marks_gateway_injection({"hangarllm_gateway_injected_cache": "dep-a"}, None) is False
     # injected before a deployment was chosen, so it is in the payload every leg sends
-    assert marks_gateway_injection({"litellm_gateway_injected_cache": ""}, "dep-a") is True
-    assert marks_gateway_injection({"litellm_gateway_injected_cache": ""}, None) is True
-    assert marks_gateway_injection({"litellm_call_id": "c1"}, "dep-a") is False
+    assert marks_gateway_injection({"hangarllm_gateway_injected_cache": ""}, "dep-a") is True
+    assert marks_gateway_injection({"hangarllm_gateway_injected_cache": ""}, None) is True
+    assert marks_gateway_injection({"hangarllm_call_id": "c1"}, "dep-a") is False
 
 
 @pytest.mark.parametrize("classifier", [0.0, 0.02])
 def test_observed_baseline_keeps_both_costs_and_classifier_overhead(classifier: float) -> None:
-    from litellm.proxy.spend_tracking.savings import BaselineCostSnapshot, price_baseline_comparison
+    from hangarllm.proxy.spend_tracking.savings import BaselineCostSnapshot, price_baseline_comparison
 
     snapshot: Final = BaselineCostSnapshot(
         model="baseline", provider="anthropic", prices=None,
@@ -1410,12 +1410,12 @@ def test_observed_baseline_keeps_both_costs_and_classifier_overhead(classifier: 
 
 
 def test_modeled_baseline_uses_recorded_prices_and_preserves_other_actual_charges() -> None:
-    from litellm.proxy.spend_tracking.savings import BaselineCostSnapshot, price_baseline_comparison
+    from hangarllm.proxy.spend_tracking.savings import BaselineCostSnapshot, price_baseline_comparison
 
     snapshot: Final = BaselineCostSnapshot(
         model="claude-opus-5", provider="anthropic",
         prices={
-            **litellm.get_model_info("claude-opus-5", custom_llm_provider="anthropic"),
+            **hangarllm.get_model_info("claude-opus-5", custom_llm_provider="anthropic"),
             "input_cost_per_token": 0.001, "output_cost_per_token": 0.002,
         },
         actual_token_cost=0.2, actual_spend=0.23, classifier_cost=0.01,
@@ -1427,4 +1427,4 @@ def test_modeled_baseline_uses_recorded_prices_and_preserves_other_actual_charge
     assert result.baseline == pytest.approx(0.12 + 0.03)
     assert result.savings == pytest.approx(-0.09)
     assert price_baseline_comparison(snapshot.model_copy(update={"prices": None}), usage, "modeled") is None
-    assert marks_gateway_injection({"litellm_gateway_injected_cache": True}, "dep-a") is False
+    assert marks_gateway_injection({"hangarllm_gateway_injected_cache": True}, "dep-a") is False

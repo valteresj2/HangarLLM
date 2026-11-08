@@ -9,17 +9,17 @@ to StandardLoggingMetadata, mirroring how team_alias already works.
 import pytest
 
 
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.proxy._types import LiteLLM_VerificationTokenView, UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.types.utils import StandardLoggingUserAPIKeyMetadata
+from hangarllm.hangarllm_core_utils.hangarllm_logging import StandardLoggingPayloadSetup
+from hangarllm.proxy._types import HangarLLM_VerificationTokenView, UserAPIKeyAuth
+from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+from hangarllm.types.utils import StandardLoggingUserAPIKeyMetadata
 
 
 class TestProjectAliasOnTypes:
     """project_alias field exists on the relevant types."""
 
     def test_verification_token_view_has_project_alias(self):
-        token_view = LiteLLM_VerificationTokenView(
+        token_view = HangarLLM_VerificationTokenView(
             token="test-token",
             project_id="proj-123",
             project_alias="My Project",
@@ -27,11 +27,11 @@ class TestProjectAliasOnTypes:
         assert token_view.project_alias == "My Project"
 
     def test_verification_token_view_project_alias_defaults_none(self):
-        token_view = LiteLLM_VerificationTokenView(token="test-token")
+        token_view = HangarLLM_VerificationTokenView(token="test-token")
         assert token_view.project_alias is None
 
     def test_user_api_key_auth_inherits_project_alias(self):
-        """UserAPIKeyAuth extends LiteLLM_VerificationTokenView, so it gets project_alias."""
+        """UserAPIKeyAuth extends HangarLLM_VerificationTokenView, so it gets project_alias."""
         auth = UserAPIKeyAuth(
             api_key="sk-test",
             project_id="proj-1",
@@ -72,7 +72,7 @@ class TestProjectAliasThroughMetadataPipeline:
             team_alias="my-team",
         )
 
-        result = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(
+        result = HangarLLMProxyRequestSetup.get_sanitized_user_information_from_key(
             user_api_key_dict=user_api_key_dict
         )
 
@@ -82,7 +82,7 @@ class TestProjectAliasThroughMetadataPipeline:
     def test_get_sanitized_user_information_project_alias_none_when_no_project(self):
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-hashed")
 
-        result = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(
+        result = HangarLLMProxyRequestSetup.get_sanitized_user_information_from_key(
             user_api_key_dict=user_api_key_dict
         )
 
@@ -116,7 +116,7 @@ class TestProjectAliasThroughMetadataPipeline:
         )
 
         # Step 1: Auth → sanitized metadata
-        sanitized = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(
+        sanitized = HangarLLMProxyRequestSetup.get_sanitized_user_information_from_key(
             user_api_key_dict=auth
         )
 

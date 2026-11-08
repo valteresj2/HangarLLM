@@ -13,14 +13,14 @@ from queue import SimpleQueue
 from typing import Final
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import litellm
+import hangarllm
 import pytest
 from fastapi.testclient import TestClient
 
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy import proxy_server
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -100,15 +100,15 @@ def test_queue_chat_completions_drops_client_sent_stream_usage_flags(
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "hi"}],
         "priority": 0,
-        "_litellm_strip_stream_usage": True,
-        "_litellm_stream_usage_injected": True,
+        "_hangarllm_strip_stream_usage": True,
+        "_hangarllm_stream_usage_injected": True,
     }
     with auth_as():
         response: Final = client.post("/queue/chat/completions", json=payload)
     assert response.status_code == 200
     forwarded: Final = patched_queue.schedule_acompletion.call_args.kwargs
-    assert "_litellm_strip_stream_usage" not in forwarded
-    assert "_litellm_stream_usage_injected" not in forwarded
+    assert "_hangarllm_strip_stream_usage" not in forwarded
+    assert "_hangarllm_stream_usage_injected" not in forwarded
     assert forwarded["messages"] == [{"role": "user", "content": "hi"}]
 
 
@@ -128,7 +128,7 @@ def _queue_router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "sk-queue-test", "mock_response": mock_response},
+                "hangarllm_params": {"model": "openai/gpt-4", "api_key": "sk-queue-test", "mock_response": mock_response},
             }
         ],
         default_priority=default_priority,
@@ -163,7 +163,7 @@ def test_queued_requests_apply_authenticated_prompt_storage_policy(
 ) -> None:
     _queue_router(monkeypatch, default_priority=0)
     logger: Final = _QueueRequestLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
     monkeypatch.setattr(
         proxy_server,
         "general_settings",
@@ -189,7 +189,7 @@ def test_queued_requests_apply_authenticated_prompt_storage_policy(
     now: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
     payload: Final = get_logging_payload(
         kwargs=logger.requests.get_nowait(),
-        response_obj=litellm.ModelResponse.model_validate(response.json()),
+        response_obj=hangarllm.ModelResponse.model_validate(response.json()),
         start_time=now,
         end_time=now,
     )
@@ -223,7 +223,7 @@ def test_queue_chat_completions_reports_the_priority_the_router_queued_at(
             response: Final = client.post("/queue/chat/completions", json=payload)
     assert response.status_code == 200, response.text
     assert [call.kwargs["request"].priority for call in add_request.await_args_list] == [expected_priority]
-    assert response.headers.get("x-litellm-priority") == str(expected_priority)
+    assert response.headers.get("x-hangarllm-priority") == str(expected_priority)
 
 
 @pytest.mark.parametrize(
@@ -279,11 +279,11 @@ def test_queue_chat_completions_queues_at_the_priority_header(
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         with auth_as():
             response: Final = client.post(
-                "/queue/chat/completions", json=payload, headers={"x-litellm-priority": priority_header}
+                "/queue/chat/completions", json=payload, headers={"x-hangarllm-priority": priority_header}
             )
     assert response.status_code == 200, response.text
     assert [call.kwargs["request"].priority for call in add_request.await_args_list] == [expected_priority]
-    assert response.headers.get("x-litellm-priority") == str(expected_priority)
+    assert response.headers.get("x-hangarllm-priority") == str(expected_priority)
 
 
 def test_queue_chat_completions_rejects_a_malformed_priority_header_like_a_malformed_body_value(
@@ -294,7 +294,7 @@ def test_queue_chat_completions_rejects_a_malformed_priority_header_like_a_malfo
     with patch.object(router.scheduler, "add_request", wraps=router.scheduler.add_request) as add_request:
         with auth_as():
             response: Final = client.post(
-                "/queue/chat/completions", json=payload, headers={"x-litellm-priority": "high"}
+                "/queue/chat/completions", json=payload, headers={"x-hangarllm-priority": "high"}
             )
     assert response.status_code == 400, response.text
     error: Final = response.json()["error"]
@@ -311,13 +311,13 @@ def test_streamed_queue_responses_report_the_priority_the_router_queued_at(
     with auth_as():
         response: Final = client.post("/queue/chat/completions", json=payload)
     assert response.status_code == 200, response.text
-    assert response.headers.get("x-litellm-priority") == "1"
+    assert response.headers.get("x-hangarllm-priority") == "1"
 
 
 def test_a_provider_bad_request_on_the_queue_route_keeps_its_own_message(
     client, auth_as, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _queue_router(monkeypatch, default_priority=3, mock_response="litellm.ContextWindowExceededError")
+    _queue_router(monkeypatch, default_priority=3, mock_response="hangarllm.ContextWindowExceededError")
     payload: Final = {"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}
     with auth_as():
         response: Final = client.post("/queue/chat/completions", json=payload)

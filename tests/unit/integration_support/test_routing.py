@@ -26,7 +26,7 @@ from tests.integration._support.routing import (
     role_calls,
 )
 
-TOKEN_QUERY: Final = 'UPDATE "LiteLLM_VerificationToken" SET token = $n WHERE token = $n'
+TOKEN_QUERY: Final = 'UPDATE "HangarLLM_VerificationToken" SET token = $n WHERE token = $n'
 NODE_ID: Final = "tests/integration/management/test_keys.py::test_generate"
 
 
@@ -43,7 +43,7 @@ def _observation(
     return Observation(
         _routing(queries),
         MappingProxyType({node: _routing(mapping) for node, mapping in (tests or {}).items()}),
-        MappingProxyType(calls if calls is not None else {"litellm_reader": 3, "litellm_writer": 7}),
+        MappingProxyType(calls if calls is not None else {"hangarllm_reader": 3, "hangarllm_writer": 7}),
         dealloc,
     )
 
@@ -66,105 +66,105 @@ def test_normalize_collapses_whitespace_and_placeholders(raw: str, expected: str
 
 
 def test_compare_reports_global_role_mismatch() -> None:
-    base: Final = _observation({TOKEN_QUERY: ("litellm_reader",), "SELECT 1": ("litellm_writer",)})
-    head: Final = _observation({TOKEN_QUERY: ("litellm_writer",), "SELECT 1": ("litellm_writer",)})
+    base: Final = _observation({TOKEN_QUERY: ("hangarllm_reader",), "SELECT 1": ("hangarllm_writer",)})
+    head: Final = _observation({TOKEN_QUERY: ("hangarllm_writer",), "SELECT 1": ("hangarllm_writer",)})
     report: Final = compare(base, head)
-    assert report.mismatches == (Mismatch(None, TOKEN_QUERY, ("litellm_reader",), ("litellm_writer",)),)
-    assert report.failures() == (f"global: {TOKEN_QUERY}: base [litellm_reader] head [litellm_writer]",)
+    assert report.mismatches == (Mismatch(None, TOKEN_QUERY, ("hangarllm_reader",), ("hangarllm_writer",)),)
+    assert report.failures() == (f"global: {TOKEN_QUERY}: base [hangarllm_reader] head [hangarllm_writer]",)
 
 
 def test_compare_reports_global_shrink_mismatch() -> None:
-    base: Final = _observation({TOKEN_QUERY: ("litellm_reader", "litellm_writer")})
-    head: Final = _observation({TOKEN_QUERY: ("litellm_writer",)})
+    base: Final = _observation({TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")})
+    head: Final = _observation({TOKEN_QUERY: ("hangarllm_writer",)})
     report: Final = compare(base, head)
     assert report.mismatches == (
-        Mismatch(None, TOKEN_QUERY, ("litellm_reader", "litellm_writer"), ("litellm_writer",)),
+        Mismatch(None, TOKEN_QUERY, ("hangarllm_reader", "hangarllm_writer"), ("hangarllm_writer",)),
     )
-    assert report.failures() == (f"global: {TOKEN_QUERY}: base [litellm_reader, litellm_writer] head [litellm_writer]",)
+    assert report.failures() == (f"global: {TOKEN_QUERY}: base [hangarllm_reader, hangarllm_writer] head [hangarllm_writer]",)
 
 
 def test_compare_reports_per_test_mismatch_with_nodeid() -> None:
     base: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader",)},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader",)}},
+        {TOKEN_QUERY: ("hangarllm_reader",)},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader",)}},
     )
     head: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader",)},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_writer",)}},
+        {TOKEN_QUERY: ("hangarllm_reader",)},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_writer",)}},
     )
     report: Final = compare(base, head)
-    assert report.mismatches == (Mismatch(NODE_ID, TOKEN_QUERY, ("litellm_reader",), ("litellm_writer",)),)
-    assert report.failures() == (f"{NODE_ID}: {TOKEN_QUERY}: base [litellm_reader] head [litellm_writer]",)
+    assert report.mismatches == (Mismatch(NODE_ID, TOKEN_QUERY, ("hangarllm_reader",), ("hangarllm_writer",)),)
+    assert report.failures() == (f"{NODE_ID}: {TOKEN_QUERY}: base [hangarllm_reader] head [hangarllm_writer]",)
 
 
 def test_compare_per_test_mismatch_ignores_global_observation() -> None:
     base: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader", "litellm_writer")},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader",)}},
+        {TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader",)}},
     )
     head: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader", "litellm_writer")},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_writer",)}},
+        {TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_writer",)}},
     )
     report: Final = compare(base, head)
-    assert report.mismatches == (Mismatch(NODE_ID, TOKEN_QUERY, ("litellm_reader",), ("litellm_writer",)),)
-    assert report.failures() == (f"{NODE_ID}: {TOKEN_QUERY}: base [litellm_reader] head [litellm_writer]",)
+    assert report.mismatches == (Mismatch(NODE_ID, TOKEN_QUERY, ("hangarllm_reader",), ("hangarllm_writer",)),)
+    assert report.failures() == (f"{NODE_ID}: {TOKEN_QUERY}: base [hangarllm_reader] head [hangarllm_writer]",)
 
 
 def test_compare_reports_per_test_shrink_mismatch() -> None:
     base: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader", "litellm_writer")},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader", "litellm_writer")}},
+        {TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")}},
     )
     head: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader", "litellm_writer")},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader",)}},
+        {TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader",)}},
     )
     report: Final = compare(base, head)
     assert report.mismatches == (
-        Mismatch(NODE_ID, TOKEN_QUERY, ("litellm_reader", "litellm_writer"), ("litellm_reader",)),
+        Mismatch(NODE_ID, TOKEN_QUERY, ("hangarllm_reader", "hangarllm_writer"), ("hangarllm_reader",)),
     )
     assert report.failures() == (
-        f"{NODE_ID}: {TOKEN_QUERY}: base [litellm_reader, litellm_writer] head [litellm_reader]",
+        f"{NODE_ID}: {TOKEN_QUERY}: base [hangarllm_reader, hangarllm_writer] head [hangarllm_reader]",
     )
 
 
 def test_compare_reports_global_gain_mismatch() -> None:
-    base: Final = _observation({TOKEN_QUERY: ("litellm_reader",)})
-    head: Final = _observation({TOKEN_QUERY: ("litellm_reader", "litellm_writer")})
+    base: Final = _observation({TOKEN_QUERY: ("hangarllm_reader",)})
+    head: Final = _observation({TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")})
     report: Final = compare(base, head)
     assert report.mismatches == (
-        Mismatch(None, TOKEN_QUERY, ("litellm_reader",), ("litellm_reader", "litellm_writer")),
+        Mismatch(None, TOKEN_QUERY, ("hangarllm_reader",), ("hangarllm_reader", "hangarllm_writer")),
     )
-    assert report.failures() == (f"global: {TOKEN_QUERY}: base [litellm_reader] head [litellm_reader, litellm_writer]",)
+    assert report.failures() == (f"global: {TOKEN_QUERY}: base [hangarllm_reader] head [hangarllm_reader, hangarllm_writer]",)
 
 
 def test_compare_reports_per_test_gain_mismatch() -> None:
     base: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader",)},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader",)}},
+        {TOKEN_QUERY: ("hangarllm_reader",)},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader",)}},
     )
     head: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader",)},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader", "litellm_writer")}},
+        {TOKEN_QUERY: ("hangarllm_reader",)},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")}},
     )
     report: Final = compare(base, head)
     assert report.mismatches == (
-        Mismatch(NODE_ID, TOKEN_QUERY, ("litellm_reader",), ("litellm_reader", "litellm_writer")),
+        Mismatch(NODE_ID, TOKEN_QUERY, ("hangarllm_reader",), ("hangarllm_reader", "hangarllm_writer")),
     )
     assert report.failures() == (
-        f"{NODE_ID}: {TOKEN_QUERY}: base [litellm_reader] head [litellm_reader, litellm_writer]",
+        f"{NODE_ID}: {TOKEN_QUERY}: base [hangarllm_reader] head [hangarllm_reader, hangarllm_writer]",
     )
 
 
 def test_compare_either_role_suppresses_and_reports_variance() -> None:
     base: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader", "litellm_writer"), "SELECT quiet": ("litellm_reader",)},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader",)}},
+        {TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer"), "SELECT quiet": ("hangarllm_reader",)},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader",)}},
     )
     head: Final = _observation(
-        {TOKEN_QUERY: ("litellm_writer",), "SELECT quiet": ("litellm_reader",)},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_writer",)}},
+        {TOKEN_QUERY: ("hangarllm_writer",), "SELECT quiet": ("hangarllm_reader",)},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_writer",)}},
     )
     report: Final = compare(base, head, either_role=frozenset({TOKEN_QUERY, "SELECT quiet"}))
     assert report.mismatches == ()
@@ -176,16 +176,16 @@ def test_compare_either_role_suppresses_and_reports_variance() -> None:
 def test_compare_either_role_matches_exact_keys_only() -> None:
     base: Final = _observation(
         {
-            "SELECT $n": ("litellm_reader",),
-            "SELECT $n FROM x": ("litellm_reader",),
-            "SELECT $n FROM x WHERE y = $n": ("litellm_reader",),
+            "SELECT $n": ("hangarllm_reader",),
+            "SELECT $n FROM x": ("hangarllm_reader",),
+            "SELECT $n FROM x WHERE y = $n": ("hangarllm_reader",),
         }
     )
     head: Final = _observation(
         {
-            "SELECT $n": ("litellm_writer",),
-            "SELECT $n FROM x": ("litellm_writer",),
-            "SELECT $n FROM x WHERE y = $n": ("litellm_writer",),
+            "SELECT $n": ("hangarllm_writer",),
+            "SELECT $n FROM x": ("hangarllm_writer",),
+            "SELECT $n FROM x WHERE y = $n": ("hangarllm_writer",),
         }
     )
     report: Final = compare(base, head, either_role=frozenset({"SELECT $n FROM x"}))
@@ -199,8 +199,8 @@ def test_compare_either_role_matches_exact_keys_only() -> None:
 
 
 def test_compare_one_sided_queries_are_listed_not_failed() -> None:
-    base: Final = _observation({"SELECT a": ("litellm_reader",), "SELECT gone": ("litellm_writer",)})
-    head: Final = _observation({"SELECT a": ("litellm_reader",), "SELECT new": ("litellm_writer",)})
+    base: Final = _observation({"SELECT a": ("hangarllm_reader",), "SELECT gone": ("hangarllm_writer",)})
+    head: Final = _observation({"SELECT a": ("hangarllm_reader",), "SELECT new": ("hangarllm_writer",)})
     report: Final = compare(base, head)
     assert report.only_base == ("SELECT gone",)
     assert report.only_head == ("SELECT new",)
@@ -220,39 +220,39 @@ def test_failures_flags_dealloc_evictions_on_head() -> None:
 
 def test_failures_flags_silent_reader_on_base() -> None:
     report: Final = compare(
-        _observation({}, calls={"litellm_reader": 0, "litellm_writer": 5}),
+        _observation({}, calls={"hangarllm_reader": 0, "hangarllm_writer": 5}),
         _observation({}),
     )
-    assert report.failures() == ("base: no litellm_reader calls observed",)
+    assert report.failures() == ("base: no hangarllm_reader calls observed",)
 
 
 def test_failures_flags_silent_reader_on_head() -> None:
     report: Final = compare(
         _observation({}),
-        _observation({}, calls={"litellm_reader": 0, "litellm_writer": 5}),
+        _observation({}, calls={"hangarllm_reader": 0, "hangarllm_writer": 5}),
     )
-    assert report.failures() == ("head: no litellm_reader calls observed",)
+    assert report.failures() == ("head: no hangarllm_reader calls observed",)
 
 
 def test_failures_flags_silent_writer() -> None:
     report: Final = compare(
-        _observation({}, calls={"litellm_reader": 5, "litellm_writer": 0}),
+        _observation({}, calls={"hangarllm_reader": 5, "hangarllm_writer": 0}),
         _observation({}),
     )
-    assert report.failures() == ("base: no litellm_writer calls observed",)
+    assert report.failures() == ("base: no hangarllm_writer calls observed",)
 
 
 def test_failures_counts_missing_role_as_silent() -> None:
-    report: Final = compare(_observation({}), _observation({}, calls={"litellm_writer": 5}))
-    assert report.failures() == ("head: no litellm_reader calls observed",)
+    report: Final = compare(_observation({}), _observation({}, calls={"hangarllm_writer": 5}))
+    assert report.failures() == ("head: no hangarllm_reader calls observed",)
 
 
 def test_compare_skips_per_test_mismatches_for_xdist_shape() -> None:
     base: Final = _observation(
-        {TOKEN_QUERY: ("litellm_reader",)},
-        {NODE_ID: {TOKEN_QUERY: ("litellm_reader",)}},
+        {TOKEN_QUERY: ("hangarllm_reader",)},
+        {NODE_ID: {TOKEN_QUERY: ("hangarllm_reader",)}},
     )
-    head: Final = _observation({TOKEN_QUERY: ("litellm_reader",)})
+    head: Final = _observation({TOKEN_QUERY: ("hangarllm_reader",)})
     assert head.tests == {}
     report: Final = compare(base, head)
     assert report.mismatches == ()
@@ -277,9 +277,9 @@ def test_dump_observation_sorts_role_lists_and_round_trips(tmp_path: Path) -> No
     expected: Final = (
         json.dumps(
             {
-                "queries": {query: ["litellm_reader", "litellm_writer"] for query in queries},
-                "tests": {NODE_ID: {query: ["litellm_reader", "litellm_writer"] for query in queries}},
-                "calls": {"litellm_reader": 1, "litellm_writer": 2},
+                "queries": {query: ["hangarllm_reader", "hangarllm_writer"] for query in queries},
+                "tests": {NODE_ID: {query: ["hangarllm_reader", "hangarllm_writer"] for query in queries}},
+                "calls": {"hangarllm_reader": 1, "hangarllm_writer": 2},
                 "dealloc": 0,
             },
             sort_keys=True,
@@ -304,7 +304,7 @@ def _write_observed(results: Path, observation: Observation) -> None:
 def test_main_check_returns_zero_for_matching_routes(tmp_path: Path) -> None:
     base_dir: Final = tmp_path / "base"
     head_dir: Final = tmp_path / "head"
-    observation: Final = _observation({TOKEN_QUERY: ("litellm_reader",)})
+    observation: Final = _observation({TOKEN_QUERY: ("hangarllm_reader",)})
     _write_observed(base_dir, observation)
     _write_observed(head_dir, observation)
     assert main(["check", str(base_dir), str(head_dir)]) == 0
@@ -317,22 +317,22 @@ def test_main_check_returns_one_and_writes_exact_diff(tmp_path: Path) -> None:
     head_dir: Final = tmp_path / "parity" / "head"
     _write_observed(
         base_dir,
-        _observation({TOKEN_QUERY: ("litellm_reader",), "SELECT absent": ("litellm_writer",)}),
+        _observation({TOKEN_QUERY: ("hangarllm_reader",), "SELECT absent": ("hangarllm_writer",)}),
     )
     _write_observed(
         head_dir,
         _observation(
-            {TOKEN_QUERY: ("litellm_writer",)},
-            calls={"litellm_reader": 0, "litellm_writer": 5},
+            {TOKEN_QUERY: ("hangarllm_writer",)},
+            calls={"hangarllm_reader": 0, "hangarllm_writer": 5},
             dealloc=2,
         ),
     )
     assert main(["check", str(base_dir), str(head_dir)]) == 1
     assert (head_dir.parent / DIFF_FILE).read_text() == (
         "== failures ==\n"
-        f"global: {TOKEN_QUERY}: base [litellm_reader] head [litellm_writer]\n"
+        f"global: {TOKEN_QUERY}: base [hangarllm_reader] head [hangarllm_writer]\n"
         "head: pg_stat_statements evicted 2 entries (dealloc > 0)\n"
-        "head: no litellm_reader calls observed\n"
+        "head: no hangarllm_reader calls observed\n"
         "\n"
         "== either role ==\n"
         "none\n"
@@ -344,11 +344,11 @@ def test_main_check_returns_one_and_writes_exact_diff(tmp_path: Path) -> None:
         "none\n"
         "\n"
         "== calls ==\n"
-        "base litellm_reader: 3\n"
-        "base litellm_writer: 7\n"
+        "base hangarllm_reader: 3\n"
+        "base hangarllm_writer: 7\n"
         "base dealloc: 0\n"
-        "head litellm_reader: 0\n"
-        "head litellm_writer: 5\n"
+        "head hangarllm_reader: 0\n"
+        "head hangarllm_writer: 5\n"
         "head dealloc: 2\n"
     )
 
@@ -365,8 +365,8 @@ def test_main_check_missing_observed_returns_one(tmp_path: Path, capsys: pytest.
 def test_main_check_either_role_suppresses_shrink(tmp_path: Path) -> None:
     base_dir: Final = tmp_path / "base"
     head_dir: Final = tmp_path / "head"
-    _write_observed(base_dir, _observation({TOKEN_QUERY: ("litellm_reader", "litellm_writer")}))
-    _write_observed(head_dir, _observation({TOKEN_QUERY: ("litellm_writer",)}))
+    _write_observed(base_dir, _observation({TOKEN_QUERY: ("hangarllm_reader", "hangarllm_writer")}))
+    _write_observed(head_dir, _observation({TOKEN_QUERY: ("hangarllm_writer",)}))
     argv: Final = ["check", str(base_dir), str(head_dir)]
     allowlist: Final = tmp_path / "either.json"
     allowlist.write_text(json.dumps({TOKEN_QUERY: "timer probe may use either pool"}))
@@ -378,46 +378,46 @@ def test_main_check_either_role_suppresses_shrink(tmp_path: Path) -> None:
 def test_delta_maps_positive_increases_per_role() -> None:
     before: Final = MappingProxyType(
         {
-            ("litellm_reader", "SELECT both"): 1,
-            ("litellm_writer", "SELECT both"): 2,
-            ("litellm_reader", "SELECT reader"): 3,
-            ("litellm_writer", "SELECT gone"): 4,
-            ("litellm_reader", "SELECT same"): 5,
+            ("hangarllm_reader", "SELECT both"): 1,
+            ("hangarllm_writer", "SELECT both"): 2,
+            ("hangarllm_reader", "SELECT reader"): 3,
+            ("hangarllm_writer", "SELECT gone"): 4,
+            ("hangarllm_reader", "SELECT same"): 5,
         }
     )
     after: Final = MappingProxyType(
         {
-            ("litellm_reader", "SELECT both"): 2,
-            ("litellm_writer", "SELECT both"): 5,
-            ("litellm_reader", "SELECT reader"): 6,
-            ("litellm_reader", "SELECT same"): 5,
-            ("litellm_writer", "SELECT writer"): 7,
+            ("hangarllm_reader", "SELECT both"): 2,
+            ("hangarllm_writer", "SELECT both"): 5,
+            ("hangarllm_reader", "SELECT reader"): 6,
+            ("hangarllm_reader", "SELECT same"): 5,
+            ("hangarllm_writer", "SELECT writer"): 7,
         }
     )
     assert delta(before, after) == {
-        "SELECT both": frozenset({"litellm_reader", "litellm_writer"}),
-        "SELECT reader": frozenset({"litellm_reader"}),
-        "SELECT writer": frozenset({"litellm_writer"}),
+        "SELECT both": frozenset({"hangarllm_reader", "hangarllm_writer"}),
+        "SELECT reader": frozenset({"hangarllm_reader"}),
+        "SELECT writer": frozenset({"hangarllm_writer"}),
     }
 
 
 def test_role_calls_sums_positive_increases_per_role() -> None:
     before: Final = MappingProxyType(
         {
-            ("litellm_reader", "SELECT a"): 10,
-            ("litellm_reader", "SELECT b"): 4,
-            ("litellm_writer", "SELECT a"): 1,
+            ("hangarllm_reader", "SELECT a"): 10,
+            ("hangarllm_reader", "SELECT b"): 4,
+            ("hangarllm_writer", "SELECT a"): 1,
         }
     )
     after: Final = MappingProxyType(
         {
-            ("litellm_reader", "SELECT a"): 11,
-            ("litellm_reader", "SELECT b"): 2,
-            ("litellm_writer", "SELECT a"): 1,
-            ("litellm_writer", "SELECT c"): 6,
+            ("hangarllm_reader", "SELECT a"): 11,
+            ("hangarllm_reader", "SELECT b"): 2,
+            ("hangarllm_writer", "SELECT a"): 1,
+            ("hangarllm_writer", "SELECT c"): 6,
         }
     )
-    assert role_calls(before, after) == {"litellm_reader": 1, "litellm_writer": 6}
+    assert role_calls(before, after) == {"hangarllm_reader": 1, "hangarllm_writer": 6}
 
 
 def test_load_either_role_missing_path_returns_empty(tmp_path: Path) -> None:
@@ -431,7 +431,7 @@ def test_load_either_role_reads_query_keys(tmp_path: Path) -> None:
 
 
 def test_load_observation_reads_calls_and_dealloc(tmp_path: Path) -> None:
-    observation: Final = _observation({TOKEN_QUERY: ("litellm_reader",)}, dealloc=0)
+    observation: Final = _observation({TOKEN_QUERY: ("hangarllm_reader",)}, dealloc=0)
     path: Final = tmp_path / OBSERVED_FILE
     path.write_text(dump_observation(observation))
     loaded: Final = load_observation(path)

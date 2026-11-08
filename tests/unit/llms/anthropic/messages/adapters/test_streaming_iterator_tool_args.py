@@ -17,10 +17,10 @@ from unittest.mock import MagicMock
 import pytest
 
 
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     ChatCompletionDeltaToolCall,
     Delta,
     Function,
@@ -375,7 +375,7 @@ def test_sync_stream_no_extra_delta_when_tool_args_empty():
     assert input_json_deltas[0]["delta"]["partial_json"] == '{"location": "NYC"}'
 
 
-# --- Several tool calls in one chunk (https://github.com/BerriAI/litellm/issues/44029) ---
+# --- Several tool calls in one chunk (upstream issue 44029) ---
 
 _TMP_ARGS = '{"command": "ls -d /tmp", "description": "List the /tmp directory"}'
 _VAR_ARGS = '{"command": "ls -d /var", "description": "List the /var directory"}'

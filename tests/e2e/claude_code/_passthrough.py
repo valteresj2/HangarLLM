@@ -1,9 +1,9 @@
 """Shared body for the `passthrough` × <provider> compat cells.
 
 Every other matrix row drives the proxy's `/v1/messages` translation
-layer: Claude Code speaks the first-party Anthropic wire and LiteLLM
+layer: Claude Code speaks the first-party Anthropic wire and HangarLLM
 transforms the request per provider. This row instead exercises
-LiteLLM's *native passthrough* routes -- the "LLM gateway"
+HangarLLM's *native passthrough* routes -- the "LLM gateway"
 configuration documented at https://code.claude.com/docs/en/gateway --
 where Claude Code speaks each cloud's own wire format and the proxy
 forwards it, attaching provider credentials on the way out:
@@ -37,7 +37,7 @@ forwards it, attaching provider credentials on the way out:
                      InvokeModel-only; no Converse-wire client exists.
 
 Auth is the same in every mode: the CLI's provider-native signing is
-disabled via CLAUDE_CODE_SKIP_<PROVIDER>_AUTH, and the LiteLLM virtual
+disabled via CLAUDE_CODE_SKIP_<PROVIDER>_AUTH, and the HangarLLM virtual
 key travels as `Authorization: Bearer` (ANTHROPIC_AUTH_TOKEN), exactly
 like the translation rows. The proxy holds the real provider
 credentials.
@@ -97,7 +97,7 @@ def vertex_extra_env(proxy_base_url: str) -> Dict[str, str]:
     CLI's Vertex SDK ships its API version inside its *default* base
     URL (`https://{region}-aiplatform.googleapis.com/v1`), so
     overriding the base drops the version from the request path unless
-    the override carries it. LiteLLM's /vertex_ai route reuses the
+    the override carries it. HangarLLM's /vertex_ai route reuses the
     incoming path verbatim when it contains `/projects/.../locations/...`,
     so a version-less path would reach Google as
     `aiplatform.googleapis.com/projects/...` and 404.

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from litellm.proxy.common_utils.get_routes import GetRoutes
+from hangarllm.proxy.common_utils.get_routes import GetRoutes
 
 
 class TestGetRoutes:

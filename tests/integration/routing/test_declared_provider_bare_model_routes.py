@@ -186,7 +186,7 @@ def test_test_connect_reaches_the_provider_for_a_bare_image_model(gateway: Gatew
             "POST",
             "/health/test_connection",
             {
-                "litellm_params": {**_provider_params(form, bare), "api_base": api_base, "api_key": _KEY},
+                "hangarllm_params": {**_provider_params(form, bare), "api_base": api_base, "api_key": _KEY},
                 "mode": "image_generation",
             },
         )

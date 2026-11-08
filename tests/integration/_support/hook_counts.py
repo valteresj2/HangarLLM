@@ -191,13 +191,13 @@ class HookRecords:
             return tuple(self.seen)
 
     def for_call(self, call_id: str) -> tuple[dict[str, str], ...]:
-        return tuple(record for record in self.drained() if record["litellm_call_id"] == call_id)
+        return tuple(record for record in self.drained() if record["hangarllm_call_id"] == call_id)
 
 
 def _model(name: str, model: str, api_base: str, **extra: object) -> dict[str, object]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, "api_base": api_base, "api_key": "synthetic-provider-key"},
+        "hangarllm_params": {"model": model, "api_base": api_base, "api_key": "synthetic-provider-key"},
         **extra,
     }
 
@@ -205,7 +205,7 @@ def _model(name: str, model: str, api_base: str, **extra: object) -> dict[str, o
 def write_hook_count_config(
     path: Path,
     provider_url: str,
-    litellm_settings: Mapping[str, object],
+    hangarllm_settings: Mapping[str, object],
     guardrails: tuple[Mapping[str, object], ...] = (),
 ) -> Path:
     """One success and one failure deployment per surface, all answered by `provider`."""
@@ -229,7 +229,7 @@ def write_hook_count_config(
         tools.append(
             {
                 "search_tool_name": f"hooks-search-{outcome}",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "perplexity",
                     "api_key": "synthetic-provider-key",
                     "api_base": base + "/perplexity",
@@ -241,10 +241,10 @@ def write_hook_count_config(
             {
                 "model_list": models,
                 "search_tools": tools,
-                "litellm_settings": dict(litellm_settings),
+                "hangarllm_settings": dict(hangarllm_settings),
                 **({"guardrails": [dict(guardrail) for guardrail in guardrails]} if guardrails else {}),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_model_info_refresh": True,
                 },
@@ -260,7 +260,7 @@ def send(
 ) -> httpx.Response:
     model: Final = f"hooks-{surface}-{outcome}"
     nonce: Final = f"hook-count-{call_id}"
-    headers: Final = {"Authorization": f"Bearer {key or proxy.key}", "x-litellm-call-id": call_id}
+    headers: Final = {"Authorization": f"Bearer {key or proxy.key}", "x-hangarllm-call-id": call_id}
     if surface == "transcription":
         return proxy.client.post(
             "/v1/audio/transcriptions",

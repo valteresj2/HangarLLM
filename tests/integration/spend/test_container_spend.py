@@ -4,7 +4,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.client import Gateway, eventually
 from integration._support.database import read_rows
@@ -12,9 +12,9 @@ from integration._support.wire import Reply, Request, wire_server
 from openai import OpenAI
 from openai.types import ContainerCreateResponse
 
-# run.py sets LITELLM_LOCAL_MODEL_COST_MAP=True and reads model_prices_and_context_window_backup.json
+# run.py sets HANGARLLM_LOCAL_MODEL_COST_MAP=True and reads model_prices_and_context_window_backup.json
 CODE_INTERPRETER_SESSION_COST: Final = float(
-    json.loads((Path(litellm.__file__).parent / "model_prices_and_context_window_backup.json").read_text())[
+    json.loads((Path(hangarllm.__file__).parent / "model_prices_and_context_window_backup.json").read_text())[
         "openai/container"
     ]["code_interpreter_cost_per_session"]
 )
@@ -47,7 +47,7 @@ def test_container_create_charges_one_code_interpreter_session(gateway: Gateway)
         assert created.model_copy(update={"id": container_id}) == ContainerCreateResponse.model_validate(scripted), (
             raw.http_response.text
         )
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(CODE_INTERPRETER_SESSION_COST), dict(
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(CODE_INTERPRETER_SESSION_COST), dict(
             raw.headers
         )
         requests: Final = wire.drain()
@@ -62,7 +62,7 @@ def test_container_create_charges_one_code_interpreter_session(gateway: Gateway)
 
         logged: Final = eventually(
             lambda: read_rows(
-                'SELECT call_type, spend, model_group FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (digest,)
+                'SELECT call_type, spend, model_group FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (digest,)
             ),
             lambda rows: len(rows) == 1,
             seconds=70,
@@ -70,7 +70,7 @@ def test_container_create_charges_one_code_interpreter_session(gateway: Gateway)
         assert [(row["call_type"], row["model_group"]) for row in logged] == [("acreate_container", model)], logged
         assert float(str(logged[0]["spend"])) == pytest.approx(CODE_INTERPRETER_SESSION_COST), logged
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda rows: float(str(rows[0]["spend"])) == pytest.approx(CODE_INTERPRETER_SESSION_COST),
             seconds=70,
         )

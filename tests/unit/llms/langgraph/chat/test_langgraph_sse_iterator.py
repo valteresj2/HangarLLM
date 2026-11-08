@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.llms.langgraph.chat.sse_iterator import LangGraphSSEStreamIterator
+from hangarllm.llms.langgraph.chat.sse_iterator import LangGraphSSEStreamIterator
 
 _LINE_SEPARATED_TEXT: Final = "before\u2028between\u2029after"
 

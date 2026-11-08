@@ -7,15 +7,15 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.guardrails.guardrail_hooks.airia.airia import AiriaGuardrail
-from litellm.proxy.guardrails.init_guardrails import (
+import hangarllm
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy.guardrails.guardrail_hooks.airia.airia import AiriaGuardrail
+from hangarllm.proxy.guardrails.init_guardrails import (
     init_guardrails_v2,  # pyright: ignore[reportUnknownVariableType]  # untyped upstream
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.airia import AiriaGuardrailConfigModel
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.proxy.guardrails.guardrail_hooks.airia import AiriaGuardrailConfigModel
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 API_BASE = "https://gateway.airia.ai"
 API_KEY = "ak-test-key"
@@ -70,8 +70,8 @@ def _inputs(**overrides: object) -> GenericGuardrailAPIInputs:
 
 def test_airia_guardrail_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """The guardrail registers through init_guardrails_v2 under the `airia` key."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     monkeypatch.setenv("AIRIA_GATEWAY_URL", API_BASE)
     monkeypatch.setenv("AIRIA_API_KEY", API_KEY)
 
@@ -79,7 +79,7 @@ def test_airia_guardrail_config(monkeypatch: pytest.MonkeyPatch) -> None:
         all_guardrails=[
             {
                 "guardrail_name": "airia-guard",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "airia",
                     "mode": "pre_call",
                     "default_on": True,
@@ -90,7 +90,7 @@ def test_airia_guardrail_config(monkeypatch: pytest.MonkeyPatch) -> None:
         config_file_path="",
     )
 
-    registered = [c for c in litellm.callbacks if isinstance(c, AiriaGuardrail)]
+    registered = [c for c in hangarllm.callbacks if isinstance(c, AiriaGuardrail)]
     assert len(registered) == 1
     assert registered[0].guardrail_name == "airia-guard"
     assert registered[0].default_on is True
@@ -161,10 +161,10 @@ async def test_request_payload_and_auth_header() -> None:
         tools=[{"type": "function", "function": {"name": "f"}}],
         tool_calls=[{"id": "c1", "function": {"name": "f", "arguments": "{}"}}],
     )
-    await guardrail.apply_guardrail(inputs=inputs, request_data={"litellm_call_id": "call-123"}, input_type="request")
+    await guardrail.apply_guardrail(inputs=inputs, request_data={"hangarllm_call_id": "call-123"}, input_type="request")
 
     call = _post_mock(guardrail).call_args
-    assert call.args[0] == f"{API_BASE}/v1/guardrails/litellm"
+    assert call.args[0] == f"{API_BASE}/v1/guardrails/hangarllm"
     assert call.kwargs["headers"] == {"Authorization": f"Bearer {API_KEY}"}
 
     payload = call.kwargs["json"]
@@ -175,7 +175,7 @@ async def test_request_payload_and_auth_header() -> None:
     assert payload["tools"] == [{"type": "function", "function": {"name": "f"}}]
     assert payload["tool_calls"] == [{"id": "c1", "function": {"name": "f", "arguments": "{}"}}]
     assert payload["model"] == "gpt-4o"
-    assert payload["litellm_call_id"] == "call-123"
+    assert payload["hangarllm_call_id"] == "call-123"
 
 
 @pytest.mark.asyncio
@@ -194,7 +194,7 @@ async def test_call_id_falls_back_to_a_generated_uuid() -> None:
 
     await guardrail.apply_guardrail(inputs=_inputs(), request_data={}, input_type="request")
 
-    call_id = _post_mock(guardrail).call_args.kwargs["json"]["litellm_call_id"]
+    call_id = _post_mock(guardrail).call_args.kwargs["json"]["hangarllm_call_id"]
     assert uuid.UUID(call_id).version == 4
 
 
@@ -362,11 +362,11 @@ async def test_streaming_redaction_actually_reaches_the_client() -> None:
     streaming iterator end to end (not just this guardrail's config attributes) and checks what
     the client would actually receive.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
         UnifiedLLMGuardrails,
     )
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     guardrail: Final = _make_guardrail_with_response(
         {"action": "GUARDRAIL_INTERVENED", "texts": ["Contact me at [EmailAddress1]"]},
@@ -405,10 +405,10 @@ async def test_streaming_redaction_actually_reaches_the_client() -> None:
 
 def _streamed_request(route: str | None) -> dict[str, object]:
     """A proxy request_data as the streaming hook sees it: `stream` set, and the route the proxy
-    stamped into the metadata bucket (`litellm_metadata` for the non-chat routes under test)."""
+    stamped into the metadata bucket (`hangarllm_metadata` for the non-chat routes under test)."""
     request_data: dict[str, object] = {"stream": True}  # mutable-ok: built once per test
     if route is not None:
-        request_data["litellm_metadata"] = {"user_api_key_request_route": route}
+        request_data["hangarllm_metadata"] = {"user_api_key_request_route": route}
     return request_data
 
 
@@ -446,7 +446,7 @@ async def test_streamed_redaction_on_chat_completions_is_still_delivered(route: 
 async def test_unstreamed_redaction_on_a_non_chat_route_is_delivered() -> None:
     """Only the stream cannot carry a rewrite; a non-streamed Responses call is rewritten as usual."""
     guardrail = _make_guardrail_with_response({"action": "GUARDRAIL_INTERVENED", "texts": ["[Redacted]"]})
-    request_data: dict[str, object] = {"litellm_metadata": {"user_api_key_request_route": "/v1/responses"}}
+    request_data: dict[str, object] = {"hangarllm_metadata": {"user_api_key_request_route": "/v1/responses"}}
 
     result = await guardrail.apply_guardrail(
         inputs=_inputs(texts=["secret"]), request_data=request_data, input_type="response"
@@ -472,7 +472,7 @@ async def test_stream_flag_is_also_read_from_the_proxied_request_body() -> None:
     guardrail = _make_guardrail_with_response({"action": "GUARDRAIL_INTERVENED", "texts": ["[Redacted]"]})
     request_data: dict[str, object] = {
         "proxy_server_request": {"body": {"stream": True}},
-        "litellm_metadata": {"user_api_key_request_route": "/v1/messages"},
+        "hangarllm_metadata": {"user_api_key_request_route": "/v1/messages"},
     }
 
     with pytest.raises(GuardrailRaisedException) as excinfo:
@@ -545,8 +545,8 @@ async def test_non_chat_streamed_route_releases_nothing_before_the_verdict(verdi
     support, so the framework takes its block_only fallback. streaming_buffer_until_moderated holds
     the text until the end-of-stream verdict; a block, and a redaction block_only could not deliver,
     both refuse the response without one original chunk reaching the client."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
         UnifiedLLMGuardrails,
     )
 

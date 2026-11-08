@@ -63,25 +63,25 @@ def _config(gateway: Gateway, directory: Path, vertex_port: int, openai_port: in
     config: Final[dict[str, JsonValue]] = {
         **base,
         "model_list": [
-            {"model_name": VERTEX, "litellm_params": vertex_params(gateway, f"http://127.0.0.1:{vertex_port}")},
+            {"model_name": VERTEX, "hangarllm_params": vertex_params(gateway, f"http://127.0.0.1:{vertex_port}")},
             {
                 "model_name": OPENAI,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": f"http://127.0.0.1:{openai_port}/v1",
                 },
             },
         ],
-        "litellm_settings": {
-            **_JSON.validate_python(base["litellm_settings"]),
+        "hangarllm_settings": {
+            **_JSON.validate_python(base["hangarllm_settings"]),
             "enable_loadbalancing_on_batch_endpoints": True,
         },
         "guardrails": [
             {
                 "guardrail_name": "tripwire-filter",
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "hangarllm_params": {
+                    "guardrail": "hangarllm_content_filter",
                     "mode": "pre_call",
                     "default_on": True,
                     "blocked_words": [{"keyword": "tripwire", "action": "BLOCK"}],

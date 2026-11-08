@@ -117,7 +117,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
         headers={"Authorization": f"Bearer {key}", "anthropic-version": "2023-06-01"},
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers["x-litellm-call-id"])
+    return _Served(call, response.status_code, raw.decode(), response.headers["x-hangarllm-call-id"])
 
 
 async def _burst(
@@ -174,7 +174,7 @@ def _assert_forwarded(forwarded: Mapping[str, Request], calls: tuple[_Call, ...]
 def _spend_rows(model: str, expected: int) -> Sequence[Mapping[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, litellm_call_id, status FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model,)
+            'SELECT request_id, hangarllm_call_id, status FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model,)
         ),
         lambda found: len(found) >= expected,
         seconds=70,
@@ -184,7 +184,7 @@ def _spend_rows(model: str, expected: int) -> Sequence[Mapping[str, JsonValue]]:
 def _assert_each_lands_once(
     rows: Sequence[Mapping[str, JsonValue]], failed: tuple[_Served, ...], served: tuple[_Served, ...]
 ) -> None:
-    by_call: Final = {string_value(row["litellm_call_id"]): row for row in rows}
+    by_call: Final = {string_value(row["hangarllm_call_id"]): row for row in rows}
     assert len(by_call) == len(rows) == len(failed) + len(served), rows
     for item in failed:
         assert by_call[item.call_id]["status"] == "failure", (item.call_id, rows)
@@ -248,7 +248,7 @@ def _chaos_config(vendor_url: str, directory: Path) -> Path:
             {
                 **config,
                 "model_list": [
-                    {"model_name": _CONFIG_MODEL, "litellm_params": {"model": _MODEL, "api_base": vendor_url}}
+                    {"model_name": _CONFIG_MODEL, "hangarllm_params": {"model": _MODEL, "api_base": vendor_url}}
                 ],
             }
         )

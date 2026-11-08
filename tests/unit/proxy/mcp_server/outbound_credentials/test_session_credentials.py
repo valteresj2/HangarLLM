@@ -8,10 +8,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.utils import base64url_decode, base64url_encode
 from pydantic import SecretStr
 
-from litellm.proxy.mcp_server.outbound_credentials.bridge_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials.bridge_credentials import (
     envelope_keys_from_master_key,
 )
-from litellm.proxy.mcp_server.outbound_credentials.session_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials.session_credentials import (
     NotSessionBearer,
     SessionBearerAdmitted,
     SessionBearerInvalid,
@@ -24,7 +24,7 @@ from litellm.proxy.mcp_server.outbound_credentials.session_credentials import (
     resolve_session_signing_keys,
     session_keys_from_master_key,
 )
-from litellm.proxy.mcp_server.outbound_credentials.session_token import (
+from hangarllm.proxy.mcp_server.outbound_credentials.session_token import (
     SESSION_TTL_SECONDS,
     AsymmetricSessionKeys,
     MintedSessionToken,

@@ -54,11 +54,11 @@ def _decode_unverified(token: str) -> Dict[str, Any]:
 
 def _make_signer(**kwargs: Any):
     # Reset singleton before each signer creation to avoid cross-test pollution
-    import litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
+    import hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
 
     mod._mcp_jwt_signer_instance = None
 
-    from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
         MCPJWTSigner,
     )
 
@@ -137,10 +137,10 @@ def test_get_jwks_format():
 
 def test_jwks_public_key_can_verify_signed_jwt():
     """A JWT signed by MCPJWTSigner can be verified using the JWKS public key."""
-    signer = _make_signer(issuer="https://litellm.example.com", audience="mcp")
+    signer = _make_signer(issuer="https://hangarllm.example.com", audience="mcp")
     now = int(time.time())
     claims = {
-        "iss": "https://litellm.example.com",
+        "iss": "https://hangarllm.example.com",
         "aud": "mcp",
         "iat": now,
         "exp": now + 300,
@@ -162,9 +162,9 @@ def test_jwks_public_key_can_verify_signed_jwt():
         pub_key,
         algorithms=["RS256"],
         audience="mcp",
-        issuer="https://litellm.example.com",
+        issuer="https://hangarllm.example.com",
     )
-    assert decoded["iss"] == "https://litellm.example.com"
+    assert decoded["iss"] == "https://hangarllm.example.com"
 
 
 # ---------------------------------------------------------------------------
@@ -175,14 +175,14 @@ def test_jwks_public_key_can_verify_signed_jwt():
 def test_build_claims_standard_fields():
     """_build_claims() populates iss, aud, iat, exp, nbf."""
     signer = _make_signer(
-        issuer="https://litellm.example.com", audience="mcp", ttl_seconds=300
+        issuer="https://hangarllm.example.com", audience="mcp", ttl_seconds=300
     )
     user_dict = _make_user_api_key_dict()
     data = {"mcp_tool_name": "get_weather"}
 
     claims = signer._build_claims(user_dict, data)
 
-    assert claims["iss"] == "https://litellm.example.com"
+    assert claims["iss"] == "https://hangarllm.example.com"
     assert claims["aud"] == "mcp"
     assert "iat" in claims
     assert "exp" in claims
@@ -234,8 +234,8 @@ def test_build_claims_scope_without_tool():
     assert not any(s.endswith(":call") for s in scopes)
 
 
-def test_build_claims_act_fallback_to_litellm_proxy():
-    """_build_claims() falls back to 'litellm-proxy' when team_id and org_id are absent."""
+def test_build_claims_act_fallback_to_hangarllm_proxy():
+    """_build_claims() falls back to 'hangarllm-proxy' when team_id and org_id are absent."""
     signer = _make_signer()
     user_dict = _make_user_api_key_dict()
     user_dict.team_id = None
@@ -243,7 +243,7 @@ def test_build_claims_act_fallback_to_litellm_proxy():
 
     claims = signer._build_claims(user_dict, {})
 
-    assert claims["act"]["sub"] == "litellm-proxy"
+    assert claims["act"]["sub"] == "hangarllm-proxy"
 
 
 def test_build_claims_sub_fallback_to_token_hash():
@@ -259,8 +259,8 @@ def test_build_claims_sub_fallback_to_token_hash():
     assert len(claims["sub"]) == len("apikey:") + 16  # sha256 hex[:16]
 
 
-def test_build_claims_sub_fallback_to_litellm_proxy_when_no_token():
-    """_build_claims() falls back to 'litellm-proxy' when user_id and token are both absent."""
+def test_build_claims_sub_fallback_to_hangarllm_proxy_when_no_token():
+    """_build_claims() falls back to 'hangarllm-proxy' when user_id and token are both absent."""
     signer = _make_signer()
     user_dict = _make_user_api_key_dict(user_id="")
     user_dict.user_id = None
@@ -269,7 +269,7 @@ def test_build_claims_sub_fallback_to_litellm_proxy_when_no_token():
 
     claims = signer._build_claims(user_dict, {})
 
-    assert claims["sub"] == "litellm-proxy"
+    assert claims["sub"] == "hangarllm-proxy"
 
 
 def test_init_raises_on_zero_ttl():
@@ -316,7 +316,7 @@ def test_jwks_max_age_auto_generated_key():
 @pytest.mark.asyncio
 async def test_hook_fires_for_call_mcp_tool():
     """async_pre_call_hook() injects Authorization header for call_mcp_tool."""
-    signer = _make_signer(issuer="https://litellm.example.com", audience="mcp")
+    signer = _make_signer(issuer="https://hangarllm.example.com", audience="mcp")
     user_dict = _make_user_api_key_dict()
     data = {"mcp_tool_name": "do_thing"}
 
@@ -356,7 +356,7 @@ async def test_hook_skips_non_mcp_call_types():
 async def test_hook_signs_list_mcp_tools():
     """async_pre_call_hook() signs JWT for list_mcp_tools with list scope."""
     signer = _make_signer(
-        issuer="https://litellm.example.com", audience="mcp", ttl_seconds=300
+        issuer="https://hangarllm.example.com", audience="mcp", ttl_seconds=300
     )
     user_dict = _make_user_api_key_dict(user_id="alice", team_id="backend")
     data = {"mcp_tool_name": "should_be_cleared", "extra_headers": {}}
@@ -384,7 +384,7 @@ async def test_hook_leaves_the_tool_catalog_scan_untouched():
     """A list_mcp_tools payload without an extra_headers bag is the tools/list description scan, not an
     upstream request to sign: the tool name must survive for the content guardrails that run after the signer."""
     signer = _make_signer(
-        issuer="https://litellm.example.com", audience="mcp", ttl_seconds=300
+        issuer="https://hangarllm.example.com", audience="mcp", ttl_seconds=300
     )
     user_dict = _make_user_api_key_dict(user_id="alice", team_id="backend")
     data = {"mcp_tool_name": "search", "mcp_tool_description": "Search the notes"}
@@ -406,7 +406,7 @@ async def test_hook_leaves_the_tool_catalog_scan_untouched():
 async def test_signed_token_is_verifiable():
     """The JWT injected by the hook can be verified against the JWKS public key."""
     signer = _make_signer(
-        issuer="https://litellm.example.com", audience="mcp", ttl_seconds=300
+        issuer="https://hangarllm.example.com", audience="mcp", ttl_seconds=300
     )
     user_dict = _make_user_api_key_dict(user_id="alice", team_id="backend")
     data = {"mcp_tool_name": "search"}
@@ -425,7 +425,7 @@ async def test_signed_token_is_verifiable():
     assert decoded["sub"] == "alice"
     assert decoded["act"]["sub"] == "backend"
     assert "mcp:tools/search:call" in decoded["scope"]
-    assert decoded["iss"] == "https://litellm.example.com"
+    assert decoded["iss"] == "https://hangarllm.example.com"
     assert decoded["aud"] == "mcp"
 
 
@@ -436,11 +436,11 @@ async def test_signed_token_is_verifiable():
 
 def test_get_mcp_jwt_signer_returns_none_before_init():
     """get_mcp_jwt_signer() returns None before any MCPJWTSigner is created."""
-    import litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
+    import hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
 
     mod._mcp_jwt_signer_instance = None
 
-    from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
         get_mcp_jwt_signer,
     )
 
@@ -449,7 +449,7 @@ def test_get_mcp_jwt_signer_returns_none_before_init():
 
 def test_get_mcp_jwt_signer_returns_instance_after_init():
     """get_mcp_jwt_signer() returns the initialized signer instance."""
-    from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
         get_mcp_jwt_signer,
     )
 
@@ -494,8 +494,8 @@ def test_tool_call_scope_no_list_permission():
 
 def test_end_user_claim_sources_token_sub():
     """end_user_claim_sources resolves sub from incoming JWT claims."""
-    signer = _make_signer(end_user_claim_sources=["token:sub", "litellm:user_id"])
-    user_dict = _make_user_api_key_dict(user_id="litellm-user")
+    signer = _make_signer(end_user_claim_sources=["token:sub", "hangarllm:user_id"])
+    user_dict = _make_user_api_key_dict(user_id="hangarllm-user")
     jwt_claims = {"sub": "idp-user-123", "email": "idp@example.com"}
 
     claims = signer._build_claims(user_dict, {}, jwt_claims=jwt_claims)
@@ -503,15 +503,15 @@ def test_end_user_claim_sources_token_sub():
     assert claims["sub"] == "idp-user-123"
 
 
-def test_end_user_claim_sources_falls_back_to_litellm_user_id():
-    """Falls back to litellm:user_id when token:sub is absent."""
-    signer = _make_signer(end_user_claim_sources=["token:sub", "litellm:user_id"])
-    user_dict = _make_user_api_key_dict(user_id="litellm-user")
+def test_end_user_claim_sources_falls_back_to_hangarllm_user_id():
+    """Falls back to hangarllm:user_id when token:sub is absent."""
+    signer = _make_signer(end_user_claim_sources=["token:sub", "hangarllm:user_id"])
+    user_dict = _make_user_api_key_dict(user_id="hangarllm-user")
     jwt_claims: Dict[str, Any] = {}  # no sub
 
     claims = signer._build_claims(user_dict, {}, jwt_claims=jwt_claims)
 
-    assert claims["sub"] == "litellm-user"
+    assert claims["sub"] == "hangarllm-user"
 
 
 def test_end_user_claim_sources_email_source():
@@ -526,9 +526,9 @@ def test_end_user_claim_sources_email_source():
     assert claims["sub"] == "alice@corp.com"
 
 
-def test_end_user_claim_sources_litellm_email():
-    """litellm:email resolves from UserAPIKeyAuth.user_email."""
-    signer = _make_signer(end_user_claim_sources=["litellm:email"])
+def test_end_user_claim_sources_hangarllm_email():
+    """hangarllm:email resolves from UserAPIKeyAuth.user_email."""
+    signer = _make_signer(end_user_claim_sources=["hangarllm:email"])
     user_dict = _make_user_api_key_dict(user_email="proxy-user@example.com")
     user_dict.user_id = None
 
@@ -711,7 +711,7 @@ def test_optional_claims_not_injected_if_absent():
 
 @pytest.mark.asyncio
 async def test_debug_header_injected_when_enabled():
-    """x-litellm-mcp-debug header is injected when debug_headers=True."""
+    """x-hangarllm-mcp-debug header is injected when debug_headers=True."""
     signer = _make_signer(debug_headers=True)
     user_dict = _make_user_api_key_dict()
     data = {"mcp_tool_name": "my_tool"}
@@ -724,8 +724,8 @@ async def test_debug_header_injected_when_enabled():
     )
 
     assert isinstance(result, dict)
-    assert "x-litellm-mcp-debug" in result["extra_headers"]
-    debug_val = result["extra_headers"]["x-litellm-mcp-debug"]
+    assert "x-hangarllm-mcp-debug" in result["extra_headers"]
+    debug_val = result["extra_headers"]["x-hangarllm-mcp-debug"]
     assert "v=1" in debug_val
     assert "kid=" in debug_val
     assert "sub=" in debug_val
@@ -733,7 +733,7 @@ async def test_debug_header_injected_when_enabled():
 
 @pytest.mark.asyncio
 async def test_debug_header_absent_when_disabled():
-    """x-litellm-mcp-debug is NOT injected when debug_headers=False (default)."""
+    """x-hangarllm-mcp-debug is NOT injected when debug_headers=False (default)."""
     signer = _make_signer()
     user_dict = _make_user_api_key_dict()
     data = {"mcp_tool_name": "tool"}
@@ -746,7 +746,7 @@ async def test_debug_header_absent_when_disabled():
     )
 
     assert isinstance(result, dict)
-    assert "x-litellm-mcp-debug" not in result["extra_headers"]
+    assert "x-hangarllm-mcp-debug" not in result["extra_headers"]
 
 
 # ---------------------------------------------------------------------------
@@ -793,11 +793,11 @@ async def test_extra_headers_are_merged_not_replaced():
 async def test_sub_resolved_from_user_api_key_dict_jwt_claims():
     """
     When no raw token is present but UserAPIKeyAuth.jwt_claims has a sub,
-    the guardrail resolves sub from jwt_claims (LiteLLM-decoded JWT path).
+    the guardrail resolves sub from jwt_claims (HangarLLM-decoded JWT path).
     """
-    signer = _make_signer(end_user_claim_sources=["token:sub", "litellm:user_id"])
-    user_dict = _make_user_api_key_dict(user_id="litellm-fallback")
-    # jwt_claims populated by LiteLLM's JWT auth machinery
+    signer = _make_signer(end_user_claim_sources=["token:sub", "hangarllm:user_id"])
+    user_dict = _make_user_api_key_dict(user_id="hangarllm-fallback")
+    # jwt_claims populated by HangarLLM's JWT auth machinery
     user_dict.jwt_claims = {"sub": "idp-alice", "email": "alice@idp.com"}
     data = {"mcp_tool_name": "query"}
 
@@ -825,45 +825,45 @@ def test_initialize_guardrail_passes_all_params():
     to MCPJWTSigner.  Previously only issuer/audience/ttl_seconds were passed;
     all FR-5/9/10/12/13/14/15 params were silently dropped.
     """
-    import litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
+    import hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
 
     mod._mcp_jwt_signer_instance = None
 
-    from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer import (
         initialize_guardrail,
     )
 
-    litellm_params = MagicMock()
-    litellm_params.mode = "pre_mcp_call"
-    litellm_params.default_on = True
-    litellm_params.optional_params = None
-    # Set every non-default param directly on litellm_params
-    litellm_params.issuer = "https://litellm.example.com"
-    litellm_params.audience = "mcp-test"
-    litellm_params.ttl_seconds = 120
-    litellm_params.access_token_discovery_uri = (
+    hangarllm_params = MagicMock()
+    hangarllm_params.mode = "pre_mcp_call"
+    hangarllm_params.default_on = True
+    hangarllm_params.optional_params = None
+    # Set every non-default param directly on hangarllm_params
+    hangarllm_params.issuer = "https://hangarllm.example.com"
+    hangarllm_params.audience = "mcp-test"
+    hangarllm_params.ttl_seconds = 120
+    hangarllm_params.access_token_discovery_uri = (
         "https://idp.example.com/.well-known/openid-configuration"
     )
-    litellm_params.token_introspection_endpoint = "https://idp.example.com/introspect"
-    litellm_params.verify_issuer = "https://idp.example.com"
-    litellm_params.verify_audience = "api://test"
-    litellm_params.end_user_claim_sources = ["token:email", "litellm:user_id"]
-    litellm_params.add_claims = {"deployment_id": "prod"}
-    litellm_params.set_claims = {"env": "production"}
-    litellm_params.remove_claims = ["nbf"]
-    litellm_params.channel_token_audience = "bedrock-gateway"
-    litellm_params.channel_token_ttl = 60
-    litellm_params.required_claims = ["sub", "email"]
-    litellm_params.optional_claims = ["groups"]
-    litellm_params.debug_headers = True
-    litellm_params.allowed_scopes = ["mcp:tools/call"]
+    hangarllm_params.token_introspection_endpoint = "https://idp.example.com/introspect"
+    hangarllm_params.verify_issuer = "https://idp.example.com"
+    hangarllm_params.verify_audience = "api://test"
+    hangarllm_params.end_user_claim_sources = ["token:email", "hangarllm:user_id"]
+    hangarllm_params.add_claims = {"deployment_id": "prod"}
+    hangarllm_params.set_claims = {"env": "production"}
+    hangarllm_params.remove_claims = ["nbf"]
+    hangarllm_params.channel_token_audience = "bedrock-gateway"
+    hangarllm_params.channel_token_ttl = 60
+    hangarllm_params.required_claims = ["sub", "email"]
+    hangarllm_params.optional_claims = ["groups"]
+    hangarllm_params.debug_headers = True
+    hangarllm_params.allowed_scopes = ["mcp:tools/call"]
 
     guardrail = {"guardrail_name": "mcp-jwt-signer"}
 
-    with patch("litellm.logging_callback_manager.add_litellm_callback"):
-        signer = initialize_guardrail(litellm_params, guardrail)
+    with patch("hangarllm.logging_callback_manager.add_hangarllm_callback"):
+        signer = initialize_guardrail(hangarllm_params, guardrail)
 
-    assert signer.issuer == "https://litellm.example.com"
+    assert signer.issuer == "https://hangarllm.example.com"
     assert signer.audience == "mcp-test"
     assert signer.ttl_seconds == 120
     assert (
@@ -873,7 +873,7 @@ def test_initialize_guardrail_passes_all_params():
     assert signer.token_introspection_endpoint == "https://idp.example.com/introspect"
     assert signer.verify_issuer == "https://idp.example.com"
     assert signer.verify_audience == "api://test"
-    assert signer.end_user_claim_sources == ["token:email", "litellm:user_id"]
+    assert signer.end_user_claim_sources == ["token:email", "hangarllm:user_id"]
     assert signer.add_claims == {"deployment_id": "prod"}
     assert signer.set_claims == {"env": "production"}
     assert signer.remove_claims == ["nbf"]
@@ -890,7 +890,7 @@ def test_initialize_guardrail_passes_all_params():
 #        _introspect_opaque_token
 # ---------------------------------------------------------------------------
 
-import litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as _signer_mod
+import hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as _signer_mod
 
 
 def _make_httpx_response(json_body: dict, status_code: int = 200):
@@ -923,7 +923,7 @@ async def test_fetch_jwks_returns_keys_and_caches():
     mock_client.get = AsyncMock(return_value=fake_resp)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=mock_client,
     ):
         keys = await _signer_mod._fetch_jwks("https://idp.example.com/jwks")
@@ -947,7 +947,7 @@ async def test_fetch_jwks_uses_cache_on_second_call():
     mock_client.get = AsyncMock()
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=mock_client,
     ):
         keys = await _signer_mod._fetch_jwks("https://idp.example.com/jwks")
@@ -974,7 +974,7 @@ async def test_get_oidc_discovery_caches_when_jwks_uri_present():
     }
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_oidc_discovery",
+        "hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_oidc_discovery",
         new_callable=AsyncMock,
         return_value=discovery_doc,
     ):
@@ -995,7 +995,7 @@ async def test_get_oidc_discovery_does_not_cache_when_jwks_uri_absent():
     bad_doc = {"issuer": "https://idp.example.com"}  # no jwks_uri
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_oidc_discovery",
+        "hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_oidc_discovery",
         new_callable=AsyncMock,
         return_value=bad_doc,
     ) as mock_fetch:
@@ -1046,7 +1046,7 @@ async def test_verify_incoming_jwt_returns_payload_on_valid_token():
         return_value={"jwks_uri": "https://idp.example.com/jwks"},
     ):
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_jwks",
+            "hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_jwks",
             new_callable=AsyncMock,
             return_value=jwks["keys"],
         ):
@@ -1078,7 +1078,7 @@ async def test_verify_incoming_jwt_raises_on_expired_token():
         return_value={"jwks_uri": "https://idp.example.com/jwks"},
     ):
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_jwks",
+            "hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer._fetch_jwks",
             new_callable=AsyncMock,
             return_value=jwks["keys"],
         ):
@@ -1106,7 +1106,7 @@ async def test_introspect_opaque_token_returns_claims_when_active():
     mock_client.post = AsyncMock(return_value=fake_resp)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=mock_client,
     ):
         result = await signer._introspect_opaque_token("opaque-token-abc")
@@ -1127,7 +1127,7 @@ async def test_introspect_opaque_token_raises_on_inactive_token():
     mock_client.post = AsyncMock(return_value=fake_resp)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=mock_client,
     ):
         with pytest.raises(jwt.ExpiredSignatureError):
@@ -1215,8 +1215,8 @@ def test_build_scope_default_is_list_only_when_no_call_type():
 @pytest.mark.asyncio
 async def test_inject_mcp_jwt_returns_unchanged_when_signer_not_configured():
     """No signer configured -> return a fresh copy of extra_headers untouched."""
-    import litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer as mod
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     mod._mcp_jwt_signer_instance = None
     headers = {"X-Trace-Id": "abc"}
@@ -1233,7 +1233,7 @@ async def test_inject_mcp_jwt_returns_unchanged_when_signer_not_configured():
 @pytest.mark.asyncio
 async def test_inject_mcp_jwt_returns_unchanged_when_user_dict_none():
     """No user_api_key_dict -> short-circuit without invoking the signer."""
-    from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
         inject_mcp_jwt_headers_for_upstream,
     )
 
@@ -1248,12 +1248,12 @@ async def test_inject_mcp_jwt_returns_unchanged_when_user_dict_none():
 @pytest.mark.asyncio
 async def test_inject_mcp_jwt_signs_for_list_tools_path():
     """When for_list_tools=True, signer is invoked with list_mcp_tools call_type."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
         inject_mcp_jwt_headers_for_upstream,
     )
 
-    _make_signer(issuer="https://litellm.example.com", audience="mcp", ttl_seconds=300)
+    _make_signer(issuer="https://hangarllm.example.com", audience="mcp", ttl_seconds=300)
     user_dict = UserAPIKeyAuth(api_key="sk-test", user_id="alice")
 
     result = await inject_mcp_jwt_headers_for_upstream(
@@ -1273,12 +1273,12 @@ async def test_inject_mcp_jwt_signs_for_list_tools_path():
 @pytest.mark.asyncio
 async def test_inject_mcp_jwt_signs_for_tool_call_path():
     """for_list_tools=False with a tool name signs a call_mcp_tool JWT."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
         inject_mcp_jwt_headers_for_upstream,
     )
 
-    _make_signer(issuer="https://litellm.example.com", audience="mcp", ttl_seconds=300)
+    _make_signer(issuer="https://hangarllm.example.com", audience="mcp", ttl_seconds=300)
     user_dict = UserAPIKeyAuth(api_key="sk-test", user_id="alice")
 
     result = await inject_mcp_jwt_headers_for_upstream(

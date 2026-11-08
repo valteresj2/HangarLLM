@@ -8,10 +8,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.cohere.chat.transformation import CohereChatConfig
-from litellm.llms.cohere.chat.v2_transformation import CohereV2ChatConfig
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.cohere.chat.transformation import CohereChatConfig
+from hangarllm.llms.cohere.chat.v2_transformation import CohereV2ChatConfig
 from unittest.mock import AsyncMock, patch
 
 COHERE_V1_CHAT_URL: Final = "https://api.cohere.ai/v1/chat"
@@ -21,10 +21,10 @@ COHERE_V2_CHAT_URL: Final = "https://api.cohere.com/v2/chat"
 @pytest.fixture
 def _cohere_httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
-    monkeypatch.setattr(litellm, "sync_transport", None, raising=False)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "sync_transport", None, raising=False)
     yield
     client_cache.flush_cache()
 
@@ -154,7 +154,7 @@ class TestCohereV2Transform:
 
     def test_v2_default_route_accepts_max_completion_tokens(self):
         """The default cohere_chat route resolves to v2; max_completion_tokens must not raise"""
-        optional_params = litellm.get_optional_params(
+        optional_params = hangarllm.get_optional_params(
             model=self.model,
             custom_llm_provider="cohere_chat",
             max_completion_tokens=256,
@@ -223,11 +223,11 @@ async def test_cohere_request_body_with_allowed_params():
 
     # Mock the AsyncHTTPHandler.post method at the module level
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="cohere/v1/command",
                 messages=[{"content": "what llm are you", "role": "user"}],
                 allowed_openai_params=["tools", "response_format", "reasoning_effort"],
@@ -268,7 +268,7 @@ async def test_cohere_documents_options_in_request_body():
 
     # Mock the AsyncHTTPHandler.post method
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
         try:
@@ -287,7 +287,7 @@ async def test_cohere_documents_options_in_request_body():
                     }
                 },
             ]
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="cohere_chat/command-a-03-2025",
                 messages=[{"role": "user", "content": "Test message"}],
                 documents=test_documents,
@@ -314,8 +314,8 @@ def test_cohere_invalid_max_tokens_maps_to_bad_request_error(
         400, json={"message": "invalid request: max_tokens must be a number"}
     )
 
-    with pytest.raises(litellm.BadRequestError) as error:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as error:
+        hangarllm.completion(
             model="command-nightly",
             messages=[{"content": "hey, how's it going?", "role": "user"}],
             max_tokens="hello world",
@@ -389,7 +389,7 @@ async def test_chat_completion_cohere_citations(respx_mock: respx.MockRouter, st
         )
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="cohere_chat/v1/command-r",
         messages=[{"role": "user", "content": "Which penguins are the tallest?"}],
         documents=documents,
@@ -424,7 +424,7 @@ def test_completion_cohere_command_r_plus_function_call(respx_mock: respx.MockRo
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="cohere_chat/v1/command-r-plus",
         messages=[{"role": "user", "content": "What's the weather like in Boston today in Fahrenheit?"}],
         tools=[WEATHER_TOOL],
@@ -473,7 +473,7 @@ async def test_cohere_v2_chat_completion(respx_mock: respx.MockRouter, sync_mode
         "api_key": "cohere-test-key",
     }
 
-    response: Final = litellm.completion(**kwargs) if sync_mode else await litellm.acompletion(**kwargs)
+    response: Final = hangarllm.completion(**kwargs) if sync_mode else await hangarllm.acompletion(**kwargs)
 
     assert json.loads(route.calls.last.request.content) == {
         "model": "command-a-03-2025",
@@ -512,7 +512,7 @@ async def test_cohere_v2_streaming(respx_mock: respx.MockRouter, stream: bool) -
         )
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="cohere_chat/v2/command-a-03-2025",
         messages=[{"role": "user", "content": "Tell me a short story about a robot."}],
         max_tokens=100,
@@ -562,7 +562,7 @@ def test_cohere_v2_tool_calling(respx_mock: respx.MockRouter) -> None:
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="cohere_chat/v2/command-a-03-2025",
         messages=[{"role": "user", "content": "What's the weather like in New York?"}],
         tools=[tool],
@@ -598,7 +598,7 @@ def test_cohere_v2_maps_finish_reason(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="cohere_chat/v2/command-a-03-2025",
         messages=[{"role": "user", "content": "Say hello"}],
         api_key="cohere-test-key",
@@ -617,7 +617,7 @@ def test_cohere_v2_missing_finish_reason_defaults_to_stop(respx_mock: respx.Mock
     }
     respx_mock.post(COHERE_V2_CHAT_URL).mock(return_value=httpx.Response(200, json=body_without_finish_reason))
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="cohere_chat/v2/command-a-03-2025",
         messages=[{"role": "user", "content": "Say hello"}],
         api_key="cohere-test-key",
@@ -665,7 +665,7 @@ async def test_cohere_v2_annotations(respx_mock: respx.MockRouter) -> None:
         )
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="cohere_chat/v2/command-a-03-2025",
         messages=[{"role": "user", "content": "What are the benefits of renewable energy?"}],
         documents=documents,
@@ -705,7 +705,7 @@ def test_cohere_v2_parameter_mapping(respx_mock: respx.MockRouter) -> None:
         return_value=httpx.Response(200, json=_cohere_v2_response({"content": [{"type": "text", "text": "A story."}]}))
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="cohere_chat/v2/command-a-03-2025",
         messages=messages,
         temperature=0.7,
@@ -740,8 +740,8 @@ def test_cohere_v2_error_handling(respx_mock: respx.MockRouter) -> None:
         )
     )
 
-    with pytest.raises(litellm.BadRequestError) as error:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as error:
+        hangarllm.completion(
             model="cohere_chat/v2/invalid-model",
             messages=[{"role": "user", "content": "Hello"}],
             max_tokens=10,
@@ -799,7 +799,7 @@ async def test_cohere_v2_stream_returns_parallel_tool_calls(respx_mock: respx.Mo
         return_value=httpx.Response(200, content="".join(json.dumps(event) + "\n" for event in stream_events).encode())
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="cohere_chat/v2/command-a-plus-05-2026",
         messages=[{"role": "user", "content": "What is the weather in Paris and in Tokyo?"}],
         tools=[
@@ -815,7 +815,7 @@ async def test_cohere_v2_stream_returns_parallel_tool_calls(respx_mock: respx.Mo
         api_key="cohere-test-key",
     )
     chunks: Final = [chunk async for chunk in response]
-    rebuilt: Final = litellm.stream_chunk_builder(chunks)
+    rebuilt: Final = hangarllm.stream_chunk_builder(chunks)
 
     assert rebuilt is not None
     assert [
@@ -853,7 +853,7 @@ async def test_cohere_v2_stream_closes_argument_less_tool_call_with_empty_object
         return_value=httpx.Response(200, content="".join(json.dumps(event) + "\n" for event in stream_events).encode())
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="cohere_chat/v2/command-a-plus-05-2026",
         messages=[{"role": "user", "content": "What time is it on the server?"}],
         tools=[

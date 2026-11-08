@@ -2,7 +2,7 @@
 """
 Mock Prompt Management API Server
 
-This is a FastAPI server that implements the LiteLLM Generic Prompt Management API
+This is a FastAPI server that implements the HangarLLM Generic Prompt Management API
 for testing and demonstration purposes.
 
 Usage:
@@ -11,7 +11,7 @@ Usage:
 The server will start on http://localhost:8080
 
 Test the endpoint:
-    curl "http://localhost:8080/beta/litellm_prompt_management?prompt_id=hello-world-prompt"
+    curl "http://localhost:8080/beta/hangarllm_prompt_management?prompt_id=hello-world-prompt"
 """
 
 import os
@@ -157,7 +157,7 @@ VALID_API_TOKENS = {
 
 app = FastAPI(
     title="Mock Prompt Management API",
-    description="A mock server implementing the LiteLLM Generic Prompt Management API",
+    description="A mock server implementing the HangarLLM Generic Prompt Management API",
     version="1.0.0",
 )
 
@@ -194,7 +194,7 @@ def verify_api_key(authorization: Optional[str] = Header(None)) -> bool:
     return True
 
 
-@app.get("/beta/litellm_prompt_management", response_model=PromptResponse)
+@app.get("/beta/hangarllm_prompt_management", response_model=PromptResponse)
 async def get_prompt(
     prompt_id: str = Query(..., description="The ID of the prompt to fetch"),
     project_name: Optional[str] = Query(
@@ -207,7 +207,7 @@ async def get_prompt(
     """
     Get a prompt by ID with optional filtering.
 
-    This endpoint implements the LiteLLM Generic Prompt Management API specification.
+    This endpoint implements the HangarLLM Generic Prompt Management API specification.
 
     Args:
         prompt_id: The ID of the prompt to fetch
@@ -266,7 +266,7 @@ async def list_prompts(authorization: Optional[str] = Header(None)):
     """
     List all available prompts.
 
-    This is a convenience endpoint (not part of the LiteLLM spec) for
+    This is a convenience endpoint (not part of the HangarLLM spec) for
     discovering available prompts.
     """
     # Verify authentication
@@ -293,7 +293,7 @@ async def get_prompt_variables(
     """
     Get all variables in a prompt template.
 
-    This is a convenience endpoint (not part of the LiteLLM spec) for
+    This is a convenience endpoint (not part of the HangarLLM spec) for
     discovering what variables a prompt expects.
     """
     # Verify authentication
@@ -334,7 +334,7 @@ async def create_prompt(
     """
     Create a new prompt (convenience endpoint for testing).
 
-    This is NOT part of the LiteLLM spec - it's just for testing purposes.
+    This is NOT part of the HangarLLM spec - it's just for testing purposes.
     """
     # Verify authentication
     verify_api_key(authorization)
@@ -373,7 +373,7 @@ if __name__ == "__main__":
     print("  - dev-token-67890")
     print("  - prod-token-abcdef")
     print("\nEndpoints:")
-    print("  GET  /beta/litellm_prompt_management?prompt_id=<id>  (LiteLLM spec)")
+    print("  GET  /beta/hangarllm_prompt_management?prompt_id=<id>  (HangarLLM spec)")
     print("  GET  /health                                          (health check)")
     print("  GET  /prompts                                         (list all prompts)")
     print(
@@ -382,7 +382,7 @@ if __name__ == "__main__":
     print("  POST /prompts                                         (create prompt)")
     print("\nExample usage:")
     print(
-        '  curl "http://localhost:8080/beta/litellm_prompt_management?prompt_id=hello-world-prompt"'
+        '  curl "http://localhost:8080/beta/hangarllm_prompt_management?prompt_id=hello-world-prompt"'
     )
     print("\nPress CTRL+C to stop the server")
     print("=" * 70)

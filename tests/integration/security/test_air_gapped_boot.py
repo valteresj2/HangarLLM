@@ -9,7 +9,7 @@ from integration._support.client import Gateway, string_value
 from integration._support.forward_proxy import refusing_forward_proxy
 from integration._support.process import owned_proxy
 
-_BUNDLED_COST_MAP: Final = Path(__file__).resolve().parents[3] / "litellm/model_prices_and_context_window_backup.json"
+_BUNDLED_COST_MAP: Final = Path(__file__).resolve().parents[3] / "hangarllm/model_prices_and_context_window_backup.json"
 
 
 def _git_blob_id(body: bytes) -> str:
@@ -25,7 +25,7 @@ def test_proxy_becomes_ready_without_network(gateway: Gateway, tmp_path: Path) -
             "NO_PROXY": "127.0.0.1,localhost",
         }
         with owned_proxy(
-            gateway, tmp_path, no_network, remove_environment=("LITELLM_LOCAL_MODEL_COST_MAP", "LITELLM_LICENSE")
+            gateway, tmp_path, no_network, remove_environment=("HANGARLLM_LOCAL_MODEL_COST_MAP", "HANGARLLM_LICENSE")
         ) as isolated:
             readiness: Final = isolated.request("GET", "/health/readiness")
             source: Final = isolated.get("/model/cost_map/source")

@@ -3,9 +3,9 @@ from typing import Final
 
 import pytest
 
-from litellm import constants
-from litellm.constants import PTU_SENTINEL_API_KEY
-from litellm.repositories.daily_activity_sql import (
+from hangarllm import constants
+from hangarllm.constants import PTU_SENTINEL_API_KEY
+from hangarllm.repositories.daily_activity_sql import (
     ExportCursor,
     adjust_dates_for_timezone,
     build_aggregated_sql,
@@ -18,8 +18,8 @@ from litellm.repositories.daily_activity_sql import (
     build_user_page_sql,
     build_where_clause,
 )
-from litellm.types.proxy.management_endpoints.common_daily_activity import SpendMetrics
-from litellm.types.repositories.daily_activity import DailyActivityScope, DailyActivityTable, ExportType
+from hangarllm.types.proxy.management_endpoints.common_daily_activity import SpendMetrics
+from hangarllm.types.repositories.daily_activity import DailyActivityScope, DailyActivityTable, ExportType
 
 
 def _scope(
@@ -81,12 +81,12 @@ def test_where_clause_binds_each_filter_as_a_single_array_parameter() -> None:
 
 
 def test_where_clause_exclusion_keeps_null_entity_rows() -> None:
-    scope = _scope(table=DailyActivityTable.TEAM, entity_ids=None, exclude_entity_ids=("litellm-dashboard",))
+    scope = _scope(table=DailyActivityTable.TEAM, entity_ids=None, exclude_entity_ids=("hangarllm-dashboard",))
 
     sql, params = build_where_clause(scope)
 
     assert sql == 'date >= $1 AND date <= $2 AND ("team_id" IS NULL OR NOT ("team_id" = ANY($3::text[])))'
-    assert params == ("2026-01-01", "2026-01-31", ["litellm-dashboard"])
+    assert params == ("2026-01-01", "2026-01-31", ["hangarllm-dashboard"])
 
 
 @pytest.mark.parametrize(
@@ -299,7 +299,7 @@ def test_aggregated_query_binds_sentinel_and_api_key_limit_after_scope_values() 
 
     assert "api_key <> $4" in query.sql
     assert "LIMIT $5" in query.sql
-    assert 'FROM "LiteLLM_DailyUserSpend"' in query.sql
+    assert 'FROM "HangarLLM_DailyUserSpend"' in query.sql
     assert query.params == (
         "2026-01-01",
         "2026-01-31",
@@ -343,10 +343,10 @@ def test_search_query_escapes_pattern_metacharacters_and_binds_limit() -> None:
     query = build_key_search_sql(_scope(entity_ids=None), search=r"foo%_\bar", limit=4)
 
     assert "OR api_key IN (" in query.sql
-    assert 'SELECT v.token FROM "LiteLLM_VerificationToken" v' in query.sql
-    assert 'LEFT JOIN "LiteLLM_UserTable" u ON u.user_id = v.user_id' in query.sql
-    assert 'SELECT d.token FROM "LiteLLM_DeletedVerificationToken" d' in query.sql
-    assert 'LEFT JOIN "LiteLLM_UserTable" u ON u.user_id = d.user_id' in query.sql
+    assert 'SELECT v.token FROM "HangarLLM_VerificationToken" v' in query.sql
+    assert 'LEFT JOIN "HangarLLM_UserTable" u ON u.user_id = v.user_id' in query.sql
+    assert 'SELECT d.token FROM "HangarLLM_DeletedVerificationToken" d' in query.sql
+    assert 'LEFT JOIN "HangarLLM_UserTable" u ON u.user_id = d.user_id' in query.sql
     assert "d.key_alias ILIKE $3 ESCAPE" in query.sql
     assert "d.user_id ILIKE $3 ESCAPE" in query.sql
     assert "v.key_alias ILIKE $3 ESCAPE" in query.sql
@@ -399,14 +399,14 @@ def test_query_builders_reject_nonpositive_limits(builder) -> None:
             "CASE WHEN api_key = '' THEN 'unattributed' "
             "WHEN api_key = 'unattributed' OR api_key LIKE 'raw:%' THEN 'raw:' || api_key ELSE api_key END",
             "api_key <> $3",
-            'LEFT JOIN "LiteLLM_VerificationToken"',
+            'LEFT JOIN "HangarLLM_VerificationToken"',
         ),
         (ExportType.DAILY_WITH_MODELS, "COALESCE(NULLIF(model, ''), 'unknown-model')", "api_key <> $3", ""),
         (
             ExportType.DAILY_WITH_USERS,
             "COALESCE(vt.user_id, dvt.user_id, '')",
             "api_key <> $3",
-            'LEFT JOIN "LiteLLM_VerificationToken"',
+            'LEFT JOIN "HangarLLM_VerificationToken"',
         ),
     ],
 )
@@ -446,7 +446,7 @@ def test_export_groups_by_requested_key_and_binds_cursor_after_scope(
 def test_export_uses_latest_deleted_key_metadata(export_type: ExportType) -> None:
     query = build_export_sql(_scope(entity_ids=None), export_type=export_type, after=None, batch_size=2)
 
-    assert 'FROM "LiteLLM_DeletedVerificationToken"' in query.sql
+    assert 'FROM "HangarLLM_DeletedVerificationToken"' in query.sql
     assert "ORDER BY deleted_at DESC" in query.sql
     assert "COALESCE(vt.user_id, dvt.user_id)" in query.sql
 

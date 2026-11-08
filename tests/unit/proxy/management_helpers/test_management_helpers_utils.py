@@ -7,18 +7,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm._uuid import uuid
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+import hangarllm
+from hangarllm._uuid import uuid
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
     Member,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_helpers.utils import add_new_member
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.management_helpers.utils import add_new_member
+from hangarllm.proxy.utils import PrismaClient
 
 
 @pytest.mark.asyncio
@@ -34,12 +34,12 @@ async def test_management_otel_span_redacts_mcp_global_env_var_secrets(monkeypat
     """
     import datetime
 
-    from litellm.proxy._types import (
-        LiteLLM_MCPServerTable,
+    from hangarllm.proxy._types import (
+        HangarLLM_MCPServerTable,
         MCPEnvVar,
         MCPEnvVarScope,
     )
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     captured = {}
 
@@ -49,13 +49,13 @@ async def test_management_otel_span_redacts_mcp_global_env_var_secrets(monkeypat
         ):
             captured["response"] = logging_payload.response
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", _FakeOtelLogger())
     monkeypatch.setattr(mgmt_utils, "is_otel_v2_enabled", lambda: False)
 
     secret = "s3cr3t-p@ss"
-    result = LiteLLM_MCPServerTable(
+    result = HangarLLM_MCPServerTable(
         server_id="srv-1",
         alias="echo",
         url="http://localhost:8765/mcp",
@@ -108,13 +108,13 @@ async def test_management_otel_span_redacts_nested_submission_env_var_secrets(
     """
     import datetime
 
-    from litellm.proxy._types import (
-        LiteLLM_MCPServerTable,
+    from hangarllm.proxy._types import (
+        HangarLLM_MCPServerTable,
         MCPEnvVar,
         MCPEnvVarScope,
         MCPSubmissionsSummary,
     )
-    from litellm.proxy.management_helpers import utils as mgmt_utils
+    from hangarllm.proxy.management_helpers import utils as mgmt_utils
 
     captured = {}
 
@@ -124,13 +124,13 @@ async def test_management_otel_span_redacts_nested_submission_env_var_secrets(
         ):
             captured["response"] = logging_payload.response
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", _FakeOtelLogger())
     monkeypatch.setattr(mgmt_utils, "is_otel_v2_enabled", lambda: False)
 
     secret = "s3cr3t-submission"
-    server = LiteLLM_MCPServerTable(
+    server = HangarLLM_MCPServerTable(
         server_id="srv-sub",
         alias="echo",
         url="http://localhost:8765/mcp",
@@ -171,7 +171,7 @@ async def test_management_otel_span_redacts_nested_submission_env_var_secrets(
 
 @pytest.mark.asyncio
 async def test_add_new_member_links_default_team_budget_id():
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     test_user_id = "test_user_123"
     test_team_id = "test_team_456"
@@ -181,7 +181,7 @@ async def test_add_new_member_links_default_team_budget_id():
     new_member = Member(user_id=test_user_id, role="user")
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -194,17 +194,17 @@ async def test_add_new_member_links_default_team_budget_id():
         "teams": [test_team_id],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_response)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_response)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_response
     )
 
     mock_default_budget_row = MagicMock()
     mock_default_budget_row.budget_id = test_default_budget_id
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(
         return_value=mock_default_budget_row
     )
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock()
 
     # Mock the team membership creation
     mock_team_membership_response = MagicMock()
@@ -212,9 +212,9 @@ async def test_add_new_member_links_default_team_budget_id():
         "team_id": test_team_id,
         "user_id": test_user_id,
         "budget_id": test_default_budget_id,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(
         return_value=mock_team_membership_response
     )
 
@@ -224,7 +224,7 @@ async def test_add_new_member_links_default_team_budget_id():
         prisma_client=mock_prisma_client,
         team_id=test_team_id,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=test_admin_name,
+        hangarllm_proxy_admin_name=test_admin_name,
         default_team_budget_id=test_default_budget_id,
     )
 
@@ -234,16 +234,16 @@ async def test_add_new_member_links_default_team_budget_id():
     assert result_team_membership is not None
     assert result_team_membership.budget_id == test_default_budget_id
 
-    mock_prisma_client.db.litellm_usertable.upsert.assert_called_once()
-    mock_prisma_client.db.litellm_teammembership.upsert.assert_called_once()
+    mock_prisma_client.db.hangarllm_usertable.upsert.assert_called_once()
+    mock_prisma_client.db.hangarllm_teammembership.upsert.assert_called_once()
 
-    mock_prisma_client.db.litellm_budgettable.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique.assert_called_once_with(
         where={"budget_id": test_default_budget_id}
     )
-    mock_prisma_client.db.litellm_budgettable.create.assert_not_called()
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_not_called()
 
     team_membership_call_args = (
-        mock_prisma_client.db.litellm_teammembership.upsert.call_args
+        mock_prisma_client.db.hangarllm_teammembership.upsert.call_args
     )
     create_data = team_membership_call_args.kwargs["data"]["create"]
     assert create_data["budget_id"] == test_default_budget_id
@@ -251,24 +251,24 @@ async def test_add_new_member_links_default_team_budget_id():
 
 @pytest.mark.asyncio
 async def test_handle_budget_for_entity_updates_with_existing_budget_id_in_request() -> None:
-    from litellm.proxy.management_helpers.utils import handle_budget_for_entity
-    from litellm.types.tag_management import TagUpdateRequest
+    from hangarllm.proxy.management_helpers.utils import handle_budget_for_entity
+    from hangarllm.types.tag_management import TagUpdateRequest
 
     budget_update: Final = AsyncMock()
     prisma_client: Final = cast(
         PrismaClient,
-        SimpleNamespace(db=SimpleNamespace(litellm_budgettable=SimpleNamespace(update=budget_update))),
+        SimpleNamespace(db=SimpleNamespace(hangarllm_budgettable=SimpleNamespace(update=budget_update))),
     )
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
     ):
         budget_id: Final = await handle_budget_for_entity(
             data=TagUpdateRequest(name="budget-tag", budget_id="budget-1", max_budget=20),
             existing_budget_id="budget-1",
             user_api_key_dict=UserAPIKeyAuth(user_id="admin"),
             prisma_client=prisma_client,
-            litellm_proxy_admin_name="admin",
+            hangarllm_proxy_admin_name="admin",
         )
 
     assert budget_id == "budget-1"
@@ -296,27 +296,27 @@ async def test_handle_budget_for_entity_updates_only_cleared_or_supplied_fields(
     should_update: bool,
     expected_max_budget: float | None,
 ) -> None:
-    from litellm.proxy.management_helpers.utils import handle_budget_for_entity
-    from litellm.types.tag_management import TagUpdateRequest
+    from hangarllm.proxy.management_helpers.utils import handle_budget_for_entity
+    from hangarllm.types.tag_management import TagUpdateRequest
 
     request_data: Final = {"name": "budget-tag", **request_fields}
     tag: Final = TagUpdateRequest.model_validate(request_data)
     budget_update: Final = AsyncMock()
     prisma_client: Final = cast(
         PrismaClient,
-        SimpleNamespace(db=SimpleNamespace(litellm_budgettable=SimpleNamespace(update=budget_update))),
+        SimpleNamespace(db=SimpleNamespace(hangarllm_budgettable=SimpleNamespace(update=budget_update))),
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
     ):
         await handle_budget_for_entity(
             data=tag,
             existing_budget_id="budget-1",
             user_api_key_dict=UserAPIKeyAuth(user_id="admin"),
             prisma_client=prisma_client,
-            litellm_proxy_admin_name="admin",
+            hangarllm_proxy_admin_name="admin",
             cleared_budget_fields=cleared_budget_fields,
         )
 
@@ -340,11 +340,11 @@ async def test_handle_budget_for_entity_updates_only_cleared_or_supplied_fields(
 
 @pytest.mark.asyncio
 async def test_add_new_member_no_budget_when_default_budget_row_is_missing():
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     new_member = Member(user_id="missing-default-user", role="user")
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -355,20 +355,20 @@ async def test_add_new_member_no_budget_when_default_budget_row_is_missing():
         "teams": ["team-md"],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_response)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_response)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_response
     )
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(return_value=None)
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock()
     mock_membership = MagicMock()
     mock_membership.model_dump.return_value = {
         "team_id": "team-md",
         "user_id": "missing-default-user",
         "budget_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(return_value=mock_membership)
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(return_value=mock_membership)
 
     _, result_team_membership = await add_new_member(
         new_member=new_member,
@@ -376,14 +376,14 @@ async def test_add_new_member_no_budget_when_default_budget_row_is_missing():
         prisma_client=mock_prisma_client,
         team_id="team-md",
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name="test_admin",
+        hangarllm_proxy_admin_name="test_admin",
         default_team_budget_id="deleted-default",
     )
 
     assert result_team_membership is not None
     assert result_team_membership.budget_id is None
-    mock_prisma_client.db.litellm_budgettable.create.assert_not_called()
-    upsert_kwargs = mock_prisma_client.db.litellm_teammembership.upsert.call_args.kwargs
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_not_called()
+    upsert_kwargs = mock_prisma_client.db.hangarllm_teammembership.upsert.call_args.kwargs
     assert upsert_kwargs["data"]["create"] == {"user_id": "missing-default-user", "team_id": "team-md"}
 
 
@@ -393,11 +393,11 @@ async def test_add_new_member_budget_duration_only_clones_default_max_budget():
     budget, the member must clone the default (keeping its max_budget) and just
     override the reset window. Creating a fresh duration-only row instead would
     silently drop the team default's cap, leaving the member uncapped."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     new_member = Member(user_id="dur-clone-user", role="user")
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -408,8 +408,8 @@ async def test_add_new_member_budget_duration_only_clones_default_max_budget():
         "teams": ["team-dc"],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_response)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_response)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_response
     )
     mock_default_budget_row = MagicMock()
@@ -424,12 +424,12 @@ async def test_add_new_member_budget_duration_only_clones_default_max_budget():
         "budget_duration": "1d",
         "allowed_models": [],
     }
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(
         return_value=mock_default_budget_row
     )
     mock_cloned_budget_row = MagicMock()
     mock_cloned_budget_row.budget_id = "cloned-dc"
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock(
         return_value=mock_cloned_budget_row
     )
     mock_team_membership_response = MagicMock()
@@ -437,9 +437,9 @@ async def test_add_new_member_budget_duration_only_clones_default_max_budget():
         "team_id": "team-dc",
         "user_id": "dur-clone-user",
         "budget_id": "cloned-dc",
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(
         return_value=mock_team_membership_response
     )
 
@@ -449,14 +449,14 @@ async def test_add_new_member_budget_duration_only_clones_default_max_budget():
         prisma_client=mock_prisma_client,
         team_id="team-dc",
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name="test_admin",
+        hangarllm_proxy_admin_name="test_admin",
         default_team_budget_id="default-dc",
         budget_duration="7d",
     )
 
-    mock_prisma_client.db.litellm_budgettable.create.assert_called_once()
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_called_once()
     cloned_create_data = (
-        mock_prisma_client.db.litellm_budgettable.create.call_args.kwargs["data"]
+        mock_prisma_client.db.hangarllm_budgettable.create.call_args.kwargs["data"]
     )
     assert cloned_create_data["max_budget"] == 100.0  # kept from the team default
     assert cloned_create_data["budget_duration"] == "7d"  # overridden by the caller
@@ -472,7 +472,7 @@ async def test_add_new_member_no_budget_when_no_default_and_no_max_budget():
     When the team has no default member budget, no budget row is created, but the
     membership row still is, otherwise the member's spend has nowhere to accrue.
     """
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     test_user_id = "test_user_no_budget"
     test_team_id = "test_team_no_budget"
@@ -481,7 +481,7 @@ async def test_add_new_member_no_budget_when_no_default_and_no_max_budget():
     new_member = Member(user_id=test_user_id, role="user")
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -493,14 +493,14 @@ async def test_add_new_member_no_budget_when_no_default_and_no_max_budget():
         "teams": [test_team_id],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_response)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_response)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_response
     )
 
     # Even though we mock these, they must NOT be called on the no-budget path.
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock()
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock()
 
     mock_team_membership_response = MagicMock()
     mock_team_membership_response.model_dump.return_value = {
@@ -509,9 +509,9 @@ async def test_add_new_member_no_budget_when_no_default_and_no_max_budget():
         "budget_id": None,
         "spend": 0.0,
         "total_spend": 0.0,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(
         return_value=mock_team_membership_response
     )
 
@@ -521,22 +521,22 @@ async def test_add_new_member_no_budget_when_no_default_and_no_max_budget():
         prisma_client=mock_prisma_client,
         team_id=test_team_id,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=test_admin_name,
+        hangarllm_proxy_admin_name=test_admin_name,
         default_team_budget_id=None,
     )
 
     assert result_user is not None
     assert result_user.user_id == test_user_id
 
-    mock_prisma_client.db.litellm_budgettable.find_unique.assert_not_called()
-    mock_prisma_client.db.litellm_budgettable.create.assert_not_called()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique.assert_not_called()
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_not_called()
 
     # Regression (LIT-5502): the membership row is what per-member spend increments land on,
     # so it has to exist even when the member has no budget. Skipping it silently dropped spend.
     assert result_team_membership is not None
     assert result_team_membership.budget_id is None
-    mock_prisma_client.db.litellm_teammembership.upsert.assert_awaited_once()
-    upsert_kwargs = mock_prisma_client.db.litellm_teammembership.upsert.call_args.kwargs
+    mock_prisma_client.db.hangarllm_teammembership.upsert.assert_awaited_once()
+    upsert_kwargs = mock_prisma_client.db.hangarllm_teammembership.upsert.call_args.kwargs
     assert upsert_kwargs["where"] == {
         "user_id_team_id": {"user_id": test_user_id, "team_id": test_team_id}
     }
@@ -551,12 +551,12 @@ async def test_add_new_member_creates_new_budget_when_max_budget_provided():
 
     This test verifies that:
     1. When max_budget_in_team is provided
-    2. A new budget is created in the litellm_budgettable
+    2. A new budget is created in the hangarllm_budgettable
     3. The new budget_id is used for the team membership
     4. The upsert's update branch stays empty, so a bulk /team/member_add that names a member
        already on the team does not replace the budget_id (and the spend) their existing row carries
     """
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     # Setup test data
     test_user_id = "test_user_123"
@@ -570,7 +570,7 @@ async def test_add_new_member_creates_new_budget_when_max_budget_provided():
 
     # Create UserAPIKeyAuth object
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     # Mock the prisma client
@@ -584,15 +584,15 @@ async def test_add_new_member_creates_new_budget_when_max_budget_provided():
         "teams": [test_team_id],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_response)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_response)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_response
     )
 
     # Mock the budget table creation
     mock_budget_response = MagicMock()
     mock_budget_response.budget_id = test_new_budget_id
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock(
         return_value=mock_budget_response
     )
 
@@ -602,9 +602,9 @@ async def test_add_new_member_creates_new_budget_when_max_budget_provided():
         "team_id": test_team_id,
         "user_id": test_user_id,
         "budget_id": test_new_budget_id,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(
         return_value=mock_team_membership_response
     )
 
@@ -615,13 +615,13 @@ async def test_add_new_member_creates_new_budget_when_max_budget_provided():
         prisma_client=mock_prisma_client,
         team_id=test_team_id,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=test_admin_name,
+        hangarllm_proxy_admin_name=test_admin_name,
         default_team_budget_id=None,  # Should be ignored since max_budget_in_team is provided
     )
 
     # Verify that the budget was created
-    mock_prisma_client.db.litellm_budgettable.create.assert_called_once()
-    budget_call_args = mock_prisma_client.db.litellm_budgettable.create.call_args
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_called_once()
+    budget_call_args = mock_prisma_client.db.hangarllm_budgettable.create.call_args
     budget_data = budget_call_args.kwargs["data"]
     assert budget_data["max_budget"] == test_max_budget
     assert budget_data["created_by"] == user_api_key_dict.user_id
@@ -633,7 +633,7 @@ async def test_add_new_member_creates_new_budget_when_max_budget_provided():
 
     # Verify the team membership was created with the correct budget_id
     team_membership_call_args = (
-        mock_prisma_client.db.litellm_teammembership.upsert.call_args
+        mock_prisma_client.db.hangarllm_teammembership.upsert.call_args
     )
     assert team_membership_call_args is not None
     create_data = team_membership_call_args.kwargs["data"]["create"]
@@ -647,11 +647,11 @@ async def test_add_new_member_persists_budget_duration():
     a budget_duration passed to add_new_member must be written to the new
     member budget along with a future budget_reset_at, so the per-member budget
     recurs instead of acting as a lifetime cap."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     new_member = Member(user_id="user-dur", role="user")
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -662,13 +662,13 @@ async def test_add_new_member_persists_budget_duration():
         "teams": ["team-dur"],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_response)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_response)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_response
     )
     mock_budget_response = MagicMock()
     mock_budget_response.budget_id = "budget-dur"
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock(
         return_value=mock_budget_response
     )
     mock_team_membership_response = MagicMock()
@@ -676,9 +676,9 @@ async def test_add_new_member_persists_budget_duration():
         "team_id": "team-dur",
         "user_id": "user-dur",
         "budget_id": "budget-dur",
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(
         return_value=mock_team_membership_response
     )
 
@@ -688,14 +688,14 @@ async def test_add_new_member_persists_budget_duration():
         prisma_client=mock_prisma_client,
         team_id="team-dur",
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name="test_admin",
+        hangarllm_proxy_admin_name="test_admin",
         default_team_budget_id=None,
         allowed_models=["gpt-4o-mini"],
         budget_duration="30d",
     )
 
-    mock_prisma_client.db.litellm_budgettable.create.assert_called_once()
-    budget_data = mock_prisma_client.db.litellm_budgettable.create.call_args.kwargs[
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_called_once()
+    budget_data = mock_prisma_client.db.hangarllm_budgettable.create.call_args.kwargs[
         "data"
     ]
     assert budget_data["max_budget"] == 10.0
@@ -711,11 +711,11 @@ async def test_add_new_member_persists_budget_duration():
 async def test_add_new_member_persists_budget_duration_without_max_budget():
     """budget_duration alone must still create a member budget; otherwise an
     explicit recurring window passed without a cap would be silently dropped."""
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     new_member = Member(user_id="user-dur2", role="user")
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -726,13 +726,13 @@ async def test_add_new_member_persists_budget_duration_without_max_budget():
         "teams": ["team-dur2"],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_response)
-    mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_response)
+    mock_prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(
         return_value=mock_user_response
     )
     mock_budget_response = MagicMock()
     mock_budget_response.budget_id = "budget-dur2"
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock(
         return_value=mock_budget_response
     )
     mock_team_membership_response = MagicMock()
@@ -740,9 +740,9 @@ async def test_add_new_member_persists_budget_duration_without_max_budget():
         "team_id": "team-dur2",
         "user_id": "user-dur2",
         "budget_id": "budget-dur2",
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(
         return_value=mock_team_membership_response
     )
 
@@ -752,13 +752,13 @@ async def test_add_new_member_persists_budget_duration_without_max_budget():
         prisma_client=mock_prisma_client,
         team_id="team-dur2",
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name="test_admin",
+        hangarllm_proxy_admin_name="test_admin",
         default_team_budget_id=None,
         budget_duration="7d",
     )
 
-    mock_prisma_client.db.litellm_budgettable.create.assert_called_once()
-    budget_data = mock_prisma_client.db.litellm_budgettable.create.call_args.kwargs[
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_called_once()
+    budget_data = mock_prisma_client.db.hangarllm_budgettable.create.call_args.kwargs[
         "data"
     ]
     assert budget_data["budget_duration"] == "7d"
@@ -769,7 +769,7 @@ async def test_add_new_member_persists_budget_duration_without_max_budget():
 
 @pytest.mark.asyncio
 async def test_add_new_member_with_user_email_links_default_budget():
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     test_user_email = "test@example.com"
     test_team_id = "test_team_456"
@@ -779,7 +779,7 @@ async def test_add_new_member_with_user_email_links_default_budget():
     new_member = Member(user_email=test_user_email, role="user")
 
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -797,19 +797,19 @@ async def test_add_new_member_with_user_email_links_default_budget():
 
     mock_default_budget_row = MagicMock()
     mock_default_budget_row.budget_id = test_default_budget_id
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(
         return_value=mock_default_budget_row
     )
-    mock_prisma_client.db.litellm_budgettable.create = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.create = AsyncMock()
 
     mock_team_membership_response = MagicMock()
     mock_team_membership_response.model_dump.return_value = {
         "team_id": test_team_id,
         "user_id": "generated_user_id",
         "budget_id": test_default_budget_id,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(
         return_value=mock_team_membership_response
     )
 
@@ -819,7 +819,7 @@ async def test_add_new_member_with_user_email_links_default_budget():
         prisma_client=mock_prisma_client,
         team_id=test_team_id,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=test_admin_name,
+        hangarllm_proxy_admin_name=test_admin_name,
         default_team_budget_id=test_default_budget_id,
     )
 
@@ -841,10 +841,10 @@ async def test_add_new_member_with_user_email_links_default_budget():
     assert insert_data["user_email"] == test_user_email
     assert insert_data["teams"] == [test_team_id]
 
-    mock_prisma_client.db.litellm_budgettable.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique.assert_called_once_with(
         where={"budget_id": test_default_budget_id}
     )
-    mock_prisma_client.db.litellm_budgettable.create.assert_not_called()
+    mock_prisma_client.db.hangarllm_budgettable.create.assert_not_called()
 
 
 def _as_stored(data: Mapping[str, object]) -> dict[str, object]:
@@ -855,21 +855,21 @@ class _FakeBudgetTable:
     def __init__(self) -> None:
         self.rows: dict[str, dict[str, object]] = {}
 
-    def _record(self, budget_id: str) -> LiteLLM_BudgetTable:
+    def _record(self, budget_id: str) -> HangarLLM_BudgetTable:
         row: Final = self.rows[budget_id]
-        return LiteLLM_BudgetTable(**{k: v for k, v in row.items() if k in LiteLLM_BudgetTable.model_fields})
+        return HangarLLM_BudgetTable(**{k: v for k, v in row.items() if k in HangarLLM_BudgetTable.model_fields})
 
     async def create(
         self, *, data: Mapping[str, object], include: Mapping[str, bool] | None = None
-    ) -> LiteLLM_BudgetTable:
+    ) -> HangarLLM_BudgetTable:
         budget_id: Final = str(data.get("budget_id") or uuid.uuid4())
         self.rows[budget_id] = {**_as_stored(data), "budget_id": budget_id}
         return self._record(budget_id)
 
-    async def find_unique(self, *, where: Mapping[str, str]) -> LiteLLM_BudgetTable | None:
+    async def find_unique(self, *, where: Mapping[str, str]) -> HangarLLM_BudgetTable | None:
         return self._record(where["budget_id"]) if where["budget_id"] in self.rows else None
 
-    async def update(self, *, where: Mapping[str, str], data: Mapping[str, object]) -> LiteLLM_BudgetTable:
+    async def update(self, *, where: Mapping[str, str], data: Mapping[str, object]) -> HangarLLM_BudgetTable:
         self.rows[where["budget_id"]] = {**self.rows[where["budget_id"]], **_as_stored(data)}
         return self._record(where["budget_id"])
 
@@ -879,13 +879,13 @@ class _FakeMembershipTable:
         self.budgets: Final = budgets
         self.budget_ids: dict[tuple[str, str], str | None] = {}
 
-    def membership(self, team_id: str, user_id: str) -> LiteLLM_TeamMembership:
+    def membership(self, team_id: str, user_id: str) -> HangarLLM_TeamMembership:
         budget_id: Final = self.budget_ids[(team_id, user_id)]
-        return LiteLLM_TeamMembership(
+        return HangarLLM_TeamMembership(
             user_id=user_id,
             team_id=team_id,
             budget_id=budget_id,
-            litellm_budget_table=self.budgets._record(budget_id) if budget_id is not None else None,
+            hangarllm_budget_table=self.budgets._record(budget_id) if budget_id is not None else None,
         )
 
     @staticmethod
@@ -893,7 +893,7 @@ class _FakeMembershipTable:
         budget_id: Final = row.get("budget_id")
         if isinstance(budget_id, str):
             return budget_id
-        connect: Final = row.get("litellm_budget_table")
+        connect: Final = row.get("hangarllm_budget_table")
         if isinstance(connect, dict):
             return connect["connect"]["budget_id"]
         return None
@@ -904,19 +904,19 @@ class _FakeMembershipTable:
         where: Mapping[str, Mapping[str, str]],
         data: Mapping[str, Mapping[str, object]],
         include: Mapping[str, bool] | None = None,
-    ) -> LiteLLM_TeamMembership:
+    ) -> HangarLLM_TeamMembership:
         key: Final = where["user_id_team_id"]
         membership_key: Final = (key["team_id"], key["user_id"])
         if membership_key not in self.budget_ids:
             self.budget_ids[membership_key] = self._linked_budget_id(data["create"])
-        elif "litellm_budget_table" in data["update"]:
+        elif "hangarllm_budget_table" in data["update"]:
             self.budget_ids[membership_key] = self._linked_budget_id(data["update"])
         return self.membership(*membership_key)
 
 
 class _FakeUserTable:
-    async def upsert(self, *, where: Mapping[str, str], data: Mapping[str, Mapping[str, object]]) -> LiteLLM_UserTable:
-        return LiteLLM_UserTable(user_id=where["user_id"], teams=list(data["create"].get("teams", [])))
+    async def upsert(self, *, where: Mapping[str, str], data: Mapping[str, Mapping[str, object]]) -> HangarLLM_UserTable:
+        return HangarLLM_UserTable(user_id=where["user_id"], teams=list(data["create"].get("teams", [])))
 
     async def update_many(self, *, where: Mapping[str, object], data: Mapping[str, object]) -> int:
         return 1
@@ -924,26 +924,26 @@ class _FakeUserTable:
 
 class _FakeDb:
     def __init__(self) -> None:
-        self.litellm_budgettable: Final = _FakeBudgetTable()
-        self.litellm_teammembership: Final = _FakeMembershipTable(self.litellm_budgettable)
-        self.litellm_usertable: Final = _FakeUserTable()
+        self.hangarllm_budgettable: Final = _FakeBudgetTable()
+        self.hangarllm_teammembership: Final = _FakeMembershipTable(self.hangarllm_budgettable)
+        self.hangarllm_usertable: Final = _FakeUserTable()
 
 
 @pytest.mark.asyncio
 async def test_team_update_reaches_inherited_members_but_not_overridden_ones():
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.auth_checks import _check_team_member_budget
-    from litellm.proxy.management_endpoints.common_utils import upsert_budget_and_membership
-    from litellm.proxy.management_endpoints.team_endpoints import TeamMemberBudgetHandler
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.auth.auth_checks import _check_team_member_budget
+    from hangarllm.proxy.management_endpoints.common_utils import upsert_budget_and_membership
+    from hangarllm.proxy.management_endpoints.team_endpoints import TeamMemberBudgetHandler
+    from hangarllm.proxy.utils import ProxyLogging
 
     db: Final = _FakeDb()
     prisma_client: Final = MagicMock()
     prisma_client.db = db
-    admin: Final = UserAPIKeyAuth(user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin: Final = UserAPIKeyAuth(user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN)
     team_id: Final = "team-shared-default"
-    default_budget: Final = await db.litellm_budgettable.create(data={"budget_id": "team-default", "max_budget": 100.0})
-    team: Final = LiteLLM_TeamTable(team_id=team_id, metadata={"team_member_budget_id": default_budget.budget_id})
+    default_budget: Final = await db.hangarllm_budgettable.create(data={"budget_id": "team-default", "max_budget": 100.0})
+    team: Final = HangarLLM_TeamTable(team_id=team_id, metadata={"team_member_budget_id": default_budget.budget_id})
 
     for user_id in ("inherits", "overridden"):
         await add_new_member(
@@ -952,7 +952,7 @@ async def test_team_update_reaches_inherited_members_but_not_overridden_ones():
             prisma_client=prisma_client,
             team_id=team_id,
             user_api_key_dict=admin,
-            litellm_proxy_admin_name="admin",
+            hangarllm_proxy_admin_name="admin",
             default_team_budget_id=default_budget.budget_id,
         )
 
@@ -965,12 +965,12 @@ async def test_team_update_reaches_inherited_members_but_not_overridden_ones():
         budget_patch={"max_budget": 50.0},
         team_default_budget_id=default_budget.budget_id,
     )
-    assert db.litellm_teammembership.membership(team_id, "inherits").budget_id == default_budget.budget_id
-    assert db.litellm_teammembership.membership(team_id, "overridden").budget_id != default_budget.budget_id
-    assert db.litellm_budgettable.rows[default_budget.budget_id]["max_budget"] == 100.0
+    assert db.hangarllm_teammembership.membership(team_id, "inherits").budget_id == default_budget.budget_id
+    assert db.hangarllm_teammembership.membership(team_id, "overridden").budget_id != default_budget.budget_id
+    assert db.hangarllm_budgettable.rows[default_budget.budget_id]["max_budget"] == 100.0
 
     with patch(  # test-quality-ok: update_budget reads this module global; no dependency injection seam exists
-        "litellm.proxy.proxy_server.prisma_client", prisma_client
+        "hangarllm.proxy.proxy_server.prisma_client", prisma_client
     ):
         await TeamMemberBudgetHandler.upsert_team_member_budget_table(
             team_table=team,
@@ -983,13 +983,13 @@ async def test_team_update_reaches_inherited_members_but_not_overridden_ones():
         return fallback_spend
 
     async def check(user_id: str, spend: float) -> None:
-        membership: Final = db.litellm_teammembership.membership(team_id, user_id).model_copy(update={"spend": spend})
+        membership: Final = db.hangarllm_teammembership.membership(team_id, user_id).model_copy(update={"spend": spend})
         with patch(  # test-quality-ok: production auth reads this module global; no dependency injection seam exists
-            "litellm.proxy.proxy_server.get_current_spend", spend_from_membership
+            "hangarllm.proxy.proxy_server.get_current_spend", spend_from_membership
         ):
             await _check_team_member_budget(
                 team_object=team,
-                user_object=LiteLLM_UserTable(user_id=user_id),
+                user_object=HangarLLM_UserTable(user_id=user_id),
                 valid_token=UserAPIKeyAuth(token="tok", user_id=user_id, team_id=team_id),
                 prisma_client=prisma_client,
                 user_api_key_cache=MagicMock(),
@@ -998,11 +998,11 @@ async def test_team_update_reaches_inherited_members_but_not_overridden_ones():
                 team_membership_loaded=True,
             )
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await check("inherits", spend=2.0)
     assert exc_info.value.max_budget == 1.0
     await check("overridden", spend=2.0)
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await check("overridden", spend=60.0)
     assert exc_info.value.max_budget == 50.0
 
@@ -1013,7 +1013,7 @@ async def test_attach_object_permission_to_dict_with_object_permission_id():
     Test that attach_object_permission_to_dict correctly attaches object_permission
     when object_permission_id is present and found in database.
     """
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         attach_object_permission_to_dict,
     )
 
@@ -1040,7 +1040,7 @@ async def test_attach_object_permission_to_dict_with_object_permission_id():
     mock_object_permission.model_dump.return_value = expected_object_permission
 
     # Mock the database query
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         return_value=mock_object_permission
     )
 
@@ -1057,7 +1057,7 @@ async def test_attach_object_permission_to_dict_with_object_permission_id():
     assert result["object_permission"] == expected_object_permission
 
     # Verify the database query was called correctly
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.assert_called_once_with(
         where={"object_permission_id": test_object_permission_id}
     )
 
@@ -1068,7 +1068,7 @@ async def test_attach_object_permission_to_dict_without_object_permission_id():
     Test that attach_object_permission_to_dict returns the original dict unchanged
     when object_permission_id is not present.
     """
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         attach_object_permission_to_dict,
     )
 
@@ -1088,7 +1088,7 @@ async def test_attach_object_permission_to_dict_without_object_permission_id():
     assert "object_permission" not in result
 
     # Verify no database query was made
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.assert_not_called()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1097,7 +1097,7 @@ async def test_attach_object_permission_to_dict_object_permission_not_found():
     Test that attach_object_permission_to_dict returns the original dict unchanged
     when object_permission_id is present but not found in database.
     """
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         attach_object_permission_to_dict,
     )
 
@@ -1113,7 +1113,7 @@ async def test_attach_object_permission_to_dict_object_permission_not_found():
     mock_prisma_client = AsyncMock()
 
     # Mock the database query to return None (not found)
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         return_value=None
     )
 
@@ -1127,7 +1127,7 @@ async def test_attach_object_permission_to_dict_object_permission_not_found():
     assert "object_permission" not in result
 
     # Verify the database query was called
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.assert_called_once_with(
         where={"object_permission_id": test_object_permission_id}
     )
 
@@ -1138,7 +1138,7 @@ async def test_attach_object_permission_to_dict_with_dict_method():
     Test that attach_object_permission_to_dict handles object permissions that use .dict() method
     instead of .model_dump() method.
     """
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         attach_object_permission_to_dict,
     )
 
@@ -1167,7 +1167,7 @@ async def test_attach_object_permission_to_dict_with_dict_method():
     mock_object_permission.dict.return_value = expected_object_permission
 
     # Mock the database query
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         return_value=mock_object_permission
     )
 
@@ -1190,7 +1190,7 @@ async def test_attach_object_permission_to_dict_with_none_prisma_client():
     """
     Test that attach_object_permission_to_dict raises ValueError when prisma_client is None.
     """
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         attach_object_permission_to_dict,
     )
 
@@ -1212,7 +1212,7 @@ async def test_attach_object_permission_to_dict_with_empty_dict():
     """
     Test that attach_object_permission_to_dict handles empty dictionaries correctly.
     """
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         attach_object_permission_to_dict,
     )
 
@@ -1232,7 +1232,7 @@ async def test_attach_object_permission_to_dict_with_empty_dict():
     assert "object_permission" not in result
 
     # Verify no database query was made
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.assert_not_called()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1240,7 +1240,7 @@ async def test_attach_object_permission_to_dict_with_none_object_permission_id()
     """
     Test that attach_object_permission_to_dict handles None object_permission_id correctly.
     """
-    from litellm.proxy.management_helpers.object_permission_utils import (
+    from hangarllm.proxy.management_helpers.object_permission_utils import (
         attach_object_permission_to_dict,
     )
 
@@ -1264,7 +1264,7 @@ async def test_attach_object_permission_to_dict_with_none_object_permission_id()
     assert "object_permission" not in result
 
     # Verify no database query was made
-    mock_prisma_client.db.litellm_objectpermissiontable.find_unique.assert_not_called()
+    mock_prisma_client.db.hangarllm_objectpermissiontable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1280,11 +1280,11 @@ async def test_add_new_member_appends_team_only_if_absent_for_existing_user():
     the team is already present, and it must not fall through to creating a new
     user row for a user that already exists.
     """
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     new_member = Member(user_id="existing-user", role="user")
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -1296,17 +1296,17 @@ async def test_add_new_member_appends_team_only_if_absent_for_existing_user():
         "teams": ["team-1"],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_user_after)
-    mock_prisma_client.db.litellm_usertable.update_many = AsyncMock()
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_user_after)
+    mock_prisma_client.db.hangarllm_usertable.update_many = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(return_value=None)
     mock_membership = MagicMock()
     mock_membership.model_dump.return_value = {
         "team_id": "team-1",
         "user_id": "existing-user",
         "budget_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(return_value=mock_membership)
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(return_value=mock_membership)
 
     result_user, _ = await add_new_member(
         new_member=new_member,
@@ -1314,7 +1314,7 @@ async def test_add_new_member_appends_team_only_if_absent_for_existing_user():
         prisma_client=mock_prisma_client,
         team_id="team-1",
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name="admin",
+        hangarllm_proxy_admin_name="admin",
     )
 
     assert result_user is not None
@@ -1322,17 +1322,17 @@ async def test_add_new_member_appends_team_only_if_absent_for_existing_user():
 
     # the append must be a filtered, idempotent update keyed off the team id, so
     # a repeated or concurrent add of a team the user already has is a no-op
-    mock_prisma_client.db.litellm_usertable.update_many.assert_called_once()
-    where = mock_prisma_client.db.litellm_usertable.update_many.call_args.kwargs["where"]
+    mock_prisma_client.db.hangarllm_usertable.update_many.assert_called_once()
+    where = mock_prisma_client.db.hangarllm_usertable.update_many.call_args.kwargs["where"]
     assert where["user_id"] == "existing-user"
     assert where["NOT"] == {"teams": {"has": "team-1"}}
-    data = mock_prisma_client.db.litellm_usertable.update_many.call_args.kwargs["data"]
+    data = mock_prisma_client.db.hangarllm_usertable.update_many.call_args.kwargs["data"]
     assert data == {"teams": {"push": ["team-1"]}}
 
     # upsert (not an unconditional teams push) is what ensures the row exists, so
     # its update branch must not carry a teams push that would duplicate
-    mock_prisma_client.db.litellm_usertable.upsert.assert_called_once()
-    upsert_update = mock_prisma_client.db.litellm_usertable.upsert.call_args.kwargs["data"]["update"]
+    mock_prisma_client.db.hangarllm_usertable.upsert.assert_called_once()
+    upsert_update = mock_prisma_client.db.hangarllm_usertable.upsert.call_args.kwargs["data"]["update"]
     assert "teams" not in upsert_update
 
 
@@ -1353,11 +1353,11 @@ async def test_add_new_member_creates_missing_user_atomically_via_upsert():
     "Unique constraint failed on the fields: (user_id)", so the shape of both
     branches is pinned here.
     """
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     new_member = Member(user_id="brand-new-user", role="user")
     user_api_key_dict = UserAPIKeyAuth(
-        user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+        user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
     )
 
     mock_prisma_client = AsyncMock()
@@ -1369,18 +1369,18 @@ async def test_add_new_member_creates_missing_user_atomically_via_upsert():
         "teams": ["team-1"],
         "user_role": "internal_user",
     }
-    mock_prisma_client.db.litellm_usertable.upsert = AsyncMock(return_value=mock_created)
-    mock_prisma_client.db.litellm_usertable.update_many = AsyncMock()
-    mock_prisma_client.db.litellm_usertable.create = AsyncMock()
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.hangarllm_usertable.upsert = AsyncMock(return_value=mock_created)
+    mock_prisma_client.db.hangarllm_usertable.update_many = AsyncMock()
+    mock_prisma_client.db.hangarllm_usertable.create = AsyncMock()
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(return_value=None)
     mock_membership = MagicMock()
     mock_membership.model_dump.return_value = {
         "team_id": "team-1",
         "user_id": "brand-new-user",
         "budget_id": None,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    mock_prisma_client.db.litellm_teammembership.upsert = AsyncMock(return_value=mock_membership)
+    mock_prisma_client.db.hangarllm_teammembership.upsert = AsyncMock(return_value=mock_membership)
 
     result_user, _ = await add_new_member(
         new_member=new_member,
@@ -1388,7 +1388,7 @@ async def test_add_new_member_creates_missing_user_atomically_via_upsert():
         prisma_client=mock_prisma_client,
         team_id="team-1",
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name="admin",
+        hangarllm_proxy_admin_name="admin",
     )
 
     assert result_user is not None
@@ -1396,9 +1396,9 @@ async def test_add_new_member_creates_missing_user_atomically_via_upsert():
 
     # existence is established by an atomic upsert (create-or-update), never a
     # non-atomic standalone create that could race under concurrent provisioning
-    mock_prisma_client.db.litellm_usertable.upsert.assert_called_once()
-    mock_prisma_client.db.litellm_usertable.create.assert_not_called()
-    upsert_data = mock_prisma_client.db.litellm_usertable.upsert.call_args.kwargs["data"]
+    mock_prisma_client.db.hangarllm_usertable.upsert.assert_called_once()
+    mock_prisma_client.db.hangarllm_usertable.create.assert_not_called()
+    upsert_data = mock_prisma_client.db.hangarllm_usertable.upsert.call_args.kwargs["data"]
     assert upsert_data["create"]["teams"] == ["team-1"]
     assert upsert_data["update"], "empty update branch degrades the upsert to a racy SELECT-then-INSERT"
     assert "teams" not in upsert_data["update"]
@@ -1421,15 +1421,15 @@ def _member_write_tx() -> MagicMock:
         "team_id": "team-pool",
         "user_id": "pool-user",
         "budget_id": "budget-pool",
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
     }
-    tx.litellm_usertable.upsert = AsyncMock(return_value=created_user)
-    tx.litellm_usertable.create = AsyncMock(return_value=created_user)
-    tx.litellm_usertable.update_many = AsyncMock()
-    tx.litellm_usertable.find_many = AsyncMock(return_value=[])
-    tx.litellm_budgettable.find_unique = AsyncMock(return_value=None)
-    tx.litellm_budgettable.create = AsyncMock(return_value=created_budget)
-    tx.litellm_teammembership.upsert = AsyncMock(return_value=membership)
+    tx.hangarllm_usertable.upsert = AsyncMock(return_value=created_user)
+    tx.hangarllm_usertable.create = AsyncMock(return_value=created_user)
+    tx.hangarllm_usertable.update_many = AsyncMock()
+    tx.hangarllm_usertable.find_many = AsyncMock(return_value=[])
+    tx.hangarllm_budgettable.find_unique = AsyncMock(return_value=None)
+    tx.hangarllm_budgettable.create = AsyncMock(return_value=created_budget)
+    tx.hangarllm_teammembership.upsert = AsyncMock(return_value=membership)
     return tx
 
 
@@ -1452,7 +1452,7 @@ async def test_add_new_member_runs_every_write_on_the_caller_transaction(new_mem
     lock while the holder waits for a free one, so nothing ever commits or releases the lock.
     Given a transaction, every read and write has to go through it.
     """
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     tx = _member_write_tx()
     prisma_client = AsyncMock()
@@ -1463,9 +1463,9 @@ async def test_add_new_member_runs_every_write_on_the_caller_transaction(new_mem
         prisma_client=prisma_client,
         team_id="team-pool",
         user_api_key_dict=UserAPIKeyAuth(
-            user_id="admin_user", user_role=LitellmUserRoles.PROXY_ADMIN
+            user_id="admin_user", user_role=HangarllmUserRoles.PROXY_ADMIN
         ),
-        litellm_proxy_admin_name="admin",
+        hangarllm_proxy_admin_name="admin",
         tx=tx,
     )
 
@@ -1473,9 +1473,9 @@ async def test_add_new_member_runs_every_write_on_the_caller_transaction(new_mem
     assert result_membership is not None
     assert result_membership.budget_id == "budget-pool"
 
-    assert tx.litellm_budgettable.create.await_count == 1
-    assert tx.litellm_teammembership.upsert.await_count == 1
-    assert tx.litellm_usertable.upsert.await_count + tx.litellm_usertable.create.await_count == 1
+    assert tx.hangarllm_budgettable.create.await_count == 1
+    assert tx.hangarllm_teammembership.upsert.await_count == 1
+    assert tx.hangarllm_usertable.upsert.await_count + tx.hangarllm_usertable.create.await_count == 1
 
     prisma_client.db.assert_not_called()
     prisma_client.get_data.assert_not_awaited()

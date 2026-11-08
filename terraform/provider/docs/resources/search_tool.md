@@ -1,14 +1,14 @@
-# litellm_search_tool Resource
+# hangarllm_search_tool Resource
 
-Manages a search tool configuration on the LiteLLM proxy. Search tools connect the proxy's `/search` endpoints to an external search provider such as Tavily, Perplexity, or Exa.
+Manages a search tool configuration on the HangarLLM proxy. Search tools connect the proxy's `/search` endpoints to an external search provider such as Tavily, Perplexity, or Exa.
 
 ## Example Usage
 
 ```hcl
-resource "litellm_search_tool" "tavily" {
+resource "hangarllm_search_tool" "tavily" {
   search_tool_name = "tavily-search"
 
-  litellm_params = jsonencode({
+  hangarllm_params = jsonencode({
     search_provider = "tavily"
     api_key         = var.tavily_api_key
   })
@@ -24,14 +24,14 @@ resource "litellm_search_tool" "tavily" {
 The following arguments are supported:
 
 * `search_tool_name` - (Required) Name of the search tool.
-* `litellm_params` - (Required, Sensitive) Search tool parameters as a JSON object string (use `jsonencode`). Must include `search_provider`, and typically an `api_key`; may also carry `api_base`, `timeout`, `max_retries`, and other provider options. The API only returns masked values, so this is never read back; the configured value is authoritative.
+* `hangarllm_params` - (Required, Sensitive) Search tool parameters as a JSON object string (use `jsonencode`). Must include `search_provider`, and typically an `api_key`; may also carry `api_base`, `timeout`, `max_retries`, and other provider options. The API only returns masked values, so this is never read back; the configured value is authoritative.
 * `search_tool_info` - (Optional) Additional metadata as a JSON object string, e.g. a `description`.
 
 ## Attribute Reference
 
 In addition to all arguments above, the following attributes are exported:
 
-* `id` - The search tool ID assigned by LiteLLM.
+* `id` - The search tool ID assigned by HangarLLM.
 * `created_at` - Timestamp when the search tool was created.
 * `updated_at` - Timestamp when the search tool was last updated.
 
@@ -40,7 +40,7 @@ In addition to all arguments above, the following attributes are exported:
 Search tools can be imported using the search tool ID:
 
 ```shell
-terraform import litellm_search_tool.example <search_tool_id>
+terraform import hangarllm_search_tool.example <search_tool_id>
 ```
 
-Note: `litellm_params` cannot be recovered on import because the API only returns masked values; re-apply after import to set it.
+Note: `hangarllm_params` cannot be recovered on import because the API only returns masked values; re-apply after import to set it.

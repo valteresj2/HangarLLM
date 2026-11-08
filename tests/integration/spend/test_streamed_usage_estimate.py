@@ -50,7 +50,7 @@ def _streamed_prompt_tokens(gateway: Gateway, key: str, model: str, text: str) -
     assert response.text.rstrip().endswith("data: [DONE]"), response.text
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT status, prompt_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+            'SELECT status, prompt_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
             (sha256(key.encode()).hexdigest(),),
         ),
         lambda values: len(values) == 1,

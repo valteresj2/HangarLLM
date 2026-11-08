@@ -9,7 +9,7 @@ extend-select = []
 # only what other tooling enforces: every base ruff.toml rule this select list doesn't
 # re-enable (all of the default E/F families plus T20/PGH004/RUF008/RUF009, minus the
 # strict-selected F401 and RUF100; F4 is split out so stale F401 noqas stay detectable),
-# plus upstream litellm's ruff config.
+# plus upstream hangarllm's ruff config.
 external = [
     "T20", "PGH004", "RUF008", "RUF009", "E4", "E7", "E9",
     "F402", "F404", "F406", "F407", "F5", "F6", "F7", "F8", "F9",
@@ -24,17 +24,17 @@ external = [
 # return a different shape), and *args/**kwargs forwarded verbatim with no fixed
 # shape. Tried the closest existing union (CostResponseTypes) first; basedpyright
 # caught a real mismatch, confirming Any is correct here, not a shortcut.
-"litellm/litellm_core_utils/litellm_logging.py" = ["ANN401"]
-"litellm/utils.py" = ["ANN401"]
+"hangarllm/hangarllm_core_utils/hangarllm_logging.py" = ["ANN401"]
+"hangarllm/utils.py" = ["ANN401"]
 # `**kwargs` forwards verbatim to CustomGuardrail.__init__, whose param list is wide and
 # grows over time; typing it concretely (`object`) broke that forwarding call outright —
 # basedpyright turned every named param into a reportArgumentType error. Any is correct here.
-"litellm/proxy/guardrails/guardrail_hooks/alice/alice.py" = ["ANN401"]
-"litellm/proxy/guardrails/guardrail_hooks/airia/airia.py" = ["ANN401"]
+"hangarllm/proxy/guardrails/guardrail_hooks/alice/alice.py" = ["ANN401"]
+"hangarllm/proxy/guardrails/guardrail_hooks/airia/airia.py" = ["ANN401"]
 # Same reason: `**kwargs` forwards verbatim to CustomGuardrail.__init__, and the lifecycle
 # hook signatures inherit `Any` for `response` from CustomLogger, so narrowing them here
 # would break the override rather than describe it.
-"litellm/proxy/guardrails/guardrail_hooks/llm_shield_proxy/llm_shield_proxy.py" = ["ANN401"]
+"hangarllm/proxy/guardrails/guardrail_hooks/llm_shield_proxy/llm_shield_proxy.py" = ["ANN401"]
 
 [lint.mccabe]
 max-complexity = 15
@@ -69,9 +69,9 @@ max-args = 5
 # supported call path selects Rust or Python in one place. Only the dispatch
 # modules and internal recursive calls may reach the Python implementation
 # directly, each with a `# noqa: TID251  # <reason>`.
-"litellm.responses.main.responses".msg = "Import litellm.responses.dispatch.responses so the call routes through dispatch."
-"litellm.responses.main.aresponses".msg = "Import litellm.responses.dispatch.aresponses so the call routes through dispatch."
-"litellm.llms.anthropic.messages.native.handler.anthropic_messages".msg = "Import litellm.messages.anthropic_messages so the call routes through dispatch."
-"litellm.llms.anthropic.messages.native.handler.anthropic_messages_handler".msg = "Import litellm.messages.anthropic_messages_handler so the call routes through dispatch."
-"litellm.main.completion".msg = "Import litellm.completion so the call routes through dispatch."
-"litellm.main.acompletion".msg = "Import litellm.acompletion so the call routes through dispatch."
+"hangarllm.responses.main.responses".msg = "Import hangarllm.responses.dispatch.responses so the call routes through dispatch."
+"hangarllm.responses.main.aresponses".msg = "Import hangarllm.responses.dispatch.aresponses so the call routes through dispatch."
+"hangarllm.llms.anthropic.messages.native.handler.anthropic_messages".msg = "Import hangarllm.messages.anthropic_messages so the call routes through dispatch."
+"hangarllm.llms.anthropic.messages.native.handler.anthropic_messages_handler".msg = "Import hangarllm.messages.anthropic_messages_handler so the call routes through dispatch."
+"hangarllm.main.completion".msg = "Import hangarllm.completion so the call routes through dispatch."
+"hangarllm.main.acompletion".msg = "Import hangarllm.acompletion so the call routes through dispatch."

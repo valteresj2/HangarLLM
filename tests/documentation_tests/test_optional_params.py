@@ -134,7 +134,7 @@ def check_file(file_path: str) -> List[str]:
 
 
 def main():
-    file_path = "../../litellm/utils.py"
+    file_path = "../../hangarllm/utils.py"
     errors = check_file(file_path)
 
     if errors:

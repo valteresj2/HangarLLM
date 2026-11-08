@@ -1,5 +1,5 @@
 """
-Tests for LiteLLM proxy realtime WebRTC HTTP endpoints:
+Tests for HangarLLM proxy realtime WebRTC HTTP endpoints:
 - POST /v1/realtime/client_secrets
 - POST /v1/realtime/calls
 """
@@ -18,23 +18,23 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from starlette.routing import Match
 
-import litellm
-from litellm.litellm_core_utils.realtime_streaming import TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE
-from litellm.proxy._lazy_features import LAZY_FEATURES, attach_lazy_features, reserve_lazy_slot
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.realtime_streaming import TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE
+from hangarllm.proxy._lazy_features import LAZY_FEATURES, attach_lazy_features, reserve_lazy_slot
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.realtime_endpoints.endpoints import (
+from hangarllm.proxy.realtime_endpoints.endpoints import (
     _ALLOWED_SESSION_TYPES,
     _coerce_realtime_session_type,
     _decode_realtime_token_payload,
     _encode_realtime_token_payload,
     _prepare_client_secret_session,
 )
-from litellm.types.realtime import (
+from hangarllm.types.realtime import (
     RealtimeAudioInputConfig,
     RealtimeAudioTranscriptionConfig,
     RealtimeClientSecretRequest,
@@ -129,7 +129,7 @@ def test_decode_realtime_token_payload_ephemeral_key_not_string():
 
 @pytest.fixture
 def proxy_app(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "master_key", "sk-test-master-key")
     return proxy_server.app
@@ -175,7 +175,7 @@ def mock_route_request_realtime_calls():
     return _mock_route
 
 
-class AddLitellmDataToRequest(Protocol):
+class AddHangarllmDataToRequest(Protocol):
     def __call__(self, data: dict[str, object], **kwargs: object) -> Awaitable[dict[str, object]]: ...
 
 
@@ -186,7 +186,7 @@ class PreCallHook(Protocol):
 
 
 @pytest.fixture
-def mock_add_litellm_data() -> AddLitellmDataToRequest:
+def mock_add_hangarllm_data() -> AddHangarllmDataToRequest:
     async def _mock(data: dict[str, object], **kwargs: object) -> dict[str, object]:
         return data
 
@@ -224,7 +224,7 @@ def test_client_secrets_requires_auth(proxy_app):
 async def test_client_secrets_success_with_mock(
     proxy_app,
     mock_route_request_client_secrets,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     """POST /v1/realtime/client_secrets returns 200 with valid auth and mocked upstream."""
@@ -233,14 +233,14 @@ async def test_client_secrets_success_with_mock(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "hangarllm.proxy.proxy_server.route_request",
                 side_effect=mock_route_request_client_secrets,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -273,8 +273,8 @@ async def test_client_secrets_transcription_rejects_disallowed_nested_model(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request") as mock_route_request,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -301,7 +301,7 @@ async def test_client_secrets_transcription_rejects_disallowed_nested_model(
 @pytest.mark.asyncio
 async def test_client_secrets_transcription_routes_on_nested_model(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     proxy_app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
@@ -332,14 +332,14 @@ async def test_client_secrets_transcription_routes_on_nested_model(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "hangarllm.proxy.proxy_server.route_request",
                 side_effect=_capturing_route,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -410,7 +410,7 @@ def test_realtime_calls_invalid_token_returns_401(proxy_app):
 async def test_realtime_calls_success_with_valid_encrypted_token(
     proxy_app,
     mock_route_request_realtime_calls,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     """POST /v1/realtime/calls returns 201 with valid encrypted token from client_secrets."""
@@ -428,14 +428,14 @@ async def test_realtime_calls_success_with_valid_encrypted_token(
     client = TestClient(proxy_app)
     with (
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "hangarllm.proxy.proxy_server.route_request",
             side_effect=mock_route_request_realtime_calls,
         ),
         patch(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            side_effect=mock_add_litellm_data,
+            "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+            side_effect=mock_add_hangarllm_data,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
     ):
         mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
         mock_logging.post_call_failure_hook = AsyncMock()
@@ -469,7 +469,7 @@ def test_token_payload_carries_session_type():
 @pytest.mark.asyncio
 async def test_realtime_calls_replays_transcription_session_type(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     """
@@ -503,14 +503,14 @@ async def test_realtime_calls_replays_transcription_session_type(
     client = TestClient(proxy_app)
     with (
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "hangarllm.proxy.proxy_server.route_request",
             side_effect=_capturing_route,
         ),
         patch(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            side_effect=mock_add_litellm_data,
+            "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+            side_effect=mock_add_hangarllm_data,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
     ):
         mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
         mock_logging.post_call_failure_hook = AsyncMock()
@@ -590,8 +590,8 @@ async def test_transcription_sessions_rejects_disallowed_resolved_model(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request") as mock_route_request,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -612,9 +612,9 @@ async def test_transcription_sessions_rejects_disallowed_resolved_model(
 async def test_transcription_sessions_rejects_disallowed_team_model_scope(
     proxy_app,
 ):
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj
 
-    team = LiteLLM_TeamTableCachedObj(
+    team = HangarLLM_TeamTableCachedObj(
         team_id="team-a",
         models=["gpt-4o-realtime-preview"],
     )
@@ -626,14 +626,14 @@ async def test_transcription_sessions_rejects_disallowed_team_model_scope(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request") as mock_route_request,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_object",
+                "hangarllm.proxy.auth.auth_checks.get_team_object",
                 new=AsyncMock(return_value=team),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_membership",
+                "hangarllm.proxy.auth.auth_checks.get_team_membership",
                 new=AsyncMock(return_value=None),
             ),
         ):
@@ -657,9 +657,9 @@ async def test_transcription_sessions_rejects_disallowed_team_model_scope(
 async def test_transcription_sessions_rejects_disallowed_project_model_scope(
     proxy_app,
 ):
-    from litellm.proxy._types import LiteLLM_ProjectTableCachedObj
+    from hangarllm.proxy._types import HangarLLM_ProjectTableCachedObj
 
-    project = LiteLLM_ProjectTableCachedObj(
+    project = HangarLLM_ProjectTableCachedObj(
         project_id="project-a",
         models=["gpt-4o-realtime-preview"],
         created_by="test-user",
@@ -673,10 +673,10 @@ async def test_transcription_sessions_rejects_disallowed_project_model_scope(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request") as mock_route_request,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
             patch(
-                "litellm.proxy.auth.auth_checks.get_project_object",
+                "hangarllm.proxy.auth.auth_checks.get_project_object",
                 new=AsyncMock(return_value=project),
             ),
         ):
@@ -700,17 +700,17 @@ async def test_transcription_sessions_rejects_disallowed_project_model_scope(
 async def test_transcription_sessions_rejects_disallowed_team_member_model_scope(
     proxy_app,
 ):
-    from litellm.proxy._types import (
-        LiteLLM_BudgetTable,
-        LiteLLM_TeamMembership,
-        LiteLLM_TeamTableCachedObj,
+    from hangarllm.proxy._types import (
+        HangarLLM_BudgetTable,
+        HangarLLM_TeamMembership,
+        HangarLLM_TeamTableCachedObj,
     )
 
-    team = LiteLLM_TeamTableCachedObj(team_id="team-a", models=["*"])
-    membership = LiteLLM_TeamMembership(
+    team = HangarLLM_TeamTableCachedObj(team_id="team-a", models=["*"])
+    membership = HangarLLM_TeamMembership(
         user_id="test-user",
         team_id="team-a",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             allowed_models=["gpt-4o-realtime-preview"],
         ),
     )
@@ -722,14 +722,14 @@ async def test_transcription_sessions_rejects_disallowed_team_member_model_scope
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request") as mock_route_request,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_object",
+                "hangarllm.proxy.auth.auth_checks.get_team_object",
                 new=AsyncMock(return_value=team),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_membership",
+                "hangarllm.proxy.auth.auth_checks.get_team_membership",
                 new=AsyncMock(return_value=membership),
             ),
         ):
@@ -750,7 +750,7 @@ async def test_transcription_sessions_rejects_disallowed_team_member_model_scope
 
 @pytest.mark.asyncio
 async def test_realtime_transcription_websocket_default_model_checks_key_scope():
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     websocket = MagicMock()
     websocket.headers = {}
@@ -773,10 +773,10 @@ async def test_realtime_transcription_websocket_default_model_checks_key_scope()
 
 @pytest.mark.asyncio
 async def test_realtime_transcription_websocket_default_model_checks_team_scope():
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj
 
-    team = LiteLLM_TeamTableCachedObj(
+    team = HangarLLM_TeamTableCachedObj(
         team_id="team-a",
         models=["gpt-4o-realtime-preview"],
     )
@@ -787,11 +787,11 @@ async def test_realtime_transcription_websocket_default_model_checks_team_scope(
 
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "hangarllm.proxy.auth.auth_checks.get_team_object",
             new=AsyncMock(return_value=team),
         ),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "hangarllm.proxy.auth.auth_checks.get_team_membership",
             new=AsyncMock(return_value=None),
         ),
     ):
@@ -820,7 +820,7 @@ async def test_realtime_websocket_phase2_failure_sends_error_event_and_reasoned_
     reason "Internal server error" and no error event, leaving the client with
     no clue what happened. The client must get an OpenAI-style error event and
     a close reason naming the failure."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     events = []
 
@@ -838,15 +838,15 @@ async def test_realtime_websocket_phase2_failure_sends_error_event_and_reasoned_
 
     with (
         patch(
-            "litellm.proxy.proxy_server.can_key_call_resolved_model",
+            "hangarllm.proxy.proxy_server.can_key_call_resolved_model",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
             return_value=mock_processor,
         ),
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "hangarllm.proxy.proxy_server.route_request",
             new=AsyncMock(side_effect=RuntimeError("vertex token refresh exploded")),
         ),
     ):
@@ -879,7 +879,7 @@ async def test_realtime_websocket_phase2_failure_on_closed_socket_does_not_escap
     re-raise). Send and close must each be guarded: the close is still
     attempted after a failed send, and neither failure escapes to the ASGI
     layer."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     websocket = MagicMock()
     websocket.headers = {}
@@ -895,15 +895,15 @@ async def test_realtime_websocket_phase2_failure_on_closed_socket_does_not_escap
 
     with (
         patch(
-            "litellm.proxy.proxy_server.can_key_call_resolved_model",
+            "hangarllm.proxy.proxy_server.can_key_call_resolved_model",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
             return_value=mock_processor,
         ),
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "hangarllm.proxy.proxy_server.route_request",
             new=AsyncMock(side_effect=RuntimeError("vertex token refresh exploded")),
         ),
     ):
@@ -925,7 +925,7 @@ async def test_realtime_websocket_phase2_failure_on_closed_socket_does_not_escap
 async def test_transcription_sessions_encrypts_client_secret(
     proxy_app,
     mock_route_request_transcription_sessions,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     """
@@ -944,14 +944,14 @@ async def test_transcription_sessions_encrypts_client_secret(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "hangarllm.proxy.proxy_server.route_request",
                 side_effect=_capturing_route,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -997,7 +997,7 @@ async def test_transcription_sessions_encrypts_client_secret(
 async def test_transcription_sessions_route_the_allowed_model_over_a_nested_model_the_key_cannot_call(
     proxy_app,
     mock_route_request_transcription_sessions,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
     body,
 ):
@@ -1009,9 +1009,9 @@ async def test_transcription_sessions_route_the_allowed_model_over_a_nested_mode
     try:
         client = TestClient(proxy_app)
         with (
-            patch("litellm.proxy.proxy_server.route_request", route),
-            patch("litellm.proxy.proxy_server.add_litellm_data_to_request", side_effect=mock_add_litellm_data),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request", route),
+            patch("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", side_effect=mock_add_hangarllm_data),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1117,9 +1117,9 @@ async def test_translation_client_secret_binds_authorized_nested_transcription_m
 def test_openai_prefixed_realtime_http_paths_stay_with_the_openai_pass_through(
     monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import openai_proxy_route
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import openai_proxy_route
 
-    monkeypatch.setenv("LITELLM_DISABLE_LAZY_ROUTES", "true")
+    monkeypatch.setenv("HANGARLLM_DISABLE_LAZY_ROUTES", "true")
     features = tuple(feature for feature in LAZY_FEATURES if feature.name in ("llm_passthrough", "realtime"))
     app = FastAPI()
     reserve_lazy_slot(app, "llm_passthrough", features=features)
@@ -1142,7 +1142,7 @@ def test_openai_prefixed_realtime_http_paths_stay_with_the_openai_pass_through(
 def test_translation_client_secret_aliases_bind_token_family(
     proxy_app,
     mock_route_request_client_secrets,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
     path,
 ):
@@ -1161,14 +1161,14 @@ def test_translation_client_secret_aliases_bind_token_family(
         client = TestClient(proxy_app)
         with (
             patch(  # test-quality-ok: endpoint test captures the proxy routing boundary
-                "litellm.proxy.proxy_server.route_request", side_effect=capture_route
+                "hangarllm.proxy.proxy_server.route_request", side_effect=capture_route
             ),
             patch(  # test-quality-ok: endpoint test isolates request metadata enrichment
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
             patch(  # test-quality-ok: endpoint test isolates the process-wide proxy logger
-                "litellm.proxy.proxy_server.proxy_logging_obj"
+                "hangarllm.proxy.proxy_server.proxy_logging_obj"
             ) as logging,
         ):
             logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
@@ -1207,7 +1207,7 @@ def test_translation_client_secret_aliases_bind_token_family(
 def test_translation_calls_aliases_route_translation_session(
     proxy_app,
     mock_route_request_realtime_calls,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
     path,
 ):
@@ -1231,14 +1231,14 @@ def test_translation_calls_aliases_route_translation_session(
     client = TestClient(proxy_app)
     with (
         patch(  # test-quality-ok: endpoint test captures the proxy routing boundary
-            "litellm.proxy.proxy_server.route_request", side_effect=capture_route
+            "hangarllm.proxy.proxy_server.route_request", side_effect=capture_route
         ),
         patch(  # test-quality-ok: endpoint test isolates request metadata enrichment
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            side_effect=mock_add_litellm_data,
+            "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+            side_effect=mock_add_hangarllm_data,
         ),
         patch(  # test-quality-ok: endpoint test isolates the process-wide proxy logger
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as logging,
     ):
         logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
@@ -1264,32 +1264,32 @@ def test_translation_calls_aliases_route_translation_session(
 def test_translation_calls_honor_the_minting_keys_guardrail_opt_out(
     proxy_app: FastAPI,
     mock_route_request_client_secrets: object,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     monkeypatch: pytest.MonkeyPatch,
     disable_global_guardrails: bool,
     expected_status: int,
     expected_body: str,
 ) -> None:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy import proxy_server
-    from litellm.types.guardrails import GuardrailEventHooks
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.proxy import proxy_server
+    from hangarllm.types.guardrails import GuardrailEventHooks
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-realtime-translate",
-                    "litellm_params": {"model": "openai/gpt-realtime-translate", "api_key": "sk-upstream"},
+                    "hangarllm_params": {"model": "openai/gpt-realtime-translate", "api_key": "sk-upstream"},
                 }
             ]
         ),
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [CustomGuardrail(guardrail_name="global-pre-call", event_hook=GuardrailEventHooks.pre_call, default_on=True)],
     )
@@ -1302,14 +1302,14 @@ def test_translation_calls_honor_the_minting_keys_guardrail_opt_out(
     try:
         with (
             patch(  # test-quality-ok: endpoint test stands in for the upstream client_secrets call
-                "litellm.proxy.proxy_server.route_request", side_effect=mock_route_request_client_secrets
+                "hangarllm.proxy.proxy_server.route_request", side_effect=mock_route_request_client_secrets
             ),
             patch(  # test-quality-ok: endpoint test isolates request metadata enrichment while minting
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
             patch(  # test-quality-ok: endpoint test isolates the process-wide proxy logger while minting
-                "litellm.proxy.proxy_server.proxy_logging_obj"
+                "hangarllm.proxy.proxy_server.proxy_logging_obj"
             ) as logging,
         ):
             logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
@@ -1381,8 +1381,8 @@ async def test_client_secrets_realtime_default_model_blocked_when_not_in_key_sco
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request") as mock_route_request,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -1411,8 +1411,8 @@ async def test_client_secrets_realtime_explicit_model_blocked_when_not_in_key_sc
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.route_request") as mock_route_request,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -1433,7 +1433,7 @@ async def test_client_secrets_realtime_explicit_model_blocked_when_not_in_key_sc
 async def test_client_secrets_realtime_default_model_allowed_when_in_key_scope(
     proxy_app,
     mock_route_request_client_secrets,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     """Omitting model should succeed when the default (gpt-4o-realtime-preview) is in scope."""
@@ -1445,14 +1445,14 @@ async def test_client_secrets_realtime_default_model_allowed_when_in_key_scope(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "hangarllm.proxy.proxy_server.route_request",
                 side_effect=mock_route_request_client_secrets,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1471,7 +1471,7 @@ async def test_client_secrets_realtime_default_model_allowed_when_in_key_scope(
 @pytest.mark.asyncio
 async def test_transcription_sessions_returns_upstream_error_verbatim(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     """Non-200 upstream response is forwarded unchanged (no encryption attempted)."""
@@ -1493,14 +1493,14 @@ async def test_transcription_sessions_returns_upstream_error_verbatim(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "hangarllm.proxy.proxy_server.route_request",
                 side_effect=_mock_route,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1519,7 +1519,7 @@ async def test_transcription_sessions_returns_upstream_error_verbatim(
 @pytest.mark.asyncio
 async def test_transcription_sessions_wraps_route_exception(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_hangarllm_data,
     mock_pre_call_hook,
 ):
     """A route exception is wrapped in a ProxyException with a human-readable message."""
@@ -1533,14 +1533,14 @@ async def test_transcription_sessions_wraps_route_exception(
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "hangarllm.proxy.proxy_server.route_request",
                 side_effect=_raise_http,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+                side_effect=mock_add_hangarllm_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1558,7 +1558,7 @@ async def test_transcription_sessions_wraps_route_exception(
 
 def test_realtime_calls_upstream_rejection_answers_an_openai_typed_error(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -1582,9 +1582,9 @@ def test_realtime_calls_upstream_rejection_answers_an_openai_typed_error(
     proxy_logging = MagicMock()
     proxy_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
     proxy_logging.post_call_failure_hook = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.route_request", failing_route_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", mock_add_litellm_data)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.route_request", failing_route_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", mock_add_hangarllm_data)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
 
     response = TestClient(proxy_app).post(
         "/v1/realtime/calls",
@@ -1598,7 +1598,7 @@ def test_realtime_calls_upstream_rejection_answers_an_openai_typed_error(
 
 def test_transcription_sessions_rejection_answers_an_openai_typed_error(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -1614,9 +1614,9 @@ def test_transcription_sessions_rejection_answers_an_openai_typed_error(
     proxy_logging = MagicMock()
     proxy_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
     proxy_logging.post_call_failure_hook = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.route_request", failing_route_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", mock_add_litellm_data)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.route_request", failing_route_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", mock_add_hangarllm_data)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
     proxy_app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_id="test-user")
     try:
         response = TestClient(proxy_app, raise_server_exceptions=False).post(
@@ -1640,7 +1640,7 @@ _AZURE_REALTIME_DEPLOYMENTS: Final = (
 
 def _post_through_the_azure_deployments(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
@@ -1648,13 +1648,13 @@ def _post_through_the_azure_deployments(
     body: object,
     deployments: tuple[tuple[str, str], ...] = _AZURE_REALTIME_DEPLOYMENTS,
 ) -> tuple[httpx.Response, respx.Route]:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     model_list: Final = [  # mutable-ok: Router takes a list of deployments
         {
             "model_name": alias,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": deployment,
                 "api_base": "https://realtime-qa.openai.azure.com",
                 "api_key": "azure-test-key",
@@ -1662,7 +1662,7 @@ def _post_through_the_azure_deployments(
         }
         for alias, deployment in deployments
     ]
-    monkeypatch.setattr(proxy_server, "llm_router", litellm.Router(model_list=model_list))
+    monkeypatch.setattr(proxy_server, "llm_router", hangarllm.Router(model_list=model_list))
     monkeypatch.setattr(proxy_server, "llm_model_list", model_list)
     upstream: Final = respx_mock.route(host="realtime-qa.openai.azure.com").mock(
         return_value=httpx.Response(200, json={"value": "ek_azure", "expires_at": int(time.time()) + 3600})
@@ -1674,10 +1674,10 @@ def _post_through_the_azure_deployments(
     )
     with (
         patch(  # test-quality-ok: endpoint test isolates request metadata enrichment
-            "litellm.proxy.proxy_server.add_litellm_data_to_request", side_effect=mock_add_litellm_data
+            "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", side_effect=mock_add_hangarllm_data
         ),
         patch(  # test-quality-ok: endpoint test isolates the process-wide proxy logger
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as logging,
     ):
         logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
@@ -1739,7 +1739,7 @@ def _upstream_session_value(upstream: respx.Route, session_path: tuple[str, ...]
 )
 def test_client_secrets_mint_a_secret_for_the_azure_deployment_model(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
@@ -1749,7 +1749,7 @@ def test_client_secrets_mint_a_secret_for_the_azure_deployment_model(
     expected_model: str,
 ) -> None:
     response, upstream = _post_through_the_azure_deployments(
-        proxy_app, mock_add_litellm_data, mock_pre_call_hook, respx_mock, monkeypatch, path, body
+        proxy_app, mock_add_hangarllm_data, mock_pre_call_hook, respx_mock, monkeypatch, path, body
     )
 
     assert response.status_code == 200, response.text
@@ -1795,7 +1795,7 @@ def test_client_secrets_mint_a_secret_for_the_azure_deployment_model(
 )
 def test_client_secrets_forward_every_session_value_the_caller_set(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
@@ -1805,7 +1805,7 @@ def test_client_secrets_forward_every_session_value_the_caller_set(
 ) -> None:
     response, upstream = _post_through_the_azure_deployments(
         proxy_app,
-        mock_add_litellm_data,
+        mock_add_hangarllm_data,
         mock_pre_call_hook,
         respx_mock,
         monkeypatch,
@@ -1819,14 +1819,14 @@ def test_client_secrets_forward_every_session_value_the_caller_set(
 
 def test_client_secrets_without_a_model_let_the_upstream_pick_its_default_through_a_wildcard_deployment(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response, upstream = _post_through_the_azure_deployments(
         proxy_app,
-        mock_add_litellm_data,
+        mock_add_hangarllm_data,
         mock_pre_call_hook,
         respx_mock,
         monkeypatch,
@@ -1841,14 +1841,14 @@ def test_client_secrets_without_a_model_let_the_upstream_pick_its_default_throug
 
 def test_client_secrets_send_the_deployment_model_in_the_flat_transcription_field(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response, upstream = _post_through_the_azure_deployments(
         proxy_app,
-        mock_add_litellm_data,
+        mock_add_hangarllm_data,
         mock_pre_call_hook,
         respx_mock,
         monkeypatch,
@@ -1873,7 +1873,7 @@ def test_client_secrets_send_the_deployment_model_in_the_flat_transcription_fiel
 )
 def test_realtime_session_routes_answer_400_for_a_malformed_body(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_hangarllm_data: AddHangarllmDataToRequest,
     mock_pre_call_hook: PreCallHook,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
@@ -1881,7 +1881,7 @@ def test_realtime_session_routes_answer_400_for_a_malformed_body(
     body: Mapping[str, object],
 ) -> None:
     response, upstream = _post_through_the_azure_deployments(
-        proxy_app, mock_add_litellm_data, mock_pre_call_hook, respx_mock, monkeypatch, path, body
+        proxy_app, mock_add_hangarllm_data, mock_pre_call_hook, respx_mock, monkeypatch, path, body
     )
 
     assert (response.status_code, response.json()["error"]["type"]) == (400, "invalid_request_error")

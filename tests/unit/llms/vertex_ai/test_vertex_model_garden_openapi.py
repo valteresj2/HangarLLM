@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.vertex_ai.common_utils import (
+import hangarllm
+from hangarllm.llms.vertex_ai.common_utils import (
     vertex_model_garden_model_id_in_json_body,
 )
-from litellm.llms.vertex_ai.vertex_model_garden.main import create_vertex_url
+from hangarllm.llms.vertex_ai.vertex_model_garden.main import create_vertex_url
 
 
 @pytest.mark.parametrize(
@@ -48,8 +48,8 @@ def test_model_id_in_json_body_heuristic() -> None:
 
 
 @pytest.fixture
-def _reset_litellm_http_client_cache():
-    from litellm import in_memory_llm_clients_cache
+def _reset_hangarllm_http_client_cache():
+    from hangarllm import in_memory_llm_clients_cache
 
     in_memory_llm_clients_cache.flush_cache()
     yield
@@ -107,7 +107,7 @@ async def _invoke_model_garden_completion(
     api_base,
     mock_response: MagicMock,
 ):
-    """Drive litellm.acompletion through the Vertex Model Garden route and return
+    """Drive hangarllm.acompletion through the Vertex Model Garden route and return
     the patched AsyncHTTPHandler so callers can inspect the outbound HTTP call."""
     mock_vertexai = MagicMock()
     mock_vertexai.preview = MagicMock()
@@ -115,10 +115,10 @@ async def _invoke_model_garden_completion(
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
         ) as mock_http_handler,
         patch(
-            "litellm.llms.vertex_ai.vertex_model_garden.main.VertexAIModelGardenModels._ensure_access_token",
+            "hangarllm.llms.vertex_ai.vertex_model_garden.main.VertexAIModelGardenModels._ensure_access_token",
             return_value=("fake-token", "test-project"),
         ),
         patch.dict(
@@ -137,14 +137,14 @@ async def _invoke_model_garden_completion(
         if api_base is not None:
             kwargs["api_base"] = api_base
 
-        await litellm.acompletion(**kwargs)
+        await hangarllm.acompletion(**kwargs)
 
         return mock_http_handler
 
 
 @pytest.mark.asyncio
 async def test_user_supplied_api_base_passes_through_unchanged(
-    clean_vertex_env, _reset_litellm_http_client_cache
+    clean_vertex_env, _reset_hangarllm_http_client_cache
 ):
     """A user-supplied api_base must reach the OpenAI-like handler unchanged,
     with only its own '/chat/completions' suffix appended."""
@@ -168,7 +168,7 @@ async def test_user_supplied_api_base_passes_through_unchanged(
 
 @pytest.mark.asyncio
 async def test_user_supplied_api_base_passthrough_for_publisher_model(
-    clean_vertex_env, _reset_litellm_http_client_cache
+    clean_vertex_env, _reset_hangarllm_http_client_cache
 ):
     """User-supplied api_base is forwarded unchanged for publisher/catalog
     models too; the publisher model id stays in the JSON body."""
@@ -191,7 +191,7 @@ async def test_user_supplied_api_base_passthrough_for_publisher_model(
 
 @pytest.mark.asyncio
 async def test_default_api_base_when_none_provided_single_segment(
-    clean_vertex_env, _reset_litellm_http_client_cache
+    clean_vertex_env, _reset_hangarllm_http_client_cache
 ):
     """With no api_base, single-segment endpoint ids must hit the per-endpoint
     Vertex URL and send an empty model field in the body."""
@@ -215,7 +215,7 @@ async def test_default_api_base_when_none_provided_single_segment(
 
 @pytest.mark.asyncio
 async def test_default_api_base_when_none_provided_publisher_model(
-    clean_vertex_env, _reset_litellm_http_client_cache
+    clean_vertex_env, _reset_hangarllm_http_client_cache
 ):
     """With no api_base, publisher/catalog models must hit the shared OpenAPI
     URL and send the publisher model id in the body."""

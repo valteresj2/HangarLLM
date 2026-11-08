@@ -2,8 +2,8 @@
 # Pre-install / pre-upgrade hook that runs `prisma migrate deploy` against
 # the writer database before the gateway and backend Deployments are rolled
 # out. Required because the gateway and backend both spin up Prisma at
-# startup and assume the LiteLLM schema (LiteLLM_Config,
-# LiteLLM_VerificationToken, LiteLLM_SpendLogs, ...) already exists.
+# startup and assume the HangarLLM schema (HangarLLM_Config,
+# HangarLLM_VerificationToken, HangarLLM_SpendLogs, ...) already exists.
 #
 # Running this pre-upgrade closes the window where new application pods would
 # otherwise serve traffic against the previous release's unmigrated schema.
@@ -12,9 +12,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "litellm.fullname" . }}-migrations
+  name: {{ include "hangarllm.fullname" . }}-migrations
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: migrations
   {{- if or .Values.migrationJob.hooks.helm.enabled .Values.migrationJob.hooks.argocd.enabled }}
   annotations:
@@ -40,12 +40,12 @@ spec:
              declared, so podLabels may override a chart label here. Merge
              instead of appending so an override replaces the key rather than
              rendering it twice. */}}
-      {{- $chartLabels := merge (dict "app.kubernetes.io/component" "migrations") (fromYaml (include "litellm.commonLabels" .)) }}
+      {{- $chartLabels := merge (dict "app.kubernetes.io/component" "migrations") (fromYaml (include "hangarllm.commonLabels" .)) }}
       labels:
         {{- toYaml (merge (deepCopy .Values.migrationJob.podLabels) $chartLabels) | nindent 8 }}
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ include "litellm.migrations.serviceAccountName" . }}
+      serviceAccountName: {{ include "hangarllm.migrations.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.migrationJob.automountServiceAccountToken }}
       {{- with .Values.migrationJob.podSecurityContext }}
       securityContext:
@@ -64,7 +64,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
-            {{- include "litellm.serverEnv" (dict "root" $ "component" .Values.migrationJob) | nindent 12 }}
+            {{- include "hangarllm.serverEnv" (dict "root" $ "component" .Values.migrationJob) | nindent 12 }}
           {{- with .Values.migrationJob.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}

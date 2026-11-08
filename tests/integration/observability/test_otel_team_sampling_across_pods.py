@@ -37,7 +37,7 @@ from pydantic import JsonValue, TypeAdapter
 
 MODEL: Final = "team-sampling"
 SERVER: Final = 2
-CALL_ID: Final = "litellm.call_id"
+CALL_ID: Final = "hangarllm.call_id"
 OPERATION: Final = "gen_ai.operation.name"
 SPACE: Final = "space-sampled"
 CREDENTIALS: Final = {"arize_space_key": SPACE, "arize_api_key": "arize-sampled"}
@@ -157,7 +157,7 @@ def _call(
     }[endpoint]
     headers: Final = {
         "Authorization": f"Bearer {key}",
-        "x-litellm-call-id": call_id,
+        "x-hangarllm-call-id": call_id,
         "connection": "close",
         **({} if trace_id is None else {"traceparent": f"00-{trace_id}-{parent}-01"}),
     }
@@ -652,15 +652,15 @@ def _write_config(directory: Path, sinks: SpanSinks, provider: Wire) -> Path:
             *list_value(shared.get("model_list") or []),
             {
                 "model_name": MODEL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": provider.url + "/v1",
                 },
             },
         ],
-        "litellm_settings": {
-            **object_value(shared.get("litellm_settings") or {}),
+        "hangarllm_settings": {
+            **object_value(shared.get("hangarllm_settings") or {}),
             "callbacks": ["langfuse_otel"],
             "otel_tenant_destination_mode": "additive",
             "provider_url_destination_allowed_hosts": [urlparse(sinks.operator).netloc, urlparse(sinks.arize).netloc],
@@ -676,7 +676,7 @@ def _write_config(directory: Path, sinks: SpanSinks, provider: Wire) -> Path:
 @contextmanager
 def _two_pods(provider: Wire, sinks: SpanSinks, directory: Path) -> Generator[Pods]:
     environment: Final = {
-        "LITELLM_OTEL_V2": "1",
+        "HANGARLLM_OTEL_V2": "1",
         "OTEL_BSP_SCHEDULE_DELAY": "300",
         "MAPPER_NAMES": "genai,openinference",
         "LANGFUSE_HOST": sinks.operator,
@@ -686,7 +686,7 @@ def _two_pods(provider: Wire, sinks: SpanSinks, directory: Path) -> Generator[Po
         "ARIZE_API_KEY": "arize-operator",
         "ARIZE_HTTP_ENDPOINT": sinks.arize + "/v1/traces",
     }
-    removed: Final = ("LITELLM_OTEL_TENANT_DESTINATION_MODE", "OTEL_TRACES_SAMPLER", "OTEL_TRACES_SAMPLER_ARG")
+    removed: Final = ("HANGARLLM_OTEL_TENANT_DESTINATION_MODE", "OTEL_TRACES_SAMPLER", "OTEL_TRACES_SAMPLER_ARG")
     config: Final = _write_config(directory, sinks, provider)
     for pod in ("first", "second"):
         (directory / pod).mkdir()

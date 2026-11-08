@@ -184,7 +184,7 @@ def test_team_block_and_unblock_update_endpoint_info_and_db_state(
         assert info.team_info.blocked is True, info_response.text
         assert info.team_info.team_id == team, info_response.text
         assert read_rows(
-            'SELECT blocked FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT blocked FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [{"blocked": True}], info_response.text
 
@@ -210,7 +210,7 @@ def test_team_block_and_unblock_update_endpoint_info_and_db_state(
         unblocked_info: Final = _TeamInfo.model_validate_json(unblocked_info_response.text)
         assert unblocked_info.team_info.blocked is False, unblocked_info_response.text
         assert read_rows(
-            'SELECT blocked FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT blocked FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [{"blocked": False}], unblocked_info_response.text
 
@@ -311,7 +311,7 @@ def test_a_new_team_key_is_refused_on_a_peer_that_cached_the_team_before_block(
         blocked_response: Final = gateway.request("POST", "/team/block", {"team_id": team})
         assert blocked_response.status_code == 200, blocked_response.text
         assert read_rows(
-            'SELECT blocked FROM "LiteLLM_TeamTable" WHERE team_id = %s',
+            'SELECT blocked FROM "HangarLLM_TeamTable" WHERE team_id = %s',
             (team,),
         ) == [{"blocked": True}], blocked_response.text
 

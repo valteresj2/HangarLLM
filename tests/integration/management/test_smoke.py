@@ -5,7 +5,7 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 
 async def test_key_generate_lands_in_db(gateway_client, db, resources):
-    from litellm.proxy.utils import hash_token
+    from hangarllm.proxy.utils import hash_token
 
     resp = await gateway_client.post(
         "/key/generate",
@@ -17,6 +17,6 @@ async def test_key_generate_lands_in_db(gateway_client, db, resources):
     assert cleartext.startswith("sk-")
 
     hashed = hash_token(cleartext)
-    row = await db.db.litellm_verificationtoken.find_unique(where={"token": hashed})
+    row = await db.db.hangarllm_verificationtoken.find_unique(where={"token": hashed})
     assert row is not None
     assert row.token == hashed != cleartext

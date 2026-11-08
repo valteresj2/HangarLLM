@@ -14,7 +14,7 @@ from integration._support.wire import Reply, Request, wire_server
 from openai import AsyncOpenAI, OpenAI
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
+from hangarllm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
 
 _HAIKU: Final = "anthropic.claude-haiku-4-5"
 _OPUS: Final = "anthropic.claude-opus-5-5"
@@ -47,10 +47,10 @@ _WEATHER_TOOL_OUTBOUND: Final[dict[str, JsonValue]] = {
 }
 _SPEND_COLUMNS: Final = (
     "SELECT request_id, call_type, status, spend, prompt_tokens, completion_tokens, model, model_group,"
-    ' custom_llm_provider, cache_hit, litellm_call_id FROM "LiteLLM_SpendLogs"'
+    ' custom_llm_provider, cache_hit, hangarllm_call_id FROM "HangarLLM_SpendLogs"'
 )
 _BY_REQUEST_ID: Final = _SPEND_COLUMNS + " WHERE request_id=%s"
-_BY_CALL_ID: Final = _SPEND_COLUMNS + " WHERE litellm_call_id=%s"
+_BY_CALL_ID: Final = _SPEND_COLUMNS + " WHERE hangarllm_call_id=%s"
 _BY_MODEL_GROUP: Final = _SPEND_COLUMNS + " WHERE model_group=%s ORDER BY request_id"
 
 
@@ -71,7 +71,7 @@ def _chat_messages(marker: str) -> list[JsonValue]:
 
 
 def _default_max_tokens(gateway: Gateway, backend: str) -> int:
-    match gateway.get("/public/litellm_model_cost_map").get(f"bedrock_mantle/{backend}"):
+    match gateway.get("/public/hangarllm_model_cost_map").get(f"bedrock_mantle/{backend}"):
         case {"max_output_tokens": int() as mapped}:
             return mapped
         case _:
@@ -184,7 +184,7 @@ def _marker_of(request: Request) -> str:
 
 
 def _cost_map_row(gateway: Gateway, name: str) -> dict[str, JsonValue]:
-    return object_value(gateway.get("/public/litellm_model_cost_map")[name])
+    return object_value(gateway.get("/public/hangarllm_model_cost_map")[name])
 
 
 def _number(value: JsonValue) -> float:
@@ -204,7 +204,7 @@ def _mantle_cost(
 
 
 def _mantle_claude_where(gateway: Gateway, flag: str, disabled: bool) -> str:
-    rows: Final = gateway.get("/public/litellm_model_cost_map")
+    rows: Final = gateway.get("/public/hangarllm_model_cost_map")
     names: Final = sorted(
         name
         for name, row in rows.items()
@@ -306,7 +306,7 @@ def test_chat_completion_on_a_mantle_claude_id_posts_native_messages_and_spends_
         )
         body: Final = _assert_text_completion(response, model, marker)
         cost: Final = _mantle_cost(gateway, backend)
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(cost), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(cost), response.text
         _assert_success_row(_spend_row(_BY_REQUEST_ID, string_value(body["id"])), model, backend, "acompletion", cost)
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", _MESSAGES_PATH)]
 
@@ -572,7 +572,7 @@ def test_region_prefix_in_a_mantle_claude_id_is_routing_only_and_keeps_the_mantl
         )
         body: Final = _assert_text_completion(response, model, marker)
         cost: Final = _mantle_cost(gateway, _HAIKU)
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(cost), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(cost), response.text
         row: Final = _spend_row(_BY_REQUEST_ID, string_value(body["id"]))
         assert (row["status"], row["model_group"], row["custom_llm_provider"]) == (
             "success",
@@ -728,10 +728,10 @@ def test_identical_chat_request_is_served_from_the_response_cache_and_logged_as_
         request: Final[dict[str, JsonValue]] = {"model": model, "messages": _chat_messages(marker)}
         first: Final = gateway.request("POST", "/v1/chat/completions", request)
         identity: Final = string_value(_assert_text_completion(first, model, marker)["id"])
-        assert "x-litellm-cache-key" not in first.headers, sorted(first.headers)
+        assert "x-hangarllm-cache-key" not in first.headers, sorted(first.headers)
         second: Final = gateway.request("POST", "/v1/chat/completions", request)
         assert _assert_text_completion(second, model, marker)["id"] == identity, second.text
-        assert second.headers["x-litellm-cache-key"], sorted(second.headers)
+        assert second.headers["x-hangarllm-cache-key"], sorted(second.headers)
         rows: Final = eventually(
             lambda: read_rows(_BY_MODEL_GROUP, (model,)), lambda found: len(found) == 2, seconds=70
         )
@@ -796,7 +796,7 @@ def test_open_weight_mantle_id_keeps_the_openai_compatible_chat_route_and_its_sa
             "safeguard answer",
         ), response.text
         cost: Final = _mantle_cost(gateway, _SAFEGUARD, input_tokens=9, output_tokens=3)
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(cost), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(cost), response.text
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", "/v1/chat/completions")]
 
 
@@ -836,7 +836,7 @@ def test_responses_api_on_a_mantle_claude_id_bridges_to_native_messages(gateway:
         part: Final = object_value(content[0])
         assert (part["type"], part["text"]) == ("output_text", _answer(marker)), response.text
         _assert_success_row(
-            _spend_row(_BY_CALL_ID, response.headers["x-litellm-call-id"]),
+            _spend_row(_BY_CALL_ID, response.headers["x-hangarllm-call-id"]),
             model,
             _HAIKU,
             "aresponses",
@@ -874,7 +874,7 @@ def test_responses_api_stream_on_a_mantle_claude_id_bridges_to_the_native_stream
             _OUTPUT_TOKENS,
         ), response.text
         _assert_success_row(
-            _spend_row(_BY_CALL_ID, response.headers["x-litellm-call-id"]),
+            _spend_row(_BY_CALL_ID, response.headers["x-hangarllm-call-id"]),
             model,
             _HAIKU,
             "aresponses",
@@ -1082,7 +1082,7 @@ def test_mantle_error_on_the_native_route_reaches_the_caller_and_the_deployment_
         assert failed.status_code == status, failed.text
         message: Final = _error_message(failed)
         assert error_class in message and upstream_message in message, failed.text
-        row: Final = _spend_row(_BY_CALL_ID, failed.headers["x-litellm-call-id"])
+        row: Final = _spend_row(_BY_CALL_ID, failed.headers["x-hangarllm-call-id"])
         assert (row["status"], row["model_group"], _number(row["spend"])) == ("failure", model, 0), row
         served: Final = gateway.request(
             "POST", "/v1/chat/completions", {"model": model, "messages": _chat_messages(following)}
@@ -1116,7 +1116,7 @@ def _wildcard_prefix(gateway: Gateway, scenario: Scenario, api_base: str) -> str
         "/model/new",
         {
             "model_name": f"{prefix}/*",
-            "litellm_params": {"model": "bedrock_mantle/*", "api_base": api_base, "api_key": _API_KEY},
+            "hangarllm_params": {"model": "bedrock_mantle/*", "api_base": api_base, "api_key": _API_KEY},
             "model_info": {},
         },
     )
@@ -1152,7 +1152,7 @@ def test_five_kilobyte_claude_id_through_a_mantle_wildcard_reaches_mantle_and_it
         assert response.status_code == 404, response.text[:600]
         message: Final = _error_message(response)
         assert "NotFoundError" in message and "model: synthetic unknown model" in message, message[:600]
-        row: Final = _spend_row(_BY_CALL_ID, response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(_BY_CALL_ID, response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["model_group"]) == ("failure", model), row["status"]
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", _MESSAGES_PATH)]
 
@@ -1214,8 +1214,8 @@ def test_non_claude_mantle_id_with_a_bare_bedrock_twin_keeps_its_route_and_spend
         )
         assert _token_usage(body) == _USAGE, response.text
         cost: Final = _mantle_cost(gateway, _LUNA)
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(cost), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(cost), response.text
         _assert_success_row(
-            _spend_row(_BY_CALL_ID, response.headers["x-litellm-call-id"]), model, _LUNA, "acompletion", cost
+            _spend_row(_BY_CALL_ID, response.headers["x-hangarllm-call-id"]), model, _LUNA, "acompletion", cost
         )
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", _RESPONSES_PATH)]

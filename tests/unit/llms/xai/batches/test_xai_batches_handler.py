@@ -6,9 +6,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.xai.batches.transformation import XAIBatchesError
-from litellm.types.utils import LiteLLMBatch
+import hangarllm
+from hangarllm.llms.xai.batches.transformation import XAIBatchesError
+from hangarllm.types.utils import HangarLLMBatch
 
 API_BASE: Final = "https://api.x.ai"
 KEY: Final = "xai-test-key"
@@ -16,12 +16,12 @@ KEY: Final = "xai-test-key"
 
 @pytest.fixture(autouse=True)
 def _httpx_transport_so_respx_can_intercept(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
 
 _XAI_BATCH: Final = {
     "batch_id": "batch_1",
-    "name": "litellm-batch",
+    "name": "hangarllm-batch",
     "create_time": "2026-09-23",
     "expire_time": "2026-10-23",
     "cancel_time": None,
@@ -44,12 +44,12 @@ async def test_create_batch_posts_input_file_id_with_bearer_auth(sync_mode: bool
         "api_key": KEY,
         "api_base": API_BASE,
     }
-    batch: Final = litellm.create_batch(**kwargs) if sync_mode else await litellm.acreate_batch(**kwargs)
+    batch: Final = hangarllm.create_batch(**kwargs) if sync_mode else await hangarllm.acreate_batch(**kwargs)
 
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     request: Final = route.calls.last.request
     assert request.headers["authorization"] == f"Bearer {KEY}"
-    assert json.loads(request.content) == {"name": "litellm-batch", "input_file_id": "file_1"}
+    assert json.loads(request.content) == {"name": "hangarllm-batch", "input_file_id": "file_1"}
     assert (batch.id, batch.endpoint, batch.status, batch.output_file_id) == (
         "batch_1",
         "/v1/embeddings",
@@ -78,7 +78,7 @@ async def test_create_batch_posts_input_file_id_with_bearer_auth(sync_mode: bool
 async def test_create_batch_keeps_image_and_video_endpoints_on_the_batch(endpoint: str) -> None:
     respx.post(f"{API_BASE}/v1/batches").respond(200, json=_XAI_BATCH)
 
-    batch: Final = await litellm.acreate_batch(
+    batch: Final = await hangarllm.acreate_batch(
         completion_window="24h",
         endpoint=endpoint,
         input_file_id="file_1",
@@ -87,9 +87,9 @@ async def test_create_batch_keeps_image_and_video_endpoints_on_the_batch(endpoin
         api_base=API_BASE,
     )
 
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert batch.endpoint == endpoint
-    assert json.loads(respx.calls.last.request.content) == {"name": "litellm-batch", "input_file_id": "file_1"}
+    assert json.loads(respx.calls.last.request.content) == {"name": "hangarllm-batch", "input_file_id": "file_1"}
 
 
 @respx.mock
@@ -97,7 +97,7 @@ async def test_retrieve_after_a_non_chat_create_reports_chat() -> None:
     respx.post(f"{API_BASE}/v1/batches").respond(200, json=_XAI_BATCH)
     respx.get(f"{API_BASE}/v1/batches/batch_1").respond(200, json=_XAI_BATCH)
 
-    created: Final = await litellm.acreate_batch(
+    created: Final = await hangarllm.acreate_batch(
         completion_window="24h",
         endpoint="/v1/embeddings",
         input_file_id="file_1",
@@ -105,11 +105,11 @@ async def test_retrieve_after_a_non_chat_create_reports_chat() -> None:
         api_key=KEY,
         api_base=API_BASE,
     )
-    retrieved: Final = await litellm.aretrieve_batch(
+    retrieved: Final = await hangarllm.aretrieve_batch(
         batch_id="batch_1", custom_llm_provider="xai", api_key=KEY, api_base=API_BASE
     )
 
-    assert isinstance(created, LiteLLMBatch) and isinstance(retrieved, LiteLLMBatch)
+    assert isinstance(created, HangarLLMBatch) and isinstance(retrieved, HangarLLMBatch)
     assert (created.endpoint, retrieved.endpoint) == ("/v1/embeddings", "/v1/chat/completions")
 
 
@@ -121,9 +121,9 @@ async def test_retrieve_batch_reads_native_batch_route(sync_mode: bool) -> None:
     )
 
     kwargs: Final = {"batch_id": "batch_1", "custom_llm_provider": "xai", "api_key": KEY, "api_base": API_BASE}
-    batch: Final = litellm.retrieve_batch(**kwargs) if sync_mode else await litellm.aretrieve_batch(**kwargs)
+    batch: Final = hangarllm.retrieve_batch(**kwargs) if sync_mode else await hangarllm.aretrieve_batch(**kwargs)
 
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert (batch.status, batch.output_file_id, batch.input_file_id, batch.endpoint) == (
         "in_progress",
         None,
@@ -140,10 +140,10 @@ async def test_cancel_batch_uses_colon_cancel_route(sync_mode: bool) -> None:
     )
 
     kwargs: Final = {"batch_id": "batch_1", "custom_llm_provider": "xai", "api_key": KEY, "api_base": API_BASE}
-    batch: Final = litellm.cancel_batch(**kwargs) if sync_mode else await litellm.acancel_batch(**kwargs)
+    batch: Final = hangarllm.cancel_batch(**kwargs) if sync_mode else await hangarllm.acancel_batch(**kwargs)
 
     assert route.called
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert (batch.status, batch.endpoint) == ("cancelled", "/v1/chat/completions")
 
 
@@ -155,7 +155,7 @@ async def test_list_batches_forwards_cursor_and_returns_openai_list(sync_mode: b
     )
 
     kwargs: Final = {"custom_llm_provider": "xai", "api_key": KEY, "api_base": API_BASE, "after": "cur", "limit": 5}
-    listed: Final = litellm.list_batches(**kwargs) if sync_mode else await litellm.alist_batches(**kwargs)
+    listed: Final = hangarllm.list_batches(**kwargs) if sync_mode else await hangarllm.alist_batches(**kwargs)
 
     assert dict(route.calls.last.request.url.params) == {"limit": "5", "pagination_token": "cur"}
     assert listed.object == "list"
@@ -167,7 +167,7 @@ async def test_list_batches_forwards_cursor_and_returns_openai_list(sync_mode: b
 async def test_list_batches_treats_empty_pagination_token_as_last_page() -> None:
     respx.get(f"{API_BASE}/v1/batches").respond(200, json={"batches": [_XAI_BATCH], "pagination_token": ""})
 
-    listed: Final = await litellm.alist_batches(custom_llm_provider="xai", api_key=KEY, api_base=API_BASE)
+    listed: Final = await hangarllm.alist_batches(custom_llm_provider="xai", api_key=KEY, api_base=API_BASE)
 
     assert (listed.has_more, listed.next_page_token) == (False, None)
     assert [batch.endpoint for batch in listed.data] == ["/v1/chat/completions"]
@@ -183,7 +183,7 @@ async def test_file_content_stops_paging_on_empty_pagination_token() -> None:
         },
     )
 
-    content: Final = await litellm.afile_content(
+    content: Final = await hangarllm.afile_content(
         file_id="batch_1", custom_llm_provider="xai", api_key=KEY, api_base=API_BASE
     )
 
@@ -193,10 +193,10 @@ async def test_file_content_stops_paging_on_empty_pagination_token() -> None:
 
 @pytest.mark.parametrize("operation", ["create", "retrieve", "cancel", "list", "file_content"])
 @respx.mock
-async def test_batch_calls_fall_back_to_litellm_xai_key(operation: str, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_batch_calls_fall_back_to_hangarllm_xai_key(operation: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "xai_key", "configured-xai-key")
-    monkeypatch.setattr(litellm, "api_key", "generic-key-must-not-be-used")
+    monkeypatch.setattr(hangarllm, "xai_key", "configured-xai-key")
+    monkeypatch.setattr(hangarllm, "api_key", "generic-key-must-not-be-used")
     routes: Final = {
         "create": respx.post(f"{API_BASE}/v1/batches").respond(200, json=_XAI_BATCH),
         "retrieve": respx.get(f"{API_BASE}/v1/batches/batch_1").respond(200, json=_XAI_BATCH),
@@ -210,7 +210,7 @@ async def test_batch_calls_fall_back_to_litellm_xai_key(operation: str, monkeypa
     }
 
     if operation == "create":
-        await litellm.acreate_batch(
+        await hangarllm.acreate_batch(
             completion_window="24h",
             endpoint="/v1/chat/completions",
             input_file_id="file_1",
@@ -218,13 +218,13 @@ async def test_batch_calls_fall_back_to_litellm_xai_key(operation: str, monkeypa
             api_base=API_BASE,
         )
     elif operation == "retrieve":
-        await litellm.aretrieve_batch(batch_id="batch_1", custom_llm_provider="xai", api_base=API_BASE)
+        await hangarllm.aretrieve_batch(batch_id="batch_1", custom_llm_provider="xai", api_base=API_BASE)
     elif operation == "cancel":
-        await litellm.acancel_batch(batch_id="batch_1", custom_llm_provider="xai", api_base=API_BASE)
+        await hangarllm.acancel_batch(batch_id="batch_1", custom_llm_provider="xai", api_base=API_BASE)
     elif operation == "list":
-        await litellm.alist_batches(custom_llm_provider="xai", api_base=API_BASE)
+        await hangarllm.alist_batches(custom_llm_provider="xai", api_base=API_BASE)
     else:
-        await litellm.afile_content(file_id="batch_1", custom_llm_provider="xai", api_base=API_BASE)
+        await hangarllm.afile_content(file_id="batch_1", custom_llm_provider="xai", api_base=API_BASE)
 
     assert routes[operation].calls.last.request.headers["authorization"] == "Bearer configured-xai-key"
 
@@ -261,7 +261,7 @@ async def test_file_content_of_a_batch_id_walks_every_results_page(sync_mode: bo
     route: Final = respx.get(f"{API_BASE}/v1/batches/batch_1/results").mock(side_effect=_page)
 
     kwargs: Final = {"file_id": "batch_1", "custom_llm_provider": "xai", "api_key": KEY, "api_base": API_BASE}
-    content: Final = litellm.file_content(**kwargs) if sync_mode else await litellm.afile_content(**kwargs)
+    content: Final = hangarllm.file_content(**kwargs) if sync_mode else await hangarllm.afile_content(**kwargs)
 
     assert route.call_count == 2
     assert [dict(c.request.url.params) for c in route.calls] == [
@@ -291,7 +291,7 @@ async def test_file_retrieve_of_a_batch_id_describes_its_results_from_one_batch_
 
     kwargs: Final = {"file_id": batch_id, "custom_llm_provider": "xai", "api_key": KEY, "api_base": API_BASE}
     before: Final = int(time.time())
-    file_object: Final = litellm.file_retrieve(**kwargs) if sync_mode else await litellm.afile_retrieve(**kwargs)
+    file_object: Final = hangarllm.file_retrieve(**kwargs) if sync_mode else await hangarllm.afile_retrieve(**kwargs)
     after: Final = int(time.time())
 
     assert (batch.call_count, results.call_count, files_lookup.call_count) == (1, 0, 0)
@@ -319,7 +319,7 @@ async def test_file_retrieve_of_an_unfinished_batch_is_a_404_without_reading_res
 
     kwargs: Final = {"file_id": batch_id, "custom_llm_provider": "xai", "api_key": KEY, "api_base": API_BASE}
     with pytest.raises(XAIBatchesError, match="has no results file until it completes") as raised:
-        litellm.file_retrieve(**kwargs) if sync_mode else await litellm.afile_retrieve(**kwargs)
+        hangarllm.file_retrieve(**kwargs) if sync_mode else await hangarllm.afile_retrieve(**kwargs)
 
     assert (raised.value.status_code, results.call_count) == (404, 0)
 
@@ -347,7 +347,7 @@ async def test_file_content_unwraps_image_and_video_result_bodies() -> None:
         },
     )
 
-    content: Final = await litellm.afile_content(
+    content: Final = await hangarllm.afile_content(
         file_id="batch_1", custom_llm_provider="xai", api_key=KEY, api_base=API_BASE
     )
 
@@ -360,12 +360,12 @@ async def test_file_content_unwraps_image_and_video_result_bodies() -> None:
 @respx.mock
 async def test_missing_xai_key_is_a_401_before_any_request(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "xai_key", None)
-    monkeypatch.setattr(litellm, "api_key", "generic-key-must-not-be-used")
+    monkeypatch.setattr(hangarllm, "xai_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", "generic-key-must-not-be-used")
     route: Final = respx.post(f"{API_BASE}/v1/batches").respond(200, json=_XAI_BATCH)
 
     with pytest.raises(XAIBatchesError) as exc:
-        await litellm.acreate_batch(
+        await hangarllm.acreate_batch(
             completion_window="24h",
             endpoint="/v1/chat/completions",
             input_file_id="file_1",
@@ -382,7 +382,7 @@ async def test_upstream_error_surfaces_status_code_and_body() -> None:
     respx.get(f"{API_BASE}/v1/batches/batch_missing").respond(404, json={"code": "404", "error": "not found"})
 
     with pytest.raises(XAIBatchesError) as exc:
-        await litellm.aretrieve_batch(
+        await hangarllm.aretrieve_batch(
             batch_id="batch_missing", custom_llm_provider="xai", api_key=KEY, api_base=API_BASE
         )
 

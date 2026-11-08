@@ -12,7 +12,7 @@ from openai.lib.streaming.chat import ChatCompletionStreamState
 from openai.types.chat import ChatCompletionChunk
 from pydantic import JsonValue
 
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
 TRANSPORT_HEADERS: Final = frozenset(
     {"host", "accept", "accept-encoding", "connection", "content-length", "user-agent"}
@@ -23,7 +23,7 @@ def expected_response_for_deployment(
     expected: Mapping[str, JsonValue], model_id: str | None
 ) -> Mapping[str, JsonValue]:
     identifier: Final = expected.get("id")
-    if not isinstance(identifier, str) or not ResponsesAPIRequestUtils._is_litellm_encoded_response_id(identifier):
+    if not isinstance(identifier, str) or not ResponsesAPIRequestUtils._is_hangarllm_encoded_response_id(identifier):
         return expected
     assert model_id, "An encoded response ID must identify the selected deployment"
     provider, _, response = base64.b64decode(identifier.removeprefix("resp_")).decode().split(";", 2)
@@ -42,7 +42,7 @@ def assert_translation(
     headers: Mapping[str, str] | None = None,
 ) -> dict[str, JsonValue]:
     provider.expect(Reply(status=case.mock_provider_status_code, body=json.dumps(case.mock_provider_response).encode()))
-    response: Final = gateway.request("POST", case.litellm_endpoint, case.litellm_request, headers=headers)
+    response: Final = gateway.request("POST", case.hangarllm_endpoint, case.hangarllm_request, headers=headers)
     received: Final = provider.received()
     assert_provider_request(
         received,
@@ -50,15 +50,15 @@ def assert_translation(
         case.expected_provider_headers,
         case.expected_provider_request,
     )
-    assert response.status_code == case.expected_litellm_status_code, response.text
-    model_id: Final = response.headers.get("x-litellm-model-id")
-    expected: Final = expected_response_for_deployment(case.expected_litellm_response, model_id)
-    if expected is not case.expected_litellm_response:
+    assert response.status_code == case.expected_hangarllm_status_code, response.text
+    model_id: Final = response.headers.get("x-hangarllm-model-id")
+    expected: Final = expected_response_for_deployment(case.expected_hangarllm_response, model_id)
+    if expected is not case.expected_hangarllm_response:
         deployments: Final = gateway.get("/model/info")["data"]
         assert isinstance(deployments, list), deployments
         assert any(
             isinstance(deployment, dict)
-            and deployment.get("model_name") == case.litellm_request["model"]
+            and deployment.get("model_name") == case.hangarllm_request["model"]
             and isinstance(deployment.get("model_info"), dict)
             and deployment["model_info"].get("id") == model_id
             for deployment in deployments
@@ -140,10 +140,10 @@ def _join_stream_frames(endpoint: str, frames: tuple[SSEFrame, ...]) -> Mapping[
 def assert_streaming_translation(
     case: StreamingTranslationTestCase, gateway: Gateway, provider: SharedProvider
 ) -> None:
-    assert case.expected_litellm_frames is not None, "Exact replay requires expected frames"
-    assert case.expected_litellm_response is not None, "Exact replay requires an expected completion"
+    assert case.expected_hangarllm_frames is not None, "Exact replay requires expected frames"
+    assert case.expected_hangarllm_response is not None, "Exact replay requires an expected completion"
     provider.expect(streaming_reply(case))
-    response: Final = gateway.request("POST", case.litellm_endpoint, case.litellm_request)
+    response: Final = gateway.request("POST", case.hangarllm_endpoint, case.hangarllm_request)
     assert_provider_request(
         provider.received(),
         case.expected_provider_endpoint,
@@ -152,5 +152,5 @@ def assert_streaming_translation(
     )
     assert response.status_code == 200, response.text
     frames: Final = parse_sse_frames(response.text)
-    assert frames == case.expected_litellm_frames
-    assert _join_stream_frames(case.litellm_endpoint, frames) == case.expected_litellm_response
+    assert frames == case.expected_hangarllm_frames
+    assert _join_stream_frames(case.hangarllm_endpoint, frames) == case.expected_hangarllm_response

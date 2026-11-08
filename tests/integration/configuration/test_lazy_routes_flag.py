@@ -1,4 +1,4 @@
-"""Route table contract for the LITELLM_DISABLE_LAZY_ROUTES startup flag.
+"""Route table contract for the HANGARLLM_DISABLE_LAZY_ROUTES startup flag.
 
 By default optional feature routers (``LAZY_FEATURES``) are registered on the first
 request to their path prefix, so an operator inspecting the route table right after
@@ -27,21 +27,21 @@ import pytest
 import yaml
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy._lazy_features import LAZY_FEATURES, LazyFeature
+from hangarllm.proxy._lazy_features import LAZY_FEATURES, LazyFeature
 from tests.integration._support.client import Gateway, eventually, object_value, string_value
 from tests.integration._support.mcp import McpPeer, call_tool, echo_tool, scripted_peer, tool_calls, tool_names
 from tests.integration._support.process import OwnedProxy, owned_proxy_process
 from tests.integration._support.wire import Reply, Request, Wire, wire_server
 
 TICKET_FEATURES: Final = ("mcp_management", "mcp_byok_oauth")
-FLAG: Final = "LITELLM_DISABLE_LAZY_ROUTES"
+FLAG: Final = "HANGARLLM_DISABLE_LAZY_ROUTES"
 WARMUP_ROUTE: Final = "/lazy/warm/{name}"
 MCP_WARM_PATH: Final = "/mcp/enabled"
 MARKER: Final = re.compile(rb"lazyroutes-[0-9a-f]{32}")
 FAILED_FEATURE: Final = re.compile(r"Failed to lazy-load optional feature '([a-z_]+)'")
 JSON: Final[TypeAdapter[JsonValue]] = TypeAdapter(JsonValue)
 HOOK_MODULE: Final = "lazy_routes_route_filter_hook"
-HOOK_SOURCE: Final = """from litellm.proxy.proxy_server import app
+HOOK_SOURCE: Final = """from hangarllm.proxy.proxy_server import app
 
 
 def drop_mcp_routes() -> None:
@@ -71,7 +71,7 @@ def _route_filter_hook(directory: Path) -> Mapping[str, str]:
     search_path: Final = (str(directory), os.environ.get("PYTHONPATH", ""))
     return {
         "PYTHONPATH": os.pathsep.join(entry for entry in search_path if entry),
-        "LITELLM_WORKER_STARTUP_HOOKS": f"{HOOK_MODULE}:drop_mcp_routes",
+        "HANGARLLM_WORKER_STARTUP_HOOKS": f"{HOOK_MODULE}:drop_mcp_routes",
     }
 
 
@@ -499,7 +499,7 @@ def _config_declaring(directory: Path, alias: str, policy: Wire, langfuse: Wire,
         "guardrails": [
             {
                 "guardrail_name": alias,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": True,

@@ -6,10 +6,10 @@ import httpx
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
-from litellm.llms.azure_ai.decisions.transformation import AzureAIDecisionsConfig
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.decisions.transformation import (
+import hangarllm
+from hangarllm.llms.azure_ai.decisions.transformation import AzureAIDecisionsConfig
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.base_llm.decisions.transformation import (
     BaseDecisionsConfig,
     DecisionsInputLimits,
     DecisionsResponseValidationError,
@@ -18,9 +18,9 @@ from litellm.llms.base_llm.decisions.transformation import (
     parse_systemone_response,
     systemone_request_to_ir,
 )
-from litellm.llms.openai.decisions.transformation import openai_request_to_ir
-from litellm.llms.typesafe.decisions.transformation import TypeSafeDecisionsConfig
-from litellm.types.decisions import (
+from hangarllm.llms.openai.decisions.transformation import openai_request_to_ir
+from hangarllm.llms.typesafe.decisions.transformation import TypeSafeDecisionsConfig
+from hangarllm.types.decisions import (
     MAX_DECISION_QUESTIONS,
     DecisionsIRChoiceAnswer,
     DecisionsIRRefusal,
@@ -29,8 +29,8 @@ from litellm.types.decisions import (
     DecisionsRequestBody,
     OpenAIDecisionRequestBody,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 _SYSTEMONE_BODY: Final[TypeAdapter[DecisionsRequestBody]] = TypeAdapter(DecisionsRequestBody)
 _OPENAI_BODY: Final[TypeAdapter[OpenAIDecisionRequestBody]] = TypeAdapter(OpenAIDecisionRequestBody)
@@ -60,9 +60,9 @@ def test_decision_input_limits_use_only_positive_catalog_limits(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch, declared: int | None
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "bespoke/test-input-limit",
-        {"litellm_provider": "bespoke", "mode": "evaluation", "max_input_tokens": declared},
+        {"hangarllm_provider": "bespoke", "mode": "evaluation", "max_input_tokens": declared},
     )
 
     limits: Final = BaseDecisionsConfig().get_input_limits("test-input-limit", "bespoke", {})
@@ -102,7 +102,7 @@ def test_typesafe_limits_require_unambiguous_long_context_opt_in(
 def test_azure_decision_deployments_use_catalog_limits_without_typesafe_modes(
     local_model_cost_map: None, model: str
 ) -> None:
-    catalog_limit: Final = litellm.get_model_info("Microsoft-Decision-1", "azure_ai")["max_input_tokens"]
+    catalog_limit: Final = hangarllm.get_model_info("Microsoft-Decision-1", "azure_ai")["max_input_tokens"]
     limits: Final = AzureAIDecisionsConfig().get_input_limits(
         model, "azure_ai", {"TypeSafe-Danger-Zone-Long-Context": "true"}
     )

@@ -11,10 +11,10 @@ import pytest
 
 from botocore.exceptions import ClientError, ConnectionClosedError
 
-from litellm.llms.sagemaker.common_utils import AWSEventStreamDecoder, SagemakerError, client_error_details
-from litellm.llms.sagemaker.completion.transformation import SagemakerConfig
-from litellm.types.utils import GenericStreamingChunk as GChunk
-from litellm.types.utils import StreamingChatCompletionChunk
+from hangarllm.llms.sagemaker.common_utils import AWSEventStreamDecoder, SagemakerError, client_error_details
+from hangarllm.llms.sagemaker.completion.transformation import SagemakerConfig
+from hangarllm.types.utils import GenericStreamingChunk as GChunk
+from hangarllm.types.utils import StreamingChatCompletionChunk
 
 
 # --------------------------------------------------------------------------- #
@@ -25,7 +25,7 @@ from litellm.types.utils import StreamingChatCompletionChunk
 @pytest.fixture(autouse=True)
 def _reset_sagemaker_response_stream_shape_cache():
     """Prevent lru_cache leakage between tests in this module."""
-    import litellm.llms.sagemaker.common_utils as mod
+    import hangarllm.llms.sagemaker.common_utils as mod
 
     mod.get_sagemaker_response_stream_shape.cache_clear()
     yield
@@ -38,7 +38,7 @@ def test_sagemaker_response_stream_shape_lazy_loads_once():
     """
     from unittest.mock import MagicMock, patch
 
-    import litellm.llms.sagemaker.common_utils as mod
+    import hangarllm.llms.sagemaker.common_utils as mod
 
     sentinel = MagicMock()
     with patch.object(mod, "_load_sagemaker_response_stream_shape", return_value=sentinel) as mock_load:
@@ -53,7 +53,7 @@ def test_sagemaker_response_stream_shape_loaded_on_first_access():
     In a standard environment with botocore installed it must be non-None.
     """
     pytest.importorskip("botocore")
-    from litellm.llms.sagemaker.common_utils import get_sagemaker_response_stream_shape
+    from hangarllm.llms.sagemaker.common_utils import get_sagemaker_response_stream_shape
 
     assert get_sagemaker_response_stream_shape() is not None
 
@@ -66,7 +66,7 @@ def test_sagemaker_response_stream_shape_load_failure_returns_none():
     """
     from unittest.mock import patch
 
-    import litellm.llms.sagemaker.common_utils as mod
+    import hangarllm.llms.sagemaker.common_utils as mod
 
     pytest.importorskip("botocore")
     with patch(
@@ -84,7 +84,7 @@ def test_sagemaker_response_stream_shape_is_none_for_a_service_model_that_is_not
     pytest.importorskip("botocore")
     from unittest.mock import patch
 
-    import litellm.llms.sagemaker.common_utils as mod
+    import hangarllm.llms.sagemaker.common_utils as mod
 
     with patch("botocore.loaders.Loader.load_service_model", return_value=service_model):
         assert mod._load_sagemaker_response_stream_shape() is None
@@ -98,7 +98,7 @@ def test_sagemaker_response_stream_shape_is_structure_shape():
     pytest.importorskip("botocore")
     from botocore.model import StructureShape
 
-    from litellm.llms.sagemaker.common_utils import get_sagemaker_response_stream_shape
+    from hangarllm.llms.sagemaker.common_utils import get_sagemaker_response_stream_shape
 
     shape = get_sagemaker_response_stream_shape()
     assert shape is not None, "get_sagemaker_response_stream_shape() is None — botocore may not be installed"
@@ -111,7 +111,7 @@ def test_sagemaker_response_stream_shape_not_reloaded_on_new_decoder():
     Creating multiple AWSEventStreamDecoder instances must not trigger
     additional botocore Loader calls — the shape is cached after first access.
     """
-    from litellm.llms.sagemaker.common_utils import get_sagemaker_response_stream_shape
+    from hangarllm.llms.sagemaker.common_utils import get_sagemaker_response_stream_shape
 
     decoder_a = AWSEventStreamDecoder.__new__(AWSEventStreamDecoder)
     decoder_b = AWSEventStreamDecoder.__new__(AWSEventStreamDecoder)
@@ -132,8 +132,8 @@ def test_sagemaker_parse_message_from_event_raises_on_none_shape():
     """
     from unittest.mock import MagicMock, patch
 
-    import litellm.llms.sagemaker.common_utils as mod
-    from litellm.llms.sagemaker.common_utils import SagemakerError
+    import hangarllm.llms.sagemaker.common_utils as mod
+    from hangarllm.llms.sagemaker.common_utils import SagemakerError
 
     decoder = AWSEventStreamDecoder.__new__(AWSEventStreamDecoder)
     decoder.model = "test-model"
@@ -160,7 +160,7 @@ async def test_aiter_bytes_unicode_decode_error():
 
     Ensures stream processing continues despite the error.
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/9165
+    Relevant issue: upstream issue 9165
     """
     # Create an instance of AWSEventStreamDecoder
     decoder = AWSEventStreamDecoder(model="test-model")
@@ -201,7 +201,7 @@ async def test_aiter_bytes_valid_chunk_followed_by_unicode_error():
     Test that valid chunks are processed correctly even when followed by Unicode decode errors.
     This ensures errors don't corrupt or prevent processing of valid data that came before.
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/9165
+    Relevant issue: upstream issue 9165
     """
     decoder = AWSEventStreamDecoder(model="test-model")
 
@@ -350,7 +350,7 @@ def _text(chunk: GChunk | StreamingChatCompletionChunk | None, is_messages_api: 
 async def test_messages_api_stream_keeps_every_chunk_however_sagemaker_cuts_the_parts(
     parts: tuple[str | bytes, ...], mode: str, caplog: pytest.LogCaptureFixture
 ):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         chunks: Final = await _decode(parts, is_messages_api=True, mode=mode)
 
     assert None not in chunks
@@ -378,7 +378,7 @@ async def test_messages_api_stream_keeps_every_chunk_however_sagemaker_cuts_the_
 async def test_completion_stream_keeps_every_token_however_sagemaker_cuts_the_parts(
     parts: tuple[str | bytes, ...], mode: str, caplog: pytest.LogCaptureFixture
 ):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         chunks: Final = await _decode(parts, is_messages_api=False, mode=mode)
 
     assert None not in chunks
@@ -409,7 +409,7 @@ async def test_stream_that_ends_inside_a_record_raises_after_the_complete_ones(m
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["sync", "async"])
 async def test_text_left_over_that_is_not_a_record_is_logged_once(mode: str, caplog: pytest.LogCaptureFixture):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         chunks: Final = await _decode((*_VLLM_EVENTS[:3], "data: upstream hiccup\n\n"), is_messages_api=True, mode=mode)
 
     assert chunks[-1] is None
@@ -633,7 +633,7 @@ async def test_model_stream_error_raises_after_the_chunks_before_it(mode: str):
 async def test_chunk_with_a_null_error_field_is_delivered(
     parts: tuple[str, ...], is_messages_api: bool, mode: str, caplog: pytest.LogCaptureFixture
 ):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         chunks: Final = await _decode(parts, is_messages_api=is_messages_api, mode=mode)
 
     assert "".join(_text(chunk, is_messages_api) or "" for chunk in chunks) == "Héllo 👋"
@@ -643,7 +643,7 @@ async def test_chunk_with_a_null_error_field_is_delivered(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["sync", "async"])
 async def test_record_that_is_not_a_chunk_is_logged_and_skipped(mode: str, caplog: pytest.LogCaptureFixture):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         chunks: Final = await _decode(
             (_VLLM_EVENTS[1], _sse({"object": "keepalive", "detail": "still decoding"}), _VLLM_EVENTS[2]),
             is_messages_api=True,

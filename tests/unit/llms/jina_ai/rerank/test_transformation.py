@@ -4,8 +4,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.jina_ai.rerank.transformation import JinaAIRerankConfig
-from litellm.types.rerank import RerankResponse
+from hangarllm.llms.jina_ai.rerank.transformation import JinaAIRerankConfig
+from hangarllm.types.rerank import RerankResponse
 
 
 def _transform(payload: object, status_code: int = 200) -> RerankResponse:

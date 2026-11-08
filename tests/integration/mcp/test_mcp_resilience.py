@@ -51,7 +51,7 @@ _BURST: Final = 20
 _OUTAGE: Final = 6
 _SPEND_NONCES: Final = (
     "SELECT status, metadata->'mcp_tool_call_metadata'->'arguments'->>'nonce' AS nonce"
-    ' FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
+    ' FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
 )
 _OBJECTS: Final = TypeAdapter(Mapping[str, object])
 _STRINGS: Final = TypeAdapter(Mapping[str, str])
@@ -94,7 +94,7 @@ def echo_config(tmp_path_factory: pytest.TempPathFactory) -> Path:
     base: Final = _OBJECTS.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     guardrail: Final = {
         "guardrail_name": "catalog-echo-" + uuid.uuid4().hex[:8],
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "custom_code",
             "mode": "pre_mcp_call",
             "default_on": True,
@@ -112,7 +112,7 @@ def _call(caller: McpCaller, name: str, arguments: dict[str, object], entry: Ent
 
 def _health(gateway: Gateway, key: str, identity: str) -> str:
     response: Final = gateway.client.get(
-        "/v1/mcp/server/health", headers={"x-litellm-api-key": key}, params={"server_ids": [identity]}
+        "/v1/mcp/server/health", headers={"x-hangarllm-api-key": key}, params={"server_ids": [identity]}
     )
     assert response.status_code == 200, response.text
     statuses: Final = {entry["server_id"]: entry["status"] for entry in response.json()}
@@ -261,7 +261,7 @@ class _Worker:
 
 
 def _worker(proxy: Gateway, key: str, alias: str) -> _Worker:
-    sessions: Final = proxy.client.get("/v1/mcp/sessions", headers={"x-litellm-api-key": proxy.key})
+    sessions: Final = proxy.client.get("/v1/mcp/sessions", headers={"x-hangarllm-api-key": proxy.key})
     assert sessions.status_code == 200, sessions.text
     return _Worker(McpCaller(proxy, key, "mcp", alias), _SessionsReport.model_validate_json(sessions.text).worker_pid)
 

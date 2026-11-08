@@ -6,18 +6,18 @@ import pytest
 from fastapi import HTTPException
 from httpx import Request, Response
 
-import litellm
-from litellm import ModelResponse
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.guardrails.guardrail_hooks.onyx.onyx import OnyxGuardrail
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.utils import Choices, GenericGuardrailAPIInputs, Message
+import hangarllm
+from hangarllm import ModelResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx import OnyxGuardrail
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.utils import Choices, GenericGuardrailAPIInputs, Message
 
 
 def test_onyx_guard_config(monkeypatch: pytest.MonkeyPatch):
     """Test Onyx guard configuration with init_guardrails_v2."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
     monkeypatch.setenv("ONYX_API_BASE", "https://test.onyx.security")
     monkeypatch.setenv("ONYX_API_KEY", "test-api-key")
@@ -26,7 +26,7 @@ def test_onyx_guard_config(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "onyx-guard",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "onyx",
                     "mode": "pre_call",
                     "default_on": True,
@@ -36,7 +36,7 @@ def test_onyx_guard_config(monkeypatch: pytest.MonkeyPatch):
         config_file_path="",
     )
 
-    registered = [c for c in litellm.callbacks if isinstance(c, OnyxGuardrail)]
+    registered = [c for c in hangarllm.callbacks if isinstance(c, OnyxGuardrail)]
     assert len(registered) == 1
     assert registered[0].guardrail_name == "onyx-guard"
     assert registered[0].default_on is True
@@ -49,7 +49,7 @@ def test_onyx_guard_with_custom_timeout_from_kwargs(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("ONYX_API_KEY", "test-api-key")
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
+        "hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
     ) as mock_get_client:
         mock_get_client.return_value = MagicMock()
 
@@ -80,7 +80,7 @@ def test_onyx_guard_with_timeout_none_uses_env_var(monkeypatch: pytest.MonkeyPat
     monkeypatch.setenv("ONYX_TIMEOUT", "60")
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
+        "hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
     ) as mock_get_client:
         mock_get_client.return_value = MagicMock()
 
@@ -108,7 +108,7 @@ def test_onyx_guard_with_timeout_none_defaults_to_10(monkeypatch: pytest.MonkeyP
     monkeypatch.delenv("ONYX_TIMEOUT", raising=False)
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
+        "hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
     ) as mock_get_client:
         mock_get_client.return_value = MagicMock()
 
@@ -178,7 +178,7 @@ class TestOnyxGuardrail:
         monkeypatch.setenv("ONYX_API_KEY", "test-api-key")
 
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
+            "hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
         ) as mock_get_client:
             mock_get_client.return_value = MagicMock()
             guardrail = OnyxGuardrail(
@@ -197,7 +197,7 @@ class TestOnyxGuardrail:
         monkeypatch.setenv("ONYX_API_KEY", "test-api-key")
 
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
+            "hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
         ) as mock_get_client:
             mock_get_client.return_value = MagicMock()
             guardrail = OnyxGuardrail(
@@ -224,7 +224,7 @@ class TestOnyxGuardrail:
         monkeypatch.setenv("ONYX_TIMEOUT", "25")
 
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
+            "hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
         ) as mock_get_client:
             mock_get_client.return_value = MagicMock()
             # Must pass timeout=None explicitly to trigger env var lookup
@@ -248,7 +248,7 @@ class TestOnyxGuardrail:
         monkeypatch.setenv("ONYX_TIMEOUT", "25")
 
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
+            "hangarllm.proxy.guardrails.guardrail_hooks.onyx.onyx.get_async_httpx_client"
         ) as mock_get_client:
             mock_get_client.return_value = MagicMock()
             guardrail = OnyxGuardrail(
@@ -286,12 +286,12 @@ class TestOnyxGuardrail:
         }
 
         # Create logging object
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -322,7 +322,7 @@ class TestOnyxGuardrail:
         call_args = mock_post.call_args
         assert (
             call_args.args[0]
-            == f"{guardrail.api_base}/guard/evaluate/v1/{guardrail.api_key}/litellm"
+            == f"{guardrail.api_base}/guard/evaluate/v1/{guardrail.api_key}/hangarllm"
         )
         assert (
             call_args.kwargs["json"]["payload"] == request_data["proxy_server_request"]
@@ -424,12 +424,12 @@ class TestOnyxGuardrail:
         mock_api_response.raise_for_status = MagicMock()
 
         # Create logging object
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            hangarllm_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -726,7 +726,7 @@ class TestOnyxGuardrail:
 
             # Verify the API call
             mock_post.assert_called_once_with(
-                f"{guardrail.api_base}/guard/evaluate/v1/{guardrail.api_key}/litellm",
+                f"{guardrail.api_base}/guard/evaluate/v1/{guardrail.api_key}/hangarllm",
                 json={
                     "payload": payload,
                     "input_type": "request",
@@ -882,7 +882,7 @@ class TestOnyxIntegration:
             all_guardrails=[
                 {
                     "guardrail_name": "onyx-pre-guard",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "onyx",
                         "mode": "pre_call",
                         "default_on": True,
@@ -890,7 +890,7 @@ class TestOnyxIntegration:
                 },
                 {
                     "guardrail_name": "onyx-post-guard",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "onyx",
                         "mode": "post_call",
                         "default_on": True,
@@ -898,7 +898,7 @@ class TestOnyxIntegration:
                 },
                 {
                     "guardrail_name": "onyx-moderation-guard",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "onyx",
                         "mode": "during_call",
                         "default_on": True,
@@ -908,8 +908,8 @@ class TestOnyxIntegration:
             config_file_path="",
         )
 
-        custom_loggers = litellm.logging_callback_manager.get_custom_loggers_for_type(
-            callback_type=litellm.integrations.custom_guardrail.CustomGuardrail
+        custom_loggers = hangarllm.logging_callback_manager.get_custom_loggers_for_type(
+            callback_type=hangarllm.integrations.custom_guardrail.CustomGuardrail
         )
         assert len(custom_loggers) >= 3
 

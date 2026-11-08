@@ -9,12 +9,12 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
-from litellm.llms.milvus.vector_stores.transformation import MilvusVectorStoreConfig
-from litellm.types.utils import EmbeddingResponse
-from litellm.vector_stores import asearch as vector_store_asearch
-from litellm.vector_stores import search as vector_store_search
+import hangarllm
+from hangarllm import Router
+from hangarllm.llms.milvus.vector_stores.transformation import MilvusVectorStoreConfig
+from hangarllm.types.utils import EmbeddingResponse
+from hangarllm.vector_stores import asearch as vector_store_asearch
+from hangarllm.vector_stores import search as vector_store_search
 
 MOCK_MILVUS_SEARCH_RESPONSE = {
     "code": 0,
@@ -99,7 +99,7 @@ ALIAS_SEARCH_KWARGS = {
     "custom_llm_provider": "milvus",
     "api_base": "https://milvus.example",
     "api_key": "mock_milvus_api_key",
-    "litellm_embedding_model": "multilingual-e5-large",
+    "hangarllm_embedding_model": "multilingual-e5-large",
     "milvus_text_field": "book_intro_text",
 }
 ZILLIZ_SEARCH_KWARGS = {
@@ -108,8 +108,8 @@ ZILLIZ_SEARCH_KWARGS = {
     "custom_llm_provider": "milvus",
     "api_base": "https://in03-test.serverless.aws-eu-central-1.cloud.zilliz.com",
     "api_key": "mock_milvus_api_key",
-    "litellm_embedding_model": "text-embedding-3-large",
-    "litellm_embedding_config": {
+    "hangarllm_embedding_model": "text-embedding-3-large",
+    "hangarllm_embedding_config": {
         "api_key": "mock_openai_api_key",
     },
     "outputFields": ["book_intro_text"],
@@ -123,7 +123,7 @@ def _alias_router():
         model_list=[
             {
                 "model_name": "multilingual-e5-large",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "deployment-key",
                 },
@@ -164,7 +164,7 @@ class TestMilvusVectorStore:
     @pytest.mark.asyncio
     async def test_basic_search_with_mock_async(self, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
         """Test basic vector search with mocked backend response (async)"""
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
         embedding_route = _mock_embedding_route(respx_mock)
         search_route = _mock_zilliz_search_route(respx_mock)
 
@@ -263,7 +263,7 @@ class TestMilvusVectorStore:
         assert request_data["outputFields"] == ["book_intro_text"]
 
     def test_backend_configured_db_and_partition_are_forwarded(self, respx_mock: respx.MockRouter):
-        """milvus_db_name / milvus_partition_names from litellm_params must be sent."""
+        """milvus_db_name / milvus_partition_names from hangarllm_params must be sent."""
         _mock_embedding_route(respx_mock)
         search_route = _mock_zilliz_search_route(respx_mock)
 
@@ -324,7 +324,7 @@ def test_router_search_resolves_bare_embedding_alias_sync(
 async def test_router_search_resolves_bare_embedding_alias_async(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     embedding_route = _mock_embedding_route(respx_mock)
     search_route = _mock_search_route(respx_mock)
@@ -341,7 +341,7 @@ def test_sdk_search_with_router_kwarg_resolves_bare_embedding_alias_sync(
     embedding_route = _mock_embedding_route(respx_mock)
     search_route = _mock_search_route(respx_mock)
 
-    response = litellm.vector_stores.search(router=_alias_router(), **ALIAS_SEARCH_KWARGS)
+    response = hangarllm.vector_stores.search(router=_alias_router(), **ALIAS_SEARCH_KWARGS)
 
     _assert_alias_resolved(embedding_route, search_route, response)
 
@@ -350,12 +350,12 @@ def test_sdk_search_with_router_kwarg_resolves_bare_embedding_alias_sync(
 async def test_sdk_search_with_router_kwarg_resolves_bare_embedding_alias_async(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     embedding_route = _mock_embedding_route(respx_mock)
     search_route = _mock_search_route(respx_mock)
 
-    response = await litellm.vector_stores.asearch(router=_alias_router(), **ALIAS_SEARCH_KWARGS)
+    response = await hangarllm.vector_stores.asearch(router=_alias_router(), **ALIAS_SEARCH_KWARGS)
 
     _assert_alias_resolved(embedding_route, search_route, response)
 
@@ -365,7 +365,7 @@ def _team_alias_router():
         model_list=[
             {
                 "model_name": "team-a-embedder",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "deployment-key",
                 },
@@ -379,12 +379,12 @@ def _team_alias_router():
 async def test_sdk_search_with_router_kwarg_resolves_team_alias_from_request_metadata(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     embedding_route = _mock_embedding_route(respx_mock)
     search_route = _mock_search_route(respx_mock)
 
-    response = await litellm.vector_stores.asearch(
+    response = await hangarllm.vector_stores.asearch(
         router=_team_alias_router(), metadata={"user_api_key_team_id": "team-a"}, **ALIAS_SEARCH_KWARGS
     )
 
@@ -395,13 +395,13 @@ async def test_sdk_search_with_router_kwarg_resolves_team_alias_from_request_met
 async def test_sdk_search_with_router_kwarg_rejects_team_alias_without_team_metadata(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     embedding_route = _mock_embedding_route(respx_mock)
     _mock_search_route(respx_mock)
 
-    with pytest.raises(litellm.APIConnectionError):
-        await litellm.vector_stores.asearch(router=_team_alias_router(), **ALIAS_SEARCH_KWARGS)
+    with pytest.raises(hangarllm.APIConnectionError):
+        await hangarllm.vector_stores.asearch(router=_team_alias_router(), **ALIAS_SEARCH_KWARGS)
 
     assert embedding_route.call_count == 0
 
@@ -417,8 +417,8 @@ async def test_transform_uses_injected_executor_without_embedding_config(respx_m
         "query": ["what is", "milvus?"],
         "vector_store_search_optional_params": {"limit": 3},
         "api_base": "https://milvus.example",
-        "litellm_logging_obj": logging_obj,
-        "litellm_params": {"litellm_embedding_model": "multilingual-e5-large", "milvus_db_name": "docs"},
+        "hangarllm_logging_obj": logging_obj,
+        "hangarllm_params": {"hangarllm_embedding_model": "multilingual-e5-large", "milvus_db_name": "docs"},
         "embedding_executor": executor,
     }
 
@@ -453,8 +453,8 @@ def test_transform_falls_back_to_sdk_embedding_without_executor_or_config(
         query="q",
         vector_store_search_optional_params={},
         api_base="https://milvus.example",
-        litellm_logging_obj=logging_obj,
-        litellm_params={"litellm_embedding_model": "openai/text-embedding-3-small"},
+        hangarllm_logging_obj=logging_obj,
+        hangarllm_params={"hangarllm_embedding_model": "openai/text-embedding-3-small"},
     )
 
     embedding_request = embedding_route.calls.last.request
@@ -464,13 +464,13 @@ def test_transform_falls_back_to_sdk_embedding_without_executor_or_config(
 
 
 def test_transform_requires_embedding_model():
-    with pytest.raises(ValueError, match="litellm_embedding_model is required"):
+    with pytest.raises(ValueError, match="hangarllm_embedding_model is required"):
         MilvusVectorStoreConfig().transform_search_vector_store_request(
             vector_store_id="book_2",
             query="q",
             vector_store_search_optional_params={},
             api_base="https://milvus.example",
-            litellm_logging_obj=MagicMock(),
-            litellm_params={"litellm_embedding_config": {"api_key": "store-key"}},
+            hangarllm_logging_obj=MagicMock(),
+            hangarllm_params={"hangarllm_embedding_config": {"api_key": "store-key"}},
             embedding_executor=RecordingEmbeddingExecutor(ALIAS_EMBEDDING_RESPONSE),
         )

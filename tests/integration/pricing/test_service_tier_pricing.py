@@ -34,7 +34,7 @@ def assert_chat_bills_rates(
         )
         assert response.status_code == 200, response.text
         expected: Final = 20 * input_rate + 20 * output_rate
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
         observations: Final = JSON_OBJECT.validate_json(upstream.get("/__observations").content)["requests"]
         assert isinstance(observations, list)
         assert len(observations) == 1
@@ -47,7 +47,7 @@ def assert_chat_bills_rates(
     request_id: Final = string_value(object_value(response.json())["id"])
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+            'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
             (request_id,),
         ),
         lambda values: len(values) == 1,
@@ -235,11 +235,11 @@ def test_ultrafast_long_context_prompt_bills_ultrafast_long_context_rates(
         expected_input: Final = (prompt_tokens - CACHED_TOKENS) * input_rate + CACHED_TOKENS * cache_read_rate
         expected_output: Final = COMPLETION_TOKENS * output_rate
         expected: Final = expected_input + expected_output
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
         request_id: Final = string_value(object_value(response.json())["id"])
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                 (request_id,),
             ),
             lambda values: len(values) == 1,
@@ -264,7 +264,7 @@ def test_ultrafast_long_context_prompt_bills_ultrafast_long_context_rates(
 
 
 BUNDLED_COST_MAP: Final = (
-    Path(__file__).resolve().parents[3] / "litellm" / "model_prices_and_context_window_backup.json"
+    Path(__file__).resolve().parents[3] / "hangarllm" / "model_prices_and_context_window_backup.json"
 )
 CUSTOM_STANDARD_INPUT_RATE: Final = 0.001
 CUSTOM_STANDARD_OUTPUT_RATE: Final = 0.002
@@ -330,10 +330,10 @@ def test_custom_standard_rates_bill_served_ultrafast_tier_at_the_catalog_tier_ra
         )
         assert response.status_code == 200, response.text
         expected: Final = 1000 * input_rate + 100 * output_rate
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
         request_id: Final = string_value(object_value(response.json())["id"])
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
             lambda values: len(values) == 1,
             seconds=70,
         )
@@ -387,11 +387,11 @@ def test_custom_standard_rates_bill_catalog_ultrafast_long_context_rates(gateway
 
         assert response.status_code == 200, response.text
         expected: Final = LONG_PROMPT_TOKENS * input_rate + 100 * output_rate
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected, rel=1e-6), response.text
         request_id: Final = string_value(object_value(response.json())["id"])
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                 (request_id,),
             ),
             lambda values: len(values) == 1,

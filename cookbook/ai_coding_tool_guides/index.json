@@ -1,134 +1,134 @@
 [{
     "title": "Claude Code Quickstart",
-    "description": "This is a quickstart guide to using Claude Code with LiteLLM.",
-    "url": "https://docs.litellm.ai/docs/tutorials/claude_responses_api",
+    "description": "This is a quickstart guide to using Claude Code with HangarLLM.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-15",
     "version": "1.0.0",
     "tags": [
         "Claude Code",
-        "LiteLLM"
+        "HangarLLM"
     ]
 },
 {
     "title": "Claude Code with MCPs",
-    "description": "This is a guide to using Claude Code with MCPs via LiteLLM Proxy.",
-    "url": "https://docs.litellm.ai/docs/tutorials/claude_mcp",
+    "description": "This is a guide to using Claude Code with MCPs via HangarLLM Proxy.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-15",
     "version": "1.0.0",
     "tags": [
         "Claude Code",
-        "LiteLLM",
+        "HangarLLM",
         "MCP"
     ]
 }, 
 {
     "title": "Claude Code with Non-Anthropic Models",
-    "description": "This is a guide to using Claude Code with non-Anthropic models via LiteLLM Proxy.",
-    "url": "https://docs.litellm.ai/docs/tutorials/claude_non_anthropic_models",
+    "description": "This is a guide to using Claude Code with non-Anthropic models via HangarLLM Proxy.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-16",
     "version": "1.0.0",
     "tags": [
         "Claude Code",
-        "LiteLLM",
+        "HangarLLM",
         "OpenAI",
         "Gemini"
     ]
 },
 {
     "title": "Cursor Quickstart",
-    "description": "This is a quickstart guide to using Cursor with LiteLLM.",
-    "url": "https://docs.litellm.ai/docs/tutorials/cursor_integration",
+    "description": "This is a quickstart guide to using Cursor with HangarLLM.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-16",
     "version": "1.0.0",
     "tags": [
         "Cursor",
-        "LiteLLM",
+        "HangarLLM",
         "Quickstart"
     ]
 },
 {
     "title": "Github Copilot Quickstart",
-    "description": "This is a quickstart guide to using Github Copilot with LiteLLM.",
-    "url": "https://docs.litellm.ai/docs/tutorials/github_copilot_integration",
+    "description": "This is a quickstart guide to using Github Copilot with HangarLLM.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-16",
     "version": "1.0.0",
     "tags": [
         "Github Copilot",
-        "LiteLLM",
+        "HangarLLM",
         "Quickstart"
     ]
 },
 {
-    "title": "LiteLLM Gemini CLI Quickstart",
-    "description": "This is a quickstart guide to using LiteLLM Gemini CLI.",
-    "url": "https://docs.litellm.ai/docs/tutorials/litellm_gemini_cli",
+    "title": "HangarLLM Gemini CLI Quickstart",
+    "description": "This is a quickstart guide to using HangarLLM Gemini CLI.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-16",
     "version": "1.0.0",
     "tags": [
         "Gemini CLI",
         "Gemini",
-        "LiteLLM",
+        "HangarLLM",
         "Quickstart"
     ]
 },
 {
     "title": "OpenAI Codex CLI Quickstart",
     "description": "This is a quickstart guide to using OpenAI Codex CLI.",
-    "url": "https://docs.litellm.ai/docs/tutorials/openai_codex",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-16",
     "version": "1.0.0",
     "tags": [
         "OpenAI Codex CLI",
         "OpenAI",
-        "LiteLLM",
+        "HangarLLM",
         "Quickstart"
     ]
 },
 {
     "title": "OpenWebUI Quickstart",
-    "description": "This is a quickstart guide to using OpenWebUI with LiteLLM.",
-    "url": "https://docs.litellm.ai/docs/tutorials/openweb_ui",
+    "description": "This is a quickstart guide to using OpenWebUI with HangarLLM.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-16",
     "version": "1.0.0",
     "tags": [
         "OpenWebUI",
-        "LiteLLM",
+        "HangarLLM",
         "Quickstart"
     ]
 },
 {
     "title": "AI Coding Tool Usage Tracking",
-    "description": "This is a guide to tracking usage for AI coding tools monitor the use of Claude Code , Google Antigravity, OpenAI Codex, Roo Code etc. through LiteLLM.",
-    "url": "https://docs.litellm.ai/docs/tutorials/cost_tracking_coding",
+    "description": "This is a guide to tracking usage for AI coding tools monitor the use of Claude Code , Google Antigravity, OpenAI Codex, Roo Code etc. through HangarLLM.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-17",
     "version": "1.0.0",
     "tags": [
         "Claude Code",
         "Gemini CLI",
         "OpenAI Codex",
-        "LiteLLM"
+        "HangarLLM"
     ]
 },
 {
     "title": "Use Web Search with Claude Code (across Bedrock/OpenAI/Gemini/etc.)",
-    "description": "This is a guide for using Web Search with Claude Code via LiteLLM.",
-    "url": "https://docs.litellm.ai/docs/tutorials/claude_code_websearch",
+    "description": "This is a guide for using Web Search with Claude Code via HangarLLM.",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-17",
     "version": "1.0.0",
     "tags": [
         "Claude Code",
-        "LiteLLM",
+        "HangarLLM",
         "Web Search"
     ]
 },
 {
     "title": "Track Claude Code Usage per user via Custom Headers",
     "description": "This is a guide for tracking claude code user usage by passing a customer ID header.",
-    "url": "https://docs.litellm.ai/docs/tutorials/claude_code_customer_tracking",
+    "url": "https://github.com/valteresj2/HangarLLM#readme",
     "date": "2026-01-17",
     "version": "1.0.0",
     "tags": [
         "Claude Code",
-        "LiteLLM"
+        "HangarLLM"
     ]
 }]

@@ -10,15 +10,15 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.ollama.completion.transformation import (
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm._uuid import uuid
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.ollama.completion.transformation import (
     OllamaConfig,
     OllamaTextCompletionResponseIterator,
 )
-from litellm.types.utils import Message, ModelResponse, ModelResponseStream
+from hangarllm.types.utils import Message, ModelResponse, ModelResponseStream
 
 
 class TestOllamaConfig:
@@ -53,7 +53,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -102,7 +102,7 @@ class TestOllamaConfig:
             request_data={"format": "json"},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -134,7 +134,7 @@ class TestOllamaConfig:
             request_data={"format": "json"},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=MagicMock(),
         )
 
@@ -173,7 +173,7 @@ class TestOllamaConfig:
             request_data={"format": "json"},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -217,7 +217,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -259,7 +259,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -301,7 +301,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -344,7 +344,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -386,7 +386,7 @@ class TestOllamaConfig:
             request_data={"format": "json"},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -428,7 +428,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -462,7 +462,7 @@ class TestOllamaConfig:
             request_data=request_data or {},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=mock_encoding,
         )
 
@@ -800,7 +800,7 @@ async def test_ollama_async_completion_inlines_remote_images_off_the_event_loop(
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="ollama/llava",
         messages=[
             {
@@ -844,7 +844,7 @@ def _transform_image_request(image_base64: str, mime_subtype: str) -> dict:
             }
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -895,7 +895,7 @@ async def _complete_in_json_mode(response_text: str) -> ModelResponse:
     def respond(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"model": "llama3", "response": response_text, "done": True})
 
-    return await litellm.acompletion(
+    return await hangarllm.acompletion(
         model="ollama/llama3",
         messages=[{"role": "user", "content": "hi"}],
         api_base="http://ollama.example:11434",
@@ -956,7 +956,7 @@ def test_ollama_vision_model_sends_the_image_beside_the_user_prompt(respx_mock: 
         }
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="ollama/llama3.2-vision:11b",
         messages=[
             {
@@ -988,7 +988,7 @@ def test_ollama_vision_model_sends_the_image_beside_the_user_prompt(respx_mock: 
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         OllamaConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="llama3", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="llama3", optional_params={}, hangarllm_params={}
         )
         == "http://gateway.example.com/ollama/api/generate"
     )
@@ -1018,12 +1018,12 @@ def _ollama_generate_route(respx_mock: respx.MockRouter) -> respx.Route:
 def test_ollama_answers_400_for_a_hosted_mcp_tool_instead_of_pasting_it_into_the_prompt(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "add_function_to_prompt", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "add_function_to_prompt", False)
     route: Final = _ollama_generate_route(respx_mock)
 
-    with pytest.raises(litellm.UnsupportedParamsError) as raised:
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError) as raised:
+        hangarllm.completion(
             model="ollama/llama3.2",
             messages=[{"role": "user", "content": "weather in Paris?"}],
             tools=[_DEEPWIKI_MCP_TOOL, _WEATHER_TOOL],
@@ -1043,11 +1043,11 @@ def test_ollama_answers_400_for_a_hosted_mcp_tool_instead_of_pasting_it_into_the
 def test_ollama_drop_params_keeps_a_hosted_mcp_tool_out_of_the_prompt(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, tools: list[object], prompt_names_weather: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "add_function_to_prompt", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "add_function_to_prompt", False)
     route: Final = _ollama_generate_route(respx_mock)
 
-    litellm.completion(
+    hangarllm.completion(
         model="ollama/llama3.2",
         messages=[{"role": "user", "content": "weather in Paris?"}],
         tools=tools,

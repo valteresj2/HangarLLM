@@ -9,9 +9,9 @@ from integration._support.upstream import _aws_event_frame
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue
 
-import litellm
-from litellm.exceptions import BadGatewayError, BadRequestError, MidStreamFallbackError
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+import hangarllm
+from hangarllm.exceptions import BadGatewayError, BadRequestError, MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
 
 _MODEL_ID: Final = "global.moonshotai.kimi-k3"
 _CONVERSE_MODEL: Final = f"bedrock/converse/{_MODEL_ID}"
@@ -55,7 +55,7 @@ def _peer(frames: bytes) -> Callable[[Request], Reply]:
 
 
 def _consume_sync_stream(wire: Wire) -> _Consumed:
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=_CONVERSE_MODEL,
         messages=[{"role": "user", "content": "What does the sync decoder do with this stream?"}],
         max_tokens=16,

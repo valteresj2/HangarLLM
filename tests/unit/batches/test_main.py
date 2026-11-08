@@ -1,5 +1,5 @@
 """
-Provider-dispatch contract tests for litellm/batches/main.py
+Provider-dispatch contract tests for hangarllm/batches/main.py
 
 main.py is the SDK layer beneath the proxy batch endpoints: each of
 create/retrieve/list/cancel_batch is a switch on `custom_llm_provider` (and, for
@@ -32,8 +32,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-import litellm.batches.main as bm
+import hangarllm
+import hangarllm.batches.main as bm
 import asyncio
 import datetime
 import json
@@ -43,9 +43,9 @@ import httpx
 import respx
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 from openai.types.batch import Batch
-from litellm.types.utils import LiteLLMBatch
+from hangarllm.types.utils import HangarLLMBatch
 
 
 # --------------------------------------------------------------------------- #
@@ -191,7 +191,7 @@ def test_create__provider_config_routes_to_base_http_handler(seams):
 
 
 def test_create__unsupported_provider_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(hangarllm.exceptions.BadRequestError):
         bm.create_batch(**CREATE_KW, custom_llm_provider="cohere")  # type: ignore[arg-type]
 
     for m in _all_seam_methods(seams, "create_batch"):
@@ -294,7 +294,7 @@ def test_retrieve__bedrock_model_invocation_job_arn(seams):
 
 
 def test_retrieve__unsupported_provider_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(hangarllm.exceptions.BadRequestError):
         bm.retrieve_batch(batch_id="batch-1", custom_llm_provider="cohere")  # type: ignore[arg-type]
 
     for m in _all_seam_methods(seams, "retrieve_batch"):
@@ -341,7 +341,7 @@ def test_list__vertex_ai_dispatch(seams):
 
 def test_list__unsupported_provider_raises_badrequest(seams):
     # anthropic supports retrieve but NOT list - good negative case.
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(hangarllm.exceptions.BadRequestError):
         bm.list_batches(custom_llm_provider="anthropic")  # type: ignore[arg-type]
 
     for m in _all_seam_methods(seams, "list_batches"):
@@ -383,7 +383,7 @@ def test_cancel__vertex_ai_dispatch(seams):
 
 
 def test_cancel__unsupported_provider_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(hangarllm.exceptions.BadRequestError):
         bm.cancel_batch(batch_id="batch-1", custom_llm_provider="cohere")
 
     for m in _all_seam_methods(seams, "cancel_batch"):
@@ -454,8 +454,8 @@ async def test_acancel_batch_delegates_to_cancel_batch():
 
 # =========================================================================== #
 # Credential passthrough - when the caller supplies credentials in kwargs, they
-# must reach the provider handler. Explicit kwargs win over litellm.* globals and
-# env vars (they are first in each `optional_params.x or litellm.x or env` chain),
+# must reach the provider handler. Explicit kwargs win over hangarllm.* globals and
+# env vars (they are first in each `optional_params.x or hangarllm.x or env` chain),
 # so these assertions are deterministic regardless of the test environment.
 #
 # The credential-resolution blocks are copy-pasted per provider in EACH of
@@ -706,9 +706,9 @@ def test_cancel__vertex_credentials_passthrough(seams):
 
 
 def _params(**kw):
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
-    return GenericLiteLLMParams(**kw)
+    return GenericHangarLLMParams(**kw)
 
 
 def test_resolve_timeout__explicit_numeric():
@@ -732,24 +732,24 @@ def test_resolve_timeout__httpx_timeout_returns_float_read():
     assert resolved == 99.0
 
 
-def test_retrieve__keeps_the_deployment_bucket_settings_in_litellm_params(seams: Seams) -> None:
+def test_retrieve__keeps_the_deployment_bucket_settings_in_hangarllm_params(seams: Seams) -> None:
     """The batch's cost is computed by reading its output file after the retrieve, and
-    that read finds the Bedrock bucket in these litellm_params. Dropping them fails cost
+    that read finds the Bedrock bucket in these hangarllm_params. Dropping them fails cost
     accounting on a bucket the deployment has configured."""
     logging_obj = MagicMock()
 
     bm.retrieve_batch(
         batch_id="batch-1",
         custom_llm_provider="openai",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         s3_bucket_name="configured-bucket",
         s3_output_bucket_name="output-bucket",
         allow_legacy_cloud_file_ids=True,
     )
 
-    litellm_params = logging_obj.update_from_kwargs.call_args.kwargs["litellm_params"]
+    hangarllm_params = logging_obj.update_from_kwargs.call_args.kwargs["hangarllm_params"]
     assert {
-        key: litellm_params[key]
+        key: hangarllm_params[key]
         for key in ("s3_bucket_name", "s3_output_bucket_name", "allow_legacy_cloud_file_ids")
     } == {
         "s3_bucket_name": "configured-bucket",
@@ -781,7 +781,7 @@ def test_create__mistral_ocr_routes_to_base_http_handler_with_mistral_config(sea
 
 
 def test_create__mistral_without_model_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(hangarllm.exceptions.BadRequestError):
         bm.create_batch(**CREATE_KW, custom_llm_provider="mistral")
 
     for m in _all_seam_methods(seams, "create_batch"):
@@ -809,16 +809,16 @@ async def test_batch_logging_azure_credentials_regression():
     Bug: The LoggingWorker failed when processing completed Azure batches because
     it attempted to fetch batch output file content without Azure credentials.
 
-    Fix: Pass litellm_params (containing credentials) from the logging object
+    Fix: Pass hangarllm_params (containing credentials) from the logging object
     through to the file content retrieval functions.
     """
     from unittest.mock import AsyncMock, MagicMock, patch
-    from litellm.batches.batch_utils import (
+    from hangarllm.batches.batch_utils import (
         extract_file_access_credentials,
         _fetch_batch_output_file_content,
         handle_completed_batch,
     )
-    from litellm.types.llms.openai import Batch, HttpxBinaryResponseContent
+    from hangarllm.types.llms.openai import Batch, HttpxBinaryResponseContent
     import httpx
 
     print("\n=== Regression Test: Azure Batch Logging Credentials ===")
@@ -890,12 +890,12 @@ async def test_batch_logging_azure_credentials_regression():
         return HttpxBinaryResponseContent(response=mock_response)
 
     with patch(
-        "litellm.files.main.afile_content", side_effect=mock_afile_content_tracker
+        "hangarllm.files.main.afile_content", side_effect=mock_afile_content_tracker
     ):
         result = await _fetch_batch_output_file_content(
             batch=mock_batch,
             custom_llm_provider="azure",
-            litellm_params=azure_credentials,
+            hangarllm_params=azure_credentials,
         )
 
         assert credentials_received[
@@ -919,12 +919,12 @@ async def test_batch_logging_azure_credentials_regression():
     credentials_received["params"] = None
 
     with patch(
-        "litellm.files.main.afile_content", side_effect=mock_afile_content_tracker
+        "hangarllm.files.main.afile_content", side_effect=mock_afile_content_tracker
     ):
         result = await handle_completed_batch(
             batch=mock_batch,
             custom_llm_provider="azure",
-            litellm_params=azure_credentials,
+            hangarllm_params=azure_credentials,
         )
 
         assert credentials_received[
@@ -941,7 +941,7 @@ async def test_batch_logging_azure_credentials_regression():
 
     print("\n4. Testing 'Missing credentials' error prevention...")
 
-    with patch("litellm.files.main.afile_content") as mock_afile_content_fail:
+    with patch("hangarllm.files.main.afile_content") as mock_afile_content_fail:
         mock_afile_content_fail.side_effect = Exception(
             "Missing credentials. Please pass one of `api_key`, `azure_ad_token`, "
             "`azure_ad_token_provider`, or the `AZURE_OPENAI_API_KEY` or "
@@ -949,13 +949,13 @@ async def test_batch_logging_azure_credentials_regression():
         )
 
         with patch(
-            "litellm.files.main.afile_content", side_effect=mock_afile_content_tracker
+            "hangarllm.files.main.afile_content", side_effect=mock_afile_content_tracker
         ):
             try:
                 result = await handle_completed_batch(
                     batch=mock_batch,
                     custom_llm_provider="azure",
-                    litellm_params=azure_credentials,
+                    hangarllm_params=azure_credentials,
                 )
                 print("   ✓ No 'Missing credentials' error with fix")
             except Exception as e:
@@ -968,7 +968,7 @@ async def test_batch_logging_azure_credentials_regression():
 
     print("\n5. Testing backwards compatibility...")
 
-    with patch("litellm.files.main.afile_content") as mock_afile_content:
+    with patch("hangarllm.files.main.afile_content") as mock_afile_content:
         mock_response = httpx.Response(
             status_code=200,
             content=batch_output,
@@ -981,12 +981,12 @@ async def test_batch_logging_azure_credentials_regression():
         result = await _fetch_batch_output_file_content(
             batch=mock_batch,
             custom_llm_provider="openai",
-            litellm_params=None,
+            hangarllm_params=None,
         )
 
         assert len(result) > 0, "Should return file content"
         print("   ✓ Backwards compatibility maintained")
-        print("   ✓ Works without litellm_params for OpenAI")
+        print("   ✓ Works without hangarllm_params for OpenAI")
 
     print("\n=== Regression Test Passed ===")
     print("✓ Azure credentials properly passed from logging to file retrieval")
@@ -1060,10 +1060,10 @@ class _SuccessPayloadRecorder(CustomLogger):
 async def test_acreate_batch_full_crud_and_logging_metadata(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.logging_callback_manager._reset_all_callbacks()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.logging_callback_manager._reset_all_callbacks()
     recorder: Final = _SuccessPayloadRecorder("acreate_batch")
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     upload_route: Final = respx_mock.post("https://api.openai.com/v1/files").mock(
         return_value=httpx.Response(200, json=dict(_OPENAI_FILE_JSON))
@@ -1099,7 +1099,7 @@ async def test_acreate_batch_full_crud_and_logging_metadata(
         b'"body": {"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]}}\n',
         "application/jsonl",
     )
-    file_obj: Final = await litellm.acreate_file(
+    file_obj: Final = await hangarllm.acreate_file(
         file=batch_file, purpose="batch", custom_llm_provider="openai", api_key="fake-key"
     )
     assert file_obj.id == "file-abc123"
@@ -1111,14 +1111,14 @@ async def test_acreate_batch_full_crud_and_logging_metadata(
         "user_api_key_alias": "special_api_key_alias",
         "user_api_key_team_alias": "special_team_alias",
     }
-    create_batch_response: Final = await litellm.acreate_batch(
+    create_batch_response: Final = await hangarllm.acreate_batch(
         completion_window="24h",
         endpoint="/v1/chat/completions",
         input_file_id=file_obj.id,
         custom_llm_provider="openai",
         api_key="fake-key",
         metadata={"key1": "value1", "key2": "value2"},
-        litellm_metadata=extra_metadata_field,
+        hangarllm_metadata=extra_metadata_field,
     )
 
     assert json.loads(create_route.calls.last.request.content) == {
@@ -1140,36 +1140,36 @@ async def test_acreate_batch_full_crud_and_logging_metadata(
         == extra_metadata_field["user_api_key_team_alias"]
     )
 
-    retrieved_batch: Final = await litellm.aretrieve_batch(
+    retrieved_batch: Final = await hangarllm.aretrieve_batch(
         batch_id=create_batch_response.id, custom_llm_provider="openai", api_key="fake-key"
     )
     assert retrieve_route.called
     assert retrieved_batch.id == create_batch_response.id
 
-    list_batches: Final = await litellm.alist_batches(custom_llm_provider="openai", limit=2, api_key="fake-key")
+    list_batches: Final = await hangarllm.alist_batches(custom_llm_provider="openai", limit=2, api_key="fake-key")
     assert list_batches_route.calls.last.request.url.params["limit"] == "2"
     assert [batch.id for batch in list_batches.data] == ["batch_abc123"]
 
-    file_content: Final = await litellm.afile_content(
+    file_content: Final = await hangarllm.afile_content(
         file_id=file_obj.id, custom_llm_provider="openai", api_key="fake-key"
     )
     assert file_content.content == b'{"custom_id": "request-1"}\n'
 
-    retrieved_file: Final = await litellm.afile_retrieve(
+    retrieved_file: Final = await hangarllm.afile_retrieve(
         file_id=file_obj.id, custom_llm_provider="openai", api_key="fake-key"
     )
     assert retrieved_file.id == file_obj.id
 
-    delete_file_response: Final = await litellm.afile_delete(
+    delete_file_response: Final = await hangarllm.afile_delete(
         file_id=file_obj.id, custom_llm_provider="openai", api_key="fake-key"
     )
     assert delete_file_response.id == file_obj.id
 
-    all_files_list: Final = await litellm.afile_list(custom_llm_provider="openai", api_key="fake-key")
+    all_files_list: Final = await hangarllm.afile_list(custom_llm_provider="openai", api_key="fake-key")
     assert list_files_route.called
     assert [file.id for file in all_files_list.data] == ["file-abc123"]
 
-    cancel_batch_response: Final = await litellm.acancel_batch(
+    cancel_batch_response: Final = await hangarllm.acancel_batch(
         batch_id=create_batch_response.id, custom_llm_provider="openai", api_key="fake-key"
     )
     assert cancel_route.called
@@ -1178,7 +1178,7 @@ async def test_acreate_batch_full_crud_and_logging_metadata(
 
 @pytest.mark.asyncio
 async def test_delete_batch_output_file(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     batch_with_output: Final = {
         **_OPENAI_BATCH_JSON,
         "status": "completed",
@@ -1191,12 +1191,12 @@ async def test_delete_batch_output_file(respx_mock: respx.MockRouter, monkeypatc
         return_value=httpx.Response(200, json={"id": "file-output123", "object": "file", "deleted": True})
     )
 
-    batch: Final = await litellm.aretrieve_batch(
+    batch: Final = await hangarllm.aretrieve_batch(
         batch_id="batch_abc123", custom_llm_provider="openai", api_key="fake-key"
     )
     assert batch.output_file_id == "file-output123"
 
-    delete_response: Final = await litellm.afile_delete(
+    delete_response: Final = await hangarllm.afile_delete(
         file_id=batch.output_file_id, custom_llm_provider="openai", api_key="fake-key"
     )
     assert delete_route.call_count == 1
@@ -1222,8 +1222,8 @@ VLLM_ROUTER_BATCH: Final = MappingProxyType(
 )
 
 
-async def _create_on_vllm_router() -> LiteLLMBatch:
-    return await litellm.acreate_batch(
+async def _create_on_vllm_router() -> HangarLLMBatch:
+    return await hangarllm.acreate_batch(
         completion_window="24h",
         endpoint="/v1/chat/completions",
         input_file_id="file-b73f4c",
@@ -1233,8 +1233,8 @@ async def _create_on_vllm_router() -> LiteLLMBatch:
     )
 
 
-async def _retrieve_from_vllm_router() -> LiteLLMBatch:
-    return await litellm.aretrieve_batch(
+async def _retrieve_from_vllm_router() -> HangarLLMBatch:
+    return await hangarllm.aretrieve_batch(
         batch_id="batch_5f8dac", custom_llm_provider="hosted_vllm", api_key="sk-test", api_base=VLLM_ROUTER_API_BASE
     )
 
@@ -1260,7 +1260,7 @@ async def test_hosted_vllm_router_batch_comes_back_as_an_openai_batch(
     respx_mock: respx.MockRouter,
     method: str,
     path: str,
-    call_router: Callable[[], Awaitable[LiteLLMBatch]],
+    call_router: Callable[[], Awaitable[HangarLLMBatch]],
     router_status: str,
     openai_status: str,
 ):
@@ -1279,7 +1279,7 @@ async def test_hosted_vllm_router_batch_with_an_unknown_value_is_rejected(
     respx_mock: respx.MockRouter,
     method: str,
     path: str,
-    call_router: Callable[[], Awaitable[LiteLLMBatch]],
+    call_router: Callable[[], Awaitable[HangarLLMBatch]],
     field: str,
     value: str,
 ):
@@ -1294,14 +1294,14 @@ async def test_hosted_vllm_router_batch_with_an_unknown_value_is_rejected(
 
 
 async def _list_on_vllm_router() -> Sequence[Batch]:
-    page: Final = await litellm.alist_batches(
+    page: Final = await hangarllm.alist_batches(
         custom_llm_provider="hosted_vllm", api_key="sk-test", api_base=VLLM_ROUTER_API_BASE
     )
     return page.data
 
 
 async def _list_on_vllm_router_sync() -> Sequence[Batch]:
-    return litellm.list_batches(custom_llm_provider="hosted_vllm", api_key="sk-test", api_base=VLLM_ROUTER_API_BASE).data
+    return hangarllm.list_batches(custom_llm_provider="hosted_vllm", api_key="sk-test", api_base=VLLM_ROUTER_API_BASE).data
 
 
 @pytest.mark.parametrize("list_router", (_list_on_vllm_router, _list_on_vllm_router_sync))
@@ -1374,7 +1374,7 @@ async def test_openai_batch_list_items_come_back_as_openai_sent_them(respx_mock:
         },
     )
 
-    page: Final = await litellm.alist_batches(
+    page: Final = await hangarllm.alist_batches(
         custom_llm_provider="openai", api_key="sk-test", api_base="http://openai.test/v1"
     )
 

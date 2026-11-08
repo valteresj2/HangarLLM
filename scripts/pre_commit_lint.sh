@@ -9,7 +9,7 @@
 #   - nothing staged  -> scope is the working tree's diff against the merge base
 #     with origin's current default branch, untracked files included
 # The per-area checks:
-#   - litellm/ Python  -> `make lint` (test-linting.yml's python job)
+#   - hangarllm/ Python  -> `make lint` (test-linting.yml's python job)
 #   - tests/e2e and tests/e2e_harness Python
 #                      -> `make lint-e2e-basedpyright` (test-linting.yml's e2e type-check step)
 #                         + raw HTTP client ban (test-linting.yml's check_e2e_no_raw_requests)
@@ -33,10 +33,10 @@ set -eu
 # Queue for one of the machine-wide heavy-work slots (see scripts/gate_slot_lock.py)
 # before anything else, so N parallel `make check` runs across worktrees execute two
 # at a time instead of thrashing the machine. The wrapper exports
-# LITELLM_GATE_SLOT_HELD, so this re-exec happens exactly once and everything this
+# HANGARLLM_GATE_SLOT_HELD, so this re-exec happens exactly once and everything this
 # script spawns (make lint, the lint gates) skips its own acquisition.
 script_dir=$(python3 -c 'import os, sys; print(os.path.dirname(os.path.realpath(sys.argv[1])))' "$0")
-if [ -z "${LITELLM_GATE_SLOT_HELD:-}" ]; then
+if [ -z "${HANGARLLM_GATE_SLOT_HELD:-}" ]; then
     exec python3 "$script_dir/gate_slot_lock.py" "$0" "$@"
 fi
 
@@ -96,21 +96,21 @@ existing_files() {
     done
 }
 
-litellm_py_pattern='^litellm/.*\.py$'
+hangarllm_py_pattern='^hangarllm/.*\.py$'
 e2e_py_pattern='^tests/e2e(_harness)?/.*\.py$'
 test_tree_pattern='^(tests/.*\.py|ruff-tests\.toml|scripts/(check_test_quality|test_quality_gate)\.py)$'
-spec_pattern='^(litellm/.*|enterprise/.*|pyproject\.toml|uv\.lock|ui/litellm-dashboard/(scripts/gen-api-types\.mjs|package\.json|package-lock\.json|src/lib/http/schema\.d\.ts))$'
-ui_prettier_pattern='^ui/litellm-dashboard/.*\.(js|jsx|ts|tsx|mjs|cjs|json|css|scss|md|mdx|yml|yaml|html)$'
-ui_eslint_pattern='^ui/litellm-dashboard/.*\.(js|jsx|ts|tsx|mjs|cjs)$'
+spec_pattern='^(hangarllm/.*|enterprise/.*|pyproject\.toml|uv\.lock|ui/hangarllm-dashboard/(scripts/gen-api-types\.mjs|package\.json|package-lock\.json|src/lib/http/schema\.d\.ts))$'
+ui_prettier_pattern='^ui/hangarllm-dashboard/.*\.(js|jsx|ts|tsx|mjs|cjs|json|css|scss|md|mdx|yml|yaml|html)$'
+ui_eslint_pattern='^ui/hangarllm-dashboard/.*\.(js|jsx|ts|tsx|mjs|cjs)$'
 
-litellm_py_files=$(scope_match "$litellm_py_pattern")
-if [ -n "$(scope_match '^(litellm/proxy/mcp_server/|scripts/check_mcp_operation_boundary\.py)')" ]; then
+hangarllm_py_files=$(scope_match "$hangarllm_py_pattern")
+if [ -n "$(scope_match '^(hangarllm/proxy/mcp_server/|scripts/check_mcp_operation_boundary\.py)')" ]; then
     uv run --no-sync python scripts/check_mcp_operation_boundary.py || exit 1
 fi
 e2e_py_files=$(scope_match "$e2e_py_pattern")
 test_tree_files=$(scope_match "$test_tree_pattern")
 # ruff format (and CI's format step) skip enterprise; the rest of make lint covers it.
-fmt_files=$(printf '%s\n' "$litellm_py_files" | grep -v '^litellm/enterprise/' | existing_files)
+fmt_files=$(printf '%s\n' "$hangarllm_py_files" | grep -v '^hangarllm/enterprise/' | existing_files)
 spec_files=$(scope_match "$spec_pattern")
 # CI's ui job runs prettier over a wider extension set than eslint; keep that
 # split so this flags exactly what the job would.
@@ -143,7 +143,7 @@ if [ -n "$staged" ]; then
         echo "check: SKIPPED $check_name because these changed files are not staged:" >&2
         printf '%s\n' "$missed" | sed 's/^/    /' >&2
     }
-    warn_skipped "Python lint (make lint)" "$litellm_py_pattern" "$litellm_py_files"
+    warn_skipped "Python lint (make lint)" "$hangarllm_py_pattern" "$hangarllm_py_files"
     warn_skipped "tests/e2e checks (basedpyright + raw HTTP client ban)" "$e2e_py_pattern" "$e2e_py_files"
     warn_skipped "test-tree lint (ruff-tests.toml + test-quality gate)" "$test_tree_pattern" "$test_tree_files"
     warn_skipped "dashboard lint (prettier + eslint + lint budgets)" "$ui_prettier_pattern" "$ui_prettier_changed"
@@ -158,16 +158,16 @@ lint_dashboard() {
         prettier_rel=()
         eslint_rel=()
         while IFS= read -r f; do
-            [ -n "$f" ] && prettier_rel+=("${f#ui/litellm-dashboard/}")
+            [ -n "$f" ] && prettier_rel+=("${f#ui/hangarllm-dashboard/}")
         done <<EOF
 $ui_prettier_files
 EOF
         while IFS= read -r f; do
-            [ -n "$f" ] && eslint_rel+=("${f#ui/litellm-dashboard/}")
+            [ -n "$f" ] && eslint_rel+=("${f#ui/hangarllm-dashboard/}")
         done <<EOF
 $ui_eslint_files
 EOF
-        cd ui/litellm-dashboard
+        cd ui/hangarllm-dashboard
         if [ ${#prettier_rel[@]} -gt 0 ]; then
             npx prettier --check "${prettier_rel[@]}" || rc=1
         fi
@@ -196,10 +196,10 @@ python_checks() {
     echo "check: linting Python (make lint)"
     make lint || { echo "✗ Python lint failed. Fix the reds above, then re-run make check." >&2; rc=1; }
     # `make lint` format-checks files in origin/base...HEAD, which at pre-commit time
-    # predates the staged change, so format-check the scoped litellm files directly to
+    # predates the staged change, so format-check the scoped hangarllm files directly to
     # cover a brand-new commit before it lands.
     if [ -n "$fmt_files" ]; then
-        echo "check: ruff format --check (scoped litellm files)"
+        echo "check: ruff format --check (scoped hangarllm files)"
         printf '%s\n' "$fmt_files" | xargs uv run --no-sync ruff format --check --exclude '/enterprise/' \
             || { echo "✗ Unformatted files in scope. Fix with: make format, then re-stage." >&2; rc=1; }
     fi
@@ -216,7 +216,7 @@ on_interrupt() {
 }
 trap on_interrupt INT TERM
 
-if [ -n "$litellm_py_files" ]; then
+if [ -n "$hangarllm_py_files" ]; then
     python_log=$(mktemp)
     set -m
     python_checks > "$python_log" 2>&1 &
@@ -224,7 +224,7 @@ if [ -n "$litellm_py_files" ]; then
     set +m
 fi
 
-if [ -n "$e2e_py_files" ] && [ -z "$litellm_py_files" ]; then
+if [ -n "$e2e_py_files" ] && [ -z "$hangarllm_py_files" ]; then
     echo "check: type-checking tests/e2e (make lint-e2e-basedpyright)"
     make lint-e2e-basedpyright || { echo "✗ tests/e2e basedpyright failed. Fix the errors above, then re-run make check." >&2; status=1; }
 fi
@@ -237,12 +237,12 @@ fi
 
 dashboard_checks() {
     echo "check: linting dashboard (prettier + eslint + lint budgets)"
-    if [ ! -d ui/litellm-dashboard/node_modules ]; then
-        echo "✗ ui/litellm-dashboard/node_modules is missing; dashboard lint cannot run." >&2
+    if [ ! -d ui/hangarllm-dashboard/node_modules ]; then
+        echo "✗ ui/hangarllm-dashboard/node_modules is missing; dashboard lint cannot run." >&2
         bootstrap_hint
         return 1
     fi
-    lint_dashboard || { echo "✗ Dashboard lint failed. See above; format with: (cd ui/litellm-dashboard && npm run format)." >&2; return 1; }
+    lint_dashboard || { echo "✗ Dashboard lint failed. See above; format with: (cd ui/hangarllm-dashboard && npm run format)." >&2; return 1; }
 }
 
 if [ -n "$ui_prettier_changed" ] || [ -n "$ui_eslint_changed" ]; then
@@ -256,12 +256,12 @@ fi
 genapi_checks() {
     local status=0
     echo "check: checking the lazy OpenAPI snapshot and dashboard API types are in sync (npm run gen:api)"
-    # gen-api-types.mjs imports litellm.proxy.proxy_server, which needs the proxy deps
+    # gen-api-types.mjs imports hangarllm.proxy.proxy_server, which needs the proxy deps
     # and an up-to-date Prisma client; test-linting.yml installs those and runs
     # prisma generate before gen:api, so mirror that here or a stale client can mask
     # drift that CI will still flag.
-    if [ ! -d ui/litellm-dashboard/node_modules ]; then
-        echo "✗ ui/litellm-dashboard/node_modules is missing; the gen:api sync check cannot run." >&2
+    if [ ! -d ui/hangarllm-dashboard/node_modules ]; then
+        echo "✗ ui/hangarllm-dashboard/node_modules is missing; the gen:api sync check cannot run." >&2
         bootstrap_hint
         status=1
     elif ! uv run --no-sync python -c "import orjson, prisma" 2>/dev/null; then
@@ -271,15 +271,15 @@ genapi_checks() {
     elif ! uv run --no-sync python scripts/prisma_generate_if_needed.py; then
         echo "✗ Could not regenerate Prisma client (prisma generate failed)." >&2
         status=1
-    elif ! uv run --no-sync python -m litellm.proxy._lazy_openapi_snapshot; then
-        echo "✗ Could not regenerate the lazy OpenAPI snapshot (python -m litellm.proxy._lazy_openapi_snapshot failed)." >&2
+    elif ! uv run --no-sync python -m hangarllm.proxy._lazy_openapi_snapshot; then
+        echo "✗ Could not regenerate the lazy OpenAPI snapshot (python -m hangarllm.proxy._lazy_openapi_snapshot failed)." >&2
         status=1
-    elif ( cd ui/litellm-dashboard && LITELLM_PYTHON="uv run --no-sync python" npm run gen:api ); then
-        if ! git diff --quiet -- litellm/proxy/_lazy_openapi_snapshot.json; then
-            echo "✗ The lazy OpenAPI snapshot is stale; regenerated litellm/proxy/_lazy_openapi_snapshot.json. Stage it and commit; re-run make check only if other checks failed too." >&2
+    elif ( cd ui/hangarllm-dashboard && HANGARLLM_PYTHON="uv run --no-sync python" npm run gen:api ); then
+        if ! git diff --quiet -- hangarllm/proxy/_lazy_openapi_snapshot.json; then
+            echo "✗ The lazy OpenAPI snapshot is stale; regenerated hangarllm/proxy/_lazy_openapi_snapshot.json. Stage it and commit; re-run make check only if other checks failed too." >&2
             status=1
         fi
-        if ! git diff --quiet -- ui/litellm-dashboard/src/lib/http/schema.d.ts; then
+        if ! git diff --quiet -- ui/hangarllm-dashboard/src/lib/http/schema.d.ts; then
             echo "✗ Dashboard API types are stale; regenerated src/lib/http/schema.d.ts. Stage it and commit; re-run make check only if other checks failed too." >&2
             status=1
         fi
@@ -298,7 +298,7 @@ if [ -n "$spec_files" ]; then
     set +m
 fi
 
-if [ -n "$test_tree_files" ] && [ -z "$litellm_py_files" ]; then
+if [ -n "$test_tree_files" ] && [ -z "$hangarllm_py_files" ]; then
     echo "check: linting the test tree (ruff check --config ruff-tests.toml tests)"
     uv run --no-sync ruff check --config ruff-tests.toml tests \
         || { echo "✗ Test-tree ruff failed. Fix the errors above, then re-run make check." >&2; status=1; }
@@ -330,14 +330,14 @@ summary_item() {
 }
 
 echo "check: summary"
-summary_item "Python lint (make lint)" "$litellm_py_files" "no litellm/ Python files in scope"
+summary_item "Python lint (make lint)" "$hangarllm_py_files" "no hangarllm/ Python files in scope"
 summary_item "tests/e2e checks (basedpyright + raw HTTP client ban)" "$e2e_py_files" "no tests/e2e Python files in scope"
 summary_item "test-tree lint (ruff-tests.toml + test-quality gate)" "$test_tree_files" \
     "no tests/ Python files or test-tree lint inputs in scope"
 summary_item "dashboard lint (prettier + eslint + lint budgets)" "$ui_prettier_changed$ui_eslint_changed" "no dashboard files in scope"
-summary_item "dashboard API-type sync (npm run gen:api)" "$spec_files" "no litellm/, enterprise/, dependency, or generator files in scope"
+summary_item "dashboard API-type sync (npm run gen:api)" "$spec_files" "no hangarllm/, enterprise/, dependency, or generator files in scope"
 
-if [ -z "$litellm_py_files$e2e_py_files$test_tree_files$ui_prettier_changed$ui_eslint_changed$spec_files" ]; then
+if [ -z "$hangarllm_py_files$e2e_py_files$test_tree_files$ui_prettier_changed$ui_eslint_changed$spec_files" ]; then
     echo "check: NOTE - no gating lint check matches the files in scope, so nothing ran:" >&2
     printf '%s\n' "$scope" | sed 's/^/    /' >&2
     echo "  A pass here is a no-op, not a lint verdict." >&2

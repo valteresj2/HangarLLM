@@ -118,7 +118,7 @@ def _spend_rows(request_id: str) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
             "SELECT status, call_type, model, model_group, custom_llm_provider, prompt_tokens, completion_tokens, spend "
-            'FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (request_id,),
         ),
         lambda rows: len(rows) >= 1,

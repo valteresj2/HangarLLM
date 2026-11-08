@@ -28,7 +28,7 @@ UPLOAD: Final = b"isolation check\n"
 class Deployment:
     provider: str
     model: str
-    litellm_model: str
+    hangarllm_model: str
     api_key: str
     api_path: str
 
@@ -52,7 +52,7 @@ LIST_FORMS: Final = (
     pytest.param(lambda d: ListCall("/v1/files", params={"provider": d.provider}), id="provider-query"),
     pytest.param(lambda d: ListCall("/v1/files", headers={"custom-llm-provider": d.provider}), id="provider-header"),
     pytest.param(lambda d: ListCall("/v1/files", params={"target_model_names": d.model}), id="target-model-names"),
-    pytest.param(lambda d: ListCall("/v1/files", headers={"x-litellm-model": d.model}), id="model-header"),
+    pytest.param(lambda d: ListCall("/v1/files", headers={"x-hangarllm-model": d.model}), id="model-header"),
 )
 
 
@@ -134,16 +134,16 @@ def _config(wire: Wire) -> dict[str, JsonValue]:
         "model_list": [
             {
                 "model_name": deployment.model,
-                "litellm_params": {
-                    "model": deployment.litellm_model,
+                "hangarllm_params": {
+                    "model": deployment.hangarllm_model,
                     "api_key": deployment.api_key,
                     "api_base": f"{wire.url}{deployment.api_path}",
                 },
             }
             for deployment in (OPENAI, ANTHROPIC)
         ],
-        "litellm_settings": {"require_managed_files": True},
-        "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
+        "hangarllm_settings": {"require_managed_files": True},
+        "general_settings": {"master_key": "os.environ/HANGARLLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
     }
 
 

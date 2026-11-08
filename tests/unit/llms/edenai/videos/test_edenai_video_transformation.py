@@ -7,12 +7,12 @@ from io import BytesIO
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.edenai.videos.transformation import EdenAIVideoConfig
-from litellm.types.utils import LlmProviders
-from litellm.types.videos.main import VideoObject
-from litellm.types.videos.utils import decode_video_id_with_provider, encode_video_id_with_provider
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.edenai.videos.transformation import EdenAIVideoConfig
+from hangarllm.types.utils import LlmProviders
+from hangarllm.types.videos.main import VideoObject
+from hangarllm.types.videos.utils import decode_video_id_with_provider, encode_video_id_with_provider
+from hangarllm.utils import ProviderConfigManager
 
 EDEN_BASE = "https://api.edenai.run/v3"
 EDEN_VIDEOS_URL = f"{EDEN_BASE}/videos"
@@ -63,8 +63,8 @@ class TestRegistration:
 
 class TestAuthentication:
     def test_missing_key_is_an_authentication_error_before_any_request(self, no_eden_key, respx_mock):
-        with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
-            litellm.video_generation(model=MODEL, prompt=PROMPT)
+        with pytest.raises(hangarllm.AuthenticationError, match="EDENAI_API_KEY"):
+            hangarllm.video_generation(model=MODEL, prompt=PROMPT)
         assert not respx_mock.calls
 
 
@@ -72,7 +72,7 @@ class TestCreate:
     def test_posts_json_to_eden_with_the_bearer_key_and_the_seller_model_id(self, eden_key, respx_mock):
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(200, json=_eden_video()))
 
-        response = litellm.video_generation(model=MODEL, prompt=PROMPT, seconds="4", size="1280x720")
+        response = hangarllm.video_generation(model=MODEL, prompt=PROMPT, seconds="4", size="1280x720")
 
         assert isinstance(response, VideoObject)
         assert response.status == "queued"
@@ -89,7 +89,7 @@ class TestCreate:
     def test_the_returned_id_routes_later_calls_back_to_eden(self, eden_key, respx_mock):
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(200, json=_eden_video()))
 
-        response = litellm.video_generation(model=MODEL, prompt=PROMPT)
+        response = hangarllm.video_generation(model=MODEL, prompt=PROMPT)
 
         assert decode_video_id_with_provider(response.id) == {
             "custom_llm_provider": "edenai",
@@ -100,7 +100,7 @@ class TestCreate:
     def test_eden_extensions_go_through_as_kwargs_and_extra_body(self, eden_key, respx_mock):
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(200, json=_eden_video()))
 
-        litellm.video_generation(model=MODEL, prompt=PROMPT, seed=7, extra_body={"provider_params": {"guidance": 2}})
+        hangarllm.video_generation(model=MODEL, prompt=PROMPT, seed=7, extra_body={"provider_params": {"guidance": 2}})
 
         body = _request_body(respx_mock)
         assert (body["seed"], body["provider_params"]) == (7, {"guidance": 2})
@@ -109,7 +109,7 @@ class TestCreate:
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(200, json=_eden_video()))
         reference = BytesIO(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
 
-        litellm.video_generation(model=MODEL, prompt="animate this", input_reference=reference, seconds="4")
+        hangarllm.video_generation(model=MODEL, prompt="animate this", input_reference=reference, seconds="4")
 
         request = respx_mock.calls.last.request
         assert request.headers["Content-Type"].startswith("multipart/form-data")
@@ -123,7 +123,7 @@ class TestCreate:
     def test_a_reference_image_url_stays_in_the_json_body(self, eden_key, respx_mock):
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(200, json=_eden_video()))
 
-        litellm.video_generation(
+        hangarllm.video_generation(
             model=MODEL, prompt="animate this", input_reference={"image_url": "https://img.example.net/start.png"}
         )
 
@@ -134,7 +134,7 @@ class TestCreate:
     def test_a_queued_job_reports_edens_zero_cost_and_the_requested_duration(self, eden_key, respx_mock):
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(200, json=_eden_video()))
 
-        response = litellm.video_generation(model=MODEL, prompt=PROMPT, seconds="4")
+        response = hangarllm.video_generation(model=MODEL, prompt=PROMPT, seconds="4")
 
         assert response.usage == {"duration_seconds": 4.0, "provider_reported_cost_usd": 0.0}
 
@@ -144,7 +144,7 @@ class TestCreate:
     ):
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(200, json=_eden_video()))
 
-        await litellm.avideo_generation(model=MODEL, prompt=PROMPT, seconds="4", litellm_call_id=spend_capture.call_id)
+        await hangarllm.avideo_generation(model=MODEL, prompt=PROMPT, seconds="4", hangarllm_call_id=spend_capture.call_id)
         await spend_capture.settle()
 
         assert spend_capture.costs == [0.0]
@@ -157,7 +157,7 @@ class TestCreate:
             return_value=httpx.Response(200, json=_eden_video(status="completed", cost=SETTLED_COST))
         )
 
-        await litellm.avideo_generation(model=MODEL, prompt=PROMPT, seconds="4", litellm_call_id=spend_capture.call_id)
+        await hangarllm.avideo_generation(model=MODEL, prompt=PROMPT, seconds="4", hangarllm_call_id=spend_capture.call_id)
         await spend_capture.settle()
 
         assert spend_capture.costs == [SETTLED_COST]
@@ -171,7 +171,7 @@ class TestStatus:
             )
         )
 
-        response = litellm.video_status(video_id=_encoded())
+        response = hangarllm.video_status(video_id=_encoded())
 
         assert respx_mock.calls.last.request.headers["Authorization"] == f"Bearer {eden_key}"
         assert (response.status, response.progress) == ("completed", 100)
@@ -186,7 +186,7 @@ class TestStatus:
             return_value=httpx.Response(200, json=_eden_video(status="completed", cost=SETTLED_COST))
         )
 
-        await litellm.avideo_status(video_id=_encoded(), litellm_call_id=spend_capture.call_id)
+        await hangarllm.avideo_status(video_id=_encoded(), hangarllm_call_id=spend_capture.call_id)
         await spend_capture.settle()
 
         assert len(spend_capture.costs) == 1
@@ -207,8 +207,8 @@ class TestStatus:
             )
         )
 
-        with pytest.raises(litellm.NotFoundError, match="not found"):
-            litellm.video_status(video_id=_encoded())
+        with pytest.raises(hangarllm.NotFoundError, match="not found"):
+            hangarllm.video_status(video_id=_encoded())
 
 
 class TestContent:
@@ -220,7 +220,7 @@ class TestContent:
             return_value=httpx.Response(200, content=MP4_BYTES, headers={"content-type": "binary/octet-stream"})
         )
 
-        video = litellm.video_content(video_id=_encoded())
+        video = hangarllm.video_content(video_id=_encoded())
 
         assert video == MP4_BYTES
         eden_request, file_request = (call.request for call in respx_mock.calls)
@@ -234,7 +234,7 @@ class TestContent:
         )
         respx_mock.get(FILE_URL).mock(return_value=httpx.Response(200, content=MP4_BYTES))
 
-        assert await litellm.avideo_content(video_id=_encoded()) == MP4_BYTES
+        assert await hangarllm.avideo_content(video_id=_encoded()) == MP4_BYTES
 
 
 class TestList:
@@ -257,7 +257,7 @@ class TestList:
             )
         )
 
-        page = litellm.video_list(custom_llm_provider="edenai", limit=2)
+        page = hangarllm.video_list(custom_llm_provider="edenai", limit=2)
 
         assert respx_mock.calls.last.request.url.params["limit"] == "2"
         assert [decode_video_id_with_provider(video["id"])["video_id"] for video in page["data"]] == [JOB_ID, older]
@@ -273,8 +273,8 @@ class TestErrors:
     def test_middleware_401_maps_to_authentication_error(self, eden_key, respx_mock):
         respx_mock.post(EDEN_VIDEOS_URL).mock(return_value=httpx.Response(401, json={"detail": "Invalid token"}))
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            litellm.video_generation(model=MODEL, prompt=PROMPT)
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            hangarllm.video_generation(model=MODEL, prompt=PROMPT)
 
     def test_a_401_on_a_read_is_an_authentication_error_too(self, eden_key, httpx_transport, respx_mock):
         respx_mock.get(host="api.edenai.run", path="/v3/videos").mock(
@@ -284,10 +284,10 @@ class TestErrors:
             return_value=httpx.Response(401, json={"detail": "Invalid token"})
         )
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            litellm.video_list(custom_llm_provider="edenai")
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            litellm.video_content(video_id=_encoded())
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            hangarllm.video_list(custom_llm_provider="edenai")
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            hangarllm.video_content(video_id=_encoded())
 
     def test_an_openai_param_eden_does_not_accept_yet_is_forwarded_and_eden_answers(self, eden_key, respx_mock):
         """OpenAI's full video param set goes through untouched, so Eden's own validation is what a caller
@@ -306,6 +306,6 @@ class TestErrors:
             )
         )
 
-        with pytest.raises(litellm.BadRequestError, match="Extra inputs"):
-            litellm.video_generation(model=MODEL, prompt=PROMPT, user="u1")
+        with pytest.raises(hangarllm.BadRequestError, match="Extra inputs"):
+            hangarllm.video_generation(model=MODEL, prompt=PROMPT, user="u1")
         assert _request_body(respx_mock)["user"] == "u1"

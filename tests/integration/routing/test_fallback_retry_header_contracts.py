@@ -101,12 +101,12 @@ def _held_reply(release: threading.Event) -> Callable[[Request], Reply]:
 
 def _delete_auto_created_end_user(gateway: Gateway, user_id: str) -> None:
     eventually(
-        lambda: read_rows('SELECT user_id FROM "LiteLLM_EndUserTable" WHERE user_id = %s', (user_id,)),
+        lambda: read_rows('SELECT user_id FROM "HangarLLM_EndUserTable" WHERE user_id = %s', (user_id,)),
         lambda rows: len(rows) == 1,
         seconds=END_USER_ROW_SECONDS,
     )
     gateway.post("/end_user/delete", {"user_ids": [user_id]})
-    assert read_rows('SELECT user_id FROM "LiteLLM_EndUserTable" WHERE user_id = %s', (user_id,)) == []
+    assert read_rows('SELECT user_id FROM "HangarLLM_EndUserTable" WHERE user_id = %s', (user_id,)) == []
 
 
 def _status(gateway: Gateway, model: str) -> int:
@@ -116,7 +116,7 @@ def _status(gateway: Gateway, model: str) -> int:
 def _served_model_id(gateway: Gateway, model: str) -> str:
     response: Final = _chat(gateway, {"model": model})
     assert response.status_code == 200, response.text
-    return response.headers["x-litellm-model-id"]
+    return response.headers["x-hangarllm-model-id"]
 
 
 def _concurrent_round(gateway: Gateway, bad: str, good: str) -> tuple[list[int], list[int]]:
@@ -131,7 +131,7 @@ def _deployment(gateway: Gateway, scenario: Scenario, model_name: str, model: st
         "/model/new",
         {
             "model_name": model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": model,
                 "api_key": "integration-provider-key",
                 "api_base": f"{gateway.upstream_url}/v1",
@@ -171,7 +171,7 @@ def test_client_fallbacks_reach_an_allowed_model_and_name_a_denied_one(gateway: 
         served: Final = _chat(gateway, body, key=scenario.key(models=[primary, fallback.name]))
         assert served.status_code == 200, served.text
         assert _body(served)["model"] == fallback.upstream
-        assert served.headers["x-litellm-model-id"] == fallback.deployment_id
+        assert served.headers["x-hangarllm-model-id"] == fallback.deployment_id
         assert _content(served)
         denied: Final = _chat(gateway, body, key=scenario.key(models=[primary]))
         assert denied.status_code == 403, denied.text
@@ -203,8 +203,8 @@ def test_rate_limited_deployment_is_retried_and_reports_retry_counts(gateway: Ga
         model: Final = _scripted_model(gateway, scenario, [429, 200], 50)
         response: Final = _chat(gateway, {"model": model})
         assert response.status_code == 200, response.text
-        assert response.headers["x-litellm-attempted-retries"] == "1"
-        assert response.headers["x-litellm-max-retries"] == "50"
+        assert response.headers["x-hangarllm-attempted-retries"] == "1"
+        assert response.headers["x-hangarllm-max-retries"] == "50"
 
 
 def test_request_fallbacks_reroute_after_a_connection_failure(gateway: Gateway) -> None:
@@ -214,15 +214,15 @@ def test_request_fallbacks_reroute_after_a_connection_failure(gateway: Gateway) 
         response: Final = _chat(gateway, {"model": primary, "fallbacks": [fallback.name]})
         assert response.status_code == 200, response.text
         assert _body(response)["model"] == fallback.upstream
-        assert response.headers["x-litellm-model-id"] == fallback.deployment_id
-        assert response.headers["x-litellm-attempted-fallbacks"] == "1"
+        assert response.headers["x-hangarllm-model-id"] == fallback.deployment_id
+        assert response.headers["x-hangarllm-attempted-fallbacks"] == "1"
 
 
 def test_model_level_timeout_is_reported_on_a_timed_out_request(gateway: Gateway) -> None:
     with gateway.scenario() as scenario, wire_server(_slow_reply) as wire:
         response: Final = _chat(gateway, {"model": scenario.model(api_base=wire.url, timeout=1)})
         assert response.status_code == 408, response.text
-        assert response.headers["x-litellm-timeout"] == "1.0"
+        assert response.headers["x-hangarllm-timeout"] == "1.0"
 
 
 def test_request_timeout_header_overrides_the_model_timeout(gateway: Gateway) -> None:
@@ -230,10 +230,10 @@ def test_request_timeout_header_overrides_the_model_timeout(gateway: Gateway) ->
         response: Final = _chat(
             gateway,
             {"model": scenario.model(api_base=wire.url, timeout=1)},
-            headers={"x-litellm-timeout": "0.001"},
+            headers={"x-hangarllm-timeout": "0.001"},
         )
         assert response.status_code == 408, response.text
-        assert response.headers["x-litellm-timeout"] == "0.001"
+        assert response.headers["x-hangarllm-timeout"] == "0.001"
 
 
 def test_failing_model_traffic_does_not_starve_concurrent_good_requests(gateway: Gateway) -> None:

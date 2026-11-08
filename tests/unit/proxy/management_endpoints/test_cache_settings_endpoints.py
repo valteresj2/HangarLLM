@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.proxy._types import LitellmTableNames, LitellmUserRoles
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-from litellm.proxy.management_endpoints.cache_settings_endpoints import (
+import hangarllm
+from hangarllm.proxy._types import HangarllmTableNames, HangarllmUserRoles
+from hangarllm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+from hangarllm.proxy.management_endpoints.cache_settings_endpoints import (
     _CACHE_SENSITIVE_FIELDS,
     _REDACTED_VALUE,
     CacheSettingsManager,
@@ -27,7 +27,7 @@ from litellm.proxy.management_endpoints.cache_settings_endpoints import (
     test_cache_connection,
     update_cache_settings,
 )
-from litellm.types.management_endpoints.cache_settings_endpoints import (
+from hangarllm.types.management_endpoints.cache_settings_endpoints import (
     CACHE_SETTINGS_FIELDS,
 )
 
@@ -47,7 +47,7 @@ async def test_test_cache_connection_calls_cache_test_connection_with_params():
     }
 
     request = CacheTestRequest(cache_settings=cache_settings)
-    user_api_key_dict = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-test", user_id="test-user")
+    user_api_key_dict = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-test", user_id="test-user")
 
     # Mock Cache class and its test_connection method
     mock_cache_instance = MagicMock()
@@ -59,8 +59,8 @@ async def test_test_cache_connection_calls_cache_test_connection_with_params():
         }
     )
 
-    # Patch Cache class at the import location (litellm module)
-    with patch("litellm.Cache") as mock_cache_class:
+    # Patch Cache class at the import location (hangarllm module)
+    with patch("hangarllm.Cache") as mock_cache_class:
         mock_cache_class.return_value = mock_cache_instance
 
         # Call the endpoint
@@ -169,13 +169,13 @@ async def test_test_cache_connection_url_takes_precedence_over_discrete_fields()
     }
 
     request = CacheTestRequest(cache_settings=cache_settings)
-    user_api_key_dict = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-test", user_id="test-user")
+    user_api_key_dict = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-test", user_id="test-user")
 
     mock_cache_instance = MagicMock()
     mock_cache_instance.cache = MagicMock()
     mock_cache_instance.cache.test_connection = AsyncMock(return_value={"status": "success", "message": "ok"})
 
-    with patch("litellm.Cache") as mock_cache_class:
+    with patch("hangarllm.Cache") as mock_cache_class:
         mock_cache_class.return_value = mock_cache_instance
 
         result = await test_cache_connection(request=request, user_api_key_dict=user_api_key_dict)
@@ -194,11 +194,11 @@ async def test_update_cache_settings_persists_url_precedence(monkeypatch):
     """The persisted (source-of-truth) row and the reinitialized cache both use
     the url-resolved settings, so a stored config never carries a contradictory
     host+url pair."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", False)
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_cacheconfig.upsert = AsyncMock()
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_cacheconfig.upsert = AsyncMock()
 
     proxy_config = MagicMock()
     proxy_config.encrypt_env_variables = MagicMock(
@@ -209,9 +209,9 @@ async def test_update_cache_settings_persists_url_precedence(monkeypatch):
     proxy_config.switch_on_llm_response_caching = MagicMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
     ):
         await update_cache_settings(
             request=CacheSettingsUpdateRequest(
@@ -226,7 +226,7 @@ async def test_update_cache_settings_persists_url_precedence(monkeypatch):
                 }
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     persisted = proxy_config.encrypt_env_variables.call_args.kwargs["environment_variables"]
@@ -259,14 +259,14 @@ async def test_get_cache_settings_masks_password_bearing_url():
     cache_row.cache_settings = json.dumps(stored_settings)
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=cache_row)
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=cache_row)
 
     proxy_config = MagicMock()
     proxy_config.decrypt_db_variables = MagicMock(side_effect=lambda variables_dict: dict(variables_dict))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
     ):
         response = await get_cache_settings(user_api_key_dict=_admin_auth())
 
@@ -384,7 +384,7 @@ class TestCacheSettingsManager:
         mock_prisma_client = MagicMock()
         mock_cache_config = MagicMock()
         mock_cache_config.cache_settings = '{"type": "redis", "host": "localhost", "port": "6379"}'
-        mock_prisma_client.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=mock_cache_config)
+        mock_prisma_client.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=mock_cache_config)
 
         # Mock proxy_config
         mock_proxy_config = MagicMock()
@@ -429,7 +429,7 @@ class TestCacheSettingsManager:
         mock_prisma_client = MagicMock()
         mock_cache_config = MagicMock()
         mock_cache_config.cache_settings = '{"type": "redis", "host": "localhost", "port": "6379"}'
-        mock_prisma_client.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=mock_cache_config)
+        mock_prisma_client.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=mock_cache_config)
 
         # Mock proxy_config
         mock_proxy_config = MagicMock()
@@ -467,7 +467,7 @@ class TestCacheSettingsManager:
             return None  # No config → function returns early after retry.
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_cacheconfig.find_unique = AsyncMock(side_effect=_flaky_find_unique)
+        mock_prisma_client.db.hangarllm_cacheconfig.find_unique = AsyncMock(side_effect=_flaky_find_unique)
         mock_prisma_client.attempt_db_reconnect = AsyncMock(return_value=True)
         mock_prisma_client._db_auth_reconnect_timeout_seconds = 2.0
         mock_prisma_client._db_auth_reconnect_lock_timeout_seconds = 0.1
@@ -490,7 +490,7 @@ def _admin_auth() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="hashed",
         user_id="admin-user",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
 
@@ -498,11 +498,11 @@ def _admin_auth() -> UserAPIKeyAuth:
 async def test_update_cache_settings_emits_audit_log_when_enabled(monkeypatch):
     """Cache config carries Redis credentials; mutation must emit an
     audit-log row when ``store_audit_logs`` is on, with values redacted."""
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", True)
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_cacheconfig.upsert = AsyncMock()
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_cacheconfig.upsert = AsyncMock()
 
     proxy_config = MagicMock()
     proxy_config.encrypt_env_variables = MagicMock(
@@ -519,20 +519,20 @@ async def test_update_cache_settings_emits_audit_log_when_enabled(monkeypatch):
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "hangarllm.proxy.proxy_server.prisma_client",
             mock_prisma,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_config",
+            "hangarllm.proxy.proxy_server.proxy_config",
             proxy_config,
         ),
         patch(
-            "litellm.proxy.proxy_server.store_model_in_db",
+            "hangarllm.proxy.proxy_server.store_model_in_db",
             True,
         ),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("hangarllm.proxy.proxy_server.hangarllm_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "hangarllm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
@@ -545,7 +545,7 @@ async def test_update_cache_settings_emits_audit_log_when_enabled(monkeypatch):
                 }
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
         # asyncio.create_task fires the coroutine eagerly; await one tick to let
         # the audit-log emit run before the test exits.
@@ -554,7 +554,7 @@ async def test_update_cache_settings_emits_audit_log_when_enabled(monkeypatch):
 
     assert len(audit_calls) == 1
     log = audit_calls[0]
-    assert log.table_name == LitellmTableNames.CACHE_CONFIG_TABLE_NAME
+    assert log.table_name == HangarllmTableNames.CACHE_CONFIG_TABLE_NAME
     assert log.object_id == "cache_config"
     assert log.action == "created"  # no existing row → create
 
@@ -568,11 +568,11 @@ async def test_update_cache_settings_emits_audit_log_when_enabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_update_cache_settings_no_audit_when_disabled(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", False)
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_cacheconfig.upsert = AsyncMock()
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_cacheconfig.upsert = AsyncMock()
 
     proxy_config = MagicMock()
     proxy_config.encrypt_env_variables = MagicMock(
@@ -589,26 +589,26 @@ async def test_update_cache_settings_no_audit_when_disabled(monkeypatch):
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "hangarllm.proxy.proxy_server.prisma_client",
             mock_prisma,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_config",
+            "hangarllm.proxy.proxy_server.proxy_config",
             proxy_config,
         ),
         patch(
-            "litellm.proxy.proxy_server.store_model_in_db",
+            "hangarllm.proxy.proxy_server.store_model_in_db",
             True,
         ),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "hangarllm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
         await update_cache_settings(
             request=CacheSettingsUpdateRequest(cache_settings={"type": "redis", "host": "redis.example.com"}),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     assert audit_calls == []
@@ -799,14 +799,14 @@ async def test_get_cache_settings_falls_back_to_redis_env(monkeypatch):
     monkeypatch.setenv("REDIS_PASSWORD", "env-password")
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=None)
 
     proxy_config = MagicMock()
     proxy_config.decrypt_db_variables = MagicMock(side_effect=lambda variables_dict: dict(variables_dict))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
     ):
         response = await get_cache_settings(user_api_key_dict=_admin_auth())
 
@@ -827,13 +827,13 @@ async def test_get_cache_settings_redacts_password_with_marker(monkeypatch):
         {"type": "redis", "host": "h", "password": "supersecret", "namespace": "ns"}
     )
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=cache_row)
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=cache_row)
     proxy_config = MagicMock()
     proxy_config.decrypt_db_variables = MagicMock(side_effect=lambda variables_dict: dict(variables_dict))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
     ):
         response = await get_cache_settings(user_api_key_dict=_admin_auth())
 
@@ -856,13 +856,13 @@ async def test_get_cache_settings_url_mode_hides_env_discrete_fields(monkeypatch
     cache_row = MagicMock()
     cache_row.cache_settings = {"type": "redis", "url": "redis://:pw@stored-host:6379/0"}
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=cache_row)
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=cache_row)
     proxy_config = MagicMock()
     proxy_config.decrypt_db_variables = MagicMock(side_effect=lambda variables_dict: dict(variables_dict))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
     ):
         response = await get_cache_settings(user_api_key_dict=_admin_auth())
 
@@ -888,21 +888,21 @@ def _mock_proxy_config_identity_crypto():
 async def test_update_preserves_stored_password_on_redacted_resubmit(monkeypatch):
     """Editing an unrelated field and re-submitting the redacted password must
     keep the stored secret, not persist the marker over a working password."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", False)
 
     existing = MagicMock()
     # prisma returns the Json column as an already-parsed dict, not a JSON
     # string; a reader that json.loads unconditionally would drop the whole row
     existing.cache_settings = {"type": "redis", "host": "oldhost", "password": "realpw"}
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=existing)
-    mock_prisma.db.litellm_cacheconfig.upsert = AsyncMock()
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=existing)
+    mock_prisma.db.hangarllm_cacheconfig.upsert = AsyncMock()
     proxy_config = _mock_proxy_config_identity_crypto()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
     ):
         result = await update_cache_settings(
             request=CacheSettingsUpdateRequest(
@@ -910,7 +910,7 @@ async def test_update_preserves_stored_password_on_redacted_resubmit(monkeypatch
                 cache_settings={"type": "redis", "host": "oldhost", "namespace": "edited", "password": _REDACTED_VALUE}
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     persisted = proxy_config.encrypt_env_variables.call_args.kwargs["environment_variables"]
@@ -925,24 +925,24 @@ async def test_update_preserves_stored_password_on_redacted_resubmit(monkeypatch
 async def test_update_drops_env_sourced_redacted_secret(monkeypatch):
     """With no stored row, a re-submitted redacted secret is env-sourced; the
     marker must not be persisted so the environment stays the source."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", False)
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_cacheconfig.upsert = AsyncMock()
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_cacheconfig.upsert = AsyncMock()
     proxy_config = _mock_proxy_config_identity_crypto()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
     ):
         await update_cache_settings(
             request=CacheSettingsUpdateRequest(
                 cache_settings={"type": "redis", "host": "h", "password": _REDACTED_VALUE}
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     persisted = proxy_config.encrypt_env_variables.call_args.kwargs["environment_variables"]
@@ -952,26 +952,26 @@ async def test_update_drops_env_sourced_redacted_secret(monkeypatch):
 @pytest.mark.asyncio
 async def test_update_applies_new_password(monkeypatch):
     """A real new secret value replaces the stored one."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", False)
 
     existing = MagicMock()
     existing.cache_settings = json.dumps({"type": "redis", "host": "h", "password": "oldpw"})
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=existing)
-    mock_prisma.db.litellm_cacheconfig.upsert = AsyncMock()
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=existing)
+    mock_prisma.db.hangarllm_cacheconfig.upsert = AsyncMock()
     proxy_config = _mock_proxy_config_identity_crypto()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
     ):
         await update_cache_settings(
             request=CacheSettingsUpdateRequest(
                 cache_settings={"type": "redis", "host": "h", "password": "brandnewpw"}
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            hangarllm_changed_by=None,
         )
 
     persisted = proxy_config.encrypt_env_variables.call_args.kwargs["environment_variables"]
@@ -987,7 +987,7 @@ async def test_test_cache_connection_survives_saved_lookup_failure(monkeypatch):
     back to the submitted settings rather than abort — otherwise a shared client
     left in an odd state by another test would break every connection test.
     """
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", False)
 
     # a client whose find_unique is not awaitable, so the saved read raises
     bad_prisma = MagicMock()
@@ -999,9 +999,9 @@ async def test_test_cache_connection_survives_saved_lookup_failure(monkeypatch):
     cache_instance.cache.test_connection = AsyncMock(return_value={"status": "success", "message": "ok"})
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", bad_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-        patch("litellm.Cache") as mock_cache_class,
+        patch("hangarllm.proxy.proxy_server.prisma_client", bad_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.Cache") as mock_cache_class,
     ):
         mock_cache_class.return_value = cache_instance
         result = await test_cache_connection(
@@ -1027,13 +1027,13 @@ async def test_get_cache_settings_does_not_surface_non_display_env_credentials(m
     monkeypatch.setenv("REDIS_AZURE_CLIENT_SECRET", "super-azure-secret")
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=None)
     proxy_config = MagicMock()
     proxy_config.decrypt_db_variables = MagicMock(side_effect=lambda variables_dict: dict(variables_dict))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
     ):
         response = await get_cache_settings(user_api_key_dict=_admin_auth())
 
@@ -1056,7 +1056,7 @@ async def test_test_cache_connection_does_not_log_plaintext_credentials(monkeypa
     existing = MagicMock()
     existing.cache_settings = {"type": "redis", "host": "h", "port": "6379", "password": "realredispw"}
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=existing)
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=existing)
     proxy_config = MagicMock()
     proxy_config.decrypt_db_variables = MagicMock(side_effect=lambda variables_dict: dict(variables_dict))
 
@@ -1065,10 +1065,10 @@ async def test_test_cache_connection_does_not_log_plaintext_credentials(monkeypa
     cache_instance.cache.test_connection = AsyncMock(return_value={"status": "success", "message": "ok"})
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-        patch("litellm.Cache") as mock_cache_class,
-        caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.Cache") as mock_cache_class,
+        caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"),
     ):
         mock_cache_class.return_value = cache_instance
         # resubmit the redacted marker; the merge resolves it to the stored secret
@@ -1094,7 +1094,7 @@ async def test_test_cache_connection_does_not_replay_saved_password_to_new_host(
     existing = MagicMock()
     existing.cache_settings = {"type": "redis", "host": "real-redis", "port": "6379", "password": "realredispw"}
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_cacheconfig.find_unique = AsyncMock(return_value=existing)
+    mock_prisma.db.hangarllm_cacheconfig.find_unique = AsyncMock(return_value=existing)
     proxy_config = MagicMock()
     proxy_config.decrypt_db_variables = MagicMock(side_effect=lambda variables_dict: dict(variables_dict))
 
@@ -1103,9 +1103,9 @@ async def test_test_cache_connection_does_not_replay_saved_password_to_new_host(
     cache_instance.cache.test_connection = AsyncMock(return_value={"status": "success", "message": "ok"})
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-        patch("litellm.Cache") as mock_cache_class,
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+        patch("hangarllm.Cache") as mock_cache_class,
     ):
         mock_cache_class.return_value = cache_instance
         await test_cache_connection(

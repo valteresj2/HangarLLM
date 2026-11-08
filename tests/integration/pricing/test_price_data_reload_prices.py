@@ -39,7 +39,7 @@ _PUBLISHED_SCALE: Final = 2.0
 _CATALOG: Final[Mapping[str, Mapping[str, JsonValue]]] = MappingProxyType(
     {
         _ROW: {
-            "litellm_provider": "bedrock_converse",
+            "hangarllm_provider": "bedrock_converse",
             "mode": "chat",
             "input_cost_per_token": 3e-06,
             "output_cost_per_token": 1.5e-05,
@@ -48,34 +48,34 @@ _CATALOG: Final[Mapping[str, Mapping[str, JsonValue]]] = MappingProxyType(
             "output_cost_per_token_above_200k_tokens": 2.25e-05,
         },
         _GEO: {
-            "litellm_provider": "bedrock_converse",
+            "hangarllm_provider": "bedrock_converse",
             "mode": "chat",
             "input_cost_per_token": 3.3e-06,
             "output_cost_per_token": 1.65e-05,
         },
         _FINETUNE: {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "input_cost_per_token": 3.75e-06,
             "output_cost_per_token": 1.5e-05,
             "cache_read_input_token_cost": 1.875e-06,
         },
         _CLAUDE: {
-            "litellm_provider": "anthropic",
+            "hangarllm_provider": "anthropic",
             "mode": "chat",
             "input_cost_per_token": 3e-06,
             "output_cost_per_token": 1.5e-05,
             "cache_read_input_token_cost": 3e-07,
         },
-        _FILL_FREE: {"litellm_provider": "openai", "mode": "chat"},
+        _FILL_FREE: {"hangarllm_provider": "openai", "mode": "chat"},
         _FREE: {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "input_cost_per_token": 0.0,
             "output_cost_per_token": 0.0,
         },
         _MINI: {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "input_cost_per_token": 5e-07,
             "output_cost_per_token": 2e-06,
@@ -197,7 +197,7 @@ def _config(directory: Path, deployments: tuple[_Deployment, ...], wire_url: str
                 "model_list": [
                     {
                         "model_name": deployment.name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": deployment.model,
                             **_connection(deployment.model, wire_url),
                             **deployment.prices,
@@ -206,7 +206,7 @@ def _config(directory: Path, deployments: tuple[_Deployment, ...], wire_url: str
                     for deployment in deployments
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
                 "router_settings": {"disable_cooldowns": True},
@@ -305,7 +305,7 @@ def _billed(client: httpx.Client, key: str, deployment: _Deployment) -> tuple[st
         headers={"Authorization": f"Bearer {key}"},
     )
     assert response.status_code == 200, response.text
-    reported: Final = response.headers.get("x-litellm-response-cost")
+    reported: Final = response.headers.get("x-hangarllm-response-cost")
     return string_value(object_value(response.json())["id"]), None if reported is None else float(reported)
 
 
@@ -326,7 +326,7 @@ def _charged_as_listed(proxy: Gateway, deployment: _Deployment, scale: float) ->
 
 def _spend(request_id: str) -> float:
     rows: Final = eventually(
-        lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
+        lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -336,7 +336,7 @@ def _spend(request_id: str) -> float:
 
 
 def _proxy_environment(wire_url: str) -> dict[str, str]:
-    return {**_COST_MAP_LIMITS, "LITELLM_MODEL_COST_MAP_URL": f"{wire_url}/model_prices.json"}
+    return {**_COST_MAP_LIMITS, "HANGARLLM_MODEL_COST_MAP_URL": f"{wire_url}/model_prices.json"}
 
 
 def _assert_priced_across_a_reload(gateway: Gateway, tmp_path: Path, deployments: tuple[_Deployment, ...]) -> None:
@@ -348,7 +348,7 @@ def _assert_priced_across_a_reload(gateway: Gateway, tmp_path: Path, deployments
             tmp_path,
             _proxy_environment(wire.url),
             config=_config(tmp_path, deployments, wire.url),
-            remove_environment=("LITELLM_LOCAL_MODEL_COST_MAP",),
+            remove_environment=("HANGARLLM_LOCAL_MODEL_COST_MAP",),
         ) as proxy,
     ):
         before: Final = tuple(_charged_as_listed(proxy, deployment, 1.0) for deployment in deployments)
@@ -473,7 +473,7 @@ def test_price_data_reloads_under_custom_priced_traffic_keep_every_deployment_pr
             tmp_path,
             _proxy_environment(wire.url),
             config=_config(tmp_path, (geo, *storm), wire.url),
-            remove_environment=("LITELLM_LOCAL_MODEL_COST_MAP",),
+            remove_environment=("HANGARLLM_LOCAL_MODEL_COST_MAP",),
         ) as proxy,
         ThreadPoolExecutor(max_workers=8) as pool,
     ):

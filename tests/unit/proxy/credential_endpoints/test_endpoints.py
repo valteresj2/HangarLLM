@@ -15,17 +15,17 @@ from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.litellm_core_utils.litellm_logging import get_masked_values
-from litellm.llms.github_copilot.per_user_auth import _SESSION_CACHE, _session_cache_key
-from litellm.models.credentials import CredentialSource, UserConnectionFlowHandle
-from litellm.proxy._types import LiteLLM_UserTable, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper, encrypt_value_helper
-from litellm.proxy.credential_endpoints.endpoints import _decode_flow_handle, get_llm_router
-from litellm.proxy.proxy_server import app
-from litellm.types.utils import CredentialItem
+import hangarllm
+from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
+from hangarllm.hangarllm_core_utils.hangarllm_logging import get_masked_values
+from hangarllm.llms.github_copilot.per_user_auth import _SESSION_CACHE, _session_cache_key
+from hangarllm.models.credentials import CredentialSource, UserConnectionFlowHandle
+from hangarllm.proxy._types import HangarLLM_UserTable, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper, encrypt_value_helper
+from hangarllm.proxy.credential_endpoints.endpoints import _decode_flow_handle, get_llm_router
+from hangarllm.proxy.proxy_server import app
+from hangarllm.types.utils import CredentialItem
 
 client = TestClient(app)
 
@@ -69,7 +69,7 @@ def _list_credentials():
 
 def _prisma_without_credential_rows() -> MagicMock:
     prisma_client = MagicMock()
-    prisma_client.db.litellm_credentialstable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_credentialstable.find_unique = AsyncMock(return_value=None)
     return prisma_client
 
 
@@ -87,12 +87,12 @@ def credential_store():
         **repository_calls: AsyncMock,
     ) -> None:
         patch(
-            "litellm.proxy.proxy_server.prisma_client", _prisma_without_credential_rows() if connected else None
+            "hangarllm.proxy.proxy_server.prisma_client", _prisma_without_credential_rows() if connected else None
         ).start()
-        patch("litellm.proxy.proxy_server.master_key", "sk-test-master").start()
-        patch.object(litellm, "credential_list", list(in_memory)).start()
+        patch("hangarllm.proxy.proxy_server.master_key", "sk-test-master").start()
+        patch.object(hangarllm, "credential_list", list(in_memory)).start()
         app.dependency_overrides[get_llm_router] = lambda: llm_router
-        repository = patch("litellm.proxy.credential_endpoints.endpoints.CredentialsRepository").start()
+        repository = patch("hangarllm.proxy.credential_endpoints.endpoints.CredentialsRepository").start()
         repository.return_value.find_by_name = AsyncMock(return_value=None)
         for call_name, result in repository_calls.items():
             setattr(repository.return_value, call_name, result)
@@ -110,16 +110,16 @@ def _repository_holding(stored: CredentialItem | None):
     and then write through their own ``CredentialsRepository`` binding."""
     with (
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.master_key", "sk-test-master"
+            "hangarllm.proxy.proxy_server.master_key", "sk-test-master"
         ),
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.credential_endpoints.endpoints.CredentialsRepository"
+            "hangarllm.proxy.credential_endpoints.endpoints.CredentialsRepository"
         ) as repository,
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.common_utils.credential_hydration.CredentialsRepository", repository
+            "hangarllm.proxy.common_utils.credential_hydration.CredentialsRepository", repository
         ),
     ):
         repository.return_value.find_by_name = AsyncMock(return_value=stored)
@@ -133,7 +133,7 @@ def test_create_credential_write_omits_the_patch_only_deletion_field(restore_cre
     """Regression: CredentialItem.credential_values_to_delete is a PATCH-only field that
     defaults to None on every other construction path. A bare .model_dump() (without
     exclude_none) on the create path put a `credential_values_to_delete: null` key into the
-    Prisma write, which litellm_credentialstable has no column for."""
+    Prisma write, which hangarllm_credentialstable has no column for."""
     with _repository_holding(None) as repository:
         response = _post_credential(
             {
@@ -217,13 +217,13 @@ def test_update_credential_merges_onto_the_writer_row_not_a_lagging_replica(rest
     """Regression: PATCH read the row through the read replica and wrote the merged row to the
     writer, so an edit inside the replica lag window wrote back the replica's older label and
     secrets, undoing a relabel or key rotation that had already committed."""
-    from litellm.proxy.db.prisma_client import PrismaWrapper
-    from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+    from hangarllm.proxy.db.prisma_client import PrismaWrapper
+    from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
     writer_table = _credentials_table(_credential_row("Relabeled", "sk-B"))
     reader_table = _credentials_table(_credential_row("Original", "sk-A"))
-    writer_inner = SimpleNamespace(litellm_credentialstable=writer_table)
-    reader_inner = SimpleNamespace(litellm_credentialstable=reader_table)
+    writer_inner = SimpleNamespace(hangarllm_credentialstable=writer_table)
+    reader_inner = SimpleNamespace(hangarllm_credentialstable=reader_table)
     prisma_client = MagicMock()
     prisma_client.db = RoutingPrismaWrapper(
         writer=PrismaWrapper(original_prisma=writer_inner, iam_token_db_auth=False),
@@ -231,8 +231,8 @@ def test_update_credential_merges_onto_the_writer_row_not_a_lagging_replica(rest
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test-master"),
+        patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+        patch("hangarllm.proxy.proxy_server.master_key", "sk-test-master"),
     ):
         response = _patch_credential(
             "replicated", {"credential_values": {"api_base": "https://example.test/v1"}, "credential_info": {}}
@@ -251,7 +251,7 @@ def _get_jwks(name: str):
 
 @pytest.fixture
 def restore_credential_list(monkeypatch):
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(hangarllm, "credential_list", [])
 
 
 def test_update_credential_rejects_overlap_between_update_and_delete():
@@ -281,10 +281,10 @@ def test_update_credential_deletion_removes_the_key_from_the_db_write(restore_cr
     )
     with (
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.credential_endpoints.endpoints.CredentialsRepository"
+            "hangarllm.proxy.credential_endpoints.endpoints.CredentialsRepository"
         ) as repository,  # test-quality-ok: the proxy wiring under test is what this patches
     ):
         repository.return_value.find_by_name = AsyncMock(return_value=stored)
@@ -311,7 +311,7 @@ def test_update_credential_deletion_updates_in_memory_credential_list(restore_cr
     """The in-memory list is what the request-time auth resolvers read; a deletion that only
     landed in the DB would leave the stale field servable until the next process restart."""
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -331,10 +331,10 @@ def test_update_credential_deletion_updates_in_memory_credential_list(restore_cr
     )
     with (
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.credential_endpoints.endpoints.CredentialsRepository"
+            "hangarllm.proxy.credential_endpoints.endpoints.CredentialsRepository"
         ) as repository,  # test-quality-ok: the proxy wiring under test is what this patches
     ):
         repository.return_value.find_by_name = AsyncMock(return_value=stored)
@@ -351,7 +351,7 @@ def test_update_credential_deletion_updates_in_memory_credential_list(restore_cr
         )
 
     assert response.status_code == 200, response.text
-    in_memory = next(c for c in litellm.credential_list if c.credential_name == "wif-cred")
+    in_memory = next(c for c in hangarllm.credential_list if c.credential_name == "wif-cred")
     assert "anthropic_keycloak_client_id" not in in_memory.credential_values
     assert in_memory.credential_values["anthropic_identity_source"] == "keycloak"
 
@@ -367,13 +367,13 @@ def test_update_credential_leaves_untouched_fields_alone():
     )
     with (
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.master_key", "sk-test-master"
+            "hangarllm.proxy.proxy_server.master_key", "sk-test-master"
         ),
         patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.credential_endpoints.endpoints.CredentialsRepository"
+            "hangarllm.proxy.credential_endpoints.endpoints.CredentialsRepository"
         ) as repository,  # test-quality-ok: the proxy wiring under test is what this patches
     ):
         repository.return_value.find_by_name = AsyncMock(return_value=stored)
@@ -440,7 +440,7 @@ def test_update_credential_never_syncs_a_null_into_the_in_memory_credential(rest
         credential_values={"api_key": "sk-old"},
         credential_info={"custom_llm_provider": "anthropic"},
     )
-    monkeypatch.setattr(litellm, "credential_list", [in_memory])
+    monkeypatch.setattr(hangarllm, "credential_list", [in_memory])
     with _repository_holding(
         CredentialItem(
             credential_name="plain-cred",
@@ -458,7 +458,7 @@ def test_update_credential_never_syncs_a_null_into_the_in_memory_credential(rest
         )
 
     assert response.status_code == 200, response.text
-    synced = next(c for c in litellm.credential_list if c.credential_name == "plain-cred")
+    synced = next(c for c in hangarllm.credential_list if c.credential_name == "plain-cred")
     assert "anthropic_issuer_url" not in synced.credential_values
     assert synced.credential_values["api_key"] == "sk-rotated"
 
@@ -538,7 +538,7 @@ def test_update_credential_keeps_the_stored_secret_when_the_patch_echoes_its_mas
     assert _written_values(update_by_name) == {"api_key": "sk-real-secret-1234"}
     assert _written_info(update_by_name)["description"] == "edited"
     assert CredentialAccessor.get_credential_values("existing") == {"api_key": "sk-real-secret-1234"}
-    assert litellm.credential_list[0].credential_info["description"] == "edited"
+    assert hangarllm.credential_list[0].credential_info["description"] == "edited"
 
 
 def test_update_credential_keeps_the_secret_when_the_patch_echoes_what_get_by_name_served(
@@ -734,7 +734,7 @@ class TestCredentialJwksExport:
     def test_jwks_export_succeeds_for_an_internal_issuer_credential(self, restore_credential_list, monkeypatch):
         monkeypatch.setenv("JWKS_TEST_SIGNING_KEY", _generate_es256_pem())
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -763,7 +763,7 @@ class TestCredentialJwksExport:
     def test_jwks_export_treats_blank_optional_fields_as_unset(self, restore_credential_list, monkeypatch):
         monkeypatch.setenv("JWKS_TEST_SIGNING_KEY", _generate_es256_pem())
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -789,7 +789,7 @@ class TestCredentialJwksExport:
     def test_jwks_export_accepts_the_dashboard_provider_casing(self, restore_credential_list, monkeypatch):
         monkeypatch.setenv("JWKS_TEST_SIGNING_KEY", _generate_es256_pem())
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -812,7 +812,7 @@ class TestCredentialJwksExport:
 
     def test_jwks_export_404s_for_a_non_anthropic_credential(self, restore_credential_list, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -831,7 +831,7 @@ class TestCredentialJwksExport:
         self, restore_credential_list, monkeypatch
     ):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -848,7 +848,7 @@ class TestCredentialJwksExport:
 
     def test_jwks_export_404s_for_an_unknown_credential(self, restore_credential_list):
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", None
+            "hangarllm.proxy.proxy_server.prisma_client", None
         ):  # test-quality-ok: the proxy wiring under test is what this patches
             response = _get_jwks("does-not-exist")
 
@@ -857,7 +857,7 @@ class TestCredentialJwksExport:
     def test_jwks_export_requires_proxy_admin(self, restore_credential_list, monkeypatch):
         monkeypatch.setenv("JWKS_TEST_SIGNING_KEY", _generate_es256_pem())
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -887,14 +887,14 @@ class TestCredentialJwksExport:
 
 class TestNonAdminCannotPersistWifFieldsOnCredential:
     """A credential's ``credential_values`` feeds the same WIF resolution as a deployment's own
-    ``litellm_params`` when referenced by ``litellm_credential_name``. A non-admin must not be
+    ``hangarllm_params`` when referenced by ``hangarllm_credential_name``. A non-admin must not be
     able to create or update a credential carrying a server-owned WIF field such as
     ``anthropic_keycloak_token_url`` (destination) or ``anthropic_keycloak_client_secret_ref``
     (which secret to read and send there)."""
 
     def test_non_admin_cannot_create_a_credential_with_a_wif_destination(self):
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ):  # test-quality-ok: the proxy wiring under test is what this patches
             response = _post_credential(
                 {
@@ -910,12 +910,12 @@ class TestNonAdminCannotPersistWifFieldsOnCredential:
 
     def test_non_admin_cannot_create_a_credential_with_a_wif_secret_ref(self):
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ):  # test-quality-ok: the proxy wiring under test is what this patches
             response = _post_credential(
                 {
                     "credential_name": "attacker-cred",
-                    "credential_values": {"anthropic_keycloak_client_secret_ref": "os.environ/LITELLM_MASTER_KEY"},
+                    "credential_values": {"anthropic_keycloak_client_secret_ref": "os.environ/HANGARLLM_MASTER_KEY"},
                     "credential_info": {"custom_llm_provider": "anthropic"},
                 },
                 auth=_as_non_admin,
@@ -1005,7 +1005,7 @@ class TestNonAdminCannotPersistWifFieldsOnCredential:
 
     def test_non_admin_cannot_create_a_credential_with_an_openai_token_file(self):
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ):
             response = _post_credential(
                 {
@@ -1045,10 +1045,10 @@ class TestNonAdminCannotPersistWifFieldsOnCredential:
         )
         with (
             patch(  # test-quality-ok: the proxy wiring under test is what this patches
-                "litellm.proxy.proxy_server.prisma_client", MagicMock()
+                "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
             ),
             patch(  # test-quality-ok: the proxy wiring under test is what this patches
-                "litellm.proxy.credential_endpoints.endpoints.CredentialsRepository"
+                "hangarllm.proxy.credential_endpoints.endpoints.CredentialsRepository"
             ) as repository,  # test-quality-ok: the proxy wiring under test is what this patches
         ):
             repository.return_value.find_by_name = AsyncMock(return_value=stored)
@@ -1119,13 +1119,13 @@ class TestNonAdminCannotPersistWifFieldsOnCredential:
         )
         with (
             patch(  # test-quality-ok: the proxy wiring under test is what this patches
-                "litellm.proxy.proxy_server.prisma_client", MagicMock()
+                "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
             ),
             patch(  # test-quality-ok: the proxy wiring under test is what this patches
-                "litellm.proxy.proxy_server.master_key", "sk-test-master"
+                "hangarllm.proxy.proxy_server.master_key", "sk-test-master"
             ),
             patch(  # test-quality-ok: the proxy wiring under test is what this patches
-                "litellm.proxy.credential_endpoints.endpoints.CredentialsRepository"
+                "hangarllm.proxy.credential_endpoints.endpoints.CredentialsRepository"
             ) as repository,  # test-quality-ok: the proxy wiring under test is what this patches
         ):
             repository.return_value.find_by_name = AsyncMock(return_value=stored)
@@ -1211,7 +1211,7 @@ class TestNonAdminCannotTouchAStoredWifCredential:
     def test_non_admin_cannot_repoint_a_stored_credential_whose_encrypted_api_key_is_an_oidc_reference(
         self, restore_credential_list, monkeypatch
     ):
-        monkeypatch.setenv("LITELLM_SALT_KEY", "sk-credential-endpoints-test-salt")
+        monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-credential-endpoints-test-salt")
         stored = CredentialItem(
             credential_name="mistral-sa",
             credential_values={
@@ -1298,7 +1298,7 @@ class TestNonAdminCannotTouchAStoredWifCredential:
         """Resolution reads memory first and stops, which is right when serving a request. A pod
         whose in-memory copy predates an admin adding the federation fields must not read that
         stale object and authorize the delete: the gate takes the union of memory and the row."""
-        monkeypatch.setattr(litellm, "credential_list", [_plain_credential("federated-cred")])
+        monkeypatch.setattr(hangarllm, "credential_list", [_plain_credential("federated-cred")])
 
         with _repository_holding(_wif_credential("federated-cred")) as repository:
             response = _delete_credential("federated-cred", auth=_as_non_admin)
@@ -1322,7 +1322,7 @@ class TestNonAdminCannotTouchAStoredWifCredential:
         repository.delete_by_name.assert_awaited_once_with("ordinary-cred")
 
     def test_non_admin_cannot_null_out_a_wif_field_on_a_credential(self, restore_credential_list):
-        """A JSON ``null`` still lands as a key in ``credential_values``. ``get_litellm_params``
+        """A JSON ``null`` still lands as a key in ``credential_values``. ``get_hangarllm_params``
         forwards a WIF kwarg on key presence and the federation resolver rejects a foreign
         variant's field by key, so a value-based gate let a non-admin persist the key and wedge
         every deployment referencing the credential at request time."""
@@ -1381,21 +1381,21 @@ class TestNonAdminCannotTouchAStoredWifCredential:
         """A ``credential_list`` entry from config.yaml has no DB row, so a gate that consulted
         only the DB let a non-admin evict the admin-owned federation settings from memory."""
         config_credential = _wif_credential("config-wif", source="config")
-        monkeypatch.setattr(litellm, "credential_list", [config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [config_credential])
         with _repository_holding(None) as repository:
             response = _delete_credential("config-wif", auth=_as_non_admin)
 
         assert response.status_code == 403, response.text
         assert response.json()["error"]["param"] == "anthropic_keycloak_token_url"
         repository.delete_by_name.assert_not_awaited()
-        assert litellm.credential_list == [config_credential]
+        assert hangarllm.credential_list == [config_credential]
 
     def test_proxy_admin_can_delete_a_config_only_wif_credential(self, restore_credential_list, monkeypatch):
         """The gate lets the admin through to the row delete. The 400 that follows is the rule for
         every config-only credential (no row to delete, the entry is back on the next boot), so the
         in-memory entry stays put too."""
         config_credential = _wif_credential("config-wif", source="config")
-        monkeypatch.setattr(litellm, "credential_list", [config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [config_credential])
         with _repository_holding(None) as repository:
             response = _delete_credential("config-wif", auth=_as_admin)
 
@@ -1403,14 +1403,14 @@ class TestNonAdminCannotTouchAStoredWifCredential:
         assert response.headers["allow"] == "GET"
         assert "defined in config" in response.json()["error"]["message"]
         repository.delete_by_name.assert_awaited_once_with("config-wif")
-        assert litellm.credential_list == [config_credential]
+        assert hangarllm.credential_list == [config_credential]
 
     def test_non_admin_cannot_shadow_a_config_only_wif_credential(self, restore_credential_list, monkeypatch):
         """POST with the same name carries no WIF field and collides with no DB row, yet
         ``CredentialAccessor.upsert_credentials`` would replace the admin entry in memory and
         the periodic config sync would then make the takeover permanent."""
         config_credential = _wif_credential("config-wif", source="config")
-        monkeypatch.setattr(litellm, "credential_list", [config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [config_credential])
         with _repository_holding(None) as repository:
             response = _post_credential(
                 {
@@ -1424,12 +1424,12 @@ class TestNonAdminCannotTouchAStoredWifCredential:
         assert response.status_code == 403, response.text
         assert "anthropic_keycloak_token_url" in response.text
         repository.create.assert_not_awaited()
-        assert litellm.credential_list == [config_credential]
-        assert litellm.credential_list[0].credential_values["api_key"] == "sk-old"
+        assert hangarllm.credential_list == [config_credential]
+        assert hangarllm.credential_list[0].credential_values["api_key"] == "sk-old"
 
     def test_proxy_admin_cannot_post_over_a_config_only_wif_credential(self, restore_credential_list, monkeypatch):
         config_credential = _wif_credential("config-wif", source="config")
-        monkeypatch.setattr(litellm, "credential_list", [config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [config_credential])
         with _repository_holding(None) as repository:
             response = _post_credential(
                 {
@@ -1444,7 +1444,7 @@ class TestNonAdminCannotTouchAStoredWifCredential:
         assert response.json()["error"]["param"] == "credential_name"
         assert "defined in config" in response.json()["error"]["message"]
         repository.create.assert_not_awaited()
-        assert litellm.credential_list == [config_credential]
+        assert hangarllm.credential_list == [config_credential]
 
     def test_non_admin_cannot_post_a_null_wif_field(self, restore_credential_list):
         """Same key-presence rule on the create path: ``{"anthropic_issuer_url": null}`` persists
@@ -1462,7 +1462,7 @@ class TestNonAdminCannotTouchAStoredWifCredential:
         assert response.status_code == 403, response.text
         assert "anthropic_issuer_url" in response.text
         repository.create.assert_not_awaited()
-        assert litellm.credential_list == []
+        assert hangarllm.credential_list == []
 
     def test_non_admin_cannot_shadow_a_db_stored_wif_credential(self, restore_credential_list):
         """Same hole for a WIF credential another pod wrote to the DB before this pod's in-memory
@@ -1493,7 +1493,7 @@ class TestNonAdminCannotTouchAStoredWifCredential:
 
         assert response.status_code == 200, response.text
         repository.create.assert_awaited_once()
-        assert litellm.credential_list[0].credential_name == "ordinary-cred"
+        assert hangarllm.credential_list[0].credential_name == "ordinary-cred"
 
 
 class TestManagementReadsTheStoredCredential:
@@ -1502,12 +1502,12 @@ class TestManagementReadsTheStoredCredential:
 
     @pytest.mark.asyncio
     async def test_authoritative_hydrate_prefers_the_row_over_a_stale_memory_copy(self):
-        import litellm
-        from litellm.proxy.common_utils.credential_hydration import (
+        import hangarllm
+        from hangarllm.proxy.common_utils.credential_hydration import (
             hydrate_named_credential,
             hydrate_named_credential_authoritative,
         )
-        from litellm.types.utils import CredentialItem
+        from hangarllm.types.utils import CredentialItem
 
         stale = CredentialItem(
             credential_name="anthropic-wif",
@@ -1521,9 +1521,9 @@ class TestManagementReadsTheStoredCredential:
         }
 
         prisma = MagicMock()
-        prisma.db.litellm_credentialstable.find_unique = AsyncMock(return_value=row)
+        prisma.db.hangarllm_credentialstable.find_unique = AsyncMock(return_value=row)
 
-        with patch.object(litellm, "credential_list", [stale]):  # test-quality-ok: the stale copy under test
+        with patch.object(hangarllm, "credential_list", [stale]):  # test-quality-ok: the stale copy under test
             served = await hydrate_named_credential("anthropic-wif", prisma)
             managed = await hydrate_named_credential_authoritative("anthropic-wif", prisma)
 
@@ -1532,9 +1532,9 @@ class TestManagementReadsTheStoredCredential:
 
     @pytest.mark.asyncio
     async def test_authoritative_hydrate_falls_back_to_memory_when_the_row_is_absent(self):
-        import litellm
-        from litellm.proxy.common_utils.credential_hydration import hydrate_named_credential_authoritative
-        from litellm.types.utils import CredentialItem
+        import hangarllm
+        from hangarllm.proxy.common_utils.credential_hydration import hydrate_named_credential_authoritative
+        from hangarllm.types.utils import CredentialItem
 
         only_in_memory = CredentialItem(
             credential_name="config-yaml-credential",
@@ -1542,10 +1542,10 @@ class TestManagementReadsTheStoredCredential:
             credential_info={"custom_llm_provider": "anthropic"},
         )
         prisma = MagicMock()
-        prisma.db.litellm_credentialstable.find_unique = AsyncMock(return_value=None)
+        prisma.db.hangarllm_credentialstable.find_unique = AsyncMock(return_value=None)
 
         with patch.object(
-            litellm, "credential_list", [only_in_memory]
+            hangarllm, "credential_list", [only_in_memory]
         ):  # test-quality-ok: the config.yaml fallback under test
             resolved = await hydrate_named_credential_authoritative("config-yaml-credential", prisma)
 
@@ -1587,7 +1587,7 @@ def test_delete_credential_still_answers_200_and_drops_the_credential_from_memor
 
     assert response.status_code == 200, response.text
     assert response.json()["success"] is True
-    assert [credential.credential_name for credential in litellm.credential_list] == ["keeper"]
+    assert [credential.credential_name for credential in hangarllm.credential_list] == ["keeper"]
 
 
 def test_delete_credential_leaves_a_credential_that_only_exists_in_memory_in_place(credential_store):
@@ -1607,7 +1607,7 @@ def test_delete_credential_leaves_a_credential_that_only_exists_in_memory_in_pla
     assert response.status_code == 405, response.text
     assert response.headers["allow"] == "GET"
     assert "defined in config" in response.json()["error"]["message"]
-    assert [credential.credential_name for credential in litellm.credential_list] == ["from-config-yaml"]
+    assert [credential.credential_name for credential in hangarllm.credential_list] == ["from-config-yaml"]
 
 
 def test_delete_credential_answers_500_when_the_database_is_not_connected(credential_store):
@@ -1791,12 +1791,12 @@ def _encrypted_per_user_copilot_credential(host: str) -> CredentialItem:
 def test_update_credential_purges_connections_when_github_host_changes(monkeypatch, restore_credential_list):
     stored = _encrypted_per_user_copilot_credential("github.com")
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table = MagicMock()
         table.find_many = AsyncMock(return_value=[_connection_row(credential_name="copilot")])
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         cached_values: Final[dict[str, object]] = {}  # mutable-ok: fake Redis stores invalidation writes
@@ -1842,14 +1842,14 @@ def test_update_credential_purges_connections_when_github_host_changes(monkeypat
 def test_update_credential_does_not_purge_connections_for_case_only_host_change(restore_credential_list):
     stored = _encrypted_per_user_copilot_credential("octo.ghe.com")
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table = MagicMock()
         table.find_many = AsyncMock(
             return_value=[_connection_row(credential_name="copilot", github_host="octo.ghe.com")]
         )
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         session_key: Final = _session_cache_key("user-a", "copilot", "octo.ghe.com")
@@ -1877,14 +1877,14 @@ def test_update_credential_does_not_purge_connections_for_case_only_host_change(
 def test_update_credential_does_not_purge_connections_for_legacy_host_case_difference(restore_credential_list):
     stored = _encrypted_per_user_copilot_credential("OCTO.ghe.com")
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table = MagicMock()
         table.find_many = AsyncMock(
             return_value=[_connection_row(credential_name="copilot", github_host="octo.ghe.com")]
         )
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         session_key: Final = _session_cache_key("user-a", "copilot", "octo.ghe.com")
@@ -1912,12 +1912,12 @@ def test_update_credential_does_not_purge_connections_for_legacy_host_case_diffe
 def test_update_credential_purges_connections_when_github_host_is_deleted(restore_credential_list):
     stored = _encrypted_per_user_copilot_credential("octo.ghe.com")
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table = MagicMock()
         table.find_many = AsyncMock(return_value=[_connection_row(credential_name="copilot")])
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         response = _patch_credential(
@@ -1937,12 +1937,12 @@ def test_update_credential_purges_connections_when_github_host_is_deleted(restor
 def test_update_credential_purges_connections_for_invalid_legacy_github_host(restore_credential_list):
     stored = _encrypted_per_user_copilot_credential("legacy.invalid")
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table = MagicMock()
         table.find_many = AsyncMock(return_value=[_connection_row(credential_name="copilot")])
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         response = _patch_credential(
@@ -1961,12 +1961,12 @@ def test_update_credential_purges_connections_for_invalid_legacy_github_host(res
 def test_update_credential_does_not_purge_connections_for_unrelated_value_update(restore_credential_list):
     stored = _encrypted_per_user_copilot_credential("octo.ghe.com")
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table = MagicMock()
         table.find_many = AsyncMock(return_value=[_connection_row(credential_name="copilot")])
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         response = _patch_credential(
@@ -2063,10 +2063,10 @@ def test_update_credential_still_accepts_a_body_without_credential_values(creden
 
 from contextlib import contextmanager as _ctx
 
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 from tests.unit.redis.stores.auth_cache_double import shared_cache
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy.credential_endpoints import user_provider_credentials as upc
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy.credential_endpoints import user_provider_credentials as upc
 
 _DEVICE_CODE_URL = "https://github.com/login/device/code"
 _ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -2121,7 +2121,7 @@ def _connection_row(
 
 @pytest.fixture(autouse=True)
 def _connection_master_key(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-test-master")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-test-master")
 
 
 @_ctx
@@ -2137,7 +2137,7 @@ def _github_http(mapping):
         return httpx.Response(200, json=payload, request=request)
 
     client = AsyncHTTPHandler(transport=httpx.MockTransport(respond))
-    with patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client):
+    with patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client):
         yield
 
 
@@ -2153,18 +2153,18 @@ _DEVICE_FLOW_START = {
 def _patch_user_connection_env(monkeypatch, credentials, rows=()):
     """Per-user env: credential in memory, prisma table answering find_many with rows,
     and a real in-memory cache for device-flow + credential caching."""
-    monkeypatch.setattr(litellm, "credential_list", list(credentials))
+    monkeypatch.setattr(hangarllm, "credential_list", list(credentials))
     prisma_client = MagicMock()
     table = MagicMock()
     table.find_many = AsyncMock(return_value=list(rows))
     table.find_unique = AsyncMock(return_value=rows[0] if rows else None)
     table.upsert = AsyncMock(return_value=None)
     table.delete_many = AsyncMock(return_value=None)
-    prisma_client.db.litellm_userprovidercredentials = table
+    prisma_client.db.hangarllm_userprovidercredentials = table
     prisma_client.writer_db = prisma_client.db
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
     cache = UserApiKeyCache()
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", cache)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", cache)
     return table
 
 
@@ -2277,12 +2277,12 @@ def test_user_connection_poll_connected_persists_and_reports_login(monkeypatch):
 
 
 def test_poll_host_change_race_requires_reconnect_on_the_next_request(monkeypatch):
-    from litellm.llms.github_copilot.per_user_auth import attach_github_copilot_user_session
+    from hangarllm.llms.github_copilot.per_user_auth import attach_github_copilot_user_session
 
     table: Final = _patch_user_connection_env(monkeypatch, [_per_user_credential(host="octo.ghe.com")])
 
     def change_host_after_access_token(request: httpx.Request) -> dict[str, str]:
-        monkeypatch.setattr(litellm, "credential_list", [_per_user_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_per_user_credential()])
         return {"access_token": "gho_1"}
 
     with _github_http(
@@ -2310,7 +2310,7 @@ def test_poll_host_change_race_requires_reconnect_on_the_next_request(monkeypatc
     assert stored_connection is not None
 
     kwargs: Final[dict[str, object]] = {
-        "litellm_credential_name": "copilot-cred",
+        "hangarllm_credential_name": "copilot-cred",
         "secret_fields": {
             "user_provider_credentials_user_id": "user-a",
             "user_provider_credentials": {
@@ -2323,8 +2323,8 @@ def test_poll_host_change_race_requires_reconnect_on_the_next_request(monkeypatc
     }
     module_level_client: Final = MagicMock()
     module_level_client.get.side_effect = AssertionError("unexpected GitHub user lookup")
-    with _github_http({}), patch.object(litellm, "module_level_client", module_level_client):
-        with pytest.raises(litellm.CallerCredentialAuthenticationError) as exc:
+    with _github_http({}), patch.object(hangarllm, "module_level_client", module_level_client):
+        with pytest.raises(hangarllm.CallerCredentialAuthenticationError) as exc:
             attach_github_copilot_user_session(kwargs)
     assert "Connect GitHub Copilot for credential 'copilot-cred'" in str(exc.value)
     assert stored_connection.github_host == "octo.ghe.com"
@@ -2416,11 +2416,11 @@ def test_deleting_the_credential_purges_user_connections(monkeypatch, credential
     table = MagicMock()
     table.find_many = AsyncMock(return_value=rows)
     table.delete_many = AsyncMock(return_value=None)
-    prisma_client.db.litellm_userprovidercredentials = table
+    prisma_client.db.hangarllm_userprovidercredentials = table
     prisma_client.writer_db = prisma_client.db
-    prisma_client.db.litellm_credentialstable.find_unique = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", UserApiKeyCache())
+    prisma_client.db.hangarllm_credentialstable.find_unique = AsyncMock(return_value=None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", UserApiKeyCache())
 
     response = _delete_credential("copilot-cred")
     assert response.status_code == 200, response.text
@@ -2481,7 +2481,7 @@ def test_user_connection_poll_reports_no_copilot_seat(monkeypatch, seat_status):
         pytest.fail(f"unexpected request to {url}")
 
     client_obj = AsyncHTTPHandler(transport=httpx.MockTransport(respond))
-    with patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client_obj):
+    with patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client_obj):
         start = _call_as("POST", "/credentials/copilot-cred/user_connection/start", auth=_as_user())
         assert start.status_code == 200
         poll = _call_as(
@@ -2509,7 +2509,7 @@ def test_user_connection_poll_rate_limit_returns_429(monkeypatch):
         pytest.fail(f"unexpected request to {url}")
 
     client_obj = AsyncHTTPHandler(transport=httpx.MockTransport(respond))
-    with patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client_obj):
+    with patch("hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=client_obj):
         start = _call_as("POST", "/credentials/copilot-cred/user_connection/start", auth=_as_user())
         poll = _call_as(
             "POST",
@@ -2557,7 +2557,7 @@ def test_user_connection_routes_401_without_user_id(monkeypatch, method, path):
 def test_user_connection_routes_roles():
     """internal_user is allowed (self-scoped), internal_user_view_only is denied, proxy_admin
     is allowed; and POST /credentials stays admin-only for an internal user."""
-    from litellm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.auth.route_checks import RouteChecks
 
     routes = [
         ("/credentials/user_connections", "GET"),
@@ -2567,9 +2567,9 @@ def test_user_connection_routes_roles():
     ]
 
     def outcome(role, route, method="GET"):
-        if role == LitellmUserRoles.PROXY_ADMIN:
+        if role == HangarllmUserRoles.PROXY_ADMIN:
             return "allowed"
-        user_obj = LiteLLM_UserTable(user_id="u", user_email="u@x", user_role=role.value)
+        user_obj = HangarLLM_UserTable(user_id="u", user_email="u@x", user_role=role.value)
         valid_token = UserAPIKeyAuth(user_id="u", user_role=role)
         request = MagicMock(spec=Request)
         request.method = method
@@ -2590,9 +2590,9 @@ def test_user_connection_routes_roles():
         return "allowed"
 
     for route, method in routes:
-        assert outcome(LitellmUserRoles.INTERNAL_USER, route, method) == "allowed"
-        assert outcome(LitellmUserRoles.INTERNAL_USER_VIEW_ONLY, route, method) == "denied"
-    assert outcome(LitellmUserRoles.INTERNAL_USER, "/credentials", method="POST") != "allowed"
+        assert outcome(HangarllmUserRoles.INTERNAL_USER, route, method) == "allowed"
+        assert outcome(HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY, route, method) == "denied"
+    assert outcome(HangarllmUserRoles.INTERNAL_USER, "/credentials", method="POST") != "allowed"
 
 
 class TestNonAdminCannotSetPerUserOauthOnCredential:
@@ -2601,7 +2601,7 @@ class TestNonAdminCannotSetPerUserOauthOnCredential:
 
     def test_non_admin_cannot_create_a_per_user_oauth_credential(self):
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ):
             response = _post_credential(
                 {
@@ -2675,12 +2675,12 @@ def test_label_only_patch_does_not_purge_user_connections():
         credential_info={"custom_llm_provider": "github_copilot"},
     )
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table: Final = MagicMock()
         table.find_many = AsyncMock(return_value=[_connection_row()])
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         response: Final = _patch_credential(
@@ -2700,12 +2700,12 @@ def test_switching_away_from_per_user_oauth_purges_user_connections():
         credential_info={"custom_llm_provider": "github_copilot"},
     )
     with _repository_holding(stored):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         table: Final = MagicMock()
         table.find_many = AsyncMock(return_value=[_connection_row()])
         table.delete_many = AsyncMock(return_value=None)
-        proxy_server.prisma_client.db.litellm_userprovidercredentials = table
+        proxy_server.prisma_client.db.hangarllm_userprovidercredentials = table
         proxy_server.prisma_client.writer_db = proxy_server.prisma_client.db
 
         response: Final = _patch_credential(
@@ -2789,7 +2789,7 @@ def test_user_connection_slashed_credential_name_routes(monkeypatch):
 def test_user_connection_route_check_allows_slashed_names_for_internal_users():
     """The RouteChecks allowlist entries use :path placeholders too, so an internal
     user's request to /credentials/team/copilot/user_connection/... still matches."""
-    from litellm.proxy.auth.route_checks import RouteChecks
+    from hangarllm.proxy.auth.route_checks import RouteChecks
 
     for route in (
         "/credentials/team/copilot/user_connection/start",
@@ -2800,16 +2800,16 @@ def test_user_connection_route_check_allows_slashed_names_for_internal_users():
             route=route, pattern=route.replace("team/copilot", "{credential_name:path}")
         )
 
-    user_obj = LiteLLM_UserTable(user_id="u", user_email="u@x", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    user_obj = HangarLLM_UserTable(user_id="u", user_email="u@x", user_role=HangarllmUserRoles.INTERNAL_USER.value)
     request = MagicMock(spec=Request)
     request.method = "POST"
     request.query_params = {}
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=HangarllmUserRoles.INTERNAL_USER.value,
         route="/credentials/team/copilot/user_connection/poll",
         request=request,
-        valid_token=UserAPIKeyAuth(user_id="u", user_role=LitellmUserRoles.INTERNAL_USER),
+        valid_token=UserAPIKeyAuth(user_id="u", user_role=HangarllmUserRoles.INTERNAL_USER),
         request_data={},
     )
 
@@ -2817,8 +2817,8 @@ def test_user_connection_route_check_allows_slashed_names_for_internal_users():
 def _flow_handle_for(user_id="user-a", credential_name="copilot-cred", expires_at=None):
     import time as _time
 
-    from litellm.models.credentials import UserConnectionFlowHandle
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.models.credentials import UserConnectionFlowHandle
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
     return encrypt_value_helper(
         UserConnectionFlowHandle(
@@ -2888,7 +2888,7 @@ def test_user_connection_poll_valid_handle_works_with_a_fresh_cache(monkeypatch)
         start = _call_as("POST", "/credentials/copilot-cred/user_connection/start", auth=_as_user())
         assert start.status_code == 200, start.text
         # simulate a different worker: swap in a brand new empty cache
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "user_api_key_cache", UserApiKeyCache())
         poll = _call_as(
@@ -2908,7 +2908,7 @@ def test_delete_user_connection_fails_closed_when_the_tombstone_write_fails(monk
     table = _patch_user_connection_env(monkeypatch, [_per_user_credential()], rows=[_connection_row()])
     from types import SimpleNamespace
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     failing_redis = SimpleNamespace(
         async_set_cache=AsyncMock(side_effect=ConnectionError("redis down")),
@@ -2929,7 +2929,7 @@ def test_delete_user_connection_fails_when_the_tombstone_write_silently_noops(mo
     table = _patch_user_connection_env(monkeypatch, [_per_user_credential()], rows=[_connection_row()])
     from types import SimpleNamespace
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     store: dict = {}
     silent_redis = SimpleNamespace(
@@ -2951,7 +2951,7 @@ def test_user_connection_poll_reports_503_when_the_cache_overwrite_cannot_land(m
     table = _patch_user_connection_env(monkeypatch, [_per_user_credential()])
     from types import SimpleNamespace
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     stale_redis = SimpleNamespace(
         async_set_cache=AsyncMock(return_value=None),
@@ -3004,7 +3004,7 @@ class TestCredentialDisplayName:
 
         assert response.status_code == 200, response.text
         assert repository.create.await_args.kwargs["data"]["display_name"] == "Prod OpenAI"
-        assert [(c.credential_name, c.display_name) for c in litellm.credential_list] == [
+        assert [(c.credential_name, c.display_name) for c in hangarllm.credential_list] == [
             ("openai-prod", "Prod OpenAI")
         ]
 
@@ -3023,7 +3023,7 @@ class TestCredentialDisplayName:
         assert response.status_code == 400, response.text
         assert response.json()["error"]["param"] == "display_name"
         repository.create.assert_not_awaited()
-        assert litellm.credential_list == []
+        assert hangarllm.credential_list == []
 
     def test_create_accepts_a_display_name_of_exactly_the_maximum_length(self, restore_credential_list):
         with _repository_holding(None) as repository:
@@ -3040,7 +3040,7 @@ class TestCredentialDisplayName:
         assert repository.create.await_args.kwargs["data"]["display_name"] == "x" * 255
 
     def test_patch_relabels_without_touching_the_name_or_the_values(self, restore_credential_list, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential("openai-prod", {"display_name": "Staging OpenAI", "credential_info": {}})
 
@@ -3051,21 +3051,21 @@ class TestCredentialDisplayName:
         assert written["credential_name"] == "openai-prod"
         assert written["display_name"] == "Staging OpenAI"
         assert json.loads(written["credential_values"]) == {"api_key": "sk-old"}
-        assert [(c.credential_name, c.display_name, c.credential_values) for c in litellm.credential_list] == [
+        assert [(c.credential_name, c.display_name, c.credential_values) for c in hangarllm.credential_list] == [
             ("openai-prod", "Staging OpenAI", {"api_key": "sk-old"})
         ]
 
     def test_patch_without_display_name_keeps_the_stored_one(self, restore_credential_list, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential("openai-prod", {"credential_info": {"description": "rotated"}})
 
         assert response.status_code == 200, response.text
         assert repository.update_by_name.await_args.kwargs["data"]["display_name"] == "Prod OpenAI"
-        assert litellm.credential_list[0].display_name == "Prod OpenAI"
+        assert hangarllm.credential_list[0].display_name == "Prod OpenAI"
 
     def test_patch_with_null_display_name_clears_it(self, restore_credential_list, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential("openai-prod", {"display_name": None, "credential_info": {}})
 
@@ -3073,45 +3073,45 @@ class TestCredentialDisplayName:
         written = repository.update_by_name.await_args.kwargs["data"]
         assert "display_name" in written
         assert written["display_name"] is None
-        assert litellm.credential_list[0].display_name is None
+        assert hangarllm.credential_list[0].display_name is None
 
     @pytest.mark.parametrize("display_name", ["", "   ", "x" * 256])
     def test_patch_rejects_an_unusable_display_name_and_changes_nothing(
         self, restore_credential_list, monkeypatch, display_name
     ):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential("openai-prod", {"display_name": display_name, "credential_info": {}})
 
         assert response.status_code == 400, response.text
         assert response.json()["error"]["param"] == "display_name"
         repository.update_by_name.assert_not_awaited()
-        assert litellm.credential_list == [_labeled_credential()]
+        assert hangarllm.credential_list == [_labeled_credential()]
 
     @pytest.mark.parametrize("display_name", ["\u200b", "Prod\u202eAI", "\ufeffProd", "Prod\u0085AI", "Prod\u2028AI"])
     def test_patch_rejects_invisible_or_control_characters_in_display_name(
         self, restore_credential_list, monkeypatch, display_name
     ):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential("openai-prod", {"display_name": display_name, "credential_info": {}})
 
         assert response.status_code == 400, response.text
         assert response.json()["error"]["param"] == "display_name"
         repository.update_by_name.assert_not_awaited()
-        assert litellm.credential_list == [_labeled_credential()]
+        assert hangarllm.credential_list == [_labeled_credential()]
 
     @pytest.mark.parametrize("display_name", ["\U0001f600" * 255, "Prod\u00a0OpenAI", "Équipe 東京"])
     def test_patch_accepts_visible_unicode_up_to_the_limit_in_code_points(
         self, restore_credential_list, monkeypatch, display_name
     ):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         table = _credentials_table(_credential_row("Prod OpenAI", "sk-old", name="openai-prod"))
         prisma_client = MagicMock()
-        prisma_client.db = SimpleNamespace(litellm_credentialstable=table)
+        prisma_client.db = SimpleNamespace(hangarllm_credentialstable=table)
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.master_key", "sk-test-master"),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+            patch("hangarllm.proxy.proxy_server.master_key", "sk-test-master"),
         ):
             response = _patch_credential("openai-prod", {"display_name": display_name, "credential_info": {}})
 
@@ -3135,16 +3135,16 @@ class TestCredentialDisplayName:
         repository.create.assert_not_awaited()
 
     def test_patch_stores_the_trimmed_display_name(self, restore_credential_list, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential("openai-prod", {"display_name": "  Staging OpenAI  ", "credential_info": {}})
 
         assert response.status_code == 200, response.text
         assert repository.update_by_name.await_args.kwargs["data"]["display_name"] == "Staging OpenAI"
-        assert litellm.credential_list[0].display_name == "Staging OpenAI"
+        assert hangarllm.credential_list[0].display_name == "Staging OpenAI"
 
     def test_patch_treats_an_empty_credential_name_as_omitted(self, restore_credential_list, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential(
                 "openai-prod", {"credential_name": "", "display_name": "Staging OpenAI", "credential_info": {}}
@@ -3155,7 +3155,7 @@ class TestCredentialDisplayName:
         assert repository.update_by_name.await_args.kwargs["data"]["credential_name"] == "openai-prod"
 
     def test_patch_rejects_a_different_credential_name_and_changes_nothing(self, restore_credential_list, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential(
                 "openai-prod",
@@ -3170,7 +3170,7 @@ class TestCredentialDisplayName:
         assert response.json()["error"]["param"] == "credential_name"
         assert "display_name" in response.json()["error"]["message"]
         repository.update_by_name.assert_not_awaited()
-        assert litellm.credential_list == [_labeled_credential()]
+        assert hangarllm.credential_list == [_labeled_credential()]
 
     @pytest.mark.parametrize(
         ("patch_info", "expected_info"),
@@ -3183,7 +3183,7 @@ class TestCredentialDisplayName:
     def test_patch_accepts_the_same_credential_name_echoed_back(
         self, restore_credential_list, monkeypatch, patch_info: dict[str, str], expected_info: dict[str, str]
     ):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(_labeled_credential()) as repository:
             response = _patch_credential(
                 "openai-prod",
@@ -3195,15 +3195,15 @@ class TestCredentialDisplayName:
             )
 
         assert response.status_code == 200, response.text
-        assert [(c.credential_name, c.credential_values) for c in litellm.credential_list] == [
+        assert [(c.credential_name, c.credential_values) for c in hangarllm.credential_list] == [
             ("openai-prod", {"api_key": "sk-new"})
         ]
         assert json.loads(repository.update_by_name.await_args.kwargs["data"]["credential_info"]) == expected_info
-        assert litellm.credential_list[0].credential_info == expected_info
+        assert hangarllm.credential_list[0].credential_info == expected_info
 
     def test_patch_on_a_config_credential_is_rejected_as_config_owned(self, restore_credential_list, monkeypatch):
         config_credential = _labeled_credential(display_name=None).model_copy(update={"source": "config"})
-        monkeypatch.setattr(litellm, "credential_list", [config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [config_credential])
         with _repository_holding(None) as repository:
             response = _patch_credential("openai-prod", {"display_name": "Prod", "credential_info": {}})
 
@@ -3211,13 +3211,13 @@ class TestCredentialDisplayName:
         assert response.headers["allow"] == "GET"
         assert "defined in config" in response.json()["error"]["message"]
         repository.update_by_name.assert_not_awaited()
-        assert litellm.credential_list == [config_credential]
+        assert hangarllm.credential_list == [config_credential]
 
     def test_post_on_a_config_credential_name_is_rejected_and_does_not_shadow_it(
         self, restore_credential_list, monkeypatch
     ):
         config_credential = _labeled_credential(display_name=None).model_copy(update={"source": "config"})
-        monkeypatch.setattr(litellm, "credential_list", [config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [config_credential])
         with _repository_holding(None) as repository:
             response = _post_credential(
                 {
@@ -3230,13 +3230,13 @@ class TestCredentialDisplayName:
         assert response.status_code == 409, response.text
         assert "defined in config" in response.json()["error"]["message"]
         repository.create.assert_not_awaited()
-        assert litellm.credential_list == [config_credential]
+        assert hangarllm.credential_list == [config_credential]
 
     def test_post_with_a_display_name_matching_a_config_credential_name_is_allowed(
         self, restore_credential_list, monkeypatch
     ):
         config_credential = _labeled_credential(display_name=None).model_copy(update={"source": "config"})
-        monkeypatch.setattr(litellm, "credential_list", [config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [config_credential])
         with _repository_holding(None) as repository:
             response = _post_credential(
                 {
@@ -3260,7 +3260,7 @@ class TestCredentialDisplayName:
     def test_a_db_credential_already_gone_from_the_db_answers_404_not_config_owned(
         self, restore_credential_list, monkeypatch, method
     ):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential()])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential()])
         with _repository_holding(None) as repository:
             response = (
                 _patch_credential("openai-prod", {"display_name": "Prod", "credential_info": {}})
@@ -3272,7 +3272,7 @@ class TestCredentialDisplayName:
         repository.update_by_name.assert_not_awaited()
 
     def test_patch_on_a_name_stored_in_the_db_and_config_applies_to_the_row(self, restore_credential_list, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential(display_name=None)])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential(display_name=None)])
         with _repository_holding(_labeled_credential(display_name=None)) as repository:
             response = _patch_credential("openai-prod", {"display_name": "Prod", "credential_info": {}})
 
@@ -3286,7 +3286,7 @@ class TestCredentialDisplayName:
             credential_info={},
             source="config",
         )
-        monkeypatch.setattr(litellm, "credential_list", [_labeled_credential(), config_credential])
+        monkeypatch.setattr(hangarllm, "credential_list", [_labeled_credential(), config_credential])
 
         listed = {entry["credential_name"]: entry for entry in _list_credentials().json()["credentials"]}
         by_name = _call_as("GET", "/credentials/by_name/openai-prod").json()
@@ -3319,28 +3319,28 @@ def test_looking_up_a_missing_credential_is_labelled_a_client_error_not_a_gatewa
 def test_get_credential_by_model_masks_the_deployment_credentials(monkeypatch):
     import asyncio
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.credential_endpoints.endpoints import get_credential_by_model
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.credential_endpoints.endpoints import get_credential_by_model
 
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test-credential-value"},
+                    "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test-credential-value"},
                     "model_info": {"id": "dep-1"},
                 }
             ]
         ),
     )
-    caller: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    caller: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     credential: Final = asyncio.run(get_credential_by_model(MagicMock(), MagicMock(), "dep-1", caller))
     assert credential.credential_name == "gpt-credential-dep-1"
     assert credential.credential_values["api_key"] != "sk-test-credential-value"
 
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     with pytest.raises(ProxyException) as missing:
         asyncio.run(get_credential_by_model(MagicMock(), MagicMock(), "no-such-id", caller))

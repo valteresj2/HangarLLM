@@ -20,10 +20,10 @@ from fastapi import HTTPException
 from pydantic import JsonValue, TypeAdapter
 from redis.exceptions import NoPermissionError
 
-import litellm
-from litellm import Router
-from litellm.proxy.config_resolvers.settings_rules import Section
-from litellm.proxy.management_endpoints.fallback_management_endpoints import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.proxy.config_resolvers.settings_rules import Section
+from hangarllm.proxy.management_endpoints.fallback_management_endpoints import (
     FallbackCreateRequest,
     FallbackDeleteResponse,
     FallbackResponse,
@@ -31,11 +31,11 @@ from litellm.proxy.management_endpoints.fallback_management_endpoints import (
     delete_fallback,
     get_fallback,
 )
-from litellm.proxy.proxy_server import ProxyConfig
-from litellm.proxy.utils import evict_config_param, get_config_param, litellm_config_cache
-from litellm.router_api import ChangeSet
-from litellm.router_api import RouterSettings as RouterSettingsSnapshot
-from litellm.types.router import DeploymentTypedDict, LiteLLMParamsTypedDict
+from hangarllm.proxy.proxy_server import ProxyConfig
+from hangarllm.proxy.utils import evict_config_param, get_config_param, hangarllm_config_cache
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_api import RouterSettings as RouterSettingsSnapshot
+from hangarllm.types.router import DeploymentTypedDict, HangarLLMParamsTypedDict
 
 
 @pytest.fixture(autouse=True)
@@ -141,7 +141,7 @@ RouterSettings = dict[str, FallbackRules | str | None]
 _ROUTER_SETTINGS_JSON: Final = TypeAdapter(dict[str, JsonValue])
 
 
-def _litellm_params(mock_response: str | None) -> LiteLLMParamsTypedDict:
+def _hangarllm_params(mock_response: str | None) -> HangarLLMParamsTypedDict:
     if mock_response is None:
         return {"model": "openai/gpt-5.4-mini", "api_key": "fake"}
     return {"model": "openai/gpt-5.4-mini", "api_key": "fake", "mock_response": mock_response}
@@ -152,7 +152,7 @@ def _team_scoped_deployment(
 ) -> DeploymentTypedDict:
     return {
         "model_name": internal_name,
-        "litellm_params": _litellm_params(mock_response),
+        "hangarllm_params": _hangarllm_params(mock_response),
         "model_info": {"id": deployment_id, "team_id": TEAM_ID, "team_public_model_name": public_name},
     }
 
@@ -160,7 +160,7 @@ def _team_scoped_deployment(
 def _team_router(primary_mock_response: str | None = None, fallback_mock_response: str | None = None) -> Router:
     return Router(
         model_list=[
-            {"model_name": "gpt-5.4-mini", "litellm_params": _litellm_params(None)},
+            {"model_name": "gpt-5.4-mini", "hangarllm_params": _hangarllm_params(None)},
             _team_scoped_deployment(
                 PRIMARY_INTERNAL_NAME, "team-primary", PRIMARY_DEPLOYMENT_ID, primary_mock_response
             ),
@@ -183,8 +183,8 @@ class TestCreateFallbackForTeamScopedModels:
     def prisma_client(self) -> MagicMock:
         client: Final = MagicMock()
         client.writer_db = client.db
-        client.db.litellm_config.find_unique = AsyncMock(return_value=None)
-        client.db.litellm_config.upsert = AsyncMock()
+        client.db.hangarllm_config.find_unique = AsyncMock(return_value=None)
+        client.db.hangarllm_config.upsert = AsyncMock()
         client.get_generic_data = AsyncMock(return_value=None)
         return client
 
@@ -196,10 +196,10 @@ class TestCreateFallbackForTeamScopedModels:
         self, request: FallbackCreateRequest, router: Router, prisma_client: MagicMock, proxy_config: ProxyConfig
     ) -> FallbackResponse:
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             return await create_fallback(request, MagicMock())
 
@@ -214,7 +214,7 @@ class TestCreateFallbackForTeamScopedModels:
         assert response.fallback_models == ["team-fallback"]
         assert router.settings().fallbacks == [{"team-primary": ["team-fallback"]}]
         persisted: Final = json.loads(
-            prisma_client.db.litellm_config.upsert.call_args.kwargs["data"]["create"]["param_value"]
+            prisma_client.db.hangarllm_config.upsert.call_args.kwargs["data"]["create"]["param_value"]
         )
         assert persisted["fallbacks"] == [{"team-primary": ["team-fallback"]}]
 
@@ -251,7 +251,7 @@ class TestCreateFallbackForTeamScopedModels:
     async def test_a_team_request_fails_over_to_the_public_name_fallback(
         self, prisma_client: MagicMock, proxy_config: MagicMock
     ) -> None:
-        router: Final = _team_router(primary_mock_response="litellm.RateLimitError", fallback_mock_response="pong")
+        router: Final = _team_router(primary_mock_response="hangarllm.RateLimitError", fallback_mock_response="pong")
         request: Final = FallbackCreateRequest(model="team-primary", fallback_models=["team-fallback"])
         await self._create(request, router, prisma_client, proxy_config)
 
@@ -280,7 +280,7 @@ class _ConfigFileProxyConfig(ProxyConfig):
 
 
 class _StoredRouterSettings:
-    """The LiteLLM_Config router_settings row, with the proxy objects that read it through the config cache"""
+    """The HangarLLM_Config router_settings row, with the proxy objects that read it through the config cache"""
 
     def __init__(
         self,
@@ -294,13 +294,13 @@ class _StoredRouterSettings:
         self.prisma_client.get_generic_data = AsyncMock(
             side_effect=lambda value, **_: self.row if value == "router_settings" else None
         )
-        self.prisma_client.writer_db.litellm_config.find_unique = AsyncMock(
+        self.prisma_client.writer_db.hangarllm_config.find_unique = AsyncMock(
             side_effect=lambda **_: copy.deepcopy(self.row)
         )
-        self.prisma_client.db.litellm_config.find_unique = AsyncMock(
+        self.prisma_client.db.hangarllm_config.find_unique = AsyncMock(
             side_effect=lambda **_: None if lagging_replica else copy.deepcopy(self.row)
         )
-        self.prisma_client.db.litellm_config.upsert = AsyncMock(side_effect=self._upsert)
+        self.prisma_client.db.hangarllm_config.upsert = AsyncMock(side_effect=self._upsert)
         self.proxy_config: Final = _ConfigFileProxyConfig(config_file)
 
     async def _upsert(self, where: dict[str, str], data: dict[str, dict[str, str]]) -> None:
@@ -346,19 +346,19 @@ class TestFallbackWritesSeeTheLatestStoredRules:
 
     async def _create(self, request: FallbackCreateRequest, stored: _StoredRouterSettings) -> FallbackResponse:
         with (
-            patch("litellm.proxy.proxy_server.llm_router", _team_router()),
-            patch("litellm.proxy.proxy_server.prisma_client", stored.prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", stored.proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.llm_router", _team_router()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", stored.proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             return await create_fallback(request, MagicMock())
 
     async def _delete(self, model: str, stored: _StoredRouterSettings) -> FallbackDeleteResponse:
         with (
-            patch("litellm.proxy.proxy_server.llm_router", _team_router()),
-            patch("litellm.proxy.proxy_server.prisma_client", stored.prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", stored.proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.llm_router", _team_router()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", stored.proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             return await delete_fallback(model, "general", MagicMock())
 
@@ -381,7 +381,7 @@ class TestFallbackWritesSeeTheLatestStoredRules:
     async def test_a_second_create_keeps_the_first_rule_when_redis_refuses_to_evict_the_cached_settings(self) -> None:
         stored: Final = _StoredRouterSettings(None)
 
-        with patch.object(litellm_config_cache, "redis_cache", _RedisThatRefusesDel()):
+        with patch.object(hangarllm_config_cache, "redis_cache", _RedisThatRefusesDel()):
             await self._create(FallbackCreateRequest(model="team-primary", fallback_models=["team-fallback"]), stored)
             await self._create(FallbackCreateRequest(model="gpt-5.4-mini", fallback_models=["team-fallback"]), stored)
             await self._delete("team-primary", stored)
@@ -389,17 +389,17 @@ class TestFallbackWritesSeeTheLatestStoredRules:
 
         assert stored.stored_fallbacks() == [GATEWAY_RULE, TEAM_RULE]
 
-    async def test_content_policy_writes_keep_the_litellm_settings_rules_for_other_models(
+    async def test_content_policy_writes_keep_the_hangarllm_settings_rules_for_other_models(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "content_policy_fallbacks", [TEAM_RULE])
+        monkeypatch.setattr(hangarllm, "content_policy_fallbacks", [TEAM_RULE])
         router: Final = _team_router()
         stored: Final = _StoredRouterSettings(None)
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.prisma_client", stored.prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", stored.proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", stored.proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             await create_fallback(
                 FallbackCreateRequest(
@@ -418,10 +418,10 @@ class TestFallbackWritesSeeTheLatestStoredRules:
         router: Final = _team_router()
         stored: Final = _StoredRouterSettings({"content_policy_fallbacks": [MALFORMED_GATEWAY_RULE]})
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.prisma_client", stored.prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", stored.proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", stored.proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             await create_fallback(
                 FallbackCreateRequest(
@@ -444,7 +444,7 @@ class TestFallbackWritesSeeTheLatestStoredRules:
         router.update_settings(
             **{router_setting: [{"team-primary": [{"model": "gpt-5.4-mini", "api_key": "sk-test"}, "team-fallback"]}]}
         )
-        with patch("litellm.proxy.proxy_server.llm_router", router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", router):
             response: Final = await get_fallback("team-primary", fallback_type, MagicMock())
 
         assert response.fallback_models == ["gpt-5.4-mini", "team-fallback"]
@@ -458,7 +458,7 @@ class TestFallbackWritesSeeTheLatestStoredRules:
     ) -> None:
         router: Final = _team_router()
         router.update_settings(**{router_setting: [{"team-primary": [{"temperature": 0}, "team-fallback"]}]})
-        with patch("litellm.proxy.proxy_server.llm_router", router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", router):
             response: Final = await get_fallback("team-primary", fallback_type, MagicMock())
 
         assert response.fallback_models == ["team-primary", "team-fallback"]
@@ -466,7 +466,7 @@ class TestFallbackWritesSeeTheLatestStoredRules:
     async def test_get_answers_an_error_for_a_string_valued_rule_instead_of_its_characters(self) -> None:
         router: Final = _team_router()
         router.update_settings(fallbacks=[{"team-primary": "team-fallback"}])
-        with patch("litellm.proxy.proxy_server.llm_router", router), pytest.raises(HTTPException) as raised:
+        with patch("hangarllm.proxy.proxy_server.llm_router", router), pytest.raises(HTTPException) as raised:
             await get_fallback("team-primary", "general", MagicMock())
 
         assert raised.value.status_code == 500
@@ -556,19 +556,19 @@ class TestFallbackWritesHonourTheConfigFile:
         self, request: FallbackCreateRequest, router: Router, stored: _StoredRouterSettings
     ) -> FallbackResponse:
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.prisma_client", stored.prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", stored.proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", stored.proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             return await create_fallback(request, MagicMock())
 
     async def _delete(self, model: str, router: Router, stored: _StoredRouterSettings) -> FallbackDeleteResponse:
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.prisma_client", stored.prisma_client),
-            patch("litellm.proxy.proxy_server.proxy_config", stored.proxy_config),
-            patch("litellm.proxy.proxy_server.store_model_in_db", True),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client),
+            patch("hangarllm.proxy.proxy_server.proxy_config", stored.proxy_config),
+            patch("hangarllm.proxy.proxy_server.store_model_in_db", True),
         ):
             return await delete_fallback(model, "general", MagicMock())
 
@@ -584,7 +584,7 @@ class TestFallbackWritesHonourTheConfigFile:
         assert refused.value.status_code == 400
         assert "key 'fallbacks' is set in the config file" in str(refused.value.detail)
         assert stored.stored_fallbacks() == [CONFIG_RULE]
-        stored.prisma_client.db.litellm_config.upsert.assert_not_awaited()
+        stored.prisma_client.db.hangarllm_config.upsert.assert_not_awaited()
         assert router.settings().fallbacks == [CONFIG_RULE]
 
     async def test_a_create_after_the_config_file_takes_over_the_key_is_refused(self, router: Router) -> None:
@@ -610,7 +610,7 @@ class TestFallbackWritesHonourTheConfigFile:
         assert refused.value.status_code == 400
         assert "key 'fallbacks' is set in the config file" in str(refused.value.detail)
         assert stored.stored_fallbacks() == [CONFIG_RULE]
-        stored.prisma_client.db.litellm_config.upsert.assert_not_awaited()
+        stored.prisma_client.db.hangarllm_config.upsert.assert_not_awaited()
         assert router.settings().fallbacks == [CONFIG_RULE]
 
     async def test_a_delete_of_a_rule_only_the_config_file_holds_is_refused(self, router: Router) -> None:
@@ -628,8 +628,8 @@ class TestFallbackWritesHonourTheConfigFile:
     async def test_writes_to_a_config_file_env_reference_that_resolves_to_nothing_are_refused(
         self, router: Router, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.delenv("LITELLM_TEST_UNSET_FALLBACKS", raising=False)
-        stored: Final = _StoredRouterSettings(None, config_file={"fallbacks": "os.environ/LITELLM_TEST_UNSET_FALLBACKS"})
+        monkeypatch.delenv("HANGARLLM_TEST_UNSET_FALLBACKS", raising=False)
+        stored: Final = _StoredRouterSettings(None, config_file={"fallbacks": "os.environ/HANGARLLM_TEST_UNSET_FALLBACKS"})
 
         with pytest.raises(HTTPException) as refused:
             await self._create(FallbackCreateRequest(model="team-primary", fallback_models=["team-fallback"]), router, stored)
@@ -651,10 +651,10 @@ class TestFallbackWritesHonourTheConfigFile:
         assert stored.row is None
         assert router.fallbacks == [CONFIG_RULE, CONFIG_WINDOW_RULE]
 
-    async def test_a_content_policy_restate_keeps_the_config_list_without_the_litellm_settings_rules(
+    async def test_a_content_policy_restate_keeps_the_config_list_without_the_hangarllm_settings_rules(
         self, router: Router, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "content_policy_fallbacks", [TEAM_RULE])
+        monkeypatch.setattr(hangarllm, "content_policy_fallbacks", [TEAM_RULE])
         stored: Final = _StoredRouterSettings(None, config_file={"content_policy_fallbacks": [CONFIG_RULE]})
         request: Final = FallbackCreateRequest(
             model="gpt-5.4-mini", fallback_models=["team-fallback"], fallback_type="content_policy"
@@ -669,8 +669,8 @@ class TestFallbackWritesHonourTheConfigFile:
     async def test_a_create_that_restates_a_config_rule_next_to_an_env_reference_writes_nothing(
         self, router: Router, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LITELLM_TEST_FALLBACK_MODEL", "team-fallback")
-        env_rule: Final = {"team-primary": "os.environ/LITELLM_TEST_FALLBACK_MODEL"}
+        monkeypatch.setenv("HANGARLLM_TEST_FALLBACK_MODEL", "team-fallback")
+        env_rule: Final = {"team-primary": "os.environ/HANGARLLM_TEST_FALLBACK_MODEL"}
         stored: Final = _StoredRouterSettings(None, config_file={"fallbacks": [CONFIG_RULE, env_rule]})
         request: Final = FallbackCreateRequest(model="gpt-5.4-mini", fallback_models=["team-fallback"])
 
@@ -741,8 +741,8 @@ class TestCreateFallback:
         """Create a mock prisma client"""
         client = MagicMock()
         client.writer_db = client.db
-        client.db.litellm_config.find_unique = AsyncMock(return_value=None)
-        client.db.litellm_config.upsert = AsyncMock()
+        client.db.hangarllm_config.find_unique = AsyncMock(return_value=None)
+        client.db.hangarllm_config.upsert = AsyncMock()
         client.get_generic_data = AsyncMock(return_value=None)
         client.jsonify_object = lambda x: x
         return client
@@ -769,19 +769,19 @@ class TestCreateFallback:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router,
             ),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 True,
             ),
         ):
@@ -796,7 +796,7 @@ class TestCreateFallback:
             )
 
             # Verify database was updated
-            mock_prisma_client.db.litellm_config.upsert.assert_called_once()
+            mock_prisma_client.db.hangarllm_config.upsert.assert_called_once()
 
     async def test_create_fallback_router_not_initialized(
         self, mock_prisma_client, mock_proxy_config, mock_user_api_key_dict
@@ -809,7 +809,7 @@ class TestCreateFallback:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 None,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -830,15 +830,15 @@ class TestCreateFallback:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router,
             ),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 True,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -859,15 +859,15 @@ class TestCreateFallback:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router,
             ),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 True,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -888,15 +888,15 @@ class TestCreateFallback:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router,
             ),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 True,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -917,11 +917,11 @@ class TestCreateFallback:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 False,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -943,19 +943,19 @@ class TestCreateFallback:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router,
             ),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 True,
             ),
         ):
@@ -993,7 +993,7 @@ class TestGetFallback:
     ):
         """Test successful fallback retrieval"""
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             mock_router_with_fallbacks,
         ):
             response = await get_fallback(
@@ -1010,7 +1010,7 @@ class TestGetFallback:
         """Test error when fallback is not found"""
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router_with_fallbacks,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -1024,7 +1024,7 @@ class TestGetFallback:
         """Test error when router is not initialized"""
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 None,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -1055,10 +1055,10 @@ class TestDeleteFallback:
         """Create a mock prisma client"""
         client = MagicMock()
         client.writer_db = client.db
-        client.db.litellm_config.find_unique = AsyncMock(
+        client.db.hangarllm_config.find_unique = AsyncMock(
             return_value=_config_row({"fallbacks": [{"gpt-3.5-turbo": ["gpt-4", "claude-3-haiku"]}]})
         )
-        client.db.litellm_config.upsert = AsyncMock()
+        client.db.hangarllm_config.upsert = AsyncMock()
         client.get_generic_data = AsyncMock(return_value=None)
         client.jsonify_object = lambda x: x
         return client
@@ -1083,19 +1083,19 @@ class TestDeleteFallback:
         """Test successful fallback deletion"""
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router_with_fallbacks,
             ),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 True,
             ),
         ):
@@ -1108,7 +1108,7 @@ class TestDeleteFallback:
             assert "deleted" in response.message.lower()
 
             # Verify database was updated
-            mock_prisma_client.db.litellm_config.upsert.assert_called_once()
+            mock_prisma_client.db.hangarllm_config.upsert.assert_called_once()
 
     async def test_delete_fallback_not_found(
         self,
@@ -1120,19 +1120,19 @@ class TestDeleteFallback:
         """Test error when fallback to delete is not found"""
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router_with_fallbacks,
             ),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 mock_prisma_client,
             ),
             patch(
-                "litellm.proxy.proxy_server.proxy_config",
+                "hangarllm.proxy.proxy_server.proxy_config",
                 mock_proxy_config,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 True,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -1146,7 +1146,7 @@ class TestDeleteFallback:
         """Test error when router is not initialized"""
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 None,
             ),
             pytest.raises(HTTPException) as exc_info,
@@ -1162,11 +1162,11 @@ class TestDeleteFallback:
         """Test error when database storage is not enabled"""
         with (
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 mock_router_with_fallbacks,
             ),
             patch(
-                "litellm.proxy.proxy_server.store_model_in_db",
+                "hangarllm.proxy.proxy_server.store_model_in_db",
                 False,
             ),
             pytest.raises(HTTPException) as exc_info,

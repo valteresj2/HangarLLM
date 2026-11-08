@@ -79,8 +79,8 @@ _CITATIONS: Final[list[JsonValue]] = [
 ]
 DECISION_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/decisions",
-    litellm_request={
+    hangarllm_endpoint="/v1/decisions",
+    hangarllm_request={
         "model": "parallel_ai/decision",
         "input": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": [
@@ -140,7 +140,7 @@ DECISION_TEST_CASE: Final = TranslationTestCase(
         "citations": _CITATIONS,
         "decision_id": "decisions_9fd99def328ed16256c11df297dea899",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "decision",
         "answers": [
             {"type": "predicate", "name": "defect", "probability": 0.6442559258537284},
@@ -179,8 +179,8 @@ DECISION_TEST_CASE: Final = TranslationTestCase(
 )
 DECISION_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
     scenario="systemone",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "parallel_ai/decision",
         "state": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": {
@@ -231,7 +231,7 @@ DECISION_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
         "citations": _CITATIONS,
         "decision_id": "decisions_9fd99def328ed16256c11df297dea899",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "decision",
         "answers": {
             "defect": {"type": "noul", "noul": 0.6442559258537284},

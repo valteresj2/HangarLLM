@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 import os
-from litellm import Router
+from hangarllm import Router
 
 
 # Mark as async test
@@ -23,7 +23,7 @@ async def test_router_uses_correct_redis_db():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         redis_host=redis_host,

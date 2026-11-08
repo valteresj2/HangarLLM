@@ -8,16 +8,16 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.vertex_ai.gemini import transformation
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.vertex_ai.gemini import transformation
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm.types.llms import openai
-from litellm.types import completion
-from litellm.types.llms.vertex_ai import RequestBody
+from hangarllm.types.llms import openai
+from hangarllm.types import completion
+from hangarllm.types.llms.vertex_ai import RequestBody
 
 
 @pytest.mark.asyncio
@@ -35,13 +35,13 @@ async def test__transform_request_body_labels():
         {"role": "user", "content": "hi"},
     ]
     optional_params = {"labels": {"lparam1": "lvalue1", "lparam2": "lvalue2"}}
-    litellm_params = {}
+    hangarllm_params = {}
     transform_request_params = {
         "messages": messages,
         "model": model,
         "optional_params": optional_params,
         "custom_llm_provider": "vertex_ai",
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "cached_content": None,
     }
 
@@ -74,7 +74,7 @@ async def test__transform_request_body_metadata():
         {"role": "user", "content": "hi"},
     ]
     optional_params = {}
-    litellm_params = {
+    hangarllm_params = {
         "metadata": {"requester_metadata": {"rparam1": "rvalue1", "rparam2": "rvalue2"}}
     }
     transform_request_params = {
@@ -82,7 +82,7 @@ async def test__transform_request_body_metadata():
         "model": model,
         "optional_params": optional_params,
         "custom_llm_provider": "vertex_ai",
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "cached_content": None,
     }
 
@@ -117,7 +117,7 @@ async def test__transform_request_body_labels_and_metadata():
         {"role": "user", "content": "hi"},
     ]
     optional_params = {"labels": {"lparam1": "lvalue1", "lparam2": "lvalue2"}}
-    litellm_params = {
+    hangarllm_params = {
         "metadata": {"requester_metadata": {"rparam1": "rvalue1", "rparam2": "rvalue2"}}
     }
     transform_request_params = {
@@ -125,7 +125,7 @@ async def test__transform_request_body_labels_and_metadata():
         "model": model,
         "optional_params": optional_params,
         "custom_llm_provider": "vertex_ai",
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "cached_content": None,
     }
 
@@ -164,13 +164,13 @@ async def test__transform_request_body_image_config():
         "imageConfig": {"aspectRatio": "16:9"},
         "responseModalities": ["Image"],
     }
-    litellm_params = {}
+    hangarllm_params = {}
     transform_request_params = {
         "messages": messages,
         "model": model,
         "optional_params": optional_params,
         "custom_llm_provider": "gemini",
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "cached_content": None,
     }
 
@@ -200,13 +200,13 @@ async def test__transform_request_body_image_config_snake_case():
         }
     ]
     optional_params = {"image_config": {"aspect_ratio": "16:9"}}
-    litellm_params = {}
+    hangarllm_params = {}
     transform_request_params = {
         "messages": messages,
         "model": model,
         "optional_params": optional_params,
         "custom_llm_provider": "gemini",
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "cached_content": None,
     }
 
@@ -233,13 +233,13 @@ async def test__transform_request_body_image_config_with_image_size():
         "imageConfig": {"aspectRatio": "16:9", "imageSize": "4K"},
         "responseModalities": ["Image"],
     }
-    litellm_params = {}
+    hangarllm_params = {}
     transform_request_params = {
         "messages": messages,
         "model": model,
         "optional_params": optional_params,
         "custom_llm_provider": "gemini",
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "cached_content": None,
     }
 
@@ -269,7 +269,7 @@ def test__transform_request_body_google_maps_json_schema_uses_response_format():
         "model": "gemini/gemini-3.1-flash-lite",
         "optional_params": optional_params,
         "custom_llm_provider": "gemini",
-        "litellm_params": {},
+        "hangarllm_params": {},
         "cached_content": None,
     }
 
@@ -361,7 +361,7 @@ async def test_gemini_ai_studio_async_completion_inlines_remote_images_off_the_e
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="gemini/gemini-3.8-flash",
         messages=[
             {
@@ -400,7 +400,7 @@ async def test_gemini_ai_studio_async_completion_passes_files_api_uris_through_u
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="gemini/gemini-3.8-flash",
         messages=[
             {
@@ -456,7 +456,7 @@ async def test_vertex_ai_async_transform_inlines_only_the_urls_gemini_cannot_fet
         optional_params={},
         logging_obj=Mock(),
         custom_llm_provider="vertex_ai",
-        litellm_params={},
+        hangarllm_params={},
         vertex_project="qa-project",
         vertex_location="us-central1",
         vertex_auth_header=None,

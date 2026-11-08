@@ -50,13 +50,13 @@ def test_generated_zero_null_and_omitted_prices_follow_independent_arithmetic(ga
             assert response.json()["usage"] == {"prompt_tokens": 20, "completion_tokens": 20, "total_tokens": 40}
             expected: Final = 20 * input_rate + 20 * output_rate
             if expected:
-                assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected, rel=1e-6)
+                assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected, rel=1e-6)
             else:
-                assert response.headers.get("x-litellm-response-cost") in (None, "0", "0.0")
+                assert response.headers.get("x-hangarllm-response-cost") in (None, "0", "0.0")
             rows: Final = eventually(
                 lambda: read_rows(
                     "SELECT spend, metadata, prompt_tokens, "
-                    'completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                    'completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                     (response.json()["id"],),
                 ),
                 lambda values: len(values) == 1,
@@ -97,10 +97,10 @@ def test_same_upstream_aliases_keep_distinct_prices_after_reload(gateway: Gatewa
                     assert response.status_code == 200, response.text
                     assert response.json()["usage"]["total_tokens"] == 40
                     if cost:
-                        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(cost)
+                        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(cost)
                     rows: Final = eventually(
                         lambda response=response: read_rows(
-                            'SELECT spend, metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                            'SELECT spend, metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                             (response.json()["id"],),
                         ),
                         lambda values: len(values) == 1,

@@ -15,32 +15,32 @@ from types import SimpleNamespace
 from typing import Final, Literal
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest, litellm
+import pytest, hangarllm
 
 from tests.unit.redis.stores.auth_cache_double import FakeAuthCache, shared_cache
 import httpx
 from fastapi import Request, status
 from prisma import Prisma
-from litellm._service_logger import ServiceTypes
-from litellm.proxy._types import LiteLLM_OrganizationTable, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import get_org_object, get_user_object
-from litellm.proxy.db.prisma_client import PrismaWrapper
-from litellm.proxy.auth.auth_checks import get_end_user_object
-from litellm.caching.caching import DualCache
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy._types import (
-    LiteLLM_EndUserTable,
-    LiteLLM_BudgetTable,
-    LiteLLM_UserTable,
-    LiteLLM_TeamTable,
-    Litellm_EntityType,
-    LitellmUserRoles,
+from hangarllm._service_logger import ServiceTypes
+from hangarllm.proxy._types import HangarLLM_OrganizationTable, UserAPIKeyAuth
+from hangarllm.proxy.auth.auth_checks import get_org_object, get_user_object
+from hangarllm.proxy.db.prisma_client import PrismaWrapper
+from hangarllm.proxy.auth.auth_checks import get_end_user_object
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy._types import (
+    HangarLLM_EndUserTable,
+    HangarLLM_BudgetTable,
+    HangarLLM_UserTable,
+    HangarLLM_TeamTable,
+    Hangarllm_EntityType,
+    HangarllmUserRoles,
     ProxyException,
 )
-from litellm.proxy.utils import PrismaClient
-import litellm.proxy.common_utils.auth_cache_invalidation_pubsub as pubsub_module
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.proxy.utils import PrismaClient
+import hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub as pubsub_module
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.proxy.auth.auth_checks import (
     can_team_access_model,
     delete_cache_key_objects,
     is_model_cost_zero,
@@ -48,9 +48,9 @@ from litellm.proxy.auth.auth_checks import (
     _team_soft_budget_check,
     common_checks,
 )
-from litellm.proxy.utils import InternalUsageCache, ProxyLogging
-from litellm.proxy.utils import CallInfo
-from litellm.types.passthrough_endpoints.pass_through_endpoints import LITELLM_PASS_THROUGH_ENDPOINT_MARKER
+from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging
+from hangarllm.proxy.utils import CallInfo
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER
 
 
 async def _run_team_trace_id_check(
@@ -60,7 +60,7 @@ async def _run_team_trace_id_check(
     request_body: dict[str, object] | None = None,
     headers: Mapping[str, str] | None = None,
     team_metadata: Mapping[str, object] | None = None,
-    team_object: LiteLLM_TeamTable | None = None,
+    team_object: HangarLLM_TeamTable | None = None,
     registered_pass_through_endpoint: bool = False,
 ) -> bool:
     request_payload: Final[dict[str, object]] = {} if request_body is None else request_body
@@ -79,18 +79,18 @@ async def _run_team_trace_id_check(
     )
     if registered_pass_through_endpoint:
         endpoint: Final = SimpleNamespace()
-        setattr(endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+        setattr(endpoint, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, True)
         request.scope["endpoint"] = endpoint
     team: Final = (
         team_object
         if team_object is not None
-        else LiteLLM_TeamTable(
+        else HangarLLM_TeamTable(
             team_id="trace-id-team",
             metadata=None if team_metadata is None else dict(team_metadata),
         )
     )
     valid_token: Final = UserAPIKeyAuth(token="test-token", team_id=team.team_id)
-    user: Final = LiteLLM_UserTable(user_id="trace-id-admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    user: Final = HangarLLM_UserTable(user_id="trace-id-admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
     return await common_checks(
         request_body=request_payload,
         team_object=team,
@@ -126,7 +126,7 @@ async def test_team_require_trace_id_rejects_llm_mcp_and_agent_requests(route: s
     assert exc_info.value.param == "trace_id"
     assert exc_info.value.message == (
         "Team 'trace-id-team' requires a trace ID on every LLM, MCP and agent request. "
-        "Send an x-litellm-trace-id header. "
+        "Send an x-hangarllm-trace-id header. "
         "LLM requests can also send a W3C traceparent header or set metadata.trace_id in the body."
     )
     assert request_body == original_body
@@ -135,13 +135,13 @@ async def test_team_require_trace_id_rejects_llm_mcp_and_agent_requests(route: s
 @pytest.mark.parametrize(
     ("headers", "request_body"),
     [
-        ({"x-litellm-trace-id": "trace-123"}, {}),
+        ({"x-hangarllm-trace-id": "trace-123"}, {}),
         ({"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}, {}),
         ({}, {"metadata": {"trace_id": "trace-123"}}),
-        ({}, {"litellm_metadata": {"trace_id": "trace-123"}}),
-        ({}, {"litellm_trace_id": "trace-123"}),
-        ({}, {"litellm_trace_id": "", "metadata": {"trace_id": "trace-123"}}),
-        ({}, {"litellm_trace_id": None, "metadata": {"trace_id": "trace-123"}}),
+        ({}, {"hangarllm_metadata": {"trace_id": "trace-123"}}),
+        ({}, {"hangarllm_trace_id": "trace-123"}),
+        ({}, {"hangarllm_trace_id": "", "metadata": {"trace_id": "trace-123"}}),
+        ({}, {"hangarllm_trace_id": None, "metadata": {"trace_id": "trace-123"}}),
     ],
 )
 @pytest.mark.asyncio
@@ -174,7 +174,7 @@ async def test_team_require_trace_id_accepts_trace_telemetry_routes(route: str) 
 async def test_team_require_trace_id_rejects_overridden_body_metadata_on_chat() -> None:
     request_body: Final[dict[str, object]] = {
         "metadata": {"trace_id": ""},
-        "litellm_metadata": {"trace_id": "trace-123"},
+        "hangarllm_metadata": {"trace_id": "trace-123"},
     }
     exc_info: Final[pytest.ExceptionInfo[ProxyException]]
     with pytest.raises(ProxyException) as exc_info:
@@ -190,10 +190,10 @@ async def test_team_require_trace_id_rejects_overridden_body_metadata_on_chat() 
 @pytest.mark.parametrize(
     "request_body",
     [
-        {"litellm_metadata": {"trace_id": "trace-123"}},
+        {"hangarllm_metadata": {"trace_id": "trace-123"}},
         {"metadata": {"trace_id": "trace-123"}},
     ],
-    ids=["selected-litellm-metadata", "promoted-requester-metadata"],
+    ids=["selected-hangarllm-metadata", "promoted-requester-metadata"],
 )
 @pytest.mark.asyncio
 async def test_team_require_trace_id_accepts_effective_metadata_on_responses_route(
@@ -211,11 +211,11 @@ async def test_team_require_trace_id_accepts_effective_metadata_on_responses_rou
     [
         (
             {"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
-            {"litellm_trace_id": ""},
+            {"hangarllm_trace_id": ""},
         ),
         (
             {"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
-            {"litellm_trace_id": None},
+            {"hangarllm_trace_id": None},
         ),
     ],
     ids=[
@@ -224,7 +224,7 @@ async def test_team_require_trace_id_accepts_effective_metadata_on_responses_rou
     ],
 )
 @pytest.mark.asyncio
-async def test_team_require_trace_id_rejects_fallback_carriers_when_litellm_trace_id_is_explicit(
+async def test_team_require_trace_id_rejects_fallback_carriers_when_hangarllm_trace_id_is_explicit(
     headers: Mapping[str, str],
     request_body: dict[str, object],
 ) -> None:
@@ -245,7 +245,7 @@ async def test_team_require_trace_id_accepts_header_on_mcp_with_empty_body() -> 
     assert await _run_team_trace_id_check(
         route="/mcp/",
         request_body={},
-        headers={"x-litellm-trace-id": "trace-mcp-123"},
+        headers={"x-hangarllm-trace-id": "trace-mcp-123"},
         team_metadata={"require_trace_id": True},
     ) is True
 
@@ -283,7 +283,7 @@ async def test_team_require_trace_id_accepts_header_on_pass_through_route() -> N
     assert await _run_team_trace_id_check(
         route="/anthropic/v1/messages",
         request_body={},
-        headers={"x-litellm-trace-id": "trace-provider-123"},
+        headers={"x-hangarllm-trace-id": "trace-provider-123"},
         team_metadata={"require_trace_id": True},
     ) is True
 
@@ -441,7 +441,7 @@ async def test_team_require_trace_id_exempts_methods_routes_and_disabled_teams(
 
 @pytest.mark.asyncio
 async def test_team_require_trace_id_skips_non_dict_team_metadata() -> None:
-    team: Final[LiteLLM_TeamTable] = LiteLLM_TeamTable.model_construct(
+    team: Final[HangarLLM_TeamTable] = HangarLLM_TeamTable.model_construct(
         team_id="trace-id-team",
         metadata="not a mapping",
     )
@@ -452,7 +452,7 @@ async def test_team_require_trace_id_skips_non_dict_team_metadata() -> None:
 def test_lens_management_does_not_require_an_inference_user_parameter(route: str) -> None:
     from starlette.requests import Request
 
-    from litellm.proxy.auth.auth_checks import _enforce_user_param_check
+    from hangarllm.proxy.auth.auth_checks import _enforce_user_param_check
 
     request: Final = Request({"type": "http", "method": "POST", "path": route})
     _enforce_user_param_check({"enforce_user_param": True}, request, {}, route)
@@ -472,11 +472,11 @@ async def test_get_end_user_object(customer_spend, customer_budget):
     from cache. Budget enforcement is tested separately in test_check_end_user_budget().
     """
     end_user_id = "my-test-customer"
-    _budget = LiteLLM_BudgetTable(max_budget=customer_budget)
-    end_user_obj = LiteLLM_EndUserTable(
+    _budget = HangarLLM_BudgetTable(max_budget=customer_budget)
+    end_user_obj = HangarLLM_EndUserTable(
         user_id=end_user_id,
         spend=customer_spend,
-        litellm_budget_table=_budget,
+        hangarllm_budget_table=_budget,
         blocked=False,
     )
     # UserApiKeyCache applies model_type on get/set; plain DualCache returns raw dicts
@@ -486,7 +486,7 @@ async def test_get_end_user_object(customer_spend, customer_budget):
     await _cache.async_set_cache(
         key=_key,
         value=end_user_obj,
-        model_type=LiteLLM_EndUserTable,
+        model_type=HangarLLM_EndUserTable,
     )
     # get_end_user_object only fetches data - it no longer enforces budget
     # Budget enforcement happens in common_checks() via _check_end_user_budget()
@@ -511,13 +511,13 @@ async def test_check_end_user_budget(customer_spend, customer_budget):
     Note: Budget enforcement for end users happens in common_checks() via
     _check_end_user_budget(), not in get_end_user_object().
     """
-    from litellm.proxy.auth.auth_checks import check_end_user_budget
+    from hangarllm.proxy.auth.auth_checks import check_end_user_budget
 
-    _budget = LiteLLM_BudgetTable(max_budget=customer_budget)
-    end_user_obj = LiteLLM_EndUserTable(
+    _budget = HangarLLM_BudgetTable(max_budget=customer_budget)
+    end_user_obj = HangarLLM_EndUserTable(
         user_id="my-test-customer",
         spend=customer_spend,
-        litellm_budget_table=_budget,
+        hangarllm_budget_table=_budget,
         blocked=False,
     )
 
@@ -530,7 +530,7 @@ async def test_check_end_user_budget(customer_spend, customer_budget):
         )
         return
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await check_end_user_budget(
             end_user_obj=end_user_obj,
             route="/v1/chat/completions",
@@ -552,13 +552,13 @@ async def test_can_key_call_model(model, expect_to_work):
     """
     If wildcard model + specific model is used, choose the specific model settings
     """
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from hangarllm.proxy.auth.auth_checks import can_key_call_model
     from fastapi import HTTPException
 
     llm_model_list = [
         {
             "model_name": "openai/*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/*",
                 "api_key": "test-api-key",
             },
@@ -570,7 +570,7 @@ async def test_can_key_call_model(model, expect_to_work):
         },
         {
             "model_name": "openai/gpt-4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "test-api-key",
             },
@@ -581,7 +581,7 @@ async def test_can_key_call_model(model, expect_to_work):
             },
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = hangarllm.Router(model_list=llm_model_list)
     args = {
         "model": model,
         "llm_model_list": llm_model_list,
@@ -605,13 +605,13 @@ async def test_can_key_call_model(model, expect_to_work):
 )
 @pytest.mark.asyncio
 async def test_can_team_call_model(model, expect_to_work):
-    from litellm.proxy.auth.auth_checks import model_in_access_group
+    from hangarllm.proxy.auth.auth_checks import model_in_access_group
     from fastapi import HTTPException
 
     llm_model_list = [
         {
             "model_name": "openai/*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/*",
                 "api_key": "test-api-key",
             },
@@ -623,7 +623,7 @@ async def test_can_team_call_model(model, expect_to_work):
         },
         {
             "model_name": "openai/gpt-4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "test-api-key",
             },
@@ -634,7 +634,7 @@ async def test_can_team_call_model(model, expect_to_work):
             },
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = hangarllm.Router(model_list=llm_model_list)
 
     args = {
         "model": model,
@@ -662,13 +662,13 @@ async def test_can_team_call_model(model, expect_to_work):
 )
 @pytest.mark.asyncio
 async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_work):
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.auth.auth_checks import can_key_call_model
 
     llm_model_list = [
         {
             "model_name": "openai/*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/*",
                 "api_key": "test-api-key",
             },
@@ -679,7 +679,7 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
         },
         {
             "model_name": "bedrock/*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock/*",
                 "api_key": "test-api-key",
             },
@@ -690,7 +690,7 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
         },
         {
             "model_name": "openai/gpt-4o",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "test-api-key",
             },
@@ -700,7 +700,7 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
             },
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = hangarllm.Router(model_list=llm_model_list)
 
     user_api_key_object = UserAPIKeyAuth(
         models=key_models,
@@ -725,11 +725,11 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
 
 @pytest.fixture
 def shipped_routing_rules() -> Iterator[None]:
-    from litellm.litellm_core_utils.fallback_generalizations import (
+    from hangarllm.hangarllm_core_utils.fallback_generalizations import (
         get_fallback_generalization_rules,
         set_fallback_generalizations,
     )
-    from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+    from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
 
     previous_rules: Final = list(get_fallback_generalization_rules())
     set_fallback_generalizations(GetModelCostMap.load_local_model_cost_map()["fallback_generalizations"]["rules"])
@@ -758,8 +758,8 @@ def test_typesafe_provider_wildcard_covers_bare_jev_model(
     model: str,
     expect_to_work: bool,
 ) -> None:
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.auth_checks import can_object_call_model
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.auth.auth_checks import can_object_call_model
 
     if expect_to_work:
         assert can_object_call_model(model=model, llm_router=None, models=allowed_models, object_type=object_type)
@@ -782,55 +782,55 @@ def test_typesafe_provider_wildcard_covers_bare_jev_model(
 async def test_wildcard_access_after_cost_map_reload(key_models, model, expect_to_work):
     """
     Regression test: after a cost-map hot-reload, calling
-    add_known_models(model_cost_map=new_map) must update litellm.anthropic_models
+    add_known_models(model_cost_map=new_map) must update hangarllm.anthropic_models
     so that the anthropic/* wildcard correctly grants (or denies) access to
     newly-added models.
 
     Root cause: both reload paths in proxy_server.py only updated
-    litellm.model_cost but never re-ran add_known_models(), so the provider sets
+    hangarllm.model_cost but never re-ran add_known_models(), so the provider sets
     stayed stale and wildcard matching failed for new models.
 
-    Fix: each reload now calls litellm.add_known_models(model_cost_map=new_map)
+    Fix: each reload now calls hangarllm.add_known_models(model_cost_map=new_map)
     with the fetched map passed explicitly to avoid any reference ambiguity.
     """
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.auth.auth_checks import can_key_call_model
 
     # Build a new cost map that includes the brand-new model — exactly what
     # proxy_server.py receives from get_model_cost_map() during a reload.
-    new_cost_map = dict(litellm.model_cost)
+    new_cost_map = dict(hangarllm.model_cost)
     new_cost_map[model] = {
-        "litellm_provider": "anthropic",
+        "hangarllm_provider": "anthropic",
         "max_tokens": 8192,
         "input_cost_per_token": 0.000003,
         "output_cost_per_token": 0.000015,
     }
 
-    original_model_cost = litellm.model_cost
-    litellm.model_cost = new_cost_map
+    original_model_cost = hangarllm.model_cost
+    hangarllm.model_cost = new_cost_map
 
     # Confirm the model is NOT yet in the provider set before reload propagation.
-    assert model not in litellm.anthropic_models
+    assert model not in hangarllm.anthropic_models
 
     # Simulate what proxy_server.py now does after every reload.
-    litellm.add_known_models(model_cost_map=new_cost_map)
+    hangarllm.add_known_models(model_cost_map=new_cost_map)
 
     # After add_known_models(), the model must be in the set.
-    assert model in litellm.anthropic_models
+    assert model in hangarllm.anthropic_models
 
     llm_model_list = [
         {
             "model_name": "anthropic/*",
-            "litellm_params": {"model": "anthropic/*", "api_key": "test-api-key"},
+            "hangarllm_params": {"model": "anthropic/*", "api_key": "test-api-key"},
             "model_info": {"id": "test-id-anthropic-wildcard", "db_model": False},
         },
         {
             "model_name": "openai/*",
-            "litellm_params": {"model": "openai/*", "api_key": "test-api-key"},
+            "hangarllm_params": {"model": "openai/*", "api_key": "test-api-key"},
             "model_info": {"id": "test-id-openai-wildcard", "db_model": False},
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = hangarllm.Router(model_list=llm_model_list)
     user_api_key_object = UserAPIKeyAuth(models=key_models)
 
     try:
@@ -850,8 +850,8 @@ async def test_wildcard_access_after_cost_map_reload(key_models, model, expect_t
                     llm_router=router,
                 )
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.anthropic_models.discard(model)
+        hangarllm.model_cost = original_model_cost
+        hangarllm.anthropic_models.discard(model)
 
 
 @pytest.mark.asyncio
@@ -863,48 +863,48 @@ async def test_add_known_models_explicit_map_updates_provider_sets():
     wildcard access checks (anthropic/*, openai/*, …) work immediately.
 
     This covers the proxy_server.py fix where both reload paths now call
-    litellm.add_known_models(model_cost_map=new_model_cost_map) instead of
+    hangarllm.add_known_models(model_cost_map=new_model_cost_map) instead of
     relying on the module-level model_cost being up to date.
     """
     fake_new_model = "claude-brand-new-explicit-map-test"
 
     # Baseline: the model must not be in the sets before we do anything.
-    assert fake_new_model not in litellm.anthropic_models
+    assert fake_new_model not in hangarllm.anthropic_models
 
-    new_cost_map = dict(litellm.model_cost)
+    new_cost_map = dict(hangarllm.model_cost)
     new_cost_map[fake_new_model] = {
-        "litellm_provider": "anthropic",
+        "hangarllm_provider": "anthropic",
         "max_tokens": 8192,
         "input_cost_per_token": 0.000003,
         "output_cost_per_token": 0.000015,
     }
 
     # Simulate what proxy_server.py does on reload.
-    original_model_cost = litellm.model_cost
-    litellm.model_cost = new_cost_map
-    litellm.add_known_models(model_cost_map=new_cost_map)
+    original_model_cost = hangarllm.model_cost
+    hangarllm.model_cost = new_cost_map
+    hangarllm.add_known_models(model_cost_map=new_cost_map)
 
     try:
-        assert fake_new_model in litellm.anthropic_models, (
+        assert fake_new_model in hangarllm.anthropic_models, (
             "add_known_models(model_cost_map=...) did not add the new model to "
-            "litellm.anthropic_models — wildcard access checks would fail."
+            "hangarllm.anthropic_models — wildcard access checks would fail."
         )
     finally:
         # Clean up: restore original state.
-        litellm.model_cost = original_model_cost
-        litellm.anthropic_models.discard(fake_new_model)
+        hangarllm.model_cost = original_model_cost
+        hangarllm.anthropic_models.discard(fake_new_model)
 
 
 @pytest.mark.asyncio
 async def test_is_valid_fallback_model():
-    from litellm.proxy.auth.auth_checks import is_valid_fallback_model
-    from litellm import Router
+    from hangarllm.proxy.auth.auth_checks import is_valid_fallback_model
+    from hangarllm import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "openai/gpt-3.5-turbo"},
             }
         ]
     )
@@ -941,7 +941,7 @@ async def test_virtual_key_max_budget_check(
     1. Triggers budget alert for all cases
     2. Raises BudgetExceededError when spend >= max_budget
     """
-    from litellm.proxy.auth.auth_checks import virtual_key_max_budget_check
+    from hangarllm.proxy.auth.auth_checks import virtual_key_max_budget_check
 
     # Setup test data
     valid_token = UserAPIKeyAuth(
@@ -952,7 +952,7 @@ async def test_virtual_key_max_budget_check(
         key_alias="test-key",
     )
 
-    user_obj = LiteLLM_UserTable(
+    user_obj = HangarLLM_UserTable(
         user_id="test-user",
         user_email="test@email.com",
         max_budget=None,
@@ -972,7 +972,7 @@ async def test_virtual_key_max_budget_check(
     proxy_logging_obj.budget_alerts = mock_budget_alert
 
     if expect_budget_error:
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
             await virtual_key_max_budget_check(
                 valid_token=valid_token,
                 proxy_logging_obj=proxy_logging_obj,
@@ -1039,7 +1039,7 @@ async def test_can_team_access_model(model, team_models, expect_to_work):
     7. None model list
     """
     try:
-        team_object = LiteLLM_TeamTable(
+        team_object = HangarLLM_TeamTable(
             team_id="test-team",
             models=team_models,
         )
@@ -1192,7 +1192,7 @@ async def test_team_soft_budget_check(
         key_alias="test-key",
     )
 
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team",
         spend=spend,
         soft_budget=soft_budget,
@@ -1219,7 +1219,7 @@ async def test_team_soft_budget_check(
         assert captured_call_info.team_id == "test-team"
         assert captured_call_info.spend == spend
         assert captured_call_info.soft_budget == soft_budget
-        assert captured_call_info.event_group == Litellm_EntityType.TEAM
+        assert captured_call_info.event_group == Hangarllm_EntityType.TEAM
         # Verify alert_emails if expected
         if expected_alert_emails is not None:
             assert captured_call_info.alert_emails == expected_alert_emails
@@ -1232,19 +1232,19 @@ async def test_team_soft_budget_check(
 
 @pytest.mark.asyncio
 async def test_can_user_call_model():
-    from litellm.proxy.auth.auth_checks import can_user_call_model
-    from litellm.proxy._types import ProxyException
-    from litellm import Router
+    from hangarllm.proxy.auth.auth_checks import can_user_call_model
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "anthropic-claude",
-                "litellm_params": {"model": "anthropic/anthropic-claude"},
+                "hangarllm_params": {"model": "anthropic/anthropic-claude"},
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "test-api-key"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "test-api-key"},
             },
         ]
     )
@@ -1252,7 +1252,7 @@ async def test_can_user_call_model():
     args = {
         "model": "anthropic-claude",
         "llm_router": router,
-        "user_object": LiteLLM_UserTable(
+        "user_object": HangarLLM_UserTable(
             user_id="testuser21@mycompany.com",
             max_budget=None,
             spend=0.0042295,
@@ -1272,14 +1272,14 @@ async def test_can_user_call_model():
 
 @pytest.mark.asyncio
 async def test_can_user_call_model_with_no_default_models():
-    from litellm.proxy.auth.auth_checks import can_user_call_model
-    from litellm.proxy._types import ProxyException, SpecialModelNames
+    from hangarllm.proxy.auth.auth_checks import can_user_call_model
+    from hangarllm.proxy._types import ProxyException, SpecialModelNames
     from unittest.mock import MagicMock
 
     args = {
         "model": "anthropic-claude",
         "llm_router": MagicMock(),
-        "user_object": LiteLLM_UserTable(
+        "user_object": HangarLLM_UserTable(
             user_id="testuser21@mycompany.com",
             max_budget=None,
             spend=0.0042295,
@@ -1296,16 +1296,16 @@ async def test_can_user_call_model_with_no_default_models():
 
 @pytest.mark.asyncio
 async def test_get_fuzzy_user_object():
-    from litellm.proxy.auth.auth_checks import _get_fuzzy_user_object
+    from hangarllm.proxy.auth.auth_checks import _get_fuzzy_user_object
     from unittest.mock import AsyncMock, MagicMock
 
     # Setup mock Prisma client
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
-    mock_prisma.db.litellm_usertable = MagicMock()
+    mock_prisma.db.hangarllm_usertable = MagicMock()
 
     # Mock user data
-    test_user = LiteLLM_UserTable(
+    test_user = HangarLLM_UserTable(
         user_id="test_123",
         sso_user_id="sso_123",
         user_email="test@example.com",
@@ -1314,19 +1314,19 @@ async def test_get_fuzzy_user_object():
     )
 
     # Test 1: Find user by SSO ID
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=test_user)
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock(return_value=test_user)
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma, sso_user_id="sso_123", user_email="test@example.com"
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_unique.assert_called_with(
+    mock_prisma.db.hangarllm_usertable.find_unique.assert_called_with(
         where={"sso_user_id": "sso_123"}, include={"organization_memberships": True}
     )
 
     # Test 2: SSO ID not found, find by email
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_usertable.find_first = AsyncMock(return_value=test_user)
-    mock_prisma.db.litellm_usertable.update = AsyncMock()
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_usertable.find_first = AsyncMock(return_value=test_user)
+    mock_prisma.db.hangarllm_usertable.update = AsyncMock()
 
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma,
@@ -1334,20 +1334,20 @@ async def test_get_fuzzy_user_object():
         user_email="test@example.com",
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_first.assert_called_with(
+    mock_prisma.db.hangarllm_usertable.find_first.assert_called_with(
         where={"user_email": {"equals": "test@example.com", "mode": "insensitive"}},
         include={"organization_memberships": True},
     )
 
     # Test 3: Verify background SSO update task when user found by email
     await asyncio.sleep(0.1)  # Allow time for background task
-    mock_prisma.db.litellm_usertable.update.assert_called_with(
+    mock_prisma.db.hangarllm_usertable.update.assert_called_with(
         where={"user_id": "test_123"}, data={"sso_user_id": "new_sso_456"}
     )
 
     # Test 4: User not found by either method
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_usertable.find_first = AsyncMock(return_value=None)
 
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma,
@@ -1357,23 +1357,23 @@ async def test_get_fuzzy_user_object():
     assert result is None
 
     # Test 5: Only email provided (no SSO ID)
-    mock_prisma.db.litellm_usertable.find_first = AsyncMock(return_value=test_user)
+    mock_prisma.db.hangarllm_usertable.find_first = AsyncMock(return_value=test_user)
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma, user_email="test@example.com"
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_first.assert_called_with(
+    mock_prisma.db.hangarllm_usertable.find_first.assert_called_with(
         where={"user_email": {"equals": "test@example.com", "mode": "insensitive"}},
         include={"organization_memberships": True},
     )
 
     # Test 6: Only SSO ID provided (no email)
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=test_user)
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock(return_value=test_user)
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma, sso_user_id="sso_123"
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_unique.assert_called_with(
+    mock_prisma.db.hangarllm_usertable.find_unique.assert_called_with(
         where={"sso_user_id": "sso_123"}, include={"organization_memberships": True}
     )
 
@@ -1390,18 +1390,18 @@ async def test_can_key_call_model_with_aliases(model, alias_map, expect_to_work)
     """
     Test if can_key_call_model correctly handles model aliases in the token
     """
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from hangarllm.proxy.auth.auth_checks import can_key_call_model
 
     llm_model_list = [
         {
             "model_name": "gpt-4-team1",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "gpt-4",
                 "api_key": "test-api-key",
             },
         }
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = hangarllm.Router(model_list=llm_model_list)
 
     user_api_key_object = UserAPIKeyAuth(
         models=[
@@ -1435,12 +1435,12 @@ async def test_can_key_call_model_with_aliases(model, alias_map, expect_to_work)
 @pytest.mark.asyncio
 async def test_cache_access_object():
     """Test _cache_access_object stores access group in cache with correct key."""
-    from litellm.proxy.auth.auth_checks import cache_access_object
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
+    from hangarllm.proxy.auth.auth_checks import cache_access_object
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable
 
     cache = DualCache()
     ag_id = "ag-test-123"
-    ag_table = LiteLLM_AccessGroupTable(
+    ag_table = HangarLLM_AccessGroupTable(
         access_group_id=ag_id,
         access_group_name="test-group",
         access_model_names=["gpt-4"],
@@ -1463,12 +1463,12 @@ async def test_cache_access_object():
 @pytest.mark.asyncio
 async def test_delete_cache_access_object():
     """Test _delete_cache_access_object removes access group from in-memory cache."""
-    from litellm.proxy.auth.auth_checks import delete_cache_access_object
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
+    from hangarllm.proxy.auth.auth_checks import delete_cache_access_object
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable
 
     cache = DualCache()
     ag_id = "ag-delete-test"
-    ag_table = LiteLLM_AccessGroupTable(
+    ag_table = HangarLLM_AccessGroupTable(
         access_group_id=ag_id,
         access_group_name="to-delete",
     )
@@ -1510,13 +1510,13 @@ async def test_get_resources_from_access_groups(
     """Test _get_resources_from_access_groups returns correct resource list from access groups."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
-    from litellm.proxy.auth.auth_checks import (
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable
+    from hangarllm.proxy.auth.auth_checks import (
         get_agent_ids_from_access_groups,
         get_models_from_access_groups,
     )
 
-    ag_table = LiteLLM_AccessGroupTable(
+    ag_table = HangarLLM_AccessGroupTable(
         access_group_id=access_group_data["access_group_id"],
         access_group_name="test",
         access_model_names=access_group_data.get("access_model_names", []),
@@ -1524,7 +1524,7 @@ async def test_get_resources_from_access_groups(
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks.get_access_object",
+        "hangarllm.proxy.auth.auth_checks.get_access_object",
         new_callable=AsyncMock,
         return_value=ag_table,
     ):
@@ -1546,7 +1546,7 @@ async def test_get_resources_from_access_groups(
 @pytest.mark.asyncio
 async def test_get_models_from_access_groups_empty_ids():
     """Test _get_models_from_access_groups returns empty list when access_group_ids is empty."""
-    from litellm.proxy.auth.auth_checks import get_models_from_access_groups
+    from hangarllm.proxy.auth.auth_checks import get_models_from_access_groups
 
     result = await get_models_from_access_groups(access_group_ids=[])
     assert result == []
@@ -1562,16 +1562,16 @@ async def test_can_team_access_model_via_access_group_ids():
     """Test can_team_access_model allows access when team has access_group_ids granting model access."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import can_team_access_model
+    from hangarllm.proxy.auth.auth_checks import can_team_access_model
 
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team",
         models=[],
         access_group_ids=["ag-with-gpt4"],
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks.get_models_from_access_groups",
+        "hangarllm.proxy.auth.auth_checks.get_models_from_access_groups",
         new_callable=AsyncMock,
         return_value=["gpt-4"],
     ):
@@ -1589,17 +1589,17 @@ async def test_can_team_access_model_access_group_ids_denied():
     """Test can_team_access_model denies when neither team models nor access_group_ids grant access."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import can_team_access_model
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy.auth.auth_checks import can_team_access_model
+    from hangarllm.proxy._types import ProxyException
 
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team",
         models=["gpt-3.5-turbo"],
         access_group_ids=["ag-other"],
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks.get_models_from_access_groups",
+        "hangarllm.proxy.auth.auth_checks.get_models_from_access_groups",
         new_callable=AsyncMock,
         return_value=["claude-3"],
     ):
@@ -1622,24 +1622,24 @@ async def test_can_key_call_model_via_access_group_ids():
     """Test can_key_call_model allows access when key has access_group_ids granting model access."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from hangarllm.proxy.auth.auth_checks import can_key_call_model
 
     user_api_key_object = UserAPIKeyAuth(
         token="test-token",
         models=[],
         access_group_ids=["ag-with-gpt4"],
     )
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "test"},
+                "hangarllm_params": {"model": "openai/gpt-4", "api_key": "test"},
             }
         ]
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks.get_models_from_access_groups",
+        "hangarllm.proxy.auth.auth_checks.get_models_from_access_groups",
         new_callable=AsyncMock,
         return_value=["gpt-4"],
     ):
@@ -1663,9 +1663,9 @@ def _patch_proxy_server_globals():
     from unittest.mock import MagicMock, patch
 
     return [
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
     ]
 
 
@@ -1675,9 +1675,9 @@ def _fake_access_group(
     assigned_team_ids=None,
     assigned_key_ids=None,
 ):
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable
 
-    return LiteLLM_AccessGroupTable(
+    return HangarLLM_AccessGroupTable(
         access_group_id=access_group_id,
         access_group_name=access_group_id,
         access_model_names=access_model_names or [],
@@ -1696,7 +1696,7 @@ async def test_key_access_group_grants_model_when_team_authorized():
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import key_access_group_grants_model
+    from hangarllm.proxy.auth.auth_checks import key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1704,7 +1704,7 @@ async def test_key_access_group_grants_model_when_team_authorized():
         access_group_ids=["premium-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],  # deliberately not synced — the access group itself authorizes
@@ -1718,7 +1718,7 @@ async def test_key_access_group_grants_model_when_team_authorized():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "hangarllm.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1749,7 +1749,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import key_access_group_grants_model
+    from hangarllm.proxy.auth.auth_checks import key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token-hashed",
@@ -1757,7 +1757,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
         access_group_ids=["per-key-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1772,7 +1772,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "hangarllm.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1797,7 +1797,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
 @pytest.mark.asyncio
 async def test_key_access_group_grants_model_when_key_has_no_groups():
     """Key with no access_group_ids → False (early return, no DB read)."""
-    from litellm.proxy.auth.auth_checks import key_access_group_grants_model
+    from hangarllm.proxy.auth.auth_checks import key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1805,7 +1805,7 @@ async def test_key_access_group_grants_model_when_key_has_no_groups():
         access_group_ids=[],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=["any-group"],
@@ -1826,7 +1826,7 @@ async def test_key_access_group_grants_model_when_group_does_not_cover_model():
     """Group authorizes the team but does not grant the requested model → False."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import key_access_group_grants_model
+    from hangarllm.proxy.auth.auth_checks import key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1834,7 +1834,7 @@ async def test_key_access_group_grants_model_when_group_does_not_cover_model():
         access_group_ids=["basic-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1848,7 +1848,7 @@ async def test_key_access_group_grants_model_when_group_does_not_cover_model():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "hangarllm.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1880,7 +1880,7 @@ async def test_key_access_group_grants_model_when_group_authorizes_neither():
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import key_access_group_grants_model
+    from hangarllm.proxy.auth.auth_checks import key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="team-a-token",
@@ -1888,7 +1888,7 @@ async def test_key_access_group_grants_model_when_group_authorizes_neither():
         access_group_ids=["team-b-premium"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1903,7 +1903,7 @@ async def test_key_access_group_grants_model_when_group_authorizes_neither():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "hangarllm.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1930,7 +1930,7 @@ async def test_key_access_group_grants_model_when_get_access_object_raises():
     """Group lookup failure (404, network, etc.) is treated as no authorization."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import key_access_group_grants_model
+    from hangarllm.proxy.auth.auth_checks import key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1938,7 +1938,7 @@ async def test_key_access_group_grants_model_when_get_access_object_raises():
         access_group_ids=["missing-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1946,7 +1946,7 @@ async def test_key_access_group_grants_model_when_get_access_object_raises():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "hangarllm.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             side_effect=Exception("not found"),
         ),
@@ -1972,7 +1972,7 @@ async def test_key_access_group_grants_model_when_get_access_object_raises():
 def db_success_hook() -> Iterator[AsyncMock]:
     hook: Final = AsyncMock()
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         MagicMock(service_logging_obj=MagicMock(async_service_success_hook=hook)),
     ):
         yield hook
@@ -2007,7 +2007,7 @@ def _prisma_client_serving(user_id: str) -> SimpleNamespace:
 async def test_get_user_object_cache_hit_emits_no_postgres_service_event(db_success_hook: AsyncMock) -> None:
     user_id: Final = f"cached-user-{uuid.uuid4()}"
     cache: Final = UserApiKeyCache()
-    await cache.async_set_cache(key=user_id, value=LiteLLM_UserTable(user_id=user_id, user_role="internal_user"))
+    await cache.async_set_cache(key=user_id, value=HangarLLM_UserTable(user_id=user_id, user_role="internal_user"))
 
     result: Final = await get_user_object(
         user_id=user_id,
@@ -2027,7 +2027,7 @@ async def test_get_org_object_cache_hit_emits_no_postgres_service_event(db_succe
     cache: Final = UserApiKeyCache()
     await cache.async_set_cache(
         key=f"org_id:{org_id}",
-        value=LiteLLM_OrganizationTable(
+        value=HangarLLM_OrganizationTable(
             organization_id=org_id, budget_id="b", models=[], created_by="t", updated_by="t"
         ),
     )
@@ -2071,12 +2071,12 @@ def test_is_model_cost_zero_judges_an_alias_chain_by_the_deployment_its_entry_ro
     deployment, so an over-budget key is waived for it; local-free by name resolves to paid-gpt
     and stays enforced. local-free's alias is a hop the router never takes for chain-entry, and
     the per-name verdict cache must not let either name's verdict leak into the other's."""
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "local-free",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "ollama/qwen3:0.6b",
                     "api_base": "http://localhost:11434",
                     "input_cost_per_token": 0,
@@ -2085,7 +2085,7 @@ def test_is_model_cost_zero_judges_an_alias_chain_by_the_deployment_its_entry_ro
             },
             {
                 "model_name": "paid-gpt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "fake",
                     "input_cost_per_token": 3e-06,
@@ -2113,9 +2113,9 @@ MCP_DISCOVERY_REST_ROUTES = [
 @pytest.mark.parametrize("route", MCP_DISCOVERY_REST_ROUTES)
 @pytest.mark.asyncio
 async def test_mcp_tool_discovery_route_bypasses_team_budget(route):
-    from litellm.proxy.auth.auth_checks import common_checks
+    from hangarllm.proxy.auth.auth_checks import common_checks
 
-    team_object = LiteLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0)
+    team_object = HangarLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0)
 
     result = await common_checks(
         request_body={},
@@ -2138,9 +2138,9 @@ async def test_mcp_tool_discovery_route_bypasses_team_budget(route):
 @pytest.mark.parametrize("route", ["/mcp", "/mcp/some-server"])
 @pytest.mark.asyncio
 async def test_mcp_jsonrpc_zero_spend_method_bypasses_team_budget(route, method):
-    from litellm.proxy.auth.auth_checks import common_checks
+    from hangarllm.proxy.auth.auth_checks import common_checks
 
-    team_object = LiteLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0)
+    team_object = HangarLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0)
 
     result = await common_checks(
         request_body={"jsonrpc": "2.0", "id": 1, "method": method, "params": {}},
@@ -2172,11 +2172,11 @@ async def test_mcp_jsonrpc_zero_spend_method_bypasses_team_budget(route, method)
 )
 @pytest.mark.asyncio
 async def test_mcp_tool_call_route_still_enforces_team_budget(route, request_body):
-    from litellm.proxy.auth.auth_checks import common_checks
+    from hangarllm.proxy.auth.auth_checks import common_checks
 
-    team_object = LiteLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0)
+    team_object = HangarLLM_TeamTable(team_id="test-team", spend=150.0, max_budget=100.0)
 
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await common_checks(
             request_body=request_body,
             team_object=team_object,
@@ -2218,28 +2218,28 @@ async def test_mcp_tool_call_route_still_enforces_team_budget(route, request_bod
     ],
 )
 def test_is_mcp_discovery_request(route, request_body, expected):
-    from litellm.proxy.auth.auth_checks import is_mcp_discovery_request
+    from hangarllm.proxy.auth.auth_checks import is_mcp_discovery_request
 
     assert is_mcp_discovery_request(route=route, request_body=request_body) is expected
 
 
 @pytest.mark.asyncio
 async def test_get_skill_names_from_access_groups_reads_cached_group_rows():
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
-    from litellm.proxy.auth.auth_checks import cache_access_object, get_skill_names_from_access_groups
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy._types import HangarLLM_AccessGroupTable
+    from hangarllm.proxy.auth.auth_checks import cache_access_object, get_skill_names_from_access_groups
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     cache = UserApiKeyCache()
     for group_id, skills in (("group-a", ["skill-a", "shared"]), ("group-b", ["skill-b", "shared"])):
         await cache_access_object(
             access_group_id=group_id,
-            access_group_table=LiteLLM_AccessGroupTable(
+            access_group_table=HangarLLM_AccessGroupTable(
                 access_group_id=group_id, access_group_name=group_id, access_skill_names=skills
             ),
             user_api_key_cache=cache,
         )
     untouched_prisma = MagicMock()
-    untouched_prisma.db.litellm_accessgrouptable.find_unique = AsyncMock(
+    untouched_prisma.db.hangarllm_accessgrouptable.find_unique = AsyncMock(
         side_effect=AssertionError("cache hit must not reach the DB")
     )
 
@@ -2319,7 +2319,7 @@ async def test_evicting_more_keys_than_the_publisher_holds_pending_broadcasts_ev
     hashed_tokens: Final = tuple(f"token-{index}" for index in range(pubsub_module._MAX_PENDING_PUBLISHES + 476))  # pyright: ignore[reportPrivateUsage]  # the cap under test
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         await delete_cache_key_objects(
@@ -2348,7 +2348,7 @@ async def test_bulk_eviction_clears_this_worker_before_waiting_on_a_wedged_redis
     seeded: Final = tuple(token for token in hashed_tokens if cache.get_local(token) is not None)
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         eviction: Final = asyncio.create_task(
@@ -2407,7 +2407,7 @@ async def test_bulk_eviction_clears_the_redis_copies_before_waiting_on_a_wedged_
         cache.set_local(hashed_token, {"token": hashed_token}, None)
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         eviction: Final = asyncio.create_task(
@@ -2459,7 +2459,7 @@ async def test_bulk_eviction_broadcasts_while_the_usage_cache_redis_is_wedged(
     hashed_tokens: Final = ("token-a", "token-b")
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         await delete_cache_key_objects(

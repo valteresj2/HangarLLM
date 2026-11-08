@@ -1,16 +1,16 @@
-# litellm_guardrail Data Source
+# hangarllm_guardrail Data Source
 
-Retrieves information about an existing LiteLLM guardrail by ID. Sensitive `litellm_params` are not exposed.
+Retrieves information about an existing HangarLLM guardrail by ID. Sensitive `hangarllm_params` are not exposed.
 
 ## Example Usage
 
 ```hcl
-data "litellm_guardrail" "existing" {
+data "hangarllm_guardrail" "existing" {
   guardrail_id = "123e4567-e89b-12d3-a456-426614174000"
 }
 
 output "guardrail_name" {
-  value = data.litellm_guardrail.existing.guardrail_name
+  value = data.hangarllm_guardrail.existing.guardrail_name
 }
 ```
 

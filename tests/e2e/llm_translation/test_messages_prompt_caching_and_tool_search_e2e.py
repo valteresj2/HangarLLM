@@ -5,7 +5,7 @@ from anthropic.types import Message, MessageParam, TextBlock, ToolUnionParam
 from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
 
@@ -64,7 +64,7 @@ pytestmark = pytest.mark.e2e
 def _register_deployment(
     proxy: ProxyClient,
     resources: ResourceManager,
-    params: LiteLLMParamsBody,
+    params: HangarLLMParamsBody,
     prefix: str,
 ) -> tuple[str, str]:
     model_name: Final = f"{prefix}-{unique_marker()}"
@@ -73,10 +73,10 @@ def _register_deployment(
     return model_name, resources.key()
 
 
-def _deployment_params(backend: str) -> LiteLLMParamsBody:
+def _deployment_params(backend: str) -> HangarLLMParamsBody:
     if not backend.startswith("bedrock/"):
-        return LiteLLMParamsBody(model=backend, api_key="os.environ/ANTHROPIC_API_KEY")
-    return LiteLLMParamsBody(
+        return HangarLLMParamsBody(model=backend, api_key="os.environ/ANTHROPIC_API_KEY")
+    return HangarLLMParamsBody(
         model=backend,
         aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

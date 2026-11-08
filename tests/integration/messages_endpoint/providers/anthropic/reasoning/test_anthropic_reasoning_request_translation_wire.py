@@ -479,8 +479,8 @@ def _tool_loop(assistant_content: list[JsonValue]) -> dict[str, JsonValue]:
     (
         pytest.param(
             [
-                {"type": "thinking", "thinking": "bridge reasoning", "signature": "litellm_encrypted_reasoning:gAAAAB"},
-                {"type": "redacted_thinking", "data": "litellm_encrypted_reasoning:gAAAAC"},
+                {"type": "thinking", "thinking": "bridge reasoning", "signature": "hangarllm_encrypted_reasoning:gAAAAB"},
+                {"type": "redacted_thinking", "data": "hangarllm_encrypted_reasoning:gAAAAC"},
                 {"type": "thinking", "thinking": "check the config", "signature": "EqQBCkgIBRABGAIiQL"},
                 {"type": "tool_use", "id": "toolu_01", "name": "Read", "input": {"file_path": "/repo/config.yaml"}},
             ],

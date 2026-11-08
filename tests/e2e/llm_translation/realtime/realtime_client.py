@@ -25,7 +25,7 @@ from websockets.sync.connection import Connection
 from e2e_config import unique_marker, ws_base_url
 from e2e_metadata import step
 from proxy_client import ProxyClient
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 
 _M = TypeVar("_M", bound=BaseModel)
 
@@ -40,7 +40,7 @@ def realtime_ws_url(model: str, *, route: str = REALTIME_ROUTE, intent: str | No
 
 @dataclass(frozen=True, slots=True)
 class RealtimeProvider:
-    """A realtime provider the suite exercises. `litellm_params` is the deployment
+    """A realtime provider the suite exercises. `hangarllm_params` is the deployment
     the suite registers through /model/new (the gateway resolves the os.environ/*
     credential refs), so the suite is self-contained and never depends on a static
     gateway model_list. Every provider here is provisioned and asserted: per
@@ -50,7 +50,7 @@ class RealtimeProvider:
 
     id: str
     alias: str
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
     modalities: tuple[str, ...] = ("text",)
 
 
@@ -58,7 +58,7 @@ PROVIDERS = (
     RealtimeProvider(
         "openai",
         "openai-realtime",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="openai/gpt-realtime-2",
             api_key="os.environ/OPENAI_API_KEY",
         ),
@@ -66,7 +66,7 @@ PROVIDERS = (
     RealtimeProvider(
         "azure",
         "azure-realtime",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="azure/gpt-realtime",
             api_key="os.environ/AZURE_API_KEY",
             api_version="2025-08-28",
@@ -76,7 +76,7 @@ PROVIDERS = (
     RealtimeProvider(
         "gemini",
         "gemini-realtime",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="gemini/gemini-3.1-flash-live-preview",
             api_key="os.environ/GEMINI_API_KEY",
         ),
@@ -85,7 +85,7 @@ PROVIDERS = (
     RealtimeProvider(
         "vertex_ai",
         "vertex-realtime",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="vertex_ai/gemini-live-2.5-flash-native-audio",
             vertex_location="us-central1",
             vertex_credentials="os.environ/VERTEXAI_CREDENTIALS",
@@ -95,7 +95,7 @@ PROVIDERS = (
     RealtimeProvider(
         "bedrock",
         "bedrock-realtime",
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="bedrock/amazon.nova-2-sonic-v1:0",
             aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
             aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -105,7 +105,7 @@ PROVIDERS = (
     # RealtimeProvider(
     #     "xai",
     #     "xai-realtime",
-    #     LiteLLMParamsBody(
+    #     HangarLLMParamsBody(
     #         model="xai/grok-4-1-fast",
     #         api_key="os.environ/XAI_API_KEY",
     #     ),
@@ -468,7 +468,7 @@ class RealtimeSession:
 class RealtimeClient:
     proxy: ProxyClient
 
-    @step("Add a realtime deployment that calls {provider.litellm_params.model}")
+    @step("Add a realtime deployment that calls {provider.hangarllm_params.model}")
     def provision(self, provider: RealtimeProvider) -> tuple[str, str]:
         """Register this provider's realtime deployment through /model/new and return
         (model_name, model_id). The name is marker-unique so it never collides with a
@@ -477,7 +477,7 @@ class RealtimeClient:
         so the deployment is connectable as soon as this returns."""
         model_name = f"{provider.alias}-{unique_marker()}"
         model_id = self.proxy.create_model(
-            model_name, provider.litellm_params, mode="realtime"
+            model_name, provider.hangarllm_params, mode="realtime"
         )
         return model_name, model_id
 

@@ -15,7 +15,7 @@ from pathlib import Path
 import sys
 
 native_path = Path(sys.argv[1])
-spec = spec_from_file_location("litellm.rust_bridge._native", native_path)
+spec = spec_from_file_location("hangarllm.rust_bridge._native", native_path)
 if spec is None or spec.loader is None:
     raise RuntimeError("cannot create native extension import specification")
 module = module_from_spec(spec)
@@ -52,7 +52,7 @@ def main() -> int:
         native_members: Final = tuple(
             member
             for member in archive.infolist()
-            if member.filename.startswith("litellm/rust_bridge/_native.") and member.filename.endswith(".so")
+            if member.filename.startswith("hangarllm/rust_bridge/_native.") and member.filename.endswith(".so")
         )
         if len(native_members) != 1:
             sys.stderr.write(f"expected one native extension, found {len(native_members)}\n")

@@ -13,8 +13,8 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.client.cli.commands import statusline_script
-from litellm.proxy.client.cli.commands.statusline_script import (
+from hangarllm.proxy.client.cli.commands import statusline_script
+from hangarllm.proxy.client.cli.commands.statusline_script import (
     CACHE_TTL_SECONDS,
     Credentials,
     Fetched,
@@ -132,12 +132,12 @@ class TestCredentials:
         assert codex_credentials(self.MIXED) == Credentials("http://openai-side:4000", "sk-openai")
 
     def test_lites_own_shell_variables_are_not_a_credential_either_agent_sends(self):
-        # A `lite login` shell exports LITELLM_PROXY_*; Claude Code and Codex never read them, so the
+        # A `lite login` shell exports HANGARLLM_PROXY_*; Claude Code and Codex never read them, so the
         # status line must not query the proxy as that principal while the agent used another.
-        env = {"LITELLM_PROXY_URL": "http://lite:4000/", "LITELLM_PROXY_API_KEY": "sk-lite", **self.MIXED}
+        env = {"HANGARLLM_PROXY_URL": "http://lite:4000/", "HANGARLLM_PROXY_API_KEY": "sk-lite", **self.MIXED}
         assert claude_credentials(env) == Credentials("http://anthropic-side:4000", "sk-ant")
         assert codex_credentials(env) == Credentials("http://openai-side:4000", "sk-openai")
-        assert not claude_credentials({"LITELLM_PROXY_API_KEY": "sk-lite", "ANTHROPIC_BASE_URL": "http://p"}).usable
+        assert not claude_credentials({"HANGARLLM_PROXY_API_KEY": "sk-lite", "ANTHROPIC_BASE_URL": "http://p"}).usable
         assert codex_credentials({}) == Credentials("", "")
 
     def test_claude_code_prefers_the_auth_token_over_a_stray_api_key(self):
@@ -208,7 +208,7 @@ class TestSessionCache:
             calls.append(session_id)
             return Fetched(RECORDED, definitive=True)
 
-        shared = tmp_path / "litellm-statusline"
+        shared = tmp_path / "hangarllm-statusline"
         shared.mkdir(mode=0o755)
         credentials = Credentials("http://p", "sk")
         for _ in range(2):
@@ -219,7 +219,7 @@ class TestSessionCache:
     def test_any_client_error_is_a_definite_answer_and_a_server_error_is_not(self, monkeypatch):
         import urllib.error
 
-        from litellm.proxy.client.cli.commands.statusline_script import fetch_session
+        from hangarllm.proxy.client.cli.commands.statusline_script import fetch_session
 
         def fail_with(code):
             def opener(request, timeout):
@@ -317,7 +317,7 @@ class TestRender:
         # terminal, and none is under this script's control. Only the control bytes are dropped (ESC, BEL,
         # C1), which is what disarms an OSC-52 clipboard write or a screen clear; the printable remainder of
         # such a sequence is inert text and is kept as is.
-        from litellm.proxy.client.cli.commands.statusline_script import _session_from_payload, model_label
+        from hangarllm.proxy.client.cli.commands.statusline_script import _session_from_payload, model_label
 
         hostile = "claude-\x1b\x07\x9bsonnet"
         path = tmp_path / "t.jsonl"
@@ -513,8 +513,8 @@ class TestCodexMode:
 
 
 class TestStandalone:
-    def test_the_file_runs_under_a_bare_interpreter_with_no_litellm_on_the_path(self, tmp_path, transcript, config_dir):
-        # It is copied verbatim to ~/.litellm/statusline.py, so it must be self-contained.
+    def test_the_file_runs_under_a_bare_interpreter_with_no_hangarllm_on_the_path(self, tmp_path, transcript, config_dir):
+        # It is copied verbatim to ~/.hangarllm/statusline.py, so it must be self-contained.
         script = tmp_path / "statusline.py"
         script.write_bytes(Path(statusline_script.__file__).read_bytes())
         env = {k: v for k, v in _env(tmp_path, config_dir).items() if k != "ANTHROPIC_AUTH_TOKEN"}

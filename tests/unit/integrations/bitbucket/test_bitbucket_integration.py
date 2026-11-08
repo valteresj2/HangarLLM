@@ -4,14 +4,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.integrations.bitbucket import BitBucketPromptManager
-from litellm.integrations.bitbucket.bitbucket_client import _sanitize_file_path
+import hangarllm
+from hangarllm.integrations.bitbucket import BitBucketPromptManager
+from hangarllm.integrations.bitbucket.bitbucket_client import _sanitize_file_path
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
-def test_bitbucket_prompt_integration_with_litellm(mock_client_class):
-    """Test BitBucket prompt integration with LiteLLM completion."""
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+def test_bitbucket_prompt_integration_with_hangarllm(mock_client_class):
+    """Test BitBucket prompt integration with HangarLLM completion."""
     # Mock the BitBucket client
     mock_client = MagicMock()
     mock_client.get_file_content.return_value = """---
@@ -32,13 +32,13 @@ User: {{user_message}}"""
     }
 
     # Set global BitBucket configuration
-    litellm.set_global_bitbucket_config(bitbucket_config)
+    hangarllm.set_global_bitbucket_config(bitbucket_config)
 
     # Test that the configuration was set
-    assert litellm.global_bitbucket_config == bitbucket_config
+    assert hangarllm.global_bitbucket_config == bitbucket_config
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_initialization(mock_client_class):
     """Test BitBucketPromptManager initialization."""
     # Mock the BitBucket client
@@ -69,7 +69,7 @@ Hello {{name}}!"""
     assert rendered == "Hello World!"
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_error_handling(mock_client_class):
     """Test BitBucketPromptManager error handling."""
     # Mock the BitBucket client to raise an error
@@ -123,7 +123,7 @@ def test_bitbucket_prompt_manager_config_validation():
         _ = manager.prompt_manager
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_complex_prompt(mock_client_class):
     """Test BitBucketPromptManager with complex prompt structure."""
     # Mock the BitBucket client
@@ -192,7 +192,7 @@ Please provide a detailed response in {{language}}."""
     assert "What is inheritance?" in rendered_no_context
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_message_parsing(mock_client_class):
     """Test BitBucketPromptManager message parsing for different prompt formats."""
     # Mock the BitBucket client
@@ -229,7 +229,7 @@ Assistant: I'll help you with that."""
     assert messages[2]["content"] == "Hi there!"
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_pre_call_hook_integration(mock_client_class):
     """Test BitBucketPromptManager pre_call_hook integration."""
     # Mock the BitBucket client
@@ -254,12 +254,12 @@ User: {{user_message}}"""
 
     # Test pre_call_hook
     original_messages = [{"role": "user", "content": "This will be ignored"}]
-    litellm_params = {"api_key": "test-key"}
+    hangarllm_params = {"api_key": "test-key"}
 
     result_messages, result_params = manager.pre_call_hook(
         user_id="test_user",
         messages=original_messages,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         prompt_id="test_prompt",
         prompt_variables={"user_message": "What is AI?"},
     )
@@ -271,14 +271,14 @@ User: {{user_message}}"""
     assert result_messages[1]["role"] == "user"
     assert result_messages[1]["content"] == "What is AI?"
 
-    # Should have updated litellm_params
+    # Should have updated hangarllm_params
     assert result_params["model"] == "gpt-4"
     assert result_params["temperature"] == 0.8
     assert result_params["max_tokens"] == 200
     assert result_params["api_key"] == "test-key"  # Original params preserved
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_post_call_hook(mock_client_class):
     """Test BitBucketPromptManager post_call_hook."""
     # Mock the BitBucket client
@@ -305,7 +305,7 @@ def test_bitbucket_prompt_manager_post_call_hook(mock_client_class):
         user_id="test_user",
         response=mock_response,
         input_messages=[{"role": "user", "content": "test"}],
-        litellm_params={},
+        hangarllm_params={},
         prompt_id="test_prompt",
     )
 
@@ -325,7 +325,7 @@ def test_bitbucket_prompt_manager_integration_name():
     assert manager.integration_name == "bitbucket"
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_get_template(mock_client_class):
     """Test BitBucketPromptManager get_template method."""
     # Mock the BitBucket client
@@ -351,7 +351,7 @@ def test_bitbucket_prompt_manager_get_template(mock_client_class):
     assert template is None
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("hangarllm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_list_templates(mock_client_class):
     """Test BitBucketPromptManager list_templates method."""
     # Mock the BitBucket client
@@ -402,7 +402,7 @@ def test_sanitize_file_path_allows_normal_paths():
 
 
 def test_bitbucket_client_rejects_traversal_in_get_file_content():
-    from litellm.integrations.bitbucket.bitbucket_client import BitBucketClient
+    from hangarllm.integrations.bitbucket.bitbucket_client import BitBucketClient
 
     client = BitBucketClient(
         {

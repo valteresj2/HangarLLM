@@ -18,7 +18,7 @@ class TestKeyMaskingInAuthErrors:
         When a key doesn't start with 'sk-', the AssertionError message
         should contain a masked version, not the full key.
         """
-        from litellm.proxy.auth.auth_utils import abbreviate_api_key
+        from hangarllm.proxy.auth.auth_utils import abbreviate_api_key
 
         # Simulate the logic from user_api_key_auth.py
         api_key = "my-secret-api-key-1234567890abcdef"
@@ -65,7 +65,7 @@ class TestKeyMaskingInAuthErrors:
         )
 
         # Build the same message string that user_api_key_auth.py would produce
-        error_message = "LiteLLM Virtual Key expected. Received={}, expected to start with 'sk-'.".format(
+        error_message = "HangarLLM Virtual Key expected. Received={}, expected to start with 'sk-'.".format(
             _masked_key
         )
         # The full key must NOT appear in the message
@@ -91,7 +91,7 @@ class TestKeyMaskingInKeyManagement:
             else "****"
         )
 
-        error_msg = f"Invalid key format. LiteLLM Virtual Key must start with 'sk-'. Received: {_masked}"
+        error_msg = f"Invalid key format. HangarLLM Virtual Key must start with 'sk-'. Received: {_masked}"
 
         # Full key must not appear
         assert key_value not in error_msg

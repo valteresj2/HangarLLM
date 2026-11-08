@@ -16,23 +16,23 @@ from typing import Final
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from litellm.harness.context import GatewayTarget, SessionContext
-from litellm.harness.errors import (
+from hangarllm.harness.context import GatewayTarget, SessionContext
+from hangarllm.harness.errors import (
     CapabilityUnsupported,
     HarnessError,
     HarnessInstallFailed,
     OptionsMismatch,
 )
-from litellm.harness.handlers.cli_handler import PERSIST_DIR_SCRIPT, CLIHarnessHandler
-from litellm.harness.options import HarnessOptions, OpenCodeOptions, PiOptions, PiThinkingLevel
-from litellm.harness.sandbox.base import CompletedRun
-from litellm.harness.types import Event, Harness, PermissionMode, Reasoning, Text, ToolCall, ToolResult
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.base_llm.harness.transformation import (
+from hangarllm.harness.handlers.cli_handler import PERSIST_DIR_SCRIPT, CLIHarnessHandler
+from hangarllm.harness.options import HarnessOptions, OpenCodeOptions, PiOptions, PiThinkingLevel
+from hangarllm.harness.sandbox.base import CompletedRun
+from hangarllm.harness.types import Event, Harness, PermissionMode, Reasoning, Text, ToolCall, ToolResult
+from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
+from hangarllm.llms.base_llm.harness.transformation import (
     HarnessSessionSetup,
     HarnessTurnError,
 )
-from litellm.llms.pi.harness.transformation import (
+from hangarllm.llms.pi.harness.transformation import (
     INSTRUCTIONS_FILENAME,
     MANAGED_CONFIG_KEYS,
     MANAGED_ENV_KEYS,
@@ -51,8 +51,8 @@ from litellm.llms.pi.harness.transformation import (
     tool_args,
     validate_user_config,
 )
-from litellm.types.utils import ModelInfo
-from litellm.utils import ProviderConfigManager, get_model_info
+from hangarllm.types.utils import ModelInfo
+from hangarllm.utils import ProviderConfigManager, get_model_info
 
 FIXTURES: Final = Path(__file__).parent / "fixtures"
 TOKEN: Final = "tok-secret-123"
@@ -501,7 +501,7 @@ def test_build_models_json():
     models: Final = json.loads(build_models_json("m1", "http://h:1/v1", None, None))
     assert models == {
         "providers": {
-            "litellm": {
+            "hangarllm": {
                 "baseUrl": "http://h:1/v1",
                 "api": "openai-completions",
                 "apiKey": f"${PI_TOKEN_ENV}",
@@ -515,10 +515,10 @@ def test_build_models_json():
     )
 
 
-def test_mapped_model_declares_litellm_context_and_output_limits() -> None:
+def test_mapped_model_declares_hangarllm_context_and_output_limits() -> None:
     info: Final = get_model_info(MODEL)
     models: Final = setup_models(setup_for(make_ctx()))
-    declared: Final = models["providers"]["litellm"]["models"][0]
+    declared: Final = models["providers"]["hangarllm"]["models"][0]
     assert (declared["contextWindow"], declared["maxTokens"]) == (
         info["max_input_tokens"],
         min(info["max_output_tokens"], PI_DEFAULT_MAX_TOKENS),
@@ -528,7 +528,7 @@ def test_mapped_model_declares_litellm_context_and_output_limits() -> None:
 @pytest.mark.parametrize("max_output_tokens", [PI_DEFAULT_MAX_TOKENS // 4, PI_DEFAULT_MAX_TOKENS * 8])
 def test_pi_asks_for_no_more_output_tokens_than_the_model_or_its_own_default(max_output_tokens: int) -> None:
     info: Final = ModelInfo(**{**get_model_info(MODEL), "max_output_tokens": max_output_tokens})
-    declared: Final = json.loads(build_models_json(MODEL, "http://h:1/v1", None, info))["providers"]["litellm"]
+    declared: Final = json.loads(build_models_json(MODEL, "http://h:1/v1", None, info))["providers"]["hangarllm"]
     assert declared["models"][0]["maxTokens"] == min(max_output_tokens, PI_DEFAULT_MAX_TOKENS), (
         "pi sends maxTokens as max_completion_tokens on every call, and the gateway reserves it against the key's "
         "TPM limit, so a model's full output cap made keys under that limit answer 429"
@@ -540,7 +540,7 @@ def test_pi_asks_for_no_more_output_tokens_than_the_model_or_its_own_default(max
 def test_thinking_budget_leaves_pi_its_default_room_for_the_answer(
     thinking: PiThinkingLevel, info: ModelInfo | None
 ) -> None:
-    declared: Final = json.loads(build_models_json(MODEL, "http://h:1/v1", thinking, info))["providers"]["litellm"]
+    declared: Final = json.loads(build_models_json(MODEL, "http://h:1/v1", thinking, info))["providers"]["hangarllm"]
     sent: Final = AnthropicConfig().map_openai_params(
         {"reasoning_effort": thinking, "max_completion_tokens": declared["models"][0]["maxTokens"]},
         {},
@@ -548,7 +548,7 @@ def test_thinking_budget_leaves_pi_its_default_room_for_the_answer(
         drop_params=False,
     )
     assert sent["max_tokens"] - sent["thinking"]["budget_tokens"] >= PI_DEFAULT_MAX_TOKENS, (
-        "Anthropic answers 400 unless max_tokens is above the thinking budget LiteLLM sends for the level, "
+        "Anthropic answers 400 unless max_tokens is above the thinking budget HangarLLM sends for the level, "
         "so a budget as large as pi's default left thinking=max with no request it could make"
     )
     assert sent["max_tokens"] <= get_model_info(MODEL)["max_output_tokens"]
@@ -556,7 +556,7 @@ def test_thinking_budget_leaves_pi_its_default_room_for_the_answer(
 
 def test_model_that_supports_prompt_caching_asks_pi_for_cache_control_marks() -> None:
     assert get_model_info(MODEL).get("supports_prompt_caching") is True
-    declared: Final = setup_models(setup_for(make_ctx()))["providers"]["litellm"]["models"][0]
+    declared: Final = setup_models(setup_for(make_ctx()))["providers"]["hangarllm"]["models"][0]
     assert declared["compat"] == {"cacheControlFormat": "anthropic"}, (
         "pi only marks cache_control for OpenRouter Anthropic models by itself, so every Claude call missed the cache"
     )
@@ -575,12 +575,12 @@ GATEWAY: Final = GatewayTarget(api_base="http://gateway:4000", api_key="sk-gatew
 def test_gateway_group_is_looked_up_without_printing_to_stdout(
     group: str, declared_limits: Mapping[str, int], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    declared: Final = setup_models(setup_for(make_ctx(model=group, gateway=GATEWAY)))["providers"]["litellm"]["models"][
+    declared: Final = setup_models(setup_for(make_ctx(model=group, gateway=GATEWAY)))["providers"]["hangarllm"]["models"][
         0
     ]
     assert {key: declared[key] for key in declared_limits} == declared_limits
     assert ("maxTokens" in declared) == bool(declared_limits)
-    assert capsys.readouterr().out == "", "an unmapped gateway group printed LiteLLM's provider-list banner on stdout"
+    assert capsys.readouterr().out == "", "an unmapped gateway group printed HangarLLM's provider-list banner on stdout"
 
 
 MAPPED_MODEL: Final = {
@@ -607,7 +607,7 @@ def test_thinking_declares_a_reasoning_model_only_when_a_level_is_requested(
     thinking: PiThinkingLevel | None, declared_model: Mapping[str, object]
 ) -> None:
     models: Final = setup_models(setup_for(make_ctx(options=PiOptions(thinking=thinking))))
-    declared: Final = {key: value for key, value in models["providers"]["litellm"]["models"][0].items() if key != "maxTokens"}
+    declared: Final = {key: value for key, value in models["providers"]["hangarllm"]["models"][0].items() if key != "maxTokens"}
     assert declared == {key: value for key, value in declared_model.items() if key != "maxTokens"}, (
         "pi drops --thinking to off unless the model declares reasoning, and drops xhigh/max to high "
         "unless thinkingLevelMap names them; declaring reasoning with no level makes pi send its default effort"
@@ -648,7 +648,7 @@ def test_session_setup_token_only_in_env():
     assert set(setup.files) == {MODELS_FILENAME}
     assert all(TOKEN.encode() not in data for data in setup.files.values())
     assert setup.env[PI_TOKEN_ENV] == TOKEN
-    provider: Final = setup_models(setup)["providers"]["litellm"]
+    provider: Final = setup_models(setup)["providers"]["hangarllm"]
     assert provider["baseUrl"] == "http://host.docker.internal:4555/v1"
     assert provider["apiKey"] == f"${PI_TOKEN_ENV}"
 
@@ -671,7 +671,7 @@ def test_session_setup_writes_user_config_next_to_managed_models():
     setup: Final = setup_for(make_ctx(options=options))
     assert set(setup.files) == {MODELS_FILENAME, MCP_FILENAME, SETTINGS_FILENAME}
     assert json.loads(setup.files[MCP_FILENAME]) == {"mcpServers": {"moyai": MOYAI}}
-    assert setup_models(setup)["providers"]["litellm"]["apiKey"] == f"${PI_TOKEN_ENV}"
+    assert setup_models(setup)["providers"]["hangarllm"]["apiKey"] == f"${PI_TOKEN_ENV}"
 
 
 def test_session_setup_errors():
@@ -714,7 +714,7 @@ def test_turn_request_argv_and_session_continuation():
         "--no-approve",
         "--no-skills",
         "--provider",
-        "litellm",
+        "hangarllm",
         "--model",
         MODEL,
         "--session-dir",
@@ -768,7 +768,7 @@ async def test_start_writes_token_only_in_env():
     sandbox: Final = FakeSandbox(outputs=(fixture_proc("turn1_write_read.jsonl"),))
     ctx: Final = make_ctx(sandbox)
     handler: Final = await started(ctx)
-    assert written_models(sandbox)["providers"]["litellm"]["apiKey"] == f"${PI_TOKEN_ENV}"
+    assert written_models(sandbox)["providers"]["hangarllm"]["apiKey"] == f"${PI_TOKEN_ENV}"
     assert all(TOKEN.encode() not in data for data in sandbox.files.values())
     await collect(handler, ctx, "create hello.txt containing hi then read it")
     assert TOKEN not in json.dumps(list(sandbox.execs[0].cmd))
@@ -801,7 +801,7 @@ async def test_turn_argv_env_and_session_continuation():
         "--no-approve",
         "--no-skills",
         "--provider",
-        "litellm",
+        "hangarllm",
         "--model",
         MODEL,
         "--session-dir",
@@ -980,7 +980,7 @@ async def test_model_falls_back_to_endpoint_model():
     ctx: Final = make_ctx(sandbox, model=None, endpoint=FakeEndpoint(model="gw-model"))
     await collect(await started(ctx), ctx, "x")
     assert flag(sandbox.execs[0].cmd, "--model") == "gw-model"
-    assert written_models(sandbox)["providers"]["litellm"]["models"] == [{"id": "gw-model"}]
+    assert written_models(sandbox)["providers"]["hangarllm"]["models"] == [{"id": "gw-model"}]
 
 
 def test_turn_request_never_trusts_project_files():

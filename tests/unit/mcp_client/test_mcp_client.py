@@ -49,9 +49,9 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-# Add the parent directory to the path so we can import litellm
-import litellm.mcp_client.client as mcp_client_module
-from litellm.mcp_client.client import (
+# Add the parent directory to the path so we can import hangarllm
+import hangarllm.mcp_client.client as mcp_client_module
+from hangarllm.mcp_client.client import (
     MCPClient,
     MCPSigV4Auth,
     PersistentMCPSession,
@@ -62,18 +62,18 @@ from litellm.mcp_client.client import (
     as_mcp_read_timeout,
     strip_auth_scheme,
 )
-from litellm.proxy.mcp_server.faults.list_outcomes import (
+from hangarllm.proxy.mcp_server.faults.list_outcomes import (
     ServerListFault,
     classify_list_exception,
     list_fault_http_status,
     upstream_rate_limit,
 )
-from litellm.proxy.mcp_server.mcp_server_manager import (
+from hangarllm.proxy.mcp_server.mcp_server_manager import (
     _format_byok_openapi_auth_header,
 )
-from litellm.proxy.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
-from litellm.types.mcp import MCPAuth, MCPStdioConfig, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.proxy.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
+from hangarllm.types.mcp import MCPAuth, MCPStdioConfig, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 from tests._support.clock_loops import AutojumpClockLoop, ManualClockLoop
 from tests._support.mcp_count_tool_upstream import count_tool_upstream, methods_received
 
@@ -165,7 +165,7 @@ async def test_modern_input_request_uses_existing_elicitation_callback(
         TextContent,
     )
 
-    from litellm.proxy.mcp_server.interactions import BoundInputRequiredResult
+    from hangarllm.proxy.mcp_server.interactions import BoundInputRequiredResult
 
     observed: Final[SimpleQueue[str]] = SimpleQueue()
     sampled: Final = CreateMessageResult(
@@ -381,8 +381,8 @@ class TestMCPClient:
             await client.run_with_session(_noop)
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.stdio_client")
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.stdio_client")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_mcp_client_stdio_connect_success(self, mock_session, mock_stdio_client):
         """Test successful stdio connection"""
         # Setup mocks - create proper async context manager
@@ -434,7 +434,7 @@ class TestMCPClient:
         mock_streamable_http_client.return_value = mock_http_ctx
 
         # Mock the session
-        with patch("litellm.mcp_client.client.ClientSession") as mock_session:
+        with patch("hangarllm.mcp_client.client.ClientSession") as mock_session:
             mock_session_instance = AsyncMock()
             mock_session_instance.initialize = AsyncMock(return_value=_initialized())
             mock_session_ctx = AsyncMock()
@@ -480,7 +480,7 @@ class TestMCPClient:
         mock_sse_client.return_value = mock_sse_ctx
 
         # Mock the session
-        with patch("litellm.mcp_client.client.ClientSession") as mock_session:
+        with patch("hangarllm.mcp_client.client.ClientSession") as mock_session:
             mock_session_instance = AsyncMock()
             mock_session_instance.initialize = AsyncMock(return_value=_initialized())
             mock_session_ctx = AsyncMock()
@@ -532,7 +532,7 @@ class TestMCPClient:
         mock_streamable_http_client.return_value = mock_http_ctx
 
         # Mock the session
-        with patch("litellm.mcp_client.client.ClientSession") as mock_session:
+        with patch("hangarllm.mcp_client.client.ClientSession") as mock_session:
             mock_session_instance = AsyncMock()
             mock_session_instance.initialize = AsyncMock(return_value=_initialized())
             mock_session_ctx = AsyncMock()
@@ -672,7 +672,7 @@ class TestMCPClientInstructionsCapture:
         assert client._last_initialize_instructions is None
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_captures_instructions_from_initialize(self, mock_session_cls):
         """Instructions from upstream initialize() are captured and stripped."""
         client = MCPClient(
@@ -700,7 +700,7 @@ class TestMCPClientInstructionsCapture:
         assert client._last_initialize_instructions == "upstream says hello"
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_none_instructions_stays_none(self, mock_session_cls):
         """When upstream returns no instructions the field stays None."""
         client = MCPClient(
@@ -789,7 +789,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
         return transport_ctx
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_surfaces_connect_error_over_cancelled(self, mock_session_cls):
         client = MCPClient(server_url="http://example.com/mcp", transport_type="http")
         self._make_session(
@@ -806,7 +806,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
             await client._execute_session_operation(transport_ctx, _op)
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_genuine_cancellation_is_not_replaced(self, mock_session_cls):
         client = MCPClient(server_url="http://example.com/mcp", transport_type="http")
         self._make_session(mock_session_cls, AsyncMock(side_effect=asyncio.CancelledError()))
@@ -820,7 +820,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("failure_phase", ("early", "late", "mixed"))
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_response_close_preserves_cancellation_and_original_errors(self, session_class, failure_phase):
         closed: Final = asyncio.Event()
         close_error: Final = httpx2.ReadError("response close failed")
@@ -865,7 +865,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
             assert closed.is_set()
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_cleanup_error_after_success_is_swallowed(self, mock_session_cls):
         client = MCPClient(server_url="http://example.com/mcp", transport_type="http")
         init_result = _initialized()
@@ -879,7 +879,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
         assert result == "done"
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_session_entry_failure_still_closes_transport(self, session_class):
         failure: Final = RuntimeError("session dispatcher did not start")
         session_class.return_value.__aenter__ = AsyncMock(side_effect=failure)
@@ -898,7 +898,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("original_error", (False, True))
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_session_exit_cancellation_preserves_original_failure(self, session_class, original_error):
         self._make_session(session_class, AsyncMock(return_value=_initialized()))
         cancelled: Final = asyncio.CancelledError("cancelled while closing session")
@@ -920,7 +920,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("signal_type", (SystemExit, KeyboardInterrupt))
     @pytest.mark.parametrize("phase", ("session", "transport"))
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_cleanup_preserves_process_exit(self, session_class, phase, signal_type):
         self._make_session(session_class, AsyncMock(return_value=_initialized()))
         signal: Final = signal_type("process stopping")
@@ -934,7 +934,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
         transport.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("litellm.mcp_client.client.ClientSession")
+    @patch("hangarllm.mcp_client.client.ClientSession")
     async def test_session_and_termination_share_one_cleanup_deadline(self, session_class):
         self._make_session(session_class, AsyncMock(return_value=_initialized()))
         deleting: Final = asyncio.Event()
@@ -1717,7 +1717,7 @@ async def test_authorization_is_left_to_httpx_and_needs_no_guard():
     # The default slot is already protected by httpx, so the client must not install a guard for it
     # and must not interfere with the ordinary Authorization path.
     url = "https://upstream.example.com/mcp"
-    from litellm.types.mcp import credential_redirect_hook
+    from hangarllm.types.mcp import credential_redirect_hook
 
     def guard_for(client: MCPClient):
         return credential_redirect_hook(client.server_url, client._credential_slot)
@@ -1837,7 +1837,7 @@ def test_a_differently_cased_injected_header_cannot_shadow_the_slot() -> None:
 async def test_invalid_http_response_surfaces_without_waiting_for_timeout(
     content_type: str, body: bytes, expected_type: type[Exception]
 ) -> None:
-    from litellm.proxy.mcp_server.rest_endpoints import _connection_error_message
+    from hangarllm.proxy.mcp_server.rest_endpoints import _connection_error_message
 
     def respond(request: httpx2.Request) -> httpx2.Response:
         if expected_type is ValidationError:
@@ -1981,7 +1981,7 @@ async def test_sse_catalog_limit_reports_the_failure_and_allows_smaller_pages(pa
 
 @pytest.mark.asyncio
 async def test_http_status_check_allows_auth_refresh_before_rejecting() -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.client_credentials import (
+    from hangarllm.proxy.mcp_server.outbound_credentials.client_credentials import (
         ClientCredentialsBearerAuth,
     )
 
@@ -1995,7 +1995,7 @@ async def test_http_status_check_allows_auth_refresh_before_rejecting() -> None:
         seen.append(request.headers["authorization"])
         return httpx2.Response(401 if len(seen) == 1 else 200, json={"ok": True})
 
-    from litellm.proxy.mcp_server.outbound_credentials.types import ClientCredentialsConfig
+    from hangarllm.proxy.mcp_server.outbound_credentials.types import ClientCredentialsConfig
 
     auth = ClientCredentialsBearerAuth("stale", refresh, ClientCredentialsConfig())
     client = MCPClient(server_url="https://example.com/mcp", resolved_auth=auth)
@@ -2059,7 +2059,7 @@ async def test_http_response_handler_preserves_notifications_and_tool_listing() 
 
 @pytest.mark.asyncio
 async def test_invalid_tool_list_schema_is_identified_as_an_upstream_response() -> None:
-    from litellm.proxy.mcp_server.rest_endpoints import _connection_error_message
+    from hangarllm.proxy.mcp_server.rest_endpoints import _connection_error_message
 
     def respond(request: httpx2.Request) -> httpx2.Response:
         if request.method == "DELETE":
@@ -2251,7 +2251,7 @@ async def test_transport_completion_and_normal_messages(
 ) -> None:
     from mcp import ClientSession
 
-    from litellm.proxy.mcp_server.rest_endpoints import _connection_error_message
+    from hangarllm.proxy.mcp_server.rest_endpoints import _connection_error_message
 
     logging_callback: Final = AsyncMock()
     read_timeout: Final = 0.2 if mode == "silent" else 30
@@ -2437,7 +2437,7 @@ async def test_optional_discovery_capabilities_and_errors(
         return httpx2.Response(200, json={"jsonrpc": "2.0", "id": payload.id, "result": {field: [entry]}})
 
     responder: Final = Mock(side_effect=respond)
-    caplog.set_level(logging.DEBUG, logger="LiteLLM")
+    caplog.set_level(logging.DEBUG, logger="HangarLLM")
     client: Final = _MockTransportClient(responder, server_url="https://example.com/mcp")
     operation: Final = {
         "prompts/list": client.list_prompts,
@@ -2460,7 +2460,7 @@ async def test_optional_discovery_capabilities_and_errors(
     )
     assert [item.name for item in result] == (["example"] if outcome == "supported" else [])
     failures: Final = tuple(
-        record for record in caplog.records if record.name == "LiteLLM" and record.levelno >= logging.WARNING
+        record for record in caplog.records if record.name == "HangarLLM" and record.levelno >= logging.WARNING
     )
     if outcome in ("internal_error", "unauthorized", "timeout", "initialize_not_found"):
         assert any(record.levelno == logging.ERROR and "failed" in record.message for record in failures)
@@ -2841,7 +2841,7 @@ async def test_optional_discovery_allows_exhaustion_at_page_cap(method: str, mon
 def test_standalone_client_request_does_not_require_proxy_dependencies():
     import textwrap
 
-    from tests.test_litellm_rust.support.child_interpreter import run_child_interpreter
+    from tests.test_hangarllm_rust.support.child_interpreter import run_child_interpreter
 
     script = textwrap.dedent("""
         import asyncio
@@ -2849,7 +2849,7 @@ def test_standalone_client_request_does_not_require_proxy_dependencies():
         for name in ("fastapi", "orjson", "email_validator", "annotated_doc"):
             sys.modules[name] = None
         import httpx2
-        from litellm.mcp_client.client import MCPClient
+        from hangarllm.mcp_client.client import MCPClient
 
         async def request():
             upstream = MCPClient(server_url="https://upstream.example/mcp")
@@ -2874,7 +2874,7 @@ def test_client_import_before_proxy_credentials_succeeds_in_fresh_process():
         [
             sys.executable,
             "-c",
-            "import litellm.mcp_client.client; from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager; print(MCPServerManager.__name__)",
+            "import hangarllm.mcp_client.client; from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager; print(MCPServerManager.__name__)",
         ],
         capture_output=True,
         text=True,
@@ -2888,7 +2888,7 @@ def test_client_import_before_proxy_credentials_succeeds_in_fresh_process():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("resolved", (False, True))
 async def test_discovery_auth_fingerprint_tracks_effective_credentials(resolved: bool) -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
+    from hangarllm.proxy.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
 
     def client(token: str) -> MCPClient:
         return MCPClient(
@@ -2934,7 +2934,7 @@ async def test_discovery_auth_fingerprint_tracks_aws_sigv4_credential_identity()
 
 @pytest.mark.asyncio
 async def test_request_auth_preview_uses_the_same_effective_headers_as_egress() -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
+    from hangarllm.proxy.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
 
     client: Final = MCPClient(
         server_url="https://upstream.example/mcp",
@@ -3029,35 +3029,35 @@ async def test_404_before_session_initialization_preserves_method_not_found() ->
 def test_public_mcp_import_missing_dependency(missing_module: str) -> None:
     with patch.dict(sys.modules):
         for name in tuple(sys.modules):
-            if name.startswith(("litellm.mcp_client", "mcp.", "mcp_types.")) or name == "mcp":
+            if name.startswith(("hangarllm.mcp_client", "mcp.", "mcp_types.")) or name == "mcp":
                 del sys.modules[name]
         with patch.dict(sys.modules, {missing_module: None}):
             with pytest.raises(ImportError) as caught:
-                importlib.import_module("litellm.mcp_client.client")
+                importlib.import_module("hangarllm.mcp_client.client")
 
     if missing_module in ("mcp", "httpx2"):
-        assert "pip install 'litellm[mcp]'" in str(caught.value)
+        assert "pip install 'hangarllm[mcp]'" in str(caught.value)
         assert isinstance(caught.value.__cause__, ModuleNotFoundError)
         assert caught.value.__cause__.name == missing_module
     else:
         assert isinstance(caught.value, ModuleNotFoundError)
         assert caught.value.name == missing_module
         assert caught.value.__cause__ is None
-        assert "litellm[mcp]" not in str(caught.value)
+        assert "hangarllm[mcp]" not in str(caught.value)
 
 
 def test_public_mcp_import_preserves_incompatible_sdk_error() -> None:
     with patch.dict(sys.modules):
         for name in tuple(sys.modules):
-            if name.startswith("litellm.mcp_client"):
+            if name.startswith("hangarllm.mcp_client"):
                 del sys.modules[name]
         with patch.dict(sys.modules, {"mcp": ModuleType("mcp")}):
             with pytest.raises(ImportError, match="cannot import name 'ClientSession'") as caught:
-                importlib.import_module("litellm.mcp_client.client")
+                importlib.import_module("hangarllm.mcp_client.client")
 
     assert not isinstance(caught.value, ModuleNotFoundError)
     assert caught.value.__cause__ is None
-    assert "litellm[mcp]" not in str(caught.value)
+    assert "hangarllm[mcp]" not in str(caught.value)
 
 
 @pytest.mark.asyncio
@@ -3637,7 +3637,7 @@ async def test_modern_call_requires_schema_from_bounded_listing(
 
     from mcp.types import ToolsCapability
 
-    monkeypatch.setattr("litellm.mcp_client.tools.MCP_TOOL_LISTING_MAX_PAGES", 2)
+    monkeypatch.setattr("hangarllm.mcp_client.tools.MCP_TOOL_LISTING_MAX_PAGES", 2)
     methods: Final[SimpleQueue[str]] = SimpleQueue()
 
     def respond(request: httpx2.Request) -> httpx2.Response:
@@ -5049,7 +5049,7 @@ async def test_persistent_session_reports_an_upstream_cancellation_as_a_runtime_
 
 @pytest.mark.asyncio
 async def test_closing_persistent_session_fails_a_caller_blocked_on_a_full_queue_instead_of_hanging() -> None:
-    from litellm.mcp_client.client import _MAX_PENDING_OPERATIONS
+    from hangarllm.mcp_client.client import _MAX_PENDING_OPERATIONS
 
     app: Final = _stateful_upstream()
     async with app.router.lifespan_context(app):
@@ -5092,8 +5092,8 @@ async def test_persistent_session_ends_after_a_broken_stream_so_the_next_call_ge
 async def test_persistent_session_releases_the_current_requests_scope_response(session_started_in_request) -> None:
     from mcp.server.context import ServerRequestContext
 
-    from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
-    from litellm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse
+    from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from hangarllm.proxy.mcp_server.scope_challenge import SCOPE_RESPONSE_KEY, OAuthScopeResponse
 
     app = _stateful_upstream()
     async with app.router.lifespan_context(app):
@@ -5208,8 +5208,8 @@ async def test_cancelling_persistent_operation_stops_work_and_keeps_session_usab
 @pytest.mark.asyncio
 @pytest.mark.parametrize("header_name", ["Authorization", "x-upstream-token"])
 async def test_subscription_fingerprint_preserves_context_across_managed_renewal(header_name):
-    from litellm.proxy.mcp_server.outbound_credentials.client_credentials import ClientCredentialsBearerAuth
-    from litellm.proxy.mcp_server.outbound_credentials.types import ClientCredentialsConfig
+    from hangarllm.proxy.mcp_server.outbound_credentials.client_credentials import ClientCredentialsBearerAuth
+    from hangarllm.proxy.mcp_server.outbound_credentials.types import ClientCredentialsConfig
 
     async def refetch(token: str) -> str | None:
         return None
@@ -5237,7 +5237,7 @@ async def test_subscription_fingerprint_preserves_context_across_managed_renewal
 
 @pytest.mark.asyncio
 async def test_notification_callback_keeps_stream_errors_separate_from_protocol_errors() -> None:
-    from litellm.mcp_client.client import _receive_session_message
+    from hangarllm.mcp_client.client import _receive_session_message
 
     stream_error = asyncio.get_running_loop().create_future()
     receiver = AsyncMock()

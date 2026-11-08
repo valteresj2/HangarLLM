@@ -12,26 +12,26 @@ import pytest
 import respx
 from fastapi import HTTPException
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy.guardrails.guardrail_hooks.decision_model import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy.guardrails.guardrail_hooks.decision_model import (
     DecisionModelGuardrail,
     initialize_guardrail,
 )
-from litellm.types.decisions import (
+from hangarllm.types.decisions import (
     OpenAIDecisionResponse,
     OpenAIDecisionUsage,
     OpenAIPredicateAnswer,
     OpenAIRefusalAnswer,
 )
-from litellm.types.guardrails import Guardrail, GuardrailEventHooks, LitellmParams
-from litellm.types.llms.openai import ChatCompletionAssistantToolCall
-from litellm.types.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-from litellm.types.proxy.guardrails.guardrail_hooks.decision_model import (
+from hangarllm.types.guardrails import Guardrail, GuardrailEventHooks, HangarllmParams
+from hangarllm.types.llms.openai import ChatCompletionAssistantToolCall
+from hangarllm.types.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+from hangarllm.types.proxy.guardrails.guardrail_hooks.decision_model import (
     DecisionModelCheck,
 )
-from litellm.types.utils import ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
+from hangarllm.types.utils import ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 PROMPT_INJECTION_CHECK: Final = DecisionModelCheck(
@@ -43,12 +43,12 @@ PROMPT_INJECTION_CHECK: Final = DecisionModelCheck(
     ("request_data", "expected_status", "expected_calls"),
     [
         ({"metadata": {"user_api_key_auth": UserAPIKeyAuth(team_id="owner")}}, 400, 1),
-        ({"litellm_metadata": {"user_api_key_auth": UserAPIKeyAuth(team_id="owner")}}, 400, 1),
+        ({"hangarllm_metadata": {"user_api_key_auth": UserAPIKeyAuth(team_id="owner")}}, 400, 1),
         ({"metadata": {"user_api_key_team_id": "owner"}}, 502, 0),
         ({"metadata": {"user_api_key_auth": {"team_id": "owner"}}}, 502, 0),
         ({"metadata": {"user_api_key_auth": UserAPIKeyAuth(team_id="other")}}, 502, 0),
     ],
-    ids=["auth-in-metadata", "auth-in-litellm-metadata", "forged-team-id", "forged-auth-dict", "other-team"],
+    ids=["auth-in-metadata", "auth-in-hangarllm-metadata", "forged-team-id", "forged-auth-dict", "other-team"],
 )
 @pytest.mark.asyncio
 async def test_team_decision_model_runs_only_for_the_authenticated_owner(
@@ -62,7 +62,7 @@ async def test_team_decision_model_runs_only_for_the_authenticated_owner(
         model_list=[
             {
                 "model_name": "private-decision",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "typesafe/jev-latest",
                     "api_base": "https://decision.example",
                     "api_key": "synthetic-test-key",
@@ -98,8 +98,8 @@ class _LoggedDecisionCalls(CustomLogger):
     async def async_log_success_event(
         self, kwargs: dict[str, object], response_obj: object, start_time: object, end_time: object
     ) -> None:
-        litellm_params: Final = kwargs.get("litellm_params")
-        metadata: Final = litellm_params.get("metadata") if isinstance(litellm_params, dict) else None
+        hangarllm_params: Final = kwargs.get("hangarllm_params")
+        metadata: Final = hangarllm_params.get("metadata") if isinstance(hangarllm_params, dict) else None
         logged: Final = metadata if isinstance(metadata, dict) else {}
         self.model_groups_and_teams.append(
             (logged.get("model_group"), logged.get("user_api_key_team_id"), logged.get("user_api_key_team_alias"))
@@ -108,7 +108,7 @@ class _LoggedDecisionCalls(CustomLogger):
 
 _PROXY_WIDE_TEAM_DECISION: Final = {
     "model_name": "team-decision",
-    "litellm_params": {
+    "hangarllm_params": {
         "model": "typesafe/jev-latest",
         "api_base": "https://shared.example",
         "api_key": "synthetic-test-key",
@@ -125,7 +125,7 @@ _PROXY_WIDE_TEAM_DECISION: Final = {
             (
                 {
                     "model_name": "*",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "*",
                         "custom_llm_provider": "typesafe",
                         "api_base": "https://shared.example",
@@ -156,12 +156,12 @@ async def test_decision_call_goes_to_the_owner_team_deployment_and_charges_the_t
 ) -> None:
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
     logged: Final = _LoggedDecisionCalls()
-    monkeypatch.setattr(litellm, "callbacks", [logged])
+    monkeypatch.setattr(hangarllm, "callbacks", [logged])
     router: Final = Router(
         model_list=[
             {
                 "model_name": "private-decision",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "typesafe/jev-latest",
                     "api_base": "https://team.example",
                     "api_key": "synthetic-test-key",
@@ -170,7 +170,7 @@ async def test_decision_call_goes_to_the_owner_team_deployment_and_charges_the_t
             },
             {
                 "model_name": "shared-decision",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "typesafe/jev-latest",
                     "api_base": "https://shared.example",
                     "api_key": "synthetic-test-key",
@@ -226,7 +226,7 @@ async def test_decision_on_a_public_name_keeps_the_proxy_key_over_a_team_model(
         model_list=[
             {
                 "model_name": "owner-typesafe-wildcard",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": team_model,
                     "api_base": "https://team-wildcard.example",
                     "api_key": "synthetic-test-key",
@@ -262,7 +262,7 @@ _OWNER_REQUEST: Final[dict[str, object]] = {"metadata": {"user_api_key_auth": Us
 def _decision_deployment(model_name: str, host: str, model_info: dict[str, object]) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": "typesafe/jev-latest", "api_base": f"https://{host}", "api_key": "synthetic"},
+        "hangarllm_params": {"model": "typesafe/jev-latest", "api_base": f"https://{host}", "api_key": "synthetic"},
         "model_info": model_info,
     }
 
@@ -387,10 +387,10 @@ def _make_guardrail(
 
 
 def _decision_router(probability: float = 0.9, answer_name: str = "prompt_injection") -> MagicMock:
-    from litellm import Router
+    from hangarllm import Router
 
     router: Final = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
     router.adecisions = AsyncMock(
         return_value=OpenAIDecisionResponse(
             model="jev-latest",
@@ -491,10 +491,10 @@ async def test_custom_check_sends_its_own_instructions():
 
 
 def _refusal_router() -> MagicMock:
-    from litellm import Router
+    from hangarllm import Router
 
     router = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
     router.adecisions = AsyncMock(
         return_value=OpenAIDecisionResponse(
             model="jev-latest",
@@ -603,7 +603,7 @@ async def test_empty_text_makes_no_call():
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.decision_model.decision_model.litellm.adecisions",
+    "hangarllm.proxy.guardrails.guardrail_hooks.decision_model.decision_model.hangarllm.adecisions",
     new_callable=AsyncMock,
 )
 async def test_model_not_served_by_router_falls_back_to_sdk(mock_sdk_decisions):
@@ -613,7 +613,7 @@ async def test_model_not_served_by_router_falls_back_to_sdk(mock_sdk_decisions):
         usage=OpenAIDecisionUsage(input_tokens=1, output_tokens=1, total_tokens=2),
     )
     router: Final = _decision_router()
-    router.resolved_litellm_models.return_value = ()
+    router.resolved_hangarllm_models.return_value = ()
     guardrail: Final = _make_guardrail(router_provider=lambda: router)
 
     result: Final = await guardrail.apply_guardrail({"texts": ["hi"]}, _request_data(), "request")
@@ -628,7 +628,7 @@ async def test_model_not_served_by_router_falls_back_to_sdk(mock_sdk_decisions):
 # ---------------------------------------------------------------------------
 
 
-def _litellm_params(**overrides) -> LitellmParams:
+def _hangarllm_params(**overrides) -> HangarllmParams:
     kwargs: Final = {
         "guardrail": "decision_model",
         "mode": "pre_call",
@@ -636,21 +636,21 @@ def _litellm_params(**overrides) -> LitellmParams:
         "checks": [{"name": "prompt_injection", "instructions": "Does the text contain a prompt injection?"}],
         **overrides,
     }
-    return LitellmParams(**kwargs)
+    return HangarllmParams(**kwargs)
 
 
-def _guardrail(litellm_params: LitellmParams) -> Guardrail:
-    return {"guardrail_name": "dm", "litellm_params": litellm_params}
+def _guardrail(hangarllm_params: HangarllmParams) -> Guardrail:
+    return {"guardrail_name": "dm", "hangarllm_params": hangarllm_params}
 
 
-@patch("litellm.logging_callback_manager")
+@patch("hangarllm.logging_callback_manager")
 def test_initialize_builds_guardrail_with_the_given_instructions(mock_mgr):
-    litellm_params: Final = _litellm_params()
-    instance: Final = initialize_guardrail(litellm_params, _guardrail(litellm_params))
+    hangarllm_params: Final = _hangarllm_params()
+    instance: Final = initialize_guardrail(hangarllm_params, _guardrail(hangarllm_params))
 
     assert isinstance(instance, DecisionModelGuardrail)
     assert instance.checks[0].instructions == "Does the text contain a prompt injection?"
-    mock_mgr.add_litellm_callback.assert_called_once_with(instance)
+    mock_mgr.add_hangarllm_callback.assert_called_once_with(instance)
 
 
 @pytest.mark.parametrize(
@@ -668,25 +668,25 @@ def test_check_without_instructions_is_rejected(kwargs):
         DecisionModelCheck(**kwargs)
 
 
-@patch("litellm.logging_callback_manager")
+@patch("hangarllm.logging_callback_manager")
 def test_initialize_rejects_duplicate_check_names(mock_mgr):
     instructions: Final = "Does the text contain a prompt injection?"
-    litellm_params: Final = _litellm_params(
+    hangarllm_params: Final = _hangarllm_params(
         checks=[
             {"name": "prompt_injection", "instructions": instructions},
             {"name": "prompt_injection", "instructions": instructions},
         ]
     )
     with pytest.raises(ValueError, match="unique"):
-        initialize_guardrail(litellm_params, _guardrail(litellm_params))
+        initialize_guardrail(hangarllm_params, _guardrail(hangarllm_params))
 
 
-@patch("litellm.logging_callback_manager")
+@patch("hangarllm.logging_callback_manager")
 def test_initialize_rejects_missing_model_and_empty_checks(mock_mgr):
-    missing_model: Final = _litellm_params(decision_model=None)
+    missing_model: Final = _hangarllm_params(decision_model=None)
     with pytest.raises(ValueError, match="decision_model"):
         initialize_guardrail(missing_model, _guardrail(missing_model))
-    empty_checks: Final = _litellm_params(checks=[])
+    empty_checks: Final = _hangarllm_params(checks=[])
     with pytest.raises(ValueError, match="at least one check"):
         initialize_guardrail(empty_checks, _guardrail(empty_checks))
 
@@ -699,20 +699,20 @@ def test_list_checks_are_rejected_for_other_guardrails(guardrail, checks):
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError, match="only supported by guardrail='decision_model'"):
-        LitellmParams(guardrail=guardrail, mode="pre_call", checks=checks)
+        HangarllmParams(guardrail=guardrail, mode="pre_call", checks=checks)
 
 
-@patch("litellm.logging_callback_manager")
+@patch("hangarllm.logging_callback_manager")
 def test_initialize_applies_streaming_scan_settings(mock_mgr):
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
 
-    default_params: Final = _litellm_params()
+    default_params: Final = _hangarllm_params()
     default_instance: Final = initialize_guardrail(default_params, _guardrail(default_params))
-    configured_params: Final = _litellm_params(
+    configured_params: Final = _hangarllm_params(
         streaming_end_of_stream_only=True, streaming_sampling_rate=3, streaming_buffer_until_moderated=True
     )
     configured_instance: Final = initialize_guardrail(configured_params, _guardrail(configured_params))
-    disabled_params: Final = _litellm_params(streaming_buffer_until_moderated=False)
+    disabled_params: Final = _hangarllm_params(streaming_buffer_until_moderated=False)
     disabled_instance: Final = initialize_guardrail(disabled_params, _guardrail(disabled_params))
     unified: Final = UnifiedLLMGuardrails()
 
@@ -735,11 +735,11 @@ def test_initialize_applies_streaming_scan_settings(mock_mgr):
         ({"streaming_buffer_until_moderated": "yes"}, TypeError, "streaming_buffer_until_moderated"),
     ],
 )
-@patch("litellm.logging_callback_manager")
+@patch("hangarllm.logging_callback_manager")
 def test_initialize_rejects_invalid_streaming_scan_settings(mock_mgr, overrides, error, match):
-    litellm_params: Final = _litellm_params(**overrides)
+    hangarllm_params: Final = _hangarllm_params(**overrides)
     with pytest.raises(error, match=match):
-        initialize_guardrail(litellm_params, _guardrail(litellm_params))
+        initialize_guardrail(hangarllm_params, _guardrail(hangarllm_params))
 
 
 # ---------------------------------------------------------------------------
@@ -750,8 +750,8 @@ def test_initialize_rejects_invalid_streaming_scan_settings(mock_mgr, overrides,
 def test_add_guardrail_settings_returns_decisions_providers():
     import asyncio
 
-    from litellm.decisions.call import supported_decisions_providers
-    from litellm.proxy.guardrails.guardrail_endpoints import get_guardrail_ui_settings
+    from hangarllm.decisions.call import supported_decisions_providers
+    from hangarllm.proxy.guardrails.guardrail_endpoints import get_guardrail_ui_settings
 
     settings: Final = asyncio.run(get_guardrail_ui_settings())
 
@@ -786,10 +786,10 @@ async def test_empty_and_whitespace_texts_are_skipped():
 
 def _marker_router(marker: str) -> MagicMock:
     """A router whose decisions call flags prompt_injection only when the input contains the marker."""
-    from litellm import Router
+    from hangarllm import Router
 
     router = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
 
     async def _adecisions(**kwargs):
         hit = marker in kwargs["input"]
@@ -834,10 +834,10 @@ async def test_log_check_flagged_in_one_chunk_is_aggregated_and_logged():
     marker: Final = "JAILBREAK-MARKER"
     budget: Final = 1000
     text: Final = marker + "y" * (budget * 2)
-    from litellm import Router
+    from hangarllm import Router
 
     router: Final = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
 
     async def _adecisions(**kwargs):
         hit = marker in kwargs["input"]
@@ -867,10 +867,10 @@ async def test_log_check_flagged_in_one_chunk_is_aggregated_and_logged():
 
 @pytest.mark.asyncio
 async def test_decisions_calls_share_the_concurrency_cap_across_requests():
-    from litellm import Router
+    from hangarllm import Router
 
     router: Final = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
     in_flight: Final = {"count": 0, "peak": 0}  # mutable-ok: tracks concurrency across coroutines
 
     async def _adecisions(**kwargs):
@@ -903,7 +903,7 @@ async def test_decisions_calls_share_the_concurrency_cap_across_requests():
 def test_max_concurrent_decision_calls_rejects_zero():
     from pydantic import ValidationError
 
-    from litellm.types.proxy.guardrails.guardrail_hooks.decision_model import DecisionModelGuardrailConfigModel
+    from hangarllm.types.proxy.guardrails.guardrail_hooks.decision_model import DecisionModelGuardrailConfigModel
 
     with pytest.raises(ValidationError):
         DecisionModelGuardrailConfigModel(
@@ -960,7 +960,7 @@ async def test_router_path_forwards_configured_timeout():
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.decision_model.decision_model.litellm.adecisions",
+    "hangarllm.proxy.guardrails.guardrail_hooks.decision_model.decision_model.hangarllm.adecisions",
     new_callable=AsyncMock,
 )
 async def test_sdk_path_forwards_configured_timeout(mock_sdk_decisions):
@@ -970,7 +970,7 @@ async def test_sdk_path_forwards_configured_timeout(mock_sdk_decisions):
         usage=OpenAIDecisionUsage(input_tokens=1, output_tokens=1, total_tokens=2),
     )
     router: Final = _decision_router()
-    router.resolved_litellm_models.return_value = ()
+    router.resolved_hangarllm_models.return_value = ()
     guardrail: Final = _make_guardrail(timeout=3.25, router_provider=lambda: router)
 
     result: Final = await guardrail.apply_guardrail({"texts": ["hi"]}, _request_data(), "request")
@@ -990,10 +990,10 @@ def test_more_than_max_questions_checks_rejected_at_init():
 
 def _flaky_chunk_router(marker: str) -> MagicMock:
     """Decisions call raises on inputs containing BOOM, flags prompt_injection on inputs containing marker."""
-    from litellm import Router
+    from hangarllm import Router
 
     router = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
 
     async def _adecisions(**kwargs):
         if "BOOM" in kwargs["input"]:
@@ -1055,10 +1055,10 @@ async def test_erroring_chunk_falls_back_when_no_check_flags(fallback, expected_
 async def test_failed_call_does_not_abandon_in_flight_calls():
     completed: Final = {"count": 0}  # mutable-ok: tracks completions across coroutines
 
-    from litellm import Router
+    from hangarllm import Router
 
     router = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
 
     async def _adecisions(**kwargs):
         if "BOOM" in kwargs["input"]:
@@ -1096,10 +1096,10 @@ async def test_all_calls_failing_under_fail_closed_gives_502_not_400():
 
 def _tracking_router(sleep: float = 0.01) -> tuple[MagicMock, list[str], dict[str, int]]:
     """Decisions call records call order and tracks peak in-flight count."""
-    from litellm import Router
+    from hangarllm import Router
 
     router: Final = route_entry_points_to_stubs(MagicMock(spec=Router))
-    router.resolved_litellm_models.return_value = ("typesafe/jev-latest",)
+    router.resolved_hangarllm_models.return_value = ("typesafe/jev-latest",)
     order: Final[list[str]] = []  # mutable-ok: shared recorder across coroutines
     in_flight: Final = {"count": 0, "peak": 0}  # mutable-ok: shared recorder across coroutines
 
@@ -1263,7 +1263,7 @@ async def test_object_form_tool_call_is_screened_the_same_as_a_dict():
 
 @pytest.mark.asyncio
 async def test_responses_prior_function_call_arguments_are_screened_and_block():
-    from litellm.llms.openai.responses.guardrail_translation.handler import OpenAIResponsesHandler
+    from hangarllm.llms.openai.responses.guardrail_translation.handler import OpenAIResponsesHandler
 
     marker: Final = "FLAG-ME-NOW"
     router: Final = _marker_router(marker)

@@ -146,7 +146,7 @@ async def _send(client: httpx.AsyncClient, key: str, models: _Models, call: _Cal
         headers={"Authorization": f"Bearer {key}", "anthropic-version": "2023-06-01"},
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers.get("x-litellm-call-id", ""))
+    return _Served(call, response.status_code, raw.decode(), response.headers.get("x-hangarllm-call-id", ""))
 
 
 async def _burst(
@@ -207,7 +207,7 @@ def _assert_forwarded_without_a_minted_item(request: Request, marker: str) -> No
 def _spend_rows(models: _Models, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group IN (%s, %s, %s)',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group IN (%s, %s, %s)',
             (models.responses, models.chat, models.messages),
         ),
         lambda found: len(found) >= expected,
@@ -293,7 +293,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": _CONFIG_MODEL,
-            "litellm_params": {"model": f"openai/{_GPT}", "api_base": wire.url, "api_key": _OPENAI_KEY},
+            "hangarllm_params": {"model": f"openai/{_GPT}", "api_base": wire.url, "api_key": _OPENAI_KEY},
         }
     ]
     path: Final = tmp_path / "responses-minted-reasoning-chaos.yaml"

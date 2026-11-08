@@ -1,8 +1,8 @@
 """
-Pillar Security Guardrail Tests for LiteLLM
+Pillar Security Guardrail Tests for HangarLLM
 
 Tests for the Pillar Security guardrail integration using pytest fixtures
-and following LiteLLM testing patterns and best practices.
+and following HangarLLM testing patterns and best practices.
 """
 
 # Standard library imports
@@ -20,21 +20,21 @@ import pytest
 from fastapi.exceptions import HTTPException
 from httpx import Request, Response, Timeout
 
-# LiteLLM imports
-import litellm
-from litellm import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import get_logging_caching_headers
-from litellm.proxy.guardrails.guardrail_hooks.pillar import (
+# HangarLLM imports
+import hangarllm
+from hangarllm import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.callback_utils import get_logging_caching_headers
+from hangarllm.proxy.guardrails.guardrail_hooks.pillar import (
     PillarGuardrail,
     PillarGuardrailAPIError,
     PillarGuardrailMissingSecrets,
 )
-from litellm.proxy.guardrails.guardrail_hooks.pillar.pillar import (
+from hangarllm.proxy.guardrails.guardrail_hooks.pillar.pillar import (
     build_pillar_response_headers,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.utils import Choices, Message, ModelResponse
 
 # ============================================================================
 # FIXTURES
@@ -44,26 +44,26 @@ from litellm.types.utils import Choices, Message, ModelResponse
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
     """
-    Standard LiteLLM fixture that reloads litellm before every function
+    Standard HangarLLM fixture that reloads hangarllm before every function
     to speed up testing by removing callbacks being chained.
     """
     import asyncio
 
-    global litellm
+    global hangarllm
 
     # Always import then reload to ensure fresh state
     # This handles both cases uniformly:
-    # 1. litellm not in sys.modules (parallel worker removed it)
-    # 2. litellm already imported (normal case)
-    _module = importlib.import_module("litellm")
-    litellm = importlib.reload(_module)
+    # 1. hangarllm not in sys.modules (parallel worker removed it)
+    # 2. hangarllm already imported (normal case)
+    _module = importlib.import_module("hangarllm")
+    hangarllm = importlib.reload(_module)
 
     # Set up async loop
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
 
-    # Set up litellm state
-    litellm.guardrail_name_config_map = {}
+    # Set up hangarllm state
+    hangarllm.guardrail_name_config_map = {}
 
     yield
 
@@ -86,7 +86,7 @@ def pillar_guardrail_config():
     """Fixture providing standard Pillar guardrail configuration."""
     return {
         "guardrail_name": "pillar-test",
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "pillar",
             "mode": "pre_call",
             "default_on": True,
@@ -303,7 +303,7 @@ def test_pillar_guard_config_success(env_setup, pillar_guardrail_config):
 def test_pillar_guard_config_missing_api_key(pillar_guardrail_config, monkeypatch):
     """Test Pillar guardrail configuration fails without API key."""
     # Remove API key to test failure
-    pillar_guardrail_config["litellm_params"].pop("api_key", None)
+    pillar_guardrail_config["hangarllm_params"].pop("api_key", None)
 
     # Ensure PILLAR_API_KEY environment variable is not set
     monkeypatch.delenv("PILLAR_API_KEY", raising=False)
@@ -321,7 +321,7 @@ def test_pillar_guard_config_advanced(env_setup):
     """Test Pillar guardrail with advanced configuration options."""
     advanced_config = {
         "guardrail_name": "pillar-advanced",
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "pillar",
             "mode": "pre_call",
             "default_on": True,
@@ -353,7 +353,7 @@ async def test_pre_call_hook_clean_content(
 ):
     """Test pre-call hook with clean content that should pass."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await pillar_guardrail_instance.async_pre_call_hook(
@@ -377,7 +377,7 @@ async def test_pre_call_hook_flagged_content_block(
     """Test pre-call hook blocks flagged content when action is 'block'."""
     with pytest.raises(HTTPException) as excinfo:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=pillar_flagged_response,
         ):
             await pillar_guardrail_instance.async_pre_call_hook(
@@ -401,7 +401,7 @@ async def test_pre_call_hook_flagged_content_monitor(
 ):
     """Test pre-call hook allows flagged content when action is 'monitor'."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_flagged_response,
     ):
         result = await pillar_monitor_guardrail.async_pre_call_hook(
@@ -441,7 +441,7 @@ async def test_pre_call_hook_clean_content_returns_scanners_and_evidence(
 ):
     """Test that scanners and evidence are returned even when content is not flagged."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await pillar_monitor_guardrail.async_pre_call_hook(
@@ -572,7 +572,7 @@ async def test_post_call_hook_flagged_content_monitor_updates_metadata_and_heade
     request_data["metadata"] = {}
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_flagged_response,
     ):
         response = await pillar_monitor_guardrail.async_post_call_success_hook(
@@ -614,7 +614,7 @@ async def test_moderation_hook(
 ):
     """Test moderation hook (during call)."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await pillar_guardrail_instance.async_moderation_hook(
@@ -636,7 +636,7 @@ async def test_post_call_hook_clean_response(
 ):
     """Test post-call hook with clean response."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await pillar_guardrail_instance.async_post_call_success_hook(
@@ -658,7 +658,7 @@ async def test_post_call_hook_with_tool_calls(
 ):
     """Test post-call hook with response containing tool calls."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await pillar_guardrail_instance.async_post_call_success_hook(
@@ -759,7 +759,7 @@ async def test_pre_call_hook_custom_header_overrides(
         return pillar_async_response
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new=_mock_post,
     ):
         result = await guardrail.async_pre_call_hook(
@@ -777,18 +777,18 @@ async def test_pre_call_hook_custom_header_overrides(
 
 
 # =========================================================================
-# LITELLM KEY CONTEXT HEADER TESTS
+# HANGARLLM KEY CONTEXT HEADER TESTS
 # =========================================================================
 
 
 @pytest.mark.asyncio
-async def test_litellm_context_headers_automatically_added(
+async def test_hangarllm_context_headers_automatically_added(
     sample_request_data,
     user_api_key_dict_with_context,
     dual_cache,
     pillar_clean_response,
 ):
-    """Test that LiteLLM context headers are automatically added (always enabled)."""
+    """Test that HangarLLM context headers are automatically added (always enabled)."""
     guardrail = PillarGuardrail(
         guardrail_name="pillar-context-enabled",
         api_key="test-pillar-key",
@@ -802,7 +802,7 @@ async def test_litellm_context_headers_automatically_added(
         return pillar_clean_response
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new=_mock_post,
     ):
         await guardrail.async_pre_call_hook(
@@ -812,33 +812,33 @@ async def test_litellm_context_headers_automatically_added(
             call_type="completion",
         )
 
-    # Verify LiteLLM context headers are present
-    assert "X-LiteLLM-Key-Name" in captured_headers
-    assert captured_headers["X-LiteLLM-Key-Name"] == "production-api-key"
-    assert "X-LiteLLM-Key-Alias" in captured_headers
-    assert captured_headers["X-LiteLLM-Key-Alias"] == "prod-key"
-    assert "X-LiteLLM-User-Id" in captured_headers
-    assert captured_headers["X-LiteLLM-User-Id"] == "user-123"
-    assert "X-LiteLLM-User-Email" in captured_headers
-    assert captured_headers["X-LiteLLM-User-Email"] == "test@example.com"
-    assert "X-LiteLLM-Team-Id" in captured_headers
-    assert captured_headers["X-LiteLLM-Team-Id"] == "team-456"
-    assert "X-LiteLLM-Team-Name" in captured_headers
-    assert captured_headers["X-LiteLLM-Team-Name"] == "engineering-team"
-    assert "X-LiteLLM-Org-Id" in captured_headers
-    assert captured_headers["X-LiteLLM-Org-Id"] == "org-789"
+    # Verify HangarLLM context headers are present
+    assert "X-HangarLLM-Key-Name" in captured_headers
+    assert captured_headers["X-HangarLLM-Key-Name"] == "production-api-key"
+    assert "X-HangarLLM-Key-Alias" in captured_headers
+    assert captured_headers["X-HangarLLM-Key-Alias"] == "prod-key"
+    assert "X-HangarLLM-User-Id" in captured_headers
+    assert captured_headers["X-HangarLLM-User-Id"] == "user-123"
+    assert "X-HangarLLM-User-Email" in captured_headers
+    assert captured_headers["X-HangarLLM-User-Email"] == "test@example.com"
+    assert "X-HangarLLM-Team-Id" in captured_headers
+    assert captured_headers["X-HangarLLM-Team-Id"] == "team-456"
+    assert "X-HangarLLM-Team-Name" in captured_headers
+    assert captured_headers["X-HangarLLM-Team-Name"] == "engineering-team"
+    assert "X-HangarLLM-Org-Id" in captured_headers
+    assert captured_headers["X-HangarLLM-Org-Id"] == "org-789"
 
     # Metadata is NOT sent (may contain sensitive information)
-    assert "X-LiteLLM-Metadata" not in captured_headers
+    assert "X-HangarLLM-Metadata" not in captured_headers
 
 
 @pytest.mark.asyncio
-async def test_litellm_context_with_partial_fields(
+async def test_hangarllm_context_with_partial_fields(
     sample_request_data,
     dual_cache,
     pillar_clean_response,
 ):
-    """Test that partial LiteLLM context (only some fields present) is handled correctly."""
+    """Test that partial HangarLLM context (only some fields present) is handled correctly."""
     # Create UserAPIKeyAuth with only some fields populated
     partial_context = UserAPIKeyAuth(
         user_id="user-only",
@@ -849,7 +849,7 @@ async def test_litellm_context_with_partial_fields(
         guardrail_name="pillar-partial-context",
         api_key="test-pillar-key",
         api_base="https://api.pillar.security",
-        pass_litellm_key_header=True,
+        pass_hangarllm_key_header=True,
     )
 
     captured_headers: Dict[str, str] = {}
@@ -859,7 +859,7 @@ async def test_litellm_context_with_partial_fields(
         return pillar_clean_response
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new=_mock_post,
     ):
         await guardrail.async_pre_call_hook(
@@ -870,14 +870,14 @@ async def test_litellm_context_with_partial_fields(
         )
 
     # Verify only populated fields are present
-    assert "X-LiteLLM-User-Id" in captured_headers
-    assert captured_headers["X-LiteLLM-User-Id"] == "user-only"
-    assert "X-LiteLLM-Team-Id" in captured_headers
-    assert captured_headers["X-LiteLLM-Team-Id"] == "team-only"
+    assert "X-HangarLLM-User-Id" in captured_headers
+    assert captured_headers["X-HangarLLM-User-Id"] == "user-only"
+    assert "X-HangarLLM-Team-Id" in captured_headers
+    assert captured_headers["X-HangarLLM-Team-Id"] == "team-only"
 
     # Verify empty fields are not present
-    assert "X-LiteLLM-Key-Name" not in captured_headers
-    assert "X-LiteLLM-User-Email" not in captured_headers
+    assert "X-HangarLLM-Key-Name" not in captured_headers
+    assert "X-HangarLLM-User-Email" not in captured_headers
 
 
 # =========================================================================
@@ -924,7 +924,7 @@ async def test_multimodal_image_url_support(
         return pillar_clean_response
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new=_mock_post,
     ):
         result = await guardrail.async_pre_call_hook(
@@ -972,7 +972,7 @@ async def test_multimodal_with_attachments(
     )
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await guardrail.async_pre_call_hook(
@@ -1018,7 +1018,7 @@ async def test_api_error_handling(
 
     with pytest.raises(HTTPException) as excinfo:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             side_effect=Exception("Connection error"),
         ):
             await pillar_guardrail_instance.async_pre_call_hook(
@@ -1048,7 +1048,7 @@ async def test_api_error_fallback_allow(env_setup):
     }
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         side_effect=Exception("Connection timeout"),
     ):
         result = await guardrail.async_pre_call_hook(
@@ -1079,7 +1079,7 @@ async def test_api_error_fallback_block(env_setup):
 
     with pytest.raises(HTTPException) as excinfo:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             side_effect=Exception("Connection timeout"),
         ):
             await guardrail.async_pre_call_hook(
@@ -1250,7 +1250,7 @@ def test_metadata_inclusion(pillar_guardrail_instance):
     payload = pillar_guardrail_instance._prepare_payload(data)
     assert "metadata" in payload
     assert "source" in payload["metadata"]
-    assert payload["metadata"]["source"] == "litellm"
+    assert payload["metadata"]["source"] == "hangarllm"
 
 
 # ============================================================================
@@ -1324,7 +1324,7 @@ async def test_pre_call_hook_masking_mode(
     original_messages = sample_request_data["messages"].copy()
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_masked_response,
     ):
         result = await pillar_mask_guardrail.async_pre_call_hook(
@@ -1364,7 +1364,7 @@ async def test_pre_call_hook_masking_no_masked_messages(
     original_messages = sample_request_data["messages"].copy()
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=response_no_mask,
     ):
         result = await pillar_mask_guardrail.async_pre_call_hook(
@@ -1392,7 +1392,7 @@ async def test_exception_without_scanners(
 ):
     """Test exception excludes scanners when include_scanners is False."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_flagged_response,
     ):
         guardrail = PillarGuardrail(
@@ -1427,7 +1427,7 @@ async def test_exception_without_evidence(
 ):
     """Test exception excludes evidence when include_evidence is False."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_flagged_response,
     ):
         guardrail = PillarGuardrail(
@@ -1462,7 +1462,7 @@ async def test_exception_without_scanners_or_evidence(
 ):
     """Test exception excludes both scanners and evidence when both are False."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_flagged_response,
     ):
         guardrail = PillarGuardrail(
@@ -1505,7 +1505,7 @@ async def test_pre_call_hook_mcp_call(
 ):
     """Test pre-call hook works with MCP call type."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await pillar_guardrail_instance.async_pre_call_hook(
@@ -1527,7 +1527,7 @@ async def test_moderation_hook_mcp_call(
 ):
     """Test moderation hook works with MCP call type."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_clean_response,
     ):
         result = await pillar_guardrail_instance.async_moderation_hook(
@@ -1551,7 +1551,7 @@ async def test_mcp_call_masking(
     original_messages = sample_request_data["messages"].copy()
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=pillar_masked_response,
     ):
         result = await pillar_mask_guardrail.async_pre_call_hook(

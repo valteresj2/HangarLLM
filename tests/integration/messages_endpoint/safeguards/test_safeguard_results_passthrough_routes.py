@@ -44,7 +44,7 @@ def bedrock_deployment(wire_url: str) -> Sequence[Mapping[str, JsonValue]]:
     return (
         {
             "model_name": BEDROCK_DEPLOYMENT,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"bedrock/{BEDROCK_MODEL_ID}",
                 "api_base": f"{wire_url}/bedrock-pt",
                 "aws_access_key_id": "AKIASYNTHETIC0000000",

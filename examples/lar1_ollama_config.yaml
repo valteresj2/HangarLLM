@@ -1,6 +1,6 @@
 model_list:
   - model_name: agent-router
-    litellm_params:
+    hangarllm_params:
       model: ollama/qwen3.5:9b
       api_base: http://127.0.0.1:11434
     model_info:
@@ -8,7 +8,7 @@ model_list:
       type: cloud-smart
 
   - model_name: agent-router
-    litellm_params:
+    hangarllm_params:
       model: ollama/phi4-mini:latest
       api_base: http://127.0.0.1:11434
     model_info:
@@ -16,7 +16,7 @@ model_list:
       type: cloud-fast
 
   - model_name: agent-router
-    litellm_params:
+    hangarllm_params:
       model: ollama/llama3.2:3b
       api_base: http://127.0.0.1:11434
     model_info:
@@ -24,7 +24,7 @@ model_list:
       type: local
 
   - model_name: agent-router
-    litellm_params:
+    hangarllm_params:
       model: ollama/lfm2.5-thinking:latest
       api_base: http://127.0.0.1:11434
     model_info:
@@ -41,5 +41,5 @@ router_settings:
 general_settings:
   master_key: sk-lar1-demo
 
-litellm_settings:
+hangarllm_settings:
   set_verbose: true

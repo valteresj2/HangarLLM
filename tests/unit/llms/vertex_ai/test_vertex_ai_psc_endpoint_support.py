@@ -1,7 +1,7 @@
 """
 Unit tests for Vertex AI Private Service Connect (PSC) endpoint support
 
-Tests that LiteLLM properly constructs URLs when using custom api_base
+Tests that HangarLLM properly constructs URLs when using custom api_base
 for PSC endpoints.
 """
 
@@ -10,10 +10,10 @@ import sys
 
 import pytest
 
-# Add the litellm package to the path
+# Add the hangarllm package to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
 
 class TestVertexAIPSCEndpointSupport:

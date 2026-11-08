@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.types.utils import ModelResponse
 
 msg1 = [{"role": "user", "content": "hi 1"}]
 msg2 = [{"role": "user", "content": "hi 2"}]
@@ -31,7 +31,7 @@ def test_batch_completion_return_exceptions_true(respx_mock: respx.MockRouter):
             },
         )
     )
-    res = litellm.batch_completion(
+    res = hangarllm.batch_completion(
         model="gpt-3.5-turbo",
         messages=[msg1, msg2],
         api_key="sk_xxx",
@@ -40,8 +40,8 @@ def test_batch_completion_return_exceptions_true(respx_mock: respx.MockRouter):
     assert isinstance(
         res[0],
         (
-            litellm.exceptions.AuthenticationError,
-            litellm.exceptions.InternalServerError,
+            hangarllm.exceptions.AuthenticationError,
+            hangarllm.exceptions.InternalServerError,
         ),
     ), f"Expected AuthenticationError or InternalServerError, got {type(res[0])}"
 
@@ -50,7 +50,7 @@ def test_batch_completion_returns_one_response_per_message(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200,
@@ -72,7 +72,7 @@ def test_batch_completion_returns_one_response_per_message(
     )
     responses: Final[list[ModelResponse]] = cast(
         list[ModelResponse],
-        litellm.batch_completion(
+        hangarllm.batch_completion(
             model="openai/gpt-4o-mini",
             messages=[
                 [{"role": "user", "content": "first prompt"}],
@@ -113,7 +113,7 @@ def test_completion_with_model_list_returns_the_first_deployment_that_succeeds(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     failing: Final = respx_mock.post("https://failing.deployment.test/v1/chat/completions").mock(
         return_value=httpx.Response(401, json={"error": {"message": "bad key", "type": "invalid_request_error"}})
     )
@@ -126,7 +126,7 @@ def test_completion_with_model_list_returns_the_first_deployment_that_succeeds(
     model_list: Final = [
         {
             "model_name": "mistral-7b-instruct",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/failing-model",
                 "api_base": "https://failing.deployment.test/v1",
                 "api_key": "failing-key",
@@ -134,7 +134,7 @@ def test_completion_with_model_list_returns_the_first_deployment_that_succeeds(
         },
         {
             "model_name": "mistral-7b-instruct",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/healthy-model",
                 "api_base": "https://healthy.deployment.test/v1",
                 "api_key": "healthy-key",
@@ -142,7 +142,7 @@ def test_completion_with_model_list_returns_the_first_deployment_that_succeeds(
         },
         {
             "model_name": "another-group",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/other-model",
                 "api_base": "https://other-group.deployment.test/v1",
                 "api_key": "other-key",
@@ -152,7 +152,7 @@ def test_completion_with_model_list_returns_the_first_deployment_that_succeeds(
 
     response: Final = cast(
         ModelResponse,
-        litellm.completion(
+        hangarllm.completion(
             model="mistral-7b-instruct",
             messages=[{"role": "user", "content": "Hey, how's it going?"}],
             model_list=model_list,

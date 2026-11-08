@@ -27,10 +27,10 @@ from integration._support.process import graceful_stop_seconds, owned_proxy_proc
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import PTU_SENTINEL_API_KEY
+from hangarllm.constants import PTU_SENTINEL_API_KEY
 
 if TYPE_CHECKING:
-    from litellm.llms.azure.ptu_capacity import PTUCapacity
+    from hangarllm.llms.azure.ptu_capacity import PTUCapacity
 
 pytestmark: Final = [pytest.mark.timeout(4 * graceful_stop_seconds() + 240), pytest.mark.shares_worker_state]
 
@@ -40,9 +40,9 @@ _OPEN_DEPLOYMENT: Final = "ledger-open-gpt41"
 _UPSTREAM_URL_PLACEHOLDER: Final = "upstream-url-placeholder"
 _RATE: Final = 2.0
 _ATTRIBUTION_ON: Final = MappingProxyType(
-    {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True", "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": "5"}
+    {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True", "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": "5"}
 )
-_ATTRIBUTION_OFF: Final = MappingProxyType({"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "False"})
+_ATTRIBUTION_OFF: Final = MappingProxyType({"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "False"})
 _PROMPT_TOKENS: Final = 1000
 _CACHED_TOKENS: Final = 800
 _COMPLETION_TOKENS: Final = 10
@@ -52,7 +52,7 @@ _DEPLOYMENT_PATH: Final = re.compile(r"/openai/deployments/([^/]+)/")
 
 
 def _gpt41() -> "PTUCapacity":
-    from litellm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
+    from hangarllm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
 
     return AZURE_PTU_CAPACITY["gpt-4.1"]
 
@@ -96,7 +96,7 @@ def _azure(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"azure/{deployment}",
             "api_base": api_base,
             "api_key": "synthetic-azure-key",
@@ -144,7 +144,7 @@ def _window() -> Mapping[str, str]:
 
 
 def _team_rows(team_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    return read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
 
 
 def _delete_team_once_unheld(proxy: Gateway, team_id: str) -> None:
@@ -310,7 +310,7 @@ def test_with_attribution_off_team_activity_reports_no_ptu_hours(ledger: _Ledger
 
 
 async def _rollup(day: date) -> None:
-    from litellm.proxy.spend_tracking.ptu_flat_cost_rollup import run_ptu_flat_cost_rollup
+    from hangarllm.proxy.spend_tracking.ptu_flat_cost_rollup import run_ptu_flat_cost_rollup
 
     async with connected_proxy_prisma() as prisma:
         await run_ptu_flat_cost_rollup(prisma, target_date=day)
@@ -318,7 +318,7 @@ async def _rollup(day: date) -> None:
 
 def _flat_costs(model_id: str, day: date) -> dict[str, JsonValue]:
     rows: Final = read_rows(
-        'SELECT team_id, ptu_flat_cost FROM "LiteLLM_DailyTeamSpend" WHERE api_key = %s AND model = %s AND date = %s',
+        'SELECT team_id, ptu_flat_cost FROM "HangarLLM_DailyTeamSpend" WHERE api_key = %s AND model = %s AND date = %s',
         (PTU_SENTINEL_API_KEY, model_id, day.isoformat()),
     )
     return {string_value(row["team_id"]): row["ptu_flat_cost"] for row in rows}
@@ -326,7 +326,7 @@ def _flat_costs(model_id: str, day: date) -> dict[str, JsonValue]:
 
 def _delete_flat_costs(model_id: str) -> None:
     write_rows(
-        'DELETE FROM "LiteLLM_DailyTeamSpend" WHERE api_key = %s AND model = %s', (PTU_SENTINEL_API_KEY, model_id)
+        'DELETE FROM "HangarLLM_DailyTeamSpend" WHERE api_key = %s AND model = %s', (PTU_SENTINEL_API_KEY, model_id)
     )
 
 

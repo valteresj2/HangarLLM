@@ -1,6 +1,6 @@
 """Native Responses calls must be indistinguishable from the Python implementation.
 
-Each case sends one public `litellm.aresponses` call through Python and through the native route against the same
+Each case sends one public `hangarllm.aresponses` call through Python and through the native route against the same
 recorded OpenAI response, then compares what reached the provider, what the caller got back, and what the success
 callback logged. The native leg fails instead of silently falling back to Python
 """
@@ -13,17 +13,17 @@ from typing import Final, cast
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.responses import dispatch
-from litellm.responses import main as python_responses
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.rust_bridge import catalog
-from litellm.rust_bridge.catalog import Route, RouteRule
-from litellm.rust_bridge.configuration import Rollout
-from litellm.types.llms.openai import ResponsesAPIResponse
-from tests.test_litellm_rust.support.callback_recorder import RecordingLogger, drain_logging
-from tests.test_litellm_rust.support.isolation import isolated_callback_registries, rebound
-from tests.test_litellm_rust.support.recording_server import RecordingServer, ResponseSpec
+import hangarllm
+from hangarllm.responses import dispatch
+from hangarllm.responses import main as python_responses
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.rust_bridge import catalog
+from hangarllm.rust_bridge.catalog import Route, RouteRule
+from hangarllm.rust_bridge.configuration import Rollout
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from tests.test_hangarllm_rust.support.callback_recorder import RecordingLogger, drain_logging
+from tests.test_hangarllm_rust.support.isolation import isolated_callback_registries, rebound
+from tests.test_hangarllm_rust.support.recording_server import RecordingServer, ResponseSpec
 
 pytestmark = pytest.mark.requires_rust_extension
 
@@ -162,7 +162,7 @@ REASONING_REPLAY_INPUT: Final[list[JsonValue]] = [
 ]
 
 _PYTHON_ARESPONSES: Final = cast(Callable[..., Awaitable[object]], python_responses.aresponses)  # noqa: TID251  # the Python baseline under comparison
-_PUBLIC_ARESPONSES: Final = cast(Callable[..., Awaitable[object]], litellm.aresponses)
+_PUBLIC_ARESPONSES: Final = cast(Callable[..., Awaitable[object]], hangarllm.aresponses)
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,12 +225,12 @@ CASES: Final = (
     ),
     Case(
         "deployment_scoped_ids",
-        {"input": "hi", "litellm_metadata": dict(DEPLOYMENT_METADATA)},
+        {"input": "hi", "hangarllm_metadata": dict(DEPLOYMENT_METADATA)},
         upstream=ENCRYPTED_REASONING_RESPONSE,
     ),
     Case(
         "affinity_encoded_reasoning_replay",
-        {"input": AFFINITY_REPLAY_INPUT, "litellm_metadata": dict(DEPLOYMENT_METADATA)},
+        {"input": AFFINITY_REPLAY_INPUT, "hangarllm_metadata": dict(DEPLOYMENT_METADATA)},
         upstream=ENCRYPTED_REASONING_RESPONSE,
     ),
     Case(

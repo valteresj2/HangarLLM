@@ -1,5 +1,5 @@
 """
-Regression tests for https://github.com/BerriAI/litellm/issues/36493
+Regression tests for upstream issue 36493
 
 /v1/images/edits on the openai path silently dropped unknown provider params
 (e.g. seed) and the extra_body escape hatch, unlike /v1/images/generations.
@@ -8,8 +8,8 @@ Regression tests for https://github.com/BerriAI/litellm/issues/36493
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\nfakepng"
 
@@ -36,7 +36,7 @@ def test_image_edit_forwards_provider_params_and_extra_body():
     captured = {}
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_capture_image_edit_request(captured))))
 
-    response = litellm.image_edit(
+    response = hangarllm.image_edit(
         model="openai/gpt-image-1",
         image=PNG_BYTES,
         prompt="add a hat",
@@ -62,7 +62,7 @@ def test_image_edit_keeps_an_internal_prefixed_kwarg_out_of_the_provider_request
     captured = {}
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_capture_image_edit_request(captured))))
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="openai/gpt-image-1",
         image=PNG_BYTES,
         prompt="add a hat",
@@ -70,11 +70,11 @@ def test_image_edit_keeps_an_internal_prefixed_kwarg_out_of_the_provider_request
         api_base="https://edit.example/v1",
         client=client,
         seed=42,
-        _litellm_undeclared_sentinel="internal",
+        _hangarllm_undeclared_sentinel="internal",
     )
 
     fields = _multipart_text_fields(captured["content_type"], captured["body"])
-    assert "_litellm_undeclared_sentinel" not in fields
+    assert "_hangarllm_undeclared_sentinel" not in fields
     assert fields["seed"] == "42"
 
 
@@ -82,7 +82,7 @@ def test_image_edit_extra_body_takes_precedence_over_kwargs():
     captured = {}
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_capture_image_edit_request(captured))))
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="openai/gpt-image-1",
         image=PNG_BYTES,
         prompt="add a hat",
@@ -104,7 +104,7 @@ def test_image_edit_flattens_nested_provider_params():
     captured = {}
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_capture_image_edit_request(captured))))
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="openai/gpt-image-1",
         image=PNG_BYTES,
         prompt="add a hat",
@@ -126,7 +126,7 @@ def test_image_edit_forwards_scalar_array_as_repeated_fields():
     captured = {}
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_capture_image_edit_request(captured))))
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="openai/gpt-image-1",
         image=PNG_BYTES,
         prompt="add a hat",
@@ -149,7 +149,7 @@ async def test_aimage_edit_forwards_extra_body():
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(_capture_image_edit_request(captured)))
 
-    response = await litellm.aimage_edit(
+    response = await hangarllm.aimage_edit(
         model="openai/gpt-image-1",
         image=PNG_BYTES,
         prompt="add a hat",

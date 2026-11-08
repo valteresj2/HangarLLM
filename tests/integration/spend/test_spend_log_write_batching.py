@@ -36,7 +36,7 @@ def _persisted(request_ids: tuple[str, ...]) -> list[dict[str, JsonValue]]:
     placeholders: Final = ", ".join("%s" for _ in request_ids)
     return read_rows(
         "SELECT request_id, xmin::text AS statement, octet_length(proxy_server_request::text) AS stored_bytes "
-        f'FROM "LiteLLM_SpendLogs" WHERE request_id IN ({placeholders}) ORDER BY request_id',
+        f'FROM "HangarLLM_SpendLogs" WHERE request_id IN ({placeholders}) ORDER BY request_id',
         request_ids,
     )
 

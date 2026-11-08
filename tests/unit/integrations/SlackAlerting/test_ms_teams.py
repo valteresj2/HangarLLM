@@ -6,17 +6,17 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.integrations.SlackAlerting.batching_handler import send_to_webhook
-from litellm.integrations.SlackAlerting.ms_teams import (
+from hangarllm.integrations.SlackAlerting.batching_handler import send_to_webhook
+from hangarllm.integrations.SlackAlerting.ms_teams import (
     MS_TEAMS_ALERTING_DESTINATION,
     MS_TEAMS_WEBHOOK_URL_ENV,
     MSTeamsMessage,
     build_ms_teams_payload,
     get_ms_teams_webhook_url,
 )
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import AlertType
+from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import AlertType
 
 _MS_TEAMS_MESSAGE: Final = TypeAdapter(MSTeamsMessage)
 

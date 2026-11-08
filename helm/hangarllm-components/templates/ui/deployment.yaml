@@ -4,9 +4,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "litellm.ui.fullname" . }}
+  name: {{ include "hangarllm.ui.fullname" . }}
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: ui
 spec:
   {{- if and (not .Values.ui.hpa.enabled) (not (kindIs "invalid" .Values.ui.replicaCount)) }}
@@ -18,7 +18,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "litellm.ui.selectorLabels" . | nindent 6 }}
+      {{- include "hangarllm.ui.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.ui.podAnnotations }}
@@ -26,12 +26,12 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "litellm.ui.selectorLabels" . | nindent 8 }}
+        {{- include "hangarllm.ui.selectorLabels" . | nindent 8 }}
         {{- with .Values.ui.podLabels }}
-        {{- include "litellm.podLabels" (dict "podLabels" . "componentName" "ui") | nindent 8 }}
+        {{- include "hangarllm.podLabels" (dict "podLabels" . "componentName" "ui") | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "litellm.ui.serviceAccountName" . }}
+      serviceAccountName: {{ include "hangarllm.ui.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.ui.automount }}
       {{- with .Values.ui.podSecurityContext }}
       securityContext:
@@ -55,17 +55,17 @@ spec:
               protocol: TCP
           env:
             {{- if .Values.ui.logLevel }}
-            - name: LITELLM_LOG
+            - name: HANGARLLM_LOG
               value: {{ .Values.ui.logLevel | quote }}
             {{- end }}
             {{- if and .Values.ui.backendUrl $hasComponentHosts }}
-            - name: LITELLM_BACKEND_URL
-              value: {{ include "litellm.ui.backendOrigin" . | quote }}
+            - name: HANGARLLM_BACKEND_URL
+              value: {{ include "hangarllm.ui.backendOrigin" . | quote }}
             {{- end }}
             {{- with .Values.ui.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- include "litellm.envFrom" .Values.ui | nindent 10 }}
+          {{- include "hangarllm.envFrom" .Values.ui | nindent 10 }}
           {{- with .Values.ui.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}

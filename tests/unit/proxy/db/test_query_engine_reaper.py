@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.proxy.db.query_engine_reaper import (
+from hangarllm.proxy.db.query_engine_reaper import (
     REAPER_THREAD_NAME,
     _read_comm_and_ppid,
     _reaper_loop,
@@ -84,7 +84,7 @@ class TestSetChildSubreaper:
                 sys.executable,
                 "-c",
                 "import sys; "
-                "from litellm.proxy.db.query_engine_reaper import set_child_subreaper; "
+                "from hangarllm.proxy.db.query_engine_reaper import set_child_subreaper; "
                 "assert set_child_subreaper() is sys.platform.startswith('linux')",
             ],
             capture_output=True,
@@ -117,10 +117,10 @@ class TestReaperLoop:
 
         with (
             patch(
-                "litellm.proxy.db.query_engine_reaper.reap_orphaned_engines",
+                "hangarllm.proxy.db.query_engine_reaper.reap_orphaned_engines",
                 side_effect=flaky_scan,
             ),
-            patch("litellm.proxy.db.query_engine_reaper.time.sleep"),
+            patch("hangarllm.proxy.db.query_engine_reaper.time.sleep"),
             pytest.raises(KeyboardInterrupt),
         ):
             _reaper_loop(1234)
@@ -170,7 +170,7 @@ class TestReapOrphanedEngines:
         _write_stat(tmp_path, 138, "query-engine-de", 1)
         _write_stat(tmp_path, 285, "query-engine-de", 260)
 
-        with patch("litellm.proxy.db.query_engine_reaper.terminate_and_reap_all") as mock_terminate:
+        with patch("hangarllm.proxy.db.query_engine_reaper.terminate_and_reap_all") as mock_terminate:
             acted_on = reap_orphaned_engines(1, proc_root=str(tmp_path))
 
         assert sorted(acted_on) == [137, 138]
@@ -179,7 +179,7 @@ class TestReapOrphanedEngines:
     def test_no_orphans_no_kills(self, tmp_path):
         _write_stat(tmp_path, 285, "query-engine-de", 260)
 
-        with patch("litellm.proxy.db.query_engine_reaper.terminate_and_reap_all") as mock_terminate:
+        with patch("hangarllm.proxy.db.query_engine_reaper.terminate_and_reap_all") as mock_terminate:
             assert reap_orphaned_engines(1, proc_root=str(tmp_path)) == ()
 
         mock_terminate.assert_not_called()
@@ -213,18 +213,18 @@ class TestTerminateAndReapAll:
 
 class TestStartQueryEngineReaper:
     def test_noop_on_non_linux(self):
-        with patch("litellm.proxy.db.query_engine_reaper.sys.platform", "darwin"):
+        with patch("hangarllm.proxy.db.query_engine_reaper.sys.platform", "darwin"):
             assert start_query_engine_reaper() is None
 
     def test_starts_daemon_thread_on_linux(self):
         with (
-            patch("litellm.proxy.db.query_engine_reaper.sys.platform", "linux"),
+            patch("hangarllm.proxy.db.query_engine_reaper.sys.platform", "linux"),
             patch(
-                "litellm.proxy.db.query_engine_reaper.threading.enumerate",
+                "hangarllm.proxy.db.query_engine_reaper.threading.enumerate",
                 return_value=[],
             ),
-            patch("litellm.proxy.db.query_engine_reaper.set_child_subreaper") as mock_subreaper,
-            patch("litellm.proxy.db.query_engine_reaper.threading.Thread") as mock_thread_cls,
+            patch("hangarllm.proxy.db.query_engine_reaper.set_child_subreaper") as mock_subreaper,
+            patch("hangarllm.proxy.db.query_engine_reaper.threading.Thread") as mock_thread_cls,
         ):
             thread = start_query_engine_reaper()
 
@@ -239,12 +239,12 @@ class TestStartQueryEngineReaper:
         existing = MagicMock()
         existing.name = REAPER_THREAD_NAME
         with (
-            patch("litellm.proxy.db.query_engine_reaper.sys.platform", "linux"),
+            patch("hangarllm.proxy.db.query_engine_reaper.sys.platform", "linux"),
             patch(
-                "litellm.proxy.db.query_engine_reaper.threading.enumerate",
+                "hangarllm.proxy.db.query_engine_reaper.threading.enumerate",
                 return_value=[existing],
             ),
-            patch("litellm.proxy.db.query_engine_reaper.threading.Thread") as mock_thread_cls,
+            patch("hangarllm.proxy.db.query_engine_reaper.threading.Thread") as mock_thread_cls,
         ):
             thread = start_query_engine_reaper()
 

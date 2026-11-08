@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.openai_like.chat.transformation import OpenAILikeChatConfig
-from litellm.types.utils import ModelResponse
+from hangarllm.llms.openai_like.chat.transformation import OpenAILikeChatConfig
+from hangarllm.types.utils import ModelResponse
 
 
 def test_sanitize_usage_obj_handles_null_tokens():
@@ -77,7 +77,7 @@ def test_transform_response_surfaces_provider_headers_as_llm_provider_headers():
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

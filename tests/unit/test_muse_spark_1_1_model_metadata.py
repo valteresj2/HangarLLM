@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
 MUSE_SPARK_MODEL = "meta/muse-spark-1.1"
 
@@ -17,7 +17,7 @@ def test_muse_spark_1_1_backup_matches_main():
     """Ensure the bundled model cost map stays in sync with the canonical file."""
     repo_root = Path(__file__).parents[2]
     main_path = repo_root / "model_prices_and_context_window.json"
-    backup_path = repo_root / "litellm" / "model_prices_and_context_window_backup.json"
+    backup_path = repo_root / "hangarllm" / "model_prices_and_context_window_backup.json"
 
     with open(main_path) as f:
         main_cost = json.load(f)

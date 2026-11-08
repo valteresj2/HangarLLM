@@ -11,8 +11,8 @@ from integration.translation.templates.bedrock_invoke import (
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         "max_tokens": 64,
         "messages": [
@@ -48,7 +48,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -85,8 +85,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-4-6",
         "max_tokens": 64,
         "messages": [
@@ -122,7 +122,7 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-4-6",
@@ -159,8 +159,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-5",
         "max_tokens": 64,
         "messages": [
@@ -197,7 +197,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-5",
@@ -234,8 +234,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "bedrock/invoke/us.anthropic.claude-opus-4-8",
         "max_tokens": 64,
         "messages": [
@@ -272,7 +272,7 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "bedrock/invoke/us.anthropic.claude-opus-4-8",
@@ -309,13 +309,13 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-haiku-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-haiku-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-haiku-5-5/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={**BEDROCK_INVOKE_REQUEST},
     mock_provider_response={**BEDROCK_INVOKE_RESPONSE},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-haiku-5-5",
         "choices": [
@@ -398,8 +398,8 @@ CLAUDE_SONNET_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-sonnet-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-sonnet-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-sonnet-5-5/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={**BEDROCK_INVOKE_REQUEST},
@@ -436,7 +436,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-sonnet-5-5",
         "choices": [
@@ -515,8 +515,8 @@ CLAUDE_OPUS_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-opus-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-opus-5-5"},
     expected_provider_endpoint="/model/us.anthropic.claude-opus-5-5/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={**BEDROCK_INVOKE_REQUEST},
@@ -553,7 +553,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-opus-5-5",
         "choices": [
@@ -636,8 +636,8 @@ CLAUDE_FABLE_5_1_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-fable-5-1"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "bedrock/invoke/us.anthropic.claude-fable-5-1"},
     expected_provider_endpoint="/model/us.anthropic.claude-fable-5-1/invoke",
     expected_provider_headers={"authorization": "Bearer synthetic-bedrock-key", "content-type": "application/json"},
     expected_provider_request={**BEDROCK_INVOKE_REQUEST},
@@ -674,7 +674,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
             "service_tier": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "bedrock/invoke/us.anthropic.claude-fable-5-1",
         "choices": [

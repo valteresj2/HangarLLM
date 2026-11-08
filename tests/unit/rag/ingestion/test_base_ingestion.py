@@ -6,13 +6,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
-from litellm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
-from litellm.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
-from litellm.rag.ingestion.s3_vectors_ingestion import S3VectorsRAGIngestion
-from litellm.rag.ingestion.vertex_ai_ingestion import VertexAIRAGIngestion
-from litellm.types.utils import CredentialItem
+import hangarllm
+from hangarllm.rag.ingestion.base_ingestion import BaseRAGIngestion
+from hangarllm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
+from hangarllm.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
+from hangarllm.rag.ingestion.s3_vectors_ingestion import S3VectorsRAGIngestion
+from hangarllm.rag.ingestion.vertex_ai_ingestion import VertexAIRAGIngestion
+from hangarllm.types.utils import CredentialItem
 
 _FILE_URL: Final = "https://files.example/docs/report.pdf"
 _GEMINI_API_BASE: Final = "https://gemini.example"
@@ -52,10 +52,10 @@ class _EmbeddingRouter:
         return SimpleNamespace(data=[{"embedding": [0.1, 0.2]} for _ in input])
 
 
-def _vector_store_options(litellm_credential_name: object) -> dict[str, object]:
+def _vector_store_options(hangarllm_credential_name: object) -> dict[str, object]:
     return {
         "custom_llm_provider": "gemini",
-        "litellm_credential_name": litellm_credential_name,
+        "hangarllm_credential_name": hangarllm_credential_name,
         "api_key": "caller-key",
         "api_base": "https://caller.example",
     }
@@ -64,7 +64,7 @@ def _vector_store_options(litellm_credential_name: object) -> dict[str, object]:
 def test_a_stored_credential_named_by_the_vector_store_replaces_the_caller_supplied_values(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "credential_list", [_STORED_CREDENTIAL])
+    monkeypatch.setattr(hangarllm, "credential_list", [_STORED_CREDENTIAL])
     vector_store: Final = _vector_store_options("gemini-prod")
 
     ingestion: Final = GeminiRAGIngestion(ingest_options={"vector_store": vector_store})
@@ -72,39 +72,39 @@ def test_a_stored_credential_named_by_the_vector_store_replaces_the_caller_suppl
     assert ingestion.vector_store_config is vector_store
     assert vector_store == {
         "custom_llm_provider": "gemini",
-        "litellm_credential_name": "gemini-prod",
+        "hangarllm_credential_name": "gemini-prod",
         "api_key": "stored-key",
     }
 
 
 @pytest.mark.parametrize(
-    "litellm_credential_name",
+    "hangarllm_credential_name",
     ["gemini-staging", "", None, 7, True, ["gemini-prod"], {"credential_name": "gemini-prod"}],
 )
 def test_a_credential_name_that_matches_no_stored_credential_leaves_the_vector_store_config_alone(
-    monkeypatch: pytest.MonkeyPatch, litellm_credential_name: object
+    monkeypatch: pytest.MonkeyPatch, hangarllm_credential_name: object
 ):
-    monkeypatch.setattr(litellm, "credential_list", [_STORED_CREDENTIAL])
+    monkeypatch.setattr(hangarllm, "credential_list", [_STORED_CREDENTIAL])
 
     ingestion: Final = GeminiRAGIngestion(
-        ingest_options={"vector_store": _vector_store_options(litellm_credential_name)}
+        ingest_options={"vector_store": _vector_store_options(hangarllm_credential_name)}
     )
 
-    assert ingestion.vector_store_config == _vector_store_options(litellm_credential_name)
+    assert ingestion.vector_store_config == _vector_store_options(hangarllm_credential_name)
 
 
 def test_a_credential_name_that_is_not_a_string_is_not_resolved_even_when_it_equals_a_stored_name(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "credential_list", [_STORED_CREDENTIAL])
-    litellm_credential_name: Final = UserString("gemini-prod")
+    monkeypatch.setattr(hangarllm, "credential_list", [_STORED_CREDENTIAL])
+    hangarllm_credential_name: Final = UserString("gemini-prod")
 
     ingestion: Final = GeminiRAGIngestion(
-        ingest_options={"vector_store": _vector_store_options(litellm_credential_name)}
+        ingest_options={"vector_store": _vector_store_options(hangarllm_credential_name)}
     )
 
-    assert litellm_credential_name == "gemini-prod"
-    assert ingestion.vector_store_config == _vector_store_options(litellm_credential_name)
+    assert hangarllm_credential_name == "gemini-prod"
+    assert ingestion.vector_store_config == _vector_store_options(hangarllm_credential_name)
 
 
 @pytest.mark.asyncio
@@ -125,9 +125,9 @@ async def test_upload_from_a_url_takes_the_content_type_from_the_response_header
     headers: list[tuple[str, str]],
     expected_content_type: str,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "user_url_validation", False)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.get(_FILE_URL).mock(return_value=httpx.Response(200, content=b"%PDF-1.7", headers=headers))
     ingestion: Final = GeminiRAGIngestion(ingest_options={"vector_store": {"custom_llm_provider": "gemini"}})
 
@@ -200,8 +200,8 @@ async def test_a_gemini_upstream_error_keeps_its_status_on_the_failed_ingest(
     upstream_statuses: dict[str, int],
     expected_status_code: int,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post(f"{_GEMINI_API_BASE}/v1beta/fileSearchStores").mock(
         return_value=httpx.Response(upstream_statuses.get("create_store", 200), json={"name": _GEMINI_STORE})
     )

@@ -7,13 +7,13 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
-from litellm._process_defaults import secret_file_values
-from litellm.hangar.proxy.secret_separation import (
+from hangarllm._process_defaults import secret_file_values
+from hangarllm.hangar.proxy.secret_separation import (
     SharedSecretError,
     enforce_secret_separation,
     shared_secret_problems,
 )
-from litellm.hangar.proxy.ui_session import (
+from hangarllm.hangar.proxy.ui_session import (
     BROWSER_SESSION_KEY,
     SESSION_COOKIE,
     UiSessionMiddleware,
@@ -23,9 +23,9 @@ from litellm.hangar.proxy.ui_session import (
     sign_session,
     unseal,
 )
-from litellm.proxy.auth.auth_utils import is_request_body_safe
-from litellm.proxy.auth.login_utils import _matches_env_credentials, encode_ui_session_jwt, get_ui_credentials
-from litellm.proxy.middleware.prometheus_auth_middleware import _presents_metrics_token
+from hangarllm.proxy.auth.auth_utils import is_request_body_safe
+from hangarllm.proxy.auth.login_utils import _matches_env_credentials, encode_ui_session_jwt, get_ui_credentials
+from hangarllm.proxy.middleware.prometheus_auth_middleware import _presents_metrics_token
 
 REAL_KEY = "sk-real-session-key"
 SECRET = "unit-test-session-secret-0123456789abcdef"
@@ -34,9 +34,9 @@ MASTER = "sk-master-key-for-tests"
 
 @pytest.fixture(autouse=True)
 def _session_secret(monkeypatch):
-    monkeypatch.setenv("LITELLM_UI_SESSION_SECRET", SECRET)
+    monkeypatch.setenv("HANGARLLM_UI_SESSION_SECRET", SECRET)
     monkeypatch.delenv("UI_PASSWORD", raising=False)
-    monkeypatch.delenv("LITELLM_ALLOW_MASTER_KEY_UI_LOGIN", raising=False)
+    monkeypatch.delenv("HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN", raising=False)
 
 
 def _session_token(key: str = REAL_KEY) -> str:
@@ -139,7 +139,7 @@ class TestUiLoginCredentials:
         assert not _matches_env_credentials("admin", MASTER, MASTER)
 
     def test_explicit_opt_in_restores_master_key_login(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_ALLOW_MASTER_KEY_UI_LOGIN", "true")
+        monkeypatch.setenv("HANGARLLM_ALLOW_MASTER_KEY_UI_LOGIN", "true")
         assert _matches_env_credentials("admin", MASTER, MASTER)
 
 
@@ -161,9 +161,9 @@ class TestSecretSeparation:
         ("overrides", "fragment"),
         [
             ({"salt_key": None}, "is not set"),
-            ({"salt_key": MASTER}, "LITELLM_SALT_KEY is the same"),
+            ({"salt_key": MASTER}, "HANGARLLM_SALT_KEY is the same"),
             ({"ui_password": MASTER}, "UI_PASSWORD"),
-            ({"session_secret": MASTER}, "LITELLM_UI_SESSION_SECRET"),
+            ({"session_secret": MASTER}, "HANGARLLM_UI_SESSION_SECRET"),
         ],
     )
     def test_each_shared_secret_is_reported(self, overrides, fragment):
@@ -179,12 +179,12 @@ class TestSecretSeparation:
             enforce_secret_separation(
                 master_key=MASTER, database_is_configured=True, announce=announced.append, environ={}
             )
-        assert "LITELLM_SALT_KEY" in announced[0] and MASTER not in announced[0]
+        assert "HANGARLLM_SALT_KEY" in announced[0] and MASTER not in announced[0]
         enforce_secret_separation(
             master_key=MASTER,
             database_is_configured=True,
             announce=announced.append,
-            environ={"LITELLM_ALLOW_SHARED_SECRETS": "true"},
+            environ={"HANGARLLM_ALLOW_SHARED_SECRETS": "true"},
         )
 
 
@@ -237,12 +237,12 @@ class TestMetricsToken:
         return {"headers": [(b"authorization", value)]}
 
     def test_only_the_exact_token_is_accepted(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_METRICS_TOKEN", "scrape-me")
+        monkeypatch.setenv("HANGARLLM_METRICS_TOKEN", "scrape-me")
         assert _presents_metrics_token(self._scope(b"Bearer scrape-me"))
         assert not _presents_metrics_token(self._scope(b"Bearer wrong"))
 
     def test_disabled_when_unset(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_METRICS_TOKEN", raising=False)
+        monkeypatch.delenv("HANGARLLM_METRICS_TOKEN", raising=False)
         assert not _presents_metrics_token(self._scope(b"Bearer "))
 
 
@@ -267,7 +267,7 @@ class TestSkillSandbox:
         _FakeSession.captured = {}
 
     def _execute(self, skill_files=None):
-        from litellm.llms.litellm_proxy.skills.sandbox_executor import SkillsSandboxExecutor
+        from hangarllm.llms.hangarllm_proxy.skills.sandbox_executor import SkillsSandboxExecutor
 
         return SkillsSandboxExecutor().execute(code="print(1)", skill_files=skill_files or {})
 

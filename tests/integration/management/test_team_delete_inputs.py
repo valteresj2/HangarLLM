@@ -30,15 +30,15 @@ from tests.integration._support.database import read_rows, write_rows
 
 RecordProperty = Callable[[str, object], None]
 
-TEAM_SQL: Final = 'SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s'
-ROSTER_READ_SQL: Final = 'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s'
-ROSTER_SQL: Final = 'UPDATE "LiteLLM_TeamTable" SET members_with_roles = %s::jsonb WHERE team_id = %s'
-MEMBERSHIP_SQL: Final = 'SELECT user_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s'
-USER_SQL: Final = 'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s'
-USER_EMAIL_SQL: Final = 'UPDATE "LiteLLM_UserTable" SET user_email = %s WHERE user_id = %s'
-TOKEN_SQL: Final = 'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s'
-TOMBSTONE_SQL: Final = 'SELECT id FROM "LiteLLM_DeletedTeamTable" WHERE team_id = %s'
-AUDIT_SQL: Final = 'SELECT id, table_name, action FROM "LiteLLM_AuditLog" WHERE object_id = %s'
+TEAM_SQL: Final = 'SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s'
+ROSTER_READ_SQL: Final = 'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s'
+ROSTER_SQL: Final = 'UPDATE "HangarLLM_TeamTable" SET members_with_roles = %s::jsonb WHERE team_id = %s'
+MEMBERSHIP_SQL: Final = 'SELECT user_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s'
+USER_SQL: Final = 'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s'
+USER_EMAIL_SQL: Final = 'UPDATE "HangarLLM_UserTable" SET user_email = %s WHERE user_id = %s'
+TOKEN_SQL: Final = 'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s'
+TOMBSTONE_SQL: Final = 'SELECT id FROM "HangarLLM_DeletedTeamTable" WHERE team_id = %s'
+AUDIT_SQL: Final = 'SELECT id, table_name, action FROM "HangarLLM_AuditLog" WHERE object_id = %s'
 
 NOT_FOUND: Final = "Team not found, passed team_id="
 # /team/delete sits on management_routes but on no internal-user route list, so the route gate in
@@ -234,7 +234,7 @@ def test_roster_user_whose_row_was_removed(gateway: Gateway) -> None:
         ghost: Final = _own_user(scenario)
         gateway.post("/team/member_add", {"team_id": team, "member": {"role": "user", "user_id": ghost}})
         assert ghost in _membership_user_ids(team), _membership_user_ids(team)
-        write_rows('DELETE FROM "LiteLLM_UserTable" WHERE user_id = %s', (ghost,))
+        write_rows('DELETE FROM "HangarLLM_UserTable" WHERE user_id = %s', (ghost,))
         assert read_rows(USER_SQL, (ghost,)) == []
         response: Final = _delete(gateway, [team])
         assert response.status_code == 200, f"{response.status_code} {response.text}"
@@ -290,7 +290,7 @@ def test_email_only_roster_entry_matching_two_case_variants(gateway: Gateway) ->
 
 def test_roster_entry_without_id_or_email_pins_the_500(gateway: Gateway, record_property: RecordProperty) -> None:
     """Pins a pre-existing defect outside this PR's diff until it gets its own ticket: for a roster entry with neither
-    id nor email, LiteLLM_TeamTable.model_validate raises outside delete_team's 404 try/except, so the call is a 500
+    id nor email, HangarLLM_TeamTable.model_validate raises outside delete_team's 404 try/except, so the call is a 500
     that writes nothing (team row intact, no tombstone, membership rows untouched)."""
     with gateway.scenario() as scenario:
         team: Final = _own_team(scenario)

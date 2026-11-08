@@ -1,5 +1,5 @@
 """
-Pure-logic contract tests for litellm/proxy/video_endpoints/utils.py
+Pure-logic contract tests for hangarllm/proxy/video_endpoints/utils.py
 
 Five helpers the video proxy endpoints lean on:
   - extract_model_from_target_model_names: first model from a comma string / list
@@ -19,9 +19,9 @@ from typing import Final
 import pytest
 
 
-from litellm.router import Router
-from litellm.types.videos.main import DecodedVideoId
-from litellm.proxy.video_endpoints.utils import (
+from hangarllm.router import Router
+from hangarllm.types.videos.main import DecodedVideoId
+from hangarllm.proxy.video_endpoints.utils import (
     encode_character_id_in_response,
     encode_video_id_in_response,
     extract_model_from_target_model_names,
@@ -31,8 +31,8 @@ from litellm.proxy.video_endpoints.utils import (
     video_model_group,
     video_reference_to_id,
 )
-from litellm.types.videos.main import VideoObject
-from litellm.types.videos.utils import (
+from hangarllm.types.videos.main import VideoObject
+from hangarllm.types.videos.utils import (
     decode_character_id_with_provider,
     decode_video_id_with_provider,
     encode_character_id_with_provider,
@@ -427,7 +427,7 @@ def test_encode_video__non_video_object_passthrough(response: object) -> None:
 def _router_with_groups(*names: str) -> Router:
     return Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/sora-2", "api_key": "group-key"}} for name in names
+            {"model_name": name, "hangarllm_params": {"model": "openai/sora-2", "api_key": "group-key"}} for name in names
         ]
     )
 
@@ -454,7 +454,7 @@ def _two_groups_sharing_sora() -> Router:
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
+                "hangarllm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
                 "model_info": {"id": f"dep-{name}"},
             }
             for name in ("sora-team", "sora-shared")
@@ -495,7 +495,7 @@ def test_video_model_group__keeps_an_alias_of_the_creating_deployments_group(dep
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": f"openai/sora-{name}", "api_key": name},
+                "hangarllm_params": {"model": f"openai/sora-{name}", "api_key": name},
                 "model_info": {"id": f"dep-{name}"},
             }
             for name in ("sora-team", "sora-shared")
@@ -512,7 +512,7 @@ def test_video_model_group__names_a_team_model_by_its_public_name() -> None:
         model_list=[
             {
                 "model_name": "model_name_team-1_internal",
-                "litellm_params": {"model": "azure/sora-2", "api_key": "team-key"},
+                "hangarllm_params": {"model": "azure/sora-2", "api_key": "team-key"},
                 "model_info": {"id": "dep-team", "team_id": "team-1", "team_public_model_name": "team-sora"},
             }
         ]
@@ -526,7 +526,7 @@ def _fallback_router() -> Router:
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
+                "hangarllm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
                 "model_info": {"id": f"dep-{name}"},
             }
             for name in ("sora-pair", "sora-backup", "sora-last")
@@ -541,7 +541,7 @@ def _wildcard_router() -> Router:
         model_list=[
             {
                 "model_name": "gemini/*",
-                "litellm_params": {"model": "gemini/*", "api_key": "wildcard-key"},
+                "hangarllm_params": {"model": "gemini/*", "api_key": "wildcard-key"},
                 "model_info": {"id": "dep-wildcard"},
             }
         ]

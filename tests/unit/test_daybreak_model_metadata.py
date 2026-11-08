@@ -5,7 +5,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).parents[2]
 MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PATH = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PATH = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 DAYBREAK_MODELS = (
     "gpt-5.6-cyber",

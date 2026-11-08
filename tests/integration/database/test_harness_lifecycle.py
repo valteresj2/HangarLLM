@@ -95,12 +95,12 @@ def test_runner_environment_drops_inherited_provider_api_keys() -> None:
         "OPENAI_API_KEY": "ambient-openai",
         "GEMINI_API_KEY": "ambient-gemini",
         "OTHER_API_KEY": "ambient-other",
-        "LITELLM_MASTER_KEY": "sk-integration-master",
+        "HANGARLLM_MASTER_KEY": "sk-integration-master",
         "OPENAI_BASE_URL": "http://127.0.0.1:8190",
     }
     filtered: Final = _without_provider_api_keys(inherited)
     assert filtered == {
-        "LITELLM_MASTER_KEY": "sk-integration-master",
+        "HANGARLLM_MASTER_KEY": "sk-integration-master",
         "OPENAI_BASE_URL": "http://127.0.0.1:8190",
     }
     assert inherited["OPENAI_API_KEY"] == "ambient-openai"
@@ -112,11 +112,11 @@ def test_sdk_teardown_delivers_logging_before_restoring_callbacks(tmp_path: Path
     events: Final = tmp_path / "callbacks.json"
     probe: Final = tmp_path / "test_callback_teardown.py"
     probe.write_text(
-        "import asyncio, json, litellm, pytest\n"
+        "import asyncio, json, hangarllm, pytest\n"
         "from pathlib import Path\n"
-        "from litellm.integrations.custom_logger import CustomLogger\n"
+        "from hangarllm.integrations.custom_logger import CustomLogger\n"
         f"EVENTS = Path({str(events)!r})\n"
-        "ORIGINAL = tuple(litellm.callbacks)\n"
+        "ORIGINAL = tuple(hangarllm.callbacks)\n"
         "@pytest.fixture\n"
         "def release():\n"
         "    gate = asyncio.Event()\n"
@@ -130,14 +130,14 @@ def test_sdk_teardown_delivers_logging_before_restoring_callbacks(tmp_path: Path
         "            started.set()\n"
         "            await release.wait()\n"
         "            EVENTS.write_text(json.dumps({\n"
-        "                'registered': self in litellm.callbacks,\n"
+        "                'registered': self in hangarllm.callbacks,\n"
         "                'same_loop': asyncio.get_running_loop() is request_loop,\n"
-        "                'call_id': kwargs['litellm_call_id'],\n"
+        "                'call_id': kwargs['hangarllm_call_id'],\n"
         "            }))\n"
-        "    litellm.callbacks.append(Recorder())\n"
-        "    response = await litellm.acompletion(model='gpt-4o-mini',\n"
+        "    hangarllm.callbacks.append(Recorder())\n"
+        "    response = await hangarllm.acompletion(model='gpt-4o-mini',\n"
         "        messages=[{'role': 'user', 'content': 'teardown'}],\n"
-        "        mock_response='done', litellm_call_id='teardown-request')\n"
+        "        mock_response='done', hangarllm_call_id='teardown-request')\n"
         "    await asyncio.wait_for(started.wait(), timeout=5)\n"
         "    assert response.choices[0].message.content == 'done'\n"
         "    assert not EVENTS.exists()\n"
@@ -146,7 +146,7 @@ def test_sdk_teardown_delivers_logging_before_restoring_callbacks(tmp_path: Path
         "    assert EVENTS.exists(), 'logging did not finish before the next test'\n"
         "    assert json.loads(EVENTS.read_text()) == {\n"
         "        'registered': True, 'same_loop': True, 'call_id': 'teardown-request'}\n"
-        "    assert tuple(litellm.callbacks) == ORIGINAL\n"
+        "    assert tuple(hangarllm.callbacks) == ORIGINAL\n"
     )
     result: Final = subprocess.run(
         (
@@ -291,7 +291,7 @@ def test_slow_worker_startup_survives_healthchecks_and_a_stalled_worker_is_repla
     )
     overrides: Final = {
         "PYTHONPATH": os.pathsep.join((str(tmp_path), os.environ.get("PYTHONPATH", ""))),
-        "LITELLM_WORKER_STARTUP_HOOKS": "slow_worker_startup:configure",
+        "HANGARLLM_WORKER_STARTUP_HOOKS": "slow_worker_startup:configure",
     }
     with process_support.owned_proxy_process(gateway, tmp_path, overrides, workers=2) as owned:
         workers: Final = tuple(int(pid) for pid in STARTED_WORKER.findall(owned.log.read_text()))
@@ -852,7 +852,7 @@ def test_owned_entrypoints_record_exit_and_reap_the_process_group(
         rejected_config.write_text("model_list: [\n")
         assert process_support.refused_boot_log(gateway, tmp_path, {}, config=rejected_config)
         config.write_text(
-            "model_list: []\ngeneral_settings:\n  master_key: os.environ/LITELLM_MASTER_KEY\n"
+            "model_list: []\ngeneral_settings:\n  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
             "  database_url: os.environ/DATABASE_URL\n"
         )
         with process_support.owned_gateway_image(

@@ -42,10 +42,10 @@ from pydantic import Field
 
 
 class TeamHeaders(AuthHeaders):
-    """Bearer auth plus ``x-litellm-team-id``, the header a JWT caller sends to
+    """Bearer auth plus ``x-hangarllm-team-id``, the header a JWT caller sends to
     pick one of the teams it belongs to."""
 
-    x_litellm_team_id: str = Field(serialization_alias="x-litellm-team-id")
+    x_hangarllm_team_id: str = Field(serialization_alias="x-hangarllm-team-id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +94,7 @@ class OtherClient:
 
     @step("Create the {body.user_role} user {body.user_email} through /user/new")
     def user_new(self, body: UserNewBody) -> Result[UserNewResponse]:
-        """POST /user/new under the master key: seed the litellm user a JWT
+        """POST /user/new under the master key: seed the hangarllm user a JWT
         `sub` claim resolves to, before that token ever reaches the proxy."""
         return self.proxy.transport.post(
             "/user/new",
@@ -136,12 +136,12 @@ class OtherClient:
 
     @step("Send a /chat/completions request to {body.model} as team {team} with the given token")
     def chat_as_team(self, token: str, team: str, body: ChatBody) -> Result[ChatResponse]:
-        """POST /chat/completions under `token` with `x-litellm-team-id: team`."""
+        """POST /chat/completions under `token` with `x-hangarllm-team-id: team`."""
         return self.proxy.transport.post(
             "/chat/completions",
             headers=TeamHeaders(
                 authorization=self.proxy.transport.bearer(token).authorization,
-                x_litellm_team_id=team,
+                x_hangarllm_team_id=team,
             ),
             json=body,
             response_type=ChatResponse,

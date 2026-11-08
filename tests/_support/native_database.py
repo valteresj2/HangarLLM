@@ -1,6 +1,6 @@
 import asyncio
 
-from litellm.rust_bridge._native import NativeDatabase
+from hangarllm.rust_bridge._native import NativeDatabase
 
 
 async def _connect() -> NativeDatabase:

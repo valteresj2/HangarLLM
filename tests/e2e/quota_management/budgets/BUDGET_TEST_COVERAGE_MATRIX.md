@@ -1,6 +1,6 @@
 # Budget Test Coverage Matrix
 
-Maps every row of `BUDGET_CODE_MATRIX.md` (what LiteLLM implements) to its tests
+Maps every row of `BUDGET_CODE_MATRIX.md` (what HangarLLM implements) to its tests
 and level, then marks the live e2e coverage this suite adds.
 
 Levels: `unit` mocked (`AsyncMock` on `get_current_spend`/prisma); `router` live
@@ -30,7 +30,7 @@ on the shared lifecycle (every entity it creates is deleted on teardown).
 | Tag (proxy-level) | - | router only | `test_tag_budget_e2e::test_tag_budget_blocks_tagged_requests` | **covered (new)** |
 | Model-level (`model_max_budget`) | `test_unit_test_max_model_budget_limiter.py` | - | `test_model_max_budget_e2e::test_model_max_budget_isolates_per_model` | **covered (new)** |
 | Provider (router) | `test_budget_limiter_hotpath.py` | `test_router_budget_limiter.py` | - | **covered** (router) |
-| Global proxy (`litellm.max_budget`) | unit | - | - | **gap** (needs a config-level cap; not key-settable) |
+| Global proxy (`hangarllm.max_budget`) | unit | - | - | **gap** (needs a config-level cap; not key-settable) |
 
 ## Budget mechanisms
 
@@ -45,7 +45,7 @@ on the shared lifecycle (every entity it creates is deleted on teardown).
 
 ## Remaining gaps (intentionally not live-tested)
 
-- **Global proxy budget** (`litellm.max_budget`): set via proxy config, not a
+- **Global proxy budget** (`hangarllm.max_budget`): set via proxy config, not a
   per-key API, so it needs a dedicated proxy boot with that config rather than a
   runtime-created entity. Out of scope for the per-entity suite.
 - **Multi-window budgets**: the `budget_limits` list shape and per-window reset are

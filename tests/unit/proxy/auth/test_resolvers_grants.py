@@ -2,15 +2,15 @@ from fastapi import HTTPException
 import httpx
 import pytest
 
-from litellm.proxy._types import (
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
+from hangarllm.proxy._types import (
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
     ProxyException,
 )
-from litellm.proxy.auth.auth_checks import TeamNotFoundError, UserNotFoundError
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.auth.resolvers.grants import (
+from hangarllm.proxy.auth.auth_checks import TeamNotFoundError, UserNotFoundError
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.auth.resolvers.grants import (
     GrantResolver,
     LookupDegraded,
     NotAMember,
@@ -65,16 +65,16 @@ class _Loaders:
         )
 
 
-def _user(teams=(TEAM_ID,), user_id=USER_ID) -> LiteLLM_UserTable:
-    return LiteLLM_UserTable(user_id=user_id, user_role="internal_user", teams=list(teams), models=["gpt-5.5"])
+def _user(teams=(TEAM_ID,), user_id=USER_ID) -> HangarLLM_UserTable:
+    return HangarLLM_UserTable(user_id=user_id, user_role="internal_user", teams=list(teams), models=["gpt-5.5"])
 
 
-def _team(models=("gpt-5.5",)) -> LiteLLM_TeamTableCachedObj:
-    return LiteLLM_TeamTableCachedObj(team_id=TEAM_ID, team_alias="alias", models=list(models))
+def _team(models=("gpt-5.5",)) -> HangarLLM_TeamTableCachedObj:
+    return HangarLLM_TeamTableCachedObj(team_id=TEAM_ID, team_alias="alias", models=list(models))
 
 
 async def test_resolve_returns_live_rows_for_a_member():
-    membership = LiteLLM_TeamMembership(user_id=USER_ID, team_id=TEAM_ID, spend=1.5)
+    membership = HangarLLM_TeamMembership(user_id=USER_ID, team_id=TEAM_ID, spend=1.5)
     loaders = _Loaders(user=_user(), team=_team(models=("new-a", "new-b")), membership=membership)
 
     outcome = await loaders.resolver().resolve(UserLookup(user_id=USER_ID), team_id=TEAM_ID)
@@ -176,7 +176,7 @@ async def test_resolve_identity_lets_loader_errors_surface():
 
 class _UnreachableMembershipPrisma:
     class db:
-        class litellm_teammembership:
+        class hangarllm_teammembership:
             @staticmethod
             async def find_unique(where: dict[str, dict[str, str]], include: dict[str, bool]) -> None:
                 raise httpx.ConnectError("All connection attempts failed")
@@ -223,4 +223,4 @@ def test_raise_public_maps_a_deleted_team_to_404():
     ids=["models", "empty", "unusable-column"],
 )
 def test_user_models_reads_the_column_as_a_tuple_of_names(stored, expected):
-    assert user_models(LiteLLM_UserTable(user_id=USER_ID, models=stored)) == expected
+    assert user_models(HangarLLM_UserTable(user_id=USER_ID, models=stored)) == expected

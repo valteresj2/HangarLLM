@@ -89,7 +89,7 @@ def _presidio(gateway: Gateway, mode: str, entities: Mapping[str, str] | None) -
             {
                 "guardrail": {
                     "guardrail_name": name,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "presidio",
                         "mode": mode,
                         "default_on": False,
@@ -257,8 +257,8 @@ def test_apply_guardrail_aliases_accept_admin_auth(gateway: Gateway) -> None:
             for path, headers in (
                 (paths[0], {"Authorization": f"Bearer {gateway.key}"}),
                 (paths[1], {"Authorization": f"Bearer {gateway.key}"}),
-                (paths[0], {"x-litellm-api-key": gateway.key}),
-                (paths[1], {"x-litellm-api-key": gateway.key}),
+                (paths[0], {"x-hangarllm-api-key": gateway.key}),
+                (paths[1], {"x-hangarllm-api-key": gateway.key}),
             )
         )
         assert tuple(response.status_code for response in admin_requests) == (200, 200, 200, 200), tuple(
@@ -314,7 +314,7 @@ def test_long_apply_guardrail_alias_accepts_an_llm_api_scoped_key(gateway: Gatew
             gateway.client.post(path, json=body, headers=headers)
             for headers in (
                 {"Authorization": f"Bearer {key}"},
-                {"x-litellm-api-key": key},
+                {"x-hangarllm-api-key": key},
             )
         )
         _assert_apply_guardrail_successes(presidio, text, responses)
@@ -354,7 +354,7 @@ def test_short_apply_guardrail_alias_accepts_an_llm_api_scoped_key(gateway: Gate
             gateway.client.post(path, json=body, headers=headers)
             for headers in (
                 {"Authorization": f"Bearer {key}"},
-                {"x-litellm-api-key": key},
+                {"x-hangarllm-api-key": key},
             )
         )
         _assert_apply_guardrail_successes(presidio, text, responses)
@@ -377,8 +377,8 @@ def test_apply_guardrail_aliases_accept_internal_user_auth(gateway: Gateway) -> 
         internal_auth_requests: Final = (
             (paths[0], {"Authorization": f"Bearer {internal_key}"}),
             (paths[1], {"Authorization": f"Bearer {internal_key}"}),
-            (paths[0], {"x-litellm-api-key": internal_key}),
-            (paths[1], {"x-litellm-api-key": internal_key}),
+            (paths[0], {"x-hangarllm-api-key": internal_key}),
+            (paths[1], {"x-hangarllm-api-key": internal_key}),
         )
         responses: Final = tuple(
             gateway.client.post(path, json=body, headers=headers) for path, headers in internal_auth_requests

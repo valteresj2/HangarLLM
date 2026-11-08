@@ -2,24 +2,24 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.agent_endpoints.auth.agent_caller import agent_caller_auth, agent_caller_from_headers
-from litellm.types.agents import AgentCaller
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.agent_endpoints.auth.agent_caller import agent_caller_auth, agent_caller_from_headers
+from hangarllm.types.agents import AgentCaller
 
 _AGENT_KEY: Final = UserAPIKeyAuth(api_key="agent-key", user_id="agent-owner", team_id="agent-team", agent_id="agent-1")
 
 
 def test_agent_key_echoing_both_ids_acts_for_that_user_and_team() -> None:
-    headers: Final = {"X-LiteLLM-User-Id": " alice ", "x-litellm-team-id": "callers"}
+    headers: Final = {"X-HangarLLM-User-Id": " alice ", "x-hangarllm-team-id": "callers"}
 
     assert agent_caller_from_headers(headers, _AGENT_KEY) == AgentCaller(user_id="alice", team_id="callers")
 
 
 def test_agent_key_echoing_only_a_user_id_acts_for_a_teamless_user() -> None:
-    assert agent_caller_from_headers({"x-litellm-user-id": "alice"}, _AGENT_KEY) == AgentCaller(user_id="alice")
+    assert agent_caller_from_headers({"x-hangarllm-user-id": "alice"}, _AGENT_KEY) == AgentCaller(user_id="alice")
 
 
-@pytest.mark.parametrize("headers", [{}, {"x-litellm-user-id": "  ", "x-litellm-team-id": ""}])
+@pytest.mark.parametrize("headers", [{}, {"x-hangarllm-user-id": "  ", "x-hangarllm-team-id": ""}])
 def test_agent_key_echoing_no_caller_acts_for_itself(headers: dict[str, str]) -> None:
     assert agent_caller_from_headers(headers, _AGENT_KEY) is None
 
@@ -27,7 +27,7 @@ def test_agent_key_echoing_no_caller_acts_for_itself(headers: dict[str, str]) ->
 def test_caller_headers_on_a_key_without_an_agent_are_ignored() -> None:
     plain_key: Final = UserAPIKeyAuth(api_key="plain-key", user_id="bob")
 
-    assert agent_caller_from_headers({"x-litellm-user-id": "alice", "x-litellm-team-id": "callers"}, plain_key) is None
+    assert agent_caller_from_headers({"x-hangarllm-user-id": "alice", "x-hangarllm-team-id": "callers"}, plain_key) is None
 
 
 def test_caller_auth_stands_for_the_invoking_user_not_the_agent() -> None:

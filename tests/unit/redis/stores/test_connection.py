@@ -6,11 +6,11 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.redis_cache import RedisCache
-from litellm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
-from litellm.redis.stores.connection import RedisStores, connect
-from litellm.redis.stores.sensitive_route_pins import SensitiveRoutePinStore
-from litellm.rust_bridge._native import NativeRedisBreaker, NativeRedisClient, native_redis_breaker_states
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
+from hangarllm.redis.stores.connection import RedisStores, connect
+from hangarllm.redis.stores.sensitive_route_pins import SensitiveRoutePinStore
+from hangarllm.rust_bridge._native import NativeRedisBreaker, NativeRedisClient, native_redis_breaker_states
 
 _BREAKER: Final = RedisBreakerSettings(failure_threshold=5, recovery_timeout=60.0, timeout_min_duration=5.0)
 
@@ -118,7 +118,7 @@ async def test_a_store_admits_through_the_breaker_its_server_opened(caplog: pyte
     )
     pins: Final = SensitiveRoutePinStore(RedisStores(client).sensitive_route_pins())
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         await pins.set("tenant", "session", "model", 60.0)
 
     assert opened.state == "open"

@@ -1,4 +1,4 @@
-"""Tests for litellm/a2a_protocol/utils.py token/usage extraction."""
+"""Tests for hangarllm/a2a_protocol/utils.py token/usage extraction."""
 
 from types import SimpleNamespace
 from typing import Final
@@ -9,8 +9,8 @@ pytest.importorskip("a2a.compat.v0_3.types")
 
 from a2a.compat.v0_3.types import MessageSendParams, SendMessageRequest
 
-from litellm.a2a_protocol.utils import A2ARequestUtils
-from tests.unit.litellm_core_utils.attribute_forwarder import AttributeForwarder
+from hangarllm.a2a_protocol.utils import A2ARequestUtils
+from tests.unit.hangarllm_core_utils.attribute_forwarder import AttributeForwarder
 
 
 def _request(user_text: str) -> SendMessageRequest:

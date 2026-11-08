@@ -37,9 +37,9 @@ def list_value(value: JsonValue) -> Sequence[JsonValue]:
 
 def delete_key_if_present(candidate: Gateway, key: str) -> None:
     digest: Final = sha256(key.encode()).hexdigest()
-    if candidate.rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)):
+    if candidate.rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)):
         candidate.post("/key/delete", {"keys": [key]})
-    assert candidate.rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)) == []
+    assert candidate.rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)) == []
 
 
 def eventually(
@@ -182,7 +182,7 @@ class Scenario:
 
     def delete_team(self, identity: str) -> None:
         self.gateway.post("/team/delete", {"team_ids": [identity]})
-        assert self.gateway.rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (identity,)) == []
+        assert self.gateway.rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (identity,)) == []
 
     def project(self, team_id: str, **fields: JsonValue) -> str:
         created: Final = self.gateway.post(
@@ -196,7 +196,7 @@ class Scenario:
         response: Final = self.gateway.request("DELETE", "/project/delete", {"project_ids": [identity]})
         assert response.status_code == 200, response.text
         assert (
-            self.gateway.rows('SELECT project_id FROM "LiteLLM_ProjectTable" WHERE project_id = %s', (identity,)) == []
+            self.gateway.rows('SELECT project_id FROM "HangarLLM_ProjectTable" WHERE project_id = %s', (identity,)) == []
         )
 
     def budget(self, **fields: JsonValue) -> str:
@@ -207,7 +207,7 @@ class Scenario:
 
     def delete_budget(self, identity: str) -> None:
         self.gateway.post("/budget/delete", {"id": identity})
-        assert self.gateway.rows('SELECT budget_id FROM "LiteLLM_BudgetTable" WHERE budget_id = %s', (identity,)) == []
+        assert self.gateway.rows('SELECT budget_id FROM "HangarLLM_BudgetTable" WHERE budget_id = %s', (identity,)) == []
 
     def organization(self, **fields: JsonValue) -> str:
         created: Final = self.gateway.post(
@@ -222,7 +222,7 @@ class Scenario:
         assert response.status_code == 200, response.text
         assert (
             self.gateway.rows(
-                'SELECT organization_id FROM "LiteLLM_OrganizationTable" WHERE organization_id = %s', (identity,)
+                'SELECT organization_id FROM "HangarLLM_OrganizationTable" WHERE organization_id = %s', (identity,)
             )
             == []
         )
@@ -247,7 +247,7 @@ class Scenario:
     def delete_user(self, identity: str) -> None:
         response: Final = self.gateway.request("POST", "/user/delete", {"user_ids": [identity]})
         assert response.status_code == 200 and response.json() == 1, response.text
-        assert self.gateway.rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (identity,)) == []
+        assert self.gateway.rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (identity,)) == []
 
     def member(self, team_id: str, role: str = "user") -> str:
         """Create an internal user and add them to ``team_id``; deleting the user later removes the membership."""
@@ -258,7 +258,7 @@ class Scenario:
     def delete_key(self, token: str) -> None:
         self.gateway.post("/key/delete", {"keys": [token]})
         hashed: Final = sha256(token.encode()).hexdigest()
-        assert self.gateway.rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s', (hashed,)) == []
+        assert self.gateway.rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s', (hashed,)) == []
         info: Final = object_value(self.gateway.get("/key/info", {"key": hashed})["info"])
         assert info["status"] == "deleted", f"Deleted key still served as live: {info['status']}"
 
@@ -268,7 +268,7 @@ class Scenario:
         return frozenset(object_value(object_value(entry)["model_info"])["id"] for entry in entries)
 
     def delete_model(self, identity: str) -> None:
-        from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+        from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
         self.gateway.post("/model/delete", {"id": identity})
         eventually(
@@ -277,7 +277,7 @@ class Scenario:
             seconds=2 * PROXY_CONFIG_RELOAD_INTERVAL_SECONDS,
         )
         assert (
-            self.gateway.rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == []
+            self.gateway.rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == []
         )
 
     def model(
@@ -288,7 +288,7 @@ class Scenario:
             "/model/new",
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": f"{self.gateway.upstream_url}/v1",
@@ -304,7 +304,7 @@ class Scenario:
         return model_name
 
     def _await_every_worker(self, name: str, identity: str) -> None:
-        from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+        from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
         eventually(
             lambda: self._deployment_ids_by_worker(name),

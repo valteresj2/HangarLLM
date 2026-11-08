@@ -8,10 +8,10 @@ on:
   pull_request:
     branches:
       - main
-      - "litellm_**"
+      - "hangarllm_**"
     paths:
       - "terraform/provider/**"
-      - "litellm/proxy/**"
+      - "hangarllm/proxy/**"
       - "enterprise/**"
       - ".github/workflows/test-terraform-provider.yml"
 
@@ -111,7 +111,7 @@ jobs:
 
       - name: Generate Prisma client
         run: |
-          uv run --no-sync prisma generate --schema litellm/proxy/schema.prisma
+          uv run --no-sync prisma generate --schema hangarllm/proxy/schema.prisma
 
       - name: Generate proxy OpenAPI schema
         run: |
@@ -125,4 +125,4 @@ jobs:
 
       - name: Audit provider endpoints against the schema
         working-directory: terraform/provider
-        run: go run ./tools/endpointaudit -provider-dir ./litellm -spec "${RUNNER_TEMP}/openapi.json" -coverage-allowlist ./tools/endpointaudit/coverage_allowlist.txt
+        run: go run ./tools/endpointaudit -provider-dir ./hangarllm -spec "${RUNNER_TEMP}/openapi.json" -coverage-allowlist ./tools/endpointaudit/coverage_allowlist.txt

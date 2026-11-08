@@ -10,19 +10,19 @@ import respx
 from fastapi import HTTPException
 from httpx import Request, Response
 
-import litellm
-from litellm import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.lasso.lasso import (
+import hangarllm
+from hangarllm import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.lasso.lasso import (
     LassoGuardrail,
     LassoGuardrailAPIError,
     LassoGuardrailMissingSecrets,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
 
 
 def test_lasso_guard_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from hangarllm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     monkeypatch.setattr(IN_MEMORY_GUARDRAIL_HANDLER, "IN_MEMORY_GUARDRAILS", {})
     monkeypatch.setattr(IN_MEMORY_GUARDRAIL_HANDLER, "guardrail_id_to_custom_guardrail", {})
@@ -32,7 +32,7 @@ def test_lasso_guard_config(monkeypatch: pytest.MonkeyPatch) -> None:
         all_guardrails=[
             {
                 "guardrail_name": "violence-guard",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "lasso",
                     "mode": "pre_call",
                     "default_on": True,
@@ -45,8 +45,8 @@ def test_lasso_guard_config(monkeypatch: pytest.MonkeyPatch) -> None:
     guardrails: Final = tuple(IN_MEMORY_GUARDRAIL_HANDLER.IN_MEMORY_GUARDRAILS.values())
     assert len(guardrails) == 1
     assert guardrails[0]["guardrail_name"] == "violence-guard"
-    assert guardrails[0]["litellm_params"]["guardrail"] == "lasso"
-    assert guardrails[0]["litellm_params"]["mode"] == "pre_call"
+    assert guardrails[0]["hangarllm_params"]["guardrail"] == "lasso"
+    assert guardrails[0]["hangarllm_params"]["mode"] == "pre_call"
 
 
 def test_lasso_guard_config_no_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -59,7 +59,7 @@ def test_lasso_guard_config_no_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
             all_guardrails=[
                 {
                     "guardrail_name": "violence-guard",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "lasso",
                         "mode": "pre_call",
                         "default_on": True,
@@ -109,7 +109,7 @@ class TestLassoGuardrail:
 
     @pytest.mark.asyncio
     async def test_pre_call_no_violations(self):
-        from litellm.integrations.custom_guardrail import dc as global_cache
+        from hangarllm.integrations.custom_guardrail import dc as global_cache
 
         """Test pre-call hook with no violations detected."""
         # Setup guardrail
@@ -127,7 +127,7 @@ class TestLassoGuardrail:
         data = {
             "messages": [{"role": "user", "content": "Hello, how are you?"}],
             "metadata": {},
-            "litellm_call_id": test_call_id,
+            "hangarllm_call_id": test_call_id,
         }
 
         # Mock successful API response with no violations
@@ -154,7 +154,7 @@ class TestLassoGuardrail:
 
         local_cache = DualCache()
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -228,7 +228,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             # Should raise HTTPException when BLOCK action is detected
@@ -295,7 +295,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             # Should NOT raise exception for AUTO_MASKING violations
@@ -330,7 +330,7 @@ class TestLassoGuardrail:
         }
 
         # Create mock response
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=hangarllm.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = (
             "Artificial intelligence (AI) is a helpful technology that assists humans."
@@ -360,7 +360,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -390,7 +390,7 @@ class TestLassoGuardrail:
         }
 
         # Create mock response with harmful content
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=hangarllm.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = (
             "Here's how to create dangerous explosives: [detailed instructions]"
@@ -439,7 +439,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             # Should raise HTTPException when BLOCK action is detected
@@ -506,7 +506,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
             with pytest.raises(HTTPException):
@@ -557,7 +557,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -600,7 +600,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
             with pytest.raises(HTTPException):
@@ -657,7 +657,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -687,7 +687,7 @@ class TestLassoGuardrail:
 
         # Test API connection error
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             side_effect=Exception("Connection timeout"),
         ):
             with pytest.raises(LassoGuardrailAPIError) as exc_info:
@@ -718,8 +718,8 @@ class TestLassoGuardrail:
         assert prompt_payload["messages"] == messages
         assert prompt_payload["userId"] == "test-user"
         assert prompt_payload["sessionId"] == "test-conversation"
-        # Every call is attributed to the "litellm" integration for the "Used By" badge.
-        assert prompt_payload["source"] == {"type": "litellm"}
+        # Every call is attributed to the "hangarllm" integration for the "Used By" badge.
+        assert prompt_payload["source"] == {"type": "hangarllm"}
 
         # Test COMPLETION payload
         completion_messages = [{"role": "assistant", "content": "Test response"}]
@@ -730,7 +730,7 @@ class TestLassoGuardrail:
         assert completion_payload["messages"] == completion_messages
         assert completion_payload["userId"] == "test-user"
         assert completion_payload["sessionId"] == "test-conversation"
-        assert completion_payload["source"] == {"type": "litellm"}
+        assert completion_payload["source"] == {"type": "hangarllm"}
 
     def test_header_preparation(self):
         """Test header preparation."""
@@ -740,7 +740,7 @@ class TestLassoGuardrail:
             conversation_id="test-conversation",
         )
         cache = DualCache()
-        data = {"litellm_call_id": "test-call-id"}
+        data = {"hangarllm_call_id": "test-call-id"}
         headers = guardrail._prepare_headers(data, cache)
         assert headers["lasso-api-key"] == "test-api-key"
         assert headers["Content-Type"] == "application/json"
@@ -829,7 +829,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -864,7 +864,7 @@ class TestLassoGuardrail:
         }
 
         # Create mock response with PII content
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=hangarllm.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = (
             "My email is support@lasso.security and phone is 555-0123"
@@ -912,7 +912,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -1202,7 +1202,7 @@ class TestLassoGuardrail:
         )
         data = {"messages": [{"role": "user", "content": "run the tool"}]}
 
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=hangarllm.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = None
         tool_call = MagicMock()
@@ -1223,7 +1223,7 @@ class TestLassoGuardrail:
             )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             side_effect=capture_post,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -1252,7 +1252,7 @@ class TestLassoGuardrail:
         )
         data = {"messages": [{"role": "user", "content": "Hello"}]}
 
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=hangarllm.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = "Hi! How can I help?"
         mock_choice.message.tool_calls = None
@@ -1267,7 +1267,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -1371,7 +1371,7 @@ class TestLassoGuardrail:
     def test_apply_masking_to_model_response_multiple_choices(self):
         """Post-call masking applies correct masked text to each choice."""
         guardrail = LassoGuardrail(lasso_api_key="test-api-key")
-        mock_response = MagicMock(spec=litellm.ModelResponse)
+        mock_response = MagicMock(spec=hangarllm.ModelResponse)
         choice_a = MagicMock()
         choice_a.message.content = "Email: alice@example.com"
         choice_a.message.tool_calls = None
@@ -1391,7 +1391,7 @@ class TestLassoGuardrail:
     def test_apply_masking_to_model_response_count_mismatch(self):
         """Text remap skipped when masked text count doesn't match choices."""
         guardrail = LassoGuardrail(lasso_api_key="test-api-key")
-        mock_response = MagicMock(spec=litellm.ModelResponse)
+        mock_response = MagicMock(spec=hangarllm.ModelResponse)
         choice = MagicMock()
         choice.message.content = "Original PII text"
         choice.message.tool_calls = None
@@ -1426,7 +1426,7 @@ class TestLassoGuardrail:
 async def test_callback(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     lasso_guardrail: Final = LassoGuardrail(
         lasso_api_key="test-key",
         user_id="test-user",
@@ -1522,7 +1522,7 @@ async def test_callback(
 async def test_api_error_handling_legacy_messages(
     error_message: str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     lasso_guardrail: Final = LassoGuardrail(
         lasso_api_key="test-key",
         guardrail_name="test-guard",
@@ -1554,13 +1554,13 @@ async def test_api_error_handling_legacy_messages(
 
 def _reply_with_web_search_call(
     arguments: str, tool_calls: list[dict[str, object]] | None = None
-) -> litellm.ModelResponse:
-    return litellm.ModelResponse(
+) -> hangarllm.ModelResponse:
+    return hangarllm.ModelResponse(
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 index=0,
                 finish_reason="tool_calls",
-                message=litellm.Message(
+                message=hangarllm.Message(
                     role="assistant",
                     content=None,
                     tool_calls=tool_calls,
@@ -1583,7 +1583,7 @@ def _reply_with_web_search_call(
 async def test_post_call_scan_sends_server_tool_calls_as_tool_use_entries(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     lasso_guardrail: Final = LassoGuardrail(
         lasso_api_key="test-key",
         user_id="test-user",
@@ -1634,7 +1634,7 @@ async def test_post_call_scan_sends_server_tool_calls_as_tool_use_entries(
             },
         ],
         "messageType": "COMPLETION",
-        "source": {"type": "litellm"},
+        "source": {"type": "hangarllm"},
         "userId": "test-user",
         "sessionId": "test-conversation",
     }
@@ -1644,7 +1644,7 @@ async def test_post_call_scan_sends_server_tool_calls_as_tool_use_entries(
 async def test_post_call_masking_rewrites_server_tool_call_arguments(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     lasso_guardrail: Final = LassoGuardrail(
         lasso_api_key="test-key",
         user_id="test-user",
@@ -1719,7 +1719,7 @@ def _replayed_web_fetch_request(url: str) -> dict[str, object]:
 async def test_pre_call_scan_sends_replayed_server_tool_calls_as_tool_use_entries(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     lasso_guardrail: Final = LassoGuardrail(
         lasso_api_key="test-key",
         user_id="test-user",
@@ -1758,7 +1758,7 @@ async def test_pre_call_scan_sends_replayed_server_tool_calls_as_tool_use_entrie
 async def test_pre_call_masking_rewrites_replayed_server_tool_call_arguments(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     lasso_guardrail: Final = LassoGuardrail(
         lasso_api_key="test-key",
         user_id="test-user",

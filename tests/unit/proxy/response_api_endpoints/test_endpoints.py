@@ -22,20 +22,20 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from httpx import Response
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.constants import EMPTY_MAPPING
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.proxy_server import app
-from litellm.proxy.utils import ProxyLogging
-from litellm.responses.streaming_iterator import ResponsesAPIStreamingIterator
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
-from litellm.types.router import RouterErrors
-from litellm.types.utils import CallTypesLiteral
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.constants import EMPTY_MAPPING
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.proxy.proxy_server import app
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.responses.streaming_iterator import ResponsesAPIStreamingIterator
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+from hangarllm.types.router import RouterErrors
+from hangarllm.types.utils import CallTypesLiteral
 from tests._master_key import MASTER_KEY
 from tests._support.clock_loops import AutojumpClockLoop
 
@@ -58,8 +58,8 @@ async def test_streaming_upstream_errors_keep_the_client_protocol(
     path: str,
     error_kind: Literal["rate_limit", "numeric_rate_limit", "server_error", "response_failed", "cyber_policy"],
 ) -> None:
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import hangarllm.proxy.proxy_server as ps
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     model: Final = "gpt-6-astra"
     message: Final = "Upstream cannot complete this response"
@@ -121,17 +121,17 @@ async def test_streaming_upstream_errors_keep_the_client_protocol(
     upstream_events: Final = (chat, {"error": error}) if is_chat else response_events
     wire: Final = "".join("data: " + json.dumps(event) + "\n\n" for event in upstream_events)
     upstream_url: Final = "https://streaming.example/v1"
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {"model": "openai/" + model, "api_base": upstream_url, "api_key": "fixture-key"},
+                "hangarllm_params": {"model": "openai/" + model, "api_base": upstream_url, "api_key": "fixture-key"},
             }
         ],
         num_retries=0,
     )
     monkeypatch.setattr(ps, "llm_router", router)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, _auth_override)
     with respx.mock as transport:
         transport.post(upstream_url + ("/chat/completions" if is_chat else "/responses")).respond(
@@ -213,24 +213,24 @@ _NAMED_ERROR_FRAME: Final = (
 async def _post_through_first_frame_hook(
     monkeypatch: pytest.MonkeyPatch, path: str, first: str | bytes | Exception
 ) -> httpx.Response:
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import hangarllm.proxy.proxy_server as ps
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     model: Final = "gpt-6-astra"
     upstream_url: Final = "https://streaming.example/v1"
     is_chat: Final = path == "/v1/chat/completions"
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {"model": "openai/" + model, "api_base": upstream_url, "api_key": "fixture-key"},
+                "hangarllm_params": {"model": "openai/" + model, "api_base": upstream_url, "api_key": "fixture-key"},
             }
         ],
         num_retries=0,
     )
     monkeypatch.setattr(ps, "llm_router", router)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [_FirstFrameHook(first)])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [_FirstFrameHook(first)])
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, _auth_override)
     with respx.mock as transport:
         transport.post(upstream_url + ("/chat/completions" if is_chat else "/responses")).respond(
@@ -293,8 +293,8 @@ async def test_a_hook_failure_before_the_first_chunk_answers_in_chat_completions
 @pytest.mark.parametrize("path", ["/v1/responses", "/v1/chat/completions"])
 def test_a_failure_after_keepalive_pings_keeps_the_client_protocol(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
     async def request_and_check() -> None:
-        import litellm.proxy.proxy_server as ps
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        import hangarllm.proxy.proxy_server as ps
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         model: Final = "gpt-6-astra"
         message: Final = "Upstream is rate limiting this key"
@@ -305,11 +305,11 @@ def test_a_failure_after_keepalive_pings_keeps_the_client_protocol(monkeypatch: 
             await asyncio.sleep(0.3)
             return httpx.Response(429, json={"error": {"message": message, "type": "rate_limit_error", "code": None}})
 
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": model,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/" + model,
                         "api_base": upstream_url,
                         "api_key": "fixture-key",
@@ -320,8 +320,8 @@ def test_a_failure_after_keepalive_pings_keeps_the_client_protocol(monkeypatch: 
             num_retries=0,
         )
         monkeypatch.setattr(ps, "llm_router", router)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 0.05)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 0.05)
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, _auth_override)
         with respx.mock as transport:
             transport.post(upstream_url + ("/chat/completions" if is_chat else "/responses")).mock(
@@ -376,9 +376,9 @@ async def _cursor_stream_failure_prompt_tokens(
     model: str = "gpt-6-astra",
     model_info: Mapping[str, str] | None = None,
 ) -> int:
-    import litellm.proxy.proxy_server as ps
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import hangarllm.proxy.proxy_server as ps
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     class _FailureRowRecorder(CustomLogger):
         prompt_tokens: int | None = None
@@ -391,7 +391,7 @@ async def _cursor_stream_failure_prompt_tokens(
             traceback_str: str | None = None,
         ) -> None:
             usage: Final = request_data.get("combined_usage_object")
-            self.prompt_tokens = usage.prompt_tokens if isinstance(usage, litellm.Usage) else None
+            self.prompt_tokens = usage.prompt_tokens if isinstance(usage, hangarllm.Usage) else None
 
     upstream_url: Final = "https://streaming.example/v1"
     created: Final = {
@@ -418,19 +418,19 @@ async def _cursor_stream_failure_prompt_tokens(
     events: Final = (created, output_delta, failed) if fails_after_output else (created, failed)
     wire: Final = "".join("data: " + json.dumps(event) + "\n\n" for event in events)
     recorder: Final = _FailureRowRecorder()
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {"model": "openai/" + model, "api_base": upstream_url, "api_key": "fixture-key"},
+                "hangarllm_params": {"model": "openai/" + model, "api_base": upstream_url, "api_key": "fixture-key"},
                 "model_info": dict(model_info or {}),
             }
         ],
         num_retries=0,
     )
     monkeypatch.setattr(ps, "llm_router", router)
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, _auth_override)
     with respx.mock as transport:
         transport.post(upstream_url + "/responses").respond(
@@ -469,7 +469,7 @@ async def test_a_failed_cursor_stream_counts_its_input_from_the_newest_compactio
 async def test_a_failed_cursor_stream_counts_a_custom_named_deployment_with_its_base_model_only_when_it_is_openai(
     monkeypatch: pytest.MonkeyPatch, base_model: str, counted_as: str, fails_after_output: bool
 ) -> None:
-    from litellm.proxy.utils import count_request_input_tokens
+    from hangarllm.proxy.utils import count_request_input_tokens
 
     turn: Final = {"role": "user", "content": "日本語のテキストとहिन्दी पाठ और русский текст. " * 20}
 
@@ -486,8 +486,8 @@ async def test_responses_api_background_polling_rejects_missing_input():
     from fastapi import Response as FastAPIResponse
     from starlette.requests import Request
 
-    from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints.endpoints import responses_api
+    from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints.endpoints import responses_api
 
     processor = MagicMock()
 
@@ -516,19 +516,19 @@ async def test_responses_api_background_polling_rejects_missing_input():
 
     with (
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(  # test-quality-ok: polling decision is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.should_use_polling_for_request",
+            "hangarllm.proxy.response_polling.polling_handler.should_use_polling_for_request",
             return_value=True,
         ),
         patch(  # test-quality-ok: background task is imported inside the endpoint
-            "litellm.proxy.response_polling.background_streaming.background_streaming_task",
+            "hangarllm.proxy.response_polling.background_streaming.background_streaming_task",
             new_callable=AsyncMock,
         ) as mock_background_streaming_task,
         patch(  # test-quality-ok: polling handler is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.ResponsePollingHandler.create_initial_state",
+            "hangarllm.proxy.response_polling.polling_handler.ResponsePollingHandler.create_initial_state",
             new_callable=AsyncMock,
         ) as mock_create_initial_state,
     ):
@@ -551,8 +551,8 @@ async def test_responses_api_background_polling_accepts_input_from_prompt_templa
     from fastapi import Response as FastAPIResponse
     from starlette.requests import Request
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints.endpoints import responses_api
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints.endpoints import responses_api
 
     processor = MagicMock()
     processor.common_processing_pre_call_logic = AsyncMock(
@@ -579,22 +579,22 @@ async def test_responses_api_background_polling_accepts_input_from_prompt_templa
 
     with (
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(  # test-quality-ok: polling decision is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.should_use_polling_for_request",
+            "hangarllm.proxy.response_polling.polling_handler.should_use_polling_for_request",
             return_value=True,
         ),
         patch(  # test-quality-ok: background task is imported inside the endpoint
-            "litellm.proxy.response_polling.background_streaming.background_streaming_task",
+            "hangarllm.proxy.response_polling.background_streaming.background_streaming_task",
             new_callable=AsyncMock,
         ),
         patch(  # test-quality-ok: avoid scheduling a background task in this unit test
-            "litellm.proxy.response_api_endpoints.endpoints.asyncio.create_task",
+            "hangarllm.proxy.response_api_endpoints.endpoints.asyncio.create_task",
         ),
         patch(  # test-quality-ok: polling handler is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.ResponsePollingHandler.create_initial_state",
+            "hangarllm.proxy.response_polling.polling_handler.ResponsePollingHandler.create_initial_state",
             new_callable=AsyncMock,
         ) as mock_create_initial_state,
     ):
@@ -618,10 +618,10 @@ async def test_a_cache_polled_background_stream_is_priced_by_its_own_stream():
     marked as billed later must still be priced when it finishes, or the generation is never billed."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.constants import MANAGED_BACKGROUND_RESPONSE_METADATA_KEY
-    from litellm.litellm_core_utils.internal_call_metadata import is_unbilled_non_inference_call
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints.endpoints import responses_api
+    from hangarllm.constants import MANAGED_BACKGROUND_RESPONSE_METADATA_KEY
+    from hangarllm.hangarllm_core_utils.internal_call_metadata import is_unbilled_non_inference_call
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints.endpoints import responses_api
 
     marked_by_the_hook: Final = {
         "model": "gpt-5.6",
@@ -629,7 +629,7 @@ async def test_a_cache_polled_background_stream_is_priced_by_its_own_stream():
         "stream": True,
         "background": True,
         "extra_body": {"background": True},
-        "litellm_metadata": {MANAGED_BACKGROUND_RESPONSE_METADATA_KEY: True, "user_api_key_alias": "creator"},
+        "hangarllm_metadata": {MANAGED_BACKGROUND_RESPONSE_METADATA_KEY: True, "user_api_key_alias": "creator"},
     }
     processor: Final = MagicMock()
     processor.common_processing_pre_call_logic = AsyncMock(return_value=(marked_by_the_hook, MagicMock()))
@@ -639,19 +639,19 @@ async def test_a_cache_polled_background_stream_is_priced_by_its_own_stream():
 
     with (
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(  # test-quality-ok: polling decision is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.should_use_polling_for_request",
+            "hangarllm.proxy.response_polling.polling_handler.should_use_polling_for_request",
             return_value=True,
         ),
         patch(  # test-quality-ok: background task is imported inside the endpoint
-            "litellm.proxy.response_polling.background_streaming.background_streaming_task",
+            "hangarllm.proxy.response_polling.background_streaming.background_streaming_task",
             new_callable=AsyncMock,
         ) as polled_stream,
         patch(  # test-quality-ok: polling handler is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.ResponsePollingHandler.create_initial_state",
+            "hangarllm.proxy.response_polling.polling_handler.ResponsePollingHandler.create_initial_state",
             new_callable=AsyncMock,
         ),
     ):
@@ -662,9 +662,9 @@ async def test_a_cache_polled_background_stream_is_priced_by_its_own_stream():
         )
         await asyncio.sleep(0)
 
-    polled_metadata: Final = polled_stream.call_args.kwargs["data"]["litellm_metadata"]
+    polled_metadata: Final = polled_stream.call_args.kwargs["data"]["hangarllm_metadata"]
     finished: Final = _background_response("resp_cache_polled", "completed", 100)
-    assert is_unbilled_non_inference_call("aresponses", marked_by_the_hook["litellm_metadata"], finished)
+    assert is_unbilled_non_inference_call("aresponses", marked_by_the_hook["hangarllm_metadata"], finished)
     assert not is_unbilled_non_inference_call("aresponses", polled_metadata, finished)
     assert polled_metadata["user_api_key_alias"] == "creator"
 
@@ -679,8 +679,8 @@ async def test_responses_api_background_create_persists_the_creating_keys_attrib
     from fastapi import Response as FastAPIResponse
     from starlette.requests import Request
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints.endpoints import responses_api
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints.endpoints import responses_api
 
     queued = ResponsesAPIResponse(
         id="resp_background", object="response", status=status, created_at=1, output=[], usage=None
@@ -691,7 +691,7 @@ async def test_responses_api_background_create_persists_the_creating_keys_attrib
         "model": "gpt-4o",
         "input": "hello",
         "background": True,
-        "litellm_metadata": {"tags": ["env:prod"]},
+        "hangarllm_metadata": {"tags": ["env:prod"]},
         "proxy_server_request": {"headers": {"user-agent": "codex_cli_rs/0.44.0"}},
     }
     processor.base_process_llm_request = AsyncMock(return_value=queued)
@@ -720,18 +720,18 @@ async def test_responses_api_background_create_persists_the_creating_keys_attrib
 
     with (
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(  # test-quality-ok: polling decision is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.should_use_polling_for_request",
+            "hangarllm.proxy.response_polling.polling_handler.should_use_polling_for_request",
             return_value=False,
         ),
         patch(  # test-quality-ok: the endpoint reads the proxy singletons at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging
         ),
         patch(  # test-quality-ok: the endpoint reads the proxy singletons at call time
-            "litellm.proxy.proxy_server.llm_router", MagicMock()
+            "hangarllm.proxy.proxy_server.llm_router", MagicMock()
         ),
     ):
         result = await responses_api(
@@ -765,7 +765,7 @@ class _SpendEvents:
 
 
 async def _drain_spend_events() -> None:
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=10)
 
@@ -775,12 +775,12 @@ def _billed_costs(payloads: tuple[Mapping[str, object], ...]) -> list[str]:
 
 
 def _advertised_cost_split(headers: Mapping[str, str]) -> list[tuple[float, float]]:
-    if "x-litellm-response-cost-original" not in headers:
+    if "x-hangarllm-response-cost-original" not in headers:
         return []
     return [
         (
-            float(headers["x-litellm-response-cost-original"]),
-            float(headers["x-litellm-response-cost-input"]) + float(headers["x-litellm-response-cost-output"]),
+            float(headers["x-hangarllm-response-cost-original"]),
+            float(headers["x-hangarllm-response-cost-input"]) + float(headers["x-hangarllm-response-cost-output"]),
         )
     ]
 
@@ -807,15 +807,15 @@ async def test_reading_a_finished_background_response_bills_it(
 
     from fastapi import Response as FastAPIResponse
 
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints.endpoints import _bill_finished_background_response
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints.endpoints import _bill_finished_background_response
 
     class _CapturingLogger(_SpendEvents, CustomLogger):
         pass
 
     spend_events = _CapturingLogger()
-    monkeypatch.setattr(litellm, "_async_success_callback", [spend_events])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [spend_events])
     read = ResponsesAPIResponse(
         id="resp_read",
         object="response",
@@ -840,17 +840,17 @@ async def test_reading_a_finished_background_response_bills_it(
     )
     fastapi_response = FastAPIResponse()
     prisma_client = MagicMock()
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(return_value=stored_row if stored else None)
-    prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
+    prisma_client.db.hangarllm_managedobjecttable.find_first = AsyncMock(return_value=stored_row if stored else None)
+    prisma_client.db.hangarllm_managedobjecttable.update_many = AsyncMock(return_value=1)
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client", prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", prisma_client
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.llm_router", MagicMock()
+            "hangarllm.proxy.proxy_server.llm_router", MagicMock()
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
-        patch("litellm.aget_responses", side_effect=AssertionError("billing must not read the provider again")),
+        patch("hangarllm.aget_responses", side_effect=AssertionError("billing must not read the provider again")),
     ):
         await _bill_finished_background_response(
             response=read,
@@ -863,7 +863,7 @@ async def test_reading_a_finished_background_response_bills_it(
 
     assert len(spend_events.payloads) == expected_billed_events
     assert all(payload["metadata"]["user_api_key_end_user_id"] == "customer-42" for payload in spend_events.payloads)
-    assert fastapi_response.headers.getlist("x-litellm-response-cost") == _billed_costs(spend_events.payloads)
+    assert fastapi_response.headers.getlist("x-hangarllm-response-cost") == _billed_costs(spend_events.payloads)
     assert _advertised_cost_split(fastapi_response.headers) == [
         (pytest.approx(float(cost)), pytest.approx(float(cost))) for cost in _billed_costs(spend_events.payloads)
     ]
@@ -944,25 +944,25 @@ async def _read_twice_on_two_pods(
     monkeypatch: pytest.MonkeyPatch, table: _UniqueManagedObjectTable, response_id: str, reader: object
 ) -> tuple[Mapping[str, object], ...]:
     from fastapi import Response as FastAPIResponse
-    from litellm.hangar.proxy.managed_files import _PROXY_LiteLLMManagedFiles
+    from hangarllm.hangar.proxy.managed_files import _PROXY_HangarLLMManagedFiles
 
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy.response_api_endpoints.endpoints import _bill_finished_background_response
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.proxy.response_api_endpoints.endpoints import _bill_finished_background_response
 
     class _CapturingLogger(_SpendEvents, CustomLogger):
         pass
 
     spend_events: Final = _CapturingLogger()
-    monkeypatch.setattr(litellm, "_async_success_callback", [spend_events])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [spend_events])
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_managedobjecttable = table
-    prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_managedobjecttable = table
+    prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
     proxy_logging: Final = MagicMock()
     proxy_logging.get_proxy_hook = MagicMock(
-        return_value=_PROXY_LiteLLMManagedFiles(internal_usage_cache=DualCache(), prisma_client=prisma_client)
+        return_value=_PROXY_HangarLLMManagedFiles(internal_usage_cache=DualCache(), prisma_client=prisma_client)
     )
     finished: Final = ResponsesAPIResponse(
         id=response_id,
@@ -980,15 +980,15 @@ async def _read_twice_on_two_pods(
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client", prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", prisma_client
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.llm_router", router
+            "hangarllm.proxy.proxy_server.llm_router", router
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
-        patch("litellm.aget_responses", side_effect=AssertionError("billing must not read the provider again")),
+        patch("hangarllm.aget_responses", side_effect=AssertionError("billing must not read the provider again")),
     ):
         await asyncio.gather(
             *(
@@ -1013,8 +1013,8 @@ async def test_a_finished_response_the_create_could_not_store_is_billed_once_und
     """A create that could not write its managed row (a database outage) leaves the reads marked free
     and the poll blind to the job, so the first read that sees it finished stores the row under the
     reading key and bills it, once even when two pods read it at the same moment."""
-    from litellm.proxy._types import UserAPIKeyAuth, hash_token
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.proxy._types import UserAPIKeyAuth, hash_token
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     response_id: Final = ResponsesAPIRequestUtils._build_responses_api_response_id(
         custom_llm_provider="openai", model_id="deployment-untracked", response_id="resp_untracked"
@@ -1046,8 +1046,8 @@ async def test_a_finished_read_never_bills_a_response_already_billed_or_billed_b
 ):
     """A row the create stored as finished means the create billed it, and an id the proxy did not
     issue is priced by the read itself, so neither read stores a row or bills the response again."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     response_id: Final = (
         ResponsesAPIRequestUtils._build_responses_api_response_id(
@@ -1080,13 +1080,13 @@ async def test_a_finished_read_never_bills_a_response_already_billed_or_billed_b
 
 
 def _configured_deployment_router(fetched: ResponsesAPIResponse) -> MagicMock:
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
     router: Final = MagicMock()
     router.get_deployment = MagicMock(
         return_value=Deployment(
             model_name="gpt-5.6",
-            litellm_params=LiteLLM_Params(model="openai/gpt-5.6"),
+            hangarllm_params=HangarLLM_Params(model="openai/gpt-5.6"),
             model_info=ModelInfo(id="deployment-read"),
         )
     )
@@ -1116,10 +1116,10 @@ class _StoredBackgroundResponse:
 
 
 def _one_pending_background_response() -> _StoredBackgroundResponse:
-    from litellm.hangar.proxy.managed_files import _PROXY_LiteLLMManagedFiles
+    from hangarllm.hangar.proxy.managed_files import _PROXY_HangarLLMManagedFiles
 
-    from litellm.caching.caching import DualCache
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     response_id: Final = ResponsesAPIRequestUtils._build_responses_api_response_id(
         custom_llm_provider="openai", model_id="deployment-read", response_id="resp_read"
@@ -1136,13 +1136,13 @@ def _one_pending_background_response() -> _StoredBackgroundResponse:
         )
     )
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_managedobjecttable = table
-    prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_managedobjecttable = table
+    prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
     proxy_logging: Final = MagicMock()
     proxy_logging.get_proxy_hook = MagicMock(
-        return_value=_PROXY_LiteLLMManagedFiles(internal_usage_cache=DualCache(), prisma_client=prisma_client)
+        return_value=_PROXY_HangarLLMManagedFiles(internal_usage_cache=DualCache(), prisma_client=prisma_client)
     )
     return _StoredBackgroundResponse(
         response_id=response_id, table=table, prisma_client=prisma_client, proxy_logging=proxy_logging
@@ -1189,15 +1189,15 @@ async def test_a_finished_read_or_cancel_bills_usage_only_the_configured_deploym
     response reports the cost it billed."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints import endpoints
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints import endpoints
 
     class _CapturingLogger(_SpendEvents, CustomLogger):
         pass
 
     spend_events: Final = _CapturingLogger()
-    monkeypatch.setattr(litellm, "_async_success_callback", [spend_events])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [spend_events])
     stored: Final = _one_pending_background_response()
     router: Final = _configured_deployment_router(_background_response(stored.response_id, finished_status, 100))
     processor: Final = MagicMock()
@@ -1208,19 +1208,19 @@ async def test_a_finished_read_or_cancel_bills_usage_only_the_configured_deploym
 
     with (
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(
-            "litellm.proxy.proxy_server.prisma_client", stored.prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.llm_router", router
+            "hangarllm.proxy.proxy_server.llm_router", router
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", stored.proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", stored.proxy_logging
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
-        patch("litellm.aget_responses", side_effect=AssertionError("the configured deployment answers billing reads")),
+        patch("hangarllm.aget_responses", side_effect=AssertionError("the configured deployment answers billing reads")),
     ):
         await getattr(endpoints, endpoint_name)(
             response_id=stored.response_id,
@@ -1233,7 +1233,7 @@ async def test_a_finished_read_or_cancel_bills_usage_only_the_configured_deploym
     (billed,) = spend_events.payloads
     assert billed["prompt_tokens"] == billed_input_tokens
     assert router.aget_responses.await_count == deployment_fetches
-    assert fastapi_response.headers.getlist("x-litellm-response-cost") == _billed_costs(spend_events.payloads)
+    assert fastapi_response.headers.getlist("x-hangarllm-response-cost") == _billed_costs(spend_events.payloads)
     (row,) = stored.table.rows
     assert row.status == "completed"
 
@@ -1246,27 +1246,27 @@ async def test_deleting_a_finished_unbilled_background_response_bills_it_before_
     is billed from the configured deployment before the delete reaches the provider."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints.endpoints import delete_response
-    from litellm.types.responses.main import DeleteResponseResult
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints.endpoints import delete_response
+    from hangarllm.types.responses.main import DeleteResponseResult
 
     class _CapturingLogger(_SpendEvents, CustomLogger):
         pass
 
     spend_events: Final = _CapturingLogger()
-    monkeypatch.setattr(litellm, "_async_success_callback", [spend_events])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [spend_events])
     stored: Final = _one_pending_background_response()
     deleted: Final[list[str]] = []
 
-    async def provider_fetch(response_id: str, litellm_metadata: Mapping[str, object]) -> ResponsesAPIResponse:
+    async def provider_fetch(response_id: str, hangarllm_metadata: Mapping[str, object]) -> ResponsesAPIResponse:
         if deleted:
-            raise litellm.NotFoundError(message="response not found", model="gpt-5.6", llm_provider="openai")
+            raise hangarllm.NotFoundError(message="response not found", model="gpt-5.6", llm_provider="openai")
         return _background_response(response_id, "completed", 100)
 
     async def provider_delete(fastapi_response: FastAPIResponse, **_: object) -> DeleteResponseResult:
         deleted.append(stored.response_id)
-        fastapi_response.headers["x-litellm-response-cost"] = "0.0"
+        fastapi_response.headers["x-hangarllm-response-cost"] = "0.0"
         return DeleteResponseResult(id=stored.response_id, object="response", deleted=True)
 
     router: Final = _configured_deployment_router(_background_response(stored.response_id, "completed", 100))
@@ -1277,17 +1277,17 @@ async def test_deleting_a_finished_unbilled_background_response_bills_it_before_
 
     with (
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(
-            "litellm.proxy.proxy_server.prisma_client", stored.prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.llm_router", router
+            "hangarllm.proxy.proxy_server.llm_router", router
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", stored.proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", stored.proxy_logging
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
     ):
         result: Final = await delete_response(
@@ -1301,7 +1301,7 @@ async def test_deleting_a_finished_unbilled_background_response_bills_it_before_
     assert result.deleted is True
     (billed,) = spend_events.payloads
     assert billed["prompt_tokens"] == 100
-    assert fastapi_response.headers.getlist("x-litellm-response-cost") == _billed_costs(spend_events.payloads)
+    assert fastapi_response.headers.getlist("x-hangarllm-response-cost") == _billed_costs(spend_events.payloads)
     (row,) = stored.table.rows
     assert row.status == "completed"
 
@@ -1314,11 +1314,11 @@ async def test_a_delete_the_proxy_refuses_never_fetches_or_bills_the_response(ca
     from fastapi import HTTPException
     from fastapi import Response as FastAPIResponse
 
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.hooks.responses_id_security import ResponsesIDSecurity
-    from litellm.proxy.response_api_endpoints.endpoints import delete_response
-    from litellm.types.responses.main import DeleteResponseResult
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.hooks.responses_id_security import ResponsesIDSecurity
+    from hangarllm.proxy.response_api_endpoints.endpoints import delete_response
+    from hangarllm.types.responses.main import DeleteResponseResult
 
     class _CapturingLogger(_SpendEvents, CustomLogger):
         pass
@@ -1344,19 +1344,19 @@ async def test_a_delete_the_proxy_refuses_never_fetches_or_bills_the_response(ca
     processor.handle_llm_api_exception = AsyncMock(side_effect=lambda e, **_: e)
 
     with (
-        patch.object(litellm, "_async_success_callback", [spend_events]),
+        patch.object(hangarllm, "_async_success_callback", [spend_events]),
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(
-            "litellm.proxy.proxy_server.prisma_client", stored.prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", stored.prisma_client
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.llm_router", router
+            "hangarllm.proxy.proxy_server.llm_router", router
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", stored.proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", stored.proxy_logging
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
     ):
         with contextlib.suppress(HTTPException):
@@ -1373,7 +1373,7 @@ async def test_a_delete_the_proxy_refuses_never_fetches_or_bills_the_response(ca
 
 
 def _proxy_issued_id(provider_response_id: str) -> str:
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     return ResponsesAPIRequestUtils._build_responses_api_response_id(
         custom_llm_provider="openai", model_id="deployment-read", response_id=provider_response_id
@@ -1381,33 +1381,33 @@ def _proxy_issued_id(provider_response_id: str) -> str:
 
 
 def _managed_files_over(table: _UniqueManagedObjectTable) -> tuple[MagicMock, MagicMock]:
-    from litellm.hangar.proxy.managed_files import _PROXY_LiteLLMManagedFiles
+    from hangarllm.hangar.proxy.managed_files import _PROXY_HangarLLMManagedFiles
 
-    from litellm.caching.caching import DualCache
+    from hangarllm.caching.caching import DualCache
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_managedobjecttable = table
-    prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_deprecatedverificationtoken.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
-    prisma_client.db.litellm_deletedteamtable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_managedobjecttable = table
+    prisma_client.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_deprecatedverificationtoken.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_deletedverificationtoken.find_first = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_deletedteamtable.find_first = AsyncMock(return_value=None)
     proxy_logging: Final = MagicMock()
     proxy_logging.get_proxy_hook = MagicMock(
-        return_value=_PROXY_LiteLLMManagedFiles(internal_usage_cache=DualCache(), prisma_client=prisma_client)
+        return_value=_PROXY_HangarLLMManagedFiles(internal_usage_cache=DualCache(), prisma_client=prisma_client)
     )
     return prisma_client, proxy_logging
 
 
 def _capture_spend_events(monkeypatch: pytest.MonkeyPatch) -> _SpendEvents:
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     class _CapturingLogger(_SpendEvents, CustomLogger):
         pass
 
     spend_events: Final = _CapturingLogger()
-    monkeypatch.setattr(litellm, "_async_success_callback", [spend_events])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [spend_events])
     return spend_events
 
 
@@ -1415,13 +1415,13 @@ def _capture_spend_events(monkeypatch: pytest.MonkeyPatch) -> _SpendEvents:
 def _proxy_over(prisma_client: MagicMock, proxy_logging: MagicMock, router: MagicMock):
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client", prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", prisma_client
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.llm_router", router
+            "hangarllm.proxy.proxy_server.llm_router", router
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
     ):
         yield
@@ -1437,8 +1437,8 @@ async def test_a_streamed_background_create_bills_its_finished_response_once_und
     whenever the stream records the finished response in time, and no later read bills it again."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth, hash_token
-    from litellm.proxy.response_api_endpoints.endpoints import (
+    from hangarllm.proxy._types import UserAPIKeyAuth, hash_token
+    from hangarllm.proxy.response_api_endpoints.endpoints import (
         _bill_finished_background_response,
         _streamed_background_data_generator,
     )
@@ -1463,7 +1463,7 @@ async def test_a_streamed_background_create_bills_its_finished_response_once_und
             proxy_logging,
             stream,
             UserAPIKeyAuth(api_key="sk-creator"),
-            {"litellm_metadata": {"tags": ["nightly"]}},
+            {"hangarllm_metadata": {"tags": ["nightly"]}},
         ):
             billed_before_each_event.append(len(table.rows))
         await _bill_finished_background_response(
@@ -1490,8 +1490,8 @@ async def test_a_streamed_read_bills_the_finished_job_once_before_the_client_see
     later read of the same job bills nothing more."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.response_api_endpoints.endpoints import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.response_api_endpoints.endpoints import (
         _bill_finished_background_response,
         _streamed_retrieval_data_generator,
     )
@@ -1548,8 +1548,8 @@ def _resumed_events(response_id: str) -> tuple[Mapping[str, object], ...]:
 
 
 def _replayed_stream(response_id: str) -> ResponsesAPIStreamingIterator:
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 
     wire: Final = "".join(
         f"event: {event['type']}\ndata: {json.dumps(event)}\n\n" for event in _resumed_events(response_id)
@@ -1564,7 +1564,7 @@ def _replayed_stream(response_id: str) -> ResponsesAPIStreamingIterator:
             stream=True,
             call_type="aresponses",
             start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
-            litellm_call_id="resumed-read",
+            hangarllm_call_id="resumed-read",
             function_id="resumed-read",
         ),
         custom_llm_provider="openai",
@@ -1583,21 +1583,21 @@ def _sse_events(text: str) -> tuple[Mapping[str, object], ...]:
 async def _read_through_proxy(
     monkeypatch: pytest.MonkeyPatch, query: Mapping[str, str], upstream: httpx.Response
 ) -> tuple[httpx.Response, tuple[httpx.Request, ...]]:
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import hangarllm.proxy.proxy_server as ps
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {"model": "openai/gpt-5.6", "api_base": _RESUMED_UPSTREAM, "api_key": "fixture-key"},
+                "hangarllm_params": {"model": "openai/gpt-5.6", "api_base": _RESUMED_UPSTREAM, "api_key": "fixture-key"},
                 "model_info": {"id": "deployment-read"},
             }
         ],
         num_retries=0,
     )
     monkeypatch.setattr(ps, "llm_router", router)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, _auth_override)
     with respx.mock(assert_all_called=False) as transport:
         route: Final = transport.get(_RESUMED_UPSTREAM + "/responses/resp_read").mock(return_value=upstream)
@@ -1656,7 +1656,7 @@ def _resumed_wire() -> str:
 async def test_a_streamed_read_whose_first_event_is_a_named_error_answers_with_its_status(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "callbacks", [_FirstFrameHook(_NAMED_ERROR_FRAME)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_FirstFrameHook(_NAMED_ERROR_FRAME)])
     result, _ = await _read_through_proxy(
         monkeypatch,
         {"stream": "true"},
@@ -1707,8 +1707,8 @@ async def test_a_read_that_bills_a_response_before_its_stream_ends_leaves_the_st
     reach its last event, and then the stream bills nothing on top of the read."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth, hash_token
-    from litellm.proxy.response_api_endpoints.endpoints import (
+    from hangarllm.proxy._types import UserAPIKeyAuth, hash_token
+    from hangarllm.proxy.response_api_endpoints.endpoints import (
         _bill_finished_background_response,
         _streamed_background_data_generator,
     )
@@ -1755,9 +1755,9 @@ async def test_a_streamed_background_create_is_billed_wherever_it_sets_backgroun
     same, so its stream bills the finished response once."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.response_api_endpoints.endpoints import responses_api
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.response_api_endpoints.endpoints import responses_api
 
     spend_events: Final = _capture_spend_events(monkeypatch)
     table: Final = _UniqueManagedObjectTable()
@@ -1785,14 +1785,14 @@ async def test_a_streamed_background_create_is_billed_wherever_it_sets_backgroun
     with (
         _proxy_over(prisma_client, proxy_logging, _configured_deployment_router(finished)),
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing", processor_class
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing", processor_class
         ),
         patch(  # test-quality-ok: polling decision is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.should_use_polling_for_request",
+            "hangarllm.proxy.response_polling.polling_handler.should_use_polling_for_request",
             return_value=False,
         ),
         patch(
-            "litellm.proxy.proxy_server.select_data_generator", provider_events
+            "hangarllm.proxy.proxy_server.select_data_generator", provider_events
         ),  # test-quality-ok: the endpoint reads the proxy singletons at call time
     ):
         await responses_api(
@@ -1814,8 +1814,8 @@ async def test_a_retargeted_read_of_a_response_nobody_tracked_bills_it_once_from
     once even when two pods read it at the same moment."""
     from fastapi import Response as FastAPIResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth, hash_token
-    from litellm.proxy.response_api_endpoints.endpoints import _bill_finished_background_response
+    from hangarllm.proxy._types import UserAPIKeyAuth, hash_token
+    from hangarllm.proxy.response_api_endpoints.endpoints import _bill_finished_background_response
 
     spend_events: Final = _capture_spend_events(monkeypatch)
     table: Final = _UniqueManagedObjectTable()
@@ -1847,7 +1847,7 @@ async def test_a_retargeted_read_of_a_response_nobody_tracked_bills_it_once_from
 async def test_a_bill_that_fails_to_settle_is_retried_in_the_background(monkeypatch: pytest.MonkeyPatch):
     """A read is free once marked, so a bill that fails while the read settles it (a database blip)
     is retried in the background instead of waiting on a cost poll that may be turned off."""
-    from litellm.proxy.response_api_endpoints import endpoints
+    from hangarllm.proxy.response_api_endpoints import endpoints
 
     spend_events: Final = _capture_spend_events(monkeypatch)
     stored: Final = _one_pending_background_response()
@@ -1879,12 +1879,12 @@ async def test_background_create_the_provider_confirms_is_stored_under_its_provi
     from fastapi import Response as FastAPIResponse
     from starlette.requests import Request
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.hooks.responses_id_security import ResponsesIDSecurity
-    from litellm.proxy.response_api_endpoints.endpoints import responses_api
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.hooks.responses_id_security import ResponsesIDSecurity
+    from hangarllm.proxy.response_api_endpoints.endpoints import responses_api
 
     salt_key = "background-create-unit-test-salt"
-    monkeypatch.setenv("LITELLM_SALT_KEY", salt_key)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", salt_key)
     queued = ResponsesIDSecurity(
         general_settings_reader=lambda: {}, signing_key_reader=lambda: salt_key
     )._encrypt_response_id(
@@ -1922,18 +1922,18 @@ async def test_background_create_the_provider_confirms_is_stored_under_its_provi
 
     with (
         patch(  # test-quality-ok: endpoint constructs the processor directly
-            "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
             return_value=processor,
         ),
         patch(  # test-quality-ok: polling decision is imported inside the endpoint
-            "litellm.proxy.response_polling.polling_handler.should_use_polling_for_request",
+            "hangarllm.proxy.response_polling.polling_handler.should_use_polling_for_request",
             return_value=False,
         ),
         patch(  # test-quality-ok: the endpoint reads the proxy singletons at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", proxy_logging
         ),
         patch(  # test-quality-ok: the endpoint reads the proxy singletons at call time
-            "litellm.proxy.proxy_server.llm_router", MagicMock()
+            "hangarllm.proxy.proxy_server.llm_router", MagicMock()
         ),
     ):
         await responses_api(
@@ -1947,8 +1947,8 @@ async def test_background_create_the_provider_confirms_is_stored_under_its_provi
 
 class TestResponsesAPIEndpoints(unittest.TestCase):
     @pytest.mark.asyncio
-    @patch("litellm.proxy.proxy_server.llm_router")
-    @patch("litellm.proxy.proxy_server.user_api_key_auth")
+    @patch("hangarllm.proxy.proxy_server.llm_router")
+    @patch("hangarllm.proxy.proxy_server.user_api_key_auth")
     async def test_openai_v1_responses_route(self, mock_auth, mock_router):
         """
         Test that /openai/v1/responses endpoint is correctly registered and accessible.
@@ -1987,8 +1987,8 @@ class TestResponsesAPIEndpoints(unittest.TestCase):
         assert response.status_code in [200, 401, 500]
 
     @pytest.mark.asyncio
-    @patch("litellm.proxy.proxy_server.llm_router")
-    @patch("litellm.proxy.proxy_server.user_api_key_auth")
+    @patch("hangarllm.proxy.proxy_server.llm_router")
+    @patch("hangarllm.proxy.proxy_server.user_api_key_auth")
     async def test_cursor_chat_completions_route(self, mock_auth, mock_router):
         """
         Test that /cursor/chat/completions endpoint:
@@ -1996,8 +1996,8 @@ class TestResponsesAPIEndpoints(unittest.TestCase):
         2. Returns chat completions format response
         3. Transforms streaming responses correctly
         """
-        from litellm.types.llms.openai import ResponsesAPIResponse
-        from litellm.types.utils import ResponseOutputMessage, ResponseOutputText
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.utils import ResponseOutputMessage, ResponseOutputText
 
         mock_auth.return_value = MagicMock(
             token="test_token",
@@ -2048,18 +2048,18 @@ class TestResponsesAPIEndpoints(unittest.TestCase):
             assert "output" not in response_data or "status" not in response_data
 
     @pytest.mark.asyncio
-    @patch("litellm.proxy.proxy_server.llm_router")
-    @patch("litellm.proxy.proxy_server.user_api_key_auth")
+    @patch("hangarllm.proxy.proxy_server.llm_router")
+    @patch("hangarllm.proxy.proxy_server.user_api_key_auth")
     async def test_responses_api_key_spend_header_includes_response_cost(self, mock_auth, mock_router):
         """
-        Test that x-litellm-key-spend header includes the current request's response_cost
+        Test that x-hangarllm-key-spend header includes the current request's response_cost
         for /v1/responses endpoint.
 
         This ensures the spend header reflects updated spend including the current request,
         even though spend tracking updates happen asynchronously after the response.
         """
-        from litellm.types.llms.openai import ResponsesAPIResponse
-        from litellm.types.utils import ResponseOutputMessage, ResponseOutputText
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.utils import ResponseOutputMessage, ResponseOutputText
 
         # Create mock user API key with initial spend
         mock_user_api_key_dict = MagicMock()
@@ -2112,15 +2112,15 @@ class TestResponsesAPIEndpoints(unittest.TestCase):
         # Verify the response was successful
         assert response.status_code == 200
 
-        # Verify x-litellm-key-spend header includes current request cost
-        assert "x-litellm-key-spend" in response.headers
-        key_spend_value = float(response.headers["x-litellm-key-spend"])
+        # Verify x-hangarllm-key-spend header includes current request cost
+        assert "x-hangarllm-key-spend" in response.headers
+        key_spend_value = float(response.headers["x-hangarllm-key-spend"])
         expected_spend = 0.001 + 0.0005  # Initial spend + current request cost
         assert key_spend_value == pytest.approx(expected_spend, abs=1e-10)
 
-        # Verify x-litellm-response-cost header is present
-        assert "x-litellm-response-cost" in response.headers
-        response_cost_value = float(response.headers["x-litellm-response-cost"])
+        # Verify x-hangarllm-response-cost header is present
+        assert "x-hangarllm-response-cost" in response.headers
+        response_cost_value = float(response.headers["x-hangarllm-response-cost"])
         assert response_cost_value == pytest.approx(0.0005, abs=1e-10)
 
 
@@ -2132,7 +2132,7 @@ class TestManagedResponsesWSFirstMessage:
         entering its receive loop. Regression for clients that connect without
         ?model= (e.g. Codex) and send model inside the first response.create event.
         """
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         first = json.dumps(
             {
@@ -2173,7 +2173,7 @@ class TestManagedResponsesWSFirstMessage:
     @pytest.mark.asyncio
     async def test_no_first_message_falls_through_to_loop(self):
         """When first_message is None, run() goes straight to receive_text()."""
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         subsequent = json.dumps({"type": "response.create", "model": "gpt-4o-mini"})
 
@@ -2206,7 +2206,7 @@ class TestResponsesWSStreamingFirstMessage:
         ResponsesWebSocketStreaming.client_to_backend must send first_message to
         the backend before entering the receive loop.
         """
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from hangarllm.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         first = json.dumps({"type": "response.create", "model": "gpt-4o-mini", "input": []})
 
@@ -2232,7 +2232,7 @@ class TestResponsesWSStreamingFirstMessage:
     ("failure", "expected_status", "expected_type"),
     [
         (ValueError("No deployments available - crossed budget: Exceeded budget for deployment"), 429, "rate_limit_exceeded"),
-        (litellm.BadRequestError(message="bad input", model="m", llm_provider="openai"), 400, "invalid_request_error"),
+        (hangarllm.BadRequestError(message="bad input", model="m", llm_provider="openai"), 400, "invalid_request_error"),
         (RuntimeError("boom"), 500, "server_error"),
         (ValueError(f"{RouterErrors.no_deployments_with_tag_routing.value}=['free']"), 401, "invalid_request_error"),
         (ProxyException(message="Authentication Error", type="auth_error", param=None, code=401), 401, "invalid_request_error"),
@@ -2243,8 +2243,8 @@ class TestResponsesWSStreamingFirstMessage:
 def test_responses_ws_failure_frame_uses_the_http_status_for_the_same_failure(
     failure: Exception, expected_status: int, expected_type: str
 ):
-    from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_failure_frame
-    from litellm.proxy.utils import handle_exception_on_proxy
+    from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_failure_frame
+    from hangarllm.proxy.utils import handle_exception_on_proxy
 
     frame: Final = json.loads(_responses_ws_failure_frame(failure))
 
@@ -2254,12 +2254,12 @@ def test_responses_ws_failure_frame_uses_the_http_status_for_the_same_failure(
 
 
 def test_responses_ws_failure_frame_shows_only_the_refusal_for_a_model_that_refuses_the_endpoint():
-    from litellm.exceptions import EndpointNotSupportedByModelError
-    from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_failure_frame
+    from hangarllm.exceptions import EndpointNotSupportedByModelError
+    from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_failure_frame
 
     refusal: Final = "/v1/responses is not supported by model=embed-only. Supported endpoints: /v1/embeddings"
     failure: Final = EndpointNotSupportedByModelError(
-        message=f"{refusal}\n\nLiteLLM: model group 'embed-only' failed with the error above", model="embed-only"
+        message=f"{refusal}\n\nHangarLLM: model group 'embed-only' failed with the error above", model="embed-only"
     )
 
     assert json.loads(_responses_ws_failure_frame(failure)) == {
@@ -2273,13 +2273,13 @@ class TestWSSessionCostTracking:
     @pytest.mark.asyncio
     async def test_router_budget_limiter_skips_arealtime_call_type(self):
         """Same guard applies to _arealtime WS session wrappers."""
-        from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
+        from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
 
         limiter = RouterBudgetLimiting.__new__(RouterBudgetLimiting)
         kwargs = {
             "call_type": "_arealtime",
             "standard_logging_object": None,
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
         }
         await limiter.async_log_success_event(
             kwargs=kwargs,
@@ -2293,7 +2293,7 @@ class TestWSModelExtraction:
     """Test _extract_model_from_first_ws_event for flat and nested frame formats."""
 
     def test_flat_format_extracts_model(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _extract_model_from_first_ws_event,
         )
 
@@ -2301,7 +2301,7 @@ class TestWSModelExtraction:
         assert _extract_model_from_first_ws_event(event) == "gpt-4o"
 
     def test_nested_format_extracts_model(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _extract_model_from_first_ws_event,
         )
 
@@ -2309,7 +2309,7 @@ class TestWSModelExtraction:
         assert _extract_model_from_first_ws_event(event) == "gpt-4o"
 
     def test_nested_format_takes_precedence_over_flat(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _extract_model_from_first_ws_event,
         )
 
@@ -2321,7 +2321,7 @@ class TestWSModelExtraction:
         assert _extract_model_from_first_ws_event(event) == "nested-model"
 
     def test_no_model_returns_none(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _extract_model_from_first_ws_event,
         )
 
@@ -2329,7 +2329,7 @@ class TestWSModelExtraction:
         assert _extract_model_from_first_ws_event(event) is None
 
     def test_non_object_returns_none(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _extract_model_from_first_ws_event,
         )
 
@@ -2339,7 +2339,7 @@ class TestWSModelExtraction:
 class TestResponsesWSFirstFrameValidation:
     @pytest.mark.asyncio
     async def test_rejects_non_response_create_first_frame(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -2358,7 +2358,7 @@ class TestResponsesWSFirstFrameValidation:
 
     @pytest.mark.asyncio
     async def test_rejects_non_object_json_first_frame(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -2377,7 +2377,7 @@ class TestResponsesWSFirstFrameValidation:
     async def test_client_disconnect_first_frame_does_not_close(self):
         from fastapi import WebSocketDisconnect
 
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -2394,7 +2394,7 @@ class TestResponsesWSFirstFrameValidation:
 
     @pytest.mark.asyncio
     async def test_server_error_first_frame_closes_with_internal_error(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -2439,7 +2439,7 @@ class _FrameGuardrail(CustomGuardrail):
 
     def _scan(self, data: dict[str, object]) -> dict[str, object]:
         self.inputs.append(data["input"])
-        self.configs.append(cast(dict[str, object], data["litellm_metadata"]).get("guardrail_config"))
+        self.configs.append(cast(dict[str, object], data["hangarllm_metadata"]).get("guardrail_config"))
         if self.blocks:
             raise HTTPException(
                 status_code=400,
@@ -2450,7 +2450,7 @@ class _FrameGuardrail(CustomGuardrail):
 
 @contextlib.contextmanager
 def _guardrails_on(*guardrails: CustomGuardrail):
-    with patch.object(litellm, "callbacks", list(guardrails)):
+    with patch.object(hangarllm, "callbacks", list(guardrails)):
         ProxyLogging._callback_capabilities_cache.clear()
         try:
             yield ProxyLogging(user_api_key_cache=DualCache())
@@ -2465,7 +2465,7 @@ def _key() -> UserAPIKeyAuth:
 class TestResponsesWSFirstFrameModelAuth:
     @pytest.mark.asyncio
     async def test_endpoint_enforces_auth_after_model_from_first_frame(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             responses_websocket_endpoint,
         )
 
@@ -2493,16 +2493,16 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
                 side_effect=record_model_auth,
             ),
             patch(
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 return_value=fake_llm_call(),
             ),
@@ -2538,8 +2538,8 @@ class TestResponsesWSFirstFrameModelAuth:
     ):
         import logging
 
-        from litellm._logging import verbose_proxy_logger
-        from litellm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
+        from hangarllm._logging import verbose_proxy_logger
+        from hangarllm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
 
         class _Recorder(logging.Handler):
             records: tuple[logging.LogRecord, ...] = ()
@@ -2565,11 +2565,11 @@ class TestResponsesWSFirstFrameModelAuth:
         try:
             with (
                 patch(  # test-quality-ok: first-frame model auth needs a live router and has its own tests
-                    "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                    "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                     new_callable=AsyncMock,
                 ),
                 patch(  # test-quality-ok: the pre-call processor's failure is the input under test
-                    "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                    "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                     return_value=processor,
                 ),
             ):
@@ -2589,11 +2589,11 @@ class TestResponsesWSFirstFrameModelAuth:
     async def test_endpoint_routes_on_first_frame_input_and_previous_response_id(
         self, nested: bool, query_model: str | None
     ):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             responses_websocket_endpoint,
         )
 
-        replayed_input = [{"type": "reasoning", "id": "encitem_abc", "encrypted_content": "litellm_enc:abc;blob"}]
+        replayed_input = [{"type": "reasoning", "id": "encitem_abc", "encrypted_content": "hangarllm_enc:abc;blob"}]
         payload = {"model": "gpt-4o-mini", "input": replayed_input, "previous_response_id": "resp_prev"}
         first_frame = (
             {"type": "response.create", "response": payload} if nested else {"type": "response.create", **payload}
@@ -2611,7 +2611,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
         processor = MagicMock()
         processor.common_processing_pre_call_logic = AsyncMock(
-            return_value=({"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock())
+            return_value=({"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock())
         )
 
         async def fake_llm_call():
@@ -2619,15 +2619,15 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(  # test-quality-ok: first-frame model auth needs a live router and key table and has its own tests below
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: the pre-call processor needs a live proxy; the payload it hands to routing is what is under test
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(  # test-quality-ok: routing is the seam where the first frame's input and previous_response_id become observable
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 return_value=fake_llm_call(),
             ) as mock_route_request,
@@ -2651,21 +2651,21 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_runs_the_guardrail_walk_on_the_frame_body_and_returns_its_records(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
             assert call_type == "aresponses" and guardrails_only is True
             assert "type" not in data and data["model"] == "gpt-4o-mini"
-            assert data["litellm_metadata"]["user_api_key_hash"] == "hash"
-            assert "standard_logging_guardrail_information" not in data["litellm_metadata"]
-            data["litellm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_name": "turn"}]
+            assert data["hangarllm_metadata"]["user_api_key_hash"] == "hash"
+            assert "standard_logging_guardrail_information" not in data["hangarllm_metadata"]
+            data["hangarllm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_name": "turn"}]
             return {**data, "input": data["input"] + " [guarded]"}
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=pre_call_hook)
         admitted = {
             "model": "gpt-4o-mini",
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "user_api_key_hash": "hash",
                 "standard_logging_guardrail_information": [{"guardrail_name": "admission"}],
             },
@@ -2678,18 +2678,18 @@ class TestResponsesWSFirstFrameModelAuth:
         assert json.loads(first.frame) == {"type": "response.create", "model": "alias", "input": "hi [guarded]"}
         assert first.guardrail_information == ({"guardrail_name": "turn"},)
         assert json.loads(second.frame)["input"] == "again [guarded]"
-        assert admitted["litellm_metadata"]["standard_logging_guardrail_information"] == [
+        assert admitted["hangarllm_metadata"]["standard_logging_guardrail_information"] == [
             {"guardrail_name": "admission"}
         ]
 
     @pytest.mark.asyncio
     async def test_frame_guard_bills_a_rejected_frame_as_a_failed_request(self):
-        import litellm
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        import hangarllm
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
-            data["litellm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_cost": 0.5}]
+            data["hangarllm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_cost": 0.5}]
             raise ValueError("blocked")
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
@@ -2701,11 +2701,11 @@ class TestResponsesWSFirstFrameModelAuth:
         rate_limiter.async_post_call_failure_hook = AsyncMock()
         user_api_key_dict = MagicMock()
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, user_api_key_dict, proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, user_api_key_dict, proxy_logging_obj, MagicMock()
         )
 
         with (
-            patch.object(litellm, "callbacks", [rate_limiter, spend_logger]),
+            patch.object(hangarllm, "callbacks", [rate_limiter, spend_logger]),
             pytest.raises(ValueError, match="blocked"),
         ):
             await guard(json.dumps({"type": "response.create", "input": "hi"}))
@@ -2717,15 +2717,15 @@ class TestResponsesWSFirstFrameModelAuth:
         user_api_key_dict.model_copy.assert_called_once_with(update={"budget_reservation": None})
         assert failure["user_api_key_dict"] is user_api_key_dict.model_copy.return_value
         assert str(failure["original_exception"]) == "blocked"
-        assert failure["request_data"]["litellm_metadata"]["standard_logging_guardrail_information"] == [
+        assert failure["request_data"]["hangarllm_metadata"]["standard_logging_guardrail_information"] == [
             {"guardrail_cost": 0.5}
         ]
         assert failure["request_data"]["input"] == "hi"
-        assert len(failure["request_data"]["litellm_call_id"]) == 36
+        assert len(failure["request_data"]["hangarllm_call_id"]) == 36
 
     @pytest.mark.asyncio
     async def test_frame_guard_guards_the_nested_response_body_and_copies_back_tools(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
             return {**data, "input": data["input"] + " [guarded]", "tools": data["tools"][:1]}
@@ -2733,7 +2733,7 @@ class TestResponsesWSFirstFrameModelAuth:
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=pre_call_hook)
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
         tools = [{"type": "function", "name": "a"}, {"type": "function", "name": "b"}]
 
@@ -2748,7 +2748,7 @@ class TestResponsesWSFirstFrameModelAuth:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("nested", [True, False])
     async def test_frame_guard_forwards_the_tool_choice_a_guardrail_rewrote(self, nested: bool):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
             return {**data, "tools": [], "tool_choice": "none"}
@@ -2756,7 +2756,7 @@ class TestResponsesWSFirstFrameModelAuth:
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=pre_call_hook)
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
         body = {
             "input": "hi",
@@ -2773,9 +2773,9 @@ class TestResponsesWSFirstFrameModelAuth:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("nested", [True, False])
     async def test_frame_guard_forwards_the_extra_body_tools_a_rewrite_guardrail_stripped(self, nested: bool):
-        from litellm.proxy.guardrails.guardrail_hooks.tool_permission import ToolPermissionGuardrail
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.proxy.guardrails.guardrail_hooks.tool_permission import ToolPermissionGuardrail
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         guardrail = ToolPermissionGuardrail(
             guardrail_name="ws-rewrite",
@@ -2794,7 +2794,7 @@ class TestResponsesWSFirstFrameModelAuth:
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=pre_call_hook)
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
         weather = {"type": "function", "name": "get_weather"}
         body = {"input": "hi", "extra_body": {"tools": [weather, {"type": "function", "name": "shell"}]}}
@@ -2807,17 +2807,17 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_strips_the_proxy_owned_metadata_keys_a_client_sends(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
         )
         metadata = {
             "user_api_key_metadata": {"disable_global_guardrails": True},
             "disable_global_guardrails": True,
-            "headers": {"x-litellm-tags": "forged"},
+            "headers": {"x-hangarllm-tags": "forged"},
             "tag": "kept",
         }
 
@@ -2831,17 +2831,17 @@ class TestResponsesWSFirstFrameModelAuth:
         [
             {"type": "response.create", "input": "forbidden", "guardrails": []},
             {"type": "response.create", "input": "forbidden", "metadata": {"guardrails": []}},
-            {"type": "response.create", "input": "forbidden", "litellm_metadata": {"guardrails": []}},
+            {"type": "response.create", "input": "forbidden", "hangarllm_metadata": {"guardrails": []}},
             {"type": "response.create", "response": {"input": "forbidden", "guardrails": [], "policies": []}},
         ],
     )
     async def test_frame_guard_keeps_the_admitted_guardrail_list_when_a_frame_tries_to_replace_it(self, frame):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {"guardrails": ["key-required"]}},
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrails": ["key-required"]}},
             _key(),
             proxy_logging_obj,
             MagicMock(),
@@ -2852,7 +2852,7 @@ class TestResponsesWSFirstFrameModelAuth:
         scanned = proxy_logging_obj.pre_call_hook.await_args.kwargs["data"]
         assert "guardrails" not in scanned and "policies" not in scanned
         assert "guardrails" not in (scanned.get("metadata") or {})
-        assert scanned["litellm_metadata"]["guardrails"] == ["key-required"]
+        assert scanned["hangarllm_metadata"]["guardrails"] == ["key-required"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -2861,18 +2861,18 @@ class TestResponsesWSFirstFrameModelAuth:
             {"guardrails": ["frame-pick"]},
             {"guardrails": [{"frame-pick": {"extra_body": {"threshold": 0.8}}}]},
             {"metadata": {"guardrails": ["frame-pick"], "tag": "kept"}},
-            {"litellm_metadata": {"guardrails": ["frame-pick"]}},
+            {"hangarllm_metadata": {"guardrails": ["frame-pick"]}},
             {"response": {"guardrails": ["frame-pick"]}},
         ],
-        ids=["top-level", "with-extra-body", "metadata", "litellm-metadata", "nested"],
+        ids=["top-level", "with-extra-body", "metadata", "hangarllm-metadata", "nested"],
     )
     async def test_frame_guard_runs_the_guardrails_a_frame_selects_on_top_of_the_admitted_ones(self, selected: dict[str, object]):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         key_required = _FrameGuardrail("key-required")
         frame_pick = _FrameGuardrail("frame-pick", rewrites=True)
         unselected = _FrameGuardrail("unselected")
-        admitted = {"model": "gpt-4o-mini", "litellm_metadata": {"guardrails": ["key-required"]}}
+        admitted = {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrails": ["key-required"]}}
         nested = "response" in selected
         body = {"input": "hi", "store": False, **(selected["response"] if nested else selected)}
         frame = {"type": "response.create", "response": body} if nested else {"type": "response.create", **body}
@@ -2891,23 +2891,23 @@ class TestResponsesWSFirstFrameModelAuth:
         assert key_required.inputs == ["hi", "again"]
         assert frame_pick.inputs == ["hi"]
         assert unselected.inputs == []
-        assert admitted["litellm_metadata"] == {"guardrails": ["key-required"]}
+        assert admitted["hangarllm_metadata"] == {"guardrails": ["key-required"]}
 
     @pytest.mark.asyncio
     async def test_frame_guard_forwards_string_metadata_named_like_a_pick_without_running_it(self):
-        from litellm.proxy._types import LiteLLM_TeamTable
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy._types import HangarLLM_TeamTable
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         key_required = _FrameGuardrail("key-required")
         frame_pick = _FrameGuardrail("frame-pick")
         metadata = {"guardrails": "frame-pick", "guardrail_config": "strict", "trace": "t1"}
 
-        async def locked_team(user_api_key_dict: UserAPIKeyAuth) -> LiteLLM_TeamTable:
-            return LiteLLM_TeamTable(team_id="team-1", metadata={"guardrails": {"modify_guardrails": False}})
+        async def locked_team(user_api_key_dict: UserAPIKeyAuth) -> HangarLLM_TeamTable:
+            return HangarLLM_TeamTable(team_id="team-1", metadata={"guardrails": {"modify_guardrails": False}})
 
         with _guardrails_on(key_required, frame_pick) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {"guardrails": ["key-required"]}},
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrails": ["key-required"]}},
                 _key(),
                 proxy_logging_obj,
                 MagicMock(),
@@ -2921,7 +2921,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_hands_a_selected_guardrail_its_config_with_the_top_level_winning(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         frame_pick = _FrameGuardrail("frame-pick")
         frame = {
@@ -2934,7 +2934,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with _guardrails_on(frame_pick) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {"guardrail_config": {"key-required": {"threshold": 0}}}},
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrail_config": {"key-required": {"threshold": 0}}}},
                 _key(),
                 proxy_logging_obj,
                 MagicMock(),
@@ -2948,7 +2948,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_runs_streaming_scoped_guardrails_and_skips_non_streaming_ones_on_a_socket_turn(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         streaming_only = _FrameGuardrail("streaming-only")
         streaming_only.apply_stream_scope("streaming")
@@ -2964,7 +2964,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with _guardrails_on(streaming_only, streaming_during_call, non_streaming_only) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
             )
             guarded = await guard(json.dumps(frame))
 
@@ -2975,13 +2975,13 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_blocks_a_turn_with_the_message_a_selected_during_call_guardrail_raises(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         during_pick = _FrameGuardrail("during-pick", event_hook=GuardrailEventHooks.during_call, blocks=True)
 
         with _guardrails_on(during_pick) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
             )
             unselected_turn = await guard(json.dumps({"type": "response.create", "input": "plain"}))
             with pytest.raises(ValueError, match=r"^Content blocked by during-pick$"):
@@ -2992,8 +2992,8 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_runs_only_the_moderation_hooks_that_enforce_request_content(self):
-        from litellm.integrations.custom_logger import CustomLogger
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.integrations.custom_logger import CustomLogger
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         class _ModerationHook(CustomLogger):
             def __init__(self, enforces_request_content: bool) -> None:
@@ -3011,7 +3011,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with _guardrails_on(vendor_moderation, content_enforcer) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
             )
             await guard(json.dumps({"type": "response.create", "input": "hi"}))
 
@@ -3034,20 +3034,20 @@ class TestResponsesWSFirstFrameModelAuth:
             ),
             ({"policies": [1]}, "response.create policies.0: Input should be a valid string"),
             (
-                {"litellm_metadata": {"guardrails": "frame-pick"}},
-                "response.create litellm_metadata.guardrails: 'str' instances are not allowed as a Sequence value",
+                {"hangarllm_metadata": {"guardrails": "frame-pick"}},
+                "response.create hangarllm_metadata.guardrails: 'str' instances are not allowed as a Sequence value",
             ),
             (
-                {"litellm_metadata": {"guardrail_config": []}},
-                "response.create litellm_metadata.guardrail_config: Input should be a valid dictionary",
+                {"hangarllm_metadata": {"guardrail_config": []}},
+                "response.create hangarllm_metadata.guardrail_config: Input should be a valid dictionary",
             ),
         ],
     )
     async def test_frame_guard_refuses_and_bills_a_frame_whose_guardrail_selection_is_malformed(
         self, selection: dict[str, object], message: str
     ):
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         key_required = _FrameGuardrail("key-required")
         spend_logger = MagicMock(spec=ProxyDBLogger)
@@ -3055,7 +3055,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with _guardrails_on(key_required, spend_logger) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {"guardrails": ["key-required"]}},
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrails": ["key-required"]}},
                 _key(),
                 proxy_logging_obj,
                 MagicMock(),
@@ -3068,9 +3068,9 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_runs_the_guardrails_of_the_policies_a_frame_selects(self):
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
-        from litellm.types.proxy.policy_engine import Policy, PolicyGuardrails
+        from hangarllm.proxy.policy_engine.policy_registry import get_policy_registry
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.types.proxy.policy_engine import Policy, PolicyGuardrails
 
         key_required = _FrameGuardrail("key-required")
         policy_pick = _FrameGuardrail("policy-pick")
@@ -3082,7 +3082,7 @@ class TestResponsesWSFirstFrameModelAuth:
             policy_registry.add_policy("frame-policy", Policy(guardrails=PolicyGuardrails(add=["policy-pick"])))
             with _guardrails_on(key_required, policy_pick) as proxy_logging_obj:
                 guard = _responses_ws_frame_guard(
-                    {"model": "gpt-4o-mini", "litellm_metadata": {"guardrails": ["key-required"]}},
+                    {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrails": ["key-required"]}},
                     _key(),
                     proxy_logging_obj,
                     MagicMock(),
@@ -3103,13 +3103,13 @@ class TestResponsesWSFirstFrameModelAuth:
     async def test_frame_guard_copies_an_admitted_bucket_that_holds_the_otel_parent_span(self):
         import threading
 
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
         span = threading.RLock()
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {"litellm_parent_otel_span": span}},
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {"hangarllm_parent_otel_span": span}},
             MagicMock(),
             proxy_logging_obj,
             MagicMock(),
@@ -3119,18 +3119,18 @@ class TestResponsesWSFirstFrameModelAuth:
 
         assert json.loads(guarded.frame) == {"type": "response.create", "input": "hi"}
         assert (
-            proxy_logging_obj.pre_call_hook.await_args.kwargs["data"]["litellm_metadata"]["litellm_parent_otel_span"]
+            proxy_logging_obj.pre_call_hook.await_args.kwargs["data"]["hangarllm_metadata"]["hangarllm_parent_otel_span"]
             is span
         )
 
     @pytest.mark.asyncio
     async def test_frame_guard_rejects_a_turn_a_guardrail_rerouted_to_another_model(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
-            data["litellm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_cost": 0.5}]
+            data["hangarllm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_cost": 0.5}]
             return {**data, "model": "onprem-llama"}
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
@@ -3138,18 +3138,18 @@ class TestResponsesWSFirstFrameModelAuth:
         spend_logger = MagicMock(spec=ProxyDBLogger)
         spend_logger.async_post_call_failure_hook = AsyncMock()
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
 
         with (
-            patch.object(litellm, "callbacks", [spend_logger]),
+            patch.object(hangarllm, "callbacks", [spend_logger]),
             pytest.raises(ValueError, match="rerouted this turn to 'onprem-llama'"),
         ):
             await guard(json.dumps({"type": "response.create", "input": "my SSN is 123-45-6789"}))
 
         failure = spend_logger.async_post_call_failure_hook.await_args.kwargs
         assert "rerouted this turn to 'onprem-llama'" in str(failure["original_exception"])
-        assert failure["request_data"]["litellm_metadata"]["standard_logging_guardrail_information"] == [
+        assert failure["request_data"]["hangarllm_metadata"]["standard_logging_guardrail_information"] == [
             {"guardrail_cost": 0.5}
         ]
 
@@ -3158,12 +3158,12 @@ class TestResponsesWSFirstFrameModelAuth:
     async def test_frame_guard_drops_a_client_s_guardrail_cost_records_so_a_blocked_frame_bills_the_real_scan(
         self, nested: bool
     ):
-        import litellm
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        import hangarllm
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
-            data["litellm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_cost": 0.5}]
+            data["hangarllm_metadata"]["standard_logging_guardrail_information"] = [{"guardrail_cost": 0.5}]
             raise ValueError("blocked")
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
@@ -3171,7 +3171,7 @@ class TestResponsesWSFirstFrameModelAuth:
         spend_logger = MagicMock(spec=ProxyDBLogger)
         spend_logger.async_post_call_failure_hook = AsyncMock()
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
         body = {
             "input": "forbidden",
@@ -3179,17 +3179,17 @@ class TestResponsesWSFirstFrameModelAuth:
         }
         frame = {"type": "response.create", "response": body} if nested else {"type": "response.create", **body}
 
-        with patch.object(litellm, "callbacks", [spend_logger]), pytest.raises(ValueError, match="blocked"):
+        with patch.object(hangarllm, "callbacks", [spend_logger]), pytest.raises(ValueError, match="blocked"):
             await guard(json.dumps(frame))
 
         billed = spend_logger.async_post_call_failure_hook.await_args.kwargs["request_data"]
         assert billed["metadata"] == {"trace": "t1"}
-        assert billed["litellm_metadata"]["standard_logging_guardrail_information"] == [{"guardrail_cost": 0.5}]
+        assert billed["hangarllm_metadata"]["standard_logging_guardrail_information"] == [{"guardrail_cost": 0.5}]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("nested", [False, True])
     async def test_frame_guard_forwards_a_frame_without_the_instructions_a_guardrail_deleted(self, nested: bool):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
             return {key: value for key, value in data.items() if key != "instructions"}
@@ -3197,12 +3197,12 @@ class TestResponsesWSFirstFrameModelAuth:
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=pre_call_hook)
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
         body = {"instructions": "SECRET system prompt", "input": "hi", "store": False}
         frame = {"type": "response.create", "response": body} if nested else {"type": "response.create", **body}
 
-        with patch.object(litellm, "callbacks", []):
+        with patch.object(hangarllm, "callbacks", []):
             guarded = await guard(json.dumps(frame))
 
         forwarded = json.loads(guarded.frame)
@@ -3212,7 +3212,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_hands_back_the_pii_tokens_presidio_masked_with_and_drops_forged_ones(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         async def pre_call_hook(user_api_key_dict, data, call_type, guardrails_only):
             assert data["metadata"] == {"trace": "t1"}, "a client cannot seed pii_tokens"
@@ -3222,10 +3222,10 @@ class TestResponsesWSFirstFrameModelAuth:
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=pre_call_hook)
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
 
-        with patch.object(litellm, "callbacks", []):
+        with patch.object(hangarllm, "callbacks", []):
             guarded = await guard(
                 json.dumps(
                     {
@@ -3242,20 +3242,20 @@ class TestResponsesWSFirstFrameModelAuth:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("field", ["input", "instructions", "tools", "tool_choice", "extra_body"])
     async def test_frame_guard_rejects_and_bills_a_guarded_field_beside_a_nested_response(self, field: str):
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
         spend_logger = MagicMock(spec=ProxyDBLogger)
         spend_logger.async_post_call_failure_hook = AsyncMock()
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
         message = f"response.create sends {field} at the top level next to response; send it inside response"
 
         with (
-            patch.object(litellm, "callbacks", [spend_logger]),
+            patch.object(hangarllm, "callbacks", [spend_logger]),
             pytest.raises(ValueError, match=f"^{re.escape(message)}$"),
         ):
             await guard(json.dumps({"type": "response.create", field: "unguarded", "response": {"input": "hi"}}))
@@ -3269,12 +3269,12 @@ class TestResponsesWSFirstFrameModelAuth:
         [
             {"guardrails": ["frame-pick"]},
             {"metadata": {"guardrails": ["frame-pick"], "tag": "kept"}},
-            {"litellm_metadata": {"guardrails": ["frame-pick"]}},
+            {"hangarllm_metadata": {"guardrails": ["frame-pick"]}},
         ],
-        ids=["top-level", "metadata", "litellm-metadata"],
+        ids=["top-level", "metadata", "hangarllm-metadata"],
     )
     async def test_frame_guard_runs_the_guardrails_a_nested_frame_selects_beside_its_response(self, top_level: dict[str, object]):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         key_required = _FrameGuardrail("key-required")
         frame_pick = _FrameGuardrail("frame-pick", rewrites=True)
@@ -3282,7 +3282,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with _guardrails_on(key_required, frame_pick, unselected) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {"guardrails": ["key-required"]}},
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrails": ["key-required"]}},
                 _key(),
                 proxy_logging_obj,
                 MagicMock(),
@@ -3308,7 +3308,7 @@ class TestResponsesWSFirstFrameModelAuth:
             {"type": "response.create", "input": "hi", "metadata": {"disable_global_guardrails": True}},
             {"type": "response.create", "input": "hi", "metadata": {"disable_global_guardrails": "true"}},
             {"type": "response.create", "response": {"input": "hi", "guardrails": ["frame-pick"]}},
-            {"type": "response.create", "litellm_metadata": {"guardrails": ["frame-pick"]}, "response": {"input": "hi"}},
+            {"type": "response.create", "hangarllm_metadata": {"guardrails": ["frame-pick"]}, "response": {"input": "hi"}},
             {"type": "response.create", "input": "hi", "policies": ["frame-policy"]},
             {"type": "response.create", "response": {"input": "hi", "policies": ["frame-policy"]}},
         ],
@@ -3324,9 +3324,9 @@ class TestResponsesWSFirstFrameModelAuth:
         ],
     )
     async def test_frame_guard_refuses_guardrail_and_policy_picks_from_a_team_without_permission(self, frame: dict[str, object]):
-        from litellm.proxy._types import LiteLLM_TeamTable
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy._types import HangarLLM_TeamTable
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         key_required = _FrameGuardrail("key-required")
         frame_pick = _FrameGuardrail("frame-pick")
@@ -3335,13 +3335,13 @@ class TestResponsesWSFirstFrameModelAuth:
         team_lookups: list[UserAPIKeyAuth] = []
         key = _key()
 
-        async def locked_team(user_api_key_dict: UserAPIKeyAuth) -> LiteLLM_TeamTable:
+        async def locked_team(user_api_key_dict: UserAPIKeyAuth) -> HangarLLM_TeamTable:
             team_lookups.append(user_api_key_dict)
-            return LiteLLM_TeamTable(team_id="team-1", metadata={"guardrails": {"modify_guardrails": False}})
+            return HangarLLM_TeamTable(team_id="team-1", metadata={"guardrails": {"modify_guardrails": False}})
 
         with _guardrails_on(key_required, frame_pick, spend_logger) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {"guardrails": ["key-required"]}},
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {"guardrails": ["key-required"]}},
                 key,
                 proxy_logging_obj,
                 MagicMock(),
@@ -3359,17 +3359,17 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_runs_a_frame_s_picks_for_a_team_allowed_to_modify_guardrails(self):
-        from litellm.proxy._types import LiteLLM_TeamTable
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy._types import HangarLLM_TeamTable
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         frame_pick = _FrameGuardrail("frame-pick")
 
-        async def open_team(user_api_key_dict: UserAPIKeyAuth) -> LiteLLM_TeamTable:
-            return LiteLLM_TeamTable(team_id="team-1", metadata={"guardrails": {"modify_guardrails": True}})
+        async def open_team(user_api_key_dict: UserAPIKeyAuth) -> HangarLLM_TeamTable:
+            return HangarLLM_TeamTable(team_id="team-1", metadata={"guardrails": {"modify_guardrails": True}})
 
         with _guardrails_on(frame_pick) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {}},
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {}},
                 _key(),
                 proxy_logging_obj,
                 MagicMock(),
@@ -3389,10 +3389,10 @@ class TestResponsesWSFirstFrameModelAuth:
         "team_lookup",
         [
             lambda: patch(
-                "litellm.proxy.response_api_endpoints.endpoints.get_team_object",
+                "hangarllm.proxy.response_api_endpoints.endpoints.get_team_object",
                 AsyncMock(side_effect=HTTPException(status_code=404, detail={"error": "Team doesn't exist"})),
             ),
-            lambda: patch("litellm.proxy.proxy_server.prisma_client", None),
+            lambda: patch("hangarllm.proxy.proxy_server.prisma_client", None),
         ],
         ids=["team-row-gone", "no-database"],
     )
@@ -3402,7 +3402,7 @@ class TestResponsesWSFirstFrameModelAuth:
         picked_inputs: list[str],
         team_lookup: Callable[[], contextlib.AbstractContextManager[object]],
     ):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         frame_pick = _FrameGuardrail("frame-pick")
         key = UserAPIKeyAuth(
@@ -3414,7 +3414,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with _guardrails_on(frame_pick) as proxy_logging_obj, team_lookup():
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {}}, key, proxy_logging_obj, MagicMock()
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, key, proxy_logging_obj, MagicMock()
             )
             if modify_guardrails:
                 await guard(frame)
@@ -3426,14 +3426,14 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_forwards_the_pre_call_output_and_not_a_during_call_rewrite_like_http(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         pre_pick = _FrameGuardrail("pre-pick", rewrites=True)
         during_pick = _FrameGuardrail("during-pick", event_hook=GuardrailEventHooks.during_call, rewrites=True)
 
         with _guardrails_on(pre_pick, during_pick) as proxy_logging_obj:
             guard = _responses_ws_frame_guard(
-                {"model": "gpt-4o-mini", "litellm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
+                {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
             )
             guarded = await guard(
                 json.dumps({"type": "response.create", "input": "hi", "guardrails": ["pre-pick", "during-pick"]})
@@ -3444,15 +3444,15 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_forwards_a_nested_turn_without_top_level_fields_that_pick_no_guardrail(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
 
-        with patch.object(litellm, "callbacks", []):
+        with patch.object(hangarllm, "callbacks", []):
             guarded = await guard(
                 json.dumps(
                     {
@@ -3473,9 +3473,9 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_a_blocked_socket_turn_answers_with_the_guardrail_fields_http_returns(self):
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
-        from litellm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        from hangarllm.responses.streaming_iterator import ManagedResponsesWebSocketHandler
 
         frame_pick = _FrameGuardrail("frame-pick", blocks=True)
         websocket = MagicMock(send_text=AsyncMock())
@@ -3490,11 +3490,11 @@ class TestResponsesWSFirstFrameModelAuth:
                     stream=True,
                     call_type="aresponses",
                     start_time=0,
-                    litellm_call_id="test-id",
+                    hangarllm_call_id="test-id",
                     function_id="test-func",
                 ),
                 frame_guard=_responses_ws_frame_guard(
-                    {"model": "claude-managed", "litellm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
+                    {"model": "claude-managed", "hangarllm_metadata": {}}, _key(), proxy_logging_obj, MagicMock()
                 ),
             )
             await handler._process_response_create(
@@ -3516,19 +3516,19 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_frame_guard_keeps_the_guardrail_error_when_billing_the_rejected_frame_fails(self):
-        import litellm
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
+        import hangarllm
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.response_api_endpoints.endpoints import _responses_ws_frame_guard
 
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=ValueError("blocked"))
         spend_logger = MagicMock(spec=ProxyDBLogger)
         spend_logger.async_post_call_failure_hook = AsyncMock(side_effect=RuntimeError("db down"))
         guard = _responses_ws_frame_guard(
-            {"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
+            {"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock(), proxy_logging_obj, MagicMock()
         )
 
-        with patch.object(litellm, "callbacks", [spend_logger]), pytest.raises(ValueError, match="blocked"):
+        with patch.object(hangarllm, "callbacks", [spend_logger]), pytest.raises(ValueError, match="blocked"):
             await guard(json.dumps({"type": "response.create", "input": "hi"}))
 
         spend_logger.async_post_call_failure_hook.assert_awaited_once()
@@ -3536,7 +3536,7 @@ class TestResponsesWSFirstFrameModelAuth:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("provider_rejected", [True, False])
     async def test_endpoint_books_a_provider_rejected_connection_as_a_failed_request(self, provider_rejected: bool):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             responses_websocket_endpoint,
         )
 
@@ -3553,9 +3553,9 @@ class TestResponsesWSFirstFrameModelAuth:
 
         processor = MagicMock()
         processor.common_processing_pre_call_logic = AsyncMock(
-            return_value=({"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock())
+            return_value=({"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock())
         )
-        failure = litellm.BadRequestError(
+        failure = hangarllm.BadRequestError(
             message="invalid_encrypted_content", model="gpt-4o-mini", llm_provider="openai"
         )
 
@@ -3569,20 +3569,20 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(  # test-quality-ok: first-frame model auth needs a live router and key table and has its own tests above
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: the pre-call processor needs a live proxy; what the endpoint does with the relay's outcome is under test
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(  # test-quality-ok: routing is the seam that hands back the relay's outcome
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 return_value=fake_llm_call(),
             ),
             patch(  # test-quality-ok: the failure hook is the proxy's only path to a failed spend log row
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 proxy_logging_obj,
             ),
         ):
@@ -3605,8 +3605,8 @@ class TestResponsesWSFirstFrameModelAuth:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("ending", ["refusal", "crash", "session_limit"])
     async def test_close_time_failure_row_bills_the_guardrails_of_the_turns_the_deployment_refused(self, ending: str):
-        from litellm.exceptions import RateLimitError
-        from litellm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
 
         ws = MagicMock()
         ws.headers = {}
@@ -3620,7 +3620,7 @@ class TestResponsesWSFirstFrameModelAuth:
         ws.close = AsyncMock()
         processor = MagicMock()
         processor.common_processing_pre_call_logic = AsyncMock(
-            return_value=({"model": "gpt-4o-mini", "litellm_metadata": {"model_group": "gpt-4o-mini"}}, MagicMock())
+            return_value=({"model": "gpt-4o-mini", "hangarllm_metadata": {"model_group": "gpt-4o-mini"}}, MagicMock())
         )
         guardrail_costs = {"two": 0.2, "three": 0.3, "four": 0.4}
         refusal = RateLimitError(message="crossed budget", llm_provider="", model="")
@@ -3631,7 +3631,7 @@ class TestResponsesWSFirstFrameModelAuth:
             recorded = [{"guardrail_cost": guardrail_costs[data["input"]]}]
             return {
                 **data,
-                "litellm_metadata": {**data["litellm_metadata"], "standard_logging_guardrail_information": recorded},
+                "hangarllm_metadata": {**data["hangarllm_metadata"], "standard_logging_guardrail_information": recorded},
             }
 
         def route_request(data, **kwargs):
@@ -3658,24 +3658,24 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(  # test-quality-ok: first-frame model auth needs a live router and key table and has its own tests above
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: the pre-call processor needs a live proxy; what the endpoint does with the relay's outcome is under test
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(  # test-quality-ok: routing is the seam that hands the relay its frame guard and returns its outcome
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 side_effect=route_request,
             ),
             patch(  # test-quality-ok: a short session limit stands in for the configured one so the cap fires mid-session
-                "litellm.proxy.response_api_endpoints.endpoints._resolve_responses_ws_session_limit_seconds",
+                "hangarllm.proxy.response_api_endpoints.endpoints._resolve_responses_ws_session_limit_seconds",
                 return_value=0.05 if ending == "session_limit" else 3600.0,
             ),
             patch(  # test-quality-ok: the failure hook is the proxy's only path to a failed spend log row
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 proxy_logging_obj,
             ),
         ):
@@ -3686,7 +3686,7 @@ class TestResponsesWSFirstFrameModelAuth:
         proxy_logging_obj.arelease_responses_websocket_slot.assert_awaited_once()
         booked = proxy_logging_obj.post_call_failure_hook.await_args.kwargs
         assert booked["original_exception"] is (crash if ending == "crash" else refusal)
-        assert booked["request_data"]["litellm_metadata"] == {
+        assert booked["request_data"]["hangarllm_metadata"] == {
             "model_group": "gpt-4o-mini",
             "standard_logging_guardrail_information": [{"guardrail_cost": 0.2}, {"guardrail_cost": 0.4}],
         }
@@ -3697,8 +3697,8 @@ class TestResponsesWSFirstFrameModelAuth:
         ["still_relaying", "already_returned", "returns_despite_the_cancel", "crashes_despite_the_cancel"],
     )
     async def test_session_limit_frees_the_slot_at_once_and_never_cuts_the_failure_row(self, relay_outcome: str):
-        from litellm.exceptions import RateLimitError
-        from litellm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
 
         ws = MagicMock()
         ws.headers = {}
@@ -3715,7 +3715,7 @@ class TestResponsesWSFirstFrameModelAuth:
         ws.close = AsyncMock(side_effect=close_over_the_network)
         processor = MagicMock()
         processor.common_processing_pre_call_logic = AsyncMock(
-            return_value=({"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock())
+            return_value=({"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock())
         )
         refusal = RateLimitError(message="crossed budget", llm_provider="", model="")
         crash = RuntimeError("relay crashed")
@@ -3753,24 +3753,24 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(  # test-quality-ok: first-frame model auth needs a live router and key table and has its own tests above
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: the pre-call processor needs a live proxy; what the endpoint does with the relay's outcome is under test
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(  # test-quality-ok: routing is the seam that hands the relay its frame guard and returns its outcome
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 side_effect=route_request,
             ),
             patch(  # test-quality-ok: a short session limit stands in for the configured one so the cap fires mid-session
-                "litellm.proxy.response_api_endpoints.endpoints._resolve_responses_ws_session_limit_seconds",
+                "hangarllm.proxy.response_api_endpoints.endpoints._resolve_responses_ws_session_limit_seconds",
                 return_value=0.05,
             ),
             patch(  # test-quality-ok: the failure hook is the proxy's only path to a failed spend log row
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 proxy_logging_obj,
             ),
         ):
@@ -3793,8 +3793,8 @@ class TestResponsesWSFirstFrameModelAuth:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("ending", ["client_closed", "crash"])
     async def test_a_closed_socket_frees_its_slot_before_its_failure_row_and_waits_for_the_row(self, ending: str):
-        from litellm.exceptions import RateLimitError
-        from litellm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
 
         ws = MagicMock()
         ws.headers = {}
@@ -3808,7 +3808,7 @@ class TestResponsesWSFirstFrameModelAuth:
         ws.close = AsyncMock()
         processor = MagicMock()
         processor.common_processing_pre_call_logic = AsyncMock(
-            return_value=({"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock())
+            return_value=({"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock())
         )
         refusal = RateLimitError(message="crossed budget", llm_provider="", model="")
         crash = RuntimeError("relay crashed")
@@ -3840,20 +3840,20 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(  # test-quality-ok: first-frame model auth needs a live router and key table and has its own tests above
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: the pre-call processor needs a live proxy; what the endpoint does with the relay's outcome is under test
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(  # test-quality-ok: routing is the seam that hands the relay its frame guard and returns its outcome
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 side_effect=route_request,
             ),
             patch(  # test-quality-ok: the failure hook is the proxy's only path to a failed spend log row
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 proxy_logging_obj,
             ),
         ):
@@ -3874,8 +3874,8 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_a_crashed_socket_whose_failure_row_cannot_be_built_still_gets_its_error_frame_and_close(self):
-        from litellm.exceptions import RateLimitError
-        from litellm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
+        from hangarllm.exceptions import RateLimitError
+        from hangarllm.proxy.response_api_endpoints.endpoints import responses_websocket_endpoint
 
         ws = MagicMock()
         ws.headers = {}
@@ -3892,7 +3892,7 @@ class TestResponsesWSFirstFrameModelAuth:
         ws.close = AsyncMock(side_effect=lambda code, reason: closes.append((code, reason)))
         processor = MagicMock()
         processor.common_processing_pre_call_logic = AsyncMock(
-            return_value=({"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock())
+            return_value=({"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock())
         )
         refusal = RateLimitError(message="crossed budget", llm_provider="", model="")
 
@@ -3900,7 +3900,7 @@ class TestResponsesWSFirstFrameModelAuth:
             async def relay():
                 guarded = await data["responses_ws_frame_guard"](json.dumps({"type": "response.create", "input": "two"}))
                 guarded.bill_refusal(refusal)
-                data["litellm_metadata"]["standard_logging_guardrail_information"] = "written by a broken callback"
+                data["hangarllm_metadata"]["standard_logging_guardrail_information"] = "written by a broken callback"
                 raise RuntimeError("relay crashed")
 
             return relay()
@@ -3909,7 +3909,7 @@ class TestResponsesWSFirstFrameModelAuth:
         proxy_logging_obj.pre_call_hook = AsyncMock(
             side_effect=lambda user_api_key_dict, data, call_type, guardrails_only: {
                 **data,
-                "litellm_metadata": {"standard_logging_guardrail_information": [{"guardrail_name": "turn-check"}]},
+                "hangarllm_metadata": {"standard_logging_guardrail_information": [{"guardrail_name": "turn-check"}]},
             }
         )
         proxy_logging_obj.post_call_failure_hook = AsyncMock()
@@ -3917,20 +3917,20 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(  # test-quality-ok: first-frame model auth needs a live router and key table and has its own tests above
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: the pre-call processor needs a live proxy; what the endpoint does with the relay's outcome is under test
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(  # test-quality-ok: routing is the seam that hands the relay its frame guard and returns its outcome
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 side_effect=route_request,
             ),
             patch(  # test-quality-ok: the failure hook is the proxy's only path to a failed spend log row
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 proxy_logging_obj,
             ),
         ):
@@ -3943,7 +3943,7 @@ class TestResponsesWSFirstFrameModelAuth:
 
     @pytest.mark.asyncio
     async def test_endpoint_sends_an_error_frame_when_routing_rejects_the_connection(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             responses_websocket_endpoint,
         )
 
@@ -3961,9 +3961,9 @@ class TestResponsesWSFirstFrameModelAuth:
 
         processor = MagicMock()
         processor.common_processing_pre_call_logic = AsyncMock(
-            return_value=({"model": "gpt-4o-mini", "litellm_metadata": {}}, MagicMock())
+            return_value=({"model": "gpt-4o-mini", "hangarllm_metadata": {}}, MagicMock())
         )
-        rejection = litellm.RateLimitError(
+        rejection = hangarllm.RateLimitError(
             message="origin deployment is cooling down", model="gpt-4o-mini", llm_provider="openai"
         )
         proxy_logging_obj = MagicMock(during_call_hook=AsyncMock())
@@ -3973,20 +3973,20 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(  # test-quality-ok: first-frame model auth needs a live router and key table and has its own tests above
-                "litellm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
+                "hangarllm.proxy.response_api_endpoints.endpoints._enforce_responses_ws_first_frame_model_auth",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: the pre-call processor needs a live proxy; what the endpoint tells the client is under test
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing",
                 return_value=processor,
             ),
             patch(  # test-quality-ok: routing is the seam that raises the affinity rejection
-                "litellm.proxy.route_llm_request.route_request",
+                "hangarllm.proxy.route_llm_request.route_request",
                 new_callable=AsyncMock,
                 side_effect=rejection,
             ),
             patch(  # test-quality-ok: the failure hook is the proxy's only path to a failed spend log row
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 proxy_logging_obj,
             ),
         ):
@@ -4011,7 +4011,7 @@ class TestResponsesWSFirstFrameModelAuth:
     async def test_reruns_model_auth_for_first_frame_model(self):
         from starlette.requests import Request
 
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _enforce_responses_ws_first_frame_model_auth,
         )
 
@@ -4022,20 +4022,20 @@ class TestResponsesWSFirstFrameModelAuth:
 
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.enforce_key_and_fallback_model_access",
+                "hangarllm.proxy.auth.user_api_key_auth.enforce_key_and_fallback_model_access",
                 new_callable=AsyncMock,
             ) as mock_key_check,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.run_centralized_common_checks",
+                "hangarllm.proxy.auth.user_api_key_auth.run_centralized_common_checks",
                 new_callable=AsyncMock,
             ) as mock_common_checks,
             patch(
-                "litellm.proxy.proxy_server.llm_model_list",
+                "hangarllm.proxy.proxy_server.llm_model_list",
                 [],
             ),
-            patch("litellm.proxy.proxy_server.master_key", "sk-test"),
-            patch("litellm.proxy.proxy_server.user_custom_auth", None),
-            patch("litellm.proxy.proxy_server.general_settings", empty_settings),
+            patch("hangarllm.proxy.proxy_server.master_key", "sk-test"),
+            patch("hangarllm.proxy.proxy_server.user_custom_auth", None),
+            patch("hangarllm.proxy.proxy_server.general_settings", empty_settings),
         ):
             await _enforce_responses_ws_first_frame_model_auth(
                 request=request,
@@ -4065,7 +4065,7 @@ class TestReadWSModelFromFirstFrameErrors:
     async def test_transport_error_first_frame_closes_with_internal_error(self):
         import asyncio
 
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -4082,7 +4082,7 @@ class TestReadWSModelFromFirstFrameErrors:
 
     @pytest.mark.asyncio
     async def test_invalid_json_sends_error_and_closes(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -4100,7 +4100,7 @@ class TestReadWSModelFromFirstFrameErrors:
 
     @pytest.mark.asyncio
     async def test_missing_model_sends_error_and_closes(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -4118,7 +4118,7 @@ class TestReadWSModelFromFirstFrameErrors:
 
     @pytest.mark.asyncio
     async def test_valid_first_frame_returns_model_and_raw(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -4136,7 +4136,7 @@ class TestReadWSModelFromFirstFrameErrors:
 
     @pytest.mark.asyncio
     async def test_query_model_wins_over_first_frame_model(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -4153,7 +4153,7 @@ class TestReadWSModelFromFirstFrameErrors:
 
     @pytest.mark.asyncio
     async def test_query_model_satisfies_a_first_frame_without_model(self):
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _read_ws_model_from_first_frame,
         )
 
@@ -4184,8 +4184,8 @@ class TestReadWSModelFromFirstFrameErrors:
     ],
 )
 def test_responses_ws_session_limit_resolution(monkeypatch, configured, expected):
-    from litellm.proxy.proxy_server import general_settings
-    from litellm.proxy.response_api_endpoints.endpoints import (
+    from hangarllm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.response_api_endpoints.endpoints import (
         _resolve_responses_ws_session_limit_seconds,
     )
 
@@ -4199,7 +4199,7 @@ def test_responses_ws_session_limit_resolution(monkeypatch, configured, expected
 
 class TestManagedResponsesSameProvider:
     def _handler(self, model, custom_llm_provider=None):
-        from litellm.responses.streaming_iterator import (
+        from hangarllm.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -4249,7 +4249,7 @@ class TestManagedResponsesSameProvider:
 
 
 def _auth_override():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     return UserAPIKeyAuth(api_key="sk-test-cursor", user_id="cursor-user")
 
@@ -4262,9 +4262,9 @@ def test_cursor_chat_completions_messages_body_uses_chat_pipeline():
     ``messages`` to ``input`` (the pre-fix behavior) produced items the Responses API
     rejects. Asserts acompletion is called with the exact messages and aresponses is
     never touched."""
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     messages = [
         {"role": "user", "content": "read a file"},
@@ -4285,7 +4285,7 @@ def test_cursor_chat_completions_messages_body_uses_chat_pipeline():
 
     mock_router = MagicMock()
     mock_router.acompletion = AsyncMock(
-        return_value=litellm.ModelResponse(
+        return_value=hangarllm.ModelResponse(
             id="chatcmpl-cursor-1",
             choices=[
                 {
@@ -4347,13 +4347,13 @@ def test_cursor_chat_completions_input_body_uses_responses_pipeline_and_strips_s
 
     from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.common_utils.http_parsing_utils import (
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.common_utils.http_parsing_utils import (
         read_request_body as real_read_request_body,
     )
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from hangarllm.types.llms.openai import ResponsesAPIResponse
 
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     captured_requests = []
 
@@ -4386,7 +4386,7 @@ def test_cursor_chat_completions_input_body_uses_responses_pipeline_and_strips_s
         with (
             patch.object(ps, "llm_router", mock_router),
             patch(
-                "litellm.proxy.response_api_endpoints.endpoints.read_request_body",
+                "hangarllm.proxy.response_api_endpoints.endpoints.read_request_body",
                 side_effect=capturing_read_request_body,
             ),
         ):
@@ -4426,9 +4426,9 @@ def test_cursor_models_route_delegates_to_model_list():
     for lack of a Cursor API key, so BYOK verification fails before any chat request
     is sent. Both /cursor/models and /cursor/v1/models must serve the standard model
     list instead."""
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     model_payload = {"data": [{"id": "gpt-5.6", "object": "model"}], "object": "list"}
 
@@ -4447,7 +4447,7 @@ def test_cursor_models_route_delegates_to_model_list():
 
 class TestNestFlatChatTools:
     def test_flat_custom_tool_is_nested(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         result = _convert_tool_envelope(
             {"type": "custom", "name": "ApplyPatch", "description": "V4A patch", "format": {"type": "text"}},
@@ -4459,7 +4459,7 @@ class TestNestFlatChatTools:
         }
 
     def test_flat_function_tool_is_nested(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         result = _convert_tool_envelope(
             {"type": "function", "name": "read_file", "description": "d", "parameters": {"type": "object"}},
@@ -4471,7 +4471,7 @@ class TestNestFlatChatTools:
         }
 
     def test_already_nested_and_unrecognized_tools_pass_through_unchanged(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         tools = [
             {"type": "custom", "custom": {"name": "already_nested"}},
@@ -4490,20 +4490,20 @@ class TestNestFlatChatTools:
 class TestCursorMessagesArmToolNormalization:
     @pytest.mark.asyncio
     async def test_flat_custom_tool_nested_before_chat_completion_delegation(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         seen = {}
 
         async def fake_chat_completion(request, fastapi_response, model, user_api_key_dict):
-            from litellm.proxy.common_utils.http_parsing_utils import read_request_body
+            from hangarllm.proxy.common_utils.http_parsing_utils import read_request_body
 
             seen["body"] = await read_request_body(request=request)
             return {"id": "chatcmpl-fake", "object": "chat.completion", "choices": []}
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(api_key=MASTER_KEY)
         try:
-            with patch("litellm.proxy.proxy_server.chat_completion", new=fake_chat_completion):
+            with patch("hangarllm.proxy.proxy_server.chat_completion", new=fake_chat_completion):
                 client = TestClient(app)
                 response = client.post(
                     "/cursor/chat/completions",
@@ -4553,13 +4553,13 @@ class TestCursorMessagesArmToolNormalization:
 
     @pytest.mark.asyncio
     async def test_messages_body_without_flat_tools_leaves_parsed_body_cache_untouched(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         seen = {}
 
         async def fake_chat_completion(request, fastapi_response, model, user_api_key_dict):
-            from litellm.proxy.common_utils.http_parsing_utils import read_request_body
+            from hangarllm.proxy.common_utils.http_parsing_utils import read_request_body
 
             seen["body"] = await read_request_body(request=request)
             return {"id": "chatcmpl-fake", "object": "chat.completion", "choices": []}
@@ -4571,7 +4571,7 @@ class TestCursorMessagesArmToolNormalization:
         }
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(api_key=MASTER_KEY)
         try:
-            with patch("litellm.proxy.proxy_server.chat_completion", new=fake_chat_completion):
+            with patch("hangarllm.proxy.proxy_server.chat_completion", new=fake_chat_completion):
                 client = TestClient(app)
                 response = client.post(
                     "/cursor/chat/completions",
@@ -4602,7 +4602,7 @@ class TestToolEnvelopeConversionMatrix:
     @pytest.mark.parametrize("envelope", ["flat", "nested"])
     @pytest.mark.parametrize("format_shape", ["absent", "text", "flat_grammar", "nested_grammar"])
     def test_every_direction_envelope_and_format_lands_canonical(self, to_chat, envelope, format_shape):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         format_value = {
             "absent": None,
@@ -4627,7 +4627,7 @@ class TestToolEnvelopeConversionMatrix:
         assert _convert_tool_envelope(tool, to_chat=to_chat) == expected
 
     def test_nested_envelope_with_flat_grammar_matches_live_cursor_capture(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         cursor_tool = {"type": "custom", "custom": {"name": "ApplyPatch", "format": self.FLAT_GRAMMAR}}
         assert _convert_tool_envelope(cursor_tool, to_chat=True) == {
@@ -4637,13 +4637,13 @@ class TestToolEnvelopeConversionMatrix:
 
     @pytest.mark.parametrize("to_chat", [True, False])
     def test_conversion_is_idempotent(self, to_chat):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         once = _convert_tool_envelope({"type": "custom", "name": "A", "format": self.FLAT_GRAMMAR}, to_chat=to_chat)
         assert _convert_tool_envelope(once, to_chat=to_chat) == once
 
     def test_nested_function_tool_flattens_and_flat_passes_through(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         nested = {"type": "function", "function": {"name": "read_file", "parameters": {"type": "object"}}}
         flat = {"type": "function", "name": "read_file", "parameters": {"type": "object"}}
@@ -4652,7 +4652,7 @@ class TestToolEnvelopeConversionMatrix:
 
     @pytest.mark.parametrize("to_chat", [True, False])
     def test_unrecognized_entries_pass_through(self, to_chat):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         entries = [{"type": "web_search"}, {"type": "custom"}, "junk", None, {}, 42, {"type": "auto"}]
         assert [_convert_tool_envelope(entry, to_chat=to_chat) for entry in entries] == entries
@@ -4661,7 +4661,7 @@ class TestToolEnvelopeConversionMatrix:
     def test_empty_nested_envelope_falls_back_to_top_level_payload(self, to_chat):
         """An empty nested envelope must not shadow payload fields that sit at the top
         level; treating the empty dict as the sole payload source dropped the name."""
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         hybrid = {"type": "custom", "custom": {}, "name": "ApplyPatch", "format": self.TEXT}
         expected_payload = {"name": "ApplyPatch", "format": self.TEXT}
@@ -4669,14 +4669,14 @@ class TestToolEnvelopeConversionMatrix:
         assert _convert_tool_envelope(hybrid, to_chat=to_chat) == expected
 
     def test_nested_payload_wins_over_stray_top_level_fields(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         tool = {"type": "custom", "custom": {"name": "NestedName"}, "name": "TopName"}
         assert _convert_tool_envelope(tool, to_chat=False) == {"type": "custom", "name": "NestedName"}
 
     @pytest.mark.parametrize("to_chat", [True, False])
     def test_nameless_envelope_passes_through_unchanged(self, to_chat):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         nameless = {"type": "custom", "custom": {}, "description": "no name anywhere"}
         assert _convert_tool_envelope(nameless, to_chat=to_chat) == nameless
@@ -4692,7 +4692,7 @@ class TestToolChoiceSharesTheToolEnvelopeRule:
 
     @pytest.mark.parametrize("choice_type", ["custom", "function"])
     def test_flat_tool_choice_is_nested_for_chat(self, choice_type):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         assert _convert_tool_envelope({"type": choice_type, "name": "ApplyPatch"}, to_chat=True) == {
             "type": choice_type,
@@ -4701,7 +4701,7 @@ class TestToolChoiceSharesTheToolEnvelopeRule:
 
     @pytest.mark.parametrize("choice_type", ["custom", "function"])
     def test_nested_tool_choice_is_flattened_for_responses(self, choice_type):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         assert _convert_tool_envelope({"type": choice_type, choice_type: {"name": "ApplyPatch"}}, to_chat=False) == {
             "type": choice_type,
@@ -4710,7 +4710,7 @@ class TestToolChoiceSharesTheToolEnvelopeRule:
 
     @pytest.mark.parametrize("to_chat", [True, False])
     def test_sentinel_and_malformed_tool_choice_pass_through(self, to_chat):
-        from litellm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
+        from hangarllm.proxy.response_api_endpoints.endpoints import _convert_tool_envelope
 
         for unchanged in ("auto", "required", "none", None, {"type": "auto"}, 42):
             assert _convert_tool_envelope(unchanged, to_chat=to_chat) == unchanged
@@ -4725,7 +4725,7 @@ class TestNormalizeToolDialectCoversBothFields:
 
     @pytest.mark.parametrize("to_chat", [True, False])
     def test_tools_and_tool_choice_convert_together(self, to_chat):
-        from litellm.proxy.response_api_endpoints.endpoints import _normalize_tool_dialect
+        from hangarllm.proxy.response_api_endpoints.endpoints import _normalize_tool_dialect
 
         flat = {"type": "custom", "name": "ApplyPatch"}
         nested = {"type": "custom", "custom": {"name": "ApplyPatch"}}
@@ -4737,13 +4737,13 @@ class TestNormalizeToolDialectCoversBothFields:
         assert out["tool_choice"] == expected
 
     def test_body_needing_no_conversion_is_returned_by_identity(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _normalize_tool_dialect
+        from hangarllm.proxy.response_api_endpoints.endpoints import _normalize_tool_dialect
 
         data = {"messages": [], "tools": [{"type": "function", "function": {"name": "f"}}], "tool_choice": "auto"}
         assert _normalize_tool_dialect(data, to_chat=True) is data
 
     def test_absent_tool_fields_are_not_invented(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _normalize_tool_dialect
+        from hangarllm.proxy.response_api_endpoints.endpoints import _normalize_tool_dialect
 
         data = {"messages": [{"role": "user", "content": "hi"}]}
         result = _normalize_tool_dialect(data, to_chat=True)
@@ -4754,11 +4754,11 @@ class TestNormalizeToolDialectCoversBothFields:
 class TestCursorInputArmFlattening:
     @pytest.mark.asyncio
     async def test_nested_chat_shapes_in_input_body_reach_aresponses_flattened(self):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
         from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         mock_response = ResponsesAPIResponse(
             id="resp_flat123",
@@ -4778,7 +4778,7 @@ class TestCursorInputArmFlattening:
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(api_key=MASTER_KEY)
         try:
-            with patch("litellm.proxy.proxy_server.llm_router") as mock_router:
+            with patch("hangarllm.proxy.proxy_server.llm_router") as mock_router:
                 mock_router.aresponses = AsyncMock(return_value=mock_response)
                 client = TestClient(app)
                 response = client.post(
@@ -4821,7 +4821,7 @@ class TestCursorInputArmFlattening:
 
 class TestChatCompletionsBodyDetection:
     def test_routing_matrix(self):
-        from litellm.proxy.litellm_pre_call_utils import is_chat_completions_body as _is_chat_completions_body
+        from hangarllm.proxy.hangarllm_pre_call_utils import is_chat_completions_body as _is_chat_completions_body
 
         assert _is_chat_completions_body({"messages": [{"role": "user", "content": "hi"}]}) is True
         assert _is_chat_completions_body({"messages": [{"role": "user", "content": "hi"}], "input": []}) is True
@@ -4836,9 +4836,9 @@ class TestChatCompletionsBodyDetection:
     async def test_null_messages_stub_with_input_reaches_responses_arm(self):
         from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         mock_response = ResponsesAPIResponse(
             id="resp_stub1",
@@ -4858,7 +4858,7 @@ class TestChatCompletionsBodyDetection:
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(api_key=MASTER_KEY)
         try:
-            with patch("litellm.proxy.proxy_server.llm_router") as mock_router:
+            with patch("hangarllm.proxy.proxy_server.llm_router") as mock_router:
                 mock_router.aresponses = AsyncMock(return_value=mock_response)
                 client = TestClient(app)
                 response = client.post(
@@ -4894,7 +4894,7 @@ class TestParseCursorModelVariant:
         ],
     )
     def test_parse_matrix(self, model, expected_base, expected_effort):
-        from litellm.proxy.response_api_endpoints.endpoints import _parse_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _parse_cursor_model_variant
 
         variant = _parse_cursor_model_variant(model)
         assert variant.base_model == expected_base
@@ -4904,21 +4904,21 @@ class TestParseCursorModelVariant:
 class TestResolveCursorModelVariant:
     @pytest.fixture(scope="class")
     def wildcard_router(self):
-        from litellm import Router
+        from hangarllm import Router
 
         return Router(
             model_list=[
-                {"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*", "api_key": "fake"}},
-                {"model_name": "openai/*", "litellm_params": {"model": "openai/*", "api_key": "fake"}},
+                {"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*", "api_key": "fake"}},
+                {"model_name": "openai/*", "hangarllm_params": {"model": "openai/*", "api_key": "fake"}},
                 {
                     "model_name": "explicit-alias-thinking-high",
-                    "litellm_params": {"model": "anthropic/claude-opus-5", "api_key": "fake"},
+                    "hangarllm_params": {"model": "anthropic/claude-opus-5", "api_key": "fake"},
                 },
             ]
         )
 
     def test_chat_body_suffix_stripped_into_reasoning_effort(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {
             "model": "claude-opus-5-thinking-xhigh-fast",
@@ -4931,7 +4931,7 @@ class TestResolveCursorModelVariant:
         assert body["model"] == "claude-opus-5-thinking-xhigh-fast"
 
     def test_responses_body_suffix_stripped_into_reasoning_dict(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {"model": "claude-opus-5-thinking-high", "input": [{"role": "user", "content": "hi"}]}
         resolved = _resolve_cursor_model_variant(body, wildcard_router)
@@ -4939,7 +4939,7 @@ class TestResolveCursorModelVariant:
         assert resolved["reasoning"] == {"effort": "high"}
 
     def test_responses_body_merges_effort_into_existing_reasoning(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {
             "model": "claude-opus-5-thinking-high",
@@ -4951,7 +4951,7 @@ class TestResolveCursorModelVariant:
         assert resolved["reasoning"] == {"summary": "auto", "effort": "high"}
 
     def test_existing_reasoning_effort_wins_but_model_still_rewritten(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         chat_body = {
             "model": "claude-opus-5-thinking-high",
@@ -4972,7 +4972,7 @@ class TestResolveCursorModelVariant:
         assert resolved_responses["reasoning"] == {"effort": "low"}
 
     def test_fast_only_suffix_strips_without_reasoning(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {"model": "claude-opus-5-fast", "messages": [{"role": "user", "content": "hi"}]}
         resolved = _resolve_cursor_model_variant(body, wildcard_router)
@@ -4980,31 +4980,31 @@ class TestResolveCursorModelVariant:
         assert "reasoning_effort" not in resolved
 
     def test_explicitly_configured_suffixed_name_untouched(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {"model": "explicit-alias-thinking-high", "messages": [{"role": "user", "content": "hi"}]}
         assert _resolve_cursor_model_variant(body, wildcard_router) is body
 
     def test_provider_inferable_bare_name_untouched(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "hi"}]}
         assert _resolve_cursor_model_variant(body, wildcard_router) is body
 
     def test_unservable_base_untouched(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {"model": "totally-unknown-thinking-high", "messages": [{"role": "user", "content": "hi"}]}
         assert _resolve_cursor_model_variant(body, wildcard_router) is body
 
     def test_no_router_untouched(self):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         body = {"model": "claude-opus-5-thinking-high", "messages": [{"role": "user", "content": "hi"}]}
         assert _resolve_cursor_model_variant(body, None) is body
 
     def test_missing_or_non_string_model_untouched(self, wildcard_router):
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         no_model = {"messages": [{"role": "user", "content": "hi"}]}
         assert _resolve_cursor_model_variant(no_model, wildcard_router) is no_model
@@ -5032,13 +5032,13 @@ def _router_serving_only(base_model: str) -> MagicMock:
 class TestCursorModelSuffixResolutionEndToEnd:
     @pytest.mark.asyncio
     async def test_chat_arm_rewrites_suffixed_model_before_delegation(self):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         seen = {}
 
         async def fake_chat_completion(request, fastapi_response, model, user_api_key_dict):
-            from litellm.proxy.common_utils.http_parsing_utils import read_request_body
+            from hangarllm.proxy.common_utils.http_parsing_utils import read_request_body
 
             seen["body"] = await read_request_body(request=request)
             return {"id": "chatcmpl-fake", "object": "chat.completion", "choices": []}
@@ -5046,8 +5046,8 @@ class TestCursorModelSuffixResolutionEndToEnd:
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(api_key=MASTER_KEY)
         try:
             with (
-                patch("litellm.proxy.proxy_server.llm_router", new=_router_serving_only("claude-opus-5")),
-                patch("litellm.proxy.proxy_server.chat_completion", new=fake_chat_completion),
+                patch("hangarllm.proxy.proxy_server.llm_router", new=_router_serving_only("claude-opus-5")),
+                patch("hangarllm.proxy.proxy_server.chat_completion", new=fake_chat_completion),
             ):
                 client = TestClient(app)
                 response = client.post(
@@ -5070,9 +5070,9 @@ class TestCursorModelSuffixResolutionEndToEnd:
     async def test_responses_arm_rewrites_suffixed_model_before_routing(self):
         from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         mock_response = ResponsesAPIResponse(
             id="resp_suffix1",
@@ -5095,7 +5095,7 @@ class TestCursorModelSuffixResolutionEndToEnd:
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(api_key=MASTER_KEY)
         try:
-            with patch("litellm.proxy.proxy_server.llm_router", new=mock_router):
+            with patch("hangarllm.proxy.proxy_server.llm_router", new=mock_router):
                 client = TestClient(app)
                 response = client.post(
                     "/cursor/chat/completions",
@@ -5115,10 +5115,10 @@ class TestCursorModelSuffixResolutionEndToEnd:
 
 
 def _cursor_budget_auth_env(base_model: str, spend: float):
-    from litellm import Router
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm import Router
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX,
         PROXY_VirtualKeyModelMaxBudgetLimiter,
     )
@@ -5134,7 +5134,7 @@ def _cursor_budget_auth_env(base_model: str, spend: float):
         value=spend,
     )
     router = Router(
-        model_list=[{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*", "api_key": "fake"}}]
+        model_list=[{"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*", "api_key": "fake"}}]
     )
 
     mock_proxy_logging_obj = MagicMock()
@@ -5152,16 +5152,16 @@ def _cursor_budget_auth_env(base_model: str, spend: float):
         "model_max_budget_limiter": limiter,
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "hangarllm_proxy_admin_name": "admin",
     }
     return valid_token, proxy_server_attrs
 
 
 def _post_cursor_with_real_auth(valid_token, proxy_server_attrs, request_model: str):
     with (
-        patch.multiple("litellm.proxy.proxy_server", **proxy_server_attrs),
+        patch.multiple("hangarllm.proxy.proxy_server", **proxy_server_attrs),
         patch(
-            "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+            "hangarllm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
             new_callable=AsyncMock,
             return_value=valid_token,
         ),
@@ -5214,9 +5214,9 @@ class TestCursorVariantResolvedBeforeAuth:
     router already serves must reach auth untouched."""
 
     def _run_with_recording_auth(self, mock_router, request_model: str):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.common_utils.http_parsing_utils import read_request_body
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.common_utils.http_parsing_utils import read_request_body
 
         from fastapi import Request
 
@@ -5232,8 +5232,8 @@ class TestCursorVariantResolvedBeforeAuth:
         app.dependency_overrides[user_api_key_auth] = recording_auth
         try:
             with (
-                patch("litellm.proxy.proxy_server.llm_router", new=mock_router),
-                patch("litellm.proxy.proxy_server.chat_completion", new=fake_chat_completion),
+                patch("hangarllm.proxy.proxy_server.llm_router", new=mock_router),
+                patch("hangarllm.proxy.proxy_server.chat_completion", new=fake_chat_completion),
             ):
                 client = TestClient(app)
                 response = client.post(
@@ -5270,11 +5270,11 @@ class TestCursorVariantResolvedBeforeAuth:
 
 class TestCursorGateRecognizesRoutingGroups:
     def test_group_name_variant_is_not_mangled(self):
-        from litellm import Router
-        from litellm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
+        from hangarllm import Router
+        from hangarllm.proxy.response_api_endpoints.endpoints import _resolve_cursor_model_variant
 
         router = Router(
-            model_list=[{"model_name": "member-fast", "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}],
+            model_list=[{"model_name": "member-fast", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}],
             routing_groups=[
                 {"group_name": "grouped-thinking-high", "models": ["member-fast"], "routing_strategy": "simple-shuffle"}
             ],
@@ -5289,12 +5289,12 @@ BLOCK_MESSAGE = "Content flagged by policy, response withheld"
 
 
 def _post_blocked_responses(
-    original_response: ResponsesAPIResponse | litellm.ModelResponse | None,
+    original_response: ResponsesAPIResponse | hangarllm.ModelResponse | None,
     payload: Mapping[str, object] | None = None,
 ) -> httpx.Response:
-    from litellm.integrations.custom_guardrail import ModifyResponseException
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.integrations.custom_guardrail import ModifyResponseException
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     exc = ModifyResponseException(
         message=BLOCK_MESSAGE,
@@ -5314,10 +5314,10 @@ def _post_blocked_responses(
     try:
         with (
             patch(
-                "litellm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+                "hangarllm.proxy.response_api_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
                 new=AsyncMock(side_effect=exc),
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),
         ):
             client = TestClient(app)
             return client.post("/v1/responses", json=body, headers={"Authorization": "Bearer sk-9876"})
@@ -5339,7 +5339,7 @@ def _sse_data_frames(text: str) -> list[str]:
 
 
 class TestGuardrailBlockedResponsesUsage:
-    """Regression tests for https://github.com/BerriAI/litellm/issues/36880.
+    """Regression tests for upstream issue 36880
 
     The ModifyResponseException handler in responses_api hardcoded the synthetic
     blocked reply's usage to zeros, discarding the real token counts the blocked
@@ -5350,7 +5350,7 @@ class TestGuardrailBlockedResponsesUsage:
         return _post_blocked_responses(original_response)
 
     def test_post_call_block_reports_real_upstream_usage(self):
-        from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
         original = ResponsesAPIResponse(
             id="resp_upstream",
@@ -5372,8 +5372,8 @@ class TestGuardrailBlockedResponsesUsage:
         assert body["usage"]["total_tokens"] == 34
 
     def test_post_call_block_maps_bridged_chat_usage(self):
-        original = litellm.ModelResponse()
-        original.usage = litellm.Usage(prompt_tokens=14, completion_tokens=18, total_tokens=32)
+        original = hangarllm.ModelResponse()
+        original.usage = hangarllm.Usage(prompt_tokens=14, completion_tokens=18, total_tokens=32)
 
         response = self._post_blocked_responses(original)
 
@@ -5405,20 +5405,20 @@ class TestResponsesInputTokens:
         body: dict[str, Any],
         path: str = "/v1/responses/input_tokens",
         counter: AsyncMock | None = None,
-        llm_router: litellm.Router | None = None,
+        llm_router: hangarllm.Router | None = None,
         response_id_security: object | None = None,
         managed_files: object | None = None,
         headers: Mapping[str, str] = EMPTY_MAPPING,
     ) -> tuple[Response, AsyncMock]:
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.response_api_endpoints.endpoints import (
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.response_api_endpoints.endpoints import (
             _proxy_llm_router,
             _proxy_managed_files_hook,
             _proxy_response_id_security,
             _proxy_token_counter,
         )
-        from litellm.types.utils import TokenCountResponse
+        from hangarllm.types.utils import TokenCountResponse
 
         token_counter_mock = (
             counter
@@ -5604,7 +5604,7 @@ class TestResponsesInputTokens:
         assert {name: sent[name] for name in ("tools", "tool_choice", "parallel_tool_calls") if name in sent} == expected
 
     def test_previous_response_id_reaches_the_counter_authorized_next_to_the_id_the_client_held(self) -> None:
-        from litellm.types.utils import ADDRESSED_RESPONSE_ID_FIELD
+        from hangarllm.types.utils import ADDRESSED_RESPONSE_ID_FIELD
 
         class DecodingSecurity:
             def authorize_response_id(self, response_id: str, user_api_key_dict: object) -> str:
@@ -5623,9 +5623,9 @@ class TestResponsesInputTokens:
         )
 
     def test_managed_file_ids_reach_the_counter_with_the_mapping_inference_uses(self) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
-        mapping: Final = {"litellm-managed-file": {"deployment-a": "file-on-a"}}
+        mapping: Final = {"hangarllm-managed-file": {"deployment-a": "file-on-a"}}
 
         class ManagedFiles(CustomLogger):
             async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -5636,7 +5636,7 @@ class TestResponsesInputTokens:
         response, counter = self._post_input_tokens(
             {
                 "model": "gpt-4o",
-                "input": [{"role": "user", "content": [{"type": "input_file", "file_id": "litellm-managed-file"}]}],
+                "input": [{"role": "user", "content": [{"type": "input_file", "file_id": "hangarllm-managed-file"}]}],
             },
             managed_files=ManagedFiles(),
         )
@@ -5648,15 +5648,15 @@ class TestResponsesInputTokens:
     def test_a_caller_sent_model_file_id_mapping_does_not_break_the_count(
         self, monkeypatch: pytest.MonkeyPatch, caller_mapping: object
     ) -> None:
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-        from litellm.llms.openai.responses.count_tokens import handler as openai_count_tokens_http
-        from litellm.proxy.proxy_server import count_request_tokens
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.openai.responses.count_tokens import handler as openai_count_tokens_http
+        from hangarllm.proxy.proxy_server import count_request_tokens
 
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-files",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "test-key",
                         "api_base": "https://count.test/v1",
@@ -5665,7 +5665,7 @@ class TestResponsesInputTokens:
                 }
             ]
         )
-        monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+        monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
         sent: Final[list[object]] = []  # mutable-ok: collects what the mock peer receives
 
         def count_peer(request: httpx.Request) -> httpx.Response:
@@ -5695,21 +5695,21 @@ class TestResponsesInputTokens:
         token_count_log_lines: Callable[[], tuple[dict[str, object], ...]],
         path: str,
     ) -> None:
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-        from litellm.llms.openai.responses.count_tokens import handler as openai_count_tokens_http
-        from litellm.proxy.proxy_server import count_request_tokens
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.llms.openai.responses.count_tokens import handler as openai_count_tokens_http
+        from hangarllm.proxy.proxy_server import count_request_tokens
 
         gpt: Final = {"model": "openai/gpt-4o-mini", "api_key": "test-key", "api_base": "https://count.test/v1"}
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "count-log-gpt",
-                    "litellm_params": gpt,
+                    "hangarllm_params": gpt,
                     "model_info": {"id": "count-log-responses-deployment"},
                 }
             ]
         )
-        monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+        monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", router)
         monkeypatch.setattr(
             openai_count_tokens_http,
             "get_async_httpx_client",
@@ -5727,13 +5727,13 @@ class TestResponsesInputTokens:
             path=path,
             counter=AsyncMock(side_effect=count_request_tokens),
             llm_router=router,
-            headers={"x-litellm-call-id": "count-log-responses"},
+            headers={"x-hangarllm-call-id": "count-log-responses"},
         )
 
         assert (response.status_code, response.json().get("input_tokens")) == (200, 7), response.text
         assert token_count_log_lines() == (
             {
-                "litellm_call_id": "count-log-responses",
+                "hangarllm_call_id": "count-log-responses",
                 "request_model": "count-log-gpt",
                 "model_id": "count-log-responses-deployment",
                 "model_used": "gpt-4o-mini",
@@ -5747,14 +5747,14 @@ class TestResponsesInputTokens:
         self, token_count_log_lines: Callable[[], tuple[dict[str, object], ...]]
     ) -> None:
         response, counter = self._post_input_tokens(
-            {"model": "count-log-gpt"}, headers={"x-litellm-call-id": "count-log-no-input"}
+            {"model": "count-log-gpt"}, headers={"x-hangarllm-call-id": "count-log-no-input"}
         )
 
         assert response.status_code == 400, response.text
         counter.assert_not_awaited()
         assert token_count_log_lines() == (
             {
-                "litellm_call_id": "count-log-no-input",
+                "hangarllm_call_id": "count-log-no-input",
                 "request_model": "count-log-gpt",
                 "model_id": None,
                 "model_used": None,
@@ -5765,9 +5765,9 @@ class TestResponsesInputTokens:
         )
 
     def test_a_managed_file_the_key_cannot_read_answers_403_without_a_count(self) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
-        denied: Final = "User u1 does not have access to the file litellm-managed-file"
+        denied: Final = "User u1 does not have access to the file hangarllm-managed-file"
 
         class ManagedFiles(CustomLogger):
             async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -5776,7 +5776,7 @@ class TestResponsesInputTokens:
         response, counter = self._post_input_tokens(
             {
                 "model": "gpt-4o",
-                "input": [{"role": "user", "content": [{"type": "input_file", "file_id": "litellm-managed-file"}]}],
+                "input": [{"role": "user", "content": [{"type": "input_file", "file_id": "hangarllm-managed-file"}]}],
             },
             managed_files=ManagedFiles(),
         )
@@ -5786,17 +5786,17 @@ class TestResponsesInputTokens:
         counter.assert_not_awaited()
 
     def test_malformed_tools_follow_the_counted_deployment_even_when_fallbacks_are_configured(self) -> None:
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-5.2",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5.2",
                         "api_key": "sk-test",
                         "additional_drop_params": ["tools"],
                     },
                 },
-                {"model_name": "backup", "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test"}},
+                {"model_name": "backup", "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test"}},
             ],
             fallbacks=[{"gpt-5.2": ["backup"]}],
         )
@@ -5808,8 +5808,8 @@ class TestResponsesInputTokens:
         assert "tools" not in counter.await_args.kwargs["responses_request"]
 
     def test_malformed_tools_for_a_model_outside_the_router_get_a_clean_400(self) -> None:
-        router: Final = litellm.Router(
-            model_list=[{"model_name": "gpt-5.2", "litellm_params": {"model": "openai/gpt-5.2", "api_key": "sk-test"}}]
+        router: Final = hangarllm.Router(
+            model_list=[{"model_name": "gpt-5.2", "hangarllm_params": {"model": "openai/gpt-5.2", "api_key": "sk-test"}}]
         )
 
         response, counter = self._post_input_tokens(
@@ -5821,7 +5821,7 @@ class TestResponsesInputTokens:
         counter.assert_not_awaited()
 
     def test_provider_error_maps_status_code(self):
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         failing_counter = AsyncMock(
             side_effect=ProxyException(
@@ -5906,7 +5906,7 @@ class TestResponsesInputTokens:
                 id="google_error_message_unwrapped",
             ),
             pytest.param(
-                "litellm.APIError: Google Gen AI Studio API error: 404 - "
+                "hangarllm.APIError: Google Gen AI Studio API error: 404 - "
                 + json.dumps(
                     {"error": {"code": 404, "message": "models/gemini-typo is not found.", "status": "NOT_FOUND"}}
                 ),
@@ -5920,7 +5920,7 @@ class TestResponsesInputTokens:
                 id="prefixed_gemini_error_message_unwrapped",
             ),
             pytest.param(
-                "litellm.BadRequestError: AzureException - "
+                "hangarllm.BadRequestError: AzureException - "
                 + json.dumps(
                     {
                         "error": {
@@ -5992,7 +5992,7 @@ class TestResponsesInputTokens:
         status_code: int,
         expected_error: Mapping[str, str | None],
     ) -> None:
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         failing_counter: Final = AsyncMock(
             side_effect=ProxyException(
@@ -6008,7 +6008,7 @@ class TestResponsesInputTokens:
         assert response.json() == {"error": expected_error}
 
     def test_non_provider_count_error_keeps_its_own_type(self) -> None:
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         failing_counter: Final = AsyncMock(
             side_effect=ProxyException(
@@ -6024,28 +6024,28 @@ class TestResponsesInputTokens:
         assert response.json()["error"]["type"] == "token_counting_disabled"
 
     def test_provider_count_error_names_the_call_id_when_opted_in(self) -> None:
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         failing_counter: Final = AsyncMock(
             side_effect=ProxyException(
-                message="LiteLLM does not support counting tokens for Vertex AI model zai-org/glm-5.2-maas.",
+                message="HangarLLM does not support counting tokens for Vertex AI model zai-org/glm-5.2-maas.",
                 type="token_counting_error",
                 param="model",
                 code="400",
-                headers={"x-litellm-call-id": "call-9564"},
+                headers={"x-hangarllm-call-id": "call-9564"},
             )
         )
-        with patch("litellm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True}):
             response, _ = self._post_input_tokens({"model": "gpt-4o", "input": "hi"}, counter=failing_counter)
 
         assert response.status_code == 400, response.text
         assert response.json() == {
             "error": {
-                "message": "LiteLLM does not support counting tokens for Vertex AI model zai-org/glm-5.2-maas.",
+                "message": "HangarLLM does not support counting tokens for Vertex AI model zai-org/glm-5.2-maas.",
                 "type": "invalid_request_error",
                 "param": None,
                 "code": None,
-                "litellm_call_id": "call-9564",
+                "hangarllm_call_id": "call-9564",
             }
         }
 
@@ -6089,7 +6089,7 @@ class TestGuardrailBlockedResponsesShape:
         assert delta_text == BLOCK_MESSAGE
 
     def test_stream_block_keeps_upstream_usage(self):
-        from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
         original = ResponsesAPIResponse(
             id="resp_upstream",
@@ -6118,7 +6118,7 @@ def test_responses_routes_document_response_models_in_openapi_schema():
 
     from fastapi import FastAPI
 
-    from litellm.proxy.response_api_endpoints.endpoints import router
+    from hangarllm.proxy.response_api_endpoints.endpoints import router
 
     def as_object(value: object) -> dict[str, object]:
         assert isinstance(value, dict)
@@ -6164,7 +6164,7 @@ _SUMMARY_INPUT: Final = [{"type": "message", "role": "user", "content": _COMPACT
 
 
 def test_input_token_count_reads_a_compaction_item_as_its_summary():
-    from litellm.proxy.response_api_endpoints.endpoints import _responses_input_as_token_count_messages
+    from hangarllm.proxy.response_api_endpoints.endpoints import _responses_input_as_token_count_messages
 
     assert _responses_input_as_token_count_messages(_COMPACTED_INPUT, None) == (
         _responses_input_as_token_count_messages(_SUMMARY_INPUT, None)

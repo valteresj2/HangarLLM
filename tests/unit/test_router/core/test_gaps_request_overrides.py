@@ -3,7 +3,7 @@ Per-request routing overrides a router core reads (or does not read) on each cal
 
 - ``default_fallbacks`` and ``retry_policy`` in a request are no routing input: the router neither
   falls back on the request's ``default_fallbacks`` nor retries on its ``retry_policy``. Both reach
-  the deployment call as given (litellm's own ``completion`` reads ``retry_policy`` there), on every
+  the deployment call as given (hangarllm's own ``completion`` reads ``retry_policy`` there), on every
   attempt, sync and async, streamed or not.
 - ``model_group_retry_policy`` that is not a mapping of policies, in a request or as the router's
   setting: the retry loop looks the model group up in it (``group in value``, then ``value[group]``),
@@ -16,10 +16,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import RetryPolicy
+import hangarllm
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RetryPolicy
 from tests.unit.test_router.core.retries_health_helpers import attempt, attempt_sync
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
 from tests.unit.test_router.core.streaming_helpers import chat_stream, collect_texts, collect_texts_sync
@@ -69,7 +69,7 @@ async def test_a_failed_call_neither_falls_back_on_nor_retries_by_the_request_ov
 
     error: Final = await attempt(core, "a", **OVERRIDES)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert sent_overrides(host) == [("a", ["c"], {"RateLimitErrorRetries": 3})]
 
 
@@ -81,7 +81,7 @@ def test_a_failed_sync_call_neither_falls_back_on_nor_retries_by_the_request_ove
 
     error: Final = attempt_sync(core, "a", **OVERRIDES)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert sent_overrides(host) == [("a", ["c"], {"RateLimitErrorRetries": 3})]
 
 
@@ -136,7 +136,7 @@ def calls_after_a_rate_limit(
 ) -> int:  # kwargs-ok: request kwargs
     host.answer("openai/a", rate_limit())
     error: Final = attempt_sync(core, "a", **request)
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     return len(host.calls_to())
 
 

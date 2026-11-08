@@ -15,24 +15,24 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from opentelemetry.trace import INVALID_SPAN, SpanKind  # noqa: E402
 from opentelemetry.trace.status import StatusCode  # noqa: E402
 
-from litellm.integrations.otel import (  # noqa: E402
+from hangarllm.integrations.otel import (  # noqa: E402
     GenAI,
-    LiteLLM,
+    HangarLLM,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
-from litellm.integrations.otel.emitter import SpanEmitter, attribute_budget, span_attribute_limit  # noqa: E402
-from litellm.integrations.otel.emitter import stamp_error  # noqa: E402
-from litellm.integrations.otel.mappers import LangfuseMapper  # noqa: E402  # after the opentelemetry importorskip
-from litellm.integrations.otel.mappers.utils import MAX_TOOL_DEFINITION_ATTRS_PER_SPAN  # noqa: E402
-from litellm.integrations.otel.model.payloads import (  # noqa: E402
+from hangarllm.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
+from hangarllm.integrations.otel.plumbing import providers  # noqa: E402
+from hangarllm.integrations.otel.emitter import SpanEmitter, attribute_budget, span_attribute_limit  # noqa: E402
+from hangarllm.integrations.otel.emitter import stamp_error  # noqa: E402
+from hangarllm.integrations.otel.mappers import LangfuseMapper  # noqa: E402  # after the opentelemetry importorskip
+from hangarllm.integrations.otel.mappers.utils import MAX_TOOL_DEFINITION_ATTRS_PER_SPAN  # noqa: E402
+from hangarllm.integrations.otel.model.payloads import (  # noqa: E402
     GuardrailSpanData,
     LLMCallSpanData,
     ServiceSpanData,
     SpanError,
 )
-from litellm.integrations.otel.model.spans import SPAN_REGISTRY, SpanRole  # noqa: E402
+from hangarllm.integrations.otel.model.spans import SPAN_REGISTRY, SpanRole  # noqa: E402
 
 
 def _payload(**overrides):
@@ -53,7 +53,7 @@ def _payload(**overrides):
         "metadata": {"team_id": "t1", "team_alias": "team one"},
         "api_base": "https://api.openai.com:443/v1",
         "status": "success",
-        "litellm_call_id": "call_1",
+        "hangarllm_call_id": "call_1",
         "response_cost": 0.002,
         "hidden_params": {},
     }
@@ -64,7 +64,7 @@ def _payload(**overrides):
 def _engine(legacy_compat=True):
     cfg = OpenTelemetryV2Config(exporter="in_memory", legacy_compat=legacy_compat)
     provider, exporter = providers.in_memory_provider(cfg)
-    tracer = providers.get_tracer(provider, "litellm-test")
+    tracer = providers.get_tracer(provider, "hangarllm-test")
     return SpanEmitter(tracer, cfg), exporter
 
 
@@ -84,13 +84,13 @@ def test_llm_call_span_cost_breakdown():
     (span,) = exporter.get_finished_spans()
     a = span.attributes
     # The rolled-up total stays sourced from response_cost.
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
+    assert a[f"{HangarLLM.COST_PREFIX}total"] == 0.002
     # Per-component breakdown now rides the span.
-    assert a[f"{LiteLLM.COST_PREFIX}input"] == 0.004
-    assert a[f"{LiteLLM.COST_PREFIX}output"] == 0.006
-    assert a[f"{LiteLLM.COST_PREFIX}cache_read"] == 0.001
+    assert a[f"{HangarLLM.COST_PREFIX}input"] == 0.004
+    assert a[f"{HangarLLM.COST_PREFIX}output"] == 0.006
+    assert a[f"{HangarLLM.COST_PREFIX}cache_read"] == 0.001
     # Unreported components are omitted, not zero-filled.
-    assert f"{LiteLLM.COST_PREFIX}margin_total_amount" not in a
+    assert f"{HangarLLM.COST_PREFIX}margin_total_amount" not in a
 
 
 _PRICE_LOOKUP_FAILED: Final = {"error_str": "This model isn't mapped yet. model=openai/unpriced-model", "traceback_str": ""}
@@ -121,7 +121,7 @@ def test_llm_call_span_tells_unpriced_call_from_free_call(
     engine.emit(SpanRole.LLM_CALL, data)
 
     (span,) = exporter.get_finished_spans()
-    assert span.attributes.get(f"{LiteLLM.COST_PREFIX}total") == expected_cost
+    assert span.attributes.get(f"{HangarLLM.COST_PREFIX}total") == expected_cost
     langfuse_cost_details: Final = LangfuseMapper().map(data).get("langfuse.observation.cost_details")
     langfuse_cost: Final = json.loads(langfuse_cost_details)["total"] if langfuse_cost_details is not None else None
     assert langfuse_cost == expected_cost
@@ -144,19 +144,19 @@ def test_unpriced_call_keeps_the_guardrail_charge_on_the_guardrail_span() -> Non
     )
 
     llm_span, guardrail_span = exporter.get_finished_spans()
-    assert f"{LiteLLM.COST_PREFIX}total" not in llm_span.attributes
-    assert guardrail_span.attributes[LiteLLM.GUARDRAIL_COST] == 0.002
+    assert f"{HangarLLM.COST_PREFIX}total" not in llm_span.attributes
+    assert guardrail_span.attributes[HangarLLM.GUARDRAIL_COST] == 0.002
 
 
-def test_tracer_scope_carries_litellm_version():
-    from litellm._version import version as litellm_version
+def test_tracer_scope_carries_hangarllm_version():
+    from hangarllm._version import version as hangarllm_version
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     provider, exporter = providers.in_memory_provider(cfg)
-    tracer = providers.get_tracer(provider, "litellm-test")
+    tracer = providers.get_tracer(provider, "hangarllm-test")
     tracer.start_span("probe").end()
     (span,) = exporter.get_finished_spans()
-    assert span.instrumentation_scope.version == litellm_version
+    assert span.instrumentation_scope.version == hangarllm_version
 
 
 def test_llm_call_span_golden():
@@ -177,8 +177,8 @@ def test_llm_call_span_golden():
     assert a[GenAI.RESPONSE_FINISH_REASONS] == ("stop",)
     assert a[GenAI.REQUEST_TEMPERATURE] == 0.7
     assert a["server.address"] == "api.openai.com"
-    assert a[LiteLLM.CALL_ID] == "call_1"
-    assert a["litellm.cost.total"] == 0.002
+    assert a[HangarLLM.CALL_ID] == "call_1"
+    assert a["hangarllm.cost.total"] == 0.002
     # Success leaves status UNSET (semconv default), not forced OK.
     assert span.status.status_code is StatusCode.UNSET
 
@@ -226,9 +226,9 @@ def test_stamp_error_writes_full_attribute_set_and_event():
     assert result == ("ProxyException", "boom")
     assert s.attributes["error.type"] == "ProxyException"
     assert s.attributes["error.message"] == "boom"
-    assert s.attributes["litellm.provider.error.code"] == "401"
-    assert s.attributes["litellm.provider.error.stack_trace"] == "tb"
-    assert s.attributes["litellm.provider.error.llm_provider"] == "anthropic"
+    assert s.attributes["hangarllm.provider.error.code"] == "401"
+    assert s.attributes["hangarllm.provider.error.stack_trace"] == "tb"
+    assert s.attributes["hangarllm.provider.error.llm_provider"] == "anthropic"
     assert s.status.status_code is StatusCode.ERROR
     assert [e.name for e in s.events] == ["exception"]
 
@@ -240,7 +240,7 @@ def test_stamp_error_opt_outs_skip_status_and_event():
     span.end()
     (s,) = exporter.get_finished_spans()
     assert s.attributes["error.type"] == "ProxyException"
-    assert s.attributes["litellm.provider.error.code"] == "401"
+    assert s.attributes["hangarllm.provider.error.code"] == "401"
     assert s.status.status_code is StatusCode.UNSET
     assert s.events == ()
 
@@ -296,20 +296,20 @@ def test_dedup_cache_is_bounded(monkeypatch):
     """The dedup cache only needs to coalesce one request's sync+async fire, so
     it is a bounded LRU — every unique call_id must not accumulate forever on a
     long-running proxy."""
-    from litellm.integrations.otel import emitter as emitter_mod
+    from hangarllm.integrations.otel import emitter as emitter_mod
 
     monkeypatch.setattr(emitter_mod, "_DEDUP_CACHE_MAX", 3)
     engine, _ = _engine()
     for i in range(10):
         engine.emit(
             SpanRole.LLM_CALL,
-            LLMCallSpanData.from_standard_logging_payload(_payload(litellm_call_id=f"call_{i}")),
+            LLMCallSpanData.from_standard_logging_payload(_payload(hangarllm_call_id=f"call_{i}")),
         )
     assert len(engine._emitted) <= 3
 
 
 def test_service_error_span():
-    from litellm.integrations.otel.model.payloads import SpanError
+    from hangarllm.integrations.otel.model.payloads import SpanError
 
     engine, exporter = _engine()
     engine.emit(
@@ -319,7 +319,7 @@ def test_service_error_span():
     (span,) = exporter.get_finished_spans()
     assert span.status.status_code is StatusCode.ERROR
     assert span.attributes["error.type"] == "DBError"
-    assert span.attributes[LiteLLM.SERVICE_NAME] == "postgres"
+    assert span.attributes[HangarLLM.SERVICE_NAME] == "postgres"
 
 
 def test_guardrail_block_span_is_error_and_carries_verdict():
@@ -338,10 +338,10 @@ def test_guardrail_block_span_is_error_and_carries_verdict():
     (span,) = exporter.get_finished_spans()
     assert span.status.status_code is StatusCode.ERROR  # intervention → ERROR
     a = span.attributes
-    assert a[LiteLLM.GUARDRAIL_STATUS] == "guardrail_intervened"
-    assert a[LiteLLM.GUARDRAIL_PROVIDER] == "openai"
-    assert "violence" in a[LiteLLM.GUARDRAIL_RESPONSE]  # the verdict rides the span
-    assert a[LiteLLM.GUARDRAIL_MASKED_ENTITY_COUNT] == 2
+    assert a[HangarLLM.GUARDRAIL_STATUS] == "guardrail_intervened"
+    assert a[HangarLLM.GUARDRAIL_PROVIDER] == "openai"
+    assert "violence" in a[HangarLLM.GUARDRAIL_RESPONSE]  # the verdict rides the span
+    assert a[HangarLLM.GUARDRAIL_MASKED_ENTITY_COUNT] == 2
 
 
 def test_guardrail_success_span_is_unset():
@@ -394,11 +394,11 @@ def test_many_tools_do_not_evict_core_attributes():
     assert a[GenAI.USAGE_INPUT_TOKENS] == 10
     assert a[GenAI.USAGE_OUTPUT_TOKENS] == 5
     assert a[GenAI.RESPONSE_FINISH_REASONS] == ("stop",)
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
+    assert a[f"{HangarLLM.COST_PREFIX}total"] == 0.002
     assert a["gen_ai.usage.prompt_tokens"] == 10
 
     assert span.dropped_attributes == 0
-    assert a[LiteLLM.TOOLS_DECLARED] == 127
+    assert a[HangarLLM.TOOLS_DECLARED] == 127
     assert a["gen_ai.tool.0.name"] == "tool_0"
     assert "gen_ai.tool.126.name" not in a
     assert "llm.request.functions.126.name" not in a
@@ -412,7 +412,7 @@ def test_tool_definitions_kept_in_full_below_the_cap():
     (span,) = exporter.get_finished_spans()
     a = span.attributes
 
-    assert a[LiteLLM.TOOLS_DECLARED] == 3
+    assert a[HangarLLM.TOOLS_DECLARED] == 3
     for idx in range(3):
         assert a[f"gen_ai.tool.{idx}.name"] == f"tool_{idx}"
         assert a[f"gen_ai.tool.{idx}.description"] == f"description for tool {idx}"
@@ -428,7 +428,7 @@ def _tool_span(mapper_names, tool_count):
         mapper_names=list(mapper_names),
     )
     provider, exporter = providers.in_memory_provider(cfg)
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "hangarllm-test"), cfg)
     engine.emit(
         SpanRole.LLM_CALL,
         LLMCallSpanData.from_standard_logging_payload(_tools_payload(tool_count)),
@@ -467,8 +467,8 @@ def test_tool_definitions_stay_within_one_span_wide_budget(mapper_names):
     assert a[GenAI.PROVIDER_NAME] == "openai"
     assert a[GenAI.USAGE_INPUT_TOKENS] == 10
     assert a[GenAI.USAGE_OUTPUT_TOKENS] == 5
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
-    assert a[LiteLLM.TOOLS_DECLARED] == 127
+    assert a[f"{HangarLLM.COST_PREFIX}total"] == 0.002
+    assert a[HangarLLM.TOOLS_DECLARED] == 127
 
     emitted = _tool_definition_keys(a)
     assert emitted, "some tool detail should survive in every composition"
@@ -512,7 +512,7 @@ def _conversation_span(mapper_names, payload, legacy_compat=False, span_limits=N
     provider, exporter = (
         providers.in_memory_provider(cfg) if span_limits is None else _provider_with_limits(span_limits)
     )
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "hangarllm-test"), cfg)
     engine.emit(
         SpanRole.LLM_CALL,
         LLMCallSpanData.from_standard_logging_payload(payload, capture_content=True),
@@ -540,7 +540,7 @@ def _assert_core_intact(span):
     assert a[GenAI.USAGE_INPUT_TOKENS] == 10
     assert a[GenAI.USAGE_OUTPUT_TOKENS] == 5
     assert set(a[GenAI.RESPONSE_FINISH_REASONS]) == {"stop"}
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
+    assert a[f"{HangarLLM.COST_PREFIX}total"] == 0.002
 
 
 @pytest.mark.parametrize("turns", [60, 200])
@@ -636,14 +636,14 @@ def test_metadata_blob_keeps_the_indexed_messages_it_competes_with():
         capture_message_content="span_only",
     )
     provider, exporter = providers.in_memory_provider(cfg)
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "hangarllm-test"), cfg)
 
     def boundary_span(payload):
         span = engine.start_span(SpanRole.LLM_CALL, "chat gpt-4o")
         # what the boundary opener stamps before the typed payload exists
         span.set_attribute(GenAI.REQUEST_MODEL, "gpt-4o")
-        span.set_attribute(LiteLLM.PROVIDER_MODEL, "gpt-4o-2024")
-        span.set_attribute("litellm.metadata.user_api_key_alias", "edge-key")
+        span.set_attribute(HangarLLM.PROVIDER_MODEL, "gpt-4o-2024")
+        span.set_attribute("hangarllm.metadata.user_api_key_alias", "edge-key")
         engine.finish_span(
             SpanRole.LLM_CALL,
             span,
@@ -685,7 +685,7 @@ def test_preset_message_key_the_fit_sheds_still_never_overflows_the_span():
         capture_message_content="span_only",
     )
     provider, exporter = providers.in_memory_provider(cfg)
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "hangarllm-test"), cfg)
     span = engine.start_span(SpanRole.LLM_CALL, "chat gpt-4o")
     span.set_attribute("llm.input_messages.1.message.role", "stale-role")
     engine.finish_span(
@@ -717,7 +717,7 @@ def test_preset_keys_the_mappers_overwrite_shed_no_message_attribute(monkeypatch
         capture_message_content="span_only",
     )
     provider, exporter = providers.in_memory_provider(cfg)
-    engine: Final = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine: Final = SpanEmitter(providers.get_tracer(provider, "hangarllm-test"), cfg)
     span: Final = engine.start_span(SpanRole.LLM_CALL, "chat gpt-4o")
     span.set_attribute("gen_ai.request.model", "gpt-4o")
     span.set_attribute("llm.input_messages.1.message.role", "stale-role")
@@ -743,7 +743,7 @@ def test_a_preset_message_key_the_fit_sheds_never_overflows_an_exact_limit(monke
         capture_message_content="span_only",
     )
     provider, exporter = providers.in_memory_provider(cfg)
-    engine: Final = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine: Final = SpanEmitter(providers.get_tracer(provider, "hangarllm-test"), cfg)
     span: Final = engine.start_span(SpanRole.LLM_CALL, "chat gpt-4o")
     span.set_attribute("llm.input_messages.1.message.role", "stale-role")
     engine.finish_span(
@@ -760,9 +760,9 @@ def test_a_preset_message_key_the_fit_sheds_never_overflows_an_exact_limit(monke
 def test_attribute_budget_charges_every_key_the_span_already_carries():
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     provider, _exporter = providers.in_memory_provider(cfg)
-    span = providers.get_tracer(provider, "litellm-test").start_span("s")
+    span = providers.get_tracer(provider, "hangarllm-test").start_span("s")
     span.set_attribute("gen_ai.request.model", "gpt-4o")
-    span.set_attribute("litellm.metadata.user_api_key_alias", "edge-key")
+    span.set_attribute("hangarllm.metadata.user_api_key_alias", "edge-key")
     try:
         assert attribute_budget(span, 1) == SpanLimits().max_span_attributes - 3
     finally:
@@ -819,10 +819,10 @@ def test_error_and_pre_stamped_attributes_keep_their_room_on_a_long_conversation
     """Attributes already on the span and the error set stamped after mapping both count against the budget."""
     cfg = OpenTelemetryV2Config(exporter="in_memory", mapper_names=["genai", "openinference"])
     provider, exporter = providers.in_memory_provider(cfg)
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "hangarllm-test"), cfg)
     span = engine.start_span(SpanRole.LLM_CALL, "chat")
     for idx in range(10):
-        span.set_attribute(f"litellm.metadata.baggage_{idx}", f"value {idx}")
+        span.set_attribute(f"hangarllm.metadata.baggage_{idx}", f"value {idx}")
     payload = _conversation_payload(
         60,
         status="failure",
@@ -843,9 +843,9 @@ def test_error_and_pre_stamped_attributes_keep_their_room_on_a_long_conversation
     assert s.dropped_attributes == 0
     assert SpanLimits().max_span_attributes - 1 <= len(a) <= SpanLimits().max_span_attributes
     assert a[GenAI.REQUEST_MODEL] == "gpt-4o"
-    assert a["litellm.metadata.baggage_0"] == "value 0"
+    assert a["hangarllm.metadata.baggage_0"] == "value 0"
     assert a["error.type"] == "RateLimitError"
-    assert a["litellm.provider.error.stack_trace"] == "tb"
+    assert a["hangarllm.provider.error.stack_trace"] == "tb"
     assert a["llm.input_messages.0.message.content"] == "turn 0"
     assert a["llm.input_messages.59.message.content"] == "turn 59"
 
@@ -885,8 +885,8 @@ def test_indexed_messages_follow_the_span_limits_of_a_per_request_tracer_overrid
     )
     bound_provider, _ = _provider_with_limits(SpanLimits(max_span_attributes=1000))
     routed_provider, routed_exporter = _provider_with_limits(SpanLimits(max_span_attributes=40))
-    engine = SpanEmitter(providers.get_tracer(bound_provider, "litellm-test"), cfg)
-    routed_tracer = providers.get_tracer(routed_provider, "litellm-routed")
+    engine = SpanEmitter(providers.get_tracer(bound_provider, "hangarllm-test"), cfg)
+    routed_tracer = providers.get_tracer(routed_provider, "hangarllm-routed")
     data = LLMCallSpanData.from_standard_logging_payload(_conversation_payload(60), capture_content=True)
     if opened_at_boundary:
         opened = engine.start_span(SpanRole.LLM_CALL, "chat", tracer=routed_tracer)
@@ -900,7 +900,7 @@ def test_indexed_messages_follow_the_span_limits_of_a_per_request_tracer_overrid
 
 
 def _team_conversation_span(monkeypatch, redact, max_span_attributes):
-    monkeypatch.setattr("litellm.redact_user_api_key_info", redact)
+    monkeypatch.setattr("hangarllm.redact_user_api_key_info", redact)
     return _conversation_span(
         ["genai", "openinference", "langfuse"],
         _conversation_payload(60),
@@ -972,8 +972,8 @@ def test_fully_populated_span_with_every_vocabulary_stays_within_the_attribute_l
 
     assert span.dropped_attributes == 0
     assert a[GenAI.REQUEST_MODEL] == "gpt-4o"
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
-    assert a[LiteLLM.TOOLS_DECLARED] == 127
+    assert a[f"{HangarLLM.COST_PREFIX}total"] == 0.002
+    assert a[HangarLLM.TOOLS_DECLARED] == 127
     assert a["llm.input_messages.0.message.content"] == "turn 0"
     assert a["llm.input_messages.199.message.content"] == "turn 199"
     assert a["llm.output_messages.0.message.content"] == "reply 0"

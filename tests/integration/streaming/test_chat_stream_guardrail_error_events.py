@@ -18,7 +18,7 @@ from integration._support.responses_stream import healthy_stream
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue
 
-from litellm.proxy import client as proxy_client
+from hangarllm.proxy import client as proxy_client
 
 pytestmark: Final = [
     pytest.mark.timeout(2 * graceful_stop_seconds() + 120),
@@ -55,8 +55,8 @@ _MODULE_SOURCE: Final = f'''import re
 
 from fastapi import HTTPException
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class SpanGuardrail(CustomGuardrail):
@@ -163,26 +163,26 @@ def _config(upstream_url: str) -> dict[str, JsonValue]:
     )
     return {
         **base,
-        "litellm_settings": {**object_value(base["litellm_settings"]), "callbacks": [f"{_MODULE}.replacer"]},
+        "hangarllm_settings": {**object_value(base["hangarllm_settings"]), "callbacks": [f"{_MODULE}.replacer"]},
         "guardrails": [
             {
                 "guardrail_name": _FILTER,
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "hangarllm_params": {
+                    "guardrail": "hangarllm_content_filter",
                     "mode": "post_call",
                     "default_on": False,
                     "blocked_words": [{"keyword": "keeper", "action": "BLOCK"}],
                 },
             },
             *(
-                {"guardrail_name": name, "litellm_params": {"guardrail": guardrail, "mode": mode, "default_on": False}}
+                {"guardrail_name": name, "hangarllm_params": {"guardrail": guardrail, "mode": mode, "default_on": False}}
                 for name, guardrail, mode in guardrails
             ),
         ],
         "model_list": [
             {
                 "model_name": _MODEL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{upstream_url}/v1",
                     "api_key": "synthetic-stream-key",
@@ -408,7 +408,7 @@ def test_mid_stream_block_releases_the_parallel_request_slot_and_logs_one_failur
             json=_body("filter-late", marker, (_FILTER,)),
             headers={"Authorization": f"Bearer {key}"},
         ) as blocked:
-            call_id: Final = blocked.headers["x-litellm-call-id"]
+            call_id: Final = blocked.headers["x-hangarllm-call-id"]
             with contextlib.suppress(httpx.RemoteProtocolError):
                 blocked.read()
         follow_up: Final = rig.proxy.gateway.request(
@@ -417,7 +417,7 @@ def test_mid_stream_block_releases_the_parallel_request_slot_and_logs_one_failur
         assert follow_up.status_code == 200, follow_up.text
         assert _content(_payloads(follow_up.text)) == "".join(_TEXTS["clean"]), follow_up.text
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = %s', (call_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = %s', (call_id,)),
         lambda found: len(found) >= 1,
         seconds=70,
     )

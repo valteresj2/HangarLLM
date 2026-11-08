@@ -14,7 +14,7 @@ import pytest
 
 
 def test_quote_safe_input_round_trips():
-    from litellm.integrations.prometheus_helpers.prometheus_api import (
+    from hangarllm.integrations.prometheus_helpers.prometheus_api import (
         _quote_promql_string_literal,
     )
 
@@ -23,7 +23,7 @@ def test_quote_safe_input_round_trips():
 
 
 def test_quote_escapes_double_quote():
-    from litellm.integrations.prometheus_helpers.prometheus_api import (
+    from hangarllm.integrations.prometheus_helpers.prometheus_api import (
         _quote_promql_string_literal,
     )
 
@@ -33,7 +33,7 @@ def test_quote_escapes_double_quote():
 
 
 def test_quote_escapes_backslash():
-    from litellm.integrations.prometheus_helpers.prometheus_api import (
+    from hangarllm.integrations.prometheus_helpers.prometheus_api import (
         _quote_promql_string_literal,
     )
 
@@ -44,7 +44,7 @@ def test_quote_escapes_newlines_and_control_chars():
     """Beyond the security minimum, the canonical Go/JSON escape also
     handles control characters that would otherwise produce an invalid
     PromQL string literal."""
-    from litellm.integrations.prometheus_helpers.prometheus_api import (
+    from hangarllm.integrations.prometheus_helpers.prometheus_api import (
         _quote_promql_string_literal,
     )
 
@@ -55,7 +55,7 @@ def test_quote_escapes_newlines_and_control_chars():
 
 @pytest.mark.asyncio
 async def test_get_daily_spend_does_not_pass_raw_quote_into_query():
-    from litellm.integrations.prometheus_helpers import prometheus_api
+    from hangarllm.integrations.prometheus_helpers import prometheus_api
 
     captured = {}
 
@@ -81,7 +81,7 @@ async def test_get_daily_spend_does_not_pass_raw_quote_into_query():
     # The legitimate matcher framing must still be intact: one outer
     # `delta()` window, one inner `hashed_api_key="..."` matcher.
     assert rendered_query.startswith(
-        'sum(delta(litellm_spend_metric_total{hashed_api_key="'
+        'sum(delta(hangarllm_spend_metric_total{hashed_api_key="'
     )
     assert rendered_query.endswith('"}[1d]))')
 
@@ -90,14 +90,14 @@ async def test_get_daily_spend_does_not_pass_raw_quote_into_query():
     # value, never as the terminator that would let the rest parse as
     # PromQL syntax.
     inner = rendered_query[
-        len('sum(delta(litellm_spend_metric_total{hashed_api_key="') : -len('"}[1d]))')
+        len('sum(delta(hangarllm_spend_metric_total{hashed_api_key="') : -len('"}[1d]))')
     ]
     assert '"' not in inner.replace('\\"', "")
 
 
 @pytest.mark.asyncio
 async def test_get_daily_spend_with_no_api_key_uses_unfiltered_query():
-    from litellm.integrations.prometheus_helpers import prometheus_api
+    from hangarllm.integrations.prometheus_helpers import prometheus_api
 
     captured = {}
 
@@ -116,7 +116,7 @@ async def test_get_daily_spend_with_no_api_key_uses_unfiltered_query():
         with patch.object(prometheus_api, "async_http_handler", fake_client):
             await prometheus_api.get_daily_spend_from_prometheus(api_key=None)
 
-    assert captured["params"]["query"] == "sum(delta(litellm_spend_metric_total[1d]))"
+    assert captured["params"]["query"] == "sum(delta(hangarllm_spend_metric_total[1d]))"
 
 
 @pytest.mark.asyncio
@@ -124,7 +124,7 @@ async def test_get_daily_spend_legitimate_hashed_key_unchanged():
     """A normal hex hashed_api_key flows through `json.dumps` as itself
     plus the surrounding quotes — no spurious escaping that would break
     real lookups."""
-    from litellm.integrations.prometheus_helpers import prometheus_api
+    from hangarllm.integrations.prometheus_helpers import prometheus_api
 
     captured = {}
 
@@ -146,5 +146,5 @@ async def test_get_daily_spend_legitimate_hashed_key_unchanged():
 
     assert (
         captured["params"]["query"]
-        == f'sum(delta(litellm_spend_metric_total{{hashed_api_key="{legit_key}"}}[1d]))'
+        == f'sum(delta(hangarllm_spend_metric_total{{hashed_api_key="{legit_key}"}}[1d]))'
     )

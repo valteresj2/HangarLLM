@@ -146,7 +146,7 @@ def test_transform_request_returns_exact_provider_request_and_rejects_unsafe_bod
             ),
             (
                 "model_list",
-                [{"model_name": "unsafe", "litellm_params": {"api_base": destination.url}}],
+                [{"model_name": "unsafe", "hangarllm_params": {"api_base": destination.url}}],
                 "Rejected Request: model_list is not allowed in the request body.",
             ),
         )

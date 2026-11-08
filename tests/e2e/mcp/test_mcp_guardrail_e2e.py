@@ -1,7 +1,7 @@
 """Live e2e: a guardrail on the MCP tool-call path blocks banned content in the
 tool arguments before the call reaches the upstream MCP server.
 
-A general litellm_content_filter guardrail is configured with mode=pre_mcp_call
+A general hangarllm_content_filter guardrail is configured with mode=pre_mcp_call
 (the event type the proxy rewrites pre_call to for a call_mcp_tool) and default_on
 (per-key/request guardrail selection is dropped from the synthetic MCP request the
 hook sees, so default_on is how it attaches to tools/call). The banned keyword is
@@ -80,7 +80,7 @@ def _search_on_synced_pod(
 
 class TestMcpToolCallGuardrail:
     @pytest.mark.covers(
-        "guardrail.litellm_content_filter.pre_mcp_call.blocks",
+        "guardrail.hangarllm_content_filter.pre_mcp_call.blocks",
         exercised_on=["mcp_operations"],
     )
     @meta(

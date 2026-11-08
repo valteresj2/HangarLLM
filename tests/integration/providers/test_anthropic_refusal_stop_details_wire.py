@@ -968,7 +968,7 @@ def test_repeated_identical_refusals_log_once_per_request(rig: Rig) -> None:
         assert tuple(relayed(body) for body in bodies) == (((_CHAT_FIELDS, REFUSAL_FIELDS),),) * 2, bodies
         assert len(_paths(rig.wire)) == 2
         logged: Final = _logged(rig, key, 2)
-        assert len({event["litellm_call_id"] for event in logged}) == 2, logged
+        assert len({event["hangarllm_call_id"] for event in logged}) == 2, logged
         assert tuple(relayed(event["response"]) for event in logged) == (((_CHAT_FIELDS, REFUSAL_FIELDS),),) * 2
 
 

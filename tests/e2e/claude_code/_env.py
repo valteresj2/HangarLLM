@@ -1,6 +1,6 @@
 """Proxy-env resolution for the claude_code compat cells.
 
-Uses the same ``LITELLM_PROXY_URL`` / ``LITELLM_MASTER_KEY`` names as
+Uses the same ``HANGARLLM_PROXY_URL`` / ``HANGARLLM_MASTER_KEY`` names as
 ``e2e_config.py`` and the rest of ``tests/e2e/``. Everything under
 ``claude_code/`` goes through ``resolve_proxy`` / ``require_proxy`` here
 so the naming lives in one place.
@@ -21,8 +21,8 @@ class ProxyConfig(NamedTuple):
     api_key: str
 
 
-PRIMARY_BASE_URL_ENV = "LITELLM_PROXY_URL"
-PRIMARY_API_KEY_ENV = "LITELLM_MASTER_KEY"
+PRIMARY_BASE_URL_ENV = "HANGARLLM_PROXY_URL"
+PRIMARY_API_KEY_ENV = "HANGARLLM_MASTER_KEY"
 
 
 def resolve_proxy_from(mapping: Mapping[str, str]) -> ProxyConfig | None:
@@ -49,7 +49,7 @@ def _fail_missing_proxy_env(compat_result) -> None:
             "status": "fail",
             "error": (
                 f"missing required env: set {PRIMARY_BASE_URL_ENV} and "
-                f"{PRIMARY_API_KEY_ENV} to point at a running LiteLLM proxy"
+                f"{PRIMARY_API_KEY_ENV} to point at a running HangarLLM proxy"
             ),
         }
     )

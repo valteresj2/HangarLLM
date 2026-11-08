@@ -11,16 +11,16 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.integrations.newrelic.newrelic_metrics import NewRelicMetricsLogger
-from litellm.integrations.newrelic.newrelic_team_handler import NewRelicHandler
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from hangarllm.integrations.newrelic.newrelic_metrics import NewRelicMetricsLogger
+from hangarllm.integrations.newrelic.newrelic_team_handler import NewRelicHandler
+from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
     TRUSTED_CALLBACK_VARS_FIELD,
 )
-from litellm.litellm_core_utils.specialty_caches.dynamic_logging_cache import (
+from hangarllm.hangarllm_core_utils.specialty_caches.dynamic_logging_cache import (
     DynamicLoggingCache,
 )
-from litellm.types.integrations.newrelic import NEWRELIC_METRIC_ENDPOINT_BY_REGION
-from litellm.types.utils import StandardCallbackDynamicParams
+from hangarllm.types.integrations.newrelic import NEWRELIC_METRIC_ENDPOINT_BY_REGION
+from hangarllm.types.utils import StandardCallbackDynamicParams
 
 US_ENDPOINT = NEWRELIC_METRIC_ENDPOINT_BY_REGION["us"]
 EU_ENDPOINT = NEWRELIC_METRIC_ENDPOINT_BY_REGION["eu"]
@@ -140,7 +140,7 @@ class TestNewRelicHandler:
         assert result_eu.metric_api_url == EU_ENDPOINT
 
     def test_team_callback_params_are_blocked_for_requests(self):
-        from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+        from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
             _request_blocked_callback_params,
         )
 
@@ -170,7 +170,7 @@ class TestStandardCallbackDynamicParamsIncludesNewRelic:
 
 
 def _build_logging_obj(kwargs: dict, *, with_newrelic_callback: bool = True):
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     with patch("asyncio.create_task"):
         return Logging(
@@ -179,7 +179,7 @@ def _build_logging_obj(kwargs: dict, *, with_newrelic_callback: bool = True):
             stream=False,
             call_type="completion",
             start_time="2026-01-01",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-func",
             dynamic_success_callbacks=["newrelic"] if with_newrelic_callback else None,
             kwargs=kwargs,
@@ -202,7 +202,7 @@ class TestTeamCallbackFlowPassesNewRelicCredentials:
             {
                 TRUSTED_CALLBACK_VARS_FIELD: {"newrelic_api_key": "team-nr-key-123", "newrelic_region": "eu"},
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             }
         )
 
@@ -217,7 +217,7 @@ class TestTeamCallbackFlowPassesNewRelicCredentials:
             {
                 TRUSTED_CALLBACK_VARS_FIELD: {"newrelic_api_key": "team-nr-key-123"},
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             }
         )
 
@@ -239,7 +239,7 @@ class TestTeamCallbackFlowPassesNewRelicCredentials:
                 "newrelic_api_key": "caller-nr-key",
                 "newrelic_region": "eu",
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             }
         )
 
@@ -250,7 +250,7 @@ class TestTeamCallbackFlowPassesNewRelicCredentials:
             {
                 TRUSTED_CALLBACK_VARS_FIELD: {"newrelic_api_key": "team-nr-key-123"},
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             },
             with_newrelic_callback=False,
         )
@@ -264,7 +264,7 @@ class TestTeamCallbackFlowPassesNewRelicCredentials:
                 TRUSTED_CALLBACK_VARS_FIELD: {"newrelic_api_key": "team-nr-key-123"},
                 "newrelic_region": "eu",
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             }
         )
 

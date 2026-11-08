@@ -1,6 +1,6 @@
 import os
 import traceback
-from litellm._uuid import uuid
+from hangarllm._uuid import uuid
 from datetime import datetime, timezone
 from collections.abc import Coroutine
 from typing import Any, Final
@@ -15,17 +15,17 @@ import io
 import logging
 import time
 
-# this file is to test litellm/proxy
+# this file is to test hangarllm/proxy
 
 import asyncio
 
 load_dotenv()
 
 import pytest
-import litellm
+import hangarllm
 
-from litellm.proxy.proxy_server import (
-    LitellmUserRoles,
+from hangarllm.proxy.proxy_server import (
+    HangarllmUserRoles,
     audio_transcriptions,
     chat_completion,
     completion,
@@ -35,22 +35,22 @@ from litellm.proxy.proxy_server import (
     user_api_key_auth,
 )
 
-from litellm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
 
 
 from starlette.datastructures import URL
 
-from litellm.proxy.management_helpers.audit_logs import (
+from hangarllm.proxy.management_helpers.audit_logs import (
     create_audit_log_for_update,
     drain_audit_tasks,
     get_audit_log_changed_by,
     track_audit_task,
 )
-from litellm.proxy._types import LiteLLM_AuditLogs, LitellmTableNames, UserAPIKeyAuth
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.utils import StandardAuditLogPayload
+from hangarllm.proxy._types import HangarLLM_AuditLogs, HangarllmTableNames, UserAPIKeyAuth
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.utils import StandardAuditLogPayload
 from unittest.mock import AsyncMock, MagicMock, patch
 
 proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
@@ -66,9 +66,9 @@ def test_get_audit_log_changed_by_prefers_authenticated_user():
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="spoofed-user",
+            hangarllm_changed_by="spoofed-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            hangarllm_proxy_admin_name="proxy-admin",
         )
         == "authenticated-user"
     )
@@ -78,14 +78,14 @@ def test_get_audit_log_changed_by_honors_header_with_admin_opt_in():
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         user_id="service-account",
-        metadata={"allow_litellm_changed_by_header": True},
+        metadata={"allow_hangarllm_changed_by_header": True},
     )
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="delegated-user",
+            hangarllm_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            hangarllm_proxy_admin_name="proxy-admin",
         )
         == "delegated-user"
     )
@@ -95,14 +95,14 @@ def test_get_audit_log_changed_by_honors_header_with_team_opt_in():
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         user_id="service-account",
-        team_metadata={"allow_litellm_changed_by_header": True},
+        team_metadata={"allow_hangarllm_changed_by_header": True},
     )
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="delegated-user",
+            hangarllm_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            hangarllm_proxy_admin_name="proxy-admin",
         )
         == "delegated-user"
     )
@@ -113,9 +113,9 @@ def test_get_audit_log_changed_by_ignores_header_without_opt_in_when_user_id_mis
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="spoofed-user",
+            hangarllm_changed_by="spoofed-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            hangarllm_proxy_admin_name="proxy-admin",
         )
         == "proxy-admin"
     )
@@ -124,14 +124,14 @@ def test_get_audit_log_changed_by_ignores_header_without_opt_in_when_user_id_mis
 def test_get_audit_log_changed_by_honors_header_with_opt_in_when_user_id_missing():
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        metadata={"allow_litellm_changed_by_header": True},
+        metadata={"allow_hangarllm_changed_by_header": True},
     )
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="delegated-user",
+            hangarllm_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            hangarllm_proxy_admin_name="proxy-admin",
         )
         == "delegated-user"
     )
@@ -139,27 +139,27 @@ def test_get_audit_log_changed_by_honors_header_with_opt_in_when_user_id_missing
 
 @pytest.mark.asyncio
 async def test_create_internal_user_audit_log_uses_changed_by_helper():
-    from litellm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
+    from hangarllm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         user_id="service-account",
-        metadata={"allow_litellm_changed_by_header": True},
+        metadata={"allow_hangarllm_changed_by_header": True},
     )
 
     with (
-        patch("litellm.store_audit_logs", True),
+        patch("hangarllm.store_audit_logs", True),
         patch(
-            "litellm.proxy.hooks.user_management_event_hooks.create_audit_log_for_update",
+            "hangarllm.proxy.hooks.user_management_event_hooks.create_audit_log_for_update",
             new_callable=AsyncMock,
         ) as mock_create_audit_log_for_update,
     ):
         await UserManagementEventHooks.create_internal_user_audit_log(
             user_id="target-user",
             action="updated",
-            litellm_changed_by="delegated-user",
+            hangarllm_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            hangarllm_proxy_admin_name="proxy-admin",
             before_value='{"before": true}',
             after_value='{"after": true}',
         )
@@ -179,18 +179,18 @@ async def test_create_audit_log_for_update_premium_user():
     Test that the audit log is created when a premium user updates a team
     """
     with (
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
     ):
-        mock_prisma.db.litellm_auditlog.create = AsyncMock()
+        mock_prisma.db.hangarllm_auditlog.create = AsyncMock()
 
-        request_data = LiteLLM_AuditLogs(
+        request_data = HangarLLM_AuditLogs(
             id="test_id",
             updated_at=datetime.now(),
             changed_by="test_changed_by",
             action="updated",
-            table_name=LitellmTableNames.TEAM_TABLE_NAME,
+            table_name=HangarllmTableNames.TEAM_TABLE_NAME,
             object_id="test_object_id",
             updated_values=json.dumps({"key": "value"}),
             before_value=json.dumps({"old_key": "old_value"}),
@@ -198,7 +198,7 @@ async def test_create_audit_log_for_update_premium_user():
 
         await create_audit_log_for_update(request_data)
 
-        mock_prisma.db.litellm_auditlog.create.assert_called_once_with(
+        mock_prisma.db.hangarllm_auditlog.create.assert_called_once_with(
             data={
                 "id": "test_id",
                 "updated_at": request_data.updated_at,
@@ -214,7 +214,7 @@ async def test_create_audit_log_for_update_premium_user():
 
 @pytest.fixture
 def prisma_client():
-    from litellm.proxy.proxy_cli import append_query_params
+    from hangarllm.proxy.proxy_cli import append_query_params
 
     ### add connection pool + pool timeout args
     params = {"connection_limit": 100, "pool_timeout": 60}
@@ -233,21 +233,21 @@ def prisma_client():
 async def test_create_audit_log_in_db(prisma_client):
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
-    setattr(litellm, "store_audit_logs", True)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "premium_user", True)
+    setattr(hangarllm, "store_audit_logs", True)
 
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     audit_log_id = f"audit_log_id_{uuid.uuid4()}"
 
     # create a audit log for /key/generate
-    request_data = LiteLLM_AuditLogs(
+    request_data = HangarLLM_AuditLogs(
         id=audit_log_id,
         updated_at=datetime.now(),
         changed_by="test_changed_by",
         action="updated",
-        table_name=LitellmTableNames.TEAM_TABLE_NAME,
+        table_name=HangarllmTableNames.TEAM_TABLE_NAME,
         object_id="test_object_id",
         updated_values=json.dumps({"key": "value"}),
         before_value=json.dumps({"old_key": "old_value"}),
@@ -258,11 +258,11 @@ async def test_create_audit_log_in_db(prisma_client):
     await asyncio.sleep(1)
 
     # now read the last log from the db
-    last_log = await prisma_client.db.litellm_auditlog.find_first(where={"id": audit_log_id})
+    last_log = await prisma_client.db.hangarllm_auditlog.find_first(where={"id": audit_log_id})
 
     assert last_log.id == audit_log_id
 
-    setattr(litellm, "store_audit_logs", False)
+    setattr(hangarllm, "store_audit_logs", False)
 
 
 @pytest.mark.asyncio
@@ -353,19 +353,19 @@ async def test_drain_audit_tasks_persists_management_audit_write_before_db_disco
         await asyncio.sleep(0)
         writes.append(data)
 
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=_mock_create)
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=_mock_create)
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
     ):
-        request_data: Final = LiteLLM_AuditLogs(
+        request_data: Final = HangarLLM_AuditLogs(
             id=str(uuid.uuid4()),
             updated_at=datetime.now(timezone.utc),
             changed_by="admin-user",
             changed_by_api_key="sk-admin",
-            table_name=LitellmTableNames.KEY_TABLE_NAME,
+            table_name=HangarllmTableNames.KEY_TABLE_NAME,
             object_id="token-123",
             action="blocked",
             updated_values="{}",
@@ -393,19 +393,19 @@ async def test_create_audit_log_auto_registers_in_drain():
         await asyncio.sleep(0)
         writes.append(data)
 
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=_mock_create)
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=_mock_create)
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
     ):
-        request_data: Final = LiteLLM_AuditLogs(
+        request_data: Final = HangarLLM_AuditLogs(
             id=str(uuid.uuid4()),
             updated_at=datetime.now(timezone.utc),
             changed_by="admin-user",
             changed_by_api_key="sk-admin",
-            table_name=LitellmTableNames.KEY_TABLE_NAME,
+            table_name=HangarllmTableNames.KEY_TABLE_NAME,
             object_id="token-456",
             action="deleted",
             updated_values="{}",
@@ -484,12 +484,12 @@ class _WarningRecorder(logging.Handler):
         self.messages.append(record.getMessage())
 
 
-def _deleted_key_audit_log(object_id: str) -> LiteLLM_AuditLogs:
-    return LiteLLM_AuditLogs(
+def _deleted_key_audit_log(object_id: str) -> HangarLLM_AuditLogs:
+    return HangarLLM_AuditLogs(
         id=str(uuid.uuid4()),
         updated_at=datetime.now(timezone.utc),
         changed_by="admin-user",
-        table_name=LitellmTableNames.KEY_TABLE_NAME,
+        table_name=HangarllmTableNames.KEY_TABLE_NAME,
         object_id=object_id,
         action="deleted",
         updated_values="{}",
@@ -503,10 +503,10 @@ async def test_drain_waits_for_a_slow_audit_log_callback():
     callback: Final = _AuditCallbackBlockedUntilReleased(release)
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.audit_log_callbacks", [callback]),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.audit_log_callbacks", [callback]),
     ):
         await create_audit_log_for_update(request_data=_deleted_key_audit_log("token-callback"))
         drain: Final = asyncio.create_task(drain_audit_tasks(timeout=60))
@@ -523,14 +523,14 @@ async def test_drain_waits_for_a_slow_audit_log_callback():
 @pytest.mark.asyncio
 async def test_drain_timeout_warning_names_each_dropped_audit_row():
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=_io_that_never_finishes)
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=_io_that_never_finishes)
     recorder: Final = _WarningRecorder()
     verbose_proxy_logger.addHandler(recorder)
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
     ):
         writer: Final = asyncio.create_task(
             create_audit_log_for_update(request_data=_deleted_key_audit_log("token-dropped"))
@@ -547,7 +547,7 @@ async def test_drain_timeout_warning_names_each_dropped_audit_row():
 
     assert recorder.messages == [
         "Timed out draining 1 audit tasks on shutdown, dropping: "
-        f"deleted {LitellmTableNames.KEY_TABLE_NAME.value} token-dropped to the database"
+        f"deleted {HangarllmTableNames.KEY_TABLE_NAME.value} token-dropped to the database"
     ]
 
 
@@ -563,15 +563,15 @@ async def test_drain_does_not_wait_for_code_that_runs_after_an_inline_audit_writ
     release_caller: Final = asyncio.Event()
     mock_prisma: Final = MagicMock()
     writes: Final[list[dict[str, Any]]] = []
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
 
     async def _caller_that_outlives_the_audit_call() -> None:
         await create_audit_log_for_update(
-            request_data=LiteLLM_AuditLogs(
+            request_data=HangarLLM_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
                 changed_by="test-user",
-                table_name=LitellmTableNames.KEY_TABLE_NAME,
+                table_name=HangarllmTableNames.KEY_TABLE_NAME,
                 object_id="test-obj",
                 action="updated",
                 updated_values="{}",
@@ -581,9 +581,9 @@ async def test_drain_does_not_wait_for_code_that_runs_after_an_inline_audit_writ
         await release_caller.wait()
 
     with (
-        patch("litellm.store_audit_logs", store_audit_logs),
-        patch("litellm.proxy.proxy_server.premium_user", premium_user),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", store_audit_logs),
+        patch("hangarllm.proxy.proxy_server.premium_user", premium_user),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
     ):
         caller: Final = asyncio.create_task(_caller_that_outlives_the_audit_call())
         for _ in range(3):
@@ -614,17 +614,17 @@ async def _drain_while_hook_io_hangs(hook: Coroutine[object, object, None]) -> N
 
 @pytest.mark.asyncio
 async def test_key_generated_audit_write_is_drained_while_the_invite_email_hangs():
-    from litellm.proxy._types import GenerateKeyRequest, GenerateKeyResponse
-    from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+    from hangarllm.proxy._types import GenerateKeyRequest, GenerateKeyResponse
+    from hangarllm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
 
     mock_prisma: Final = MagicMock()
     writes: Final[list[dict[str, Any]]] = []
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch.object(KeyManagementEventHooks, "_send_key_created_email", side_effect=_io_that_never_finishes),
     ):
         await _drain_while_hook_io_hangs(
@@ -640,17 +640,17 @@ async def test_key_generated_audit_write_is_drained_while_the_invite_email_hangs
 
 @pytest.mark.asyncio
 async def test_key_updated_audit_write_is_drained_while_the_secret_manager_rename_hangs():
-    from litellm.proxy._types import LiteLLM_VerificationToken, UpdateKeyRequest
-    from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+    from hangarllm.proxy._types import HangarLLM_VerificationToken, UpdateKeyRequest
+    from hangarllm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
 
     mock_prisma: Final = MagicMock()
     writes: Final[list[dict[str, Any]]] = []
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch.object(
             KeyManagementEventHooks, "_rename_virtual_key_in_secret_manager", side_effect=_io_that_never_finishes
         ),
@@ -658,7 +658,7 @@ async def test_key_updated_audit_write_is_drained_while_the_secret_manager_renam
         await _drain_while_hook_io_hangs(
             KeyManagementEventHooks.async_key_updated_hook(
                 data=UpdateKeyRequest(key="sk-existing", key_alias="new-alias"),
-                existing_key_row=LiteLLM_VerificationToken(token="hashed-existing", key_alias="old-alias"),
+                existing_key_row=HangarLLM_VerificationToken(token="hashed-existing", key_alias="old-alias"),
                 response=None,
                 user_api_key_dict=UserAPIKeyAuth(api_key="sk-admin", user_id="admin"),
             )
@@ -669,17 +669,17 @@ async def test_key_updated_audit_write_is_drained_while_the_secret_manager_renam
 
 @pytest.mark.asyncio
 async def test_key_rotated_audit_write_is_drained_while_the_secret_manager_rotation_hangs():
-    from litellm.proxy._types import GenerateKeyResponse, LiteLLM_VerificationToken
-    from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+    from hangarllm.proxy._types import GenerateKeyResponse, HangarLLM_VerificationToken
+    from hangarllm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
 
     mock_prisma: Final = MagicMock()
     writes: Final[list[dict[str, Any]]] = []
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch.object(
             KeyManagementEventHooks, "_rotate_virtual_key_in_secret_manager", side_effect=_io_that_never_finishes
         ),
@@ -687,7 +687,7 @@ async def test_key_rotated_audit_write_is_drained_while_the_secret_manager_rotat
         await _drain_while_hook_io_hangs(
             KeyManagementEventHooks.async_key_rotated_hook(
                 data=None,
-                existing_key_row=LiteLLM_VerificationToken(token="hashed-old"),
+                existing_key_row=HangarLLM_VerificationToken(token="hashed-old"),
                 response=GenerateKeyResponse(key="sk-rotated", token_id="hashed-new"),
                 user_api_key_dict=UserAPIKeyAuth(api_key="sk-admin", user_id="admin"),
             )
@@ -698,8 +698,8 @@ async def test_key_rotated_audit_write_is_drained_while_the_secret_manager_rotat
 
 @pytest.mark.asyncio
 async def test_user_created_audit_write_is_drained_while_its_user_read_is_still_running():
-    from litellm.proxy._types import NewUserRequest, NewUserResponse
-    from litellm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
+    from hangarllm.proxy._types import NewUserRequest, NewUserResponse
+    from hangarllm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
 
     mock_prisma: Final = MagicMock()
     writes: Final[list[dict[str, Any]]] = []
@@ -709,13 +709,13 @@ async def test_user_created_audit_write_is_drained_while_its_user_read_is_still_
         await release_user_read.wait()
         return {"user_id": "new-user"}
 
-    mock_prisma.db.litellm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(side_effect=_slow_user_read)
+    mock_prisma.db.hangarllm_auditlog.create = AsyncMock(side_effect=lambda data: writes.append(data))
+    mock_prisma.db.hangarllm_usertable.find_unique = AsyncMock(side_effect=_slow_user_read)
 
     with (
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("hangarllm.store_audit_logs", True),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma),
         patch.object(UserManagementEventHooks, "async_send_user_invitation_email", side_effect=_io_that_never_finishes),
     ):
         hook: Final = asyncio.create_task(

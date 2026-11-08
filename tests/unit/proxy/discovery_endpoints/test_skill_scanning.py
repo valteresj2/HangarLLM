@@ -11,9 +11,9 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from litellm.models.skill_submission import SkillScanInput
-from litellm.proxy.discovery_endpoints.skill_scanning import scan_report
-from litellm.types.proxy.skill_scanning import SkillScan, SkillScannerConfig, SkillScanReport
+from hangarllm.models.skill_submission import SkillScanInput
+from hangarllm.proxy.discovery_endpoints.skill_scanning import scan_report
+from hangarllm.types.proxy.skill_scanning import SkillScan, SkillScannerConfig, SkillScanReport
 
 NOW: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
 CONFIG: Final = SkillScannerConfig(endpoint="https://scanner.example/scan", api_key_env="SCANNER_TEST_KEY")
@@ -124,7 +124,7 @@ def test_adapter_authentication_and_exact_remote_source(monkeypatch: pytest.Monk
 
 def test_adapter_accepts_expanded_stored_skill_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
     from cookbook.skill_scanner import server
-    from litellm.proxy.anthropic_endpoints.claude_code_endpoints.skill_upload_archive import (
+    from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints.skill_upload_archive import (
         build_uploaded_skill_archive,
     )
 

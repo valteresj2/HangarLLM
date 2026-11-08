@@ -18,12 +18,12 @@ from openai._legacy_response import LegacyAPIResponse
 from openai._types import Response as SDKResponse
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-import litellm
-from litellm import create_thread, get_thread
-from litellm.caching.caching import Cache, LiteLLMCacheType
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
-from litellm.llms.openai.openai import (
+import hangarllm
+from hangarllm import create_thread, get_thread
+from hangarllm.caching.caching import Cache, HangarLLMCacheType
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+from hangarllm.llms.openai.openai import (
     AssistantEventHandler,
     AsyncAssistantEventHandler,
     AsyncCursorPage,
@@ -36,17 +36,17 @@ from litellm.llms.openai.openai import (
     SyncCursorPage,
     Thread,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     ImageResponse,
     ModelResponse,
     PromptTokensDetails,
 )
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from openai.types.beta.assistant import Assistant
 from openai.types.beta.assistant_deleted import AssistantDeleted
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
-from litellm.proxy.utils import model_dump_with_preserved_fields
+from hangarllm.proxy.utils import model_dump_with_preserved_fields
 
 
 @pytest.mark.parametrize(
@@ -152,9 +152,9 @@ async def test_acompletion_returns_json_reply_over_injected_transport(
         )
 
     async with http_backend.AsyncClient(transport=http_backend.MockTransport(respond)) as http_client:
-        monkeypatch.setattr(litellm, "aclient_session", http_client)
+        monkeypatch.setattr(hangarllm, "aclient_session", http_client)
         response: Final = await asyncio.wait_for(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model=f"{sdk_provider}/sdk-compat",
                 api_key=f"{sdk_provider}-key",
                 api_base=f"https://{sdk_provider}.example/v1",
@@ -208,7 +208,7 @@ async def test_acompletion_returns_prompt_cache_details_over_injected_transport(
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
         response: Final = await asyncio.wait_for(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="openai/gpt-5.6",
                 api_key="transport-only",
                 client=client,
@@ -239,8 +239,8 @@ async def test_acompletion_never_sends_the_openai_admin_key_for_a_deployment_wit
 ):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_ADMIN_KEY", "sk-admin-only")
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "openai_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "openai_key", None)
     outbound: Final = asyncio.Queue()
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -258,10 +258,10 @@ async def test_acompletion_never_sends_the_openai_admin_key_for_a_deployment_wit
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
-        monkeypatch.setattr(litellm, "aclient_session", http_client)
-        with contextlib.suppress(litellm.AuthenticationError, litellm.InternalServerError):
+        monkeypatch.setattr(hangarllm, "aclient_session", http_client)
+        with contextlib.suppress(hangarllm.AuthenticationError, hangarllm.InternalServerError):
             await asyncio.wait_for(
-                litellm.acompletion(
+                hangarllm.acompletion(
                     model="openai/gpt-5.4-mini",
                     api_key="",
                     messages=[{"role": "user", "content": "who signs this request"}],
@@ -343,7 +343,7 @@ class _AnsweringChatLoop(_SearchingChatGate):
         kwargs: Mapping[str, object],
     ) -> object:
         self.runs += 1
-        return litellm.ModelResponse(
+        return hangarllm.ModelResponse(
             choices=[
                 {"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "after the search"}}
             ]
@@ -369,7 +369,7 @@ def _respond_with_a_search_tool_call(request: httpx.Request) -> httpx.Response:
                             {
                                 "id": "call-1",
                                 "type": "function",
-                                "function": {"name": "litellm_web_search", "arguments": '{"query": "weather"}'},
+                                "function": {"name": "hangarllm_web_search", "arguments": '{"query": "weather"}'},
                             }
                         ],
                     },
@@ -382,7 +382,7 @@ def _respond_with_a_search_tool_call(request: httpx.Request) -> httpx.Response:
 
 async def _acompletion_through(http_client: httpx.AsyncClient) -> object:
     return await asyncio.wait_for(
-        litellm.acompletion(
+        hangarllm.acompletion(
             model="openai/gpt-5.6",
             api_key="transport-only",
             client=AsyncOpenAI(api_key="transport-only", http_client=http_client),
@@ -398,14 +398,14 @@ async def _acompletion_through(http_client: httpx.AsyncClient) -> object:
 async def test_acompletion_surfaces_a_failed_agentic_follow_up_instead_of_the_first_turn(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    follow_up_error: Final = litellm.RateLimitError(
+    follow_up_error: Final = hangarllm.RateLimitError(
         message="follow-up rate limited", llm_provider="openai", model="gpt-5.6"
     )
     loop: Final = _FailingFollowUpChatLoop(follow_up_error)
-    monkeypatch.setattr(litellm, "callbacks", [loop])
+    monkeypatch.setattr(hangarllm, "callbacks", [loop])
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(_respond_with_a_search_tool_call)) as http_client:
-        with pytest.raises(litellm.RateLimitError) as raised:
+        with pytest.raises(hangarllm.RateLimitError) as raised:
             await _acompletion_through(http_client)
 
     assert raised.value.message == follow_up_error.message
@@ -415,16 +415,16 @@ async def test_acompletion_surfaces_a_failed_agentic_follow_up_instead_of_the_fi
 @pytest.mark.asyncio
 async def test_a_failed_agentic_follow_up_bills_the_first_call_on_the_failure_log(monkeypatch: pytest.MonkeyPatch):
     loop: Final = _FailingFollowUpChatLoop(
-        litellm.RateLimitError(message="follow-up rate limited", llm_provider="openai", model="gpt-5.6")
+        hangarllm.RateLimitError(message="follow-up rate limited", llm_provider="openai", model="gpt-5.6")
     )
-    monkeypatch.setattr(litellm, "callbacks", [loop])
+    monkeypatch.setattr(hangarllm, "callbacks", [loop])
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(_respond_with_a_search_tool_call)) as http_client:
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await _acompletion_through(http_client)
 
     (logging_obj,) = loop.logging_objs
-    price: Final = litellm.model_cost["gpt-5.6"]
+    price: Final = hangarllm.model_cost["gpt-5.6"]
     assert logging_obj.model_call_details["combined_usage_object"].total_tokens == 8
     assert logging_obj.model_call_details["response_cost"] == pytest.approx(
         5 * price["input_cost_per_token"] + 3 * price["output_cost_per_token"]
@@ -435,18 +435,18 @@ async def test_a_failed_agentic_follow_up_bills_the_first_call_on_the_failure_lo
 async def test_acompletion_does_not_resend_the_first_call_when_the_agentic_follow_up_answers_422(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    follow_up_error: Final = litellm.UnprocessableEntityError(
+    follow_up_error: Final = hangarllm.UnprocessableEntityError(
         message="follow-up rejected",
         model="gpt-5.6",
         llm_provider="openai",
         response=httpx.Response(422, request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions")),
     )
     loop: Final = _FailingFollowUpChatLoop(follow_up_error)
-    monkeypatch.setattr(litellm, "callbacks", [loop])
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [loop])
+    monkeypatch.setattr(hangarllm, "drop_params", True)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(_respond_with_a_search_tool_call)) as http_client:
-        with pytest.raises(litellm.UnprocessableEntityError) as raised:
+        with pytest.raises(hangarllm.UnprocessableEntityError) as raised:
             await _acompletion_through(http_client)
 
     assert raised.value.message == follow_up_error.message
@@ -476,7 +476,7 @@ def _rejecting_the_user_param(outbound: asyncio.Queue[dict[str, object]]) -> htt
 
 async def _acompletion_with_a_user_param(http_client: httpx.AsyncClient) -> object:
     return await asyncio.wait_for(
-        litellm.acompletion(
+        hangarllm.acompletion(
             model="openai/gpt-5.6",
             api_key="transport-only",
             client=AsyncOpenAI(api_key="transport-only", http_client=http_client),
@@ -493,7 +493,7 @@ async def _acompletion_with_a_user_param(http_client: httpx.AsyncClient) -> obje
 async def test_acompletion_resends_without_the_param_a_422_rejects_when_drop_params_is_set(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     outbound: Final[asyncio.Queue[dict[str, object]]] = asyncio.Queue()
 
     async with httpx.AsyncClient(transport=_rejecting_the_user_param(outbound)) as http_client:
@@ -507,11 +507,11 @@ async def test_acompletion_resends_without_the_param_a_422_rejects_when_drop_par
 
 @pytest.mark.asyncio
 async def test_acompletion_raises_a_422_without_resending_when_drop_params_is_off(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     outbound: Final[asyncio.Queue[dict[str, object]]] = asyncio.Queue()
 
     async with httpx.AsyncClient(transport=_rejecting_the_user_param(outbound)) as http_client:
-        with pytest.raises(litellm.BadRequestError, match="extra fields not permitted"):
+        with pytest.raises(hangarllm.BadRequestError, match="extra fields not permitted"):
             await _acompletion_with_a_user_param(http_client)
 
     assert outbound.get_nowait()["user"] == "end-user-1"
@@ -521,7 +521,7 @@ async def test_acompletion_raises_a_422_without_resending_when_drop_params_is_of
 @pytest.mark.asyncio
 async def test_acompletion_skips_a_failing_agentic_gate_and_runs_the_next_hook(monkeypatch: pytest.MonkeyPatch):
     loop: Final = _AnsweringChatLoop()
-    monkeypatch.setattr(litellm, "callbacks", [_RaisingAgenticGate(), loop])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RaisingAgenticGate(), loop])
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(_respond_with_a_search_tool_call)) as http_client:
         response = await _acompletion_through(http_client)
@@ -548,7 +548,7 @@ class _SearchAgainLoop(CustomLogger):
         searches: Final = [
             {"id": call.id, "name": call.function.name}
             for call in response.choices[0].message.tool_calls or []
-            if call.function.name == "litellm_web_search"
+            if call.function.name == "hangarllm_web_search"
         ]
         return bool(searches), {"tool_calls": searches}
 
@@ -584,9 +584,9 @@ async def test_acompletion_ends_the_turn_at_max_agentic_loops_without_the_intern
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(always_search)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
-        monkeypatch.setattr(litellm, "callbacks", [_SearchAgainLoop(client)])
+        monkeypatch.setattr(hangarllm, "callbacks", [_SearchAgainLoop(client)])
         response: Final = await asyncio.wait_for(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="openai/gpt-5.6",
                 api_key="transport-only",
                 client=client,
@@ -653,7 +653,7 @@ def test_azure_o_series_fake_stream_keeps_every_tool_call_and_token_detail():
         http_client=httpx.Client(transport=httpx.MockTransport(respond)),
     )
     chunks: Final = list(
-        litellm.completion(
+        hangarllm.completion(
             model="azure/o_series/reasoning-deployment",
             api_key="transport-only",
             api_version="2025-03-01-preview",
@@ -665,7 +665,7 @@ def test_azure_o_series_fake_stream_keeps_every_tool_call_and_token_detail():
             num_retries=0,
         )
     )
-    rebuilt: Final = litellm.stream_chunk_builder(chunks)
+    rebuilt: Final = hangarllm.stream_chunk_builder(chunks)
 
     assert [body.get("stream") for body in request_bodies] == [None]
     assert rebuilt is not None
@@ -691,7 +691,7 @@ def test_completion_defaults_missing_message_role_and_preserves_omitted_fields()
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="openai/gpt-5.4",
         api_base="https://api.openai.com/v1",
         api_key="sk-test",
@@ -722,10 +722,10 @@ def test_completion_defaults_missing_message_role_and_preserves_omitted_fields()
 @pytest.mark.parametrize(
     ("status", "expected_error"),
     (
-        (400, litellm.BadRequestError),
-        (429, litellm.RateLimitError),
-        (503, litellm.ServiceUnavailableError),
-        (None, litellm.Timeout),
+        (400, hangarllm.BadRequestError),
+        (429, hangarllm.RateLimitError),
+        (503, hangarllm.ServiceUnavailableError),
+        (None, hangarllm.Timeout),
     ),
 )
 async def test_acompletion_preserves_public_errors_for_both_http_clients(
@@ -741,9 +741,9 @@ async def test_acompletion_preserves_public_errors_for_both_http_clients(
         return http_backend.Response(status, json={"error": {"message": "upstream failure", "type": "api_error"}})
 
     async with http_backend.AsyncClient(transport=http_backend.MockTransport(respond)) as http_client:
-        monkeypatch.setattr(litellm, "aclient_session", http_client)
+        monkeypatch.setattr(hangarllm, "aclient_session", http_client)
         with pytest.raises(expected_error, match="timed out" if status is None else "upstream failure"):
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model=f"{sdk_provider}/sdk-compat",
                 api_key=f"{sdk_provider}-key",
                 api_base=f"https://{sdk_provider}.example/v1",
@@ -792,22 +792,22 @@ def _upstream(provider: str, model: str) -> dict[str, object]:
 
 
 async def _completion(provider: str) -> None:
-    litellm.completion(messages=_MESSAGES, client=_rejecting_client(), **_upstream(provider, "gpt-5.6"))
+    hangarllm.completion(messages=_MESSAGES, client=_rejecting_client(), **_upstream(provider, "gpt-5.6"))
 
 
 async def _completion_stream(provider: str) -> None:
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         messages=_MESSAGES, client=_rejecting_client(), stream=True, **_upstream(provider, "gpt-5.6")
     )
     list(stream)
 
 
 async def _acompletion(provider: str) -> None:
-    await litellm.acompletion(messages=_MESSAGES, client=_rejecting_async_client(), **_upstream(provider, "gpt-5.6"))
+    await hangarllm.acompletion(messages=_MESSAGES, client=_rejecting_async_client(), **_upstream(provider, "gpt-5.6"))
 
 
 async def _acompletion_stream(provider: str) -> None:
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         messages=_MESSAGES, client=_rejecting_async_client(), stream=True, **_upstream(provider, "gpt-5.6")
     )
     async for _ in stream:
@@ -815,21 +815,21 @@ async def _acompletion_stream(provider: str) -> None:
 
 
 async def _embedding(provider: str) -> None:
-    litellm.embedding(input=["hi"], client=_rejecting_client(), **_upstream(provider, "text-embedding-3-large"))
+    hangarllm.embedding(input=["hi"], client=_rejecting_client(), **_upstream(provider, "text-embedding-3-large"))
 
 
 async def _aembedding(provider: str) -> None:
-    await litellm.aembedding(
+    await hangarllm.aembedding(
         input=["hi"], client=_rejecting_async_client(), **_upstream(provider, "text-embedding-3-large")
     )
 
 
 async def _image_generation(provider: str) -> None:
-    litellm.image_generation(prompt="a cat", client=_rejecting_client(), **_upstream(provider, "gpt-image-2"))
+    hangarllm.image_generation(prompt="a cat", client=_rejecting_client(), **_upstream(provider, "gpt-image-2"))
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider", ("openai", "litellm_proxy"))
+@pytest.mark.parametrize("provider", ("openai", "hangarllm_proxy"))
 @pytest.mark.parametrize(
     "route",
     (_completion, _completion_stream, _acompletion, _acompletion_stream, _embedding, _aembedding, _image_generation),
@@ -838,7 +838,7 @@ async def _image_generation(provider: str) -> None:
 async def test_mapped_error_carries_the_upstream_error_response(
     provider: str, route: Callable[[str], Awaitable[None]]
 ) -> None:
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await route(provider)
 
     assert raised.value.response.text == _UPSTREAM_ERROR_BODY
@@ -873,15 +873,15 @@ def _chunked_upstream_client(status_code: int, content_encoding: Literal["gzip"]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider", ("openai", "litellm_proxy"))
+@pytest.mark.parametrize("provider", ("openai", "hangarllm_proxy"))
 @pytest.mark.parametrize("stream", (False, True))
 @pytest.mark.parametrize(
     ("status_code", "mapped_error"),
     (
-        (429, litellm.RateLimitError),
-        (500, litellm.InternalServerError),
-        (502, litellm.BadGatewayError),
-        (503, litellm.ServiceUnavailableError),
+        (429, hangarllm.RateLimitError),
+        (500, hangarllm.InternalServerError),
+        (502, hangarllm.BadGatewayError),
+        (503, hangarllm.ServiceUnavailableError),
     ),
 )
 @pytest.mark.parametrize("content_encoding", (None, "gzip"))
@@ -900,7 +900,7 @@ async def test_retryable_error_keeps_the_decoded_upstream_body_and_its_headers(
     )
 
     with pytest.raises(mapped_error) as raised:
-        await litellm.acompletion(messages=_MESSAGES, client=client, stream=stream, **_upstream(provider, "gpt-5.6"))
+        await hangarllm.acompletion(messages=_MESSAGES, client=client, stream=stream, **_upstream(provider, "gpt-5.6"))
 
     error_response: Final = getattr(raised.value, "response")
     assert error_response.status_code == status_code
@@ -914,26 +914,26 @@ async def test_retryable_error_keeps_the_decoded_upstream_body_and_its_headers(
 
 _REFUSAL_BODY: Final = '{"error":{"message":"upstream refused","type":"upstream_refusal","param":null,"code":null}}'
 _GATEWAY_TIMEOUT_BODY: Final = (
-    '{"error":{"message":"litellm.Timeout: APITimeoutError - Request timed out.","type":"invalid_request_error",'
+    '{"error":{"message":"hangarllm.Timeout: APITimeoutError - Request timed out.","type":"invalid_request_error",'
     '"param":null,"code":"408"}}'
 )
 _PROVIDER_KEY: Final = "sk-provider-secret"
 _QUERY_SECRET: Final = "query-secret"
 
 
-@pytest.mark.parametrize("provider", ("openai", "litellm_proxy"))
+@pytest.mark.parametrize("provider", ("openai", "hangarllm_proxy"))
 @pytest.mark.parametrize(
     ("status_code", "mapped_error", "body"),
     (
-        (400, litellm.BadRequestError, _REFUSAL_BODY),
-        (403, litellm.APIError, _REFUSAL_BODY),
-        (408, litellm.Timeout, _REFUSAL_BODY),
-        (408, litellm.Timeout, _GATEWAY_TIMEOUT_BODY),
-        (409, litellm.APIError, _REFUSAL_BODY),
-        (413, litellm.APIError, _REFUSAL_BODY),
-        (429, litellm.RateLimitError, _REFUSAL_BODY),
-        (500, litellm.InternalServerError, _REFUSAL_BODY),
-        (504, litellm.Timeout, _REFUSAL_BODY),
+        (400, hangarllm.BadRequestError, _REFUSAL_BODY),
+        (403, hangarllm.APIError, _REFUSAL_BODY),
+        (408, hangarllm.Timeout, _REFUSAL_BODY),
+        (408, hangarllm.Timeout, _GATEWAY_TIMEOUT_BODY),
+        (409, hangarllm.APIError, _REFUSAL_BODY),
+        (413, hangarllm.APIError, _REFUSAL_BODY),
+        (429, hangarllm.RateLimitError, _REFUSAL_BODY),
+        (500, hangarllm.InternalServerError, _REFUSAL_BODY),
+        (504, hangarllm.Timeout, _REFUSAL_BODY),
     ),
 )
 def test_mapped_error_keeps_the_upstream_body_without_the_provider_credentials(
@@ -954,7 +954,7 @@ def test_mapped_error_keeps_the_upstream_body_without_the_provider_credentials(
     )
 
     with pytest.raises(mapped_error) as raised:
-        litellm.completion(
+        hangarllm.completion(
             model=f"{provider}/gpt-5.6",
             messages=_MESSAGES,
             client=client,
@@ -979,7 +979,7 @@ def _time_out(request: httpx.Request) -> httpx.Response:
 
 
 async def _sync_completion_timing_out(provider: str) -> None:
-    litellm.completion(
+    hangarllm.completion(
         model=f"{provider}/gpt-5.6",
         messages=_MESSAGES,
         client=OpenAI(
@@ -995,7 +995,7 @@ async def _sync_completion_timing_out(provider: str) -> None:
 
 
 async def _async_stream_timing_out(provider: str) -> None:
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model=f"{provider}/gpt-5.6",
         messages=_MESSAGES,
         stream=True,
@@ -1014,12 +1014,12 @@ async def _async_stream_timing_out(provider: str) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider", ("openai", "litellm_proxy"))
+@pytest.mark.parametrize("provider", ("openai", "hangarllm_proxy"))
 @pytest.mark.parametrize("call", (_sync_completion_timing_out, _async_stream_timing_out))
 async def test_timeout_before_any_reply_has_no_upstream_response(
     provider: str, call: Callable[[str], Awaitable[None]]
 ) -> None:
-    with pytest.raises(litellm.Timeout) as raised:
+    with pytest.raises(hangarllm.Timeout) as raised:
         await call(provider)
 
     assert getattr(raised.value, "response", None) is None
@@ -1062,8 +1062,8 @@ async def test_acompletion_streams_text_deltas_over_injected_transport(
         return http_backend.Response(200, headers={"content-type": "text/event-stream"}, content=content)
 
     async with http_backend.AsyncClient(transport=http_backend.MockTransport(respond)) as http_client:
-        monkeypatch.setattr(litellm, "aclient_session", http_client)
-        stream: Final = await litellm.acompletion(
+        monkeypatch.setattr(hangarllm, "aclient_session", http_client)
+        stream: Final = await hangarllm.acompletion(
             model=f"{sdk_provider}/sdk-compat",
             api_key=f"{sdk_provider}-key",
             api_base=f"https://{sdk_provider}.example/v1",
@@ -1148,7 +1148,7 @@ async def test_acompletion_streams_tool_call_arguments_over_injected_transport(h
     async with http_backend.AsyncClient(transport=http_backend.MockTransport(respond)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
         messages: Final = [{"role": "user", "content": "weather in Paris"}]
-        stream: Final = await litellm.acompletion(
+        stream: Final = await hangarllm.acompletion(
             model="openai/gpt-4o",
             api_key="transport-only",
             client=client,
@@ -1170,7 +1170,7 @@ async def test_acompletion_streams_tool_call_arguments_over_injected_transport(h
         assert request["stream"] is True
         assert request["tools"][0]["function"]["name"] == "get_weather"
         assert outbound.empty()
-        rebuilt: Final = litellm.stream_chunk_builder(chunks, messages=messages)
+        rebuilt: Final = hangarllm.stream_chunk_builder(chunks, messages=messages)
         tool_call: Final = rebuilt.choices[0].message.tool_calls[0]
         assert tool_call.id == "call-1"
         assert tool_call.function.name == "get_weather"
@@ -1228,7 +1228,7 @@ def test_o1_parallel_tool_calls_are_dropped_for_unsupported_models(respx_mock: r
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "foo"}],
         parallel_tool_calls=True,
@@ -1247,7 +1247,7 @@ def test_o1_parallel_tool_calls_are_dropped_for_unsupported_models(respx_mock: r
 def test_prediction_parameter_participates_in_completion_cache_key(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
 
     def respond(request: httpx.Request) -> httpx.Response:
         request_body: Final = json.loads(request.content)
@@ -1278,7 +1278,7 @@ def test_prediction_parameter_participates_in_completion_cache_key(
     first_prediction: Final = {"type": "content", "content": "prediction one"}
     second_prediction: Final = {"type": "content", "content": "prediction two"}
 
-    first: Final = litellm.completion(
+    first: Final = hangarllm.completion(
         model="gpt-4o",
         messages=messages,
         prediction=first_prediction,
@@ -1287,7 +1287,7 @@ def test_prediction_parameter_participates_in_completion_cache_key(
         num_retries=0,
         max_retries=0,
     )
-    cached: Final = litellm.completion(
+    cached: Final = hangarllm.completion(
         model="gpt-4o",
         messages=messages,
         prediction=first_prediction,
@@ -1296,7 +1296,7 @@ def test_prediction_parameter_participates_in_completion_cache_key(
         num_retries=0,
         max_retries=0,
     )
-    distinct: Final = litellm.completion(
+    distinct: Final = hangarllm.completion(
         model="gpt-4o",
         messages=messages,
         prediction=second_prediction,
@@ -1377,7 +1377,7 @@ def test_openai_tool_calling_sends_schema_and_parses_function_call(respx_mock: r
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="openai/gpt-4.1",
         messages=[{"role": "user", "content": [{"type": "text", "text": "What is TSLA stock price at today?"}]}],
         temperature=0.5,
@@ -1410,8 +1410,8 @@ def test_openai_tool_calling_sends_schema_and_parses_function_call(respx_mock: r
 async def test_openai_via_gemini_streaming_bridge_translates_openai_chunks(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     stream_body: Final = b"".join(
         (
             _openai_sse_chunk(
@@ -1432,11 +1432,11 @@ async def test_openai_via_gemini_streaming_bridge_translates_openai_chunks(
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream_body)
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai/gpt-3.5-turbo",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "sk-openai-test"},
+                "hangarllm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "sk-openai-test"},
             }
         ]
     )
@@ -1509,7 +1509,7 @@ def test_streaming_content_with_n_greater_than_one_preserves_choice_indices(
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream_body)
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="openai/gpt-4o",
         messages=[{"role": "user", "content": "Say hello in one word"}],
         stream=True,
@@ -1652,7 +1652,7 @@ def test_streaming_tool_calls_with_n_greater_than_one_preserves_choice_indices(
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream_body)
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="openai/gpt-4o",
         messages=[{"role": "user", "content": "What is the weather in San Francisco?"}],
         tools=tools,
@@ -1781,11 +1781,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -1797,18 +1797,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -1818,62 +1818,62 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
@@ -2121,7 +2121,7 @@ def _request_data(provider, assistant_client, **kwargs):
     return data
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio
@@ -2129,14 +2129,14 @@ async def test_get_assistants(provider, sync_mode, assistant_client):
     data = _request_data(provider, assistant_client)
 
     if sync_mode:
-        assistants = litellm.get_assistants(**data)
+        assistants = hangarllm.get_assistants(**data)
         assert isinstance(assistants, SyncCursorPage)
     else:
-        assistants = await litellm.aget_assistants(**data)
+        assistants = await hangarllm.aget_assistants(**data)
         assert isinstance(assistants, AsyncCursorPage)
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("provider", ["azure", "openai"])
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio()
@@ -2151,12 +2151,12 @@ async def test_create_delete_assistants(provider, sync_mode, assistant_client):
     )
 
     if sync_mode:
-        assistant = litellm.create_assistants(**data)
+        assistant = hangarllm.create_assistants(**data)
         assert isinstance(assistant, Assistant)
         assert assistant.instructions == ASSISTANT_INSTRUCTIONS
         assert assistant.id is not None
 
-        response = litellm.delete_assistant(
+        response = hangarllm.delete_assistant(
             **_request_data(
                 provider,
                 assistant_client,
@@ -2165,12 +2165,12 @@ async def test_create_delete_assistants(provider, sync_mode, assistant_client):
         )
         assert response.id == assistant.id
     else:
-        assistant = await litellm.acreate_assistants(**data)
+        assistant = await hangarllm.acreate_assistants(**data)
         assert isinstance(assistant, Assistant)
         assert assistant.instructions == ASSISTANT_INSTRUCTIONS
         assert assistant.id is not None
 
-        response = await litellm.adelete_assistant(
+        response = await hangarllm.adelete_assistant(
             **_request_data(
                 provider,
                 assistant_client,
@@ -2180,110 +2180,110 @@ async def test_create_delete_assistants(provider, sync_mode, assistant_client):
         assert response.id == assistant.id
 
 
-async def _create_thread_litellm(sync_mode, provider, assistant_client) -> Thread:
+async def _create_thread_hangarllm(sync_mode, provider, assistant_client) -> Thread:
     message: MessageData = {"role": "user", "content": "Hey, how's it going?"}  # type: ignore
     data = _request_data(provider, assistant_client, message=[message])
 
     if sync_mode:
         new_thread = create_thread(**data)
     else:
-        new_thread = await litellm.acreate_thread(**data)
+        new_thread = await hangarllm.acreate_thread(**data)
 
     assert isinstance(new_thread, Thread)
     return new_thread
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio
-async def test_create_thread_litellm(sync_mode, provider, assistant_client):
-    await _create_thread_litellm(sync_mode, provider, assistant_client)
+async def test_create_thread_hangarllm(sync_mode, provider, assistant_client):
+    await _create_thread_hangarllm(sync_mode, provider, assistant_client)
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio
-async def test_get_thread_litellm(provider, sync_mode, assistant_client):
-    new_thread = await _create_thread_litellm(sync_mode, provider, assistant_client)
+async def test_get_thread_hangarllm(provider, sync_mode, assistant_client):
+    new_thread = await _create_thread_hangarllm(sync_mode, provider, assistant_client)
     data = _request_data(provider, assistant_client, thread_id=new_thread.id)
 
     if sync_mode:
         received_thread = get_thread(**data)
     else:
-        received_thread = await litellm.aget_thread(**data)
+        received_thread = await hangarllm.aget_thread(**data)
 
     assert isinstance(received_thread, Thread)
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio
-async def test_add_message_litellm(sync_mode, provider, assistant_client):
-    new_thread = await _create_thread_litellm(sync_mode, provider, assistant_client)
+async def test_add_message_hangarllm(sync_mode, provider, assistant_client):
+    new_thread = await _create_thread_hangarllm(sync_mode, provider, assistant_client)
     message: MessageData = {"role": "user", "content": "Hey, how's it going?"}  # type: ignore
     data = _request_data(provider, assistant_client, thread_id=new_thread.id, **message)
 
     if sync_mode:
-        added_message = litellm.add_message(**data)
+        added_message = hangarllm.add_message(**data)
     else:
-        added_message = await litellm.a_add_message(**data)
+        added_message = await hangarllm.a_add_message(**data)
 
     assert isinstance(added_message, Message)
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.parametrize("provider", ["azure", "openai"])
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.parametrize("is_streaming", [True, False])
 @pytest.mark.asyncio
-async def test_aarun_thread_litellm(sync_mode, provider, is_streaming, assistant_client):
+async def test_aarun_thread_hangarllm(sync_mode, provider, is_streaming, assistant_client):
     get_assistants_data = _request_data(provider, assistant_client)
     if sync_mode:
-        assistants = litellm.get_assistants(**get_assistants_data)
+        assistants = hangarllm.get_assistants(**get_assistants_data)
     else:
-        assistants = await litellm.aget_assistants(**get_assistants_data)
+        assistants = await hangarllm.aget_assistants(**get_assistants_data)
 
     assistant_id = assistants.data[0].id
-    new_thread = await _create_thread_litellm(sync_mode, provider, assistant_client)
+    new_thread = await _create_thread_hangarllm(sync_mode, provider, assistant_client)
     message: MessageData = {"role": "user", "content": "Hey, how's it going?"}  # type: ignore
     thread_data = _request_data(provider, assistant_client, thread_id=new_thread.id)
     message_data = _request_data(provider, assistant_client, thread_id=new_thread.id, **message)
 
     if sync_mode:
-        added_message = litellm.add_message(**message_data)
+        added_message = hangarllm.add_message(**message_data)
         assert isinstance(added_message, Message)
 
         if is_streaming:
-            run = litellm.run_thread_stream(assistant_id=assistant_id, **thread_data)
+            run = hangarllm.run_thread_stream(assistant_id=assistant_id, **thread_data)
             with run as run:
                 assert isinstance(run, AssistantEventHandler)
                 run.until_done()
         else:
-            run = litellm.run_thread(assistant_id=assistant_id, stream=is_streaming, **thread_data)
+            run = hangarllm.run_thread(assistant_id=assistant_id, stream=is_streaming, **thread_data)
             assert run.status == "completed"
-            messages = litellm.get_messages(**thread_data)
+            messages = hangarllm.get_messages(**thread_data)
             assert isinstance(messages.data[0], Message)
     else:
-        added_message = await litellm.a_add_message(**message_data)
+        added_message = await hangarllm.a_add_message(**message_data)
         assert isinstance(added_message, Message)
 
         if is_streaming:
-            run = litellm.arun_thread_stream(assistant_id=assistant_id, **thread_data)
+            run = hangarllm.arun_thread_stream(assistant_id=assistant_id, **thread_data)
             async with run as run:
                 assert isinstance(run, AsyncAssistantEventHandler)
                 await run.until_done()
         else:
-            run = await litellm.arun_thread(
+            run = await hangarllm.arun_thread(
                 custom_llm_provider=provider,
                 thread_id=new_thread.id,
                 assistant_id=assistant_id,
                 client=assistant_client,
             )
             assert run.status == "completed"
-            messages = await litellm.aget_messages(**thread_data)
+            messages = await hangarllm.aget_messages(**thread_data)
             assert isinstance(messages.data[0], Message)
 
 
@@ -2292,7 +2292,7 @@ async def test_openai_prediction_param_mock():
     """
     Tests that prediction parameter is correctly passed to the API
     """
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     code = """
     /// <summary>
@@ -2324,7 +2324,7 @@ async def test_openai_prediction_param_mock():
         client, "post"
     ) as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="gpt-4o-mini",
                 messages=[
                     {
@@ -2348,9 +2348,9 @@ async def test_openai_prediction_param_mock():
         assert request_body["prediction"] == {"type": "content", "content": code}
 
 
-@patch("litellm.main.openai_chat_completions._get_openai_client")
+@patch("hangarllm.main.openai_chat_completions._get_openai_client")
 def test_openai_max_retries_0(mock_get_openai_client):
-    import litellm
+    import hangarllm
 
     raw_response: Final = MagicMock(spec=LegacyAPIResponse)
     raw_response.headers = {}
@@ -2358,8 +2358,8 @@ def test_openai_max_retries_0(mock_get_openai_client):
     client_stub: Final = MagicMock()
     client_stub.post.return_value = raw_response
     mock_get_openai_client.return_value = client_stub
-    litellm.set_verbose = True
-    response = litellm.completion(
+    hangarllm.set_verbose = True
+    response = hangarllm.completion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         max_retries=0,
@@ -2371,7 +2371,7 @@ def test_openai_max_retries_0(mock_get_openai_client):
     assert response.choices[0].message.content == "Hello"
 
 
-@patch("litellm.main.openai_chat_completions._get_openai_client")
+@patch("hangarllm.main.openai_chat_completions._get_openai_client")
 def test_openai_image_generation_forwards_organization(mock_get_openai_client):
     """Ensure organization flows to OpenAI client for image generation."""
 
@@ -2413,7 +2413,7 @@ def test_openai_image_generation_forwards_organization(mock_get_openai_client):
     mock_get_openai_client.return_value = _DummyClient()
 
     org = "org_test_123"
-    resp = litellm.image_generation(
+    resp = hangarllm.image_generation(
         model="gpt-image-1",
         prompt="A cute baby sea otter",
         organization=org,
@@ -2427,7 +2427,7 @@ def test_openai_image_generation_forwards_organization(mock_get_openai_client):
 
 
 def test_openai_chat_completion_streaming_handler_reasoning_content():
-    from litellm.llms.openai.chat.gpt_transformation import (
+    from hangarllm.llms.openai.chat.gpt_transformation import (
         OpenAIChatCompletionStreamingHandler,
     )
     from unittest.mock import MagicMock
@@ -2462,14 +2462,14 @@ async def test_openai_safety_identifier_parameter():
     """Test that safety_identifier parameter is correctly passed to the OpenAI API."""
     from openai import AsyncOpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     client = AsyncOpenAI(api_key="fake-api-key")
 
     with patch.object(
         client, "post"
     ) as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 safety_identifier="user_code_123456",
@@ -2491,14 +2491,14 @@ def test_openai_safety_identifier_parameter_sync():
     """Test that safety_identifier parameter is correctly passed to the OpenAI API."""
     from openai import OpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     client = OpenAI(api_key="fake-api-key")
 
     with patch.object(
         client, "post"
     ) as mock_client:
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 safety_identifier="user_code_123456",
@@ -2521,14 +2521,14 @@ async def test_openai_service_tier_parameter():
     """Test that service_tier parameter is correctly passed to the OpenAI API."""
     from openai import AsyncOpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     client = AsyncOpenAI(api_key="fake-api-key")
 
     with patch.object(
         client, "post"
     ) as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 service_tier="priority",
@@ -2552,14 +2552,14 @@ def test_openai_service_tier_parameter_sync():
     """Test that service_tier parameter is correctly passed to the OpenAI API."""
     from openai import OpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     client = OpenAI(api_key="fake-api-key")
 
     with patch.object(
         client, "post"
     ) as mock_client:
         try:
-            litellm.completion(
+            hangarllm.completion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 service_tier="priority",
@@ -2584,11 +2584,11 @@ def test_responses_gpt54_with_xhigh_reasoning():
     Ensure chat->responses bridge sends the correct request payload for
     openai/responses/gpt-5.4 with reasoning_effort="xhigh".
     """
-    with patch("litellm.responses") as mock_responses:
+    with patch("hangarllm.responses") as mock_responses:
         mock_responses.side_effect = RuntimeError("stop_after_request_build")
 
-        with pytest.raises(litellm.APIConnectionError):
-            litellm.completion(
+        with pytest.raises(hangarllm.APIConnectionError):
+            hangarllm.completion(
                 model="openai/responses/gpt-5.4",
                 messages=[{"role": "user", "content": "What is 2+2?"}],
                 reasoning_effort="xhigh",
@@ -2638,7 +2638,7 @@ _WIRE_REQUEST: Final = {
 async def test_chat_completion_sends_the_caller_params_extra_body_and_extra_headers_unchanged(
     is_async: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(200, json=_CHAT_RESPONSE_JSON)
     )
@@ -2653,9 +2653,9 @@ async def test_chat_completion_sends_the_caller_params_extra_body_and_extra_head
     }
 
     if is_async:
-        await litellm.acompletion(**kwargs)
+        await hangarllm.acompletion(**kwargs)
     else:
-        litellm.completion(**kwargs)
+        hangarllm.completion(**kwargs)
 
     sent: Final = route.calls.last.request
     assert json.loads(sent.content) == {**_WIRE_REQUEST, "vendor_flag": True}

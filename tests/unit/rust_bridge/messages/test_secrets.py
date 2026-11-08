@@ -7,15 +7,15 @@ from typing import Final, Protocol, cast  # noqa: TID251  # narrows the parametr
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.llms.anthropic.messages.native.handler import anthropic_messages
-from litellm.rust_bridge.host import settings
-from litellm.rust_bridge.messages.entrypoints import NATIVE_AMESSAGES
-from litellm.rust_bridge.public_call import NativeCall
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
-from tests.test_litellm_rust.messages.data import MESSAGES, MESSAGES_MODEL, MESSAGES_RESPONSE
-from tests.test_litellm_rust.support.recording_server import ResponseSpec, recording_service
+import hangarllm
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.llms.anthropic.messages.native.handler import anthropic_messages
+from hangarllm.rust_bridge.host import settings
+from hangarllm.rust_bridge.messages.entrypoints import NATIVE_AMESSAGES
+from hangarllm.rust_bridge.public_call import NativeCall
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from tests.test_hangarllm_rust.messages.data import MESSAGES, MESSAGES_MODEL, MESSAGES_RESPONSE
+from tests.test_hangarllm_rust.support.recording_server import ResponseSpec, recording_service
 
 pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
@@ -91,12 +91,12 @@ async def test_secret_manager_supplies_the_anthropic_key_and_base(
     with recording_service() as server:
         server.default_response = ResponseSpec(body=MESSAGES_RESPONSE)
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "secret_manager_client",
             _ManagedSecrets({"ANTHROPIC_API_KEY": "vault-key", "ANTHROPIC_BASE_URL": server.base_url}),
         )
-        monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-        monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+        monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+        monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
         configured: Final = settings.secret_manager
         monkeypatch.setattr(settings, "secret_manager", lambda: replace(configured(), native=True))
 

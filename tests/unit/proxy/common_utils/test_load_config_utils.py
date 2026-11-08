@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 import yaml
 
-from litellm.proxy.common_utils.load_config_utils import (
+from hangarllm.proxy.common_utils.load_config_utils import (
     gcs_config_bucket,
     get_config_from_bucket,
     get_file_contents_from_s3,
@@ -20,7 +20,7 @@ class TestGetFileContentsFromS3:
     """Test suite for S3 config loading functionality."""
 
     @patch("boto3.client")
-    @patch("litellm.main.bedrock_converse_chat_completion")
+    @patch("hangarllm.main.bedrock_converse_chat_completion")
     @patch("yaml.safe_load")
     def test_get_file_contents_from_s3_no_temp_file_creation(
         self, mock_yaml_load, mock_bedrock, mock_boto3_client
@@ -31,7 +31,7 @@ class TestGetFileContentsFromS3:
 
         Note: It's critical that yaml.safe_load is used
 
-        Relevant issue/PR: https://github.com/BerriAI/litellm/pull/12078
+        Relevant issue/PR: upstream issue 12078
         """
         # Mock credentials
         mock_credentials = MagicMock()
@@ -48,7 +48,7 @@ class TestGetFileContentsFromS3:
         yaml_content = """
         model_list:
           - model_name: gpt-3.5-turbo
-            litellm_params:
+            hangarllm_params:
               model: gpt-3.5-turbo
         """
         mock_response_body = MagicMock()
@@ -61,7 +61,7 @@ class TestGetFileContentsFromS3:
             "model_list": [
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "gpt-3.5-turbo"},
+                    "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 }
             ]
         }
@@ -216,14 +216,14 @@ class TestBucketConfigIncludes:
             config={
                 "include": ["models.yaml"],
                 "model_list": [{"model_name": "from-root"}],
-                "litellm_settings": {"drop_params": True},
+                "hangarllm_settings": {"drop_params": True},
             },
             object_key="config.yaml",
             fetch=self._bucket(
                 {
                     "models.yaml": {
                         "model_list": [{"model_name": "from-include"}],
-                        "litellm_settings": {"num_retries": 3},
+                        "hangarllm_settings": {"num_retries": 3},
                     }
                 }
             ),
@@ -231,7 +231,7 @@ class TestBucketConfigIncludes:
 
         assert merged == {
             "model_list": [{"model_name": "from-root"}, {"model_name": "from-include"}],
-            "litellm_settings": {"num_retries": 3},
+            "hangarllm_settings": {"num_retries": 3},
         }
 
     @pytest.mark.asyncio
@@ -262,12 +262,12 @@ class TestBucketConfigIncludes:
             "lit6982/model_config.yaml": {"model_list": [{"model_name": "included-model"}]},
         }
         monkeypatch.setattr(
-            "litellm.proxy.common_utils.load_config_utils.s3_object_reader",
+            "hangarllm.proxy.common_utils.load_config_utils.s3_object_reader",
             lambda bucket_name: objects.get,
         )
 
         config = await get_config_from_bucket(
-            bucket_type="s3", bucket_name="litellm-configs", object_key="lit6982/config.yaml"
+            bucket_type="s3", bucket_name="hangarllm-configs", object_key="lit6982/config.yaml"
         )
 
         assert config == {
@@ -289,9 +289,9 @@ class TestBucketConfigIncludes:
 
             return read
 
-        monkeypatch.setattr("litellm.proxy.common_utils.load_config_utils.s3_object_reader", build_reader)
+        monkeypatch.setattr("hangarllm.proxy.common_utils.load_config_utils.s3_object_reader", build_reader)
 
-        await get_config_from_bucket(bucket_type="s3", bucket_name="litellm-configs", object_key="config.yaml")
+        await get_config_from_bucket(bucket_type="s3", bucket_name="hangarllm-configs", object_key="config.yaml")
 
         assert len(threads) == 2 and loop_thread not in threads
 
@@ -313,10 +313,10 @@ class TestBucketConfigIncludes:
 
             return read
 
-        monkeypatch.setattr("litellm.proxy.common_utils.load_config_utils.s3_object_reader", build_reader)
+        monkeypatch.setattr("hangarllm.proxy.common_utils.load_config_utils.s3_object_reader", build_reader)
 
         await get_config_from_bucket(
-            bucket_type="s3", bucket_name="litellm-configs", object_key="lit6982/config.yaml"
+            bucket_type="s3", bucket_name="hangarllm-configs", object_key="lit6982/config.yaml"
         )
 
         assert readers == [["lit6982/config.yaml", "lit6982/model_config.yaml"]]
@@ -333,12 +333,12 @@ class TestBucketConfigIncludes:
                 return objects[object_key].encode("utf-8")
 
         monkeypatch.setattr(
-            "litellm.proxy.common_utils.load_config_utils.gcs_config_bucket",
+            "hangarllm.proxy.common_utils.load_config_utils.gcs_config_bucket",
             lambda bucket_name: FakeGCSBucket(),
         )
 
         config = await get_config_from_bucket(
-            bucket_type="gcs", bucket_name="litellm-configs", object_key="lit6982/config.yaml"
+            bucket_type="gcs", bucket_name="hangarllm-configs", object_key="lit6982/config.yaml"
         )
 
         assert config == {"model_list": [{"model_name": "only-model"}]}
@@ -365,12 +365,12 @@ class TestBucketConfigIncludes:
                 return yaml.dump(objects[object_key]).encode("utf-8")
 
         monkeypatch.setattr(
-            "litellm.proxy.common_utils.load_config_utils.gcs_config_bucket",
+            "hangarllm.proxy.common_utils.load_config_utils.gcs_config_bucket",
             lambda bucket_name: FakeGCSBucket(),
         )
 
         config = await get_config_from_bucket(
-            bucket_type="gcs", bucket_name="litellm-configs", object_key="lit6982/config.yaml"
+            bucket_type="gcs", bucket_name="hangarllm-configs", object_key="lit6982/config.yaml"
         )
 
         assert config == {
@@ -384,13 +384,13 @@ class TestBucketConfigIncludes:
     @pytest.mark.asyncio
     async def test_get_config_from_bucket_returns_none_when_the_root_object_is_missing(self, monkeypatch):
         monkeypatch.setattr(
-            "litellm.proxy.common_utils.load_config_utils.s3_object_reader",
+            "hangarllm.proxy.common_utils.load_config_utils.s3_object_reader",
             lambda bucket_name: (lambda object_key: None),
         )
 
         assert (
             await get_config_from_bucket(
-                bucket_type="s3", bucket_name="litellm-configs", object_key="missing.yaml"
+                bucket_type="s3", bucket_name="hangarllm-configs", object_key="missing.yaml"
             )
             is None
         )
@@ -423,12 +423,12 @@ class TestBucketConfigIncludes:
                 return b""
 
         monkeypatch.setattr(
-            "litellm.proxy.common_utils.load_config_utils.gcs_config_bucket",
+            "hangarllm.proxy.common_utils.load_config_utils.gcs_config_bucket",
             lambda bucket_name: FakeGCSBucket(),
         )
 
         config = await get_config_from_bucket(
-            bucket_type="gcs", bucket_name="litellm-configs", object_key="lit6982/config.yaml"
+            bucket_type="gcs", bucket_name="hangarllm-configs", object_key="lit6982/config.yaml"
         )
 
         assert config is None
@@ -440,13 +440,13 @@ class TestBucketConfigIncludes:
                 return b"model_list: [\n"
 
         monkeypatch.setattr(
-            "litellm.proxy.common_utils.load_config_utils.gcs_config_bucket",
+            "hangarllm.proxy.common_utils.load_config_utils.gcs_config_bucket",
             lambda bucket_name: FakeGCSBucket(),
         )
 
-        with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
             config = await get_config_from_bucket(
-                bucket_type="gcs", bucket_name="litellm-configs", object_key="lit6982/config.yaml"
+                bucket_type="gcs", bucket_name="hangarllm-configs", object_key="lit6982/config.yaml"
             )
 
         assert config is None
@@ -460,18 +460,18 @@ class TestBucketConfigIncludes:
 class TestGCSConfigBucketClient:
     @pytest.mark.asyncio
     async def test_reading_a_config_from_gcs_does_not_need_an_enterprise_license(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
 
-        bucket = gcs_config_bucket("litellm-configs")
+        bucket = gcs_config_bucket("hangarllm-configs")
 
         assert bucket is not None
-        assert bucket.BUCKET_NAME == "litellm-configs"
+        assert bucket.BUCKET_NAME == "hangarllm-configs"
 
     @pytest.mark.asyncio
     async def test_reading_a_config_from_gcs_starts_no_background_task(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
         running_before = asyncio.all_tasks()
 
-        gcs_config_bucket("litellm-configs")
+        gcs_config_bucket("hangarllm-configs")
 
         assert asyncio.all_tasks() - running_before == set()

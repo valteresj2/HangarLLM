@@ -82,7 +82,7 @@ def test_langfuse_otel_metadata_reaches_langfuse_for_anthropic_sdk_messages(gate
                 model=model,
                 max_tokens=64,
                 messages=[{"role": "user", "content": marker}],
-                extra_body={"litellm_metadata": {"tags": ["lf8283"]}, "metadata": {"user_id": identity["end_user"]}},
+                extra_body={"hangarllm_metadata": {"tags": ["lf8283"]}, "metadata": {"user_id": identity["end_user"]}},
             )
         attrs: Final = exported_llm_span(rig.collector, message.id)
         assert_identity(attrs, chat_identity_fields(identity))

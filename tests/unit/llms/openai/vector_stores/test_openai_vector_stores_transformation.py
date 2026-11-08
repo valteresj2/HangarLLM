@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.llms.openai.vector_stores.transformation import OpenAIVectorStoreConfig
-from litellm.types.vector_stores import (
+from hangarllm.llms.openai.vector_stores.transformation import OpenAIVectorStoreConfig
+from hangarllm.types.vector_stores import (
     VectorStoreCreateOptionalRequestParams,
 )
 
@@ -66,8 +66,8 @@ class TestOpenAIVectorStoreAPIConfig:
             query="hello",
             vector_store_search_optional_params={},
             api_base="https://api.openai.com/v1/vector_stores",
-            litellm_logging_obj=None,  # type: ignore[arg-type]
-            litellm_params={},
+            hangarllm_logging_obj=None,  # type: ignore[arg-type]
+            hangarllm_params={},
         )
 
         assert url == "https://api.openai.com/v1/vector_stores/..%2F..%2Ffiles%3Fx%3D1%23frag/search"
@@ -81,8 +81,8 @@ class TestOpenAIVectorStoreAPIConfig:
             query="hello",
             vector_store_search_optional_params={},
             api_base="https://x.openai.azure.com/openai/vector_stores?api-version=2024-10-21",
-            litellm_logging_obj=None,
-            litellm_params={},
+            hangarllm_logging_obj=None,
+            hangarllm_params={},
         )
 
         assert url == "https://x.openai.azure.com/openai/vector_stores/vs_1/search?api-version=2024-10-21"

@@ -6,10 +6,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.container_endpoints import endpoints, ownership
-from litellm.types.containers.main import ContainerListResponse, ContainerObject
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.container_endpoints import endpoints, ownership
+from hangarllm.types.containers.main import ContainerListResponse, ContainerObject
 
 PROXY_SERVER_STUB = SimpleNamespace(
     general_settings={},
@@ -25,7 +25,7 @@ PROXY_SERVER_STUB = SimpleNamespace(
     user_temperature=None,
     version="test",
 )
-ADMIN = UserAPIKeyAuth(user_id="admin-1", user_role=LitellmUserRoles.PROXY_ADMIN)
+ADMIN = UserAPIKeyAuth(user_id="admin-1", user_role=HangarllmUserRoles.PROXY_ADMIN)
 NON_ADMIN = UserAPIKeyAuth(user_id="user-1")
 
 
@@ -72,7 +72,7 @@ def _forwarded_pages(processor_cls: MagicMock):
 
 
 def test_list_containers_forwards_typed_pagination_params_for_admins(monkeypatch):
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", PROXY_SERVER_STUB)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", PROXY_SERVER_STUB)
     processor_cls = _upstream_pages(monkeypatch, {"cntr_prev": _page("cntr_next", has_more=True)})
 
     response = _client(ADMIN).get(
@@ -89,7 +89,7 @@ def test_list_containers_forwards_typed_pagination_params_for_admins(monkeypatch
 
 
 def test_list_containers_rejects_a_non_integer_limit(monkeypatch):
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", PROXY_SERVER_STUB)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", PROXY_SERVER_STUB)
     processor_cls = _upstream_pages(monkeypatch, {})
 
     response = _client(ADMIN).get(
@@ -103,13 +103,13 @@ def test_list_containers_rejects_a_non_integer_limit(monkeypatch):
 
 
 def test_list_containers_pages_upstream_until_non_admin_keys_see_their_containers(monkeypatch):
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", PROXY_SERVER_STUB)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", PROXY_SERVER_STUB)
     table = AsyncMock()
     table.find_many.return_value = [SimpleNamespace(model_object_id="container:openai:cntr_owned")]
     monkeypatch.setattr(
         ownership,
         "_get_prisma_client",
-        AsyncMock(return_value=SimpleNamespace(db=SimpleNamespace(litellm_managedobjecttable=table))),
+        AsyncMock(return_value=SimpleNamespace(db=SimpleNamespace(hangarllm_managedobjecttable=table))),
     )
     processor_cls = _upstream_pages(
         monkeypatch,

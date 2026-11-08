@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Final
 
 ERROR_FIELDS: Final = frozenset({"type", "param"})
-SOURCE_ROOT: Final = Path(__file__).resolve().parents[2] / "litellm"
+SOURCE_ROOT: Final = Path(__file__).resolve().parents[2] / "hangarllm"
 
 
 def _is_none_string(node: ast.expr | None) -> bool:

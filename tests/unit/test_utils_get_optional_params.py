@@ -4,20 +4,20 @@ from typing import Final
 from unittest.mock import MagicMock, patch
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
 
-from litellm.utils import (
+from hangarllm.utils import (
     get_optional_params,
     get_optional_params_embeddings,
     get_optional_params_image_gen,
     get_requester_metadata,
     validate_openai_optional_params,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.prompt_templates.factory import map_system_message_pt
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import map_system_message_pt
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 
 COHERE_CHAT_RESPONSE: Final = {
@@ -48,7 +48,7 @@ def test_anthropic_optional_params(stop_sequence, expected_count):
     """
     Test if whitespace character optional param is dropped by anthropic
     """
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     optional_params = get_optional_params(model="claude-3", custom_llm_provider="anthropic", stop=stop_sequence)
     assert len(optional_params) == expected_count
 
@@ -58,7 +58,7 @@ def test_get_requester_metadata_returns_none_for_empty():
     assert get_requester_metadata(metadata) is None
 
 
-@patch("litellm.main.openai_chat_completions.completion")
+@patch("hangarllm.main.openai_chat_completions.completion")
 def test_requester_metadata_forwarded_to_openai(mock_completion):
     mock_completion.return_value = MagicMock()
     metadata = {
@@ -69,20 +69,20 @@ def test_requester_metadata_forwarded_to_openai(mock_completion):
         }
     }
 
-    original_api_key = litellm.api_key
-    litellm.api_key = "sk-test"
-    original_preview_flag = litellm.enable_preview_features
-    litellm.enable_preview_features = True
+    original_api_key = hangarllm.api_key
+    hangarllm.api_key = "sk-test"
+    original_preview_flag = hangarllm.enable_preview_features
+    hangarllm.enable_preview_features = True
 
     try:
-        litellm.completion(
+        hangarllm.completion(
             model="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             metadata=metadata,
         )
     finally:
-        litellm.api_key = original_api_key
-        litellm.enable_preview_features = original_preview_flag
+        hangarllm.api_key = original_api_key
+        hangarllm.enable_preview_features = original_preview_flag
 
     sent_metadata = mock_completion.call_args.kwargs["optional_params"]["metadata"]
     assert sent_metadata == {"custom_meta_key": "value"}
@@ -92,7 +92,7 @@ def test_get_optional_params_with_allowed_openai_params():
     """
     Test if use can dynamically pass in allowed_openai_params to override default behavior
     """
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     tools = [
         {
             "type": "function",
@@ -130,10 +130,10 @@ def test_get_optional_params_with_allowed_openai_params():
 
 def test_allowed_openai_params_does_not_forward_unset_params():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/25697
+    Regression test for upstream issue 25697
 
     When a user lists a param in ``allowed_openai_params`` but does not
-    actually send that param in the request, litellm must not forward it
+    actually send that param in the request, hangarllm must not forward it
     to the provider SDK as ``None``. The openai SDK rejects unknown
     top-level kwargs with
     ``AsyncCompletions.create() got an unexpected keyword argument 'enable_thinking'``.
@@ -145,7 +145,7 @@ def test_allowed_openai_params_does_not_forward_unset_params():
     added ``optional_params["enable_thinking"] = None`` which then
     crashed the openai client.
     """
-    from litellm.utils import apply_openai_param_overrides
+    from hangarllm.utils import apply_openai_param_overrides
 
     chat_template_kwargs = {"enable_thinking": False}
     optional_params: dict = {}
@@ -165,7 +165,7 @@ def test_allowed_openai_params_does_not_forward_unset_params():
 
 
 def test_bedrock_optional_params_embeddings():
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     optional_params = get_optional_params_embeddings(
         model="", user="John", encoding_format=None, custom_llm_provider="bedrock"
     )
@@ -229,7 +229,7 @@ def test_bedrock_optional_params_completions(model):
     ],
 )
 def test_bedrock_optional_params_simple(model):
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     get_optional_params(
         model=model,
         max_tokens=10,
@@ -252,7 +252,7 @@ def test_bedrock_optional_params_simple(model):
     ],
 )
 def test_bedrock_optional_params_embeddings_dimension(model, expected_dimensions, dimensions_kwarg):
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     optional_params = get_optional_params_embeddings(
         model=model,
         user="John",
@@ -281,7 +281,7 @@ def test_google_ai_studio_optional_params_embeddings():
 
 
 def test_openai_optional_params_embeddings():
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     optional_params = get_optional_params_embeddings(
         model="", user="John", encoding_format=None, custom_llm_provider="openai"
     )
@@ -290,7 +290,7 @@ def test_openai_optional_params_embeddings():
 
 
 def test_azure_optional_params_embeddings():
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     optional_params = get_optional_params_embeddings(
         model="chatgpt-v-3",
         user="John",
@@ -302,7 +302,7 @@ def test_azure_optional_params_embeddings():
 
 
 def test_databricks_optional_params():
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     optional_params = get_optional_params(
         model="",
         user="John",
@@ -317,7 +317,7 @@ def test_databricks_optional_params():
 
 
 def test_azure_ai_mistral_optional_params():
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     optional_params = get_optional_params(
         model="mistral-large-latest",
         user="John",
@@ -329,8 +329,8 @@ def test_azure_ai_mistral_optional_params():
 
 
 def test_vertex_ai_llama_3_optional_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "vertex_llama3_models", {"meta/llama3-405b-instruct-maas"})
-    litellm.drop_params = True
+    monkeypatch.setattr(hangarllm, "vertex_llama3_models", {"meta/llama3-405b-instruct-maas"})
+    hangarllm.drop_params = True
     optional_params = get_optional_params(
         model="meta/llama3-405b-instruct-maas",
         user="John",
@@ -342,8 +342,8 @@ def test_vertex_ai_llama_3_optional_params(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_vertex_ai_mistral_optional_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "vertex_mistral_models", {"mistral-large@2407"})
-    litellm.drop_params = True
+    monkeypatch.setattr(hangarllm, "vertex_mistral_models", {"mistral-large@2407"})
+    hangarllm.drop_params = True
     optional_params = get_optional_params(
         model="mistral-large@2407",
         user="John",
@@ -358,7 +358,7 @@ def test_vertex_ai_mistral_optional_params(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_azure_gpt_optional_params_gpt_vision():
 
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = hangarllm.utils.get_optional_params(
         model="",
         user="John",
         custom_llm_provider="azure",
@@ -395,7 +395,7 @@ def test_azure_gpt_optional_params_gpt_vision():
 
 def test_azure_gpt_optional_params_gpt_vision_with_extra_body():
 
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = hangarllm.utils.get_optional_params(
         model="",
         user="John",
         custom_llm_provider="azure",
@@ -435,7 +435,7 @@ def test_azure_gpt_optional_params_gpt_vision_with_extra_body():
 
 
 def test_openai_extra_headers():
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = hangarllm.utils.get_optional_params(
         model="",
         user="John",
         custom_llm_provider="openai",
@@ -463,8 +463,8 @@ def test_azure_tool_choice(api_version):
     """
     Test azure tool choice on older + new version
     """
-    litellm.drop_params = True
-    optional_params = litellm.utils.get_optional_params(
+    hangarllm.drop_params = True
+    optional_params = hangarllm.utils.get_optional_params(
         model="chatgpt-v-3",
         user="John",
         custom_llm_provider="azure",
@@ -492,9 +492,9 @@ def test_azure_tool_choice(api_version):
 )
 def test_drop_params_parallel_tool_calls(model, provider, should_drop):
     """
-    https://github.com/BerriAI/litellm/issues/4584
+    upstream issue 4584
     """
-    response = litellm.utils.get_optional_params(
+    response = hangarllm.utils.get_optional_params(
         model=model,
         custom_llm_provider=provider,
         response_format={"type": "json"},
@@ -516,7 +516,7 @@ def test_dynamic_drop_additional_params_stream_options():
     """
     Make a call to vertex ai, dropping 'stream_options' specifically
     """
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = hangarllm.utils.get_optional_params(
         model="mistral-large-2411@001",
         custom_llm_provider="vertex_ai",
         stream_options={"include_usage": True},
@@ -527,12 +527,12 @@ def test_dynamic_drop_additional_params_stream_options():
 
 
 def test_get_optional_params_image_gen():
-    response = litellm.utils.get_optional_params_image_gen(aws_region_name="us-east-1", custom_llm_provider="openai")
+    response = hangarllm.utils.get_optional_params_image_gen(aws_region_name="us-east-1", custom_llm_provider="openai")
 
     print(response)
 
     assert "aws_region_name" not in response
-    response = litellm.utils.get_optional_params_image_gen(aws_region_name="us-east-1", custom_llm_provider="bedrock")
+    response = hangarllm.utils.get_optional_params_image_gen(aws_region_name="us-east-1", custom_llm_provider="bedrock")
 
     print(response)
 
@@ -556,7 +556,7 @@ def test_bedrock_optional_params_embeddings_provider_specific_params():
     ],
 )
 def test_vertex_safety_settings(provider, monkeypatch):
-    monkeypatch.setattr(litellm, "vertex_ai_safety_settings", [
+    monkeypatch.setattr(hangarllm, "vertex_ai_safety_settings", [
         {
             "category": "HARM_CATEGORY_HARASSMENT",
             "threshold": "BLOCK_NONE",
@@ -656,7 +656,7 @@ def test_azure_o1_model_params():
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 def test_o1_model_temperature_params(provider, temperature, expected_error):
     if expected_error:
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             get_optional_params(
                 model="o1",
                 custom_llm_provider=provider,
@@ -692,9 +692,9 @@ def test_unmapped_gemini_model_params():
 )
 def test_drop_nested_params_add_prop_and_strict(provider, model):
     """
-    Relevant issue - https://github.com/BerriAI/litellm/issues/5288
+    Relevant issue - upstream issue 5288
 
-    Relevant issue - https://github.com/BerriAI/litellm/issues/6136
+    Relevant issue - upstream issue 6136
     """
     tools = [
         {
@@ -734,7 +734,7 @@ def test_drop_nested_params_add_prop_and_strict(provider, model):
 
 def test_hosted_vllm_tool_param():
     """
-    Relevant issue - https://github.com/BerriAI/litellm/issues/6228
+    Relevant issue - upstream issue 6228
     """
     optional_params = get_optional_params(
         model="my-vllm-model",
@@ -893,7 +893,7 @@ def test_together_ai_model_params():
 
 
 def test_forward_user_param():
-    from litellm.utils import get_supported_openai_params, get_optional_params
+    from hangarllm.utils import get_supported_openai_params, get_optional_params
 
     model = "claude-3-5-sonnet-20240620"
     optional_params = get_optional_params(
@@ -933,7 +933,7 @@ def test_ollama_pydantic_obj():
 
 
 def test_gemini_frequency_penalty_listed_in_vertex_ai_supported_params():
-    from litellm.utils import get_supported_openai_params
+    from hangarllm.utils import get_supported_openai_params
 
     optional_params = get_supported_openai_params(
         model="gemini-1.5-flash",
@@ -944,7 +944,7 @@ def test_gemini_frequency_penalty_listed_in_vertex_ai_supported_params():
     assert "frequency_penalty" in optional_params
 
 
-def test_litellm_proxy_claude_3_5_sonnet():
+def test_hangarllm_proxy_claude_3_5_sonnet():
     tools = [
         {
             "type": "function",
@@ -970,7 +970,7 @@ def test_litellm_proxy_claude_3_5_sonnet():
 
     optional_params = get_optional_params(
         model="claude-3-5-sonnet",
-        custom_llm_provider="litellm_proxy",
+        custom_llm_provider="hangarllm_proxy",
         tools=tools,
         tool_choice=tool_choice,
     )
@@ -980,8 +980,8 @@ def test_litellm_proxy_claude_3_5_sonnet():
 
 def test_is_vertex_anthropic_model():
     assert (
-        litellm.VertexAIAnthropicConfig().is_supported_model(
-            model="claude-3-5-sonnet", custom_llm_provider="litellm_proxy"
+        hangarllm.VertexAIAnthropicConfig().is_supported_model(
+            model="claude-3-5-sonnet", custom_llm_provider="hangarllm_proxy"
         )
         is False
     )
@@ -1009,12 +1009,12 @@ def test_azure_prediction_param():
         custom_llm_provider="azure",
         prediction={
             "type": "content",
-            "content": "LiteLLM is a very useful way to connect to a variety of LLMs.",
+            "content": "HangarLLM is a very useful way to connect to a variety of LLMs.",
         },
     )
     assert optional_params["prediction"] == {
         "type": "content",
-        "content": "LiteLLM is a very useful way to connect to a variety of LLMs.",
+        "content": "HangarLLM is a very useful way to connect to a variety of LLMs.",
     }
 
 
@@ -1569,10 +1569,10 @@ def test_azure_modalities_param():
     assert optional_params["audio"] == {"type": "audio_input", "input": "test.wav"}
 
 
-def test_litellm_proxy_thinking_param():
+def test_hangarllm_proxy_thinking_param():
     optional_params = get_optional_params(
         model="gpt-4o",
-        custom_llm_provider="litellm_proxy",
+        custom_llm_provider="hangarllm_proxy",
         thinking={"type": "enabled", "budget_tokens": 1024},
     )
     assert optional_params["extra_body"]["thinking"] == {
@@ -1592,7 +1592,7 @@ def test_gemini_modalities_param():
 
 
 def test_azure_response_format_param():
-    optional_params = litellm.get_optional_params(
+    optional_params = hangarllm.get_optional_params(
         model="azure/o_series/test-o3-mini",
         custom_llm_provider="azure/o_series",
         tools=[
@@ -1628,7 +1628,7 @@ def test_azure_response_format_param():
     ],
 )
 def test_anthropic_unified_reasoning_content(model, provider):
-    from litellm.constants import DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET
+    from hangarllm.constants import DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET
 
     optional_params = get_optional_params(
         model=model,
@@ -1728,25 +1728,25 @@ def test_validate_openai_optional_params_stop_truncation():
 def test_validate_openai_optional_params_disable_stop_sequence_limit():
     """
     Test that validate_openai_optional_params respects the disable_stop_sequence_limit flag.
-    When litellm.disable_stop_sequence_limit is True, stop sequences should not be truncated.
+    When hangarllm.disable_stop_sequence_limit is True, stop sequences should not be truncated.
     """
 
-    original_value = litellm.disable_stop_sequence_limit
+    original_value = hangarllm.disable_stop_sequence_limit
 
     try:
-        litellm.disable_stop_sequence_limit = True
+        hangarllm.disable_stop_sequence_limit = True
         stop_sequences = ["stop1", "stop2", "stop3", "stop4", "stop5", "stop6"]
         result = validate_openai_optional_params(stop=stop_sequences)
         assert result == ["stop1", "stop2", "stop3", "stop4", "stop5", "stop6"]
         assert len(result) == 6
 
-        litellm.disable_stop_sequence_limit = False
+        hangarllm.disable_stop_sequence_limit = False
         stop_sequences = ["stop1", "stop2", "stop3", "stop4", "stop5", "stop6"]
         result = validate_openai_optional_params(stop=stop_sequences)
         assert result == ["stop1", "stop2", "stop3", "stop4"]
         assert len(result) == 4
     finally:
-        litellm.disable_stop_sequence_limit = original_value
+        hangarllm.disable_stop_sequence_limit = original_value
 
 
 def test_validate_openai_optional_params_integration():
@@ -1755,7 +1755,7 @@ def test_validate_openai_optional_params_integration():
     """
 
     try:
-        with patch("litellm.llms.openai.openai.OpenAI") as mock_client:
+        with patch("hangarllm.llms.openai.openai.OpenAI") as mock_client:
             mock_response = MagicMock()
             mock_response.choices = [MagicMock()]
             mock_response.choices[0].message.content = "Test response"
@@ -1769,7 +1769,7 @@ def test_validate_openai_optional_params_integration():
 
             mock_client.return_value.chat.completions.create.return_value = mock_response
 
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Hello"}],
                 stop=["stop1", "stop2", "stop3", "stop4", "stop5", "stop6"],
@@ -1791,7 +1791,7 @@ def test_drop_store_param_for_anthropic():
     handling, it leaks through to the Anthropic API and causes a
     "store: Extra inputs are not permitted" error.
 
-    Ref: https://github.com/BerriAI/litellm/issues/19700
+    Ref: upstream issue 19700
     """
     optional_params = get_optional_params(
         model="claude-sonnet-4-5-20250929",
@@ -1807,7 +1807,7 @@ def test_additional_drop_params_store_for_anthropic():
     Test that `additional_drop_params=["store"]` correctly strips the `store`
     parameter for non-OpenAI providers like Anthropic.
 
-    Ref: https://github.com/BerriAI/litellm/issues/19700
+    Ref: upstream issue 19700
     """
     optional_params = get_optional_params(
         model="claude-sonnet-4-5-20250929",
@@ -1829,13 +1829,13 @@ def test_store_in_openai_chat_completion_params():
     params will silently drop it for OpenAI calls or incorrectly treat
     it as a provider-specific param for non-OpenAI providers.
 
-    Ref: https://github.com/BerriAI/litellm/issues/19700
+    Ref: upstream issue 19700
     """
-    from litellm.constants import OPENAI_CHAT_COMPLETION_PARAMS
+    from hangarllm.constants import OPENAI_CHAT_COMPLETION_PARAMS
 
     assert "store" in OPENAI_CHAT_COMPLETION_PARAMS
 
-    from litellm.utils import get_standard_openai_params
+    from hangarllm.utils import get_standard_openai_params
 
     result = get_standard_openai_params({"store": True, "temperature": 0.7})
     assert "store" in result
@@ -1851,7 +1851,7 @@ def test_store_param_passed_through_openai_azure():
     out by get_non_default_completion_params() due to architectural issues
     in parameter processing pipeline.
 
-    Ref: https://github.com/BerriAI/litellm/issues/19700
+    Ref: upstream issue 19700
     """
 
     optional_params_openai = get_optional_params(
@@ -1880,7 +1880,7 @@ def test_store_param_passed_through_openai_azure():
 
 
 def test_cohere_drop_params_removes_unsupported_response_format(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     params: Final = get_optional_params(
         model="command-r-plus-08-2024",
         custom_llm_provider="cohere",
@@ -1894,8 +1894,8 @@ def test_cohere_drop_params_removes_unsupported_response_format(monkeypatch: pyt
 def test_cohere_drop_params_rejects_unsupported_response_format(
     drop_params: bool | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.UnsupportedParamsError):
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         get_optional_params(
             model="command-r-plus-08-2024",
             custom_llm_provider="cohere",
@@ -1911,7 +1911,7 @@ def test_cohere_completion_drops_response_format_from_request(
     route: Final = respx_mock.post("https://api.cohere.com/v2/chat")
     route.return_value = httpx.Response(200, json=COHERE_CHAT_RESPONSE)
 
-    litellm.completion(
+    hangarllm.completion(
         model="cohere/command-r-plus-08-2024",
         messages=[{"role": "user", "content": "hello"}],
         response_format={"type": "json_object"},
@@ -1931,7 +1931,7 @@ def test_cohere_completion_drops_parallel_tool_calls_from_request(
     route: Final = respx_mock.post("https://api.cohere.com/v2/chat")
     route.return_value = httpx.Response(200, json=COHERE_CHAT_RESPONSE)
 
-    litellm.completion(
+    hangarllm.completion(
         model="cohere/command-r-plus-08-2024",
         messages=[{"role": "user", "content": "hello"}],
         parallel_tool_calls=True,
@@ -1951,7 +1951,7 @@ def test_cohere_completion_passes_extra_params_without_api_key(
     route: Final = respx_mock.post("https://api.cohere.com/v2/chat")
     route.return_value = httpx.Response(200, json=COHERE_CHAT_RESPONSE)
 
-    litellm.completion(
+    hangarllm.completion(
         model="cohere/command-r-plus-08-2024",
         messages=[{"role": "user", "content": "hello"}],
         custom_param="test",
@@ -1970,7 +1970,7 @@ def test_cohere_completion_passes_extra_params_without_api_key(
 def test_cohere_additional_drop_params_removes_only_selected_param(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     params: Final = get_optional_params(
         model="command-r-plus-08-2024",
         custom_llm_provider="cohere",
@@ -1990,7 +1990,7 @@ def test_cohere_completion_applies_additional_drop_params_to_request(
     route: Final = respx_mock.post("https://api.cohere.com/v2/chat")
     route.return_value = httpx.Response(200, json=COHERE_CHAT_RESPONSE)
 
-    litellm.completion(
+    hangarllm.completion(
         model="cohere/command-r-plus-08-2024",
         messages=[{"role": "user", "content": "hello"}],
         response_format={"type": "json_object"},
@@ -2017,7 +2017,7 @@ def test_completion_passes_num_retries_to_optional_params_as_max_retries(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
     capture: Final = _PreCallOptionalParamsCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200,
@@ -2032,7 +2032,7 @@ def test_completion_passes_num_retries_to_optional_params_as_max_retries(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-5.6",
         messages=[{"role": "user", "content": "Hello world"}],
         num_retries=10,
@@ -2069,8 +2069,8 @@ def test_responses_allowed_openai_params_are_sent(
         },
     )
 
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.responses(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.responses(
             model="perplexity/sonar",
             input="Hello",
             store=True,
@@ -2078,7 +2078,7 @@ def test_responses_allowed_openai_params_are_sent(
             client=HTTPHandler(),
         )
 
-    litellm.responses(
+    hangarllm.responses(
         model="perplexity/sonar",
         input="Hello",
         store=True,
@@ -2103,7 +2103,7 @@ def test_supports_system_message_merges_system_prompt_into_user_message() -> Non
 def test_dropping_an_unsupported_reasoning_effort_logs_one_warning(
     local_model_cost_map: None, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = get_optional_params(
             model="terra-ptu", custom_llm_provider="azure", reasoning_effort="none", drop_params=True
         )
@@ -2122,10 +2122,10 @@ def test_dropping_thinking_for_an_unmapped_local_model_sends_no_request(
 ) -> None:
     outbound: Final = respx.MockRouter(assert_all_mocked=False)
     monkeypatch.setattr(
-        litellm, "module_level_client", HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(outbound.handler)))
+        hangarllm, "module_level_client", HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(outbound.handler)))
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = get_optional_params(
             model="unmapped-local-model", custom_llm_provider=provider, thinking={"type": "disabled"}, drop_params=True
         )
@@ -2138,7 +2138,7 @@ def test_dropping_thinking_for_an_unmapped_local_model_sends_no_request(
 def test_dropping_an_unsupported_thinking_logs_one_warning(
     local_model_cost_map: None, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = get_optional_params(
             model="terra-ptu", custom_llm_provider="azure", thinking={"type": "disabled"}, drop_params=True
         )
@@ -2166,10 +2166,10 @@ def test_reasoning_drop_warns_unless_a_mapped_non_reasoning_model_was_asked_for_
     reasoning_kwargs: dict[str, object],
     warns: bool,
 ) -> None:
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "azure/plain-chat-test-deployment": {
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "mode": "chat",
                 "max_tokens": 1024,
                 "input_cost_per_token": 0.0,
@@ -2179,7 +2179,7 @@ def test_reasoning_drop_warns_unless_a_mapped_non_reasoning_model_was_asked_for_
         }
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = get_optional_params(
             model="plain-chat-test-deployment", custom_llm_provider="azure", drop_params=True, **reasoning_kwargs
         )
@@ -2192,10 +2192,10 @@ def test_reasoning_drop_warns_unless_a_mapped_non_reasoning_model_was_asked_for_
 def test_turning_reasoning_off_warns_when_only_custom_pricing_describes_the_model(
     local_model_cost_map: None, caplog: pytest.LogCaptureFixture, reasoning_kwargs: dict[str, object]
 ) -> None:
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "azure/pricing-only-test-deployment": {
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "mode": "chat",
                 "input_cost_per_token": 0.000001,
                 "output_cost_per_token": 0.000002,
@@ -2203,7 +2203,7 @@ def test_turning_reasoning_off_warns_when_only_custom_pricing_describes_the_mode
         }
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = get_optional_params(
             model="pricing-only-test-deployment", custom_llm_provider="azure", drop_params=True, **reasoning_kwargs
         )
@@ -2217,8 +2217,8 @@ def test_turning_reasoning_off_warns_when_only_custom_pricing_describes_the_mode
 def test_dropping_reasoning_for_a_catalog_reasoning_model_does_not_suggest_base_model(
     local_model_cost_map: None, caplog: pytest.LogCaptureFixture
 ) -> None:
-    assert litellm.model_cost["azure/gpt-5.6-sol"].get("supports_reasoning") is True
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    assert hangarllm.model_cost["azure/gpt-5.6-sol"].get("supports_reasoning") is True
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = get_optional_params(
             model="gpt-5.6-sol", custom_llm_provider="azure", thinking={"type": "disabled"}, drop_params=True
         )
@@ -2234,7 +2234,7 @@ def test_dropping_reasoning_for_a_catalog_reasoning_model_does_not_suggest_base_
 def test_turning_reasoning_off_for_a_catalog_non_reasoning_model_drops_it_silently(
     local_model_cost_map: None, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = get_optional_params(
             model="gpt-4o", custom_llm_provider="azure", reasoning_effort="none", drop_params=True
         )

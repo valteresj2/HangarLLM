@@ -5,7 +5,7 @@ ran it. No latency, CPU or datastore ceilings: the one check is that no step ove
 is not on the allowlist below, and that the listed ones do not show up more often than they do today. A stream
 that stops yielding (the 46925 fix), a provider handler that re-walks a 1M-token body on the loop (46967), or a
 new hook that deep-copies the request inline all land here as a new row. Runs on its own stack: the gateway needs
-`PYTHONASYNCIODEBUG=1` and `LITELLM_EVENT_LOOP=asyncio` (uvloop reports nothing and crashed under debug locally),
+`PYTHONASYNCIODEBUG=1` and `HANGARLLM_EVENT_LOOP=asyncio` (uvloop reports nothing and crashed under debug locally),
 and the runner `E2E_PERF_EVENT_LOOP=1`, so the nightly build, which sets neither, skips it. The allowlist counts
 are twice the highest count any of ten back-to-back local runs showed on that row (rows that showed nothing in
 those ten but did in the earlier before/after legs for 46925 and 46967, or in the first scheduled-lane run, get 2),

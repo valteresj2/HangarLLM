@@ -9,13 +9,13 @@ import httpx
 import pytest
 from starlette.types import Message
 
-from litellm.proxy.mcp_server.mcp_debug import (
+from hangarllm.proxy.mcp_server.mcp_debug import (
     MCP_DEBUG_REQUEST_HEADER,
     MCPAuthDiagnostics,
     MCPDebug,
     describe_upstream_http_failure,
 )
-from litellm.proxy.mcp_server.outbound_credentials.types import AuthResolution
+from hangarllm.proxy.mcp_server.outbound_credentials.types import AuthResolution
 
 
 class TestIsDebugEnabled:
@@ -35,7 +35,7 @@ class TestIsDebugEnabled:
         assert MCPDebug.is_debug_enabled({"other-header": "value"}) is False
 
     def test_case_insensitive_header_name(self):
-        assert MCPDebug.is_debug_enabled({"X-LiteLLM-MCP-Debug": "true"}) is True
+        assert MCPDebug.is_debug_enabled({"X-HangarLLM-MCP-Debug": "true"}) is True
 
     def test_case_insensitive_value(self):
         assert MCPDebug.is_debug_enabled({MCP_DEBUG_REQUEST_HEADER: "TRUE"}) is True
@@ -62,7 +62,7 @@ class TestMask:
         assert result.endswith("VCJ9")
         assert "****" in result or "**" in result
 
-    def test_litellm_key_masked(self):
+    def test_hangarllm_key_masked(self):
         result = MCPDebug._mask("Bearer sk-9876567890abcdef")
         assert result.startswith("Bearer")
         assert "sk-9876567890abcdef" not in result
@@ -73,7 +73,7 @@ class TestBuildDebugHeaders:
         headers = MCPDebug.build_debug_headers(
             inbound_headers={"host": "localhost"},
             oauth2_headers=None,
-            litellm_api_key=None,
+            hangarllm_api_key=None,
             auth_resolution="no-auth",
             server_url="https://mcp.example.com",
             server_auth_type="oauth2",
@@ -84,58 +84,58 @@ class TestBuildDebugHeaders:
         assert headers["x-mcp-debug-outbound-url"] == "https://mcp.example.com"
         assert headers["x-mcp-debug-server-auth-type"] == "oauth2"
 
-    def test_litellm_key_in_dedicated_header(self):
+    def test_hangarllm_key_in_dedicated_header(self):
         headers = MCPDebug.build_debug_headers(
             inbound_headers={
-                "x-litellm-api-key": "Bearer sk-9876567890abcdef",
+                "x-hangarllm-api-key": "Bearer sk-9876567890abcdef",
                 "host": "localhost",
             },
             oauth2_headers=None,
-            litellm_api_key="Bearer sk-9876567890abcdef",
+            hangarllm_api_key="Bearer sk-9876567890abcdef",
             auth_resolution="no-auth",
             server_url="https://mcp.example.com",
             server_auth_type="oauth2",
         )
-        assert "x-litellm-api-key=" in headers["x-mcp-debug-inbound-auth"]
+        assert "x-hangarllm-api-key=" in headers["x-mcp-debug-inbound-auth"]
         assert headers["x-mcp-debug-oauth2-token"] == "(none)"
 
     def test_same_key_flagged(self):
-        """When Authorization and x-litellm-api-key carry the same token."""
+        """When Authorization and x-hangarllm-api-key carry the same token."""
         headers = MCPDebug.build_debug_headers(
             inbound_headers={
                 "authorization": "Bearer sk-9876567890abcdef",
             },
             oauth2_headers={"Authorization": "Bearer sk-9876567890abcdef"},
-            litellm_api_key="Bearer sk-9876567890abcdef",
+            hangarllm_api_key="Bearer sk-9876567890abcdef",
             auth_resolution="oauth2-passthrough",
             server_url="https://mcp.example.com",
             server_auth_type="oauth2",
         )
-        assert "SAME_AS_LITELLM_KEY" in headers["x-mcp-debug-oauth2-token"]
+        assert "SAME_AS_HANGARLLM_KEY" in headers["x-mcp-debug-oauth2-token"]
 
     def test_different_tokens_not_flagged(self):
-        """When OAuth2 token is different from LiteLLM key."""
+        """When OAuth2 token is different from HangarLLM key."""
         headers = MCPDebug.build_debug_headers(
             inbound_headers={
-                "x-litellm-api-key": "Bearer sk-litellm-key-here",
+                "x-hangarllm-api-key": "Bearer sk-hangarllm-key-here",
                 "authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.atlassian",
             },
             oauth2_headers={
                 "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.atlassian"
             },
-            litellm_api_key="Bearer sk-litellm-key-here",
+            hangarllm_api_key="Bearer sk-hangarllm-key-here",
             auth_resolution="oauth2-passthrough",
             server_url="https://mcp.atlassian.com/v1/mcp",
             server_auth_type="oauth2",
         )
-        assert "SAME_AS_LITELLM_KEY" not in headers["x-mcp-debug-oauth2-token"]
+        assert "SAME_AS_HANGARLLM_KEY" not in headers["x-mcp-debug-oauth2-token"]
         assert headers["x-mcp-debug-auth-resolution"] == "oauth2-passthrough"
 
     def test_m2m_resolution(self):
         headers = MCPDebug.build_debug_headers(
-            inbound_headers={"x-litellm-api-key": "Bearer sk-key"},
+            inbound_headers={"x-hangarllm-api-key": "Bearer sk-key"},
             oauth2_headers=None,
-            litellm_api_key="Bearer sk-key",
+            hangarllm_api_key="Bearer sk-key",
             auth_resolution="m2m-client-credentials",
             server_url="https://mcp.example.com",
             server_auth_type="oauth2",
@@ -146,7 +146,7 @@ class TestBuildDebugHeaders:
         headers = MCPDebug.build_debug_headers(
             inbound_headers={},
             oauth2_headers=None,
-            litellm_api_key=None,
+            hangarllm_api_key=None,
             auth_resolution="no-auth",
             server_url=None,
             server_auth_type=None,
@@ -158,7 +158,7 @@ class TestBuildDebugHeaders:
         headers = MCPDebug.build_debug_headers(
             inbound_headers={},
             oauth2_headers=None,
-            litellm_api_key=None,
+            hangarllm_api_key=None,
             auth_resolution="no-auth",
             server_url=None,
             server_auth_type=None,
@@ -290,7 +290,7 @@ def test_failure_log_omits_unstructured_body():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["error", "empty", "large", "timeout", "read_failure", "closed", "success", "cancel"])
 async def test_error_capture_is_bounded_and_preserves_success_and_cancellation(mode):
-    from litellm.proxy.mcp_server.mcp_debug import capture_upstream_error_response
+    from hangarllm.proxy.mcp_server.mcp_debug import capture_upstream_error_response
 
     class Stream(httpx.AsyncByteStream):
         def __init__(self):
@@ -349,7 +349,7 @@ def test_failure_preview_handles_empty_scalar_control_and_long_bodies(body):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("slow_error", [False, True])
 async def test_error_capture_preserves_httpx_auth_retry(slow_error):
-    from litellm.proxy.mcp_server.mcp_debug import capture_upstream_error_response
+    from hangarllm.proxy.mcp_server.mcp_debug import capture_upstream_error_response
 
     class RetryAuth(httpx.Auth):
         def auth_flow(self, request):
@@ -467,8 +467,8 @@ async def test_concurrent_mcp_messages_record_on_their_own_http_scope(_mcp_reque
 
     from starlette.requests import Request
 
-    from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
-    from litellm.proxy.mcp_server.mcp_debug import (
+    from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from hangarllm.proxy.mcp_server.mcp_debug import (
         MCP_AUTH_DIAGNOSTICS_SCOPE_KEY,
         record_auth_resolution,
     )
@@ -541,7 +541,7 @@ def test_oversized_request_omits_potentially_reflected_response_credentials():
 async def test_streamed_error_redacts_reflected_credentials_before_capture():
     import json
 
-    from litellm.proxy.mcp_server.mcp_debug import capture_upstream_error_response
+    from hangarllm.proxy.mcp_server.mcp_debug import capture_upstream_error_response
 
     secret = "generic-credential-123"
     request = httpx.Request("POST", "https://upstream/token", data={"client_secret":secret})
@@ -567,7 +567,7 @@ def test_failure_diagnostics_omit_credential_bearing_url_paths(path):
 
 
 def test_deep_request_omits_response_when_credentials_cannot_be_inspected():
-    from litellm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
+    from hangarllm.proxy.mcp_server.utils import MAX_STRUCTURED_CONTENT_SCAN_DEPTH
 
     raw = "[" * (MAX_STRUCTURED_CONTENT_SCAN_DEPTH + 1) + '{"client_secret":"nested-credential"}' + "]" * (MAX_STRUCTURED_CONTENT_SCAN_DEPTH + 1)
     request = httpx.Request("POST", "https://upstream/token", content=raw, headers={"Content-Type": "application/json"})

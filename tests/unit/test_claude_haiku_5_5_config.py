@@ -15,9 +15,9 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
 REPO_ROOT: Final = os.path.join(os.path.dirname(__file__), "../..")
 
@@ -36,12 +36,12 @@ GET_WEATHER_TOOL: Final = {
 
 @pytest.fixture(autouse=True)
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _load_root_cost_map() -> dict[str, dict[str, object]]:
@@ -101,7 +101,7 @@ def test_haiku_5_5_runtime_profile(local_model_cost_map: None, model: str, provi
 def test_haiku_5_5_anthropic_tool_choice_required_maps_to_any(
     local_model_cost_map: None,
 ) -> None:
-    optional_params: Final = litellm.AnthropicConfig().map_openai_params(
+    optional_params: Final = hangarllm.AnthropicConfig().map_openai_params(
         non_default_params={
             "tools": [dict(GET_WEATHER_TOOL)],
             "tool_choice": "required",
@@ -116,7 +116,7 @@ def test_haiku_5_5_anthropic_tool_choice_required_maps_to_any(
 def test_haiku_5_5_bedrock_tool_choice_required_maps_to_any(
     local_model_cost_map: None,
 ) -> None:
-    optional_params: Final = litellm.AmazonConverseConfig().map_openai_params(
+    optional_params: Final = hangarllm.AmazonConverseConfig().map_openai_params(
         non_default_params={
             "tools": [dict(GET_WEATHER_TOOL)],
             "tool_choice": "required",

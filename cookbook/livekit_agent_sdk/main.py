@@ -1,8 +1,8 @@
 """
-Simple xAI Voice Agent using LiveKit SDK with LiteLLM Gateway
+Simple xAI Voice Agent using LiveKit SDK with HangarLLM Gateway
 
-This example shows how to use LiveKit's xAI realtime plugin through LiteLLM proxy.
-LiteLLM acts as a unified interface, allowing you to switch between xAI, OpenAI, 
+This example shows how to use LiveKit's xAI realtime plugin through HangarLLM proxy.
+HangarLLM acts as a unified interface, allowing you to switch between xAI, OpenAI, 
 and Azure realtime APIs without changing your agent code.
 """
 
@@ -12,15 +12,15 @@ import os
 import websockets
 
 # Configuration
-PROXY_URL = os.getenv("LITELLM_PROXY_URL", "http://localhost:4000")
-API_KEY = os.environ["LITELLM_API_KEY"]
-MODEL = os.getenv("LITELLM_MODEL", "grok-voice-agent")
+PROXY_URL = os.getenv("HANGARLLM_PROXY_URL", "http://localhost:4000")
+API_KEY = os.environ["HANGARLLM_API_KEY"]
+MODEL = os.getenv("HANGARLLM_MODEL", "grok-voice-agent")
 
 
 async def run_voice_agent():
     """
     Simple voice agent that:
-    1. Connects to xAI realtime API through LiteLLM proxy
+    1. Connects to xAI realtime API through HangarLLM proxy
     2. Sends a user message
     3. Streams back the response
     """
@@ -103,7 +103,7 @@ async def run_voice_agent():
 def main():
     """Run the voice agent"""
     print("=" * 70)
-    print("LiveKit xAI Voice Agent via LiteLLM Proxy")
+    print("LiveKit xAI Voice Agent via HangarLLM Proxy")
     print("=" * 70)
     print()
 
@@ -113,8 +113,8 @@ def main():
         print("\n\n👋 Goodbye!")
     except Exception as e:
         print(f"\n❌ Error: {e}")
-        print("\nMake sure LiteLLM proxy is running:")
-        print(f"  litellm --config config.yaml --port 4000")
+        print("\nMake sure HangarLLM proxy is running:")
+        print(f"  hangarllm --config config.yaml --port 4000")
 
 
 if __name__ == "__main__":

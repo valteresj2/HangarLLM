@@ -3,7 +3,7 @@ import { UI_BASE_URL } from "./constants";
 
 /**
  * App Router migration smoke under a non-root mount. Boot the proxy with the same
- * SERVER_ROOT_PATH (e.g. SERVER_ROOT_PATH=/litellm) and a UI built for it before
+ * SERVER_ROOT_PATH (e.g. SERVER_ROOT_PATH=/hangarllm) and a UI built for it before
  * running. globalSetup logs in at `${SERVER_ROOT_PATH}/ui/login` so the admin
  * storage state is valid under the prefix.
  */

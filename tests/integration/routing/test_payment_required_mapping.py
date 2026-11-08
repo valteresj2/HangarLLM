@@ -17,7 +17,7 @@ from integration._support.openai_wire import chat_reply, openai_error
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue
 
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
 T = TypeVar("T")
 
@@ -25,14 +25,14 @@ PROXY_WORKERS: Final = int(os.environ.get("INTEGRATION_PROXY_WORKERS", "1"))
 WORKER_SYNC_SECONDS: Final = 0.0 if PROXY_WORKERS == 1 else PROXY_CONFIG_RELOAD_INTERVAL_SECONDS + 5.0
 FRESH_CONNECTION: Final = {"Connection": "close"}
 UNKNOWN_MODEL: Final = "Invalid model name passed in model="
-PAYMENT_REQUIRED: Final = "litellm.PaymentRequiredError: AnthropicException"
-BAD_REQUEST: Final = "litellm.BadRequestError: AnthropicException"
+PAYMENT_REQUIRED: Final = "hangarllm.PaymentRequiredError: AnthropicException"
+BAD_REQUEST: Final = "hangarllm.BadRequestError: AnthropicException"
 ANTHROPIC_MODEL: Final = "anthropic/claude-sonnet-5"
 OPENAI_MODEL: Final = "openai/gpt-5.4"
 CREDIT_BALANCE_TEXT: Final = "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."
 FAILURE_ROW: Final = (
     "SELECT status, model_id, metadata::jsonb -> 'error_information' AS error "
-    'FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+    'FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 )
 MODEL_INFO_PROBE: Final = ("GET", "/v1/models")
 
@@ -77,7 +77,7 @@ def openai_params(wire: Wire) -> dict[str, JsonValue]:
 def deployment(
     scenario: Scenario,
     group: str,
-    litellm_params: Mapping[str, JsonValue],
+    hangarllm_params: Mapping[str, JsonValue],
     *,
     model_info: Mapping[str, JsonValue] | None = None,
 ) -> str:
@@ -85,7 +85,7 @@ def deployment(
         "/model/new",
         {
             "model_name": group,
-            "litellm_params": dict(litellm_params),
+            "hangarllm_params": dict(hangarllm_params),
             "model_info": dict(model_info) if model_info is not None else {},
         },
     )
@@ -165,7 +165,7 @@ def test_chat_completions_openai_sdk_gets_402_payment_required(gateway: Gateway)
         assert error.status_code == 402, error.message
         assert PAYMENT_REQUIRED in error.message, error.message
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(error.response.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(error.response.headers["x-hangarllm-call-id"], deployment_id)
 
 
 async def drain_chat_stream(client: openai.AsyncOpenAI, group: str, marker: str) -> None:
@@ -205,7 +205,7 @@ def test_chat_completions_stream_openai_async_sdk_gets_402_payment_required(gate
         assert error.status_code == 402, error.message
         assert PAYMENT_REQUIRED in error.message, error.message
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(error.response.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(error.response.headers["x-hangarllm-call-id"], deployment_id)
 
 
 def test_messages_anthropic_sdk_gets_402_payment_required(gateway: Gateway) -> None:
@@ -224,7 +224,7 @@ def test_messages_anthropic_sdk_gets_402_payment_required(gateway: Gateway) -> N
         assert error.status_code == 402, error.message
         assert PAYMENT_REQUIRED in error.message, error.message
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(error.response.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(error.response.headers["x-hangarllm-call-id"], deployment_id)
 
 
 def test_messages_stream_anthropic_async_sdk_gets_402_payment_required(gateway: Gateway) -> None:
@@ -248,7 +248,7 @@ def test_messages_stream_anthropic_async_sdk_gets_402_payment_required(gateway: 
         assert error.status_code == 402, error.message
         assert PAYMENT_REQUIRED in error.message, error.message
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(error.response.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(error.response.headers["x-hangarllm-call-id"], deployment_id)
 
 
 @pytest.mark.parametrize("stream", (False, True), ids=("json", "stream"))
@@ -262,7 +262,7 @@ def test_responses_httpx_gets_402_payment_required(gateway: Gateway, stream: boo
         assert PAYMENT_REQUIRED in response.text, response.text
         assert response.headers["content-type"].startswith("application/json"), response.headers
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(response.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(response.headers["x-hangarllm-call-id"], deployment_id)
 
 
 def test_402_with_a_text_body_still_maps_to_payment_required(gateway: Gateway) -> None:
@@ -279,7 +279,7 @@ def test_402_with_a_text_body_still_maps_to_payment_required(gateway: Gateway) -
         assert PAYMENT_REQUIRED in response.text, response.text
         assert text in response.text, response.text
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(response.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(response.headers["x-hangarllm-call-id"], deployment_id)
 
 
 def test_402_with_an_empty_body_still_maps_to_payment_required(gateway: Gateway) -> None:
@@ -291,7 +291,7 @@ def test_402_with_an_empty_body_still_maps_to_payment_required(gateway: Gateway)
         assert response.status_code == 402, response.text
         assert PAYMENT_REQUIRED in response.text, response.text
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(response.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(response.headers["x-hangarllm-call-id"], deployment_id)
 
 
 def test_402_with_a_5kb_message_maps_and_a_healthy_deployment_keeps_serving(gateway: Gateway) -> None:
@@ -313,7 +313,7 @@ def test_402_with_a_5kb_message_maps_and_a_healthy_deployment_keeps_serving(gate
         assert PAYMENT_REQUIRED in refused.text, refused.text
         assert "x" * 512 in refused.text, refused.text
         assert upstream_calls(broke, marker) == ("POST /v1/messages",)
-        assert_payment_required_row(refused.headers["x-litellm-call-id"], deployment_id)
+        assert_payment_required_row(refused.headers["x-hangarllm-call-id"], deployment_id)
         served: Final = post(gateway, "/v1/chat/completions", chat_body(healthy_group, f"{marker} healthy"))
         assert served.status_code == 200, served.text
         assert served.json()["choices"][0]["message"]["content"] == f"served {marker}", served.text
@@ -342,7 +342,7 @@ def test_anthropic_400_credit_balance_text_stays_a_bad_request(gateway: Gateway)
         assert response.status_code == 400, response.text
         assert BAD_REQUEST in response.text, response.text
         assert upstream_calls(wire, marker) == ("POST /v1/messages",)
-        row: Final = failure_row(response.headers["x-litellm-call-id"])
+        row: Final = failure_row(response.headers["x-hangarllm-call-id"])
         error: Final = object_value(row["error"])
         assert (row["status"], row["model_id"]) == ("failure", deployment_id), row
         assert (error["error_class"], error["error_code"]) == ("BadRequestError", "400"), row
@@ -357,7 +357,7 @@ def test_openai_compatible_402_reaches_the_caller_as_402(gateway: Gateway) -> No
         assert response.status_code == 402, response.text
         assert "scripted 402" in response.text, response.text
         assert upstream_calls(wire, marker) == ("POST /v1/chat/completions",)
-        row: Final = failure_row(response.headers["x-litellm-call-id"])
+        row: Final = failure_row(response.headers["x-hangarllm-call-id"])
         error: Final = object_value(row["error"])
         assert (row["status"], row["model_id"]) == ("failure", deployment_id), row
         assert (error["error_code"], error["llm_provider"]) == ("402", "openai"), row

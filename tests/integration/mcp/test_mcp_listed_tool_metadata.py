@@ -72,7 +72,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
     config["guardrails"] = [
         {
             "guardrail_name": "catalog-echo-" + uuid.uuid4().hex[:8],
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "custom_code",
                 "mode": "pre_mcp_call",
                 "default_on": True,
@@ -509,7 +509,7 @@ def test_an_admin_include_disabled_tools_listing_cannot_admit_a_guardrail_blocke
         view: Final = worker.client.get(
             "/mcp-rest/tools/list",
             params={"server_id": identity, "include_disabled_tools": "true"},
-            headers={"x-litellm-api-key": worker.key},
+            headers={"x-hangarllm-api-key": worker.key},
         )
         assert view.status_code == 200, view.text
         assert not any(entry["name"] == name for entry in view.json()["tools"]), view.text

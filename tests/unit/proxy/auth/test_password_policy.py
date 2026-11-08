@@ -1,6 +1,6 @@
 """
 Tests for the configurable password-strength policy in
-`litellm.proxy.auth.password_policy`, enforced on every path that persists a
+`hangarllm.proxy.auth.password_policy`, enforced on every path that persists a
 new or changed password for a locally-managed user.
 
 The breach-check (HIBP) tests inject a real AsyncHTTPHandler wrapping an
@@ -14,9 +14,9 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.auth.password_policy import (
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import ProxyErrorTypes, ProxyException
+from hangarllm.proxy.auth.password_policy import (
     DEFAULT_MIN_LENGTH,
     MIN_ALLOWED_LENGTH,
     PasswordPolicy,
@@ -184,7 +184,7 @@ async def test_breach_check_skipped_when_disabled():
 
 @pytest.mark.asyncio
 async def test_breach_check_skipped_in_offline_mode(monkeypatch):
-    monkeypatch.setenv("LITELLM_OFFLINE_MODE", "true")
+    monkeypatch.setenv("HANGARLLM_OFFLINE_MODE", "true")
     password = "correct horse battery staple"
     result = await validate_password_not_breached(
         password=password,
@@ -227,7 +227,7 @@ async def test_only_sha1_prefix_leaves_the_proxy():
     assert request.url.path == f"/range/{sha1[:5]}"
     assert sha1[5:] not in str(request.url)
     assert request.headers["Add-Padding"] == "true"
-    assert "litellm" in request.headers["User-Agent"]
+    assert "hangarllm" in request.headers["User-Agent"]
 
 
 @pytest.mark.asyncio

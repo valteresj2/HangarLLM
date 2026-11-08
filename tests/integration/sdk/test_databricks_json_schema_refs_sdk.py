@@ -7,7 +7,7 @@ import pytest
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-import litellm
+import hangarllm
 
 _QWEN_BACKEND: Final = "databricks-qwen35-122b-a10b"
 _CLAUDE_BACKEND: Final = "databricks-claude-haiku-4-5"
@@ -139,7 +139,7 @@ def _assert_strict_order_schema(schema: dict[str, JsonValue]) -> None:
     assert (parsed.additional_properties, parsed.defs["Person"].additional_properties) == (False, False), schema
 
 
-def _caller_order(response: litellm.ModelResponse) -> Order:
+def _caller_order(response: hangarllm.ModelResponse) -> Order:
     return Order.model_validate_json(
         _CallerCompletion.model_validate_json(response.model_dump_json()).choices[0].message.content
     )
@@ -155,7 +155,7 @@ _EXPECTED_ORDER: Final = Order(buyer=Person(name="Ada"), seller=Person(name="Bo"
 @pytest.mark.parametrize("backend", _BACKENDS)
 def test_databricks_pydantic_response_format_sends_strict_defs_refs(backend: str) -> None:
     with wire_server(lambda _request: _completion(backend)) as wire:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=f"databricks/{backend}",
             api_base=wire.url,
             api_key=_API_KEY,
@@ -165,14 +165,14 @@ def test_databricks_pydantic_response_format_sends_strict_defs_refs(backend: str
         )
         received: Final = wire.drain()
     _assert_strict_order_schema(_sent_schema(backend, received))
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     assert _caller_order(response) == _EXPECTED_ORDER
 
 
 @pytest.mark.parametrize("backend", _BACKENDS)
 async def test_databricks_pydantic_response_format_sends_strict_defs_refs_async(backend: str) -> None:
     with wire_server(lambda _request: _completion(backend)) as wire:
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model=f"databricks/{backend}",
             api_base=wire.url,
             api_key=_API_KEY,
@@ -182,5 +182,5 @@ async def test_databricks_pydantic_response_format_sends_strict_defs_refs_async(
         )
         received: Final = wire.drain()
     _assert_strict_order_schema(_sent_schema(backend, received))
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     assert _caller_order(response) == _EXPECTED_ORDER

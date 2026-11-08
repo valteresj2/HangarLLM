@@ -4,10 +4,10 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_twelvelabs_pegasus_transformation import (
+from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_twelvelabs_pegasus_transformation import (
     AmazonTwelveLabsPegasusConfig,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 
 
 def _make_messages() -> list[dict]:
@@ -64,7 +64,7 @@ def test_transform_request_includes_base64_media():
         model="twelvelabs.pegasus-1-2-v1:0",
         messages=_make_messages(),
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -84,7 +84,7 @@ def test_transform_request_includes_s3_media():
         model="twelvelabs.pegasus-1-2-v1:0",
         messages=_make_messages(),
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -106,7 +106,7 @@ def test_transform_response_accepts_null_finish_reason(finish_reason: str | None
         request_data={},
         messages=_make_messages(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

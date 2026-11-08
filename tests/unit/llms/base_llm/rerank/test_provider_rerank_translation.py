@@ -8,7 +8,7 @@ from pydantic import JsonValue
 from respx import MockRouter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
+import hangarllm
 
 
 class _Kwargs(TypedDict, total=False):
@@ -152,14 +152,14 @@ def _assert_translated_request(case: _Case, body: Mapping[str, JsonValue]) -> No
 async def test_basic_rerank(case: _Case, sync_mode: bool, respx_mock: MockRouter) -> None:
     route: Final = respx_mock.post(case["url"]).mock(return_value=_canned_response(case))
     if sync_mode:
-        response: Final = litellm.rerank(
+        response: Final = hangarllm.rerank(
             **dict(case["kwargs"]),
             query="hello",
             documents=["hello", "world"],
             top_n=2,
         )
     else:
-        response: Final = await litellm.arerank(
+        response: Final = await hangarllm.arerank(
             **dict(case["kwargs"]),
             query="hello",
             documents=["hello", "world"],

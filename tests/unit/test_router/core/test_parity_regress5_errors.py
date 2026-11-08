@@ -12,11 +12,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.exceptions import GuardrailRaisedException, UnsupportedEndpointError
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.router import Router
-from litellm.router_core import RouterCore
+import hangarllm
+from hangarllm.exceptions import GuardrailRaisedException, UnsupportedEndpointError
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.router import Router
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost, patch_direct_endpoints
 from tests.unit.test_router.core.fallbacks_helpers import (
     MESSAGES,
@@ -39,8 +39,8 @@ from tests.unit.test_router.core.streaming_helpers import chat_stream, collect_t
 
 install_orjson_stub_if_missing()
 
-NOTE: Final = "LiteLLM: model group"
-NO_FALLBACK: Final = "\n\nLiteLLM: model group 'a' failed with the error above. No fallback was attempted."
+NOTE: Final = "HangarLLM: model group"
+NO_FALLBACK: Final = "\n\nHangarLLM: model group 'a' failed with the error above. No fallback was attempted."
 LONG_MESSAGE: Final = "x" * 900
 
 
@@ -117,7 +117,7 @@ def test_a_single_attempt_endpoint_raises_with_no_note(make_core: MakeCore, host
     core: Final = build(make_core, fallbacks=[{"a": ["b"]}])
     show_router_debug(host)
     host.answer("openai/a", server_error())
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         core.responses(model="a", input="hi")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
     assert NOTE not in str(raised.value)
 
@@ -138,7 +138,7 @@ def test_a_strategy_marker_group_with_an_empty_list_says_no_fallbacks_are_config
         model_list=[
             {
                 "model_name": "qr",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/quality_router",
                     "quality_router_default_model": "t1",
                     "quality_router_config": {
@@ -148,8 +148,8 @@ def test_a_strategy_marker_group_with_an_empty_list_says_no_fallbacks_are_config
                 },
                 "model_info": {"id": "qr"},
             },
-            deployment("t1", "t1", model_info={"litellm_routing_preferences": {"quality_tier": 1}}),
-            deployment("t3", "t3", model_info={"litellm_routing_preferences": {"quality_tier": 3}}),
+            deployment("t1", "t1", model_info={"hangarllm_routing_preferences": {"quality_tier": 1}}),
+            deployment("t3", "t3", model_info={"hangarllm_routing_preferences": {"quality_tier": 3}}),
         ],
         num_retries=0,
     )
@@ -168,8 +168,8 @@ async def test_a_chain_that_only_names_the_failed_group_reads_the_primary_error(
     show_router_debug(host)
     host.answer("openai/a", rate_limit())
     assert str(await failed_with(core)).endswith(
-        "LiteLLM: model group 'a' failed with the error above. "
-        "Fallback to a also failed: litellm.RateLimitError: slow down"
+        "HangarLLM: model group 'a' failed with the error above. "
+        "Fallback to a also failed: hangarllm.RateLimitError: slow down"
     )
 
 
@@ -177,7 +177,7 @@ async def test_a_depth_spent_before_any_hop_reads_the_primary_error(make_core: M
     core: Final = build(make_core, fallbacks=[{"a": ["b"]}], max_fallbacks=0)
     show_router_debug(host)
     host.answer("openai/a", rate_limit())
-    assert str(await failed_with(core)).endswith("Fallback to b also failed: litellm.RateLimitError: slow down")
+    assert str(await failed_with(core)).endswith("Fallback to b also failed: hangarllm.RateLimitError: slow down")
     assert host.deployments_called() == ["a"]
 
 
@@ -193,9 +193,9 @@ async def test_every_order_level_failing_raises_the_last_levels_error_with_no_no
     show_router_debug(host)
     host.answer("openai/bb1", rate_limit(message="first"))
     host.answer("openai/bb2", rate_limit(message="second"))
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core, "bb")
-    assert str(raised.value) == "litellm.RateLimitError: second"
+    assert str(raised.value) == "hangarllm.RateLimitError: second"
     assert getattr(raised.value, "failed_deployment_id", None) == "bb2"
 
 
@@ -206,14 +206,14 @@ async def test_a_blocked_response_stamps_the_deployment(make_core: MakeCore, hos
     core: Final = build(make_core, content_policy_fallbacks=[{"a": ["a"]}])
     host.answer("openai/a", content_filtered())
     error: Final = await failed_with(core)
-    assert isinstance(error, litellm.ContentPolicyViolationError)
+    assert isinstance(error, hangarllm.ContentPolicyViolationError)
     assert getattr(error, "failed_deployment_id", None) == "a"
 
 
 def test_a_blocked_sync_response_stamps_the_deployment(make_core: MakeCore, host: EndpointHost) -> None:
     core: Final = build(make_core, content_policy_fallbacks=[{"a": ["a"]}])
     host.answer("openai/a", content_filtered())
-    with pytest.raises(litellm.ContentPolicyViolationError) as raised:
+    with pytest.raises(hangarllm.ContentPolicyViolationError) as raised:
         complete_sync(core)
     assert getattr(raised.value, "failed_deployment_id", None) == "a"
 
@@ -266,7 +266,7 @@ def test_a_sync_timeout_says_nothing_of_the_deployment(make_core: MakeCore, host
     core: Final = build(make_core)
     show_router_debug(host)
     host.answer("openai/a", timeout())
-    with pytest.raises(litellm.Timeout) as raised:
+    with pytest.raises(hangarllm.Timeout) as raised:
         complete_sync(core)
     assert "Deployment Info" not in str(raised.value)
 
@@ -285,7 +285,7 @@ async def test_a_default_fallback_with_no_deployment_is_the_name_the_error_gives
     make_core: MakeCore, host: EndpointHost
 ) -> None:
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0, default_fallbacks=["missing"])
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await complete(core, "nope")
     assert raised.value.model == "missing"
     assert "You passed in model=missing." in str(raised.value)
@@ -293,14 +293,14 @@ async def test_a_default_fallback_with_no_deployment_is_the_name_the_error_gives
 
 def test_an_empty_router_names_the_first_default_fallback(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[], num_retries=1, retry_after=0, default_fallbacks=["team-gpt", "gpt-4o-mini"])
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         complete_sync(core, "gpt-4o")
     assert raised.value.model == "team-gpt"
 
 
 async def test_an_unknown_alias_target_is_the_name_the_error_gives(make_core: MakeCore, host: EndpointHost) -> None:
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0, model_group_alias={"al": "nowhere"})
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await complete(core, "al")
     assert raised.value.model == "nowhere"
 
@@ -328,12 +328,12 @@ async def test_moderation_of_a_name_only_a_wildcard_serves_uses_the_wildcard(
 # --- R15, T7: pass-through ------------------------------------------------------------------------
 
 
-async def test_a_listed_pick_of_an_id_names_its_litellm_model(make_core: MakeCore) -> None:
+async def test_a_listed_pick_of_an_id_names_its_hangarllm_model(make_core: MakeCore) -> None:
     core: Final = make_core(
         model_list=[deployment("g", "p1", model="openai/b"), deployment("g", "p4", use_in_pass_through=True)],
         num_retries=0,
     )
-    with pytest.raises(litellm.BadRequestError, match="Deployment p1 does not support pass-through") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="Deployment p1 does not support pass-through") as raised:
         await core.select("p1", {}, kind="pass_through")  # pyright: ignore[reportCallIssue]  # PythonCore's select takes keyword options
     assert raised.value.model == "openai/b"
 
@@ -343,23 +343,23 @@ async def test_an_async_pick_of_an_id_names_the_id(make_core: MakeCore) -> None:
         model_list=[deployment("g", "p1", model="openai/b"), deployment("g", "p4", use_in_pass_through=True)],
         num_retries=0,
     )
-    with pytest.raises(litellm.BadRequestError, match="Deployment p1 does not support pass-through") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="Deployment p1 does not support pass-through") as raised:
         await core.async_get_available_deployment_for_pass_through("p1", {}, messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # the async pass-through pick
     assert raised.value.model == "p1"
 
 
-def unknown_provider(model: str = "nope") -> litellm.BadRequestError:
-    return litellm.BadRequestError(message="LLM Provider NOT provided", model=model, llm_provider="")
+def unknown_provider(model: str = "nope") -> hangarllm.BadRequestError:
+    return hangarllm.BadRequestError(message="LLM Provider NOT provided", model=model, llm_provider="")
 
 
 async def test_a_pass_through_to_an_unknown_model_carries_the_note(make_core: MakeCore, host: EndpointHost) -> None:
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
     show_router_debug(host)
     host.answer("nope", unknown_provider())
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.allm_passthrough_route(model="nope", method="GET", endpoint="/models")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
     assert str(raised.value).endswith(
-        "\n\nLiteLLM: model group 'nope' failed with the error above. No fallback was attempted."
+        "\n\nHangarLLM: model group 'nope' failed with the error above. No fallback was attempted."
     )
 
 
@@ -392,7 +392,7 @@ async def test_an_exception_naming_a_retried_deployment_exhausts_the_retries(
     with pytest.raises(UnsupportedEndpointError) as raised:
         await complete(core, "g")
     assert (raised.value.num_retries, raised.value.max_retries) == (1, 1)
-    assert "LiteLLM Retried: 1 times" in str(raised.value)
+    assert "HangarLLM Retried: 1 times" in str(raised.value)
     assert host.deployments_called("acompletion") == ["d1", "d2"]
 
 
@@ -415,7 +415,7 @@ async def test_every_deployment_refusing_raises_before_the_retries_are_exhausted
 async def test_model_none_is_a_bad_request(make_core: MakeCore, host: EndpointHost) -> None:
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
     show_router_debug(host)
-    with pytest.raises(litellm.BadRequestError, match="You passed in model=None") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="You passed in model=None") as raised:
         await core.acompletion(model=None, messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
     assert raised.value.status_code == 400
     assert NOTE not in str(raised.value)
@@ -423,7 +423,7 @@ async def test_model_none_is_a_bad_request(make_core: MakeCore, host: EndpointHo
 
 def test_sync_model_none_is_a_bad_request(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
-    with pytest.raises(litellm.BadRequestError, match="You passed in model=None"):
+    with pytest.raises(hangarllm.BadRequestError, match="You passed in model=None"):
         core.completion(model=None, messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
 
 
@@ -483,20 +483,20 @@ async def test_a_failure_already_logged_blocks_a_streams_count(make_core: MakeCo
     core: Final = make_core(
         model_list=[deployment("a", "a1", weight=1), deployment("a", "a2", weight=0)], num_retries=0, allowed_fails=0
     )
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = HangarLLMLogging(
         model="a",
         messages=MESSAGES,
         stream=True,
         call_type="acompletion",
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="c",
+        hangarllm_call_id="c",
         function_id="f",
     )
-    logging_obj.update_environment_variables(model="a", user=None, optional_params={}, litellm_params={})
+    logging_obj.update_environment_variables(model="a", user=None, optional_params={}, hangarllm_params={})
     logging_obj.model_call_details["has_logged_async_failure"] = True
     host.answer("openai/a1", chat_stream("hi", error=rate_limit(), fail_after=1))
-    stream: Final = await complete(core, stream=True, litellm_logging_obj=logging_obj)
-    with pytest.raises(litellm.RateLimitError):
+    stream: Final = await complete(core, stream=True, hangarllm_logging_obj=logging_obj)
+    with pytest.raises(hangarllm.RateLimitError):
         await collect_texts(stream)
     await settle()
     assert cooled(core, "a1", "a2") == {}

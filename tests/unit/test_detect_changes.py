@@ -23,8 +23,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / ".github" / "scripts" / "detect_changes.sh"
 CLASSIFIER = REPO_ROOT / ".circleci" / "scripts" / "classify_changes.sh"
 
-UI_FILE = "ui/litellm-dashboard/src/components/Teams.tsx"
-BACKEND_FILE = "litellm/proxy/proxy_server.py"
+UI_FILE = "ui/hangarllm-dashboard/src/components/Teams.tsx"
+BACKEND_FILE = "hangarllm/proxy/proxy_server.py"
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -101,7 +101,7 @@ def _run(
     env = {k: v for k, v in os.environ.items() if k not in {"GH_TOKEN", "GITHUB_TOKEN"}}
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
     env["GITHUB_OUTPUT"] = str(output_file)
-    env["REPO"] = "BerriAI/litellm"
+    env["REPO"] = "valteresj2/HangarLLM"
     env["PR_NUMBER"] = pr_number
     env["CHANGED_FILE_COUNT"] = changed_file_count if changed_file_count is not None else str(len(files))
     if category is not None:

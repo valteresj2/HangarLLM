@@ -8,7 +8,6 @@ license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
 authors = [
     { name = "HangarLLM contributors" },
-    { name = "BerriAI (original LiteLLM authors)" },
 ]
 dependencies = [
     # Ranges (not exact pins) so SDK consumers can coexist with their other
@@ -47,12 +46,11 @@ dependencies = [
 Homepage = "https://github.com/valteresj2/HangarLLM"
 Repository = "https://github.com/valteresj2/HangarLLM"
 Documentation = "https://github.com/valteresj2/HangarLLM#readme"
-Upstream = "https://github.com/BerriAI/litellm"
 
 # Optional extras use compatible ranges (like the core SDK above) so downstream
 # consumers can coexist with other packages and pick up security patches without
 # forking. Reproducibility for our Docker/CI comes from `uv.lock` (images install
-# via `uv sync --frozen`). A few deps stay exact-pinned: litellm's own
+# via `uv sync --frozen`). A few deps stay exact-pinned: hangarllm's own
 # sub-packages and the opentelemetry trio move in lockstep, and grpcio is
 # supply-chain-pinned to a vetted, aged release.
 [project.optional-dependencies]
@@ -87,7 +85,7 @@ proxy = [
     "mcp>=2.3.0,<3",
     "httpx2>=2.10.0,<3",
     "pydantic>=2.12.0,<3",
-    "litellm-proxy-extras==0.4.114",
+    "hangarllm-proxy-extras==0.4.114",
     "RestrictedPython>=8.5,<9.0",
     "rich>=13.9.4,<14.0",
     "InquirerPy>=0.3.4,<1.0",
@@ -115,7 +113,7 @@ cli = [
 extra_proxy = [
     "prisma>=0.11.0,<1.0",
     # Used by ProxyExtrasDBManager.spend_logs_is_partitioned() to detect a
-    # partitioned LiteLLM_SpendLogs and keep schema reconciliation from
+    # partitioned HangarLLM_SpendLogs and keep schema reconciliation from
     # fighting its composite primary key.
     "psycopg>=3.2,<4.0",
     "psycopg-binary>=3.2,<4.0",
@@ -151,13 +149,13 @@ grpc = [
 ]
 stt-vertex-chirp = [
     # Google Cloud Speech-to-Text v2 streaming (gRPC) for Chirp models on
-    # /v1/realtime. Imported lazily inside the backend so litellm core stays
+    # /v1/realtime. Imported lazily inside the backend so hangarllm core stays
     # usable without it.
     "google-cloud-speech>=2.40.0,<3.0",
 ]
 stt-nvidia-riva = [
     # NVIDIA Riva STT provider (gRPC). These are imported lazily inside the
-    # provider handler so litellm core remains usable without them.
+    # provider handler so hangarllm core remains usable without them.
     "grpcio>=1.67.1,<2.0",
     "protobuf>=5.26.1,<7.0",
     "soundfile>=0.12.1",
@@ -170,7 +168,7 @@ bedrock-realtime = [
     # InvokeModelWithBidirectionalStream API, which boto3 cannot do. This
     # experimental AWS SDK (with its smithy-* deps, pulled transitively)
     # provides the bidirectional stream; imported lazily in the realtime
-    # handler so litellm core stays usable without it. The awscrt extra is
+    # handler so hangarllm core stays usable without it. The awscrt extra is
     # required: the SDK's default aiohttp transport has no duplex streaming.
     "aws-sdk-bedrock-runtime[awscrt]>=0.10.0,<0.12.0; python_version >= '3.12'",
 ]
@@ -200,13 +198,10 @@ proxy-runtime = [
 ]
 
 [project.scripts]
-hangarllm = "litellm_cli.main:proxy_server"
-hangar = "litellm_cli.main:cli"
-hangarllm-proxy = "litellm_cli.main:litellm_proxy_cli"
-# upstream-compatible aliases (drop-in replacement for existing LiteLLM deployments)
-litellm = "litellm_cli.main:proxy_server"
-lite = "litellm_cli.main:cli"
-litellm-proxy = "litellm_cli.main:litellm_proxy_cli"
+hangarllm = "hangarllm_cli.main:proxy_server"
+hangar = "hangarllm_cli.main:cli"
+hangarllm-proxy = "hangarllm_cli.main:hangarllm_proxy_cli"
+lite = "hangarllm_cli.main:cli"
 
 [dependency-groups]
 dev = [
@@ -259,11 +254,7 @@ e2e-dev = [
     "psutil==7.2.2",
     "mcp>=2.3.0,<3",
 ]
-admin-mcp = [
-    "litellm-admin-mcp @ https://github.com/BerriAI/liteadmin-mcp/archive/31fb096904ae05684c0779110a93b135b5601182.tar.gz#sha256=5803a20a00a18177f4591706956f31be311879543049b8b38143ad90bb1cb0a6 ; python_version >= '3.12'",
-]
 proxy-dev = [
-    { include-group = "admin-mcp" },
     "prisma==0.11.0",
     "hypercorn==0.17.3",
     "prometheus-client==0.20.0",
@@ -287,7 +278,7 @@ ci = [
     "tenacity==8.5.0",
     "google-generativeai==0.8.6",
     # The Riva tests serve NVIDIA's own message definitions, which checks
-    # LiteLLM's hand-written copy of them on every run.
+    # HangarLLM's hand-written copy of them on every run.
     "nvidia-riva-client==2.16.0",
     "Pillow==12.3.0; python_version == '3.10'",
     "Pillow==13.0.0; python_version >= '3.11'",
@@ -334,29 +325,29 @@ requires = ["maturin==1.15.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-manifest-path = "litellm-rust/crates/python-bridge/Cargo.toml"
-module-name = "litellm.rust_bridge._native"
+manifest-path = "hangarllm-rust/crates/python-bridge/Cargo.toml"
+module-name = "hangarllm.rust_bridge._native"
 python-source = "."
-python-packages = ["litellm_cli", "hangarllm"]
+python-packages = ["hangarllm_cli"]
 bindings = "pyo3"
 features = ["extension-module"]
 profile = "release"
 editable-profile = "dev"
 include = [
-    "litellm/proxy/_experimental/out/**",
-    "litellm/router_strategy/complexity_router/artifacts/*.json",
-    "litellm/router_strategy/complexity_router/fuse_presets.json",
-    "litellm/proxy/model_insights_tasks.json",
-    "litellm/proxy/public_endpoints/whats_new.json",
-    "litellm/proxy/common_utils/codex_base_instructions.md",
-    "litellm/proxy/common_utils/codex_bundled_models_0.166.0.json",
+    "hangarllm/proxy/_experimental/out/**",
+    "hangarllm/router_strategy/complexity_router/artifacts/*.json",
+    "hangarllm/router_strategy/complexity_router/fuse_presets.json",
+    "hangarllm/proxy/model_insights_tasks.json",
+    "hangarllm/proxy/public_endpoints/whats_new.json",
+    "hangarllm/proxy/common_utils/codex_base_instructions.md",
+    "hangarllm/proxy/common_utils/codex_bundled_models_0.166.0.json",
     { path = "model_prices_and_context_window.json", format = "sdist" },
 ]
 exclude = [
-    "litellm/proxy/enterprise",
-    "litellm/proxy/enterprise/**",
-    "litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/guardrail_benchmarks",
-    "litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/guardrail_benchmarks/**",
+    "hangarllm/proxy/enterprise",
+    "hangarllm/proxy/enterprise/**",
+    "hangarllm/proxy/guardrails/guardrail_hooks/hangarllm_content_filter/guardrail_benchmarks",
+    "hangarllm/proxy/guardrails/guardrail_hooks/hangarllm_content_filter/guardrail_benchmarks/**",
     "**/__pycache__",
     "**/__pycache__/**",
     "**/.pytest_cache",
@@ -371,9 +362,9 @@ cache-keys = [
     { file = "pyproject.toml" },
     { file = "rust-toolchain.toml" },
     { file = ".cargo/config.toml" },
-    { file = "litellm-rust/Cargo.lock" },
-    { file = "litellm-rust/Cargo.toml" },
-    { file = "litellm-rust/crates/**/*" },
+    { file = "hangarllm-rust/Cargo.lock" },
+    { file = "hangarllm-rust/Cargo.toml" },
+    { file = "hangarllm-rust/crates/**/*" },
     { file = "model_prices_and_context_window.json" },
 ]
 constraint-dependencies = [
@@ -389,7 +380,7 @@ constraint-dependencies = [
     "filelock>=4.2.1; python_version >= '3.11'",
 ]
 override-dependencies = [
-    # semantic-router depends on upstream litellm, whose files would overwrite the litellm namespace HangarLLM ships.
+    # semantic-router declares this third-party package. The name must stay as published to keep it out.
     "litellm; sys_platform == 'never'",
     # a2a-sdk 1.x requires packaging>=24.0; lunary 1.4.x still caps at <24.0.
     "packaging>=24.0",
@@ -407,11 +398,11 @@ brotli = "2026-10-22T14:01:00Z"
 pypdf = "2026-10-28T17:01:00Z"
 
 [tool.uv.sources]
-litellm-proxy = { workspace = true }
-litellm-proxy-extras = { workspace = true }
+hangarllm-proxy = { workspace = true }
+hangarllm-proxy-extras = { workspace = true }
 
 [tool.uv.workspace]
-members = ["litellm-proxy-extras", "packaging/litellm-proxy"]
+members = ["hangarllm-proxy-extras", "packaging/hangarllm-proxy"]
 
 [tool.commitizen]
 version = "1.110.0"
@@ -442,10 +433,10 @@ filterwarnings = [
 # Mutation-testing scope. Driven by the manually-triggered workflow at
 # .github/workflows/mutation-test.yml. mutmut is not part of the project's
 # default install; it is pulled in via `uv run --with mutmut==<version>` in CI.
-# `also_copy = ["litellm/"]` is required because mutmut runs in a `mutants/`
-# sandbox and the test conftest imports from across the litellm package.
+# `also_copy = ["hangarllm/"]` is required because mutmut runs in a `mutants/`
+# sandbox and the test conftest imports from across the hangarllm package.
 paths_to_mutate = [
-    "litellm/proxy/management_endpoints/",
+    "hangarllm/proxy/management_endpoints/",
 ]
 # Only the unit tier that maps to paths_to_mutate. mutmut times and
 # coverage-maps this whole set once before mutating, so a tier that needs a
@@ -456,7 +447,7 @@ tests_dir = [
     "tests/unit/proxy/management_endpoints/",
 ]
 also_copy = [
-    "litellm/",
+    "hangarllm/",
 ]
 # Run the test suite once before mutation to gather line coverage, then skip
 # mutating lines no test exercises. Those mutants would survive regardless
@@ -483,5 +474,5 @@ pytest_add_cli_args = [
 ]
 
 [tool.coverage.run]
-source = ["litellm"]
+source = ["hangarllm"]
 relative_files = true

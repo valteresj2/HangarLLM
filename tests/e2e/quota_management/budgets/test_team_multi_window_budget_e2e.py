@@ -5,7 +5,7 @@ created with a tight 30s window and a roomy 1m window; a key on that team blocks
 the tight window's cap is exceeded, then - once the 30s elapses and the reset job runs
 (rescheduled fast via PROXY_BUDGET_RESCHEDULER_* in docker-compose) - the window resets
 and calls flow again. This exercises the reset_budget_windows TEAM branch (raw SQL over
-LiteLLM_TeamTable.budget_limits, the literal #25109 path), which had no live coverage.
+HangarLLM_TeamTable.budget_limits, the literal #25109 path), which had no live coverage.
 
 This also guards the /team/new write path: it must json.dumps the window list into
 the Json? column. A raw list there made Prisma reject the create with a 500 (the key
@@ -74,7 +74,7 @@ def test_team_short_window_blocks_then_resets(client: BudgetClient, resources: R
     key = client.generate_key(team_id=team_id, models=[MODEL])
     resources.defer(lambda: client.delete_key(key))
 
-    # 1. exhaust the tight window -> litellm returns budget_exceeded
+    # 1. exhaust the tight window -> hangarllm returns budget_exceeded
     start = time.monotonic()
     _drive_to_block(client, key)
 

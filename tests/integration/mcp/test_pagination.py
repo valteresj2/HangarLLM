@@ -13,8 +13,8 @@ from mcp import ClientSession, MCPError
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolRequest, CallToolRequestParams, CallToolResult, DiscoverResult, PaginatedRequestParams
 
-from litellm.mcp_client.client import MCPClient
-from litellm.types.mcp import MCPTransport
+from hangarllm.mcp_client.client import MCPClient
+from hangarllm.types.mcp import MCPTransport
 
 
 @asynccontextmanager
@@ -45,7 +45,7 @@ def config_file(directory: Path, upstream: str, protocol: str | None = None) -> 
     return config
 
 
-REMOVE_DATABASE = ("DATABASE_URL", "DATABASE_URL_READ_REPLICA", "LITELLM_LICENSE", "LITELLM_LICENSE_PATH")
+REMOVE_DATABASE = ("DATABASE_URL", "DATABASE_URL_READ_REPLICA", "HANGARLLM_LICENSE", "HANGARLLM_LICENSE_PATH")
 
 
 @pytest.mark.parametrize("protocol", ["2025-11-25", "2026-07-28"])
@@ -81,7 +81,7 @@ def test_catalog_pages_are_portable_repeatable_and_complete(tmp_path: Path, prot
         environment = {
             "STORE_MODEL_IN_DB": "False",
             "DISABLE_SCHEMA_UPDATE": "true",
-            "LITELLM_SALT_KEY": "shared-pagination-test",
+            "HANGARLLM_SALT_KEY": "shared-pagination-test",
         }
         with (
             owned_proxy(seed, tmp_path / "a", environment, **options) as a,
@@ -101,7 +101,7 @@ def test_no_salt_preserves_complete_lists_and_calls_but_rejects_continuations(tm
                 ("list_resource_templates", "resource_templates"),
             ):
                 if page_size == 1:
-                    with pytest.raises(MCPError, match="LITELLM_SALT_KEY"):
+                    with pytest.raises(MCPError, match="HANGARLLM_SALT_KEY"):
                         await getattr(session, method)()
                 else:
                     result = await getattr(session, method)()
@@ -124,7 +124,7 @@ def test_no_salt_preserves_complete_lists_and_calls_but_rejects_continuations(tm
     with paginated_mcp_peer(page_size=page_size) as peer, httpx.Client() as client:
         seed = Gateway(client, "sk-pagination-test", peer.url)
         config = config_file(tmp_path, peer.url)
-        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": ""}
+        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": ""}
         with owned_proxy(
             seed, tmp_path / "proxy", environment, config=config, database_setup=(), remove_environment=REMOVE_DATABASE
         ) as gateway:
@@ -205,7 +205,7 @@ def test_continuations_reauthorize_and_reject_registry_changes(tmp_path: Path, m
                 "db",
                 "push",
                 "--schema",
-                "litellm/proxy/schema.prisma",
+                "hangarllm/proxy/schema.prisma",
                 "--skip-generate",
             ],
             check=True,
@@ -223,12 +223,12 @@ def test_continuations_reauthorize_and_reject_registry_changes(tmp_path: Path, m
             environment = {
                 "DATABASE_URL": database_url,
                 "DISABLE_SCHEMA_UPDATE": "true",
-                "LITELLM_SALT_KEY": "shared-pagination-test",
+                "HANGARLLM_SALT_KEY": "shared-pagination-test",
             }
             options = dict(
                 config=config,
                 database_setup=(),
-                remove_environment=("DATABASE_URL_READ_REPLICA", "LITELLM_LICENSE", "LITELLM_LICENSE_PATH"),
+                remove_environment=("DATABASE_URL_READ_REPLICA", "HANGARLLM_LICENSE", "HANGARLLM_LICENSE_PATH"),
             )
             with (
                 owned_proxy(seed, tmp_path / "a", environment, **options) as a,
@@ -283,9 +283,9 @@ def test_cursor_rejects_changed_replica_configuration_before_dispatch(tmp_path: 
         environment = {
             "STORE_MODEL_IN_DB": "False",
             "DISABLE_SCHEMA_UPDATE": "true",
-            "LITELLM_SALT_KEY": "original-key",
+            "HANGARLLM_SALT_KEY": "original-key",
         }
-        second_environment = {**environment, "LITELLM_SALT_KEY": "rotated-key" if changed == "key" else "original-key"}
+        second_environment = {**environment, "HANGARLLM_SALT_KEY": "rotated-key" if changed == "key" else "original-key"}
         options = dict(database_setup=(), remove_environment=REMOVE_DATABASE)
         with (
             owned_proxy(seed, tmp_path / "a", environment, config=config, **options) as a,
@@ -325,7 +325,7 @@ def test_pages_preserve_supported_protocol_versions(tmp_path: Path):
     with paginated_mcp_peer() as peer, httpx.Client() as client:
         seed = Gateway(client, "sk-pagination-test", peer.url)
         config = config_file(tmp_path, peer.url)
-        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "shared-key"}
+        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "shared-key"}
         with owned_proxy(
             seed, tmp_path / "proxy", environment, config=config, database_setup=(), remove_environment=REMOVE_DATABASE
         ) as gateway:
@@ -360,7 +360,7 @@ def test_incomplete_discovery_never_establishes_a_bare_tool_route(tmp_path: Path
     with paginated_mcp_peer(repeat_cursor=True) as peer, httpx.Client() as client:
         seed = Gateway(client, "sk-pagination-test", peer.url)
         config = config_file(tmp_path, peer.url)
-        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "shared-key"}
+        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "shared-key"}
         with owned_proxy(
             seed, tmp_path / "proxy", environment, config=config, database_setup=(), remove_environment=REMOVE_DATABASE
         ) as gateway:
@@ -379,13 +379,13 @@ def test_partial_catalog_keeps_sanitized_failure_metadata_on_following_pages(tmp
                 first = await getattr(session, method)()
                 assert first.next_cursor
                 assert len(getattr(first, field)) == 1
-                fault = first.meta["litellm.ai/server_outcomes"]["broken"]
+                fault = first.meta["github.com/valteresj2/HangarLLM#readme"]["broken"]
                 assert fault["status"] != "ok"
                 assert "tag" not in fault
                 assert "untrusted upstream message" not in first.model_dump_json()
                 second = await getattr(session, method)(params=PaginatedRequestParams(cursor=first.next_cursor))
                 assert len(getattr(second, field)) == 1
-                assert second.meta["litellm.ai/server_outcomes"]["broken"] == fault
+                assert second.meta["github.com/valteresj2/HangarLLM#readme"]["broken"] == fault
 
     with paginated_mcp_peer() as healthy, paginated_mcp_peer(fail_listing=True) as broken, httpx.Client() as client:
         seed = Gateway(client, "sk-pagination-test", healthy.url)
@@ -393,7 +393,7 @@ def test_partial_catalog_keeps_sanitized_failure_metadata_on_following_pages(tmp
         values = yaml.safe_load(config.read_text())
         values["mcp_servers"]["broken"] = {"url": broken.url, "transport": "http"}
         config.write_text(yaml.safe_dump(values))
-        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "shared-key"}
+        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "shared-key"}
         with owned_proxy(
             seed, tmp_path / "proxy", environment, config=config, database_setup=(), remove_environment=REMOVE_DATABASE
         ) as gateway:
@@ -413,7 +413,7 @@ def test_failed_upstream_continuation_requires_restart_for_every_catalog(tmp_pat
     with paginated_mcp_peer(fail_continuation=True) as peer, httpx.Client() as client:
         seed = Gateway(client, "sk-pagination-test", peer.url)
         config = config_file(tmp_path, peer.url)
-        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "shared-key"}
+        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "shared-key"}
         with owned_proxy(
             seed, tmp_path / "proxy", environment, config=config, database_setup=(), remove_environment=REMOVE_DATABASE
         ) as gateway:
@@ -422,7 +422,7 @@ def test_failed_upstream_continuation_requires_restart_for_every_catalog(tmp_pat
 
 @pytest.mark.parametrize("foreign", [{"foreign": {"status": "error", "message": "foreign outcome"}}, "malformed"])
 def test_optional_catalog_ignores_upstream_gateway_outcomes(tmp_path: Path, foreign):
-    from litellm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import SERVER_OUTCOMES_META_KEY
 
     async def exercise(gateway):
         async with catalog_session(gateway) as session:
@@ -441,7 +441,7 @@ def test_optional_catalog_ignores_upstream_gateway_outcomes(tmp_path: Path, fore
     with paginated_mcp_peer(metadata={SERVER_OUTCOMES_META_KEY: foreign}) as peer, httpx.Client() as client:
         seed = Gateway(client, "sk-pagination-test", peer.url)
         config = config_file(tmp_path, peer.url)
-        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "shared-key"}
+        environment = {"STORE_MODEL_IN_DB": "False", "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "shared-key"}
         with owned_proxy(
             seed, tmp_path / "proxy", environment, config=config, database_setup=(), remove_environment=REMOVE_DATABASE
         ) as gateway:
@@ -477,13 +477,13 @@ def test_complete_initial_page_keeps_bare_routes_with_a_cached_database_revision
         monkeypatch.setenv("DATABASE_URL", database_url)
         subprocess.run(
             [sys.executable, "-I", "-m", "prisma", "db", "push", "--schema",
-             "litellm/proxy/schema.prisma", "--skip-generate"],
+             "hangarllm/proxy/schema.prisma", "--skip-generate"],
             check=True, capture_output=True, text=True,
         )
         subprocess.run(
             [sys.executable, "-I", "-m", "prisma", "db", "execute", "--schema",
-             "litellm/proxy/schema.prisma", "--file",
-             "litellm-proxy-extras/litellm_proxy_extras/migrations/20260923000000_add_mcp_catalog_revision_trigger/migration.sql"],
+             "hangarllm/proxy/schema.prisma", "--file",
+             "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations/20260923000000_add_mcp_catalog_revision_trigger/migration.sql"],
             check=True, capture_output=True, text=True,
         )
         with paginated_mcp_peer(page_size=3) as first, paginated_mcp_peer(page_size=3) as second, httpx.Client() as client:
@@ -492,10 +492,10 @@ def test_complete_initial_page_keeps_bare_routes_with_a_cached_database_revision
             config.write_text(yaml.safe_dump({
                 "model_list": [], "general_settings": {"master_key": seed.key, "store_model_in_db": True},
             }))
-            environment = {"DATABASE_URL": database_url, "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "shared-pagination-test"}
+            environment = {"DATABASE_URL": database_url, "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "shared-pagination-test"}
             with owned_proxy(
                 seed, tmp_path / "proxy", environment, config=config, database_setup=(),
-                remove_environment=("DATABASE_URL_READ_REPLICA", "LITELLM_LICENSE", "LITELLM_LICENSE_PATH"),
+                remove_environment=("DATABASE_URL_READ_REPLICA", "HANGARLLM_LICENSE", "HANGARLLM_LICENSE_PATH"),
             ) as gateway, gateway.scenario() as scenario:
                 first_id = register_mcp(scenario, first, "first")
                 second_id = register_mcp(scenario, second, "second")
@@ -503,10 +503,10 @@ def test_complete_initial_page_keeps_bare_routes_with_a_cached_database_revision
                 warm = gateway.client.get("/mcp-rest/tools/list", headers={"Authorization": "Bearer " + gateway.key}, params={"server_id": first_id})
                 assert warm.status_code == 200, warm.text
                 # A no-op SQL writer bumps the trigger revision without changing either server.
-                write_rows('UPDATE "LiteLLM_MCPServerTable" SET "alias" = "alias" WHERE "server_id" = %s', (first_id,))
+                write_rows('UPDATE "HangarLLM_MCPServerTable" SET "alias" = "alias" WHERE "server_id" = %s', (first_id,))
                 warm = gateway.client.get("/mcp-rest/tools/list", headers={"Authorization": "Bearer " + gateway.key}, params={"server_id": first_id})
                 assert warm.status_code == 200, warm.text
-                query = 'SELECT "reload_revision" FROM "LiteLLM_Config" WHERE "param_name" = %s'
+                query = 'SELECT "reload_revision" FROM "HangarLLM_Config" WHERE "param_name" = %s'
                 revision = read_rows(query, ("mcp_catalog",))
                 assert revision and revision[0]["reload_revision"] > 0
                 asyncio.run(exercise(Gateway(gateway.client, owner, second.url), first, second))
@@ -528,7 +528,7 @@ def test_missing_user_keeps_explicit_key_and_team_grants(
         monkeypatch.setenv("DATABASE_URL", database_url)
         subprocess.run(
             [sys.executable, "-I", "-m", "prisma", "db", "push", "--schema",
-             "litellm/proxy/schema.prisma", "--skip-generate"],
+             "hangarllm/proxy/schema.prisma", "--skip-generate"],
             check=True, capture_output=True, text=True,
         )
         with paginated_mcp_peer(page_size=3) as allowed, paginated_mcp_peer(page_size=3) as private, httpx.Client() as client:
@@ -537,8 +537,8 @@ def test_missing_user_keeps_explicit_key_and_team_grants(
             config.write_text(yaml.safe_dump({
                 "model_list": [], "general_settings": {"master_key": seed.key, "store_model_in_db": True},
             }))
-            environment = {"DATABASE_URL": database_url, "DISABLE_SCHEMA_UPDATE": "true", "LITELLM_SALT_KEY": "shared-pagination-test"}
-            options = dict(config=config, database_setup=(), remove_environment=("DATABASE_URL_READ_REPLICA", "LITELLM_LICENSE", "LITELLM_LICENSE_PATH"))
+            environment = {"DATABASE_URL": database_url, "DISABLE_SCHEMA_UPDATE": "true", "HANGARLLM_SALT_KEY": "shared-pagination-test"}
+            options = dict(config=config, database_setup=(), remove_environment=("DATABASE_URL_READ_REPLICA", "HANGARLLM_LICENSE", "HANGARLLM_LICENSE_PATH"))
             with (
                 owned_proxy(seed, tmp_path / "a", environment, **options) as a,
                 owned_proxy(seed, tmp_path / "b", environment, **options) as b,
@@ -550,7 +550,7 @@ def test_missing_user_keeps_explicit_key_and_team_grants(
                 for policy in ({"object_permission": {"mcp_servers": [identity]}}, {"team_id": team}):
                     user = "missing-" + uuid.uuid4().hex
                     key = scenario.key(user_id=user, **policy)
-                    assert read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,)) == []
+                    assert read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,)) == []
                     for replica in (a, b):
                         caller = McpCaller(replica, key, entry, alias="allowed")
                         allowed.drain()
@@ -578,7 +578,7 @@ def test_aggregate_freshness_matches_real_upstream() -> None:
         ListToolsResult,
     )
 
-    from litellm.proxy.mcp_server.catalog import combine_optional_catalog, list_tools_page
+    from hangarllm.proxy.mcp_server.catalog import combine_optional_catalog, list_tools_page
 
     async def exercise(peer: McpPeer) -> None:
         client: Final = MCPClient(server_url=peer.url, transport_type=MCPTransport.http, protocol_version="2026-07-28")
@@ -605,9 +605,9 @@ def test_aggregate_freshness_matches_real_upstream() -> None:
 
 @pytest.mark.parametrize("ttl_ms", [0, 9000])
 def test_discovery_cache_freshness_and_caller_isolation_over_http(ttl_ms: int) -> None:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     async def exercise(peer: McpPeer) -> None:
         server: Final = MCPServer(

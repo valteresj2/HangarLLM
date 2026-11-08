@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.llms.custom_httpx.http_handler import get_shared_realtime_ssl_context
-from litellm.types.realtime import RealtimeQueryParams
+from hangarllm.llms.custom_httpx.http_handler import get_shared_realtime_ssl_context
+from hangarllm.types.realtime import RealtimeQueryParams
 
 
 @pytest.mark.parametrize("api_base", ["https://api.openai.com/v1", "https://api.openai.com"])
 def test_openai_realtime_handler_url_construction(api_base):
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
 
     handler = OpenAIRealtime()
     url = handler.construct_url(
@@ -28,8 +28,8 @@ def test_openai_realtime_handler_url_construction(api_base):
 
 
 def test_openai_realtime_handler_url_with_extra_params():
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeQueryParams
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeQueryParams
 
     handler = OpenAIRealtime()
     api_base = "https://api.openai.com/v1"
@@ -53,8 +53,8 @@ def test_openai_realtime_handler_model_parameter_inclusion():
     was being excluded from the query string, causing OpenAI to return
     invalid_request_error.missing_model errors.
     """
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeQueryParams
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeQueryParams
 
     handler = OpenAIRealtime()
     api_base = "https://api.openai.com/"
@@ -92,8 +92,8 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_async_realtime_success():
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeQueryParams
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeQueryParams
 
     handler = OpenAIRealtime()
     api_base = "https://api.openai.com/v1"
@@ -121,7 +121,7 @@ async def test_async_realtime_success():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.openai.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.openai.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
         mock_streaming_instance = MagicMock()
@@ -147,8 +147,8 @@ async def test_async_realtime_url_contains_model():
     Test that the async_realtime method properly constructs a URL with the model parameter
     when connecting to OpenAI, preventing 'missing_model' errors.
     """
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeQueryParams
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeQueryParams
 
     handler = OpenAIRealtime()
     api_base = "https://api.openai.com/"
@@ -176,7 +176,7 @@ async def test_async_realtime_url_contains_model():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.openai.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.openai.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
 
@@ -218,8 +218,8 @@ async def test_async_realtime_url_contains_model():
 @pytest.mark.asyncio
 async def test_async_realtime_forwards_openai_beta_header_when_client_sends_it():
     """Upstream WS gets OpenAI-Beta: realtime=v1 only when the client WebSocket included it."""
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeQueryParams
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeQueryParams
 
     handler = OpenAIRealtime()
     api_base = "https://api.openai.com/"
@@ -251,7 +251,7 @@ async def test_async_realtime_forwards_openai_beta_header_when_client_sends_it()
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.openai.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.openai.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
         mock_streaming_instance = MagicMock()
@@ -280,10 +280,10 @@ async def test_async_realtime_uses_max_size_parameter():
     Test that the async_realtime method uses the REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
     constant for the max_size parameter to handle large base64 audio payloads.
 
-    This verifies the fix for: https://github.com/BerriAI/litellm/issues/15747
+    This verifies the fix for: upstream issue 15747
     """
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeQueryParams
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeQueryParams
 
     handler = OpenAIRealtime()
     api_base = "https://api.openai.com/"
@@ -311,7 +311,7 @@ async def test_async_realtime_uses_max_size_parameter():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.openai.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.openai.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
 
@@ -351,10 +351,10 @@ async def test_async_realtime_ws_url_has_no_ssl():
     Test that when using http:// api_base (converted to ws://), the ssl argument
     is set to None. The websockets library doesn't accept ssl argument for ws:// URIs.
 
-    This verifies the fix for: https://github.com/BerriAI/litellm/issues/19222
+    This verifies the fix for: upstream issue 19222
     """
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeQueryParams
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeQueryParams
 
     handler = OpenAIRealtime()
     api_base = "http://localhost:8113"  # Non-SSL local server
@@ -381,7 +381,7 @@ async def test_async_realtime_ws_url_has_no_ssl():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.openai.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.openai.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
 
@@ -419,8 +419,8 @@ async def test_async_realtime_upstream_handshake_refusal_sends_error_event_then_
     from websockets.exceptions import InvalidStatus
     from websockets.http11 import Response
 
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
-    from litellm.types.realtime import RealtimeErrorEvent
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.types.realtime import RealtimeErrorEvent
 
     handler = OpenAIRealtime()
     model = "gpt-realtime"
@@ -465,7 +465,7 @@ async def test_realtime_query_params_use_normalized_model_name(monkeypatch):
     """
     Ensure query params overwrite model with normalized provider model name.
     """
-    from litellm.realtime_api import main as realtime_main
+    from hangarllm.realtime_api import main as realtime_main
 
     mock_async_realtime = AsyncMock()
     monkeypatch.setattr(
@@ -489,7 +489,7 @@ async def test_realtime_query_params_use_normalized_model_name(monkeypatch):
         websocket=MagicMock(),
         api_key="sk-test",
         query_params=query_params,
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
     )
 
     called_kwargs = mock_async_realtime.call_args.kwargs
@@ -504,7 +504,7 @@ async def test_realtime_query_params_preserve_missing_model(monkeypatch):
     ?intent=transcription and send the model in session.update. Do not add
     model= back into the upstream query params when the client omitted it.
     """
-    from litellm.realtime_api import main as realtime_main
+    from hangarllm.realtime_api import main as realtime_main
 
     mock_async_realtime = AsyncMock()
     monkeypatch.setattr(
@@ -525,7 +525,7 @@ async def test_realtime_query_params_preserve_missing_model(monkeypatch):
         websocket=MagicMock(),
         api_key="sk-test",
         query_params=query_params,
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
     )
 
     called_kwargs = mock_async_realtime.call_args.kwargs
@@ -544,7 +544,7 @@ class _BackendConnection:
 
 
 def test_translation_url_uses_dedicated_path():
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
 
     handler = OpenAIRealtime()
     url = handler._construct_url(
@@ -558,7 +558,7 @@ def test_translation_url_uses_dedicated_path():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("beta_client", (False, True))
 async def test_translation_websocket_uses_direct_transport(beta_client: bool) -> None:
-    from litellm.llms.openai.realtime.handler import OpenAIRealtime
+    from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
 
     backend: Final = AsyncMock()
     pending: Final = asyncio.Event()

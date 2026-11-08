@@ -7,19 +7,19 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from litellm.llms.soniox.audio_transcription.transformation import (
+from hangarllm.llms.soniox.audio_transcription.transformation import (
     SonioxAudioTranscriptionConfig,
     SonioxInvalidFormParam,
     decode_soniox_form_params,
     raise_soniox_form_error,
 )
-from litellm.llms.soniox.common_utils import SonioxException
-from litellm.llms.soniox.types import (
+from hangarllm.llms.soniox.common_utils import SonioxException
+from hangarllm.llms.soniox.types import (
     SonioxContext,
     SonioxContextGeneralEntry,
     SonioxTranslationTerm,
 )
-from litellm.types.utils import TranscriptionResponse
+from hangarllm.types.utils import TranscriptionResponse
 
 
 def _make_response(payload: Dict[str, Any], status_code: int = 200) -> httpx.Response:
@@ -113,7 +113,7 @@ class TestValidateEnvironment:
             model="stt-async-v4",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
         )
         assert headers["Authorization"] == "Bearer sk-test"
@@ -126,7 +126,7 @@ class TestValidateEnvironment:
             model="stt-async-v4",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert headers["Authorization"] == "Bearer env-key"
 
@@ -139,7 +139,7 @@ class TestValidateEnvironment:
                 model="stt-async-v4",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
         assert exc_info.value.status_code == 401
 
@@ -150,7 +150,7 @@ class TestValidateEnvironment:
             model="stt-async-v4",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test",
         )
         assert headers["X-Trace-Id"] == "abc"
@@ -165,7 +165,7 @@ class TestGetCompleteUrl:
             api_key="sk-test",
             model="stt-async-v4",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://api.soniox.com"
 
@@ -176,7 +176,7 @@ class TestGetCompleteUrl:
             api_key="sk-test",
             model="stt-async-v4",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.example.com"
 
@@ -188,7 +188,7 @@ class TestTransformAudioTranscriptionRequest:
             model="stt-async-v4",
             audio_file=None,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result.data == {"model": "stt-async-v4"}
         assert result.files is None
@@ -205,7 +205,7 @@ class TestTransformAudioTranscriptionRequest:
                 "enable_speaker_diarization": True,
                 "soniox_polling_interval": 0.5,  # handler-only, must NOT appear
             },
-            litellm_params={},
+            hangarllm_params={},
         )
         body = result.data
         assert body["audio_url"] == "https://example.com/a.wav"
@@ -338,14 +338,14 @@ class TestTransformAudioTranscriptionResponse:
 
 class TestRenderSonioxTokens:
     def test_should_return_empty_string_for_no_tokens(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens
 
         assert render_soniox_tokens([]) == ""
 
 
 class TestRenderSonioxTokensAsSrt:
     def test_should_render_basic_srt(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": "Hello ", "start_ms": 0, "end_ms": 500},
@@ -357,7 +357,7 @@ class TestRenderSonioxTokensAsSrt:
         assert "Hello world." in result
 
     def test_should_split_cues_on_speaker_change(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": "Hi.", "start_ms": 0, "end_ms": 1000, "speaker": "1"},
@@ -370,19 +370,19 @@ class TestRenderSonioxTokensAsSrt:
         assert "Hey." in result
 
     def test_should_return_empty_string_for_no_timestamps(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [{"text": "no timestamps"}]
         result = render_soniox_tokens_as_srt(tokens)
         assert result == ""
 
     def test_should_return_empty_string_for_empty_tokens(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         assert render_soniox_tokens_as_srt([]) == ""
 
     def test_should_format_long_timestamps_correctly(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": "Late.", "start_ms": 3661000, "end_ms": 3662000},
@@ -407,7 +407,7 @@ def _subword_tokens(words, start_ms=0, subword_ms=150, inter_word_gap_ms=50):
 
 class TestCueGroupingAlignment:
     def test_should_split_cue_on_silence_gap_with_exact_timestamps(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         before, t = _subword_tokens(["hello", "there"])
         after, _ = _subword_tokens(["welcome", "back"], start_ms=t + 5000)
@@ -420,7 +420,7 @@ class TestCueGroupingAlignment:
         assert "welcome back" in cues[1]
 
     def test_should_not_bridge_pause_shorter_than_old_duration_cap(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         before, t = _subword_tokens(["first", "part"])
         after, _ = _subword_tokens(["second", "part"], start_ms=t + 3000)
@@ -431,7 +431,7 @@ class TestCueGroupingAlignment:
         assert "second part" in cues[1]
 
     def test_should_never_split_mid_word(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens, _ = _subword_tokens(["hello"] * 20)
         result = render_soniox_tokens_as_srt(tokens)
@@ -443,7 +443,7 @@ class TestCueGroupingAlignment:
             assert set(line.split()) == {"hello"}
 
     def test_should_split_after_sentence_final_punctuation(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens, _ = _subword_tokens(["That", "is", "done.", "Next", "topic"])
         result = render_soniox_tokens_as_srt(tokens)
@@ -453,7 +453,7 @@ class TestCueGroupingAlignment:
         assert cues[1].endswith("Next topic")
 
     def test_should_split_on_char_budget_at_word_boundary(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens, _ = _subword_tokens(["wonderful"] * 12)
         result = render_soniox_tokens_as_srt(tokens)
@@ -466,7 +466,7 @@ class TestCueGroupingAlignment:
             assert set(line.split()) == {"wonderful"}
 
     def test_should_exclude_untimestamped_translation_tokens_from_cues(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": " Good", "start_ms": 0, "end_ms": 200, "translation_status": "original", "language": "en"},
@@ -479,7 +479,7 @@ class TestCueGroupingAlignment:
         assert "00:00:00,000 --> 00:00:00,600" in result
 
     def test_should_split_before_word_whose_end_crosses_duration_cap(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [{"text": " hm", "start_ms": i * 650, "end_ms": i * 650 + 600} for i in range(10)] + [
             {"text": " boom", "start_ms": 6900, "end_ms": 7600}
@@ -492,7 +492,7 @@ class TestCueGroupingAlignment:
         assert cues[1].endswith("boom")
 
     def test_should_keep_untimestamped_word_in_cue(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": " uh", "start_ms": None, "end_ms": None},
@@ -509,8 +509,8 @@ def _cue_texts(srt: str) -> list:
 
 class TestMultilingualCueGrouping:
     def test_should_split_spaceless_chinese_on_width_budget(self):
-        from litellm.litellm_core_utils.audio_utils.subtitle_utils import _text_width
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.hangarllm_core_utils.audio_utils.subtitle_utils import _text_width
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [{"text": "你好", "start_ms": i * 100, "end_ms": i * 100 + 90} for i in range(60)]
         result = render_soniox_tokens_as_srt(tokens)
@@ -521,7 +521,7 @@ class TestMultilingualCueGrouping:
             assert set(text) <= {"你", "好"}
 
     def test_should_split_japanese_after_sentence_end_and_keep_punctuation_attached(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": "今日は", "start_ms": 0, "end_ms": 300},
@@ -535,7 +535,7 @@ class TestMultilingualCueGrouping:
         assert texts == ["今日はいい天気です。", "明日も晴れ"]
 
     def test_should_split_arabic_after_arabic_question_mark(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": " كيف", "start_ms": 0, "end_ms": 300},
@@ -547,7 +547,7 @@ class TestMultilingualCueGrouping:
         assert texts == ["كيف حالك؟", "أنا بخير"]
 
     def test_should_split_after_devanagari_and_urdu_terminators(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": " नमस्ते।", "start_ms": 0, "end_ms": 400},
@@ -559,7 +559,7 @@ class TestMultilingualCueGrouping:
         assert texts == ["नमस्ते।", "آپ ٹھیک۔", "शुभ"]
 
     def test_should_split_russian_after_sentence_end(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [
             {"text": " Как", "start_ms": 0, "end_ms": 200},
@@ -570,7 +570,7 @@ class TestMultilingualCueGrouping:
         assert texts == ["Как дела?", "Хорошо."]
 
     def test_should_not_split_latin_text_within_width_budget(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_srt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_srt
 
         tokens = [{"text": f" word{i}", "start_ms": i * 100, "end_ms": i * 100 + 90} for i in range(12)]
         texts = _cue_texts(render_soniox_tokens_as_srt(tokens))
@@ -579,7 +579,7 @@ class TestMultilingualCueGrouping:
 
 class TestRenderSonioxTokensAsVtt:
     def test_should_render_basic_vtt_with_header(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_vtt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_vtt
 
         tokens = [
             {"text": "Hello ", "start_ms": 0, "end_ms": 500},
@@ -591,7 +591,7 @@ class TestRenderSonioxTokensAsVtt:
         assert "Hello world." in result
 
     def test_should_return_header_only_for_empty_tokens(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_vtt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_vtt
 
         result = render_soniox_tokens_as_vtt([])
         assert result.startswith("WEBVTT\n")
@@ -600,7 +600,7 @@ class TestRenderSonioxTokensAsVtt:
         assert len(lines) == 1
 
     def test_should_use_dot_separator_not_comma(self):
-        from litellm.llms.soniox.common_utils import render_soniox_tokens_as_vtt
+        from hangarllm.llms.soniox.common_utils import render_soniox_tokens_as_vtt
 
         tokens = [{"text": "Test.", "start_ms": 1500, "end_ms": 2500}]
         result = render_soniox_tokens_as_vtt(tokens)

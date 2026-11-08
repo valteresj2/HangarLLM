@@ -10,8 +10,8 @@ from typing import Final
 import pytest
 import requests
 from pydantic import JsonValue, ValidationError
-from litellm.proxy.client.chat import ChatClient
-from litellm.proxy.client.exceptions import StreamError, UnauthorizedError
+from hangarllm.proxy.client.chat import ChatClient
+from hangarllm.proxy.client.exceptions import StreamError, UnauthorizedError
 
 
 def _load_http_mocking_responses():

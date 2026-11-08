@@ -11,19 +11,19 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.exceptions import BadRequestError, EndpointNotSupportedByModelError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.router import RouterRateLimitError
+import hangarllm
+from hangarllm.exceptions import BadRequestError, EndpointNotSupportedByModelError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.router import RouterRateLimitError
 from tests.unit.test_router.core.fallbacks_helpers import MESSAGES, MakeCore, complete, complete_sync, headers
 from tests.unit.test_router.core.scripted_host import CORE_BUILDERS, ScriptedHost, completion_response, deployment, server_error
 
 GROUP_LIMITS: Final = {"rpm": 5, "tpm": 1000}
 TEAM_OWNED: Final = {"team_id": "T1"}
 UNREADABLE_LIMIT: Final = {"rpm": "abc"}
-RETRY_COUNT: Final = "x-litellm-attempted-retries"
-FALLBACK_COUNT: Final = "x-litellm-attempted-fallbacks"
-GUARDRAILS: Final = [{"guardrail_name": "gr", "litellm_params": {"guardrail": "aporia", "mode": "pre_call"}}]
+RETRY_COUNT: Final = "x-hangarllm-attempted-retries"
+FALLBACK_COUNT: Final = "x-hangarllm-attempted-fallbacks"
+GUARDRAILS: Final = [{"guardrail_name": "gr", "hangarllm_params": {"guardrail": "aporia", "mode": "pre_call"}}]
 BLOCKED_RESPONSE: Final = {
     "id": "chatcmpl-blocked",
     "object": "chat.completion",
@@ -57,7 +57,7 @@ async def test_an_unreadable_group_limit_leaves_the_counts_off_the_response(
     with pytest.raises(ValidationError):
         await complete(core, "g")
     stamped: Final = headers(answered)
-    assert stamped["x-litellm-model-group"] == "g"
+    assert stamped["x-hangarllm-model-group"] == "g"
     assert RETRY_COUNT not in stamped
     assert FALLBACK_COUNT not in stamped
 
@@ -102,7 +102,7 @@ async def test_a_fallback_counts_itself_before_its_success_is_logged(
     """``run_async_fallback`` stamps the response, then awaits ``log_success_fallback_event``."""
     answered: Final = completion_response()
     logger: Final = _FallbackCountAtLog(answered)
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
     host.answer("openai/a1", server_error())
     host.answer("openai/b1", answered)
     core: Final = make_core(
@@ -123,7 +123,7 @@ async def test_a_guardrail_result_carries_the_router_headers(make_core: MakeCore
 
     core: Final = make_core(model_list=[deployment("g", "d1")], guardrail_list=GUARDRAILS)
     result: Final = await core.aguardrail(guardrail_name="gr", original_function=guard)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # an endpoint
-    assert headers(result) == {"x-litellm-model-group": "gr", RETRY_COUNT: 0, FALLBACK_COUNT: 0}
+    assert headers(result) == {"x-hangarllm-model-group": "gr", RETRY_COUNT: 0, FALLBACK_COUNT: 0}
 
 
 # --- the team filter -------------------------------------------------------------------------------

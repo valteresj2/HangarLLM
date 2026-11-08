@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import respx
 
-from litellm.llms.github_copilot.authenticator import Authenticator, github_api_headers
-from litellm.llms.github_copilot.common_utils import GetAccessTokenError, GetDeviceCodeError
+from hangarllm.llms.github_copilot.authenticator import Authenticator, github_api_headers
+from hangarllm.llms.github_copilot.common_utils import GetAccessTokenError, GetDeviceCodeError
 
 COPILOT_USER_URL: Final = "https://api.github.com/copilot_internal/user"
 DEVICE_CODE_URL: Final = "https://github.com/login/device/code"
@@ -37,8 +37,8 @@ def test_init_uses_default_access_token_path(tmp_path: Path, monkeypatch: pytest
 
     auth: Final = Authenticator()
 
-    assert auth.token_dir == str(tmp_path / ".config/litellm/github_copilot")
-    assert auth.access_token_file == str(tmp_path / ".config/litellm/github_copilot/access-token")
+    assert auth.token_dir == str(tmp_path / ".config/hangarllm/github_copilot")
+    assert auth.access_token_file == str(tmp_path / ".config/hangarllm/github_copilot/access-token")
 
 
 def test_ensure_token_dir_creates_missing_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -88,7 +88,7 @@ def test_get_api_key_returns_github_token_without_http(
     logged_in_token_dir: tuple[Path, str],
 ) -> None:
     _, token = logged_in_token_dir
-    with patch("litellm.llms.github_copilot.authenticator.get_httpx_client") as get_client:
+    with patch("hangarllm.llms.github_copilot.authenticator.get_httpx_client") as get_client:
         assert Authenticator().get_api_key() == token
     get_client.assert_not_called()
 
@@ -157,7 +157,7 @@ def test_get_api_base_does_not_trigger_device_login_without_saved_token(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
-    with patch("litellm.llms.github_copilot.authenticator.get_httpx_client") as get_client:
+    with patch("hangarllm.llms.github_copilot.authenticator.get_httpx_client") as get_client:
         assert Authenticator().get_api_base() is None
     get_client.assert_not_called()
 
@@ -280,7 +280,7 @@ def test_get_device_code_uses_runtime_url_and_client_id(
     client.post.return_value = response
     with (
         patch.dict(os.environ, environment),
-        patch("litellm.llms.github_copilot.authenticator.get_httpx_client", return_value=client),
+        patch("hangarllm.llms.github_copilot.authenticator.get_httpx_client", return_value=client),
     ):
         assert Authenticator()._get_device_code()["device_code"] == "dc"
     client.post.assert_called_once()
@@ -304,7 +304,7 @@ def test_get_device_code_sends_device_flow_request(
     response.raise_for_status.return_value = None
     client.post.return_value = response
 
-    with patch("litellm.llms.github_copilot.authenticator.get_httpx_client", return_value=client):
+    with patch("hangarllm.llms.github_copilot.authenticator.get_httpx_client", return_value=client):
         assert Authenticator()._get_device_code() == device_code
 
     client.post.assert_called_once_with(
@@ -325,7 +325,7 @@ def test_poll_for_access_token_sends_device_code_and_grant_type(
     response.raise_for_status.return_value = None
     client.post.return_value = response
 
-    with patch("litellm.llms.github_copilot.authenticator.get_httpx_client", return_value=client):
+    with patch("hangarllm.llms.github_copilot.authenticator.get_httpx_client", return_value=client):
         assert Authenticator()._poll_for_access_token("device-code") == "github-access-token"
 
     client.post.assert_called_once_with(
@@ -353,7 +353,7 @@ def test_poll_for_access_token_uses_runtime_url_and_client_id() -> None:
                 "GITHUB_COPILOT_CLIENT_ID": "custom-client",
             },
         ),
-        patch("litellm.llms.github_copilot.authenticator.get_httpx_client", return_value=client),
+        patch("hangarllm.llms.github_copilot.authenticator.get_httpx_client", return_value=client),
         patch("time.sleep"),
     ):
         assert Authenticator()._poll_for_access_token("dc") == "github-token"

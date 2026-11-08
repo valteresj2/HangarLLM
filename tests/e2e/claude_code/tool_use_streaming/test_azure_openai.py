@@ -1,7 +1,7 @@
 """tool_use_streaming x Azure OpenAI (GPT-5.6).
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Anthropic Messages
+mode against a running HangarLLM proxy that routes Anthropic Messages
 requests to Azure OpenAI deployments of the GPT-5.6 family (Sol,
 Terra, Luna), ask the model to invoke a built-in tool (`Bash`), and
 assert that the upstream (a) emitted a `tool_use` content block and
@@ -9,7 +9,7 @@ assert that the upstream (a) emitted a `tool_use` content block and
 events.
 
 Azure OpenAI streams tool arguments in the same chat-completions
-fragment shape as openai.com; LiteLLM must re-emit them as Anthropic
+fragment shape as openai.com; HangarLLM must re-emit them as Anthropic
 `input_json_delta` deltas rather than buffering the full input into
 one complete block.
 

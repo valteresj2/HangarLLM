@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import validate_excluded_services_value
-from litellm.types.utils import (
+from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import validate_excluded_services_value
+from hangarllm.types.utils import (
     CAPTURE_MESSAGE_CONTENT_VALUES,
     CallTypes,
     CaptureMessageContent,

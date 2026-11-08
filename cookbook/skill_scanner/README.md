@@ -1,6 +1,6 @@
 # Manual skill security scans
 
-This standalone adapter runs NVIDIA SkillSpector on a separate machine. It is not installed in the LiteLLM proxy and does not require a shared Helm or Compose deployment
+This standalone adapter runs NVIDIA SkillSpector on a separate machine. It is not installed in the HangarLLM proxy and does not require a shared Helm or Compose deployment
 
 Start it with Python 3.12 or newer and uv. The script pins SkillSpector and its HTTP dependencies
 
@@ -11,7 +11,7 @@ uv run server.py
 
 For another host, place the loopback service behind an HTTPS reverse proxy that forwards the Authorization header and enforces a 65 MiB request limit. Run it under an unprivileged account with a writable temporary directory and no production files or credentials. The scanner host needs Git and network access to requested sources and optional model providers. Apply network egress restrictions suitable for those sources
 
-Configure the same scanner secret in the gateway's environment, then add this to LiteLLM's configuration
+Configure the same scanner secret in the gateway's environment, then add this to HangarLLM's configuration
 
 ```yaml
 general_settings:

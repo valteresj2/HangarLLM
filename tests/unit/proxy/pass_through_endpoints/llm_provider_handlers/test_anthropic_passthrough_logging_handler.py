@@ -8,11 +8,11 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.anthropic.messages.stream_assembly import extract_sse_data
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.anthropic.messages.stream_assembly import extract_sse_data
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
     AnthropicPassthroughLoggingHandler,
 )
 from tests.unit.llms.anthropic.anthropic_docs_refusal import ANTHROPIC_DOCS_REFUSAL_MESSAGE
@@ -53,14 +53,14 @@ def mock_httpx_response() -> httpx.Response:
 
 
 @pytest.fixture
-def mock_logging_obj() -> LiteLLMLoggingObj:
-    logging_obj: Final = LiteLLMLoggingObj(
+def mock_logging_obj() -> HangarLLMLoggingObj:
+    logging_obj: Final = HangarLLMLoggingObj(
         model="claude-opus-4-7",
         messages=[],
         stream=False,
         call_type="completion",
         start_time=datetime(2025, 1, 1),
-        litellm_call_id="123",
+        hangarllm_call_id="123",
         function_id="456",
     )
     logging_obj.async_success_handler = AsyncMock()
@@ -145,7 +145,7 @@ class TestAnthropicLoggingHandlerModelFallback:
             '{"type": "message_stop"}',
         ]
 
-    def _create_mock_logging_obj(self, model_in_details: str = None) -> LiteLLMLoggingObj:
+    def _create_mock_logging_obj(self, model_in_details: str = None) -> HangarLLMLoggingObj:
         """Create a mock logging object with optional model in model_call_details"""
         mock_logging_obj = MagicMock()
 
@@ -179,7 +179,7 @@ class TestAnthropicLoggingHandlerModelFallback:
 
         # Act
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=passthrough_handler,
             url_route="/anthropic/v1/messages",
             request_body=request_body,
@@ -269,7 +269,7 @@ class TestAnthropicLoggingHandlerModelFallback:
 class TestAzureAnthropicCostCalculation:
     """Test the custom_llm_provider cost calculation logic for Azure AI Anthropic."""
 
-    def _create_mock_logging_obj(self, model: str = None, custom_llm_provider: str = None) -> LiteLLMLoggingObj:
+    def _create_mock_logging_obj(self, model: str = None, custom_llm_provider: str = None) -> HangarLLMLoggingObj:
         """Create a mock logging object with optional model and custom_llm_provider"""
         mock_logging_obj = MagicMock()
         mock_model_call_details = {}
@@ -278,15 +278,15 @@ class TestAzureAnthropicCostCalculation:
         if custom_llm_provider:
             mock_model_call_details["custom_llm_provider"] = custom_llm_provider
         mock_logging_obj.model_call_details = mock_model_call_details
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.hangarllm_call_id = "test-call-id"
         return mock_logging_obj
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_cost_calculation_with_azure_ai_custom_llm_provider(self, mock_completion_cost):
         """Test that custom_llm_provider is passed to completion_cost for Azure AI Anthropic"""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.001
 
@@ -303,7 +303,7 @@ class TestAzureAnthropicCostCalculation:
         end_time = datetime.now()
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            hangarllm_model_response=mock_response,
             model="claude-sonnet-4-5_gb_20250929",
             kwargs=kwargs,
             start_time=start_time,
@@ -317,12 +317,12 @@ class TestAzureAnthropicCostCalculation:
         assert call_kwargs["model"] == "azure_ai/claude-sonnet-4-5_gb_20250929"
         assert call_kwargs["custom_llm_provider"] == "azure_ai"
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_cost_calculation_without_custom_llm_provider(self, mock_completion_cost):
         """Test that cost calculation works without custom_llm_provider (standard Anthropic)"""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.001
 
@@ -338,7 +338,7 @@ class TestAzureAnthropicCostCalculation:
         end_time = datetime.now()
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            hangarllm_model_response=mock_response,
             model="claude-3-sonnet-20240229",
             kwargs=kwargs,
             start_time=start_time,
@@ -352,12 +352,12 @@ class TestAzureAnthropicCostCalculation:
         assert call_kwargs["model"] == "claude-3-sonnet-20240229"
         assert call_kwargs["custom_llm_provider"] is None
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_cost_calculation_does_not_duplicate_provider_prefix(self, mock_completion_cost):
         """Test that provider prefix is not duplicated if already present in model name"""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.001
 
@@ -376,7 +376,7 @@ class TestAzureAnthropicCostCalculation:
 
         # Model already has the provider prefix
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            hangarllm_model_response=mock_response,
             model="azure_ai/claude-sonnet-4-5_gb_20250929",
             kwargs=kwargs,
             start_time=start_time,
@@ -390,30 +390,30 @@ class TestAzureAnthropicCostCalculation:
         assert call_kwargs["model"] == "azure_ai/claude-sonnet-4-5_gb_20250929"
         assert call_kwargs["custom_llm_provider"] == "azure_ai"
 
-    @patch("litellm.completion_cost")
-    def test_cost_calculation_resolves_unknown_model_from_litellm_params(self, mock_completion_cost):
+    @patch("hangarllm.completion_cost")
+    def test_cost_calculation_resolves_unknown_model_from_hangarllm_params(self, mock_completion_cost):
         """When the body model is the "unknown" sentinel, the deployment model
-        from litellm_params must be used for costing, not "unknown" (which makes
+        from hangarllm_params must be used for costing, not "unknown" (which makes
         completion_cost raise and the cost silently fall back to $0)."""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.001
 
         logging_obj = self._create_mock_logging_obj(model="unknown")
-        logging_obj.model_call_details["litellm_params"] = {
+        logging_obj.model_call_details["hangarllm_params"] = {
             "model": "anthropic/claude-3-5-haiku-20241022",
             "metadata": {"model_group": "passthrough/anthropic/claude-3-5-haiku-20241022"},
         }
-        logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+        logging_obj.hangarllm_params = logging_obj.model_call_details["hangarllm_params"]
 
         mock_response = MagicMock(spec=ModelResponse)
         mock_response.id = "test-id"
         mock_response.model = "unknown"
 
         kwargs = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            hangarllm_model_response=mock_response,
             model="unknown",
             kwargs={},
             start_time=datetime.now(),
@@ -426,29 +426,29 @@ class TestAzureAnthropicCostCalculation:
         assert kwargs["response_cost"] == 0.001
         assert kwargs["model"] == "anthropic/claude-3-5-haiku-20241022"
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_cost_calculation_resolves_unknown_model_from_model_group(self, mock_completion_cost):
-        """With only model_group available (no deployment litellm_params.model),
+        """With only model_group available (no deployment hangarllm_params.model),
         the leading passthrough/ prefix must be stripped so the cost map can
         resolve the model."""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.002
 
         logging_obj = self._create_mock_logging_obj(model="unknown")
-        logging_obj.model_call_details["litellm_params"] = {
+        logging_obj.model_call_details["hangarllm_params"] = {
             "metadata": {"model_group": "passthrough/anthropic/claude-3-5-haiku-20241022"}
         }
-        logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+        logging_obj.hangarllm_params = logging_obj.model_call_details["hangarllm_params"]
 
         mock_response = MagicMock(spec=ModelResponse)
         mock_response.id = "test-id"
         mock_response.model = "unknown"
 
         kwargs = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            hangarllm_model_response=mock_response,
             model="unknown",
             kwargs={},
             start_time=datetime.now(),
@@ -460,30 +460,30 @@ class TestAzureAnthropicCostCalculation:
         assert mock_completion_cost.call_args[1]["model"] == "anthropic/claude-3-5-haiku-20241022"
         assert kwargs["response_cost"] == 0.002
 
-    @patch("litellm.completion_cost")
-    def test_cost_calculation_skips_unknown_litellm_params_model_for_model_group(self, mock_completion_cost):
-        """When litellm_params.model is itself the "unknown" sentinel, the
+    @patch("hangarllm.completion_cost")
+    def test_cost_calculation_skips_unknown_hangarllm_params_model_for_model_group(self, mock_completion_cost):
+        """When hangarllm_params.model is itself the "unknown" sentinel, the
         deployment-model branch must not short-circuit; resolution falls through
         to model_group so costing still prices the real model instead of "unknown"."""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.003
 
         logging_obj = self._create_mock_logging_obj(model="unknown")
-        logging_obj.model_call_details["litellm_params"] = {
+        logging_obj.model_call_details["hangarllm_params"] = {
             "model": "unknown",
             "metadata": {"model_group": "passthrough/anthropic/claude-3-5-haiku-20241022"},
         }
-        logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+        logging_obj.hangarllm_params = logging_obj.model_call_details["hangarllm_params"]
 
         mock_response = MagicMock(spec=ModelResponse)
         mock_response.id = "test-id"
         mock_response.model = "unknown"
 
         kwargs = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            hangarllm_model_response=mock_response,
             model="unknown",
             kwargs={},
             start_time=datetime.now(),
@@ -496,18 +496,18 @@ class TestAzureAnthropicCostCalculation:
         assert kwargs["response_cost"] == 0.003
         assert kwargs["model"] == "anthropic/claude-3-5-haiku-20241022"
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     def test_streaming_cost_calculation_resolves_model_from_message_start_chunk(self, mock_completion_cost):
-        """On the bare /anthropic passthrough path litellm_params carries no model
+        """On the bare /anthropic passthrough path hangarllm_params carries no model
         or model_group and the body model is the "unknown" sentinel; the model
         must be recovered from the message_start SSE event so completion_cost
         prices the real model instead of failing on "unknown" and logging $0."""
         from datetime import datetime
 
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             Logging as RealLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from hangarllm.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -568,16 +568,16 @@ class TestAzureAnthropicCostCalculation:
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="1",
         )
         logging_obj.model_call_details["model"] = "unknown"
         logging_obj.model_call_details["stream"] = True
-        logging_obj.model_call_details["litellm_params"] = {}
-        logging_obj.litellm_params = {}
+        logging_obj.model_call_details["hangarllm_params"] = {}
+        logging_obj.hangarllm_params = {}
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"stream": True},
@@ -657,7 +657,7 @@ class TestAnthropicBatchPassthroughCostTracking:
     def mock_logging_obj(self):
         """Mock logging object"""
         mock = MagicMock()
-        mock.litellm_call_id = "test-call-id-123"
+        mock.hangarllm_call_id = "test-call-id-123"
         mock.model_call_details = {}
         mock.model = None
         return mock
@@ -679,12 +679,12 @@ class TestAnthropicBatchPassthroughCostTracking:
         }
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
     )
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
     )
-    @patch("litellm.llms.anthropic.batches.transformation.AnthropicBatchesConfig")
+    @patch("hangarllm.llms.anthropic.batches.transformation.AnthropicBatchesConfig")
     def test_batch_creation_handler_success(
         self,
         mock_batches_config,
@@ -695,12 +695,12 @@ class TestAnthropicBatchPassthroughCostTracking:
         mock_request_body,
     ):
         """Test successful batch creation and managed object storage"""
-        from litellm.types.utils import LiteLLMBatch
+        from hangarllm.types.utils import HangarLLMBatch
 
         # Setup mocks
         mock_get_model_id.return_value = "claude-sonnet-4-5-20250929"
 
-        mock_batch_response = LiteLLMBatch(
+        mock_batch_response = HangarLLMBatch(
             id="msgbatch_01Wj7gkQk7gn4MpAKR8ZEDU2",
             object="batch",
             endpoint="/v1/messages",
@@ -760,22 +760,22 @@ class TestAnthropicBatchPassthroughCostTracking:
         assert result["result"].object == "batch"
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
     )
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
     )
     def test_batch_creation_handler_model_extraction_from_nested_request(
         self, mock_get_model_id, mock_store_batch, mock_httpx_response, mock_logging_obj
     ):
         """Test that model is correctly extracted from nested request structure"""
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-        from litellm.types.utils import LiteLLMBatch
+        from hangarllm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+        from hangarllm.types.utils import HangarLLMBatch
 
         # Setup mocks
         mock_get_model_id.return_value = "claude-sonnet-4-5-20250929"
 
-        mock_batch_response = LiteLLMBatch(
+        mock_batch_response = HangarLLMBatch(
             id="msgbatch_123",
             object="batch",
             endpoint="/v1/messages",
@@ -819,7 +819,7 @@ class TestAnthropicBatchPassthroughCostTracking:
             assert result["kwargs"]["model"] == "claude-sonnet-4-5-20250929"
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
+        "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
     )
     def test_batch_creation_handler_model_prefix_when_not_in_router(
         self,
@@ -831,13 +831,13 @@ class TestAnthropicBatchPassthroughCostTracking:
         """Test that model gets 'anthropic/' prefix when not found in router"""
         import base64
 
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-        from litellm.types.utils import LiteLLMBatch
+        from hangarllm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+        from hangarllm.types.utils import HangarLLMBatch
 
         # Model not in router - returns same model name
         mock_get_model_id.return_value = "claude-sonnet-4-5-20250929"
 
-        mock_batch_response = LiteLLMBatch(
+        mock_batch_response = HangarLLMBatch(
             id="msgbatch_123",
             object="batch",
             endpoint="/v1/messages",
@@ -875,7 +875,7 @@ class TestAnthropicBatchPassthroughCostTracking:
         [
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "metadata": {
                             "user_api_key_user_id": "real-user-123",
                             "user_api_key_team_id": "team-456",
@@ -896,14 +896,14 @@ class TestAnthropicBatchPassthroughCostTracking:
         expected_team_id,
     ):
         """The fabricated UserAPIKeyAuth must inherit user_id/team_id from the
-        request's litellm_params.metadata, not the (always-empty) top-level
+        request's hangarllm_params.metadata, not the (always-empty) top-level
         kwargs lookup. Falls back to "default-user" only when metadata is
         absent."""
         mock_managed_files_hook = MagicMock()
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.verbose_proxy_logger"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.verbose_proxy_logger"
             ),
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
@@ -925,8 +925,8 @@ class TestAnthropicBatchPassthroughCostTracking:
         mock_managed_files_hook = MagicMock()
         mock_managed_files_hook.store_unified_object_id = AsyncMock()
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
-            patch("litellm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"),
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
             AnthropicPassthroughLoggingHandler._store_batch_managed_object(
@@ -934,7 +934,7 @@ class TestAnthropicBatchPassthroughCostTracking:
                 batch_object={"id": "b1", "object": "batch", "status": "validating"},
                 model_object_id="b1",
                 logging_obj=mock_logging_obj,
-                litellm_params={"metadata": metadata},
+                hangarllm_params={"metadata": metadata},
             )
             await _drain_tasks()
         mock_managed_files_hook.store_unified_object_id.assert_awaited_once()
@@ -979,9 +979,9 @@ class TestAnthropicBatchPassthroughCostTracking:
         mock_managed_files_hook = MagicMock()
         mock_managed_files_hook.store_unified_object_id = AsyncMock(side_effect=RuntimeError("db down"))
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"
             ) as mock_logger,
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
@@ -990,7 +990,7 @@ class TestAnthropicBatchPassthroughCostTracking:
                 batch_object={"id": "b1", "object": "batch", "status": "validating"},
                 model_object_id="b1",
                 logging_obj=mock_logging_obj,
-                litellm_params={"metadata": {"user_api_key": "hashed-key-a"}},
+                hangarllm_params={"metadata": {"user_api_key": "hashed-key-a"}},
             )
             await _drain_tasks()
 
@@ -1055,17 +1055,17 @@ class TestAnthropicBatchPassthroughCostTracking:
         assert result["kwargs"]["batch_job_state"] == "failed"
         assert result["kwargs"]["response_cost"] == 0.0
 
-    @patch("litellm.proxy.proxy_server.proxy_logging_obj")
+    @patch("hangarllm.proxy.proxy_server.proxy_logging_obj")
     def test_store_batch_managed_object_success(self, mock_proxy_logging_obj, mock_logging_obj):
         """Test storing batch managed object"""
-        from litellm.types.utils import LiteLLMBatch
+        from hangarllm.types.utils import HangarLLMBatch
 
         # Setup mocks
         mock_managed_files_hook = MagicMock()
         mock_managed_files_hook.store_unified_object_id = AsyncMock()
         mock_proxy_logging_obj.get_proxy_hook.return_value = mock_managed_files_hook
 
-        batch_object = LiteLLMBatch(
+        batch_object = HangarLLMBatch(
             id="msgbatch_123",
             object="batch",
             endpoint="/v1/messages",
@@ -1096,7 +1096,7 @@ class TestBuildCompleteStreamingResponseRobustness:
     def _build(self, chunks: list[str]):
         return AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=chunks,
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             model="claude-3-sonnet-20240229",
         )
 
@@ -1206,7 +1206,7 @@ class TestPureTextFastPathParity:
     @staticmethod
     def _to_all_chunks(raw_frames):
         # Mirror production: raw bytes -> _convert_raw_bytes_to_str_lines.
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from hangarllm.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -1307,12 +1307,12 @@ class TestPureTextFastPathParity:
 
         legacy = AnthropicPassthroughLoggingHandler._build_complete_streaming_response_legacy(
             all_chunks=list(all_chunks),
-            litellm_logging_obj=lo1,
+            hangarllm_logging_obj=lo1,
             model="claude-3-5-sonnet-20241022",
         )
         fast = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=list(all_chunks),
-            litellm_logging_obj=lo2,
+            hangarllm_logging_obj=lo2,
             model="claude-3-5-sonnet-20241022",
         )
         assert self._norm(fast) == self._norm(legacy)
@@ -1321,7 +1321,7 @@ class TestPureTextFastPathParity:
         start = datetime.now()
         end = datetime.now()
         k_legacy = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=legacy,
+            hangarllm_model_response=legacy,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=start,
@@ -1329,7 +1329,7 @@ class TestPureTextFastPathParity:
             logging_obj=lo1,
         )
         k_fast = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=fast,
+            hangarllm_model_response=fast,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=start,
@@ -1551,7 +1551,7 @@ class TestInterruptedStreamOutputTokenRecovery:
     )
 
     def _interrupted_chunks(self, *, placeholder_output_tokens: int = 2, model: str | None = None):
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from hangarllm.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -1619,12 +1619,12 @@ class TestInterruptedStreamOutputTokenRecovery:
     def _run(self, all_chunks):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"model": self._MODEL, "stream": True}
-        logging_obj.litellm_call_id = "test-call-id"
-        logging_obj.litellm_params = {}
+        logging_obj.hangarllm_call_id = "test-call-id"
+        logging_obj.hangarllm_params = {}
         logging_obj.get_router_model_id.return_value = None
 
         return AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": self._MODEL, "stream": True},
@@ -1635,13 +1635,13 @@ class TestInterruptedStreamOutputTokenRecovery:
         )
 
     def test_interrupted_stream_retokenizes_buffered_output(self):
-        import litellm
+        import hangarllm
 
         placeholder = 2
         result = self._run(self._interrupted_chunks(placeholder_output_tokens=placeholder))
         usage = result["result"].usage
 
-        expected = litellm.token_counter(
+        expected = hangarllm.token_counter(
             model=self._MODEL,
             text=self._OUTPUT_TEXT,
             count_response_tokens=True,
@@ -1674,7 +1674,7 @@ class TestInterruptedStreamOutputTokenRecovery:
         that hidden cost over the recomputed one. The logged cost must price the
         recovered completion tokens, not the placeholder.
         """
-        import litellm
+        import hangarllm
 
         class _SuccessRecorder(CustomLogger):
             def __init__(self):
@@ -1685,13 +1685,13 @@ class TestInterruptedStreamOutputTokenRecovery:
                 self.success_kwargs.append(kwargs)
 
         recorder = _SuccessRecorder()
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model=self._PRICED_MODEL,
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="lit-6872",
+            hangarllm_call_id="lit-6872",
             function_id="lit-6872",
             dynamic_async_success_callbacks=[recorder],
         )
@@ -1699,12 +1699,12 @@ class TestInterruptedStreamOutputTokenRecovery:
             model=self._PRICED_MODEL,
             user="",
             optional_params={},
-            litellm_params={"custom_llm_provider": "anthropic"},
+            hangarllm_params={"custom_llm_provider": "anthropic"},
             custom_llm_provider="anthropic",
         )
         placeholder = 1
         handled = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": self._PRICED_MODEL, "stream": True},
@@ -1731,10 +1731,10 @@ class TestInterruptedStreamOutputTokenRecovery:
         recovered_tokens = handled["result"].usage.completion_tokens
         assert recovered_tokens > placeholder
         assert logged["completion_tokens"] == recovered_tokens
-        prompt_cost, completion_cost = litellm.cost_per_token(
+        prompt_cost, completion_cost = hangarllm.cost_per_token(
             model=self._PRICED_MODEL, prompt_tokens=29, completion_tokens=recovered_tokens
         )
-        _, placeholder_completion_cost = litellm.cost_per_token(
+        _, placeholder_completion_cost = hangarllm.cost_per_token(
             model=self._PRICED_MODEL, prompt_tokens=29, completion_tokens=placeholder
         )
         assert logged["response_cost"] == pytest.approx(prompt_cost + completion_cost)
@@ -1764,14 +1764,14 @@ class TestStreamFalseDeduplication:
         return f"event: {event}\ndata: {json.dumps(data)}\n\n".encode()
 
     @staticmethod
-    def _make_logging_obj(stream: bool = False) -> LiteLLMLoggingObj:
-        logging_obj = LiteLLMLoggingObj(
+    def _make_logging_obj(stream: bool = False) -> HangarLLMLoggingObj:
+        logging_obj = HangarLLMLoggingObj(
             model="claude-3-5-sonnet-20241022",
             messages=[{"role": "user", "content": "hello"}],
             stream=stream,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="1245",
         )
         return logging_obj
@@ -1822,7 +1822,7 @@ class TestStreamFalseDeduplication:
             ),
             TestStreamFalseDeduplication._sse("message_stop", {"type": "message_stop"}),
         ]
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from hangarllm.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -1838,7 +1838,7 @@ class TestStreamFalseDeduplication:
         Before the fix: model_call_details had no complete_streaming_response key.
         The log showed: "kwargs stream: True + complete streaming response: None"
         """
-        from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+        from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
             EndpointType,
         )
 
@@ -1849,7 +1849,7 @@ class TestStreamFalseDeduplication:
         all_chunks = list(self._build_chunks())
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-sonnet-20241022", "stream": True},
@@ -1878,7 +1878,7 @@ class TestStreamFalseDeduplication:
         This is the _is_assembled_stream_success gate: with stream=False it
         always returned False and the guard was permanently disabled.
         """
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         # Simulate what pass_through_endpoints.py now does after stream detection
         logging_obj = self._make_logging_obj(stream=False)
@@ -1915,7 +1915,7 @@ class TestStreamFalseDeduplication:
         _is_assembled_stream_success always returned False and duplicate
         callback dispatches were never blocked.
         """
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         # logging_obj starts with stream=False, as created before the request
         logging_obj = self._make_logging_obj(stream=False)
@@ -1948,7 +1948,7 @@ class TestStreamFalseDeduplication:
 
         This test documents the old broken behavior so the fix is clearly justified.
         """
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         logging_obj = self._make_logging_obj(stream=False)
         mock_response = ModelResponse(model="claude-3-5-sonnet-20241022")
@@ -1969,14 +1969,14 @@ class TestNonStreamingResponseRedaction:
     """
 
     @staticmethod
-    def _make_logging_obj(stream: bool) -> LiteLLMLoggingObj:
-        logging_obj = LiteLLMLoggingObj(
+    def _make_logging_obj(stream: bool) -> HangarLLMLoggingObj:
+        logging_obj = HangarLLMLoggingObj(
             model="claude-3-5-sonnet-20241022",
             messages=[{"role": "user", "content": "hello"}],
             stream=stream,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="1245",
         )
         # pass_through_request mirrors the stream flag onto model_call_details,
@@ -1985,13 +1985,13 @@ class TestNonStreamingResponseRedaction:
         return logging_obj
 
     def test_non_streaming_does_not_set_complete_streaming_response(self):
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         logging_obj = self._make_logging_obj(stream=False)
         response = ModelResponse(model="claude-3-5-sonnet-20241022")
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=response,
+            hangarllm_model_response=response,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=datetime.now(),
@@ -2004,13 +2004,13 @@ class TestNonStreamingResponseRedaction:
         )
 
     def test_streaming_sets_complete_streaming_response(self):
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         logging_obj = self._make_logging_obj(stream=True)
         response = ModelResponse(model="claude-3-5-sonnet-20241022")
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=response,
+            hangarllm_model_response=response,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=datetime.now(),
@@ -2021,10 +2021,10 @@ class TestNonStreamingResponseRedaction:
         assert logging_obj.model_call_details.get("complete_streaming_response") is response
 
     def test_non_streaming_response_is_redacted_when_message_logging_off(self):
-        from litellm.litellm_core_utils.redact_messages import (
+        from hangarllm.hangarllm_core_utils.redact_messages import (
             redact_message_input_output_from_logging,
         )
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         logging_obj = self._make_logging_obj(stream=False)
         response = ModelResponse(
@@ -2033,7 +2033,7 @@ class TestNonStreamingResponseRedaction:
         )
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=response,
+            hangarllm_model_response=response,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=datetime.now(),
@@ -2041,8 +2041,8 @@ class TestNonStreamingResponseRedaction:
             logging_obj=logging_obj,
         )
 
-        logging_obj.model_call_details["litellm_params"] = {
-            "metadata": {"headers": {"x-litellm-enable-message-redaction": True}}
+        logging_obj.model_call_details["hangarllm_params"] = {
+            "metadata": {"headers": {"x-hangarllm-enable-message-redaction": True}}
         }
 
         redacted = redact_message_input_output_from_logging(
@@ -2052,7 +2052,7 @@ class TestNonStreamingResponseRedaction:
 
         leaked = logging_obj.model_call_details.get("complete_streaming_response")
         assert leaked is None
-        assert redacted.choices[0].message.content == "redacted-by-litellm"
+        assert redacted.choices[0].message.content == "redacted-by-hangarllm"
 
 
 def _sse_bytes(data: dict) -> bytes:
@@ -2199,7 +2199,7 @@ class TestAnthropicUsageOnlyFallback:
         assert extract_sse_data(event_str) == expected
 
     def _real_logging_obj(self):
-        from litellm.litellm_core_utils.litellm_logging import Logging as RealLoggingObj
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as RealLoggingObj
 
         logging_obj = RealLoggingObj(
             model="claude-3-5-haiku-20241022",
@@ -2207,14 +2207,14 @@ class TestAnthropicUsageOnlyFallback:
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="1",
         )
-        logging_obj.model_call_details["litellm_params"] = {}
-        logging_obj.litellm_params = {}
+        logging_obj.model_call_details["hangarllm_params"] = {}
+        logging_obj.hangarllm_params = {}
         return logging_obj
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     @patch.object(AnthropicPassthroughLoggingHandler, "build_complete_streaming_response")
     def test_handler_falls_back_when_assembly_returns_none(self, mock_assemble, mock_cost):
         mock_assemble.return_value = None
@@ -2222,7 +2222,7 @@ class TestAnthropicUsageOnlyFallback:
         logging_obj = self._real_logging_obj()
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2236,12 +2236,12 @@ class TestAnthropicUsageOnlyFallback:
         assert result["result"].usage.completion_tokens == 55
         assert result["kwargs"]["response_cost"] == 0.0021
 
-    @patch("litellm.completion_cost")
+    @patch("hangarllm.completion_cost")
     @patch.object(AnthropicPassthroughLoggingHandler, "build_complete_streaming_response")
     def test_handler_falls_back_when_assembly_raises(self, mock_assemble, mock_cost):
-        import litellm
+        import hangarllm
 
-        mock_assemble.side_effect = litellm.APIError(
+        mock_assemble.side_effect = hangarllm.APIError(
             status_code=500,
             message="boom",
             llm_provider="anthropic",
@@ -2251,7 +2251,7 @@ class TestAnthropicUsageOnlyFallback:
         logging_obj = self._real_logging_obj()
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2276,7 +2276,7 @@ class TestAnthropicUsageOnlyFallback:
         chunks = [_sse_bytes({"type": "content_block_delta", "delta": {"text": "hi"}})]
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2299,7 +2299,7 @@ class TestAnthropicUsageOnlyFallback:
         logging_obj = self._real_logging_obj()
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2344,21 +2344,21 @@ class TestAnthropicPassthroughFastMode:
         'data: {"type": "message_stop"}',
     ]
 
-    def _logging_obj(self) -> LiteLLMLoggingObj:
-        return LiteLLMLoggingObj(
+    def _logging_obj(self) -> HangarLLMLoggingObj:
+        return HangarLLMLoggingObj(
             model=self.MODEL,
             messages=[],
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="fast-mode",
+            hangarllm_call_id="fast-mode",
             function_id="fast-mode",
         )
 
     def _cost(self, response) -> float:
-        import litellm
+        import hangarllm
 
-        return litellm.completion_cost(completion_response=response, model=f"anthropic/{self.MODEL}")
+        return hangarllm.completion_cost(completion_response=response, model=f"anthropic/{self.MODEL}")
 
     def _expected_fast_cost(self, standard_cost: float) -> float:
         return standard_cost * 2.0
@@ -2400,13 +2400,13 @@ class TestAnthropicPassthroughFastMode:
     def test_streaming_reconstruction_applies_fast_multiplier(self):
         fast = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=self.STREAM_CHUNKS,
-            litellm_logging_obj=self._logging_obj(),
+            hangarllm_logging_obj=self._logging_obj(),
             model=self.MODEL,
             speed="fast",
         )
         standard = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=self.STREAM_CHUNKS,
-            litellm_logging_obj=self._logging_obj(),
+            hangarllm_logging_obj=self._logging_obj(),
             model=self.MODEL,
         )
 
@@ -2456,14 +2456,14 @@ class TestRecordPartialUsageForFailure:
         return f"event: {event}\ndata: {json.dumps(data)}\n\n".encode()
 
     @staticmethod
-    def _make_logging_obj() -> LiteLLMLoggingObj:
-        return LiteLLMLoggingObj(
+    def _make_logging_obj() -> HangarLLMLoggingObj:
+        return HangarLLMLoggingObj(
             model="claude-sonnet-5",
             messages=[{"role": "user", "content": "hello"}],
             stream=True,
             call_type="anthropic_messages",
             start_time=datetime.now(),
-            litellm_call_id="test-partial-usage-failure",
+            hangarllm_call_id="test-partial-usage-failure",
             function_id="test-partial-usage-failure",
         )
 
@@ -2499,7 +2499,7 @@ class TestRecordPartialUsageForFailure:
         logging_obj = self._make_logging_obj()
 
         AnthropicPassthroughLoggingHandler.record_partial_usage_for_failure(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             request_body={"model": "claude-sonnet-5", "stream": True},
             all_chunks=self._interrupted_chunks(),
         )
@@ -2512,7 +2512,7 @@ class TestRecordPartialUsageForFailure:
         logging_obj = self._make_logging_obj()
 
         AnthropicPassthroughLoggingHandler.record_partial_usage_for_failure(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             request_body={"model": "claude-unpriced-test-model", "stream": True},
             all_chunks=self._interrupted_chunks(model="claude-unpriced-test-model"),
         )
@@ -2525,7 +2525,7 @@ class TestRecordPartialUsageForFailure:
         logging_obj = self._make_logging_obj()
 
         AnthropicPassthroughLoggingHandler.record_partial_usage_for_failure(
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             request_body={"model": "claude-sonnet-5", "stream": True},
             all_chunks=[],
         )
@@ -2583,7 +2583,7 @@ def test_extract_model_reads_a_message_start_whose_json_holds_unicode_line_separ
 @pytest.mark.asyncio
 async def test_anthropic_passthrough_handler(mock_httpx_response, mock_response, mock_logging_obj):
     """
-    Unit test - Assert that the anthropic passthrough handler calls the litellm logging object's async_success_handler
+    Unit test - Assert that the anthropic passthrough handler calls the hangarllm logging object's async_success_handler
     """
     start_time = datetime.now()
     end_time = datetime.now()
@@ -2599,26 +2599,26 @@ async def test_anthropic_passthrough_handler(mock_httpx_response, mock_response,
         cache_hit=False,
     )
 
-    assert isinstance(result["result"], litellm.ModelResponse)
+    assert isinstance(result["result"], hangarllm.ModelResponse)
 
 
 @pytest.mark.parametrize(
     "metadata_params",
-    [{"metadata": {"user_id": "test"}}, {"litellm_metadata": {"user": "test"}}, {}],
+    [{"metadata": {"user_id": "test"}}, {"hangarllm_metadata": {"user": "test"}}, {}],
 )
 def test_create_anthropic_response_logging_payload(mock_logging_obj, metadata_params):
     # Test the logging payload creation
-    model_response = litellm.ModelResponse()
+    model_response = hangarllm.ModelResponse()
     model_response.choices = [{"message": {"content": "Test response"}}]
 
     start_time = datetime.now()
     end_time = datetime.now()
 
     result = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-        litellm_model_response=model_response,
+        hangarllm_model_response=model_response,
         model="claude-opus-4-7",
         kwargs={
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key": "sk-test-mock-api-key-123",
                     "user_api_key_user_id": "default_user_id",
@@ -2628,7 +2628,7 @@ def test_create_anthropic_response_logging_payload(mock_logging_obj, metadata_pa
                 "api_base": "https://api.anthropic.com/v1/messages",
             },
             "call_type": "pass_through_endpoint",
-            "litellm_call_id": "5cf924cb-161c-4c1d-a565-31aa71ab50ab",
+            "hangarllm_call_id": "5cf924cb-161c-4c1d-a565-31aa71ab50ab",
             "passthrough_logging_payload": {
                 "url": "https://api.anthropic.com/v1/messages",
                 "request_body": {
@@ -2718,17 +2718,17 @@ def test_create_anthropic_response_logging_payload(mock_logging_obj, metadata_pa
 
 
 def test_handle_logging_anthropic_collected_chunks(all_chunks):
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
-    litellm_logging_obj = Mock()
-    litellm_logging_obj.model_call_details = {}
+    hangarllm_logging_obj = Mock()
+    hangarllm_logging_obj.model_call_details = {}
     pass_through_logging_obj = Mock()
 
     sent_args = {
-        "litellm_logging_obj": litellm_logging_obj,
+        "hangarllm_logging_obj": hangarllm_logging_obj,
         "passthrough_success_handler_obj": pass_through_logging_obj,
         "url_route": "https://api.anthropic.com/v1/messages",
         "request_body": {
@@ -2760,17 +2760,17 @@ def test_handle_logging_anthropic_collected_chunks(all_chunks):
 
 
 def test_build_complete_streaming_response(all_chunks):
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
-    litellm_logging_obj = Mock()
+    hangarllm_logging_obj = Mock()
 
     result = AnthropicPassthroughLoggingHandler.build_complete_streaming_response(
         all_chunks=all_chunks,
         model="claude-sonnet-4-5-20250929",
-        litellm_logging_obj=litellm_logging_obj,
+        hangarllm_logging_obj=hangarllm_logging_obj,
     )
 
     assert isinstance(result, ModelResponse)
@@ -2826,10 +2826,10 @@ def test_message_start_whose_message_is_not_an_object_fails_without_echoing_the_
 
 @pytest.mark.parametrize(
     "end_user_id",
-    [{"litellm_metadata": {"user": "test"}}, {"metadata": {"user_id": "test"}}],
+    [{"hangarllm_metadata": {"user": "test"}}, {"metadata": {"user_id": "test"}}],
 )
 def test_get_user_from_metadata(end_user_id):
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
         PassthroughStandardLoggingPayload,
     )
@@ -2900,7 +2900,7 @@ def test_streamed_messages_refusal_stop_details_on_the_logged_response(mock_logg
     stop_details: Final = ANTHROPIC_DOCS_REFUSAL_MESSAGE["stop_details"]
     logged: Final = AnthropicPassthroughLoggingHandler.build_complete_streaming_response(
         all_chunks=_anthropic_sse_stream("refusal", stop_details),
-        litellm_logging_obj=mock_logging_obj,
+        hangarllm_logging_obj=mock_logging_obj,
         model="claude-sonnet-5-5",
     )
 
@@ -2913,7 +2913,7 @@ def test_streamed_messages_refusal_stop_details_on_the_logged_response(mock_logg
 def test_streamed_messages_end_turn_logs_no_stop_details(mock_logging_obj):
     logged: Final = AnthropicPassthroughLoggingHandler.build_complete_streaming_response(
         all_chunks=_anthropic_sse_stream("end_turn", None),
-        litellm_logging_obj=mock_logging_obj,
+        hangarllm_logging_obj=mock_logging_obj,
         model="claude-sonnet-5-5",
     )
 
@@ -2968,26 +2968,26 @@ def _go_stream_chunks() -> list[str]:
     ]
 
 
-def _go_logging_obj() -> LiteLLMLoggingObj:
-    logging_obj = LiteLLMLoggingObj(
+def _go_logging_obj() -> HangarLLMLoggingObj:
+    logging_obj = HangarLLMLoggingObj(
         model="opencode_go/claude-haiku-5-5",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id="go-stream",
+        hangarllm_call_id="go-stream",
         function_id="1",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "opencode_go"
     logging_obj.model_call_details["stream"] = True
-    logging_obj.model_call_details["litellm_params"] = {}
-    logging_obj.litellm_params = {}
+    logging_obj.model_call_details["hangarllm_params"] = {}
+    logging_obj.hangarllm_params = {}
     return logging_obj
 
 
 def test_streamed_messages_bill_the_list_cost_reported_in_the_final_message_delta():
     result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-        litellm_logging_obj=_go_logging_obj(),
+        hangarllm_logging_obj=_go_logging_obj(),
         passthrough_success_handler_obj=MagicMock(),
         url_route="/v1/messages",
         request_body={"model": "opencode_go/claude-haiku-5-5", "stream": True},
@@ -3006,7 +3006,7 @@ def test_streamed_messages_from_other_providers_ignore_a_zero_usage_cost_field()
     logging_obj.model_call_details["custom_llm_provider"] = "anthropic"
 
     result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         passthrough_success_handler_obj=MagicMock(),
         url_route="/v1/messages",
         request_body={"model": "claude-haiku-5-5", "stream": True},
@@ -3017,13 +3017,13 @@ def test_streamed_messages_from_other_providers_ignore_a_zero_usage_cost_field()
     )
 
     headers = result["result"]._hidden_params.get("additional_headers") or {}
-    assert "llm_provider-x-litellm-response-cost" not in headers
+    assert "llm_provider-x-hangarllm-response-cost" not in headers
     assert result["kwargs"].get("response_cost") != 0.0
 
 
 _BEDROCK_TRACE_PRICING: Final = {
     "bedrock/guardrails": {
-        "litellm_provider": "bedrock",
+        "hangarllm_provider": "bedrock",
         "mode": "guardrail",
         "guardrail_cost_per_unit": {"topicPolicyUnits": 0.00015, "contentPolicyUnits": 0.00015},
     }
@@ -3036,15 +3036,15 @@ _BEDROCK_INVOKE_TRACE: Final = {
 }
 
 
-def _recorded_guardrail_entries(logging_obj: LiteLLMLoggingObj) -> list:
-    return logging_obj.model_call_details["litellm_params"]["metadata"]["standard_logging_guardrail_information"]
+def _recorded_guardrail_entries(logging_obj: HangarLLMLoggingObj) -> list:
+    return logging_obj.model_call_details["hangarllm_params"]["metadata"]["standard_logging_guardrail_information"]
 
 
 def test_anthropic_passthrough_handler_bills_the_bedrock_guardrail_trace_of_a_messages_response(
     monkeypatch, mock_httpx_response, mock_response, mock_logging_obj
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", _BEDROCK_TRACE_PRICING)
-    mock_logging_obj.model_call_details["litellm_params"] = {"metadata": {}}
+    monkeypatch.setattr(hangarllm, "model_cost", _BEDROCK_TRACE_PRICING)
+    mock_logging_obj.model_call_details["hangarllm_params"] = {"metadata": {}}
     AnthropicPassthroughLoggingHandler.anthropic_passthrough_handler(
         httpx_response=mock_httpx_response,
         response_body={**mock_response, "amazon-bedrock-trace": _BEDROCK_INVOKE_TRACE},
@@ -3064,12 +3064,12 @@ def test_anthropic_passthrough_handler_bills_the_bedrock_guardrail_trace_of_a_me
 def test_anthropic_passthrough_stream_bills_the_bedrock_guardrail_trace_of_the_message_stop_event(
     monkeypatch, mock_logging_obj, all_chunks
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", _BEDROCK_TRACE_PRICING)
-    mock_logging_obj.model_call_details["litellm_params"] = {"metadata": {}}
+    monkeypatch.setattr(hangarllm, "model_cost", _BEDROCK_TRACE_PRICING)
+    mock_logging_obj.model_call_details["hangarllm_params"] = {"metadata": {}}
     stop_event: Final = json.dumps({"type": "message_stop", "amazon-bedrock-trace": _BEDROCK_INVOKE_TRACE})
     chunks: Final = [*all_chunks, f"event: message_stop\ndata: {stop_event}\n\n"]
     AnthropicPassthroughLoggingHandler.handle_logging_anthropic_collected_chunks(
-        litellm_logging_obj=mock_logging_obj,
+        hangarllm_logging_obj=mock_logging_obj,
         passthrough_success_handler_obj=MagicMock(),
         url_route="/v1/messages",
         request_body={"model": "claude", "messages": []},
@@ -3084,14 +3084,14 @@ def test_anthropic_passthrough_stream_bills_the_bedrock_guardrail_trace_of_the_m
 
 
 def test_anthropic_passthrough_stream_bills_a_bedrock_guardrail_trace_whose_json_holds_unicode_line_separators(
-    monkeypatch: pytest.MonkeyPatch, mock_logging_obj: LiteLLMLoggingObj, all_chunks: list[str]
+    monkeypatch: pytest.MonkeyPatch, mock_logging_obj: HangarLLMLoggingObj, all_chunks: list[str]
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", _BEDROCK_TRACE_PRICING)
-    mock_logging_obj.model_call_details["litellm_params"] = {"metadata": {}}
+    monkeypatch.setattr(hangarllm, "model_cost", _BEDROCK_TRACE_PRICING)
+    mock_logging_obj.model_call_details["hangarllm_params"] = {"metadata": {}}
     trace: Final = {"guardrail": {**_BEDROCK_INVOKE_TRACE["guardrail"], "actionReason": "Blocked\u2028by\u2029policy"}}
     stop_event: Final = json.dumps({"type": "message_stop", "amazon-bedrock-trace": trace}, ensure_ascii=False)
     AnthropicPassthroughLoggingHandler.handle_logging_anthropic_collected_chunks(
-        litellm_logging_obj=mock_logging_obj,
+        hangarllm_logging_obj=mock_logging_obj,
         passthrough_success_handler_obj=MagicMock(),
         url_route="/v1/messages",
         request_body={"model": "claude", "messages": []},

@@ -129,7 +129,7 @@ def _register(
                 "capabilities": {"streaming": True},
                 "skills": [],
             },
-            "litellm_params": {"custom_llm_provider": "databricks_agent", **params},
+            "hangarllm_params": {"custom_llm_provider": "databricks_agent", **params},
             **({"static_headers": static_headers} if static_headers else {}),
         },
     )
@@ -195,7 +195,7 @@ def _sse(text: str) -> tuple[dict[str, JsonValue], ...]:
 
 def _spend_status(request_id: str) -> str:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -371,18 +371,18 @@ def test_static_headers_sit_between_client_and_agent_extra_headers_on_chat(gatew
         _assert_invocation(invocations[0], _PAT)
 
 
-def test_chat_never_forwards_client_litellm_identity_headers_to_the_agent(gateway: Gateway) -> None:
+def test_chat_never_forwards_client_hangarllm_identity_headers_to_the_agent(gateway: Gateway) -> None:
     with _agent(gateway, _Databricks(), model=_ENDPOINT, api_key=_PAT) as (wire, name):
         response: Final = _chat(
             gateway,
             name,
-            extra_headers={"X-LiteLLM-User-Id": "spoofed-user", "x-litellm-team-id": "spoofed-team", "X-Trace": "t-1"},
+            extra_headers={"X-HangarLLM-User-Id": "spoofed-user", "x-hangarllm-team-id": "spoofed-team", "X-Trace": "t-1"},
         )
         assert response.status_code == 200, response.text
         invocations: Final = _calls_to(wire.drain(), _INVOCATIONS)
         assert len(invocations) == 1, invocations
         headers: Final = invocations[0].headers
-        assert "x-litellm-user-id" not in headers and "x-litellm-team-id" not in headers, headers
+        assert "x-hangarllm-user-id" not in headers and "x-hangarllm-team-id" not in headers, headers
         assert headers["x-trace"] == "t-1"
         _assert_invocation(invocations[0], _PAT)
 
@@ -745,7 +745,7 @@ def test_a_url_agent_keeps_its_a2a_call_to_the_card_url(gateway: Gateway, oauth_
                     "capabilities": {"streaming": False},
                     "skills": [],
                 },
-                **({"litellm_params": {"databricks_oauth": oauth_block}} if oauth_block is not None else {}),
+                **({"hangarllm_params": {"databricks_oauth": oauth_block}} if oauth_block is not None else {}),
             },
         )
         assert created.status_code == 200, created.text
@@ -779,7 +779,7 @@ def test_a_url_agent_with_an_incomplete_databricks_oauth_answers_a2a_with_an_int
                     "capabilities": {"streaming": False},
                     "skills": [],
                 },
-                "litellm_params": {"databricks_oauth": {"client_id": _CLIENT_ID}},
+                "hangarllm_params": {"databricks_oauth": {"client_id": _CLIENT_ID}},
             },
         )
         assert created.status_code == 200, created.text
@@ -890,7 +890,7 @@ def _owned_config(
                     "capabilities": {"streaming": True},
                     "skills": [],
                 },
-                "litellm_params": {
+                "hangarllm_params": {
                     "custom_llm_provider": "databricks_agent",
                     "model": _ENDPOINT,
                     "api_base": wire.url,

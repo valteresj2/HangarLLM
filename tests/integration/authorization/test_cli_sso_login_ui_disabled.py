@@ -36,14 +36,14 @@ from tests.integration._support.wire import Reply, Request, Wire, wire_server
 
 pytestmark: Final = [pytest.mark.timeout(300), pytest.mark.shares_worker_state]
 
-CLI_SOURCE: Final = "litellm-cli"
-CLI_STATE_PREFIX: Final = "litellm-session-token"
+CLI_SOURCE: Final = "hangarllm-cli"
+CLI_STATE_PREFIX: Final = "hangarllm-session-token"
 DEVICE_CODE_GRANT: Final = "urn:ietf:params:oauth:grant-type:device_code"
-POLL_SECRET_HEADER: Final = "x-litellm-cli-poll-secret"
+POLL_SECRET_HEADER: Final = "x-hangarllm-cli-poll-secret"
 DISABLED_PAGE_TITLE: Final = "<title>Admin UI Disabled</title>"
-LOGIN_FORM_TITLE: Final = "<title>LiteLLM Login</title>"
-CLI_LOGIN_PAGE_TITLE: Final = "<title>LiteLLM CLI Login</title>"
-CLI_SUCCESS_PAGE_TITLE: Final = "<title>CLI Authentication Successful - LiteLLM</title>"
+LOGIN_FORM_TITLE: Final = "<title>HangarLLM Login</title>"
+CLI_LOGIN_PAGE_TITLE: Final = "<title>HangarLLM CLI Login</title>"
+CLI_SUCCESS_PAGE_TITLE: Final = "<title>CLI Authentication Successful - HangarLLM</title>"
 SESSION_GONE: Final = "CLI login session not found or expired"
 SUBJECT: Final = "cli-sso-audit-subject"
 SUBJECT_EMAIL: Final = "cli-sso-audit-subject@example.com"
@@ -295,7 +295,7 @@ def _send_message(proxy: Gateway, provider: SharedProvider, key: str) -> str:
 
 
 def _user_rows() -> Sequence[Mapping[str, JsonValue]]:
-    return read_rows('SELECT user_id, user_email FROM "LiteLLM_UserTable" WHERE user_id = %s', (SUBJECT,))
+    return read_rows('SELECT user_id, user_email FROM "HangarLLM_UserTable" WHERE user_id = %s', (SUBJECT,))
 
 
 def _worker_pids(root_pid: int) -> frozenset[int]:
@@ -336,7 +336,7 @@ def test_lite_login_completes_and_the_key_serves_messages(
     assert [(row["user_id"], row["user_email"]) for row in users] == [(SUBJECT, SUBJECT_EMAIL)], users
     message_id: Final = _send_message(proxy, provider, key)
     spend: Final = eventually(
-        lambda: read_rows('SELECT "user" FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (message_id,)),
+        lambda: read_rows('SELECT "user" FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (message_id,)),
         lambda rows: len(rows) == 1,
         seconds=70,
     )
@@ -387,7 +387,7 @@ def test_claude_code_device_flow_completes_when_the_ui_is_disabled(
         ("GET", "/sso/key/generate", ()),
         ("GET", "/sso/key/generate", (("source", "1"),)),
         ("GET", "/sso/key/generate", (("source", ""),)),
-        ("GET", "/sso/key/generate", (("source", "LITELLM-CLI"), ("key", f"cli-{'a' * 32}"))),
+        ("GET", "/sso/key/generate", (("source", "HANGARLLM-CLI"), ("key", f"cli-{'a' * 32}"))),
         ("GET", "/sso/key/generate", (("return_to", "/mcp/"),)),
         ("GET", "/sso/saml/login", ()),
         ("POST", "/sso/saml/callback", ()),
@@ -410,7 +410,7 @@ def test_non_cli_entries_stay_refused_when_the_ui_is_disabled(
         ((("source", CLI_SOURCE), ("key", "1")), "Invalid CLI login session id"),
         ((("source", CLI_SOURCE), ("key", "cli-" + "k" * 5000)), "Invalid CLI login session id"),
         ((("source", CLI_SOURCE), ("key", f"cli-{'a' * 32}"), ("key", f"cli-{'b' * 32}")), SESSION_GONE),
-        ((("source", CLI_SOURCE), ("key", "sk-legacy-cli-key")), "Your litellm CLI is out of date"),
+        ((("source", CLI_SOURCE), ("key", "sk-legacy-cli-key")), "Your hangarllm CLI is out of date"),
         ((("source", CLI_SOURCE), ("key", f"cli-{secrets.token_urlsafe(24)}")), SESSION_GONE),
         ((("source", CLI_SOURCE), ("source", CLI_SOURCE), ("key", f"cli-{secrets.token_urlsafe(24)}")), SESSION_GONE),
     ),
@@ -597,7 +597,7 @@ def test_a_user_an_admin_created_after_a_missed_lookup_signs_in_at_once_on_that_
         with _browser() as browser:
             _sign_in(proxy, one_worker.idp, browser, session, subject=subject)
         _send_message(proxy, provider, _ready_key(proxy, session, subject=subject))
-        rows: Final = read_rows('SELECT user_email FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,))
+        rows: Final = read_rows('SELECT user_email FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,))
         assert [row["user_email"] for row in rows] == [f"{subject}@example.com"], rows
 
 
@@ -628,7 +628,7 @@ def test_dashboard_sign_in_creates_the_user_and_hands_the_browser_a_session(tmp_
         me: Final = proxy.request("GET", "/user/info", key=string_value(session["key"]))
         assert me.status_code == 200, f"{me.status_code} {me.text}"
         assert JSON_OBJECT.validate_json(me.content)["user_id"] == subject, me.text
-        rows: Final = read_rows('SELECT user_email FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,))
+        rows: Final = read_rows('SELECT user_email FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,))
         assert [row["user_email"] for row in rows] == [f"{subject}@example.com"], rows
 
 
@@ -684,7 +684,7 @@ def test_cli_session_token_is_denied_once_its_team_budget_is_exhausted(
         assert not key.startswith("sk-"), key
         _send_message(proxy, provider, key)
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) > budget,
             seconds=70,
         )

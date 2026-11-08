@@ -7,11 +7,11 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
+import hangarllm
 
 
-from litellm.llms.jina_ai.embedding.transformation import JinaAIEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.jina_ai.embedding.transformation import JinaAIEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 JINA_KEY_ENV_NAMES = ("JINA_AI_API_KEY", "JINA_API_KEY", "JINA_AI_TOKEN")
 
@@ -157,7 +157,7 @@ def test_jina_ai_embedding_forwards_task_and_dimensions_and_parses_values(
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="jina_ai/jina-embeddings-v3",
         input=["a"],
         task="separation",
@@ -188,7 +188,7 @@ def _transform(raw_response: httpx.Response) -> EmbeddingResponse:
         api_key="test-key",
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 
@@ -264,7 +264,7 @@ def test_jina_ai_img_embeddings_transforms_mixed_text_and_image_inputs(
         }
     )
 
-    response: Final = litellm.embedding(model="jina_ai/jina-embeddings-v4", input=input_data, api_key="jina-test-key")
+    response: Final = hangarllm.embedding(model="jina_ai/jina-embeddings-v4", input=input_data, api_key="jina-test-key")
 
     assert route.call_count == 1
     assert json.loads(route.calls.last.request.content) == {
@@ -285,7 +285,7 @@ def test_jina_ai_img_embeddings_transforms_mixed_text_and_image_inputs(
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         JinaAIEmbeddingConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="jina-embeddings-v3", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="jina-embeddings-v3", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/jina/v1/embeddings"
     )

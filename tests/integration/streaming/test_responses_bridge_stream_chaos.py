@@ -41,8 +41,8 @@ pytestmark: Final = [pytest.mark.timeout(2 * graceful_stop_seconds() + 120), pyt
 
 _MODEL: Final = "bridged-stream-chaos"
 _MARKER: Final = re.compile(r"marker-([0-9a-f]{32})")
-_SENTINEL_PREFIX: Final = "litellm.MidStreamFallbackError: "
-_RATE_LIMIT_PREFIX: Final = "litellm.RateLimitError: "
+_SENTINEL_PREFIX: Final = "hangarllm.MidStreamFallbackError: "
+_RATE_LIMIT_PREFIX: Final = "hangarllm.RateLimitError: "
 _HEADERS: Final[Mapping[str, str]] = MappingProxyType({"anthropic-version": "2023-06-01"})
 
 Kind: TypeAlias = Literal[
@@ -105,7 +105,7 @@ def _config(port: int, directory: Path) -> Path:
                 "model_list": [
                     {
                         "model_name": _MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "azure/gpt-6",
                             "api_base": f"http://127.0.0.1:{port}",
                             "api_key": "synthetic-azure-key",
@@ -201,7 +201,7 @@ async def _send(client: httpx.AsyncClient, key: str, call: _Call) -> _Served:
         "POST", _path(call.kind), json=_body(call), headers={"Authorization": f"Bearer {key}", **_HEADERS}
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers["x-litellm-call-id"])
+    return _Served(call, response.status_code, raw.decode(), response.headers["x-hangarllm-call-id"])
 
 
 async def _burst(
@@ -280,7 +280,7 @@ def _assert_forwarded(received: tuple[Request, ...], calls: tuple[_Call, ...]) -
 def _rows(call_ids: Sequence[str]) -> Sequence[Mapping[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT litellm_call_id, status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = ANY(string_to_array(%s, %s))',
+            'SELECT hangarllm_call_id, status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = ANY(string_to_array(%s, %s))',
             (",".join(call_ids), ","),
         ),
         lambda found: len(found) >= len(call_ids),
@@ -291,7 +291,7 @@ def _rows(call_ids: Sequence[str]) -> Sequence[Mapping[str, JsonValue]]:
 def _assert_each_lands_once(served: tuple[_Served, ...]) -> None:
     logged: Final = tuple(item for item in served if item.call.kind in _LOGGED_KINDS)
     rows: Final = _rows(tuple(item.call_id for item in logged))
-    by_call: Final = {string_value(row["litellm_call_id"]): row for row in rows}
+    by_call: Final = {string_value(row["hangarllm_call_id"]): row for row in rows}
     assert len(by_call) == len(rows) == len(logged), rows
     for item in logged:
         expected: Final = "success" if item.call.kind == "chat_healthy" else "failure"

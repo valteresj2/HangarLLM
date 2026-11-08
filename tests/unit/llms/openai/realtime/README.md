@@ -19,7 +19,7 @@ There was confusion about the correct parameter name for passing headers to `web
 - **websockets < 14.0**: Used `extra_headers` parameter ✅
 - **websockets >= 14.0**: Uses `additional_headers` parameter ✅
 
-**LiteLLM uses websockets 15.0.1** (per `uv.lock`), which requires `additional_headers`.
+**HangarLLM uses websockets 15.0.1** (per `uv.lock`), which requires `additional_headers`.
 
 ### Verification
 
@@ -70,11 +70,11 @@ If you see test failures related to header parameters:
    - websockets < 14.0: use `extra_headers`
 
 4. **Ensure consistency** across all files:
-   - `litellm/llms/openai/realtime/handler.py`
-   - `litellm/llms/azure/realtime/handler.py`
-   - `litellm/llms/custom_httpx/llm_http_handler.py`
-   - `litellm/realtime_api/main.py`
-   - `litellm/proxy/pass_through_endpoints/pass_through_endpoints.py`
+   - `hangarllm/llms/openai/realtime/handler.py`
+   - `hangarllm/llms/azure/realtime/handler.py`
+   - `hangarllm/llms/custom_httpx/llm_http_handler.py`
+   - `hangarllm/realtime_api/main.py`
+   - `hangarllm/proxy/pass_through_endpoints/pass_through_endpoints.py`
 
 **Current Status (Feb 2026):**
 - ✅ websockets version: 15.0.1

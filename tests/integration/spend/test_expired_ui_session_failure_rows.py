@@ -9,7 +9,7 @@ from integration._support.client import Gateway, eventually, gateway_from_enviro
 from integration._support.database import read_rows
 from integration._support.process import OwnedProxy, graceful_stop_seconds, owned_proxy_process
 
-from litellm.proxy._types import hash_token
+from hangarllm.proxy._types import hash_token
 
 pytestmark: Final = [pytest.mark.timeout(2 * graceful_stop_seconds() + 240), pytest.mark.shares_worker_state]
 
@@ -38,7 +38,7 @@ def owned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[OwnedProxy]:
         owned_proxy_process(
             base,
             tmp_path_factory.mktemp("expired-ui-session"),
-            {"LITELLM_UI_SESSION_DURATION": f"{SESSION_SECONDS}s", "LITELLM_DISABLE_NO_REDIS_WARNING": "true"},
+            {"HANGARLLM_UI_SESSION_DURATION": f"{SESSION_SECONDS}s", "HANGARLLM_DISABLE_NO_REDIS_WARNING": "true"},
             workers=2,
         ) as proxy,
     ):
@@ -50,8 +50,8 @@ def _session_key(gateway: Gateway) -> str:
     assert response.status_code == 200, response.text
     claims: Final = jwt.decode(string_value(response.json()["token"]), options={"verify_signature": False})
     key: Final = string_value(claims["key"])
-    rows: Final = read_rows('SELECT team_id FROM "LiteLLM_VerificationToken" WHERE token = %s', (hash_token(key),))
-    assert [row["team_id"] for row in rows] == ["litellm-dashboard"], rows
+    rows: Final = read_rows('SELECT team_id FROM "HangarLLM_VerificationToken" WHERE token = %s', (hash_token(key),))
+    assert [row["team_id"] for row in rows] == ["hangarllm-dashboard"], rows
     return key
 
 
@@ -66,7 +66,7 @@ def _rejected_as_expired(gateway: Gateway, key: str, route: str) -> None:
 
 def _failure_rows(key: str) -> list[str]:
     rows: Final = read_rows(
-        'SELECT call_type FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND status = %s',
+        'SELECT call_type FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND status = %s',
         (hash_token(key), "failure"),
     )
     return sorted(string_value(row["call_type"]) for row in rows)

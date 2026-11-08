@@ -78,7 +78,7 @@ def signer() -> Iterator[Signer]:
 def rig(signer: Signer, tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
     jwt_settings: Final[dict[str, JsonValue]] = {
         "enable_jwt_auth": True,
-        "litellm_jwtauth": {"issuers": [{"issuer": ISSUER, "jwks_url": signer.jwks_url, "audience": AUDIENCE}]},
+        "hangarllm_jwtauth": {"issuers": [{"issuer": ISSUER, "jwks_url": signer.jwks_url, "audience": AUDIENCE}]},
     }
     with safeguards_rig(tmp_path_factory.mktemp("safeguards-managed"), general_settings=jwt_settings) as value:
         yield value

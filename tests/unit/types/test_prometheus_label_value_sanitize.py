@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.types.integrations.prometheus import (
+from hangarllm.types.integrations.prometheus import (
     sanitize_prometheus_label_value,
 )
 

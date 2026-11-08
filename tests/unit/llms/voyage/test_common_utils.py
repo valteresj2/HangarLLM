@@ -1,19 +1,19 @@
 import pytest
 
-from litellm.llms.voyage.common_utils import (
+from hangarllm.llms.voyage.common_utils import (
     MONGODB_API_BASE,
     VOYAGE_API_BASE,
     get_default_base_url,
     get_voyage_api_key,
 )
-from litellm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
-from litellm.llms.voyage.embedding.transformation_contextual import (
+from hangarllm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
+from hangarllm.llms.voyage.embedding.transformation_contextual import (
     VoyageContextualEmbeddingConfig,
 )
-from litellm.llms.voyage.embedding.transformation_multimodal import (
+from hangarllm.llms.voyage.embedding.transformation_multimodal import (
     VoyageMultimodalEmbeddingConfig,
 )
-from litellm.llms.voyage.rerank.transformation import VoyageRerankConfig
+from hangarllm.llms.voyage.rerank.transformation import VoyageRerankConfig
 
 VOYAGE_KEY_ENV_VARS = ("VOYAGE_API_KEY", "VOYAGE_AI_API_KEY", "VOYAGE_AI_TOKEN")
 
@@ -102,9 +102,9 @@ def test_rerank_request_key_beats_env_key_for_routing(monkeypatch):
 
 def test_rerank_config_is_built_per_request_so_keys_cannot_leak(monkeypatch):
     """get_complete_url reads a key off the instance, so each request must get its own instance"""
-    import litellm
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    import hangarllm
+    from hangarllm.types.utils import LlmProviders
+    from hangarllm.utils import ProviderConfigManager
 
     monkeypatch.delenv("VOYAGE_API_KEY", raising=False)
     first = ProviderConfigManager.get_provider_rerank_config(
@@ -113,7 +113,7 @@ def test_rerank_config_is_built_per_request_so_keys_cannot_leak(monkeypatch):
     second = ProviderConfigManager.get_provider_rerank_config(
         model="rerank-2.5", provider=LlmProviders.VOYAGE, api_base=None, present_version_params=[]
     )
-    assert isinstance(first, litellm.VoyageRerankConfig) and first is not second
+    assert isinstance(first, hangarllm.VoyageRerankConfig) and first is not second
 
     first.validate_environment({}, "rerank-2.5", api_key="al-first-request")
     second.validate_environment({}, "rerank-2.5", api_key="pa-second-request")

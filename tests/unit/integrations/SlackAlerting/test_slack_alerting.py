@@ -14,19 +14,19 @@ from openai import APIError
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._internal_context import current_service_target
-from litellm.caching.caching import DualCache
-from litellm.integrations.SlackAlerting.budget_alert_types import get_budget_alert_type
-from litellm.integrations.SlackAlerting.slack_alerting import DeploymentMetrics, SlackAlerting
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import CallInfo, Litellm_EntityType
-from litellm.router import Router
-from litellm.types.integrations.slack_alerting import AlertQueueItem, AlertType, SlackAlertingCacheKeys
-from litellm.utils import get_api_base
+import hangarllm
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.SlackAlerting.budget_alert_types import get_budget_alert_type
+from hangarllm.integrations.SlackAlerting.slack_alerting import DeploymentMetrics, SlackAlerting
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import CallInfo, Hangarllm_EntityType
+from hangarllm.router import Router
+from hangarllm.types.integrations.slack_alerting import AlertQueueItem, AlertType, SlackAlertingCacheKeys
+from hangarllm.utils import get_api_base
 from datetime import timedelta
 from typing import Optional
-from litellm.proxy._types import WebhookEvent
+from hangarllm.proxy._types import WebhookEvent
 
 
 class TestSlackAlerting(unittest.TestCase):
@@ -35,27 +35,27 @@ class TestSlackAlerting(unittest.TestCase):
 
     def test_get_percent_of_max_budget_left(self):
         # Test case 1: When max_budget is None
-        user_info = CallInfo(max_budget=None, spend=50.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=None, spend=50.0, event_group=Hangarllm_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.0)
 
         # Test case 2: When max_budget is 0
-        user_info = CallInfo(max_budget=0.0, spend=50.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=0.0, spend=50.0, event_group=Hangarllm_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.0)
 
         # Test case 3: When spend is less than max_budget
-        user_info = CallInfo(max_budget=100.0, spend=75.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=100.0, spend=75.0, event_group=Hangarllm_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.25)
 
         # Test case 4: When spend equals max_budget
-        user_info = CallInfo(max_budget=100.0, spend=100.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=100.0, spend=100.0, event_group=Hangarllm_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.0)
 
         # Test case 5: When spend exceeds max_budget
-        user_info = CallInfo(max_budget=100.0, spend=120.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=100.0, spend=120.0, event_group=Hangarllm_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, -0.2)
 
@@ -65,7 +65,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             user_id="user-1",
             user_email="person@example.com",
-            event_group=Litellm_EntityType.USER,
+            event_group=Hangarllm_EntityType.USER,
         )
 
         result = self.slack_alerting._get_user_info_str(user_info)
@@ -83,7 +83,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             spend=120.0,
             soft_budget=None,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -96,7 +96,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             spend=95.0,
             soft_budget=None,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -109,7 +109,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             spend=85.0,
             soft_budget=None,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -127,7 +127,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=None,
             spend=120.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -140,7 +140,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=None,
             spend=90.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=None, event_message=event_message
@@ -159,7 +159,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=150.0,
             spend=160.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -173,7 +173,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=150.0,
             spend=120.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -192,13 +192,13 @@ class TestSlackAlerting(unittest.TestCase):
         self.slack_alerting.update_values(alerting_args={"slack_alerting": "True"})
         assert self.slack_alerting.periodic_started == True
 
-    @patch("litellm.integrations.SlackAlerting.slack_alerting.datetime")
+    @patch("hangarllm.integrations.SlackAlerting.slack_alerting.datetime")
     def test_alert_type_in_formatted_message(self, mock_datetime):
         # Setup mocks
         mock_datetime.now.return_value.strftime.return_value = "12:34:56"
 
         # Import required types
-        from litellm.types.integrations.slack_alerting import AlertType
+        from hangarllm.types.integrations.slack_alerting import AlertType
 
         # Create a simple test message to check formatting
         alert_type = AlertType.llm_exceptions
@@ -406,8 +406,8 @@ def _slack_alerting_with_env_resolution() -> SlackAlerting:
 @pytest.mark.parametrize(
     "event_group, expected_prefix",
     [
-        (Litellm_EntityType.TEAM_MEMBER, "Team Member Budget: Budget Crossed"),
-        (Litellm_EntityType.KEY, "Key Budget: Budget Crossed"),
+        (Hangarllm_EntityType.TEAM_MEMBER, "Team Member Budget: Budget Crossed"),
+        (Hangarllm_EntityType.KEY, "Key Budget: Budget Crossed"),
     ],
 )
 async def test_max_budget_alert_labels_team_member_budget(event_group, expected_prefix):
@@ -633,7 +633,7 @@ key_info: Final = CallInfo(
     user_id="test@test.com",
     user_email="test@test.com",
     key_alias="test-key",
-    event_group=Litellm_EntityType.KEY,
+    event_group=Hangarllm_EntityType.KEY,
 )
 
 team_info: Final = CallInfo(
@@ -643,7 +643,7 @@ team_info: Final = CallInfo(
     max_budget=200,
     team_id="team-123",
     team_alias="engineering-team",
-    event_group=Litellm_EntityType.TEAM,
+    event_group=Hangarllm_EntityType.TEAM,
 )
 
 user_info: Final = CallInfo(
@@ -652,7 +652,7 @@ user_info: Final = CallInfo(
     soft_budget=40,
     max_budget=50,
     user_id="user123",
-    event_group=Litellm_EntityType.USER,
+    event_group=Hangarllm_EntityType.USER,
 )
 
 key_no_max_budget_info: Final = CallInfo(
@@ -662,7 +662,7 @@ key_no_max_budget_info: Final = CallInfo(
     user_id="dev@test.com",
     user_email="dev@test.com",
     key_alias="dev-key",
-    event_group=Litellm_EntityType.KEY,
+    event_group=Hangarllm_EntityType.KEY,
 )
 
 @pytest.mark.parametrize(
@@ -699,7 +699,7 @@ def test_init():
 async def test_response_taking_too_long_callback(slack_alerting):
     start_time = datetime.now()
     end_time = start_time + timedelta(seconds=301)
-    kwargs = {"model": "test_model", "messages": "test_messages", "litellm_params": {}}
+    kwargs = {"model": "test_model", "messages": "test_messages", "hangarllm_params": {}}
     with patch.object(slack_alerting, "send_alert", new=AsyncMock()) as mock_send_alert:
         await slack_alerting.response_taking_too_long_callback(
             kwargs, None, start_time, end_time
@@ -716,7 +716,7 @@ async def test_alerting_metadata(slack_alerting):
     kwargs = {
         "model": "test_model",
         "messages": "test_messages",
-        "litellm_params": {"metadata": {"alerting_metadata": {"hello": "world"}}},
+        "hangarllm_params": {"metadata": {"alerting_metadata": {"hello": "world"}}},
     }
     with patch.object(slack_alerting, "send_alert", new=AsyncMock()) as mock_send_alert:
 
@@ -739,7 +739,7 @@ async def test_budget_alerts_crossed(slack_alerting):
                 token="",
                 spend=user_current_spend,
                 max_budget=user_max_budget,
-                event_group=Litellm_EntityType.USER,
+                event_group=Hangarllm_EntityType.USER,
             ),
         )
         mock_send_alert.assert_awaited_once()
@@ -755,7 +755,7 @@ async def test_budget_alerts_crossed_again(slack_alerting):
                 token="",
                 spend=user_current_spend,
                 max_budget=user_max_budget,
-                event_group=Litellm_EntityType.USER,
+                event_group=Hangarllm_EntityType.USER,
             ),
         )
         mock_send_alert.assert_awaited_once()
@@ -766,7 +766,7 @@ async def test_budget_alerts_crossed_again(slack_alerting):
                 token="",
                 spend=user_current_spend,
                 max_budget=user_max_budget,
-                event_group=Litellm_EntityType.USER,
+                event_group=Hangarllm_EntityType.USER,
             ),
         )
         mock_send_alert.assert_not_awaited()
@@ -774,11 +774,11 @@ async def test_budget_alerts_crossed_again(slack_alerting):
 @pytest.mark.asyncio
 async def test_daily_reports_unit_test(slack_alerting):
     with patch.object(slack_alerting, "send_alert", new=AsyncMock()) as mock_send_alert:
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "test-gpt",
-                    "litellm_params": {"model": "gpt-5-mini"},
+                    "hangarllm_params": {"model": "gpt-5-mini"},
                     "model_info": {"id": "1234"},
                 }
             ]
@@ -787,7 +787,7 @@ async def test_daily_reports_unit_test(slack_alerting):
             id="1234",
             failed_request=False,
             latency_per_output_token=20.3,
-            updated_at=litellm.utils.get_utc_datetime(),
+            updated_at=hangarllm.utils.get_utc_datetime(),
         )
 
         updated_val = await slack_alerting.async_update_daily_reports(
@@ -812,7 +812,7 @@ async def test_send_daily_reports_ignores_zero_values():
     )
     slack_alerting.internal_usage_cache.async_set_cache_pipeline = AsyncMock()
 
-    router.registry.return_value.deployment_dict.side_effect = lambda x: {"litellm_params": {"model": x}}
+    router.registry.return_value.deployment_dict.side_effect = lambda x: {"hangarllm_params": {"model": x}}
 
     with patch.object(slack_alerting, "send_alert", new=AsyncMock()) as mock_send_alert:
         result = await slack_alerting.send_daily_reports(router)
@@ -871,7 +871,7 @@ async def test_send_token_budget_crossed_alerts(alerting_type):
             "key_alias": "my-test-key",
             "projected_exceeded_date": "10/20/2024",
             "projected_spend": 200,
-            "event_group": Litellm_EntityType.KEY,
+            "event_group": Hangarllm_EntityType.KEY,
         }
 
         user_info = CallInfo(**user_info)
@@ -910,7 +910,7 @@ async def test_webhook_alerting(alerting_type):
             "key_alias": "my-test-key",
             "projected_exceeded_date": "10/20/2024",
             "projected_spend": 200,
-            "event_group": Litellm_EntityType.KEY,
+            "event_group": Hangarllm_EntityType.KEY,
         }
 
         user_info = CallInfo(**user_info)
@@ -947,25 +947,25 @@ async def test_outage_alerting_called(
     """
     slack_alerting = SlackAlerting(alerting=["webhook"])
 
-    litellm.callbacks = [slack_alerting]
+    hangarllm.callbacks = [slack_alerting]
 
     error_to_raise: Optional[APIError] = None
 
     if error_code == 400:
         print("RAISING 400 ERROR CODE")
-        error_to_raise = litellm.BadRequestError(
+        error_to_raise = hangarllm.BadRequestError(
             message="this is a bad request",
             model=model,
             llm_provider=llm_provider,
         )
     elif error_code == 408:
         print("RAISING 408 ERROR CODE")
-        error_to_raise = litellm.Timeout(
+        error_to_raise = hangarllm.Timeout(
             message="A timeout occurred", model=model, llm_provider=llm_provider
         )
     elif error_code == 500:
         print("RAISING 500 ERROR CODE")
-        error_to_raise = litellm.ServiceUnavailableError(
+        error_to_raise = hangarllm.ServiceUnavailableError(
             message="API is unavailable",
             model=model,
             llm_provider=llm_provider,
@@ -973,7 +973,7 @@ async def test_outage_alerting_called(
                 status_code=503,
                 request=httpx.Request(
                     method="completion",
-                    url="https://github.com/BerriAI/litellm",
+                    url="https://github.com/valteresj2/HangarLLM",
                 ),
             ),
         )
@@ -982,7 +982,7 @@ async def test_outage_alerting_called(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_key": os.getenv("AZURE_AI_API_KEY"),
                     "api_base": api_base,
@@ -1054,25 +1054,25 @@ async def test_region_outage_alerting_called(
         alerting=["webhook"], alert_types=[AlertType.region_outage_alerts]
     )
 
-    litellm.callbacks = [slack_alerting]
+    hangarllm.callbacks = [slack_alerting]
 
     error_to_raise: Optional[APIError] = None
 
     if error_code == 400:
         print("RAISING 400 ERROR CODE")
-        error_to_raise = litellm.BadRequestError(
+        error_to_raise = hangarllm.BadRequestError(
             message="this is a bad request",
             model=model,
             llm_provider=llm_provider,
         )
     elif error_code == 408:
         print("RAISING 408 ERROR CODE")
-        error_to_raise = litellm.Timeout(
+        error_to_raise = hangarllm.Timeout(
             message="A timeout occurred", model=model, llm_provider=llm_provider
         )
     elif error_code == 500:
         print("RAISING 500 ERROR CODE")
-        error_to_raise = litellm.ServiceUnavailableError(
+        error_to_raise = hangarllm.ServiceUnavailableError(
             message="API is unavailable",
             model=model,
             llm_provider=llm_provider,
@@ -1080,7 +1080,7 @@ async def test_region_outage_alerting_called(
                 status_code=503,
                 request=httpx.Request(
                     method="completion",
-                    url="https://github.com/BerriAI/litellm",
+                    url="https://github.com/valteresj2/HangarLLM",
                 ),
             ),
         )
@@ -1089,7 +1089,7 @@ async def test_region_outage_alerting_called(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_key": os.getenv("AZURE_AI_API_KEY"),
                     "api_base": api_base,
@@ -1100,7 +1100,7 @@ async def test_region_outage_alerting_called(
             },
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_key": os.getenv("AZURE_AI_API_KEY"),
                     "api_base": api_base,
@@ -1134,11 +1134,11 @@ async def test_print_alerting_payload_warning():
     """
     Test if alerts are printed to verbose logger when log_to_console=True
     """
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     import logging
 
-    from litellm._logging import verbose_proxy_logger
-    from litellm.integrations.SlackAlerting.batching_handler import send_to_webhook
+    from hangarllm._logging import verbose_proxy_logger
+    from hangarllm.integrations.SlackAlerting.batching_handler import send_to_webhook
 
     # Create a string buffer to capture log output
     log_stream = io.StringIO()
@@ -1197,7 +1197,7 @@ async def test_soft_budget_alerts():
             user_id="test@test.com",
             user_email="test@test.com",
             key_alias="test-key",
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
 
         await slack_alerting.budget_alerts(

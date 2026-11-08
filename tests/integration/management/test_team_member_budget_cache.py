@@ -18,7 +18,7 @@ def test_team_member_default_budget_lands_in_redis_after_first_member_call(gatew
         user: Final = scenario.user()
         team: Final = scenario.team(team_member_budget=25)
         key: Final = scenario.key(team_id=team, user_id=user, models=[model])
-        teams: Final = read_rows('SELECT metadata FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,))
+        teams: Final = read_rows('SELECT metadata FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,))
         assert len(teams) == 1, teams
         budget_id: Final = string_value(object_value(teams[0]["metadata"])["team_member_budget_id"])
         response: Final = gateway.request(

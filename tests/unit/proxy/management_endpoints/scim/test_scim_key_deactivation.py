@@ -11,14 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy._types import LiteLLM_UserTable
-from litellm.proxy.management_endpoints.scim.scim_v2 import (
+from hangarllm.proxy._types import HangarLLM_UserTable
+from hangarllm.proxy.management_endpoints.scim.scim_v2 import (
     _set_user_keys_blocked,
     delete_user,
     patch_user,
     update_user,
 )
-from litellm.types.proxy.management_endpoints.scim_v2 import (
+from hangarllm.types.proxy.management_endpoints.scim_v2 import (
     SCIMPatchOp,
     SCIMPatchOperation,
     SCIMUser,
@@ -48,21 +48,21 @@ def _build_prisma_with_keys(user_keys, mock_user=None, updated_user=None):
     mock_client.tx = tx
     mock_db.query_raw = AsyncMock(return_value=[])
     if mock_user is not None:
-        mock_db.litellm_usertable.find_unique = AsyncMock(return_value=mock_user)
-    mock_db.litellm_usertable.find_many = AsyncMock(return_value=[mock_user] if mock_user is not None else [])
+        mock_db.hangarllm_usertable.find_unique = AsyncMock(return_value=mock_user)
+    mock_db.hangarllm_usertable.find_many = AsyncMock(return_value=[mock_user] if mock_user is not None else [])
     if updated_user is not None:
-        mock_db.litellm_usertable.update = AsyncMock(return_value=updated_user)
-    mock_db.litellm_usertable.delete_many = AsyncMock(return_value=1)
-    mock_db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
-    mock_db.litellm_teamtable.find_many = AsyncMock(return_value=[])
-    mock_db.litellm_teammembership.find_many = AsyncMock(return_value=[])
+        mock_db.hangarllm_usertable.update = AsyncMock(return_value=updated_user)
+    mock_db.hangarllm_usertable.delete_many = AsyncMock(return_value=1)
+    mock_db.hangarllm_teamtable.find_unique = AsyncMock(return_value=None)
+    mock_db.hangarllm_teamtable.find_many = AsyncMock(return_value=[])
+    mock_db.hangarllm_teammembership.find_many = AsyncMock(return_value=[])
 
-    mock_db.litellm_verificationtoken.find_many = AsyncMock(return_value=user_keys)
-    mock_db.litellm_verificationtoken.update_many = AsyncMock(return_value=None)
-    mock_db.litellm_verificationtoken.update = AsyncMock(return_value=None)
-    mock_db.litellm_invitationlink.delete_many = AsyncMock(return_value=None)
-    mock_db.litellm_organizationmembership.delete_many = AsyncMock(return_value=None)
-    mock_db.litellm_teammembership.delete_many = AsyncMock(return_value=None)
+    mock_db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=user_keys)
+    mock_db.hangarllm_verificationtoken.update_many = AsyncMock(return_value=None)
+    mock_db.hangarllm_verificationtoken.update = AsyncMock(return_value=None)
+    mock_db.hangarllm_invitationlink.delete_many = AsyncMock(return_value=None)
+    mock_db.hangarllm_organizationmembership.delete_many = AsyncMock(return_value=None)
+    mock_db.hangarllm_teammembership.delete_many = AsyncMock(return_value=None)
     return mock_client, mock_db
 
 
@@ -81,11 +81,11 @@ async def test_set_user_keys_blocked_flips_state_and_invalidates_cache():
         cache_deletions.append(hashed_token)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(side_effect=fake_delete),
         ),
     ):
@@ -94,8 +94,8 @@ async def test_set_user_keys_blocked_flips_state_and_invalidates_cache():
     assert flipped == 2
     # Each key gets a per-row update that flips `blocked` and stamps the
     # SCIM-block marker into metadata.
-    assert mock_db.litellm_verificationtoken.update.await_count == 2
-    update_calls = mock_db.litellm_verificationtoken.update.await_args_list
+    assert mock_db.hangarllm_verificationtoken.update.await_count == 2
+    update_calls = mock_db.hangarllm_verificationtoken.update.await_args_list
     seen_tokens = set()
     for call in update_calls:
         kwargs = call.kwargs or call[1]
@@ -112,19 +112,19 @@ async def test_set_user_keys_blocked_noop_when_no_matching_keys():
     mock_client, mock_db = _build_prisma_with_keys(user_keys=[])
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ) as mocked_delete,
     ):
         flipped = await _set_user_keys_blocked(user_id="user-x", blocked=True)
 
     assert flipped == 0
-    mock_db.litellm_verificationtoken.update.assert_not_called()
-    mock_db.litellm_verificationtoken.update_many.assert_not_called()
+    mock_db.hangarllm_verificationtoken.update.assert_not_called()
+    mock_db.hangarllm_verificationtoken.update_many.assert_not_called()
     mocked_delete.assert_not_called()
 
 
@@ -147,19 +147,19 @@ async def test_set_user_keys_unblocked_skips_admin_blocked_keys():
         cache_deletions.append(hashed_token)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(side_effect=fake_delete),
         ),
     ):
         flipped = await _set_user_keys_blocked(user_id="user-x", blocked=False)
 
     assert flipped == 1
-    mock_db.litellm_verificationtoken.update.assert_awaited_once()
-    update_kwargs = mock_db.litellm_verificationtoken.update.await_args.kwargs
+    mock_db.hangarllm_verificationtoken.update.assert_awaited_once()
+    update_kwargs = mock_db.hangarllm_verificationtoken.update.await_args.kwargs
     assert update_kwargs["where"] == {"token": "hash-scim"}
     assert update_kwargs["data"]["blocked"] is False
     assert cache_deletions == ["hash-scim"]
@@ -169,7 +169,7 @@ async def test_set_user_keys_unblocked_skips_admin_blocked_keys():
 async def test_scim_delete_user_blocks_keys_before_deleting_user():
     """SCIM DELETE /Users/{id} must block the user's keys before removing the row."""
     user_id = "user-to-delete"
-    mock_user = LiteLLM_UserTable(
+    mock_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
@@ -180,23 +180,23 @@ async def test_scim_delete_user_blocks_keys_before_deleting_user():
     mock_client, mock_db = _build_prisma_with_keys(keys, mock_user=mock_user)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ),
     ):
         response = await delete_user(user_id=user_id)
 
     assert response.status_code == 204
-    mock_db.litellm_verificationtoken.update.assert_awaited_once()
-    update_kwargs = mock_db.litellm_verificationtoken.update.await_args.kwargs
+    mock_db.hangarllm_verificationtoken.update.assert_awaited_once()
+    update_kwargs = mock_db.hangarllm_verificationtoken.update.await_args.kwargs
     assert update_kwargs["where"] == {"token": "hash-a"}
     assert update_kwargs["data"]["blocked"] is True
     assert '"scim_blocked": true' in update_kwargs["data"]["metadata"]
-    mock_db.litellm_usertable.delete_many.assert_awaited_once_with(
+    mock_db.hangarllm_usertable.delete_many.assert_awaited_once_with(
         where={"user_id": {"in": [user_id]}}
     )
 
@@ -204,7 +204,7 @@ async def test_scim_delete_user_blocks_keys_before_deleting_user():
 @pytest.mark.asyncio
 async def test_scim_delete_user_clears_fk_referenced_rows_before_user_delete():
     user_id = "user-with-invite"
-    mock_user = LiteLLM_UserTable(
+    mock_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
@@ -214,25 +214,25 @@ async def test_scim_delete_user_clears_fk_referenced_rows_before_user_delete():
     mock_client, mock_db = _build_prisma_with_keys(user_keys=[], mock_user=mock_user)
 
     call_order: list = []
-    mock_db.litellm_invitationlink.delete_many = AsyncMock(
+    mock_db.hangarllm_invitationlink.delete_many = AsyncMock(
         side_effect=lambda **kw: call_order.append(("invitation", kw)) or None
     )
-    mock_db.litellm_organizationmembership.delete_many = AsyncMock(
+    mock_db.hangarllm_organizationmembership.delete_many = AsyncMock(
         side_effect=lambda **kw: call_order.append(("orgmembership", kw)) or None
     )
-    mock_db.litellm_teammembership.delete_many = AsyncMock(
+    mock_db.hangarllm_teammembership.delete_many = AsyncMock(
         side_effect=lambda **kw: call_order.append(("teammembership", kw)) or None
     )
-    mock_db.litellm_usertable.delete_many = AsyncMock(
+    mock_db.hangarllm_usertable.delete_many = AsyncMock(
         side_effect=lambda **kw: call_order.append(("user", kw)) or 1
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ),
     ):
@@ -240,8 +240,8 @@ async def test_scim_delete_user_clears_fk_referenced_rows_before_user_delete():
 
     assert response.status_code == 204
 
-    mock_db.litellm_invitationlink.delete_many.assert_awaited_once()
-    inv_kwargs = mock_db.litellm_invitationlink.delete_many.await_args.kwargs
+    mock_db.hangarllm_invitationlink.delete_many.assert_awaited_once()
+    inv_kwargs = mock_db.hangarllm_invitationlink.delete_many.await_args.kwargs
     assert inv_kwargs == {
         "where": {
             "OR": (
@@ -251,10 +251,10 @@ async def test_scim_delete_user_clears_fk_referenced_rows_before_user_delete():
             )
         }
     }
-    mock_db.litellm_organizationmembership.delete_many.assert_awaited_once_with(
+    mock_db.hangarllm_organizationmembership.delete_many.assert_awaited_once_with(
         where={"user_id": {"in": [user_id]}}
     )
-    mock_db.litellm_teammembership.delete_many.assert_awaited_once_with(
+    mock_db.hangarllm_teammembership.delete_many.assert_awaited_once_with(
         where={"user_id": {"in": [user_id]}}
     )
 
@@ -266,14 +266,14 @@ async def test_scim_delete_user_clears_fk_referenced_rows_before_user_delete():
 @pytest.mark.asyncio
 async def test_scim_patch_user_active_false_blocks_keys():
     user_id = "scim-user"
-    mock_user = LiteLLM_UserTable(
+    mock_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
         teams=[],
         metadata={"scim_active": True},
     )
-    updated_user = LiteLLM_UserTable(
+    updated_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
@@ -298,22 +298,22 @@ async def test_scim_patch_user_active_false_blocks_keys():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_hangarllm_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ),
     ):
         await patch_user(user_id=user_id, patch_ops=patch_ops)
 
-    mock_db.litellm_verificationtoken.update.assert_awaited_once()
-    update_kwargs = mock_db.litellm_verificationtoken.update.await_args.kwargs
+    mock_db.hangarllm_verificationtoken.update.assert_awaited_once()
+    update_kwargs = mock_db.hangarllm_verificationtoken.update.await_args.kwargs
     assert update_kwargs["where"] == {"token": "hash-z"}
     assert update_kwargs["data"]["blocked"] is True
     assert '"scim_blocked": true' in update_kwargs["data"]["metadata"]
@@ -322,14 +322,14 @@ async def test_scim_patch_user_active_false_blocks_keys():
 @pytest.mark.asyncio
 async def test_scim_patch_user_active_true_unblocks_keys():
     user_id = "scim-user"
-    mock_user = LiteLLM_UserTable(
+    mock_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
         teams=[],
         metadata={"scim_active": False},
     )
-    updated_user = LiteLLM_UserTable(
+    updated_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
@@ -358,22 +358,22 @@ async def test_scim_patch_user_active_true_unblocks_keys():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_hangarllm_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ),
     ):
         await patch_user(user_id=user_id, patch_ops=patch_ops)
 
-    mock_db.litellm_verificationtoken.update.assert_awaited_once()
-    update_kwargs = mock_db.litellm_verificationtoken.update.await_args.kwargs
+    mock_db.hangarllm_verificationtoken.update.assert_awaited_once()
+    update_kwargs = mock_db.hangarllm_verificationtoken.update.await_args.kwargs
     assert update_kwargs["where"] == {"token": "hash-r"}
     assert update_kwargs["data"]["blocked"] is False
     # SCIM-block marker is stripped on reactivation.
@@ -384,14 +384,14 @@ async def test_scim_patch_user_active_true_unblocks_keys():
 async def test_scim_patch_user_no_active_change_does_not_touch_keys():
     """A patch that doesn't flip active must not call update_many on tokens."""
     user_id = "scim-user"
-    mock_user = LiteLLM_UserTable(
+    mock_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias="Old",
         teams=[],
         metadata={"scim_active": True},
     )
-    updated_user = LiteLLM_UserTable(
+    updated_user = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias="New",
@@ -415,22 +415,22 @@ async def test_scim_patch_user_no_active_change_does_not_touch_keys():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_hangarllm_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ),
     ):
         await patch_user(user_id=user_id, patch_ops=patch_ops)
 
-    mock_db.litellm_verificationtoken.find_many.assert_not_called()
-    mock_db.litellm_verificationtoken.update_many.assert_not_called()
+    mock_db.hangarllm_verificationtoken.find_many.assert_not_called()
+    mock_db.hangarllm_verificationtoken.update_many.assert_not_called()
 
 
 def _build_put_user_payload(user_id: str, **overrides) -> dict:
@@ -450,7 +450,7 @@ async def test_scim_put_user_omitting_active_preserves_deactivated_state():
     """PUT without `active` must not silently reactivate a SCIM-deactivated user
     nor unblock their SCIM-blocked keys."""
     user_id = "scim-user"
-    deactivated = LiteLLM_UserTable(
+    deactivated = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
@@ -478,24 +478,24 @@ async def test_scim_put_user_omitting_active_preserves_deactivated_state():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_hangarllm_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ),
     ):
         await update_user(user_id=user_id, user=put_user)
 
-    mock_db.litellm_verificationtoken.update.assert_not_called()
-    mock_db.litellm_verificationtoken.update_many.assert_not_called()
-    mock_db.litellm_usertable.update.assert_awaited_once()
-    update_kwargs = mock_db.litellm_usertable.update.await_args.kwargs
+    mock_db.hangarllm_verificationtoken.update.assert_not_called()
+    mock_db.hangarllm_verificationtoken.update_many.assert_not_called()
+    mock_db.hangarllm_usertable.update.assert_awaited_once()
+    update_kwargs = mock_db.hangarllm_usertable.update.await_args.kwargs
     assert '"scim_active": false' in update_kwargs["data"]["metadata"]
 
 
@@ -503,14 +503,14 @@ async def test_scim_put_user_omitting_active_preserves_deactivated_state():
 async def test_scim_put_user_explicit_active_false_blocks_keys():
     """PUT explicitly setting active=False on an active user must cascade to keys."""
     user_id = "scim-user"
-    active = LiteLLM_UserTable(
+    active = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
         teams=[],
         metadata={"scim_active": True},
     )
-    deactivated = LiteLLM_UserTable(
+    deactivated = HangarLLM_UserTable(
         user_id=user_id,
         user_email="x@example.com",
         user_alias=None,
@@ -534,22 +534,22 @@ async def test_scim_put_user_explicit_active_false_blocks_keys():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_hangarllm_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
+            "hangarllm.proxy.management_endpoints.scim.scim_v2.delete_cache_key_object",
             AsyncMock(),
         ),
     ):
         await update_user(user_id=user_id, user=put_user)
 
-    mock_db.litellm_verificationtoken.update.assert_awaited_once()
-    update_kwargs = mock_db.litellm_verificationtoken.update.await_args.kwargs
+    mock_db.hangarllm_verificationtoken.update.assert_awaited_once()
+    update_kwargs = mock_db.hangarllm_verificationtoken.update.await_args.kwargs
     assert update_kwargs["where"] == {"token": "hash-block-me"}
     assert update_kwargs["data"]["blocked"] is True
     assert '"scim_blocked": true' in update_kwargs["data"]["metadata"]
@@ -566,29 +566,29 @@ async def test_scim_status_write_refreshes_user_cache(
     import json
     from typing import Final
 
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     user_id: Final = "scim-cache-user"
-    saved: Final = LiteLLM_UserTable(
+    saved: Final = HangarLLM_UserTable(
         user_id=user_id, user_email="x@example.com", teams=[], metadata={"scim_active": not active if status_change else active},
     )
-    updated: Final = LiteLLM_UserTable(
+    updated: Final = HangarLLM_UserTable(
         user_id=user_id, user_email="x@example.com", teams=[], metadata={"scim_active": active},
     )
     client, db = _build_prisma_with_keys([], mock_user=saved.model_copy(deep=True), updated_user=updated)
     if failure == "write":
-        db.litellm_usertable.update.side_effect = RuntimeError("status write failed")
+        db.hangarllm_usertable.update.side_effect = RuntimeError("status write failed")
     if failure == "keys":
-        db.litellm_verificationtoken.find_many.side_effect = RuntimeError("key update failed")
+        db.hangarllm_verificationtoken.find_many.side_effect = RuntimeError("key update failed")
     cache: Final = UserApiKeyCache()
-    await cache.async_set_cache(key=user_id, value=saved, model_type=LiteLLM_UserTable)
+    await cache.async_set_cache(key=user_id, value=saved, model_type=HangarLLM_UserTable)
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", client),  # test-quality-ok: substitute the database dependency
-        patch("litellm.proxy.proxy_server.user_api_key_cache", cache),  # test-quality-ok: exercise a real isolated cache
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),  # test-quality-ok: isolate the logging dependency
+        patch("hangarllm.proxy.proxy_server.prisma_client", client),  # test-quality-ok: substitute the database dependency
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", cache),  # test-quality-ok: exercise a real isolated cache
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),  # test-quality-ok: isolate the logging dependency
         patch(  # test-quality-ok: observe the Redis publication boundary
-            "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
+            "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
             new_callable=AsyncMock,
         ) as broadcast,
     ):
@@ -605,8 +605,8 @@ async def test_scim_status_write_refreshes_user_cache(
         else:
             response: Final = await request
             assert response.active is active
-        assert json.loads(db.litellm_usertable.update.await_args.kwargs["data"]["metadata"])["scim_active"] is active
-        cached: Final = await cache.async_get_cache(key=user_id, model_type=LiteLLM_UserTable)
+        assert json.loads(db.hangarllm_usertable.update.await_args.kwargs["data"]["metadata"])["scim_active"] is active
+        cached: Final = await cache.async_get_cache(key=user_id, model_type=HangarLLM_UserTable)
         if failure == "write":
             assert cached == saved
             broadcast.assert_not_awaited()
@@ -620,22 +620,22 @@ async def test_scim_status_write_refreshes_user_cache(
 async def test_scim_delete_user_evicts_cached_user_row(failure: str | None) -> None:
     from typing import Final
 
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     user_id: Final = "scim-deleted-user"
-    saved: Final = LiteLLM_UserTable(user_id=user_id, user_email="x@example.com", teams=[], metadata={})
+    saved: Final = HangarLLM_UserTable(user_id=user_id, user_email="x@example.com", teams=[], metadata={})
     client, db = _build_prisma_with_keys([], mock_user=saved.model_copy(deep=True))
     if failure == "delete":
-        db.litellm_usertable.delete_many.side_effect = RuntimeError("user delete failed")
+        db.hangarllm_usertable.delete_many.side_effect = RuntimeError("user delete failed")
     cache: Final = UserApiKeyCache()
-    await cache.async_set_cache(key=user_id, value=saved, model_type=LiteLLM_UserTable)
+    await cache.async_set_cache(key=user_id, value=saved, model_type=HangarLLM_UserTable)
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", client),  # test-quality-ok: substitute the database dependency
-        patch("litellm.proxy.proxy_server.user_api_key_cache", cache),  # test-quality-ok: exercise a real isolated cache
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),  # test-quality-ok: isolate the logging dependency
+        patch("hangarllm.proxy.proxy_server.prisma_client", client),  # test-quality-ok: substitute the database dependency
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", cache),  # test-quality-ok: exercise a real isolated cache
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock()),  # test-quality-ok: isolate the logging dependency
         patch(  # test-quality-ok: observe the Redis publication boundary
-            "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
+            "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
             new_callable=AsyncMock,
         ) as broadcast,
     ):
@@ -645,7 +645,7 @@ async def test_scim_delete_user_evicts_cached_user_row(failure: str | None) -> N
         else:
             response: Final = await delete_user(user_id=user_id)
             assert response.status_code == 204
-    cached: Final = await cache.async_get_cache(key=user_id, model_type=LiteLLM_UserTable)
+    cached: Final = await cache.async_get_cache(key=user_id, model_type=HangarLLM_UserTable)
     if failure == "delete":
         assert cached == saved
         broadcast.assert_not_awaited()

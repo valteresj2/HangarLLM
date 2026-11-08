@@ -134,7 +134,7 @@ def scripted_upstream(
     response: RoutedResponse | SseResponse,
     *,
     model_info: Mapping[str, JsonValue] | None = None,
-    **litellm_params: JsonValue,
+    **hangarllm_params: JsonValue,
 ) -> Upstream:
     scenario_id: Final = f"bgonce-{uuid.uuid4().hex[:12]}"
     handle: Final = register_scenario(scenario_id, response)
@@ -143,13 +143,13 @@ def scripted_upstream(
         "/model/new",
         {
             "model_name": scenario_id,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-scripted-provider",
                 "api_base": handle.api_base(),
                 "input_cost_per_token": INPUT_COST_PER_TOKEN,
                 "output_cost_per_token": OUTPUT_COST_PER_TOKEN,
-                **litellm_params,
+                **hangarllm_params,
             },
             **({"model_info": dict(model_info)} if model_info else {}),
         },
@@ -160,7 +160,7 @@ def scripted_upstream(
 
 
 def forget_row(response_id: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s', (response_id,))
+    write_rows('DELETE FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s', (response_id,))
 
 
 def create_background_response(
@@ -192,7 +192,7 @@ class Read:
 
 
 def reported_cost(headers: httpx.Headers) -> float | None:
-    reported: Final = headers.get("x-litellm-response-cost")
+    reported: Final = headers.get("x-hangarllm-response-cost")
     return None if reported is None else float(reported)
 
 
@@ -228,30 +228,30 @@ def number(value: JsonValue) -> float:
 
 
 def key_spend(key: str) -> float:
-    rows: Final = read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s', (hashed(key),))
+    rows: Final = read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s', (hashed(key),))
     return number(rows[0]["spend"])
 
 
 def team_spend(team_id: str) -> float:
-    rows: Final = read_rows('SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    rows: Final = read_rows('SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
     return number(rows[0]["spend"])
 
 
 def user_spend(user_id: str) -> float:
-    rows: Final = read_rows('SELECT spend FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,))
+    rows: Final = read_rows('SELECT spend FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,))
     return number(rows[0]["spend"])
 
 
 def org_spend(organization_id: str) -> float:
     rows: Final = read_rows(
-        'SELECT spend FROM "LiteLLM_OrganizationTable" WHERE organization_id = %s', (organization_id,)
+        'SELECT spend FROM "HangarLLM_OrganizationTable" WHERE organization_id = %s', (organization_id,)
     )
     return number(rows[0]["spend"])
 
 
 def tag_spend(tag: str) -> float:
     rows: Final = read_rows(
-        'SELECT COALESCE(SUM(spend), 0) AS spend FROM "LiteLLM_DailyTagSpend" WHERE tag = %s', (tag,)
+        'SELECT COALESCE(SUM(spend), 0) AS spend FROM "HangarLLM_DailyTagSpend" WHERE tag = %s', (tag,)
     )
     return number(rows[0]["spend"])
 
@@ -267,14 +267,14 @@ def assert_charged_exactly(read_spend: Callable[[], float], expected: float) -> 
 def charged_rows(model_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
         'SELECT request_id, call_type, api_key, team_id, organization_id, "user", request_tags, spend, '
-        'prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE model_id = %s AND spend > 0',
+        'prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE model_id = %s AND spend > 0',
         (model_id,),
     )
 
 
 def create_rows(model_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT api_key, team_id, organization_id, "user", request_tags FROM "LiteLLM_SpendLogs" '
+        'SELECT api_key, team_id, organization_id, "user", request_tags FROM "HangarLLM_SpendLogs" '
         "WHERE model_id = %s AND call_type = 'aresponses'",
         (model_id,),
     )
@@ -288,7 +288,7 @@ def one_charged_row(model_id: str) -> dict[str, JsonValue]:
 
 def managed_rows(response_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT status, api_key, created_by, team_id FROM "LiteLLM_ManagedObjectTable" '
+        'SELECT status, api_key, created_by, team_id FROM "HangarLLM_ManagedObjectTable" '
         "WHERE unified_object_id = %s OR model_object_id = %s",
         (response_id, response_id),
     )

@@ -6,18 +6,18 @@ from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 from typing import Final, Literal
 
-import litellm
+import hangarllm
 import pytest
 from pydantic import BaseModel
 
-from litellm import sandbox
-from litellm.harness.context import GatewayTarget, SessionContext
-from litellm.harness.handlers.tool_loop_handler import ToolLoopHandler
-from litellm.harness.options import ToolLoopOptions
-from litellm.harness.types import Approval, Event, Harness, Text, ToolCall, ToolResult
-from litellm.llms.base_llm.harness.transformation import HarnessTurnError
-from litellm.llms.tool_loop.harness.transformation import ToolLoopHarnessConfig
-from litellm.types.utils import ModelResponse
+from hangarllm import sandbox
+from hangarllm.harness.context import GatewayTarget, SessionContext
+from hangarllm.harness.handlers.tool_loop_handler import ToolLoopHandler
+from hangarllm.harness.options import ToolLoopOptions
+from hangarllm.harness.types import Approval, Event, Harness, Text, ToolCall, ToolResult
+from hangarllm.llms.base_llm.harness.transformation import HarnessTurnError
+from hangarllm.llms.tool_loop.harness.transformation import ToolLoopHarnessConfig
+from hangarllm.types.utils import ModelResponse
 
 
 class ScriptedCompletion:
@@ -377,13 +377,13 @@ async def test_gateway_routing_uses_proxy_model_and_tool_loop_tag(tmp_path: Path
 
     await run_turn(handler, ctx, "Hi")
 
-    assert completion.calls[0]["model"] == "litellm_proxy/gpt-4o-mini"
+    assert completion.calls[0]["model"] == "hangarllm_proxy/gpt-4o-mini"
     assert completion.calls[0]["api_base"] == "http://gateway"
     assert completion.calls[0]["api_key"] == "sk-virtual"
     headers: Final = completion.calls[0]["extra_headers"]
     assert isinstance(headers, dict)
-    assert headers["x-litellm-tags"] == "harness,tool_loop"
-    assert '"team": "test"' in headers["x-litellm-spend-logs-metadata"]
+    assert headers["x-hangarllm-tags"] == "harness,tool_loop"
+    assert '"team": "test"' in headers["x-hangarllm-spend-logs-metadata"]
 
 
 async def test_usage_and_cost_accumulate_across_model_calls(tmp_path: Path) -> None:
@@ -394,7 +394,7 @@ async def test_usage_and_cost_accumulate_across_model_calls(tmp_path: Path) -> N
                 prompt_tokens=10,
                 completion_tokens=4,
                 hidden_params={
-                    "additional_headers": {"llm_provider-x-litellm-response-cost": "0.4"},
+                    "additional_headers": {"llm_provider-x-hangarllm-response-cost": "0.4"},
                     "response_cost": 0.1,
                 },
             ),
@@ -464,7 +464,7 @@ async def test_model_call_limit_raises_harness_turn_error(tmp_path: Path) -> Non
 
 
 async def test_public_aagent_uses_tool_loop_with_mock_response(tmp_path: Path) -> None:
-    result: Final = await litellm.aagent(
+    result: Final = await hangarllm.aagent(
         Harness.TOOL_LOOP,
         "Say done",
         sandbox=sandbox.local(tmp_path),

@@ -2,9 +2,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.exceptions import AuthenticationError
-from litellm.llms.chatgpt.chat.transformation import ChatGPTConfig
-from litellm.llms.chatgpt.common_utils import GetAccessTokenError
+from hangarllm.exceptions import AuthenticationError
+from hangarllm.llms.chatgpt.chat.transformation import ChatGPTConfig
+from hangarllm.llms.chatgpt.common_utils import GetAccessTokenError
 
 GATEWAY_BASE = "https://chatgpt.example/backend-api/codex"
 
@@ -68,11 +68,11 @@ from typing import Final
 import httpx
 import respx
 
-import litellm
-from litellm.integrations.dotprompt.dotprompt_manager import DotpromptManager
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.chatgpt.chat.transformation import ChatGPTConfig
-from litellm.types.router import GenericLiteLLMParams
+import hangarllm
+from hangarllm.integrations.dotprompt.dotprompt_manager import DotpromptManager
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.llms.chatgpt.chat.transformation import ChatGPTConfig
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 def _write_auth_record(path: Path, token: str, account_id: str) -> None:
@@ -112,7 +112,7 @@ class TestChatGPTMultiAccountChat:
             model="gpt-6.1-sol",
             messages=[],
             optional_params={},
-            litellm_params={"chatgpt_auth_file": str(file_a)},
+            hangarllm_params={"chatgpt_auth_file": str(file_a)},
             api_key="token-default",
         )
         headers_b: Final = config.validate_environment(
@@ -120,7 +120,7 @@ class TestChatGPTMultiAccountChat:
             model="gpt-6.1-sol",
             messages=[],
             optional_params={},
-            litellm_params={"chatgpt_auth_file": str(file_b)},
+            hangarllm_params={"chatgpt_auth_file": str(file_b)},
             api_key="token-default",
         )
 
@@ -137,7 +137,7 @@ class TestChatGPTMultiAccountChat:
             model="gpt-6.1-sol",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="token-default",
         )
 
@@ -161,7 +161,7 @@ class TestChatGPTMultiAccountChat:
 
         model, provider, dynamic_api_key, _ = get_llm_provider(
             model="chatgpt/gpt-6.1-sol",
-            litellm_params=GenericLiteLLMParams(chatgpt_auth_file=str(file_a)),
+            hangarllm_params=GenericHangarLLMParams(chatgpt_auth_file=str(file_a)),
         )
 
         assert model == "gpt-6.1-sol"
@@ -224,14 +224,14 @@ async def test_requests_use_selected_subscription(
     blocked_default: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     default_dir: Final = auth_files[0].parent / "missing-default"
     if blocked_default:
         default_dir.write_text("ordinary file")
     monkeypatch.setenv("CHATGPT_TOKEN_DIR", str(default_dir / "unused"))
     if with_prompt:
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "callbacks",
             [
                 DotpromptManager(
@@ -241,11 +241,11 @@ async def test_requests_use_selected_subscription(
             ],
         )
     router: Final = (
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": f"account-{index}",
-                    "litellm_params": {"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(path)},
+                    "hangarllm_params": {"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(path)},
                 }
                 for index, path in enumerate(auth_files)
             ]
@@ -263,11 +263,11 @@ async def test_requests_use_selected_subscription(
             }
         )
         if endpoint == "chat":
-            result: Final = await (router.acompletion if router else litellm.acompletion)(
+            result: Final = await (router.acompletion if router else hangarllm.acompletion)(
                 **params, messages=[{"role": "user", "content": "Hello"}]
             )
             return result.choices[0].message.content
-        response: Final = await (router.aresponses if router else litellm.aresponses)(
+        response: Final = await (router.aresponses if router else hangarllm.aresponses)(
             **params, input=[{"role": "user", "content": "Hello"}]
         )
         return response.output[0].content[0].text
@@ -304,11 +304,11 @@ async def test_client_login_keeps_its_account_across_gateway_deployments(
     stream: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("CHATGPT_TOKEN_DIR", str(auth_files[0].parent / "no-gateway-login"))
     if with_prompt:
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "callbacks",
             [
                 DotpromptManager(
@@ -317,11 +317,11 @@ async def test_client_login_keeps_its_account_across_gateway_deployments(
                 )
             ],
         )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "subscriptions",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "chatgpt/gpt-6.1-sol",
                     **({"chatgpt_auth_file": str(path)} if configured_login else {}),
                 },
@@ -387,10 +387,10 @@ async def test_client_login_keeps_its_account_across_gateway_deployments(
 async def test_one_client_limit_does_not_cool_down_other_subscriptions(
     auth_files: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "pool", "litellm_params": {"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(path)}}
+            {"model_name": "pool", "hangarllm_params": {"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(path)}}
             for path in auth_files
         ],
         num_retries=0,
@@ -409,7 +409,7 @@ async def test_one_client_limit_does_not_cool_down_other_subscriptions(
             json={"error": {"message": "Usage limit reached", "type": "rate_limit_error"}},
         )
         for _ in range(2):
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await router.aresponses(model="pool", input="Hello", provider_specific_header=headers)
             await asyncio.sleep(0)
         route.mock(side_effect=_subscription_response)
@@ -446,16 +446,16 @@ async def test_client_login_cannot_be_redirected_to_another_host(
     async def request() -> None:
         if endpoint == "chat":
             if async_call:
-                await litellm.acompletion(**params, messages=[{"role": "user", "content": "Hello"}])
+                await hangarllm.acompletion(**params, messages=[{"role": "user", "content": "Hello"}])
             else:
-                litellm.completion(**params, messages=[{"role": "user", "content": "Hello"}])
+                hangarllm.completion(**params, messages=[{"role": "user", "content": "Hello"}])
         elif async_call:
-            await litellm.aresponses(**params, input="Hello")
+            await hangarllm.aresponses(**params, input="Hello")
         else:
-            litellm.responses(**params, input="Hello")
+            hangarllm.responses(**params, input="Hello")
 
     with respx.mock as transport:
-        with pytest.raises(litellm.BadRequestError, match="official HTTPS ChatGPT endpoint"):
+        with pytest.raises(hangarllm.BadRequestError, match="official HTTPS ChatGPT endpoint"):
             await request()
         assert len(transport.calls) == 0
 
@@ -464,16 +464,16 @@ async def test_client_login_cannot_be_redirected_to_another_host(
 async def test_cross_provider_fallback_does_not_receive_the_chatgpt_login(
     auth_files: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "subscription",
-                "litellm_params": {"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(auth_files[0])},
+                "hangarllm_params": {"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(auth_files[0])},
             },
             {
                 "model_name": "api-fallback",
-                "litellm_params": {"model": "openai/gpt-6.1-sol", "api_key": "sk-example-fallback"},
+                "hangarllm_params": {"model": "openai/gpt-6.1-sol", "api_key": "sk-example-fallback"},
             },
         ],
         fallbacks=[{"subscription": ["api-fallback"]}],
@@ -530,12 +530,12 @@ async def test_sdk_extra_headers_use_client_login_without_gateway_auth(
     blocked.write_text("ordinary file")
     monkeypatch.setenv("CHATGPT_TOKEN_DIR", str(blocked / "unused"))
     monkeypatch.delenv("CHATGPT_AUTH_FILE", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     headers: Final = {"Authorization": f"Bearer {_client_token('acct-client-a')}"}
     prompt_params: Final = {"prompt_id": "sdk-client"} if with_prompt else {}
     if with_prompt:
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "callbacks",
             [
                 DotpromptManager(
@@ -553,15 +553,15 @@ async def test_sdk_extra_headers_use_client_login_without_gateway_auth(
                 "extra_headers": headers,
                 **prompt_params,
             }
-            result: Final = await litellm.acompletion(**params) if async_call else litellm.completion(**params)
+            result: Final = await hangarllm.acompletion(**params) if async_call else hangarllm.completion(**params)
             assert result.choices[0].message.content == "acct-client-a"
         else:
             response: Final = (
-                await litellm.aresponses(
+                await hangarllm.aresponses(
                     model="chatgpt/gpt-6.1-sol", input="Hello", extra_headers=headers, **prompt_params
                 )
                 if async_call
-                else litellm.responses(
+                else hangarllm.responses(
                     model="chatgpt/gpt-6.1-sol", input="Hello", extra_headers=headers, **prompt_params
                 )
             )
@@ -584,7 +584,7 @@ async def test_requests_preserve_gateway_token_and_selected_workspace(
     authorization_header: str | None,
 ) -> None:
     monkeypatch.setattr("time.time", lambda: 1700000000)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("CHATGPT_AUTH_FILE", str(tmp_path / "default.json"))
     token: Final = _client_token("acct-token-default")
     auth_file: Final = tmp_path / ("selected.json" if credential_source == "file" else "default.json")
@@ -624,15 +624,15 @@ async def test_requests_preserve_gateway_token_and_selected_workspace(
         transport.post("https://chatgpt.com/backend-api/codex/responses").mock(side_effect=reply)
         if endpoint == "chat":
             result: Final = (
-                await asyncio.to_thread(litellm.completion, **params, messages=[{"role": "user", "content": "Hello"}])
+                await asyncio.to_thread(hangarllm.completion, **params, messages=[{"role": "user", "content": "Hello"}])
                 if sync
-                else await litellm.acompletion(**params, messages=[{"role": "user", "content": "Hello"}])
+                else await hangarllm.acompletion(**params, messages=[{"role": "user", "content": "Hello"}])
             )
             assert result.choices[0].message.content == expected_account
         else:
             response: Final = (
-                await asyncio.to_thread(litellm.responses, **params, input=[{"role": "user", "content": "Hello"}])
+                await asyncio.to_thread(hangarllm.responses, **params, input=[{"role": "user", "content": "Hello"}])
                 if sync
-                else await litellm.aresponses(**params, input=[{"role": "user", "content": "Hello"}])
+                else await hangarllm.aresponses(**params, input=[{"role": "user", "content": "Hello"}])
             )
             assert response.output[0].content[0].text == expected_account

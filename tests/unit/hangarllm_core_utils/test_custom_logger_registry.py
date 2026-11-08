@@ -1,0 +1,408 @@
+import asyncio
+import importlib
+import os
+from collections.abc import AsyncIterator
+from datetime import datetime
+from typing import Final, Literal
+from unittest.mock import patch
+
+import pytest
+import pytest_asyncio
+from prometheus_client import REGISTRY
+
+import hangarllm
+from hangarllm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
+from hangarllm.hangarllm_core_utils.custom_logger_registry import (
+    CustomLoggerRegistry,
+)
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
+
+# clear prometheus collectors / registry
+collectors = list(REGISTRY._collector_to_names.keys())
+for collector in collectors:
+    REGISTRY.unregister(collector)
+######################################
+
+
+expected_env_vars = {
+    "LAGO_API_KEY": "api_key",
+    "LAGO_API_BASE": "mock_base",
+    "LAGO_API_EVENT_CODE": "mock_event_code",
+    "OPENMETER_API_KEY": "openmeter_api_key",
+    "BRAINTRUST_API_BASE": "braintrust_api_base",
+    "BRAINTRUST_API_KEY": "braintrust_api_key",
+    "GALILEO_API_KEY": "galileo_api_key",
+    "LITERAL_API_KEY": "literal_api_key",
+    "DD_API_KEY": "datadog_api_key",
+    "DD_SITE": "datadog_site",
+    "GOOGLE_APPLICATION_CREDENTIALS": "gcs_credentials",
+    "OPIK_API_KEY": "opik_api_key",
+    "LANGTRACE_API_KEY": "langtrace_api_key",
+    "LOGFIRE_TOKEN": "logfire_token",
+    "ARIZE_SPACE_KEY": "arize_space_key",
+    "ARIZE_API_KEY": "arize_api_key",
+    "PHOENIX_API_KEY": "phoenix_api_key",
+    "ARGILLA_API_KEY": "argilla_api_key",
+    "PAGERDUTY_API_KEY": "pagerduty_api_key",
+    "GCS_PUBSUB_TOPIC_ID": "gcs_pubsub_topic_id",
+    "GCS_PUBSUB_PROJECT_ID": "gcs_pubsub_project_id",
+    "CONFIDENT_API_KEY": "confident_api_key",
+    "LITELM_ENVIRONMENT": "development",
+    "AWS_BUCKET_NAME": "aws_bucket_name",
+    "AWS_SECRET_ACCESS_KEY": "aws_secret_access_key",
+    "AWS_ACCESS_KEY_ID": "aws_access_key_id",
+    "AWS_REGION": "aws_region",
+    "AWS_SQS_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue",
+}
+
+
+def reset_all_callbacks():
+    hangarllm.callbacks = []
+    hangarllm.input_callback = []
+    hangarllm.success_callback = []
+    hangarllm.failure_callback = []
+    hangarllm._async_success_callback = []
+    hangarllm._async_failure_callback = []
+
+
+initial_env_vars = {}
+
+
+def init_env_vars():
+    for env_var, value in expected_env_vars.items():
+        if env_var not in os.environ:
+            os.environ[env_var] = value
+        else:
+            initial_env_vars[env_var] = os.environ[env_var]
+
+
+def reset_env_vars():
+    for env_var, value in initial_env_vars.items():
+        os.environ[env_var] = value
+
+
+all_callback_required_env_vars = []
+
+
+async def use_callback_in_llm_call(callback: str, used_in: Literal["callbacks", "success_callback"]):
+    if callback == "dynamic_rate_limiter":
+        # internal CustomLogger class that expects internal_usage_cache passed to it, it always fails when tested in this way
+        return
+    elif callback == "dynamic_rate_limiter_v3":
+        # internal CustomLogger class that expects internal_usage_cache passed to it, it always fails when tested in this way
+        return
+    elif callback == "argilla":
+        hangarllm.argilla_transformation_object = {}
+    elif callback == "openmeter":
+        # it's currently handled in jank way, TODO: fix openmete and then actually run it's test
+        return
+    elif callback == "bitbucket" or callback == "gitlab":
+        # Set up mock bitbucket configuration required for initialization
+        hangarllm.global_bitbucket_config = {
+            "workspace": "test-workspace",
+            "repository": "test-repo",
+            "access_token": "test-token",
+            "branch": "main",
+        }
+        hangarllm.global_gitlab_config = {
+            "project": "a/b/<repo_name>",
+            "access_token": "your-access-token",
+            "base_url": "gitlab url",
+            "prompts_path": "src/prompts",  # folder to point to, defaults to root
+            "branch": "main",  # optional, defaults to main
+        }
+        # Mock BitBucket HTTP calls to prevent actual API requests
+        from unittest.mock import MagicMock
+
+        import httpx
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"values": []}
+        mock_response.text = ""
+
+        patch.object(hangarllm.module_level_client, "get", return_value=mock_response).start()
+    elif callback == "prometheus":
+        # pytest teardown - clear existing prometheus collectors
+        collectors = list(REGISTRY._collector_to_names.keys())
+        for collector in collectors:
+            REGISTRY.unregister(collector)
+
+    # Mock the httpx call for Argilla dataset retrieval
+    if callback == "argilla":
+        import httpx
+
+        mock_response = httpx.Response(status_code=200, json={"items": [{"id": "mocked_dataset_id"}]})
+        patch.object(hangarllm.module_level_client, "get", return_value=mock_response).start()
+
+    # Mock the httpx call for Argilla dataset retrieval
+    if callback == "argilla":
+        import httpx
+
+        mock_response = httpx.Response(status_code=200, json={"items": [{"id": "mocked_dataset_id"}]})
+        patch.object(hangarllm.module_level_client, "get", return_value=mock_response).start()
+
+    if used_in == "callbacks":
+        hangarllm.callbacks = [callback]
+    elif used_in == "success_callback":
+        hangarllm.success_callback = [callback]
+
+    for _ in range(5):
+        await hangarllm.acompletion(
+            model="gpt-5-mini",
+            messages=[{"role": "user", "content": "hi"}],
+            temperature=0.1,
+            mock_response="hello",
+        )
+
+        await asyncio.sleep(0.5)
+
+        expected_class = CustomLoggerRegistry.CALLBACK_CLASS_STR_TO_CLASS_TYPE[callback]
+
+        if used_in == "callbacks":
+            assert isinstance(hangarllm._async_success_callback[0], expected_class)
+            assert isinstance(hangarllm._async_failure_callback[0], expected_class)
+            assert isinstance(hangarllm.success_callback[0], expected_class)
+            assert isinstance(hangarllm.failure_callback[0], expected_class)
+
+            assert len(hangarllm._async_success_callback) == 1, f"Got={hangarllm._async_success_callback}"
+            assert len(hangarllm._async_failure_callback) == 1
+            assert len(hangarllm.success_callback) == 1
+            assert len(hangarllm.failure_callback) == 1
+            assert len(hangarllm.callbacks) == 1
+        elif used_in == "success_callback":
+            print(f"hangarllm._async_success_callback: {hangarllm._async_success_callback}")
+            assert isinstance(hangarllm.success_callback[0], expected_class)
+            assert len(hangarllm.success_callback) == 1  # ["lago", LagoLogger]
+            assert isinstance(hangarllm._async_success_callback[0], expected_class)
+            assert len(hangarllm._async_success_callback) == 1
+
+            # TODO also assert that it's not set for failure_callback
+            # As of Oct 21 2024, it's currently set
+            # 1st hoping to add test coverage for just setting in success_callback/_async_success_callback
+
+        if callback == "argilla":
+            patch.stopall()
+
+        if callback == "bitbucket":
+            # Clean up bitbucket configuration and patches
+            if hasattr(hangarllm, "global_bitbucket_config"):
+                delattr(hangarllm, "global_bitbucket_config")
+            patch.stopall()
+
+
+def test_dynamic_logging_global_callback():
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+    from hangarllm.types.utils import Choices, Message, ModelResponse, Usage
+
+    cl = CustomLogger()
+
+    hangarllm_logging = HangarLLMLoggingObj(
+        model="claude-opus-4-7",
+        messages=[{"role": "user", "content": "hi"}],
+        stream=False,
+        call_type="completion",
+        start_time=datetime.now(),
+        hangarllm_call_id="123",
+        function_id="456",
+        kwargs={
+            "langfuse_public_key": "my-mock-public-key",
+            "langfuse_secret_key": "my-mock-secret-key",
+        },
+        dynamic_success_callbacks=["langfuse"],
+    )
+
+    with patch.object(cl, "log_success_event") as mock_log_success_event:
+        cl.log_success_event = mock_log_success_event
+        hangarllm.success_callback = [cl]
+
+        try:
+            hangarllm_logging.success_handler(
+                result=ModelResponse(
+                    id="chatcmpl-5418737b-ab14-420b-b9c5-b278b6681b70",
+                    created=1732306261,
+                    model="claude-opus-4-7",
+                    object="chat.completion",
+                    system_fingerprint=None,
+                    choices=[
+                        Choices(
+                            finish_reason="stop",
+                            index=0,
+                            message=Message(
+                                content="hello",
+                                role="assistant",
+                                tool_calls=None,
+                                function_call=None,
+                            ),
+                        )
+                    ],
+                    usage=Usage(
+                        completion_tokens=20,
+                        prompt_tokens=10,
+                        total_tokens=30,
+                        completion_tokens_details=None,
+                        prompt_tokens_details=None,
+                    ),
+                ),
+                start_time=datetime.now(),
+                end_time=datetime.now(),
+                cache_hit=False,
+            )
+        except Exception as e:
+            print(f"Error: {e}")
+
+        mock_log_success_event.assert_called_once()
+
+
+def test_get_combined_callback_list():
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+
+    _logging = HangarLLMLoggingObj(
+        model="claude-opus-4-7",
+        messages=[{"role": "user", "content": "hi"}],
+        stream=False,
+        call_type="completion",
+        start_time=datetime.now(),
+        hangarllm_call_id="123",
+        function_id="456",
+    )
+
+    assert "langfuse" in _logging.get_combined_callback_list(
+        dynamic_success_callbacks=["langfuse"], global_callbacks=["lago"]
+    )
+    assert "lago" in _logging.get_combined_callback_list(
+        dynamic_success_callbacks=["langfuse"], global_callbacks=["lago"]
+    )
+
+
+def test_get_combined_callback_list_returns_copy_when_dynamic_is_none():
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+
+    _logging = HangarLLMLoggingObj(
+        model="claude-opus-4-7",
+        messages=[{"role": "user", "content": "hi"}],
+        stream=False,
+        call_type="completion",
+        start_time=datetime.now(),
+        hangarllm_call_id="123",
+        function_id="456",
+    )
+
+    global_callbacks = ["langfuse"]
+    combined_callbacks = _logging.get_combined_callback_list(
+        dynamic_success_callbacks=None, global_callbacks=global_callbacks
+    )
+
+    assert combined_callbacks == ["langfuse"]
+    assert combined_callbacks is not global_callbacks
+
+    combined_callbacks.append("new_callback")
+
+    assert global_callbacks == ["langfuse"]
+
+
+@pytest.fixture(autouse=True)
+def _vcr_outcome_gate(request, vcr):
+    install_live_call_probe(request, vcr)
+    yield
+    record_vcr_outcome(request, vcr)
+
+
+@pytest_asyncio.fixture(loop_scope="function", autouse=True)
+async def drain_logging_worker(isolate_hangarllm_state: None) -> AsyncIterator[None]:
+    yield
+    await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS)
+
+
+LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS: Final = LOGGING_WORKER_MAX_TIME_PER_COROUTINE + 5.0
+
+
+@pytest.fixture(scope="function", autouse=True)
+def isolate_hangarllm_state():
+    """
+    Per-function isolation fixture.
+
+    Resets hangarllm state to the true defaults captured at conftest import time,
+    then restores after the test. This prevents module-level mutations (e.g.
+    `hangarllm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
+    leaking across tests within the same xdist worker.
+    """
+    from hangarllm.hangarllm_core_utils import hangarllm_logging as ll_logging
+    from hangarllm.proxy.management_helpers import audit_logs as ll_audit_logs
+
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
+    ll_logging._in_memory_loggers.clear()
+    ll_audit_logs._audit_log_callback_cache.clear()
+    for attr in _LIST_ATTRS:
+        if attr in _DEFAULTS:
+            default = _DEFAULTS[attr]
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
+    for attr in _SCALAR_ATTRS:
+        if attr in _DEFAULTS:
+            setattr(hangarllm, attr, _DEFAULTS[attr])
+    yield
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
+    ll_logging._in_memory_loggers.clear()
+    ll_audit_logs._audit_log_callback_cache.clear()
+    for attr in _LIST_ATTRS:
+        if attr in _DEFAULTS:
+            default = _DEFAULTS[attr]
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
+    for attr in _SCALAR_ATTRS:
+        if attr in _DEFAULTS:
+            setattr(hangarllm, attr, _DEFAULTS[attr])
+
+
+_LIST_ATTRS = (
+    "callbacks",
+    "success_callback",
+    "failure_callback",
+    "_async_success_callback",
+    "_async_failure_callback",
+    "service_callback",
+    "pre_call_rules",
+    "post_call_rules",
+)
+
+_SCALAR_ATTRS = (
+    "set_verbose",
+    "cache",
+    "num_retries",
+    "num_retries_per_request",
+    "turn_off_message_logging",
+    "redact_messages_in_exceptions",
+    "redact_user_api_key_info",
+    "s3_callback_params",
+    "s3_audit_callback_params",
+    "datadog_params",
+    "vector_store_registry",
+)
+
+_DEFAULTS: dict = {}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_and_teardown():
+    """
+    Module-scoped setup. Reloads hangarllm only in single-process mode
+    (skipped under xdist to avoid cross-worker interference).
+    """
+    import hangarllm
+
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
+    if worker_id is None:
+        importlib.reload(hangarllm)
+        try:
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
+
+                importlib.reload(hangarllm.proxy.proxy_server)
+        except Exception as e:
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
+    yield

@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-from litellm.llms.anthropic.files.handler import AnthropicFilesHandler
-from litellm.types.llms.openai import FileContentRequest, HttpxBinaryResponseContent
+from hangarllm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+from hangarllm.llms.anthropic.files.handler import AnthropicFilesHandler
+from hangarllm.types.llms.openai import FileContentRequest, HttpxBinaryResponseContent
 
 
 class TestAnthropicFilesHandler:
@@ -132,7 +132,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -189,7 +189,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -232,7 +232,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -279,7 +279,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -325,7 +325,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -410,7 +410,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -436,9 +436,9 @@ class TestAnthropicFilesHandler:
         through the sync get_auth_header; it must go through the async facade."""
         import threading
 
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
         for name in (
             "ANTHROPIC_API_KEY",
@@ -465,12 +465,12 @@ class TestAnthropicFilesHandler:
         engine = JwtBearerTokenExchangeEngine(poster=ThreadRecordingPoster())
         sync_calls = []
 
-        def sync_shim(litellm_params, api_base, model):
+        def sync_shim(hangarllm_params, api_base, model):
             sync_calls.append(model)
-            return get_anthropic_wif_token(litellm_params, api_base, model, engine)
+            return get_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
-        async def async_shim(litellm_params, api_base, model):
-            return await aget_anthropic_wif_token(litellm_params, api_base, model, engine)
+        async def async_shim(hangarllm_params, api_base, model):
+            return await aget_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
         monkeypatch.setattr(anthropic_common_utils, "get_anthropic_wif_token", sync_shim)
         monkeypatch.setattr(anthropic_common_utils, "aget_anthropic_wif_token", async_shim)
@@ -486,7 +486,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -509,15 +509,15 @@ class TestAnthropicFilesHandler:
         assert thread_ids and thread_ids[0] != threading.get_ident()
 
     @pytest.mark.asyncio
-    async def test_afile_content_mints_from_the_deployment_litellm_params(
+    async def test_afile_content_mints_from_the_deployment_hangarllm_params(
         self, handler, mock_anthropic_batch_results_succeeded, monkeypatch
     ):
         """Regression: a deployment that authenticates through a named credential carries its
-        federation settings in litellm_params, and afile_content dropped them, so only
+        federation settings in hangarllm_params, and afile_content dropped them, so only
         process-wide env vars could ever mint on a batch-result download."""
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.wif import aget_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.wif import aget_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
         for name in (
             "ANTHROPIC_API_KEY",
@@ -542,8 +542,8 @@ class TestAnthropicFilesHandler:
 
         engine = JwtBearerTokenExchangeEngine(poster=Poster())
 
-        async def async_shim(litellm_params, api_base, model):
-            return await aget_anthropic_wif_token(litellm_params, api_base, model, engine)
+        async def async_shim(hangarllm_params, api_base, model):
+            return await aget_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
         monkeypatch.setattr(anthropic_common_utils, "aget_anthropic_wif_token", async_shim)
 
@@ -558,7 +558,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(  # test-quality-ok: the proxy wiring under test is what this patches
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "hangarllm.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:  # test-quality-ok: the proxy wiring under test is what this patches
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -571,7 +571,7 @@ class TestAnthropicFilesHandler:
                     "extra_body": None,
                 },
                 api_key=None,
-                litellm_params={
+                hangarllm_params={
                     "anthropic_federation_rule_id": "fdrl_credential",
                     "anthropic_organization_id": "org-credential",
                     "anthropic_identity_token": "oidc/env/CREDENTIAL_IDENTITY_JWT",
@@ -651,7 +651,7 @@ class TestAnthropicBatchesConfig:
             api_base="https://api.anthropic.com",
             batch_id="batch_123",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://api.anthropic.com/v1/messages/batches/batch_123"
 
@@ -660,7 +660,7 @@ class TestAnthropicBatchesConfig:
             api_base="https://api.anthropic.com/",
             batch_id="batch_123",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://api.anthropic.com/v1/messages/batches/batch_123"
 
@@ -680,7 +680,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert batch.id == "batch_123"
@@ -710,7 +710,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert batch.id == "batch_456"
@@ -736,7 +736,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert batch.id == "batch_789"
@@ -762,7 +762,7 @@ class TestAnthropicBatchesConfig:
                 model="claude-3-5-sonnet-20241022",
                 raw_response=mock_response,
                 logging_obj=logging_obj,
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_transform_retrieve_batch_response_timestamp_parsing(self, config):
@@ -797,7 +797,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify timestamps are parsed correctly
@@ -840,7 +840,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Should still work with missing optional fields

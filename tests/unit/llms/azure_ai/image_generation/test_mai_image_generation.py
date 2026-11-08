@@ -3,27 +3,27 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.llms.azure.azure import AzureChatCompletion
-from litellm.llms.azure.image_generation import get_azure_image_generation_config
-from litellm.llms.azure.image_generation.http_utils import (
+import hangarllm
+from hangarllm.exceptions import UnsupportedParamsError
+from hangarllm.llms.azure.azure import AzureChatCompletion
+from hangarllm.llms.azure.image_generation import get_azure_image_generation_config
+from hangarllm.llms.azure.image_generation.http_utils import (
     azure_deployment_image_generation_json_body,
 )
-from litellm.llms.azure_ai.image_generation import (
+from hangarllm.llms.azure_ai.image_generation import (
     AzureFoundryMAIImageGenerationConfig,
     get_azure_ai_image_generation_config,
 )
-from litellm.llms.azure_ai.image_generation.cost_calculator import (
+from hangarllm.llms.azure_ai.image_generation.cost_calculator import (
     cost_calculator as azure_ai_image_cost_calculator,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     ImageObject,
     ImageResponse,
     ImageUsage,
     ImageUsageInputTokensDetails,
 )
-from litellm.utils import get_optional_params_image_gen
+from hangarllm.utils import get_optional_params_image_gen
 
 
 class TestAzureMAIImageGeneration:
@@ -257,7 +257,7 @@ class TestAzureMAIImageGeneration:
         assert exc_info.value.status_code == 400
 
     def test_get_optional_params_image_gen_global_drop_params_drops_multi_image_n(self, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", True)
+        monkeypatch.setattr(hangarllm, "drop_params", True)
         optional_params = get_optional_params_image_gen(
             model="MAI-Image-2.5",
             n=4,
@@ -268,7 +268,7 @@ class TestAzureMAIImageGeneration:
         assert optional_params["width"] == 1024
 
     def test_get_optional_params_image_gen_without_any_drop_params_still_raises(self, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         with pytest.raises(UnsupportedParamsError, match="returns exactly 1 image per request"):
             get_optional_params_image_gen(
                 model="MAI-Image-2.5",
@@ -299,8 +299,8 @@ class TestAzureMAIImageGeneration:
 
     @pytest.mark.parametrize("params", [{"n": 2}, {"n": "abc"}, {"size": "512x512"}, {"size": "1792x1024"}])
     def test_image_generation_rejected_params_surface_as_400(self, params):
-        with pytest.raises(litellm.BadRequestError) as exc_info:
-            litellm.image_generation(
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
+            hangarllm.image_generation(
                 model="azure_ai/MAI-Image-2.5",
                 prompt="A photograph of a red fox",
                 api_key="test-key",
@@ -340,7 +340,7 @@ class TestAzureMAIImageGeneration:
             logging_obj=logging_obj,
             request_data={"prompt": "A red fox"},
             optional_params={"width": 1024, "height": 1024},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -350,7 +350,7 @@ class TestAzureMAIImageGeneration:
         assert image_response.usage.total_tokens == 1046
 
     def test_transform_image_generation_response_non_json_raises_openai_error(self):
-        from litellm.llms.openai.common_utils import OpenAIError
+        from hangarllm.llms.openai.common_utils import OpenAIError
 
         config = AzureFoundryMAIImageGenerationConfig()
         raw_response = MagicMock(spec=httpx.Response)
@@ -366,7 +366,7 @@ class TestAzureMAIImageGeneration:
                 logging_obj=MagicMock(),
                 request_data={"prompt": "A red fox"},
                 optional_params={"width": 1024, "height": 1024},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -427,7 +427,7 @@ class TestAzureMAIImageGeneration:
             logging_obj=MagicMock(),
             request_data={"prompt": "A red fox"},
             optional_params={"width": 1024, "height": 1024},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -447,7 +447,7 @@ class TestAzureMAIImageGeneration:
             logging_obj=MagicMock(),
             request_data={"prompt": "A red fox"},
             optional_params={"width": 1024, "height": 1024},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -482,7 +482,7 @@ class TestAzureMAIImageGeneration:
             api_key="test-key",
             api_base="https://my-resource.services.ai.azure.com",
             api_version="preview",
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert image_response.data[0].b64_json == "abc123"
@@ -492,10 +492,10 @@ class TestAzureMAIImageGeneration:
         assert image_response.size == "1792x1024"
 
     def test_mai_image_cost_calculator_token_based(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        litellm.model_cost = litellm.get_model_cost_map(url="")
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
         model = "azure_ai/MAI-Image-2.5"
-        model_info = litellm.get_model_info(model=model, custom_llm_provider="azure_ai")
+        model_info = hangarllm.get_model_info(model=model, custom_llm_provider="azure_ai")
         input_text_tokens = 100
         output_image_tokens = 1024
 
@@ -524,10 +524,10 @@ class TestAzureMAIImageGeneration:
         assert round(cost, 10) == round(expected_cost, 10)
 
     def test_mai_image_pro_edit_cost_splits_text_and_image_input(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        litellm.model_cost = litellm.get_model_cost_map(url="")
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
         model = "azure_ai/MAI-Image-2.5-Pro"
-        model_info = litellm.get_model_info(model=model, custom_llm_provider="azure_ai")
+        model_info = hangarllm.get_model_info(model=model, custom_llm_provider="azure_ai")
         text_tokens = 37
         image_tokens = 1024
         output_image_tokens = 1024
@@ -556,10 +556,10 @@ class TestAzureMAIImageGeneration:
         assert model_info["input_cost_per_image_token"] != model_info["input_cost_per_token"]
 
     def test_mai_image_cost_calculator_falls_back_to_flat_image_pricing(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        litellm.model_cost = litellm.get_model_cost_map(url="")
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
         model = "azure_ai/MAI-Image-2.5"
-        model_info = litellm.get_model_info(model=model, custom_llm_provider="azure_ai")
+        model_info = hangarllm.get_model_info(model=model, custom_llm_provider="azure_ai")
         image_response = ImageResponse(data=[ImageObject(b64_json="img1"), ImageObject(b64_json="img2")])
 
         cost = azure_ai_image_cost_calculator(

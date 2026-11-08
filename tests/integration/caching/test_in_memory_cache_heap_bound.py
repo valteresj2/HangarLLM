@@ -18,7 +18,7 @@ from integration._support.openai_wire import answering_model_discovery, chat_rep
 from integration._support.process import graceful_stop_seconds, owned_proxy_process
 from integration._support.wire import Reply, Request, Wire, wire_server
 from integration.providers._cache_control_marks_support import anthropic_peer, marker_of
-from litellm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY
+from hangarllm.caching.in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY
 
 pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 300)
 
@@ -39,7 +39,7 @@ def _config(directory: Path, api_base: str) -> Path:
     deployments: Final = [
         {
             "model_name": name,
-            "litellm_params": {"model": "anthropic/claude-opus-5-5", "api_base": api_base, "api_key": "synthetic"},
+            "hangarllm_params": {"model": "anthropic/claude-opus-5-5", "api_base": api_base, "api_key": "synthetic"},
         }
         for name in (_FIRST, _SECOND)
     ]
@@ -51,8 +51,8 @@ def _config(directory: Path, api_base: str) -> Path:
             "user_api_key_cache_ttl": 3600,
             "user_api_key_cache_max_size": _SLOTS,
         },
-        "litellm_settings": {
-            **object_value(config["litellm_settings"]),
+        "hangarllm_settings": {
+            **object_value(config["hangarllm_settings"]),
             "cache": False,
             "enable_redis_auth_cache": False,
         },
@@ -224,15 +224,15 @@ def _response_cache_config(directory: Path, peer_url: str) -> Path:
     deployments: Final = [
         {
             "model_name": "rc-openai",
-            "litellm_params": {"model": "openai/gpt-5.6", "api_base": f"{peer_url}/v1", "api_key": "synthetic"},
+            "hangarllm_params": {"model": "openai/gpt-5.6", "api_base": f"{peer_url}/v1", "api_key": "synthetic"},
         },
         {
             "model_name": "rc-anthropic",
-            "litellm_params": {"model": "anthropic/claude-haiku-5-5", "api_base": peer_url, "api_key": "synthetic"},
+            "hangarllm_params": {"model": "anthropic/claude-haiku-5-5", "api_base": peer_url, "api_key": "synthetic"},
         },
         {
             "model_name": "rc-embedding",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/text-embedding-3-large",
                 "api_base": f"{peer_url}/v1",
                 "api_key": "synthetic",
@@ -242,8 +242,8 @@ def _response_cache_config(directory: Path, peer_url: str) -> Path:
     merged: Final = {
         **config,
         "model_list": deployments,
-        "litellm_settings": {
-            **object_value(config["litellm_settings"]),
+        "hangarllm_settings": {
+            **object_value(config["hangarllm_settings"]),
             "cache": True,
             "cache_params": {"type": "local"},
             "enable_redis_auth_cache": False,

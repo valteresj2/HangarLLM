@@ -1,6 +1,6 @@
 # Test Key Patterns Standard
 
-Standard patterns for test/mock keys and credentials in the LiteLLM codebase to avoid triggering secret detection.
+Standard patterns for test/mock keys and credentials in the HangarLLM codebase to avoid triggering secret detection.
 
 ## How GitGuardian Works
 

@@ -2,12 +2,12 @@
 Helpers for the endpoint characterization tests (``test_endpoints_characterization*.py``).
 
 ``EndpointHost`` is a ``ScriptedHost`` that also scripts the host ops ``ScriptedHost`` leaves to
-litellm (assistants, skills, realtime, fine-tuning, batches, ...), so every ``host.invoke`` the core
+hangarllm (assistants, skills, realtime, fine-tuning, batches, ...), so every ``host.invoke`` the core
 makes is answered and recorded.
 
-Some endpoints do not go through ``host.invoke``: the Python core binds litellm's own functions for
+Some endpoints do not go through ``host.invoke``: the Python core binds hangarllm's own functions for
 them when it is built (vector stores, Google GenAI, OCR, search, videos, containers, interactions,
-managed agents). ``patch_direct_endpoints`` replaces those litellm functions, before the core is
+managed agents). ``patch_direct_endpoints`` replaces those hangarllm functions, before the core is
 built, with recording stand-ins that answer from the same host script, under the same ``__name__``
 (the core routes on the handler's name). A call to one of them is recorded with the function's name
 as its ``op``.
@@ -69,7 +69,7 @@ class EndpointHost(ScriptedHost):
 
 
 def recording_endpoint(host: ScriptedHost, name: str, *, is_async: bool) -> Callable[..., object]:
-    """A stand-in for litellm's ``name`` that records the call on ``host`` and answers from its script."""
+    """A stand-in for hangarllm's ``name`` that records the call on ``host`` and answers from its script."""
     if is_async:
 
         async def endpoint(*args: object, **kwargs: object) -> object:  # kwargs-ok: the endpoint's request
@@ -89,7 +89,7 @@ def recording_endpoint(host: ScriptedHost, name: str, *, is_async: bool) -> Call
 
 # module -> {attribute on the module: the function's own name}
 DIRECT_ENDPOINTS: Final[Mapping[str, Mapping[str, str]]] = {
-    "litellm.vector_stores.main": {
+    "hangarllm.vector_stores.main": {
         name: name
         for name in (
             "asearch",
@@ -106,8 +106,8 @@ DIRECT_ENDPOINTS: Final[Mapping[str, Mapping[str, str]]] = {
             "delete",
         )
     },
-    "litellm.vector_stores": {"acreate": "acreate"},
-    "litellm.vector_store_files.main": {
+    "hangarllm.vector_stores": {"acreate": "acreate"},
+    "hangarllm.vector_store_files.main": {
         name: name
         for name in (
             "acreate",
@@ -124,16 +124,16 @@ DIRECT_ENDPOINTS: Final[Mapping[str, Mapping[str, str]]] = {
             "delete",
         )
     },
-    "litellm.google_genai": {
+    "hangarllm.google_genai": {
         name: name
         for name in ("agenerate_content", "generate_content", "agenerate_content_stream", "generate_content_stream")
     },
-    "litellm.ocr": {"aocr": "aocr", "ocr": "ocr"},
-    "litellm.search": {"asearch": "asearch", "search": "search"},
-    "litellm.decisions": {"adecisions": "adecisions", "decisions": "decisions"},
-    "litellm.systemone": {"asystemone": "asystemone", "systemone": "systemone"},
-    "litellm.extraction": {"aextraction": "aextraction", "extraction": "extraction"},
-    "litellm.videos": {
+    "hangarllm.ocr": {"aocr": "aocr", "ocr": "ocr"},
+    "hangarllm.search": {"asearch": "asearch", "search": "search"},
+    "hangarllm.decisions": {"adecisions": "adecisions", "decisions": "decisions"},
+    "hangarllm.systemone": {"asystemone": "asystemone", "systemone": "systemone"},
+    "hangarllm.extraction": {"aextraction": "aextraction", "extraction": "extraction"},
+    "hangarllm.videos": {
         f"{prefix}video_{name}": f"{prefix}video_{name}"
         for prefix in ("a", "")
         for name in (
@@ -148,15 +148,15 @@ DIRECT_ENDPOINTS: Final[Mapping[str, Mapping[str, str]]] = {
             "extension",
         )
     },
-    "litellm.containers": {
+    "hangarllm.containers": {
         f"{prefix}{name}": f"{prefix}{name}"
         for prefix in ("a", "")
         for name in ("create_container", "list_containers", "retrieve_container", "delete_container")
     },
-    "litellm.interactions": {
+    "hangarllm.interactions": {
         f"{prefix}{name}": f"{prefix}{name}" for prefix in ("a", "") for name in ("create", "get", "delete", "cancel")
     },
-    "litellm.interactions.agents": {
+    "hangarllm.interactions.agents": {
         f"{prefix}{name}": f"{prefix}{name}"
         for prefix in ("a", "")
         for name in ("create", "get", "delete", "list", "list_versions")
@@ -165,22 +165,22 @@ DIRECT_ENDPOINTS: Final[Mapping[str, Mapping[str, str]]] = {
 
 # Recorded op names for the direct endpoints whose bare names collide across modules.
 RECORDED_NAMES: Final[Mapping[tuple[str, str], str]] = {
-    **{("litellm.vector_stores.main", name): f"vs.{name}" for name in DIRECT_ENDPOINTS["litellm.vector_stores.main"]},
-    ("litellm.vector_stores", "acreate"): "vs.acreate",
+    **{("hangarllm.vector_stores.main", name): f"vs.{name}" for name in DIRECT_ENDPOINTS["hangarllm.vector_stores.main"]},
+    ("hangarllm.vector_stores", "acreate"): "vs.acreate",
     **{
-        ("litellm.vector_store_files.main", name): f"vsf.{name}"
-        for name in DIRECT_ENDPOINTS["litellm.vector_store_files.main"]
+        ("hangarllm.vector_store_files.main", name): f"vsf.{name}"
+        for name in DIRECT_ENDPOINTS["hangarllm.vector_store_files.main"]
     },
-    **{("litellm.interactions", name): f"interactions.{name}" for name in DIRECT_ENDPOINTS["litellm.interactions"]},
+    **{("hangarllm.interactions", name): f"interactions.{name}" for name in DIRECT_ENDPOINTS["hangarllm.interactions"]},
     **{
-        ("litellm.interactions.agents", name): f"agents.{name}"
-        for name in DIRECT_ENDPOINTS["litellm.interactions.agents"]
+        ("hangarllm.interactions.agents", name): f"agents.{name}"
+        for name in DIRECT_ENDPOINTS["hangarllm.interactions.agents"]
     },
 }
 
 
 def patch_direct_endpoints(monkeypatch: pytest.MonkeyPatch, host: ScriptedHost) -> None:
-    """Replace litellm's directly bound endpoint functions with recording stand-ins on ``host``.
+    """Replace hangarllm's directly bound endpoint functions with recording stand-ins on ``host``.
 
     The stand-in keeps the function's ``__name__`` (the core routes on it); the call is recorded
     under ``RECORDED_NAMES`` when the bare name is ambiguous, else under the function's name."""
@@ -193,11 +193,11 @@ def patch_direct_endpoints(monkeypatch: pytest.MonkeyPatch, host: ScriptedHost) 
             stand_in: Final = recording_endpoint(host, recorded, is_async=is_async)
             stand_in.__name__ = getattr(original, "__name__", function_name)
             monkeypatch.setattr(module, attribute, stand_in)
-    from litellm.containers import endpoint_factory
+    from hangarllm.containers import endpoint_factory
 
-    for name in list(endpoint_factory._generated_endpoints):  # pyright: ignore[reportPrivateUsage]  # litellm's registry
+    for name in list(endpoint_factory._generated_endpoints):  # pyright: ignore[reportPrivateUsage]  # hangarllm's registry
         monkeypatch.setitem(
-            endpoint_factory._generated_endpoints,  # pyright: ignore[reportPrivateUsage]  # litellm's registry
+            endpoint_factory._generated_endpoints,  # pyright: ignore[reportPrivateUsage]  # hangarllm's registry
             name,
             recording_endpoint(host, name, is_async=name.startswith("a")),
         )

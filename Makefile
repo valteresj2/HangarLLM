@@ -1,4 +1,4 @@
-# LiteLLM Makefile
+# HangarLLM Makefile
 # Simple Makefile for running tests and basic development tasks
 
 .PHONY: help test test-unit test-unit-llms test-unit-proxy-guardrails test-unit-proxy-core test-unit-proxy-misc test-unit-proxy-root \
@@ -54,9 +54,9 @@ help:
 	@echo "  make test-integration   - Run integration tests"
 	@echo "  make test-unit-helm     - Run helm unit tests"
 	@echo "  make test-rust-extension - Build the Rust extension and run its public Python tests"
-	@echo "  make rust-sqlx-prepare  - Refresh litellm-rust/crates/db/.sqlx against a migrated Postgres container"
+	@echo "  make rust-sqlx-prepare  - Refresh hangarllm-rust/crates/db/.sqlx against a migrated Postgres container"
 	@echo ""
-	@echo "Heavy targets (check, lint) queue for LITELLM_GATE_SLOTS machine-wide"
+	@echo "Heavy targets (check, lint) queue for HANGARLLM_GATE_SLOTS machine-wide"
 	@echo "slots (default 2; 0 disables) so parallel sessions don't thrash one machine."
 
 UV := uv
@@ -91,7 +91,7 @@ install-dev:
 bootstrap:
 	$(UV) sync --inexact --frozen --extra proxy --group proxy-dev --group e2e-dev
 	$(UV_RUN) python scripts/prisma_generate_if_needed.py
-	cd ui/litellm-dashboard && ../../scripts/with_dashboard_node.sh npm install --no-audit --no-fund
+	cd ui/hangarllm-dashboard && ../../scripts/with_dashboard_node.sh npm install --no-audit --no-fund
 	@main_root=$$(git worktree list --porcelain | head -1 | sed 's/^worktree //'); \
 	if [ "$$main_root" != "$$(git rev-parse --show-toplevel)" ] && [ -f "$$main_root/.env" ] && [ ! -f .env ]; then \
 		cp "$$main_root/.env" .env && echo "bootstrap: copied .env from $$main_root"; \
@@ -112,7 +112,7 @@ install-proxy-dev-ci:
 
 install-test-deps: install-proxy-dev
 	$(UV) sync --frozen --all-groups --all-extras
-	$(UV_RUN) prisma generate --schema litellm/proxy/schema.prisma
+	$(UV_RUN) prisma generate --schema hangarllm/proxy/schema.prisma
 
 install-helm-unittest:
 	@helm plugin list | grep -qE '^unittest[[:space:]]+0\.8\.2([[:space:]]|$$)' || { \
@@ -129,10 +129,10 @@ install-hooks:
 # Wrap width is ruff.toml's single source of truth (line-length = 120), shared by the
 # formatter and the import sorter so there's no 88-vs-120 split to reconcile.
 format: install-dev
-	cd litellm && $(UV_RUN) ruff format --exclude '/enterprise/' . && cd ..
+	cd hangarllm && $(UV_RUN) ruff format --exclude '/enterprise/' . && cd ..
 
 format-check: install-dev
-	cd litellm && $(UV_RUN) ruff format --check --exclude '/enterprise/' . && cd ..
+	cd hangarllm && $(UV_RUN) ruff format --check --exclude '/enterprise/' . && cd ..
 
 lint-fetch-base:
 	@$(RESOLVE_BASE)
@@ -147,16 +147,16 @@ lint-install:
 	$(UV_RUN) python scripts/prisma_generate_if_needed.py
 
 # Diff-scoped format check, mirroring test-linting.yml's "Check ruff format" step:
-# only the litellm Python files changed vs the base are checked, so a pre-existing
+# only the hangarllm Python files changed vs the base are checked, so a pre-existing
 # format issue elsewhere doesn't block an unrelated commit. Git pathspecs match
-# recursively, so 'litellm/*.py' covers top-level files and nested modules alike,
-# the same set CI's ':(glob)litellm/**/*.py' selects.
+# recursively, so 'hangarllm/*.py' covers top-level files and nested modules alike,
+# the same set CI's ':(glob)hangarllm/**/*.py' selects.
 lint-format-check-changed: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 	@base_ref=$$($(RESOLVE_BASE)) && \
-	changed=$$(git diff --name-only --diff-filter=ACMR --merge-base "$$base_ref" -- 'litellm/*.py') && \
-	files=$$(printf '%s\n' "$$changed" | grep -v '^litellm/enterprise/' || true) || exit $$?; \
+	changed=$$(git diff --name-only --diff-filter=ACMR --merge-base "$$base_ref" -- 'hangarllm/*.py') && \
+	files=$$(printf '%s\n' "$$changed" | grep -v '^hangarllm/enterprise/' || true) || exit $$?; \
 	if [ -z "$$files" ]; then \
-		echo "No changed litellm Python files to format-check."; \
+		echo "No changed hangarllm Python files to format-check."; \
 	else \
 		echo "$$files" | xargs $(UV_RUN) ruff format --check --exclude '/enterprise/'; \
 	fi
@@ -164,7 +164,7 @@ lint-format-check-changed: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 # Linting targets
 lint-ruff: $(LINT_DEP_INSTALL)
 	$(UV_RUN) python scripts/check_mcp_operation_boundary.py
-	cd litellm && $(UV_RUN) ruff check . && cd ..
+	cd hangarllm && $(UV_RUN) ruff check . && cd ..
 	$(UV_RUN) ruff check --config ruff-tests.toml tests
 
 # faster linter for developing ...
@@ -191,7 +191,7 @@ lint-format-changed: install-dev
 lint-ruff-dev: install-dev
 	@base_ref=$$($(RESOLVE_BASE)) || exit $$?; \
 	tmpfile=$$(mktemp /tmp/ruff-dev.XXXXXX) && \
-	cd litellm && \
+	cd hangarllm && \
 	($(UV_RUN) ruff check . --output-format=pylint || true) > "$$tmpfile" && \
 	$(UV_RUN) diff-quality --violations=pylint "$$tmpfile" --compare-branch="$$base_ref" && \
 	cd .. ; \
@@ -215,7 +215,7 @@ lint-type-discipline: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 	$(UV_RUN) python scripts/type_discipline_gate.py --base "$(BASE_REF)"
 
 # Test-quality gate (zero-assert / mock-echo tests, sys.path.insert, raw env writes,
-# litellm module-global mutation, credential-gated skips, conftest snapshot
+# hangarllm module-global mutation, credential-gated skips, conftest snapshot
 # inventory), counted across tests/ the same delta-vs-base way.
 lint-test-quality: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 	$(UV_RUN) python scripts/test_quality_gate.py --base "$(BASE_REF)"
@@ -237,10 +237,10 @@ lint-gate: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 	$(UV_RUN) python scripts/ruff_strict_gate.py --base "$(BASE_REF)"
 
 check-circular-imports: $(LINT_DEP_INSTALL)
-	cd litellm && $(UV_RUN) python ../tests/documentation_tests/test_circular_imports.py && cd ..
+	cd hangarllm && $(UV_RUN) python ../tests/documentation_tests/test_circular_imports.py && cd ..
 
 check-import-safety: $(LINT_DEP_INSTALL)
-	@$(UV_RUN) python -c "from litellm import *; print('[from litellm import *] OK! no issues!');" || (echo '🚨 import failed, this means you introduced unprotected imports! 🚨'; exit 1)
+	@$(UV_RUN) python -c "from hangarllm import *; print('[from hangarllm import *] OK! no issues!');" || (echo '🚨 import failed, this means you introduced unprotected imports! 🚨'; exit 1)
 
 # Combined linting, isomorphic to test-linting.yml's python job so a local pass means a
 # green CI lint: it installs the same env (proxy-dev + generated Prisma client) and then
@@ -289,12 +289,12 @@ test-rust-extension:
 	$(UV) pip install --python "$$temporary/venv/bin/python" --no-deps "$$1" && \
 	"$$temporary/venv/bin/python" -I -m mypy.stubtest \
 		--mypy-config-file tests/unit/rust_bridge/stubtest.ini \
-		litellm.rust_bridge._native && \
-	LITELLM_LOCAL_MODEL_COST_MAP=True \
-	"$$temporary/venv/bin/python" -I -m pytest --import-mode=importlib -m requires_rust_extension tests/test_litellm_rust
+		hangarllm.rust_bridge._native && \
+	HANGARLLM_LOCAL_MODEL_COST_MAP=True \
+	"$$temporary/venv/bin/python" -I -m pytest --import-mode=importlib -m requires_rust_extension tests/test_hangarllm_rust
 
 rust-sqlx-prepare:
-	cd litellm-rust && cargo run -p litellm-db-testing --bin sqlx-prepare
+	cd hangarllm-rust && cargo run -p hangarllm-db-testing --bin sqlx-prepare
 
 test: install-test-deps
 	$(UV_RUN) pytest tests/
@@ -322,7 +322,7 @@ test-unit-integrations: install-test-deps
 	$(UV_RUN) pytest tests/unit/integrations --tb=short -vv -n 4 --durations=20
 
 test-unit-core-utils: install-test-deps
-	$(UV_RUN) pytest tests/unit/litellm_core_utils --tb=short -vv -n 2 --durations=20
+	$(UV_RUN) pytest tests/unit/hangarllm_core_utils --tb=short -vv -n 2 --durations=20
 
 test-unit-other: install-test-deps
 	$(UV_RUN) pytest tests/unit/caching tests/unit/responses tests/unit/secret_managers tests/unit/vector_stores tests/unit/a2a_protocol tests/unit/completion_extras tests/unit/containers tests/unit/enterprise tests/unit/mcp_client tests/unit/google_genai tests/unit/images tests/unit/interactions tests/unit/router_strategy tests/unit/router_utils tests/unit/types --tb=short -vv -n 4 --durations=20

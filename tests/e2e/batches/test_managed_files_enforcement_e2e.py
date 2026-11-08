@@ -1,4 +1,4 @@
-"""Live e2e pins for litellm_settings.require_managed_files enforcement.
+"""Live e2e pins for hangarllm_settings.require_managed_files enforcement.
 
 require_managed_files is a boot-time module global, so these tests need a proxy
 whose config enables it. The main ephemeral stack can never run with it on: the

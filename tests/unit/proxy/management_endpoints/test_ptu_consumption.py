@@ -5,10 +5,10 @@ from typing import Final
 
 import pytest
 
-from litellm import Router
-from litellm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY, PTUCapacity
-from litellm.proxy.management_endpoints.ptu_consumption import attach_ptu_hours, with_ptu_consumption
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from hangarllm import Router
+from hangarllm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY, PTUCapacity
+from hangarllm.proxy.management_endpoints.ptu_consumption import attach_ptu_hours, with_ptu_consumption
+from hangarllm.types.proxy.management_endpoints.common_daily_activity import (
     BreakdownMetrics,
     DailySpendData,
     DailySpendMetadata,
@@ -142,7 +142,7 @@ def _shared_ptu_router() -> Router:
         model_list=[
             {
                 "model_name": "gpt-4.1-ptu",
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "shared-ptu",
                     "base_model": "azure/gpt-4.1",
@@ -160,7 +160,7 @@ def _shared_ptu_router() -> Router:
 def test_rows_keyed_by_an_alias_a_deployment_id_or_a_provider_model_are_sized_like_the_group(monkeypatch):
     """The ceiling charges a request however it names the shared deployment, so the usage row
     that request lands in, keyed by the name it used, reports the same PTU-hours as the group."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     names: Final = ("gpt-4.1-ptu", "ptu-alias", "shared-ptu", "azure/gpt-4.1")
     one_hour_each: Final = {name: _bucket(_metrics(prompt=_ONE_PTU_HOUR_OF_INPUT, completion=0)) for name in names}
 
@@ -176,12 +176,12 @@ def test_rows_keyed_by_an_alias_a_deployment_id_or_a_provider_model_are_sized_li
 def test_only_the_days_a_reservation_covers_read_ptu_hours(monkeypatch, team_id):
     """Tokens a team sent before its reservation started or after it ended were pay-as-you-go,
     so only the days inside the window convert to PTU-hours."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     router: Final = Router(
         model_list=[
             {
                 "model_name": "gpt-4.1-ptu",
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "shared-ptu",
                     "base_model": "azure/gpt-4.1",
@@ -208,12 +208,12 @@ def test_only_the_days_a_reservation_covers_read_ptu_hours(monkeypatch, team_id)
 def test_rows_keyed_by_a_name_a_wildcard_route_serves_are_sized_by_its_shared_deployment(monkeypatch):
     """A request the router served through a wildcard lands in a row keyed by the name it used,
     which reports the PTU-hours of the shared deployment behind the pattern."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     router: Final = Router(
         model_list=[
             {
                 "model_name": "ptu-*",
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "shared-ptu",
                     "base_model": "azure/gpt-4.1",
@@ -236,10 +236,10 @@ def test_rows_keyed_by_a_name_a_wildcard_route_serves_are_sized_by_its_shared_de
 def test_a_teams_wildcard_reservation_reads_ptu_hours_even_beside_a_proxy_wide_catch_all(monkeypatch, catch_all_routes):
     """The router tries a team's own wildcard before the proxy-wide ones, so a team's `ptu-*`
     reservation serves `ptu-chat` whether or not an open `*` route exists, and its row reads its PTU-hours."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     reservation: Final = {
         "model_name": "ptu-team-r",
-        "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-r", "api_base": "https://r.example"},
+        "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-r", "api_base": "https://r.example"},
         "model_info": {
             "id": "reserved-r",
             "base_model": "azure/gpt-4.1",
@@ -252,7 +252,7 @@ def test_a_teams_wildcard_reservation_reads_ptu_hours_even_beside_a_proxy_wide_c
     }
     catch_all: Final = {
         "model_name": "*",
-        "litellm_params": {"model": "azure/*", "api_key": "sk-open", "api_base": "https://open.example"},
+        "hangarllm_params": {"model": "azure/*", "api_key": "sk-open", "api_base": "https://open.example"},
         "model_info": {"id": "open-catch-all"},
     }
     router: Final = Router(model_list=[reservation, *([catch_all] if catch_all_routes else [])])
@@ -270,7 +270,7 @@ def _mixed_ptu_router() -> Router:
         model_list=[
             {
                 "model_name": "ptu",
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "ptu-41",
                     "base_model": "azure/gpt-4.1",
@@ -282,7 +282,7 @@ def _mixed_ptu_router() -> Router:
             },
             {
                 "model_name": "ptu",
-                "litellm_params": {"model": "azure/gpt-5.5", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-5.5", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "ptu-55",
                     "base_model": "azure/gpt-5.5",
@@ -294,7 +294,7 @@ def _mixed_ptu_router() -> Router:
             },
             {
                 "model_name": "gpt-4.1",
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-payg", "api_base": "https://payg.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-payg", "api_base": "https://payg.example"},
                 "model_info": {"id": "payg"},
             },
         ]
@@ -308,7 +308,7 @@ def _reserved_ptu_router() -> Router:
         model_list=[
             {
                 "model_name": "reserved",
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-ptu", "api_base": "https://ptu.example"},
                 "model_info": {
                     "id": "reserved-41",
                     "team_id": "team-x",
@@ -319,7 +319,7 @@ def _reserved_ptu_router() -> Router:
             },
             {
                 "model_name": "gpt-4.1",
-                "litellm_params": {"model": "azure/gpt-4.1", "api_key": "sk-payg", "api_base": "https://payg.example"},
+                "hangarllm_params": {"model": "azure/gpt-4.1", "api_key": "sk-payg", "api_base": "https://payg.example"},
                 "model_info": {"id": "payg"},
             },
         ]
@@ -333,7 +333,7 @@ def test_another_teams_single_team_reservation_sizes_nothing_on_a_teams_page(
     """A provider-model row reaches the reserved deployment only for the team it is reserved for: any
     other team was served by the open deployment, so its page counts no PTU-hours on that row, while
     a page spanning teams keeps the reserved deployment's sizing."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     one_hour: Final = {"azure/gpt-4.1": _bucket(_metrics(prompt=_ONE_PTU_HOUR_OF_INPUT, completion=0))}
 
     attached: Final = with_ptu_consumption(_response(_day("2026-09-23", one_hour)), _reserved_ptu_router(), team_id)
@@ -362,7 +362,7 @@ def test_a_teams_rows_are_sized_by_the_deployment_it_is_served_from(
     share is on the gpt-5.5 deployment so its group row counts at that rate, its provider-model row
     reached only the open deployment so it counts nothing, team-c holds no share so it counts nothing,
     and a page spanning teams keeps the group's first sized deployment."""
-    monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+    monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
     one_hour_each: Final = {
         name: _bucket(_metrics(prompt=_ONE_PTU_HOUR_OF_INPUT, completion=0)) for name in ("ptu", "azure/gpt-4.1")
     }

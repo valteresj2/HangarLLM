@@ -12,12 +12,12 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator, convert_model_response_to_streaming
-from litellm.llms.openai.chat.gpt_transformation import OpenAIChatCompletionStreamingHandler
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.types.utils import Choices, GenericStreamingChunk, Message, ModelResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.base_llm.base_model_iterator import BaseModelResponseIterator, convert_model_response_to_streaming
+from hangarllm.llms.openai.chat.gpt_transformation import OpenAIChatCompletionStreamingHandler
+from hangarllm.llms.openai.common_utils import OpenAIError
+from hangarllm.types.utils import Choices, GenericStreamingChunk, Message, ModelResponse
 
 
 class TestBaseModelResponseIterator:
@@ -235,7 +235,7 @@ async def test_pydantic_basemodel_chunk_passes_through_async():
 
 @pytest.mark.asyncio
 async def test_aclose_closes_attached_http_response():
-    """Regression for BerriAI/litellm#30244: CustomStreamWrapper.aclose() can
+    """Regression for valteresj2/HangarLLM#30244: CustomStreamWrapper.aclose() can
     only release the upstream provider connection if the iterator exposes
     aclose() and it reaches the underlying HTTP response. Without this, a
     client disconnect leaves backends like vLLM generating into a dead pipe."""
@@ -397,7 +397,7 @@ async def test_done_inside_streamed_json_is_content_not_the_end_of_stream(sync_m
             stream=True,
             call_type="completion",
             start_time=1_790_000_000.0,
-            litellm_call_id="call-id",
+            hangarllm_call_id="call-id",
             function_id="function-id",
         ),
     )

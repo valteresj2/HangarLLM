@@ -4,25 +4,25 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import (
-    LiteLLM_MCPServerTable,
+from hangarllm.proxy._types import (
+    HangarLLM_MCPServerTable,
     MCPTransport,
     NewMCPServerRequest,
 )
-from litellm.proxy.management_endpoints.mcp_management_endpoints import (
+from hangarllm.proxy.management_endpoints.mcp_management_endpoints import (
     _redact_mcp_credentials,
     does_mcp_server_exist,
     raise_mcp_identifier_conflict,
     validate_and_normalize_mcp_server_payload,
 )
-from litellm.proxy.mcp_server.db import McpIdentifierConflict
-from litellm.proxy.mcp_server.utils import validate_mcp_server_name
+from hangarllm.proxy.mcp_server.db import McpIdentifierConflict
+from hangarllm.proxy.mcp_server.utils import validate_mcp_server_name
 
 
 def test_does_mcp_server_exist() -> None:
     created_at: Final = datetime(2025, 1, 1)
     records: Final = (
-        LiteLLM_MCPServerTable(
+        HangarLLM_MCPServerTable(
             server_id="server-1",
             alias="first",
             url="https://first.example.com/mcp",
@@ -30,7 +30,7 @@ def test_does_mcp_server_exist() -> None:
             created_at=created_at,
             updated_at=created_at,
         ),
-        LiteLLM_MCPServerTable(
+        HangarLLM_MCPServerTable(
             server_id="server-2",
             alias="second",
             url="https://second.example.com/mcp",
@@ -79,7 +79,7 @@ def test_create_mcp_server_direct_normalizes_alias() -> None:
 
 def test_edit_mcp_server_redacts_credentials() -> None:
     created_at: Final = datetime(2025, 1, 1)
-    server: Final = LiteLLM_MCPServerTable(
+    server: Final = HangarLLM_MCPServerTable(
         server_id="server-1",
         alias="server",
         url="https://server.example.com/mcp",

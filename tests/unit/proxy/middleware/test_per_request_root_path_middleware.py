@@ -10,7 +10,7 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from litellm.proxy.middleware.per_request_root_path_middleware import (
+from hangarllm.proxy.middleware.per_request_root_path_middleware import (
     PerRequestRootPathMiddleware,
     get_request_root_path,
     get_server_root_paths,

@@ -3,8 +3,8 @@
 A passthrough request is sent in the PROVIDER's native format (Gemini
 generateContent, Anthropic /v1/messages) to the proxy, which forwards it to the
 provider and still logs a SpendLogs row (call_type="pass_through_endpoint"). The
-litellm virtual key is passed as the provider key; the proxy swaps in the real env
-credential. SpendLogs.request_id == the x-litellm-call-id response header. The
+hangarllm virtual key is passed as the provider key; the proxy swaps in the real env
+credential. SpendLogs.request_id == the x-hangarllm-call-id response header. The
 native request models are co-located here because only this suite uses them.
 """
 
@@ -54,10 +54,10 @@ class AnthropicHeaders(Headers):
 
 
 class VertexHeaders(Headers):
-    # Only the litellm virtual key; the /vertex_ai passthrough mints the Vertex token
+    # Only the hangarllm virtual key; the /vertex_ai passthrough mints the Vertex token
     # from the proxy's own service account (the deployment marked use_in_pass_through),
     # so no upstream Authorization bearer is sent from the client.
-    x_litellm_api_key: str = Field(serialization_alias="x-litellm-api-key", repr=False)
+    x_hangarllm_api_key: str = Field(serialization_alias="x-hangarllm-api-key", repr=False)
     content_type: str = Field(
         default="application/json", serialization_alias="Content-Type"
     )
@@ -113,7 +113,7 @@ class OpenAIChatBody(BaseModel):
     # Passthrough sends this body to OpenAI untranslated, so it has to satisfy
     # OpenAI's current contract directly: newer models reject `max_tokens` with
     # "Unsupported parameter: 'max_tokens' is not supported with this model. Use
-    # 'max_completion_tokens' instead." litellm's drop_params/translation does not
+    # 'max_completion_tokens' instead." hangarllm's drop_params/translation does not
     # apply on this route.
     max_completion_tokens: int = 64
 
@@ -291,7 +291,7 @@ class PassthroughClient:
         )
         return self.proxy.transport.send(
             path,
-            headers=VertexHeaders(x_litellm_api_key=key),
+            headers=VertexHeaders(x_hangarllm_api_key=key),
             json=GeminiGenerateBody(
                 contents=[GeminiContent(parts=[GeminiPart(text=text)])]
             ),

@@ -12,10 +12,10 @@ import responses
 import respx
 from respx.models import Call
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.decisions import DecisionsResponse, OpenAIDecisionResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.decisions import DecisionsResponse, OpenAIDecisionResponse
 from tests.unit.conftest import AsyncOnlyImageFetch
 
 _STATE: Final = "Customer asked for a refund"
@@ -70,7 +70,7 @@ async def test_should_authenticate_databricks_systemone_with_oauth_m2m(
     }
 
     for _ in range(2):
-        result: Final = await litellm.asystemone(**kwargs) if use_async else litellm.systemone(**kwargs)
+        result: Final = await hangarllm.asystemone(**kwargs) if use_async else hangarllm.systemone(**kwargs)
         assert isinstance(result, DecisionsResponse)
         assert result.answers["is_refund"].model_dump(mode="json") == {"type": "noul", "noul": 0.93}
         assert route.calls.last.request.headers["Authorization"] == "Bearer oauth-token"
@@ -80,8 +80,8 @@ async def test_should_authenticate_databricks_systemone_with_oauth_m2m(
 
 @pytest.fixture(autouse=True)
 def _httpx_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 class _CallTypeRecorder(CustomLogger):
@@ -103,7 +103,7 @@ async def test_systemone_sends_the_systemone_wire_format_and_returns_a_systemone
         {"model": "typesafe/jev-1.13", "state": _STATE, "questions": _SYSTEMONE_QUESTIONS, "api_key": "caller-key"}
     )
 
-    response: Final = await litellm.asystemone(**kwargs) if use_async else litellm.systemone(**kwargs)
+    response: Final = await hangarllm.asystemone(**kwargs) if use_async else hangarllm.systemone(**kwargs)
 
     assert route.called
     call: Final[Call] = respx_mock.calls.last
@@ -120,8 +120,8 @@ async def test_systemone_sends_the_systemone_wire_format_and_returns_a_systemone
 async def test_systemone_rejects_openai_input_and_points_at_decisions(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match=r"litellm\.decisions") as caught:
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match=r"hangarllm\.decisions") as caught:
+        await hangarllm.asystemone(
             model="typesafe/jev-1.13", input=_STATE, questions=_SYSTEMONE_QUESTIONS, api_key="caller-key"
         )
 
@@ -139,8 +139,8 @@ async def test_decisions_with_state_still_sends_the_systemone_format_and_warns(
         {"model": "typesafe/jev-1.13", "state": _STATE, "questions": _SYSTEMONE_QUESTIONS, "api_key": "caller-key"}
     )
 
-    with pytest.warns(UserWarning, match=r"litellm\.systemone"):
-        response: Final = await litellm.adecisions(**kwargs) if use_async else litellm.decisions(**kwargs)
+    with pytest.warns(UserWarning, match=r"hangarllm\.systemone"):
+        response: Final = await hangarllm.adecisions(**kwargs) if use_async else hangarllm.decisions(**kwargs)
 
     assert route.called
     call: Final[Call] = respx_mock.calls.last
@@ -157,8 +157,8 @@ async def test_decisions_with_state_still_sends_the_systemone_format_and_warns(
 async def test_decisions_with_state_still_sends_its_images(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_CLOUDFLARE_CLEF_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    with pytest.warns(UserWarning, match=r"litellm\.systemone"):
-        await litellm.adecisions(
+    with pytest.warns(UserWarning, match=r"hangarllm\.systemone"):
+        await hangarllm.adecisions(
             model="cloudflare/clef",
             state=_STATE,
             questions=_SYSTEMONE_QUESTIONS,
@@ -176,8 +176,8 @@ async def test_decisions_with_state_still_sends_its_images(respx_mock: respx.Moc
 async def test_systemone_rejects_openai_question_lists_before_http(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match="Invalid Decisions request"):
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.BadRequestError, match="Invalid Decisions request"):
+        await hangarllm.asystemone(
             model="typesafe/jev-1.13", state=_STATE, questions=_OPENAI_QUESTIONS, api_key="caller-key"
         )
 
@@ -190,9 +190,9 @@ async def test_router_asystemone_logs_the_systemone_call_type(
 ) -> None:
     respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
     recorder: Final = _CallTypeRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    router: Final = litellm.Router(
-        model_list=[{"model_name": "jev", "litellm_params": {"model": "typesafe/jev-1.13", "api_key": "caller-key"}}]
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    router: Final = hangarllm.Router(
+        model_list=[{"model_name": "jev", "hangarllm_params": {"model": "typesafe/jev-1.13", "api_key": "caller-key"}}]
     )
 
     response: Final = await router.asystemone(model="jev", state=_STATE, questions=_SYSTEMONE_QUESTIONS)
@@ -225,7 +225,7 @@ async def test_systemone_sends_assets_and_box_questions_to_typesafe(respx_mock: 
         "mug": {"type": "box", "instructions": "the mug in `photo-1`"},
     }
 
-    response: Final = await litellm.asystemone(
+    response: Final = await hangarllm.asystemone(
         model="typesafe/jev-1.14.0",
         state={"photo": "photo-1"},
         assets={"photo-1": {"type": "image", "format": "png", "data_base64": "AA=="}},
@@ -250,7 +250,7 @@ async def test_decisions_input_images_reach_typesafe_as_assets_referenced_in_the
 ) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_BOX_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model="typesafe/jev-1.14.0",
         input=[
             {
@@ -287,7 +287,7 @@ async def test_decisions_remote_images_reach_typesafe_inlined_as_assets(
 ) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_BOX_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="typesafe/jev-1.14.0",
         input=[{"role": "user", "content": [{"type": "input_image", "image_url": "https://images.example/desk.png"}]}],
         questions=[{"type": "predicate", "name": "has_mug", "instructions": "Is there a mug on the desk?"}],
@@ -313,7 +313,7 @@ async def test_provider_specific_headers_reach_typesafe_only_when_scoped_to_it(
 ) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="typesafe/jev-1.14.0",
         state=_STATE,
         questions=_SYSTEMONE_QUESTIONS,
@@ -349,19 +349,19 @@ _WITHOUT_IMAGES_HEADER: Final[tuple[Mapping[str, str], ...]] = ({}, {"TypeSafe-D
 def test_typesafe_refuses_images_and_assets_before_http_without_the_images_header(
     extra_headers: Mapping[str, str], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_BOX_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"\['input_image'\]") as image_refusal:
-        litellm.decisions(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['input_image'\]") as image_refusal:
+        hangarllm.decisions(
             model="typesafe/jev-1.14.0",
             input=_DESK_PHOTO_INPUT,
             questions=_HAS_MUG_QUESTION,
             api_key="caller-key",
             extra_headers=extra_headers,
         )
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"\['assets'\]") as asset_refusal:
-        litellm.systemone(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['assets'\]") as asset_refusal:
+        hangarllm.systemone(
             model="typesafe/jev-1.14.0",
             state="review photo-1",
             assets={"photo-1": {"format": "png", "data_base64": "AA=="}},
@@ -380,7 +380,7 @@ async def test_typesafe_drops_images_and_assets_without_the_images_header_under_
 ) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_BOX_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="typesafe/jev-1.14.0",
         input=_DESK_PHOTO_INPUT,
         questions=_HAS_MUG_QUESTION,
@@ -388,7 +388,7 @@ async def test_typesafe_drops_images_and_assets_without_the_images_header_under_
         drop_params=True,
     )
     decisions_body: Final = json.loads(route.calls.last.request.content)
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="typesafe/jev-1.14.0",
         state="review photo-1",
         assets={"photo-1": {"format": "png", "data_base64": "AA=="}},
@@ -413,11 +413,11 @@ _BOX_UNSUPPORTED_IDS: Final = ("model_without_box_support", "without_the_images_
 def test_typesafe_refuses_box_questions_before_http_when_the_model_or_the_headers_do_not_allow_them(
     model: str, extra_headers: Mapping[str, str], respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=r"\['box questions'\]") as caught:
-        litellm.systemone(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['box questions'\]") as caught:
+        hangarllm.systemone(
             model=model,
             state="a mug on a desk",
             questions={"mug": {"type": "box", "instructions": "the mug"}, **_SYSTEMONE_QUESTIONS},
@@ -436,7 +436,7 @@ async def test_typesafe_answers_box_questions_it_cannot_take_as_refusals_under_d
 ) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    response: Final = await litellm.adecisions(
+    response: Final = await hangarllm.adecisions(
         model=model,
         input="Customer asked for a refund",
         questions=(*_OPENAI_QUESTIONS, {"type": "box", "name": "mug", "instructions": "the mug"}),
@@ -458,8 +458,8 @@ async def test_typesafe_answers_box_questions_it_cannot_take_as_refusals_under_d
 def test_a_malformed_provider_specific_header_answers_400_before_http(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match="Invalid Decisions request") as caught:
-        litellm.systemone(
+    with pytest.raises(hangarllm.BadRequestError, match="Invalid Decisions request") as caught:
+        hangarllm.systemone(
             model="typesafe/jev-1.14.0",
             state=_STATE,
             questions=_SYSTEMONE_QUESTIONS,
@@ -475,7 +475,7 @@ def test_a_malformed_provider_specific_header_answers_400_before_http(respx_mock
 async def test_url_safe_base64_images_reach_typesafe_as_standard_base64_assets(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_BOX_RESPONSE)
 
-    await litellm.adecisions(
+    await hangarllm.adecisions(
         model="typesafe/jev-1.14.0",
         input=[{"role": "user", "content": [{"type": "input_image", "image_url": "data:image/png;base64,-_8="}]}],
         questions=_HAS_MUG_QUESTION,
@@ -491,11 +491,11 @@ async def test_url_safe_base64_images_reach_typesafe_as_standard_base64_assets(r
 def test_an_image_whose_data_url_is_not_base64_answers_400_before_typesafe_is_called(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_BOX_RESPONSE)
 
-    with pytest.raises(litellm.BadRequestError, match="input_image") as caught:
-        litellm.decisions(
+    with pytest.raises(hangarllm.BadRequestError, match="input_image") as caught:
+        hangarllm.decisions(
             model="typesafe/jev-1.14.0",
             input=[
                 {"role": "user", "content": [{"type": "input_image", "image_url": "data:image/png;base64,not base64!"}]}
@@ -515,7 +515,7 @@ async def test_malformed_assets_are_dropped_and_well_formed_ones_kept_under_drop
 ) -> None:
     route: Final = respx_mock.post(_TYPESAFE_URL).respond(json=_SYSTEMONE_RESPONSE)
 
-    await litellm.asystemone(
+    await hangarllm.asystemone(
         model="typesafe/jev-1.14.0",
         state="compare photo-1 with photo-2",
         assets={

@@ -73,25 +73,25 @@ def assert_breakdown(
     for field, header_name, actual_component, expected_component in (
         (
             "cache_read_cost",
-            "x-litellm-response-cost-cache-read",
+            "x-hangarllm-response-cost-cache-read",
             breakdown.cache_read_cost,
             expected.cache_read_cost,
         ),
         (
             "cache_creation_cost",
-            "x-litellm-response-cost-cache-creation",
+            "x-hangarllm-response-cost-cache-creation",
             breakdown.cache_creation_cost,
             expected.cache_creation_cost,
         ),
         (
             "reasoning_cost",
-            "x-litellm-response-cost-reasoning",
+            "x-hangarllm-response-cost-reasoning",
             breakdown.reasoning_cost,
             expected.reasoning_cost,
         ),
         (
             "tool_usage_cost",
-            "x-litellm-response-cost-tool-usage",
+            "x-hangarllm-response-cost-tool-usage",
             breakdown.tool_usage_cost,
             expected.tool_usage_cost,
         ),
@@ -121,16 +121,16 @@ def assert_breakdown(
             )
         )
     ):
-        input_header: str | None = response.headers.get("x-litellm-response-cost-input")
-        output_header: str | None = response.headers.get("x-litellm-response-cost-output")
+        input_header: str | None = response.headers.get("x-hangarllm-response-cost-input")
+        output_header: str | None = response.headers.get("x-hangarllm-response-cost-output")
         expected_input_header: float = (
             expected.input_cost - (expected.cache_read_cost or 0.0) - (expected.cache_creation_cost or 0.0)
         )
         assert input_header is not None and approx_equal(float(input_header), expected_input_header), (
-            f"{case_name}: x-litellm-response-cost-input {input_header} != expected {expected_input_header}"
+            f"{case_name}: x-hangarllm-response-cost-input {input_header} != expected {expected_input_header}"
         )
         assert output_header is not None and approx_equal(float(output_header), expected.output_cost), (
-            f"{case_name}: x-litellm-response-cost-output {output_header} != expected {expected.output_cost}"
+            f"{case_name}: x-hangarllm-response-cost-output {output_header} != expected {expected.output_cost}"
         )
 
 

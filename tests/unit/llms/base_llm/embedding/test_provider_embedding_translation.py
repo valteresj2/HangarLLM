@@ -7,8 +7,8 @@ import pytest
 from respx import MockRouter
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm import embedding
-from litellm.utils import get_optional_params_embeddings
+from hangarllm import embedding
+from hangarllm.utils import get_optional_params_embeddings
 
 
 class _Kwargs(TypedDict, total=False):

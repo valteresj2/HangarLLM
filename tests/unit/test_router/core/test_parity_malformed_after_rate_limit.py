@@ -15,12 +15,12 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.exception_mapping_utils import exception_type  # pyright: ignore[reportUnknownVariableType]  # its untyped parameters
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import convert_to_model_response_object  # pyright: ignore[reportUnknownVariableType]  # its untyped start_time, end_time and dict parameters
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.router_core import RouterCore
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type  # pyright: ignore[reportUnknownVariableType]  # its untyped parameters
+from hangarllm.hangarllm_core_utils.llm_response_utils.convert_dict_to_response import convert_to_model_response_object  # pyright: ignore[reportUnknownVariableType]  # its untyped start_time, end_time and dict parameters
+from hangarllm.llms.openai.common_utils import OpenAIError
+from hangarllm.router_core import RouterCore
+from hangarllm.types.utils import ModelResponse
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
 
 MakeCore = Callable[..., RouterCore]
@@ -74,7 +74,7 @@ async def test_a_retry_whose_answer_fails_conversion_after_a_rate_limit_is_a_500
     )
     host.answer("*", rate_limit(message="rate limit exceeded"), _malformed_answer)
 
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         _ = await _atext_completion(core)(model="g", prompt="hi")
 
     error: Final = raised.value
@@ -83,4 +83,4 @@ async def test_a_retry_whose_answer_fails_conversion_after_a_rate_limit_is_a_500
     assert "KeyError: 'message'" in str(error)
     assert "rate limit exceeded" not in str(error)
     assert len(host.calls_to("atext_completion")) == 2
-    assert type(host.raised[0]) is litellm.RateLimitError
+    assert type(host.raised[0]) is hangarllm.RateLimitError

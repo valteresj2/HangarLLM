@@ -5,20 +5,20 @@ from typing import Final
 
 import psycopg
 import pytest
-from litellm_proxy_extras.request_log_indexes import REQUEST_LOG_INDEXES
+from hangarllm_proxy_extras.request_log_indexes import REQUEST_LOG_INDEXES
 from psycopg.types.json import Jsonb
 from pydantic import JsonValue
 
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import SPEND_LOG_KEY_METADATA_ROWS_PER_PROBE
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.spend_tracking.key_metadata_recovery import recover_key_metadata_from_spend_logs
-from litellm.proxy.utils import PrismaClient, ProxyLogging, hash_token
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.constants import SPEND_LOG_KEY_METADATA_ROWS_PER_PROBE
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.spend_tracking.key_metadata_recovery import recover_key_metadata_from_spend_logs
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging, hash_token
 from tests.integration._support.client import eventually
 from tests.integration._support.database import scratch_database, write_rows
 
 _SPEND_LOGS_DDL: Final = """
-    CREATE TABLE "LiteLLM_SpendLogs" (
+    CREATE TABLE "HangarLLM_SpendLogs" (
         request_id TEXT PRIMARY KEY,
         api_key TEXT NOT NULL DEFAULT '',
         "startTime" TIMESTAMP(3) NOT NULL,
@@ -29,13 +29,13 @@ _SPEND_LOGS_DDL: Final = """
 """
 
 _API_KEY_START_TIME_INDEX: Final = next(
-    index for index in REQUEST_LOG_INDEXES if index.name == "LiteLLM_SpendLogs_api_key_startTime_idx"
+    index for index in REQUEST_LOG_INDEXES if index.name == "HangarLLM_SpendLogs_api_key_startTime_idx"
 )
 
 _STATS_SQL: Final = """
     SELECT seq_scan, idx_scan, seq_tup_read, idx_tup_fetch, n_tup_ins
     FROM pg_stat_user_tables
-    WHERE relname = 'LiteLLM_SpendLogs'
+    WHERE relname = 'HangarLLM_SpendLogs'
 """
 
 _OTHER_BACKENDS_SQL: Final = """
@@ -113,7 +113,7 @@ def _rows_read_since(database_url: str, baseline: Mapping[str, int]) -> int:
 def _insert_nameless_spend_logs(connection: psycopg.Connection[tuple[object, ...]], digest: str, rows: int) -> None:
     connection.execute(
         """
-        INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime")
+        INSERT INTO "HangarLLM_SpendLogs" (request_id, api_key, "startTime")
         SELECT %(digest)s || '-' || g, %(digest)s, %(start)s + g * interval '1 minute'
         FROM generate_series(1, %(rows)s) g
         """,
@@ -137,7 +137,7 @@ def _named_spend_log(
 def _insert_spend_logs(database_url: str, rows: Sequence[tuple[str, str, datetime, str, str | None, Jsonb]]) -> None:
     with psycopg.connect(database_url) as connection:
         connection.cursor().executemany(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime", "user", team_id, metadata)'
+            'INSERT INTO "HangarLLM_SpendLogs" (request_id, api_key, "startTime", "user", team_id, metadata)'
             " VALUES (%s, %s, %s, %s, %s, %s)",
             list(rows),
         )
@@ -146,9 +146,9 @@ def _insert_spend_logs(database_url: str, rows: Sequence[tuple[str, str, datetim
 def _analyze(database_url: str, vacuum: bool) -> None:
     with psycopg.connect(database_url, autocommit=True) as connection:
         if vacuum:
-            connection.execute('VACUUM (ANALYZE) "LiteLLM_SpendLogs"')
+            connection.execute('VACUUM (ANALYZE) "HangarLLM_SpendLogs"')
         else:
-            connection.execute('ANALYZE "LiteLLM_SpendLogs"')
+            connection.execute('ANALYZE "HangarLLM_SpendLogs"')
 
 
 async def _recover(
@@ -219,7 +219,7 @@ async def test_recover_key_metadata_from_spend_logs_reads_two_rows_per_key_howev
             for digest, owner in owners.items():
                 connection.execute(
                     """
-                    INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
+                    INSERT INTO "HangarLLM_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
                     SELECT %(digest)s || '-' || g, %(digest)s, %(start)s + g * interval '1 minute', %(owner)s,
                         jsonb_build_object('user_api_key_alias', 'cli-session-' || %(owner)s)
                     FROM generate_series(1, 2000) g
@@ -252,7 +252,7 @@ async def test_recover_key_metadata_from_spend_logs_walks_a_bounded_number_of_na
             for digest, owner in named_late.items():
                 connection.execute(
                     """
-                    INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
+                    INSERT INTO "HangarLLM_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
                     VALUES (%(digest)s || '-newest', %(digest)s, %(logged_at)s, %(owner)s,
                         jsonb_build_object('user_api_key_alias', 'cli-session-' || %(owner)s))
                     """,

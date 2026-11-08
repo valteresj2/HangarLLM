@@ -166,7 +166,7 @@ def _respond(request: Request) -> Reply:
 
 def _logged_spend(call_id: str) -> float:
     rows: Final = eventually(
-        lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = %s', (call_id,)),
+        lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = %s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -196,5 +196,5 @@ def test_request_is_billed_at_the_reported_list_cost(gateway: Gateway, path: str
         assert response.status_code == 200, response.text
         assert "ok" in response.text
         if not stream:
-            assert float(response.headers["x-litellm-response-cost"]) == _approx(_LIST_COST)
-        assert _logged_spend(response.headers["x-litellm-call-id"]) == _approx(_LIST_COST)
+            assert float(response.headers["x-hangarllm-response-cost"]) == _approx(_LIST_COST)
+        assert _logged_spend(response.headers["x-hangarllm-call-id"]) == _approx(_LIST_COST)

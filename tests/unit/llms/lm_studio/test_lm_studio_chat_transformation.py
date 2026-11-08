@@ -8,8 +8,8 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 )
 
-from litellm.llms.lm_studio.chat.transformation import LMStudioChatConfig
-from litellm.utils import get_optional_params
+from hangarllm.llms.lm_studio.chat.transformation import LMStudioChatConfig
+from hangarllm.utils import get_optional_params
 
 
 class Book(BaseModel):

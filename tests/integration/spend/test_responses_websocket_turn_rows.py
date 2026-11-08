@@ -28,7 +28,7 @@ INPUT_RATE: Final = 0.001
 OUTPUT_RATE: Final = 0.002
 TURN_SPEND: Final = USAGE["input_tokens"] * INPUT_RATE + USAGE["output_tokens"] * OUTPUT_RATE
 SPEND_ROWS_FOR_KEY: Final = (
-    'SELECT request_id, spend, total_tokens, call_type, status, metadata FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+    'SELECT request_id, spend, total_tokens, call_type, status, metadata FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 )
 
 

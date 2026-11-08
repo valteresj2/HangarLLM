@@ -10,8 +10,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.fireworks_ai.rerank.transformation import FireworksAIRerankConfig
-from litellm.types.rerank import RerankResponse
+from hangarllm.llms.fireworks_ai.rerank.transformation import FireworksAIRerankConfig
+from hangarllm.types.rerank import RerankResponse
 
 
 class TestFireworksAIRerankTransform:

@@ -7,16 +7,16 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.noma import (
+import hangarllm
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.noma import (
     NomaV2Guardrail,
     guardrail_initializer_registry,
 )
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.types.guardrails import LitellmParams
+from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+from hangarllm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from hangarllm.types.guardrails import HangarllmParams
 
 _API_BASE = "https://noma.example.test"
 _STREAMING_KEYS = (
@@ -29,8 +29,8 @@ _STREAMING_KEYS = (
 
 @pytest.fixture(autouse=True)
 def _fresh_httpx_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", None)
     monkeypatch.delenv("NOMA_GATEWAY_NAME", raising=False)
 
 
@@ -45,7 +45,7 @@ def _guardrail(gateway_name: str | None) -> NomaV2Guardrail:
 
 
 async def _scan_body(guardrail: NomaV2Guardrail, respx_mock: respx.MockRouter) -> dict[str, object]:
-    route = respx_mock.post(f"{_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+    route = respx_mock.post(f"{_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
     await guardrail.apply_guardrail(inputs={"texts": ["hello"]}, request_data={"metadata": {}}, input_type="request")
     assert route.call_count == 1
     return json.loads(route.calls.last.request.content)
@@ -56,14 +56,14 @@ async def _scan_body(guardrail: NomaV2Guardrail, respx_mock: respx.MockRouter) -
 async def test_gateway_name_from_guardrail_config_reaches_noma(
     guardrail_type: str, extra_params: dict[str, bool], respx_mock: respx.MockRouter
 ) -> None:
-    litellm_params = LitellmParams(
+    hangarllm_params = HangarllmParams(
         guardrail=guardrail_type,
         mode="pre_call",
         api_base=_API_BASE,
         gateway_name="prod-us-east",
         **extra_params,
     )
-    guardrail = guardrail_initializer_registry[guardrail_type](litellm_params, {"guardrail_name": "noma-guard"})
+    guardrail = guardrail_initializer_registry[guardrail_type](hangarllm_params, {"guardrail_name": "noma-guard"})
 
     assert (await _scan_body(guardrail, respx_mock))["gateway_name"] == "prod-us-east"
 
@@ -105,7 +105,7 @@ async def test_positional_args_keep_their_meaning_after_gateway_name_was_added(r
     assert body["monitor_mode"] is False
     assert body["application_id"] == "test-app"
     assert "gateway_name" not in body
-    respx_mock.post(f"{_API_BASE}/litellm/guardrail").respond(status_code=503)
+    respx_mock.post(f"{_API_BASE}/hangarllm/guardrail").respond(status_code=503)
     with pytest.raises(httpx.HTTPStatusError):
         await guardrail.apply_guardrail(
             inputs={"texts": ["hello"]}, request_data={"metadata": {}}, input_type="request"
@@ -114,7 +114,7 @@ async def test_positional_args_keep_their_meaning_after_gateway_name_was_added(r
 
 _Loader: TypeAlias = Callable[[Path, Mapping[str, object]], CustomGuardrail | None]
 _SUBCLASS_MODULE = (
-    "from litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2 import NomaV2Guardrail\n\n\n"
+    "from hangarllm.proxy.guardrails.guardrail_hooks.noma.noma_v2 import NomaV2Guardrail\n\n\n"
     "class SubclassedNoma(NomaV2Guardrail):\n"
     "    pass\n"
 )
@@ -122,10 +122,10 @@ _SUBCLASS_MODULE = (
 
 def _initializer(guardrail_type: str, fixed: Mapping[str, object]) -> _Loader:
     def load(_tmp_path: Path, params: Mapping[str, object]) -> CustomGuardrail | None:
-        litellm_params = LitellmParams(
+        hangarllm_params = HangarllmParams(
             guardrail=guardrail_type, mode="post_call", api_base=_API_BASE, **fixed, **params
         )
-        return guardrail_initializer_registry[guardrail_type](litellm_params, {"guardrail_name": "noma-guard"})
+        return guardrail_initializer_registry[guardrail_type](hangarllm_params, {"guardrail_name": "noma-guard"})
 
     return load
 
@@ -136,7 +136,7 @@ def _custom_subclass(tmp_path: Path, params: Mapping[str, object]) -> CustomGuar
     return InMemoryGuardrailHandler().initialize_custom_guardrail(
         guardrail={"guardrail_name": "noma-guard"},
         guardrail_type=guardrail_type,
-        litellm_params=LitellmParams(guardrail=guardrail_type, mode="post_call", api_base=_API_BASE, **params),
+        hangarllm_params=HangarllmParams(guardrail=guardrail_type, mode="post_call", api_base=_API_BASE, **params),
         config_file_path=str(tmp_path / "config.yaml"),
     )
 

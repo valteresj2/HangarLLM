@@ -1,4 +1,4 @@
-"""Tests for litellm/harness/runtime.py using a fake adapter, sandbox and endpoint."""
+"""Tests for hangarllm/harness/runtime.py using a fake adapter, sandbox and endpoint."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from collections.abc import AsyncIterator
 import pytest
 from pydantic import BaseModel
 
-from litellm.harness import runtime
-from litellm.harness.context import SessionContext
-from litellm.harness.errors import (
+from hangarllm.harness import runtime
+from hangarllm.harness.context import SessionContext
+from hangarllm.harness.errors import (
     CapabilityUnsupported,
     HarnessInstallFailed,
     OptionsMismatch,
@@ -19,8 +19,8 @@ from litellm.harness.errors import (
     SessionClosed,
     StateIncompatible,
 )
-from litellm.harness.options import CodexOptions
-from litellm.harness.types import (
+from hangarllm.harness.options import CodexOptions
+from hangarllm.harness.types import (
     Approval,
     Done,
     Event,
@@ -129,67 +129,67 @@ async def test_invalid_permissions_value(monkeypatch, sandbox):
         )
 
 
-# -- gateway routing (litellm_proxy/ prefix) ---------------------------------
+# -- gateway routing (hangarllm_proxy/ prefix) ---------------------------------
 
 
-def test_litellm_proxy_prefix_routes_through_gateway_env(monkeypatch):
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://gw.example.com/")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-test")
-    model, gateway = runtime.resolve_model_route("litellm_proxy/coder", None, None)
+def test_hangarllm_proxy_prefix_routes_through_gateway_env(monkeypatch):
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://gw.example.com/")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-test")
+    model, gateway = runtime.resolve_model_route("hangarllm_proxy/coder", None, None)
     assert model == "coder"
     assert gateway == runtime.GatewayTarget(
         api_base="https://gw.example.com", api_key="sk-test"
     )
 
 
-def test_litellm_proxy_call_args_win_over_env(monkeypatch):
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://env.example.com")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-env")
+def test_hangarllm_proxy_call_args_win_over_env(monkeypatch):
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://env.example.com")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-env")
     _, gateway = runtime.resolve_model_route(
-        "litellm_proxy/coder", "sk-arg", "https://arg.example.com"
+        "hangarllm_proxy/coder", "sk-arg", "https://arg.example.com"
     )
     assert gateway == runtime.GatewayTarget(
         api_base="https://arg.example.com", api_key="sk-arg"
     )
 
 
-def test_litellm_proxy_without_base_raises(monkeypatch):
-    monkeypatch.delenv("LITELLM_PROXY_API_BASE", raising=False)
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-test")
-    with pytest.raises(ValueError, match="LITELLM_PROXY_API_BASE"):
-        runtime.resolve_model_route("litellm_proxy/coder", None, None)
+def test_hangarllm_proxy_without_base_raises(monkeypatch):
+    monkeypatch.delenv("HANGARLLM_PROXY_API_BASE", raising=False)
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-test")
+    with pytest.raises(ValueError, match="HANGARLLM_PROXY_API_BASE"):
+        runtime.resolve_model_route("hangarllm_proxy/coder", None, None)
 
 
-def test_litellm_proxy_without_key_raises(monkeypatch):
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://gw.example.com")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "  ")
-    with pytest.raises(ValueError, match="LITELLM_PROXY_API_KEY"):
-        runtime.resolve_model_route("litellm_proxy/coder", None, None)
+def test_hangarllm_proxy_without_key_raises(monkeypatch):
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://gw.example.com")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "  ")
+    with pytest.raises(ValueError, match="HANGARLLM_PROXY_API_KEY"):
+        runtime.resolve_model_route("hangarllm_proxy/coder", None, None)
 
 
 def test_plain_model_is_sdk_mode_even_with_gateway_env(monkeypatch):
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://gw.example.com")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-test")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://gw.example.com")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-test")
     assert runtime.resolve_model_route("anthropic/claude-sonnet-4-5", None, None) == (
         "anthropic/claude-sonnet-4-5",
         None,
     )
 
 
-def test_use_litellm_proxy_flag_routes_unprefixed_model(monkeypatch):
-    monkeypatch.setattr(runtime.litellm, "use_litellm_proxy", True)
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://gw.example.com")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-test")
+def test_use_hangarllm_proxy_flag_routes_unprefixed_model(monkeypatch):
+    monkeypatch.setattr(runtime.hangarllm, "use_hangarllm_proxy", True)
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://gw.example.com")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-test")
     model, gateway = runtime.resolve_model_route("coder", None, None)
     assert model == "coder" and gateway is not None
 
 
 async def test_gateway_passed_to_endpoint(monkeypatch, sandbox):
     install_adapter(monkeypatch)
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://gw.example.com")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-test")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://gw.example.com")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-test")
     await runtime.aagent(
-        Harness.CLAUDE_CODE, "hi", sandbox=sandbox, model="litellm_proxy/m"
+        Harness.CLAUDE_CODE, "hi", sandbox=sandbox, model="hangarllm_proxy/m"
     )
     endpoint = FakeEndpoint.instances[0]
     assert endpoint.gateway.api_key == "sk-test"

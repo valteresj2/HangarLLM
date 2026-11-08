@@ -11,30 +11,30 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import LiteLLM_AuditLogs, LitellmTableNames
-from litellm.proxy.management_helpers.audit_logs import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import HangarLLM_AuditLogs, HangarllmTableNames
+from hangarllm.proxy.management_helpers.audit_logs import (
     _audit_log_task_done_callback,
     _build_audit_log_payload,
     _dispatch_audit_log_to_callbacks,
     create_audit_log_for_update,
     is_audit_logging_enabled,
 )
-from litellm.types.utils import StandardAuditLogPayload
+from hangarllm.types.utils import StandardAuditLogPayload
 
 
 @pytest.fixture(autouse=True)
 def reset_audit_log_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
     """Every test starts with no audit log callbacks registered."""
-    monkeypatch.setattr(litellm, "audit_log_callbacks", [])
+    monkeypatch.setattr(hangarllm, "audit_log_callbacks", [])
 
 
 def _make_audit_log(
     action: str = "created",
-    table_name: LitellmTableNames = LitellmTableNames.TEAM_TABLE_NAME,
-) -> LiteLLM_AuditLogs:
-    return LiteLLM_AuditLogs(
+    table_name: HangarllmTableNames = HangarllmTableNames.TEAM_TABLE_NAME,
+) -> HangarLLM_AuditLogs:
+    return HangarLLM_AuditLogs(
         id="test-audit-id",
         updated_at=datetime(2026, 3, 9, 12, 0, 0, tzinfo=timezone.utc),
         changed_by="user-123",
@@ -65,12 +65,12 @@ def test_is_audit_logging_enabled_precedence(
     environment_value: str | None,
     expected: bool,
 ):
-    monkeypatch.setattr(litellm, "store_audit_logs", configured_value)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", premium_user)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", configured_value)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", premium_user)
     if environment_value is None:
-        monkeypatch.delenv("LITELLM_STORE_AUDIT_LOGS", raising=False)
+        monkeypatch.delenv("HANGARLLM_STORE_AUDIT_LOGS", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_STORE_AUDIT_LOGS", environment_value)
+        monkeypatch.setenv("HANGARLLM_STORE_AUDIT_LOGS", environment_value)
 
     assert is_audit_logging_enabled() is expected
 
@@ -85,19 +85,19 @@ class TestBuildAuditLogPayload:
         assert payload["changed_by"] == "user-123"
         assert payload["changed_by_api_key"] == "sk-abc"
         assert payload["action"] == "created"
-        assert payload["table_name"] == "LiteLLM_TeamTable"
+        assert payload["table_name"] == "HangarLLM_TeamTable"
         assert payload["object_id"] == "team-456"
         assert payload["updated_values"] == json.dumps({"name": "new-team"})
         assert payload["before_value"] == json.dumps({"name": "old-team"})
 
     def test_handles_none_values(self):
-        audit_log = LiteLLM_AuditLogs(
+        audit_log = HangarLLM_AuditLogs(
             id="test-id",
             updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
             changed_by=None,
             changed_by_api_key=None,
             action="deleted",
-            table_name=LitellmTableNames.KEY_TABLE_NAME,
+            table_name=HangarllmTableNames.KEY_TABLE_NAME,
             object_id="key-789",
             updated_values=None,
             before_value=None,
@@ -115,7 +115,7 @@ class TestDispatchAuditLogToCallbacks:
     async def test_dispatches_to_custom_logger_instance(self, monkeypatch: pytest.MonkeyPatch):
         mock_logger = MagicMock(spec=CustomLogger)
         mock_logger.async_log_audit_log_event = AsyncMock()
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [mock_logger])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [mock_logger])
 
         audit_log = _make_audit_log()
         await _dispatch_audit_log_to_callbacks(audit_log)
@@ -130,7 +130,7 @@ class TestDispatchAuditLogToCallbacks:
 
     @pytest.mark.asyncio
     async def test_no_dispatch_when_callbacks_empty(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [])
         audit_log = _make_audit_log()
         # Should return immediately without error
         await _dispatch_audit_log_to_callbacks(audit_log)
@@ -140,10 +140,10 @@ class TestDispatchAuditLogToCallbacks:
         mock_logger = MagicMock(spec=CustomLogger)
         mock_logger.async_log_audit_log_event = AsyncMock()
 
-        monkeypatch.setattr(litellm, "audit_log_callbacks", ["s3_v2"])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", ["s3_v2"])
 
         with patch(
-            "litellm.proxy.management_helpers.audit_logs._resolve_audit_log_callback",
+            "hangarllm.proxy.management_helpers.audit_logs._resolve_audit_log_callback",
             return_value=mock_logger,
         ):
             audit_log = _make_audit_log()
@@ -159,7 +159,7 @@ class TestDispatchAuditLogToCallbacks:
         mock_logger.async_log_audit_log_event = AsyncMock(
             side_effect=RuntimeError("boom")
         )
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [mock_logger])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [mock_logger])
 
         audit_log = _make_audit_log()
         # Should not raise
@@ -168,10 +168,10 @@ class TestDispatchAuditLogToCallbacks:
 
     @pytest.mark.asyncio
     async def test_skips_unresolvable_string_callback(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr(litellm, "audit_log_callbacks", ["nonexistent_callback"])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", ["nonexistent_callback"])
 
         with patch(
-            "litellm.proxy.management_helpers.audit_logs._resolve_audit_log_callback",
+            "hangarllm.proxy.management_helpers.audit_logs._resolve_audit_log_callback",
             return_value=None,
         ):
             audit_log = _make_audit_log()
@@ -184,21 +184,21 @@ class TestCreateAuditLogForUpdateWithCallbacks:
     async def test_dispatches_to_callbacks_after_db_write(self, monkeypatch: pytest.MonkeyPatch):
         mock_logger = MagicMock(spec=CustomLogger)
         mock_logger.async_log_audit_log_event = AsyncMock()
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [mock_logger])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [mock_logger])
 
         with (
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.store_audit_logs", True),
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.premium_user", True),
+            patch("hangarllm.store_audit_logs", True),
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         ):
-            mock_prisma.db.litellm_auditlog.create = AsyncMock()
+            mock_prisma.db.hangarllm_auditlog.create = AsyncMock()
 
             audit_log = _make_audit_log()
             await create_audit_log_for_update(audit_log)
             await asyncio.sleep(0.1)
 
             # DB write should happen
-            mock_prisma.db.litellm_auditlog.create.assert_called_once()
+            mock_prisma.db.hangarllm_auditlog.create.assert_called_once()
             # Callback should also be called
             mock_logger.async_log_audit_log_event.assert_called_once()
 
@@ -206,27 +206,27 @@ class TestCreateAuditLogForUpdateWithCallbacks:
     async def test_no_dispatch_when_not_premium(self, monkeypatch: pytest.MonkeyPatch):
         mock_logger = MagicMock(spec=CustomLogger)
         mock_logger.async_log_audit_log_event = AsyncMock()
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [mock_logger])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [mock_logger])
 
         with (
-            patch("litellm.proxy.proxy_server.premium_user", False),
-            patch("litellm.store_audit_logs", True),
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.premium_user", False),
+            patch("hangarllm.store_audit_logs", True),
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         ):
             audit_log = _make_audit_log()
             await create_audit_log_for_update(audit_log)
             await asyncio.sleep(0.1)
 
             mock_logger.async_log_audit_log_event.assert_not_called()
-            mock_prisma.db.litellm_auditlog.create.assert_not_called()
+            mock_prisma.db.hangarllm_auditlog.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_dispatch_when_store_audit_logs_false(self, monkeypatch: pytest.MonkeyPatch):
         mock_logger = MagicMock(spec=CustomLogger)
         mock_logger.async_log_audit_log_event = AsyncMock()
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [mock_logger])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [mock_logger])
 
-        with patch("litellm.store_audit_logs", False):
+        with patch("hangarllm.store_audit_logs", False):
             audit_log = _make_audit_log()
             await create_audit_log_for_update(audit_log)
             await asyncio.sleep(0.1)
@@ -238,12 +238,12 @@ class TestCreateAuditLogForUpdateWithCallbacks:
         """Callbacks should fire even if DB is unavailable."""
         mock_logger = MagicMock(spec=CustomLogger)
         mock_logger.async_log_audit_log_event = AsyncMock()
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [mock_logger])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [mock_logger])
 
         with (
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.store_audit_logs", True),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.premium_user", True),
+            patch("hangarllm.store_audit_logs", True),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
         ):
             audit_log = _make_audit_log()
             await create_audit_log_for_update(audit_log)
@@ -257,14 +257,14 @@ class TestCreateAuditLogForUpdateWithCallbacks:
         """Callbacks should fire even if the DB write raises."""
         mock_logger = MagicMock(spec=CustomLogger)
         mock_logger.async_log_audit_log_event = AsyncMock()
-        monkeypatch.setattr(litellm, "audit_log_callbacks", [mock_logger])
+        monkeypatch.setattr(hangarllm, "audit_log_callbacks", [mock_logger])
 
         with (
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.store_audit_logs", True),
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("hangarllm.proxy.proxy_server.premium_user", True),
+            patch("hangarllm.store_audit_logs", True),
+            patch("hangarllm.proxy.proxy_server.prisma_client") as mock_prisma,
         ):
-            mock_prisma.db.litellm_auditlog.create = AsyncMock(
+            mock_prisma.db.hangarllm_auditlog.create = AsyncMock(
                 side_effect=RuntimeError("DB connection lost")
             )
 
@@ -283,7 +283,7 @@ class TestAuditLogTaskDoneCallback:
         mock_task.exception.return_value = RuntimeError("callback failed")
 
         with patch(
-            "litellm.proxy.management_helpers.audit_logs.verbose_proxy_logger"
+            "hangarllm.proxy.management_helpers.audit_logs.verbose_proxy_logger"
         ) as mock_logger:
             _audit_log_task_done_callback(mock_task)
             mock_logger.error.assert_called_once()
@@ -295,7 +295,7 @@ class TestAuditLogTaskDoneCallback:
         mock_task.exception.return_value = None
 
         with patch(
-            "litellm.proxy.management_helpers.audit_logs.verbose_proxy_logger"
+            "hangarllm.proxy.management_helpers.audit_logs.verbose_proxy_logger"
         ) as mock_logger:
             _audit_log_task_done_callback(mock_task)
             mock_logger.error.assert_not_called()
@@ -306,7 +306,7 @@ class TestAuditLogTaskDoneCallback:
         mock_task.exception.side_effect = asyncio.CancelledError()
 
         with patch(
-            "litellm.proxy.management_helpers.audit_logs.verbose_proxy_logger"
+            "hangarllm.proxy.management_helpers.audit_logs.verbose_proxy_logger"
         ) as mock_logger:
             _audit_log_task_done_callback(mock_task)
             mock_logger.error.assert_not_called()
@@ -315,8 +315,8 @@ class TestAuditLogTaskDoneCallback:
 class TestS3LoggerAuditLogEvent:
     @pytest.mark.asyncio
     async def test_queues_audit_log_with_correct_s3_key(self):
-        with patch("litellm.integrations.s3_v2.S3Logger.__init__", return_value=None):
-            from litellm.integrations.s3_v2 import S3Logger
+        with patch("hangarllm.integrations.s3_v2.S3Logger.__init__", return_value=None):
+            from hangarllm.integrations.s3_v2 import S3Logger
 
             logger = S3Logger()
             logger.s3_path = "my-prefix"
@@ -330,7 +330,7 @@ class TestS3LoggerAuditLogEvent:
                 changed_by="user-1",
                 changed_by_api_key="sk-abc",
                 action="created",
-                table_name="LiteLLM_TeamTable",
+                table_name="HangarLLM_TeamTable",
                 object_id="team-1",
                 before_value=None,
                 updated_values='{"name": "new"}',
@@ -349,8 +349,8 @@ class TestS3LoggerAuditLogEvent:
 
     @pytest.mark.asyncio
     async def test_s3_key_format_no_path(self):
-        with patch("litellm.integrations.s3_v2.S3Logger.__init__", return_value=None):
-            from litellm.integrations.s3_v2 import S3Logger
+        with patch("hangarllm.integrations.s3_v2.S3Logger.__init__", return_value=None):
+            from hangarllm.integrations.s3_v2 import S3Logger
 
             logger = S3Logger()
             logger.s3_path = None
@@ -364,7 +364,7 @@ class TestS3LoggerAuditLogEvent:
                 changed_by="user-1",
                 changed_by_api_key="sk-abc",
                 action="deleted",
-                table_name="LiteLLM_VerificationToken",
+                table_name="HangarLLM_VerificationToken",
                 object_id="key-1",
                 before_value=None,
                 updated_values=None,
@@ -384,12 +384,12 @@ class TestS3AuditCallbackParamsDecoupling:
 
     @pytest.fixture(autouse=True)
     def _isolate_caches_and_globals(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.litellm_core_utils import litellm_logging as ll_logging
-        from litellm.proxy.management_helpers import audit_logs as ll_audit_logs
+        from hangarllm.hangarllm_core_utils import hangarllm_logging as ll_logging
+        from hangarllm.proxy.management_helpers import audit_logs as ll_audit_logs
 
-        monkeypatch.setattr(litellm, "s3_callback_params", litellm.s3_callback_params)
+        monkeypatch.setattr(hangarllm, "s3_callback_params", hangarllm.s3_callback_params)
         monkeypatch.setattr(
-            litellm, "s3_audit_callback_params", getattr(litellm, "s3_audit_callback_params", None)
+            hangarllm, "s3_audit_callback_params", getattr(hangarllm, "s3_audit_callback_params", None)
         )
         ll_audit_logs._audit_log_callback_cache.clear()
         ll_logging._in_memory_loggers.clear()
@@ -400,16 +400,16 @@ class TestS3AuditCallbackParamsDecoupling:
     def test_opt_in_constructs_separate_instance_with_audit_config(self, monkeypatch: pytest.MonkeyPatch):
         """Audit config set → audit resolver returns a fresh S3Logger pointing
         at the audit bucket, distinct from the normal-log singleton."""
-        from litellm.integrations.s3_v2 import S3Logger
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.integrations.s3_v2 import S3Logger
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             _init_custom_logger_compatible_class,
         )
-        from litellm.proxy.management_helpers.audit_logs import (
+        from hangarllm.proxy.management_helpers.audit_logs import (
             _resolve_audit_log_callback,
         )
 
-        monkeypatch.setattr(litellm, "s3_callback_params", {"s3_bucket_name": "normal-bucket"})
-        monkeypatch.setattr(litellm, "s3_audit_callback_params", {"s3_bucket_name": "audit-bucket"})
+        monkeypatch.setattr(hangarllm, "s3_callback_params", {"s3_bucket_name": "normal-bucket"})
+        monkeypatch.setattr(hangarllm, "s3_audit_callback_params", {"s3_bucket_name": "audit-bucket"})
 
         with patch("asyncio.create_task"):
             audit_instance = _resolve_audit_log_callback("s3_v2")
@@ -428,16 +428,16 @@ class TestS3AuditCallbackParamsDecoupling:
     def test_opt_out_preserves_singleton_behavior(self, monkeypatch: pytest.MonkeyPatch):
         """No `s3_audit_callback_params` → audit and normal share the singleton
         (existing behavior, regression guard)."""
-        from litellm.integrations.s3_v2 import S3Logger
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.integrations.s3_v2 import S3Logger
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             _init_custom_logger_compatible_class,
         )
-        from litellm.proxy.management_helpers.audit_logs import (
+        from hangarllm.proxy.management_helpers.audit_logs import (
             _resolve_audit_log_callback,
         )
 
-        monkeypatch.setattr(litellm, "s3_callback_params", {"s3_bucket_name": "shared-bucket"})
-        monkeypatch.setattr(litellm, "s3_audit_callback_params", None)
+        monkeypatch.setattr(hangarllm, "s3_callback_params", {"s3_bucket_name": "shared-bucket"})
+        monkeypatch.setattr(hangarllm, "s3_audit_callback_params", None)
 
         with patch("asyncio.create_task"):
             normal_instance = _init_custom_logger_compatible_class(
@@ -454,16 +454,16 @@ class TestS3AuditCallbackParamsDecoupling:
     def test_empty_dict_opts_in(self, monkeypatch: pytest.MonkeyPatch):
         """`s3_audit_callback_params = {}` is opt-in (truthy-by-presence) and
         produces a separate instance with no bucket configured (env/IAM-only)."""
-        from litellm.integrations.s3_v2 import S3Logger
-        from litellm.litellm_core_utils.litellm_logging import (
+        from hangarllm.integrations.s3_v2 import S3Logger
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
             _init_custom_logger_compatible_class,
         )
-        from litellm.proxy.management_helpers.audit_logs import (
+        from hangarllm.proxy.management_helpers.audit_logs import (
             _resolve_audit_log_callback,
         )
 
-        monkeypatch.setattr(litellm, "s3_callback_params", {"s3_bucket_name": "normal-bucket"})
-        monkeypatch.setattr(litellm, "s3_audit_callback_params", {})
+        monkeypatch.setattr(hangarllm, "s3_callback_params", {"s3_bucket_name": "normal-bucket"})
+        monkeypatch.setattr(hangarllm, "s3_audit_callback_params", {})
 
         with patch("asyncio.create_task"):
             audit_instance = _resolve_audit_log_callback("s3_v2")
@@ -480,13 +480,13 @@ class TestS3AuditCallbackParamsDecoupling:
     def test_reset_audit_log_callback_cache_clears_audit_instance(self, monkeypatch: pytest.MonkeyPatch):
         """`reset_audit_log_callback_cache()` must drop the cached audit
         instance so a config reload picks up the new params."""
-        from litellm.proxy.management_helpers.audit_logs import (
+        from hangarllm.proxy.management_helpers.audit_logs import (
             _audit_log_callback_cache,
             _resolve_audit_log_callback,
             reset_audit_log_callback_cache,
         )
 
-        monkeypatch.setattr(litellm, "s3_audit_callback_params", {"s3_bucket_name": "first"})
+        monkeypatch.setattr(hangarllm, "s3_audit_callback_params", {"s3_bucket_name": "first"})
         with patch("asyncio.create_task"):
             first = _resolve_audit_log_callback("s3_v2")
             assert first is not None and "s3_v2" in _audit_log_callback_cache
@@ -494,7 +494,7 @@ class TestS3AuditCallbackParamsDecoupling:
             reset_audit_log_callback_cache()
             assert "s3_v2" not in _audit_log_callback_cache
 
-            monkeypatch.setattr(litellm, "s3_audit_callback_params", {"s3_bucket_name": "second"})
+            monkeypatch.setattr(hangarllm, "s3_audit_callback_params", {"s3_bucket_name": "second"})
             second = _resolve_audit_log_callback("s3_v2")
             assert second is not None
             assert id(second) != id(first)

@@ -2,18 +2,18 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.anthropic.prompt_cache_pricing import price_cache_tokens
-from litellm.types.management_endpoints.prompt_cache_prediction import CacheTokenBuckets
+import hangarllm
+from hangarllm.llms.anthropic.prompt_cache_pricing import price_cache_tokens
+from hangarllm.types.management_endpoints.prompt_cache_prediction import CacheTokenBuckets
 
 
 def test_deployment_tariff_wins_without_proxy_discounts_or_margins(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", litellm.model_cost.copy())
-    litellm.Router(
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.model_cost.copy())
+    hangarllm.Router(
         model_list=[
             {
                 "model_name": "cache-pricing-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-6",
                     "api_key": "test-only",
                     "input_cost_per_token": 0.00001,
@@ -26,8 +26,8 @@ def test_deployment_tariff_wins_without_proxy_discounts_or_margins(monkeypatch: 
             }
         ]
     )
-    monkeypatch.setattr(litellm, "cost_discount_config", {"anthropic": 0.5})
-    monkeypatch.setattr(litellm, "cost_margin_config", {"global": {"percentage": 0.3, "fixed_amount": 1.0}})
+    monkeypatch.setattr(hangarllm, "cost_discount_config", {"anthropic": 0.5})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"global": {"percentage": 0.3, "fixed_amount": 1.0}})
     tokens: Final = CacheTokenBuckets(
         uncached_input_tokens=3_000,
         cache_read_input_tokens=4_000,
@@ -40,10 +40,10 @@ def test_deployment_tariff_wins_without_proxy_discounts_or_margins(monkeypatch: 
 @pytest.mark.parametrize("rate", [None, -1.0, float("nan"), float("inf"), "0.00001", True])
 def test_unknown_for_absent_or_invalid_active_cache_rate(monkeypatch: pytest.MonkeyPatch, rate: object) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "cache-pricing-invalid",
         {
-            "litellm_provider": "anthropic",
+            "hangarllm_provider": "anthropic",
             "mode": "chat",
             "input_cost_per_token": 0.00001,
             "output_cost_per_token": 0.00002,
@@ -57,17 +57,17 @@ def test_unknown_for_absent_or_invalid_active_cache_rate(monkeypatch: pytest.Mon
 def test_missing_input_price_is_unknown_even_when_get_model_info_defaults_to_zero(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost, "cache-pricing-missing", {"litellm_provider": "anthropic", "mode": "chat"})
+    monkeypatch.setitem(hangarllm.model_cost, "cache-pricing-missing", {"hangarllm_provider": "anthropic", "mode": "chat"})
     tokens: Final = CacheTokenBuckets(uncached_input_tokens=4_000)
     assert price_cache_tokens("cache-pricing-missing", "unconfigured-deployment", tokens) is None
 
 
 def test_explicit_free_pricing_is_not_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "cache-pricing-free",
         {
-            "litellm_provider": "anthropic",
+            "hangarllm_provider": "anthropic",
             "mode": "chat",
             "input_cost_per_token": 0.0,
             "output_cost_per_token": 0.0,

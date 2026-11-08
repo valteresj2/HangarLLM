@@ -15,7 +15,7 @@ from pydantic import JsonValue, TypeAdapter
 AZURE_KEY: Final = "synthetic-azure-key"
 TAVILY_KEY: Final = "synthetic-tavily-key"
 API_VERSION: Final = "2025-04-01-preview"
-SEARCH_TOOL: Final = "litellm_web_search"
+SEARCH_TOOL: Final = "hangarllm_web_search"
 SEARCH_TARGET: Final = "/tavily/search"
 STREAM_OPTIONS_REFUSAL: Final = "The 'stream_options' parameter is only allowed when 'stream' is enabled."
 FOLLOWUP_FAILURE: Final = "scripted follow-up failure"

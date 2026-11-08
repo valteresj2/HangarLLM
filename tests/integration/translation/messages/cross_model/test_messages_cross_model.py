@@ -20,14 +20,14 @@ GPT_6_1_SOL_TWO_MESSAGES_BEFORE_TOOLS_TEST_CASE: Final = two_messages_before_too
 AZURE_CLAUDE_SONNET_5_5_CROSS_MODEL_TEST_CASE: Final = replace(
     AZURE_CLAUDE_SONNET_5_5_TEST_CASE,
     scenario="cross_model_rich_request",
-    litellm_request={**CLAUDE_SONNET_5_5_TEST_CASE.litellm_request, "model": "azure_ai/claude-sonnet-5-5"},
+    hangarllm_request={**CLAUDE_SONNET_5_5_TEST_CASE.hangarllm_request, "model": "azure_ai/claude-sonnet-5-5"},
     expected_provider_request={
         **CLAUDE_SONNET_5_5_TEST_CASE.expected_provider_request,
         "system": [{"type": "text", "text": CLAUDE_SONNET_5_5_TEST_CASE.expected_provider_request["system"]}],
     },
     mock_provider_response=CLAUDE_SONNET_5_5_TEST_CASE.mock_provider_response,
-    expected_litellm_response={
-        **CLAUDE_SONNET_5_5_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_SONNET_5_5_TEST_CASE.expected_hangarllm_response,
         "model": "azure_ai/claude-sonnet-5-5",
     },
 )
@@ -41,8 +41,8 @@ AZURE_CLAUDE_SONNET_5_5_CROSS_MODEL_TEST_CASE: Final = replace(
 def test_messages_keep_the_same_public_contract_on_native_and_bridged_routes(
     case: TranslationTestCase, gateway: Gateway, provider: SharedProvider
 ) -> None:
-    assert {key: value for key, value in case.litellm_request.items() if key != "model"} == {
-        key: value for key, value in CLAUDE_SONNET_5_5_TEST_CASE.litellm_request.items() if key != "model"
+    assert {key: value for key, value in case.hangarllm_request.items() if key != "model"} == {
+        key: value for key, value in CLAUDE_SONNET_5_5_TEST_CASE.hangarllm_request.items() if key != "model"
     }
     native: Final = assert_translation(CLAUDE_SONNET_5_5_TEST_CASE, gateway, provider)
     compared: Final = assert_translation(case, gateway, provider)
@@ -72,12 +72,12 @@ def test_messages_forwards_the_configured_provider_affinity_header_on_native_and
     configured: Final = replace(
         case,
         scenario="provider_affinity_header",
-        litellm_request={**case.litellm_request, "model": alias},
+        hangarllm_request={**case.hangarllm_request, "model": alias},
         expected_provider_headers={**case.expected_provider_headers, "x-session-affinity": "contract-session-1"},
-        expected_litellm_response={**case.expected_litellm_response, "model": alias},
+        expected_hangarllm_response={**case.expected_hangarllm_response, "model": alias},
     )
     body: Final = assert_translation(
-        configured, gateway, provider, headers={"x-litellm-session-id": "contract-session-1"}
+        configured, gateway, provider, headers={"x-hangarllm-session-id": "contract-session-1"}
     )
     messages_structure(body)
 

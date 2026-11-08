@@ -237,7 +237,7 @@ def _assert_each_in_its_own_form(received: tuple[Request, ...], calls: Sequence[
 
 def _spend_rows_by_model(model: str, expected: int) -> frozenset[str]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=60,
     )
@@ -249,7 +249,7 @@ def _spend_rows_by_model(model: str, expected: int) -> frozenset[str]:
 def _spend_status_by_request(request_ids: frozenset[str]) -> Mapping[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)',
             (list(request_ids),),  # pyright: ignore[reportArgumentType]  # psycopg adapts the list to a text array
         ),
         lambda found: len(found) >= len(request_ids),
@@ -384,7 +384,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": _CONFIG_MODEL,
-            "litellm_params": {"model": f"gemini/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
+            "hangarllm_params": {"model": f"gemini/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
         }
     ]
     path: Final = tmp_path / "gemini-tool-result-part-reference-chaos.yaml"

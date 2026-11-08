@@ -20,7 +20,7 @@ Strategy
   drives the path, then asserts team attributes on every span that path
   actually emits.
 
-  - success path  -> ``log_success_event`` -> litellm_request +
+  - success path  -> ``log_success_event`` -> hangarllm_request +
     raw_gen_ai_request + guardrail child spans.
   - failure path  -> ``async_post_call_failure_hook`` -> Failed Proxy
     Server Request exception child span.
@@ -42,8 +42,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 )
 
 
-from litellm.integrations.opentelemetry import (
-    LITELLM_PROXY_REQUEST_SPAN_NAME,
+from hangarllm.integrations.opentelemetry import (
+    HANGARLLM_PROXY_REQUEST_SPAN_NAME,
     OpenTelemetry,
 )
 
@@ -68,7 +68,7 @@ def _make_otel():
 
 def _server_span(otel):
     """Mirror the SERVER span user_api_key_auth opens per request."""
-    return otel.create_litellm_proxy_request_started_span(
+    return otel.create_hangarllm_proxy_request_started_span(
         start_time=datetime.now(), headers={}
     )
 
@@ -97,11 +97,11 @@ def _success_kwargs(call_type, server_span, with_guardrail=True):
     """kwargs the success callback receives for an LLM proxy request."""
     return {
         "model": "gpt-4.1-mini",
-        "litellm_call_id": "call-abc",
+        "hangarllm_call_id": "call-abc",
         "call_type": call_type,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
-                "litellm_parent_otel_span": server_span,
+                "hangarllm_parent_otel_span": server_span,
                 "user_api_key_team_id": TEAM_ID,
                 "user_api_key_team_alias": TEAM_ALIAS,
             }
@@ -147,7 +147,7 @@ class _ClientErr(Exception):
 
 
 # ---------------------------------------------------------------------------
-# LLM success cells: litellm_request + raw_gen_ai_request + guardrail spans
+# LLM success cells: hangarllm_request + raw_gen_ai_request + guardrail spans
 # ---------------------------------------------------------------------------
 class TestLLMSuccessCells(unittest.TestCase):
     def _run_success(self, call_type):
@@ -161,8 +161,8 @@ class TestLLMSuccessCells(unittest.TestCase):
     def test_chat_completions_2xx(self):
         spans = self._run_success("completion")
         for name in (
-            LITELLM_PROXY_REQUEST_SPAN_NAME,
-            "litellm_request",
+            HANGARLLM_PROXY_REQUEST_SPAN_NAME,
+            "hangarllm_request",
             "raw_gen_ai_request",
             "guardrail",
         ):
@@ -172,8 +172,8 @@ class TestLLMSuccessCells(unittest.TestCase):
     def test_v1_messages_2xx(self):
         spans = self._run_success("anthropic_messages")
         for name in (
-            LITELLM_PROXY_REQUEST_SPAN_NAME,
-            "litellm_request",
+            HANGARLLM_PROXY_REQUEST_SPAN_NAME,
+            "hangarllm_request",
             "raw_gen_ai_request",
             "guardrail",
         ):
@@ -203,7 +203,7 @@ class TestLLMFailureCells(unittest.TestCase):
         return _spans_by_name(exporter)
 
     def _assert_all(self, spans, where):
-        for name in ("Failed Proxy Server Request", LITELLM_PROXY_REQUEST_SPAN_NAME):
+        for name in ("Failed Proxy Server Request", HANGARLLM_PROXY_REQUEST_SPAN_NAME):
             assert name in spans, f"{where}: missing span {name}"
             _assert_team_attrs(spans[name], f"{where} [{name}]")
 
@@ -252,12 +252,12 @@ class TestAdminTeamInfoCells(unittest.TestCase):
 
     def test_team_info_4xx(self):
         spans = self._run_admin_failure(_ClientErr("team not found"))
-        for name in ("Failed Proxy Server Request", LITELLM_PROXY_REQUEST_SPAN_NAME):
+        for name in ("Failed Proxy Server Request", HANGARLLM_PROXY_REQUEST_SPAN_NAME):
             _assert_team_attrs(spans[name], f"/team/info 4xx [{name}]")
 
     def test_team_info_5xx(self):
         spans = self._run_admin_failure(_Boom("db connection lost"))
-        for name in ("Failed Proxy Server Request", LITELLM_PROXY_REQUEST_SPAN_NAME):
+        for name in ("Failed Proxy Server Request", HANGARLLM_PROXY_REQUEST_SPAN_NAME):
             _assert_team_attrs(spans[name], f"/team/info 5xx [{name}]")
 
     def test_team_info_2xx_only_server_span_no_orphan_children(self):
@@ -270,7 +270,7 @@ class TestAdminTeamInfoCells(unittest.TestCase):
         server_span.end()
         spans = _spans_by_name(exporter)
         assert set(spans) == {
-            LITELLM_PROXY_REQUEST_SPAN_NAME
+            HANGARLLM_PROXY_REQUEST_SPAN_NAME
         }, f"/team/info 2xx: unexpected child spans {set(spans)}"
 
     def test_team_info_3xx_not_applicable(self):

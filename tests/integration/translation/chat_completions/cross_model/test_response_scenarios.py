@@ -31,8 +31,8 @@ GPT_6_1_SOL_TWO_MESSAGES_BEFORE_TOOLS_TEST_CASE: Final = two_messages_before_too
 GPT_6_1_SOL_STRING_TOOL_OUTPUT_TEST_CASE: Final = replace(
     GPT_6_1_SOL_TEST_CASE,
     scenario="plain_string_tool_output",
-    litellm_request={
-        **GPT_6_1_SOL_TEST_CASE.litellm_request,
+    hangarllm_request={
+        **GPT_6_1_SOL_TEST_CASE.hangarllm_request,
         "messages": [
             {"role": "user", "content": "Read the validation file."},
             {
@@ -160,8 +160,8 @@ def _cached_stream(missing_index: bool, terminal_choices: bool) -> StreamingTran
     finish: Final[dict[str, JsonValue]] = {**index, "delta": {}, "finish_reason": "stop"}
     return StreamingTranslationTestCase(
         scenario="choice_bearing_cached_usage" if terminal_choices else "usage_only_cached_usage",
-        litellm_endpoint="/v1/chat/completions",
-        litellm_request={
+        hangarllm_endpoint="/v1/chat/completions",
+        hangarllm_request={
             "model": "openai/gpt-6.1-sol",
             "messages": [{"role": "user", "content": "Say hello."}],
             "max_tokens": 64,
@@ -190,8 +190,8 @@ def _cached_stream(missing_index: bool, terminal_choices: bool) -> StreamingTran
             SSEFrame(data={**envelope, "choices": [finish] if terminal_choices else [], "usage": usage}),
             SSEFrame(data="[DONE]"),
         ),
-        expected_litellm_message={"role": "assistant", "content": "Hello."},
-        expected_litellm_usage={
+        expected_hangarllm_message={"role": "assistant", "content": "Hello."},
+        expected_hangarllm_usage={
             "prompt_tokens": 1000,
             "completion_tokens": 100,
             "total_tokens": 1100,
@@ -210,7 +210,7 @@ def test_cached_usage_survives_raw_streaming_and_sdk_assembly(
         pytest.skip("BUG: LIT-9468 omitted upstream choice indexes reach the SDK as null and abort the stream")
     case: Final = _cached_stream(missing_index, terminal_choices)
     provider.expect(streaming_reply(case))
-    response: Final = gateway.request("POST", case.litellm_endpoint, case.litellm_request)
+    response: Final = gateway.request("POST", case.hangarllm_endpoint, case.hangarllm_request)
     assert_provider_request(
         provider.received(),
         case.expected_provider_endpoint,

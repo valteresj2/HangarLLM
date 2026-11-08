@@ -11,17 +11,17 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm._internal_context import current_service_target
-from litellm.caching.redis_batch import Batch, request_redis_batch_scope
-from litellm.caching.redis_cache import RedisCache, redis_breaker_state_counts
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.redis.stores.connection import RedisStores, connect
-from litellm.redis.stores.router_cooldowns import CooldownCacheValue, RouterCooldownStore
-from litellm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
-from litellm.rust_bridge._native import NativeRedisClient, NativeRouterCooldowns
-from litellm.rust_bridge.host import settings
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+import hangarllm
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.redis_batch import Batch, request_redis_batch_scope
+from hangarllm.caching.redis_cache import RedisCache, redis_breaker_state_counts
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.redis.stores.connection import RedisStores, connect
+from hangarllm.redis.stores.router_cooldowns import CooldownCacheValue, RouterCooldownStore
+from hangarllm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
+from hangarllm.rust_bridge._native import NativeRedisClient, NativeRouterCooldowns
+from hangarllm.rust_bridge.host import settings
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 from tests.unit.caching.test_redis_batch import (
     FakeNativePending,
     FakeNatives,
@@ -34,7 +34,7 @@ from tests.unit.caching.test_redis_batch import (
 @dataclass(frozen=True, slots=True)
 class _WireCooldown:
     """One cooldown as main's ``RedisCache`` writes it (``str(value)``) and reads it (``json.loads`` then
-    ``ast.literal_eval``). The same literals sit in ``litellm-rust/crates/redis-store/tests/support/mod.rs``,
+    ``ast.literal_eval``). The same literals sit in ``hangarllm-rust/crates/redis-store/tests/support/mod.rs``,
     where real Redis is checked to hold them after the Rust store writes."""
 
     cooldown: CooldownCacheValue
@@ -222,9 +222,9 @@ class _RecordingSecrets(CustomSecretManager):
 def test_the_native_client_reads_redis_secrets_through_the_secret_manager(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("REDIS_PASSWORD", raising=False)
     manager: Final = _RecordingSecrets({"REDIS_PASSWORD": "vault-password"})
-    monkeypatch.setattr(litellm, "secret_manager_client", manager)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", manager)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
     configured: Final = settings.secret_manager
     monkeypatch.setattr(settings, "secret_manager", lambda: replace(configured(), native=False))
 

@@ -5,10 +5,10 @@ from typing import Final
 from unittest.mock import MagicMock, patch
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 
-from litellm.llms.triton.embedding.transformation import TritonEmbeddingConfig
+from hangarllm.llms.triton.embedding.transformation import TritonEmbeddingConfig
 
 
 def test_split_embedding_by_shape_passes():
@@ -34,11 +34,11 @@ def test_triton_embedding_response_sets_usage_with_token_counter():
         "model_name": "gte-base-en-v1",
         "outputs": [{"name": "embedding", "shape": [1, 2], "data": [0.1, 0.2]}],
     }
-    model_response = litellm.EmbeddingResponse()
+    model_response = hangarllm.EmbeddingResponse()
     request_data = {
         "inputs": [{"name": "input_text", "shape": [1], "datatype": "BYTES", "data": ["hello from triton"]}]
     }
-    with patch("litellm.llms.triton.embedding.transformation.token_counter", return_value=7):
+    with patch("hangarllm.llms.triton.embedding.transformation.token_counter", return_value=7):
         transformed = config.transform_embedding_response(
             model="triton/gte-base-en-v1",
             raw_response=mock_http_response,
@@ -60,11 +60,11 @@ def test_triton_embedding_response_sets_usage_with_word_count_fallback():
         "model_name": "gte-base-en-v1",
         "outputs": [{"name": "embedding", "shape": [1, 2], "data": [0.1, 0.2]}],
     }
-    model_response = litellm.EmbeddingResponse()
+    model_response = hangarllm.EmbeddingResponse()
     request_data = {
         "inputs": [{"name": "input_text", "shape": [1], "datatype": "BYTES", "data": ["hello from triton"]}]
     }
-    with patch("litellm.llms.triton.embedding.transformation.token_counter", side_effect=Exception("tokenizer error")):
+    with patch("hangarllm.llms.triton.embedding.transformation.token_counter", side_effect=Exception("tokenizer error")):
         transformed = config.transform_embedding_response(
             model="triton/gte-base-en-v1",
             raw_response=mock_http_response,
@@ -87,11 +87,11 @@ def test_triton_embedding_batch_usage_sums_per_input_token_counts():
         "model_name": "gte-base-en-v1",
         "outputs": [{"name": "embedding", "shape": [2, 2], "data": [0.1, 0.2, 0.3, 0.4]}],
     }
-    model_response = litellm.EmbeddingResponse()
+    model_response = hangarllm.EmbeddingResponse()
     request_data = {
         "inputs": [{"name": "input_text", "shape": [2], "datatype": "BYTES", "data": ["first input", "second input"]}]
     }
-    with patch("litellm.llms.triton.embedding.transformation.token_counter", side_effect=[5, 7]):
+    with patch("hangarllm.llms.triton.embedding.transformation.token_counter", side_effect=[5, 7]):
         transformed = config.transform_embedding_response(
             model="triton/gte-base-en-v1",
             raw_response=mock_http_response,
@@ -105,7 +105,7 @@ def test_triton_embedding_batch_usage_sums_per_input_token_counts():
 
 
 def test_completion_triton_infer_api():
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     try:
         mock_response = MagicMock()
 
@@ -141,10 +141,10 @@ def test_completion_triton_infer_api():
         mock_response.status_code = 200
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="triton/llama-3-8b-instruct",
                 messages=[
                     {
@@ -155,7 +155,7 @@ def test_completion_triton_infer_api():
                 api_base="http://localhost:8000/infer",
             )
 
-            print("litellm response", response.model_dump_json(indent=4))
+            print("hangarllm response", response.model_dump_json(indent=4))
 
             # Verify the call was made
             mock_post.assert_called_once()
@@ -206,7 +206,7 @@ LLAMA_3_CHAT_TEMPLATE = (
 @pytest.mark.parametrize("stream", [True, False])
 @pytest.mark.respx(assert_all_called=False)
 def test_completion_triton_generate_api(stream, monkeypatch, respx_mock):
-    monkeypatch.setattr(litellm, "known_tokenizer_config", dict(litellm.known_tokenizer_config))
+    monkeypatch.setattr(hangarllm, "known_tokenizer_config", dict(hangarllm.known_tokenizer_config))
     respx_mock.get(host="huggingface.co").respond(404, text="Entry not found")
     try:
         mock_response = MagicMock()
@@ -235,10 +235,10 @@ def test_completion_triton_generate_api(stream, monkeypatch, respx_mock):
         mock_response.status_code = 200
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="triton/llama-3-8b-instruct",
                 messages=[{"role": "user", "content": "who are u?"}],
                 max_tokens=10,
@@ -279,15 +279,15 @@ def test_completion_triton_generate_api(stream, monkeypatch, respx_mock):
 
 @pytest.mark.respx(assert_all_called=False)
 def test_triton_generate_raw_request(monkeypatch, respx_mock):
-    monkeypatch.setattr(litellm, "known_tokenizer_config", dict(litellm.known_tokenizer_config))
+    monkeypatch.setattr(hangarllm, "known_tokenizer_config", dict(hangarllm.known_tokenizer_config))
     respx_mock.get("https://huggingface.co/llama-3-8b-instruct/raw/main/tokenizer_config.json").respond(
         404, text="Entry not found"
     )
     respx_mock.get("https://huggingface.co/llama-3-8b-instruct/raw/main/chat_template.jinja").respond(
         200, text=LLAMA_3_CHAT_TEMPLATE
     )
-    from litellm.utils import return_raw_request
-    from litellm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
 
     try:
         kwargs = {

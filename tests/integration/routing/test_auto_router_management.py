@@ -96,7 +96,7 @@ def _deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": alias,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"openai/{model}",
             "api_base": f"{wire.url}/v1",
             "api_key": "synthetic-auto-router-key",
@@ -135,7 +135,7 @@ def _session_response(
 
     def read_response_state() -> tuple[httpx.Response, bool]:
         rows: Final = read_rows(
-            'SELECT session_id FROM "LiteLLM_AutoRouterSession" WHERE api_key = %s AND session_id = %s',
+            'SELECT session_id FROM "HangarLLM_AutoRouterSession" WHERE api_key = %s AND session_id = %s',
             (key_hash, stored_session_id),
             database_url=database_url,
         )
@@ -167,7 +167,7 @@ def _assert_rollup_row(
         "SELECT session_id, router_name, router_type, last_model, turns, spend, saved_spend, "
         "savings_estimated_turns, savings_estimated_actual_spend, savings_estimated_saved_spend, "
         "savings_estimated_baseline_models, baseline_models, tier_turns "
-        'FROM "LiteLLM_AutoRouterSession" WHERE api_key = %s AND session_id = %s AND router_name = %s',
+        'FROM "HangarLLM_AutoRouterSession" WHERE api_key = %s AND session_id = %s AND router_name = %s',
         (key_hash, expected_session_id, router_name),
         database_url=database_url,
     )
@@ -195,7 +195,7 @@ def _rollup_row(api_key: str, database_url: str, router_name: str, session_id: s
         "SELECT session_id, router_name, router_type, last_model, turns, spend, saved_spend, "
         "savings_estimated_turns, savings_estimated_actual_spend, savings_estimated_saved_spend, "
         "savings_estimated_baseline_models, baseline_models, tier_turns "
-        'FROM "LiteLLM_AutoRouterSession" WHERE api_key = %s AND session_id = %s AND router_name = %s',
+        'FROM "HangarLLM_AutoRouterSession" WHERE api_key = %s AND session_id = %s AND router_name = %s',
         (key_hash, session_id, router_name),
         database_url=database_url,
     )
@@ -292,7 +292,7 @@ def test_auto_router_session_tracks_key_scoped_spend_and_bounds_long_session_ids
             _deployment("integration-baseline", "integration-baseline", baseline, 0.00001, 0.00002),
             {
                 "model_name": router_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "classifier_type": "heuristic",
@@ -564,7 +564,7 @@ def test_auto_router_session_tracks_key_scoped_spend_and_bounds_long_session_ids
                     "/v1/chat/completions",
                     {"model": router_name, "messages": [{"role": "user", "content": long_prompt}]},
                     key=key,
-                    headers={"x-litellm-session-id": long_session_id},
+                    headers={"x-hangarllm-session-id": long_session_id},
                 )
                 assert long_response.status_code == 200, long_response.text
                 assert _assistant_content(long_response) == "synthetic tier response", long_response.text
@@ -646,7 +646,7 @@ def test_benchmarks_preserve_literal_key_identity(gateway: Gateway, api_key: str
     user_id: Final = f"benchmark-key-{uuid.uuid4().hex}"
     for key, savings in (("", 3.0), ("unattributed", 2.0), ("raw:unattributed", 4.0)):
         write_rows(
-            'INSERT INTO "LiteLLM_DailyUserSpend" '
+            'INSERT INTO "HangarLLM_DailyUserSpend" '
             "(id, user_id, date, api_key, model, autorouter_savings_spend, updated_at) "
             "VALUES (%s, %s, '2026-09-09', %s, 'model', %s, now())",
             (str(uuid.uuid4()), user_id, key, str(savings)),
@@ -660,4 +660,4 @@ def test_benchmarks_preserve_literal_key_identity(gateway: Gateway, api_key: str
         assert response.status_code == 200, response.text
         assert object_value(object_value(response.json())["totals"])["saved_spend"] == expected
     finally:
-        write_rows('DELETE FROM "LiteLLM_DailyUserSpend" WHERE user_id = %s', (user_id,))
+        write_rows('DELETE FROM "HangarLLM_DailyUserSpend" WHERE user_id = %s', (user_id,))

@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 from tests.unit.llms.sail.helpers import MODEL, SAIL_API_BASE, SpendCapture, cost_at, responses_body, sent_body
 
 INPUT: Final = "hi"
@@ -53,12 +53,12 @@ async def test_sail_responses_send_the_window_and_bill_its_price_columns(
     wire_metadata: dict[str, str] | None,
     column_suffix: str,
 ) -> None:
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model=MODEL,
         input=INPUT,
         service_tier=service_tier,
         metadata=metadata,
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     body: Final = sent_body(responses_route)
@@ -84,8 +84,8 @@ async def test_sail_responses_reject_before_sending(
     metadata: dict[str, str] | None,
     message: str,
 ) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match=message):
-        await litellm.aresponses(model=MODEL, input=INPUT, service_tier=service_tier, metadata=metadata)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=message):
+        await hangarllm.aresponses(model=MODEL, input=INPUT, service_tier=service_tier, metadata=metadata)
 
     assert not responses_route.called
 
@@ -94,13 +94,13 @@ async def test_sail_responses_reject_before_sending(
 async def test_sail_responses_drop_an_unknown_tier_and_window_under_drop_params(
     sail_env: None, responses_route: respx.Route, spend_capture: SpendCapture
 ) -> None:
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model=MODEL,
         input=INPUT,
         service_tier="scale",
         metadata={"completion_window": "soon", "user_tag": "a"},
         drop_params=True,
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     body: Final = sent_body(responses_route)
@@ -125,12 +125,12 @@ async def test_sail_responses_merge_caller_extra_body_metadata_with_the_tier_win
     wire_metadata: dict[str, str],
     column_suffix: str,
 ) -> None:
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model=MODEL,
         input=INPUT,
         service_tier=service_tier,
         extra_body={"metadata": {"trace_id": "t-1"}, "foo": 1},
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     body: Final = sent_body(responses_route)
@@ -154,8 +154,8 @@ async def test_sail_responses_merge_caller_extra_body_metadata_with_the_tier_win
 async def test_sail_responses_reject_a_window_billing_cannot_see_before_sending(
     sail_env: None, responses_route: respx.Route, extra_body: dict[str, object], message: str
 ) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match=message):
-        await litellm.aresponses(model=MODEL, input=INPUT, extra_body=extra_body)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=message):
+        await hangarllm.aresponses(model=MODEL, input=INPUT, extra_body=extra_body)
 
     assert not responses_route.called
 
@@ -163,7 +163,7 @@ async def test_sail_responses_reject_a_window_billing_cannot_see_before_sending(
 def test_sail_sync_responses_drop_a_window_billing_cannot_see_under_drop_params(
     sail_env: None, responses_route: respx.Route
 ) -> None:
-    litellm.responses(
+    hangarllm.responses(
         model=MODEL,
         input=INPUT,
         service_tier="balanced",
@@ -180,12 +180,12 @@ def test_sail_sync_responses_drop_a_window_billing_cannot_see_under_drop_params(
 async def test_sail_responses_drop_a_lone_caller_window_under_drop_params_and_bill_asap(
     sail_env: None, responses_route: respx.Route, spend_capture: SpendCapture
 ) -> None:
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model=MODEL,
         input=INPUT,
         extra_body={"metadata": {"completion_window": "flex"}},
         drop_params=True,
-        litellm_call_id=spend_capture.call_id,
+        hangarllm_call_id=spend_capture.call_id,
     )
 
     assert "completion_window" not in (sent_body(responses_route).get("metadata") or {})
@@ -195,7 +195,7 @@ async def test_sail_responses_drop_a_lone_caller_window_under_drop_params_and_bi
 def test_sail_responses_pass_a_non_mapping_extra_body_metadata_through_untouched(
     sail_env: None, responses_route: respx.Route
 ) -> None:
-    litellm.responses(model=MODEL, input=INPUT, extra_body={"metadata": None, "foo": 1})
+    hangarllm.responses(model=MODEL, input=INPUT, extra_body={"metadata": None, "foo": 1})
 
     body: Final = sent_body(responses_route)
     assert "metadata" in body
@@ -212,6 +212,6 @@ async def test_sail_responses_use_sail_api_base_env_and_key(
         return_value=httpx.Response(200, json=responses_body())
     )
 
-    await litellm.aresponses(model=MODEL, input=INPUT)
+    await hangarllm.aresponses(model=MODEL, input=INPUT)
 
     assert route.calls.last.request.headers["Authorization"] == "Bearer sail-test-key"

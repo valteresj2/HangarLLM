@@ -5,17 +5,17 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
 
-import litellm
+import hangarllm
 
-litellm.model_cost = litellm.get_model_cost_map(url="")
+hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.aiml.image_generation.transformation import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.aiml.image_generation.transformation import (
     AimlImageGenerationConfig,
 )
-from litellm.types.utils import ImageResponse
+from hangarllm.types.utils import ImageResponse
 
 
 def test_openai_style_model_supports_full_openai_param_surface():
@@ -64,7 +64,7 @@ def test_openai_style_request_passes_params_through_unchanged():
         model="openai/gpt-image-2",
         prompt="A cute baby sea otter",
         optional_params=mapped,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -96,7 +96,7 @@ def test_flux_style_request_still_remaps_to_legacy_fields():
         model="flux-pro/v1.1",
         prompt="hello",
         optional_params=mapped,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -141,12 +141,12 @@ def _transform_response(payload: object) -> ImageResponse:
             stream=False,
             call_type="image_generation",
             start_time=datetime(2026, 1, 1),
-            litellm_call_id="aiml-image-generation-test",
+            hangarllm_call_id="aiml-image-generation-test",
             function_id="aiml-image-generation-test",
         ),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

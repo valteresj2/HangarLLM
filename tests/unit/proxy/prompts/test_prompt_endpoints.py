@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.types.prompts.init_prompts import (
+from hangarllm.types.prompts.init_prompts import (
     PromptInfo,
-    PromptLiteLLMParams,
+    PromptHangarLLMParams,
     PromptSpec,
 )
 
@@ -22,13 +22,13 @@ class TestPromptVersioning:
         """
         Test that get_latest_prompt_versions returns only the latest version of each prompt
         """
-        from litellm.proxy.prompts.prompt_endpoints import get_latest_prompt_versions
+        from hangarllm.proxy.prompts.prompt_endpoints import get_latest_prompt_versions
 
         # Create mock prompts with different versions
         prompts = [
             PromptSpec(
                 prompt_id="jack.v1",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v1 content",
@@ -37,7 +37,7 @@ class TestPromptVersioning:
             ),
             PromptSpec(
                 prompt_id="jack.v2",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v2 content",
@@ -46,7 +46,7 @@ class TestPromptVersioning:
             ),
             PromptSpec(
                 prompt_id="jane.v1",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jane",
                     prompt_integration="dotprompt",
                     dotprompt_content="jane v1",
@@ -55,7 +55,7 @@ class TestPromptVersioning:
             ),
             PromptSpec(
                 prompt_id="jack.v3",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v3 content",
@@ -76,7 +76,7 @@ class TestPromptVersioning:
 
         assert jack_prompt is not None
         assert jack_prompt.prompt_id == "jack.v3"
-        assert jack_prompt.litellm_params.dotprompt_content == "v3 content"
+        assert jack_prompt.hangarllm_params.dotprompt_content == "v3 content"
 
         assert jane_prompt is not None
         assert jane_prompt.prompt_id == "jane.v1"
@@ -85,7 +85,7 @@ class TestPromptVersioning:
         """
         Test that get_version_number correctly extracts version numbers
         """
-        from litellm.proxy.prompts.prompt_endpoints import get_version_number
+        from hangarllm.proxy.prompts.prompt_endpoints import get_version_number
 
         assert get_version_number(prompt_id="jack.v1") == 1
         assert get_version_number(prompt_id="jack.v2") == 2
@@ -97,7 +97,7 @@ class TestPromptVersioning:
         """
         Test that get_base_prompt_id correctly strips version suffixes
         """
-        from litellm.proxy.prompts.prompt_endpoints import get_base_prompt_id
+        from hangarllm.proxy.prompts.prompt_endpoints import get_base_prompt_id
 
         assert get_base_prompt_id(prompt_id="jack.v1") == "jack"
         assert get_base_prompt_id(prompt_id="jack.v2") == "jack"
@@ -117,19 +117,19 @@ class TestPromptVersionsEndpoint:
         """
         from unittest.mock import patch
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.prompts.prompt_endpoints import get_prompt_versions
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.prompts.prompt_endpoints import get_prompt_versions
 
         # Mock user with admin role
         mock_user = UserAPIKeyAuth(
-            api_key="test_key", user_role=LitellmUserRoles.PROXY_ADMIN
+            api_key="test_key", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
 
         # Create mock prompt registry with multiple versions
         mock_prompts = {
             "jack.v1": PromptSpec(
                 prompt_id="jack.v1",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v1",
@@ -138,7 +138,7 @@ class TestPromptVersionsEndpoint:
             ),
             "jack.v2": PromptSpec(
                 prompt_id="jack.v2",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v2",
@@ -147,7 +147,7 @@ class TestPromptVersionsEndpoint:
             ),
             "jack.v3": PromptSpec(
                 prompt_id="jack.v3",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v3",
@@ -156,7 +156,7 @@ class TestPromptVersionsEndpoint:
             ),
             "jane.v1": PromptSpec(
                 prompt_id="jane.v1",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jane",
                     prompt_integration="dotprompt",
                     dotprompt_content="jane",
@@ -167,9 +167,9 @@ class TestPromptVersionsEndpoint:
 
         # Force the in-memory path so this test is isolated from any leaked prisma mocks.
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+                "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
             ) as mock_registry,
         ):
             mock_registry.IN_MEMORY_PROMPTS = mock_prompts
@@ -206,17 +206,17 @@ class TestPromptVersionsEndpoint:
 
         from fastapi import HTTPException
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.prompts.prompt_endpoints import get_prompt_versions
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.prompts.prompt_endpoints import get_prompt_versions
 
         mock_user = UserAPIKeyAuth(
-            api_key="test_key", user_role=LitellmUserRoles.PROXY_ADMIN
+            api_key="test_key", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+                "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
             ) as mock_registry,
         ):
             mock_registry.IN_MEMORY_PROMPTS = {}
@@ -240,17 +240,17 @@ class TestAdminViewerReadAccess:
         """A role without admin view falls through to the empty-list branch here."""
         from unittest.mock import patch
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.prompts.prompt_endpoints import list_prompts
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.prompts.prompt_endpoints import list_prompts
 
         viewer = UserAPIKeyAuth(
-            api_key="test_key", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+            api_key="test_key", user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY
         )
 
         mock_prompts = {
             "jack.v1": PromptSpec(
                 prompt_id="jack.v1",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v1",
@@ -259,7 +259,7 @@ class TestAdminViewerReadAccess:
             ),
             "jack.v2": PromptSpec(
                 prompt_id="jack.v2",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v2",
@@ -268,7 +268,7 @@ class TestAdminViewerReadAccess:
             ),
             "jane.v1": PromptSpec(
                 prompt_id="jane.v1",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jane",
                     prompt_integration="dotprompt",
                     dotprompt_content="jane",
@@ -278,7 +278,7 @@ class TestAdminViewerReadAccess:
         }
 
         with patch(
-            "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+            "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
         ) as mock_registry:
             mock_registry.IN_MEMORY_PROMPTS = mock_prompts
 
@@ -286,24 +286,24 @@ class TestAdminViewerReadAccess:
 
         assert sorted(p.prompt_id for p in response.prompts) == ["jack", "jane"]
         jack = next(p for p in response.prompts if p.prompt_id == "jack")
-        assert jack.litellm_params.dotprompt_content == "v2"
+        assert jack.hangarllm_params.dotprompt_content == "v2"
 
     @pytest.mark.asyncio
     async def test_get_prompt_versions_allows_admin_viewer(self):
         """Version history used to 403 anyone who was not exactly proxy_admin."""
         from unittest.mock import patch
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.prompts.prompt_endpoints import get_prompt_versions
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.prompts.prompt_endpoints import get_prompt_versions
 
         viewer = UserAPIKeyAuth(
-            api_key="test_key", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+            api_key="test_key", user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY
         )
 
         mock_prompts = {
             "jack.v1": PromptSpec(
                 prompt_id="jack.v1",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v1",
@@ -312,7 +312,7 @@ class TestAdminViewerReadAccess:
             ),
             "jack.v2": PromptSpec(
                 prompt_id="jack.v2",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v2",
@@ -322,9 +322,9 @@ class TestAdminViewerReadAccess:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+                "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
             ) as mock_registry,
         ):
             mock_registry.IN_MEMORY_PROMPTS = mock_prompts
@@ -340,22 +340,22 @@ class TestAdminViewerReadAccess:
         """Prompt info used to 403 anyone who was not exactly proxy_admin."""
         from unittest.mock import patch
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.prompts.prompt_endpoints import get_prompt_info
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.prompts.prompt_endpoints import get_prompt_info
 
         viewer = UserAPIKeyAuth(
-            api_key="test_key", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+            api_key="test_key", user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY
         )
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
+                "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY"
             ) as mock_registry,
         ):
             mock_registry.resolve_prompt_spec.return_value = PromptSpec(
                 prompt_id="jack.v2",
-                litellm_params=PromptLiteLLMParams(
+                hangarllm_params=PromptHangarLLMParams(
                     prompt_id="jack",
                     prompt_integration="dotprompt",
                     dotprompt_content="v2",
@@ -377,12 +377,12 @@ class TestConfigPromptInfoWithEnvironment:
     """
 
     def _registry_with_config_prompt(self):
-        from litellm.proxy.prompts.prompt_registry import InMemoryPromptRegistry
+        from hangarllm.proxy.prompts.prompt_registry import InMemoryPromptRegistry
 
         registry = InMemoryPromptRegistry()
         registry.IN_MEMORY_PROMPTS["envgreet::development"] = PromptSpec(
             prompt_id="envgreet",
-            litellm_params=PromptLiteLLMParams(
+            hangarllm_params=PromptHangarLLMParams(
                 prompt_id="envgreet",
                 prompt_integration="dotprompt",
                 dotprompt_content="AHOY {{user_message}}",
@@ -395,27 +395,27 @@ class TestConfigPromptInfoWithEnvironment:
         from unittest.mock import AsyncMock
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_prompttable.find_many = AsyncMock(return_value=[])
+        mock_prisma.db.hangarllm_prompttable.find_many = AsyncMock(return_value=[])
         return mock_prisma
 
     @pytest.mark.asyncio
     async def test_get_prompt_info_with_environment_falls_back_to_registry(self):
         from unittest.mock import patch
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.prompts.prompt_endpoints import get_prompt_info
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.prompts.prompt_endpoints import get_prompt_info
 
         admin = UserAPIKeyAuth(
-            api_key="test_key", user_role=LitellmUserRoles.PROXY_ADMIN
+            api_key="test_key", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
 
         with (
             patch(  # test-quality-ok: endpoint reads prisma_client and the registry from module globals at call time; no injection seam
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 self._prisma_client_with_empty_prompt_table(),
             ),
             patch(  # test-quality-ok: endpoint reads prisma_client and the registry from module globals at call time; no injection seam
-                "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY",
+                "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY",
                 self._registry_with_config_prompt(),
             ),
         ):
@@ -426,7 +426,7 @@ class TestConfigPromptInfoWithEnvironment:
             )
 
         assert response.prompt_spec.prompt_id == "envgreet"
-        assert response.prompt_spec.litellm_params.dotprompt_content == "AHOY {{user_message}}"
+        assert response.prompt_spec.hangarllm_params.dotprompt_content == "AHOY {{user_message}}"
 
     @pytest.mark.asyncio
     async def test_get_prompt_info_with_wrong_environment_still_400s(self):
@@ -434,20 +434,20 @@ class TestConfigPromptInfoWithEnvironment:
 
         from fastapi import HTTPException
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.prompts.prompt_endpoints import get_prompt_info
+        from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+        from hangarllm.proxy.prompts.prompt_endpoints import get_prompt_info
 
         admin = UserAPIKeyAuth(
-            api_key="test_key", user_role=LitellmUserRoles.PROXY_ADMIN
+            api_key="test_key", user_role=HangarllmUserRoles.PROXY_ADMIN
         )
 
         with (
             patch(  # test-quality-ok: endpoint reads prisma_client and the registry from module globals at call time; no injection seam
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 self._prisma_client_with_empty_prompt_table(),
             ),
             patch(  # test-quality-ok: endpoint reads prisma_client and the registry from module globals at call time; no injection seam
-                "litellm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY",
+                "hangarllm.proxy.prompts.prompt_registry.IN_MEMORY_PROMPT_REGISTRY",
                 self._registry_with_config_prompt(),
             ),
         ):

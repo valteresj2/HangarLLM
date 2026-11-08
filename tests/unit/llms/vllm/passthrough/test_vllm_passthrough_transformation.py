@@ -4,10 +4,10 @@ from datetime import datetime
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.vllm.passthrough.transformation import VLLMPassthroughConfig
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.vllm.passthrough.transformation import VLLMPassthroughConfig
 
 MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
 MESSAGES = [{"role": "user", "content": "Say hi in three words"}]
@@ -22,13 +22,13 @@ def _relay_logging_obj(endpoint: str, request_data: dict, callbacks: list[Custom
         stream="stream" in request_data,
         call_type="allm_passthrough_route",
         start_time=datetime(2025, 1, 1),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
         dynamic_async_success_callbacks=callbacks,
     )
     logging_obj.update_environment_variables(
         model=MODEL,
-        litellm_params={"api_base": "http://vllm.local:8000/v1"},
+        hangarllm_params={"api_base": "http://vllm.local:8000/v1"},
         optional_params={},
         custom_llm_provider="hosted_vllm",
         endpoint=endpoint,
@@ -116,7 +116,7 @@ async def test_a_relayed_chat_stream_without_a_usage_chunk_counts_tokens_from_th
 
     payload = logging_obj.model_call_details["standard_logging_object"]
     assert payload["id"] == "chatcmpl-vllm-3"
-    assert payload["prompt_tokens"] == litellm.token_counter(model=MODEL, messages=MESSAGES)
+    assert payload["prompt_tokens"] == hangarllm.token_counter(model=MODEL, messages=MESSAGES)
     assert payload["completion_tokens"] > 0
 
 
@@ -235,7 +235,7 @@ async def test_a_relayed_text_completion_stream_without_a_usage_chunk_counts_eve
     payload = logging_obj.model_call_details["standard_logging_object"]
     assert payload["id"] == "cmpl-vllm-6"
     assert [choice["text"] for choice in payload["response"]["choices"]] == ["Hello there", "Hey you"]
-    assert payload["prompt_tokens"] == sum(litellm.token_counter(model=MODEL, text=prompt) for prompt in prompts)
+    assert payload["prompt_tokens"] == sum(hangarllm.token_counter(model=MODEL, text=prompt) for prompt in prompts)
     assert payload["completion_tokens"] == sum(
-        litellm.token_counter(model=MODEL, text=text, count_response_tokens=True) for text in ["Hello there", "Hey you"]
+        hangarllm.token_counter(model=MODEL, text=text, count_response_tokens=True) for text in ["Hello there", "Hey you"]
     )

@@ -119,7 +119,7 @@ def build_session(marker: str, input_tokens: int, *, tools: bool) -> Session:
 
 
 def _read_arguments(step: Step) -> dict[str, object]:
-    return {"file_path": f"/workspace/litellm/{step.path}", "offset": step.offset, "limit": step.limit}
+    return {"file_path": f"/workspace/hangarllm/{step.path}", "offset": step.offset, "limit": step.limit}
 
 
 def _chat_turns(session: Session) -> Sequence[Mapping[str, object]]:

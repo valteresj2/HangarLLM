@@ -11,16 +11,16 @@ from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-import litellm.proxy.proxy_server as proxy_server_module
-from litellm.proxy._types import ProxyException
-from litellm.proxy.proxy_server import (
+import hangarllm.proxy.proxy_server as proxy_server_module
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.proxy_server import (
     _close_dangling_otel_server_span,
     openai_exception_handler,
     otel_request_validation_exception_handler,
     otel_unhandled_exception_handler,
 )
 
-from litellm.integrations._types.open_inference import ErrorAttributes
+from hangarllm.integrations._types.open_inference import ErrorAttributes
 
 from ._helpers import assert_server_span_attrs, get_server_span
 

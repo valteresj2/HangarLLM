@@ -9,10 +9,10 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.vertex_ai.vertex_embeddings.embedding_handler import VertexEmbedding
-from litellm.types.utils import EmbeddingResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.vertex_ai.vertex_embeddings.embedding_handler import VertexEmbedding
+from hangarllm.types.utils import EmbeddingResponse
 
 GECKO: Final = "textembedding-gecko"
 FINE_TUNED_ENDPOINT: Final = "1234567890"
@@ -43,7 +43,7 @@ class _StaticGoogleCredentials(google.auth.credentials.Credentials):
 @pytest.fixture
 def predict_endpoint(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> respx.Route:
     monkeypatch.setattr(google.auth, "default", lambda scopes: (_StaticGoogleCredentials(), "test-project"))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     return respx_mock.post(host="us-central1-aiplatform.googleapis.com")
 
 
@@ -58,7 +58,7 @@ def _embedding_logging() -> Logging:
         stream=False,
         call_type="embedding",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="embedding-call",
+        hangarllm_call_id="embedding-call",
         function_id="embedding-function",
     )
 
@@ -88,7 +88,7 @@ async def _embedding_response(
         vertex_project="test-project",
         vertex_location="us-central1",
         vertex_credentials=None,
-        litellm_params={},
+        hangarllm_params={},
     )
     return await pending if run_async else pending
 
@@ -215,7 +215,7 @@ def test_vertex_embedding_call_returns_the_prediction_vectors(predict_endpoint: 
         return_value=_predict_response({"predictions": [_gecko_prediction([0.1, 2], 3), _gecko_prediction([3.5], 4)]})
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model=f"vertex_ai/{GECKO}",
         input=["hello", "world"],
         vertex_project=PUBLIC_CALL_PROJECT,
@@ -233,7 +233,7 @@ async def test_vertex_async_embedding_call_returns_the_prediction_vectors(predic
         return_value=_predict_response({"predictions": [_gecko_prediction([0.1, 2], 3), _gecko_prediction([3.5], 4)]})
     )
 
-    response: Final = await litellm.aembedding(
+    response: Final = await hangarllm.aembedding(
         model=f"vertex_ai/{GECKO}",
         input=["hello", "world"],
         vertex_project=PUBLIC_CALL_PROJECT,
@@ -261,8 +261,8 @@ def test_vertex_embedding_call_maps_a_malformed_predict_body_to_a_connection_err
 ) -> None:
     predict_endpoint.mock(return_value=_predict_response(body))
 
-    with pytest.raises(litellm.APIConnectionError) as failure:
-        litellm.embedding(
+    with pytest.raises(hangarllm.APIConnectionError) as failure:
+        hangarllm.embedding(
             model=f"vertex_ai/{GECKO}",
             input=["hello", "world"],
             vertex_project=PUBLIC_CALL_PROJECT,
@@ -278,8 +278,8 @@ async def test_vertex_async_embedding_call_maps_a_malformed_predict_body_to_a_co
 ) -> None:
     predict_endpoint.mock(return_value=_predict_response(body))
 
-    with pytest.raises(litellm.APIConnectionError) as failure:
-        await litellm.aembedding(
+    with pytest.raises(hangarllm.APIConnectionError) as failure:
+        await hangarllm.aembedding(
             model=f"vertex_ai/{GECKO}",
             input=["hello", "world"],
             vertex_project=PUBLIC_CALL_PROJECT,

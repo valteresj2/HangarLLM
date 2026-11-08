@@ -26,15 +26,15 @@ from prometheus_client.mmap_dict import MmapedDict
 from prometheus_client.parser import text_string_to_metric_families
 from pydantic import JsonValue
 
-REQUESTS: Final = "litellm_requests_metric_total"
-PROXY_REQUESTS: Final = "litellm_proxy_total_requests_metric_total"
-PROXY_FAILURES: Final = "litellm_proxy_failed_requests_metric_total"
-CACHE_HITS: Final = "litellm_cache_hits_metric_total"
-REMAINING_REQUESTS: Final = "litellm_remaining_api_key_requests_for_model"
-SUCCESSFUL_FALLBACKS: Final = "litellm_deployment_successful_fallbacks_total"
-FAILED_FALLBACKS: Final = "litellm_deployment_failed_fallbacks_total"
+REQUESTS: Final = "hangarllm_requests_metric_total"
+PROXY_REQUESTS: Final = "hangarllm_proxy_total_requests_metric_total"
+PROXY_FAILURES: Final = "hangarllm_proxy_failed_requests_metric_total"
+CACHE_HITS: Final = "hangarllm_cache_hits_metric_total"
+REMAINING_REQUESTS: Final = "hangarllm_remaining_api_key_requests_for_model"
+SUCCESSFUL_FALLBACKS: Final = "hangarllm_deployment_successful_fallbacks_total"
+FAILED_FALLBACKS: Final = "hangarllm_deployment_failed_fallbacks_total"
 OVERFLOW: Final = "other"
-USER_AGENT: Final = "litellm-series-cap-audit/1"
+USER_AGENT: Final = "hangarllm-series-cap-audit/1"
 AGENT_HEADERS: Final[Mapping[str, str]] = MappingProxyType({"User-Agent": USER_AGENT})
 PROVIDER_OUTAGE: Final = "synthetic provider outage"
 _SERIES_ATTRIBUTES: Final = frozenset({"le", "pid"})
@@ -67,7 +67,7 @@ class Call:
 
     @property
     def headers(self) -> dict[str, str]:
-        return {"x-litellm-call-id": self.call_id}
+        return {"x-hangarllm-call-id": self.call_id}
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +164,7 @@ def series_cap_config(
 ) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     assert isinstance(config, dict)
-    config["litellm_settings"] = {**config["litellm_settings"], "callbacks": ["prometheus"], **settings}
+    config["hangarllm_settings"] = {**config["hangarllm_settings"], "callbacks": ["prometheus"], **settings}
     config["router_settings"] = {**config["router_settings"], "num_retries": 0, **(router_settings or {})}
     if model_list:
         config["model_list"] = [dict(entry) for entry in model_list]
@@ -295,7 +295,7 @@ def spend_rows(alias: str) -> tuple[SpendRow, ...]:
     """Every spend log row the key wrote: a success row carries the response id the caller received, a failure
     row the call id the caller sent."""
     rows: Final = read_rows(
-        "SELECT request_id, status FROM \"LiteLLM_SpendLogs\" WHERE metadata->>'user_api_key_alias' = %s",
+        "SELECT request_id, status FROM \"HangarLLM_SpendLogs\" WHERE metadata->>'user_api_key_alias' = %s",
         (alias,),
     )
     return tuple(SpendRow(str(row["request_id"]), str(row["status"])) for row in rows)

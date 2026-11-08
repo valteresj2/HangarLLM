@@ -1,18 +1,18 @@
-# litellm_prompt Resource
+# hangarllm_prompt Resource
 
-Manages a prompt in LiteLLM. Prompts let you manage prompt templates from external providers such as Langfuse, or inline dotprompt content.
+Manages a prompt in HangarLLM. Prompts let you manage prompt templates from external providers such as Langfuse, or inline dotprompt content.
 
 ## Example Usage
 
 ```hcl
-resource "litellm_prompt" "langfuse_prompt" {
+resource "hangarllm_prompt" "langfuse_prompt" {
   prompt_id          = "my-langfuse-prompt"
   prompt_integration = "langfuse"
   api_base           = "https://cloud.langfuse.com"
   api_key            = var.langfuse_api_key
   prompt_type        = "db"
 
-  litellm_params = jsonencode({
+  hangarllm_params = jsonencode({
     prompt_id = "prompt-name-in-langfuse"
   })
 }
@@ -21,7 +21,7 @@ resource "litellm_prompt" "langfuse_prompt" {
 ### Dotprompt
 
 ```hcl
-resource "litellm_prompt" "greeting" {
+resource "hangarllm_prompt" "greeting" {
   prompt_id          = "greeting"
   prompt_integration = "dotprompt"
   prompt_type        = "db"
@@ -45,7 +45,7 @@ resource "litellm_prompt" "greeting" {
 * `ignore_prompt_manager_model` - (Optional) If true, ignore the model specified in the prompt manager.
 * `ignore_prompt_manager_optional_params` - (Optional) If true, ignore optional params from the prompt manager.
 * `dotprompt_content` - (Optional) Content for the dotprompt integration.
-* `litellm_params` - (Optional, Sensitive) JSON string with additional `litellm_params` merged into the request, e.g. the integration's own `prompt_id`, `prompt_directory` or `prompt_data`. Never read back into state.
+* `hangarllm_params` - (Optional, Sensitive) JSON string with additional `hangarllm_params` merged into the request, e.g. the integration's own `prompt_id`, `prompt_directory` or `prompt_data`. Never read back into state.
 * `prompt_type` - (Optional) Type of prompt: `config` or `db`.
 
 ## Attribute Reference
@@ -57,5 +57,5 @@ resource "litellm_prompt" "greeting" {
 Prompts can be imported using the prompt ID:
 
 ```shell
-terraform import litellm_prompt.example my-langfuse-prompt
+terraform import hangarllm_prompt.example my-langfuse-prompt
 ```

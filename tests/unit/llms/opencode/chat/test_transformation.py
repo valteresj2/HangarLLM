@@ -9,23 +9,23 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import RESPONSE_COST_HEADER
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.opencode.chat.transformation import OpenCodeGoMessagesChatConfig
-from litellm.llms.opencode.common_utils import go_headers
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.core_helpers import RESPONSE_COST_HEADER
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.llms.opencode.chat.transformation import OpenCodeGoMessagesChatConfig
+from hangarllm.llms.opencode.common_utils import go_headers
 
 
 @pytest.fixture
 def go_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
     for route in ("chat/completions", "messages", "responses", "gemini"):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             f"opencode_go/fixture-{route.split('/')[0]}",
             {
-                "litellm_provider": "opencode_go",
+                "hangarllm_provider": "opencode_go",
                 "mode": "responses" if route == "responses" else "chat",
                 "supported_endpoints": ["/v1beta/models" if route == "gemini" else f"/v1/{route}"],
                 "max_output_tokens": 128000,
@@ -115,18 +115,18 @@ async def test_all_routes_use_model_protocol_and_preserve_session(
         kwargs: Final = {
             "model": f"opencode_go/{model}",
             "api_key": "fake-go-key",
-            "litellm_session_id": "conversation-1",
+            "hangarllm_session_id": "conversation-1",
         }
         if ingress == "chat":
-            response: Final = await litellm.acompletion(messages=[{"role": "user", "content": "hello"}], **kwargs)
+            response: Final = await hangarllm.acompletion(messages=[{"role": "user", "content": "hello"}], **kwargs)
             assert response.choices[0].message.content == "hello"
             assert response.usage.total_tokens == 15
         elif ingress == "responses":
-            response_api: Final = await litellm.aresponses(input="hello", **kwargs)
+            response_api: Final = await hangarllm.aresponses(input="hello", **kwargs)
             assert response_api.output[0].content[0].text == "hello"
             assert response_api.usage.total_tokens == 15
         else:
-            message: Final = await litellm.anthropic.messages.acreate(
+            message: Final = await hangarllm.anthropic.messages.acreate(
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=128000,
                 **kwargs,
@@ -140,7 +140,7 @@ def test_go_never_falls_back_to_other_provider_credentials(monkeypatch: pytest.M
     monkeypatch.delenv("OPENCODE_GO_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "fake-openai-key")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-anthropic-key")
-    with pytest.raises(litellm.AuthenticationError, match="OPENCODE_API_KEY"):
+    with pytest.raises(hangarllm.AuthenticationError, match="OPENCODE_API_KEY"):
         go_headers({}, {}, None, "fixture-model")
 
 
@@ -151,10 +151,10 @@ def test_go_uses_registered_context_tiers_not_underlying_provider_prices(
     expected: float,
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "opencode_go/fixture-priced",
         {
-            "litellm_provider": "opencode_go",
+            "hangarllm_provider": "opencode_go",
             "mode": "chat",
             "input_cost_per_token": 0.000002,
             "output_cost_per_token": 0.000005,
@@ -164,7 +164,7 @@ def test_go_uses_registered_context_tiers_not_underlying_provider_prices(
             ],
         },
     )
-    cost: Final = litellm.cost_per_token(
+    cost: Final = hangarllm.cost_per_token(
         model="opencode_go/fixture-priced",
         prompt_tokens=input_tokens,
         completion_tokens=10,
@@ -174,7 +174,7 @@ def test_go_uses_registered_context_tiers_not_underlying_provider_prices(
 
 @pytest.mark.parametrize("suffix", ["", "/v1", "/v1/messages", "/v1/messages/"])
 def test_messages_custom_base_does_not_duplicate_version_or_route(go_catalog: None, suffix: str) -> None:
-    from litellm.llms.opencode.messages.transformation import OpenCodeGoMessagesConfig
+    from hangarllm.llms.opencode.messages.transformation import OpenCodeGoMessagesConfig
 
     assert (
         OpenCodeGoMessagesConfig().get_complete_url(
@@ -201,7 +201,7 @@ def test_discovery_returns_qualified_ids_and_accepts_response_metadata(base: str
                 ],
             }
         )
-        assert litellm.get_valid_models(
+        assert hangarllm.get_valid_models(
             check_provider_endpoint=True,
             custom_llm_provider="opencode_go",
             api_key="fake-go-key",
@@ -216,7 +216,7 @@ def test_discovery_returns_qualified_ids_and_accepts_response_metadata(base: str
 def test_discovery_honors_environment_base_and_explicit_override(
     monkeypatch: pytest.MonkeyPatch, explicit_base: str | None
 ) -> None:
-    from litellm.llms.opencode.chat.transformation import OpenCodeGoChatConfig
+    from hangarllm.llms.opencode.chat.transformation import OpenCodeGoChatConfig
 
     monkeypatch.setenv("OPENCODE_GO_API_BASE", "https://env-gateway.example/go/v1/")
     expected_base: Final = explicit_base or "https://env-gateway.example/go/v1"
@@ -244,19 +244,19 @@ async def test_gemini_streams_text_and_usage_through_all_routes(go_catalog: None
         transport.post().mock(side_effect=respond)
         kwargs: Final = {"model": "opencode_go/fixture-gemini", "api_key": "fake-go-key", "stream": True}
         if ingress == "chat":
-            stream: Final = await litellm.acompletion(
+            stream: Final = await hangarllm.acompletion(
                 messages=[{"role": "user", "content": "hello"}], stream_options={"include_usage": True}, **kwargs
             )
             chunks: Final = [chunk async for chunk in stream]
             assert "".join(chunk.choices[0].delta.content or "" for chunk in chunks if chunk.choices) == "hello"
             assert chunks[-1].usage.total_tokens == 15
         elif ingress == "responses":
-            responses_stream: Final = await litellm.aresponses(input="hello", **kwargs)
+            responses_stream: Final = await hangarllm.aresponses(input="hello", **kwargs)
             events: Final = [event async for event in responses_stream]
             assert "".join(event.delta for event in events if event.type == "response.output_text.delta") == "hello"
             assert events[-1].response.usage.total_tokens == 15
         else:
-            messages_stream: Final = await litellm.anthropic.messages.acreate(
+            messages_stream: Final = await hangarllm.anthropic.messages.acreate(
                 messages=[{"role": "user", "content": "hello"}], max_tokens=128000, **kwargs
             )
             wire_events: Final = b"".join([event async for event in messages_stream]).decode()
@@ -288,14 +288,14 @@ async def test_gemini_streams_with_dispatcher_and_factory_configs(
         stream=True,
         call_type="acompletion" if async_stream else "completion",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="go-stream-regression",
+        hangarllm_call_id="go-stream-regression",
         function_id="go-stream-regression",
     )
     logging_obj.update_environment_variables(
         model="fixture-gemini",
         user="",
         optional_params={"stream_options": {"include_usage": True}},
-        litellm_params={},
+        hangarllm_params={},
         custom_llm_provider="opencode_go",
         stream_options={"include_usage": True},
     )
@@ -312,18 +312,18 @@ async def test_gemini_streams_with_dispatcher_and_factory_configs(
                 messages=messages,
                 api_base=None,
                 custom_llm_provider="opencode_go",
-                model_response=litellm.ModelResponse(),
+                model_response=hangarllm.ModelResponse(),
                 encoding=None,
                 logging_obj=logging_obj,
                 optional_params={"stream_options": {"include_usage": True}},
                 timeout=30,
-                litellm_params={},
+                hangarllm_params={},
                 acompletion=async_stream,
                 stream=True,
                 api_key="fake-go-key",
             )
         else:
-            completion: Final = litellm.acompletion if async_stream else litellm.completion
+            completion: Final = hangarllm.acompletion if async_stream else hangarllm.completion
             result: Final = completion(
                 model="opencode_go/fixture-gemini",
                 messages=messages,
@@ -346,7 +346,7 @@ def test_gemini_custom_base_normalizes_version_and_models(go_catalog: None, suff
         transport.post("https://gateway.example/google/v1beta/models/fixture-gemini:generateContent").respond(
             json=upstream_reply("gemini", "fixture-gemini")
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="opencode_go/fixture-gemini",
             api_key="fake-go-key",
             api_base=f"https://gateway.example/google{suffix}",
@@ -356,8 +356,8 @@ def test_gemini_custom_base_normalizes_version_and_models(go_catalog: None, suff
 
 
 def test_gemini_hosted_mcp_error_names_the_opencode_go_route(go_catalog: None) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match="fixture-gemini on opencode_go cannot run"):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="fixture-gemini on opencode_go cannot run"):
+        hangarllm.completion(
             model="opencode_go/fixture-gemini",
             api_key="fake-go-key",
             api_base="https://gateway.example/google",
@@ -388,7 +388,7 @@ def test_gemini_sync_stream_preserves_tool_calls_and_usage(go_catalog: None) -> 
         transport.post(
             "https://opencode.ai/inference/go/google/v1beta/models/fixture-gemini:streamGenerateContent?alt=sse"
         ).respond(headers={"content-type": "text/event-stream"}, text="data: " + json.dumps(chunk) + "\n\n")
-        stream: Final = litellm.completion(
+        stream: Final = hangarllm.completion(
             model="opencode_go/fixture-gemini",
             api_key="fake-go-key",
             stream=True,
@@ -452,7 +452,7 @@ async def logged_cost(recorder: CostRecorder) -> float | None:
 @pytest.fixture
 def cost_recorder(monkeypatch: pytest.MonkeyPatch) -> CostRecorder:
     recorder: Final = CostRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     return recorder
 
 
@@ -469,9 +469,9 @@ async def test_reported_list_cost_is_billed_instead_of_rows(
         )
         kwargs: Final = {"model": f"opencode_go/{model}", "api_key": "fake-go-key"}
         if ingress == "chat":
-            response: Final = await litellm.acompletion(messages=[{"role": "user", "content": "hello"}], **kwargs)
+            response: Final = await hangarllm.acompletion(messages=[{"role": "user", "content": "hello"}], **kwargs)
         else:
-            response = await litellm.aresponses(input="hello", **kwargs)
+            response = await hangarllm.aresponses(input="hello", **kwargs)
     assert response._hidden_params["additional_headers"][RESPONSE_COST_HEADER] == pytest.approx(0.00412)
     assert await logged_cost(cost_recorder) == pytest.approx(0.00412)
 
@@ -485,7 +485,7 @@ async def test_rows_price_the_request_when_no_list_cost_is_reported(
         transport.post().mock(
             return_value=httpx.Response(200, json=go_priced_reply("chat/completions", "fixture-chat", usage_extra))
         )
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model="opencode_go/fixture-chat", api_key="fake-go-key", messages=[{"role": "user", "content": "hello"}]
         )
     assert RESPONSE_COST_HEADER not in response._hidden_params.get("additional_headers", {})
@@ -522,7 +522,7 @@ async def test_chat_stream_bills_the_final_usage_chunks_list_cost(
                 ),
             )
         )
-        stream: Final = await litellm.acompletion(
+        stream: Final = await hangarllm.acompletion(
             model="opencode_go/fixture-chat",
             api_key="fake-go-key",
             messages=[{"role": "user", "content": "hello"}],
@@ -557,7 +557,7 @@ async def test_responses_stream_bills_the_completed_events_list_cost(
                 ),
             )
         )
-        stream: Final = await litellm.aresponses(
+        stream: Final = await hangarllm.aresponses(
             model="opencode_go/fixture-responses", api_key="fake-go-key", input="hello", stream=True
         )
         events: Final = [event async for event in stream]
@@ -567,7 +567,7 @@ async def test_responses_stream_bills_the_completed_events_list_cost(
 
 
 def test_stream_chunk_builder_reads_list_cost_from_dict_chunks():
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logging_obj = Logging(
         model="opencode_go/glm-5.3",
@@ -575,7 +575,7 @@ def test_stream_chunk_builder_reads_list_cost_from_dict_chunks():
         stream=True,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="dict-chunks",
+        hangarllm_call_id="dict-chunks",
         function_id="1",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "opencode_go"
@@ -588,7 +588,7 @@ def test_stream_chunk_builder_reads_list_cost_from_dict_chunks():
     }
     final_usage = {**chunk, "choices": [], "usage": dict(GO_REPORTED_USAGE)}
 
-    assembled = litellm.stream_chunk_builder(chunks=[chunk, final_usage], logging_obj=logging_obj)
+    assembled = hangarllm.stream_chunk_builder(chunks=[chunk, final_usage], logging_obj=logging_obj)
 
     assert assembled is not None
     assert assembled._hidden_params["response_cost"] == GO_REPORTED_USAGE["opencode"]["list_cost"]
@@ -604,7 +604,7 @@ def test_go_messages_route_carries_prompt_cache_breakpoint_to_cache_control_only
         model=model,
         messages=[{"role": "user", "content": [*marked_notes, {"type": "text", "text": "Answer in one line."}]}],
         optional_params={"max_tokens": 64},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

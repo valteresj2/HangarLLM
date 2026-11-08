@@ -3,7 +3,7 @@ from typing import FrozenSet
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, TEAM_BETA, Actor
 
@@ -34,7 +34,7 @@ async def _seed_alias_keys(db, prefix: str, actors) -> dict:
         }
         if team_id is not None:
             data["team_id"] = team_id
-        await db.db.litellm_verificationtoken.create(data=data)
+        await db.db.hangarllm_verificationtoken.create(data=data)
         out[tag] = alias
     return out
 

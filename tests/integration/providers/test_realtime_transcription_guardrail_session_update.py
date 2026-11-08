@@ -94,7 +94,7 @@ MUSE_AUDIO_MS: Final = 1500
 PCM_200MS_24KHZ: Final = base64.b64encode(bytes(9600)).decode()
 MUSE_PACKET_BYTES: Final = 3840
 MUSE_REMAINDER_BYTES: Final = 1920
-SPEND_SQL: Final = 'SELECT call_type FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+SPEND_SQL: Final = 'SELECT call_type FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 SDK_TRANSCRIPTION_SESSION: Final[RealtimeTranscriptionSessionCreateRequestParam] = {
     "type": "transcription",
     "audio": {"input": {"format": {"type": "audio/pcm", "rate": 24000}, "transcription": {"model": TRANSCRIBE_MODEL}}},
@@ -201,7 +201,7 @@ CREATED_SECONDS: Final = 60.0
 STEP_SECONDS: Final = 15.0
 SDK_SECONDS: Final = 45.0
 RAISING_GUARDRAILS_SOURCE: Final = f"""\
-from litellm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 
 
 class WordRaiser(CustomGuardrail):
@@ -454,7 +454,7 @@ def _named_deployment_id(creator: Gateway, scenario: Scenario, name: str, model:
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": model, "api_key": scenario_id, "api_base": f"{creator.upstream_url}/v1"},
+            "hangarllm_params": {"model": model, "api_key": scenario_id, "api_base": f"{creator.upstream_url}/v1"},
             "model_info": {},
         },
     )
@@ -810,8 +810,8 @@ def _content_filter(
 ) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
-            "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+            "guardrail": "hangarllm_content_filter",
             "mode": mode,
             "default_on": default_on,
             "blocked_words": [{"keyword": word, "action": "BLOCK"}],
@@ -823,7 +823,7 @@ def _content_filter(
 def _raising_guardrail(name: str, class_name: str) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {"guardrail": f"{RAISING_MODULE}.{class_name}", "mode": REALTIME_HOOK, "default_on": False},
+        "hangarllm_params": {"guardrail": f"{RAISING_MODULE}.{class_name}", "mode": REALTIME_HOOK, "default_on": False},
     }
 
 
@@ -871,13 +871,13 @@ def _write_config(directory: Path, ca_bundle: Path) -> Path:
                     _raising_guardrail(RUNTIME_ERROR_GUARDRAIL, "RuntimeErrorGuardrail"),
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                 },
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "ssl_verify": str(ca_bundle),
                     "enable_redis_auth_cache": True,
                     "gemini_live_defer_setup": True,

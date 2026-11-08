@@ -34,11 +34,11 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from opentelemetry.trace import StatusCode
 
 
-from litellm.integrations.opentelemetry import (
-    LITELLM_REQUEST_SPAN_NAME,
+from hangarllm.integrations.opentelemetry import (
+    HANGARLLM_REQUEST_SPAN_NAME,
     OpenTelemetry,
 )
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy._types import UserAPIKeyAuth
 
 
 GUARDRAIL_SPAN_NAME = "guardrail"
@@ -48,7 +48,7 @@ PROXY_SPAN_NAME = "Received Proxy Server Request"
 def _bedrock_block_response():
     """Realistic Bedrock ApplyGuardrail response when a topic policy fires.
 
-    Mirrors the shape in ``litellm/types/proxy/guardrails/guardrail_hooks/
+    Mirrors the shape in ``hangarllm/types/proxy/guardrails/guardrail_hooks/
     bedrock_guardrails.py`` so the violation-category extraction can be
     tested against the exact payload Bedrock returns.
     """
@@ -124,17 +124,17 @@ def _kwargs_with_guardrail(
     include_exception=False,
 ):
     """Build the kwargs / model_call_details shape that the OTEL integration
-    consumes. ``litellm_params.metadata`` is the SAME dict that the proxy's
+    consumes. ``hangarllm_params.metadata`` is the SAME dict that the proxy's
     ``request_data["metadata"]`` becomes after ``update_environment_variables``,
     so ``_otel_internal`` dedupe state lives there too."""
     metadata = {"standard_logging_guardrail_information": list(entries)}
     if parent_span is not None:
-        metadata["litellm_parent_otel_span"] = parent_span
+        metadata["hangarllm_parent_otel_span"] = parent_span
     kwargs = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "optional_params": {},
-        "litellm_params": {
+        "hangarllm_params": {
             "custom_llm_provider": "openai",
             "metadata": metadata,
         },
@@ -180,9 +180,9 @@ def _attr(span, key):
 
 class TestGuardrailSpanOnViolation(unittest.TestCase):
     """Bug 1: when a pre-call guardrail blocks, the guardrail span and the
-    litellm_request span must both appear with the correct status."""
+    hangarllm_request span must both appear with the correct status."""
 
-    def test_handle_failure_creates_litellm_request_and_guardrail_spans(self):
+    def test_handle_failure_creates_hangarllm_request_and_guardrail_spans(self):
         """Driving ``_handle_failure`` with a populated
         ``standard_logging_object['guardrail_information']`` entry must
         emit both spans, parented correctly, with ERROR on the parent."""
@@ -200,15 +200,15 @@ class TestGuardrailSpanOnViolation(unittest.TestCase):
         otel._handle_failure(kwargs, response_obj=None, start_time=start, end_time=end)
 
         spans = exporter.get_finished_spans()
-        litellm_spans = [s for s in spans if s.name == LITELLM_REQUEST_SPAN_NAME]
+        hangarllm_spans = [s for s in spans if s.name == HANGARLLM_REQUEST_SPAN_NAME]
         guardrail_spans = [s for s in spans if s.name == GUARDRAIL_SPAN_NAME]
 
         self.assertEqual(
-            len(litellm_spans),
+            len(hangarllm_spans),
             1,
-            "Expected exactly one litellm_request span on guardrail block",
+            "Expected exactly one hangarllm_request span on guardrail block",
         )
-        self.assertEqual(litellm_spans[0].status.status_code, StatusCode.ERROR)
+        self.assertEqual(hangarllm_spans[0].status.status_code, StatusCode.ERROR)
 
         self.assertEqual(
             len(guardrail_spans),
@@ -216,14 +216,14 @@ class TestGuardrailSpanOnViolation(unittest.TestCase):
             "Expected exactly one guardrail span on guardrail block",
         )
 
-        # Guardrail span must be a child of the litellm_request span
+        # Guardrail span must be a child of the hangarllm_request span
         self.assertIsNotNone(
             guardrail_spans[0].parent,
             "Guardrail span must be parented (not a root span)",
         )
         self.assertEqual(
             guardrail_spans[0].parent.span_id,
-            litellm_spans[0].context.span_id,
+            hangarllm_spans[0].context.span_id,
         )
 
     def test_async_post_call_failure_hook_emits_guardrail_span(self):
@@ -277,7 +277,7 @@ class TestGuardrailSpanOnViolation(unittest.TestCase):
         )
 
     def test_post_call_failure_hook_emits_span_when_caller_sends_metadata(self):
-        """On routes that seed ``litellm_metadata`` the guardrail entry lives there,
+        """On routes that seed ``hangarllm_metadata`` the guardrail entry lives there,
         not in the caller's own ``metadata`` field. Reading a hard-coded ``metadata``
         key drops the span for exactly the requests that carry both."""
         otel, provider, exporter = _make_otel()
@@ -293,7 +293,7 @@ class TestGuardrailSpanOnViolation(unittest.TestCase):
             "model": "claude-haiku",
             "messages": [{"role": "user", "content": "Hello"}],
             "metadata": {"user_id": "device-account-session"},
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "standard_logging_guardrail_information": [
                     _slg_entry("guardrail_intervened", _bedrock_block_response())
                 ],
@@ -322,7 +322,7 @@ class TestGuardrailSpanOnViolation(unittest.TestCase):
         """When _handle_failure and async_post_call_failure_hook BOTH fire
         for the same request (the production flow on a guardrail block),
         exactly one guardrail span must be emitted. The dedupe relies on
-        request_data['metadata'] and kwargs['litellm_params']['metadata']
+        request_data['metadata'] and kwargs['hangarllm_params']['metadata']
         referencing the SAME dict so _emit_once sees its earlier marker."""
         otel, provider, exporter = _make_otel()
         parent_span = provider.get_tracer(__name__).start_span(PROXY_SPAN_NAME)
@@ -343,7 +343,7 @@ class TestGuardrailSpanOnViolation(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
                 "metadata": shared_metadata,
             },
@@ -588,8 +588,8 @@ class TestCustomGuardrailEndToEnd(unittest.TestCase):
         # raises HTTPException, but the OTEL span flow is exception-type
         # agnostic. Using a plain Exception keeps this test runnable in
         # SDK-only installs that don't ship fastapi.
-        from litellm.integrations.custom_guardrail import CustomGuardrail
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.integrations.custom_guardrail import CustomGuardrail
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         class BlockingViolation(Exception):
             pass

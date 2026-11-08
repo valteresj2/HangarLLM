@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 def _skip_live_prompt_caching_test():
-    if os.environ.get("LITELLM_RUN_LIVE_PROMPT_CACHING_TESTS") != "1":
+    if os.environ.get("HANGARLLM_RUN_LIVE_PROMPT_CACHING_TESTS") != "1":
         pytest.skip("Live prompt-caching E2E tests are opt-in")
     if os.environ.get("CASSETTE_REDIS_URL"):
         pytest.skip("Live prompt-caching E2E tests cannot run under VCR replay")
@@ -16,7 +16,7 @@ def _skip_live_prompt_caching_test():
 class TogetherCostEntry(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
-    litellm_provider: str | None = None
+    hangarllm_provider: str | None = None
     mode: str | None = None
     deprecation_date: str | None = None
     input_cost_per_token: float | None = None
@@ -28,14 +28,14 @@ class TogetherCostEntry(BaseModel):
 def cheapest_together_chat_model(
     *, function_calling: bool = False, response_schema: bool = False
 ) -> str:
-    import litellm
+    import hangarllm
 
     today = date.today().isoformat()
 
     def qualifies(name: str, entry: TogetherCostEntry) -> bool:
         return (
             name.startswith("together_ai/")
-            and entry.litellm_provider == "together_ai"
+            and entry.hangarllm_provider == "together_ai"
             and entry.mode == "chat"
             and (entry.deprecation_date is None or entry.deprecation_date > today)
             and (entry.input_cost_per_token or 0.0) > 0
@@ -46,7 +46,7 @@ def cheapest_together_chat_model(
 
     registry: dict[str, TogetherCostEntry] = {
         name: TogetherCostEntry.model_validate(raw)
-        for name, raw in litellm.model_cost.items()
+        for name, raw in hangarllm.model_cost.items()
         if isinstance(raw, dict) and name.startswith("together_ai/")
     }
     candidates = sorted(

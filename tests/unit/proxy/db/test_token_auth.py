@@ -1,6 +1,6 @@
 """Tests for the database token auth strategies.
 
-``litellm/proxy/db/token_auth.py`` decides where the proxy's Postgres password
+``hangarllm/proxy/db/token_auth.py`` decides where the proxy's Postgres password
 comes from: an AWS RDS IAM token, a Microsoft Entra ID access token for Azure
 Database for PostgreSQL, or neither. Minting and expiry parsing dispatch over
 that union, so both variants are exercised here, together with the URL encoding
@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.proxy.db.token_auth import (
+from hangarllm.proxy.db.token_auth import (
     AZURE_POSTGRESQL_AUTH_ENV_VAR,
     AZURE_POSTGRESQL_SCOPE,
     IAM_TOKEN_DB_AUTH_ENV_VAR,
@@ -44,8 +44,8 @@ def _endpoint(**overrides) -> IAMEndpoint:
     fields = {
         "host": "pg.postgres.database.azure.com",
         "port": "5432",
-        "user": "litellm",
-        "name": "litellm_db",
+        "user": "hangarllm",
+        "name": "hangarllm_db",
     }
     fields.update(overrides)
     return IAMEndpoint(**fields)
@@ -57,10 +57,10 @@ def _endpoint(**overrides) -> IAMEndpoint:
 
 
 def test_rds_mint_delegates_to_the_sigv4_token_generator():
-    endpoint = _endpoint(host="writer.aurora.local", user="litellm_rds")
+    endpoint = _endpoint(host="writer.aurora.local", user="hangarllm_rds")
 
     with patch(
-        "litellm.proxy.auth.rds_iam_token.generate_iam_auth_token",
+        "hangarllm.proxy.auth.rds_iam_token.generate_iam_auth_token",
         return_value="SIGV4_TOKEN",
     ) as generate:
         token = mint_database_token(RdsIamTokenAuth(), endpoint)
@@ -69,7 +69,7 @@ def test_rds_mint_delegates_to_the_sigv4_token_generator():
     generate.assert_called_once_with(
         db_host="writer.aurora.local",
         db_port="5432",
-        db_user="litellm_rds",
+        db_user="hangarllm_rds",
         region=None,
     )
 
@@ -91,11 +91,11 @@ def test_rds_mint_signs_each_endpoint_in_its_hostname_region(monkeypatch: pytest
 
     writer_token: Final = mint_database_token(
         RdsIamTokenAuth(),
-        _endpoint(host="writer.abc123.us-east-1.rds.amazonaws.com", user="litellm_rds"),
+        _endpoint(host="writer.abc123.us-east-1.rds.amazonaws.com", user="hangarllm_rds"),
     )
     reader_token: Final = mint_database_token(
         RdsIamTokenAuth(),
-        _endpoint(host="reader.abc123.ap-northeast-1.rds.amazonaws.com", user="litellm_rds"),
+        _endpoint(host="reader.abc123.ap-northeast-1.rds.amazonaws.com", user="hangarllm_rds"),
     )
     writer_credential: Final = parse_qs(urlsplit(unquote(writer_token)).query)["X-Amz-Credential"][0]
     reader_credential: Final = parse_qs(urlsplit(unquote(reader_token)).query)["X-Amz-Credential"][0]
@@ -185,11 +185,11 @@ def test_entra_expiry_returns_none_when_unreadable(token):
 
 
 def test_build_url_encodes_a_upn_user_and_the_schema():
-    endpoint = _endpoint(user="litellm@contoso.onmicrosoft.com", name="litellm db", schema="app/schema")
+    endpoint = _endpoint(user="hangarllm@contoso.onmicrosoft.com", name="hangarllm db", schema="app/schema")
 
     assert endpoint.build_url("TOKEN") == (
-        "postgresql://litellm%40contoso.onmicrosoft.com:TOKEN"
-        "@pg.postgres.database.azure.com:5432/litellm%20db?schema=app%2Fschema"
+        "postgresql://hangarllm%40contoso.onmicrosoft.com:TOKEN"
+        "@pg.postgres.database.azure.com:5432/hangarllm%20db?schema=app%2Fschema"
     )
 
 
@@ -197,7 +197,7 @@ def test_build_url_encodes_a_upn_user_and_the_schema():
     ("field", "value"),
     [
         ("user", "svc%40corp"),
-        ("name", "litellm%20db"),
+        ("name", "hangarllm%20db"),
         ("schema", "app%2Fschema"),
     ],
 )
@@ -218,16 +218,16 @@ def test_build_url_inserts_the_token_verbatim():
     rds_token = "writer.aurora.local%3A5432%2F%3FAction%3Dconnect%26X-Amz-Date%3D20260820T101500Z"
 
     assert _endpoint().build_url(rds_token) == (
-        f"postgresql://litellm:{rds_token}@pg.postgres.database.azure.com:5432/litellm_db"
+        f"postgresql://hangarllm:{rds_token}@pg.postgres.database.azure.com:5432/hangarllm_db"
     )
 
 
 @pytest.mark.parametrize(
     "endpoint",
     [
-        IAMEndpoint(host="h.example.com", port="5432", user="litellm", name="litellm_db"),
-        IAMEndpoint(host="h.example.com", port="6543", user="litellm@contoso.com", name="db", schema="public"),
-        IAMEndpoint(host="h.example.com", port="5432", user="u", name="litellm db", schema="app schema"),
+        IAMEndpoint(host="h.example.com", port="5432", user="hangarllm", name="hangarllm_db"),
+        IAMEndpoint(host="h.example.com", port="6543", user="hangarllm@contoso.com", name="db", schema="public"),
+        IAMEndpoint(host="h.example.com", port="5432", user="u", name="hangarllm db", schema="app schema"),
     ],
 )
 def test_build_url_and_parse_round_trip(endpoint):
@@ -266,7 +266,7 @@ def test_resolve_returns_the_entra_strategy(monkeypatch):
     monkeypatch.setenv(AZURE_POSTGRESQL_AUTH_ENV_VAR, "true")
 
     with patch(
-        "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
+        "hangarllm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
         return_value=lambda: "ENTRA_TOKEN",
     ):
         auth = resolve_database_token_auth()
@@ -286,7 +286,7 @@ def test_resolve_raises_when_both_toggles_are_set(monkeypatch):
 def test_entra_provider_uses_the_ossrdbms_scope():
     """The wrong scope mints a token Azure Postgres rejects, so the scope is pinned."""
     with patch(
-        "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
+        "hangarllm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
         return_value=lambda: "ENTRA_TOKEN",
     ) as get_provider:
         build_azure_entra_token_provider()
@@ -309,7 +309,7 @@ def test_every_truthy_spelling_enables_token_auth(monkeypatch, value):
     monkeypatch.delenv(IAM_TOKEN_DB_AUTH_ENV_VAR, raising=False)
 
     with patch(
-        "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
+        "hangarllm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
         return_value=lambda: "ENTRA_TOKEN",
     ):
         assert isinstance(resolve_database_token_auth(), AzureEntraTokenAuth)
@@ -346,7 +346,7 @@ def test_the_entra_provider_is_built_once_per_process():
     """Each build is another Azure credential with its own transport and token cache
     that nothing closes, and the writer, the reader, and the refresh loop each ask."""
     with patch(
-        "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
+        "hangarllm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
         return_value=lambda: "ENTRA_TOKEN",
     ) as get_provider:
         assert build_azure_entra_token_provider() is build_azure_entra_token_provider()

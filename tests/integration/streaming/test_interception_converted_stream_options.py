@@ -157,8 +157,8 @@ def _config(
         **base,
         "model_list": [*rv.ITEMS.validate_python(base["model_list"]), *(dict(model) for model in models)],
         "general_settings": {**object_value(base["general_settings"]), **general_settings},
-        "litellm_settings": {
-            **object_value(base["litellm_settings"]),
+        "hangarllm_settings": {
+            **object_value(base["hangarllm_settings"]),
             "callbacks": ["websearch_interception", "code_interpreter_interception"],
             "websearch_interception_params": {"enabled_providers": ["azure"], "search_tool_name": "integration-search"},
             "code_interpreter_interception_params": {"enabled_providers": ["azure"]},
@@ -166,7 +166,7 @@ def _config(
         "search_tools": [
             {
                 "search_tool_name": "integration-search",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "tavily",
                     "api_key": iv.TAVILY_KEY,
                     "api_base": f"{wire.url}/tavily",
@@ -176,7 +176,7 @@ def _config(
         "guardrails": [
             {
                 "guardrail_name": "integration-headroom",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "headroom",
                     "mode": "post_call",
                     "api_base": "http://127.0.0.1:9",
@@ -307,7 +307,7 @@ def _spend_rows(model: str, expected: int) -> tuple[Mapping[str, JsonValue], ...
     return tuple(
         eventually(
             lambda: read_rows(
-                'SELECT request_id, status, cache_hit FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model,)
+                'SELECT request_id, status, cache_hit FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model,)
             ),
             lambda rows: sum(1 for row in rows if row["status"] == "success") >= expected,
             seconds=70,
@@ -335,10 +335,10 @@ def _assert_single_model_spend_for_key(key: str, call_type: str, *, expected_sea
         lambda: (
             read_rows(
                 "SELECT status, spend, request_id, call_type, model_group, session_id "
-                'FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND status = %s',
+                'FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND status = %s',
                 (digest, "success"),
             ),
-            read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s', (digest,)),
+            read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s', (digest,)),
         ),
         lambda values: (
             bool(values[0])
@@ -850,7 +850,7 @@ def test_wrong_azure_key_surfaces_azures_401(rig: _Rig, scenario: Scenario) -> N
 
 def _assert_failed_once(call_id: str, *, spend: float) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status, spend FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = %s', (call_id,)),
+        lambda: read_rows('SELECT status, spend FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = %s', (call_id,)),
         lambda found: len(found) >= 1,
         seconds=70,
     )
@@ -872,7 +872,7 @@ def test_failed_follow_up_call_answers_with_the_providers_error_instead_of_the_s
     assert iv.SEARCH_TOOL not in response.text, response.text
     _assert_upstream(_upstream(rig, deployment), model_calls=2, searches=1)
     _assert_failed_once(
-        response.headers["x-litellm-call-id"],
+        response.headers["x-hangarllm-call-id"],
         spend=iv.FIRST_USAGE["prompt_tokens"] * 0.001 + iv.FIRST_USAGE["completion_tokens"] * 0.002,
     )
     assert rig.gateway.chat(_deploy(rig, scenario, "plain").model)["object"] == "chat.completion"
@@ -1062,7 +1062,7 @@ def _burst_models(wire: Wire) -> Sequence[Mapping[str, JsonValue]]:
     return (
         {
             "model_name": _BURST_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"azure/{_BURST_DEPLOYMENT}",
                 "api_base": wire.url,
                 "api_key": iv.AZURE_KEY,

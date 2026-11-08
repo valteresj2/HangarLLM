@@ -6,7 +6,7 @@ import { Page } from "../fixtures/pages";
 import { masterKey } from "./traffic";
 
 export async function listUpstreamToolNames(url: string): Promise<string[]> {
-  const client = new Client({ name: "litellm-ui-e2e", version: "0.0.0" });
+  const client = new Client({ name: "hangarllm-ui-e2e", version: "0.0.0" });
   await client.connect(new StreamableHTTPClientTransport(new URL(url)));
   try {
     const { tools } = await client.listTools();

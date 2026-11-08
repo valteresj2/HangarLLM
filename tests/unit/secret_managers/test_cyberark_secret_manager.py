@@ -9,12 +9,12 @@ import pytest
 import respx
 import yaml
 
-import litellm
-import litellm.proxy.proxy_server
-from litellm._uuid import uuid
-from litellm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
+import hangarllm
+import hangarllm.proxy.proxy_server
+from hangarllm._uuid import uuid
+from hangarllm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
 
-FIXTURE_PATH: Final = Path(__file__).resolve().parents[3] / "litellm-rust/crates/secrets-cyberark/tests/fixtures/parity.json"
+FIXTURE_PATH: Final = Path(__file__).resolve().parents[3] / "hangarllm-rust/crates/secrets-cyberark/tests/fixtures/parity.json"
 
 
 class ParitySecret(TypedDict):
@@ -40,7 +40,7 @@ def _fixture() -> ParityFixture:
 
 
 def _configure_manager(monkeypatch: pytest.MonkeyPatch, fixture: ParityFixture) -> CyberArkSecretManager:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     monkeypatch.setenv("CYBERARK_API_BASE", fixture["endpoint"])
     monkeypatch.setenv("CYBERARK_ACCOUNT", fixture["account"])
     monkeypatch.setenv("CYBERARK_USERNAME", fixture["username"])
@@ -95,7 +95,7 @@ def test_sync_read_matches_parity_fixture(monkeypatch: pytest.MonkeyPatch) -> No
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_write_matches_parity_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     secret: Final = fixture["secrets"][0]
@@ -115,7 +115,7 @@ async def test_async_write_matches_parity_fixture(monkeypatch: pytest.MonkeyPatc
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_write_retries_policy_load_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     secret: Final = fixture["secrets"][0]
@@ -145,7 +145,7 @@ async def test_async_write_retries_policy_load_conflict(monkeypatch: pytest.Monk
 async def test_async_write_does_not_retry_non_conflict_policy_failures(
     monkeypatch: pytest.MonkeyPatch, policy_outcome: int | httpx.ConnectError
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     secret: Final = fixture["secrets"][0]
@@ -167,7 +167,7 @@ async def test_async_write_does_not_retry_non_conflict_policy_failures(
 @pytest.mark.asyncio
 @respx.mock
 async def test_concurrent_async_writes_load_policy_one_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     endpoint: Final = fixture["endpoint"]
@@ -193,7 +193,7 @@ async def test_concurrent_async_writes_load_policy_one_at_a_time(monkeypatch: py
 
 
 def test_missing_credentials_raise_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     for name in (
         "CYBERARK_API_KEY",
         "CYBERARK_CLIENT_CERT",
@@ -227,7 +227,7 @@ def create_mock_response(status_code: int, text: str = ""):
 
 @pytest.mark.asyncio
 async def test_cyberark_write_secret_rejects_yaml_injection(cyberark_env):
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("hangarllm.proxy.proxy_server.premium_user", True):
         malicious_secret_name = "foo\n- !grant\n  role: !!admin\n  member: attacker"
 
         mock_sync_client = MagicMock()
@@ -235,11 +235,11 @@ async def test_cyberark_write_secret_rejects_yaml_injection(cyberark_env):
 
         with (
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_httpx_client",
                 return_value=mock_sync_client,
             ),
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
                 return_value=mock_async_client,
             ),
         ):
@@ -267,7 +267,7 @@ async def test_cyberark_write_secret_rejects_yaml_injection(cyberark_env):
 )
 @pytest.mark.asyncio
 async def test_cyberark_ensure_variable_exists_escapes_yaml_metacharacters(cyberark_env, secret_name):
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("hangarllm.proxy.proxy_server.premium_user", True):
         captured = {}
 
         async def _capture_post(url, headers=None, content=None):
@@ -280,7 +280,7 @@ async def test_cyberark_ensure_variable_exists_escapes_yaml_metacharacters(cyber
         mock_async_client.client.post.side_effect = _capture_post
 
         with patch(
-            "litellm.secret_managers.cyberark_secret_manager.get_httpx_client",
+            "hangarllm.secret_managers.cyberark_secret_manager.get_httpx_client",
             return_value=mock_sync_client,
         ):
             cyberark_manager = CyberArkSecretManager()
@@ -296,7 +296,7 @@ async def test_cyberark_ensure_variable_exists_escapes_yaml_metacharacters(cyber
 
 @pytest.mark.asyncio
 async def test_cyberark_write_and_read_secret(cyberark_env):
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("hangarllm.proxy.proxy_server.premium_user", True):
         secret_name = f"test-secret-{uuid.uuid4()}"
         secret_value = f"test-value-{uuid.uuid4()}"
 
@@ -309,11 +309,11 @@ async def test_cyberark_write_and_read_secret(cyberark_env):
 
         with (
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_httpx_client",
                 return_value=mock_sync_client,
             ),
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
                 return_value=mock_async_client,
             ),
         ):
@@ -334,7 +334,7 @@ async def test_cyberark_write_and_read_secret(cyberark_env):
 
 @pytest.mark.asyncio
 async def test_cyberark_rotate_secret(cyberark_env):
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("hangarllm.proxy.proxy_server.premium_user", True):
         secret_alias = f"test-rotation-key-{uuid.uuid4()}"
         initial_key_value = f"sk-initial-{uuid.uuid4()}"
         rotated_key_value = f"sk-rotated-{uuid.uuid4()}"
@@ -366,11 +366,11 @@ async def test_cyberark_rotate_secret(cyberark_env):
 
         with (
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_httpx_client",
                 return_value=mock_sync_client,
             ),
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
                 return_value=mock_async_client,
             ),
         ):
@@ -403,7 +403,7 @@ async def test_cyberark_rotate_secret(cyberark_env):
 
 @pytest.mark.asyncio
 async def test_cyberark_rotate_secret_with_new_alias(cyberark_env):
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("hangarllm.proxy.proxy_server.premium_user", True):
         base_alias = f"test-alias-change-{uuid.uuid4()}"
         old_alias = f"{base_alias}-v1"
         new_alias = f"{base_alias}-v2"
@@ -450,11 +450,11 @@ async def test_cyberark_rotate_secret_with_new_alias(cyberark_env):
 
         with (
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_httpx_client",
                 return_value=mock_sync_client,
             ),
             patch(
-                "litellm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
+                "hangarllm.secret_managers.cyberark_secret_manager.get_async_httpx_client",
                 return_value=mock_async_client,
             ),
         ):

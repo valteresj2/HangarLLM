@@ -1,8 +1,8 @@
 """Ollama behind the proxy on /chat/completions, /v1/messages and /v1/responses.
 
-Ollama has two litellm routes with different tool plumbing: `ollama_chat/` calls
+Ollama has two hangarllm routes with different tool plumbing: `ollama_chat/` calls
 /api/chat and forwards native tools, while `ollama/` calls /api/generate, which
-has no tools field, so litellm prompts the model for a JSON function call and
+has no tools field, so hangarllm prompts the model for a JSON function call and
 turns that JSON back into a tool call. Each route runs the same conversation
 contract as the conversational matrix on every surface, through the matrix's
 SDK-backed surfaces, plus a streamed tool call on chat completions, the shape
@@ -46,7 +46,7 @@ from llm_translation.conversational_matrix import (
     build_surfaces,
 )
 from llm_translation.sdk_clients import NO_PROXY_CACHE, SdkClients
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from openai.types.chat import ChatCompletionChunk, ChatCompletionToolParam
 from proxy_client import ProxyClient
 
@@ -93,7 +93,7 @@ def _register(proxy: ProxyClient, resources: ResourceManager, route: OllamaRoute
     alias: Final = f"e2e-ollama-{route}-{unique_marker()}"
     model_id: Final = proxy.create_model(
         alias,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=f"{route}/{OLLAMA_MODEL}",
             api_base=OLLAMA_API_BASE,
             api_key="os.environ/OLLAMA_API_KEY",
@@ -169,7 +169,7 @@ class TestOllamaConversation:
         assert reply.usage is not None and reply.usage.input_tokens > 0 and reply.usage.output_tokens > 0, (
             f"{cell.id}: usage missing or zero: {reply.usage}"
         )
-        assert reply.call_id_header, f"{cell.id}: x-litellm-call-id header missing"
+        assert reply.call_id_header, f"{cell.id}: x-hangarllm-call-id header missing"
 
     @pytest.mark.parametrize("cell", _cells("basic", "stream"))
     @meta(_subject(Mode.STREAM, tools=False))

@@ -1,5 +1,5 @@
 """
-Tests for GigaChat LiteLLM Provider
+Tests for GigaChat HangarLLM Provider
 
 Tests message transformation, parameter handling, and response transformation.
 Run with: pytest tests/unit/llms/gigachat/chat/test_transformation.py -v
@@ -11,8 +11,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+import hangarllm
+from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -21,7 +21,7 @@ class TestGigaChatMessageTransformation:
 
     @pytest.fixture
     def config(self):
-        from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+        from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 
         return GigaChatConfig()
 
@@ -126,7 +126,7 @@ class TestGigaChatCollapseUserMessages:
 
     @pytest.fixture
     def config(self):
-        from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+        from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 
         return GigaChatConfig()
 
@@ -136,7 +136,7 @@ class TestGigaChatToolsTransformation:
 
     @pytest.fixture
     def config(self):
-        from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+        from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 
         return GigaChatConfig()
 
@@ -193,7 +193,7 @@ class TestGigaChatParamsTransformation:
 
     @pytest.fixture
     def config(self):
-        from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+        from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 
         return GigaChatConfig()
 
@@ -266,32 +266,32 @@ class TestGigaChatParamsTransformation:
 
 
 class TestGigaChatProviderRegistration:
-    """Tests for provider registration in LiteLLM"""
+    """Tests for provider registration in HangarLLM"""
 
     def test_gigachat_in_provider_list(self):
         """GigaChat should be in provider list"""
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         assert hasattr(LlmProviders, "GIGACHAT")
         assert LlmProviders.GIGACHAT.value == "gigachat"
 
     def test_gigachat_in_chat_providers(self):
-        """GigaChat should be in LITELLM_CHAT_PROVIDERS"""
-        from litellm.constants import LITELLM_CHAT_PROVIDERS
+        """GigaChat should be in HANGARLLM_CHAT_PROVIDERS"""
+        from hangarllm.constants import HANGARLLM_CHAT_PROVIDERS
 
-        assert "gigachat" in LITELLM_CHAT_PROVIDERS
+        assert "gigachat" in HANGARLLM_CHAT_PROVIDERS
 
     def test_gigachat_key_exists(self):
         """gigachat_key should be available"""
-        import litellm
+        import hangarllm
 
-        assert hasattr(litellm, "gigachat_key")
+        assert hasattr(hangarllm, "gigachat_key")
 
     def test_gigachat_config_exists(self):
         """GigaChatConfig should be available"""
-        import litellm
+        import hangarllm
 
-        assert hasattr(litellm, "GigaChatConfig")
+        assert hasattr(hangarllm, "GigaChatConfig")
 
 
 class TestGigaChatTransformRequest:
@@ -299,7 +299,7 @@ class TestGigaChatTransformRequest:
 
     @pytest.fixture
     def config(self):
-        from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+        from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 
         return GigaChatConfig()
 
@@ -310,7 +310,7 @@ class TestGigaChatTransformRequest:
             model="gigachat/GigaChat",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -325,7 +325,7 @@ class TestGigaChatTransformRequest:
             model="gigachat/GigaChat",
             messages=messages,
             optional_params={"temperature": 0.7},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -339,7 +339,7 @@ class TestGigaChatTransformRequest:
             model="gigachat/GigaChat",
             messages=messages,
             optional_params={"functions": functions},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -352,7 +352,7 @@ class TestGigaChatSupportedParams:
 
     @pytest.fixture
     def config(self):
-        from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+        from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 
         return GigaChatConfig()
 
@@ -373,7 +373,7 @@ class TestGigaChatToolChoiceMapping:
 
     @pytest.fixture
     def config(self):
-        from litellm.llms.gigachat.chat.transformation import GigaChatConfig
+        from hangarllm.llms.gigachat.chat.transformation import GigaChatConfig
 
         return GigaChatConfig()
 
@@ -506,7 +506,7 @@ class TestGigaChatToolChoiceMapping:
             model="gigachat/GigaChat",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "function_call" in result
@@ -532,7 +532,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -542,21 +542,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -565,17 +565,17 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 
@@ -592,8 +592,8 @@ _WEATHER_FUNCTION_TOOL: Final = {
 
 
 def test_a_hosted_mcp_tool_answers_400_on_gigachat_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         GigaChatConfig().map_openai_params(
             non_default_params={"tools": [_WEATHER_FUNCTION_TOOL, _HOSTED_MCP_TOOL]},
             optional_params={},
@@ -606,7 +606,7 @@ def test_a_hosted_mcp_tool_answers_400_on_gigachat_without_drop_params(monkeypat
 
 
 def test_gigachat_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_function_tool(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     with caplog.at_level("WARNING"):
         mapped: Final = GigaChatConfig().map_openai_params(
             non_default_params={"tools": [_HOSTED_MCP_TOOL, _WEATHER_FUNCTION_TOOL]},
@@ -621,7 +621,7 @@ def test_gigachat_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_functi
 
 
 def test_gigachat_sends_no_functions_when_drop_params_drops_every_hosted_mcp_tool(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = GigaChatConfig().map_openai_params(
         non_default_params={"tools": [_HOSTED_MCP_TOOL], "tool_choice": "auto"},
         optional_params={},

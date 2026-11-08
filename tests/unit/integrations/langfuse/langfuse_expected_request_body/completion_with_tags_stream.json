@@ -1,5 +1,5 @@
 {
-    "name": "litellm-acompletion",
+    "name": "hangarllm-acompletion",
     "parent_span_id": null,
     "attributes": {
         "langfuse.observation.cost_details": {
@@ -34,7 +34,7 @@
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0
         },
-        "langfuse.trace.name": "litellm-acompletion",
+        "langfuse.trace.name": "hangarllm-acompletion",
         "langfuse.trace.tags": [
             "test_tag_stream",
             "test_tag_2_stream"

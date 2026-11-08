@@ -8,16 +8,16 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy.guardrails.guardrail_hooks.pangea import initialize_guardrail
-from litellm.proxy.guardrails.guardrail_hooks.pangea.pangea import (
+from hangarllm.proxy.guardrails.guardrail_hooks.pangea import initialize_guardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.pangea.pangea import (
     PangeaGuardrailMissingSecrets,
     PangeaHandler,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.llms.openai import ChatCompletionAssistantToolCall
-from litellm.types.responses.main import build_web_search_call
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.guardrails import GuardrailEventHooks, HangarllmParams
+from hangarllm.types.llms.openai import ChatCompletionAssistantToolCall
+from hangarllm.types.responses.main import build_web_search_call
+from hangarllm.types.utils import Choices, Message, ModelResponse
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def test_pangea_guardrail_config():
         all_guardrails=[
             {
                 "guardrail_name": "pangea-ai-guard",
-                "litellm_params": {
+                "hangarllm_params": {
                     "mode": "post_call",
                     "guardrail": "pangea",
                     "guard_name": "pangea-ai-guard",
@@ -53,7 +53,7 @@ def test_pangea_guardrail_config():
 
 
 def test_initialize_guardrail_sets_event_hook():
-    litellm_params = LitellmParams(
+    hangarllm_params = HangarllmParams(
         guardrail="pangea",
         mode=GuardrailEventHooks.post_call,
         api_key="pts_pangeatokenid",
@@ -64,10 +64,10 @@ def test_initialize_guardrail_sets_event_hook():
     guardrail = {"guardrail_name": "pangea-ai-guard"}
 
     with patch(
-        "litellm.logging_callback_manager.add_litellm_callback"
+        "hangarllm.logging_callback_manager.add_hangarllm_callback"
     ) as mock_add_callback:
         callback = initialize_guardrail(
-            litellm_params=litellm_params, guardrail=guardrail
+            hangarllm_params=hangarllm_params, guardrail=guardrail
         )
 
     assert callback.event_hook == GuardrailEventHooks.post_call
@@ -80,7 +80,7 @@ def test_pangea_guardrail_config_no_api_key():
             all_guardrails=[
                 {
                     "guardrail_name": "pangea-ai-guard",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "mode": "post_call",
                         "guardrail": "pangea",
                         "guard_name": "pangea-ai-guard",
@@ -109,7 +109,7 @@ async def test_pangea_ai_guard_request_blocked(pangea_guardrail):
 
     with pytest.raises(HTTPException, match="Violated Pangea guardrail policy"):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=httpx.Response(
                 status_code=200,
                 # Mock only tested part of response
@@ -143,7 +143,7 @@ async def test_pangea_ai_guard_request_transformed(pangea_guardrail):
     guardrail_endpoint = f"{pangea_guardrail.api_base}/v1beta/guard"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=httpx.Response(
             status_code=200,
             # Mock only tested part of response
@@ -196,7 +196,7 @@ async def test_pangea_ai_guard_request_ok(pangea_guardrail):
     guardrail_endpoint = f"{pangea_guardrail.api_base}/v1beta/guard"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=httpx.Response(
             status_code=200,
             # Mock only tested part of response
@@ -229,7 +229,7 @@ async def test_pangea_ai_guard_response_blocked(pangea_guardrail):
 
     with pytest.raises(HTTPException, match="Violated Pangea guardrail policy"):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=httpx.Response(
                 status_code=200,
                 # Mock only tested part of response
@@ -280,7 +280,7 @@ async def test_pangea_ai_guard_response_ok(pangea_guardrail):
     guardrail_endpoint = f"{pangea_guardrail.api_base}/v1beta/guard"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=httpx.Response(
             status_code=200,
             # Mock only tested part of response
@@ -331,7 +331,7 @@ async def test_pangea_ai_guard_response_transformed(pangea_guardrail):
     guardrail_endpoint = f"{pangea_guardrail.api_base}/v1beta/guard"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=httpx.Response(
             status_code=200,
             # Mock only tested part of response
@@ -429,7 +429,7 @@ async def test_pangea_ai_guard_response_masks_claude_server_tool_call_inputs(pan
             request=httpx.Request(method="POST", url=url),
         )
 
-    with patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post", new=_mask_tool_call_urls):
+    with patch("hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post", new=_mask_tool_call_urls):
         response: Final = await pangea_guardrail.async_post_call_success_hook(
             data=data,
             user_api_key_dict=None,

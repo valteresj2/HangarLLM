@@ -95,7 +95,7 @@ def _assistant_config(tmp_path: Path, api_base: str) -> Path:
     config: Final[dict[str, JsonValue]] = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     config["assistant_settings"] = {
         "custom_llm_provider": "openai",
-        "litellm_params": {"api_base": api_base, "api_key": "synthetic-openai-key"},
+        "hangarllm_params": {"api_base": api_base, "api_key": "synthetic-openai-key"},
     }
     config_path: Final = tmp_path / "assistants_evals_stream.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")

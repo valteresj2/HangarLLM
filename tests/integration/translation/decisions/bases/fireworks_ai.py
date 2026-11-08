@@ -6,8 +6,8 @@ from integration.translation.case import TranslationTestCase
 """
 RUNE_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/decisions",
-    litellm_request={
+    hangarllm_endpoint="/v1/decisions",
+    hangarllm_request={
         "model": "fireworks_ai/accounts/fireworks/routers/rune",
         "input": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": [
@@ -65,7 +65,7 @@ RUNE_TEST_CASE: Final = TranslationTestCase(
         },
         "usage": {"input_tokens": 384, "cached_input_tokens": 0, "output_tokens": 0},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "accounts/fireworks/routers/rune",
         "answers": [
             {"type": "predicate", "name": "defect", "probability": 0.9902915235185259},
@@ -101,8 +101,8 @@ RUNE_TEST_CASE: Final = TranslationTestCase(
 )
 RUNE_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
     scenario="systemone",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "fireworks_ai/accounts/fireworks/routers/rune",
         "state": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": {
@@ -151,7 +151,7 @@ RUNE_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
         },
         "usage": {"input_tokens": 384, "cached_input_tokens": 0, "output_tokens": 0},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "accounts/fireworks/routers/rune",
         "answers": {
             "defect": {"type": "noul", "noul": 0.9902915235185259},

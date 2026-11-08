@@ -24,16 +24,16 @@ async def test_granian_admission_control_saturation(tmp_path: Path) -> None:
     proxy_port: Final = allocate_port()
     fake_script: Final = Path(__file__).parents[2] / "_fake_openai_endpoint_server.py"
     config_path: Final = tmp_path / "saturation_config.yaml"
-    proxy_env: Final = {**{k: v for k, v in os.environ.items() if k != "DATABASE_URL"}, "LITELLM_MASTER_KEY": MASTER_KEY}
+    proxy_env: Final = {**{k: v for k, v in os.environ.items() if k != "DATABASE_URL"}, "HANGARLLM_MASTER_KEY": MASTER_KEY}
     config_path.write_text(
         f"""model_list:
   - model_name: slow-endpoint
-    litellm_params:
+    hangarllm_params:
       model: openai/slow-endpoint
       api_base: http://127.0.0.1:{fake_port}/v1
       api_key: fake-upstream-key
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/HANGARLLM_MASTER_KEY
   max_in_flight_requests_per_worker: {MAX_IN_FLIGHT}
   max_queued_requests_per_worker: {MAX_QUEUED}
   admission_queue_timeout_seconds: 0.5
@@ -49,7 +49,7 @@ general_settings:
             [
                 sys.executable,
                 "-m",
-                "litellm.proxy.proxy_cli",
+                "hangarllm.proxy.proxy_cli",
                 "--config",
                 str(config_path),
                 "--run_granian",

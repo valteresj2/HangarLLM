@@ -60,9 +60,9 @@ def _served(gateway: Gateway, provider: SharedProvider, model: str, key: str) ->
 
 def _spend_reaches(table: Literal["key", "team"], identity: str, amount: float) -> None:
     query: Final = (
-        'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s'
+        'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s'
         if table == "key"
-        else 'SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id = %s'
+        else 'SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id = %s'
     )
     eventually(
         lambda: read_rows(query, (identity,)),

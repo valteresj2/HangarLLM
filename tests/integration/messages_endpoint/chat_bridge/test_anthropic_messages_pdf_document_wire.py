@@ -331,7 +331,7 @@ def test_prompt_security_still_sanitizes_a_messages_pdf_and_blocks_it_before_the
             {
                 "guardrail": {
                     "guardrail_name": name,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "prompt_security",
                         "mode": "pre_call",
                         "api_key": "synthetic-prompt-security-key",

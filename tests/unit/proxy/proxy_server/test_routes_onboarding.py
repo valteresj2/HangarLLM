@@ -30,7 +30,7 @@ import jwt as _real_jwt  # noqa: E402
 
 _SESSION_JWT = _real_jwt.encode(
     {"user_id": "u1", "key": "sk-session", "login_method": "sso", "exp": 4102444800},
-    os.environ["LITELLM_UI_SESSION_SECRET"],
+    os.environ["HANGARLLM_UI_SESSION_SECRET"],
     algorithm="HS256",
 )
 
@@ -87,12 +87,12 @@ def _install_tx_context(mock_prisma):
 
 def test_onboarding_get_token_happy(client, monkeypatch, mock_prisma):
     """Valid invite link → returns dict with login_url, token, user_email."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     invite = _make_invite()
     user_obj = _make_user_obj()
-    mock_prisma.db.litellm_invitationlink.find_unique.return_value = invite
-    mock_prisma.db.litellm_usertable.find_unique.return_value = user_obj
+    mock_prisma.db.hangarllm_invitationlink.find_unique.return_value = invite
+    mock_prisma.db.hangarllm_usertable.find_unique.return_value = user_obj
 
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
@@ -125,7 +125,7 @@ def test_onboarding_get_token_happy(client, monkeypatch, mock_prisma):
 
 def test_onboarding_get_token_master_key_missing_500(client, monkeypatch, mock_prisma):
     """No master_key configured → 500 with the master_key error payload."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", None)
@@ -143,9 +143,9 @@ def test_onboarding_get_token_invalid_invite_link_401(
     client, monkeypatch, mock_prisma
 ):
     """Unknown invite link → 401 with the not-in-db error message."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
-    mock_prisma.db.litellm_invitationlink.find_unique.return_value = None
+    mock_prisma.db.hangarllm_invitationlink.find_unique.return_value = None
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
     monkeypatch.setattr(ps, "general_settings", {})
@@ -161,12 +161,12 @@ def test_onboarding_get_token_invalid_invite_link_401(
 
 def test_onboarding_get_token_expired_invite_401(client, monkeypatch, mock_prisma):
     """Invite whose expires_at is in the past → 401 expired."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     expired_invite = _make_invite(
         expires_at=datetime.now(timezone.utc) - timedelta(days=2)
     )
-    mock_prisma.db.litellm_invitationlink.find_unique.return_value = expired_invite
+    mock_prisma.db.hangarllm_invitationlink.find_unique.return_value = expired_invite
 
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
@@ -179,7 +179,7 @@ def test_onboarding_get_token_expired_invite_401(client, monkeypatch, mock_prism
 
 def test_onboarding_get_token_missing_query_param_422(client, monkeypatch, mock_prisma):
     """No ``invite_link`` query param → FastAPI 422 with a non-empty detail array."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
@@ -201,7 +201,7 @@ def _make_onboarding_jwt(
     master_key: str,
     invitation_link: str = "inv-123",
     user_id: str = "user-abc",
-    token_type: str = "litellm_onboarding",
+    token_type: str = "hangarllm_onboarding",
 ) -> str:
     return jwt.encode(
         {
@@ -227,14 +227,14 @@ def _hibp_suffix_for(password: str) -> str:
 @respx.mock
 def test_claim_onboarding_link_happy(client, monkeypatch, mock_prisma, httpx_transport):
     """Valid claim → returns login_url, token, user_email, user."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     invite = _make_invite()
     user_obj = _make_user_obj()
-    mock_prisma.db.litellm_invitationlink.find_unique.return_value = invite
-    mock_prisma.db.litellm_invitationlink.update_many.return_value = 1
-    mock_prisma.db.litellm_invitationlink.update.return_value = invite
-    mock_prisma.db.litellm_usertable.update.return_value = user_obj
+    mock_prisma.db.hangarllm_invitationlink.find_unique.return_value = invite
+    mock_prisma.db.hangarllm_invitationlink.update_many.return_value = 1
+    mock_prisma.db.hangarllm_invitationlink.update.return_value = invite
+    mock_prisma.db.hangarllm_usertable.update.return_value = user_obj
     _install_tx_context(mock_prisma)
 
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
@@ -276,9 +276,9 @@ def test_claim_onboarding_link_happy(client, monkeypatch, mock_prisma, httpx_tra
 
 def test_claim_onboarding_link_invalid_invite_401(client, monkeypatch, mock_prisma):
     """Unknown invite link → 401 with not-in-db error."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
-    mock_prisma.db.litellm_invitationlink.find_unique.return_value = None
+    mock_prisma.db.hangarllm_invitationlink.find_unique.return_value = None
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
     monkeypatch.setattr(ps, "general_settings", {})
@@ -302,10 +302,10 @@ def test_claim_onboarding_link_user_id_mismatch_401(
     client, monkeypatch, mock_prisma
 ):
     """Invitation belongs to a different user_id → 401 with mismatch error."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     invite = _make_invite(user_id="user-real-owner")
-    mock_prisma.db.litellm_invitationlink.find_unique.return_value = invite
+    mock_prisma.db.hangarllm_invitationlink.find_unique.return_value = invite
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
     monkeypatch.setattr(ps, "general_settings", {})
@@ -327,7 +327,7 @@ def test_claim_onboarding_link_user_id_mismatch_401(
 
 def test_claim_onboarding_link_missing_field_422(client, monkeypatch, mock_prisma):
     """Missing required body field → FastAPI 422 with detail listing the missing field."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
@@ -368,10 +368,10 @@ def test_claim_onboarding_link_bad_onboarding_jwt_401(
     client, monkeypatch, mock_prisma
 ):
     """Onboarding JWT decodes but token_type / invitation_link don't match → 401."""
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     invite = _make_invite()
-    mock_prisma.db.litellm_invitationlink.find_unique.return_value = invite
+    mock_prisma.db.hangarllm_invitationlink.find_unique.return_value = invite
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "master_key", "sk-master-test")
     monkeypatch.setattr(ps, "general_settings", {})

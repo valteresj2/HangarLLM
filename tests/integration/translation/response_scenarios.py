@@ -50,13 +50,13 @@ def two_messages_before_tools(case: TranslationTestCase) -> TranslationTestCase:
             **case.mock_provider_response,
             "output": [*(dict(item) for item in MESSAGE_ITEMS), *provider_tools],
         },
-        expected_litellm_response=_messages_then_tools_response(case),
+        expected_hangarllm_response=_messages_then_tools_response(case),
     )
 
 
 def _messages_then_tools_response(case: TranslationTestCase) -> Mapping[str, JsonValue]:
-    expected: Final = case.expected_litellm_response
-    if case.litellm_endpoint == "/v1/chat/completions":
+    expected: Final = case.expected_hangarllm_response
+    if case.hangarllm_endpoint == "/v1/chat/completions":
         choices: Final = expected["choices"]
         assert isinstance(choices, list) and isinstance(choices[0], dict), choices
         message: Final = choices[0]["message"]
@@ -80,9 +80,9 @@ def _messages_then_tools_response(case: TranslationTestCase) -> Mapping[str, Jso
                 }
             ],
         }
-    if case.litellm_endpoint == "/v1/messages":
+    if case.hangarllm_endpoint == "/v1/messages":
         tools: Final = tuple(item for item in items(expected["content"]) if item["type"] == "tool_use")
         return {**expected, "content": [*({"type": "text", "text": text} for text in COMMENTARY), *tools]}
-    assert case.litellm_endpoint == "/v1/responses", case.litellm_endpoint
+    assert case.hangarllm_endpoint == "/v1/responses", case.hangarllm_endpoint
     calls: Final = tuple(item for item in items(expected["output"]) if item["type"] == "function_call")
     return {**expected, "output": [*(dict(item) for item in MESSAGE_ITEMS), *calls]}

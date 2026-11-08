@@ -12,7 +12,7 @@ interface TeamInfoResponse {
   };
   team_memberships: {
     user_id: string;
-    litellm_budget_table: { max_budget: number | null } | null;
+    hangarllm_budget_table: { max_budget: number | null } | null;
   }[];
 }
 
@@ -27,7 +27,7 @@ function roleOf(info: TeamInfoResponse, userId: string): string | undefined {
 }
 
 function budgetOf(info: TeamInfoResponse, userId: string): number | null | undefined {
-  return info.team_memberships.find((membership) => membership.user_id === userId)?.litellm_budget_table?.max_budget;
+  return info.team_memberships.find((membership) => membership.user_id === userId)?.hangarllm_budget_table?.max_budget;
 }
 
 function otherMembers(info: TeamInfoResponse, userId: string): string[] {

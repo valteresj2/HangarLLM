@@ -3,8 +3,8 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import get_service_tier_cost_key
-from litellm.proxy.common_utils.codex_model_translation import (
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import get_service_tier_cost_key
+from hangarllm.proxy.common_utils.codex_model_translation import (
     CodexCapabilities,
     CodexDeploymentCapabilities,
     CodexServiceTier,

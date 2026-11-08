@@ -16,9 +16,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils import get_llm_provider_logic
-from litellm.proxy import proxy_server
+import hangarllm
+from hangarllm.hangarllm_core_utils import get_llm_provider_logic
+from hangarllm.proxy import proxy_server
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -30,16 +30,16 @@ from .conftest import normalize  # type: ignore[import-not-found]
 @pytest.fixture
 def patched_token_counter(monkeypatch):
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "disable_token_counter", False, raising=False)
+    monkeypatch.setattr(hangarllm, "disable_token_counter", False, raising=False)
     monkeypatch.setattr(
-        litellm.utils,
+        hangarllm.utils,
         "select_tokenizer",
         lambda model, custom_tokenizer=None: {
             "type": "openai_tokenizer",
             "tokenizer": None,
         },
     )
-    monkeypatch.setattr(litellm, "token_counter", lambda **kwargs: 7)
+    monkeypatch.setattr(hangarllm, "token_counter", lambda **kwargs: 7)
     yield
 
 
@@ -77,7 +77,7 @@ def test_token_counter_counts_off_the_event_loop(client, auth_as, patched_token_
             counted_off_loop.append(True)
         return 7
 
-    monkeypatch.setattr(litellm, "token_counter", recording_counter)
+    monkeypatch.setattr(hangarllm, "token_counter", recording_counter)
 
     with auth_as():
         response = client.post("/utils/token_counter", json={"model": "gpt-4", "prompt": "Hi there"})
@@ -106,12 +106,12 @@ def test_token_counter_missing_input_returns_400(
 def patched_supported_params(monkeypatch):
     monkeypatch.setattr(proxy_server, "llm_router", None)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "get_llm_provider",
         lambda model: (model, "openai", None, None),
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "get_supported_openai_params",
         lambda model, custom_llm_provider=None: ["max_tokens", "temperature", "top_p"],
     )
@@ -132,11 +132,11 @@ def test_supported_openai_params_happy_path(client, auth_as, patched_supported_p
 
 def test_supported_openai_params_resolves_router_alias(client, auth_as, monkeypatch):
     """A router alias absent from the cost map resolves through the deployment's underlying model."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude-opus-4-6-cached",
-                "litellm_params": {"model": "anthropic/claude-opus-4-6", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-opus-4-6", "api_key": "sk-test"},
             }
         ]
     )
@@ -146,7 +146,7 @@ def test_supported_openai_params_resolves_router_alias(client, auth_as, monkeypa
         response = client.get("/utils/supported_openai_params", params={"model": "claude-opus-4-6-cached"})
 
     assert response.status_code == 200
-    expected = litellm.get_supported_openai_params(model="claude-opus-4-6", custom_llm_provider="anthropic")
+    expected = hangarllm.get_supported_openai_params(model="claude-opus-4-6", custom_llm_provider="anthropic")
     assert response.json() == {"supported_openai_params": expected}
     assert "max_tokens" in response.json()["supported_openai_params"]
 
@@ -154,11 +154,11 @@ def test_supported_openai_params_resolves_router_alias(client, auth_as, monkeypa
 def test_supported_openai_params_declared_prefix_alias_resolves_through_router(client, auth_as, monkeypatch):
     """Regression: an alias whose name starts with an authenticating provider's prefix skipped
     router resolution and answered with that provider's params instead of the deployment's."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "github_copilot/gpt-4o",
-                "litellm_params": {"model": "anthropic/claude-opus-4-6", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-opus-4-6", "api_key": "sk-test"},
             }
         ]
     )
@@ -168,7 +168,7 @@ def test_supported_openai_params_declared_prefix_alias_resolves_through_router(c
         response = client.get("/utils/supported_openai_params", params={"model": "github_copilot/gpt-4o"})
 
     assert response.status_code == 200
-    expected = litellm.get_supported_openai_params(model="claude-opus-4-6", custom_llm_provider="anthropic")
+    expected = hangarllm.get_supported_openai_params(model="claude-opus-4-6", custom_llm_provider="anthropic")
     assert response.json() == {"supported_openai_params": expected}
 
 
@@ -186,15 +186,15 @@ def test_supported_openai_params_never_runs_oauth_for_authenticating_providers(c
             }
         )
     )
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "copilot-alias",
-                "litellm_params": {"model": "github_copilot/gpt-4o"},
+                "hangarllm_params": {"model": "github_copilot/gpt-4o"},
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*"},
+                "hangarllm_params": {"model": "openai/*"},
             },
         ]
     )
@@ -206,9 +206,9 @@ def test_supported_openai_params_never_runs_oauth_for_authenticating_providers(c
         resolution_attempts.append(model)
         raise AssertionError("get_llm_provider would run the OAuth device flow")
 
-    monkeypatch.setattr(litellm, "get_llm_provider", _oauth_tripwire)
+    monkeypatch.setattr(hangarllm, "get_llm_provider", _oauth_tripwire)
     monkeypatch.setattr(get_llm_provider_logic, "get_llm_provider", _oauth_tripwire)
-    expected = litellm.get_supported_openai_params(model="gpt-4o", custom_llm_provider="github_copilot")
+    expected = hangarllm.get_supported_openai_params(model="gpt-4o", custom_llm_provider="github_copilot")
 
     with auth_as():
         via_alias = client.get("/utils/supported_openai_params", params={"model": "copilot-alias"})
@@ -228,7 +228,7 @@ def test_supported_openai_params_invalid_model(client, auth_as, monkeypatch):
         raise Exception("unknown")
 
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "get_llm_provider", _raise)
+    monkeypatch.setattr(hangarllm, "get_llm_provider", _raise)
     with auth_as():
         response = client.get("/utils/supported_openai_params", params={"model": "??"})
     assert response.status_code == 400
@@ -243,7 +243,7 @@ def test_supported_openai_params_invalid_model(client, auth_as, monkeypatch):
 @pytest.fixture
 def lookup_fixture_model(monkeypatch):
     entry = {
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "chat",
         "max_input_tokens": 1234,
         "max_output_tokens": 56,
@@ -254,12 +254,12 @@ def lookup_fixture_model(monkeypatch):
         "supports_lookup_fixture_edit": True,
     }
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setitem(litellm.model_cost, "lookup-fixture-model", entry)
-    litellm.get_model_info.cache_clear()
-    litellm.utils.cached_get_model_info_helper.cache_clear()
+    monkeypatch.setitem(hangarllm.model_cost, "lookup-fixture-model", entry)
+    hangarllm.get_model_info.cache_clear()
+    hangarllm.utils.cached_get_model_info_helper.cache_clear()
     yield entry
-    litellm.get_model_info.cache_clear()
-    litellm.utils.cached_get_model_info_helper.cache_clear()
+    hangarllm.get_model_info.cache_clear()
+    hangarllm.utils.cached_get_model_info_helper.cache_clear()
 
 
 def test_model_info_lookup_returns_full_cost_map_entry_for_unregistered_model(client, auth_as, lookup_fixture_model):
@@ -318,7 +318,7 @@ def patched_transform(monkeypatch):
             "raw_request_headers": {"Authorization": "Bearer redacted"},
         }
 
-    monkeypatch.setattr("litellm.utils.return_raw_request", _fake_return_raw_request)
+    monkeypatch.setattr("hangarllm.utils.return_raw_request", _fake_return_raw_request)
     yield
 
 
@@ -351,9 +351,9 @@ def test_transform_request_unsafe_body(client, auth_as, monkeypatch):
 
 
 def test_token_counter_fallback_counts_tools_system_and_anthropic_blocks(client, auth_as, monkeypatch):
-    """The ``litellm.token_counter`` fallback counts the request's tools and system prompt, and Anthropic ``image``/``document`` blocks, instead of 500ing."""
+    """The ``hangarllm.token_counter`` fallback counts the request's tools and system prompt, and Anthropic ``image``/``document`` blocks, instead of 500ing."""
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "disable_token_counter", False, raising=False)
+    monkeypatch.setattr(hangarllm, "disable_token_counter", False, raising=False)
     system = [{"type": "text", "text": "You are a terse assistant. Answer in one sentence."}]
     tools = [
         {
@@ -382,8 +382,8 @@ def test_token_counter_fallback_counts_tools_system_and_anthropic_blocks(client,
     bare = count({"messages": messages})
     full = count({"messages": messages, "tools": tools, "system": system})
 
-    assert bare == litellm.token_counter(model="claude-fable-5", messages=messages)
-    assert full == litellm.token_counter(
+    assert bare == hangarllm.token_counter(model="claude-fable-5", messages=messages)
+    assert full == hangarllm.token_counter(
         model="claude-fable-5",
         messages=[{"role": "system", "content": system}, *messages],
         tools=tools,
@@ -393,7 +393,7 @@ def test_token_counter_fallback_counts_tools_system_and_anthropic_blocks(client,
 
 def test_token_counter_fallback_counts_a_prompt_with_tools_like_its_messages_form(client, auth_as, monkeypatch):
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "disable_token_counter", False, raising=False)
+    monkeypatch.setattr(hangarllm, "disable_token_counter", False, raising=False)
     prompt = "count the tokens in this sentence please"
     tools = [
         {
@@ -412,6 +412,6 @@ def test_token_counter_fallback_counts_a_prompt_with_tools_like_its_messages_for
         )
 
     assert response.status_code == 200, response.text
-    assert response.json()["total_tokens"] == litellm.token_counter(
+    assert response.json()["total_tokens"] == hangarllm.token_counter(
         model="claude-fable-5", messages=[{"role": "user", "content": prompt}], tools=tools
     )

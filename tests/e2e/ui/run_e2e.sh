@@ -25,9 +25,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-DASHBOARD_DIR="$REPO_ROOT/ui/litellm-dashboard"
+DASHBOARD_DIR="$REPO_ROOT/ui/hangarllm-dashboard"
 IS_CI="${CI:-false}"
-CONTAINER_NAME="litellm-e2e-postgres-$$"
+CONTAINER_NAME="hangarllm-e2e-postgres-$$"
 MOCK_PID=""
 MOCK_PRESIDIO_PID=""
 PROXY_PID=""
@@ -56,7 +56,7 @@ if [ "$IS_CI" = "false" ]; then
   # is swallowed and the run dies later with the far less obvious
   # "sh: next: command not found".
   #
-  # So select a Node that satisfies ui/litellm-dashboard's engines.node, and if
+  # So select a Node that satisfies ui/hangarllm-dashboard's engines.node, and if
   # none is available say so here rather than 200 lines downstream.
   if [ -s "$HOME/.nvm/nvm.sh" ]; then
     # shellcheck disable=SC1091
@@ -70,7 +70,7 @@ if [ "$IS_CI" = "false" ]; then
         nvm use "$required_major" >/dev/null 2>&1 || nvm use --lts >/dev/null 2>&1 || true
         current_major="$(node --version 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')"
         if [ -z "$current_major" ] || [ "$current_major" -lt "$required_major" ]; then
-          echo "Error: ui/litellm-dashboard requires Node >= v${required_major}, and no such version is installed."
+          echo "Error: ui/hangarllm-dashboard requires Node >= v${required_major}, and no such version is installed."
           echo "       Install one with:  nvm install ${required_major}"
           exit 1
         fi
@@ -122,7 +122,7 @@ if [ "$IS_CI" = "false" ]; then
 
   export POSTGRES_USER="e2euser"
   export POSTGRES_PASSWORD="$(openssl rand -hex 32)"
-  export POSTGRES_DB="litellm_e2e"
+  export POSTGRES_DB="hangarllm_e2e"
   export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/${POSTGRES_DB}"
 
   echo "=== Starting PostgreSQL ==="
@@ -144,7 +144,7 @@ else
 fi
 
 # --- Credentials ---
-export LITELLM_MASTER_KEY="${LITELLM_MASTER_KEY:-sk-$(openssl rand -hex 16)}"
+export HANGARLLM_MASTER_KEY="${HANGARLLM_MASTER_KEY:-sk-$(openssl rand -hex 16)}"
 export MOCK_LLM_URL="http://127.0.0.1:${MOCK_LLM_PORT}/v1"
 export E2E_MOCK_PRESIDIO_URL="http://127.0.0.1:${MOCK_PRESIDIO_PORT}"
 export DISABLE_SCHEMA_UPDATE="true"
@@ -161,10 +161,10 @@ export PROXY_BASE_URL="$E2E_UI_BASE_URL"
 # spec's skip guard reads it). Safe for the rest of the suite — nothing else
 # performs a logout.
 export PROXY_LOGOUT_URL="https://www.example.com"
-# Forward LITELLM_LICENSE if set in the outer env so premium-gated UI flows
+# Forward HANGARLLM_LICENSE if set in the outer env so premium-gated UI flows
 # (e.g. Team-BYOK Model switch) can be exercised. Tests that depend on a
-# premium proxy gate themselves on process.env.LITELLM_LICENSE.
-export LITELLM_LICENSE="${LITELLM_LICENSE:-}"
+# premium proxy gate themselves on process.env.HANGARLLM_LICENSE.
+export HANGARLLM_LICENSE="${HANGARLLM_LICENSE:-}"
 
 # --- Rebuild UI from source ---
 echo "=== Building UI from source ==="
@@ -176,11 +176,11 @@ cd "$DASHBOARD_DIR"
 npm install
 npm run build
 # Copy the fresh build to the proxy's static UI directory
-cp -r "$DASHBOARD_DIR/out/" "$REPO_ROOT/litellm/proxy/_experimental/out/"
+cp -r "$DASHBOARD_DIR/out/" "$REPO_ROOT/hangarllm/proxy/_experimental/out/"
 
 # Restructure HTML files so extensionless routes work (e.g. /ui/login)
 # Next.js export produces login.html; the proxy expects login/index.html
-find "$REPO_ROOT/litellm/proxy/_experimental/out" -name '*.html' ! -name 'index.html' | while read -r htmlfile; do
+find "$REPO_ROOT/hangarllm/proxy/_experimental/out" -name '*.html' ! -name 'index.html' | while read -r htmlfile; do
   target_dir="${htmlfile%.html}"
   target_path="$target_dir/index.html"
   mkdir -p "$target_dir"
@@ -193,10 +193,10 @@ echo "=== Setting up Python environment ==="
 cd "$REPO_ROOT"
 export UV_PYTHON="${UV_PYTHON:-3.13}"
 uv sync --group dev --group proxy-dev --extra proxy --frozen --quiet
-uv run --no-sync python -m prisma generate --schema litellm/proxy/schema.prisma
+uv run --no-sync python -m prisma generate --schema hangarllm/proxy/schema.prisma
 
 echo "=== Pushing Prisma schema to database ==="
-uv run --no-sync python -m prisma db push --schema litellm/proxy/schema.prisma --accept-data-loss
+uv run --no-sync python -m prisma db push --schema hangarllm/proxy/schema.prisma --accept-data-loss
 
 # --- Mock LLM server ---
 echo "=== Starting mock LLM server ==="
@@ -222,11 +222,11 @@ if [ "$PRESIDIO_READY" -ne 1 ]; then
   exit 1
 fi
 
-# --- LiteLLM proxy ---
-echo "=== Starting LiteLLM proxy ==="
+# --- HangarLLM proxy ---
+echo "=== Starting HangarLLM proxy ==="
 cd "$REPO_ROOT"
-PROXY_LOG="${TMPDIR:-/tmp}/litellm-e2e-proxy-$$.log"
-uv run --no-sync python -m litellm.proxy.proxy_cli \
+PROXY_LOG="${TMPDIR:-/tmp}/hangarllm-e2e-proxy-$$.log"
+uv run --no-sync python -m hangarllm.proxy.proxy_cli \
   --config "$SCRIPT_DIR/fixtures/config.yml" \
   --port "$PROXY_PORT" >"$PROXY_LOG" 2>&1 &
 PROXY_PID=$!
@@ -239,7 +239,7 @@ for i in $(seq 1 180); do
     tail -n 100 "$PROXY_LOG"
     exit 1
   fi
-  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${PROXY_PORT}/health -H "Authorization: Bearer $LITELLM_MASTER_KEY" 2>/dev/null || true)
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${PROXY_PORT}/health -H "Authorization: Bearer $HANGARLLM_MASTER_KEY" 2>/dev/null || true)
   if [ "$HTTP_CODE" = "200" ]; then
     PROXY_READY=1
     break

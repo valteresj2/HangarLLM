@@ -11,7 +11,7 @@ import os
 import pytest
 
 
-from litellm.proxy.common_utils.static_asset_utils import (
+from hangarllm.proxy.common_utils.static_asset_utils import (
     detect_local_image_media_type,
     resolve_validated_local_image_path,
 )

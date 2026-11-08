@@ -1,23 +1,23 @@
 ---
-page_title: "litellm_access_group Data Source - terraform-provider-litellm"
+page_title: "hangarllm_access_group Data Source - terraform-provider-hangarllm"
 subcategory: ""
 description: |-
-  Retrieves information about an existing LiteLLM model access group.
+  Retrieves information about an existing HangarLLM model access group.
 ---
 
-# litellm_access_group (Data Source)
+# hangarllm_access_group (Data Source)
 
-Retrieves information about an existing LiteLLM model access group by name.
+Retrieves information about an existing HangarLLM model access group by name.
 
 ## Example Usage
 
 ```terraform
-data "litellm_access_group" "production" {
+data "hangarllm_access_group" "production" {
   access_group = "production-models"
 }
 
 output "production_models" {
-  value = data.litellm_access_group.production.model_names
+  value = data.hangarllm_access_group.production.model_names
 }
 ```
 

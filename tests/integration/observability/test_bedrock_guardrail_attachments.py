@@ -155,15 +155,15 @@ def _config(
     directory: Path, name: str, policy: Wire, upstream: Wire, skip_unscannable: bool, checks: bool = False
 ) -> Path:
     configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    configuration["litellm_settings"] = {}
+    configuration["hangarllm_settings"] = {}
     configuration["model_list"] = [
         {
             "model_name": "attach-chat",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_base": f"{upstream.url}/v1", "api_key": "sk-chat"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_base": f"{upstream.url}/v1", "api_key": "sk-chat"},
         },
         {
             "model_name": "attach-messages",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "anthropic/claude-sonnet-4-5-20250929",
                 "api_base": upstream.url,
                 "api_key": "sk-ant-synthetic",
@@ -171,11 +171,11 @@ def _config(
         },
         {
             "model_name": "attach-responses",
-            "litellm_params": {"model": "openai/gpt-4.1-mini", "api_base": f"{upstream.url}/v1", "api_key": "sk-resp"},
+            "hangarllm_params": {"model": "openai/gpt-4.1-mini", "api_base": f"{upstream.url}/v1", "api_key": "sk-resp"},
         },
         {
             "model_name": "attach-converse",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"bedrock/{_BEDROCK_MODEL}",
                 "api_base": upstream.url,
                 "aws_access_key_id": "AKIASYNTHETICRUNTIME",
@@ -192,7 +192,7 @@ def _config(
     configuration["guardrails"] = [
         {
             "guardrail_name": f"bedrock-attachments-{name}",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "bedrock",
                 "mode": "pre_call",
                 "default_on": True,

@@ -44,7 +44,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -57,7 +57,7 @@
               "endTimeUnixNano": "1791061510311339000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -87,7 +87,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "893c2734-093a-4d12-a65f-59349d845052"
                   }
@@ -122,13 +122,13 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
                   "key": "gen_ai.system",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
@@ -309,7 +309,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -322,7 +322,7 @@
               "endTimeUnixNano": "1791061516404584000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -352,7 +352,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "f234ff1f-df48-4048-b552-2244e64393ab"
                   }
@@ -371,7 +371,7 @@
               "endTimeUnixNano": "1791061518314649000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -401,7 +401,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "3ff07f83-f788-466b-932c-7f4db2d9d084"
                   }
@@ -436,13 +436,13 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
                   "key": "gen_ai.system",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
@@ -787,13 +787,13 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
                   "key": "gen_ai.system",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
@@ -974,7 +974,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -987,7 +987,7 @@
               "endTimeUnixNano": "1791061519854330000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -1017,7 +1017,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "1b20e79d-c770-450c-bf41-3b5e0d0062b8"
                   }
@@ -1036,7 +1036,7 @@
               "endTimeUnixNano": "1791061521992043000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -1066,7 +1066,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "8257b465-824a-4aa9-b5b7-7946fac420dd"
                   }
@@ -1101,13 +1101,13 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
                   "key": "gen_ai.system",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
@@ -1452,13 +1452,13 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
                   "key": "gen_ai.system",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {

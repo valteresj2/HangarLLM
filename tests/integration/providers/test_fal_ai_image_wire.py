@@ -11,7 +11,7 @@ from integration._support.process import owned_proxy
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
+import hangarllm
 
 _GPT_IMAGE_MODEL: Final = "openai/gpt-image-2.5/flare/text-to-image"
 _FLUX_MODEL: Final = "fal-ai/flux/dev"
@@ -57,7 +57,7 @@ def _image_response(images: tuple[tuple[str, int, int], ...], prompt: str) -> by
 
 
 def _response_cost(response: httpx.Response) -> float:
-    return float(response.headers["x-litellm-response-cost"])
+    return float(response.headers["x-hangarllm-response-cost"])
 
 
 def _approx(value: float) -> object:
@@ -162,7 +162,7 @@ def test_fal_gpt_image_sdk_response_honors_dump_options() -> None:
         return Reply(body=_image_response((("https://example.com/fal.png", 1024, 1536),), _PROMPT))
 
     with wire_server(respond) as wire:
-        response: Final = litellm.image_generation(
+        response: Final = hangarllm.image_generation(
             model=_GPT_IMAGE_MODEL,
             prompt=_PROMPT,
             quality="low",
@@ -323,8 +323,8 @@ def test_fal_flux_dev_generation_without_deployment_api_base_uses_global_api_bas
         configuration: Final = _JSON_OBJECT.validate_python(
             yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
         )
-        configuration["litellm_settings"] = {
-            **object_value(configuration["litellm_settings"]),
+        configuration["hangarllm_settings"] = {
+            **object_value(configuration["hangarllm_settings"]),
             "api_base": wire.url,
         }
         path: Final = tmp_path / "global-api-base.yaml"

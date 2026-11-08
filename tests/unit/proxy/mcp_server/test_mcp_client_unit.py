@@ -11,14 +11,14 @@ from mcp.types import Implementation, InitializeResult, ListToolsResult, Paginat
 from mcp.types import Tool as MCPTool
 
 # Add the project root to the path
-import litellm.mcp_client.client as mcp_client_module
-from litellm.mcp_client.client import MCPClient
-from litellm.types.mcp import MCPAuth, MCPTransport
+import hangarllm.mcp_client.client as mcp_client_module
+from hangarllm.mcp_client.client import MCPClient
+from hangarllm.types.mcp import MCPAuth, MCPTransport
 
 
 def test_mcp_client_uses_configurable_default_timeout():
     """MCPClient should use MCP_CLIENT_TIMEOUT constant when no timeout is passed."""
-    with patch("litellm.mcp_client.client.MCP_CLIENT_TIMEOUT", 120.0):
+    with patch("hangarllm.mcp_client.client.MCP_CLIENT_TIMEOUT", 120.0):
         # Client reads constant at runtime when timeout is None
         client = MCPClient(
             server_url="http://example.com",

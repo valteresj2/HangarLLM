@@ -13,20 +13,20 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.cost_calculator import default_image_cost_calculator
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.dashscope.common_utils import (
+import hangarllm
+from hangarllm.cost_calculator import default_image_cost_calculator
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.dashscope.common_utils import (
     DASHSCOPE_DEFAULT_ORIGIN,
     DASHSCOPE_IMAGE_PATH,
 )
-from litellm.llms.dashscope.image_generation.transformation import (
+from hangarllm.llms.dashscope.image_generation.transformation import (
     DEFAULT_API_BASE,
     DashScopeImageGenerationConfig,
 )
-from litellm.litellm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
-from litellm.types.utils import ImageResponse, ModelInfo
-from litellm.utils import get_llm_provider
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
+from hangarllm.types.utils import ImageResponse, ModelInfo
+from hangarllm.utils import get_llm_provider
 
 # ---------------------------------------------------------------------------
 # 1. Provider detection
@@ -131,7 +131,7 @@ class TestDashScopeImageGenerationConfig:
             model="qwen-image-2.0",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="sk-test-key",
         )
         assert headers["Authorization"] == "Bearer sk-test-key"
@@ -139,7 +139,7 @@ class TestDashScopeImageGenerationConfig:
 
     def test_validate_environment_raises_without_key(self):
         with patch(
-            "litellm.llms.dashscope.image_generation.transformation.get_secret_str",
+            "hangarllm.llms.dashscope.image_generation.transformation.get_secret_str",
             return_value=None,
         ):
             with pytest.raises(ValueError, match="DASHSCOPE_API_KEY"):
@@ -148,7 +148,7 @@ class TestDashScopeImageGenerationConfig:
                     model="qwen-image-2.0",
                     messages=[],
                     optional_params={},
-                    litellm_params={},
+                    hangarllm_params={},
                     api_key=None,
                 )
 
@@ -157,7 +157,7 @@ class TestDashScopeImageGenerationConfig:
             model="qwen-image-2.0",
             prompt="a puppy on green grass",
             optional_params={"size": "1024*1024"},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert req["model"] == "qwen-image-2.0"
@@ -178,7 +178,7 @@ class TestDashScopeImageGenerationConfig:
                 model=model,
                 drop_params=False,
             ),
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert req["model"] == model
@@ -193,7 +193,7 @@ class TestDashScopeImageGenerationConfig:
             model="qwen-image-2.0-pro",
             prompt="sunset over the ocean",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert req["parameters"] == {}
@@ -242,7 +242,7 @@ class TestDashScopeImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert result.data is not None
@@ -284,7 +284,7 @@ class TestDashScopeImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert len(result.data) == 2
@@ -325,7 +325,7 @@ class TestDashScopeImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
         assert [image.url for image in result.data] == [
@@ -351,7 +351,7 @@ class TestDashScopeImageGenerationConfig:
                 logging_obj=MagicMock(),
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -372,7 +372,7 @@ class TestDashScopeImageGenerationConfig:
                 logging_obj=MagicMock(),
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -429,7 +429,7 @@ class TestDashScopeImageGenerationConfig:
 
 
 # ---------------------------------------------------------------------------
-# 6. End-to-end flow via litellm.image_generation (HTTP mocked)
+# 6. End-to-end flow via hangarllm.image_generation (HTTP mocked)
 # ---------------------------------------------------------------------------
 
 
@@ -441,7 +441,7 @@ class TestDashScopeImageGenerationConfig:
         "dashscope/qwen-image-3.0-pro",
     ],
 )
-def test_litellm_image_generation_dashscope_end_to_end(model: str):
+def test_hangarllm_image_generation_dashscope_end_to_end(model: str):
     mock_response_body = {
         "output": {
             "choices": [
@@ -468,7 +468,7 @@ def test_litellm_image_generation_dashscope_end_to_end(model: str):
     }
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post"
+        "hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post"
     ) as mock_post:
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = mock_response_body
@@ -476,7 +476,7 @@ def test_litellm_image_generation_dashscope_end_to_end(model: str):
         mock_http_response.headers = {}
         mock_post.return_value = mock_http_response
 
-        response = litellm.image_generation(
+        response = hangarllm.image_generation(
             model=model,
             prompt="a puppy playing on green grass",
             api_key="sk-test-key",
@@ -574,7 +574,7 @@ def test_image_generation_resolves_from_the_configured_base_not_the_chat_default
         upstream.post(expected_url).respond(
             200, json={"output": {"choices": [{"message": {"content": [{"image": image_url}]}}]}}
         )
-        response: Final = litellm.image_generation(
+        response: Final = hangarllm.image_generation(
             model="dashscope/qwen-image-3.0", prompt="a puppy", api_key="sk-test-key", api_base=api_base
         )
 
@@ -589,7 +589,7 @@ def _transform_response(payload: object) -> ImageResponse:
         logging_obj=MagicMock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

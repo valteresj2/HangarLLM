@@ -103,7 +103,7 @@ test("the Logs drawer renders the stored request without the deployment api_key"
     });
     const created = await post(request, "/model/new", {
       model_name: model,
-      litellm_params: {
+      hangarllm_params: {
         model: "openai/gpt-4o-mini",
         api_key: deploymentKey,
         api_base: `${upstream}/v1`,

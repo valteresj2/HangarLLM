@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from litellm.integrations.focus.serializers.csv import FocusCsvSerializer
+from hangarllm.integrations.focus.serializers.csv import FocusCsvSerializer
 
 
 def test_should_serialize_dataframe_to_csv():

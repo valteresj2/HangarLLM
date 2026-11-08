@@ -1,6 +1,6 @@
 """thinking_with_tool_use x Bedrock (Invoke).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to AWS Bedrock via the legacy `InvokeModel` API path,
 enable extended thinking via `--effort high`, allow the built-in
 `Bash` tool, and ask Claude to plan-and-execute a task that requires
@@ -9,7 +9,7 @@ both reasoning and a tool call. Assert the upstream returned both a
 turn.
 
 This is the cell most likely to flush out Bedrock-specific bugs in
-LiteLLM's Anthropic <-> Bedrock translation: the recurring
+HangarLLM's Anthropic <-> Bedrock translation: the recurring
 "thinking.type.enabled is not supported" 400 error has reappeared on
 several Bedrock model routes (notably application inference profile
 ARNs), and the only reliable signal that the fix is wired through the

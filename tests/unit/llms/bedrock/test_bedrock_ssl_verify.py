@@ -4,7 +4,7 @@ Test SSL verification for AWS Bedrock boto3 clients.
 This test ensures that custom CA certificates are properly passed to all boto3 clients
 (STS and Bedrock services) to support internal certificate authorities.
 
-Issue: https://github.com/BerriAI/litellm/issues/XXXX
+Issue: https://github.com/valteresj2/HangarLLM/issues/XXXX
 User reported that SSL_CERT_FILE environment variable and ssl_verify config were not
 being applied to boto3 clients, causing "certificate verify failed" errors.
 """
@@ -16,9 +16,9 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 
-import litellm
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import init_bedrock_client
+import hangarllm
+from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from hangarllm.llms.bedrock.common_utils import init_bedrock_client
 
 
 class TestBedrockSSLVerify:
@@ -32,8 +32,8 @@ class TestBedrockSSLVerify:
         os.environ.pop("SSL_VERIFY", None)
         os.environ.pop("SSL_CERT_FILE", None)
 
-        # Reset litellm.ssl_verify to default
-        litellm.ssl_verify = True
+        # Reset hangarllm.ssl_verify to default
+        hangarllm.ssl_verify = True
 
         ssl_verify = base_aws._get_ssl_verify()
         assert ssl_verify is True
@@ -66,7 +66,7 @@ class TestBedrockSSLVerify:
             # Set SSL_CERT_FILE environment variable
             monkeypatch.setenv("SSL_CERT_FILE", ca_bundle_path)
             os.environ.pop("SSL_VERIFY", None)
-            litellm.ssl_verify = True
+            hangarllm.ssl_verify = True
 
             ssl_verify = base_aws._get_ssl_verify()
             assert ssl_verify == ca_bundle_path
@@ -75,8 +75,8 @@ class TestBedrockSSLVerify:
             os.environ.pop("SSL_CERT_FILE", None)
             os.unlink(ca_bundle_path)
 
-    def test_base_aws_llm_get_ssl_verify_litellm_config(self):
-        """Test that _get_ssl_verify uses litellm.ssl_verify when set."""
+    def test_base_aws_llm_get_ssl_verify_hangarllm_config(self):
+        """Test that _get_ssl_verify uses hangarllm.ssl_verify when set."""
         base_aws = BaseAWSLLM()
 
         # Clear environment variables
@@ -91,15 +91,15 @@ class TestBedrockSSLVerify:
             ca_bundle_path = f.name
 
         try:
-            # Set litellm.ssl_verify to custom CA bundle
-            litellm.ssl_verify = ca_bundle_path
+            # Set hangarllm.ssl_verify to custom CA bundle
+            hangarllm.ssl_verify = ca_bundle_path
 
             ssl_verify = base_aws._get_ssl_verify()
             # When ssl_verify is a path, it should be returned directly
             assert ssl_verify == ca_bundle_path
         finally:
             # Clean up
-            litellm.ssl_verify = True
+            hangarllm.ssl_verify = True
             os.unlink(ca_bundle_path)
 
     @patch("boto3.client")
@@ -115,7 +115,7 @@ class TestBedrockSSLVerify:
         try:
             # Set SSL_CERT_FILE environment variable
             os.environ["SSL_CERT_FILE"] = ca_bundle_path
-            litellm.ssl_verify = True
+            hangarllm.ssl_verify = True
 
             # Mock the STS client and Bedrock client
             mock_sts_client = MagicMock()
@@ -208,7 +208,7 @@ class TestBedrockSSLVerify:
         try:
             # Set SSL_CERT_FILE environment variable
             os.environ["SSL_CERT_FILE"] = ca_bundle_path
-            litellm.ssl_verify = True
+            hangarllm.ssl_verify = True
 
             # Mock the STS client
             mock_sts_client = MagicMock()
@@ -254,7 +254,7 @@ class TestBedrockSSLVerify:
             os.environ.pop("SSL_CERT_FILE", None)
             os.unlink(ca_bundle_path)
 
-    @patch("litellm.llms.bedrock.base_aws_llm.get_secret")
+    @patch("hangarllm.llms.bedrock.base_aws_llm.get_secret")
     @patch("boto3.client")
     def test_base_aws_llm_auth_with_web_identity_passes_ssl_verify(
         self, mock_boto3_client, mock_get_secret
@@ -272,7 +272,7 @@ class TestBedrockSSLVerify:
         try:
             # Set SSL_CERT_FILE environment variable
             os.environ["SSL_CERT_FILE"] = ca_bundle_path
-            litellm.ssl_verify = True
+            hangarllm.ssl_verify = True
 
             # Mock get_secret to return the token
             mock_get_secret.return_value = "mocked_oidc_token"
@@ -325,12 +325,12 @@ class TestBedrockSSLVerify:
             os.environ.pop("SSL_CERT_FILE", None)
             os.unlink(ca_bundle_path)
 
-    def test_ssl_verify_priority_env_over_litellm_config(self, monkeypatch):
-        """Test that SSL_VERIFY environment variable takes priority over litellm.ssl_verify."""
+    def test_ssl_verify_priority_env_over_hangarllm_config(self, monkeypatch):
+        """Test that SSL_VERIFY environment variable takes priority over hangarllm.ssl_verify."""
         base_aws = BaseAWSLLM()
 
-        # Set litellm.ssl_verify to True
-        litellm.ssl_verify = True
+        # Set hangarllm.ssl_verify to True
+        hangarllm.ssl_verify = True
 
         # Set SSL_VERIFY environment variable to False
         monkeypatch.setenv("SSL_VERIFY", "False")
@@ -341,7 +341,7 @@ class TestBedrockSSLVerify:
         finally:
             # Clean up
             os.environ.pop("SSL_VERIFY", None)
-            litellm.ssl_verify = True
+            hangarllm.ssl_verify = True
 
     def test_ssl_cert_file_priority_over_default(self, monkeypatch):
         """Test that SSL_CERT_FILE takes priority when ssl_verify is True."""
@@ -358,7 +358,7 @@ class TestBedrockSSLVerify:
             # Set SSL_CERT_FILE environment variable
             monkeypatch.setenv("SSL_CERT_FILE", ca_bundle_path)
             os.environ.pop("SSL_VERIFY", None)
-            litellm.ssl_verify = True
+            hangarllm.ssl_verify = True
 
             ssl_verify = base_aws._get_ssl_verify()
             assert (

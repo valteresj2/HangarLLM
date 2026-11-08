@@ -5,9 +5,9 @@ from typing import Final
 
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 SAIL_API_BASE: Final = "https://api.sailresearch.com/v1"
 MODEL: Final = "sail/zai-org/GLM-5.3"
@@ -17,7 +17,7 @@ COMPLETION_TOKENS: Final = 500
 
 
 def cost_at(column_suffix: str) -> float:
-    prices: Final[Mapping[str, object]] = litellm.model_cost[MODEL]
+    prices: Final[Mapping[str, object]] = hangarllm.model_cost[MODEL]
     return (
         (PROMPT_TOKENS - CACHED_TOKENS) * float(prices[f"input_cost_per_token{column_suffix}"])
         + CACHED_TOKENS * float(prices[f"cache_read_input_token_cost{column_suffix}"])
@@ -108,7 +108,7 @@ class SpendCapture(CustomLogger):
     async def async_log_success_event(
         self, kwargs: dict[str, object], response_obj: object, start_time: object, end_time: object
     ) -> None:
-        if kwargs.get("litellm_call_id") == self.call_id:
+        if kwargs.get("hangarllm_call_id") == self.call_id:
             payload: Final = kwargs.get("standard_logging_object")
             self.costs = (*self.costs, payload.get("response_cost") if isinstance(payload, dict) else None)
 

@@ -7,7 +7,7 @@ from typing import Final
 
 import pytest
 
-from litellm.types.guardrails import PII_ENTITY_CATEGORIES_MAP, PiiEntityCategory, PiiEntityType
+from hangarllm.types.guardrails import PII_ENTITY_CATEGORIES_MAP, PiiEntityCategory, PiiEntityType
 
 EXPECTED_CATEGORY_ENTITIES: Final[dict[PiiEntityCategory, frozenset[str]]] = {
     PiiEntityCategory.GENERAL: frozenset(

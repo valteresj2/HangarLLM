@@ -12,7 +12,7 @@ Both halves of the contract are asserted: the recorded state (the proxy
 reports the GCSBucketLogger callback active via /health/readiness/details -
 note gcs_bucket is enterprise-gated, so this also requires a license) and the
 enforced behavior (the record in the bucket, cost cross-checked against the
-x-litellm-response-cost header of the very response the caller received).
+x-hangarllm-response-cost header of the very response the caller received).
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _assert_gcs_configured(client: LoggingClient) -> None:
     body = readiness_details_body(client)
     assert GCS_LOGGER_NAME in body, (
         f"the proxy must report the {GCS_LOGGER_NAME} callback active "
-        f"(litellm_settings.callbacks: ['gcs_bucket'] + GCS_BUCKET_NAME env + enterprise license); "
+        f"(hangarllm_settings.callbacks: ['gcs_bucket'] + GCS_BUCKET_NAME env + enterprise license); "
         f"got: {body[:400]}"
     )
 
@@ -81,7 +81,7 @@ class TestGcsLogDelivery:
             lambda: client.chat_raw(key, CHEAP_ANTHROPIC_MODEL, f"reply with one word {marker}", max_tokens=16),
         )
         assert outcome.response_cost is not None and outcome.response_cost > 0, (
-            f"the response must report x-litellm-response-cost, got {outcome.response_cost!r}"
+            f"the response must report x-hangarllm-response-cost, got {outcome.response_cost!r}"
         )
         body_id = completion_response_id(outcome.body)
         assert body_id is not None, "the completion body must carry an id (it names the gcs record)"

@@ -291,14 +291,14 @@ def test_arize_otel_v2_f1_sink_outage_and_recovery(gateway: Gateway, tmp_path: P
                 _assert_response(sentinel_response, sentinel, "chat", False, rig.model)
                 spans: Final = _llm_spans_through_markers(recovered_destination, (*recovery_markers, sentinel))
                 assert all(
-                    sum(span.get("litellm.metadata.trace_marker") == marker for span in spans) == 1
+                    sum(span.get("hangarllm.metadata.trace_marker") == marker for span in spans) == 1
                     for marker in recovery_markers
                 ), spans
                 assert all(
-                    sum(span.get("litellm.metadata.trace_marker") == marker for span in spans) <= 1
+                    sum(span.get("hangarllm.metadata.trace_marker") == marker for span in spans) <= 1
                     for marker in outage_markers
                 ), spans
-                assert sum(span.get("litellm.metadata.trace_marker") == sentinel for span in spans) == 1, spans
+                assert sum(span.get("hangarllm.metadata.trace_marker") == sentinel for span in spans) == 1, spans
 
 
 def test_arize_otel_v2_f2_slow_sink_does_not_deadlock(gateway: Gateway, tmp_path: Path) -> None:
@@ -312,7 +312,7 @@ def test_arize_otel_v2_f2_slow_sink_does_not_deadlock(gateway: Gateway, tmp_path
         return _chat_response(marker)
 
     def sink(request: Request) -> Reply:
-        if any(attributes.get("litellm.metadata.trace_marker") == marker for attributes in _spans((request,))):
+        if any(attributes.get("hangarllm.metadata.trace_marker") == marker for attributes in _spans((request,))):
             blocked.set()
             assert release.wait(timeout=5), "slow sink was not released"
             completed.set()
@@ -399,6 +399,6 @@ def test_arize_otel_v2_f3_one_proxy_worker_can_die(gateway: Gateway, tmp_path: P
         served: Final = tuple(marker for marker, _response in served_responses) + (survivor,)
         collected: Final = _collect_marker_spans(rig.destination, served)
         assert len(collected) == len(served), collected
-        exported: Final = tuple(span["litellm.metadata.trace_marker"] for span in collected)
+        exported: Final = tuple(span["hangarllm.metadata.trace_marker"] for span in collected)
         assert len(exported) == len(served), exported
         assert frozenset(exported) == frozenset(served), exported

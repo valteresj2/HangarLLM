@@ -1,5 +1,5 @@
 """
-Regression tests for https://github.com/BerriAI/litellm/issues/34165
+Regression tests for upstream issue 34165
 
 The native /v1/ranking endpoint accepts only model, query, passages, and
 truncate. Two defects are covered here:
@@ -14,12 +14,12 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.nvidia_nim.rerank.ranking_transformation import (
+import hangarllm
+from hangarllm.llms.nvidia_nim.rerank.ranking_transformation import (
     NvidiaNimRankingConfig,
 )
-from litellm.llms.nvidia_nim.rerank.transformation import NvidiaNimRerankConfig
-from litellm.types.rerank import RerankResponse
+from hangarllm.llms.nvidia_nim.rerank.transformation import NvidiaNimRerankConfig
+from hangarllm.types.rerank import RerankResponse
 
 RANKING_MODEL = "ranking/nvidia/llama-nemotron-rerank-vl-1b-v2"
 IMAGE_DOC = {"image": "data:image/jpeg;base64,/9j/4AAQSkZJRg=="}
@@ -162,10 +162,10 @@ async def test_nvidia_nim_ranking_endpoint_image_documents_and_top_n():
     mock_response.status_code = 200
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=mock_response,
     ) as mock_post:
-        response = await litellm.arerank(
+        response = await hangarllm.arerank(
             model="nvidia_nim/ranking/nvidia/llama-nemotron-rerank-vl-1b-v2",
             query="which passage shows a cat?",
             documents=[IMAGE_DOC, TEXT_DOC],

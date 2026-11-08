@@ -19,31 +19,31 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.proxy._types import LiteLLM_TeamTable, LitellmUserRoles, Member, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarllmUserRoles, Member, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     team_membership_auth_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-from litellm.proxy.list_api.common import ManagementProblem, problem_response, request_validation_problem
-from litellm.proxy.management_endpoints.management_v1 import router
-from litellm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
-from litellm.proxy.management_helpers.bulk_team_member_budgets import bulk_update_team_member_budgets
-from litellm.types.proxy.management_endpoints.team_endpoints import (
+from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from hangarllm.proxy.list_api.common import ManagementProblem, problem_response, request_validation_problem
+from hangarllm.proxy.management_endpoints.management_v1 import router
+from hangarllm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from hangarllm.proxy.management_helpers.bulk_team_member_budgets import bulk_update_team_member_budgets
+from hangarllm.types.proxy.management_endpoints.team_endpoints import (
     MAX_BULK_TEAM_MEMBER_BUDGET_UPDATES,
     BulkTeamMemberBudgetUpdateRequest,
     TeamMemberBudgetUpdateResult,
 )
 
-ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin")
-OUTSIDER: Final = UserAPIKeyAuth(user_id="outsider", user_role=LitellmUserRoles.INTERNAL_USER)
+ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin")
+OUTSIDER: Final = UserAPIKeyAuth(user_id="outsider", user_role=HangarllmUserRoles.INTERNAL_USER)
 TEAM_ID: Final = "t1"
 
 
 class _BudgetRow(BaseModel):
-    """A `LiteLLM_BudgetTable` row, carrying every column the merge patch reads or writes."""
+    """A `HangarLLM_BudgetTable` row, carrying every column the merge patch reads or writes."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -62,14 +62,14 @@ class _BudgetRow(BaseModel):
 
 
 class _MembershipRow(BaseModel):
-    """A `LiteLLM_TeamMembership` row; `litellm_budget_table` is only filled on an `include` read."""
+    """A `HangarLLM_TeamMembership` row; `hangarllm_budget_table` is only filled on an `include` read."""
 
     model_config = ConfigDict(extra="allow")
 
     user_id: str
     team_id: str
     budget_id: str | None = None
-    litellm_budget_table: _BudgetRow | None = None
+    hangarllm_budget_table: _BudgetRow | None = None
 
 
 def _wanted(where: Mapping[str, object], field: str) -> set[str] | None:
@@ -127,21 +127,21 @@ class _MembershipTable:
         if not include:
             return matched
         return [
-            r.model_copy(update={"litellm_budget_table": self._budgets.rows.get(r.budget_id or "")}) for r in matched
+            r.model_copy(update={"hangarllm_budget_table": self._budgets.rows.get(r.budget_id or "")}) for r in matched
         ]
 
     async def update(self, where: Mapping[str, Mapping[str, str]], data: Mapping[str, object]) -> _MembershipRow:
         key: Final = where["user_id_team_id"]
         index: Final = self._index_of(key["user_id"], key["team_id"])
         assert index is not None, f"no membership row for {key}"
-        relation: Final = data.get("litellm_budget_table")
+        relation: Final = data.get("hangarllm_budget_table")
         if isinstance(relation, dict) and relation.get("disconnect"):
             self.rows[index] = self.rows[index].model_copy(update={"budget_id": None})
         return self.rows[index]
 
     async def upsert(self, where: Mapping[str, Mapping[str, str]], data: Mapping[str, object]) -> _MembershipRow:
         key: Final = where["user_id_team_id"]
-        budget_id: Final = data["update"]["litellm_budget_table"]["connect"]["budget_id"]
+        budget_id: Final = data["update"]["hangarllm_budget_table"]["connect"]["budget_id"]
         index: Final = self._index_of(key["user_id"], key["team_id"])
         if index is None:
             self.rows.append(_MembershipRow(user_id=key["user_id"], team_id=key["team_id"], budget_id=budget_id))
@@ -154,17 +154,17 @@ class _TeamTable:
     """`find_many` and `create` are what `RoutingPrismaWrapper` keys read routing off, so a fake
     table without them would silently never route and pass a reader-staleness test on the writer."""
 
-    def __init__(self, teams: Sequence[LiteLLM_TeamTable]) -> None:
-        self.rows: dict[str, LiteLLM_TeamTable] = {t.team_id: t for t in teams}
+    def __init__(self, teams: Sequence[HangarLLM_TeamTable]) -> None:
+        self.rows: dict[str, HangarLLM_TeamTable] = {t.team_id: t for t in teams}
 
-    async def find_unique(self, where: Mapping[str, str]) -> LiteLLM_TeamTable | None:
+    async def find_unique(self, where: Mapping[str, str]) -> HangarLLM_TeamTable | None:
         return self.rows.get(where["team_id"])
 
-    async def find_many(self, where: Mapping[str, object] | None = None) -> list[LiteLLM_TeamTable]:
+    async def find_many(self, where: Mapping[str, object] | None = None) -> list[HangarLLM_TeamTable]:
         return [t for t in self.rows.values() if where is None or _matches(t.model_dump(), where)]
 
-    async def create(self, data: Mapping[str, object]) -> LiteLLM_TeamTable:
-        row: Final = LiteLLM_TeamTable.model_validate(dict(data))
+    async def create(self, data: Mapping[str, object]) -> HangarLLM_TeamTable:
+        row: Final = HangarLLM_TeamTable.model_validate(dict(data))
         self.rows[row.team_id] = row
         return row
 
@@ -172,19 +172,19 @@ class _TeamTable:
 class _Db:
     def __init__(
         self,
-        teams: Sequence[LiteLLM_TeamTable],
+        teams: Sequence[HangarLLM_TeamTable],
         memberships: Sequence[_MembershipRow],
         budgets: Sequence[_BudgetRow],
     ) -> None:
-        self.litellm_teamtable = _TeamTable(teams)
-        self.litellm_budgettable = _BudgetTable(budgets)
-        self.litellm_teammembership = _MembershipTable(self.litellm_budgettable, memberships)
+        self.hangarllm_teamtable = _TeamTable(teams)
+        self.hangarllm_budgettable = _BudgetTable(budgets)
+        self.hangarllm_teammembership = _MembershipTable(self.hangarllm_budgettable, memberships)
 
 
 class _FakePrisma:
     def __init__(
         self,
-        teams: Sequence[LiteLLM_TeamTable] = (),
+        teams: Sequence[HangarLLM_TeamTable] = (),
         memberships: Sequence[_MembershipRow] = (),
         budgets: Sequence[_BudgetRow] = (),
     ) -> None:
@@ -228,8 +228,8 @@ def _team(
     team_id: str = TEAM_ID,
     default_budget_id: str | None = None,
     admins: Sequence[str] = (),
-) -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable(
+) -> HangarLLM_TeamTable:
+    return HangarLLM_TeamTable(
         team_id=team_id,
         metadata={"team_member_budget_id": default_budget_id} if default_budget_id else {},
         members_with_roles=[
@@ -274,19 +274,19 @@ async def _bulk_update(
         user_api_key_dict=caller,
         prisma_client=prisma,  # pyright: ignore[reportArgumentType]  # fake stands in for PrismaClient
         user_api_key_cache=cache or UserApiKeyCache(),
-        litellm_proxy_admin_name="default_user_id",
+        hangarllm_proxy_admin_name="default_user_id",
     )
 
 
 def _budget_id_of(prisma: _FakePrisma, user_id: str, team_id: str = TEAM_ID) -> str | None:
-    row: Final = next(r for r in prisma.db.litellm_teammembership.rows if r.user_id == user_id and r.team_id == team_id)
+    row: Final = next(r for r in prisma.db.hangarllm_teammembership.rows if r.user_id == user_id and r.team_id == team_id)
     return row.budget_id
 
 
 def _budget_of(prisma: _FakePrisma, user_id: str, team_id: str = TEAM_ID) -> _BudgetRow:
     budget_id: Final = _budget_id_of(prisma, user_id, team_id)
     assert budget_id is not None, f"{user_id} has no budget"
-    return prisma.db.litellm_budgettable.rows[budget_id]
+    return prisma.db.hangarllm_budgettable.rows[budget_id]
 
 
 def _seeded_cache(*user_ids: str, team_id: str = TEAM_ID) -> UserApiKeyCache:
@@ -320,7 +320,7 @@ async def test_patching_one_member_of_a_shared_budget_row_forks_it_and_leaves_th
     assert _budget_id_of(prisma, "m1") not in (None, "shared-b")
     assert (_budget_of(prisma, "m1").max_budget, _budget_of(prisma, "m1").tpm_limit) == (50.0, 900)
     assert _budget_id_of(prisma, "m2") == "shared-b"
-    assert prisma.db.litellm_budgettable.rows["shared-b"].max_budget == 100.0
+    assert prisma.db.hangarllm_budgettable.rows["shared-b"].max_budget == 100.0
     assert results[0].budget_id == _budget_id_of(prisma, "m1")
 
 
@@ -342,7 +342,7 @@ async def test_patching_members_of_the_team_default_budget_gives_each_their_own_
     )
 
     assert [r.success for r in results] == [True, True]
-    default = prisma.db.litellm_budgettable.rows["team-default"]
+    default = prisma.db.hangarllm_budgettable.rows["team-default"]
     assert (default.max_budget, default.tpm_limit) == (25.0, 1000)
     assert _budget_id_of(prisma, "m3") == "team-default"
     patched = (_budget_id_of(prisma, "m1"), _budget_id_of(prisma, "m2"))
@@ -362,7 +362,7 @@ async def test_the_team_default_row_is_forked_even_when_only_one_membership_poin
     results = await _bulk_update(prisma, [{"user_id": "m1", "max_budget_in_team": 5}])
 
     assert [(r.success, r.max_budget, r.tpm_limit) for r in results] == [(True, 5.0, 1000)]
-    default = prisma.db.litellm_budgettable.rows["team-default"]
+    default = prisma.db.hangarllm_budgettable.rows["team-default"]
     assert (default.max_budget, default.tpm_limit) == (25.0, 1000)
     assert _budget_id_of(prisma, "m1") not in (None, "team-default")
 
@@ -378,7 +378,7 @@ async def test_a_budget_row_only_one_member_points_at_is_updated_in_place():
     results = await _bulk_update(prisma, [{"user_id": "m1", "max_budget_in_team": 20}])
 
     assert [(r.success, r.budget_id, r.max_budget) for r in results] == [(True, "priv-m1", 20.0)]
-    assert set(prisma.db.litellm_budgettable.rows) == {"team-default", "priv-m1"}
+    assert set(prisma.db.hangarllm_budgettable.rows) == {"team-default", "priv-m1"}
     assert _budget_id_of(prisma, "m1") == "priv-m1"
     assert (_budget_of(prisma, "m1").max_budget, _budget_of(prisma, "m1").tpm_limit) == (20.0, 5)
 
@@ -481,9 +481,9 @@ async def test_a_row_naming_somebody_off_the_team_fails_without_writing_while_th
         (False, "User not found in team"),
         (True, None),
     ]
-    assert prisma.db.litellm_budgettable.rows["priv-other"].max_budget == 2.0
+    assert prisma.db.hangarllm_budgettable.rows["priv-other"].max_budget == 2.0
     assert _budget_of(prisma, "m1").max_budget == 10.0
-    assert set(prisma.db.litellm_budgettable.rows) == {"priv-m1", "priv-other"}
+    assert set(prisma.db.hangarllm_budgettable.rows) == {"priv-m1", "priv-other"}
 
 
 @pytest.mark.asyncio
@@ -541,7 +541,7 @@ async def test_a_member_with_no_cap_of_their_own_reports_the_team_default_cap_bu
         (True, 25.0, "team_default", 7)
     ]
     assert _budget_of(prisma, "m1").max_budget is None
-    default = prisma.db.litellm_budgettable.rows["team-default"]
+    default = prisma.db.hangarllm_budgettable.rows["team-default"]
     assert (default.max_budget, default.tpm_limit) == (25.0, 1000)
 
 
@@ -568,7 +568,7 @@ async def test_an_explicit_cap_reports_as_the_members_own_while_clearing_one_fal
     ]
     assert results[1].budget_id is None
     assert _budget_id_of(prisma, "m2") is None
-    assert prisma.db.litellm_budgettable.rows["team-default"].max_budget == 25.0
+    assert prisma.db.hangarllm_budgettable.rows["team-default"].max_budget == 25.0
 
 
 @pytest.mark.asyncio
@@ -626,7 +626,7 @@ async def test_the_roster_authz_read_runs_on_the_writer_so_a_lagging_replica_can
         budgets=[_budget("priv-m1", max_budget=1.0)],
     )
     replica = _FakePrisma(teams=[_team("lead", "m1", admins=("lead",))])
-    demoted = UserAPIKeyAuth(user_id="lead", user_role=LitellmUserRoles.INTERNAL_USER)
+    demoted = UserAPIKeyAuth(user_id="lead", user_role=HangarllmUserRoles.INTERNAL_USER)
 
     with pytest.raises(ManagementProblem) as raised:
         await _bulk_update(
@@ -636,21 +636,21 @@ async def test_the_roster_authz_read_runs_on_the_writer_so_a_lagging_replica_can
         )
 
     assert raised.value.problem.status == 403
-    assert writer.db.litellm_budgettable.rows["priv-m1"].max_budget == 1.0
+    assert writer.db.hangarllm_budgettable.rows["priv-m1"].max_budget == 1.0
 
 
 @pytest.mark.asyncio
 async def test_the_batch_writes_one_audit_entry_carrying_every_written_members_limits_before_and_after(monkeypatch):
-    import litellm
-    from litellm.proxy._types import LitellmTableNames
+    import hangarllm
+    from hangarllm.proxy._types import HangarllmTableNames
 
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", True)
     captured: list[object] = []
 
     async def capture(request_data):
         captured.append(request_data)
 
-    monkeypatch.setattr("litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update", capture)
+    monkeypatch.setattr("hangarllm.proxy.management_helpers.audit_logs.create_audit_log_for_update", capture)
     prisma = _FakePrisma(
         teams=[_team("m1", "m2")],
         memberships=[_membership("m1", "priv-m1"), _membership("m2", "priv-m2")],
@@ -664,7 +664,7 @@ async def test_the_batch_writes_one_audit_entry_carrying_every_written_members_l
     assert (entry.object_id, entry.action, entry.table_name) == (
         TEAM_ID,
         "updated",
-        LitellmTableNames.TEAM_TABLE_NAME,
+        HangarllmTableNames.TEAM_TABLE_NAME,
     )
     before = {row["user_id"]: row for row in json.loads(entry.before_value)["team_member_budgets"]}
     after = {row["user_id"]: row for row in json.loads(entry.updated_values)["team_member_budgets"]}
@@ -674,15 +674,15 @@ async def test_the_batch_writes_one_audit_entry_carrying_every_written_members_l
 
 @pytest.mark.asyncio
 async def test_no_audit_entry_is_written_when_audit_logging_is_off(monkeypatch):
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(hangarllm, "store_audit_logs", False)
     captured: list[object] = []
 
     async def capture(request_data):
         captured.append(request_data)
 
-    monkeypatch.setattr("litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update", capture)
+    monkeypatch.setattr("hangarllm.proxy.management_helpers.audit_logs.create_audit_log_for_update", capture)
     prisma = _FakePrisma(
         teams=[_team("m1")],
         memberships=[_membership("m1", "priv-m1")],
@@ -709,7 +709,7 @@ async def test_forking_a_shared_row_keeps_its_reset_window_so_an_unrelated_limit
     assert [(r.success, r.budget_duration) for r in results] == [(True, "30d")]
     assert _budget_id_of(prisma, "m1") not in (None, "shared-b")
     assert _budget_of(prisma, "m1").budget_reset_at == shared_reset_at
-    assert prisma.db.litellm_budgettable.rows["shared-b"].budget_reset_at == shared_reset_at
+    assert prisma.db.hangarllm_budgettable.rows["shared-b"].budget_reset_at == shared_reset_at
 
 
 @pytest.mark.asyncio
@@ -768,7 +768,7 @@ def prisma(monkeypatch):
         memberships=[_membership("m1", "priv-m1")],
         budgets=[_budget("priv-m1", max_budget=1.0)],
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", fake)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", fake)
     return fake
 
 
@@ -789,8 +789,8 @@ def test_unknown_fields_empty_and_oversized_batches_are_422_problem_documents(pr
 
         assert response.status_code == 422, body
         assert response.headers["content-type"] == "application/problem+json"
-        assert response.json()["type"] == "urn:litellm:error:invalid-request-body"
-    assert prisma.db.litellm_budgettable.rows["priv-m1"].max_budget == 1.0
+        assert response.json()["type"] == "urn:hangarllm:error:invalid-request-body"
+    assert prisma.db.hangarllm_budgettable.rows["priv-m1"].max_budget == 1.0
 
 
 def test_an_unknown_team_is_a_404_problem_document(prisma, as_proxy_admin):
@@ -801,8 +801,8 @@ def test_an_unknown_team_is_a_404_problem_document(prisma, as_proxy_admin):
 
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json()["type"] == "urn:litellm:error:team-not-found"
-    assert prisma.db.litellm_budgettable.rows["priv-m1"].max_budget == 1.0
+    assert response.json()["type"] == "urn:hangarllm:error:team-not-found"
+    assert prisma.db.hangarllm_budgettable.rows["priv-m1"].max_budget == 1.0
 
 
 def test_a_caller_who_administers_neither_the_team_nor_its_org_is_a_403_problem_document(prisma, as_outsider):
@@ -810,14 +810,14 @@ def test_a_caller_who_administers_neither_the_team_nor_its_org_is_a_403_problem_
 
     assert response.status_code == 403
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json()["type"] == "urn:litellm:error:forbidden"
-    assert prisma.db.litellm_budgettable.rows["priv-m1"].max_budget == 1.0
+    assert response.json()["type"] == "urn:hangarllm:error:forbidden"
+    assert prisma.db.hangarllm_budgettable.rows["priv-m1"].max_budget == 1.0
 
 
 def test_a_team_admin_may_bulk_update_their_own_teams_members(prisma, monkeypatch):
-    prisma.db.litellm_teamtable.rows[TEAM_ID] = _team("lead", "m1", admins=("lead",))
+    prisma.db.hangarllm_teamtable.rows[TEAM_ID] = _team("lead", "m1", admins=("lead",))
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_id="lead", user_role=LitellmUserRoles.INTERNAL_USER
+        user_id="lead", user_role=HangarllmUserRoles.INTERNAL_USER
     )
     try:
         response = _post({"members": [{"user_id": "m1", "max_budget_in_team": 10}]})
@@ -843,27 +843,27 @@ def test_a_budget_duration_no_reset_can_be_scheduled_from_is_a_422_naming_its_ro
 
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json()["type"] == "urn:litellm:error:invalid-request-body"
+    assert response.json()["type"] == "urn:hangarllm:error:invalid-request-body"
     assert "members.1.budget_duration" in response.json()["detail"]
-    assert prisma.db.litellm_budgettable.rows["priv-m1"].max_budget == 1.0
+    assert prisma.db.hangarllm_budgettable.rows["priv-m1"].max_budget == 1.0
 
 
 def test_an_unconnected_database_is_a_503_problem_document(monkeypatch, as_proxy_admin):
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
 
     response = _post({"members": [{"user_id": "m1", "max_budget_in_team": 10}]})
 
     assert response.status_code == 503
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json()["type"] == "urn:litellm:error:database-not-connected"
+    assert response.json()["type"] == "urn:hangarllm:error:database-not-connected"
 
 
 def test_a_driver_error_answers_as_a_problem_document_without_leaking_the_exception(monkeypatch, as_proxy_admin):
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", _UnreachablePrisma())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", _UnreachablePrisma())
 
     response = _post({"members": [{"user_id": "m1", "max_budget_in_team": 10}]})
 
     assert response.status_code == 500
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json()["type"] == "urn:litellm:error:internal-server-error"
+    assert response.json()["type"] == "urn:hangarllm:error:internal-server-error"
     assert "connection reset by peer" not in response.text

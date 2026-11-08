@@ -86,8 +86,8 @@ def _chat(gateway: Gateway, model: str, prompt: str, caller: Mapping[str, JsonVa
 def _spend_row(call_id: str) -> Mapping[str, JsonValue]:
     (row,) = eventually(
         lambda: read_rows(
-            'SELECT status, model_group, row_to_json(s)::text AS stored FROM "LiteLLM_SpendLogs" s '
-            "WHERE litellm_call_id = %s",
+            'SELECT status, model_group, row_to_json(s)::text AS stored FROM "HangarLLM_SpendLogs" s '
+            "WHERE hangarllm_call_id = %s",
             (call_id,),
         ),
         lambda rows: len(rows) == 1,
@@ -111,7 +111,7 @@ def _chat_openai_sync(gateway: Gateway, model: str, prompt: str) -> _Answer:
             extra_body=dict(NO_CACHE),
         )
         completion: Final = raw.parse()
-    return _Answer(raw.headers["x-litellm-call-id"], completion.choices[0].message.content or "")
+    return _Answer(raw.headers["x-hangarllm-call-id"], completion.choices[0].message.content or "")
 
 
 async def _chat_openai_async_stream(gateway: Gateway, model: str, prompt: str) -> _Answer:
@@ -125,7 +125,7 @@ async def _chat_openai_async_stream(gateway: Gateway, model: str, prompt: str) -
             extra_body=dict(NO_CACHE),
         )
         text: Final = "".join([chunk.choices[0].delta.content or "" async for chunk in stream if chunk.choices])
-    return _Answer(stream.response.headers["x-litellm-call-id"], text)
+    return _Answer(stream.response.headers["x-hangarllm-call-id"], text)
 
 
 def _messages_anthropic_sync(gateway: Gateway, model: str, prompt: str) -> _Answer:
@@ -138,7 +138,7 @@ def _messages_anthropic_sync(gateway: Gateway, model: str, prompt: str) -> _Answ
         )
         message: Final = raw.parse()
     return _Answer(
-        raw.headers["x-litellm-call-id"], "".join(block.text for block in message.content if block.type == "text")
+        raw.headers["x-hangarllm-call-id"], "".join(block.text for block in message.content if block.type == "text")
     )
 
 
@@ -153,7 +153,7 @@ async def _messages_anthropic_async_stream(gateway: Gateway, model: str, prompt:
         )
         deltas: Final = [event.delta async for event in stream if event.type == "content_block_delta"]
     return _Answer(
-        stream.response.headers["x-litellm-call-id"],
+        stream.response.headers["x-hangarllm-call-id"],
         "".join(delta.text for delta in deltas if delta.type == "text_delta"),
     )
 
@@ -168,7 +168,7 @@ def _responses_httpx(gateway: Gateway, model: str, prompt: str) -> _Answer:
     )
     (message,) = (item for item in output if item["type"] == "message")
     text: Final = "".join(string_value(object_value(part)["text"]) for part in list_value(message["content"]))
-    return _Answer(response.headers["x-litellm-call-id"], text)
+    return _Answer(response.headers["x-hangarllm-call-id"], text)
 
 
 def _responses_httpx_stream(gateway: Gateway, model: str, prompt: str) -> _Answer:
@@ -187,7 +187,7 @@ def _responses_httpx_stream(gateway: Gateway, model: str, prompt: str) -> _Answe
     text: Final = "".join(
         string_value(event["delta"]) for event in events if event["type"] == "response.output_text.delta"
     )
-    return _Answer(response.headers["x-litellm-call-id"], text)
+    return _Answer(response.headers["x-hangarllm-call-id"], text)
 
 
 def _chat_openai_stream(gateway: Gateway, model: str, prompt: str) -> _Answer:
@@ -312,7 +312,7 @@ async def _chat_openai_stream_with_usage(gateway: Gateway, model: str, prompt: s
         )
         chunks: Final = [chunk async for chunk in stream]
     return _StreamedAnswer(
-        stream.response.headers["x-litellm-call-id"],
+        stream.response.headers["x-hangarllm-call-id"],
         "".join(chunk.choices[0].delta.content or "" for chunk in chunks if chunk.choices),
         tuple(
             (chunk.usage.prompt_tokens, chunk.usage.completion_tokens, chunk.usage.total_tokens)
@@ -649,7 +649,7 @@ async def _send(client: httpx.AsyncClient, key: str, model: str, call: _Call) ->
         headers={"Authorization": f"Bearer {key}", "anthropic-version": "2023-06-01"},
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers["x-litellm-call-id"])
+    return _Served(call, response.status_code, raw.decode(), response.headers["x-hangarllm-call-id"])
 
 
 async def _burst(gateway: Gateway, model: str, calls: tuple[_Call, ...]) -> tuple[_Served, ...]:
@@ -695,11 +695,11 @@ async def test_sagemaker_chat_container_outage_mid_burst_answers_every_call_once
     for served in answered:
         _assert_answered(served, down)
     rows: Final = eventually(
-        lambda: read_rows('SELECT litellm_call_id, status FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model,)),
+        lambda: read_rows('SELECT hangarllm_call_id, status FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model,)),
         lambda found: len(found) >= len(answered),
         seconds=70,
     )
-    statuses: Final = {string_value(row["litellm_call_id"]): row["status"] for row in rows}
+    statuses: Final = {string_value(row["hangarllm_call_id"]): row["status"] for row in rows}
     assert len(statuses) == len(rows) == len(answered), rows
     assert statuses == {
         served.call_id: "failure" if served.call.marker in down else "success" for served in answered
@@ -740,7 +740,7 @@ async def _chat_cut(gateway: Gateway, model: str, prompt: str) -> _CutStream:
     chunks: Final = tuple(item for item in items if not isinstance(item, openai.APIError))
     choices: Final = tuple(itertools.chain.from_iterable(chunk.choices for chunk in chunks))
     return _CutStream(
-        call_id=stream.response.headers["x-litellm-call-id"],
+        call_id=stream.response.headers["x-hangarllm-call-id"],
         text="".join(choice.delta.content or "" for choice in choices),
         errors=tuple(item.message for item in items if isinstance(item, openai.APIError)),
         finished=any(choice.finish_reason for choice in choices),
@@ -770,7 +770,7 @@ async def _messages_cut(gateway: Gateway, model: str, prompt: str) -> _CutStream
     events: Final = tuple(item for item in items if not isinstance(item, anthropic.APIError))
     deltas: Final = tuple(event.delta for event in events if event.type == "content_block_delta")
     return _CutStream(
-        call_id=stream.response.headers["x-litellm-call-id"],
+        call_id=stream.response.headers["x-hangarllm-call-id"],
         text="".join(delta.text for delta in deltas if delta.type == "text_delta"),
         errors=tuple(str(item) for item in items if isinstance(item, anthropic.APIError)),
         finished=any(event.type == "message_stop" for event in events),
@@ -793,7 +793,7 @@ def _responses_cut(gateway: Gateway, model: str, prompt: str) -> _CutStream:
         JSON_OBJECT.validate_json(line.removeprefix("data: ")) for line in lines if line.startswith("data: {")
     )
     return _CutStream(
-        call_id=response.headers["x-litellm-call-id"],
+        call_id=response.headers["x-hangarllm-call-id"],
         text="".join(
             string_value(event["delta"]) for event in events if event.get("type") == "response.output_text.delta"
         ),

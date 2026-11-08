@@ -150,7 +150,7 @@ def _models(scenario: Scenario, provider_url: str, **key_fields: JsonValue) -> t
 def _config_model(name: str, model: str, api_base: str) -> Mapping[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, "api_base": api_base, "api_key": "synthetic-provider-key"},
+        "hangarllm_params": {"model": model, "api_base": api_base, "api_key": "synthetic-provider-key"},
     }
 
 
@@ -175,7 +175,7 @@ def _surface_prompts(marker: str, per_surface: int) -> frozenset[str]:
 def _cold_storage_key(request_id: str, database_url: str | None = None) -> str:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,), database_url=database_url
+            'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,), database_url=database_url
         ),
         lambda values: len(values) == 1,
         seconds=60,
@@ -187,7 +187,7 @@ def _cold_storage_key(request_id: str, database_url: str | None = None) -> str:
 def _update_environment(candidate: Gateway, values: Mapping[str, JsonValue]) -> None:
     candidate.post(
         "/config/update",
-        {"environment_variables": dict(values), "litellm_settings": {"success_callback": ["s3_v2"]}},
+        {"environment_variables": dict(values), "hangarllm_settings": {"success_callback": ["s3_v2"]}},
     )
 
 
@@ -213,7 +213,7 @@ def _created_key_hashes(sink: RecordingS3Sink, audit_prefix: str) -> frozenset[s
     return frozenset(
         str(audit["object_id"])
         for audit in created
-        if audit["action"] == "created" and audit["table_name"] == "LiteLLM_VerificationToken"
+        if audit["action"] == "created" and audit["table_name"] == "HangarLLM_VerificationToken"
     )
 
 
@@ -426,12 +426,12 @@ def test_s3_v2_hour_failure_and_rejected_requests_keep_the_hour_layout(gateway: 
         ghost: Final = send(f"{marker}-ghost", model=f"ghost-{uuid.uuid4().hex}")
         unauthenticated: Final = send(f"{marker}-anon", caller="sk-not-a-real-key")
         after: Final = send(f"{marker}-after")
-        rejected_call_ids: Final = frozenset(response.headers["x-litellm-call-id"] for response in responses[4:])
+        rejected_call_ids: Final = frozenset(response.headers["x-hangarllm-call-id"] for response in responses[4:])
         payloads: Final = eventually(
             sink.payloads,
             lambda stored: (
                 _payload_values(stored, "success", "id") >= frozenset((*successes, f"{marker}-after"))
-                and _payload_values(stored, "failure", "litellm_call_id") >= rejected_call_ids
+                and _payload_values(stored, "failure", "hangarllm_call_id") >= rejected_call_ids
             ),
             seconds=60,
         )
@@ -445,7 +445,7 @@ def test_s3_v2_hour_failure_and_rejected_requests_keep_the_hour_layout(gateway: 
     assert after.status_code == 200 and after.json()["id"] == f"{marker}-after", after.text
     assert sorted(upstream.received()) == sorted((*successes, *failures, f"{marker}-after"))
     assert _payload_values(payloads, "success", "id") == frozenset((*successes, f"{marker}-after"))
-    assert _payload_values(payloads, "failure", "litellm_call_id") >= rejected_call_ids
+    assert _payload_values(payloads, "failure", "hangarllm_call_id") >= rejected_call_ids
     assert _outside_layout(objects, "hour") == ()
 
 
@@ -584,7 +584,7 @@ def test_s3_v2_hour_cold_storage_rebuilds_previous_response_id_history_from_the_
         assert first.status_code == 200, first.text
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (anthropic_model,)
+                'SELECT request_id, metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (anthropic_model,)
             ),
             lambda values: len(values) == 1,
             seconds=60,
@@ -648,7 +648,7 @@ def test_s3_v2_audit_logs_follow_the_audit_params_granularity_not_the_request_lo
     assert upstream.received() == (marker,)
     assert _outside_layout(requests, "day") == ()
     created: Final = tuple(audit for audit in audits.values() if audit["action"] == "created")
-    assert "LiteLLM_VerificationToken" in frozenset(str(audit["table_name"]) for audit in created), audits
+    assert "HangarLLM_VerificationToken" in frozenset(str(audit["table_name"]) for audit in created), audits
     for target, audit in audits.items():
         located: Final = re.fullmatch(
             re.escape(audit_prefix)
@@ -833,7 +833,7 @@ def test_s3_v2_in_flight_request_keeps_its_cold_storage_key_on_its_object_across
             pending: Final = flight.submit(_sdk_chats, owned.gateway, openai_model, key, (held_prompt,))
             assert arrived.wait(60), "held request never reached the upstream"
             owner_switch: Final = owned.gateway.request(
-                "POST", "/config/update", {"litellm_settings": {"cold_storage_custom_logger": "gcs_bucket"}}
+                "POST", "/config/update", {"hangarllm_settings": {"cold_storage_custom_logger": "gcs_bucket"}}
             )
             _update_environment(owned.gateway, HOUR)
             probe_round: Final = iter(range(1000))
@@ -886,14 +886,14 @@ def test_s3_v2_cold_storage_owner_saved_through_config_update_is_not_applied_to_
     ):
         openai_model, _, key = _models(scenario, provider.url)
         saved: Final = owned.gateway.request(
-            "POST", "/config/update", {"litellm_settings": {"cold_storage_custom_logger": "s3_v2"}}
+            "POST", "/config/update", {"hangarllm_settings": {"cold_storage_custom_logger": "s3_v2"}}
         )
         prompts: Final = tuple(f"{marker}-{index}" for index in range(8))
         answered: Final = _sdk_chats(owned.gateway, openai_model, key, prompts)
         landed: Final = collect_payloads(sink, len(prompts))
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)',
+                'SELECT request_id, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)',
                 (list(answered),),
                 database_url=database_url,
             ),
@@ -902,8 +902,8 @@ def test_s3_v2_cold_storage_owner_saved_through_config_update_is_not_applied_to_
         )
         objects: Final = sink.objects()
         stored: Final = read_rows(
-            'SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s',
-            ("litellm_settings",),
+            'SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s',
+            ("hangarllm_settings",),
             database_url=database_url,
         )
     cold_keys: Final = {
@@ -1176,7 +1176,7 @@ def test_s3_v2_hour_proxy_restart_mid_burst_keeps_the_layout_without_duplicates(
                     "/model/new",
                     {
                         "model_name": model_name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_key": "synthetic-provider-key",
                             "api_base": provider.url + "/v1",

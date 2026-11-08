@@ -1,6 +1,6 @@
 """vision x Anthropic.
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 to Anthropic, attach a small image as an inline base64 `image` content
 block via the CLI's `--input-format stream-json` mode, and assert that
 the upstream produces a non-empty reply. This proves the proxy
@@ -95,7 +95,7 @@ def _build_stdin_input() -> str:
     )
 )
 def test_vision_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy with an image
+    """Drive the `claude` CLI against the HangarLLM proxy with an image
     attached via stream-json input and assert a non-empty reply."""
     base_url, api_key = require_proxy(compat_result)
 

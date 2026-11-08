@@ -21,7 +21,7 @@ FAST_RESET_TICK: Final = MappingProxyType(
 
 
 def _team_spend(team: str) -> float:
-    rows: Final = read_rows('SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,))
+    rows: Final = read_rows('SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,))
     assert len(rows) == 1, rows
     spend: Final = rows[0]["spend"]
     assert isinstance(spend, (int, float)), rows
@@ -31,7 +31,7 @@ def _team_spend(team: str) -> float:
 def _make_team_budget_due(team: str, spend: float) -> None:
     with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
         connection.execute(
-            "UPDATE \"LiteLLM_TeamTable\" SET spend = %s, budget_reset_at = now() - interval '1 day' "
+            "UPDATE \"HangarLLM_TeamTable\" SET spend = %s, budget_reset_at = now() - interval '1 day' "
             "WHERE team_id = %s",
             (spend, team),
         )

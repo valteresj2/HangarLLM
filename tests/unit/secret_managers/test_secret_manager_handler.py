@@ -5,8 +5,8 @@ from typing import Final
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from litellm.secret_managers.secret_manager_handler import get_secret_from_manager
-from litellm.types.secret_managers.main import KeyManagementSystem
+from hangarllm.secret_managers.secret_manager_handler import get_secret_from_manager
+from hangarllm.types.secret_managers.main import KeyManagementSystem
 
 
 def _azure_exception_types() -> tuple[type[Exception], type[Exception]]:
@@ -75,7 +75,7 @@ class FakeAzureKeyVaultClient:
 
 FIXTURE_PATH: Path = (
     Path(__file__).parents[3]
-    / "litellm-rust/crates/secrets-azure/tests/fixtures/key_vault_parity.json"
+    / "hangarllm-rust/crates/secrets-azure/tests/fixtures/key_vault_parity.json"
 )
 
 

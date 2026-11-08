@@ -5,7 +5,7 @@ agents, realtime, fine-tuning, files, image edit, LLM pass-through, vector store
 guardrails): which host op each reaches, the kwargs the core builds, and how an id in the request
 pins the deployment.
 
-The Python core binds litellm's own functions for some of these endpoints instead of going through
+The Python core binds hangarllm's own functions for some of these endpoints instead of going through
 ``host.invoke``; the ``host`` fixture replaces those functions with recording stand-ins (see
 ``endpoints_helpers.py``), so every call shows up in ``host.calls``.
 """
@@ -19,12 +19,12 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import REALTIME_SESSION_ENDED_ABNORMALLY_KEY, REALTIME_SESSION_SUCCESS_LOGGED_KEY
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.router_core import RouterCore
-from litellm.types.videos.utils import encode_video_id_with_provider
+import hangarllm
+from hangarllm.constants import REALTIME_SESSION_ENDED_ABNORMALLY_KEY, REALTIME_SESSION_SUCCESS_LOGGED_KEY
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.router_core import RouterCore
+from hangarllm.types.videos.utils import encode_video_id_with_provider
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost, patch_direct_endpoints
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment
 
@@ -144,7 +144,7 @@ ROUTED_SYNC: Final[dict[str, tuple[str, dict[str, object]]]] = {
 
 
 @pytest.mark.parametrize("endpoint", sorted(ROUTED_ASYNC))
-async def test_async_generic_endpoint_routes_to_the_group_deployment_with_litellm_metadata(
+async def test_async_generic_endpoint_routes_to_the_group_deployment_with_hangarllm_metadata(
     make_core: MakeCore, host: EndpointHost, endpoint: str
 ):
     op, request = ROUTED_ASYNC[endpoint]
@@ -158,11 +158,11 @@ async def test_async_generic_endpoint_routes_to_the_group_deployment_with_litell
         "https://d1.example",
         "openai",
     )
-    metadata: Final = _bucket(call.kwargs, "litellm_metadata")
+    metadata: Final = _bucket(call.kwargs, "hangarllm_metadata")
     assert (metadata["model_group"], metadata["deployment"]) == ("g", "openai/d1")
     assert "metadata" not in call.kwargs
     assert response._hidden_params["model_id"] == "d1"  # pyright: ignore[reportAttributeAccessIssue]  # the scripted response
-    assert response._hidden_params["additional_headers"]["x-litellm-model-group"] == "g"  # pyright: ignore[reportAttributeAccessIssue]  # the scripted response
+    assert response._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "g"  # pyright: ignore[reportAttributeAccessIssue]  # the scripted response
 
 
 @pytest.mark.parametrize("endpoint", sorted(ROUTED_SYNC))
@@ -181,7 +181,7 @@ async def test_sync_generic_endpoint_routes_to_the_group_deployment_and_returns_
         "https://d1.example",
         "openai",
     )
-    assert _bucket(call.kwargs, "litellm_metadata")["model_group"] == "g"
+    assert _bucket(call.kwargs, "hangarllm_metadata")["model_group"] == "g"
     assert response is not None
 
 
@@ -197,18 +197,18 @@ async def test_sync_generic_endpoints_set_no_routing_hidden_params(
 
 @pytest.mark.parametrize("endpoint", ["ocr", "generate_content"])
 async def test_sync_generic_endpoints_are_not_retried(make_core: MakeCore, host: EndpointHost, endpoint: str):
-    host.answer("openai/d1", litellm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
+    host.answer("openai/d1", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
     _, request = ROUTED_SYNC[endpoint]
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=3)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         getattr(core, endpoint)(model="g", **request)
     assert len(host.calls) == 1
 
 
 async def test_async_generic_endpoint_is_retried_with_the_router_num_retries(make_core: MakeCore, host: EndpointHost):
-    host.answer("openai/d1", litellm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
+    host.answer("openai/d1", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=2)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.aocr(model="g", document={})
     assert len(host.calls) == 3
 
@@ -352,14 +352,14 @@ async def test_a_realtime_translation_endpoint_keeps_the_callers_client(
     assert host.calls[0].kwargs["client"] is client
 
 
-def _realtime_session_logging(details: Mapping[str, object]) -> LiteLLMLogging:
-    session_logging: Final = LiteLLMLogging(
+def _realtime_session_logging(details: Mapping[str, object]) -> HangarLLMLogging:
+    session_logging: Final = HangarLLMLogging(
         model="gpt-realtime-2.1",
         messages=[],
         stream=False,
         call_type="_arealtime",
         start_time=datetime.now(),
-        litellm_call_id=str(uuid.uuid4()),
+        hangarllm_call_id=str(uuid.uuid4()),
         function_id="realtime-session",
     )
     session_logging.model_call_details.update(details)
@@ -379,7 +379,7 @@ async def test_a_realtime_session_counts_a_deployment_success_only_when_it_ended
     make_core: MakeCore, host: EndpointHost, details: dict[str, object], counted: int | None
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
-    await core._arealtime(model="g", litellm_logging_obj=_realtime_session_logging(details))
+    await core._arealtime(model="g", hangarllm_logging_obj=_realtime_session_logging(details))
     assert core.health().store.get_cache("d1:successes", local_only=True) == counted
 
 
@@ -387,7 +387,7 @@ async def test_generic_endpoint_with_an_unknown_group_raises_without_calling_the
     make_core: MakeCore, host: EndpointHost
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")])
-    with pytest.raises(litellm.BadRequestError, match="model=nope"):
+    with pytest.raises(hangarllm.BadRequestError, match="model=nope"):
         await core.agenerate_content(model="nope", contents=[])
     assert host.calls == []
 
@@ -395,13 +395,13 @@ async def test_generic_endpoint_with_an_unknown_group_raises_without_calling_the
 # --- Responses API ids pin the deployment -----------------------------------------------------
 
 TWO_DEPLOYMENTS: Final = [deployment("g", "d1"), deployment("g", "d2")]
-ENCODED_RESPONSE_ID: Final = ResponsesAPIRequestUtils._build_responses_api_response_id("openai", "d2", "resp_abc")  # pyright: ignore[reportPrivateUsage]  # litellm's encoder
+ENCODED_RESPONSE_ID: Final = ResponsesAPIRequestUtils._build_responses_api_response_id("openai", "d2", "resp_abc")  # pyright: ignore[reportPrivateUsage]  # hangarllm's encoder
 
 
 @pytest.mark.parametrize(
     "endpoint", ["aget_responses", "acancel_responses", "acompact_responses", "adelete_responses", "alist_input_items"]
 )
-async def test_a_litellm_response_id_pins_the_deployment_it_encodes(
+async def test_a_hangarllm_response_id_pins_the_deployment_it_encodes(
     make_core: MakeCore, host: EndpointHost, endpoint: str
 ):
     core: Final = make_core(model_list=TWO_DEPLOYMENTS)
@@ -410,12 +410,12 @@ async def test_a_litellm_response_id_pins_the_deployment_it_encodes(
     assert host.deployments_called() == ["d2"] * 5
 
 
-async def test_a_litellm_response_id_overrides_the_request_model(make_core: MakeCore, host: EndpointHost):
+async def test_a_hangarllm_response_id_overrides_the_request_model(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=TWO_DEPLOYMENTS)
     for _ in range(5):
         await core.adelete_responses(response_id=ENCODED_RESPONSE_ID, model="g")
     assert host.deployments_called() == ["d2"] * 5
-    assert _bucket(host.calls[0].kwargs, "litellm_metadata")["model_group"] == "d2"
+    assert _bucket(host.calls[0].kwargs, "hangarllm_metadata")["model_group"] == "d2"
 
 
 async def test_the_response_id_reaches_the_host_still_encoded(make_core: MakeCore, host: EndpointHost):
@@ -436,7 +436,7 @@ async def test_a_plain_response_id_without_a_model_fails_with_type_error(make_co
 ENCODED_CONTAINER_ID: Final = ResponsesAPIRequestUtils.build_container_id("azure", "d2", "cntr_upstream")
 
 
-async def test_a_litellm_container_id_pins_its_deployment_and_is_sent_decoded(make_core: MakeCore, host: EndpointHost):
+async def test_a_hangarllm_container_id_pins_its_deployment_and_is_sent_decoded(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=TWO_DEPLOYMENTS)
     for _ in range(5):
         await core.aretrieve_container(container_id=ENCODED_CONTAINER_ID)
@@ -471,7 +471,7 @@ async def test_a_native_container_id_without_a_model_calls_the_handler_directly(
         "cntr_native",
         "azure",
     )
-    assert "litellm_metadata" not in call.kwargs
+    assert "hangarllm_metadata" not in call.kwargs
 
 
 async def test_create_container_with_an_unknown_model_passes_through_with_that_model(
@@ -498,7 +498,7 @@ ENCODED_VIDEO_ID: Final = encode_video_id_with_provider("video_up", "openai", mo
 @pytest.mark.parametrize(
     "endpoint", ["avideo_status", "avideo_content", "avideo_remix", "avideo_edit", "avideo_extension"]
 )
-async def test_a_litellm_video_id_pins_the_deployment_that_created_it(
+async def test_a_hangarllm_video_id_pins_the_deployment_that_created_it(
     make_core: MakeCore, host: EndpointHost, endpoint: str
 ):
     core: Final = make_core(model_list=TWO_DEPLOYMENTS)
@@ -649,7 +649,7 @@ async def test_assistants_endpoints_use_the_assistants_config(make_core: MakeCor
         model_list=[deployment("g", "d1")],
         assistants_config={
             "custom_llm_provider": "azure",
-            "litellm_params": {"api_key": "k", "api_base": "https://az"},
+            "hangarllm_params": {"api_key": "k", "api_base": "https://az"},
         },
     )
     await getattr(core, endpoint)(thread_id="t")
@@ -669,7 +669,7 @@ async def test_assistants_endpoint_with_an_explicit_provider_ignores_the_config(
     client: Final = object()
     core: Final = make_core(
         model_list=[deployment("g", "d1")],
-        assistants_config={"custom_llm_provider": "azure", "litellm_params": {"api_key": "k"}},
+        assistants_config={"custom_llm_provider": "azure", "hangarllm_params": {"api_key": "k"}},
     )
     await core.arun_thread(custom_llm_provider="openai", client=client, thread_id="t")
     call: Final = host.calls[0]
@@ -774,19 +774,19 @@ async def test_avector_store_create_without_a_model_calls_the_handler_directly(m
 
 
 async def test_avector_store_create_is_not_retried(make_core: MakeCore, host: EndpointHost):
-    host.answer("openai/d1", litellm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
+    host.answer("openai/d1", hangarllm.InternalServerError(message="boom", llm_provider="openai", model="d1"))
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=3)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.avector_store_create(model="g", name="n")
     assert len(host.calls) == 1
 
 
 # --- search tools ---------------------------------------------------------------------------
 
-SEARCH_TOOLS: Final = [{"search_tool_name": "s", "litellm_params": {"search_provider": "tavily", "api_key": "tk"}}]
+SEARCH_TOOLS: Final = [{"search_tool_name": "s", "hangarllm_params": {"search_provider": "tavily", "api_key": "tk"}}]
 
 
-async def test_asearch_calls_the_named_search_tool_with_its_litellm_params(make_core: MakeCore, host: EndpointHost):
+async def test_asearch_calls_the_named_search_tool_with_its_hangarllm_params(make_core: MakeCore, host: EndpointHost):
     core: Final = make_core(model_list=[deployment("g", "d1")], search_tools=SEARCH_TOOLS)
     response: Final = await core.asearch(model="s", query="q")
     call: Final = host.calls[0]
@@ -796,8 +796,8 @@ async def test_asearch_calls_the_named_search_tool_with_its_litellm_params(make_
         "tk",
         "q",
     )
-    assert _bucket(call.kwargs, "litellm_metadata")["model_group"] == "s"
-    assert response._hidden_params["additional_headers"]["x-litellm-model-group"] == "s"  # pyright: ignore[reportAttributeAccessIssue]  # the scripted response
+    assert _bucket(call.kwargs, "hangarllm_metadata")["model_group"] == "s"
+    assert response._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "s"  # pyright: ignore[reportAttributeAccessIssue]  # the scripted response
 
 
 async def test_asearch_with_an_unknown_tool_raises_value_error(make_core: MakeCore, host: EndpointHost):
@@ -809,7 +809,7 @@ async def test_asearch_with_an_unknown_tool_raises_value_error(make_core: MakeCo
 
 # --- guardrails ---------------------------------------------------------------------------
 
-GUARDRAILS: Final = [{"guardrail_name": "gr", "litellm_params": {"guardrail": "presidio", "mode": "pre_call"}}]
+GUARDRAILS: Final = [{"guardrail_name": "gr", "hangarllm_params": {"guardrail": "presidio", "mode": "pre_call"}}]
 
 
 async def test_aguardrail_runs_the_function_with_the_selected_guardrail(make_core: MakeCore, host: ScriptedHost):
@@ -821,9 +821,9 @@ async def test_aguardrail_runs_the_function_with_the_selected_guardrail(make_cor
 
     core: Final = make_core(model_list=[deployment("g", "d1")], guardrail_list=GUARDRAILS)
     assert await core.aguardrail(guardrail_name="gr", original_function=guard, data={"x": 1}) == "verdict"
-    assert sorted(seen[0]) == ["data", "litellm_metadata", "litellm_trace_id", "selected_guardrail"]
+    assert sorted(seen[0]) == ["data", "hangarllm_metadata", "hangarllm_trace_id", "selected_guardrail"]
     assert seen[0]["selected_guardrail"] == GUARDRAILS[0]
-    assert _bucket(seen[0], "litellm_metadata")["model_group"] == "gr"
+    assert _bucket(seen[0], "hangarllm_metadata")["model_group"] == "gr"
     assert host.calls == []
 
 
@@ -842,9 +842,9 @@ async def test_aguardrail_does_not_retry_a_failing_guardrail_function(make_core:
 
     async def guard(**_kwargs: object) -> str:  # kwargs-ok: the guardrail's keyword payload
         attempts.append(1)
-        raise litellm.InternalServerError(message="boom", llm_provider="", model="gr")
+        raise hangarllm.InternalServerError(message="boom", llm_provider="", model="gr")
 
     core: Final = make_core(model_list=[deployment("g", "d1")], guardrail_list=GUARDRAILS, num_retries=2)
-    with pytest.raises(litellm.InternalServerError, match="boom"):
+    with pytest.raises(hangarllm.InternalServerError, match="boom"):
         await core.aguardrail(guardrail_name="gr", original_function=guard)
     assert len(attempts) == 1

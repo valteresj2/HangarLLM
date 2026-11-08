@@ -15,44 +15,44 @@ import respx
 from fastapi import HTTPException, Request
 from pydantic import ValidationError
 
-import litellm
-import litellm.llms.custom_httpx.http_handler as http_handler
-import litellm.router_strategy.complexity_router.complexity_router as complexity_module
-from litellm.proxy import proxy_server
-from litellm.proxy._types import (
-    LitellmUserRoles,
+import hangarllm
+import hangarllm.llms.custom_httpx.http_handler as http_handler
+import hangarllm.router_strategy.complexity_router.complexity_router as complexity_module
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import (
+    HangarllmUserRoles,
     ProxyErrorTypes,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_endpoints import auto_router_endpoints
-from litellm.proxy.management_endpoints.auto_router_endpoints import (
+from hangarllm.proxy.management_endpoints import auto_router_endpoints
+from hangarllm.proxy.management_endpoints.auto_router_endpoints import (
     preview_auto_router_routing,
 )
-from litellm.router import Router
-from litellm.router_strategy.complexity_router import ComplexityRouter
-from litellm.router_strategy.complexity_router.jev_classifier import (
+from hangarllm.router import Router
+from hangarllm.router_strategy.complexity_router import ComplexityRouter
+from hangarllm.router_strategy.complexity_router.jev_classifier import (
     JevChoiceAnswer,
     JevClassifierClient,
     JevSystemOneResponse,
 )
-from litellm.router_strategy.complexity_router.request_models import AutoRouterRoutingTestRequest
-from litellm.types.management_endpoints.auto_router_endpoints import AutoRouterBenchmarksResponse
-from litellm.types.router import Deployment
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.router_strategy.complexity_router.request_models import AutoRouterRoutingTestRequest
+from hangarllm.types.management_endpoints.auto_router_endpoints import AutoRouterBenchmarksResponse
+from hangarllm.types.router import Deployment
+from hangarllm.types.utils import Choices, Message, ModelResponse
 
 ROUTING_HTTP_REQUEST: Final = Request(
     {"type": "http", "method": "POST", "path": "/auto_router/test_routing", "headers": []}
 )
 
-ADMIN = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-test", user_id="admin")
+ADMIN = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-test", user_id="admin")
 
 
 def _deployment(model_name: str, model: str, *, db_model: bool) -> dict[str, object]:
     """One entry as `Router.model_list` holds it, for either origin."""
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model},
+        "hangarllm_params": {"model": model},
         "model_info": {"id": f"{model_name}-{int(db_model)}", "db_model": db_model},
     }
 
@@ -66,7 +66,7 @@ TIERS = {
 
 
 ROUTER_MODEL_LIST = [
-    {"model_name": name, "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake-key"}}
+    {"model_name": name, "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake-key"}}
     for name in ("cheap-model", "mid-model", "strong-model", "reasoning-model")
 ]
 
@@ -109,7 +109,7 @@ def _request(prompt: str, **config_overrides: object) -> AutoRouterRoutingTestRe
 
 
 async def _route_body(body: Mapping[str, object], monkeypatch: pytest.MonkeyPatch, **config_overrides: object):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", _router())
     return await preview_auto_router_routing(
@@ -135,7 +135,7 @@ PLAN_MODE_TOOLS = [{"type": "function", "function": {"name": "exit_plan_mode", "
 
 async def _classifier_user_payload(body: Mapping[str, object], monkeypatch: pytest.MonkeyPatch) -> str:
     """The variable half of the classifier call this body produces."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     router, recorded_calls = _recording_router("SIMPLE")
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -170,8 +170,8 @@ async def test_preview_and_serving_share_default_model_resolution(
     explicit_default: str | None,
     expected: str,
 ):
-    from litellm.router_strategy.auto_router.auto_router_model_naming import validate_complexity_router_config_write
-    from litellm.types.management_endpoints.auto_router_endpoints import ComplexityRouterConfigValidationRequest
+    from hangarllm.router_strategy.auto_router.auto_router_model_naming import validate_complexity_router_config_write
+    from hangarllm.types.management_endpoints.auto_router_endpoints import ComplexityRouterConfigValidationRequest
 
     config: Final = {
         "tiers": tiers,
@@ -189,7 +189,7 @@ async def test_preview_and_serving_share_default_model_resolution(
     serving.init_complexity_router_deployment(
         Deployment(
             model_name="default-parity",
-            litellm_params={
+            hangarllm_params={
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": config,
                 "complexity_router_default_model": explicit_default,
@@ -291,7 +291,7 @@ async def test_tier_model_missing_from_the_proxy_is_reported(
 
 @pytest.mark.asyncio
 async def test_llm_classifier_call_is_billed_to_the_calling_key(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     router = _router()
     calls: list[dict] = []
@@ -463,7 +463,7 @@ def test_a_request_must_carry_exactly_one_usable_conversation(body: dict):
 async def test_a_key_that_cannot_call_the_classifier_model_is_rejected_before_it_is_called(
     monkeypatch: pytest.MonkeyPatch, config_overrides: dict
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     router = _router()
     calls: list[dict] = []
@@ -481,7 +481,7 @@ async def test_a_key_that_cannot_call_the_classifier_model_is_rejected_before_it
             http_request=ROUTING_HTTP_REQUEST,
             data=_request("what is 2+2", **config_overrides),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-restricted",
                 user_id="admin",
                 models=["cheap-model"],
@@ -494,7 +494,7 @@ async def test_a_key_that_cannot_call_the_classifier_model_is_rejected_before_it
 
 @pytest.mark.asyncio
 async def test_a_key_over_its_budget_cannot_run_a_classifier_config(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     router = _router()
     calls: list[dict] = []
@@ -515,7 +515,7 @@ async def test_a_key_over_its_budget_cannot_run_a_classifier_config(monkeypatch:
                 classifier_llm_config={"model": "classifier-model"},
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key="sk-broke",
                 user_id="admin",
                 max_budget=1.0,
@@ -551,7 +551,7 @@ async def test_jev_test_routing_enforces_key_budget_before_provider_invocation(
     monkeypatch.setattr(proxy_server, "llm_router", _router())
     monkeypatch.setattr(auto_router_endpoints, "ComplexityRouter", partial(ComplexityRouter, jev_client=client))
     actor: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-jev-budget-test",
         user_id="admin",
         models=["cheap-model", "typesafe/jev-test"],
@@ -598,11 +598,11 @@ async def test_jev_test_routing_hard_blocks_exhausted_throttle_enabled_keys(
             "tier": JevChoiceAnswer(type="choice", choice="SIMPLE", probabilities={"SIMPLE": 1.0}, confidence=1.0)
         },
     )
-    monkeypatch.setattr(litellm, "budget_exceeded_throttle_percentage", 0.1)
+    monkeypatch.setattr(hangarllm, "budget_exceeded_throttle_percentage", 0.1)
     monkeypatch.setattr(proxy_server, "llm_router", _router())
     monkeypatch.setattr(auto_router_endpoints, "ComplexityRouter", partial(ComplexityRouter, jev_client=client))
     actor: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-jev-throttle-test",
         user_id="admin",
         models=["cheap-model", "typesafe/jev-test"],
@@ -636,7 +636,7 @@ async def test_jev_test_routing_hard_blocks_exhausted_throttle_enabled_keys(
 async def test_a_heuristic_config_does_not_need_a_budget(
     monkeypatch: pytest.MonkeyPatch, max_budget: float, spend: float
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", _router())
 
@@ -644,7 +644,7 @@ async def test_a_heuristic_config_does_not_need_a_budget(
         http_request=ROUTING_HTTP_REQUEST,
         data=_request("what is 2+2"),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-broke",
             user_id="admin",
             max_budget=max_budget,
@@ -658,7 +658,7 @@ async def test_a_heuristic_config_does_not_need_a_budget(
 
 @pytest.mark.asyncio
 async def test_no_llm_router_on_the_proxy_is_a_500(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", None)
 
@@ -672,7 +672,7 @@ async def test_no_llm_router_on_the_proxy_is_a_500(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.asyncio
 async def test_non_admin_without_a_team_is_rejected(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", _router())
 
@@ -681,7 +681,7 @@ async def test_non_admin_without_a_team_is_rejected(monkeypatch: pytest.MonkeyPa
             http_request=ROUTING_HTTP_REQUEST,
             data=_request("what is 2+2"),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-user", user_id="user"
+                user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-user", user_id="user"
             ),
         )
 
@@ -707,7 +707,7 @@ def test_classifier_plugin_is_not_settable_over_http():
 
 def _benchmark_db(rows: Sequence[Mapping[str, object]], recorded: float | None = None) -> SimpleNamespace:
     """The joined benchmark statement returns the rows as given; any other statement is the Overall total."""
-    from litellm.proxy.db.autorouter_session_rollup import AUTOROUTER_BENCHMARKS_SQL
+    from hangarllm.proxy.db.autorouter_session_rollup import AUTOROUTER_BENCHMARKS_SQL
 
     total: Final = recorded if recorded is not None else sum(float(row.get("saved_spend") or 0.0) for row in rows)
 
@@ -718,12 +718,12 @@ def _benchmark_db(rows: Sequence[Mapping[str, object]], recorded: float | None =
 
 
 class TestAutoRouterBenchmarks:
-    from litellm.proxy.management_endpoints.auto_router_endpoints import _SessionAggRow
+    from hangarllm.proxy.management_endpoints.auto_router_endpoints import _SessionAggRow
 
     @pytest.fixture(autouse=True)
     def _pin_the_router_global(self, monkeypatch: pytest.MonkeyPatch):
         """Every test here reads proxy_server.llm_router, so no test may inherit a sibling's."""
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "llm_router", None)
 
@@ -735,8 +735,8 @@ class TestAutoRouterBenchmarks:
         api_key: str | None = None,
         recorded: float | None = None,
     ) -> AutoRouterBenchmarksResponse:
-        from litellm.proxy import proxy_server
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
 
         monkeypatch.setattr(proxy_server, "prisma_client", _benchmark_db(rows, recorded))
         monkeypatch.setattr(
@@ -783,7 +783,7 @@ class TestAutoRouterBenchmarks:
     )
 
     def test_overall_hit_rate_counts_hits_independently_of_bucketing(self):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
 
         totals = _benchmark_totals(self.ROW)
         bucket_hits = totals.cache.same_model.hits + totals.cache.first_visit.hits + totals.cache.return_to_tier.hits
@@ -791,7 +791,7 @@ class TestAutoRouterBenchmarks:
         assert totals.cache.hit_rate_pct == pytest.approx(100.0 * 28 / 38, abs=0.1)
 
     def test_fold_math_matches_hand_computed_truth(self):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
 
         totals = _benchmark_totals(self.ROW)
         assert totals.sessions == 4
@@ -812,7 +812,7 @@ class TestAutoRouterBenchmarks:
         assert totals.cache.unordered_turns == 1
 
     def test_a_losing_router_reports_negative_savings(self):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
 
         losing = self.ROW.model_copy(update={"saved_spend": -5.0, "savings_estimated_saved_spend": -5.0})
         totals = _benchmark_totals(losing)
@@ -929,7 +929,7 @@ class TestAutoRouterBenchmarks:
         assert (group.baseline_spend, group.saved_pct) == (None, None)
 
     def test_an_empty_window_folds_to_zeros(self):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import (
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import (
             _benchmark_totals,
             _summed_agg_row,
         )
@@ -943,7 +943,7 @@ class TestAutoRouterBenchmarks:
         assert totals.classifier_cost == 0.0
 
     def test_totals_sum_counters_across_groups_before_deriving_ratios(self):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import (
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import (
             _benchmark_totals,
             _summed_agg_row,
         )
@@ -978,7 +978,7 @@ class TestAutoRouterBenchmarks:
         assert quality.tier_turns == {"2": 7}
 
     def test_summed_totals_carry_no_tier_map_because_names_are_router_scoped(self):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import _summed_agg_row
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import _summed_agg_row
 
         quality = self.ROW.model_copy(update={"router_type": "quality", "tier_turns": {"2": 7}})
         complexity = self.ROW.model_copy(update={"tier_turns": {"medium": 7}})
@@ -987,12 +987,12 @@ class TestAutoRouterBenchmarks:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("user_id", [None, "own-user", "other-user"])
     async def test_non_admin_roles_cannot_read_benchmarks(self, user_id: str | None):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
 
         with pytest.raises(HTTPException) as err:
             await get_auto_router_benchmarks(
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-x", user_id="own-user"
+                    user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-x", user_id="own-user"
                 ),
                 start_date="2026-08-01",
                 end_date="2026-08-02",
@@ -1007,9 +1007,9 @@ class TestAutoRouterBenchmarks:
         import httpx
         from fastapi import FastAPI
 
-        from litellm.proxy import proxy_server
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
 
         query: Final = AsyncMock(return_value=[])
         monkeypatch.setattr(proxy_server, "prisma_client", SimpleNamespace(db=SimpleNamespace(query_raw=query)))
@@ -1029,9 +1029,9 @@ class TestAutoRouterBenchmarks:
         import httpx
         from fastapi import FastAPI
 
-        from litellm.proxy import proxy_server
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
 
         query: Final = AsyncMock(return_value=[])
         monkeypatch.setattr(proxy_server, "prisma_client", SimpleNamespace(db=SimpleNamespace(query_raw=query)))
@@ -1046,8 +1046,8 @@ class TestAutoRouterBenchmarks:
 
     @pytest.mark.asyncio
     async def test_a_reversed_window_is_rejected(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
 
         monkeypatch.setattr(proxy_server, "prisma_client", object())
         with pytest.raises(HTTPException) as err:
@@ -1059,13 +1059,13 @@ class TestAutoRouterBenchmarks:
         assert err.value.status_code == 400
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("role", [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY])
+    @pytest.mark.parametrize("role", [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY])
     @pytest.mark.parametrize("user_id", [None, "selected-user"])
     async def test_endpoint_returns_groups_and_totals_from_the_rollup(
-        self, monkeypatch: pytest.MonkeyPatch, role: LitellmUserRoles, user_id: str | None
+        self, monkeypatch: pytest.MonkeyPatch, role: HangarllmUserRoles, user_id: str | None
     ):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
 
         prisma_client: Final = _benchmark_db([TestAutoRouterBenchmarks.ROW.model_dump()])
         monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -1127,8 +1127,8 @@ class TestAutoRouterBenchmarks:
     async def test_the_tier_map_reaches_the_response_as_the_jsonb_column_returns_it(
         self, wire_value: dict, expected: dict, monkeypatch: pytest.MonkeyPatch
     ):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_benchmarks
 
         monkeypatch.setattr(
             proxy_server, "prisma_client", _benchmark_db([{**TestAutoRouterBenchmarks.ROW.model_dump(), "tier_turns": wire_value}])
@@ -1216,10 +1216,10 @@ class TestAutoRouterBenchmarks:
                 "not-a-mapping",
                 {},
                 {"model_name": "no-params"},
-                {"model_name": "", "litellm_params": {"model": "auto_router/complexity_router"}},
-                {"model_name": 7, "litellm_params": {"model": "auto_router/complexity_router"}},
-                {"model_name": "no-model", "litellm_params": {}},
-                {"model_name": "unreadable-model", "litellm_params": {"model": None}},
+                {"model_name": "", "hangarllm_params": {"model": "auto_router/complexity_router"}},
+                {"model_name": 7, "hangarllm_params": {"model": "auto_router/complexity_router"}},
+                {"model_name": "no-model", "hangarllm_params": {}},
+                {"model_name": "unreadable-model", "hangarllm_params": {"model": None}},
             ],
         )
 
@@ -1242,8 +1242,8 @@ class TestAutoRouterBenchmarks:
     def test_the_listed_kinds_match_the_router_types_traffic_can_record(self):
         from typing import get_args, get_type_hints
 
-        from litellm.router_strategy.auto_router.auto_router_model_naming import StrategyRouterKind
-        from litellm.types.utils import StandardLoggingRoutingDecision
+        from hangarllm.router_strategy.auto_router.auto_router_model_naming import StrategyRouterKind
+        from hangarllm.types.utils import StandardLoggingRoutingDecision
 
         readonly_router_type: Final = get_type_hints(StandardLoggingRoutingDecision, include_extras=True)["router_type"]
         recorded: Final = set(get_args(get_args(readonly_router_type)[0]))
@@ -1256,15 +1256,15 @@ class TestAutoRouterBenchmarks:
 
 from datetime import datetime, timedelta, timezone
 
-from litellm.proxy.management_endpoints.auto_router_endpoints import (
+from hangarllm.proxy.management_endpoints.auto_router_endpoints import (
     get_shadow_eval_job,
     list_shadow_eval_jobs,
     start_shadow_eval,
     stop_shadow_eval_job,
 )
-from litellm.types.management_endpoints.auto_router_endpoints import SHADOW_EVAL_TURN_VALVE, StartShadowEvalRequest
+from hangarllm.types.management_endpoints.auto_router_endpoints import SHADOW_EVAL_TURN_VALVE, StartShadowEvalRequest
 
-VIEWER = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, api_key="sk-view", user_id="viewer")
+VIEWER = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, api_key="sk-view", user_id="viewer")
 
 
 class TestAutoRouterSession:
@@ -1290,7 +1290,7 @@ class TestAutoRouterSession:
 
     @staticmethod
     def _rig(monkeypatch: pytest.MonkeyPatch, rows: Sequence[Mapping[str, object]]):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         lookups: list[tuple[Mapping[str, object], Mapping[str, object]]] = []
 
@@ -1305,7 +1305,7 @@ class TestAutoRouterSession:
         monkeypatch.setattr(
             proxy_server,
             "prisma_client",
-            type("P", (), {"db": type("D", (), {"litellm_autoroutersession": _Table()})()})(),
+            type("P", (), {"db": type("D", (), {"hangarllm_autoroutersession": _Table()})()})(),
         )
         return lookups
 
@@ -1319,7 +1319,7 @@ class TestAutoRouterSession:
         turns: int,
         estimated: bool,
     ) -> None:
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
 
         caller = UserAPIKeyAuth(api_key="sk-caller")
         row: Final = {
@@ -1354,7 +1354,7 @@ class TestAutoRouterSession:
     async def test_another_keys_session_is_a_404_even_for_an_admin(self, monkeypatch: pytest.MonkeyPatch):
         # The scope is the caller's own key hash, exactly what the spend writer keyed the row under;
         # an admin wanting every key's sessions has /auto_router/benchmarks.
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
 
         other = UserAPIKeyAuth(api_key="sk-other")
         lookups = self._rig(monkeypatch, [{**self.ROW, "api_key": other.api_key, "session_id": "sess-1"}])
@@ -1366,7 +1366,7 @@ class TestAutoRouterSession:
 
     @pytest.mark.asyncio
     async def test_the_sessions_most_recently_active_router_is_the_one_reported(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
 
         older = {**self.ROW, "api_key": ADMIN.api_key, "session_id": "s", "router_name": "old-auto"}
         newer = {
@@ -1385,7 +1385,7 @@ class TestAutoRouterSession:
     async def test_session_preserves_historical_baseline_labels(
         self, monkeypatch: pytest.MonkeyPatch, mixed: bool
     ):
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
 
         priced = {"anthropic/claude-opus-5": 2, "anthropic/claude-sonnet-5": 1}
         self._rig(
@@ -1409,8 +1409,8 @@ class TestAutoRouterSession:
     async def test_an_oversized_client_session_id_is_bounded_like_the_writer_bounded_it(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        from litellm.proxy.db.autorouter_session_rollup import bounded_session_id
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
+        from hangarllm.proxy.db.autorouter_session_rollup import bounded_session_id
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
 
         long_id = "s" * 300
         self._rig(monkeypatch, [{**self.ROW, "api_key": ADMIN.api_key, "session_id": bounded_session_id(long_id)}])
@@ -1420,8 +1420,8 @@ class TestAutoRouterSession:
 
     @pytest.mark.asyncio
     async def test_without_a_database_the_endpoint_says_so(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import get_auto_router_session
 
         monkeypatch.setattr(proxy_server, "prisma_client", None)
         with pytest.raises(HTTPException) as err:
@@ -1429,7 +1429,7 @@ class TestAutoRouterSession:
         assert err.value.status_code == 500
 
 
-NON_ADMIN = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-user", user_id="user")
+NON_ADMIN = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-user", user_id="user")
 
 
 def _complexity_router_deployment(
@@ -1437,7 +1437,7 @@ def _complexity_router_deployment(
 ) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_default_model": default,
             "complexity_router_config": {
@@ -1461,25 +1461,25 @@ def _shadow_router() -> Router:
     """
     return Router(
         model_list=[
-            {"model_name": "cheap", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}},
-            {"model_name": "mid", "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}},
-            {"model_name": "pricey", "litellm_params": {"model": "openai/o3", "api_key": "fake"}},
-            {"model_name": "prefixed-tier", "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}},
-            {"model_name": "bare-tier", "litellm_params": {"model": "gpt-4o", "api_key": "fake"}},
-            {"model_name": "house-sonnet", "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"}},
+            {"model_name": "cheap", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}},
+            {"model_name": "mid", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"}},
+            {"model_name": "pricey", "hangarllm_params": {"model": "openai/o3", "api_key": "fake"}},
+            {"model_name": "prefixed-tier", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "fake"}},
+            {"model_name": "bare-tier", "hangarllm_params": {"model": "gpt-4o", "api_key": "fake"}},
+            {"model_name": "house-sonnet", "hangarllm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"}},
             {
                 "model_name": "model_name_team-a_x",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
                 "model_info": {"team_id": "team-a", "team_public_model_name": "house-judge"},
             },
             {
                 "model_name": "anthropic/claude-sonnet-5-team-a",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
                 "model_info": {"team_id": "team-a", "team_public_model_name": "anthropic/claude-sonnet-5"},
             },
             {
                 "model_name": "model_name_team-b_y",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
                 "model_info": {"team_id": "team-b", "team_public_model_name": "b-tier"},
             },
             _complexity_router_deployment(
@@ -1578,7 +1578,7 @@ def _shadow_prisma(
         requested = where["token"]["in"]
         return [_key_record(t, team_id=teams.get(t)) for t in known_keys if t in requested]
 
-    prisma.db.litellm_verificationtoken.find_many = AsyncMock(side_effect=find_tokens)
+    prisma.db.hangarllm_verificationtoken.find_many = AsyncMock(side_effect=find_tokens)
 
     async def find_teams(*, where):
         requested = where["team_id"]["in"]
@@ -1588,8 +1588,8 @@ def _shadow_prisma(
         requested = where["user_id"]["in"]
         return [_user_record(u, email) for u, email in user_emails.items() if u in requested]
 
-    prisma.db.litellm_teamtable.find_many = AsyncMock(side_effect=find_teams)
-    prisma.db.litellm_usertable.find_many = AsyncMock(side_effect=find_users)
+    prisma.db.hangarllm_teamtable.find_many = AsyncMock(side_effect=find_teams)
+    prisma.db.hangarllm_usertable.find_many = AsyncMock(side_effect=find_users)
 
     async def execute_raw(sql: str, *params: object):
         if "SET stopped_by" in sql:
@@ -1671,11 +1671,11 @@ def _shadow_prisma(
         )
         return {field: getattr(row, field) for field in fields}
 
-    prisma.db.litellm_shadowevaljob.find_many = AsyncMock(side_effect=find_many_legs)
-    prisma.db.litellm_shadowevaljob.create_many = AsyncMock(return_value=1)
-    prisma.db.litellm_shadowevaljob.update_many = AsyncMock(return_value=1)
-    prisma.db.litellm_shadowevalattempt.find_first = AsyncMock(return_value=None)
-    prisma.db.litellm_shadowevalfunnel.create_many = AsyncMock(return_value=1)
+    prisma.db.hangarllm_shadowevaljob.find_many = AsyncMock(side_effect=find_many_legs)
+    prisma.db.hangarllm_shadowevaljob.create_many = AsyncMock(return_value=1)
+    prisma.db.hangarllm_shadowevaljob.update_many = AsyncMock(return_value=1)
+    prisma.db.hangarllm_shadowevalattempt.find_first = AsyncMock(return_value=None)
+    prisma.db.hangarllm_shadowevalfunnel.create_many = AsyncMock(return_value=1)
     prisma.attempt_rows = []
 
     async def query_raw(sql: str, *params: object):
@@ -1695,7 +1695,7 @@ def _shadow_prisma(
             return by_leg_rows if by_leg_rows is not None else []
         if "COALESCE(a.router_name" in sql:
             return by_router_rows if by_router_rows is not None else []
-        if 'FROM "LiteLLM_ShadowEvalFunnel"' in sql:
+        if 'FROM "HangarLLM_ShadowEvalFunnel"' in sql:
             return prisma.funnel_rows
         return agg_rows if agg_rows is not None else []
 
@@ -1718,9 +1718,9 @@ def _start_request(**overrides: object) -> StartShadowEvalRequest:
 
 
 def _configure_anthropic_sdk_judge(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "anthropic_key", "sk-test")
+    monkeypatch.setattr(hangarllm, "anthropic_key", "sk-test")
 
 
 @pytest.mark.asyncio
@@ -1728,7 +1728,7 @@ async def test_start_shadow_eval_writes_one_leg_per_key_in_one_statement(monkeyp
     """N keys become N sibling rows sharing group_id and identical config, written by a
     single create_many so a unique-index loser rolls back the whole claim, and expiry or
     budget exhaustion frees every requested key's slot first."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
@@ -1748,8 +1748,8 @@ async def test_start_shadow_eval_writes_one_leg_per_key_in_one_statement(monkeyp
     assert "j.target_type = $2 AND j.target_id = ANY($1::text[])" in sweep_sql
     assert sweep_ids == ["key-hash", "key-hash-2"]
     assert sweep_type == "key"
-    prisma.db.litellm_shadowevaljob.create_many.assert_awaited_once()
-    rows = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_awaited_once()
+    rows = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     assert [(row["target_type"], row["target_id"]) for row in rows] == [("key", "key-hash"), ("key", "key-hash-2")]
     assert (
         len(
@@ -1783,7 +1783,7 @@ async def test_start_shadow_eval_multi_router_writes_the_set_on_every_leg(monkey
     """A multi-router job stores the full set in router_names and the first router in
     router_name, so a rolling-deploy pod that predates router_names still runs a valid
     single-arm eval and its unstamped attempt rows attribute to that first router."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
@@ -1794,7 +1794,7 @@ async def test_start_shadow_eval_multi_router_writes_the_set_on_every_leg(monkey
         _start_request(router_name=None, router_names=("my-router", "classifier-router")), ADMIN
     )
 
-    rows = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    rows = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     assert all(row["router_name"] == "my-router" for row in rows)
     assert all(row["router_names"] == ["my-router", "classifier-router"] for row in rows)
     assert response.router_names == ("my-router", "classifier-router")
@@ -1803,7 +1803,7 @@ async def test_start_shadow_eval_multi_router_writes_the_set_on_every_leg(monkey
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_rejects_an_unconfigured_router_in_the_set(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
@@ -1814,14 +1814,14 @@ async def test_start_shadow_eval_rejects_an_unconfigured_router_in_the_set(monke
         await start_shadow_eval(_start_request(router_name=None, router_names=("my-router", "not-a-router")), ADMIN)
 
     assert exc.value.status_code == 400
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_judge_collision_is_found_on_every_router_of_the_set(monkeypatch: pytest.MonkeyPatch):
     """The judge-as-candidate guard walks every candidate router: a judge that serves an
     arm of the SECOND router still poisons the whole job's win rates."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
@@ -1832,27 +1832,27 @@ async def test_judge_collision_is_found_on_every_router_of_the_set(monkeypatch: 
         await start_shadow_eval(_start_request(router_name=None, router_names=("my-router", "sonnet-router")), ADMIN)
 
     assert exc.value.status_code == 400
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_rejects_an_uncredentialed_sdk_judge(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
-    monkeypatch.setattr(litellm, "anthropic_key", None)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "anthropic_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
 
     with pytest.raises(HTTPException, match="ANTHROPIC_API_KEY") as exc:
         await start_shadow_eval(_start_request(), ADMIN)
 
     assert exc.value.status_code == 400
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1860,14 +1860,14 @@ async def test_start_shadow_eval_rejects_an_uncredentialed_sdk_judge(monkeypatch
 async def test_start_shadow_eval_accepts_an_sdk_judge_with_anthropic_credentials(
     monkeypatch: pytest.MonkeyPatch, credential_name: str
 ) -> None:
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
-    monkeypatch.setattr(litellm, "anthropic_key", None)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "anthropic_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     monkeypatch.setenv(credential_name, "test-credential")
@@ -1875,17 +1875,17 @@ async def test_start_shadow_eval_accepts_an_sdk_judge_with_anthropic_credentials
     response = await start_shadow_eval(_start_request(), ADMIN)
 
     assert response.status == "running"
-    prisma.db.litellm_shadowevaljob.create_many.assert_awaited_once()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_accepts_an_sdk_judge_when_anthropic_secret_lookup_is_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.integrations.custom_secret_manager import CustomSecretManager
-    from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+    from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
     class AnthropicSecretManager(CustomSecretManager):
         def sync_read_secret(
@@ -1901,39 +1901,39 @@ async def test_start_shadow_eval_accepts_an_sdk_judge_when_anthropic_secret_look
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
-    monkeypatch.setattr(litellm, "anthropic_key", None)
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "secret_manager_client", AnthropicSecretManager())
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "anthropic_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", AnthropicSecretManager())
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 
     response = await start_shadow_eval(_start_request(), ADMIN)
 
     assert response.status == "running"
-    prisma.db.litellm_shadowevaljob.create_many.assert_awaited_once()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_accepts_a_configured_judge_without_anthropic_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
-    monkeypatch.setattr(litellm, "anthropic_key", None)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "anthropic_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 
     response = await start_shadow_eval(_start_request(judge_model="house-sonnet"), ADMIN)
 
     assert response.status == "running"
-    prisma.db.litellm_shadowevaljob.create_many.assert_awaited_once()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1977,7 +1977,7 @@ async def test_start_shadow_eval_accepts_a_configured_judge_without_anthropic_cr
 async def test_start_shadow_eval_rejections(
     monkeypatch: pytest.MonkeyPatch, caller, request_overrides, claimed, expected_status
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(legs=[_leg_record(id=f"leg-{key}", group_id="job-7", target_id=key) for key in claimed])
@@ -1987,7 +1987,7 @@ async def test_start_shadow_eval_rejections(
     with pytest.raises(HTTPException) as exc:
         await start_shadow_eval(_start_request(**request_overrides), caller)
     assert exc.value.status_code == expected_status
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -2016,10 +2016,10 @@ async def test_start_shadow_eval_accepts_a_judge_that_serves_neither_arm(
     Without these, a gate that refused every judge would pass the rejection table above
     while making the endpoint useless.
     """
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "api_key", "sk-test")
-    import litellm.proxy.proxy_server as proxy_server
+    monkeypatch.setattr(hangarllm, "api_key", "sk-test")
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -2028,7 +2028,7 @@ async def test_start_shadow_eval_accepts_a_judge_that_serves_neither_arm(
     response = await start_shadow_eval(_start_request(**request_overrides), ADMIN)
 
     assert response.job_id
-    prisma.db.litellm_shadowevaljob.create_many.assert_awaited_once()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -2042,7 +2042,7 @@ async def test_start_shadow_eval_names_the_colliding_arm_by_the_deployment_the_a
     result that has to be discarded. The detail has to name the deployment, since that is
     the thing the admin can go and change.
     """
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     monkeypatch.setattr(proxy_server, "prisma_client", _shadow_prisma())
@@ -2060,7 +2060,7 @@ async def test_start_shadow_eval_names_the_colliding_arm_by_the_deployment_the_a
 async def test_start_shadow_eval_names_the_busy_key_and_its_job(monkeypatch: pytest.MonkeyPatch):
     """A key busy elsewhere blocks the whole start rather than being silently dropped from
     it, and the 409 names which key and which job so the caller can stop or drop it."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(legs=[_leg_record(id="leg-b", group_id="job-7", target_id="key-hash-2")])
@@ -2077,7 +2077,7 @@ async def test_start_shadow_eval_names_the_busy_key_and_its_job(monkeypatch: pyt
 async def test_start_shadow_eval_reuses_a_key_whose_previous_job_already_stopped(monkeypatch: pytest.MonkeyPatch):
     """The claim is held by unstopped legs only, matching the partial unique index. A read
     that forgets that would strand every key that has ever finished a job."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(legs=[_leg_record(group_id="job-7", stopped_at=datetime.now(timezone.utc))])
@@ -2087,21 +2087,21 @@ async def test_start_shadow_eval_reuses_a_key_whose_previous_job_already_stopped
     job = await start_shadow_eval(_start_request(), ADMIN)
 
     assert job.status == "running"
-    prisma.db.litellm_shadowevaljob.create_many.assert_awaited_once()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_rejects_an_uncredentialed_sdk_baseline(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
-    monkeypatch.setattr(litellm, "anthropic_key", None)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "anthropic_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
 
     with pytest.raises(HTTPException, match=r"baseline_model.*ANTHROPIC_API_KEY") as exc:
         await start_shadow_eval(
@@ -2115,14 +2115,14 @@ async def test_start_shadow_eval_rejects_an_uncredentialed_sdk_baseline(monkeypa
         )
 
     assert exc.value.status_code == 400
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_reverse_records_its_arms_and_holds_its_own_slot(monkeypatch: pytest.MonkeyPatch):
     """The two directions ask opposite questions of the same key, so a forward job holding
     the slot must not block a reverse one. The second reverse start still 409s."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     legs = [_leg_record(group_id="job-fwd")]
@@ -2134,7 +2134,7 @@ async def test_start_shadow_eval_reverse_records_its_arms_and_holds_its_own_slot
     response = await start_shadow_eval(reverse, ADMIN)
 
     assert (response.direction, response.baseline_model) == ("reverse", "openai/gpt-4o")
-    rows = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    rows = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     assert rows[0]["direction"] == "reverse"
     assert rows[0]["baseline_model"] == "openai/gpt-4o"
 
@@ -2146,7 +2146,7 @@ async def test_start_shadow_eval_reverse_records_its_arms_and_holds_its_own_slot
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_forward_leaves_the_baseline_column_empty(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
@@ -2155,7 +2155,7 @@ async def test_start_shadow_eval_forward_leaves_the_baseline_column_empty(monkey
 
     await start_shadow_eval(_start_request(), ADMIN)
 
-    rows = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    rows = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     assert rows[0]["direction"] == "forward"
     assert rows[0]["baseline_model"] is None
 
@@ -2165,7 +2165,7 @@ async def test_start_shadow_eval_writes_the_model_scope_on_every_leg_and_echoes_
     """A model scope is job config, so every leg carries the same copy and both the start
     response and a later list read report it; an auto-router is a legitimate scope (a
     forward job on one router may sample what another router serves today)."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
@@ -2176,7 +2176,7 @@ async def test_start_shadow_eval_writes_the_model_scope_on_every_leg_and_echoes_
         _start_request(api_key_ids=("key-hash", "key-hash-2"), models=("cheap", "sonnet-router")), ADMIN
     )
 
-    rows = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    rows = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     assert [row["models"] for row in rows] == [["cheap", "sonnet-router"], ["cheap", "sonnet-router"]]
     assert response.models == ("cheap", "sonnet-router")
 
@@ -2190,7 +2190,7 @@ async def test_start_shadow_eval_writes_the_model_scope_on_every_leg_and_echoes_
 async def test_start_shadow_eval_accepts_a_team_public_scope_for_a_user_target(monkeypatch: pytest.MonkeyPatch):
     """A user's traffic can arrive on any team's key, so a name only one team can ask for
     is a legitimate scope for a user target even though it resolves for nobody unscoped."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(known_users={"dev-alice": "alice@example.com"})
@@ -2202,14 +2202,14 @@ async def test_start_shadow_eval_accepts_a_team_public_scope_for_a_user_target(m
     )
 
     assert response.models == ("house-judge",)
-    assert prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"][0]["models"] == ["house-judge"]
+    assert prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"][0]["models"] == ["house-judge"]
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_rejects_a_model_scope_this_proxy_does_not_serve(monkeypatch: pytest.MonkeyPatch):
     """A typo'd model name would otherwise start a job that samples nothing. Only the
     unresolvable names are reported, so the caller fixes them in one round."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
@@ -2221,7 +2221,7 @@ async def test_start_shadow_eval_rejects_a_model_scope_this_proxy_does_not_serve
     assert exc.value.status_code == 400
     assert "'no-such-model-zzz'" in exc.value.detail
     assert "'cheap'" not in exc.value.detail
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 def test_start_request_dedupes_the_model_scope_and_rejects_blank_names():
@@ -2245,7 +2245,7 @@ def test_start_request_rejects_a_model_scope_on_a_reverse_job():
 async def test_start_shadow_eval_rejects_keys_this_proxy_does_not_know(monkeypatch: pytest.MonkeyPatch):
     """A typo'd api_key_id would otherwise create a leg no traffic can ever match. Every
     unknown key is named at once, so a caller passing several fixes them in one round."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(known_keys=("key-hash",))
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -2256,7 +2256,7 @@ async def test_start_shadow_eval_rejects_keys_this_proxy_does_not_know(monkeypat
     assert exc.value.status_code == 400
     assert "typo-a, typo-b" in exc.value.detail
     assert "key-hash," not in exc.value.detail
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 def test_start_shadow_eval_request_dedupes_and_bounds_the_key_set():
@@ -2302,7 +2302,7 @@ def test_start_request_bounds_the_combined_target_count_across_types():
 async def test_start_shadow_eval_creates_typed_legs_for_team_and_user_targets(
     monkeypatch: pytest.MonkeyPatch, overrides, prisma_kwargs, expected_target
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(**prisma_kwargs)
@@ -2312,7 +2312,7 @@ async def test_start_shadow_eval_creates_typed_legs_for_team_and_user_targets(
     response = await start_shadow_eval(_start_request(**overrides), ADMIN)
 
     target_type, target_id, target_alias = expected_target
-    rows = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    rows = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     assert [(row["target_type"], row["target_id"]) for row in rows] == [(target_type, target_id)]
     assert response.status == "running"
     target = response.targets[0]
@@ -2344,7 +2344,7 @@ async def test_start_shadow_eval_creates_typed_legs_for_team_and_user_targets(
 async def test_start_shadow_eval_rejects_teams_and_users_this_proxy_does_not_know(
     monkeypatch: pytest.MonkeyPatch, overrides, prisma_kwargs, expected_detail
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(**prisma_kwargs)
@@ -2355,14 +2355,14 @@ async def test_start_shadow_eval_rejects_teams_and_users_this_proxy_does_not_kno
         await start_shadow_eval(_start_request(**overrides), ADMIN)
     assert exc.value.status_code == 400
     assert expected_detail in exc.value.detail
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_mixed_targets_create_both_legs_and_sweep_once_per_type(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(known_teams={"team-eng": "Engineering"})
@@ -2371,7 +2371,7 @@ async def test_start_shadow_eval_mixed_targets_create_both_legs_and_sweep_once_p
 
     response = await start_shadow_eval(_start_request(team_ids=("team-eng",)), ADMIN)
 
-    rows = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    rows = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     assert [(row["target_type"], row["target_id"]) for row in rows] == [("key", "key-hash"), ("team", "team-eng")]
     assert len({row["group_id"] for row in rows}) == 1
     sweeps = [
@@ -2388,7 +2388,7 @@ async def test_start_shadow_eval_mixed_targets_create_both_legs_and_sweep_once_p
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_names_the_busy_team_target(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(
@@ -2402,14 +2402,14 @@ async def test_start_shadow_eval_names_the_busy_team_target(monkeypatch: pytest.
         await start_shadow_eval(_start_request(api_key_ids=(), team_ids=("team-eng",)), ADMIN)
     assert exc.value.status_code == 409
     assert "team team-eng (job job-7)" in exc.value.detail
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_claim_matches_exact_target_pairs_not_bare_ids(monkeypatch: pytest.MonkeyPatch):
     """A key whose hash happens to spell a team's id must not hold the team's slot: the
     claim matches (target_type, target_id) pairs, never ids across kinds."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(
@@ -2422,14 +2422,14 @@ async def test_start_shadow_eval_claim_matches_exact_target_pairs_not_bare_ids(m
     response = await start_shadow_eval(_start_request(api_key_ids=(), team_ids=("team-eng",)), ADMIN)
 
     assert response.status == "running"
-    prisma.db.litellm_shadowevaljob.create_many.assert_awaited_once()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_list_shadow_eval_jobs_rejects_a_lone_filter_half(monkeypatch: pytest.MonkeyPatch):
     """target_type and target_id only mean anything together: a bare id could name a key
     or a team, and a bare type filters nothing."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(legs=[_leg_record()])
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -2448,11 +2448,11 @@ async def test_list_shadow_eval_jobs_rejects_a_lone_filter_half(monkeypatch: pyt
 async def test_start_shadow_eval_concurrent_unique_violation_is_a_409(monkeypatch: pytest.MonkeyPatch):
     from prisma.errors import UniqueViolationError
 
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma()
-    prisma.db.litellm_shadowevaljob.create_many = AsyncMock(
+    prisma.db.hangarllm_shadowevaljob.create_many = AsyncMock(
         side_effect=UniqueViolationError(MagicMock(message="unique constraint"))
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -2483,7 +2483,7 @@ def test_start_request_pins_baseline_model_to_reverse(overrides):
 async def test_get_shadow_eval_job_pools_counts_and_slices_results_per_key(monkeypatch: pytest.MonkeyPatch):
     """One read answers for every leg: totals and stratifications aggregate over the
     group's leg ids, and the by-key slice maps each leg id back to its key hash."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     tier_rows = [
         {
@@ -2538,7 +2538,7 @@ async def test_get_shadow_eval_job_pools_counts_and_slices_results_per_key(monke
         agg_rows=tier_rows,
         by_leg_rows=leg_rows,
     )
-    prisma.db.litellm_shadowevalattempt.find_first = AsyncMock(return_value=MagicMock(error="judge call failed: boom"))
+    prisma.db.hangarllm_shadowevalattempt.find_first = AsyncMock(return_value=MagicMock(error="judge call failed: boom"))
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
 
     response = await get_shadow_eval_job("job-1", VIEWER)
@@ -2573,7 +2573,7 @@ async def test_get_shadow_eval_job_pools_counts_and_slices_results_per_key(monke
     ]
     totals_args = [call.args for call in prisma.db.query_raw.await_args_list if "judged_count" in call.args[0]]
     assert totals_args == [(totals_args[0][0], ["leg-1", "leg-2"])]
-    error_where = prisma.db.litellm_shadowevalattempt.find_first.call_args.kwargs["where"]
+    error_where = prisma.db.hangarllm_shadowevalattempt.find_first.call_args.kwargs["where"]
     assert error_where == {"job_id": {"in": ["leg-1", "leg-2"]}, "outcome": "error"}
 
 
@@ -2582,7 +2582,7 @@ async def test_get_shadow_eval_job_slices_results_per_router(monkeypatch: pytest
     """A multi-router job's detail carries one slice per arm, aggregated by the arm
     stamped on each attempt row, with unstamped legacy rows attributed to the job's own
     router by the read (the COALESCE against the leg's router_name)."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     def agg(grp: str, wins: int) -> dict[str, object]:
         return {
@@ -2616,14 +2616,14 @@ async def test_get_shadow_eval_job_slices_results_per_router(monkeypatch: pytest
         call.args[0] for call in prisma.db.query_raw.await_args_list if "COALESCE(a.router_name" in call.args[0]
     )
     assert "COALESCE(a.router_name, j.router_name)" in router_sql
-    assert 'JOIN "LiteLLM_ShadowEvalJob" j ON j.id = a.job_id' in router_sql
+    assert 'JOIN "HangarLLM_ShadowEvalJob" j ON j.id = a.job_id' in router_sql
     assert "a.job_id = ANY($1::text[])" in router_sql
 
 
 @pytest.mark.asyncio
 async def test_job_responses_resolve_router_names_with_legacy_fallback(monkeypatch: pytest.MonkeyPatch):
     """Rows from before router_names existed carry their whole set in router_name."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(legs=[_leg_record(router_names=())])
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -2636,7 +2636,7 @@ async def test_job_responses_resolve_router_names_with_legacy_fallback(monkeypat
 
 @pytest.mark.asyncio
 async def test_get_shadow_eval_job_404s_and_gates_on_role(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "prisma_client", _shadow_prisma())
 
@@ -2653,7 +2653,7 @@ async def test_get_shadow_eval_job_404s_and_gates_on_role(monkeypatch: pytest.Mo
 async def test_list_shadow_eval_jobs_collapses_legs_into_jobs_newest_first(monkeypatch: pytest.MonkeyPatch):
     """A job over two keys is one list entry with both keys, not two entries, and a job
     whose keys all stopped reads stopped while a half-stopped one still runs."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     stamp = datetime.now(timezone.utc)
     prisma = _shadow_prisma(
@@ -2699,7 +2699,7 @@ async def test_list_shadow_eval_jobs_collapses_legs_into_jobs_newest_first(monke
     assert prisma.db.query_raw.await_count == 2
     group_reads = [
         call
-        for call in prisma.db.litellm_shadowevaljob.find_many.call_args_list
+        for call in prisma.db.hangarllm_shadowevaljob.find_many.call_args_list
         if "group_id" in call.kwargs.get("where", {})
     ]
     assert group_reads == []
@@ -2716,7 +2716,7 @@ async def test_jev_test_routing_authorizes_paid_evaluation_before_contacting_typ
     monkeypatch.setenv("TYPESAFE_API_BASE", "https://typesafe.test")
     models: Final = ["cheap-model", "typesafe/jev-latest"]
     actor: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         api_key="sk-jev-test",
         user_id="admin",
         models=["cheap-model"] if denial == "key" else models,
@@ -2792,7 +2792,7 @@ async def test_saved_jev_probe_uses_authorized_server_configuration(monkeypatch:
         Deployment.model_validate(
             {
                 "model_name": "saved-jev",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini" if case == "not-router" else "auto_router/complexity_router",
                     "complexity_router_config": stored_config,
                 },
@@ -2814,7 +2814,7 @@ async def test_saved_jev_probe_uses_authorized_server_configuration(monkeypatch:
         else _configure_team_admin_preview(monkeypatch)
         if case == "team-admin-environment"
         else UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key="sk-probe",
             user_id="admin",
             models=["typesafe/jev-latest"] if case == "key" else ["saved-jev", "typesafe/jev-latest"],
@@ -2884,7 +2884,7 @@ async def test_saved_jev_probe_uses_authorized_server_configuration(monkeypatch:
 async def test_list_shadow_eval_jobs_filters_to_jobs_containing_the_key(monkeypatch: pytest.MonkeyPatch):
     """The filter matches a key anywhere in a job's key set and still returns the whole
     job, sibling keys included."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(
         legs=[
@@ -2919,7 +2919,7 @@ async def test_list_shadow_eval_jobs_filters_to_jobs_containing_the_key(monkeypa
 async def test_job_status_runs_until_every_key_stops_and_completed_outranks_stopped(
     monkeypatch: pytest.MonkeyPatch, stopped_flags: tuple[bool, ...], days_left: int, expected: str
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     stamp = datetime.now(timezone.utc)
     prisma = _shadow_prisma(
@@ -2946,7 +2946,7 @@ async def test_list_reads_completed_once_every_key_spends_its_budget(monkeypatch
     it must read completed on the very next list, before any sweep stamps its legs; one
     key under budget keeps the whole job running. An operator starting an unrelated eval
     must never look like it terminated a finished one."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(
         legs=[
@@ -2977,7 +2977,7 @@ async def test_list_reads_completed_once_every_key_spends_its_budget(monkeypatch
 async def test_recorded_operator_stop_outranks_budget_arithmetic(monkeypatch: pytest.MonkeyPatch):
     """A detached attempt can land around the stop and push the raw count past the
     budget; the recorded stopped_by must keep the job reading stopped regardless."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     stamp = datetime.now(timezone.utc)
     prisma = _shadow_prisma(legs=[_leg_record(max_turns=5, stopped_at=stamp, stopped_by="admin")])
@@ -2996,7 +2996,7 @@ async def test_recorded_operator_stop_outranks_budget_arithmetic(monkeypatch: py
 async def test_backfilled_legacy_stop_never_reads_as_completion(monkeypatch: pytest.MonkeyPatch):
     """Jobs stopped before stopped_by existed are backfilled with 'unknown' by the
     migration, so even one whose stray attempts crossed the budget stays stopped."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(
         legs=[_leg_record(max_turns=5, stopped_at=datetime.now(timezone.utc), stopped_by="unknown")]
@@ -3011,10 +3011,10 @@ async def test_backfilled_legacy_stop_never_reads_as_completion(monkeypatch: pyt
 def test_stopped_by_migration_backfills_every_job_that_displayed_stopped():
     """The migration must close the pre-column population: without the backfill, a
     legacy stop whose stray attempts crossed the budget would read completed."""
-    import litellm_proxy_extras
+    import hangarllm_proxy_extras
 
     sql = (
-        Path(litellm_proxy_extras.__file__).parent
+        Path(hangarllm_proxy_extras.__file__).parent
         / "migrations"
         / "20260818224500_add_shadow_eval_stopped_by"
         / "migration.sql"
@@ -3034,17 +3034,17 @@ def test_a_start_request_still_sending_max_turns_is_rejected_not_silently_defaul
 def test_max_budget_migration_is_additive_and_leaves_legacy_rows_null():
     """max_budget stays NULL on pre-migration rows so they keep the turn budget they were
     configured with, and shadow_cost defaults to 0 so old rows price as judge-only."""
-    import litellm_proxy_extras
+    import hangarllm_proxy_extras
 
     sql = (
-        Path(litellm_proxy_extras.__file__).parent
+        Path(hangarllm_proxy_extras.__file__).parent
         / "migrations"
         / "20260819000000_shadow_eval_max_budget"
         / "migration.sql"
     ).read_text()
-    assert 'ALTER TABLE "LiteLLM_ShadowEvalJob" ADD COLUMN     "max_budget" DOUBLE PRECISION' in sql
+    assert 'ALTER TABLE "HangarLLM_ShadowEvalJob" ADD COLUMN     "max_budget" DOUBLE PRECISION' in sql
     assert (
-        'ALTER TABLE "LiteLLM_ShadowEvalAttempt" ADD COLUMN     "shadow_cost" DOUBLE PRECISION NOT NULL DEFAULT 0'
+        'ALTER TABLE "HangarLLM_ShadowEvalAttempt" ADD COLUMN     "shadow_cost" DOUBLE PRECISION NOT NULL DEFAULT 0'
         in sql
     )
     assert "UPDATE" not in sql
@@ -3055,7 +3055,7 @@ def test_max_budget_migration_is_additive_and_leaves_legacy_rows_null():
 @pytest.mark.asyncio
 async def test_verdicts_keep_same_id_targets_of_different_kinds_distinct(monkeypatch):
     """A team and a user can legitimately share an id; their slices must not merge."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     leg_rows = [
         {
@@ -3103,7 +3103,7 @@ async def test_verdicts_keep_same_id_targets_of_different_kinds_distinct(monkeyp
 
 
 async def test_stop_rejects_a_job_that_already_spent_its_budget(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(legs=[_leg_record(max_turns=3)])
     prisma.attempt_rows = [{"job_id": "leg-1", "attempt_count": 3, "spend": 0.0}]
@@ -3113,7 +3113,7 @@ async def test_stop_rejects_a_job_that_already_spent_its_budget(monkeypatch: pyt
         await stop_shadow_eval_job("job-1", ADMIN)
     assert exhausted.value.status_code == 400
     assert "completed" in exhausted.value.detail
-    prisma.db.litellm_shadowevaljob.update_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.update_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -3121,7 +3121,7 @@ async def test_list_reads_completed_once_every_key_spends_its_dollar_budget(monk
     """A spend-budgeted job completes on dollars, not turns: every key's recorded shadow
     plus judge spend reaching max_budget reads completed long before the turn valve, while
     one key with budget left keeps the whole job running."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(
         legs=[
@@ -3150,7 +3150,7 @@ async def test_list_reads_completed_once_every_key_spends_its_dollar_budget(monk
 
 @pytest.mark.asyncio
 async def test_stop_rejects_a_job_whose_dollar_budget_is_spent(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(legs=[_leg_record(max_turns=SHADOW_EVAL_TURN_VALVE, max_budget=0.5)])
     prisma.attempt_rows = [{"job_id": "leg-1", "attempt_count": 7, "spend": 0.5}]
@@ -3160,7 +3160,7 @@ async def test_stop_rejects_a_job_whose_dollar_budget_is_spent(monkeypatch: pyte
         await stop_shadow_eval_job("job-1", ADMIN)
     assert exhausted.value.status_code == 400
     assert "completed" in exhausted.value.detail
-    prisma.db.litellm_shadowevaljob.update_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.update_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -3168,7 +3168,7 @@ async def test_legacy_jobs_without_a_dollar_budget_stay_turn_gated(monkeypatch: 
     """A job from before spend budgets existed carries max_budget NULL: recorded spend
     can never complete it, only its own max_turns can, so migration changes nothing about
     what it was configured to do."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(legs=[_leg_record(max_turns=200, max_budget=None)])
     prisma.attempt_rows = [{"job_id": "leg-1", "attempt_count": 40, "spend": 250.0}]
@@ -3183,7 +3183,7 @@ async def test_legacy_jobs_without_a_dollar_budget_stay_turn_gated(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_shadow_eval_responses_name_every_shadowed_key(monkeypatch: pytest.MonkeyPatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(
         legs=[_leg_record(), _leg_record(id="leg-2", target_id="deleted-key-hash")],
@@ -3197,7 +3197,7 @@ async def test_shadow_eval_responses_name_every_shadowed_key(monkeypatch: pytest
         (None, None),
         ("prod-alpha", "sk-...lpha"),
     ]
-    batched_where = prisma.db.litellm_verificationtoken.find_many.call_args.kwargs["where"]
+    batched_where = prisma.db.hangarllm_verificationtoken.find_many.call_args.kwargs["where"]
     assert batched_where == {"token": {"in": ["deleted-key-hash", "key-hash"]}}
 
     detail = await get_shadow_eval_job("job-1", VIEWER)
@@ -3210,7 +3210,7 @@ async def test_stop_shadow_eval_stops_every_unstopped_leg_and_rejects_non_runnin
 ):
     """One stop ends sampling for the whole job, while a leg that already stopped on its
     own budget keeps the stopped_at it earned."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     earned = datetime.now(timezone.utc) - timedelta(hours=1)
     prisma = _shadow_prisma(legs=[_leg_record(), _leg_record(id="leg-2", target_id="key-hash-2", stopped_at=earned)])
@@ -3231,7 +3231,7 @@ async def test_stop_shadow_eval_stops_every_unstopped_leg_and_rejects_non_runnin
     assert (stop_group, stop_operator) == ("job-1", "admin")
     assert datetime.fromisoformat(stop_stamp).tzinfo is None
     assert prisma.db.execute_raw.await_count == 1
-    prisma.db.litellm_shadowevaljob.update_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.update_many.assert_not_called()
     by_target = {target.target_id: target.stopped_at for target in stopped.targets}
     assert by_target["key-hash-2"] == earned
     assert by_target["key-hash"] is not None and by_target["key-hash"] != earned
@@ -3254,10 +3254,10 @@ async def test_stop_shadow_eval_stops_every_unstopped_leg_and_rejects_non_runnin
 async def test_validate_config_returns_the_write_gates_verdict_without_saving():
     """The dry-run endpoint must agree with the write gate exactly, so a form showing its
     verdict inline can never pass a config the save would then reject."""
-    from litellm.proxy.management_endpoints.auto_router_endpoints import (
+    from hangarllm.proxy.management_endpoints.auto_router_endpoints import (
         validate_complexity_router_config,
     )
-    from litellm.types.management_endpoints.auto_router_endpoints import (
+    from hangarllm.types.management_endpoints.auto_router_endpoints import (
         ComplexityRouterConfigValidationRequest,
     )
 
@@ -3303,7 +3303,7 @@ async def test_routing_test_never_confirms_models_the_caller_cannot_use(monkeypa
     """routed_model_configured must not be an existence oracle for the whole proxy: a team
     admin probing a guessed global model name reads False unless the named team could
     actually use that model, and True once the team grants it."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     def _team_prisma(team_id: str, models: list[str]) -> MagicMock:
         row_data = {
@@ -3315,7 +3315,7 @@ async def test_routing_test_never_confirms_models_the_caller_cannot_use(monkeypa
         team_row.model_dump.return_value = row_data
         team_row.dict.return_value = row_data
         prisma = MagicMock()
-        prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=team_row)
+        prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team_row)
         return prisma
 
     def _request(team_id: str) -> AutoRouterRoutingTestRequest:
@@ -3331,7 +3331,7 @@ async def test_routing_test_never_confirms_models_the_caller_cannot_use(monkeypa
     monkeypatch.setattr(proxy_server, "llm_router", _router())
 
     team_admin: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-team", user_id="team-admin"
+        user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-team", user_id="team-admin"
     )
 
     monkeypatch.setattr(proxy_server, "prisma_client", _team_prisma("team-probe", models=["mid-model"]))
@@ -3354,11 +3354,11 @@ async def test_validate_config_gates_like_the_write_it_rehearses(monkeypatch: py
     """A caller who could not save the router must not get the dry run either: matching
     /model/new, a team admin passes only when naming their own team, and a caller who is
     neither proxy admin nor team admin is rejected before validation runs."""
-    from litellm.proxy import proxy_server
-    from litellm.proxy.management_endpoints.auto_router_endpoints import (
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.management_endpoints.auto_router_endpoints import (
         validate_complexity_router_config,
     )
-    from litellm.types.management_endpoints.auto_router_endpoints import (
+    from hangarllm.types.management_endpoints.auto_router_endpoints import (
         ComplexityRouterConfigValidationRequest,
     )
 
@@ -3376,12 +3376,12 @@ async def test_validate_config_gates_like_the_write_it_rehearses(monkeypatch: py
         "members_with_roles": [{"role": "admin", "user_id": "team-admin"}],
     }
     prisma: Final = MagicMock()
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=team_row)
+    prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team_row)
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "premium_user", True)
 
     team_admin: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-team", user_id="team-admin"
+        user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-team", user_id="team-admin"
     )
     verdict = await validate_complexity_router_config(
         ComplexityRouterConfigValidationRequest(complexity_router_config=config, team_id="team-1"),
@@ -3392,24 +3392,24 @@ async def test_validate_config_gates_like_the_write_it_rehearses(monkeypatch: py
     with pytest.raises(HTTPException) as not_their_team:
         await validate_complexity_router_config(
             ComplexityRouterConfigValidationRequest(complexity_router_config=config, team_id="team-1"),
-            UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, api_key="sk-other", user_id="someone-else"),
+            UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, api_key="sk-other", user_id="someone-else"),
         )
     assert not_their_team.value.status_code == 403
 
 
 def _configure_team_admin_preview(monkeypatch: pytest.MonkeyPatch) -> UserAPIKeyAuth:
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from hangarllm.proxy._types import HangarLLM_TeamTable
 
-    team: Final = LiteLLM_TeamTable(
+    team: Final = HangarLLM_TeamTable(
         team_id="admin-preview-team",
         models=["saved-jev", "typesafe/jev-latest", *[TIERS[name][0] for name in TIERS]],
         members_with_roles=[{"role": "admin", "user_id": "preview-admin"}],
     )
     database: Final = MagicMock()
-    database.db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
+    database.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team)
     monkeypatch.setattr(proxy_server, "prisma_client", database)
     monkeypatch.setattr(proxy_server, "premium_user", True)
-    return UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="preview-admin", api_key="sk-preview")
+    return UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="preview-admin", api_key="sk-preview")
 
 
 @pytest.mark.asyncio
@@ -3418,7 +3418,7 @@ def _configure_team_admin_preview(monkeypatch: pytest.MonkeyPatch) -> UserAPIKey
 async def test_team_admin_cannot_preview_or_validate_environment_references(
     monkeypatch: pytest.MonkeyPatch, legacy: bool, field: str
 ) -> None:
-    from litellm.types.management_endpoints.auto_router_endpoints import ComplexityRouterConfigValidationRequest
+    from hangarllm.types.management_endpoints.auto_router_endpoints import ComplexityRouterConfigValidationRequest
 
     actor: Final = _configure_team_admin_preview(monkeypatch)
     monkeypatch.setattr(proxy_server, "llm_router", _router())
@@ -3446,22 +3446,22 @@ async def test_team_admin_cannot_preview_or_validate_environment_references(
 
 
 def _configure_member_preview(monkeypatch: pytest.MonkeyPatch, *, allowed: bool = True) -> UserAPIKeyAuth:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UI_TEAM_ID, LiteLLM_TeamTable
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UI_TEAM_ID, HangarLLM_TeamTable
 
-    team: Final = LiteLLM_TeamTable(
+    team: Final = HangarLLM_TeamTable(
         team_id="member-preview-team",
         models=list(TIERS[name][0] for name in TIERS),
         members_with_roles=[{"role": "user", "user_id": "preview-member"}],
         team_member_permissions=["/auto_router/manage"] if allowed else [],
     )
     prisma: Final = MagicMock()
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
-    prisma.db.litellm_teammembership.find_unique = AsyncMock(return_value=None)
+    prisma.db.hangarllm_teamtable.find_unique = AsyncMock(return_value=team)
+    prisma.db.hangarllm_teammembership.find_unique = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "premium_user", True)
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="preview-member",
         team_id=UI_TEAM_ID,
         api_key="sk-preview-member",
@@ -3471,9 +3471,9 @@ def _configure_member_preview(monkeypatch: pytest.MonkeyPatch, *, allowed: bool 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("access", ["allowed", "opt-out", "limited-key"])
 async def test_member_preview_and_validation_follow_team_opt_in(monkeypatch: pytest.MonkeyPatch, access: str) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.management_endpoints.auto_router_endpoints import validate_complexity_router_config
-    from litellm.types.management_endpoints.auto_router_endpoints import ComplexityRouterConfigValidationRequest
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.management_endpoints.auto_router_endpoints import validate_complexity_router_config
+    from hangarllm.types.management_endpoints.auto_router_endpoints import ComplexityRouterConfigValidationRequest
 
     actor: Final = _configure_member_preview(monkeypatch, allowed=access != "opt-out").model_copy(
         update={
@@ -3507,11 +3507,11 @@ async def test_member_billable_preview_checks_and_charges_destination_team(
 ) -> None:
     import importlib
 
-    import litellm
-    from litellm.proxy import proxy_server
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    import hangarllm
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 
-    auth_module: Final = importlib.import_module("litellm.proxy.auth.user_api_key_auth")
+    auth_module: Final = importlib.import_module("hangarllm.proxy.auth.user_api_key_auth")
     actor: Final = _configure_member_preview(monkeypatch).model_copy(update={"metadata": {"tags": ["key-tag"]}})
     router, recorded_calls = _recording_router("SIMPLE")
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -3520,14 +3520,14 @@ async def test_member_billable_preview_checks_and_charges_destination_team(
         user_api_key_auth_obj: UserAPIKeyAuth, request: Request, request_data: dict[str, object], route: str
     ) -> None:
         assert route == "/auto_router/test_routing"
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        HangarLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request, request_data=request_data, user_api_key_dict=user_api_key_auth_obj
         )
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        HangarLLMProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=request_data, user_api_key_dict=user_api_key_auth_obj
         )
         if over_budget:
-            raise litellm.BudgetExceededError(current_cost=2, max_budget=1)
+            raise hangarllm.BudgetExceededError(current_cost=2, max_budget=1)
 
     checks: Final = AsyncMock(side_effect=check_and_tag)
     monkeypatch.setattr(auth_module, "run_centralized_common_checks", checks)
@@ -3536,7 +3536,7 @@ async def test_member_billable_preview_checks_and_charges_destination_team(
             "type": "http",
             "method": "POST",
             "path": "/auto_router/test_routing",
-            "headers": [(b"x-litellm-tags", b"header-tag")],
+            "headers": [(b"x-hangarllm-tags", b"header-tag")],
         }
     )
     data: Final = _request_from(
@@ -3545,7 +3545,7 @@ async def test_member_billable_preview_checks_and_charges_destination_team(
         classifier_llm_config={"model": "cheap-model"},
     )
     if over_budget:
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await preview_auto_router_routing(data, actor, http_request)
         assert recorded_calls == []
     else:
@@ -3564,7 +3564,7 @@ def test_every_shadow_eval_sql_constant_speaks_naive_utc():
     NOW() AT TIME ZONE 'utc' and python-side params must cast ::timestamp; a bare NOW() or a
     timestamptz cast writes session-local wall time into the naive column and skews every
     comparison against prisma-written stamps."""
-    import litellm.proxy.management_endpoints.auto_router_endpoints as module
+    import hangarllm.proxy.management_endpoints.auto_router_endpoints as module
 
     sql_constants = {name: value for name, value in vars(module).items() if name.endswith("_SQL")}
     assert sql_constants
@@ -3581,7 +3581,7 @@ async def test_a_stop_racing_the_last_budgeted_attempt_reports_completed_not_sto
     """The statement claims the job only while a leg still samples, so a stop landing in
     the same instant the budget spends records nothing and the job keeps reading
     completed; stamping it would misreport a self-ended job as operator-stopped forever."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(legs=[_leg_record(max_turns=2)])
     prisma.attempt_rows = [{"job_id": "leg-1", "attempt_count": 2, "spend": 0.0}]
@@ -3591,14 +3591,14 @@ async def test_a_stop_racing_the_last_budgeted_attempt_reports_completed_not_sto
         await stop_shadow_eval_job("job-1", ADMIN)
     assert exc.value.status_code == 400
     assert "already completed" in exc.value.detail
-    assert prisma.db.litellm_shadowevaljob.find_many.await_args.kwargs["where"] == {"group_id": "job-1"}
+    assert prisma.db.hangarllm_shadowevaljob.find_many.await_args.kwargs["where"] == {"group_id": "job-1"}
 
 
 @pytest.mark.asyncio
 async def test_two_racing_stops_produce_exactly_one_winner(monkeypatch: pytest.MonkeyPatch):
     """The statement's stopped_by IS NULL predicate lets only one racer claim rows; the
     loser reads the stamped state and gets the same answer a late caller gets."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(legs=[_leg_record()])
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -3616,14 +3616,14 @@ async def test_two_racing_stops_produce_exactly_one_winner(monkeypatch: pytest.M
 async def test_start_shadow_eval_scopes_missing_sdk_judge_credentials_to_the_sdk_team(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(key_teams={"key-hash": "team-a", "key-hash-2": "team-b"})
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
-    monkeypatch.setattr(litellm, "anthropic_key", None)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "anthropic_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 
@@ -3633,7 +3633,7 @@ async def test_start_shadow_eval_scopes_missing_sdk_judge_credentials_to_the_sdk
     assert exc.value.status_code == 400
     assert "team-b" in exc.value.detail
     assert "team-a" not in exc.value.detail
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -3646,7 +3646,7 @@ async def test_start_shadow_eval_finds_a_collision_only_the_keys_team_can_see(mo
     team it matches no deployment at all, so the judge reads as the literal string, nothing
     collides, and the job runs a week producing win rates its own judge authored.
     """
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(key_teams={"key-hash": "team-a"})
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -3657,14 +3657,14 @@ async def test_start_shadow_eval_finds_a_collision_only_the_keys_team_can_see(mo
 
     assert exc.value.status_code == 400
     assert "house-sonnet" in str(exc.value.detail)
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_start_shadow_eval_refuses_when_only_one_of_several_teams_collides(monkeypatch: pytest.MonkeyPatch):
     """Every key's verdicts land in the same win rates, so one team's biased judge is enough
     to spoil the job. team-b cannot reach `house-judge` at all; team-a can, and collides."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma(key_teams={"key-hash": "team-b", "key-hash-2": "team-a"})
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
@@ -3694,7 +3694,7 @@ async def test_start_shadow_eval_sees_a_collision_hidden_behind_the_second_teams
     because either half alone would pass against a check that ignored teams in the direction
     it does not exercise.
     """
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
 
@@ -3724,24 +3724,24 @@ async def test_start_shadow_eval_matches_a_bare_public_judge_name_to_a_prefixed_
     """`gpt-4o` and a tier deployment serving `openai/gpt-4o` are one model.
 
     The judge is not configured on the proxy, so it is served by the SDK under the name
-    litellm resolves it to; the tier is served by its deployment under the name the admin
+    hangarllm resolves it to; the tier is served by its deployment under the name the admin
     configured. Comparing those two spellings finds nothing, and the job runs a week with
     the judge grading its own answers, which is the whole defect this endpoint guards.
     """
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
-    monkeypatch.setattr(litellm, "api_key", "sk-test")
+    monkeypatch.setattr(hangarllm, "api_key", "sk-test")
 
     with pytest.raises(HTTPException) as exc:
         await start_shadow_eval(_start_request(router_name="prefixed-router", judge_model="gpt-4o"), ADMIN)
 
     assert exc.value.status_code == 400
     assert "prefixed-tier" in str(exc.value.detail)
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -3750,32 +3750,32 @@ async def test_start_shadow_eval_matches_a_prefixed_judge_name_to_a_bare_tier_de
 ) -> None:
     """The mirror of the case above, and the reason BOTH sides are normalised.
 
-    An admin may configure a deployment as plain `gpt-4o` and litellm infers the provider.
+    An admin may configure a deployment as plain `gpt-4o` and hangarllm infers the provider.
     Normalising only the judge would leave that tier spelled differently from the judge that
     is the same model, so the collision would be missed for exactly the configs that spell
     the two ends differently, which is every config this guard exists for.
     """
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
 
     prisma = _shadow_prisma()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "llm_router", _shadow_router())
-    monkeypatch.setattr(litellm, "api_key", "sk-test")
+    monkeypatch.setattr(hangarllm, "api_key", "sk-test")
 
     with pytest.raises(HTTPException) as exc:
         await start_shadow_eval(_start_request(router_name="bare-router", judge_model="openai/gpt-4o"), ADMIN)
 
     assert exc.value.status_code == 400
     assert "bare-tier" in str(exc.value.detail)
-    prisma.db.litellm_shadowevaljob.create_many.assert_not_called()
+    prisma.db.hangarllm_shadowevaljob.create_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_get_shadow_eval_job_sums_funnel_rows_across_legs(monkeypatch: pytest.MonkeyPatch):
     """Legs with funnel rows sum into job-level coverage counts; a job with no funnel
     rows at all reports None rather than a fabricated zero."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     tier_rows = [
         {
@@ -3810,7 +3810,7 @@ async def test_get_shadow_eval_job_sums_funnel_rows_across_legs(monkeypatch: pyt
 @pytest.mark.asyncio
 async def test_partially_seeded_funnel_reads_as_unknown_coverage(monkeypatch: pytest.MonkeyPatch):
     """One leg's seed failing must not present the other leg's counts as job coverage."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     tier_rows = [
         {
@@ -3843,7 +3843,7 @@ async def test_partially_seeded_funnel_reads_as_unknown_coverage(monkeypatch: py
 async def test_start_shadow_eval_seeds_a_zero_funnel_row_per_leg(monkeypatch: pytest.MonkeyPatch):
     """A fully covered job never records a skip, so only a row seeded at creation
     separates 'nothing was skipped' from a job predating the funnel."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     _configure_anthropic_sdk_judge(monkeypatch)
     prisma = _shadow_prisma(legs=[])
@@ -3853,15 +3853,15 @@ async def test_start_shadow_eval_seeds_a_zero_funnel_row_per_leg(monkeypatch: py
 
     await start_shadow_eval(_start_request(api_key_ids=("key-hash", "key-hash-2")), ADMIN)
 
-    created = prisma.db.litellm_shadowevaljob.create_many.call_args.kwargs["data"]
+    created = prisma.db.hangarllm_shadowevaljob.create_many.call_args.kwargs["data"]
     leg_ids = sorted(row["id"] for row in created)
     assert len(leg_ids) == 2 and all(leg_ids)
-    seeded = prisma.db.litellm_shadowevalfunnel.create_many.call_args.kwargs
+    seeded = prisma.db.hangarllm_shadowevalfunnel.create_many.call_args.kwargs
     assert sorted(row["job_id"] for row in seeded["data"]) == leg_ids
     assert seeded["skip_duplicates"] is True
     group_reads = [
         call
-        for call in prisma.db.litellm_shadowevaljob.find_many.call_args_list
+        for call in prisma.db.hangarllm_shadowevaljob.find_many.call_args_list
         if "group_id" in call.kwargs.get("where", {})
     ]
     assert group_reads == []
@@ -3869,22 +3869,22 @@ async def test_start_shadow_eval_seeds_a_zero_funnel_row_per_leg(monkeypatch: py
 
 @pytest.mark.asyncio
 async def test_availability_counts_db_and_yaml_without_disclosing_router_names(monkeypatch):
-    from litellm.models.model import LiteLLM_ProxyModelTable
-    from litellm.proxy.management_helpers.auto_router_availability import build_auto_router_catalog
-    from litellm.types.management_endpoints.auto_router_endpoints import AutoRouterAvailabilityRequest
+    from hangarllm.models.model import HangarLLM_ProxyModelTable
+    from hangarllm.proxy.management_helpers.auto_router_availability import build_auto_router_catalog
+    from hangarllm.types.management_endpoints.auto_router_endpoints import AutoRouterAvailabilityRequest
 
-    row = LiteLLM_ProxyModelTable(
+    row = HangarLLM_ProxyModelTable(
         model_id="db-router",
         model_name="private-team-router",
         created_by="someone-else",
-        litellm_params={
+        hangarllm_params={
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"classifier_type": "heuristic_v2"},
         },
     )
     yaml_row = {
         "model_name": "private-yaml-router",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"classifier_type": "capability"},
         },
@@ -3893,7 +3893,7 @@ async def test_availability_counts_db_and_yaml_without_disclosing_router_names(m
     monkeypatch.setattr(
         proxy_server,
         "prisma_client",
-        SimpleNamespace(db=SimpleNamespace(litellm_proxymodeltable=SimpleNamespace(find_many=find_many))),
+        SimpleNamespace(db=SimpleNamespace(hangarllm_proxymodeltable=SimpleNamespace(find_many=find_many))),
     )
     monkeypatch.setattr(proxy_server.proxy_config, "auto_router_db_catalog", build_auto_router_catalog((row,)))
     monkeypatch.setattr(
@@ -3928,22 +3928,22 @@ async def test_availability_counts_db_and_yaml_without_disclosing_router_names(m
 
 @pytest.mark.asyncio
 async def test_availability_denies_another_teams_edit_exemption(monkeypatch):
-    from litellm.models.model import LiteLLM_ProxyModelTable
-    from litellm.proxy.management_helpers.auto_router_availability import build_auto_router_catalog
-    from litellm.types.management_endpoints.auto_router_endpoints import AutoRouterAvailabilityRequest
+    from hangarllm.models.model import HangarLLM_ProxyModelTable
+    from hangarllm.proxy.management_helpers.auto_router_availability import build_auto_router_catalog
+    from hangarllm.types.management_endpoints.auto_router_endpoints import AutoRouterAvailabilityRequest
 
-    row = LiteLLM_ProxyModelTable(
+    row = HangarLLM_ProxyModelTable(
         model_id="other-router",
         model_name="other",
         created_by="other",
         model_info={"team_id": "other-team"},
-        litellm_params={"model": "auto_router/complexity_router"},
+        hangarllm_params={"model": "auto_router/complexity_router"},
     )
     find_many = AsyncMock(side_effect=AssertionError("Availability must not query the model table"))
     monkeypatch.setattr(
         proxy_server,
         "prisma_client",
-        SimpleNamespace(db=SimpleNamespace(litellm_proxymodeltable=SimpleNamespace(find_many=find_many))),
+        SimpleNamespace(db=SimpleNamespace(hangarllm_proxymodeltable=SimpleNamespace(find_many=find_many))),
     )
     monkeypatch.setattr(proxy_server.proxy_config, "auto_router_db_catalog", build_auto_router_catalog((row,)))
     monkeypatch.setattr(
@@ -3957,14 +3957,14 @@ async def test_availability_denies_another_teams_edit_exemption(monkeypatch):
     with pytest.raises(HTTPException) as error:
         await auto_router_endpoints.get_auto_router_availability(
             AutoRouterAvailabilityRequest(team_id="own-team", saved_model_id="other-router"),
-            UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="owner"),
+            UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="owner"),
         )
     assert error.value.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_availability_waits_for_the_first_complete_catalog(monkeypatch):
-    from litellm.types.management_endpoints.auto_router_endpoints import AutoRouterAvailabilityRequest
+    from hangarllm.types.management_endpoints.auto_router_endpoints import AutoRouterAvailabilityRequest
 
     monkeypatch.setattr(proxy_server.proxy_config, "auto_router_db_catalog", None)
     monkeypatch.setattr(
@@ -3987,7 +3987,7 @@ class TestPerSessionAverages:
     def test_requests_without_session_rows_have_unknown_averages_not_zero(
         self, sessions: int, turns: int, expected: tuple[float | None, ...]
     ) -> None:
-        from litellm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
+        from hangarllm.proxy.management_endpoints.auto_router_endpoints import _benchmark_totals
 
         row: Final = TestAutoRouterBenchmarks.ROW.model_copy(update={"sessions": sessions, "turns": turns})
         totals: Final = _benchmark_totals(row)

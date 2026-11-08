@@ -8,13 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 
 async def _reset_callbacks_and_settle_pending_logs() -> None:
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=10.0)
 
 
@@ -134,23 +134,23 @@ async def test_asend_message_uses_cost_per_query(monkeypatch):
     """
     Test that asend_message uses cost_per_query param for response_cost.
     """
-    from litellm.a2a_protocol import asend_message
+    from hangarllm.a2a_protocol import asend_message
 
     # Setup logger
     await _reset_callbacks_and_settle_pending_logs()
     cost_logger = CostLogger()
-    monkeypatch.setattr(litellm, "callbacks", [cost_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [cost_logger])
 
     # Mock A2A client
     mock_client = MagicMock()
-    mock_client._litellm_agent_card = MagicMock()
-    mock_client._litellm_agent_card.name = "test-agent"
+    mock_client._hangarllm_agent_card = MagicMock()
+    mock_client._hangarllm_agent_card.name = "test-agent"
 
     mock_request = _make_send_message_request("test-123")
 
     # Call asend_message with cost_per_query
     with patch(
-        "litellm.a2a_protocol.main._execute_a2a_send_with_retry",
+        "hangarllm.a2a_protocol.main._execute_a2a_send_with_retry",
         new=_mock_execute_a2a_send,
     ):
         await asend_message(
@@ -165,31 +165,31 @@ async def test_asend_message_uses_cost_per_query(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_asend_message_uses_cost_per_query_from_litellm_params_dict(monkeypatch):
+async def test_asend_message_uses_cost_per_query_from_hangarllm_params_dict(monkeypatch):
     """
-    Proxy passes agent pricing as the litellm_params dict param (not top-level
+    Proxy passes agent pricing as the hangarllm_params dict param (not top-level
     kwargs). Regression for cost_per_query landing at $0 on the native path.
     """
-    from litellm.a2a_protocol import asend_message
+    from hangarllm.a2a_protocol import asend_message
 
     await _reset_callbacks_and_settle_pending_logs()
     cost_logger = CostLogger()
-    monkeypatch.setattr(litellm, "callbacks", [cost_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [cost_logger])
 
     mock_client = MagicMock()
-    mock_client._litellm_agent_card = MagicMock()
-    mock_client._litellm_agent_card.name = "test-agent"
+    mock_client._hangarllm_agent_card = MagicMock()
+    mock_client._hangarllm_agent_card.name = "test-agent"
 
     mock_request = _make_send_message_request("test-123")
 
     with patch(
-        "litellm.a2a_protocol.main._execute_a2a_send_with_retry",
+        "hangarllm.a2a_protocol.main._execute_a2a_send_with_retry",
         new=_mock_execute_a2a_send,
     ):
         await asend_message(
             a2a_client=mock_client,
             request=mock_request,
-            litellm_params={
+            hangarllm_params={
                 "cost_per_query": 0.5,
                 "input_cost_per_token": 0.099999,
                 "output_cost_per_token": 0.1,
@@ -232,17 +232,17 @@ async def test_asend_message_uses_input_output_cost_per_token(monkeypatch):
     Test that asend_message calculates cost using input_cost_per_token and output_cost_per_token.
     Validates exact cost calculation: cost = (prompt_tokens * input_cost) + (completion_tokens * output_cost)
     """
-    from litellm.a2a_protocol import asend_message
+    from hangarllm.a2a_protocol import asend_message
 
     # Setup logger
     await _reset_callbacks_and_settle_pending_logs()
     token_cost_logger = TokenAndCostLogger()
-    monkeypatch.setattr(litellm, "callbacks", [token_cost_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [token_cost_logger])
 
     # Mock A2A client
     mock_client = MagicMock()
-    mock_client._litellm_agent_card = MagicMock()
-    mock_client._litellm_agent_card.name = "test-agent"
+    mock_client._hangarllm_agent_card = MagicMock()
+    mock_client._hangarllm_agent_card.name = "test-agent"
 
     mock_request = _make_send_message_request("test-123", user_text="Hello, what can you do?")
 
@@ -251,7 +251,7 @@ async def test_asend_message_uses_input_output_cost_per_token(monkeypatch):
     output_cost_per_token = 0.00002  # $0.02 per 1000 tokens
 
     with patch(
-        "litellm.a2a_protocol.main._execute_a2a_send_with_retry",
+        "hangarllm.a2a_protocol.main._execute_a2a_send_with_retry",
         new=_mock_execute_a2a_send_with_assistant_reply,
     ):
         await asend_message(
@@ -308,17 +308,17 @@ async def test_asend_message_passes_agent_id_to_callback(monkeypatch):
     """
     Test that asend_message passes agent_id to callbacks via kwargs.
     """
-    from litellm.a2a_protocol import asend_message
+    from hangarllm.a2a_protocol import asend_message
 
     # Setup logger
     await _reset_callbacks_and_settle_pending_logs()
     agent_id_logger = AgentIdLogger()
-    monkeypatch.setattr(litellm, "callbacks", [agent_id_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [agent_id_logger])
 
     # Mock A2A client
     mock_client = MagicMock()
-    mock_client._litellm_agent_card = MagicMock()
-    mock_client._litellm_agent_card.name = "test-agent"
+    mock_client._hangarllm_agent_card = MagicMock()
+    mock_client._hangarllm_agent_card.name = "test-agent"
 
     mock_request = _make_send_message_request("test-123")
 
@@ -326,7 +326,7 @@ async def test_asend_message_passes_agent_id_to_callback(monkeypatch):
 
     # Call asend_message with agent_id
     with patch(
-        "litellm.a2a_protocol.main._execute_a2a_send_with_retry",
+        "hangarllm.a2a_protocol.main._execute_a2a_send_with_retry",
         new=_mock_execute_a2a_send,
     ):
         await asend_message(
@@ -348,7 +348,7 @@ class MetadataLogger(CustomLogger):
 
     def __init__(self):
         self.metadata: Optional[dict] = None
-        self.litellm_params: Optional[dict] = None
+        self.hangarllm_params: Optional[dict] = None
         self.user_api_key: Optional[str] = None
         self.user_id: Optional[str] = None
         self.team_id: Optional[str] = None
@@ -356,8 +356,8 @@ class MetadataLogger(CustomLogger):
         super().__init__()
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        self.litellm_params = kwargs.get("litellm_params", {})
-        self.metadata = self.litellm_params.get("metadata", {})
+        self.hangarllm_params = kwargs.get("hangarllm_params", {})
+        self.metadata = self.hangarllm_params.get("metadata", {})
         self.user_api_key = self.metadata.get("user_api_key")
         self.user_id = self.metadata.get("user_api_key_user_id")
         self.team_id = self.metadata.get("user_api_key_team_id")
@@ -370,17 +370,17 @@ async def test_asend_message_streaming_propagates_metadata():
     Test that asend_message_streaming propagates metadata to logging object.
     This ensures user_api_key, user_id, team_id are available for SpendLogs.
     """
-    from litellm.a2a_protocol import asend_message_streaming
+    from hangarllm.a2a_protocol import asend_message_streaming
 
     # Setup logger
     await _reset_callbacks_and_settle_pending_logs()
     metadata_logger = MetadataLogger()
-    litellm.logging_callback_manager.add_litellm_async_success_callback(metadata_logger)
+    hangarllm.logging_callback_manager.add_hangarllm_async_success_callback(metadata_logger)
 
     # Mock A2A client
     mock_client = MagicMock()
-    mock_client._litellm_agent_card = MagicMock()
-    mock_client._litellm_agent_card.name = "test-agent"
+    mock_client._hangarllm_agent_card = MagicMock()
+    mock_client._hangarllm_agent_card.name = "test-agent"
 
     mock_request = _make_streaming_request("test-stream-metadata")
 
@@ -394,7 +394,7 @@ async def test_asend_message_streaming_propagates_metadata():
     # Consume streaming response with metadata
     chunks = []
     with patch(
-        "litellm.a2a_protocol.main._stream_messages",
+        "hangarllm.a2a_protocol.main._stream_messages",
         new=_mock_stream_messages,
     ):
         async for chunk in asend_message_streaming(
@@ -417,18 +417,18 @@ async def test_asend_message_streaming_triggers_callbacks():
     """
     Test that asend_message_streaming triggers callbacks after stream completes.
     """
-    from litellm.a2a_protocol import asend_message_streaming
+    from hangarllm.a2a_protocol import asend_message_streaming
 
     # Setup logger - must use logging_callback_manager to properly register
     await _reset_callbacks_and_settle_pending_logs()
     callback_logger = AgentIdLogger()
-    litellm.logging_callback_manager.add_litellm_async_success_callback(callback_logger)
-    litellm.logging_callback_manager.add_litellm_success_callback(callback_logger)
+    hangarllm.logging_callback_manager.add_hangarllm_async_success_callback(callback_logger)
+    hangarllm.logging_callback_manager.add_hangarllm_success_callback(callback_logger)
 
     # Mock A2A client
     mock_client = MagicMock()
-    mock_client._litellm_agent_card = MagicMock()
-    mock_client._litellm_agent_card.name = "test-agent"
+    mock_client._hangarllm_agent_card = MagicMock()
+    mock_client._hangarllm_agent_card.name = "test-agent"
 
     mock_request = _make_streaming_request("test-stream-123")
 
@@ -437,7 +437,7 @@ async def test_asend_message_streaming_triggers_callbacks():
     # Consume streaming response
     chunks = []
     with patch(
-        "litellm.a2a_protocol.main._stream_messages",
+        "hangarllm.a2a_protocol.main._stream_messages",
         new=_mock_stream_messages,
     ):
         async for chunk in asend_message_streaming(

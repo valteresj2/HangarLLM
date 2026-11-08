@@ -13,10 +13,10 @@ from typing import Final
 import pydantic
 import pytest
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.router_api import ChangeSet
-from litellm.types.router import RouterRateLimitError
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.router_api import ChangeSet
+from hangarllm.types.router import RouterRateLimitError
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
 from tests.unit.test_router.core.selection_helpers import MESSAGES, MakeCore, ids_of, picked_ids
 
@@ -28,7 +28,7 @@ NO_DEPLOYMENTS_MESSAGE: Final = (
 )
 
 NO_HEALTHY_MESSAGE: Final = (
-    "litellm.BadRequestError: You passed in model={model}. There are no healthy deployments for this model"
+    "hangarllm.BadRequestError: You passed in model={model}. There are no healthy deployments for this model"
 )
 
 GROUP_MODELS: Final = [deployment("m1", "a"), deployment("m2", "b"), deployment("m3", "c")]
@@ -99,7 +99,7 @@ async def test_a_group_named_like_a_model_is_shadowed_by_the_model(make_core: Ma
 @pytest.mark.asyncio
 async def test_a_group_whose_members_have_no_deployments_has_no_healthy_deployments(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(GROUP_MODELS), routing_groups=[_group("empty", ["zz"], "least-busy")])
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("empty")
     assert str(raised.value) == NO_HEALTHY_MESSAGE.format(model="empty")
 
@@ -112,7 +112,7 @@ async def test_a_routing_group_completion_reports_the_group_as_model_group(
     response: Final = await core.acompletion(model="grp", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.deployments_called() == ["a"]
     assert host.calls[-1].model_group == "grp"
-    assert response._hidden_params["additional_headers"]["x-litellm-model-group"] == "grp"
+    assert response._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "grp"
 
 
 def test_routing_group_names_are_listed_among_the_routable_names(make_core: MakeCore) -> None:
@@ -124,7 +124,7 @@ def test_routing_group_names_are_listed_among_the_routable_names(make_core: Make
 @pytest.mark.asyncio
 async def test_routing_groups_applied_at_runtime_become_callable(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(GROUP_MODELS))
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await core.select("grp")
     core.apply(ChangeSet(settings={"routing_groups": [_group("grp", ["m1", "m2"], "least-busy")]}))
     assert await picked_ids(core, "grp", messages=MESSAGES) == {"a"}
@@ -201,7 +201,7 @@ async def test_a_priority_group_pick_carries_the_member_priority_as_order(make_c
     chosen: Final = await core.select("p")
     assert chosen["model_info"]["id"] == "b"  # pyright: ignore[reportIndexIssue]
     assert chosen["model_name"] == "m2"  # pyright: ignore[reportIndexIssue]
-    assert chosen["litellm_params"]["order"] == 1  # pyright: ignore[reportIndexIssue]
+    assert chosen["hangarllm_params"]["order"] == 1  # pyright: ignore[reportIndexIssue]
 
 
 @pytest.mark.asyncio
@@ -209,7 +209,7 @@ async def test_a_priority_group_member_called_directly_ignores_the_priority(make
     core: Final = make_core(model_list=list(GROUP_MODELS), routing_groups=[_priority("p", {"m1": 3, "m2": 1})])
     chosen: Final = await core.select("m1")
     assert chosen["model_info"]["id"] == "a"  # pyright: ignore[reportIndexIssue]
-    assert "order" not in chosen["litellm_params"]  # pyright: ignore[reportIndexIssue]
+    assert "order" not in chosen["hangarllm_params"]  # pyright: ignore[reportIndexIssue]
 
 
 @pytest.mark.asyncio
@@ -307,9 +307,9 @@ async def test_tag_filtering_match_any_decides_whether_one_shared_tag_is_enough(
 
 
 @pytest.mark.asyncio
-async def test_tags_in_litellm_metadata_are_read_too(make_core: MakeCore) -> None:
+async def test_tags_in_hangarllm_metadata_are_read_too(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(TAGGED), enable_tag_filtering=True)
-    assert await picked_ids(core, "g", request_kwargs={"litellm_metadata": {"tags": ["paid"]}}) == {"paid"}
+    assert await picked_ids(core, "g", request_kwargs={"hangarllm_metadata": {"tags": ["paid"]}}) == {"paid"}
 
 
 @pytest.mark.asyncio
@@ -380,9 +380,9 @@ def _auth(
         (_auth(models=["grpA"]), {"in_a"}),
         (_auth(models=["grpB"]), {"in_b"}),
         (_auth(team_models=["grpB"]), {"in_b"}),
-        (_auth("litellm_metadata", models=["grpA"]), {"in_a"}),
+        (_auth("hangarllm_metadata", models=["grpA"]), {"in_a"}),
     ],
-    ids=["key-group-a", "key-group-b", "team-group-b", "litellm-metadata"],
+    ids=["key-group-a", "key-group-b", "team-group-b", "hangarllm-metadata"],
 )
 async def test_an_access_group_only_caller_is_narrowed_to_its_groups_deployments(
     make_core: MakeCore, request_kwargs: dict[str, object], expected: set[str]
@@ -412,9 +412,9 @@ TEAM_ONLY: Final = [
 
 
 @pytest.mark.asyncio
-async def test_a_team_id_in_litellm_metadata_selects_the_team_deployment(make_core: MakeCore) -> None:
+async def test_a_team_id_in_hangarllm_metadata_selects_the_team_deployment(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(TEAM_ONLY))
-    assert await picked_ids(core, "pub", request_kwargs={"litellm_metadata": {"user_api_key_team_id": "team-y"}}) == {
+    assert await picked_ids(core, "pub", request_kwargs={"hangarllm_metadata": {"user_api_key_team_id": "team-y"}}) == {
         "ty"
     }
 
@@ -422,10 +422,10 @@ async def test_a_team_id_in_litellm_metadata_selects_the_team_deployment(make_co
 @pytest.mark.asyncio
 async def test_a_proxy_admin_without_a_team_is_refused_a_public_name_several_teams_share(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(TEAM_ONLY))
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("pub", _auth(user_role="proxy_admin"))
     assert str(raised.value) == (
-        "litellm.BadRequestError: Model name 'pub' matches deployments from multiple teams. "
+        "hangarllm.BadRequestError: Model name 'pub' matches deployments from multiple teams. "
         "Specify the deployment ID directly to disambiguate."
     )
 
@@ -446,7 +446,7 @@ async def test_an_unknown_model_goes_to_a_catch_all_deployment_under_its_own_nam
     core: Final = make_core(model_list=[deployment("g", "a"), deployment("*", "catch_all", model="openai/*")])
     chosen: Final = await core.select("brand-new")
     assert chosen["model_info"]["id"] == "catch_all"  # pyright: ignore[reportIndexIssue]
-    assert chosen["litellm_params"]["model"] == "openai/brand-new"  # pyright: ignore[reportIndexIssue]
+    assert chosen["hangarllm_params"]["model"] == "openai/brand-new"  # pyright: ignore[reportIndexIssue]
 
 
 @pytest.mark.asyncio
@@ -479,11 +479,11 @@ async def test_a_blocked_deployment_is_never_picked_for_its_group(make_core: Mak
 @pytest.mark.asyncio
 async def test_selecting_a_blocked_deployment_by_id_raises_service_unavailable(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[deployment("g", "a", model_info={"blocked": True}), deployment("g", "b")])
-    with pytest.raises(litellm.ServiceUnavailableError) as raised:
+    with pytest.raises(hangarllm.ServiceUnavailableError) as raised:
         await core.select("a")
-    # The message names the deployment's litellm model, not the id that was asked for.
+    # The message names the deployment's hangarllm model, not the id that was asked for.
     assert str(raised.value) == (
-        "litellm.ServiceUnavailableError: Model 'openai/a' is currently paused and cannot accept requests."
+        "hangarllm.ServiceUnavailableError: Model 'openai/a' is currently paused and cannot accept requests."
     )
     assert raised.value.status_code == 503
 
@@ -522,20 +522,20 @@ async def test_pass_through_selection_by_id_returns_a_pass_through_deployment(ma
 @pytest.mark.asyncio
 async def test_pass_through_selection_by_id_refuses_a_plain_deployment(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(PASS_THROUGH))
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("plain", kind="pass_through")
     assert str(raised.value) == (
-        "litellm.BadRequestError: Deployment plain does not support pass-through endpoint (use_in_pass_through=False)"
+        "hangarllm.BadRequestError: Deployment plain does not support pass-through endpoint (use_in_pass_through=False)"
     )
 
 
 @pytest.mark.asyncio
 async def test_pass_through_selection_without_pass_through_deployments_raises_bad_request(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[deployment("g", "a")])
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("g", kind="pass_through")
     assert str(raised.value) == (
-        "litellm.BadRequestError: Model g has no deployment configured with use_in_pass_through=True. "
+        "hangarllm.BadRequestError: Model g has no deployment configured with use_in_pass_through=True. "
         "Please add use_in_pass_through: true in the deployment configuration"
     )
 
@@ -545,10 +545,10 @@ async def test_async_pass_through_selection_words_the_missing_deployment_error_d
     make_core: MakeCore,
 ) -> None:
     core: Final = make_core(model_list=[deployment("g", "a")])
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.async_get_available_deployment_for_pass_through("g", {})  # pyright: ignore[reportAttributeAccessIssue]
     assert str(raised.value) == (
-        "litellm.BadRequestError: Model g has no deployments configured with use_in_pass_through=True. "
+        "hangarllm.BadRequestError: Model g has no deployments configured with use_in_pass_through=True. "
         "Please add use_in_pass_through: true to the deployment configuration"
     )
 
@@ -556,7 +556,7 @@ async def test_async_pass_through_selection_words_the_missing_deployment_error_d
 @pytest.mark.asyncio
 async def test_pass_through_selection_of_an_unknown_model_has_no_healthy_deployments(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=list(PASS_THROUGH))
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("nope", kind="pass_through")
     assert str(raised.value) == NO_HEALTHY_MESSAGE.format(model="nope")
 
@@ -575,7 +575,7 @@ async def test_pass_through_selection_skips_a_cooling_pass_through_deployment(
         cooldown_time=60,
     )
     host.answer("openai/pt1", rate_limit())
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.acompletion(model="pt1", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert await picked_ids(core, "g", kind="pass_through") == {"pt2"}
 
@@ -605,7 +605,7 @@ async def test_the_healthy_listing_for_a_deployment_id_is_that_single_deployment
 @pytest.mark.asyncio
 async def test_the_healthy_listing_of_an_unknown_model_raises_bad_request(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[deployment("g", "a")])
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select("nope", kind="healthy")
     assert str(raised.value) == NO_HEALTHY_MESSAGE.format(model="nope")
 
@@ -616,7 +616,7 @@ async def test_the_healthy_listing_leaves_out_cooling_deployments(make_core: Mak
         model_list=[deployment("g", "a"), deployment("g", "b")], allowed_fails=0, num_retries=0, cooldown_time=60
     )
     host.answer("openai/a", rate_limit())
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.acompletion(model="a", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert ids_of(await core.select("g", kind="healthy")) == ["b"]
 
@@ -726,10 +726,10 @@ async def test_only_reserved_deployments_left_raises_bad_request_naming_the_wind
 ) -> None:
     window: Final = _window_for(["team-a"])
     core: Final = make_core(model_list=[_reserved(window)])
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(hangarllm.BadRequestError) as raised:
         await core.select(model, {"metadata": {"user_api_key_team_id": "team-b"}})
     assert str(raised.value) == (
-        f"litellm.BadRequestError: Deployment {named} is reserved for another team until {window['end']} UTC"
+        f"hangarllm.BadRequestError: Deployment {named} is reserved for another team until {window['end']} UTC"
     )
 
 
@@ -737,8 +737,8 @@ async def test_only_reserved_deployments_left_raises_bad_request_naming_the_wind
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model", ["openai/unknown", "g"], ids=["unknown-litellm-model", "group-name"])
-async def test_specific_deployment_for_a_name_no_litellm_model_matches_rate_limits(
+@pytest.mark.parametrize("model", ["openai/unknown", "g"], ids=["unknown-hangarllm-model", "group-name"])
+async def test_specific_deployment_for_a_name_no_hangarllm_model_matches_rate_limits(
     make_core: MakeCore, model: str
 ) -> None:
     core: Final = make_core(model_list=[deployment("g", "a")])

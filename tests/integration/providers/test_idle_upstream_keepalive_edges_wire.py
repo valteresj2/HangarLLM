@@ -53,7 +53,7 @@ def edges(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) ->
         session_gateway,
         tmp_path_factory.mktemp("idle-upstream-edges"),
         (*REUSE_ROWS, *QUIET_ROWS),
-        {"LITELLM_RUST": "1"},
+        {"HANGARLLM_RUST": "1"},
         drop_after=None,
     ) as proxy:
         yield proxy

@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
-from litellm.llms.anthropic.messages.native.agentic_streaming_iterator import (
+import hangarllm
+from hangarllm.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
+from hangarllm.llms.anthropic.messages.native.agentic_streaming_iterator import (
     SERVER_FULFILLED_TOOL_LEAK_ERROR_SSE_BYTES,
     AgenticAnthropicStreamingIterator,
     _handle_content_block_delta,
@@ -21,10 +21,10 @@ from litellm.llms.anthropic.messages.native.agentic_streaming_iterator import (
     _handle_message_start,
     _parse_sse_events,
 )
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import ProxyLogging
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.utils import ProxyLogging
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ def _build_tool_use_stream() -> List[bytes]:
                 "content_block": {
                     "type": "tool_use",
                     "id": "toolu_001",
-                    "name": "litellm_content_retrieve",
+                    "name": "hangarllm_content_retrieve",
                     "input": {},
                 },
             },
@@ -265,7 +265,7 @@ def _build_hold_back_iterator(
     stream: MockAsyncStream,
     mock_handler: MagicMock,
     ping_interval_seconds: float = 15.0,
-    server_fulfilled_tool_names: frozenset = frozenset({"litellm_content_retrieve"}),
+    server_fulfilled_tool_names: frozenset = frozenset({"hangarllm_content_retrieve"}),
 ) -> AgenticAnthropicStreamingIterator:
     return AgenticAnthropicStreamingIterator(
         completion_stream=stream,
@@ -488,7 +488,7 @@ class TestRebuildAnthropicResponse:
         tool = result["content"][1]
         assert tool["type"] == "tool_use"
         assert tool["id"] == "toolu_001"
-        assert tool["name"] == "litellm_content_retrieve"
+        assert tool["name"] == "hangarllm_content_retrieve"
         assert tool["input"] == {"key": "section_1"}
 
     def test_should_return_none_without_message_start(self):
@@ -659,7 +659,7 @@ class TestAgenticStreamingIteratorPhase1:
 
         assert captured_response["id"] == "msg_tool_456"
         assert captured_response["stop_reason"] == "tool_use"
-        assert captured_response["content"][1]["name"] == "litellm_content_retrieve"
+        assert captured_response["content"][1]["name"] == "hangarllm_content_retrieve"
 
 
 class TestAgenticStreamingIteratorPhase2:
@@ -747,7 +747,7 @@ class TestAgenticStreamingIteratorErrorHandling:
         mock_handler._call_agentic_completion_hooks = AsyncMock(side_effect=RuntimeError("hook exploded"))
 
         mock_logging = MagicMock()
-        mock_logging.litellm_call_id = "test_call_123"
+        mock_logging.hangarllm_call_id = "test_call_123"
 
         iterator = AgenticAnthropicStreamingIterator(
             completion_stream=mock_stream,
@@ -846,7 +846,7 @@ class TestAgenticStreamingIteratorHoldBack:
 
         non_ping = [c for c in collected if c != STREAM_SSE_KEEPALIVE_PING_BYTES]
         assert non_ping == phase2_chunks
-        assert b"litellm_content_retrieve" not in b"".join(collected)
+        assert b"hangarllm_content_retrieve" not in b"".join(collected)
         assert collected[0] == STREAM_SSE_KEEPALIVE_PING_BYTES
 
     @pytest.mark.asyncio
@@ -944,7 +944,7 @@ class TestAgenticStreamingIteratorHoldBack:
 
         mock_handler = MagicMock()
         mock_handler._call_agentic_completion_hooks = AsyncMock(
-            side_effect=litellm.RateLimitError(
+            side_effect=hangarllm.RateLimitError(
                 message="follow-up rate limited", llm_provider="anthropic", model="claude-sonnet-4-20250514"
             )
         )
@@ -964,14 +964,14 @@ class TestAgenticStreamingIteratorHoldBack:
         error_events = [json.loads(data) for event, data in _sse_frames(wire) if event == "error"]
         assert [event["error"]["type"] for event in error_events] == ["rate_limit_error"]
         assert "follow-up rate limited" in error_events[0]["error"]["message"]
-        assert "litellm_content_retrieve" not in wire
+        assert "hangarllm_content_retrieve" not in wire
 
     @pytest.mark.asyncio
     async def test_a_capped_loop_tells_the_client_to_raise_max_agentic_loops_instead_of_retrying(self):
         mock_handler = MagicMock()
         mock_handler._call_agentic_completion_hooks = AsyncMock(
             side_effect=lambda **_: BaseLLMHTTPHandler._check_agentic_loop_safety(
-                tool_calls=[{"name": "litellm_content_retrieve"}],
+                tool_calls=[{"name": "hangarllm_content_retrieve"}],
                 fingerprints=[],
                 depth=1,
                 max_loops=1,
@@ -986,7 +986,7 @@ class TestAgenticStreamingIteratorHoldBack:
         assert len(error_messages) == 1
         assert "max_agentic_loops" in error_messages[0]
         assert "retry" not in error_messages[0].lower()
-        assert "litellm_content_retrieve" not in wire
+        assert "hangarllm_content_retrieve" not in wire
 
     @pytest.mark.asyncio
     async def test_should_error_instead_of_replaying_when_no_hook_fires_on_tool_use(self):

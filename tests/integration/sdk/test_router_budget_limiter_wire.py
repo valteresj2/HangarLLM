@@ -8,12 +8,12 @@ import uuid
 from collections.abc import Iterator
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.openai_wire import chat_reply
 from integration._support.wire import Reply, Request, wire_server
-from litellm import Router
-from litellm.types.utils import BudgetConfig
+from hangarllm import Router
+from hangarllm.types.utils import BudgetConfig
 from pydantic import JsonValue, TypeAdapter
 from redis import Redis
 
@@ -52,7 +52,7 @@ def _deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": model,
             "api_base": api_base,
             "api_key": _API_KEY,
@@ -187,7 +187,7 @@ async def test_tag_budget_blocks_exhausted_tag_but_allows_another(
     first_tag: Final = f"chunk3-a-{uuid.uuid4().hex}"
     second_tag: Final = f"chunk3-b-{uuid.uuid4().hex}"
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "tag_budget_config",
         {
             first_tag: BudgetConfig(budget_duration="1d", max_budget=1.0),
@@ -236,7 +236,7 @@ def _isolated_provider_deployment(api_base: str) -> dict[str, JsonValue]:
     """Only these two tests route to hosted_vllm, so success callbacks still draining from earlier tests cannot land here."""
     return {
         "model_name": "isolated-budget",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "hosted_vllm/llama-3",
             "api_base": api_base,
             "api_key": _API_KEY,

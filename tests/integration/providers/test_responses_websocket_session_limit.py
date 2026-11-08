@@ -63,7 +63,7 @@ CAPPED_PATHS: Final = ("/v1/responses", "/responses")
 CAPPED_SOCKETS_MINIMUM: Final = 8
 CAPPED_SOCKETS_MAXIMUM: Final = 40
 KILLED_POOL_SIZE: Final = 8
-SUBPROTOCOLS: Final = (Subprotocol("litellm-responses-first"), Subprotocol("litellm-responses-second"))
+SUBPROTOCOLS: Final = (Subprotocol("hangarllm-responses-first"), Subprotocol("hangarllm-responses-second"))
 STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
 WORKER_PIDS: Final = TypeAdapter(tuple[int, ...])
 CLIENT_ADDRESS: Final = TypeAdapter(tuple[str, int])
@@ -884,7 +884,7 @@ def _delete_limit(candidate: Gateway) -> UpdateResult:
 
 def _general_settings_row(database_url: str | None) -> dict[str, JsonValue] | None:
     rows: Final = read_rows(
-        'SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s',
+        'SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s',
         ("general_settings",),
         database_url=database_url,
     )

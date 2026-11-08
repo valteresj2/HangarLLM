@@ -15,27 +15,27 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
-from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
+from hangarllm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import (
     CustomCodeGuardrail,
 )
-from litellm.proxy.policy_engine.pipeline_executor import (
+from hangarllm.proxy.policy_engine.pipeline_executor import (
     PipelineExecutor,
     UndeliverableStreamRewrite,
     pipeline_step_is_detect_only,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.policy_engine.pipeline_types import (
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.proxy.policy_engine.pipeline_types import (
     GuardrailPipeline,
     PipelineStep,
 )
-from litellm.types.utils import CallTypesLiteral, GenericGuardrailAPIInputs
+from hangarllm.types.utils import CallTypesLiteral, GenericGuardrailAPIInputs
 
 try:
     from fastapi.exceptions import HTTPException
@@ -258,7 +258,7 @@ async def test_terminal_block_carries_guardrail_information_to_request(
     back onto the request or the block is never counted.
     """
     guard = RecordingGuardrail(guardrail_name="credentials-api-keys", scan_raw_request=scan_raw_request)
-    monkeypatch.setattr(litellm, "callbacks", [guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [guard])
     data = {
         "messages": [{"role": "user", "content": "key AKIAIOSFODNN7EXAMPLE"}],
         "metadata": {"user_api_key_hash": "abc"},
@@ -290,7 +290,7 @@ async def test_terminal_block_merges_guardrail_information_without_duplicates(mo
     dicts at once. Those must be carried back once while every step's own entry is kept."""
     first = RecordingGuardrail(guardrail_name="pii-scan", block=False)
     second = RecordingGuardrail(guardrail_name="credentials-api-keys", scan_raw_request=True)
-    monkeypatch.setattr(litellm, "callbacks", [first, second])
+    monkeypatch.setattr(hangarllm, "callbacks", [first, second])
     earlier = {"guardrail_name": "earlier-guard", "guardrail_status": "success"}
     data = {"messages": [{"role": "user", "content": "hi"}], "metadata": {}}
     data["metadata"]["standard_logging_guardrail_information"] = [earlier]
@@ -322,7 +322,7 @@ async def test_repeated_scan_raw_request_step_is_counted_once_per_evaluation(mon
     """Running the same raw-scan guardrail twice yields two identical entries; both must reach the caller,
     while the entries the raw snapshot already held before the pipeline ran are not copied again."""
     guard = RecordingGuardrail(guardrail_name="credentials-raw", scan_raw_request=True, block=False)
-    monkeypatch.setattr(litellm, "callbacks", [guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [guard])
     earlier = {"guardrail_name": "earlier-guard", "guardrail_status": "success"}
     data = {"messages": [{"role": "user", "content": "hi"}], "metadata": {}}
     data["metadata"]["standard_logging_guardrail_information"] = [earlier]
@@ -368,7 +368,7 @@ async def test_escalation_step1_fails_step2_blocks(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [simple_guard, advanced_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [simple_guard, advanced_guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -404,7 +404,7 @@ async def test_block_carries_original_guardrail_exception(monkeypatch):
         steps=[PipelineStep(guardrail="moderation-filter", on_fail="block", on_pass="allow")],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -425,7 +425,7 @@ async def test_block_carries_original_guardrail_exception(monkeypatch):
 async def test_pipeline_step_honors_stream_scope(monkeypatch):
     stream_only = StreamScopedPassGuardrail(guardrail_name="stream-only", stream_scope="streaming")
     later = AlwaysFailGuardrail(guardrail_name="later-block")
-    monkeypatch.setattr(litellm, "callbacks", [stream_only, later])
+    monkeypatch.setattr(hangarllm, "callbacks", [stream_only, later])
     steps = [
         PipelineStep(guardrail="stream-only", on_fail="block", on_pass="allow"),
         PipelineStep(guardrail="later-block", on_fail="block", on_pass="allow"),
@@ -467,7 +467,7 @@ async def test_unsupported_mode_yields_error_outcome_without_exception(monkeypat
     original exception), not crash or run the guardrail."""
     guard = AlwaysPassGuardrail(guardrail_name="filter")
 
-    monkeypatch.setattr(litellm, "callbacks", [guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=[PipelineStep(guardrail="filter", on_error="block", on_fail="block")],
@@ -505,7 +505,7 @@ async def test_passthrough_guardrail_failure_can_pipeline_block(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [passthrough_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [passthrough_guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -551,7 +551,7 @@ async def test_custom_code_guardrail_failure_can_pipeline_block(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [custom_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [custom_guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -592,7 +592,7 @@ async def test_early_allow_step1_passes_step2_skipped(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [simple_guard, advanced_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [simple_guard, advanced_guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -630,7 +630,7 @@ async def test_escalation_step1_fails_step2_passes(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [simple_guard, advanced_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [simple_guard, advanced_guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -675,7 +675,7 @@ async def test_data_forwarding_pii_masking(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [pii_guard, content_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [pii_guard, content_guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -697,7 +697,7 @@ async def test_data_forwarding_pii_masking(monkeypatch):
 @pytest.mark.asyncio
 async def test_scan_raw_request_step_sees_pre_pipeline_content(monkeypatch):
     """
-    veria-ai finding on BerriAI/litellm#34940: a scan_raw_request=True guardrail
+    veria-ai finding on valteresj2/HangarLLM#34940: a scan_raw_request=True guardrail
     that is itself a pipeline step never saw raw_request_snapshot at all --
     execute_steps had no way to receive it, so it evaluated whatever an earlier
     pass_data step in the same pipeline had already rewritten, defeating the
@@ -724,7 +724,7 @@ async def test_scan_raw_request_step_sees_pre_pipeline_content(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [pii_guard, content_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [pii_guard, content_guard])
     original_data = {"messages": [{"role": "user", "content": "Hello John Smith"}]}
 
     result = await PipelineExecutor.execute_steps(
@@ -801,7 +801,7 @@ async def test_on_error_next_fallback_on_api_outage_on_fail_blocks_content(monke
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [primary, fallback])
+    monkeypatch.setattr(hangarllm, "callbacks", [primary, fallback])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -831,7 +831,7 @@ async def test_unappliable_rewrite_blocks_whatever_on_fail_and_on_error_say(monk
     """
     rewriter = UnappliableRewriteGuardrail("rewriter")
     later = AlwaysPassGuardrail("later-step")
-    monkeypatch.setattr(litellm, "callbacks", [rewriter, later])
+    monkeypatch.setattr(hangarllm, "callbacks", [rewriter, later])
 
     result = await PipelineExecutor.execute_steps(
         steps=[
@@ -880,7 +880,7 @@ async def test_on_fail_next_on_content_on_error_block_stops_api_fallback(monkeyp
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [primary_content, fallback])
+    monkeypatch.setattr(hangarllm, "callbacks", [primary_content, fallback])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline_content.steps,
@@ -896,7 +896,7 @@ async def test_on_fail_next_on_content_on_error_block_stops_api_fallback(monkeyp
 
     # API outage: on_error block -> do not run fallback
     fallback.calls = 0
-    monkeypatch.setattr(litellm, "callbacks", [primary_api, fallback])
+    monkeypatch.setattr(hangarllm, "callbacks", [primary_api, fallback])
     result = await PipelineExecutor.execute_steps(
         steps=pipeline_content.steps,
         mode=pipeline_content.mode,
@@ -935,7 +935,7 @@ async def test_guardrail_not_found_with_next_continues(monkeypatch):
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [pass_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [pass_guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -965,7 +965,7 @@ async def test_single_step_pipeline_block(monkeypatch):
         steps=[PipelineStep(guardrail="blocker", on_fail="block")],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -990,7 +990,7 @@ async def test_single_step_pipeline_allow(monkeypatch):
         steps=[PipelineStep(guardrail="passer", on_pass="allow")],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -1020,7 +1020,7 @@ async def test_allow_restores_independent_guardrails_list(monkeypatch):
         steps=[PipelineStep(guardrail="input-scan", on_fail="block", on_pass="allow")],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [pipeline_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [pipeline_guard])
 
     data = {
         "messages": [{"role": "user", "content": "clean content"}],
@@ -1052,7 +1052,7 @@ async def test_allow_does_not_leak_guardrails_into_bare_request(monkeypatch):
         steps=[PipelineStep(guardrail="input-scan", on_fail="block", on_pass="allow")],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [pipeline_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [pipeline_guard])
 
     data = {"messages": [{"role": "user", "content": "clean content"}]}
     result = await PipelineExecutor.execute_steps(
@@ -1084,7 +1084,7 @@ async def test_data_forwarding_keeps_changes_and_restores_guardrails_list(monkey
         ],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [pii_guard, content_guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [pii_guard, content_guard])
 
     data = {
         "messages": [{"role": "user", "content": "Hello John Smith"}],
@@ -1115,7 +1115,7 @@ async def test_step_results_include_duration(monkeypatch):
         steps=[PipelineStep(guardrail="timed")],
     )
 
-    monkeypatch.setattr(litellm, "callbacks", [guard])
+    monkeypatch.setattr(hangarllm, "callbacks", [guard])
 
     result = await PipelineExecutor.execute_steps(
         steps=pipeline.steps,
@@ -1153,7 +1153,7 @@ class _PolicyOptOutGuardrail(CustomGuardrail):
 @pytest.mark.asyncio
 async def test_pipeline_step_keeps_native_hook_when_opted_out(monkeypatch):
     guardrail = _PolicyOptOutGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     data = {"messages": [{"role": "user", "content": "hi"}]}
     outcome, _, _, _ = await PipelineExecutor._run_step(
@@ -1186,14 +1186,14 @@ class _TextTranslation:
         self.seen_guardrail_names = []
 
     async def process_output_streaming_response(
-        self, responses_so_far, guardrail_to_apply, litellm_logging_obj=None, user_api_key_dict=None, request_data=None
+        self, responses_so_far, guardrail_to_apply, hangarllm_logging_obj=None, user_api_key_dict=None, request_data=None
     ):
         self.seen_guardrail_names.append(guardrail_to_apply.guardrail_name)
         await guardrail_to_apply.apply_guardrail(
             inputs={"texts": ["hello world"]},
             request_data=request_data or {},
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
         )
         return responses_so_far
 
@@ -1208,7 +1208,7 @@ class _WritingTranslation:
         self,
         responses_so_far,
         guardrail_to_apply,
-        litellm_logging_obj=None,
+        hangarllm_logging_obj=None,
         user_api_key_dict=None,
         request_data=None,
         deliver_ended_stream_rewrites=False,
@@ -1218,7 +1218,7 @@ class _WritingTranslation:
             inputs={"texts": [responses_so_far[0]["text"]], "tool_calls": [dict(responses_so_far[0]["tool_call"])]},
             request_data=request_data or {},
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
         )
         responses_so_far[0]["text"] = outputs["texts"][0]
         if len(outputs["tool_calls"]) == 1:
@@ -1233,7 +1233,7 @@ class _RefusingTranslation:
         self,
         responses_so_far,
         guardrail_to_apply,
-        litellm_logging_obj=None,
+        hangarllm_logging_obj=None,
         user_api_key_dict=None,
         request_data=None,
         deliver_ended_stream_rewrites=False,
@@ -1281,11 +1281,11 @@ def _assert_passed_with_discard_warning(result, caplog, reason):
 
 @pytest.mark.asyncio
 async def test_streaming_step_discards_text_rewrite_when_translation_lacks_write_back(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
     translation = _TextTranslation()
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(translation, chunks)
 
     _assert_passed_with_discard_warning(result, caplog, NO_WRITE_BACK_REASON)
@@ -1295,9 +1295,9 @@ async def test_streaming_step_discards_text_rewrite_when_translation_lacks_write
 
 @pytest.mark.asyncio
 async def test_streaming_step_unchanged_texts_in_another_container_allow(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_TextReturningGuardrail(("hello world",))])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextReturningGuardrail(("hello world",))])
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(_TextTranslation())
 
     assert result.terminal_action == "allow"
@@ -1319,10 +1319,10 @@ class _InPlaceMutatingGuardrail(CustomGuardrail):
 
 @pytest.mark.asyncio
 async def test_streaming_step_in_place_rewrite_is_discarded_without_write_back(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_InPlaceMutatingGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_InPlaceMutatingGuardrail()])
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(_TextTranslation(), chunks)
 
     _assert_passed_with_discard_warning(result, caplog, NO_WRITE_BACK_REASON)
@@ -1345,10 +1345,10 @@ class _TextAndToolCallRewritingGuardrail(CustomGuardrail):
 
 @pytest.mark.asyncio
 async def test_streaming_step_delivers_text_rewrite_through_writing_translation(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_TextAndToolCallRewritingGuardrail(rewrite_tool_call=False)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextAndToolCallRewritingGuardrail(rewrite_tool_call=False)])
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(_WritingTranslation(), chunks)
 
     assert result.terminal_action == "allow"
@@ -1359,10 +1359,10 @@ async def test_streaming_step_delivers_text_rewrite_through_writing_translation(
 
 @pytest.mark.asyncio
 async def test_streaming_step_delivers_tool_call_rewrite_through_writing_translation(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_TextAndToolCallRewritingGuardrail(rewrite_tool_call=True)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextAndToolCallRewritingGuardrail(rewrite_tool_call=True)])
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(_WritingTranslation(), chunks)
 
     assert result.terminal_action == "allow"
@@ -1381,10 +1381,10 @@ class _ToolCallDroppingGuardrail(CustomGuardrail):
 
 @pytest.mark.asyncio
 async def test_streaming_step_discards_whole_rewrite_when_guardrail_drops_a_tool_call(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_ToolCallDroppingGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ToolCallDroppingGuardrail()])
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(_WritingTranslation(), chunks)
 
     _assert_passed_with_discard_warning(
@@ -1395,10 +1395,10 @@ async def test_streaming_step_discards_whole_rewrite_when_guardrail_drops_a_tool
 
 @pytest.mark.asyncio
 async def test_streaming_step_discards_tool_call_rewrite_when_translation_lacks_write_back(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_TextAndToolCallRewritingGuardrail(rewrite_tool_call=True)])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextAndToolCallRewritingGuardrail(rewrite_tool_call=True)])
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(_TextTranslation(), chunks)
 
     _assert_passed_with_discard_warning(result, caplog, NO_WRITE_BACK_REASON)
@@ -1422,7 +1422,7 @@ def _recorded_guardrail_statuses(result):
 
 @pytest.mark.asyncio
 async def test_streaming_step_records_guardrail_information_once_on_mask(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
 
     result = await _run_streaming_step(_WritingTranslation(), [_chunk()])
 
@@ -1432,7 +1432,7 @@ async def test_streaming_step_records_guardrail_information_once_on_mask(monkeyp
 
 @pytest.mark.asyncio
 async def test_streaming_step_records_the_guardrail_in_the_applied_guardrails_header(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
 
     result = await _run_streaming_step(_WritingTranslation(), [_chunk()])
 
@@ -1445,15 +1445,15 @@ class _SelfRecordingGuardrail(_TextReturningGuardrail):
 
 @pytest.mark.asyncio
 async def test_streaming_step_whose_guardrail_records_its_own_results_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_SelfRecordingGuardrail(["hello world"])])
+    monkeypatch.setattr(hangarllm, "callbacks", [_SelfRecordingGuardrail(["hello world"])])
 
     result = await _run_streaming_step(_WritingTranslation(), [_chunk()])
 
     assert result.modified_data["metadata"]["applied_guardrails"] == ["masker"]
 
 
-class _LitellmMetadataOpeningGuardrail(CustomGuardrail):
-    """Opens ``litellm_metadata`` on the request while scanning, as the A2A translation does."""
+class _HangarllmMetadataOpeningGuardrail(CustomGuardrail):
+    """Opens ``hangarllm_metadata`` on the request while scanning, as the A2A translation does."""
 
     def __init__(self) -> None:
         super().__init__(guardrail_name="masker", event_hook="post_call", default_on=True)
@@ -1463,9 +1463,9 @@ class _LitellmMetadataOpeningGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
-        request_data["litellm_metadata"] = {"user_api_key_hash": "hashed"}
+        request_data["hangarllm_metadata"] = {"user_api_key_hash": "hashed"}
         return inputs
 
 
@@ -1473,19 +1473,19 @@ class _LitellmMetadataOpeningGuardrail(CustomGuardrail):
 async def test_streaming_step_is_named_in_the_metadata_the_request_started_with(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_LitellmMetadataOpeningGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_HangarllmMetadataOpeningGuardrail()])
 
     result = await _run_streaming_step(_WritingTranslation(), [_chunk()])
 
     assert result.modified_data["metadata"]["applied_guardrails"] == ["masker"]
-    assert "applied_guardrails" not in result.modified_data["litellm_metadata"]
+    assert "applied_guardrails" not in result.modified_data["hangarllm_metadata"]
 
 
 @pytest.mark.asyncio
 async def test_streaming_step_that_flags_the_stream_is_named_when_the_pipeline_moves_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_BlockingStreamGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockingStreamGuardrail()])
 
     result = await _run_streaming_step(_WritingTranslation(), [_chunk()])
 
@@ -1495,7 +1495,7 @@ async def test_streaming_step_that_flags_the_stream_is_named_when_the_pipeline_m
 
 @pytest.mark.asyncio
 async def test_streaming_step_records_guardrail_information_once_on_block(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [_BlockingStreamGuardrail()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlockingStreamGuardrail()])
 
     result = await _run_streaming_step(_WritingTranslation(), [_chunk()])
 
@@ -1504,7 +1504,7 @@ async def test_streaming_step_records_guardrail_information_once_on_block(monkey
 
 
 def _two_choice_chat_chunks():
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     def chunk(index, content, finish_reason=None):
         return ModelResponseStream(
@@ -1520,12 +1520,12 @@ def _two_choice_chat_chunks():
 
 @pytest.mark.asyncio
 async def test_streaming_step_delivers_text_rewrites_on_every_choice_of_a_chat_stream(monkeypatch, caplog):
-    from litellm.llms.openai.chat.guardrail_translation.handler import OpenAIChatCompletionsHandler
+    from hangarllm.llms.openai.chat.guardrail_translation.handler import OpenAIChatCompletionsHandler
 
-    monkeypatch.setattr(litellm, "callbacks", [_TextReturningGuardrail(["[MASKED]", "[MASKED]"])])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextReturningGuardrail(["[MASKED]", "[MASKED]"])])
     chunks = _two_choice_chat_chunks()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(OpenAIChatCompletionsHandler(), chunks)
 
     assert result.terminal_action == "allow"
@@ -1541,10 +1541,10 @@ async def test_streaming_step_delivers_text_rewrites_on_every_choice_of_a_chat_s
 
 @pytest.mark.asyncio
 async def test_streaming_step_restores_chunks_when_translation_refuses_the_rewrite(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TextReturningGuardrail(["hello [MASKED]"])])
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_streaming_step(_RefusingTranslation(), chunks)
 
     _assert_passed_with_discard_warning(result, caplog, "the translation refused it")
@@ -1591,7 +1591,7 @@ class _LegacyScanningTranslation:
         self,
         responses_so_far,
         guardrail_to_apply,
-        litellm_logging_obj=None,
+        hangarllm_logging_obj=None,
         user_api_key_dict=None,
         request_data=None,
         deliver_ended_stream_rewrites=False,
@@ -1603,13 +1603,13 @@ class _LegacyScanningTranslation:
             inputs={"texts": [responses_so_far[0]["text"]], "tool_calls": [dict(responses_so_far[0]["tool_call"])]},
             request_data=request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
         )
         responses_so_far[0]["text"] = outputs["texts"][0]
         return responses_so_far
 
     async def process_output_response(
-        self, response, guardrail_to_apply, litellm_logging_obj=None, user_api_key_dict=None, request_data=None
+        self, response, guardrail_to_apply, hangarllm_logging_obj=None, user_api_key_dict=None, request_data=None
     ):
         inputs = {"texts": [response["text"]] if "text" in response else list(response["texts"])}
         if response.get("tool_calls"):
@@ -1618,7 +1618,7 @@ class _LegacyScanningTranslation:
             inputs=inputs,
             request_data={"response": response},
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
         )
         return response
 
@@ -1631,7 +1631,7 @@ class _ToolOnlyLegacyScanningTranslation(_LegacyScanningTranslation):
         self,
         responses_so_far,
         guardrail_to_apply,
-        litellm_logging_obj=None,
+        hangarllm_logging_obj=None,
         user_api_key_dict=None,
         request_data=None,
         deliver_ended_stream_rewrites=False,
@@ -1641,18 +1641,18 @@ class _ToolOnlyLegacyScanningTranslation(_LegacyScanningTranslation):
             inputs={"tool_calls": [dict(responses_so_far[0]["tool_call"])]},
             request_data=request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
         )
         return responses_so_far
 
     async def process_output_response(
-        self, response, guardrail_to_apply, litellm_logging_obj=None, user_api_key_dict=None, request_data=None
+        self, response, guardrail_to_apply, hangarllm_logging_obj=None, user_api_key_dict=None, request_data=None
     ):
         await guardrail_to_apply.apply_guardrail(
             inputs={"texts": [], "tool_calls": list(response.get("tool_calls") or [])},
             request_data={"response": response},
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
         )
         return response
 
@@ -1680,7 +1680,7 @@ async def _run_legacy_streaming_step(
 async def _run_legacy_streaming_steps(
     monkeypatch, guardrails, chunks, on_fail="block", on_error="next", translation=None
 ):
-    monkeypatch.setattr(litellm, "callbacks", list(guardrails))
+    monkeypatch.setattr(hangarllm, "callbacks", list(guardrails))
     return await PipelineExecutor.execute_steps(
         steps=[
             PipelineStep(
@@ -1707,7 +1707,7 @@ async def test_streaming_step_runs_legacy_hook_and_delivers_its_rewrite(monkeypa
     guardrail = guardrail_class(replacement=_legacy_replacement("[REWRITTEN] hello world"))
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_legacy_streaming_step(monkeypatch, guardrail, chunks)
 
     assert result.terminal_action == "allow"
@@ -1724,7 +1724,7 @@ async def test_streaming_step_delivers_a_legacy_rewrite_made_in_place(monkeypatc
     guardrail = _LegacyHookGuardrail(rewrite_in_place="[REWRITTEN] hello world")
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_legacy_streaming_step(monkeypatch, guardrail, chunks)
 
     assert result.terminal_action == "allow"
@@ -1738,7 +1738,7 @@ async def test_streaming_step_passes_untouched_when_legacy_hook_returns_none(mon
     guardrail = _LegacyHookGuardrail(replacement=None)
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_legacy_streaming_step(monkeypatch, guardrail, chunks)
 
     assert result.terminal_action == "allow"
@@ -1779,7 +1779,7 @@ async def test_streaming_step_discards_legacy_rewrite_whose_texts_do_not_line_up
     guardrail = _LegacyHookGuardrail(replacement=_legacy_replacement("split", "in two"))
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_legacy_streaming_step(monkeypatch, guardrail, chunks)
 
     _assert_passed_with_discard_warning(result, caplog, "the legacy hook returned 2 texts for a stream that carried 1")
@@ -1791,7 +1791,7 @@ async def test_streaming_step_discards_legacy_rewrite_that_drops_the_tool_calls(
     guardrail = _LegacyHookGuardrail(replacement=_legacy_replacement("[REWRITTEN] hello world", tool_calls=[]))
     chunks = [_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_legacy_streaming_step(monkeypatch, guardrail, chunks)
 
     _assert_passed_with_discard_warning(
@@ -1805,7 +1805,7 @@ async def test_streaming_step_passes_a_tool_only_stream_the_legacy_hook_left_alo
     guardrail = _LegacyHookGuardrail(replacement=None)
     chunks = [_tool_only_chunk()]
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_legacy_streaming_step(
             monkeypatch, guardrail, chunks, translation=_ToolOnlyLegacyScanningTranslation()
         )
@@ -1891,11 +1891,11 @@ def _streamed_texts(chunks):
 
 @pytest.mark.asyncio
 async def test_streaming_step_delivers_a_legacy_mask_of_a_streamed_claude_refusal(monkeypatch, caplog):
-    from litellm.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
+    from hangarllm.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
 
     chunks = _claude_refusal_sse_stream("Partial answer for bob@example.com")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await _run_legacy_streaming_step(
             monkeypatch, _EmailMaskingLegacyHook(), chunks, translation=AnthropicMessagesHandler()
         )
@@ -1920,7 +1920,7 @@ class _UnscannableRewriteTranslation(_LegacyScanningTranslation):
     never hands anything to the guardrail."""
 
     async def process_output_response(
-        self, response, guardrail_to_apply, litellm_logging_obj=None, user_api_key_dict=None, request_data=None
+        self, response, guardrail_to_apply, hangarllm_logging_obj=None, user_api_key_dict=None, request_data=None
     ):
         return response
 
@@ -2073,7 +2073,7 @@ async def test_streaming_step_delivers_a_legacy_hook_mask_of_web_search_result_t
 ) -> None:
     chunks: Final = _anthropic_web_search_stream()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result: Final = await _run_legacy_streaming_step(
             monkeypatch, _AnthropicMaskingLegacyGuardrail(), chunks, translation=AnthropicMessagesHandler()
         )
@@ -2113,7 +2113,7 @@ async def test_streaming_step_delivers_a_legacy_hook_mask_of_a_streamed_tool_inp
 ) -> None:
     chunks: Final = stream()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result: Final = await _run_legacy_streaming_step(
             monkeypatch, _AnthropicMaskingLegacyGuardrail(), chunks, translation=AnthropicMessagesHandler()
         )
@@ -2132,7 +2132,7 @@ async def test_streaming_step_delivers_a_legacy_text_rewrite_on_a_web_search_str
     guardrail: Final = _AnthropicTextRewritingLegacyGuardrail()
     chunks: Final = _anthropic_web_search_stream()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result: Final = await _run_legacy_streaming_step(
             monkeypatch, guardrail, chunks, translation=AnthropicMessagesHandler()
         )

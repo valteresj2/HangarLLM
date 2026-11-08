@@ -9,7 +9,7 @@ from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
 from llm_translation.sdk_clients import NO_PROXY_CACHE, SdkClients
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -54,7 +54,7 @@ def _register_model(client: PassthroughClient, resources: ResourceManager) -> st
     model_name: Final = f"e2e-gemini-tool-call-id-{unique_marker()}"
     model_id: Final = client.proxy.create_model(
         model_name,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=BACKEND_MODEL,
             api_key=GEMINI_API_KEY,
             thought_signature_in_tool_call_id=False,

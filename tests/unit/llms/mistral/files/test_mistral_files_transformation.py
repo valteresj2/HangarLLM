@@ -13,10 +13,10 @@ import httpx
 import pytest
 from openai.types.file_deleted import FileDeleted
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.mistral.files.transformation import MistralFilesConfig
-from litellm.types.llms.openai import CreateFileRequest, FileContentRequest, OpenAIFileObject
-from litellm.types.utils import LlmProviders
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.mistral.files.transformation import MistralFilesConfig
+from hangarllm.types.llms.openai import CreateFileRequest, FileContentRequest, OpenAIFileObject
+from hangarllm.types.utils import LlmProviders
 
 FILE_ID = "497f6eca-6276-4993-bfeb-53cbbbba6f09"
 
@@ -68,12 +68,12 @@ def test_custom_llm_provider(config):
     ],
 )
 def test_upload_url(config, api_base, expected):
-    url = config.get_complete_url(api_base=api_base, api_key="k", model="", optional_params={}, litellm_params={})
+    url = config.get_complete_url(api_base=api_base, api_key="k", model="", optional_params={}, hangarllm_params={})
     assert url == expected
 
 
 def test_validate_environment_uses_bearer_auth(config, api_key):
-    headers = config.validate_environment(headers={}, model="", messages=[], optional_params={}, litellm_params={})
+    headers = config.validate_environment(headers={}, model="", messages=[], optional_params={}, hangarllm_params={})
     assert headers == {"Authorization": f"Bearer {api_key}"}
 
 
@@ -84,7 +84,7 @@ def test_upload_request_is_multipart_with_batch_purpose(config):
             file=("in.jsonl", b'{"custom_id":"0"}\n', "application/jsonl"), purpose="batch"
         ),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert body == {
         "file": ("in.jsonl", b'{"custom_id":"0"}\n', "application/jsonl"),
@@ -98,7 +98,7 @@ def test_upload_request_passes_mistral_purposes_through(config, purpose):
         model="",
         create_file_data=CreateFileRequest(file=("f.bin", b"x"), purpose=purpose),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert body["purpose"] == (None, purpose)
 
@@ -108,7 +108,7 @@ def test_upload_request_maps_user_data_onto_ocr(config):
         model="",
         create_file_data=CreateFileRequest(file=("scan.pdf", b"%PDF"), purpose="user_data"),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert body["purpose"] == (None, "ocr")
 
@@ -123,7 +123,7 @@ def test_upload_request_rejects_purposes_mistral_lacks(config, purpose):
             model="",
             create_file_data=CreateFileRequest(file=("f.bin", b"x"), purpose=purpose),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
     assert exc_info.value.status_code == 400
 
@@ -131,13 +131,13 @@ def test_upload_request_rejects_purposes_mistral_lacks(config, purpose):
 def test_upload_request_requires_file(config):
     with pytest.raises(ValueError, match="File data is required"):
         config.transform_create_file_request(
-            model="", create_file_data=CreateFileRequest(purpose="batch"), optional_params={}, litellm_params={}
+            model="", create_file_data=CreateFileRequest(purpose="batch"), optional_params={}, hangarllm_params={}
         )
 
 
 def test_upload_response_maps_onto_openai_file_object(config):
     obj = config.transform_create_file_response(
-        model=None, raw_response=_response(_file()), logging_obj=None, litellm_params={}
+        model=None, raw_response=_response(_file()), logging_obj=None, hangarllm_params={}
     )
     assert obj == OpenAIFileObject(
         id=FILE_ID,
@@ -152,7 +152,7 @@ def test_upload_response_maps_onto_openai_file_object(config):
 
 def test_file_response_with_ocr_purpose_maps_onto_user_data(config):
     obj = config.transform_retrieve_file_response(
-        raw_response=_response(_file(purpose="ocr", expires_at=1_800_000_000)), logging_obj=None, litellm_params={}
+        raw_response=_response(_file(purpose="ocr", expires_at=1_800_000_000)), logging_obj=None, hangarllm_params={}
     )
     assert obj.purpose == "user_data"
     assert obj.expires_at == 1_800_000_000
@@ -164,13 +164,13 @@ def test_files_with_purposes_mistral_never_lets_us_upload_still_read_back(config
     other Mistral products created, and both the unfiltered list and a retrieve of such a file
     used to fail validation, so one playground file 500'd ``GET /v1/files`` for the whole key."""
     retrieved = config.transform_retrieve_file_response(
-        raw_response=_response(_file(purpose=purpose)), logging_obj=None, litellm_params={}
+        raw_response=_response(_file(purpose=purpose)), logging_obj=None, hangarllm_params={}
     )
     assert retrieved.purpose == "user_data"
     listed = config.transform_list_files_response(
         raw_response=_response({"data": [_file(purpose=purpose), _file(id="second")], "object": "list", "total": 2}),
         logging_obj=None,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert [(f.id, f.purpose) for f in listed] == [(FILE_ID, "user_data"), ("second", "batch")]
 
@@ -184,7 +184,7 @@ def test_files_with_purposes_mistral_never_lets_us_upload_still_read_back(config
 )
 def test_single_file_urls_encode_id_and_honor_api_base(config, method, suffix):
     url, params = getattr(config, method)(
-        file_id="id/with slash", optional_params={}, litellm_params={"api_base": "https://mistral.internal/v1"}
+        file_id="id/with slash", optional_params={}, hangarllm_params={"api_base": "https://mistral.internal/v1"}
     )
     assert url == f"https://mistral.internal/v1/files/id%2Fwith%20slash{suffix}"
     assert params == {}
@@ -192,7 +192,7 @@ def test_single_file_urls_encode_id_and_honor_api_base(config, method, suffix):
 
 def test_file_content_url(config):
     url, params = config.transform_file_content_request(
-        file_content_request=FileContentRequest(file_id=FILE_ID), optional_params={}, litellm_params={}
+        file_content_request=FileContentRequest(file_id=FILE_ID), optional_params={}, hangarllm_params={}
     )
     assert url == f"https://api.mistral.ai/v1/files/{FILE_ID}/content"
     assert params == {}
@@ -202,22 +202,22 @@ def test_file_content_response_is_binary_passthrough(config):
     raw = httpx.Response(
         200, content=b'{"custom_id":"0","response":{"status_code":200}}\n', request=httpx.Request("GET", "https://x")
     )
-    out = config.transform_file_content_response(raw_response=raw, logging_obj=None, litellm_params={})
+    out = config.transform_file_content_response(raw_response=raw, logging_obj=None, hangarllm_params={})
     assert out.content == b'{"custom_id":"0","response":{"status_code":200}}\n'
 
 
 def test_delete_response(config):
     out = config.transform_delete_file_response(
-        raw_response=_response({"id": FILE_ID, "object": "file", "deleted": True}), logging_obj=None, litellm_params={}
+        raw_response=_response({"id": FILE_ID, "object": "file", "deleted": True}), logging_obj=None, hangarllm_params={}
     )
     assert out == FileDeleted(id=FILE_ID, deleted=True, object="file")
 
 
 def test_list_request_filters_by_mapped_purpose(config):
-    url, params = config.transform_list_files_request(purpose="batch", optional_params={}, litellm_params={})
+    url, params = config.transform_list_files_request(purpose="batch", optional_params={}, hangarllm_params={})
     assert url == "https://api.mistral.ai/v1/files"
     assert params == {"purpose": "batch"}
-    _, no_params = config.transform_list_files_request(purpose=None, optional_params={}, litellm_params={})
+    _, no_params = config.transform_list_files_request(purpose=None, optional_params={}, hangarllm_params={})
     assert no_params == {}
 
 
@@ -225,15 +225,15 @@ def test_list_request_accepts_the_purpose_an_ocr_file_reads_back_as(config):
     """Regression: an OCR file reads back as ``purpose=user_data``, and listing with that purpose
     used to raise, so ``files.list(purpose=file.purpose)`` could never find OCR files."""
     ocr_file = config.transform_retrieve_file_response(
-        raw_response=_response(_file(purpose="ocr")), logging_obj=None, litellm_params={}
+        raw_response=_response(_file(purpose="ocr")), logging_obj=None, hangarllm_params={}
     )
-    _, params = config.transform_list_files_request(purpose=ocr_file.purpose, optional_params={}, litellm_params={})
+    _, params = config.transform_list_files_request(purpose=ocr_file.purpose, optional_params={}, hangarllm_params={})
     assert params == {"purpose": "ocr"}
 
 
 def test_list_request_rejects_purposes_mistral_lacks(config):
     with pytest.raises(BaseLLMException, match="purpose='assistants'") as exc_info:
-        config.transform_list_files_request(purpose="assistants", optional_params={}, litellm_params={})
+        config.transform_list_files_request(purpose="assistants", optional_params={}, hangarllm_params={})
     assert exc_info.value.status_code == 400
 
 
@@ -243,7 +243,7 @@ def test_list_response(config):
             {"data": [_file(), _file(id="second", filename="b.jsonl")], "object": "list", "total": 2}
         ),
         logging_obj=None,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert [f.id for f in out] == [FILE_ID, "second"]
     assert out[1].filename == "b.jsonl"

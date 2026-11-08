@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.db.proxy_worker_heartbeat import (
+from hangarllm.proxy.db.proxy_worker_heartbeat import (
     BEAT_SQL,
     COUNT_SQL,
     DEREGISTER_SQL,
@@ -13,7 +13,7 @@ from litellm.proxy.db.proxy_worker_heartbeat import (
     ProxyWorkerHeartbeat,
     count_live_proxy_workers,
 )
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 from tests.unit.proxy.db.fake_prisma_engine import engine_call
 
 
@@ -108,7 +108,7 @@ async def test_a_heartbeat_tick_renders_one_postgres_span_per_round_trip(
     assert await count_live_proxy_workers(prisma) == 2
 
     assert await postgres_span_names() == (
-        "postgres.upsert LiteLLM_ProxyWorkerHeartbeat",
-        "postgres.delete LiteLLM_ProxyWorkerHeartbeat",
-        "postgres.select LiteLLM_ProxyWorkerHeartbeat",
+        "postgres.upsert HangarLLM_ProxyWorkerHeartbeat",
+        "postgres.delete HangarLLM_ProxyWorkerHeartbeat",
+        "postgres.select HangarLLM_ProxyWorkerHeartbeat",
     )

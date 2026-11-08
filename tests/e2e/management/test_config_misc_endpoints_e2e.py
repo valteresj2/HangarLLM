@@ -35,7 +35,7 @@ from e2e_http import NoBody, Result, Success, UnknownApiError, unwrap, unwrap_st
 from e2e_metadata import Domain, Route, Subject, meta
 from lifecycle import ResourceManager
 from management_client import ManagementClient
-from models import KeyGenerateBody, LiteLLMParamsBody, TeamNewBody
+from models import KeyGenerateBody, HangarLLMParamsBody, TeamNewBody
 
 pytestmark = pytest.mark.e2e
 
@@ -487,7 +487,7 @@ class TestFallbackManagement:
     def _register_fallback_pair(client: ManagementClient, resources: ResourceManager) -> tuple[str, str]:
         primary = f"e2e-fallback-primary-{unique_marker()}"
         secondary = f"e2e-fallback-secondary-{unique_marker()}"
-        params = LiteLLMParamsBody(model="openai/gpt-5.5", api_key="e2e-dummy-key")
+        params = HangarLLMParamsBody(model="openai/gpt-5.5", api_key="e2e-dummy-key")
         primary_id = client.proxy.create_model(primary, params)
         resources.defer(lambda: client.proxy.delete_model(primary_id))
         secondary_id = client.proxy.create_model(secondary, params)

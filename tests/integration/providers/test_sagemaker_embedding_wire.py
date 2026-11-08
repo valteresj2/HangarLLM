@@ -40,7 +40,7 @@ from pydantic import JsonValue
 pytestmark: Final = [pytest.mark.timeout(240), pytest.mark.shares_worker_state]
 
 _NO_CACHE: Final[dict[str, JsonValue]] = {"no-cache": True}
-_SPEND_ROW: Final = 'SELECT status, call_type, model_group FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s'
+_SPEND_ROW: Final = 'SELECT status, call_type, model_group FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s'
 
 
 def _model_list(health_endpoint: str) -> list[JsonValue]:
@@ -153,7 +153,7 @@ def _embed(proxy: Gateway, model: str, text: JsonValue, **fields: JsonValue) -> 
 
 
 def _spend_row(response: httpx.Response) -> dict[str, JsonValue]:
-    call_id: Final = response.headers["x-litellm-call-id"]
+    call_id: Final = response.headers["x-hangarllm-call-id"]
     rows: Final = eventually(lambda: read_rows(_SPEND_ROW, (call_id,)), lambda found: len(found) == 1, seconds=70)
     return rows[0]
 
@@ -263,7 +263,7 @@ def test_openai_sdk_sync_client_reads_the_vectors_in_the_encoding_it_asked_for(p
     request: Final = _only_request(wire)
     assert request.headers[COMPONENT_HEADER] == COMPONENT, dict(request.headers)
     assert _body(request) == _forwarded_body(raw.http_request, text), request.body
-    call_id: Final = raw.headers["x-litellm-call-id"]
+    call_id: Final = raw.headers["x-hangarllm-call-id"]
     rows: Final = eventually(lambda: read_rows(_SPEND_ROW, (call_id,)), lambda found: len(found) == 1, seconds=70)
     assert rows[0]["status"] == "success", rows
 
@@ -281,7 +281,7 @@ async def test_openai_sdk_async_client_reads_the_vectors_in_the_encoding_it_aske
     request: Final = _only_request(wire)
     assert request.headers[COMPONENT_HEADER] == COMPONENT, dict(request.headers)
     assert _body(request) == _forwarded_body(raw.http_request, text), request.body
-    call_id: Final = raw.headers["x-litellm-call-id"]
+    call_id: Final = raw.headers["x-hangarllm-call-id"]
     rows: Final = eventually(lambda: read_rows(_SPEND_ROW, (call_id,)), lambda found: len(found) == 1, seconds=70)
     assert rows[0]["status"] == "success", rows
 
@@ -722,7 +722,7 @@ def test_two_identical_uncached_requests_each_reach_the_container_and_log_once(p
     first: Final = _embed(proxy, "sm-openai", [text])
     second: Final = _embed(proxy, "sm-openai", [text])
     assert (first.status_code, second.status_code) == (200, 200), (first.text, second.text)
-    assert first.headers["x-litellm-call-id"] != second.headers["x-litellm-call-id"], (first.headers, second.headers)
+    assert first.headers["x-hangarllm-call-id"] != second.headers["x-hangarllm-call-id"], (first.headers, second.headers)
     requests: Final = wire.drain()
     assert [_body(request) for request in requests] == [{"input": [text], "model": SERVED_MODEL}] * 2, requests
     assert {request.headers[COMPONENT_HEADER] for request in requests} == {COMPONENT}, requests

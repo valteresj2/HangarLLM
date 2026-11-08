@@ -3,23 +3,23 @@ from collections.abc import Iterator
 from typing import Final
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
-from litellm import Router
+from hangarllm import Router
 
 VECTOR_STORES_URL: Final = "https://api.openai.com/v1/vector_stores"
 
 
 @pytest.fixture(autouse=True)
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-vector-store-test")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio

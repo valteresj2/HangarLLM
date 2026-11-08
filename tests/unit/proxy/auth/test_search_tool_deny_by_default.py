@@ -5,24 +5,24 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
-from litellm.proxy import proxy_server
-from litellm.proxy._types import (
+from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import (
     UI_TEAM_ID,
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+    HangarLLM_ObjectPermissionTable,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     ProxyErrorTypes,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.proxy.auth.auth_checks import (
     TeamObjectLoader,
     can_caller_call_search_tool,
     check_unregistered_search_fallback,
 )
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
 
 _DENY_ON: Final = {"search_tool_deny_by_default": True}
 _KEY: Final = ProxyErrorTypes.key_search_tool_access_denied
@@ -38,12 +38,12 @@ class CallerFields(TypedDict, total=False):
     key_tools: list[str] | None | str
     team_id: str | None
     user_id: str | None
-    user_role: LitellmUserRoles | None
+    user_role: HangarllmUserRoles | None
     api_key: str
 
 
-def _grant(search_tools: list[str] | None, object_permission_id: str = "op") -> LiteLLM_ObjectPermissionTable:
-    return LiteLLM_ObjectPermissionTable(object_permission_id=object_permission_id, search_tools=search_tools)
+def _grant(search_tools: list[str] | None, object_permission_id: str = "op") -> HangarLLM_ObjectPermissionTable:
+    return HangarLLM_ObjectPermissionTable(object_permission_id=object_permission_id, search_tools=search_tools)
 
 
 def _caller(
@@ -51,7 +51,7 @@ def _caller(
     key_tools: list[str] | None | str = _NO_ROW,
     team_id: str | None = None,
     user_id: str | None = "user-1",
-    user_role: LitellmUserRoles | None = LitellmUserRoles.INTERNAL_USER,
+    user_role: HangarllmUserRoles | None = HangarllmUserRoles.INTERNAL_USER,
     api_key: str = "sk-caller",
 ) -> UserAPIKeyAuth:
     token: Final = UserAPIKeyAuth(
@@ -67,12 +67,12 @@ def _caller(
 
 
 def _team_loader(team_tools: list[str] | None | str) -> TeamObjectLoader:
-    async def load() -> LiteLLM_TeamTable | None:
+    async def load() -> HangarLLM_TeamTable | None:
         if team_tools == _TEAM_LOAD_FAILS:
             raise ProxyException(message="team lookup failed", type="auth_error", param="team_id", code=404)
         if team_tools == _NO_ROW:
-            return LiteLLM_TeamTable(team_id="team-1")
-        return LiteLLM_TeamTable(
+            return HangarLLM_TeamTable(team_id="team-1")
+        return HangarLLM_TeamTable(
             team_id="team-1", object_permission_id="op-team", object_permission=_grant(team_tools, "op-team")
         )
 
@@ -81,7 +81,7 @@ def _team_loader(team_tools: list[str] | None | str) -> TeamObjectLoader:
 
 def _missing_dashboard_team_loader() -> tuple[TeamObjectLoader, AsyncMock]:
     missing_team: Final = HTTPException(
-        status_code=404, detail="Team doesn't exist in db. Team=litellm-dashboard"
+        status_code=404, detail="Team doesn't exist in db. Team=hangarllm-dashboard"
     )
     load_team: Final = AsyncMock(side_effect=missing_team)
     return cast(TeamObjectLoader, load_team), load_team
@@ -100,7 +100,7 @@ def cache(monkeypatch: pytest.MonkeyPatch) -> UserApiKeyCache:
 
 
 def _cache_user(cache: UserApiKeyCache, user_tools: list[str] | None) -> None:
-    cache.set_cache(key="user-1", value=LiteLLM_UserTable(user_id="user-1", object_permission_id="op-user"))
+    cache.set_cache(key="user-1", value=HangarLLM_UserTable(user_id="user-1", object_permission_id="op-user"))
     cache.set_cache(key=object_permission_cache_key("op-user"), value=_grant(user_tools, "op-user"))
 
 
@@ -196,13 +196,13 @@ async def test_search_tool_access_is_unchanged_without_search_tool_deny_by_defau
         ),
         pytest.param(CallerFields(virtual_key=False, user_id=None), None, None, _USER, id="keyless caller, no user"),
         pytest.param(
-            CallerFields(user_role=LitellmUserRoles.PROXY_ADMIN),
+            CallerFields(user_role=HangarllmUserRoles.PROXY_ADMIN),
             None,
             None,
             _KEY,
             id="proxy admin virtual key not exempt",
         ),
-        pytest.param(CallerFields(api_key=LITELLM_PROXY_MASTER_KEY_ALIAS), None, None, None, id="master key exempt"),
+        pytest.param(CallerFields(api_key=HANGARLLM_PROXY_MASTER_KEY_ALIAS), None, None, None, id="master key exempt"),
     ],
 )
 @pytest.mark.asyncio
@@ -249,7 +249,7 @@ async def test_search_tool_deny_by_default_does_not_load_the_user_when_off(
     cache: UserApiKeyCache, monkeypatch: pytest.MonkeyPatch
 ):
     get_user_object: Final = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.auth.auth_checks.get_user_object", get_user_object)
+    monkeypatch.setattr("hangarllm.proxy.auth.auth_checks.get_user_object", get_user_object)
     assert await _denied_by({}, _caller(virtual_key=False)) is None
     get_user_object.assert_not_awaited()
 
@@ -261,7 +261,7 @@ async def test_search_tool_deny_by_default_does_not_load_the_user_when_off(
 )
 @pytest.mark.parametrize(
     "user_role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.INTERNAL_USER],
+    [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.INTERNAL_USER],
     ids=["admin", "internal-user"],
 )
 @pytest.mark.parametrize(
@@ -275,7 +275,7 @@ async def test_search_tool_deny_by_default_does_not_load_the_user_when_off(
 @pytest.mark.asyncio
 async def test_dashboard_search_tool_grants_without_deny_by_default(
     general_settings: Mapping[str, object],
-    user_role: LitellmUserRoles,
+    user_role: HangarllmUserRoles,
     key_tools: list[str] | None,
     expected: ProxyErrorTypes | None,
 ) -> None:
@@ -292,11 +292,11 @@ async def test_dashboard_search_tool_grants_without_deny_by_default(
 
 @pytest.mark.parametrize(
     "user_role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY],
     ids=["admin", "admin-view-only"],
 )
 @pytest.mark.asyncio
-async def test_admin_dashboard_search_tool_grants_with_deny_by_default(user_role: LitellmUserRoles) -> None:
+async def test_admin_dashboard_search_tool_grants_with_deny_by_default(user_role: HangarllmUserRoles) -> None:
     caller: Final = _caller(virtual_key=False, team_id=UI_TEAM_ID, user_role=user_role)
     load_team, load_team_mock = _missing_dashboard_team_loader()
     assert await _denied_by(_DENY_ON, caller, load_team) is None
@@ -334,23 +334,23 @@ async def test_internal_dashboard_search_tool_requires_the_user_grant_with_deny_
         pytest.param(_DENY_ON, _caller(), _KEY, id="virtual key"),
         pytest.param(_DENY_ON, _caller(virtual_key=False, team_id="team-1"), _TEAM, id="keyless team member"),
         pytest.param(_DENY_ON, _caller(virtual_key=False), _USER, id="keyless user"),
-        pytest.param(_DENY_ON, _caller(user_role=LitellmUserRoles.PROXY_ADMIN), _KEY, id="proxy admin key"),
-        pytest.param(_DENY_ON, _caller(api_key=LITELLM_PROXY_MASTER_KEY_ALIAS), None, id="master key"),
+        pytest.param(_DENY_ON, _caller(user_role=HangarllmUserRoles.PROXY_ADMIN), _KEY, id="proxy admin key"),
+        pytest.param(_DENY_ON, _caller(api_key=HANGARLLM_PROXY_MASTER_KEY_ALIAS), None, id="master key"),
         pytest.param(
             _DENY_ON,
-            _caller(virtual_key=False, team_id=UI_TEAM_ID, user_role=LitellmUserRoles.INTERNAL_USER),
+            _caller(virtual_key=False, team_id=UI_TEAM_ID, user_role=HangarllmUserRoles.INTERNAL_USER),
             _USER,
             id="internal dashboard user",
         ),
         pytest.param(
             _DENY_ON,
-            _caller(virtual_key=False, team_id=UI_TEAM_ID, user_role=LitellmUserRoles.PROXY_ADMIN),
+            _caller(virtual_key=False, team_id=UI_TEAM_ID, user_role=HangarllmUserRoles.PROXY_ADMIN),
             None,
             id="admin dashboard",
         ),
         pytest.param(
             _DENY_ON,
-            _caller(virtual_key=False, team_id=UI_TEAM_ID, user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY),
+            _caller(virtual_key=False, team_id=UI_TEAM_ID, user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY),
             None,
             id="admin view-only dashboard",
         ),

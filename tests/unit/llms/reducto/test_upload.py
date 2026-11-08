@@ -4,31 +4,31 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 
-import litellm
-from tests.test_litellm_rust.support.recording_server import RecordingServer, ResponseSpec
+import hangarllm
+from tests.test_hangarllm_rust.support.recording_server import RecordingServer, ResponseSpec
 
 pytestmark = pytest.mark.requires_rust_extension
 
 
 @pytest.fixture()
 def disable_aiohttp_transport(monkeypatch):
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
-    litellm.disable_aiohttp_transport = True
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    original_disable_aiohttp = hangarllm.disable_aiohttp_transport
+    hangarllm.disable_aiohttp_transport = True
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setenv("REDUCTO_API_KEY", "env-reducto-key")
     try:
         yield
     finally:
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.disable_aiohttp_transport = original_disable_aiohttp
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         os.environ.pop("REDUCTO_API_KEY", None)
 
 
 @pytest.mark.asyncio
 async def test_parse_v3_rejects_plain_http_urls(disable_aiohttp_transport, reducto_server: RecordingServer):
     reducto_server.expected_requests = 0
-    with pytest.raises(litellm.BadRequestError, match="upload the file first"):
-        await litellm.aocr(
+    with pytest.raises(hangarllm.BadRequestError, match="upload the file first"):
+        await hangarllm.aocr(
             model="reducto/parse-v3",
             document={
                 "type": "document_url",
@@ -61,7 +61,7 @@ async def test_parse_v3_image_data_uri_upload_uses_image_mime(
         )
     )
 
-    response = await litellm.aocr(
+    response = await hangarllm.aocr(
         model="reducto/parse-v3",
         document={
             "type": "file",
@@ -108,7 +108,7 @@ async def test_parse_v3_uses_programmatic_api_key_over_env(disable_aiohttp_trans
         )
     )
 
-    await litellm.aocr(
+    await hangarllm.aocr(
         model="reducto/parse-v3",
         document={
             "type": "file",

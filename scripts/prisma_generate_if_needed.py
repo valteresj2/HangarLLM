@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run ``prisma generate`` only when its inputs changed since the last run.
 
-The generated client is a pure function of ``litellm/proxy/schema.prisma`` and
+The generated client is a pure function of ``hangarllm/proxy/schema.prisma`` and
 the installed prisma package version, so a stamp of those two written next to
 the venv is enough to prove the client is current. The stamp lives under
 ``sys.prefix`` so recreating the venv discards it, and a missing generated
@@ -27,8 +27,8 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCHEMA = REPO_ROOT / "litellm" / "proxy" / "schema.prisma"
-STAMP = Path(sys.prefix) / "litellm-prisma-schema.stamp"
+SCHEMA = REPO_ROOT / "hangarllm" / "proxy" / "schema.prisma"
+STAMP = Path(sys.prefix) / "hangarllm-prisma-schema.stamp"
 
 
 def stamp_value(schema_bytes: bytes, prisma_version: str) -> str:

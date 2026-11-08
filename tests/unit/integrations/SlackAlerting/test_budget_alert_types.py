@@ -1,8 +1,8 @@
-from litellm.integrations.SlackAlerting.budget_alert_types import (
+from hangarllm.integrations.SlackAlerting.budget_alert_types import (
     SoftBudgetAlert,
     TokenBudgetAlert,
 )
-from litellm.proxy._types import CallInfo, Litellm_EntityType
+from hangarllm.proxy._types import CallInfo, Hangarllm_EntityType
 
 
 class TestSoftBudgetAlert:
@@ -13,7 +13,7 @@ class TestSoftBudgetAlert:
         user_info = CallInfo(
             spend=120.0,
             token=token_value,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
 
         result = alert.get_id(user_info)
@@ -25,7 +25,7 @@ class TestSoftBudgetAlert:
         user_info = CallInfo(
             spend=100.0,
             token=None,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
 
         result = alert.get_id(user_info)
@@ -38,7 +38,7 @@ class TestSoftBudgetAlert:
             spend=120.0,
             token="test_token_123",
             team_id="team_456",
-            event_group=Litellm_EntityType.TEAM,
+            event_group=Hangarllm_EntityType.TEAM,
         )
 
         result = alert.get_id(user_info)
@@ -50,7 +50,7 @@ class TestSoftBudgetAlert:
             spend=120.0,
             token="test_token_123",
             team_id=None,
-            event_group=Litellm_EntityType.TEAM,
+            event_group=Hangarllm_EntityType.TEAM,
         )
 
         result = alert.get_id(user_info)
@@ -62,7 +62,7 @@ class TestSoftBudgetAlert:
         user_info = CallInfo(
             spend=100.0,
             token="",
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
 
         result = alert.get_id(user_info)
@@ -73,10 +73,10 @@ class TestTokenBudgetAlert:
     def test_get_id_dedupes_team_member_alerts_per_member_and_team(self):
         alert = TokenBudgetAlert()
         team_a = CallInfo(
-            spend=8.0, max_budget=10.0, user_id="member_1", team_id="team_a", event_group=Litellm_EntityType.TEAM_MEMBER
+            spend=8.0, max_budget=10.0, user_id="member_1", team_id="team_a", event_group=Hangarllm_EntityType.TEAM_MEMBER
         )
         team_b = CallInfo(
-            spend=8.0, max_budget=10.0, user_id="member_1", team_id="team_b", event_group=Litellm_EntityType.TEAM_MEMBER
+            spend=8.0, max_budget=10.0, user_id="member_1", team_id="team_b", event_group=Hangarllm_EntityType.TEAM_MEMBER
         )
 
         assert alert.get_id(team_a) == "team_member:member_1:team_a"
@@ -90,7 +90,7 @@ class TestTokenBudgetAlert:
             token="hashed_key",
             user_id="member_1",
             team_id="team_a",
-            event_group=Litellm_EntityType.KEY,
+            event_group=Hangarllm_EntityType.KEY,
         )
 
         assert alert.get_id(user_info) == "hashed_key"

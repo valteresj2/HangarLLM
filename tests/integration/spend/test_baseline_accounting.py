@@ -11,19 +11,19 @@ import pytest
 import pytest_asyncio
 from prisma import Prisma
 
-import litellm
-from litellm.llms.anthropic.prompt_cache_prediction import CountedBreakpoint, CountedPromptCachePlan
-from litellm.proxy.db.autorouter_session_rollup import AutoRouterTurnTransaction
-from litellm.proxy.db.baseline_accounting import (
+import hangarllm
+from hangarllm.llms.anthropic.prompt_cache_prediction import CountedBreakpoint, CountedPromptCachePlan
+from hangarllm.proxy.db.autorouter_session_rollup import AutoRouterTurnTransaction
+from hangarllm.proxy.db.baseline_accounting import (
     BaselineAccountingRecord,
     BaselineAccountingStore,
     DailyBaselineAttribution,
     DailyBaselineTarget,
 )
-from litellm.proxy.db.create_views import SupportsRawQueries
-from litellm.proxy.spend_tracking.baseline_accounting import BaselineObservation
-from litellm.proxy.spend_tracking.savings import BaselineCostSnapshot
-from litellm.types.utils import Usage
+from hangarllm.proxy.db.create_views import SupportsRawQueries
+from hangarllm.proxy.spend_tracking.baseline_accounting import BaselineObservation
+from hangarllm.proxy.spend_tracking.savings import BaselineCostSnapshot
+from hangarllm.types.utils import Usage
 from tests.integration._support.prisma_clients import connected_prisma
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -78,7 +78,7 @@ async def record(db: Prisma) -> AsyncIterator[Callable[..., BaselineAccountingRe
             ),
             pricing=BaselineCostSnapshot(
                 model="claude-opus-5", provider="anthropic",
-                prices=litellm.get_model_info("claude-opus-5", custom_llm_provider="anthropic"),
+                prices=hangarllm.get_model_info("claude-opus-5", custom_llm_provider="anthropic"),
                 actual_spend=0.17, actual_token_cost=0.17,
             ),
             turn=AutoRouterTurnTransaction(
@@ -98,35 +98,35 @@ async def record(db: Prisma) -> AsyncIterator[Callable[..., BaselineAccountingRe
     yield create
     key: Final = run
     scope: Final = "autorouter-baseline:v3:" + run * 2
-    await db.execute_raw('DELETE FROM "LiteLLM_DailyTagSpend" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_DailyTeamSpend" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_DailyOrganizationSpend" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_DailyEndUserSpend" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_DailyAgentSpend" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_DailyUserSpend" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterDailySpend" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterUserSession" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterSession" WHERE api_key=$1', key)
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterBaselineObservation" WHERE scope=$1', scope)
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterBaselineComparison" WHERE scope=$1', scope)
-    await db.execute_raw('DELETE FROM "LiteLLM_SpendLogs" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_DailyTagSpend" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_DailyTeamSpend" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_DailyOrganizationSpend" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_DailyEndUserSpend" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_DailyAgentSpend" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_DailyUserSpend" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterDailySpend" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterUserSession" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterSession" WHERE api_key=$1', key)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterBaselineObservation" WHERE scope=$1', scope)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterBaselineComparison" WHERE scope=$1', scope)
+    await db.execute_raw('DELETE FROM "HangarLLM_SpendLogs" WHERE api_key=$1', key)
 
 
 async def _log(db: Prisma, record: BaselineAccountingRecord) -> None:
     await db.execute_raw(
-        'INSERT INTO "LiteLLM_SpendLogs" (request_id,call_type,api_key,spend,"startTime","endTime") '
+        'INSERT INTO "HangarLLM_SpendLogs" (request_id,call_type,api_key,spend,"startTime","endTime") '
         "VALUES ($1, 'anthropic_messages', $2, 0.17, to_timestamp($3::float8), to_timestamp($3::float8))",
         record.observation.request_id, record.api_key, record.observation.started_at,
     )
 
 
 async def _session(db: Prisma, record: BaselineAccountingRecord):
-    rows: Final = await db.query_raw('SELECT * FROM "LiteLLM_AutoRouterSession" WHERE api_key=$1', record.api_key)
+    rows: Final = await db.query_raw('SELECT * FROM "HangarLLM_AutoRouterSession" WHERE api_key=$1', record.api_key)
     return rows[0]
 
 
 async def _user_sessions(db: Prisma, record: BaselineAccountingRecord) -> dict[str, dict[str, object]]:
-    rows: Final = await db.query_raw('SELECT * FROM "LiteLLM_AutoRouterUserSession" WHERE api_key=$1', record.api_key)
+    rows: Final = await db.query_raw('SELECT * FROM "HangarLLM_AutoRouterUserSession" WHERE api_key=$1', record.api_key)
     return {str(row["user_id"]): row for row in rows}
 
 
@@ -155,14 +155,14 @@ async def test_late_replay_updates_all_projections_without_rebilling(db: Prisma,
         assert user["turns"] == 1 and user["spend"] == 0.17
         assert user["savings_estimated_turns"] == user["savings_estimated_actual_spend"] == user["saved_spend"] == 0
         assert user["savings_estimated_baseline_models"] == {}
-    waiting: Final = await db.query_raw('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=$1', late.observation.request_id)
+    waiting: Final = await db.query_raw('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=$1', late.observation.request_id)
     assert waiting[0]["metadata"]["autorouter_savings"] is None
     assert waiting[0]["metadata"]["autorouter_savings_estimate"]["reason"] == "pending_projection"
     assert await store.project(early.scope) == "published"
     after: Final = await _session(db, late)
     assert after["spend"] == 0.34 and after["turns"] == 2
     assert after["savings_estimated_actual_spend"] == 0.17 and after["savings_estimated_turns"] == 1
-    logs: Final = await db.query_raw('SELECT spend, metadata FROM "LiteLLM_SpendLogs" WHERE request_id=$1', late.observation.request_id)
+    logs: Final = await db.query_raw('SELECT spend, metadata FROM "HangarLLM_SpendLogs" WHERE request_id=$1', late.observation.request_id)
     assert logs[0]["spend"] == 0.17
     assert logs[0]["metadata"]["autorouter_savings_estimate"]["provenance"] == "modeled"
     assert after["saved_spend"] == pytest.approx(logs[0]["metadata"]["autorouter_savings"])
@@ -175,14 +175,14 @@ async def test_late_replay_updates_all_projections_without_rebilling(db: Prisma,
         assert after_users["late-user"][field] == after[field]
     assert after_users["late-user"]["turns"] == 1 and after_users["late-user"]["spend"] == 0.17
     days: Final = await db.query_raw(
-        'SELECT * FROM "LiteLLM_AutoRouterDailySpend" WHERE api_key=$1 ORDER BY user_id', late.api_key
+        'SELECT * FROM "HangarLLM_AutoRouterDailySpend" WHERE api_key=$1 ORDER BY user_id', late.api_key
     )
     assert [(day["date"], day["user_id"]) for day in days] == [("1970-01-01", "early-user"), ("1970-01-01", "late-user")]
     assert days[0]["saved_spend"] == days[0]["savings_estimated_turns"] == 0
     for field in ("saved_spend", "savings_estimated_turns", "savings_estimated_actual_spend", "savings_estimated_saved_spend"):
         assert days[1][field] == after[field]
     for table in ("DailyUserSpend", "DailyTeamSpend", "DailyOrganizationSpend", "DailyEndUserSpend", "DailyAgentSpend", "DailyTagSpend"):
-        rows: Final = await db.query_raw(f'SELECT spend,api_requests,autorouter_savings_spend FROM "LiteLLM_{table}" WHERE api_key=$1', late.api_key)
+        rows: Final = await db.query_raw(f'SELECT spend,api_requests,autorouter_savings_spend FROM "HangarLLM_{table}" WHERE api_key=$1', late.api_key)
         assert rows[0]["spend"] == rows[0]["api_requests"] == 0
         assert rows[0]["autorouter_savings_spend"] == pytest.approx(after["saved_spend"])
 
@@ -205,7 +205,7 @@ async def test_commit_ack_loss_and_concurrent_duplicate_delivery_are_idempotent(
     assert await store.append(other) == "recorded"
     if not attributed:
         await db.execute_raw(
-            'UPDATE "LiteLLM_AutoRouterBaselineObservation" SET data=(data::jsonb #- \'{turn,user_id}\')::text WHERE scope=$1',
+            'UPDATE "HangarLLM_AutoRouterBaselineObservation" SET data=(data::jsonb #- \'{turn,user_id}\')::text WHERE scope=$1',
             event.scope,
         )
     assert await store.project(event.scope) == "published"
@@ -233,7 +233,7 @@ async def test_publication_rollback_keeps_dirty_revision_for_retry(db: Prisma, r
     assert before_users["rollback-user"]["spend"] == 0.17
     assert before_users["rollback-user"]["savings_estimated_turns"] == 0
     assert before_users["rollback-user"]["savings_estimated_baseline_models"] == {}
-    revisions: Final = await db.query_raw('SELECT revision,published_revision FROM "LiteLLM_AutoRouterBaselineComparison" WHERE scope=$1', event.scope)
+    revisions: Final = await db.query_raw('SELECT revision,published_revision FROM "HangarLLM_AutoRouterBaselineComparison" WHERE scope=$1', event.scope)
     assert revisions[0]["revision"] > revisions[0]["published_revision"]
     assert await store.project(event.scope) == "published"
     assert (await _session(db, event))["savings_estimated_turns"] == 1
@@ -255,7 +255,7 @@ async def test_conflicting_duplicate_cannot_restore_an_observed_estimate(db: Pri
     assert await store.project(event.scope) == "published"
     session: Final = await _session(db, event)
     assert session["turns"] == 1 and session["savings_estimated_turns"] == 0
-    rows: Final = await db.query_raw('SELECT publication FROM "LiteLLM_AutoRouterBaselineObservation" WHERE request_id=$1', event.observation.request_id)
+    rows: Final = await db.query_raw('SELECT publication FROM "HangarLLM_AutoRouterBaselineObservation" WHERE request_id=$1', event.observation.request_id)
     assert json.loads(rows[0]["publication"])["reason"] == "conflicting_observation"
 
 
@@ -265,7 +265,7 @@ async def test_retired_history_never_recreates_an_initial_zero(db: Prisma, recor
     store: Final = _store(db)
     assert await store.append(original) == "recorded"
     assert await store.project(original.scope) == "published"
-    await db.execute_raw('UPDATE "LiteLLM_AutoRouterBaselineComparison" SET updated_at=to_timestamp(0) WHERE scope=$1', original.scope)
+    await db.execute_raw('UPDATE "HangarLLM_AutoRouterBaselineComparison" SET updated_at=to_timestamp(0) WHERE scope=$1', original.scope)
     await store.retire_before(datetime(2000, 1, 1, tzinfo=timezone.utc), 1000, 1000)
     next_turn: Final = record("after-retention", 20000.0)
     await _log(db, next_turn)
@@ -278,7 +278,7 @@ async def test_retired_history_never_recreates_an_initial_zero(db: Prisma, recor
 
 def _native_observation_payload(event: BaselineAccountingRecord) -> dict[str, object]:
     """The spend payload a captured, sessioned, auto-routed anthropic_messages request produces."""
-    from litellm.proxy.hooks.autorouter_baseline_cache import CapturedBaselineObservation
+    from hangarllm.proxy.hooks.autorouter_baseline_cache import CapturedBaselineObservation
 
     capture: Final = CapturedBaselineObservation(
         scope=event.scope, api_key=event.api_key, session_id=event.session_id,
@@ -309,9 +309,9 @@ async def test_native_observation_enters_spend_pipeline_once_with_shared_daily_a
 ) -> None:
     import os
 
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
     event: Final = record("routed", identical=False)
     payload: Final = _native_observation_payload(event)
@@ -343,7 +343,7 @@ async def test_native_observation_enters_spend_pipeline_once_with_shared_daily_a
         assert session["turns"] == session["savings_estimated_turns"] == 2
         assert session["spend"] == session["savings_estimated_actual_spend"] == 0.34
         tag_rows: Final = await db.query_raw(
-            'SELECT spend, api_requests, autorouter_savings_spend FROM "LiteLLM_DailyTagSpend" WHERE api_key=$1 AND tag=$2',
+            'SELECT spend, api_requests, autorouter_savings_spend FROM "HangarLLM_DailyTagSpend" WHERE api_key=$1 AND tag=$2',
             queued.api_key, "tag",
         )
         assert session["saved_spend"] < 0
@@ -359,10 +359,10 @@ async def test_without_spend_logs_a_captured_turn_keeps_only_its_router_day_row(
 ) -> None:
     import os
 
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.db.autorouter_session_rollup import flush_autorouter_turn_transactions
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.db.autorouter_session_rollup import flush_autorouter_turn_transactions
+    from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
     event: Final = record("unlogged", identical=False)
     monkeypatch.delenv("DATABASE_URL_READ_REPLICA", raising=False)
@@ -380,14 +380,14 @@ async def test_without_spend_logs_a_captured_turn_keeps_only_its_router_day_row(
         await client.db.disconnect()
 
     assert await db.query_raw(
-        'SELECT 1 FROM "LiteLLM_AutoRouterBaselineObservation" WHERE request_id=$1', event.observation.request_id
+        'SELECT 1 FROM "HangarLLM_AutoRouterBaselineObservation" WHERE request_id=$1', event.observation.request_id
     ) == []
     days: Final = await db.query_raw(
-        'SELECT turns, spend FROM "LiteLLM_AutoRouterDailySpend" WHERE api_key=$1 AND router_name=$2',
+        'SELECT turns, spend FROM "HangarLLM_AutoRouterDailySpend" WHERE api_key=$1 AND router_name=$2',
         event.api_key, event.router_name,
     )
     assert [(day["turns"], day["spend"]) for day in days] == [(1, 0.17)]
-    for table in ("LiteLLM_AutoRouterSession", "LiteLLM_AutoRouterUserSession"):
+    for table in ("HangarLLM_AutoRouterSession", "HangarLLM_AutoRouterUserSession"):
         assert await db.query_raw(
             f'SELECT 1 FROM "{table}" WHERE api_key=$1 AND router_name=$2', event.api_key, event.router_name
         ) == []

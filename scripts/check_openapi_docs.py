@@ -61,7 +61,7 @@ def violations(spec: Mapping[str, object]) -> tuple[Violation, ...]:
 
 
 def proxy_spec() -> Mapping[str, object]:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     return _as_mapping(app.openapi())
 

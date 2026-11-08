@@ -103,16 +103,16 @@ def _observation(text: str) -> dict[str, JsonValue]:
 
 
 def _team_groups(team_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT access_group_ids FROM "LiteLLM_TeamTable" WHERE team_id=%s', (team_id,))
+    return read_rows('SELECT access_group_ids FROM "HangarLLM_TeamTable" WHERE team_id=%s', (team_id,))
 
 
 def _key_groups(hashed: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT access_group_ids FROM "LiteLLM_VerificationToken" WHERE token=%s', (hashed,))
+    return read_rows('SELECT access_group_ids FROM "HangarLLM_VerificationToken" WHERE token=%s', (hashed,))
 
 
 def _group_row(access_group_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT assigned_team_ids, assigned_key_ids FROM "LiteLLM_AccessGroupTable" WHERE access_group_id=%s',
+        'SELECT assigned_team_ids, assigned_key_ids FROM "HangarLLM_AccessGroupTable" WHERE access_group_id=%s',
         (access_group_id,),
     )
 

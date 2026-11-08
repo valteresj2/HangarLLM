@@ -71,7 +71,7 @@ def _group(subject: str) -> str:
 @contextmanager
 def _sso_gateway(
     directory: Path,
-    litellm_settings: Mapping[str, JsonValue],
+    hangarllm_settings: Mapping[str, JsonValue],
     general_settings: Mapping[str, JsonValue] | None = None,
     db_sso_settings: Mapping[str, JsonValue] | None = None,
 ) -> Iterator[Gateway]:
@@ -81,11 +81,11 @@ def _sso_gateway(
             {
                 "model_list": [],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     **(general_settings or {}),
                 },
-                "litellm_settings": dict(litellm_settings),
+                "hangarllm_settings": dict(hangarllm_settings),
             }
         )
     )
@@ -105,7 +105,7 @@ def _sso_gateway(
             with contextlib.ExitStack() as cleanups:
                 cleanups.callback(
                     write_rows,
-                    'DELETE FROM "LiteLLM_SSOConfig" WHERE id = %s',
+                    'DELETE FROM "HangarLLM_SSOConfig" WHERE id = %s',
                     ("sso_config",),
                     database_url=gw.database_url,
                 )
@@ -144,11 +144,11 @@ def _delete_user(gateway: Gateway, subject: str) -> None:
 
 
 def _signed_in_user(subject: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT user_email, user_role, metadata FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,))
+    return read_rows('SELECT user_email, user_role, metadata FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,))
 
 
 @pytest.mark.parametrize(
-    ("litellm_settings", "expected_role"),
+    ("hangarllm_settings", "expected_role"),
     [
         ({}, "internal_user_viewer"),
         ({"default_internal_user_params": {"user_role": "internal_user"}}, "internal_user"),
@@ -156,10 +156,10 @@ def _signed_in_user(subject: str) -> list[dict[str, JsonValue]]:
     ids=["no-default", "default-internal-user"],
 )
 def test_a_first_sso_sign_in_creates_the_user_with_the_default_role(
-    tmp_path: Path, litellm_settings: Mapping[str, JsonValue], expected_role: str
+    tmp_path: Path, hangarllm_settings: Mapping[str, JsonValue], expected_role: str
 ) -> None:
     subject: Final = f"sso-new-user-{uuid.uuid4().hex[:12]}"
-    with _sso_gateway(tmp_path, litellm_settings) as gateway, contextlib.ExitStack() as cleanups:
+    with _sso_gateway(tmp_path, hangarllm_settings) as gateway, contextlib.ExitStack() as cleanups:
         cleanups.callback(_delete_user, gateway, subject)
         callback: Final = _sign_in(gateway, subject)
 
@@ -178,7 +178,7 @@ def test_free_sso_admission_preserves_existing_users_and_serializes_the_last_sea
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(OWNED_STATE_VARIABLE, OwnedState.PRIVATE.value)
-    monkeypatch.delenv("LITELLM_LICENSE", raising=False)
+    monkeypatch.delenv("HANGARLLM_LICENSE", raising=False)
     with _sso_gateway(tmp_path, {}) as gateway:
         for index in range(4):
             signed_in: Final = _sign_in(gateway, f"free-sso-{index}")
@@ -189,12 +189,12 @@ def test_free_sso_admission_preserves_existing_users_and_serializes_the_last_sea
             responses: Final = tuple(pool.map(partial(_sign_in, gateway), contenders))
 
         assert sorted(response.status_code for response in responses) == [303, 403, 403, 403, 403, 403, 403, 403]
-        assert gateway.rows('SELECT COUNT(*) AS count FROM "LiteLLM_UserTable"', ()) == [{"count": 5}]
+        assert gateway.rows('SELECT COUNT(*) AS count FROM "HangarLLM_UserTable"', ()) == [{"count": 5}]
         for subject, response in zip(contenders, responses):
             if response.status_code == 403:
-                assert "requires a LiteLLM Enterprise license" in response.text
+                assert "requires a HangarLLM Enterprise license" in response.text
                 assert not response.cookies
-                assert gateway.rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,)) == []
+                assert gateway.rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,)) == []
 
         existing: Final = _sign_in(gateway, "free-sso-0")
         assert existing.status_code == 303, existing.text
@@ -206,7 +206,7 @@ def test_free_sso_admission_preserves_existing_users_and_serializes_the_last_sea
         above_capacity: Final = _sign_in(gateway, "free-sso-0")
         refused: Final = _sign_in(gateway, "free-sso-extra")
         assert (above_capacity.status_code, refused.status_code) == (303, 403)
-        assert gateway.rows('SELECT COUNT(*) AS count FROM "LiteLLM_UserTable"', ()) == [{"count": 6}]
+        assert gateway.rows('SELECT COUNT(*) AS count FROM "HangarLLM_UserTable"', ()) == [{"count": 6}]
 
 
 @pytest.mark.parametrize(
@@ -226,7 +226,7 @@ def test_sso_sign_in_upserts_the_team_id_jwt_field_team_only_when_team_id_upsert
     team_id: Final = _dept(subject)
     jwtauth: Final = {
         "enable_jwt_auth": enable_jwt_auth,
-        "litellm_jwtauth": {"team_id_jwt_field": "dept", "team_id_upsert": team_id_upsert},
+        "hangarllm_jwtauth": {"team_id_jwt_field": "dept", "team_id_upsert": team_id_upsert},
     }
     with _sso_gateway(tmp_path, {}, jwtauth) as gateway, contextlib.ExitStack() as cleanups:
         cleanups.callback(gateway.request, "POST", "/team/delete", {"team_ids": [team_id]})
@@ -238,8 +238,8 @@ def test_sso_sign_in_upserts_the_team_id_jwt_field_team_only_when_team_id_upsert
         callback: Final = _sign_in(gateway, subject)
 
         assert callback.status_code == 303, f"{callback.status_code} {callback.text}"
-        teams: Final = gateway.rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
-        user: Final = gateway.rows('SELECT teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,))
+        teams: Final = gateway.rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
+        user: Final = gateway.rows('SELECT teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,))
         assert (len(teams), user) == (int(expect_member), [{"teams": [team_id] if expect_member else []}])
 
 
@@ -251,7 +251,7 @@ def test_sso_sign_in_with_db_team_mappings_creates_the_team_id_jwt_field_team_an
     group_team_id: Final = _group(subject)
     jwtauth: Final = {
         "enable_jwt_auth": True,
-        "litellm_jwtauth": {"team_id_jwt_field": "dept", "team_id_upsert": True},
+        "hangarllm_jwtauth": {"team_id_jwt_field": "dept", "team_id_upsert": True},
     }
     team_mappings: Final = {"team_mappings": {"team_ids_jwt_field": "groups"}}
     with (
@@ -265,7 +265,7 @@ def test_sso_sign_in_with_db_team_mappings_creates_the_team_id_jwt_field_team_an
 
         assert callback.status_code == 303, f"{callback.status_code} {callback.text}"
         teams: Final = gateway.rows(
-            'SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id IN (%s, %s)', (team_id, group_team_id)
+            'SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id IN (%s, %s)', (team_id, group_team_id)
         )
-        user: Final = gateway.rows('SELECT teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,))
+        user: Final = gateway.rows('SELECT teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,))
         assert (teams, user) == ([{"team_id": team_id}], [{"teams": [team_id]}])

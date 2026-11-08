@@ -5,7 +5,7 @@ write path a key can reach: /chat/completions, /queue/chat/completions,
 /v1/messages, /v1/responses, /embeddings, the Gemini native passthrough, a batch
 input file upload, a batch create, and a replayed callback log (POST
 /v1/rust_control_plane/logs, the writer an external gateway feeds). Each row those calls write must carry
-`api_key` equal to the key's LiteLLM_VerificationToken.token (the sha256 hash
+`api_key` equal to the key's HangarLLM_VerificationToken.token (the sha256 hash
 /key/generate returns as `token`), which is the join /spend/logs?api_key= and
 /user/daily/activity rely on to report key_alias and user_email. A row keyed by a
 re-hashed token (v1.99.0's regression, #39568 and #39572) shows up as a
@@ -63,7 +63,7 @@ BATCH_MODEL: Final = "openai-gpt-4o-mini"
 BATCH_BACKEND_MODEL: Final = "gpt-4o-mini"
 BATCH_PROVIDER: Final = "openai"
 DRIVEN_MODELS: Final = (CHAT_MODEL, MESSAGES_MODEL, RESPONSES_MODEL, EMBED_MODEL, BATCH_MODEL)
-HEALTH_SERVICE_ACCOUNT: Final = "litellm-internal-health-check"
+HEALTH_SERVICE_ACCOUNT: Final = "hangarllm-internal-health-check"
 BATCH_TERMINAL_STATUSES: Final = frozenset({"completed", "failed", "cancelled", "expired"})
 FAILED_BATCH_POLL_SECONDS: Final = 120.0
 FAILED_BATCH_POLL_INTERVAL_SECONDS: Final = 5.0
@@ -127,7 +127,7 @@ def _body_id(name: str, sent: StreamingResponse) -> WritePath:
 
 def _call_id(name: str, sent: StreamingResponse) -> WritePath:
     assert sent.ok, f"{name} failed with {sent.status_code}: {sent.body[:300]}"
-    assert sent.call_id, f"{name} answered without an x-litellm-call-id header"
+    assert sent.call_id, f"{name} answered without an x-hangarllm-call-id header"
     return WritePath(name=name, request_id=sent.call_id)
 
 
@@ -159,7 +159,7 @@ def _drive_callback_replay(client: SpendClient, identity: AttributedKey, marker:
         identity.key,
         CallbackLogPayload(
             id=request_id,
-            litellm_call_id=request_id,
+            hangarllm_call_id=request_id,
             model=CHAT_MODEL,
             start_time=finished_at - 1,
             end_time=finished_at,
@@ -197,7 +197,7 @@ def _drive_every_write_path(client: SpendClient, identity: AttributedKey) -> tup
 def _provider_batch_id(unified_batch_id: str) -> str:
     encoded: Final = unified_batch_id.removeprefix("batch_")
     decoded: Final = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)).decode()
-    return decoded.removeprefix("litellm:").split(";", 1)[0]
+    return decoded.removeprefix("hangarllm:").split(";", 1)[0]
 
 
 def _driven_batch_id(driven: DrivenKey) -> str:
@@ -303,7 +303,7 @@ class TestKeyAttribution:
             if row.api_key != driven.identity.token
         ]
         assert not unjoined, (
-            "spend rows whose api_key does not join LiteLLM_VerificationToken.token "
+            "spend rows whose api_key does not join HangarLLM_VerificationToken.token "
             f"{driven.identity.token}: {unjoined}"
         )
         unaliased: Final = [

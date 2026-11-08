@@ -7,7 +7,7 @@ from typing_extensions import LiteralString
 
 @dataclass
 class SettingsDatabase:
-    """In-memory ``LiteLLM_Config`` holding the telemetry instance id, hash secret and stored groups"""
+    """In-memory ``HangarLLM_Config`` holding the telemetry instance id, hash secret and stored groups"""
 
     stored_groups: str | None = None
     fail_reads: bool = False

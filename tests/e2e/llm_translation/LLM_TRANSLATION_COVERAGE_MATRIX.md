@@ -8,7 +8,7 @@ Scope: the proxy's two translation surfaces, end to end against a live proxy.
    `/gemini`, `/anthropic`, `/vertex_ai`, `/openai`, `/bedrock`, `/cohere`,
    `/mistral`, `/vllm`.
 2. **Non-passthrough** - the client speaks OpenAI format
-   (`/chat/completions`, `/embeddings`); litellm translates to/from the provider.
+   (`/chat/completions`, `/embeddings`); hangarllm translates to/from the provider.
 
 The two axes that must work in production for each: **passthrough vs
 non-passthrough** and **streaming vs non-streaming**, with **cost logged** and
@@ -33,12 +33,12 @@ Status: `covered` / `partial` / `gap`.
 
 Each covered cell asserts: `call_type == "pass_through_endpoint"`, `spend > 0`,
 `status == "success"`, correct `custom_llm_provider`/`model`, row correlated by the
-`x-litellm-call-id` header. Gemini non-streaming also pins `request_tags`
+`x-hangarllm-call-id` header. Gemini non-streaming also pins `request_tags`
 propagation; streaming pins `chunks > 0` then a costed row; tool tests assert the
 provider emitted a tool call (`functionCall` / `tool_use`) and it was costed.
 
 Cost on passthrough is computed in the success handler by transforming the native
-response to a `ModelResponse` and calling `litellm.completion_cost()`; for
+response to a `ModelResponse` and calling `hangarllm.completion_cost()`; for
 streaming, chunks are buffered and costed after the stream ends. This is the path
 most likely to silently break and the one a mock can't prove works.
 
@@ -69,7 +69,7 @@ Vertex keeps the credential on the proxy like gemini/anthropic, but the deployme
 added at runtime instead of declared in the gateway config: the test POSTs `/model/new`
 with `use_in_pass_through`, so the proxy registers that deployment's service account for
 the `/vertex_ai` route, then deletes it on teardown. The passthrough call sends only its
-litellm virtual key (`x-litellm-api-key`), no upstream bearer, and the proxy mints the
+hangarllm virtual key (`x-hangarllm-api-key`), no upstream bearer, and the proxy mints the
 Vertex token itself. Credentials (`VERTEXAI_PROJECT` / `VERTEXAI_CREDENTIALS`) are read
 from the same env the proxy uses, so the test never mints a token.
 
@@ -93,5 +93,5 @@ SpendLogs polling from `ProxyClient`), then add a test that calls it,
 
 Passthrough spend is logged asynchronously after the response and lands on the
 `proxy_batch_write_at` (~60s) cycle, so cost assertions poll
-`/spend/logs?request_id=<x-litellm-call-id>` to a deadline. Streaming cost is only
+`/spend/logs?request_id=<x-hangarllm-call-id>` to a deadline. Streaming cost is only
 known after the stream is fully consumed.

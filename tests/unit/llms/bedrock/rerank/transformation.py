@@ -5,5 +5,5 @@ from fastapi.testclient import TestClient
 
 from unittest.mock import MagicMock, patch
 
-from litellm import rerank
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm import rerank
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler

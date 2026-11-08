@@ -47,7 +47,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
         "model_list": [
             {
                 "model_name": _CONFIG_MODEL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _MODEL,
                     "api_base": wire.url + "/v1",
                     "api_key": _API_KEY,

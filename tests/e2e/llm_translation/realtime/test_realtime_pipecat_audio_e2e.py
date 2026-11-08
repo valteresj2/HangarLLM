@@ -1,6 +1,6 @@
 """Pipecat audio + server-VAD smoke tests for the proxy realtime websocket.
 
-Exercises the bot.py LiteLLMRealtimeLLMService pattern (simplified):
+Exercises the bot.py HangarLLMRealtimeLLMService pattern (simplified):
   - custom _connect (no keepalive pings)
   - _create_response override (tools session.update sent before history)
   - _handle_evt_session_created (immediate session ready without waiting for
@@ -73,7 +73,7 @@ from pipecat.services.llm_service import FunctionCallParams  # noqa: E402
 from pipecat.services.openai.realtime import events as rt_events  # noqa: E402
 from pipecat.services.openai.realtime.llm import OpenAIRealtimeLLMService  # noqa: E402
 
-from pipecat_service import LiteLLMRealtimeLLMService  # noqa: E402
+from pipecat_service import HangarLLMRealtimeLLMService  # noqa: E402
 
 TOOL_PARAMS: Final = tuple(
     pytest.param(
@@ -84,7 +84,7 @@ TOOL_PARAMS: Final = tuple(
                 domain=Domain.LLM_TRANSLATION,
                 route=Route.REALTIME,
                 providers=(Provider(p.id),),
-                models=(p.litellm_params.model,),
+                models=(p.hangarllm_params.model,),
                 capabilities=(Capability.FUNCTION_CALLING,),
                 mode=Mode.WEBSOCKET,
             )
@@ -103,7 +103,7 @@ AUDIO_OUTPUT_PARAMS: Final = tuple(
                 domain=Domain.LLM_TRANSLATION,
                 route=Route.REALTIME,
                 providers=(Provider(p.id),),
-                models=(p.litellm_params.model,),
+                models=(p.hangarllm_params.model,),
                 capabilities=(Capability.AUDIO_OUTPUT,),
                 mode=Mode.WEBSOCKET,
             )
@@ -122,7 +122,7 @@ AUDIO_INPUT_PARAMS: Final = tuple(
                 domain=Domain.LLM_TRANSLATION,
                 route=Route.REALTIME,
                 providers=(Provider(p.id),),
-                models=(p.litellm_params.model,),
+                models=(p.hangarllm_params.model,),
                 capabilities=(Capability.AUDIO_INPUT, Capability.AUDIO_OUTPUT),
                 mode=Mode.WEBSOCKET,
             )
@@ -209,7 +209,7 @@ async def _run_pipeline(
         city = (params.arguments or {}).get("city", "Paris")
         await params.result_callback({"city": city, "temperature_f": 72})
 
-    llm = LiteLLMRealtimeLLMService(
+    llm = HangarLLMRealtimeLLMService(
         api_key=key,
         base_url=f"{ws_base_url()}/v1/realtime",
         settings=OpenAIRealtimeLLMService.Settings(
@@ -331,7 +331,7 @@ async def _run_audio_input_pipeline(
     silence_chunk = b"\x00" * silence_frames * 2  # 16-bit zero samples
     chunks.append(silence_chunk)
 
-    llm = LiteLLMRealtimeLLMService(
+    llm = HangarLLMRealtimeLLMService(
         api_key=key,
         base_url=f"{ws_base_url()}/v1/realtime",
         settings=OpenAIRealtimeLLMService.Settings(

@@ -1,7 +1,7 @@
 {
-    "include": ["litellm", "litellm_cli"],
+    "include": ["hangarllm", "hangarllm_cli"],
     "ignore": [],
-    "exclude": ["**/node_modules", "**/__pycache__", "tests/e2e/claude_code", "tests/e2e_harness/claude_code", "tests/e2e/ui", "litellm/types/utils.py", "litellm/proxy/_types.py"],
+    "exclude": ["**/node_modules", "**/__pycache__", "tests/e2e/claude_code", "tests/e2e_harness/claude_code", "tests/e2e/ui", "hangarllm/types/utils.py", "hangarllm/proxy/_types.py"],
     "executionEnvironments": [
         {
             "root": "tests/e2e_harness",

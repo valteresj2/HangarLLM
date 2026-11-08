@@ -13,15 +13,15 @@ import pytest
 from openai.types.responses import ResponseFunctionWebSearch
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
-from litellm.llms.openai.chat.guardrail_translation.handler import (
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+from hangarllm.llms.openai.chat.guardrail_translation.handler import (
     OpenAIChatCompletionsHandler,
 )
-from litellm.types.llms.openai import ChatCompletionToolCallChunk
-from litellm.types.responses.main import build_web_search_call
-from litellm.types.utils import (
+from hangarllm.types.llms.openai import ChatCompletionToolCallChunk
+from hangarllm.types.responses.main import build_web_search_call
+from hangarllm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Function,
@@ -180,7 +180,7 @@ class QueryRedactingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional[LiteLLMLoggingObj] = None,
+        logging_obj: Optional[HangarLLMLoggingObj] = None,
     ) -> GenericGuardrailAPIInputs:
         def redacted(tool_call: ChatCompletionToolCallChunk) -> ChatCompletionToolCallChunk:
             arguments: Final[dict[str, object]] = json.loads(tool_call["function"]["arguments"])
@@ -680,7 +680,7 @@ class TestOpenAIChatCompletionsHandlerToolCallsOutput:
                                 function=Function(
                                     name="web_search",
                                     arguments=json.dumps(
-                                        {"keywords": "litellm documentation"}
+                                        {"keywords": "hangarllm documentation"}
                                     ),
                                 ),
                             )
@@ -709,7 +709,7 @@ class TestOpenAIChatCompletionsHandlerToolCallsOutput:
         )
         response_tool_call = response.choices[0].message.tool_calls[0]
         args = json.loads(response_tool_call.function.arguments)
-        assert args["keywords"] == "LITELLM DOCUMENTATION"
+        assert args["keywords"] == "HANGARLLM DOCUMENTATION"
 
     @pytest.mark.asyncio
     async def test_extract_multiple_tool_calls_from_output(self):
@@ -1170,7 +1170,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         This test verifies the fix for the bug where accessing chunk.choices[0]
         would raise IndexError when a streaming chunk has an empty choices list.
         """
-        from litellm.types.utils import ModelResponseStream
+        from hangarllm.types.utils import ModelResponseStream
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -1190,7 +1190,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
         )
 
         # Should return the responses unchanged
@@ -1199,7 +1199,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
     @pytest.mark.asyncio
     async def test_process_output_streaming_response_with_valid_choices(self):
         """Test that streaming response with valid choices still works correctly"""
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -1239,7 +1239,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
         )
 
         # Should return the responses
@@ -1254,7 +1254,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         This tests the has_stream_ended check when iterating through chunks with mixed choices.
         The stream hasn't finished yet (no finish_reason), so it won't trigger stream_chunk_builder.
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -1289,7 +1289,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
         )
 
         # Should return the responses
@@ -1297,7 +1297,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _ended_stream_chunks() -> list:
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         return [
             ModelResponseStream(
@@ -1325,7 +1325,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1336,7 +1336,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _ended_tool_call_stream_chunks() -> list:
-        from litellm.types.utils import (
+        from hangarllm.types.utils import (
             ChatCompletionDeltaToolCall,
             Delta,
             Function,
@@ -1380,7 +1380,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1406,7 +1406,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=RenameTool(guardrail_name="test"),
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1424,7 +1424,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
         )
 
         fragments = [chunk.choices[0].delta.tool_calls for chunk in chunks[:3]]
@@ -1439,7 +1439,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
         )
 
         assert chunks[0].choices[0].delta.content == "Hello"
@@ -1448,7 +1448,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _two_choice_stream_chunks() -> list:
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         def chunk(index: int, content: str, finish_reason: Optional[str] = None) -> ModelResponseStream:
             return ModelResponseStream(
@@ -1489,7 +1489,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._world_masking_guardrail(),
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1511,7 +1511,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1525,7 +1525,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_rewrites_every_choice_when_a_usage_only_chunk_closes_the_stream(self):
-        from litellm.types.utils import ModelResponseStream, Usage
+        from hangarllm.types.utils import ModelResponseStream, Usage
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockGuardrail(guardrail_name="test")
@@ -1542,7 +1542,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1560,7 +1560,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _two_choice_tool_call_stream_chunks() -> list:
-        from litellm.types.utils import (
+        from hangarllm.types.utils import (
             ChatCompletionDeltaToolCall,
             Delta,
             Function,
@@ -1629,7 +1629,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1640,7 +1640,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_tool_call_rewrite_on_multi_choice_stream_fails_closed(self):
-        from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+        from hangarllm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
         handler = OpenAIChatCompletionsHandler()
         chunks = self._two_choice_tool_call_stream_chunks()
@@ -1649,7 +1649,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
             await handler.process_output_streaming_response(
                 responses_so_far=chunks,
                 guardrail_to_apply=MockGuardrail(guardrail_name="test"),
-                litellm_logging_obj=None,
+                hangarllm_logging_obj=None,
                 deliver_ended_stream_rewrites=True,
             )
 
@@ -1666,7 +1666,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=MockPassThroughGuardrail(guardrail_name="test"),
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1675,7 +1675,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_rewrite_lands_on_nonzero_choice_index(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
 
@@ -1693,7 +1693,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._world_masking_guardrail(),
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1703,7 +1703,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _ended_server_tool_call_stream_chunks() -> list:
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         def chunk(delta: Delta, finish_reason: Optional[str] = None) -> ModelResponseStream:
             return ModelResponseStream(
@@ -1725,7 +1725,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _ended_server_fetch_stream_chunks() -> list:
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         def chunk(delta: Delta, finish_reason: Optional[str] = None) -> ModelResponseStream:
             return ModelResponseStream(
@@ -1783,7 +1783,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=QueryRedactingGuardrail(guardrail_name="redact"),
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1804,7 +1804,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=self._ended_server_tool_call_stream_chunks(),
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1820,7 +1820,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=QueryRedactingGuardrail(guardrail_name="redact"),
-            litellm_logging_obj=None,
+            hangarllm_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1931,11 +1931,11 @@ class TestIncrementalScanRespectsSkipFlags:
     content on any turn, including a session's first turn where every segment is new.
     Verified live against a real Bedrock ApplyGuardrail before being encoded here.
     The flags are set as instance attributes, mirroring how guardrail_registry
-    applies litellm_params to the callback (they are not constructor kwargs).
+    applies hangarllm_params to the callback (they are not constructor kwargs).
     """
 
     def _bedrock_guardrail(self):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+        from hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
 
         guardrail = BedrockGuardrail(
             guardrail_name="bedrock-incremental-skip-flags",
@@ -1974,7 +1974,7 @@ class TestIncrementalScanRespectsSkipFlags:
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = self._bedrock_guardrail()
-        data = {"messages": self._messages(), "litellm_session_id": "skip-flags-turn1"}
+        data = {"messages": self._messages(), "hangarllm_session_id": "skip-flags-turn1"}
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
             await handler.process_input_messages(data=data, guardrail_to_apply=guardrail)
@@ -2002,12 +2002,12 @@ class TestIncrementalScanRespectsSkipFlags:
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
             await handler.process_input_messages(
-                data={"messages": self._messages(), "litellm_session_id": session},
+                data={"messages": self._messages(), "hangarllm_session_id": session},
                 guardrail_to_apply=guardrail,
             )
             mock_api.reset_mock()
             await handler.process_input_messages(
-                data={"messages": self._messages(followup), "litellm_session_id": session},
+                data={"messages": self._messages(followup), "hangarllm_session_id": session},
                 guardrail_to_apply=guardrail,
             )
             assert mock_api.call_count == 1
@@ -2125,7 +2125,7 @@ class DuplicateToolReturningGuardrail(CustomGuardrail):
 
 class TestScanOnlyToolResults:
     def _bedrock_guardrail(self):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+        from hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
 
         guardrail = BedrockGuardrail(
             guardrail_name="bedrock-scan-only-tool-results",
@@ -2357,7 +2357,7 @@ class TestNoScannableContentRecordsNotRun:
         return {"messages": [{"role": "system", "content": "SYSTEM-PROMPT"}]}
 
     def _recorded_entries(self, data: dict) -> list:
-        metadata = data.get("metadata") or data.get("litellm_metadata") or {}
+        metadata = data.get("metadata") or data.get("hangarllm_metadata") or {}
         return metadata.get("standard_logging_guardrail_information") or []
 
     @pytest.mark.asyncio
@@ -2508,7 +2508,7 @@ class TestPerMessageTextWriteBack:
 
     @pytest.mark.asyncio
     async def test_fewer_texts_than_extracted_over_a_tool_message_is_rejected(self):
-        from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+        from hangarllm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
 
         handler = OpenAIChatCompletionsHandler()
         original_messages = [
@@ -2531,7 +2531,7 @@ class TestBuildBlockSseChunks:
     """build_block_sse_chunks turns a streaming ModifyResponseException into 200 SSE chunks"""
 
     def _exc(self, original_response=None):
-        from litellm.exceptions import ModifyResponseException
+        from hangarllm.exceptions import ModifyResponseException
 
         return ModifyResponseException(
             message="Blocked by policy.",
@@ -2600,7 +2600,7 @@ class TestCheckStreamingHasEnded:
         assert handler._check_streaming_has_ended(chunks) is True
 
     def test_object_finish_chunk_marks_stream_ended(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         chunks = [
@@ -2617,7 +2617,7 @@ class TestStreamingScanKey:
 
     @staticmethod
     def _chunk(content, finish_reason=None, index=0):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         return ModelResponseStream(
             choices=[StreamingChoices(index=index, delta=Delta(content=content), finish_reason=finish_reason)]
@@ -2643,7 +2643,7 @@ class TestStreamingScanKey:
         assert ended_key == open_key
 
     def test_tool_calls_only_enter_the_key_once_the_stream_has_ended(self):
-        from litellm.types.utils import (
+        from hangarllm.types.utils import (
             ChatCompletionDeltaToolCall,
             Delta,
             Function,
@@ -2671,7 +2671,7 @@ class TestStreamingScanKey:
         assert ended_key != open_key
 
     def test_legacy_function_call_delta_is_held_like_a_tool_call(self):
-        from litellm.types.utils import Delta, FunctionCall, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, FunctionCall, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         function_chunk = ModelResponseStream(
@@ -2693,7 +2693,7 @@ class TestStreamingScanKey:
         assert ended_key.tool_calls_in_flight is False
 
     def test_server_tool_calls_hold_the_window_and_enter_the_key_once_the_stream_has_ended(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler: Final = OpenAIChatCompletionsHandler()
         server_chunk: Final = ModelResponseStream(
@@ -2730,7 +2730,7 @@ class TestStreamingScanKey:
         assert key.texts == ("hi",)
 
     def test_released_stream_as_ended_finishes_only_the_choice_whose_tool_call_was_in_flight(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         tool_call = {"index": 0, "id": "call_1", "type": "function", "function": {"name": "lookup", "arguments": "{}"}}
         released = (
@@ -2745,7 +2745,7 @@ class TestStreamingScanKey:
         assert ended_key.stream_ended is True and len(ended_key.tool_calls) == 1, ended_key
 
     def test_released_stream_as_ended_leaves_a_stream_with_no_tool_call_in_flight_as_released(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         tool_call = {"index": 0, "id": "call_1", "type": "function", "function": {"name": "lookup", "arguments": "{}"}}
         text_only = (self._chunk("hi", index=0), self._chunk(" there", index=1))

@@ -121,9 +121,9 @@ class _Rig:
 
 
 def _second_in_order(entry: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
-    params: Final = entry["litellm_params"]
+    params: Final = entry["hangarllm_params"]
     assert isinstance(params, dict)
-    return {**entry, "litellm_params": {**params, "order": 2}}
+    return {**entry, "hangarllm_params": {**params, "order": 2}}
 
 
 def _model_list(rig_wires: Mapping[str, str]) -> list[JsonValue]:

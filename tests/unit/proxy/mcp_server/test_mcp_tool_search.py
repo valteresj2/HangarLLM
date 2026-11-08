@@ -1,4 +1,4 @@
-from litellm.proxy.mcp_server import operations as mcp_operations
+from hangarllm.proxy.mcp_server import operations as mcp_operations
 
 """
 Tests for MCP tool search feature.
@@ -24,13 +24,13 @@ import pytest
 from mcp.types import Tool
 from pydantic import JsonValue
 
-import litellm
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.common_utils.semantic_text_index import EmbeddingFailed, SemanticTextIndex, Vector
-from litellm.proxy.mcp_server.faults.list_outcomes import AggregateToolListing
-from litellm.proxy.mcp_server.mcp_server_manager import ListedToolsCaller
-from litellm.proxy.mcp_server.tool_search import (
+import hangarllm
+from hangarllm.models.object_permission import HangarLLM_ObjectPermissionTable
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.common_utils.semantic_text_index import EmbeddingFailed, SemanticTextIndex, Vector
+from hangarllm.proxy.mcp_server.faults.list_outcomes import AggregateToolListing
+from hangarllm.proxy.mcp_server.mcp_server_manager import ListedToolsCaller
+from hangarllm.proxy.mcp_server.tool_search import (
     AGENT_SEARCH_TOOL_NAME,
     MCP_TOOL_CALL_TOOL_NAME,
     MCP_TOOL_SEARCH_TOOL_NAME,
@@ -44,8 +44,8 @@ from litellm.proxy.mcp_server.tool_search import (
     search_mcp_tools,
     search_tools,
 )
-from litellm.types.mcp import MCPToolSearchSettings, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.mcp import MCPToolSearchSettings, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def _make_tools(specs: list[tuple[str, str]]) -> tuple[Tool, ...]:
@@ -54,8 +54,8 @@ def _make_tools(specs: list[tuple[str, str]]) -> tuple[Tool, ...]:
     )
 
 
-def _make_perm(**kwargs: Any) -> LiteLLM_ObjectPermissionTable:
-    return LiteLLM_ObjectPermissionTable(object_permission_id="test", **kwargs)
+def _make_perm(**kwargs: Any) -> HangarLLM_ObjectPermissionTable:
+    return HangarLLM_ObjectPermissionTable(object_permission_id="test", **kwargs)
 
 
 SAMPLE_TOOLS = _make_tools(
@@ -98,7 +98,7 @@ SAMPLE_TOOLS = _make_tools(
 def test_offline_schema_validation_preserves_supported_constraints(
     schema: Mapping[str, JsonValue], arguments: Mapping[str, JsonValue], error: str | None
 ) -> None:
-    from litellm.proxy.mcp_server.tool_search import _validate_tool_arguments
+    from hangarllm.proxy.mcp_server.tool_search import _validate_tool_arguments
 
     result: Final = _validate_tool_arguments(schema, arguments)
     if error is None:
@@ -109,7 +109,7 @@ def test_offline_schema_validation_preserves_supported_constraints(
 
 @pytest.mark.parametrize(("count", "allowed"), ((4_999, True), (5_000, False)))
 def test_validation_node_limit(count: int, allowed: bool) -> None:
-    from litellm.proxy.mcp_server.tool_search import _validation_limit_error
+    from hangarllm.proxy.mcp_server.tool_search import _validation_limit_error
 
     result: Final = _validation_limit_error({}, {str(index): None for index in range(count)})
     assert (result is None) is allowed
@@ -117,7 +117,7 @@ def test_validation_node_limit(count: int, allowed: bool) -> None:
 
 @pytest.mark.parametrize(("size", "allowed"), ((1_048_575, True), (1_048_576, False)))
 def test_validation_text_limit(size: int, allowed: bool) -> None:
-    from litellm.proxy.mcp_server.tool_search import _validation_limit_error
+    from hangarllm.proxy.mcp_server.tool_search import _validation_limit_error
 
     assert (_validation_limit_error({}, {"x": "a" * size}) is None) is allowed
 
@@ -126,7 +126,7 @@ def test_validation_text_limit(size: int, allowed: bool) -> None:
 def test_validation_depth_limit(depth: int, allowed: bool) -> None:
     from functools import reduce
 
-    from litellm.proxy.mcp_server.tool_search import _validation_limit_error
+    from hangarllm.proxy.mcp_server.tool_search import _validation_limit_error
 
     nested: Final = reduce(lambda value, _: {"x": value}, range(depth), {})
     assert (_validation_limit_error({}, nested) is None) is allowed
@@ -134,7 +134,7 @@ def test_validation_depth_limit(depth: int, allowed: bool) -> None:
 
 @pytest.mark.asyncio
 async def test_oversized_arguments_are_rejected_before_worker_submission() -> None:
-    from litellm.proxy.mcp_server.tool_search import _tool_argument_validation_error
+    from hangarllm.proxy.mcp_server.tool_search import _tool_argument_validation_error
 
     with patch("anyio.to_process.run_sync", new_callable=AsyncMock) as submit:
         result: Final = await _tool_argument_validation_error({}, {"value": "x" * 1_048_576})
@@ -146,7 +146,7 @@ async def test_oversized_arguments_are_rejected_before_worker_submission() -> No
 async def test_failed_validation_worker_returns_tool_error() -> None:
     from anyio import BrokenWorkerProcess
 
-    from litellm.proxy.mcp_server.tool_search import _tool_argument_validation_error
+    from hangarllm.proxy.mcp_server.tool_search import _tool_argument_validation_error
 
     with patch("anyio.to_process.run_sync", side_effect=BrokenWorkerProcess):
         result: Final = await _tool_argument_validation_error({}, {})
@@ -202,7 +202,7 @@ class OversizedRecordingEmbedder:
     async def __call__(self, texts: Sequence[str]) -> Sequence[Vector]:
         self.calls.append(tuple(texts))
         if any("OVERSIZED" in text for text in texts):
-            raise litellm.ContextWindowExceededError(
+            raise hangarllm.ContextWindowExceededError(
                 message="input is too long", model="text-embedding-3-large", llm_provider="openai"
             )
         return tuple((1.0, 0.0) if "weather" in text.lower() else (0.0, 1.0) for text in texts)
@@ -473,7 +473,7 @@ class TestGetVirtualToolDefinitions:
 class TestListToolRestApiWithToolSearch:
     @pytest.mark.asyncio
     async def test_returns_only_virtual_tools_when_flag_enabled(self) -> None:
-        from litellm.proxy.mcp_server.rest_endpoints import router
+        from hangarllm.proxy.mcp_server.rest_endpoints import router
 
         user_api_key_dict = UserAPIKeyAuth(
             api_key="test_key",
@@ -510,7 +510,7 @@ class TestListToolRestApiWithToolSearch:
 
     @pytest.mark.asyncio
     async def test_returns_full_catalog_when_flag_disabled(self) -> None:
-        from litellm.proxy.mcp_server.rest_endpoints import router
+        from hangarllm.proxy.mcp_server.rest_endpoints import router
 
         user_api_key_dict = UserAPIKeyAuth(
             api_key="test_key",
@@ -539,32 +539,32 @@ class TestListToolRestApiWithToolSearch:
 
         with (
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints.build_effective_auth_contexts",
+                "hangarllm.proxy.mcp_server.rest_endpoints.build_effective_auth_contexts",
                 new_callable=AsyncMock,
                 return_value=[user_api_key_dict],
             ),
-            patch("litellm.proxy.mcp_server.rest_endpoints.global_mcp_server_manager") as mock_manager,
+            patch("hangarllm.proxy.mcp_server.rest_endpoints.global_mcp_server_manager") as mock_manager,
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._get_tools_for_single_server",
+                "hangarllm.proxy.mcp_server.rest_endpoints._get_tools_for_single_server",
                 new_callable=AsyncMock,
                 return_value=fake_tools,
             ),
-            patch("litellm.proxy.mcp_server.rest_endpoints.IPAddressUtils"),
+            patch("hangarllm.proxy.mcp_server.rest_endpoints.IPAddressUtils"),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._prefetch_user_oauth_creds",
+                "hangarllm.proxy.mcp_server.rest_endpoints._prefetch_user_oauth_creds",
                 new_callable=AsyncMock,
                 return_value={},
             ),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._v1_resolved_oauth2_server_ids",
+                "hangarllm.proxy.mcp_server.rest_endpoints._v1_resolved_oauth2_server_ids",
                 return_value=[],
             ),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._get_server_auth_header",
+                "hangarllm.proxy.mcp_server.rest_endpoints._get_server_auth_header",
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._get_user_oauth_extra_headers",
+                "hangarllm.proxy.mcp_server.rest_endpoints._get_user_oauth_extra_headers",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
@@ -588,11 +588,11 @@ class TestListToolRestApiWithToolSearch:
         """Regression: an admin listing with include_disabled_tools must see the
         real catalog (to configure allowlists) even when mcp_tool_search_enabled is
         set, instead of the two virtual tools."""
-        from litellm.proxy.mcp_server.rest_endpoints import router
+        from hangarllm.proxy.mcp_server.rest_endpoints import router
 
         user_api_key_dict = UserAPIKeyAuth(
             api_key="admin_key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             object_permission=_make_perm(
                 mcp_tool_search_enabled=True,
                 mcp_servers=["github"],
@@ -618,32 +618,32 @@ class TestListToolRestApiWithToolSearch:
 
         with (
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints.build_effective_auth_contexts",
+                "hangarllm.proxy.mcp_server.rest_endpoints.build_effective_auth_contexts",
                 new_callable=AsyncMock,
                 return_value=[user_api_key_dict],
             ),
-            patch("litellm.proxy.mcp_server.rest_endpoints.global_mcp_server_manager") as mock_manager,
+            patch("hangarllm.proxy.mcp_server.rest_endpoints.global_mcp_server_manager") as mock_manager,
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._get_tools_for_single_server",
+                "hangarllm.proxy.mcp_server.rest_endpoints._get_tools_for_single_server",
                 new_callable=AsyncMock,
                 return_value=fake_tools,
             ),
-            patch("litellm.proxy.mcp_server.rest_endpoints.IPAddressUtils"),
+            patch("hangarllm.proxy.mcp_server.rest_endpoints.IPAddressUtils"),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._prefetch_user_oauth_creds",
+                "hangarllm.proxy.mcp_server.rest_endpoints._prefetch_user_oauth_creds",
                 new_callable=AsyncMock,
                 return_value={},
             ),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._v1_resolved_oauth2_server_ids",
+                "hangarllm.proxy.mcp_server.rest_endpoints._v1_resolved_oauth2_server_ids",
                 return_value=[],
             ),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._get_server_auth_header",
+                "hangarllm.proxy.mcp_server.rest_endpoints._get_server_auth_header",
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._get_user_oauth_extra_headers",
+                "hangarllm.proxy.mcp_server.rest_endpoints._get_user_oauth_extra_headers",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
@@ -673,7 +673,7 @@ class TestCallToolRestApiVirtualTools:
         return mock_request
 
     def _get_call_fn(self) -> Any:
-        from litellm.proxy.mcp_server.rest_endpoints import router
+        from hangarllm.proxy.mcp_server.rest_endpoints import router
 
         return next(
             r.endpoint
@@ -699,7 +699,7 @@ class TestCallToolRestApiVirtualTools:
         mock_tool.input_schema = {"type": "object", "properties": {}}
 
         with patch(
-            "litellm.proxy.mcp_server.operations._list_mcp_tools",
+            "hangarllm.proxy.mcp_server.operations._list_mcp_tools",
             new_callable=AsyncMock,
             return_value=AggregateToolListing(tools=[mock_tool], outcomes={}),
         ):
@@ -743,17 +743,17 @@ class TestCallToolRestApiVirtualTools:
 
         with (
             patch(
-                "litellm.proxy.mcp_server.operations._get_allowed_mcp_servers",
+                "hangarllm.proxy.mcp_server.operations._get_allowed_mcp_servers",
                 new_callable=AsyncMock,
                 return_value=[MagicMock()],
             ),
             patch(
-                "litellm.proxy.mcp_server.operations.execute_mcp_tool",
+                "hangarllm.proxy.mcp_server.operations.execute_mcp_tool",
                 new_callable=AsyncMock,
                 return_value=fake_result,
             ) as mock_execute,
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints._fire_mcp_tool_call_logging",
+                "hangarllm.proxy.mcp_server.rest_endpoints._fire_mcp_tool_call_logging",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("logging failed"),
             ) as mock_fire_logging,
@@ -792,16 +792,16 @@ class TestCallToolRestApiVirtualTools:
 
         with (
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints.IPAddressUtils.get_mcp_client_ip",
+                "hangarllm.proxy.mcp_server.rest_endpoints.IPAddressUtils.get_mcp_client_ip",
                 return_value="203.0.113.7",
             ),
             patch(
-                "litellm.proxy.mcp_server.operations._get_allowed_mcp_servers",
+                "hangarllm.proxy.mcp_server.operations._get_allowed_mcp_servers",
                 new_callable=AsyncMock,
                 return_value=[MagicMock()],
             ) as mock_allowed,
             patch(
-                "litellm.proxy.mcp_server.operations.execute_mcp_tool",
+                "hangarllm.proxy.mcp_server.operations.execute_mcp_tool",
                 new_callable=AsyncMock,
                 return_value=fake_result,
             ),
@@ -822,11 +822,11 @@ class TestCallToolRestApiVirtualTools:
 
         with (
             patch(
-                "litellm.proxy.mcp_server.rest_endpoints.IPAddressUtils.get_mcp_client_ip",
+                "hangarllm.proxy.mcp_server.rest_endpoints.IPAddressUtils.get_mcp_client_ip",
                 return_value="203.0.113.7",
             ),
             patch(
-                "litellm.proxy.mcp_server.operations._list_mcp_tools",
+                "hangarllm.proxy.mcp_server.operations._list_mcp_tools",
                 new_callable=AsyncMock,
                 return_value=AggregateToolListing(tools=[], outcomes={}),
             ) as mock_list,
@@ -838,8 +838,8 @@ class TestCallToolRestApiVirtualTools:
 
     @pytest.mark.asyncio
     async def test_agent_search_call_ranks_accessible_agents(self) -> None:
-        from litellm.proxy.agent_endpoints.agent_search import AgentSearchHit, AgentSearchHits
-        from litellm.types.agents import AgentResponse
+        from hangarllm.proxy.agent_endpoints.agent_search import AgentSearchHit, AgentSearchHits
+        from hangarllm.types.agents import AgentResponse
 
         user_api_key_dict = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         request = self._make_request(
@@ -852,12 +852,12 @@ class TestCallToolRestApiVirtualTools:
         )
         with (
             patch(  # test-quality-ok: the tool resolves agent access through proxy_server globals, no injection seam
-                "litellm.proxy.agent_endpoints.auth.agent_permission_handler.accessible_agents",
+                "hangarllm.proxy.agent_endpoints.auth.agent_permission_handler.accessible_agents",
                 new_callable=AsyncMock,
                 return_value=(translator,),
             ),
             patch(  # test-quality-ok: the embedding router only resolves via proxy_server globals, no injection seam
-                "litellm.proxy.agent_endpoints.agent_search.search_agents",
+                "hangarllm.proxy.agent_endpoints.agent_search.search_agents",
                 new_callable=AsyncMock,
                 return_value=AgentSearchHits(hits=(AgentSearchHit(agent=translator, score=0.91),)),
             ) as mock_search,
@@ -886,7 +886,7 @@ class TestCallToolRestApiVirtualTools:
         endpoint's catch-all turns into an HTTP 500."""
         from mcp.types import CallToolResult, TextContent
 
-        from litellm.llms.litellm_proxy.skills.skill_search import DEFAULT_SKILL_SEARCH_TOP_K
+        from hangarllm.llms.hangarllm_proxy.skills.skill_search import DEFAULT_SKILL_SEARCH_TOP_K
 
         user_api_key_dict = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         request = self._make_request(
@@ -894,7 +894,7 @@ class TestCallToolRestApiVirtualTools:
         )
         fake_result = CallToolResult(content=[TextContent(type="text", text="[]")], isError=False)
         with patch(  # test-quality-ok: the embedding router only resolves via proxy_server globals, no injection seam
-            "litellm.proxy.mcp_server.tool_search.handle_skill_search",
+            "hangarllm.proxy.mcp_server.tool_search.handle_skill_search",
             new_callable=AsyncMock,
             return_value=fake_result,
         ) as mock_search:
@@ -906,18 +906,18 @@ class TestCallToolRestApiVirtualTools:
 
     @pytest.mark.asyncio
     async def test_agent_search_call_reports_missing_embedding_model_as_tool_error(self) -> None:
-        from litellm.proxy.agent_endpoints.agent_search import AgentSearchNotConfigured
+        from hangarllm.proxy.agent_endpoints.agent_search import AgentSearchNotConfigured
 
         user_api_key_dict = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         request = self._make_request({"name": AGENT_SEARCH_TOOL_NAME, "arguments": {"query": "anything"}})
         with (
             patch(  # test-quality-ok: the tool resolves agent access through proxy_server globals, no injection seam
-                "litellm.proxy.agent_endpoints.auth.agent_permission_handler.accessible_agents",
+                "hangarllm.proxy.agent_endpoints.auth.agent_permission_handler.accessible_agents",
                 new_callable=AsyncMock,
                 return_value=(),
             ),
             patch(  # test-quality-ok: the embedding router only resolves via proxy_server globals, no injection seam
-                "litellm.proxy.agent_endpoints.agent_search.search_agents",
+                "hangarllm.proxy.agent_endpoints.agent_search.search_agents",
                 new_callable=AsyncMock,
                 return_value=AgentSearchNotConfigured(reason="set agent_search_embedding_model"),
             ),
@@ -934,7 +934,7 @@ class TestCallToolRestApiVirtualTools:
     async def test_mcp_tool_search_ranks_the_callers_catalog_with_the_configured_embedding_model(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "mcp_tool_search", {"embedding_model": "emb", "similarity_threshold": 0.5})
+        monkeypatch.setattr(hangarllm, "mcp_tool_search", {"embedding_model": "emb", "similarity_threshold": 0.5})
         user_api_key_dict = UserAPIKeyAuth(
             api_key="k", team_id="team-1", object_permission=_make_perm(mcp_tool_search_enabled=True)
         )
@@ -953,13 +953,13 @@ class TestCallToolRestApiVirtualTools:
         key_limits.pre_call_hook = AsyncMock(side_effect=lambda user_api_key_dict, data, call_type: data)
         with (
             patch(  # test-quality-ok: the proxy's router is a module global; the handler reaches it the way production does
-                "litellm.proxy.proxy_server.llm_router", router
+                "hangarllm.proxy.proxy_server.llm_router", router
             ),
             patch(  # test-quality-ok: the proxy's key-limit hooks are a module global; the embedding call runs them like /embeddings does
-                "litellm.proxy.proxy_server.proxy_logging_obj", key_limits
+                "hangarllm.proxy.proxy_server.proxy_logging_obj", key_limits
             ),
             patch(  # test-quality-ok: the authorized catalog is the seam every virtual tool shares; the ranking under test stays real
-                "litellm.proxy.mcp_server.operations._list_mcp_tools",
+                "hangarllm.proxy.mcp_server.operations._list_mcp_tools",
                 new_callable=AsyncMock,
                 return_value=AggregateToolListing(tools=list(CATALOG), outcomes={}),
             ) as mock_list,
@@ -974,10 +974,10 @@ class TestCallToolRestApiVirtualTools:
 
     @pytest.mark.asyncio
     async def test_mcp_tool_search_reports_missing_router_as_tool_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "mcp_tool_search", {"embedding_model": "emb"})
+        monkeypatch.setattr(hangarllm, "mcp_tool_search", {"embedding_model": "emb"})
         user_api_key_dict = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with patch(  # test-quality-ok: the proxy's router is a module global; the handler reaches it the way production does
-            "litellm.proxy.proxy_server.llm_router", None
+            "hangarllm.proxy.proxy_server.llm_router", None
         ):
             result = await self._get_call_fn()(request=self._semantic_request(), user_api_key_dict=user_api_key_dict)
         assert result.is_error is True
@@ -987,7 +987,7 @@ class TestCallToolRestApiVirtualTools:
     async def test_mcp_tool_search_reports_invalid_settings_as_tool_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "mcp_tool_search", {"top_k": 0})
+        monkeypatch.setattr(hangarllm, "mcp_tool_search", {"top_k": 0})
         user_api_key_dict = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         result = await self._get_call_fn()(request=self._semantic_request(), user_api_key_dict=user_api_key_dict)
         assert result.is_error is True
@@ -1028,7 +1028,7 @@ class TestDispatchVirtualMcpTool:
 
     @pytest.mark.asyncio
     async def test_returns_none_for_non_virtual_tool(self) -> None:
-        from litellm.proxy.mcp_server.server import (
+        from hangarllm.proxy.mcp_server.server import (
             _dispatch_virtual_mcp_tool,
         )
 
@@ -1042,7 +1042,7 @@ class TestDispatchVirtualMcpTool:
 
     @pytest.mark.asyncio
     async def test_rejects_when_flag_disabled(self) -> None:
-        from litellm.proxy.mcp_server.server import (
+        from hangarllm.proxy.mcp_server.server import (
             _dispatch_virtual_mcp_tool,
         )
 
@@ -1058,11 +1058,11 @@ class TestDispatchVirtualMcpTool:
 
     @pytest.mark.asyncio
     async def test_routes_search_with_client_ip(self) -> None:
-        from litellm.proxy.mcp_server import server as srv
+        from hangarllm.proxy.mcp_server import server as srv
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with patch(
-            "litellm.proxy.mcp_server.tool_search.handle_mcp_tool_search",
+            "hangarllm.proxy.mcp_server.tool_search.handle_mcp_tool_search",
             new_callable=AsyncMock,
             return_value="SEARCH_RESULT",
         ) as mock_search:
@@ -1080,11 +1080,11 @@ class TestDispatchVirtualMcpTool:
 
     @pytest.mark.asyncio
     async def test_routes_agent_search_to_its_handler(self) -> None:
-        from litellm.proxy.mcp_server import server as srv
+        from hangarllm.proxy.mcp_server import server as srv
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with patch(  # test-quality-ok: dispatch routing is the subject; the handler is faked like its siblings here
-            "litellm.proxy.mcp_server.tool_search.handle_agent_search",
+            "hangarllm.proxy.mcp_server.tool_search.handle_agent_search",
             new_callable=AsyncMock,
             return_value="AGENT_RESULT",
         ) as mock_agent_search:
@@ -1104,7 +1104,7 @@ class TestDispatchVirtualMcpTool:
 
     @pytest.mark.asyncio
     async def test_agent_search_rejected_when_flag_disabled(self) -> None:
-        from litellm.proxy.mcp_server.server import _dispatch_virtual_mcp_tool
+        from hangarllm.proxy.mcp_server.server import _dispatch_virtual_mcp_tool
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=False))
         result = await _dispatch_virtual_mcp_tool(
@@ -1115,11 +1115,11 @@ class TestDispatchVirtualMcpTool:
 
     @pytest.mark.asyncio
     async def test_routes_call_with_client_ip(self) -> None:
-        from litellm.proxy.mcp_server import server as srv
+        from hangarllm.proxy.mcp_server import server as srv
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with patch(
-            "litellm.proxy.mcp_server.tool_search.handle_mcp_tool_call",
+            "hangarllm.proxy.mcp_server.tool_search.handle_mcp_tool_call",
             new_callable=AsyncMock,
             return_value="CALL_RESULT",
         ) as mock_call:
@@ -1148,7 +1148,7 @@ class TestDispatchVirtualMcpTool:
         """Regression: the SSE dispatch must run the pre-call pipeline and forward
         the resulting logging object to handle_mcp_tool_call, otherwise mcp_tool_call
         over /mcp/ skips spend logging and guardrails (unlike the REST path)."""
-        from litellm.proxy.mcp_server import server as srv
+        from hangarllm.proxy.mcp_server import server as srv
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         sentinel_logging_obj = object()
@@ -1159,7 +1159,7 @@ class TestDispatchVirtualMcpTool:
                 return_value=sentinel_logging_obj,
             ) as mock_build,
             patch(
-                "litellm.proxy.mcp_server.tool_search.handle_mcp_tool_call",
+                "hangarllm.proxy.mcp_server.tool_search.handle_mcp_tool_call",
                 new_callable=AsyncMock,
                 return_value="CALL_RESULT",
             ) as mock_call,
@@ -1172,17 +1172,17 @@ class TestDispatchVirtualMcpTool:
             )
 
         assert mock_build.await_count == 1
-        assert mock_call.await_args.kwargs["litellm_logging_obj"] is sentinel_logging_obj
+        assert mock_call.await_args.kwargs["hangarllm_logging_obj"] is sentinel_logging_obj
 
     @pytest.mark.asyncio
     async def test_search_coerces_non_int_top_k(self) -> None:
         """Regression: a non-integer top_k from an MCP client must not raise; it
         falls back to the default instead of ValueError propagating out."""
-        from litellm.proxy.mcp_server import server as srv
+        from hangarllm.proxy.mcp_server import server as srv
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with patch(
-            "litellm.proxy.mcp_server.tool_search.handle_mcp_tool_search",
+            "hangarllm.proxy.mcp_server.tool_search.handle_mcp_tool_search",
             new_callable=AsyncMock,
             return_value="SEARCH_RESULT",
         ) as mock_search:
@@ -1201,7 +1201,7 @@ class TestDispatchVirtualMcpTool:
         upstream MCP servers needing pass-through auth can be called."""
         from mcp.types import CallToolResult, TextContent
 
-        from litellm.proxy.mcp_server.tool_search import (
+        from hangarllm.proxy.mcp_server.tool_search import (
             handle_mcp_tool_call,
         )
 
@@ -1209,12 +1209,12 @@ class TestDispatchVirtualMcpTool:
         fake = CallToolResult(content=[TextContent(type="text", text="ok")], isError=False)
         with (
             patch(
-                "litellm.proxy.mcp_server.operations._get_allowed_mcp_servers",
+                "hangarllm.proxy.mcp_server.operations._get_allowed_mcp_servers",
                 new_callable=AsyncMock,
                 return_value=[MagicMock()],
             ) as mock_allowed,
             patch(
-                "litellm.proxy.mcp_server.operations.execute_mcp_tool",
+                "hangarllm.proxy.mcp_server.operations.execute_mcp_tool",
                 new_callable=AsyncMock,
                 return_value=fake,
             ) as mock_exec,
@@ -1229,7 +1229,7 @@ class TestDispatchVirtualMcpTool:
                 mcp_server_auth_headers={"github": {"Authorization": "Bearer gh"}},
                 oauth2_headers={"Authorization": "Bearer oauth"},
                 raw_headers={"x-mcp-auth": "tok"},
-                litellm_logging_obj=sentinel_logging_obj,
+                hangarllm_logging_obj=sentinel_logging_obj,
             )
 
         kw = mock_exec.await_args.kwargs
@@ -1238,7 +1238,7 @@ class TestDispatchVirtualMcpTool:
         assert kw["oauth2_headers"] == {"Authorization": "Bearer oauth"}
         assert kw["raw_headers"] == {"x-mcp-auth": "tok"}
         # Spend logging: the logging object must reach execute_mcp_tool
-        assert kw["litellm_logging_obj"] is sentinel_logging_obj
+        assert kw["hangarllm_logging_obj"] is sentinel_logging_obj
         # Scoped session: the requested mcp_servers scope must reach server resolution
         assert mock_allowed.await_args.kwargs["mcp_servers"] == ["github"]
 
@@ -1249,19 +1249,19 @@ class TestDispatchVirtualMcpTool:
         run via the local registry without a server permission check."""
         from fastapi import HTTPException
 
-        from litellm.proxy.mcp_server.tool_search import (
+        from hangarllm.proxy.mcp_server.tool_search import (
             handle_mcp_tool_call,
         )
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with (
             patch(
-                "litellm.proxy.mcp_server.operations._get_allowed_mcp_servers",
+                "hangarllm.proxy.mcp_server.operations._get_allowed_mcp_servers",
                 new_callable=AsyncMock,
                 return_value=[],
             ),
             patch(
-                "litellm.proxy.mcp_server.operations.execute_mcp_tool",
+                "hangarllm.proxy.mcp_server.operations.execute_mcp_tool",
                 new_callable=AsyncMock,
             ) as mock_exec,
         ):
@@ -1279,7 +1279,7 @@ class TestDispatchVirtualMcpTool:
 class TestCaptureHostProgressCallback:
     @pytest.mark.parametrize("meta", [None, {}, {"traceparent": "trace"}])
     def test_returns_none_without_progress(self, _mcp_request_ctx, meta) -> None:
-        from litellm.proxy.mcp_server.server import _capture_host_progress_callback
+        from hangarllm.proxy.mcp_server.server import _capture_host_progress_callback
 
         assert _capture_host_progress_callback(_mcp_request_ctx(meta=meta)) is None
 
@@ -1293,7 +1293,7 @@ class TestCaptureHostProgressCallback:
         from mcp.shared.dispatcher import DispatchContext
         from mcp.types import CallToolRequestParams
 
-        from litellm.proxy.mcp_server.server import _capture_host_progress_callback
+        from hangarllm.proxy.mcp_server.server import _capture_host_progress_callback
 
         params = CallToolRequestParams.model_validate(
             {"name": "tool", "_meta": {"progressToken": token}}, by_name=False
@@ -1313,11 +1313,11 @@ class TestHandleListToolsVirtual:
 
     @pytest.mark.asyncio
     async def test_returns_virtual_tools_when_flag_enabled(self, _mcp_request_ctx) -> None:
-        from litellm.proxy.mcp_server import server as srv
+        from hangarllm.proxy.mcp_server import server as srv
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with patch(
-            "litellm.proxy.mcp_server.server.get_or_extract_auth_context",
+            "hangarllm.proxy.mcp_server.server.get_or_extract_auth_context",
             new_callable=AsyncMock,
             return_value=(uak, None, None, None, None, None, None),
         ):
@@ -1339,17 +1339,17 @@ class TestMcpServerToolCallErrorHandling:
     async def test_virtual_tool_error_returns_iserror_not_raised(self, _mcp_request_ctx) -> None:
         from fastapi import HTTPException
 
-        from litellm.proxy.mcp_server import server as srv
+        from hangarllm.proxy.mcp_server import server as srv
 
         uak = UserAPIKeyAuth(api_key="k", object_permission=_make_perm(mcp_tool_search_enabled=True))
         with (
             patch(
-                "litellm.proxy.mcp_server.server.get_or_extract_auth_context",
+                "hangarllm.proxy.mcp_server.server.get_or_extract_auth_context",
                 new_callable=AsyncMock,
                 return_value=(uak, None, None, None, None, None, None),
             ),
             patch(
-                "litellm.proxy.mcp_server.operations._dispatch_virtual_mcp_tool",
+                "hangarllm.proxy.mcp_server.operations._dispatch_virtual_mcp_tool",
                 new_callable=AsyncMock,
                 side_effect=HTTPException(status_code=403, detail="User not allowed to call this tool"),
             ),
@@ -1372,7 +1372,7 @@ class TestMcpServerToolCallErrorHandling:
 async def test_handle_mcp_tool_call_scoped_denial_names_the_binding_agent() -> None:
     from fastapi import HTTPException
 
-    from litellm.proxy.mcp_server.tool_search import handle_mcp_tool_call
+    from hangarllm.proxy.mcp_server.tool_search import handle_mcp_tool_call
 
     agent_bound_key = UserAPIKeyAuth(api_key="test_key", agent_id="agent-123")
 
@@ -1386,7 +1386,7 @@ async def test_handle_mcp_tool_call_scoped_denial_names_the_binding_agent() -> N
         ]
 
     with patch(  # test-quality-ok: the permission resolver is a module-level function; the suite's only seam
-        "litellm.proxy.mcp_server.operations._get_allowed_mcp_servers",
+        "hangarllm.proxy.mcp_server.operations._get_allowed_mcp_servers",
         new=AsyncMock(side_effect=resolve),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -1406,7 +1406,7 @@ async def test_handle_mcp_tool_call_scoped_denial_names_the_binding_agent() -> N
 async def test_mcp_tool_search_leaves_the_listed_tools_slot_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     """The search lists the whole catalog but serves only its hits, so the listing must not fill the
     caller's listed-tools slot: a later call to a tool the search never returned is not a listed tool."""
-    monkeypatch.setattr(litellm, "mcp_tool_search", None)
+    monkeypatch.setattr(hangarllm, "mcp_tool_search", None)
     manager = mcp_operations.global_mcp_server_manager
     server = MCPServer(server_id="search-slot", name="search-slot", transport=MCPTransport.http, url="http://slot")
     user = UserAPIKeyAuth(api_key="sk-search-slot", user_id="searcher")
@@ -1436,7 +1436,7 @@ async def test_mcp_tool_search_leaves_the_listed_tools_slot_empty(monkeypatch: p
 async def test_cold_concurrent_schema_validation_accepts_valid_arguments() -> None:
     import psutil
 
-    from litellm.proxy.mcp_server.tool_search import (
+    from hangarllm.proxy.mcp_server.tool_search import (
         _MAX_VALIDATION_WORKERS,
         _tool_argument_validation_error,
     )

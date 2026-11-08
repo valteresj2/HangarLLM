@@ -8,8 +8,8 @@ from pydantic import JsonValue
 
 GPT_5_4_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "azure/gpt-5.4",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -114,7 +114,7 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791231852,
         "error": None,
@@ -217,8 +217,8 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "azure/gpt-5.6-sol",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -323,7 +323,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791231854,
         "error": None,
@@ -426,8 +426,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "azure/gpt-5.6-luna",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -532,7 +532,7 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791231858,
         "error": None,
@@ -687,8 +687,8 @@ GPT_6_LUNA_ENCRYPTED_REASONING: Final = (
 
 GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "azure/gpt-6-luna"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "azure/gpt-6-luna"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_REQUEST, "model": "gpt-6-luna"},
@@ -778,7 +778,7 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 422,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025532,
@@ -951,8 +951,8 @@ GPT_6_1_SOL_ENCRYPTED_REASONING: Final = (
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "azure/gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "azure/gpt-6.1-sol"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_REQUEST, "model": "gpt-6.1-sol"},
@@ -1041,7 +1041,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 449,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025524,
@@ -1214,8 +1214,8 @@ GPT_6_ASTRA_ENCRYPTED_REASONING: Final = (
 
 GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "azure/gpt-6-astra"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "azure/gpt-6-astra"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_REQUEST, "model": "gpt-6-astra"},
@@ -1305,7 +1305,7 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 461,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025543,
@@ -1473,8 +1473,8 @@ GPT_5_6_TERRA_ENCRYPTED_REASONING: Final = (
 
 GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "azure/gpt-5.6-terra"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "azure/gpt-5.6-terra"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_REQUEST, "model": "gpt-5.6-terra"},
@@ -1564,7 +1564,7 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 404,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025553,

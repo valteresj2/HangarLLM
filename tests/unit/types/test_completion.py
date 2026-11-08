@@ -1,5 +1,5 @@
 """
-Tests for litellm.types.completion module
+Tests for hangarllm.types.completion module
 
 This test suite validates the CompletionRequest model and its compatibility with 
 OpenAI ChatCompletion API message formats.
@@ -13,7 +13,7 @@ from typing import List
 
 import pytest
 
-from litellm.types.completion import (
+from hangarllm.types.completion import (
     ChatCompletionMessageParam,
     CompletionRequest,
     CompletionDispatchContext,
@@ -169,7 +169,7 @@ def _build_dispatch_context() -> CompletionDispatchContext:
         headers={},
         hf_model_name=None,
         kwargs={},
-        litellm_params={},
+        hangarllm_params={},
         logger_fn=None,
         logging=None,  # type: ignore[arg-type]
         max_retries=None,

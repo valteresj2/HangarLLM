@@ -26,7 +26,7 @@ def client(proxy: ProxyClient) -> _Client:
 @pytest.fixture
 def setup(deployment: Deployment, proxy: ProxyClient, resources: ResourceManager) -> ModelSetup:
     model: Final = f"e2e-codex-{unique_marker()}"
-    model_id: Final = proxy.create_model(model, deployment.litellm_params, provider_live=True)
+    model_id: Final = proxy.create_model(model, deployment.hangarllm_params, provider_live=True)
     resources.defer(lambda: proxy.delete_model(model_id))
     return ModelSetup(model=model, rate_bucket=deployment.rate_bucket)
 

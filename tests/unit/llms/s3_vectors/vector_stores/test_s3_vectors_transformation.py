@@ -4,14 +4,14 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import httpx
 import pytest
 
-from litellm.llms.base_llm.vector_store.transformation import (
+from hangarllm.llms.base_llm.vector_store.transformation import (
     RouterVectorStoreEmbeddingExecutor,
 )
-from litellm.llms.s3_vectors.vector_stores.transformation import (
+from hangarllm.llms.s3_vectors.vector_stores.transformation import (
     S3VectorsVectorStoreConfig,
 )
-from litellm.types.utils import EmbeddingResponse
-from litellm.types.vector_stores import VectorStoreSearchResponse
+from hangarllm.types.utils import EmbeddingResponse
+from hangarllm.types.vector_stores import VectorStoreSearchResponse
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 QUERY_VECTOR = [0.1, 0.2, 0.3]
@@ -47,8 +47,8 @@ def _search_kwargs(**overrides):
         "query": "test query",
         "vector_store_search_optional_params": {},
         "api_base": "https://s3vectors.us-west-2.api.aws",
-        "litellm_logging_obj": _logging_obj(),
-        "litellm_params": {},
+        "hangarllm_logging_obj": _logging_obj(),
+        "hangarllm_params": {},
         "extra_body": None,
     }
     kwargs.update(overrides)
@@ -63,8 +63,8 @@ class TestS3VectorsVectorStoreConfig:
 
     def test_get_complete_url(self):
         config = S3VectorsVectorStoreConfig()
-        litellm_params = {"aws_region_name": "us-west-2"}
-        url = config.get_complete_url(None, litellm_params)
+        hangarllm_params = {"aws_region_name": "us-west-2"}
+        url = config.get_complete_url(None, hangarllm_params)
         assert url == "https://s3vectors.us-west-2.api.aws"
 
     def test_get_complete_url_missing_region(self, monkeypatch):
@@ -96,7 +96,7 @@ class TestS3VectorsVectorStoreConfig:
         url, request_body = config.transform_search_vector_store_request(
             **_search_kwargs(
                 vector_store_search_optional_params={"max_num_results": 7},
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
                 embedding_executor=executor,
             )
         )
@@ -114,20 +114,20 @@ class TestS3VectorsVectorStoreConfig:
         assert logging_obj.model_call_details["query"] == "test query"
 
     @pytest.mark.parametrize(
-        ("litellm_params", "expected_model"),
+        ("hangarllm_params", "expected_model"),
         [
             ({}, "text-embedding-3-small"),
             ({"embedding_model": ""}, "text-embedding-3-small"),
             ({"embedding_model": "my-embedding-model"}, "my-embedding-model"),
-            ({"litellm_embedding_model": "shared-key-model"}, "shared-key-model"),
+            ({"hangarllm_embedding_model": "shared-key-model"}, "shared-key-model"),
             (
-                {"litellm_embedding_model": "shared-key-model", "embedding_model": "legacy-alias"},
+                {"hangarllm_embedding_model": "shared-key-model", "embedding_model": "legacy-alias"},
                 "shared-key-model",
             ),
         ],
     )
-    def test_query_embedding_model_accepts_embedding_model_alias(self, litellm_params, expected_model):
-        assert S3VectorsVectorStoreConfig.query_embedding_model(litellm_params) == expected_model
+    def test_query_embedding_model_accepts_embedding_model_alias(self, hangarllm_params, expected_model):
+        assert S3VectorsVectorStoreConfig.query_embedding_model(hangarllm_params) == expected_model
 
     @pytest.mark.asyncio
     async def test_atransform_search_embeds_alias_and_store_config_through_executor(self):
@@ -137,9 +137,9 @@ class TestS3VectorsVectorStoreConfig:
         _, request_body = await config.atransform_search_vector_store_request(
             **_search_kwargs(
                 query=["test", "query"],
-                litellm_params={
+                hangarllm_params={
                     "embedding_model": "my-embedding-model",
-                    "litellm_embedding_config": {"api_key": "store-key"},
+                    "hangarllm_embedding_config": {"api_key": "store-key"},
                 },
                 embedding_executor=executor,
             )
@@ -160,7 +160,7 @@ class TestS3VectorsVectorStoreConfig:
 
         _, request_body = await config.atransform_search_vector_store_request(
             **_search_kwargs(
-                litellm_params={"embedding_model": "team-embeddings"},
+                hangarllm_params={"embedding_model": "team-embeddings"},
                 embedding_executor=RouterVectorStoreEmbeddingExecutor(router=router, metadata=request_metadata),
             )
         )
@@ -177,14 +177,14 @@ class TestS3VectorsVectorStoreConfig:
         config = S3VectorsVectorStoreConfig()
         router = route_entry_points_to_stubs(MagicMock())
         router.get_model_list.return_value = [
-            {"model_name": "team-embeddings", "litellm_params": {"model": "openai/text-embedding-3-small"}}
+            {"model_name": "team-embeddings", "hangarllm_params": {"model": "openai/text-embedding-3-small"}}
         ]
-        router.resolved_litellm_models.return_value = []
+        router.resolved_hangarllm_models.return_value = []
         router.aembedding = AsyncMock(side_effect=AssertionError("unserved model must not reach the Router"))
         request_metadata = {"user_api_key_team_id": "team-a"}
 
         mock_bare = AsyncMock(return_value=_embedding_response(QUERY_VECTOR))
-        with patch("litellm.aembedding", new=mock_bare):  # test-quality-ok: stubs the bare-embedding fallback whose call the test asserts on
+        with patch("hangarllm.aembedding", new=mock_bare):  # test-quality-ok: stubs the bare-embedding fallback whose call the test asserts on
             _, request_body = await config.atransform_search_vector_store_request(
                 **_search_kwargs(
                     embedding_executor=RouterVectorStoreEmbeddingExecutor(router=router, metadata=request_metadata)
@@ -201,7 +201,7 @@ class TestS3VectorsVectorStoreConfig:
         config = S3VectorsVectorStoreConfig()
 
         mock_bare = AsyncMock(return_value=_embedding_response([0.6, 0.7]))
-        with patch("litellm.aembedding", new=mock_bare):  # test-quality-ok: stubs the bare-embedding fallback whose request body the test asserts on
+        with patch("hangarllm.aembedding", new=mock_bare):  # test-quality-ok: stubs the bare-embedding fallback whose request body the test asserts on
             _, request_body = await config.atransform_search_vector_store_request(**_search_kwargs())
 
         mock_bare.assert_awaited_once_with(model="text-embedding-3-small", input=["test query"])
@@ -211,9 +211,9 @@ class TestS3VectorsVectorStoreConfig:
         config = S3VectorsVectorStoreConfig()
 
         mock_bare = MagicMock(return_value=_embedding_response([0.8, 0.9]))
-        with patch("litellm.embedding", new=mock_bare):  # test-quality-ok: stubs the bare-embedding fallback whose request body the test asserts on
+        with patch("hangarllm.embedding", new=mock_bare):  # test-quality-ok: stubs the bare-embedding fallback whose request body the test asserts on
             _, request_body = config.transform_search_vector_store_request(
-                **_search_kwargs(litellm_params={"embedding_model": "my-embedding-model"})
+                **_search_kwargs(hangarllm_params={"embedding_model": "my-embedding-model"})
             )
 
         mock_bare.assert_called_once_with(model="my-embedding-model", input=["test query"])
@@ -242,20 +242,20 @@ class TestS3VectorsVectorStoreConfig:
             config.transform_search_vector_store_request(
                 **_search_kwargs(
                     vector_store_id=vector_store_id,
-                    litellm_params={"vector_bucket_name": "test-bucket"},
+                    hangarllm_params={"vector_bucket_name": "test-bucket"},
                     embedding_executor=executor,
                 )
             )
 
         assert executor.calls == []
 
-    def test_transform_search_request_bucket_from_litellm_params(self):
+    def test_transform_search_request_bucket_from_hangarllm_params(self):
         config = S3VectorsVectorStoreConfig()
 
         _, request_body = config.transform_search_vector_store_request(
             **_search_kwargs(
                 vector_store_id="only-index",
-                litellm_params={"vector_bucket_name": "params-bucket"},
+                hangarllm_params={"vector_bucket_name": "params-bucket"},
                 embedding_executor=_RecordingExecutor(),
             )
         )

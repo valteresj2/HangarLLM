@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.cohere.embed.v1_transformation import CohereEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.cohere.embed.v1_transformation import CohereEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 
 class TestCohereEmbeddingV1Transform:

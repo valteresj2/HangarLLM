@@ -24,7 +24,7 @@ _WORST_GROUP: Final = "ptu-regex-worst"
 _CONTROL_GROUP: Final = "ptu-regex-unshared-worst"
 _UPSTREAM_URL_PLACEHOLDER: Final = "upstream-url-placeholder"
 _WORST_BASE_MODEL: Final = "azure/" + "-0000-00-00" * 5_958 + "x"
-_ATTRIBUTION_ON: Final = MappingProxyType({"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"})
+_ATTRIBUTION_ON: Final = MappingProxyType({"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True"})
 _REQUESTS: Final = 8
 _CONFIG: Final = TypeAdapter(dict[str, JsonValue])
 _FACTOR: Final = 3.0
@@ -46,7 +46,7 @@ def _share_terms(holder: str) -> dict[str, JsonValue]:
 def _deployment(model_name: str, model_info: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"azure/{model_name}",
             "api_base": _UPSTREAM_URL_PLACEHOLDER,
             "api_key": "synthetic-azure-key",

@@ -44,7 +44,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -57,7 +57,7 @@
               "endTimeUnixNano": "1791061440894014000",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -87,7 +87,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "3fc2877e-2f63-4526-bd0c-bfaa4f310152"
                   }
@@ -122,13 +122,13 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {
                   "key": "gen_ai.system",
                   "value": {
-                    "stringValue": "litellm"
+                    "stringValue": "hangarllm"
                   }
                 },
                 {

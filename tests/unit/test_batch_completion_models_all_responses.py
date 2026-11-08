@@ -3,10 +3,10 @@ import json
 from typing import Final
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
-from litellm.batch_completion.main import batch_completion_models_all_responses
+from hangarllm.batch_completion.main import batch_completion_models_all_responses
 
 
 def test_batch_completion_models_all_responses_submits_before_waiting(monkeypatch):
@@ -54,7 +54,7 @@ def test_batch_completion_models_all_responses_submits_before_waiting(monkeypatc
         called_models.append(model)
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(hangarllm, "completion", _mock_completion)
     monkeypatch.setattr(
         concurrent.futures, "ThreadPoolExecutor", _RecordingThreadPoolExecutor
     )
@@ -77,7 +77,7 @@ def test_batch_completion_models_all_responses_continues_on_model_error(monkeypa
             raise RuntimeError("simulated model failure")
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(hangarllm, "completion", _mock_completion)
 
     responses = batch_completion_models_all_responses(
         models=models,
@@ -98,7 +98,7 @@ def test_batch_completion_models_all_responses_returns_empty_for_empty_models(
         called = True
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(hangarllm, "completion", _mock_completion)
 
     responses = batch_completion_models_all_responses(
         models=[],
@@ -116,7 +116,7 @@ def test_batch_completion_models_all_responses_accepts_single_model_string(monke
         called_models.append(model)
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(hangarllm, "completion", _mock_completion)
 
     responses = batch_completion_models_all_responses(
         models="model-a",
@@ -131,7 +131,7 @@ def test_batch_completion_models_all_responses_returns_each_model_response(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     def _response_for_model(request: httpx.Request) -> httpx.Response:
         requested_model: Final = str(json.loads(request.content)["model"])

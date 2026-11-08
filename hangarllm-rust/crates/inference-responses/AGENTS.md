@@ -1,0 +1,5 @@
+- Shared base and layering rules: [`../inference/AGENTS.md`](../inference/AGENTS.md)
+- This crate owns Responses API call orchestration. Payloads belong in `hangarllm-llms-types`, transformations in `llms/src/base_llm/responses` and `llms/src/<provider>/responses`
+- The HTTP route returns `hangarllm_host::call::CallOutput`: a completed response, or a stream head and chunks, cached through `hangarllm_inference::caching::execute_streaming`
+- WebSocket sessions (`src/websocket.rs`) stay separate from the HTTP call driver because a connection can accept multiple requests while receiving events
+- `src/ids.rs` owns the HangarLLM-managed ids handed back to callers (`resp_`, `encitem_`, `hangarllm_enc:`, `cntr_`) and must stay fully compatible with `hangarllm/responses/utils.py`

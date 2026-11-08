@@ -7,10 +7,10 @@ from prisma import models as prisma_models
 
 class SubmissionRows:
     def __init__(self) -> None:
-        self.rows: tuple[prisma_models.LiteLLM_SkillSubmission, ...] = ()
+        self.rows: tuple[prisma_models.HangarLLM_SkillSubmission, ...] = ()
 
-    async def create(self, data: Mapping[str, object]) -> prisma_models.LiteLLM_SkillSubmission:
-        row: Final = prisma_models.LiteLLM_SkillSubmission.model_validate(
+    async def create(self, data: Mapping[str, object]) -> prisma_models.HangarLLM_SkillSubmission:
+        row: Final = prisma_models.HangarLLM_SkillSubmission.model_validate(
             {
                 "id": f"submission-{len(self.rows)}",
                 "status": "pending_review",
@@ -21,10 +21,10 @@ class SubmissionRows:
         self.rows = (*self.rows, row)
         return row
 
-    async def find_unique(self, where: Mapping[str, object]) -> prisma_models.LiteLLM_SkillSubmission | None:
+    async def find_unique(self, where: Mapping[str, object]) -> prisma_models.HangarLLM_SkillSubmission | None:
         return next((row for row in self.rows if row.id == where["id"]), None)
 
-    async def find_first(self, where: Mapping[str, object]) -> prisma_models.LiteLLM_SkillSubmission | None:
+    async def find_first(self, where: Mapping[str, object]) -> prisma_models.HangarLLM_SkillSubmission | None:
         row: Final = await self.find_unique(where)
         return None if row is None or where.get("submitted_by", row.submitted_by) != row.submitted_by else row
 
@@ -32,18 +32,18 @@ class SubmissionRows:
         self,
         where: Mapping[str, object],
         data: Mapping[str, object],
-    ) -> prisma_models.LiteLLM_SkillSubmission | None:
+    ) -> prisma_models.HangarLLM_SkillSubmission | None:
         current: Final = await self.find_unique(where)
         if current is None:
             return None
-        updated: Final = prisma_models.LiteLLM_SkillSubmission.model_validate({**current.model_dump(), **data})
+        updated: Final = prisma_models.HangarLLM_SkillSubmission.model_validate({**current.model_dump(), **data})
         self.rows = tuple(updated if row.id == current.id else row for row in self.rows)
         return updated
 
     async def query_raw(self, query: str, *args: object) -> tuple[Mapping[str, object], ...]:
         if query.startswith("SELECT scan_json"):
             return tuple({"scan_json": row.scan_json} for row in self.rows if row.id == args[0])
-        if 'FROM "LiteLLM_SkillSubmission"' not in query or "FOR UPDATE" in query:
+        if 'FROM "HangarLLM_SkillSubmission"' not in query or "FOR UPDATE" in query:
             return ()
         if "COUNT(*) AS count" in query:
             pending: Final = tuple(

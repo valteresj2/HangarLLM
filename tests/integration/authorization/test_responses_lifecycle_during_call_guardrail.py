@@ -61,8 +61,8 @@ def _guarded_config(path: Path) -> Path:
     base: Final = _JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     guardrail: Final[dict[str, JsonValue]] = {
         "guardrail_name": f"content-filter-{uuid.uuid4().hex}",
-        "litellm_params": {
-            "guardrail": "litellm_content_filter",
+        "hangarllm_params": {
+            "guardrail": "hangarllm_content_filter",
             "mode": "during_call",
             "default_on": True,
             "blocked_words": [{"keyword": "forbiddenword", "action": "BLOCK"}],

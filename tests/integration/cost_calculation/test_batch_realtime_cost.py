@@ -27,7 +27,7 @@ from pydantic import JsonValue
 
 def _register_deployment(
     scenario: Scenario,
-    litellm_model: str,
+    hangarllm_model: str,
     response: JsonResponse | TextResponse | RealtimeResponse,
     marker: str,
     *,
@@ -42,8 +42,8 @@ def _register_deployment(
         JSON_OBJECT.validate_python(
             {
                 "model_name": f"cost-{marker}-{sha256(scenario_id.encode()).hexdigest()[:12]}",
-                "litellm_params": {
-                    "model": litellm_model,
+                "hangarllm_params": {
+                    "model": hangarllm_model,
                     "api_key": scenario_id if realtime else "sk-scripted-provider",
                     "api_base": control_url if realtime else handle.api_base(),
                 },
@@ -159,7 +159,7 @@ def test_batch_costs(gateway: Gateway, case: BatchCostCase) -> None:
         key: Final = scenario.key()
         model_name, identity = _register_deployment(
             scenario,
-            case.litellm_model,
+            case.hangarllm_model,
             _batch_response(case),
             case.name,
             realtime=False,
@@ -235,7 +235,7 @@ def test_realtime_costs(gateway: Gateway, case: RealtimeCostCase) -> None:
         key: Final = scenario.key()
         model_name, identity = _register_deployment(
             scenario,
-            case.litellm_model,
+            case.hangarllm_model,
             _realtime_response(case),
             case.name,
             realtime=True,

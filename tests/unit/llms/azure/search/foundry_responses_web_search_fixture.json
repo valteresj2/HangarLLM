@@ -12,11 +12,11 @@
       "action": {
         "type": "search",
         "queries": [
-          "latest LiteLLM release GitHub LiteLLM",
-          "LiteLLM github releases",
-          "LiteLLM repo LiteLLM"
+          "latest HangarLLM release GitHub HangarLLM",
+          "HangarLLM github releases",
+          "HangarLLM repo HangarLLM"
         ],
-        "query": "latest LiteLLM release GitHub"
+        "query": "latest HangarLLM release GitHub"
       }
     },
     {
@@ -27,39 +27,39 @@
       "content": [
         {
           "type": "output_text",
-          "text": "You asked: “What is the latest LiteLLM release on GitHub? Answer with the version number.”\n\nI verified the most recent release information from the official GitHub repository for LiteLLM (BerriAI/litellm) using multiple sources, including GitHub itself and secondary trackers:\n\n- On the GitHub **Releases** page for BerriAI/litellm, the topmost entry is **v1.99.0‑rc.1**, marked as a pre‑release, published “yesterday” (relative to today, August 24, 2026) ([github.com](https://github.com/BerriAI/litellm/releases)). This indicates that version **v1.99.0‑rc.1** is the most recent tag available.\n- An external release‑tracking site (ReleaseAlert) confirms: **Latest version: v1.99.0‑rc.1**, last published August 22, 2026 ([releasealert.dev](https://releasealert.dev/github/BerriAI/litellm)).\n- The GitHub API (via `releases/latest`) currently points to **v1.98.0** as the latest **stable** release, with published date August 23, 2026 ([api.github.com](https://api.github.com/repos/BerriAI/litellm/releases/latest)).\n\nTo summarize:\n\n- The absolute **latest** release tag on GitHub is **v1.99.0‑rc.1** (release candidate), published recently (August 22, 2026) ([github.com](https://github.com/BerriAI/litellm/releases)).\n- The most recent **stable** release is **v1.98.0**, published August 23, 2026 ([api.github.com](https://api.github.com/repos/BerriAI/litellm/releases/latest)).\n\nSince you asked for the “latest LiteLLM release on GitHub,” without specifying stable vs. pre‑release, the correct answer is:\n\n**v1.99.0‑rc.1**\n\nLet me know if you'd like details on what's new in that release, or if you'd prefer the latest stable version.",
+          "text": "You asked: “What is the latest HangarLLM release on GitHub? Answer with the version number.”\n\nI verified the most recent release information from the official GitHub repository for HangarLLM (valteresj2/HangarLLM) using multiple sources, including GitHub itself and secondary trackers:\n\n- On the GitHub **Releases** page for valteresj2/HangarLLM, the topmost entry is **v1.99.0‑rc.1**, marked as a pre‑release, published “yesterday” (relative to today, August 24, 2026) ([github.com](https://github.com/valteresj2/HangarLLM/releases)). This indicates that version **v1.99.0‑rc.1** is the most recent tag available.\n- An external release‑tracking site (ReleaseAlert) confirms: **Latest version: v1.99.0‑rc.1**, last published August 22, 2026 ([releasealert.dev](https://releasealert.dev/github/valteresj2/HangarLLM)).\n- The GitHub API (via `releases/latest`) currently points to **v1.98.0** as the latest **stable** release, with published date August 23, 2026 ([api.github.com](https://api.github.com/repos/valteresj2/HangarLLM/releases/latest)).\n\nTo summarize:\n\n- The absolute **latest** release tag on GitHub is **v1.99.0‑rc.1** (release candidate), published recently (August 22, 2026) ([github.com](https://github.com/valteresj2/HangarLLM/releases)).\n- The most recent **stable** release is **v1.98.0**, published August 23, 2026 ([api.github.com](https://api.github.com/repos/valteresj2/HangarLLM/releases/latest)).\n\nSince you asked for the “latest HangarLLM release on GitHub,” without specifying stable vs. pre‑release, the correct answer is:\n\n**v1.99.0‑rc.1**\n\nLet me know if you'd like details on what's new in that release, or if you'd prefer the latest stable version.",
           "annotations": [
             {
               "type": "url_citation",
-              "url": "https://github.com/BerriAI/litellm/releases",
+              "url": "https://github.com/valteresj2/HangarLLM/releases",
               "start_index": 456,
               "end_index": 515,
-              "title": "Releases · BerriAI/litellm - GitHub"
+              "title": "Releases · valteresj2/HangarLLM - GitHub"
             },
             {
               "type": "url_citation",
-              "url": "https://releasealert.dev/github/BerriAI/litellm",
+              "url": "https://releasealert.dev/github/valteresj2/HangarLLM",
               "start_index": 722,
               "end_index": 791,
-              "title": "BerriAI/litellm on GitHub | Release Alert"
+              "title": "valteresj2/HangarLLM on GitHub | Release Alert"
             },
             {
               "type": "url_citation",
-              "url": "https://api.github.com/repos/BerriAI/litellm/releases/latest",
+              "url": "https://api.github.com/repos/valteresj2/HangarLLM/releases/latest",
               "start_index": 936,
               "end_index": 1016,
               "title": "api.github.com"
             },
             {
               "type": "url_citation",
-              "url": "https://github.com/BerriAI/litellm/releases",
+              "url": "https://github.com/valteresj2/HangarLLM/releases",
               "start_index": 1160,
               "end_index": 1219,
-              "title": "Releases · BerriAI/litellm - GitHub"
+              "title": "Releases · valteresj2/HangarLLM - GitHub"
             },
             {
               "type": "url_citation",
-              "url": "https://api.github.com/repos/BerriAI/litellm/releases/latest",
+              "url": "https://api.github.com/repos/valteresj2/HangarLLM/releases/latest",
               "start_index": 1300,
               "end_index": 1380,
               "title": "api.github.com"

@@ -50,7 +50,7 @@ from integration._support.scim import (
 )
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS, TEAM_DELETE_TRANSACTION_TIMEOUT_SECONDS
+from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS, TEAM_DELETE_TRANSACTION_TIMEOUT_SECONDS
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -59,20 +59,20 @@ DEMOTED_ROLE: Final = "internal_user_viewer"
 MASTER_KEY_USER: Final = "default_user_id"
 BURST_GROUPS: Final = 20
 OWNED_PROXY_TIMEOUT: Final = int(2 * graceful_stop_seconds() + 120)
-DELETED_TEAM_RECORDS_SQL: Final = 'SELECT team_id FROM "LiteLLM_DeletedTeamTable" WHERE team_id = %s'
-DELETED_KEY_RECORDS_SQL: Final = 'SELECT token FROM "LiteLLM_DeletedVerificationToken" WHERE token = %s'
-TEAM_MODEL_IDS_SQL: Final = """SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_info->>'team_id' = %s"""
+DELETED_TEAM_RECORDS_SQL: Final = 'SELECT team_id FROM "HangarLLM_DeletedTeamTable" WHERE team_id = %s'
+DELETED_KEY_RECORDS_SQL: Final = 'SELECT token FROM "HangarLLM_DeletedVerificationToken" WHERE token = %s'
+TEAM_MODEL_IDS_SQL: Final = """SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_info->>'team_id' = %s"""
 BACKENDS_BLOCKED_BY_SQL: Final = "SELECT pid FROM pg_stat_activity WHERE %s::int = ANY(pg_blocking_pids(pid))"
-USER_ROLE_SQL: Final = 'SELECT user_role FROM "LiteLLM_UserTable" WHERE user_id = %s'
+USER_ROLE_SQL: Final = 'SELECT user_role FROM "HangarLLM_UserTable" WHERE user_id = %s'
 DELETED_AUDIT_ROWS_SQL: Final = """
 SELECT table_name, action, object_id, changed_by, changed_by_api_key
-FROM "LiteLLM_AuditLog"
+FROM "HangarLLM_AuditLog"
 WHERE object_id IN (%s, %s) AND action = 'deleted'
 ORDER BY table_name
 """
 AUDIT_ROWS_NAMING_SQL: Final = """
 SELECT table_name, object_id, changed_by_api_key
-FROM "LiteLLM_AuditLog"
+FROM "HangarLLM_AuditLog"
 WHERE object_id = ANY(%s::text[]) AND action = 'deleted'
 ORDER BY table_name, object_id
 """
@@ -91,9 +91,9 @@ def _hashed(key: str) -> str:
 
 def _admin_group_config(tmp_path: Path, admin_alias: str) -> Path:
     config: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
-    settings: Final = {**object_value(config["litellm_settings"]), "scim_admin_group": admin_alias}
+    settings: Final = {**object_value(config["hangarllm_settings"]), "scim_admin_group": admin_alias}
     path: Final = tmp_path / "scim-admin-group.yaml"
-    path.write_text(yaml.safe_dump({**config, "litellm_settings": settings}))
+    path.write_text(yaml.safe_dump({**config, "hangarllm_settings": settings}))
     return path
 
 
@@ -178,7 +178,7 @@ def test_deleting_the_admin_group_demotes_its_members_and_writes_an_audit_row_na
         owned_proxy_process(
             gateway,
             tmp_path,
-            {"DATABASE_URL": os.environ["DATABASE_URL"], "LITELLM_STORE_AUDIT_LOGS": "true"},
+            {"DATABASE_URL": os.environ["DATABASE_URL"], "HANGARLLM_STORE_AUDIT_LOGS": "true"},
             config=_admin_group_config(tmp_path, admin_alias),
             remove_environment=("DATABASE_URL_READ_REPLICA",),
             workers=2,
@@ -197,10 +197,10 @@ def test_deleting_the_admin_group_demotes_its_members_and_writes_an_audit_row_na
         assert_gone(candidate, team, users, key)
         assert _roles_of(candidate, users) == frozenset({DEMOTED_ROLE})
         rows: Final = eventually(lambda: _deleted_audit_rows(team, _hashed(key)), lambda found: len(found) >= 2, 30)
-        caller: Final = {"changed_by": MASTER_KEY_USER, "changed_by_api_key": LITELLM_PROXY_MASTER_KEY_ALIAS}
+        caller: Final = {"changed_by": MASTER_KEY_USER, "changed_by_api_key": HANGARLLM_PROXY_MASTER_KEY_ALIAS}
         assert rows == [
-            {"table_name": "LiteLLM_TeamTable", "action": "deleted", "object_id": team, **caller},
-            {"table_name": "LiteLLM_VerificationToken", "action": "deleted", "object_id": _hashed(key), **caller},
+            {"table_name": "HangarLLM_TeamTable", "action": "deleted", "object_id": team, **caller},
+            {"table_name": "HangarLLM_VerificationToken", "action": "deleted", "object_id": _hashed(key), **caller},
         ]
 
 
@@ -326,7 +326,7 @@ def test_a_group_delete_sent_with_the_idps_scim_token_revokes_member_keys_and_au
         owned_proxy_process(
             gateway,
             tmp_path,
-            {"DATABASE_URL": os.environ["DATABASE_URL"], "LITELLM_STORE_AUDIT_LOGS": "true"},
+            {"DATABASE_URL": os.environ["DATABASE_URL"], "HANGARLLM_STORE_AUDIT_LOGS": "true"},
             remove_environment=("DATABASE_URL_READ_REPLICA",),
         ) as owned,
         owned.gateway.scenario() as scenario,
@@ -348,9 +348,9 @@ def test_a_group_delete_sent_with_the_idps_scim_token_revokes_member_keys_and_au
         rows: Final = eventually(lambda: _audit_rows_naming(audited), lambda found: len(found) >= 3, seconds=30)
         token: Final = _hashed(scim_token)
         assert rows == [
-            {"table_name": "LiteLLM_TeamTable", "object_id": team, "changed_by_api_key": token},
+            {"table_name": "HangarLLM_TeamTable", "object_id": team, "changed_by_api_key": token},
             *(
-                {"table_name": "LiteLLM_VerificationToken", "object_id": hashed, "changed_by_api_key": token}
+                {"table_name": "HangarLLM_VerificationToken", "object_id": hashed, "changed_by_api_key": token}
                 for hashed in sorted(_hashed(key) for key in member_keys)
             ),
         ]

@@ -30,7 +30,7 @@ def _seed_daily_tag_spend(tag: str, days: tuple[str, ...]) -> None:
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         for day in days:
             connection.execute(
-                'INSERT INTO "LiteLLM_DailyTagSpend" (id, tag, date, api_key, model, spend, updated_at) '
+                'INSERT INTO "HangarLLM_DailyTagSpend" (id, tag, date, api_key, model, spend, updated_at) '
                 "VALUES (%s, %s, %s, %s, %s, 1.0, now())",
                 (uuid.uuid4().hex, tag, day, f"integration-{tag}", "gpt-4o-mini"),
             )
@@ -39,7 +39,7 @@ def _seed_daily_tag_spend(tag: str, days: tuple[str, ...]) -> None:
 def _seed_old_spend_log(request_id: str, days_ago: int) -> None:
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         connection.execute(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, call_type, api_key, spend, "startTime", "endTime") '
+            'INSERT INTO "HangarLLM_SpendLogs" (request_id, call_type, api_key, spend, "startTime", "endTime") '
             "VALUES (%s, 'acompletion', %s, 0, now() - make_interval(days => %s), now() - make_interval(days => %s))",
             (request_id, f"integration-{request_id}", str(days_ago), str(days_ago)),
         )
@@ -47,21 +47,21 @@ def _seed_old_spend_log(request_id: str, days_ago: int) -> None:
 
 def _delete_daily_tag_spend(tag: str) -> None:
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
-        connection.execute('DELETE FROM "LiteLLM_DailyTagSpend" WHERE tag = %s', (tag,))
+        connection.execute('DELETE FROM "HangarLLM_DailyTagSpend" WHERE tag = %s', (tag,))
 
 
 def _remaining_days(tag: str) -> tuple[str, ...]:
-    rows: Final = read_rows('SELECT date FROM "LiteLLM_DailyTagSpend" WHERE tag = %s ORDER BY date', (tag,))
+    rows: Final = read_rows('SELECT date FROM "HangarLLM_DailyTagSpend" WHERE tag = %s ORDER BY date', (tag,))
     return tuple(str(row["date"]) for row in rows)
 
 
 def _spend_log_present(request_id: str) -> bool:
-    return bool(read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)))
+    return bool(read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)))
 
 
 def _stored_retention_setting() -> JsonValue:
     rows: Final = read_rows(
-        'SELECT param_value -> %s AS value FROM "LiteLLM_Config" WHERE param_name = %s',
+        'SELECT param_value -> %s AS value FROM "HangarLLM_Config" WHERE param_name = %s',
         (RETENTION_SETTING, "general_settings"),
     )
     return rows[0]["value"] if rows else None
@@ -71,12 +71,12 @@ def _store_retention_setting(value: JsonValue) -> None:
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         if value is None:
             connection.execute(
-                'UPDATE "LiteLLM_Config" SET param_value = param_value - %s WHERE param_name = %s',
+                'UPDATE "HangarLLM_Config" SET param_value = param_value - %s WHERE param_name = %s',
                 (RETENTION_SETTING, "general_settings"),
             )
             return
         connection.execute(
-            'UPDATE "LiteLLM_Config" SET param_value = jsonb_set(param_value, ARRAY[%s], %s::jsonb) '
+            'UPDATE "HangarLLM_Config" SET param_value = jsonb_set(param_value, ARRAY[%s], %s::jsonb) '
             "WHERE param_name = %s",
             (RETENTION_SETTING, json.dumps(value), "general_settings"),
         )

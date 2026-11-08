@@ -12,7 +12,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
-from litellm.llms.base_llm.auth.jwt_signing import (
+from hangarllm.llms.base_llm.auth.jwt_signing import (
     MISSING_SIGNING_DEPENDENCIES_MESSAGE,
     build_jwk,
     build_jwks,
@@ -179,9 +179,9 @@ class TestSignEs256Jwt:
 
 
 class TestBaseSdkImport:
-    """A base ``pip install litellm`` has neither PyJWT nor cryptography (both are proxy extras),
-    and ``litellm/__init__`` reaches this module through the Anthropic provider, so a
-    module-level import of either would break ``import litellm`` for every base SDK user."""
+    """A base ``pip install hangarllm`` has neither PyJWT nor cryptography (both are proxy extras),
+    and ``hangarllm/__init__`` reaches this module through the Anthropic provider, so a
+    module-level import of either would break ``import hangarllm`` for every base SDK user."""
 
     def test_module_imports_with_pyjwt_and_cryptography_absent(self):
         script: Final = textwrap.dedent(
@@ -194,8 +194,8 @@ class TestBaseSdkImport:
                         raise ModuleNotFoundError(f"No module named {name!r}")
 
             sys.meta_path.insert(0, Blocker())
-            import litellm
-            from litellm.llms.base_llm.auth.jwt_signing import jwks_document_json
+            import hangarllm
+            from hangarllm.llms.base_llm.auth.jwt_signing import jwks_document_json
             try:
                 jwks_document_json("not a key")
             except ImportError as e:
@@ -210,6 +210,6 @@ class TestBaseSdkImport:
 
     def test_signing_reports_the_missing_extra(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setitem(sys.modules, "jwt", None)
-        with pytest.raises(ImportError, match="litellm\\[proxy\\]"):
+        with pytest.raises(ImportError, match="hangarllm\\[proxy\\]"):
             sign_es256_jwt(pem_of(fixed_private_key()), {"sub": "x"})
 

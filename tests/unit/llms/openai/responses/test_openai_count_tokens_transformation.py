@@ -2,15 +2,15 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.anthropic.messages.responses_adapters.transformation import (
-    LiteLLMAnthropicToResponsesAPIAdapter,
+from hangarllm.llms.anthropic.messages.responses_adapters.transformation import (
+    HangarLLMAnthropicToResponsesAPIAdapter,
 )
-from litellm.litellm_core_utils.tool_fields import DropPolicy
-from litellm.llms.openai.responses.count_tokens.transformation import (
+from hangarllm.hangarllm_core_utils.tool_fields import DropPolicy
+from hangarllm.llms.openai.responses.count_tokens.transformation import (
     OpenAICountTokensConfig,
     native_count_request,
 )
-from tests.unit.litellm_core_utils.attribute_forwarder import AttributeForwarder
+from tests.unit.hangarllm_core_utils.attribute_forwarder import AttributeForwarder
 
 
 def test_transform_basic_request():
@@ -558,7 +558,7 @@ def test_anthropic_messages_convert_exactly_as_v1_messages_inference_converts_th
         "tools": ANTHROPIC_TOOLS,
         **({"system": system} if system is not None else {}),
     }
-    inference: Final = LiteLLMAnthropicToResponsesAPIAdapter().translate_request(
+    inference: Final = HangarLLMAnthropicToResponsesAPIAdapter().translate_request(
         inference_request, include_encrypted_reasoning=False
     )
 

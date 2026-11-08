@@ -38,7 +38,7 @@ from models import (
     KeyInfo,
     KeyInfoResponse,
     KeyUpdateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     McpServerCreateBody,
     McpServerUpdateBody,
     ModelDeleteBody,
@@ -541,7 +541,7 @@ MANAGEMENT_OPERATIONS: Final[tuple[tuple[str, Callable[[ManagementClient], objec
     (
         "connection_test",
         lambda c: c.connection_test(
-            ConnectionTestBody(litellm_params=LiteLLMParamsBody(model="synthetic"), mode="chat")
+            ConnectionTestBody(hangarllm_params=HangarLLMParamsBody(model="synthetic"), mode="chat")
         ),
     ),
     ("block_key", lambda c: c.block_key("owned")),
@@ -585,8 +585,8 @@ MANAGEMENT_OPERATIONS: Final[tuple[tuple[str, Callable[[ManagementClient], objec
     ("proxy.memory_summary", lambda c: c.proxy.memory_summary_everywhere()),
     ("proxy.model_info", lambda c: c.proxy.model_info()),
     ("proxy.model_cost_map", lambda c: c.proxy.model_cost_map()),
-    ("proxy.create_model", lambda c: c.proxy.create_model("owned", LiteLLMParamsBody(model="synthetic"))),
-    ("proxy.update_model", lambda c: c.proxy.update_model("owned", LiteLLMParamsBody(model="synthetic"))),
+    ("proxy.create_model", lambda c: c.proxy.create_model("owned", HangarLLMParamsBody(model="synthetic"))),
+    ("proxy.update_model", lambda c: c.proxy.update_model("owned", HangarLLMParamsBody(model="synthetic"))),
     ("proxy.delete_model", lambda c: c.proxy.delete_model("owned")),
     ("proxy.create_toolset", lambda c: c.proxy.create_toolset(ToolsetCreateBody(toolset_name="owned", tools=[]))),
     ("proxy.update_toolset", lambda c: c.proxy.update_toolset(ToolsetUpdateBody(toolset_id="owned", description=None))),
@@ -664,7 +664,7 @@ class TestSplitCallerPropagation:
         with caller_boundary() as (bootstrap, received):
             bound: Final = bootstrap.with_caller(Caller(credential="caller", kind="direct_jwt", role="proxy_admin"))
             bound.create_team(TeamNewBody(team_alias="owned"))
-            bound.proxy.create_model("owned", LiteLLMParamsBody(model="synthetic"))
+            bound.proxy.create_model("owned", HangarLLMParamsBody(model="synthetic"))
             assert tuple(received.get_nowait() for _ in range(4)) == ("Bearer caller",) * 4
             assert received.empty()
 
@@ -761,7 +761,7 @@ class TestRegisterModels:
             registrations: Final = replace(proxy, settle=settled.put).register_models(
                 tuple(
                     ModelNewBody(
-                        model_name=name, litellm_params=LiteLLMParamsBody(model="synthetic"), model_info=ModelInfoBody()
+                        model_name=name, hangarllm_params=HangarLLMParamsBody(model="synthetic"), model_info=ModelInfoBody()
                     )
                     for name in names
                 )

@@ -22,14 +22,14 @@ import time
 from pathlib import Path
 
 import pytest
-from litellm_proxy_extras.prisma_toolchain import (
+from hangarllm_proxy_extras.prisma_toolchain import (
     PRISMA_BOOTSTRAP_TIMEOUT_ENV_VAR,
     PRISMA_COMMAND_TIMEOUT_ENV_VAR,
     PRISMA_MIGRATE_DEPLOY_TIMEOUT_ENV_VAR,
     ensure_prisma_toolchain,
     run_prisma,
 )
-from litellm_proxy_extras.utils import ProxyExtrasDBManager
+from hangarllm_proxy_extras.utils import ProxyExtrasDBManager
 
 from tests._process_helpers import process_is_gone
 from tests.integration._support.process import kill_stray_process
@@ -258,7 +258,7 @@ def test_db_push_timeout_hint_names_the_per_command_budget(
     monkeypatch.setenv(PRISMA_COMMAND_TIMEOUT_ENV_VAR, "1")
     monkeypatch.setenv("FAKE_PRISMA_FIRST_PUSH_SLEEP", "3")
 
-    with caplog.at_level(logging.WARNING, logger="litellm_proxy_extras"):
+    with caplog.at_level(logging.WARNING, logger="hangarllm_proxy_extras"):
         assert ProxyExtrasDBManager.setup_database(use_migrate=False, use_v2_resolver=False) is True
 
     assert [call["args"][:2] for call in _fake_prisma_calls(log_path)].count(["db", "push"]) == 2

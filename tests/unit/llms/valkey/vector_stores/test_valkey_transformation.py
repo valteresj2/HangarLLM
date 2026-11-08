@@ -7,12 +7,12 @@ from urllib.parse import unquote, urlsplit
 import httpx
 import pytest
 
-from litellm.llms.valkey.vector_stores.transformation import (
+from hangarllm.llms.valkey.vector_stores.transformation import (
     ValkeyVectorStoreConfig,
     _ValkeySearchParams,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 
 class FakeSearchIndex:
@@ -84,13 +84,13 @@ def _doc(doc_id, distance, **fields):
     return SimpleNamespace(id=doc_id, vector_distance=str(distance), **fields)
 
 
-def _search(config, client=None, query="what is litellm", optional_params=None, litellm_params=None, executor=None):
+def _search(config, client=None, query="what is hangarllm", optional_params=None, hangarllm_params=None, executor=None):
     return config.execute_search_vector_store_request(
         vector_store_id="my_index",
         query=query,
         vector_store_search_optional_params=optional_params or {},
-        litellm_logging_obj=MagicMock(),
-        litellm_params={"litellm_embedding_model": "openai/text-embedding-3-small", **(litellm_params or {})},
+        hangarllm_logging_obj=MagicMock(),
+        hangarllm_params={"hangarllm_embedding_model": "openai/text-embedding-3-small", **(hangarllm_params or {})},
         embedding_executor=executor,
     )
 
@@ -102,14 +102,14 @@ def test_sync_search_uses_request_embedding_executor_without_overwriting_explici
 
     _search(
         config,
-        litellm_params={
-            "litellm_embedding_model": "team-embedding-alias",
-            "litellm_embedding_config": embedding_config,
+        hangarllm_params={
+            "hangarllm_embedding_model": "team-embedding-alias",
+            "hangarllm_embedding_config": embedding_config,
         },
         executor=executor,
     )
 
-    assert executor.captured == ("team-embedding-alias", "what is litellm", embedding_config)
+    assert executor.captured == ("team-embedding-alias", "what is hangarllm", embedding_config)
 
 
 def test_sync_search_builds_knn_query_with_packed_vector():
@@ -144,7 +144,7 @@ def test_sync_search_honors_custom_field_names():
 
     response = _search(
         config,
-        litellm_params={"valkey_embedding_field": "emb", "valkey_text_field": "chunk"},
+        hangarllm_params={"valkey_embedding_field": "emb", "valkey_text_field": "chunk"},
     )
 
     assert client.index.searched_query.query_string() == "*=>[KNN 10 @emb $vec AS vector_distance]"
@@ -161,7 +161,7 @@ def test_sync_search_maps_response_with_inverted_score_sorted_best_first():
     response = _search(config)
 
     assert response["object"] == "vector_store.search_results.page"
-    assert response["search_query"] == "what is litellm"
+    assert response["search_query"] == "what is hangarllm"
     assert response["data"][0]["score"] == pytest.approx(0.75)
     assert response["data"][0]["content"] == [{"text": "hello world", "type": "text"}]
     assert response["data"][0]["file_id"] == "doc:1"
@@ -201,12 +201,12 @@ def test_sync_search_expands_embedding_config_into_kwargs():
 
     _search(
         config,
-        litellm_params={"litellm_embedding_config": {"api_key": "sk-test", "api_base": "https://embed.example.com"}},
+        hangarllm_params={"hangarllm_embedding_config": {"api_key": "sk-test", "api_base": "https://embed.example.com"}},
     )
 
     assert embedding_fn.captured_kwargs == {
         "model": "openai/text-embedding-3-small",
-        "input": ["what is litellm"],
+        "input": ["what is hangarllm"],
         "api_key": "sk-test",
         "api_base": "https://embed.example.com",
     }
@@ -215,13 +215,13 @@ def test_sync_search_expands_embedding_config_into_kwargs():
 def test_sync_search_requires_embedding_model():
     config = ValkeyVectorStoreConfig(sync_client=FakeRedis(), embedding_fn=FakeEmbeddingFn([1.0]))
 
-    with pytest.raises(ValueError, match="litellm_embedding_model is required"):
+    with pytest.raises(ValueError, match="hangarllm_embedding_model is required"):
         config.execute_search_vector_store_request(
             vector_store_id="my_index",
             query="q",
             vector_store_search_optional_params={},
-            litellm_logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_logging_obj=MagicMock(),
+            hangarllm_params={},
         )
 
 
@@ -311,8 +311,8 @@ async def test_async_search_rejects_filters():
             vector_store_id="my_index",
             query="q",
             vector_store_search_optional_params={"filters": {"category": "docs"}},
-            litellm_logging_obj=MagicMock(),
-            litellm_params={"litellm_embedding_model": "openai/text-embedding-3-small"},
+            hangarllm_logging_obj=MagicMock(),
+            hangarllm_params={"hangarllm_embedding_model": "openai/text-embedding-3-small"},
         )
 
     assert aembedding_fn.captured_kwargs is None
@@ -366,10 +366,10 @@ async def test_async_search_builds_knn_query_and_maps_response():
         vector_store_id="my_index",
         query=["async query", "part two"],
         vector_store_search_optional_params={"max_num_results": 3},
-        litellm_logging_obj=MagicMock(),
-        litellm_params={
-            "litellm_embedding_model": "openai/text-embedding-3-small",
-            "litellm_embedding_config": {"api_key": "sk-async"},
+        hangarllm_logging_obj=MagicMock(),
+        hangarllm_params={
+            "hangarllm_embedding_model": "openai/text-embedding-3-small",
+            "hangarllm_embedding_config": {"api_key": "sk-async"},
         },
     )
 

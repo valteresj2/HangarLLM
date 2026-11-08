@@ -9,9 +9,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from openai import APIConnectionError
 
-import litellm
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.agent_endpoints.agent_search import (
+import hangarllm
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.agent_endpoints.agent_search import (
     AgentSearchEmbeddingFailed,
     AgentSearchHits,
     AgentSearchIndex,
@@ -19,10 +19,10 @@ from litellm.proxy.agent_endpoints.agent_search import (
     agent_search_text,
     search_agents,
 )
-from litellm.proxy.agent_endpoints.auth.agent_permission_handler import RestrictedAgentAccess
-from litellm.proxy.agent_endpoints.endpoints import router, user_api_key_auth
-from litellm.proxy.common_utils.semantic_text_index import Vector, cosine_similarity
-from litellm.types.agents import AgentResponse
+from hangarllm.proxy.agent_endpoints.auth.agent_permission_handler import RestrictedAgentAccess
+from hangarllm.proxy.agent_endpoints.endpoints import router, user_api_key_auth
+from hangarllm.proxy.common_utils.semantic_text_index import Vector, cosine_similarity
+from hangarllm.types.agents import AgentResponse
 
 CALLER: Final = UserAPIKeyAuth(api_key="hashed-caller-key", team_id="team-1", user_id="user-1")
 
@@ -95,7 +95,7 @@ class OversizedAwareEmbedder:
     async def __call__(self, texts: Sequence[str]) -> Sequence[Vector]:
         self.calls.append(tuple(texts))
         if any("OVERSIZED" in text for text in texts):
-            raise litellm.ContextWindowExceededError(
+            raise hangarllm.ContextWindowExceededError(
                 message="input is too long", model="text-embedding-3-large", llm_provider="openai"
             )
         return tuple(VECTORS[text] for text in texts)
@@ -266,7 +266,7 @@ class TestSearchAgents:
     async def test_empty_embedding_model_is_not_configured(self, embedding_model: str) -> None:
         router: Final = MagicMock()
         router.aembedding = AsyncMock(
-            side_effect=lambda model, input, metadata: litellm.EmbeddingResponse(
+            side_effect=lambda model, input, metadata: hangarllm.EmbeddingResponse(
                 model=model,
                 data=[{"object": "embedding", "index": i, "embedding": list(VECTORS[t])} for i, t in enumerate(input)],
             )
@@ -315,7 +315,7 @@ class TestSearchAgents:
     async def test_router_embeddings_are_read_from_the_response(self) -> None:
         router = MagicMock()
         router.aembedding = AsyncMock(
-            side_effect=lambda model, input, metadata: litellm.EmbeddingResponse(
+            side_effect=lambda model, input, metadata: hangarllm.EmbeddingResponse(
                 model=model,
                 data=[{"object": "embedding", "index": i, "embedding": list(VECTORS[t])} for i, t in enumerate(input)],
             )
@@ -338,7 +338,7 @@ class TestSearchAgents:
     async def test_embedding_spend_is_attributed_to_the_calling_key(self) -> None:
         router = MagicMock()
         router.aembedding = AsyncMock(
-            side_effect=lambda model, input, metadata: litellm.EmbeddingResponse(
+            side_effect=lambda model, input, metadata: hangarllm.EmbeddingResponse(
                 model=model,
                 data=[{"object": "embedding", "index": i, "embedding": list(VECTORS[t])} for i, t in enumerate(input)],
             )
@@ -359,7 +359,7 @@ class TestSearchAgents:
         assert metadata["user_api_key_user_id"] == "user-1"
 
 
-def _client(role: LitellmUserRoles) -> TestClient:
+def _client(role: HangarllmUserRoles) -> TestClient:
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_id="u", user_role=role)
@@ -368,13 +368,13 @@ def _client(role: LitellmUserRoles) -> TestClient:
 
 @pytest.fixture
 def registry(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
-    from litellm.proxy.agent_endpoints import agent_registry as registry_module
+    from hangarllm.proxy.agent_endpoints import agent_registry as registry_module
 
     mock_registry = MagicMock()
     mock_registry.get_agent_list = MagicMock(return_value=AGENTS)
     mock_registry.ids_for_agent = MagicMock(side_effect=lambda agent_id: frozenset({agent_id}))
     monkeypatch.setattr(registry_module, "global_agent_registry", mock_registry)
-    monkeypatch.setattr("litellm.proxy.agent_endpoints.endpoints.global_agent_search_index", AgentSearchIndex())
+    monkeypatch.setattr("hangarllm.proxy.agent_endpoints.endpoints.global_agent_search_index", AgentSearchIndex())
     return mock_registry
 
 
@@ -382,27 +382,27 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 def embedding_router(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     router = MagicMock()
     router.aembedding = AsyncMock(
-        side_effect=lambda model, input, metadata: litellm.EmbeddingResponse(
+        side_effect=lambda model, input, metadata: hangarllm.EmbeddingResponse(
             model=model,
             data=[{"object": "embedding", "index": i, "embedding": list(VECTORS[t])} for i, t in enumerate(input)],
         )
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", _pass_through_key_limits())
-    monkeypatch.setattr(litellm, "agent_search_embedding_model", "text-embedding-3-small")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", _pass_through_key_limits())
+    monkeypatch.setattr(hangarllm, "agent_search_embedding_model", "text-embedding-3-small")
     return router
 
 
 @pytest.fixture
 def no_db(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
 
 
 class TestGetAgentsQuery:
     def test_query_ranks_and_scores_and_truncates(
         self, registry: MagicMock, embedding_router: MagicMock, no_db: None
     ) -> None:
-        response = _client(LitellmUserRoles.PROXY_ADMIN).get(
+        response = _client(HangarllmUserRoles.PROXY_ADMIN).get(
             "/v1/agents", params={"query": "language translation", "top_k": 2}, headers={"Authorization": "Bearer k"}
         )
         assert response.status_code == 200
@@ -414,7 +414,7 @@ class TestGetAgentsQuery:
     def test_without_query_the_list_is_unchanged_and_unscored(
         self, registry: MagicMock, embedding_router: MagicMock, no_db: None
     ) -> None:
-        response = _client(LitellmUserRoles.PROXY_ADMIN).get("/v1/agents", headers={"Authorization": "Bearer k"})
+        response = _client(HangarllmUserRoles.PROXY_ADMIN).get("/v1/agents", headers={"Authorization": "Bearer k"})
         assert response.status_code == 200
         assert [agent["agent_id"] for agent in response.json()] == ["translator", "sql", "trip"]
         assert all(agent["search_score"] is None for agent in response.json())
@@ -424,10 +424,10 @@ class TestGetAgentsQuery:
         self, registry: MagicMock, embedding_router: MagicMock, no_db: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "litellm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.resolve_agent_access",
+            "hangarllm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.resolve_agent_access",
             AsyncMock(return_value=RestrictedAgentAccess(frozenset({"sql"}))),
         )
-        response = _client(LitellmUserRoles.INTERNAL_USER).get(
+        response = _client(HangarllmUserRoles.INTERNAL_USER).get(
             "/v1/agents", params={"query": "language translation"}, headers={"Authorization": "Bearer k"}
         )
         assert response.status_code == 200
@@ -436,8 +436,8 @@ class TestGetAgentsQuery:
     def test_missing_embedding_model_is_a_400(
         self, registry: MagicMock, embedding_router: MagicMock, no_db: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "agent_search_embedding_model", None)
-        response = _client(LitellmUserRoles.PROXY_ADMIN).get(
+        monkeypatch.setattr(hangarllm, "agent_search_embedding_model", None)
+        response = _client(HangarllmUserRoles.PROXY_ADMIN).get(
             "/v1/agents", params={"query": "anything"}, headers={"Authorization": "Bearer k"}
         )
         assert response.status_code == 400
@@ -447,14 +447,14 @@ class TestGetAgentsQuery:
         self, registry: MagicMock, embedding_router: MagicMock, no_db: None
     ) -> None:
         embedding_router.aembedding = AsyncMock(side_effect=APIConnectionError(request=MagicMock()))
-        response = _client(LitellmUserRoles.PROXY_ADMIN).get(
+        response = _client(HangarllmUserRoles.PROXY_ADMIN).get(
             "/v1/agents", params={"query": "anything"}, headers={"Authorization": "Bearer k"}
         )
         assert response.status_code == 503
         assert response.json()["detail"]["error"] == "agent_search_unavailable"
 
     def test_top_k_is_validated(self, registry: MagicMock, embedding_router: MagicMock, no_db: None) -> None:
-        response = _client(LitellmUserRoles.PROXY_ADMIN).get(
+        response = _client(HangarllmUserRoles.PROXY_ADMIN).get(
             "/v1/agents", params={"query": "anything", "top_k": 0}, headers={"Authorization": "Bearer k"}
         )
         assert response.status_code == 422

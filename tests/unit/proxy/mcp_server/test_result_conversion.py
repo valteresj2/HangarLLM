@@ -7,7 +7,7 @@ from mcp_types.methods import serialize_server_result
 from mcp_types.version import KNOWN_PROTOCOL_VERSIONS, MODERN_PROTOCOL_VERSIONS
 from pydantic import JsonValue, ValidationError
 
-from litellm.proxy.mcp_server.result_conversion import (
+from hangarllm.proxy.mcp_server.result_conversion import (
     INPUT_REQUIRED_UNSUPPORTED_MESSAGE,
     JsonResult,
     TextResult,
@@ -247,7 +247,7 @@ class TestToGatewayTool:
 def test_freshness_aging_preserves_content_and_scope(elapsed: float, expected: int) -> None:
     from mcp.types import ListPromptsResult, Prompt
 
-    from litellm.proxy.mcp_server.result_conversion import age_freshness
+    from hangarllm.proxy.mcp_server.result_conversion import age_freshness
 
     result: Final = ListPromptsResult(prompts=[Prompt(name="kept")], ttl_ms=1000, cache_scope="public")
     aged: Final = age_freshness(result, elapsed)
@@ -265,7 +265,7 @@ def test_aggregate_freshness_never_broadens_sharing(
 ) -> None:
     from mcp.types import CacheableResult
 
-    from litellm.proxy.mcp_server.result_conversion import aggregate_freshness
+    from hangarllm.proxy.mcp_server.result_conversion import aggregate_freshness
 
     result: Final = aggregate_freshness(tuple(CacheableResult(ttl_ms=1000, cache_scope=scope) for scope in scopes))
     assert result.cache_scope == expected

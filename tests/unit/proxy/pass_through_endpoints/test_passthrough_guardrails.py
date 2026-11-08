@@ -9,9 +9,9 @@ Tests the opt-in guardrail execution model for passthrough endpoints:
 
 import pytest
 
-from litellm.proxy._types import PassThroughGuardrailSettings
-from litellm.proxy.pass_through_endpoints.jsonpath_extractor import JsonPathExtractor
-from litellm.proxy.pass_through_endpoints.passthrough_guardrails import (
+from hangarllm.proxy._types import PassThroughGuardrailSettings
+from hangarllm.proxy.pass_through_endpoints.jsonpath_extractor import JsonPathExtractor
+from hangarllm.proxy.pass_through_endpoints.passthrough_guardrails import (
     PassthroughGuardrailHandler,
 )
 
@@ -75,10 +75,10 @@ class TestPassthroughGuardrailHandlerGetGuardrailNames:
 
 class TestPassthroughGuardrailHandlerCollectGuardrails:
     def test_inherits_a_key_guardrail_with_its_settings(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.integrations.custom_guardrail import CustomGuardrail
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.integrations.custom_guardrail import CustomGuardrail
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
         key = UserAPIKeyAuth(
             api_key="hashed", metadata={"guardrails": [{"pii": {"extra_body": {"threshold": 1}}}, "toxic"]}
         )

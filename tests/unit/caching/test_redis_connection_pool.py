@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm._redis import (
+from hangarllm._redis import (
     _coerce_redis_kwargs_types,
     _get_redis_client_logic,
     _get_redis_env_kwarg_mapping,
@@ -17,7 +17,7 @@ def test_url_config_uses_passed_pool():
     should use the passed pool — not create a new one via from_url()."""
     mock_pool = MagicMock()
 
-    with patch("litellm._redis._get_redis_client_logic") as mock_logic:
+    with patch("hangarllm._redis._get_redis_client_logic") as mock_logic:
         mock_logic.return_value = {"url": "redis://localhost:6379/0"}
 
         client = get_redis_async_client(connection_pool=mock_pool)
@@ -28,7 +28,7 @@ def test_url_config_uses_passed_pool():
 def test_url_config_falls_back_to_from_url_without_pool():
     """When no connection_pool is provided, URL config should still
     use from_url() as before."""
-    with patch("litellm._redis._get_redis_client_logic") as mock_logic:
+    with patch("hangarllm._redis._get_redis_client_logic") as mock_logic:
         mock_logic.return_value = {"url": "redis://localhost:6379/0"}
 
         client = get_redis_async_client()
@@ -75,7 +75,7 @@ def test_max_connections_url_config_invalid_value(monkeypatch):
 
 def test_max_connections_url_config_none_value():
     """max_connections=None should be silently ignored."""
-    with patch("litellm._redis._get_redis_client_logic") as mock_logic:
+    with patch("hangarllm._redis._get_redis_client_logic") as mock_logic:
         mock_logic.return_value = {
             "url": "redis://localhost:6379/0",
             "max_connections": None,
@@ -91,14 +91,14 @@ def _make_redis_cache():
     mock_sync_client = MagicMock()
     mock_async_pool = AsyncMock()
     patches = [
-        patch("litellm._redis.get_redis_client", return_value=mock_sync_client),
-        patch("litellm._redis.get_redis_connection_pool", return_value=mock_async_pool),
-        patch.object(import_module("litellm.caching.redis_cache").RedisCache, "_setup_health_pings"),
+        patch("hangarllm._redis.get_redis_client", return_value=mock_sync_client),
+        patch("hangarllm._redis.get_redis_connection_pool", return_value=mock_async_pool),
+        patch.object(import_module("hangarllm.caching.redis_cache").RedisCache, "_setup_health_pings"),
     ]
     for p in patches:
         p.start()
 
-    from litellm.caching.redis_cache import RedisCache
+    from hangarllm.caching.redis_cache import RedisCache
 
     cache = RedisCache(host="localhost", port=6379)
 

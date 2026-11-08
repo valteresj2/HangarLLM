@@ -36,11 +36,11 @@ from parameterized import parameterized
 import requests
 
 from tests.unit.integrations.conftest import TlsSink, write_self_signed_cert
-import litellm
-from litellm.integrations import opentelemetry as otel_module
-from litellm.integrations.arize.arize_phoenix import ArizePhoenixLogger
-from litellm.integrations.opentelemetry import (
-    LITELLM_REQUEST_SPAN_NAME,
+import hangarllm
+from hangarllm.integrations import opentelemetry as otel_module
+from hangarllm.integrations.arize.arize_phoenix import ArizePhoenixLogger
+from hangarllm.integrations.opentelemetry import (
+    HANGARLLM_REQUEST_SPAN_NAME,
     OpenTelemetry,
     OpenTelemetryConfig,
     OTELMetricAttributeFilter,
@@ -48,16 +48,16 @@ from litellm.integrations.opentelemetry import (
     RAW_REQUEST_SPAN_NAME,
     _normalize_team_metadata_keys,
 )
-from litellm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY, GenAIOperation
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy import proxy_server
-from litellm.proxy._types import ManagementEndpointLoggingPayload, ProxyException, SpanAttributes
-from litellm.types.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-from litellm.types.services import ServiceLoggerPayload, ServiceTypes
+from hangarllm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY, GenAIOperation
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import ManagementEndpointLoggingPayload, ProxyException, SpanAttributes
+from hangarllm.types.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+from hangarllm.types.services import ServiceLoggerPayload, ServiceTypes
 from collections.abc import AsyncIterator, Callable, Mapping
-from litellm.constants import KUBERNETES_POD_ROUTING_KEY, LOGGING_WORKER_MAX_TIME_PER_COROUTINE
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.utils import ChatCompletionMessageToolCall, Function
+from hangarllm.constants import KUBERNETES_POD_ROUTING_KEY, LOGGING_WORKER_MAX_TIME_PER_COROUTINE
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 exporter = InMemorySpanExporter()
@@ -70,7 +70,7 @@ def unset_global_tracer_provider(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestOpenTelemetryGuardrails(unittest.TestCase):
-    @patch("litellm.integrations.opentelemetry.datetime")
+    @patch("hangarllm.integrations.opentelemetry.datetime")
     def test_create_guardrail_span_with_valid_info(self, mock_datetime):
         # Setup
         otel = OpenTelemetry()
@@ -129,7 +129,7 @@ class TestOpenTelemetryGuardrails(unittest.TestCase):
         # Verify that start_span was never called
         otel.tracer.start_span.assert_not_called()
 
-    @patch("litellm.integrations.opentelemetry.datetime")
+    @patch("hangarllm.integrations.opentelemetry.datetime")
     def test_guardrail_response_dict_is_json_serialized(self, mock_datetime):
         """Dict guardrail_response (e.g. OpenAI moderation result) must reach
         the span as a JSON string so downstream pipelines can parse it for
@@ -161,7 +161,7 @@ class TestOpenTelemetryGuardrails(unittest.TestCase):
             "guardrail_response", safe_dumps(moderation_payload)
         )
 
-    @patch("litellm.integrations.opentelemetry.datetime")
+    @patch("hangarllm.integrations.opentelemetry.datetime")
     def test_guardrail_response_none_is_skipped(self, mock_datetime):
         """When guardrail_response is None, the attribute must not be set —
         guards against round-tripping ``"null"`` into traces."""
@@ -191,7 +191,7 @@ class TestOpenTelemetryGuardrails(unittest.TestCase):
 
 class TestOpenTelemetryTeamAttributesOnChildSpans(unittest.TestCase):
     """team_id / team_alias must land on every child span of a
-    litellm_request trace, not only the root litellm_request span."""
+    hangarllm_request trace, not only the root hangarllm_request span."""
 
     def _slo_metadata(self):
         return {
@@ -199,7 +199,7 @@ class TestOpenTelemetryTeamAttributesOnChildSpans(unittest.TestCase):
             "user_api_key_team_alias": "my-team",
         }
 
-    @patch("litellm.integrations.opentelemetry.datetime")
+    @patch("hangarllm.integrations.opentelemetry.datetime")
     def test_guardrail_span_has_team_attributes(self, mock_datetime):
         otel = OpenTelemetry()
         otel.tracer = MagicMock()
@@ -230,7 +230,7 @@ class TestOpenTelemetryTeamAttributesOnChildSpans(unittest.TestCase):
         )
 
     @patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": ""})
-    @patch("litellm.turn_off_message_logging", False)
+    @patch("hangarllm.turn_off_message_logging", False)
     def test_raw_request_span_has_team_attributes(self):
         otel = OpenTelemetry()
         otel.message_logging = True
@@ -243,7 +243,7 @@ class TestOpenTelemetryTeamAttributesOnChildSpans(unittest.TestCase):
         otel._to_ns = MagicMock(return_value=1234567890)
 
         kwargs = {
-            "litellm_params": {"metadata": {}},
+            "hangarllm_params": {"metadata": {}},
             "standard_logging_object": {"metadata": self._slo_metadata()},
         }
         otel._maybe_log_raw_request(
@@ -366,9 +366,9 @@ def test_v1_routing_diagnostics_add_scalar_attributes_and_preserve_legacy_metada
         )
     (finished,) = exporter.get_finished_spans()
     actual: Final = {
-        key: value for key, value in finished.attributes.items() if key.startswith("litellm.routing.")
+        key: value for key, value in finished.attributes.items() if key.startswith("hangarllm.routing.")
     }
-    assert actual == {f"litellm.routing.{key}": value for key, value in decision.items()}
+    assert actual == {f"hangarllm.routing.{key}": value for key, value in decision.items()}
     assert finished.attributes["metadata.routing_decision"] == str(decision)
 
 
@@ -377,12 +377,12 @@ def test_v1_server_tool_calls_lead_the_completion_function_call_attributes() -> 
     provider: Final = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     otel: Final = OpenTelemetry(tracer_provider=provider)
-    response_obj: Final = litellm.ModelResponse(
+    response_obj: Final = hangarllm.ModelResponse(
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 index=0,
                 finish_reason="tool_calls",
-                message=litellm.Message(
+                message=hangarllm.Message(
                     role="assistant",
                     content=None,
                     tool_calls=[
@@ -447,12 +447,12 @@ def test_v1_server_tool_calls_stay_in_the_gen_ai_input_and_output_messages() -> 
         "tool_calls": [weather_call],
         "provider_specific_fields": {"server_tool_calls": [search_call]},
     }
-    response_obj: Final = litellm.ModelResponse(
+    response_obj: Final = hangarllm.ModelResponse(
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 index=0,
                 finish_reason="tool_calls",
-                message=litellm.Message(
+                message=hangarllm.Message(
                     role="assistant",
                     content=None,
                     tool_calls=[weather_call],
@@ -526,7 +526,7 @@ def test_v1_malformed_routing_metadata_preserves_inference_attributes(decision: 
         )
     (finished,) = exporter.get_finished_spans()
     assert finished.attributes["gen_ai.request.model"] == "answer"
-    assert not any(key.startswith("litellm.routing.") for key in finished.attributes)
+    assert not any(key.startswith("hangarllm.routing.") for key in finished.attributes)
 
 
 class TestOpenTelemetryCostBreakdown(unittest.TestCase):
@@ -551,7 +551,7 @@ class TestOpenTelemetryCostBreakdown(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -594,7 +594,7 @@ class TestOpenTelemetryCostBreakdown(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -622,7 +622,7 @@ class TestOpenTelemetryCostBreakdown(unittest.TestCase):
 
     def test_cache_hit_span_carries_cache_indicator_and_saved_cost(self):
         """
-        A cache-hit span reports litellm.cache_hit and litellm.saved_cache_cost so cost
+        A cache-hit span reports hangarllm.cache_hit and hangarllm.saved_cache_cost so cost
         attribution can tell a cache-served response apart from a billed call.
         """
         otel: Final = OpenTelemetry()
@@ -632,7 +632,7 @@ class TestOpenTelemetryCostBreakdown(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -652,8 +652,8 @@ class TestOpenTelemetryCostBreakdown(unittest.TestCase):
 
         otel.set_attributes(span=mock_span, kwargs=kwargs, response_obj=response_obj)
 
-        mock_span.set_attribute.assert_any_call("litellm.cache_hit", True)
-        mock_span.set_attribute.assert_any_call("litellm.saved_cache_cost", 0.003)
+        mock_span.set_attribute.assert_any_call("hangarllm.cache_hit", True)
+        mock_span.set_attribute.assert_any_call("hangarllm.saved_cache_cost", 0.003)
         mock_span.set_attribute.assert_any_call("gen_ai.cost.total_cost", 0.0)
         mock_span.set_attribute.assert_any_call("gen_ai.cost.input_cost", 0.0)
         mock_span.set_attribute.assert_any_call("gen_ai.cost.output_cost", 0.0)
@@ -666,7 +666,7 @@ class TestOpenTelemetryCostBreakdown(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -685,8 +685,8 @@ class TestOpenTelemetryCostBreakdown(unittest.TestCase):
         otel.set_attributes(span=mock_span, kwargs=kwargs, response_obj=response_obj)
 
         call_args_list: Final = [call[0] for call in mock_span.set_attribute.call_args_list]
-        assert ("litellm.cache_hit", False) in call_args_list
-        assert all(key != "litellm.saved_cache_cost" for key, _value in call_args_list)
+        assert ("hangarllm.cache_hit", False) in call_args_list
+        assert all(key != "hangarllm.saved_cache_cost" for key, _value in call_args_list)
         assert all(not key.startswith("gen_ai.cost.") for key, _value in call_args_list)
 
 
@@ -698,7 +698,7 @@ class TestOpenTelemetryProviderInitialization(unittest.TestCase):
         Unit test: _init_tracing() should respect existing TracerProvider.
 
         When a TracerProvider already exists (e.g., set by Langfuse SDK),
-        LiteLLM should use it instead of creating a new one.
+        HangarLLM should use it instead of creating a new one.
         """
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
@@ -718,7 +718,7 @@ class TestOpenTelemetryProviderInitialization(unittest.TestCase):
         ), "Existing TracerProvider should be respected and not overridden"
 
     @patch.dict(
-        os.environ, {"LITELLM_OTEL_INTEGRATION_ENABLE_METRICS": "true"}, clear=True
+        os.environ, {"HANGARLLM_OTEL_INTEGRATION_ENABLE_METRICS": "true"}, clear=True
     )
     def test_init_metrics_creates_instruments_under_their_published_names(self):
         """
@@ -752,14 +752,14 @@ class TestOpenTelemetryProviderInitialization(unittest.TestCase):
         }
 
     @patch.dict(
-        os.environ, {"LITELLM_OTEL_INTEGRATION_ENABLE_METRICS": "true"}, clear=True
+        os.environ, {"HANGARLLM_OTEL_INTEGRATION_ENABLE_METRICS": "true"}, clear=True
     )
     def test_init_metrics_respects_existing_meter_provider(self):
         """
         Unit test: _init_metrics() should respect existing MeterProvider.
 
         When a MeterProvider already exists (e.g., set by Langfuse SDK),
-        LiteLLM should use it instead of creating a new one.
+        HangarLLM should use it instead of creating a new one.
         """
         from opentelemetry import metrics
         from opentelemetry.sdk.metrics import MeterProvider
@@ -780,14 +780,14 @@ class TestOpenTelemetryProviderInitialization(unittest.TestCase):
         ), "Existing MeterProvider should be respected and not overridden"
 
     @patch.dict(
-        os.environ, {"LITELLM_OTEL_INTEGRATION_ENABLE_EVENTS": "true"}, clear=True
+        os.environ, {"HANGARLLM_OTEL_INTEGRATION_ENABLE_EVENTS": "true"}, clear=True
     )
     def test_init_logs_respects_existing_logger_provider(self):
         """
         Unit test: _init_logs() should respect existing LoggerProvider.
 
         When a LoggerProvider already exists (e.g., set by Langfuse SDK),
-        LiteLLM should use it instead of creating a new one.
+        HangarLLM should use it instead of creating a new one.
         """
         from opentelemetry._logs import get_logger_provider, set_logger_provider
         from opentelemetry.sdk._logs import LoggerProvider as OTLoggerProvider
@@ -1055,7 +1055,7 @@ class TestOpenTelemetryCaptureMessageContent(unittest.TestCase):
         self.assertEqual(mode, "SPAN_ONLY")
 
     def test_turn_off_message_logging_forces_no_content(self):
-        with patch("litellm.turn_off_message_logging", True):
+        with patch("hangarllm.turn_off_message_logging", True):
             _, mode = self._make(env="SPAN_AND_EVENT", message_logging=True)
             self.assertEqual(mode, "NO_CONTENT")
 
@@ -1113,7 +1113,7 @@ class TestOpenTelemetrySemconvStability(unittest.TestCase):
         h = self._make()
         self.assertFalse(h._gen_ai_semconv_latest_experimental)
         kwargs = {"model": "gpt-4", "call_type": "acompletion"}
-        self.assertEqual(h._get_span_name(kwargs), "litellm_request")
+        self.assertEqual(h._get_span_name(kwargs), "hangarllm_request")
 
     def test_opt_in_emits_semconv_span_name(self):
         h = self._make(env="gen_ai_latest_experimental")
@@ -1174,7 +1174,7 @@ class TestOpenTelemetrySemconvStability(unittest.TestCase):
         kwargs = {
             "model": "gpt-4",
             "call_type": "acompletion",
-            "litellm_params": {"metadata": {"generation_name": "user-named-span"}},
+            "hangarllm_params": {"metadata": {"generation_name": "user-named-span"}},
         }
         self.assertEqual(h._get_span_name(kwargs), "user-named-span")
 
@@ -1183,7 +1183,7 @@ class TestOpenTelemetrySemconvStability(unittest.TestCase):
         h._maybe_log_raw_request = OpenTelemetry._maybe_log_raw_request.__get__(h)
         h.tracer = MagicMock()
         h.set_raw_request_attributes = MagicMock()
-        kwargs = {"litellm_params": {"metadata": {}}}
+        kwargs = {"hangarllm_params": {"metadata": {}}}
         h._maybe_log_raw_request(kwargs, {}, None, None, MagicMock())
         h.tracer.start_span.assert_not_called()
 
@@ -1314,7 +1314,7 @@ class TestOpenTelemetrySemconvStability(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "hi"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -1367,7 +1367,7 @@ class TestOpenTelemetrySemconvStability(unittest.TestCase):
             "model": "gpt-4",
             "call_type": "acompletion",
             "messages": [{"role": "user", "content": "hi"}],
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
         }
         response_obj = {
             "choices": [
@@ -1404,7 +1404,7 @@ class TestOpenTelemetrySemconvStability(unittest.TestCase):
                 os.environ,
                 {"OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental"},
             ),
-            patch("litellm.turn_off_message_logging", True),
+            patch("hangarllm.turn_off_message_logging", True),
             patch.object(
                 _logs, "get_logger_provider", return_value=ProxyLoggerProvider()
             ),
@@ -1420,7 +1420,7 @@ class TestOpenTelemetrySemconvStability(unittest.TestCase):
                 "model": "gpt-4",
                 "call_type": "acompletion",
                 "messages": [{"role": "user", "content": "private prompt"}],
-                "litellm_params": {"custom_llm_provider": "openai"},
+                "hangarllm_params": {"custom_llm_provider": "openai"},
             }
             response_obj = {
                 "choices": [
@@ -1455,9 +1455,9 @@ class TestOpenTelemetry(unittest.TestCase):
     def test_open_telemetry_config_manual_defaults(self):
         """Manual OpenTelemetryConfig creation should populate default identifiers."""
         config = OpenTelemetryConfig(exporter="console", endpoint="http://collector")
-        self.assertEqual(config.service_name, "litellm")
+        self.assertEqual(config.service_name, "hangarllm")
         self.assertEqual(config.deployment_environment, "production")
-        self.assertEqual(config.model_id, "litellm")
+        self.assertEqual(config.model_id, "hangarllm")
 
     @patch.dict(os.environ, {}, clear=True)
     def test_open_telemetry_config_custom_service_name(self):
@@ -1473,7 +1473,7 @@ class TestOpenTelemetry(unittest.TestCase):
 
         This fixes an issue where UI-configured OTEL settings would default to console
         output instead of sending traces to the configured endpoint.
-        See: https://github.com/BerriAI/litellm/issues/XXXX
+        See: https://github.com/valteresj2/HangarLLM/issues/XXXX
         """
         # When endpoint is specified without explicit exporter, should auto-infer otlp_http
         config = OpenTelemetryConfig(endpoint="https://otel-collector.example.com:443")
@@ -1670,16 +1670,16 @@ class TestOpenTelemetry(unittest.TestCase):
             mock_provider_instance.add_span_processor.assert_called_once_with(
                 mock_span_processor
             )
-            mock_provider_instance.get_tracer.assert_called_once_with("litellm")
+            mock_provider_instance.get_tracer.assert_called_once_with("hangarllm")
             self.assertEqual(result, mock_tracer)
 
     @patch.dict(os.environ, {}, clear=True)
     @patch("opentelemetry.sdk.resources.Resource.create")
     @patch("opentelemetry.sdk.resources.OTELResourceDetector")
-    def test_get_litellm_resource_with_defaults(
+    def test_get_hangarllm_resource_with_defaults(
         self, mock_detector_cls, mock_resource_create
     ):
-        """Test _get_litellm_resource with default values when no environment variables are set."""
+        """Test _get_hangarllm_resource with default values when no environment variables are set."""
         # Mock the Resource.create method
         mock_base_resource = MagicMock()
         mock_resource_create.return_value = mock_base_resource
@@ -1695,13 +1695,13 @@ class TestOpenTelemetry(unittest.TestCase):
         mock_base_resource.merge.return_value = mock_merged_resource
 
         config = OpenTelemetryConfig()
-        result = OpenTelemetry._get_litellm_resource(config)
+        result = OpenTelemetry._get_hangarllm_resource(config)
 
         # Verify Resource.create was called with correct default attributes
         expected_attributes = {
-            "service.name": "litellm",
+            "service.name": "hangarllm",
             "deployment.environment": "production",
-            "model_id": "litellm",
+            "model_id": "hangarllm",
         }
         mock_resource_create.assert_called_once_with(expected_attributes)
         mock_detector.detect.assert_called_once()
@@ -1719,10 +1719,10 @@ class TestOpenTelemetry(unittest.TestCase):
     )
     @patch("opentelemetry.sdk.resources.Resource.create")
     @patch("opentelemetry.sdk.resources.OTELResourceDetector")
-    def test_get_litellm_resource_with_litellm_env_vars(
+    def test_get_hangarllm_resource_with_hangarllm_env_vars(
         self, mock_detector_cls, mock_resource_create
     ):
-        """Test _get_litellm_resource with LiteLLM-specific environment variables."""
+        """Test _get_hangarllm_resource with HangarLLM-specific environment variables."""
         # Mock the Resource.create method
         mock_base_resource = MagicMock()
         mock_resource_create.return_value = mock_base_resource
@@ -1738,7 +1738,7 @@ class TestOpenTelemetry(unittest.TestCase):
         mock_base_resource.merge.return_value = mock_merged_resource
 
         config = OpenTelemetryConfig.from_env()
-        result = OpenTelemetry._get_litellm_resource(config)
+        result = OpenTelemetry._get_hangarllm_resource(config)
 
         # Verify Resource.create was called with environment variable values
         expected_attributes = {
@@ -1761,10 +1761,10 @@ class TestOpenTelemetry(unittest.TestCase):
     )
     @patch("opentelemetry.sdk.resources.Resource.create")
     @patch("opentelemetry.sdk.resources.OTELResourceDetector")
-    def test_get_litellm_resource_with_otel_resource_attributes(
+    def test_get_hangarllm_resource_with_otel_resource_attributes(
         self, mock_detector_cls, mock_resource_create
     ):
-        """Test _get_litellm_resource with OTEL_RESOURCE_ATTRIBUTES environment variable."""
+        """Test _get_hangarllm_resource with OTEL_RESOURCE_ATTRIBUTES environment variable."""
         # Mock the Resource.create method to simulate the actual behavior
         # In reality, Resource.create() would parse OTEL_RESOURCE_ATTRIBUTES and merge it
         mock_base_resource = MagicMock()
@@ -1781,7 +1781,7 @@ class TestOpenTelemetry(unittest.TestCase):
         mock_base_resource.merge.return_value = mock_merged_resource
 
         config = OpenTelemetryConfig.from_env()
-        result = OpenTelemetry._get_litellm_resource(config)
+        result = OpenTelemetry._get_hangarllm_resource(config)
 
         # Verify Resource.create was called with the base attributes
         # The actual OTEL_RESOURCE_ATTRIBUTES parsing is handled by OpenTelemetry SDK
@@ -1796,10 +1796,10 @@ class TestOpenTelemetry(unittest.TestCase):
         self.assertEqual(result, mock_merged_resource)
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_get_litellm_resource_integration_with_real_resource(self):
-        """Integration test to verify _get_litellm_resource works with actual OpenTelemetry Resource."""
+    def test_get_hangarllm_resource_integration_with_real_resource(self):
+        """Integration test to verify _get_hangarllm_resource works with actual OpenTelemetry Resource."""
         config = OpenTelemetryConfig()
-        result = OpenTelemetry._get_litellm_resource(config)
+        result = OpenTelemetry._get_hangarllm_resource(config)
 
         # Verify the result is a Resource instance
         from opentelemetry.sdk.resources import Resource
@@ -1808,9 +1808,9 @@ class TestOpenTelemetry(unittest.TestCase):
 
         # Verify the resource has the expected default attributes
         attributes = result.attributes
-        self.assertEqual(attributes.get("service.name"), "litellm")
+        self.assertEqual(attributes.get("service.name"), "hangarllm")
         self.assertEqual(attributes.get("deployment.environment"), "production")
-        self.assertEqual(attributes.get("model_id"), "litellm")
+        self.assertEqual(attributes.get("model_id"), "hangarllm")
 
     @patch.dict(
         os.environ,
@@ -1819,10 +1819,10 @@ class TestOpenTelemetry(unittest.TestCase):
         },
         clear=True,
     )
-    def test_get_litellm_resource_real_otel_resource_attributes(self):
+    def test_get_hangarllm_resource_real_otel_resource_attributes(self):
         """Integration test to verify OTEL_RESOURCE_ATTRIBUTES is properly handled."""
         config = OpenTelemetryConfig.from_env()
-        result = OpenTelemetry._get_litellm_resource(config)
+        result = OpenTelemetry._get_hangarllm_resource(config)
 
         print("RESULT", result)
 
@@ -1837,20 +1837,20 @@ class TestOpenTelemetry(unittest.TestCase):
         self.assertEqual(attributes.get("deployment.environment"), "test-env")
         self.assertEqual(attributes.get("custom.attribute"), "test-value")
         # model_id should still be set from the base attributes since it wasn't in OTEL_RESOURCE_ATTRIBUTES
-        self.assertEqual(attributes.get("model_id"), "litellm")
+        self.assertEqual(attributes.get("model_id"), "hangarllm")
 
     @patch.dict(
         os.environ,
         {
-            "OTEL_SERVICE_NAME": "litellm-service",
+            "OTEL_SERVICE_NAME": "hangarllm-service",
             "OTEL_RESOURCE_ATTRIBUTES": "service.name=otel-override,extra.attr=extra-value",
         },
         clear=True,
     )
-    def test_get_litellm_resource_precedence(self):
+    def test_get_hangarllm_resource_precedence(self):
         """Test that OTEL_SERVICE_NAME takes precedence over OTEL_RESOURCE_ATTRIBUTES according to OpenTelemetry spec."""
         config = OpenTelemetryConfig.from_env()
-        result = OpenTelemetry._get_litellm_resource(config)
+        result = OpenTelemetry._get_hangarllm_resource(config)
 
         # Verify the result is a Resource instance
         from opentelemetry.sdk.resources import Resource
@@ -1859,14 +1859,14 @@ class TestOpenTelemetry(unittest.TestCase):
 
         # According to OpenTelemetry spec, OTEL_SERVICE_NAME takes precedence over service.name in OTEL_RESOURCE_ATTRIBUTES
         attributes = result.attributes
-        self.assertEqual(attributes.get("service.name"), "litellm-service")
+        self.assertEqual(attributes.get("service.name"), "hangarllm-service")
         # But other attributes from OTEL_RESOURCE_ATTRIBUTES should still be present
         self.assertEqual(attributes.get("extra.attr"), "extra-value")
 
     def test_handle_success_spans_only(self):
         # make sure neither events nor metrics is on
-        os.environ.pop("LITELLM_OTEL_INTEGRATION_ENABLE_EVENTS", None)
-        os.environ.pop("LITELLM_OTEL_INTEGRATION_ENABLE_METRICS", None)
+        os.environ.pop("HANGARLLM_OTEL_INTEGRATION_ENABLE_EVENTS", None)
+        os.environ.pop("HANGARLLM_OTEL_INTEGRATION_ENABLE_METRICS", None)
 
         # ─── build in‐memory OTEL providers/exporters ─────────────────────────────
         span_exporter = InMemorySpanExporter()
@@ -1907,11 +1907,11 @@ class TestOpenTelemetry(unittest.TestCase):
         # ─── assert spans only ───────────────────────────────────────────────────
         spans = span_exporter.get_finished_spans()
         self.assertTrue(spans, "Expected at least one span")
-        # must have the top‐level litellm_request span
+        # must have the top‐level hangarllm_request span
         # self.assertIn(
-        #     LITELLM_REQUEST_SPAN_NAME,
+        #     HANGARLLM_REQUEST_SPAN_NAME,
         #     [s.name for s in spans],
-        #     "litellm_request span missing",
+        #     "hangarllm_request span missing",
         # )
         # model attribute should be on that span
         found = any(
@@ -1930,7 +1930,7 @@ class TestOpenTelemetry(unittest.TestCase):
         self.assertFalse(logs, "Did not expect any logs")
 
     @patch.dict(
-        os.environ, {"LITELLM_OTEL_INTEGRATION_ENABLE_METRICS": "true"}, clear=True
+        os.environ, {"HANGARLLM_OTEL_INTEGRATION_ENABLE_METRICS": "true"}, clear=True
     )
     def test_handle_success_spans_and_metrics(self):
         # ─── build in‐memory OTEL providers/exporters ─────────────────────────────
@@ -1998,24 +1998,24 @@ class TestOpenTelemetry(unittest.TestCase):
     def test_get_span_name_with_generation_name(self):
         """Test _get_span_name returns generation_name when present"""
         otel = OpenTelemetry()
-        kwargs = {"litellm_params": {"metadata": {"generation_name": "custom_span"}}}
+        kwargs = {"hangarllm_params": {"metadata": {"generation_name": "custom_span"}}}
         result = otel._get_span_name(kwargs)
         self.assertEqual(result, "custom_span")
 
     def test_get_span_name_without_generation_name(self):
         """Test _get_span_name returns default when generation_name missing"""
-        from litellm.integrations.opentelemetry import LITELLM_REQUEST_SPAN_NAME
+        from hangarllm.integrations.opentelemetry import HANGARLLM_REQUEST_SPAN_NAME
 
         otel = OpenTelemetry()
-        kwargs = {"litellm_params": {"metadata": {}}}
+        kwargs = {"hangarllm_params": {"metadata": {}}}
         result = otel._get_span_name(kwargs)
-        self.assertEqual(result, LITELLM_REQUEST_SPAN_NAME)
+        self.assertEqual(result, HANGARLLM_REQUEST_SPAN_NAME)
 
     @patch.dict(os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": ""})
-    @patch("litellm.turn_off_message_logging", False)
+    @patch("hangarllm.turn_off_message_logging", False)
     def test_maybe_log_raw_request_creates_span(self):
         """Test _maybe_log_raw_request creates span when logging enabled"""
-        from litellm.integrations.opentelemetry import RAW_REQUEST_SPAN_NAME
+        from hangarllm.integrations.opentelemetry import RAW_REQUEST_SPAN_NAME
 
         otel = OpenTelemetry()
         otel.message_logging = True
@@ -2027,7 +2027,7 @@ class TestOpenTelemetry(unittest.TestCase):
         otel.set_raw_request_attributes = MagicMock()
         otel._to_ns = MagicMock(return_value=1234567890)
 
-        kwargs = {"litellm_params": {"metadata": {}}}
+        kwargs = {"hangarllm_params": {"metadata": {}}}
         otel._maybe_log_raw_request(
             kwargs, {}, datetime.now(), datetime.now(), MagicMock()
         )
@@ -2037,14 +2037,14 @@ class TestOpenTelemetry(unittest.TestCase):
             mock_tracer.start_span.call_args[1]["name"], RAW_REQUEST_SPAN_NAME
         )
 
-    @patch("litellm.turn_off_message_logging", True)
+    @patch("hangarllm.turn_off_message_logging", True)
     def test_maybe_log_raw_request_skips_when_logging_disabled(self):
         """Test _maybe_log_raw_request skips when logging disabled"""
         otel = OpenTelemetry()
         mock_tracer = MagicMock()
         otel.get_tracer_to_use_for_request = MagicMock(return_value=mock_tracer)
 
-        kwargs = {"litellm_params": {"metadata": {}}}
+        kwargs = {"hangarllm_params": {"metadata": {}}}
         otel._maybe_log_raw_request(
             kwargs, {}, datetime.now(), datetime.now(), MagicMock()
         )
@@ -2071,7 +2071,7 @@ class TestOpenTelemetryToNs(unittest.TestCase):
     def test_int_epoch_seconds_scaled_to_ns(self):
         self.assertEqual(self.otel._to_ns(1700), 1_700_000_000_000)
 
-    @patch("litellm.integrations.opentelemetry.datetime")
+    @patch("hangarllm.integrations.opentelemetry.datetime")
     def test_none_falls_back_to_current_time(self, mock_datetime):
         mock_datetime.now.return_value.timestamp.return_value = 1700.0
         self.assertEqual(self.otel._to_ns(None), 1_700_000_000_000)
@@ -2301,7 +2301,7 @@ class TestOpenTelemetryEndpointNormalization(unittest.TestCase):
         otel = OpenTelemetry()
         endpoint = "http://collector:4318/v1/traces"
 
-        with patch("litellm._logging.verbose_logger.warning") as mock_warning:
+        with patch("hangarllm._logging.verbose_logger.warning") as mock_warning:
             result = otel._normalize_otel_endpoint(endpoint, "invalid")
 
             # Should return endpoint unchanged
@@ -2379,7 +2379,7 @@ def _isolate_otlp_tls_env(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TIMEOUT", "2")
-    monkeypatch.setattr(litellm, "ssl_verify", True)
+    monkeypatch.setattr(hangarllm, "ssl_verify", True)
 
 
 def _ended_span() -> tuple[TracerProvider, ReadableSpan]:
@@ -2673,7 +2673,7 @@ class TestOpenTelemetryProtocolSelection(unittest.TestCase):
         config = OpenTelemetryConfig(exporter="unknown_protocol", enable_events=True)
         otel = OpenTelemetry(config=config)
 
-        with patch("litellm._logging.verbose_logger.warning") as mock_warning:
+        with patch("hangarllm._logging.verbose_logger.warning") as mock_warning:
             exporter = otel._get_log_exporter()
 
             # Verify the exporter defaults to console
@@ -2883,14 +2883,14 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
     """
     Test suite for external span handling in OpenTelemetry integration.
 
-    These tests verify that LiteLLM correctly handles spans created outside
-    of LiteLLM (e.g., by Langfuse SDK, user application code, or global context)
+    These tests verify that HangarLLM correctly handles spans created outside
+    of HangarLLM (e.g., by Langfuse SDK, user application code, or global context)
     without closing them prematurely.
 
     Background:
     - External spans can come from: Langfuse SDK, user code, HTTP traceparent headers, global context
-    - LiteLLM should NEVER close spans it did not create
-    - Bug: LiteLLM was reusing and closing external spans in _start_primary_span
+    - HangarLLM should NEVER close spans it did not create
+    - Bug: HangarLLM was reusing and closing external spans in _start_primary_span
     """
 
     HERE = os.path.dirname(__file__)
@@ -2926,15 +2926,15 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
         spans = self.span_exporter.get_finished_spans()
         return [s for s in spans if s.name == name]
 
-    @patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "false"}, clear=False)
-    def test_external_span_not_closed_with_use_otel_litellm_request_span_false(self):
+    @patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "false"}, clear=False)
+    def test_external_span_not_closed_with_use_otel_hangarllm_request_span_false(self):
         """
-        Test that external spans are not closed when USE_OTEL_LITELLM_REQUEST_SPAN=false (default).
+        Test that external spans are not closed when USE_OTEL_HANGARLLM_REQUEST_SPAN=false (default).
 
         Expected behavior:
         - External span remains open (is_recording = True)
         - raw_gen_ai_request spans are direct children of external span (shallow hierarchy)
-        - No litellm_request span is created
+        - No hangarllm_request span is created
         - Multiple completions work correctly
         """
         # Initialize OpenTelemetry
@@ -2995,28 +2995,28 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
             len(parent_spans), 1, "Should have exactly one external_parent_span"
         )
 
-        # Verify LiteLLM set attributes on external parent span
+        # Verify HangarLLM set attributes on external parent span
         parent_span_finished = parent_spans[0]
         self.assertIsNotNone(
             parent_span_finished.attributes,
-            "Parent span should have attributes set by LiteLLM",
+            "Parent span should have attributes set by HangarLLM",
         )
         self.assertIn(
             "gen_ai.request.model",
             parent_span_finished.attributes,
-            "Parent span should have model attribute from LiteLLM",
+            "Parent span should have model attribute from HangarLLM",
         )
 
         # Should have raw_gen_ai_request spans (if message_logging is on)
         raw_spans = self._get_spans_by_name("raw_gen_ai_request")
         # Note: May be 0 if message_logging is off, or 2 if on
 
-        # Should NOT have litellm_request spans (USE_OTEL_LITELLM_REQUEST_SPAN=false)
-        litellm_spans = self._get_spans_by_name("litellm_request")
+        # Should NOT have hangarllm_request spans (USE_OTEL_HANGARLLM_REQUEST_SPAN=false)
+        hangarllm_spans = self._get_spans_by_name("hangarllm_request")
         self.assertEqual(
-            len(litellm_spans),
+            len(hangarllm_spans),
             0,
-            "Should NOT have litellm_request spans when USE_OTEL_LITELLM_REQUEST_SPAN=false",
+            "Should NOT have hangarllm_request spans when USE_OTEL_HANGARLLM_REQUEST_SPAN=false",
         )
 
         # Verify raw_gen_ai_request spans are direct children of external span
@@ -3027,16 +3027,16 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
                 "raw_gen_ai_request should be direct child of external_parent_span",
             )
 
-    @patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "true"}, clear=False)
-    def test_external_span_not_closed_with_use_otel_litellm_request_span_true(self):
+    @patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "true"}, clear=False)
+    def test_external_span_not_closed_with_use_otel_hangarllm_request_span_true(self):
         """
-        Test that external spans are not closed when USE_OTEL_LITELLM_REQUEST_SPAN=true.
+        Test that external spans are not closed when USE_OTEL_HANGARLLM_REQUEST_SPAN=true.
 
         Expected behavior:
         - External span remains open (is_recording = True)
-        - litellm_request spans are created as children of external span
-        - raw_gen_ai_request spans are children of litellm_request spans
-        - Correct hierarchy: external_parent → litellm_request → raw_gen_ai_request
+        - hangarllm_request spans are created as children of external span
+        - raw_gen_ai_request spans are children of hangarllm_request spans
+        - Correct hierarchy: external_parent → hangarllm_request → raw_gen_ai_request
         """
         import copy
 
@@ -3087,34 +3087,34 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
                 f"Span {span.name} should have same trace_id as parent",
             )
 
-        # Should have litellm_request spans (USE_OTEL_LITELLM_REQUEST_SPAN=true)
-        litellm_spans = self._get_spans_by_name("litellm_request")
+        # Should have hangarllm_request spans (USE_OTEL_HANGARLLM_REQUEST_SPAN=true)
+        hangarllm_spans = self._get_spans_by_name("hangarllm_request")
         self.assertEqual(
-            len(litellm_spans),
+            len(hangarllm_spans),
             2,
-            "Should have 2 litellm_request spans when USE_OTEL_LITELLM_REQUEST_SPAN=true",
+            "Should have 2 hangarllm_request spans when USE_OTEL_HANGARLLM_REQUEST_SPAN=true",
         )
 
-        # Verify litellm_request spans are children of external span
-        for litellm_span in litellm_spans:
+        # Verify hangarllm_request spans are children of external span
+        for hangarllm_span in hangarllm_spans:
             self.assertEqual(
-                litellm_span.parent.span_id if litellm_span.parent else None,
+                hangarllm_span.parent.span_id if hangarllm_span.parent else None,
                 parent_span_id,
-                "litellm_request should be child of external_parent_span",
+                "hangarllm_request should be child of external_parent_span",
             )
 
-        # Verify raw_gen_ai_request spans (if present) are children of litellm_request
+        # Verify raw_gen_ai_request spans (if present) are children of hangarllm_request
         raw_spans = self._get_spans_by_name("raw_gen_ai_request")
         if raw_spans:
-            litellm_span_ids = {s.context.span_id for s in litellm_spans}
+            hangarllm_span_ids = {s.context.span_id for s in hangarllm_spans}
             for raw_span in raw_spans:
                 self.assertIn(
                     raw_span.parent.span_id if raw_span.parent else None,
-                    litellm_span_ids,
-                    "raw_gen_ai_request should be child of litellm_request",
+                    hangarllm_span_ids,
+                    "raw_gen_ai_request should be child of hangarllm_request",
                 )
 
-    @patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "false"}, clear=False)
+    @patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "false"}, clear=False)
     def test_external_span_with_multiple_completions(self):
         """
         Test that multiple completion calls work correctly within external span context.
@@ -3167,25 +3167,25 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
             len(parent_spans), 1, "Should have exactly one external_parent_span"
         )
 
-        # Verify LiteLLM set attributes on external parent span
+        # Verify HangarLLM set attributes on external parent span
         parent_span_finished = parent_spans[0]
         self.assertIn(
             "gen_ai.request.model",
             parent_span_finished.attributes,
-            "Parent span should have model attribute from LiteLLM",
+            "Parent span should have model attribute from HangarLLM",
         )
 
-    @patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "false"}, clear=False)
+    @patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "false"}, clear=False)
     def test_external_span_from_global_context(self):
         """
         Test external span detection from global context (Priority 3 in _get_span_context).
 
         This simulates the case where a span is set in the global context
-        (e.g., by user code or Langfuse SDK) and LiteLLM detects it via
+        (e.g., by user code or Langfuse SDK) and HangarLLM detects it via
         trace.get_current_span().
 
         Expected behavior:
-        - LiteLLM detects the span from global context
+        - HangarLLM detects the span from global context
         - External span is not closed
         - Correct parent-child relationship
         """
@@ -3228,7 +3228,7 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
                 "All spans should have the same trace_id",
             )
 
-    @patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "false"}, clear=False)
+    @patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "false"}, clear=False)
     def test_external_span_hierarchy_preserved(self):
         """
         Test that span hierarchy is correctly preserved with external parent.
@@ -3276,7 +3276,7 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
                     "raw_gen_ai_request should be child of external_parent_span",
                 )
 
-    @patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "false"}, clear=False)
+    @patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "false"}, clear=False)
     def test_external_span_not_ended_on_failure(self):
         """
         Test that external spans are not closed even on failure.
@@ -3285,7 +3285,7 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
         - When _handle_failure is called with external span context
         - External span remains open (is_recording = True)
         - Error span is created correctly
-        - External span status is NOT changed by LiteLLM
+        - External span status is NOT changed by HangarLLM
         """
         # Initialize OpenTelemetry
         otel = OpenTelemetry(tracer_provider=self.tracer_provider)
@@ -3333,12 +3333,12 @@ class TestOpenTelemetryExternalSpan(unittest.TestCase):
             len(parent_spans), 1, "Should have exactly one external_parent_span"
         )
 
-        # Verify LiteLLM set attributes on external parent span even on failure
+        # Verify HangarLLM set attributes on external parent span even on failure
         parent_span_finished = parent_spans[0]
         self.assertIn(
             "gen_ai.request.model",
             parent_span_finished.attributes,
-            "Parent span should have model attribute from LiteLLM even on failure",
+            "Parent span should have model attribute from HangarLLM even on failure",
         )
 
 
@@ -3349,14 +3349,14 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
     """
     Test suite for OpenTelemetry 1.38 Semantic Conventions compliance.
 
-    These tests verify that LiteLLM emits span attributes following the
+    These tests verify that HangarLLM emits span attributes following the
     OpenTelemetry GenAI semantic conventions v1.38, including:
     - gen_ai.input.messages (JSON string with parts array)
     - gen_ai.output.messages (JSON string with parts array)
     - gen_ai.usage.input_tokens / output_tokens (new naming)
     - gen_ai.response.finish_reasons (JSON array)
 
-    See: https://github.com/BerriAI/litellm/issues/17794
+    See: upstream issue 17794
     """
 
     def setUp(self):
@@ -3386,7 +3386,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello world"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -3445,7 +3445,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -3504,7 +3504,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -3543,7 +3543,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -3594,7 +3594,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -3631,7 +3631,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             config=OpenTelemetryConfig(ignore_context_propagation=True),
             tracer_provider=tracer_provider,
         )
-        otel.tracer = tracer_provider.get_tracer("litellm")
+        otel.tracer = tracer_provider.get_tracer("hangarllm")
 
         other_tracer = tracer_provider.get_tracer("other_provider")
         other_span = other_tracer.start_span("parent_span")
@@ -3643,9 +3643,9 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
-                "metadata": {"litellm_parent_otel_span": other_span},
+                "metadata": {"hangarllm_parent_otel_span": other_span},
             },
             "standard_logging_object": {
                 "id": "test-id",
@@ -3655,7 +3655,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "exception": Exception("test error"),
         }
 
-        with patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "true"}):
+        with patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "true"}):
             if handle_method == "_handle_success":
                 otel._handle_success(kwargs, None, start, end)
             elif handle_method == "_handle_failure":
@@ -3688,7 +3688,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
         tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
 
         otel = OpenTelemetry(tracer_provider=tracer_provider)
-        otel.tracer = tracer_provider.get_tracer("litellm")
+        otel.tracer = tracer_provider.get_tracer("hangarllm")
 
         parent_span = otel.tracer.start_span("parent_span")
 
@@ -3699,9 +3699,9 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
-                "metadata": {"litellm_parent_otel_span": parent_span},
+                "metadata": {"hangarllm_parent_otel_span": parent_span},
             },
             "standard_logging_object": {
                 "id": "test-id",
@@ -3711,7 +3711,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "exception": Exception("test error"),
         }
 
-        with patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "true"}):
+        with patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "true"}):
             if handle_method == "_handle_success":
                 otel._handle_success(kwargs, None, start, end)
             elif handle_method == "_handle_failure":
@@ -3746,7 +3746,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             config=OpenTelemetryConfig(ignore_context_propagation=False),
             tracer_provider=tracer_provider,
         )
-        otel.tracer = tracer_provider.get_tracer("litellm")
+        otel.tracer = tracer_provider.get_tracer("hangarllm")
 
         parent_span = otel.tracer.start_span("parent_span")
 
@@ -3757,9 +3757,9 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
-                "metadata": {"litellm_parent_otel_span": parent_span},
+                "metadata": {"hangarllm_parent_otel_span": parent_span},
             },
             "standard_logging_object": {
                 "id": "test-id",
@@ -3769,7 +3769,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "exception": Exception("test error"),
         }
 
-        with patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "true"}):
+        with patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "true"}):
             if handle_method == "_handle_success":
                 otel._handle_success(kwargs, None, start, end)
             elif handle_method == "_handle_failure":
@@ -3807,9 +3807,9 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
-                "metadata": {"litellm_parent_otel_span": parent_without_name},
+                "metadata": {"hangarllm_parent_otel_span": parent_without_name},
             },
             "standard_logging_object": {
                 "id": "test-id",
@@ -3834,7 +3834,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
         tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
 
         otel = OpenTelemetry(tracer_provider=tracer_provider)
-        otel.tracer = tracer_provider.get_tracer("litellm")
+        otel.tracer = tracer_provider.get_tracer("hangarllm")
 
         start = datetime.utcnow()
         end = start + timedelta(seconds=1)
@@ -3843,7 +3843,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -3868,7 +3868,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
                 "own_span_error_information",
                 False,
                 {
-                    "error_str": "litellm.ServiceUnavailableError: upstream returned 503",
+                    "error_str": "hangarllm.ServiceUnavailableError: upstream returned 503",
                     "error_information": {
                         "error_class": "ServiceUnavailableError",
                         "error_message": "upstream returned 503",
@@ -3879,14 +3879,14 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             (
                 "own_span_error_str_only",
                 False,
-                {"error_str": "litellm.ServiceUnavailableError: upstream returned 503"},
-                "litellm.ServiceUnavailableError: upstream returned 503",
+                {"error_str": "hangarllm.ServiceUnavailableError: upstream returned 503"},
+                "hangarllm.ServiceUnavailableError: upstream returned 503",
             ),
             (
                 "own_span_error_str_only_cut_to_the_attribute_length_limit",
                 False,
-                {"error_str": "litellm.ServiceUnavailableError: upstream returned 503"},
-                "litellm.Serv",
+                {"error_str": "hangarllm.ServiceUnavailableError: upstream returned 503"},
+                "hangarllm.Serv",
                 12,
             ),
             (
@@ -3920,7 +3920,7 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
         tracer_provider: Final = TracerProvider(span_limits=SpanLimits(max_attribute_length=max_attribute_length))
         tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
         otel: Final = OpenTelemetry(tracer_provider=tracer_provider)
-        otel.tracer = tracer_provider.get_tracer("litellm")
+        otel.tracer = tracer_provider.get_tracer("hangarllm")
         active_parent_span: Final = (
             trace.use_span(tracer_provider.get_tracer("proxy").start_span("parent_span"), end_on_exit=True)
             if has_parent_span
@@ -3932,19 +3932,19 @@ class TestOpenTelemetrySemanticConventions138(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {"id": "test-id", "call_type": "completion", "metadata": {}, **error_fields},
             "exception": Exception("upstream returned 503"),
         }
 
-        with patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "false"}), active_parent_span:
+        with patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "false"}), active_parent_span:
             otel._handle_failure(kwargs, None, start, end)
 
         error_spans: Final = [
             s for s in span_exporter.get_finished_spans() if s.status.status_code == trace.StatusCode.ERROR
         ]
         self.assertEqual(len(error_spans), 1)
-        self.assertEqual(error_spans[0].name, "parent_span" if has_parent_span else "litellm_request")
+        self.assertEqual(error_spans[0].name, "parent_span" if has_parent_span else "hangarllm_request")
         self.assertEqual(error_spans[0].status.description, expected_description)
 
 
@@ -3952,7 +3952,7 @@ class TestRawSpanAttributeIsolation(unittest.TestCase):
     """Issue #3: raw_gen_ai_request span should only contain provider-specific
     llm.{provider}.* attributes, not the duplicated gen_ai.* / metadata.* attrs."""
 
-    @patch("litellm.turn_off_message_logging", False)
+    @patch("hangarllm.turn_off_message_logging", False)
     def test_raw_span_does_not_duplicate_parent_attributes(self):
         span_exporter = InMemorySpanExporter()
         tracer_provider = TracerProvider()
@@ -3967,7 +3967,7 @@ class TestRawSpanAttributeIsolation(unittest.TestCase):
         raw_span = mock_tracer.start_span("raw_gen_ai_request")
 
         kwargs = {
-            "litellm_params": {"custom_llm_provider": "vertex_ai"},
+            "hangarllm_params": {"custom_llm_provider": "vertex_ai"},
             "optional_params": {"temperature": 0.7},
             "original_response": '{"predictions": [1,2,3]}',
             "additional_args": {
@@ -4006,12 +4006,12 @@ class TestRawSpanAttributeIsolation(unittest.TestCase):
 
 
 class TestNoParentSpanDuplication(unittest.TestCase):
-    """Issue #4: When litellm_request child span exists, the parent
-    litellm_proxy_request span should NOT get set_attributes() called."""
+    """Issue #4: When hangarllm_request child span exists, the parent
+    hangarllm_proxy_request span should NOT get set_attributes() called."""
 
     HERE = os.path.dirname(__file__)
 
-    @patch.dict(os.environ, {"USE_OTEL_LITELLM_REQUEST_SPAN": "true"}, clear=False)
+    @patch.dict(os.environ, {"USE_OTEL_HANGARLLM_REQUEST_SPAN": "true"}, clear=False)
     def test_parent_proxy_span_not_duplicated(self):
         span_exporter = InMemorySpanExporter()
         tracer_provider = TracerProvider()
@@ -4030,18 +4030,18 @@ class TestNoParentSpanDuplication(unittest.TestCase):
 
         # Simulate proxy flow: create a parent proxy span
         tracer = tracer_provider.get_tracer(__name__)
-        from litellm.integrations.opentelemetry import LITELLM_PROXY_REQUEST_SPAN_NAME
+        from hangarllm.integrations.opentelemetry import HANGARLLM_PROXY_REQUEST_SPAN_NAME
 
-        parent_span = tracer.start_span(name=LITELLM_PROXY_REQUEST_SPAN_NAME)
+        parent_span = tracer.start_span(name=HANGARLLM_PROXY_REQUEST_SPAN_NAME)
         # Inject parent span into kwargs so _get_span_context finds it
-        kwargs["litellm_params"]["metadata"]["litellm_parent_otel_span"] = parent_span
+        kwargs["hangarllm_params"]["metadata"]["hangarllm_parent_otel_span"] = parent_span
 
         start = datetime.utcnow()
         end = start + timedelta(seconds=1)
         otel._handle_success(kwargs, response_obj, start, end)
 
         spans = span_exporter.get_finished_spans()
-        proxy_spans = [s for s in spans if s.name == LITELLM_PROXY_REQUEST_SPAN_NAME]
+        proxy_spans = [s for s in spans if s.name == HANGARLLM_PROXY_REQUEST_SPAN_NAME]
         self.assertEqual(len(proxy_spans), 1, "Should have exactly one proxy span")
 
         proxy_attrs = proxy_spans[0].attributes or {}
@@ -4055,11 +4055,11 @@ class TestNoParentSpanDuplication(unittest.TestCase):
 
 class TestGuardrailSpanParenting(unittest.TestCase):
     """Issue #5: Guardrail spans must not be orphaned — they should always
-    be children of the litellm_request span (or parent span)."""
+    be children of the hangarllm_request span (or parent span)."""
 
-    def test_guardrail_span_is_child_of_litellm_request(self):
+    def test_guardrail_span_is_child_of_hangarllm_request(self):
         """When no parent proxy span exists, guardrail spans should be
-        children of the litellm_request span, not orphaned root spans."""
+        children of the hangarllm_request span, not orphaned root spans."""
         span_exporter = InMemorySpanExporter()
         tracer_provider = TracerProvider()
         tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
@@ -4079,7 +4079,7 @@ class TestGuardrailSpanParenting(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai", "metadata": {}},
+            "hangarllm_params": {"custom_llm_provider": "openai", "metadata": {}},
             "standard_logging_object": {
                 "id": "test-guardrail-id",
                 "call_type": "completion",
@@ -4110,28 +4110,28 @@ class TestGuardrailSpanParenting(unittest.TestCase):
 
         spans = span_exporter.get_finished_spans()
         guardrail_spans = [s for s in spans if s.name == "guardrail"]
-        litellm_spans = [s for s in spans if s.name == "litellm_request"]
+        hangarllm_spans = [s for s in spans if s.name == "hangarllm_request"]
 
         self.assertTrue(guardrail_spans, "Expected at least one guardrail span")
-        self.assertTrue(litellm_spans, "Expected a litellm_request span")
+        self.assertTrue(hangarllm_spans, "Expected a hangarllm_request span")
 
-        litellm_span = litellm_spans[0]
+        hangarllm_span = hangarllm_spans[0]
         for gs in guardrail_spans:
             # All spans should share the same trace_id (not orphaned)
             self.assertEqual(
                 gs.context.trace_id,
-                litellm_span.context.trace_id,
-                "Guardrail span should share trace_id with litellm_request (not orphaned)",
+                hangarllm_span.context.trace_id,
+                "Guardrail span should share trace_id with hangarllm_request (not orphaned)",
             )
-            # Guardrail should be a child of the litellm_request span
+            # Guardrail should be a child of the hangarllm_request span
             self.assertIsNotNone(
                 gs.parent,
                 "Guardrail span should have a parent (not be a root span)",
             )
             self.assertEqual(
                 gs.parent.span_id,
-                litellm_span.context.span_id,
-                "Guardrail span should be a child of litellm_request",
+                hangarllm_span.context.span_id,
+                "Guardrail span should be a child of hangarllm_request",
             )
 
     def test_guardrail_span_parented_on_failure(self):
@@ -4155,7 +4155,7 @@ class TestGuardrailSpanParenting(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai", "metadata": {}},
+            "hangarllm_params": {"custom_llm_provider": "openai", "metadata": {}},
             "standard_logging_object": {
                 "id": "test-fail-id",
                 "call_type": "completion",
@@ -4193,9 +4193,9 @@ class TestResponseIdFallback(unittest.TestCase):
         kwargs = {
             "model": "gpt-4",
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
-                "id": "litellm-call-id-123",
+                "id": "hangarllm-call-id-123",
                 "call_type": "completion",
                 "metadata": {},
             },
@@ -4218,7 +4218,7 @@ class TestResponseIdFallback(unittest.TestCase):
 
         otel.set_attributes(mock_span, kwargs, response_obj)
 
-        # Should use provider response ID, not litellm call ID
+        # Should use provider response ID, not hangarllm call ID
         mock_span.set_attribute.assert_any_call(
             "gen_ai.response.id", "chatcmpl-provider-id-456"
         )
@@ -4232,9 +4232,9 @@ class TestResponseIdFallback(unittest.TestCase):
         kwargs = {
             "model": "text-embedding-ada-002",
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
-                "id": "litellm-embed-call-789",
+                "id": "hangarllm-embed-call-789",
                 "call_type": "embedding",
                 "metadata": {},
             },
@@ -4249,9 +4249,9 @@ class TestResponseIdFallback(unittest.TestCase):
 
         otel.set_attributes(mock_span, kwargs, response_obj)
 
-        # Should fallback to litellm call ID
+        # Should fallback to hangarllm call ID
         mock_span.set_attribute.assert_any_call(
-            "gen_ai.response.id", "litellm-embed-call-789"
+            "gen_ai.response.id", "hangarllm-embed-call-789"
         )
 
     def test_response_id_fallback_for_image_gen(self):
@@ -4263,9 +4263,9 @@ class TestResponseIdFallback(unittest.TestCase):
         kwargs = {
             "model": "dall-e-3",
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
-                "id": "litellm-img-call-101",
+                "id": "hangarllm-img-call-101",
                 "call_type": "image_generation",
                 "metadata": {},
             },
@@ -4278,24 +4278,24 @@ class TestResponseIdFallback(unittest.TestCase):
 
         otel.set_attributes(mock_span, kwargs, response_obj)
 
-        # Should fallback to litellm call ID
+        # Should fallback to hangarllm call ID
         mock_span.set_attribute.assert_any_call(
-            "gen_ai.response.id", "litellm-img-call-101"
+            "gen_ai.response.id", "hangarllm-img-call-101"
         )
 
-    def test_litellm_call_id_emitted_as_span_attribute(self):
-        """litellm.call_id must be set on the span from standard_logging_payload."""
+    def test_hangarllm_call_id_emitted_as_span_attribute(self):
+        """hangarllm.call_id must be set on the span from standard_logging_payload."""
         otel = OpenTelemetry()
         mock_span = MagicMock()
 
-        call_id = "my-litellm-call-uuid-456"
+        call_id = "my-hangarllm-call-uuid-456"
         kwargs = {
             "model": "gpt-4o",
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "chatcmpl-provider-id",
-                "litellm_call_id": call_id,
+                "hangarllm_call_id": call_id,
                 "call_type": "completion",
                 "metadata": {},
             },
@@ -4304,7 +4304,7 @@ class TestResponseIdFallback(unittest.TestCase):
 
         otel.set_attributes(mock_span, kwargs, response_obj)
 
-        mock_span.set_attribute.assert_any_call("litellm.call_id", call_id)
+        mock_span.set_attribute.assert_any_call("hangarllm.call_id", call_id)
 
 
 class TestOpenTelemetryResponsesAPI(unittest.TestCase):
@@ -4315,7 +4315,7 @@ class TestOpenTelemetryResponsesAPI(unittest.TestCase):
     ``choices``, ``instructions`` instead of ``system_instructions``, and
     ``status`` instead of per-choice ``finish_reason``.
 
-    See: https://github.com/BerriAI/litellm/issues/25840
+    See: upstream issue 25840
     """
 
     def _base_kwargs(self, **overrides):
@@ -4324,7 +4324,7 @@ class TestOpenTelemetryResponsesAPI(unittest.TestCase):
             "model": "gpt-4o",
             "messages": [{"role": "user", "content": "What is 2+2?"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "resp_abc123",
                 "call_type": "responses",
@@ -4532,7 +4532,7 @@ class TestOpenTelemetryResponsesAPI(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -4767,7 +4767,7 @@ class TestTransformResponsesAPIOutput(unittest.TestCase):
         """Items with .get() but not isinstance(dict) should be accepted."""
 
         class FakeOutputItem:
-            """Mimics BaseLiteLLMOpenAIResponseObject duck-typing."""
+            """Mimics BaseHangarLLMOpenAIResponseObject duck-typing."""
 
             def __init__(self, data):
                 self._data = data
@@ -4817,7 +4817,7 @@ class TestSystemInstructionsPrecedence(unittest.TestCase):
             "model": "gpt-4o",
             "messages": [{"role": "user", "content": "Hi"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "responses",
@@ -4857,7 +4857,7 @@ class TestResponsesAPIToolCallSpanAttributes(unittest.TestCase):
             "model": "gpt-4o",
             "messages": [{"role": "user", "content": "What is the weather?"}],
             "optional_params": {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": {
                 "id": "resp_tc",
                 "call_type": "responses",
@@ -4941,8 +4941,8 @@ class TestResponsesAPIToolCallSpanAttributes(unittest.TestCase):
 
 
 class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
-    """When metadata includes litellm_parent_otel_span (the proxy
-    span), the primary litellm_request span must still be created as a child
+    """When metadata includes hangarllm_parent_otel_span (the proxy
+    span), the primary hangarllm_request span must still be created as a child
     so the trace hierarchy is complete."""
 
     def _build_kwargs(self, parent_span):
@@ -4950,9 +4950,9 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
-                "metadata": {"litellm_parent_otel_span": parent_span},
+                "metadata": {"hangarllm_parent_otel_span": parent_span},
             },
             "standard_logging_object": {
                 "id": "test-id",
@@ -4964,7 +4964,7 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
 
     def test_get_span_context_returns_none_parent_for_metadata_span(self):
         """_get_span_context Priority 1 must return (ctx, None) — never the
-        parent span object — so callers always create litellm_request as a
+        parent span object — so callers always create hangarllm_request as a
         child of ctx."""
         tracer_provider = TracerProvider()
         otel = OpenTelemetry(tracer_provider=tracer_provider)
@@ -4978,16 +4978,16 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
         self.assertIsNotNone(ctx, "ctx should carry the parent for child spans")
         self.assertIsNone(
             returned_parent,
-            "parent_span return slot must be None so callers create litellm_request",
+            "parent_span return slot must be None so callers create hangarllm_request",
         )
         parent_span.end()
 
-    def test_litellm_request_emitted_as_child_of_proxy_parent_span(self):
+    def test_hangarllm_request_emitted_as_child_of_proxy_parent_span(self):
         """End-to-end: proxy span in metadata should yield exactly one
-        litellm_request span parented to it, with no extra root span."""
-        from litellm.integrations.opentelemetry import (
-            LITELLM_PROXY_REQUEST_SPAN_NAME,
-            LITELLM_REQUEST_SPAN_NAME,
+        hangarllm_request span parented to it, with no extra root span."""
+        from hangarllm.integrations.opentelemetry import (
+            HANGARLLM_PROXY_REQUEST_SPAN_NAME,
+            HANGARLLM_REQUEST_SPAN_NAME,
         )
 
         span_exporter = InMemorySpanExporter()
@@ -4997,7 +4997,7 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
         otel = OpenTelemetry(tracer_provider=tracer_provider)
         otel.tracer = tracer_provider.get_tracer(__name__)
 
-        proxy_span = otel.tracer.start_span(LITELLM_PROXY_REQUEST_SPAN_NAME)
+        proxy_span = otel.tracer.start_span(HANGARLLM_PROXY_REQUEST_SPAN_NAME)
         kwargs = self._build_kwargs(proxy_span)
 
         start = datetime.utcnow()
@@ -5005,28 +5005,28 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
         otel._handle_success(kwargs, response_obj=None, start_time=start, end_time=end)
 
         spans = span_exporter.get_finished_spans()
-        litellm_spans = [s for s in spans if s.name == LITELLM_REQUEST_SPAN_NAME]
-        proxy_spans = [s for s in spans if s.name == LITELLM_PROXY_REQUEST_SPAN_NAME]
+        hangarllm_spans = [s for s in spans if s.name == HANGARLLM_REQUEST_SPAN_NAME]
+        proxy_spans = [s for s in spans if s.name == HANGARLLM_PROXY_REQUEST_SPAN_NAME]
 
         self.assertEqual(
-            len(litellm_spans), 1, "Exactly one litellm_request span must be emitted"
+            len(hangarllm_spans), 1, "Exactly one hangarllm_request span must be emitted"
         )
         self.assertEqual(
             len(proxy_spans), 1, "Proxy span should be closed exactly once"
         )
 
-        litellm_span = litellm_spans[0]
+        hangarllm_span = hangarllm_spans[0]
         self.assertIsNotNone(
-            litellm_span.parent, "litellm_request must have a parent (not root)"
+            hangarllm_span.parent, "hangarllm_request must have a parent (not root)"
         )
         self.assertEqual(
-            litellm_span.parent.span_id,
+            hangarllm_span.parent.span_id,
             proxy_spans[0].context.span_id,
-            "litellm_request must be a child of the proxy span",
+            "hangarllm_request must be a child of the proxy span",
         )
 
     def test_end_proxy_span_from_kwargs_closes_recording_proxy_span(self):
-        from litellm.integrations.opentelemetry import LITELLM_PROXY_REQUEST_SPAN_NAME
+        from hangarllm.integrations.opentelemetry import HANGARLLM_PROXY_REQUEST_SPAN_NAME
 
         span_exporter = InMemorySpanExporter()
         tracer_provider = TracerProvider()
@@ -5035,12 +5035,12 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
         otel = OpenTelemetry(tracer_provider=tracer_provider)
         otel.tracer = tracer_provider.get_tracer(__name__)
 
-        proxy_span = otel.tracer.start_span(LITELLM_PROXY_REQUEST_SPAN_NAME)
+        proxy_span = otel.tracer.start_span(HANGARLLM_PROXY_REQUEST_SPAN_NAME)
         self.assertTrue(proxy_span.is_recording())
 
         kwargs = {
-            "litellm_params": {
-                "metadata": {"litellm_parent_otel_span": proxy_span},
+            "hangarllm_params": {
+                "metadata": {"hangarllm_parent_otel_span": proxy_span},
             }
         }
         otel._end_proxy_span_from_kwargs(kwargs, end_time=datetime.utcnow())
@@ -5050,7 +5050,7 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
         )
 
     def test_end_proxy_span_from_kwargs_does_not_close_external_span(self):
-        """Spans not named LITELLM_PROXY_REQUEST_SPAN_NAME must not be closed —
+        """Spans not named HANGARLLM_PROXY_REQUEST_SPAN_NAME must not be closed —
         they may belong to external owners (Langfuse SDK, user code, etc.)."""
         tracer_provider = TracerProvider()
         otel = OpenTelemetry(tracer_provider=tracer_provider)
@@ -5058,15 +5058,15 @@ class TestOpenTelemetryProxyParentSpanChildEmission(unittest.TestCase):
 
         external = otel.tracer.start_span("external_caller_span")
         kwargs = {
-            "litellm_params": {
-                "metadata": {"litellm_parent_otel_span": external},
+            "hangarllm_params": {
+                "metadata": {"hangarllm_parent_otel_span": external},
             }
         }
         otel._end_proxy_span_from_kwargs(kwargs, end_time=datetime.utcnow())
 
         self.assertTrue(
             external.is_recording(),
-            "External (non-proxy) parent span must not be closed by LiteLLM",
+            "External (non-proxy) parent span must not be closed by HangarLLM",
         )
         external.end()
 
@@ -5076,19 +5076,19 @@ class TestOpenTelemetryProxyLoggerFirstRegisteredWins(unittest.TestCase):
     overwritten by later handlers. First-registered wins."""
 
     def _install_fake_proxy_server(self):
-        """Install a stub ``litellm.proxy.proxy_server`` so the test does
+        """Install a stub ``hangarllm.proxy.proxy_server`` so the test does
         not depend on optional proxy dependencies (websockets, etc.).
         Returns (fake_module, cleanup_fn)."""
         import importlib
         import types
 
-        proxy_pkg_name = "litellm.proxy"
-        proxy_server_name = "litellm.proxy.proxy_server"
+        proxy_pkg_name = "hangarllm.proxy"
+        proxy_server_name = "hangarllm.proxy.proxy_server"
 
         previous_pkg = sys.modules.get(proxy_pkg_name)
         previous_mod = sys.modules.get(proxy_server_name)
 
-        # Ensure litellm.proxy package object exists
+        # Ensure hangarllm.proxy package object exists
         if previous_pkg is None:
             try:
                 pkg = importlib.import_module(proxy_pkg_name)
@@ -5177,7 +5177,7 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
 
     1. Handler-level: streaming triggers both sync and async success/failure
        callbacks for one request — the second call would otherwise produce a
-       duplicate ``litellm_request`` span.
+       duplicate ``hangarllm_request`` span.
     2. Payload-driven entry-level: ``_create_guardrail_span`` is invoked
        from three lifecycle points (post-call hook, success, failure) and
        re-reads a mutating list — the same logical guardrail invocation
@@ -5189,7 +5189,7 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
                 "metadata": {},
             },
@@ -5248,11 +5248,11 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
 
     def test_emit_once_handles_missing_metadata(self):
         otel = OpenTelemetry()
-        kwargs = {"litellm_params": {}}
+        kwargs = {"hangarllm_params": {}}
         self.assertTrue(otel._emit_once(kwargs, "success"))
         self.assertFalse(otel._emit_once(kwargs, "success"))
 
-    def test_emit_once_handles_missing_litellm_params(self):
+    def test_emit_once_handles_missing_hangarllm_params(self):
         otel = OpenTelemetry()
         kwargs = {}
         self.assertTrue(otel._emit_once(kwargs, "success"))
@@ -5330,7 +5330,7 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
         kwargs = {
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
-            "litellm_params": {"custom_llm_provider": "openai", "metadata": {}},
+            "hangarllm_params": {"custom_llm_provider": "openai", "metadata": {}},
             "standard_logging_object": {
                 "id": "test-id",
                 "call_type": "completion",
@@ -5361,10 +5361,10 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
             "across repeated lifecycle entrypoints",
         )
 
-    def test_handle_success_emits_single_litellm_request_span_on_double_call(self):
+    def test_handle_success_emits_single_hangarllm_request_span_on_double_call(self):
         """Sync + async callback paths firing for the same kwargs must
-        result in exactly one litellm_request span."""
-        from litellm.integrations.opentelemetry import LITELLM_REQUEST_SPAN_NAME
+        result in exactly one hangarllm_request span."""
+        from hangarllm.integrations.opentelemetry import HANGARLLM_REQUEST_SPAN_NAME
 
         span_exporter = InMemorySpanExporter()
         tracer_provider = TracerProvider()
@@ -5381,17 +5381,17 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
         otel._handle_success(kwargs, response_obj=None, start_time=start, end_time=end)
 
         spans = span_exporter.get_finished_spans()
-        litellm_spans = [s for s in spans if s.name == LITELLM_REQUEST_SPAN_NAME]
+        hangarllm_spans = [s for s in spans if s.name == HANGARLLM_REQUEST_SPAN_NAME]
         self.assertEqual(
-            len(litellm_spans),
+            len(hangarllm_spans),
             1,
-            f"Exactly one litellm_request span expected, got {len(litellm_spans)}",
+            f"Exactly one hangarllm_request span expected, got {len(hangarllm_spans)}",
         )
 
     def test_handle_success_dedupe_skip_still_closes_proxy_span(self):
         """When the success path is short-circuited as a duplicate, the
         proxy span must still be closed so traces don't leak."""
-        from litellm.integrations.opentelemetry import LITELLM_PROXY_REQUEST_SPAN_NAME
+        from hangarllm.integrations.opentelemetry import HANGARLLM_PROXY_REQUEST_SPAN_NAME
 
         span_exporter = InMemorySpanExporter()
         tracer_provider = TracerProvider()
@@ -5400,9 +5400,9 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
         otel = OpenTelemetry(tracer_provider=tracer_provider)
         otel.tracer = tracer_provider.get_tracer(__name__)
 
-        proxy_span = otel.tracer.start_span(LITELLM_PROXY_REQUEST_SPAN_NAME)
+        proxy_span = otel.tracer.start_span(HANGARLLM_PROXY_REQUEST_SPAN_NAME)
         kwargs = self._build_kwargs()
-        kwargs["litellm_params"]["metadata"]["litellm_parent_otel_span"] = proxy_span
+        kwargs["hangarllm_params"]["metadata"]["hangarllm_parent_otel_span"] = proxy_span
 
         otel._emit_once(kwargs, "success")  # pre-mark to force dedupe-skip branch
         self.assertTrue(proxy_span.is_recording())
@@ -5418,10 +5418,10 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
 
     def test_handle_failure_emits_single_error_span_on_double_call(self):
         """Sync + async failure callback paths firing for the same kwargs
-        must result in exactly one ERROR litellm_request span."""
+        must result in exactly one ERROR hangarllm_request span."""
         from opentelemetry.trace import StatusCode
 
-        from litellm.integrations.opentelemetry import LITELLM_REQUEST_SPAN_NAME
+        from hangarllm.integrations.opentelemetry import HANGARLLM_REQUEST_SPAN_NAME
 
         span_exporter = InMemorySpanExporter()
         tracer_provider = TracerProvider()
@@ -5438,13 +5438,13 @@ class TestOpenTelemetrySpanDedupe(unittest.TestCase):
         otel._handle_failure(kwargs, response_obj=None, start_time=start, end_time=end)
 
         spans = span_exporter.get_finished_spans()
-        litellm_spans = [s for s in spans if s.name == LITELLM_REQUEST_SPAN_NAME]
+        hangarllm_spans = [s for s in spans if s.name == HANGARLLM_REQUEST_SPAN_NAME]
         self.assertEqual(
-            len(litellm_spans),
+            len(hangarllm_spans),
             1,
-            f"Exactly one litellm_request ERROR span expected, got {len(litellm_spans)}",
+            f"Exactly one hangarllm_request ERROR span expected, got {len(hangarllm_spans)}",
         )
-        self.assertEqual(litellm_spans[0].status.status_code, StatusCode.ERROR)
+        self.assertEqual(hangarllm_spans[0].status.status_code, StatusCode.ERROR)
 
     def test_create_guardrail_span_dedupes_across_lifecycle_entrypoints(self):
         """``_create_guardrail_span`` is called from post-call-success hook,
@@ -5589,7 +5589,7 @@ class TestOpenTelemetryHttpStatusCodeAttribute(unittest.TestCase):
 
 class TestOpenTelemetryFailureHookStampsServerSpan(unittest.TestCase):
     """Error attributes must land on the SERVER span dashboards query.
-    ``_handle_failure`` records on the litellm_request child span, so
+    ``_handle_failure`` records on the hangarllm_request child span, so
     ``async_post_call_failure_hook`` — which holds the SERVER span via
     ``user_api_key_dict.parent_otel_span`` — is where it gets stamped.
     """
@@ -5746,7 +5746,7 @@ def test_error_status_is_cut_to_the_span_attribute_length_limit(
 
 class TestOpenTelemetrySetProxyRequestRouteAttributes(unittest.TestCase):
     """http.route (template) + url.path (literal) must land on the SERVER
-    span. The logging handlers write the litellm_request child span, so
+    span. The logging handlers write the hangarllm_request child span, so
     this is set from the auth path on the freshly-created SERVER span.
     """
 
@@ -5833,7 +5833,7 @@ class TestOpenTelemetrySetResponseStatusCodeAttribute(unittest.TestCase):
 
 
 class TestOpenTelemetryPreprocessingDuration(unittest.TestCase):
-    """litellm.preprocessing.duration_ms (proxy-receive -> first provider
+    """hangarllm.preprocessing.duration_ms (proxy-receive -> first provider
     handoff) on the SERVER span. Read from container metadata so the
     success (model_call_details) and failure (request_data) paths work
     uniformly. Excludes retries via the set-once first_api_call_start_time.
@@ -5852,7 +5852,7 @@ class TestOpenTelemetryPreprocessingDuration(unittest.TestCase):
 
     def test_success_shape_model_call_details(self):
         # success path: first_api_call_start_time top-level,
-        # received-at under litellm_params.metadata
+        # received-at under hangarllm_params.metadata
         received = datetime(2026, 1, 1, 0, 0, 0)
         handoff = datetime(2026, 1, 1, 0, 0, 0, 250000)  # +250ms
         otel = OpenTelemetry()
@@ -5861,12 +5861,12 @@ class TestOpenTelemetryPreprocessingDuration(unittest.TestCase):
             span,
             {
                 "first_api_call_start_time": handoff,
-                "litellm_params": {"metadata": {"litellm_received_at": received}},
+                "hangarllm_params": {"metadata": {"hangarllm_received_at": received}},
             },
         )
         attrs = self._attr(span, exp)
         self.assertAlmostEqual(
-            attrs["litellm.preprocessing.duration_ms"], 250.0, places=1
+            attrs["hangarllm.preprocessing.duration_ms"], 250.0, places=1
         )
 
     def test_failure_shape_request_data(self):
@@ -5882,12 +5882,12 @@ class TestOpenTelemetryPreprocessingDuration(unittest.TestCase):
             span,
             {
                 "first_api_call_start_time": handoff,
-                "metadata": {"litellm_received_at": received},
+                "metadata": {"hangarllm_received_at": received},
             },
         )
         attrs = self._attr(span, exp)
         self.assertAlmostEqual(
-            attrs["litellm.preprocessing.duration_ms"], 30.0, places=1
+            attrs["hangarllm.preprocessing.duration_ms"], 30.0, places=1
         )
 
     def test_missing_received_at_omits(self):
@@ -5896,15 +5896,15 @@ class TestOpenTelemetryPreprocessingDuration(unittest.TestCase):
         otel.set_preprocessing_duration_attribute(
             span, {"first_api_call_start_time": datetime(2026, 1, 1)}
         )
-        assert "litellm.preprocessing.duration_ms" not in self._attr(span, exp)
+        assert "hangarllm.preprocessing.duration_ms" not in self._attr(span, exp)
 
     def test_missing_handoff_omits(self):
         otel = OpenTelemetry()
         span, exp = self._span()
         otel.set_preprocessing_duration_attribute(
-            span, {"metadata": {"litellm_received_at": datetime(2026, 1, 1)}}
+            span, {"metadata": {"hangarllm_received_at": datetime(2026, 1, 1)}}
         )
-        assert "litellm.preprocessing.duration_ms" not in self._attr(span, exp)
+        assert "hangarllm.preprocessing.duration_ms" not in self._attr(span, exp)
 
     def test_negative_duration_omitted(self):
         # clock skew: handoff before receive -> omit, not a negative value
@@ -5914,40 +5914,40 @@ class TestOpenTelemetryPreprocessingDuration(unittest.TestCase):
             span,
             {
                 "first_api_call_start_time": datetime(2026, 1, 1, 0, 0, 0),
-                "metadata": {"litellm_received_at": datetime(2026, 1, 1, 0, 0, 5)},
+                "metadata": {"hangarllm_received_at": datetime(2026, 1, 1, 0, 0, 5)},
             },
         )
-        assert "litellm.preprocessing.duration_ms" not in self._attr(span, exp)
+        assert "hangarllm.preprocessing.duration_ms" not in self._attr(span, exp)
 
 
     def test_non_dict_container_is_noop(self):
         otel = OpenTelemetry()
         span, exp = self._span()
         otel.set_preprocessing_duration_attribute(span, None)
-        assert "litellm.preprocessing.duration_ms" not in self._attr(span, exp)
+        assert "hangarllm.preprocessing.duration_ms" not in self._attr(span, exp)
 
 
-class TestGetSpanContextLitellmMetadataFallback(unittest.TestCase):
+class TestGetSpanContextHangarllmMetadataFallback(unittest.TestCase):
     """
-    Tests for _get_span_context() falling back to litellm_metadata.
+    Tests for _get_span_context() falling back to hangarllm_metadata.
 
-    On /v1/messages (Anthropic Messages API) and other LITELLM_METADATA_ROUTES,
-    litellm_parent_otel_span is stored in litellm_params["litellm_metadata"]
-    instead of litellm_params["metadata"].  _get_span_context() must check
+    On /v1/messages (Anthropic Messages API) and other HANGARLLM_METADATA_ROUTES,
+    hangarllm_parent_otel_span is stored in hangarllm_params["hangarllm_metadata"]
+    instead of hangarllm_params["metadata"].  _get_span_context() must check
     both locations.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/27934
+    Fixes: upstream issue 27934
     """
 
     def test_span_context_from_metadata(self):
-        """Parent span is found when stored in litellm_params['metadata'] (OpenAI path)."""
+        """Parent span is found when stored in hangarllm_params['metadata'] (OpenAI path)."""
         otel = OpenTelemetry()
         mock_span = MagicMock()
         mock_span.get_span_context.return_value = MagicMock(is_valid=True)
 
         kwargs = {
-            "litellm_params": {
-                "metadata": {"litellm_parent_otel_span": mock_span},
+            "hangarllm_params": {
+                "metadata": {"hangarllm_parent_otel_span": mock_span},
             }
         }
 
@@ -5956,18 +5956,18 @@ class TestGetSpanContextLitellmMetadataFallback(unittest.TestCase):
         # Should NOT fall through to "no parent context" path
         self.assertIsNone(detected_span)
 
-    def test_span_context_from_litellm_metadata_fallback(self):
-        """Parent span is found when stored in litellm_params['litellm_metadata'] (Anthropic path)."""
+    def test_span_context_from_hangarllm_metadata_fallback(self):
+        """Parent span is found when stored in hangarllm_params['hangarllm_metadata'] (Anthropic path)."""
         otel = OpenTelemetry()
         mock_span = MagicMock()
         mock_span.get_span_context.return_value = MagicMock(is_valid=True)
 
         kwargs = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_id": "test-user"
                 },  # Anthropic native metadata, no span
-                "litellm_metadata": {"litellm_parent_otel_span": mock_span},
+                "hangarllm_metadata": {"hangarllm_parent_otel_span": mock_span},
             }
         }
 
@@ -5976,20 +5976,20 @@ class TestGetSpanContextLitellmMetadataFallback(unittest.TestCase):
         self.assertIsNone(detected_span)
 
     def test_span_context_metadata_takes_priority(self):
-        """When both metadata and litellm_metadata have the span, metadata wins."""
+        """When both metadata and hangarllm_metadata have the span, metadata wins."""
         otel = OpenTelemetry()
         span_from_metadata = MagicMock(name="span_from_metadata")
         span_from_metadata.get_span_context.return_value = MagicMock(is_valid=True)
-        span_from_litellm_metadata = MagicMock(name="span_from_litellm_metadata")
-        span_from_litellm_metadata.get_span_context.return_value = MagicMock(
+        span_from_hangarllm_metadata = MagicMock(name="span_from_hangarllm_metadata")
+        span_from_hangarllm_metadata.get_span_context.return_value = MagicMock(
             is_valid=True
         )
 
         kwargs = {
-            "litellm_params": {
-                "metadata": {"litellm_parent_otel_span": span_from_metadata},
-                "litellm_metadata": {
-                    "litellm_parent_otel_span": span_from_litellm_metadata
+            "hangarllm_params": {
+                "metadata": {"hangarllm_parent_otel_span": span_from_metadata},
+                "hangarllm_metadata": {
+                    "hangarllm_parent_otel_span": span_from_hangarllm_metadata
                 },
             }
         }
@@ -5998,18 +5998,18 @@ class TestGetSpanContextLitellmMetadataFallback(unittest.TestCase):
         self.assertIsNotNone(ctx)
         self.assertIsNone(detected_span)
         # metadata span is found first, so get_span_context on the
-        # litellm_metadata span should never be called — proving
-        # metadata takes priority over litellm_metadata.
-        span_from_litellm_metadata.get_span_context.assert_not_called()
+        # hangarllm_metadata span should never be called — proving
+        # metadata takes priority over hangarllm_metadata.
+        span_from_hangarllm_metadata.get_span_context.assert_not_called()
 
     def test_span_context_no_parent_when_neither_has_span(self):
-        """When neither metadata nor litellm_metadata has a span, returns (None, None)."""
+        """When neither metadata nor hangarllm_metadata has a span, returns (None, None)."""
         otel = OpenTelemetry()
 
         kwargs = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"user_id": "test-user"},
-                "litellm_metadata": {"some_key": "some_value"},
+                "hangarllm_metadata": {"some_key": "some_value"},
             }
         }
 
@@ -6038,10 +6038,10 @@ class TestInboundTraceContextKeepsCallerTracestate(unittest.TestCase):
     def test_request_span_propagates_caller_tracestate_downstream(self):
         from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-        from litellm.integrations.otel.plumbing.context import inject_trace_context
+        from hangarllm.integrations.otel.plumbing.context import inject_trace_context
 
         inbound = {"traceparent": self.CALLER_TRACEPARENT, "tracestate": self.CALLER_TRACESTATE}
-        span = self._otel().create_litellm_proxy_request_started_span(
+        span = self._otel().create_hangarllm_proxy_request_started_span(
             start_time=datetime.now(timezone.utc), headers=inbound
         )
         outbound = inject_trace_context(inbound, parent_span=span)
@@ -6054,10 +6054,10 @@ class TestInboundTraceContextKeepsCallerTracestate(unittest.TestCase):
         self.assertNotEqual(outbound["traceparent"], self.CALLER_TRACEPARENT)
 
     def test_request_span_without_caller_tracestate_emits_none(self):
-        from litellm.integrations.otel.plumbing.context import inject_trace_context
+        from hangarllm.integrations.otel.plumbing.context import inject_trace_context
 
         inbound = {"traceparent": self.CALLER_TRACEPARENT}
-        span = self._otel().create_litellm_proxy_request_started_span(
+        span = self._otel().create_hangarllm_proxy_request_started_span(
             start_time=datetime.now(timezone.utc), headers=inbound
         )
         outbound = inject_trace_context(inbound, parent_span=span)
@@ -6068,7 +6068,7 @@ class TestInboundTraceContextKeepsCallerTracestate(unittest.TestCase):
 
     def test_span_context_from_header_keeps_caller_tracestate(self):
         kwargs = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "proxy_server_request": {
                     "headers": {"traceparent": self.CALLER_TRACEPARENT, "tracestate": self.CALLER_TRACESTATE}
                 }
@@ -6079,40 +6079,40 @@ class TestInboundTraceContextKeepsCallerTracestate(unittest.TestCase):
         self.assertEqual(trace.get_current_span(ctx).get_span_context().trace_state.to_header(), self.CALLER_TRACESTATE)
 
 
-class TestEndProxySpanLitellmMetadataFallback(unittest.TestCase):
+class TestEndProxySpanHangarllmMetadataFallback(unittest.TestCase):
     """
-    Tests for _end_proxy_span_from_kwargs() falling back to litellm_metadata.
+    Tests for _end_proxy_span_from_kwargs() falling back to hangarllm_metadata.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/27934
+    Fixes: upstream issue 27934
     """
 
     def test_end_proxy_span_from_metadata(self):
-        """Proxy span is found and ended from litellm_params['metadata']."""
+        """Proxy span is found and ended from hangarllm_params['metadata']."""
         otel = OpenTelemetry()
         mock_span = MagicMock()
         mock_span.name = "Received Proxy Server Request"
         mock_span.is_recording.return_value = True
 
         kwargs = {
-            "litellm_params": {
-                "metadata": {"litellm_parent_otel_span": mock_span},
+            "hangarllm_params": {
+                "metadata": {"hangarllm_parent_otel_span": mock_span},
             }
         }
 
         otel._end_proxy_span_from_kwargs(kwargs, end_time=datetime.now())
         mock_span.end.assert_called_once()
 
-    def test_end_proxy_span_from_litellm_metadata(self):
-        """Proxy span is found and ended from litellm_params['litellm_metadata'] (fallback)."""
+    def test_end_proxy_span_from_hangarllm_metadata(self):
+        """Proxy span is found and ended from hangarllm_params['hangarllm_metadata'] (fallback)."""
         otel = OpenTelemetry()
         mock_span = MagicMock()
         mock_span.name = "Received Proxy Server Request"
         mock_span.is_recording.return_value = True
 
         kwargs = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"user_id": "test-user"},  # No span here
-                "litellm_metadata": {"litellm_parent_otel_span": mock_span},
+                "hangarllm_metadata": {"hangarllm_parent_otel_span": mock_span},
             }
         }
 
@@ -6130,7 +6130,7 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
         provider = TracerProvider()
         provider.add_span_processor(SimpleSpanProcessor(exporter))
         tracer = provider.get_tracer(__name__)
-        return tracer.start_span("litellm_request"), exporter
+        return tracer.start_span("hangarllm_request"), exporter
 
     def _attr(self, span, exporter):
         span.end()
@@ -6140,7 +6140,7 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
         return {
             "model": "gpt-4o",
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "azure",
                 "metadata": {
                     "user_api_key_team_metadata": {
@@ -6157,9 +6157,9 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
                 "call_type": "completion",
                 "model_group": "gpt-4o",
                 "model": "azure/my-deployment",
-                "hidden_params": {"litellm_model_name": "azure/my-deployment"},
+                "hidden_params": {"hangarllm_model_name": "azure/my-deployment"},
                 "id": "req-1",
-                "litellm_call_id": "call-1",
+                "hangarllm_call_id": "call-1",
             },
         }
 
@@ -6175,12 +6175,12 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
         attrs = self._attr(span, exp)
 
         assert attrs["http.route"] == "/v1/chat/completions"
-        assert json.loads(attrs["litellm.team.metadata"]) == {
+        assert json.loads(attrs["hangarllm.team.metadata"]) == {
             "tier": "gold",
             "cost_center": "42",
         }
-        assert attrs["litellm.model_group"] == "gpt-4o"
-        assert attrs["litellm.provider.model"] == "azure/my-deployment"
+        assert attrs["hangarllm.model_group"] == "gpt-4o"
+        assert attrs["hangarllm.provider.model"] == "azure/my-deployment"
 
     def test_team_metadata_defaults_to_none_stamped(self):
         """With no allowlist configured (the default), a team's metadata must
@@ -6188,14 +6188,14 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
         otel = OpenTelemetry()
         span, exp = self._span()
         otel.set_attributes(span, self._kwargs(), {"model": "azure/gpt-4o"})
-        assert "litellm.team.metadata" not in self._attr(span, exp)
+        assert "hangarllm.team.metadata" not in self._attr(span, exp)
 
     def test_only_allowlisted_team_metadata_keys_stamped(self):
         """Sub-keys outside the allowlist are excluded from the stamped value."""
         otel = self._otel_with_team_metadata_keys(["tier"])
         span, exp = self._span()
         otel.set_attributes(span, self._kwargs(), {"model": "azure/gpt-4o"})
-        assert json.loads(self._attr(span, exp)["litellm.team.metadata"]) == {
+        assert json.loads(self._attr(span, exp)["hangarllm.team.metadata"]) == {
             "tier": "gold"
         }
 
@@ -6205,28 +6205,28 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
         otel = OpenTelemetry(baggage_team_metadata_keys=["cost_center"])
         span, exp = self._span()
         otel.set_attributes(span, self._kwargs(), {"model": "azure/gpt-4o"})
-        assert json.loads(self._attr(span, exp)["litellm.team.metadata"]) == {
+        assert json.loads(self._attr(span, exp)["hangarllm.team.metadata"]) == {
             "cost_center": "42"
         }
 
     def test_provider_model_falls_back_to_payload_model(self):
-        """Without hidden_params.litellm_model_name the dispatched model is
+        """Without hidden_params.hangarllm_model_name the dispatched model is
         the payload model (the SDK path, where no router renaming happened)."""
         otel = OpenTelemetry()
         kwargs = self._kwargs()
         kwargs["standard_logging_object"]["hidden_params"] = {}
         span, exp = self._span()
         otel.set_attributes(span, kwargs, {"model": "azure/gpt-4o"})
-        assert self._attr(span, exp)["litellm.provider.model"] == "azure/my-deployment"
+        assert self._attr(span, exp)["hangarllm.provider.model"] == "azure/my-deployment"
 
     def test_empty_team_metadata_is_dropped(self):
         """An empty team_metadata dict must not stamp a useless '{}'."""
         otel = OpenTelemetry()
         kwargs = self._kwargs()
-        kwargs["litellm_params"]["metadata"]["user_api_key_team_metadata"] = {}
+        kwargs["hangarllm_params"]["metadata"]["user_api_key_team_metadata"] = {}
         span, exp = self._span()
         otel.set_attributes(span, kwargs, {"model": "azure/gpt-4o"})
-        assert "litellm.team.metadata" not in self._attr(span, exp)
+        assert "hangarllm.team.metadata" not in self._attr(span, exp)
 
     def test_missing_route_is_dropped(self):
         """An SDK request has no route; http.route must be absent, not empty."""
@@ -6239,7 +6239,7 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
 
     def test_nested_metadata_key_promoted_under_caller_path(self):
         """``baggage_metadata_keys: [requester_metadata.trace_id]`` stamps the
-        caller's nested metadata value as ``litellm.metadata.trace_id`` and a deeper
+        caller's nested metadata value as ``hangarllm.metadata.trace_id`` and a deeper
         path keeps its dotted name; unlisted siblings stay inside the
         ``metadata.requester_metadata`` blob."""
         otel = OpenTelemetry(
@@ -6255,11 +6255,11 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
         span, exp = self._span()
         otel.set_attributes(span, kwargs, {"model": "azure/gpt-4o"})
         attrs = self._attr(span, exp)
-        assert attrs["litellm.metadata.trace_id"] == "abc"
-        assert attrs["litellm.metadata.nested.deep"] == "x"
-        assert "litellm.metadata.deep" not in attrs
-        assert "litellm.metadata.nested.skipped" not in attrs
-        assert not any(k.startswith("litellm.metadata.requester_metadata") for k in attrs)
+        assert attrs["hangarllm.metadata.trace_id"] == "abc"
+        assert attrs["hangarllm.metadata.nested.deep"] == "x"
+        assert "hangarllm.metadata.deep" not in attrs
+        assert "hangarllm.metadata.nested.skipped" not in attrs
+        assert not any(k.startswith("hangarllm.metadata.requester_metadata") for k in attrs)
 
     def test_metadata_keys_default_to_none_promoted(self):
         otel = OpenTelemetry()
@@ -6267,7 +6267,7 @@ class TestOpenTelemetryInferenceIdentityAttributes(unittest.TestCase):
         kwargs["standard_logging_object"]["metadata"]["requester_metadata"] = {"trace_id": "abc"}
         span, exp = self._span()
         otel.set_attributes(span, kwargs, {"model": "azure/gpt-4o"})
-        assert not any(k.startswith("litellm.metadata.") for k in self._attr(span, exp))
+        assert not any(k.startswith("hangarllm.metadata.") for k in self._attr(span, exp))
 
     def test_team_metadata_json_helper(self):
         keys = ["a", "b"]
@@ -6304,7 +6304,7 @@ class TestOpenTelemetryTeamMetadataKeysConfig(unittest.TestCase):
     def test_config_reads_csv_env_var(self):
         with patch.dict(
             "os.environ",
-            {"LITELLM_OTEL_BAGGAGE_TEAM_METADATA_KEYS": "tier, cost_center"},
+            {"HANGARLLM_OTEL_BAGGAGE_TEAM_METADATA_KEYS": "tier, cost_center"},
         ):
             assert OpenTelemetryConfig().baggage_team_metadata_keys == [
                 "tier",
@@ -6314,13 +6314,13 @@ class TestOpenTelemetryTeamMetadataKeysConfig(unittest.TestCase):
     def test_explicit_keys_win_over_env_var(self):
         with patch.dict(
             "os.environ",
-            {"LITELLM_OTEL_BAGGAGE_TEAM_METADATA_KEYS": "from_env"},
+            {"HANGARLLM_OTEL_BAGGAGE_TEAM_METADATA_KEYS": "from_env"},
         ):
             cfg = OpenTelemetryConfig(baggage_team_metadata_keys=["from_arg"])
             assert cfg.baggage_team_metadata_keys == ["from_arg"]
 
     def test_metadata_keys_from_kwargs_and_env(self):
-        with patch.dict("os.environ", {"LITELLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_id, a.b"}):
+        with patch.dict("os.environ", {"HANGARLLM_OTEL_BAGGAGE_METADATA_KEYS": "requester_metadata.trace_id, a.b"}):
             assert OpenTelemetryConfig().baggage_metadata_keys == ["requester_metadata.trace_id", "a.b"]
         assert OpenTelemetry(baggage_metadata_keys="x.y").config.baggage_metadata_keys == ["x.y"]
 
@@ -6457,13 +6457,13 @@ class TestOpenTelemetryMetricAttributeFiltering(unittest.TestCase):
 
     def test_proxy_callback_settings_attributes_applied_without_kwarg(self):
         """Regression for the proxy path: the OpenTelemetry logger is constructed
-        before the proxy populates litellm.callback_settings['otel']['attributes'],
+        before the proxy populates hangarllm.callback_settings['otel']['attributes'],
         and without the attributes kwarg, so the filter must be resolved at record
         time rather than at __init__. Otherwise metrics ship at full cardinality
         (the bug the live proxy surfaced; constructing with the kwarg, or with
         callback_settings already set, hid it)."""
-        previous = litellm.callback_settings
-        litellm.callback_settings = {}  # not yet populated when the logger is built
+        previous = hangarllm.callback_settings
+        hangarllm.callback_settings = {}  # not yet populated when the logger is built
         try:
             metric_reader = InMemoryMetricReader()
             meter_provider = MeterProvider(metric_readers=[metric_reader])
@@ -6478,7 +6478,7 @@ class TestOpenTelemetryMetricAttributeFiltering(unittest.TestCase):
             )
             otel.tracer = tracer_provider.get_tracer(__name__)
             # The proxy sets this only after the logger already exists.
-            litellm.callback_settings = {
+            hangarllm.callback_settings = {
                 "otel": {
                     "attributes": {"exclude_list": list(self.HIGH_CARDINALITY_KEYS)}
                 }
@@ -6489,7 +6489,7 @@ class TestOpenTelemetryMetricAttributeFiltering(unittest.TestCase):
                 kwargs, response_obj, start, start + timedelta(seconds=1)
             )
         finally:
-            litellm.callback_settings = previous
+            hangarllm.callback_settings = previous
 
         excluded = set(self.HIGH_CARDINALITY_KEYS)
         for metric_name in (self.DURATION_METRIC, self.TOKEN_METRIC):
@@ -6507,8 +6507,8 @@ class TestOpenTelemetryMetricAttributeFiltering(unittest.TestCase):
         the bad config. Once the operator corrects
         callback_settings['otel']['attributes'], the next record resolves the
         fixed filter instead of re-raising the stale error until a restart."""
-        previous = litellm.callback_settings
-        litellm.callback_settings = {
+        previous = hangarllm.callback_settings
+        hangarllm.callback_settings = {
             "otel": {
                 "attributes": {
                     "include_list": ["gen_ai.system"],
@@ -6523,12 +6523,12 @@ class TestOpenTelemetryMetricAttributeFiltering(unittest.TestCase):
             with self.assertRaises(ValueError):
                 otel._filter_metric_attributes(attrs)
 
-            litellm.callback_settings = {
+            hangarllm.callback_settings = {
                 "otel": {"attributes": {"exclude_list": ["hidden_params"]}}
             }
             filtered = otel._filter_metric_attributes(attrs)
         finally:
-            litellm.callback_settings = previous
+            hangarllm.callback_settings = previous
 
         self.assertEqual(filtered, {"gen_ai.system": "openai"})
 
@@ -6603,7 +6603,7 @@ class TestOpenTelemetryMetricAttributeFiltering(unittest.TestCase):
 
 class TestOTELServiceTierAttributes(unittest.TestCase):
     """The tier a request asked for and the tier the provider served must land on
-    the litellm_request span, so tier usage is segmentable in traces."""
+    the hangarllm_request span, so tier usage is segmentable in traces."""
 
     REQUEST_KEY = "gen_ai.openai.request.service_tier"
     RESPONSE_KEY = "gen_ai.openai.response.service_tier"
@@ -6615,7 +6615,7 @@ class TestOTELServiceTierAttributes(unittest.TestCase):
             "model": "gpt-5-mini",
             "messages": [{"role": "user", "content": "Hello"}],
             "optional_params": standard_logging_object.get("model_parameters") or {},
-            "litellm_params": {"custom_llm_provider": "openai"},
+            "hangarllm_params": {"custom_llm_provider": "openai"},
             "standard_logging_object": standard_logging_object,
         }
         otel.set_attributes(span=mock_span, kwargs=kwargs, response_obj=response_obj)
@@ -6735,7 +6735,7 @@ class TestOpenTelemetryProviderlessCallAttributes(unittest.TestCase):
             kwargs = json.load(f)
         with open(os.path.join(self.HERE, "open_telemetry", "data", "captured_response.json")) as f:
             response_obj = json.load(f)
-        kwargs["litellm_params"]["custom_llm_provider"] = None
+        kwargs["hangarllm_params"]["custom_llm_provider"] = None
         return kwargs, response_obj
 
     def _modelless_kwargs(self) -> tuple[dict[str, object], dict[str, object]]:
@@ -7030,7 +7030,7 @@ class TestDynamicTracerProviderCache(unittest.TestCase):
         entries = list(logger._tracer_provider_cache.values())
         self.assertEqual(len(entries), 4)
         self.assertEqual(len({id(entry.provider.resource) for entry in entries}), 1)
-        self.assertIs(entries[0].provider.resource, logger._litellm_resource())
+        self.assertIs(entries[0].provider.resource, logger._hangarllm_resource())
 
     def test_resource_is_memoized_per_logger_not_shared(self):
         """Two loggers must not share a Resource; the second's service.name would be wrong."""
@@ -7040,8 +7040,8 @@ class TestDynamicTracerProviderCache(unittest.TestCase):
         )
         self.addCleanup(second._tracer_provider.shutdown)
 
-        self.assertIsNot(first._litellm_resource(), second._litellm_resource())
-        self.assertEqual(second._litellm_resource().attributes.get("service.name"), "svc-second")
+        self.assertIsNot(first._hangarllm_resource(), second._hangarllm_resource())
+        self.assertEqual(second._hangarllm_resource().attributes.get("service.name"), "svc-second")
 
 
 class TestOpenTelemetryDatabaseSemconvAttributes(unittest.TestCase):
@@ -7053,8 +7053,8 @@ class TestOpenTelemetryDatabaseSemconvAttributes(unittest.TestCase):
     database's own metrics.
     """
 
-    DSN = "postgresql://llmproxy:dbpassword9090@litellm-prod.abc123.us-east-1.rds.amazonaws.com:6432/litellm?schema=reporting"
-    REPLICA_DSN = "postgresql://reader:r3ad0nly@litellm-prod-ro.abc123.us-east-1.rds.amazonaws.com/litellm"
+    DSN = "postgresql://llmproxy:dbpassword9090@hangarllm-prod.abc123.us-east-1.rds.amazonaws.com:6432/hangarllm?schema=reporting"
+    REPLICA_DSN = "postgresql://reader:r3ad0nly@hangarllm-prod-ro.abc123.us-east-1.rds.amazonaws.com/hangarllm"
 
     def _service_span(self, service, call_type, dsn, error=None, replica_dsn=None):
         exporter = InMemorySpanExporter()
@@ -7095,10 +7095,10 @@ class TestOpenTelemetryDatabaseSemconvAttributes(unittest.TestCase):
         self.assertEqual(span.attributes["db.operation.name"], "get_data")
         self.assertEqual(
             span.attributes["server.address"],
-            "litellm-prod.abc123.us-east-1.rds.amazonaws.com",
+            "hangarllm-prod.abc123.us-east-1.rds.amazonaws.com",
         )
         self.assertEqual(span.attributes["server.port"], 6432)
-        self.assertEqual(span.attributes["db.namespace"], "litellm|reporting")
+        self.assertEqual(span.attributes["db.namespace"], "hangarllm|reporting")
 
     def test_datastore_span_is_a_client_span_carrying_the_legacy_db_system(self):
         """Datadog types a span as a database call from CLIENT kind plus
@@ -7124,14 +7124,14 @@ class TestOpenTelemetryDatabaseSemconvAttributes(unittest.TestCase):
         self.assertEqual(span.kind, trace.SpanKind.CLIENT)
         self.assertEqual(
             span.attributes["server.address"],
-            "litellm-prod.abc123.us-east-1.rds.amazonaws.com",
+            "hangarllm-prod.abc123.us-east-1.rds.amazonaws.com",
         )
         self.assertEqual(span.attributes["error"], "connection refused")
 
     def test_no_credential_from_the_dsn_lands_on_the_span(self):
         span = self._service_span(ServiceTypes.DB, "get_data", self.DSN)
         exported = " ".join(str(value) for value in span.attributes.values())
-        self.assertIn("litellm-prod.abc123.us-east-1.rds.amazonaws.com", exported)
+        self.assertIn("hangarllm-prod.abc123.us-east-1.rds.amazonaws.com", exported)
         self.assertNotIn("dbpassword9090", exported)
         self.assertNotIn("llmproxy", exported)
 
@@ -7164,45 +7164,45 @@ class TestOpenTelemetryNonInferenceUsage(unittest.TestCase):
     RESPONSE_OBJ = {"id": "resp_lit5602", "model": "gpt-4o", "usage": USAGE}
     BACKGROUND_RESPONSE_OBJ = {**RESPONSE_OBJ, "background": True}
 
-    def _kwargs(self, call_type, litellm_metadata=None):
+    def _kwargs(self, call_type, hangarllm_metadata=None):
         return {
             "model": "gpt-4o",
             "call_type": call_type,
             "optional_params": {},
-            "litellm_params": {
+            "hangarllm_params": {
                 "custom_llm_provider": "openai",
-                "litellm_metadata": litellm_metadata or {},
+                "hangarllm_metadata": hangarllm_metadata or {},
             },
             "standard_logging_object": {"id": "lit5602", "call_type": call_type, "metadata": {}},
         }
 
-    def _token_attributes_on_span(self, call_type, litellm_metadata=None, response_obj=None):
+    def _token_attributes_on_span(self, call_type, hangarllm_metadata=None, response_obj=None):
         otel = OpenTelemetry()
         mock_span = MagicMock()
         otel.set_attributes(
             span=mock_span,
-            kwargs=self._kwargs(call_type, litellm_metadata),
+            kwargs=self._kwargs(call_type, hangarllm_metadata),
             response_obj=response_obj or dict(self.RESPONSE_OBJ),
         )
         return {call[0][0] for call in mock_span.set_attribute.call_args_list if call[0][0] in self.TOKEN_KEYS}
 
-    def _token_histogram_calls(self, call_type, litellm_metadata=None, response_obj=None):
+    def _token_histogram_calls(self, call_type, hangarllm_metadata=None, response_obj=None):
         otel = OpenTelemetry()
         otel._operation_duration_histogram = MagicMock()
         otel._token_usage_histogram = MagicMock()
         otel._cost_histogram = None
         now = datetime.now()
         otel._record_metrics(
-            self._kwargs(call_type, litellm_metadata), response_obj or dict(self.RESPONSE_OBJ), now, now
+            self._kwargs(call_type, hangarllm_metadata), response_obj or dict(self.RESPONSE_OBJ), now, now
         )
         return otel._token_usage_histogram.record.call_count
 
-    def _time_per_output_token_calls(self, call_type, litellm_metadata=None, response_obj=None):
+    def _time_per_output_token_calls(self, call_type, hangarllm_metadata=None, response_obj=None):
         otel = OpenTelemetry()
         otel._time_per_output_token_histogram = MagicMock()
         now = datetime.now()
         otel._record_time_per_output_token_metric(
-            self._kwargs(call_type, litellm_metadata), response_obj or dict(self.RESPONSE_OBJ), now, 1.0, {}
+            self._kwargs(call_type, hangarllm_metadata), response_obj or dict(self.RESPONSE_OBJ), now, 1.0, {}
         )
         return otel._time_per_output_token_histogram.record.call_count
 
@@ -7253,7 +7253,7 @@ def _raw_response_span_attributes(original_response: str) -> dict[str, object]:
 
     OpenTelemetry(tracer_provider=tracer_provider).set_raw_request_attributes(
         span,
-        {"litellm_params": {"custom_llm_provider": "vertex_ai"}, "original_response": original_response},
+        {"hangarllm_params": {"custom_llm_provider": "vertex_ai"}, "original_response": original_response},
         None,
     )
     span.end()
@@ -7286,48 +7286,48 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest_asyncio.fixture(loop_scope="function")
-async def drain_logging_worker(isolate_litellm_state: None) -> AsyncIterator[None]:
+async def drain_logging_worker(isolate_hangarllm_state: None) -> AsyncIterator[None]:
     yield
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS)
 
 LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS: Final = LOGGING_WORKER_MAX_TIME_PER_COROUTINE + 5.0
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm state to the true defaults captured at conftest import time,
+    Resets hangarllm state to the true defaults captured at conftest import time,
     then restores after the test. This prevents module-level mutations (e.g.
-    `litellm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
+    `hangarllm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
     leaking across tests within the same xdist worker.
     """
-    from litellm.litellm_core_utils import litellm_logging as ll_logging
-    from litellm.proxy.management_helpers import audit_logs as ll_audit_logs
+    from hangarllm.hangarllm_core_utils import hangarllm_logging as ll_logging
+    from hangarllm.proxy.management_helpers import audit_logs as ll_audit_logs
 
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
 
 _LIST_ATTRS = (
     "callbacks",
@@ -7359,23 +7359,23 @@ _DEFAULTS: dict = {}
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
@@ -7404,7 +7404,7 @@ def validate_redacted_message_span_attributes(span: ReadableSpan) -> None:
                 "gen_ai.cost.",
                 "gen_ai.operation.",
                 "gen_ai.request.",
-                "litellm.",
+                "hangarllm.",
             )
         )
         for attribute in non_required_attributes
@@ -7419,29 +7419,29 @@ async def test_awesome_otel_with_message_logging_off(streaming, global_redact):
     """
     No content should be logged when message logging is off
 
-    tests when litellm.turn_off_message_logging is set to True
+    tests when hangarllm.turn_off_message_logging is set to True
     tests when OpenTelemetry(message_logging=False) is set
     """
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     # Clear exporter at the start to ensure clean state
     exporter.clear()
 
-    litellm.callbacks = [OpenTelemetry(config=OpenTelemetryConfig(exporter=exporter))]
+    hangarllm.callbacks = [OpenTelemetry(config=OpenTelemetryConfig(exporter=exporter))]
     if global_redact is False:
         otel_logger = OpenTelemetry(
             message_logging=False, config=OpenTelemetryConfig(exporter="console")
         )
     else:
         # use global redaction
-        litellm.turn_off_message_logging = True
+        hangarllm.turn_off_message_logging = True
         otel_logger = OpenTelemetry(config=OpenTelemetryConfig(exporter="console"))
 
-    litellm.callbacks = [otel_logger]
-    litellm.success_callback = []
-    litellm.failure_callback = []
+    hangarllm.callbacks = [otel_logger]
+    hangarllm.success_callback = []
+    hangarllm.failure_callback = []
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         mock_response="hi",
@@ -7467,7 +7467,7 @@ async def test_awesome_otel_with_message_logging_off(streaming, global_redact):
     exporter.clear()
 
     if global_redact is True:
-        litellm.turn_off_message_logging = False
+        hangarllm.turn_off_message_logging = False
 
 
 @pytest.mark.usefixtures("unset_global_tracer_provider", "drained_logging_worker")
@@ -7476,7 +7476,7 @@ async def test_arize_phoenix_creates_nested_spans_on_dedicated_provider():
     """
     ArizePhoenixLogger creates its own dedicated TracerProvider so it can
     coexist with the generic ``otel`` callback.  In proxy mode it creates a
-    ``litellm_proxy_request`` parent span and a ``litellm_request`` child span
+    ``hangarllm_proxy_request`` parent span and a ``hangarllm_request`` child span
     on its *own* provider — completely independent of the global provider.
 
     This test verifies:
@@ -7489,7 +7489,7 @@ async def test_arize_phoenix_creates_nested_spans_on_dedicated_provider():
 
     phoenix_exporter = InMemorySpanExporter()
 
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
 
     # ArizePhoenixLogger builds its own TracerProvider internally.
     # We pass our in-memory exporter so we can inspect spans.
@@ -7498,13 +7498,13 @@ async def test_arize_phoenix_creates_nested_spans_on_dedicated_provider():
         callback_name="arize_phoenix",
     )
 
-    litellm.callbacks = [phoenix_logger]
-    litellm.success_callback = []
-    litellm.failure_callback = []
+    hangarllm.callbacks = [phoenix_logger]
+    hangarllm.success_callback = []
+    hangarllm.failure_callback = []
 
     # Simulate a proxy request by injecting proxy_server_request as a top-level kwarg.
     # This triggers ArizePhoenixLogger._get_phoenix_context to create its own parent span.
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-4.1-mini",
         messages=[{"role": "user", "content": "ping"}],
         mock_response="pong",
@@ -7522,14 +7522,14 @@ async def test_arize_phoenix_creates_nested_spans_on_dedicated_provider():
     span_names = [s.name for s in spans]
 
     # Phoenix creates its own span names on its dedicated TracerProvider:
-    # - "litellm_proxy_request" (parent) — created by _get_phoenix_context
-    # - "litellm_request" (child)       — the LLM call span
+    # - "hangarllm_proxy_request" (parent) — created by _get_phoenix_context
+    # - "hangarllm_request" (child)       — the LLM call span
     # - "raw_gen_ai_request"            — raw request sub-span
     assert (
-        "litellm_proxy_request" in span_names
+        "hangarllm_proxy_request" in span_names
     ), f"Expected proxy parent span, got: {span_names}"
     assert (
-        LITELLM_REQUEST_SPAN_NAME in span_names
+        HANGARLLM_REQUEST_SPAN_NAME in span_names
     ), f"Expected request child span, got: {span_names}"
     assert (
         RAW_REQUEST_SPAN_NAME in span_names
@@ -7542,7 +7542,7 @@ async def test_arize_phoenix_creates_nested_spans_on_dedicated_provider():
     phoenix_exporter.clear()
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "drain_logging_worker", "isolate_hangarllm_state", "setup_and_teardown")
 class TestOpentelemetryUnitTests:
     def test_parallel_tool_calls(self):
         tool_calls: Final = [
@@ -7557,8 +7557,8 @@ class TestOpentelemetryUnitTests:
                 type="function",
             ),
         ]
-        from litellm.integrations.opentelemetry import OpenTelemetry
-        from litellm.proxy._types import SpanAttributes
+        from hangarllm.integrations.opentelemetry import OpenTelemetry
+        from hangarllm.proxy._types import SpanAttributes
 
         kv_pair_dict = OpenTelemetry._tool_calls_kv_pair(tool_calls)
 
@@ -7570,7 +7570,7 @@ class TestOpentelemetryUnitTests:
         }
 
     def test_chat_response_tool_calls_are_recorded_per_call_on_the_span(self):
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         response: Final = ModelResponse(
             id="chatcmpl-tools",
@@ -7598,7 +7598,7 @@ class TestOpentelemetryUnitTests:
                 }
             ],
         )
-        span: Final = TracerProvider().get_tracer("otel-tool-call-tests").start_span("litellm_request")
+        span: Final = TracerProvider().get_tracer("otel-tool-call-tests").start_span("hangarllm_request")
 
         OpenTelemetry().set_attributes(
             span=span,
@@ -7606,7 +7606,7 @@ class TestOpentelemetryUnitTests:
                 "model": "gpt-4o",
                 "messages": [{"role": "user", "content": "weather and time in SF?"}],
                 "optional_params": {},
-                "litellm_params": {"custom_llm_provider": "openai"},
+                "hangarllm_params": {"custom_llm_provider": "openai"},
                 "standard_logging_object": {"id": "call-tools", "call_type": "completion", "metadata": {}},
             },
             response_obj=response,
@@ -7623,28 +7623,28 @@ class TestOpentelemetryUnitTests:
     @pytest.mark.asyncio
     async def test_opentelemetry_integration(self):
         """
-        Unit test to confirm external parent otel spans are NOT ended by LiteLLM.
+        Unit test to confirm external parent otel spans are NOT ended by HangarLLM.
 
         External spans (passed via metadata) should be managed by their creators,
-        not by LiteLLM. This prevents premature closure of spans from Langfuse,
+        not by HangarLLM. This prevents premature closure of spans from Langfuse,
         user code, or other external observability tools.
         """
         # Reset all callbacks to ensure clean state
-        litellm.logging_callback_manager._reset_all_callbacks()
+        hangarllm.logging_callback_manager._reset_all_callbacks()
 
         parent_otel_span = MagicMock()
-        litellm.callbacks = ["otel"]
+        hangarllm.callbacks = ["otel"]
 
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-5-mini",
             messages=[{"role": "user", "content": "Hello, world!"}],
             mock_response="Hey!",
-            metadata={"litellm_parent_otel_span": parent_otel_span},
+            metadata={"hangarllm_parent_otel_span": parent_otel_span},
         )
 
         await asyncio.sleep(1)
 
-        # Verify external span was NOT ended by LiteLLM
+        # Verify external span was NOT ended by HangarLLM
         # External spans should only be closed by their creators
         parent_otel_span.end.assert_not_called()
 
@@ -7657,7 +7657,7 @@ class TestOpentelemetryUnitTests:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
 
-        from litellm.integrations.opentelemetry import OpenTelemetry
+        from hangarllm.integrations.opentelemetry import OpenTelemetry
 
         # Setup: Create TracerProvider and tracer
         tracer_provider = TracerProvider()
@@ -7672,7 +7672,7 @@ class TestOpentelemetryUnitTests:
             parent_span_context = parent_span.get_span_context()
 
             # Call _get_span_context without explicit parent in metadata
-            kwargs = {"litellm_params": {"metadata": {}}}
+            kwargs = {"hangarllm_params": {"metadata": {}}}
             detected_context, detected_span = otel_integration._get_span_context(kwargs)
 
             # Assert: Should detect the active span
@@ -7697,8 +7697,8 @@ class TestOpentelemetryUnitTests:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
 
-        from litellm.integrations._types.open_inference import ErrorAttributes
-        from litellm.integrations.opentelemetry import OpenTelemetry
+        from hangarllm.integrations._types.open_inference import ErrorAttributes
+        from hangarllm.integrations.opentelemetry import OpenTelemetry
 
         # Setup: Create TracerProvider and tracer
         tracer_provider = TracerProvider()
@@ -7759,8 +7759,8 @@ class TestOpentelemetryUnitTests:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
 
-        from litellm.integrations._types.open_inference import ErrorAttributes
-        from litellm.integrations.opentelemetry import OpenTelemetry
+        from hangarllm.integrations._types.open_inference import ErrorAttributes
+        from hangarllm.integrations.opentelemetry import OpenTelemetry
 
         # Setup: Create TracerProvider and tracer
         tracer_provider = TracerProvider()

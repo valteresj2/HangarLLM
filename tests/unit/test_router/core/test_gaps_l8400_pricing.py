@@ -1,6 +1,6 @@
 """
 Gaps in the built-in pricing a custom-priced deployment inherits when the core registers it in
-``litellm.model_cost`` (router_python_core.py ``_inherit_builtin_cache_pricing``, ``_cost_map_backend_model``,
+``hangarllm.model_cost`` (router_python_core.py ``_inherit_builtin_cache_pricing``, ``_cost_map_backend_model``,
 ``_inherit_builtin_service_tier_pricing``, ``_inherit_builtin_base_rates_for_off_peak``,
 ``_inherit_builtin_tiered_output_rate``), and the deployment checks of ``_create_deployment``
 (access windows, PTU configuration). Expected rates are read from the built-in cost map, not hardcoded.
@@ -11,22 +11,22 @@ from typing import Final
 
 import pytest
 
-import litellm
+import hangarllm
 from tests.unit.test_router.core.registry_helpers import MakeCore, unique_id
 from tests.unit.test_router.core.scripted_host import deployment
 
 OFF_PEAK: Final = {"hours_utc": "01:00-02:00", "input_cost_per_token": 1e-9}
 
 
-def registered(make_core: MakeCore, model: str, **params: object) -> Mapping[str, object]:  # kwargs-ok: litellm_params
-    """The ``litellm.model_cost`` entry registered under a fresh deployment id."""
+def registered(make_core: MakeCore, model: str, **params: object) -> Mapping[str, object]:  # kwargs-ok: hangarllm_params
+    """The ``hangarllm.model_cost`` entry registered under a fresh deployment id."""
     model_id: Final = unique_id("l8400")
     make_core(model_list=[deployment("g", model_id, model=model, **params)])
-    return litellm.model_cost[model_id]
+    return hangarllm.model_cost[model_id]
 
 
 def builtin(key: str) -> Mapping[str, object]:
-    return litellm.model_cost[key]
+    return hangarllm.model_cost[key]
 
 
 # --- service-tier rates ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ def test_a_backend_missing_from_the_cost_map_contributes_nothing(make_core: Make
 @pytest.mark.parametrize(
     "params",
     [{"model_info": {"base_model": "gpt-5"}}, {"base_model": "gpt-5"}],
-    ids=["model-info-base-model", "litellm-params-base-model"],
+    ids=["model-info-base-model", "hangarllm-params-base-model"],
 )
 def test_the_base_model_names_the_backend_the_rates_are_inherited_from(
     make_core: MakeCore, params: dict[str, object]
@@ -134,8 +134,8 @@ def test_an_off_peak_deployment_with_a_base_rate_copies_nothing_more(make_core: 
     assert entry.get("max_input_tokens") is None
 
 
-def test_off_peak_pricing_given_in_litellm_params_is_not_registered(make_core: MakeCore) -> None:
-    """Oddity: only ``model_info.off_peak_pricing`` counts; the same key in litellm_params is dropped."""
+def test_off_peak_pricing_given_in_hangarllm_params_is_not_registered(make_core: MakeCore) -> None:
+    """Oddity: only ``model_info.off_peak_pricing`` counts; the same key in hangarllm_params is dropped."""
     entry: Final = registered(make_core, "deepseek/deepseek-v4-flash", off_peak_pricing=OFF_PEAK)
 
     assert entry.get("off_peak_pricing") is None

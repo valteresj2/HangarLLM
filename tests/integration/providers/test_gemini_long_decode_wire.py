@@ -1456,7 +1456,7 @@ def _openai_stream_reporting_cached_prompt_tokens(request: Request) -> Reply:
 
 def _spend_metadata(model: str) -> dict[str, JsonValue]:
     spend_rows(model)
-    (row,) = read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,))
+    (row,) = read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,))
     metadata: Final = row["metadata"]
     return JSON_OBJECT.validate_json(metadata) if isinstance(metadata, str) else JSON_OBJECT.validate_python(metadata)
 
@@ -2009,7 +2009,7 @@ def _pass_through(gateway: Gateway, stream: bool, body: Mapping[str, JsonValue])
 
 def _pass_through_row(response: httpx.Response) -> dict[str, JsonValue]:
     (row,) = eventually(
-        lambda: read_rows(f"{SPEND_COLUMNS} WHERE request_id=%s", (response.headers["x-litellm-call-id"],)),
+        lambda: read_rows(f"{SPEND_COLUMNS} WHERE request_id=%s", (response.headers["x-hangarllm-call-id"],)),
         lambda found: len(found) >= 1,
         seconds=70,
     )
@@ -2060,13 +2060,13 @@ class _Traced:
 
 def _traced_config(directory: Path, sink: str) -> Path:
     base: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
-    settings: Final = JSON_OBJECT.validate_python(base.get("litellm_settings", {}))
+    settings: Final = JSON_OBJECT.validate_python(base.get("hangarllm_settings", {}))
     path: Final = directory / "gemini-long-decode-otel.yaml"
     path.write_text(
         yaml.safe_dump(
             {
                 **base,
-                "litellm_settings": {**settings, "callbacks": ["otel"]},
+                "hangarllm_settings": {**settings, "callbacks": ["otel"]},
                 "callback_settings": {
                     "otel": {"exporter": "http/json", "endpoint": sink, "use_simple_processor": True}
                 },

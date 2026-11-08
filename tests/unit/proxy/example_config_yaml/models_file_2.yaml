@@ -1,4 +1,4 @@
 model_list:
   - model_name: included-model-2
-    litellm_params:
+    hangarllm_params:
       model: gpt-3.5-turbo

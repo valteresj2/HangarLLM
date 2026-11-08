@@ -23,7 +23,7 @@ FRESH_CONNECTION: Final = {"Connection": "close"}
 CONSISTENT_READS: Final = 8
 CONVERGENCE_SECONDS: Final = 60
 BURST: Final = 24
-CATALOG_FILENAME: Final = "litellm-models.json"
+CATALOG_FILENAME: Final = "hangarllm-models.json"
 SHIM_STOCK_ENV: Final = "CODEX_SHIM_STOCK"
 SHIM_LAUNCH_ENV: Final = "CODEX_SHIM_LAUNCH"
 SHIM_SCRIPT: Final = """\
@@ -43,7 +43,7 @@ if argv[-2:] == ["debug", "models"]:
             sys.exit(2)
         sys.stdout.write(json.dumps(catalog))
     sys.exit(0)
-recorded = {name: os.environ.get(name) for name in ("OPENAI_BASE_URL", "OPENAI_API_KEY", "LITELLM_PROXY_API_KEY")}
+recorded = {name: os.environ.get(name) for name in ("OPENAI_BASE_URL", "OPENAI_API_KEY", "HANGARLLM_PROXY_API_KEY")}
 with open(os.environ[%(launch)r], "w", encoding="utf-8") as handle:
     json.dump({"argv": argv, "env": recorded}, handle)
 """ % {"stock": SHIM_STOCK_ENV, "launch": SHIM_LAUNCH_ENV}
@@ -85,18 +85,18 @@ def _write_config(directory: Path, upstream_url: str, tiered: str, plain: str, a
                 "model_list": [
                     {
                         "model_name": tiered,
-                        "litellm_params": params,
+                        "hangarllm_params": params,
                         "model_info": {
                             "service_tiers": ["priority", {"id": "flex", "name": "Flex", "description": "cheap lane"}],
                             "display_name": "YAML Tiered",
                             "max_input_tokens": 4321,
                         },
                     },
-                    {"model_name": plain, "litellm_params": params},
+                    {"model_name": plain, "hangarllm_params": params},
                 ],
                 "router_settings": {"model_group_alias": {alias: tiered}},
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
             }
@@ -130,7 +130,7 @@ def test_yaml_tiers_and_alias_in_owned_proxy(gateway: Gateway, tmp_path: Path) -
 
 
 ROOT: Final = Path(os.environ.get("INTEGRATION_PROXY_ROOT") or Path(__file__).resolve().parents[3])
-BUNDLED_STOCK_PATH: Final = ROOT / "litellm" / "proxy" / "common_utils" / "codex_bundled_models_0.166.0.json"
+BUNDLED_STOCK_PATH: Final = ROOT / "hangarllm" / "proxy" / "common_utils" / "codex_bundled_models_0.166.0.json"
 STOCK_UPSTREAM: Final = "gpt-5.5"
 
 
@@ -155,18 +155,18 @@ def _write_team_owned_config(
         json.dumps(
             {
                 "model_list": [
-                    {"model_name": owned, "litellm_params": stock_params, "model_info": {"team_id": stock_team}},
+                    {"model_name": owned, "hangarllm_params": stock_params, "model_info": {"team_id": stock_team}},
                     {
                         "model_name": owned,
-                        "litellm_params": plain_params,
+                        "hangarllm_params": plain_params,
                         "model_info": {"team_id": plain_team, "service_tiers": ["flex"]},
                     },
-                    {"model_name": mixed, "litellm_params": stock_params, "model_info": {"team_id": stock_team}},
-                    {"model_name": mixed, "litellm_params": plain_params, "model_info": {"service_tiers": ["flex"]}},
+                    {"model_name": mixed, "hangarllm_params": stock_params, "model_info": {"team_id": stock_team}},
+                    {"model_name": mixed, "hangarllm_params": plain_params, "model_info": {"service_tiers": ["flex"]}},
                 ],
                 "router_settings": {"model_group_alias": {alias: owned}},
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
             }
@@ -300,8 +300,8 @@ def _install_shim(directory: Path, stock: Mapping[str, JsonValue]) -> tuple[Path
 
 def _run_lite_codex(proxy: Gateway, key: str, environment: Mapping[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-I", "-c", "from litellm.proxy.client.cli import cli; cli()", "codex", "--shim-marker"],
-        env={**environment, "LITELLM_PROXY_URL": str(proxy.client.base_url).rstrip("/"), "LITELLM_PROXY_API_KEY": key},
+        [sys.executable, "-I", "-c", "from hangarllm.proxy.client.cli import cli; cli()", "codex", "--shim-marker"],
+        env={**environment, "HANGARLLM_PROXY_URL": str(proxy.client.base_url).rstrip("/"), "HANGARLLM_PROXY_API_KEY": key},
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
@@ -315,7 +315,7 @@ def _new_model(scenario: Scenario, name: str, model_info: Mapping[str, JsonValue
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "integration-provider-key",
                 "api_base": f"{scenario.gateway.upstream_url}/v1",

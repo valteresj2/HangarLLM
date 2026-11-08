@@ -125,7 +125,7 @@ def _deployment(scenario: Scenario, wire_url: str, provider_key: str) -> str:
 
 def _deployment_id(model: str) -> str:
     rows: Final = read_rows(
-        'SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_name = %s '
+        'SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_name = %s '
         "OR model_info->>'team_public_model_name' = %s",
         (model, model),
     )
@@ -137,13 +137,13 @@ def _worker_has_deployment(gateway: Gateway, deployment_id: str, _: int) -> bool
     with httpx.Client(base_url=gateway.client.base_url, timeout=15, trust_env=False) as client:
         response: Final = client.get(
             "/model/info",
-            params={"litellm_model_id": deployment_id},
+            params={"hangarllm_model_id": deployment_id},
             headers={"Authorization": f"Bearer {gateway.key}"},
         )
     if response.status_code == 200:
         return True
     assert response.status_code == 400, response.text
-    assert "not found on litellm proxy" in response.text.lower(), response.text
+    assert "not found on hangarllm proxy" in response.text.lower(), response.text
     return False
 
 

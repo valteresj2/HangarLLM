@@ -77,7 +77,7 @@ def test_retry_counts_and_public_errors_match_actual_provider_attempts(gateway: 
 
 @pytest.mark.covers("other.routing.fallback.loaded_configuration_selects_only_permitted_target")
 def test_loaded_fallback_selects_expected_deployment_and_keeps_response_identity(tmp_path: Path) -> None:
-    from litellm import Router
+    from hangarllm import Router
 
     def respond(request: Request) -> Reply:
         model: Final = json.loads(request.body)["model"]
@@ -114,7 +114,7 @@ def test_loaded_fallback_selects_expected_deployment_and_keeps_response_identity
                     "model_list": [
                         {
                             "model_name": alias,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "openai/" + upstream,
                                 "api_key": "synthetic-routing-key",
                                 "api_base": wire.url + "/v1",
@@ -176,7 +176,7 @@ def test_saved_deployment_target_update_changes_wire_and_preserves_control(gatew
                 response: Final = gateway.request(
                     "PATCH",
                     f"/model/{target['model_info']['id']}/update",
-                    {"litellm_params": {"model": "openai/" + prefix + "-second"}},
+                    {"hangarllm_params": {"model": "openai/" + prefix + "-second"}},
                 )
                 assert response.status_code == 200, response.text
             upstream.delete("/__observations").raise_for_status()
@@ -434,7 +434,7 @@ def test_health_routing_fallbacks_preserve_error_specific_targets_and_request_co
                 (
                     {
                         "model_name": "primary",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/primary-up",
                             "api_base": primary.url + "/v1",
                             "api_key": "synthetic-health-routing-key",
@@ -443,7 +443,7 @@ def test_health_routing_fallbacks_preserve_error_specific_targets_and_request_co
                     },
                     {
                         "model_name": "primary",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/primary-tier2-up",
                             "api_base": primary_tier2.url + "/v1",
                             "api_key": "synthetic-health-routing-key",
@@ -455,7 +455,7 @@ def test_health_routing_fallbacks_preserve_error_specific_targets_and_request_co
                 else (
                     {
                         "model_name": "primary",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/primary-up",
                             "api_base": primary.url + "/v1",
                             "api_key": "synthetic-health-routing-key",
@@ -466,7 +466,7 @@ def test_health_routing_fallbacks_preserve_error_specific_targets_and_request_co
             *(
                 {
                     "model_name": alias,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{upstream_model}",
                         "api_base": wire.url + "/v1",
                         "api_key": "synthetic-health-routing-key",
@@ -535,7 +535,7 @@ def test_health_routing_fallbacks_preserve_error_specific_targets_and_request_co
                     response_status: Final = response.status_code
                     response_headers: Final = response.headers
                 assert response_status == expected_status, response_text
-                assert response_headers.get("x-litellm-attempted-fallbacks") == expected_attempted_fallbacks, (
+                assert response_headers.get("x-hangarllm-attempted-fallbacks") == expected_attempted_fallbacks, (
                     response_text
                 )
                 assert tuple(call_order.get_nowait() for _ in range(call_order.qsize())) == expected_sequence, (
@@ -599,20 +599,20 @@ def test_health_routing_fallbacks_preserve_error_specific_targets_and_request_co
                 }, response_text
                 message: Final = events[1]["error"]["message"]
                 assert isinstance(message, str), response_text
-                assert message.startswith("litellm.APIConnectionError: "), response_text
+                assert message.startswith("hangarllm.APIConnectionError: "), response_text
             else:
                 non_stream_response: Final = candidate.request(
                     "POST", "/v1/chat/completions", request_body, key=request_key
                 )
                 assert non_stream_response.status_code == expected_status, non_stream_response.text
                 assert (
-                    non_stream_response.headers.get("x-litellm-attempted-fallbacks") == expected_attempted_fallbacks
+                    non_stream_response.headers.get("x-hangarllm-attempted-fallbacks") == expected_attempted_fallbacks
                 ), non_stream_response.text
                 if expected_status == 400:
                     assert JSON_OBJECT.validate_json(non_stream_response.content) == {
                         "error": {
                             "message": (
-                                "litellm.ContextWindowExceededError: litellm.BadRequestError: "
+                                "hangarllm.ContextWindowExceededError: hangarllm.BadRequestError: "
                                 "ContextWindowExceededError: OpenAIException - This model's maximum context length "
                                 "is 4096 tokens"
                             ),
@@ -624,7 +624,7 @@ def test_health_routing_fallbacks_preserve_error_specific_targets_and_request_co
                 elif expected_status == 500:
                     assert JSON_OBJECT.validate_json(non_stream_response.content) == {
                         "error": {
-                            "message": "litellm.InternalServerError: InternalServerError: OpenAIException - "
+                            "message": "hangarllm.InternalServerError: InternalServerError: OpenAIException - "
                             "synthetic upstream failure",
                             "type": "internal_server_error",
                             "param": None,

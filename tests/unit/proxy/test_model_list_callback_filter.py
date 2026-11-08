@@ -14,12 +14,12 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, ProxyException, UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.utils import ProxyLogging
 
 
 class _Gate(CustomLogger):
@@ -65,7 +65,7 @@ class _StringReturningGate(CustomLogger):
 def _deployment(model_name: str, model: str = "openai/gpt-4o", **model_info):
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "api_key": "sk-fake"},
+        "hangarllm_params": {"model": model, "api_key": "sk-fake"},
         "model_info": {"id": f"{model_name}-id", **model_info},
     }
 
@@ -81,7 +81,7 @@ def _install_router(monkeypatch, *deployments, **router_kwargs) -> Router:
 
 
 def _register(monkeypatch, *callbacks: CustomLogger) -> None:
-    monkeypatch.setattr(litellm, "callbacks", list(callbacks))
+    monkeypatch.setattr(hangarllm, "callbacks", list(callbacks))
     ProxyLogging._callback_capabilities_cache.clear()
 
 
@@ -102,7 +102,7 @@ def team_router(monkeypatch) -> Router:
 
 @pytest.fixture
 def team_admin_privileges(monkeypatch) -> None:
-    from litellm.proxy.management_endpoints import common_utils
+    from hangarllm.proxy.management_endpoints import common_utils
 
     async def _is_team_admin(**kwargs) -> bool:
         return True
@@ -111,18 +111,18 @@ def team_admin_privileges(monkeypatch) -> None:
 
 
 def _non_admin(**kwargs) -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_role=LitellmUserRoles.INTERNAL_USER, **kwargs)
+    return UserAPIKeyAuth(api_key="sk-test", user_role=HangarllmUserRoles.INTERNAL_USER, **kwargs)
 
 
 def _admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN, team_models=[])
+    return UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN, team_models=[])
 
 
 def _team_member() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-test",
         user_id="u",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         team_id="team1",
         team_models=["model_name_team1_abc", "model_name_team1_def"],
         models=["model_name_team1_abc", "model_name_team1_def"],
@@ -362,16 +362,16 @@ async def test_hidden_model_still_routes_for_direct_requests(two_model_router, m
 
 @pytest.mark.asyncio
 async def test_model_group_info_offers_a2a_agent_groups_to_the_callback(two_model_router, monkeypatch):
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     monkeypatch.setattr(
         global_agent_registry,
         "agent_list",
         [AgentResponse(agent_id="agent-1", agent_name="helper", agent_card_params={})],
     )
-    caller = _non_admin(object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="p1", agents=["agent-1"]))
+    caller = _non_admin(object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="p1", agents=["agent-1"]))
     gate: _Gate = _Gate()
     _register(monkeypatch, gate)
 
@@ -385,7 +385,7 @@ async def test_model_group_info_offers_a2a_agent_groups_to_the_callback(two_mode
 
 async def _v1_model_info_by_deployment_id(deployment_id: str, user_api_key_dict: UserAPIKeyAuth) -> int | list[str]:
     try:
-        response = await proxy_server.model_info_v1(user_api_key_dict=user_api_key_dict, litellm_model_id=deployment_id)
+        response = await proxy_server.model_info_v1(user_api_key_dict=user_api_key_dict, hangarllm_model_id=deployment_id)
     except HTTPException as error:
         return error.status_code
     return [row["model_name"] for row in json.loads(response.body)["data"]]

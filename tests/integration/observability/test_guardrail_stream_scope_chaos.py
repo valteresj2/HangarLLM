@@ -32,7 +32,7 @@ CHAOS_ENDPOINTS: Final[tuple[ChaosEndpoint, ...]] = ("chat", "messages", "respon
 CHAOS_MODELS: Final = MappingProxyType(
     {"chat": "chaos-chat", "messages": "chaos-messages", "responses": "chaos-responses"}
 )
-GUARDRAIL_PATH: Final = "/beta/litellm_basic_guardrail_api"
+GUARDRAIL_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 POSTGRES_IMAGE: Final = "postgres:16@sha256:e17e86066e5ef83e0952a9347f5c792b7ece00972e2aa787a6986f471b3dd3d5"
 
@@ -206,7 +206,7 @@ def _provider(request: Request) -> Reply:
 def _sink(request: Request) -> Reply:
     assert request.target.endswith(GUARDRAIL_PATH), request.target
     body: Final = JSON_OBJECT.validate_json(request.body)
-    assert body.get("litellm_call_id") is not None or any("audit-" in text for text in _texts(body)), (
+    assert body.get("hangarllm_call_id") is not None or any("audit-" in text for text in _texts(body)), (
         request.body.decode()
     )
     return Reply(body=_json({"action": "NONE"}))
@@ -221,7 +221,7 @@ def _rail(
 ) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "pre_call",
             "default_on": default_on,
@@ -242,7 +242,7 @@ def _config(provider_url: str, rails: Sequence[dict[str, JsonValue]]) -> dict[st
             "model_list": [
                 {
                     "model_name": CHAOS_MODELS["chat"],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": f"{provider_url}/v1",
                         "api_key": "synthetic-provider-key",
@@ -251,7 +251,7 @@ def _config(provider_url: str, rails: Sequence[dict[str, JsonValue]]) -> dict[st
                 },
                 {
                     "model_name": CHAOS_MODELS["messages"],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-sonnet-4-5-20250929",
                         "api_base": provider_url,
                         "api_key": "synthetic-provider-key",
@@ -260,7 +260,7 @@ def _config(provider_url: str, rails: Sequence[dict[str, JsonValue]]) -> dict[st
                 },
                 {
                     "model_name": CHAOS_MODELS["responses"],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": f"{provider_url}/v1",
                         "api_key": "synthetic-provider-key",
@@ -337,7 +337,7 @@ def _request(gateway: Gateway, plan: CallPlan, rails: Sequence[str]) -> httpx.Re
                     **guardrail_field,
                     **({"stream": True} if plan.streamed else {}),
                 },
-                headers={"x-litellm-call-id": plan.call_id},
+                headers={"x-hangarllm-call-id": plan.call_id},
             )
         case "messages":
             return gateway.request(
@@ -350,7 +350,7 @@ def _request(gateway: Gateway, plan: CallPlan, rails: Sequence[str]) -> httpx.Re
                     **guardrail_field,
                     **({"stream": True} if plan.streamed else {}),
                 },
-                headers={"x-litellm-call-id": plan.call_id},
+                headers={"x-hangarllm-call-id": plan.call_id},
             )
         case "responses":
             return gateway.request(
@@ -362,7 +362,7 @@ def _request(gateway: Gateway, plan: CallPlan, rails: Sequence[str]) -> httpx.Re
                     **guardrail_field,
                     **({"stream": True} if plan.streamed else {}),
                 },
-                headers={"x-litellm-call-id": plan.call_id},
+                headers={"x-hangarllm-call-id": plan.call_id},
             )
     raise AssertionError(plan.endpoint)
 
@@ -379,7 +379,7 @@ def _rail_scans(rows: Sequence[Request], rail_name: str, marker: str) -> tuple[R
 
 def _spend_rows(call_id: str, database_url: str | None = None) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id, litellm_call_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s OR litellm_call_id=%s',
+        'SELECT request_id, hangarllm_call_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s OR hangarllm_call_id=%s',
         (call_id, call_id),
         database_url=database_url,
     )
@@ -432,7 +432,7 @@ def _assert_successful_calls(
         )
         assert len(in_rows) == 1 and len(out_rows) == 0, (plan, in_rows, out_rows)
         spend: Final = _one_spend_row(plan.call_id)
-        assert plan.call_id in (spend.get("request_id"), spend.get("litellm_call_id")), (plan, spend)
+        assert plan.call_id in (spend.get("request_id"), spend.get("hangarllm_call_id")), (plan, spend)
 
 
 def _call_wave(gateway: Gateway, plans: Sequence[CallPlan], rails: Sequence[str]) -> tuple[httpx.Response, ...]:
@@ -477,7 +477,7 @@ def _assert_down_wave(
         assert _rail_scans(sink_a_rows, sink_a_name, plan.marker) == (), (plan, sink_a_name)
         assert len(_rail_scans(sink_b_rows, sink_b_name, plan.marker)) == 1, (plan, sink_b_name)
         spend: Final = _one_spend_row(plan.call_id)
-        assert plan.call_id in (spend.get("request_id"), spend.get("litellm_call_id")), (plan, spend)
+        assert plan.call_id in (spend.get("request_id"), spend.get("hangarllm_call_id")), (plan, spend)
 
 
 def test_h1_sink_outage_keeps_scope_isolated_through_recovery(rig: ChaosRig, tmp_path: Path) -> None:
@@ -677,7 +677,7 @@ def _create_stored_rail(
         {
             "guardrail": {
                 "guardrail_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": False,
@@ -710,7 +710,7 @@ def _assert_one_scope_wave(
         assert len(provider_match) == 1, (plan, provider_match)
         assert len(sink_match) == int(plan.streamed), (plan, sink_match)
         spend: Final = _one_spend_row(plan.call_id, database_url)
-        assert plan.call_id in (spend.get("request_id"), spend.get("litellm_call_id")), (plan, spend)
+        assert plan.call_id in (spend.get("request_id"), spend.get("hangarllm_call_id")), (plan, spend)
 
 
 def test_h4_stored_scope_survives_owned_proxy_restart(rig: ChaosRig, tmp_path: Path) -> None:
@@ -760,7 +760,7 @@ def _owned_postgres(directory: Path) -> Iterator[PostgresCluster]:
     assert docker_info.returncode == 0, docker_info.stderr
     directory.mkdir(parents=True, exist_ok=True)
     port: Final = allocate_port()
-    container_name: Final = f"litellm-stream-scope-h5-{uuid.uuid4().hex}"
+    container_name: Final = f"hangarllm-stream-scope-h5-{uuid.uuid4().hex}"
     password: Final = uuid.uuid4().hex
     created: Final = subprocess.run(
         [

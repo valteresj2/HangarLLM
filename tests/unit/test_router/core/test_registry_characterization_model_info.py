@@ -6,11 +6,11 @@ the rate limit headers ``set_response_headers`` attaches.
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.router_core import RouterCore
-from litellm.types.router import Deployment, RouterCacheEnum
-from litellm.utils import get_utc_datetime
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import Deployment, RouterCacheEnum
+from hangarllm.utils import get_utc_datetime
 from tests.unit.test_router.core.registry_helpers import MakeCore, typed, unique_id
 from tests.unit.test_router.core.scripted_host import completion_response, deployment
 
@@ -22,7 +22,7 @@ def _usage_core(make_core: MakeCore) -> RouterCore:
             deployment("gpt", "a", model="openai/gpt-4o", tpm=100, rpm=10),
             {
                 "model_name": "gpt",
-                "litellm_params": {"model": "anthropic/claude-3-haiku-20240307", "api_key": "k"},
+                "hangarllm_params": {"model": "anthropic/claude-3-haiku-20240307", "api_key": "k"},
                 "model_info": {"id": "b", "tpm": 50, "rpm": 5, "description": "desc b"},
                 "tpm": 1000,
             },
@@ -61,7 +61,7 @@ def test_group_info_merges_providers_limits_and_description_across_deployments(m
     assert info.providers == ["openai", "anthropic"]
     assert info.description == "desc b"
     assert info.mode == "chat"
-    builtin = litellm.get_model_info("openai/gpt-4o")
+    builtin = hangarllm.get_model_info("openai/gpt-4o")
     assert info.max_input_tokens == builtin["max_input_tokens"]
     assert info.input_cost_per_token == builtin["input_cost_per_token"]
 
@@ -107,7 +107,7 @@ def test_group_info_of_a_name_a_wildcard_serves_reads_the_requested_model(make_c
 
     assert info is not None
     assert (info.model_group, info.providers) == ("openai/gpt-4o-mini", ["openai"])
-    assert info.max_input_tokens == litellm.get_model_info("openai/gpt-4o-mini")["max_input_tokens"]
+    assert info.max_input_tokens == hangarllm.get_model_info("openai/gpt-4o-mini")["max_input_tokens"]
 
 
 def test_group_info_of_an_unmapped_model_uses_its_configured_mode_and_costs(make_core: MakeCore) -> None:
@@ -320,7 +320,7 @@ def test_deployment_model_info_merges_custom_pricing_over_the_builtin_entry(make
     info = core.registry().deployment_model_info(model_id, "openai/gpt-4o")
 
     assert info is not None
-    builtin = litellm.get_model_info("openai/gpt-4o")
+    builtin = hangarllm.get_model_info("openai/gpt-4o")
     assert info["input_cost_per_token"] == 1e-3
     assert info["max_input_tokens"] == builtin["max_input_tokens"]
 
@@ -332,7 +332,7 @@ def test_deployment_model_info_without_custom_pricing_is_the_builtin_entry(make_
     info = core.registry().deployment_model_info(model_id, "openai/gpt-4o")
 
     assert info is not None
-    builtin = litellm.get_model_info("openai/gpt-4o")
+    builtin = hangarllm.get_model_info("openai/gpt-4o")
     assert (info["input_cost_per_token"], info["output_cost_per_token"]) == (
         builtin["input_cost_per_token"],
         builtin["output_cost_per_token"],
@@ -398,7 +398,7 @@ def test_router_model_info_by_id_is_the_builtin_entry_with_the_deployments_model
 
     info = core.registry().router_model_info(None, "gpt", id=model_id)
 
-    builtin = litellm.get_model_info("openai/gpt-4o")
+    builtin = hangarllm.get_model_info("openai/gpt-4o")
     assert info["key"] == builtin["key"]
     assert info["max_input_tokens"] == 99
     assert info["max_output_tokens"] == builtin["max_output_tokens"]
@@ -409,7 +409,7 @@ def test_router_model_info_of_a_passed_deployment_dict(make_core: MakeCore) -> N
 
     info = core.registry().router_model_info(deployment("x", "x", model="openai/gpt-4o-mini"), "x")
 
-    assert info["key"] == litellm.get_model_info("openai/gpt-4o-mini")["key"]
+    assert info["key"] == hangarllm.get_model_info("openai/gpt-4o-mini")["key"]
 
 
 def test_router_model_info_reads_the_base_model(make_core: MakeCore) -> None:
@@ -423,7 +423,7 @@ def test_router_model_info_reads_the_base_model(make_core: MakeCore) -> None:
 
     info = core.registry().router_model_info(None, "az", id="z")
 
-    assert info["max_input_tokens"] == litellm.get_model_info("azure/gpt-4o")["max_input_tokens"]
+    assert info["max_input_tokens"] == hangarllm.get_model_info("azure/gpt-4o")["max_input_tokens"]
 
 
 def test_router_model_info_of_a_wildcard_deployment_reads_the_requested_model(make_core: MakeCore) -> None:
@@ -431,7 +431,7 @@ def test_router_model_info_of_a_wildcard_deployment_reads_the_requested_model(ma
 
     info = core.registry().router_model_info(None, "openai/gpt-4o-mini", id="w")
 
-    assert info["key"] == litellm.get_model_info("openai/gpt-4o-mini")["key"]
+    assert info["key"] == hangarllm.get_model_info("openai/gpt-4o-mini")["key"]
 
 
 def test_router_model_info_for_an_unknown_id_and_no_deployment_raises(make_core: MakeCore) -> None:
@@ -441,11 +441,11 @@ def test_router_model_info_for_an_unknown_id_and_no_deployment_raises(make_core:
         core.registry().router_model_info(None, "gpt", id="missing")
 
 
-def test_router_model_info_of_a_deployment_without_litellm_params_raises(make_core: MakeCore) -> None:
+def test_router_model_info_of_a_deployment_without_hangarllm_params_raises(make_core: MakeCore) -> None:
     core = make_core(model_list=[deployment("gpt", "a")])
 
-    with pytest.raises(ValueError, match="Deployment missing valid litellm_params"):
-        core.registry().router_model_info({"model_name": "x", "litellm_params": {}, "model_info": {"id": "q"}}, "x")
+    with pytest.raises(ValueError, match="Deployment missing valid hangarllm_params"):
+        core.registry().router_model_info({"model_name": "x", "hangarllm_params": {}, "model_info": {"id": "q"}}, "x")
 
 
 def test_router_model_info_of_an_unmapped_model_is_the_zeroed_stub_construction_registered(make_core: MakeCore) -> None:
@@ -456,7 +456,7 @@ def test_router_model_info_of_an_unmapped_model_is_the_zeroed_stub_construction_
 
     assert info["key"] == "openai/not-a-known-registry-model"
     assert (info["input_cost_per_token"], info["output_cost_per_token"], info["max_input_tokens"]) == (0, 0, None)
-    assert info["litellm_provider"] == "openai"
+    assert info["hangarllm_provider"] == "openai"
 
 
 # -- usage this minute ------------------------------------------------------------------------------
@@ -546,7 +546,7 @@ async def test_response_headers_name_the_group_and_its_remaining_limits(make_cor
 
     assert returned is response
     assert response._hidden_params["additional_headers"] == {
-        "x-litellm-model-group": "gpt",
+        "x-hangarllm-model-group": "gpt",
         "x-ratelimit-remaining-tokens": 1070,
         "x-ratelimit-limit-tokens": 1100,
         "x-ratelimit-remaining-requests": 14,
@@ -558,14 +558,14 @@ async def test_response_headers_name_the_group_and_its_remaining_limits(make_cor
 async def test_response_headers_without_a_group_carry_only_a_none_group(make_core: MakeCore) -> None:
     returned = await _usage_core(make_core).set_response_headers(completion_response(), model_group=None)  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
-    assert returned._hidden_params["additional_headers"] == {"x-litellm-model-group": None}
+    assert returned._hidden_params["additional_headers"] == {"x-hangarllm-model-group": None}
 
 
 @pytest.mark.asyncio
 async def test_response_headers_of_a_group_without_limits_carry_only_the_group(make_core: MakeCore) -> None:
     returned = await _usage_core(make_core).set_response_headers(completion_response(), model_group="plain")  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
-    assert returned._hidden_params["additional_headers"] == {"x-litellm-model-group": "plain"}
+    assert returned._hidden_params["additional_headers"] == {"x-hangarllm-model-group": "plain"}
 
 
 @pytest.mark.asyncio

@@ -11,17 +11,17 @@ import pytest
 import respx
 import tiktoken
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.typesafe.decisions.transformation import TypeSafeDecisionsConfig
-from litellm.router_api import RoutingContext
-from litellm.router_strategy.complexity_router.complexity_router import ComplexityRouter, _ClassifierCircuitBreaker
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig, JevClassifierConfig
-from litellm.router_strategy.complexity_router.jev_classifier import (
+import hangarllm
+from hangarllm._logging import verbose_router_logger
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.typesafe.decisions.transformation import TypeSafeDecisionsConfig
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_strategy.complexity_router.complexity_router import ComplexityRouter, _ClassifierCircuitBreaker
+from hangarllm.router_strategy.complexity_router.config import ComplexityRouterConfig, JevClassifierConfig
+from hangarllm.router_strategy.complexity_router.jev_classifier import (
     DEFAULT_JEV_INSTRUCTIONS,
     HttpJevClassifierClient,
     JevChoiceAnswer,
@@ -31,7 +31,7 @@ from litellm.router_strategy.complexity_router.jev_classifier import (
     build_jev_request,
     jev_classifier_cost,
 )
-from litellm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+from hangarllm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
 
 
 class _UsageRecorder(CustomLogger):
@@ -86,7 +86,7 @@ async def test_jev_logging_failure_preserves_verdict_and_keeps_circuit_closed(
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     router: Final = ComplexityRouter(
         "jev-logging-failure",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {"classifier_type": "jev", "jev_classifier_config": {}, "tiers": {"SIMPLE": "cheap"}},
         jev_client=HttpJevClassifierClient("test", "https://typesafe.test", handler),
         derive_savings_baseline=False,
@@ -114,7 +114,7 @@ async def test_jev_http_errors_do_not_dispatch_successful_usage(
     monkeypatch: pytest.MonkeyPatch, status_code: int
 ) -> None:
     recorder: Final = _UsageRecorder()
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     handler: Final = create_autospec(AsyncHTTPHandler, instance=True)
     handler.post.return_value = httpx.Response(
         status_code,
@@ -146,7 +146,7 @@ async def test_jev_invalid_usage_never_reaches_spend_callbacks(
     monkeypatch: pytest.MonkeyPatch, field: str, tokens: object
 ) -> None:
     recorder: Final = _UsageRecorder()
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     handler: Final = create_autospec(AsyncHTTPHandler, instance=True)
     handler.post.return_value = httpx.Response(
         200,
@@ -178,9 +178,9 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     monkeypatch: pytest.MonkeyPatch, answer: str, private: bool, legacy: bool
 ) -> None:
     recorder: Final = _UsageRecorder()
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "typesafe/jev-accounting",
         {"input_cost_per_token": 0.001, "output_cost_per_token": 0.002},
     )
@@ -202,7 +202,7 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     provider: Final = HttpJevClassifierClient("test", "https://typesafe.test", handler)
     router: Final = ComplexityRouter(
         "jev-router",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {
             "classifier_type": "jev" if legacy else "oss_classifier",
             "jev_classifier_config" if legacy else "opensource_classifier_config": {
@@ -229,8 +229,8 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
         messages=[{"role": "user", "content": "private current ask"}],
         request_kwargs={
             "metadata": metadata,
-            "litellm_session_id": "session-a",
-            "litellm_trace_id": "trace-a",
+            "hangarllm_session_id": "session-a",
+            "hangarllm_trace_id": "trace-a",
             "turn_off_message_logging": private,
         },
     )
@@ -250,7 +250,7 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     event: Final = recorder.calls[0]
     assert event["response_cost"] == pytest.approx(0.007)
     assert event["model"] == "typesafe/jev-accounting"
-    params: Final = event["litellm_params"]
+    params: Final = event["hangarllm_params"]
     assert isinstance(params, Mapping)
     logged_metadata: Final = params["metadata"]
     assert isinstance(logged_metadata, Mapping)
@@ -263,8 +263,8 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     assert "user_api_key_budget_reservation" not in logged_metadata
     assert logged_metadata["user_api_key_auth"] == {}
     assert metadata["user_api_key_budget_reservation"] == {"reservation_id": "parent-reservation"}
-    assert params["litellm_session_id"] == "session-a"
-    assert event["litellm_trace_id"] == "trace-a"
+    assert params["hangarllm_session_id"] == "session-a"
+    assert event["hangarllm_trace_id"] == "trace-a"
     assert ("private current ask" in str(event["messages"])) is not private
     standard: Final = event["standard_logging_object"]
     assert isinstance(standard, Mapping)
@@ -284,7 +284,7 @@ async def test_jev_uses_bounded_history_and_separates_operator_instructions(incl
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     router: Final = ComplexityRouter(
         "jev-context",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {
             "classifier_type": "jev",
             "jev_classifier_config": {"instructions": "operator-only rubric"},
@@ -348,7 +348,7 @@ async def test_jev_encrypted_task_skips_provider_without_disabling_plaintext_cla
     handler.client = httpx.AsyncClient(transport=transport)
     router: Final = ComplexityRouter(
         "jev-encrypted",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {
             "classifier_type": "jev",
             "jev_classifier_config": {},
@@ -416,7 +416,7 @@ async def test_jev_cancellation_propagates_without_opening_timeout_breaker() -> 
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     router: Final = ComplexityRouter(
         "jev-cancellation",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {"classifier_type": "jev", "jev_classifier_config": {}, "tiers": {"SIMPLE": "cheap"}},
         jev_client=HttpJevClassifierClient("test", "https://typesafe.test", handler),
         derive_savings_baseline=False,
@@ -519,13 +519,13 @@ async def test_oss_routes_with_its_own_credentials_and_accounts_the_checkpoint(
     monkeypatch.setenv("TYPESAFE_API_KEY", "never-send-typesafe-key")
     monkeypatch.setenv(f"{provider.upper()}_API_BASE", env_base)
     monkeypatch.setenv(f"{provider.upper()}_API_KEY", "oss-env-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setitem(litellm.model_cost, f"{provider}/{model}", {"input_cost_per_token": 0.01})
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setitem(hangarllm.model_cost, f"{provider}/{model}", {"input_cost_per_token": 0.01})
     recorder: Final = _UsageRecorder(f"{provider}/{model}")
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     router: Final = ComplexityRouter(
         f"{provider}-route",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {
             "classifier_type": "jev" if legacy else "oss_classifier",
             "jev_classifier_config" if legacy else "opensource_classifier_config": {
@@ -586,13 +586,13 @@ async def test_databricks_routes_through_the_serving_endpoint_and_accounts_the_e
     monkeypatch.setenv("DATABRICKS_API_BASE", "https://workspace.test/serving-endpoints")
     monkeypatch.delenv("DATABRICKS_API_KEY", raising=False)
     monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-env-token")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setitem(litellm.model_cost, f"databricks/{endpoint}", {"input_cost_per_token": 0.01})
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setitem(hangarllm.model_cost, f"databricks/{endpoint}", {"input_cost_per_token": 0.01})
     recorder: Final = _UsageRecorder(f"databricks/{endpoint}")
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     router: Final = ComplexityRouter(
         "databricks-route",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {
             "classifier_type": "jev" if legacy else "oss_classifier",
             "jev_classifier_config" if legacy else "opensource_classifier_config": {
@@ -644,12 +644,12 @@ async def test_databricks_routes_through_ai_decide_without_a_model_field_and_acc
     monkeypatch.setenv("DATABRICKS_API_BASE", api_base)
     monkeypatch.delenv("DATABRICKS_API_KEY", raising=False)
     monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-env-token")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     recorder: Final = _UsageRecorder("databricks/ai_decide")
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     router: Final = ComplexityRouter(
         "databricks-route",
-        RoutingContext(litellm.Router(model_list=[])),
+        RoutingContext(hangarllm.Router(model_list=[])),
         {
             "classifier_type": "jev" if legacy else "oss_classifier",
             "jev_classifier_config" if legacy else "opensource_classifier_config": {
@@ -689,7 +689,7 @@ def test_databricks_without_a_base_or_key_fails_at_client_build(monkeypatch: pyt
     with pytest.raises(ValueError, match="DATABRICKS_API_BASE"):
         ComplexityRouter(
             "databricks-route",
-            RoutingContext(litellm.Router(model_list=[])),
+            RoutingContext(hangarllm.Router(model_list=[])),
             {
                 "classifier_type": "oss_classifier",
                 "opensource_classifier_config": {"provider": "databricks", "model": "ai_decide"},
@@ -742,7 +742,7 @@ def test_jev_api_base_without_its_own_key_is_rejected_so_the_environment_key_sta
 async def test_jev_connection_resolves_only_explicit_environment_references(
     monkeypatch: pytest.MonkeyPatch, legacy: bool, connection: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("JEV_CONNECTION_KEY", "resolved-key")
     monkeypatch.setenv("JEV_CONNECTION_BASE", "https://jev.test")
     monkeypatch.setenv("TYPESAFE_API_KEY", "default-key")
@@ -765,7 +765,7 @@ async def test_jev_connection_resolves_only_explicit_environment_references(
         "jev_classifier_config" if legacy else "opensource_classifier_config": {"model": "openjev-latest", **fields},
         "tiers": {"SIMPLE": "cheap", "COMPLEX": "strong"},
     }
-    classifier: Final = ComplexityRouter("env-router", litellm.Router(), config, derive_savings_baseline=False)
+    classifier: Final = ComplexityRouter("env-router", hangarllm.Router(), config, derive_savings_baseline=False)
     with respx.mock(assert_all_called=True) as upstream:
         route: Final = upstream.post(
             "https://default-jev.test/v1/systemone" if connection == "defaults" else "https://jev.test/v1/systemone"
@@ -802,7 +802,7 @@ def test_jev_missing_explicit_environment_reference_never_uses_provider_defaults
     ):
         ComplexityRouter(
             "env-router",
-            litellm.Router(),
+            hangarllm.Router(),
             {
                 "classifier_type": "jev",
                 "jev_classifier_config": {
@@ -865,7 +865,7 @@ def test_build_jev_request_includes_system_prompt_and_criteria() -> None:
 
 def test_jev_classifier_cost_uses_registry_pricing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "typesafe/jev-1.13.0",
         {"input_cost_per_token": 0.0001, "output_cost_per_token": 0.0002},
     )
@@ -878,7 +878,7 @@ def test_jev_classifier_cost_uses_registry_pricing(monkeypatch: pytest.MonkeyPat
 
 
 def test_jev_classifier_cost_is_none_without_registry_pricing() -> None:
-    assert "typesafe/jev-unpriced" not in litellm.model_cost
+    assert "typesafe/jev-unpriced" not in hangarllm.model_cost
     response: Final = JevSystemOneResponse(
         answers={"tier": _answer()},
         usage=JevUsage(input_tokens=3, output_tokens=4),
@@ -929,13 +929,13 @@ async def test_http_jev_classifier_client_posts_to_system_one() -> None:
 async def test_deployed_decision_classifier_uses_registered_connection(
     status_code: int, provider: str, model: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setitem(litellm.model_cost, f"{provider}/{model}", {"input_cost_per_token": 0.01})
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setitem(hangarllm.model_cost, f"{provider}/{model}", {"input_cost_per_token": 0.01})
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "decision-deployment",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"{provider}/{model}",
                     "api_key": "deployment-key",
                     "api_base": "https://decision.test/serving-endpoints"
@@ -1001,12 +1001,12 @@ def test_deployed_decision_classifier_rejects_connection_overrides(connection: M
 async def test_deployed_decision_classifier_preserves_failure_handling(
     failure: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "decision-deployment",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "typesafe/jev-latest",
                     "api_key": "test",
                     "api_base": "https://decision.test",
@@ -1050,7 +1050,7 @@ async def test_deployed_decision_classifier_preserves_failure_handling(
 
 
 def test_switching_to_deployed_classifier_does_not_copy_legacy_credentials() -> None:
-    from litellm.router_strategy.complexity_router.config import resolve_complexity_router_config_write
+    from hangarllm.router_strategy.complexity_router.config import resolve_complexity_router_config_write
 
     write: Final = resolve_complexity_router_config_write(
         {"classifier_type": "oss_classifier", "opensource_classifier_config": {"deployment_name": "registered"}},
@@ -1069,7 +1069,7 @@ def test_switching_to_deployed_classifier_does_not_copy_legacy_credentials() -> 
 async def test_jev_bounds_complete_input_without_changing_forwarded_messages(
     large_field: str, disable_counter: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_token_counter", disable_counter)
+    monkeypatch.setattr(hangarllm, "disable_token_counter", disable_counter)
     limit: Final = TypeSafeDecisionsConfig().get_input_limits("jev-latest", "typesafe", {}).max_question_tokens
     assert limit is not None
     rubric: Final = "Operator routing rubric " + "document the task category " * 500
@@ -1087,7 +1087,7 @@ async def test_jev_bounds_complete_input_without_changing_forwarded_messages(
     handler.client = httpx.AsyncClient()
     classifier: Final = ComplexityRouter(
         "bounded-classifier",
-        litellm.Router(model_list=[]),
+        hangarllm.Router(model_list=[]),
         {
             "classifier_type": "oss_classifier",
             "opensource_classifier_config": {"instructions": rubric},
@@ -1153,12 +1153,12 @@ async def test_jev_budget_uses_effective_headers_and_every_deployment(
     expected_status: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setitem(litellm.model_cost, "typesafe/jev-latest", deepcopy(litellm.model_cost["typesafe/jev-latest"]))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setitem(hangarllm.model_cost, "typesafe/jev-latest", deepcopy(hangarllm.model_cost["typesafe/jev-latest"]))
     header: Final = "TypeSafe-Danger-Zone-Long-Context"
     deployment: Final = {
         "model_name": "budget-model",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "typesafe/jev-latest",
             "api_key": "test",
             "api_base": "https://budget.test",
@@ -1168,15 +1168,15 @@ async def test_jev_budget_uses_effective_headers_and_every_deployment(
     }
     sibling: Final = {
         "model_name": "budget-model",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "databricks/unknown-budget-endpoint" if other_member == "unknown" else "typesafe/jev-latest",
             "api_key": "test",
             "api_base": "https://budget.test",
         },
     }
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[deployment, sibling] if other_member else [deployment],
-        default_litellm_params={"extra_headers": {header: default_header}} if default_header else {},
+        default_hangarllm_params={"extra_headers": {header: default_header}} if default_header else {},
         num_retries=0,
     )
     classifier: Final = ComplexityRouter(
@@ -1213,13 +1213,13 @@ async def test_jev_budget_uses_effective_headers_and_every_deployment(
 async def test_jev_untrimmable_rubric_uses_configured_fallback_without_a_provider_call(
     oversized_field: str, fallback: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setitem(litellm.model_cost, "typesafe/jev-latest", deepcopy(litellm.model_cost["typesafe/jev-latest"]))
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setitem(hangarllm.model_cost, "typesafe/jev-latest", deepcopy(hangarllm.model_cost["typesafe/jev-latest"]))
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "budget-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "typesafe/jev-latest",
                     "api_key": "test",
                     "api_base": "https://budget.test",
@@ -1281,7 +1281,7 @@ async def test_jev_open_breaker_preserves_input_budget_in_fallback_decision(fall
     handler.client = httpx.AsyncClient(transport=transport)
     classifier: Final = ComplexityRouter(
         "breaker-budget",
-        litellm.Router(model_list=[]),
+        hangarllm.Router(model_list=[]),
         {
             "classifier_type": "oss_classifier",
             "opensource_classifier_config": {},
@@ -1319,13 +1319,13 @@ async def test_jev_open_breaker_preserves_input_budget_in_fallback_decision(fall
 
 
 def test_jev_input_targets_still_takes_a_router_with_a_deprecation_warning() -> None:
-    from litellm.router_strategy.complexity_router.jev_classifier import jev_input_targets
+    from hangarllm.router_strategy.complexity_router.jev_classifier import jev_input_targets
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "decision-deployment",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                 "model_info": {"id": "d1", "max_input_tokens": 1234},
             }
         ]

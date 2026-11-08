@@ -8,12 +8,12 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import acompletion, completion
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.cloudflare.chat.transformation import CloudflareChatConfig
+import hangarllm
+from hangarllm import acompletion, completion
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.cloudflare.chat.transformation import CloudflareChatConfig
 from unittest.mock import AsyncMock, patch
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from typing import Any, Dict
 
 FAKE_API_BASE = "https://fake-cloudflare.example.com/client/v4/accounts/fake-acct/ai/v1"
@@ -23,10 +23,10 @@ FAKE_API_KEY = "fake-cf-api-key"
 @pytest.fixture
 def _cloudflare_httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
-    monkeypatch.setattr(litellm, "sync_transport", None, raising=False)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "sync_transport", None, raising=False)
     yield
     client_cache.flush_cache()
 
@@ -51,7 +51,7 @@ def test_get_complete_url_defaults_to_openai_compatible_endpoint(monkeypatch):
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1/chat/completions"
@@ -66,7 +66,7 @@ def test_get_complete_url_appends_chat_completions_to_explicit_base():
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1/chat/completions"
@@ -81,7 +81,7 @@ def test_get_complete_url_is_idempotent_for_full_base():
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1/chat/completions"
@@ -96,7 +96,7 @@ def test_get_complete_url_falls_back_to_account_id_when_base_is_empty(monkeypatc
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1/chat/completions"
@@ -112,7 +112,7 @@ def test_get_complete_url_raises_when_account_id_and_base_missing(monkeypatch):
             api_key="cf-key",
             model="@cf/meta/llama-2-7b-chat-int8",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -126,7 +126,7 @@ def test_get_complete_url_raises_when_account_id_is_empty(monkeypatch):
             api_key="cf-key",
             model="@cf/meta/llama-2-7b-chat-int8",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -138,7 +138,7 @@ def test_get_complete_url_migrates_legacy_ai_run_base():
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1/chat/completions"
@@ -165,7 +165,7 @@ def test_transform_request_passes_tools_through_in_openai_format():
         model="@cf/meta/llama-2-7b-chat-int8",
         messages=messages,
         optional_params={"tools": tools, "tool_choice": "auto"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -184,7 +184,7 @@ def test_validate_environment_requires_api_key():
             model="@cf/meta/llama-2-7b-chat-int8",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
         )
 
@@ -197,7 +197,7 @@ def test_validate_environment_sets_bearer_and_content_type():
         model="@cf/meta/llama-2-7b-chat-int8",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="cf-key",
     )
 
@@ -420,7 +420,7 @@ def _make_mock_response(json_data: Dict[str, Any]) -> MagicMock:
 
 @pytest.mark.parametrize("sync_mode", [False])
 def test_acompletion_cloudflare_stream(sync_mode, monkeypatch):
-    monkeypatch.setattr(litellm, "disable_hf_tokenizer_download", True)
+    monkeypatch.setattr(hangarllm, "disable_hf_tokenizer_download", True)
     messages = [{"role": "user", "content": "what llm are you"}]
     raw_chunks = _streaming_chunks()
 

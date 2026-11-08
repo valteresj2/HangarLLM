@@ -6,8 +6,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.mistral.chat.transformation import MistralConfig
+import hangarllm
+from hangarllm.llms.mistral.chat.transformation import MistralConfig
 
 REPO_ROOT = Path(__file__).parents[2]
 MODELS = ("mistral/mistral-large-4", "mistral/mistral-large-4-0")
@@ -16,21 +16,21 @@ MODELS = ("mistral/mistral-large-4", "mistral/mistral-large-4-0")
 @pytest.fixture(autouse=True)
 def local_model_cost_map(monkeypatch):
     """Never depend on the published cost map having this new model yet."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.mark.parametrize("model", MODELS)
 def test_metadata_and_backup(model):
     main = json.loads((REPO_ROOT / "model_prices_and_context_window.json").read_text())
-    backup = json.loads((REPO_ROOT / "litellm/model_prices_and_context_window_backup.json").read_text())
+    backup = json.loads((REPO_ROOT / "hangarllm/model_prices_and_context_window_backup.json").read_text())
     assert main[model] == backup[model] == main[MODELS[0]]
-    info = litellm.get_model_info(model)
-    assert info["litellm_provider"] == "mistral"
+    info = hangarllm.get_model_info(model)
+    assert info["hangarllm_provider"] == "mistral"
     assert info["mode"] == "chat"
     assert info["max_input_tokens"] == 1048576
     assert 0 < info["cache_read_input_token_cost"] < info["input_cost_per_token"] < info["output_cost_per_token"]
@@ -45,7 +45,7 @@ def test_metadata_and_backup(model):
         "supports_prompt_caching",
     ):
         assert info[capability] is True
-    assert litellm.get_llm_provider(model=model)[:2] == (model.split("/", 1)[1], "mistral")
+    assert hangarllm.get_llm_provider(model=model)[:2] == (model.split("/", 1)[1], "mistral")
 
 
 @pytest.mark.parametrize("model", MODELS)
@@ -58,18 +58,18 @@ def test_reasoning_effort(model, effort):
 
 @pytest.mark.parametrize("model", MODELS)
 def test_completion_cost(model):
-    info: Final = litellm.get_model_info(model)
+    info: Final = hangarllm.get_model_info(model)
     input_price: Final[float] = info["input_cost_per_token"]
     output_price: Final[float] = info["output_cost_per_token"]
     cache_read_price: Final[float] = info["cache_read_input_token_cost"]
-    uncached_response = litellm.ModelResponse(
+    uncached_response = hangarllm.ModelResponse(
         model=model.split("/", 1)[1],
         usage={"prompt_tokens": 1000, "completion_tokens": 100, "total_tokens": 1100},
     )
-    assert litellm.completion_cost(completion_response=uncached_response, model=model) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=uncached_response, model=model) == pytest.approx(
         1000 * input_price + 100 * output_price
     )
-    response = litellm.ModelResponse(
+    response = hangarllm.ModelResponse(
         model=model.split("/", 1)[1],
         usage={
             "prompt_tokens": 1000,
@@ -78,13 +78,13 @@ def test_completion_cost(model):
             "prompt_tokens_details": {"cached_tokens": 600},
         },
     )
-    assert litellm.completion_cost(completion_response=response, model=model) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response, model=model) == pytest.approx(
         400 * input_price + 600 * cache_read_price + 100 * output_price
     )
 
 
 def test_large_3_alias_is_not_retargeted():
-    info = litellm.get_model_info("mistral/mistral-large-latest")
+    info = hangarllm.get_model_info("mistral/mistral-large-latest")
     assert info["input_cost_per_token"] == 5e-07
     assert info["max_input_tokens"] == 262144
     assert not info["supports_reasoning"]
@@ -121,7 +121,7 @@ async def test_completion_contract(model, sync_mode, effort, respx_mock):
         "api_key": "test-key",
         "num_retries": 0,
     }
-    response = litellm.completion(**kwargs) if sync_mode else await litellm.acompletion(**kwargs)
+    response = hangarllm.completion(**kwargs) if sync_mode else await hangarllm.acompletion(**kwargs)
     assert response.choices[0].message.content == "Test answer"
     if effort == "high":
         assert response.choices[0].message.reasoning_content == "Test reasoning"
@@ -178,9 +178,9 @@ async def test_streaming_completion_contract(model, sync_mode, respx_mock):
         "num_retries": 0,
     }
     if sync_mode:
-        chunks = list(litellm.completion(**kwargs))
+        chunks = list(hangarllm.completion(**kwargs))
     else:
-        stream = await litellm.acompletion(**kwargs)
+        stream = await hangarllm.acompletion(**kwargs)
         chunks = [chunk async for chunk in stream]
     assert "".join(chunk.choices[0].delta.content or "" for chunk in chunks) == "Test answer"
     assert (

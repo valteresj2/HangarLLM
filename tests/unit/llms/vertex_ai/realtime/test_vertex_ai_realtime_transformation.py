@@ -16,10 +16,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import websockets.exceptions  # registers websockets.exceptions on the websockets namespace
 
-import litellm
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import OPENAI_TO_GEMINI_TTS_VOICES
-from litellm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
+import hangarllm
+from hangarllm.llms.vertex_ai.common_utils import get_vertex_base_url
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import OPENAI_TO_GEMINI_TTS_VOICES
+from hangarllm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
 
 # ---------------------------------------------------------------------------
 # Config unit tests
@@ -108,11 +108,11 @@ def test_vertex_requires_session_configuration_feature_flag(monkeypatch):
     )
 
     # Default remains backwards-compatible (auto setup on connect)
-    monkeypatch.setattr(litellm, "gemini_live_defer_setup", False, raising=False)
+    monkeypatch.setattr(hangarllm, "gemini_live_defer_setup", False, raising=False)
     assert cfg.requires_session_configuration() is True
 
     # Opt-in deferred setup for tool-injection flow
-    monkeypatch.setattr(litellm, "gemini_live_defer_setup", True, raising=False)
+    monkeypatch.setattr(hangarllm, "gemini_live_defer_setup", True, raising=False)
     assert cfg.requires_session_configuration() is False
 
 
@@ -146,13 +146,13 @@ _NATIVE_AUDIO_MODEL = "gemini-live-2.5-flash-preview-native-audio-09-2025"
 def patch_native_audio_cost_map_entry(monkeypatch):
     """Inject gemini_native_audio into the cost map for the test model.
 
-    litellm.model_cost is fetched from main branch at import time, so in CI
+    hangarllm.model_cost is fetched from main branch at import time, so in CI
     the field may not exist yet. Patch it locally so these unit tests remain
     self-contained and don't depend on the remote cost map state.
     """
-    entry = dict(litellm.model_cost.get(_NATIVE_AUDIO_MODEL, {}))
+    entry = dict(hangarllm.model_cost.get(_NATIVE_AUDIO_MODEL, {}))
     entry["gemini_native_audio"] = True
-    monkeypatch.setitem(litellm.model_cost, _NATIVE_AUDIO_MODEL, entry)
+    monkeypatch.setitem(hangarllm.model_cost, _NATIVE_AUDIO_MODEL, entry)
 
 
 def test_vertex_audio_only_live_model_coerces_text_modality_to_audio(
@@ -182,7 +182,7 @@ def test_vertex_audio_only_live_model_coerces_text_modality_to_audio(
 
 @pytest.mark.parametrize("drop_params", [False, True])
 def test_vertex_realtime_config_carries_drop_params(drop_params, patch_native_audio_cost_map_entry):
-    from litellm.llms.vertex_ai.realtime.transformation import vertex_realtime_config
+    from hangarllm.llms.vertex_ai.realtime.transformation import vertex_realtime_config
 
     cfg: Final = vertex_realtime_config(
         _NATIVE_AUDIO_MODEL,
@@ -334,8 +334,8 @@ async def test_vertex_realtime_text_in_text_out():
     Simulate a full text-in / text-out session through RealTimeStreaming using
     VertexAIRealtimeConfig for message translation.  All I/O is mocked.
     """
-    from litellm.litellm_core_utils.realtime_streaming import RealTimeStreaming
-    from litellm.litellm_core_utils.logging_worker import LoggingWorker
+    from hangarllm.hangarllm_core_utils.realtime_streaming import RealTimeStreaming
+    from hangarllm.hangarllm_core_utils.logging_worker import LoggingWorker
 
     cfg = VertexAIRealtimeConfig(
         access_token="fake-token",
@@ -387,7 +387,7 @@ async def test_vertex_realtime_text_in_text_out():
 
     logging_obj: Final = MagicMock(dispatch_success_handlers=AsyncMock(), dispatch_failure_handlers=AsyncMock())
     logging_worker: Final = LoggingWorker()
-    logging_obj.litellm_trace_id = "test-trace-id"
+    logging_obj.hangarllm_trace_id = "test-trace-id"
     logging_obj.pre_call = MagicMock()
     logging_obj.async_success_handler = AsyncMock()
     logging_obj.success_handler = MagicMock()
@@ -443,7 +443,7 @@ def test_vertex_warns_when_dropping_guardrail_turn_detection_update(caplog):
         "session": {"turn_detection": {"create_response": False}},
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         result = cfg.transform_realtime_request(
             json.dumps(session_update),
             "gemini-live-2.5-flash-preview-native-audio-09-2025",
@@ -472,7 +472,7 @@ def test_vertex_does_not_warn_when_dropping_non_guardrail_session_update(caplog)
         "session": {"instructions": "Be concise."},
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         cfg.transform_realtime_request(
             json.dumps(session_update),
             "gemini-live-2.5-flash-preview-native-audio-09-2025",
@@ -491,7 +491,7 @@ async def test_async_realtime_does_not_forward_client_query_params_to_vertex_bac
 ):
     import websockets
 
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     cfg = VertexAIRealtimeConfig(
         access_token="tok", project="my-proj", location="us-central1"
@@ -584,7 +584,7 @@ def test_vertex_native_audio_keeps_requested_voice(patch_native_audio_cost_map_e
 
 def test_google_ai_studio_native_audio_keeps_requested_voice(patch_native_audio_cost_map_entry):
     """Regression: AI Studio native-audio Live accepts speechConfig too, so the voice survives on both providers."""
-    from litellm.llms.gemini.realtime.transformation import GeminiRealtimeConfig
+    from hangarllm.llms.gemini.realtime.transformation import GeminiRealtimeConfig
 
     messages = GeminiRealtimeConfig().transform_realtime_request(
         json.dumps(

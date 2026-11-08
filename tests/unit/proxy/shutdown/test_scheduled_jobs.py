@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from litellm.proxy.shutdown.scheduled_jobs import (
+from hangarllm.proxy.shutdown.scheduled_jobs import (
     AwaitableAsyncIOExecutor,
     pause_scheduled_jobs,
     stop_in_flight_scheduler_jobs,
@@ -101,7 +101,7 @@ async def test_a_job_that_ignores_cancellation_is_abandoned_after_the_timeout(ca
     """A job that swallows CancelledError must not hold the pod past its termination grace period"""
     job = _Job(swallow_cancellation=True)
     async with _running_scheduler(job) as (scheduler, executor):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
             await stop_in_flight_scheduler_jobs(scheduler, executor, cancel_timeout_seconds=0.05)
 
         assert job.events == ["cancelled"]

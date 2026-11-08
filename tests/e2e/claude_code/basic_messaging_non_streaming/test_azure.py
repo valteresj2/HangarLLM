@@ -1,11 +1,11 @@
 """basic_messaging_non_streaming x Azure (Microsoft Foundry).
 
-Drive the real `claude` CLI in headless mode against a running LiteLLM
+Drive the real `claude` CLI in headless mode against a running HangarLLM
 proxy that routes Claude requests to Anthropic's models hosted in
 Microsoft Foundry on Azure, and report the outcome via `compat_result`.
 
 Anthropic announced Claude Haiku 4.5, Sonnet 4.5/4.6, and Opus 4.1/4.6/4.7
-in Microsoft Foundry on 2025-11-18; LiteLLM exposes them via the
+in Microsoft Foundry on 2025-11-18; HangarLLM exposes them via the
 `azure_ai/claude-*` provider prefix, which talks to Foundry's
 Anthropic-shape `/anthropic/v1/messages` endpoint.
 
@@ -29,7 +29,7 @@ import pytest
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from claude_code._basic_messaging import run_basic_messaging_cell
 
-# Per-model aliases registered in the LiteLLM proxy's routing config to
+# Per-model aliases registered in the HangarLLM proxy's routing config to
 # point at Microsoft Foundry's Anthropic deployments. The driver only
 # sends the alias; the proxy is the one that knows the upstream Foundry
 # resource URL and API key.
@@ -51,7 +51,7 @@ AZURE_MODELS = [
     )
 )
 def test_basic_messaging_non_streaming_azure(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a reply.
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a reply.
 
     "Basic messaging" means: send a single user prompt, receive any
     non-empty assistant text reply, no tools, no streaming, no thinking.

@@ -31,7 +31,7 @@ class ProviderCostQuirk:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BridgeCostParityTestCase:
     """One stored provider response billed through the provider's own API (`native`) and through a client API that
-    LiteLLM bridges into it (`bridged`). Both legs bill the one row unless `quirk` names the fields that differ."""
+    HangarLLM bridges into it (`bridged`). Both legs bill the one row unless `quirk` names the fields that differ."""
 
     native: CostTrackingTestCase
     bridged: CostTrackingTestCase
@@ -117,7 +117,7 @@ def bridge_pairs(
     known_bug: str | None = None,
 ) -> tuple[BridgeCostParityTestCase, ...]:
     """One parity pair per base and bridged endpoint: the same stored provider response and deployment, billed through
-    the base's own endpoint and through each client endpoint LiteLLM bridges into it. `deployment` pins both legs to a
+    the base's own endpoint and through each client endpoint HangarLLM bridges into it. `deployment` pins both legs to a
     deployment the base does not carry (an `openai/responses/` deployment for the chat -> Responses bridge)."""
     pinned: Final = tuple(
         base if deployment is None else base.model_copy(update={"deployment": deployment}) for base in bases

@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
+import hangarllm
 
 ADVISOR_TOOL = {
     "type": "advisor_20260301",
@@ -71,7 +71,7 @@ def _make_advisor_tool_use_response(
 
 
 def test_can_handle_edge_cases():
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -99,7 +99,7 @@ async def test_anthropic_native_interceptor_skipped():
     For provider=anthropic, can_handle() must return False.
     The interceptor must never call handle().
     """
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -115,7 +115,7 @@ async def test_anthropic_native_interceptor_skipped():
 @pytest.mark.asyncio
 async def test_loop_no_advisor_call():
     """Executor returns text on first try — no advisor call, loop exits immediately."""
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
         _call_messages_handler,
     )
@@ -124,7 +124,7 @@ async def test_loop_no_advisor_call():
     executor_response = _make_text_response(final_text)
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         new_callable=AsyncMock,
         return_value=executor_response,
     ) as mock_call:
@@ -157,7 +157,7 @@ async def test_loop_one_advisor_call():
     Executor calls advisor once → advisor responds → executor produces final text.
     Total calls: 3 (executor, advisor, executor-final).
     """
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -185,7 +185,7 @@ async def test_loop_one_advisor_call():
         return final_resp  # executor: final answer
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
@@ -217,7 +217,7 @@ async def test_loop_one_advisor_call():
 @pytest.mark.asyncio
 async def test_loop_max_uses_raises():
     """Loop exceeding max_uses must raise AdvisorMaxIterationsError."""
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorMaxIterationsError,
         AdvisorOrchestrationHandler,
     )
@@ -238,7 +238,7 @@ async def test_loop_max_uses_raises():
         return advisor_tool_use_resp
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
@@ -261,17 +261,17 @@ async def test_loop_max_uses_raises():
 @pytest.mark.asyncio
 async def test_loop_streaming_wraps_response():
     """stream=True: final response must be wrapped in FakeAnthropicMessagesStreamIterator."""
-    from litellm.llms.anthropic.messages.native.fake_stream_iterator import (
+    from hangarllm.llms.anthropic.messages.native.fake_stream_iterator import (
         FakeAnthropicMessagesStreamIterator,
     )
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
     executor_response = _make_text_response("Hello, world!")
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         new_callable=AsyncMock,
         return_value=executor_response,
     ):
@@ -307,7 +307,7 @@ async def test_prior_advisor_blocks_replaced_in_history():
     History containing server_tool_use + advisor_tool_result blocks gets
     collapsed to <advisor_feedback> text before forwarding to the executor.
     """
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -340,7 +340,7 @@ async def test_prior_advisor_blocks_replaced_in_history():
         return _make_text_response("Here is the efficient version.")
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
@@ -380,7 +380,7 @@ async def test_advisor_tool_translated_for_executor():
     """
     The executor must receive a regular tool definition (not advisor_20260301 type).
     """
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -392,7 +392,7 @@ async def test_advisor_tool_translated_for_executor():
         return _make_text_response("Done.")
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
@@ -422,7 +422,7 @@ async def test_advisor_tool_translated_for_executor():
 @pytest.mark.asyncio
 async def test_max_uses_zero_raises_on_first_advisor_call():
     """max_uses=0 must cause AdvisorMaxIterationsError on the first advisor call."""
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorMaxIterationsError,
         AdvisorOrchestrationHandler,
     )
@@ -434,7 +434,7 @@ async def test_max_uses_zero_raises_on_first_advisor_call():
         return advisor_tool_use_resp  # executor always tries to call advisor
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
@@ -457,7 +457,7 @@ async def test_max_uses_zero_raises_on_first_advisor_call():
 @pytest.mark.asyncio
 async def test_missing_advisor_model_raises_value_error():
     """handle() must raise ValueError when the advisor tool has no model field."""
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -483,8 +483,8 @@ async def test_missing_advisor_model_raises_value_error():
 @pytest.mark.asyncio
 async def test_max_uses_none_falls_back_to_default():
     """When max_uses is absent, the handler uses ADVISOR_MAX_USES from constants."""
-    import litellm.constants as _c
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    import hangarllm.constants as _c
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorMaxIterationsError,
         AdvisorOrchestrationHandler,
     )
@@ -498,7 +498,7 @@ async def test_max_uses_none_falls_back_to_default():
         return advisor_tool_use_resp
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
@@ -532,7 +532,7 @@ ADVISOR_TOOL_WITH_CREDS = {
 
 async def _run_advisor_and_capture_subcall_kwargs():
     """Run one advisor turn and return the kwargs of the advisor sub-call."""
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -557,11 +557,11 @@ async def _run_advisor_and_capture_subcall_kwargs():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
             side_effect=mock_call,
         ),
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
         ),
     ):
         h = AdvisorOrchestrationHandler()
@@ -581,7 +581,7 @@ async def test_advisor_creds_dropped_when_proxy_opt_in_disabled():
     """On the proxy without opt-in, the caller's advisor api_base/api_key must
     NOT reach the sub-call (would redirect it / leak the server key)."""
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
         return_value=False,
     ):
         captured = await _run_advisor_and_capture_subcall_kwargs()
@@ -593,7 +593,7 @@ async def test_advisor_creds_dropped_when_proxy_opt_in_disabled():
 async def test_advisor_creds_honored_when_proxy_opt_in_enabled():
     """With the admin opt-in, the documented clientside routing still works."""
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
         return_value=True,
     ):
         captured = await _run_advisor_and_capture_subcall_kwargs()
@@ -608,16 +608,16 @@ async def test_advisor_creds_honored_when_proxy_opt_in_enabled():
 
 
 def _fake_proxy_server(general_settings: Dict):
-    """A stand-in litellm.proxy.proxy_server module exposing general_settings.
+    """A stand-in hangarllm.proxy.proxy_server module exposing general_settings.
 
     The real proxy_server pulls in heavy optional deps that may be absent in a
     unit-test environment, so the gate's
-    ``from litellm.proxy.proxy_server import general_settings`` is satisfied by
+    ``from hangarllm.proxy.proxy_server import general_settings`` is satisfied by
     injecting this lightweight module into sys.modules.
     """
     import types
 
-    module = types.ModuleType("litellm.proxy.proxy_server")
+    module = types.ModuleType("hangarllm.proxy.proxy_server")
     module.general_settings = general_settings  # type: ignore[attr-defined]
     return module
 
@@ -626,7 +626,7 @@ def test_allow_client_side_advisor_credentials_reads_proxy_flag():
     """The gate mirrors the proxy's allow_client_side_credentials opt-in."""
     import sys
 
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _allow_client_side_advisor_credentials,
     )
 
@@ -639,7 +639,7 @@ def test_allow_client_side_advisor_credentials_reads_proxy_flag():
     for settings, expected in cases:
         with patch.dict(
             sys.modules,
-            {"litellm.proxy.proxy_server": _fake_proxy_server(settings)},
+            {"hangarllm.proxy.proxy_server": _fake_proxy_server(settings)},
         ):
             assert _allow_client_side_advisor_credentials() is expected
 
@@ -650,19 +650,19 @@ def test_allow_client_side_advisor_credentials_defaults_true_outside_proxy():
     import builtins
     import sys
 
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _allow_client_side_advisor_credentials,
     )
 
     real_import = builtins.__import__
 
     def _blocked_import(name, *args, **kwargs):
-        if name == "litellm.proxy.proxy_server":
+        if name == "hangarllm.proxy.proxy_server":
             raise ImportError("proxy server unavailable")
         return real_import(name, *args, **kwargs)
 
     with patch.dict(sys.modules):
-        sys.modules.pop("litellm.proxy.proxy_server", None)
+        sys.modules.pop("hangarllm.proxy.proxy_server", None)
         with patch.object(builtins, "__import__", _blocked_import):
             assert _allow_client_side_advisor_credentials() is True
 
@@ -674,25 +674,25 @@ def test_advisor_gate_propagates_non_import_errors():
     returning True."""
     import sys
 
-    from litellm.llms.anthropic.messages.native.interceptors import (
+    from hangarllm.llms.anthropic.messages.native.interceptors import (
         advisor,
     )
 
-    original = sys.modules.get("litellm.proxy.proxy_server")
+    original = sys.modules.get("hangarllm.proxy.proxy_server")
 
     class _Broken:
         def __getattr__(self, _name):
             raise RuntimeError("partial proxy boot")
 
-    sys.modules["litellm.proxy.proxy_server"] = _Broken()
+    sys.modules["hangarllm.proxy.proxy_server"] = _Broken()
     try:
         with pytest.raises(RuntimeError, match="partial proxy boot"):
             advisor._allow_client_side_advisor_credentials()
     finally:
         if original is None:
-            sys.modules.pop("litellm.proxy.proxy_server", None)
+            sys.modules.pop("hangarllm.proxy.proxy_server", None)
         else:
-            sys.modules["litellm.proxy.proxy_server"] = original
+            sys.modules["hangarllm.proxy.proxy_server"] = original
 
 
 @pytest.mark.asyncio
@@ -704,7 +704,7 @@ async def test_advisor_ignores_tool_credentials_when_clientside_disabled():
 
     with patch.dict(
         sys.modules,
-        {"litellm.proxy.proxy_server": _fake_proxy_server({"allow_client_side_credentials": False})},
+        {"hangarllm.proxy.proxy_server": _fake_proxy_server({"allow_client_side_credentials": False})},
     ):
         captured = await _run_advisor_and_capture_subcall_kwargs()
     assert captured["api_key"] is None
@@ -719,7 +719,7 @@ async def test_advisor_uses_tool_credentials_when_clientside_enabled():
 
     with patch.dict(
         sys.modules,
-        {"litellm.proxy.proxy_server": _fake_proxy_server({"allow_client_side_credentials": True})},
+        {"hangarllm.proxy.proxy_server": _fake_proxy_server({"allow_client_side_credentials": True})},
     ):
         captured = await _run_advisor_and_capture_subcall_kwargs()
     assert captured["api_key"] == "sk-other"
@@ -733,12 +733,12 @@ async def test_advisor_uses_tool_credentials_when_clientside_enabled():
 
 
 def test_resolve_advisor_credentials_returns_none_when_gate_closed():
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
         return_value=False,
     ):
         result = _resolve_advisor_credentials(ADVISOR_TOOL_WITH_CREDS)
@@ -746,18 +746,18 @@ def test_resolve_advisor_credentials_returns_none_when_gate_closed():
 
 
 def test_resolve_advisor_credentials_allows_api_key_without_api_base():
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     tool = {**ADVISOR_TOOL, "api_key": "sk-other"}
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
             return_value=True,
         ),
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
             side_effect=AssertionError("validate_url must not run without an api_base"),
         ),
     ):
@@ -766,13 +766,13 @@ def test_resolve_advisor_credentials_allows_api_key_without_api_base():
 
 
 def test_resolve_advisor_credentials_rejects_api_base_without_api_key():
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     tool = {**ADVISOR_TOOL, "api_base": "https://other.example"}
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
         return_value=True,
     ):
         with pytest.raises(ValueError, match="api_base"):
@@ -781,29 +781,29 @@ def test_resolve_advisor_credentials_rejects_api_base_without_api_key():
 
 @pytest.mark.parametrize("api_base", [None, "https://other.example"])
 def test_resolve_advisor_credentials_rejects_an_oidc_secret_reference_api_key(api_base):
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
-    tool = {**ADVISOR_TOOL, "api_key": "oidc/env/LITELLM_MASTER_KEY", "api_base": api_base}
-    proxy_settings: Final = {"litellm.proxy.proxy_server": _fake_proxy_server({"allow_client_side_credentials": True})}
+    tool = {**ADVISOR_TOOL, "api_key": "oidc/env/HANGARLLM_MASTER_KEY", "api_base": api_base}
+    proxy_settings: Final = {"hangarllm.proxy.proxy_server": _fake_proxy_server({"allow_client_side_credentials": True})}
     with patch.dict(sys.modules, proxy_settings):
-        with pytest.raises(litellm.BadRequestError, match="oidc/ secret reference"):
+        with pytest.raises(hangarllm.BadRequestError, match="oidc/ secret reference"):
             _resolve_advisor_credentials(tool)
 
 
 def test_resolve_advisor_credentials_validates_api_base_before_use():
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
             return_value=True,
         ),
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor.validate_url"
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor.validate_url"
         ) as mock_validate,
     ):
         result = _resolve_advisor_credentials(ADVISOR_TOOL_WITH_CREDS)
@@ -812,18 +812,18 @@ def test_resolve_advisor_credentials_validates_api_base_before_use():
 
 
 def test_resolve_advisor_credentials_propagates_ssrf_error():
-    from litellm.litellm_core_utils.url_utils import SSRFError
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.hangarllm_core_utils.url_utils import SSRFError
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
             return_value=True,
         ),
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
             side_effect=SSRFError("URL targets a blocked address"),
         ),
     ):
@@ -832,20 +832,20 @@ def test_resolve_advisor_credentials_propagates_ssrf_error():
 
 
 def test_resolve_advisor_credentials_skips_validation_when_url_validation_disabled():
-    import litellm
+    import hangarllm
 
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
             return_value=True,
         ),
-        patch.object(litellm, "user_url_validation", False),
+        patch.object(hangarllm, "user_url_validation", False),
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor.validate_url",
             side_effect=AssertionError("validate_url must not run when user_url_validation is disabled"),
         ),
     ):
@@ -856,8 +856,8 @@ def test_resolve_advisor_credentials_skips_validation_when_url_validation_disabl
 def test_resolve_advisor_credentials_blocks_real_cloud_metadata_address():
     """End-to-end (no mocked validate_url): a caller can't redirect the
     advisor sub-call to the cloud-metadata address even with an api_key."""
-    from litellm.litellm_core_utils.url_utils import SSRFError
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.hangarllm_core_utils.url_utils import SSRFError
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
@@ -867,7 +867,7 @@ def test_resolve_advisor_credentials_blocks_real_cloud_metadata_address():
         "api_base": "https://169.254.169.254/latest/meta-data/",
     }
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
         return_value=True,
     ):
         with pytest.raises(SSRFError):
@@ -875,13 +875,13 @@ def test_resolve_advisor_credentials_blocks_real_cloud_metadata_address():
 
 
 def test_resolve_advisor_credentials_rejects_non_https_api_base():
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     tool = {**ADVISOR_TOOL, "api_key": "sk-other", "api_base": "http://8.8.8.8"}
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
         return_value=True,
     ):
         with pytest.raises(ValueError, match="https"):
@@ -889,19 +889,19 @@ def test_resolve_advisor_credentials_rejects_non_https_api_base():
 
 
 def test_resolve_advisor_credentials_rejects_api_base_when_ssl_verify_disabled():
-    import litellm
+    import hangarllm
 
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     tool = {**ADVISOR_TOOL, "api_key": "sk-other", "api_base": "https://8.8.8.8"}
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
             return_value=True,
         ),
-        patch.object(litellm, "ssl_verify", False),
+        patch.object(hangarllm, "ssl_verify", False),
     ):
         with pytest.raises(ValueError, match="ssl_verify"):
             _resolve_advisor_credentials(tool)
@@ -910,13 +910,13 @@ def test_resolve_advisor_credentials_rejects_api_base_when_ssl_verify_disabled()
 def test_resolve_advisor_credentials_allows_real_public_ip_address():
     """End-to-end (no mocked validate_url): a globally-routable literal IP
     api_base is honored when paired with an api_key."""
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         _resolve_advisor_credentials,
     )
 
     tool = {**ADVISOR_TOOL, "api_key": "sk-other", "api_base": "https://8.8.8.8"}
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._allow_client_side_advisor_credentials",
         return_value=True,
     ):
         result = _resolve_advisor_credentials(tool)
@@ -934,11 +934,11 @@ def test_resolve_advisor_credentials_allows_real_public_ip_address():
 async def test_advisor_sub_call_failure_is_tagged():
     """When the advisor sub-call raises, the exception that propagates out of
     handle() must be tagged as an advisor orchestration failure."""
-    import litellm
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    import hangarllm
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
-    from litellm.router_utils.cooldown_handlers import is_advisor_orchestration_failure
+    from hangarllm.router_utils.cooldown_handlers import is_advisor_orchestration_failure
 
     call_count = 0
 
@@ -947,18 +947,18 @@ async def test_advisor_sub_call_failure_is_tagged():
         call_count += 1
         if call_count == 1:
             return _make_advisor_tool_use_response()  # executor: calls advisor
-        raise litellm.AuthenticationError(  # advisor sub-call: 401
+        raise hangarllm.AuthenticationError(  # advisor sub-call: 401
             message="x-api-key header is required",
             llm_provider="anthropic",
             model=model,
         )
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             await h.handle(
                 model="openai/gpt-4o-mini",
                 messages=MESSAGES,
@@ -977,11 +977,11 @@ async def test_advisor_max_iterations_failure_is_tagged():
     """When the orchestration loop exceeds max_uses (the executor keeps calling
     the advisor), the AdvisorMaxIterationsError must be tagged so the healthy
     executor deployment is not cooled down."""
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorMaxIterationsError,
         AdvisorOrchestrationHandler,
     )
-    from litellm.router_utils.cooldown_handlers import is_advisor_orchestration_failure
+    from hangarllm.router_utils.cooldown_handlers import is_advisor_orchestration_failure
 
     advisor_tool_with_max = {**ADVISOR_TOOL, "max_uses": 1}
 
@@ -993,7 +993,7 @@ async def test_advisor_max_iterations_failure_is_tagged():
         return _make_advisor_tool_use_response()
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
@@ -1014,25 +1014,25 @@ async def test_advisor_max_iterations_failure_is_tagged():
 async def test_executor_failure_is_not_tagged():
     """A failure of the executor call (not advisor orchestration) must NOT be
     tagged — the selected deployment genuinely failed and should cool down."""
-    import litellm
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    import hangarllm
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
-    from litellm.router_utils.cooldown_handlers import is_advisor_orchestration_failure
+    from hangarllm.router_utils.cooldown_handlers import is_advisor_orchestration_failure
 
     async def mock_call(model, messages, tools, stream, max_tokens, **kwargs):
-        raise litellm.AuthenticationError(  # executor (first call) fails
+        raise hangarllm.AuthenticationError(  # executor (first call) fails
             message="invalid deployment credentials",
             llm_provider="openai",
             model=model,
         )
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()
-        with pytest.raises(litellm.AuthenticationError) as exc_info:
+        with pytest.raises(hangarllm.AuthenticationError) as exc_info:
             await h.handle(
                 model="openai/gpt-4o-mini",
                 messages=MESSAGES,
@@ -1057,17 +1057,17 @@ def _router_with_advisor_deployment(
 ):
     """Build a Router whose only deployment is the advisor model on Foundry.
 
-    The Router resolves ``litellm.anthropic_messages`` per call, so each test
+    The Router resolves ``hangarllm.anthropic_messages`` per call, so each test
     patches it with a recorder around the handler call; the Router then
     exercises the real deployment-resolution path and records what it dispatched.
     """
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": advisor_model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": deployment_model or f"azure_ai/{advisor_model}",
                     "api_base": "http://127.0.0.1:1/foundry",
                     "api_key": "fake-foundry-key",
@@ -1081,8 +1081,8 @@ def _router_with_advisor_deployment(
 
 @pytest.mark.asyncio
 async def test_advisor_sub_call_routes_through_proxy_router():
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -1105,11 +1105,11 @@ async def test_advisor_sub_call_routes_through_proxy_router():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
             side_effect=mock_call,
         ),
         patch.object(proxy_server, "llm_router", router),
-        patch("litellm.anthropic_messages", new=recorder),
+        patch("hangarllm.anthropic_messages", new=recorder),
     ):
         h = AdvisorOrchestrationHandler()
         result = await h.handle(
@@ -1143,8 +1143,8 @@ async def test_advisor_sub_call_routes_through_proxy_router():
 )
 async def test_advisor_sub_call_routes_through_router_for_alias_and_wildcard(router_kwargs, advisor_model):
     """Alias and wildcard advisor models resolve through the router like exact model_list matches."""
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -1167,11 +1167,11 @@ async def test_advisor_sub_call_routes_through_router_for_alias_and_wildcard(rou
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
             side_effect=mock_call,
         ),
         patch.object(proxy_server, "llm_router", router),
-        patch("litellm.anthropic_messages", new=recorder),
+        patch("hangarllm.anthropic_messages", new=recorder),
     ):
         h = AdvisorOrchestrationHandler()
         await h.handle(
@@ -1193,8 +1193,8 @@ async def test_advisor_sub_call_routes_through_router_for_alias_and_wildcard(rou
 @pytest.mark.asyncio
 async def test_advisor_sub_call_bypasses_router_for_unconfigured_model():
     """An advisor model the router doesn't know about keeps the SDK-level path."""
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -1219,11 +1219,11 @@ async def test_advisor_sub_call_bypasses_router_for_unconfigured_model():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
             side_effect=mock_call,
         ),
         patch.object(proxy_server, "llm_router", router),
-        patch("litellm.anthropic_messages", new=recorder),
+        patch("hangarllm.anthropic_messages", new=recorder),
     ):
         h = AdvisorOrchestrationHandler()
         await h.handle(
@@ -1242,9 +1242,9 @@ async def test_advisor_sub_call_bypasses_router_for_unconfigured_model():
 @pytest.mark.asyncio
 async def test_advisor_sub_call_client_override_bypasses_router():
     """A caller-supplied api_key/api_base override must not be re-routed."""
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    import hangarllm
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -1275,13 +1275,13 @@ async def test_advisor_sub_call_client_override_bypasses_router():
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
             side_effect=mock_call,
         ),
         patch.object(proxy_server, "llm_router", router),
-        patch("litellm.anthropic_messages", new=recorder),
+        patch("hangarllm.anthropic_messages", new=recorder),
         patch.dict(proxy_server.general_settings, {"allow_client_side_credentials": True}),
-        patch.object(litellm, "user_url_validation", False),
+        patch.object(hangarllm, "user_url_validation", False),
     ):
         h = AdvisorOrchestrationHandler()
         await h.handle(
@@ -1311,7 +1311,7 @@ async def test_advisor_sub_call_client_override_bypasses_router():
 
 @pytest.mark.asyncio
 async def test_advisor_context_excludes_in_sequence_system_rows():
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorOrchestrationHandler,
     )
 
@@ -1331,7 +1331,7 @@ async def test_advisor_context_excludes_in_sequence_system_rows():
         return _make_text_response("Final answer.")
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_call,
     ):
         h = AdvisorOrchestrationHandler()

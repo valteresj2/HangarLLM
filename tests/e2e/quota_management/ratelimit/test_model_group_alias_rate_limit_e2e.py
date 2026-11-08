@@ -10,7 +10,7 @@ blocked on the other spelling inside the same window; each test in this file
 exhausts the budget on one name and asserts the other name 429s.
 
 All calls of one test must land inside a single window
-(LITELLM_RATE_LIMIT_WINDOW_SIZE, 60s default), which real chat latency
+(HANGARLLM_RATE_LIMIT_WINDOW_SIZE, 60s default), which real chat latency
 comfortably allows.
 """
 

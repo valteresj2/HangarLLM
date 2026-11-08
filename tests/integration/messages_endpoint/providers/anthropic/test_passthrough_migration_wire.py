@@ -21,7 +21,7 @@ _KEY: Final = "synthetic-anthropic-key"
 _PROXY_CONFIG: Final = (
     "model_list: []\n"
     "general_settings:\n"
-    "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+    "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
     "  database_url: os.environ/DATABASE_URL\n"
     "  store_model_in_db: true\n"
     "  disable_spend_logs: false\n"
@@ -106,7 +106,7 @@ def _messages_are_objects(body: Mapping[str, JsonValue]) -> bool:
 _SPEND_COLUMNS: Final = (
     "SELECT request_id, status, call_type, prompt_tokens, completion_tokens, total_tokens, spend, request_tags, "
     'end_user, api_base, custom_llm_provider, model, cache_hit, ("startTime" <= "endTime") AS times_ordered '
-    'FROM "LiteLLM_SpendLogs" '
+    'FROM "HangarLLM_SpendLogs" '
 )
 
 
@@ -200,7 +200,7 @@ def test_passthrough_basic_completion_spend_row_v1_messages(gateway: Gateway) ->
         body: Final = json.loads(request.body)
         assert body["model"] == _MODEL
         assert body["messages"] == [{"role": "user", "content": prompt}]
-        assert "litellm_metadata" not in body
+        assert "hangarllm_metadata" not in body
         return Reply(body=json.dumps(_message(f"msg_{marker}")).encode())
 
     with _upstream(respond) as wire, gateway.scenario() as scenario:
@@ -212,7 +212,7 @@ def test_passthrough_basic_completion_spend_row_v1_messages(gateway: Gateway) ->
                 "model": model,
                 "max_tokens": 100,
                 "messages": [{"role": "user", "content": prompt}],
-                "litellm_metadata": {"tags": [f"{marker}-1", f"{marker}-2"], "user": f"end-user-{marker}"},
+                "hangarllm_metadata": {"tags": [f"{marker}-1", f"{marker}-2"], "user": f"end-user-{marker}"},
             },
         )
         assert response.status_code == 200, response.text
@@ -243,7 +243,7 @@ def test_passthrough_streaming_spend_row_v1_messages(gateway: Gateway) -> None:
                 "max_tokens": 100,
                 "stream": True,
                 "messages": [{"role": "user", "content": f"say hello {marker}"}],
-                "litellm_metadata": {"tags": [f"{marker}-1", f"{marker}-2"], "user": f"end-user-{marker}"},
+                "hangarllm_metadata": {"tags": [f"{marker}-1", f"{marker}-2"], "user": f"end-user-{marker}"},
             },
         )
         assert "hello stream" in text
@@ -265,7 +265,7 @@ def test_passthrough_wildcard_model_strips_provider_prefix(gateway: Gateway) -> 
             "/model/new",
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {"model": "anthropic/*", "api_base": wire.url, "api_key": _KEY},
+                "hangarllm_params": {"model": "anthropic/*", "api_base": wire.url, "api_key": _KEY},
             },
         )
         model_info: Final = created["model_info"]
@@ -403,7 +403,7 @@ def test_native_passthrough_spend_rows_record_usage_tags_and_spend(gateway: Gate
 
     def respond(request: Request) -> Reply:
         body: Final = json.loads(request.body)
-        assert "litellm_metadata" not in body
+        assert "hangarllm_metadata" not in body
         if body.get("stream") is True:
             return Reply(content_type="text/event-stream", chunks=_stream_chunks(stream_id))
         return Reply(body=json.dumps(_message(completion_id)).encode())
@@ -427,7 +427,7 @@ def test_native_passthrough_spend_rows_record_usage_tags_and_spend(gateway: Gate
                 "model": _MODEL,
                 "max_tokens": 10,
                 "messages": [{"role": "user", "content": "Say 'hello test' and nothing else"}],
-                "litellm_metadata": {"tags": [f"{marker}-1", f"{marker}-2"]},
+                "hangarllm_metadata": {"tags": [f"{marker}-1", f"{marker}-2"]},
             },
             key=completion_key,
         )
@@ -441,7 +441,7 @@ def test_native_passthrough_spend_rows_record_usage_tags_and_spend(gateway: Gate
                 "max_tokens": 10,
                 "stream": True,
                 "messages": [{"role": "user", "content": "Say 'hello stream test' and nothing else"}],
-                "litellm_metadata": {"tags": [f"{marker}-s1", f"{marker}-s2"], "user": f"end-user-{marker}"},
+                "hangarllm_metadata": {"tags": [f"{marker}-s1", f"{marker}-s2"], "user": f"end-user-{marker}"},
             },
             key=stream_key,
         )
@@ -516,19 +516,19 @@ def _cost_config(wire_url: str) -> str:
     return (
         "model_list:\n"
         "  - model_name: amsg\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         f"      model: anthropic/{_MODEL}\n"
         f"      api_base: {wire_url}\n"
         f"      api_key: {_KEY}\n"
         "  - model_name: omsg\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         "      model: openai/gpt-4o-mini\n"
         f"      api_base: {wire_url}\n"
         "      api_key: synthetic-openai-key\n"
-        "litellm_settings:\n"
+        "hangarllm_settings:\n"
         "  include_cost_in_streaming_usage: true\n"
         "general_settings:\n"
-        "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+        "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
         "  database_url: os.environ/DATABASE_URL\n"
         "  store_model_in_db: true\n"
         "  disable_spend_logs: false\n"
@@ -580,7 +580,7 @@ def test_streaming_cost_injected_into_usage_for_openai_chat_completions_bridge(
         owned_proxy(
             gateway,
             tmp_path,
-            {"LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES": "true"},
+            {"HANGARLLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES": "true"},
             config=_owned_config(tmp_path, _cost_config(wire.url)),
         ) as candidate,
     ):

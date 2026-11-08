@@ -11,9 +11,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
-from litellm.types.utils import ModelResponseStream, Usage
+import hangarllm
+from hangarllm.router_core import RouterCore
+from hangarllm.types.utils import ModelResponseStream, Usage
 from tests.unit.test_router.core.scripted_host import (
     ScriptedHost,
     bad_request,
@@ -147,7 +147,7 @@ async def test_a_responses_error_that_is_not_a_mid_stream_error_flushes_held_eve
     core: Final = build(make_core)
     stream: Final = await core.aresponses(model="a", input="hi", stream=True)  # pyright: ignore[reportAttributeAccessIssue]
     seen: list[object] = []
-    with pytest.raises(litellm.BadRequestError, match="plain"):
+    with pytest.raises(hangarllm.BadRequestError, match="plain"):
         await drain_into(stream, seen)
     assert [getattr(event, "type") for event in seen] == ["response.created", "response.in_progress"]
     assert host.deployments_called() == ["a"]
@@ -156,7 +156,7 @@ async def test_a_responses_error_that_is_not_a_mid_stream_error_flushes_held_eve
 async def test_a_responses_stream_fallback_that_answers_without_a_stream_yields_that_response(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
-    from litellm.exceptions import MidStreamFallbackError
+    from hangarllm.exceptions import MidStreamFallbackError
 
     cut: Final = MidStreamFallbackError(
         message="stream cut",

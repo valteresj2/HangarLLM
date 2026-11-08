@@ -42,23 +42,23 @@ _GENAI_B3_KEYS_WITHOUT_BAGGAGE: Final = frozenset(
         "gen_ai.usage.output_tokens",
         "gen_ai.usage.prompt_tokens",
         "gen_ai.usage.total_tokens",
-        "litellm.api_key.hash",
-        "litellm.cache_hit",
-        "litellm.call_id",
-        "litellm.call_type",
-        "litellm.cost.discount_amount",
-        "litellm.cost.discount_percent",
-        "litellm.cost.input",
-        "litellm.cost.margin_fixed_amount",
-        "litellm.cost.margin_percent",
-        "litellm.cost.margin_total_amount",
-        "litellm.cost.original",
-        "litellm.cost.output",
-        "litellm.cost.tool_usage",
-        "litellm.cost.total",
-        "litellm.provider.model",
-        "litellm.request.route",
-        "litellm.request.tools.declared",
+        "hangarllm.api_key.hash",
+        "hangarllm.cache_hit",
+        "hangarllm.call_id",
+        "hangarllm.call_type",
+        "hangarllm.cost.discount_amount",
+        "hangarllm.cost.discount_percent",
+        "hangarllm.cost.input",
+        "hangarllm.cost.margin_fixed_amount",
+        "hangarllm.cost.margin_percent",
+        "hangarllm.cost.margin_total_amount",
+        "hangarllm.cost.original",
+        "hangarllm.cost.output",
+        "hangarllm.cost.tool_usage",
+        "hangarllm.cost.total",
+        "hangarllm.provider.model",
+        "hangarllm.request.route",
+        "hangarllm.request.tools.declared",
         "llm.request.functions.0.description",
         "llm.request.functions.0.name",
         "llm.request.functions.0.parameters",
@@ -66,7 +66,7 @@ _GENAI_B3_KEYS_WITHOUT_BAGGAGE: Final = frozenset(
         "server.port",
     }
 )
-_GENAI_B3_KEYS_WITH_BAGGAGE: Final = _GENAI_B3_KEYS_WITHOUT_BAGGAGE | frozenset({"litellm.metadata.trace_marker"})
+_GENAI_B3_KEYS_WITH_BAGGAGE: Final = _GENAI_B3_KEYS_WITHOUT_BAGGAGE | frozenset({"hangarllm.metadata.trace_marker"})
 _LANGFUSE_B3_KEYS: Final = frozenset(
     {
         "gen_ai.input.messages",
@@ -95,23 +95,23 @@ _LANGFUSE_B3_KEYS: Final = frozenset(
         "langfuse.observation.output",
         "langfuse.observation.type",
         "langfuse.observation.usage_details",
-        "litellm.api_key.hash",
-        "litellm.cache_hit",
-        "litellm.call_id",
-        "litellm.call_type",
-        "litellm.cost.discount_amount",
-        "litellm.cost.discount_percent",
-        "litellm.cost.input",
-        "litellm.cost.margin_fixed_amount",
-        "litellm.cost.margin_percent",
-        "litellm.cost.margin_total_amount",
-        "litellm.cost.original",
-        "litellm.cost.output",
-        "litellm.cost.tool_usage",
-        "litellm.cost.total",
-        "litellm.provider.model",
-        "litellm.request.route",
-        "litellm.request.tools.declared",
+        "hangarllm.api_key.hash",
+        "hangarllm.cache_hit",
+        "hangarllm.call_id",
+        "hangarllm.call_type",
+        "hangarllm.cost.discount_amount",
+        "hangarllm.cost.discount_percent",
+        "hangarllm.cost.input",
+        "hangarllm.cost.margin_fixed_amount",
+        "hangarllm.cost.margin_percent",
+        "hangarllm.cost.margin_total_amount",
+        "hangarllm.cost.original",
+        "hangarllm.cost.output",
+        "hangarllm.cost.tool_usage",
+        "hangarllm.cost.total",
+        "hangarllm.provider.model",
+        "hangarllm.request.route",
+        "hangarllm.request.tools.declared",
         "llm.request.functions.0.description",
         "llm.request.functions.0.name",
         "llm.request.functions.0.parameters",
@@ -134,7 +134,7 @@ _B3_BAGGAGE_CALLBACKS: Final = frozenset({"signoz", "newrelic", "levo", "agentop
 _B4_ATTRIBUTE_KEYS: Final = frozenset(
     {
         "input.value",
-        "litellm.trace_id",
+        "hangarllm.trace_id",
         "llm.cost.total",
         "llm.input_messages.0.message.content",
         "llm.input_messages.0.message.role",
@@ -189,7 +189,7 @@ def _assert_openinference(attributes: dict[str, str], marker: str) -> None:
         attributes["llm.output_messages.0.message.tool_calls.0.tool_call.function.arguments"] == '{"city": "Paris"}'
     ), attributes
     assert _json_object(attributes["metadata"].encode()) == {"trace_marker": marker}, attributes
-    assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+    assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
     assert _json_messages(attributes["output.value"]) == [
         {
             "role": "assistant",
@@ -299,14 +299,14 @@ def test_arize_otel_v2_b3_non_openinference_callback_family(callback: str, gatew
         assert _json_object(response.content) == _chat_caller_response(_chat_response(marker), rig.model), response.text
         attributes: Final = _matching_genai_marker_span(rig.destination, marker)
         assert frozenset(attributes) == _B3_ATTRIBUTE_KEYS[callback], attributes
-        assert attributes["litellm.cache_hit"] == "False", attributes
+        assert attributes["hangarllm.cache_hit"] == "False", attributes
         assert "metadata" not in attributes, attributes
         assert not any(".tool_calls." in key for key in attributes), attributes
         baggage: Final = tuple(
-            sorted((key, value) for key, value in attributes.items() if key.startswith("litellm.metadata."))
+            sorted((key, value) for key, value in attributes.items() if key.startswith("hangarllm.metadata."))
         )
         expected_baggage: Final = (
-            (("litellm.metadata.trace_marker", marker),) if callback in _B3_BAGGAGE_CALLBACKS else ()
+            (("hangarllm.metadata.trace_marker", marker),) if callback in _B3_BAGGAGE_CALLBACKS else ()
         )
         assert baggage == expected_baggage, attributes
 
@@ -340,7 +340,7 @@ def test_arize_otel_v2_b3_langfuse_carries_metadata_baggage(gateway: Gateway, tm
         assert response.status_code == 200, response.text
         assert _json_object(response.content) == _chat_caller_response(_chat_response(marker), rig.model), response.text
         attributes: Final = _matching_genai_marker_span(rig.destination, marker)
-        assert attributes["litellm.metadata.trace_marker"] == marker, attributes
+        assert attributes["hangarllm.metadata.trace_marker"] == marker, attributes
 
 
 def test_arize_otel_v2_b4_legacy_otel_is_unchanged(gateway: Gateway, tmp_path: Path) -> None:
@@ -362,8 +362,8 @@ def test_arize_otel_v2_b4_legacy_otel_is_unchanged(gateway: Gateway, tmp_path: P
         upstream,
         callbacks=("arize",),
         callback_settings={"otel": {"exporter": "http/protobuf", "endpoint": "unused"}},
-        remove_environment=("LITELLM_OTEL_V2",),
-        disabled_environment=("LITELLM_OTEL_V2",),
+        remove_environment=("HANGARLLM_OTEL_V2",),
+        disabled_environment=("HANGARLLM_OTEL_V2",),
     ) as rig:
         response: Final = _request(rig.proxy, rig.model, marker)
         assert response.status_code == 200, response.text

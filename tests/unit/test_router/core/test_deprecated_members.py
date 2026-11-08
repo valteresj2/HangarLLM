@@ -1,5 +1,5 @@
 """
-The deprecated Router members (``DeprecatedRouterMembers``, litellm/router_deprecated.py) on a Router
+The deprecated Router members (``DeprecatedRouterMembers``, hangarllm/router_deprecated.py) on a Router
 over each core: every old attribute reads what the Python core's ``_core_<name>`` holds, through the
 entry point named in its DeprecationWarning, and the old writes have the Python core's effect.
 """
@@ -10,23 +10,23 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.litellm_core_utils.core_helpers import as_str_mapping
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.router_cooldowns import RouterCooldownStore
-from litellm.router import Router
-from litellm.router_api import SETTING_FIELDS, ChangeSet
-from litellm.router_core import RouterCore
-from litellm.router_utils.cooldown_cache import CooldownCache
-from litellm.router_utils.kubernetes_pod_discovery import KubernetesPodDiscovery
-from litellm.types.router import AllowedFailsPolicy, Deployment, RouterGeneralSettings, RoutingContext
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.hangarllm_core_utils.core_helpers import as_str_mapping
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.router_cooldowns import RouterCooldownStore
+from hangarllm.router import Router
+from hangarllm.router_api import SETTING_FIELDS, ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.router_utils.cooldown_cache import CooldownCache
+from hangarllm.router_utils.kubernetes_pod_discovery import KubernetesPodDiscovery
+from hangarllm.types.router import AllowedFailsPolicy, Deployment, RouterGeneralSettings, RoutingContext
 from tests.unit.test_router.core.registry_helpers import MESSAGES, MakeCore, ids, team_deployment
 from tests.unit.test_router.core.scripted_host import deployment
 
 
 def as_router(core: RouterCore) -> Router:
-    """A ``litellm.Router`` facade over ``core``, as ``Router.from_config`` attaches the core it builds."""
+    """A ``hangarllm.Router`` facade over ``core``, as ``Router.from_config`` attaches the core it builds."""
     router: Final = Router.__new__(Router)
     router._attach(core)  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType]  # the facade's own attach, as from_config calls it
     return router
@@ -66,11 +66,11 @@ _CONFIGURED: Final[dict[str, object]] = {  # mutable-ok: constructor arguments, 
     "enable_tag_filtering": True,
     "tag_filtering_match_any": False,
     "tag_routing_prefix": "x-",
-    "default_litellm_params": {"metadata": {"k": "v"}},
+    "default_hangarllm_params": {"metadata": {"k": "v"}},
     "routing_strategy": "least-busy",
     "default_max_parallel_requests": 5,
-    "guardrail_list": [{"guardrail_name": "g", "litellm_params": {"guardrail": "x"}}],
-    "search_tools": [{"search_tool_name": "s", "litellm_params": {"search_provider": "tavily"}}],
+    "guardrail_list": [{"guardrail_name": "g", "hangarllm_params": {"guardrail": "x"}}],
+    "search_tools": [{"search_tool_name": "s", "hangarllm_params": {"search_provider": "tavily"}}],
     "health_check_ignore_transient_errors": True,
     "enable_health_check_routing": True,
     "background_health_check_model_groups": ["gpt"],
@@ -85,7 +85,7 @@ _CONFIGURED_SETTINGS: Final[dict[str, object]] = {  # mutable-ok: expected value
     "context_window_fallbacks": [{"gpt": ["claude"]}],
     "content_policy_fallbacks": [{"claude": ["gpt"]}],
     "default_deployment": None,
-    "default_litellm_params": {"timeout": None, "max_retries": 0, "metadata": {"k": "v", "caching_groups": None}},
+    "default_hangarllm_params": {"timeout": None, "max_retries": 0, "metadata": {"k": "v", "caching_groups": None}},
     "default_max_parallel_requests": 5,
     "cooldown_time": 7,
     "allowed_fails": 2,
@@ -103,8 +103,8 @@ _CONFIGURED_SETTINGS: Final[dict[str, object]] = {  # mutable-ok: expected value
     "provider_default_deployment_ids": ["w"],
     "fallback_access_check": None,
     "fallback_budget_check": None,
-    "search_tools": [{"search_tool_name": "s", "litellm_params": {"search_provider": "tavily"}}],
-    "guardrail_list": [{"guardrail_name": "g", "litellm_params": {"guardrail": "x"}}],
+    "search_tools": [{"search_tool_name": "s", "hangarllm_params": {"search_provider": "tavily"}}],
+    "guardrail_list": [{"guardrail_name": "g", "hangarllm_params": {"guardrail": "x"}}],
     "cache_responses": True,
 }
 
@@ -143,7 +143,7 @@ def test_default_settings_read_as_the_python_cores_defaults(make_core: MakeCore)
     assert read(router, "cooldown_time") == 5
     assert read(router, "allowed_fails") == 3
     assert read(router, "fallbacks") is None
-    assert read(router, "default_litellm_params") == {
+    assert read(router, "default_hangarllm_params") == {
         "timeout": None,
         "max_retries": 0,
         "metadata": {"caching_groups": None},
@@ -312,7 +312,7 @@ def test_a_routing_state_write_is_what_health_reads(make_core: MakeCore) -> None
 
 
 def test_an_assigned_slack_alerting_logger_is_the_routers_observer(make_core: MakeCore) -> None:
-    from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+    from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
 
     router: Final = as_router(make_core(model_list=[deployment("gpt", "a")]))
     with (
@@ -397,7 +397,7 @@ def test_settings_methods_answer_through_settings(make_core: MakeCore) -> None:
     assert _call(router, "get_settings") == dict(router.settings().as_dict())
     assert _call(router, "get_available_guardrail", "g") == {
         "guardrail_name": "g",
-        "litellm_params": {"guardrail": "x"},
+        "hangarllm_params": {"guardrail": "x"},
     }
     with (
         pytest.raises(ValueError, match="No guardrail found with name: nope"),
@@ -443,7 +443,7 @@ def test_the_priority_split_answers_through_health(make_core: MakeCore) -> None:
     assert _call(router, "split_request_priority", "gpt", {"x": 1}) == (2, {"x": 1})
     assert router.health().priority_header_fields("gpt", {}, "5") == {"priority": 5}
     assert router.health().priority_header_fields("gpt", {}, None) == {}
-    with pytest.raises(litellm.BadRequestError, match="priority must be an integer, got str 'bad'"):
+    with pytest.raises(hangarllm.BadRequestError, match="priority must be an integer, got str 'bad'"):
         router.health().split_priority("gpt", {"priority": "bad"})
 
 
@@ -473,7 +473,7 @@ async def test_the_pre_routing_hook_answers_through_the_routing_context(make_cor
 def _complexity_marker() -> dict[str, object]:  # mutable-ok: a model_list entry
     return {
         "model_name": "smart",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"tiers": {"SIMPLE": "small", "MEDIUM": "big", "COMPLEX": "big"}},
             "complexity_router_default_model": "big",
@@ -521,7 +521,7 @@ def test_arming_the_read_prefetch_without_a_request_batch_does_nothing(make_core
 
 
 def test_binding_to_request_logging_binds_through_observe(make_core: MakeCore) -> None:
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     router: Final = as_router(make_core(model_list=[deployment("gpt", "a")]))
     logging_obj: Final = Logging(
@@ -530,7 +530,7 @@ def test_binding_to_request_logging_binds_through_observe(make_core: MakeCore) -
         stream=False,
         call_type="acompletion",
         start_time=datetime.now(),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
     )
     assert _call(router, "bind_to_request_logging", logging_obj) is None
@@ -546,7 +546,7 @@ def test_binding_to_request_logging_binds_through_observe(make_core: MakeCore) -
 
 @pytest.mark.asyncio
 async def test_assigned_routing_groups_route_from_the_next_call(make_core: MakeCore) -> None:
-    from litellm.types.router import RoutingGroup
+    from hangarllm.types.router import RoutingGroup
 
     router: Final = as_router(make_core(model_list=[deployment("gpt", "a"), deployment("claude", "c")]))
     with pytest.raises(Exception, match="grp"):
@@ -619,7 +619,7 @@ class _TaggingDiscovery:
 async def test_a_custom_strategy_resolves_pods_through_the_discovery_bound_when_registered(
     make_core: MakeCore,
 ) -> None:
-    from litellm.types.router import CustomRoutingStrategyBase
+    from hangarllm.types.router import CustomRoutingStrategyBase
 
     class Pick(CustomRoutingStrategyBase):
         async def async_get_available_deployment(  # pyright: ignore[reportIncompatibleMethodOverride]

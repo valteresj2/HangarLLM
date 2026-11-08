@@ -1,14 +1,14 @@
-# LiteLLM Terraform Provider
+# HangarLLM Terraform Provider
 
-This Terraform provider allows you to manage LiteLLM resources through Infrastructure as Code. It provides support for managing models, teams, team members, API keys, users, organizations, budgets, tags, projects, guardrails, prompts, agents, search tools, access groups, fallbacks, MCP servers, credentials and vector stores via the LiteLLM REST API, along with read-only data sources for each of them.
+This Terraform provider allows you to manage HangarLLM resources through Infrastructure as Code. It provides support for managing models, teams, team members, API keys, users, organizations, budgets, tags, projects, guardrails, prompts, agents, search tools, access groups, fallbacks, MCP servers, credentials and vector stores via the HangarLLM REST API, along with read-only data sources for each of them.
 
 ## Source of truth
 
-This directory (`terraform/provider/` in [BerriAI/litellm](https://github.com/BerriAI/litellm)) is the source of truth for the provider. [BerriAI/terraform-provider-litellm](https://github.com/BerriAI/terraform-provider-litellm) is a thin release mirror that the public Terraform Registry ingests from; do not open PRs there. Changes land here, where CI builds the provider, runs its tests, and statically audits every endpoint the provider calls against the proxy's generated OpenAPI schema (`tools/endpointaudit/`), so the provider cannot drift from the LiteLLM API silently. The same audit runs in reverse as a coverage gate: every management endpoint in the schema must be covered by a resource or data source, or carry a documented entry in `tools/endpointaudit/coverage_allowlist.txt`, and stale allowlist entries fail CI. Releases are published by mirroring this directory into the split repo and tagging it, which triggers the goreleaser workflow there (see `RELEASING.md`)
+This directory (`terraform/provider/` in [valteresj2/HangarLLM](https://github.com/valteresj2/HangarLLM)) is the source of truth for the provider. [BerriAI/terraform-provider-hangarllm](https://github.com/BerriAI/terraform-provider-hangarllm) is a thin release mirror that the public Terraform Registry ingests from; do not open PRs there. Changes land here, where CI builds the provider, runs its tests, and statically audits every endpoint the provider calls against the proxy's generated OpenAPI schema (`tools/endpointaudit/`), so the provider cannot drift from the HangarLLM API silently. The same audit runs in reverse as a coverage gate: every management endpoint in the schema must be covered by a resource or data source, or carry a documented entry in `tools/endpointaudit/coverage_allowlist.txt`, and stale allowlist entries fail CI. Releases are published by mirroring this directory into the split repo and tagging it, which triggers the goreleaser workflow there (see `RELEASING.md`)
 
 ## Versioning
 
-The provider version **is the LiteLLM version**. Every LiteLLM release (dev, rc and stable) publishes the provider at the same version as the proxy, built from the same commit, so `1.99.0` of the provider is the one that shipped with `1.99.0` of the proxy and was audited against that proxy's API. Pin the provider to the line your proxy runs:
+The provider version **is the HangarLLM version**. Every HangarLLM release (dev, rc and stable) publishes the provider at the same version as the proxy, built from the same commit, so `1.99.0` of the provider is the one that shipped with `1.99.0` of the proxy and was audited against that proxy's API. Pin the provider to the line your proxy runs:
 
 ```hcl
 version = "~> 1.99.0"
@@ -16,11 +16,11 @@ version = "~> 1.99.0"
 
 Pre-release versions (`1.99.0-rc.1`, `1.99.0-dev.1`) are published too; Terraform only selects one when it is pinned exactly.
 
-Versions `0.1.0` through `0.4.0` predate this scheme and sit on their own line. They stay in the registry, but **a `~> 0.4` constraint will never pick up another release**: re-pin to the LiteLLM version to keep receiving updates.
+Versions `0.1.0` through `0.4.0` predate this scheme and sit on their own line. They stay in the registry, but **a `~> 0.4` constraint will never pick up another release**: re-pin to the HangarLLM version to keep receiving updates.
 
 ## Features
 
-- Manage LiteLLM model configurations
+- Manage HangarLLM model configurations
 - Associate models with specific teams
 - Create and manage teams
 - Configure team members and their permissions
@@ -37,28 +37,28 @@ Versions `0.1.0` through `0.4.0` predate this scheme and sit on their own line. 
 
 ## Using the Provider
 
-To use the LiteLLM provider in your Terraform configuration, you need to declare it in the <code>terraform</code> block:
+To use the HangarLLM provider in your Terraform configuration, you need to declare it in the <code>terraform</code> block:
 
 ```hcl
 terraform {
   required_providers {
-    litellm = {
-      source  = "BerriAI/litellm"
-      version = "~> 1.99.0" # the LiteLLM version your proxy runs
+    hangarllm = {
+      source  = "valteresj2/HangarLLM"
+      version = "~> 1.99.0" # the HangarLLM version your proxy runs
     }
   }
 }
 
-provider "litellm" {
-  api_base = var.litellm_api_base
-  api_key  = var.litellm_api_key
+provider "hangarllm" {
+  api_base = var.hangarllm_api_base
+  api_key  = var.hangarllm_api_key
 }
 ```
 
-Then, you can use the provider to manage LiteLLM resources. Here's an example of creating a model configuration:
+Then, you can use the provider to manage HangarLLM resources. Here's an example of creating a model configuration:
 
 ```hcl
-resource "litellm_model" "gpt4" {
+resource "hangarllm_model" "gpt4" {
   model_name          = "gpt-4-proxy"
   custom_llm_provider = "openai"
   model_api_key       = var.openai_api_key
@@ -73,12 +73,12 @@ resource "litellm_model" "gpt4" {
 }
 ```
 
-For full details on the <code>litellm_model</code> resource, see the [model resource documentation](docs/resources/model.md).
+For full details on the <code>hangarllm_model</code> resource, see the [model resource documentation](docs/resources/model.md).
 
 Here's an example of creating an API key with various options:
 
 ```hcl
-resource "litellm_key" "example_key" {
+resource "hangarllm_key" "example_key" {
   key_type             = "llm_api"
   models               = ["gpt-4", "claude-3.5-sonnet"]
   max_budget           = 100.0
@@ -122,7 +122,7 @@ resource "litellm_key" "example_key" {
 }
 ```
 
-The <code>litellm_key</code> resource supports the following options:
+The <code>hangarllm_key</code> resource supports the following options:
 
 - <code>key_type</code>: Choose the key's default route access
 - <code>models</code>: List of allowed models for this key
@@ -144,24 +144,24 @@ The <code>litellm_key</code> resource supports the following options:
 - <code>blocked</code>: Flag to block/unblock the key
 - <code>tags</code>: Add tags for organization and filtering
 
-For full details on the <code>litellm_key</code> resource, see the [key resource documentation](docs/resources/key.md).
+For full details on the <code>hangarllm_key</code> resource, see the [key resource documentation](docs/resources/key.md).
 
 ### Available Resources
 
-- <code>litellm_model</code>: Manage model configurations. [Documentation](docs/resources/model.md)
-- <code>litellm_team</code>: Manage teams. [Documentation](docs/resources/team.md)
-- <code>litellm_team_member</code>: Manage team members. [Documentation](docs/resources/team_member.md)
-- <code>litellm_team_member_add</code>: Add multiple members to teams. [Documentation](docs/resources/team_member_add.md)
-- <code>litellm_key</code>: Manage API keys. [Documentation](docs/resources/key.md)
-- <code>litellm_mcp_server</code>: Manage MCP (Model Context Protocol) servers. [Documentation](docs/resources/mcp_server.md)
-- <code>litellm_credential</code>: Manage credentials for secure authentication. [Documentation](docs/resources/credential.md)
-- <code>litellm_vector_store</code>: Manage vector stores for embeddings and RAG. [Documentation](docs/resources/vector_store.md)
-- <code>litellm_jwt_key_mapping</code>: Map JWT claim values to virtual keys for per-client budgets and limits. [Documentation](docs/resources/jwt_key_mapping.md)
+- <code>hangarllm_model</code>: Manage model configurations. [Documentation](docs/resources/model.md)
+- <code>hangarllm_team</code>: Manage teams. [Documentation](docs/resources/team.md)
+- <code>hangarllm_team_member</code>: Manage team members. [Documentation](docs/resources/team_member.md)
+- <code>hangarllm_team_member_add</code>: Add multiple members to teams. [Documentation](docs/resources/team_member_add.md)
+- <code>hangarllm_key</code>: Manage API keys. [Documentation](docs/resources/key.md)
+- <code>hangarllm_mcp_server</code>: Manage MCP (Model Context Protocol) servers. [Documentation](docs/resources/mcp_server.md)
+- <code>hangarllm_credential</code>: Manage credentials for secure authentication. [Documentation](docs/resources/credential.md)
+- <code>hangarllm_vector_store</code>: Manage vector stores for embeddings and RAG. [Documentation](docs/resources/vector_store.md)
+- <code>hangarllm_jwt_key_mapping</code>: Map JWT claim values to virtual keys for per-client budgets and limits. [Documentation](docs/resources/jwt_key_mapping.md)
 
 ### Available Data Sources
 
-- <code>litellm_credential</code>: Retrieve information about existing credentials. [Documentation](docs/data-sources/credential.md)
-- <code>litellm_vector_store</code>: Retrieve information about existing vector stores. [Documentation](docs/data-sources/vector_store.md)
+- <code>hangarllm_credential</code>: Retrieve information about existing credentials. [Documentation](docs/data-sources/credential.md)
+- <code>hangarllm_vector_store</code>: Retrieve information about existing vector stores. [Documentation](docs/data-sources/vector_store.md)
 
 ## Development
 
@@ -170,8 +170,8 @@ For full details on the <code>litellm_key</code> resource, see the [key resource
 The project is organized as follows:
 
 ```
-terraform-provider-litellm/
-├── litellm/
+terraform-provider-hangarllm/
+├── hangarllm/
 │   ├── provider.go
 │   ├── resource_model.go
 │   ├── resource_model_crud.go
@@ -192,12 +192,12 @@ terraform-provider-litellm/
 
 1. Clone the repository:
 ```sh
-git clone https://github.com/your-username/terraform-provider-litellm.git
+git clone https://github.com/your-username/terraform-provider-hangarllm.git
 ```
 
 2. Enter the repository directory:
 ```sh
-cd terraform-provider-litellm
+cd terraform-provider-hangarllm
 ```
 
 3. Build and install the provider:
@@ -236,6 +236,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 - Always use environment variables or secure secret management solutions to handle sensitive information like API keys and AWS credentials.
 - Refer to the comprehensive documentation in the `docs/` directory for detailed usage examples and configuration options.
-- Keep the provider version in step with the LiteLLM version your proxy runs; see [Versioning](#versioning).
+- Keep the provider version in step with the HangarLLM version your proxy runs; see [Versioning](#versioning).
 - The provider now supports AWS cross-account access with `aws_session_name` and `aws_role_name` parameters in the model resource.
 - All example configurations have been consolidated into the documentation for better organization and maintenance.

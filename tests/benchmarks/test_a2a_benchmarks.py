@@ -1,7 +1,7 @@
 """
 Performance benchmarks for the A2A (agent-to-agent) message-translation hot path.
 
-Both directions are covered: the client direction (litellm.completion talking to
+Both directions are covered: the client direction (hangarllm.completion talking to
 an upstream A2A agent) converts OpenAI messages into a prompt and extracts text
 from the A2A response, and the proxy server-ingress direction converts an inbound
 A2A message into OpenAI messages before bridging to a completion. All are pure-CPU
@@ -10,10 +10,10 @@ per-request transforms.
 
 import pytest
 
-from litellm.a2a_protocol.litellm_completion_bridge.transformation import (
+from hangarllm.a2a_protocol.hangarllm_completion_bridge.transformation import (
     A2ACompletionBridgeTransformation,
 )
-from litellm.llms.a2a.common_utils import (
+from hangarllm.llms.a2a.common_utils import (
     convert_messages_to_prompt,
     extract_text_from_a2a_response,
 )

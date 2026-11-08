@@ -28,7 +28,7 @@ COMPLETION_TOKENS: Final = 2
 CHAT_PRICE: Final = PROMPT_TOKENS * INPUT_PRICE + COMPLETION_TOKENS * OUTPUT_PRICE
 EMBEDDING_PRICE: Final = PROMPT_TOKENS * INPUT_PRICE
 CLIENT: Final = 3
-COST_HEADERS: Final = ("x-litellm-response-cost", "x-litellm-response-cost-input", "x-litellm-response-cost-output")
+COST_HEADERS: Final = ("x-hangarllm-response-cost", "x-hangarllm-response-cost-input", "x-hangarllm-response-cost-output")
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 MARKER: Final = re.compile(rb"cache-hit-cost-[0-9a-f]{32}")
 
@@ -204,7 +204,7 @@ class Rig:
         ) as response:
             body: Final = response.read()
             assert response.status_code == 200, body
-            return Served(response.headers["x-litellm-call-id"], response.headers)
+            return Served(response.headers["x-hangarllm-call-id"], response.headers)
 
     def upstream_calls(self, marker: str) -> int:
         return sum(1 for request in self.upstream.drain() if marker.encode() in request.body)
@@ -218,14 +218,14 @@ class Rig:
         return found[0]
 
     def _is_cost_span(self, span: Span, call_id: str) -> bool:
-        if span["attributes"].get("litellm.call_id") != call_id:
+        if span["attributes"].get("hangarllm.call_id") != call_id:
             return False
         if self.otel_v2:
             return span["kind"] == CLIENT and "gen_ai.operation.name" in span["attributes"]
-        return span["name"] == "litellm_request"
+        return span["name"] == "hangarllm_request"
 
     def total_cost(self, span: Span) -> float:
-        return _number(span["attributes"].get("litellm.cost.total" if self.otel_v2 else "gen_ai.cost.total_cost"))
+        return _number(span["attributes"].get("hangarllm.cost.total" if self.otel_v2 else "gen_ai.cost.total_cost"))
 
 
 def _number(value: JsonValue) -> float:
@@ -242,7 +242,7 @@ def _config(provider: Wire, sink: str, chat_model: str, embedding_model: str) ->
             *list_value(config.get("model_list") or []),
             {
                 "model_name": chat_model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": provider.url + "/v1",
@@ -251,7 +251,7 @@ def _config(provider: Wire, sink: str, chat_model: str, embedding_model: str) ->
             },
             {
                 "model_name": embedding_model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "integration-provider-key",
                     "api_base": provider.url + "/v1",
@@ -259,7 +259,7 @@ def _config(provider: Wire, sink: str, chat_model: str, embedding_model: str) ->
                 },
             },
         ],
-        "litellm_settings": {**object_value(config["litellm_settings"]), "callbacks": ["otel"]},
+        "hangarllm_settings": {**object_value(config["hangarllm_settings"]), "callbacks": ["otel"]},
         "callback_settings": {"otel": {"exporter": "http/json", "endpoint": sink, "use_simple_processor": True}},
     }
 
@@ -277,7 +277,7 @@ def _rig(provider: Wire, directory: Path, otel_v2: bool) -> Iterator[Rig]:
         path: Final = directory / f"cache-hit-cost-{uuid.uuid4().hex}.yaml"
         path.write_text(yaml.safe_dump(_config(provider, sinks.operator, chat_model, embedding_model)))
         v1_exporter: Final = {"OTEL_EXPORTER": "http/json", "OTEL_ENDPOINT": sinks.operator}
-        exporter: Final = {"LITELLM_OTEL_V2": "1"} if otel_v2 else v1_exporter
+        exporter: Final = {"HANGARLLM_OTEL_V2": "1"} if otel_v2 else v1_exporter
         with (
             gateway_from_environment() as gateway,
             owned_proxy_process(
@@ -285,7 +285,7 @@ def _rig(provider: Wire, directory: Path, otel_v2: bool) -> Iterator[Rig]:
                 directory,
                 exporter,
                 config=path,
-                remove_environment=() if otel_v2 else ("LITELLM_OTEL_V2",),
+                remove_environment=() if otel_v2 else ("HANGARLLM_OTEL_V2",),
                 workers=2,
             ) as owned,
         ):
@@ -305,7 +305,7 @@ def v2(provider: Wire, tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig
 def _spend_row(call_id: str) -> Mapping[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend, cache_hit, metadata FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (call_id,)
+            'SELECT spend, cache_hit, metadata FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (call_id,)
         ),
         lambda found: len(found) == 1,
         seconds=70,
@@ -342,8 +342,8 @@ def test_a_v1_cache_hit_exports_zero_cost_and_answers_zero_cost_headers(v1: Rig,
 
     hit_span: Final = v1.cost_span(hit.call_id)
     assert v1.total_cost(hit_span) == 0, hit_span
-    assert hit_span["attributes"].get("litellm.cache_hit") is True, hit_span
-    assert _number(hit_span["attributes"].get("litellm.saved_cache_cost")) == pytest.approx(price), hit_span
+    assert hit_span["attributes"].get("hangarllm.cache_hit") is True, hit_span
+    assert _number(hit_span["attributes"].get("hangarllm.saved_cache_cost")) == pytest.approx(price), hit_span
 
     assert {name: hit.headers.get(name) for name in COST_HEADERS} == dict.fromkeys(COST_HEADERS, "0.0"), hit.headers
 
@@ -354,7 +354,7 @@ def test_a_v1_cache_hit_exports_zero_cost_and_answers_zero_cost_headers(v1: Rig,
 
     miss_span: Final = v1.cost_span(miss.call_id)
     assert v1.total_cost(miss_span) == pytest.approx(price), miss_span
-    assert miss_span["attributes"].get("litellm.cache_hit") is False, miss_span
+    assert miss_span["attributes"].get("hangarllm.cache_hit") is False, miss_span
 
 
 @pytest.mark.parametrize("route", tuple(ROUTES))
@@ -364,9 +364,9 @@ def test_a_v2_cache_hit_exports_an_llm_span_at_zero_cost(v2: Rig, route: str) ->
 
     hit_span: Final = v2.cost_span(hit.call_id)
     assert v2.total_cost(hit_span) == 0, hit_span
-    assert hit_span["attributes"].get("litellm.cache_hit") is True, hit_span
-    assert _number(hit_span["attributes"].get("litellm.saved_cache_cost")) == pytest.approx(price), hit_span
+    assert hit_span["attributes"].get("hangarllm.cache_hit") is True, hit_span
+    assert _number(hit_span["attributes"].get("hangarllm.saved_cache_cost")) == pytest.approx(price), hit_span
 
     miss_span: Final = v2.cost_span(miss.call_id)
     assert v2.total_cost(miss_span) == pytest.approx(price), miss_span
-    assert miss_span["attributes"].get("litellm.cache_hit") is False, miss_span
+    assert miss_span["attributes"].get("hangarllm.cache_hit") is False, miss_span

@@ -82,7 +82,7 @@ async def test_team_member_delete_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value} {shape}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None

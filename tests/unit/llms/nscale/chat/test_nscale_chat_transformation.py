@@ -2,7 +2,7 @@ import os
 from unittest.mock import patch
 
 
-from litellm.llms.nscale.chat.transformation import NscaleConfig
+from hangarllm.llms.nscale.chat.transformation import NscaleConfig
 
 
 class TestNscaleConfig:
@@ -20,7 +20,7 @@ class TestNscaleConfig:
 
         # Test with environment variable
         with patch(
-            "litellm.llms.nscale.chat.transformation.get_secret_str",
+            "hangarllm.llms.nscale.chat.transformation.get_secret_str",
             return_value="env-key",
         ):
             assert self.config.get_api_key() == "env-key"
@@ -39,13 +39,13 @@ class TestNscaleConfig:
 
         # Test with environment variable
         with patch(
-            "litellm.llms.nscale.chat.transformation.get_secret_str",
+            "hangarllm.llms.nscale.chat.transformation.get_secret_str",
             return_value="https://env-base.com",
         ):
             assert self.config.get_api_base() == "https://env-base.com"
 
         # Test with default API base
         with patch(
-            "litellm.llms.nscale.chat.transformation.get_secret_str", return_value=None
+            "hangarllm.llms.nscale.chat.transformation.get_secret_str", return_value=None
         ):
             assert self.config.get_api_base() == NscaleConfig.API_BASE_URL

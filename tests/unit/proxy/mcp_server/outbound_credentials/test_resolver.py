@@ -19,7 +19,7 @@ import jwt as pyjwt
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy.mcp_server.outbound_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials import (
     ApiKeyConfig,
     AuthConfig,
     AuthorizationCodeConfig,
@@ -46,23 +46,23 @@ from litellm.proxy.mcp_server.outbound_credentials import (
     TokenExchangeConfig,
     UpstreamCredentialProvider,
 )
-from litellm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
     TokenStoreUnavailable,
 )
-from litellm.proxy.mcp_server.outbound_credentials.sso_assertion_refresher import (
+from hangarllm.proxy.mcp_server.outbound_credentials.sso_assertion_refresher import (
     RefreshingSSOAssertionStore,
     SSOAssertionRefresher,
     SSOClientConfig,
 )
-from litellm.proxy.mcp_server.outbound_credentials.sso_assertion_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.sso_assertion_store import (
     SAML2_SUBJECT_TOKEN_TYPE,
     AssertionStoreUnavailable,
     SSOIdentityAssertion,
     assertion_from_saml_login,
     with_login_refresh_token,
 )
-from litellm.proxy.mcp_server.outbound_credentials.token_endpoint import (
+from hangarllm.proxy.mcp_server.outbound_credentials.token_endpoint import (
     ExchangedToken,
 )
 
@@ -73,10 +73,10 @@ def _id_jag_config() -> IdJagConfig:
     return IdJagConfig(
         org_token_endpoint="https://idp.example.com/token",
         resource_token_endpoint="https://mcp-as.example.com/token",
-        client_id="litellm",
+        client_id="hangarllm",
         client_auth=ClientSecretAuth(client_secret=SecretStr("s")),
         resource_client=IdJagResourceClient(
-            client_id="litellm",
+            client_id="hangarllm",
             client_auth=ClientSecretAuth(client_secret=SecretStr("s")),
         ),
         audience="api://mcp",
@@ -544,7 +544,7 @@ async def test_id_jag_runs_both_legs_and_returns_the_leg2_bearer():
 
     leg1_endpoint, leg1_client_id, leg1_params = endpoint.calls[0]
     assert leg1_endpoint == "https://idp.example.com/token"
-    assert leg1_client_id == "litellm"
+    assert leg1_client_id == "hangarllm"
     assert isinstance(endpoint.auths[0], ClientSecretAuth)
     assert endpoint.auths[0].client_secret.get_secret_value() == "s"
     assert leg1_params["grant_type"] == "urn:ietf:params:oauth:grant-type:token-exchange"
@@ -577,7 +577,7 @@ async def test_id_jag_without_inbound_token_or_stored_assertion_is_precondition_
 
 @pytest.mark.asyncio
 async def test_id_jag_exchanges_the_stored_sso_assertion_when_the_caller_presents_no_token():
-    """The agent-triggered flow: a brokered LiteLLM credential carries no IdP token, so leg 1's
+    """The agent-triggered flow: a brokered HangarLLM credential carries no IdP token, so leg 1's
     subject is the assertion captured for that user at SSO login."""
     endpoint = _FakeTokenEndpoint(_two_leg_ok("final-access"))
     store = _FakeAssertionStore({"alice": _assertion("alice-id-token")})
@@ -706,7 +706,7 @@ async def test_id_jag_renews_an_expired_stored_assertion_instead_of_challenging(
         _Transport(),
         client_config=lambda: SSOClientConfig(
             token_endpoint="https://idp.example.com/token",
-            client_id="litellm",
+            client_id="hangarllm",
             client_secret=SecretStr("s"),
             auth_method="client_secret_basic",
         ),
@@ -786,7 +786,7 @@ async def test_id_jag_keeps_store_sourced_bearers_partitioned_per_user():
     assert _emitted(bob.ok)["Authorization"] == "Bearer bob-bearer"
 
 
-_DRIVER_DETAIL = "could not connect to host=pg-primary.internal port=5432 user=litellm"
+_DRIVER_DETAIL = "could not connect to host=pg-primary.internal port=5432 user=hangarllm"
 
 
 class _OutageAssertionStore:
@@ -1135,7 +1135,7 @@ async def test_id_jag_reuses_the_cached_bearer_for_an_unchanged_config():
         _id_jag_config().model_copy(update={"scopes": ("mcp.read", "mcp.write")}),
         _id_jag_config().model_copy(update={"org_token_endpoint": "https://idp.example.com/v2/token"}),
         _id_jag_config().model_copy(update={"resource_token_endpoint": "https://mcp-as.example.com/v2/token"}),
-        _id_jag_config().model_copy(update={"client_id": "litellm-rotated"}),
+        _id_jag_config().model_copy(update={"client_id": "hangarllm-rotated"}),
         _id_jag_config().model_copy(update={"client_auth": ClientSecretAuth(client_secret=SecretStr("rotated"))}),
         _id_jag_config().model_copy(
             update={
@@ -1148,7 +1148,7 @@ async def test_id_jag_reuses_the_cached_bearer_for_an_unchanged_config():
         _id_jag_config().model_copy(
             update={
                 "resource_client": IdJagResourceClient(
-                    client_id="litellm",
+                    client_id="hangarllm",
                     client_auth=ClientSecretAuth(client_secret=SecretStr("resource-secret-rotated")),
                 )
             }
@@ -1314,7 +1314,7 @@ async def test_passthrough_ignores_the_carrier_and_keeps_the_callers_slot():
 async def test_resolved_source_matches_the_credential_sent_upstream(
     config: AuthConfig, subject: Subject, expected_source: str, expected_header: str | None
 ) -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from hangarllm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     store = _FakeTokenStore({("alice", "s"): OAuthToken(access_token="stored-alice")})
     provider = UpstreamCredentialProvider(oauth_token_store=store)
@@ -1328,7 +1328,7 @@ async def test_resolved_source_matches_the_credential_sent_upstream(
 
 @pytest.mark.asyncio
 async def test_resolved_source_preserves_missing_user_token_error() -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from hangarllm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     result = await resolve_credentials_with_source(
         UpstreamCredentialProvider(), _SUBJECT, _spec(AuthorizationCodeConfig())
@@ -1339,7 +1339,7 @@ async def test_resolved_source_preserves_missing_user_token_error() -> None:
 
 @pytest.mark.asyncio
 async def test_minted_token_sources_match_egress_and_do_not_fetch_twice() -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from hangarllm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     source = _FakeM2MSource(Ok(OAuthToken(access_token="m2m-at")))
     m2m = await resolve_credentials_with_source(
@@ -1363,7 +1363,7 @@ async def test_minted_token_sources_match_egress_and_do_not_fetch_twice() -> Non
 
 @pytest.mark.asyncio
 async def test_id_jag_source_describes_final_token_after_both_exchanges() -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from hangarllm.proxy.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     endpoint = _FakeTokenEndpoint(_two_leg_ok("resource-token"))
     provider = UpstreamCredentialProvider(token_endpoint=endpoint)
@@ -1382,7 +1382,7 @@ async def test_client_credentials_subscription_identity_preserves_resolved_grant
             _SUBJECT, _spec(_M2M)
         )
         assert isinstance(result, Ok)
-        from litellm.proxy.mcp_server.outbound_credentials.client_credentials import (
+        from hangarllm.proxy.mcp_server.outbound_credentials.client_credentials import (
             ClientCredentialsBearerAuth,
         )
 
@@ -1405,7 +1405,7 @@ def _login_with_refresh_token(expires_in: int | None) -> SSOIdentityAssertion:
         expires_in,
         datetime.now(timezone.utc),
         endpoint="https://idp.example.com/token",
-        client_id="litellm",
+        client_id="hangarllm",
     )
 
 
@@ -1444,7 +1444,7 @@ async def test_id_jag_refresh_token_source_never_presents_the_sso_refresh_token(
         3600,
         datetime.now(timezone.utc),
         endpoint="https://idp.example.com/token",
-        client_id="litellm",
+        client_id="hangarllm",
     )
     provider = UpstreamCredentialProvider(
         token_endpoint=endpoint, sso_assertion_store=_FakeAssertionStore({"alice": row})
@@ -1524,7 +1524,7 @@ async def test_id_jag_refresh_token_source_outlives_the_saml_assertion():
         3600,
         datetime.now(timezone.utc),
         endpoint="https://idp.example.com/token",
-        client_id="litellm",
+        client_id="hangarllm",
     )
     provider = UpstreamCredentialProvider(
         token_endpoint=endpoint, sso_assertion_store=_FakeAssertionStore({"alice": row})
@@ -1565,5 +1565,5 @@ async def test_id_jag_refresh_token_source_is_a_precondition_without_a_live_refr
     assert isinstance(result, Error)
     assert result.error.tag == "precondition_required"
     assert expected in result.error.summary
-    assert "Sign in through LiteLLM SSO" in result.error.summary
+    assert "Sign in through HangarLLM SSO" in result.error.summary
     assert endpoint.calls == []

@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.oss_decision import OssDecisionProvider, oss_connection, validate_oss_request
+from hangarllm.llms.oss_decision import OssDecisionProvider, oss_connection, validate_oss_request
 
 pytestmark: Final = pytest.mark.parametrize("provider", ["laya", "bespoke"])
 

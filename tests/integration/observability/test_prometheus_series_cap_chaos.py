@@ -387,7 +387,7 @@ def _image_deployment(provider_url: str) -> tuple[dict[str, JsonValue], ...]:
     return (
         {
             "model_name": IMAGE_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/gpt-{IMAGE_MODEL}",
                 "api_base": provider_url + "/v1",
                 "api_key": "synthetic-provider-key",

@@ -1,6 +1,6 @@
 """prompt_caching_5m x Anthropic.
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 to Anthropic, and assert that the upstream's usage block reports either
 `cache_creation_input_tokens` or `cache_read_input_tokens` > 0 — i.e.
 the proxy preserves Claude Code's `cache_control` annotations end-to-end
@@ -67,7 +67,7 @@ def _cache_tokens(usage: Optional[Mapping[str, Any]]) -> int:
     )
 )
 def test_prompt_caching_5m_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert the
+    """Drive the `claude` CLI against the HangarLLM proxy and assert the
     upstream usage block surfaces a non-zero cache token count."""
     base_url, api_key = require_proxy(compat_result)
 

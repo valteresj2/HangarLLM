@@ -13,12 +13,12 @@ import pytest
 from pydantic import ValidationError
 
 
-from litellm.llms.black_forest_labs.image_generation.transformation import (
+from hangarllm.llms.black_forest_labs.image_generation.transformation import (
     BlackForestLabsImageGenerationConfig,
     get_black_forest_labs_image_generation_config,
 )
-from litellm.llms.black_forest_labs.common_utils import BlackForestLabsError
-from litellm.types.utils import ImageObject, ImageResponse
+from hangarllm.llms.black_forest_labs.common_utils import BlackForestLabsError
+from hangarllm.types.utils import ImageObject, ImageResponse
 
 
 class TestBlackForestLabsImageGenerationTransformation:
@@ -129,7 +129,7 @@ class TestBlackForestLabsImageGenerationTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="test_api_key",
         )
 
@@ -141,7 +141,7 @@ class TestBlackForestLabsImageGenerationTransformation:
         headers = {}
 
         with patch(
-            "litellm.llms.black_forest_labs.image_generation.transformation.get_secret_str",
+            "hangarllm.llms.black_forest_labs.image_generation.transformation.get_secret_str",
             return_value=None,
         ):
             with pytest.raises(BlackForestLabsError, match="BFL_API_KEY"):
@@ -150,7 +150,7 @@ class TestBlackForestLabsImageGenerationTransformation:
                     model=self.model,
                     messages=[],
                     optional_params={},
-                    litellm_params={},
+                    hangarllm_params={},
                     api_key=None,
                 )
 
@@ -201,7 +201,7 @@ class TestBlackForestLabsImageGenerationTransformation:
             api_key=None,
             model="flux-pro-1.1",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert "https://api.bfl.ai/v1/flux-pro-1.1" == url
@@ -213,7 +213,7 @@ class TestBlackForestLabsImageGenerationTransformation:
             api_key=None,
             model="flux-pro-1.1",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert "https://custom.api.com/v1/flux-pro-1.1" == url
@@ -224,7 +224,7 @@ class TestBlackForestLabsImageGenerationTransformation:
             model=self.model,
             prompt=self.prompt,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -237,7 +237,7 @@ class TestBlackForestLabsImageGenerationTransformation:
             model=self.model,
             prompt=self.prompt,
             optional_params={"output_format": "jpeg"},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -253,7 +253,7 @@ class TestBlackForestLabsImageGenerationTransformation:
                 "num_images": 2,
                 "aspect_ratio": "16:9",
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -280,7 +280,7 @@ class TestBlackForestLabsImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -308,7 +308,7 @@ class TestBlackForestLabsImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -335,7 +335,7 @@ class TestBlackForestLabsImageGenerationTransformation:
                 logging_obj=self.logging_obj,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -366,7 +366,7 @@ def _transform(payload: object) -> ImageResponse:
         logging_obj=MagicMock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

@@ -13,7 +13,7 @@ key (DEFAULT_COOLDOWN_REDIS_READ_INTERVAL_SECONDS, 1s). So for
 REPLICA_PROPAGATION_SECONDS after the trip, a window kept far wider than that
 so the trip-then-recover cells assert the trip and the recovery rather than how
 fast siblings catch up, every answer has to be either the deployment's own
-failure or a 200 from the backup, which the proxy names in x-litellm-model-id,
+failure or a 200 from the backup, which the proxy names in x-hangarllm-model-id,
 and at least one replica has to have served from the backup by then. From then
 until shortly before the cooldown can lapse, every call has to land on the
 backup whichever replica takes it. Then the test polls until the weighted
@@ -25,7 +25,7 @@ caused, because every failure re-arms the cooldown.
 
 The sibling cell is the one that asserts the speed, and it sends every call
 through the stack's front door the way a customer does, never to a gateway pod
-by address: the litellm-e2e-pr gate fronts two pods with an nginx ingress that
+by address: the hangarllm-e2e-pr gate fronts two pods with an nginx ingress that
 picks the pod per connection, so each call is an independent draw over the two
 routers. The cell registers a warm group whose deployment answers from a
 canned reply, sends it COOLDOWN_WARM_CALLS calls at once, and waits for every
@@ -128,7 +128,7 @@ def _assert_served_by_backup(resp: StreamingResponse, backup: str, when: str) ->
         f"{when} the group should have served from the backup, got {resp.status_code}: {resp.body[:300]}"
     )
     assert model_id_of(resp) == backup, (
-        f"{when} the proxy should have named the backup {backup} in x-litellm-model-id, got {model_id_of(resp)!r}"
+        f"{when} the proxy should have named the backup {backup} in x-hangarllm-model-id, got {model_id_of(resp)!r}"
     )
 
 

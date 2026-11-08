@@ -1,7 +1,7 @@
-"""Import-time stand-in for the Rust extension ``litellm.rust_bridge._native``.
+"""Import-time stand-in for the Rust extension ``hangarllm.rust_bridge._native``.
 
-Unit tests for ``litellm.hangar`` never execute Rust code paths, but importing
-``litellm`` touches the extension module. When the compiled module is not
+Unit tests for ``hangarllm.hangar`` never execute Rust code paths, but importing
+``hangarllm`` touches the extension module. When the compiled module is not
 available (e.g. a dev box without a Rust toolchain), install this stub.
 """
 
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 
 def install() -> None:
-    name = "litellm.rust_bridge._native"
+    name = "hangarllm.rust_bridge._native"
     if name in sys.modules:
         return
     try:

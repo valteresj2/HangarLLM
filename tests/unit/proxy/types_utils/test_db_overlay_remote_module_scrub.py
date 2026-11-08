@@ -4,7 +4,7 @@ must be stripped at the merge boundary so they never reach
 ``get_instance_fn`` with ``config_file_path`` set.
 
 Without this scrub, a PROXY_ADMIN who persists e.g.
-``litellm_settings.success_callback: ["s3://attacker/m.i"]`` via
+``hangarllm_settings.success_callback: ["s3://attacker/m.i"]`` via
 ``/config/update`` would have it merged into the in-memory config
 during the next ``load_config`` cycle. The YAML-load chain is active
 at that point, so the runtime gate in ``get_instance_fn`` (which
@@ -22,7 +22,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 )
 
-from litellm.proxy.proxy_server import (  # noqa: E402
+from hangarllm.proxy.proxy_server import (  # noqa: E402
     _scrub_db_overlay_remote_module_loads,
 )
 
@@ -31,9 +31,9 @@ from litellm.proxy.proxy_server import (  # noqa: E402
     "field",
     ["callbacks", "success_callback", "failure_callback", "audit_log_callbacks"],
 )
-def test_litellm_settings_callback_list_strips_remote_urls(field):
+def test_hangarllm_settings_callback_list_strips_remote_urls(field):
     overlay = {field: ["langfuse", "s3://attacker/m.i", "gcs://attacker/m.i"]}
-    cleaned = _scrub_db_overlay_remote_module_loads("litellm_settings", overlay)
+    cleaned = _scrub_db_overlay_remote_module_loads("hangarllm_settings", overlay)
     assert cleaned[field] == ["langfuse"]
 
 
@@ -54,9 +54,9 @@ def test_general_settings_str_field_strips_remote_urls(field):
     assert cleaned[field] is None
 
 
-def test_litellm_settings_post_call_rules_str_stripped():
+def test_hangarllm_settings_post_call_rules_str_stripped():
     overlay = {"post_call_rules": "gcs://attacker/m.i"}
-    cleaned = _scrub_db_overlay_remote_module_loads("litellm_settings", overlay)
+    cleaned = _scrub_db_overlay_remote_module_loads("hangarllm_settings", overlay)
     assert cleaned["post_call_rules"] is None
 
 
@@ -67,12 +67,12 @@ def test_custom_provider_map_custom_handler_stripped():
             {"provider": "bad", "custom_handler": "s3://attacker/m.i"},
         ]
     }
-    cleaned = _scrub_db_overlay_remote_module_loads("litellm_settings", overlay)
+    cleaned = _scrub_db_overlay_remote_module_loads("hangarllm_settings", overlay)
     assert cleaned["custom_provider_map"][0]["custom_handler"] == "my_module.handler"
     assert cleaned["custom_provider_map"][1]["custom_handler"] is None
 
 
-def test_litellm_settings_guardrails_v1_callbacks_stripped():
+def test_hangarllm_settings_guardrails_v1_callbacks_stripped():
     # v1 guardrail shape: {guardrail_name: {callbacks: [...], default_on: bool}}
     overlay = {
         "guardrails": [
@@ -88,19 +88,19 @@ def test_litellm_settings_guardrails_v1_callbacks_stripped():
             }
         ]
     }
-    cleaned = _scrub_db_overlay_remote_module_loads("litellm_settings", overlay)
+    cleaned = _scrub_db_overlay_remote_module_loads("hangarllm_settings", overlay)
     assert cleaned["guardrails"][0]["prompt_injection"]["callbacks"] == [
         "lakera_prompt_injection"
     ]
 
 
-def test_litellm_settings_guardrails_v2_callbacks_and_guardrail_stripped():
-    # v2 shape: {guardrail_name, litellm_params: {guardrail: "module.path", callbacks: [...]}}
+def test_hangarllm_settings_guardrails_v2_callbacks_and_guardrail_stripped():
+    # v2 shape: {guardrail_name, hangarllm_params: {guardrail: "module.path", callbacks: [...]}}
     overlay = {
         "guardrails": [
             {
                 "guardrail_name": "custom",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "s3://attacker/m.i",
                     "mode": "pre_call",
                     "callbacks": ["lakera", "s3://attacker/cb.i"],
@@ -108,34 +108,34 @@ def test_litellm_settings_guardrails_v2_callbacks_and_guardrail_stripped():
             }
         ]
     }
-    cleaned = _scrub_db_overlay_remote_module_loads("litellm_settings", overlay)
-    lp = cleaned["guardrails"][0]["litellm_params"]
+    cleaned = _scrub_db_overlay_remote_module_loads("hangarllm_settings", overlay)
+    lp = cleaned["guardrails"][0]["hangarllm_params"]
     assert lp["guardrail"] is None
     assert lp["callbacks"] == ["lakera"]
     assert lp["mode"] == "pre_call"
 
 
-def test_litellm_settings_guardrails_local_dotted_name_preserved():
+def test_hangarllm_settings_guardrails_local_dotted_name_preserved():
     overlay = {
         "guardrails": [
             {
                 "guardrail_name": "custom",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "custom_module.MyGuardrail",
                     "callbacks": ["my_module.cb", "langfuse"],
                 },
             }
         ]
     }
-    cleaned = _scrub_db_overlay_remote_module_loads("litellm_settings", overlay)
-    lp = cleaned["guardrails"][0]["litellm_params"]
+    cleaned = _scrub_db_overlay_remote_module_loads("hangarllm_settings", overlay)
+    lp = cleaned["guardrails"][0]["hangarllm_params"]
     assert lp["guardrail"] == "custom_module.MyGuardrail"
     assert lp["callbacks"] == ["my_module.cb", "langfuse"]
 
 
-def test_litellm_settings_guardrails_non_list_passthrough():
+def test_hangarllm_settings_guardrails_non_list_passthrough():
     cleaned = _scrub_db_overlay_remote_module_loads(
-        "litellm_settings", {"guardrails": "not-a-list"}
+        "hangarllm_settings", {"guardrails": "not-a-list"}
     )
     assert cleaned["guardrails"] == "not-a-list"
 
@@ -169,17 +169,17 @@ def test_pass_through_endpoints_non_list_passthrough():
     assert cleaned["pass_through_endpoints"] == "not-a-list"
 
 
-def test_litellm_jwtauth_custom_validate_stripped():
+def test_hangarllm_jwtauth_custom_validate_stripped():
     overlay = {
-        "litellm_jwtauth": {
+        "hangarllm_jwtauth": {
             "user_id_jwt_field": "sub",
             "custom_validate": "s3://attacker/m.validator",
         }
     }
     cleaned = _scrub_db_overlay_remote_module_loads("general_settings", overlay)
-    assert cleaned["litellm_jwtauth"]["custom_validate"] is None
+    assert cleaned["hangarllm_jwtauth"]["custom_validate"] is None
     # Sibling fields preserved.
-    assert cleaned["litellm_jwtauth"]["user_id_jwt_field"] == "sub"
+    assert cleaned["hangarllm_jwtauth"]["user_id_jwt_field"] == "sub"
 
 
 def test_local_dotted_name_preserved():
@@ -190,7 +190,7 @@ def test_local_dotted_name_preserved():
         "success_callback": ["langfuse", "my_module.success_handler", "datadog"],
         "post_call_rules": "my_module.rule_fn",
     }
-    cleaned = _scrub_db_overlay_remote_module_loads("litellm_settings", overlay)
+    cleaned = _scrub_db_overlay_remote_module_loads("hangarllm_settings", overlay)
     assert cleaned["success_callback"] == [
         "langfuse",
         "my_module.success_handler",
@@ -202,8 +202,8 @@ def test_local_dotted_name_preserved():
 def test_non_dict_overlay_passthrough():
     # Some DB-overlay values are scalars (e.g. ``max_internal_user_budget:
     # 100.0``). The scrub must not break those.
-    assert _scrub_db_overlay_remote_module_loads("litellm_settings", 100.0) == 100.0
-    assert _scrub_db_overlay_remote_module_loads("litellm_settings", None) is None
+    assert _scrub_db_overlay_remote_module_loads("hangarllm_settings", 100.0) == 100.0
+    assert _scrub_db_overlay_remote_module_loads("hangarllm_settings", None) is None
 
 
 def test_unknown_section_passthrough():
@@ -216,5 +216,5 @@ def test_unknown_section_passthrough():
 
 def test_scrub_does_not_mutate_input():
     original = {"success_callback": ["s3://attacker/m.i"]}
-    _scrub_db_overlay_remote_module_loads("litellm_settings", original)
+    _scrub_db_overlay_remote_module_loads("hangarllm_settings", original)
     assert original["success_callback"] == ["s3://attacker/m.i"]

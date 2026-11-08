@@ -11,12 +11,12 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.cometapi.chat.transformation import (
+import hangarllm
+from hangarllm.llms.cometapi.chat.transformation import (
     CometAPIChatCompletionStreamingHandler,
     CometAPIConfig,
 )
-from litellm.llms.cometapi.common_utils import CometAPIException
+from hangarllm.llms.cometapi.common_utils import CometAPIException
 
 
 class TestCometAPIChatCompletionStreamingHandler:
@@ -96,7 +96,7 @@ class TestCometAPIConfig:
             model="cometapi/gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -113,7 +113,7 @@ class TestCometAPIConfig:
             model="cometapi/gpt-4",
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={"extra_body": {"custom_param": "custom_value"}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -137,7 +137,7 @@ class TestCometAPIConfig:
                 }
             ],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -203,7 +203,7 @@ def test_completion_uses_custom_api_base(respx_mock: respx.MockRouter) -> None:
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="cometapi/gpt-5.6",
         messages=[{"role": "user", "content": "Say OK"}],
         api_key="cometapi-test-key",

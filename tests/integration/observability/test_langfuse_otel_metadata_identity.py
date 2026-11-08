@@ -304,9 +304,9 @@ def test_otel_v2_langfuse_gets_no_request_headers_or_caller_metadata(
                 "model": model,
                 "max_tokens": 16,
                 "messages": [{"role": "user", "content": marker}],
-                "litellm_metadata": {"caller_note": probe},
+                "hangarllm_metadata": {"caller_note": probe},
             },
-            "/v1/responses": {"model": model, "input": marker, "litellm_metadata": {"caller_note": probe}},
+            "/v1/responses": {"model": model, "input": marker, "hangarllm_metadata": {"caller_note": probe}},
         }[route]
         watch: Final = watched_spans(rig.collector)
         response: Final = rig.candidate.request("POST", route, body, key=key, headers={"x-lit8283-probe": probe})
@@ -354,7 +354,7 @@ def _keyword_router(router: str, keyword: str) -> Callable[[str], Sequence[Mappi
         return (
             {
                 "model_name": tier,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": provider_url + "/v1",
@@ -362,7 +362,7 @@ def _keyword_router(router: str, keyword: str) -> Callable[[str], Sequence[Mappi
             },
             {
                 "model_name": router,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "classifier_type": "heuristic",

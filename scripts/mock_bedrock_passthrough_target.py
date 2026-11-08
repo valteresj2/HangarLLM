@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Minimal HTTP target for testing LiteLLM **Bedrock pass-through** (`/bedrock/...` on the proxy).
+Minimal HTTP target for testing HangarLLM **Bedrock pass-through** (`/bedrock/...` on the proxy).
 
 What it does
   - Serves a tiny Converse-shaped JSON (and optional invoke-shaped) response so the proxy can
@@ -10,26 +10,26 @@ What it does
 How to run
   uv run python scripts/mock_bedrock_passthrough_target.py --host 127.0.0.1 --port 9999
 
-Wire LiteLLM to this host (use **one** of these patterns):
+Wire HangarLLM to this host (use **one** of these patterns):
 
   1) model_list (recommended) — set the Bedrock runtime base to the mock:
 
      model_list:
        - model_name: mock-bedrock-claude
-         litellm_params:
+         hangarllm_params:
            model: bedrock/us.anthropic.claude-3-5-sonnet-20240620-v1:0
            custom_llm_provider: bedrock
            aws_region_name: us-west-2
            api_base: "http://127.0.0.1:9999"
 
-  2) Environment (see litellm BaseAWSLLM.get_runtime_endpoint)::
+  2) Environment (see hangarllm BaseAWSLLM.get_runtime_endpoint)::
 
        export AWS_BEDROCK_RUNTIME_ENDPOINT="http://127.0.0.1:9999"
 
 Then call the proxy, e.g. (model_name must match config)::
 
   curl -sS -X POST "http://127.0.0.1:4000/bedrock/model/mock-bedrock-claude/converse" \
-    -H "Authorization: Bearer $LITELLM_KEY" -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $HANGARLLM_KEY" -H "Content-Type: application/json" \
     -d '{"messages":[{"role":"user","content":[{"text":"hi"}]}]}'
 
 The proxy will forward to: {api_base}/model/<resolved model id>/converse (SigV4-signed).
@@ -252,7 +252,7 @@ async def invoke_with_response_stream(
 ) -> StreamingResponse:
     """
     Binary ``application/vnd.amazon.eventstream`` body compatible with boto3/botocore
-    ``InvokeModelWithResponseStream`` / LiteLLM's Bedrock invoke streaming path.
+    ``InvokeModelWithResponseStream`` / HangarLLM's Bedrock invoke streaming path.
     """
     _ = await request.body()
     return StreamingResponse(

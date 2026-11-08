@@ -12,31 +12,31 @@ import httpx
 import pytest
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AsyncStream, AzureOpenAI, OpenAI
 
-import litellm
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.audio_utils.transcription_streaming import (
-    litellm_exception_mapper,
+import hangarllm
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.audio_utils.transcription_streaming import (
+    hangarllm_exception_mapper,
     wrap_transcription_stream,
 )
-from litellm.litellm_core_utils.redact_messages import REDACTED_BY_LITELLM
-from litellm.llms.azure.audio_transcriptions import AzureAudioTranscription
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.openai.transcriptions.gpt_transformation import (
+from hangarllm.hangarllm_core_utils.redact_messages import REDACTED_BY_HANGARLLM
+from hangarllm.llms.azure.audio_transcriptions import AzureAudioTranscription
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.openai.transcriptions.gpt_transformation import (
     OpenAIGPTTranscribeAudioTranscriptionConfig,
 )
-from litellm.llms.openai.transcriptions.handler import OpenAIAudioTranscription
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import TranscriptionResponse
-from litellm.utils import get_optional_params_transcription
+from hangarllm.llms.openai.transcriptions.handler import OpenAIAudioTranscription
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import TranscriptionResponse
+from hangarllm.utils import get_optional_params_transcription
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def test_gpt_transcribe_config_uses_native_parameters_and_json():
@@ -48,11 +48,11 @@ def test_gpt_transcribe_config_uses_native_parameters_and_json():
     request = config.transform_audio_transcription_request(
         model="gpt-transcribe",
         audio_file=audio_file,
-        optional_params={"keywords": ["LiteLLM"], "languages": ["en", "fr"], "stream": True, "response_format": "json"},
-        litellm_params={},
+        optional_params={"keywords": ["HangarLLM"], "languages": ["en", "fr"], "stream": True, "response_format": "json"},
+        hangarllm_params={},
     )
     assert request.data["response_format"] == "json"
-    assert request.data["keywords"] == ["LiteLLM"]
+    assert request.data["keywords"] == ["HangarLLM"]
     assert request.data["languages"] == ["en", "fr"]
     assert request.data["stream"] is True
 
@@ -61,12 +61,12 @@ def test_gpt_transcribe_optional_params_are_preserved():
     params = get_optional_params_transcription(
         model="gpt-transcribe",
         custom_llm_provider="openai",
-        keywords=["LiteLLM", "Realtime API"],
+        keywords=["HangarLLM", "Realtime API"],
         languages=["en", "fr"],
         stream=True,
     )
     assert params == {
-        "keywords": ["LiteLLM", "Realtime API"],
+        "keywords": ["HangarLLM", "Realtime API"],
         "languages": ["en", "fr"],
         "stream": True,
     }
@@ -98,7 +98,7 @@ def test_sync_transcription_stream_logs_final_text_and_usage_once() -> None:
         stream: Final = client.audio.transcriptions.create(
             model="gpt-transcribe", file=("sample.webm", b"audio"), stream=True
         )
-        wrapped: Final = wrap_transcription_stream(stream, logging_obj, datetime(2026, 1, 1), litellm_exception_mapper({}))
+        wrapped: Final = wrap_transcription_stream(stream, logging_obj, datetime(2026, 1, 1), hangarllm_exception_mapper({}))
         received: Final = tuple(wrapped)
         wrapped.close()
 
@@ -146,8 +146,8 @@ async def test_openai_handler_returns_native_typed_stream():
     result = handler.audio_transcriptions(
         model="gpt-transcribe",
         audio_file=audio_file,
-        optional_params={"keywords": ["LiteLLM"], "languages": ["en"], "stream": True},
-        litellm_params={},
+        optional_params={"keywords": ["HangarLLM"], "languages": ["en"], "stream": True},
+        hangarllm_params={},
         model_response=TranscriptionResponse(),
         timeout=10,
         max_retries=0,
@@ -162,7 +162,7 @@ async def test_openai_handler_returns_native_typed_stream():
     assert isinstance(stream, AsyncStream)
     logging_obj.async_success_handler = AsyncMock()
     logging_obj.async_failure_handler = AsyncMock()
-    wrapped_stream = wrap_transcription_stream(stream, logging_obj, datetime.now(), litellm_exception_mapper({}))
+    wrapped_stream = wrap_transcription_stream(stream, logging_obj, datetime.now(), hangarllm_exception_mapper({}))
     received = [event async for event in wrapped_stream]
     await wrapped_stream.close()
     await openai_client.close()
@@ -196,11 +196,11 @@ async def test_atranscription_stream_preserves_duration_for_callback_cost():
 
     http_client = httpx.AsyncClient(transport=httpx.MockTransport(send_response))
     openai_client = AsyncOpenAI(api_key="sk-test", base_url="https://example.com/v1", http_client=http_client)
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logging_obj = Logging(
         model="gpt-transcribe", messages=[], stream=True, call_type="atranscription",
-        start_time=datetime.now(), litellm_call_id="transcription-cost-test", function_id="transcription-cost-test",
+        start_time=datetime.now(), hangarllm_call_id="transcription-cost-test", function_id="transcription-cost-test",
     )
     audio_file = io.BytesIO()
     with wave.open(audio_file, "wb") as wav_file:
@@ -210,12 +210,12 @@ async def test_atranscription_stream_preserves_duration_for_callback_cost():
         wav_file.writeframes(b"\x00\x00" * 16000)
     audio_file.name = "sample.wav"
 
-    stream = await litellm.atranscription(
+    stream = await hangarllm.atranscription(
         model="openai/gpt-transcribe",
         file=audio_file,
         stream=True,
         client=openai_client,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     received = [event async for event in stream]
     await stream.close()
@@ -232,8 +232,8 @@ async def test_atranscription_stream_preserves_duration_for_callback_cost():
 def test_gpt_transcribe_rejects_whisper_response_formats(local_model_cost_map: None, model: str) -> None:
     audio_file = io.BytesIO(b"audio")
     audio_file.name = "sample.wav"
-    with pytest.raises(litellm.UnsupportedParamsError, match="only supports response_format 'json' or 'text'"):
-        litellm.transcription(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="only supports response_format 'json' or 'text'"):
+        hangarllm.transcription(
             model=model,
             file=audio_file,
             response_format="verbose_json",
@@ -251,7 +251,7 @@ def test_gpt_transcribe_drops_whisper_response_formats_under_drop_params(
         sent_bodies.append(request.read())
         return httpx.Response(200, json={"text": "hello", "usage": {"type": "duration", "seconds": 1}})
 
-    monkeypatch.setattr(litellm, "drop_params", drop_globally)
+    monkeypatch.setattr(hangarllm, "drop_params", drop_globally)
     audio_file: Final = io.BytesIO(b"audio")
     audio_file.name = "sample.wav"
     with OpenAI(
@@ -259,7 +259,7 @@ def test_gpt_transcribe_drops_whisper_response_formats_under_drop_params(
         base_url="https://example.com/v1",
         http_client=httpx.Client(transport=httpx.MockTransport(send_response)),
     ) as client:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="gpt-transcribe",
             file=audio_file,
             response_format="verbose_json",
@@ -280,7 +280,7 @@ def _azure_transcription_client(transport: httpx.MockTransport) -> AzureOpenAI:
     return AzureOpenAI(
         api_key="azure-test-key",
         azure_endpoint="https://example.openai.azure.com",
-        api_version=litellm.AZURE_DEFAULT_API_VERSION,
+        api_version=hangarllm.AZURE_DEFAULT_API_VERSION,
         http_client=httpx.Client(transport=transport),
     )
 
@@ -301,13 +301,13 @@ def test_gpt_transcribe_sends_text_response_format_to_the_provider(
     audio_file: Final = io.BytesIO(b"audio")
     audio_file.name = "sample.wav"
     with make_client(httpx.MockTransport(send_response)) as client:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model=model,
             file=audio_file,
             response_format="text",
             api_key="sk-test",
             api_base="https://example.openai.azure.com",
-            api_version=litellm.AZURE_DEFAULT_API_VERSION,
+            api_version=hangarllm.AZURE_DEFAULT_API_VERSION,
             client=client,
         )
 
@@ -338,14 +338,14 @@ def test_file_transcription_reaches_models_whose_cost_map_lists_other_endpoints(
         sent_requests.append(request)
         return httpx.Response(200, json={"text": "hello"})
 
-    gemini_response: Final = litellm.transcription(
+    gemini_response: Final = hangarllm.transcription(
         model="gemini/gemini-2.5-flash",
         file=_one_second_wav(),
         api_key="gemini-test-key",
         client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(send_gemini_response))),
     )
-    monkeypatch.setattr(litellm, "client_session", httpx.Client(transport=httpx.MockTransport(send_whisper_response)))
-    whisper_response: Final = litellm.transcription(
+    monkeypatch.setattr(hangarllm, "client_session", httpx.Client(transport=httpx.MockTransport(send_whisper_response)))
+    whisper_response: Final = hangarllm.transcription(
         model="openai/gpt-realtime-whisper",
         file=_one_second_wav(),
         api_key="self-hosted-whisper-key",
@@ -364,7 +364,7 @@ def test_azure_gpt_transcribe_uses_deployment_scoped_route():
     def send_response(request: httpx.Request) -> httpx.Response:
         assert str(request.url) == (
             "https://example.openai.azure.com/openai/deployments/gpt-transcribe/audio/transcriptions"
-            f"?api-version={litellm.AZURE_DEFAULT_API_VERSION}"
+            f"?api-version={hangarllm.AZURE_DEFAULT_API_VERSION}"
         )
         return httpx.Response(
             200,
@@ -375,7 +375,7 @@ def test_azure_gpt_transcribe_uses_deployment_scoped_route():
     client = AzureOpenAI(
         api_key="azure-test-key",
         azure_endpoint="https://example.openai.azure.com",
-        api_version=litellm.AZURE_DEFAULT_API_VERSION,
+        api_version=hangarllm.AZURE_DEFAULT_API_VERSION,
         http_client=http_client,
     )
     audio_file = io.BytesIO(b"audio")
@@ -391,7 +391,7 @@ def test_azure_gpt_transcribe_uses_deployment_scoped_route():
         max_retries=0,
         api_key="azure-test-key",
         api_base="https://example.openai.azure.com",
-        api_version=litellm.AZURE_DEFAULT_API_VERSION,
+        api_version=hangarllm.AZURE_DEFAULT_API_VERSION,
         client=client,
     )
 
@@ -422,7 +422,7 @@ async def test_azure_gpt_transcribe_sends_language_hints_in_sdk_extra_body():
     response = await AzureAudioTranscription().audio_transcriptions(
         model="gpt-transcribe",
         audio_file=audio_file,
-        optional_params={"keywords": ["LiteLLM"], "languages": ["en"]},
+        optional_params={"keywords": ["HangarLLM"], "languages": ["en"]},
         logging_obj=MagicMock(),
         model_response=TranscriptionResponse(),
         timeout=10,
@@ -481,15 +481,15 @@ async def test_atranscription_bills_the_transcript_when_the_model_ignores_stream
         return _duration_priced_transcript(streamed=False)
 
     recorder: Final = _SuccessSpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     client: Final = AsyncOpenAI(
         api_key="sk-test",
         base_url="https://example.com/v1",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(send_response)),
     )
-    await litellm.atranscription(model="openai/whisper-1", file=_one_second_wav(), client=client)
+    await hangarllm.atranscription(model="openai/whisper-1", file=_one_second_wav(), client=client)
     unstreamed_spend: Final = await asyncio.wait_for(recorder.async_spends.get(), timeout=5)
-    ignored_stream: Final = await litellm.atranscription(
+    ignored_stream: Final = await hangarllm.atranscription(
         model="openai/whisper-1", file=_one_second_wav(), stream=True, client=client
     )
     ignored_stream_spend: Final = await asyncio.wait_for(recorder.async_spends.get(), timeout=5)
@@ -510,22 +510,22 @@ def test_azure_transcription_bills_the_transcript_when_the_deployment_ignores_st
         return _duration_priced_transcript(streamed=False)
 
     recorder: Final = _SuccessSpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     client: Final = AzureOpenAI(
         api_key="azure-test-key",
         azure_endpoint="https://example.openai.azure.com",
-        api_version=litellm.AZURE_DEFAULT_API_VERSION,
+        api_version=hangarllm.AZURE_DEFAULT_API_VERSION,
         http_client=httpx.Client(transport=httpx.MockTransport(send_response)),
     )
     azure_params: Final = {
         "client": client,
         "api_key": "azure-test-key",
         "api_base": "https://example.openai.azure.com",
-        "api_version": litellm.AZURE_DEFAULT_API_VERSION,
+        "api_version": hangarllm.AZURE_DEFAULT_API_VERSION,
     }
-    litellm.transcription(model="azure/whisper-1", file=_one_second_wav(), **azure_params)
+    hangarllm.transcription(model="azure/whisper-1", file=_one_second_wav(), **azure_params)
     unstreamed_spend: Final = recorder.sync_spends.get(timeout=5)
-    ignored_stream: Final = litellm.transcription(
+    ignored_stream: Final = hangarllm.transcription(
         model="azure/whisper-1", file=_one_second_wav(), stream=True, **azure_params
     )
     ignored_stream_spend: Final = recorder.sync_spends.get(timeout=5)
@@ -567,8 +567,8 @@ def test_whisper_stream_request_answered_with_json_keeps_the_unstreamed_response
     with _openai_transcription_client(
         httpx.MockTransport(lambda request: httpx.Response(200, json=verbose_transcript))
     ) as client:
-        unstreamed: Final = litellm.transcription(model="openai/whisper-1", file=_one_second_wav(), client=client)
-        ignored_stream: Final = litellm.transcription(
+        unstreamed: Final = hangarllm.transcription(model="openai/whisper-1", file=_one_second_wav(), client=client)
+        ignored_stream: Final = hangarllm.transcription(
             model="openai/whisper-1", file=_one_second_wav(), stream=True, client=client
         )
 
@@ -587,7 +587,7 @@ def test_transcription_stream_requested_as_a_form_string_streams_like_a_bool(
         return _duration_priced_transcript(streamed=_asks_for_stream(sent_bodies[-1]))
 
     with _openai_transcription_client(httpx.MockTransport(send_response)) as client:
-        stream: Final = litellm.transcription(
+        stream: Final = hangarllm.transcription(
             model="openai/gpt-transcribe", file=_one_second_wav(), stream=requested_stream, client=client
         )
         events: Final = [event.type for event in stream]
@@ -606,8 +606,8 @@ def test_transcription_stream_that_is_not_a_boolean_answers_400_without_calling_
         return _duration_priced_transcript(streamed=False)
 
     with _openai_transcription_client(httpx.MockTransport(send_response)) as client:
-        with pytest.raises(litellm.BadRequestError) as raised:
-            litellm.transcription(model="openai/gpt-transcribe", file=_one_second_wav(), stream="maybe", client=client)
+        with pytest.raises(hangarllm.BadRequestError) as raised:
+            hangarllm.transcription(model="openai/gpt-transcribe", file=_one_second_wav(), stream="maybe", client=client)
 
     assert raised.value.status_code == 400
     assert sent_bodies == []
@@ -623,7 +623,7 @@ def test_transcription_with_an_empty_stream_form_value_runs_unstreamed_without_a
         return _duration_priced_transcript(streamed=False)
 
     with _openai_transcription_client(httpx.MockTransport(send_response)) as client:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="openai/gpt-transcribe", file=_one_second_wav(), stream="", client=client
         )
 
@@ -641,7 +641,7 @@ def test_transcription_stream_that_is_not_a_boolean_is_dropped_under_drop_params
         return _duration_priced_transcript(streamed=False)
 
     with _openai_transcription_client(httpx.MockTransport(send_response)) as client:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="openai/gpt-transcribe", file=_one_second_wav(), stream="maybe", drop_params=True, client=client
         )
 
@@ -663,15 +663,15 @@ async def test_atranscription_stream_bills_the_provider_duration_like_the_unstre
         return _duration_priced_transcript(streamed=_asks_for_stream(await request.aread()))
 
     recorder: Final = _SuccessSpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     client: Final = AsyncOpenAI(
         api_key="sk-test",
         base_url="https://example.com/v1",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(send_response)),
     )
-    await litellm.atranscription(model="openai/gpt-transcribe", file=_one_second_wav(), client=client)
+    await hangarllm.atranscription(model="openai/gpt-transcribe", file=_one_second_wav(), client=client)
     unstreamed_spend: Final = await asyncio.wait_for(recorder.async_spends.get(), timeout=5)
-    stream: Final = await litellm.atranscription(
+    stream: Final = await hangarllm.atranscription(
         model="openai/gpt-transcribe", file=_one_second_wav(), stream=True, client=client
     )
     events: Final = [event.type async for event in stream]
@@ -703,13 +703,13 @@ async def test_atranscription_stream_under_a_post_call_guardrail_streams_the_gua
     async def send_response(request: httpx.Request) -> httpx.Response:
         return _duration_priced_transcript(streamed=_asks_for_stream(await request.aread()))
 
-    monkeypatch.setattr(litellm, "callbacks", [_TranscriptRedactor()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_TranscriptRedactor()])
     client: Final = AsyncOpenAI(
         api_key="sk-test",
         base_url="https://example.com/v1",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(send_response)),
     )
-    stream: Final = await litellm.atranscription(
+    stream: Final = await hangarllm.atranscription(
         model="openai/gpt-transcribe",
         file=_one_second_wav(),
         stream=True,
@@ -747,14 +747,14 @@ async def test_atranscription_stream_keeps_the_transcript_out_of_callbacks_that_
         return _duration_priced_transcript(streamed=_asks_for_stream(await request.aread()))
 
     recorder: Final = _StreamedTranscriptRecorder(message_logging=opt_out != "callback")
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "turn_off_message_logging", opt_out == "global")
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", opt_out == "global")
     client: Final = AsyncOpenAI(
         api_key="sk-test",
         base_url="https://example.com/v1",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(send_response)),
     )
-    stream: Final = await litellm.atranscription(
+    stream: Final = await hangarllm.atranscription(
         model="openai/gpt-transcribe", file=_one_second_wav(), stream=True, client=client
     )
     streamed_text: Final = [event.delta async for event in stream if event.type == "transcript.text.delta"]
@@ -762,7 +762,7 @@ async def test_atranscription_stream_keeps_the_transcript_out_of_callbacks_that_
     await client.close()
 
     assert streamed_text == ["hello world"]
-    assert logged_texts == {REDACTED_BY_LITELLM}
+    assert logged_texts == {REDACTED_BY_HANGARLLM}
 
 
 def test_transcription_stream_bills_the_provider_duration_like_the_unstreamed_call(
@@ -772,15 +772,15 @@ def test_transcription_stream_bills_the_provider_duration_like_the_unstreamed_ca
         return _duration_priced_transcript(streamed=_asks_for_stream(request.read()))
 
     recorder: Final = _SuccessSpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     client: Final = OpenAI(
         api_key="sk-test",
         base_url="https://example.com/v1",
         http_client=httpx.Client(transport=httpx.MockTransport(send_response)),
     )
-    litellm.transcription(model="openai/gpt-transcribe", file=_one_second_wav(), client=client)
+    hangarllm.transcription(model="openai/gpt-transcribe", file=_one_second_wav(), client=client)
     unstreamed_spend: Final = recorder.sync_spends.get(timeout=5)
-    stream: Final = litellm.transcription(
+    stream: Final = hangarllm.transcription(
         model="openai/gpt-transcribe", file=_one_second_wav(), stream=True, client=client
     )
     events: Final = [event.type for event in stream]
@@ -811,11 +811,11 @@ def test_transcription_without_parsed_languages_has_no_languages_key(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch, provider_body: dict[str, object]
 ) -> None:
     recorder: Final = _LoggedResponseRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     with _openai_transcription_client(
         httpx.MockTransport(lambda request: httpx.Response(200, json=provider_body))
     ) as client:
-        response: Final = litellm.transcription(model="openai/whisper-1", file=_one_second_wav(), client=client)
+        response: Final = hangarllm.transcription(model="openai/whisper-1", file=_one_second_wav(), client=client)
     logged_response: Final = recorder.responses.get(timeout=5)
 
     assert response.text == "hello"
@@ -832,7 +832,7 @@ def test_unstreamed_transcription_sends_no_stream_field(local_model_cost_map: No
         return httpx.Response(200, json={"text": "hello"})
 
     with _openai_transcription_client(httpx.MockTransport(send_response)) as client:
-        response: Final = litellm.transcription(model="openai/whisper-1", file=_one_second_wav(), client=client)
+        response: Final = hangarllm.transcription(model="openai/whisper-1", file=_one_second_wav(), client=client)
 
     assert response.text == "hello"
     assert len(sent_bodies) == 1
@@ -847,7 +847,7 @@ def test_transcription_forwards_both_language_and_languages(local_model_cost_map
         return httpx.Response(200, json={"text": "hello", "usage": {"type": "duration", "seconds": 1}})
 
     with _openai_transcription_client(httpx.MockTransport(send_response)) as client:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="openai/gpt-transcribe", file=_one_second_wav(), language="en", languages=["fr"], client=client
         )
 
@@ -858,16 +858,16 @@ def test_transcription_forwards_both_language_and_languages(local_model_cost_map
 
 
 def _gpt_transcribe_cost_per_second() -> float:
-    rate: Final = litellm.model_cost["gpt-transcribe"]["input_cost_per_second"]
+    rate: Final = hangarllm.model_cost["gpt-transcribe"]["input_cost_per_second"]
     assert isinstance(rate, float)
     return rate
 
 
 async def _spend_for_one_second_wav(
-    monkeypatch: pytest.MonkeyPatch, provider_body: dict[str, object], router: litellm.Router | None
+    monkeypatch: pytest.MonkeyPatch, provider_body: dict[str, object], router: hangarllm.Router | None
 ) -> _LoggedSpend:
     recorder: Final = _SuccessSpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     client: Final = AsyncOpenAI(
         api_key="sk-test",
         base_url="https://example.com/v1",
@@ -876,7 +876,7 @@ async def _spend_for_one_second_wav(
         ),
     )
     if router is None:
-        await litellm.atranscription(model="openai/gpt-transcribe", file=_one_second_wav(), client=client)
+        await hangarllm.atranscription(model="openai/gpt-transcribe", file=_one_second_wav(), client=client)
     else:
         await router.atranscription(model="my-transcribe", file=_one_second_wav(), client=client)
     spend: Final = await asyncio.wait_for(recorder.async_spends.get(), timeout=5)
@@ -888,11 +888,11 @@ async def _spend_for_one_second_wav(
 async def test_custom_named_gpt_transcribe_deployment_bills_the_measured_upload_over_reported_seconds(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "my-transcribe",
-                "litellm_params": {"model": "openai/my-transcribe", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/my-transcribe", "api_key": "sk-test"},
                 "model_info": {"base_model": "gpt-transcribe"},
             }
         ]
@@ -930,15 +930,15 @@ async def test_m4a_transcription_stream_that_ends_early_logs_one_spend_row_like_
         )
 
     recorder: Final = _SuccessSpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     client: Final = AsyncOpenAI(
         api_key="sk-test",
         base_url="https://example.com/v1",
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(send_response)),
     )
-    await litellm.atranscription(model="openai/gpt-transcribe", file=("sample.m4a", b"m4a audio"), client=client)
+    await hangarllm.atranscription(model="openai/gpt-transcribe", file=("sample.m4a", b"m4a audio"), client=client)
     unstreamed_spend: Final = await asyncio.wait_for(recorder.async_spends.get(), timeout=5)
-    stream: Final = await litellm.atranscription(
+    stream: Final = await hangarllm.atranscription(
         model="openai/gpt-transcribe", file=("sample.m4a", b"m4a audio"), stream=True, client=client
     )
     events: Final = [event.type async for event in stream]

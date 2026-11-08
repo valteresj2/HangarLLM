@@ -9,7 +9,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody, ModelInfoBody, ModelMode, ModelNewBody
+from models import HangarLLMParamsBody, ModelInfoBody, ModelMode, ModelNewBody
 from openai import BadRequestError, OpenAI
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
@@ -44,7 +44,7 @@ def _register(
     model_id: Final = proxy.register_model(
         ModelNewBody(
             model_name=model,
-            litellm_params=LiteLLMParamsBody(model=backend, api_key="os.environ/OPENAI_API_KEY"),
+            hangarllm_params=HangarLLMParamsBody(model=backend, api_key="os.environ/OPENAI_API_KEY"),
             model_info=ModelInfoBody(
                 enforce_supported_endpoints=supported_endpoints is not None,
                 mode=mode,

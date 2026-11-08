@@ -1,7 +1,7 @@
 """Live e2e: team metadata disable_global_guardrails opts out of default-on
 guardrails, while keys not on such a team stay subject to them.
 
-Uses a local litellm_content_filter (keyword match, no external service) so the
+Uses a local hangarllm_content_filter (keyword match, no external service) so the
 block is deterministic and free. Restored on ProxyClient after the Gateway-era
 suite was removed.
 """
@@ -57,7 +57,7 @@ def _assert_eventually_blocked(client: GuardrailsClient, key: str, banned: str) 
 
 class TestTeamDisableGlobalGuardrail:
     @pytest.mark.covers(
-        "guardrail.litellm_content_filter.pre_call.blocks",
+        "guardrail.hangarllm_content_filter.pre_call.blocks",
         exercised_on=["chat_completions"],
     )
     @meta(
@@ -78,7 +78,7 @@ class TestTeamDisableGlobalGuardrail:
         _assert_eventually_blocked(client, scoped_key, banned)
 
     @pytest.mark.covers(
-        "guardrail.litellm_content_filter.pre_call.allows",
+        "guardrail.hangarllm_content_filter.pre_call.allows",
         exercised_on=["chat_completions"],
     )
     @meta(

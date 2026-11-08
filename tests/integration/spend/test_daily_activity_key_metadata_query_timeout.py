@@ -29,7 +29,7 @@ from integration._support.wire import Reply, Request, wire_server
 from jwt.algorithms import RSAAlgorithm
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
-from litellm.constants import SPEND_LOG_KEY_METADATA_MISS_CACHE_TTL
+from hangarllm.constants import SPEND_LOG_KEY_METADATA_MISS_CACHE_TTL
 
 MODEL: Final = "key-metadata-recovery-audit"
 LOOKUP_MARKER: Final = "first_alias"
@@ -50,17 +50,17 @@ SOCKET_ADDRESS: Final[TypeAdapter[tuple[str, int]]] = TypeAdapter(tuple[str, int
 NO_SETTINGS: Final[Mapping[str, JsonValue]] = MappingProxyType({})
 NO_ENVIRONMENT: Final[Mapping[str, str]] = MappingProxyType({})
 JWT_SETTINGS: Final[Mapping[str, JsonValue]] = MappingProxyType(
-    {"enable_jwt_auth": True, "litellm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True}}
+    {"enable_jwt_auth": True, "hangarllm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True}}
 )
 JWKS_KEY_ID: Final = "key-metadata-recovery-audit"
 SPEND_TABLES: Final = (
-    "LiteLLM_SpendLogs",
-    "LiteLLM_DailyUserSpend",
-    "LiteLLM_DailyTeamSpend",
-    "LiteLLM_DailyOrganizationSpend",
-    "LiteLLM_DailyEndUserSpend",
-    "LiteLLM_DailyTagSpend",
-    "LiteLLM_DailyAgentSpend",
+    "HangarLLM_SpendLogs",
+    "HangarLLM_DailyUserSpend",
+    "HangarLLM_DailyTeamSpend",
+    "HangarLLM_DailyOrganizationSpend",
+    "HangarLLM_DailyEndUserSpend",
+    "HangarLLM_DailyTagSpend",
+    "HangarLLM_DailyAgentSpend",
 )
 LANDED_KEYS: Final = " UNION ".join(
     f"SELECT DISTINCT '{table}' AS source, api_key FROM \"{table}\"" for table in SPEND_TABLES
@@ -207,7 +207,7 @@ def _config(wire_url: str, general_settings: Mapping[str, JsonValue]) -> str:
             "model_list": [
                 {
                     "model_name": MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": f"{wire_url}/v1",
                         "api_key": "sk-upstream",
@@ -217,7 +217,7 @@ def _config(wire_url: str, general_settings: Mapping[str, JsonValue]) -> str:
                 }
             ],
             "general_settings": {
-                "master_key": "os.environ/LITELLM_MASTER_KEY",
+                "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                 "database_url": "os.environ/DATABASE_URL",
                 "store_model_in_db": True,
                 "disable_spend_logs": False,
@@ -251,7 +251,7 @@ def _owned_proxy(
             "PRISMA_HEALTH_WATCHDOG_ENABLED": "false",
             "OPENAI_API_KEY": "sk-upstream",
             "OPENAI_BASE_URL": f"{wire_url}/v1",
-            "LITELLM_DISABLE_NO_REDIS_WARNING": "true",
+            "HANGARLLM_DISABLE_NO_REDIS_WARNING": "true",
             **environment,
         },
         config=config,
@@ -301,10 +301,10 @@ def _pinned(proxy: Gateway) -> Generator[Pinned]:
 
 def _landed(database_url: str, digest: str) -> bool:
     daily: Final = read_rows(
-        'SELECT 1 FROM "LiteLLM_DailyUserSpend" WHERE api_key=%s', (digest,), database_url=database_url
+        'SELECT 1 FROM "HangarLLM_DailyUserSpend" WHERE api_key=%s', (digest,), database_url=database_url
     )
     logged: Final = read_rows(
-        'SELECT 1 FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (digest,), database_url=database_url
+        'SELECT 1 FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (digest,), database_url=database_url
     )
     return bool(daily) and bool(logged)
 
@@ -321,7 +321,7 @@ def _spender(proxy: Gateway, database_url: str, label: str) -> Spender:
     usage: Final = object_value(proxy.chat(MODEL, key=key, text=f"spend {uuid.uuid4().hex}")["usage"])
     assert {name: usage.get(name) for name in USAGE} == dict(USAGE), usage
     eventually(lambda: _landed(database_url, digest), bool, seconds=70)
-    write_rows('DELETE FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,), database_url=database_url)
+    write_rows('DELETE FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,), database_url=database_url)
     return Spender(alias, user_id, user_email, digest)
 
 
@@ -367,7 +367,7 @@ def _named_once_reconnected(pinned: Pinned, spender: Spender) -> httpx.Response:
 @contextmanager
 def _locked_spend_logs(database_url: str) -> Generator[None]:
     with psycopg.connect(database_url) as connection:
-        connection.execute('LOCK TABLE "LiteLLM_SpendLogs" IN ACCESS EXCLUSIVE MODE')
+        connection.execute('LOCK TABLE "HangarLLM_SpendLogs" IN ACCESS EXCLUSIVE MODE')
         try:
             yield
         finally:
@@ -424,7 +424,7 @@ def _probe(pinned: Pinned, database_url: str, digest: str) -> Probe:
 
 def _park(database_url: str, digest: str) -> None:
     write_rows(
-        """UPDATE "LiteLLM_SpendLogs" SET api_key = 'parked-' || api_key WHERE api_key = %s""",
+        """UPDATE "HangarLLM_SpendLogs" SET api_key = 'parked-' || api_key WHERE api_key = %s""",
         (digest,),
         database_url=database_url,
     )
@@ -432,7 +432,7 @@ def _park(database_url: str, digest: str) -> None:
 
 def _restore(database_url: str, digest: str) -> None:
     write_rows(
-        """UPDATE "LiteLLM_SpendLogs" SET api_key = substr(api_key, 8) WHERE api_key = 'parked-' || %s""",
+        """UPDATE "HangarLLM_SpendLogs" SET api_key = substr(api_key, 8) WHERE api_key = 'parked-' || %s""",
         (digest,),
         database_url=database_url,
     )
@@ -467,7 +467,7 @@ class Tenant:
     @property
     def headers(self) -> Mapping[str, str]:
         return MappingProxyType(
-            {"x-litellm-end-user-id": self.customer, "x-litellm-tags": self.tag, "x-litellm-agent-id": self.agent}
+            {"x-hangarllm-end-user-id": self.customer, "x-hangarllm-tags": self.tag, "x-hangarllm-agent-id": self.agent}
         )
 
 
@@ -798,7 +798,7 @@ def test_usage_page_survives_a_dropped_database_connection_during_alias_recovery
 
 def _drop_token_rows(database_url: str, keys: tuple[TenantKey, ...]) -> None:
     write_rows(
-        """DELETE FROM "LiteLLM_VerificationToken" WHERE token = ANY(string_to_array(%s, ','))""",
+        """DELETE FROM "HangarLLM_VerificationToken" WHERE token = ANY(string_to_array(%s, ','))""",
         (",".join(key.digest for key in keys if key.name in KEYS_ONLY_IN_SPEND_LOGS),),
         database_url=database_url,
     )

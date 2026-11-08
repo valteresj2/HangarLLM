@@ -14,8 +14,8 @@ import psycopg
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.models.plugin_upload import PluginDownloadsResponse
-from litellm.types.proxy.skill_hub import SkillHubList
+from hangarllm.models.plugin_upload import PluginDownloadsResponse
+from hangarllm.types.proxy.skill_hub import SkillHubList
 from tests.integration._support.actors import GatewayClient, owned_settings_client
 from tests.integration._support.client import Gateway, Scenario, object_value, string_value
 from tests.integration._support.database import write_rows
@@ -95,7 +95,7 @@ def test_attribution_survives_actor_deletion_and_name_reuse_starts_empty(gateway
                 assert gateway.client.get(f"{prefix}/{name}/downloads").status_code == 401
         assert _history(gateway, name) == recorded
         _delete(gateway, name)
-        assert gateway.rows('SELECT id FROM "LiteLLM_ClaudeCodePluginDownload" WHERE plugin_id = %s', (original_id,)) == []
+        assert gateway.rows('SELECT id FROM "HangarLLM_ClaudeCodePluginDownload" WHERE plugin_id = %s', (original_id,)) == []
         _upload(skills, name)
         assert gateway.get(f"{SKILLS}/{name}")["id"] != original_id
         assert _history(gateway, name) == PluginDownloadsResponse(0, 0, (), None)
@@ -125,7 +125,7 @@ def test_concurrent_counts_and_keyset_pages_preserve_scope_and_deleted_cursors(g
         other: Final = f"{name}-other"
         _download(gateway, key, _upload(scenario, other))
         write_rows(
-            'DELETE FROM "LiteLLM_ClaudeCodePluginDownload" WHERE id IN (%s::bigint, %s::bigint)',
+            'DELETE FROM "HangarLLM_ClaudeCodePluginDownload" WHERE id IN (%s::bigint, %s::bigint)',
             (ordered[2], ordered[4]), database_url=gateway.database_url,
         )
         assert first.next_cursor is not None
@@ -143,7 +143,7 @@ def test_concurrent_counts_and_keyset_pages_preserve_scope_and_deleted_cursors(g
 
 def test_repeat_migration_is_catalog_only_while_download_tables_are_locked(gateway: Gateway) -> None:
     migration: Final = (Path(__file__).resolve().parents[3] /
-        "litellm-proxy-extras/litellm_proxy_extras/migrations/20261105094500_add_skill_download_history/migration.sql"
+        "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations/20261105094500_add_skill_download_history/migration.sql"
     ).read_bytes()
     with gateway.scenario() as scenario:
         name: Final = f"download-{uuid.uuid4().hex}"
@@ -154,7 +154,7 @@ def test_repeat_migration_is_catalog_only_while_download_tables_are_locked(gatew
         database_url: Final = gateway.database_url or os.environ["DATABASE_URL"]
         with psycopg.connect(database_url) as locker, psycopg.connect(database_url, autocommit=True) as migrator:
             locker.execute(
-                'LOCK TABLE "LiteLLM_ClaudeCodePluginTable", "LiteLLM_ClaudeCodePluginDownload" IN ACCESS EXCLUSIVE MODE'
+                'LOCK TABLE "HangarLLM_ClaudeCodePluginTable", "HangarLLM_ClaudeCodePluginDownload" IN ACCESS EXCLUSIVE MODE'
             )
             for _ in range(2):
                 with migrator.transaction():

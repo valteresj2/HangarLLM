@@ -5,14 +5,14 @@ from typing import Final, TypeVar
 
 import pytest
 
-from litellm import Router
-from litellm._internal_context import current_service_target
-from litellm.caching.redis_batch import drain_post_call_redis_batches, request_redis_batch_scope
-from litellm.caching.redis_cache import RedisCache
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.router_usage import RouterUsageStore, UsageCounter
-from litellm.rust_bridge._native import NativeRedisClient
-from litellm.types.utils import ModelResponse
+from hangarllm import Router
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.redis_batch import drain_post_call_redis_batches, request_redis_batch_scope
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.router_usage import RouterUsageStore, UsageCounter
+from hangarllm.rust_bridge._native import NativeRedisClient
+from hangarllm.types.utils import ModelResponse
 from tests.unit.caching.test_redis_batch import FakeNatives, fake_send
 
 T = TypeVar("T")
@@ -113,7 +113,7 @@ async def test_router_reset_clears_usage_and_failure_counters(operation: str) ->
         model_list=[
             {
                 "model_name": "g",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test", "rpm": 10},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test", "rpm": 10},
                 "model_info": {"id": "dep"},
             }
         ]

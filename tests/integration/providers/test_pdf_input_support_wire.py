@@ -29,7 +29,7 @@ _FILENAME: Final = "report.pdf"
 _PDF: Final = pdf_data_url((LETTER,))
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _MESSAGES: Final = TypeAdapter(list[JsonValue])
-_COST_MAP_PATH: Final = Path(__file__).parents[3] / "litellm" / "model_prices_and_context_window_backup.json"
+_COST_MAP_PATH: Final = Path(__file__).parents[3] / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +70,7 @@ _ENTRYPOINTS: Final = (
 
 def _azure_ai_chat_model_pdf_input(entry: JsonValue) -> bool | None:
     match entry:
-        case {"litellm_provider": "azure_ai", "mode": "chat", "supports_pdf_input": bool() as supports}:
+        case {"hangarllm_provider": "azure_ai", "mode": "chat", "supports_pdf_input": bool() as supports}:
             return supports
         case _:
             return None
@@ -205,7 +205,7 @@ def _base_model_deployment(scenario: Scenario, wire: Wire) -> tuple[str, str]:
     return model, backend
 
 
-def _litellm_params_base_model_deployment(scenario: Scenario, wire: Wire) -> tuple[str, str]:
+def _hangarllm_params_base_model_deployment(scenario: Scenario, wire: Wire) -> tuple[str, str]:
     backend: Final = _backend()
     model: Final = scenario.model(
         model=f"azure_ai/{backend}",
@@ -230,7 +230,7 @@ def _ollama_deployment(scenario: Scenario, wire: Wire) -> tuple[str, str]:
     "deploy",
     [
         pytest.param(_base_model_deployment, id="model-info-base-model"),
-        pytest.param(_litellm_params_base_model_deployment, id="litellm-params-base-model"),
+        pytest.param(_hangarllm_params_base_model_deployment, id="hangarllm-params-base-model"),
         pytest.param(_cost_map_deployment, id="cost-map"),
         pytest.param(_ollama_deployment, id="ollama"),
     ],

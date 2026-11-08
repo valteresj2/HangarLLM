@@ -4,9 +4,9 @@ When a guardrail blocks a *streaming* request pre-call by raising
 ``ModifyResponseException``, the chat-completion route streams the violation
 message back as a 200 by building a ``CustomStreamWrapper``. The logging object
 must be read from ``e.request_data`` (the processor's data, which carries
-``litellm_logging_obj``) and NOT from the outer request body returned by
+``hangarllm_logging_obj``) and NOT from the outer request body returned by
 ``_read_request_body`` -- the two diverge at ``function_setup`` and only the
-processor copy gets ``litellm_logging_obj`` attached.
+processor copy gets ``hangarllm_logging_obj`` attached.
 
 Reading it from the outer body passed ``logging_obj=None`` to
 ``CustomStreamWrapper.__init__``, which dereferences
@@ -19,10 +19,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import Request, Response
 
-from litellm.exceptions import RejectedRequestError
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.proxy_server import chat_completion
+from hangarllm.exceptions import RejectedRequestError
+from hangarllm.integrations.custom_guardrail import ModifyResponseException
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.proxy_server import chat_completion
 
 
 async def _run_streaming_block_and_get_wrapper(exception):
@@ -30,7 +30,7 @@ async def _run_streaming_block_and_get_wrapper(exception):
     given pre-call block exception and return the patched CustomStreamWrapper.
 
     The outer request body (what _read_request_body returns) is a streaming
-    request that does NOT carry litellm_logging_obj -- mirroring production,
+    request that does NOT carry hangarllm_logging_obj -- mirroring production,
     where the outer body diverges from the processor's data at function_setup.
     Only the processor copy (exposed as exception.request_data) carries it.
     """
@@ -40,20 +40,20 @@ async def _run_streaming_block_and_get_wrapper(exception):
     outer_body = {"model": "gpt-4o", "messages": [], "stream": True}
 
     with patch(
-        "litellm.proxy.proxy_server.read_request_body",
+        "hangarllm.proxy.proxy_server.read_request_body",
         new_callable=AsyncMock,
         return_value=outer_body,
     ), patch(
-        "litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+        "hangarllm.proxy.proxy_server.ProxyBaseLLMRequestProcessing.base_process_llm_request",
         new_callable=AsyncMock,
         side_effect=exception,
     ), patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj"
+        "hangarllm.proxy.proxy_server.proxy_logging_obj"
     ) as mock_proxy_logging, patch(
-        "litellm.proxy.proxy_server.select_data_generator",
+        "hangarllm.proxy.proxy_server.select_data_generator",
         return_value=iter([]),
     ), patch(
-        "litellm.CustomStreamWrapper"
+        "hangarllm.CustomStreamWrapper"
     ) as mock_csw:
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
 
@@ -68,14 +68,14 @@ async def _run_streaming_block_and_get_wrapper(exception):
 
 @pytest.mark.asyncio
 async def test_streaming_modify_response_uses_request_data_logging_obj():
-    sentinel_logging_obj = MagicMock(name="litellm_logging_obj")
+    sentinel_logging_obj = MagicMock(name="hangarllm_logging_obj")
     exception = ModifyResponseException(
         message="blocked by guardrail",
         model="gpt-4o",
         request_data={
             "model": "gpt-4o",
             "stream": True,
-            "litellm_logging_obj": sentinel_logging_obj,
+            "hangarllm_logging_obj": sentinel_logging_obj,
         },
         guardrail_name="test-guardrail",
     )
@@ -92,7 +92,7 @@ async def test_streaming_modify_response_uses_request_data_logging_obj():
 async def test_streaming_rejected_request_uses_request_data_logging_obj():
     # RejectedRequestError gets the identical fix in its own streaming
     # passthrough handler, so it needs the same regression guard.
-    sentinel_logging_obj = MagicMock(name="litellm_logging_obj")
+    sentinel_logging_obj = MagicMock(name="hangarllm_logging_obj")
     exception = RejectedRequestError(
         message="rejected by guardrail",
         model="gpt-4o",
@@ -100,7 +100,7 @@ async def test_streaming_rejected_request_uses_request_data_logging_obj():
         request_data={
             "model": "gpt-4o",
             "stream": True,
-            "litellm_logging_obj": sentinel_logging_obj,
+            "hangarllm_logging_obj": sentinel_logging_obj,
         },
     )
 

@@ -101,7 +101,7 @@ def _only_streamed_chat(wire: Wire, *tool_names: str) -> dict[str, JsonValue]:
 
 def _spend_statuses(model: str) -> list[JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= 1,
         seconds=70,
     )

@@ -2,10 +2,10 @@
 
 import pytest
 
-from litellm.proxy.mcp_server.outbound_credentials.redis_distributed_lock import (
+from hangarllm.proxy.mcp_server.outbound_credentials.redis_distributed_lock import (
     RedisDistributedLock,
 )
-from litellm.proxy.mcp_server.outbound_credentials.redis_refresh_coordinator import (
+from hangarllm.proxy.mcp_server.outbound_credentials.redis_refresh_coordinator import (
     LockAcquisition,
 )
 

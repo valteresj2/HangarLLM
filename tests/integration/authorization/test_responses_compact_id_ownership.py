@@ -368,7 +368,7 @@ def test_client_sent_retained_response_id_cannot_address_another_owner(gateway: 
                 compact_body(
                     actors.model,
                     retained_victim,
-                    {"previous_response_id": attacker, "_litellm_addressed_response_id": victim},
+                    {"previous_response_id": attacker, "_hangarllm_addressed_response_id": victim},
                 ),
                 retained_victim,
             ),
@@ -381,7 +381,7 @@ def test_client_sent_retained_response_id_cannot_address_another_owner(gateway: 
                 actors.other_user,
                 "/v1",
                 compact_body(
-                    actors.model, retained_number, {"previous_response_id": victim, "_litellm_addressed_response_id": 7}
+                    actors.model, retained_number, {"previous_response_id": victim, "_hangarllm_addressed_response_id": 7}
                 ),
                 retained_number,
             ),
@@ -397,7 +397,7 @@ def test_client_sent_retained_response_id_cannot_address_another_owner(gateway: 
                 compact_body(
                     actors.model,
                     retained_own,
-                    {"previous_response_id": victim, "_litellm_addressed_response_id": attacker},
+                    {"previous_response_id": victim, "_hangarllm_addressed_response_id": attacker},
                 ),
                 retained_own,
             ),

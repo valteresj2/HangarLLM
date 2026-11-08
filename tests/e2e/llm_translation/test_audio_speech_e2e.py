@@ -17,7 +17,7 @@ from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from e2e_http import assert_client_error
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from pydantic import BaseModel
 from sdk_clients import SdkClients, response_header
@@ -38,7 +38,7 @@ def _register_tts(proxy: ProxyClient, resources: ResourceManager) -> tuple[str, 
     model = f"e2e-speech-{unique_marker()}"
     model_id = proxy.create_model(
         model,
-        LiteLLMParamsBody(model=OPENAI_TTS_MODEL, api_key="os.environ/OPENAI_API_KEY"),
+        HangarLLMParamsBody(model=OPENAI_TTS_MODEL, api_key="os.environ/OPENAI_API_KEY"),
     )
     resources.defer(lambda: proxy.delete_model(model_id))
     return model, resources.key()
@@ -217,7 +217,7 @@ class TestAwsPollySpeech:
         model = f"e2e-speech-polly-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=AWS_POLLY_MODEL,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

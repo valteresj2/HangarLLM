@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from openai._legacy_response import LegacyAPIResponse
 
-import litellm
-from litellm import ModelResponse
-from litellm.llms.azure.chat.o_series_transformation import AzureOpenAIO1Config
+import hangarllm
+from hangarllm import ModelResponse
+from hangarllm.llms.azure.chat.o_series_transformation import AzureOpenAIO1Config
 
 
 @pytest.mark.asyncio
@@ -17,11 +17,11 @@ async def test_azure_chat_o_series_transformation():
     model = "o_series/web-interface-o1-mini"
     messages = [{"role": "user", "content": "Hello, how are you?"}]
     optional_params = {}
-    litellm_params = {}
+    hangarllm_params = {}
     headers = {}
 
     response = await provider_config.async_transform_request(
-        model, messages, optional_params, litellm_params, headers
+        model, messages, optional_params, hangarllm_params, headers
     )
     print(response)
     assert response["model"] == "web-interface-o1-mini"
@@ -59,7 +59,7 @@ def test_azure_o_series_transform_request_flattens_top_level_anyof():
         model="o3-mini",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -73,7 +73,7 @@ def test_azure_o_series_transform_request_flattens_top_level_anyof():
 
 
 def test_azure_o_series_transform_request_moves_system_messages_first(monkeypatch):
-    monkeypatch.setattr(litellm, "openai_system_messages_first", True)
+    monkeypatch.setattr(hangarllm, "openai_system_messages_first", True)
     messages = [
         {"role": "user", "content": "hi"},
         {"role": "developer", "content": "dev"},
@@ -85,7 +85,7 @@ def test_azure_o_series_transform_request_moves_system_messages_first(monkeypatc
         model="o3-mini",
         messages=messages,
         optional_params={},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -95,11 +95,11 @@ def test_azure_o_series_transform_request_moves_system_messages_first(monkeypatc
 
 def test_override_fake_stream():
     """Test that native streaming is not supported for o1."""
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure/o1-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/o1-preview",
                     "api_key": "my-fake-o1-key",
                     "api_base": "https://openai-gpt-4-test-v-1.openai.azure.com",
@@ -111,10 +111,10 @@ def test_override_fake_stream():
         ]
     )
 
-    model_info = litellm.get_model_info(model="azure/o1-preview", custom_llm_provider="azure")
+    model_info = hangarllm.get_model_info(model="azure/o1-preview", custom_llm_provider="azure")
     assert model_info["supports_native_streaming"] is True
 
-    fake_stream = litellm.AzureOpenAIO1Config().should_fake_stream(model="azure/o1-preview", stream=True)
+    fake_stream = hangarllm.AzureOpenAIO1Config().should_fake_stream(model="azure/o1-preview", stream=True)
     assert fake_stream is False
 
 
@@ -123,7 +123,7 @@ def test_azure_o3_streaming():
     Test that o3 models handles fake streaming correctly.
     """
     from openai import AzureOpenAI
-    from litellm import completion
+    from hangarllm import completion
 
     client = AzureOpenAI(
         api_key="my-fake-o1-key",
@@ -150,7 +150,7 @@ def test_azure_o_series_routing():
     Allows user to pass model="azure/o_series/<any-deployment-name>" for explicit o_series model routing.
     """
     from openai import AzureOpenAI
-    from litellm import completion
+    from hangarllm import completion
 
     client = AzureOpenAI(
         api_key="my-fake-o1-key",
@@ -172,9 +172,9 @@ def test_azure_o_series_routing():
         assert "stream" not in mock_create.call_args.kwargs["body"]
 
 
-@patch("litellm.main.azure_o1_chat_completions._get_openai_client")
+@patch("hangarllm.main.azure_o1_chat_completions._get_openai_client")
 def test_openai_o_series_max_retries_0(mock_get_openai_client):
-    import litellm
+    import hangarllm
 
     raw_response: Final = MagicMock(spec=LegacyAPIResponse)
     raw_response.headers = {}
@@ -182,8 +182,8 @@ def test_openai_o_series_max_retries_0(mock_get_openai_client):
     client_stub: Final = MagicMock()
     client_stub.post.return_value = raw_response
     mock_get_openai_client.return_value = client_stub
-    litellm.set_verbose = True
-    response = litellm.completion(
+    hangarllm.set_verbose = True
+    response = hangarllm.completion(
         model="azure/o1-preview",
         messages=[{"role": "user", "content": "hi"}],
         max_retries=0,
@@ -202,11 +202,11 @@ async def test_azure_o1_series_response_format_extra_params():
     """
     Tool calling should work for all azure o_series models.
     """
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     from openai import AsyncAzureOpenAI
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     client = AsyncAzureOpenAI(
         api_key="fake-api-key",
@@ -239,7 +239,7 @@ async def test_azure_o1_series_response_format_extra_params():
         client, "post"
     ) as mock_client:
         try:
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 client=client,
                 model="azure/o_series/<my-deployment-name>",
                 api_key="xxxxx",

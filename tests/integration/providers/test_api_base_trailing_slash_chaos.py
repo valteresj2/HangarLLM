@@ -35,7 +35,7 @@ def _search_tool(gateway: Gateway, scenario: Scenario, api_base: str) -> str:
         {
             "search_tool": {
                 "search_tool_name": name,
-                "litellm_params": {"search_provider": "tavily", "api_key": KEY, "api_base": api_base},
+                "hangarllm_params": {"search_provider": "tavily", "api_key": KEY, "api_base": api_base},
             }
         },
     )

@@ -32,10 +32,10 @@ _BACKEND: Final = "mistral-multi-tool"
 _PROVIDER_MODEL: Final = f"mistral/{_BACKEND}"
 _PROVIDER_KEY: Final = "integration-provider-key"
 _UPSTREAM_TARGET: Final = "/v1/chat/completions"
-_CALL_ID_HEADER: Final = "x-litellm-call-id"
-_ROWS: Final = "SELECT status FROM \"LiteLLM_SpendLogs\" WHERE metadata->>'litellm_call_id' = %s"
+_CALL_ID_HEADER: Final = "x-hangarllm-call-id"
+_ROWS: Final = "SELECT status FROM \"HangarLLM_SpendLogs\" WHERE metadata->>'hangarllm_call_id' = %s"
 _ROW_SECONDS: Final = 70
-_CACHE_ROWS: Final = "SELECT status, cache_hit FROM \"LiteLLM_SpendLogs\" WHERE metadata->>'litellm_call_id' = %s"
+_CACHE_ROWS: Final = "SELECT status, cache_hit FROM \"HangarLLM_SpendLogs\" WHERE metadata->>'hangarllm_call_id' = %s"
 _USAGE: Final[dict[str, JsonValue]] = {"prompt_tokens": 40, "completion_tokens": 30, "total_tokens": 70}
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _TOOL_SPECS: Final = (("Bash", "command"), ("Read", "file_path"), ("Glob", "pattern"))

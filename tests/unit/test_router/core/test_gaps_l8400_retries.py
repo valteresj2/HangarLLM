@@ -8,7 +8,7 @@ from typing import Final
 
 import pytest
 
-import litellm
+import hangarllm
 from tests.unit.test_router.core.retries_health_helpers import (
     BackgroundSuccessLoggingHost,
     MakeCore,
@@ -18,8 +18,8 @@ from tests.unit.test_router.core.retries_health_helpers import (
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit, server_error
 
 
-def unsupported_endpoint() -> litellm.UnsupportedEndpointError:
-    return litellm.UnsupportedEndpointError(message="endpoint not supported", llm_provider="openai", model="gpt-4o")
+def unsupported_endpoint() -> hangarllm.UnsupportedEndpointError:
+    return hangarllm.UnsupportedEndpointError(message="endpoint not supported", llm_provider="openai", model="gpt-4o")
 
 
 # --- UnsupportedEndpointError: retried on the other deployments, stopped once every one refused ---------
@@ -36,7 +36,7 @@ async def test_unsupported_endpoint_is_retried_once_per_deployment_then_raised(
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.UnsupportedEndpointError)
+    assert isinstance(error, hangarllm.UnsupportedEndpointError)
     called: Final = host.deployments_called("acompletion")
     assert sorted(called) == ["a", "b"]
     assert host.sleeps == [0]
@@ -51,7 +51,7 @@ async def test_unsupported_endpoint_on_a_lone_deployment_is_raised_without_a_ret
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.UnsupportedEndpointError)
+    assert isinstance(error, hangarllm.UnsupportedEndpointError)
     assert host.deployments_called("acompletion") == ["a"]
     assert host.sleeps == []
 
@@ -85,7 +85,7 @@ async def test_previous_models_keeps_only_the_four_most_recent_failures(
         ({"model_info": {"base_model": "azure/gpt-4o-mini"}}, "azure/gpt-4o-mini"),
         ({}, None),
     ],
-    ids=["litellm-params-base-model", "model-info-base-model", "none"],
+    ids=["hangarllm-params-base-model", "model-info-base-model", "none"],
 )
 async def test_a_retry_breadcrumb_names_the_deployments_base_model(
     make_core: MakeCore, host: ScriptedHost, params: dict[str, object], expected: str | None
@@ -112,12 +112,12 @@ async def test_a_failed_call_counts_a_request_but_no_tokens_in_group_usage(
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert await core.health().usage("g") == (None, 1)
 
 
 class TestUsageWhenTheHostLogsSuccessAfterTheResponse:
-    """litellm runs the async success callbacks after the endpoint returned (``ScriptedHost`` runs them
+    """hangarllm runs the async success callbacks after the endpoint returned (``ScriptedHost`` runs them
     before, which lets the success callback and the router's own count both add the same response)."""
 
     @pytest.fixture

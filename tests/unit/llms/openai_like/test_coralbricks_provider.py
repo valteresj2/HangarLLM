@@ -6,15 +6,15 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
 
 CORALBRICKS_MODEL: Final = "coralbricks/deepseek-v4.1-flash-fast"
 CORALBRICKS_MODEL_ID: Final = "deepseek-v4.1-flash-fast"
 
 
 def test_coralbricks_provider_resolution(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("CORALBRICKS_API_KEY", "coralbricks-test-key")
 
@@ -32,7 +32,7 @@ def test_coralbricks_provider_resolution(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_coralbricks_provider_keeps_explicit_credentials(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("CORALBRICKS_API_KEY", "coralbricks-env-key")
 
@@ -50,11 +50,11 @@ def test_coralbricks_provider_keeps_explicit_credentials(monkeypatch: pytest.Mon
 
 def test_coralbricks_is_available_in_add_model_form():
     fields_path: Final = (
-        Path(litellm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
+        Path(hangarllm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
     )
     providers: Final = json.loads(fields_path.read_text())
     coralbricks: Final = next(
-        provider for provider in providers if provider["litellm_provider"] == "coralbricks"
+        provider for provider in providers if provider["hangarllm_provider"] == "coralbricks"
     )
 
     assert coralbricks["provider"] == "CORALBRICKS"
@@ -67,10 +67,10 @@ def test_coralbricks_is_available_in_add_model_form():
 
 
 def test_coralbricks_endpoint_support_matches_providers_json():
-    matrix_path: Final = Path(litellm.__file__).parent / "provider_endpoints_support_backup.json"
+    matrix_path: Final = Path(hangarllm.__file__).parent / "provider_endpoints_support_backup.json"
     endpoints: Final = json.loads(matrix_path.read_text())["providers"]["coralbricks"]["endpoints"]
     providers_json: Final = json.loads(
-        (Path(litellm.__file__).parent / "llms" / "openai_like" / "providers.json").read_text()
+        (Path(hangarllm.__file__).parent / "llms" / "openai_like" / "providers.json").read_text()
     )
     declared: Final = set(providers_json["coralbricks"]["supported_endpoints"])
 
@@ -101,7 +101,7 @@ def test_coralbricks_chat_completion_request():
                 "usage": {"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=CORALBRICKS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="coralbricks-test-key",
@@ -141,7 +141,7 @@ def test_coralbricks_responses_request():
                 "usage": {"input_tokens": 4, "output_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model=CORALBRICKS_MODEL,
             input="Say hello",
             api_key="coralbricks-test-key",
@@ -159,8 +159,8 @@ def test_coralbricks_responses_request():
 
 @pytest.mark.asyncio
 async def test_coralbricks_anthropic_messages_request(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock() as upstream:
         route: Final = upstream.post("https://inference.coralbricks.ai/v1/messages").respond(
             200,
@@ -175,7 +175,7 @@ async def test_coralbricks_anthropic_messages_request(monkeypatch: pytest.Monkey
                 "usage": {"input_tokens": 4, "output_tokens": 3},
             },
         )
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model=CORALBRICKS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,
@@ -202,8 +202,8 @@ class CoralBricksRates:
 
 
 def _coralbricks_rates() -> CoralBricksRates:
-    row: Final = litellm.model_cost[CORALBRICKS_MODEL]
-    assert row["litellm_provider"] == "coralbricks"
+    row: Final = hangarllm.model_cost[CORALBRICKS_MODEL]
+    assert row["hangarllm_provider"] == "coralbricks"
     return CoralBricksRates(
         input=float(row["input_cost_per_token"]),
         output=float(row["output_cost_per_token"]),
@@ -258,13 +258,13 @@ def test_coralbricks_chat_completion_cost_includes_cache_write_and_free_cached_r
                 },
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=CORALBRICKS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="coralbricks-test-key",
         )
 
-    cost: Final = litellm.completion_cost(completion_response=response, model=CORALBRICKS_MODEL)
+    cost: Final = hangarllm.completion_cost(completion_response=response, model=CORALBRICKS_MODEL)
     assert cost == pytest.approx(
         _expected_cost(
             rates,
@@ -309,13 +309,13 @@ def test_coralbricks_responses_cost_includes_cache_write_and_free_cached_read():
                 },
             },
         )
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model=CORALBRICKS_MODEL,
             input="Say hello",
             api_key="coralbricks-test-key",
         )
 
-    cost: Final = litellm.completion_cost(completion_response=response, model=CORALBRICKS_MODEL)
+    cost: Final = hangarllm.completion_cost(completion_response=response, model=CORALBRICKS_MODEL)
     assert cost == pytest.approx(
         _expected_cost(
             rates,
@@ -332,8 +332,8 @@ async def test_coralbricks_anthropic_messages_cost_includes_cache_write_and_free
     monkeypatch: pytest.MonkeyPatch,
 ):
     rates: Final = _coralbricks_rates()
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock() as upstream:
         upstream.post("https://inference.coralbricks.ai/v1/messages").respond(
             200,
@@ -353,14 +353,14 @@ async def test_coralbricks_anthropic_messages_cost_includes_cache_write_and_free
                 },
             },
         )
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model=CORALBRICKS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,
             api_key="coralbricks-test-key",
         )
 
-    cost: Final = litellm.completion_cost(completion_response=response, model=CORALBRICKS_MODEL)
+    cost: Final = hangarllm.completion_cost(completion_response=response, model=CORALBRICKS_MODEL)
     assert cost == pytest.approx(
         _expected_cost(
             rates,
@@ -373,17 +373,17 @@ async def test_coralbricks_anthropic_messages_cost_includes_cache_write_and_free
 
 
 def test_coralbricks_rows_are_listed_for_wildcard_expansion():
-    catalog: Final = {name for name, info in litellm.model_cost.items() if info.get("litellm_provider") == "coralbricks"}
+    catalog: Final = {name for name, info in hangarllm.model_cost.items() if info.get("hangarllm_provider") == "coralbricks"}
     assert CORALBRICKS_MODEL in catalog
-    assert set(litellm.get_valid_models(custom_llm_provider="coralbricks")) == catalog
+    assert set(hangarllm.get_valid_models(custom_llm_provider="coralbricks")) == catalog
 
 
 def test_coralbricks_cost_map_backup_mirrors_main():
     main_map: Final = json.loads(
-        (Path(litellm.__file__).parent.parent / "model_prices_and_context_window.json").read_text()
+        (Path(hangarllm.__file__).parent.parent / "model_prices_and_context_window.json").read_text()
     )
     backup_map: Final = json.loads(
-        (Path(litellm.__file__).parent / "model_prices_and_context_window_backup.json").read_text()
+        (Path(hangarllm.__file__).parent / "model_prices_and_context_window_backup.json").read_text()
     )
     main_keys: Final = {key for key in main_map if key.startswith("coralbricks/")}
     backup_keys: Final = {key for key in backup_map if key.startswith("coralbricks/")}
@@ -394,12 +394,12 @@ def test_coralbricks_cost_map_backup_mirrors_main():
 
 def test_coralbricks_cost_map_rows_declare_same_endpoints_as_providers_json():
     providers_json: Final = json.loads(
-        (Path(litellm.__file__).parent / "llms" / "openai_like" / "providers.json").read_text()
+        (Path(hangarllm.__file__).parent / "llms" / "openai_like" / "providers.json").read_text()
     )
     declared: Final = providers_json["coralbricks"]["supported_endpoints"]
     cost_map_paths: Final = (
-        Path(litellm.__file__).parent.parent / "model_prices_and_context_window.json",
-        Path(litellm.__file__).parent / "model_prices_and_context_window_backup.json",
+        Path(hangarllm.__file__).parent.parent / "model_prices_and_context_window.json",
+        Path(hangarllm.__file__).parent / "model_prices_and_context_window_backup.json",
     )
     for cost_map_path in cost_map_paths:
         cost_map: Final = json.loads(cost_map_path.read_text())
@@ -433,12 +433,12 @@ def _billed_chat_cost(model_id: str) -> float:
                 },
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=f"coralbricks/{model_id}",
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="coralbricks-test-key",
         )
-    return litellm.completion_cost(completion_response=response, model=f"coralbricks/{model_id}")
+    return hangarllm.completion_cost(completion_response=response, model=f"coralbricks/{model_id}")
 
 
 @pytest.mark.parametrize(
@@ -509,7 +509,7 @@ def test_coralbricks_streaming_chat_cost_includes_cache_write_and_free_cached_re
         route: Final = upstream.post("https://inference.coralbricks.ai/v1/chat/completions").respond(
             200, headers={"content-type": "text/event-stream"}, content=stream_body
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=CORALBRICKS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="coralbricks-test-key",
@@ -523,11 +523,11 @@ def test_coralbricks_streaming_chat_cost_includes_cache_write_and_free_cached_re
     assert route.call_count == 1
     assert body["stream"] is True
 
-    built: Final = litellm.stream_chunk_builder(
+    built: Final = hangarllm.stream_chunk_builder(
         chunks, messages=[{"role": "user", "content": "Say hello"}]
     )
     assert built.usage.prompt_tokens_details.cached_tokens == 4352
-    cost: Final = litellm.completion_cost(completion_response=built, model=CORALBRICKS_MODEL)
+    cost: Final = hangarllm.completion_cost(completion_response=built, model=CORALBRICKS_MODEL)
     assert cost == pytest.approx(
         _expected_cost(
             rates,

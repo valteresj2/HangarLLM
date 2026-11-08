@@ -270,16 +270,16 @@ def test_base_counts_cached_treats_empty_fetched_counts_as_a_miss(tmp_path: Path
 
 
 def test_origin_slug_parsing_supports_ssh_and_https_github_forms() -> None:
-    assert counts.parse_origin_slug("git@github.com:BerriAI/litellm.git") == "BerriAI/litellm"
-    assert counts.parse_origin_slug("git@github.com:BerriAI/litellm") == "BerriAI/litellm"
-    assert counts.parse_origin_slug("https://github.com/BerriAI/litellm.git") == "BerriAI/litellm"
-    assert counts.parse_origin_slug("https://github.com/BerriAI/litellm") == "BerriAI/litellm"
-    assert counts.parse_origin_slug("https://github.com/BerriAI/litellm/") == "BerriAI/litellm"
+    assert counts.parse_origin_slug("git@github.com:valteresj2/HangarLLM.git") == "valteresj2/HangarLLM"
+    assert counts.parse_origin_slug("git@github.com:valteresj2/HangarLLM") == "valteresj2/HangarLLM"
+    assert counts.parse_origin_slug("https://github.com/valteresj2/HangarLLM.git") == "valteresj2/HangarLLM"
+    assert counts.parse_origin_slug("https://github.com/valteresj2/HangarLLM") == "valteresj2/HangarLLM"
+    assert counts.parse_origin_slug("https://github.com/valteresj2/HangarLLM/") == "valteresj2/HangarLLM"
 
 
 def test_origin_slug_parsing_rejects_non_github_urls() -> None:
-    assert counts.parse_origin_slug("https://gitlab.com/BerriAI/litellm.git") is None
-    assert counts.parse_origin_slug("git@bitbucket.org:BerriAI/litellm.git") is None
+    assert counts.parse_origin_slug("https://gitlab.com/valteresj2/HangarLLM.git") is None
+    assert counts.parse_origin_slug("git@bitbucket.org:valteresj2/HangarLLM.git") is None
     assert counts.parse_origin_slug("not a url") is None
     assert counts.parse_origin_slug("") is None
 

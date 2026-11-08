@@ -6,7 +6,7 @@ import pytest
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from litellm import Router
+from hangarllm import Router
 
 APPLICATION_PROFILE_ARN: Final = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123"
 REDACTED: Final = base64.b64encode(b"EmwKAhgBEgy3va3pzix/LafPsn4aDFIT2Xlxh0L5L8rLVyIwxtE3rAFBa8cr3qpP").decode()
@@ -57,7 +57,7 @@ def test_sync_router_reads_base_model_to_replay_redacted_thinking_to_an_applicat
             model_list=[
                 {
                     "model_name": "claude-profile",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"bedrock/converse/{APPLICATION_PROFILE_ARN}",
                         "api_base": wire.url,
                         "api_key": "synthetic-bedrock-bearer",
@@ -97,7 +97,7 @@ def test_sync_router_replays_a_block_in_content_and_thinking_blocks_once() -> No
             model_list=[
                 {
                     "model_name": "claude-profile",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"bedrock/converse/{APPLICATION_PROFILE_ARN}",
                         "api_base": wire.url,
                         "api_key": "synthetic-bedrock-bearer",

@@ -17,7 +17,7 @@ def configure_executor() -> None:
 
 
 async def worker_readiness() -> JSONResponse:
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     response: Final = Response()
     body: Final = READINESS_BODY.validate_python(await health_readiness(response))
@@ -27,14 +27,14 @@ async def worker_readiness() -> JSONResponse:
 
 
 async def worker_deployment_ids(model_name: str) -> JSONResponse:
-    from litellm.proxy.proxy_server import llm_router
+    from hangarllm.proxy.proxy_server import llm_router
 
     model_ids: Final = [] if llm_router is None else llm_router.get_model_ids(model_name=model_name)
     return JSONResponse(content={"model_ids": model_ids}, headers={"x-integration-worker-pid": str(os.getpid())})
 
 
 async def worker_general_setting(name: str) -> JSONResponse:
-    from litellm.proxy.proxy_server import proxy_config
+    from hangarllm.proxy.proxy_server import proxy_config
 
     return JSONResponse(
         content={"value": proxy_config.settings.get(name)}, headers={"x-integration-worker-pid": str(os.getpid())}
@@ -42,7 +42,7 @@ async def worker_general_setting(name: str) -> JSONResponse:
 
 
 def configure_readiness() -> None:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     app.add_api_route("/health/integration-readiness", worker_readiness, include_in_schema=False)
     app.add_api_route("/health/integration-deployment-ids", worker_deployment_ids, include_in_schema=False)

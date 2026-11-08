@@ -1,8 +1,8 @@
 from fastapi.routing import APIRoute
 
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.debug_utils import router as debug_router
-from litellm.proxy.spend_tracking.spend_management_endpoints import (
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.common_utils.debug_utils import router as debug_router
+from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
     router as spend_router,
 )
 

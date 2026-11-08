@@ -20,13 +20,13 @@ from openai.types.chat import ChatCompletionMessage
 from openai.types.chat.chat_completion import ChatCompletion, Choice
 from respx import MockRouter
 
-import litellm
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.litellm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
-from litellm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
-from litellm.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
-from litellm.router import Router
-from litellm.utils import _invalidate_model_cost_lowercase_map, get_optional_params
+import hangarllm
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
+from hangarllm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
+from hangarllm.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
+from hangarllm.router import Router
+from hangarllm.utils import _invalidate_model_cost_lowercase_map, get_optional_params
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 _MAPPED_PARAMS: Final = TypeAdapter(dict[str, object])
@@ -99,7 +99,7 @@ def test_map_openai_params_drop_params_still_drops_a_named_tool_choice_on_old_ap
 
 
 def test_map_openai_params_drop_params_never_drops_allowed_tools_on_old_api_version():
-    with pytest.raises(litellm.UnsupportedParamsError, match="allowed_tools") as exc:
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="allowed_tools") as exc:
         _map_tool_choice_on_pre_tool_choice_api_version(
             {"type": "allowed_tools", "allowed_tools": {"mode": "auto", "tools": [{"type": "function"}]}}
         )
@@ -140,7 +140,7 @@ def test_transform_request_hoists_tool_message_image():
         model="gpt-4o",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -175,7 +175,7 @@ def test_transform_request_drops_tool_reference_parts():
         model="gpt-4o",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -188,7 +188,7 @@ def test_transform_request_drops_tool_reference_parts():
 def test_transform_request_system_messages_first_follows_global_flag(monkeypatch, enabled, expected):
     """Azure OpenAI shares OpenAI's prefix-matched prompt cache, so the same flag moves
     system messages ahead of the conversation on the Azure request body."""
-    monkeypatch.setattr(litellm, "openai_system_messages_first", enabled)
+    monkeypatch.setattr(hangarllm, "openai_system_messages_first", enabled)
     messages = [
         {"role": "user", "content": "hi"},
         {"role": "system", "content": "sys"},
@@ -200,7 +200,7 @@ def test_transform_request_system_messages_first_follows_global_flag(monkeypatch
         model="gpt-4o",
         messages=messages,
         optional_params={},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -230,7 +230,7 @@ def test_azure_max_tokens_rename_covers_gpt_5_chat_family(model: str, emitted_ke
 
 @pytest.mark.parametrize("model", ["gpt-5-chat", "gpt-5-chat-latest"])
 def test_azure_gpt_5_chat_stays_off_the_reasoning_path(model: str) -> None:
-    """https://github.com/BerriAI/litellm/issues/13781: gpt-5-chat* is a regular chat model."""
+    """upstream issue 13781 gpt-5-chat* is a regular chat model."""
     mapped: Final = _MAPPED_PARAMS.validate_python(
         get_optional_params(
             model=model,
@@ -244,7 +244,7 @@ def test_azure_gpt_5_chat_stays_off_the_reasoning_path(model: str) -> None:
         )
     )
     supported: Final = _SUPPORTED_PARAMS.validate_python(
-        litellm.get_supported_openai_params(model=model, custom_llm_provider="azure")
+        hangarllm.get_supported_openai_params(model=model, custom_llm_provider="azure")
     )
     assert mapped["temperature"] == 0.3
     assert mapped["presence_penalty"] == 0.1
@@ -267,7 +267,7 @@ def test_azure_gpt_5_takes_the_reasoning_path() -> None:
         )
     )
     supported: Final = _SUPPORTED_PARAMS.validate_python(
-        litellm.get_supported_openai_params(model="gpt-5", custom_llm_provider="azure")
+        hangarllm.get_supported_openai_params(model="gpt-5", custom_llm_provider="azure")
     )
     assert "presence_penalty" not in mapped
     assert "logit_bias" not in mapped
@@ -314,7 +314,7 @@ class TestAzureToolSchemaCombinatorFlattening:
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"tools": tools},
-            litellm_params={"custom_llm_provider": "azure"},
+            hangarllm_params={"custom_llm_provider": "azure"},
             headers={},
         )
 
@@ -378,7 +378,7 @@ class TestAzureToolSchemaCombinatorFlattening:
             model="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"temperature": 0.2},
-            litellm_params={"custom_llm_provider": "azure"},
+            hangarllm_params={"custom_llm_provider": "azure"},
             headers={},
         )
         assert "tools" not in request
@@ -392,7 +392,7 @@ def test_azure_drops_tool_choice_without_tools_or_functions(tool_choice: str) ->
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -406,7 +406,7 @@ def test_azure_tools_empty_drops_tool_choice() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tools": [], "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -419,7 +419,7 @@ def test_azure_functions_empty_drops_tool_choice() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"functions": [], "tool_choice": "none"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -433,7 +433,7 @@ def test_azure_preserves_tool_choice_with_tools() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tools": tools, "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -447,7 +447,7 @@ def test_azure_preserves_tool_choice_with_legacy_functions() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"functions": functions, "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -460,7 +460,7 @@ def test_azure_preserves_function_call_without_tools() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"function_call": "none", "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -473,7 +473,7 @@ def test_azure_gpt5_drops_tool_choice_without_tools() -> None:
         model="gpt5_series/gpt-5.6-sol",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tool_choice": "none"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -487,7 +487,7 @@ async def test_azure_async_transform_drops_tool_choice_without_tools() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tool_choice": "none"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -500,7 +500,7 @@ async def test_azure_gpt5_async_transform_drops_tool_choice_without_tools() -> N
         model="gpt5_series/gpt-5.6-sol",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        hangarllm_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -508,15 +508,15 @@ async def test_azure_gpt5_async_transform_drops_tool_choice_without_tools() -> N
     assert "tool_choice" not in request
 
 
-def test_transform_request_strips_litellm_format_from_managed_file_id():
+def test_transform_request_strips_hangarllm_format_from_managed_file_id():
     import base64
 
-    from litellm.litellm_core_utils.prompt_templates.file_id_utils import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.file_id_utils import (
         update_messages_with_model_file_ids,
     )
 
     managed_file_id: Final = base64.b64encode(
-        b"litellm_proxy:application/pdf;unified_id,abc123;llm_output_file_id,assistant-xyz;target_model_names,azure-gpt"
+        b"hangarllm_proxy:application/pdf;unified_id,abc123;llm_output_file_id,assistant-xyz;target_model_names,azure-gpt"
     ).decode()
     messages = [
         {
@@ -533,7 +533,7 @@ def test_transform_request_strips_litellm_format_from_managed_file_id():
         model="gpt-5.4",
         messages=updated_messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -549,11 +549,11 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -565,18 +565,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -586,60 +586,60 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 @pytest.fixture
@@ -653,7 +653,7 @@ def _pr4_azure_openai_env(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures(
     "_pr4_azure_openai_env",
     "_vcr_outcome_gate",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown",
 )
 @pytest.mark.asyncio()
@@ -665,18 +665,18 @@ async def test_aaaaazure_tenant_id_auth(respx_mock: MockRouter):
 
     PROD Test
     """
-    litellm.disable_aiohttp_transport = True  # since this uses respx, we need to set use_aiohttp_transport to False
+    hangarllm.disable_aiohttp_transport = True  # since this uses respx, we need to set use_aiohttp_transport to False
 
     # Clear the HTTP client cache to ensure respx mocking works
     # This is critical because respx only intercepts clients created AFTER mocking is active
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {  # params for litellm completion/embedding call
+                "hangarllm_params": {  # params for hangarllm completion/embedding call
                     "model": "azure/gpt-4.1-mini",
                     "api_base": os.getenv("AZURE_AI_API_BASE"),
                     "tenant_id": os.getenv("AZURE_TENANT_ID"),
@@ -704,7 +704,7 @@ async def test_aaaaazure_tenant_id_auth(respx_mock: MockRouter):
         ],
         created=int(datetime.now().timestamp()),
     )
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     mock_request = respx_mock.post(url__regex=r".*/chat/completions.*").mock(
         return_value=httpx.Response(200, json=obj.model_dump(mode="json"))
@@ -752,7 +752,7 @@ def test_azure_chat_completion_preserves_safety_result(respx_mock: MockRouter) -
         "usage": {"prompt_tokens": 5, "completion_tokens": 1, "total_tokens": 6},
     }
     route: Final = respx_mock.post(url__startswith=url).mock(return_value=httpx.Response(200, json=payload))
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure/gpt-4.1-mini",
         messages=[{"role": "user", "content": "Hello"}],
         api_base="https://example-resource.openai.azure.com",
@@ -783,7 +783,7 @@ def test_azure_deployment_id_selects_chat_completions_endpoint(respx_mock: MockR
         "usage": {"prompt_tokens": 5, "completion_tokens": 1, "total_tokens": 6},
     }
     route: Final = respx_mock.post(url__startswith=url).mock(return_value=httpx.Response(200, json=payload))
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-3.5-turbo",
         deployment_id="deployment-gpt-4o",
         messages=[{"role": "user", "content": "Hello"}],
@@ -811,7 +811,7 @@ def test_responses_api_version_leaves_the_chat_route_and_body_untouched(respx_mo
     route: Final = respx_mock.post(url__startswith=url).mock(return_value=httpx.Response(200, json=payload))
     messages: Final = [{"role": "user", "content": "Hello"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure/gpt-5.4-nano",
         messages=messages,
         api_base="https://example-resource.openai.azure.com",
@@ -863,25 +863,25 @@ _TRIMMED_AZURE_PARTS: Final = [
 @pytest.fixture
 def registered_azure_breakpoint_reader(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/unit-breakpoint-reader",
-        {"litellm_provider": "azure", "mode": "chat", "supports_prompt_cache_breakpoint": True},
+        {"hangarllm_provider": "azure", "mode": "chat", "supports_prompt_cache_breakpoint": True},
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/unit-breakpoint-ignorer",
-        {"litellm_provider": "azure", "mode": "chat", "supports_prompt_cache_breakpoint": False},
+        {"hangarllm_provider": "azure", "mode": "chat", "supports_prompt_cache_breakpoint": False},
     )
 
 
 def _azure_request_parts(
-    config: AzureOpenAIConfig, model: str, litellm_params: dict[str, object]
+    config: AzureOpenAIConfig, model: str, hangarllm_params: dict[str, object]
 ) -> object:
     request: Final = config.transform_request(
         model=model,
         messages=[{"role": "user", "content": list(_MARKED_AZURE_PARTS)}],
         optional_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
     return request["messages"][0]["content"]
@@ -889,37 +889,37 @@ def _azure_request_parts(
 
 @pytest.mark.parametrize("config", [AzureOpenAIConfig(), AzureOpenAIGPT5Config()])
 @pytest.mark.parametrize(
-    "model, litellm_params",
+    "model, hangarllm_params",
     [
         ("unit-breakpoint-reader", {"drop_params": True}),
         ("my-azure-alias", {"drop_params": True, "base_model": "azure/unit-breakpoint-reader"}),
         ("my-azure-alias", {"drop_params": True, "model_info": {"base_model": "azure/unit-breakpoint-reader"}}),
         ("my-azure-alias", {"drop_params": True}),
     ],
-    ids=("deployment-name", "litellm-params-base-model", "model-info-base-model", "unknown-deployment"),
+    ids=("deployment-name", "hangarllm-params-base-model", "model-info-base-model", "unknown-deployment"),
 )
 def test_azure_drop_params_cuts_part_breakpoints_down_to_what_azure_chat_accepts(
     registered_azure_breakpoint_reader: None,
     config: AzureOpenAIConfig,
     model: str,
-    litellm_params: dict[str, object],
+    hangarllm_params: dict[str, object],
 ) -> None:
     """Azure OpenAI chat answered 400 for a content part's breakpoint ttl and for implicit mode on 2026-10-29,
     the same as OpenAI chat completions."""
-    assert _azure_request_parts(config, model, litellm_params) == _TRIMMED_AZURE_PARTS
+    assert _azure_request_parts(config, model, hangarllm_params) == _TRIMMED_AZURE_PARTS
 
 
-@pytest.mark.parametrize("litellm_params", [{}, {"drop_params": False}], ids=("no-drop-params", "drop-params-false"))
+@pytest.mark.parametrize("hangarllm_params", [{}, {"drop_params": False}], ids=("no-drop-params", "drop-params-false"))
 def test_azure_sends_part_breakpoints_as_written_without_drop_params(
-    registered_azure_breakpoint_reader: None, litellm_params: dict[str, object]
+    registered_azure_breakpoint_reader: None, hangarllm_params: dict[str, object]
 ) -> None:
-    assert _azure_request_parts(AzureOpenAIConfig(), "unit-breakpoint-reader", litellm_params) == list(
+    assert _azure_request_parts(AzureOpenAIConfig(), "unit-breakpoint-reader", hangarllm_params) == list(
         _MARKED_AZURE_PARTS
     )
 
 
 @pytest.mark.parametrize(
-    "model, litellm_params",
+    "model, hangarllm_params",
     [
         ("unit-breakpoint-ignorer", {"drop_params": True}),
         ("unit-breakpoint-reader", {"drop_params": True, "base_model": "azure/unit-breakpoint-ignorer"}),
@@ -928,9 +928,9 @@ def test_azure_sends_part_breakpoints_as_written_without_drop_params(
     ids=("known-non-reader", "base-model-known-non-reader", "model-info-base-model-known-non-reader"),
 )
 def test_azure_drop_params_strips_part_breakpoints_from_a_known_non_reader(
-    registered_azure_breakpoint_reader: None, model: str, litellm_params: dict[str, object]
+    registered_azure_breakpoint_reader: None, model: str, hangarllm_params: dict[str, object]
 ) -> None:
-    assert _azure_request_parts(AzureOpenAIConfig(), model, litellm_params) == [
+    assert _azure_request_parts(AzureOpenAIConfig(), model, hangarllm_params) == [
         {"type": "text", "text": "Stable prefix"},
         {"type": "text", "text": "Implicit"},
     ]

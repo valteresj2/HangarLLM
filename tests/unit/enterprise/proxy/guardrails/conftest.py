@@ -21,12 +21,12 @@ def _mock_proxy_logging():
 
     with (
         patch(
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing"
+            "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing"
         ) as mock_proc_cls,
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "0.0.0"),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.version", "0.0.0"),
     ):
         mock_proc = MagicMock()
         mock_proc.common_processing_pre_call_logic = AsyncMock(

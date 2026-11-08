@@ -85,7 +85,7 @@ def _team_info(gateway: Gateway, team_id: str) -> _TeamInfo:
 
 
 def _stored_team_models(team_id: str) -> _TeamModelRow:
-    rows: Final = read_rows('SELECT models FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    rows: Final = read_rows('SELECT models FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
     assert len(rows) == 1, repr(rows)
     return _TeamModelRow.model_validate(rows[0])
 

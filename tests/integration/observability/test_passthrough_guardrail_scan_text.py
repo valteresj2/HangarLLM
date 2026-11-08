@@ -95,7 +95,7 @@ def rig(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) -> I
                     "guardrails": [
                         {
                             "guardrail_name": GENERIC,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "guardrail": "generic_guardrail_api",
                                 "mode": "pre_call",
                                 "default_on": False,
@@ -105,7 +105,7 @@ def rig(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) -> I
                         },
                         {
                             "guardrail_name": AIRS,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "guardrail": "panw_prisma_airs",
                                 "mode": "pre_call",
                                 "default_on": False,

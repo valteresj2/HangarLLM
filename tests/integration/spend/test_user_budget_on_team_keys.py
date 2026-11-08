@@ -37,13 +37,13 @@ def test_team_key_is_denied_before_provider_once_owner_personal_budget_is_exhaus
         first: Final = candidate.chat(model, key=key, text=f"owner budget {uuid.uuid4().hex}")
         assert first["usage"]["total_tokens"] == 40
         spent: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_UserTable" WHERE user_id=%s', (user,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_UserTable" WHERE user_id=%s', (user,)),
             lambda values: len(values) == 1 and float(values[0]["spend"]) >= 0.06,
             seconds=70,
         )
         assert float(spent[0]["spend"]) == pytest.approx(0.06)
         assert read_rows(
-            'SELECT max_budget FROM "LiteLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
+            'SELECT max_budget FROM "HangarLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
         ) == [{"max_budget": None}]
         upstream.delete("/__observations").raise_for_status()
         denied: Final = candidate.request(

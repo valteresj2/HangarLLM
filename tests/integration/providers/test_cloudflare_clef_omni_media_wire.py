@@ -20,7 +20,7 @@ from integration._support.timing import assert_within_factor_of_control
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
+import hangarllm
 
 Route = Literal["/v1/systemone", "/systemone", "/v1/decisions", "/decisions"]
 
@@ -49,7 +49,7 @@ _OPENAI_QUESTIONS: Final[list[JsonValue]] = [
 ]
 _RED: Final = 0.97
 _SPEND_QUERY: Final = (
-    'SELECT spend, status, call_type, model_group, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+    'SELECT spend, status, call_type, model_group, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
     "WHERE request_id = %s"
 )
 _WORST_CASE_LENGTH: Final = 1_048_576
@@ -199,11 +199,11 @@ def _spend_row(call_id: str) -> dict[str, JsonValue]:
 
 def _spend_rows_for(model: str, expected: int) -> list[dict[str, JsonValue]]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT litellm_call_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT hangarllm_call_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=70,
     )
-    assert len({row["litellm_call_id"] for row in rows}) == len(rows) == expected, rows
+    assert len({row["hangarllm_call_id"] for row in rows}) == len(rows) == expected, rows
     return rows
 
 
@@ -213,8 +213,8 @@ def _call_type(route: Route) -> str:
 
 def _assert_billed(gateway: Gateway, response: httpx.Response, model: str, route: Route) -> None:
     expected: Final = _expected_spend()
-    assert math.isclose(float(response.headers["x-litellm-response-cost"]), expected, rel_tol=1e-9), response.headers
-    call_id: Final = response.headers["x-litellm-call-id"]
+    assert math.isclose(float(response.headers["x-hangarllm-response-cost"]), expected, rel_tol=1e-9), response.headers
+    call_id: Final = response.headers["x-hangarllm-call-id"]
     row: Final = _spend_row(call_id)
     assert (row["status"], row["call_type"], row["model_group"], row["prompt_tokens"], row["completion_tokens"]) == (
         "success",
@@ -371,10 +371,10 @@ _SDK_QUESTIONS: Final = TypeAdapter(dict[str, dict[str, object]]).validate_pytho
 async def test_positional_sdk_callers_keep_the_api_key_fifth_and_the_api_base_sixth() -> None:
     marker: Final = uuid.uuid4().hex
     with wire_server(_echo) as wire:
-        synchronous: Final = litellm.decisions(
+        synchronous: Final = hangarllm.decisions(
             _CANONICAL, None, _SDK_QUESTIONS, None, _API_KEY, wire.url, state=_state(marker), audio=[_WAV]
         )
-        asynchronous: Final = await litellm.adecisions(
+        asynchronous: Final = await hangarllm.adecisions(
             _CANONICAL, None, _SDK_QUESTIONS, None, _API_KEY, wire.url, state=_state(marker), videos=[_MP4]
         )
         for response in (synchronous, asynchronous):
@@ -736,7 +736,7 @@ def test_repeated_and_clip_changed_requests_each_reach_the_upstream_and_are_each
         for response in responses:
             assert response.status_code == 200, response.text
             assert response.json() == _expected_response("/v1/systemone", marker)
-        call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+        call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
         assert len(set(call_ids)) == 3, call_ids
         bodies: Final = tuple(_upstream_body(request) for request in wire.drain())
         assert bodies == (

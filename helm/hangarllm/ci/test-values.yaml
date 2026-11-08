@@ -7,7 +7,7 @@ db:
 # Test environment variables
 envVars:
   DD_ENV: "dev_helm"
-  DD_SERVICE: "litellm"
+  DD_SERVICE: "hangarllm"
   USE_DDTRACE: "true"
 
 # Disable migration job since we're not using a database

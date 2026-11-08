@@ -37,7 +37,7 @@ def _claims(token: str) -> IssuedClaims:
 def _provision(client: OtherClient, resources: ResourceManager, *, marker: str) -> Identity:
     """A Keycloak group and a user in it, torn down with the test. The group name
     is what the token's `groups` claim carries, which is what the proxy resolves
-    as a litellm team id."""
+    as a hangarllm team id."""
     identity: Final = client.idp.provision(marker=marker, group=f"e2e-jwt-team-{marker}", defer=resources.defer)
     resources.defer(lambda: client.proxy.delete_user(identity.user_id))
     return identity
@@ -45,7 +45,7 @@ def _provision(client: OtherClient, resources: ResourceManager, *, marker: str) 
 
 @pytest.fixture
 def identity(client: OtherClient, resources: ResourceManager) -> Identity:
-    """An IdP identity whose group is also a real litellm team, so anything the
+    """An IdP identity whose group is also a real hangarllm team, so anything the
     proxy rejects is about the token and never about an unresolvable team."""
     marker: Final = unique_marker()
     provisioned: Final = _provision(client, resources, marker=marker)
@@ -62,7 +62,7 @@ class BoundTeam:
 
 
 def _team(client: OtherClient, resources: ResourceManager, *, marker: str, team_id: str) -> str:
-    """A litellm team whose alias differs from its id, so a header naming one
+    """A hangarllm team whose alias differs from its id, so a header naming one
     cannot accidentally match the other."""
     team_alias: Final = f"e2e-jwt-alias-{marker}"
     created: Final = client.proxy.create_team(TeamNewBody(team_alias=team_alias, team_id=team_id))
@@ -232,7 +232,7 @@ class TestJwtAuth:
     def test_signed_token_from_the_wrong_issuer_is_rejected(self, client: OtherClient, identity: Identity) -> None:
         token: Final = client.idp.access_token(identity, issuer_host="unexpected-issuer.invalid")
         claims: Final = _claims(token)
-        assert claims.iss != client.idp.issuer and "litellm-e2e" in claims.aud
+        assert claims.iss != client.idp.issuer and "hangarllm-e2e" in claims.aud
 
         result: Final = client.proxy.chat(token, _ping())
         assert isinstance(result, UnauthorizedError), f"wrong issuer must be rejected: {result}"
@@ -249,7 +249,7 @@ class TestJwtAuth:
     def test_signed_token_for_another_application_is_rejected(self, client: OtherClient, identity: Identity) -> None:
         token: Final = client.idp.access_token(identity, client_id=WRONG_AUDIENCE_CLIENT_ID)
         claims: Final = _claims(token)
-        assert claims.iss == client.idp.issuer and "litellm-e2e" not in (
+        assert claims.iss == client.idp.issuer and "hangarllm-e2e" not in (
             [claims.aud] if isinstance(claims.aud, str) else claims.aud
         )
 
@@ -296,7 +296,7 @@ class TestJwtAuth:
 def _team_of_request(client: OtherClient, token: str, team: str) -> str | None:
     response: Final = unwrap(client.chat_as_team(token, team, _ping()))
     assert response.id is not None and response.choices, (
-        f"chat with x-litellm-team-id={team!r} returned no completion: {response}"
+        f"chat with x-hangarllm-team-id={team!r} returned no completion: {response}"
     )
     rows: Final = client.proxy.poll_logs_for_request_id(response.id)
     assert rows, f"no spend log row for request {response.id} within the poll deadline"
@@ -306,7 +306,7 @@ def _team_of_request(client: OtherClient, token: str, team: str) -> str | None:
 def _denial(client: OtherClient, token: str, team: str) -> str:
     result: Final = client.chat_as_team(token, team, _ping())
     assert isinstance(result, UnknownApiError) and result.status_code == 403, (
-        f"x-litellm-team-id={team!r} names no team the caller is in, so it must be rejected with 403, got {result}"
+        f"x-hangarllm-team-id={team!r} names no team the caller is in, so it must be rejected with 403, got {result}"
     )
     assert team in result.body, f"the 403 must name the header value it rejected ({team!r}), got {result.body[:300]}"
     return result.body
@@ -330,12 +330,12 @@ class TestJwtTeamHeader:
 
         by_id: Final = _team_of_request(client, token, bound_team.team_id)
         assert by_id == bound_team.team_id, (
-            f"precondition: x-litellm-team-id with the team id must bind {bound_team.team_id!r}, got {by_id!r}"
+            f"precondition: x-hangarllm-team-id with the team id must bind {bound_team.team_id!r}, got {by_id!r}"
         )
 
         by_alias: Final = _team_of_request(client, token, bound_team.team_alias)
         assert by_alias == bound_team.team_id, (
-            f"x-litellm-team-id={bound_team.team_alias!r} must bind the same team as its id "
+            f"x-hangarllm-team-id={bound_team.team_alias!r} must bind the same team as its id "
             f"{bound_team.team_id!r}, got {by_alias!r}"
         )
 

@@ -302,7 +302,7 @@ def _presidio_guardrail(
 ) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "presidio",
             "mode": mode,
             "default_on": False,
@@ -467,7 +467,7 @@ def _ask(rig: Rig, model: str, surface: Surface, guardrail: str, prompt: str) ->
     ) as response:
         wire: Final = response.read().decode()
         status: Final = response.status_code
-        applied: Final = response.headers.get("x-litellm-applied-guardrails", "")
+        applied: Final = response.headers.get("x-hangarllm-applied-guardrails", "")
     assert status == 200, wire
     return Answer(
         surface.read(wire),
@@ -479,7 +479,7 @@ def _ask(rig: Rig, model: str, surface: Surface, guardrail: str, prompt: str) ->
 
 def _spend_row(rig: Rig, model: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: rig.gateway.rows('SELECT response, metadata FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model,)),
+        lambda: rig.gateway.rows('SELECT response, metadata FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model,)),
         lambda found: len(found) == 1,
         seconds=70,
     )

@@ -5,21 +5,21 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.constants import DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     budget_windows_absent_cache_key,
     end_user_cache_key,
     get_management_object_ttl,
     is_user_key_cache_key,
 )
-from litellm.proxy.proxy_server import UserAPIKeyCacheTTLEnum
-from litellm.redis.stores.auth_cache import AuthCacheStore
-from litellm.rust_bridge._native import NativeAuthCache
+from hangarllm.proxy.proxy_server import UserAPIKeyCacheTTLEnum
+from hangarllm.redis.stores.auth_cache import AuthCacheStore
+from hangarllm.rust_bridge._native import NativeAuthCache
 from tests.unit.redis.stores.auth_cache_double import FakeAuthCache, shared_cache
 
 HASHED_TOKEN = hashlib.sha256(b"sk-lit7563-hot-key").hexdigest()
@@ -196,14 +196,14 @@ class TestUserApiKeyCache:
 
     @pytest.mark.asyncio
     async def test_global_spend_increments_only_an_entry_redis_still_holds(self):
-        cache, fake = shared_cache(FakeAuthCache(redis={"litellm-proxy-budget:spend": 1.5}))
+        cache, fake = shared_cache(FakeAuthCache(redis={"hangarllm-proxy-budget:spend": 1.5}))
         memory_only = UserApiKeyCache()
 
-        assert await cache.increment_if_present("litellm-proxy-budget:spend", 2.0) == 3.5
+        assert await cache.increment_if_present("hangarllm-proxy-budget:spend", 2.0) == 3.5
         assert await cache.increment_if_present("absent", 2.0) is None
-        assert await memory_only.increment_if_present("litellm-proxy-budget:spend", 2.0) is None
+        assert await memory_only.increment_if_present("hangarllm-proxy-budget:spend", 2.0) is None
         assert [command[:2] for command in fake.commands] == [
-            ("INCRBYFLOAT_IF_PRESENT", "litellm-proxy-budget:spend"),
+            ("INCRBYFLOAT_IF_PRESENT", "hangarllm-proxy-budget:spend"),
             ("INCRBYFLOAT_IF_PRESENT", "absent"),
         ]
 
@@ -220,7 +220,7 @@ class TestUserKeyObjectPartition:
     """
     Regression for LIT-7563: user-key objects share one 200-entry ``InMemoryCache`` with
     every other management object, so end-user / team / tag churn evicts hot keys and
-    forces a ``LiteLLM_VerificationToken`` lookup on the next request.
+    forces a ``HangarLLM_VerificationToken`` lookup on the next request.
     """
 
     @pytest.mark.parametrize(

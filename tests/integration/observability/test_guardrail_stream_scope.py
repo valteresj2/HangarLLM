@@ -23,7 +23,7 @@ from integration._support.upstream import (
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import TypeAdapter
 
-import litellm
+import hangarllm
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -36,8 +36,8 @@ BedrockAction: TypeAlias = StreamingAction | NonStreamingAction
 BEDROCK_MODEL_ID: Final = "anthropic.claude-sonnet-5-v1:0"
 BEDROCK_FALSE_POSITIVE_MODEL_ID: Final = "anthropic.claude-converse-stream-test-v1:0"
 BEDROCK_EVENT_STREAM: Final = "application/vnd.amazon.eventstream"
-GUARDRAIL_PATH: Final = "/beta/litellm_basic_guardrail_api"
-SERVER_STREAMING_CLASSIFICATION_KEY: Final = "litellm_server_streaming_classification"
+GUARDRAIL_PATH: Final = "/beta/hangarllm_basic_guardrail_api"
+SERVER_STREAMING_CLASSIFICATION_KEY: Final = "hangarllm_server_streaming_classification"
 STREAMING_ACTIONS: Final[tuple[StreamingAction, ...]] = (
     "converse-stream",
     "invoke-with-response-stream",
@@ -46,13 +46,13 @@ NON_STREAMING_ACTIONS: Final[tuple[NonStreamingAction, ...]] = ("converse", "inv
 SCOPES: Final[tuple[EndpointScope, ...]] = ("streaming", "non_streaming")
 HOSTILE_CLASSIFICATION_CASES: Final = (
     pytest.param("is_streaming_request", True, id="boolean-marker"),
-    pytest.param("is_streaming_request", "litellm-server-streaming", id="server-marker-string"),
-    pytest.param("litellm_server_streaming_classification", True, id="classification-field"),
+    pytest.param("is_streaming_request", "hangarllm-server-streaming", id="server-marker-string"),
+    pytest.param("hangarllm_server_streaming_classification", True, id="classification-field"),
 )
 WORKTREE: Final = Path(__file__).resolve().parents[3]
-LITELLM_PATH: Final = Path(litellm.__file__).resolve()
-assert LITELLM_PATH.is_relative_to(WORKTREE), (LITELLM_PATH, WORKTREE)
-print(f"stream_scope repro litellm import: {LITELLM_PATH}")  # noqa: T201  # required worktree evidence
+HANGARLLM_PATH: Final = Path(hangarllm.__file__).resolve()
+assert HANGARLLM_PATH.is_relative_to(WORKTREE), (HANGARLLM_PATH, WORKTREE)
+print(f"stream_scope repro hangarllm import: {HANGARLLM_PATH}")  # noqa: T201  # required worktree evidence
 
 
 def _json(value: object) -> bytes:
@@ -210,7 +210,7 @@ def _sink(request: Request) -> Reply:
 def _rail(name: str, sink: Wire, scope: EndpointScope) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "pre_call",
             "default_on": False,
@@ -229,7 +229,7 @@ def _chat_proxy_config(provider_url: str, guardrails: list[dict[str, JsonValue]]
         "model_list": [
             {
                 "model_name": "scope-invalid-config-chat",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{provider_url}/v1",
                     "api_key": "synthetic-provider-key",
@@ -293,7 +293,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ReproRig]:
             config["model_list"] = [
                 {
                     "model_name": models["chat"],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": f"{provider.url}/v1",
                         "api_key": "synthetic-provider-key",
@@ -301,7 +301,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ReproRig]:
                 },
                 {
                     "model_name": models["bedrock_router"],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"bedrock/{BEDROCK_MODEL_ID}",
                         "api_base": provider.url,
                         "aws_access_key_id": "AKIASYNTHETICSTREAMSCOPE",
@@ -311,7 +311,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ReproRig]:
                 },
                 {
                     "model_name": models["bedrock_false_positive_router"],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"bedrock/{BEDROCK_FALSE_POSITIVE_MODEL_ID}",
                         "api_base": provider.url,
                         "aws_access_key_id": "AKIASYNTHETICSTREAMSCOPE",
@@ -359,7 +359,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ReproRig]:
                             *config["model_list"],
                             {
                                 "model_name": f"scope-unused-{uuid.uuid4().hex}*",
-                                "litellm_params": {
+                                "hangarllm_params": {
                                     "model": "openai/gpt-4o-mini",
                                     "api_base": f"{provider.url}/v1",
                                     "api_key": "synthetic-provider-key",
@@ -440,15 +440,15 @@ def _chat_request_with_scans(
 def _spend_row_for_call(call_id: str, content: bytes) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            "SELECT request_id, litellm_call_id, spend, prompt_tokens, completion_tokens, metadata "
-            'FROM "LiteLLM_SpendLogs" WHERE request_id=%s OR litellm_call_id=%s',
+            "SELECT request_id, hangarllm_call_id, spend, prompt_tokens, completion_tokens, metadata "
+            'FROM "HangarLLM_SpendLogs" WHERE request_id=%s OR hangarllm_call_id=%s',
             (call_id, call_id),
         ),
         lambda values: len(values) >= 1,
         seconds=70,
     )
     assert len(rows) == 1, (call_id, rows, content)
-    assert call_id in (rows[0]["request_id"], rows[0]["litellm_call_id"]), content
+    assert call_id in (rows[0]["request_id"], rows[0]["hangarllm_call_id"]), content
     return rows[0]
 
 
@@ -475,7 +475,7 @@ def test_bedrock_streaming_actions_run_streaming_scoped_rails(
         path,
         body,
         key=key,
-        headers={"x-litellm-call-id": call_id},
+        headers={"x-hangarllm-call-id": call_id},
     )
     assert response.status_code == 200, response.content
     assert response.headers.get("content-type") == BEDROCK_EVENT_STREAM, dict(response.headers)
@@ -485,7 +485,7 @@ def test_bedrock_streaming_actions_run_streaming_scoped_rails(
     provider_body: Final = JSON_OBJECT.validate_json(provider_rows[0].body)
     key_names: Final = _key_names(provider_body)
     assert "is_streaming_request" not in key_names, provider_body
-    assert not tuple(name for name in key_names if name.startswith("litellm_")), provider_body
+    assert not tuple(name for name in key_names if name.startswith("hangarllm_")), provider_body
     _spend_row_for_call(call_id, response.content)
     sink_rows: Final = _rail_scans(rig.sink.drain(), rig.rails[f"bedrock_{scope}"], marker)
     expected_scans: Final = int(scope == "streaming")
@@ -514,7 +514,7 @@ def test_bedrock_non_streaming_actions_run_non_streaming_scoped_rails(
     provider_body: Final = JSON_OBJECT.validate_json(provider_rows[0].body)
     key_names: Final = _key_names(provider_body)
     assert "is_streaming_request" not in key_names, provider_body
-    assert not tuple(name for name in key_names if name.startswith("litellm_")), provider_body
+    assert not tuple(name for name in key_names if name.startswith("hangarllm_")), provider_body
     sink_rows: Final = _rail_scans(rig.sink.drain(), rig.rails[f"bedrock_{scope}"], marker)
     expected_scans: Final = int(scope == "non_streaming")
     assert len(sink_rows) == expected_scans, (marker, model_kind, action, scope, sink_rows, response.text)
@@ -543,7 +543,7 @@ def test_bedrock_model_id_streaming_action_text_on_converse_is_non_streaming(
         path,
         body,
         key=key,
-        headers={"x-litellm-call-id": call_id},
+        headers={"x-hangarllm-call-id": call_id},
     )
     assert response.status_code == 200, response.text
     assert marker in response.text, response.text
@@ -697,7 +697,7 @@ def test_invalid_yaml_stream_scope_keeps_rail_running_on_both_shapes(rig: ReproR
     name: Final = f"scope-invalid-yaml-{uuid.uuid4().hex}"
     invalid_rail: Final = {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "pre_call",
             "default_on": False,
@@ -736,7 +736,7 @@ def test_invalid_yaml_stream_scope_keeps_rail_running_on_both_shapes(rig: ReproR
             None,
         )
         assert isinstance(listed_rail, dict), list_payload
-        listed_params: Final = listed_rail.get("litellm_params")
+        listed_params: Final = listed_rail.get("hangarllm_params")
         assert isinstance(listed_params, dict), listed_rail
         assert listed_params.get("stream_scope") is None, listed_rail
 
@@ -757,8 +757,8 @@ def test_persisted_invalid_stream_scope_row_stays_readable_and_enforced(
     }
     database_url: Final = os.environ.get("INTEGRATION_PROXY_DATABASE_URL") or os.environ["DATABASE_URL"]
     write_rows(
-        'INSERT INTO "LiteLLM_GuardrailsTable" '
-        '("guardrail_id", "guardrail_name", "litellm_params", "created_at", "updated_at") '
+        'INSERT INTO "HangarLLM_GuardrailsTable" '
+        '("guardrail_id", "guardrail_name", "hangarllm_params", "created_at", "updated_at") '
         "VALUES (%s, %s, %s::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
         (guardrail_id, guardrail_name, json.dumps(params)),
         database_url=database_url,
@@ -809,7 +809,7 @@ def test_persisted_invalid_stream_scope_row_stays_readable_and_enforced(
             }
     finally:
         write_rows(
-            'DELETE FROM "LiteLLM_GuardrailsTable" WHERE guardrail_id=%s',
+            'DELETE FROM "HangarLLM_GuardrailsTable" WHERE guardrail_id=%s',
             (guardrail_id,),
             database_url=database_url,
         )
@@ -828,7 +828,7 @@ def test_management_rejects_invalid_stream_scope(rig: ReproRig) -> None:
     created_invalid: Final = rig.candidate.request(
         "POST",
         "/guardrails",
-        {"guardrail": {"guardrail_name": name, "litellm_params": invalid_params}},
+        {"guardrail": {"guardrail_name": name, "hangarllm_params": invalid_params}},
     )
     assert created_invalid.status_code == 422, created_invalid.text
 
@@ -836,7 +836,7 @@ def test_management_rejects_invalid_stream_scope(rig: ReproRig) -> None:
     created: Final = rig.candidate.request(
         "POST",
         "/guardrails",
-        {"guardrail": {"guardrail_name": name, "litellm_params": valid_params}},
+        {"guardrail": {"guardrail_name": name, "hangarllm_params": valid_params}},
     )
     assert created.status_code == 200, created.text
     guardrail_id: Final = str(created.json()["guardrail_id"])
@@ -844,12 +844,12 @@ def test_management_rejects_invalid_stream_scope(rig: ReproRig) -> None:
         put_response: Final = rig.candidate.request(
             "PUT",
             f"/guardrails/{guardrail_id}",
-            {"guardrail": {"guardrail_name": name, "litellm_params": invalid_params}},
+            {"guardrail": {"guardrail_name": name, "hangarllm_params": invalid_params}},
         )
         patch_response: Final = rig.candidate.request(
             "PATCH",
             f"/guardrails/{guardrail_id}",
-            {"litellm_params": {"stream_scope": "sometimes"}},
+            {"hangarllm_params": {"stream_scope": "sometimes"}},
         )
         assert put_response.status_code == 422, put_response.text
         assert patch_response.status_code == 422, patch_response.text

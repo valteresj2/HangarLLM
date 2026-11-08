@@ -13,10 +13,10 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router import Router
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router import Router
 
 _PRIMARY: Final = "https://hooks-primary.openai.azure.com"
 _FALLBACK: Final = "https://hooks-fallback.openai.azure.com"
@@ -88,20 +88,20 @@ class _HookEvent(NamedTuple):
 
 
 def _router_context_problems(kwargs: Mapping[str, object]) -> tuple[str, ...]:
-    litellm_params: Final = kwargs.get("litellm_params")
-    if not isinstance(litellm_params, dict):
-        return ("litellm_params",)
-    metadata: Final = litellm_params.get("metadata")
-    model_info: Final = litellm_params.get("model_info")
+    hangarllm_params: Final = kwargs.get("hangarllm_params")
+    if not isinstance(hangarllm_params, dict):
+        return ("hangarllm_params",)
+    metadata: Final = hangarllm_params.get("metadata")
+    model_info: Final = hangarllm_params.get("model_info")
     checks: Final = {
         "metadata": isinstance(metadata, dict),
         "model_group": isinstance(metadata, dict) and isinstance(metadata.get("model_group"), str),
         "deployment": isinstance(metadata, dict) and isinstance(metadata.get("deployment"), str),
         "model_info": isinstance(model_info, dict),
         "model_info id": isinstance(model_info, dict) and isinstance(model_info.get("id"), str),
-        "proxy_server_request": isinstance(litellm_params.get("proxy_server_request"), (str, type(None))),
-        "preset_cache_key": isinstance(litellm_params.get("preset_cache_key"), (str, type(None))),
-        "stream_response": isinstance(litellm_params.get("stream_response"), dict),
+        "proxy_server_request": isinstance(hangarllm_params.get("proxy_server_request"), (str, type(None))),
+        "preset_cache_key": isinstance(hangarllm_params.get("preset_cache_key"), (str, type(None))),
+        "stream_response": isinstance(hangarllm_params.get("stream_response"), dict),
     }
     return tuple(name for name, ok in checks.items() if not ok)
 
@@ -123,7 +123,7 @@ def _call_detail_problems(kwargs: Mapping[str, object]) -> tuple[str, ...]:
     checks: Final = {
         "input": isinstance(kwargs.get("input"), (list, dict, str)),
         "api_key": isinstance(kwargs.get("api_key"), (str, type(None))),
-        "original_response": isinstance(original_response, (str, litellm.CustomStreamWrapper, type(None)))
+        "original_response": isinstance(original_response, (str, hangarllm.CustomStreamWrapper, type(None)))
         or inspect.iscoroutine(original_response)
         or inspect.isasyncgen(original_response),
         "additional_args": isinstance(kwargs.get("additional_args"), (dict, type(None))),
@@ -133,8 +133,8 @@ def _call_detail_problems(kwargs: Mapping[str, object]) -> tuple[str, ...]:
 
 
 def _is_from_this_test(kwargs: Mapping[str, object]) -> bool:
-    litellm_params: Final = kwargs.get("litellm_params")
-    metadata: Final = litellm_params.get("metadata") if isinstance(litellm_params, dict) else None
+    hangarllm_params: Final = kwargs.get("hangarllm_params")
+    metadata: Final = hangarllm_params.get("metadata") if isinstance(hangarllm_params, dict) else None
     return isinstance(metadata, dict) and metadata.get("model_group") in _OUR_MODEL_GROUPS
 
 
@@ -215,7 +215,7 @@ class _HookRecorder(CustomLogger):
             *(("times",) if not (isinstance(start_time, datetime) and isinstance(end_time, datetime)) else ()),
             *(
                 ("response_obj",)
-                if not isinstance(response_obj, (litellm.ModelResponse, litellm.EmbeddingResponse))
+                if not isinstance(response_obj, (hangarllm.ModelResponse, hangarllm.EmbeddingResponse))
                 else ()
             ),
             *(("cache_hit",) if not isinstance(kwargs.get("cache_hit"), (bool, type(None))) else ()),
@@ -247,9 +247,9 @@ def _settled(terminal: int, posts: int) -> Callable[[Sequence[_State]], bool]:
 
 @pytest.fixture
 def recorder(monkeypatch: pytest.MonkeyPatch) -> _HookRecorder:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     hook_recorder: Final = _HookRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [hook_recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [hook_recorder])
     return hook_recorder
 
 
@@ -258,7 +258,7 @@ def _router(model: str, api_base: str = _PRIMARY) -> Router:
         model_list=[
             {
                 "model_name": "hooks-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": model,
                     "api_key": "sk-unit-test",
                     "api_base": api_base,
@@ -286,7 +286,7 @@ class _RouterParams(TypedDict):
 
 
 def _router_params(event: _HookEvent) -> _RouterParams:
-    return TypeAdapter(_RouterParams).validate_python(event.kwargs["litellm_params"])
+    return TypeAdapter(_RouterParams).validate_python(event.kwargs["hangarllm_params"])
 
 
 def _model_group(event: _HookEvent) -> str:
@@ -301,8 +301,8 @@ def _of_state(recorder: _HookRecorder, state: _State) -> list[_HookEvent]:
     return [event for event in recorder.events if event.state == state]
 
 
-def _completion(event: _HookEvent) -> litellm.ModelResponse:
-    assert isinstance(event.response, litellm.ModelResponse)
+def _completion(event: _HookEvent) -> hangarllm.ModelResponse:
+    assert isinstance(event.response, hangarllm.ModelResponse)
     return event.response
 
 
@@ -338,13 +338,13 @@ async def test_router_chat_success_streaming_and_failure_fire_the_hooks_in_order
     assert _completion(streamed[2]).choices[0].message.content == "hello"
 
     route.mock(return_value=_AUTH_ERROR)
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(model="hooks-group", messages=_MESSAGES)
     await recorder.until(_settled(3, posts=3))
     failed: Final = recorder.events[6:]
     assert [event.state for event in failed] == ["sync_pre_api_call", "post_api_call", "async_failure"]
     assert failed[2].response is None
-    assert isinstance(failed[2].kwargs["exception"], litellm.AuthenticationError)
+    assert isinstance(failed[2].kwargs["exception"], hangarllm.AuthenticationError)
     assert recorder.errors == []
 
 
@@ -362,17 +362,17 @@ async def test_router_embedding_success_and_failure_fire_the_hooks_in_order(
     assert {event.model for event in recorder.events} == {"text-embedding-3-small"}
     assert {_model_group(event) for event in recorder.events} == {"hooks-group"}
     embedding: Final = recorder.events[2].response
-    assert isinstance(embedding, litellm.EmbeddingResponse)
+    assert isinstance(embedding, hangarllm.EmbeddingResponse)
     assert embedding.model_dump()["data"][0]["embedding"] == _EMBEDDING_VECTOR
     assert embedding.usage.prompt_tokens == 3
 
     route.mock(return_value=_AUTH_ERROR)
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.aembedding(model="hooks-group", input=["hello"])
     await recorder.until(_settled(2, posts=2))
     assert recorder.states[3:] == ["sync_pre_api_call", "post_api_call", "async_failure"]
     assert recorder.events[5].response is None
-    assert isinstance(recorder.events[5].kwargs["exception"], litellm.AuthenticationError)
+    assert isinstance(recorder.events[5].kwargs["exception"], hangarllm.AuthenticationError)
     assert recorder.errors == []
 
 
@@ -390,7 +390,7 @@ async def test_router_fallback_fires_failure_then_success_hooks(
         model_list=[
             {
                 "model_name": "primary-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": "my-bad-key",
                     "api_base": _PRIMARY,
@@ -399,7 +399,7 @@ async def test_router_fallback_fires_failure_then_success_hooks(
             },
             {
                 "model_name": "fallback-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": "sk-unit-test",
                     "api_base": _FALLBACK,
@@ -425,7 +425,7 @@ async def test_router_fallback_fires_failure_then_success_hooks(
     ]
     assert [_model_group(event) for event in recorder.events] == ["primary-group"] * 3 + ["fallback-group"] * 3
     assert _model_id(recorder.events[0]) != _model_id(recorder.events[3])
-    assert isinstance(recorder.events[2].kwargs["exception"], litellm.AuthenticationError)
+    assert isinstance(recorder.events[2].kwargs["exception"], hangarllm.AuthenticationError)
     assert _completion(recorder.events[5]).choices[0].message.content == "hello"
     assert recorder.errors == []
 
@@ -434,7 +434,7 @@ async def test_router_fallback_fires_failure_then_success_hooks(
 async def test_router_completion_cache_hit_fires_a_second_success_hook(
     recorder: _HookRecorder, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     route: Final = respx_mock.post(url__startswith=f"{_PRIMARY}/openai/deployments/gpt-4.1-mini/chat/completions").mock(
         return_value=httpx.Response(200, json=_COMPLETION)
     )
@@ -458,7 +458,7 @@ async def test_router_completion_cache_hit_fires_a_second_success_hook(
 async def test_router_streaming_cache_hit_still_fires_the_success_hook(
     recorder: _HookRecorder, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     route: Final = respx_mock.post(url__startswith=f"{_PRIMARY}/openai/deployments/gpt-4.1-mini/chat/completions").mock(
         return_value=httpx.Response(200, text=_STREAM, headers={"content-type": "text/event-stream"})
     )
@@ -488,7 +488,7 @@ async def test_router_streaming_cache_hit_still_fires_the_success_hook(
 async def test_router_embedding_cache_hit_fires_a_second_success_hook(
     recorder: _HookRecorder, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "cache", Cache())
     route: Final = respx_mock.post(
         url__startswith=f"{_PRIMARY}/openai/deployments/text-embedding-3-small/embeddings"
     ).mock(return_value=httpx.Response(200, json=_EMBEDDING))
@@ -504,6 +504,6 @@ async def test_router_embedding_cache_hit_fires_a_second_success_hook(
     first, second = _of_state(recorder, "async_success")
     assert first.kwargs.get("cache_hit") is not True
     assert second.kwargs.get("cache_hit") is True
-    assert isinstance(second.response, litellm.EmbeddingResponse)
+    assert isinstance(second.response, hangarllm.EmbeddingResponse)
     assert second.response.model_dump()["data"][0]["embedding"] == _EMBEDDING_VECTOR
     assert recorder.errors == []

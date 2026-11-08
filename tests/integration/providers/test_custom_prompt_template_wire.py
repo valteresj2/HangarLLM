@@ -125,7 +125,7 @@ def _chat_messages() -> list[dict[str, JsonValue]]:
 def _spend_row(identity: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT model_group, status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT model_group, status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (identity,),
         ),
         lambda found: len(found) == 1,
@@ -137,7 +137,7 @@ def _spend_row(identity: str) -> dict[str, JsonValue]:
 def _model_spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+            'SELECT request_id, status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
             (model,),
         ),
         lambda found: len(found) >= expected,

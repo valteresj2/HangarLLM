@@ -2,18 +2,18 @@ import ast
 import os
 
 
-def check_for_litellm_module_deletion(base_dir):
+def check_for_hangarllm_module_deletion(base_dir):
     """
-    Checks for code patterns that delete litellm modules from sys.modules
-    in the test_litellm directory.
+    Checks for code patterns that delete hangarllm modules from sys.modules
+    in the test_hangarllm directory.
 
     Specifically looks for patterns like:
     for module in list(sys.modules.keys()):
-        if module.startswith("litellm"):
+        if module.startswith("hangarllm"):
             del sys.modules[module]
     """
     problematic_files = []
-    candidate_dirs = [os.path.join(base_dir, name) for name in ("test_litellm", "unit")]
+    candidate_dirs = [os.path.join(base_dir, name) for name in ("test_hangarllm", "unit")]
     test_dirs = [test_dir for test_dir in candidate_dirs if os.path.exists(test_dir)]
 
     if not test_dirs:
@@ -33,29 +33,29 @@ def check_for_litellm_module_deletion(base_dir):
                     print(f"Warning: Syntax error in file {file_path}")
                     continue
 
-                # Check for litellm module deletion patterns
-                if has_litellm_module_deletion(tree):
+                # Check for hangarllm module deletion patterns
+                if has_hangarllm_module_deletion(tree):
                     relative_path = os.path.relpath(file_path, base_dir)
                     problematic_files.append(relative_path)
-                    print(f"Found litellm module deletion in: {relative_path}")
+                    print(f"Found hangarllm module deletion in: {relative_path}")
 
     return problematic_files
 
 
-def has_litellm_module_deletion(tree):
+def has_hangarllm_module_deletion(tree):
     """
-    Checks if the AST contains patterns that delete litellm modules from sys.modules.
+    Checks if the AST contains patterns that delete hangarllm modules from sys.modules.
 
     Looks for:
     1. Loops over sys.modules.keys()
-    2. Conditions checking if module startswith "litellm"
+    2. Conditions checking if module startswith "hangarllm"
     3. del sys.modules[module] statements
     """
 
-    class LiteLLMDeletionVisitor(ast.NodeVisitor):
+    class HangarLLMDeletionVisitor(ast.NodeVisitor):
         def __init__(self):
             self.has_sys_modules_loop = False
-            self.has_litellm_check = False
+            self.has_hangarllm_check = False
             self.has_del_sys_modules = False
             self.current_for_target = None
 
@@ -105,7 +105,7 @@ def has_litellm_module_deletion(tree):
             self.generic_visit(node)
 
         def visit_If(self, node):
-            # Check for conditions like module.startswith("litellm")
+            # Check for conditions like module.startswith("hangarllm")
             if (
                 isinstance(node.test, ast.Call)
                 and isinstance(node.test.func, ast.Attribute)
@@ -114,10 +114,10 @@ def has_litellm_module_deletion(tree):
                 and node.test.func.attr == "startswith"
                 and len(node.test.args) == 1
                 and isinstance(node.test.args[0], ast.Constant)
-                and node.test.args[0].value == "litellm"
+                and node.test.args[0].value == "hangarllm"
             ):
 
-                self.has_litellm_check = True
+                self.has_hangarllm_check = True
 
                 # Check the body of the if statement
                 for stmt in node.body:
@@ -142,19 +142,19 @@ def has_litellm_module_deletion(tree):
 
             self.generic_visit(node)
 
-    visitor = LiteLLMDeletionVisitor()
+    visitor = HangarLLMDeletionVisitor()
     visitor.visit(tree)
 
     return (
         visitor.has_sys_modules_loop
-        and visitor.has_litellm_check
+        and visitor.has_hangarllm_check
         and visitor.has_del_sys_modules
     )
 
 
 def main():
     """
-    Main function to check for litellm module deletion patterns in test files.
+    Main function to check for hangarllm module deletion patterns in test files.
     """
     # local dir
     # tests_dir = "../../tests/"
@@ -162,19 +162,19 @@ def main():
     # ci/cd dir
     tests_dir = "./tests/"
 
-    problematic_files = check_for_litellm_module_deletion(tests_dir)
+    problematic_files = check_for_hangarllm_module_deletion(tests_dir)
 
     if problematic_files:
-        print("\nERROR: Found files that delete litellm modules from sys.modules:")
+        print("\nERROR: Found files that delete hangarllm modules from sys.modules:")
         for file_path in problematic_files:
             print(f"  - {file_path}")
 
         raise Exception(
-            f"Found {len(problematic_files)} file(s) that delete litellm modules from sys.modules. "
+            f"Found {len(problematic_files)} file(s) that delete hangarllm modules from sys.modules. "
             f"This can cause import issues and test failures. Files: {problematic_files}"
         )
     else:
-        print("✓ No litellm module deletion patterns found in tests/unit.")
+        print("✓ No hangarllm module deletion patterns found in tests/unit.")
 
 
 if __name__ == "__main__":

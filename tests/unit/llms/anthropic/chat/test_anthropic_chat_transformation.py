@@ -14,8 +14,8 @@ import respx
 from httpx import Headers
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm.constants import (
+import hangarllm
+from hangarllm.constants import (
     ANTHROPIC_MIN_THINKING_BUDGET_TOKENS,
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
@@ -25,39 +25,39 @@ from litellm.constants import (
     RESPONSE_FORMAT_TOOL_NAME,
     RESPONSE_FORMAT_UNFORCED_TOOL_DESCRIPTION,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import anthropic_messages_pt
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import message_field, parts_of
-from litellm.litellm_core_utils.prompt_templates.reasoning_utils import (
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import anthropic_messages_pt
+from hangarllm.hangarllm_core_utils.prompt_templates.mid_conversation_system import message_field, parts_of
+from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import (
     encrypted_reasoning_signature,
 )
-from litellm.llms.anthropic.chat import ModelResponseIterator
-from litellm.llms.anthropic.common_utils import (
+from hangarllm.llms.anthropic.chat import ModelResponseIterator
+from hangarllm.llms.anthropic.common_utils import (
     AnthropicError,
     anthropic_server_tool_call_params,
     process_anthropic_headers,
     validated_object_mapping,
 )
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.anthropic.messages.native.transformation import (
+from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
+from hangarllm.llms.anthropic.messages.native.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
-from litellm.llms.base_llm.base_utils import ResponseFormatSchema, response_format_schema
-from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+from hangarllm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
+from hangarllm.llms.base_llm.base_utils import ResponseFormatSchema, response_format_schema
+from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
     AmazonAnthropicClaudeConfig,
 )
-from litellm.llms.bedrock.claude_platform.transformation import BedrockClaudePlatformConfig
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+from hangarllm.llms.bedrock.claude_platform.transformation import BedrockClaudePlatformConfig
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
     VertexAIAnthropicConfig,
 )
-from litellm.types.llms.anthropic import (
+from hangarllm.types.llms.anthropic import (
     ANTHROPIC_BETA_HEADER_VALUES,
     ANTHROPIC_TOOL_SEARCH_TOOL_TYPES,
     AllAnthropicPassThroughMessageValues,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolCallFunctionChunk
-from litellm.types.utils import ChatCompletionToolCallChunk, Choices, Message, ModelResponse, ServerToolUse, Usage
+from hangarllm.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionToolCallFunctionChunk
+from hangarllm.types.utils import ChatCompletionToolCallChunk, Choices, Message, ModelResponse, ServerToolUse, Usage
 from tests.unit.llms.anthropic.anthropic_docs_refusal import ANTHROPIC_DOCS_REFUSAL_MESSAGE
 
 
@@ -116,7 +116,7 @@ def test_calculate_usage():
     """
     Do not include cache_creation_input_tokens in the prompt_tokens
 
-    Fixes https://github.com/BerriAI/litellm/issues/9812
+    Fixes upstream issue 9812
     """
     config = AnthropicConfig()
 
@@ -168,7 +168,7 @@ def test_streaming_iterator_persists_cumulative_usage_across_partial_chunks(inpu
     Omitted input/cache/pricing fields retain their last cumulative values;
     explicit input updates, including zero, replace them.
     """
-    from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+    from hangarllm.llms.anthropic.chat.handler import ModelResponseIterator
 
     iterator = ModelResponseIterator(None, sync_stream=True, speed="fast")
 
@@ -204,7 +204,7 @@ def test_calculate_usage_aggregates_cache_creation_split_across_iterations():
 
     Regression for LIT-4868.
     """
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
+    from hangarllm.llms.anthropic.cost_calculation import cost_per_token
 
     config = AnthropicConfig()
     usage_object = {
@@ -238,7 +238,7 @@ def test_calculate_usage_aggregates_cache_creation_split_across_iterations():
     assert details.ephemeral_1h_input_tokens == 20000
     assert usage.prompt_tokens_details.cache_creation_tokens == 20000
 
-    info = litellm.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
+    info = hangarllm.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
     rate_5m = info["cache_creation_input_token_cost"]
     rate_1h = info["cache_creation_input_token_cost_above_1hr"]
     assert rate_1h > rate_5m
@@ -256,7 +256,7 @@ def test_calculate_usage_bills_undetailed_iteration_cache_writes_at_5m_rate():
 
     Regression for the Cursor Bugbot finding on the LIT-4868 fix.
     """
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
+    from hangarllm.llms.anthropic.cost_calculation import cost_per_token
 
     config = AnthropicConfig()
     usage_object = {
@@ -289,7 +289,7 @@ def test_calculate_usage_bills_undetailed_iteration_cache_writes_at_5m_rate():
     assert details.ephemeral_1h_input_tokens == 10000
     assert usage.prompt_tokens_details.cache_creation_tokens == 17000
 
-    info = litellm.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
+    info = hangarllm.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
     rate_5m = info["cache_creation_input_token_cost"]
     rate_1h = info["cache_creation_input_token_cost_above_1hr"]
 
@@ -527,7 +527,7 @@ def test_calculate_usage_nulls(usage_object, expected_usage):
     """
     Correctly deal with null values in usage object
 
-    Fixes https://github.com/BerriAI/litellm/issues/11920
+    Fixes upstream issue 11920
     """
     config = AnthropicConfig()
 
@@ -545,7 +545,7 @@ def test_calculate_usage_server_tool_null(usage_object):
     """
     Correctly deal with null values in usage object
 
-    Fixes https://github.com/BerriAI/litellm/issues/11920
+    Fixes upstream issue 11920
     """
     config = AnthropicConfig()
 
@@ -657,7 +657,7 @@ def test_server_tool_use_usage():
 
 
 def test_web_search_tool_transformation():
-    from litellm.types.llms.openai import OpenAIWebSearchOptions
+    from hangarllm.types.llms.openai import OpenAIWebSearchOptions
 
     config = AnthropicConfig()
 
@@ -679,7 +679,7 @@ def test_web_search_tool_transformation():
 
 @pytest.mark.parametrize("search_context_size, expected_max_uses", [("low", 1), ("medium", 5), ("high", 10)])
 def test_web_search_tool_transformation_with_search_context_size(search_context_size, expected_max_uses):
-    from litellm.types.llms.openai import OpenAIWebSearchOptions
+    from hangarllm.types.llms.openai import OpenAIWebSearchOptions
 
     config = AnthropicConfig()
 
@@ -705,7 +705,7 @@ def test_web_search_tool_result_extraction():
     """
     Test that web_search_tool_result blocks are correctly extracted and preserved.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/17737
+    Fixes: upstream issue 17737
     - web_search_tool_result was being dropped entirely from the response
     - This caused multi-turn conversations to fail because the web search results
       were not available for reconstruction
@@ -798,7 +798,7 @@ def test_web_search_tool_result_in_provider_specific_fields():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -1041,7 +1041,7 @@ def test_map_tool_choice_dict_type_function_without_name():
 def test_transform_response_with_prefix_prompt():
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -1093,7 +1093,7 @@ def test_pdf_file_input_becomes_anthropic_document():
             }
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1122,7 +1122,7 @@ def test_get_supported_params_thinking():
 
 def test_anthropic_memory_tool_auto_adds_beta_header():
     """
-    Tests that LiteLLM automatically adds the required 'anthropic-beta' header
+    Tests that HangarLLM automatically adds the required 'anthropic-beta' header
     when the memory tool is present, and the user has NOT provided a beta header.
     """
 
@@ -1137,7 +1137,7 @@ def test_anthropic_memory_tool_auto_adds_beta_header():
         model="claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -1167,7 +1167,7 @@ def test_anthropic_messages_validate_adds_beta_header():
         model="claude-sonnet-4-20250514",
         messages=[{"role": "user", "content": [{"type": "text", "text": "Hi"}]}],
         optional_params={"context_management": _sample_context_management_payload()},
-        litellm_params={},
+        hangarllm_params={},
         api_key="fake-anthropic-key",
     )
     assert headers["anthropic-beta"] == "context-management-2025-06-27"
@@ -1188,7 +1188,7 @@ def test_anthropic_messages_transform_includes_context_management():
             "max_tokens": 512,
             "context_management": payload,
         },
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
     assert result["context_management"] == payload
@@ -1208,7 +1208,7 @@ def test_anthropic_beta_header_merging_with_output_format():
     Test that anthropic-beta headers from extra_headers are merged with
     output_format beta headers instead of being overridden.
 
-    This is a regression test for: https://github.com/BerriAI/litellm/issues/...
+    This is a regression test for: https://github.com/valteresj2/HangarLLM/issues/...
     When using response_format with a Pydantic model AND extra_headers with
     anthropic-beta (e.g., for context-1m extension), both beta headers should
     be present in the final request.
@@ -1274,15 +1274,15 @@ def test_anthropic_chat_transform_request_includes_context_management():
             "context_management": _sample_context_management_payload(),
             "max_tokens": 256,
         },
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
     assert result["context_management"] == _sample_context_management_payload()
 
 
 def test_anthropic_structured_output_beta_header():
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
 
     response = return_raw_request(
         endpoint=CallTypes.completion,
@@ -1470,11 +1470,11 @@ def test_native_structured_output_uses_bundled_capability_when_remote_map_lags(
 ) -> None:
     model = "claude-opus-4-8"
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {model: {"supports_response_schema": True}},
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
     try:
         optional_params = AnthropicConfig().map_openai_params(
@@ -1496,7 +1496,7 @@ def test_native_structured_output_uses_bundled_capability_when_remote_map_lags(
             drop_params=False,
         )
     finally:
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
     assert "output_format" in optional_params
     assert "tools" not in optional_params
@@ -1542,7 +1542,7 @@ def test_non_structured_output_model_uses_tool_workaround():
 
 def test_tool_search_regex_detection():
     """Test that tool search regex tools are properly detected"""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     config = AnthropicModelInfo()
 
@@ -1557,7 +1557,7 @@ def test_tool_search_regex_detection():
 
 def test_tool_search_bm25_detection():
     """Test that tool search BM25 tools are properly detected"""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     config = AnthropicModelInfo()
 
@@ -1568,7 +1568,7 @@ def test_tool_search_bm25_detection():
 
 def test_tool_search_beta_header():
     """Test that tool search beta header is automatically added"""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     config = AnthropicModelInfo()
 
@@ -1848,7 +1848,7 @@ def test_allowed_callers_field_preservation():
 
 def test_programmatic_tool_calling_beta_header():
     """Test that beta header is automatically added when programmatic tool calling is detected."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -1993,7 +1993,7 @@ def test_input_examples_field_preservation():
 
 def test_input_examples_beta_header():
     """Test that beta header is automatically added when input_examples is detected."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -2117,7 +2117,7 @@ def test_effort_output_config_preservation():
         model="claude-opus-4-5-20251101",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2138,7 +2138,7 @@ def test_output_config_format_preservation_and_beta_header():
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "Test"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     headers = config.update_headers_with_optional_anthropic_beta({}, optional_params)
@@ -2150,7 +2150,7 @@ def test_output_config_format_preservation_and_beta_header():
 
 def test_effort_beta_header_injection():
     """Test that effort beta header is automatically added when output_config is detected."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -2179,19 +2179,19 @@ def test_effort_validation():
             model="claude-opus-4-5-20251101",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert result["output_config"]["effort"] == effort
 
     optional_params = {"output_config": {"effort": "invalid"}}
 
-    with pytest.raises(litellm.exceptions.BadRequestError, match="Invalid effort value"):
+    with pytest.raises(hangarllm.exceptions.BadRequestError, match="Invalid effort value"):
         config.transform_request(
             model="claude-opus-4-5-20251101",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -2207,7 +2207,7 @@ def test_effort_with_claude_opus_45():
         model="claude-opus-4-5-20251101",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2228,7 +2228,7 @@ def test_effort_validation_with_opus_46():
             model="claude-opus-4-6-20260205",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert result["output_config"]["effort"] == effort
@@ -2243,14 +2243,14 @@ def test_max_effort_rejected_for_opus_45():
     optional_params = {"output_config": {"effort": "max"}}
 
     with pytest.raises(
-        litellm.exceptions.BadRequestError,
+        hangarllm.exceptions.BadRequestError,
         match="effort='max' is not supported by this model",
     ):
         config.transform_request(
             model="claude-opus-4-5-20251101",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -2284,7 +2284,7 @@ def test_effort_with_other_features():
         model="claude-opus-4-5-20251101",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2315,13 +2315,13 @@ def test_anthropic_chat_drops_only_a_non_object_output_format_and_only_under_dro
     forwarded: bool,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "drop_params", global_drop_params)
+    monkeypatch.setattr(hangarllm, "drop_params", global_drop_params)
 
     result = AnthropicConfig().transform_request(
         model="claude-haiku-4-5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"output_format": output_format},
-        litellm_params={"drop_params": request_drop_params},
+        hangarllm_params={"drop_params": request_drop_params},
         headers={},
     )
 
@@ -2333,18 +2333,18 @@ def test_anthropic_drop_params_strips_output_config_for_pre_4_5_models():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         result = config.transform_request(
             model="claude-3-haiku-20240307",
             messages=messages,
             optional_params={"output_config": {"effort": "low"}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     assert "output_config" not in result
 
@@ -2354,18 +2354,18 @@ def test_anthropic_drop_params_keeps_output_config_for_supporting_models():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         result = config.transform_request(
             model="claude-opus-4-7",
             messages=messages,
             optional_params={"output_config": {"effort": "high"}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     assert result.get("output_config") == {"effort": "high"}
 
@@ -2375,18 +2375,18 @@ def test_anthropic_drop_params_false_forwards_to_unsupported_model():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = False
+    original = hangarllm.drop_params
+    hangarllm.drop_params = False
     try:
         result = config.transform_request(
             model="claude-3-haiku-20240307",
             messages=messages,
             optional_params={"output_config": {"effort": "low"}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     assert result.get("output_config") == {"effort": "low"}
 
@@ -2463,16 +2463,16 @@ def test_anthropic_model_supports_speed_param_rejects_non_anthropic_providers(
 def test_vertex_anthropic_drops_speed_for_opus_with_drop_params(monkeypatch):
     """Regression: vertex_ai Opus must drop ``speed`` even though the prefix-stripped
     ``claude-opus-4-8`` maps to a fast-mode-capable direct-Anthropic entry."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
         VertexAIAnthropicConfig,
     )
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     result = VertexAIAnthropicConfig().transform_request(
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"speed": "fast", "max_tokens": 1024},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2482,12 +2482,12 @@ def test_vertex_anthropic_drops_speed_for_opus_with_drop_params(monkeypatch):
 def test_vertex_anthropic_raises_on_speed_without_drop_params(monkeypatch):
     """Regression: vertex_ai Opus raises rather than forwarding an unsupported
     ``speed`` when neither global nor per-request drop_params is set."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
         VertexAIAnthropicConfig,
     )
 
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         VertexAIAnthropicConfig().map_openai_params(
             non_default_params={"speed": "fast"},
             optional_params={},
@@ -2601,13 +2601,13 @@ def test_get_max_tokens_for_model_claude_35():
     Test that get_max_tokens_for_model returns correct value for Claude 3.5 models.
     Claude 3.5 models have max_output_tokens of 8192.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/8835
+    Fixes: upstream issue 8835
     """
     config = AnthropicConfig()
 
     # Claude 3.5 Sonnet should return 8192
     with patch(
-        "litellm.llms.anthropic.chat.transformation.get_max_tokens",
+        "hangarllm.llms.anthropic.chat.transformation.get_max_tokens",
         return_value=8192,
     ):
         max_tokens = config.get_max_tokens_for_model("claude-3-5-sonnet-20241022")
@@ -2640,7 +2640,7 @@ def test_get_config_with_model_uses_dynamic_max_tokens():
     """
     Test that get_config returns dynamic max_tokens based on model.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/8835
+    Fixes: upstream issue 8835
     """
 
     def _mock_get_max_tokens(model):
@@ -2656,7 +2656,7 @@ def test_get_config_with_model_uses_dynamic_max_tokens():
         return result
 
     with patch(
-        "litellm.llms.anthropic.chat.transformation.get_max_tokens",
+        "hangarllm.llms.anthropic.chat.transformation.get_max_tokens",
         side_effect=_mock_get_max_tokens,
     ):
         # Claude 3 model should get 4096
@@ -2674,35 +2674,35 @@ def test_get_config_with_model_uses_dynamic_max_tokens():
 
 def test_transform_request_uses_deployment_max_output_tokens_before_catalog() -> None:
     model: Final = "claude-sonnet-4-6"
-    catalog_max_output_tokens: Final = litellm.get_model_info(model)["max_output_tokens"]
+    catalog_max_output_tokens: Final = hangarllm.get_model_info(model)["max_output_tokens"]
     config: Final = AnthropicConfig()
 
     configured: Final = config.transform_request(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={"model_info": {"max_output_tokens": 987}},
+        hangarllm_params={"model_info": {"max_output_tokens": 987}},
         headers={},
     )
     catalog_default: Final = config.transform_request(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     non_mapping_model_info: Final = config.transform_request(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={"model_info": "invalid"},
+        hangarllm_params={"model_info": "invalid"},
         headers={},
     )
     requested: Final = config.transform_request(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 654},
-        litellm_params={"model_info": {"max_output_tokens": 987}},
+        hangarllm_params={"model_info": {"max_output_tokens": 987}},
         headers={},
     )
 
@@ -2782,11 +2782,11 @@ def test_validate_effort_for_model_centralises_per_model_gating(model, effort, e
 def test_transform_request_injects_dummy_tool_without_tools_param():
     """
     Anthropic rejects messages that contain tool turns when ``tools`` is omitted.
-    LiteLLM must inject a dummy tool without ``litellm.modify_params``.
+    HangarLLM must inject a dummy tool without ``hangarllm.modify_params``.
     """
     config = AnthropicConfig()
-    prev_modify_params = litellm.modify_params
-    litellm.modify_params = False
+    prev_modify_params = hangarllm.modify_params
+    hangarllm.modify_params = False
     try:
         messages = [
             {"role": "user", "content": "Hello"},
@@ -2811,11 +2811,11 @@ def test_transform_request_injects_dummy_tool_without_tools_param():
             model="claude-3-5-haiku-20241022",
             messages=messages,
             optional_params={"max_tokens": 256},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.modify_params = prev_modify_params
+        hangarllm.modify_params = prev_modify_params
 
     assert "tools" in result
     names = [t.get("name") for t in result["tools"] if isinstance(t, dict) and t.get("name") is not None]
@@ -2836,7 +2836,7 @@ def test_transform_request_respects_user_max_tokens():
         model="claude-3-7-sonnet-20250219",
         messages=messages,
         optional_params={"max_tokens": 1000},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2848,7 +2848,7 @@ def test_calculate_usage_completion_tokens_details_always_populated():
     Test that completion_tokens_details is always populated in Usage object,
     not just when there's reasoning_content.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/18772
+    Fixes: upstream issue 18772
     Bug: completion_tokens_details was None for regular Claude responses without reasoning
     """
     config = AnthropicConfig()
@@ -2874,7 +2874,7 @@ def test_calculate_usage_completion_tokens_details_with_reasoning():
     Test that completion_tokens_details correctly splits text_tokens and reasoning_tokens
     when reasoning_content is present.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/18772
+    Fixes: upstream issue 18772
     """
     config = AnthropicConfig()
 
@@ -3090,7 +3090,7 @@ def test_sonnet_4_6_reasoning_effort_to_transform_request_payload():
         model="claude-sonnet-4-6-20260219",
         messages=messages,
         optional_params=mapped_optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -3284,7 +3284,7 @@ def _reasoning_effort_drop_warnings(caplog: pytest.LogCaptureFixture) -> tuple[s
 def test_reasoning_effort_that_is_not_a_level_name_is_dropped_with_one_warning(
     reasoning_effort_value: object, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         result: Final = AnthropicConfig().map_openai_params(
             non_default_params={"reasoning_effort": reasoning_effort_value},
             optional_params={},
@@ -3304,7 +3304,7 @@ def test_reasoning_effort_that_is_not_a_level_name_is_dropped_with_one_warning(
 def test_reasoning_effort_with_a_level_name_or_no_level_logs_no_drop(
     reasoning_effort_value: object, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         AnthropicConfig().map_openai_params(
             non_default_params={"reasoning_effort": reasoning_effort_value},
             optional_params={},
@@ -3386,7 +3386,7 @@ def test_max_effort_accepted_for_sonnet_46_variants(model):
         model=model,
         messages=messages,
         optional_params={"output_config": {"effort": "max"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -3402,7 +3402,7 @@ def test_max_effort_accepted_for_opus_46():
         model="claude-opus-4-6-20250514",
         messages=messages,
         optional_params={"output_config": {"effort": "max"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -3418,7 +3418,7 @@ def test_max_effort_accepted_for_opus_47():
         model="claude-opus-4-7",
         messages=messages,
         optional_params={"output_config": {"effort": "max"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -3432,7 +3432,7 @@ def test_effort_beta_header_not_injected_for_46_models():
     Claude 4.6 models use output_config as a stable API feature —
     no beta header should be injected.
     """
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -3478,7 +3478,7 @@ def test_reasoning_effort_garbage_raises_bad_request(effort):
     """Unmapped reasoning_effort raises BadRequestError (clean 400, not a 500)."""
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(hangarllm.exceptions.BadRequestError):
         config.map_openai_params(
             non_default_params={"reasoning_effort": effort},
             optional_params={},
@@ -3514,12 +3514,12 @@ def test_output_config_effort_empty_string_raises_bad_request():
     """``output_config={"effort": ""}`` is rejected with a 400."""
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.exceptions.BadRequestError, match="Invalid effort"):
+    with pytest.raises(hangarllm.exceptions.BadRequestError, match="Invalid effort"):
         config.transform_request(
             model="claude-opus-4-7",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"output_config": {"effort": ""}, "max_tokens": 32},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -3544,7 +3544,7 @@ def test_effort_beta_header_still_injected_for_older_models():
     Test that is_effort_used still returns True for pre-4.6 models
     when output_config is present.
     """
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -3562,11 +3562,11 @@ def test_code_execution_tool_results_extraction():
     text_editor_code_execution_tool_result) are properly extracted and exposed
     in provider_specific_fields.
 
-    Related to: https://github.com/BerriAI/litellm/issues/xxxxx
+    Related to: https://github.com/valteresj2/HangarLLM/issues/xxxxx
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -3718,7 +3718,7 @@ def test_code_execution_tool_results_in_hidden_params():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -3877,10 +3877,10 @@ def test_server_tool_result_round_trips_right_after_its_call(
     modify_params: bool,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from litellm.litellm_core_utils.prompt_templates.factory import anthropic_messages_pt
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import anthropic_messages_pt
 
     message: Final = _parsed_assistant_message(content, "tool_use")
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
     server_answer: Final = {"role": "tool", "tool_call_id": content[0]["id"], "content": "Error: unknown tool"}
     client_answer: Final = {"role": "tool", "tool_call_id": "toolu_01Weather", "content": "18C"}
 
@@ -3913,7 +3913,7 @@ def test_server_call_still_waiting_on_its_result_is_replayed_as_a_server_call(
 ):
     content: Final = [_FETCH_STILL_WAITING_ON_ITS_RESULT, _WEATHER_TOOL_USE]
     message: Final = _parsed_assistant_message(content, "tool_use")
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
 
     replayed: Final = _replayed(
         {"role": "user", "content": "Fetch example.com, then tell me the weather in Paris"},
@@ -4080,7 +4080,7 @@ def test_replayed_search_that_found_nothing_answers_every_tool_use_and_ends_on_a
     monkeypatch: pytest.MonkeyPatch,
 ):
     message: Final = _parsed_assistant_message(_SEARCH_THAT_FOUND_NOTHING, "end_turn")
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
 
     replayed: Final = _replayed(
         {"role": "user", "content": "Find a tool and use it"},
@@ -4096,7 +4096,7 @@ def test_replayed_search_that_found_nothing_keeps_its_result_when_the_call_never
     monkeypatch: pytest.MonkeyPatch,
 ):
     message: Final = _parsed_assistant_message(_SEARCH_THAT_FOUND_NOTHING, "end_turn")
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
 
     replayed: Final = _replayed({"role": "user", "content": "Find a tool and use it"}, message.model_dump())
 
@@ -4148,7 +4148,7 @@ def test_web_search_tool_result_backwards_compatibility():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -4252,7 +4252,7 @@ def test_compaction_block_in_provider_specific_fields():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -4342,9 +4342,9 @@ async def test_native_compaction_wire_roundtrip(
     respx_mock: respx.MockRouter,
 ) -> None:
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
-    monkeypatch.setattr(litellm.anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
-    monkeypatch.setattr(litellm, "use_chat_completions_url_for_anthropic_messages", False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setattr(hangarllm.anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
+    monkeypatch.setattr(hangarllm, "use_chat_completions_url_for_anthropic_messages", False)
     block: Final = {"type": "compaction", "content": "Exact summary", "signature": "opaque-signature"}
     operation: Final = {"type": "summarize", "instructions": "Keep identifiers"}
     usage: Final = {
@@ -4400,7 +4400,7 @@ async def test_native_compaction_wire_roundtrip(
         return httpx.Response(200, json=body)
 
     route.mock(side_effect=respond)
-    call: Final = litellm.anthropic.messages.acreate if messages_api else litellm.acompletion
+    call: Final = hangarllm.anthropic.messages.acreate if messages_api else hangarllm.acompletion
     params: Final = dict(
         model=f"{'openai/' if gateway else ''}anthropic/claude-sonnet-5",
         api_key="test",
@@ -4430,7 +4430,7 @@ def test_compaction_block_request_transformation():
     Test that compaction blocks from provider_specific_fields are correctly
     transformed back to Anthropic format in requests.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -4490,7 +4490,7 @@ def test_compaction_with_context_management():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4697,7 +4697,7 @@ def test_transform_request_includes_cache_control():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4705,12 +4705,12 @@ def test_transform_request_includes_cache_control():
     assert result["cache_control"] == {"type": "ephemeral"}
 
 
-def _anthropic_body(messages: list, litellm_params: dict | None = None, tools: list | None = None) -> dict:
+def _anthropic_body(messages: list, hangarllm_params: dict | None = None, tools: list | None = None) -> dict:
     return AnthropicConfig().transform_request(
         model="claude-sonnet-5-5",
         messages=messages,
         optional_params={"max_tokens": 100, **({"tools": tools} if tools else {})},
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
         headers={},
     )
 
@@ -4763,10 +4763,10 @@ def test_transform_request_prompt_cache_breakpoint_without_claude_equivalent(mar
         {"role": "user", "content": [{"type": "text", "text": "Hello", "prompt_cache_breakpoint": marker}]}
     ]
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         _anthropic_body(copy.deepcopy(messages))
 
-    body: Final = _anthropic_body(messages, litellm_params={"drop_params": True})
+    body: Final = _anthropic_body(messages, hangarllm_params={"drop_params": True})
     assert body["messages"] == [{"role": "user", "content": [expected_block]}]
 
 
@@ -4780,7 +4780,7 @@ def test_transform_request_names_the_marker_ttl_rule_for_a_ttl_only_claude_takes
         }
     ]
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="optional ttl of '30m' or '12h'"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="optional ttl of '30m' or '12h'"):
         _anthropic_body(messages)
 
 
@@ -4793,10 +4793,10 @@ def test_transform_request_keeps_the_first_and_last_prompt_cache_breakpoints_wit
     messages: Final = [{"role": "user", "content": [client_marked_part, *marked_parts]}]
     tools: Final = [{"name": "lookup", "input_schema": {"type": "object"}, "cache_control": {"type": "ephemeral"}}]
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="at most 4 cache breakpoints"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="at most 4 cache breakpoints"):
         _anthropic_body(copy.deepcopy(messages), tools=copy.deepcopy(tools))
 
-    body: Final = _anthropic_body(messages, litellm_params={"drop_params": True}, tools=tools)
+    body: Final = _anthropic_body(messages, hangarllm_params={"drop_params": True}, tools=tools)
     assert [part.get("cache_control") for part in body["messages"][0]["content"]] == [
         {"type": "ephemeral"},
         {"type": "ephemeral"},
@@ -4832,16 +4832,16 @@ def test_transform_request_counts_a_cache_marked_tool_search_tool_toward_the_cap
         for index in range(4)
     ]
 
-    def body(litellm_params: dict) -> dict:
+    def body(hangarllm_params: dict) -> dict:
         return config.transform_request(
             model="claude-sonnet-5-5",
             messages=copy.deepcopy(marked_turns),
             optional_params=copy.deepcopy(optional_params),
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="this request has 5"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="this request has 5"):
         body({})
 
     capped: Final = body({"drop_params": True})
@@ -4896,7 +4896,7 @@ def test_compaction_block_empty_list_not_added():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -4988,15 +4988,15 @@ def test_fast_mode_cost_calculation():
     on top of the base model cost (1.1x for claude-opus-4-6).
     """
 
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
-    from litellm.types.utils import Usage
+    from hangarllm.llms.anthropic.cost_calculation import cost_per_token
+    from hangarllm.types.utils import Usage
 
     base_prompt = 0.005
     base_completion = 0.025
 
     with (
-        patch("litellm.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
-        patch("litellm.get_model_info") as mock_info,
+        patch("hangarllm.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
+        patch("hangarllm.get_model_info") as mock_info,
     ):
         mock_cost.return_value = (base_prompt, base_completion)
         mock_info.return_value = {"provider_specific_entry": {"fast": 1.1, "us": 1.1}}
@@ -5028,15 +5028,15 @@ def test_fast_mode_with_inference_geo():
     provider_specific_entry (1.1 * 1.1 = 1.21x for claude-opus-4-6).
     """
 
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
-    from litellm.types.utils import Usage
+    from hangarllm.llms.anthropic.cost_calculation import cost_per_token
+    from hangarllm.types.utils import Usage
 
     base_prompt = 0.005
     base_completion = 0.025
 
     with (
-        patch("litellm.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
-        patch("litellm.get_model_info") as mock_info,
+        patch("hangarllm.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
+        patch("hangarllm.get_model_info") as mock_info,
     ):
         mock_cost.return_value = (base_prompt, base_completion)
         mock_info.return_value = {"provider_specific_entry": {"fast": 1.1, "us": 1.1}}
@@ -5103,7 +5103,7 @@ def test_calculate_usage_service_tier_defaults_to_none():
     [("auto", "auto"), ("default", "standard_only"), ("standard_only", "standard_only")],
 )
 def test_service_tier_reaches_anthropic_request_body(provider, openai_tier, anthropic_tier):
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model="claude-sonnet-4-6", custom_llm_provider=provider, service_tier=openai_tier
     )
 
@@ -5111,7 +5111,7 @@ def test_service_tier_reaches_anthropic_request_body(provider, openai_tier, anth
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5120,18 +5120,18 @@ def test_service_tier_reaches_anthropic_request_body(provider, openai_tier, anth
 
 @pytest.mark.parametrize("tier", ["flex", "priority", "fast", "scale"])
 def test_service_tier_without_anthropic_equivalent_raises_with_drop_params_hint(monkeypatch, tier):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params") as exc_info:
-        litellm.utils.get_optional_params(model="claude-sonnet-4-6", custom_llm_provider="anthropic", service_tier=tier)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params") as exc_info:
+        hangarllm.utils.get_optional_params(model="claude-sonnet-4-6", custom_llm_provider="anthropic", service_tier=tier)
 
     assert exc_info.value.status_code == 400
 
 
 def test_service_tier_without_anthropic_equivalent_dropped_with_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model="claude-sonnet-4-6", custom_llm_provider="anthropic", service_tier="flex", drop_params=True
     )
 
@@ -5143,14 +5143,14 @@ def test_service_tier_without_anthropic_equivalent_dropped_with_drop_params(monk
     [("bedrock", "invoke/us.anthropic.claude-sonnet-4-6"), ("vertex_ai", "claude-sonnet-4-6")],
 )
 def test_service_tier_still_rejected_for_claude_hosts_that_400_on_it(monkeypatch, provider, model):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="service_tier"):
-        litellm.utils.get_optional_params(model=model, custom_llm_provider=provider, service_tier="auto")
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="service_tier"):
+        hangarllm.utils.get_optional_params(model=model, custom_llm_provider=provider, service_tier="auto")
 
 
 def test_bedrock_invoke_service_tier_opt_in_is_sent_untranslated():
-    optional_params: Final = litellm.utils.get_optional_params(
+    optional_params: Final = hangarllm.utils.get_optional_params(
         model="invoke/us.anthropic.claude-sonnet-4-6",
         custom_llm_provider="bedrock",
         service_tier="default",
@@ -5197,18 +5197,18 @@ def test_anthropic_drop_params_strips_speed_for_unsupported_models(model: str):
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         result = config.transform_request(
             model=model,
             messages=messages,
             optional_params={"speed": "fast", "max_tokens": 1024},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     assert "speed" not in result
 
@@ -5218,27 +5218,27 @@ def test_anthropic_drop_params_keeps_speed_for_supporting_models():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         result = config.transform_request(
             model="claude-opus-4-6",
             messages=messages,
             optional_params={"speed": "fast", "max_tokens": 1024},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     assert result.get("speed") == "fast"
 
 
 def test_speed_raises_clean_error_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         config.map_openai_params(
             non_default_params={"speed": "fast"},
             optional_params={},
@@ -5275,7 +5275,7 @@ def test_map_openai_params_max_tokens_normalized_to_int():
 def test_map_tool_helper_enforces_object_type_when_missing():
     """
     Anthropic requires input_schema.type to be "object". When an OpenAI tool
-    has parameters without a 'type' field (common with MCP servers), LiteLLM
+    has parameters without a 'type' field (common with MCP servers), HangarLLM
     should inject type:"object" before forwarding to Anthropic.
 
     Without this fix, Anthropic rejects with:
@@ -5311,7 +5311,7 @@ def test_map_tool_helper_enforces_object_type_when_missing():
 def test_map_tool_helper_enforces_object_type_when_wrong_type():
     """
     If a tool schema has type:"string" or type:"array" at the root level,
-    LiteLLM should normalize it to type:"object" for Anthropic compatibility.
+    HangarLLM should normalize it to type:"object" for Anthropic compatibility.
     """
     config = AnthropicConfig()
 
@@ -5393,7 +5393,7 @@ def test_map_tool_helper_empty_parameters_get_default():
 def test_extract_response_content_thinking_block_null_thinking():
     """
     Test that thinking blocks are not dropped when the 'thinking' field is null
-    or missing. Regression test for https://github.com/BerriAI/litellm/issues/24026
+    or missing. Regression test for upstream issue 24026
     """
     config = AnthropicConfig()
 
@@ -5568,7 +5568,7 @@ def test_strip_advisor_blocks_when_no_advisor_tool():
     Auto-strip removes server_tool_use(advisor) + advisor_tool_result blocks when
     advisor tool is absent, preventing Anthropic 400 on follow-up turns.
     """
-    from litellm.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
+    from hangarllm.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
 
     messages = [
         {"role": "user", "content": "Build a worker pool."},
@@ -5602,7 +5602,7 @@ def test_strip_advisor_blocks_when_no_advisor_tool():
 
 def test_strip_advisor_blocks_no_op_when_no_advisor_blocks():
     """strip_advisor_blocks_from_messages is a no-op when no advisor blocks exist."""
-    from litellm.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
+    from hangarllm.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
 
     messages = [
         {"role": "user", "content": "Hello"},
@@ -5633,7 +5633,7 @@ def test_strip_advisor_blocks_no_op_when_no_advisor_blocks():
 
 
 def test_basic_sanitize_anthropic_tool_name_replaces_invalid_chars():
-    from litellm.llms.anthropic.chat.transformation import (
+    from hangarllm.llms.anthropic.chat.transformation import (
         _basic_sanitize_anthropic_tool_name,
     )
 
@@ -5655,7 +5655,7 @@ def test_basic_sanitize_anthropic_tool_name_replaces_invalid_chars():
 
 def test_build_anthropic_tool_name_maps_no_collisions():
     """Names that need rewriting go in the maps; valid names stay out."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from hangarllm.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -5680,7 +5680,7 @@ def test_build_anthropic_tool_name_maps_disambiguates_collision_with_existing_va
     """If `foo/bar` would collapse to `foo_bar` but `foo_bar` already exists,
     the rewritten one must get a unique suffix and only THAT one shows up in
     the reverse map. The legitimately-named `foo_bar` round-trips identically."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from hangarllm.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -5699,7 +5699,7 @@ def test_build_anthropic_tool_name_maps_disambiguates_collision_with_existing_va
 def test_build_anthropic_tool_name_maps_disambiguates_two_rewrites_to_same_target():
     """Two different invalid names that collapse to the same candidate must
     both end up with unique sanitized forms."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from hangarllm.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -5714,7 +5714,7 @@ def test_build_anthropic_tool_name_maps_disambiguates_two_rewrites_to_same_targe
 
 def test_build_anthropic_tool_name_maps_three_way_collision():
     """`foo/bar`, `foo.bar`, and an existing `foo_bar` must all coexist."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from hangarllm.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -5732,7 +5732,7 @@ def test_build_anthropic_tool_name_maps_reverse_order_collision():
     """REGRESSION: when the invalid name appears *before* the valid name that
     its sanitized form collides with, both must still end up with distinct
     names on the wire."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from hangarllm.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -5755,7 +5755,7 @@ def test_build_anthropic_tool_name_maps_duplicate_originals():
     map, *both* tool entries got the suffixed name and Anthropic 400'd
     on duplicates.
     """
-    from litellm.llms.anthropic.chat.transformation import (
+    from hangarllm.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -5767,7 +5767,7 @@ def test_build_anthropic_tool_name_maps_duplicate_originals():
 
 def test_map_openai_params_does_not_pollute_optional_params_with_internal_keys():
     """REGRESSION: ``optional_params`` is what becomes the JSON body sent to
-    Anthropic (``data = {**optional_params}``). It MUST NOT carry LiteLLM-
+    Anthropic (``data = {**optional_params}``). It MUST NOT carry HangarLLM-
     internal coordination state like the per-request forward/reverse name
     maps, or Anthropic 400s with ``Extra inputs are not permitted``.
     Sanitization belongs in ``transform_request``, not here."""
@@ -5960,7 +5960,7 @@ def test_transform_parsed_response_reverse_maps_tool_names():
             }
         ],
     }
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     model_response = ModelResponse()
 
@@ -6006,7 +6006,7 @@ def test_transform_parsed_response_does_not_rewrite_unmapped_names():
             }
         ],
     }
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     model_response = ModelResponse()
     out = config.transform_parsed_response(
@@ -6040,7 +6040,7 @@ def test_transform_parsed_response_no_reverse_map_is_noop():
             }
         ],
     }
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     model_response = ModelResponse()
     out = config.transform_parsed_response(
@@ -6053,7 +6053,7 @@ def test_transform_parsed_response_no_reverse_map_is_noop():
 
 def test_streaming_iterator_reverse_maps_tool_use_name():
     """Streaming `content_block_start` for tool_use should reverse-map the name."""
-    from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+    from hangarllm.llms.anthropic.chat.handler import ModelResponseIterator
 
     iterator = ModelResponseIterator(
         streaming_response=iter([]),
@@ -6080,7 +6080,7 @@ def test_streaming_iterator_reverse_maps_tool_use_name():
 
 
 def test_streaming_iterator_passthrough_when_name_not_in_map():
-    from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+    from hangarllm.llms.anthropic.chat.handler import ModelResponseIterator
 
     iterator = ModelResponseIterator(
         streaming_response=iter([]),
@@ -6127,7 +6127,7 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
     """REGRESSION for "_anthropic_tool_name_forward_map: Extra inputs are not
     permitted". The dict returned by ``transform_request`` is what becomes
     the JSON body POSTed to Anthropic. It must contain ONLY documented
-    Anthropic Messages fields -- no LiteLLM coordination state."""
+    Anthropic Messages fields -- no HangarLLM coordination state."""
     config = AnthropicConfig()
     tools = [
         {
@@ -6148,17 +6148,17 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
         },
     ]
     optional_params = _build_optional_params_for_tools(tools)
-    litellm_params: dict = {}
+    hangarllm_params: dict = {}
 
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=[{"role": "user", "content": "go"}],
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
 
-    # Body must not contain any LiteLLM-internal keys.
+    # Body must not contain any HangarLLM-internal keys.
     for key in data.keys():
         assert not key.startswith("_"), (
             f"transformed request body leaked underscore-prefixed key {key!r}; "
@@ -6181,8 +6181,8 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
     assert "github_openapi_mcp-actions_download-job-logs-for-workflow-run" in sent_names
     assert "plain_tool" in sent_names
 
-    # Reverse map landed on litellm_params (NOT optional_params, NOT body).
-    rmap = litellm_params["_anthropic_tool_name_map"]
+    # Reverse map landed on hangarllm_params (NOT optional_params, NOT body).
+    rmap = hangarllm_params["_anthropic_tool_name_map"]
     assert (
         rmap["github_openapi_mcp-actions_download-job-logs-for-workflow-run"]
         == "github_openapi_mcp-actions/download-job-logs-for-workflow-run"
@@ -6193,7 +6193,7 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
 
 
 def test_transform_request_no_reverse_map_when_all_names_valid():
-    """If every name is already valid, ``litellm_params`` stays clean
+    """If every name is already valid, ``hangarllm_params`` stays clean
     (no reverse map key) -- minimizes blast radius for the common case."""
     config = AnthropicConfig()
     tools = [
@@ -6207,17 +6207,17 @@ def test_transform_request_no_reverse_map_when_all_names_valid():
         },
     ]
     optional_params = _build_optional_params_for_tools(tools)
-    litellm_params: dict = {}
+    hangarllm_params: dict = {}
 
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=[{"role": "user", "content": "go"}],
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
     assert data["tools"][0]["name"] == "plain_tool"
-    assert "_anthropic_tool_name_map" not in litellm_params
+    assert "_anthropic_tool_name_map" not in hangarllm_params
 
 
 def test_transform_request_sanitizes_tool_choice_named_tool():
@@ -6246,12 +6246,12 @@ def test_transform_request_sanitizes_tool_choice_named_tool():
         model="claude-sonnet-4",
         drop_params=False,
     )
-    litellm_params: dict = {}
+    hangarllm_params: dict = {}
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=[{"role": "user", "content": "go"}],
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
     assert data["tool_choice"]["type"] == "tool"
@@ -6293,12 +6293,12 @@ def test_transform_request_rewrites_tool_names_in_history():
         {"role": "tool", "tool_call_id": "toolu_old", "content": "..."},
         {"role": "user", "content": "again"},
     ]
-    litellm_params: dict = {}
+    hangarllm_params: dict = {}
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
     # Find the assistant tool_use block in the Anthropic-shaped messages.
@@ -6359,7 +6359,7 @@ def test_sanitize_tool_names_in_request_no_tools_is_noop():
 # servers (legacy `definitions`) or OpenAPI-derived gateways like AWS
 # AgentCore (`components.schemas`) used to silently lose their def blocks
 # while keeping dangling `$ref`s, causing upstream 400s. See
-# https://github.com/BerriAI/litellm/issues/26692.
+# upstream issue 26692
 # -----------------------------------------------------------------------------
 
 
@@ -6582,7 +6582,7 @@ def test_translate_system_message_keeps_billing_header_for_first_party_anthropic
 
 
 def test_translate_system_message_strips_billing_header_for_bedrock():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from hangarllm.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -6597,7 +6597,7 @@ def test_translate_system_message_strips_billing_header_for_bedrock():
 
 
 def test_anthropic_messages_request_keeps_billing_header_for_first_party():
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     config = AnthropicMessagesConfig()
     assert config.should_strip_billing_metadata() is False
@@ -6613,7 +6613,7 @@ def test_anthropic_messages_request_keeps_billing_header_for_first_party():
         model="claude-3-5-sonnet-latest",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -6622,8 +6622,8 @@ def test_anthropic_messages_request_keeps_billing_header_for_first_party():
 
 
 def test_anthropic_messages_request_strips_billing_header_for_minimax():
-    from litellm.llms.minimax.messages.transformation import MinimaxMessagesConfig
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.llms.minimax.messages.transformation import MinimaxMessagesConfig
+    from hangarllm.types.router import GenericHangarLLMParams
 
     config = MinimaxMessagesConfig()
     assert config.should_strip_billing_metadata() is True
@@ -6639,7 +6639,7 @@ def test_anthropic_messages_request_strips_billing_header_for_minimax():
         model="MiniMax-M2",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -6648,7 +6648,7 @@ def test_anthropic_messages_request_strips_billing_header_for_minimax():
 
 
 def test_translate_system_message_strips_billing_header_for_bedrock_invoke():
-    from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeConfig,
     )
 
@@ -6665,51 +6665,51 @@ def test_translate_system_message_strips_billing_header_for_bedrock_invoke():
 @pytest.mark.parametrize(
     "module_path, class_name, expected_strip",
     [
-        ("litellm.llms.anthropic.chat.transformation", "AnthropicConfig", False),
+        ("hangarllm.llms.anthropic.chat.transformation", "AnthropicConfig", False),
         (
-            "litellm.llms.anthropic.messages.native.transformation",
+            "hangarllm.llms.anthropic.messages.native.transformation",
             "AnthropicMessagesConfig",
             False,
         ),
         (
-            "litellm.llms.bedrock.claude_platform.transformation",
+            "hangarllm.llms.bedrock.claude_platform.transformation",
             "BedrockClaudePlatformConfig",
             True,
         ),
         (
-            "litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation",
+            "hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation",
             "AmazonAnthropicClaudeConfig",
             True,
         ),
         (
-            "litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation",
+            "hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation",
             "AmazonAnthropicClaudeMessagesConfig",
             True,
         ),
-        ("litellm.llms.databricks.messages.transformation", "DatabricksAnthropicMessagesConfig", False),
+        ("hangarllm.llms.databricks.messages.transformation", "DatabricksAnthropicMessagesConfig", False),
         (
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation",
+            "hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation",
             "VertexAIAnthropicConfig",
             True,
         ),
         (
-            "litellm.llms.azure_ai.anthropic.transformation",
+            "hangarllm.llms.azure_ai.anthropic.transformation",
             "AzureAnthropicConfig",
             True,
         ),
-        ("litellm.llms.minimax.messages.transformation", "MinimaxMessagesConfig", True),
+        ("hangarllm.llms.minimax.messages.transformation", "MinimaxMessagesConfig", True),
         (
-            "litellm.llms.azure_ai.anthropic.messages_transformation",
+            "hangarllm.llms.azure_ai.anthropic.messages_transformation",
             "AzureAnthropicMessagesConfig",
             True,
         ),
         (
-            "litellm.llms.deepseek.messages.transformation",
+            "hangarllm.llms.deepseek.messages.transformation",
             "DeepSeekAnthropicMessagesConfig",
             True,
         ),
         (
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation",
+            "hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation",
             "VertexAIPartnerModelsAnthropicMessagesConfig",
             True,
         ),
@@ -6814,7 +6814,7 @@ def test_client_metadata_stripped_from_anthropic_request():
         model="claude-3-5-haiku-20241022",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10, "client_metadata": {"originator": "codex"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "client_metadata" not in result
@@ -6842,10 +6842,10 @@ def test_sampling_params_dropped_for_models_that_removed_them(model):
 
 @pytest.mark.parametrize("params", [{"temperature": 0.5}, {"top_p": 0.9}, {"top_p": 1}])
 def test_sampling_params_raise_clean_error_without_drop_params(params, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         config.map_openai_params(
             non_default_params=params,
             optional_params={},
@@ -6887,8 +6887,8 @@ def test_sampling_param_gating_driven_by_model_map_flag(monkeypatch):
     """The drop/raise decision must come from ``supports_sampling_params`` in
     the model map, not just name matching: a flagged entry gates a model whose
     name says nothing, and an explicit ``true`` overrides the name fallback."""
-    monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
-    monkeypatch.setitem(litellm.model_cost, "claude-fable-5-test", {"supports_sampling_params": True})
+    monkeypatch.setitem(hangarllm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setitem(hangarllm.model_cost, "claude-fable-5-test", {"supports_sampling_params": True})
     config = AnthropicConfig()
 
     flagged_off = config.map_openai_params(
@@ -6918,7 +6918,7 @@ def test_top_k_dropped_at_transform_for_models_that_removed_it():
         model="claude-fable-5",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10, "top_k": 40},
-        litellm_params={"drop_params": True},
+        hangarllm_params={"drop_params": True},
         headers={},
     )
 
@@ -6926,15 +6926,15 @@ def test_top_k_dropped_at_transform_for_models_that_removed_it():
 
 
 def test_top_k_raises_at_transform_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         config.transform_request(
             model="claude-fable-5",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={"max_tokens": 10, "top_k": 40},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -6946,7 +6946,7 @@ def test_top_k_forwarded_at_transform_on_models_that_accept_it():
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10, "top_k": 40},
-        litellm_params={"drop_params": True},
+        hangarllm_params={"drop_params": True},
         headers={},
     )
 
@@ -7018,7 +7018,7 @@ def test_disabled_thinking_omitted_only_for_always_on_models(local_model_cost_ma
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"max_tokens": 64, "thinking": {"type": "disabled"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -7038,10 +7038,10 @@ def test_forced_tool_choice_raises_clean_error_on_fable_5_1_without_drop_params(
     """Fable 5.1 400s on tool_choice type any/tool (thinking is always on and a
     forced call would skip it); without drop_params the caller gets a clean
     client-side 400 that explains the workaround, not a provider error."""
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="forced tool use"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="forced tool use"):
         config.map_openai_params(
             non_default_params={"tool_choice": tool_choice},
             optional_params={},
@@ -7082,7 +7082,7 @@ def test_forced_tool_choice_downgrade_keeps_parallel_tool_calls_flag(local_model
 
 @pytest.mark.parametrize("tool_choice, expected_type", [("auto", "auto"), ("none", "none")])
 def test_unforced_tool_choice_forwarded_on_fable_5_1(local_model_cost_map, tool_choice, expected_type, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AnthropicConfig()
 
     result = config.map_openai_params(
@@ -7097,7 +7097,7 @@ def test_unforced_tool_choice_forwarded_on_fable_5_1(local_model_cost_map, tool_
 
 @pytest.mark.parametrize("model", ["claude-fable-5", "claude-opus-5", "claude-sonnet-5"])
 def test_forced_tool_choice_forwarded_on_models_that_support_it(local_model_cost_map, model, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AnthropicConfig()
 
     result = config.map_openai_params(
@@ -7113,7 +7113,7 @@ def test_forced_tool_choice_forwarded_on_models_that_support_it(local_model_cost
 def test_forced_tool_choice_gating_driven_by_model_map_flag(local_model_cost_map, monkeypatch):
     """The gate must read ``supports_forced_tool_use`` from the model map, not
     the model name: a flagged entry gates a model whose name says nothing."""
-    monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_forced_tool_use": False})
+    monkeypatch.setitem(hangarllm.model_cost, "claude-zeta-9", {"supports_forced_tool_use": False})
     config = AnthropicConfig()
 
     result = config.map_openai_params(
@@ -7129,7 +7129,7 @@ def test_forced_tool_choice_gating_driven_by_model_map_flag(local_model_cost_map
 def test_anthropic_drop_params_keeps_format_only_output_config(monkeypatch):
     """``drop_params=True`` must not consume ``output_config.format``: the drop
     gate is an effort gate and ``format`` is a structured-output field."""
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     config = AnthropicConfig()
     schema_format = {
         "type": "json_schema",
@@ -7140,7 +7140,7 @@ def test_anthropic_drop_params_keeps_format_only_output_config(monkeypatch):
         model="claude-3-haiku-20240307",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"output_config": {"format": schema_format}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -7150,7 +7150,7 @@ def test_anthropic_drop_params_keeps_format_only_output_config(monkeypatch):
 def test_anthropic_drop_params_reduces_mixed_output_config_to_format(monkeypatch):
     """``drop_params=True`` drops the effort key on unsupported models but keeps
     ``format`` so structured outputs still reach the provider."""
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     config = AnthropicConfig()
     schema_format = {
         "type": "json_schema",
@@ -7161,7 +7161,7 @@ def test_anthropic_drop_params_reduces_mixed_output_config_to_format(monkeypatch
         model="claude-3-haiku-20240307",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"output_config": {"effort": "low", "format": schema_format}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -7173,9 +7173,9 @@ def test_response_format_tool_path_skips_forced_tool_choice_when_unsupported(loc
     ``supports_forced_tool_use: false`` must not get the forced response-format
     tool_choice the provider would 400 on."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "claude-test-no-forced-tools",
-        {"litellm_provider": "anthropic", "mode": "chat", "supports_forced_tool_use": False},
+        {"hangarllm_provider": "anthropic", "mode": "chat", "supports_forced_tool_use": False},
     )
     config = AnthropicConfig()
 
@@ -7246,7 +7246,7 @@ def test_response_format_tool_is_forced_only_when_the_model_will_not_think(
         model=model,
         messages=[{"role": "user", "content": "Name the capital of France."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -7297,7 +7297,7 @@ def test_eager_input_streaming_absent_stays_absent():
 
 
 def test_eager_input_streaming_rejects_non_boolean():
-    with pytest.raises(litellm.BadRequestError, match="eager_input_streaming must be a boolean"):
+    with pytest.raises(hangarllm.BadRequestError, match="eager_input_streaming must be a boolean"):
         AnthropicConfig().map_tool_helper(_eager_chat_tool(eager_input_streaming="true"))
 
 
@@ -7379,7 +7379,7 @@ def _chat_request(config: AnthropicConfig, model: str, messages: list[dict]) -> 
         model=model,
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -7742,7 +7742,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
     request must be a byte-identical prefix of turn N+1's or the block is dropped."""
     requests = [
         AnthropicConfig().transform_request(
-            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, litellm_params={}, headers={}
+            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, hangarllm_params={}, headers={}
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
     ]
@@ -7755,7 +7755,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
 def test_chat_dummy_tool_result_for_an_orphaned_tool_call_replays_a_byte_identical_prefix(
     local_model_cost_map, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
     tools = [
         {"name": "lookup", "description": "Look something up", "input_schema": {"type": "object", "properties": {}}}
     ]
@@ -7775,7 +7775,7 @@ def test_chat_dummy_tool_result_for_an_orphaned_tool_call_replays_a_byte_identic
             model="claude-fable-5-1",
             messages=copy.deepcopy(turn),
             optional_params={"tools": copy.deepcopy(tools)},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         for turn in (turn_n, turn_n_plus_one)
@@ -7974,13 +7974,13 @@ anthropic_chunk_list: Final = [
 ]
 
 
-def _make_transform_request(optional_params: dict, litellm_params: dict) -> dict:
+def _make_transform_request(optional_params: dict, hangarllm_params: dict) -> dict:
 
     return AnthropicConfig().transform_request(
         model="claude-3-5-sonnet-20241022",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
 
@@ -7992,7 +7992,7 @@ def test_anthropic_tool_streaming():
     Anthropic gives tool_use indexes starting at the first chunk, meaning they often start at 1
     when they should start at 0
     """
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     response_iter = ModelResponseIterator([], False)
 
     # First index is 0, we'll start earlier because incrementing is easier
@@ -8081,7 +8081,7 @@ def test_process_anthropic_headers_with_no_matching_headers():
     ],
 )
 def test_anthropic_beta_header(computer_tool_used, prompt_caching_set, expected_beta_header):
-    headers = litellm.AnthropicConfig().get_anthropic_headers(
+    headers = hangarllm.AnthropicConfig().get_anthropic_headers(
         api_key="fake-api-key",
         computer_tool_used=computer_tool_used,
         prompt_caching_set=prompt_caching_set,
@@ -8101,7 +8101,7 @@ def test_anthropic_beta_header(computer_tool_used, prompt_caching_set, expected_
     ],
 )
 def test_anthropic_tool_helper(cache_control_location):
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
 
     tool = {
         "type": "function",
@@ -8190,7 +8190,7 @@ def test_convert_tool_response_to_message_without_values():
 
     Anthropic API returns the JSON schema in the tool call, OpenAI Spec expects it in the message. This test ensures that the tool call is converted to a message correctly.
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/6741
+    Relevant issue: upstream issue 6741
     """
     tool_calls = [
         ChatCompletionToolCallChunk(
@@ -8808,7 +8808,7 @@ def test_vertex_claude_tool_emulated_response_format_returns_the_object_the_mode
         model="claude-emulated-structured-output",
         messages=[{"role": "user", "content": "Assess this change request"}],
         optional_params={**optional_params, "is_vertex_request": True},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     json_tool = next(tool for tool in request["tools"] if tool["name"] == RESPONSE_FORMAT_TOOL_NAME)
@@ -8841,7 +8841,7 @@ def test_vertex_claude_tool_emulated_response_format_returns_the_object_the_mode
         request_data=request,
         messages=[{"role": "user", "content": "Assess this change request"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         json_mode=json_mode,
     )
@@ -8957,7 +8957,7 @@ def test_vertex_claude_json_answer_split_into_one_tool_block_per_field_returns_o
         request_data={},
         messages=[{"role": "user", "content": "Assess this change request"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         json_mode=json_mode,
     )
@@ -9132,7 +9132,7 @@ def test_json_mode_with_user_tool_call_joins_the_split_answer_into_content():
 def test_anthropic_tool_with_image():
     import json
 
-    from litellm.litellm_core_utils.prompt_templates.factory import prompt_factory
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import prompt_factory
 
     b64_data = "iVBORw0KGgoAAAANSUhEu6U3//C9t/fKv5wDgpP1r5796XwC4zyH1D565bHGDqbY85AMb0nIQe+u3J390Xbtb9XgXxcK0/aqRXpdYcwgARbCN03FJk"
     image_url = f"data:image/png;base64,{b64_data}"
@@ -9244,7 +9244,7 @@ def test_anthropic_map_openai_params_tools_and_json_schema():
         }
     }
 
-    mapped_params = litellm.AnthropicConfig().map_openai_params(
+    mapped_params = hangarllm.AnthropicConfig().map_openai_params(
         non_default_params=args["non_default_params"],
         optional_params={},
         model="claude-sonnet-4-5-20250929",
@@ -9286,7 +9286,7 @@ def test_anthropic_map_openai_params_tools_with_defs():
         }
     }
 
-    mapped_params = litellm.AnthropicConfig().map_openai_params(
+    mapped_params = hangarllm.AnthropicConfig().map_openai_params(
         non_default_params=args["non_default_params"],
         optional_params={},
         model="claude-sonnet-4-5-20250929",
@@ -9349,7 +9349,7 @@ def test_anthropic_map_openai_params_tools_with_defs():
     ],
 )
 def test_anthropic_json_mode_and_tool_call_response(json_mode, tool_calls, expect_null_response):
-    result, _, _ = litellm.AnthropicConfig()._resolve_json_mode_non_streaming(
+    result, _, _ = hangarllm.AnthropicConfig()._resolve_json_mode_non_streaming(
         json_mode=json_mode,
         tool_calls=tool_calls,
     )
@@ -9389,7 +9389,7 @@ def test_anthropic_json_mode_and_tool_call_response(json_mode, tool_calls, expec
 )
 def test_map_stop_sequences(stop_input, expected_output, drop_params):
     """Test the _map_stop_sequences method of AnthropicConfig"""
-    litellm.drop_params = drop_params
+    hangarllm.drop_params = drop_params
     config = AnthropicConfig()
     result = config.map_stop_sequences(stop_input)
     assert result == expected_output
@@ -9406,8 +9406,8 @@ async def test_anthropic_api_max_completion_tokens(model: str):
     Tests that:
     - max_completion_tokens is passed as max_tokens to anthropic models
     """
-    litellm.set_verbose = True
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    hangarllm.set_verbose = True
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     mock_response = {
         "content": [{"text": "Hi! My name is Claude.", "type": "text"}],
@@ -9426,7 +9426,7 @@ async def test_anthropic_api_max_completion_tokens(model: str):
 
     with patch.object(client, "post") as mock_client:
         try:
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model=model,
                 max_completion_tokens=10,
                 messages=[{"role": "user", "content": "Hello!"}],
@@ -9449,8 +9449,8 @@ async def test_anthropic_api_max_completion_tokens(model: str):
 def test_anthropic_tool_cache_control():
     import json
 
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
 
     tool_content = "Result: 4. " * 1000
     messages = [
@@ -9533,7 +9533,7 @@ def test_anthropic_strict_parameter_passthrough():
         }
     }
 
-    mapped_params = litellm.AnthropicConfig().map_openai_params(
+    mapped_params = hangarllm.AnthropicConfig().map_openai_params(
         non_default_params=args["non_default_params"],
         optional_params={},
         model="claude-sonnet-4-5-20250929",
@@ -9570,7 +9570,7 @@ def test_anthropic_strict_not_present():
         }
     }
 
-    mapped_params = litellm.AnthropicConfig().map_openai_params(
+    mapped_params = hangarllm.AnthropicConfig().map_openai_params(
         non_default_params=args["non_default_params"],
         optional_params={},
         model="claude-sonnet-4-5-20250929",
@@ -9588,7 +9588,7 @@ def test_metadata_only_user_id_passes_through():
     """metadata with only user_id is forwarded as-is."""
     data = _make_transform_request(
         optional_params={"metadata": {"user_id": "abc123"}},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert data.get("metadata") == {"user_id": "abc123"}
 
@@ -9597,7 +9597,7 @@ def test_metadata_extra_keys_are_stripped():
     """Extra keys in metadata are removed; only user_id is sent."""
     data = _make_transform_request(
         optional_params={"metadata": {"user_id": "abc123", "extra_key": "val"}},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert data.get("metadata") == {"user_id": "abc123"}
 
@@ -9606,16 +9606,16 @@ def test_metadata_without_user_id_is_dropped():
     """metadata with no user_id is removed entirely."""
     data = _make_transform_request(
         optional_params={"metadata": {"only_other_key": "val"}},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert "metadata" not in data
 
 
-def test_metadata_user_id_from_litellm_params_strips_extras():
-    """user_id from litellm_params metadata is extracted; extra keys are not forwarded."""
+def test_metadata_user_id_from_hangarllm_params_strips_extras():
+    """user_id from hangarllm_params metadata is extracted; extra keys are not forwarded."""
     data = _make_transform_request(
         optional_params={},
-        litellm_params={"metadata": {"user_id": "abc123", "trace_id": "xyz"}},
+        hangarllm_params={"metadata": {"user_id": "abc123", "trace_id": "xyz"}},
     )
     assert data.get("metadata") == {"user_id": "abc123"}
 
@@ -9624,14 +9624,14 @@ def test_metadata_user_id_from_litellm_params_strips_extras():
 def test_metadata_non_string_user_id_is_skipped_instead_of_raising(user_id):
     data: Final = _make_transform_request(
         optional_params={},
-        litellm_params={"metadata": {"user_id": user_id}},
+        hangarllm_params={"metadata": {"user_id": user_id}},
     )
     assert "metadata" not in data
 
 
 def test_metadata_filter_applies_to_vertex_anthropic():
     """VertexAIAnthropicConfig inherits the metadata filter."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
         VertexAIAnthropicConfig,
     )
 
@@ -9639,7 +9639,7 @@ def test_metadata_filter_applies_to_vertex_anthropic():
         model="claude-3-5-sonnet-20241022",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"metadata": {"user_id": "u1", "extra": "drop_me"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert data.get("metadata") == {"user_id": "u1"}
@@ -9647,13 +9647,13 @@ def test_metadata_filter_applies_to_vertex_anthropic():
 
 def test_metadata_filter_applies_to_azure_anthropic():
     """AzureAnthropicConfig inherits the metadata filter."""
-    from litellm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
+    from hangarllm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
 
     data = AzureAnthropicConfig().transform_request(
         model="claude-3-5-sonnet-20241022",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"metadata": {"user_id": "u2", "extra": "drop_me"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert data.get("metadata") == {"user_id": "u2"}
@@ -9668,7 +9668,7 @@ async def test_anthropic_api_prompt_caching_with_content_str():
             "cache_control": {"type": "ephemeral"},
         },
     ]
-    translated_system_message = litellm.AnthropicConfig().translate_system_message(messages=system_message)
+    translated_system_message = hangarllm.AnthropicConfig().translate_system_message(messages=system_message)
 
     assert translated_system_message == [
         # System Message
@@ -9785,7 +9785,7 @@ def anthropic_messages():
 
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_is_prompt_caching_enabled(anthropic_messages):
-    assert litellm.utils.is_prompt_caching_valid_prompt(
+    assert hangarllm.utils.is_prompt_caching_valid_prompt(
         messages=anthropic_messages,
         tools=None,
         custom_llm_provider="anthropic",
@@ -9875,7 +9875,7 @@ async def _send_prompt_caching_request(
             },
         )
     )
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         api_key="mock_api_key",
         model=f"anthropic/{PROMPT_CACHING_MODEL}",
         extra_headers={"anthropic-version": "2023-06-01"},
@@ -9889,7 +9889,7 @@ async def _send_prompt_caching_request(
     return request
 
 
-async def test_litellm_anthropic_prompt_caching_tools(
+async def test_hangarllm_anthropic_prompt_caching_tools(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     request: Final = await _send_prompt_caching_request(
@@ -9922,11 +9922,11 @@ async def test_litellm_anthropic_prompt_caching_tools(
                 "cache_control": EPHEMERAL,
             }
         ],
-        "max_tokens": litellm.get_max_tokens(PROMPT_CACHING_MODEL),
+        "max_tokens": hangarllm.get_max_tokens(PROMPT_CACHING_MODEL),
     }
 
 
-async def test_litellm_anthropic_prompt_caching_system(
+async def test_hangarllm_anthropic_prompt_caching_system(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     system_blocks: Final = [
@@ -9950,7 +9950,7 @@ async def test_litellm_anthropic_prompt_caching_system(
                 "content": [{"type": "text", "text": "what are the key terms and conditions in this agreement?"}],
             }
         ],
-        "max_tokens": litellm.get_max_tokens(PROMPT_CACHING_MODEL),
+        "max_tokens": hangarllm.get_max_tokens(PROMPT_CACHING_MODEL),
     }
 
 
@@ -9972,7 +9972,7 @@ def test_completion_forwards_caller_anthropic_beta_header_with_computer_tool(res
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="anthropic/claude-sonnet-4-5-20250929",
         api_key="mock_api_key",
         headers={"anthropic-beta": "computer-use-2025-01-24"},
@@ -10023,7 +10023,7 @@ def test_completion_adds_the_beta_matching_the_computer_tool_version(
         return_value=httpx.Response(200, json=_anthropic_message_body([{"type": "text", "text": "hi"}], "end_turn"))
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="anthropic/claude-opus-5",
         api_key="mock_api_key",
         messages=[{"role": "user", "content": "Say hi"}],
@@ -10050,7 +10050,7 @@ def test_completion_sends_no_computer_use_beta_for_an_unknown_computer_tool_vers
         return_value=httpx.Response(200, json=_anthropic_message_body([{"type": "text", "text": "hi"}], "end_turn"))
     )
 
-    litellm.completion(
+    hangarllm.completion(
         model="anthropic/claude-opus-5",
         api_key="mock_api_key",
         messages=[{"role": "user", "content": "Say hi"}],
@@ -10093,7 +10093,7 @@ def test_completion_sends_prefix_as_trailing_assistant_turn_and_prepends_it(resp
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="anthropic/claude-sonnet-4-5-20250929",
         api_key="mock_api_key",
         messages=[
@@ -10139,7 +10139,7 @@ def test_completion_with_required_tool_choice_and_response_format_returns_tool_c
         "required": ["location"],
     }
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="anthropic/claude-sonnet-4-5-20250929",
         api_key="mock_api_key",
         messages=[
@@ -10223,7 +10223,7 @@ def test_completion_surfaces_response_citations_in_provider_specific_fields(resp
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="anthropic/claude-sonnet-4-5-20250929",
         api_key="mock_api_key",
         messages=[{"role": "user", "content": [document, {"type": "text", "text": "What color is the grass?"}]}],
@@ -10312,9 +10312,9 @@ def _deferral_by_function_name(tools: list[dict[str, object]]) -> dict[object, o
 def test_map_openai_params_sends_one_anthropic_search_tool_and_keeps_deferral_on_a_route_that_runs_it(
     config, model, provider, search_tools
 ):
-    from litellm.responses.litellm_completion_transformation.tool_search import anthropic_tool_search_chat_tool
+    from hangarllm.responses.hangarllm_completion_transformation.tool_search import anthropic_tool_search_chat_tool
 
-    assert litellm.supports_tool_search(model, provider)
+    assert hangarllm.supports_tool_search(model, provider)
     mapped: Final = config.map_openai_params(
         non_default_params={"tools": _openai_tool_search_with_deferred_functions(search_tools)},
         optional_params={},
@@ -10336,7 +10336,7 @@ def test_map_openai_params_sends_one_anthropic_search_tool_and_keeps_deferral_on
 def test_map_openai_params_lets_a_native_anthropic_search_tool_replace_the_openai_one(
     monkeypatch, config, model, native_type
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     native_name: Final = native_type.removesuffix("_20251119")
     mapped: Final = config.map_openai_params(
         non_default_params={
@@ -10370,10 +10370,10 @@ def test_map_openai_params_lets_a_native_anthropic_search_tool_replace_the_opena
 def test_map_openai_params_judges_tool_search_on_the_real_model_when_tool_based_response_format_swaps_it(
     set_native_structured_output, config, model, provider, model_cost_key
 ):
-    from litellm.responses.litellm_completion_transformation.tool_search import anthropic_tool_search_chat_tool
+    from hangarllm.responses.hangarllm_completion_transformation.tool_search import anthropic_tool_search_chat_tool
 
     set_native_structured_output(model_cost_key, None)
-    assert litellm.supports_tool_search(model, provider)
+    assert hangarllm.supports_tool_search(model, provider)
     mapped: Final = config.map_openai_params(
         non_default_params={
             "tools": _openai_tool_search_with_deferred_functions(),
@@ -10403,9 +10403,9 @@ _UNRUNNABLE_TOOL_SEARCH_CASES: Final = [
 def test_map_openai_params_answers_400_for_an_openai_tool_search_tool_it_cannot_run(
     monkeypatch, config, model, provider, execution
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    assert provider is None or not litellm.supports_tool_search(model, provider)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    assert provider is None or not hangarllm.supports_tool_search(model, provider)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         config.map_openai_params(
             non_default_params={
                 "tools": _openai_tool_search_with_deferred_functions(({"type": "tool_search", "execution": execution},))
@@ -10421,17 +10421,17 @@ def test_map_openai_params_answers_400_for_an_openai_tool_search_tool_it_cannot_
 
 
 def test_map_openai_params_runs_tool_search_on_a_custom_named_deployment_whose_model_info_says_it_can(monkeypatch):
-    from litellm.responses.litellm_completion_transformation.tool_search import anthropic_tool_search_chat_tool
+    from hangarllm.responses.hangarllm_completion_transformation.tool_search import anthropic_tool_search_chat_tool
 
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
     tools: Final = _openai_tool_search_with_deferred_functions()
-    with pytest.raises(litellm.utils.UnsupportedParamsError):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError):
         AzureAnthropicConfig().map_openai_params(
             non_default_params={"tools": tools}, optional_params={}, model="my-claude-deployment", drop_params=False
         )
-    litellm.register_model(
-        {"azure_ai/my-claude-deployment": {"supports_tool_search": True, "litellm_provider": "azure_ai"}}
+    hangarllm.register_model(
+        {"azure_ai/my-claude-deployment": {"supports_tool_search": True, "hangarllm_provider": "azure_ai"}}
     )
     mapped: Final = AzureAnthropicConfig().map_openai_params(
         non_default_params={"tools": tools}, optional_params={}, model="my-claude-deployment", drop_params=False
@@ -10444,8 +10444,8 @@ def test_map_openai_params_runs_tool_search_on_a_custom_named_deployment_whose_m
 def test_map_openai_params_drops_the_openai_tool_search_tool_and_every_deferral_under_drop_params(
     monkeypatch, config, model, provider, execution
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    assert provider is None or not litellm.supports_tool_search(model, provider)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    assert provider is None or not hangarllm.supports_tool_search(model, provider)
     mapped: Final = config.map_openai_params(
         non_default_params={
             "tools": _openai_tool_search_with_deferred_functions(({"type": "tool_search", "execution": execution},))
@@ -10462,11 +10462,11 @@ def _refusal_message_body(stop_reason: str, stop_details: dict | None) -> dict:
     return {**ANTHROPIC_DOCS_REFUSAL_MESSAGE, "stop_reason": stop_reason, "stop_details": stop_details}
 
 
-def _transform_message_body(body: dict) -> litellm.ModelResponse:
+def _transform_message_body(body: dict) -> hangarllm.ModelResponse:
     return AnthropicConfig().transform_parsed_response(
         completion_response=body,
         raw_response=httpx.Response(status_code=200, headers={}),
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         json_mode=False,
         prefix_prompt=None,
     )
@@ -10578,11 +10578,11 @@ def _json_mode_message_body(stop_reason: str, stop_details: dict | None) -> dict
     }
 
 
-def _transform_json_mode_body(body: dict) -> litellm.ModelResponse:
+def _transform_json_mode_body(body: dict) -> hangarllm.ModelResponse:
     return AnthropicConfig().transform_parsed_response(
         completion_response=body,
         raw_response=httpx.Response(status_code=200, headers={}),
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         json_mode=True,
         prefix_prompt=None,
     )
@@ -10621,7 +10621,7 @@ def test_non_dict_upstream_body_still_transforms_without_refusal_fields() -> Non
     result = AnthropicConfig().transform_parsed_response(
         completion_response=MagicMock(),
         raw_response=httpx.Response(200, headers={}),
-        model_response=litellm.ModelResponse(),
+        model_response=hangarllm.ModelResponse(),
         json_mode=False,
         prefix_prompt=None,
     )
@@ -10652,18 +10652,18 @@ def test_transform_request_tool_config_point_marks_last_tool_and_drops_the_key(c
     tools = _two_function_tools()
     tools_before = copy.deepcopy(tools)
     point = {"location": "tool_config", **({"control": control} if control is not None else {})}
-    litellm_params = {"metadata": {}, "model_info": {"id": "deployment-1"}}
+    hangarllm_params = {"metadata": {}, "model_info": {"id": "deployment-1"}}
 
     data = _make_transform_request(
         optional_params={"tools": tools, "cache_control_injection_points": [point]},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
 
     assert "cache_control_injection_points" not in data
     assert data["tools"][-1]["cache_control"] == expected_control
     assert "cache_control" not in data["tools"][0]
     assert tools == tools_before
-    assert litellm_params["metadata"]["litellm_gateway_injected_cache"] == "deployment-1"
+    assert hangarllm_params["metadata"]["hangarllm_gateway_injected_cache"] == "deployment-1"
 
 
 def test_transform_request_tool_config_point_keeps_the_clients_tool_marker():
@@ -10672,7 +10672,7 @@ def test_transform_request_tool_config_point_keeps_the_clients_tool_marker():
 
     data = _make_transform_request(
         optional_params={"tools": tools, "cache_control_injection_points": [{"location": "tool_config"}]},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert "cache_control_injection_points" not in data
@@ -10686,7 +10686,7 @@ def test_transform_request_tool_config_point_skips_tool_search_tools():
 
     data = _make_transform_request(
         optional_params={"tools": tools, "cache_control_injection_points": [{"location": "tool_config"}]},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert data["tools"][1]["cache_control"] == {"type": "ephemeral"}
@@ -10695,16 +10695,16 @@ def test_transform_request_tool_config_point_skips_tool_search_tools():
 
 
 def test_transform_request_tool_config_point_without_tools_drops_the_key():
-    litellm_params = {"metadata": {}}
+    hangarllm_params = {"metadata": {}}
 
     data = _make_transform_request(
         optional_params={"cache_control_injection_points": [{"location": "tool_config"}]},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
 
     assert "cache_control_injection_points" not in data
     assert "tools" not in data
-    assert litellm_params["metadata"] == {}
+    assert hangarllm_params["metadata"] == {}
 
 
 _INPUT_TRANSFORMATIONS: Final = [{"type": "thinking_block_binding", "count": 2}]
@@ -10733,7 +10733,7 @@ def test_chat_response_surfaces_input_transformations_in_provider_specific_field
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -10752,7 +10752,7 @@ def test_chat_response_without_input_transformations_adds_no_key() -> None:
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -10775,7 +10775,7 @@ def test_json_mode_chat_response_keeps_input_transformations() -> None:
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         json_mode=True,
     )
@@ -10802,7 +10802,7 @@ _ROUTES_WITHOUT_THE_MCP_CONNECTOR: Final = (
 
 @pytest.mark.parametrize("config_class", [AnthropicConfig, AzureAnthropicConfig, BedrockClaudePlatformConfig])
 def test_routes_with_the_mcp_connector_send_a_hosted_mcp_tool_as_an_mcp_server(monkeypatch, config_class):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = config_class().map_openai_params(
         non_default_params={"tools": [_WEATHER_FUNCTION_TOOL, _HOSTED_MCP_TOOL]},
         optional_params={},
@@ -10815,8 +10815,8 @@ def test_routes_with_the_mcp_connector_send_a_hosted_mcp_tool_as_an_mcp_server(m
 
 @pytest.mark.parametrize(("config_class", "route"), _ROUTES_WITHOUT_THE_MCP_CONNECTOR)
 def test_a_hosted_mcp_tool_answers_400_on_claude_routes_without_the_mcp_connector(monkeypatch, config_class, route):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         config_class().map_openai_params(
             non_default_params={"tools": [_WEATHER_FUNCTION_TOOL, _HOSTED_MCP_TOOL]},
             optional_params={},
@@ -10832,7 +10832,7 @@ def test_a_hosted_mcp_tool_answers_400_on_claude_routes_without_the_mcp_connecto
 def test_claude_routes_without_the_mcp_connector_drop_a_hosted_mcp_tool_under_drop_params(
     monkeypatch, caplog, config_class, route
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     with caplog.at_level("WARNING"):
         mapped: Final = config_class().map_openai_params(
             non_default_params={"tools": [_HOSTED_MCP_TOOL, _WEATHER_FUNCTION_TOOL]},
@@ -10851,7 +10851,7 @@ def test_claude_routes_without_the_mcp_connector_drop_a_hosted_mcp_tool_under_dr
 def test_claude_routes_without_the_mcp_connector_send_no_tools_when_drop_params_drops_every_one(
     monkeypatch, config_class, route
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = config_class().map_openai_params(
         non_default_params={"tools": [_HOSTED_MCP_TOOL], "tool_choice": "required"},
         optional_params={},
@@ -11059,7 +11059,7 @@ def test_chat_transform_request_answers_400_naming_a_non_string_role_or_tool_cal
     modify_params: bool,
     model: str,
 ):
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
 
     with pytest.raises(AnthropicError) as raised:
         _chat_request(AnthropicConfig(), model, copy.deepcopy(messages))
@@ -11081,7 +11081,7 @@ def test_chat_transform_request_names_a_non_string_role_on_a_cache_marked_messag
             model=UNFLAGGED_CLAUDE,
             messages=[_ASK, marked],
             optional_params={},
-            litellm_params={"drop_params": True},
+            hangarllm_params={"drop_params": True},
             headers={},
         )
 
@@ -11118,7 +11118,7 @@ def test_chat_transform_request_keeps_converting_a_non_string_id_it_never_reads(
     well_formed: list[dict[str, object]],
     modify_params: bool,
 ):
-    monkeypatch.setattr(litellm, "modify_params", modify_params)
+    monkeypatch.setattr(hangarllm, "modify_params", modify_params)
 
     converted: Final = _chat_request(AnthropicConfig(), UNFLAGGED_CLAUDE, copy.deepcopy(malformed))
 
@@ -11131,7 +11131,7 @@ def test_chat_transform_request_keeps_converting_a_non_string_id_it_never_reads(
 def test_chat_transform_request_keeps_a_conversion_error_that_a_dropped_orphan_answer_did_not_cause(
     local_model_cost_map, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
 
     with pytest.raises(AnthropicError) as raised:
         _chat_request(
@@ -11183,7 +11183,7 @@ def test_chat_transform_request_never_blames_a_dropped_tool_answer_id_for_anothe
     real_cause: str,
     dropped_answer_id: object,
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
 
     with pytest.raises(AnthropicError) as raised:
         _chat_request(AnthropicConfig(), UNFLAGGED_CLAUDE, [*_orphan_answer_with(dropped_answer_id)[:3], *later_turn])
@@ -11296,7 +11296,7 @@ def test_claude_request_over_the_cache_control_cap_drops_the_oldest_hints_only_u
     expected_cached_texts: list[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     messages: Final = _five_cache_hint_conversation()
     messages_before: Final = copy.deepcopy(messages)
 
@@ -11304,7 +11304,7 @@ def test_claude_request_over_the_cache_control_cap_drops_the_oldest_hints_only_u
         model=model,
         messages=messages,
         optional_params={},
-        litellm_params={"drop_params": drop_params},
+        hangarllm_params={"drop_params": drop_params},
         headers={},
     )
 
@@ -11316,7 +11316,7 @@ def test_claude_request_over_the_cache_control_cap_drops_the_oldest_hints_only_u
 def test_claude_cache_control_cap_keeps_a_cached_tool_and_drops_the_oldest_message_hint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     messages: Final = _five_cache_hint_conversation()[1:]
     tool: Final = {
         "name": "get_weather",
@@ -11329,7 +11329,7 @@ def test_claude_cache_control_cap_keeps_a_cached_tool_and_drops_the_oldest_messa
         model="claude-haiku-5-5",
         messages=messages,
         optional_params={"tools": [tool]},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -11340,7 +11340,7 @@ def test_claude_cache_control_cap_keeps_a_cached_tool_and_drops_the_oldest_messa
 def test_claude_cache_control_cap_drops_a_string_assistant_turns_text_hint_before_its_tool_call_hints(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     hint: Final = {"type": "ephemeral"}
     tool_calls: Final = [
         {"id": f"call_{name}", "type": "function", "function": {"name": name, "arguments": "{}"}, "cache_control": hint}
@@ -11362,7 +11362,7 @@ def test_claude_cache_control_cap_drops_a_string_assistant_turns_text_hint_befor
         model="claude-haiku-5-5",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -11376,7 +11376,7 @@ def test_claude_cache_control_cap_drops_a_string_assistant_turns_text_hint_befor
 def test_claude_cache_control_cap_keeps_the_newest_hints_inside_one_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     messages: Final = [
         {
             "role": "user",
@@ -11392,7 +11392,7 @@ def test_claude_cache_control_cap_keeps_the_newest_hints_inside_one_message(
         model="claude-haiku-5-5",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -11404,7 +11404,7 @@ def test_claude_cache_control_cap_keeps_the_newest_hints_inside_one_message(
 def test_claude_cache_control_cap_does_not_count_a_message_level_hint_that_list_content_never_sends(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     messages: Final = [
         {"role": "system", "content": "system prompt", "cache_control": {"type": "ephemeral"}},
         {"role": "user", "content": "turn 1", "cache_control": {"type": "ephemeral"}},
@@ -11422,7 +11422,7 @@ def test_claude_cache_control_cap_does_not_count_a_message_level_hint_that_list_
         model="claude-haiku-5-5",
         messages=messages,
         optional_params={},
-        litellm_params={"drop_params": True},
+        hangarllm_params={"drop_params": True},
         headers={},
     )
 

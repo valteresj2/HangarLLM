@@ -7,7 +7,7 @@
     "commit": "Full 40-char git SHA to pin when the plugin is not yet on PyPI; omit once 'pypi' is set.",
     "version": "Plugin release version, e.g. 1.0.0.",
     "pypi": "PyPI spec pinned to a version, e.g. my-plugin==1.0.0, or null if unpublished.",
-    "litellm_version": "Minimum compatible litellm version, e.g. >=1.94.0.",
+    "hangarllm_version": "Minimum compatible hangarllm version, e.g. >=1.94.0.",
     "entrypoint": "Dotted import path to the plugin instance, e.g. my_plugin.plugin.instance.",
     "license": "SPDX license id, e.g. MIT.",
     "tags": ["searchable", "keywords"]
@@ -20,8 +20,8 @@
     "commit": "9e712819269173fc25a16f59ca3e9890f7864ac1",
     "version": "1.0.0",
     "pypi": null,
-    "litellm_version": ">=1.94.0",
-    "entrypoint": "litellm_plugin_language_detector.plugin.language_detector_plugin",
+    "hangarllm_version": ">=1.94.0",
+    "entrypoint": "hangarllm_plugin_language_detector.plugin.language_detector_plugin",
     "license": "MIT",
     "tags": ["language", "classification", "routing"]
   }

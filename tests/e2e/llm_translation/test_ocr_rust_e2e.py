@@ -35,7 +35,7 @@ from e2e_http import (
     tolerate_provider_rate_limit,
 )
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody, OcrBody, OcrDocument, OcrResponse
+from models import HangarLLMParamsBody, OcrBody, OcrDocument, OcrResponse
 from proxy_client import ProxyClient
 from pydantic import BaseModel
 
@@ -50,12 +50,12 @@ class _OptionalOcrBody(BaseModel):
 # Tiny in-repo fixtures served via jsdelivr (sha-pinned, immutable) so the request
 # bodies stay stable across runs.
 TEST_PDF_URL = (
-    "https://cdn.jsdelivr.net/gh/BerriAI/litellm"
+    "https://cdn.jsdelivr.net/gh/valteresj2/HangarLLM"
     "@d769e81c90d453240c61fc572cdb27fae06a89d0"
     "/tests/llm_translation/fixtures/dummy.pdf"
 )
 TEST_IMAGE_URL = (
-    "https://cdn.jsdelivr.net/gh/BerriAI/litellm"
+    "https://cdn.jsdelivr.net/gh/valteresj2/HangarLLM"
     "@d769e81c90d453240c61fc572cdb27fae06a89d0"
     "/tests/image_gen_tests/test_image.png"
 )
@@ -73,15 +73,15 @@ class OcrProvider(Protocol):
     credential references the proxy resolves at call time. Each provider owns which
     env vars it reads, so a new provider is a new type, not another inline body."""
 
-    def litellm_params(self) -> LiteLLMParamsBody: ...
+    def hangarllm_params(self) -> HangarLLMParamsBody: ...
 
 
 @dataclass(frozen=True, slots=True)
 class MistralOcr:
     model: str = MISTRAL_OCR_MODEL
 
-    def litellm_params(self) -> LiteLLMParamsBody:
-        return LiteLLMParamsBody(model=self.model, api_key="os.environ/MISTRAL_API_KEY")
+    def hangarllm_params(self) -> HangarLLMParamsBody:
+        return HangarLLMParamsBody(model=self.model, api_key="os.environ/MISTRAL_API_KEY")
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,12 +89,12 @@ class AzureAiOcr:
     """azure_ai (mistral) OCR. The rust OCR path resolves credentials itself from
     AZURE_AI_API_BASE / AZURE_AI_API_KEY when the deployment leaves them unset; it
     does NOT unwrap an `os.environ/*` reference passed as api_base (it would be sent
-    to Azure verbatim), so we omit them and let litellm read the env vars by name."""
+    to Azure verbatim), so we omit them and let hangarllm read the env vars by name."""
 
     model: str
 
-    def litellm_params(self) -> LiteLLMParamsBody:
-        return LiteLLMParamsBody(model=self.model)
+    def hangarllm_params(self) -> HangarLLMParamsBody:
+        return HangarLLMParamsBody(model=self.model)
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,8 +106,8 @@ class AzureDocIntelligenceOcr:
 
     model: str = AZURE_DOC_INTELLIGENCE_MODEL
 
-    def litellm_params(self) -> LiteLLMParamsBody:
-        return LiteLLMParamsBody(model=self.model)
+    def hangarllm_params(self) -> HangarLLMParamsBody:
+        return HangarLLMParamsBody(model=self.model)
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,22 +116,22 @@ class VertexOcr:
     the project and credentials are left unset so the gateway resolves VERTEXAI_PROJECT
     and VERTEXAI_CREDENTIALS from its own environment by name, keeping every secret on
     the gateway like the azure_ai cases above. This is deliberate: the OCR path reads
-    vertex_project verbatim from litellm_params and never unwraps an `os.environ/*`
+    vertex_project verbatim from hangarllm_params and never unwraps an `os.environ/*`
     ref, so passing one would put the literal string in the request URL."""
 
     model: str
     location: str
 
-    def litellm_params(self) -> LiteLLMParamsBody:
-        return LiteLLMParamsBody(model=self.model, vertex_location=self.location)
+    def hangarllm_params(self) -> HangarLLMParamsBody:
+        return HangarLLMParamsBody(model=self.model, vertex_location=self.location)
 
 
 @dataclass(frozen=True, slots=True)
 class CohereOcr:
     model: str = COHERE_OCR_MODEL
 
-    def litellm_params(self) -> LiteLLMParamsBody:
-        return LiteLLMParamsBody(model=self.model, api_key="os.environ/COHERE_API_KEY")
+    def hangarllm_params(self) -> HangarLLMParamsBody:
+        return HangarLLMParamsBody(model=self.model, api_key="os.environ/COHERE_API_KEY")
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,7 +165,7 @@ RUST_OCR_CASES: tuple[_OcrCase, ...] = (
 )
 
 PDF_TEXT: Final = "test pdf file"
-IMAGE_TEXT: Final = "litellm"
+IMAGE_TEXT: Final = "hangarllm"
 PDF_DOCUMENT: Final = OcrDocument(type="document_url", document_url=TEST_PDF_URL)
 IMAGE_DOCUMENT: Final = OcrDocument(type="image_url", image_url=TEST_IMAGE_URL)
 
@@ -237,7 +237,7 @@ class TestRustOcrGateway:
     )
     def test_rust_ocr_response(self, proxy: ProxyClient, resources: ResourceManager, case: _OcrCase) -> None:
         model = f"rust-ocr-{case.suffix}-{unique_marker()}"
-        model_id = proxy.create_model(model, case.provider.litellm_params())
+        model_id = proxy.create_model(model, case.provider.hangarllm_params())
         resources.defer(lambda: proxy.delete_model(model_id))
         key = resources.key()
 
@@ -261,7 +261,7 @@ class TestRustOcrGateway:
     )
     def test_missing_document_returns_error(self, proxy: ProxyClient, resources: ResourceManager) -> None:
         model = f"rust-ocr-val-{unique_marker()}"
-        model_id = proxy.create_model(model, MistralOcr().litellm_params())
+        model_id = proxy.create_model(model, MistralOcr().hangarllm_params())
         resources.defer(lambda: proxy.delete_model(model_id))
         key = resources.key()
         result = proxy.transport.send(
@@ -284,7 +284,7 @@ class TestOcrDocumentContent:
         self, proxy: ProxyClient, resources: ResourceManager, case: _OcrContentCase
     ) -> None:
         model = f"ocr-content-{case.suffix}-{unique_marker()}"
-        model_id = proxy.create_model(model, case.provider.litellm_params())
+        model_id = proxy.create_model(model, case.provider.hangarllm_params())
         resources.defer(lambda: proxy.delete_model(model_id))
 
         result = proxy.transport.send(
@@ -304,5 +304,5 @@ class TestOcrDocumentContent:
             f"usage_info.pages_processed disagrees with the returned pages: {response.usage_info!r}"
         )
         assert result.response_cost is not None and result.response_cost > 0, (
-            f"{model}: OCR call was not costed: x-litellm-response-cost={result.response_cost!r}"
+            f"{model}: OCR call was not costed: x-hangarllm-response-cost={result.response_cost!r}"
         )

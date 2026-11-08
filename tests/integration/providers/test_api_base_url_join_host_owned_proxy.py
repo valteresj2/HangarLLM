@@ -33,13 +33,13 @@ pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
 
 
 def _deployment(name: str, model: str, api_base: str) -> dict[str, JsonValue]:
-    return {"model_name": name, "litellm_params": {"model": model, "api_base": api_base, "api_key": KEY}}
+    return {"model_name": name, "hangarllm_params": {"model": model, "api_base": api_base, "api_key": KEY}}
 
 
 def _vertex_claude_deployment(name: str, api_base: str, token_url: str) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "vertex_ai/claude-haiku-5-5",
             "api_base": api_base,
             "vertex_project": _VERTEX_PROJECT,

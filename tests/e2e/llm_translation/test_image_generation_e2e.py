@@ -3,7 +3,7 @@
 Registers an image deployment at runtime, drives it through the real OpenAI SDK
 (LIT-4577), and asserts the response carries a generated image (url or base64).
 Malformed bodies the SDK refuses to build stay on the shared transport. Migrated
-from litellm-regression-tests/tests/test_inference_endpoints.py.
+from hangarllm-regression-tests/tests/test_inference_endpoints.py.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from e2e_config import unique_marker
 from e2e_http import assert_client_error
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from openai.types import ImagesResponse
 from proxy_client import ProxyClient
 from pydantic import BaseModel
@@ -44,7 +44,7 @@ def _assert_image_returned(images: ImagesResponse) -> None:
     assert first.b64_json or first.url, f"generated image has neither b64_json nor url: {first!r}"
 
 
-def _register(proxy: ProxyClient, resources: ResourceManager, prefix: str, params: LiteLLMParamsBody) -> tuple[str, str]:
+def _register(proxy: ProxyClient, resources: ResourceManager, prefix: str, params: HangarLLMParamsBody) -> tuple[str, str]:
     model = f"{prefix}-{unique_marker()}"
     model_id = proxy.create_model(model, params)
     resources.defer(lambda: proxy.delete_model(model_id))
@@ -56,7 +56,7 @@ def _register_openai_image(proxy: ProxyClient, resources: ResourceManager) -> tu
         proxy,
         resources,
         "e2e-image",
-        LiteLLMParamsBody(model=OPENAI_IMAGE_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+        HangarLLMParamsBody(model=OPENAI_IMAGE_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
     )
 
 
@@ -95,7 +95,7 @@ class TestImageGeneration:
             proxy,
             resources,
             "e2e-bedrock-image",
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BEDROCK_IMAGE_BACKEND,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

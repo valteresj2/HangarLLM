@@ -5,9 +5,9 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.openai_like.model_info import (
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.openai_like.model_info import (
     MODEL_INFO_REFRESH_SECONDS,
     get_openai_compatible_model_info,
 )

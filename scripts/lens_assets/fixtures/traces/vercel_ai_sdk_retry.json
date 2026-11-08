@@ -51,7 +51,7 @@
                     "stringValue": "--env-file=.env"
                   },
                   {
-                    "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
+                    "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
                   },
                   {
                     "stringValue": "retry"
@@ -81,7 +81,7 @@
           {
             "key": "process.command",
             "value": {
-              "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
+              "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/validate-attempts.ts"
             }
           },
           {
@@ -119,7 +119,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -132,7 +132,7 @@
               "endTimeUnixNano": "1791061415446111584",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -162,7 +162,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "cd72f919-eb8e-4854-8c74-1a2d22fbe271"
                   }
@@ -183,7 +183,7 @@
               "endTimeUnixNano": "1791061418712098416",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -213,7 +213,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "13406f69-913c-4ed9-87fd-03785496f128"
                   }
@@ -247,7 +247,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -356,7 +356,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {

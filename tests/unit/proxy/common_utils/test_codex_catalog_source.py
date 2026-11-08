@@ -7,12 +7,12 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.proxy.common_utils.codex_catalog_source import (
+from hangarllm.proxy.common_utils.codex_catalog_source import (
     CODEX_RELEASE_FILE_URL,
     CodexCatalogSource,
     bundled_codex_stock,
 )
-from litellm.proxy.common_utils.codex_model_catalog import bundled_codex_models
+from hangarllm.proxy.common_utils.codex_model_catalog import bundled_codex_models
 
 _TTL: Final = 3600.0
 
@@ -240,7 +240,7 @@ async def test_requests_for_a_version_being_fetched_share_that_fetch() -> None:
 
 
 async def test_offline_mode_never_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_OFFLINE_MODE", "true")
+    monkeypatch.setenv("HANGARLLM_OFFLINE_MODE", "true")
     github: Final = _GitHub({"0.170.0": _release_files("gpt-from-0.170.0", "p")})
     client: Final = httpx.AsyncClient(transport=httpx.MockTransport(github.handle))
 

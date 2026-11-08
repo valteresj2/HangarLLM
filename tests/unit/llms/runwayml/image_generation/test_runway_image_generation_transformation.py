@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.runwayml.image_generation.transformation import RunwayMLImageGenerationConfig
-from litellm.types.utils import ImageResponse
+from hangarllm.llms.runwayml.image_generation.transformation import RunwayMLImageGenerationConfig
+from hangarllm.types.utils import ImageResponse
 
 TASK_URL = "https://api.dev.runwayml.com/v1/tasks/task_1"
 
@@ -35,7 +35,7 @@ def test_output_dict_with_non_string_values_still_yields_the_image(respx_mock):
         logging_obj=MagicMock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -59,7 +59,7 @@ def test_non_object_task_body_raises_the_base_error_class():
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -82,6 +82,6 @@ async def test_async_non_object_task_body_raises_the_base_error_class():
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )

@@ -9,9 +9,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
-from litellm.proxy.telemetry.middleware import TelemetryMiddleware
-from litellm.proxy.telemetry.request_context import AttemptObservation, current_request
-from litellm.telemetry.records import (
+from hangarllm.proxy.telemetry.middleware import TelemetryMiddleware
+from hangarllm.proxy.telemetry.request_context import AttemptObservation, current_request
+from hangarllm.telemetry.records import (
     AttemptRecord,
     InstanceInfo,
     RequestRecord,
@@ -83,7 +83,7 @@ async def _streamed(request: Request) -> Response:
 
 
 async def _served_by_rust(request: Request) -> Response:
-    return JSONResponse({"ok": True}, headers={"x-litellm-rust": "true"})
+    return JSONResponse({"ok": True}, headers={"x-hangarllm-rust": "true"})
 
 
 async def _rejected(request: Request) -> Response:
@@ -126,7 +126,7 @@ async def test_a_retried_request_reports_the_serving_attempt_and_the_attempt_cou
     (record,) = sink.requests
     assert record.endpoint == "/chat/completions"
     assert (record.provider, record.provider_status, record.provider_attempts) == ("openai", StatusClass.SUCCESS, 2)
-    assert record.litellm_status is StatusClass.SUCCESS
+    assert record.hangarllm_status is StatusClass.SUCCESS
     assert record.tokens == TokenCounts(input=12, output=3)
     assert record.stream is False
     assert record.latency_to_first_byte_ms is not None
@@ -160,7 +160,7 @@ async def test_a_request_rejected_before_any_provider_call_has_no_provider_statu
     await spawned.drain()
 
     (record,) = sink.requests
-    assert (record.litellm_status, record.provider_status) == (StatusClass.CLIENT_ERROR, StatusClass.NONE)
+    assert (record.hangarllm_status, record.provider_status) == (StatusClass.CLIENT_ERROR, StatusClass.NONE)
 
 
 @pytest.mark.asyncio

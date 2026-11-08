@@ -12,9 +12,9 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from litellm.llms.bedrock.common_utils import BedrockModelInfo, get_bedrock_chat_config
-from litellm.llms.bedrock.chat.mantle.transformation import AmazonMantleConfig
-from litellm.llms.bedrock.messages.mantle_transformation import (
+from hangarllm.llms.bedrock.common_utils import BedrockModelInfo, get_bedrock_chat_config
+from hangarllm.llms.bedrock.chat.mantle.transformation import AmazonMantleConfig
+from hangarllm.llms.bedrock.messages.mantle_transformation import (
     AmazonMantleMessagesConfig,
 )
 
@@ -88,7 +88,7 @@ def test_mantle_url_construction():
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-east-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages"
 
@@ -100,7 +100,7 @@ def test_mantle_url_construction_different_region():
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-west-2"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://bedrock-mantle.us-west-2.api.aws/anthropic/v1/messages"
 
@@ -124,7 +124,7 @@ def test_mantle_messages_url_construction():
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-east-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages"
 
@@ -145,7 +145,7 @@ def test_mantle_chat_url_honors_api_base_host():
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-gov-west-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == f"{_VPC_ENDPOINT}/anthropic/v1/messages"
 
@@ -158,7 +158,7 @@ def test_mantle_chat_url_honors_api_base_full_path_without_duplication():
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-gov-west-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == full
 
@@ -170,7 +170,7 @@ def test_mantle_messages_url_honors_api_base_host():
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-gov-west-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == f"{_VPC_ENDPOINT}/anthropic/v1/messages"
     assert "api.aws" not in url
@@ -183,7 +183,7 @@ def test_mantle_messages_url_honors_api_base_with_trailing_slash():
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-gov-west-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == f"{_VPC_ENDPOINT}/anthropic/v1/messages"
 
@@ -198,7 +198,7 @@ def test_mantle_messages_url_honors_aws_bedrock_runtime_endpoint():
             "aws_region_name": "us-gov-west-1",
             "aws_bedrock_runtime_endpoint": _VPC_ENDPOINT,
         },
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == f"{_VPC_ENDPOINT}/anthropic/v1/messages"
 
@@ -218,7 +218,7 @@ def test_mantle_url_honors_bedrock_mantle_api_base_env(monkeypatch, config_cls, 
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params={"aws_region_name": "us-east-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == f"{_ENV_ENDPOINT}/anthropic/v1/messages"
 
@@ -240,7 +240,7 @@ def test_mantle_url_explicit_endpoint_beats_bedrock_mantle_api_base_env(
         api_key=None,
         model="mantle/anthropic.claude-mythos-preview",
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == f"{_VPC_ENDPOINT}/anthropic/v1/messages"
 
@@ -251,7 +251,7 @@ def test_mantle_transform_request_strips_prefix_and_adds_model():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"max_tokens": 100},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request["model"] == "anthropic.claude-mythos-preview"
@@ -265,7 +265,7 @@ def test_mantle_transform_request_keeps_stream_in_body():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"max_tokens": 100, "stream": True},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request["stream"] is True
@@ -279,7 +279,7 @@ async def test_mantle_async_transform_request_keeps_stream_in_body():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"max_tokens": 100, "stream": True},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request["stream"] is True
@@ -293,21 +293,21 @@ async def test_mantle_async_transform_request_omits_stream_when_not_streaming():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"max_tokens": 100},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "stream" not in request
 
 
 def test_mantle_messages_transform_request_keeps_stream_in_body():
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     config = AmazonMantleMessagesConfig()
     request = config.transform_anthropic_messages_request(
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 100, "stream": True},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert request["stream"] is True
@@ -315,21 +315,21 @@ def test_mantle_messages_transform_request_keeps_stream_in_body():
 
 
 def test_mantle_messages_transform_request_omits_stream_when_not_streaming():
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     config = AmazonMantleMessagesConfig()
     request = config.transform_anthropic_messages_request(
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 100},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert "stream" not in request
 
 
 def test_mantle_chat_streaming_uses_anthropic_sse_iterator():
-    from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+    from hangarllm.llms.anthropic.chat.handler import ModelResponseIterator
 
     config = AmazonMantleConfig()
     assert config.has_custom_stream_wrapper is False
@@ -347,7 +347,7 @@ def test_mantle_validate_environment_sets_workspace_header():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={"aws_bedrock_project_id": "proj_abc123def456"},
+        hangarllm_params={"aws_bedrock_project_id": "proj_abc123def456"},
     )
     assert headers[_MANTLE_WORKSPACE_HEADER] == "proj_abc123def456"
 
@@ -359,7 +359,7 @@ def test_mantle_validate_environment_without_project_id():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={"aws_bedrock_project_id": None},
+        hangarllm_params={"aws_bedrock_project_id": None},
     )
     assert _MANTLE_WORKSPACE_HEADER not in headers
 
@@ -371,7 +371,7 @@ def test_mantle_messages_validate_environment_sets_workspace_header():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={"aws_bedrock_project_id": "proj_abc123def456"},
+        hangarllm_params={"aws_bedrock_project_id": "proj_abc123def456"},
         api_base="https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages",
     )
     assert headers[_MANTLE_WORKSPACE_HEADER] == "proj_abc123def456"
@@ -385,13 +385,13 @@ def test_mantle_messages_validate_environment_without_project_id():
         model="mantle/anthropic.claude-mythos-preview",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert _MANTLE_WORKSPACE_HEADER not in headers
 
 
 def test_mantle_completion_sends_workspace_header_and_clean_body():
-    import litellm
+    import hangarllm
 
     requests = []
 
@@ -399,8 +399,8 @@ def test_mantle_completion_sends_workspace_header_and_clean_body():
         requests.append(_capture_request(url=url, headers=headers or {}, data=data))
         return _anthropic_response(url)
 
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post):
-        response = litellm.completion(
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post):
+        response = hangarllm.completion(
             model="bedrock/mantle/anthropic.claude-mythos-preview",
             messages=[{"role": "user", "content": "hello"}],
             max_tokens=10,
@@ -419,7 +419,7 @@ def test_mantle_completion_sends_workspace_header_and_clean_body():
 
 @pytest.mark.asyncio
 async def test_mantle_anthropic_messages_sends_workspace_header_and_clean_body():
-    import litellm
+    import hangarllm
 
     requests = []
 
@@ -429,10 +429,10 @@ async def test_mantle_anthropic_messages_sends_workspace_header_and_clean_body()
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            response = await litellm.anthropic_messages(
+            response = await hangarllm.anthropic_messages(
                 model="bedrock/mantle/anthropic.claude-mythos-preview",
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=10,
@@ -442,7 +442,7 @@ async def test_mantle_anthropic_messages_sends_workspace_header_and_clean_body()
                 aws_region_name="us-east-1",
             )
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert response["content"][0]["text"] == "ok"
     assert len(requests) == 1
@@ -452,7 +452,7 @@ async def test_mantle_anthropic_messages_sends_workspace_header_and_clean_body()
 
 
 async def _send_anthropic_messages_with_betas(**request_params: object) -> dict:
-    import litellm
+    import hangarllm
 
     requests = []
 
@@ -462,10 +462,10 @@ async def _send_anthropic_messages_with_betas(**request_params: object) -> dict:
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            await litellm.anthropic_messages(
+            await hangarllm.anthropic_messages(
                 model="bedrock/mantle/anthropic.claude-mythos-preview",
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=10,
@@ -475,7 +475,7 @@ async def _send_anthropic_messages_with_betas(**request_params: object) -> dict:
                 **request_params,
             )
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert len(requests) == 1
     return requests[0]
@@ -531,17 +531,17 @@ async def test_mantle_anthropic_messages_backfills_missing_usage():
     object must not reach the client usage-less, or Claude Code's auto-mode
     classifier crashes on `usage.input_tokens`.
     """
-    import litellm
+    import hangarllm
 
     async def mock_post(self, url, data=None, headers=None, **kwargs):
         return _usageless_anthropic_response(str(url))
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            response = await litellm.anthropic_messages(
+            response = await hangarllm.anthropic_messages(
                 model="bedrock/mantle/anthropic.claude-opus-4-8",
                 messages=[{"role": "user", "content": "is `Bash(ls)` safe?"}],
                 max_tokens=10,
@@ -550,7 +550,7 @@ async def test_mantle_anthropic_messages_backfills_missing_usage():
                 aws_region_name="us-east-1",
             )
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert response["usage"]["input_tokens"] == 0
     assert response["usage"]["output_tokens"] == 0
@@ -559,7 +559,7 @@ async def test_mantle_anthropic_messages_backfills_missing_usage():
 @pytest.mark.asyncio
 async def test_mantle_anthropic_messages_preserves_upstream_usage():
     """Backfill must not clobber a usage object the upstream did return."""
-    import litellm
+    import hangarllm
 
     def _response_with_usage(url: str) -> httpx.Response:
         return httpx.Response(
@@ -586,10 +586,10 @@ async def test_mantle_anthropic_messages_preserves_upstream_usage():
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            response = await litellm.anthropic_messages(
+            response = await hangarllm.anthropic_messages(
                 model="bedrock/mantle/anthropic.claude-opus-4-8",
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=10,
@@ -598,7 +598,7 @@ async def test_mantle_anthropic_messages_preserves_upstream_usage():
                 aws_region_name="us-east-1",
             )
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert response["usage"]["input_tokens"] == 42
     assert response["usage"]["output_tokens"] == 7
@@ -607,7 +607,7 @@ async def test_mantle_anthropic_messages_preserves_upstream_usage():
 
 @pytest.mark.asyncio
 async def test_mantle_anthropic_messages_routes_to_vpc_api_base():
-    import litellm
+    import hangarllm
 
     urls = []
 
@@ -617,10 +617,10 @@ async def test_mantle_anthropic_messages_routes_to_vpc_api_base():
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            await litellm.anthropic_messages(
+            await hangarllm.anthropic_messages(
                 model="bedrock/mantle/anthropic.claude-mythos-preview",
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=10,
@@ -630,7 +630,7 @@ async def test_mantle_anthropic_messages_routes_to_vpc_api_base():
                 aws_region_name="us-gov-west-1",
             )
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert len(urls) == 1
     assert urls[0] == f"{_VPC_ENDPOINT}/anthropic/v1/messages"
@@ -700,7 +700,7 @@ def _anthropic_sse_response(url: str) -> httpx.Response:
 
 
 def test_mantle_completion_streaming_sends_stream_and_decodes_sse():
-    import litellm
+    import hangarllm
 
     requests = []
 
@@ -708,8 +708,8 @@ def test_mantle_completion_streaming_sends_stream_and_decodes_sse():
         requests.append(_capture_request(url=url, headers=headers or {}, data=data))
         return _anthropic_sse_response(url)
 
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post):
-        response = litellm.completion(
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post):
+        response = hangarllm.completion(
             model="bedrock/mantle/anthropic.claude-mythos-preview",
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=10,
@@ -729,7 +729,7 @@ def test_mantle_completion_streaming_sends_stream_and_decodes_sse():
 
 @pytest.mark.asyncio
 async def test_mantle_acompletion_streaming_sends_stream_and_decodes_sse():
-    import litellm
+    import hangarllm
 
     requests = []
 
@@ -739,10 +739,10 @@ async def test_mantle_acompletion_streaming_sends_stream_and_decodes_sse():
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/mantle/anthropic.claude-mythos-preview",
                 messages=[{"role": "user", "content": "ping"}],
                 max_tokens=10,
@@ -753,7 +753,7 @@ async def test_mantle_acompletion_streaming_sends_stream_and_decodes_sse():
             )
             chunks = [chunk async for chunk in response]
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert len(requests) == 1
     assert requests[0]["body"]["stream"] is True
@@ -764,7 +764,7 @@ async def test_mantle_acompletion_streaming_sends_stream_and_decodes_sse():
 
 @pytest.mark.asyncio
 async def test_mantle_anthropic_messages_streaming_sends_stream_and_passes_through_sse():
-    import litellm
+    import hangarllm
 
     requests = []
 
@@ -774,10 +774,10 @@ async def test_mantle_anthropic_messages_streaming_sends_stream_and_passes_throu
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            response = await litellm.anthropic_messages(
+            response = await hangarllm.anthropic_messages(
                 model="bedrock/mantle/anthropic.claude-mythos-preview",
                 messages=[{"role": "user", "content": "ping"}],
                 max_tokens=10,
@@ -788,7 +788,7 @@ async def test_mantle_anthropic_messages_streaming_sends_stream_and_passes_throu
             )
             raw = b"".join([chunk async for chunk in response])
     finally:
-        await litellm.close_litellm_async_clients()
+        await hangarllm.close_hangarllm_async_clients()
 
     assert len(requests) == 1
     assert requests[0]["body"]["stream"] is True

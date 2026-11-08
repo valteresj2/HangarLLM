@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.utils import PrismaClient
 
 
 def test_normalize_scrubs_volatile_keys() -> None:
@@ -30,12 +30,12 @@ def test_normalize_recurses_into_lists() -> None:
 
 def test_mock_prisma_client_has_common_tables(mock_prisma_client: Any) -> None:
     for table in (
-        "litellm_verificationtoken",
-        "litellm_teamtable",
-        "litellm_usertable",
-        "litellm_spendlogs",
-        "litellm_config",
-        "litellm_healthchecktable",
+        "hangarllm_verificationtoken",
+        "hangarllm_teamtable",
+        "hangarllm_usertable",
+        "hangarllm_spendlogs",
+        "hangarllm_config",
+        "hangarllm_healthchecktable",
     ):
         assert hasattr(mock_prisma_client.db, table)
 

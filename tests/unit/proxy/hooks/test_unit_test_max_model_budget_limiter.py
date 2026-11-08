@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy._types import Litellm_EntityType, UserAPIKeyAuth
-from litellm.proxy.hooks.model_max_budget_limiter import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.proxy._types import Hangarllm_EntityType, UserAPIKeyAuth
+from hangarllm.proxy.hooks.model_max_budget_limiter import (
     PROXY_VirtualKeyModelMaxBudgetLimiter,
     _budget_model_candidates,
     build_model_max_budget_usage,
@@ -19,11 +19,11 @@ from litellm.proxy.hooks.model_max_budget_limiter import (
     model_budget_start_time_cache_key,
     resolve_model_budget,
 )
-from litellm.router_strategy.budget_limiter import budget_window_seconds
+from hangarllm.router_strategy.budget_limiter import budget_window_seconds
 
 
 async def _reset_at_of_open_window(
-    cache: DualCache, entity_type: Litellm_EntityType, entity_id: str, budget_model: str, period: str
+    cache: DualCache, entity_type: Hangarllm_EntityType, entity_id: str, budget_model: str, period: str
 ) -> str:
     started_at = await cache.async_get_cache(
         key=model_budget_start_time_cache_key(
@@ -102,7 +102,7 @@ def test_budget_model_candidates_never_split_a_non_bedrock_dotted_name(model):
     """
     Most dotted model ids are versions, not Bedrock vendor prefixes. Splitting one
     would offer a garbage candidate ("gpt-4.1" -> "1") that could collide with an
-    unrelated budget entry, so the split is gated on litellm pricing the model as
+    unrelated budget entry, so the split is gated on hangarllm pricing the model as
     a Bedrock model.
     """
     for candidate in _budget_model_candidates(model):
@@ -147,7 +147,7 @@ async def test_is_key_within_model_budget(budget_limiter):
 
     # Test when model exceeds budget
     with patch.object(budget_limiter, "_get_spend_for_model_budget", return_value=150.0):
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await budget_limiter.is_key_within_model_budget(user_api_key, "gpt-4")
 
     # Test model not in budget config
@@ -159,7 +159,7 @@ async def test_is_key_within_model_budget(budget_limiter):
 async def test_get_spend_for_model_budget_reads_the_configured_model_key(
     budget_limiter,
 ):
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX,
     )
 
@@ -173,7 +173,7 @@ async def test_get_spend_for_model_budget_reads_the_configured_model_key(
 
     with patch.object(budget_limiter.dual_cache, "async_get_cache", side_effect=_spend) as mock_get:
         spend = await budget_limiter._get_spend_for_model_budget(
-            entity_type=Litellm_EntityType.KEY,
+            entity_type=Hangarllm_EntityType.KEY,
             entity_id="test-key",
             model="openai/gpt-4",
             resolved=resolved,
@@ -191,7 +191,7 @@ async def test_async_log_success_event_uses_per_model_budget_duration(budget_lim
     async_log_success_event must use the per-model budget_duration for the cache key
     so spend is tracked per model correctly. Regression test for per-model budget implementation.
     """
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX,
     )
 
@@ -207,7 +207,7 @@ async def test_async_log_success_event_uses_per_model_budget_duration(budget_lim
             "model": model,
             "metadata": {"user_api_key_hash": virtual_key},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"user_api_key_model_max_budget": user_api_key_model_max_budget},
         },
     }
@@ -240,7 +240,7 @@ async def test_is_end_user_within_model_budget(budget_limiter):
 
     # Test when model exceeds budget
     with patch.object(budget_limiter, "_get_spend_for_model_budget", return_value=150.0):
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await budget_limiter.is_end_user_within_model_budget(
                 "test-user",
                 {"gpt-4": {"budget_limit": 100.0, "time_period": "1d"}},
@@ -261,7 +261,7 @@ async def test_is_end_user_within_model_budget(budget_limiter):
 # Test _get_spend_for_model_budget for the end-user scope
 @pytest.mark.asyncio
 async def test_get_spend_for_end_user_model_budget(budget_limiter):
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         END_USER_SPEND_CACHE_KEY_PREFIX,
     )
 
@@ -273,7 +273,7 @@ async def test_get_spend_for_end_user_model_budget(budget_limiter):
 
     with patch.object(budget_limiter.dual_cache, "async_get_cache", side_effect=_spend) as mock_get:
         spend = await budget_limiter._get_spend_for_model_budget(
-            entity_type=Litellm_EntityType.END_USER,
+            entity_type=Hangarllm_EntityType.END_USER,
             entity_id="test-user",
             model="openai/gpt-4",
             resolved=resolved,
@@ -298,7 +298,7 @@ async def test_async_log_success_event_uses_model_group_for_cache_key(budget_lim
     "vertex_ai/claude-opus-4-6@default") track spend under a different cache
     key than enforcement reads, silently disabling budget limits.
     """
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX,
     )
 
@@ -316,7 +316,7 @@ async def test_async_log_success_event_uses_model_group_for_cache_key(budget_lim
             "model_group": model_group,
             "metadata": {"user_api_key_hash": virtual_key},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_model_max_budget": user_api_key_model_max_budget,
             },
@@ -344,7 +344,7 @@ async def test_async_log_success_event_falls_back_to_model_when_no_model_group(
     When model_group is None (non-proxy / non-router usage), spend tracking
     must fall back to using the model field so existing behaviour is preserved.
     """
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX,
     )
 
@@ -361,7 +361,7 @@ async def test_async_log_success_event_falls_back_to_model_when_no_model_group(
             "model_group": None,
             "metadata": {"user_api_key_hash": virtual_key},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_model_max_budget": user_api_key_model_max_budget,
             },
@@ -385,7 +385,7 @@ async def test_async_log_success_event_end_user_uses_model_group(budget_limiter)
     End-user model budget tracking must also use model_group when available,
     matching the enforcement path in is_end_user_within_model_budget.
     """
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         END_USER_SPEND_CACHE_KEY_PREFIX,
     )
 
@@ -404,7 +404,7 @@ async def test_async_log_success_event_end_user_uses_model_group(budget_limiter)
             "end_user": end_user_id,
             "metadata": {"user_api_key_end_user_id": end_user_id},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_end_user_model_max_budget": user_api_key_end_user_model_max_budget,
             },
@@ -429,7 +429,7 @@ async def test_async_log_success_event_uses_end_user_model_budget_duration(
     """
     async_log_success_event must use the per-model budget_duration for the end user cache key
     """
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         END_USER_SPEND_CACHE_KEY_PREFIX,
     )
 
@@ -446,7 +446,7 @@ async def test_async_log_success_event_uses_end_user_model_budget_duration(
             "end_user": end_user_id,
             "metadata": {"user_api_key_end_user_id": end_user_id},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"user_api_key_end_user_model_max_budget": user_api_key_end_user_model_max_budget},
         },
     }
@@ -480,7 +480,7 @@ async def test_async_log_success_event_pushes_redis_increments_when_redis_config
             "model": model,
             "metadata": {"user_api_key_hash": "vk-hash"},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_model_max_budget": {
                     model: {"budget_limit": 10.0, "time_period": "1d"},
@@ -585,7 +585,7 @@ async def test_async_log_success_event_skips_redis_push_without_redis(budget_lim
             "model": model,
             "metadata": {"user_api_key_hash": "vk-hash"},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_model_max_budget": {
                     model: {"budget_limit": 10.0, "time_period": "1d"},
@@ -630,7 +630,7 @@ def _success_kwargs(
                 "user_api_key_end_user_id": end_user_id,
             },
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_model_max_budget": key_model_max_budget,
                 "user_api_key_team_model_max_budget": team_model_max_budget,
@@ -675,7 +675,7 @@ async def test_logged_spend_is_visible_to_key_info_usage_and_enforcement(request
     )
 
     usage = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=key_hash,
         model_max_budget=model_max_budget,
         cache=dual_cache,
@@ -686,7 +686,7 @@ async def test_logged_spend_is_visible_to_key_info_usage_and_enforcement(request
             "budget_limit": 1.0,
             "time_period": "1d",
             "budget_reset_at": await _reset_at_of_open_window(
-                dual_cache, Litellm_EntityType.KEY, key_hash, "gpt-4", "1d"
+                dual_cache, Hangarllm_EntityType.KEY, key_hash, "gpt-4", "1d"
             ),
         }
     }
@@ -706,11 +706,11 @@ async def test_logged_spend_is_visible_to_key_info_usage_and_enforcement(request
         start_time=None,
         end_time=None,
     )
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_key_within_model_budget(user_api_key, request_model)
 
     usage_after = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=key_hash,
         model_max_budget=model_max_budget,
         cache=dual_cache,
@@ -751,7 +751,7 @@ async def test_user_model_budget_is_tracked_and_enforced():
     )
 
     assert await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.USER,
+        entity_type=Hangarllm_EntityType.USER,
         entity_id=user_id,
         model_max_budget=user_model_max_budget,
         cache=dual_cache,
@@ -761,18 +761,18 @@ async def test_user_model_budget_is_tracked_and_enforced():
             "budget_limit": 1.0,
             "time_period": "1mo",
             "budget_reset_at": await _reset_at_of_open_window(
-                dual_cache, Litellm_EntityType.USER, user_id, "gpt-4", "1mo"
+                dual_cache, Hangarllm_EntityType.USER, user_id, "gpt-4", "1mo"
             ),
         }
     }
 
-    with pytest.raises(litellm.BudgetExceededError) as exc:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc:
         await limiter.is_user_within_model_budget(
             user_id=user_id,
             user_model_max_budget=user_model_max_budget,
             model="openai/gpt-4",
         )
-    assert exc.value.entity_type == Litellm_EntityType.USER.value
+    assert exc.value.entity_type == Hangarllm_EntityType.USER.value
 
 
 @pytest.mark.asyncio
@@ -865,7 +865,7 @@ async def test_build_model_max_budget_usage_skips_unusable_entries():
     await dual_cache.async_set_cache(key="virtual_key_spend:vk:gpt-4:1d", value=3.0)
 
     usage = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="vk",
         model_max_budget={
             "gpt-4": {"budget_limit": 10.0, "time_period": "1d"},
@@ -906,7 +906,7 @@ async def test_bedrock_traffic_charges_the_bare_family_name_budget():
     )
 
     assert await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=key_hash,
         model_max_budget=model_max_budget,
         cache=dual_cache,
@@ -916,12 +916,12 @@ async def test_bedrock_traffic_charges_the_bare_family_name_budget():
             "budget_limit": 1.0,
             "time_period": "18h",
             "budget_reset_at": await _reset_at_of_open_window(
-                dual_cache, Litellm_EntityType.KEY, key_hash, "claude-opus-4-8", "18h"
+                dual_cache, Hangarllm_EntityType.KEY, key_hash, "claude-opus-4-8", "18h"
             ),
         }
     }
 
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_key_within_model_budget(user_api_key, "bedrock/anthropic.claude-opus-4-8")
 
 
@@ -950,7 +950,7 @@ async def test_bedrock_traffic_charges_the_bare_family_name_budget():
 async def test_user_model_budget_window_resets_when_the_period_elapses(
     charged_at: datetime, expired_window_start: datetime, next_reset: datetime
 ) -> None:
-    from litellm.proxy.hooks.model_max_budget_limiter import (
+    from hangarllm.proxy.hooks.model_max_budget_limiter import (
         model_budget_spend_cache_key,
         model_budget_start_time_cache_key,
     )
@@ -960,13 +960,13 @@ async def test_user_model_budget_window_resets_when_the_period_elapses(
     user_id = "user-1"
     user_model_max_budget = {"gpt-4": {"budget_limit": 1.0, "time_period": "1mo"}}
     spend_key = model_budget_spend_cache_key(
-        entity_type=Litellm_EntityType.USER,
+        entity_type=Hangarllm_EntityType.USER,
         entity_id=user_id,
         budget_model="gpt-4",
         budget_duration="1mo",
     )
     start_time_key = model_budget_start_time_cache_key(
-        entity_type=Litellm_EntityType.USER,
+        entity_type=Hangarllm_EntityType.USER,
         entity_id=user_id,
         budget_model="gpt-4",
         budget_duration="1mo",
@@ -980,7 +980,7 @@ async def test_user_model_budget_window_resets_when_the_period_elapses(
     )
     await limiter.async_log_success_event(kwargs, response_obj=None, start_time=None, end_time=None)
     assert await dual_cache.async_get_cache(key=spend_key) == 1.5
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_user_within_model_budget(
             user_id=user_id,
             user_model_max_budget=user_model_max_budget,
@@ -996,7 +996,7 @@ async def test_user_model_budget_window_resets_when_the_period_elapses(
     await limiter.async_log_success_event(kwargs, response_obj=None, start_time=None, end_time=None)
     assert await dual_cache.async_get_cache(key=spend_key) == 1.5
     assert await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.USER,
+        entity_type=Hangarllm_EntityType.USER,
         entity_id=user_id,
         model_max_budget=user_model_max_budget,
         cache=dual_cache,
@@ -1027,7 +1027,7 @@ async def test_a_zero_dollar_cap_blocks_the_model():
         model_max_budget={"gpt-4": {"budget_limit": 0, "time_period": "1d"}},
     )
 
-    with pytest.raises(litellm.BudgetExceededError) as exc:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc:
         await limiter.is_key_within_model_budget(user_api_key_dict=key, model="gpt-4")
     assert exc.value.max_budget == 0
 
@@ -1036,7 +1036,7 @@ async def test_a_zero_dollar_cap_blocks_the_model():
 async def test_a_zero_dollar_cap_is_reported_as_a_cap_not_as_absent():
     """The usage endpoints must show the 0 too, or an operator cannot see the block they configured."""
     assert await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="hash-zero",
         model_max_budget={"gpt-4": {"budget_limit": 0, "time_period": "1d"}},
         cache=DualCache(),
@@ -1062,7 +1062,7 @@ async def test_spend_exactly_at_the_cap_is_refused():
         end_time=None,
     )
 
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_key_within_model_budget(user_api_key_dict=key, model="gpt-4")
 
 
@@ -1082,7 +1082,7 @@ async def test_usage_report_reads_every_counter_in_one_batched_lookup():
         patch.object(dual_cache, "async_get_cache", new=AsyncMock()) as single,
     ):
         usage = await build_model_max_budget_usage(
-            entity_type=Litellm_EntityType.KEY,
+            entity_type=Hangarllm_EntityType.KEY,
             entity_id="hash-many",
             model_max_budget=budget,
             cache=dual_cache,
@@ -1105,7 +1105,7 @@ async def test_usage_report_survives_a_batch_lookup_that_returns_nothing():
     dual_cache = DualCache()
     with patch.object(dual_cache, "async_batch_get_cache", new=AsyncMock(return_value=None)):
         assert await build_model_max_budget_usage(
-            entity_type=Litellm_EntityType.KEY,
+            entity_type=Hangarllm_EntityType.KEY,
             entity_id="hash-none",
             model_max_budget={"gpt-4": {"budget_limit": 1.0, "time_period": "1d"}},
             cache=dual_cache,
@@ -1134,12 +1134,12 @@ async def test_usage_reports_when_the_open_window_resets(seconds_since_window_op
     even if its start time is still sitting in the cache, so no reset is reported.
     """
     dual_cache = DualCache()
-    key = dict(entity_type=Litellm_EntityType.KEY, entity_id="vk-hash", budget_model="gpt-4", budget_duration="1h")
+    key = dict(entity_type=Hangarllm_EntityType.KEY, entity_id="vk-hash", budget_model="gpt-4", budget_duration="1h")
     await dual_cache.async_set_cache(key=model_budget_spend_cache_key(**key), value=0.4)
     await dual_cache.async_set_cache(key=model_budget_start_time_cache_key(**key), value=_WINDOW_OPENED_AT.timestamp())
 
     usage = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="vk-hash",
         model_max_budget={"gpt-4": {"budget_limit": 1.0, "time_period": "1h"}},
         cache=dual_cache,
@@ -1176,13 +1176,13 @@ async def test_a_monthly_window_resets_a_calendar_month_after_it_opened(opened_a
     started_at: Final = opened_at.timestamp()
     await dual_cache.async_set_cache(
         key=model_budget_start_time_cache_key(
-            entity_type=Litellm_EntityType.USER, entity_id="user-1", budget_model="gpt-4", budget_duration="1mo"
+            entity_type=Hangarllm_EntityType.USER, entity_id="user-1", budget_model="gpt-4", budget_duration="1mo"
         ),
         value=started_at,
     )
 
     usage = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.USER,
+        entity_type=Hangarllm_EntityType.USER,
         entity_id="user-1",
         model_max_budget={"gpt-4": {"budget_limit": 1.0, "time_period": "1mo"}},
         cache=dual_cache,
@@ -1205,13 +1205,13 @@ async def test_a_monthly_window_reports_no_reset_once_its_month_has_passed():
     opened_at: Final = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
     await dual_cache.async_set_cache(
         key=model_budget_start_time_cache_key(
-            entity_type=Litellm_EntityType.USER, entity_id="user-1", budget_model="gpt-4", budget_duration="1mo"
+            entity_type=Hangarllm_EntityType.USER, entity_id="user-1", budget_model="gpt-4", budget_duration="1mo"
         ),
         value=opened_at.timestamp(),
     )
 
     usage = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.USER,
+        entity_type=Hangarllm_EntityType.USER,
         entity_id="user-1",
         model_max_budget={"gpt-4": {"budget_limit": 1.0, "time_period": "1mo"}},
         cache=dual_cache,
@@ -1227,8 +1227,8 @@ async def test_a_monthly_window_reports_no_reset_once_its_month_has_passed():
 async def test_each_budgeted_model_reports_its_own_window_reset():
     """Two models on one key own separate windows, so one model's reset must never be reported for the other."""
     dual_cache = DualCache()
-    hourly = dict(entity_type=Litellm_EntityType.KEY, entity_id="vk-hash", budget_model="gpt-4", budget_duration="1h")
-    daily = dict(entity_type=Litellm_EntityType.KEY, entity_id="vk-hash", budget_model="claude-3", budget_duration="1d")
+    hourly = dict(entity_type=Hangarllm_EntityType.KEY, entity_id="vk-hash", budget_model="gpt-4", budget_duration="1h")
+    daily = dict(entity_type=Hangarllm_EntityType.KEY, entity_id="vk-hash", budget_model="claude-3", budget_duration="1d")
     await dual_cache.async_set_cache(
         key=model_budget_start_time_cache_key(**hourly), value=_WINDOW_OPENED_AT.timestamp()
     )
@@ -1238,7 +1238,7 @@ async def test_each_budgeted_model_reports_its_own_window_reset():
     )
 
     usage = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="vk-hash",
         model_max_budget={
             "gpt-4": {"budget_limit": 1.0, "time_period": "1h"},
@@ -1293,7 +1293,7 @@ async def test_one_malformed_scope_does_not_abort_the_other_scopes():
     )
 
     assert await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="hash-mixed",
         model_max_budget=key_budget,
         cache=dual_cache,
@@ -1303,7 +1303,7 @@ async def test_one_malformed_scope_does_not_abort_the_other_scopes():
             "budget_limit": 10.0,
             "time_period": "1d",
             "budget_reset_at": await _reset_at_of_open_window(
-                dual_cache, Litellm_EntityType.KEY, "hash-mixed", "gpt-4", "1d"
+                dual_cache, Hangarllm_EntityType.KEY, "hash-mixed", "gpt-4", "1d"
             ),
         }
     }
@@ -1379,7 +1379,7 @@ async def test_a_malformed_specific_entry_still_enforces_the_family_budget():
         end_time=None,
     )
 
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_key_within_model_budget(user_api_key_dict=key, model="openai/gpt-4")
 
 
@@ -1396,7 +1396,7 @@ def test_documented_budget_spelling_survives_model_validate():
     quietly disable every budget written in the documented spelling. Pinned here
     so that becomes a red test instead of an outage.
     """
-    from litellm.types.utils import BudgetConfig
+    from hangarllm.types.utils import BudgetConfig
 
     validated = BudgetConfig.model_validate({"budget_limit": 5, "time_period": "1d"})
     assert validated.max_budget == 5.0
@@ -1424,8 +1424,8 @@ def test_resolution_accepts_both_documented_spellings():
 @pytest.mark.parametrize(
     "entity_type, prefix",
     [
-        (Litellm_EntityType.KEY, "virtual_key_spend"),
-        (Litellm_EntityType.END_USER, "end_user_model_spend"),
+        (Hangarllm_EntityType.KEY, "virtual_key_spend"),
+        (Hangarllm_EntityType.END_USER, "end_user_model_spend"),
     ],
 )
 async def test_a_pre_upgrade_counter_keyed_on_the_request_model_still_enforces(entity_type, prefix):
@@ -1441,7 +1441,7 @@ async def test_a_pre_upgrade_counter_keyed_on_the_request_model_still_enforces(e
     model_max_budget = {"gpt-4": {"budget_limit": 10.0, "time_period": "1d"}}
     await limiter.dual_cache.async_set_cache(key=f"{prefix}:entity-1:openai/gpt-4:1d", value=25.0, ttl=86400)
 
-    if entity_type == Litellm_EntityType.KEY:
+    if entity_type == Hangarllm_EntityType.KEY:
         budget_check = limiter.is_key_within_model_budget(
             user_api_key_dict=UserAPIKeyAuth(token="entity-1", model_max_budget=model_max_budget),
             model="openai/gpt-4",
@@ -1452,7 +1452,7 @@ async def test_a_pre_upgrade_counter_keyed_on_the_request_model_still_enforces(e
             end_user_model_max_budget=model_max_budget,
             model="openai/gpt-4",
         )
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await budget_check
     assert exc_info.value.current_cost == 25.0
 
@@ -1487,7 +1487,7 @@ async def test_the_pre_upgrade_and_post_upgrade_counters_add_up_over_one_window(
         )
 
     if expect_blocked:
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
             await enforce()
         assert exc_info.value.current_cost == legacy_spend + current_spend
     else:
@@ -1525,7 +1525,7 @@ async def test_the_pre_upgrade_counter_is_no_longer_read_a_window_after_start_up
     already open when this process replaced it, so once a full window has passed
     since start-up there is nothing left for the lookup to find.
     """
-    import litellm.proxy.hooks.model_max_budget_limiter as limiter_module
+    import hangarllm.proxy.hooks.model_max_budget_limiter as limiter_module
 
     limiter = PROXY_VirtualKeyModelMaxBudgetLimiter(dual_cache=DualCache())
     model_max_budget = {"gpt-4": {"budget_limit": 10.0, "time_period": "1d"}}
@@ -1534,7 +1534,7 @@ async def test_the_pre_upgrade_counter_is_no_longer_read_a_window_after_start_up
 
     # Control: within the first window since start-up the same counter blocks,
     # so the assertion below cannot pass against a lookup that never worked.
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_key_within_model_budget(user_api_key_dict=user_api_key, model="openai/gpt-4")
 
     monkeypatch.setattr(limiter_module, "_PROCESS_STARTED_AT", limiter_module.time.monotonic() - 86401)
@@ -1562,7 +1562,7 @@ async def test_the_user_scope_has_no_pre_upgrade_counter_to_carry():
     # Control: the same overspend under the key this scope does own must block,
     # or the assertion above would pass against a scope that enforces nothing.
     await limiter.dual_cache.async_set_cache(key="user_model_spend:u1:gpt-4:1d", value=25.0, ttl=86400)
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_user_within_model_budget(
             user_id="u1", user_model_max_budget=model_max_budget, model="openai/gpt-4"
         )
@@ -1635,11 +1635,11 @@ async def test_spend_logged_on_one_replica_is_enforced_and_reported_on_another()
     await _log_spend(replica_a, key_hash=key_hash, model_max_budget=model_max_budget, response_cost=0.5)
     await _log_spend(replica_a, key_hash=key_hash, model_max_budget=model_max_budget, response_cost=0.5)
 
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await replica_b.is_key_within_model_budget(user_api_key, "gpt-4")
 
     usage_on_b = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id=key_hash,
         model_max_budget=model_max_budget,
         cache=replica_b.dual_cache,
@@ -1648,7 +1648,7 @@ async def test_spend_logged_on_one_replica_is_enforced_and_reported_on_another()
 
     # Control: a replica that never served this key reads the same total.
     replica_c = PROXY_VirtualKeyModelMaxBudgetLimiter(dual_cache=DualCache(redis_cache=shared_redis))
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await replica_c.is_key_within_model_budget(user_api_key, "gpt-4")
 
 
@@ -1667,14 +1667,14 @@ async def test_a_replica_reports_the_reset_of_a_window_another_replica_opened():
     await _log_spend(opening_replica, key_hash="vk-shared", model_max_budget=model_max_budget, response_cost=0.5)
 
     usage_on_other: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="vk-shared",
         model_max_budget=model_max_budget,
         cache=other_replica.dual_cache,
     )
     started_at: Final = shared_redis._store[
         model_budget_start_time_cache_key(
-            entity_type=Litellm_EntityType.KEY, entity_id="vk-shared", budget_model="gpt-4", budget_duration="1h"
+            entity_type=Hangarllm_EntityType.KEY, entity_id="vk-shared", budget_model="gpt-4", budget_duration="1h"
         )
     ]
     assert usage_on_other == {
@@ -1711,7 +1711,7 @@ async def test_a_monthly_window_is_enforced_until_the_reset_it_reports(opened_at
     )
     model_max_budget = {"gpt-4": {"budget_limit": 1.0, "time_period": "1mo"}}
     window: Final = {
-        "entity_type": Litellm_EntityType.KEY,
+        "entity_type": Hangarllm_EntityType.KEY,
         "entity_id": "vk-monthly",
         "budget_model": "gpt-4",
         "budget_duration": "1mo",
@@ -1721,7 +1721,7 @@ async def test_a_monthly_window_is_enforced_until_the_reset_it_reports(opened_at
     await _log_spend(limiter, key_hash="vk-monthly", model_max_budget=model_max_budget, response_cost=0.5)
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="vk-monthly",
         model_max_budget=model_max_budget,
         cache=limiter.dual_cache,
@@ -1744,7 +1744,7 @@ async def test_a_window_that_ends_past_the_calendar_reports_no_reset():
     opened_at: Final = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
     model_max_budget = {"gpt-4": {"budget_limit": 1.0, "time_period": "99999999h"}}
     window: Final = {
-        "entity_type": Litellm_EntityType.KEY,
+        "entity_type": Hangarllm_EntityType.KEY,
         "entity_id": "vk-forever",
         "budget_model": "gpt-4",
         "budget_duration": "99999999h",
@@ -1753,7 +1753,7 @@ async def test_a_window_that_ends_past_the_calendar_reports_no_reset():
     await dual_cache.async_set_cache(model_budget_start_time_cache_key(**window), opened_at.timestamp())
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="vk-forever",
         model_max_budget=model_max_budget,
         cache=dual_cache,
@@ -1793,7 +1793,7 @@ async def test_a_monthly_reset_is_the_same_on_every_host_timezone(host_timezone)
     opened_at: Final = datetime(2027, 1, 30, 23, 30, tzinfo=timezone.utc)
     model_max_budget = {"gpt-4": {"budget_limit": 1.0, "time_period": "1mo"}}
     window: Final = {
-        "entity_type": Litellm_EntityType.KEY,
+        "entity_type": Hangarllm_EntityType.KEY,
         "entity_id": "vk-anywhere",
         "budget_model": "gpt-4",
         "budget_duration": "1mo",
@@ -1802,7 +1802,7 @@ async def test_a_monthly_reset_is_the_same_on_every_host_timezone(host_timezone)
     await dual_cache.async_set_cache(model_budget_start_time_cache_key(**window), opened_at.timestamp())
 
     usage: Final = await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Hangarllm_EntityType.KEY,
         entity_id="vk-anywhere",
         model_max_budget=model_max_budget,
         cache=dual_cache,
@@ -1857,11 +1857,11 @@ async def test_team_model_budget_is_shared_by_every_key_without_an_override(requ
     )
 
     assert await dual_cache.async_get_cache(key="team_model_spend:team-1:gpt-4:1d") == pytest.approx(1.2)
-    with pytest.raises(litellm.BudgetExceededError) as exc:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc:
         await check()
-    assert exc.value.entity_type == Litellm_EntityType.TEAM.value
+    assert exc.value.entity_type == Hangarllm_EntityType.TEAM.value
     assert await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.TEAM,
+        entity_type=Hangarllm_EntityType.TEAM,
         entity_id="team-1",
         model_max_budget=team_model_max_budget,
         cache=dual_cache,
@@ -1871,7 +1871,7 @@ async def test_team_model_budget_is_shared_by_every_key_without_an_override(requ
             "budget_limit": 1.0,
             "time_period": "1d",
             "budget_reset_at": await _reset_at_of_open_window(
-                dual_cache, Litellm_EntityType.TEAM, "team-1", "gpt-4", "1d"
+                dual_cache, Hangarllm_EntityType.TEAM, "team-1", "gpt-4", "1d"
             ),
         }
     }
@@ -1933,7 +1933,7 @@ async def test_key_entry_for_another_model_does_not_lift_the_team_cap():
     )
 
     assert await dual_cache.async_get_cache(key="team_model_spend:team-1:gpt-4:1d") == 1.5
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_team_within_model_budget(
             team_id="team-1",
             team_model_max_budget=team_model_max_budget,
@@ -2009,7 +2009,7 @@ async def test_malformed_team_entry_is_skipped_and_its_sibling_still_enforced():
         )
         is True
     )
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_team_within_model_budget(
             team_id="team-1",
             team_model_max_budget=team_model_max_budget,
@@ -2037,7 +2037,7 @@ async def test_malformed_key_entry_does_not_count_as_an_override():
     )
 
     assert await dual_cache.async_get_cache(key="team_model_spend:team-1:gpt-4:1d") == 1.5
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_team_within_model_budget(
             team_id="team-1",
             team_model_max_budget=team_model_max_budget,
@@ -2073,7 +2073,7 @@ async def test_key_entry_without_a_spend_cap_does_not_lift_the_team_cap(key_entr
     )
 
     assert await dual_cache.async_get_cache(key="team_model_spend:team-1:gpt-4:1d") == 1.5
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await limiter.is_team_within_model_budget(
             team_id="team-1",
             team_model_max_budget=team_model_max_budget,

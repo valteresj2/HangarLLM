@@ -5,7 +5,7 @@ through ``OpenTelemetryV2.async_log_success_event`` into an injected
 ``InMemoryMetricReader``, and attributes/values are read straight off the
 recorded data points (``resource_metrics`` -> ``scope_metrics`` -> ``metrics`` ->
 ``data.data_points``). The cardinality filter is resolved lazily from
-``litellm.callback_settings['otel']['attributes']``, which the proxy populates
+``hangarllm.callback_settings['otel']['attributes']``, which the proxy populates
 after the logger is built, so those tests set it AFTER construction. A
 misconfigured filter (``gen_ai.token.type`` in a list, include+exclude together)
 raises out of ``GenAIMetricRecorder.record`` -- asserted directly at the recorder
@@ -33,23 +33,23 @@ pytest.importorskip("opentelemetry")
 from opentelemetry.sdk.metrics import MeterProvider  # noqa: E402
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader  # noqa: E402
 
-import litellm  # noqa: E402
-from litellm.constants import (  # noqa: E402
-    LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL,
+import hangarllm  # noqa: E402
+from hangarllm.constants import (  # noqa: E402
+    HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL,
 )
-from litellm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
-from litellm.integrations.otel.model.config import (  # noqa: E402
+from hangarllm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
+from hangarllm.integrations.otel.model.config import (  # noqa: E402
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.model.semconv import (  # noqa: E402
+from hangarllm.integrations.otel.model.semconv import (  # noqa: E402
     PASSTHROUGH_OPERATION_KEY,
     GenAIOperation,
 )
-from litellm.integrations.otel.plumbing.metrics import (  # noqa: E402
+from hangarllm.integrations.otel.plumbing.metrics import (  # noqa: E402
     GenAIMetricRecorder,
     create_genai_metrics,
 )
-from litellm.integrations.otel.plumbing.providers import (  # noqa: E402
+from hangarllm.integrations.otel.plumbing.providers import (  # noqa: E402
     resolve_meter_provider,
 )
 
@@ -101,7 +101,7 @@ def _build_call(
     streaming + timing for the response-time histograms.
 
     ``provider=None`` omits ``custom_llm_provider`` entirely, reproducing a call
-    litellm could not attribute to a provider."""
+    hangarllm could not attribute to a provider."""
     start = datetime(2026, 6, 12, 12, 0, 0)
     api_call_start = start + timedelta(seconds=0.1)
     completion_start = start + timedelta(seconds=0.5)
@@ -109,7 +109,7 @@ def _build_call(
     kwargs = {
         "model": "gpt-4o-mini",
         "call_type": call_type,
-        "litellm_params": ({"custom_llm_provider": provider} if provider is not None else {}),
+        "hangarllm_params": ({"custom_llm_provider": provider} if provider is not None else {}),
         "optional_params": {"stream": stream},
         "response_cost": RESPONSE_COST,
         "api_call_start_time": api_call_start,
@@ -123,7 +123,7 @@ def _build_call(
                 "requester_metadata": {"team": "alpha", "tier": "gold"},
                 "applied_guardrails": ["pii", "toxicity"],
             },
-            "hidden_params": {"litellm_call_id": "abc", "model_id": "m-1"},
+            "hidden_params": {"hangarllm_call_id": "abc", "model_id": "m-1"},
         },
     }
     response_obj = {
@@ -161,16 +161,16 @@ def _drive_success(reader, callback_settings_attributes=None, **call_overrides):
     """Construct a metrics-on logger, optionally populate callback_settings AFTER
     construction (mirroring the proxy ordering), run the real success hook."""
     logger = _logger(reader, enable_metrics=True)
-    previous = litellm.callback_settings
+    previous = hangarllm.callback_settings
     if callback_settings_attributes is not None:
-        litellm.callback_settings = {
+        hangarllm.callback_settings = {
             "otel": {"attributes": callback_settings_attributes}
         }
     try:
         kwargs, response_obj, start, end = _build_call(**call_overrides)
         asyncio.run(logger.async_log_success_event(kwargs, response_obj, start, end))
     finally:
-        litellm.callback_settings = previous
+        hangarllm.callback_settings = previous
     return _metrics_by_name(reader)
 
 
@@ -354,10 +354,10 @@ def test_two_calls_differing_only_per_request_share_one_series():
             # A documented per-call parameter, so it varies here on purpose: the same
             # deployment reached under a caller-chosen base must not split the series.
             "api_base": f"https://proxy-{index}.example.com/v1",
-            "litellm_call_id": f"call-{index}",
+            "hangarllm_call_id": f"call-{index}",
             "cache_key": f"cache-{index}",
             "response_cost": cost,
-            "litellm_overhead_time_ms": 1.5 + index,
+            "hangarllm_overhead_time_ms": 1.5 + index,
             "usage_object": {"prompt_tokens": index, "completion_tokens": index},
             "additional_headers": {"x_ratelimit_remaining_requests": 100 - index},
         }
@@ -385,7 +385,7 @@ def test_hidden_params_label_carries_only_bounded_deployment_fields():
     kwargs["standard_logging_object"]["hidden_params"] = {
         "model_id": "m-1",
         "api_base": "https://api.openai.com/v1",
-        "litellm_call_id": "abc",
+        "hangarllm_call_id": "abc",
         "cache_key": "ck-1",
         "response_cost": RESPONSE_COST,
     }
@@ -436,7 +436,7 @@ def test_provider_is_labelled_with_semconv_provider_name():
 
 
 def test_deprecated_gen_ai_system_is_dual_emitted_verbatim():
-    """gen_ai.system keeps its raw litellm provider value alongside the new key
+    """gen_ai.system keeps its raw hangarllm provider value alongside the new key
     for one release, so a dashboard already filtering on it keeps matching. Its
     value must not be swapped for the mapped one, which would break exactly the
     queries the dual emission exists to protect."""
@@ -448,7 +448,7 @@ def test_deprecated_gen_ai_system_is_dual_emitted_verbatim():
 
 
 def test_no_provider_attribute_when_provider_is_absent():
-    """A call litellm could not attribute to a provider carries no provider label
+    """A call hangarllm could not attribute to a provider carries no provider label
     at all. A placeholder value ("Unknown") would mint a permanent series that
     aggregates every unattributable request and that no operator can act on."""
     metrics = _drive_success(InMemoryMetricReader(), provider=None)
@@ -476,10 +476,10 @@ def test_vector_store_search_is_not_labelled_as_chat():
 @pytest.mark.parametrize(
     "call_type,expected",
     [
-        ("avector_store_create", "litellm.vector_store_management"),
-        ("avector_store_delete", "litellm.vector_store_management"),
-        ("avector_store_file_create", "litellm.vector_store_file_management"),
-        ("avector_store_file_list", "litellm.vector_store_file_management"),
+        ("avector_store_create", "hangarllm.vector_store_management"),
+        ("avector_store_delete", "hangarllm.vector_store_management"),
+        ("avector_store_file_create", "hangarllm.vector_store_file_management"),
+        ("avector_store_file_list", "hangarllm.vector_store_file_management"),
     ],
 )
 def test_vector_store_management_is_not_labelled_as_chat(call_type, expected):
@@ -577,7 +577,7 @@ def _recorder(monkeypatch, attributes):
     `attributes`. record() resolves the filter lazily from there, so a misconfig
     raises out of record() at this layer (the logger turns it into log-once)."""
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callback_settings",
         {"otel": {"attributes": attributes}},
         raising=False,
@@ -652,7 +652,7 @@ def _build_failure(
 ):
     """A captured failure-call ``(kwargs, start, end)``.
 
-    Mirrors what litellm actually hands ``async_log_failure_event``: no
+    Mirrors what hangarllm actually hands ``async_log_failure_event``: no
     ``response_obj`` at all, but the streaming timings and the recovered
     ``response_cost`` a mid-stream failure still carries -- so routing the failure
     path through the full success recorder would show up here as extra series
@@ -680,7 +680,7 @@ def _build_failure(
             "spend_logs_metadata": {"ticket": "caller-supplied-unique-value"},
         },
         "hidden_params": {
-            "litellm_call_id": "abc",
+            "hangarllm_call_id": "abc",
             "model_id": "m-1",
             "api_base": "https://api.openai.com/v1",
         },
@@ -690,7 +690,7 @@ def _build_failure(
     kwargs = {
         "model": "gpt-4o-mini",
         "call_type": "completion",
-        "litellm_params": {"custom_llm_provider": "openai"},
+        "hangarllm_params": {"custom_llm_provider": "openai"},
         "optional_params": {"stream": True},
         "response_cost": RESPONSE_COST,
         "api_call_start_time": api_call_start,
@@ -701,20 +701,20 @@ def _build_failure(
     if exception is not None:
         kwargs["exception"] = exception
     if no_upstream_call:
-        kwargs[LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL] = True
+        kwargs[HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL] = True
     return kwargs, start, end
 
 
 def _drive_failure(reader, callback_settings_attributes=None, **failure_kwargs):
     logger = _logger(reader, enable_metrics=True)
-    previous = litellm.callback_settings
+    previous = hangarllm.callback_settings
     if callback_settings_attributes is not None:
-        litellm.callback_settings = {"otel": {"attributes": callback_settings_attributes}}
+        hangarllm.callback_settings = {"otel": {"attributes": callback_settings_attributes}}
     try:
         kwargs, start, end = _build_failure(**failure_kwargs)
         asyncio.run(logger.async_log_failure_event(kwargs, None, start, end))
     finally:
-        litellm.callback_settings = previous
+        hangarllm.callback_settings = previous
     return _metrics_by_name(reader)
 
 

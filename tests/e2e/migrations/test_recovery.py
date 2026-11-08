@@ -212,7 +212,7 @@ class TestMigrationRecovery:
         original: Final = confirmed_history(database)
         with database.lock(COORDINATOR_LOCK):
             with containers.start(
-                database, (COMPLETE,), environment={"LITELLM_MIGRATION_LOCK_TIMEOUT": "3"}
+                database, (COMPLETE,), environment={"HANGARLLM_MIGRATION_LOCK_TIMEOUT": "3"}
             ) as replica:
                 failed((replica,), "Timed out waiting for another v2 migration resolver")
                 assert_original_proof(database, original, False)

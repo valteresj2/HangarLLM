@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
 
 ONE_PIXEL_PNG = base64.b64decode(
@@ -19,8 +19,8 @@ ONE_PIXEL_PNG = base64.b64decode(
 
 @pytest.fixture
 def async_only_image_fetch(monkeypatch):
-    from litellm.litellm_core_utils.prompt_templates import factory, image_handling
-    from litellm.llms.gemini.chat import transformation as gemini_chat_transformation
+    from hangarllm.hangarllm_core_utils.prompt_templates import factory, image_handling
+    from hangarllm.llms.gemini.chat import transformation as gemini_chat_transformation
 
     fetch = SimpleNamespace(
         fetched=[],
@@ -29,7 +29,7 @@ def async_only_image_fetch(monkeypatch):
     )
 
     def forbid_sync_fetch(client, url, **kwargs):
-        raise litellm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
+        raise hangarllm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
 
     async def serve_png(client, url, **kwargs):
         fetch.fetched.append(url)
@@ -42,7 +42,7 @@ def async_only_image_fetch(monkeypatch):
 
     def forbid_sync_convert(url, *args, **kwargs):
         if url.startswith(("http://", "https://")):
-            raise litellm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
+            raise hangarllm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
         return url
 
     monkeypatch.setattr(image_handling, "safe_get", forbid_sync_fetch)
@@ -74,7 +74,7 @@ async def test_bedrock_mantle_claude_async_completion_inlines_remote_images_off_
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="bedrock/mantle/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -119,7 +119,7 @@ async def test_bedrock_mantle_claude_async_completion_inlines_document_url_sourc
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="bedrock/mantle/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -231,7 +231,7 @@ BARE_STREAMED_ANSWER = {"content": RISK_ANSWER, "tool_call_deltas": 0, "finish_r
 def test_mantle_claude_completion_streams_a_wrapped_json_schema_answer_as_the_bare_object(model):
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_wrapped_json_tool_stream)))
 
-    chunks = tuple(litellm.completion(**_json_schema_stream_kwargs(model), client=client))
+    chunks = tuple(hangarllm.completion(**_json_schema_stream_kwargs(model), client=client))
 
     assert _streamed_answer(chunks) == BARE_STREAMED_ANSWER
 
@@ -241,7 +241,7 @@ async def test_mantle_claude_async_completion_streams_a_wrapped_json_schema_answ
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(_wrapped_json_tool_stream))
 
-    stream = await litellm.acompletion(**_json_schema_stream_kwargs(model), client=client)
+    stream = await hangarllm.acompletion(**_json_schema_stream_kwargs(model), client=client)
     chunks = tuple([chunk async for chunk in stream])
 
     assert _streamed_answer(chunks) == BARE_STREAMED_ANSWER
@@ -268,7 +268,7 @@ def _json_tool_message(request: httpx.Request) -> httpx.Response:
 def test_mantle_claude_that_cannot_force_a_tool_keeps_json_schema_on_the_json_tool(model: str) -> None:
     respond: Final = MagicMock(wraps=_json_tool_message)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         **{**_json_schema_stream_kwargs(model), "stream": False},
         client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond))),
     )
@@ -281,17 +281,17 @@ def test_mantle_claude_that_cannot_force_a_tool_keeps_json_schema_on_the_json_to
 
 
 def test_mantle_claude_default_max_tokens_comes_from_the_mantle_row(local_model_cost_map):
-    from litellm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
-    from litellm.llms.bedrock.chat.mantle.transformation import AmazonMantleConfig
+    from hangarllm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
+    from hangarllm.llms.bedrock.chat.mantle.transformation import AmazonMantleConfig
 
-    mapped_cap: Final = litellm.get_max_tokens("bedrock_mantle/anthropic.claude-haiku-4-5")
+    mapped_cap: Final = hangarllm.get_max_tokens("bedrock_mantle/anthropic.claude-haiku-4-5")
     assert mapped_cap != DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS, "the model's mapped cap must differ from the fallback"
 
     body: Final = AmazonMantleConfig().transform_request(
         model="mantle/anthropic.claude-haiku-4-5",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

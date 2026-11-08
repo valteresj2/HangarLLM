@@ -17,7 +17,7 @@ from integration._support.upstream import ScenarioHandle, delete_scenario, regis
 from integration.cost_calculation.cost_tracking_case import JsonResponse
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
+import hangarllm
 
 _API_KEY: Final = "synthetic-decisions-key"
 _ENV_KEY: Final = "synthetic-decisions-env-key"
@@ -26,7 +26,7 @@ _AZURE_AI_ENTRA_TOKEN: Final = "synthetic-decisions-entra-token"
 _AZURE_AI_MISSING_CREDENTIALS_MESSAGE: Final = (
     "Missing Azure AI credentials - set an API key (`api_key` or AZURE_AI_API_KEY), or Entra ID / OAuth "
     "credentials (`tenant_id` + `client_id` + `client_secret`, `azure_ad_token`, an OIDC token, or a managed "
-    "identity with `litellm.enable_azure_ad_token_refresh = True`)"
+    "identity with `hangarllm.enable_azure_ad_token_refresh = True`)"
 )
 _PASS_THROUGH_MODEL: Final = "gpt-6-luna"
 _PASS_THROUGH_AUTHORIZATION: Final = "Bearer customer-held-upstream-key"
@@ -63,7 +63,7 @@ _CHAT_REPLY: Final[dict[str, JsonValue]] = {
 }
 _SPEND_QUERY: Final = (
     "SELECT spend, status, call_type, model_group, custom_llm_provider, api_base, prompt_tokens, completion_tokens, "
-    'request_tags FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+    'request_tags FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 )
 
 
@@ -177,8 +177,8 @@ _PERPLEXITY: Final = _PROVIDERS[0]
 _OPENROUTER: Final = next(provider for provider in _PROVIDERS if provider.name == "openrouter")
 _OPENROUTER_CHAT_MODEL: Final = "openrouter/openai/gpt-5-mini"
 _UNSUPPORTED_PROVIDER_MODEL: Final = "anthropic/claude-opus-5-5"
-_CONNECTION_ERROR: Final = "litellm.APIConnectionError"
-_GENERIC_API_ERROR: Final = "litellm.APIError"
+_CONNECTION_ERROR: Final = "hangarllm.APIConnectionError"
+_GENERIC_API_ERROR: Final = "hangarllm.APIError"
 _INVALID_BODIES: Final[tuple[tuple[str, dict[str, JsonValue]], ...]] = (
     ("missing questions", {"state": _STATE}),
     ("missing state", {"questions": _QUESTIONS}),
@@ -378,7 +378,7 @@ def _pass_through_config(directory: Path, pass_through_target: str, native_api_b
         "model_list": [
             {
                 "model_name": _PASS_THROUGH_NEIGHBOUR,
-                "litellm_params": {"model": _PERPLEXITY.model, "api_base": native_api_base, "api_key": _API_KEY},
+                "hangarllm_params": {"model": _PERPLEXITY.model, "api_base": native_api_base, "api_key": _API_KEY},
             }
         ],
     }
@@ -396,13 +396,13 @@ def test_each_provider_gets_its_own_path_key_and_body_and_is_billed(gateway: Gat
         response: Final = _decide(gateway, model)
         assert response.status_code == 200, response.text
         assert response.json() == {"model": provider.body_model, "answers": _ANSWERS, "usage": _usage(provider)}
-        assert response.headers["x-litellm-model-group"] == model
-        assert math.isclose(float(response.headers.get("x-litellm-response-cost", "0")), expected_spend, rel_tol=1e-9)
+        assert response.headers["x-hangarllm-model-group"] == model
+        assert math.isclose(float(response.headers.get("x-hangarllm-response-cost", "0")), expected_spend, rel_tol=1e-9)
         (call,) = _upstream_calls(gateway, handle)
         assert call["path"] == f"/{handle.scenario_id}{provider.path}"
         assert call["authorization"] == (f"Bearer {provider.api_key}" if provider.api_key else "")
         assert call["body"] == {"model": provider.body_model, "state": _STATE, "questions": _QUESTIONS}
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (
             row["status"],
             row["call_type"],
@@ -458,15 +458,15 @@ def test_local_decisions_routes_preserve_wire_auth_usage_and_spend(
         response: Final = gateway.request("POST", route, {"model": model, **request_body})
         assert response.status_code == 200, response.text
         assert response.json() == expected_reply
-        assert response.headers["x-litellm-model-group"] == model
-        assert float(response.headers.get("x-litellm-response-cost", "0")) == 0.0
+        assert response.headers["x-hangarllm-model-group"] == model
+        assert float(response.headers.get("x-hangarllm-response-cost", "0")) == 0.0
         (call,) = _upstream_calls(gateway, handle)
         assert (call["path"], call["authorization"], call["body"]) == (
             f"/{handle.scenario_id}/v1/systemone",
             f"Bearer {api_key}" if api_key else "",
             {"model": provider.body_model, "state": _LOCAL_STATE, "questions": _LOCAL_QUESTIONS},
         )
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert {key: value for key, value in row.items() if key != "request_tags"} == {
             "spend": 0.0,
             "status": "success",
@@ -487,11 +487,11 @@ async def test_local_systemone_sdk_preserves_native_wire(
     with gateway.scenario() as scenario:
         handle: Final = _register(scenario, _answer_body(provider))
         response: Final = (
-            await litellm.asystemone(
+            await hangarllm.asystemone(
                 model=provider.model, state=_STATE, questions=_SDK_QUESTIONS, api_base=f"{handle.api_base()}/v1/"
             )
             if asynchronous
-            else litellm.systemone(
+            else hangarllm.systemone(
                 model=provider.model, state=_STATE, questions=_SDK_QUESTIONS, api_base=handle.api_base()
             )
         )
@@ -518,11 +518,11 @@ async def test_local_decisions_sdk_translates_openai_format(
     with gateway.scenario() as scenario:
         handle: Final = _register(scenario, dict(native_reply))
         response: Final = (
-            await litellm.adecisions(
+            await hangarllm.adecisions(
                 model=provider.model, input=_LOCAL_STATE, questions=questions, api_base=f"{handle.api_base()}/v1/"
             )
             if asynchronous
-            else litellm.decisions(
+            else hangarllm.decisions(
                 model=provider.model, input=_LOCAL_STATE, questions=questions, api_base=handle.api_base()
             )
         )
@@ -559,14 +559,14 @@ def test_ollama_decisions_sdk_respects_environment_and_explicit_auth(
     authorization: str,
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "synthetic-unrelated-openai-key")
-    monkeypatch.setenv("LITELLM_API_KEY", "synthetic-unrelated-litellm-key")
+    monkeypatch.setenv("HANGARLLM_API_KEY", "synthetic-unrelated-hangarllm-key")
     if environment_key is not None:
         monkeypatch.setenv("OLLAMA_API_KEY", environment_key)
     with gateway.scenario() as scenario:
         handle: Final = _register(scenario, _answer_body(provider))
         unused: Final = _register(scenario, _answer_body(provider))
         monkeypatch.setenv("OLLAMA_API_BASE", handle.api_base() if environment_base else unused.api_base())
-        response: Final = litellm.systemone(
+        response: Final = hangarllm.systemone(
             model=provider.model,
             state=_STATE,
             questions=_SDK_QUESTIONS,
@@ -593,7 +593,7 @@ def test_test_connection_evaluation_mode_uses_typesafe_decisions_path(gateway: G
             "POST",
             "/health/test_connection",
             {
-                "litellm_params": {"model": provider.model, "api_base": handle.api_base(), "api_key": provider.api_key},
+                "hangarllm_params": {"model": provider.model, "api_base": handle.api_base(), "api_key": provider.api_key},
                 "mode": "evaluation",
             },
         )
@@ -613,7 +613,7 @@ def test_test_connection_by_configured_alias_probes_the_stored_model(gateway: Ga
         response: Final = gateway.request(
             "POST",
             "/health/test_connection",
-            {"litellm_params": {"model": model}, "mode": "evaluation"},
+            {"hangarllm_params": {"model": model}, "mode": "evaluation"},
         )
 
         assert response.status_code == 200, response.text
@@ -628,7 +628,7 @@ def test_repeated_identical_requests_each_reach_the_upstream_and_are_each_billed
         model: Final = _deployment(scenario, handle, _PERPLEXITY)
         responses: Final = tuple(_decide(gateway, model) for _ in range(2))
         assert [response.status_code for response in responses] == [200, 200], [r.text for r in responses]
-        call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+        call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
         assert len(set(call_ids)) == 2, call_ids
         assert len(_upstream_calls(gateway, handle)) == 2
         for call_id in call_ids:
@@ -639,10 +639,10 @@ async def test_sdk_sync_and_async_clients_send_the_same_request(gateway: Gateway
     provider: Final = _PROVIDERS[1]
     with gateway.scenario() as scenario:
         handle: Final = _register(scenario, _answer_body(provider))
-        synchronous: Final = litellm.decisions(
+        synchronous: Final = hangarllm.decisions(
             model=provider.model, state=_STATE, questions=_SDK_QUESTIONS, api_base=handle.api_base(), api_key=_API_KEY
         )
-        asynchronous: Final = await litellm.asystemone(
+        asynchronous: Final = await hangarllm.asystemone(
             model=provider.model, state=_STATE, questions=_SDK_QUESTIONS, api_base=handle.api_base(), api_key=_API_KEY
         )
         for response in (synchronous, asynchronous):
@@ -670,7 +670,7 @@ def test_gateway_only_fields_stay_at_the_gateway_and_tags_reach_the_spend_log(ga
         assert response.status_code == 200, response.text
         (call,) = _upstream_calls(gateway, handle)
         assert call["body"] == {"model": _PERPLEXITY.body_model, "state": _STATE, "questions": _QUESTIONS}
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         tags: Final = row["request_tags"]
         assert isinstance(tags, list) and tag in tags, row
 
@@ -807,7 +807,7 @@ def test_upstream_errors_keep_their_status_and_log_an_unbilled_failure(gateway: 
         response: Final = _decide(gateway, model, num_retries=0)
         assert response.status_code == status, response.text
         assert marker in response.text
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], row["model_group"], _number(row["spend"])) == (
             "failure",
             "asystemone",
@@ -836,7 +836,7 @@ def test_a_malformed_upstream_success_is_a_server_error_naming_the_field(
         response: Final = _decide(gateway, model, num_retries=0)
         assert response.status_code == 500, response.text
         assert field in response.text
-        assert _spend_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+        assert _spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"
 
 
 @pytest.mark.parametrize("provider", _PROVIDERS, ids=lambda provider: provider.name)
@@ -849,7 +849,7 @@ def test_unreachable_upstream_fails_only_its_own_deployment(gateway: Gateway, pr
         )
         failed: Final = _decide(gateway, dead, num_retries=0)
         _assert_connection_error(failed)
-        assert _spend_row(failed.headers["x-litellm-call-id"])["status"] == "failure"
+        assert _spend_row(failed.headers["x-hangarllm-call-id"])["status"] == "failure"
         served: Final = _decide(gateway, healthy)
         assert served.status_code == 200, served.text
         assert len(_upstream_calls(gateway, handle)) == 1
@@ -871,32 +871,32 @@ def test_an_unreachable_openrouter_deployment_reports_a_connection_error_on_chat
         for response in (chat, streamed, embeddings, decisions):
             _assert_connection_error(response)
         for response in (chat, decisions):
-            assert _spend_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+            assert _spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"
 
 
 async def test_sdk_openrouter_connection_failures_raise_a_connection_error(gateway: Gateway) -> None:
     dead_api_base: Final = f"http://127.0.0.1:{allocate_port()}"
-    with pytest.raises(litellm.APIConnectionError):
-        litellm.completion(
+    with pytest.raises(hangarllm.APIConnectionError):
+        hangarllm.completion(
             model=_OPENROUTER_CHAT_MODEL,
             messages=[{"role": "user", "content": "hi"}],
             api_base=dead_api_base,
             api_key=_API_KEY,
         )
-    with pytest.raises(litellm.APIConnectionError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.APIConnectionError):
+        await hangarllm.acompletion(
             model=_OPENROUTER_CHAT_MODEL,
             messages=[{"role": "user", "content": "hi"}],
             api_base=dead_api_base,
             api_key=_API_KEY,
         )
-    with pytest.raises(litellm.APIConnectionError) as decisions_error:
-        litellm.decisions(
+    with pytest.raises(hangarllm.APIConnectionError) as decisions_error:
+        hangarllm.decisions(
             model=_OPENROUTER.model, state=_STATE, questions=_SDK_QUESTIONS, api_base=dead_api_base, api_key=_API_KEY
         )
     assert decisions_error.value.llm_provider == "openrouter"
-    with pytest.raises(litellm.APIConnectionError) as systemone_error:
-        await litellm.asystemone(
+    with pytest.raises(hangarllm.APIConnectionError) as systemone_error:
+        await hangarllm.asystemone(
             model=_OPENROUTER.model, state=_STATE, questions=_SDK_QUESTIONS, api_base=dead_api_base, api_key=_API_KEY
         )
     assert systemone_error.value.llm_provider == "openrouter"

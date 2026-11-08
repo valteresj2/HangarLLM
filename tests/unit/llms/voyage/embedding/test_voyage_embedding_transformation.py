@@ -4,9 +4,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 EMBEDDING_ROW = {"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]}
 
@@ -18,7 +18,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         stream=False,
         call_type="embedding",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return VoyageEmbeddingConfig().transform_embedding_response(
@@ -29,7 +29,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         api_key="sk-test",
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 
@@ -102,7 +102,7 @@ def test_voyage_embedding_token_count_that_is_not_an_integer_is_rejected(usage):
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         VoyageEmbeddingConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="voyage-3.5", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="voyage-3.5", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/voyage/v1/embeddings"
     )

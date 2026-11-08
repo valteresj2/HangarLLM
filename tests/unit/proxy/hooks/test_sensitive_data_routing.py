@@ -14,22 +14,22 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm._internal_context import current_service_target
-from litellm.caching.caching import DualCache
-from litellm.exceptions import SensitiveDataRouteException
-from litellm.integrations.custom_guardrail import (
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.caching import DualCache
+from hangarllm.exceptions import SensitiveDataRouteException
+from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     get_session_id_from_request_data,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.sensitive_data_routing import (
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.hooks.sensitive_data_routing import (
     DEFAULT_SENSITIVE_ROUTING_TTL,
     PROXY_SensitiveDataRoutingHandler,
 )
-from litellm.redis.stores.connection import RedisStores
-from litellm.redis.stores.sensitive_route_pins import SensitiveRoutePinStore
-from litellm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
-from litellm.rust_bridge._native import NativeRedisBreaker, NativeRedisClient
+from hangarllm.redis.stores.connection import RedisStores
+from hangarllm.redis.stores.sensitive_route_pins import SensitiveRoutePinStore
+from hangarllm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
+from hangarllm.rust_bridge._native import NativeRedisBreaker, NativeRedisClient
 
 
 class MockInternalUsageCache:
@@ -105,7 +105,7 @@ class TestSensitiveDataRoutingHandler:
         await handler.set_session_routing(
             session_id="s-1", model="on-premise-model", user_api_key_dict=user_api_key_dict, guardrail_name="g"
         )
-        data = {"model": "cloud-model", "litellm_session_id": "s-1"}
+        data = {"model": "cloud-model", "hangarllm_session_id": "s-1"}
         await handler.async_pre_call_hook(
             user_api_key_dict=user_api_key_dict, cache=MagicMock(), data=data, call_type="completion"
         )
@@ -114,7 +114,7 @@ class TestSensitiveDataRoutingHandler:
 
     @pytest.mark.asyncio
     async def test_pins_are_written_and_read_with_the_routing_ttl_under_the_requests_tenant(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_SENSITIVE_ROUTING_TTL", "120")
+        monkeypatch.setenv("HANGARLLM_SENSITIVE_ROUTING_TTL", "120")
         handler, pins = recorded_handler()
         key = UserAPIKeyAuth(api_key="hashed-key")
 
@@ -129,13 +129,13 @@ class TestSensitiveDataRoutingHandler:
         session_id = get_session_id_from_request_data(data)
         assert session_id == "session-from-metadata"
 
-    def test_get_session_id_from_litellm_metadata(self):
-        data = {"litellm_metadata": {"session_id": "session-from-litellm-metadata"}}
+    def test_get_session_id_from_hangarllm_metadata(self):
+        data = {"hangarllm_metadata": {"session_id": "session-from-hangarllm-metadata"}}
         session_id = get_session_id_from_request_data(data)
-        assert session_id == "session-from-litellm-metadata"
+        assert session_id == "session-from-hangarllm-metadata"
 
-    def test_get_session_id_from_litellm_session_id(self):
-        data = {"litellm_session_id": "session-direct"}
+    def test_get_session_id_from_hangarllm_session_id(self):
+        data = {"hangarllm_session_id": "session-direct"}
         session_id = get_session_id_from_request_data(data)
         assert session_id == "session-direct"
 
@@ -311,7 +311,7 @@ class TestCustomGuardrailSensitiveDataRouting:
         assert exc_info.value.route_to_model == "on-premise-model"
 
     def test_handle_sensitive_data_detection_block(self):
-        from litellm.exceptions import GuardrailRaisedException
+        from hangarllm.exceptions import GuardrailRaisedException
 
         guardrail = CustomGuardrail(guardrail_name="test")
 
@@ -323,7 +323,7 @@ class TestCustomGuardrailSensitiveDataRouting:
             )
 
     def test_handle_sensitive_data_detection_route_no_session_falls_back_to_block(self):
-        from litellm.exceptions import GuardrailRaisedException
+        from hangarllm.exceptions import GuardrailRaisedException
 
         guardrail = CustomGuardrail(
             guardrail_name="test",
@@ -488,9 +488,9 @@ class TestCacheKeyAndTTL:
 
 
 class TestCustomGuardrailSessionIdExtraction:
-    def test_get_session_id_from_litellm_session_id(self):
+    def test_get_session_id_from_hangarllm_session_id(self):
         guardrail = CustomGuardrail(guardrail_name="test")
-        request_data = {"litellm_session_id": "session-direct-123"}
+        request_data = {"hangarllm_session_id": "session-direct-123"}
         session_id = guardrail._get_session_id_from_request_data(request_data)
         assert session_id == "session-direct-123"
 
@@ -500,11 +500,11 @@ class TestCustomGuardrailSessionIdExtraction:
         session_id = guardrail._get_session_id_from_request_data(request_data)
         assert session_id == "session-metadata-456"
 
-    def test_get_session_id_from_litellm_metadata(self):
+    def test_get_session_id_from_hangarllm_metadata(self):
         guardrail = CustomGuardrail(guardrail_name="test")
-        request_data = {"litellm_metadata": {"session_id": "session-litellm-meta-789"}}
+        request_data = {"hangarllm_metadata": {"session_id": "session-hangarllm-meta-789"}}
         session_id = guardrail._get_session_id_from_request_data(request_data)
-        assert session_id == "session-litellm-meta-789"
+        assert session_id == "session-hangarllm-meta-789"
 
     def test_get_session_id_returns_none_when_missing(self):
         guardrail = CustomGuardrail(guardrail_name="test")
@@ -512,19 +512,19 @@ class TestCustomGuardrailSessionIdExtraction:
         session_id = guardrail._get_session_id_from_request_data(request_data)
         assert session_id is None
 
-    def test_get_session_id_priority_litellm_session_id_first(self):
+    def test_get_session_id_priority_hangarllm_session_id_first(self):
         guardrail = CustomGuardrail(guardrail_name="test")
         request_data = {
-            "litellm_session_id": "priority-session",
+            "hangarllm_session_id": "priority-session",
             "metadata": {"session_id": "should-not-use"},
-            "litellm_metadata": {"session_id": "also-not-this"},
+            "hangarllm_metadata": {"session_id": "also-not-this"},
         }
         session_id = guardrail._get_session_id_from_request_data(request_data)
         assert session_id == "priority-session"
 
     def test_get_session_id_converts_to_string(self):
         guardrail = CustomGuardrail(guardrail_name="test")
-        request_data = {"litellm_session_id": 12345}
+        request_data = {"hangarllm_session_id": 12345}
         session_id = guardrail._get_session_id_from_request_data(request_data)
         assert session_id == "12345"
         assert isinstance(session_id, str)
@@ -629,7 +629,7 @@ class TestHandleSensitiveDataDetectionWithRouting:
 class TestProxyHandleSensitiveDataRouteException:
     @pytest.fixture
     def proxy_logging(self):
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.proxy.utils import ProxyLogging
 
         return ProxyLogging(user_api_key_cache=DualCache())
 
@@ -745,7 +745,7 @@ class TestProxyHandleSensitiveDataRouteException:
         )
         data = {"model": "gpt-4", "metadata": {"session_id": "sess-no-hook"}}
 
-        with patch("litellm.proxy.utils.verbose_proxy_logger.warning") as mock_warning:
+        with patch("hangarllm.proxy.utils.verbose_proxy_logger.warning") as mock_warning:
             result = await proxy_logging._handle_sensitive_data_route_exception(
                 exc, data, UserAPIKeyAuth(api_key="tenant-a")
             )
@@ -774,7 +774,7 @@ class _BlockingGuardrail(CustomGuardrail):
         self.ran = False
 
     async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
-        from litellm.exceptions import GuardrailRaisedException
+        from hangarllm.exceptions import GuardrailRaisedException
 
         self.ran = True
         raise GuardrailRaisedException(message="blocked", guardrail_name=self.guardrail_name)
@@ -785,22 +785,22 @@ class TestPreCallHookDeferredRouting:
 
     @pytest.fixture
     def proxy_logging(self):
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.proxy.utils import ProxyLogging
 
         return ProxyLogging(user_api_key_cache=DualCache())
 
     @pytest.fixture(autouse=True)
     def restore_callbacks(self):
-        import litellm
+        import hangarllm
 
-        original = litellm.callbacks
-        litellm.callbacks = []
+        original = hangarllm.callbacks
+        hangarllm.callbacks = []
         yield
-        litellm.callbacks = original
+        hangarllm.callbacks = original
 
     @pytest.mark.asyncio
     async def test_later_guardrail_runs_and_routing_applied(self, proxy_logging):
-        import litellm
+        import hangarllm
 
         router = _RoutingGuardrail(
             guardrail_name="router",
@@ -815,7 +815,7 @@ class TestPreCallHookDeferredRouting:
             default_on=True,
             event_hook="pre_call",
         )
-        litellm.callbacks = [router, recorder]
+        hangarllm.callbacks = [router, recorder]
 
         data = {"model": "gpt-4", "metadata": {"session_id": "sess-defer"}}
         result = await proxy_logging.pre_call_hook(
@@ -830,8 +830,8 @@ class TestPreCallHookDeferredRouting:
 
     @pytest.mark.asyncio
     async def test_later_blocking_guardrail_overrides_routing(self, proxy_logging):
-        import litellm
-        from litellm.exceptions import GuardrailRaisedException
+        import hangarllm
+        from hangarllm.exceptions import GuardrailRaisedException
 
         router = _RoutingGuardrail(
             guardrail_name="router",
@@ -846,7 +846,7 @@ class TestPreCallHookDeferredRouting:
             default_on=True,
             event_hook="pre_call",
         )
-        litellm.callbacks = [router, blocker]
+        hangarllm.callbacks = [router, blocker]
 
         data = {"model": "gpt-4", "metadata": {"session_id": "sess-block"}}
         with pytest.raises(GuardrailRaisedException):
@@ -860,8 +860,8 @@ class TestPreCallHookDeferredRouting:
 
     @pytest.mark.asyncio
     async def test_routing_guardrail_records_service_span(self, proxy_logging):
-        import litellm
-        from litellm.types.services import ServiceTypes
+        import hangarllm
+        from hangarllm.types.services import ServiceTypes
 
         class _SlowRoutingGuardrail(CustomGuardrail):
             async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -876,7 +876,7 @@ class TestPreCallHookDeferredRouting:
             sensitive_data_route_to_model="on-prem-model",
             sticky_session_routing=False,
         )
-        litellm.callbacks = [router]
+        hangarllm.callbacks = [router]
 
         recorded = AsyncMock()
         proxy_logging.service_logging_obj.async_service_success_hook = recorded
@@ -895,8 +895,8 @@ class TestPreCallHookDeferredRouting:
 
     @pytest.mark.asyncio
     async def test_routing_recorded_as_intervention_not_prometheus_error(self, proxy_logging):
-        import litellm
-        from litellm.integrations.prometheus import PrometheusLogger
+        import hangarllm
+        from hangarllm.integrations.prometheus import PrometheusLogger
 
         router = _RoutingGuardrail(
             guardrail_name="router",
@@ -907,7 +907,7 @@ class TestPreCallHookDeferredRouting:
             sticky_session_routing=False,
         )
         prom = MagicMock(spec=PrometheusLogger)
-        litellm.callbacks = [router, prom]
+        hangarllm.callbacks = [router, prom]
 
         data = {"model": "gpt-4", "metadata": {"session_id": "sess-prom"}}
         result = await proxy_logging.pre_call_hook(
@@ -942,7 +942,7 @@ async def test_an_open_circuit_breaker_keeps_session_routing_in_memory_without_a
         await asyncio.sleep(0.01)
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         await handler.set_session_routing("quiet-session", "safe-model")
         routed = await handler._get_routed_model("quiet-session", None)
 

@@ -24,7 +24,7 @@ def test_an_added_mcp_server_is_a_table_codex_reads_next_to_the_gateway_provider
         codex.add_mcp_server("vault", server)
         config: Final = tomllib.loads((codex.codex_home / "config.toml").read_text())
 
-    assert config["model_provider"] == "litellm"
+    assert config["model_provider"] == "hangarllm"
     assert config["mcp_servers"] == {
         "vault": {
             "command": server.command,

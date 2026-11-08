@@ -2,8 +2,8 @@ import httpx
 import pytest
 import respx
 
-from litellm.integrations.gitlab import prompt_initializer_registry
-from litellm.types.prompts.init_prompts import PromptLiteLLMParams, PromptSpec
+from hangarllm.integrations.gitlab import prompt_initializer_registry
+from hangarllm.types.prompts.init_prompts import PromptHangarLLMParams, PromptSpec
 
 _GITLAB_CONFIG = {
     "project": "group/repo",
@@ -13,8 +13,8 @@ _GITLAB_CONFIG = {
 }
 
 
-def _prompt_spec(litellm_params: PromptLiteLLMParams) -> PromptSpec:
-    return PromptSpec(prompt_id="chat/greet", litellm_params=litellm_params)
+def _prompt_spec(hangarllm_params: PromptHangarLLMParams) -> PromptSpec:
+    return PromptSpec(prompt_id="chat/greet", hangarllm_params=hangarllm_params)
 
 
 def test_gitlab_initializer_loads_the_prompt_file_at_the_per_prompt_git_ref(respx_mock: respx.MockRouter) -> None:
@@ -23,9 +23,9 @@ def test_gitlab_initializer_loads_the_prompt_file_at_the_per_prompt_git_ref(resp
             200, text="---\nmodel: gpt-4o\n---\nHello {{name}}", headers={"content-type": "text/plain"}
         )
     )
-    litellm_params = PromptLiteLLMParams(prompt_integration="gitlab", gitlab_config=_GITLAB_CONFIG, git_ref="v1.2.0")
+    hangarllm_params = PromptHangarLLMParams(prompt_integration="gitlab", gitlab_config=_GITLAB_CONFIG, git_ref="v1.2.0")
 
-    manager = prompt_initializer_registry["gitlab"](litellm_params, _prompt_spec(litellm_params))
+    manager = prompt_initializer_registry["gitlab"](hangarllm_params, _prompt_spec(hangarllm_params))
     fetches_by_initializer = route.call_count
 
     assert manager.get_prompt_template("chat/greet", {"name": "Ada"}) == (
@@ -50,7 +50,7 @@ def test_gitlab_initializer_loads_the_prompt_file_at_the_per_prompt_git_ref(resp
     ],
 )
 def test_gitlab_initializer_rejects_prompt_without_gitlab_config(integration_params: dict[str, object]) -> None:
-    litellm_params = PromptLiteLLMParams(prompt_integration="gitlab", git_ref="v1.2.0", **integration_params)
+    hangarllm_params = PromptHangarLLMParams(prompt_integration="gitlab", git_ref="v1.2.0", **integration_params)
 
     with pytest.raises(ValueError, match="gitlab_config is required for gitlab prompt integration"):
-        prompt_initializer_registry["gitlab"](litellm_params, _prompt_spec(litellm_params))
+        prompt_initializer_registry["gitlab"](hangarllm_params, _prompt_spec(hangarllm_params))

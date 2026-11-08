@@ -17,11 +17,11 @@ import pytest
 
 # Add the parent directory to the system path
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.google_endpoints.endpoints import google_generate_content
-from litellm.proxy.proxy_server import ProxyConfig
-from litellm.proxy.utils import ProxyLogging
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.google_endpoints.endpoints import google_generate_content
+from hangarllm.proxy.proxy_server import ProxyConfig
+from hangarllm.proxy.utils import ProxyLogging
 from fastapi import Request, Response
 from fastapi.datastructures import Headers
 
@@ -135,9 +135,9 @@ async def test_google_gemini_httpx_request_direct():
 
     This test directly calls the HTTP handler to verify the httpx integration.
     """
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 
     # Sample request payload
     sample_payload = {
@@ -177,7 +177,7 @@ async def test_google_gemini_httpx_request_direct():
     }
 
     # Mock the HTTP handler to capture the request
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         # Create mock response
         mock_http_response = MagicMock()
         mock_http_response.status_code = 200
@@ -198,23 +198,23 @@ async def test_google_gemini_httpx_request_direct():
         mock_post.return_value = mock_http_response
 
         # Create the HTTP handler and provider config
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         http_handler = BaseLLMHTTPHandler()
         provider_config = GoogleGenAIConfig()
 
-        # Create proper litellm params
-        litellm_params = GenericLiteLLMParams(
+        # Create proper hangarllm params
+        hangarllm_params = GenericHangarLLMParams(
             api_base="https://generativelanguage.googleapis.com", api_key="test_api_key"
         )
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gemini/gemini-2.5-flash",
             messages=[],
             stream=False,
             call_type="agenerate_content",
             start_time=None,
-            litellm_call_id="test_call_id",
+            hangarllm_call_id="test_call_id",
             function_id="test_function_id",
         )
 
@@ -227,7 +227,7 @@ async def test_google_gemini_httpx_request_direct():
                 generate_content_config_dict=sample_payload["config"],
                 tools=None,
                 custom_llm_provider="gemini",
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=logging_obj,
                 extra_headers=None,
                 extra_body=None,
@@ -235,7 +235,7 @@ async def test_google_gemini_httpx_request_direct():
                 _is_async=False,
                 client=None,
                 stream=False,
-                litellm_metadata={},
+                hangarllm_metadata={},
             )
 
             # Verify that the HTTP post was called
@@ -321,13 +321,13 @@ async def test_generationconfig_to_config_mapping(sample_request_payload):
     Test that generationConfig is correctly mapped to config parameter
     for Google GenAI compatibility in the main functions.
     """
-    from litellm.google_genai.main import agenerate_content
+    from hangarllm.google_genai.main import agenerate_content
 
     # Create a copy of the payload to avoid modifying the fixture
     test_data = sample_request_payload.copy()
 
     with patch(
-        "litellm.google_genai.main.base_llm_http_handler.generate_content_handler"
+        "hangarllm.google_genai.main.base_llm_http_handler.generate_content_handler"
     ) as mock_generate_content_handler:
         mock_generate_content_handler.return_value = {"text": "mock response"}
 
@@ -356,7 +356,7 @@ async def test_gemini_custom_api_base_proxy_integration():
     This test verifies that when a custom api_base is provided for Gemini models,
     the URL is correctly constructed using the _check_custom_proxy method.
     """
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
     # Test the _check_custom_proxy method directly
     vertex_base = VertexBase()
@@ -439,12 +439,12 @@ async def test_gemini_proxy_config_with_custom_api_base():
     This test simulates the proxy configuration scenario where a model is configured
     with a custom api_base in the config.yaml file.
     """
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
     # Simulate proxy configuration
     model_config = {
         "model_name": "byok-gemini/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "gemini/*",
             "api_key": "dummy-key-for-testing",
             "api_base": "https://proxy.example.com/generativelanguage.googleapis.com/v1beta",
@@ -464,9 +464,9 @@ async def test_gemini_proxy_config_with_custom_api_base():
     for model in test_models:
         # Test generateContent endpoint
         auth_header, result_url = vertex_base._check_custom_proxy(
-            api_base=model_config["litellm_params"]["api_base"],
+            api_base=model_config["hangarllm_params"]["api_base"],
             custom_llm_provider="gemini",
-            gemini_api_key=model_config["litellm_params"]["api_key"],
+            gemini_api_key=model_config["hangarllm_params"]["api_key"],
             endpoint="generateContent",
             stream=False,
             auth_header=None,
@@ -474,12 +474,12 @@ async def test_gemini_proxy_config_with_custom_api_base():
             model=model,
         )
 
-        expected_url = f"{model_config['litellm_params']['api_base']}/models/{model}:generateContent"
+        expected_url = f"{model_config['hangarllm_params']['api_base']}/models/{model}:generateContent"
         assert (
             result_url == expected_url
         ), f"Expected {expected_url}, got {result_url} for model {model}"
         expected_auth_header = {
-            "x-goog-api-key": model_config["litellm_params"]["api_key"]
+            "x-goog-api-key": model_config["hangarllm_params"]["api_key"]
         }
         assert (
             auth_header == expected_auth_header

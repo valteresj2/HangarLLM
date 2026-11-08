@@ -12,9 +12,9 @@ import pytest
 from fastapi import HTTPException, Request, Response
 
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
 
 class TestSkipPreCallLogic:
@@ -27,7 +27,7 @@ class TestSkipPreCallLogic:
         data = {
             "model": "gpt-4",
             "stream": True,
-            "litellm_logging_obj": mock_logging_obj,
+            "hangarllm_logging_obj": mock_logging_obj,
         }
         processor = ProxyBaseLLMRequestProcessing(data=data)
 
@@ -37,7 +37,7 @@ class TestSkipPreCallLogic:
         with (
             patch.object(processor, "common_processing_pre_call_logic", new_callable=AsyncMock) as mock_pre_call,
             patch(
-                "litellm.proxy.common_request_processing.route_request",
+                "hangarllm.proxy.common_request_processing.route_request",
                 new_callable=AsyncMock,
                 return_value=MagicMock(),
             ),
@@ -77,7 +77,7 @@ class TestSkipPreCallLogic:
                 return_value=(data, mock_logging_obj),
             ) as mock_pre_call,
             patch(
-                "litellm.proxy.common_request_processing.route_request",
+                "hangarllm.proxy.common_request_processing.route_request",
                 new_callable=AsyncMock,
             ),
         ):
@@ -104,45 +104,45 @@ class TestPollingEndpointPreCallGuard:
     @pytest.mark.asyncio
     async def test_rate_limit_error_prevents_polling_id_creation(self):
         """responses_api() must raise 429 and never call generate_polling_id when rate-limited"""
-        from litellm.proxy.response_api_endpoints.endpoints import responses_api
-        from litellm.proxy.response_polling.polling_handler import (
+        from hangarllm.proxy.response_api_endpoints.endpoints import responses_api
+        from hangarllm.proxy.response_polling.polling_handler import (
             ResponsePollingHandler,
         )
 
-        rate_limit_exc = litellm.RateLimitError(
+        rate_limit_exc = hangarllm.RateLimitError(
             message="TPM limit exceeded",
             llm_provider="",
             model="gpt-4",
         )
-        generate_polling_id_mock = MagicMock(return_value="litellm_poll_test")
+        generate_polling_id_mock = MagicMock(return_value="hangarllm_poll_test")
 
         proxy_server_patches = {
-            "litellm.proxy.proxy_server.read_request_body": AsyncMock(
+            "hangarllm.proxy.proxy_server.read_request_body": AsyncMock(
                 return_value={"model": "gpt-4", "background": True}
             ),
-            "litellm.proxy.proxy_server.general_settings": {},
-            "litellm.proxy.proxy_server.llm_router": MagicMock(),
-            "litellm.proxy.proxy_server.native_background_mode": None,
-            "litellm.proxy.proxy_server.polling_cache_ttl": 3600,
-            "litellm.proxy.proxy_server.polling_via_cache_enabled": True,
-            "litellm.proxy.proxy_server.proxy_config": MagicMock(),
-            "litellm.proxy.proxy_server.proxy_logging_obj": AsyncMock(),
-            "litellm.proxy.proxy_server.redis_usage_cache": AsyncMock(),
-            "litellm.proxy.proxy_server.user_api_base": None,
-            "litellm.proxy.proxy_server.user_max_tokens": None,
-            "litellm.proxy.proxy_server.user_model": None,
-            "litellm.proxy.proxy_server.user_request_timeout": None,
-            "litellm.proxy.proxy_server.user_temperature": None,
-            "litellm.proxy.proxy_server.version": "1.0.0",
+            "hangarllm.proxy.proxy_server.general_settings": {},
+            "hangarllm.proxy.proxy_server.llm_router": MagicMock(),
+            "hangarllm.proxy.proxy_server.native_background_mode": None,
+            "hangarllm.proxy.proxy_server.polling_cache_ttl": 3600,
+            "hangarllm.proxy.proxy_server.polling_via_cache_enabled": True,
+            "hangarllm.proxy.proxy_server.proxy_config": MagicMock(),
+            "hangarllm.proxy.proxy_server.proxy_logging_obj": AsyncMock(),
+            "hangarllm.proxy.proxy_server.redis_usage_cache": AsyncMock(),
+            "hangarllm.proxy.proxy_server.user_api_base": None,
+            "hangarllm.proxy.proxy_server.user_max_tokens": None,
+            "hangarllm.proxy.proxy_server.user_model": None,
+            "hangarllm.proxy.proxy_server.user_request_timeout": None,
+            "hangarllm.proxy.proxy_server.user_temperature": None,
+            "hangarllm.proxy.proxy_server.version": "1.0.0",
         }
 
         with (
             patch.multiple(
-                "litellm.proxy.proxy_server",
+                "hangarllm.proxy.proxy_server",
                 **{k.split(".")[-1]: v for k, v in proxy_server_patches.items()},
             ),
             patch(
-                "litellm.proxy.response_polling.polling_handler.should_use_polling_for_request",
+                "hangarllm.proxy.response_polling.polling_handler.should_use_polling_for_request",
                 return_value=True,
             ),
             patch.object(

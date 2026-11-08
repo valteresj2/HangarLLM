@@ -14,15 +14,15 @@ import respx
 from openai.types.responses import Response as OpenAIResponse
 from pydantic import JsonValue
 
-import litellm
-from litellm.llms.bigmodel.chat.transformation import BigModelChatConfig
-from litellm.llms.bigmodel.common_utils import get_bigmodel_url
-from litellm.llms.bigmodel.messages.transformation import BigModelMessagesConfig
-from litellm.llms.bigmodel.responses.transformation import BigModelResponsesAPIConfig
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.bigmodel.chat.transformation import BigModelChatConfig
+from hangarllm.llms.bigmodel.common_utils import get_bigmodel_url
+from hangarllm.llms.bigmodel.messages.transformation import BigModelMessagesConfig
+from hangarllm.llms.bigmodel.responses.transformation import BigModelResponsesAPIConfig
+from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 MODEL: Final = "glm-5.3"
 BASE: Final = "https://open.bigmodel.cn"
@@ -59,7 +59,7 @@ class _ByteChunks(httpx.AsyncByteStream):
 def bigmodel_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("BIGMODEL_API_KEY", KEY)
     monkeypatch.delenv("BIGMODEL_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     yield
 
 
@@ -93,7 +93,7 @@ def response_payload() -> Mapping[str, JsonValue]:
 
 
 def test_provider_resolution_and_all_native_endpoints() -> None:
-    model, provider, key, base = litellm.get_llm_provider(f"bigmodel/{MODEL}")
+    model, provider, key, base = hangarllm.get_llm_provider(f"bigmodel/{MODEL}")
     assert (model, provider, key, base) == (MODEL, "bigmodel", KEY, f"{BASE}/api/paas/v4")
     assert isinstance(ProviderConfigManager.get_provider_chat_config(MODEL, LlmProviders.BIGMODEL), BigModelChatConfig)
     assert isinstance(
@@ -103,8 +103,8 @@ def test_provider_resolution_and_all_native_endpoints() -> None:
         ProviderConfigManager.get_provider_anthropic_messages_config(MODEL, LlmProviders.BIGMODEL),
         BigModelMessagesConfig,
     )
-    assert "bigmodel" in litellm.provider_list
-    assert litellm.get_llm_provider(f"zai/{MODEL}")[3] == "https://api.z.ai/api/paas/v4"
+    assert "bigmodel" in hangarllm.provider_list
+    assert hangarllm.get_llm_provider(f"zai/{MODEL}")[3] == "https://api.z.ai/api/paas/v4"
 
 
 @pytest.mark.parametrize("path", BASE_PATHS)
@@ -131,7 +131,7 @@ def test_custom_base_and_environment_precedence(monkeypatch: pytest.MonkeyPatch)
         == "https://override.example/prefix/api/paas/v4"
     )
     assert (
-        BigModelResponsesAPIConfig().validate_environment({}, MODEL, GenericLiteLLMParams(api_key="explicit"))[
+        BigModelResponsesAPIConfig().validate_environment({}, MODEL, GenericHangarLLMParams(api_key="explicit"))[
             "Authorization"
         ]
         == "Bearer explicit"
@@ -162,7 +162,7 @@ async def test_chat_uses_native_endpoint_and_maps_token_limit(is_async: bool) ->
         "reasoning_effort": "low",
         "extra_body": {"clear_thinking": False},
     }
-    response: Final = await litellm.acompletion(**params) if is_async else litellm.completion(**params)
+    response: Final = await hangarllm.acompletion(**params) if is_async else hangarllm.completion(**params)
     assert response.choices[0].message.content == "Hello"
     request: Final = route.calls.last.request
     body: Final = json.loads(request.content)
@@ -175,7 +175,7 @@ async def test_chat_uses_native_endpoint_and_maps_token_limit(is_async: bool) ->
     assert request.headers["authorization"] == f"Bearer {KEY}"
     assert route.call_count == 1
     if is_async:
-        health: Final = await litellm.ahealth_check(params, mode="chat")
+        health: Final = await hangarllm.ahealth_check(params, mode="chat")
         assert "error" not in health
         assert json.loads(route.calls.last.request.content)["thinking"] == {"type": "enabled"}
 
@@ -193,7 +193,7 @@ def test_chat_does_not_send_the_openai_organization_to_bigmodel(monkeypatch: pyt
             "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
         }
     )
-    _ = litellm.completion(model=f"bigmodel/{MODEL}", messages=[{"role": "user", "content": "Hello"}])
+    _ = hangarllm.completion(model=f"bigmodel/{MODEL}", messages=[{"role": "user", "content": "Hello"}])
     assert "openai-organization" not in route.calls.last.request.headers
 
 
@@ -214,7 +214,7 @@ def test_chat_sends_json_schema_response_format_as_given() -> None:
         "type": "json_schema",
         "json_schema": {"name": "profile", "schema": {"type": "object", "properties": {"n": {"type": "integer"}}}},
     }
-    _ = litellm.completion(model="bigmodel/glm-4.6", messages=messages, response_format=response_format)
+    _ = hangarllm.completion(model="bigmodel/glm-4.6", messages=messages, response_format=response_format)
     body: Final = json.loads(route.calls.last.request.content)
     assert body["response_format"] == response_format
     assert body["messages"] == messages
@@ -232,7 +232,7 @@ async def test_responses_native_body_text_usage_and_continuation(is_async: bool)
         "max_output_tokens": 1,
         "reasoning": {"effort": "max"},
     }
-    response: Final = await litellm.aresponses(**params) if is_async else litellm.responses(**params)
+    response: Final = await hangarllm.aresponses(**params) if is_async else hangarllm.responses(**params)
     assert isinstance(response, ResponsesAPIResponse)
     assert response.output_text == "Hello"
     assert isinstance(response.usage, ResponseAPIUsage)
@@ -251,9 +251,9 @@ async def test_responses_native_body_text_usage_and_continuation(is_async: bool)
     assert route.calls.last.request.headers["authorization"] == f"Bearer {KEY}"
     followup: Final = {**params, "previous_response_id": response.id, "store": True}
     if is_async:
-        await litellm.aresponses(**followup)
+        await hangarllm.aresponses(**followup)
     else:
-        litellm.responses(**followup)
+        hangarllm.responses(**followup)
     assert json.loads(route.calls.last.request.content)["previous_response_id"] == "resp_bigmodel_test"
     assert json.loads(route.calls.last.request.content)["store"] is True
 
@@ -265,7 +265,7 @@ async def test_responses_decodes_compressed_response_once() -> None:
         content=gzip.compress(json.dumps(response_payload()).encode()),
         headers={"content-encoding": "gzip", "content-type": "application/json"},
     )
-    response: Final = await litellm.aresponses(model=f"bigmodel/{MODEL}", input="Hello")
+    response: Final = await hangarllm.aresponses(model=f"bigmodel/{MODEL}", input="Hello")
     assert response.output_text == "Hello"
     assert response.usage.total_tokens == 30
 
@@ -283,7 +283,7 @@ def test_messages_preserves_native_reasoning_params(reasoning_params: Mapping[st
         model=MODEL,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 2048, **reasoning_params},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert {key: payload.get(key) for key in reasoning_params} == reasoning_params
@@ -311,7 +311,7 @@ def test_chat_asks_an_always_thinking_model_for_its_lowest_effort_when_thinking_
             "usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30},
         }
     )
-    litellm.completion(
+    hangarllm.completion(
         model=f"bigmodel/{model}",
         messages=[{"role": "user", "content": "Hello"}],
         thinking={"type": "disabled"},
@@ -345,7 +345,7 @@ def test_messages_asks_an_always_thinking_model_for_its_lowest_effort_when_think
         model=model,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 64, "thinking": {"type": "disabled"}, **extra},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert {key: payload.get(key) for key in expected} == expected
@@ -363,7 +363,7 @@ def test_messages_keeps_the_callers_temperature_next_to_thinking(
         model=MODEL,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 2048, "temperature": temperature, **reasoning_params},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert payload.get("temperature") == temperature
@@ -406,7 +406,7 @@ async def test_messages_forward_native_tools_thinking_and_usage(web_fetch_reques
             "extra_headers": {"x-native-message": "preserved"},
         },
     }
-    response: Final = await litellm.anthropic.messages.acreate(**params)
+    response: Final = await hangarllm.anthropic.messages.acreate(**params)
     assert response["content"][0]["text"] == "Hello"
     assert response["usage"]["server_tool_use"] == {
         "web_search_requests": 1,
@@ -481,7 +481,7 @@ async def test_responses_sse_without_done_preserves_terminal_usage(
     )
     sse: Final = "".join(f"event: {event['type']}\ndata: {json.dumps(event)}\n\n" for event in events)
     respx.post(f"{BASE}/api/v1/responses").respond(content=sse, headers={"content-type": content_type})
-    stream: Final = await litellm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
+    stream: Final = await hangarllm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
     chunks: Final = tuple([chunk async for chunk in stream])
     assert chunks[-1].type == terminal_type
     assert chunks[-1].response.status == status
@@ -500,9 +500,9 @@ async def test_responses_sse_without_done_preserves_terminal_usage(
 @respx.mock
 def test_get_response_uses_bigmodel_url_and_normalizes_usage() -> None:
     route: Final = respx.post(f"{BASE}/api/v1/responses").respond(json=response_payload())
-    response: Final = litellm.responses(model=f"bigmodel/{MODEL}", input="Hello", store=True)
+    response: Final = hangarllm.responses(model=f"bigmodel/{MODEL}", input="Hello", store=True)
     respx.get(f"{BASE}/api/v1/responses/resp_bigmodel_test").respond(json=response_payload())
-    retrieved: Final = litellm.get_responses(response_id=response.id)
+    retrieved: Final = hangarllm.get_responses(response_id=response.id)
     assert retrieved.output_text == "Hello"
     assert retrieved.usage.total_tokens == 30
     assert route.call_count == 1
@@ -516,11 +516,11 @@ def test_missing_bigmodel_key_does_not_use_other_provider_credentials(
     monkeypatch.setenv("OPENAI_API_KEY", "unrelated-openai-key")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "unrelated-anthropic-key")
     call: Final = {
-        "chat": partial(litellm.completion, model=f"bigmodel/{MODEL}", messages=[{"role": "user", "content": "Hello"}]),
+        "chat": partial(hangarllm.completion, model=f"bigmodel/{MODEL}", messages=[{"role": "user", "content": "Hello"}]),
         "responses": partial(BigModelResponsesAPIConfig().validate_environment, {}, MODEL, None),
         "messages": partial(BigModelMessagesConfig().validate_anthropic_messages_environment, {}, MODEL, (), {}, {}),
     }[provider_api]
-    with pytest.raises(litellm.AuthenticationError, match="BIGMODEL_API_KEY"):
+    with pytest.raises(hangarllm.AuthenticationError, match="BIGMODEL_API_KEY"):
         call()
 
 
@@ -533,9 +533,9 @@ def _audio_file() -> io.BytesIO:
 @pytest.mark.parametrize(
     "call",
     (
-        partial(litellm.speech, model=f"bigmodel/{MODEL}", input="Hello", voice="tongtong"),
-        partial(litellm.image_generation, model=f"bigmodel/{MODEL}", prompt="Hello"),
-        lambda: litellm.transcription(model=f"bigmodel/{MODEL}", file=_audio_file()),
+        partial(hangarllm.speech, model=f"bigmodel/{MODEL}", input="Hello", voice="tongtong"),
+        partial(hangarllm.image_generation, model=f"bigmodel/{MODEL}", prompt="Hello"),
+        lambda: hangarllm.transcription(model=f"bigmodel/{MODEL}", file=_audio_file()),
     ),
     ids=("speech", "image_generation", "transcription"),
 )
@@ -553,10 +553,10 @@ def test_openai_routes_bigmodel_does_not_serve_send_no_request(
 @pytest.mark.parametrize(
     ("code", "error_class", "status_code"),
     (
-        (401, litellm.AuthenticationError, 401),
-        (1113, litellm.RateLimitError, 429),
-        (1301, litellm.BadRequestError, 400),
-        (1200, litellm.InternalServerError, 500),
+        (401, hangarllm.AuthenticationError, 401),
+        (1113, hangarllm.RateLimitError, 429),
+        (1301, hangarllm.BadRequestError, 400),
+        (1200, hangarllm.InternalServerError, 500),
     ),
 )
 @respx.mock
@@ -565,13 +565,13 @@ def test_responses_failure_envelope_raises_its_status_instead_of_a_parse_error(
 ) -> None:
     respx.post(f"{BASE}/api/v1/responses").respond(json={"code": code, "msg": "Token expired", "success": False})
     with pytest.raises(error_class, match="Token expired") as raised:
-        litellm.responses(model=f"bigmodel/{MODEL}", input="Hello")
+        hangarllm.responses(model=f"bigmodel/{MODEL}", input="Hello")
     assert getattr(raised.value, "status_code", None) == status_code
 
 
 @pytest.mark.parametrize(
     ("code", "error_class"),
-    ((1261, litellm.ContextWindowExceededError), (1301, litellm.ContentPolicyViolationError)),
+    ((1261, hangarllm.ContextWindowExceededError), (1301, hangarllm.ContentPolicyViolationError)),
 )
 @pytest.mark.parametrize("route", ("chat", "responses"))
 @respx.mock
@@ -587,9 +587,9 @@ def test_prompt_too_long_and_unsafe_content_raise_the_errors_fallbacks_catch(
             json={"code": code, "msg": "rejected by BigModel", "success": False}
         )
     call: Final = (
-        (lambda: litellm.completion(model=f"bigmodel/{MODEL}", messages=[{"role": "user", "content": "Hello"}]))
+        (lambda: hangarllm.completion(model=f"bigmodel/{MODEL}", messages=[{"role": "user", "content": "Hello"}]))
         if route == "chat"
-        else (lambda: litellm.responses(model=f"bigmodel/{MODEL}", input="Hello"))
+        else (lambda: hangarllm.responses(model=f"bigmodel/{MODEL}", input="Hello"))
     )
     with pytest.raises(error_class, match="rejected by BigModel") as raised:
         call()
@@ -598,7 +598,7 @@ def test_prompt_too_long_and_unsafe_content_raise_the_errors_fallbacks_catch(
 
 @pytest.mark.parametrize(
     ("code", "error_class"),
-    ((1261, litellm.ContextWindowExceededError), (1301, litellm.ContentPolicyViolationError)),
+    ((1261, hangarllm.ContextWindowExceededError), (1301, hangarllm.ContentPolicyViolationError)),
 )
 @pytest.mark.parametrize("is_async", (False, True))
 @pytest.mark.asyncio
@@ -611,9 +611,9 @@ async def test_streamed_prompt_too_long_and_unsafe_content_raise_the_errors_fall
 
     async def call() -> None:
         if is_async:
-            await litellm.aresponses(**params)
+            await hangarllm.aresponses(**params)
             return
-        litellm.responses(**params)
+        hangarllm.responses(**params)
 
     with pytest.raises(error_class, match="rejected by BigModel") as raised:
         await call()
@@ -629,10 +629,10 @@ async def test_a_non_json_answer_surfaces_its_body_text(route: Literal["response
         content=b"<html>gateway maintenance</html>", headers={"content-type": "text/html"}
     )
     call: Final = (
-        (lambda: litellm.aresponses(model=f"bigmodel/{MODEL}", input="Hello"))
+        (lambda: hangarllm.aresponses(model=f"bigmodel/{MODEL}", input="Hello"))
         if route == "responses"
         else (
-            lambda: litellm.anthropic.messages.acreate(
+            lambda: hangarllm.anthropic.messages.acreate(
                 model=f"bigmodel/{MODEL}", max_tokens=16, messages=[{"role": "user", "content": "Hello"}]
             )
         )
@@ -658,7 +658,7 @@ def test_responses_forward_codex_tool_params_and_echo_them_when_the_answer_omits
             else {"json": {**response_payload(), "parallel_tool_calls": None}}
         )
     )
-    answer: Final = litellm.responses(
+    answer: Final = hangarllm.responses(
         model=f"bigmodel/{MODEL}",
         input="Hello",
         tools=tools,
@@ -681,10 +681,10 @@ def test_responses_forward_codex_tool_params_and_echo_them_when_the_answer_omits
 @respx.mock
 async def test_responses_stream_answered_with_a_failure_envelope_raises_its_status() -> None:
     respx.post(f"{BASE}/api/v1/responses").respond(json={"code": 401, "msg": "Token expired", "success": False})
-    with pytest.raises(litellm.AuthenticationError, match="Token expired"):
-        await litellm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
-    with pytest.raises(litellm.AuthenticationError, match="Token expired"):
-        litellm.responses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
+    with pytest.raises(hangarllm.AuthenticationError, match="Token expired"):
+        await hangarllm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
+    with pytest.raises(hangarllm.AuthenticationError, match="Token expired"):
+        hangarllm.responses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
 
 
 @pytest.mark.parametrize("is_async", (False, True))
@@ -694,9 +694,9 @@ async def test_responses_stream_answered_with_one_json_response_replays_it_as_ev
     respx.post(f"{BASE}/api/v1/responses").respond(json=response_payload())
     request: Final = {"model": f"bigmodel/{MODEL}", "input": "Hello", "stream": True}
     chunks: Final = (
-        tuple([chunk async for chunk in await litellm.aresponses(**request)])
+        tuple([chunk async for chunk in await hangarllm.aresponses(**request)])
         if is_async
-        else tuple(litellm.responses(**request))
+        else tuple(hangarllm.responses(**request))
     )
     assert chunks[-1].type == "response.completed"
     assert chunks[-1].response.output_text == "Hello"
@@ -738,7 +738,7 @@ async def test_responses_stream_labeled_json_without_a_length_yields_events_befo
     )
 
     stream: Final = await asyncio.wait_for(
-        litellm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True), timeout=10
+        hangarllm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True), timeout=10
     )
     first: Final = await asyncio.wait_for(anext(stream), timeout=10)
     gate.set()
@@ -769,8 +769,8 @@ async def test_responses_failure_events_raise_instead_of_completing(event_type: 
         content=f"event: {event_type}\ndata: {json.dumps(event)}\n\n",
         headers={"content-type": "text/event-stream"},
     )
-    stream: Final = await litellm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
-    with pytest.raises(litellm.exceptions.MidStreamFallbackError, match="Provider failed"):
+    stream: Final = await hangarllm.aresponses(model=f"bigmodel/{MODEL}", input="Hello", stream=True)
+    with pytest.raises(hangarllm.exceptions.MidStreamFallbackError, match="Provider failed"):
         await anext(stream)
 
 
@@ -790,7 +790,7 @@ def test_responses_preserve_tools_multimodal_input_and_existing_usage_total() ->
         }
     ]
     tools: Final = [{"type": "function", "name": "weather", "parameters": {"type": "object", "properties": {}}}]
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model=f"bigmodel/{MODEL}",
         input=input_items,
         tools=tools,
@@ -832,7 +832,7 @@ def test_responses_preserve_explicit_tool_configuration() -> None:
             "parallel_tool_calls": True,
         }
     )
-    response: Final = litellm.responses(model=f"bigmodel/{MODEL}", input="Hello", tools=tools, tool_choice=tool_choice)
+    response: Final = hangarllm.responses(model=f"bigmodel/{MODEL}", input="Hello", tools=tools, tool_choice=tool_choice)
     validated: Final = OpenAIResponse.model_validate(response.model_dump())
     assert validated.tools[0].name == "weather"
     assert validated.tool_choice.name == "weather"
@@ -868,11 +868,11 @@ async def test_router_routes_one_model_configuration_to_three_native_endpoints()
             "usage": {"input_tokens": 20, "output_tokens": 10},
         }
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "glm-native",
-                "litellm_params": {"model": f"bigmodel/{MODEL}", "api_key": KEY, "api_base": BASE},
+                "hangarllm_params": {"model": f"bigmodel/{MODEL}", "api_key": KEY, "api_base": BASE},
             }
         ],
         num_retries=0,
@@ -929,7 +929,7 @@ async def test_chat_stream_preserves_deltas_and_final_usage() -> None:
         content="".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks) + "data: [DONE]\n\n",
         headers={"content-type": "text/event-stream"},
     )
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model=f"bigmodel/{MODEL}",
         messages=[{"role": "user", "content": "Hello"}],
         stream=True,
@@ -1007,7 +1007,7 @@ async def test_messages_stream_preserves_native_events() -> None:
             headers={"content-type": "text/event-stream"},
         )
     )
-    stream: Final = await litellm.anthropic.messages.acreate(
+    stream: Final = await hangarllm.anthropic.messages.acreate(
         model=f"bigmodel/{MODEL}",
         max_tokens=100,
         messages=[{"role": "user", "content": "Hello"}],
@@ -1040,15 +1040,15 @@ async def test_messages_stream_preserves_native_events() -> None:
 @respx.mock
 def test_stored_response_lifecycle_reuses_base_and_unwraps_id() -> None:
     respx.post(f"{BASE}/api/v1/responses").respond(json=response_payload())
-    response: Final = litellm.responses(model=f"bigmodel/{MODEL}", input="Hello", store=True)
+    response: Final = hangarllm.responses(model=f"bigmodel/{MODEL}", input="Hello", store=True)
     listing: Final = respx.get(f"{BASE}/api/v1/responses/resp_bigmodel_test/input_items").respond(
         json={"object": "list", "data": [], "has_more": False}
     )
     deletion: Final = respx.delete(f"{BASE}/api/v1/responses/resp_bigmodel_test").respond(
         json={"id": "resp_bigmodel_test", "object": "response.deleted", "deleted": True}
     )
-    assert litellm.list_input_items(response_id=response.id)["data"] == []
-    assert litellm.delete_responses(response_id=response.id).deleted is True
+    assert hangarllm.list_input_items(response_id=response.id)["data"] == []
+    assert hangarllm.delete_responses(response_id=response.id).deleted is True
     assert listing.call_count == deletion.call_count == 1
     assert deletion.calls.last.request.headers["authorization"] == f"Bearer {KEY}"
 
@@ -1057,26 +1057,26 @@ def test_stored_response_lifecycle_reuses_base_and_unwraps_id() -> None:
 @respx.mock
 def test_unsupported_responses_operations_fail_without_an_upstream_request(operation: str) -> None:
     call: Final = (
-        partial(litellm.cancel_responses, response_id="resp_test", custom_llm_provider="bigmodel")
+        partial(hangarllm.cancel_responses, response_id="resp_test", custom_llm_provider="bigmodel")
         if operation == "cancel"
-        else partial(litellm.compact_responses, model=f"bigmodel/{MODEL}", input="Hello")
+        else partial(hangarllm.compact_responses, model=f"bigmodel/{MODEL}", input="Hello")
     )
-    with pytest.raises(litellm.UnsupportedParamsError, match="BigModel"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="BigModel"):
         call()
     assert respx.calls.call_count == 0
 
 
 @pytest.mark.parametrize("model", ("glm-5.3", "glm-5.3-flash", "glm-5.3-flashx"))
 def test_bigmodel_model_metadata_and_cached_token_costs(model: str) -> None:
-    entry: Final = litellm.model_cost[f"bigmodel/{model}"]
-    info: Final = litellm.get_model_info(model=model, custom_llm_provider="bigmodel")
-    assert info["litellm_provider"] == "bigmodel"
+    entry: Final = hangarllm.model_cost[f"bigmodel/{model}"]
+    info: Final = hangarllm.get_model_info(model=model, custom_llm_provider="bigmodel")
+    assert info["hangarllm_provider"] == "bigmodel"
     assert info["max_input_tokens"] == entry["max_input_tokens"]
     assert info["max_output_tokens"] == entry["max_output_tokens"]
     assert info["supports_reasoning"]
     assert info["supports_function_calling"]
     assert bool(info.get("supports_vision")) == bool(entry.get("supports_vision"))
-    prompt_cost, output_cost = litellm.cost_per_token(
+    prompt_cost, output_cost = hangarllm.cost_per_token(
         model=model,
         custom_llm_provider="bigmodel",
         prompt_tokens=100,

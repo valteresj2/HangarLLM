@@ -1,5 +1,5 @@
 """The gateway's own `/metrics`, read before and after a run (and every few seconds during a ramped run, see
-`telemetry_sampler`) for the numbers nothing outside the gateway can see. Today that is `litellm_redis_latency`, the histogram customers' Grafana panels show when Redis
+`telemetry_sampler`) for the numbers nothing outside the gateway can see. Today that is `hangarllm_redis_latency`, the histogram customers' Grafana panels show when Redis
 slows the gateway down. The gateway's latency and request counts are read per request from its response
 headers instead (`setup/wire.py`), which gives percentiles where a histogram delta only gives a mean.
 
@@ -45,7 +45,7 @@ class HistogramTotals:
 @dataclass(frozen=True, slots=True)
 class GatewayTelemetry:
     redis_latency: HistogramTotals
-    """`litellm_redis_latency`, seconds per Redis call the gateway made."""
+    """`hangarllm_redis_latency`, seconds per Redis call the gateway made."""
 
     def minus(self, earlier: GatewayTelemetry) -> GatewayTelemetry:
         return GatewayTelemetry(redis_latency=self.redis_latency.minus(earlier.redis_latency))
@@ -61,7 +61,7 @@ def _histogram(samples: tuple[Sample, ...], family: str) -> HistogramTotals:
 
 def parse_gateway_telemetry(text: str) -> GatewayTelemetry:
     samples: Final = tuple(chain.from_iterable(family.samples for family in text_string_to_metric_families(text)))
-    return GatewayTelemetry(redis_latency=_histogram(samples, "litellm_redis_latency"))
+    return GatewayTelemetry(redis_latency=_histogram(samples, "hangarllm_redis_latency"))
 
 
 def read_gateway_telemetry(proxy: ProxyClient) -> GatewayTelemetry | None:

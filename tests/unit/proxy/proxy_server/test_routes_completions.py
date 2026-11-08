@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy import common_request_processing, proxy_server
-from litellm.types.router import RouterErrors
+from hangarllm.proxy import common_request_processing, proxy_server
+from hangarllm.types.router import RouterErrors
 
 from .conftest import normalize  # type: ignore[import-not-found]
 

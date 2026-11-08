@@ -44,7 +44,7 @@ from models import (
     ChatToolResultTurn,
     CostMapEntry,
     JsonSchemaProperty,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     OutMessage,
     SpendLogRow,
     ToolCall,
@@ -166,7 +166,7 @@ def _cheapest_together_chat_model(registry: Mapping[str, CostMapEntry], needs: _
     def qualifies(name: str, entry: CostMapEntry) -> bool:
         return (
             name.startswith("together_ai/")
-            and entry.litellm_provider == "together_ai"
+            and entry.hangarllm_provider == "together_ai"
             and entry.mode == "chat"
             and (entry.deprecation_date is None or entry.deprecation_date > today)
             and (entry.input_cost_per_token or 0.0) > 0
@@ -201,7 +201,7 @@ def reasoning_tool_backend(registry: dict[str, CostMapEntry]) -> str:
 def _register(client: PassthroughClient, resources: ResourceManager, backend: str) -> tuple[str, str]:
     model = f"e2e-together-{unique_marker()}"
     model_id = client.proxy.create_model(
-        model, LiteLLMParamsBody(model=backend, api_key="os.environ/TOGETHER_API_KEY")
+        model, HangarLLMParamsBody(model=backend, api_key="os.environ/TOGETHER_API_KEY")
     )
     resources.defer(lambda: client.proxy.delete_model(model_id))
     return model, resources.key()
@@ -596,7 +596,7 @@ class TestTogetherChatCompletions:
         )
         header_cost = result.response_cost
         assert header_cost is not None and header_cost > 0, (
-            f"x-litellm-response-cost header missing or non-positive: {result.headers}"
+            f"x-hangarllm-response-cost header missing or non-positive: {result.headers}"
         )
 
         price = registry[reasoning_tool_backend]
@@ -621,7 +621,7 @@ class TestTogetherChatCompletions:
         row = priced[0]
         assert row.custom_llm_provider == "together_ai", f"spend row misattributed: {row}"
         assert row.spend is not None and _approx_equal(row.spend, header_cost), (
-            f"logged spend {row.spend} disagrees with the x-litellm-response-cost header {header_cost}"
+            f"logged spend {row.spend} disagrees with the x-hangarllm-response-cost header {header_cost}"
         )
 
     @pytest.mark.covers("llm.chat_completions.together_ai.thinking.nonstream.effort_none_disables")
@@ -740,7 +740,7 @@ class TestTogetherChatCompletions:
 
         header_cost = result.response_cost
         assert header_cost is not None and header_cost > 0, (
-            f"x-litellm-response-cost header missing or non-positive: {result.headers}"
+            f"x-hangarllm-response-cost header missing or non-positive: {result.headers}"
         )
         expected = (
             (usage.prompt_tokens - cached) * price.input_cost_per_token
@@ -765,7 +765,7 @@ class TestTogetherChatCompletions:
         rows = client.proxy.poll_logs_for_request_id(response.id, predicate=_priced)
         row = rows[0]
         assert row.spend is not None and _approx_equal(row.spend, header_cost), (
-            f"logged spend {row.spend} disagrees with the x-litellm-response-cost header {header_cost}"
+            f"logged spend {row.spend} disagrees with the x-hangarllm-response-cost header {header_cost}"
         )
 
 

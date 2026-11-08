@@ -67,7 +67,7 @@ def test_a_counted_upload_exports_its_counter_increment_as_a_rate_limits_span(
 ) -> None:
     with wire_server(provider) as files:
         config: Final = _config(tmp_path, otel_audit_config(tmp_path, {}), files.url)
-        environment: Final = {**provider_environment(files.url), "LITELLM_OTEL_V2": "1"}
+        environment: Final = {**provider_environment(files.url), "HANGARLLM_OTEL_V2": "1"}
         with owned_proxy(gateway, tmp_path, environment, config=config) as candidate:
             since, _ = recorded_spans(audit_sinks.operator)
             mark: Final = marker()
@@ -81,5 +81,5 @@ def test_a_counted_upload_exports_its_counter_increment_as_a_rate_limits_span(
             assert _names(trace).count(COUNTER_SPAN) == 1, _names(trace)
             assert sum(1 for span in trace if span["kind"] == SERVER) == 1, _names(trace)
             (counter,) = (span for span in trace if span["name"] == COUNTER_SPAN)
-            assert counter["attributes"].get("litellm.service.target") == "rate_limits", counter["attributes"]
+            assert counter["attributes"].get("hangarllm.service.target") == "rate_limits", counter["attributes"]
             assert len(uploads_seen(files.drain(), mark)) == 1

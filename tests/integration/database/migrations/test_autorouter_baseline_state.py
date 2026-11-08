@@ -14,15 +14,15 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.db.baseline_accounting import BaselineAccountingStore
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.db.baseline_accounting import BaselineAccountingStore
+from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 from tests.integration._support.timing import assert_enforced_within
 
 _PROJECTION_LOCK_TIMEOUT_SECONDS: Final = 1
 _MIGRATION: Final = Path(__file__).parents[4] / (
-    "litellm-proxy-extras/litellm_proxy_extras/migrations/20260915010000_add_autorouter_baseline_state/migration.sql"
+    "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations/20260915010000_add_autorouter_baseline_state/migration.sql"
 )
 
 
@@ -61,15 +61,15 @@ async def test_migration_and_projector_use_the_primary_across_clients(
     database: tuple[str, psycopg.Connection[tuple[object, ...]]], monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     url, connection = database
-    connection.execute('CREATE TABLE "LiteLLM_SpendLogs" (request_id TEXT PRIMARY KEY)')
-    connection.execute('INSERT INTO "LiteLLM_AutoRouterBaselineComparison" '
+    connection.execute('CREATE TABLE "HangarLLM_SpendLogs" (request_id TEXT PRIMARY KEY)')
+    connection.execute('INSERT INTO "HangarLLM_AutoRouterBaselineComparison" '
         '(scope,api_key,session_id,router_name,initial_equivalent,revision) '
         "VALUES ('test','key','session','router',TRUE,1)")
     async with _client(monkeypatch, url, url.split("?")[0]) as first:
         assert await BaselineAccountingStore.for_client(first).project("test") == "published"
     async with _client(monkeypatch, url) as restarted:
         assert await BaselineAccountingStore.for_client(restarted).project("test") == "unchanged"
-    assert connection.execute('SELECT revision=published_revision FROM "LiteLLM_AutoRouterBaselineComparison"').fetchone() == (True,)
+    assert connection.execute('SELECT revision=published_revision FROM "HangarLLM_AutoRouterBaselineComparison"').fetchone() == (True,)
 
 
 @pytest.mark.asyncio
@@ -80,7 +80,7 @@ async def test_primary_outage_and_missing_table_are_unavailable(
     async with _client(monkeypatch, "postgresql://unused:unused@127.0.0.1:1/unreachable", url) as degraded:
         assert isinstance(degraded.db, RoutingPrismaWrapper) and degraded.db.writer_unavailable
         assert await BaselineAccountingStore.for_client(degraded).project("scope") == "unavailable"
-    connection.execute('DROP TABLE "LiteLLM_AutoRouterBaselineComparison"')
+    connection.execute('DROP TABLE "HangarLLM_AutoRouterBaselineComparison"')
     async with _client(monkeypatch, url) as missing:
         assert await BaselineAccountingStore.for_client(missing).project("scope") == "unavailable"
 
@@ -94,7 +94,7 @@ async def test_locked_projection_is_bounded_and_cancellation_propagates(
         store: Final = BaselineAccountingStore.for_client(client)
         assert await store.project("scope") == "unchanged"
         with connection.transaction():
-            connection.execute('LOCK TABLE "LiteLLM_AutoRouterBaselineComparison" IN ACCESS EXCLUSIVE MODE')
+            connection.execute('LOCK TABLE "HangarLLM_AutoRouterBaselineComparison" IN ACCESS EXCLUSIVE MODE')
             started: Final = time.monotonic()
             assert await store.project("scope") == "unavailable"
             assert_enforced_within(time.monotonic() - started, configured=_PROJECTION_LOCK_TIMEOUT_SECONDS, slack=1)

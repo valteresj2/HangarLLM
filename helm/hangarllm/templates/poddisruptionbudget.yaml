@@ -1,5 +1,5 @@
 {{- /*
-PodDisruptionBudget for LiteLLM proxy
+PodDisruptionBudget for HangarLLM proxy
 Controlled via .Values.pdb.enabled and .Values.pdb.{minAvailable|maxUnavailable}
 Only one of minAvailable / maxUnavailable should be set. If both are set, minAvailable wins.
 */ -}}
@@ -7,9 +7,9 @@ Only one of minAvailable / maxUnavailable should be set. If both are set, minAva
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "litellm.fullname" . }}
+  name: {{ include "hangarllm.fullname" . }}
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
   {{- with .Values.pdb.labels }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -21,7 +21,7 @@ spec:
   selector:
     matchLabels:
       {{- /* Match the Deployment selector to target the same pod set */ -}}
-      {{- include "litellm.selectorLabels" . | nindent 6 }}
+      {{- include "hangarllm.selectorLabels" . | nindent 6 }}
   {{- if .Values.pdb.minAvailable }}
   minAvailable: {{ .Values.pdb.minAvailable }}
   {{- else if .Values.pdb.maxUnavailable }}

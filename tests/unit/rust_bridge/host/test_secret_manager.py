@@ -16,29 +16,29 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 from pydantic import JsonValue
 
-import litellm
-from litellm.rust_bridge import _native as native
-from litellm.rust_bridge.host.secret_manager import capture_secret_manager, native_secret_manager_config
-from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
-from litellm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
-from litellm.secret_managers.hashicorp_secret_manager import HashicorpSecretManager
-from litellm.secret_managers.secret_manager_handler import get_secret_from_manager
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
-from tests.test_litellm_rust.support.recording_server import ResponseSpec, recording_service
+import hangarllm
+from hangarllm.rust_bridge import _native as native
+from hangarllm.rust_bridge.host.secret_manager import capture_secret_manager, native_secret_manager_config
+from hangarllm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+from hangarllm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
+from hangarllm.secret_managers.hashicorp_secret_manager import HashicorpSecretManager
+from hangarllm.secret_managers.secret_manager_handler import get_secret_from_manager
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from tests.test_hangarllm_rust.support.recording_server import ResponseSpec, recording_service
 
 if TYPE_CHECKING:
-    from litellm.rust_bridge._native import _SecretManagerRuntime
+    from hangarllm.rust_bridge._native import _SecretManagerRuntime
 
 
 @pytest.fixture(autouse=True)
 def preserve_manager_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", litellm.secret_manager_client)
-    monkeypatch.setattr(litellm, "_key_management_system", litellm._key_management_system)
-    monkeypatch.setattr(litellm, "_key_management_settings", litellm._key_management_settings)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", hangarllm.secret_manager_client)
+    monkeypatch.setattr(hangarllm, "_key_management_system", hangarllm._key_management_system)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", hangarllm._key_management_settings)
 
 
 def _vault(monkeypatch: pytest.MonkeyPatch, address: str) -> HashicorpSecretManager:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "premium_user", True)
     monkeypatch.setenv("HCP_VAULT_ADDR", address)
@@ -114,11 +114,11 @@ def test_shared_initializer_captures_credentials_and_tracks_instance_settings(mo
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "captured-access")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "captured-secret")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", server.base_url)
-        from litellm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.proxy_server import ProxyConfig
 
-        monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(aws_region_name="us-east-1"))
+        monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(aws_region_name="us-east-1"))
         ProxyConfig().initialize_secret_manager(KeyManagementSystem.AWS_SECRET_MANAGER.value)
-        manager: Final = litellm.secret_manager_client
+        manager: Final = hangarllm.secret_manager_client
         assert isinstance(manager, AWSSecretsManagerV2)
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "changed-access")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", "http://127.0.0.1:1")
@@ -484,8 +484,8 @@ async def test_public_vault_failed_reads_return_none_without_replay(
 async def test_public_cyberark_reads_reuse_authentication_and_cached_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
+    from hangarllm.proxy import proxy_server
+    from hangarllm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
 
     monkeypatch.setattr(proxy_server, "premium_user", True)
     with recording_service() as server:
@@ -529,7 +529,7 @@ def test_public_vault_prefix_overrides_match_python_string_conversion(
 
 
 def _cyberark(monkeypatch: pytest.MonkeyPatch, address: str) -> CyberArkSecretManager:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "premium_user", True)
     monkeypatch.setenv("CYBERARK_API_BASE", address)

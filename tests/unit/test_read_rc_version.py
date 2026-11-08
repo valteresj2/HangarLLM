@@ -17,7 +17,7 @@ _spec.loader.exec_module(read_rc_version)
 
 def _run(tmp_path: Path, version: str, capsys: pytest.CaptureFixture[str]) -> tuple[int, str, str]:
     pyproject: Final = tmp_path / "pyproject.toml"
-    pyproject.write_text(f'[project]\nname = "litellm"\nversion = "{version}"\n', encoding="utf-8")
+    pyproject.write_text(f'[project]\nname = "hangarllm"\nversion = "{version}"\n', encoding="utf-8")
     code: Final = read_rc_version.main(["read_rc_version.py", str(pyproject)])
     captured: Final = capsys.readouterr()
     return code, captured.out, captured.err

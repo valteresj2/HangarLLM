@@ -22,8 +22,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.proxy import proxy_server
+import hangarllm
+from hangarllm.proxy import proxy_server
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -85,7 +85,7 @@ def patched_threads(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _add_data)
     return router
 
 
@@ -103,7 +103,7 @@ def no_router(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _add_data)
     yield
 
 
@@ -297,8 +297,8 @@ def test_threads_routes_keep_the_mapped_provider_status(
     router_method: str,
     payload: dict[str, str] | None,
 ) -> None:
-    """A litellm NotFoundError carries status 404 and the SDK's ``code=None``; the route answers 404 with its message."""
-    upstream_error: Final = litellm.NotFoundError(
+    """A hangarllm NotFoundError carries status 404 and the SDK's ``code=None``; the route answers 404 with its message."""
+    upstream_error: Final = hangarllm.NotFoundError(
         message="NotFoundError: OpenAIException - Error code: 404",
         model="gpt-5.4-mini",
         llm_provider="openai",

@@ -7,17 +7,17 @@ import pytest
 from prisma.errors import UniqueViolationError
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import LiteLLM_TeamTable, LitellmUserRoles, Member, UserAPIKeyAuth
-from litellm.proxy.list_api.common import ManagementProblem
-from litellm.proxy.management_helpers.bulk_user_creation import bulk_create_users
-from litellm.types.proxy.management_endpoints.internal_user_endpoints import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarllmUserRoles, Member, UserAPIKeyAuth
+from hangarllm.proxy.list_api.common import ManagementProblem
+from hangarllm.proxy.management_helpers.bulk_user_creation import bulk_create_users
+from hangarllm.types.proxy.management_endpoints.internal_user_endpoints import (
     BulkNewUserItem,
     BulkNewUserRequest,
 )
 
-ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN)
-INTERNAL: Final = UserAPIKeyAuth(user_id="someone", user_role=LitellmUserRoles.INTERNAL_USER)
+ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
+INTERNAL: Final = UserAPIKeyAuth(user_id="someone", user_role=HangarllmUserRoles.INTERNAL_USER)
 
 
 class _UserRow(BaseModel):
@@ -86,14 +86,14 @@ class _UserTable:
 
 
 class _TeamTable:
-    def __init__(self, teams: list[LiteLLM_TeamTable]) -> None:
+    def __init__(self, teams: list[HangarLLM_TeamTable]) -> None:
         self.rows = {team.team_id: team for team in teams}
         self.update_calls = 0
 
-    async def find_many(self, where: dict[str, dict[str, list[str]]]) -> list[LiteLLM_TeamTable]:
+    async def find_many(self, where: dict[str, dict[str, list[str]]]) -> list[HangarLLM_TeamTable]:
         return [self.rows[team_id] for team_id in where["team_id"]["in"] if team_id in self.rows]
 
-    async def update(self, where: dict[str, str], data: dict[str, str]) -> LiteLLM_TeamTable:
+    async def update(self, where: dict[str, str], data: dict[str, str]) -> HangarLLM_TeamTable:
         self.update_calls += 1
         team = self.rows[where["team_id"]]
         team.members_with_roles = [Member(**m) for m in json.loads(data["members_with_roles"])]
@@ -111,15 +111,15 @@ class _MembershipTable:
 
 class _Tx:
     def __init__(self, db: "_Db") -> None:
-        self.litellm_teamtable = db.litellm_teamtable
-        self.litellm_teammembership = db.litellm_teammembership
+        self.hangarllm_teamtable = db.hangarllm_teamtable
+        self.hangarllm_teammembership = db.hangarllm_teammembership
         self.locks: list[str] = []
 
     async def query_raw(self, sql: str, *args: object) -> list[dict[str, object]]:
         if "pg_advisory_xact_lock" in sql:
             self.locks.append(str(args[0]))
             return []
-        team = self.litellm_teamtable.rows.get(str(args[0]))
+        team = self.hangarllm_teamtable.rows.get(str(args[0]))
         if team is None:
             return []
         return [{"members_with_roles": [m.model_dump() for m in team.members_with_roles]}]
@@ -128,20 +128,20 @@ class _Tx:
 class _Db:
     def __init__(
         self,
-        teams: list[LiteLLM_TeamTable],
+        teams: list[HangarLLM_TeamTable],
         fail_ids: frozenset[str] = frozenset(),
         commit_then_drop: bool = False,
         raced_ids: frozenset[str] = frozenset(),
     ) -> None:
-        self.litellm_usertable = _UserTable(fail_ids, commit_then_drop, raced_ids)
-        self.litellm_teamtable = _TeamTable(teams)
-        self.litellm_teammembership = _MembershipTable()
+        self.hangarllm_usertable = _UserTable(fail_ids, commit_then_drop, raced_ids)
+        self.hangarllm_teamtable = _TeamTable(teams)
+        self.hangarllm_teammembership = _MembershipTable()
 
 
 class _FakePrisma:
     def __init__(
         self,
-        teams: list[LiteLLM_TeamTable] | None = None,
+        teams: list[HangarLLM_TeamTable] | None = None,
         fail_ids: frozenset[str] = frozenset(),
         commit_then_drop: bool = False,
         raced_ids: frozenset[str] = frozenset(),
@@ -171,8 +171,8 @@ class _License:
         return self.max_users is not None and total_users > self.max_users
 
 
-def _team(team_id: str, members: list[Member] | None = None) -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable(team_id=team_id, members_with_roles=members or [])
+def _team(team_id: str, members: list[Member] | None = None) -> HangarLLM_TeamTable:
+    return HangarLLM_TeamTable(team_id=team_id, members_with_roles=members or [])
 
 
 async def _no_keys(**kwargs: object) -> dict[str, object]:
@@ -185,7 +185,7 @@ async def _run(prisma, users, caller=ADMIN, license=None, generate_key=_no_keys)
         user_api_key_dict=caller,
         prisma_client=prisma,
         license_check=license or _License(),
-        litellm_proxy_admin_name="default_user_id",
+        hangarllm_proxy_admin_name="default_user_id",
         user_api_key_cache=DualCache(),
         generate_key=generate_key,
     )
@@ -199,7 +199,7 @@ async def test_bulk_keeps_existing_user_id_generation_and_whitespace_behavior(us
     result: Final = response.data[0]
     assert result.success
     assert result.user_id
-    assert result.user_id in prisma.db.litellm_usertable.rows
+    assert result.user_id in prisma.db.hangarllm_usertable.rows
     if user_id:
         assert result.user_id == user_id
 
@@ -221,12 +221,12 @@ async def test_creates_users_and_team_membership_in_every_store():
     assert all(r.success and r.key is None and r.error is None for r in response.data)
     assert [r.teams for r in response.data] == [("t1", "t2"), ("t1",), ()]
 
-    users = prisma.db.litellm_usertable.rows
+    users = prisma.db.hangarllm_usertable.rows
     assert users["u1"].teams == ["t1", "t2"] and users["u1"].max_budget == 50
     assert users["u2"].teams == ["t1"] and users["u3"].teams == []
-    assert [m.user_id for m in prisma.db.litellm_teamtable.rows["t1"].members_with_roles] == ["existing", "u1", "u2"]
-    assert [m.user_id for m in prisma.db.litellm_teamtable.rows["t2"].members_with_roles] == ["u1"]
-    assert sorted((m["team_id"], m["user_id"]) for m in prisma.db.litellm_teammembership.rows) == [
+    assert [m.user_id for m in prisma.db.hangarllm_teamtable.rows["t1"].members_with_roles] == ["existing", "u1", "u2"]
+    assert [m.user_id for m in prisma.db.hangarllm_teamtable.rows["t2"].members_with_roles] == ["u1"]
+    assert sorted((m["team_id"], m["user_id"]) for m in prisma.db.hangarllm_teammembership.rows) == [
         ("t1", "u1"),
         ("t1", "u2"),
         ("t2", "u1"),
@@ -241,8 +241,8 @@ async def test_user_id_already_on_the_roster_keeps_the_team_and_is_not_added_twi
     assert [r.success for r in response.data] == [True, True]
     assert [r.teams for r in response.data] == [("t1",), ("t1",)]
     assert [r.error for r in response.data] == [None, None]
-    assert prisma.db.litellm_usertable.rows["u1"].teams == ["t1"]
-    assert [m.user_id for m in prisma.db.litellm_teamtable.rows["t1"].members_with_roles] == ["u1", "u2"]
+    assert prisma.db.hangarllm_usertable.rows["u1"].teams == ["t1"]
+    assert [m.user_id for m in prisma.db.hangarllm_teamtable.rows["t1"].members_with_roles] == ["u1", "u2"]
 
 
 @pytest.mark.asyncio
@@ -253,18 +253,18 @@ async def test_one_insert_and_one_locked_write_per_team():
         [{"user_id": f"u{i}", "teams": ["t1"] if i % 2 else ["t1", "t2"]} for i in range(20)],
     )
 
-    assert prisma.db.litellm_usertable.create_many_calls == 1
+    assert prisma.db.hangarllm_usertable.create_many_calls == 1
     assert prisma.tx_count == 2
     assert sorted(prisma.locks) == ["t1", "t2"]
-    assert prisma.db.litellm_teamtable.update_calls == 2
-    assert len(prisma.db.litellm_teamtable.rows["t1"].members_with_roles) == 20
-    assert len(prisma.db.litellm_teamtable.rows["t2"].members_with_roles) == 10
+    assert prisma.db.hangarllm_teamtable.update_calls == 2
+    assert len(prisma.db.hangarllm_teamtable.rows["t1"].members_with_roles) == 20
+    assert len(prisma.db.hangarllm_teamtable.rows["t2"].members_with_roles) == 10
 
 
 @pytest.mark.asyncio
 async def test_bad_rows_fail_alone_and_good_rows_still_land():
     prisma = _FakePrisma(teams=[_team("t1")])
-    prisma.db.litellm_usertable.rows["taken"] = _UserRow(user_id="taken", user_email="Taken@Example.com")
+    prisma.db.hangarllm_usertable.rows["taken"] = _UserRow(user_id="taken", user_email="Taken@Example.com")
     response = await _run(
         prisma,
         [
@@ -290,8 +290,8 @@ async def test_bad_rows_fail_alone_and_good_rows_still_land():
     assert "missing" in errors[6]
     assert errors[7] is not None
 
-    assert set(prisma.db.litellm_usertable.rows) == {"taken", "u1", "u7"}
-    assert [m.user_id for m in prisma.db.litellm_teamtable.rows["t1"].members_with_roles] == ["u1", "u7"]
+    assert set(prisma.db.hangarllm_usertable.rows) == {"taken", "u1", "u7"}
+    assert [m.user_id for m in prisma.db.hangarllm_teamtable.rows["t1"].members_with_roles] == ["u1", "u7"]
 
 
 @pytest.mark.asyncio
@@ -304,8 +304,8 @@ async def test_insert_failure_falls_back_to_per_row_and_reports_only_that_row():
 
     assert [r.success for r in response.data] == [True, False, True]
     assert "insert failed for u2" in (response.data[1].error or "")
-    assert set(prisma.db.litellm_usertable.rows) == {"u1", "u3"}
-    assert [m.user_id for m in prisma.db.litellm_teamtable.rows["t1"].members_with_roles] == ["u1"]
+    assert set(prisma.db.hangarllm_usertable.rows) == {"u1", "u3"}
+    assert [m.user_id for m in prisma.db.hangarllm_teamtable.rows["t1"].members_with_roles] == ["u1"]
 
 
 @pytest.mark.asyncio
@@ -315,8 +315,8 @@ async def test_insert_that_committed_but_lost_its_response_still_counts_as_creat
 
     assert [r.success for r in response.data] == [True, True]
     assert [r.error for r in response.data] == [None, None]
-    assert set(prisma.db.litellm_usertable.rows) == {"u1", "u2"}
-    assert [m.user_id for m in prisma.db.litellm_teamtable.rows["t1"].members_with_roles] == ["u1"]
+    assert set(prisma.db.hangarllm_usertable.rows) == {"u1", "u2"}
+    assert [m.user_id for m in prisma.db.hangarllm_teamtable.rows["t1"].members_with_roles] == ["u1"]
 
 
 @pytest.mark.asyncio
@@ -326,8 +326,8 @@ async def test_user_id_taken_by_a_concurrent_request_is_not_claimed_by_this_batc
 
     assert [r.success for r in response.data] == [False, True]
     assert "User id=u1 already exists" in (response.data[0].error or "")
-    assert prisma.db.litellm_usertable.rows["u1"].user_email == "u1@other-request.example"
-    assert [m.user_id for m in prisma.db.litellm_teamtable.rows["t1"].members_with_roles] == ["u2"]
+    assert prisma.db.hangarllm_usertable.rows["u1"].user_email == "u1@other-request.example"
+    assert [m.user_id for m in prisma.db.hangarllm_teamtable.rows["t1"].members_with_roles] == ["u2"]
 
 
 @pytest.mark.asyncio
@@ -337,14 +337,14 @@ async def test_team_write_failure_keeps_user_and_reports_it_on_the_row():
     async def explode(where, data):
         raise RuntimeError("roster write failed")
 
-    prisma.db.litellm_teamtable.update = explode
+    prisma.db.hangarllm_teamtable.update = explode
     response = await _run(prisma, [{"user_id": "u1", "teams": ["t1", "t2"]}])
 
     result = response.data[0]
     assert result.success is True
     assert result.teams == ()
     assert "t1" in (result.error or "") and "roster write failed" in (result.error or "")
-    assert prisma.db.litellm_usertable.rows["u1"].teams == []
+    assert prisma.db.hangarllm_usertable.rows["u1"].teams == []
     assert (response.meta.created, response.meta.failed) == (1, 0)
 
 
@@ -386,7 +386,7 @@ async def test_keys_are_opt_in_per_row():
     assert calls[0]["aliases"] == {"fast": "gpt-4o"}
     assert calls[0]["config"] == {"tier": "gold"}
     assert calls[0]["budget_fallbacks"] == {"gpt-4o": ("gpt-4o-mini",)}
-    assert set(prisma.db.litellm_usertable.rows) == {"u1", "u2", "u3"}
+    assert set(prisma.db.hangarllm_usertable.rows) == {"u1", "u2", "u3"}
 
 
 @pytest.mark.asyncio
@@ -400,7 +400,7 @@ async def test_non_admin_cannot_create_admin_users_but_other_rows_proceed():
 
     assert [r.success for r in response.data] == [False, True]
     assert "Only proxy admins" in (response.data[0].error or "")
-    assert set(prisma.db.litellm_usertable.rows) == {"u2"}
+    assert set(prisma.db.hangarllm_usertable.rows) == {"u2"}
 
 
 @pytest.mark.asyncio
@@ -423,7 +423,7 @@ async def test_only_proxy_admin_sets_batch_limits_on_a_created_key():
 
     assert [r.success for r in response.data] == [False, True, True]
     assert "Only proxy admins can set max_file_downloads_per_minute on a key" in (response.data[0].error or "")
-    assert set(prisma.db.litellm_usertable.rows) == {"u2", "u3"}
+    assert set(prisma.db.hangarllm_usertable.rows) == {"u2", "u3"}
     assert [call["user_id"] for call in calls] == ["u3"]
 
     admin_prisma = _FakePrisma()
@@ -437,15 +437,15 @@ async def test_only_proxy_admin_sets_batch_limits_on_a_created_key():
 @pytest.mark.asyncio
 async def test_license_is_checked_once_against_the_whole_batch():
     prisma = _FakePrisma()
-    prisma.db.litellm_usertable.rows["existing"] = _UserRow(user_id="existing")
+    prisma.db.hangarllm_usertable.rows["existing"] = _UserRow(user_id="existing")
     license = _License(max_users=3)
 
     with pytest.raises(ManagementProblem) as exc:
         await _run(prisma, [{"user_id": f"u{i}"} for i in range(3)], license=license)
 
-    assert (exc.value.problem.status, exc.value.problem.type) == (403, "urn:litellm:error:license-limit-exceeded")
+    assert (exc.value.problem.status, exc.value.problem.type) == (403, "urn:hangarllm:error:license-limit-exceeded")
     assert license.seen == [4]
-    assert set(prisma.db.litellm_usertable.rows) == {"existing"}
+    assert set(prisma.db.hangarllm_usertable.rows) == {"existing"}
 
     ok = await _run(prisma, [{"user_id": f"u{i}"} for i in range(2)], license=license)
     assert ok.meta.created == 2
@@ -454,7 +454,7 @@ async def test_license_is_checked_once_against_the_whole_batch():
     assert [r.success for r in resend.data] == [False, False]
     assert all("already exists" in (r.error or "") for r in resend.data)
     assert license.seen == [4, 3]
-    assert set(prisma.db.litellm_usertable.rows) == {"existing", "u0", "u1"}
+    assert set(prisma.db.hangarllm_usertable.rows) == {"existing", "u0", "u1"}
 
 
 def test_request_rejects_empty_oversized_and_invite_rows():

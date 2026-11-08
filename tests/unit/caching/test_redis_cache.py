@@ -10,11 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm._service_logger import ServiceLogging
-from litellm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError, RedisHealth
-from litellm.redis.store_settings import RedisBreakerSettings
-from litellm.rust_bridge._native import NativeRedisBreaker
+import hangarllm
+from hangarllm._service_logger import ServiceLogging
+from hangarllm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError, RedisHealth
+from hangarllm.redis.store_settings import RedisBreakerSettings
+from hangarllm.rust_bridge._native import NativeRedisBreaker
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def redis_no_ping():
 @pytest.fixture
 def sync_batch_redis_cache(redis_no_ping):
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=MagicMock()
+        "hangarllm._redis.get_redis_client", return_value=MagicMock()
     ) as get_client:
         cache = RedisCache(host="127.0.0.1", port=_closed_port())
         cache.redis_client.mget.side_effect = OSError("redis unavailable")
@@ -40,34 +40,34 @@ def sync_batch_redis_cache(redis_no_ping):
 @pytest.mark.parametrize(
     ("namespace", "key", "expected"),
     [
-        ("litellm", "litellm_spend_update_buffer", "litellm:litellm_spend_update_buffer"),
-        ("litellm", "litellm_config:param:general_settings", "litellm:litellm_config:param:general_settings"),
-        ("litellm", "litellm:3997c4abcdef", "litellm:3997c4abcdef"),
-        ("litellm", "spend:key:3997c4abcdef", "litellm:spend:key:3997c4abcdef"),
-        (None, "litellm_spend_update_buffer", "litellm_spend_update_buffer"),
-        ("", "litellm_spend_update_buffer", "litellm_spend_update_buffer"),
+        ("hangarllm", "hangarllm_spend_update_buffer", "hangarllm:hangarllm_spend_update_buffer"),
+        ("hangarllm", "hangarllm_config:param:general_settings", "hangarllm:hangarllm_config:param:general_settings"),
+        ("hangarllm", "hangarllm:3997c4abcdef", "hangarllm:3997c4abcdef"),
+        ("hangarllm", "spend:key:3997c4abcdef", "hangarllm:spend:key:3997c4abcdef"),
+        (None, "hangarllm_spend_update_buffer", "hangarllm_spend_update_buffer"),
+        ("", "hangarllm_spend_update_buffer", "hangarllm_spend_update_buffer"),
     ],
 )
 def test_check_and_fix_namespace_prefixes_keys_sharing_the_namespace_prefix(
     namespace, key, expected, monkeypatch, redis_no_ping
 ):
     """A key whose name merely begins with the namespace string (e.g.
-    litellm_spend_update_buffer under namespace "litellm") is not namespaced
+    hangarllm_spend_update_buffer under namespace "hangarllm") is not namespaced
     yet and must still get the "namespace:" prefix; only a key already carrying
     the delimited prefix is left alone. Without this, spend update buffers and
-    litellm_config:param:* keys reach Redis unprefixed and NOPERM under an ACL
+    hangarllm_config:param:* keys reach Redis unprefixed and NOPERM under an ACL
     scoped to the namespace pattern."""
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
     redis_cache = RedisCache(namespace=namespace)
     assert redis_cache.check_and_fix_namespace(key=key) == expected
 
 
-@pytest.mark.parametrize("namespace", [None, "litellm"])
+@pytest.mark.parametrize("namespace", [None, "hangarllm"])
 @pytest.mark.asyncio
 async def test_async_delete_cache_applies_namespace(namespace, monkeypatch, redis_no_ping):
     """async_delete_cache must prefix keys with the namespace, matching every
     other cache operation. Without this, Redis NOPERM errors occur when an
-    ACL restricts DEL to the litellm:* pattern."""
+    ACL restricts DEL to the hangarllm:* pattern."""
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
     redis_cache = RedisCache(namespace=namespace)
     mock_redis_instance = AsyncMock()
@@ -75,11 +75,11 @@ async def test_async_delete_cache_applies_namespace(namespace, monkeypatch, redi
     with patch.object(redis_cache, "init_async_client", return_value=mock_redis_instance):
         await redis_cache.async_delete_cache(key="3997c4abcdef")
 
-    expected_key = "litellm:3997c4abcdef" if namespace else "3997c4abcdef"
+    expected_key = "hangarllm:3997c4abcdef" if namespace else "3997c4abcdef"
     mock_redis_instance.delete.assert_awaited_once_with(expected_key)
 
 
-@pytest.mark.parametrize("namespace", [None, "litellm"])
+@pytest.mark.parametrize("namespace", [None, "hangarllm"])
 def test_delete_cache_applies_namespace(namespace, monkeypatch, redis_no_ping):
     """delete_cache must prefix keys with the namespace, matching every other
     cache operation."""
@@ -90,7 +90,7 @@ def test_delete_cache_applies_namespace(namespace, monkeypatch, redis_no_ping):
 
     redis_cache.delete_cache(key="3997c4abcdef")
 
-    expected_key = "litellm:3997c4abcdef" if namespace else "3997c4abcdef"
+    expected_key = "hangarllm:3997c4abcdef" if namespace else "3997c4abcdef"
     mock_redis_client.delete.assert_called_once_with(expected_key)
 
 
@@ -184,9 +184,9 @@ async def test_async_lpop_pipeline_empty_list(monkeypatch, redis_no_ping):
     [
         (None, ["{k:v}:tokens", "{k:v}:requests"], ["{k:v}:tokens", "{k:v}:requests"]),
         (
-            "litellm_sandbox",
+            "hangarllm_sandbox",
             ["{k:v}:tokens", "{k:v}:requests"],
-            ["litellm_sandbox:{k:v}:tokens", "litellm_sandbox:{k:v}:requests"],
+            ["hangarllm_sandbox:{k:v}:tokens", "hangarllm_sandbox:{k:v}:requests"],
         ),
     ],
 )
@@ -219,7 +219,7 @@ async def test_async_register_script_namespaces_keys(namespace, raw_keys, expect
 # lazily against the calling loop's client and cached per loop.
 
 
-@pytest.mark.parametrize("namespace", [None, "litellm_sandbox"])
+@pytest.mark.parametrize("namespace", [None, "hangarllm_sandbox"])
 def test_async_register_script_binds_per_event_loop(namespace, monkeypatch):
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
     redis_cache = RedisCache(namespace=namespace)
@@ -456,7 +456,7 @@ async def test_circuit_breaker_opens_when_method_swallows_redis_failure(call_met
     breaker could never open. An unreachable Redis then stayed in the pool and every
     request kept paying the full socket timeout on it.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
 
@@ -474,7 +474,7 @@ def test_circuit_breaker_open_makes_sync_batch_get_cache_fast_fail(sync_batch_re
     log and a service failure event per call, and the DualCache caller could not tell the
     refusal from a dead Redis, so it dropped its in-memory hits too.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     for _ in range(REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD):
         assert sync_batch_redis_cache.batch_get_cache(key_list=["lit6729"]) == {}
@@ -494,7 +494,7 @@ def test_sync_get_cache_failure_feeds_the_breaker_and_logs_a_well_formed_record(
     with no placeholder, so the record carried no error text. Nothing fed the breaker either,
     so a dead Redis read through this path never opened it.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     sync_batch_redis_cache.redis_client.get.side_effect = OSError("redis unavailable")
 
@@ -529,7 +529,7 @@ async def test_async_batch_get_counts_raises_where_async_batch_get_cache_reports
     failing_client = AsyncMock()
     failing_client.mget.side_effect = OSError("redis unavailable")
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=MagicMock()
+        "hangarllm._redis.get_redis_client", return_value=MagicMock()
     ):
         cache = RedisCache(host="127.0.0.1", port=_closed_port())
 
@@ -546,7 +546,7 @@ def test_batch_get_counts_reads_counters_in_order_and_keeps_unset_keys_apart(sto
     rest of the row onto the wrong deployments, and a count has to survive whether the client
     hands it back as bytes or as text."""
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=MagicMock()
+        "hangarllm._redis.get_redis_client", return_value=MagicMock()
     ):
         cache = RedisCache(host="127.0.0.1", port=_closed_port())
     cache.redis_client.mget.return_value = [stored, None, b"0"]
@@ -560,7 +560,7 @@ def sync_batch_cache_with_service_logger(redis_no_ping: None) -> Iterator[tuple[
     failing_client = MagicMock()
     failing_client.mget.side_effect = OSError("redis unavailable")
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=failing_client
+        "hangarllm._redis.get_redis_client", return_value=failing_client
     ):
         cache = RedisCache(host="127.0.0.1", port=_closed_port(), service_logger_obj=service_logger)
     yield cache, service_logger
@@ -574,7 +574,7 @@ async def test_sync_batch_get_cache_reports_a_failed_read_from_a_running_loop(
 
     The routing strategies call this blocking read from inside the request's event loop,
     and the read hides the Redis error by returning an empty dict. Without an emitted
-    failure event, litellm_redis_failed_requests_total stops moving during a Redis
+    failure event, hangarllm_redis_failed_requests_total stops moving during a Redis
     outage while the success path keeps reporting, so the dashboards read healthy.
     """
     cache, service_logger = sync_batch_cache_with_service_logger
@@ -631,11 +631,11 @@ def test_sync_batch_get_cache_survives_a_service_callback_that_raises(
     """
     from concurrent.futures import ThreadPoolExecutor
 
-    import litellm
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    import hangarllm
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache, service_logger = sync_batch_cache_with_service_logger
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     monkeypatch.setattr(
         service_logger,
         "init_prometheus_services_logger_if_none",
@@ -676,7 +676,7 @@ def test_call_stack_info_skips_breaker_guard_frames():
     without skipping them every guarded method logged the guard machinery instead of
     who actually issued the Redis call.
     """
-    from litellm.caching.redis_cache import _get_call_stack_info, _redis_circuit_breaker_guard_sync
+    from hangarllm.caching.redis_cache import _get_call_stack_info, _redis_circuit_breaker_guard_sync
 
     class Guarded:
         _health = _health()
@@ -702,8 +702,8 @@ def test_call_stack_info_skips_guard_frames_when_deployed_without_sources(monkey
     check comparing those two paths stops skipping and the service log then names the guard
     machinery instead of the real caller.
     """
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import _get_call_stack_info, _redis_circuit_breaker_guard_sync
+    from hangarllm.caching import redis_cache as redis_cache_module
+    from hangarllm.caching.redis_cache import _get_call_stack_info, _redis_circuit_breaker_guard_sync
 
     monkeypatch.setattr(redis_cache_module, "__file__", redis_cache_module.__file__ + "c")
 
@@ -731,7 +731,7 @@ async def test_circuit_breaker_success_still_resets_the_failure_streak():
     pins the other half of that contract: a call that genuinely reaches Redis has to clear
     the streak, or a healthy Redis would eventually be evicted from the pool.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
     assert cache._health is not None
@@ -762,7 +762,7 @@ async def test_circuit_breaker_covers_lua_script_execution():
     """
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
     run_script = cache.async_register_script("return 1")
@@ -786,7 +786,7 @@ async def test_concurrent_success_is_not_cancelled_by_another_calls_failure():
     """
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.caching.redis_cache import _record_swallowed_redis_failure, _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _record_swallowed_redis_failure, _run_under_circuit_breaker
 
     health = _health()
 
@@ -842,7 +842,7 @@ async def test_only_connectivity_failures_open_the_breaker(error, opens_breaker)
     """
     import redis.exceptions
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     health = _health()
     raised = getattr(redis.exceptions, error)("boom")
@@ -870,7 +870,7 @@ async def test_a_recovery_probe_redis_rejects_still_closes_the_breaker():
     from redis.exceptions import ConnectionError as RedisConnectionError
     from redis.exceptions import ResponseError
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     health = _health(recovery_timeout=0.05)
 
@@ -899,7 +899,7 @@ async def test_a_replica_refusing_a_write_does_not_reset_a_run_of_failures():
     from redis.exceptions import ConnectionError as RedisConnectionError
     from redis.exceptions import ReadOnlyError
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     health = _health()
 
@@ -920,14 +920,14 @@ async def test_a_replica_refusing_a_write_does_not_reset_a_run_of_failures():
 def test_a_new_redis_cache_shows_its_breaker_in_the_state_gauge(monkeypatch: pytest.MonkeyPatch):
     from prometheus_client import REGISTRY
 
-    from litellm.caching.redis_cache import redis_breaker_state_counts
+    from hangarllm.caching.redis_cache import redis_breaker_state_counts
 
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
 
     cache = RedisCache(host=f"gauge-{uuid.uuid4().hex}.invalid", port=6379)
 
     assert cache.store_settings.breaker is not None
-    assert REGISTRY.get_sample_value("litellm_redis_circuit_breaker_state", {"state": "closed"}) == (
+    assert REGISTRY.get_sample_value("hangarllm_redis_circuit_breaker_state", {"state": "closed"}) == (
         redis_breaker_state_counts().get("closed", 0)
     )
 
@@ -949,7 +949,7 @@ async def test_event_loop_stall_timeout_burst_keeps_breaker_closed():
 
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     health = _health(timeout_min_duration=5.0)
 
@@ -985,7 +985,7 @@ async def test_persistent_timeouts_still_open_the_breaker():
     """
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     health = _health(timeout_min_duration=0.1)
 
@@ -1019,10 +1019,10 @@ async def test_breaker_metrics_track_state_and_failure_class(monkeypatch: pytest
     from redis.exceptions import ConnectionError as RedisConnectionError
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker, redis_breaker_state_counts
-    from litellm.rust_bridge.host import redis_events
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker, redis_breaker_state_counts
+    from hangarllm.rust_bridge.host import redis_events
 
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     service_logger: Final = ServiceLogging()
     monkeypatch.setattr(redis_events, "_service_logging", lambda: service_logger)
 
@@ -1030,9 +1030,9 @@ async def test_breaker_metrics_track_state_and_failure_class(monkeypatch: pytest
         return REGISTRY.get_sample_value(name, labels) or 0.0
 
     gc.collect()
-    timeout_before: Final = sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "timeout"})
-    hard_before: Final = sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"})
-    opened_before: Final = sample("litellm_redis_circuit_breaker_transitions_total", {"state": "open"})
+    timeout_before: Final = sample("hangarllm_redis_circuit_breaker_failures_total", {"failure_class": "timeout"})
+    hard_before: Final = sample("hangarllm_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"})
+    opened_before: Final = sample("hangarllm_redis_circuit_breaker_transitions_total", {"state": "open"})
     state_counts_before: Final = redis_breaker_state_counts()
     open_gauge_before: Final = state_counts_before.get("open", 0)
     closed_gauge_before: Final = state_counts_before.get("closed", 0)
@@ -1049,13 +1049,13 @@ async def test_breaker_metrics_track_state_and_failure_class(monkeypatch: pytest
         with pytest.raises(type(error)):
             await _run_under_circuit_breaker(health, "op", lambda error=error: failing(error))
 
-    assert sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "timeout"}) == timeout_before + 1
-    assert sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"}) == hard_before + 2
+    assert sample("hangarllm_redis_circuit_breaker_failures_total", {"failure_class": "timeout"}) == timeout_before + 1
+    assert sample("hangarllm_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"}) == hard_before + 2
     await _eventually(
-        lambda: sample("litellm_redis_circuit_breaker_transitions_total", {"state": "open"}) == opened_before + 1
+        lambda: sample("hangarllm_redis_circuit_breaker_transitions_total", {"state": "open"}) == opened_before + 1
     )
-    assert sample("litellm_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before + 1
-    assert sample("litellm_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before
+    assert sample("hangarllm_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before + 1
+    assert sample("hangarllm_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before
 
     async def succeeding() -> str:
         return "ok"
@@ -1063,25 +1063,25 @@ async def test_breaker_metrics_track_state_and_failure_class(monkeypatch: pytest
     await asyncio.sleep(0.06)
     assert await _run_under_circuit_breaker(health, "op", succeeding) == "ok"
     await _eventually(
-        lambda: sample("litellm_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before + 1
+        lambda: sample("hangarllm_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before + 1
     )
-    assert sample("litellm_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before
+    assert sample("hangarllm_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before
 
 
 def test_prometheus_services_logger_starts_from_the_breakers_already_built(monkeypatch: pytest.MonkeyPatch):
     """A breaker built before prometheus_system is on shows up in the state gauge once the services logger starts."""
     from prometheus_client import REGISTRY
 
-    from litellm.caching.redis_cache import redis_breaker_state_counts
+    from hangarllm.caching.redis_cache import redis_breaker_state_counts
 
-    monkeypatch.setattr(litellm, "service_callback", [])
+    monkeypatch.setattr(hangarllm, "service_callback", [])
     early: Final = _health()
     assert early.breaker.state == "closed"
 
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     gc.collect()
     ServiceLogging()
-    assert REGISTRY.get_sample_value("litellm_redis_circuit_breaker_state", {"state": "closed"}) == (
+    assert REGISTRY.get_sample_value("hangarllm_redis_circuit_breaker_state", {"state": "closed"}) == (
         redis_breaker_state_counts()["closed"]
     )
 
@@ -1089,7 +1089,7 @@ def test_prometheus_services_logger_starts_from_the_breakers_already_built(monke
 def test_sync_guard_counts_a_timeout_as_a_timeout():
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker_sync
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker_sync
 
     health = _health(timeout_min_duration=5.0)
 
@@ -1111,7 +1111,7 @@ async def test_stale_success_during_the_recovery_probe_leaves_the_breaker_to_the
     outage, so closing on the straggler's success resumed full Redis traffic before the probe
     had proven anything.
     """
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     health = _health(recovery_timeout=0.05)
     stale_admitted = asyncio.Event()
@@ -1160,8 +1160,8 @@ async def test_redis_failures_through_the_cache_fast_fail_the_native_store_on_th
     """
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
-    from litellm.redis.stores.connection import connect
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.redis.stores.connection import connect
 
     cache: Final = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
     store: Final = connect(cache).spend_counters()
@@ -1182,7 +1182,7 @@ async def test_caches_on_one_redis_share_its_breaker_whatever_their_namespace():
     which every later cache on that Redis reuses, fast-fails for all of them."""
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     port: Final = _closed_port()
     first: Final = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=port, namespace="first")
@@ -1202,8 +1202,8 @@ async def test_caches_on_one_redis_share_its_breaker_whatever_their_namespace():
 @pytest.mark.asyncio
 async def test_native_store_failures_fast_fail_the_cache_on_the_same_redis():
     """The native client's failures open the breaker the cache admits through, so neither stack relearns an outage."""
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
-    from litellm.redis.stores.connection import connect
+    from hangarllm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from hangarllm.redis.stores.connection import connect
 
     cache: Final = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
     store: Final = connect(cache).spend_counters()
@@ -1225,8 +1225,8 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
 
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import RedisTimeoutLogThrottle
+    from hangarllm.caching import redis_cache as redis_cache_module
+    from hangarllm.caching.redis_cache import RedisTimeoutLogThrottle
 
     clock = MagicMock(return_value=1_000.0)
     monkeypatch.setattr(
@@ -1235,7 +1235,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
     sync_batch_redis_cache.redis_client.get.side_effect = RedisTimeoutError("Timeout reading from 127.0.0.1:6379")
     sync_batch_redis_cache.redis_client.mget.side_effect = RedisTimeoutError("Timeout reading from 127.0.0.1:6379")
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         for _ in range(200):
             assert sync_batch_redis_cache.get_cache("lit7520") is None
         assert sync_batch_redis_cache.batch_get_cache(key_list=["lit7520"]) == {}
@@ -1243,7 +1243,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
     timeout_records = [r for r in caplog.records if "Timeout reading from" in r.getMessage()]
     assert len(timeout_records) == 201, "every timeout must stay visible at DEBUG"
     assert [r.getMessage() for r in timeout_records if r.levelno >= logging.WARNING] == [
-        "litellm.caching.caching: get() - Got exception from REDIS: Timeout reading from 127.0.0.1:6379"
+        "hangarllm.caching.caching: get() - Got exception from REDIS: Timeout reading from 127.0.0.1:6379"
     ]
     assert timeout_records[0].levelno == logging.ERROR
     assert timeout_records[0].filename == "redis_cache.py"
@@ -1251,7 +1251,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
 
     caplog.clear()
     clock.return_value += 5.0
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         assert sync_batch_redis_cache.batch_get_cache(key_list=["lit7520"]) == {}
     assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
         (
@@ -1263,7 +1263,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
 
     caplog.clear()
     sync_batch_redis_cache.redis_client.get.side_effect = OSError("redis unavailable")
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         for _ in range(3):
             assert sync_batch_redis_cache.get_cache("lit7520") is None
     assert [r.levelno for r in caplog.records if "redis unavailable" in r.getMessage()] == [logging.ERROR] * 3
@@ -1299,8 +1299,8 @@ async def test_write_path_timeouts_inside_the_interval_stay_at_debug(call_method
 
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import RedisTimeoutLogThrottle
+    from hangarllm.caching import redis_cache as redis_cache_module
+    from hangarllm.caching.redis_cache import RedisTimeoutLogThrottle
 
     clock = MagicMock(return_value=1_000.0)
     throttle = RedisTimeoutLogThrottle(interval=5.0, clock=clock)
@@ -1319,7 +1319,7 @@ async def test_write_path_timeouts_inside_the_interval_stay_at_debug(call_method
 
     with (
         patch.object(cache, "init_async_client", return_value=client),
-        caplog.at_level(logging.DEBUG, logger="LiteLLM"),
+        caplog.at_level(logging.DEBUG, logger="HangarLLM"),
     ):
         with contextlib.suppress(RedisTimeoutError):
             await call_method(cache)
@@ -1344,7 +1344,7 @@ async def test_pool_wait_timeout_is_a_timeout_failure_not_hard_connectivity():
     from redis.asyncio import BlockingConnectionPool, Redis
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     pool = BlockingConnectionPool(connection_class=FakeConnection, server=FakeServer(), max_connections=1, timeout=0.01)
     client = Redis(connection_pool=pool)
@@ -1375,7 +1375,7 @@ async def test_cluster_pool_exhaustion_is_a_timeout_failure_not_hard_connectivit
         redis_exceptions.MaxConnectionsError,  # pyright: ignore[reportAttributeAccessIssue]  # old stubs
     )
 
-    from litellm.caching.redis_cache import _run_under_circuit_breaker
+    from hangarllm.caching.redis_cache import _run_under_circuit_breaker
 
     health = _health(timeout_min_duration=5.0)
 
@@ -1392,7 +1392,7 @@ async def test_cluster_pool_exhaustion_is_a_timeout_failure_not_hard_connectivit
 def test_timeout_classification_follows_the_explicit_cause_chain_only():
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.caching.redis_cache import is_redis_timeout_failure
+    from hangarllm.caching.redis_cache import is_redis_timeout_failure
 
     def raise_chained_from_timeout() -> None:
         try:
@@ -1524,7 +1524,7 @@ class _SetRecordingPipeline:
 @pytest.mark.asyncio
 async def test_async_set_cache_pipeline_with_ttls_keeps_each_entry_ttl(monkeypatch, redis_no_ping):
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
-    monkeypatch.setattr(litellm, "default_redis_ttl", 300)
+    monkeypatch.setattr(hangarllm, "default_redis_ttl", 300)
     redis_cache = RedisCache(namespace="ns")
     pipe = _SetRecordingPipeline()
     client = MagicMock()
@@ -1596,7 +1596,7 @@ def test_call_stack_info_skips_generic_cache_facade_frames():
     """A read through ``DualCache.async_get_cache`` -> ``RedisCache.async_get_cache`` used to
     report ``async_get_cache <- async_get_cache``; the chain names the code that wanted the
     read, skipping the facade verbs and the batch retry wrappers in between."""
-    from litellm.caching.redis_cache import _get_call_stack_info
+    from hangarllm.caching.redis_cache import _get_call_stack_info
 
     def probe():  # the RedisCache method that sets call_type
         return _get_call_stack_info()
@@ -1619,7 +1619,7 @@ def test_call_stack_info_skips_generic_cache_facade_frames():
 def test_call_stack_info_stops_at_the_event_loop():
     """Event-loop frames are not callers, so a read issued straight from a task names the
     task's coroutine alone rather than padding the chain with asyncio internals."""
-    from litellm.caching.redis_cache import _get_call_stack_info
+    from hangarllm.caching.redis_cache import _get_call_stack_info
 
     def probe():
         return _get_call_stack_info()
@@ -1634,8 +1634,8 @@ def test_call_stack_info_reports_the_threaded_caller_when_only_wrappers_are_foun
     """A batch op retried on the flush runs in a task of its own, so above its wrappers there
     is only the event loop; the chain is the one its declaring code threaded through
     ``service_caller``, never the wrapper names (``run_alone <- _settle_alone`` says nothing)."""
-    from litellm._internal_context import service_caller
-    from litellm.caching.redis_cache import _get_call_stack_info
+    from hangarllm._internal_context import service_caller
+    from hangarllm.caching.redis_cache import _get_call_stack_info
 
     def probe():
         return _get_call_stack_info()
@@ -1657,7 +1657,7 @@ def test_call_stack_info_reports_the_threaded_caller_when_only_wrappers_are_foun
 def test_call_stack_info_is_unknown_when_only_wrappers_are_found_and_nothing_was_threaded():
     import threading
 
-    from litellm.caching.redis_cache import _get_call_stack_info
+    from hangarllm.caching.redis_cache import _get_call_stack_info
 
     def probe():
         return _get_call_stack_info()
@@ -1676,7 +1676,7 @@ def test_call_stack_info_is_unknown_when_only_wrappers_are_found_and_nothing_was
 
 
 def _native_probe():
-    from litellm.caching.redis_cache import _get_call_stack_info
+    from hangarllm.caching.redis_cache import _get_call_stack_info
 
     return _get_call_stack_info()
 
@@ -1693,7 +1693,7 @@ def test_call_stack_info_skips_native_execution_frames():
     """The Rust execution awaits the response-cache coroutine from ``execution._settle`` inside
     ``drive``; those frames forward every native suspension, so the chain names the code that
     started the native call instead of ``_settle <- drive``."""
-    execution_globals = {"__name__": "litellm.rust_bridge.execution", "_native_probe": _native_probe}
+    execution_globals = {"__name__": "hangarllm.rust_bridge.execution", "_native_probe": _native_probe}
     native_settle = types.FunctionType(_settle.__code__, execution_globals, "_settle")
     native_drive = types.FunctionType(drive.__code__, {**execution_globals, "_settle": native_settle}, "drive")
 

@@ -256,8 +256,8 @@ def _reasoning_item_values(item: Mapping[str, JsonValue]) -> dict[str, JsonValue
 def assert_stream_preserved(
     message: Message, usage: Mapping[str, JsonValue], case: StreamingTranslationTestCase
 ) -> None:
-    assert case.expected_litellm_message is not None and case.expected_litellm_usage is not None, case.id
-    expected: Final = Message.model_validate(case.expected_litellm_message)
+    assert case.expected_hangarllm_message is not None and case.expected_hangarllm_usage is not None, case.id
+    expected: Final = Message.model_validate(case.expected_hangarllm_message)
     assert message_values(message) == message_values(expected), (
         case.id,
         message_values(message),
@@ -266,10 +266,10 @@ def assert_stream_preserved(
     tokens: Final = Usage.model_validate(usage)
     assert tokens.prompt_tokens > 0 and tokens.completion_tokens > 0, case.id
     assert tokens.total_tokens == tokens.prompt_tokens + tokens.completion_tokens, case.id
-    assert _usage_values(usage) == _usage_values(case.expected_litellm_usage), (
+    assert _usage_values(usage) == _usage_values(case.expected_hangarllm_usage), (
         case.id,
         _usage_values(usage),
-        _usage_values(case.expected_litellm_usage),
+        _usage_values(case.expected_hangarllm_usage),
     )
 
 

@@ -12,15 +12,15 @@ from websockets.exceptions import ConnectionClosed, ConnectionClosedError, Conne
 from websockets.frames import Close
 from websockets.http11 import Response
 
-import litellm
-from litellm import Router
-from litellm.constants import REALTIME_SESSION_SUCCESS_LOGGED_KEY, REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
-from litellm.cost_calculator import handle_realtime_stream_cost_calculation
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.openai.live import handler as live_handler
-from litellm.llms.openai.live.handler import LiveSessionStart, OpenAILiveSessions, parse_live_session_start
-from litellm.router_utils.router_callbacks.track_deployment_metrics import get_deployment_successes_for_current_minute
-from litellm.types.utils import LiteLLMRealtimeStreamLoggingObject, Usage
+import hangarllm
+from hangarllm import Router
+from hangarllm.constants import REALTIME_SESSION_SUCCESS_LOGGED_KEY, REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
+from hangarllm.cost_calculator import handle_realtime_stream_cost_calculation
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.openai.live import handler as live_handler
+from hangarllm.llms.openai.live.handler import LiveSessionStart, OpenAILiveSessions, parse_live_session_start
+from hangarllm.router_utils.router_callbacks.track_deployment_metrics import get_deployment_successes_for_current_minute
+from hangarllm.types.utils import HangarLLMRealtimeStreamLoggingObject, Usage
 
 _LIVE_EVENT_FRAME_ADAPTER: Final = TypeAdapter(dict[str, object])
 
@@ -294,7 +294,7 @@ async def test_async_live_session_rewrites_model_and_relays_frames_without_mutat
     await worker.coroutine
     assert logger.dispatch_count == 1
     assert logger.prefer_async_handlers is True
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert tuple(event["type"] for event in logged_result.results) == (
         "session.started",
         "session.closed",
@@ -329,7 +329,7 @@ async def test_async_live_session_coalesces_cumulative_usage_updates() -> None:
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert tuple((event["type"], event.get("usage")) for event in logged_result.results) == (
         ("session.started", None),
         ("response.event", None),
@@ -486,7 +486,7 @@ async def test_async_live_session_retains_final_usage_after_client_disconnect_an
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert logged_result.results == [
         {"type": "session.started", "session": {"model": "gpt-live-1"}},
         {"type": "session.closed", "usage": {"seconds": 7}},
@@ -497,12 +497,12 @@ async def test_async_live_session_retains_final_usage_after_client_disconnect_an
     session_close: Final = json.dumps({"type": "session.close"})
     assert tuple(frame for frame in sent_frames if _event_type(frame) == "session.close") == (session_close,)
 
-    rate: Final = cast(float, litellm.model_cost["gpt-live-1"]["input_cost_per_second"])
+    rate: Final = cast(float, hangarllm.model_cost["gpt-live-1"]["input_cost_per_second"])
     cost: Final = handle_realtime_stream_cost_calculation(
         results=logged_result.results,
         combined_usage_object=Usage(),
         custom_llm_provider="openai",
-        litellm_model_name="gpt-live-1",
+        hangarllm_model_name="gpt-live-1",
     )
     assert cost == pytest.approx(7 * rate)
 
@@ -532,7 +532,7 @@ async def test_async_live_session_drains_session_closed_after_upstream_send_fail
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert logged_result.results == [
         {"type": "session.started", "session": {"model": "gpt-live-1"}},
         {"type": "session.closed", "usage": {"seconds": 4}},
@@ -568,7 +568,7 @@ async def test_async_live_session_raises_after_draining_usage_when_upstream_send
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert logged_result.results[-1] == {"type": "session.closed", "usage": {"seconds": 4}}
     client_frames: Final = tuple(
         await asyncio.gather(*(client.sent_text.get() for _ in range(client.sent_text.qsize())))
@@ -633,7 +633,7 @@ async def test_async_live_session_ends_when_upstream_keeps_socket_open_after_ses
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert logged_result.results[-1] == {"type": "session.closed", "usage": {"seconds": 3}}
     assert client.close_info is not None
     assert client.close_info[0] == 1000
@@ -669,7 +669,7 @@ async def test_async_live_session_closes_client_normally_when_upstream_drops_aft
     assert client.close_info == (1000, None)
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert logged_result.results[-1] == {"type": "session.closed", "usage": {"seconds": 3}}
 
 
@@ -759,7 +759,7 @@ async def test_async_live_session_bounds_total_time_when_upstream_keeps_streamin
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert {"type": "session.closed", "usage": {"seconds": 3}} in logged_result.results
     assert client.close_info is not None
     assert client.close_info[0] == 1000
@@ -798,7 +798,7 @@ async def test_async_live_session_ends_when_client_stops_reading_after_session_c
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert {"type": "session.closed", "usage": {"seconds": 3}} in logged_result.results
     assert client.close_info is not None
     assert client.close_info[0] == 1000
@@ -832,17 +832,17 @@ async def test_async_live_session_keeps_finite_usage_after_invalid_snapshot() ->
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert logged_result.results == [
         {"type": "session.started", "session": {"model": "gpt-live-1"}},
         {"type": "session.usage.updated", "usage": {"seconds": 7}},
     ]
-    rate: Final = cast(float, litellm.model_cost["gpt-live-1"]["input_cost_per_second"])
+    rate: Final = cast(float, hangarllm.model_cost["gpt-live-1"]["input_cost_per_second"])
     cost: Final = handle_realtime_stream_cost_calculation(
         results=logged_result.results,
         combined_usage_object=Usage(),
         custom_llm_provider="openai",
-        litellm_model_name="gpt-live-1",
+        hangarllm_model_name="gpt-live-1",
     )
     assert cost == pytest.approx(7 * rate)
 
@@ -973,7 +973,7 @@ async def test_async_live_session_retains_closed_event_when_client_send_fails() 
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert {"type": "session.closed", "usage": {"seconds": 7}} in logged_result.results
 
 
@@ -1007,7 +1007,7 @@ async def test_async_live_session_bounds_wait_for_usage_after_client_disconnect(
     assert upstream.closed
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     assert all(event["type"] != "session.closed" for event in logged_result.results)
 
 
@@ -1080,7 +1080,7 @@ async def test_async_live_session_compacts_and_deduplicates_terminal_response_ev
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     response_events: Final = tuple(event for event in logged_result.results if event["type"] == "response.event")
     assert response_events == (
         {
@@ -1137,7 +1137,7 @@ async def test_async_live_session_bills_a_later_response_event_with_usage_over_a
 
     assert worker.coroutine is not None
     await worker.coroutine
-    logged_result: Final = cast(LiteLLMRealtimeStreamLoggingObject, logger.dispatched_result)
+    logged_result: Final = cast(HangarLLMRealtimeStreamLoggingObject, logger.dispatched_result)
     response_events: Final = tuple(event for event in logged_result.results if event["type"] == "response.event")
     assert response_events == (
         {
@@ -1258,35 +1258,35 @@ async def test_live_session_counts_a_router_success_only_when_it_ended_cleanly(
 ) -> None:
     router: Final = Router(
         model_list=[
-            {"model_name": "live-voice", "litellm_params": {"model": "openai/gpt-live-1"}, "model_info": {"id": "live-a"}}
+            {"model_name": "live-voice", "hangarllm_params": {"model": "openai/gpt-live-1"}, "model_info": {"id": "live-a"}}
         ],
         num_retries=0,
     )
     worker: Final = _FakeLoggingWorker()
 
-    async def _arealtime(litellm_logging_obj: Logging, **kwargs: object) -> None:
+    async def _arealtime(hangarllm_logging_obj: Logging, **kwargs: object) -> None:
         await OpenAILiveSessions(
             logging_worker=worker, websocket_connector=_FakeConnector(upstream_factory())
         ).async_live_session(
             model="gpt-live-1",
             websocket=_FakeClientWebSocket(messages=('{"type":"conversation.item.create"}',)),
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
             session_start={"type": "session.start", "session": {"model": "gpt-live-1"}},
             api_base="https://api.openai.com/",
             api_key="live-test-key",
         )
 
-    monkeypatch.setattr(litellm, "_arealtime", _arealtime)
+    monkeypatch.setattr(hangarllm, "_arealtime", _arealtime)
     await asyncio.wait_for(
         router._arealtime(  # the routed realtime endpoint the proxy's websocket route calls
             model="live-voice",
-            litellm_logging_obj=Logging(
+            hangarllm_logging_obj=Logging(
                 model="gpt-live-1",
                 messages=[],
                 stream=False,
                 call_type="_arealtime",
                 start_time=datetime.now(),
-                litellm_call_id="live-session",
+                hangarllm_call_id="live-session",
                 function_id="live-session",
             ),
         ),

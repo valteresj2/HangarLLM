@@ -14,8 +14,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.databricks.streaming_utils import ModelResponseIterator
+import hangarllm
+from hangarllm.llms.databricks.streaming_utils import ModelResponseIterator
 
 
 def test_chunk_parser_handles_empty_choices_usage_chunk():
@@ -125,7 +125,7 @@ def test_stream_usage_after_finish_chunk_reaches_the_caller(respx_mock: respx.Mo
         return_value=httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream_body)
     )
 
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="maritalk/sabia-3",
         api_base="http://upstream.test",
         api_key="sk-test",

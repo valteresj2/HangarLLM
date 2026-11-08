@@ -12,10 +12,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.llms.openai.chat.guardrail_translation.handler import (
+from hangarllm.llms.openai.chat.guardrail_translation.handler import (
     OpenAIChatCompletionsHandler,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 ORIGINAL_MESSAGES = [
     {"role": "system", "content": "Be concise."},
@@ -93,7 +93,7 @@ async def test_openai_handler_uses_text_patchback_when_no_structured_messages():
 
 @pytest.mark.asyncio
 async def test_anthropic_handler_converts_structured_messages_to_anthropic_format():
-    from litellm.llms.anthropic.chat.guardrail_translation.handler import (
+    from hangarllm.llms.anthropic.chat.guardrail_translation.handler import (
         AnthropicMessagesHandler,
     )
 
@@ -114,7 +114,7 @@ async def test_anthropic_handler_converts_structured_messages_to_anthropic_forma
     ]
 
     with patch(
-        "litellm.litellm_core_utils.prompt_templates.factory.anthropic_messages_pt",
+        "hangarllm.hangarllm_core_utils.prompt_templates.factory.anthropic_messages_pt",
         return_value=converted_back,
     ) as mock_pt:
         result = await handler.process_input_messages(
@@ -151,7 +151,7 @@ async def _write_back_identity(messages: list) -> list:
     """Run the request through a guardrail that changes nothing but returns a
     new list, which is what puts a compression guardrail on the write-back
     path, and return the resulting Anthropic messages."""
-    from litellm.llms.anthropic.chat.guardrail_translation.handler import (
+    from hangarllm.llms.anthropic.chat.guardrail_translation.handler import (
         AnthropicMessagesHandler,
     )
 
@@ -186,14 +186,14 @@ async def test_write_back_keeps_real_tool_results_under_modify_params():
     assistant row whose results are converted separately reads as an orphaned
     tool call: with modify_params on, the sanitizer answers it with a synthetic
     "tool execution skipped" result and drops the real one."""
-    import litellm
+    import hangarllm
 
-    original = litellm.modify_params
-    litellm.modify_params = True
+    original = hangarllm.modify_params
+    hangarllm.modify_params = True
     try:
         written = await _write_back_identity([dict(m) for m in AGENTIC_ANTHROPIC_MESSAGES])
     finally:
-        litellm.modify_params = original
+        hangarllm.modify_params = original
 
     serialized = json.dumps(written)
     assert "FILE BODY" in serialized

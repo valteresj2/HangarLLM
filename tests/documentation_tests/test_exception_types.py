@@ -11,9 +11,9 @@ import re
 # Backup the original sys.path
 original_sys_path = sys.path.copy()
 
-import litellm
+import hangarllm
 
-public_exceptions = litellm.LITELLM_EXCEPTION_TYPES
+public_exceptions = hangarllm.HANGARLLM_EXCEPTION_TYPES
 # Regular expression to extract the error name
 error_name_pattern = re.compile(r"\.exceptions\.([A-Za-z]+Error)")
 
@@ -39,7 +39,7 @@ try:
         content = docs_file.read()
 
         exceptions_section = re.search(
-            r"## LiteLLM Exceptions(.*?)\n##", content, re.DOTALL
+            r"## HangarLLM Exceptions(.*?)\n##", content, re.DOTALL
         )
         if exceptions_section:
             # Step 2: Extract the table content
@@ -72,7 +72,7 @@ undocumented_keys = error_names - documented_keys
 
 if undocumented_keys:
     raise Exception(
-        f"\nKeys not documented in 'LiteLLM Exceptions': {undocumented_keys}"
+        f"\nKeys not documented in 'HangarLLM Exceptions': {undocumented_keys}"
     )
 else:
-    print("\nAll keys are documented in 'LiteLLM Exceptions'. - {}".format(error_names))
+    print("\nAll keys are documented in 'HangarLLM Exceptions'. - {}".format(error_names))

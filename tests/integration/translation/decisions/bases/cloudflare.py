@@ -6,8 +6,8 @@ from integration.translation.case import TranslationTestCase
 """
 CLEF_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/decisions",
-    litellm_request={
+    hangarllm_endpoint="/v1/decisions",
+    hangarllm_request={
         "model": "cloudflare/@cf/cloudflare/clef",
         "input": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": [
@@ -70,7 +70,7 @@ CLEF_TEST_CASE: Final = TranslationTestCase(
         "errors": [],
         "messages": [],
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "clef",
         "answers": [
             {"type": "predicate", "name": "defect", "probability": 0.9345},
@@ -103,8 +103,8 @@ CLEF_TEST_CASE: Final = TranslationTestCase(
 )
 CLEF_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
     scenario="systemone",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "cloudflare/@cf/cloudflare/clef",
         "state": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": {
@@ -158,7 +158,7 @@ CLEF_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
         "errors": [],
         "messages": [],
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "clef",
         "answers": {
             "defect": {"type": "noul", "noul": 0.9345},

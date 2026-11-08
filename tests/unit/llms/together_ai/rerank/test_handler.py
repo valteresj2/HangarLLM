@@ -6,8 +6,8 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.together_ai.rerank.handler import TogetherAIRerank
+import hangarllm
+from hangarllm.llms.together_ai.rerank.handler import TogetherAIRerank
 
 API_BASE = "https://api.together.example/v1"
 RERANKED = {
@@ -23,7 +23,7 @@ NON_OBJECT_BODIES = [7, "sensitive-document", [{"id": "sensitive-document"}]]
 
 @pytest.fixture
 def rerank_route(monkeypatch: pytest.MonkeyPatch) -> Iterator[respx.Route]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with respx.mock as router:
         yield router.post(f"{API_BASE}/rerank")
 
@@ -40,7 +40,7 @@ def _rerank(*, is_async: bool):
     )
 
 
-def _assert_is_the_reranking(response: litellm.RerankResponse, route: respx.Route) -> None:
+def _assert_is_the_reranking(response: hangarllm.RerankResponse, route: respx.Route) -> None:
     assert response.id == "rr-1"
     assert response.results == [
         {"index": 1, "relevance_score": 0.9, "document": {"text": "Paris"}},

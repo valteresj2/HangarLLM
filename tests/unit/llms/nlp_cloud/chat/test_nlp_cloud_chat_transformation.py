@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.llms.nlp_cloud.chat.transformation import NLPCloudConfig
+from hangarllm.llms.nlp_cloud.chat.transformation import NLPCloudConfig
 
 
 @pytest.mark.parametrize(

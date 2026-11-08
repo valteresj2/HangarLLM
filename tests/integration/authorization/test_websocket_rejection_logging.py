@@ -72,7 +72,7 @@ def owned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[OwnedProxy]:
         owned_proxy_process(
             base,
             tmp_path_factory.mktemp("websocket-rejection"),
-            {"LITELLM_DISABLE_NO_REDIS_WARNING": "true"},
+            {"HANGARLLM_DISABLE_NO_REDIS_WARNING": "true"},
             workers=2,
         ) as proxy,
     ):

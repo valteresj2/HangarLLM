@@ -11,7 +11,7 @@ import pytest
 import yaml
 from pydantic import JsonValue
 
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 from tests.integration._support.client import Gateway, Scenario, eventually, object_value, string_value
 from tests.integration._support.process import graceful_stop_seconds, owned_proxy_process
 
@@ -29,7 +29,7 @@ def _deployment(gateway: Gateway, scenario: Scenario, model_name: str, model_inf
         "/model/new",
         {
             "model_name": model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "integration-provider-key",
                 "api_base": f"{gateway.upstream_url}/v1",
@@ -210,7 +210,7 @@ def _yaml_config(
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     deployment: Final = {
         "model_name": model_name,
-        "litellm_params": {"model": "openai/gpt-4o-mini", "api_base": f"{upstream_url}/v1", "api_key": "yaml-key"},
+        "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_base": f"{upstream_url}/v1", "api_key": "yaml-key"},
         "model_info": dict(model_info),
     }
     path: Final = directory / "custom_fields.yaml"

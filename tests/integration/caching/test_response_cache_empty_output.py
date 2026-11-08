@@ -71,7 +71,7 @@ SETTLE_SECONDS: Final = 15
 T = TypeVar("T")
 _Answer: TypeAlias = tuple[frozenset[str], str, tuple[str, ...]]
 SPEND_SQL: Final = (
-    'SELECT request_id, cache_hit, spend FROM "LiteLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime", request_id'
+    'SELECT request_id, cache_hit, spend FROM "HangarLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime", request_id'
 )
 
 
@@ -183,7 +183,7 @@ def test_chat_empty_choices_reach_upstream_again_and_the_real_answer_is_cached(g
         )
         served: Final = hit.parse()
         assert served.id == real.id and served.choices[0].message.content == "scripted", hit.text
-        assert hit.headers.get("x-litellm-cache-key"), dict(hit.headers)
+        assert hit.headers.get("x-hangarllm-cache-key"), dict(hit.headers)
         assert upstream.calls(handle.scenario_id) == 2
 
 
@@ -236,7 +236,7 @@ def test_text_completion_empty_choices_reach_upstream_again(gateway: Gateway) ->
         await_entry(store, response_id(real))
         hit: Final = gateway.request("POST", "/v1/completions", body)
         assert response_id(hit) == response_id(real) and text_of_first_choice(hit) == "scripted", hit.text
-        assert hit.headers.get("x-litellm-cache-key"), dict(hit.headers)
+        assert hit.headers.get("x-hangarllm-cache-key"), dict(hit.headers)
         assert upstream.calls(handle.scenario_id) == 2
 
 
@@ -261,7 +261,7 @@ def test_responses_empty_output_reaches_upstream_again(gateway: Gateway) -> None
                 hit = await client.responses.with_raw_response.create(model=model, input=text)
                 served = hit.parse()
                 assert served.output[0].id == real.output[0].id and served.output_text == "scripted", hit.text
-                assert hit.headers.get("x-litellm-cache-key"), dict(hit.headers)
+                assert hit.headers.get("x-hangarllm-cache-key"), dict(hit.headers)
                 assert upstream.calls(handle.scenario_id) == 2
 
         asyncio.run(drive())
@@ -695,7 +695,7 @@ def test_cache_delete_on_the_entry_key_makes_the_next_request_reach_upstream(gat
         hit: Final = eventually(
             lambda: _chat(gateway, request), lambda answer: response_id(answer) == response_id(refilled), SETTLE_SECONDS
         )
-        assert hit.headers.get("x-litellm-cache-key") == key, dict(hit.headers)
+        assert hit.headers.get("x-hangarllm-cache-key") == key, dict(hit.headers)
         assert upstream.calls(handle.scenario_id) == 2
 
 
@@ -715,7 +715,7 @@ def _request_for(path: str, model: str, text: str) -> dict[str, JsonValue]:
 
 
 @pytest.mark.parametrize(
-    ("path", "body", "litellm_model", "field", "value"),
+    ("path", "body", "hangarllm_model", "field", "value"),
     (
         pytest.param("/v1/chat/completions", CHAT, CHAT_MODEL, "choices", None, id="chat-choices-null"),
         pytest.param("/v1/chat/completions", CHAT, CHAT_MODEL, "choices", MISSING, id="chat-choices-missing"),
@@ -724,13 +724,13 @@ def _request_for(path: str, model: str, text: str) -> dict[str, JsonValue]:
     ),
 )
 def test_malformed_upstream_answers_are_an_error_and_never_cached(
-    gateway: Gateway, path: str, body: Mapping[str, JsonValue], litellm_model: str, field: str, value: object
+    gateway: Gateway, path: str, body: Mapping[str, JsonValue], hangarllm_model: str, field: str, value: object
 ) -> None:
     upstream: Final = Upstream(gateway.upstream_url)
     with gateway.scenario() as scenario:
         handle: Final = scripted(scenario, json_response(_shape(body, field, value)))
         control: Final = scripted(scenario, json_response(CHAT))
-        model: Final = scenario.model(model=litellm_model, api_base=handle.api_base())
+        model: Final = scenario.model(model=hangarllm_model, api_base=handle.api_base())
         control_model: Final = scenario.model(api_base=control.api_base())
         key: Final = scenario.key(models=[model, control_model])
         request: Final = _request_for(path, model, prompt())
@@ -746,7 +746,7 @@ def test_malformed_upstream_answers_are_an_error_and_never_cached(
 
 
 @pytest.mark.parametrize(
-    ("path", "body", "litellm_model", "field", "value"),
+    ("path", "body", "hangarllm_model", "field", "value"),
     (
         pytest.param("/v1/responses", RESPONSE, CHAT_MODEL, "output", None, id="responses-output-null"),
         pytest.param("/v1/responses", RESPONSE, CHAT_MODEL, "output", MISSING, id="responses-output-missing"),
@@ -755,12 +755,12 @@ def test_malformed_upstream_answers_are_an_error_and_never_cached(
     ),
 )
 def test_answers_without_the_output_field_reach_upstream_again(
-    gateway: Gateway, path: str, body: Mapping[str, JsonValue], litellm_model: str, field: str, value: object
+    gateway: Gateway, path: str, body: Mapping[str, JsonValue], hangarllm_model: str, field: str, value: object
 ) -> None:
     upstream: Final = Upstream(gateway.upstream_url)
     with gateway.scenario() as scenario:
         handle: Final = scripted(scenario, json_response(_shape(body, field, value)))
-        model: Final = scenario.model(model=litellm_model, api_base=handle.api_base())
+        model: Final = scenario.model(model=hangarllm_model, api_base=handle.api_base())
         request: Final = _request_for(path, model, prompt())
         first: Final = gateway.request("POST", path, request)
         assert first.status_code == 200, first.text

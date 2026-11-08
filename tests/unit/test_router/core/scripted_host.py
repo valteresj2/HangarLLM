@@ -1,13 +1,13 @@
 """
 A host for driving ``PythonCore`` in isolation.
 
-``PythonCore`` reaches outside itself only through its host (``litellm/router_python_host.py``):
+``PythonCore`` reaches outside itself only through its host (``hangarllm/router_python_host.py``):
 inference calls, backoff sleeps, the process settings, callback registration and the process-wide
 cache. ``ScriptedHost`` serves all of those from the test. Inference ops answer from a per-model
 script and record every call; sleeps are recorded and return at once; the process settings are a
 fixed ``RouterDynamicConfig`` the test can replace; callbacks live in the host's own lists, and an
-answered call runs the success or failure callbacks the core registered, as litellm's logging does.
-Ops that are not inference (``get_model_info``, ``should_retry``, ...) are litellm's own functions.
+answered call runs the success or failure callbacks the core registered, as hangarllm's logging does.
+Ops that are not inference (``get_model_info``, ``should_retry``, ...) are hangarllm's own functions.
 """
 
 import dataclasses
@@ -16,14 +16,14 @@ from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
 from types import MethodType
 from typing import Final
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.agentic_followup_failure import mark_agentic_followup_failure
-from litellm.litellm_core_utils.logging_callback_manager import LoggingCallbackManager
-from litellm.router_config import RouterDynamicConfig, build_router_config
-from litellm.router_core import RouterCore
-from litellm.router_python_host import CallbackList, Endpoint, PythonHost
-from litellm.types.utils import EmbeddingResponse, ModelResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.agentic_followup_failure import mark_agentic_followup_failure
+from hangarllm.hangarllm_core_utils.logging_callback_manager import LoggingCallbackManager
+from hangarllm.router_config import RouterDynamicConfig, build_router_config
+from hangarllm.router_core import RouterCore
+from hangarllm.router_python_host import CallbackList, Endpoint, PythonHost
+from hangarllm.types.utils import EmbeddingResponse, ModelResponse
 
 INFERENCE_OPS: Final = frozenset(
     {
@@ -79,7 +79,7 @@ class Call:
 
     @property
     def model_group(self) -> str | None:
-        metadata: Final = self.kwargs.get("metadata") or self.kwargs.get("litellm_metadata")
+        metadata: Final = self.kwargs.get("metadata") or self.kwargs.get("hangarllm_metadata")
         return metadata.get("model_group") if isinstance(metadata, Mapping) else None
 
 
@@ -104,7 +104,7 @@ def embedding_response(model: str = "text-embedding-3-small") -> EmbeddingRespon
 
 
 def _fresh_error(template: BaseException) -> BaseException:
-    """A copy of ``template`` with the same attributes (``copy.copy`` rebuilds litellm errors from
+    """A copy of ``template`` with the same attributes (``copy.copy`` rebuilds hangarllm errors from
     their args and drops ``status_code`` and the rest)."""
     error: Final = BaseException.__new__(type(template))
     error.args = template.args
@@ -118,24 +118,24 @@ def _default_response(op: str, model: str) -> object:
     return completion_response(model=model)
 
 
-def rate_limit(model: str = "gpt-4o", message: str = "slow down") -> litellm.RateLimitError:
-    return litellm.RateLimitError(message=message, llm_provider="openai", model=model)
+def rate_limit(model: str = "gpt-4o", message: str = "slow down") -> hangarllm.RateLimitError:
+    return hangarllm.RateLimitError(message=message, llm_provider="openai", model=model)
 
 
-def bad_request(model: str = "gpt-4o", message: str = "bad input") -> litellm.BadRequestError:
-    return litellm.BadRequestError(message=message, llm_provider="openai", model=model)
+def bad_request(model: str = "gpt-4o", message: str = "bad input") -> hangarllm.BadRequestError:
+    return hangarllm.BadRequestError(message=message, llm_provider="openai", model=model)
 
 
-def context_window(model: str = "gpt-4o") -> litellm.ContextWindowExceededError:
-    return litellm.ContextWindowExceededError(message="too long", llm_provider="openai", model=model)
+def context_window(model: str = "gpt-4o") -> hangarllm.ContextWindowExceededError:
+    return hangarllm.ContextWindowExceededError(message="too long", llm_provider="openai", model=model)
 
 
-def content_policy(model: str = "gpt-4o") -> litellm.ContentPolicyViolationError:
-    return litellm.ContentPolicyViolationError(message="blocked", llm_provider="openai", model=model)
+def content_policy(model: str = "gpt-4o") -> hangarllm.ContentPolicyViolationError:
+    return hangarllm.ContentPolicyViolationError(message="blocked", llm_provider="openai", model=model)
 
 
-def server_error(model: str = "gpt-4o") -> litellm.InternalServerError:
-    return litellm.InternalServerError(message="boom", llm_provider="openai", model=model)
+def server_error(model: str = "gpt-4o") -> hangarllm.InternalServerError:
+    return hangarllm.InternalServerError(message="boom", llm_provider="openai", model=model)
 
 
 def agentic_followup_failure(error: Exception) -> Exception:
@@ -144,16 +144,16 @@ def agentic_followup_failure(error: Exception) -> Exception:
     return error
 
 
-def timeout(model: str = "gpt-4o") -> litellm.Timeout:
-    return litellm.Timeout(message="timed out", llm_provider="openai", model=model)
+def timeout(model: str = "gpt-4o") -> hangarllm.Timeout:
+    return hangarllm.Timeout(message="timed out", llm_provider="openai", model=model)
 
 
-def auth_error(model: str = "gpt-4o") -> litellm.AuthenticationError:
-    return litellm.AuthenticationError(message="bad key", llm_provider="openai", model=model)
+def auth_error(model: str = "gpt-4o") -> hangarllm.AuthenticationError:
+    return hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model=model)
 
 
 def dynamic_config(**changes: object) -> RouterDynamicConfig:  # kwargs-ok: RouterDynamicConfig fields
-    """Process settings as a fresh litellm process has them, with no callbacks, cache or fallbacks."""
+    """Process settings as a fresh hangarllm process has them, with no callbacks, cache or fallbacks."""
     base: Final = RouterDynamicConfig(
         version=1,
         num_retries=None,
@@ -167,18 +167,18 @@ def dynamic_config(**changes: object) -> RouterDynamicConfig:  # kwargs-ok: Rout
         content_policy_fallbacks=None,
         drop_params=None,
         disable_token_counter=False,
-        provider_list=litellm.provider_list,
+        provider_list=hangarllm.provider_list,
         expose_router_debug_in_errors=False,
         redact_user_api_key_info=None,
         model_alias_map={},
-        model_cost=litellm.model_cost,
-        known_custom_logger_compatible_callbacks=litellm._known_custom_logger_compatible_callbacks,
-        exception_types=litellm.LITELLM_EXCEPTION_TYPES,
+        model_cost=hangarllm.model_cost,
+        known_custom_logger_compatible_callbacks=hangarllm._known_custom_logger_compatible_callbacks,
+        exception_types=hangarllm.HANGARLLM_EXCEPTION_TYPES,
         callbacks=[],
         success_callback=[],
         failure_callback=[],
         input_callback=[],
-        callback_manager=litellm.logging_callback_manager,
+        callback_manager=hangarllm.logging_callback_manager,
         cache=None,
     )
     return dataclasses.replace(base, **changes)
@@ -196,7 +196,7 @@ class HostCallbacks:
         if callback not in target:
             target.append(callback)
 
-    def add_litellm_callback(self, callback: object) -> None:
+    def add_hangarllm_callback(self, callback: object) -> None:
         self._add_to("callbacks", callback)
 
     def _add_to(self, name: str, callback: object) -> None:
@@ -204,19 +204,19 @@ class HostCallbacks:
         if callback not in target:
             target.append(callback)
 
-    def add_litellm_success_callback(self, callback: object) -> None:
+    def add_hangarllm_success_callback(self, callback: object) -> None:
         self._add("success_callback", callback)
 
-    def add_litellm_async_success_callback(self, callback: object) -> None:
+    def add_hangarllm_async_success_callback(self, callback: object) -> None:
         self._add("_async_success_callback", callback)
 
-    def add_litellm_failure_callback(self, callback: object) -> None:
+    def add_hangarllm_failure_callback(self, callback: object) -> None:
         self._add("failure_callback", callback)
 
-    def add_litellm_async_failure_callback(self, callback: object) -> None:
+    def add_hangarllm_async_failure_callback(self, callback: object) -> None:
         self._add("_async_failure_callback", callback)
 
-    def add_litellm_input_callback(self, callback: object) -> None:
+    def add_hangarllm_input_callback(self, callback: object) -> None:
         self._add("input_callback", callback)
 
     def get_custom_logger_key(self, custom_logger: CustomLogger) -> str:
@@ -263,7 +263,7 @@ class HostCallbacks:
 
 class ScriptedHost(PythonHost):
     """
-    ``script`` maps a deployment's ``litellm_params.model`` (or ``"*"`` for any) to the outcomes its
+    ``script`` maps a deployment's ``hangarllm_params.model`` (or ``"*"`` for any) to the outcomes its
     calls answer in turn; the last outcome repeats. A model with no script answers a default response.
     """
 
@@ -378,16 +378,16 @@ class ScriptedHost(PythonHost):
 
     def _logging_kwargs(
         self, call: Call, error: BaseException | None, response: object
-    ) -> dict[str, object]:  # mutable-ok: litellm's logging kwargs
+    ) -> dict[str, object]:  # mutable-ok: hangarllm's logging kwargs
         kwargs: Final = call.kwargs
         usage: Final = getattr(response, "usage", None)
-        metadata: Final = kwargs.get("metadata") or kwargs.get("litellm_metadata") or {}
+        metadata: Final = kwargs.get("metadata") or kwargs.get("hangarllm_metadata") or {}
         model_info: Final = kwargs.get("model_info") or {}
         return {
             "call_type": call.op,
             "model": call.model,
             "exception": error,
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": metadata,
                 "model_info": model_info,
                 "api_base": kwargs.get("api_base"),
@@ -397,7 +397,7 @@ class ScriptedHost(PythonHost):
                 "total_tokens": getattr(usage, "total_tokens", 0) or 0,
                 "model_group": metadata.get("model_group"),
                 "model_id": model_info.get("id"),
-                "hidden_params": {"litellm_model_name": call.model},
+                "hidden_params": {"hangarllm_model_name": call.model},
             },
         }
 
@@ -438,7 +438,7 @@ class ScriptedHost(PythonHost):
 
     def _logs_at_stream_end(self, call: Call, response: object) -> bool:
         """A stream whose logging object logs through this host (``streaming_helpers.HostLogging``)
-        logs when it ends, as litellm's stream logging does, so the call logs nothing when it opens."""
+        logs when it ends, as hangarllm's stream logging does, so the call logs nothing when it opens."""
         bind: Final[object] = getattr(getattr(response, "logging_obj", None), "bind_host", None)
         if not callable(bind):
             return False
@@ -470,14 +470,14 @@ def deployment(
     model_name: str,
     deployment_id: str,
     model: str | None = None,
-    **params: object,  # kwargs-ok: extra litellm_params
+    **params: object,  # kwargs-ok: extra hangarllm_params
 ) -> dict[str, object]:  # mutable-ok: a model_list entry
     """One ``model_list`` entry; ``model`` defaults to ``openai/<deployment_id>`` so each deployment
     answers its own script."""
     model_info: Final = params.pop("model_info", None)
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model or f"openai/{deployment_id}", "api_key": "sk-test", **params},
+        "hangarllm_params": {"model": model or f"openai/{deployment_id}", "api_key": "sk-test", **params},
         "model_info": {"id": deployment_id, **(model_info if isinstance(model_info, dict) else {})},
     }
 
@@ -488,7 +488,7 @@ CoreBuilder = Callable[..., RouterCore]
 
 def rust_core(host: ScriptedHost, **arguments: object) -> RouterCore:  # kwargs-ok: the router's constructor arguments
     """A ``RustCore`` on ``host``, built the way ``make_core`` builds one."""
-    from litellm.router_rust.core import RustCore
+    from hangarllm.router_rust.core import RustCore
 
     return RustCore.build(build_router_config(arguments), host)
 

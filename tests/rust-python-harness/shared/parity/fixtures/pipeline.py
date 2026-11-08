@@ -136,7 +136,7 @@ def _record_job(job: RecordingJob[InputT], case_type: type[CaseT]) -> RecordedFi
         raise RuntimeError(f"Upstream returned transient HTTP {status}; rerun recording to retry")
     case: Final = case_type.model_validate(
         {
-            "litellm_input": job.case_input,
+            "hangarllm_input": job.case_input,
             "provider_responses": tuple(item.response for item in interactions),
         }
     )

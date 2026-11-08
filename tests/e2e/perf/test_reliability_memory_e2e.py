@@ -83,7 +83,7 @@ from e2e_config import (
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from lifecycle import ResourceManager
 from memory_readings import RssCapture, RssReading, WorkerKey, read_rss_everywhere
-from models import ChatMessage, LiteLLMParamsBody, ReliabilityChatBody, RouterSettingsOverride
+from models import ChatMessage, HangarLLMParamsBody, ReliabilityChatBody, RouterSettingsOverride
 from proxy_client import ProxyClient
 
 pytestmark = [pytest.mark.e2e, pytest.mark.perf]
@@ -118,7 +118,7 @@ class WorkerGrowth:
 def _create_never_benched_refusing_deployment(proxy: ProxyClient, name: str) -> str:
     return proxy.create_model(
         name,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=REFUSING_MODEL, api_key="sk-unreachable", api_base="http://127.0.0.1:9/v1", cooldown_time=0
         ),
     )

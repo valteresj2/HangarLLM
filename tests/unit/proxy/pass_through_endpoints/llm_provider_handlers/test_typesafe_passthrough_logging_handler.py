@@ -5,18 +5,18 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.typesafe_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.typesafe_passthrough_logging_handler import (
     TypeSafePassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
+from hangarllm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
 
 
 @pytest.fixture(autouse=True)
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
 
 def _response() -> httpx.Response:
@@ -51,7 +51,7 @@ def _handler_result(response_body: dict, request_body: dict) -> dict:
 def test_uses_registry_pricing_and_standard_usage():
     logging_obj = _logging_obj()
     model_key = "typesafe/jev-1.13.0"
-    model_cost = litellm.model_cost[model_key]
+    model_cost = hangarllm.model_cost[model_key]
     response = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
         response_body={"model": "jev-1.13.0", "usage": {"input_tokens": 312, "output_tokens": 48}},
@@ -79,10 +79,10 @@ def test_uses_decisions_pricing_fields_when_the_row_has_them(monkeypatch: pytest
         "input_cost_per_token_decisions": 2.0,
         "output_cost_per_token": 1.0,
         "output_cost_per_token_decisions": 3.0,
-        "litellm_provider": "bespoke",
+        "hangarllm_provider": "bespoke",
         "mode": "chat",
     }
-    monkeypatch.setitem(litellm.model_cost, f"bespoke/{model}", pricing)
+    monkeypatch.setitem(hangarllm.model_cost, f"bespoke/{model}", pricing)
     result: Final = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
         response_body={"model": model, "usage": {"input_tokens": 2, "output_tokens": 1}},
@@ -105,7 +105,7 @@ def test_falls_back_to_request_model_when_response_model_is_missing():
         {"model": "jev-latest"},
     )
 
-    model_cost = litellm.model_cost["typesafe/jev-latest"]
+    model_cost = hangarllm.model_cost["typesafe/jev-latest"]
     expected_cost = 10 * model_cost["input_cost_per_token"] + 2 * model_cost["output_cost_per_token"]
     assert result["kwargs"]["model"] == "typesafe/jev-latest"
     assert result["kwargs"]["response_cost"] == pytest.approx(expected_cost)
@@ -169,7 +169,7 @@ def test_success_handler_dispatches_to_typesafe_handler():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ("decisions", "evaluation"), ids=("decisions", "legacy-evaluation"))
 @pytest.mark.parametrize("guardrail_cost", [0.0, 0.25])
-@pytest.mark.parametrize("metadata_slot", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_slot", ["metadata", "hangarllm_metadata"])
 @pytest.mark.parametrize(
     "provider,requested,routing_model",
     [
@@ -195,10 +195,10 @@ async def test_oss_gateway_accounts_for_checkpoint_usage_and_registered_cost(
     pricing_row: Final = {
         "input_cost_per_token": input_rate,
         "output_cost_per_token": output_rate,
-        "litellm_provider": provider,
+        "hangarllm_provider": provider,
         "mode": mode,
     }
-    monkeypatch.setitem(litellm.model_cost, model, pricing_row)
+    monkeypatch.setitem(hangarllm.model_cost, model, pricing_row)
     start: Final = datetime.now()
     logging_obj: Final = Logging(
         model=requested,
@@ -206,14 +206,14 @@ async def test_oss_gateway_accounts_for_checkpoint_usage_and_registered_cost(
         stream=False,
         call_type="pass_through_endpoint",
         start_time=start,
-        litellm_call_id="oss-accounting",
+        hangarllm_call_id="oss-accounting",
         function_id="oss-accounting",
         kwargs={},
     )
     from fastapi import Request
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
 
     request: Final = Request(
         {
@@ -237,14 +237,14 @@ async def test_oss_gateway_accounts_for_checkpoint_usage_and_registered_cost(
         passthrough_logging_payload={"url": f"https://{provider}.test/v1/systemone"},
         _parsed_body=request_body,
     )
-    logging_kwargs["litellm_params"]["metadata"]["standard_logging_guardrail_information"] = [
+    logging_kwargs["hangarllm_params"]["metadata"]["standard_logging_guardrail_information"] = [
         {"guardrail_name": "trusted-hook", "guardrail_cost": guardrail_cost},
     ]
     logging_obj.update_environment_variables(
         model=requested,
         user="unknown",
         optional_params={},
-        litellm_params=logging_kwargs["litellm_params"],
+        hangarllm_params=logging_kwargs["hangarllm_params"],
         call_type="pass_through_endpoint",
     )
     body: Final = {
@@ -282,9 +282,9 @@ async def test_oss_gateway_accounts_for_checkpoint_usage_and_registered_cost(
     assert logged["standard_logging_object"]["model_group"] == f"{provider}/{requested}"
     assert logged["standard_logging_object"]["response_cost"] == pytest.approx(expected_cost + guardrail_cost)
 
-    from litellm.caching.caching import DualCache
-    from litellm.exceptions import BudgetExceededError
-    from litellm.proxy.hooks.model_max_budget_limiter import PROXY_VirtualKeyModelMaxBudgetLimiter
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.exceptions import BudgetExceededError
+    from hangarllm.proxy.hooks.model_max_budget_limiter import PROXY_VirtualKeyModelMaxBudgetLimiter
 
     budget_limiter: Final = PROXY_VirtualKeyModelMaxBudgetLimiter(DualCache())
     assert await budget_limiter.is_key_within_model_budget(auth, f"{provider}/{requested}")
@@ -298,7 +298,7 @@ def test_openrouter_decisions_response_uses_provider_cost_without_cost_map_row(
 ):
     logging_obj = _logging_obj()
     cost: Final = 1.5834e-5
-    monkeypatch.delitem(litellm.model_cost, "openrouter/typesafe/jev-1.13", raising=False)
+    monkeypatch.delitem(hangarllm.model_cost, "openrouter/typesafe/jev-1.13", raising=False)
     response = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
         response_body={
@@ -326,9 +326,9 @@ def test_openrouter_decisions_response_uses_provider_cost_without_cost_map_row(
 @pytest.mark.parametrize("reported_cost", [float("nan"), float("inf")])
 def test_openrouter_non_finite_cost_logs_the_token_price(monkeypatch: pytest.MonkeyPatch, reported_cost: float) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "openrouter/typesafe/jev-1.13",
-        {"input_cost_per_token": 1.0, "output_cost_per_token": 3.0, "litellm_provider": "openrouter", "mode": "chat"},
+        {"input_cost_per_token": 1.0, "output_cost_per_token": 3.0, "hangarllm_provider": "openrouter", "mode": "chat"},
     )
     logging_obj: Final = _logging_obj()
 
@@ -398,7 +398,7 @@ def test_success_handler_skips_typesafe_pricing_for_non_decisions_openrouter_rou
 
 
 def test_eu_jev_decision_is_priced_from_its_registry_row():
-    model_cost: Final = litellm.model_cost["eu_jev/eu-jeff-1.0.0"]
+    model_cost: Final = hangarllm.model_cost["eu_jev/eu-jeff-1.0.0"]
     response: Final = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
         response_body={"model": "eu-jeff-1.0.0", "usage": {"input_tokens": 64, "output_tokens": 0}},
@@ -427,7 +427,7 @@ def test_eu_jev_decision_is_priced_from_its_registry_row():
 )
 def test_eu_jev_release_without_its_own_row_is_priced_as_the_latest_alias(request_body: dict[str, object]) -> None:
     unlisted_release: Final = "eu-jeff-99.0.0"
-    assert f"eu_jev/{unlisted_release}" not in litellm.model_cost
+    assert f"eu_jev/{unlisted_release}" not in hangarllm.model_cost
     response: Final = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
         response_body={"model": unlisted_release, "usage": {"input_tokens": 64, "output_tokens": 0}},
@@ -441,7 +441,7 @@ def test_eu_jev_release_without_its_own_row_is_priced_as_the_latest_alias(reques
         custom_llm_provider="eu_jev",
     )
 
-    latest_cost: Final = litellm.model_cost["eu_jev/eu-jeff-latest"]["input_cost_per_token"]
+    latest_cost: Final = hangarllm.model_cost["eu_jev/eu-jeff-latest"]["input_cost_per_token"]
     assert response["kwargs"]["model"] == f"eu_jev/{unlisted_release}"
     assert latest_cost > 0
     assert response["kwargs"]["response_cost"] == pytest.approx(64 * latest_cost)
@@ -449,9 +449,9 @@ def test_eu_jev_release_without_its_own_row_is_priced_as_the_latest_alias(reques
 
 def test_eu_jev_pinned_release_is_not_priced_as_the_latest_alias(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "eu_jev/eu-jeff-latest",
-        {**litellm.model_cost["eu_jev/eu-jeff-latest"], "input_cost_per_token": 1.0},
+        {**hangarllm.model_cost["eu_jev/eu-jeff-latest"], "input_cost_per_token": 1.0},
     )
     response: Final = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
@@ -466,7 +466,7 @@ def test_eu_jev_pinned_release_is_not_priced_as_the_latest_alias(monkeypatch: py
         custom_llm_provider="eu_jev",
     )
 
-    pinned_cost: Final = litellm.model_cost["eu_jev/eu-jeff-1.0.0"]["input_cost_per_token"]
+    pinned_cost: Final = hangarllm.model_cost["eu_jev/eu-jeff-1.0.0"]["input_cost_per_token"]
     assert response["kwargs"]["response_cost"] == pytest.approx(64 * pinned_cost)
 
 

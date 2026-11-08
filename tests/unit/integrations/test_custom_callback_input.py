@@ -12,11 +12,11 @@ import pytest
 import pytest_asyncio
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import StandardLoggingPayloadSetup
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 def _provider_response(request: httpx.Request) -> httpx.Response:
@@ -239,7 +239,7 @@ class _CallbackCapture(CustomLogger):
 
 @pytest.fixture
 def provider_router(monkeypatch: pytest.MonkeyPatch) -> Iterator[respx.MockRouter]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("AZURE_API_KEY", "test-key")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
@@ -252,11 +252,11 @@ def provider_router(monkeypatch: pytest.MonkeyPatch) -> Iterator[respx.MockRoute
 async def callback_capture(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[_CallbackCapture]:
     await _drain_logging_worker()
     capture: Final = _CallbackCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
-    monkeypatch.setattr(litellm, "success_callback", [capture])
-    monkeypatch.setattr(litellm, "_async_success_callback", [capture])
-    monkeypatch.setattr(litellm, "failure_callback", [capture])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "success_callback", [capture])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [capture])
+    monkeypatch.setattr(hangarllm, "failure_callback", [capture])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [capture])
     try:
         yield capture
     finally:
@@ -296,7 +296,7 @@ async def _assert_success_payload(
                 default=str,
             )
         )
-        and (call_id is None or call.kwargs["kwargs"].get("litellm_call_id") == call_id)
+        and (call_id is None or call.kwargs["kwargs"].get("hangarllm_call_id") == call_id)
     )
     assert calls, (
         f"no callback event matched model={expected_model!r}, messages={messages!r}; "
@@ -319,7 +319,7 @@ async def _assert_success_payload(
 
 
 def test_amazing_sync_embedding(provider_router: respx.MockRouter, callback_capture: _CallbackCapture) -> None:
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="text-embedding-3-small",
         input=["sync embedding marker"],
         metadata={"requester_metadata": {"marker": "embedding"}},
@@ -335,7 +335,7 @@ def test_amazing_sync_embedding(provider_router: respx.MockRouter, callback_capt
 
 @pytest.mark.asyncio
 async def test_async_embedding_openai(provider_router: respx.MockRouter, callback_capture: _CallbackCapture) -> None:
-    response: Final = await litellm.aembedding(model="text-embedding-3-small", input=["openai embedding marker"])
+    response: Final = await hangarllm.aembedding(model="text-embedding-3-small", input=["openai embedding marker"])
     await _assert_success_payload(callback_capture, "text-embedding-3-small", None, "openai embedding marker")
     assert response.data[0]["embedding"] == [0.1, 0.2, 0.3]
     event: Final = callback_capture.async_success.call_args.kwargs["kwargs"]
@@ -344,7 +344,7 @@ async def test_async_embedding_openai(provider_router: respx.MockRouter, callbac
 
 @pytest.mark.asyncio
 async def test_async_embedding_azure(provider_router: respx.MockRouter, callback_capture: _CallbackCapture) -> None:
-    response: Final = await litellm.aembedding(
+    response: Final = await hangarllm.aembedding(
         model="azure/text-embedding-ada-002",
         input=["azure embedding marker"],
         api_base="https://provider.test/v1",
@@ -358,7 +358,7 @@ async def test_async_embedding_azure(provider_router: respx.MockRouter, callback
 
 @pytest.mark.asyncio
 async def test_async_embedding_bedrock(provider_router: respx.MockRouter, callback_capture: _CallbackCapture) -> None:
-    response: Final = await litellm.aembedding(
+    response: Final = await hangarllm.aembedding(
         model="bedrock/cohere.embed-english-v3",
         input=["bedrock embedding marker"],
         aws_access_key_id="test",
@@ -375,7 +375,7 @@ async def test_async_embedding_bedrock(provider_router: respx.MockRouter, callba
 async def test_async_text_completion_openai_stream(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    response: Final = await litellm.atext_completion(
+    response: Final = await hangarllm.atext_completion(
         model="gpt-3.5-turbo",
         prompt="text completion marker",
         stream=True,
@@ -391,7 +391,7 @@ async def test_async_text_completion_openai_stream(
 
 @pytest.mark.asyncio
 async def test_image_generation_openai(provider_router: respx.MockRouter, callback_capture: _CallbackCapture) -> None:
-    response: Final = await litellm.aimage_generation(model="openai/gpt-image-1", prompt="image marker")
+    response: Final = await hangarllm.aimage_generation(model="openai/gpt-image-1", prompt="image marker")
     assert response.data[0].url == "https://images.test/result"
     await _assert_success_payload(callback_capture, "openai/gpt-image-1", None, "image marker")
     call: Final = callback_capture.async_success.call_args or callback_capture.sync_success.call_args
@@ -403,8 +403,8 @@ async def test_image_generation_openai(provider_router: respx.MockRouter, callba
 def test_logging_standard_payload_failure_call(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    with pytest.raises(litellm.AuthenticationError):
-        litellm.completion(
+    with pytest.raises(hangarllm.AuthenticationError):
+        hangarllm.completion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "failure marker"}],
             api_key="bad-key",
@@ -426,7 +426,7 @@ def test_logging_standard_payload_failure_call(
 async def test_standard_logging_payload_stream_usage(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="anthropic/claude-test",
         messages=[{"role": "user", "content": "usage marker"}],
         stream=True,
@@ -443,7 +443,7 @@ async def test_async_chat_openai_stream(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
     messages: Final = [{"role": "user", "content": "async stream marker"}]
-    response: Final = await litellm.acompletion(model="gpt-4o-mini", messages=messages, stream=True)
+    response: Final = await hangarllm.acompletion(model="gpt-4o-mini", messages=messages, stream=True)
     chunks: Final = tuple([chunk async for chunk in response])
     await _assert_success_payload(callback_capture, "gpt-4o-mini", messages)
     assert "".join(chunk.choices[0].delta.content or "" for chunk in chunks) == "Hello"
@@ -454,10 +454,10 @@ async def test_async_custom_handler_completion(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
     messages: Final = [{"role": "user", "content": "completion marker"}]
-    await litellm.acompletion(model="gpt-4o-mini", messages=messages)
+    await hangarllm.acompletion(model="gpt-4o-mini", messages=messages)
     await _assert_success_payload(callback_capture, "gpt-4o-mini", messages)
-    with pytest.raises(litellm.AuthenticationError):
-        await litellm.acompletion(model="gpt-4o-mini", messages=messages, api_key="bad-key")
+    with pytest.raises(hangarllm.AuthenticationError):
+        await hangarllm.acompletion(model="gpt-4o-mini", messages=messages, api_key="bad-key")
     await _drain_logging_worker()
     failure_calls: Final = tuple(
         call
@@ -471,7 +471,7 @@ async def test_async_custom_handler_completion(
 async def test_async_custom_handler_embedding(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    response: Final = await litellm.aembedding(model="text-embedding-3-small", input=["custom handler embedding marker"])
+    response: Final = await hangarllm.aembedding(model="text-embedding-3-small", input=["custom handler embedding marker"])
     await _assert_success_payload(callback_capture, "text-embedding-3-small", None, "custom handler embedding marker")
     assert response.usage.prompt_tokens == 2
 
@@ -480,7 +480,7 @@ async def test_async_custom_handler_embedding(
 async def test_async_custom_handler_embedding_optional_param(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    await litellm.aembedding(model="text-embedding-3-small", input=["optional embedding marker"], user="user-123")
+    await hangarllm.aembedding(model="text-embedding-3-small", input=["optional embedding marker"], user="user-123")
     await _assert_success_payload(callback_capture, "text-embedding-3-small", None, "optional embedding marker")
     call: Final = callback_capture.async_success.call_args
     assert call.kwargs["kwargs"]["optional_params"]["user"] == "user-123"
@@ -491,8 +491,8 @@ async def test_async_custom_handler_embedding_optional_param(
 async def test_async_embedding_failure_reaches_failure_callback(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    with pytest.raises(litellm.AuthenticationError):
-        await litellm.aembedding(model="text-embedding-3-small", input=["failed embedding marker"], api_key="bad-key")
+    with pytest.raises(hangarllm.AuthenticationError):
+        await hangarllm.aembedding(model="text-embedding-3-small", input=["failed embedding marker"], api_key="bad-key")
     await _drain_logging_worker()
     failure_events: Final = tuple(
         call.kwargs["kwargs"]
@@ -501,7 +501,7 @@ async def test_async_embedding_failure_reaches_failure_callback(
     )
     assert len(failure_events) == 1
     assert failure_events[0]["model"] == "text-embedding-3-small"
-    assert isinstance(failure_events[0]["exception"], litellm.AuthenticationError)
+    assert isinstance(failure_events[0]["exception"], hangarllm.AuthenticationError)
     assert callback_capture.async_success.call_args_list == []
 
 
@@ -509,7 +509,7 @@ async def test_async_embedding_failure_reaches_failure_callback(
 async def test_async_custom_handler_stream(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="azure/gpt-4o-mini",
         messages=[{"role": "user", "content": "azure stream marker"}],
         stream=True,
@@ -526,7 +526,7 @@ async def test_async_custom_handler_stream(
 
 def test_chat_openai_stream(provider_router: respx.MockRouter, callback_capture: _CallbackCapture) -> None:
     messages: Final = [{"role": "user", "content": "sync stream marker"}]
-    response: Final = litellm.completion(model="gpt-4o-mini", messages=messages, stream=True)
+    response: Final = hangarllm.completion(model="gpt-4o-mini", messages=messages, stream=True)
     chunks: Final = tuple(response)
     assert "".join(chunk.choices[0].delta.content or "" for chunk in chunks) == "Hello"
     assert callback_capture.sync_logged.acquire(timeout=5)
@@ -539,7 +539,7 @@ def test_chat_openai_stream(provider_router: respx.MockRouter, callback_capture:
 @pytest.mark.asyncio
 async def test_chat_azure_stream(provider_router: respx.MockRouter, callback_capture: _CallbackCapture) -> None:
     messages: Final = [{"role": "user", "content": "sync azure marker"}]
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="azure/gpt-4o-mini",
         messages=messages,
         stream=True,
@@ -554,7 +554,7 @@ async def test_chat_azure_stream(provider_router: respx.MockRouter, callback_cap
 async def test_async_chat_azure_stream(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="azure/gpt-4o-mini",
         messages=[{"role": "user", "content": "async azure marker"}],
         stream=True,
@@ -568,7 +568,7 @@ async def test_async_chat_azure_stream(
 async def test_async_chat_openai_stream_options(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "stream usage marker"}],
         stream=True,
@@ -584,7 +584,7 @@ async def test_standard_logging_payload(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
     messages: Final = [{"role": "user", "content": "standard marker"}]
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gpt-4o-mini",
         messages=messages,
         metadata={"requester_metadata": {"marker": "standard"}},
@@ -607,17 +607,17 @@ async def test_turn_off_message_logging(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     marker: Final = "secret callback message"
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
-    await litellm.acompletion(
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", True)
+    await hangarllm.acompletion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": marker}],
-        litellm_call_id=callback_capture.call_id,
+        hangarllm_call_id=callback_capture.call_id,
     )
     await _assert_success_payload(callback_capture, "gpt-4o-mini", None, call_id=callback_capture.call_id)
     call: Final = callback_capture.async_success.call_args or callback_capture.sync_success.call_args
     event: Final = call.kwargs["kwargs"]
-    assert event["standard_logging_object"]["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
-    assert event["standard_logging_object"]["response"]["choices"][0]["message"]["content"] == "redacted-by-litellm"
+    assert event["standard_logging_object"]["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
+    assert event["standard_logging_object"]["response"]["choices"][0]["message"]["content"] == "redacted-by-hangarllm"
 
 
 @pytest.mark.asyncio
@@ -628,24 +628,24 @@ async def test_logging_async_cache_hit_sync_call(
     monkeypatch: pytest.MonkeyPatch,
     turn_off_message_logging: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", litellm.Cache(type="local"))
-    monkeypatch.setattr(litellm, "turn_off_message_logging", turn_off_message_logging)
+    monkeypatch.setattr(hangarllm, "cache", hangarllm.Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", turn_off_message_logging)
     messages: Final = [{"role": "user", "content": "cache marker"}]
-    first: Final = await litellm.acompletion(
+    first: Final = await hangarllm.acompletion(
         model="gpt-4o-mini",
         messages=messages,
         caching=True,
         stream=True,
-        litellm_call_id=callback_capture.call_id,
+        hangarllm_call_id=callback_capture.call_id,
     )
     first_chunks: Final = tuple([chunk async for chunk in first])
     await _drain_logging_worker()
-    second: Final = await litellm.acompletion(
+    second: Final = await hangarllm.acompletion(
         model="gpt-4o-mini",
         messages=messages,
         caching=True,
         stream=True,
-        litellm_call_id=callback_capture.call_id,
+        hangarllm_call_id=callback_capture.call_id,
     )
     second_chunks: Final = tuple([chunk async for chunk in second])
     await _drain_logging_worker()
@@ -660,8 +660,8 @@ async def test_logging_async_cache_hit_sync_call(
     assert standard["response_cost"] == 0
     assert standard["saved_cache_cost"] > 0
     if turn_off_message_logging:
-        assert standard["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
-        assert standard["response"]["choices"][0]["message"]["content"] == "redacted-by-litellm"
+        assert standard["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
+        assert standard["response"]["choices"][0]["message"]["content"] == "redacted-by-hangarllm"
 
 
 @pytest.mark.parametrize("turn_off_message_logging", [False, True])
@@ -671,15 +671,15 @@ def test_logging_cache_hit_sync_stream_call(
     monkeypatch: pytest.MonkeyPatch,
     turn_off_message_logging: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", litellm.Cache(type="local"))
-    monkeypatch.setattr(litellm, "turn_off_message_logging", turn_off_message_logging)
+    monkeypatch.setattr(hangarllm, "cache", hangarllm.Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", turn_off_message_logging)
     messages: Final = [{"role": "user", "content": "sync cache marker"}]
     first_chunks: Final = tuple(
-        litellm.completion(model="gpt-4o-mini", messages=messages, caching=True, stream=True)
+        hangarllm.completion(model="gpt-4o-mini", messages=messages, caching=True, stream=True)
     )
     assert callback_capture.sync_logged.acquire(timeout=5)
     second_chunks: Final = tuple(
-        litellm.completion(model="gpt-4o-mini", messages=messages, caching=True, stream=True)
+        hangarllm.completion(model="gpt-4o-mini", messages=messages, caching=True, stream=True)
     )
     assert callback_capture.sync_logged.acquire(timeout=5)
     assert "".join(chunk.choices[0].delta.content or "" for chunk in first_chunks) == "Hello"
@@ -690,8 +690,8 @@ def test_logging_cache_hit_sync_stream_call(
     assert standard["response_cost"] == 0
     assert standard["saved_cache_cost"] > 0
     if turn_off_message_logging:
-        assert standard["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
-        assert standard["response"]["choices"][0]["message"]["content"] == "redacted-by-litellm"
+        assert standard["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
+        assert standard["response"]["choices"][0]["message"]["content"] == "redacted-by-hangarllm"
 
 
 @pytest.mark.asyncio
@@ -699,7 +699,7 @@ async def test_logging_standard_payload_llm_headers(
     provider_router: respx.MockRouter, callback_capture: _CallbackCapture
 ) -> None:
     messages: Final = [{"role": "user", "content": "headers marker"}]
-    await litellm.acompletion(model="gpt-4o-mini", messages=messages)
+    await hangarllm.acompletion(model="gpt-4o-mini", messages=messages)
     await _assert_success_payload(callback_capture, "gpt-4o-mini", messages)
     event: Final = callback_capture.async_success.call_args.kwargs["kwargs"]
     assert event["model"] == "gpt-4o-mini"
@@ -715,7 +715,7 @@ async def test_logging_key_masking_gemini(
     hidden_params: Final = StandardLoggingPayloadSetup.get_hidden_params({"api_key": "secret-gemini-key"})
     assert "secret-gemini-key" not in json.dumps(hidden_params)
     messages: Final = [{"role": "user", "content": "key masking marker"}]
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gemini/gemini-1.5-flash",
         messages=messages,
         api_key="secret-gemini-key",
@@ -736,15 +736,15 @@ async def test_standard_logging_payload_audio(
     stream: bool,
     turn_off_message_logging: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "turn_off_message_logging", turn_off_message_logging)
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", turn_off_message_logging)
     messages: Final = [{"role": "user", "content": "response in 1 word - yes or no"}]
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="openai/gpt-4o-audio-preview",
         modalities=["text", "audio"],
         audio={"voice": "alloy", "format": "pcm16"},
         messages=messages,
         stream=stream,
-        litellm_call_id=callback_capture.call_id,
+        hangarllm_call_id=callback_capture.call_id,
     )
     if stream:
         _ = [chunk async for chunk in response]
@@ -757,7 +757,7 @@ async def test_standard_logging_payload_audio(
     assert standard["model"] == "gpt-4o-audio-preview"
     message: Final = standard["response"]["choices"][0]["message"]
     if turn_off_message_logging:
-        assert standard["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+        assert standard["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
         assert message.get("audio") is None
         assert "hello world" not in json.dumps(standard)
         return
@@ -775,8 +775,8 @@ def test_completion_azure_stream_moderation_failure(
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "filtered request"},
     ]
-    with pytest.raises(litellm.ContentPolicyViolationError):
-        litellm.completion(
+    with pytest.raises(hangarllm.ContentPolicyViolationError):
+        hangarllm.completion(
             model="azure/gpt-4o-mini",
             messages=messages,
             stream=True,

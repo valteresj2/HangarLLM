@@ -15,7 +15,7 @@ from integration.translation.runner import assert_translation
 GROK_4_7_TOOL_USE_TEST_CASE: Final = replace(
     GROK_4_7_TEST_CASE,
     scenario="tool_use",
-    litellm_request={
+    hangarllm_request={
         "model": "bedrock/global.xai.grok-4.7",
         "max_tokens": 1024,
         "tools": [
@@ -77,8 +77,8 @@ GROK_4_7_TOOL_USE_TEST_CASE: Final = replace(
         "object": "chat.completion",
         "usage": {"completion_tokens": 20, "prompt_tokens": 40, "total_tokens": 60},
     },
-    expected_litellm_response={
-        **GROK_4_7_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **GROK_4_7_TEST_CASE.expected_hangarllm_response,
         "id": "chatcmpl-toolusegrok47",
         "usage": {"input_tokens": 40, "output_tokens": 20},
         "content": [{"type": "tool_use", "id": ANY, "name": "Read", "input": {"file_path": "notes.txt"}}],
@@ -100,7 +100,7 @@ def test_messages_tool_use_ids_are_unique_across_bedrock_chat_completions_turns(
     case: Final = GROK_4_7_TOOL_USE_TEST_CASE
     reply: Final = Reply(body=json.dumps(case.mock_provider_response).encode())
     provider.expect(reply, reply)
-    responses: Final = tuple(gateway.request("POST", case.litellm_endpoint, case.litellm_request) for _ in range(2))
+    responses: Final = tuple(gateway.request("POST", case.hangarllm_endpoint, case.hangarllm_request) for _ in range(2))
     assert len(provider.received()) == 2
     tool_use_ids: Final = tuple(response.json()["content"][0]["id"] for response in responses)
     assert len(set(tool_use_ids)) == 2

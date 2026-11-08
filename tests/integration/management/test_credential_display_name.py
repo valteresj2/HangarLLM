@@ -29,7 +29,7 @@ def _delete_credential_if_present(gateway: Gateway, name: str) -> None:
 
 def _stored_display_name(name: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT credential_name, display_name FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s',
+        'SELECT credential_name, display_name FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s',
         (name,),
     )
 
@@ -47,7 +47,7 @@ def _model_using(gateway: Gateway, scenario: Scenario, credential: str) -> str:
     return scenario.model(
         model="openai/gpt-4o-mini",
         api_base=f"{gateway.upstream_url}/v1",
-        litellm_credential_name=credential,
+        hangarllm_credential_name=credential,
     )
 
 
@@ -123,7 +123,7 @@ def test_patch_rename_is_rejected_and_model_keeps_working(gateway: Gateway) -> N
         )
         assert same_name.status_code == 200, same_name.text
         assert read_rows(
-            'SELECT credential_info FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s', (name,)
+            'SELECT credential_info FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s', (name,)
         ) == [{"credential_info": {"custom_llm_provider": "openai", "description": "y"}}]
         assert _served_credential(gateway, name)["credential_info"] == {
             "custom_llm_provider": "openai",

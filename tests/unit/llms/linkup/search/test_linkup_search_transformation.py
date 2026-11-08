@@ -10,10 +10,10 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.linkup.search.transformation import LinkupSearchConfig
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.linkup.search.transformation import LinkupSearchConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -42,10 +42,10 @@ class TestLinkupSearchTransformation:
 
         with patch.dict(os.environ, {"LINKUP_API_KEY": "test-api-key"}):
             with patch(
-                "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+                "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
                 return_value=mock_response,
             ) as mock_post:
-                litellm.search(
+                hangarllm.search(
                     query="test query",
                     search_provider="linkup",
                     max_results=10,
@@ -90,10 +90,10 @@ class TestLinkupSearchTransformation:
 
         with patch.dict(os.environ, {"LINKUP_API_KEY": "test-api-key"}):
             with patch(
-                "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+                "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
                 return_value=mock_response,
             ):
-                response = litellm.search(query="Microsoft revenue", search_provider="linkup")
+                response = hangarllm.search(query="Microsoft revenue", search_provider="linkup")
 
                 # Verify response transformation
                 assert response.object == "search"
@@ -112,7 +112,7 @@ def _transform(payload: object) -> SearchResponse:
         stream=False,
         call_type="search",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return LinkupSearchConfig().transform_search_response(

@@ -30,14 +30,14 @@ COMPLETION_TOKENS: Final = 20
 REASONING_TOKENS: Final = 12
 COST_MAP: Final = Path(__file__).resolve().parents[3] / "model_prices_and_context_window.json"
 LEAK_FIELDS: Final = frozenset(
-    {"litellm_params", "litellm_logging_obj", "litellm_call_id", "litellm_metadata", "proxy_server_request"}
+    {"hangarllm_params", "hangarllm_logging_obj", "hangarllm_call_id", "hangarllm_metadata", "proxy_server_request"}
 )
 READINESS_TEXT: Final = "model readiness"
 MARKER: Final = re.compile(r"marker-([0-9a-f]{32})")
 USER_MESSAGES: Final[list[dict[str, JsonValue]]] = [{"role": "user", "content": "Say hello to the reef"}]
 SPEND_COLUMNS: Final = (
     "SELECT request_id, model, custom_llm_provider, model_group, call_type, status, spend, prompt_tokens, "
-    'completion_tokens, api_base FROM "LiteLLM_SpendLogs"'
+    'completion_tokens, api_base FROM "HangarLLM_SpendLogs"'
 )
 
 
@@ -56,7 +56,7 @@ def number(value: JsonValue) -> float:
 
 def row_of(model: str) -> Mapping[str, JsonValue]:
     row: Final = object_value(JSON_OBJECT.validate_json(COST_MAP.read_bytes())[f"{PROVIDER}/{model}"])
-    assert row["litellm_provider"] == PROVIDER, row
+    assert row["hangarllm_provider"] == PROVIDER, row
     return row
 
 
@@ -370,9 +370,9 @@ def deployment(scenario: Scenario, wire: Wire, model: str = MODEL, **overrides: 
     return alias
 
 
-def raw_deployment(scenario: Scenario, model_name: str, litellm_params: Mapping[str, JsonValue]) -> str:
+def raw_deployment(scenario: Scenario, model_name: str, hangarllm_params: Mapping[str, JsonValue]) -> str:
     created: Final = scenario.gateway.post(
-        "/model/new", {"model_name": model_name, "litellm_params": dict(litellm_params), "model_info": {}}
+        "/model/new", {"model_name": model_name, "hangarllm_params": dict(hangarllm_params), "model_info": {}}
     )
     identity: Final = string_value(object_value(created["model_info"])["id"])
     scenario.cleanups.callback(scenario.delete_model, identity)

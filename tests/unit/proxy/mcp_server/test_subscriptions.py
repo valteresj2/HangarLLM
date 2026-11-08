@@ -12,17 +12,17 @@ from mcp.server.subscriptions import ListenHandler
 from mcp.shared.subscriptions import PromptsListChanged, ToolsListChanged
 from mcp.types import ListToolsRequest, ListToolsResult, SubscriptionFilter, SubscriptionsListenRequestParams
 
-from litellm.mcp_client.client import MCPClient
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.mcp_server import subscriptions
-from litellm.proxy.mcp_server.contracts import OperationContext
-from litellm.types.mcp import MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.mcp_client.client import MCPClient
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.mcp_server import subscriptions
+from hangarllm.proxy.mcp_server.contracts import OperationContext
+from hangarllm.types.mcp import MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def allow_one_request(monkeypatch: pytest.MonkeyPatch, user_id: str, server_id: str) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
     windows: Final = {(user_id, server_id): asyncio.Semaphore(1)}
 
@@ -181,7 +181,7 @@ async def test_listener_limits_release_capacity_after_cancellation(second_owner:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("proxy_mode", [False, True])
 async def test_subscription_requires_a_supported_http_gateway_route(proxy_mode: bool) -> None:
-    from litellm.proxy.mcp_server import server
+    from hangarllm.proxy.mcp_server import server
 
     token = server._mcp_proxy_mode.set(proxy_mode)
     try:
@@ -206,7 +206,7 @@ async def test_subscription_requires_a_supported_http_gateway_route(proxy_mode: 
 async def test_subscription_authorization_preserves_original_caller(changed: str | None) -> None:
     from dataclasses import replace
 
-    from litellm.proxy.mcp_server.server import _owner_fingerprint_for
+    from hangarllm.proxy.mcp_server.server import _owner_fingerprint_for
 
     initial = OperationContext(_caller=UserAPIKeyAuth(api_key="first", user_id="alice", team_id="team"))
     current = replace(
@@ -341,7 +341,7 @@ async def test_legacy_upstream_without_capabilities_does_not_receive_subscribe()
 
 @pytest.mark.parametrize("proxy_mode", [False, True])
 def test_legacy_notification_capabilities_require_a_notification_route(proxy_mode: bool) -> None:
-    from litellm.proxy.mcp_server import server
+    from hangarllm.proxy.mcp_server import server
 
     token = server._mcp_proxy_mode.set(proxy_mode)
     try:
@@ -375,7 +375,7 @@ async def test_idle_legacy_listener_detects_closed_upstream_without_restarting_w
 async def test_proxy_route_rejects_legacy_resource_subscription_before_setup(method: str) -> None:
     from mcp.types import SubscribeRequestParams, UnsubscribeRequestParams
 
-    from litellm.proxy.mcp_server import server
+    from hangarllm.proxy.mcp_server import server
 
     params = (SubscribeRequestParams if method == "subscribe_resource" else UnsubscribeRequestParams)(uri="test://value")
     token = server._mcp_proxy_mode.set(True)
@@ -394,7 +394,7 @@ async def test_proxy_route_rejects_legacy_resource_subscription_before_setup(met
 async def test_only_client_initiated_listeners_consume_server_rate_limit(
     monkeypatch: pytest.MonkeyPatch, client_requests: tuple[str, ...], tools_list_admitted: bool
 ) -> None:
-    from litellm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server import operations
 
     allow_one_request(monkeypatch, "alice", "upstream")
     opened: Final = asyncio.Queue[None]()
@@ -446,9 +446,9 @@ async def test_legacy_listener_catalog_refreshes_do_not_consume_server_rate_limi
 ) -> None:
     from mcp.types import ListToolsResult, ServerCapabilities, Tool, ToolsCapability
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server import catalog, operations
-    from litellm.proxy.mcp_server.faults.list_outcomes import ServerListOk
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server import catalog, operations
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import ServerListOk
 
     server: Final = MCPServer(server_id="list-changed", name="list-changed", transport=MCPTransport.http)
     caller: Final = UserAPIKeyAuth(api_key="list-changed-key", user_id="alice")
@@ -459,7 +459,7 @@ async def test_legacy_listener_catalog_refreshes_do_not_consume_server_rate_limi
         listed.put_nowait(None)
         return ListToolsResult(tools=[Tool(name="add", inputSchema={"type": "object"})]), ServerListOk(tool_count=1)
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "list-changed-test-key")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "list-changed-test-key")
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     monkeypatch.setattr(operations.global_mcp_server_manager, "registry", {server.server_id: server})
     monkeypatch.setattr(operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[server]))
@@ -502,12 +502,12 @@ async def test_legacy_listener_catalog_refreshes_do_not_consume_server_rate_limi
 
 @pytest.mark.asyncio
 async def test_all_failed_tools_listing_keeps_empty_catalog_digest(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.mcp_server.catalog import ToolListingFailedOutright
+    from hangarllm.proxy.mcp_server.catalog import ToolListingFailedOutright
 
     listener_context: Final = OperationContext(_caller=UserAPIKeyAuth(user_id="listener"))
     empty_gateway: Final = _ListingGateway(result=ListToolsResult(tools=[]))
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.operations.GatewayOperations", lambda: empty_gateway
+        "hangarllm.proxy.mcp_server.operations.GatewayOperations", lambda: empty_gateway
     )
     empty_digest: Final = await subscriptions._listing(ToolsListChanged(), listener_context)
 
@@ -515,7 +515,7 @@ async def test_all_failed_tools_listing_keeps_empty_catalog_digest(monkeypatch: 
         error=ToolListingFailedOutright(code=-32603, message="Every MCP server in scope failed")
     )
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.operations.GatewayOperations", lambda: failed_gateway
+        "hangarllm.proxy.mcp_server.operations.GatewayOperations", lambda: failed_gateway
     )
     failed_digest: Final = await subscriptions._listing(ToolsListChanged(), listener_context)
 
@@ -526,7 +526,7 @@ async def test_all_failed_tools_listing_keeps_empty_catalog_digest(monkeypatch: 
 async def test_tools_listing_propagates_other_mcp_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     failure: Final = MCPError(code=-32602, message="Bad cursor")
     gateway: Final = _ListingGateway(error=failure)
-    monkeypatch.setattr("litellm.proxy.mcp_server.operations.GatewayOperations", lambda: gateway)
+    monkeypatch.setattr("hangarllm.proxy.mcp_server.operations.GatewayOperations", lambda: gateway)
     listener_context: Final = OperationContext(_caller=UserAPIKeyAuth(user_id="listener"))
 
     expected_error: Final = pytest.raises(MCPError)

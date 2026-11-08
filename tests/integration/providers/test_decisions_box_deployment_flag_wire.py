@@ -15,8 +15,8 @@ from integration._support.process import configless_proxy_process, graceful_stop
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+import hangarllm
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
 _API_KEY: Final = "synthetic-decisions-key"
 _IMAGES_HEADER: Final = "TypeSafe-Danger-Zone-Images"
@@ -52,7 +52,7 @@ _OPENAI_USAGE: Final[dict[str, JsonValue]] = {
 }
 _REFUSED_BOX: Final = "does not support parameters: ['box questions']"
 _SPEND_QUERY: Final = (
-    'SELECT status, call_type, custom_llm_provider, model_group, model_id FROM "LiteLLM_SpendLogs" '
+    'SELECT status, call_type, custom_llm_provider, model_group, model_id FROM "HangarLLM_SpendLogs" '
     "WHERE request_id = %s"
 )
 _OPENAI_FORMAT_ROUTES: Final = ("/v1/decisions", "/decisions")
@@ -252,7 +252,7 @@ def test_a_flagged_deployment_of_every_decisions_provider_sends_box_questions_an
         assert call.headers.get("authorization", "") == _authorization(member)
         assert _JSON_OBJECT.validate_json(call.body) == member.upstream_body(_QUESTIONS)
         assert all(call.headers.get(name.lower()) == value for name, value in member.headers.items()), call.headers
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], row["custom_llm_provider"], row["model_group"]) == (
             "success",
             "adecisions",
@@ -295,7 +295,7 @@ def test_repeated_identical_box_requests_each_reach_the_upstream_and_each_log_on
         model: Final = member.deployment(scenario, wire.url, {"supports_box_questions": True})
         responses: Final = tuple(_decide(gateway, model, (_BOX_QUESTION,)) for _ in range(2))
         assert [response.status_code for response in responses] == [200, 200], [r.text for r in responses]
-        call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+        call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
         assert len(set(call_ids)) == 2, call_ids
         assert [_JSON_OBJECT.validate_json(call.body) for call in wire.drain()] == [
             member.upstream_body((_BOX_QUESTION,))
@@ -313,14 +313,14 @@ async def test_the_sdk_honors_a_model_info_flag_passed_by_its_caller_on_sync_and
             "api_base": wire.url,
             "api_key": _API_KEY,
         }
-        synchronous: Final = litellm.decisions(**common, model_info={"supports_box_questions": True})
-        asynchronous: Final = await litellm.adecisions(**common, model_info={"supports_box_questions": True})
+        synchronous: Final = hangarllm.decisions(**common, model_info={"supports_box_questions": True})
+        asynchronous: Final = await hangarllm.adecisions(**common, model_info={"supports_box_questions": True})
         for response in (synchronous, asynchronous):
             assert response.model_dump(mode="json")["answers"] == _expected_answers(_QUESTIONS)
-        with pytest.raises(litellm.UnsupportedParamsError, match=r"\['box questions'\]"):
-            await litellm.adecisions(**common)
-        with pytest.raises(litellm.UnsupportedParamsError, match=r"\['box questions'\]"):
-            litellm.decisions(**common, model_info={"supports_box_questions": "true"})
+        with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['box questions'\]"):
+            await hangarllm.adecisions(**common)
+        with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['box questions'\]"):
+            hangarllm.decisions(**common, model_info={"supports_box_questions": "true"})
         assert [_JSON_OBJECT.validate_json(call.body) for call in wire.drain()] == [
             member.upstream_body(_QUESTIONS)
         ] * 2
@@ -330,19 +330,19 @@ async def test_a_router_deployment_flagged_false_refuses_boxes_even_when_its_bac
     member: Final = _perplexity()
     with wire_server(member.reply) as wire:
         params: Final[dict[str, object]] = {"model": member.model, "api_base": wire.url, "api_key": _API_KEY}
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
-                {"model_name": "box-off", "litellm_params": params, "model_info": {"supports_box_questions": False}},
+                {"model_name": "box-off", "hangarllm_params": params, "model_info": {"supports_box_questions": False}},
                 {
                     "model_name": "box-on",
-                    "litellm_params": params,
+                    "hangarllm_params": params,
                     "model_info": {"supports_box_questions": True, "mode": "evaluation"},
                 },
-                {"model_name": "box-unset", "litellm_params": params},
+                {"model_name": "box-unset", "hangarllm_params": params},
             ]
         )
         common: Final[dict[str, object]] = {"input": _INPUT, "questions": [dict(question) for question in _QUESTIONS]}
-        with pytest.raises(litellm.UnsupportedParamsError, match=r"\['box questions'\]"):
+        with pytest.raises(hangarllm.UnsupportedParamsError, match=r"\['box questions'\]"):
             await router.adecisions(model="box-off", **common)
         assert wire.drain() == ()
         answered: Final = [await router.adecisions(model=model, **common) for model in ("box-on", "box-unset")]
@@ -431,8 +431,8 @@ def test_a_duplicated_or_metadata_model_info_and_a_forged_id_change_nothing_behi
         assert wire.drain() == ()
         answered: Final = _decide(gateway, model, (_PREDICATE,), model_info={"id": forged})
         assert answered.status_code == 200, answered.text
-        assert answered.headers.get("x-litellm-model-id", "") not in ("", forged), answered.headers
-        assert _spend_row(answered.headers["x-litellm-call-id"])["model_id"] == answered.headers["x-litellm-model-id"]
+        assert answered.headers.get("x-hangarllm-model-id", "") not in ("", forged), answered.headers
+        assert _spend_row(answered.headers["x-hangarllm-call-id"])["model_id"] == answered.headers["x-hangarllm-model-id"]
         (call,) = wire.drain()
         assert _JSON_OBJECT.validate_json(call.body) == member.upstream_body((_PREDICATE,))
 
@@ -548,8 +548,8 @@ def test_a_proxy_without_a_router_ignores_a_body_model_info_for_box_questions_an
             _assert_refused_box(box)
             for answered in (predicate_only, system_one):
                 assert answered.status_code == 200, answered.text
-                assert answered.headers.get("x-litellm-model-id", "") != forged, answered.headers
-                assert _spend_row(answered.headers["x-litellm-call-id"])["model_id"] != forged
+                assert answered.headers.get("x-hangarllm-model-id", "") != forged, answered.headers
+                assert _spend_row(answered.headers["x-hangarllm-call-id"])["model_id"] != forged
         assert [_JSON_OBJECT.validate_json(call.body) for call in wire.drain()] == [
             member.upstream_body((_PREDICATE,))
         ] * 2
@@ -561,7 +561,7 @@ def _new_deployment(gateway: Gateway, scenario: Scenario, member: _Member, wire:
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": member.model, "api_base": wire.url, "api_key": _API_KEY},
+            "hangarllm_params": {"model": member.model, "api_base": wire.url, "api_key": _API_KEY},
             "model_info": {"supports_box_questions": True},
         },
     )

@@ -17,7 +17,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
-PRISMA_DIR: Final = REPO_ROOT / "litellm-proxy-extras" / "litellm_proxy_extras"
+PRISMA_DIR: Final = REPO_ROOT / "hangarllm-proxy-extras" / "hangarllm_proxy_extras"
 MISSING_MIGRATION: Final = "20260626120000_add_mcp_tool_search_enabled"
 SHIPPED_MIGRATIONS: Final = tuple(sorted(path.name for path in (PRISMA_DIR / "migrations").iterdir() if path.is_dir()))
 
@@ -65,7 +65,7 @@ def object_permission_columns(database_url: str) -> tuple[str, ...]:
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
         rows: Final = connection.execute(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'LiteLLM_ObjectPermissionTable' AND column_name = 'mcp_tool_search_enabled'"
+            "WHERE table_name = 'HangarLLM_ObjectPermissionTable' AND column_name = 'mcp_tool_search_enabled'"
         ).fetchall()
     return tuple(str(row["column_name"]) for row in rows)
 
@@ -81,7 +81,7 @@ def test_migration_entrypoint_upgrades_an_older_schema_so_the_proxy_serves_mcp_t
             name for name in SHIPPED_MIGRATIONS if name < MISSING_MIGRATION
         )
         entrypoint: Final = subprocess.run(
-            [sys.executable, "-I", "-m", "litellm.proxy.prisma_migration"],
+            [sys.executable, "-I", "-m", "hangarllm.proxy.prisma_migration"],
             capture_output=True,
             text=True,
             timeout=300,

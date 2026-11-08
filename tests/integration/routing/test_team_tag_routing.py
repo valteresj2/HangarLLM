@@ -24,7 +24,7 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
         config["model_list"] = [
             {
                 "model_name": MODEL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/{deployment}",
                     "api_base": f"{base.upstream_url}/v1",
                     "api_key": "synthetic-tag-key",
@@ -60,7 +60,7 @@ def test_a_teams_tags_route_every_call_of_its_keys_to_the_matching_deployment(ca
             for _ in range(CALLS)
         )
         assert [response.status_code for response in responses] == [200] * CALLS, [r.text for r in responses]
-        assert [response.headers.get("x-litellm-model-id") for response in responses] == [
+        assert [response.headers.get("x-hangarllm-model-id") for response in responses] == [
             DEPLOYMENT_BY_TAG[tag]
         ] * CALLS
         observed: Final = upstream.get("/__observations").json()["requests"]

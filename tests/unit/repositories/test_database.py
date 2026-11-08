@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.repositories.database import Database
+from hangarllm.repositories.database import Database
 
 
 @pytest.mark.asyncio

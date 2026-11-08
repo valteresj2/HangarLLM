@@ -1,20 +1,20 @@
 from datetime import datetime, timezone
 from typing import Final
 
-import asyncio, importlib, litellm, os, pytest
+import asyncio, importlib, hangarllm, os, pytest
 
-from litellm.caching.caching import DualCache
-from litellm.proxy.hooks.dynamic_rate_limiter import(
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy.hooks.dynamic_rate_limiter import(
     PROXY_DynamicRateLimitHandler as DynamicRateLimitHandler,
     DynamicRateLimiterCache,
     PROXY_DynamicRateLimitHandler,
 )
-from litellm.types.utils import HiddenParams, ModelResponse
-from litellm import DualCache as DualCache_dynamic_rate, Router
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.types.utils import HiddenParams, ModelResponse
+from hangarllm import DualCache as DualCache_dynamic_rate, Router
+from hangarllm._uuid import uuid
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from typing import Optional
 
@@ -61,7 +61,7 @@ async def test_success_hook_updates_existing_hidden_params_storage() -> None:
         model_list=[
             {
                 "model_name": "my-fake-model",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "test-key", "tpm": 100, "rpm": 10},
+                "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "test-key", "tpm": 100, "rpm": 10},
                 "model_info": {"id": model_id},
             }
         ]
@@ -80,7 +80,7 @@ async def test_success_hook_updates_existing_hidden_params_storage() -> None:
 
     assert result is response
     assert response._hidden_params is hidden_params
-    assert response.hidden_params["additional_headers"]["x-litellm-model_group"] == "my-fake-model"
+    assert response.hidden_params["additional_headers"]["x-hangarllm-model_group"] == "my-fake-model"
 
 
 @pytest.fixture()
@@ -90,11 +90,11 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -106,18 +106,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -127,65 +127,65 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 @pytest.fixture
 def _pr4_dynamic_rate_limit_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LICENSE", "pr4-test-license")
+    monkeypatch.setenv("HANGARLLM_LICENSE", "pr4-test-license")
 
 """
 Basic test cases:
@@ -201,8 +201,8 @@ def dynamic_rate_limit_handler() -> DynamicRateLimitHandler:
     return DynamicRateLimitHandler(internal_usage_cache=internal_cache, time_fn=lambda: frozen_now)
 
 @pytest.fixture
-def mock_response() -> litellm.ModelResponse:
-    return litellm.ModelResponse(
+def mock_response() -> hangarllm.ModelResponse:
+    return hangarllm.ModelResponse(
         **{
             "id": "chatcmpl-abc123",
             "object": "chat.completion",
@@ -240,7 +240,7 @@ def user_api_key_auth() -> UserAPIKeyAuth:
 @pytest.mark.usefixtures(
     "_pr4_dynamic_rate_limit_env",
     "_vcr_outcome_gate",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown",
 )
 @pytest.mark.parametrize("num_projects", [1, 2, 100])
@@ -258,7 +258,7 @@ async def test_available_tpm(num_projects, dynamic_rate_limit_handler):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "my-key",
                     "api_base": "my-base",
@@ -282,7 +282,7 @@ async def test_available_tpm(num_projects, dynamic_rate_limit_handler):
 @pytest.mark.usefixtures(
     "_pr4_dynamic_rate_limit_env",
     "_vcr_outcome_gate",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown",
 )
 @pytest.mark.parametrize("num_projects", [1, 2, 100])
@@ -300,7 +300,7 @@ async def test_available_rpm(num_projects, dynamic_rate_limit_handler):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "my-key",
                     "api_base": "my-base",
@@ -324,7 +324,7 @@ async def test_available_rpm(num_projects, dynamic_rate_limit_handler):
 @pytest.mark.usefixtures(
     "_pr4_dynamic_rate_limit_env",
     "_vcr_outcome_gate",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown",
 )
 @pytest.mark.parametrize("usage", ["rpm", "tpm"])
@@ -346,7 +346,7 @@ async def test_rate_limit_raised(dynamic_rate_limit_handler, user_api_key_auth, 
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "my-key",
                     "api_base": "my-base",
@@ -385,7 +385,7 @@ async def test_rate_limit_raised(dynamic_rate_limit_handler, user_api_key_auth, 
 @pytest.mark.usefixtures(
     "_pr4_dynamic_rate_limit_env",
     "_vcr_outcome_gate",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown",
 )
 @pytest.mark.asyncio
@@ -407,14 +407,14 @@ async def test_base_case(dynamic_rate_limit_handler, mock_response):
     setattr(
         mock_response,
         "usage",
-        litellm.Usage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
+        hangarllm.Usage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
     )
 
     llm_router = Router(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "my-key",
                     "api_base": "my-base",
@@ -456,7 +456,7 @@ async def test_base_case(dynamic_rate_limit_handler, mock_response):
 @pytest.mark.usefixtures(
     "_pr4_dynamic_rate_limit_env",
     "_vcr_outcome_gate",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown",
 )
 @pytest.mark.asyncio
@@ -472,7 +472,7 @@ async def test_update_cache(dynamic_rate_limit_handler, mock_response, user_api_
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "my-key",
                     "api_base": "my-base",
@@ -510,7 +510,7 @@ async def test_update_cache(dynamic_rate_limit_handler, mock_response, user_api_
 @pytest.mark.usefixtures(
     "_pr4_dynamic_rate_limit_env",
     "_vcr_outcome_gate",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown",
 )
 @pytest.mark.parametrize("num_projects", [1, 2, 100])
@@ -527,7 +527,7 @@ async def test_priority_reservation(num_projects, dynamic_rate_limit_handler):
 
     await dynamic_rate_limit_handler.internal_usage_cache.async_set_cache_sadd(model=model, value=projects)
 
-    litellm.priority_reservation = {"dev": 0.1, "prod": 0.9}
+    hangarllm.priority_reservation = {"dev": 0.1, "prod": 0.9}
 
     model_usage = 100
 
@@ -535,7 +535,7 @@ async def test_priority_reservation(num_projects, dynamic_rate_limit_handler):
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "my-key",
                     "api_base": "my-base",
@@ -552,6 +552,6 @@ async def test_priority_reservation(num_projects, dynamic_rate_limit_handler):
 
     availability = resp[1]
 
-    expected_availability = int(model_usage * litellm.priority_reservation["prod"] / num_projects)
+    expected_availability = int(model_usage * hangarllm.priority_reservation["prod"] / num_projects)
 
     assert availability == expected_availability

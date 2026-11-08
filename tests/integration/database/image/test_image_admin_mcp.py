@@ -8,9 +8,9 @@ import test_offline_image_migration
 
 offline_postgres: Final = test_offline_image_migration.offline_postgres
 
-IMAGE: Final = os.getenv("LITELLM_IMAGE")
-SCHEMA_IMAGE: Final = os.getenv("LITELLM_ADMIN_MCP_SCHEMA_IMAGE")
-COMPONENT: Final = os.getenv("LITELLM_IMAGE_COMPONENT", "unified")
+IMAGE: Final = os.getenv("HANGARLLM_IMAGE")
+SCHEMA_IMAGE: Final = os.getenv("HANGARLLM_ADMIN_MCP_SCHEMA_IMAGE")
+COMPONENT: Final = os.getenv("HANGARLLM_IMAGE_COMPONENT", "unified")
 PROBE: Final = """
 import asyncio
 import base64
@@ -23,11 +23,11 @@ import httpx2
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastapi import HTTPException
-from litellm_admin_mcp.server import create_http_app
-from litellm.proxy import proxy_server
+from hangarllm_admin_mcp.server import create_http_app
+from hangarllm.proxy import proxy_server
 
 module_name: Final = {
-    "unified": "litellm.proxy.proxy_server",
+    "unified": "hangarllm.proxy.proxy_server",
     "backend": "backend.main",
     "gateway": "gateway.main",
 }[sys.argv[2]]
@@ -102,7 +102,7 @@ async def probe() -> None:
                     assert response.status_code == 401, response.text
                     await verify_admin_tools(client)
     except HTTPException as exc:
-        assert exc.status_code == 403 and "LITELLM_LICENSE" in str(exc.detail)
+        assert exc.status_code == 403 and "HANGARLLM_LICENSE" in str(exc.detail)
         assert sys.argv[1] == "none"
         print("admin-mcp-license-required")
 
@@ -110,7 +110,7 @@ asyncio.run(probe())
 """
 
 pytestmark = [
-    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set LITELLM_IMAGE)"),
+    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set HANGARLLM_IMAGE)"),
     pytest.mark.skipif(shutil.which("docker") is None, reason="requires the docker CLI"),
 ]
 
@@ -122,7 +122,7 @@ def _run_probe(
     database_url: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     assert IMAGE is not None
-    enabled_args: Final = () if enabled is None else ("--env", "LITELLM_ENABLE_ADMIN_MCP=" + enabled)
+    enabled_args: Final = () if enabled is None else ("--env", "HANGARLLM_ENABLE_ADMIN_MCP=" + enabled)
     database_args: Final = () if database_url is None else ("--env", "DATABASE_URL=" + database_url)
     return subprocess.run(
         [
@@ -136,9 +136,9 @@ def _run_probe(
             *enabled_args,
             *database_args,
             "--env",
-            "LITELLM_LOCAL_MODEL_COST_MAP=true",
+            "HANGARLLM_LOCAL_MODEL_COST_MAP=true",
             "--env",
-            "LITELLM_MASTER_KEY=sk-0123456789abcdef0123456789abcdef",
+            "HANGARLLM_MASTER_KEY=sk-0123456789abcdef0123456789abcdef",
             "--entrypoint",
             "python",
             IMAGE,
@@ -176,9 +176,9 @@ def test_image_admin_mcp_requires_opt_in_license_and_management_component(
 
 @pytest.mark.skipif(COMPONENT == "gateway", reason="the gateway excludes management endpoints")
 def test_image_admin_mcp_personal_admin_manages_team(offline_postgres: tuple[str, str]) -> None:
-    assert SCHEMA_IMAGE is not None, "set LITELLM_ADMIN_MCP_SCHEMA_IMAGE to the matching builder image"
+    assert SCHEMA_IMAGE is not None, "set HANGARLLM_ADMIN_MCP_SCHEMA_IMAGE to the matching builder image"
     network, postgres = offline_postgres
-    database_url: Final = f"postgresql://postgres:pw@{postgres}:5432/litellm"
+    database_url: Final = f"postgresql://postgres:pw@{postgres}:5432/hangarllm"
     schema: Final = subprocess.run(
         [
             "docker", "run", "--rm", "--network", network,

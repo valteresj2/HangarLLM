@@ -101,14 +101,14 @@ async def proxy(backend: _Backend, tmp_path: Path) -> AsyncIterator[OwnedProxy]:
                 "model_list": [
                     {
                         "model_name": _MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "custom_openai/test-model",
                             "api_base": backend.url + "/v1",
                             "api_key": "integration-provider-key",
                         },
                     }
                 ],
-                "litellm_settings": {"anthropic_sse_ping_interval_seconds": 0},
+                "hangarllm_settings": {"anthropic_sse_ping_interval_seconds": 0},
                 "router_settings": {"num_retries": 0},
                 "general_settings": {"dangerously_permit_weak_or_unset_master_key": True},
             }

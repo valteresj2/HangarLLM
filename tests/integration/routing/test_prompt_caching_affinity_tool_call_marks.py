@@ -77,7 +77,7 @@ def test_router_affinity_is_lost_when_auto_caching_stands_down_for_tool_call_mar
             assert status == 200, text
             eventually(
                 lambda: read_rows(
-                    'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                    'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                     (response_id,),
                     database_url=database_url,
                 ),

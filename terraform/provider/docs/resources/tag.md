@@ -1,11 +1,11 @@
-# litellm_tag Resource
+# hangarllm_tag Resource
 
-Manages a tag in LiteLLM. Tags are used for spend tracking, budgets, and tag-based routing to specific model deployments
+Manages a tag in HangarLLM. Tags are used for spend tracking, budgets, and tag-based routing to specific model deployments
 
 ## Example Usage
 
 ```hcl
-resource "litellm_tag" "production" {
+resource "hangarllm_tag" "production" {
   name        = "production"
   description = "Production traffic"
   models      = ["4a422a4c-e246-4d02-a1eb-13e835cd0725"]
@@ -45,5 +45,5 @@ In addition to all arguments above, the following attributes are exported:
 Tags can be imported using the tag name:
 
 ```shell
-terraform import litellm_tag.example production
+terraform import hangarllm_tag.example production
 ```

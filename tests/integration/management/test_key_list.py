@@ -4,13 +4,13 @@ from typing import Final, FrozenSet
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, Actor, ManagementDatabase, ScratchResources
 from tests.integration._support.actors import create_scratch_key
 from tests.integration._support.client import Gateway, Scenario
-from litellm.repositories.table_repositories import DeletedVerificationTokenRepository
-from litellm.repositories.verification_token_repository import VerificationTokenRepository
+from hangarllm.repositories.table_repositories import DeletedVerificationTokenRepository
+from hangarllm.repositories.verification_token_repository import VerificationTokenRepository
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 

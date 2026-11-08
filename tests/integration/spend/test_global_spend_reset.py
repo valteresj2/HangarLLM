@@ -42,18 +42,18 @@ def _upstream_chat(content: str) -> dict[str, JsonValue]:
 
 def _token_spend(key: str) -> list[dict[str, object]]:
     return read_rows(
-        'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s', (sha256(key.encode()).hexdigest(),)
+        'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s', (sha256(key.encode()).hexdigest(),)
     )  # fmt: skip
 
 
 def _team_spend(team_id: str) -> list[dict[str, object]]:
-    return read_rows('SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    return read_rows('SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
 
 
 def _spend_log_totals(keys: tuple[str, ...]) -> list[dict[str, object]]:
     digests: Final = tuple(sha256(key.encode()).hexdigest() for key in keys)
     return read_rows(
-        'SELECT COUNT(*) AS rows, COALESCE(SUM(spend), 0) AS total_spend FROM "LiteLLM_SpendLogs" '
+        'SELECT COUNT(*) AS rows, COALESCE(SUM(spend), 0) AS total_spend FROM "HangarLLM_SpendLogs" '
         "WHERE api_key = ANY(%s::text[])",
         ("{" + ",".join(digests) + "}",),
     )

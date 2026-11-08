@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from litellm import get_model_info
+from hangarllm import get_model_info
 from integration._support.client import Gateway, object_value
 from integration._support.process import owned_proxy
 from pydantic import JsonValue
@@ -216,7 +216,7 @@ def test_malformed_token_limit_keeps_model_group_info_serving(
 def _yaml_deployment(name: str, upstream_url: str, model_info: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"openai/custom-{uuid.uuid4().hex}",
             "api_base": f"{upstream_url}/v1",
             "api_key": "integration-provider-key",
@@ -246,7 +246,7 @@ def test_non_numeric_token_limits_in_config_yaml_are_listed_as_absent(gateway: G
                     ),
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                 },

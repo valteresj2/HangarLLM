@@ -5,11 +5,11 @@ import threading
 import uuid
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.openai_wire import chat_reply
 from integration._support.wire import Reply, Request, wire_server
-from litellm import Router
+from hangarllm import Router
 from pydantic import JsonValue, TypeAdapter
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
@@ -68,7 +68,7 @@ async def test_router_wildcard_model_routes_to_scripted_provider() -> None:
             model_list=[
                 {
                     "model_name": "openai/*",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/*",
                         "api_base": f"{wire.url}/v1",
                         "api_key": _API_KEY,
@@ -99,7 +99,7 @@ async def test_router_text_completion_reuses_provider_connection() -> None:
             model_list=[
                 {
                     "model_name": "text-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "text-completion-openai/gpt-3.5-turbo-instruct",
                         "api_base": f"{wire.url}/v1",
                         "api_key": _API_KEY,
@@ -134,7 +134,7 @@ async def test_router_raises_timeout_for_scripted_slow_endpoint() -> None:
             model_list=[
                 {
                     "model_name": "slow-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{_MODEL}",
                         "api_base": f"{wire.url}/timeout/v1",
                         "api_key": _API_KEY,
@@ -144,7 +144,7 @@ async def test_router_raises_timeout_for_scripted_slow_endpoint() -> None:
             ],
             num_retries=0,
         )
-        with pytest.raises(litellm.Timeout):
+        with pytest.raises(hangarllm.Timeout):
             await router.acompletion(
                 model="slow-model",
                 messages=[{"role": "user", "content": "timeout"}],
@@ -160,10 +160,10 @@ async def test_router_raises_timeout_for_scripted_slow_endpoint() -> None:
 def test_streaming_completion_times_out_before_first_chunk(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     with wire_server(_peer) as wire:
-        with pytest.raises(litellm.Timeout):
-            litellm.completion(
+        with pytest.raises(hangarllm.Timeout):
+            hangarllm.completion(
                 model=f"openai/{_MODEL}",
                 api_base=f"{wire.url}/stream-timeout/v1",
                 api_key=_API_KEY,

@@ -8,12 +8,12 @@ import pytest
 from mcp.server.context import ServerRequestContext
 from mcp.types import CallToolResult
 
-from litellm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
-from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.proxy.mcp_server.outbound_credentials.resolver import UpstreamCredentialProvider
-from litellm.proxy.mcp_server.upstream import prepare_upstream_client
-from litellm.types.mcp import MCPAuth, MCPTransport, MCPUpstreamProtocol
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.proxy.mcp_server.mcp_context import active_mcp_request_ctx_var
+from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+from hangarllm.proxy.mcp_server.outbound_credentials.resolver import UpstreamCredentialProvider
+from hangarllm.proxy.mcp_server.upstream import prepare_upstream_client
+from hangarllm.types.mcp import MCPAuth, MCPTransport, MCPUpstreamProtocol
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 from tests._support.mcp_count_tool_upstream import count_tool_upstream, methods_received
 
 _HTTP_URL: Final = "https://upstream.example/mcp"
@@ -157,7 +157,7 @@ async def test_a_changed_setting_applies_to_the_next_call_in_a_live_gateway_sess
 
 @pytest.mark.asyncio
 async def test_a_stdio_upstream_client_carries_the_setting(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_ENABLE_MCP_STDIO", "true")
+    monkeypatch.setenv("HANGARLLM_ENABLE_MCP_STDIO", "true")
     server: Final = _server({"transport": MCPTransport.stdio, "command": "python", "args": ["server.py"]}, True)
 
     client: Final = await prepare_upstream_client(

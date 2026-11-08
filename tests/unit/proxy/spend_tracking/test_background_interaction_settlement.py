@@ -6,10 +6,10 @@ from typing import Optional
 
 import pytest
 
-import litellm.interactions.background_cost_polling as bg
-from litellm import Router
-from litellm.constants import BACKGROUND_INTERACTION_SETTLEMENT_CLAIM_LEASE_SECONDS
-from litellm.interactions.background_cost_polling import (
+import hangarllm.interactions.background_cost_polling as bg
+from hangarllm import Router
+from hangarllm.constants import BACKGROUND_INTERACTION_SETTLEMENT_CLAIM_LEASE_SECONDS
+from hangarllm.interactions.background_cost_polling import (
     _create_context,
     BackgroundInteractionPollContext,
     configure_background_settlement_store,
@@ -19,14 +19,14 @@ from litellm.interactions.background_cost_polling import (
     PollSchedule,
     resume_unsettled_background_interactions,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.proxy.spend_tracking.background_interaction_settlement import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+from hangarllm.proxy.spend_tracking.background_interaction_settlement import (
     configure_background_interaction_settlement,
     fetch_with_deployment_credentials,
     install_background_interaction_settlement,
     PrismaBackgroundSettlementStore,
 )
-from litellm.types.interactions import InteractionsAPIResponse
+from hangarllm.types.interactions import InteractionsAPIResponse
 
 USAGE_BLOCK = {
     "total_tokens": 175,
@@ -122,18 +122,18 @@ def _store(
     )
 
 
-def _logging_obj(metadata: Optional[dict] = None) -> LitellmLogging:
-    logging_obj = LitellmLogging(
+def _logging_obj(metadata: Optional[dict] = None) -> HangarllmLogging:
+    logging_obj = HangarllmLogging(
         model="gemini-2.5-flash",
         messages=[],
         stream=False,
         call_type="acreate_interaction",
         start_time=time.time(),
-        litellm_call_id="bg-settlement-call-id",
+        hangarllm_call_id="bg-settlement-call-id",
         function_id="bg-settlement-fn-id",
     )
     logging_obj.update_environment_variables(
-        litellm_params={"metadata": metadata or {"user_api_key": "0123456789abcdef" * 4}},
+        hangarllm_params={"metadata": metadata or {"user_api_key": "0123456789abcdef" * 4}},
         optional_params={},
         model="gemini-2.5-flash",
         custom_llm_provider="gemini",
@@ -245,7 +245,7 @@ class _MissingSettlementTable:
             {
                 "user_facing_error": {
                     "error_code": "P2021",
-                    "meta": {"table": "public.LiteLLM_BackgroundInteractionSettlement"},
+                    "meta": {"table": "public.HangarLLM_BackgroundInteractionSettlement"},
                     "message": "The table does not exist in the current database.",
                 }
             }
@@ -442,7 +442,7 @@ async def test_a_takeover_whose_spend_log_read_failed_retries_and_bills_instead_
         configure_background_settlement_store(previous_store)
 
 
-def _logging_obj_whose_bill_takes(seconds: float, bills: list) -> LitellmLogging:
+def _logging_obj_whose_bill_takes(seconds: float, bills: list) -> HangarllmLogging:
     logging_obj = _logging_obj()
 
     async def bill(result):
@@ -587,7 +587,7 @@ def _router_with_a_deployment_scoped_key() -> Router:
         model_list=[
             {
                 "model_name": "gemini-background",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gemini/gemini-2.5-flash",
                     "api_key": "deployment-scoped-key",
                     "api_base": "https://deployment-scoped.example",
@@ -599,7 +599,7 @@ def _router_with_a_deployment_scoped_key() -> Router:
 
 
 def _router_with_a_catch_all_route() -> Router:
-    return Router(model_list=[{"model_name": "*", "litellm_params": {"model": "gemini/*", "api_key": "catch-all-key"}}])
+    return Router(model_list=[{"model_name": "*", "hangarllm_params": {"model": "gemini/*", "api_key": "catch-all-key"}}])
 
 
 def _router_with_two_deployments_in_the_group() -> Router:
@@ -607,7 +607,7 @@ def _router_with_two_deployments_in_the_group() -> Router:
         model_list=[
             {
                 "model_name": "gemini-background",
-                "litellm_params": {"model": "gemini/gemini-2.5-flash", "api_key": f"deployment-key-{index}"},
+                "hangarllm_params": {"model": "gemini/gemini-2.5-flash", "api_key": f"deployment-key-{index}"},
                 "model_info": {"id": f"deployment-{index}"},
             }
             for index in (2, 3)
@@ -620,7 +620,7 @@ def _router_with_a_vertex_deployment() -> Router:
         model_list=[
             {
                 "model_name": "vertex-background",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-2.5-flash",
                     "vertex_project": "deployment-project",
                     "vertex_location": "europe-west4",

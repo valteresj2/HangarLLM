@@ -5,7 +5,7 @@ sanitizes non-string metadata values injected by proxy guardrail hooks.
 The OpenAI Batch Pydantic model requires metadata: Dict[str, str].
 Proxy hooks (Model Armor, OpenAI Moderations, queue time tracking) inject
 dicts, floats, and other non-string values that cause a ValidationError
-when constructing LiteLLMBatch. This test suite verifies the sanitization
+when constructing HangarLLMBatch. This test suite verifies the sanitization
 layer prevents that.
 """
 
@@ -13,7 +13,7 @@ layer prevents that.
 import pytest
 
 
-from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
+from hangarllm.llms.bedrock.batches.transformation import BedrockBatchesConfig
 
 
 class TestGetOpenaiCompatibleBatchMetadata:
@@ -89,11 +89,11 @@ class TestGetOpenaiCompatibleBatchMetadata:
         assert result["_model_armor_status"] == "success"
         assert result["user_metadata_key"] == "user_value"
 
-    def test_result_compatible_with_litellm_batch(self):
-        """Verify sanitized metadata can construct a LiteLLMBatch without error."""
+    def test_result_compatible_with_hangarllm_batch(self):
+        """Verify sanitized metadata can construct a HangarLLMBatch without error."""
         import time
 
-        from litellm.types.utils import LiteLLMBatch
+        from hangarllm.types.utils import HangarLLMBatch
 
         metadata = {
             "_model_armor_response": {"blocked": True},
@@ -103,7 +103,7 @@ class TestGetOpenaiCompatibleBatchMetadata:
         sanitized = BedrockBatchesConfig._get_openai_compatible_batch_metadata(metadata)
 
         # This would raise ValidationError before the fix
-        batch = LiteLLMBatch(
+        batch = HangarLLMBatch(
             id="arn:aws:bedrock:us-east-1:123:model-invocation-job/test",
             object="batch",
             endpoint="/v1/chat/completions",

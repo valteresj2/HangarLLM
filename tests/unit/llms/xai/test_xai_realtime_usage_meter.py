@@ -1,6 +1,6 @@
 import base64
 
-from litellm.llms.xai.realtime.usage_meter import XAIRealtimeUsageMeter
+from hangarllm.llms.xai.realtime.usage_meter import XAIRealtimeUsageMeter
 
 
 def _b64(num_bytes: int) -> str:

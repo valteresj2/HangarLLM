@@ -2,7 +2,7 @@ import * as path from "path";
 
 export const UI_BASE_URL = (
   process.env.E2E_UI_BASE_URL ||
-  process.env.LITELLM_PROXY_URL ||
+  process.env.HANGARLLM_PROXY_URL ||
   "http://localhost:4000"
 ).replace(/\/+$/, "");
 

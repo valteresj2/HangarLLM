@@ -7,12 +7,12 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.databricks.chat.transformation import DatabricksConfig
-from litellm.llms.databricks.messages.transformation import DatabricksAnthropicMessagesConfig
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
+from hangarllm.llms.databricks.messages.transformation import DatabricksAnthropicMessagesConfig
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.utils import ProviderConfigManager
 
 DATABRICKS_API_BASE: Final = "https://my.workspace.cloud.databricks.com/serving-endpoints"
 DATABRICKS_API_KEY: Final = "dapimykey"
@@ -47,13 +47,13 @@ USER_TURN: Final = [{"role": "user", "content": "Use the Bash tool to run: echo 
 )
 def test_foundation_claude_names_dispatch_to_a_native_messages_route(model: str, messages_url: str) -> None:
     config: Final = ProviderConfigManager.get_provider_anthropic_messages_config(
-        model=model, provider=litellm.LlmProviders.DATABRICKS
+        model=model, provider=hangarllm.LlmProviders.DATABRICKS
     )
 
     assert config is not None
     assert (
         config.get_complete_url(
-            api_base=DATABRICKS_API_BASE, api_key=None, model=model, optional_params={}, litellm_params={}
+            api_base=DATABRICKS_API_BASE, api_key=None, model=model, optional_params={}, hangarllm_params={}
         )
         == messages_url
     )
@@ -62,7 +62,7 @@ def test_foundation_claude_names_dispatch_to_a_native_messages_route(model: str,
 @pytest.mark.parametrize("model", ["databricks-gpt-oss-120b", "my-claude-finetune", "main.default.claude-proxy"])
 def test_names_outside_the_foundation_claude_models_keep_the_chat_completions_bridge(model: str) -> None:
     config: Final = ProviderConfigManager.get_provider_anthropic_messages_config(
-        model=model, provider=litellm.LlmProviders.DATABRICKS
+        model=model, provider=hangarllm.LlmProviders.DATABRICKS
     )
 
     assert config is None
@@ -74,7 +74,7 @@ def test_names_outside_the_foundation_claude_models_keep_the_chat_completions_br
 )
 def test_complete_url_targets_the_workspace_anthropic_messages_route(api_base: str) -> None:
     url: Final = DatabricksAnthropicMessagesConfig().get_complete_url(
-        api_base=api_base, api_key=None, model=CLAUDE_MODEL, optional_params={}, litellm_params={}
+        api_base=api_base, api_key=None, model=CLAUDE_MODEL, optional_params={}, hangarllm_params={}
     )
 
     assert url == MESSAGES_URL
@@ -86,7 +86,7 @@ def test_validate_environment_signs_with_the_pat_and_keeps_the_workspace_base() 
         model=CLAUDE_MODEL,
         messages=USER_TURN,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=DATABRICKS_API_KEY,
         api_base=DATABRICKS_API_BASE,
     )
@@ -95,7 +95,7 @@ def test_validate_environment_signs_with_the_pat_and_keeps_the_workspace_base() 
     assert headers["Authorization"] == f"Bearer {DATABRICKS_API_KEY}"
     assert headers["anthropic-version"] == "2023-06-01"
     assert headers["content-type"] == "application/json"
-    assert headers["User-Agent"].startswith("litellm/")
+    assert headers["User-Agent"].startswith("hangarllm/")
 
 
 def test_validate_environment_reads_the_workspace_credentials_from_the_environment(
@@ -112,10 +112,10 @@ def test_validate_environment_reads_the_workspace_credentials_from_the_environme
         model=CLAUDE_MODEL,
         messages=USER_TURN,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     url: Final = config.get_complete_url(
-        api_base=api_base, api_key=None, model=CLAUDE_MODEL, optional_params={}, litellm_params={}
+        api_base=api_base, api_key=None, model=CLAUDE_MODEL, optional_params={}, hangarllm_params={}
     )
 
     assert headers["Authorization"] == f"Bearer {DATABRICKS_API_KEY}"
@@ -133,13 +133,13 @@ def test_validation_then_url_building_appends_the_messages_route_once(api_base: 
         model=CLAUDE_MODEL,
         messages=USER_TURN,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=DATABRICKS_API_KEY,
         api_base=api_base,
     )
 
     url: Final = config.get_complete_url(
-        api_base=validated_api_base, api_key=DATABRICKS_API_KEY, model=CLAUDE_MODEL, optional_params={}, litellm_params={}
+        api_base=validated_api_base, api_key=DATABRICKS_API_KEY, model=CLAUDE_MODEL, optional_params={}, hangarllm_params={}
     )
 
     assert url == MESSAGES_URL
@@ -166,7 +166,7 @@ def test_unity_catalog_claude_names_route_to_the_ai_gateway_messages_route(api_b
         model=UNITY_CATALOG_CLAUDE_MODEL,
         messages=USER_TURN,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=DATABRICKS_API_KEY,
         api_base=api_base,
     )
@@ -176,7 +176,7 @@ def test_unity_catalog_claude_names_route_to_the_ai_gateway_messages_route(api_b
         api_key=DATABRICKS_API_KEY,
         model=UNITY_CATALOG_CLAUDE_MODEL,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == AI_GATEWAY_MESSAGES_URL
@@ -193,10 +193,10 @@ def test_messages_and_chat_routes_agree_on_which_names_use_the_ai_gateway(
     model: str, chat_url: str, messages_url: str
 ) -> None:
     chat: Final = DatabricksConfig().get_complete_url(
-        api_base=DATABRICKS_API_BASE, api_key=DATABRICKS_API_KEY, model=model, optional_params={}, litellm_params={}
+        api_base=DATABRICKS_API_BASE, api_key=DATABRICKS_API_KEY, model=model, optional_params={}, hangarllm_params={}
     )
     messages: Final = DatabricksAnthropicMessagesConfig().get_complete_url(
-        api_base=DATABRICKS_API_BASE, api_key=DATABRICKS_API_KEY, model=model, optional_params={}, litellm_params={}
+        api_base=DATABRICKS_API_BASE, api_key=DATABRICKS_API_KEY, model=model, optional_params={}, hangarllm_params={}
     )
 
     assert (chat, messages) == (chat_url, messages_url)
@@ -209,7 +209,7 @@ def test_partner_user_agent_matches_the_chat_route(monkeypatch: pytest.MonkeyPat
         model=CLAUDE_MODEL,
         messages=USER_TURN,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=DATABRICKS_API_KEY,
         api_base=DATABRICKS_API_BASE,
     )
@@ -218,12 +218,12 @@ def test_partner_user_agent_matches_the_chat_route(monkeypatch: pytest.MonkeyPat
         model=CLAUDE_MODEL,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=DATABRICKS_API_KEY,
         api_base=DATABRICKS_API_BASE,
     )
 
-    assert messages_headers["User-Agent"].startswith("partner_litellm/")
+    assert messages_headers["User-Agent"].startswith("partner_hangarllm/")
     assert messages_headers["User-Agent"] == chat_headers["User-Agent"]
 
 
@@ -240,7 +240,7 @@ def test_request_transform_normalizes_system_turns_and_strips_cache_scope() -> N
             "max_tokens": 64,
             "system": [{"type": "text", "text": "be brief", "cache_control": {"type": "ephemeral", "scope": "global"}}],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -258,7 +258,7 @@ def test_request_transform_keeps_the_billing_header_block() -> None:
             "max_tokens": 64,
             "system": [billing_block, {"type": "text", "text": "be brief"}],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -282,7 +282,7 @@ SERVER_TOOLS: Final = [
 
 
 async def _workspace_request(max_tokens: int = 64, **request_params: object) -> httpx.Request:
-    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake workspace records what litellm sent
+    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake workspace records what hangarllm sent
 
     def workspace_answers(request: httpx.Request) -> httpx.Response:
         received.append(request)
@@ -302,7 +302,7 @@ async def _workspace_request(max_tokens: int = 64, **request_params: object) -> 
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(workspace_answers))
     try:
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=max_tokens,
             messages=USER_TURN,
             model=f"databricks/{CLAUDE_MODEL}",
@@ -326,7 +326,7 @@ async def _workspace_request_body(**request_params: object) -> dict[str, object]
 async def test_bound_thinking_with_display_updates_reaches_the_workspace_with_both_betas(
     drop_params: bool, monkeypatch: pytest.MonkeyPatch, local_beta_headers_config: None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     thinking: Final = {
         "type": "enabled",
         "budget_tokens": 1024,
@@ -385,7 +385,7 @@ async def test_container_never_reaches_the_workspace(drop_params: bool, containe
 @pytest.mark.asyncio
 @pytest.mark.parametrize("user_agent_param", ["databricks_user_agent", "user_agent"])
 async def test_per_call_partner_user_agent_reaches_the_workspace_like_the_chat_route(user_agent_param: str) -> None:
-    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake workspace records what litellm sent
+    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake workspace records what hangarllm sent
 
     def workspace_answers(request: httpx.Request) -> httpx.Response:
         received.append(request)
@@ -405,7 +405,7 @@ async def test_per_call_partner_user_agent_reaches_the_workspace_like_the_chat_r
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(workspace_answers))
     try:
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=64,
             messages=USER_TURN,
             model=f"databricks/{CLAUDE_MODEL}",
@@ -421,13 +421,13 @@ async def test_per_call_partner_user_agent_reaches_the_workspace_like_the_chat_r
         model=CLAUDE_MODEL,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={user_agent_param: "partnerx/1.0"},
-        litellm_params={},
+        hangarllm_params={},
         api_key=DATABRICKS_API_KEY,
         api_base=DATABRICKS_API_BASE,
     )
 
     assert len(received) == 1
-    assert received[0].headers["user-agent"].startswith("partnerx_litellm/")
+    assert received[0].headers["user-agent"].startswith("partnerx_hangarllm/")
     assert received[0].headers["user-agent"] == chat_headers["User-Agent"]
     assert user_agent_param not in json.loads(received[0].content)
 
@@ -459,7 +459,7 @@ async def test_safeguards_reach_the_workspace_and_safeguard_results_come_back(
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(workspace_answers))
     try:
-        response = await litellm.anthropic.messages.acreate(
+        response = await hangarllm.anthropic.messages.acreate(
             max_tokens=256,
             messages=USER_TURN,
             model=f"databricks/{CLAUDE_MODEL}",
@@ -541,7 +541,7 @@ async def test_streaming_message_delta_keeps_safeguard_results(local_beta_header
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(workspace_streams))
     try:
-        stream = await litellm.anthropic.messages.acreate(
+        stream = await hangarllm.anthropic.messages.acreate(
             max_tokens=256,
             messages=USER_TURN,
             model=f"databricks/{CLAUDE_MODEL}",
@@ -612,7 +612,7 @@ MESSAGE: Final = {
 async def test_each_api_base_reaches_a_route_the_workspace_serves(
     model: str, api_base: str, request_params: dict[str, object], expected_url: str
 ) -> None:
-    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake upstream records what litellm sent
+    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake upstream records what hangarllm sent
 
     def upstream_answers(request: httpx.Request) -> httpx.Response:
         received.append(request)
@@ -620,7 +620,7 @@ async def test_each_api_base_reaches_a_route_the_workspace_serves(
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(upstream_answers))
     try:
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=64,
             messages=USER_TURN,
             model=f"databricks/{model}",
@@ -653,7 +653,7 @@ async def test_client_anthropic_headers_keep_the_sdk_credentials_on_the_native_r
     setattr(package_module, "sdk", sdk_module)
     monkeypatch.setitem(sys.modules, "databricks", package_module)
     monkeypatch.setitem(sys.modules, "databricks.sdk", sdk_module)
-    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake workspace records what litellm sent
+    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake workspace records what hangarllm sent
 
     def workspace_answers(request: httpx.Request) -> httpx.Response:
         received.append(request)
@@ -661,7 +661,7 @@ async def test_client_anthropic_headers_keep_the_sdk_credentials_on_the_native_r
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(workspace_answers))
     try:
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=64,
             messages=USER_TURN,
             model=f"databricks/{CLAUDE_MODEL}",
@@ -683,7 +683,7 @@ async def test_client_anthropic_headers_keep_the_sdk_credentials_on_the_native_r
 
 @pytest.mark.asyncio
 async def test_client_anthropic_headers_skip_an_opted_in_passthrough_api_base() -> None:
-    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake upstream records what litellm sent
+    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake upstream records what hangarllm sent
 
     def upstream_answers(request: httpx.Request) -> httpx.Response:
         received.append(request)
@@ -691,7 +691,7 @@ async def test_client_anthropic_headers_skip_an_opted_in_passthrough_api_base() 
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(upstream_answers))
     try:
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=64,
             messages=USER_TURN,
             model=f"databricks/{CLAUDE_MODEL}",
@@ -756,7 +756,7 @@ async def test_streamed_message_stop_drops_the_bedrock_invocation_metrics(chunk_
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(workspace_streams))
     try:
-        stream = await litellm.anthropic.messages.acreate(
+        stream = await hangarllm.anthropic.messages.acreate(
             max_tokens=64,
             messages=USER_TURN,
             model=f"databricks/{CLAUDE_MODEL}",

@@ -7,20 +7,20 @@ from typing import Any, List
 import httpx
 import pytest
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.exceptions import Timeout as LiteLLMTimeout
-from litellm.proxy.guardrails.guardrail_hooks.vigil_guard import (
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.exceptions import Timeout as HangarLLMTimeout
+from hangarllm.proxy.guardrails.guardrail_hooks.vigil_guard import (
     VigilGuardGuardrail,
     guardrail_class_registry,
     guardrail_initializer_registry,
     initialize_guardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.vigil_guard.vigil_guard import (
+from hangarllm.proxy.guardrails.guardrail_hooks.vigil_guard.vigil_guard import (
     _DEFAULT_VIGIL_TIMEOUT,
     VigilGuardMissingConfig,
 )
-from litellm.types.guardrails import LitellmParams, SupportedGuardrailIntegrations
-from litellm.types.proxy.guardrails.guardrail_hooks.vigil_guard import (
+from hangarllm.types.guardrails import HangarllmParams, SupportedGuardrailIntegrations
+from hangarllm.types.proxy.guardrails.guardrail_hooks.vigil_guard import (
     VigilGuardGuardrailConfigModel,
 )
 
@@ -80,7 +80,7 @@ def _transient_exceptions() -> List[BaseException]:
         httpx.ConnectTimeout("boom", request=req),
         httpx.ReadTimeout("boom", request=req),
         httpx.RemoteProtocolError("boom", request=req),
-        LiteLLMTimeout(message="t", model="m", llm_provider="vigil_guard"),
+        HangarLLMTimeout(message="t", model="m", llm_provider="vigil_guard"),
     ]
 
 
@@ -414,7 +414,7 @@ def test_short_timeout_caps_connect():
 
 
 def test_initialize_guardrail_forwards_timeout():
-    lp = LitellmParams(
+    lp = HangarllmParams(
         guardrail="vigil_guard",
         mode="pre_call",
         api_base="https://vigil.test",
@@ -760,13 +760,13 @@ async def test_metadata_allowlist_and_clamping():
     assert md["conversation_id"] == 7
 
 
-async def test_metadata_source_precedence_and_litellm_metadata_fallback():
+async def test_metadata_source_precedence_and_hangarllm_metadata_fallback():
     handler = FakeHandler([_resp({"decision": "ALLOWED"})])
     g = _make_guardrail(handler)
     request_data = {
         "user_id": "top",
         "metadata": {"user_id": "nested"},
-        "litellm_metadata": {"tenant_id": "lm-tenant"},
+        "hangarllm_metadata": {"tenant_id": "lm-tenant"},
     }
     await g.apply_guardrail(
         inputs={"texts": ["x"]}, request_data=request_data, input_type="request"
@@ -817,14 +817,14 @@ async def test_metadata_array_with_no_supported_items_is_dropped():
 async def test_call_id_forwarded_from_logging_obj():
     handler = FakeHandler([_resp({"decision": "ALLOWED"})])
     g = _make_guardrail(handler)
-    logging_obj = SimpleNamespace(litellm_call_id="call-123")
+    logging_obj = SimpleNamespace(hangarllm_call_id="call-123")
     await g.apply_guardrail(
         inputs={"texts": ["x"]},
         request_data={},
         input_type="request",
         logging_obj=logging_obj,
     )
-    assert handler.calls[0].json["metadata"]["litellm_call_id"] == "call-123"
+    assert handler.calls[0].json["metadata"]["hangarllm_call_id"] == "call-123"
 
 
 async def test_call_id_forwarded_from_request_data():
@@ -832,11 +832,11 @@ async def test_call_id_forwarded_from_request_data():
     g = _make_guardrail(handler)
     await g.apply_guardrail(
         inputs={"texts": ["x"]},
-        request_data={"litellm_call_id": "rd-1"},
+        request_data={"hangarllm_call_id": "rd-1"},
         input_type="request",
         logging_obj=None,
     )
-    assert handler.calls[0].json["metadata"]["litellm_call_id"] == "rd-1"
+    assert handler.calls[0].json["metadata"]["hangarllm_call_id"] == "rd-1"
 
 
 async def test_call_id_forwarded_from_request_metadata():
@@ -844,24 +844,24 @@ async def test_call_id_forwarded_from_request_metadata():
     g = _make_guardrail(handler)
     await g.apply_guardrail(
         inputs={"texts": ["x"]},
-        request_data={"metadata": {"litellm_call_id": "md-1"}},
+        request_data={"metadata": {"hangarllm_call_id": "md-1"}},
         input_type="request",
         logging_obj=None,
     )
-    assert handler.calls[0].json["metadata"]["litellm_call_id"] == "md-1"
+    assert handler.calls[0].json["metadata"]["hangarllm_call_id"] == "md-1"
 
 
 async def test_call_id_logging_obj_takes_precedence():
     handler = FakeHandler([_resp({"decision": "ALLOWED"})])
     g = _make_guardrail(handler)
-    logging_obj = SimpleNamespace(litellm_call_id="log-1")
+    logging_obj = SimpleNamespace(hangarllm_call_id="log-1")
     await g.apply_guardrail(
         inputs={"texts": ["x"]},
-        request_data={"litellm_call_id": "rd-1"},
+        request_data={"hangarllm_call_id": "rd-1"},
         input_type="request",
         logging_obj=logging_obj,
     )
-    assert handler.calls[0].json["metadata"]["litellm_call_id"] == "log-1"
+    assert handler.calls[0].json["metadata"]["hangarllm_call_id"] == "log-1"
 
 
 def test_enum_value():
@@ -884,12 +884,12 @@ def test_registries_expose_initializer_and_class():
     assert guardrail_class_registry["vigil_guard"] is VigilGuardGuardrail
 
 
-def test_litellm_params_includes_config_model():
-    assert VigilGuardGuardrailConfigModel in LitellmParams.__mro__
+def test_hangarllm_params_includes_config_model():
+    assert VigilGuardGuardrailConfigModel in HangarllmParams.__mro__
 
 
 def test_config_driven_initialization_creates_callback():
-    lp = LitellmParams(
+    lp = HangarllmParams(
         guardrail="vigil_guard",
         mode="pre_call",
         api_base="https://vigil.test",

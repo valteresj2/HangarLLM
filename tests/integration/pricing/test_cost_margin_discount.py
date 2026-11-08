@@ -19,7 +19,7 @@ class CostEstimate(BaseModel):
 
 
 def _settings_row() -> dict[str, JsonValue]:
-    rows: Final = read_rows('SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s', ("litellm_settings",))
+    rows: Final = read_rows('SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s', ("hangarllm_settings",))
     assert len(rows) == 1, rows
     value: Final = rows[0]["param_value"]
     return object_value(json.loads(value) if isinstance(value, str) else value)
@@ -72,7 +72,7 @@ def _chat_cost(gateway: Gateway, upstream: httpx.Client, model: str, key: str, e
     )
     assert response.status_code == 200, response.text
     request_id: Final = string_value(object_value(response.json())["id"])
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected), response.text
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), response.text
     assert _observed(upstream) == [_upstream_chat(content, streamed=False)], response.text
     return request_id
 
@@ -101,7 +101,7 @@ def _assert_logged_spends(expectations: tuple[tuple[str, float], ...]) -> None:
     request_ids: Final = tuple(request_id for request_id, _ in expectations)
     rows: Final = eventually(
         lambda: read_rows(
-            f'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE request_id IN ({placeholders})', request_ids
+            f'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE request_id IN ({placeholders})', request_ids
         ),
         lambda values: len(values) == len(expectations),
         seconds=40,
@@ -122,7 +122,7 @@ class LoggedBreakdown(BaseModel):
 
 
 def _logged_breakdown(request_id: str) -> LoggedBreakdown:
-    rows: Final = read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,))
+    rows: Final = read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,))
     assert len(rows) == 1, rows
     metadata: Final = rows[0]["metadata"]
     parsed: Final = object_value(json.loads(metadata) if isinstance(metadata, str) else metadata)
@@ -273,8 +273,8 @@ def test_discount_and_margin_reprice_a_request_and_survive_rejection(gateway: Ga
                 {"not_a_provider": 0.1},
                 {
                     "detail": {
-                        "error": "Invalid provider(s): not_a_provider. Must be valid LiteLLM providers or 'global'. "
-                        "See https://docs.litellm.ai/docs/providers for the full list."
+                        "error": "Invalid provider(s): not_a_provider. Must be valid HangarLLM providers or 'global'. "
+                        "See https://github.com/valteresj2/HangarLLM#readme for the full list."
                     }
                 },
             ),
@@ -288,8 +288,8 @@ def test_discount_and_margin_reprice_a_request_and_survive_rejection(gateway: Ga
                 {"global": 0.1},
                 {
                     "detail": {
-                        "error": "Invalid provider(s): global. Must be valid LiteLLM providers. "
-                        "See https://docs.litellm.ai/docs/providers for the full list."
+                        "error": "Invalid provider(s): global. Must be valid HangarLLM providers. "
+                        "See https://github.com/valteresj2/HangarLLM#readme for the full list."
                     }
                 },
             ),
@@ -307,8 +307,8 @@ def test_discount_and_margin_reprice_a_request_and_survive_rejection(gateway: Ga
 
 def test_streamed_response_cost_header_matches_billed_spend(gateway: Gateway) -> None:
     pytest.skip(
-        "BUG: a streamed chat with a fixed cost margin returns x-litellm-response-cost equal to the fixed amount "
-        "(computed before usage is known) while LiteLLM_SpendLogs bills the full margined cost"
+        "BUG: a streamed chat with a fixed cost margin returns x-hangarllm-response-cost equal to the fixed amount "
+        "(computed before usage is known) while HangarLLM_SpendLogs bills the full margined cost"
     )
     with (
         gateway.scenario() as scenario,
@@ -346,5 +346,5 @@ def test_streamed_response_cost_header_matches_billed_spend(gateway: Gateway) ->
         request_id: Final = ChatChunk.model_validate_json(events[0]).id
         assert _observed(upstream) == [_upstream_chat(content, streamed=True)], response.text
         _assert_logged_spends(((request_id, 0.06 * 1.1 + 0.001),))
-        advertised: Final = response.headers.get("x-litellm-response-cost")
+        advertised: Final = response.headers.get("x-hangarllm-response-cost")
         assert advertised is None or float(advertised) == pytest.approx(0.06 * 1.1 + 0.001), dict(response.headers)

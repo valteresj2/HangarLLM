@@ -9,13 +9,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.router import LiteLLM_Params
-from litellm.types.utils import BudgetConfig
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
+from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
+from hangarllm.types.caching import RedisPipelineIncrementOperation
+from hangarllm.types.router import HangarLLM_Params
+from hangarllm.types.utils import BudgetConfig
 
 
 @pytest.fixture
@@ -24,21 +24,21 @@ def disable_budget_sync(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
+        "hangarllm.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
         noop,
     )
 
 
 @pytest.mark.asyncio
-async def test_get_llm_provider_for_deployment_dict_does_not_require_litellm_params_instantiation(
+async def test_get_llm_provider_for_deployment_dict_does_not_require_hangarllm_params_instantiation(
     disable_budget_sync, monkeypatch
 ):
     class RaiseOnInit:
         def __init__(self, *args, **kwargs):
-            raise AssertionError("LiteLLM_Params should not be instantiated in hot path")
+            raise AssertionError("HangarLLM_Params should not be instantiated in hot path")
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.LiteLLM_Params",
+        "hangarllm.router_strategy.budget_limiter.HangarLLM_Params",
         RaiseOnInit,
     )
 
@@ -47,7 +47,7 @@ async def test_get_llm_provider_for_deployment_dict_does_not_require_litellm_par
         provider_budget_config={},
     )
 
-    deployment = {"litellm_params": {"model": "openai/gpt-4o-mini"}}
+    deployment = {"hangarllm_params": {"model": "openai/gpt-4o-mini"}}
     provider = provider_budget._get_llm_provider_for_deployment(deployment)
 
     assert provider == "openai"
@@ -64,18 +64,18 @@ async def test_get_llm_provider_for_deployment_dict_view_supports_mapping_and_at
         custom_llm_provider=None,
         api_base=None,
         api_key=None,
-        litellm_params=None,
+        hangarllm_params=None,
     ):
-        assert litellm_params is not None
-        observed["model_attr"] = litellm_params.model
-        observed["provider_get"] = litellm_params.get("custom_llm_provider")
-        observed["api_base_item"] = litellm_params["api_base"]
-        observed["has_api_key"] = "api_key" in litellm_params
-        observed["model_dump"] = litellm_params.model_dump()
+        assert hangarllm_params is not None
+        observed["model_attr"] = hangarllm_params.model
+        observed["provider_get"] = hangarllm_params.get("custom_llm_provider")
+        observed["api_base_item"] = hangarllm_params["api_base"]
+        observed["has_api_key"] = "api_key" in hangarllm_params
+        observed["model_dump"] = hangarllm_params.model_dump()
         return model, "openai", None, None
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.litellm.get_llm_provider",
+        "hangarllm.router_strategy.budget_limiter.hangarllm.get_llm_provider",
         _future_style_get_llm_provider,
     )
 
@@ -85,7 +85,7 @@ async def test_get_llm_provider_for_deployment_dict_view_supports_mapping_and_at
     )
 
     deployment = {
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "custom_llm_provider": "openai",
             "api_base": "https://api.openai.com/v1",
@@ -113,12 +113,12 @@ async def test_async_filter_deployments_resolves_provider_once_per_deployment(di
     healthy_deployments = [
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -160,7 +160,7 @@ async def test_async_filter_deployments_does_not_recompute_provider_when_resolve
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "max_budget": 100.0,
                     "budget_duration": "1d",
@@ -173,7 +173,7 @@ async def test_async_filter_deployments_does_not_recompute_provider_when_resolve
     healthy_deployments = [
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "unknown-provider/model"},
+            "hangarllm_params": {"model": "unknown-provider/model"},
             "model_info": {"id": "deployment-1"},
         }
     ]
@@ -208,10 +208,10 @@ def _legacy_provider_resolution(deployment):
     Reference implementation used before hot-path optimization.
     """
     try:
-        _litellm_params = LiteLLM_Params(**deployment.get("litellm_params", {"model": ""}))
-        _, custom_llm_provider, _, _ = litellm.get_llm_provider(
-            model=_litellm_params.model,
-            litellm_params=_litellm_params,
+        _hangarllm_params = HangarLLM_Params(**deployment.get("hangarllm_params", {"model": ""}))
+        _, custom_llm_provider, _, _ = hangarllm.get_llm_provider(
+            model=_hangarllm_params.model,
+            hangarllm_params=_hangarllm_params,
         )
     except Exception:
         return None
@@ -221,9 +221,9 @@ def _legacy_provider_resolution(deployment):
 @pytest.mark.parametrize(
     "deployment",
     [
-        {"litellm_params": {"model": "openai/gpt-4o-mini"}},
-        {"litellm_params": {"model": "gpt-4o-mini", "custom_llm_provider": "openai"}},
-        {"litellm_params": {"model": "unknown-provider/model"}},
+        {"hangarllm_params": {"model": "openai/gpt-4o-mini"}},
+        {"hangarllm_params": {"model": "gpt-4o-mini", "custom_llm_provider": "openai"}},
+        {"hangarllm_params": {"model": "unknown-provider/model"}},
     ],
 )
 @pytest.mark.asyncio
@@ -251,7 +251,7 @@ def test_register_deployment_budget_for_runtime_added_deployment(disable_budget_
     budget_limiter.register_deployment_budget(
         deployment={
             "model_name": "dynamic-budget-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "max_budget": 0.000000000001,
                 "budget_duration": "1d",
@@ -272,8 +272,8 @@ def test_register_deployment_budget_for_runtime_added_deployment(disable_budget_
 def test_router_add_deployment_registers_deployment_budget(disable_budget_sync, monkeypatch):
     import asyncio
 
-    from litellm import Router
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm import Router
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
     monkeypatch.setattr(asyncio, "create_task", lambda coro: None)
 
@@ -285,7 +285,7 @@ def test_router_add_deployment_registers_deployment_budget(disable_budget_sync, 
     router.add_deployment(
         deployment=Deployment(
             model_name="dynamic-budget-model",
-            litellm_params=LiteLLM_Params(
+            hangarllm_params=HangarLLM_Params(
                 model="openai/gpt-4o-mini",
                 api_key="fake-key",
                 max_budget=0.000000000001,

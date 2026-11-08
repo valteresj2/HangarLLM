@@ -34,12 +34,12 @@ with patch.object(streamer, "_group_by_date") as mock_group, patch.object(stream
 ```
 
 Green if `send_batched` drops every row. pydantic doubles in 12 of 203 files, fastapi 11 of 594.
-`tests/test_litellm` 59 percent. Exception: the count is the behaviour
+`tests/test_hangarllm` 59 percent. Exception: the count is the behaviour
 (`test_dual_cache_async_batch_get_cache_coalesces_concurrent_redis_reads`, fifty readers, `call_count == 1`)
 
 ## Where it goes
 
-`tests/unit/<path>` mirrors `litellm/<path>`, so a changed file selects its tests by path, not a mapping
+`tests/unit/<path>` mirrors `hangarllm/<path>`, so a changed file selects its tests by path, not a mapping
 file. New unit tests go here
 
 A new directory under `tests/unit` runs in CI only once a shard in `.github/workflows/test-unit.yml` names it.

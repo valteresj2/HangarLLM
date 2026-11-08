@@ -6,7 +6,7 @@ from typing import Final, LiteralString
 from integration._support.database import read_rows, write_rows
 
 SEED_QUERY: Final[LiteralString] = """
-INSERT INTO "LiteLLM_DailyUserSpend" (
+INSERT INTO "HangarLLM_DailyUserSpend" (
     id, user_id, date, api_key, model, model_group, custom_llm_provider,
     endpoint, mcp_namespaced_tool_name,
     prompt_tokens, completion_tokens, spend,
@@ -19,8 +19,8 @@ INSERT INTO "LiteLLM_DailyUserSpend" (
 )
 """
 
-CLEAR_COUNT_QUERY: Final[LiteralString] = 'SELECT count(*) AS count FROM "LiteLLM_DailyUserSpend" WHERE api_key=%s'
-CLEAR_QUERY: Final[LiteralString] = 'DELETE FROM "LiteLLM_DailyUserSpend" WHERE api_key=%s'
+CLEAR_COUNT_QUERY: Final[LiteralString] = 'SELECT count(*) AS count FROM "HangarLLM_DailyUserSpend" WHERE api_key=%s'
+CLEAR_QUERY: Final[LiteralString] = 'DELETE FROM "HangarLLM_DailyUserSpend" WHERE api_key=%s'
 
 
 def seed(api_key: str, group: str, deployment: str) -> int:

@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, TEAM_BETA, Actor
 from tests.integration._support.actors import create_scratch_key
@@ -89,7 +89,7 @@ async def test_key_block_unblock_authz_matrix(
 
     # /unblock starts from a blocked row so a 200 is observable as True->False.
     if route == "unblock":
-        await db.db.litellm_verificationtoken.update(
+        await db.db.hangarllm_verificationtoken.update(
             where={"token": target_hashed}, data={"blocked": True}
         )
 
@@ -102,7 +102,7 @@ async def test_key_block_unblock_authz_matrix(
         resp.status_code == expected_status
     ), f"{route} {actor.value} {shape}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": target_hashed}
     )
     assert row is not None
@@ -127,14 +127,14 @@ async def test_key_block_unblock_round_trip(gateway_client, db, resources, actor
         "/key/block", headers=headers, json={"key": target}
     )
     assert blocked.status_code == 200, blocked.text
-    row = await db.db.litellm_verificationtoken.find_unique(where={"token": hashed})
+    row = await db.db.hangarllm_verificationtoken.find_unique(where={"token": hashed})
     assert row is not None and row.blocked is True
 
     unblocked = await gateway_client.post(
         "/key/unblock", headers=headers, json={"key": target}
     )
     assert unblocked.status_code == 200, unblocked.text
-    row = await db.db.litellm_verificationtoken.find_unique(where={"token": hashed})
+    row = await db.db.hangarllm_verificationtoken.find_unique(where={"token": hashed})
     assert row is not None and row.blocked is False
 
 

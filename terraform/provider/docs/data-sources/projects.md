@@ -1,18 +1,18 @@
-# litellm_projects (Data Source)
+# hangarllm_projects (Data Source)
 
-Retrieves the list of all LiteLLM projects visible to the caller
+Retrieves the list of all HangarLLM projects visible to the caller
 
 ## Example Usage
 
 ```hcl
-data "litellm_projects" "all" {}
+data "hangarllm_projects" "all" {}
 
 output "project_ids" {
-  value = data.litellm_projects.all.ids
+  value = data.hangarllm_projects.all.ids
 }
 
 output "project_aliases" {
-  value = [for p in data.litellm_projects.all.projects : p.project_alias]
+  value = [for p in data.hangarllm_projects.all.projects : p.project_alias]
 }
 ```
 

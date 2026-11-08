@@ -10,11 +10,11 @@ import pytest
 import respx
 
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.rerank import RerankResponse
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.rerank import RerankResponse
 
 MARKER_QUERY = "MARKER_QUERY_do_not_log_at_info"
 MARKER_DOC = "MARKER_DOC_sensitive_customer_text"
@@ -38,7 +38,7 @@ class RespxAsyncTransport(httpx.AsyncBaseTransport):
 
 async def _cohere_rerank(sync_mode: bool, router: respx.MockRouter, top_n: int | None) -> RerankResponse:
     if sync_mode:
-        return litellm.rerank(
+        return hangarllm.rerank(
             model="cohere/rerank-v4.0-pro",
             query="hello",
             documents=["hello", "world"],
@@ -46,7 +46,7 @@ async def _cohere_rerank(sync_mode: bool, router: respx.MockRouter, top_n: int |
             api_key="test-api-key",
         )
     client: Final = AsyncHTTPHandler(transport=RespxAsyncTransport(router))
-    response: Final = await litellm.arerank(
+    response: Final = await hangarllm.arerank(
         model="cohere/rerank-v4.0-pro",
         query="hello",
         documents=["hello", "world"],
@@ -84,30 +84,30 @@ def test_rerank_does_not_log_request_content_at_info(caplog):
     ``documents``) bypasses ``turn_off_message_logging`` / ``redact_messages``,
     so logging it at INFO leaks raw request content into stdout and any log sink.
     """
-    litellm.cohere_key = "test_api_key"
-    caplog.set_level(logging.DEBUG, logger="LiteLLM")
+    hangarllm.cohere_key = "test_api_key"
+    caplog.set_level(logging.DEBUG, logger="HangarLLM")
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
         return_value=_mock_cohere_response(),
     ):
-        litellm.rerank(
+        hangarllm.rerank(
             model="cohere/rerank-english-v3.0",
             query=MARKER_QUERY,
             documents=[MARKER_DOC, "unrelated"],
             top_n=2,
         )
 
-    litellm_records = [r for r in caplog.records if r.name == "LiteLLM"]
+    hangarllm_records = [r for r in caplog.records if r.name == "HangarLLM"]
 
     info_or_above = [
         r.getMessage()
-        for r in litellm_records
+        for r in hangarllm_records
         if r.levelno >= logging.INFO and (MARKER_QUERY in r.getMessage() or MARKER_DOC in r.getMessage())
     ]
     assert not info_or_above, f"rerank leaked request content at INFO+: {info_or_above}"
 
-    optional_params_logs = [r for r in litellm_records if "optional_rerank_params" in r.getMessage()]
+    optional_params_logs = [r for r in hangarllm_records if "optional_rerank_params" in r.getMessage()]
     assert optional_params_logs, "expected the optional_rerank_params line to be logged"
     assert all(r.levelno == logging.DEBUG for r in optional_params_logs), (
         "optional_rerank_params must be logged at DEBUG, not INFO"
@@ -129,7 +129,7 @@ def test_together_rerank_defaults_to_together_ai_host(respx_mock: respx.MockRout
     mock_route = respx_mock.post("https://api.together.ai/v1/rerank")
     mock_route.return_value = httpx.Response(200, json=TOGETHER_RERANK_BODY)
 
-    response = litellm.rerank(
+    response = hangarllm.rerank(
         model="together_ai/mixedbread-ai/mxbai-rerank-large-v2",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -145,7 +145,7 @@ def test_together_rerank_honors_api_base(respx_mock: respx.MockRouter):
     mock_route = respx_mock.post("https://custom-together.example/v1/rerank")
     mock_route.return_value = httpx.Response(200, json=TOGETHER_RERANK_BODY)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="together_ai/mixedbread-ai/mxbai-rerank-large-v2",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -176,7 +176,7 @@ def test_dashscope_rerank_defaults_to_live_rerank_route(respx_mock: respx.MockRo
     mock_route = respx_mock.post("https://dashscope.aliyuncs.com/compatible-api/v1/reranks")
     mock_route.return_value = httpx.Response(200, json=DASHSCOPE_RERANK_BODY)
 
-    response = litellm.rerank(
+    response = hangarllm.rerank(
         model="dashscope/qwen3-rerank",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -196,7 +196,7 @@ def test_dashscope_rerank_chat_env_base_keeps_host_and_rerank_route(respx_mock: 
     mock_route = respx_mock.post("https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks")
     mock_route.return_value = httpx.Response(200, json=DASHSCOPE_RERANK_BODY)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="dashscope/qwen3-rerank",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -212,7 +212,7 @@ def test_dashscope_rerank_explicit_api_base_wins(respx_mock: respx.MockRouter, m
     mock_route = respx_mock.post("https://custom-rerank.example/v1/reranks")
     mock_route.return_value = httpx.Response(200, json=DASHSCOPE_RERANK_BODY)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="dashscope/qwen3-rerank",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -243,8 +243,8 @@ def test_rerank_error_names_provider_and_keeps_body(respx_mock: respx.MockRouter
     mock_route = respx_mock.post("https://dashscope.example/v1/reranks")
     mock_route.return_value = httpx.Response(404, json=DASHSCOPE_404_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as exc_info:
-        litellm.rerank(
+    with pytest.raises(hangarllm.NotFoundError) as exc_info:
+        hangarllm.rerank(
             model="dashscope/does-not-exist",
             query=MARKER_QUERY,
             documents=[MARKER_DOC],
@@ -259,9 +259,9 @@ def test_rerank_error_names_provider_and_keeps_body(respx_mock: respx.MockRouter
 
 
 @pytest.mark.asyncio
-async def test_arerank_error_is_mapped_to_litellm_exception(respx_mock: respx.MockRouter, monkeypatch):
+async def test_arerank_error_is_mapped_to_hangarllm_exception(respx_mock: respx.MockRouter, monkeypatch):
     """Regression for arerank's bare re-raise: provider errors escaped as raw
-    provider exception classes instead of the mapped litellm exception contract."""
+    provider exception classes instead of the mapped hangarllm exception contract."""
     monkeypatch.delenv("DASHSCOPE_API_BASE", raising=False)
     monkeypatch.delenv("DASHSCOPE_API_BASE_RERANK", raising=False)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
@@ -269,8 +269,8 @@ async def test_arerank_error_is_mapped_to_litellm_exception(respx_mock: respx.Mo
     mock_route = respx_mock.post("https://dashscope.example/v1/reranks")
     mock_route.return_value = httpx.Response(404, json=DASHSCOPE_404_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as exc_info:
-        await litellm.arerank(
+    with pytest.raises(hangarllm.NotFoundError) as exc_info:
+        await hangarllm.arerank(
             model="dashscope/does-not-exist",
             query=MARKER_QUERY,
             documents=[MARKER_DOC],
@@ -290,7 +290,7 @@ async def test_arerank_declared_authenticating_provider_skips_resolution(monkeyp
     get_llm_provider runs the blocking OAuth device flow for github_copilot/chatgpt,
     so arerank must adopt the declared provider instead of resolving it, while the
     except path still maps with that declared provider."""
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 
     resolution_calls = []
 
@@ -301,14 +301,14 @@ async def test_arerank_declared_authenticating_provider_skips_resolution(monkeyp
     def rerank_raises_provider_error(*args, **kwargs):
         raise BaseLLMException(status_code=401, message='{"error":"bad key"}')
 
-    monkeypatch.setattr(litellm, "get_llm_provider", record_resolution)
+    monkeypatch.setattr(hangarllm, "get_llm_provider", record_resolution)
     monkeypatch.setattr(
-        "litellm.litellm_core_utils.llm_response_utils.get_api_base.get_llm_provider", record_resolution
+        "hangarllm.hangarllm_core_utils.llm_response_utils.get_api_base.get_llm_provider", record_resolution
     )
-    monkeypatch.setattr("litellm.rerank_api.main.rerank", rerank_raises_provider_error)
+    monkeypatch.setattr("hangarllm.rerank_api.main.rerank", rerank_raises_provider_error)
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        await litellm.arerank(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        await hangarllm.arerank(
             model="github_copilot/gpt-4o",
             query=MARKER_QUERY,
             documents=[MARKER_DOC],
@@ -328,7 +328,7 @@ async def test_together_rerank_async_honors_env_api_base(respx_mock: respx.MockR
     mock_route = respx_mock.post("https://env-together.example/v1/rerank")
     mock_route.return_value = httpx.Response(200, json=TOGETHER_RERANK_BODY)
 
-    response = await litellm.arerank(
+    response = await hangarllm.arerank(
         model="together_ai/mixedbread-ai/mxbai-rerank-large-v2",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -340,11 +340,11 @@ async def test_together_rerank_async_honors_env_api_base(respx_mock: respx.MockR
 
 
 def test_cohere_rerank_v2_client():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
-    litellm.api_base = "http://localhost:4000"
-    litellm.set_verbose = True
+    hangarllm.api_base = "http://localhost:4000"
+    hangarllm.set_verbose = True
 
     text = "Hello there!"
     list_texts = ["Hello there!", "How are you?", "How do you do?"]
@@ -370,7 +370,7 @@ def test_cohere_rerank_v2_client():
 
         mock_post.return_value = mock_response
 
-        response = litellm.rerank(
+        response = hangarllm.rerank(
             model=rerank_model,
             query=text,
             documents=list_texts,
@@ -392,7 +392,7 @@ def test_cohere_rerank_v2_client():
         assert request_data["max_tokens_per_doc"] == 3
         assert request_data["top_n"] == 2
 
-        # Ensure litellm response is what we expect
+        # Ensure hangarllm response is what we expect
         assert response["results"] == mock_response.json()["results"]
 
 
@@ -423,7 +423,7 @@ def test_rerank_infer_region_from_model_arn(monkeypatch):
     client = HTTPHandler()
 
     with patch.object(client, "post", return_value=mock_response) as mock_post:
-        litellm.rerank(
+        hangarllm.rerank(
             model=args["model"],
             query=args["query"],
             documents=args["documents"],
@@ -463,7 +463,7 @@ async def test_cohere_rerank_cache_hit_requires_identical_top_n(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type="local"))
     route: Final = respx_mock.post("https://api.cohere.com/v2/rerank")
     route.return_value = httpx.Response(200, json=COHERE_RERANK_RESPONSE)
 
@@ -479,11 +479,11 @@ async def test_cohere_rerank_cache_hit_requires_identical_top_n(
 def test_cohere_rerank_completes_global_root_api_base_to_v2_route(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "api_base", "http://localhost:4000")
+    monkeypatch.setattr(hangarllm, "api_base", "http://localhost:4000")
     route: Final = respx_mock.post("http://localhost:4000/v2/rerank")
     route.return_value = httpx.Response(200, json=COHERE_RERANK_RESPONSE)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="cohere/rerank-v4.0-pro",
         query="hello",
         documents=["hello", "world"],
@@ -501,7 +501,7 @@ def test_cohere_rerank_sends_return_documents_and_preserves_text(
     route: Final = respx_mock.post("https://api.cohere.com/v2/rerank")
     route.return_value = httpx.Response(200, json=COHERE_RERANK_RESPONSE)
 
-    response: Final = litellm.rerank(
+    response: Final = hangarllm.rerank(
         model="cohere/rerank-v4.0-pro",
         query="hello",
         documents=["hello", "world"],
@@ -535,7 +535,7 @@ def test_cohere_rerank_custom_api_base_selects_versioned_route(
     route: Final = respx_mock.post(endpoint)
     route.return_value = httpx.Response(200, json=COHERE_RERANK_RESPONSE)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="cohere/rerank-v4.0-pro",
         query="hello",
         documents=["hello", "world"],
@@ -572,7 +572,7 @@ async def test_cohere_rerank_success_callback_receives_search_unit_cost(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     recorder: Final = _SuccessCostRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     route: Final = respx_mock.post("https://api.cohere.com/v2/rerank")
     route.return_value = httpx.Response(200, json=COHERE_RERANK_RESPONSE)
 
@@ -580,7 +580,7 @@ async def test_cohere_rerank_success_callback_receives_search_unit_cost(
     await asyncio.wait_for(recorder.logged.wait(), timeout=10)
 
     search_units: Final = COHERE_RERANK_RESPONSE["meta"]["billed_units"]["search_units"]
-    expected_cost: Final = litellm.model_cost["rerank-v4.0-pro"]["input_cost_per_query"] * search_units
+    expected_cost: Final = hangarllm.model_cost["rerank-v4.0-pro"]["input_cost_per_query"] * search_units
     assert expected_cost > 0
     assert recorder.response_cost == expected_cost
     assert response._hidden_params["response_cost"] == expected_cost

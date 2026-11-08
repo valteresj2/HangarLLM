@@ -199,7 +199,7 @@ test.describe("Admin tables scroll inside the page", () => {
     const models = await oneAtATime(SEED_ROWS, (i) =>
       postOk<CreatedModel>(request, "/model/new", {
         model_name: `e2e-scroll-model-${suffix}-${i}`,
-        litellm_params: {
+        hangarllm_params: {
           model: "openai/fake-gpt-4",
           api_base: `http://127.0.0.1:${process.env.MOCK_LLM_PORT ?? "8090"}/v1`,
           api_key: "fake-key",

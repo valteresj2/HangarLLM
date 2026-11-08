@@ -3,16 +3,16 @@ import os
 
 import pytest
 
-from litellm import sandbox
-from litellm.constants import HARNESS_MAX_DIFF_BYTES
-from litellm.harness.sandbox.snapshot import (
+from hangarllm import sandbox
+from hangarllm.constants import HARNESS_MAX_DIFF_BYTES
+from hangarllm.harness.sandbox.snapshot import (
     build_file_changes,
     capture_text_contents,
     diff_snapshots,
     snapshot_local,
     unified_diff,
 )
-from litellm.harness.types import FileChange
+from hangarllm.harness.types import FileChange
 
 
 def test_diff_snapshots_kinds():
@@ -106,7 +106,7 @@ async def test_large_text_file_has_no_diff(tmp_path):
 
 async def test_capture_respects_total_cap(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        "litellm.harness.sandbox.snapshot.HARNESS_SNAPSHOT_MAX_TOTAL_BYTES", 10
+        "hangarllm.harness.sandbox.snapshot.HARNESS_SNAPSHOT_MAX_TOTAL_BYTES", 10
     )
     box = sandbox.local(tmp_path)
     try:

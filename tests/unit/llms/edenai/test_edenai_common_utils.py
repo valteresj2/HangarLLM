@@ -3,8 +3,8 @@
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.edenai.common_utils import authorized_headers, endpoint_url, json_headers, reported_cost
+import hangarllm
+from hangarllm.llms.edenai.common_utils import authorized_headers, endpoint_url, json_headers, reported_cost
 
 EDEN_BASE = "https://api.edenai.run/v3"
 EDEN_EU_BASE = "https://api.eu.edenai.run/v3"
@@ -45,7 +45,7 @@ class TestAuthorizedHeaders:
         }
 
     def test_missing_key_is_an_authentication_error(self, no_eden_key):
-        with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
+        with pytest.raises(hangarllm.AuthenticationError, match="EDENAI_API_KEY"):
             authorized_headers({}, None, "openai/tts-1")
 
 

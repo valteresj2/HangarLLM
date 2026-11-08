@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Complete example for Veo video generation through LiteLLM proxy.
+Complete example for Veo video generation through HangarLLM proxy.
 
 This script demonstrates how to:
 1. Generate videos using Google's Veo model
@@ -8,7 +8,7 @@ This script demonstrates how to:
 3. Download the generated video file
 
 Requirements:
-- LiteLLM proxy running with Google AI Studio pass-through configured
+- HangarLLM proxy running with Google AI Studio pass-through configured
 - Google AI Studio API key with Veo access
 """
 
@@ -20,7 +20,7 @@ from typing import Optional
 
 
 class VeoVideoGenerator:
-    """Complete Veo video generation client using LiteLLM proxy."""
+    """Complete Veo video generation client using HangarLLM proxy."""
 
     def __init__(
         self,
@@ -31,8 +31,8 @@ class VeoVideoGenerator:
         Initialize the Veo video generator.
 
         Args:
-            base_url: Base URL for the LiteLLM proxy with Gemini pass-through
-            api_key: API key for LiteLLM proxy authentication
+            base_url: Base URL for the HangarLLM proxy with Gemini pass-through
+            api_key: API key for HangarLLM proxy authentication
         """
         self.base_url = base_url
         self.api_key = api_key
@@ -160,20 +160,20 @@ class VeoVideoGenerator:
         print(f"⬇️  Downloading video...")
         print(f"Original URI: {video_uri}")
 
-        # Convert Google URI to LiteLLM proxy URI
+        # Convert Google URI to HangarLLM proxy URI
         # Example: files/abc123 -> /gemini/v1beta/files/abc123:download?alt=media
         if video_uri.startswith("files/"):
             download_path = f"{video_uri}:download?alt=media"
         else:
             download_path = video_uri
 
-        litellm_download_url = f"{self.base_url}/{download_path}"
-        print(f"Download URL: {litellm_download_url}")
+        hangarllm_download_url = f"{self.base_url}/{download_path}"
+        print(f"Download URL: {hangarllm_download_url}")
 
         try:
             # Download with streaming and redirect handling
             response = requests.get(
-                litellm_download_url,
+                hangarllm_download_url,
                 headers=self.headers,
                 stream=True,
                 allow_redirects=True,  # Handle redirects automatically
@@ -273,16 +273,16 @@ def main():
     Example usage of the VeoVideoGenerator.
 
     Configure these environment variables:
-    - LITELLM_BASE_URL: Your LiteLLM proxy URL (default: http://localhost:4000/gemini/v1beta)
-    - LITELLM_API_KEY: API key for LiteLLM proxy authentication
+    - HANGARLLM_BASE_URL: Your HangarLLM proxy URL (default: http://localhost:4000/gemini/v1beta)
+    - HANGARLLM_API_KEY: API key for HangarLLM proxy authentication
     """
 
     # Configuration from environment or defaults
-    base_url = os.getenv("LITELLM_BASE_URL", "http://localhost:4000/gemini/v1beta")
-    api_key = os.environ["LITELLM_API_KEY"]
+    base_url = os.getenv("HANGARLLM_BASE_URL", "http://localhost:4000/gemini/v1beta")
+    api_key = os.environ["HANGARLLM_API_KEY"]
 
     print("🚀 Starting Veo Video Generation Example")
-    print(f"📡 Using LiteLLM proxy at: {base_url}")
+    print(f"📡 Using HangarLLM proxy at: {base_url}")
 
     # Initialize generator
     generator = VeoVideoGenerator(base_url=base_url, api_key=api_key)
@@ -307,14 +307,14 @@ def main():
         print("💡 Try modifying the prompt in the script for different videos!")
     else:
         print("\n❌ Example failed!")
-        print("🔧 Check your LiteLLM proxy configuration and Google AI Studio API key")
+        print("🔧 Check your HangarLLM proxy configuration and Google AI Studio API key")
 
         # Troubleshooting tips
         print("\n🔍 Troubleshooting:")
-        print("1. Ensure LiteLLM proxy is running with Google AI Studio pass-through")
+        print("1. Ensure HangarLLM proxy is running with Google AI Studio pass-through")
         print("2. Verify your Google AI Studio API key has Veo access")
         print("3. Check that your prompt meets Veo's content guidelines")
-        print("4. Review the LiteLLM proxy logs for detailed error information")
+        print("4. Review the HangarLLM proxy logs for detailed error information")
 
 
 if __name__ == "__main__":

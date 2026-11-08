@@ -7,8 +7,8 @@ from typing import Final, Literal
 import pytest
 from pydantic import JsonValue
 
-import litellm
-from litellm.types.integrations.prometheus import (
+import hangarllm
+from hangarllm.types.integrations.prometheus import (
     PrometheusMetricLabels,
     UserAPIKeyLabelNames,
 )
@@ -38,23 +38,23 @@ def _collected_samples(metric_name: str):
 def test_user_email_in_required_metrics():
     """
     Test that user_email label is present in all the metrics that should have it:
-    - litellm_proxy_total_requests_metric (already had it)
-    - litellm_proxy_failed_requests_metric (added)
-    - litellm_input_tokens_metric (added)
-    - litellm_output_tokens_metric (added)
-    - litellm_requests_metric (already had it)
-    - litellm_spend_metric (added)
+    - hangarllm_proxy_total_requests_metric (already had it)
+    - hangarllm_proxy_failed_requests_metric (added)
+    - hangarllm_input_tokens_metric (added)
+    - hangarllm_output_tokens_metric (added)
+    - hangarllm_requests_metric (already had it)
+    - hangarllm_spend_metric (added)
     """
     user_email_label = UserAPIKeyLabelNames.USER_EMAIL.value
 
     # Metrics that should have user_email
     metrics_with_user_email = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_requests_metric",
-        "litellm_spend_metric",
+        "hangarllm_proxy_total_requests_metric",
+        "hangarllm_proxy_failed_requests_metric",
+        "hangarllm_input_tokens_metric",
+        "hangarllm_output_tokens_metric",
+        "hangarllm_requests_metric",
+        "hangarllm_spend_metric",
     ]
 
     for metric_name in metrics_with_user_email:
@@ -73,20 +73,20 @@ def test_model_id_in_extended_metric_set():
 
     # Metrics that should have model_id
     metrics_with_model_id = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_requests_metric",
-        "litellm_spend_metric",
-        "litellm_llm_api_latency_metric",
-        "litellm_remaining_requests_metric",
-        "litellm_deployment_successful_fallbacks",
-        "litellm_cache_hits_metric",
-        "litellm_cache_misses_metric",
-        "litellm_remaining_api_key_requests_for_model",
-        "litellm_remaining_api_key_tokens_for_model",
-        "litellm_llm_api_failed_requests_metric",
+        "hangarllm_proxy_total_requests_metric",
+        "hangarllm_proxy_failed_requests_metric",
+        "hangarllm_input_tokens_metric",
+        "hangarllm_output_tokens_metric",
+        "hangarllm_requests_metric",
+        "hangarllm_spend_metric",
+        "hangarllm_llm_api_latency_metric",
+        "hangarllm_remaining_requests_metric",
+        "hangarllm_deployment_successful_fallbacks",
+        "hangarllm_cache_hits_metric",
+        "hangarllm_cache_misses_metric",
+        "hangarllm_remaining_api_key_requests_for_model",
+        "hangarllm_remaining_api_key_tokens_for_model",
+        "hangarllm_llm_api_failed_requests_metric",
     ]
 
     for metric_name in metrics_with_model_id:
@@ -104,7 +104,7 @@ def test_api_provider_in_spend_and_requests_metrics():
     """
     api_provider_label = UserAPIKeyLabelNames.API_PROVIDER.value
 
-    for metric_name in ["litellm_spend_metric", "litellm_requests_metric"]:
+    for metric_name in ["hangarllm_spend_metric", "hangarllm_requests_metric"]:
         labels = PrometheusMetricLabels.get_labels(metric_name)
         assert (
             api_provider_label in labels
@@ -117,8 +117,8 @@ def test_api_provider_in_token_latency_and_request_metrics():
     Regression test for LIT-4178.
 
     These metrics are all emitted from the same call site (async_log_success_event
-    / async_post_call_failure_hook) as litellm_spend_metric and
-    litellm_requests_metric, which already carry api_provider. They were the odd
+    / async_post_call_failure_hook) as hangarllm_spend_metric and
+    hangarllm_requests_metric, which already carry api_provider. They were the odd
     ones out with no way to break down tokens, latency, request counts or cache
     hits by upstream provider, even though the provider is available on the
     payload as custom_llm_provider.
@@ -126,23 +126,23 @@ def test_api_provider_in_token_latency_and_request_metrics():
     api_provider_label = UserAPIKeyLabelNames.API_PROVIDER.value
 
     metrics_with_api_provider = [
-        "litellm_llm_api_latency_metric",
-        "litellm_llm_api_time_to_first_token_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_request_queue_time_seconds",
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_total_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_cache_hits_metric",
-        "litellm_cache_misses_metric",
+        "hangarllm_llm_api_latency_metric",
+        "hangarllm_llm_api_time_to_first_token_metric",
+        "hangarllm_request_total_latency_metric",
+        "hangarllm_request_queue_time_seconds",
+        "hangarllm_proxy_total_requests_metric",
+        "hangarllm_proxy_failed_requests_metric",
+        "hangarllm_input_tokens_metric",
+        "hangarllm_total_tokens_metric",
+        "hangarllm_output_tokens_metric",
+        "hangarllm_cache_hits_metric",
+        "hangarllm_cache_misses_metric",
         # The remaining cache metrics share _cache_metric_labels, so they pick up
         # api_provider from the same change. Assert them explicitly so the shared
         # list can't silently drop the label from them.
-        "litellm_cached_tokens_metric",
-        "litellm_provider_cache_read_input_tokens_metric",
-        "litellm_provider_cache_creation_input_tokens_metric",
+        "hangarllm_cached_tokens_metric",
+        "hangarllm_provider_cache_read_input_tokens_metric",
+        "hangarllm_provider_cache_creation_input_tokens_metric",
     ]
 
     for metric_name in metrics_with_api_provider:
@@ -162,7 +162,7 @@ def test_api_provider_value_flows_through_label_factory():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.prometheus import (
+    from hangarllm.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -177,19 +177,19 @@ def test_api_provider_value_flows_through_label_factory():
 
     enum_values = UserAPIKeyLabelValues(
         api_provider="anthropic",
-        litellm_model_name="claude-sonnet-4",
+        hangarllm_model_name="claude-sonnet-4",
         requested_model="claude",
         status_code="200",
     )
 
     for metric_name in [
-        "litellm_input_tokens_metric",
-        "litellm_total_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_llm_api_latency_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_proxy_total_requests_metric",
-        "litellm_cache_hits_metric",
+        "hangarllm_input_tokens_metric",
+        "hangarllm_total_tokens_metric",
+        "hangarllm_output_tokens_metric",
+        "hangarllm_llm_api_latency_metric",
+        "hangarllm_request_total_latency_metric",
+        "hangarllm_proxy_total_requests_metric",
+        "hangarllm_cache_hits_metric",
     ]:
         labels = prometheus_label_factory(
             supported_enum_labels=prometheus_logger.get_labels_for_metric(
@@ -205,25 +205,25 @@ def test_api_provider_value_flows_through_label_factory():
 def test_extract_api_provider_from_request_data_failure_path():
     """
     On the client-side failure path the provider is not always known. Prefer the
-    resolved custom_llm_provider on litellm_params, fall back to a partial
+    resolved custom_llm_provider on hangarllm_params, fall back to a partial
     standard_logging_object (e.g. a stream that broke mid-flight), then infer it
     from the requested model name, and return None only when nothing maps so the
     label emits empty rather than a guess.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
     extract = PrometheusLogger._extract_api_provider_from_request_data
 
-    assert extract({"litellm_params": {"custom_llm_provider": "bedrock"}}) == "bedrock"
+    assert extract({"hangarllm_params": {"custom_llm_provider": "bedrock"}}) == "bedrock"
     assert (
         extract({"standard_logging_object": {"custom_llm_provider": "vertex_ai"}})
         == "vertex_ai"
     )
-    # litellm_params wins over standard_logging_object when both are present
+    # hangarllm_params wins over standard_logging_object when both are present
     assert (
         extract(
             {
-                "litellm_params": {"custom_llm_provider": "openai"},
+                "hangarllm_params": {"custom_llm_provider": "openai"},
                 "standard_logging_object": {"custom_llm_provider": "azure"},
             }
         )
@@ -233,7 +233,7 @@ def test_extract_api_provider_from_request_data_failure_path():
     # failure request_data carries only the client-supplied model. This is the
     # common client-side failure case (e.g. an invalid param rejected with 400).
     assert extract({"model": "gpt-4o-mini"}) == "openai"
-    assert extract({"litellm_params": {"model": "anthropic/claude-haiku-4-5"}}) == "anthropic"
+    assert extract({"hangarllm_params": {"model": "anthropic/claude-haiku-4-5"}}) == "anthropic"
     assert extract({}) is None
     # Unmappable model name -> None, not a guess
     assert extract({"model": "some-unknown-model-xyz"}) is None
@@ -246,7 +246,7 @@ _PASS_THROUGH_CALL_TYPE: Final = "pass_through_endpoint"
     "request_data, expected_provider",
     [
         ({"model": "gpt-4o-mini", "call_type": "acompletion", "custom_llm_provider": "anthropic"}, "openai"),
-        ({"model": "gpt-4o-mini", "litellm_params": {"custom_llm_provider": "humanloop"}}, "humanloop"),
+        ({"model": "gpt-4o-mini", "hangarllm_params": {"custom_llm_provider": "humanloop"}}, "humanloop"),
         ({"model": "gemini-3.8-flash", "call_type": _PASS_THROUGH_CALL_TYPE}, "vertex_ai"),
         (
             {"model": "gemini-3.8-flash", "call_type": _PASS_THROUGH_CALL_TYPE, "custom_llm_provider": "gemini"},
@@ -265,7 +265,7 @@ _PASS_THROUGH_CALL_TYPE: Final = "pass_through_endpoint"
 def test_extract_api_provider_reads_the_request_declared_provider_only_on_pass_through_failures(
     request_data: dict[str, object], expected_provider: str
 ):
-    from litellm.integrations.prometheus import PrometheusLogger
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
     assert PrometheusLogger._extract_api_provider_from_request_data(request_data) == expected_provider
 
@@ -277,7 +277,7 @@ def test_extract_api_provider_reads_the_request_declared_provider_only_on_pass_t
 def test_extract_api_provider_ignores_pass_through_declared_values_outside_gemini_and_vertex(
     declared_provider: object,
 ):
-    from litellm.integrations.prometheus import PrometheusLogger
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
     extract = PrometheusLogger._extract_api_provider_from_request_data
     declared = {"call_type": _PASS_THROUGH_CALL_TYPE, "custom_llm_provider": declared_provider}
@@ -295,26 +295,26 @@ def test_extract_api_provider_swallows_unknown_model_but_logs_unexpected_errors(
     """
     from unittest.mock import patch
 
-    import litellm
-    from litellm.integrations.prometheus import PrometheusLogger
+    import hangarllm
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
     extract = PrometheusLogger._extract_api_provider_from_request_data
 
     # Expected miss: BadRequestError -> None, no log noise
     with patch.object(
-        litellm,
+        hangarllm,
         "get_llm_provider",
-        side_effect=litellm.exceptions.BadRequestError(
+        side_effect=hangarllm.exceptions.BadRequestError(
             message="no provider", model="x", llm_provider="y"
         ),
     ):
-        with patch("litellm.integrations.prometheus.verbose_logger") as mock_logger:
+        with patch("hangarllm.integrations.prometheus.verbose_logger") as mock_logger:
             assert extract({"model": "x"}) is None
             mock_logger.debug.assert_not_called()
 
     # Unexpected error: must be logged and still return None (never raised)
-    with patch.object(litellm, "get_llm_provider", side_effect=RuntimeError("boom")):
-        with patch("litellm.integrations.prometheus.verbose_logger") as mock_logger:
+    with patch.object(hangarllm, "get_llm_provider", side_effect=RuntimeError("boom")):
+        with patch("hangarllm.integrations.prometheus.verbose_logger") as mock_logger:
             assert extract({"model": "x"}) is None
             mock_logger.debug.assert_called_once()
 
@@ -328,15 +328,15 @@ def test_prometheus_metric_labels_structure():
     """Test that all required prometheus metrics have proper label structure"""
     from typing import get_args
 
-    from litellm.types.integrations.prometheus import DEFINED_PROMETHEUS_METRICS
+    from hangarllm.types.integrations.prometheus import DEFINED_PROMETHEUS_METRICS
 
     # Test a few key metrics to ensure they have proper label structure
     test_metrics = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_spend_metric",
+        "hangarllm_proxy_total_requests_metric",
+        "hangarllm_proxy_failed_requests_metric",
+        "hangarllm_input_tokens_metric",
+        "hangarllm_output_tokens_metric",
+        "hangarllm_spend_metric",
     ]
 
     for metric_name in test_metrics:
@@ -359,19 +359,19 @@ def test_prometheus_metric_labels_structure():
 def test_model_id_in_required_metrics():
     """
     Test that model_id label is present in all the metrics that should have it:
-    - litellm_proxy_total_requests_metric
-    - litellm_proxy_failed_requests_metric
-    - litellm_request_total_latency_metric
-    - litellm_llm_api_time_to_first_token_metric
+    - hangarllm_proxy_total_requests_metric
+    - hangarllm_proxy_failed_requests_metric
+    - hangarllm_request_total_latency_metric
+    - hangarllm_llm_api_time_to_first_token_metric
     """
     model_id_label = UserAPIKeyLabelNames.MODEL_ID.value
 
     # Metrics that should have model_id
     metrics_with_model_id = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_llm_api_time_to_first_token_metric",
+        "hangarllm_proxy_total_requests_metric",
+        "hangarllm_proxy_failed_requests_metric",
+        "hangarllm_request_total_latency_metric",
+        "hangarllm_llm_api_time_to_first_token_metric",
     ]
 
     for metric_name in metrics_with_model_id:
@@ -386,7 +386,7 @@ def test_requested_model_in_spend_and_requests_metrics():
     """
     Regression test for LIT-3796.
 
-    litellm_spend_metric and litellm_requests_metric must expose the
+    hangarllm_spend_metric and hangarllm_requests_metric must expose the
     requested_model label so spend and request counts can be grouped by the
     model alias the caller asked for, not just the backend deployment that
     served the request. The sibling token metrics (input/output/total)
@@ -396,11 +396,11 @@ def test_requested_model_in_spend_and_requests_metrics():
     requested_model_label = UserAPIKeyLabelNames.REQUESTED_MODEL.value
 
     metrics_with_requested_model = [
-        "litellm_spend_metric",
-        "litellm_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_total_tokens_metric",
+        "hangarllm_spend_metric",
+        "hangarllm_requests_metric",
+        "hangarllm_input_tokens_metric",
+        "hangarllm_output_tokens_metric",
+        "hangarllm_total_tokens_metric",
     ]
 
     for metric_name in metrics_with_requested_model:
@@ -415,13 +415,13 @@ def test_route_normalization_for_responses_api():
     Test that route normalization prevents high cardinality in Prometheus metrics
     for the /v1/responses/{response_id} endpoint.
 
-    Issue: https://github.com/BerriAI/litellm/issues/XXXX
+    Issue: https://github.com/valteresj2/HangarLLM/issues/XXXX
     Each unique response ID was creating a separate metric line, causing the
     /metrics endpoint to grow to ~30MB and take ~40 seconds to respond.
 
     Fix: Routes are normalized to collapse dynamic IDs into placeholders.
     """
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from hangarllm.proxy.auth.auth_utils import normalize_request_route
 
     # Test responses API routes
     responses_routes = [
@@ -429,7 +429,7 @@ def test_route_normalization_for_responses_api():
         ("/v1/responses/9876543210", "/v1/responses/{response_id}"),
         ("/v1/responses/abcdefghij", "/v1/responses/{response_id}"),
         ("/v1/responses/resp_abc123", "/v1/responses/{response_id}"),
-        ("/v1/responses/litellm_poll_xyz", "/v1/responses/{response_id}"),
+        ("/v1/responses/hangarllm_poll_xyz", "/v1/responses/{response_id}"),
     ]
 
     for original, expected in responses_routes:
@@ -453,7 +453,7 @@ def test_route_normalization_for_responses_api():
 
 def test_route_normalization_for_sub_routes():
     """Test that sub-routes like /cancel and /input_items are normalized correctly"""
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from hangarllm.proxy.auth.auth_utils import normalize_request_route
 
     sub_routes = [
         ("/v1/responses/id1/cancel", "/v1/responses/{response_id}/cancel"),
@@ -476,7 +476,7 @@ def test_route_normalization_for_sub_routes():
 
 def test_route_normalization_preserves_static_routes():
     """Test that static routes are not affected by normalization"""
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from hangarllm.proxy.auth.auth_utils import normalize_request_route
 
     static_routes = [
         "/chat/completions",
@@ -499,7 +499,7 @@ def test_route_normalization_preserves_static_routes():
 
 def test_route_normalization_other_dynamic_apis():
     """Test normalization for other OpenAI-compatible APIs with dynamic IDs"""
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from hangarllm.proxy.auth.auth_utils import normalize_request_route
 
     test_cases = [
         # Threads API
@@ -538,7 +538,7 @@ def test_prometheus_metrics_use_normalized_routes():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.prometheus import (
+    from hangarllm.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -565,7 +565,7 @@ def test_prometheus_metrics_use_normalized_routes():
 
     labels = prometheus_label_factory(
         supported_enum_labels=prometheus_logger.get_labels_for_metric(
-            metric_name="litellm_proxy_total_requests_metric"
+            metric_name="hangarllm_proxy_total_requests_metric"
         ),
         enum_values=enum_values,
     )
@@ -587,7 +587,7 @@ def test_prometheus_label_value_sanitization():
     malformed model name) breaks the Prometheus exposition format, causing
     scrapers like Datadog to fail parsing the entire /metrics endpoint.
     """
-    from litellm.integrations.prometheus import (
+    from hangarllm.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -612,7 +612,7 @@ def test_prometheus_label_value_sanitization():
 
     labels = prometheus_label_factory(
         supported_enum_labels=prometheus_logger.get_labels_for_metric(
-            metric_name="litellm_proxy_total_requests_metric"
+            metric_name="hangarllm_proxy_total_requests_metric"
         ),
         enum_values=enum_values,
     )
@@ -632,7 +632,7 @@ def test_prometheus_label_value_sanitization():
 
 def test_prometheus_label_value_sanitization_unicode_paragraph_separator():
     """Test that U+2029 (Paragraph Separator) is also stripped."""
-    from litellm.types.integrations.prometheus import sanitize_prometheus_label_value
+    from hangarllm.types.integrations.prometheus import sanitize_prometheus_label_value
 
     result = sanitize_prometheus_label_value("model\u2029name")
     assert result == "modelname"
@@ -643,7 +643,7 @@ def test_prometheus_label_value_sanitization_unicode_paragraph_separator():
 
 def test_prometheus_label_value_sanitization_none():
     """Test that None values pass through unchanged."""
-    from litellm.types.integrations.prometheus import sanitize_prometheus_label_value
+    from hangarllm.types.integrations.prometheus import sanitize_prometheus_label_value
 
     assert sanitize_prometheus_label_value(None) is None
 
@@ -652,7 +652,7 @@ def test_prometheus_label_value_sanitization_none():
 
 def test_prometheus_label_value_sanitization_non_string_types():
     """Test that non-string values (int, bool, etc.) are coerced to str."""
-    from litellm.types.integrations.prometheus import sanitize_prometheus_label_value
+    from hangarllm.types.integrations.prometheus import sanitize_prometheus_label_value
 
     assert sanitize_prometheus_label_value(200) == "200"
     assert sanitize_prometheus_label_value(True) == "True"
@@ -662,12 +662,12 @@ def test_prometheus_label_value_sanitization_non_string_types():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_bucket", ("metadata", "litellm_metadata"))
+@pytest.mark.parametrize("metadata_bucket", ("metadata", "hangarllm_metadata"))
 @pytest.mark.parametrize("populate_other_bucket", (False, True))
 @pytest.mark.parametrize("original_model_group", (None, "", 123, "requested-source"))
 @pytest.mark.parametrize("stream", (False, True))
 async def test_success_hook_preserves_requested_model_and_deployment_labels(
-    metadata_bucket: Literal["metadata", "litellm_metadata"],
+    metadata_bucket: Literal["metadata", "hangarllm_metadata"],
     populate_other_bucket: bool,
     original_model_group: str | int | None,
     stream: bool,
@@ -680,12 +680,12 @@ async def test_success_hook_preserves_requested_model_and_deployment_labels(
     the production api_provider=standard_logging_payload["custom_llm_provider"]
     assignment in async_log_success_event would still pass them. This drives
     async_log_success_event with a payload whose provider is openai and asserts
-    the collected litellm_total_tokens_metric sample actually carries
+    the collected hangarllm_total_tokens_metric sample actually carries
     api_provider="openai"; it fails if that assignment is removed.
     """
     import datetime
 
-    from litellm.integrations.prometheus import PrometheusLogger
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
     payload: Final = {
         "id": "t",
@@ -719,11 +719,11 @@ async def test_success_hook_preserves_requested_model_and_deployment_labels(
             "requester_metadata": None,
             "user_api_key_end_user_id": None,
         },
-        "hidden_params": {"litellm_overhead_time_ms": None, "additional_headers": None},
+        "hidden_params": {"hangarllm_overhead_time_ms": None, "additional_headers": None},
     }
 
-    other_bucket: Final = "litellm_metadata" if metadata_bucket == "metadata" else "metadata"
-    litellm_params: Final = {
+    other_bucket: Final = "hangarllm_metadata" if metadata_bucket == "metadata" else "metadata"
+    hangarllm_params: Final = {
         metadata_bucket: {
             "request_tag": "router",
             **({"original_model_group": original_model_group} if original_model_group is not None else {}),
@@ -737,14 +737,14 @@ async def test_success_hook_preserves_requested_model_and_deployment_labels(
         await logger.async_log_success_event(
             {
                 "model": "gpt-4o-mini",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "standard_logging_object": payload,
             },
             None,
             now,
             now,
         )
-        request_samples: Final = _collected_samples("litellm_proxy_total_requests_metric_total")
+        request_samples: Final = _collected_samples("hangarllm_proxy_total_requests_metric_total")
         assert len(request_samples) == 1
         assert request_samples[0].value == 1
         expected_requested_model: Final = (
@@ -756,14 +756,14 @@ async def test_success_hook_preserves_requested_model_and_deployment_labels(
         assert request_samples[0].labels["model_id"] == payload["model_id"]
         assert request_samples[0].labels["api_provider"] == payload["custom_llm_provider"]
         assert request_samples[0].labels["status_code"] == "200"
-        samples: Final = _collected_samples("litellm_total_tokens_metric_total")
-        assert samples, "expected litellm_total_tokens_metric to be emitted"
+        samples: Final = _collected_samples("hangarllm_total_tokens_metric_total")
+        assert samples, "expected hangarllm_total_tokens_metric to be emitted"
         assert all(s.labels.get("api_provider") == "openai" for s in samples), (
             "collected token metric must carry api_provider=openai, got "
             f"{[s.labels.get('api_provider') for s in samples]}"
         )
         assert all(sample.labels["requested_model"] == payload["model_group"] for sample in samples)
-        spend_samples: Final = _collected_samples("litellm_spend_metric_total")
+        spend_samples: Final = _collected_samples("hangarllm_spend_metric_total")
         assert len(spend_samples) == 1
         assert spend_samples[0].value == payload["response_cost"]
         assert spend_samples[0].labels["requested_model"] == payload["model_group"]
@@ -778,12 +778,12 @@ async def test_failure_hook_emits_api_provider_value_on_failed_requests_metric()
     End-to-end emit wiring for the failure path.
 
     async_post_call_failure_hook on a request whose model resolves to openai must
-    emit litellm_proxy_failed_requests_metric with api_provider="openai". This
+    emit hangarllm_proxy_failed_requests_metric with api_provider="openai". This
     fails if the api_provider assignment in the failure hook is removed, which the
     helper-only test cannot catch.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.integrations.prometheus import PrometheusLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     _clear_prometheus_registry()
     try:
@@ -793,8 +793,8 @@ async def test_failure_hook_emits_api_provider_value_on_failed_requests_metric()
             original_exception=Exception("boom"),
             user_api_key_dict=UserAPIKeyAuth(token="tok"),
         )
-        samples = _collected_samples("litellm_proxy_failed_requests_metric_total")
-        assert samples, "expected litellm_proxy_failed_requests_metric to be emitted"
+        samples = _collected_samples("hangarllm_proxy_failed_requests_metric_total")
+        assert samples, "expected hangarllm_proxy_failed_requests_metric to be emitted"
         assert any(s.labels.get("api_provider") == "openai" for s in samples), (
             "collected failed-requests metric must carry api_provider=openai, got "
             f"{[s.labels.get('api_provider') for s in samples]}"
@@ -819,8 +819,8 @@ async def test_failure_counters_keep_logged_deployment_attribution(
 ) -> None:
     from fastapi import HTTPException
 
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.integrations.prometheus import PrometheusLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     request_data: Final[dict[str, JsonValue]] = {
         "model": "metric-test-alias",
@@ -835,7 +835,7 @@ async def test_failure_counters_keep_logged_deployment_attribution(
             original_exception=HTTPException(status_code=400, detail="guardrail rejected"),
             user_api_key_dict=UserAPIKeyAuth(token="metric-test-token"),
         )
-        for metric_name in ("litellm_proxy_failed_requests_metric_total", "litellm_proxy_total_requests_metric_total"):
+        for metric_name in ("hangarllm_proxy_failed_requests_metric_total", "hangarllm_proxy_total_requests_metric_total"):
             samples: Final = _collected_samples(metric_name)
             assert [(sample.labels["model_id"], sample.value) for sample in samples] == [
                 (expected, 1.0)
@@ -846,8 +846,8 @@ async def test_failure_counters_keep_logged_deployment_attribution(
 
 @pytest.mark.asyncio
 async def test_failure_hook_labels_a_cli_session_with_the_per_user_alias_not_the_login_token():
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.integrations.prometheus import PrometheusLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     _clear_prometheus_registry()
     try:
@@ -861,7 +861,7 @@ async def test_failure_hook_labels_a_cli_session_with_the_per_user_alias_not_the
                 is_session_token=True,
             ),
         )
-        hashed_keys = {s.labels.get("hashed_api_key") for s in _collected_samples("litellm_proxy_failed_requests_metric_total")}
+        hashed_keys = {s.labels.get("hashed_api_key") for s in _collected_samples("hangarllm_proxy_failed_requests_metric_total")}
         assert hashed_keys == {"cli-session-alice"}, hashed_keys
     finally:
         _clear_prometheus_registry()
@@ -871,8 +871,8 @@ async def _failed_requests_api_provider_labels(
     request_data: dict[str, object],
     original_exception: Exception,
 ) -> list[str]:
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.integrations.prometheus import PrometheusLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     _clear_prometheus_registry()
     try:
@@ -883,7 +883,7 @@ async def _failed_requests_api_provider_labels(
         )
         return [
             s.labels.get("api_provider")
-            for s in _collected_samples("litellm_proxy_failed_requests_metric_total")
+            for s in _collected_samples("hangarllm_proxy_failed_requests_metric_total")
         ]
     finally:
         _clear_prometheus_registry()
@@ -896,8 +896,8 @@ async def test_failure_hook_emits_api_provider_from_pre_call_rate_limit_error_fo
     router alias cannot be inferred from its name, so the provider the limiter
     resolved onto the exception is the only source for the label.
     """
-    from litellm.exceptions import RateLimitType
-    from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+    from hangarllm.exceptions import RateLimitType
+    from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
     err = ProxyRateLimitError(
         detail={"error": "rpm exceeded"},
@@ -913,7 +913,7 @@ async def test_failure_hook_emits_api_provider_from_pre_call_rate_limit_error_fo
 
 @pytest.mark.asyncio
 async def test_failure_hook_leaves_api_provider_unset_when_rate_limiter_could_not_resolve_provider():
-    from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+    from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
     err = ProxyRateLimitError(detail={"error": "rpm exceeded"}, model="unknown-alias")
 
@@ -924,7 +924,7 @@ async def test_failure_hook_leaves_api_provider_unset_when_rate_limiter_could_no
 
 @pytest.mark.asyncio
 async def test_failure_hook_prefers_request_data_provider_over_exception_provider():
-    from litellm.exceptions import RateLimitError
+    from hangarllm.exceptions import RateLimitError
 
     err = RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o")
 
@@ -932,7 +932,7 @@ async def test_failure_hook_prefers_request_data_provider_over_exception_provide
         {
             "model": "gpt-4o",
             "metadata": {},
-            "litellm_params": {"custom_llm_provider": "azure"},
+            "hangarllm_params": {"custom_llm_provider": "azure"},
         },
         err,
     ) == ["azure"]
@@ -952,14 +952,14 @@ async def test_failure_hook_labels_a_pass_through_failure_with_the_router_model_
 ):
     from unittest.mock import patch
 
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.integrations.prometheus import PrometheusLogger
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gcp/google/gemini-2.5-flash",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-2.5-flash",
                     "vertex_project": "p",
                     "vertex_location": "us-central1",
@@ -969,20 +969,20 @@ async def test_failure_hook_labels_a_pass_through_failure_with_the_router_model_
     )
     _clear_prometheus_registry()
     try:
-        with patch("litellm.proxy.proxy_server.llm_router", router, create=True):  # test-quality-ok: production reads proxy_server.llm_router lazily, no injection seam
+        with patch("hangarllm.proxy.proxy_server.llm_router", router, create=True):  # test-quality-ok: production reads proxy_server.llm_router lazily, no injection seam
             await PrometheusLogger().async_post_call_failure_hook(
                 request_data={
                     "model": "gemini-2.5-flash",
                     "call_type": call_type,
                     "custom_llm_provider": custom_llm_provider,
                     "metadata": {},
-                    "litellm_params": {"metadata": {"model_group": "gcp/google/gemini-2.5-flash"}},
+                    "hangarllm_params": {"metadata": {"model_group": "gcp/google/gemini-2.5-flash"}},
                 },
                 original_exception=Exception("upstream 400"),
                 user_api_key_dict=UserAPIKeyAuth(token="tok"),
             )
         assert {
-            s.labels.get("requested_model") for s in _collected_samples("litellm_proxy_failed_requests_metric_total")
+            s.labels.get("requested_model") for s in _collected_samples("hangarllm_proxy_failed_requests_metric_total")
         } == {expected_requested_model}
     finally:
         _clear_prometheus_registry()
@@ -993,17 +993,17 @@ def test_model_group_in_deployment_metrics():
     Test that model_group label is present on the deployment-scoped metrics
     needed to build model-group dashboards (request counts, success/failure
     counts, tpm/rpm limits). These metrics previously only carried
-    requested_model, litellm_model_name and model_id, none of which identify
+    requested_model, hangarllm_model_name and model_id, none of which identify
     the model_group a pooled deployment belongs to.
     """
     model_group_label = UserAPIKeyLabelNames.MODEL_GROUP.value
 
     metrics_with_model_group = [
-        "litellm_deployment_total_requests",
-        "litellm_deployment_success_responses",
-        "litellm_deployment_failure_responses",
-        "litellm_deployment_tpm_limit",
-        "litellm_deployment_rpm_limit",
+        "hangarllm_deployment_total_requests",
+        "hangarllm_deployment_success_responses",
+        "hangarllm_deployment_failure_responses",
+        "hangarllm_deployment_tpm_limit",
+        "hangarllm_deployment_rpm_limit",
     ]
 
     for metric_name in metrics_with_model_group:
@@ -1024,7 +1024,7 @@ def test_model_group_value_flows_through_deployment_metrics_label_factory():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.prometheus import (
+    from hangarllm.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -1039,17 +1039,17 @@ def test_model_group_value_flows_through_deployment_metrics_label_factory():
 
     enum_values = UserAPIKeyLabelValues(
         model_group="example-model-group",
-        litellm_model_name="gpt-4o-mini",
+        hangarllm_model_name="gpt-4o-mini",
         requested_model="example-model-group",
         status_code="200",
     )
 
     for metric_name in [
-        "litellm_deployment_total_requests",
-        "litellm_deployment_success_responses",
-        "litellm_deployment_failure_responses",
-        "litellm_deployment_tpm_limit",
-        "litellm_deployment_rpm_limit",
+        "hangarllm_deployment_total_requests",
+        "hangarllm_deployment_success_responses",
+        "hangarllm_deployment_failure_responses",
+        "hangarllm_deployment_tpm_limit",
+        "hangarllm_deployment_rpm_limit",
     ]:
         labels = prometheus_label_factory(
             supported_enum_labels=prometheus_logger.get_labels_for_metric(
@@ -1071,10 +1071,10 @@ def test_deployment_failure_metrics_emit_model_group_from_standard_logging_paylo
     set_llm_deployment_failure_metrics code path, so deleting the production
     model_group=model_group assignment there would still pass them. This
     calls it directly with a standard_logging_object carrying model_group and
-    asserts the real litellm_deployment_failure_responses / _total_requests
+    asserts the real hangarllm_deployment_failure_responses / _total_requests
     Counter series actually carry it.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
     _clear_prometheus_registry()
     try:
@@ -1082,7 +1082,7 @@ def test_deployment_failure_metrics_emit_model_group_from_standard_logging_paylo
         logger.set_llm_deployment_failure_metrics(
             request_kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
                 "standard_logging_object": {
                     "model_group": "example-model-group",
                     "model_id": "model-123",
@@ -1094,8 +1094,8 @@ def test_deployment_failure_metrics_emit_model_group_from_standard_logging_paylo
         )
 
         for metric in (
-            logger.litellm_deployment_failure_responses,
-            logger.litellm_deployment_total_requests,
+            logger.hangarllm_deployment_failure_responses,
+            logger.hangarllm_deployment_total_requests,
         ):
             index = metric._labelnames.index("model_group")
             values = {sample_key[index] for sample_key in metric._metrics}
@@ -1111,7 +1111,7 @@ def _routed(deployment: object) -> dict[str, object]:
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "logged_provider", "expected"),
+    ("hangarllm_params", "logged_provider", "expected"),
     [
         pytest.param(
             {"custom_llm_provider": "bedrock", "metadata": _routed("azure/gpt-4o")},
@@ -1127,19 +1127,19 @@ def _routed(deployment: object) -> dict[str, object]:
         ),
         pytest.param({"metadata": _routed("azure/limited-azure")}, None, "azure", id="deployment-prefix"),
         pytest.param(
-            {"litellm_metadata": _routed("anthropic/claude-haiku-4-5"), "metadata": {}},
+            {"hangarllm_metadata": _routed("anthropic/claude-haiku-4-5"), "metadata": {}},
             None,
             "anthropic",
-            id="litellm-metadata-deployment",
+            id="hangarllm-metadata-deployment",
         ),
         pytest.param(
-            {"litellm_metadata": _routed("anthropic/claude-haiku-4-5"), "metadata": _routed("bedrock/converse/model")},
+            {"hangarllm_metadata": _routed("anthropic/claude-haiku-4-5"), "metadata": _routed("bedrock/converse/model")},
             None,
             "anthropic",
-            id="litellm-metadata-deployment-wins",
+            id="hangarllm-metadata-deployment-wins",
         ),
         pytest.param(
-            {"litellm_metadata": {"deployment": "bedrock/forged"}, "metadata": _routed("anthropic/claude-haiku-4-5")},
+            {"hangarllm_metadata": {"deployment": "bedrock/forged"}, "metadata": _routed("anthropic/claude-haiku-4-5")},
             None,
             "anthropic",
             id="routed-bucket-wins-over-a-bare-deployment",
@@ -1152,13 +1152,13 @@ def _routed(deployment: object) -> dict[str, object]:
         pytest.param({"metadata": {}}, None, "", id="nothing-known"),
     ],
 )
-def test_deployment_failure_metrics_label_the_selected_deployment_provider(litellm_params, logged_provider, expected):
+def test_deployment_failure_metrics_label_the_selected_deployment_provider(hangarllm_params, logged_provider, expected):
     """
     A failure on a selected deployment labels api_provider with that
     deployment's provider, never the string "None" and never a guess from the
     requested model name (gpt-4o-mini here would read openai).
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
     _clear_prometheus_registry()
     try:
@@ -1166,7 +1166,7 @@ def test_deployment_failure_metrics_label_the_selected_deployment_provider(litel
         logger.set_llm_deployment_failure_metrics(
             request_kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "standard_logging_object": {
                     "model_group": "gpt-4o-mini",
                     "model_id": "model-123",
@@ -1179,8 +1179,8 @@ def test_deployment_failure_metrics_label_the_selected_deployment_provider(litel
         )
 
         for metric in (
-            logger.litellm_deployment_failure_responses,
-            logger.litellm_deployment_total_requests,
+            logger.hangarllm_deployment_failure_responses,
+            logger.hangarllm_deployment_total_requests,
         ):
             index = metric._labelnames.index("api_provider")
             values = {sample_key[index] for sample_key in metric._metrics}
@@ -1190,16 +1190,16 @@ def test_deployment_failure_metrics_label_the_selected_deployment_provider(litel
 
 
 def test_deployment_failure_metrics_label_a_custom_provider_deployment(monkeypatch):
-    from litellm.integrations.prometheus import PrometheusLogger
+    from hangarllm.integrations.prometheus import PrometheusLogger
 
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "in-house", "custom_handler": object()}])
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "in-house", "custom_handler": object()}])
     _clear_prometheus_registry()
     try:
         logger = PrometheusLogger()
         logger.set_llm_deployment_failure_metrics(
             request_kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": _routed("in-house/model")},
+                "hangarllm_params": {"metadata": _routed("in-house/model")},
                 "standard_logging_object": {
                     "model_group": "gpt-4o-mini",
                     "model_id": "model-123",
@@ -1210,8 +1210,8 @@ def test_deployment_failure_metrics_label_a_custom_provider_deployment(monkeypat
             }
         )
 
-        index = logger.litellm_deployment_failure_responses._labelnames.index("api_provider")
-        values = {sample_key[index] for sample_key in logger.litellm_deployment_failure_responses._metrics}
+        index = logger.hangarllm_deployment_failure_responses._labelnames.index("api_provider")
+        values = {sample_key[index] for sample_key in logger.hangarllm_deployment_failure_responses._metrics}
         assert values == {"in-house"}
     finally:
         _clear_prometheus_registry()
@@ -1226,12 +1226,12 @@ def test_deployment_tpm_rpm_limit_metrics_emit_model_group_from_enum_values():
     value even though its only caller (set_llm_deployment_success_metrics)
     already had it on enum_values. This drives set_llm_deployment_success_metrics
     directly with a deployment that has tpm/rpm configured and asserts the real
-    litellm_deployment_tpm_limit / litellm_deployment_rpm_limit Gauge series
+    hangarllm_deployment_tpm_limit / hangarllm_deployment_rpm_limit Gauge series
     carry model_group; it fails if that plumbing is removed.
     """
     import datetime
 
-    from litellm.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
+    from hangarllm.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
 
     _clear_prometheus_registry()
     try:
@@ -1239,19 +1239,19 @@ def test_deployment_tpm_rpm_limit_metrics_emit_model_group_from_enum_values():
         now = datetime.datetime.now()
         enum_values = UserAPIKeyLabelValues(
             model_group="example-model-group",
-            litellm_model_name="gpt-4o-mini",
+            hangarllm_model_name="gpt-4o-mini",
             requested_model="example-model-group",
             status_code="200",
         )
         logger.set_llm_deployment_success_metrics(
             request_kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {"model_info": {"id": "model-123", "tpm": 1000, "rpm": 10}}},
+                "hangarllm_params": {"metadata": {"model_info": {"id": "model-123", "tpm": 1000, "rpm": 10}}},
                 "standard_logging_object": {
                     "model_group": "example-model-group",
                     "model_id": "model-123",
                     "api_base": "https://api.openai.com",
-                    "hidden_params": {"additional_headers": None, "litellm_overhead_time_ms": None},
+                    "hidden_params": {"additional_headers": None, "hangarllm_overhead_time_ms": None},
                 },
             },
             start_time=now,
@@ -1259,7 +1259,7 @@ def test_deployment_tpm_rpm_limit_metrics_emit_model_group_from_enum_values():
             enum_values=enum_values,
         )
 
-        for metric in (logger.litellm_deployment_tpm_limit, logger.litellm_deployment_rpm_limit):
+        for metric in (logger.hangarllm_deployment_tpm_limit, logger.hangarllm_deployment_rpm_limit):
             index = metric._labelnames.index("model_group")
             values = {sample_key[index] for sample_key in metric._metrics}
             assert values == {"example-model-group"}, (
@@ -1273,18 +1273,18 @@ def test_model_group_in_latency_metrics():
     """
     Test that model_group label is present on the end-to-end / per-call
     latency metrics needed to build model-group latency dashboards. These
-    metrics previously only carried requested_model, litellm_model_name and
+    metrics previously only carried requested_model, hangarllm_model_name and
     model_id, none of which identify the model_group a pooled deployment
     belongs to -- only the proxy-overhead-only latency metrics
-    (litellm_overhead_latency_metric and friends) carried model_group.
+    (hangarllm_overhead_latency_metric and friends) carried model_group.
     """
     model_group_label = UserAPIKeyLabelNames.MODEL_GROUP.value
 
     metrics_with_model_group = [
-        "litellm_llm_api_latency_metric",
-        "litellm_llm_api_time_to_first_token_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_deployment_latency_per_output_token",
+        "hangarllm_llm_api_latency_metric",
+        "hangarllm_llm_api_time_to_first_token_metric",
+        "hangarllm_request_total_latency_metric",
+        "hangarllm_deployment_latency_per_output_token",
     ]
 
     for metric_name in metrics_with_model_group:
@@ -1305,7 +1305,7 @@ def test_model_group_value_flows_through_latency_metrics_label_factory():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.prometheus import (
+    from hangarllm.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -1320,16 +1320,16 @@ def test_model_group_value_flows_through_latency_metrics_label_factory():
 
     enum_values = UserAPIKeyLabelValues(
         model_group="example-model-group",
-        litellm_model_name="gpt-4o-mini",
+        hangarllm_model_name="gpt-4o-mini",
         requested_model="example-model-group",
         status_code="200",
     )
 
     for metric_name in [
-        "litellm_llm_api_latency_metric",
-        "litellm_llm_api_time_to_first_token_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_deployment_latency_per_output_token",
+        "hangarllm_llm_api_latency_metric",
+        "hangarllm_llm_api_time_to_first_token_metric",
+        "hangarllm_request_total_latency_metric",
+        "hangarllm_deployment_latency_per_output_token",
     ]:
         labels = prometheus_label_factory(
             supported_enum_labels=prometheus_logger.get_labels_for_metric(
@@ -1351,13 +1351,13 @@ def test_latency_metrics_emit_model_group_from_set_latency_metrics():
     _set_latency_metrics code path, so deleting the production model_group
     plumbing there would still pass them. This calls it directly with a
     streaming request (so the time-to-first-token branch also fires) and
-    asserts the real litellm_llm_api_latency_metric,
-    litellm_llm_api_time_to_first_token_metric and
-    litellm_request_total_latency_metric Histogram series actually carry it.
+    asserts the real hangarllm_llm_api_latency_metric,
+    hangarllm_llm_api_time_to_first_token_metric and
+    hangarllm_request_total_latency_metric Histogram series actually carry it.
     """
     import datetime
 
-    from litellm.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
+    from hangarllm.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
 
     _clear_prometheus_registry()
     try:
@@ -1369,7 +1369,7 @@ def test_latency_metrics_emit_model_group_from_set_latency_metrics():
 
         enum_values = UserAPIKeyLabelValues(
             model_group="example-model-group",
-            litellm_model_name="gpt-4o-mini",
+            hangarllm_model_name="gpt-4o-mini",
             requested_model="example-model-group",
             status_code="200",
         )
@@ -1381,7 +1381,7 @@ def test_latency_metrics_emit_model_group_from_set_latency_metrics():
                 "api_call_start_time": api_call_start_time,
                 "completion_start_time": completion_start_time,
                 "stream": True,
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             },
             model="gpt-4o-mini",
             user_api_key=None,
@@ -1392,9 +1392,9 @@ def test_latency_metrics_emit_model_group_from_set_latency_metrics():
         )
 
         for metric in (
-            logger.litellm_llm_api_latency_metric,
-            logger.litellm_llm_api_time_to_first_token_metric,
-            logger.litellm_request_total_latency_metric,
+            logger.hangarllm_llm_api_latency_metric,
+            logger.hangarllm_llm_api_time_to_first_token_metric,
+            logger.hangarllm_request_total_latency_metric,
         ):
             index = metric._labelnames.index("model_group")
             values = {sample_key[index] for sample_key in metric._metrics}
@@ -1407,7 +1407,7 @@ def test_latency_metrics_emit_model_group_from_set_latency_metrics():
 
 def test_deployment_latency_per_output_token_emits_model_group_from_enum_values():
     """
-    End-to-end emit wiring for litellm_deployment_latency_per_output_token.
+    End-to-end emit wiring for hangarllm_deployment_latency_per_output_token.
 
     Drives set_llm_deployment_success_metrics directly (its only caller) with
     output_tokens > 0 so the latency-per-token branch fires, and asserts the
@@ -1416,7 +1416,7 @@ def test_deployment_latency_per_output_token_emits_model_group_from_enum_values(
     """
     import datetime
 
-    from litellm.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
+    from hangarllm.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
 
     _clear_prometheus_registry()
     try:
@@ -1425,19 +1425,19 @@ def test_deployment_latency_per_output_token_emits_model_group_from_enum_values(
         end_time = datetime.datetime(2024, 1, 1, 0, 0, 2)
         enum_values = UserAPIKeyLabelValues(
             model_group="example-model-group",
-            litellm_model_name="gpt-4o-mini",
+            hangarllm_model_name="gpt-4o-mini",
             requested_model="example-model-group",
             status_code="200",
         )
         logger.set_llm_deployment_success_metrics(
             request_kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {"model_info": {"id": "model-123"}}},
+                "hangarllm_params": {"metadata": {"model_info": {"id": "model-123"}}},
                 "standard_logging_object": {
                     "model_group": "example-model-group",
                     "model_id": "model-123",
                     "api_base": "https://api.openai.com",
-                    "hidden_params": {"additional_headers": None, "litellm_overhead_time_ms": None},
+                    "hidden_params": {"additional_headers": None, "hangarllm_overhead_time_ms": None},
                 },
             },
             start_time=start_time,
@@ -1446,7 +1446,7 @@ def test_deployment_latency_per_output_token_emits_model_group_from_enum_values(
             output_tokens=10.0,
         )
 
-        metric = logger.litellm_deployment_latency_per_output_token
+        metric = logger.hangarllm_deployment_latency_per_output_token
         index = metric._labelnames.index("model_group")
         values = {sample_key[index] for sample_key in metric._metrics}
         assert values == {"example-model-group"}, (

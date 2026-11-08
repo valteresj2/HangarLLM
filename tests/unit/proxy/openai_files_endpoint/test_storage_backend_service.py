@@ -3,13 +3,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.openai_files_endpoints import storage_backend_service
-from litellm.proxy.openai_files_endpoints.storage_backend_service import (
+from hangarllm.llms.base_llm.files.transformation import BaseFileEndpoints
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.openai_files_endpoints import storage_backend_service
+from hangarllm.proxy.openai_files_endpoints.storage_backend_service import (
     StorageBackendFileService,
 )
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.utils import PrismaClient
 
 
 class _RecordingStorageBackend:
@@ -30,20 +30,20 @@ class _RecordingStorageBackend:
 
 class _ManagedFilesEndpoints(BaseFileEndpoints):
     async def acreate_file(
-        self, create_file_request, llm_router, target_model_names_list, litellm_parent_otel_span, user_api_key_dict
+        self, create_file_request, llm_router, target_model_names_list, hangarllm_parent_otel_span, user_api_key_dict
     ):
         raise NotImplementedError
 
-    async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router=None):
+    async def afile_retrieve(self, file_id, hangarllm_parent_otel_span, llm_router=None):
         raise NotImplementedError
 
-    async def afile_list(self, purpose, litellm_parent_otel_span, **data):
+    async def afile_list(self, purpose, hangarllm_parent_otel_span, **data):
         raise NotImplementedError
 
-    async def afile_delete(self, file_id, litellm_parent_otel_span, llm_router, **data):
+    async def afile_delete(self, file_id, hangarllm_parent_otel_span, llm_router, **data):
         raise NotImplementedError
 
-    async def afile_content(self, file_id, litellm_parent_otel_span, llm_router, **data):
+    async def afile_content(self, file_id, hangarllm_parent_otel_span, llm_router, **data):
         raise NotImplementedError
 
 
@@ -185,7 +185,7 @@ async def test_upload_hands_the_prisma_client_to_the_storage_backend_factory(mon
 
     await StorageBackendFileService.upload_file_to_storage_backend(
         file_data=_file_data(),
-        target_storage="litellm_db",
+        target_storage="hangarllm_db",
         target_model_names=[],
         purpose="batch",
         proxy_logging_obj=_FakeProxyLogging(hook=None),
@@ -193,7 +193,7 @@ async def test_upload_hands_the_prisma_client_to_the_storage_backend_factory(mon
         prisma_client=prisma_client,
     )
 
-    assert factory_calls == [("litellm_db", prisma_client)]
+    assert factory_calls == [("hangarllm_db", prisma_client)]
 
 
 @pytest.mark.asyncio

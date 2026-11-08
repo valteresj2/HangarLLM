@@ -5,11 +5,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import SUBSCRIPTION_BACKED_PROVIDERS
-from litellm.llms.chatgpt.common_utils import OPENAI_AUTH_CLAIM_KEY
-from litellm.llms.subscription_accounts import SUBSCRIPTION_ACCOUNT_ID_RESOLVERS, resolve_subscription_account_id
-from litellm.types.utils import CredentialItem
+import hangarllm
+from hangarllm.constants import SUBSCRIPTION_BACKED_PROVIDERS
+from hangarllm.llms.chatgpt.common_utils import OPENAI_AUTH_CLAIM_KEY
+from hangarllm.llms.subscription_accounts import SUBSCRIPTION_ACCOUNT_ID_RESOLVERS, resolve_subscription_account_id
+from hangarllm.types.utils import CredentialItem
 
 
 def _write_login(path: Path, account_id: str) -> Path:
@@ -49,9 +49,9 @@ def test_each_deployment_takes_the_account_of_its_own_auth_file(signed_in_chatgp
 
 
 def test_a_configured_access_token_resolves_to_its_own_account(signed_in_chatgpt_token_dir: Path) -> None:
-    litellm_params: Final = {"model": "chatgpt/gpt-5.6-terra", "api_key": _access_token_for("acct-from-api-key")}
+    hangarllm_params: Final = {"model": "chatgpt/gpt-5.6-terra", "api_key": _access_token_for("acct-from-api-key")}
 
-    assert resolve_subscription_account_id("chatgpt", litellm_params) == "acct-from-api-key"
+    assert resolve_subscription_account_id("chatgpt", hangarllm_params) == "acct-from-api-key"
 
 
 def test_a_metered_provider_resolves_to_no_account_even_with_a_chatgpt_login(
@@ -87,13 +87,13 @@ def test_a_named_credential_resolves_to_the_account_it_signs_in_as(
         "api_key": {"api_key": _access_token_for("acct-named-credential")},
     }[credential_field]
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [CredentialItem(credential_name="chatgpt-team", credential_values=values, credential_info={})],
     )
-    litellm_params: Final = {"model": "chatgpt/gpt-5.6-terra", "litellm_credential_name": "chatgpt-team"}
+    hangarllm_params: Final = {"model": "chatgpt/gpt-5.6-terra", "hangarllm_credential_name": "chatgpt-team"}
 
-    assert resolve_subscription_account_id("chatgpt", litellm_params) == "acct-named-credential"
+    assert resolve_subscription_account_id("chatgpt", hangarllm_params) == "acct-named-credential"
 
 
 @pytest.mark.parametrize(
@@ -105,6 +105,6 @@ def test_an_oidc_env_api_key_resolves_to_the_account_of_the_token_it_points_to(
 ) -> None:
     monkeypatch.setenv("CHATGPT_TEAM_TOKEN", _access_token_for("acct-from-oidc-env"))
     monkeypatch.delenv("CHATGPT_UNSET_TOKEN", raising=False)
-    litellm_params: Final = {"model": "chatgpt/gpt-5.6-terra", "api_key": api_key}
+    hangarllm_params: Final = {"model": "chatgpt/gpt-5.6-terra", "api_key": api_key}
 
-    assert resolve_subscription_account_id("chatgpt", litellm_params) == expected_account
+    assert resolve_subscription_account_id("chatgpt", hangarllm_params) == expected_account

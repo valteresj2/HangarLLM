@@ -6,7 +6,7 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 
 # GET /team/available lists teams from
-# litellm.default_internal_user_params["available_teams"]. The behavior actors
+# hangarllm.default_internal_user_params["available_teams"]. The behavior actors
 # configures no available_teams, so the handler returns [] for every actor
 # before it even reads the caller — this is the route-coverage + default-path
 # pin. /team/available is an info route, so every authenticated actor reaches

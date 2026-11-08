@@ -15,9 +15,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import completion
-from litellm.llms.modelscope.chat.transformation import ModelScopeChatConfig
+import hangarllm
+from hangarllm import completion
+from hangarllm.llms.modelscope.chat.transformation import ModelScopeChatConfig
 
 DEFAULT_MODEL = "Qwen/Qwen3.5-35B-A3B"
 
@@ -36,7 +36,7 @@ class TestModelScopeConfig:
             model=DEFAULT_MODEL,
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base=None,
         )
@@ -48,7 +48,7 @@ class TestModelScopeConfig:
     def test_modelscope_completion_mock(self, respx_mock):
         """Mock test for basic ModelScope completion."""
 
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
 
         api_key = "fake-modelscope-key"
         api_base = "https://api-inference.modelscope.cn/v1"
@@ -64,7 +64,7 @@ class TestModelScopeConfig:
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": '```python\nprint("Hey from LiteLLM!")\n```',
+                            "content": '```python\nprint("Hey from HangarLLM!")\n```',
                         },
                         "finish_reason": "stop",
                     }
@@ -81,7 +81,7 @@ class TestModelScopeConfig:
         response = completion(
             model=f"modelscope/{DEFAULT_MODEL}",
             messages=[
-                {"role": "user", "content": "write code for saying hey from LiteLLM"}
+                {"role": "user", "content": "write code for saying hey from HangarLLM"}
             ],
             api_key=api_key,
             api_base=api_base,
@@ -193,7 +193,7 @@ class TestModelScopeConfig:
             api_key="fake-key",
             model=DEFAULT_MODEL,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://api-inference.modelscope.cn/v1/chat/completions"
@@ -207,7 +207,7 @@ class TestModelScopeConfig:
             api_key="fake-key",
             model=DEFAULT_MODEL,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://custom.modelscope.cn/v1/chat/completions"
@@ -221,7 +221,7 @@ class TestModelScopeConfig:
             api_key="fake-key",
             model=DEFAULT_MODEL,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://api-inference.modelscope.cn/v1/chat/completions"
@@ -277,7 +277,7 @@ class TestModelScopeConfig:
     @pytest.mark.respx()
     def test_completion_with_text_content_list(self, respx_mock):
         """Verify that text-only content list messages are flattened before sending."""
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
 
         api_key = "fake-modelscope-key"
         api_base = "https://api-inference.modelscope.cn/v1"
@@ -329,7 +329,7 @@ class TestModelScopeConfig:
     @pytest.mark.respx()
     def test_completion_with_multimodal_messages(self, respx_mock):
         """Verify that multimodal messages (text + image_url) are sent as content lists."""
-        litellm.disable_aiohttp_transport = True
+        hangarllm.disable_aiohttp_transport = True
 
         api_key = "fake-modelscope-key"
         api_base = "https://api-inference.modelscope.cn/v1"
@@ -401,7 +401,7 @@ class TestModelScopeConfig:
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str):
     assert (
         ModelScopeChatConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="Qwen/Qwen3-8B", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="Qwen/Qwen3-8B", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/modelscope/v1/chat/completions"
     )

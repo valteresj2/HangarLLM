@@ -20,18 +20,18 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from prisma.errors import ClientNotConnectedError
 
-import litellm
-import litellm.proxy.proxy_server
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.common_utils.fips import enforce_fips_mode
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+import hangarllm
+import hangarllm.proxy.proxy_server
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.proxy.common_utils.fips import enforce_fips_mode
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
     InitPassThroughEndpointHelpers,
     _registered_pass_through_routes,
 )
-from litellm._service_logger import ServiceTypes
-from litellm.integrations.otel.model.payloads import ServiceSpanData
-from litellm.integrations.otel.model.spans import service_span_name
-from tests.unit.litellm_core_utils.fake_secret_vault import FakeSecretVault
+from hangarllm._service_logger import ServiceTypes
+from hangarllm.integrations.otel.model.payloads import ServiceSpanData
+from hangarllm.integrations.otel.model.spans import service_span_name
+from tests.unit.hangarllm_core_utils.fake_secret_vault import FakeSecretVault
 from tests._master_key import MASTER_KEY
 
 
@@ -53,7 +53,7 @@ def disconnected_prisma() -> DisconnectedPrisma:
     return DisconnectedPrisma()
 
 
-# Top-level assignments of these types are the ones importlib.reload(litellm)
+# Top-level assignments of these types are the ones importlib.reload(hangarllm)
 # would have effectively reset. We snapshot them at conftest import time and
 # deep-copy the snapshot back before every test.
 _SNAPSHOT_TYPES = (list, dict, set, tuple, str, int, float, bool, bytes)
@@ -113,7 +113,7 @@ def _restore_mutable_state(module, snapshot):
 def _collect_flushable_caches():
     """Return (module, attr) pairs whose values expose flush_cache()."""
     targets = []
-    for module in (litellm, litellm.proxy.proxy_server):
+    for module in (hangarllm, hangarllm.proxy.proxy_server):
         for attr in list(vars(module)):
             if attr.startswith("_"):
                 continue
@@ -148,18 +148,18 @@ def _flush_caches(targets):
 
 
 # Snapshot once at conftest import — these are the "clean" module states.
-_LITELLM_STATE = _snapshot_mutable_state(litellm)
-_PROXY_SERVER_STATE = _snapshot_mutable_state(litellm.proxy.proxy_server)
+_HANGARLLM_STATE = _snapshot_mutable_state(hangarllm)
+_PROXY_SERVER_STATE = _snapshot_mutable_state(hangarllm.proxy.proxy_server)
 _FLUSHABLE_CACHES = _collect_flushable_caches()
-_PROXY_APP_LIFESPAN: Final = litellm.proxy.proxy_server.app.router.lifespan_context
+_PROXY_APP_LIFESPAN: Final = hangarllm.proxy.proxy_server.app.router.lifespan_context
 
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
-    """Reset mutable module state on litellm and proxy_server before each test.
+    """Reset mutable module state on hangarllm and proxy_server before each test.
 
-    Replaces a previous importlib.reload(litellm) approach that cost ~17s
-    per test (re-executing the full litellm __init__ import chain).
+    Replaces a previous importlib.reload(hangarllm) approach that cost ~17s
+    per test (re-executing the full hangarllm __init__ import chain).
 
     What IS reset:
       - Top-level module attributes of type list / dict / set / tuple
@@ -179,8 +179,8 @@ def setup_and_teardown():
         Use pytest's monkeypatch.setattr() or a local fixture for those
         cases — don't rely on this autouse fixture to undo them.
     """
-    _restore_mutable_state(litellm, _LITELLM_STATE)
-    _restore_mutable_state(litellm.proxy.proxy_server, _PROXY_SERVER_STATE)
+    _restore_mutable_state(hangarllm, _HANGARLLM_STATE)
+    _restore_mutable_state(hangarllm.proxy.proxy_server, _PROXY_SERVER_STATE)
     _flush_caches(_FLUSHABLE_CACHES)
 
     loop = asyncio.get_event_loop_policy().new_event_loop()
@@ -218,7 +218,7 @@ _proxy_module_globals_snapshot = pytest.StashKey[Dict[str, object]]()
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_setup(item):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     item.stash[_proxy_module_globals_snapshot] = {
         name: vars(proxy_server)[name]
@@ -234,7 +234,7 @@ def pytest_runtest_teardown(item, nextitem):
     snapshot = item.stash.get(_proxy_module_globals_snapshot, None)
     if snapshot is None:
         return
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     for name in _PROXY_MODULE_GLOBALS_TO_ISOLATE:
         if name in snapshot:
@@ -284,15 +284,15 @@ def configured_eu_jev_route_with_trailing_slash() -> Iterator[None]:
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.fixture(autouse=True)
 def _reset_graceful_shutdown_state():
-    from litellm.proxy.shutdown.graceful_shutdown_manager import (
+    from hangarllm.proxy.shutdown.graceful_shutdown_manager import (
         GracefulShutdownManager,
     )
 
@@ -350,7 +350,7 @@ def build_minimal_proxy_config(
     """
     config = {
         "general_settings": {"master_key": init_options.get("master_key", MASTER_KEY)},
-        "litellm_settings": {},
+        "hangarllm_settings": {},
     }
 
     db_url = database_url or os.getenv("DATABASE_URL")
@@ -360,10 +360,10 @@ def build_minimal_proxy_config(
     enable_cache = init_options.get("enable_cache", True)
     cache_config = build_cache_config(enable_cache=enable_cache)
     if cache_config:
-        config["litellm_settings"].update(cache_config)
+        config["hangarllm_settings"].update(cache_config)
 
     if init_options.get("success_callback") is not None:
-        config["litellm_settings"]["success_callback"] = init_options[
+        config["hangarllm_settings"]["success_callback"] = init_options[
             "success_callback"
         ]
 
@@ -375,8 +375,8 @@ def build_minimal_proxy_config(
         "enable_cache",
     }
     for key, value in init_options.items():
-        if key not in excluded_keys and key not in config["litellm_settings"]:
-            config["litellm_settings"][key] = value
+        if key not in excluded_keys and key not in config["hangarllm_settings"]:
+            config["hangarllm_settings"][key] = value
 
     return config
 
@@ -422,7 +422,7 @@ def create_proxy_test_client(
     Returns:
         TestClient: FastAPI test client for the proxy server
     """
-    from litellm.proxy.proxy_server import (
+    from hangarllm.proxy.proxy_server import (
         cleanup_router_config_variables,
         initialize,
         app,
@@ -452,7 +452,7 @@ def create_proxy_test_client(
         config_fp = default_config_fp
 
     set_proxy_environment_variables(monkeypatch, database_url=database_url)
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
 
     asyncio.run(initialize(config=config_fp, debug=init_options.get("debug", False)))
     return TestClient(app)
@@ -460,7 +460,7 @@ def create_proxy_test_client(
 
 @pytest.fixture
 def fresh_agent_read_through(monkeypatch):
-    from litellm.proxy.common_utils import registry_read_through
+    from hangarllm.proxy.common_utils import registry_read_through
 
     read_through = registry_read_through.RegistryReadThrough(
         resync=registry_read_through._resync_agents, is_loaded=registry_read_through._agent_is_loaded
@@ -470,7 +470,7 @@ def fresh_agent_read_through(monkeypatch):
 
 
 TOKEN_COUNT_LOG_FIELDS: Final = (
-    "litellm_call_id",
+    "hangarllm_call_id",
     "request_model",
     "model_id",
     "model_used",
@@ -515,7 +515,7 @@ def postgres_span_names() -> Iterator[Callable[[], Awaitable[tuple[str, ...]]]]:
             if call.kwargs["service"] == ServiceTypes.DB
         )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock(service_logging_obj=service_logging)):
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock(service_logging_obj=service_logging)):
         yield rendered
 
 
@@ -527,7 +527,7 @@ def fips_openssl(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def fips_mode(fips_openssl: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr("litellm.proxy.common_utils.fips.cryptography_enforces_fips", lambda: True)
+    monkeypatch.setattr("hangarllm.proxy.common_utils.fips.cryptography_enforces_fips", lambda: True)
     enforce_fips_mode({"fips_mode": True})
     yield
     enforce_fips_mode({})

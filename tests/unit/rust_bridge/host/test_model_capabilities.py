@@ -2,18 +2,18 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.rust_bridge.host.model_capabilities import anthropic_model_capabilities
+import hangarllm
+from hangarllm.rust_bridge.host.model_capabilities import anthropic_model_capabilities
 
 pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
 
 def _flag_model(monkeypatch: pytest.MonkeyPatch, name: str, **flags: bool) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         name,
         {
-            "litellm_provider": "anthropic",
+            "hangarllm_provider": "anthropic",
             "mode": "chat",
             "input_cost_per_token": 0,
             "output_cost_per_token": 0,

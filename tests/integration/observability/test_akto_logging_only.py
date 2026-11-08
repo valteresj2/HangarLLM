@@ -40,9 +40,9 @@ AKTO_DROP_MARK: Final = "SYNTHETIC-AKTO-DROP"
 AKTO_ERROR_MARK: Final = "SYNTHETIC-AKTO-500"
 AKTO_GARBAGE_MARK: Final = "SYNTHETIC-AKTO-GARBAGE"
 PROVIDER_FAIL_MARK: Final = "SYNTHETIC-PROVIDER-FAIL"
-REQUEST_CHECK: Final = {"akto_connector": "litellm", "guardrails": "true", "ingest_data": "true"}
-RESPONSE_CHECK: Final = {"akto_connector": "litellm", "response_guardrails": "true", "ingest_data": "true"}
-FILE_CHECK: Final = {"akto_connector": "litellm", "file_guardrails": "true"}
+REQUEST_CHECK: Final = {"akto_connector": "hangarllm", "guardrails": "true", "ingest_data": "true"}
+RESPONSE_CHECK: Final = {"akto_connector": "hangarllm", "response_guardrails": "true", "ingest_data": "true"}
+FILE_CHECK: Final = {"akto_connector": "hangarllm", "file_guardrails": "true"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,7 +186,7 @@ def _provider(request: Request) -> Reply:
 def _guardrail(name: str, key: str, url: str, **params: object) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "akto",
             "mode": "logging_only",
             "default_on": True,
@@ -199,7 +199,7 @@ def _guardrail(name: str, key: str, url: str, **params: object) -> dict[str, obj
 
 def _rig_config(akto_url: str, down_url: str, root: Path) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["guardrails"] = [
         _guardrail("akto-log", LOG_KEY, akto_url),
         _guardrail("akto-log-input", INPUT_KEY, akto_url, logging_only_scope="input"),
@@ -249,7 +249,7 @@ def spend_rows(request_id: str) -> tuple[dict[str, object], ...]:
     return tuple(
         eventually(
             lambda: read_rows(
-                'SELECT request_id, status, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)
+                'SELECT request_id, status, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)
             ),
             lambda values: len(values) >= 1,
             seconds=70,
@@ -492,7 +492,7 @@ def test_provider_failure_under_logging_only_reaches_the_caller_and_checks_nothi
     assert response.status_code == 500, response.text
     assert "synthetic provider failure" in response.text
 
-    rows: Final = spend_rows(response.headers["x-litellm-call-id"])
+    rows: Final = spend_rows(response.headers["x-hangarllm-call-id"])
     assert [row["status"] for row in rows] == ["failure"], rows
     assert [request for request in rig.akto.drain() if marker.encode() in request.body] == []
 

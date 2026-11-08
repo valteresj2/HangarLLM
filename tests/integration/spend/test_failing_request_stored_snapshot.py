@@ -44,7 +44,7 @@ def _transcript(marker: str) -> list[JsonValue]:
 
 def _stored_request(gateway: Gateway, call_id: str) -> JsonValue:
     rows: Final = eventually(
-        lambda: gateway.rows('SELECT proxy_server_request FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
+        lambda: gateway.rows('SELECT proxy_server_request FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=40,
     )
@@ -75,7 +75,7 @@ def test_failing_request_with_retries_and_fallback_stores_one_copy_of_the_reques
         assert response.status_code != 200, response.text
         assert fallback in response.text, response.text
 
-        serialized: Final = json.dumps(_stored_request(gateway, response.headers["x-litellm-call-id"]))
+        serialized: Final = json.dumps(_stored_request(gateway, response.headers["x-hangarllm-call-id"]))
         stored_kb: Final = len(serialized.encode()) / 1024
         assert marker in serialized, serialized[:400]
         assert stored_kb <= STORED_REQUEST_BUDGET_KB, (

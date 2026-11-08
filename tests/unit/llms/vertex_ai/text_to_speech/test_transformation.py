@@ -16,18 +16,18 @@ import respx
 import responses
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import OPENAI_TO_GEMINI_TTS_VOICES
-from litellm.llms.vertex_ai.text_to_speech.transformation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import OPENAI_TO_GEMINI_TTS_VOICES
+from hangarllm.llms.vertex_ai.text_to_speech.transformation import (
     VertexAILyriaTextToSpeechConfig,
     VertexAITextToSpeechConfig,
     _fallback_gemini_tts_audio_duration,
 )
-from litellm.cost_calculator import response_cost_calculator
-from litellm.litellm_core_utils.audio_utils.utils import calculate_request_duration
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.cost_calculator import response_cost_calculator
+from hangarllm.hangarllm_core_utils.audio_utils.utils import calculate_request_duration
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
@@ -84,7 +84,7 @@ class TestVertexAITextToSpeechConfig:
         url = config.get_complete_url(
             model="vertex_ai/chirp",
             api_base=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://texttospeech.googleapis.com/v1/text:synthesize"
@@ -97,7 +97,7 @@ class TestVertexAITextToSpeechConfig:
         url = config.get_complete_url(
             model="vertex_ai/chirp",
             api_base=custom_url,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == custom_url
@@ -126,7 +126,7 @@ class TestVertexAITextToSpeechConfig:
         url: Final = config.get_complete_url(
             model="vertex_ai/chirp",
             api_base=None,
-            litellm_params={"vertex_location": vertex_location},
+            hangarllm_params={"vertex_location": vertex_location},
         )
 
         assert url == f"https://{expected_host}/v1/text:synthesize"
@@ -140,7 +140,7 @@ class TestVertexAITextToSpeechConfig:
         url: Final = config.get_complete_url(
             model="vertex_ai/chirp",
             api_base=None,
-            litellm_params={"vertex_location": vertex_location},
+            hangarllm_params={"vertex_location": vertex_location},
         )
 
         assert url == "https://texttospeech.googleapis.com/v1/text:synthesize"
@@ -152,7 +152,7 @@ class TestVertexAITextToSpeechConfig:
         url: Final = config.get_complete_url(
             model="vertex_ai/chirp",
             api_base=custom_url,
-            litellm_params={"vertex_location": "eu"},
+            hangarllm_params={"vertex_location": "eu"},
         )
 
         assert url == custom_url
@@ -171,7 +171,7 @@ class TestVertexAITextToSpeechConfig:
 
         config = VertexAITextToSpeechConfig()
 
-        # Test with voice dict in litellm_params (as set by dispatch)
+        # Test with voice dict in hangarllm_params (as set by dispatch)
         result = config.transform_text_to_speech_request(
             model="vertex_ai/chirp",
             input="Hello, this is a test",
@@ -182,7 +182,7 @@ class TestVertexAITextToSpeechConfig:
                     "name": "en-US-Chirp3-HD-Charon",
                 }
             },
-            litellm_params={
+            hangarllm_params={
                 "vertex_credentials": None,
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
@@ -212,7 +212,7 @@ class TestVertexAITextToSpeechConfig:
             input="Hello",
             voice="en-US-Chirp3-HD-Charon",
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_credentials": None,
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
@@ -424,7 +424,7 @@ class TestVertexAITextToSpeechConfig:
         expected_language: str | None,
         expected_voices: tuple[tuple[str | None, str], ...],
     ):
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import normalize_gemini_speech_config
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import normalize_gemini_speech_config
 
         _, optional_params = VertexAITextToSpeechConfig().map_openai_params(
             model="gemini-3.1-flash-tts-preview",
@@ -484,7 +484,7 @@ class TestVertexAITextToSpeechConfig:
     def test_gemini_tts_malformed_speaker_entry_is_a_bad_request(self, speaker_voice_configs: object):
         config: Final = VertexAITextToSpeechConfig()
 
-        with pytest.raises(litellm.UnsupportedParamsError, match="speaker_voice_configs"):
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="speaker_voice_configs"):
             config.map_openai_params(
                 model="gemini-3.1-flash-tts-preview",
                 optional_params={"response_format": "mp3"},
@@ -619,7 +619,7 @@ class TestVertexAITextToSpeechConfig:
     ):
         config: Final = VertexAITextToSpeechConfig()
 
-        with pytest.raises(litellm.UnsupportedParamsError) as exc_info:
+        with pytest.raises(hangarllm.UnsupportedParamsError) as exc_info:
             config.map_openai_params(
                 model="gemini-3.1-flash-tts-preview",
                 optional_params={"response_format": "mp3"},
@@ -703,7 +703,7 @@ class TestVertexAITextToSpeechConfig:
                 "modelName": "gemini-2.5-flash-tts",
             },
             optional_params={"response_format": "mp3"},
-            litellm_params_dict={},
+            hangarllm_params_dict={},
             logging_obj=MagicMock(),
             timeout=10,
             extra_headers=None,
@@ -743,7 +743,7 @@ class TestVertexAITextToSpeechConfig:
             input="Hi",
             voice=voice,
             optional_params=optional_params,
-            litellm_params_dict={},
+            hangarllm_params_dict={},
             logging_obj=MagicMock(),
             timeout=10,
             extra_headers=None,
@@ -867,7 +867,7 @@ def test_gemini_cloud_tts_response_bills_text_and_audio(encoding: str, monkeypat
     assert usage.completion_tokens == math.ceil(duration * 25), (
         "Google Cloud TTS pricing, 2026-09-23: https://cloud.google.com/text-to-speech/pricing"
     )
-    assert usage.prompt_tokens == litellm.token_counter(model=model, text=input_text)
+    assert usage.prompt_tokens == hangarllm.token_counter(model=model, text=input_text)
     assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
     assert usage.completion_tokens_details is not None
     assert usage.completion_tokens_details.audio_tokens == usage.completion_tokens
@@ -876,7 +876,7 @@ def test_gemini_cloud_tts_response_bills_text_and_audio(encoding: str, monkeypat
         sdk_result: Final = VertexAITextToSpeechConfig().transform_text_to_speech_response(model, raw_response, logger)
     assert sdk_result.usage == usage
 
-    model_info: Final = litellm.get_model_info(model, custom_llm_provider="vertex_ai")
+    model_info: Final = hangarllm.get_model_info(model, custom_llm_provider="vertex_ai")
     cost: Final = response_cost_calculator(
         response_object=result,
         model=model,
@@ -909,7 +909,7 @@ def test_gemini_cloud_tts_returns_raw_g711_audio_when_duration_decoder_is_unavai
         200, json={"audioContent": base64.b64encode(audio).decode()}, request=sent_request
     )
 
-    with patch("litellm.llms.vertex_ai.text_to_speech.transformation.calculate_request_duration", return_value=None):
+    with patch("hangarllm.llms.vertex_ai.text_to_speech.transformation.calculate_request_duration", return_value=None):
         result: Final = VertexAITextToSpeechConfig().transform_text_to_speech_response(
             "gemini-3.1-flash-tts-preview", raw_response, logger
         )
@@ -936,7 +936,7 @@ def test_gemini_cloud_tts_returns_audio_unbilled_when_duration_is_unmeasurable()
         200, json={"audioContent": base64.b64encode(b"invalid").decode()}, request=sent_request
     )
 
-    with patch("litellm.llms.vertex_ai.text_to_speech.transformation.calculate_request_duration", return_value=None):
+    with patch("hangarllm.llms.vertex_ai.text_to_speech.transformation.calculate_request_duration", return_value=None):
         result: Final = VertexAITextToSpeechConfig().transform_text_to_speech_response(
             "gemini-3.1-flash-tts-preview", raw_response, logger
         )
@@ -985,7 +985,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         expected_url,
     ):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             f"vertex_ai/{model}",
             {
                 "vertex_ai_audio_api": vertex_ai_audio_api,
@@ -1003,7 +1003,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             config.get_complete_url(
                 model=model,
                 api_base=None,
-                litellm_params={
+                hangarllm_params={
                     "vertex_project": "music-project",
                     "vertex_location": "us-central1",
                 },
@@ -1026,7 +1026,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         url = config.get_complete_url(
             model="lyria-002",
             api_base=None,
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "music-project",
                 "vertex_location": "europe-west4",
             },
@@ -1044,7 +1044,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             "%2Fmodels%2Fother-model%3Apredict%3Fignored%3D"
         )
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             f"vertex_ai/{injected}",
             {
                 "vertex_ai_audio_api": "lyria_predict",
@@ -1055,7 +1055,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         url: Final = VertexAILyriaTextToSpeechConfig().get_complete_url(
             model=injected,
             api_base="https://us-central1-aiplatform.googleapis.com",
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": injected,
                 "vertex_location": injected,
             },
@@ -1072,7 +1072,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         url = config.get_complete_url(
             model="lyria-3-pro-preview",
             api_base=None,
-            litellm_params={"vertex_project": "music-project"},
+            hangarllm_params={"vertex_project": "music-project"},
         )
 
         assert url == ("https://aiplatform.googleapis.com/v1beta1/projects/music-project/locations/global/interactions")
@@ -1127,7 +1127,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             input="A bright synth track",
             voice="alloy",
             optional_params={"response_format": response_format},
-            litellm_params={"vertex_project": "music-project"},
+            hangarllm_params={"vertex_project": "music-project"},
             headers={},
         )
 
@@ -1230,7 +1230,7 @@ class TestVertexAILyriaTextToSpeechConfig:
     def test_rejects_unsupported_response_format(self, model, response_format):
         config = VertexAILyriaTextToSpeechConfig()
 
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             config.map_openai_params(
                 model=model,
                 optional_params={"response_format": response_format},
@@ -1240,7 +1240,7 @@ class TestVertexAILyriaTextToSpeechConfig:
     def test_rejects_unsupported_openai_params(self, param):
         config = VertexAILyriaTextToSpeechConfig()
 
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             config.map_openai_params(
                 model="lyria-3-pro-preview",
                 optional_params={param: "unsupported"},
@@ -1291,7 +1291,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             ),
         ],
     )
-    def test_litellm_speech_dispatches_to_lyria_api(
+    def test_hangarllm_speech_dispatches_to_lyria_api(
         self,
         model,
         response_format,
@@ -1304,17 +1304,17 @@ class TestVertexAILyriaTextToSpeechConfig:
         mock_response.headers = {"content-type": "application/json"}
         mock_response.json.return_value = response_json
         with (
-            patch.object(  # test-quality-ok: litellm.speech has no seam for Vertex token minting
+            patch.object(  # test-quality-ok: hangarllm.speech has no seam for Vertex token minting
                 VertexAILyriaTextToSpeechConfig,
                 "_ensure_access_token",
                 return_value=("mock-token", "music-project"),
             ),
-            patch(  # test-quality-ok: litellm.speech has no seam for the HTTP handler
-                "litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post",
+            patch(  # test-quality-ok: hangarllm.speech has no seam for the HTTP handler
+                "hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post",
                 return_value=mock_response,
             ) as mock_post,
         ):
-            response = litellm.speech(
+            response = hangarllm.speech(
                 model=f"vertex_ai/{model}",
                 input="A bright synth track",
                 voice="alloy",
@@ -1330,20 +1330,20 @@ class TestVertexAILyriaTextToSpeechConfig:
 
 
 @pytest.mark.parametrize("endpoint_kwarg", ["api_base", "base_url"])
-def test_litellm_speech_vertex_ai_sends_request_to_the_configured_endpoint(endpoint_kwarg: str):
+def test_hangarllm_speech_vertex_ai_sends_request_to_the_configured_endpoint(endpoint_kwarg: str):
     mock_response = Mock(spec=httpx.Response)
     mock_response.status_code = 200
     mock_response.headers = {"content-type": "application/json"}
     mock_response.json.return_value = {"audioContent": "SGVsbG8gV29ybGQ="}
     with (
-        patch.object(  # test-quality-ok: litellm.speech has no seam for Vertex token minting
+        patch.object(  # test-quality-ok: hangarllm.speech has no seam for Vertex token minting
             VertexAITextToSpeechConfig, "_ensure_access_token", return_value=("mock-token", "test-project")
         ),
-        patch(  # test-quality-ok: litellm.speech has no seam for the HTTP handler
-            "litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post", return_value=mock_response
+        patch(  # test-quality-ok: hangarllm.speech has no seam for the HTTP handler
+            "hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post", return_value=mock_response
         ) as mock_post,
     ):
-        response = litellm.speech(
+        response = hangarllm.speech(
             model="vertex_ai/chirp",
             input="Hello",
             voice="en-US-Chirp3-HD-Charon",
@@ -1356,12 +1356,12 @@ def test_litellm_speech_vertex_ai_sends_request_to_the_configured_endpoint(endpo
     assert response.content == b"Hello World"
 
 
-@patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post")
 @patch.object(VertexAITextToSpeechConfig, "_ensure_access_token")
 @patch.object(VertexAITextToSpeechConfig, "_get_token_and_url")
-def test_litellm_speech_vertex_ai_chirp(mock_get_token, mock_ensure_token, mock_post):
+def test_hangarllm_speech_vertex_ai_chirp(mock_get_token, mock_ensure_token, mock_post):
     """
-    Test that litellm.speech(model="vertex_ai/chirp") sends the correct URL and request body
+    Test that hangarllm.speech(model="vertex_ai/chirp") sends the correct URL and request body
     """
     # Mock authentication
     mock_ensure_token.return_value = ("mock-token", "test-project")
@@ -1375,7 +1375,7 @@ def test_litellm_speech_vertex_ai_chirp(mock_get_token, mock_ensure_token, mock_
     mock_response.json.return_value = {"audioContent": "SGVsbG8gV29ybGQ="}
     mock_post.return_value = mock_response
 
-    litellm.speech(
+    hangarllm.speech(
         model="vertex_ai/chirp",
         input="Hello, this is a test",
         voice="en-US-Chirp3-HD-Charon",
@@ -1457,15 +1457,15 @@ _UK_AUDIO_CONFIG: Final = {"audioEncoding": "LINEAR22", "speakingRate": "10"}
 
 @pytest.fixture
 def google_token_endpoint(monkeypatch: pytest.MonkeyPatch) -> Iterator[responses.RequestsMock]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     with responses.RequestsMock(assert_all_requests_are_fired=False) as token_endpoint:
         token_endpoint.post(
             "https://oauth2.googleapis.com/token",
             json={"access_token": "minted-google-token", "expires_in": 3600, "token_type": "Bearer"},
         )
         yield token_endpoint
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 async def _aspeech_vertex(
@@ -1474,7 +1474,7 @@ async def _aspeech_vertex(
     route: Final = respx_mock.post(_SYNTHESIZE_URL).mock(
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(b"vertex-audio").decode()})
     )
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="vertex_ai/test",
         input=speech_input,
         vertex_credentials=_AUTHORIZED_USER,
@@ -1693,7 +1693,7 @@ def test_lyria_malformed_item_position_does_not_change_the_mapped_error(payload:
             logging_obj=MagicMock(),
         )
 
-    with pytest.raises(litellm.APIConnectionError):
+    with pytest.raises(hangarllm.APIConnectionError):
         exception_type(
             model="vertex_ai/lyria-3-pro-preview",
             custom_llm_provider="vertex_ai",
@@ -1743,7 +1743,7 @@ async def test_aspeech_vertex_ai_gemini_tts_formats_the_bridge_serves_stay_on_ge
         url__regex=rf"https://aiplatform\.googleapis\.com/.*/models/{model}:generateContent$"
     ).mock(return_value=httpx.Response(200, json=_GENERATE_CONTENT_RESPONSE))
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model=f"vertex_ai/{model}",
         input="Say hello",
         voice="Kore",
@@ -1765,7 +1765,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_reaches_cloud_tts_for_any_gemini
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="vertex_ai/gemini-3.8-flash-tts",
         input="Say hello",
         voice="Kore",
@@ -1790,7 +1790,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_without_voice_keeps_the_gemini_m
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    await litellm.aspeech(
+    await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input="Say hello",
         response_format="mp3",
@@ -1807,8 +1807,8 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_without_voice_keeps_the_gemini_m
 async def test_aspeech_vertex_ai_gemini_tts_mp3_rejects_a_cloud_tts_voice(
     voice: str, respx_mock: respx.MockRouter, google_token_endpoint: responses.RequestsMock
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match=f"{voice} is a Cloud Text-to-Speech voice"):
-        await litellm.aspeech(
+    with pytest.raises(hangarllm.BadRequestError, match=f"{voice} is a Cloud Text-to-Speech voice"):
+        await hangarllm.aspeech(
             model="vertex_ai/gemini-3.1-flash-tts-preview",
             input="Say hello",
             voice=voice,
@@ -1829,7 +1829,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_drop_params_swaps_a_cloud_tts_vo
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    await litellm.aspeech(
+    await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input="Say hello",
         voice="en-US-Studio-O",
@@ -1853,7 +1853,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_without_a_location_uses_the_vert
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    await litellm.aspeech(
+    await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input="Say hello",
         voice="Kore",
@@ -1873,7 +1873,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_sends_instructions_as_the_style_
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    await litellm.aspeech(
+    await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input="Have a wonderful day",
         voice="Kore",
@@ -1896,7 +1896,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_with_a_numeric_speaking_rate_ret
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    result: Final = await litellm.aspeech(
+    result: Final = await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input="Hello there",
         voice="Kore",
@@ -1941,7 +1941,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_keeps_the_deployment_region(
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input="Say hello",
         voice="Kore",
@@ -1959,8 +1959,8 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_keeps_the_deployment_region(
 async def test_aspeech_vertex_ai_gemini_tts_mp3_rejects_a_region_cloud_tts_does_not_serve(
     respx_mock: respx.MockRouter, google_token_endpoint: responses.RequestsMock, vertex_location: str
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match=f"no Gemini TTS location for vertex_location {vertex_location}"):
-        await litellm.aspeech(
+    with pytest.raises(hangarllm.BadRequestError, match=f"no Gemini TTS location for vertex_location {vertex_location}"):
+        await hangarllm.aspeech(
             model="vertex_ai/gemini-3.1-flash-tts-preview",
             input="Say hello",
             voice="Kore",
@@ -1981,7 +1981,7 @@ async def test_aspeech_vertex_ai_chirp_keeps_the_global_host_when_only_vertexai_
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(b"global-audio").decode()})
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="vertex_ai/chirp",
         input="Bonjour",
         voice="fr-FR-Chirp3-HD-Aoede",
@@ -2006,11 +2006,11 @@ async def test_router_gemini_tts_mp3_unknown_voice_is_a_bad_request_that_keeps_t
             else httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
         )
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-tts",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-3.1-flash-tts-preview",
                     "vertex_credentials": _AUTHORIZED_USER,
                     "vertex_location": "global",
@@ -2020,7 +2020,7 @@ async def test_router_gemini_tts_mp3_unknown_voice_is_a_bad_request_that_keeps_t
         num_retries=0,
     )
 
-    with pytest.raises(litellm.BadRequestError, match="Voice Koree not found"):
+    with pytest.raises(hangarllm.BadRequestError, match="Voice Koree not found"):
         await router.aspeech(model="gemini-tts", input="Say hello", voice="Koree", response_format="mp3")
     response: Final = await router.aspeech(model="gemini-tts", input="Say hello", voice="Kore", response_format="mp3")
 
@@ -2037,8 +2037,8 @@ async def test_aspeech_vertex_ai_chirp_unknown_voice_stays_not_found(
         )
     )
 
-    with pytest.raises(litellm.NotFoundError, match="Voice en-US-Nope not found"):
-        await litellm.aspeech(
+    with pytest.raises(hangarllm.NotFoundError, match="Voice en-US-Nope not found"):
+        await hangarllm.aspeech(
             model="vertex_ai/chirp",
             input="Say hello",
             voice={"languageCode": "en-US", "name": "en-US-Nope"},
@@ -2050,8 +2050,8 @@ async def test_aspeech_vertex_ai_chirp_unknown_voice_stays_not_found(
 async def test_aspeech_vertex_ai_gemini_tts_mp3_rejects_a_deployment_api_base(
     respx_mock: respx.MockRouter, google_token_endpoint: responses.RequestsMock
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match="Request wav or pcm"):
-        await litellm.aspeech(
+    with pytest.raises(hangarllm.BadRequestError, match="Request wav or pcm"):
+        await hangarllm.aspeech(
             model="vertex_ai/gemini-3.1-flash-tts-preview",
             input="Say hello",
             voice="Kore",
@@ -2072,7 +2072,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_sends_speak_tags_as_text(
     )
     speech_input: Final = "<speak>Have a wonderful day</speak>"
 
-    await litellm.aspeech(
+    await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input=speech_input,
         voice="Kore",
@@ -2090,8 +2090,8 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_sends_speak_tags_as_text(
 async def test_aspeech_vertex_ai_gemini_tts_unsupported_format_is_rejected_before_calling_google(
     respx_mock: respx.MockRouter, google_token_endpoint: responses.RequestsMock, response_format: str
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match="Supported response formats: alaw, mp3, mulaw, opus, pcm, wav"):
-        await litellm.aspeech(
+    with pytest.raises(hangarllm.BadRequestError, match="Supported response formats: alaw, mp3, mulaw, opus, pcm, wav"):
+        await hangarllm.aspeech(
             model="vertex_ai/gemini-3.1-flash-tts-preview",
             input="Say hello",
             voice="Kore",
@@ -2110,7 +2110,7 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_sends_both_speakers_to_cloud_tts
         return_value=httpx.Response(200, json={"audioContent": base64.b64encode(audio_bytes).decode()})
     )
 
-    result: Final = await litellm.aspeech(
+    result: Final = await hangarllm.aspeech(
         model="vertex_ai/gemini-3.1-flash-tts-preview",
         input="Ryan: Hi.\nKatie: Hello.",
         voice={
@@ -2175,11 +2175,11 @@ async def test_aspeech_vertex_ai_gemini_tts_mp3_malformed_params_are_bad_request
         **speech_params,
     }
 
-    with pytest.raises(litellm.BadRequestError, match=error):
-        await litellm.aspeech(**request)
+    with pytest.raises(hangarllm.BadRequestError, match=error):
+        await hangarllm.aspeech(**request)
     assert not route.called
 
-    response: Final = await litellm.aspeech(**request, drop_params=True)
+    response: Final = await hangarllm.aspeech(**request, drop_params=True)
 
     sent: Final = json.loads(route.calls[0].request.content)
     assert response.content == audio_bytes
@@ -2195,7 +2195,7 @@ async def test_aspeech_vertex_ai_beta_lyria_2_serves_the_openai_params_it_ignore
         return_value=httpx.Response(200, json={"predictions": [{"audioContent": "bHlyaWEtMi1hdWRpbw==", "mimeType": "audio/wav"}]})
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="vertex_ai_beta/lyria-002",
         input="A bright synth track",
         voice="alloy",
@@ -2226,11 +2226,11 @@ async def test_aspeech_vertex_ai_gemini_tts_wav_unknown_voice_keys_are_bad_reque
         "vertex_location": "global",
     }
 
-    with pytest.raises(litellm.BadRequestError, match="does not support the voice keys style"):
-        await litellm.aspeech(**request)
+    with pytest.raises(hangarllm.BadRequestError, match="does not support the voice keys style"):
+        await hangarllm.aspeech(**request)
     assert not route.called
 
-    response: Final = await litellm.aspeech(**request, drop_params=True)
+    response: Final = await hangarllm.aspeech(**request, drop_params=True)
 
     assert _PCM_AUDIO in response.content
     assert json.loads(route.calls[0].request.content)["generationConfig"]["speechConfig"] == {

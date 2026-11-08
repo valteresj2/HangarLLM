@@ -4,8 +4,8 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import WindowSpendTransaction
-from litellm.proxy.hooks.model_budget_shared_windows import DatabaseSharedWindows, SharedWindow
+from hangarllm.proxy.db.db_transaction_queue.window_spend_update_queue import WindowSpendTransaction
+from hangarllm.proxy.hooks.model_budget_shared_windows import DatabaseSharedWindows, SharedWindow
 
 SPEND_KEY: Final = "virtual_key_spend:key-hash:claude-opus*:1d"
 WINDOW_START: Final = datetime(2026, 10, 20, 9, 30, tzinfo=timezone.utc)
@@ -26,22 +26,22 @@ class _Table:
 
 class _Database:
     def __init__(self, table: _Table) -> None:
-        self.litellm_budgetwindowspend = table
+        self.hangarllm_budgetwindowspend = table
         self.opened_with: tuple[object, ...] = ()
 
     async def execute_raw(self, query: str, *params: object) -> int:
         self.opened_with = params
-        self.litellm_budgetwindowspend.row = SimpleNamespace(window_start=params[3], spend=0.0)
+        self.hangarllm_budgetwindowspend.row = SimpleNamespace(window_start=params[3], spend=0.0)
         return 1
 
 
 class _OutracedDatabase:
     def __init__(self, table: _Table, winner: object) -> None:
-        self.litellm_budgetwindowspend = table
+        self.hangarllm_budgetwindowspend = table
         self._winner = winner
 
     async def execute_raw(self, query: str, *params: object) -> int:
-        self.litellm_budgetwindowspend.row = self._winner
+        self.hangarllm_budgetwindowspend.row = self._winner
         return 0
 
 
@@ -55,7 +55,7 @@ class _Sink:
 
 class _LaggingReplica:
     def __init__(self, writer: _Database) -> None:
-        self.litellm_budgetwindowspend = _Table()
+        self.hangarllm_budgetwindowspend = _Table()
         self._writer = writer
 
     async def execute_raw(self, query: str, *params: object) -> int:

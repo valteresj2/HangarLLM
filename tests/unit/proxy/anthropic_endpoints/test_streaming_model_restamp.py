@@ -8,14 +8,14 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.anthropic_endpoints.streaming_model_restamp import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.anthropic_endpoints.streaming_model_restamp import (
     AnthropicStreamModelRestamper,
     restamp_anthropic_stream_chunk_model,
 )
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import ProxyLogging
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.utils import ProxyLogging
 
 
 def _message_start_frame(model: str, line_end: str = "\n") -> bytes:

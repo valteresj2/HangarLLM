@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.types.rerank import RerankResponse
+from hangarllm.types.rerank import RerankResponse
 
 
 def test_rerank_response_keeps_result_order_and_null_meta_fields() -> None:

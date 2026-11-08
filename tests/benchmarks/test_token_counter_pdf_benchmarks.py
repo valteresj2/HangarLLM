@@ -8,7 +8,7 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.token_counter import token_counter
+from hangarllm.hangarllm_core_utils.token_counter import token_counter
 
 TEXT_LINE: Final = "Revenue grew eleven percent while churn fell to two percent."
 

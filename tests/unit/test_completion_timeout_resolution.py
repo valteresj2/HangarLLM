@@ -1,4 +1,4 @@
-"""Unit tests for litellm.litellm_core_utils.completion_timeout.CompletionTimeout."""
+"""Unit tests for hangarllm.hangarllm_core_utils.completion_timeout.CompletionTimeout."""
 
 import os
 import sys
@@ -10,8 +10,8 @@ from openai import Timeout as SDKTimeout
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-from litellm.litellm_core_utils.completion_timeout import CompletionTimeout, StreamKind
-from litellm.utils import supports_httpx_timeout
+from hangarllm.hangarllm_core_utils.completion_timeout import CompletionTimeout, StreamKind
+from hangarllm.utils import supports_httpx_timeout
 
 
 def test_explicit_timeout_wins():
@@ -56,7 +56,7 @@ def test_request_timeout_alias_in_kwargs():
     )
 
 
-def test_global_timeout_from_litellm_settings():
+def test_global_timeout_from_hangarllm_settings():
     assert (
         CompletionTimeout.resolve(
             None,

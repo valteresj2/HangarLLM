@@ -13,9 +13,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LiteLLMRoutes, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.analytics_endpoints.analytics_endpoints import get_global_activity
-from litellm.proxy.analytics_endpoints.cache_activity import (
+from hangarllm.proxy._types import HangarLLMRoutes, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.analytics_endpoints.analytics_endpoints import get_global_activity
+from hangarllm.proxy.analytics_endpoints.cache_activity import (
     ERROR_BREAKDOWN_SQL,
     GROUPS_SQL,
     KEY_ALIAS_OPTIONS_SQL,
@@ -24,8 +24,8 @@ from litellm.proxy.analytics_endpoints.cache_activity import (
     compute_totals,
 )
 
-ADMIN: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin-user")
-INTERNAL_USER: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="user-1")
+ADMIN: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin-user")
+INTERNAL_USER: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="user-1")
 from tests.unit.proxy.db.fake_prisma_engine import statement_timeout_error, statement_timeout_reads
 
 
@@ -96,7 +96,7 @@ def dispatching_query_raw() -> AsyncMock:
 @pytest.fixture
 def mock_prisma(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     prisma = build_prisma(dispatching_query_raw())
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma)
     return prisma
 
 
@@ -148,7 +148,7 @@ async def test_every_query_excludes_the_same_info_routes(mock_prisma: MagicMock)
     }
     assert set(exclusions_by_query) == {GROUPS_SQL, ERROR_BREAKDOWN_SQL, KEY_ALIAS_OPTIONS_SQL, MODEL_OPTIONS_SQL}
     for excluded_call_types in exclusions_by_query.values():
-        assert excluded_call_types == LiteLLMRoutes.info_routes.value
+        assert excluded_call_types == HangarLLMRoutes.info_routes.value
         assert {"/model/info", "/v1/models", "/key/info"} <= set(excluded_call_types)
         assert "" not in excluded_call_types
 
@@ -175,7 +175,7 @@ async def test_internal_user_queries_are_scoped_to_own_and_team_rows(mock_prisma
 
 @pytest.mark.asyncio
 async def test_key_without_user_id_grants_no_rows(mock_prisma: MagicMock):
-    no_user = UserAPIKeyAuth(user_role=LitellmUserRoles.TEAM, user_id=None)
+    no_user = UserAPIKeyAuth(user_role=HangarllmUserRoles.TEAM, user_id=None)
     await _activity(no_user)
 
     for call in _spend_log_reads(mock_prisma).call_args_list:
@@ -202,7 +202,7 @@ async def test_every_cache_activity_read_is_cancelled_by_postgres_after_30s(mock
 @pytest.mark.asyncio
 async def test_cancelled_cache_activity_read_is_reported_as_503_with_a_date_range_hint(monkeypatch: pytest.MonkeyPatch):
     prisma = build_prisma(AsyncMock(side_effect=statement_timeout_error()))
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma)
 
     with pytest.raises(HTTPException) as exc_info:
         await _activity(ADMIN)

@@ -9,7 +9,7 @@ import pytest
 from e2e_config import SAGEMAKER_NOVA2_LITE_OPT_IN_ENV, SAGEMAKER_NOVA_OPT_IN_ENV, unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import SdkClients
 
@@ -22,7 +22,7 @@ def _deployment(proxy: ProxyClient, resources: ResourceManager, endpoint_env: st
     endpoint: Final = os.environ[endpoint_env]
     model_name: Final = f"sagemaker_nova/{endpoint}"
     model: Final = f"e2e-{label}-{unique_marker()}"
-    model_id: Final = proxy.create_model(model, LiteLLMParamsBody(model=model_name))
+    model_id: Final = proxy.create_model(model, HangarLLMParamsBody(model=model_name))
     resources.defer(lambda: proxy.delete_model(model_id))
     return model, resources.key()
 

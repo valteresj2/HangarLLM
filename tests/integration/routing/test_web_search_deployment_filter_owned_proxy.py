@@ -48,12 +48,12 @@ def _group(group: str, model: str, api_base: str) -> tuple[dict[str, JsonValue],
     return (
         {
             "model_name": group,
-            "litellm_params": {"model": model, "api_key": "sk-fixture", "api_base": api_base, "weight": 1},
+            "hangarllm_params": {"model": model, "api_key": "sk-fixture", "api_base": api_base, "weight": 1},
             "model_info": {"id": _supported(group)},
         },
         {
             "model_name": group,
-            "litellm_params": {"model": model, "api_key": "sk-fixture", "api_base": api_base, "weight": 9},
+            "hangarllm_params": {"model": model, "api_key": "sk-fixture", "api_base": api_base, "weight": 9},
             "model_info": {"id": _unsupported(group), "supports_web_search": False},
         },
     )
@@ -141,6 +141,6 @@ def test_a_web_search_request_never_reaches_a_deployment_declared_without_web_se
     )
     received: Final = provider.received()
     assert all(response.status_code == 200 for response in responses), [response.text for response in responses]
-    served: Final = tuple(response.headers["x-litellm-model-id"] for response in responses)
+    served: Final = tuple(response.headers["x-hangarllm-model-id"] for response in responses)
     assert served == (_supported(group),) * _REQUESTS, served
     assert len(received) == _REQUESTS

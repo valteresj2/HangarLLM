@@ -31,25 +31,25 @@ def _assert_refused(response: httpx.Response, setting: str, entity: str) -> None
 
 
 def _key_metadata(token: str) -> JsonValue:
-    rows: Final = read_rows('SELECT metadata FROM "LiteLLM_VerificationToken" WHERE token = %s', (hashed(token),))
+    rows: Final = read_rows('SELECT metadata FROM "HangarLLM_VerificationToken" WHERE token = %s', (hashed(token),))
     assert len(rows) == 1, rows
     return rows[0]["metadata"]
 
 
 def _team_metadata(team: str) -> JsonValue:
-    rows: Final = read_rows('SELECT metadata FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,))
+    rows: Final = read_rows('SELECT metadata FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,))
     assert len(rows) == 1, rows
     return rows[0]["metadata"]
 
 
 def _user_metadata(user: str) -> JsonValue:
-    rows: Final = read_rows('SELECT metadata FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,))
+    rows: Final = read_rows('SELECT metadata FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,))
     assert len(rows) == 1, rows
     return rows[0]["metadata"]
 
 
 def _user_key_metadata(user: str) -> list[JsonValue]:
-    rows: Final = read_rows('SELECT metadata FROM "LiteLLM_VerificationToken" WHERE user_id = %s', (user,))
+    rows: Final = read_rows('SELECT metadata FROM "HangarLLM_VerificationToken" WHERE user_id = %s', (user,))
     return [row["metadata"] for row in rows]
 
 
@@ -99,7 +99,7 @@ def test_team_admin_cannot_put_a_batch_limit_on_a_new_key(gateway: Gateway, sett
         )
         _drop_created_key(scenario, refused)
         _assert_refused(refused, setting, "key")
-        assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE key_alias = %s', (alias,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE key_alias = %s', (alias,)) == []
         plain: Final = gateway.request("POST", "/key/generate", {"team_id": team, "key_alias": alias}, key=caller)
         _drop_created_key(scenario, plain)
         assert plain.status_code == 200, plain.text
@@ -162,7 +162,7 @@ def test_org_admin_cannot_put_a_batch_limit_on_a_new_team(gateway: Gateway, sett
         if refused.status_code == 200:
             scenario.cleanups.callback(scenario.delete_team, string_value(refused.json()["team_id"]))
         _assert_refused(refused, setting, "team")
-        assert read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_alias = %s', (alias,)) == []
+        assert read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_alias = %s', (alias,)) == []
         plain: Final = gateway.request(
             "POST", "/team/new", {"team_alias": alias, "organization_id": organization}, key=caller
         )
@@ -186,7 +186,7 @@ def test_org_admin_cannot_put_a_batch_limit_on_a_new_users_key(gateway: Gateway,
         )
         _drop_created_user(scenario, refused, refused_user)
         _assert_refused(refused, setting, "key")
-        assert read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (refused_user,)) == []
+        assert read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (refused_user,)) == []
         assert _user_key_metadata(refused_user) == []
         keyless: Final = gateway.request(
             "POST",
@@ -244,7 +244,7 @@ def test_bulk_user_creation_refuses_only_the_row_that_puts_a_batch_limit_on_a_ke
         assert (keyless["success"], keyless["key"], keyless["error"]) == (True, None, None), response.text
         assert (plain["success"], plain["error"]) == (True, None), response.text
         assert response.json()["meta"] == {"total_requested": 3, "created": 2, "failed": 1}, response.text
-        assert read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (refused_user,)) == []
+        assert read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (refused_user,)) == []
         assert _user_key_metadata(refused_user) == []
         assert _user_metadata(keyless_user) == {setting: 5}
         assert _user_key_metadata(keyless_user) == []
@@ -310,7 +310,7 @@ def test_team_admin_may_resend_a_stored_key_limit_but_not_change_it(
         changed: Final = gateway.request("POST", "/key/update", {"key": key, "metadata": dict(metadata)}, key=caller)
         _assert_refused(changed, UPLOADS, "key")
         assert _key_metadata(key) == {UPLOADS: 5}
-        assert read_rows('SELECT key_alias FROM "LiteLLM_VerificationToken" WHERE token = %s', (hashed(key),)) == [
+        assert read_rows('SELECT key_alias FROM "HangarLLM_VerificationToken" WHERE token = %s', (hashed(key),)) == [
             {"key_alias": f"{alias}-2"}
         ]
 
@@ -333,7 +333,7 @@ def test_org_admin_may_resend_a_stored_team_limit_but_not_change_it(
             "POST", "/team/update", {"team_id": team, "metadata": dict(metadata)}, key=caller
         )
         _assert_refused(changed, UPLOADS, "team")
-        assert read_rows('SELECT metadata, tpm_limit FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,)) == [
+        assert read_rows('SELECT metadata, tpm_limit FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,)) == [
             {"metadata": {UPLOADS: 5}, "tpm_limit": 6000}
         ]
 

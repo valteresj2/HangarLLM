@@ -133,7 +133,7 @@ def _stream_body(model: str, behavior: Behavior, marker: str, **extra: JsonValue
 def _deployment(name: str, backend: str, **extra: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"anthropic/{backend}",
             "api_base": _UPSTREAM_URL_PLACEHOLDER,
             "api_key": _API_KEY,
@@ -284,8 +284,8 @@ def test_fallbacks_run_only_after_the_same_group_budget_is_spent(rig: _Rig) -> N
     marker: Final = uuid.uuid4().hex
     response: Final = rig.stream(_WITH_FALLBACKS, "drop-always", marker)
     _assert_completed(response, _served_id(_FALLBACK, marker, 1))
-    assert response.headers.get("x-litellm-attempted-fallbacks") == "1", dict(response.headers)
-    assert response.headers.get("x-litellm-model-group") == _FALLBACK_GROUP, dict(response.headers)
+    assert response.headers.get("x-hangarllm-attempted-fallbacks") == "1", dict(response.headers)
+    assert response.headers.get("x-hangarllm-model-group") == _FALLBACK_GROUP, dict(response.headers)
     assert rig.attempts_on(_PRIMARY, marker) == 2
     assert rig.attempts_on(_FALLBACK, marker) == 1
 

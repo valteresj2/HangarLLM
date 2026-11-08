@@ -67,6 +67,6 @@ def test_default_otel_logger_keeps_spend_flush_outside_the_request_trace(
         assert not any(
             span["name"] == "postgres"
             and span["attributes"].get("call_type") == "commit_spend_updates"
-            and span["attributes"].get("table_name") == "LiteLLM_VerificationToken"
+            and span["attributes"].get("table_name") == "HangarLLM_VerificationToken"
             for span in request_spans
         ), request_spans

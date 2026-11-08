@@ -32,14 +32,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from openai import APIError as OpenAIAPIError
 from pydantic import BaseModel, model_serializer
 
-import litellm
-import litellm.proxy.proxy_server as ps
-from litellm.constants import RETURN_RAW_MODEL_NAME_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.common_request_processing import create_response
-from litellm.proxy.common_utils.responses_stream_errors import ResponsesStreamErrorState
-from litellm.proxy.proxy_server import (
+import hangarllm
+import hangarllm.proxy.proxy_server as ps
+from hangarllm.constants import RETURN_RAW_MODEL_NAME_METADATA_KEY
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import create_response
+from hangarllm.proxy.common_utils.responses_stream_errors import ResponsesStreamErrorState
+from hangarllm.proxy.proxy_server import (
     _apply_streaming_chunk_hooks,
     _format_fallback_metadata_sse_event,
     _format_responses_sse_chunk,
@@ -54,7 +54,7 @@ from litellm.proxy.proxy_server import (
     data_generator,
     select_data_generator,
 )
-from litellm.types.llms.openai import (
+from hangarllm.types.llms.openai import (
     ErrorEvent,
     OutputTextDeltaEvent,
     ResponseCompletedEvent,
@@ -64,8 +64,8 @@ from litellm.types.llms.openai import (
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.proxy.litellm_pre_call_utils import RedactedDict
-from litellm.types.utils import (
+from hangarllm.types.proxy.hangarllm_pre_call_utils import RedactedDict
+from hangarllm.types.utils import (
     ChatCompletionDeltaToolCall,
     Delta,
     Function,
@@ -186,7 +186,7 @@ async def test_responses_stream_sends_no_failure_event_after_an_upstream_error_e
     async def upstream() -> AsyncIterator[BaseModel | Mapping[str, object]]:
         yield created
         yield as_chunk(error_event)
-        raise litellm.APIError(status_code=500, message="Stream close failed", llm_provider="openai", model="local-model")
+        raise hangarllm.APIError(status_code=500, message="Stream close failed", llm_provider="openai", model="local-model")
 
     frames: Final = tuple(
         [
@@ -608,16 +608,16 @@ async def test_async_assistants_data_generator_hook_failure_yields_error_chunk(
 
 def test_get_client_requested_model_for_streaming_prefers_client_requested():
     request_data = {
-        "_litellm_client_requested_model": "gpt-4",
+        "_hangarllm_client_requested_model": "gpt-4",
         "model": "openai/internal-gpt-4",
-        "litellm_call_id": "abc",
+        "hangarllm_call_id": "abc",
     }
     result = _get_client_requested_model_for_streaming(request_data)
     assert result == "gpt-4"
 
     snapshot = {
         "result": result,
-        "client_field_preserved": request_data["_litellm_client_requested_model"],
+        "client_field_preserved": request_data["_hangarllm_client_requested_model"],
         "model_field_preserved": request_data["model"],
     }
     assert normalize(snapshot) == {
@@ -649,7 +649,7 @@ def test_restamp_streaming_chunk_model_overrides_model_on_basemodel():
     new_chunk, logged = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="gpt-4",
-        request_data={"litellm_call_id": "id-1"},
+        request_data={"hangarllm_call_id": "id-1"},
         model_mismatch_logged=False,
     )
     snapshot = {
@@ -692,7 +692,7 @@ def test_restamp_streaming_chunk_model_uses_fallback_model_from_metadata():
     new_chunk, logged = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="primary-model",
-        request_data={"litellm_call_id": "id-1"},
+        request_data={"hangarllm_call_id": "id-1"},
         model_mismatch_logged=False,
         fallback_was_attempted=True,
         fallback_model_from_metadata="fallback-model",
@@ -741,7 +741,7 @@ def test_is_positive_int_like_invalid_and_edge_values():
 def test_get_streaming_fallback_metadata_reads_headers():
     fallback_errors = [
         {
-            "message": "litellm.RateLimitError: upstream limited request",
+            "message": "hangarllm.RateLimitError: upstream limited request",
             "type": "RateLimitError",
             "param": None,
             "code": "429",
@@ -751,9 +751,9 @@ def test_get_streaming_fallback_metadata_reads_headers():
         [],
         hidden_params={
             "additional_headers": {
-                "x-litellm-attempted-fallbacks": "1",
-                "x-litellm-model-group": "fallback-model",
-                "x-litellm-fallback-errors": json.dumps(fallback_errors),
+                "x-hangarllm-attempted-fallbacks": "1",
+                "x-hangarllm-model-group": "fallback-model",
+                "x-hangarllm-fallback-errors": json.dumps(fallback_errors),
             }
         },
     )
@@ -772,7 +772,7 @@ def test_get_streaming_fallback_metadata_no_additional_headers():
 def test_get_streaming_fallback_metadata_zero_fallback_count():
     stream = _FakeStream(
         [],
-        hidden_params={"additional_headers": {"x-litellm-attempted-fallbacks": 0}},
+        hidden_params={"additional_headers": {"x-hangarllm-attempted-fallbacks": 0}},
     )
     assert _get_streaming_fallback_metadata(stream) == (False, None, [])
 
@@ -782,7 +782,7 @@ def test_get_streaming_fallback_metadata_no_model_group_returns_none_model():
         [],
         hidden_params={
             "additional_headers": {
-                "x-litellm-attempted-fallbacks": 1,
+                "x-hangarllm-attempted-fallbacks": 1,
             }
         },
     )
@@ -832,7 +832,7 @@ def test_restamp_streaming_chunk_model_restamps_a_frozen_chunk_through_a_copy():
     new_chunk, logged = _restamp_streaming_chunk_model(
         chunk=chunk,
         requested_model_from_client="gpt-4",
-        request_data={"litellm_call_id": "test-id"},
+        request_data={"hangarllm_call_id": "test-id"},
         model_mismatch_logged=False,
     )
     assert (new_chunk.model, chunk.model, logged) == ("gpt-4", "openai/internal-x", True)
@@ -841,7 +841,7 @@ def test_restamp_streaming_chunk_model_restamps_a_frozen_chunk_through_a_copy():
 def test_restamp_streaming_chunk_model_records_the_client_model_on_the_logging_object():
     import time
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logging_obj = Logging(
         model="openai/internal-x",
@@ -849,13 +849,13 @@ def test_restamp_streaming_chunk_model_records_the_client_model_on_the_logging_o
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="test-id",
+        hangarllm_call_id="test-id",
         function_id="test-id",
     )
     _restamp_streaming_chunk_model(
         chunk=_simple_chunk(model="openai/internal-x"),
         requested_model_from_client="gpt-4",
-        request_data={"litellm_call_id": "test-id", "litellm_logging_obj": logging_obj},
+        request_data={"hangarllm_call_id": "test-id", "hangarllm_logging_obj": logging_obj},
         model_mismatch_logged=False,
     )
     assert logging_obj.client_facing_stream_model == "gpt-4"
@@ -864,7 +864,7 @@ def test_restamp_streaming_chunk_model_records_the_client_model_on_the_logging_o
 def test_format_fallback_metadata_sse_event():
     fallback_errors = [
         {
-            "message": "litellm.RateLimitError: upstream limited request",
+            "message": "hangarllm.RateLimitError: upstream limited request",
             "type": "RateLimitError",
             "param": None,
             "code": "429",
@@ -880,11 +880,11 @@ def test_format_fallback_metadata_sse_event():
     assert event.startswith("data: ")
     payload = json.loads(event.removeprefix("data: ").removesuffix("\n\n"))
     assert payload["choices"] == []
-    assert payload["litellm_fallback"] == {
+    assert payload["hangarllm_fallback"] == {
         "fallback_model": "fallback-model",
         "errors": fallback_errors,
     }
-    assert payload["id"] == "litellm-fallback-metadata"
+    assert payload["id"] == "hangarllm-fallback-metadata"
     assert payload["object"] == "chat.completion.chunk"
     assert payload["model"] == "fallback-model"
     assert isinstance(payload["created"], int)
@@ -1255,7 +1255,7 @@ async def test_async_data_generator_streams_a_text_chunk_a_hook_tagged_with_a_va
     setattr(chunk.choices[0], "trace_choice", unencodable)
     setattr(chunk.choices[0].delta, "trace_delta", unencodable)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         out: Final = [
             line
             async for line in async_data_generator(
@@ -1288,7 +1288,7 @@ def test_serialize_streaming_chunk_keeps_lone_surrogates_a_provider_split_across
         object="chat.completion.chunk",
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         delta: Final = json.loads(_serialize_streaming_chunk(chunk))["choices"][0]["delta"]
 
     assert caplog.text == ""
@@ -1353,8 +1353,8 @@ async def test_async_data_generator_uses_response_fallback_metadata(monkeypatch)
         [_simple_chunk(model="openai/internal-fallback", content="hello")],
         hidden_params={
             "additional_headers": {
-                "x-litellm-attempted-fallbacks": 1,
-                "x-litellm-model-group": "fallback-model",
+                "x-hangarllm-attempted-fallbacks": 1,
+                "x-hangarllm-model-group": "fallback-model",
             }
         },
     )
@@ -1377,8 +1377,8 @@ async def test_async_data_generator_uses_chunk_fallback_metadata(monkeypatch):
     chunk = _simple_chunk(model="openai/internal-fallback", content="hello")
     chunk._hidden_params = {
         "additional_headers": {
-            "x-litellm-attempted-fallbacks": 1,
-            "x-litellm-model-group": "fallback-model",
+            "x-hangarllm-attempted-fallbacks": 1,
+            "x-hangarllm-model-group": "fallback-model",
         }
     }
     out = []
@@ -1404,8 +1404,8 @@ async def test_async_data_generator_switches_model_mid_stream_on_fallback(monkey
     fallback_chunk = _simple_chunk(model="openai/internal-fallback", content="there")
     fallback_chunk._hidden_params = {
         "additional_headers": {
-            "x-litellm-attempted-fallbacks": 1,
-            "x-litellm-model-group": "fallback-model",
+            "x-hangarllm-attempted-fallbacks": 1,
+            "x-hangarllm-model-group": "fallback-model",
         }
     }
     out = []
@@ -1429,7 +1429,7 @@ async def test_async_data_generator_emits_fallback_error_metadata_event(monkeypa
 
     fallback_errors = [
         {
-            "message": "litellm.RateLimitError: upstream limited request",
+            "message": "hangarllm.RateLimitError: upstream limited request",
             "type": "RateLimitError",
             "param": None,
             "code": "429",
@@ -1439,9 +1439,9 @@ async def test_async_data_generator_emits_fallback_error_metadata_event(monkeypa
         [_simple_chunk(model="openai/internal-fallback", content="hello")],
         hidden_params={
             "additional_headers": {
-                "x-litellm-attempted-fallbacks": 1,
-                "x-litellm-model-group": "fallback-model",
-                "x-litellm-fallback-errors": json.dumps(fallback_errors),
+                "x-hangarllm-attempted-fallbacks": 1,
+                "x-hangarllm-model-group": "fallback-model",
+                "x-hangarllm-fallback-errors": json.dumps(fallback_errors),
             }
         },
     )
@@ -1459,11 +1459,11 @@ async def test_async_data_generator_emits_fallback_error_metadata_event(monkeypa
     assert out[1].startswith("data: ")
     metadata_payload = json.loads(out[1].removeprefix("data: ").removesuffix("\n\n"))
     assert metadata_payload["choices"] == []
-    assert metadata_payload["litellm_fallback"] == {
+    assert metadata_payload["hangarllm_fallback"] == {
         "fallback_model": "fallback-model",
         "errors": fallback_errors,
     }
-    assert metadata_payload["id"] == "litellm-fallback-metadata"
+    assert metadata_payload["id"] == "hangarllm-fallback-metadata"
     assert metadata_payload["object"] == "chat.completion.chunk"
     assert metadata_payload["model"] == "fallback-model"
     assert isinstance(metadata_payload["created"], int)
@@ -1477,7 +1477,7 @@ async def test_async_data_generator_skips_fallback_error_event_without_opt_in(
 
     fallback_errors = [
         {
-            "message": "litellm.RateLimitError: upstream limited request",
+            "message": "hangarllm.RateLimitError: upstream limited request",
             "type": "RateLimitError",
             "param": None,
             "code": "429",
@@ -1487,9 +1487,9 @@ async def test_async_data_generator_skips_fallback_error_event_without_opt_in(
         [_simple_chunk(model="openai/internal-fallback", content="hello")],
         hidden_params={
             "additional_headers": {
-                "x-litellm-attempted-fallbacks": 1,
-                "x-litellm-model-group": "fallback-model",
-                "x-litellm-fallback-errors": json.dumps(fallback_errors),
+                "x-hangarllm-attempted-fallbacks": 1,
+                "x-hangarllm-model-group": "fallback-model",
+                "x-hangarllm-fallback-errors": json.dumps(fallback_errors),
             }
         },
     )
@@ -1648,7 +1648,7 @@ async def test_guardrail_block_mid_stream_on_a_gemini_stream_sends_no_openai_err
         generator=async_data_generator(
             response=_blocked_after(1, {"error": _BLOCK_MESSAGE}),
             user_api_key_dict=_user_auth(),
-            request_data={"_litellm_skip_openai_stream_done": True},
+            request_data={"_hangarllm_skip_openai_stream_done": True},
         ),
         media_type="text/event-stream",
         headers={},
@@ -1673,7 +1673,7 @@ async def _upstream_fails_after(chunks: int) -> AsyncIterator[ModelResponseStrea
     "request_data,closing_frames",
     [
         pytest.param({}, ("data: [DONE]",), id="openai_stream"),
-        pytest.param({"_litellm_skip_openai_stream_done": True}, (), id="gemini_stream"),
+        pytest.param({"_hangarllm_skip_openai_stream_done": True}, (), id="gemini_stream"),
     ],
 )
 async def test_upstream_failure_mid_stream_ends_with_an_error_event(
@@ -1714,7 +1714,7 @@ async def test_stream_error_sends_the_failure_hook_replacement(
     original_message: str,
     expected_status: int,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_ReplacesClientErrors()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ReplacesClientErrors()])
 
     status_code, _, frames = await _served(upstream())
 
@@ -1733,7 +1733,7 @@ async def test_stream_error_sends_the_failure_hook_replacement(
 async def test_failure_before_the_first_chunk_answers_the_failure_hook_replacement_as_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_ReplacesClientErrors()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ReplacesClientErrors()])
 
     response: Final = await create_response(
         generator=async_data_generator(
@@ -1753,7 +1753,7 @@ async def test_failure_before_the_first_chunk_answers_the_failure_hook_replaceme
 async def test_failure_before_the_first_chunk_on_a_bare_stream_still_ends_with_the_replacement_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_ReplacesClientErrors()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ReplacesClientErrors()])
 
     frames: Final = tuple(
         [
@@ -1770,7 +1770,7 @@ async def test_failure_before_the_first_chunk_on_a_bare_stream_still_ends_with_t
 
 @pytest.mark.asyncio
 async def test_responses_stream_failure_sends_the_failure_hook_replacement(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_ReplacesClientErrors()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ReplacesClientErrors()])
     response: Final = ResponsesAPIResponse(id="resp_visible", created_at=1, model="gpt-6-astra", output=[])
 
     async def upstream() -> AsyncIterator[BaseModel]:
@@ -1829,7 +1829,7 @@ async def _blocked_after_a_stall() -> AsyncIterator[ModelResponseStream]:
 def test_guardrail_block_after_a_keepalive_ping_ends_the_stream_with_an_error_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 1)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 1)
     loop: Final = AutojumpClockLoop()
 
     try:
@@ -1865,7 +1865,7 @@ async def _chunks(*contents: str) -> AsyncIterator[ModelResponseStream]:
 async def test_per_chunk_guardrail_block_keeps_early_blocks_on_their_status_and_ends_later_ones_in_band(
     monkeypatch: pytest.MonkeyPatch, contents: tuple[str, ...], expected_status: int, expected_frames: int
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [_BlocksKeeperPerChunk()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_BlocksKeeperPerChunk()])
 
     status_code, media_type, frames = await _served(_chunks(*contents))
 
@@ -1891,7 +1891,7 @@ _UPSTREAM_BODY: Final = {
         ("failure_after_completed", None, None),
         pytest.param(
             "upstream_failure",
-            litellm.AuthenticationError(
+            hangarllm.AuthenticationError(
                 message="Upstream rejected request", llm_provider="openai", model="gpt-6-astra"
             ),
             "authentication_error", id="authentication_error",
@@ -1907,7 +1907,7 @@ _UPSTREAM_BODY: Final = {
         ),
         pytest.param(
             "upstream_failure",
-            litellm.InternalServerError(
+            hangarllm.InternalServerError(
                 message="Upstream rejected request", llm_provider="openai", model="gpt-6-astra", body=_UPSTREAM_BODY
             ),
             "cyber_policy", id="upstream_body_code_and_message",
@@ -1957,7 +1957,7 @@ async def test_responses_stream_keeps_tool_deltas_and_only_emits_a_valid_termina
         output_index=0, delta='{"path":"partial',
     )
     original_status: Final = (
-        upstream_error.status_code if isinstance(upstream_error, (HTTPException, litellm.AuthenticationError)) else None
+        upstream_error.status_code if isinstance(upstream_error, (HTTPException, hangarllm.AuthenticationError)) else None
     )
 
     async def upstream() -> AsyncIterator[BaseModel]:
@@ -1970,7 +1970,7 @@ async def test_responses_stream_keeps_tool_deltas_and_only_emits_a_valid_termina
             if terminal == "serialization_failure" else completed
         )
         if terminal == "failure_after_completed":
-            raise litellm.APIError(
+            raise hangarllm.APIError(
                 status_code=500, message="Stream close failed", llm_provider="openai", model="gpt-6-astra"
             )
 
@@ -2006,9 +2006,9 @@ async def test_responses_stream_keeps_tool_deltas_and_only_emits_a_valid_termina
             assert "serialize" in failure.response.error["message"].lower()
         else:
             assert "Upstream rejected request" in failure.response.error["message"]
-            if isinstance(upstream_error, litellm.InternalServerError):
+            if isinstance(upstream_error, hangarllm.InternalServerError):
                 assert failure.response.error["message"] == _UPSTREAM_BODY["message"]
-            if isinstance(upstream_error, (HTTPException, litellm.AuthenticationError)):
+            if isinstance(upstream_error, (HTTPException, hangarllm.AuthenticationError)):
                 assert upstream_error.status_code == original_status
         assert payloads[-1]["sequence_number"] > payloads[1]["sequence_number"]
     else:
@@ -2047,14 +2047,14 @@ async def test_a_responses_stream_failing_after_a_pre_framed_event_adds_a_failur
 
     async def upstream() -> AsyncIterator[bytes]:
         yield pre_framed.encode()
-        raise litellm.APIError(status_code=500, message="Stream closed", llm_provider="openai", model="gpt-6")
+        raise hangarllm.APIError(status_code=500, message="Stream closed", llm_provider="openai", model="gpt-6")
 
     frames: Final = [
         frame.decode() if isinstance(frame, bytes) else frame
         async for frame in select_data_generator(
             response=upstream(),
             user_api_key_dict=_user_auth(),
-            request_data={"_litellm_raw_sse_stream": True} if raw_sse_stream else {},
+            request_data={"_hangarllm_raw_sse_stream": True} if raw_sse_stream else {},
             responses_stream_errors=True,
         )
     ]
@@ -2184,13 +2184,13 @@ def test_select_data_generator_missing_required_kwarg_raises_type_error():
 # ---------------------------------------------------------------------------
 
 
-from litellm.proxy.proxy_server import (  # noqa: E402
+from hangarllm.proxy.proxy_server import (  # noqa: E402
     _iter_with_keepalive,
     _keepalive_from_deployment_config,
     _make_keepalive_resolver,
     _resolve_keepalive_seconds,
 )
-from litellm.proxy.proxy_server import _KEEPALIVE_MAX_SECONDS, _KEEPALIVE_MIN_SECONDS  # noqa: E402
+from hangarllm.proxy.proxy_server import _KEEPALIVE_MAX_SECONDS, _KEEPALIVE_MIN_SECONDS  # noqa: E402
 
 
 @pytest.mark.asyncio
@@ -2359,8 +2359,8 @@ def test_resolve_keepalive_seconds_client_value_ignored_without_override_permiss
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = 15.0
-    deployment.litellm_params.allow_client_keepalive_override = False
+    deployment.hangarllm_params.keepalive_seconds = 15.0
+    deployment.hangarllm_params.allow_client_keepalive_override = False
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2378,8 +2378,8 @@ def test_resolve_keepalive_seconds_request_value_wins_when_override_allowed(monk
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = None
-    deployment.litellm_params.allow_client_keepalive_override = True
+    deployment.hangarllm_params.keepalive_seconds = None
+    deployment.hangarllm_params.allow_client_keepalive_override = True
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2397,8 +2397,8 @@ def test_resolve_keepalive_seconds_explicit_zero_disables_when_override_allowed(
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = 20.0
-    deployment.litellm_params.allow_client_keepalive_override = True
+    deployment.hangarllm_params.keepalive_seconds = 20.0
+    deployment.hangarllm_params.allow_client_keepalive_override = True
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2416,8 +2416,8 @@ def test_resolve_keepalive_seconds_clamps_below_minimum(monkeypatch):
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = None
-    deployment.litellm_params.allow_client_keepalive_override = True
+    deployment.hangarllm_params.keepalive_seconds = None
+    deployment.hangarllm_params.allow_client_keepalive_override = True
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2435,8 +2435,8 @@ def test_resolve_keepalive_seconds_clamps_above_maximum(monkeypatch):
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = None
-    deployment.litellm_params.allow_client_keepalive_override = True
+    deployment.hangarllm_params.keepalive_seconds = None
+    deployment.hangarllm_params.allow_client_keepalive_override = True
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2454,8 +2454,8 @@ def test_resolve_keepalive_seconds_non_numeric_returns_zero(monkeypatch):
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = None
-    deployment.litellm_params.allow_client_keepalive_override = True
+    deployment.hangarllm_params.keepalive_seconds = None
+    deployment.hangarllm_params.allow_client_keepalive_override = True
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2485,8 +2485,8 @@ def test_resolve_keepalive_seconds_deployment_disable_cannot_be_overridden_by_re
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = 0
-    deployment.litellm_params.allow_client_keepalive_override = True
+    deployment.hangarllm_params.keepalive_seconds = 0
+    deployment.hangarllm_params.allow_client_keepalive_override = True
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2501,24 +2501,24 @@ def test_resolve_keepalive_seconds_deployment_disable_cannot_be_overridden_by_re
 
 
 def test_resolve_keepalive_seconds_global_default_applies_when_unconfigured(monkeypatch):
-    """litellm_settings.sse_keepalive_ping_interval_seconds is the operator's
+    """hangarllm_settings.sse_keepalive_ping_interval_seconds is the operator's
     global default: it applies when neither the serving deployment nor the
     request supplies keepalive_seconds, including proxies with no router at
     all."""
-    import litellm
+    import hangarllm
 
     monkeypatch.setattr(ps, "llm_router", None)
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 15.0)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 15.0)
 
     result = _resolve_keepalive_seconds({}, response=None)
     assert result == 15.0
 
 
 def test_resolve_keepalive_seconds_global_default_is_clamped(monkeypatch):
-    import litellm
+    import hangarllm
 
     monkeypatch.setattr(ps, "llm_router", None)
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 900.0)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 900.0)
 
     result = _resolve_keepalive_seconds({}, response=None)
     assert result == _KEEPALIVE_MAX_SECONDS
@@ -2531,17 +2531,17 @@ def test_resolve_keepalive_seconds_deployment_zero_beats_global_default(monkeypa
     comes with them) for a deployment the operator opted out of."""
     from unittest.mock import MagicMock
 
-    import litellm
+    import hangarllm
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = 0
-    deployment.litellm_params.allow_client_keepalive_override = False
+    deployment.hangarllm_params.keepalive_seconds = 0
+    deployment.hangarllm_params.allow_client_keepalive_override = False
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
 
     monkeypatch.setattr(ps, "llm_router", router)
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 15.0)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 15.0)
 
     response = MagicMock()
     response._hidden_params = {"model_id": "deploy-disabled"}
@@ -2553,17 +2553,17 @@ def test_resolve_keepalive_seconds_deployment_zero_beats_global_default(monkeypa
 def test_resolve_keepalive_seconds_deployment_value_beats_global_default(monkeypatch):
     from unittest.mock import MagicMock
 
-    import litellm
+    import hangarllm
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = 30.0
-    deployment.litellm_params.allow_client_keepalive_override = False
+    deployment.hangarllm_params.keepalive_seconds = 30.0
+    deployment.hangarllm_params.allow_client_keepalive_override = False
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
 
     monkeypatch.setattr(ps, "llm_router", router)
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 15.0)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 15.0)
 
     response = MagicMock()
     response._hidden_params = {"model_id": "deploy-tuned"}
@@ -2576,8 +2576,8 @@ def test_keepalive_from_deployment_config_reads_by_model_id(monkeypatch):
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = 45.0
-    deployment.litellm_params.allow_client_keepalive_override = True
+    deployment.hangarllm_params.keepalive_seconds = 45.0
+    deployment.hangarllm_params.allow_client_keepalive_override = True
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2604,7 +2604,7 @@ def test_keepalive_from_deployment_config_stale_model_id_does_not_fall_through(m
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
     router.get_model_list.return_value = [
-        {"litellm_params": {"keepalive_seconds": 20.0}},
+        {"hangarllm_params": {"keepalive_seconds": 20.0}},
     ]
 
     monkeypatch.setattr(ps, "llm_router", router)
@@ -2623,7 +2623,7 @@ def test_keepalive_from_deployment_config_fallback_by_name(monkeypatch):
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
     router.get_model_list.return_value = [
-        {"litellm_params": {"keepalive_seconds": 20.0}},
+        {"hangarllm_params": {"keepalive_seconds": 20.0}},
     ]
 
     monkeypatch.setattr(ps, "llm_router", router)
@@ -2644,8 +2644,8 @@ def test_keepalive_from_deployment_config_fallback_by_name_agreeing_deployments(
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
     router.get_model_list.return_value = [
-        {"litellm_params": {"keepalive_seconds": 20.0, "allow_client_keepalive_override": True}},
-        {"litellm_params": {"keepalive_seconds": 20.0, "allow_client_keepalive_override": True}},
+        {"hangarllm_params": {"keepalive_seconds": 20.0, "allow_client_keepalive_override": True}},
+        {"hangarllm_params": {"keepalive_seconds": 20.0, "allow_client_keepalive_override": True}},
     ]
 
     monkeypatch.setattr(ps, "llm_router", router)
@@ -2666,8 +2666,8 @@ def test_keepalive_from_deployment_config_fallback_by_name_conflicting_deploymen
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
     router.get_model_list.return_value = [
-        {"litellm_params": {"keepalive_seconds": 20.0}},
-        {"litellm_params": {"keepalive_seconds": 0}},
+        {"hangarllm_params": {"keepalive_seconds": 20.0}},
+        {"hangarllm_params": {"keepalive_seconds": 0}},
     ]
 
     monkeypatch.setattr(ps, "llm_router", router)
@@ -2690,8 +2690,8 @@ def test_keepalive_from_deployment_config_fallback_by_name_configured_plus_unset
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
     router.get_model_list.return_value = [
-        {"litellm_params": {"keepalive_seconds": 20.0}},
-        {"litellm_params": {}},
+        {"hangarllm_params": {"keepalive_seconds": 20.0}},
+        {"hangarllm_params": {}},
     ]
 
     monkeypatch.setattr(ps, "llm_router", router)
@@ -2715,8 +2715,8 @@ def test_make_keepalive_resolver_caches_by_model_id(monkeypatch):
     from unittest.mock import MagicMock
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = 5.0
-    deployment.litellm_params.allow_client_keepalive_override = False
+    deployment.hangarllm_params.keepalive_seconds = 5.0
+    deployment.hangarllm_params.allow_client_keepalive_override = False
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
@@ -2740,12 +2740,12 @@ def test_make_keepalive_resolver_reresolves_on_model_id_change(monkeypatch):
     from unittest.mock import MagicMock
 
     before = MagicMock()
-    before.litellm_params.keepalive_seconds = 5.0
-    before.litellm_params.allow_client_keepalive_override = False
+    before.hangarllm_params.keepalive_seconds = 5.0
+    before.hangarllm_params.allow_client_keepalive_override = False
 
     after = MagicMock()
-    after.litellm_params.keepalive_seconds = 30.0
-    after.litellm_params.allow_client_keepalive_override = False
+    after.hangarllm_params.keepalive_seconds = 30.0
+    after.hangarllm_params.allow_client_keepalive_override = False
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.side_effect = lambda model_id: {"deploy-a": before, "deploy-b": after}[model_id]
@@ -2771,7 +2771,7 @@ def test_make_keepalive_resolver_missing_model_id_never_cached(monkeypatch):
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
-    router.get_model_list.return_value = [{"litellm_params": {"keepalive_seconds": 12.0}}]
+    router.get_model_list.return_value = [{"hangarllm_params": {"keepalive_seconds": 12.0}}]
     monkeypatch.setattr(ps, "llm_router", router)
 
     resolve = _make_keepalive_resolver({"model": "slow-model"})
@@ -2794,12 +2794,12 @@ def test_make_keepalive_resolver_expires_cache_after_ttl(monkeypatch):
     from unittest.mock import MagicMock
 
     before = MagicMock()
-    before.litellm_params.keepalive_seconds = 20.0
-    before.litellm_params.allow_client_keepalive_override = False
+    before.hangarllm_params.keepalive_seconds = 20.0
+    before.hangarllm_params.allow_client_keepalive_override = False
 
     after = MagicMock()
-    after.litellm_params.keepalive_seconds = 0
-    after.litellm_params.allow_client_keepalive_override = False
+    after.hangarllm_params.keepalive_seconds = 0
+    after.hangarllm_params.allow_client_keepalive_override = False
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = before
@@ -2829,21 +2829,21 @@ def test_make_keepalive_resolver_expires_cache_after_ttl(monkeypatch):
     assert router.get_deployment.call_count == 2
 
 
-def test_keepalive_seconds_in_all_litellm_params():
-    from litellm.types.utils import all_litellm_params
+def test_keepalive_seconds_in_all_hangarllm_params():
+    from hangarllm.types.utils import all_hangarllm_params
 
-    assert "keepalive_seconds" in all_litellm_params
+    assert "keepalive_seconds" in all_hangarllm_params
 
 
-def test_allow_client_keepalive_override_in_all_litellm_params():
+def test_allow_client_keepalive_override_in_all_hangarllm_params():
     """allow_client_keepalive_override is a deployment-only control flag: if it's
-    missing from all_litellm_params, it leaks straight through into the actual
+    missing from all_hangarllm_params, it leaks straight through into the actual
     provider API call as an unrecognized field and gets rejected (confirmed live
     against the real Anthropic API, which returns 'Extra inputs are not
     permitted')."""
-    from litellm.types.utils import all_litellm_params
+    from hangarllm.types.utils import all_hangarllm_params
 
-    assert "allow_client_keepalive_override" in all_litellm_params
+    assert "allow_client_keepalive_override" in all_hangarllm_params
 
 
 @pytest.mark.asyncio
@@ -2858,7 +2858,7 @@ async def test_async_data_generator_emits_ping_heartbeat(monkeypatch):
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
-    router.get_model_list.return_value = [{"litellm_params": {"allow_client_keepalive_override": True}}]
+    router.get_model_list.return_value = [{"hangarllm_params": {"allow_client_keepalive_override": True}}]
     monkeypatch.setattr(ps, "llm_router", router)
 
     async def _slow_response():
@@ -2887,12 +2887,12 @@ async def test_async_data_generator_emits_ping_heartbeat_from_global_default_wit
     interval."""
     import asyncio
 
-    import litellm
+    import hangarllm
 
     _patch_logging_flags(monkeypatch)
     monkeypatch.setattr(ps, "_KEEPALIVE_MIN_SECONDS", 0.05)
     monkeypatch.setattr(ps, "llm_router", None)
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 0.05)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 0.05)
 
     async def _slow_response():
         yield _simple_chunk(content="hello")
@@ -2948,12 +2948,12 @@ async def test_async_data_generator_resolves_deployment_once_per_steady_stream(m
     _patch_logging_flags(monkeypatch)
 
     deployment = MagicMock()
-    deployment.litellm_params.keepalive_seconds = None
-    deployment.litellm_params.allow_client_keepalive_override = False
+    deployment.hangarllm_params.keepalive_seconds = None
+    deployment.hangarllm_params.allow_client_keepalive_override = False
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
-    router.get_model_list.return_value = [{"litellm_params": {}}]
+    router.get_model_list.return_value = [{"hangarllm_params": {}}]
     monkeypatch.setattr(ps, "llm_router", router)
 
     async def _steady_response():
@@ -2995,7 +2995,7 @@ class _SlowAssistantsStream(_FakeAssistantsStream):
 
 
 async def _run_thread_streaming(monkeypatch, interval, delay=0.3, fails_with=None):
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", interval)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", interval)
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_model_list.return_value = []
@@ -3018,7 +3018,7 @@ async def _run_thread_streaming(monkeypatch, interval, delay=0.3, fails_with=Non
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(ps, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(ps, "add_hangarllm_data_to_request", _add_data)
 
     request = MagicMock()
     request.body = AsyncMock(return_value=b'{"assistant_id": "asst_1", "stream": true}')
@@ -3094,7 +3094,7 @@ async def test_run_thread_stream_is_untouched_while_keepalives_are_unconfigured(
 
 async def _queue_streaming(monkeypatch, interval, delay=0.3, fails_with=None):
     _patch_logging_flags(monkeypatch)
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", interval)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", interval)
 
     router = route_entry_points_to_stubs(MagicMock())
     router.get_model_list.return_value = []

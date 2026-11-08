@@ -14,9 +14,9 @@ const CREDENTIAL_PROBE_SPACING_MS = 13_000;
 /** The mock LLM as the proxy reaches it: same host locally, a sidecar in the deployed stack. */
 const MOCK_LLM_BASE = `http://127.0.0.1:${process.env.MOCK_LLM_PORT ?? "8090"}/v1`;
 
-/** GET /model/info?litellm_model_id= returns {data: [row]}, the deployment as stored. */
+/** GET /model/info?hangarllm_model_id= returns {data: [row]}, the deployment as stored. */
 async function readDeployment(page: PlaywrightPage, modelId: string): Promise<Record<string, any> | undefined> {
-  const body = await readBack<{ data: Record<string, any>[] }>(page, `/model/info?litellm_model_id=${modelId}`);
+  const body = await readBack<{ data: Record<string, any>[] }>(page, `/model/info?hangarllm_model_id=${modelId}`);
   return body.data[0];
 }
 
@@ -97,7 +97,7 @@ test.describe("Add Model", () => {
       headers: { Authorization: `Bearer ${masterKey}` },
       data: {
         model_name: modelName,
-        litellm_params: {
+        hangarllm_params: {
           model: "openai/fake-gpt-4",
           // Never called, but the port moves when two checkouts run side by side.
           api_base: `http://127.0.0.1:${process.env.MOCK_LLM_PORT ?? "8090"}/v1`,
@@ -134,7 +134,7 @@ test.describe("Add Model", () => {
     await page.getByPlaceholder("Enter TPM").fill("999");
     await page.getByPlaceholder("Enter RPM").fill("888");
 
-    // handleModelUpdate PATCHes the whole litellm_params blob, so pin what goes on the wire.
+    // handleModelUpdate PATCHes the whole hangarllm_params blob, so pin what goes on the wire.
     const patch = await captureRequestBody(
       page,
       { method: "PATCH", urlIncludes: `/model/${createdModelId}/update` },
@@ -142,8 +142,8 @@ test.describe("Add Model", () => {
         await page.getByRole("button", { name: "Save Changes" }).click();
       },
     );
-    expect(Number(patch.litellm_params?.tpm), "new TPM on the wire").toBe(999);
-    expect(Number(patch.litellm_params?.rpm), "new RPM on the wire").toBe(888);
+    expect(Number(patch.hangarllm_params?.tpm), "new TPM on the wire").toBe(999);
+    expect(Number(patch.hangarllm_params?.rpm), "new RPM on the wire").toBe(888);
 
     // Verify the new values render back in view mode
     await expect(page.getByText("999", { exact: true })).toBeVisible({ timeout: 10_000 });
@@ -154,7 +154,7 @@ test.describe("Add Model", () => {
       .poll(
         async () => {
           const stored = await readDeployment(page, createdModelId);
-          return [Number(stored?.litellm_params?.tpm), Number(stored?.litellm_params?.rpm)];
+          return [Number(stored?.hangarllm_params?.tpm), Number(stored?.hangarllm_params?.rpm)];
         },
         { message: "TPM/RPM did not persist on the deployment", timeout: 15_000 },
       )
@@ -162,7 +162,7 @@ test.describe("Add Model", () => {
 
     // Pin the fields this edit had no business changing; dropping them looks identical in the UI.
     const after = await readDeployment(page, createdModelId);
-    expect(after?.litellm_params?.model, "upstream model untouched by a limits edit").toBe("openai/fake-gpt-4");
+    expect(after?.hangarllm_params?.model, "upstream model untouched by a limits edit").toBe("openai/fake-gpt-4");
     expect(after?.model_info?.team_id, "team ownership untouched by a limits edit").toBe(E2E_TEAM_CRUD_ID);
   });
 
@@ -202,7 +202,7 @@ test.describe("Add Model", () => {
       await page.getByTestId("add-model-btn").click();
     });
     expect(created.model_name, "the model is created under the name that was typed").toBe(publicName);
-    expect(created.litellm_params?.api_base, "the api base survives the form").toBe(MOCK_LLM_BASE);
+    expect(created.hangarllm_params?.api_base, "the api base survives the form").toBe(MOCK_LLM_BASE);
 
     await expect(page.getByText("created successfully")).toBeVisible({ timeout: 15_000 });
 
@@ -249,10 +249,10 @@ test.describe("Add Model", () => {
           const probe = await page.request.post("/health/test_connection", {
             headers: auth,
             data: {
-              litellm_params: {
+              hangarllm_params: {
                 model: "openai/fake-gpt-4",
                 custom_llm_provider: "openai",
-                litellm_credential_name: credentialName,
+                hangarllm_credential_name: credentialName,
               },
               model_info: {},
               mode: "chat",
@@ -303,10 +303,10 @@ test.describe("Add Model", () => {
       const created = await captureRequestBody(page, { method: "POST", urlIncludes: "/model/new" }, async () => {
         await page.getByRole("button", { name: "Add Model" }).last().click();
       });
-      expect(created.litellm_params?.litellm_credential_name, "the picked credential goes on the wire").toBe(
+      expect(created.hangarllm_params?.hangarllm_credential_name, "the picked credential goes on the wire").toBe(
         credentialName,
       );
-      expect(created.litellm_params?.api_key, "no raw api key goes on the wire").toBeUndefined();
+      expect(created.hangarllm_params?.api_key, "no raw api key goes on the wire").toBeUndefined();
 
       await expect(page.getByText("created successfully")).toBeVisible({ timeout: 15_000 });
 
@@ -383,8 +383,8 @@ test.describe("Add Model", () => {
     });
     // The form sends custom_llm_provider separately from the name, so both halves have to arrive.
     expect(created.model_name, "the selected model is what goes on the wire").toBe("claude-haiku-4-5");
-    expect(created.litellm_params?.model, "the model name goes on the wire").toBe("claude-haiku-4-5");
-    expect(created.litellm_params?.custom_llm_provider, "the picked provider goes on the wire").toBe("anthropic");
+    expect(created.hangarllm_params?.model, "the model name goes on the wire").toBe("claude-haiku-4-5");
+    expect(created.hangarllm_params?.custom_llm_provider, "the picked provider goes on the wire").toBe("anthropic");
 
     // Wait for success notification
     await expect(page.getByText("created successfully")).toBeVisible({ timeout: 15_000 });
@@ -409,13 +409,13 @@ test.describe("Add Model", () => {
     // A row proves the name is there, not what the deployment routes to.
     const stored = await findDeploymentByName(page, "claude-haiku-4-5");
     expect(stored, "created model readable from /v2/model/info").toBeTruthy();
-    expect(stored?.litellm_params?.model, "stored deployment keeps the model name").toBe("claude-haiku-4-5");
-    expect(stored?.litellm_params?.custom_llm_provider, "stored deployment keeps its provider").toBe("anthropic");
+    expect(stored?.hangarllm_params?.model, "stored deployment keeps the model name").toBe("claude-haiku-4-5");
+    expect(stored?.hangarllm_params?.custom_llm_provider, "stored deployment keeps its provider").toBe("anthropic");
   });
 
   test("Add team-only model via Team-BYOK toggle and verify it appears with the team", async ({ page, request }) => {
     // The Team-BYOK switch is gated on premiumUser; without a license the toggle is disabled.
-    test.skip(!process.env.LITELLM_LICENSE, "LITELLM_LICENSE not set in test env — Team-BYOK switch is disabled");
+    test.skip(!process.env.HANGARLLM_LICENSE, "HANGARLLM_LICENSE not set in test env — Team-BYOK switch is disabled");
 
     // Idempotent across reruns. Only target rows with both the cohere name and the e2e team,
     // so the sibling wildcard test's team-less model is left alone.
@@ -531,6 +531,6 @@ test.describe("Add Model", () => {
     // "cohere/" in the table also matches a plain cohere deployment; require the wildcard exactly.
     const stored = await findDeploymentByName(page, "cohere/*");
     expect(stored, "wildcard deployment readable from /v2/model/info").toBeTruthy();
-    expect(stored?.litellm_params?.model, "stored deployment keeps the wildcard route").toBe("cohere/*");
+    expect(stored?.hangarllm_params?.model, "stored deployment keeps the wildcard route").toBe("cohere/*");
   });
 });

@@ -9,7 +9,7 @@ from typing import Final
 import pytest
 from integration._support.openai_wire import chat_reply
 from integration._support.wire import Reply, Request, wire_server
-from litellm import Router
+from hangarllm import Router
 from pydantic import JsonValue, TypeAdapter
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
@@ -36,7 +36,7 @@ def _peer(request: Request) -> Reply:
 def _deployment(model_group: str, api_base: str, deployment_id: str) -> dict[str, JsonValue]:
     return {
         "model_name": model_group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"openai/{_MODEL}",
             "api_base": api_base,
             "api_key": _API_KEY,
@@ -84,7 +84,7 @@ async def test_latency_routing_avoids_timed_out_deployment() -> None:
             model_list=[
                 {
                     **_deployment("latency", f"{wire.url}/slow/v1", "slow"),
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"openai/{_MODEL}",
                         "api_base": f"{wire.url}/slow/v1",
                         "api_key": _API_KEY,
@@ -100,7 +100,7 @@ async def test_latency_routing_avoids_timed_out_deployment() -> None:
         )
         router.lowestlatency_logger.log_success_event(
             kwargs={
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {"model_group": "latency"},
                     "model_info": {"id": "slow"},
                 }
@@ -111,7 +111,7 @@ async def test_latency_routing_avoids_timed_out_deployment() -> None:
         )
         router.lowestlatency_logger.log_success_event(
             kwargs={
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {"model_group": "latency"},
                     "model_info": {"id": "fast"},
                 }

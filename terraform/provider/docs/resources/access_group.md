@@ -1,24 +1,24 @@
 ---
-page_title: "litellm_access_group Resource - terraform-provider-litellm"
+page_title: "hangarllm_access_group Resource - terraform-provider-hangarllm"
 subcategory: ""
 description: |-
-  Manages a LiteLLM model access group.
+  Manages a HangarLLM model access group.
 ---
 
-# litellm_access_group (Resource)
+# hangarllm_access_group (Resource)
 
-Manages a LiteLLM model access group. Access groups bundle model deployments under one name so keys and teams can be granted access to the whole group at once.
+Manages a HangarLLM model access group. Access groups bundle model deployments under one name so keys and teams can be granted access to the whole group at once.
 
 ## Example Usage
 
 ```terraform
-resource "litellm_access_group" "production" {
+resource "hangarllm_access_group" "production" {
   access_group = "production-models"
   model_names  = ["gpt-4", "claude-3-sonnet"]
 }
 
 # Target specific deployments by model ID instead of model name
-resource "litellm_access_group" "pinned" {
+resource "hangarllm_access_group" "pinned" {
   access_group = "pinned-deployments"
   model_ids    = ["4dbd9f43-...", "9a1e2c77-..."]
 }
@@ -45,5 +45,5 @@ In addition to the arguments above, the following attributes are exported:
 Access groups can be imported using the access group name:
 
 ```shell
-terraform import litellm_access_group.production production-models
+terraform import hangarllm_access_group.production production-models
 ```

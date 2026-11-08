@@ -4,7 +4,7 @@ from typing import Final
 
 from pydantic import JsonValue
 
-from litellm.litellm_core_utils.duration_parser import get_next_standardized_reset_time
+from hangarllm.hangarllm_core_utils.duration_parser import get_next_standardized_reset_time
 from tests.integration._support.client import Gateway, Scenario, delete_key_if_present, object_value, string_value
 from tests.integration._support.database import read_rows
 
@@ -15,7 +15,7 @@ def _utc(text: JsonValue) -> datetime:
 
 
 def _model_id(model_name: str) -> str:
-    rows: Final = read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_name = %s', (model_name,))
+    rows: Final = read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_name = %s', (model_name,))
     assert len(rows) == 1, rows
     return string_value(rows[0]["model_id"])
 
@@ -33,7 +33,7 @@ def _wildcard_model(gateway: Gateway, scenario: Scenario, prefix: str) -> None:
         "/model/new",
         {
             "model_name": f"{prefix}/*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "anthropic/*",
                 "api_key": "integration-provider-key",
                 "api_base": gateway.upstream_url,
@@ -47,7 +47,7 @@ def test_budget_duration_schedules_reset_at_the_next_standardized_boundary(gatew
     with gateway.scenario() as scenario:
         budget_id: Final = scenario.budget(max_budget=10.0, budget_duration="1d")
         rows: Final = read_rows(
-            'SELECT created_at::text AS created_at, budget_reset_at::text AS reset_at FROM "LiteLLM_BudgetTable" '
+            'SELECT created_at::text AS created_at, budget_reset_at::text AS reset_at FROM "HangarLLM_BudgetTable" '
             "WHERE budget_id = %s",
             (budget_id,),
         )
@@ -96,9 +96,9 @@ def test_model_info_by_id_matches_the_entry_in_the_keys_listing(gateway: Gateway
         assert {entry["model_name"] for entry in listing} == {model}
         listed: Final = [entry for entry in listing if object_value(entry["model_info"])["id"] == model_id]
         assert len(listed) == 1
-        by_id: Final = _data(gateway, "/model/info", key, {"litellm_model_id": model_id})
+        by_id: Final = _data(gateway, "/model/info", key, {"hangarllm_model_id": model_id})
         assert by_id == listed
-        admin_by_id: Final = _data(gateway, "/model/info", gateway.key, {"litellm_model_id": model_id})
+        admin_by_id: Final = _data(gateway, "/model/info", gateway.key, {"hangarllm_model_id": model_id})
         assert [object_value(entry["model_info"])["id"] for entry in admin_by_id] == [model_id]
 
 

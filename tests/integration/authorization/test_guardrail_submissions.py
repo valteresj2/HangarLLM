@@ -106,12 +106,12 @@ class _SubmissionsResponse(BaseModel):
 def _delete_guardrail(gateway: Gateway, guardrail_id: str) -> None:
     deleted: Final = gateway.request("DELETE", f"/guardrails/{guardrail_id}")
     assert deleted.status_code == 200, deleted.text
-    assert read_rows('SELECT guardrail_id FROM "LiteLLM_GuardrailsTable" WHERE guardrail_id=%s', (guardrail_id,)) == []
+    assert read_rows('SELECT guardrail_id FROM "HangarLLM_GuardrailsTable" WHERE guardrail_id=%s', (guardrail_id,)) == []
 
 
 def _assert_submission_status(guardrail_id: str, status: str, team_id: str) -> None:
     rows: Final = read_rows(
-        'SELECT guardrail_id, status, team_id FROM "LiteLLM_GuardrailsTable" WHERE guardrail_id=%s',
+        'SELECT guardrail_id, status, team_id FROM "HangarLLM_GuardrailsTable" WHERE guardrail_id=%s',
         (guardrail_id,),
     )
     assert len(rows) == 1, rows
@@ -149,7 +149,7 @@ def _register(
         "api_base": api_base,
         "api_key": "synthetic-submission-guardrail-key",
     }
-    request_body: Final[dict[str, JsonValue]] = {"guardrail_name": name, "litellm_params": params}
+    request_body: Final[dict[str, JsonValue]] = {"guardrail_name": name, "hangarllm_params": params}
     complete_body: Final[dict[str, JsonValue]] = {
         **request_body,
         **({"team_id": team_id} if team_id is not None else {}),
@@ -189,19 +189,19 @@ def _assert_guardrail_request(
     *,
     key_alias: str | None = None,
 ) -> None:
-    assert (request.method, request.target) == ("POST", "/beta/litellm_basic_guardrail_api")
+    assert (request.method, request.target) == ("POST", "/beta/hangarllm_basic_guardrail_api")
     payload: Final = _JSON_OBJECT.validate_json(request.body)
     assert set(payload) == {
         "input_type",
-        "litellm_call_id",
-        "litellm_trace_id",
+        "hangarllm_call_id",
+        "hangarllm_trace_id",
         "structured_messages",
         "images",
         "tools",
         "texts",
         "request_data",
         "request_headers",
-        "litellm_version",
+        "hangarllm_version",
         "additional_provider_specific_params",
         "tool_calls",
         "model",
@@ -228,9 +228,9 @@ def _assert_guardrail_request(
         "tool_calls": None,
         "model": model,
     }, payload
-    assert payload["litellm_call_id"] is None or isinstance(payload["litellm_call_id"], str), payload
-    assert payload["litellm_trace_id"] is None or isinstance(payload["litellm_trace_id"], str), payload
-    assert payload["litellm_version"] is None or isinstance(payload["litellm_version"], str), payload
+    assert payload["hangarllm_call_id"] is None or isinstance(payload["hangarllm_call_id"], str), payload
+    assert payload["hangarllm_trace_id"] is None or isinstance(payload["hangarllm_trace_id"], str), payload
+    assert payload["hangarllm_version"] is None or isinstance(payload["hangarllm_version"], str), payload
     request_data: Final = object_value(payload["request_data"])
     if model is None:
         assert request_data == {}, payload
@@ -289,7 +289,7 @@ def test_non_admin_keys_scoped_to_the_submission_routes_get_403_from_the_admin_c
             name,
             team_id,
             registration_key,
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
         )
         plain_responses: Final = (
             gateway.request("POST", f"/guardrails/submissions/{guardrail_id}/approve", key=plain_team_admin_key),
@@ -371,7 +371,7 @@ def test_team_admins_and_internal_users_get_403_on_guardrail_submission_actions(
             name,
             team_id,
             member_key,
-            f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+            f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
         )
         responses: Final = (
             gateway.request("POST", f"/guardrails/submissions/{guardrail_id}/approve", key=team_admin_key),
@@ -410,7 +410,7 @@ def test_team_guardrail_submissions_require_admin_approval(
             key_alias=f"submission-team-admin-{uuid.uuid4().hex}",
         )
         other_team_id: Final = scenario.team(models=[model])
-        api_base: Final = f"{guardrail.url}/beta/litellm_basic_guardrail_api"
+        api_base: Final = f"{guardrail.url}/beta/hangarllm_basic_guardrail_api"
         first_name: Final = f"submitted-member-{uuid.uuid4().hex}"
         second_name: Final = f"submitted-admin-{uuid.uuid4().hex}"
         other_name: Final = f"submitted-other-team-{uuid.uuid4().hex}"
@@ -430,7 +430,7 @@ def test_team_guardrail_submissions_require_admin_approval(
             "error": {
                 "message": (
                     f"Guardrail '{first_name}' not found. "
-                    "Please ensure the guardrail is configured in your LiteLLM proxy."
+                    "Please ensure the guardrail is configured in your HangarLLM proxy."
                 ),
                 "type": "invalid_request_error",
                 "param": None,
@@ -479,7 +479,7 @@ def test_team_guardrail_submissions_require_admin_approval(
             "error": {
                 "message": (
                     f"Guardrail '{second_name}' not found. "
-                    "Please ensure the guardrail is configured in your LiteLLM proxy."
+                    "Please ensure the guardrail is configured in your HangarLLM proxy."
                 ),
                 "type": "invalid_request_error",
                 "param": None,
@@ -508,8 +508,8 @@ def test_team_guardrail_submissions_require_admin_approval(
             _assert_provider_request(request, text)
         guardrail_requests: Final = guardrail.drain()
         assert [(request.method, request.target) for request in guardrail_requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api"),
-            ("POST", "/beta/litellm_basic_guardrail_api"),
+            ("POST", "/beta/hangarllm_basic_guardrail_api"),
+            ("POST", "/beta/hangarllm_basic_guardrail_api"),
         ]
         _assert_guardrail_request(
             guardrail_requests[0],

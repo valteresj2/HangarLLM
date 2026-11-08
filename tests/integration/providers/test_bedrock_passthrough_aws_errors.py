@@ -151,7 +151,7 @@ class Rig:
         key: Final = self.keys[guardrail]
 
         def authenticate(request: object, **_: object) -> None:
-            getattr(request, "headers")["x-litellm-api-key"] = key
+            getattr(request, "headers")["x-hangarllm-api-key"] = key
 
         client.meta.events.register("before-send.bedrock-runtime.*", authenticate)
         return client
@@ -177,7 +177,7 @@ class Rig:
         return self.gateway.client.post(
             f"/bedrock/model/{ROUTER_MODEL}/{action}",
             json={"messages": [{"role": "user", "content": [{"text": marker}]}]},
-            headers={"x-litellm-api-key": self.keys[guardrail]},
+            headers={"x-hangarllm-api-key": self.keys[guardrail]},
             timeout=case_timeout_seconds(),
         )
 
@@ -185,7 +185,7 @@ class Rig:
 def _generic_guardrail(name: str, mode: str, vendor: Wire, **settings: JsonValue) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": mode,
             "default_on": False,
@@ -254,7 +254,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 _generic_guardrail(VENDOR_DOWN, "pre_call", sink),
                 {
                     "guardrail_name": CATO,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "cato_networks",
                         "mode": "pre_call",
                         "default_on": False,
@@ -264,7 +264,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 },
                 {
                     "guardrail_name": BEDROCK,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "bedrock",
                         "mode": "post_call",
                         "default_on": False,
@@ -280,7 +280,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
             config["model_list"] = [
                 {
                     "model_name": name,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"bedrock/{model}",
                         "api_base": upstream.url,
                         "aws_access_key_id": "AKIASYNTHETICPROVIDER",
@@ -340,7 +340,7 @@ def test_guardrail_block_reaches_boto3_as_a_validation_exception_with_the_guardr
 
 
 @pytest.mark.parametrize("action", ("converse-stream", "converse"))
-def test_guardrail_block_body_adds_the_aws_message_and_keeps_the_litellm_error(rig: Rig, action: str) -> None:
+def test_guardrail_block_body_adds_the_aws_message_and_keeps_the_hangarllm_error(rig: Rig, action: str) -> None:
     marker: Final = f"{BLOCKED_WORD}-{uuid.uuid4().hex}"
     response: Final = rig.raw(POST_CALL, action, marker)
     assert response.status_code == 400, response.text
@@ -349,7 +349,7 @@ def test_guardrail_block_body_adds_the_aws_message_and_keeps_the_litellm_error(r
     body: Final = response.json()
     assert body["message"] == BLOCK_REASON, body
     assert body["error"]["message"] == BLOCK_REASON, body
-    assert response.headers.get("x-litellm-call-id"), dict(response.headers)
+    assert response.headers.get("x-hangarllm-call-id"), dict(response.headers)
 
 
 @pytest.mark.parametrize("kind", tuple(UPSTREAM_ERRORS))
@@ -363,7 +363,7 @@ def test_bedrock_error_reaches_the_caller_as_bedrock_sent_it(rig: Rig, kind: str
     assert response.headers.get("x-amzn-errortype") == upstream.errortype, (dict(response.headers), response.text)
     assert response.content == upstream.body, response.text
     assert response.headers.get("content-type") == "application/json", dict(response.headers)
-    assert response.headers.get("x-litellm-call-id"), dict(response.headers)
+    assert response.headers.get("x-hangarllm-call-id"), dict(response.headers)
     assert rig.provider_calls(marker) == 1
 
 
@@ -389,12 +389,12 @@ def converse_with_key(rig: Rig, model: str, key: str) -> httpx.Response:
     return rig.gateway.client.post(
         f"/bedrock/model/{model}/converse",
         json={"messages": [{"role": "user", "content": [{"text": f"plain-{uuid.uuid4().hex}"}]}]},
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         timeout=case_timeout_seconds(),
     )
 
 
-def assert_litellm_error(response: httpx.Response, status: int) -> None:
+def assert_hangarllm_error(response: httpx.Response, status: int) -> None:
     assert response.status_code == status, response.text
     assert "x-amzn-errortype" not in response.headers, dict(response.headers)
     assert set(response.json()) == {"error"}, response.text
@@ -408,34 +408,34 @@ def assert_litellm_error(response: httpx.Response, status: int) -> None:
         pytest.param(OVER_BUDGET, ROUTER_MODEL, 422, id="over-budget"),
     ),
 )
-def test_errors_that_are_not_guardrail_blocks_keep_the_litellm_error(
+def test_errors_that_are_not_guardrail_blocks_keep_the_hangarllm_error(
     rig: Rig, guardrail: str, model: str, status: int
 ) -> None:
-    assert_litellm_error(converse_with_key(rig, model, rig.keys[guardrail]), status)
+    assert_hangarllm_error(converse_with_key(rig, model, rig.keys[guardrail]), status)
 
 
-def test_guardrail_service_error_shaped_like_aws_keeps_the_litellm_error(rig: Rig) -> None:
+def test_guardrail_service_error_shaped_like_aws_keeps_the_hangarllm_error(rig: Rig) -> None:
     response: Final = converse_with_key(rig, ROUTER_MODEL, rig.keys[CATO])
     assert response.status_code == THROTTLED.status, response.text
     assert "x-amzn-errortype" not in response.headers, dict(response.headers)
     assert response.content != THROTTLED.body, response.text
 
 
-def test_unknown_key_keeps_the_litellm_error(rig: Rig) -> None:
-    assert_litellm_error(converse_with_key(rig, ROUTER_MODEL, f"sk-unknown-{uuid.uuid4().hex}"), 401)
+def test_unknown_key_keeps_the_hangarllm_error(rig: Rig) -> None:
+    assert_hangarllm_error(converse_with_key(rig, ROUTER_MODEL, f"sk-unknown-{uuid.uuid4().hex}"), 401)
 
 
-def test_litellm_rate_limit_keeps_the_litellm_error(rig: Rig) -> None:
+def test_hangarllm_rate_limit_keeps_the_hangarllm_error(rig: Rig) -> None:
     admitted: Final = converse_with_key(rig, ROUTER_MODEL, rig.keys[ONE_RPM])
     assert admitted.status_code == 200, admitted.text
-    assert_litellm_error(converse_with_key(rig, ROUTER_MODEL, rig.keys[ONE_RPM]), 429)
+    assert_hangarllm_error(converse_with_key(rig, ROUTER_MODEL, rig.keys[ONE_RPM]), 429)
 
 
 def test_other_provider_passthrough_errors_carry_no_aws_error_type(rig: Rig) -> None:
     response: Final = rig.gateway.client.post(
         "/anthropic/v1/messages",
         json={"model": "claude-sonnet-5", "max_tokens": 8, "messages": [{"role": "user", "content": "hi"}]},
-        headers={"x-litellm-api-key": rig.keys[UNGUARDED]},
+        headers={"x-hangarllm-api-key": rig.keys[UNGUARDED]},
         timeout=case_timeout_seconds(),
     )
     assert response.status_code == 429, response.text

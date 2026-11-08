@@ -95,7 +95,7 @@ async def send(client: httpx.AsyncClient, key: str, model: str, call: Call) -> S
     ) as response:
         raw: Final = await response.aread()
     return Served(
-        call=call, status=response.status_code, text=raw.decode(), call_id=response.headers.get("x-litellm-call-id", "")
+        call=call, status=response.status_code, text=raw.decode(), call_id=response.headers.get("x-hangarllm-call-id", "")
     )
 
 
@@ -273,7 +273,7 @@ def chaos_config(wire: Wire, directory: Path, model_name: str) -> Path:
         "model_list": [
             {
                 "model_name": model_name,
-                "litellm_params": {"model": f"{PROVIDER}/{MODEL}", "api_base": f"{wire.url}/v1", "api_key": API_KEY},
+                "hangarllm_params": {"model": f"{PROVIDER}/{MODEL}", "api_base": f"{wire.url}/v1", "api_key": API_KEY},
             }
         ],
     }

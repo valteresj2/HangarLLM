@@ -2,7 +2,7 @@
 Tests that client headers are forwarded to the provider on the OpenAI
 text completion path.
 
-Regression tests for https://github.com/BerriAI/litellm/issues/27410
+Regression tests for upstream issue 27410
 """
 
 
@@ -14,8 +14,8 @@ import respx
 from httpx import Response
 
 
-import litellm
-from litellm import atext_completion, text_completion
+import hangarllm
+from hangarllm import atext_completion, text_completion
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +81,7 @@ def test_completion_forwards_extra_headers_to_provider(mock_completions_endpoint
 async def test_acompletion_forwards_client_headers_to_provider(
     mock_completions_endpoint, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     await atext_completion(
         model="gpt-3.5-turbo-instruct",
         prompt="hello",
@@ -107,9 +107,9 @@ def rejected_completions_endpoint():
     )
 
 
-def _assert_carries_the_upstream_rejection(rejected: litellm.BadRequestError) -> None:
+def _assert_carries_the_upstream_rejection(rejected: hangarllm.BadRequestError) -> None:
     assert rejected.status_code == 400
-    assert rejected.litellm_response_headers["x-request-id"] == "req-1"
+    assert rejected.hangarllm_response_headers["x-request-id"] == "req-1"
     assert rejected.response.text == _REJECTION_BODY
     assert rejected.response.json() == json.loads(_REJECTION_BODY)
     assert rejected.response.headers["x-request-id"] == "req-1"
@@ -117,7 +117,7 @@ def _assert_carries_the_upstream_rejection(rejected: litellm.BadRequestError) ->
 
 @respx.mock
 def test_completion_surfaces_the_status_and_headers_of_a_rejected_request(rejected_completions_endpoint):
-    with pytest.raises(litellm.BadRequestError) as rejected:
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
         text_completion(model="gpt-3.5-turbo-instruct", prompt="hello")
 
     _assert_carries_the_upstream_rejection(rejected.value)
@@ -125,7 +125,7 @@ def test_completion_surfaces_the_status_and_headers_of_a_rejected_request(reject
 
 @respx.mock
 def test_streaming_completion_surfaces_the_status_and_headers_of_a_rejected_request(rejected_completions_endpoint):
-    with pytest.raises(litellm.BadRequestError) as rejected:
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
         list(text_completion(model="gpt-3.5-turbo-instruct", prompt="hello", stream=True))
 
     _assert_carries_the_upstream_rejection(rejected.value)
@@ -135,8 +135,8 @@ def test_streaming_completion_surfaces_the_status_and_headers_of_a_rejected_requ
 async def test_acompletion_surfaces_the_status_and_headers_of_a_rejected_request(
     rejected_completions_endpoint, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    with pytest.raises(litellm.BadRequestError) as rejected:
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
         await atext_completion(model="gpt-3.5-turbo-instruct", prompt="hello")
 
     _assert_carries_the_upstream_rejection(rejected.value)
@@ -144,7 +144,7 @@ async def test_acompletion_surfaces_the_status_and_headers_of_a_rejected_request
 
 @respx.mock
 async def test_async_streaming_completion_reports_an_error_event_sent_mid_stream(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx.post("https://api.openai.com/v1/completions").mock(
         return_value=Response(
             200,
@@ -152,7 +152,7 @@ async def test_async_streaming_completion_reports_an_error_event_sent_mid_stream
             headers={"content-type": "text/event-stream"},
         )
     )
-    with pytest.raises(litellm.InternalServerError) as failed:
+    with pytest.raises(hangarllm.InternalServerError) as failed:
         async for _ in await atext_completion(model="gpt-3.5-turbo-instruct", prompt="hello", stream=True):
             pass
 
@@ -286,7 +286,7 @@ def test_completion_openai_engine_and_model_uses_the_explicit_model(mock_complet
 
 @respx.mock
 async def test_async_text_completion_stream_returns_text_and_one_finish_reason(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx.post("https://api.openai.com/v1/completions").mock(
         return_value=Response(
             200,
@@ -315,7 +315,7 @@ async def test_async_text_completion_stream_returns_text_and_one_finish_reason(m
 
 @respx.mock
 async def test_async_text_completion_chat_model_stream_builds_chat_chunks(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=Response(
             200,
@@ -332,11 +332,11 @@ async def test_async_text_completion_chat_model_stream_builds_chat_chunks(monkey
         model="gpt-3.5-turbo", prompt="say hello", stream=True, max_tokens=5
     )
     chunks: Final = [chunk async for chunk in stream]
-    response: Final = litellm.stream_chunk_builder(chunks=chunks)
+    response: Final = hangarllm.stream_chunk_builder(chunks=chunks)
 
     assert response.choices[0].text == "hello"
     assert (response.usage.prompt_tokens, response.usage.completion_tokens) == (0, 1)
-    assert litellm.completion_cost(
+    assert hangarllm.completion_cost(
         completion_response=response,
         custom_cost_per_token={"input_cost_per_token": 5e-07, "output_cost_per_token": 1.5e-06},
     ) == pytest.approx(1 * 1.5e-06)
@@ -350,7 +350,7 @@ async def test_async_text_completion_chat_model_stream_builds_chat_chunks(monkey
 
 @respx.mock
 def test_text_completion_stream_forwards_stream_options_and_usage(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx.post("https://api.openai.com/v1/completions").mock(
         return_value=Response(
             200,

@@ -11,12 +11,12 @@ from collections.abc import Callable
 import pytest
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-import litellm
-from litellm.integrations.arize.arize import ArizeConfig, ArizeLogger
-from litellm.integrations.opentelemetry import OpenTelemetryConfig
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+import hangarllm
+from hangarllm.integrations.arize.arize import ArizeConfig, ArizeLogger
+from hangarllm.integrations.opentelemetry import OpenTelemetryConfig
+from hangarllm._logging import verbose_logger, verbose_proxy_logger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -41,10 +41,10 @@ async def test_arize_dynamic_params():
     arize_logger.get_tracer_to_use_for_request = mock_get_tracer_to_use_for_request
 
     # Set up callbacks
-    litellm.callbacks = [arize_logger]
+    hangarllm.callbacks = [arize_logger]
 
     # First request with team1 credentials
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi test from arize dynamic config"}],
         temperature=0.1,
@@ -54,7 +54,7 @@ async def test_arize_dynamic_params():
     )
 
     # Second request with team2 credentials
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi test from arize dynamic config"}],
         temperature=0.1,
@@ -119,10 +119,10 @@ async def test_arize_dynamic_headers_in_grpc_requests():
         # Create ArizeLogger with HTTP configuration
         config = OpenTelemetryConfig(exporter="otlp_http", endpoint="https://otlp.arize.com/v1")
         arize_logger = ArizeLogger(config=config)
-        litellm.callbacks = [arize_logger]
+        hangarllm.callbacks = [arize_logger]
 
         # Request 1: team1 dynamic params
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi from team1"}],
             mock_response="response1",
@@ -131,7 +131,7 @@ async def test_arize_dynamic_headers_in_grpc_requests():
         )
 
         # Request 2: team2 dynamic params
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi from team2"}],
             mock_response="response2",
@@ -185,13 +185,13 @@ def _sampled_arize_logger(
 
 
 def _request_spans(exporter: InMemorySpanExporter) -> int:
-    return sum(1 for span in exporter.get_finished_spans() if span.name == "litellm_request")
+    return sum(1 for span in exporter.get_finished_spans() if span.name == "hangarllm_request")
 
 
 def _arize_kwargs(callback_vars: dict[str, object] | None = None) -> dict[str, object]:
     kwargs: dict[str, object] = {
         "model": "gpt-4",
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "standard_logging_object": {
             "id": "call-1",
             "call_type": "completion",
@@ -297,11 +297,11 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -313,18 +313,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -334,72 +334,72 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio()
 async def test_async_otel_callback():
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     verbose_proxy_logger.setLevel(logging.DEBUG)
     verbose_logger.setLevel(logging.DEBUG)
-    litellm.success_callback = ["arize"]
+    hangarllm.success_callback = ["arize"]
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi test from local arize"}],
         mock_response="hello",
@@ -414,7 +414,7 @@ def mock_env_vars(monkeypatch):
     monkeypatch.setenv("ARIZE_SPACE_KEY", "test_space_key")
     monkeypatch.setenv("ARIZE_API_KEY", "test_api_key")
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_get_arize_config(mock_env_vars):
     """
     Use Arize default endpoint when no endpoints are provided
@@ -427,7 +427,7 @@ def test_get_arize_config(mock_env_vars):
     assert config.protocol == "otlp_grpc"
     assert config.project_name is None
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_get_arize_config_with_endpoints(mock_env_vars, monkeypatch):
     """
     Use provided endpoints when they are set

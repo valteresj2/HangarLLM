@@ -12,12 +12,12 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.router_core import RouterCore
-from litellm.router_utils import cooldown_handlers
-from litellm.router_utils.cooldown_handlers import mark_deployment_selection_failure
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.router_core import RouterCore
+from hangarllm.router_utils import cooldown_handlers
+from hangarllm.router_utils.cooldown_handlers import mark_deployment_selection_failure
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost
 from tests.unit.test_router.core.retries_health_helpers import (
     MESSAGES,
@@ -36,7 +36,7 @@ from tests.unit.test_router.core.streaming_helpers import chat_stream, collect_t
 
 USAGE: Final = {"prompt_tokens": 4, "completion_tokens": 8, "total_tokens": 12}
 PER_USER_COPILOT: Final = {
-    "litellm_credential_name": "ghc",
+    "hangarllm_credential_name": "ghc",
     "github_copilot_auth_type": "per_user_oauth",
 }
 
@@ -48,7 +48,7 @@ async def settle() -> None:
 
 
 class SharedLoggingHost(EndpointHost):
-    """``EndpointHost`` that logs on a shared logging object as litellm does: every attempt stamps its
+    """``EndpointHost`` that logs on a shared logging object as hangarllm does: every attempt stamps its
     marker, and only the first failure runs the failure callbacks. ``_arealtime`` answers ``None``."""
 
     __slots__ = ("timeout_cause",)
@@ -58,20 +58,20 @@ class SharedLoggingHost(EndpointHost):
         self.timeout_cause: BaseException | None = None
 
     async def _answer_async(self, op: str, args: tuple[object, ...], kwargs: Mapping[str, object]) -> object:
-        logging_obj: Final = kwargs.get("litellm_logging_obj")
-        if isinstance(logging_obj, LiteLLMLogging):
+        logging_obj: Final = kwargs.get("hangarllm_logging_obj")
+        if isinstance(logging_obj, HangarLLMLogging):
             logging_obj.model_call_details["current_attempt_api_call_start_time"] = object()
         return await super()._answer_async(op, args, kwargs)
 
     def _finish(self, op: str, call: Call, outcome: object) -> tuple[BaseException | None, object]:
         error, response = super()._finish(op, call, outcome)
-        if isinstance(error, litellm.Timeout) and self.timeout_cause is not None:
+        if isinstance(error, hangarllm.Timeout) and self.timeout_cause is not None:
             error.__cause__ = self.timeout_cause  # rebind-ok: a scripted error is rebuilt, which drops its cause
         return error, None if op == "_arealtime" else response
 
     async def log_async(self, call: Call, error: BaseException | None, response: object) -> None:
-        logging_obj: Final = call.kwargs.get("litellm_logging_obj")
-        if error is None or not isinstance(logging_obj, LiteLLMLogging):
+        logging_obj: Final = call.kwargs.get("hangarllm_logging_obj")
+        if error is None or not isinstance(logging_obj, HangarLLMLogging):
             await super().log_async(call, error, response)
             return
         details: Final = logging_obj.model_call_details
@@ -82,8 +82,8 @@ class SharedLoggingHost(EndpointHost):
         await super().log_async(call, error, response)
 
     def log_sync(self, call: Call, error: BaseException | None, response: object) -> None:
-        logging_obj: Final = call.kwargs.get("litellm_logging_obj")
-        if error is None or not isinstance(logging_obj, LiteLLMLogging):
+        logging_obj: Final = call.kwargs.get("hangarllm_logging_obj")
+        if error is None or not isinstance(logging_obj, HangarLLMLogging):
             super().log_sync(call, error, response)
             return
         if logging_obj.model_call_details.get("has_logged_sync_failure") is True:
@@ -181,7 +181,7 @@ async def test_every_failure_on_a_shared_logging_object_counts_a_request(
     core: Final = chain(make_core)
     host.answer("*", fresh(server_error))
 
-    _ = await attempt(core, "a", litellm_logging_obj=request_logging())
+    _ = await attempt(core, "a", hangarllm_logging_obj=request_logging())
 
     assert await core.health().usage("a") == (None, 1)
     assert await core.health().usage("b") == (None, 1)
@@ -205,7 +205,7 @@ async def test_a_retry_past_the_first_logged_failure_is_recorded(make_core: Make
     core: Final = make_core(model_list=[deployment("g", "a"), deployment("g", "b")], num_retries=1, allowed_fails=5)
     host.answer("*", fresh(server_error))
 
-    _ = await attempt(core, "g", litellm_logging_obj=request_logging())
+    _ = await attempt(core, "g", hangarllm_logging_obj=request_logging())
 
     assert core.health().failures_this_minute("a") + core.health().failures_this_minute("b") == 2
 
@@ -214,7 +214,7 @@ def test_a_sync_retry_past_the_first_logged_failure_is_recorded(make_core: MakeC
     core: Final = make_core(model_list=[deployment("g", "a"), deployment("g", "b")], num_retries=1, allowed_fails=5)
     host.answer("*", fresh(server_error))
 
-    _ = attempt_sync(core, "g", litellm_logging_obj=request_logging())
+    _ = attempt_sync(core, "g", hangarllm_logging_obj=request_logging())
 
     assert core.health().failures_this_minute("a") + core.health().failures_this_minute("b") == 2
 
@@ -227,7 +227,7 @@ async def test_a_retried_deployment_is_cooled_down_past_the_first_logged_failure
     )
     host.answer("*", fresh(rate_limited))
 
-    _ = await attempt(core, "g", litellm_logging_obj=request_logging())
+    _ = await attempt(core, "g", hangarllm_logging_obj=request_logging())
 
     assert sorted(cooled_down(core, ["a", "b"])) == ["a", "b"]
 
@@ -244,10 +244,10 @@ async def test_a_hop_whose_group_is_cooled_records_its_first_failure(
     )
     host.answer("openai/a", fresh(server_error))
     host.answer("openai/b", fresh(rate_limited))
-    _ = await attempt(core, "a", litellm_logging_obj=request_logging())
+    _ = await attempt(core, "a", hangarllm_logging_obj=request_logging())
     assert sorted(cooled_down(core, ["a", "b"])) == ["a", "b"]
 
-    _ = await attempt(core, "a", litellm_logging_obj=request_logging())
+    _ = await attempt(core, "a", hangarllm_logging_obj=request_logging())
 
     assert core.health().failures_this_minute("b") == 1
 
@@ -256,7 +256,7 @@ def test_a_sync_failure_counts_no_request(make_core: MakeCore, host: SharedLoggi
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
     host.answer("*", fresh(server_error))
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         core.completion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # see above
 
     assert core.health().failures_this_minute("d1") == 1
@@ -266,16 +266,16 @@ def test_a_sync_failure_counts_no_request(make_core: MakeCore, host: SharedLoggi
 # --- failure counting ------------------------------------------------------------------------------
 
 
-async def test_a_failure_raised_before_the_litellm_call_records_nothing(
+async def test_a_failure_raised_before_the_hangarllm_call_records_nothing(
     make_core: MakeCore, host: SharedLoggingHost
 ) -> None:
     core: Final = make_core(
         model_list=[deployment("g", "d1", model="github_copilot/gpt-4o", **PER_USER_COPILOT)], num_retries=0
     )
 
-    raised: Final = await attempt(core, "g", litellm_credential_name="another")
+    raised: Final = await attempt(core, "g", hangarllm_credential_name="another")
 
-    assert isinstance(raised, litellm.BadRequestError)
+    assert isinstance(raised, hangarllm.BadRequestError)
     assert host.calls == []
     assert core.health().failures_this_minute("d1") == 0
     assert await core.health().usage("g") == (None, None)
@@ -330,7 +330,7 @@ async def test_a_failed_hop_past_the_first_logged_failure_takes_the_fallback_pat
     if stalled:
         host.timeout_cause = MidStreamFallbackError(message="stalled", model="b", llm_provider="openai")
 
-    _ = await attempt(core, "a", litellm_logging_obj=request_logging())
+    _ = await attempt(core, "a", hangarllm_logging_obj=request_logging())
 
     assert core.health().failures_this_minute("b") == counted
     assert await core.health().usage("b") == (None, requests)
@@ -348,10 +348,10 @@ async def test_a_failed_hops_404_is_the_callers_only_on_a_generic_call(
 
     logging_obj: Final = request_logging()
     if logged:
-        with pytest.raises(litellm.InternalServerError):
-            await core.agenerate_content(model="a", contents=[], litellm_logging_obj=logging_obj)  # pyright: ignore[reportAttributeAccessIssue]  # see above
+        with pytest.raises(hangarllm.InternalServerError):
+            await core.agenerate_content(model="a", contents=[], hangarllm_logging_obj=logging_obj)  # pyright: ignore[reportAttributeAccessIssue]  # see above
     else:
-        _ = await attempt(core, "a", litellm_logging_obj=logging_obj)
+        _ = await attempt(core, "a", hangarllm_logging_obj=logging_obj)
 
     assert core.health().failures_this_minute("b") == counted
 
@@ -392,7 +392,7 @@ async def test_a_failed_hop_fires_the_number_python_chose_as_it_was_written(
     host.answer("openai/b", fresh(error))
     host.answer("openai/c", fresh(error))
 
-    _ = await attempt(core, "a", litellm_logging_obj=request_logging())
+    _ = await attempt(core, "a", hangarllm_logging_obj=request_logging())
     for _ in range(20):
         await asyncio.sleep(0)
 

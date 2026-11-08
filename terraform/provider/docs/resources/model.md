@@ -1,13 +1,13 @@
-# litellm_model Resource
+# hangarllm_model Resource
 
-Manages a LiteLLM model configuration. This resource allows you to create, update, and delete model configurations in your LiteLLM instance.
+Manages a HangarLLM model configuration. This resource allows you to create, update, and delete model configurations in your HangarLLM instance.
 
 ## Example Usage
 
 ### Basic OpenAI Model
 
 ```hcl
-resource "litellm_model" "gpt4" {
+resource "hangarllm_model" "gpt4" {
   model_name          = "gpt-4-proxy"
   custom_llm_provider = "openai"
   model_api_key       = var.openai_api_key
@@ -23,7 +23,7 @@ resource "litellm_model" "gpt4" {
 ### Advanced Model with All Features
 
 ```hcl
-resource "litellm_model" "advanced_gpt4" {
+resource "hangarllm_model" "advanced_gpt4" {
   model_name          = "gpt-4-advanced"
   custom_llm_provider = "openai"
   model_api_key       = var.openai_api_key
@@ -49,7 +49,7 @@ resource "litellm_model" "advanced_gpt4" {
 ### AWS Bedrock Model with Cross-Account Access
 
 ```hcl
-resource "litellm_model" "bedrock_claude" {
+resource "hangarllm_model" "bedrock_claude" {
   model_name          = "bedrock-claude-proxy"
   custom_llm_provider = "bedrock"
   base_model          = "anthropic.claude-3-sonnet-20240229-v1:0"
@@ -60,8 +60,8 @@ resource "litellm_model" "bedrock_claude" {
   aws_access_key_id     = var.aws_access_key_id
   aws_secret_access_key = var.aws_secret_access_key
   aws_region_name       = "us-east-1"
-  aws_session_name      = "litellm-cross-account-session"
-  aws_role_name         = "arn:aws:iam::123456789012:role/LiteLLMCrossAccountRole"
+  aws_session_name      = "hangarllm-cross-account-session"
+  aws_role_name         = "arn:aws:iam::123456789012:role/HangarLLMCrossAccountRole"
   
   input_cost_per_million_tokens  = 3.0
   output_cost_per_million_tokens = 15.0
@@ -71,7 +71,7 @@ resource "litellm_model" "bedrock_claude" {
 ### Anthropic Model
 
 ```hcl
-resource "litellm_model" "claude" {
+resource "hangarllm_model" "claude" {
   model_name          = "claude-proxy"
   custom_llm_provider = "anthropic"
   model_api_key       = var.anthropic_api_key
@@ -87,7 +87,7 @@ resource "litellm_model" "claude" {
 ### Azure OpenAI Model
 
 ```hcl
-resource "litellm_model" "azure_gpt4" {
+resource "hangarllm_model" "azure_gpt4" {
   model_name          = "azure-gpt4-proxy"
   custom_llm_provider = "azure"
   model_api_key       = var.azure_openai_key
@@ -110,7 +110,7 @@ The following arguments are supported:
 
 * `custom_llm_provider` - (Required) string. The LLM provider for this model (e.g., "openai", "anthropic", "azure", "bedrock").
 
-* `model_api_key` - (Optional) string (Sensitive). The API key for the underlying model provider. Sensitive attributes are hidden from Terraform output but still stored in plaintext in the state file; use `model_api_key_wo` or a `litellm_credential` referenced via `litellm_credential_name` to keep it out of state. Conflicts with `model_api_key_wo`.
+* `model_api_key` - (Optional) string (Sensitive). The API key for the underlying model provider. Sensitive attributes are hidden from Terraform output but still stored in plaintext in the state file; use `model_api_key_wo` or a `hangarllm_credential` referenced via `hangarllm_credential_name` to keep it out of state. Conflicts with `model_api_key_wo`.
 * `model_api_key_wo` - (Optional, Write-only) string (Sensitive). Same as `model_api_key`, but sent to the proxy on every apply and never written to plan or state. Requires Terraform 1.11 or later and `model_api_key_wo_version`.
 * `model_api_key_wo_version` - (Optional) integer. Bump it whenever `model_api_key_wo` changes to trigger an update, since write-only values produce no diff on their own.
 
@@ -120,9 +120,9 @@ The following arguments are supported:
 
 * `base_model` - (Required) string. The actual model identifier from the provider (e.g., "gpt-4", "claude-2").
 
-* `pricing_base_model` - (Optional) string. A pricing key fed to `model_info.base_model` **independently of routing**. When set, `litellm_params.model` still routes via `base_model`, but LiteLLM looks up cost against this key. Useful when the routing/deployment name differs from the cost-map key — e.g. an Azure deployment routed as `azure/gpt-4.1` whose real tier is Data Zone: set `pricing_base_model = "us/gpt-4.1-2025-04-14"` so it is billed at the Data Zone rate. When unset, `base_model` drives pricing as before.
+* `pricing_base_model` - (Optional) string. A pricing key fed to `model_info.base_model` **independently of routing**. When set, `hangarllm_params.model` still routes via `base_model`, but HangarLLM looks up cost against this key. Useful when the routing/deployment name differs from the cost-map key — e.g. an Azure deployment routed as `azure/gpt-4.1` whose real tier is Data Zone: set `pricing_base_model = "us/gpt-4.1-2025-04-14"` so it is billed at the Data Zone rate. When unset, `base_model` drives pricing as before.
 
-* `litellm_credential_name` - (Optional) string. Name of a LiteLLM credential to use for this model.
+* `hangarllm_credential_name` - (Optional) string. Name of a HangarLLM credential to use for this model.
 
 * `tier` - (Optional) string. The usage tier for this model. Valid values are `"free"` or `"paid"`. Default: `"free"`.
 
@@ -175,7 +175,7 @@ The following arguments are supported:
 * `vertex_credentials_wo` - (Optional, Write-only) string (Sensitive). Same as `vertex_credentials`, but never written to plan or state. Requires Terraform 1.11 or later and `vertex_credentials_wo_version`.
 * `vertex_credentials_wo_version` - (Optional) integer. Bump it whenever `vertex_credentials_wo` changes to trigger an update.
 
-* `additional_litellm_params` - (Optional) map(string). A map of arbitrary additional parameters that will be merged into the `litellm_params` object sent to the LiteLLM API. This is intended for provider-specific or experimental options not exposed as dedicated arguments.
+* `additional_hangarllm_params` - (Optional) map(string). A map of arbitrary additional parameters that will be merged into the `hangarllm_params` object sent to the HangarLLM API. This is intended for provider-specific or experimental options not exposed as dedicated arguments.
 
   Conversion and behavior rules (how the provider handles values):
   * When values in the map are strings the provider will attempt to coerce them:
@@ -183,8 +183,8 @@ The following arguments are supported:
     * Numeric strings are parsed first as integers; if integer parsing fails, parsed as floats (e.g., `"16384"` -> 16384, `"0.75"` -> 0.75)
     * JSON strings (starting with `[` or `{`) are parsed as JSON objects/arrays
     * Non-convertible strings remain strings
-  * The provider merges these keys into the `litellm_params` payload sent to the API.
-  * Note: the remote API may not echo back all custom parameters; this provider preserves `additional_litellm_params` in state when present in configuration.
+  * The provider merges these keys into the `hangarllm_params` payload sent to the API.
+  * Note: the remote API may not echo back all custom parameters; this provider preserves `additional_hangarllm_params` in state when present in configuration.
 
   **`additional_drop_params`**
   * Give it a JSON array string, such as `jsonencode(["store"])`. The provider sends the list to the proxy as the deployment's `additional_drop_params`, and the proxy applies it the same as `additional_drop_params` in a `model_list` entry. `terraform plan` fails on any other value, an empty value, or an entry that is not a name, and `null` entries are skipped
@@ -195,14 +195,14 @@ The following arguments are supported:
   Example showing booleans, integers, floats, strings, JSON, and dropped request parameters:
 
   ```hcl
-  resource "litellm_model" "with_additional" {
+  resource "hangarllm_model" "with_additional" {
     model_name          = "custom-model"
     custom_llm_provider = "openai"
     model_api_key       = var.openai_api_key
     base_model          = "gpt-4"
     mode                = "chat"
 
-    additional_litellm_params = {
+    additional_hangarllm_params = {
       "use_fine_tune"          = "true"                    # becomes boolean true
       "max_context"            = "16384"                   # becomes integer 16384
       "scale"                  = "0.75"                    # becomes float 0.75
@@ -217,7 +217,7 @@ The following arguments are supported:
 
 * `aws_access_key_id` - (Optional) string (Sensitive). AWS access key ID for AWS-based models.
 
-* `aws_secret_access_key` - (Optional) string (Sensitive). AWS secret access key for AWS-based models. As with `model_api_key`, the value is stored in plaintext in the state file; use `aws_secret_access_key_wo` or a `litellm_credential` referenced via `litellm_credential_name` to keep it out of state. Conflicts with `aws_secret_access_key_wo`.
+* `aws_secret_access_key` - (Optional) string (Sensitive). AWS secret access key for AWS-based models. As with `model_api_key`, the value is stored in plaintext in the state file; use `aws_secret_access_key_wo` or a `hangarllm_credential` referenced via `hangarllm_credential_name` to keep it out of state. Conflicts with `aws_secret_access_key_wo`.
 * `aws_secret_access_key_wo` - (Optional, Write-only) string (Sensitive). Same as `aws_secret_access_key`, but never written to plan or state. Requires Terraform 1.11 or later and `aws_secret_access_key_wo_version`.
 * `aws_secret_access_key_wo_version` - (Optional) integer. Bump it whenever `aws_secret_access_key_wo` changes to trigger an update.
 
@@ -238,7 +238,7 @@ In addition to the arguments above, the following attributes are exported:
 Model configurations can be imported using the model ID:
 
 ```shell
-terraform import litellm_model.gpt4 <model-id>
+terraform import hangarllm_model.gpt4 <model-id>
 ```
 
 Note: The model ID is generated when the model is created and is different from the `model_name`.

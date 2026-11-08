@@ -22,25 +22,25 @@ from fastapi.testclient import TestClient
 from starlette.datastructures import FormData
 
 
-import litellm
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.prometheus import PrometheusLogger
+import hangarllm
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.prometheus import PrometheusLogger
 from tests._master_key import MASTER_KEY as SHARED_MASTER_KEY
-from litellm.caching.caching import DualCache
-from litellm.types.utils import CallTypes, CallTypesLiteral
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException, ModifyResponseException
-from litellm.proxy._types import AwsErrorTypeProxyException, ProxyException
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_spend_logs_id
-from litellm.proxy.utils import ProxyLogging
-from litellm.passthrough.main import raise_for_provider_status
-from litellm.llms.bedrock.common_utils import BedrockError
+from hangarllm.caching.caching import DualCache
+from hangarllm.types.utils import CallTypes, CallTypesLiteral
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.exceptions import BlockedPiiEntityError, GuardrailRaisedException, ModifyResponseException
+from hangarllm.proxy._types import AwsErrorTypeProxyException, ProxyException
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_spend_logs_id
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.passthrough.main import raise_for_provider_status
+from hangarllm.llms.bedrock.common_utils import BedrockError
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 from tests.unit.llms.bedrock.event_loop_probe import host_in_loop_probing_vault
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
-from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     BaseOpenAIPassThroughHandler,
     RouteChecks,
     _fal_target,
@@ -72,12 +72,12 @@ from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     vertex_proxy_route,
     vllm_proxy_route,
 )
-from litellm.proxy._types import LitellmUserRoles, SpecialHeaders, UserAPIKeyAuth
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
-from litellm.llms.eu_jev.common_utils import eu_jev_scoped_model, eu_jev_upstream_body
+from hangarllm.proxy._types import HangarllmUserRoles, SpecialHeaders, UserAPIKeyAuth
+from hangarllm.proxy.auth.handle_jwt import JWTHandler
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
+from hangarllm.llms.eu_jev.common_utils import eu_jev_scoped_model, eu_jev_upstream_body
 
 
 def _assert_bedrock_processing_data_classification(data: dict[str, object], is_streaming: bool) -> None:
@@ -99,7 +99,7 @@ def _assert_bedrock_processing_data_classification(data: dict[str, object], is_s
     assert non_streaming_guardrail.should_run_guardrail(data, GuardrailEventHooks.pre_call) is not is_streaming
     assert isinstance(provider_body, dict)
     assert "is_streaming_request" not in provider_body
-    assert "litellm_server_streaming_classification" not in provider_body
+    assert "hangarllm_server_streaming_classification" not in provider_body
 
 
 class TestVertexPassthroughGetVertexBaseUrl:
@@ -138,28 +138,28 @@ class TestBaseOpenAIPassThroughHandler:
         # Test joining base URL with no path and a path
         base_url = httpx.URL("https://api.example.com")
         path = "/v1/chat/completions"
-        result = _join_url_paths(base_url, path, litellm.LlmProviders.OPENAI.value)
+        result = _join_url_paths(base_url, path, hangarllm.LlmProviders.OPENAI.value)
         print(f"Base URL with no path: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
 
         # Test joining base URL with path and another path
         base_url = httpx.URL("https://api.example.com/v1")
         path = "/chat/completions"
-        result = _join_url_paths(base_url, path, litellm.LlmProviders.OPENAI.value)
+        result = _join_url_paths(base_url, path, hangarllm.LlmProviders.OPENAI.value)
         print(f"Base URL with path: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
 
         # Test with path not starting with slash
         base_url = httpx.URL("https://api.example.com/v1")
         path = "chat/completions"
-        result = _join_url_paths(base_url, path, litellm.LlmProviders.OPENAI.value)
+        result = _join_url_paths(base_url, path, hangarllm.LlmProviders.OPENAI.value)
         print(f"Path without leading slash: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
 
         # Test with base URL having trailing slash
         base_url = httpx.URL("https://api.example.com/v1/")
         path = "/chat/completions"
-        result = _join_url_paths(base_url, path, litellm.LlmProviders.OPENAI.value)
+        result = _join_url_paths(base_url, path, hangarllm.LlmProviders.OPENAI.value)
         print(f"Base URL with trailing slash: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
 
@@ -178,7 +178,7 @@ class TestBaseOpenAIPassThroughHandler:
             api_key="sk-upstream",
             endpoint="v1/agents/sessions",
             request=client_request,
-            custom_llm_provider=litellm.LlmProviders.AZURE_AI,
+            custom_llm_provider=hangarllm.LlmProviders.AZURE_AI,
             extra_headers={"OpenAI-Beta": "agents=v2"},
         )
 
@@ -188,8 +188,8 @@ class TestBaseOpenAIPassThroughHandler:
             "OpenAI-Beta": "agents=v2",
         }
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
     )
     async def test_base_openai_pass_through_handler(self, mock_create_pass_through):
         print("\nTesting _base_openai_pass_through_handler method...")
@@ -213,7 +213,7 @@ class TestBaseOpenAIPassThroughHandler:
             user_api_key_dict=mock_user_api_key_dict,
             base_target_url="https://api.openai.com",
             api_key="test_api_key",
-            custom_llm_provider=litellm.LlmProviders.OPENAI.value,
+            custom_llm_provider=hangarllm.LlmProviders.OPENAI.value,
         )
 
         # Verify the result
@@ -249,7 +249,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test that when passthrough credentials are set, they are correctly used in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -266,7 +266,7 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -292,12 +292,12 @@ class TestVertexAIPassThroughHandler:
         test_token = vertex_credentials
 
         with (
-            mock.patch("litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
+            mock.patch("hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
         ):
             # Mock credentials object with necessary attributes
@@ -343,7 +343,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test that when global location is used, it is correctly handled in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -360,7 +360,7 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -386,12 +386,12 @@ class TestVertexAIPassThroughHandler:
         test_token = vertex_credentials
 
         with (
-            mock.patch("litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
+            mock.patch("hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
         ):
             # Mock credentials object with necessary attributes
@@ -442,7 +442,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test that when no passthrough credentials are set, default credentials are used in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -459,7 +459,7 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -477,12 +477,12 @@ class TestVertexAIPassThroughHandler:
         mock_response = Response()
 
         with (
-            mock.patch("litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
+            mock.patch("hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
         ):
             # Mock credentials object with necessary attributes
@@ -529,7 +529,7 @@ class TestVertexAIPassThroughHandler:
         is the caller's own virtual key. It must not be forwarded to Google; the
         request fails with a clean 401 instead (LIT-5997).
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -550,10 +550,10 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", SHARED_MASTER_KEY)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", SHARED_MASTER_KEY)
 
         endpoint = f"/v1/projects/{test_project}/locations/{test_location}/publishers/google/models/gemini-1.5-flash:generateContent"
 
@@ -574,13 +574,13 @@ class TestVertexAIPassThroughHandler:
 
         with (
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base.ensure_access_token_async"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base.ensure_access_token_async"
             ) as mock_ensure_token,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base._get_token_and_url"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base._get_token_and_url"
             ) as mock_get_token,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_ensure_token.return_value = ("test-auth-header", test_project)
@@ -602,20 +602,20 @@ class TestVertexAIPassThroughHandler:
         """
         Critical
 
-        This is how Vertex AI JS SDK will Auth to Litellm Proxy: the virtual key
-        arrives in x-litellm-api-key and authenticates the caller (covered through the
+        This is how Vertex AI JS SDK will Auth to Hangarllm Proxy: the virtual key
+        arrives in x-hangarllm-api-key and authenticates the caller (covered through the
         real auth dependency in TestVertexPassthroughAuthenticatesOncePerRequest). With no
         Vertex credential configured, that virtual key must not be forwarded to Google, so
         the request fails with a clean 401 (LIT-5997).
         """
         # Mock dependencies
         mock_request = Mock()
-        mock_request.headers = {"x-litellm-api-key": "test-key-123"}
+        mock_request.headers = {"x-hangarllm-api-key": "test-key-123"}
         mock_request.method = "POST"
         mock_response = Mock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
         ) as mock_pass_through:
             mock_pass_through.return_value = AsyncMock(return_value={"status": "success"})
 
@@ -637,10 +637,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
+            Logging as HangarLLMLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -669,9 +669,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.status_code = 200
 
         # Create mock logging object
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-123"
+        mock_logging_obj.hangarllm_call_id = "test-call-id-123"
         mock_logging_obj.model_call_details = {}
 
         # Test URL with multimodal embedding model
@@ -683,14 +683,14 @@ class TestVertexAIPassThroughHandler:
         end_time = datetime.datetime.now()
 
         with patch(
-            "litellm.llms.vertex_ai.multimodal_embeddings.transformation.VertexAIMultimodalEmbeddingConfig"
+            "hangarllm.llms.vertex_ai.multimodal_embeddings.transformation.VertexAIMultimodalEmbeddingConfig"
         ) as mock_multimodal_config:
             # Mock the multimodal config instance and its methods
             mock_config_instance = Mock()
             mock_multimodal_config.return_value = mock_config_instance
 
             # Create a mock embedding response that would be returned by the transformation
-            from litellm.types.utils import Embedding, EmbeddingResponse, Usage
+            from hangarllm.types.utils import Embedding, EmbeddingResponse, Usage
 
             mock_embedding_response = EmbeddingResponse(
                 object="list",
@@ -732,7 +732,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test the _is_multimodal_embedding_response detection method specifically
         """
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -779,10 +779,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
+            Logging as HangarLLMLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -804,9 +804,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.status_code = 200
 
         # Create mock logging object
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-123"
+        mock_logging_obj.hangarllm_call_id = "test-call-id-123"
         mock_logging_obj.model_call_details = {}
 
         # Test URL with /predict endpoint
@@ -817,7 +817,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("hangarllm.completion_cost") as mock_completion_cost:
             # Mock the completion cost calculation
             mock_completion_cost.return_value = 0.0001
 
@@ -860,10 +860,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
+            Logging as HangarLLMLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -877,9 +877,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.json.return_value = embed_content_response_data
         mock_httpx_response.status_code = 200
 
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-embed"
+        mock_logging_obj.hangarllm_call_id = "test-call-id-embed"
         mock_logging_obj.model_call_details = {}
 
         url_route = (
@@ -889,7 +889,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("hangarllm.completion_cost") as mock_completion_cost:
             mock_completion_cost.return_value = 0.0002
 
             result = VertexPassthroughLoggingHandler.vertex_passthrough_handler(
@@ -918,10 +918,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
+            Logging as HangarLLMLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -936,9 +936,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.json.return_value = batch_embed_response_data
         mock_httpx_response.status_code = 200
 
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-batch"
+        mock_logging_obj.hangarllm_call_id = "test-call-id-batch"
         mock_logging_obj.model_call_details = {}
 
         url_route = "/v1/projects/test-project/locations/us-central1/publishers/google/models/gemini-embedding-001:batchEmbedContents"
@@ -946,7 +946,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("hangarllm.completion_cost") as mock_completion_cost:
             mock_completion_cost.return_value = 0.0003
 
             result = VertexPassthroughLoggingHandler.vertex_passthrough_handler(
@@ -974,10 +974,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import (
+            Logging as HangarLLMLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -991,9 +991,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.json.return_value = embed_content_response_data
         mock_httpx_response.status_code = 200
 
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=HangarLLMLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-gemini-studio"
+        mock_logging_obj.hangarllm_call_id = "test-call-id-gemini-studio"
         mock_logging_obj.model_call_details = {}
 
         # Google AI Studio URL (not Vertex AI)
@@ -1002,7 +1002,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("hangarllm.completion_cost") as mock_completion_cost:
             mock_completion_cost.return_value = 0.0001
 
             result = VertexPassthroughLoggingHandler.vertex_passthrough_handler(
@@ -1033,19 +1033,19 @@ class TestVertexAIPassThroughHandler:
         """
         import datetime
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {
-                **litellm.get_model_cost_map(url=""),
+                **hangarllm.get_model_cost_map(url=""),
                 "vertex_ai/gemini-fake-regional": {
-                    "litellm_provider": "vertex_ai",
+                    "hangarllm_provider": "vertex_ai",
                     "mode": "chat",
                     "input_cost_per_token": 1e-06,
                     "output_cost_per_token": 2e-06,
@@ -1082,19 +1082,19 @@ class TestVertexAIPassThroughHandler:
                 stream=streaming,
                 call_type="pass_through_endpoint",
                 start_time=start_time,
-                litellm_call_id="call-id",
+                hangarllm_call_id="call-id",
                 function_id="fn-id",
             )
             logging_obj.update_environment_variables(
                 model="gemini-fake-regional",
                 user="unknown",
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 call_type="pass_through_endpoint",
             )
             if streaming:
                 result = VertexPassthroughLoggingHandler._handle_logging_vertex_collected_chunks(
-                    litellm_logging_obj=logging_obj,
+                    hangarllm_logging_obj=logging_obj,
                     passthrough_success_handler_obj=Mock(),
                     url_route=url_route,
                     request_body={},
@@ -1145,7 +1145,7 @@ class TestVertexAIDiscoveryPassThroughHandler:
         """
         Test that when passthrough credentials are set, they are correctly used in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -1162,7 +1162,7 @@ class TestVertexAIDiscoveryPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -1190,12 +1190,12 @@ class TestVertexAIDiscoveryPassThroughHandler:
         test_token = "test-auth-token"
 
         with (
-            mock.patch("litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
+            mock.patch("hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth") as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
         ):
             # Mock credentials object with necessary attributes
@@ -1238,12 +1238,12 @@ class TestVertexAIDiscoveryPassThroughHandler:
         Google, so the request fails with a clean 401 (LIT-5997).
         """
         mock_request = Mock()
-        mock_request.headers = {"x-litellm-api-key": "test-key-123"}
+        mock_request.headers = {"x-hangarllm-api-key": "test-key-123"}
         mock_request.method = "POST"
         mock_response = Mock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
         ) as mock_pass_through:
             mock_pass_through.return_value = AsyncMock(return_value={"status": "success"})
 
@@ -1261,7 +1261,7 @@ class TestVertexAIDiscoveryPassThroughHandler:
 
 @pytest.mark.asyncio
 async def test_is_streaming_request_fn():
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         is_streaming_request_fn,
     )
 
@@ -1274,7 +1274,7 @@ async def test_is_streaming_request_fn():
 
 @pytest.mark.asyncio
 async def test_mistral_passthrough_accepts_multipart_without_json_parsing():
-    boundary = "----litellm-test-boundary"
+    boundary = "----hangarllm-test-boundary"
     body = (
         f"--{boundary}\r\n"
         'Content-Disposition: form-data; name="purpose"\r\n\r\n'
@@ -1322,11 +1322,11 @@ async def test_mistral_passthrough_accepts_multipart_without_json_parsing():
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
             return_value="mistral-test-key",
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             side_effect=fake_create_pass_through_route,
         ),
     ):
@@ -1355,11 +1355,11 @@ class TestBedrockLLMProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.read_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
                 return_value=mock_processor,
             ),
         ):
@@ -1397,11 +1397,11 @@ class TestBedrockLLMProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.read_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
                 return_value=mock_processor,
             ),
         ):
@@ -1442,11 +1442,11 @@ class TestBedrockLLMProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
                 return_value=request_body,
             ),
             patch(
-                "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
                 return_value=mock_processor,
             ) as processor_constructor,
         ):
@@ -1481,7 +1481,7 @@ class TestBedrockLLMProxyRoute:
         request_body: Final = {"messages": [{"role": "user", "content": "test"}]}
 
         with patch(
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
             return_value=mock_processor,
         ) as processor_constructor:
             result: Final = await handle_bedrock_passthrough_router_model(
@@ -1524,11 +1524,11 @@ class TestBedrockLLMProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
                 return_value=request_body,
             ),
             patch(
-                "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+                "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
                 return_value=mock_processor,
             ) as processor_constructor,
         ):
@@ -1559,7 +1559,7 @@ class TestBedrockLLMProxyRoute:
         request_body: Final = {"messages": [{"role": "user", "content": "test"}]}
 
         with patch(
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+            "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
             return_value=mock_processor,
         ) as processor_constructor:
             result: Final = await handle_bedrock_passthrough_router_model(
@@ -1593,7 +1593,7 @@ class TestBedrockLLMProxyRoute:
         """
         from fastapi import HTTPException
 
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             handle_bedrock_passthrough_router_model,
         )
 
@@ -1615,7 +1615,7 @@ class TestBedrockLLMProxyRoute:
 
         # Mock ProxyBaseLLMRequestProcessing to raise the httpx error
         with patch(
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
+            "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
             new_callable=AsyncMock,
             side_effect=mock_http_error,
         ):
@@ -1663,9 +1663,9 @@ class TestBedrockLLMProxyRoute:
         This test verifies the fix for the bug where passthrough endpoints were using
         environment variables instead of model-specific credentials from config.yaml.
         """
-        from litellm import Router
-        from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm import Router
+        from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             handle_bedrock_passthrough_router_model,
         )
 
@@ -1689,7 +1689,7 @@ class TestBedrockLLMProxyRoute:
                 "AWS_REGION_NAME": env_region,
             },
         ):
-            # Test 1: Verify get_litellm_params extracts AWS credentials from kwargs
+            # Test 1: Verify get_hangarllm_params extracts AWS credentials from kwargs
             kwargs_with_creds = {
                 "aws_access_key_id": model_access_key,
                 "aws_secret_access_key": model_secret_key,
@@ -1697,20 +1697,20 @@ class TestBedrockLLMProxyRoute:
                 "aws_session_token": model_session_token,
                 "model": "bedrock/test-model",
             }
-            litellm_params = get_litellm_params(**kwargs_with_creds)
+            hangarllm_params = get_hangarllm_params(**kwargs_with_creds)
 
             # Verify credentials are extracted
-            assert litellm_params.get("aws_access_key_id") == model_access_key
-            assert litellm_params.get("aws_secret_access_key") == model_secret_key
-            assert litellm_params.get("aws_region_name") == model_region
-            assert litellm_params.get("aws_session_token") == model_session_token
+            assert hangarllm_params.get("aws_access_key_id") == model_access_key
+            assert hangarllm_params.get("aws_secret_access_key") == model_secret_key
+            assert hangarllm_params.get("aws_region_name") == model_region
+            assert hangarllm_params.get("aws_session_token") == model_session_token
 
             # Test 2: Verify router passes model credentials to passthrough
             router = Router(
                 model_list=[
                     {
                         "model_name": "claude-opus-4-1",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "bedrock/us.anthropic.claude-opus-4-20250514-v1:0",
                             "aws_access_key_id": model_access_key,
                             "aws_secret_access_key": model_secret_key,
@@ -1726,18 +1726,18 @@ class TestBedrockLLMProxyRoute:
             deployments = router.get_model_list(model_name="claude-opus-4-1")
             assert len(deployments) > 0
             deployment = deployments[0]
-            deployment_litellm_params = deployment.get("litellm_params", {})
+            deployment_hangarllm_params = deployment.get("hangarllm_params", {})
 
             # Verify model-specific credentials are in the deployment
-            assert deployment_litellm_params.get("aws_access_key_id") == model_access_key
-            assert deployment_litellm_params.get("aws_secret_access_key") == model_secret_key
-            assert deployment_litellm_params.get("aws_region_name") == model_region
-            assert deployment_litellm_params.get("aws_session_token") == model_session_token
+            assert deployment_hangarllm_params.get("aws_access_key_id") == model_access_key
+            assert deployment_hangarllm_params.get("aws_secret_access_key") == model_secret_key
+            assert deployment_hangarllm_params.get("aws_region_name") == model_region
+            assert deployment_hangarllm_params.get("aws_session_token") == model_session_token
 
             # Verify environment variables are NOT in the deployment
-            assert deployment_litellm_params.get("aws_access_key_id") != env_access_key
-            assert deployment_litellm_params.get("aws_secret_access_key") != env_secret_key
-            assert deployment_litellm_params.get("aws_region_name") != env_region
+            assert deployment_hangarllm_params.get("aws_access_key_id") != env_access_key
+            assert deployment_hangarllm_params.get("aws_secret_access_key") != env_secret_key
+            assert deployment_hangarllm_params.get("aws_region_name") != env_region
 
             # Test 3: Verify credentials are passed through the passthrough route
             # Mock the passthrough route to capture what credentials are used
@@ -1766,12 +1766,12 @@ class TestBedrockLLMProxyRoute:
 
             with (
                 patch(
-                    "litellm.passthrough.main.llm_passthrough_route",
+                    "hangarllm.passthrough.main.llm_passthrough_route",
                     new_callable=AsyncMock,
                     side_effect=mock_llm_passthrough_route,
                 ),
                 patch(
-                    "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
+                    "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
                     new_callable=AsyncMock,
                 ) as mock_process,
             ):
@@ -1802,7 +1802,7 @@ class TestBedrockLLMProxyRoute:
                 )
 
                 # Verify that the router was called (which means credentials flow through)
-                # The key verification is that get_litellm_params extracts the credentials
+                # The key verification is that get_hangarllm_params extracts the credentials
                 # and they're available in the router's deployment
                 assert mock_process.called
 
@@ -1815,11 +1815,11 @@ class TestBedrockLLMProxyRoute:
         """
         from fastapi import HTTPException
 
-        from litellm.integrations.custom_guardrail import CustomGuardrail
-        from litellm.llms.pass_through.guardrail_translation import (
+        from hangarllm.integrations.custom_guardrail import CustomGuardrail
+        from hangarllm.llms.pass_through.guardrail_translation import (
             guardrail_translation_mappings,
         )
-        from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs
+        from hangarllm.types.utils import CallTypes, GenericGuardrailAPIInputs
 
         assert CallTypes.allm_passthrough_route in guardrail_translation_mappings, (
             "allm_passthrough_route missing from guardrail_translation_mappings; "
@@ -1933,7 +1933,7 @@ class TestBedrockPassthroughAwsErrors:
     async def test_bedrock_error_reaches_the_caller_with_bedrocks_status_header_and_body(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
         error: Final = _bedrock_status_error(
             429,
             _THROTTLE_BODY,
@@ -1954,7 +1954,7 @@ class TestBedrockPassthroughAwsErrors:
 
     @pytest.mark.asyncio
     async def test_arn_model_error_reaches_the_caller_as_bedrock_sent_it(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
         error: Final = _bedrock_status_error(
             429,
             _THROTTLE_BODY,
@@ -1986,10 +1986,10 @@ class TestBedrockPassthroughAwsErrors:
             ),
         ),
     )
-    async def test_http_error_bedrock_did_not_answer_with_an_aws_error_type_keeps_the_litellm_error(
+    async def test_http_error_bedrock_did_not_answer_with_an_aws_error_type_keeps_the_hangarllm_error(
         self, monkeypatch: pytest.MonkeyPatch, error: httpx.HTTPStatusError, status_code: int, body: str
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
 
         with pytest.raises(HTTPException) as exc_info:
             await self._answer(error)
@@ -2019,7 +2019,7 @@ class TestBedrockPassthroughAwsErrors:
     async def test_error_replaced_by_a_failure_hook_keeps_the_replacement(
         self, monkeypatch: pytest.MonkeyPatch, error: Exception, replacement: HTTPException, code: str
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [_ReplacesFailures(replacement)])
+        monkeypatch.setattr(hangarllm, "callbacks", [_ReplacesFailures(replacement)])
 
         with pytest.raises(ProxyException) as exc_info:
             await self._answer(error)
@@ -2064,7 +2064,7 @@ class TestBedrockPassthroughAwsErrors:
     async def test_guardrail_block_is_raised_with_its_aws_error_type(
         self, monkeypatch: pytest.MonkeyPatch, error: Exception, message: str, status_code: str
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
 
         with pytest.raises(AwsErrorTypeProxyException) as exc_info:
             await self._answer(error)
@@ -2076,7 +2076,7 @@ class TestBedrockPassthroughAwsErrors:
     async def test_bedrock_request_check_is_raised_with_the_aws_error_type_it_carries(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
         error: Final = BedrockError(
             status_code=400,
             message="requestMetadata can contain a maximum of 16 items",
@@ -2094,7 +2094,7 @@ class TestBedrockPassthroughAwsErrors:
     async def test_bedrock_error_without_an_aws_error_type_keeps_the_proxy_shape(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
 
         with pytest.raises(ProxyException) as exc_info:
             await self._answer(BedrockError(status_code=400, message="bad request"))
@@ -2105,7 +2105,7 @@ class TestBedrockPassthroughAwsErrors:
     async def test_error_with_a_non_ascii_header_value_keeps_the_proxy_shape(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
         error: Final = HTTPException(status_code=403, detail="model not allowed", headers={"x-model-group": "modèle"})
 
         with pytest.raises(ProxyException) as exc_info:
@@ -2164,10 +2164,10 @@ class TestBedrockPassthroughAwsErrors:
             ),
         ),
     )
-    async def test_errors_that_are_not_guardrail_blocks_keep_the_litellm_error(
+    async def test_errors_that_are_not_guardrail_blocks_keep_the_hangarllm_error(
         self, monkeypatch: pytest.MonkeyPatch, error: Exception, message: str, code: str
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, "callbacks", [])
 
         with pytest.raises(ProxyException) as exc_info:
             await self._answer(error)
@@ -2198,18 +2198,18 @@ class TestBedrockAgentRuntimePassthroughToggle:
         forwarder: Final = AsyncMock(return_value="forwarded")
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
+            patch("hangarllm.proxy.proxy_server.general_settings", general_settings),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="us-east-1",
             ),
-            patch("litellm.llms.bedrock.chat.BedrockConverseLLM", return_value=bedrock_llm),
+            patch("hangarllm.llms.bedrock.chat.BedrockConverseLLM", return_value=bedrock_llm),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
                 Mock(),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=forwarder,
             ) as create_route,
         ):
@@ -2272,17 +2272,17 @@ class TestBedrockAgentRuntimePassthroughToggle:
     @pytest.mark.asyncio
     async def test_model_invoke_still_routed_when_agent_runtime_disabled(self):
         with (
-            patch("litellm.proxy.proxy_server.general_settings", self.DISABLED),
+            patch("hangarllm.proxy.proxy_server.general_settings", self.DISABLED),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="us-east-1",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
                 Mock(),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.bedrock_llm_proxy_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.bedrock_llm_proxy_route",
                 new=AsyncMock(return_value="llm-route"),
             ) as llm_route,
         ):
@@ -2314,7 +2314,7 @@ class TestBedrockAgentRuntimePassthroughToggle:
 
 
 class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
-    VKEY: Final = "sk-litellm-victim-key"
+    VKEY: Final = "sk-hangarllm-victim-key"
     MASTER_KEY: Final = SHARED_MASTER_KEY
     ENDPOINT: Final = "knowledgebases/KB1234567/retrieve"
     AMBIENT_AWS_ENV: Final = (
@@ -2329,10 +2329,10 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
     )
 
     async def _upstream_headers(self, monkeypatch, headers: list[tuple[bytes, bytes]]) -> dict:
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
+        from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", self.MASTER_KEY)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", self.MASTER_KEY)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
         for ambient in self.AMBIENT_AWS_ENV:
             monkeypatch.delenv(ambient, raising=False)
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ak")
@@ -2359,7 +2359,7 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
             captured.update(kwargs)
             return AsyncMock(return_value={"status": "success"})
 
-        module: Final = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module: Final = "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         with (
             patch(f"{module}.create_request_copy", Mock()),
             patch(f"{module}.create_pass_through_route", side_effect=fake_create_pass_through_route),
@@ -2386,7 +2386,7 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "header_name", ["x-api-key", "x-litellm-api-key", "api-key", "x-goog-api-key", "ocp-apim-subscription-key"]
+        "header_name", ["x-api-key", "x-hangarllm-api-key", "api-key", "x-goog-api-key", "ocp-apim-subscription-key"]
     )
     async def test_virtual_key_in_a_credential_header_never_reaches_aws(self, monkeypatch, header_name: str):
         upstream: Final = await self._upstream_headers(
@@ -2411,14 +2411,14 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
             monkeypatch,
             [
                 (b"x-api-key", other_key.encode()),
-                (b"x-litellm-api-key", other_key.encode()),
+                (b"x-hangarllm-api-key", other_key.encode()),
                 (b"x-request-id", b"trace-3"),
             ],
         )
 
         assert other_key not in self._blob(upstream)
         assert self._names_matching(upstream, "x-api-key") == []
-        assert self._names_matching(upstream, "x-litellm-api-key") == []
+        assert self._names_matching(upstream, "x-hangarllm-api-key") == []
         assert upstream["x-request-id"] == "trace-3"
 
     @pytest.mark.asyncio
@@ -2452,10 +2452,10 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
 
 @pytest.mark.asyncio
 async def test_bedrock_agent_runtime_region_lookup_leaves_the_event_loop_free(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", SHARED_MASTER_KEY)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", SHARED_MASTER_KEY)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     for ambient in TestBedrockAgentRuntimePassthroughVirtualKeyLeak.AMBIENT_AWS_ENV:
         monkeypatch.delenv(ambient, raising=False)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ak")
@@ -2484,7 +2484,7 @@ async def test_bedrock_agent_runtime_region_lookup_leaves_the_event_loop_free(mo
             endpoint="knowledgebases/KB1234567/retrieve",
             request=request,
             fastapi_response=Response(),
-            user_api_key_dict=UserAPIKeyAuth(api_key="sk-litellm-caller"),
+            user_api_key_dict=UserAPIKeyAuth(api_key="sk-hangarllm-caller"),
         )
 
     assert vault.read.is_set()
@@ -2495,7 +2495,7 @@ async def test_bedrock_agent_runtime_region_lookup_leaves_the_event_loop_free(mo
 class TestLLMPassthroughFactoryProxyRoute:
     @pytest.mark.asyncio
     async def test_llm_passthrough_factory_proxy_route_success(self):
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -2504,12 +2504,12 @@ class TestLLMPassthroughFactoryProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         with (
-            patch("litellm.utils.ProviderConfigManager.get_provider_model_info") as mock_get_provider,
+            patch("hangarllm.utils.ProviderConfigManager.get_provider_model_info") as mock_get_provider,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
             ) as mock_get_creds,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_provider_config = MagicMock()
@@ -2530,7 +2530,7 @@ class TestLLMPassthroughFactoryProxyRoute:
             )
 
             assert result == "success"
-            mock_get_provider.assert_called_once_with(provider=litellm.LlmProviders(LlmProviders.VLLM), model=None)
+            mock_get_provider.assert_called_once_with(provider=hangarllm.LlmProviders(LlmProviders.VLLM), model=None)
             mock_get_creds.assert_called_once_with(custom_llm_provider=LlmProviders.VLLM, region_name=None)
             mock_create_route.assert_called_once_with(
                 endpoint="/chat/completions",
@@ -2543,17 +2543,17 @@ class TestLLMPassthroughFactoryProxyRoute:
 
 class TestVLLMProxyRoute:
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "router-model", "stream": False},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=True,
     )
     @patch(
-        "litellm.proxy.proxy_server.llm_router"
-    )  # test-quality-ok: patching litellm internal for unit test isolation
+        "hangarllm.proxy.proxy_server.llm_router"
+    )  # test-quality-ok: patching hangarllm internal for unit test isolation
     async def test_vllm_proxy_route_with_router_model(self, mock_llm_router, mock_is_router, mock_get_body):
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -2576,20 +2576,20 @@ class TestVLLMProxyRoute:
         mock_llm_router.allm_passthrough_route.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "router-model", "messages": [{"role": "user", "content": "Hi"}], "stream": True},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=True,
     )
     @patch(
-        "litellm.proxy.proxy_server.general_settings", {}
+        "hangarllm.proxy.proxy_server.general_settings", {}
     )  # test-quality-ok: the proxy config surface for always_include_stream_usage
     @patch(
-        "litellm.proxy.proxy_server.llm_router"
-    )  # test-quality-ok: patching litellm internal for unit test isolation
+        "hangarllm.proxy.proxy_server.llm_router"
+    )  # test-quality-ok: patching hangarllm internal for unit test isolation
     async def test_vllm_proxy_route_asks_the_router_model_for_stream_usage_and_hides_it_from_the_client(
         self, mock_llm_router, mock_is_router, mock_get_body
     ):
@@ -2616,7 +2616,7 @@ class TestVLLMProxyRoute:
         mock_request.method = "POST"
         mock_request.headers = {"content-type": "application/json"}
         mock_request.query_params = {}
-        mock_llm_router.resolved_litellm_models = MagicMock(return_value=("hosted_vllm/Qwen/Qwen2.5-0.5B-Instruct",))
+        mock_llm_router.resolved_hangarllm_models = MagicMock(return_value=("hosted_vllm/Qwen/Qwen2.5-0.5B-Instruct",))
         mock_llm_router.allm_passthrough_route = AsyncMock(
             return_value=httpx.Response(200, content=upstream_body, headers={"content-type": "text/event-stream"})
         )
@@ -2642,16 +2642,16 @@ class TestVLLMProxyRoute:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("stream_options", [None, {"include_usage": True}])
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=True,
     )
     @patch(
-        "litellm.proxy.proxy_server.general_settings", {}
+        "hangarllm.proxy.proxy_server.general_settings", {}
     )  # test-quality-ok: the proxy config surface for always_include_stream_usage
     @patch(
-        "litellm.proxy.proxy_server.llm_router"
-    )  # test-quality-ok: patching litellm internal for unit test isolation
+        "hangarllm.proxy.proxy_server.llm_router"
+    )  # test-quality-ok: patching hangarllm internal for unit test isolation
     async def test_vllm_proxy_route_closes_the_upstream_stream_when_the_client_disconnects(
         self, mock_llm_router, mock_is_router, stream_options
     ):
@@ -2670,13 +2670,13 @@ class TestVLLMProxyRoute:
         mock_request.method = "POST"
         mock_request.headers = {"content-type": "application/json"}
         mock_request.query_params = {}
-        mock_llm_router.resolved_litellm_models = MagicMock(return_value=("hosted_vllm/Qwen/Qwen2.5-0.5B-Instruct",))
+        mock_llm_router.resolved_hangarllm_models = MagicMock(return_value=("hosted_vllm/Qwen/Qwen2.5-0.5B-Instruct",))
         mock_llm_router.allm_passthrough_route = AsyncMock(
             return_value=httpx.Response(200, stream=UpstreamStream(), headers={"content-type": "text/event-stream"})
         )
 
-        with patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+        with patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
             return_value={**body, **({"stream_options": stream_options} if stream_options else {})},
         ):
             result = await vllm_proxy_route(
@@ -2691,16 +2691,16 @@ class TestVLLMProxyRoute:
         assert closed == [True]
 
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "other-model"},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.llm_passthrough_factory_proxy_route"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.llm_passthrough_factory_proxy_route"
     )
     async def test_vllm_proxy_route_fallback_to_factory(self, mock_factory_route, mock_is_router, mock_get_body):
         mock_request = MagicMock(spec=Request)
@@ -2730,13 +2730,13 @@ class TestVLLMProxyRoute:
 def test_vllm_provider_route_reaches_v1_paths_with_its_key_as_a_bearer(
     monkeypatch: pytest.MonkeyPatch, vllm_api_base: str, request_path: str
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setenv("VLLM_API_BASE", vllm_api_base)
     monkeypatch.setenv("VLLM_API_KEY", "sk-vllm-upstream")
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(
         proxy_server.app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual")
     )
@@ -2756,13 +2756,13 @@ def test_vllm_provider_route_reaches_v1_paths_with_its_key_as_a_bearer(
 
 
 def test_vllm_provider_route_with_an_empty_key_sends_no_credential_headers(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setenv("VLLM_API_BASE", "http://vllm-upstream.test:8090")
     monkeypatch.setenv("VLLM_API_KEY", "")
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(
         proxy_server.app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual")
     )
@@ -2783,17 +2783,17 @@ def test_vllm_provider_route_with_an_empty_key_sends_no_credential_headers(monke
 
 class TestGigachatProxyRoute:
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "router-model", "stream": False},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=True,
     )
     @patch(
-        "litellm.proxy.proxy_server.llm_router"
-    )  # test-quality-ok: patching litellm internal for unit test isolation
+        "hangarllm.proxy.proxy_server.llm_router"
+    )  # test-quality-ok: patching hangarllm internal for unit test isolation
     async def test_gigachat_proxy_route_with_router_model(self, mock_llm_router, mock_is_router, mock_get_body):
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -2819,8 +2819,8 @@ class TestGigachatProxyRoute:
     @pytest.mark.asyncio
     async def test_gigachat_router_handler_keeps_cached_body_and_payload_metadata_pristine(self):
         """Regression: auth-metadata injection must not leak into the cached parsed body or the upstream payload."""
-        from litellm.proxy.common_utils.http_parsing_utils import get_request_body
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.common_utils.http_parsing_utils import get_request_body
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             handle_gigachat_passthrough_router_model,
         )
 
@@ -2854,8 +2854,8 @@ class TestGigachatProxyRoute:
             async def base_passthrough_process_llm_request(self, **kwargs):
                 return Response(content=b"{}", status_code=200)
 
-        with patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+        with patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+            "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
             _CapturingProcessor,
         ):
             await handle_gigachat_passthrough_router_model(
@@ -2888,21 +2888,21 @@ class TestGigachatProxyRoute:
         assert cached_reread["metadata"] == {"client_tag": "user-supplied"}
 
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "other-model"},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
         new_callable=AsyncMock,
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.authenticator.get_access_token",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.authenticator.get_access_token",
         return_value="gigachat-test-token",
     )
     async def test_gigachat_proxy_route_fallback_forwards_to_gigachat_api(
@@ -2927,8 +2927,8 @@ class TestGigachatProxyRoute:
             captured_kwargs.update(kwargs)
             return fake_endpoint
 
-        with patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+        with patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             side_effect=fake_create_pass_through_route,
         ):
             result = await gigachat_proxy_route(
@@ -2944,17 +2944,17 @@ class TestGigachatProxyRoute:
         assert captured_kwargs["custom_headers"] == {"Authorization": "Bearer gigachat-test-token"}
 
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
         new_callable=AsyncMock,
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.authenticator.get_access_token",
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.authenticator.get_access_token",
         return_value="gigachat-test-token",
     )
     async def test_gigachat_proxy_route_models_endpoint_without_model(
@@ -2978,8 +2978,8 @@ class TestGigachatProxyRoute:
             captured_kwargs.update(kwargs)
             return fake_endpoint
 
-        with patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+        with patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             side_effect=fake_create_pass_through_route,
         ):
             result = await gigachat_proxy_route(
@@ -3021,8 +3021,8 @@ class TestGigachatProxyRoute:
             data={
                 "model": "some-provider/model",
                 "stream": True,
-                "litellm_call_id": "call-123",
-                "litellm_logging_obj": MagicMock(litellm_call_id="call-123"),
+                "hangarllm_call_id": "call-123",
+                "hangarllm_logging_obj": MagicMock(hangarllm_call_id="call-123"),
             }
         )
 
@@ -3054,17 +3054,17 @@ class TestGigachatProxyRoute:
                 new=AsyncMock(
                     return_value=(
                         processor.data,
-                        processor.data["litellm_logging_obj"],
+                        processor.data["hangarllm_logging_obj"],
                     )
                 ),
             ),
-            patch(  # test-quality-ok: patching litellm internal for unit test isolation
-                "litellm.proxy.common_request_processing.route_request",
+            patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+                "hangarllm.proxy.common_request_processing.route_request",
                 new=_fake_route_request,
             ),
-            patch(  # test-quality-ok: patching litellm internal for unit test isolation
-                "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.get_custom_headers",
-                return_value={"x-litellm-call-id": "call-123"},
+            patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+                "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.get_custom_headers",
+                return_value={"x-hangarllm-call-id": "call-123"},
             ),
         ):
             result = await processor.base_passthrough_process_llm_request(
@@ -3085,7 +3085,7 @@ class TestGigachatProxyRoute:
         assert result.headers["content-type"] == "text/event-stream; charset=utf-8"
         assert result.headers["x-request-id"] == "req-123"
         assert result.headers["x-ratelimit-remaining-requests"] == "77"
-        assert result.headers["x-litellm-call-id"] == "call-123"
+        assert result.headers["x-hangarllm-call-id"] == "call-123"
         assert result.headers["x-test-callback-header"] == "callback-value"
         assert "transfer-encoding" not in result.headers
         assert "content-encoding" not in result.headers
@@ -3102,7 +3102,7 @@ class TestForwardHeaders:
         Test that when forward_headers=True, user headers from the main request
         are forwarded to the target endpoint (except content-length and host)
         """
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
             pass_through_request,
         )
 
@@ -3134,7 +3134,7 @@ class TestForwardHeaders:
 
         # Custom headers that should be merged with user headers
         custom_headers = {
-            "x-litellm-header": "litellm-value",
+            "x-hangarllm-header": "hangarllm-value",
         }
 
         target_url = "https://api.example.com/v1/test"
@@ -3148,13 +3148,13 @@ class TestForwardHeaders:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.read_request_body",
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
         ):
             # Setup mock httpx client
             mock_client = MagicMock()
@@ -3195,7 +3195,7 @@ class TestForwardHeaders:
             assert sent_headers["content-type"] == "application/json"
 
             # Verify custom headers were included
-            assert sent_headers["x-litellm-header"] == "litellm-value"
+            assert sent_headers["x-hangarllm-header"] == "hangarllm-value"
 
             # Verify content-length and host were NOT forwarded
             assert "content-length" not in sent_headers
@@ -3207,7 +3207,7 @@ class TestForwardHeaders:
         Test that when forward_headers=False (default), user headers are NOT forwarded,
         only custom_headers are sent
         """
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
             pass_through_request,
         )
 
@@ -3231,8 +3231,8 @@ class TestForwardHeaders:
 
         # Only these custom headers should be sent
         custom_headers = {
-            "x-litellm-header": "litellm-value",
-            "authorization": "Bearer litellm-token",
+            "x-hangarllm-header": "hangarllm-value",
+            "authorization": "Bearer hangarllm-token",
         }
 
         target_url = "https://api.example.com/v1/test"
@@ -3246,13 +3246,13 @@ class TestForwardHeaders:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.read_request_body",
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
         ):
             # Setup mock httpx client
             mock_client = MagicMock()
@@ -3286,14 +3286,14 @@ class TestForwardHeaders:
             sent_headers = call_args[1]["headers"]
 
             # Verify only custom headers were sent
-            assert sent_headers["x-litellm-header"] == "litellm-value"
-            assert sent_headers["authorization"] == "Bearer litellm-token"
+            assert sent_headers["x-hangarllm-header"] == "hangarllm-value"
+            assert sent_headers["authorization"] == "Bearer hangarllm-token"
 
             # Verify user headers were NOT forwarded
             assert "x-custom-header" not in sent_headers
             assert "x-api-key" not in sent_headers
             # Authorization is present but should be from custom_headers, not user headers
-            assert sent_headers["authorization"] == "Bearer litellm-token"
+            assert sent_headers["authorization"] == "Bearer hangarllm-token"
 
     @pytest.mark.asyncio
     async def test_llm_passthrough_factory_with_forward_headers(self):
@@ -3301,7 +3301,7 @@ class TestForwardHeaders:
         Test that _forward_headers works correctly in llm_passthrough_factory_proxy_route
         which is used in the code snippet provided by the user
         """
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -3328,18 +3328,18 @@ class TestForwardHeaders:
         mock_httpx_response.aread = AsyncMock(return_value=b'{"result": "success"}')
 
         with (
-            patch("litellm.utils.ProviderConfigManager.get_provider_model_info") as mock_get_provider,
+            patch("hangarllm.utils.ProviderConfigManager.get_provider_model_info") as mock_get_provider,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
             ) as mock_get_creds,
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.read_request_body",
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.read_request_body",
                 return_value={"messages": [{"role": "user", "content": "test"}]},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
         ):
             # Setup provider config
             mock_provider_config = MagicMock()
@@ -3362,7 +3362,7 @@ class TestForwardHeaders:
             # This is the key part - when create_pass_through_route is called with _forward_headers=True
             # it should forward the user headers
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route:
                 mock_endpoint_func = AsyncMock(return_value="success")
                 mock_create_route.return_value = mock_endpoint_func
@@ -3414,12 +3414,12 @@ class TestMilvusProxyRoute:
 
         # Mock vector store index object
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.hangarllm_params.vector_store_name = vector_store_name
+        mock_index_object.hangarllm_params.vector_store_index = vector_store_index
 
         # Mock vector store
         mock_vector_store = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": api_base,
                 "api_key": "test-milvus-key",
             }
@@ -3427,23 +3427,23 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name, "data": [[0.1, 0.2]]},
             ) as mock_get_body,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ) as mock_is_allowed,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"
             ) as mock_safe_set,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(hangarllm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(hangarllm, "vector_store_registry") as mock_vector_registry,
         ):
             # Setup mocks
             mock_provider_config = MagicMock()
@@ -3454,7 +3454,7 @@ class TestMilvusProxyRoute:
             mock_index_registry.is_vector_store_index.return_value = True
             mock_index_registry.get_vector_store_index_by_name.return_value = mock_index_object
 
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = mock_vector_store
+            mock_vector_registry.get_hangarllm_managed_vector_store_from_registry_by_name.return_value = mock_vector_store
 
             mock_endpoint_func = AsyncMock(return_value={"results": [{"id": 1, "distance": 0.5}]})
             mock_create_route.return_value = mock_endpoint_func
@@ -3500,11 +3500,11 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"data": [[0.1, 0.2]]},  # No collectionName
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
         ):
             mock_get_config.return_value = MagicMock()
@@ -3532,7 +3532,7 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=None,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -3561,13 +3561,13 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
-            patch.object(litellm, "vector_store_index_registry", None),
+            patch.object(hangarllm, "vector_store_index_registry", None),
         ):
             mock_get_config.return_value = MagicMock()
 
@@ -3597,14 +3597,14 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry", MagicMock()),
+            patch.object(hangarllm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(hangarllm, "vector_store_registry", MagicMock()),
         ):
             mock_get_config.return_value = MagicMock()
             mock_index_registry.is_vector_store_index.return_value = False
@@ -3618,7 +3618,7 @@ class TestMilvusProxyRoute:
                 )
 
             assert exc_info.value.status_code == 400
-            assert f"Collection {collection_name} is not a litellm managed vector store index" in str(
+            assert f"Collection {collection_name} is not a hangarllm managed vector store index" in str(
                 exc_info.value.detail
             )
 
@@ -3637,28 +3637,28 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.hangarllm_params.vector_store_name = vector_store_name
+        mock_index_object.hangarllm_params.vector_store_index = vector_store_index
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ),
-            patch("litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"),
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch("hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"),
+            patch.object(hangarllm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(hangarllm, "vector_store_registry") as mock_vector_registry,
         ):
             mock_get_config.return_value = MagicMock()
             mock_index_registry.is_vector_store_index.return_value = True
             mock_index_registry.get_vector_store_index_by_name.return_value = mock_index_object
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = None
+            mock_vector_registry.get_hangarllm_managed_vector_store_from_registry_by_name.return_value = None
 
             with pytest.raises(Exception, match="Vector store not found for missing-store") as exc_info:
                 await milvus_proxy_route(
@@ -3685,25 +3685,25 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.hangarllm_params.vector_store_name = vector_store_name
+        mock_index_object.hangarllm_params.vector_store_index = vector_store_index
 
-        mock_vector_store = {"litellm_params": {}}  # No api_base
+        mock_vector_store = {"hangarllm_params": {}}  # No api_base
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ),
-            patch("litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"),
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch("hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"),
+            patch.object(hangarllm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(hangarllm, "vector_store_registry") as mock_vector_registry,
         ):
             mock_provider_config = MagicMock()
             mock_provider_config.get_auth_credentials.return_value = {"headers": {}}
@@ -3712,7 +3712,7 @@ class TestMilvusProxyRoute:
 
             mock_index_registry.is_vector_store_index.return_value = True
             mock_index_registry.get_vector_store_index_by_name.return_value = mock_index_object
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = mock_vector_store
+            mock_vector_registry.get_hangarllm_managed_vector_store_from_registry_by_name.return_value = mock_vector_store
 
             with pytest.raises(Exception, match="api_base not found in vector store configuration for") as exc_info:
                 await milvus_proxy_route(
@@ -3740,28 +3740,28 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.hangarllm_params.vector_store_name = vector_store_name
+        mock_index_object.hangarllm_params.vector_store_index = vector_store_index
 
-        mock_vector_store = {"litellm_params": {"api_base": api_base}}
+        mock_vector_store = {"hangarllm_params": {"api_base": api_base}}
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ),
-            patch("litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"),
+            patch("hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.safe_set_request_parsed_body"),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(hangarllm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(hangarllm, "vector_store_registry") as mock_vector_registry,
         ):
             mock_provider_config = MagicMock()
             mock_provider_config.get_auth_credentials.return_value = {"headers": {}}
@@ -3770,7 +3770,7 @@ class TestMilvusProxyRoute:
 
             mock_index_registry.is_vector_store_index.return_value = True
             mock_index_registry.get_vector_store_index_by_name.return_value = mock_index_object
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = mock_vector_store
+            mock_vector_registry.get_hangarllm_managed_vector_store_from_registry_by_name.return_value = mock_vector_store
 
             mock_endpoint_func = AsyncMock(return_value={"status": "success"})
             mock_create_route.return_value = mock_endpoint_func
@@ -3798,7 +3798,7 @@ class TestOpenAIPassthroughRoute:
         """
         Test that /openai_passthrough endpoint correctly handles Responses API calls
         This verifies the fix for issue #18865 where /openai/v1/responses was being
-        routed to LiteLLM's native implementation instead of passthrough
+        routed to HangarLLM's native implementation instead of passthrough
         """
 
         # Mock request for Responses API
@@ -3811,11 +3811,11 @@ class TestOpenAIPassthroughRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="sk-test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={"id": "resp_123", "status": "completed"})
@@ -3859,11 +3859,11 @@ class TestOpenAIPassthroughRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="sk-test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={"id": "chatcmpl-123", "choices": []})
@@ -3895,7 +3895,7 @@ class TestOpenAIPassthroughRoute:
         mock_user_api_key_dict = MagicMock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
             return_value=None,
         ):
             with pytest.raises(Exception, match="Required 'OPENAI_API_KEY' in environment to make") as exc_info:
@@ -3925,11 +3925,11 @@ class TestOpenAIPassthroughRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="sk-test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={"id": "asst_123", "object": "assistant"})
@@ -3957,8 +3957,8 @@ class TestOpenAIPassthroughRoute:
 def _resolve_route_name(method: str, path: str) -> str | None:
     from starlette.routing import Match
 
-    from litellm.proxy._lazy_features import LAZY_FEATURES, _force_load
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy._lazy_features import LAZY_FEATURES, _force_load
+    from hangarllm.proxy.proxy_server import app
 
     asyncio.run(_force_load(app, next(f for f in LAZY_FEATURES if f.name == "llm_passthrough")))
 
@@ -4016,12 +4016,12 @@ def test_native_provider_routes_are_unchanged(method, path, expected_name):
 
 @pytest.fixture
 def openai_passthrough_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-upstream")
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
     yield TestClient(app)
 
@@ -4174,13 +4174,13 @@ def test_azure_passthrough_keeps_its_own_openai_beta_rule(
 
 @pytest.fixture
 def openai_wif_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    from litellm.llms.openai.workload_identity import _workload_identity_auth
+    from hangarllm.llms.openai.workload_identity import _workload_identity_auth
 
     token_file: Final = tmp_path / "subject_token.jwt"
     token_file.write_text("subject-token-from-file")
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
     monkeypatch.setenv("OPENAI_IDENTITY_PROVIDER_ID", "idp_test123")
     monkeypatch.setenv("OPENAI_SERVICE_ACCOUNT_ID", "user-test456")
     monkeypatch.setenv("OPENAI_IDENTITY_TOKEN_FILE", str(token_file))
@@ -4223,7 +4223,7 @@ async def test_openai_passthrough_never_sends_workload_identity_token_to_foreign
     monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
             return_value=None,
         ),
         respx.mock(assert_all_mocked=True) as upstream,
@@ -4257,11 +4257,11 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value=test_api_key,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={"agents": [], "nextCursor": None})
@@ -4295,11 +4295,11 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.litellm.credential_list",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.hangarllm.credential_list",
                 [],
             ),
         ):
@@ -4314,8 +4314,8 @@ class TestCursorProxyRoute:
 
     @pytest.mark.asyncio
     async def test_cursor_proxy_route_uses_ui_credential(self):
-        """should use credentials added via UI (litellm.credential_list) when env var is not set"""
-        from litellm.types.utils import CredentialItem
+        """should use credentials added via UI (hangarllm.credential_list) when env var is not set"""
+        from hangarllm.types.utils import CredentialItem
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -4335,15 +4335,15 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.litellm.credential_list",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.hangarllm.credential_list",
                 [ui_credential],
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={"models": []})
@@ -4377,11 +4377,11 @@ class TestCursorProxyRoute:
         with (
             patch.dict(os.environ, {"CURSOR_API_BASE": "https://custom-cursor.example.com"}),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={})
@@ -4409,11 +4409,11 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(
@@ -4475,7 +4475,7 @@ class TestVertexRawPredictStreamingClassification:
                 "path_params": {"endpoint": endpoint},
                 "headers": [
                     (b"content-type", b"application/json"),
-                    (b"x-litellm-api-key", b"test-key"),
+                    (b"x-hangarllm-api-key", b"test-key"),
                     (b"authorization", b"Bearer ya29.byo-google-oauth"),
                 ],
                 "query_string": b"",
@@ -4496,10 +4496,10 @@ class TestVertexRawPredictStreamingClassification:
         mock_handler = Mock()
         mock_handler.get_default_base_target_url.return_value = base_url
 
-        module = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module = "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         with (
             mock.patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
+                "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
                 return_value=(mock_credentials, "test-project"),
             ),
             mock.patch(f"{module}.create_pass_through_route", side_effect=fake_create_pass_through_route),
@@ -4600,7 +4600,7 @@ def test_is_passthrough_request_streaming_tolerates_non_object_bodies(request_bo
     streaming decision funnels through this predicate, so a list or scalar body
     must answer False instead of raising AttributeError.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         is_passthrough_request_streaming,
     )
 
@@ -4619,29 +4619,29 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
 
     With no Vertex credential configured, the passthrough took the
     bring-your-own-credentials branch and forwarded the whole incoming header set
-    to Google, including whichever header carried the caller's LiteLLM virtual key.
-    LiteLLM accepts that key from several headers (``Authorization``,
-    ``x-litellm-api-key``, ``x-goog-api-key``, ``api-key``, ``x-api-key``), and
+    to Google, including whichever header carried the caller's HangarLLM virtual key.
+    HangarLLM accepts that key from several headers (``Authorization``,
+    ``x-hangarllm-api-key``, ``x-goog-api-key``, ``api-key``, ``x-api-key``), and
     ``x-goog-api-key`` doubles as a genuine Google credential, so any of them could
     leak the proxy's own secret to an upstream provider.
 
     A credential-less request that carries no upstream Google credential must now
     fail with a clean 401 and never reach ``create_pass_through_route``. The
-    proxy-only auth headers Google never consumes (``x-litellm-api-key``,
+    proxy-only auth headers Google never consumes (``x-hangarllm-api-key``,
     ``api-key``, ``x-api-key``) are dropped by name, and the virtual key is dropped
     by value from ``Authorization`` / ``x-goog-api-key``, which may instead carry a
     genuine bring-your-own Google credential that must still pass through. The
     by-value strip also covers a virtual key sent in the operator-configured
-    ``general_settings.litellm_key_header_name``, whatever that header is named.
+    ``general_settings.hangarllm_key_header_name``, whatever that header is named.
 
     The by-value strip keys off what actually authenticated the caller (the
-    master key, or the LiteLLM key whose hash ``user_api_key_auth`` resolved as
+    master key, or the HangarLLM key whose hash ``user_api_key_auth`` resolved as
     ``api_key``), never off header precedence: a custom auth or JWT that
     authenticated the caller without consuming ``Authorization`` leaves the
     caller's own Google token there, and it must keep flowing.
     """
 
-    VKEY = "sk-litellm-victim-key"
+    VKEY = "sk-hangarllm-victim-key"
     MASTER_KEY: Final = SHARED_MASTER_KEY
     ENDPOINT = "v1/projects/my-proj/locations/us-central1/publishers/google/models/gemini-2.5-flash:generateContent"
 
@@ -4652,9 +4652,9 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         authenticated: UserAPIKeyAuth | None = None,
         master_key: str | None = SHARED_MASTER_KEY,
     ) -> tuple[HTTPException | None, dict | None]:
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", master_key)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", master_key)
         caller: Final = authenticated if authenticated is not None else UserAPIKeyAuth(api_key=self.VKEY)
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -4681,7 +4681,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         mock_handler = Mock()
         mock_handler.get_default_base_target_url.return_value = "https://us-central1-aiplatform.googleapis.com/"
 
-        module = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module = "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         monkeypatch.setattr(f"{module}.passthrough_endpoint_router", PassthroughEndpointRouter())
         raised: HTTPException | None = None
         with (
@@ -4711,10 +4711,10 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert raised is not None and raised.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_x_litellm_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
+    async def test_x_hangarllm_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
-            [(b"x-litellm-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
+            [(b"x-hangarllm-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
         )
         assert forwarded is None, "credential-less request must never reach the upstream forwarder"
         assert raised is not None and raised.status_code == 401
@@ -4724,7 +4724,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"x-goog-api-key", self.VKEY.encode()),
                 (b"content-type", b"application/json"),
             ],
@@ -4749,7 +4749,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"authorization", b"Bearer ya29.google-oauth-token"),
                 (b"content-type", b"application/json"),
             ],
@@ -4757,7 +4757,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert raised is None
         assert forwarded is not None
         assert forwarded.get("authorization") == "Bearer ya29.google-oauth-token"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-hangarllm-api-key" not in forwarded
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
@@ -4766,7 +4766,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"authorization", f"{scheme} {self.VKEY}".encode()),
                 (b"content-type", b"application/json"),
             ],
@@ -4781,7 +4781,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"x-goog-api-key", b"AIza-google-api-key"),
                 (b"content-type", b"application/json"),
             ],
@@ -4789,7 +4789,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert raised is None
         assert forwarded is not None
         assert forwarded.get("x-goog-api-key") == "AIza-google-api-key"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-hangarllm-api-key" not in forwarded
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
@@ -4797,7 +4797,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"authorization", b"Bearer ya29.google-oauth-token"),
                 (b"api-key", b"azure-style-caller-secret"),
                 (b"x-api-key", b"anthropic-style-caller-secret"),
@@ -4809,7 +4809,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert forwarded.get("authorization") == "Bearer ya29.google-oauth-token"
         assert "api-key" not in forwarded
         assert "x-api-key" not in forwarded
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-hangarllm-api-key" not in forwarded
         forwarded_blob = " ".join(f"{name}:{value}" for name, value in forwarded.items())
         assert self.VKEY not in forwarded_blob
         assert "azure-style-caller-secret" not in forwarded_blob
@@ -4819,14 +4819,14 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
     @pytest.mark.parametrize(
         "credential_header",
         sorted(
-            SpecialHeaders.litellm_credential_header_names() - {"authorization", "x-goog-api-key", "x-litellm-api-key"}
+            SpecialHeaders.hangarllm_credential_header_names() - {"authorization", "x-goog-api-key", "x-hangarllm-api-key"}
         ),
     )
     async def test_every_non_google_credential_header_is_dropped_by_name(self, monkeypatch, credential_header):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"x-goog-api-key", b"AIza-real-google-api-key"),
                 (credential_header.encode(), b"some-distinct-caller-secret-value"),
                 (b"content-type", b"application/json"),
@@ -4836,16 +4836,16 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("x-goog-api-key") == "AIza-real-google-api-key"
         assert credential_header not in forwarded
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-hangarllm-api-key" not in forwarded
         forwarded_blob = " ".join(f"{name}:{value}" for name, value in forwarded.items())
         assert self.VKEY not in forwarded_blob
         assert "some-distinct-caller-secret-value" not in forwarded_blob
 
     @pytest.mark.asyncio
     async def test_virtual_key_in_operator_configured_header_is_stripped(self, monkeypatch):
-        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for litellm_key_header_name; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for hangarllm_key_header_name; no injection seam exists on this route
+            "hangarllm.proxy.proxy_server.general_settings",
+            {"hangarllm_key_header_name": "x-company-key"},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4863,9 +4863,9 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
 
     @pytest.mark.asyncio
     async def test_virtual_key_in_operator_configured_header_alone_is_rejected(self, monkeypatch):
-        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for litellm_key_header_name; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for hangarllm_key_header_name; no injection seam exists on this route
+            "hangarllm.proxy.proxy_server.general_settings",
+            {"hangarllm_key_header_name": "x-company-key"},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4880,8 +4880,8 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
     @pytest.mark.asyncio
     async def test_virtual_key_in_pass_through_configured_header_is_dropped_and_rejected(self, monkeypatch):
         with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for pass_through_endpoints; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"pass_through_endpoints": [{"headers": {"litellm_user_api_key": "x-company-key"}}]},
+            "hangarllm.proxy.proxy_server.general_settings",
+            {"pass_through_endpoints": [{"headers": {"hangarllm_user_api_key": "x-company-key"}}]},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4898,8 +4898,8 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         self, monkeypatch
     ):
         with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for pass_through_endpoints; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"pass_through_endpoints": [{"headers": {"litellm_user_api_key": "x-company-key"}}]},
+            "hangarllm.proxy.proxy_server.general_settings",
+            {"pass_through_endpoints": [{"headers": {"hangarllm_user_api_key": "x-company-key"}}]},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4920,11 +4920,11 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
-    async def test_virtual_key_in_mapped_route_litellm_user_api_key_header_is_stripped(self, monkeypatch):
+    async def test_virtual_key_in_mapped_route_hangarllm_user_api_key_header_is_stripped(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"litellm_user_api_key", self.VKEY.encode()),
+                (b"hangarllm_user_api_key", self.VKEY.encode()),
                 (b"authorization", b"Bearer ya29.byo-google-oauth"),
                 (b"x-goog-api-key", b"AIza-real-google-api-key"),
                 (b"content-type", b"application/json"),
@@ -4934,27 +4934,27 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("x-goog-api-key") == "AIza-real-google-api-key"
         assert forwarded.get("authorization") == "Bearer ya29.byo-google-oauth"
-        assert "litellm_user_api_key" not in forwarded
+        assert "hangarllm_user_api_key" not in forwarded
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
-    async def test_virtual_key_in_mapped_route_litellm_user_api_key_header_alone_is_rejected(self, monkeypatch):
+    async def test_virtual_key_in_mapped_route_hangarllm_user_api_key_header_alone_is_rejected(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"litellm_user_api_key", self.VKEY.encode()),
+                (b"hangarllm_user_api_key", self.VKEY.encode()),
                 (b"content-type", b"application/json"),
             ],
         )
         assert forwarded is None, (
-            "a virtual key in the mapped-route litellm_user_api_key header must be dropped, not forwarded"
+            "a virtual key in the mapped-route hangarllm_user_api_key header must be dropped, not forwarded"
         )
         assert raised is not None and raised.status_code == 401
 
     GOOGLE_OAUTH_TOKEN = "ya29.byo-google-oauth-token"
 
-    LITELLM_JWT_CLAIMS = MappingProxyType({"sub": "jwt-subject", "iss": "https://idp.example.com"})
-    LITELLM_JWT = _unsigned_jwt(LITELLM_JWT_CLAIMS)
+    HANGARLLM_JWT_CLAIMS = MappingProxyType({"sub": "jwt-subject", "iss": "https://idp.example.com"})
+    HANGARLLM_JWT = _unsigned_jwt(HANGARLLM_JWT_CLAIMS)
     GOOGLE_SERVICE_ACCOUNT_JWT = _unsigned_jwt(
         {
             "sub": "vertex-caller@my-proj.iam.gserviceaccount.com",
@@ -4969,12 +4969,12 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         [
             pytest.param(
                 SHARED_MASTER_KEY,
-                UserAPIKeyAuth(api_key="best-api-key-ever", user_role=LitellmUserRoles.PROXY_ADMIN),
+                UserAPIKeyAuth(api_key="best-api-key-ever", user_role=HangarllmUserRoles.PROXY_ADMIN),
                 id="custom-auth-returning-its-own-identifier",
             ),
             pytest.param(
                 SHARED_MASTER_KEY,
-                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(LITELLM_JWT_CLAIMS)),
+                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(HANGARLLM_JWT_CLAIMS)),
                 id="jwt-auth",
             ),
             pytest.param(None, UserAPIKeyAuth(api_key=GOOGLE_OAUTH_TOKEN), id="no-master-key-echoes-raw-header"),
@@ -4992,7 +4992,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
             authenticated=authenticated,
             master_key=master_key,
         )
-        assert raised is None, f"the caller's own Google token must not be mistaken for a LiteLLM key: {raised}"
+        assert raised is None, f"the caller's own Google token must not be mistaken for a HangarLLM key: {raised}"
         assert forwarded is not None
         assert forwarded.get("authorization") == f"Bearer {self.GOOGLE_OAUTH_TOKEN}"
 
@@ -5004,31 +5004,31 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
                 "modified_key", UserAPIKeyAuth(api_key="modified_key"), id="custom-auth-echoing-opaque-credential"
             ),
             pytest.param(
-                LITELLM_JWT,
-                UserAPIKeyAuth(api_key=LITELLM_JWT, user_id="jwt-subject"),
+                HANGARLLM_JWT,
+                UserAPIKeyAuth(api_key=HANGARLLM_JWT, user_id="jwt-subject"),
                 id="custom-auth-echoing-jwt",
             ),
             pytest.param(
-                LITELLM_JWT,
-                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(LITELLM_JWT_CLAIMS)),
+                HANGARLLM_JWT,
+                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(HANGARLLM_JWT_CLAIMS)),
                 id="jwt-auth",
             ),
             pytest.param(
-                LITELLM_JWT,
+                HANGARLLM_JWT,
                 UserAPIKeyAuth(
                     api_key=None,
                     user_id="jwt-subject",
                     jwt_claims={
-                        **LITELLM_JWT_CLAIMS,
-                        JWTHandler.LITELLM_JWT_ISSUER_CLAIM: "https://idp.example.com",
-                        JWTHandler.LITELLM_USER_ID_CLAIM: "jwt-subject",
+                        **HANGARLLM_JWT_CLAIMS,
+                        JWTHandler.HANGARLLM_JWT_ISSUER_CLAIM: "https://idp.example.com",
+                        JWTHandler.HANGARLLM_USER_ID_CLAIM: "jwt-subject",
                     },
                 ),
                 id="multi-issuer-jwt-auth-normalized-claims",
             ),
         ],
     )
-    async def test_non_sk_litellm_credential_that_authenticated_is_rejected_not_forwarded(
+    async def test_non_sk_hangarllm_credential_that_authenticated_is_rejected_not_forwarded(
         self, monkeypatch, credential: str, authenticated: UserAPIKeyAuth
     ):
         raised, forwarded = await self._run(
@@ -5044,16 +5044,16 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.LITELLM_JWT.encode()),
+                (b"x-hangarllm-api-key", self.HANGARLLM_JWT.encode()),
                 (b"authorization", f"Bearer {self.GOOGLE_SERVICE_ACCOUNT_JWT}".encode()),
                 (b"content-type", b"application/json"),
             ],
-            authenticated=UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(self.LITELLM_JWT_CLAIMS)),
+            authenticated=UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(self.HANGARLLM_JWT_CLAIMS)),
         )
         assert raised is None, f"a Google JWT that is not the one that authenticated must keep flowing: {raised}"
         assert forwarded is not None
         assert forwarded.get("authorization") == f"Bearer {self.GOOGLE_SERVICE_ACCOUNT_JWT}"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-hangarllm-api-key" not in forwarded
 
     @pytest.mark.asyncio
     async def test_master_key_in_authorization_alone_is_rejected(self, monkeypatch):
@@ -5064,7 +5064,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
                 (b"content-type", b"application/json"),
             ],
             authenticated=UserAPIKeyAuth(
-                api_key=LITELLM_PROXY_MASTER_KEY_ALIAS, user_role=LitellmUserRoles.PROXY_ADMIN
+                api_key=HANGARLLM_PROXY_MASTER_KEY_ALIAS, user_role=HangarllmUserRoles.PROXY_ADMIN
             ),
         )
         assert forwarded is None, "the master key must never reach the upstream forwarder"
@@ -5080,7 +5080,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
                 (b"content-type", b"application/json"),
             ],
             authenticated=UserAPIKeyAuth(
-                api_key=LITELLM_PROXY_MASTER_KEY_ALIAS, user_role=LitellmUserRoles.PROXY_ADMIN
+                api_key=HANGARLLM_PROXY_MASTER_KEY_ALIAS, user_role=HangarllmUserRoles.PROXY_ADMIN
             ),
         )
         assert raised is None
@@ -5091,7 +5091,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
 
 
 class TestAnthropicPassthroughVirtualKeyLeak:
-    VKEY = "sk-litellm-victim-key"
+    VKEY = "sk-hangarllm-victim-key"
     PROXY_KEY = "sk-ant-api03-proxy-configured-key"
     ENDPOINT = "v1/messages"
 
@@ -5103,12 +5103,12 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         master_key: str | None = SHARED_MASTER_KEY,
         proxy_api_key: str | None = None,
     ) -> tuple[HTTPException | None, dict | None]:
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", master_key)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", master_key)
         monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
         if proxy_api_key is None:
             monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -5136,7 +5136,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
             captured.update(kwargs)
             return AsyncMock(return_value={"status": "success"})
 
-        module = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module = "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         monkeypatch.setattr(f"{module}.passthrough_endpoint_router", PassthroughEndpointRouter(lambda: None))
         raised: HTTPException | None = None
         with (
@@ -5186,10 +5186,10 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         assert raised is not None and raised.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_x_litellm_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
+    async def test_x_hangarllm_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
-            [(b"x-litellm-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
+            [(b"x-hangarllm-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
         )
         assert forwarded is None, "credential-less request must never reach the upstream forwarder"
         assert raised is not None and raised.status_code == 401
@@ -5202,7 +5202,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
                 (b"authorization", f"Bearer {SHARED_MASTER_KEY}".encode()),
                 (b"content-type", b"application/json"),
             ],
-            authenticated=UserAPIKeyAuth(api_key=SHARED_MASTER_KEY, user_role=LitellmUserRoles.PROXY_ADMIN),
+            authenticated=UserAPIKeyAuth(api_key=SHARED_MASTER_KEY, user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
         assert forwarded is None, "the master key must never reach Anthropic"
         assert raised is not None and raised.status_code == 401
@@ -5218,30 +5218,30 @@ class TestAnthropicPassthroughVirtualKeyLeak:
     async def test_without_a_master_key_the_callers_own_anthropic_key_still_forwards(
         self, monkeypatch, header: bytes, value: bytes
     ):
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_auth", None)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.user_custom_auth", None)
         raised, forwarded = await self._run(
             monkeypatch,
             [(header, value), (b"anthropic-version", b"2023-06-01"), (b"content-type", b"application/json")],
             authenticated=UserAPIKeyAuth(
-                api_key="sk-ant-api03-callers-own-key", user_role=LitellmUserRoles.INTERNAL_USER
+                api_key="sk-ant-api03-callers-own-key", user_role=HangarllmUserRoles.INTERNAL_USER
             ),
             master_key=None,
         )
         assert raised is None, (
-            "with no master key the proxy authenticated nothing, so nothing of the caller's is a LiteLLM secret"
+            "with no master key the proxy authenticated nothing, so nothing of the caller's is a HangarLLM secret"
         )
         assert forwarded is not None
         assert forwarded.get(header.decode()) == value.decode()
 
     @pytest.mark.asyncio
     async def test_without_a_master_key_a_custom_auth_credential_is_still_stripped(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_auth", AsyncMock())
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.user_custom_auth", AsyncMock())
         raised, forwarded = await self._run(
             monkeypatch,
             [(b"authorization", b"Bearer sk-custom-auth-token"), (b"anthropic-version", b"2023-06-01")],
-            authenticated=UserAPIKeyAuth(api_key="sk-custom-auth-token", user_role=LitellmUserRoles.INTERNAL_USER),
+            authenticated=UserAPIKeyAuth(api_key="sk-custom-auth-token", user_role=HangarllmUserRoles.INTERNAL_USER),
             master_key=None,
         )
         assert raised is not None and raised.status_code == 401
@@ -5249,12 +5249,12 @@ class TestAnthropicPassthroughVirtualKeyLeak:
 
     @pytest.mark.asyncio
     async def test_without_a_master_key_an_oauth2_token_is_still_stripped(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"enable_oauth2_auth": True})
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_auth", None)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"enable_oauth2_auth": True})
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.user_custom_auth", None)
         raised, forwarded = await self._run(
             monkeypatch,
             [(b"authorization", b"Bearer oauth2-access-token"), (b"anthropic-version", b"2023-06-01")],
-            authenticated=UserAPIKeyAuth(api_key="oauth2-access-token", user_role=LitellmUserRoles.INTERNAL_USER),
+            authenticated=UserAPIKeyAuth(api_key="oauth2-access-token", user_role=HangarllmUserRoles.INTERNAL_USER),
             master_key=None,
         )
         assert raised is not None and raised.status_code == 401
@@ -5265,7 +5265,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"authorization", b"Bearer sk-ant-oat01-caller-oauth-token"),
                 (b"anthropic-version", b"2023-06-01"),
                 (b"content-type", b"application/json"),
@@ -5275,7 +5275,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("authorization") == "Bearer sk-ant-oat01-caller-oauth-token"
         assert forwarded.get("anthropic-version") == "2023-06-01"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-hangarllm-api-key" not in forwarded
         assert self.VKEY not in self._blob(forwarded)
 
     @pytest.mark.asyncio
@@ -5309,13 +5309,13 @@ class TestAnthropicPassthroughVirtualKeyLeak:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "credential_header",
-        sorted(SpecialHeaders.litellm_credential_header_names() - {"authorization", "x-api-key", "x-litellm-api-key"}),
+        sorted(SpecialHeaders.hangarllm_credential_header_names() - {"authorization", "x-api-key", "x-hangarllm-api-key"}),
     )
     async def test_every_non_anthropic_credential_header_is_dropped_by_name(self, monkeypatch, credential_header):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"x-api-key", b"sk-ant-api03-caller-own-key"),
                 (credential_header.encode(), b"some-distinct-caller-secret-value"),
                 (b"content-type", b"application/json"),
@@ -5325,15 +5325,15 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("x-api-key") == "sk-ant-api03-caller-own-key"
         assert credential_header not in forwarded
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-hangarllm-api-key" not in forwarded
         assert self.VKEY not in self._blob(forwarded)
         assert "some-distinct-caller-secret-value" not in self._blob(forwarded)
 
     @pytest.mark.asyncio
     async def test_virtual_key_in_operator_configured_header_is_stripped(self, monkeypatch):
-        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for litellm_key_header_name; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for hangarllm_key_header_name; no injection seam exists on this route
+            "hangarllm.proxy.proxy_server.general_settings",
+            {"hangarllm_key_header_name": "x-company-key"},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -5384,7 +5384,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-hangarllm-api-key", self.VKEY.encode()),
                 (b"x-api-key", b"sk-ant-api03-caller-own-key"),
                 (b"content-type", b"application/json"),
             ],
@@ -5436,7 +5436,7 @@ class TestVertexPassthroughDefaultLocationOnShortRoutes:
         headers: list[tuple[bytes, bytes]],
         forwarder: Mock,
     ) -> None:
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -5456,15 +5456,15 @@ class TestVertexPassthroughDefaultLocationOnShortRoutes:
         router: Final = PassthroughEndpointRouter()
         if default_config is not None:
             router.set_default_vertex_config(dict(default_config))
-        module: Final = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module: Final = "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         monkeypatch.setattr(f"{module}.passthrough_endpoint_router", router)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
         mock_credentials: Final = Mock()
         mock_credentials.token = "test-token"
         caller: Final = UserAPIKeyAuth(api_key="test-key")
         with (
             mock.patch(  # test-quality-ok: the route mints its Google token through its own VertexBase, nothing injects the credential loader
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
+                "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
                 return_value=(mock_credentials, self.PROJECT),
             ),
             mock.patch(f"{module}.create_pass_through_route", new=forwarder),
@@ -5583,38 +5583,38 @@ class TestAzureProxyRouteCrossIndexAuthorization:
     @pytest.mark.asyncio
     async def test_authorizes_the_targeted_index(self):
         index_object = MagicMock()
-        index_object.litellm_params.vector_store_name = "my-store"
-        vector_store = {"litellm_params": {"api_base": "https://svc.search.windows.net"}}
+        index_object.hangarllm_params.vector_store_name = "my-store"
+        vector_store = {"hangarllm_params": {"api_base": "https://svc.search.windows.net"}}
 
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
                 return_value=False,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ) as mock_is_allowed,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.assert_user_can_access_vector_store",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.assert_user_can_access_vector_store",
                 new=AsyncMock(),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ),
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(hangarllm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(hangarllm, "vector_store_registry") as mock_vector_registry,
         ):
             mock_get_config.return_value.get_auth_credentials.return_value = {"headers": {"api-key": "k"}}
             mock_index_registry.is_vector_store_index.side_effect = lambda vector_store_index_name: (
                 vector_store_index_name == "my-index"
             )
             mock_index_registry.get_vector_store_index_by_name.return_value = index_object
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = vector_store
+            mock_vector_registry.get_hangarllm_managed_vector_store_from_registry_by_name.return_value = vector_store
 
             await azure_proxy_route(
                 endpoint="indexes/my-index/docs/index",
@@ -5632,27 +5632,27 @@ class TestAzureProxyRouteCrossIndexAuthorization:
     @pytest.mark.asyncio
     async def test_trailing_index_segment_does_not_authorize_a_different_index(self):
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
                 return_value=False,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ) as mock_is_allowed,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="https://azure-openai.example.com",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="azure-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ) as mock_handler,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(hangarllm, "vector_store_index_registry") as mock_index_registry,
         ):
             mock_index_registry.is_vector_store_index.side_effect = lambda vector_store_index_name: (
                 vector_store_index_name == "index"
@@ -5667,7 +5667,7 @@ class TestAzureProxyRouteCrossIndexAuthorization:
 
             mock_is_allowed.assert_not_called()
             mock_handler.assert_awaited_once()
-            assert mock_handler.await_args.kwargs["custom_llm_provider"] == litellm.LlmProviders.AZURE
+            assert mock_handler.await_args.kwargs["custom_llm_provider"] == hangarllm.LlmProviders.AZURE
 
 
 class TestAzureProxyRouteServiceLevelIndexCreate:
@@ -5703,13 +5703,13 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
     @pytest.mark.asyncio
     async def test_non_admin_cannot_create_an_index(self):
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="https://svc.search.windows.net",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ) as mock_handler,
         ):
@@ -5720,7 +5720,7 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
                     fastapi_response=MagicMock(spec=Response),
                     user_api_key_dict=UserAPIKeyAuth(
                         token="sk-team-token",
-                        user_role=LitellmUserRoles.INTERNAL_USER,
+                        user_role=HangarllmUserRoles.INTERNAL_USER,
                     ),
                 )
 
@@ -5731,17 +5731,17 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
     @pytest.mark.asyncio
     async def test_admin_can_still_create_an_index(self):
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="https://svc.search.windows.net",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="azure-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler.base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ) as mock_handler,
         ):
@@ -5751,7 +5751,7 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
                 fastapi_response=MagicMock(spec=Response),
                 user_api_key_dict=UserAPIKeyAuth(
                     token="sk-admin-token",
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                 ),
             )
 
@@ -5769,12 +5769,12 @@ class TestComprehendMedicalProxyRoute:
     async def test_signs_and_forwards_detect_entities_v2(self):
         from botocore.credentials import Credentials
 
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
-        from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-            LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
-            LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
+        from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
+            HANGARLLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
+            HANGARLLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
         )
 
         request_body = {"Text": "Patient was prescribed 40mg atorvastatin daily."}
@@ -5783,15 +5783,15 @@ class TestComprehendMedicalProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 side_effect=lambda secret_name: "us-east-1" if secret_name == "AWS_REGION_NAME" else None,
             ),
             patch(
-                "litellm.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
+                "hangarllm.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
                 return_value=Credentials("test-access-key", "test-secret-key"),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -5812,8 +5812,8 @@ class TestComprehendMedicalProxyRoute:
         assert signed_headers["Content-Type"] == "application/x-amz-json-1.1"
         assert signed_headers["Authorization"].startswith("AWS4-HMAC-SHA256")
         assert "/comprehendmedical/aws4_request" in signed_headers["Authorization"]
-        assert getattr(mock_request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY) == request_body
-        assert json.loads(getattr(mock_request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY)) == request_body
+        assert getattr(mock_request.state, HANGARLLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY) == request_body
+        assert json.loads(getattr(mock_request.state, HANGARLLM_PASS_THROUGH_RAW_BODY_STATE_KEY)) == request_body
         mock_endpoint_func.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -5829,7 +5829,7 @@ class TestComprehendMedicalProxyRoute:
         ],
     )
     async def test_rejects_unsupported_operations(self, operation):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
 
@@ -5845,12 +5845,12 @@ class TestComprehendMedicalProxyRoute:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("body", [{"Text": "hi", "stream": True}, {"Text": "hi", "stream": False}, ["Text"]])
     async def test_rejects_stream_key_and_non_object_bodies(self, body):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
             return_value="us-east-1",
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -5864,12 +5864,12 @@ class TestComprehendMedicalProxyRoute:
 
     @pytest.mark.asyncio
     async def test_missing_region_returns_400(self):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
             return_value=None,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -5882,15 +5882,15 @@ class TestComprehendMedicalProxyRoute:
         assert exc_info.value.status_code == 400
 
     def test_comprehendmedical_is_a_mapped_pass_through_route(self):
-        from litellm.proxy._types import LiteLLMRoutes
+        from hangarllm.proxy._types import HangarLLMRoutes
 
-        assert "/comprehendmedical" in LiteLLMRoutes.mapped_pass_through_routes.value
+        assert "/comprehendmedical" in HangarLLMRoutes.mapped_pass_through_routes.value
 
     @pytest.mark.asyncio
     async def test_sdk_route_reads_operation_from_x_amz_target(self):
         from botocore.credentials import Credentials
 
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_sdk_proxy_route,
         )
 
@@ -5900,15 +5900,15 @@ class TestComprehendMedicalProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 side_effect=lambda secret_name: "us-east-1" if secret_name == "AWS_REGION_NAME" else None,
             ),
             patch(
-                "litellm.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
+                "hangarllm.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
                 return_value=Credentials("test-access-key", "test-secret-key"),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -5928,7 +5928,7 @@ class TestComprehendMedicalProxyRoute:
         ["", "ComprehendMedical_20181030", "WrongService.DetectPHI", "ComprehendMedical_20181030."],
     )
     async def test_sdk_route_rejects_bad_x_amz_target(self, target_header):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_sdk_proxy_route,
         )
 
@@ -5949,15 +5949,15 @@ TRANSCRIBE_UPSTREAM = "https://transcribe.us-west-2.amazonaws.com/"
 
 @pytest.fixture
 def transcribe_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     monkeypatch.setenv("AWS_REGION_NAME", "us-west-2")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
     monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(
         app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual", user_id="user-a")
     )
@@ -5968,23 +5968,23 @@ def transcribe_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
 
 
 def _owned_job(owner: str | None, status: str = "COMPLETED") -> dict[str, object]:
-    tags = {"Tags": [{"Key": "litellm-owner", "Value": owner}]} if owner is not None else {}
-    return {"TranscriptionJob": {"TranscriptionJobName": "litellm-job-1", "TranscriptionJobStatus": status, **tags}}
+    tags = {"Tags": [{"Key": "hangarllm-owner", "Value": owner}]} if owner is not None else {}
+    return {"TranscriptionJob": {"TranscriptionJobName": "hangarllm-job-1", "TranscriptionJobStatus": status, **tags}}
 
 
 class TestTranscribeProxyRoute:
     START_JOB_BODY: Final = MappingProxyType(
         {
-            "TranscriptionJobName": "litellm-job-1",
+            "TranscriptionJobName": "hangarllm-job-1",
             "LanguageCode": "en-US",
             "Media": {"MediaFileUri": "s3://bucket/audio.wav"},
         }
     )
-    OWNER_TAG: Final = MappingProxyType({"Key": "litellm-owner", "Value": "user-a"})
+    OWNER_TAG: Final = MappingProxyType({"Key": "hangarllm-owner", "Value": "user-a"})
 
     def test_signs_and_forwards_start_transcription_job(self, transcribe_client: TestClient) -> None:
         upstream_body = {
-            "TranscriptionJob": {"TranscriptionJobName": "litellm-job-1", "TranscriptionJobStatus": "IN_PROGRESS"}
+            "TranscriptionJob": {"TranscriptionJobName": "hangarllm-job-1", "TranscriptionJobStatus": "IN_PROGRESS"}
         }
         with respx.mock(assert_all_called=True) as upstream:
             route = upstream.post(TRANSCRIBE_UPSTREAM).mock(return_value=httpx.Response(200, json=upstream_body))
@@ -6029,7 +6029,7 @@ class TestTranscribeProxyRoute:
     def test_start_needs_a_bucket_list_unless_the_caller_is_a_proxy_admin(
         self, transcribe_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setitem(app.dependency_overrides, _proxy_general_settings, lambda: {})
         with respx.mock(assert_all_called=False) as upstream:
@@ -6038,7 +6038,7 @@ class TestTranscribeProxyRoute:
             monkeypatch.setitem(
                 app.dependency_overrides,
                 user_api_key_auth,
-                lambda: UserAPIKeyAuth(api_key="sk-admin", user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+                lambda: UserAPIKeyAuth(api_key="sk-admin", user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
             )
             allowed = transcribe_client.post("/transcribe/StartTranscriptionJob", json=dict(self.START_JOB_BODY))
 
@@ -6052,11 +6052,11 @@ class TestTranscribeProxyRoute:
             route = upstream.post(TRANSCRIBE_UPSTREAM)
             response = transcribe_client.post(
                 "/transcribe/StartTranscriptionJob",
-                json={**dict(self.START_JOB_BODY), "Tags": [{"Key": "litellm-owner", "Value": "user-b"}]},
+                json={**dict(self.START_JOB_BODY), "Tags": [{"Key": "hangarllm-owner", "Value": "user-b"}]},
             )
 
         assert response.status_code == 400
-        assert "litellm-owner" in response.json()["detail"]
+        assert "hangarllm-owner" in response.json()["detail"]
         assert not route.called
 
     def test_sdk_route_reads_operation_from_x_amz_target_and_resigns(self, transcribe_client: TestClient) -> None:
@@ -6064,7 +6064,7 @@ class TestTranscribeProxyRoute:
             route = upstream.post(TRANSCRIBE_UPSTREAM).mock(return_value=httpx.Response(200, json=_owned_job("user-a")))
             response = transcribe_client.post(
                 "/transcribe",
-                json={"TranscriptionJobName": "litellm-job-1"},
+                json={"TranscriptionJobName": "hangarllm-job-1"},
                 headers={
                     "Authorization": "AWS4-HMAC-SHA256 Credential=sk-virtual/20260101/us-west-2/transcribe/aws4_request",
                     "X-Amz-Target": "Transcribe.GetTranscriptionJob",
@@ -6086,7 +6086,7 @@ class TestTranscribeProxyRoute:
         with respx.mock(assert_all_called=True) as upstream:
             route = upstream.post(TRANSCRIBE_UPSTREAM).mock(return_value=httpx.Response(200, json=_owned_job(owner)))
             response = transcribe_client.post(
-                f"/transcribe/{operation}", json={"TranscriptionJobName": "litellm-job-1"}
+                f"/transcribe/{operation}", json={"TranscriptionJobName": "hangarllm-job-1"}
             )
 
         assert response.status_code == 404
@@ -6097,7 +6097,7 @@ class TestTranscribeProxyRoute:
             route = upstream.post(TRANSCRIBE_UPSTREAM)
             route.side_effect = [httpx.Response(200, json=_owned_job("user-a")), httpx.Response(200, json={})]
             response = transcribe_client.post(
-                "/transcribe/DeleteTranscriptionJob", json={"TranscriptionJobName": "litellm-job-1"}
+                "/transcribe/DeleteTranscriptionJob", json={"TranscriptionJobName": "hangarllm-job-1"}
             )
 
         assert (response.status_code, response.json()) == (200, {})
@@ -6119,13 +6119,13 @@ class TestTranscribeProxyRoute:
     def test_a_proxy_admin_reaches_account_wide_operations(
         self, transcribe_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy._types import LitellmUserRoles
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy._types import HangarllmUserRoles
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setitem(
             app.dependency_overrides,
             user_api_key_auth,
-            lambda: UserAPIKeyAuth(api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            lambda: UserAPIKeyAuth(api_key="sk-admin", user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
         with respx.mock(assert_all_called=True) as upstream:
             upstream.post(TRANSCRIBE_UPSTREAM).mock(
@@ -6219,7 +6219,7 @@ class TestTranscribeProxyRoute:
     def test_rejects_start_transcription_job_when_the_cost_map_has_no_rate(
         self, transcribe_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.delitem(litellm.model_cost, "transcribe/StartTranscriptionJob")
+        monkeypatch.delitem(hangarllm.model_cost, "transcribe/StartTranscriptionJob")
         with respx.mock(assert_all_called=False) as upstream:
             route = upstream.post(TRANSCRIBE_UPSTREAM)
             response = transcribe_client.post("/transcribe/StartTranscriptionJob", json=dict(self.START_JOB_BODY))
@@ -6239,9 +6239,9 @@ class TestTranscribeProxyRoute:
         assert not route.called
 
     def test_transcribe_is_a_mapped_pass_through_route(self) -> None:
-        from litellm.proxy._types import LiteLLMRoutes
+        from hangarllm.proxy._types import HangarLLMRoutes
 
-        assert "/transcribe" in LiteLLMRoutes.mapped_pass_through_routes.value
+        assert "/transcribe" in HangarLLMRoutes.mapped_pass_through_routes.value
 
 
 LIVE_RESOURCE_PATH = "projects/proj-db/locations/global/publishers/google/models/gemini-live-2.5-flash"
@@ -6265,15 +6265,15 @@ class TestVertexAILiveWebsocketPassthrough:
 
     @pytest.mark.asyncio
     async def test_uses_db_deployment_credentials_without_query_params(self, monkeypatch):
-        from litellm.proxy.pass_through_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
 
-        llm_router = litellm.Router(
+        llm_router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gemini-live",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "vertex_ai/gemini-live-2.5-flash",
                         "use_in_pass_through": True,
                         "vertex_project": "proj-db",
@@ -6283,7 +6283,7 @@ class TestVertexAILiveWebsocketPassthrough:
                 }
             ]
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", llm_router)
         monkeypatch.setattr(passthrough_module.passthrough_endpoint_router, "default_vertex_config", None)
         self._clear_vertex_env(monkeypatch)
         websocket = self._websocket()
@@ -6335,15 +6335,15 @@ class TestVertexAILiveWebsocketPassthrough:
         ],
     )
     def test_setup_model_rewriter_normalises_the_forms_clients_send(self, setup_model, expected):
-        from litellm.proxy.pass_through_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
 
-        llm_router = litellm.Router(
+        llm_router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gemini-live",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "vertex_ai/gemini-live-2.5-flash",
                         "use_in_pass_through": True,
                         "vertex_project": "proj-db",
@@ -6364,18 +6364,18 @@ class TestVertexAILiveWebsocketPassthrough:
 
     @pytest.mark.asyncio
     async def test_default_vertex_config_outranks_db_deployment(self, monkeypatch):
-        from litellm.proxy.pass_through_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
-        from litellm.types.passthrough_endpoints.vertex_ai import (
+        from hangarllm.types.passthrough_endpoints.vertex_ai import (
             VertexPassThroughCredentials,
         )
 
-        llm_router = litellm.Router(
+        llm_router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gemini-live",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "vertex_ai/gemini-live-2.5-flash",
                         "use_in_pass_through": True,
                         "vertex_project": "proj-db",
@@ -6385,7 +6385,7 @@ class TestVertexAILiveWebsocketPassthrough:
                 }
             ]
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", llm_router)
         monkeypatch.setattr(
             passthrough_module.passthrough_endpoint_router,
             "default_vertex_config",
@@ -6422,11 +6422,11 @@ class TestVertexAILiveWebsocketPassthrough:
 
     @pytest.mark.asyncio
     async def test_credential_failure_close_names_configuration_options(self, monkeypatch):
-        from litellm.proxy.pass_through_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
         monkeypatch.setattr(passthrough_module.passthrough_endpoint_router, "default_vertex_config", None)
         self._clear_vertex_env(monkeypatch)
         websocket = self._websocket()
@@ -6434,7 +6434,7 @@ class TestVertexAILiveWebsocketPassthrough:
 
         with (
             patch.object(passthrough_module.vertex_llm_base, "ensure_access_token_async", ensure_token),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         ):
             mock_proxy_logging.post_call_failure_hook = AsyncMock()
             await passthrough_module.vertex_ai_live_websocket_passthrough(
@@ -6453,7 +6453,7 @@ class TestVertexAILiveWebsocketPassthrough:
     async def test_credential_failure_logs_the_named_model_under_vertex_ai(
         self, monkeypatch: pytest.MonkeyPatch, model: str | None, expected_model: str
     ):
-        from litellm.proxy.pass_through_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
 
@@ -6472,11 +6472,11 @@ class TestVertexAILiveWebsocketPassthrough:
                 self.request_data = (*self.request_data, request_data)
 
         recorder: Final = _FailureRecorder()
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache())
+            "hangarllm.proxy.proxy_server.proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache())
         )
-        monkeypatch.setattr(litellm, "callbacks", [recorder])
+        monkeypatch.setattr(hangarllm, "callbacks", [recorder])
         monkeypatch.setattr(passthrough_module.passthrough_endpoint_router, "default_vertex_config", None)
         self._clear_vertex_env(monkeypatch)
         ensure_token: Final = AsyncMock(side_effect=Exception("Unable to find your credentials"))
@@ -6524,7 +6524,7 @@ class TestAnthropicProxyRoute:
 
     @pytest.mark.asyncio
     async def test_client_anthropic_beta_merged_into_auth_header(self, monkeypatch):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             anthropic_proxy_route,
         )
 
@@ -6532,7 +6532,7 @@ class TestAnthropicProxyRoute:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-oat01-passthrough-token")
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             return_value=AsyncMock(return_value={"ok": True}),
         ) as mock_create_route:
             await anthropic_proxy_route(
@@ -6551,10 +6551,10 @@ class TestAnthropicProxyRoute:
     async def test_wif_mint_goes_through_async_facade(self, monkeypatch):
         import threading
 
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.wif import aget_anthropic_wif_token, get_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             anthropic_proxy_route,
         )
 
@@ -6577,18 +6577,18 @@ class TestAnthropicProxyRoute:
         engine = JwtBearerTokenExchangeEngine(poster=ThreadRecordingPoster())
         sync_calls: Final = []
 
-        def sync_shim(litellm_params, api_base, model):
+        def sync_shim(hangarllm_params, api_base, model):
             sync_calls.append(model)
-            return get_anthropic_wif_token(litellm_params, api_base, model, engine)
+            return get_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
-        async def async_shim(litellm_params, api_base, model):
-            return await aget_anthropic_wif_token(litellm_params, api_base, model, engine)
+        async def async_shim(hangarllm_params, api_base, model):
+            return await aget_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
         monkeypatch.setattr(anthropic_common_utils, "get_anthropic_wif_token", sync_shim)
         monkeypatch.setattr(anthropic_common_utils, "aget_anthropic_wif_token", async_shim)
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             return_value=AsyncMock(return_value={"ok": True}),
         ) as mock_create_route:
             await anthropic_proxy_route(
@@ -6634,9 +6634,9 @@ class TestAnthropicProxyRouteCallerAuthHeaders:
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
 
     def _enable_wif(self, monkeypatch) -> None:
-        from litellm.llms.anthropic import common_utils as anthropic_common_utils
-        from litellm.llms.anthropic.wif import aget_anthropic_wif_token
-        from litellm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
+        from hangarllm.llms.anthropic import common_utils as anthropic_common_utils
+        from hangarllm.llms.anthropic.wif import aget_anthropic_wif_token
+        from hangarllm.llms.base_llm.auth.token_exchange import JwtBearerTokenExchangeEngine
 
         monkeypatch.setenv("ANTHROPIC_FEDERATION_RULE_ID", "fdrl_plan")
         monkeypatch.setenv("ANTHROPIC_ORGANIZATION_ID", "org-plan")
@@ -6653,8 +6653,8 @@ class TestAnthropicProxyRouteCallerAuthHeaders:
 
         engine: Final = JwtBearerTokenExchangeEngine(poster=StubPoster())
 
-        async def async_shim(litellm_params, api_base, model):
-            return await aget_anthropic_wif_token(litellm_params, api_base, model, engine)
+        async def async_shim(hangarllm_params, api_base, model):
+            return await aget_anthropic_wif_token(hangarllm_params, api_base, model, engine)
 
         monkeypatch.setattr(anthropic_common_utils, "aget_anthropic_wif_token", async_shim)
 
@@ -6681,7 +6681,7 @@ class TestAnthropicProxyRouteCallerAuthHeaders:
         return Request(scope, receive)
 
     async def _upstream_headers(self, request: Request) -> dict:
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             anthropic_proxy_route,
         )
 
@@ -6699,11 +6699,11 @@ class TestAnthropicProxyRouteCallerAuthHeaders:
 
         with (
             patch(  # test-quality-ok: stubbing the http client IS the boundary; the test asserts on the bytes handed to it
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
+                "hangarllm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
                 return_value=client_wrapper,
             ),
             patch(  # test-quality-ok: the relay calls these hooks, and they need a db this test has no use for
-                "litellm.proxy.proxy_server.proxy_logging_obj"
+                "hangarllm.proxy.proxy_server.proxy_logging_obj"
             ) as mock_logging_obj,
         ):
             mock_logging_obj.pre_call_hook = AsyncMock(return_value={"model": "claude-sonnet-4-5", "messages": []})
@@ -6758,9 +6758,9 @@ class TestAnthropicProxyRouteCallerAuthHeaders:
         assert all("sk-caller-virtual-key" not in value for value in sent.values())
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("header_name", sorted(SpecialHeaders.litellm_credential_header_names()))
+    @pytest.mark.parametrize("header_name", sorted(SpecialHeaders.hangarllm_credential_header_names()))
     async def test_wif_credential_drops_every_proxy_key_header(self, monkeypatch, header_name: str):
-        """The proxy accepts a LiteLLM key in any SpecialHeaders slot, so the caller's virtual
+        """The proxy accepts a HangarLLM key in any SpecialHeaders slot, so the caller's virtual
         key must not reach Anthropic from any of them once the server owns the credential."""
         self._clear_anthropic_env(monkeypatch)
         self._enable_wif(monkeypatch)
@@ -6782,11 +6782,11 @@ class TestAnthropicProxyRouteCallerAuthHeaders:
 
     @pytest.mark.asyncio
     async def test_wif_credential_drops_configured_custom_key_header(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         self._clear_anthropic_env(monkeypatch)
         self._enable_wif(monkeypatch)
-        monkeypatch.setitem(proxy_server.general_settings, "litellm_key_header_name", "X-Tenant-Key")
+        monkeypatch.setitem(proxy_server.general_settings, "hangarllm_key_header_name", "X-Tenant-Key")
 
         sent: Final = await self._upstream_headers(
             self._request(
@@ -6871,8 +6871,8 @@ class TestPassthroughRouterModelBudgetReservation:
         return request
 
     def _install_recording_router(self, monkeypatch, body: dict) -> list[dict]:
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
 
         captured: list[dict] = []
 
@@ -6896,16 +6896,16 @@ class TestPassthroughRouterModelBudgetReservation:
     def _assert_metadata_carries_attribution(self, captured: list[dict], user_api_key_dict: UserAPIKeyAuth) -> None:
         assert len(captured) == 1, "the router-model branch must dispatch exactly once"
         assert captured[0].get("metadata") is None, (
-            "attribution must ride the litellm_metadata bucket the router canonicalizes on; "
+            "attribution must ride the hangarllm_metadata bucket the router canonicalizes on; "
             "the plain metadata bucket is dropped for every non-user_api_key field"
         )
-        litellm_metadata = captured[0]["litellm_metadata"]
-        assert litellm_metadata["user_api_key"] == user_api_key_dict.api_key
-        assert litellm_metadata["user_api_key_budget_reservation"] is user_api_key_dict.budget_reservation
-        assert litellm_metadata["user_api_key_user_id"] == user_api_key_dict.user_id
-        assert litellm_metadata["user_api_key_team_id"] == user_api_key_dict.team_id
-        assert litellm_metadata["agent_id"] == user_api_key_dict.agent_id
-        assert litellm_metadata["user_api_end_user_max_budget"] == user_api_key_dict.end_user_max_budget
+        hangarllm_metadata = captured[0]["hangarllm_metadata"]
+        assert hangarllm_metadata["user_api_key"] == user_api_key_dict.api_key
+        assert hangarllm_metadata["user_api_key_budget_reservation"] is user_api_key_dict.budget_reservation
+        assert hangarllm_metadata["user_api_key_user_id"] == user_api_key_dict.user_id
+        assert hangarllm_metadata["user_api_key_team_id"] == user_api_key_dict.team_id
+        assert hangarllm_metadata["agent_id"] == user_api_key_dict.agent_id
+        assert hangarllm_metadata["user_api_end_user_max_budget"] == user_api_key_dict.end_user_max_budget
 
     @pytest.mark.asyncio
     async def test_vllm_router_model_threads_key_metadata(self, monkeypatch):
@@ -6952,9 +6952,9 @@ class TestAzureRouterModelStreamingDispatch:
 
     @pytest.mark.asyncio
     async def test_azure_router_model_streaming_returns_streaming_response(self, monkeypatch):
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.passthrough.main import AsyncPassthroughStreamingResponse
 
         upstream_body = b"data: hello\n\n"
 
@@ -6973,13 +6973,13 @@ class TestAzureRouterModelStreamingDispatch:
         logging_obj = MagicMock()
         logging_obj.async_flush_passthrough_collected_chunks = AsyncMock()
 
-        from litellm.litellm_core_utils.add_retry_fallback_headers import prepare_response_for_header_attachment
+        from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import prepare_response_for_header_attachment
 
         class StreamingRouter:
             async def allm_passthrough_route(self, **kwargs):
                 streaming_response = await AsyncPassthroughStreamingResponse(
                     response=_upstream_response(),
-                    litellm_logging_obj=logging_obj,
+                    hangarllm_logging_obj=logging_obj,
                     provider_config=MagicMock(),
                 )
                 return prepare_response_for_header_attachment(streaming_response)
@@ -7017,11 +7017,11 @@ class TestAzureRouterModelStreamingKeepalive:
     async def _dispatch(self, monkeypatch, interval, headers_delay=0.0, body_delay=0.0) -> StreamingResponse:
         import asyncio
 
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.passthrough.main import AsyncPassthroughStreamingResponse
 
-        monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", interval)
+        monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", interval)
 
         class _StallingBody(httpx.AsyncByteStream):
             async def __aiter__(self):
@@ -7044,7 +7044,7 @@ class TestAzureRouterModelStreamingKeepalive:
             async def allm_passthrough_route(self, **kwargs):
                 return await AsyncPassthroughStreamingResponse(
                     response=_upstream_response(),
-                    litellm_logging_obj=logging_obj,
+                    hangarllm_logging_obj=logging_obj,
                     provider_config=MagicMock(),
                 )
 
@@ -7116,8 +7116,8 @@ class TestRouterModelRelayUpstreamContract:
         return request
 
     def _install_router(self, monkeypatch, router, body: dict) -> None:
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
 
         async def fake_get_request_body(_request):
             return body
@@ -7199,8 +7199,8 @@ class TestRouterModelRelayUpstreamContract:
 
     @pytest.mark.asyncio
     async def test_azure_relay_answers_401_when_entra_rejects_the_deployment_credential(self, monkeypatch):
-        from litellm.llms.azure.common_utils import EntraRejectionError
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from hangarllm.llms.azure.common_utils import EntraRejectionError
+        from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 
         reason: Final = "Failed to get Azure AD token: AADSTS7000215: Invalid client secret provided."
 
@@ -7225,7 +7225,7 @@ class TestRouterModelRelayUpstreamContract:
 
     @pytest.mark.asyncio
     async def test_azure_relay_entra_rejection_hides_an_internal_issuer_host(self, monkeypatch):
-        from litellm.llms.azure.common_utils import EntraRejectionError
+        from hangarllm.llms.azure.common_utils import EntraRejectionError
 
         reason: Final = (
             "Failed to get Azure AD token: AADSTS700211: No matching federated identity record found for "
@@ -7252,7 +7252,7 @@ class TestRouterModelRelayUpstreamContract:
 
     @pytest.mark.asyncio
     async def test_azure_relay_keeps_a_failure_entra_did_not_cause(self, monkeypatch):
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 
         upstream_failure: Final = BaseLLMException(status_code=500, message="Connection reset by Azure")
 
@@ -7274,19 +7274,19 @@ class TestRouterModelRelayUpstreamContract:
 
     @pytest.mark.asyncio
     async def test_azure_relay_keeps_entra_throttling_the_oidc_token_exchange_as_a_429(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_QA_FEDERATED_TOKEN", "federated-token")
+        monkeypatch.setenv("HANGARLLM_QA_FEDERATED_TOKEN", "federated-token")
         monkeypatch.delenv("AZURE_AUTHORITY_HOST", raising=False)
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-5",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/gpt-5",
-                        "api_base": "https://litellm-qa.openai.azure.com",
+                        "api_base": "https://hangarllm-qa.openai.azure.com",
                         "api_version": "2025-04-01-preview",
                         "tenant_id": "throttled-tenant",
                         "client_id": "qa-client",
-                        "azure_ad_token": "oidc/env/LITELLM_QA_FEDERATED_TOKEN",
+                        "azure_ad_token": "oidc/env/HANGARLLM_QA_FEDERATED_TOKEN",
                     },
                 }
             ],
@@ -7302,7 +7302,7 @@ class TestRouterModelRelayUpstreamContract:
                     json={"error": "temporarily_unavailable", "error_codes": [90055]},
                 )
             )
-            deployment_route: Final = respx.post(url__startswith="https://litellm-qa.openai.azure.com").mock(
+            deployment_route: Final = respx.post(url__startswith="https://hangarllm-qa.openai.azure.com").mock(
                 return_value=httpx.Response(200, json={"ok": True})
             )
             response: Final = await azure_proxy_route(
@@ -7321,19 +7321,19 @@ class TestRouterModelRelayUpstreamContract:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from azure.core.exceptions import ClientAuthenticationError
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
 
         def rejected_token() -> str:
             raise ClientAuthenticationError(message="AADSTS7000215: Invalid client secret provided.")
 
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        router: Final = litellm.Router(
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-5",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/gpt-5",
-                        "api_base": "https://litellm-qa.openai.azure.com",
+                        "api_base": "https://hangarllm-qa.openai.azure.com",
                         "api_version": "2025-04-01-preview",
                         "azure_ad_token_provider": rejected_token,
                         "order": 1,
@@ -7341,9 +7341,9 @@ class TestRouterModelRelayUpstreamContract:
                 },
                 {
                     "model_name": "gpt-5",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/gpt-5",
-                        "api_base": "https://litellm-qa-unreachable.openai.azure.com",
+                        "api_base": "https://hangarllm-qa-unreachable.openai.azure.com",
                         "api_version": "2025-04-01-preview",
                         "api_key": "configured-key",
                         "order": 2,
@@ -7355,7 +7355,7 @@ class TestRouterModelRelayUpstreamContract:
         self._install_router(monkeypatch, router, {"model": "gpt-5", "stream": False})
 
         with respx.mock:
-            unreachable_route: Final = respx.post(url__startswith="https://litellm-qa-unreachable.openai.azure.com").mock(
+            unreachable_route: Final = respx.post(url__startswith="https://hangarllm-qa-unreachable.openai.azure.com").mock(
                 side_effect=httpx.ConnectError("Connection refused")
             )
             with pytest.raises(BaseLLMException) as excinfo:
@@ -7389,7 +7389,7 @@ class TestNvidiaNimProxyRoute:
     def _recording_router(self, captured: list[dict], deployments: dict[str, str]):
         class RecordingRouter:
             def get_model_list(self):
-                return [{"model_name": name, "litellm_params": {"model": model}} for name, model in deployments.items()]
+                return [{"model_name": name, "hangarllm_params": {"model": model}} for name, model in deployments.items()]
 
             async def allm_passthrough_route(self, **kwargs):
                 captured.append(kwargs)
@@ -7432,7 +7432,7 @@ class TestNvidiaNimProxyRoute:
         assert relay["method"] == "POST"
         assert relay["json"] == NIM_INFER_BODY
         assert "model" not in relay["json"]
-        assert relay["litellm_metadata"]["user_api_key_team_id"] == "team-1"
+        assert relay["hangarllm_metadata"]["user_api_key_team_id"] == "team-1"
         assert result.status_code == 200
         assert json.loads(result.body) == {"data": [{"index": 0, "bounding_boxes": {}}]}
         assert result.headers["x-nim-request"] == "r1"
@@ -7457,7 +7457,7 @@ class TestNvidiaNimProxyRoute:
                 return [
                     {
                         "model_name": "page-elements",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "nvidia/nemoretriever-page-elements-v2",
                             "custom_llm_provider": "nvidia_nim",
                         },
@@ -7499,9 +7499,9 @@ class TestNvidiaNimProxyRoute:
                 return [
                     {
                         "model_name": "detect",
-                        "litellm_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
+                        "hangarllm_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
                     },
-                    {"model_name": "detect", "litellm_params": {"model": "openai/gpt-4o"}},
+                    {"model_name": "detect", "hangarllm_params": {"model": "openai/gpt-4o"}},
                 ]
 
             async def allm_passthrough_route(self, **kwargs):
@@ -7530,7 +7530,7 @@ class TestNvidiaNimProxyRoute:
                 return [
                     {
                         "model_name": "nim-page-elements",
-                        "litellm_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
+                        "hangarllm_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
                     }
                 ]
 
@@ -7558,8 +7558,8 @@ async def test_bedrock_count_tokens_error_forwards_provider_headers():
     headers there loses x-amzn-RequestId after the handler went to the trouble of keeping it."""
     from fastapi import HTTPException
 
-    from litellm.llms.bedrock.common_utils import BedrockError
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.llms.bedrock.common_utils import BedrockError
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         handle_bedrock_count_tokens,
     )
 
@@ -7570,7 +7570,7 @@ async def test_bedrock_count_tokens_error_forwards_provider_headers():
     )
 
     with patch(  # test-quality-ok: the route's BedrockError branch is only reachable when the handler raises
-        "litellm.llms.bedrock.count_tokens.handler.BedrockCountTokensHandler.handle_count_tokens_request",
+        "hangarllm.llms.bedrock.count_tokens.handler.BedrockCountTokensHandler.handle_count_tokens_request",
         new=AsyncMock(side_effect=failure),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -7593,18 +7593,18 @@ _BEDROCK_COUNT_MODEL: Final = "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1
 async def _bedrock_native_count(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter, aws_reply: httpx.Response
 ) -> dict[str, object]:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         handle_bedrock_count_tokens,
     )
 
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.llm_router",
-        litellm.Router(
+        "hangarllm.proxy.proxy_server.llm_router",
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": _BEDROCK_COUNT_ALIAS,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": _BEDROCK_COUNT_MODEL,
                         "aws_region_name": "us-east-1",
                         "aws_access_key_id": "AKIATESTACCESSKEY",
@@ -7623,7 +7623,7 @@ async def _bedrock_native_count(
             "type": "http",
             "method": "POST",
             "path": f"/bedrock/model/{_BEDROCK_COUNT_ALIAS}/count-tokens",
-            "headers": [(b"x-litellm-call-id", b"bedrock-native-count")],
+            "headers": [(b"x-hangarllm-call-id", b"bedrock-native-count")],
         }
     )
     return await handle_bedrock_count_tokens(
@@ -7649,7 +7649,7 @@ async def test_bedrock_native_count_tokens_logs_the_count_against_the_router_mod
     assert respx_mock.calls.last.request.url.path == "/model/anthropic.claude-haiku-4-5-20251001-v1:0/count-tokens"
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "bedrock-native-count",
+            "hangarllm_call_id": "bedrock-native-count",
             "request_model": _BEDROCK_COUNT_ALIAS,
             "model_id": "count-log-bedrock-deployment",
             "model_used": "anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -7674,7 +7674,7 @@ async def test_bedrock_native_count_tokens_logs_the_provider_status_when_the_cou
     assert exc_info.value.status_code == 400
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "bedrock-native-count",
+            "hangarllm_call_id": "bedrock-native-count",
             "request_model": _BEDROCK_COUNT_ALIAS,
             "model_id": "count-log-bedrock-deployment",
             "model_used": None,
@@ -7689,7 +7689,7 @@ async def test_bedrock_native_count_tokens_logs_the_provider_status_when_the_cou
 async def test_bedrock_native_count_tokens_without_a_model_logs_the_400_it_answers(
     token_count_log_lines: Callable[[], tuple[dict[str, object], ...]],
 ) -> None:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         handle_bedrock_count_tokens,
     )
 
@@ -7698,7 +7698,7 @@ async def test_bedrock_native_count_tokens_without_a_model_logs_the_400_it_answe
             "type": "http",
             "method": "POST",
             "path": f"/bedrock/model/{_BEDROCK_COUNT_ALIAS}/count-tokens",
-            "headers": [(b"x-litellm-call-id", b"bedrock-native-no-model")],
+            "headers": [(b"x-hangarllm-call-id", b"bedrock-native-no-model")],
         }
     )
     with pytest.raises(HTTPException) as exc_info:
@@ -7713,7 +7713,7 @@ async def test_bedrock_native_count_tokens_without_a_model_logs_the_400_it_answe
     assert exc_info.value.status_code == 400
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "bedrock-native-no-model",
+            "hangarllm_call_id": "bedrock-native-no-model",
             "request_model": None,
             "model_id": None,
             "model_used": None,
@@ -7729,17 +7729,17 @@ async def test_bedrock_native_count_tokens_with_a_region_only_model_answers_the_
     monkeypatch: pytest.MonkeyPatch,
     token_count_log_lines: Callable[[], tuple[dict[str, object], ...]],
 ) -> None:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         handle_bedrock_count_tokens,
     )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
     request: Final = Request(
         {
             "type": "http",
             "method": "POST",
             "path": "/bedrock/model/us/count-tokens",
-            "headers": [(b"x-litellm-call-id", b"bedrock-native-region-only")],
+            "headers": [(b"x-hangarllm-call-id", b"bedrock-native-region-only")],
         }
     )
     with pytest.raises(HTTPException) as exc_info:
@@ -7756,7 +7756,7 @@ async def test_bedrock_native_count_tokens_with_a_region_only_model_answers_the_
     }
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "bedrock-native-region-only",
+            "hangarllm_call_id": "bedrock-native-region-only",
             "request_model": "us",
             "model_id": None,
             "model_used": None,
@@ -7777,8 +7777,8 @@ class _AzureGroupRouter:
 
     def get_model_list(self, model_name=None, team_id=None):
         rows = [
-            {"model_name": "gpt", "litellm_params": {"model": "azure_ai/gpt-5.4-mini", "api_key": "k"}},
-            {"model_name": "other-group", "litellm_params": {"model": "azure/gpt-5.4", "api_key": "k"}},
+            {"model_name": "gpt", "hangarllm_params": {"model": "azure_ai/gpt-5.4-mini", "api_key": "k"}},
+            {"model_name": "other-group", "hangarllm_params": {"model": "azure/gpt-5.4", "api_key": "k"}},
         ]
         return [row for row in rows if model_name is None or row["model_name"] == model_name]
 
@@ -7792,14 +7792,14 @@ class TestAzureRelayDeploymentSegment:
     ``openai/deployments/<x>`` segment while the group segment picks the credential."""
 
     def test_models_served_by_group_resolves_each_deployment_to_its_model_name(self):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _models_served_by_group
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _models_served_by_group
 
         assert _models_served_by_group(_AzureGroupRouter([]), "gpt") == frozenset({"gpt-5.4-mini"})
         assert _models_served_by_group(_AzureGroupRouter([]), "missing-group") == frozenset()
 
     def _install(self, monkeypatch, body: dict) -> list[dict]:
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
 
         captured: list[dict] = []
 
@@ -7871,8 +7871,8 @@ class _AzureBodyModelGroupRouter:
 
     def get_model_list(self, model_name=None, team_id=None):
         rows = [
-            {"model_name": "gpt-5.4", "litellm_params": {"model": "azure/gpt-5.4-primary", "api_key": "k"}},
-            {"model_name": "azure-gpt-5.4", "litellm_params": {"model": "azure/gpt-5.4-fallback", "api_key": "k"}},
+            {"model_name": "gpt-5.4", "hangarllm_params": {"model": "azure/gpt-5.4-primary", "api_key": "k"}},
+            {"model_name": "azure-gpt-5.4", "hangarllm_params": {"model": "azure/gpt-5.4-fallback", "api_key": "k"}},
         ]
         return [row for row in rows if model_name is None or row["model_name"] == model_name]
 
@@ -7888,8 +7888,8 @@ class TestAzureBodyModelGroupRelay:
         body: dict,
         upstream: _AzureRelayUpstream = _azure_relay_json_upstream,
     ) -> list[dict]:
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        from litellm.proxy import proxy_server
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        from hangarllm.proxy import proxy_server
 
         captured: list[dict] = []
 
@@ -7957,7 +7957,7 @@ class TestAzureBodyModelGroupRelay:
 
     @pytest.mark.asyncio
     async def test_body_naming_no_model_group_still_goes_to_the_operator_azure_endpoint(self, monkeypatch):
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
 
         captured = self._install(monkeypatch, {"model": "gpt-5.4-raw-deployment", "input": "ping"})
         monkeypatch.setenv("AZURE_API_BASE", "https://operator.openai.azure.com")
@@ -7984,7 +7984,7 @@ class TestAzureBodyModelGroupRelay:
 
     @pytest.mark.asyncio
     async def test_deployment_path_keeps_its_direct_route_even_when_the_body_names_a_model_group(self, monkeypatch):
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
 
         captured = self._install(monkeypatch, {"model": "gpt-5.4", "messages": [{"role": "user", "content": "ping"}]})
         monkeypatch.setenv("AZURE_API_BASE", "https://operator.openai.azure.com")
@@ -8013,7 +8013,7 @@ class TestAzureBodyModelGroupRelay:
 
     @pytest.mark.asyncio
     async def test_non_json_body_is_not_parsed_for_a_model_group(self, monkeypatch):
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
 
         captured = self._install(monkeypatch, {"model": "gpt-5.4", "input": "ping"})
         monkeypatch.setenv("AZURE_API_BASE", "https://operator.openai.azure.com")
@@ -8040,7 +8040,7 @@ class TestAzureBodyModelGroupRelay:
 
     @pytest.mark.asyncio
     async def test_resource_endpoint_body_naming_a_model_group_keeps_the_operator_account(self, monkeypatch):
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
 
         captured = self._install(monkeypatch, {"model": "gpt-5.4", "training_file": "file-abc123"})
         monkeypatch.setenv("AZURE_API_BASE", "https://operator.openai.azure.com")
@@ -8077,14 +8077,14 @@ AZURE_SPEECH_TRANSCRIPT: Final = {"RecognitionStatus": "Success", "DisplayText":
 
 
 def _azure_speech_test_client(monkeypatch: pytest.MonkeyPatch, caller: UserAPIKeyAuth) -> TestClient:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     monkeypatch.setenv("AZURE_SPEECH_API_KEY", "server-subscription-key")
     monkeypatch.setenv("AZURE_SPEECH_REGION", "eastus")
     monkeypatch.delenv("AZURE_SPEECH_API_BASE", raising=False)
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: caller)
     return TestClient(app)
 
@@ -8097,7 +8097,7 @@ def azure_speech_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]
 @pytest.fixture
 def azure_speech_admin_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     yield _azure_speech_test_client(
-        monkeypatch, UserAPIKeyAuth(api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+        monkeypatch, UserAPIKeyAuth(api_key="sk-admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
     )
 
 
@@ -8259,7 +8259,7 @@ class TestAzureSpeechProxyRoute:
     def test_batch_requests_are_logged_as_azure_speech_not_assemblyai(
         self, azure_speech_admin_client: TestClient, monkeypatch: pytest.MonkeyPatch, method: str
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -8270,7 +8270,7 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(hangarllm, "_async_success_callback", [*hangarllm._async_success_callback, recorder])
         with respx.mock(assert_all_called=True) as upstream:
             upstream.request(method, f"https://eastus.api.cognitive.microsoft.com{AZURE_SPEECH_BATCH_ENDPOINT}").mock(
                 return_value=httpx.Response(200, json={"values": []})
@@ -8291,7 +8291,7 @@ class TestAzureSpeechProxyRoute:
     def test_fast_transcription_spend_is_priced_from_duration_milliseconds(
         self, azure_speech_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -8302,12 +8302,12 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(hangarllm, "_async_success_callback", [*hangarllm._async_success_callback, recorder])
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             "azure/speech/azure-stt",
             {
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "mode": "audio_transcription",
                 "input_cost_per_second": 0.25,
                 "output_cost_per_second": 0.0,
@@ -8335,7 +8335,7 @@ class TestAzureSpeechProxyRoute:
     def test_short_audio_spend_is_priced_from_the_recognized_duration(
         self, azure_speech_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -8346,12 +8346,12 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(hangarllm, "_async_success_callback", [*hangarllm._async_success_callback, recorder])
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             "azure/speech/azure-stt",
             {
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "mode": "audio_transcription",
                 "input_cost_per_second": 0.25,
                 "output_cost_per_second": 0.0,
@@ -8451,14 +8451,14 @@ class TestAzureSpeechProxyRoute:
         assert not catch_all.called
 
     def test_azure_speech_is_a_mapped_pass_through_route(self) -> None:
-        from litellm.proxy._types import LiteLLMRoutes
+        from hangarllm.proxy._types import HangarLLMRoutes
 
-        assert "/azure_speech" in LiteLLMRoutes.mapped_pass_through_routes.value
+        assert "/azure_speech" in HangarLLMRoutes.mapped_pass_through_routes.value
 
     def test_short_audio_with_no_recognized_speech_is_billed_for_the_uploaded_audio(
         self, azure_speech_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -8469,12 +8469,12 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(hangarllm, "_async_success_callback", [*hangarllm._async_success_callback, recorder])
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             "azure/speech/azure-stt",
             {
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "mode": "audio_transcription",
                 "input_cost_per_second": 0.25,
                 "output_cost_per_second": 0.0,
@@ -8530,8 +8530,8 @@ class TestAzureSpeechProxyRoutePathTraversal:
 
 
 def _azure_speech_real_auth_attrs() -> dict[str, object]:
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     user_api_key_cache: Final = DualCache()
     return {
@@ -8554,17 +8554,17 @@ class TestAzureSpeechRawBodyThroughRealAuth:
     def _post(
         self, monkeypatch: pytest.MonkeyPatch, path: str, api_key: str, content_type: str, body: bytes
     ) -> httpx.Response:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.delitem(app.dependency_overrides, user_api_key_auth, raising=False)
         monkeypatch.setenv("AZURE_SPEECH_API_KEY", "server-subscription-key")
         monkeypatch.setenv("AZURE_SPEECH_REGION", "eastus")
         monkeypatch.delenv("AZURE_SPEECH_API_BASE", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         with patch.multiple(  # test-quality-ok: the real user_api_key_auth reads proxy_server module globals (master_key, caches) that have no injection seam
-            "litellm.proxy.proxy_server", **_azure_speech_real_auth_attrs()
+            "hangarllm.proxy.proxy_server", **_azure_speech_real_auth_attrs()
         ):
             client = TestClient(app)
             return client.post(
@@ -8583,7 +8583,7 @@ class TestAzureSpeechRawBodyThroughRealAuth:
     def test_master_key_with_raw_wav_body_reaches_azure_without_a_parse_attempt(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, body: bytes
     ) -> None:
-        with respx.mock(assert_all_called=True) as upstream, caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+        with respx.mock(assert_all_called=True) as upstream, caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
             route = upstream.post(f"https://eastus.stt.speech.microsoft.com{AZURE_SPEECH_SHORT_AUDIO_ENDPOINT}").mock(
                 return_value=httpx.Response(200, json=AZURE_SPEECH_TRANSCRIPT)
             )
@@ -8596,7 +8596,7 @@ class TestAzureSpeechRawBodyThroughRealAuth:
         assert route.calls.last.request.content == body
         assert [record.message for record in caplog.records if "request body" in record.message] == []
 
-    def test_wrong_litellm_key_with_raw_wav_body_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_wrong_hangarllm_key_with_raw_wav_body_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with respx.mock(assert_all_called=False) as upstream:
             catch_all = upstream.route().mock(return_value=httpx.Response(200))
 
@@ -8637,7 +8637,7 @@ class TestAzureSpeechRawBodyThroughRealAuth:
         assert sent.headers["ocp-apim-subscription-key"] == "server-subscription-key"
 
     @pytest.mark.parametrize("content_type", ["audio/wav", "multipart/form-data; boundary=x"])
-    def test_wrong_litellm_key_with_multipart_batch_upload_is_rejected(
+    def test_wrong_hangarllm_key_with_multipart_batch_upload_is_rejected(
         self, monkeypatch: pytest.MonkeyPatch, content_type: str
     ) -> None:
         with respx.mock(assert_all_called=False) as upstream:
@@ -8708,10 +8708,10 @@ class TestVertexPassthroughAuthenticatesOncePerRequest:
         custom_auth: _CountingCustomAuth,
         credential_locations: tuple[str, ...],
     ) -> tuple[httpx.Response, _ServedCallerRecorder]:
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         router: Final = PassthroughEndpointRouter()
         for location in credential_locations:
@@ -8720,18 +8720,18 @@ class TestVertexPassthroughAuthenticatesOncePerRequest:
             )
         recorder: Final = _ServedCallerRecorder()
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router", router
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router", router
         )
         monkeypatch.delitem(app.dependency_overrides, user_api_key_auth, raising=False)
-        monkeypatch.setattr(litellm, "callbacks", [recorder])
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         with (
             patch.multiple(  # test-quality-ok: the real user_api_key_auth reads proxy_server module globals (custom auth, master_key, caches) that have no injection seam
-                "litellm.proxy.proxy_server", **{**_azure_speech_real_auth_attrs(), "user_custom_auth": custom_auth}
+                "hangarllm.proxy.proxy_server", **{**_azure_speech_real_auth_attrs(), "user_custom_auth": custom_auth}
             ),
             patch(  # test-quality-ok: the route mints its Google token through its own VertexBase, nothing injects the credential loader
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
+                "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
                 return_value=(Mock(token="google-access-token"), self.PROJECT),
             ),
         ):
@@ -8803,7 +8803,7 @@ class TestVertexPassthroughAuthenticatesOncePerRequest:
         ],
         ids=["generate_content", "discovery_search"],
     )
-    def test_x_litellm_api_key_with_any_auth_scheme_authenticates_once_on_every_vertex_route(
+    def test_x_hangarllm_api_key_with_any_auth_scheme_authenticates_once_on_every_vertex_route(
         self,
         monkeypatch: pytest.MonkeyPatch,
         scheme: str,
@@ -8819,7 +8819,7 @@ class TestVertexPassthroughAuthenticatesOncePerRequest:
             response, recorder = self._post(
                 monkeypatch,
                 route,
-                {"x-litellm-api-key": f"{scheme} {self.VIRTUAL_KEY}"},
+                {"x-hangarllm-api-key": f"{scheme} {self.VIRTUAL_KEY}"},
                 custom_auth,
                 (credential_location,),
             )
@@ -8829,7 +8829,7 @@ class TestVertexPassthroughAuthenticatesOncePerRequest:
         assert recorder.served_user_ids == ("custom-auth-caller-1",)
         assert google.call_count == 1
 
-    def test_x_litellm_api_key_authenticates_once_and_is_never_forwarded_without_a_vertex_credential(
+    def test_x_hangarllm_api_key_authenticates_once_and_is_never_forwarded_without_a_vertex_credential(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         custom_auth: Final = _CountingCustomAuth()
@@ -8839,7 +8839,7 @@ class TestVertexPassthroughAuthenticatesOncePerRequest:
             response, _ = self._post(
                 monkeypatch,
                 f"/vertex_ai/{self.GENERATE_CONTENT}",
-                {"x-litellm-api-key": self.VIRTUAL_KEY},
+                {"x-hangarllm-api-key": self.VIRTUAL_KEY},
                 custom_auth,
                 (),
             )
@@ -8849,7 +8849,7 @@ class TestVertexPassthroughAuthenticatesOncePerRequest:
         assert not google.called
 
     @pytest.mark.parametrize("header", ["x-goog-api-key", "x-api-key", "API-Key", "Ocp-Apim-Subscription-Key"])
-    def test_key_outside_litellm_headers_is_rejected_and_never_reaches_google_without_a_vertex_credential(
+    def test_key_outside_hangarllm_headers_is_rejected_and_never_reaches_google_without_a_vertex_credential(
         self, monkeypatch: pytest.MonkeyPatch, header: str
     ) -> None:
         custom_auth: Final = _CountingCustomAuth(only_accepts=self.VIRTUAL_KEY)
@@ -8892,13 +8892,13 @@ class TestTypeSafePassthroughRoute:
 
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-test-key")
         monkeypatch.setenv("TYPESAFE_API_BASE", "https://typesafe.example/base")
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -8970,18 +8970,18 @@ class TestTypeSafePassthroughRoute:
         quota_scope: Literal["key", "project_output"],
         token_limit: int,
     ) -> None:
-        from litellm.caching.caching import DualCache
-        from litellm.proxy import proxy_server
-        from litellm.proxy.hooks.cache_control_check import PROXY_CacheControlCheck
-        from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.hooks.cache_control_check import PROXY_CacheControlCheck
+        from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
             PROXY_MaxParallelRequestsHandler_v3,
             get_request_stash,
         )
-        from litellm.proxy.utils import InternalUsageCache, ProxyLogging
+        from hangarllm.proxy.utils import InternalUsageCache, ProxyLogging
 
         cache: Final = DualCache()
         limiter: Final = PROXY_MaxParallelRequestsHandler_v3(internal_usage_cache=InternalUsageCache(cache))
-        monkeypatch.setattr(litellm, "callbacks", list((limiter, PROXY_CacheControlCheck())))
+        monkeypatch.setattr(hangarllm, "callbacks", list((limiter, PROXY_CacheControlCheck())))
         monkeypatch.setattr(proxy_server, "proxy_logging_obj", ProxyLogging(user_api_key_cache=cache))
         monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-test-key")
         monkeypatch.setenv("OPENROUTER_API_BASE", "https://typesafe.example/base")
@@ -9040,7 +9040,7 @@ class TestTypeSafePassthroughRoute:
         endpoint_func = AsyncMock(side_effect=fake_upstream)
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -9082,13 +9082,13 @@ class _RecordsPreCallModel(CustomLogger):
 class TestEuJevPassthroughRoute:
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setenv("EU_JEV_API_KEY", "eu-jev-test-key")
         monkeypatch.setenv("EU_JEV_API_BASE", "https://eu-jev.example/base")
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -9117,7 +9117,7 @@ class TestEuJevPassthroughRoute:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch, body: dict[str, str], hook_model: str
     ) -> None:
         recorder: Final = _RecordsPreCallModel()
-        monkeypatch.setattr(litellm, "callbacks", [recorder])
+        monkeypatch.setattr(hangarllm, "callbacks", [recorder])
         with respx.mock(assert_all_called=True) as upstream:
             route: Final = upstream.post("https://eu-jev.example/base/v1/systemone").respond(200, json={"answers": {}})
             response: Final = client.post("/eu_jev/v1/systemone", json=body)
@@ -9137,7 +9137,7 @@ class TestEuJevPassthroughRoute:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         recorder: Final = _RecordsPreCallModel()
-        monkeypatch.setattr(litellm, "callbacks", [recorder])
+        monkeypatch.setattr(hangarllm, "callbacks", [recorder])
         with respx.mock(assert_all_called=True) as upstream:
             route: Final = upstream.post("https://eu-jev.example/base/v1/systemone").respond(200, json={"answers": {}})
             response: Final = client.post("/eu_jev/v1/systemone", json={"model": None, "state": "x"})
@@ -9149,7 +9149,7 @@ class TestEuJevPassthroughRoute:
     def test_forwards_the_release_a_pre_call_hook_switched_to(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "callbacks", [_RecordsPreCallModel(switch_to="eu_jev/eu-jeff-1.0.0")])
+        monkeypatch.setattr(hangarllm, "callbacks", [_RecordsPreCallModel(switch_to="eu_jev/eu-jeff-1.0.0")])
         with respx.mock(assert_all_called=True) as upstream:
             route: Final = upstream.post("https://eu-jev.example/base/v1/systemone").respond(200, json={"answers": {}})
             response: Final = client.post("/eu_jev/v1/systemone", json={"model": "jeff-latest", "state": "x"})
@@ -9161,7 +9161,7 @@ class TestEuJevPassthroughRoute:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         recorder: Final = _RecordsPreCallModel()
-        monkeypatch.setattr(litellm, "callbacks", [recorder])
+        monkeypatch.setattr(hangarllm, "callbacks", [recorder])
         with respx.mock(assert_all_called=True) as upstream:
             route: Final = upstream.post("https://eu-jev.example/base/v1/systemone").respond(200, json={"answers": {}})
             response: Final = client.post("/eu_jev/v1/systemone", json={"model": "eu_jev/eu-jeff-1.0.0", "state": "x"})
@@ -9173,13 +9173,13 @@ class TestEuJevPassthroughRoute:
     def test_a_pass_through_deployment_key_goes_to_that_deployment_base(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
-        deployment_router: Final = litellm.Router(
+        deployment_router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "eu-jev-friendly",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "eu_jev/eu-jeff-latest",
                         "api_key": "eu-jev-deployment-key",
                         "api_base": "https://eu-jev-deployment.example/v2",
@@ -9201,13 +9201,13 @@ class TestEuJevPassthroughRoute:
     def test_a_team_deployment_never_redirects_another_team_s_calls(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
-        team_router: Final = litellm.Router(
+        team_router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "team-a-eu-jev",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "eu_jev/eu-jeff-latest",
                         "api_key": "team-a-own-key",
                         "api_base": "https://team-a-server.example",
@@ -9304,17 +9304,17 @@ class TestEuJevPassthroughRoute:
 
     @pytest.fixture
     def operator_app(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[list[str], str], FastAPI]]:
-        from litellm.proxy._lazy_features import LAZY_FEATURES, attach_lazy_features, reserve_lazy_slot
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from hangarllm.proxy._lazy_features import LAZY_FEATURES, attach_lazy_features, reserve_lazy_slot
+        from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
             InitPassThroughEndpointHelpers,
             _registered_pass_through_routes,
         )
 
         monkeypatch.delenv("EU_JEV_API_KEY", raising=False)
-        monkeypatch.delenv("LITELLM_DISABLE_LAZY_ROUTES", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_LAZY_ROUTES", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         features: Final = tuple(feature for feature in LAZY_FEATURES if feature.name == "llm_passthrough")
 
         def build(methods: list[str], path: str) -> FastAPI:
@@ -9399,7 +9399,7 @@ class TestEuJevPassthroughRoute:
     def test_a_request_the_built_in_route_took_is_not_forwarded_with_a_pass_through_added_meanwhile(
         self, operator_app: Callable[[list[str], str], FastAPI], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import InitPassThroughEndpointHelpers
+        from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import InitPassThroughEndpointHelpers
 
         monkeypatch.setenv("EU_JEV_API_KEY", "eu-jev-test-key")
         monkeypatch.setenv("EU_JEV_API_BASE", "https://eu-jev.example/base")
@@ -9434,9 +9434,9 @@ class TestEuJevPassthroughRoute:
     def test_a_deleted_pass_through_at_the_same_path_stops_forwarding_when_built_in_routes_come_first(
         self, operator_app: Callable[[list[str], str], FastAPI], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import InitPassThroughEndpointHelpers
+        from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import InitPassThroughEndpointHelpers
 
-        monkeypatch.setenv("LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
+        monkeypatch.setenv("HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
         app: Final = operator_app(["GET", "PUT"], "/eu_jev/v1/systemone")
         InitPassThroughEndpointHelpers.remove_endpoint_routes("operator-eu-jev")
         with respx.mock(assert_all_called=False) as upstream, TestClient(app) as client:
@@ -9455,14 +9455,14 @@ class TestOssDecisionPassthroughRoute:
 
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch, provider: str) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setenv(f"{provider.upper()}_API_BASE", f"http://{provider}.test/base")
         monkeypatch.setenv("TYPESAFE_API_KEY", "never-send-typesafe-key")
         monkeypatch.delenv(f"{provider.upper()}_API_KEY", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -9537,14 +9537,14 @@ class TestOssDecisionPassthroughRoute:
         assert response.status_code == 400
         assert not route.called
 
-    @pytest.mark.parametrize("metadata_slot", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_slot", ["metadata", "hangarllm_metadata"])
     def test_oss_hooks_enforce_canonical_model_limits_and_keep_native_wire_body(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch, metadata_slot: str, provider: str, checkpoint: str
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
-        from litellm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
-        from litellm.proxy.utils import InternalUsageCache
-        from litellm.proxy.proxy_server import app
+        from hangarllm.integrations.custom_logger import CustomLogger
+        from hangarllm.proxy.hooks.parallel_request_limiter_v3 import PROXY_MaxParallelRequestsHandler_v3
+        from hangarllm.proxy.utils import InternalUsageCache
+        from hangarllm.proxy.proxy_server import app
 
         cache: Final = DualCache()
         limiter: Final = PROXY_MaxParallelRequestsHandler_v3(internal_usage_cache=InternalUsageCache(cache))
@@ -9574,7 +9574,7 @@ class TestOssDecisionPassthroughRoute:
                 await limiter.async_pre_call_hook(user_api_key_dict, cache, data, call_type)
                 return data
 
-        monkeypatch.setattr(litellm, "callbacks", [LimitHook()])
+        monkeypatch.setattr(hangarllm, "callbacks", [LimitHook()])
         body: Final = {
             "model": checkpoint,
             "state": "refund",
@@ -9596,7 +9596,7 @@ class TestOssDecisionPassthroughRoute:
     def test_oss_preserves_trusted_hook_checkpoint_changes(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch, provider: str, checkpoint: str
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from hangarllm.integrations.custom_logger import CustomLogger
 
         changed_checkpoint: Final = "multilingual" if provider == "laya" else "bespokelabs/Bespoke-Nimble-9B"
 
@@ -9611,7 +9611,7 @@ class TestOssDecisionPassthroughRoute:
                 assert data["model"] == f"{provider}/{checkpoint}"
                 return {**data, "model": f"{provider}/{changed_checkpoint}"}
 
-        monkeypatch.setattr(litellm, "callbacks", [CheckpointHook()])
+        monkeypatch.setattr(hangarllm, "callbacks", [CheckpointHook()])
         with respx.mock(assert_all_called=True) as upstream:
             route: Final = upstream.post(f"http://{provider}.test/base/v1/systemone").respond(200, json={"answers": {}})
             response: Final = client.post(f"/{provider}/v1/systemone", json={"model": checkpoint, "state": "refund"})
@@ -9622,13 +9622,13 @@ class TestOssDecisionPassthroughRoute:
 class TestFalAIPassthroughRoute:
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setenv("FAL_AI_API_KEY", "fal-test-key")
         monkeypatch.delenv("FAL_AI_QUEUE_API_BASE", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -9663,7 +9663,7 @@ class TestFalAIPassthroughRoute:
         endpoint_func = AsyncMock(return_value={"ok": True})
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
         request = MagicMock(spec=Request)
@@ -9704,9 +9704,9 @@ class TestFalAIPassthroughRoute:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             "fal_ai/fal-ai/priceless-model",
-            {"litellm_provider": "fal_ai", "mode": "image_generation"},
+            {"hangarllm_provider": "fal_ai", "mode": "image_generation"},
         )
         with respx.mock(assert_all_called=False) as upstream:
             route = upstream.post("https://queue.fal.run/fal-ai/priceless-model").mock(
@@ -9722,9 +9722,9 @@ class TestFalAIPassthroughRoute:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             "fal_ai/fal-ai/keyed-only-model",
-            {"litellm_provider": "fal_ai", "mode": "image_generation", "output_cost_per_image_512": 0.02},
+            {"hangarllm_provider": "fal_ai", "mode": "image_generation", "output_cost_per_image_512": 0.02},
         )
         with respx.mock(assert_all_called=False) as upstream:
             route = upstream.post("https://queue.fal.run/fal-ai/keyed-only-model").mock(
@@ -9783,13 +9783,13 @@ class TestOpenRouterPassthroughRoute:
 
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-test-key")
         monkeypatch.setenv("OPENROUTER_API_BASE", "https://openrouter.example/base")
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -9830,7 +9830,7 @@ class TestOpenRouterPassthroughRoute:
         endpoint_func = AsyncMock(side_effect=fake_upstream)
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -9863,7 +9863,7 @@ class TestOpenRouterPassthroughRoute:
         endpoint_func = AsyncMock(return_value={"ok": True})
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -9899,7 +9899,7 @@ class TestOpenRouterPassthroughRoute:
         endpoint_func = AsyncMock(return_value={"ok": True})
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -9920,14 +9920,14 @@ class TestTinyFishProxyRoute:
 
     @pytest.fixture
     def tinyfish_client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         monkeypatch.setenv("TINYFISH_API_KEY", "sk-tf-upstream")
         monkeypatch.delenv("TINYFISH_AGENT_API_BASE", raising=False)
         monkeypatch.delenv("TINYFISH_ALLOW_AUTHENTICATED_RUNS", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -10094,15 +10094,15 @@ class TestTinyFishProxyRoute:
 
 class TestTinyFishRouteTimeout:
     def test_default_covers_upstream_run_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
 
         monkeypatch.setattr(proxy_server, "general_settings", {}, raising=False)
         assert _tinyfish_route_timeout() == 1500.0
 
     def test_operator_configured_timeout_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
 
         monkeypatch.setattr(proxy_server, "general_settings", {"pass_through_request_timeout": 30}, raising=False)
         assert _tinyfish_route_timeout() is None

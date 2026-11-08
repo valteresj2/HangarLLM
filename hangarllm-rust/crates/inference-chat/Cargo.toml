@@ -1,0 +1,33 @@
+[package]
+name = "hangarllm-inference-chat"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hangarllm-secret-value.workspace = true
+hangarllm-auth = { workspace = true, features = ["aws", "azure", "gcp"] }
+hangarllm-cache-response.workspace = true
+hangarllm-core-utils.workspace = true
+hangarllm-host.workspace = true
+hangarllm-http.workspace = true
+hangarllm-inference.workspace = true
+hangarllm-llms.workspace = true
+hangarllm-llms-types.workspace = true
+hangarllm-secrets.workspace = true
+
+serde_json = { workspace = true, features = ["preserve_order"] }
+futures-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+hangarllm-cache-memory.workspace = true
+hangarllm-error.workspace = true
+hangarllm-host-native.workspace = true
+hangarllm-http = { workspace = true, features = ["test-support"] }
+hangarllm-inference-testing.workspace = true
+hangarllm-tracing.workspace = true
+rstest.workspace = true
+tokio.workspace = true
+wiremock.workspace = true

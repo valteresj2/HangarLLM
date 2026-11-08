@@ -1,11 +1,11 @@
-import json, litellm
+import json, hangarllm
 from pathlib import Path
 from typing import Final
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from litellm.llms.azure.search.transformation import BingGroundingSearchConfig
+from hangarllm.llms.azure.search.transformation import BingGroundingSearchConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 REAL_FIXTURE = json.loads((Path(__file__).parent / "foundry_responses_web_search_fixture.json").read_text())
@@ -114,10 +114,10 @@ def test_validate_environment_entra_minter_failure_names_the_options():
 def test_default_entra_minter_reuses_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     import importlib
 
-    from litellm.llms.azure import common_utils
-    from litellm.llms.azure.search.transformation import _default_entra_token_minter
+    from hangarllm.llms.azure import common_utils
+    from hangarllm.llms.azure.search.transformation import _default_entra_token_minter
 
-    provider_module: Final = importlib.import_module("litellm.secret_managers.get_azure_ad_token_provider")
+    provider_module: Final = importlib.import_module("hangarllm.secret_managers.get_azure_ad_token_provider")
     provider_factory: Final = Mock(side_effect=lambda **_: lambda: "entra-token")
     common_utils._cached_azure_ad_token_refresh_provider.cache_clear()
     monkeypatch.setattr(common_utils, "get_azure_ad_token_provider", provider_factory)
@@ -246,18 +246,18 @@ def test_transform_search_response_real_fixture_dedupes_and_preserves_order():
 
     assert resp.object == "search"
     assert [r.url for r in resp.results] == [
-        "https://github.com/BerriAI/litellm/releases",
-        "https://releasealert.dev/github/BerriAI/litellm",
-        "https://api.github.com/repos/BerriAI/litellm/releases/latest",
+        "https://github.com/valteresj2/HangarLLM/releases",
+        "https://releasealert.dev/github/valteresj2/HangarLLM",
+        "https://api.github.com/repos/valteresj2/HangarLLM/releases/latest",
     ]
-    assert resp.results[0].title == "Releases · BerriAI/litellm - GitHub"
-    assert resp.results[1].title == "BerriAI/litellm on GitHub | Release Alert"
+    assert resp.results[0].title == "Releases · valteresj2/HangarLLM - GitHub"
+    assert resp.results[1].title == "valteresj2/HangarLLM on GitHub | Release Alert"
 
 
 def test_transform_search_response_real_fixture_snippets_are_the_cited_claims():
     resp = _config().transform_search_response(_resp(REAL_FIXTURE), logging_obj=Mock())
 
-    assert resp.results[0].snippet.startswith("- On the GitHub **Releases** page for BerriAI/litellm")
+    assert resp.results[0].snippet.startswith("- On the GitHub **Releases** page for valteresj2/HangarLLM")
     assert resp.results[1].snippet.startswith("- An external release")
     assert resp.results[2].snippet.startswith("- The GitHub API (via `releases/latest`)")
     for result in resp.results:
@@ -347,7 +347,7 @@ def test_transform_search_response_incomplete_with_partial_results_returns_them(
 def test_transform_search_response_web_search_mode_zeroes_per_query_cost():
     payload = _message_response("claim", [_citation("https://example.com", "Example", 0, 5)])
     resp = _config().transform_search_response(_resp(payload), logging_obj=Mock())
-    assert resp._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] == 0.0
+    assert resp._hidden_params["additional_headers"]["llm_provider-x-hangarllm-response-cost"] == 0.0
 
 
 def test_transform_search_response_connection_mode_leaves_price_to_cost_map(monkeypatch: pytest.MonkeyPatch):
@@ -412,8 +412,8 @@ def _vcr_outcome_gate(request, vcr):
 PROJECT_ENDPOINT = "https://acct.services.ai.azure.com/api/projects/proj"
 
 _ANSWER_TEXT = (
-    "LiteLLM is an open source LLM gateway ([github.com](https://github.com/BerriAI/litellm))\n"
-    "The docs live on docs.litellm.ai ([docs.litellm.ai](https://docs.litellm.ai/))"
+    "HangarLLM is an open source LLM gateway ([github.com](https://github.com/valteresj2/HangarLLM))\n"
+    "The docs live on github.com/valteresj2/HangarLLM#readme ([github.com/valteresj2/HangarLLM#readme](https://github.com/valteresj2/HangarLLM#readme))"
 )
 
 def _annotation(marker: str, url: str, title: str) -> dict:
@@ -442,14 +442,14 @@ MOCK_BING_GROUNDING_RESPONSE = {
                     "text": _ANSWER_TEXT,
                     "annotations": [
                         _annotation(
-                            "([github.com](https://github.com/BerriAI/litellm))",
-                            "https://github.com/BerriAI/litellm",
-                            "BerriAI/litellm - GitHub",
+                            "([github.com](https://github.com/valteresj2/HangarLLM))",
+                            "https://github.com/valteresj2/HangarLLM",
+                            "valteresj2/HangarLLM - GitHub",
                         ),
                         _annotation(
-                            "([docs.litellm.ai](https://docs.litellm.ai/))",
-                            "https://docs.litellm.ai/",
-                            "LiteLLM Docs",
+                            "([github.com/valteresj2/HangarLLM#readme](https://github.com/valteresj2/HangarLLM#readme))",
+                            "https://github.com/valteresj2/HangarLLM#readme",
+                            "HangarLLM Docs",
                         ),
                     ],
                 }
@@ -466,16 +466,16 @@ def _mock_response():
     response.content = json.dumps(MOCK_BING_GROUNDING_RESPONSE).encode()
     return response
 
-async def _search_what_is_litellm(is_async: bool) -> object:
+async def _search_what_is_hangarllm(is_async: bool) -> object:
     if is_async:
-        return await litellm.asearch(query="what is litellm", search_provider="bing_grounding")
-    return litellm.search(query="what is litellm", search_provider="bing_grounding")
+        return await hangarllm.asearch(query="what is hangarllm", search_provider="bing_grounding")
+    return hangarllm.search(query="what is hangarllm", search_provider="bing_grounding")
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate")
 class TestBingGroundingSearchTransformation:
     """
-    Full-stack tests through `litellm.search` / `litellm.asearch` with the HTTP layer mocked.
+    Full-stack tests through `hangarllm.search` / `hangarllm.asearch` with the HTTP layer mocked.
     Transformation details are unit-tested in tests/unit/llms/azure/search/.
     """
 
@@ -487,12 +487,12 @@ class TestBingGroundingSearchTransformation:
         monkeypatch.delenv("BING_GROUNDING_CONNECTION_ID", raising=False)
 
     def test_bing_grounding_search_request_and_response(self):
-        with patch(  # test-quality-ok: litellm.search has no client injection seam
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        with patch(  # test-quality-ok: hangarllm.search has no client injection seam
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=_mock_response(),
         ) as mock_post:
-            response = litellm.search(
-                query="what is litellm",
+            response = hangarllm.search(
+                query="what is hangarllm",
                 search_provider="bing_grounding",
                 max_results=5,
                 country="us",
@@ -505,18 +505,18 @@ class TestBingGroundingSearchTransformation:
 
         request_body = call_kwargs["json"]
         assert request_body["model"] == "gpt-4.1"
-        assert request_body["input"] == "what is litellm"
+        assert request_body["input"] == "what is hangarllm"
         assert request_body["tools"] == [
             {"type": "web_search", "user_location": {"type": "approximate", "country": "US"}}
         ]
 
         assert response.object == "search"
         assert len(response.results) == 2
-        assert response.results[0].url == "https://github.com/BerriAI/litellm"
-        assert response.results[0].title == "BerriAI/litellm - GitHub"
-        assert response.results[0].snippet == "LiteLLM is an open source LLM gateway"
-        assert response.results[1].url == "https://docs.litellm.ai/"
-        assert response.results[1].snippet == "The docs live on docs.litellm.ai"
+        assert response.results[0].url == "https://github.com/valteresj2/HangarLLM"
+        assert response.results[0].title == "valteresj2/HangarLLM - GitHub"
+        assert response.results[0].snippet == "HangarLLM is an open source LLM gateway"
+        assert response.results[1].url == "https://github.com/valteresj2/HangarLLM#readme"
+        assert response.results[1].snippet == "The docs live on github.com/valteresj2/HangarLLM#readme"
 
     def test_connection_mode_sends_the_bing_grounding_tool(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv(
@@ -524,12 +524,12 @@ class TestBingGroundingSearchTransformation:
             "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices"
             "/accounts/acct/projects/proj/connections/bing-conn",
         )
-        with patch(  # test-quality-ok: litellm.search has no client injection seam
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        with patch(  # test-quality-ok: hangarllm.search has no client injection seam
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=_mock_response(),
         ) as mock_post:
-            litellm.search(
-                query="what is litellm",
+            hangarllm.search(
+                query="what is hangarllm",
                 search_provider="bing_grounding",
                 max_results=3,
             )
@@ -558,7 +558,7 @@ class TestBingGroundingSearchTransformation:
     ):
         from azure.core.exceptions import ClientAuthenticationError
 
-        from litellm.llms.azure import common_utils
+        from hangarllm.llms.azure import common_utils
 
         app_client_id: Final = "0d08e61f-6184-4980-9cef-a2e9128f4cb2"
         credential = Mock(spec=["get_token"])
@@ -573,8 +573,8 @@ class TestBingGroundingSearchTransformation:
         common_utils._cached_azure_ad_token_refresh_provider.cache_clear()
 
         try:
-            with pytest.raises(litellm.AuthenticationError) as excinfo:
-                await _search_what_is_litellm(is_async)
+            with pytest.raises(hangarllm.AuthenticationError) as excinfo:
+                await _search_what_is_hangarllm(is_async)
         finally:
             common_utils._cached_azure_ad_token_refresh_provider.cache_clear()
 
@@ -584,12 +584,12 @@ class TestBingGroundingSearchTransformation:
 
     @pytest.mark.asyncio
     async def test_bing_grounding_asearch(self):
-        with patch(  # test-quality-ok: litellm.asearch has no client injection seam
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        with patch(  # test-quality-ok: hangarllm.asearch has no client injection seam
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=AsyncMock(return_value=_mock_response()),
         ) as mock_post:
-            response = await litellm.asearch(
-                query="what is litellm",
+            response = await hangarllm.asearch(
+                query="what is hangarllm",
                 search_provider="bing_grounding",
             )
 
@@ -597,25 +597,25 @@ class TestBingGroundingSearchTransformation:
         assert len(response.results) == 2
 
     def test_web_search_mode_is_not_billed_the_g1_price(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-        with patch(  # test-quality-ok: litellm.search has no client injection seam
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+        with patch(  # test-quality-ok: hangarllm.search has no client injection seam
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=_mock_response(),
         ):
-            response = litellm.search(query="pricing check", search_provider="bing_grounding")
+            response = hangarllm.search(query="pricing check", search_provider="bing_grounding")
 
         assert response._hidden_params["response_cost"] == 0.0
 
     def test_connection_mode_tracks_the_g1_cost(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("BING_GROUNDING_CONNECTION_ID", "conn-id")
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-        with patch(  # test-quality-ok: litellm.search has no client injection seam
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+        with patch(  # test-quality-ok: hangarllm.search has no client injection seam
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=_mock_response(),
         ):
-            response = litellm.search(query="pricing check", search_provider="bing_grounding")
+            response = hangarllm.search(query="pricing check", search_provider="bing_grounding")
 
         # Grounding with Bing Search (G1 SKU): $14 per 1,000 transactions, https://www.microsoft.com/en-us/bing/apis, checked 2026-09-24
         assert response._hidden_params["response_cost"] == pytest.approx(0.014)

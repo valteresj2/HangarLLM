@@ -5,10 +5,10 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.proxy.roi_calculator.estimator import Estimator, estimator_options
-from litellm.proxy.roi_calculator.github import SourceError
-from litellm.types.roi_calculator import (
+import hangarllm
+from hangarllm.proxy.roi_calculator.estimator import Estimator, estimator_options
+from hangarllm.proxy.roi_calculator.github import SourceError
+from hangarllm.types.roi_calculator import (
     ROICompletionRequest,
     ROIEstimatorChanges,
     ROIEstimatorEvidence,
@@ -16,7 +16,7 @@ from litellm.types.roi_calculator import (
     ROIResponseFormat,
     ROISettings,
 )
-from litellm.utils import supports_none_reasoning_effort
+from hangarllm.utils import supports_none_reasoning_effort
 
 
 def _pull() -> ROIPullEvidence:
@@ -49,7 +49,7 @@ def _settings() -> ROISettings:
 def _model_with_none_reasoning_effort() -> str:
     return next(
         model
-        for model, metadata in litellm.model_cost.items()
+        for model, metadata in hangarllm.model_cost.items()
         if metadata.get("supports_none_reasoning_effort") is True and supports_none_reasoning_effort(model)
     )
 

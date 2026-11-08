@@ -15,7 +15,7 @@ def test_custom_price_is_reported_and_charged(gateway: Gateway) -> None:
         model = scenario.model(input_cost_per_token=0.001, output_cost_per_token=0.002)
         response = gateway.request("POST", "/v1/chat/completions", {"model": model, "messages": [{"role": "user", "content": "price control"}]})
         assert response.status_code == 200, response.text
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(20 * 0.001 + 20 * 0.002)
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(20 * 0.001 + 20 * 0.002)
 ```
 
 Rates in the test, expected computed by hand, one call, `response.text` in the assert

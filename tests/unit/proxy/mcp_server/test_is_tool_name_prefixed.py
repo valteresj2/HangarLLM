@@ -1,12 +1,12 @@
 """
 Tests for is_tool_name_prefixed with known_server_prefixes parameter.
 
-Verifies fix for https://github.com/BerriAI/litellm/issues/25081
+Verifies fix for upstream issue 25081
 """
 
 import pytest
 
-from litellm.proxy.mcp_server.utils import is_tool_name_prefixed
+from hangarllm.proxy.mcp_server.utils import is_tool_name_prefixed
 
 # ---------------------------------------------------------------------------
 # Legacy behaviour (no known_server_prefixes passed)

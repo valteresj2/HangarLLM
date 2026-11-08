@@ -138,7 +138,7 @@ class Databases:
     @step("Create a test database")
     @contextmanager
     def create(self, template: Database | None = None, schema: str = "public") -> Generator[Database]:
-        name: Final = f"litellm_migration_test_{uuid4().hex[:20]}"
+        name: Final = f"hangarllm_migration_test_{uuid4().hex[:20]}"
         database: Final = Database(
             name, connect_url(self.admin_url, name), connect_url(self.container_admin_url, name), schema
         )

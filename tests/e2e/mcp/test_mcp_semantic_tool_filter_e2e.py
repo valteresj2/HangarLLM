@@ -1,9 +1,9 @@
 """Live e2e: the MCP semantic tool filter narrows a Datadog catalog to the tools the prompt needs.
 
 An admin registers the real Datadog remote MCP server with its whole core toolset, adds an
-embedding deployment, and turns on `litellm_settings.mcp_semantic_tool_filter` through
+embedding deployment, and turns on `hangarllm_settings.mcp_semantic_tool_filter` through
 /config/update. A chat completion that attaches the server and asks to search logs must report,
-in the x-litellm-semantic-filter headers, that the catalog was cut to at most top_k tools, all
+in the x-hangarllm-semantic-filter headers, that the catalog was cut to at most top_k tools, all
 of them tools the key lists. Requires DD_API_KEY + DD_APP_KEY and the proxy's
 OPENAI_API_KEY for the embedding deployment. The filter is proxy-wide, so the test is
 marked `proxy_wide_config` and runs on a stack the main suite is not driving.
@@ -21,7 +21,7 @@ from e2e_http import StreamingResponse, unwrap
 from e2e_metadata import Domain, Route, Subject, meta
 from lifecycle import ResourceManager
 from mcp_client import McpClient
-from models import ChatBody, ChatMessage, LiteLLMParamsBody, McpChatTool
+from models import ChatBody, ChatMessage, HangarLLMParamsBody, McpChatTool
 from pydantic import BaseModel
 
 pytestmark = [pytest.mark.e2e, pytest.mark.proxy_wide_config]
@@ -36,12 +36,12 @@ class SemanticToolFilterSettings(BaseModel):
     similarity_threshold: float | None = None
 
 
-class SemanticFilterLitellmSettings(BaseModel):
+class SemanticFilterHangarllmSettings(BaseModel):
     mcp_semantic_tool_filter: SemanticToolFilterSettings
 
 
 class SemanticFilterConfigUpdateBody(BaseModel):
-    litellm_settings: SemanticFilterLitellmSettings
+    hangarllm_settings: SemanticFilterHangarllmSettings
 
 
 class ConfigUpdateResponse(BaseModel):
@@ -54,7 +54,7 @@ def _write_filter(client: McpClient, settings: SemanticToolFilterSettings) -> No
             "/config/update",
             headers=client.proxy.transport.master,
             json=SemanticFilterConfigUpdateBody(
-                litellm_settings=SemanticFilterLitellmSettings(mcp_semantic_tool_filter=settings)
+                hangarllm_settings=SemanticFilterHangarllmSettings(mcp_semantic_tool_filter=settings)
             ),
             response_type=ConfigUpdateResponse,
         )
@@ -67,14 +67,14 @@ def _filtered_chat(client: McpClient, key: str, alias: str) -> StreamingResponse
     body: Final = ChatBody(
         model=CHEAP_OPENAI_MODEL,
         messages=[ChatMessage(role="user", content=f"Search the Datadog logs for the marker {unique_marker()}")],
-        tools=[McpChatTool(server_url=f"litellm_proxy/mcp/{alias}", server_label=alias, require_approval="never")],
+        tools=[McpChatTool(server_url=f"hangarllm_proxy/mcp/{alias}", server_label=alias, require_approval="never")],
     )
     while True:
         response: StreamingResponse = client.proxy.chat_stream(key, body)  # rebind-ok: poll until hot reload lands
         assert response.ok, (
             f"chat completion with the Datadog MCP server failed: {response.status_code} {response.body}"
         )
-        if "x-litellm-semantic-filter" in response.headers or time.monotonic() > deadline:
+        if "x-hangarllm-semantic-filter" in response.headers or time.monotonic() > deadline:
             return response
         time.sleep(POLL_INTERVAL)
 
@@ -91,7 +91,7 @@ class TestMcpSemanticToolFilter:
         embedding_model: Final = f"e2e-semantic-filter-embedding-{unique_marker()}"
         model_id: Final = client.proxy.create_model(
             embedding_model,
-            LiteLLMParamsBody(model="openai/text-embedding-3-small", api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model="openai/text-embedding-3-small", api_key="os.environ/OPENAI_API_KEY"),
             provider_live=True,
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
@@ -112,14 +112,14 @@ class TestMcpSemanticToolFilter:
         )
 
         response: Final = _filtered_chat(client, key, alias)
-        stats: Final = response.headers.get("x-litellm-semantic-filter")
-        assert stats is not None, f"no x-litellm-semantic-filter header within {POLL_TIMEOUT}s: {response.headers}"
+        stats: Final = response.headers.get("x-hangarllm-semantic-filter")
+        assert stats is not None, f"no x-hangarllm-semantic-filter header within {POLL_TIMEOUT}s: {response.headers}"
         before, _, after = stats.partition("->")
         assert int(before) == len(catalog), f"the filter saw {before} MCP tools, the key lists {len(catalog)}"
         assert 0 < int(after) <= TOP_K, f"the filter kept {after} tools, expected between 1 and {TOP_K}"
         kept: Final = frozenset(
             name.removeprefix(f"{alias}-")
-            for name in response.headers.get("x-litellm-semantic-filter-tools", "").split(",")
+            for name in response.headers.get("x-hangarllm-semantic-filter-tools", "").split(",")
             if name
         )
         listed: Final = frozenset(name.removeprefix(f"{alias}-") for name in catalog)

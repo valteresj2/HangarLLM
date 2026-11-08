@@ -29,7 +29,7 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from integration._support.ports import allocate_port
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -56,7 +56,7 @@ _TARGET: Final = re.compile(
 )
 _CONVERSE_LIKE: Final = "converse_like"
 _STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
-_SIGNING_KEY: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+_SIGNING_KEY: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 _JSON: Final = TypeAdapter(dict[str, JsonValue])
 _EPHEMERAL: Final[dict[str, JsonValue]] = {"type": "ephemeral"}
 _AWS: Final[dict[str, JsonValue]] = {
@@ -486,7 +486,7 @@ def _responses_text(body: Mapping[str, JsonValue]) -> str:
 
 
 def _outcome_of(endpoint: Endpoint, stream: bool, response: httpx.Response, lines: tuple[str, ...]) -> _Outcome:
-    call_id: Final = response.headers.get("x-litellm-call-id", "")
+    call_id: Final = response.headers.get("x-hangarllm-call-id", "")
     raw: Final = "\n".join(lines)
     if response.status_code != 200:
         return _Outcome(response.status_code, call_id, "", "", response.headers, raw)
@@ -533,7 +533,7 @@ def _send(gateway: Gateway, endpoint: Endpoint, body: Mapping[str, JsonValue], *
 def _spend_rows(request_ids: frozenset[str], *, expected: int, seconds: float = 90) -> tuple[dict[str, JsonValue], ...]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, model, spend FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(string_to_array(%s, %s))',
+            'SELECT request_id, status, model, spend FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(string_to_array(%s, %s))',
             (",".join(sorted(request_ids)), ","),
         ),
         lambda found: len(found) >= expected,
@@ -577,7 +577,7 @@ def _owned_config(wire: Wire, directory: Path, *, names: Iterable[str] = tuple(_
         "model_list": [
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _NAMES[name],
                     "api_base": wire.url,
                     "num_retries": 0,
@@ -1004,7 +1004,7 @@ def test_p01_kimi_cache_usage_is_still_priced_from_its_own_row(rig: _Rig) -> Non
         + 50 * rates["cache_creation_input_token_cost"]
         + 4 * rates["output_cost_per_token"]
     )
-    assert abs(float(outcome.headers["x-litellm-response-cost"]) - expected) < 1e-12, (outcome.headers, rates)
+    assert abs(float(outcome.headers["x-hangarllm-response-cost"]) - expected) < 1e-12, (outcome.headers, rates)
     row: Final = _success_row(outcome.response_id)
     assert abs(float(str(row["spend"])) - expected) < 1e-12, (row, rates)
 
@@ -1016,7 +1016,7 @@ def test_p02_a_plain_kimi_reply_is_priced_from_its_own_row(rig: _Rig) -> None:
     assert received.cache_points == 0, received.body
     rates: Final = _rates(rig.gateway, "kimi-us")
     expected: Final = 11 * rates["input_cost_per_token"] + 4 * rates["output_cost_per_token"]
-    assert abs(float(outcome.headers["x-litellm-response-cost"]) - expected) < 1e-12, (outcome.headers, rates)
+    assert abs(float(outcome.headers["x-hangarllm-response-cost"]) - expected) < 1e-12, (outcome.headers, rates)
     row: Final = _success_row(outcome.response_id)
     assert abs(float(str(row["spend"])) - expected) < 1e-12, (row, rates)
 
@@ -1131,7 +1131,7 @@ def _deployment(
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": model, "api_base": wire.url, "num_retries": 0, **_AWS},
+            "hangarllm_params": {"model": model, "api_base": wire.url, "num_retries": 0, **_AWS},
             "model_info": dict(model_info) if model_info is not None else {},
         },
     )
@@ -1283,12 +1283,12 @@ def test_s10_s11_two_deployments_of_one_arn_keep_their_own_flags_and_a_delete_ch
 
 
 def _model_id(name: str) -> str:
-    (row,) = read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_name=%s', (name,))
+    (row,) = read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_name=%s', (name,))
     return str(row["model_id"])
 
 
 def _stored_flag(identity: str) -> JsonValue:
-    (row,) = read_rows('SELECT model_info FROM "LiteLLM_ProxyModelTable" WHERE model_id=%s', (identity,))
+    (row,) = read_rows('SELECT model_info FROM "HangarLLM_ProxyModelTable" WHERE model_id=%s', (identity,))
     stored: Final = row["model_info"]
     info: Final = _JSON.validate_python(stored if isinstance(stored, dict) else json.loads(str(stored)))
     return info.get("supports_prompt_cache_breakpoint")
@@ -1344,7 +1344,7 @@ def test_x06_flipping_the_flag_to_true_through_the_legacy_post_update_turns_cach
             "/model/update",
             {
                 "model_name": name,
-                "litellm_params": {"model": f"bedrock/{arn}", "api_base": wire.url, "num_retries": 0, **_AWS},
+                "hangarllm_params": {"model": f"bedrock/{arn}", "api_base": wire.url, "num_retries": 0, **_AWS},
                 "model_info": {"id": identity, "supports_prompt_cache_breakpoint": True},
             },
         )

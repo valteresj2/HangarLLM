@@ -103,7 +103,7 @@ def test_bedrock_vector_store_search_uses_bedrock_team_model_credentials(gateway
             {
                 "vector_store_id": knowledge_base_id,
                 "custom_llm_provider": "bedrock",
-                "litellm_params": {
+                "hangarllm_params": {
                     "aws_region_name": "us-east-1",
                     "aws_bedrock_runtime_endpoint": wire.url,
                 },
@@ -139,7 +139,7 @@ def test_bedrock_vector_store_search_uses_store_credentials_without_matching_tea
             {
                 "vector_store_id": knowledge_base_id,
                 "custom_llm_provider": "bedrock",
-                "litellm_params": {
+                "hangarllm_params": {
                     "aws_access_key_id": STORE_ACCESS_KEY,
                     "aws_secret_access_key": "synthetic-store-secret-key",
                     "aws_region_name": "us-east-1",
@@ -176,7 +176,7 @@ def test_openai_vector_store_search_without_store_key_uses_team_byok_key(gateway
             {
                 "vector_store_id": store_id,
                 "custom_llm_provider": "openai",
-                "litellm_params": {},
+                "hangarllm_params": {},
             },
         )
         scenario.cleanups.callback(gateway.post, "/vector_store/delete", {"vector_store_id": store_id})

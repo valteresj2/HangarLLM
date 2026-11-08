@@ -11,7 +11,7 @@ from integration._support.wire import Reply, Request, wire_server
 from openai.types.chat import ChatCompletion
 from pydantic import JsonValue
 
-from litellm.types.prompts.init_prompts import ListPromptsResponse, PromptInfoResponse, PromptSpec
+from hangarllm.types.prompts.init_prompts import ListPromptsResponse, PromptInfoResponse, PromptSpec
 
 _PROVIDER_KEY: Final = "synthetic-prompt-provider-key"
 _DISCOVERY_PROBE: Final = ("GET", "/v1/models")
@@ -55,7 +55,7 @@ def _template(model: str, marker: str) -> str:
 def _prompt_request(prompt_id: str, model: str, environment: str, marker: str) -> dict[str, JsonValue]:
     return {
         "prompt_id": prompt_id,
-        "litellm_params": {
+        "hangarllm_params": {
             "prompt_id": prompt_id,
             "prompt_integration": "dotprompt",
             "dotprompt_content": _template(model, marker),
@@ -151,12 +151,12 @@ def _provider_reply(request: Request) -> Reply:
 def _prompt_rows(prompt_id: str, environment: str | None = None) -> list[dict[str, JsonValue]]:
     if environment is None:
         return read_rows(
-            'SELECT prompt_id, version, environment, created_by, litellm_params FROM "LiteLLM_PromptTable" '
+            'SELECT prompt_id, version, environment, created_by, hangarllm_params FROM "HangarLLM_PromptTable" '
             "WHERE prompt_id = %s ORDER BY environment, version",
             (prompt_id,),
         )
     return read_rows(
-        'SELECT prompt_id, version, environment, created_by, litellm_params FROM "LiteLLM_PromptTable" '
+        'SELECT prompt_id, version, environment, created_by, hangarllm_params FROM "HangarLLM_PromptTable" '
         "WHERE prompt_id = %s AND environment = %s ORDER BY version",
         (prompt_id, environment),
     )
@@ -164,14 +164,14 @@ def _prompt_rows(prompt_id: str, environment: str | None = None) -> list[dict[st
 
 def _prompt_labels(prompt_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        "SELECT environment, version, prompt_info->>'label' AS label FROM \"LiteLLM_PromptTable\" "
+        "SELECT environment, version, prompt_info->>'label' AS label FROM \"HangarLLM_PromptTable\" "
         "WHERE prompt_id = %s ORDER BY environment, version",
         (prompt_id,),
     )
 
 
 def _params(row: dict[str, JsonValue]) -> dict[str, JsonValue]:
-    raw: Final = row["litellm_params"]
+    raw: Final = row["hangarllm_params"]
     return json.loads(raw) if isinstance(raw, str) else object_value(raw)
 
 
@@ -227,7 +227,7 @@ def test_prompt_create_persists_and_resolves_on_primary(gateway: Gateway) -> Non
                 info.prompt_spec.prompt_id,
                 info.prompt_spec.version,
                 info.prompt_spec.environment,
-                info.prompt_spec.litellm_params.dotprompt_content,
+                info.prompt_spec.hangarllm_params.dotprompt_content,
             ) == (prompt_id, 1, "staging", _template(model, "staging one")), response.text
 
         staging_response: Final = gateway.request("GET", "/prompts/list", params={"environment": "staging"})
@@ -312,7 +312,7 @@ def test_prompt_create_and_patch_resolve_on_peer_after_database_sync(gateway: Ga
             "PATCH",
             f"/prompts/{prompt_id}.v1",
             {
-                "litellm_params": {
+                "hangarllm_params": {
                     "prompt_id": prompt_id,
                     "prompt_integration": "dotprompt",
                     "dotprompt_content": _template(model, "staging one patched"),
@@ -446,14 +446,14 @@ def test_prompt_update_patch_and_environment_delete_are_isolated(gateway: Gatewa
         )
         assert base_info.status_code == 200, base_info.text
         base_spec: Final = PromptInfoResponse.model_validate_json(base_info.content).prompt_spec
-        assert base_spec.litellm_params.dotprompt_content == _template(model, "staging three"), base_info.text
+        assert base_spec.hangarllm_params.dotprompt_content == _template(model, "staging three"), base_info.text
         assert object_value(base_spec.prompt_info.model_dump(mode="json"))["label"] == "base-patched", base_info.text
 
         version_patch: Final = gateway.request(
             "PATCH",
             f"/prompts/{prompt_id}.v2",
             {
-                "litellm_params": {
+                "hangarllm_params": {
                     "prompt_id": prompt_id,
                     "prompt_integration": "dotprompt",
                     "dotprompt_content": _template(model, "staging two patched"),
@@ -470,7 +470,7 @@ def test_prompt_update_patch_and_environment_delete_are_isolated(gateway: Gatewa
         )
         assert version_info.status_code == 200, version_info.text
         version_spec: Final = PromptInfoResponse.model_validate_json(version_info.content).prompt_spec
-        assert version_spec.litellm_params.dotprompt_content == _template(model, "staging two patched"), (
+        assert version_spec.hangarllm_params.dotprompt_content == _template(model, "staging two patched"), (
             version_info.text
         )
         assert object_value(version_spec.prompt_info.model_dump(mode="json"))["label"] == "version-patched", (
@@ -489,7 +489,7 @@ def test_prompt_update_patch_and_environment_delete_are_isolated(gateway: Gatewa
         )
         assert latest_info.status_code == 200, latest_info.text
         latest_spec: Final = PromptInfoResponse.model_validate_json(latest_info.content).prompt_spec
-        assert latest_spec.litellm_params.dotprompt_content == _template(model, "staging three"), latest_info.text
+        assert latest_spec.hangarllm_params.dotprompt_content == _template(model, "staging three"), latest_info.text
         assert object_value(latest_spec.prompt_info.model_dump(mode="json"))["label"] == "base-patched", (
             latest_info.text
         )

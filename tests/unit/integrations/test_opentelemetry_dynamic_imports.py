@@ -2,7 +2,7 @@ import builtins
 
 import pytest
 
-from litellm.integrations.opentelemetry import OpenTelemetry
+from hangarllm.integrations.opentelemetry import OpenTelemetry
 
 
 def _make_otel(exporter: str) -> OpenTelemetry:
@@ -30,7 +30,7 @@ def test_should_raise_helpful_error_when_grpc_exporter_missing_for_traces(
     _block_grpc_imports(monkeypatch)
     otel = _make_otel("otlp_grpc")
 
-    with pytest.raises(ImportError, match=r"litellm\[grpc\]"):
+    with pytest.raises(ImportError, match=r"hangarllm\[grpc\]"):
         otel._get_span_processor()
 
 
@@ -40,5 +40,5 @@ def test_should_raise_helpful_error_when_grpc_exporter_missing_for_logs(
     _block_grpc_imports(monkeypatch)
     otel = _make_otel("otlp_grpc")
 
-    with pytest.raises(ImportError, match=r"litellm\[grpc\]"):
+    with pytest.raises(ImportError, match=r"hangarllm\[grpc\]"):
         otel._get_log_exporter()

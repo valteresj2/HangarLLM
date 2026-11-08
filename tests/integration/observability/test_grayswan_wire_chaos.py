@@ -22,7 +22,7 @@ def _chaos_config(tmp_path: Path, identity: str, vendor_url: str, *, fail_open: 
         "guardrails": [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "grayswan",
                     "mode": "post_call",
                     "default_on": True,

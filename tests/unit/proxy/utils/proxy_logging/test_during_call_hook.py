@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
+import hangarllm
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.guardrails import GuardrailEventHooks
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +47,7 @@ async def test_during_call_hook_no_guardrail_fast_path_returns_data(proxy_loggin
 async def test_during_call_hook_runs_guardrails_in_parallel(proxy_logging, make_user_api_key_auth, monkeypatch):
     g1 = _make_guardrail("a")
     g2 = _make_guardrail("b")
-    monkeypatch.setattr(litellm, "callbacks", [g1, g2])
+    monkeypatch.setattr(hangarllm, "callbacks", [g1, g2])
     data = {"messages": [{"role": "user"}], "model": "m", "temperature": 0.1}
     out = await proxy_logging.during_call_hook(
         data=data,
@@ -65,7 +65,7 @@ async def test_during_call_hook_runs_guardrails_in_parallel(proxy_logging, make_
 @pytest.mark.asyncio
 async def test_during_call_hook_guardrail_skipped_when_should_not_run(proxy_logging, make_user_api_key_auth, monkeypatch):
     g = _make_guardrail("g", should_run=False)
-    monkeypatch.setattr(litellm, "callbacks", [g])
+    monkeypatch.setattr(hangarllm, "callbacks", [g])
     await proxy_logging.during_call_hook(
         data={"model": "m"},
         user_api_key_dict=make_user_api_key_auth(),
@@ -78,7 +78,7 @@ async def test_during_call_hook_guardrail_skipped_when_should_not_run(proxy_logg
 async def test_during_call_hook_guardrail_error_raises(proxy_logging, make_user_api_key_auth, monkeypatch):
     g = _make_guardrail("bad")
     g.async_moderation_hook = AsyncMock(side_effect=RuntimeError("blocked"))
-    monkeypatch.setattr(litellm, "callbacks", [g])
+    monkeypatch.setattr(hangarllm, "callbacks", [g])
     with pytest.raises(RuntimeError):
         await proxy_logging.during_call_hook(
             data={"model": "m"},
@@ -93,7 +93,7 @@ async def test_during_call_block_names_the_blocking_guardrail_in_applied_guardra
 ):
     g = _make_guardrail("blocker")
     g.async_moderation_hook = AsyncMock(side_effect=HTTPException(status_code=400, detail="blocked"))
-    monkeypatch.setattr(litellm, "callbacks", [_make_guardrail("passer"), g])
+    monkeypatch.setattr(hangarllm, "callbacks", [_make_guardrail("passer"), g])
     data = {"model": "m", "metadata": {}}
     with pytest.raises(HTTPException):
         await proxy_logging.during_call_hook(

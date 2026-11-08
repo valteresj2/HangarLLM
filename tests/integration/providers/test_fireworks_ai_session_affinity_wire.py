@@ -52,7 +52,7 @@ def test_fireworks_session_id_sends_affinity_header_and_logs_cache_read_tokens(g
             "POST",
             "/v1/chat/completions",
             {"model": model, "messages": [{"role": "user", "content": _PROMPT}]},
-            headers={"x-litellm-session-id": _SESSION_ID},
+            headers={"x-hangarllm-session-id": _SESSION_ID},
         )
         assert response.status_code == 200, response.text
         payload: Final = _JSON_OBJECT.validate_json(response.content)
@@ -61,7 +61,7 @@ def test_fireworks_session_id_sends_affinity_header_and_logs_cache_read_tokens(g
         assert [(request.method, request.target) for request in requests] == [("POST", "/chat/completions")]
         assert requests[0].headers.get("x-session-affinity") == _SESSION_ID, requests[0].headers
         rows: Final = eventually(
-            lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+            lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
             lambda values: len(values) == 1,
             seconds=70,
         )

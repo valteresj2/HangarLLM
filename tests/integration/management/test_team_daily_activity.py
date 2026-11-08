@@ -52,7 +52,7 @@ def seeded_team_spend(actors) -> None:
     team_ids: Final = {"alpha": actors.team_alpha_id, "beta": actors.team_beta_id}
     for team, spend in _SEEDED_SPEND.items():
         write_rows(
-            'INSERT INTO "LiteLLM_DailyTeamSpend" (id, team_id, date, api_key, model, spend, updated_at) '
+            'INSERT INTO "HangarLLM_DailyTeamSpend" (id, team_id, date, api_key, model, spend, updated_at) '
             "VALUES (%s, %s, '2024-06-01', 'integration-daily-activity', 'gpt-4o', %s, now()) "
             "ON CONFLICT (id) DO NOTHING",
             (f"integration-daily-activity-{team}", team_ids[team], str(spend)),

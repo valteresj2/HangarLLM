@@ -14,7 +14,7 @@ pytestmark: Final = pytest.mark.shares_worker_state
 
 def _persisted_reset_at(budget_id: str) -> datetime:
     rows: Final = read_rows(
-        'SELECT budget_reset_at::text AS reset_at FROM "LiteLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
+        'SELECT budget_reset_at::text AS reset_at FROM "HangarLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
     )
     assert len(rows) == 1, rows
     reset_at: Final = datetime.fromisoformat(string_value(rows[0]["reset_at"]))
@@ -55,7 +55,7 @@ UNLOADED_RELATIONS: Final[dict[str, JsonValue]] = dict.fromkeys(
 
 def _budget_row(budget_id: str) -> dict[str, JsonValue]:
     rows: Final = read_rows(
-        f'SELECT {BUDGET_COLUMNS}, budget_reset_at::text AS reset_at FROM "LiteLLM_BudgetTable" WHERE budget_id = %s',
+        f'SELECT {BUDGET_COLUMNS}, budget_reset_at::text AS reset_at FROM "HangarLLM_BudgetTable" WHERE budget_id = %s',
         (budget_id,),
     )
     assert len(rows) == 1, rows
@@ -193,7 +193,7 @@ def test_model_max_budget_update_is_refused_by_the_handler_without_a_license(gat
     with gateway.scenario() as scenario:
         budget_id: Final = scenario.budget(max_budget=10.0, model_max_budget=model_budget)
         before: Final = _budget_row(budget_id)
-        with owned_proxy(gateway, tmp_path, {}, remove_environment=("LITELLM_LICENSE",)) as unlicensed:
+        with owned_proxy(gateway, tmp_path, {}, remove_environment=("HANGARLLM_LICENSE",)) as unlicensed:
             rejected: Final = unlicensed.request(
                 "POST",
                 "/budget/update",
@@ -203,10 +203,10 @@ def test_model_max_budget_update_is_refused_by_the_handler_without_a_license(gat
             assert rejected.json() == {
                 "detail": {
                     "error": "Invalid model_max_budget: You must have an enterprise license to set model_max_budget. "
-                    "You must be a LiteLLM Enterprise user to use this feature. If you have a license please set "
-                    "`LITELLM_LICENSE` in your env. Get a 7 day trial key here: https://www.litellm.ai/enterprise#trial. "
-                    "\nPricing: https://www.litellm.ai/#pricing. Example of valid model_max_budget: "
-                    "https://docs.litellm.ai/docs/proxy/users"
+                    "You must be a HangarLLM Enterprise user to use this feature. If you have a license please set "
+                    "`HANGARLLM_LICENSE` in your env. Get a 7 day trial key here: https://github.com/valteresj2/HangarLLM#readme "
+                    "\nPricing: https://github.com/valteresj2/HangarLLM#readme Example of valid model_max_budget: "
+                    "https://github.com/valteresj2/HangarLLM#readme"
                 }
             }, rejected.text
             assert _budget_row(budget_id) == before

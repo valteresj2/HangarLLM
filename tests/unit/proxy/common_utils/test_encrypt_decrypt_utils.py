@@ -11,8 +11,8 @@ import re
 
 import pytest
 
-from litellm.proxy import proxy_server
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
     V2_GCM_PREFIX,
     decrypt_bearer_token,
     decrypt_if_encrypted_with,
@@ -30,8 +30,8 @@ def _use_aes(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _salt_key(monkeypatch):
-    # Dominant convention in the test_litellm/ tree: set the key via env.
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-salt-aes-1234")
+    # Dominant convention in the test_hangarllm/ tree: set the key via env.
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-salt-aes-1234")
     # Ensure the legacy default is in force unless a test opts into AES.
     monkeypatch.setattr(proxy_server, "general_settings", {})
     yield
@@ -114,13 +114,13 @@ def test_empty_string_round_trips_under_aes(monkeypatch):
 
 
 def test_callback_prefix_composes_with_v2(monkeypatch):
-    """litellm_enc:: + v2:gcm:... round-trips through the callback read path.
+    """hangarllm_enc:: + v2:gcm:... round-trips through the callback read path.
 
-    Callback vars are stored as ``litellm_enc::<helper output>``; the read path
-    strips ``litellm_enc::`` then calls the helper, so the value handed to the
+    Callback vars are stored as ``hangarllm_enc::<helper output>``; the read path
+    strips ``hangarllm_enc::`` then calls the helper, so the value handed to the
     helper is ``v2:gcm:...``. Ordering must work end to end.
     """
-    from litellm.proxy.common_utils.callback_utils import (
+    from hangarllm.proxy.common_utils.callback_utils import (
         CALLBACK_VAR_ENCRYPTED_PREFIX,
         _decrypt_or_passthrough,
         _encrypt_if_plaintext,
@@ -159,8 +159,8 @@ def test_decrypt_failure_debug_log_omits_raw_value(monkeypatch):
     """
     import logging
 
-    import litellm._logging as _logging_module
-    from litellm._logging import verbose_proxy_logger
+    import hangarllm._logging as _logging_module
+    from hangarllm._logging import verbose_proxy_logger
 
     monkeypatch.setattr(_logging_module, "_ENABLE_SECRET_REDACTION", False)
 

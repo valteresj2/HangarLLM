@@ -33,7 +33,7 @@ def _write_config(path: Path, wire: Wire) -> Path:
                 "model_list": [
                     {
                         "model_name": "queue-video",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "queue-video/seedance-1",
                             "api_base": wire.url,
                             "api_key": "queue-secret",
@@ -41,14 +41,14 @@ def _write_config(path: Path, wire: Wire) -> Path:
                     },
                     {
                         "model_name": "image-only-video",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "image-only/seedance-1",
                             "api_base": wire.url,
                             "api_key": "unused",
                         },
                     },
                 ],
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "custom_provider_map": [
                         {"provider": "queue-video", "custom_handler": "custom_video_provider.VIDEO_CONFIG"},
                         {"provider": "image-only", "custom_handler": "custom_video_provider.IMAGE_ONLY_HANDLER"},

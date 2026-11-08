@@ -4,8 +4,8 @@ from typing import List, Tuple
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.config import LOOP_REPEAT_THRESHOLD, TOOL_CALL_HISTORY_MAX
-from litellm.router_strategy.adaptive_router.signals import (
+from hangarllm.router_strategy.adaptive_router.config import LOOP_REPEAT_THRESHOLD, TOOL_CALL_HISTORY_MAX
+from hangarllm.router_strategy.adaptive_router.signals import (
     SessionState,
     SignalDelta,
     Turn,

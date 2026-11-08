@@ -24,7 +24,7 @@ CLAUDE_SONNET_4_6_SERVICE_TIER_RESPONSE_FIELDS: Final = {
 CLAUDE_SONNET_4_6_SERVICE_TIER_TEST_CASE: Final = replace(
     CLAUDE_SONNET_4_6_TEST_CASE,
     scenario="service_tier",
-    litellm_request={**CLAUDE_SONNET_4_6_TEST_CASE.litellm_request, "service_tier": "standard_only"},
+    hangarllm_request={**CLAUDE_SONNET_4_6_TEST_CASE.hangarllm_request, "service_tier": "standard_only"},
     expected_provider_request={
         **CLAUDE_SONNET_4_6_TEST_CASE.expected_provider_request,
         "service_tier": "standard_only",
@@ -34,8 +34,8 @@ CLAUDE_SONNET_4_6_SERVICE_TIER_TEST_CASE: Final = replace(
         **CLAUDE_SONNET_4_6_SERVICE_TIER_RESPONSE_FIELDS,
         "id": "msg_011Cg1RG36pCcTLE26htFFqC",
     },
-    expected_litellm_response={
-        **CLAUDE_SONNET_4_6_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_SONNET_4_6_TEST_CASE.expected_hangarllm_response,
         **CLAUDE_SONNET_4_6_SERVICE_TIER_RESPONSE_FIELDS,
         "id": "msg_011Cg1RG36pCcTLE26htFFqC",
     },
@@ -92,7 +92,7 @@ CLAUDE_SONNET_5_5_SERVICE_TIER_RESPONSE_FIELDS: Final = {
 CLAUDE_SONNET_5_5_SERVICE_TIER_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_5_TEST_CASE,
     scenario="service_tier",
-    litellm_request={**CLAUDE_SONNET_5_5_TEST_CASE.litellm_request, "service_tier": "standard_only"},
+    hangarllm_request={**CLAUDE_SONNET_5_5_TEST_CASE.hangarllm_request, "service_tier": "standard_only"},
     expected_provider_request={
         **CLAUDE_SONNET_5_5_TEST_CASE.expected_provider_request,
         "service_tier": "standard_only",
@@ -101,8 +101,8 @@ CLAUDE_SONNET_5_5_SERVICE_TIER_TEST_CASE: Final = replace(
         **CLAUDE_SONNET_5_5_TEST_CASE.mock_provider_response,
         **CLAUDE_SONNET_5_5_SERVICE_TIER_RESPONSE_FIELDS,
     },
-    expected_litellm_response={
-        **CLAUDE_SONNET_5_5_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_SONNET_5_5_TEST_CASE.expected_hangarllm_response,
         **CLAUDE_SONNET_5_5_SERVICE_TIER_RESPONSE_FIELDS,
     },
 )

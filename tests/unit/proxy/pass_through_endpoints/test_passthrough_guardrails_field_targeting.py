@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-from litellm.proxy._types import PassThroughGuardrailSettings
-from litellm.proxy.pass_through_endpoints.passthrough_guardrails import (
+from hangarllm.proxy._types import PassThroughGuardrailSettings
+from hangarllm.proxy.pass_through_endpoints.passthrough_guardrails import (
     PassthroughGuardrailHandler,
 )
 

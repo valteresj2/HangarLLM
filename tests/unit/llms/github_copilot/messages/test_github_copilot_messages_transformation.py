@@ -4,12 +4,12 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.exceptions import AuthenticationError
-from litellm.llms.github_copilot.common_utils import GetAccessTokenError
-from litellm.llms.github_copilot.messages.transformation import (
+from hangarllm.exceptions import AuthenticationError
+from hangarllm.llms.github_copilot.common_utils import GetAccessTokenError
+from hangarllm.llms.github_copilot.messages.transformation import (
     GithubCopilotAnthropicMessagesConfig,
 )
-from litellm.llms.github_copilot.per_user_auth import (
+from hangarllm.llms.github_copilot.per_user_auth import (
     GITHUB_COPILOT_USER_SESSION_KWARG_KEY,
     GithubCopilotUserSession,
 )
@@ -32,7 +32,7 @@ def test_github_copilot_anthropic_messages_get_complete_url():
         api_key=None,
         model="github_copilot/claude-haiku-4.5",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.githubcopilot.com/v1/messages"
     # Falls back to a single authenticator read, not a hard-coded second one.
@@ -45,7 +45,7 @@ def test_github_copilot_anthropic_messages_get_complete_url():
         api_key=None,
         model="github_copilot/claude-haiku-4.5",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.business.githubcopilot.com/v1/messages"
     config.authenticator.get_api_base.assert_not_called()
@@ -56,7 +56,7 @@ def test_github_copilot_anthropic_messages_get_complete_url():
         api_key=None,
         model="github_copilot/claude-haiku-4.5",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.business.githubcopilot.com/v1/messages"
 
@@ -66,7 +66,7 @@ def test_github_copilot_anthropic_messages_get_complete_url():
         api_key=None,
         model="github_copilot/claude-haiku-4.5",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.githubcopilot.com/v1/messages"
 
@@ -83,7 +83,7 @@ def test_github_copilot_anthropic_messages_get_complete_url_normalizes_authentic
         api_key=None,
         model="github_copilot/claude-haiku-4.5",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://api.business.githubcopilot.com/v1/messages"
 
@@ -104,7 +104,7 @@ def test_github_copilot_anthropic_messages_validate_environment():
         model="github_copilot/claude-haiku-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base="https://attacker.example.com",
     )
@@ -136,7 +136,7 @@ def test_github_copilot_anthropic_messages_validate_environment_injects_beta_hea
         model="github_copilot/claude-haiku-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"output_format": {"type": "json_object"}},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -157,7 +157,7 @@ def test_github_copilot_anthropic_messages_validate_environment_preserves_caller
         model="github_copilot/claude-haiku-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -178,7 +178,7 @@ def test_github_copilot_anthropic_messages_validate_environment_injects_context_
         model="github_copilot/claude-haiku-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]}},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -201,7 +201,7 @@ def test_github_copilot_safeguards_do_not_derive_the_dangerous_tool_use_beta() -
             "safeguards": ({"type": "dangerous_tool_use"},),
             "context_management": {"edits": ({"type": "clear_tool_uses_20250919"},)},
         },
-        litellm_params={GITHUB_COPILOT_USER_SESSION_KWARG_KEY: session},
+        hangarllm_params={GITHUB_COPILOT_USER_SESSION_KWARG_KEY: session},
         api_key=None,
         api_base=None,
     )
@@ -225,7 +225,7 @@ def test_github_copilot_anthropic_messages_validate_environment_auth_error():
             model="github_copilot/claude-haiku-4.5",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )
@@ -246,8 +246,8 @@ def test_github_copilot_anthropic_messages_supported_params():
 def test_provider_config_manager_dispatches_claude_to_copilot_messages_config():
     """ProviderConfigManager must return the Copilot Anthropic Messages config
     for Claude models served via github_copilot."""
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.utils import LlmProviders
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_anthropic_messages_config(
         model="github_copilot/claude-haiku-4.5",
@@ -260,8 +260,8 @@ def test_provider_config_manager_dispatches_claude_to_copilot_messages_config():
 def test_provider_config_manager_skips_non_claude_copilot_models():
     """Non-Claude github_copilot models (e.g. gpt-*) must not be routed through
     the Anthropic Messages dispatch."""
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.utils import LlmProviders
+    from hangarllm.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_anthropic_messages_config(
         model="github_copilot/gpt-5-mini",
@@ -284,7 +284,7 @@ def test_github_copilot_anthropic_messages_validate_environment_normalizes_trail
         model="github_copilot/claude-haiku-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base="https://attacker.example.com",
     )
@@ -298,8 +298,8 @@ def test_github_copilot_config_disables_anthropic_beta_filtering():
     forwarded verbatim. The default provider-scoped filter would drop them
     because github_copilot has no entry in the beta headers config; a regression
     here would silently disable header-gated Anthropic features for Copilot."""
-    from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
-    from litellm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
+    from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+    from hangarllm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
 
     config = GithubCopilotAnthropicMessagesConfig()
     assert config.should_filter_anthropic_beta_headers() is False
@@ -314,7 +314,7 @@ def test_github_copilot_config_disables_anthropic_beta_filtering():
         model="github_copilot/claude-haiku-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]}},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -335,7 +335,7 @@ def test_github_copilot_config_does_not_handle_web_search_natively():
     interception handler short-circuiting Copilot instead of routing to it, even
     though Copilot now has a BaseAnthropicMessagesConfig. The base Anthropic
     config (bedrock/vertex/anthropic path) must report True."""
-    from litellm.llms.anthropic.messages.native.transformation import (
+    from hangarllm.llms.anthropic.messages.native.transformation import (
         AnthropicMessagesConfig,
     )
 
@@ -352,7 +352,7 @@ def test_github_copilot_messages_config_probes_capabilities_under_copilot_namesp
 
 
 def test_validate_environment_uses_per_user_session_and_skips_authenticator():
-    from litellm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
+    from hangarllm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
 
     config = GithubCopilotAnthropicMessagesConfig()
     config.authenticator = MagicMock()
@@ -365,7 +365,7 @@ def test_validate_environment_uses_per_user_session_and_skips_authenticator():
         model="github_copilot/claude-sonnet-5.5",
         messages=[],
         optional_params={},
-        litellm_params={"github_copilot_user_session": session},
+        hangarllm_params={"github_copilot_user_session": session},
     )
     assert headers["Authorization"] == "Bearer user-copilot-token"
     assert api_base == "https://tenant.githubcopilot.com"
@@ -373,7 +373,7 @@ def test_validate_environment_uses_per_user_session_and_skips_authenticator():
 
 
 def test_per_user_session_token_wins_over_caller_authorization():
-    from litellm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
+    from hangarllm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
 
     config = GithubCopilotAnthropicMessagesConfig()
     config.authenticator = MagicMock()
@@ -384,7 +384,7 @@ def test_per_user_session_token_wins_over_caller_authorization():
         model="github_copilot/claude-sonnet-4.5",
         messages=[],
         optional_params={},
-        litellm_params={"github_copilot_user_session": session},
+        hangarllm_params={"github_copilot_user_session": session},
     )
     assert headers["Authorization"] == "Bearer user-copilot-token"
 

@@ -9,18 +9,18 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-from litellm.proxy.common_request_processing import cost_headers
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
+from hangarllm.proxy.common_request_processing import cost_headers
+from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
 
 _REPO_ROOT: Final = Path(__file__).resolve().parents[4]
 _PRIMARY_PRICES: Final = json.loads((_REPO_ROOT / "model_prices_and_context_window.json").read_text())
-_BACKUP_PRICES: Final = json.loads((_REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json").read_text())
+_BACKUP_PRICES: Final = json.loads((_REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json").read_text())
 _CATALOG_MODELS: Final = tuple(
-    key for key, row in _PRIMARY_PRICES.items() if isinstance(row, dict) and row.get("litellm_provider") == "kyma"
+    key for key, row in _PRIMARY_PRICES.items() if isinstance(row, dict) and row.get("hangarllm_provider") == "kyma"
 )
 _TIER_KEY: Final = re.compile(r"^input_cost_per_token_above_(\d+)k_tokens$")
 
@@ -92,9 +92,9 @@ def test_bare_model_on_kyma_base_url_keeps_openai_routing(monkeypatch: pytest.Mo
 
 
 def test_kyma_is_available_in_add_model_form():
-    fields_path: Final = Path(litellm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
+    fields_path: Final = Path(hangarllm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
     providers: Final = json.loads(fields_path.read_text())
-    kyma: Final = next(provider for provider in providers if provider["litellm_provider"] == "kyma")
+    kyma: Final = next(provider for provider in providers if provider["hangarllm_provider"] == "kyma")
 
     assert kyma["default_model_placeholder"] in _CATALOG_MODELS
     assert {field["key"]: field["required"] for field in kyma["credential_fields"]} == {
@@ -118,7 +118,7 @@ def test_kyma_chat_completion_request():
                 "usage": {"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="kyma/qwen3.7-flash",
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="kyma-test-key",
@@ -149,12 +149,12 @@ def test_catalog_row_matches_its_backup_and_fits_its_context(model: str):
 @pytest.mark.parametrize("model", _CATALOG_MODELS)
 def test_chat_response_is_priced_at_its_catalog_row(model: str):
     row: Final = _PRIMARY_PRICES[model]
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         model=model.removeprefix("kyma/"),
-        usage=litellm.Usage(prompt_tokens=1000, completion_tokens=200, total_tokens=1200),
+        usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=200, total_tokens=1200),
     )
 
-    cost: Final = litellm.completion_cost(completion_response=response, model=model)
+    cost: Final = hangarllm.completion_cost(completion_response=response, model=model)
 
     assert cost == pytest.approx(1000 * row["input_cost_per_token"] + 200 * row["output_cost_per_token"])
 
@@ -164,12 +164,12 @@ def test_chat_response_is_priced_at_its_catalog_row(model: str):
 def test_long_prompt_is_priced_at_its_tier(model: str, threshold_k: int):
     row: Final = _PRIMARY_PRICES[model]
     prompt_tokens: Final = threshold_k * 1000 + 1000
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         model=model.removeprefix("kyma/"),
-        usage=litellm.Usage(prompt_tokens=prompt_tokens, completion_tokens=200, total_tokens=prompt_tokens + 200),
+        usage=hangarllm.Usage(prompt_tokens=prompt_tokens, completion_tokens=200, total_tokens=prompt_tokens + 200),
     )
 
-    cost: Final = litellm.completion_cost(completion_response=response, model=model)
+    cost: Final = hangarllm.completion_cost(completion_response=response, model=model)
 
     assert cost == pytest.approx(
         prompt_tokens * row[f"input_cost_per_token_above_{threshold_k}k_tokens"]
@@ -184,7 +184,7 @@ def test_kyma_response_is_billed_at_the_cost_kyma_reports(model: str):
         upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7, "cost": reported_cost})
         )
-        response: Final = litellm.completion(model=model, messages=[{"role": "user", "content": "ping"}], api_key="k")
+        response: Final = hangarllm.completion(model=model, messages=[{"role": "user", "content": "ping"}], api_key="k")
 
     assert response._hidden_params["response_cost"] == pytest.approx(reported_cost)
 
@@ -194,7 +194,7 @@ def test_deployment_pricing_overrides_the_cost_kyma_reports():
         upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7, "cost": 0.00721})
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="kyma/sonar",
             messages=[{"role": "user", "content": "ping"}],
             api_key="k",
@@ -221,7 +221,7 @@ def test_unusable_cost_from_kyma_falls_back_to_the_catalog_price(reported_cost: 
             content=json.dumps(_kyma_chat_body(usage)).replace('"REPORTED_COST"', reported_cost),
             headers={"content-type": "application/json"},
         )
-        response: Final = litellm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
+        response: Final = hangarllm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
 
     assert response._hidden_params["response_cost"] == pytest.approx(_catalog_price("kyma/sonar", 4, 3))
 
@@ -232,7 +232,7 @@ def test_deployment_base_model_overrides_the_cost_kyma_reports():
         upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7, "cost": 0.00721})
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="kyma/sonar",
             messages=[{"role": "user", "content": "ping"}],
             api_key="k",
@@ -248,7 +248,7 @@ def test_interaction_on_kyma_is_billed_at_the_cost_kyma_reports():
         upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7, "cost": reported_cost})
         )
-        interaction: Final = litellm.interactions.create(model="kyma/qwen3.7-flash", input="ping", api_key="k")
+        interaction: Final = hangarllm.interactions.create(model="kyma/qwen3.7-flash", input="ping", api_key="k")
 
     assert interaction._hidden_params["response_cost"] == pytest.approx(reported_cost)
 
@@ -276,7 +276,7 @@ def test_interaction_on_another_openai_compatible_provider_is_billed_at_its_repo
     with respx.mock(assert_all_called=False) as upstream:
         upstream.route(path__regex=r".*/chat/completions$").respond(200, json=_kyma_chat_body(chat_usage))
         upstream.route(path__regex=r".*/responses$").respond(200, json=responses_body)
-        interaction: Final = litellm.interactions.create(model=model, input="ping", api_key="k")
+        interaction: Final = hangarllm.interactions.create(model=model, input="ping", api_key="k")
 
     assert interaction.model_dump(exclude_none=True)["usage"]["cost"] == pytest.approx(0.00721)
 
@@ -287,16 +287,16 @@ def test_sdk_completion_cost_prices_kyma_at_the_cost_kyma_reports():
         upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7, "cost": reported_cost})
         )
-        response: Final = litellm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
+        response: Final = hangarllm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
 
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(reported_cost)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(reported_cost)
 
 
-def _kyma_sdk_response(usage: dict[str, float]) -> litellm.ModelResponse:
+def _kyma_sdk_response(usage: dict[str, float]) -> hangarllm.ModelResponse:
     with respx.mock() as upstream:
         upstream.post(_CHAT_URL).respond(200, json=_kyma_chat_body(usage))
-        response: Final = litellm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
-    assert isinstance(response, litellm.ModelResponse)
+        response: Final = hangarllm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
+    assert isinstance(response, hangarllm.ModelResponse)
     return response
 
 
@@ -309,10 +309,10 @@ def test_sdk_completion_cost_uses_the_callers_token_prices_over_the_cost_kyma_re
     with_reported_cost: Final = _kyma_sdk_response({**_KYMA_TOKEN_USAGE, "cost": _KYMA_REPORTED_COST})
     without_reported_cost: Final = _kyma_sdk_response(_KYMA_TOKEN_USAGE)
 
-    assert litellm.completion_cost(
+    assert hangarllm.completion_cost(
         completion_response=with_reported_cost, custom_cost_per_token=caller_prices
-    ) == pytest.approx(litellm.completion_cost(completion_response=without_reported_cost, custom_cost_per_token=caller_prices))
-    assert litellm.completion_cost(
+    ) == pytest.approx(hangarllm.completion_cost(completion_response=without_reported_cost, custom_cost_per_token=caller_prices))
+    assert hangarllm.completion_cost(
         completion_response=with_reported_cost, custom_cost_per_token=caller_prices
     ) != pytest.approx(_KYMA_REPORTED_COST)
 
@@ -320,14 +320,14 @@ def test_sdk_completion_cost_uses_the_callers_token_prices_over_the_cost_kyma_re
 def test_sdk_completion_cost_uses_the_callers_per_second_price_over_the_cost_kyma_reports():
     response: Final = _kyma_sdk_response({**_KYMA_TOKEN_USAGE, "cost": _KYMA_REPORTED_COST})
 
-    assert litellm.completion_cost(completion_response=response, custom_cost_per_second=50.0) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response, custom_cost_per_second=50.0) == pytest.approx(
         50.0 * response._response_ms / 1000
     )
 
 
 def _with_kyma_discount_and_margin(monkeypatch: pytest.MonkeyPatch) -> float:
-    monkeypatch.setattr(litellm, "cost_discount_config", {"kyma": 0.5})
-    monkeypatch.setattr(litellm, "cost_margin_config", {"kyma": 0.1})
+    monkeypatch.setattr(hangarllm, "cost_discount_config", {"kyma": 0.5})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"kyma": 0.1})
     return 0.5 * 1.1
 
 
@@ -337,7 +337,7 @@ def test_cost_kyma_reports_takes_the_configured_discount_and_margin(monkeypatch:
         upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7, "cost": 0.008})
         )
-        response: Final = litellm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
+        response: Final = hangarllm.completion(model="kyma/sonar", messages=[{"role": "user", "content": "ping"}], api_key="k")
 
     assert response._hidden_params["response_cost"] == pytest.approx(0.008 * adjustment)
 
@@ -356,24 +356,24 @@ def test_streamed_cost_kyma_reports_takes_the_configured_discount_and_margin(mon
     adjustment: Final = _with_kyma_discount_and_margin(monkeypatch)
     usage_chunk: Final = _kyma_stream_chunk("")
     usage_chunk.usage = Usage(prompt_tokens=4, completion_tokens=3, total_tokens=7, cost=0.008)
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = HangarLLMLogging(
         model="sonar",
         messages=[{"role": "user", "content": "ping"}],
         stream=True,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="kyma-call",
+        hangarllm_call_id="kyma-call",
         function_id="kyma-function",
     )
     logging_obj.update_environment_variables(
         model="sonar",
         user=None,
         optional_params={},
-        litellm_params={"custom_llm_provider": "kyma"},
+        hangarllm_params={"custom_llm_provider": "kyma"},
         custom_llm_provider="kyma",
     )
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = hangarllm.stream_chunk_builder(
         chunks=[_kyma_stream_chunk("pong", finish_reason="stop"), usage_chunk],
         messages=[{"role": "user", "content": "ping"}],
         logging_obj=logging_obj,
@@ -384,38 +384,38 @@ def test_streamed_cost_kyma_reports_takes_the_configured_discount_and_margin(mon
 
 def test_cost_headers_show_the_discount_and_margin_taken_from_the_cost_kyma_reports(monkeypatch: pytest.MonkeyPatch):
     _with_kyma_discount_and_margin(monkeypatch)
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = HangarLLMLogging(
         model="sonar",
         messages=[{"role": "user", "content": "ping"}],
         stream=False,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="kyma-call",
+        hangarllm_call_id="kyma-call",
         function_id="kyma-function",
     )
     logging_obj.update_environment_variables(
         model="sonar",
         user=None,
         optional_params={},
-        litellm_params={"custom_llm_provider": "kyma"},
+        hangarllm_params={"custom_llm_provider": "kyma"},
         custom_llm_provider="kyma",
     )
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         model="sonar", usage=Usage(prompt_tokens=4, completion_tokens=3, total_tokens=7, cost=0.008)
     )
 
     headers: Final = cost_headers(logging_obj.response_cost_calculator(result=response), logging_obj)
 
-    assert float(headers["x-litellm-response-cost-original"] or "nan") == pytest.approx(0.008)
-    assert float(headers["x-litellm-response-cost-discount-amount"] or "nan") == pytest.approx(0.004)
-    assert float(headers["x-litellm-response-cost-margin-amount"] or "nan") == pytest.approx(0.0004)
-    assert float(headers["x-litellm-response-cost"] or "nan") == pytest.approx(0.0044)
-    row: Final = litellm.get_model_info("sonar", custom_llm_provider="kyma")
+    assert float(headers["x-hangarllm-response-cost-original"] or "nan") == pytest.approx(0.008)
+    assert float(headers["x-hangarllm-response-cost-discount-amount"] or "nan") == pytest.approx(0.004)
+    assert float(headers["x-hangarllm-response-cost-margin-amount"] or "nan") == pytest.approx(0.0004)
+    assert float(headers["x-hangarllm-response-cost"] or "nan") == pytest.approx(0.0044)
+    row: Final = hangarllm.get_model_info("sonar", custom_llm_provider="kyma")
     priced_input: Final = 4 * row["input_cost_per_token"]
     priced_output: Final = 3 * row["output_cost_per_token"]
     input_share: Final = priced_input / (priced_input + priced_output)
-    assert float(headers["x-litellm-response-cost-input"] or "nan") == pytest.approx(0.0044 * input_share)
-    assert float(headers["x-litellm-response-cost-output"] or "nan") == pytest.approx(0.0044 * (1 - input_share))
+    assert float(headers["x-hangarllm-response-cost-input"] or "nan") == pytest.approx(0.0044 * input_share)
+    assert float(headers["x-hangarllm-response-cost-output"] or "nan") == pytest.approx(0.0044 * (1 - input_share))
 
 
 @pytest.mark.parametrize("thinking", ({"type": "enabled", "budget_tokens": 1024}, {"type": "adaptive"}))
@@ -424,7 +424,7 @@ def test_messages_thinking_on_a_kyma_claude_model_is_sent_as_reasoning_effort(th
         route: Final = upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7})
         )
-        litellm.anthropic.messages.create(
+        hangarllm.anthropic.messages.create(
             model="kyma/claude-haiku-4-5",
             max_tokens=2048,
             messages=[{"role": "user", "content": "ping"}],
@@ -442,7 +442,7 @@ def test_kyma_model_missing_from_the_catalog_keeps_its_tools():
         route: Final = upstream.post(_CHAT_URL).respond(
             200, json=_kyma_chat_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7})
         )
-        litellm.completion(model=_UNLISTED_MODEL, messages=[{"role": "user", "content": "ping"}], api_key="k", tools=tools)
+        hangarllm.completion(model=_UNLISTED_MODEL, messages=[{"role": "user", "content": "ping"}], api_key="k", tools=tools)
 
     assert json.loads(route.calls.last.request.content)["tools"] == tools
 
@@ -452,18 +452,18 @@ def test_kyma_wildcard_lists_every_catalog_model():
 
 
 def _generate_image() -> object:
-    return litellm.image_generation(model="kyma/flux-2", prompt="a cat", api_key="k")
+    return hangarllm.image_generation(model="kyma/flux-2", prompt="a cat", api_key="k")
 
 
 def _transcribe() -> object:
-    return litellm.transcription(model="kyma/whisper-1", file=("a.wav", b"RIFF0000WAVE", "audio/wav"), api_key="k")
+    return hangarllm.transcription(model="kyma/whisper-1", file=("a.wav", b"RIFF0000WAVE", "audio/wav"), api_key="k")
 
 
 @pytest.mark.parametrize("call", (_generate_image, _transcribe))
 def test_unpriced_kyma_media_calls_are_refused_without_calling_kyma(call: Callable[[], object]):
     with respx.mock(assert_all_called=False) as upstream:
         kyma: Final = upstream.route(host="kymaapi.com").respond(202, json={"id": "job_kyma"})
-        with pytest.raises(litellm.BadRequestError):
+        with pytest.raises(hangarllm.BadRequestError):
             call()
 
     assert kyma.call_count == 0

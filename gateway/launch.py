@@ -8,7 +8,7 @@ handed the loopback URL it listens on. A pre-existing ``DATABASE_URL`` wins in
 wins under token auth too, so exporting it here is enough for every worker to
 pick the pooled URL up unchanged.
 
-LiteLLM imports wait for ``main``: every uvicorn worker imports this module again
+HangarLLM imports wait for ``main``: every uvicorn worker imports this module again
 before it can answer its first 5 s health ping, so a slow host would kill each one.
 Workers then load the gateway app through ``worker_app`` without garbage collection
 pauses, which hold the GIL long enough to miss a ping.
@@ -24,13 +24,13 @@ from typing import TYPE_CHECKING, Final
 
 from uvicorn.main import main as uvicorn_main
 
-from litellm_cli.main import without_gc_pauses
+from hangarllm_cli.main import without_gc_pauses
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from litellm.proxy.db.db_url_settings import DatabaseURLSettings
-    from litellm.proxy.db.pgbouncer import PgBouncerError, PgBouncerSettings
+    from hangarllm.proxy.db.db_url_settings import DatabaseURLSettings
+    from hangarllm.proxy.db.pgbouncer import PgBouncerError, PgBouncerSettings
 
 GATEWAY_APP: Final = "gateway.launch:worker_app"
 KEEPALIVE_FLAG: Final = "--timeout-keep-alive"
@@ -55,13 +55,13 @@ def pool_database_url(
     ``DATABASE_*`` vars (or an operator-pinned ``DATABASE_URL``). Under token
     auth the pooler mints and renews the upstream token itself.
     """
-    from litellm.proxy.db.pgbouncer import PgBouncerError, start_in_container_pgbouncer
+    from hangarllm.proxy.db.pgbouncer import PgBouncerError, start_in_container_pgbouncer
 
     if not pgbouncer.enabled:
         return None
     upstream_url: Final = environ.get("DATABASE_URL")
     if upstream_url is None:
-        return PgBouncerError("LITELLM_PGBOUNCER_ENABLED is set but no DATABASE_URL could be assembled")
+        return PgBouncerError("HANGARLLM_PGBOUNCER_ENABLED is set but no DATABASE_URL could be assembled")
     return start_in_container_pgbouncer(pgbouncer, upstream_url, token_auth=settings.token_auth())
 
 
@@ -76,14 +76,14 @@ def _serve(argv: Sequence[str]) -> None:
 
 
 def main(argv: Sequence[str], serve: Callable[[Sequence[str]], None] = _serve) -> None:
-    from litellm.proxy.db.db_url_settings import DatabaseURLSettings
-    from litellm.proxy.db.pgbouncer import PgBouncerError, PgBouncerSettings, export_pooled_database_url
+    from hangarllm.proxy.db.db_url_settings import DatabaseURLSettings
+    from hangarllm.proxy.db.pgbouncer import PgBouncerError, PgBouncerSettings, export_pooled_database_url
 
     settings: Final = DatabaseURLSettings.from_env()
     settings.apply_to_env()
     pooled_url: Final = pool_database_url(settings, PgBouncerSettings(), os.environ)
     if isinstance(pooled_url, PgBouncerError):
-        sys.exit(f"LiteLLM gateway: in-container pgbouncer could not start: {pooled_url.reason}")
+        sys.exit(f"HangarLLM gateway: in-container pgbouncer could not start: {pooled_url.reason}")
     if pooled_url is not None:
         export_pooled_database_url(pooled_url)
     serve(uvicorn_argv(argv, os.environ))

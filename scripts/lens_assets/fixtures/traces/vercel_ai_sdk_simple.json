@@ -51,7 +51,7 @@
                     "stringValue": "--env-file=.env"
                   },
                   {
-                    "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/simple/main.ts"
+                    "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/simple/main.ts"
                   }
                 ]
               }
@@ -78,7 +78,7 @@
           {
             "key": "process.command",
             "value": {
-              "stringValue": "/home/user/dev/litellm-lens-example/vercel-ai-sdk-js/simple/main.ts"
+              "stringValue": "/home/user/dev/hangarllm-lens-example/vercel-ai-sdk-js/simple/main.ts"
             }
           },
           {
@@ -116,7 +116,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "litellm.gateway.client"
+            "name": "hangarllm.gateway.client"
           },
           "spans": [
             {
@@ -129,7 +129,7 @@
               "endTimeUnixNano": "1791061322796203541",
               "attributes": [
                 {
-                  "key": "litellm.gateway.attempt",
+                  "key": "hangarllm.gateway.attempt",
                   "value": {
                     "boolValue": true
                   }
@@ -159,7 +159,7 @@
                   }
                 },
                 {
-                  "key": "litellm.call_id",
+                  "key": "hangarllm.call_id",
                   "value": {
                     "stringValue": "ef052c46-6645-4f8c-80c8-33aecd9150fa"
                   }
@@ -193,7 +193,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {
@@ -302,7 +302,7 @@
                 {
                   "key": "gen_ai.provider.name",
                   "value": {
-                    "stringValue": "litellm.chat"
+                    "stringValue": "hangarllm.chat"
                   }
                 },
                 {

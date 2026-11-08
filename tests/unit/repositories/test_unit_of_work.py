@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Mapping, Tuple
 
 import pytest
 
-from litellm.repositories.unit_of_work import (
+from hangarllm.repositories.unit_of_work import (
     LinkedSpendResetWrites,
     SpendResetWrites,
     budget_cascade_unit_of_work,
@@ -29,16 +29,16 @@ class FakeBatch:
     def __init__(self):
         self.calls: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
         self.commit_count = 0
-        self.litellm_verificationtoken = FakeBatchTable("litellm_verificationtoken", self.calls)
-        self.litellm_usertable = FakeBatchTable("litellm_usertable", self.calls)
-        self.litellm_teamtable = FakeBatchTable("litellm_teamtable", self.calls)
-        self.litellm_budgettable = FakeBatchTable("litellm_budgettable", self.calls)
-        self.litellm_teammembership = FakeBatchTable("litellm_teammembership", self.calls)
-        self.litellm_organizationtable = FakeBatchTable("litellm_organizationtable", self.calls)
-        self.litellm_tagtable = FakeBatchTable("litellm_tagtable", self.calls)
-        self.litellm_modelaccessgroupbudgettable = FakeBatchTable("litellm_modelaccessgroupbudgettable", self.calls)
-        self.litellm_projecttable = FakeBatchTable("litellm_projecttable", self.calls)
-        self.litellm_endusertable = FakeBatchTable("litellm_endusertable", self.calls)
+        self.hangarllm_verificationtoken = FakeBatchTable("hangarllm_verificationtoken", self.calls)
+        self.hangarllm_usertable = FakeBatchTable("hangarllm_usertable", self.calls)
+        self.hangarllm_teamtable = FakeBatchTable("hangarllm_teamtable", self.calls)
+        self.hangarllm_budgettable = FakeBatchTable("hangarllm_budgettable", self.calls)
+        self.hangarllm_teammembership = FakeBatchTable("hangarllm_teammembership", self.calls)
+        self.hangarllm_organizationtable = FakeBatchTable("hangarllm_organizationtable", self.calls)
+        self.hangarllm_tagtable = FakeBatchTable("hangarllm_tagtable", self.calls)
+        self.hangarllm_modelaccessgroupbudgettable = FakeBatchTable("hangarllm_modelaccessgroupbudgettable", self.calls)
+        self.hangarllm_projecttable = FakeBatchTable("hangarllm_projecttable", self.calls)
+        self.hangarllm_endusertable = FakeBatchTable("hangarllm_endusertable", self.calls)
 
     def execute_raw(self, query: str, *args: object) -> None:
         self.calls.append(("execute_raw", {"query": query}, {"args": args}))
@@ -59,9 +59,9 @@ async def test_updates_across_tables_share_one_batch_and_commit_once():
 
     assert batch.commit_count == 1
     assert batch.calls == [
-        ("litellm_verificationtoken", {"token": "tok-1"}, {"spend": {"decrement": 1.5}, "budget_reset_at": reset_at}),
-        ("litellm_usertable", {"user_id": "user-1"}, {"spend": {"decrement": 2.5}, "budget_reset_at": reset_at}),
-        ("litellm_teamtable", {"team_id": "team-1"}, {"spend": {"decrement": 0.0}, "budget_reset_at": None}),
+        ("hangarllm_verificationtoken", {"token": "tok-1"}, {"spend": {"decrement": 1.5}, "budget_reset_at": reset_at}),
+        ("hangarllm_usertable", {"user_id": "user-1"}, {"spend": {"decrement": 2.5}, "budget_reset_at": reset_at}),
+        ("hangarllm_teamtable", {"team_id": "team-1"}, {"spend": {"decrement": 0.0}, "budget_reset_at": None}),
     ]
 
 
@@ -106,13 +106,13 @@ async def test_budget_cascade_dependents_and_window_advance_share_one_batch():
 
     assert batch.commit_count == 1
     assert batch.calls == [
-        ("litellm_teammembership.update_many", linked, {"spend": 0}),
-        ("litellm_verificationtoken.update_many", linked, {"spend": 0}),
-        ("litellm_organizationtable.update_many", linked, {"spend": 0}),
-        ("litellm_tagtable.update_many", linked, {"spend": 0}),
-        ("litellm_modelaccessgroupbudgettable.update_many", linked, {"spend": 0}),
-        ("litellm_projecttable.update_many", linked, {"spend": 0}),
-        ("litellm_budgettable.update_many", {"budget_id": "budget-1"}, {"budget_reset_at": reset_at}),
+        ("hangarllm_teammembership.update_many", linked, {"spend": 0}),
+        ("hangarllm_verificationtoken.update_many", linked, {"spend": 0}),
+        ("hangarllm_organizationtable.update_many", linked, {"spend": 0}),
+        ("hangarllm_tagtable.update_many", linked, {"spend": 0}),
+        ("hangarllm_modelaccessgroupbudgettable.update_many", linked, {"spend": 0}),
+        ("hangarllm_projecttable.update_many", linked, {"spend": 0}),
+        ("hangarllm_budgettable.update_many", {"budget_id": "budget-1"}, {"budget_reset_at": reset_at}),
     ]
 
 
@@ -129,11 +129,11 @@ async def test_enduser_page_commits_on_its_own_batch():
     assert batch.commit_count == 1
     assert batch.calls == [
         (
-            "litellm_endusertable.update_many",
+            "hangarllm_endusertable.update_many",
             {"user_id": {"in": ["enduser-1", "enduser-2"]}, "spend": {"gt": 0}},
             {"spend": 0},
         ),
-        ("litellm_endusertable.update_many", {"user_id": {"in": ["enduser-3"]}, "spend": {"gt": 5.0}}, {"spend": {"decrement": 5.0}}),
+        ("hangarllm_endusertable.update_many", {"user_id": {"in": ["enduser-3"]}, "spend": {"gt": 5.0}}, {"spend": {"decrement": 5.0}}),
     ]
 
 
@@ -146,7 +146,7 @@ async def test_budget_window_advance_tolerates_a_tier_deleted_mid_chunk():
     async with budget_cascade_unit_of_work(lambda: batch) as uow:
         uow.budgets.queue_window_advance(budget_id="budget-1", budget_reset_at=datetime.now(timezone.utc))
 
-    assert [call[0] for call in batch.calls] == ["litellm_budgettable.update_many"]
+    assert [call[0] for call in batch.calls] == ["hangarllm_budgettable.update_many"]
 
 
 async def test_every_cascade_dependent_writes_to_its_own_table_on_the_one_batch():
@@ -213,4 +213,4 @@ async def test_membership_total_spend_repair_is_queued_on_the_cascade_batch_ahea
     repair, reset = batch.calls
     assert repair[0] == "execute_raw"
     assert repair[2] == {"args": (["budget-1", "budget-2"],)}
-    assert reset == ("litellm_teammembership.update_many", {"budget_id": "budget-1"}, {"spend": 0})
+    assert reset == ("hangarllm_teammembership.update_many", {"budget_id": "budget-1"}, {"spend": 0})

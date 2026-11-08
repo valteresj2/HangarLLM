@@ -1,7 +1,7 @@
 """A2A SDK paths against a scripted upstream agent.
 
 Ports the legacy agent_tests coverage: asend_message with an explicit A2A
-client, the LiteLLM logging payload for A2A calls, the pydantic_ai_agents
+client, the HangarLLM logging payload for A2A calls, the pydantic_ai_agents
 provider's send-and-poll flow, and the completion bridge driving LangGraph
 /runs/wait and /runs/stream endpoints.
 """
@@ -18,7 +18,7 @@ from a2a.compat.v0_3.types import (
     SendStreamingMessageRequest,
 )
 
-import litellm
+import hangarllm
 from tests.integration._support.wire import Reply, Request, wire_server
 
 
@@ -68,7 +68,7 @@ def _send_request() -> SendMessageRequest:
 @pytest.mark.asyncio
 async def test_asend_message_with_client_decorator():
     """asend_message over an explicit A2A client returns the agent message."""
-    from litellm.a2a_protocol import asend_message, create_a2a_client
+    from hangarllm.a2a_protocol import asend_message, create_a2a_client
 
     def upstream(request: Request) -> Reply:
         if request.method == "GET":
@@ -91,7 +91,7 @@ async def test_asend_message_with_client_decorator():
 @pytest.mark.asyncio
 async def test_a2a_logging_payload():
     """A2A calls produce a standard logging payload with provider and zero cost."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from hangarllm.integrations.custom_logger import CustomLogger
 
     class TestA2ALogger(CustomLogger):
         def __init__(self):
@@ -103,9 +103,9 @@ async def test_a2a_logging_payload():
             self.log_success_called = True
             self.standard_logging_payload = kwargs.get("standard_logging_object", None)
 
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
     test_logger = TestA2ALogger()
-    litellm.callbacks = [test_logger]
+    hangarllm.callbacks = [test_logger]
 
     def upstream(request: Request) -> Reply:
         if request.method == "GET":
@@ -113,7 +113,7 @@ async def test_a2a_logging_payload():
         return _a2a_message_response(request, "scripted agent reply")
 
     try:
-        from litellm.a2a_protocol import asend_message, create_a2a_client
+        from hangarllm.a2a_protocol import asend_message, create_a2a_client
 
         with wire_server(upstream) as wire:
             a2a_client = await create_a2a_client(base_url=wire.url)
@@ -123,7 +123,7 @@ async def test_a2a_logging_payload():
         while not test_logger.log_success_called and asyncio.get_event_loop().time() < deadline:
             await asyncio.sleep(0.05)
     finally:
-        litellm.logging_callback_manager._reset_all_callbacks()
+        hangarllm.logging_callback_manager._reset_all_callbacks()
 
     assert test_logger.log_success_called is True
     slp = test_logger.standard_logging_payload
@@ -180,13 +180,13 @@ def _pydantic_task_response(request: Request) -> Reply:
 @pytest.mark.asyncio
 async def test_pydantic_ai_non_streaming():
     """pydantic_ai_agents send returns the completed task with agent text."""
-    from litellm.a2a_protocol import asend_message
+    from hangarllm.a2a_protocol import asend_message
 
     with wire_server(_pydantic_task_response) as wire:
         response = await asend_message(
             request=_send_request(),
             api_base=wire.url,
-            litellm_params={"custom_llm_provider": "pydantic_ai_agents"},
+            hangarllm_params={"custom_llm_provider": "pydantic_ai_agents"},
         )
 
     assert response is not None
@@ -202,7 +202,7 @@ async def test_pydantic_ai_non_streaming():
 @pytest.mark.asyncio
 async def test_pydantic_ai_fake_streaming():
     """pydantic_ai_agents fake streaming emits task, working, artifact, completed."""
-    from litellm.a2a_protocol import asend_message_streaming
+    from hangarllm.a2a_protocol import asend_message_streaming
 
     send_message_payload = {
         "message": {
@@ -218,7 +218,7 @@ async def test_pydantic_ai_fake_streaming():
         async for chunk in asend_message_streaming(
             request=request,
             api_base=wire.url,
-            litellm_params={"custom_llm_provider": "pydantic_ai_agents"},
+            hangarllm_params={"custom_llm_provider": "pydantic_ai_agents"},
         ):
             chunk_dict = chunk.model_dump(mode="json", exclude_none=True) if hasattr(chunk, "model_dump") else chunk
             chunks.append(chunk_dict)
@@ -254,7 +254,7 @@ def _langgraph_upstream(request: Request) -> Reply:
 @pytest.mark.asyncio
 async def test_a2a_completion_bridge_non_streaming():
     """Completion bridge non-streaming returns the LangGraph text as an A2A message."""
-    from litellm.a2a_protocol import asend_message
+    from hangarllm.a2a_protocol import asend_message
 
     send_message_payload = {
         "message": {
@@ -269,7 +269,7 @@ async def test_a2a_completion_bridge_non_streaming():
         response = await asend_message(
             request=request,
             api_base=wire.url,
-            litellm_params={"custom_llm_provider": "langgraph", "model": "agent"},
+            hangarllm_params={"custom_llm_provider": "langgraph", "model": "agent"},
         )
 
     assert response.jsonrpc == "2.0"
@@ -287,7 +287,7 @@ async def test_a2a_completion_bridge_non_streaming():
 @pytest.mark.asyncio
 async def test_a2a_completion_bridge_streaming():
     """Completion bridge streaming emits task, working, artifact, completed events."""
-    from litellm.a2a_protocol import asend_message_streaming
+    from hangarllm.a2a_protocol import asend_message_streaming
 
     send_message_payload = {
         "message": {
@@ -303,7 +303,7 @@ async def test_a2a_completion_bridge_streaming():
         async for chunk in asend_message_streaming(
             request=request,
             api_base=wire.url,
-            litellm_params={"custom_llm_provider": "langgraph", "model": "agent"},
+            hangarllm_params={"custom_llm_provider": "langgraph", "model": "agent"},
         ):
             chunks.append(chunk)
 

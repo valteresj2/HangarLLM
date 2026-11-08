@@ -13,9 +13,9 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 )
 
-import litellm
-from litellm.llms.azure.azure import AzureChatCompletion
-from litellm.types.utils import EmbeddingResponse, Usage
+import hangarllm
+from hangarllm.llms.azure.azure import AzureChatCompletion
+from hangarllm.types.utils import EmbeddingResponse, Usage
 
 
 def _make_embedding_response() -> EmbeddingResponse:
@@ -49,7 +49,7 @@ class TestAzureV1AsyncEmbedding:
                 optional_params={},
                 api_key="fake-key",
                 aembedding=True,
-                litellm_params={},
+                hangarllm_params={},
             )
 
         mock_aembedding.assert_called_once()
@@ -65,7 +65,7 @@ class TestAzureV1AsyncEmbedding:
             api_base="https://my-endpoint.openai.azure.com",
             api_version="v1",
             _is_async=True,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(client, AsyncOpenAI)
@@ -78,7 +78,7 @@ class TestAzureV1AsyncEmbedding:
             api_base="https://my-endpoint.openai.azure.com",
             api_version="v1",
             _is_async=True,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert client is not None
@@ -94,7 +94,7 @@ class TestAzureV1AsyncEmbedding:
             api_base="https://my-endpoint.openai.azure.com",
             api_version=api_version,
             _is_async=True,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(client, AsyncOpenAI)
@@ -114,7 +114,7 @@ def test_azure_embedding_forwards_optional_args_in_the_request_body():
         )
     )
 
-    response = litellm.embedding(
+    response = hangarllm.embedding(
         model="azure/text-embedding-ada-002",
         input=["hello"],
         api_base="https://azure-optional-args.openai.azure.com",
@@ -138,7 +138,7 @@ def test_azure_embedding_forwards_optional_args_in_the_request_body():
 async def test_aembedding_azure_returns_an_azure_embedding_response(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route = respx_mock.post(
         url__regex=r"https://azure-async-embedding\.openai\.azure\.com/.*/embeddings.*"
     ).mock(
@@ -153,7 +153,7 @@ async def test_aembedding_azure_returns_an_azure_embedding_response(
         )
     )
 
-    response = await litellm.aembedding(
+    response = await hangarllm.aembedding(
         model="azure/text-embedding-ada-002",
         input=["good morning", "another item"],
         api_base="https://azure-async-embedding.openai.azure.com",
@@ -172,8 +172,8 @@ def test_azure_embedding_maps_a_scripted_request_timeout(respx_mock: respx.MockR
         url__regex=r"https://azure-timeout\.openai\.azure\.com/.*/embeddings.*"
     ).mock(side_effect=httpx.ReadTimeout("scripted timeout"))
 
-    with pytest.raises(litellm.Timeout):
-        litellm.embedding(
+    with pytest.raises(hangarllm.Timeout):
+        hangarllm.embedding(
             model="azure/text-embedding-ada-002",
             input=["hello"],
             api_base="https://azure-timeout.openai.azure.com",
@@ -193,9 +193,9 @@ def test_azure_embedding_max_retries_zero_sends_one_request(respx_mock: respx.Mo
         return_value=Response(500, json={"error": {"message": "temporary failure"}})
     )
 
-    litellm.in_memory_llm_clients_cache.flush_cache()
-    with pytest.raises(litellm.APIError):
-        litellm.embedding(
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
+    with pytest.raises(hangarllm.APIError):
+        hangarllm.embedding(
             model="azure/text-embedding-ada-002",
             input=["hello"],
             api_base="https://example-resource.openai.azure.com",

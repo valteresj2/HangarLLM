@@ -38,11 +38,11 @@ from integration.providers._gemini_long_decode_support import (
 )
 from pydantic import JsonValue
 
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
 
 pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
 
-_BUDGET_ENV: Final = "LITELLM_GEMINI_DEFAULT_MAX_OUTPUT_TOKENS"
+_BUDGET_ENV: Final = "HANGARLLM_GEMINI_DEFAULT_MAX_OUTPUT_TOKENS"
 _SMALL_BACKEND: Final = "gemini-2.5-flash"
 _LIMIT_KEYS: Final = ("max_output_tokens", "maxOutputTokens")
 _JOINED: Final = FIRST_HALF.text + SECOND_HALF.text

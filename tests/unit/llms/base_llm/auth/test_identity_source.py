@@ -4,7 +4,7 @@ from typing import Final, Literal
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.base_llm.auth.identity_source import (
+from hangarllm.llms.base_llm.auth.identity_source import (
     AnthropicIdentitySourceKind,
     InternalIssuerSource,
     KeycloakSource,
@@ -17,8 +17,8 @@ OTHER_SIGNING_KEY_REF: Final = "oidc/env/OTHER_SIGNING_KEY_PEM"
 CLIENT_SECRET_REF: Final = "oidc/env/KEYCLOAK_CLIENT_SECRET"
 ISSUER_URL: Final = "https://issuer.internal.example"
 SUBJECT: Final = "workload-a"
-TOKEN_URL: Final = "https://keycloak.example/realms/litellm/protocol/openid-connect/token"
-CLIENT_ID: Final = "litellm"
+TOKEN_URL: Final = "https://keycloak.example/realms/hangarllm/protocol/openid-connect/token"
+CLIENT_ID: Final = "hangarllm"
 
 
 def make_issuer(

@@ -7,8 +7,8 @@ import pytest
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
-import litellm
-from litellm.responses.litellm_completion_transformation.streaming_iterator import LiteLLMCompletionStreamingIterator
+import hangarllm
+from hangarllm.responses.hangarllm_completion_transformation.streaming_iterator import HangarLLMCompletionStreamingIterator
 
 _BACKEND: Final = "qwen3-sync-bridge-audit"
 _API_KEY: Final = "synthetic-hosted-vllm-key"
@@ -102,7 +102,7 @@ def test_sync_responses_stream_closes_the_reasoning_item_before_the_message_open
         return Reply(body=b'{"object":"list","data":[]}') if request.method == "GET" else _sse(scripted)
 
     with wire_server(respond) as wire:
-        stream: Final = litellm.responses(
+        stream: Final = hangarllm.responses(
             model=f"hosted_vllm/{_BACKEND}",
             input=f"Weather in Paris? {marker}",
             stream=True,
@@ -111,7 +111,7 @@ def test_sync_responses_stream_closes_the_reasoning_item_before_the_message_open
             use_chat_completions_api=True,
             num_retries=0,
         )
-        assert isinstance(stream, LiteLLMCompletionStreamingIterator), type(stream)
+        assert isinstance(stream, HangarLLMCompletionStreamingIterator), type(stream)
         events: Final = _events(stream)
 
         assert _streamed_chat_posts(wire) == [True]

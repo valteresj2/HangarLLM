@@ -166,7 +166,7 @@ def test_batch_create_from_a_managed_file_id_with_no_owner_row_is_404(gateway: G
     with gateway.scenario() as scenario:
         tenants: Final = _tenants(scenario, "batch")
         forged_raw: Final = (
-            f"litellm_proxy:application/octet-stream;unified_id,{uuid.uuid4()};target_model_names,{tenants.model};"
+            f"hangarllm_proxy:application/octet-stream;unified_id,{uuid.uuid4()};target_model_names,{tenants.model};"
             "llm_output_file_id,file-forged;llm_output_file_model_id,model-forged"
         )
         forged: Final = base64.urlsafe_b64encode(forged_raw.encode()).decode().rstrip("=")

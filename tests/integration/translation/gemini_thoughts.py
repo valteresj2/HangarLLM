@@ -12,7 +12,7 @@ from pydantic import JsonValue
 
 GEMINI_2_5_FLASH_DEPLOYMENT: Final[Mapping[str, JsonValue]] = {
     "model_name": "gemini/gemini-2.5-flash",
-    "litellm_params": {
+    "hangarllm_params": {
         "model": "gemini/gemini-2.5-flash",
         "api_base": "http://127.0.0.1:8191",
         "api_key": "synthetic-gemini-key",
@@ -46,8 +46,8 @@ def gemini_thoughts_proxy(
             {
                 **stock,
                 "model_list": [*list_value(stock["model_list"]), dict(GEMINI_2_5_FLASH_DEPLOYMENT)],
-                "litellm_settings": {
-                    **object_value(stock["litellm_settings"]),
+                "hangarllm_settings": {
+                    **object_value(stock["hangarllm_settings"]),
                     "gemini_include_thoughts_default": default,
                 },
             }

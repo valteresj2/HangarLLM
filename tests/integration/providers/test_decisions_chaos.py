@@ -88,8 +88,8 @@ async def _send(client: httpx.AsyncClient, key: str, model: str | None, call: _C
     return _Served(
         call=call,
         status=response.status_code,
-        call_id=response.headers.get("x-litellm-call-id", ""),
-        model_group=response.headers.get("x-litellm-model-group", ""),
+        call_id=response.headers.get("x-hangarllm-call-id", ""),
+        model_group=response.headers.get("x-hangarllm-model-group", ""),
         text=response.text,
     )
 
@@ -120,7 +120,7 @@ def _statuses_by_call_id(call_ids: tuple[str, ...]) -> dict[str, JsonValue]:
     placeholders: Final = ", ".join("%s" for _ in call_ids)
     rows: Final = eventually(
         lambda: read_rows(
-            f'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id IN ({placeholders})', call_ids
+            f'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id IN ({placeholders})', call_ids
         ),
         lambda found: len(found) >= len(call_ids),
         seconds=70,
@@ -146,7 +146,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
         "model_list": [
             {
                 "model_name": _CONFIG_MODEL,
-                "litellm_params": {"model": f"perplexity/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
+                "hangarllm_params": {"model": f"perplexity/{_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
             }
         ],
     }

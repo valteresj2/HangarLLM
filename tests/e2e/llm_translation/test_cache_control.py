@@ -9,7 +9,7 @@ Each case asserts the feature actually happened, not just a 200. Coverage matrix
   Bedrock does not expose an OpenAI-style request service tier, so that cell is
   intentionally not covered here.
 - Vertex (gemini-2.5-flash): explicit context caching via ``cache_control``
-  with a 5-minute ttl. litellm builds the Vertex cache before the generate
+  with a 5-minute ttl. hangarllm builds the Vertex cache before the generate
   call, so a never-seen prefix must come back cached on its very first call
   (Gemini's implicit caching cannot hit a cold prefix). That call bills the
   cache write as ``cache_creation_input_tokens`` on top of Vertex's own
@@ -65,7 +65,7 @@ from models import (
     ChatToolFunction,
     ChatToolResultTurn,
     CustomPricing,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     PromptCacheOptions,
     RichMessage,
     TextBlock,
@@ -351,7 +351,7 @@ class TestCacheControl:
         model = f"e2e-bedrock-cache-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=BEDROCK_MODEL, aws_region_name="us-east-1"),
+            HangarLLMParamsBody(model=BEDROCK_MODEL, aws_region_name="us-east-1"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -377,7 +377,7 @@ class TestCacheControl:
         model = f"e2e-vertex-cache-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=VERTEX_MODEL,
                 vertex_project=os.environ.get("VERTEXAI_PROJECT"),
                 vertex_location="us-central1",
@@ -411,7 +411,7 @@ class TestCacheControl:
         model = f"e2e-anthropic-cache-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=ANTHROPIC_MODEL, api_key="os.environ/ANTHROPIC_API_KEY"),
+            HangarLLMParamsBody(model=ANTHROPIC_MODEL, api_key="os.environ/ANTHROPIC_API_KEY"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -434,7 +434,7 @@ class TestCacheControl:
         model: Final = f"e2e-anthropic-cache-version-{unique_marker()}"
         model_id: Final = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=ANTHROPIC_MODEL,
                 api_key="os.environ/ANTHROPIC_API_KEY",
                 extra_headers={"anthropic-version": "2023-06-01"},
@@ -461,7 +461,7 @@ class TestCacheControl:
         model: Final = f"e2e-anthropic-cache-create-{unique_marker()}"
         model_id: Final = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=ANTHROPIC_MODEL, api_key="os.environ/ANTHROPIC_API_KEY"),
+            HangarLLMParamsBody(model=ANTHROPIC_MODEL, api_key="os.environ/ANTHROPIC_API_KEY"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key: Final = resources.key()
@@ -510,7 +510,7 @@ class TestCacheControl:
         model = f"e2e-openai-cache-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=OPENAI_MODEL, api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model=OPENAI_MODEL, api_key="os.environ/OPENAI_API_KEY"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -537,7 +537,7 @@ class TestCacheControlOnOpenAIExplicitCaching:
         name: Final = f"e2e-openai-explicit-cache-{unique_marker()}"
         model_id: Final = client.proxy.create_model(
             name,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=OPENAI_MODEL,
                 api_key="os.environ/OPENAI_API_KEY",
                 prompt_cache_options=PromptCacheOptions(mode="explicit"),

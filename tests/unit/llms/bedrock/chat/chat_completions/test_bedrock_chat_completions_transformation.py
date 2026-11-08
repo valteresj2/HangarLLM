@@ -8,8 +8,8 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-import litellm
-from litellm.llms.bedrock.chat.chat_completions.transformation import (
+import hangarllm
+from hangarllm.llms.bedrock.chat.chat_completions.transformation import (
     AmazonBedrockRuntimeChatCompletionsConfig,
     BedrockRuntimeChatCompletionsStreamingHandler,
     ReasoningTagSplitter,
@@ -17,7 +17,7 @@ from litellm.llms.bedrock.chat.chat_completions.transformation import (
     split_reasoning_tag,
     with_max_completion_tokens,
 )
-from litellm.llms.bedrock.common_utils import (
+from hangarllm.llms.bedrock.common_utils import (
     BEDROCK_CONVERSE_ONLY_REQUEST_KEYS,
     BedrockModelInfo,
     bedrock_request_needs_converse,
@@ -25,18 +25,18 @@ from litellm.llms.bedrock.common_utils import (
     bedrock_runtime_chat_completions_is_default,
     get_bedrock_chat_config,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 APPLICATION_INFERENCE_PROFILE_ARN = "arn:aws:bedrock:us-west-2:123412341234:application-inference-profile/a1b2c3"
 
 
 @pytest.fixture
 def local_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "true")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "true")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.mark.parametrize(
@@ -77,17 +77,17 @@ def test_claude_stays_on_converse(local_cost_map):
 def test_models_without_the_prefix_stay_on_converse(local_cost_map, model):
     assert BedrockModelInfo.get_bedrock_route(model) == "converse"
     assert BedrockModelInfo.get_bedrock_route(model, {}) == "converse"
-    assert isinstance(get_bedrock_chat_config(model), litellm.AmazonConverseConfig)
+    assert isinstance(get_bedrock_chat_config(model), hangarllm.AmazonConverseConfig)
 
 
 def test_cost_map_row_listing_chat_completions_leaves_the_default_route_alone(monkeypatch):
     entry = {
-        "litellm_provider": "bedrock_converse",
+        "hangarllm_provider": "bedrock_converse",
         "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
         "supports_bedrock_runtime_chat_completions_tools_with_reasoning": True,
         "supports_bedrock_runtime_chat_completions_response_format": True,
     }
-    monkeypatch.setattr(litellm, "model_cost", {"openai.gpt-oss-20b-1:0": entry})
+    monkeypatch.setattr(hangarllm, "model_cost", {"openai.gpt-oss-20b-1:0": entry})
     assert BedrockModelInfo.get_bedrock_route("bedrock/openai.gpt-oss-20b-1:0", {}) == "converse"
     assert (
         BedrockModelInfo.get_bedrock_route("bedrock/chat_completions/openai.gpt-oss-20b-1:0", {}) == "chat_completions"
@@ -116,8 +116,8 @@ def test_cost_map_row_listing_chat_completions_leaves_the_default_route_alone(mo
 def test_default_route_needs_grok_or_gpt_56_or_newer_and_a_row_listing_chat_completions(
     monkeypatch, model, supported_endpoints, expected_route
 ):
-    entry = {"litellm_provider": "bedrock_converse", "supported_endpoints": supported_endpoints}
-    monkeypatch.setattr(litellm, "model_cost", {model: entry})
+    entry = {"hangarllm_provider": "bedrock_converse", "supported_endpoints": supported_endpoints}
+    monkeypatch.setattr(hangarllm, "model_cost", {model: entry})
     assert bedrock_runtime_chat_completions_is_default(model) is (expected_route == "chat_completions")
     assert BedrockModelInfo.get_bedrock_route(f"bedrock/{model}", {}) == expected_route
     assert BedrockModelInfo.get_bedrock_route(f"bedrock/chat_completions/{model}", {}) == "chat_completions"
@@ -126,8 +126,8 @@ def test_default_route_needs_grok_or_gpt_56_or_newer_and_a_row_listing_chat_comp
 
 @pytest.mark.parametrize("model", ["global.openai.gpt-5.6-sol", "openai.gpt-oss-20b-1:0", "us.xai.grok-4.6"])
 def test_chat_completions_prefix_prices_like_the_bare_model(local_cost_map, model):
-    prefixed = litellm.get_model_info(model=f"bedrock/chat_completions/{model}")
-    bare = litellm.get_model_info(model=f"bedrock/{model}")
+    prefixed = hangarllm.get_model_info(model=f"bedrock/chat_completions/{model}")
+    bare = hangarllm.get_model_info(model=f"bedrock/{model}")
     assert prefixed["input_cost_per_token"] == bare["input_cost_per_token"] > 0
     assert prefixed["output_cost_per_token"] == bare["output_cost_per_token"] > 0
 
@@ -141,7 +141,7 @@ def test_complete_url_is_runtime_openai_chat_completions(monkeypatch):
         api_key=None,
         model="us.xai.grok-4.6",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/chat/completions"
 
@@ -153,7 +153,7 @@ def test_complete_url_appends_to_openai_v1_base():
         api_key=None,
         model="us.xai.grok-4.6",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://bedrock-runtime.us-west-2.amazonaws.com/openai/v1/chat/completions"
 
@@ -166,7 +166,7 @@ def test_complete_url_sends_to_the_runtime_endpoint_over_api_base_like_converse(
         api_key=None,
         model="us.openai.gpt-5.6-sol",
         optional_params={"aws_region_name": "us-east-1", "aws_bedrock_runtime_endpoint": "https://egress.example.com/"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://egress.example.com/openai/v1/chat/completions"
 
@@ -179,7 +179,7 @@ def test_complete_url_sends_to_the_env_runtime_endpoint_over_api_base_like_conve
         api_key=None,
         model="us.openai.gpt-5.6-sol",
         optional_params={"aws_region_name": "us-east-1"},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://env-egress.example.com/openai/v1/chat/completions"
 
@@ -199,7 +199,7 @@ def test_project_id_is_not_sent_as_openai_project_header():
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={"aws_bedrock_project_id": "proj_from_config"},
+        hangarllm_params={"aws_bedrock_project_id": "proj_from_config"},
     )
     assert "OpenAI-Project" not in headers
     assert headers["Content-Type"] == "application/json"
@@ -211,7 +211,7 @@ def test_transform_request_is_openai_chat_body_not_converse():
         model="bedrock/chat_completions/us.xai.grok-4.6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"temperature": 0.2, "aws_region_name": "us-east-1"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert body["model"] == "us.xai.grok-4.6"
@@ -271,7 +271,7 @@ def _recording_client(**response_kwargs):
 )
 def test_completion_without_the_prefix_posts_converse(local_cost_map, fake_aws_env, model, model_path):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    response = litellm.completion(model=model, messages=[{"role": "user", "content": "hello"}], client=client)
+    response = hangarllm.completion(model=model, messages=[{"role": "user", "content": "hello"}], client=client)
 
     assert response.choices[0].message.content == "ok"
     assert [request.url.raw_path for request in requests] == [model_path]
@@ -279,7 +279,7 @@ def test_completion_without_the_prefix_posts_converse(local_cost_map, fake_aws_e
 
 def test_completion_posts_runtime_chat_completions(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json("ok", "us.xai.grok-4.6"))
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/chat_completions/us.xai.grok-4.6",
         messages=[{"role": "user", "content": "hello"}],
         client=client,
@@ -298,7 +298,7 @@ def test_completion_keeps_the_aws_request_id_as_a_provider_header(local_cost_map
     _, client = _recording_client(
         json=_chat_completion_json("ok", "us.xai.grok-4.6"), headers={"x-amzn-requestid": "req-native-1"}
     )
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/chat_completions/us.xai.grok-4.6",
         messages=[{"role": "user", "content": "hello"}],
         client=client,
@@ -309,7 +309,7 @@ def test_completion_keeps_the_aws_request_id_as_a_provider_header(local_cost_map
 
 def test_region_path_sends_the_bare_model_id_to_the_path_region(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json("ok", "openai.gpt-oss-20b-1:0"))
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/us-gov-west-1/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         client=client,
@@ -322,7 +322,7 @@ def test_region_path_sends_the_bare_model_id_to_the_path_region(local_cost_map, 
 
 def test_explicit_aws_region_name_wins_over_the_region_path(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json("ok", "openai.gpt-oss-20b-1:0"))
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/us-gov-west-1/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         aws_region_name="us-gov-east-1",
@@ -336,7 +336,7 @@ def test_explicit_aws_region_name_wins_over_the_region_path(local_cost_map, fake
 
 def test_region_path_falls_back_to_converse_in_the_path_region(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/us-gov-west-1/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         stop=["END"],
@@ -471,7 +471,7 @@ def test_stop_keeps_gpt_oss_on_converse(local_cost_map):
 )
 def test_stop_is_dropped_on_chat_completions_for_models_rejecting_stop_sequences(local_cost_map, fake_aws_env, model):
     requests, client = _recording_client(json=_chat_completion_json("ok", model.removeprefix("bedrock/")))
-    response = litellm.completion(
+    response = hangarllm.completion(
         model=model, messages=[{"role": "user", "content": "hello"}], stop=["</block>"], max_tokens=64, client=client
     )
 
@@ -485,7 +485,7 @@ def test_stop_is_dropped_on_chat_completions_for_models_rejecting_stop_sequences
 @pytest.mark.parametrize("model_id", ["global.xai.grok-4.7", "global.openai.gpt-5.6-sol", "us.openai.gpt-6.1-sol"])
 def test_stop_is_dropped_on_converse_for_models_rejecting_stop_sequences(local_cost_map, fake_aws_env, model_id):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model=f"bedrock/converse/{model_id}",
         messages=[{"role": "user", "content": "hello"}],
         stop=["</block>"],
@@ -522,7 +522,7 @@ def test_blank_api_key_is_signed_with_sigv4_instead_of_an_empty_bearer(monkeypat
         model="bedrock/us.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "hello"}],
         optional_params=dict(SIGV4_PARAMS),
-        litellm_params={},
+        hangarllm_params={},
         api_key=api_key,
     )
     assert "Authorization" not in headers
@@ -544,7 +544,7 @@ def test_bearer_api_key_is_sent_as_the_authorization_header(monkeypatch):
         model="bedrock/us.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="bedrock-api-key",
     )
     assert headers["Authorization"] == "Bearer bedrock-api-key"
@@ -616,7 +616,7 @@ def test_explicit_converse_prefix_wins_for_openai_models(local_cost_map):
     assert BedrockModelInfo.get_bedrock_route("bedrock/converse/openai.gpt-oss-20b-1:0") == "converse"
     assert BedrockModelInfo.get_bedrock_route("converse/global.openai.gpt-5.6-sol", {}) == "converse"
     assert BedrockModelInfo.get_bedrock_route("bedrock/converse/global.openai.gpt-6-sol", {}) == "converse"
-    assert isinstance(get_bedrock_chat_config("bedrock/converse/global.openai.gpt-6-sol"), litellm.AmazonConverseConfig)
+    assert isinstance(get_bedrock_chat_config("bedrock/converse/global.openai.gpt-6-sol"), hangarllm.AmazonConverseConfig)
 
 
 def test_map_openai_params_sends_max_tokens_as_max_completion_tokens():
@@ -657,14 +657,14 @@ def _assert_remote_images_inlined(content):
 
 
 def test_transform_request_inlines_remote_image_urls(local_cost_map, monkeypatch):
-    import litellm.litellm_core_utils.prompt_templates.image_handling as image_handling
+    import hangarllm.hangarllm_core_utils.prompt_templates.image_handling as image_handling
 
     monkeypatch.setattr(image_handling, "convert_url_to_base64", lambda url: f"data:image/png;base64,{url}")
     body = AmazonBedrockRuntimeChatCompletionsConfig().transform_request(
         model="us.xai.grok-4.6",
         messages=IMAGE_MESSAGES,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -672,7 +672,7 @@ def test_transform_request_inlines_remote_image_urls(local_cost_map, monkeypatch
 
 
 async def test_async_transform_request_inlines_remote_image_urls(local_cost_map, monkeypatch):
-    import litellm.litellm_core_utils.prompt_templates.image_handling as image_handling
+    import hangarllm.hangarllm_core_utils.prompt_templates.image_handling as image_handling
 
     async def fake_convert(url, timeout=None):
         return f"data:image/png;base64,{url}"
@@ -684,7 +684,7 @@ async def test_async_transform_request_inlines_remote_image_urls(local_cost_map,
         model="us.xai.grok-4.6",
         messages=IMAGE_MESSAGES,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -718,7 +718,7 @@ def test_map_openai_params_drops_reasoning_effort_none_for_grok_with_one_warning
     model: str, logged_model: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     cfg = AmazonBedrockRuntimeChatCompletionsConfig()
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         mapped = cfg.map_openai_params(
             non_default_params={"reasoning_effort": "none", "max_tokens": 64},
             optional_params={},
@@ -748,7 +748,7 @@ def test_map_openai_params_keeps_reasoning_effort_low_for_grok():
 @pytest.mark.parametrize("reasoning_effort", [["low"], {"effort": "low"}, 5], ids=["list", "object", "int"])
 def test_map_openai_params_refuses_a_non_string_reasoning_effort_without_drop_params(model, reasoning_effort):
     cfg = AmazonBedrockRuntimeChatCompletionsConfig()
-    with pytest.raises(litellm.UnsupportedParamsError, match="drop_params") as refused:
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="drop_params") as refused:
         cfg.map_openai_params(
             non_default_params={"reasoning_effort": reasoning_effort, "max_tokens": 64},
             optional_params={},
@@ -761,12 +761,12 @@ def test_map_openai_params_refuses_a_non_string_reasoning_effort_without_drop_pa
 
 @pytest.mark.parametrize("model", ["us.xai.grok-4.6", "global.openai.gpt-5.6-sol"])
 @pytest.mark.parametrize("reasoning_effort", [["low"], {"effort": "low"}, 5], ids=["list", "object", "int"])
-@pytest.mark.parametrize("drop_params_via", ["request", "litellm.drop_params"])
+@pytest.mark.parametrize("drop_params_via", ["request", "hangarllm.drop_params"])
 def test_map_openai_params_drops_a_non_string_reasoning_effort_under_drop_params(
     monkeypatch, caplog, model, reasoning_effort, drop_params_via
 ):
-    monkeypatch.setattr(litellm, "drop_params", drop_params_via == "litellm.drop_params")
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    monkeypatch.setattr(hangarllm, "drop_params", drop_params_via == "hangarllm.drop_params")
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         mapped = AmazonBedrockRuntimeChatCompletionsConfig().map_openai_params(
             non_default_params={"reasoning_effort": reasoning_effort, "max_tokens": 64},
             optional_params={},
@@ -847,9 +847,9 @@ def test_refused_params_are_dropped_or_refused_before_reaching_aws(local_cost_ma
     requests, client = _recording_client(
         json=_chat_completion_json("ok", model.removeprefix("bedrock/chat_completions/"))
     )
-    with pytest.raises(litellm.UnsupportedParamsError, match=next(iter(param))):
-        litellm.completion(model=model, messages=[{"role": "user", "content": "hello"}], client=client, **param)
-    litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=next(iter(param))):
+        hangarllm.completion(model=model, messages=[{"role": "user", "content": "hello"}], client=client, **param)
+    hangarllm.completion(
         model=model, messages=[{"role": "user", "content": "hello"}], drop_params=True, client=client, **param
     )
 
@@ -868,12 +868,12 @@ def test_non_string_reasoning_effort_is_refused_or_dropped_before_reaching_aws(
         "reasoning_effort": reasoning_effort,
         "client": client,
     }
-    with pytest.raises(litellm.UnsupportedParamsError, match="reasoning_effort") as refused:
-        litellm.completion(**request)
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="reasoning_effort") as refused:
+        hangarllm.completion(**request)
     assert refused.value.status_code == 400
     assert requests == []
 
-    litellm.completion(**request, drop_params=True)
+    hangarllm.completion(**request, drop_params=True)
 
     assert str(requests[0].url).endswith("/openai/v1/chat/completions")
     assert "reasoning_effort" not in json.loads(requests[0].content)
@@ -897,9 +897,9 @@ def test_gpt_sampling_params_are_refused_or_dropped_while_reasoning(
 ):
     requests, client = _recording_client(json=_chat_completion_json("ok", model.removeprefix("bedrock/")))
     request = {"model": model, "messages": [{"role": "user", "content": "hello"}], "client": client, **reasoning}
-    with pytest.raises(litellm.UnsupportedParamsError, match=param):
-        litellm.completion(**request, **{param: GPT_PARAMS_TIED_TO_REASONING_OFF[param]})
-    litellm.completion(**request, drop_params=True, **{param: GPT_PARAMS_TIED_TO_REASONING_OFF[param]})
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=param):
+        hangarllm.completion(**request, **{param: GPT_PARAMS_TIED_TO_REASONING_OFF[param]})
+    hangarllm.completion(**request, drop_params=True, **{param: GPT_PARAMS_TIED_TO_REASONING_OFF[param]})
 
     body = json.loads(requests[0].content)
     assert str(requests[0].url).endswith("/openai/v1/chat/completions")
@@ -910,7 +910,7 @@ def test_gpt_sampling_params_are_refused_or_dropped_while_reasoning(
 @pytest.mark.parametrize("model", ["bedrock/global.openai.gpt-5.6-sol", "bedrock/us.openai.gpt-6-sol"])
 def test_gpt_sampling_params_reach_aws_with_reasoning_effort_none(local_cost_map, fake_aws_env, model):
     requests, client = _recording_client(json=_chat_completion_json("ok", model.removeprefix("bedrock/")))
-    litellm.completion(
+    hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort="none",
@@ -1055,7 +1055,7 @@ def test_gpt_oss_completion_hits_chat_completions_and_splits_reasoning(local_cos
     requests, client = _recording_client(
         json=_chat_completion_json("<reasoning>plan</reasoning>\n\nHi", "openai.gpt-oss-20b-1:0")
     )
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=64,
@@ -1077,7 +1077,7 @@ def test_gpt_oss_completion_hits_chat_completions_and_splits_reasoning(local_cos
 
 def test_gpt56_tools_with_reasoning_effort_go_to_converse(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "hello"}],
         tools=[GET_WEATHER_TOOL],
@@ -1095,7 +1095,7 @@ def test_gpt56_tools_with_reasoning_none_stay_on_chat_completions(local_cost_map
         {"id": "call_0", "type": "function", "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'}}
     ]
     requests, client = _recording_client(json=_chat_completion_json(None, "global.openai.gpt-5.6-sol", tool_calls))
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "weather in Paris"}],
         tools=[GET_WEATHER_TOOL],
@@ -1117,7 +1117,7 @@ def test_gpt_56_and_newer_completion_without_the_prefix_posts_runtime_chat_compl
     local_cost_map, fake_aws_env, model
 ):
     requests, client = _recording_client(json=_chat_completion_json("ok", model))
-    response = litellm.completion(
+    response = hangarllm.completion(
         model=f"bedrock/{model}",
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort="low",
@@ -1135,7 +1135,7 @@ def test_gpt_56_and_newer_completion_without_the_prefix_posts_runtime_chat_compl
 
 def test_gpt6_without_the_prefix_tools_with_reasoning_effort_go_to_converse(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/global.openai.gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
         tools=[GET_WEATHER_TOOL],
@@ -1153,7 +1153,7 @@ def test_gpt6_without_the_prefix_tools_with_reasoning_effort_go_to_converse(loca
 def test_gpt6_without_the_prefix_guardrail_config_goes_to_converse(local_cost_map, fake_aws_env):
     guardrail = {"guardrailIdentifier": "gr-1", "guardrailVersion": "1"}
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/global.openai.gpt-6-sol",
         messages=[{"role": "user", "content": "hello"}],
         guardrailConfig=guardrail,
@@ -1176,7 +1176,7 @@ def test_gpt6_without_the_prefix_guardrail_config_goes_to_converse(local_cost_ma
 )
 def test_converse_only_request_keys_go_to_converse(local_cost_map, fake_aws_env, converse_only_param):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         client=client,
@@ -1189,13 +1189,13 @@ def test_converse_only_request_keys_go_to_converse(local_cost_map, fake_aws_env,
 
 
 def test_converse_only_keys_cover_every_converse_config_block():
-    assert set(litellm.AmazonConverseConfig.get_config_blocks()) <= BEDROCK_CONVERSE_ONLY_REQUEST_KEYS
+    assert set(hangarllm.AmazonConverseConfig.get_config_blocks()) <= BEDROCK_CONVERSE_ONLY_REQUEST_KEYS
 
 
 def test_operator_owned_request_metadata_goes_to_converse(local_cost_map, fake_aws_env, monkeypatch):
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", ["user_api_key_team_alias"])
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", ["user_api_key_team_alias"])
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         metadata={"user_api_key_team_alias": "search"},
@@ -1208,7 +1208,7 @@ def test_operator_owned_request_metadata_goes_to_converse(local_cost_map, fake_a
 
 def test_dropped_converse_only_key_keeps_the_request_on_chat_completions(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json("ok", "openai.gpt-oss-20b-1:0"))
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         guardrailConfig={"guardrailIdentifier": "gr-1", "guardrailVersion": "1"},
@@ -1226,7 +1226,7 @@ def test_dropped_converse_only_key_keeps_the_request_on_chat_completions(local_c
 
 def test_dropped_tools_keep_gpt56_reasoning_request_on_chat_completions(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json("ok", "global.openai.gpt-5.6-sol"))
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "hello"}],
         tools=[GET_WEATHER_TOOL],
@@ -1243,7 +1243,7 @@ def test_dropped_tools_keep_gpt56_reasoning_request_on_chat_completions(local_co
 
 def test_legacy_functions_stay_on_chat_completions(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json("ok", "openai.gpt-oss-20b-1:0"))
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         functions=[GET_WEATHER_TOOL["function"]],
@@ -1256,15 +1256,15 @@ def test_legacy_functions_stay_on_chat_completions(local_cost_map, fake_aws_env)
 
 def test_gpt56_legacy_functions_with_reasoning_fall_back_to_converse(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    with pytest.raises(litellm.UnsupportedParamsError, match="functions"):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="functions"):
+        hangarllm.completion(
             model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
             messages=[{"role": "user", "content": "hello"}],
             functions=[GET_WEATHER_TOOL["function"]],
             reasoning_effort="low",
             client=client,
         )
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "hello"}],
         functions=[GET_WEATHER_TOOL["function"]],
@@ -1282,7 +1282,7 @@ def test_gpt56_legacy_functions_with_reasoning_fall_back_to_converse(local_cost_
 def test_grok_thinking_block_is_served_by_converse(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
     thinking = {"type": "enabled", "budget_tokens": 1024}
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/us.xai.grok-4.6",
         messages=[{"role": "user", "content": "hello"}],
         thinking=thinking,
@@ -1296,15 +1296,15 @@ def test_grok_thinking_block_is_served_by_converse(local_cost_map, fake_aws_env)
 def test_converse_fallback_validates_against_converse_params(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
     guardrail = {"guardrailIdentifier": "gr-1", "guardrailVersion": "1"}
-    with pytest.raises(litellm.UnsupportedParamsError, match="seed"):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="seed"):
+        hangarllm.completion(
             model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
             messages=[{"role": "user", "content": "hello"}],
             guardrailConfig=guardrail,
             seed=7,
             client=client,
         )
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         guardrailConfig=guardrail,
@@ -1319,14 +1319,14 @@ def test_converse_fallback_validates_against_converse_params(local_cost_map, fak
 
 def test_n_is_rejected_before_reaching_chat_completions(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json("ok", "openai.gpt-oss-20b-1:0"))
-    with pytest.raises(litellm.UnsupportedParamsError, match="'n'"):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="'n'"):
+        hangarllm.completion(
             model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
             messages=[{"role": "user", "content": "hello"}],
             n=2,
             client=client,
         )
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         n=2,
@@ -1348,7 +1348,7 @@ def test_gpt_oss_streaming_completion_splits_reasoning(local_cost_map, fake_aws_
         _stream_chunk({}, finish_reason="stop"),
     )
     requests, client = _recording_client(content=_sse(chunks), headers={"content-type": "text/event-stream"})
-    stream = litellm.completion(
+    stream = hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         stream=True,
@@ -1473,8 +1473,8 @@ SYNTHETIC_NATIVE_MODEL = "chat_completions/vendor.native-model-v1:0"
     ],
 )
 def test_capability_flags_are_read_from_the_cost_map(monkeypatch, capability_flags, request_params, needs_converse):
-    entry = {"litellm_provider": "bedrock_converse", **capability_flags}
-    monkeypatch.setattr(litellm, "model_cost", {"vendor.native-model-v1:0": entry})
+    entry = {"hangarllm_provider": "bedrock_converse", **capability_flags}
+    monkeypatch.setattr(hangarllm, "model_cost", {"vendor.native-model-v1:0": entry})
     assert bedrock_request_needs_converse(SYNTHETIC_NATIVE_MODEL, request_params) is needs_converse
     route = bedrock_route_for_request(SYNTHETIC_NATIVE_MODEL, request_params, None)
     assert (route == "chat_completions") is (not needs_converse)
@@ -1490,7 +1490,7 @@ def test_route_for_request_ignores_dropped_params(local_cost_map):
 
 def test_gpt_oss_response_format_goes_to_converse_with_json_tool_call(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "Reply with the single word pong."}],
         response_format=RESPONSE_FORMAT_JSON_SCHEMA,
@@ -1509,7 +1509,7 @@ def test_gpt_oss_response_format_goes_to_converse_with_json_tool_call(local_cost
 
 def test_gpt56_response_format_is_sent_as_is_on_chat_completions(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=_chat_completion_json('{"word": "pong"}', "global.openai.gpt-5.6-sol"))
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "Reply with the single word pong."}],
         response_format=RESPONSE_FORMAT_JSON_SCHEMA,
@@ -1523,7 +1523,7 @@ def test_gpt56_response_format_is_sent_as_is_on_chat_completions(local_cost_map,
 
 def test_gpt56_schema_less_json_object_goes_to_converse_without_a_schema_tool(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "Reply with the single word pong."}],
         response_format={"type": "json_object"},
@@ -1540,7 +1540,7 @@ def test_gpt56_schema_less_json_object_goes_to_converse_without_a_schema_tool(lo
 
 def test_gpt56_json_object_with_response_schema_goes_to_converse_as_a_json_tool(local_cost_map, fake_aws_env):
     requests, client = _recording_client(json=CONVERSE_JSON)
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/chat_completions/global.openai.gpt-5.6-sol",
         messages=[{"role": "user", "content": "Reply with the single word pong."}],
         response_format=JSON_OBJECT_WITH_RESPONSE_SCHEMA,
@@ -1588,7 +1588,7 @@ def test_reasoning_tag_split_applies_to_gpt_oss_answers_only(
     model_id = model.removeprefix("bedrock/").removeprefix("chat_completions/")
     requests, client = _recording_client(json=_chat_completion_json(LITERAL_TAGGED_ANSWER, model_id))
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model=model, messages=[{"role": "user", "content": "hello"}], client=client, max_tokens=64
     )
 
@@ -1608,10 +1608,10 @@ def test_reasoning_tag_split_is_read_from_the_cost_map(
     monkeypatch, fake_aws_env, capability_flags, expected_content, expected_reasoning
 ):
     model_id = SYNTHETIC_NATIVE_MODEL.removeprefix("chat_completions/")
-    monkeypatch.setattr(litellm, "model_cost", {model_id: {"litellm_provider": "bedrock_converse", **capability_flags}})
+    monkeypatch.setattr(hangarllm, "model_cost", {model_id: {"hangarllm_provider": "bedrock_converse", **capability_flags}})
     requests, client = _recording_client(json=_chat_completion_json(LITERAL_TAGGED_ANSWER, model_id))
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model=f"bedrock/{SYNTHETIC_NATIVE_MODEL}",
         messages=[{"role": "user", "content": "hello"}],
         client=client,
@@ -1642,7 +1642,7 @@ def test_positional_tool_call_ids_are_minted_unique_per_response(local_cost_map,
     )
     _, client = _recording_client(json=reply)
     responses = [
-        litellm.completion(
+        hangarllm.completion(
             model="bedrock/chat_completions/global.xai.grok-4.7",
             messages=[{"role": "user", "content": "hello"}],
             client=client,
@@ -1661,7 +1661,7 @@ def test_provider_unique_tool_call_ids_pass_through(local_cost_map, fake_aws_env
         None, "openai.gpt-oss-20b-1:0", tool_calls=[_tool_call("chatcmpl-tool-90090f0c1c521528", "read_a")]
     )
     _, client = _recording_client(json=reply)
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/chat_completions/openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "hello"}],
         client=client,
@@ -1717,7 +1717,7 @@ def test_positional_tool_call_ids_are_minted_for_gpt_too(local_cost_map, fake_aw
         None, "global.openai.gpt-5.6-sol", tool_calls=[_tool_call("call_0", "read_a"), _tool_call("call_1", "read_b")]
     )
     _, client = _recording_client(json=reply)
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="bedrock/global.openai.gpt-5.6-sol", messages=[{"role": "user", "content": "hello"}], client=client
     )
 

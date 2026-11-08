@@ -21,7 +21,7 @@ _QUESTION: Final[dict[str, JsonValue]] = {
     "name": "banana",
     "instructions": "Does the clip name a banana?",
 }
-_SPEND_QUERY: Final = 'SELECT status, model_group FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+_SPEND_QUERY: Final = 'SELECT status, model_group FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 
 Route = Literal["/v1/decisions", "/v1/systemone"]
 Media = Literal["audio", "videos"]
@@ -98,7 +98,7 @@ def test_a_deployment_flagged_for_audio_and_video_sends_both_clips_for_a_model_t
         (call,) = wire.drain()
         assert _sent_media(call) == _BOTH
         rows: Final = eventually(
-            lambda: read_rows(_SPEND_QUERY, (answered.headers["x-litellm-call-id"],)),
+            lambda: read_rows(_SPEND_QUERY, (answered.headers["x-hangarllm-call-id"],)),
             lambda found: len(found) == 1,
             seconds=70,
         )

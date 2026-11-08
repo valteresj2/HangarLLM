@@ -11,13 +11,13 @@ pins one fixed behavior:
   shared name even when a plain deployment was registered first.
 - GitHub issue #36620: untagged requests keep being served by the plain
   deployment on every call, never captured or 400'd by the tagged marker.
-- GitHub issue #36621: a request tagged via the ``x-litellm-tags`` header
+- GitHub issue #36621: a request tagged via the ``x-hangarllm-tags`` header
   routes through the marker even when the tier deployments carry no tags
   (the marker consumes the routing tags before deployment selection), while a
   tagged call aimed straight at an untagged deployment stays denied.
 - GitHub issues #36620/#36621 on /v1/responses: the same tag split holds for
-  string and list input, whether the tag arrives in litellm_metadata or the
-  x-litellm-tags header.
+  string and list input, whether the tag arrives in hangarllm_metadata or the
+  x-hangarllm-tags header.
 - GitHub PR #37333: /v1/responses input is resolved into messages for a
   semantic ``auto_router`` deployment's pre-routing hook; such requests used
   to fail with 400 "Unmapped LLM provider auto_router" because only chat
@@ -59,7 +59,7 @@ from models import (
     ChatMessage,
     ChatMetadata,
     KeyGenerateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     RouterSettingsOverride,
     SpendLogRow,
 )
@@ -88,11 +88,11 @@ KEYWORD_HEAVY_SYSTEM_PROMPT = (
 
 
 class TaggedAuthHeaders(AuthHeaders):
-    x_litellm_tags: str | None = Field(default=None, serialization_alias="x-litellm-tags")
+    x_hangarllm_tags: str | None = Field(default=None, serialization_alias="x-hangarllm-tags")
 
 
 class TaggedAnthropicHeaders(AnthropicHeaders):
-    x_litellm_tags: str | None = Field(default=None, serialization_alias="x-litellm-tags")
+    x_hangarllm_tags: str | None = Field(default=None, serialization_alias="x-hangarllm-tags")
 
 
 class ResponsesTagMetadata(BaseModel):
@@ -108,7 +108,7 @@ class ResponsesBody(BaseModel):
     model: str
     input: str | list[ResponsesInputItem]
     max_output_tokens: int | None = None
-    litellm_metadata: ResponsesTagMetadata | None = None
+    hangarllm_metadata: ResponsesTagMetadata | None = None
 
 
 class ResponsesApiResponse(BaseModel):
@@ -209,7 +209,7 @@ def router_stack() -> Iterator[ExitStack]:
 
 
 def _register_models(
-    proxy: ProxyClient, stack: ExitStack, registrations: tuple[tuple[str, LiteLLMParamsBody], ...]
+    proxy: ProxyClient, stack: ExitStack, registrations: tuple[tuple[str, HangarLLMParamsBody], ...]
 ) -> None:
     for name, params in registrations:
         stack.callback(proxy.delete_model, proxy.create_model(name, params))
@@ -225,7 +225,7 @@ def _tag_split(proxy: ProxyClient, stack: ExitStack, *, marker_first: bool) -> T
     anthropic_key: Final = _provider_key("ANTHROPIC_API_KEY")
     marker_registration: Final = (
         named.shared,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="auto_router/complexity_router",
             complexity_router_config=_uniform_tier_config(named.tier),
             tags=[named.tag],
@@ -233,9 +233,9 @@ def _tag_split(proxy: ProxyClient, stack: ExitStack, *, marker_first: bool) -> T
     )
     tier_registration: Final = (
         named.tier,
-        LiteLLMParamsBody(model=CHEAP_MODEL, api_key=anthropic_key, tags=None if marker_first else [named.tag]),
+        HangarLLMParamsBody(model=CHEAP_MODEL, api_key=anthropic_key, tags=None if marker_first else [named.tag]),
     )
-    plain_registration: Final = (named.shared, LiteLLMParamsBody(model=PLAIN_MODEL, api_key=anthropic_key))
+    plain_registration: Final = (named.shared, HangarLLMParamsBody(model=PLAIN_MODEL, api_key=anthropic_key))
     registrations: Final = (
         (marker_registration, tier_registration, plain_registration)
         if marker_first
@@ -259,14 +259,14 @@ def marker_first_split(proxy: ProxyClient, router_stack: ExitStack) -> TagSplitD
 def zero_priced_alias(proxy: ProxyClient, router_stack: ExitStack) -> ZeroPricedAlias:
     marker: Final = unique_marker()
     named: Final = ZeroPricedAlias(alias=f"e2e-priced-alias-{marker}", tier=f"e2e-priced-tier-{marker}")
-    alias_params: Final = LiteLLMParamsBody(
+    alias_params: Final = HangarLLMParamsBody(
         model="auto_router/complexity_router",
         complexity_router_config=_uniform_tier_config(named.tier),
         input_cost_per_token=0.0,
         output_cost_per_token=0.0,
     )
-    registrations: Final[tuple[tuple[str, LiteLLMParamsBody], ...]] = (
-        (named.tier, LiteLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
+    registrations: Final[tuple[tuple[str, HangarLLMParamsBody], ...]] = (
+        (named.tier, HangarLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
         (named.alias, alias_params),
     )
     _register_models(proxy, router_stack, registrations)
@@ -286,10 +286,10 @@ def heuristic_split(proxy: ProxyClient, router_stack: ExitStack) -> HeuristicSpl
         "token_thresholds": {"simple": 15, "complex": 400},
         "tiers": {"SIMPLE": named.cheap, "MEDIUM": named.strong, "COMPLEX": named.strong, "REASONING": named.strong},
     }
-    registrations: Final[tuple[tuple[str, LiteLLMParamsBody], ...]] = (
-        (named.cheap, LiteLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
-        (named.strong, LiteLLMParamsBody(model=STRONG_MODEL, api_key=_provider_key("OPENAI_API_KEY"))),
-        (named.alias, LiteLLMParamsBody(model="auto_router/complexity_router", complexity_router_config=config)),
+    registrations: Final[tuple[tuple[str, HangarLLMParamsBody], ...]] = (
+        (named.cheap, HangarLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
+        (named.strong, HangarLLMParamsBody(model=STRONG_MODEL, api_key=_provider_key("OPENAI_API_KEY"))),
+        (named.alias, HangarLLMParamsBody(model="auto_router/complexity_router", complexity_router_config=config)),
     )
     _register_models(proxy, router_stack, registrations)
     return named
@@ -307,16 +307,16 @@ def semantic_auto_router(proxy: ProxyClient, router_stack: ExitStack) -> Semanti
     router_config: Final = json.dumps(
         {"routes": [{"name": named.target, "utterances": [SEMANTIC_ROUTE_UTTERANCE], "score_threshold": 0.3}]}
     )
-    marker_params: Final = LiteLLMParamsBody(
+    marker_params: Final = HangarLLMParamsBody(
         model=f"auto_router/{named.marker}",
         auto_router_config=router_config,
         auto_router_default_model=named.fallback,
         auto_router_embedding_model=named.embedding,
     )
-    registrations: Final[tuple[tuple[str, LiteLLMParamsBody], ...]] = (
-        (named.embedding, LiteLLMParamsBody(model=EMBEDDING_MODEL, api_key=_provider_key("OPENAI_API_KEY"))),
-        (named.target, LiteLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
-        (named.fallback, LiteLLMParamsBody(model=PLAIN_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
+    registrations: Final[tuple[tuple[str, HangarLLMParamsBody], ...]] = (
+        (named.embedding, HangarLLMParamsBody(model=EMBEDDING_MODEL, api_key=_provider_key("OPENAI_API_KEY"))),
+        (named.target, HangarLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
+        (named.fallback, HangarLLMParamsBody(model=PLAIN_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
         (named.marker, marker_params),
     )
     _register_models(proxy, router_stack, registrations)
@@ -327,13 +327,13 @@ def semantic_auto_router(proxy: ProxyClient, router_stack: ExitStack) -> Semanti
 def credentialed_alias(proxy: ProxyClient, router_stack: ExitStack) -> CredentialedAlias:
     marker: Final = unique_marker()
     named: Final = CredentialedAlias(alias=f"e2e-cred-alias-{marker}", tier=f"e2e-cred-tier-{marker}")
-    alias_params: Final = LiteLLMParamsBody(
+    alias_params: Final = HangarLLMParamsBody(
         model="auto_router/complexity_router",
         complexity_router_config=_uniform_tier_config(named.tier),
         api_key=f"sk-alias-never-used-{marker}",
     )
-    registrations: Final[tuple[tuple[str, LiteLLMParamsBody], ...]] = (
-        (named.tier, LiteLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
+    registrations: Final[tuple[tuple[str, HangarLLMParamsBody], ...]] = (
+        (named.tier, HangarLLMParamsBody(model=CHEAP_MODEL, api_key=_provider_key("ANTHROPIC_API_KEY"))),
         (named.alias, alias_params),
     )
     _register_models(proxy, router_stack, registrations)
@@ -428,13 +428,13 @@ class TestUntaggedTierDeployments:
         self, proxy: ProxyClient, resources: ResourceManager, marker_first_split: TagSplitDeployment
     ) -> None:
         """Pins GitHub issue #36621: a /v1/messages request tagged only via the
-        x-litellm-tags header selects the tagged marker, and the rewrite still
+        x-hangarllm-tags header selects the tagged marker, and the rewrite still
         lands on the tier deployment even though that deployment carries no
         tags, because the marker consumed the routing tags."""
         key: Final = _key_for(
             proxy, resources, [marker_first_split.shared, marker_first_split.tier], tag_filtering=True
         )
-        headers: Final = TaggedAnthropicHeaders(authorization=f"Bearer {key}", x_litellm_tags=marker_first_split.tag)
+        headers: Final = TaggedAnthropicHeaders(authorization=f"Bearer {key}", x_hangarllm_tags=marker_first_split.tag)
         answer: Final = unwrap(
             proxy.transport.post(
                 "/v1/messages",
@@ -515,10 +515,10 @@ class TestResponsesApiTagRouting:
     ) -> None:
         """Pins the /v1/responses surface of the tag split (GitHub issues
         #36620/#36621): a /v1/responses request with string input, tagged via
-        the x-litellm-tags header, succeeds and routes through the tagged
+        the x-hangarllm-tags header, succeeds and routes through the tagged
         marker to its tier."""
         key: Final = _key_for(proxy, resources, [plain_first_split.shared, plain_first_split.tier], tag_filtering=True)
-        headers: Final = TaggedAuthHeaders(authorization=f"Bearer {key}", x_litellm_tags=plain_first_split.tag)
+        headers: Final = TaggedAuthHeaders(authorization=f"Bearer {key}", x_hangarllm_tags=plain_first_split.tag)
         body: Final = ResponsesBody(
             model=plain_first_split.shared, input=f"say hello {unique_marker()}", max_output_tokens=64
         )
@@ -545,14 +545,14 @@ class TestResponsesApiTagRouting:
         self, proxy: ProxyClient, resources: ResourceManager, plain_first_split: TagSplitDeployment
     ) -> None:
         """Pins the body-tag and list-input combination of the same split:
-        /v1/responses with litellm_metadata.tags and structured input items
+        /v1/responses with hangarllm_metadata.tags and structured input items
         routes through the tagged marker to its tier."""
         key: Final = _key_for(proxy, resources, [plain_first_split.shared, plain_first_split.tier], tag_filtering=True)
         body: Final = ResponsesBody(
             model=plain_first_split.shared,
             input=[ResponsesInputItem(role="user", content=f"say hello {unique_marker()}")],
             max_output_tokens=64,
-            litellm_metadata=ResponsesTagMetadata(tags=[plain_first_split.tag]),
+            hangarllm_metadata=ResponsesTagMetadata(tags=[plain_first_split.tag]),
         )
         answer: Final = unwrap(
             proxy.transport.post(

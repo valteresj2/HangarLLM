@@ -2,15 +2,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
     A2A_USER_API_KEY_HASH_PARAM,
 )
-from litellm.a2a_protocol.providers.config_manager import A2AProviderConfigManager
-from litellm.llms.langflow.a2a import merge_a2a_session_into_litellm_params
+from hangarllm.a2a_protocol.providers.config_manager import A2AProviderConfigManager
+from hangarllm.llms.langflow.a2a import merge_a2a_session_into_hangarllm_params
 
 
-def test_merge_a2a_session_into_litellm_params():
-    merged = merge_a2a_session_into_litellm_params(
+def test_merge_a2a_session_into_hangarllm_params():
+    merged = merge_a2a_session_into_hangarllm_params(
         {"custom_llm_provider": "langflow", "model": "langflow/flow-1"},
         {"message": {"contextId": "shared-session-99"}},
     )
@@ -24,11 +24,11 @@ def test_merge_a2a_session_is_scoped_per_principal():
     base = {"custom_llm_provider": "langflow", "model": "langflow/flow-1"}
     params = {"message": {"contextId": "ctx-1"}}
 
-    key_a = merge_a2a_session_into_litellm_params(base, params, "hash-a")["session_id"]
-    key_a_again = merge_a2a_session_into_litellm_params(base, params, "hash-a")[
+    key_a = merge_a2a_session_into_hangarllm_params(base, params, "hash-a")["session_id"]
+    key_a_again = merge_a2a_session_into_hangarllm_params(base, params, "hash-a")[
         "session_id"
     ]
-    key_b = merge_a2a_session_into_litellm_params(base, params, "hash-b")["session_id"]
+    key_b = merge_a2a_session_into_hangarllm_params(base, params, "hash-b")["session_id"]
 
     assert key_a == key_a_again, "same key + contextId must stay on one session"
     assert key_a != key_b, "different keys must not collide on the same contextId"
@@ -38,7 +38,7 @@ def test_merge_a2a_session_is_scoped_per_principal():
 
 
 def test_merge_a2a_session_without_context_id_is_noop():
-    merged = merge_a2a_session_into_litellm_params(
+    merged = merge_a2a_session_into_hangarllm_params(
         {"custom_llm_provider": "langflow", "model": "langflow/flow-1"},
         {"message": {"role": "user"}},
     )
@@ -56,7 +56,7 @@ def test_langflow_a2a_provider_config_registered():
 
 @pytest.mark.asyncio
 async def test_langflow_a2a_config_passes_session_id_to_completion():
-    from litellm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
+    from hangarllm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
 
     mock_response = type(
         "R",
@@ -72,7 +72,7 @@ async def test_langflow_a2a_config_passes_session_id_to_completion():
         },
     )()
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
 
         await LangFlowA2AConfig().handle_non_streaming(
@@ -84,7 +84,7 @@ async def test_langflow_a2a_config_passes_session_id_to_completion():
                     "contextId": "shared-session-99",
                 }
             },
-            litellm_params={
+            hangarllm_params={
                 "custom_llm_provider": "langflow",
                 "model": "langflow/flow-1",
                 "api_base": "http://localhost:7860",
@@ -99,7 +99,7 @@ async def test_langflow_a2a_config_passes_session_id_to_completion():
 
 @pytest.mark.asyncio
 async def test_langflow_a2a_config_scopes_session_by_authenticated_key():
-    from litellm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
+    from hangarllm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
 
     mock_response = type(
         "R",
@@ -107,7 +107,7 @@ async def test_langflow_a2a_config_scopes_session_by_authenticated_key():
         {"choices": [type("C", (), {"message": type("M", (), {"content": "ok"})()})()]},
     )()
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
 
         await LangFlowA2AConfig().handle_non_streaming(
@@ -119,7 +119,7 @@ async def test_langflow_a2a_config_scopes_session_by_authenticated_key():
                     "contextId": "ctx-1",
                 }
             },
-            litellm_params={
+            hangarllm_params={
                 "custom_llm_provider": "langflow",
                 "model": "langflow/flow-1",
                 "api_base": "http://localhost:7860",
@@ -137,10 +137,10 @@ async def test_langflow_a2a_config_scopes_session_by_authenticated_key():
 
 
 @pytest.mark.asyncio
-async def test_langflow_a2a_config_requires_litellm_params_non_streaming():
-    from litellm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
+async def test_langflow_a2a_config_requires_hangarllm_params_non_streaming():
+    from hangarllm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
 
-    with pytest.raises(ValueError, match="litellm_params is required"):
+    with pytest.raises(ValueError, match="hangarllm_params is required"):
         await LangFlowA2AConfig().handle_non_streaming(
             request_id="req-1",
             params={"message": {"contextId": "shared-session-99"}},
@@ -148,10 +148,10 @@ async def test_langflow_a2a_config_requires_litellm_params_non_streaming():
 
 
 @pytest.mark.asyncio
-async def test_langflow_a2a_config_requires_litellm_params_streaming():
-    from litellm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
+async def test_langflow_a2a_config_requires_hangarllm_params_streaming():
+    from hangarllm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
 
-    with pytest.raises(ValueError, match="litellm_params is required"):
+    with pytest.raises(ValueError, match="hangarllm_params is required"):
         async for _ in LangFlowA2AConfig().handle_streaming(
             request_id="req-1",
             params={"message": {"contextId": "shared-session-99"}},

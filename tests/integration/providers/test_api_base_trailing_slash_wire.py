@@ -96,7 +96,7 @@ def _search_tool(gateway: Gateway, scenario: Scenario, provider: str, api_base: 
         {
             "search_tool": {
                 "search_tool_name": name,
-                "litellm_params": {"search_provider": provider, "api_key": KEY, "api_base": api_base},
+                "hangarllm_params": {"search_provider": provider, "api_key": KEY, "api_base": api_base},
             }
         },
     )
@@ -251,7 +251,7 @@ def test_non_string_api_base_is_rejected_and_other_deployments_keep_answering(
             "/model/new",
             {
                 "model_name": f"integration-{new_marker()}",
-                "litellm_params": {"model": "deepseek/deepseek-chat", "api_key": KEY, "api_base": api_base},
+                "hangarllm_params": {"model": "deepseek/deepseek-chat", "api_key": KEY, "api_base": api_base},
             },
         )
         assert response.status_code == 422, response.text

@@ -9,13 +9,13 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.spend_tracking.input_tokens import (
+from hangarllm.proxy.spend_tracking.input_tokens import (
     TOKENIZE_OFF_EVENT_LOOP_MIN_CHARS,
     count_input_tokens,
     count_input_tokens_for_model,
     models_counted_for,
 )
-from litellm.router import Router
+from hangarllm.router import Router
 
 CL100K_MODEL: Final = "gpt-4"
 
@@ -67,7 +67,7 @@ def _one_page_pdf_message() -> list[dict[str, object]]:
 def _router(*deployments: tuple[str, str]) -> Router:
     return Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": model, "api_key": "sk-test", "api_base": "https://x"}}
+            {"model_name": name, "hangarllm_params": {"model": model, "api_key": "sk-test", "api_base": "https://x"}}
             for name, model in deployments
         ]
     )
@@ -124,10 +124,10 @@ def test_a_custom_named_deployment_counts_with_its_base_model():
         model_list=[
             {
                 "model_name": "reports",
-                "litellm_params": {"model": "azure/prod-deploy-1", "api_key": "x", "api_base": "https://x"},
+                "hangarllm_params": {"model": "azure/prod-deploy-1", "api_key": "x", "api_base": "https://x"},
                 "model_info": {"base_model": "azure/gpt-5.6-sol"},
             },
-            {"model_name": "drafts", "litellm_params": {"model": "azure/prod-deploy-2", "api_key": "x"}},
+            {"model_name": "drafts", "hangarllm_params": {"model": "azure/prod-deploy-2", "api_key": "x"}},
         ]
     )
 
@@ -146,10 +146,10 @@ def test_a_group_of_differently_priced_deployments_counts_with_each_and_a_name_n
 def test_a_team_request_counts_with_the_deployment_its_team_is_served_by():
     router: Final = Router(
         model_list=[
-            {"model_name": "reports", "litellm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "x"}},
+            {"model_name": "reports", "hangarllm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "x"}},
             {
                 "model_name": "reports-team-a",
-                "litellm_params": {"model": "azure/gpt-5.6-sol", "api_key": "x"},
+                "hangarllm_params": {"model": "azure/gpt-5.6-sol", "api_key": "x"},
                 "model_info": {"team_id": "team-a", "team_public_model_name": "reports"},
             },
         ]
@@ -165,11 +165,11 @@ def test_a_team_request_to_a_routing_group_counts_with_the_member_deployment_its
         model_list=[
             {
                 "model_name": "drafts",
-                "litellm_params": {"model": "azure/gpt-5.6-sol", "api_key": "x", "api_base": "https://x"},
+                "hangarllm_params": {"model": "azure/gpt-5.6-sol", "api_key": "x", "api_base": "https://x"},
             },
             {
                 "model_name": "drafts-team-a",
-                "litellm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "x"},
+                "hangarllm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "x"},
                 "model_info": {"team_id": "team-a", "team_public_model_name": "drafts"},
             },
         ],
@@ -186,10 +186,10 @@ def test_a_team_request_to_a_routing_group_counts_with_the_member_deployment_its
 def test_a_team_with_its_own_wildcard_counts_with_it_and_never_with_a_proxy_wide_wildcard():
     router: Final = Router(
         model_list=[
-            {"model_name": "*", "litellm_params": {"model": "anthropic/*", "api_key": "x"}},
+            {"model_name": "*", "hangarllm_params": {"model": "anthropic/*", "api_key": "x"}},
             {
                 "model_name": "team-a-gpt",
-                "litellm_params": {"model": "azure/gpt-*", "api_key": "x", "api_base": "https://x"},
+                "hangarllm_params": {"model": "azure/gpt-*", "api_key": "x", "api_base": "https://x"},
                 "model_info": {"team_id": "team-a", "team_public_model_name": "gpt-*"},
             },
         ]

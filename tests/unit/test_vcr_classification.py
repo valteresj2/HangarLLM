@@ -66,7 +66,7 @@ class _StubItem:
 @pytest.fixture
 def vcr_enabled(monkeypatch):
     monkeypatch.setenv("CASSETTE_REDIS_URL", "redis://stub")
-    monkeypatch.delenv("LITELLM_VCR_DISABLE", raising=False)
+    monkeypatch.delenv("HANGARLLM_VCR_DISABLE", raising=False)
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
 
@@ -134,7 +134,7 @@ def test_should_distinguish_different_aws_access_keys():
         ("bedrock-runtime-fips.us-east-1.amazonaws.com", True),
         ("api.us-east-1.bedrock-runtime.amazonaws.com", False),
         ("s3.us-west-2.amazonaws.com", True),
-        ("litellm-proxy-test.s3.us-west-2.amazonaws.com", True),
+        ("hangarllm-proxy-test.s3.us-west-2.amazonaws.com", True),
         ("foo.bar.openai.com", True),
         ("127.0.0.1", False),
         ("localhost", False),

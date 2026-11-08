@@ -18,19 +18,19 @@ from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from starlette.types import Message
 
-import litellm
-from litellm import Router
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import ModelResponseStream, TokenCountResponse
+import hangarllm
+from hangarllm import Router
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import ModelResponseStream, TokenCountResponse
 
 
 class TestAnthropicEndpoints(unittest.TestCase):
-    @patch("litellm.litellm_core_utils.safe_json_dumps.safe_dumps")
+    @patch("hangarllm.hangarllm_core_utils.safe_json_dumps.safe_dumps")
     @pytest.mark.asyncio
     async def test_async_data_generator_anthropic_dict_handling(self, mock_safe_dumps):
         """Test async_data_generator_anthropic handles dictionary chunks properly"""
@@ -109,7 +109,7 @@ def _messages_request(body: Mapping[str, object]) -> Request:
             "method": "POST",
             "path": "/v1/messages",
             "query_string": b"",
-            "headers": [(b"content-type", b"application/json"), (b"x-litellm-call-id", _BLOCK_CALL_ID.encode())],
+            "headers": [(b"content-type", b"application/json"), (b"x-hangarllm-call-id", _BLOCK_CALL_ID.encode())],
         },
         receive,
     )
@@ -118,10 +118,10 @@ def _messages_request(body: Mapping[str, object]) -> Request:
 async def _blocked_messages_reply(
     body: Mapping[str, object], fastapi_response: Response, rails: tuple[CustomGuardrail, ...]
 ) -> tuple[object, str]:
-    import litellm
-    import litellm.proxy.anthropic_endpoints.endpoints as ep
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.utils import ProxyLogging
+    import hangarllm
+    import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy.utils import ProxyLogging
 
     blocker: Final = _BlockEveryRequest(
         guardrail_name="deny-list", event_hook=GuardrailEventHooks.pre_call, default_on=True
@@ -130,7 +130,7 @@ async def _blocked_messages_reply(
         patch.object(
             proxy_server, "proxy_logging_obj", new=ProxyLogging(user_api_key_cache=DualCache())
         ),  # test-quality-ok: module global imported at call time; no injection seam
-        patch.object(litellm, "callbacks", new=[blocker, *rails]),  # test-quality-ok: guardrails register through this global
+        patch.object(hangarllm, "callbacks", new=[blocker, *rails]),  # test-quality-ok: guardrails register through this global
     ):
         response = await ep.anthropic_response(
             fastapi_response=fastapi_response,
@@ -149,7 +149,7 @@ class TestBlockedResponseUsage:
     """Blocked responses report the blocked LLM response's real usage."""
 
     def test_uses_original_response_usage(self):
-        from litellm.llms.base_llm.guardrail_translation.utils import blocked_response_usage as _blocked_response_usage
+        from hangarllm.llms.base_llm.guardrail_translation.utils import blocked_response_usage as _blocked_response_usage
 
         # original_response is the AnthropicMessagesResponse the LLM produced
         # before the guardrail blocked it; its usage is real.
@@ -160,7 +160,7 @@ class TestBlockedResponseUsage:
         }
 
     def test_zero_usage_when_no_original_response(self):
-        from litellm.llms.base_llm.guardrail_translation.utils import blocked_response_usage as _blocked_response_usage
+        from hangarllm.llms.base_llm.guardrail_translation.utils import blocked_response_usage as _blocked_response_usage
 
         # Pre-call blocks never invoked the LLM -> nothing consumed.
         assert _blocked_response_usage(None) == {
@@ -174,9 +174,9 @@ class TestBlockedResponseUsage:
         usage, carried on ModifyResponseException.original_response."""
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.integrations.custom_guardrail import ModifyResponseException
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.integrations.custom_guardrail import ModifyResponseException
 
         exc = ModifyResponseException(
             message="blocked by guardrail",
@@ -226,7 +226,7 @@ class TestBlockedResponseUsage:
         )
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
-        assert response.headers["x-litellm-call-id"] == _BLOCK_CALL_ID
+        assert response.headers["x-hangarllm-call-id"] == _BLOCK_CALL_ID
         assert [name for name, _ in events] == [
             "message_start",
             "content_block_start",
@@ -245,24 +245,24 @@ class TestBlockedResponseUsage:
 
         response, _ = await _blocked_messages_reply({"model": "claude-haiku-5-5"}, fastapi_response, ())
 
-        assert fastapi_response.headers["x-litellm-call-id"] == _BLOCK_CALL_ID
+        assert fastapi_response.headers["x-hangarllm-call-id"] == _BLOCK_CALL_ID
         assert isinstance(response, Mapping)
         assert response["content"] == [{"type": "text", "text": _BLOCK_TEXT}]
 
 
 class TestAnthropicResponseReportsWhatAFailedAgenticFollowUpBills:
     async def _error_response_cost(self, raise_the_follow_up_error: bool) -> float:
-        import litellm
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.litellm_core_utils.chat_completion_agentic_loop import bill_first_round_on_failure
-        from litellm.proxy.proxy_server import ProxyConfig
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.types.utils import ModelResponse, Usage
+        import hangarllm
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.hangarllm_core_utils.chat_completion_agentic_loop import bill_first_round_on_failure
+        from hangarllm.proxy.proxy_server import ProxyConfig
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.types.utils import ModelResponse, Usage
 
         proxy_logging: Final = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alert_types = []
-        follow_up_error: Final = litellm.RateLimitError(message="rate limited", llm_provider="openai", model="gpt-4o")
+        follow_up_error: Final = hangarllm.RateLimitError(message="rate limited", llm_provider="openai", model="gpt-4o")
 
         async def failing_follow_up() -> ModelResponse:
             raise follow_up_error
@@ -277,7 +277,7 @@ class TestAnthropicResponseReportsWhatAFailedAgenticFollowUpBills:
                 route_type="anthropic_messages",
             )
             logging_obj.model_call_details.update(first_api_call_start_time=datetime.datetime.now())
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await bill_first_round_on_failure(
                     failing_follow_up(),
                     logging_obj=logging_obj,
@@ -289,7 +289,7 @@ class TestAnthropicResponseReportsWhatAFailedAgenticFollowUpBills:
             raise (
                 follow_up_error
                 if raise_the_follow_up_error
-                else litellm.RateLimitError(message="rate limited", llm_provider="openai", model="gpt-4o")
+                else hangarllm.RateLimitError(message="rate limited", llm_provider="openai", model="gpt-4o")
             )
 
         request: Final = MagicMock(spec=Request)
@@ -316,13 +316,13 @@ class TestAnthropicResponseReportsWhatAFailedAgenticFollowUpBills:
             )
 
         assert response.status_code == 429
-        return float(response.headers["x-litellm-response-cost"])
+        return float(response.headers["x-hangarllm-response-cost"])
 
     @pytest.mark.asyncio
     async def test_the_error_response_reports_the_served_first_call_its_failure_row_bills(self) -> None:
-        import litellm
+        import hangarllm
 
-        price: Final = litellm.model_cost["gpt-4o"]
+        price: Final = hangarllm.model_cost["gpt-4o"]
 
         assert await self._error_response_cost(raise_the_follow_up_error=True) == pytest.approx(
             559 * price["input_cost_per_token"] + 113 * price["output_cost_per_token"]
@@ -336,9 +336,9 @@ class TestProxyExceptionAnthropicEnvelope:
         """LIT-6468: a 400 ProxyException from request validation must surface as
         Anthropic's documented {"type": "error", "error": {...}} envelope with the
         original status and message, not the OpenAI {"error": {...}} envelope."""
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import ProxyErrorTypes, ProxyException
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import ProxyErrorTypes, ProxyException
 
         exc = ProxyException(
             message="Invalid type for 'metadata': expected an object, but got a string instead.",
@@ -381,8 +381,8 @@ class TestProxyExceptionAnthropicEnvelope:
     async def test_anthropic_response_maps_429_to_rate_limit_error(self):
         """The Anthropic error type follows the status code (429 -> rate_limit_error),
         and a code-less exception falls back to 500 api_error."""
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        from litellm.proxy._types import ProxyException
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        from hangarllm.proxy._types import ProxyException
 
         request: Final = MagicMock()
         request.headers = {}
@@ -406,7 +406,7 @@ class TestProxyExceptionAnthropicEnvelope:
         "unavailable, expected_status, expected_error_type, hook_receives_copy",
         [
             pytest.param(
-                litellm.ServiceUnavailableError(
+                hangarllm.ServiceUnavailableError(
                     message='BedrockException - {"message": "Bedrock is unable to process your request."}',
                     llm_provider="bedrock",
                     model="global.anthropic.claude-opus-5-5",
@@ -417,7 +417,7 @@ class TestProxyExceptionAnthropicEnvelope:
                 id="bedrock-503",
             ),
             pytest.param(
-                litellm.InternalServerError(
+                hangarllm.InternalServerError(
                     message='AnthropicError - {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}',
                     llm_provider="anthropic",
                     model="claude-opus-5-5",
@@ -432,14 +432,14 @@ class TestProxyExceptionAnthropicEnvelope:
     )
     async def test_anthropic_response_records_the_answered_status(
         self,
-        unavailable: litellm.ServiceUnavailableError | litellm.InternalServerError,
+        unavailable: hangarllm.ServiceUnavailableError | hangarllm.InternalServerError,
         expected_status: int,
         expected_error_type: str,
         hook_receives_copy: bool,
     ) -> None:
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         raised_status: Final = unavailable.status_code
         request: Final = MagicMock()
@@ -474,7 +474,7 @@ class TestProxyExceptionAnthropicEnvelope:
         "unavailable, expected_status, expected_error_type",
         [
             pytest.param(
-                litellm.ServiceUnavailableError(
+                hangarllm.ServiceUnavailableError(
                     message="Bedrock is unable to process your request.",
                     llm_provider="bedrock",
                     model="global.anthropic.claude-opus-5-5",
@@ -484,7 +484,7 @@ class TestProxyExceptionAnthropicEnvelope:
                 id="bedrock-503",
             ),
             pytest.param(
-                litellm.InternalServerError(
+                hangarllm.InternalServerError(
                     message='AnthropicError - {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}',
                     llm_provider="anthropic",
                     model="claude-opus-5-5",
@@ -498,13 +498,13 @@ class TestProxyExceptionAnthropicEnvelope:
     )
     async def test_count_tokens_answers_provider_errors(
         self,
-        unavailable: litellm.ServiceUnavailableError | litellm.InternalServerError,
+        unavailable: hangarllm.ServiceUnavailableError | hangarllm.InternalServerError,
         expected_status: int,
         expected_error_type: str,
     ) -> None:
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         request = MagicMock()
         request.headers = {}
@@ -530,8 +530,8 @@ class TestProxyExceptionAnthropicEnvelope:
     def test_a_failure_inside_the_handler_keeps_the_api_error_type_for_a_status_outside_the_table(
         self, status_code: int
     ) -> None:
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        from litellm.proxy._types import ProxyException
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        from hangarllm.proxy._types import ProxyException
 
         request: Final = MagicMock(headers={})
 
@@ -543,8 +543,8 @@ class TestProxyExceptionAnthropicEnvelope:
         assert json.loads(response.body)["error"] == {"type": "api_error", "message": "scripted"}
     @staticmethod
     def _call_id_error_response(general_settings, provider_specific_fields=None):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        from litellm.proxy._types import ProxyException
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        from hangarllm.proxy._types import ProxyException
 
         request = MagicMock()
         request.headers = {}
@@ -553,25 +553,25 @@ class TestProxyExceptionAnthropicEnvelope:
             type="rate_limit_error",
             param=None,
             code=429,
-            headers={"x-litellm-call-id": "call-8302"},
+            headers={"x-hangarllm-call-id": "call-8302"},
             provider_specific_fields=provider_specific_fields,
         )
-        with patch("litellm.proxy.proxy_server.general_settings", general_settings):
+        with patch("hangarllm.proxy.proxy_server.general_settings", general_settings):
             return ep._anthropic_error_json_response(exc, request)
 
     def test_anthropic_error_copies_the_call_id_into_the_error_when_opted_in(self):
-        """With include_call_id_in_error_body on, error.litellm_call_id is byte-identical to
-        the x-litellm-call-id header and lives inside the error object, which is what the
+        """With include_call_id_in_error_body on, error.hangarllm_call_id is byte-identical to
+        the x-hangarllm-call-id header and lives inside the error object, which is what the
         Anthropic SDK keeps as e.body."""
         response = self._call_id_error_response({"include_call_id_in_error_body": True})
 
-        assert response.headers["x-litellm-call-id"] == "call-8302"
+        assert response.headers["x-hangarllm-call-id"] == "call-8302"
         assert json.loads(response.body) == {
             "type": "error",
             "error": {
                 "type": "rate_limit_error",
                 "message": "Rate limit exceeded",
-                "litellm_call_id": "call-8302",
+                "hangarllm_call_id": "call-8302",
             },
         }
 
@@ -585,13 +585,13 @@ class TestProxyExceptionAnthropicEnvelope:
             "type": "rate_limit_error",
             "message": "Rate limit exceeded",
             "provider_specific_fields": {"guardrail": "keyword-block"},
-            "litellm_call_id": "call-8302",
+            "hangarllm_call_id": "call-8302",
         }
 
     def test_anthropic_error_leaves_the_envelope_alone_when_opted_out(self):
         response = self._call_id_error_response({})
 
-        assert response.headers["x-litellm-call-id"] == "call-8302"
+        assert response.headers["x-hangarllm-call-id"] == "call-8302"
         assert json.loads(response.body) == {
             "type": "error",
             "error": {"type": "rate_limit_error", "message": "Rate limit exceeded"},
@@ -607,9 +607,9 @@ class TestHttpExceptionDictDetail:
         of the exception and not the OpenAI envelope."""
         from fastapi import HTTPException
 
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         detail = {
             "error": "Content blocked: keyword 'kumquat' detected",
@@ -656,14 +656,14 @@ class TestFailureHookRequestData:
         """Request setup replaces the processor's data dict (adding the logging
         object the failure hook needs to lift token usage from); the exception
         handler must pass that replaced dict, not the raw request body dict."""
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         captured = {}
 
         async def fake_process(self, **kwargs):
-            self.data = {**self.data, "litellm_logging_obj": "logging-obj-sentinel"}
+            self.data = {**self.data, "hangarllm_logging_obj": "logging-obj-sentinel"}
             captured["processor_data"] = self.data
             raise RuntimeError("provider timeout")
 
@@ -687,12 +687,12 @@ class TestFailureHookRequestData:
 
         hook_request_data = mock_logging.post_call_failure_hook.await_args.kwargs["request_data"]
         assert hook_request_data is captured["processor_data"]
-        assert hook_request_data["litellm_logging_obj"] == "logging-obj-sentinel"
+        assert hook_request_data["hangarllm_logging_obj"] == "logging-obj-sentinel"
 
 
 class TestErrorLogCarriesCallId:
     """LIT-7836: the /v1/messages and /v1/messages/count_tokens error lines must carry
-    the request's litellm_call_id, rendered in the message and as a structured field."""
+    the request's hangarllm_call_id, rendered in the message and as a structured field."""
 
     @pytest.fixture(autouse=True)
     def propagating_proxy_logger(self):
@@ -708,14 +708,14 @@ class TestErrorLogCarriesCallId:
 
     @pytest.mark.asyncio
     async def test_messages_failure_log_carries_call_id(self, caplog: pytest.LogCaptureFixture):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         call_id = "messages-call-7836"
 
         async def fake_process(self, **kwargs):
-            self.data = {**self.data, "litellm_call_id": call_id}
+            self.data = {**self.data, "hangarllm_call_id": call_id}
             raise RuntimeError("provider timeout")
 
         request = MagicMock()
@@ -731,7 +731,7 @@ class TestErrorLogCarriesCallId:
             patch.object(
                 proxy_server, "proxy_logging_obj"
             ) as mock_logging,  # test-quality-ok: module global imported at call time; no injection seam
-            caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"),
+            caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"),
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
             response = await ep.anthropic_response(
@@ -742,19 +742,19 @@ class TestErrorLogCarriesCallId:
 
         assert response.status_code == 500
         record = self._error_record(caplog)
-        assert record.litellm_call_id == call_id
+        assert record.hangarllm_call_id == call_id
         assert call_id in record.getMessage()
 
     @pytest.mark.asyncio
     async def test_messages_already_shaped_failure_answers_with_the_call_id(self):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
 
         call_id = "messages-call-7836-shaped"
 
         async def fake_process(self, **kwargs):
-            self.data = {**self.data, "litellm_call_id": call_id}
+            self.data = {**self.data, "hangarllm_call_id": call_id}
             raise ProxyException(message="budget exceeded", type=ProxyErrorTypes.budget_exceeded, param="key", code=402)
 
         request = MagicMock()
@@ -779,17 +779,17 @@ class TestErrorLogCarriesCallId:
             )
 
         assert response.status_code == 402
-        assert response.headers["x-litellm-call-id"] == call_id
+        assert response.headers["x-hangarllm-call-id"] == call_id
 
     @pytest.mark.asyncio
     async def test_count_tokens_failure_log_carries_callers_call_id(self, caplog: pytest.LogCaptureFixture):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         call_id = "count-tokens-call-7836"
         request = MagicMock()
-        request.headers = {"x-litellm-call-id": call_id}
+        request.headers = {"x-hangarllm-call-id": call_id}
 
         with (
             patch.object(  # test-quality-ok: endpoint reads the body via a module function; no injection seam
@@ -800,13 +800,13 @@ class TestErrorLogCarriesCallId:
             patch.object(
                 proxy_server, "count_request_tokens", new=AsyncMock(side_effect=RuntimeError("tokenizer down"))
             ),  # test-quality-ok: module global imported at call time; the test targets the endpoint's except block
-            caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"),
+            caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"),
         ):
             response = await ep.count_tokens(request=request, user_api_key_dict=UserAPIKeyAuth())
 
         assert response.status_code == 500
         record = self._error_record(caplog)
-        assert record.litellm_call_id == call_id
+        assert record.hangarllm_call_id == call_id
         assert call_id in record.getMessage()
 
 
@@ -817,9 +817,9 @@ class TestCountTokensCompactedHistory:
 
     @pytest.mark.asyncio
     async def test_count_tokens_counts_a_compaction_block_like_its_summary_text(self):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+        import hangarllm.proxy.proxy_server as proxy_server
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         summary = "The user is building a recipe app and asked for one-sentence class descriptions."
         follow_up = {"role": "user", "content": "Now do the same for Ingredient."}
@@ -857,7 +857,7 @@ def _claude_router() -> Router:
         model_list=[
             {
                 "model_name": "claude-sonnet",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "sk-test"},
             }
         ]
     )
@@ -882,9 +882,9 @@ _SEVEN_TOKENS: Final = TokenCountResponse(
     ids=["int", "empty_string", "list_of_strings", "input_schema_string", "unnamed_model_int"],
 )
 async def test_count_tokens_answers_400_for_malformed_tools_without_counting(model: str, tools: object) -> None:
-    import litellm.proxy.anthropic_endpoints.endpoints as ep
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     request: Final = MagicMock()
     request.headers = {}
@@ -905,9 +905,9 @@ async def test_count_tokens_answers_400_for_malformed_tools_without_counting(mod
 
 @pytest.mark.asyncio
 async def test_count_tokens_counts_malformed_tool_entries_for_a_model_the_router_cannot_name() -> None:
-    import litellm.proxy.anthropic_endpoints.endpoints as ep
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     request: Final = MagicMock()
     request.headers = {}
@@ -938,9 +938,9 @@ async def test_count_tokens_counts_malformed_tool_entries_for_a_model_the_router
 async def test_count_tokens_drops_malformed_tools_when_drop_params_is_set(
     dropping: dict[str, object], headers: dict[str, str]
 ) -> None:
-    import litellm.proxy.anthropic_endpoints.endpoints as ep
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     request: Final = MagicMock()
     request.headers = headers
@@ -962,12 +962,12 @@ async def test_count_tokens_drops_malformed_tools_when_drop_params_is_set(
 
 @pytest.mark.asyncio
 async def test_count_tokens_keeps_claude_code_malformed_tools_when_operator_sets_drop_params_false() -> None:
-    import litellm.proxy.anthropic_endpoints.endpoints as ep
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     operator_config: Final = proxy_server.ProxyConfig()
-    operator_config.update_config_state(config={"litellm_settings": {"drop_params": False}})
+    operator_config.update_config_state(config={"hangarllm_settings": {"drop_params": False}})
     request: Final = MagicMock()
     request.headers = {"user-agent": "claude-cli/2.1.0 (external, cli)"}
     counter: Final = AsyncMock(return_value=_SEVEN_TOKENS)
@@ -988,22 +988,22 @@ async def test_count_tokens_keeps_claude_code_malformed_tools_when_operator_sets
 
 @pytest.mark.asyncio
 async def test_count_tokens_drops_malformed_tools_the_counted_deployment_drops_even_with_fallbacks() -> None:
-    import litellm.proxy.anthropic_endpoints.endpoints as ep
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm import Router
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm.proxy.anthropic_endpoints.endpoints as ep
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm import Router
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "claude-sonnet",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-5-5",
                     "api_key": "sk-test",
                     "additional_drop_params": ["tools"],
                 },
             },
-            {"model_name": "backup", "litellm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "sk-test"}},
+            {"model_name": "backup", "hangarllm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "sk-test"}},
         ],
         fallbacks=[{"claude-sonnet": ["backup"]}],
     )
@@ -1031,12 +1031,12 @@ def _count_on_claude(
 ) -> httpx.Response:
     from fastapi import FastAPI
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.llms.anthropic.count_tokens import handler as anthropic_count_tokens_handler
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.anthropic_endpoints.endpoints import router
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.llms.anthropic.count_tokens import handler as anthropic_count_tokens_handler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.anthropic_endpoints.endpoints import router
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     claude: Final = {"model": "anthropic/claude-zeta-9", "api_key": "test-key", "api_base": "https://count-tokens.test"}
     monkeypatch.setattr(
@@ -1046,12 +1046,12 @@ def _count_on_claude(
             model_list=[
                 {
                     "model_name": "count-log-claude",
-                    "litellm_params": {**claude, "order": 2},
+                    "hangarllm_params": {**claude, "order": 2},
                     "model_info": {"id": "count-log-fallback-deployment"},
                 },
                 {
                     "model_name": "count-log-claude",
-                    "litellm_params": {**claude, "order": 1},
+                    "hangarllm_params": {**claude, "order": 1},
                     "model_info": {"id": "count-log-routed-deployment"},
                 },
             ]
@@ -1078,13 +1078,13 @@ def test_count_tokens_logs_one_line_with_the_callers_call_id_model_and_count(
     response: Final = _count_on_claude(
         monkeypatch,
         lambda request: httpx.Response(200, json={"input_tokens": 77}, request=request),
-        {"x-litellm-call-id": "count-log-msg-claude"},
+        {"x-hangarllm-call-id": "count-log-msg-claude"},
     )
 
-    assert response.json() == {"input_tokens": 77, "litellm_count_source": "provider"}, response.text
+    assert response.json() == {"input_tokens": 77, "hangarllm_count_source": "provider"}, response.text
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "count-log-msg-claude",
+            "hangarllm_call_id": "count-log-msg-claude",
             "request_model": "count-log-claude",
             "model_id": "count-log-routed-deployment",
             "model_used": "claude-zeta-9",
@@ -1109,7 +1109,7 @@ def test_count_tokens_returns_the_context_management_the_provider_applied(monkey
     assert response.json() == {
         "input_tokens": 576,
         "context_management": applied,
-        "litellm_count_source": "provider",
+        "hangarllm_count_source": "provider",
     }, response.text
 
 
@@ -1124,14 +1124,14 @@ def test_count_tokens_provider_rejection_logs_its_status_and_answers_the_same_er
     response: Final = _count_on_claude(
         monkeypatch,
         lambda request: httpx.Response(400, json=rejection, request=request),
-        {"x-litellm-call-id": "count-log-msg-error"},
+        {"x-hangarllm-call-id": "count-log-msg-error"},
     )
 
     assert response.status_code == 400, response.text
     assert response.json()["error"] == rejection["error"]
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "count-log-msg-error",
+            "hangarllm_call_id": "count-log-msg-error",
             "request_model": "count-log-claude",
             "model_id": "count-log-routed-deployment",
             "model_used": None,
@@ -1145,10 +1145,10 @@ def test_count_tokens_provider_rejection_logs_its_status_and_answers_the_same_er
 def _count_on_local_model(monkeypatch: pytest.MonkeyPatch, body: Mapping[str, object]) -> httpx.Response:
     from fastapi import FastAPI
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.anthropic_endpoints.endpoints import router
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import hangarllm.proxy.proxy_server as proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.anthropic_endpoints.endpoints import router
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     monkeypatch.setattr(
         proxy_server,
@@ -1157,7 +1157,7 @@ def _count_on_local_model(monkeypatch: pytest.MonkeyPatch, body: Mapping[str, ob
             model_list=[
                 {
                     "model_name": "count-log-local",
-                    "litellm_params": {"model": "hosted_vllm/count-log-local", "api_base": "https://local.test/v1"},
+                    "hangarllm_params": {"model": "hosted_vllm/count-log-local", "api_base": "https://local.test/v1"},
                     "model_info": {"id": "count-log-local-deployment"},
                 }
             ]
@@ -1167,7 +1167,7 @@ def _count_on_local_model(monkeypatch: pytest.MonkeyPatch, body: Mapping[str, ob
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth()
     return TestClient(app).post(
-        "/v1/messages/count_tokens", json=dict(body), headers={"x-litellm-call-id": "count-log-local"}
+        "/v1/messages/count_tokens", json=dict(body), headers={"x-hangarllm-call-id": "count-log-local"}
     )
 
 
@@ -1182,7 +1182,7 @@ def test_count_tokens_unsupported_content_logs_the_400_it_answers(
     assert (response.status_code, response.json()["error"]["type"]) == (400, "invalid_request_error"), response.text
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "count-log-local",
+            "hangarllm_call_id": "count-log-local",
             "request_model": "count-log-local",
             "model_id": "count-log-local-deployment",
             "model_used": None,
@@ -1211,7 +1211,7 @@ def test_count_tokens_rejected_before_counting_logs_the_400_it_answers(
     assert response.status_code == 400, response.text
     assert token_count_log_lines() == (
         {
-            "litellm_call_id": "count-log-local",
+            "hangarllm_call_id": "count-log-local",
             "request_model": request_model,
             "model_id": None,
             "model_used": None,
@@ -1229,7 +1229,7 @@ class TestEventLoggingBatchEndpoint:
         """Test that the event_logging_batch endpoint exists and returns 200"""
         from fastapi import FastAPI
 
-        from litellm.proxy.anthropic_endpoints.endpoints import router
+        from hangarllm.proxy.anthropic_endpoints.endpoints import router
 
         app = FastAPI()
         app.include_router(router)
@@ -1245,13 +1245,13 @@ class TestStripTotalTokens(unittest.TestCase):
     """Cover ``_strip_total_tokens_from_anthropic_response``.
 
     The Anthropic /v1/messages spec does not define ``usage.total_tokens``.
-    LiteLLM injects it internally; the helper must remove it from the wire
+    HangarLLM injects it internally; the helper must remove it from the wire
     response so the non-streaming path matches the streaming SSE shape and
     direct Anthropic API responses.
     """
 
     def test_strips_total_tokens_when_present(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from hangarllm.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -1272,7 +1272,7 @@ class TestStripTotalTokens(unittest.TestCase):
         assert response["usage"]["cache_read_input_tokens"] == 0
 
     def test_no_op_when_total_tokens_absent(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from hangarllm.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -1281,7 +1281,7 @@ class TestStripTotalTokens(unittest.TestCase):
         assert response["usage"] == {"input_tokens": 100, "output_tokens": 50}
 
     def test_no_op_when_usage_missing(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from hangarllm.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -1290,7 +1290,7 @@ class TestStripTotalTokens(unittest.TestCase):
         assert response == {"id": "msg_123"}
 
     def test_no_op_on_non_dict_response(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from hangarllm.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -1306,7 +1306,7 @@ class TestStripTotalTokens(unittest.TestCase):
         """
         from types import SimpleNamespace
 
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from hangarllm.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -1319,14 +1319,14 @@ class TestStripTotalTokens(unittest.TestCase):
 
 
 class TestStripTotalTokensFeatureFlag(unittest.TestCase):
-    """The strip is gated behind `litellm.strip_anthropic_total_tokens`.
+    """The strip is gated behind `hangarllm.strip_anthropic_total_tokens`.
 
     Default off (backward compat). Greptile P1 on #30382 required a
-    user-controlled flag so existing clients reading the LiteLLM-shaped
+    user-controlled flag so existing clients reading the HangarLLM-shaped
     `usage.total_tokens` continue to work after this PR lands.
     """
 
     def test_flag_defaults_off(self):
-        import litellm
+        import hangarllm
 
-        assert litellm.strip_anthropic_total_tokens is False
+        assert hangarllm.strip_anthropic_total_tokens is False

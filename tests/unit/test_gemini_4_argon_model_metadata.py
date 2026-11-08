@@ -4,9 +4,9 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm import get_model_info
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+from hangarllm import get_model_info
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
 
 REPO_ROOT: Final = Path(__file__).parents[2]
 MODELS: Final = (
@@ -29,7 +29,7 @@ def test_gemini_4_argon_routes_to_its_provider_on_the_thinking_level_path(
     assert (routed_model, provider) == (expected_model, expected_provider)
 
     info = get_model_info(model=routed_model, custom_llm_provider=provider)
-    assert info["litellm_provider"] == expected_provider
+    assert info["hangarllm_provider"] == expected_provider
     assert info["max_output_tokens"] == info["max_input_tokens"]
     assert VertexGeminiConfig.is_gemini_3_or_newer(routed_model) is True
 
@@ -37,6 +37,6 @@ def test_gemini_4_argon_routes_to_its_provider_on_the_thinking_level_path(
 @pytest.mark.parametrize("model", [row[0] for row in MODELS])
 def test_gemini_4_argon_entry_source_and_backup_match(model: str) -> None:
     main_entry = _cost_map_entry(REPO_ROOT / "model_prices_and_context_window.json", model)
-    backup_entry = _cost_map_entry(REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json", model)
+    backup_entry = _cost_map_entry(REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json", model)
 
     assert backup_entry == main_entry

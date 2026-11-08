@@ -1,7 +1,7 @@
 """Unit tests for the Codex harness config. No network, no real CLI.
 
 Fixtures under fixtures/ are sanitized `codex exec --json` output recorded from
-codex-cli through a LiteLLM gateway.
+codex-cli through a HangarLLM gateway.
 """
 
 import asyncio
@@ -13,19 +13,19 @@ from typing import Optional
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from litellm.harness.context import SessionContext
-from litellm.harness.errors import HarnessError, HarnessInstallFailed, OptionsMismatch
-from litellm.harness.handlers.cli_handler import CLIHarnessHandler
-from litellm.harness.options import ClaudeCodeOptions, CodexOptions
-from litellm.harness.sandbox.base import CompletedRun
-from litellm.harness.sandbox.docker import DockerSandbox
-from litellm.harness.types import Harness, Reasoning, Text, ToolCall, ToolResult
-from litellm.llms.base_llm.harness.transformation import (
+from hangarllm.harness.context import SessionContext
+from hangarllm.harness.errors import HarnessError, HarnessInstallFailed, OptionsMismatch
+from hangarllm.harness.handlers.cli_handler import CLIHarnessHandler
+from hangarllm.harness.options import ClaudeCodeOptions, CodexOptions
+from hangarllm.harness.sandbox.base import CompletedRun
+from hangarllm.harness.sandbox.docker import DockerSandbox
+from hangarllm.harness.types import Harness, Reasoning, Text, ToolCall, ToolResult
+from hangarllm.llms.base_llm.harness.transformation import (
     HarnessTurnError,
     HarnessTurnRequest,
 )
-from litellm.llms.base_llm.harness.utils import strict_json_schema
-from litellm.llms.codex.harness.transformation import (
+from hangarllm.llms.base_llm.harness.utils import strict_json_schema
+from hangarllm.llms.codex.harness.transformation import (
     CODEX_SCHEMA_FILENAME,
     CODEX_TOKEN_ENV,
     MANAGED_CONFIG_KEYS,
@@ -267,9 +267,9 @@ def test_parse_file_change_and_mcp_and_web_search():
         ToolResult(id="i2", output="boom", is_error=True)
     ]
 
-    web = {"id": "i3", "type": "web_search", "query": "litellm"}
+    web = {"id": "i3", "type": "web_search", "query": "hangarllm"}
     events = parse_event({"type": "item.completed", "item": web}, state)
-    assert events[0].name == "web_search" and events[0].input == {"query": "litellm"}
+    assert events[0].name == "web_search" and events[0].input == {"query": "hangarllm"}
 
 
 @pytest.mark.parametrize(
@@ -354,7 +354,7 @@ def test_config_overrides_rejects_managed_keys():
         with pytest.raises(OptionsMismatch):
             config_overrides({key: "x"})
     for key in sorted(MANAGED_CONFIG_KEYS):
-        with pytest.raises(OptionsMismatch, match="managed by LiteLLM"):
+        with pytest.raises(OptionsMismatch, match="managed by HangarLLM"):
             config_overrides({key: "x"})
     for bad in ("", "a=b"):
         with pytest.raises(OptionsMismatch, match="Invalid"):
@@ -437,10 +437,10 @@ def test_first_turn_argv_env():
     assert argv[argv.index("-m") + 1] == "gpt-5.4"
     assert argv[argv.index("--sandbox") + 1] == "workspace-write"
     cfg = config_values(argv)
-    assert "model_provider=litellm" in cfg
-    assert 'model_providers.litellm.base_url="http://127.0.0.1:4555/v1"' in cfg
-    assert "model_providers.litellm.env_key=LITELLM_HARNESS_TOKEN" in cfg
-    assert "model_providers.litellm.wire_api=responses" in cfg
+    assert "model_provider=hangarllm" in cfg
+    assert 'model_providers.hangarllm.base_url="http://127.0.0.1:4555/v1"' in cfg
+    assert "model_providers.hangarllm.env_key=HANGARLLM_HARNESS_TOKEN" in cfg
+    assert "model_providers.hangarllm.wire_api=responses" in cfg
     assert "approval_policy=never" in cfg
     assert "model_reasoning_effort=low" in cfg
     assert "model_reasoning_summary=auto" in cfg
@@ -449,7 +449,7 @@ def test_first_turn_argv_env():
     assert "sandbox_workspace_write.network_access=true" in cfg
     assert "--output-schema" not in argv
     assert not any(TOKEN in a for a in argv)
-    assert env["LITELLM_HARNESS_TOKEN"] == TOKEN
+    assert env["HANGARLLM_HARNESS_TOKEN"] == TOKEN
     assert env["CODEX_HOME"] == HOME
 
 
@@ -593,9 +593,9 @@ async def test_first_turn_then_resume_argv_env():
     assert argv[:4] == ["codex", "exec", "--json", "--skip-git-repo-check"]
     assert argv[-1] == "-" and argv[argv.index("-C") + 1] == "/work"
     assert first["cwd"] == "/work"
-    assert "model_provider=litellm" in config_values(argv)
+    assert "model_provider=hangarllm" in config_values(argv)
     assert not any(TOKEN in a for a in argv)
-    assert env["LITELLM_HARNESS_TOKEN"] == TOKEN
+    assert env["HANGARLLM_HARNESS_TOKEN"] == TOKEN
     assert env["CODEX_HOME"] == HOME
     assert sbx.processes[0].stdin.data == b"create hello.txt"
     assert sbx.processes[0].stdin.closed

@@ -11,7 +11,7 @@ from integration.translation.runner import assert_translation
 GPT_5_4_SERVICE_TIER_TEST_CASE: Final = replace(
     GPT_5_4_TEST_CASE,
     scenario="service_tier",
-    litellm_request={**GPT_5_4_TEST_CASE.litellm_request, "service_tier": "auto"},
+    hangarllm_request={**GPT_5_4_TEST_CASE.hangarllm_request, "service_tier": "auto"},
     expected_provider_request={**GPT_5_4_TEST_CASE.expected_provider_request, "service_tier": "auto"},
     mock_provider_response={
         **GPT_5_4_TEST_CASE.mock_provider_response,
@@ -30,8 +30,8 @@ GPT_5_4_SERVICE_TIER_TEST_CASE: Final = replace(
             }
         ],
     },
-    expected_litellm_response={
-        **GPT_5_4_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **GPT_5_4_TEST_CASE.expected_hangarllm_response,
         "id": "resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDo3NGI3ZDQzZjBmNjQ1MjlkYWY4NWQ4MjRmNjE3ZGYzNDRjZTdhNGI3NjI3YTYzMDMzZGUzMDVmNTE2NTRlZjc2O3Jlc3BvbnNlX2lkOnJlc3BfMDczOGZlNmQzYjA4NmNkMTAwNmFjZWY2YzIzYTE0ODdkMjg2MGUwMmM1M2FmOTQ1YTY=",
     },
 )

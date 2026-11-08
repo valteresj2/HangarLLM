@@ -7,7 +7,7 @@ sys.path.insert(
 
 import pytest
 
-from litellm.litellm_core_utils.get_llm_provider_logic import (
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import (
     _is_azure_claude_model,
     get_llm_provider,
 )

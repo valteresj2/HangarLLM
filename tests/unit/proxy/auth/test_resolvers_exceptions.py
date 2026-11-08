@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from litellm.constants import INVALID_API_KEY_ERROR_MESSAGE
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.auth.resolvers.exceptions import (
+from hangarllm.constants import INVALID_API_KEY_ERROR_MESSAGE
+from hangarllm.proxy._types import ProxyErrorTypes, ProxyException
+from hangarllm.proxy.auth.resolvers.exceptions import (
     IdentityResolutionError,
     KeyNotFoundError,
     KeyNotInCacheError,

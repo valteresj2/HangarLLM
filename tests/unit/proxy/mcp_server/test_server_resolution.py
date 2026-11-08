@@ -9,18 +9,18 @@ from unittest.mock import Mock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LiteLLM_MCPServerTable, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.mcp_server.contracts import TargetCatalog
-from litellm.proxy.mcp_server.server_resolution import (
+from hangarllm.proxy._types import HangarLLM_MCPServerTable, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.mcp_server.contracts import TargetCatalog
+from hangarllm.proxy.mcp_server.server_resolution import (
     MCPServerTargetCatalog,
     ResolutionSource,
     ResolvedMCPServer,
     authorize_mcp_server,
     resolve_mcp_server,
 )
-from litellm.proxy.mcp_server.ui_session_utils import can_access_mcp_server
-from litellm.types.mcp import MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.proxy.mcp_server.ui_session_utils import can_access_mcp_server
+from hangarllm.types.mcp import MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 @dataclass(frozen=True)
@@ -46,8 +46,8 @@ class FakeMCPServerManager:
         self.ip_filter_spy(server, client_ip)
         return self.ip_accessible
 
-    def build_mcp_server_table(self, server: MCPServer) -> LiteLLM_MCPServerTable:
-        return LiteLLM_MCPServerTable(
+    def build_mcp_server_table(self, server: MCPServer) -> HangarLLM_MCPServerTable:
+        return HangarLLM_MCPServerTable(
             server_id=server.server_id,
             alias=server.alias,
             server_name=server.server_name,
@@ -71,8 +71,8 @@ def _runtime_server(server_id: str = "canonical-server") -> MCPServer:
     )
 
 
-def _table_server(server_id: str = "database-server") -> LiteLLM_MCPServerTable:
-    return LiteLLM_MCPServerTable(
+def _table_server(server_id: str = "database-server") -> HangarLLM_MCPServerTable:
+    return HangarLLM_MCPServerTable(
         server_id=server_id,
         alias=f"{server_id}-alias",
         server_name=f"{server_id}-name",
@@ -102,7 +102,7 @@ def _manager(
 
 def _auth() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="resolver-test-user",
         api_key="resolver-test-key",
     )
@@ -119,7 +119,7 @@ async def test_temp_resolution_precedes_db_and_registry() -> None:
         temp_lookup(server_id)
         return temporary_server
 
-    async def lookup_db(server_id: str) -> LiteLLM_MCPServerTable | None:
+    async def lookup_db(server_id: str) -> HangarLLM_MCPServerTable | None:
         db_lookup(server_id)
         return _table_server(server_id)
 
@@ -147,7 +147,7 @@ async def test_db_resolution_precedes_registry_id() -> None:
     manager: Final = _manager(servers_by_id={registry_server.server_id: registry_server})
     db_lookup: Final = Mock()
 
-    async def lookup_db(server_id: str) -> LiteLLM_MCPServerTable | None:
+    async def lookup_db(server_id: str) -> HangarLLM_MCPServerTable | None:
         db_lookup(server_id)
         return database_server
 
@@ -341,7 +341,7 @@ async def test_authorize_uses_real_access_helper_for_canonical_id(
         return await can_access_mcp_server(user_api_key_auth, requested_server_id, allowed_servers)
 
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.server_resolution.can_access_mcp_server",
+        "hangarllm.proxy.mcp_server.server_resolution.can_access_mcp_server",
         spy_access,
     )
     if expected_status is None:
@@ -414,7 +414,7 @@ async def test_empty_temp_and_db_lookups_fall_through_to_ip_filtered_registry() 
         lookups.temp(server_id)
         return None
 
-    async def db_lookup(server_id: str) -> LiteLLM_MCPServerTable | None:
+    async def db_lookup(server_id: str) -> HangarLLM_MCPServerTable | None:
         lookups.db(server_id)
         return None
 
@@ -473,7 +473,7 @@ async def test_target_catalog_authorizes_canonical_identity(source: ResolutionSo
         allowed_server_ids=(server.server_id,) if allowed else ("requested-alias",),
     )
 
-    async def database_lookup(server_id: str) -> LiteLLM_MCPServerTable | None:
+    async def database_lookup(server_id: str) -> HangarLLM_MCPServerTable | None:
         return _table_server(server.server_id)
 
     async def temporary_lookup(server_id: str) -> MCPServer | None:
@@ -558,9 +558,9 @@ async def test_target_catalog_does_not_reuse_admin_authorization_for_another_cal
 async def test_catalog_without_listing_dependency_fails_explicitly():
     from mcp.types import ListToolsRequest
 
-    from litellm.proxy.mcp_server.contracts import OperationContext
-    from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
-    from litellm.proxy.mcp_server.server_resolution import MCPServerTargetCatalog
+    from hangarllm.proxy.mcp_server.contracts import OperationContext
+    from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+    from hangarllm.proxy.mcp_server.server_resolution import MCPServerTargetCatalog
 
     catalog = MCPServerTargetCatalog(MCPServerManager())
     with pytest.raises(RuntimeError, match="listing dependency"):

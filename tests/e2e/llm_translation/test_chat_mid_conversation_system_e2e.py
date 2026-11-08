@@ -39,7 +39,7 @@ from e2e_config import unique_marker
 from e2e_http import Result, unwrap
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import CacheControl, ChatResponse, LiteLLMParamsBody, RichMessage, TextBlock, Usage
+from models import CacheControl, ChatResponse, HangarLLMParamsBody, RichMessage, TextBlock, Usage
 from passthrough_client import PassthroughClient
 
 pytestmark = [pytest.mark.e2e, pytest.mark.provider_live]
@@ -58,12 +58,12 @@ class CacheChatRequest(BaseModel):
     cache: dict[str, bool] = {"no-cache": True}
 
 
-def _anthropic_params(model: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=model, api_key="os.environ/ANTHROPIC_API_KEY")
+def _anthropic_params(model: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=model, api_key="os.environ/ANTHROPIC_API_KEY")
 
 
-def _invoke_params(model: str, region: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=model, aws_region_name=region)
+def _invoke_params(model: str, region: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=model, aws_region_name=region)
 
 
 def _cacheable_system_turn(marker: str) -> RichMessage:
@@ -99,7 +99,7 @@ def _post_chat(client: PassthroughClient, key: str, body: CacheChatRequest) -> R
     )
 
 
-def _register_deployment(client: PassthroughClient, resources: ResourceManager, params: LiteLLMParamsBody) -> str:
+def _register_deployment(client: PassthroughClient, resources: ResourceManager, params: HangarLLMParamsBody) -> str:
     model = f"e2e-chat-midsys-{unique_marker()}"
     model_id = client.proxy.create_model(model, params)
     resources.defer(lambda: client.proxy.delete_model(model_id))
@@ -116,7 +116,7 @@ def _first_turn_user_text(marker: str) -> str:
 
 def _cache_read_tokens(usage: Usage | None) -> int:
     """Cache-read tokens however the chat usage reports them: the Anthropic-style
-    ``cache_read_input_tokens`` litellm forwards, or the OpenAI-style
+    ``cache_read_input_tokens`` hangarllm forwards, or the OpenAI-style
     ``prompt_tokens_details.cached_tokens`` it mirrors them into."""
     if usage is None:
         return 0
@@ -222,7 +222,7 @@ def _reminder_turn_body(model: str, system_turn: RichMessage, primed: PrimedCach
 
 
 def _assert_flagged_model_keeps_cache(
-    client: PassthroughClient, resources: ResourceManager, params: LiteLLMParamsBody
+    client: PassthroughClient, resources: ResourceManager, params: HangarLLMParamsBody
 ) -> None:
     model = _register_deployment(client, resources, params)
     key = resources.key(models=[model])
@@ -246,7 +246,7 @@ def _assert_flagged_model_keeps_cache(
 
 
 def _assert_unflagged_model_converts_and_succeeds(
-    client: PassthroughClient, resources: ResourceManager, params: LiteLLMParamsBody
+    client: PassthroughClient, resources: ResourceManager, params: HangarLLMParamsBody
 ) -> None:
     model = _register_deployment(client, resources, params)
     key = resources.key(models=[model])

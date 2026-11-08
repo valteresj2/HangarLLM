@@ -172,7 +172,7 @@ def _config(wire: Wire, tmp_path: Path) -> tuple[Path, str]:
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {"model": "cloudflare/clef", "api_base": wire.url, "api_key": _API_KEY},
+                        "hangarllm_params": {"model": "cloudflare/clef", "api_base": wire.url, "api_key": _API_KEY},
                     }
                 ],
                 "general_settings": {
@@ -187,7 +187,7 @@ def _config(wire: Wire, tmp_path: Path) -> tuple[Path, str]:
 
 def _successful_spend_rows(model: str, expected: int) -> int:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: sum(row["status"] == "success" for row in found) >= expected,
         seconds=70,
     )

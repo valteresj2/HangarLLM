@@ -5,20 +5,20 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.vllm.passthrough.transformation import VLLMPassthroughConfig
-from litellm.passthrough.main import allm_passthrough_route
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.vllm.passthrough.transformation import VLLMPassthroughConfig
+from hangarllm.passthrough.main import allm_passthrough_route
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 _API_BASE: Final = "http://vllm-upstream.test:8090"
 
 
 @pytest.fixture(autouse=True)
 def _httpx_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
 
 def test_hosted_vllm_resolves_vllm_passthrough_config() -> None:

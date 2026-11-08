@@ -1,5 +1,5 @@
 """Event-loop holds, read from the gateway's own asyncio debug output. A gateway started with
-`PYTHONASYNCIODEBUG=1` on the stdlib loop (`LITELLM_EVENT_LOOP=asyncio`, uvloop never reports them) logs every
+`PYTHONASYNCIODEBUG=1` on the stdlib loop (`HANGARLLM_EVENT_LOOP=asyncio`, uvloop never reports them) logs every
 callback or task step over `slow_callback_duration` (0.1 s) as
 `Executing <Task ... coro=<name() running at file:line> ...> took X seconds`. A case with `event_loop` set reads
 the gateway log for its traffic window, groups those lines by coroutine and location, and fails on a location that
@@ -102,8 +102,8 @@ class StallRow:
 def _short(path: str) -> str:
     if "site-packages/" in path:
         return path.rsplit("site-packages/", 1)[1]
-    if "/litellm/" in path:
-        return "litellm/" + path.rsplit("/litellm/", 1)[1]
+    if "/hangarllm/" in path:
+        return "hangarllm/" + path.rsplit("/hangarllm/", 1)[1]
     return path
 
 

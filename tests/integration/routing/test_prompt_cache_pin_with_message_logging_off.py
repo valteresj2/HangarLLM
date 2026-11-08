@@ -24,7 +24,7 @@ from integration.routing._prompt_cache_pin_support import (
 from pydantic import JsonValue, TypeAdapter
 from redis import Redis
 
-from litellm.constants import REDACTED_BY_LITELLM
+from hangarllm.constants import REDACTED_BY_HANGARLLM
 
 pytestmark: Final = pytest.mark.timeout(2 * graceful_stop_seconds() + 300)
 
@@ -32,7 +32,7 @@ _GROUP: Final = "pin-logging-off"
 _LEFT: Final = "pin-logging-off-left"
 _RIGHT: Final = "pin-logging-off-right"
 _FOLLOW_UPS: Final = 20
-_REDACTED_MESSAGES: Final = [{"role": "user", "content": REDACTED_BY_LITELLM}]
+_REDACTED_MESSAGES: Final = [{"role": "user", "content": REDACTED_BY_HANGARLLM}]
 _LOGGED_EVENT: Final = TypeAdapter(dict[str, JsonValue])
 
 
@@ -56,7 +56,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
         config: Final = pin_config(
             directory,
             [anthropic_deployment(_GROUP, _LEFT, left.url), anthropic_deployment(_GROUP, _RIGHT, right.url)],
-            litellm_settings={
+            hangarllm_settings={
                 "turn_off_message_logging": True,
                 "callbacks": ["integration._support.redaction_probe.probe"],
                 "cache": False,

@@ -7,7 +7,7 @@ so that header-dependent guardrails, routing hooks, and trace correlation
 function correctly.
 """
 
-from litellm.proxy.mcp_server.sampling_handler import (
+from hangarllm.proxy.mcp_server.sampling_handler import (
     _build_sampling_request,
 )
 
@@ -24,16 +24,16 @@ class TestBuildSamplingRequest:
     def test_should_forward_raw_headers(self):
         """Headers from the original MCP connection should be forwarded."""
         raw = {
-            "x-litellm-tags": "tag1,tag2",
-            "x-litellm-trace-id": "trace-abc-123",
+            "x-hangarllm-tags": "tag1,tag2",
+            "x-hangarllm-trace-id": "trace-abc-123",
             "user-agent": "MCP-Client/1.0",
             "authorization": "Bearer sk-test",
         }
         req = _build_sampling_request(raw_headers=raw)
         headers = dict(req.headers)
 
-        assert headers.get("x-litellm-tags") == "tag1,tag2"
-        assert headers.get("x-litellm-trace-id") == "trace-abc-123"
+        assert headers.get("x-hangarllm-tags") == "tag1,tag2"
+        assert headers.get("x-hangarllm-trace-id") == "trace-abc-123"
         assert headers.get("user-agent") == "MCP-Client/1.0"
         assert headers.get("authorization") == "Bearer sk-test"
 
@@ -77,11 +77,11 @@ class TestBuildSamplingRequest:
         req = _build_sampling_request()
         assert req.scope["path"] == "/mcp/sampling/createMessage"
 
-    def test_server_should_default_to_litellm_port(self):
-        """Server tuple should use port 4000 (LiteLLM default), not 0."""
+    def test_server_should_default_to_hangarllm_port(self):
+        """Server tuple should use port 4000 (HangarLLM default), not 0."""
         req = _build_sampling_request()
         _host, _port = req.scope["server"]
-        assert _port == 4000, f"Expected default LiteLLM port 4000, got {_port}"
+        assert _port == 4000, f"Expected default HangarLLM port 4000, got {_port}"
 
     def test_should_populate_client_tuple_from_client_ip(self):
         """request.client.host must return the real client IP for
@@ -139,9 +139,9 @@ class TestBuildSamplingRequest:
             "00-abcdef1234567890abcdef1234567890-1234567890abcdef-01"
         )
 
-    def test_should_forward_x_litellm_api_key(self):
-        """x-litellm-api-key header must be forwarded for auth."""
-        raw = {"x-litellm-api-key": "sk-proxy-key-123"}
+    def test_should_forward_x_hangarllm_api_key(self):
+        """x-hangarllm-api-key header must be forwarded for auth."""
+        raw = {"x-hangarllm-api-key": "sk-proxy-key-123"}
         req = _build_sampling_request(raw_headers=raw)
         headers = dict(req.headers)
-        assert headers.get("x-litellm-api-key") == "sk-proxy-key-123"
+        assert headers.get("x-hangarllm-api-key") == "sk-proxy-key-123"

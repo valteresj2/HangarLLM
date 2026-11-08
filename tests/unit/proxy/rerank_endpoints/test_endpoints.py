@@ -13,19 +13,19 @@ import respx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.testclient import TestClient
 
-import litellm.proxy.common_request_processing as common_request_processing_mod
-import litellm.proxy.proxy_server as proxy_server_mod
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.rerank_endpoints.endpoints import rerank
-from litellm.types.utils import RerankResponse
+import hangarllm.proxy.common_request_processing as common_request_processing_mod
+import hangarllm.proxy.proxy_server as proxy_server_mod
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.rerank_endpoints.endpoints import rerank
+from hangarllm.types.utils import RerankResponse
 
 HIDDEN_PARAMS = {
     "model_id": "deployment-1",
     "api_base": "https://bedrock-agent-runtime.us-east-1.amazonaws.com",
     "response_cost": 0.002,
     "_response_ms": 1500.5,
-    "litellm_overhead_time_ms": 12.5,
+    "hangarllm_overhead_time_ms": 12.5,
     "callback_duration_ms": 1.25,
     "timing_llm_api_ms": 1488.0,
     "timing_pre_processing_ms": 10.0,
@@ -61,7 +61,7 @@ async def _call_rerank(hidden_params: dict = HIDDEN_PARAMS) -> Response:
     proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging_obj.update_request_status = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs):
+    async def fake_add_hangarllm_data_to_request(**kwargs):
         return dict(kwargs["data"])
 
     async def fake_route_request(**kwargs):
@@ -71,14 +71,14 @@ async def _call_rerank(hidden_params: dict = HIDDEN_PARAMS) -> Response:
         return _call()
 
     with (
-        patch.object(proxy_server_mod, "add_litellm_data_to_request", fake_add_litellm_data_to_request),  # test-quality-ok: the rerank route reads these proxy_server module globals; no injection seam on the FastAPI handler
+        patch.object(proxy_server_mod, "add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request),  # test-quality-ok: the rerank route reads these proxy_server module globals; no injection seam on the FastAPI handler
         patch.object(proxy_server_mod, "route_request", fake_route_request),  # test-quality-ok: the rerank route reads these proxy_server module globals; no injection seam on the FastAPI handler
         patch.object(proxy_server_mod, "proxy_logging_obj", proxy_logging_obj),  # test-quality-ok: the rerank route reads these proxy_server module globals; no injection seam on the FastAPI handler
         patch.object(proxy_server_mod, "llm_router", MagicMock()),  # test-quality-ok: the rerank route reads these proxy_server module globals; no injection seam on the FastAPI handler
         patch.object(proxy_server_mod, "version", "1.2.3"),  # test-quality-ok: the rerank route reads these proxy_server module globals; no injection seam on the FastAPI handler
     ):
         await rerank(
-            request=_build_request(headers=((b"x-litellm-call-id", b"call-123"),)),
+            request=_build_request(headers=((b"x-hangarllm-call-id", b"call-123"),)),
             fastapi_response=fastapi_response,
             user_api_key_dict=UserAPIKeyAuth(api_key="sk-test"),
         )
@@ -91,23 +91,23 @@ async def test_rerank_emits_latency_and_cost_headers():
     """/rerank must surface the same hidden_params-derived headers as /chat/completions."""
     fastapi_response = await _call_rerank()
 
-    assert fastapi_response.headers["x-litellm-call-id"] == "call-123"
-    assert fastapi_response.headers["x-litellm-response-duration-ms"] == "1500.5"
-    assert fastapi_response.headers["x-litellm-overhead-duration-ms"] == "12.5"
-    assert fastapi_response.headers["x-litellm-callback-duration-ms"] == "1.25"
-    assert fastapi_response.headers["x-litellm-response-cost"] == "0.002"
+    assert fastapi_response.headers["x-hangarllm-call-id"] == "call-123"
+    assert fastapi_response.headers["x-hangarllm-response-duration-ms"] == "1500.5"
+    assert fastapi_response.headers["x-hangarllm-overhead-duration-ms"] == "12.5"
+    assert fastapi_response.headers["x-hangarllm-callback-duration-ms"] == "1.25"
+    assert fastapi_response.headers["x-hangarllm-response-cost"] == "0.002"
 
 
 @pytest.mark.asyncio
 async def test_rerank_emits_detailed_timing_headers_when_enabled():
-    """LITELLM_DETAILED_TIMING must also work on /rerank, not just /chat/completions."""
-    with patch.object(common_request_processing_mod, "LITELLM_DETAILED_TIMING", True):  # test-quality-ok: LITELLM_DETAILED_TIMING is a module constant; toggling it is the behavior under test
+    """HANGARLLM_DETAILED_TIMING must also work on /rerank, not just /chat/completions."""
+    with patch.object(common_request_processing_mod, "HANGARLLM_DETAILED_TIMING", True):  # test-quality-ok: HANGARLLM_DETAILED_TIMING is a module constant; toggling it is the behavior under test
         fastapi_response = await _call_rerank()
 
-    assert fastapi_response.headers["x-litellm-timing-llm-api-ms"] == "1488.0"
-    assert fastapi_response.headers["x-litellm-timing-pre-processing-ms"] == "10.0"
-    assert fastapi_response.headers["x-litellm-timing-post-processing-ms"] == "2.5"
-    assert fastapi_response.headers["x-litellm-timing-message-copy-ms"] == "0.01"
+    assert fastapi_response.headers["x-hangarllm-timing-llm-api-ms"] == "1488.0"
+    assert fastapi_response.headers["x-hangarllm-timing-pre-processing-ms"] == "10.0"
+    assert fastapi_response.headers["x-hangarllm-timing-post-processing-ms"] == "2.5"
+    assert fastapi_response.headers["x-hangarllm-timing-message-copy-ms"] == "0.01"
 
 
 @pytest.mark.asyncio
@@ -115,15 +115,15 @@ async def test_rerank_emits_zero_response_cost_header():
     """A free deployment costs 0.0, which is a real cost and must not be dropped."""
     fastapi_response = await _call_rerank({**HIDDEN_PARAMS, "response_cost": 0.0})
 
-    assert fastapi_response.headers["x-litellm-response-cost"] == "0.0"
+    assert fastapi_response.headers["x-hangarllm-response-cost"] == "0.0"
 
 
 @pytest.mark.asyncio
 async def test_rerank_omits_detailed_timing_headers_when_disabled():
-    with patch.object(common_request_processing_mod, "LITELLM_DETAILED_TIMING", False):  # test-quality-ok: LITELLM_DETAILED_TIMING is a module constant; toggling it is the behavior under test
+    with patch.object(common_request_processing_mod, "HANGARLLM_DETAILED_TIMING", False):  # test-quality-ok: HANGARLLM_DETAILED_TIMING is a module constant; toggling it is the behavior under test
         fastapi_response = await _call_rerank()
 
-    assert "x-litellm-timing-llm-api-ms" not in fastapi_response.headers
+    assert "x-hangarllm-timing-llm-api-ms" not in fastapi_response.headers
 
 
 async def _rerank_failure(
@@ -139,13 +139,13 @@ async def _rerank_failure(
     )
     proxy_logging_obj.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
     async def failing_route_request(**kwargs: object) -> None:
         raise failure
 
-    monkeypatch.setattr(proxy_server_mod, "add_litellm_data_to_request", fake_add_litellm_data_to_request)
+    monkeypatch.setattr(proxy_server_mod, "add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
     monkeypatch.setattr(proxy_server_mod, "route_request", failing_route_request)
     monkeypatch.setattr(proxy_server_mod, "proxy_logging_obj", proxy_logging_obj)
     monkeypatch.setattr(proxy_server_mod, "llm_router", MagicMock())
@@ -170,25 +170,25 @@ def propagating_proxy_logger() -> Iterator[None]:
 
 
 @pytest.mark.asyncio
-async def test_failure_log_carries_the_callers_litellm_call_id(
+async def test_failure_log_carries_the_callers_hangarllm_call_id(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, propagating_proxy_logger: None
 ) -> None:
-    """LIT-7836: the /rerank error line must carry the same litellm_call_id the client
+    """LIT-7836: the /rerank error line must carry the same hangarllm_call_id the client
     sent, both in the rendered message and as a structured log record field."""
     call_id = "rerank-call-7836"
     failure = HTTPException(status_code=401, detail={"error": "invalid api key"})
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         raised = await _rerank_failure(
             failure,
             raised_before_routing=False,
             monkeypatch=monkeypatch,
-            headers=((b"x-litellm-call-id", call_id.encode()),),
+            headers=((b"x-hangarllm-call-id", call_id.encode()),),
         )
 
-    assert raised.headers["x-litellm-call-id"] == call_id
+    assert raised.headers["x-hangarllm-call-id"] == call_id
     record = next(r for r in caplog.records if "Exception occured" in r.getMessage())
-    assert record.litellm_call_id == call_id
+    assert record.hangarllm_call_id == call_id
     assert call_id in record.getMessage()
 
 
@@ -217,31 +217,31 @@ async def test_a_rejection_raised_before_routing_keeps_its_own_status(monkeypatc
 def test_failed_rerank_spend_row_records_arerank(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    import litellm
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-    from litellm.proxy.proxy_server import ProxyConfig
-    from litellm.proxy.rerank_endpoints.endpoints import router as rerank_router
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.proxy.utils import ProxyLogging
+    import hangarllm
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+    from hangarllm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.rerank_endpoints.endpoints import router as rerank_router
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.proxy.utils import ProxyLogging
 
     provider: Final = respx_mock.post(url__startswith="https://rerank-provider.example").respond(
         400, json={"message": "invalid documents"}
     )
     cache: Final = UserApiKeyCache()
     spend_writer: Final = MagicMock(update_database=AsyncMock())
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
     monkeypatch.setattr(proxy_server_mod, "general_settings", {})
     monkeypatch.setattr(
         proxy_server_mod,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "rerank-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "cohere/rerank-v3.5",
                         "api_base": "https://rerank-provider.example",
                         "api_key": "provider-key",

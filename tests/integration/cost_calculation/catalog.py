@@ -74,7 +74,7 @@ STANDALONE_CASES: Final[tuple[CostTrackingTestCase, ...]] = tuple(
     case for case in CASES if case.name not in _PARITY_LEGS
 )
 _ALL_CASES: Final = CASES + BATCH_CASES + REALTIME_CASES
-_LITELLM_MODELS: Final = tuple(case.litellm_model for case in _ALL_CASES)
+_HANGARLLM_MODELS: Final = tuple(case.hangarllm_model for case in _ALL_CASES)
 
 
 def data_errors() -> tuple[str, ...]:
@@ -87,7 +87,7 @@ def data_errors() -> tuple[str, ...]:
         name for name in {case.name for case in _ALL_CASES} if sum(case.name == name for case in _ALL_CASES) > 1
     )
     input_rates: Final = tuple(
-        (entry.litellm_provider, entry.input_cost_per_token, model)
+        (entry.hangarllm_provider, entry.input_cost_per_token, model)
         for model, entry in COST_MAP.items()
         if entry.mode != "realtime"
     )

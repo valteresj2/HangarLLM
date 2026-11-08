@@ -1,9 +1,9 @@
 """Read-back for the s3 logging tests against the real S3 bucket the proxy
-ships StandardLoggingPayload objects to (litellm_settings.callbacks: ["s3_v2"]).
+ships StandardLoggingPayload objects to (hangarllm_settings.callbacks: ["s3_v2"]).
 
 Delivery is judged on what actually landed in the bucket: the proxy writes
 with its own credentials exactly as in production, and the tests list and
-download the objects back with boto3 (already a litellm proxy dependency, so
+download the objects back with boto3 (already a hangarllm proxy dependency, so
 the e2e runner image carries it; it is an AWS SDK, not a raw HTTP client, so
 the e2e_http-only transport rule is untouched). The bucket comes from
 S3_LOGS_BUCKET_NAME - on the cluster the secret manager injects it, locally

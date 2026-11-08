@@ -27,19 +27,19 @@ from prisma.errors import (
     UniqueViolationError,
 )
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import INVALID_VIRTUAL_KEY_ERROR_MARKER
-from litellm.exceptions import BudgetExceededError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import (
+import hangarllm
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.constants import INVALID_VIRTUAL_KEY_ERROR_MARKER
+from hangarllm.exceptions import BudgetExceededError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import (
     ModelAccessDeniedProxyException,
     ProxyErrorTypes,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_exception_handler import UserAPIKeyAuthExceptionHandler, _as_proxy_exception
-from litellm.proxy.auth.model_access_denied import ModelAccessDeniedHTTPException
+from hangarllm.proxy.auth.auth_exception_handler import UserAPIKeyAuthExceptionHandler, _as_proxy_exception
+from hangarllm.proxy.auth.model_access_denied import ModelAccessDeniedHTTPException
 
 
 class _EngineHttp500:
@@ -68,7 +68,7 @@ async def test_handle_authentication_error_db_unavailable_connectivity(db_error)
 
     mock_request = MagicMock()
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"allow_requests_on_db_unavailable": True},
     ):
         result = await handler.handle_authentication_error(
@@ -112,7 +112,7 @@ async def test_handle_authentication_error_permanent_fault_gets_no_fallback_iden
 
     mock_request = MagicMock()
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"allow_requests_on_db_unavailable": True},
     ):
         with pytest.raises(ProxyException) as exc_info:
@@ -148,7 +148,7 @@ async def test_handle_authentication_error_permanent_fault_503_is_not_worded_as_
     handler = UserAPIKeyAuthExceptionHandler()
 
     with patch(  # test-quality-ok: the handler reads general_settings off the proxy module, no injection seam
-        "litellm.proxy.proxy_server.general_settings", {"allow_requests_on_db_unavailable": False}
+        "hangarllm.proxy.proxy_server.general_settings", {"allow_requests_on_db_unavailable": False}
     ):
         with pytest.raises(ProxyException) as exc_info:
             await handler.handle_authentication_error(prisma_error, MagicMock(), {}, "/test", None, "test-key")
@@ -176,7 +176,7 @@ async def test_handle_authentication_error_transport_error_raised_over_a_permane
     handler = UserAPIKeyAuthExceptionHandler()
 
     with patch(  # test-quality-ok: the handler reads general_settings off the proxy module, no injection seam
-        "litellm.proxy.proxy_server.general_settings", {"allow_requests_on_db_unavailable": False}
+        "hangarllm.proxy.proxy_server.general_settings", {"allow_requests_on_db_unavailable": False}
     ):
         with pytest.raises(ProxyException) as exc_info:
             await handler.handle_authentication_error(transport_over_fault, MagicMock(), {}, "/test", None, "k")
@@ -202,7 +202,7 @@ async def test_handle_authentication_error_transient_outage_503_keeps_retry_word
     handler = UserAPIKeyAuthExceptionHandler()
 
     with patch(  # test-quality-ok: the handler reads general_settings off the proxy module, no injection seam
-        "litellm.proxy.proxy_server.general_settings", {"allow_requests_on_db_unavailable": False}
+        "hangarllm.proxy.proxy_server.general_settings", {"allow_requests_on_db_unavailable": False}
     ):
         with pytest.raises(ProxyException) as exc_info:
             await handler.handle_authentication_error(db_error, MagicMock(), {}, "/test", None, "test-key")
@@ -248,7 +248,7 @@ async def test_handle_authentication_error_data_layer_errors_do_not_fall_back(
 
     mock_request = MagicMock()
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"allow_requests_on_db_unavailable": True},
     ):
         with pytest.raises(ProxyException):
@@ -290,15 +290,15 @@ async def test_handle_authentication_error_db_infra_error_returns_503(db_error):
 
     with (
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity",
         ),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -347,15 +347,15 @@ async def test_handle_authentication_error_prisma_engine_teardown_returns_503():
 
     with (
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity",
         ),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -397,15 +397,15 @@ async def test_handle_authentication_error_genuine_auth_failure_stays_401(auth_e
 
     with (
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity",
         ),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -434,7 +434,7 @@ async def test_handle_authentication_error_budget_exceeded():
     mock_api_key = "test-key"
 
     # Test with budget exceeded error
-    from litellm.exceptions import BudgetExceededError
+    from hangarllm.exceptions import BudgetExceededError
 
     budget_error = BudgetExceededError(
         message="Budget exceeded", current_cost=100, max_budget=100
@@ -470,12 +470,12 @@ async def test_route_passed_to_post_call_failure_hook():
 
     # Mock proxy_logging_obj.post_call_failure_hook
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
         new_callable=AsyncMock,
     ) as mock_post_call_failure_hook:
         # Test with DB connection error
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ):
             try:
@@ -502,11 +502,11 @@ async def test_dynamic_route_normalized_on_auth_failure():
 
     with (
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
         ) as mock_post_call_failure_hook,
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.general_settings", {}
+            "hangarllm.proxy.proxy_server.general_settings", {}
         ),
         pytest.raises(ProxyException),
     ):
@@ -557,15 +557,15 @@ async def test_resolved_identity_exported_on_auth_failure():
 
     with (
         patch(
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity",
             side_effect=_capture_seed,
         ) as mock_seed,
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
         ) as mock_hook,
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -642,10 +642,10 @@ async def test_resolved_identity_exported_on_auth_failure():
 async def test_expired_key_error_log_names_the_key_owner(
     log_identity_enabled, resolved_identity, expected_fragment, absent_fragment, caplog, monkeypatch
 ):
-    """With `litellm.log_auth_failure_key_identity` on, an expired key rejection is logged with the
+    """With `hangarllm.log_auth_failure_key_identity` on, an expired key rejection is logged with the
     key alias, user and team auth already resolved, so an operator can trace the caller from the
     log line alone. It defaults off because some deployments must keep PII out of logs."""
-    monkeypatch.setattr(litellm, "log_auth_failure_key_identity", log_identity_enabled)
+    monkeypatch.setattr(hangarllm, "log_auth_failure_key_identity", log_identity_enabled)
     handler = UserAPIKeyAuthExceptionHandler()
     expired_key_error = ProxyException(
         message="Authentication Error - Expired Key.",
@@ -656,19 +656,19 @@ async def test_expired_key_error_log_names_the_key_owner(
 
     with (
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
-        patch("litellm.proxy.auth.auth_exception_handler.seed_request_identity"),
+        patch("hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
         verbose_proxy_logger.propagate = True
         try:
-            with caplog.at_level("WARNING", logger="LiteLLM Proxy"), pytest.raises(ProxyException):
+            with caplog.at_level("WARNING", logger="HangarLLM Proxy"), pytest.raises(ProxyException):
                 await handler.handle_authentication_error(
                     expired_key_error,
                     MagicMock(),
@@ -716,24 +716,24 @@ async def test_unknown_key_error_log_keeps_the_operator_wording_the_401_hides(
 ):
     """A wrong key gets a generic 401, while the one auth failure log line, a WARNING with no
     traceback, keeps the operator wording and the hash that was looked up, next to the requester IP."""
-    from litellm.constants import INVALID_API_KEY_ERROR_MESSAGE
-    from litellm.proxy.auth.resolvers.exceptions import KeyNotFoundError
+    from hangarllm.constants import INVALID_API_KEY_ERROR_MESSAGE
+    from hangarllm.proxy.auth.resolvers.exceptions import KeyNotFoundError
 
     with (
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
-        patch("litellm.proxy.auth.auth_exception_handler.seed_request_identity"),
+        patch("hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
         verbose_proxy_logger.propagate = True
         try:
-            with caplog.at_level("WARNING", logger="LiteLLM Proxy"), pytest.raises(ProxyException) as exc_info:
+            with caplog.at_level("WARNING", logger="HangarLLM Proxy"), pytest.raises(ProxyException) as exc_info:
                 await UserAPIKeyAuthExceptionHandler().handle_authentication_error(
                     KeyNotFoundError(looked_up),
                     MagicMock(),
@@ -764,14 +764,14 @@ async def test_auth_failure_without_resolved_identity_still_logs():
 
     with (
         patch(
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity",
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
         ) as mock_hook,
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -792,7 +792,7 @@ async def test_auth_failure_without_resolved_identity_still_logs():
 
     logged = mock_hook.call_args[1]["user_api_key_dict"]
     # Raw key must NOT land on the object — it would be promoted into telemetry
-    # as litellm.api_key.hash and leak a real sk-... to anyone reading the trace.
+    # as hangarllm.api_key.hash and leak a real sk-... to anyone reading the trace.
     assert logged.api_key != "sk-unknown"
     assert logged.api_key == UserAPIKeyAuth(api_key="sk-unknown").api_key
     assert logged.request_route == "/v1/chat/completions"
@@ -840,9 +840,9 @@ class _AuthFailureRecorder(CustomLogger):
 async def test_auth_error_preserves_classification_with_non_object_context(
     monkeypatch: pytest.MonkeyPatch, request_data: object, error_kind: str
 ) -> None:
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
-    monkeypatch.setattr(litellm, "budget_exceeded_status_code", 429)
+    monkeypatch.setattr(hangarllm, "budget_exceeded_status_code", 429)
     errors: Final = {
         "auth": HTTPException(status_code=401, detail="Invalid API key"),
         "budget": BudgetExceededError(current_cost=2, max_budget=1),
@@ -851,7 +851,7 @@ async def test_auth_error_preserves_classification_with_non_object_context(
     error: Final = errors[error_kind]
     expected: Final = _as_proxy_exception(error)
     recorder: Final = _AuthFailureRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     monkeypatch.setattr(proxy_server, "general_settings", {"allow_requests_on_db_unavailable": False})
 
     with pytest.raises(ProxyException) as exc_info:
@@ -918,17 +918,17 @@ async def test_auth_failure_logs_requester_ip_address(
     request_kwargs: dict[str, dict[str, str]],
     expected_ip: str,
 ) -> None:
-    """401s and budget 422s are rejected before `add_litellm_data_to_request` stamps
+    """401s and budget 422s are rejected before `add_hangarllm_data_to_request` stamps
     the caller IP, so without this the failure logs (spend logs, prometheus client_ip)
     had no IP, and a 401 rarely carries a key or user identity either."""
     with (
-        patch("litellm.proxy.auth.auth_exception_handler.seed_request_identity"),
+        patch("hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ) as mock_hook,
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("hangarllm.proxy.proxy_server.general_settings", general_settings),
     ):
         with pytest.raises(ProxyException):
             await UserAPIKeyAuthExceptionHandler._handle_authentication_error(
@@ -949,14 +949,14 @@ async def test_auth_failure_keeps_existing_requester_ip_address():
     """An IP already recorded upstream (e.g. a trusted-proxy resolved value) wins over
     the socket peer."""
     with (
-        patch("litellm.proxy.auth.auth_exception_handler.seed_request_identity"),
+        patch("hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ) as mock_hook,
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -980,18 +980,18 @@ async def test_auth_failure_keeps_existing_requester_ip_address():
 
 
 @pytest.mark.asyncio
-async def test_auth_failure_ip_uses_litellm_metadata_when_present():
-    """Routes that keep proxy metadata under `litellm_metadata` (e.g. /responses) must
+async def test_auth_failure_ip_uses_hangarllm_metadata_when_present():
+    """Routes that keep proxy metadata under `hangarllm_metadata` (e.g. /responses) must
     get the IP there, since that is the dict the logging layer reads for them."""
     with (
-        patch("litellm.proxy.auth.auth_exception_handler.seed_request_identity"),
+        patch("hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ) as mock_hook,
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -1004,14 +1004,14 @@ async def test_auth_failure_ip_uses_litellm_metadata_when_present():
                     code=status.HTTP_401_UNAUTHORIZED,
                 ),
                 _http_request(),
-                {"litellm_metadata": {}, "metadata": {"user_supplied": "keep-me"}},
+                {"hangarllm_metadata": {}, "metadata": {"user_supplied": "keep-me"}},
                 "/v1/responses",
                 None,
                 "sk-bad-key",
             )
 
     logged_request_data = mock_hook.call_args[1]["request_data"]
-    assert logged_request_data["litellm_metadata"]["requester_ip_address"] == "10.1.2.3"
+    assert logged_request_data["hangarllm_metadata"]["requester_ip_address"] == "10.1.2.3"
     assert logged_request_data["metadata"] == {"user_supplied": "keep-me"}
 
 
@@ -1021,14 +1021,14 @@ async def test_auth_failure_ip_stamp_does_not_mutate_callers_request_data():
     request_data = {"model": "gpt-4o"}
 
     with (
-        patch("litellm.proxy.auth.auth_exception_handler.seed_request_identity"),
+        patch("hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -1055,24 +1055,24 @@ async def test_auth_failure_ip_stamp_does_not_mutate_callers_request_data():
     "request_data, metadata_key, route",
     [
         pytest.param({"model": "gpt-4o"}, "metadata", "/v1/chat/completions", id="chat_metadata"),
-        pytest.param({"litellm_metadata": {}}, "litellm_metadata", "/v1/responses", id="responses_litellm_metadata"),
+        pytest.param({"hangarllm_metadata": {}}, "hangarllm_metadata", "/v1/responses", id="responses_hangarllm_metadata"),
     ],
 )
 async def test_auth_failure_logs_user_agent(request_data: dict[str, object], metadata_key: str, route: str) -> None:
-    """Auth gate rejections never reach `add_litellm_data_to_request`, which is what
+    """Auth gate rejections never reach `add_hangarllm_data_to_request`, which is what
     stamps `user_agent`, so the failure spend log and prometheus `user_agent` label
     had nothing to identify an abusive client by."""
     with (
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity"
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"
         ),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ) as mock_hook,
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -1102,15 +1102,15 @@ async def test_auth_failure_without_headers_scope_still_raises_original_error() 
     `KeyError` from reading the User-Agent."""
     with (
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity"
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity"
         ),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ) as mock_hook,
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -1135,7 +1135,7 @@ async def test_auth_failure_without_headers_scope_still_raises_original_error() 
 
 def _marked_malformed_key_error() -> HTTPException:
     """Build the malformed-key 401 as its raise site does: marker stamped on it."""
-    error = HTTPException(status_code=401, detail="LiteLLM Virtual Key expected. Received=test")
+    error = HTTPException(status_code=401, detail="HangarLLM Virtual Key expected. Received=test")
     setattr(error, INVALID_VIRTUAL_KEY_ERROR_MARKER, True)
     return error
 
@@ -1166,7 +1166,7 @@ def _marked_malformed_key_error() -> HTTPException:
             id="malformed_virtual_key_warning_no_traceback",
         ),
         pytest.param(
-            HTTPException(status_code=401, detail="LiteLLM Virtual Key expected. Received=test"),
+            HTTPException(status_code=401, detail="HangarLLM Virtual Key expected. Received=test"),
             False,
             "WARNING",
             id="http_exception_401_warning_no_traceback",
@@ -1186,15 +1186,15 @@ async def test_handle_authentication_error_traceback_only_for_unexpected_errors(
 
     with (
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity",
         ),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
     ):
@@ -1203,7 +1203,7 @@ async def test_handle_authentication_error_traceback_only_for_unexpected_errors(
             try:
                 raise auth_error
             except Exception as caught:
-                with caplog.at_level(expect_level, logger="LiteLLM Proxy"), pytest.raises((ProxyException, HTTPException)):
+                with caplog.at_level(expect_level, logger="HangarLLM Proxy"), pytest.raises((ProxyException, HTTPException)):
                     await handler.handle_authentication_error(
                         caught,
                         MagicMock(),
@@ -1219,7 +1219,7 @@ async def test_handle_authentication_error_traceback_only_for_unexpected_errors(
     assert len(records) == 1
     assert (records[0].exc_info is not None) is expect_traceback
     assert records[0].levelname == expect_level
-    expected_logger_name = "LiteLLM Proxy.stdout" if expect_level == "WARNING" else "LiteLLM Proxy"
+    expected_logger_name = "HangarLLM Proxy.stdout" if expect_level == "WARNING" else "HangarLLM Proxy"
     assert records[0].name == expected_logger_name
 
 
@@ -1263,18 +1263,18 @@ async def test_handle_authentication_error_keeps_internal_message_on_model_acces
 
     with (
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj.post_call_failure_hook",
             new_callable=AsyncMock,
             return_value=None,
         ),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+            "hangarllm.proxy.auth.auth_exception_handler.seed_request_identity",
         ),
         patch(  # test-quality-ok: handler reads proxy_server globals at call time
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": False},
         ),
-        caplog.at_level("WARNING", logger="LiteLLM Proxy"),
+        caplog.at_level("WARNING", logger="HangarLLM Proxy"),
         pytest.raises(ModelAccessDeniedProxyException) as exc_info,
     ):
         await handler.handle_authentication_error(denial, MagicMock(), {}, "/v1/chat/completions", None, "sk-bad-key")

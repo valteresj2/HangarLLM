@@ -1,6 +1,6 @@
 """
 Test that per-deployment custom pricing does not pollute the shared backend
-model key in litellm.model_cost.
+model key in hangarllm.model_cost.
 
 When two deployments share the same backend model (e.g. vertex_ai/gemini-2.5-flash)
 and one has explicit zero-cost pricing in model_info, the other deployment
@@ -27,21 +27,21 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
-from litellm.constants import DEFAULT_MAX_LRU_CACHE_SIZE
-from litellm.litellm_core_utils.ptu_pricing import ptu_config_error
-from litellm.litellm_core_utils.llm_cost_calc.utils import SERVICE_TIER_COST_KEY_SUFFIXES
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy.utils import create_model_info_response
-from litellm.types.router import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.constants import DEFAULT_MAX_LRU_CACHE_SIZE
+from hangarllm.hangarllm_core_utils.ptu_pricing import ptu_config_error
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import SERVICE_TIER_COST_KEY_SUFFIXES
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy.utils import create_model_info_response
+from hangarllm.types.router import (
     Deployment,
     DeploymentTypedDict,
-    LiteLLM_Params,
-    LiteLLMParamsTypedDict,
+    HangarLLM_Params,
+    HangarLLMParamsTypedDict,
     ModelInfo,
 )
-from litellm.utils import (
+from hangarllm.utils import (
     _invalidate_model_cost_lowercase_map,
     reapply_runtime_model_cost_registrations,
 )
@@ -51,16 +51,16 @@ _COPILOT_TOKEN_EXPIRES_AT: Final = 4_102_444_800
 
 
 def _simulate_price_data_reload(fetched_catalog):
-    """Drive what a price data reload does to this process's litellm state.
+    """Drive what a price data reload does to this process's hangarllm state.
 
-    Mirrors `litellm.proxy.proxy_server._swap_in_model_cost_map`, which is the
+    Mirrors `hangarllm.proxy.proxy_server._swap_in_model_cost_map`, which is the
     one place both reload paths adopt a freshly fetched catalog; that wiring is
     covered in the proxy's own tests, so these exercise the replay itself
     without dragging the proxy in. The provider model sets that helper also
     repopulates are left alone, since nothing here reads them and rebuilding
     them from a two-entry catalog would outlive the test.
     """
-    litellm.model_cost = fetched_catalog
+    hangarllm.model_cost = fetched_catalog
     _invalidate_model_cost_lowercase_map()
     reapply_runtime_model_cost_registrations()
 
@@ -78,9 +78,9 @@ def _nested_container_ids(value: object) -> frozenset[int]:
 def _restore_model_cost_entries(original_entries):
     for key, value in original_entries.items():
         if value is None:
-            litellm.model_cost.pop(key, None)
+            hangarllm.model_cost.pop(key, None)
         else:
-            litellm.model_cost[key] = value
+            hangarllm.model_cost[key] = value
     _invalidate_model_cost_lowercase_map()
 
 
@@ -88,11 +88,11 @@ def _restore_model_cost_entries(original_entries):
 async def test_discovered_limits_survive_deployment_growth_and_removal(
     initial_count: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     deployments: Final = tuple(
         Deployment(
             model_name=f"local-{index}",
-            litellm_params=LiteLLM_Params(
+            hangarllm_params=HangarLLM_Params(
                 model="hosted_vllm/local-model", api_base="https://capacity.test/v1", api_key="local-key"
             ),
             model_info=ModelInfo(id=f"capacity-{index}"),
@@ -131,12 +131,12 @@ async def test_discovered_limits_survive_deployment_growth_and_removal(
 
 
 async def test_discovery_discards_metadata_for_a_replaced_deployment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     router: Final = Router(
         model_list=[
             {
                 "model_name": "local",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hosted_vllm/local-model",
                     "api_base": "https://original.test/v1",
                     "api_key": "local-key",
@@ -151,7 +151,7 @@ async def test_discovery_discards_metadata_for_a_replaced_deployment(monkeypatch
             router.upsert_deployment(
                 Deployment(
                     model_name="local",
-                    litellm_params=LiteLLM_Params(
+                    hangarllm_params=HangarLLM_Params(
                         model="hosted_vllm/local-model",
                         api_base="https://replacement.test/v1",
                         api_key="local-key",
@@ -178,15 +178,15 @@ async def test_discovery_discards_metadata_for_a_replaced_deployment(monkeypatch
 async def test_discovery_sends_the_secret_behind_an_oidc_api_key(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     token: Final = tmp_path / "token"
     token.write_text("local-secret")
     router: Final = Router(
         model_list=[
             {
                 "model_name": "local",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hosted_vllm/local-model",
                     "api_base": "https://discovery.test/v1",
                     "api_key": f"oidc/file/{token}",
@@ -211,13 +211,13 @@ async def test_discovery_sends_the_secret_behind_an_oidc_api_key(
 
 
 async def test_discovery_is_isolated_across_routers_and_reused_ids(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     first, second = tuple(
         Router(
             model_list=[
                 {
                     "model_name": "local",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/local-model",
                         "api_base": f"https://{host}.test/v1",
                         "api_key": "local-key",
@@ -245,11 +245,11 @@ async def test_discovery_is_isolated_across_routers_and_reused_ids(monkeypatch: 
         assert first.get_discovered_model_info("shared-discovery-id")["max_input_tokens"] == 8192
         assert first.get_configured_token_limits("local") == (8192, 8192)
         assert second.get_configured_token_limits("local") == (2048, 2048)
-        assert litellm.model_cost["shared-discovery-id"].get("max_input_tokens") is None
+        assert hangarllm.model_cost["shared-discovery-id"].get("max_input_tokens") is None
         first.upsert_deployment(
             Deployment(
                 model_name="local",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     model="hosted_vllm/local-model",
                     api_base="https://unavailable.test/v1",
                     api_key="local-key",
@@ -265,13 +265,13 @@ async def test_discovery_is_isolated_across_routers_and_reused_ids(monkeypatch: 
 
 
 async def test_discovery_refreshes_other_endpoints_while_one_is_pending(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     second_started: Final = asyncio.Event()
     router: Final = Router(
         model_list=[
             {
                 "model_name": host,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hosted_vllm/local-model",
                     "api_base": f"https://{host}.test/v1",
                     "api_key": "local-key",
@@ -304,7 +304,7 @@ async def test_discovery_refreshes_other_endpoints_while_one_is_pending(monkeypa
 async def test_discovered_limits_are_isolated_overridable_and_refreshable(
     provider: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     upstream_limit: Final = iter((8192, 4096, 16384, 2048))
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -316,7 +316,7 @@ async def test_discovered_limits_are_isolated_overridable_and_refreshable(
         model_list=[
             {
                 "model_name": "local",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"{provider}/org/local-model",
                     "api_base": f"https://{host}.test/v1",
                     "api_key": "local-key",
@@ -344,7 +344,7 @@ async def test_discovered_limits_are_isolated_overridable_and_refreshable(
         assert listing.max_input_tokens == 8192
         assert router.get_configured_token_limits("local") == (8192, 8192)
         assert router.model_list[0]["model_info"].get("max_input_tokens") is None
-        assert litellm.model_cost[f"{provider}/org/local-model"].get("max_input_tokens") is None
+        assert hangarllm.model_cost[f"{provider}/org/local-model"].get("max_input_tokens") is None
         router.cache.in_memory_cache.flush_cache()
         await router.arefresh_model_info(client=handler)
         refreshed: Final = router.get_model_group_info("local")
@@ -358,7 +358,7 @@ async def test_discovered_limits_are_isolated_overridable_and_refreshable(
 
 
 async def test_discovery_preserves_input_overrides_and_survives_outages(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     responses: Final = iter(
         (
             httpx.Response(200, json={"data": [{"id": "local-model", "max_model_len": 4096}]}),
@@ -376,7 +376,7 @@ async def test_discovery_preserves_input_overrides_and_survives_outages(monkeypa
         model_list=[
             {
                 "model_name": "configured",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hosted_vllm/local-model",
                     "api_base": "https://backend.test/v1",
                     "api_key": "unused-key",
@@ -386,13 +386,13 @@ async def test_discovery_preserves_input_overrides_and_survives_outages(monkeypa
             },
             {
                 "model_name": "byok",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/local-model",
                     "api_base": "https://caller.test/v1",
                     "use_clientside_credentials": True,
                 },
             },
-            {"model_name": "default-openai", "litellm_params": {"model": "openai/local-model", "api_key": "unused"}},
+            {"model_name": "default-openai", "hangarllm_params": {"model": "openai/local-model", "api_key": "unused"}},
         ]
     )
     handler: Final = AsyncHTTPHandler()
@@ -420,7 +420,7 @@ def test_should_not_pollute_shared_key_with_zero_cost_pricing():
     backend_model = "vertex_ai/gemini-2.5-flash"
 
     # Grab built-in pricing before creating any router
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = hangarllm.get_model_info(model=backend_model)
     builtin_input_cost = builtin_info["input_cost_per_token"]
     builtin_output_cost = builtin_info["output_cost_per_token"]
 
@@ -433,7 +433,7 @@ def test_should_not_pollute_shared_key_with_zero_cost_pricing():
             # Deployment A: explicit zero-cost pricing
             {
                 "model_name": "custom-zero-cost-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-1",
                 },
@@ -446,7 +446,7 @@ def test_should_not_pollute_shared_key_with_zero_cost_pricing():
             # Deployment B: no custom pricing, relies on built-in
             {
                 "model_name": "standard-cost-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-2",
                 },
@@ -487,7 +487,7 @@ def test_should_not_pollute_shared_key_with_custom_nonzero_pricing():
     """
     backend_model = "vertex_ai/gemini-2.5-flash"
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = hangarllm.get_model_info(model=backend_model)
     builtin_input_cost = builtin_info["input_cost_per_token"]
 
     router = Router(
@@ -495,7 +495,7 @@ def test_should_not_pollute_shared_key_with_custom_nonzero_pricing():
             # Deployment with custom high pricing
             {
                 "model_name": "expensive-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-3",
                 },
@@ -508,7 +508,7 @@ def test_should_not_pollute_shared_key_with_custom_nonzero_pricing():
             # Deployment relying on built-in pricing
             {
                 "model_name": "standard-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-4",
                 },
@@ -556,24 +556,24 @@ def test_capability_flag_stays_on_the_deployment_that_set_it(flag: str) -> None:
     backend_model = "bedrock/us.xai.grok-4.6"
     deploy_id = "grok-deploy-keep-regex"
 
-    builtin_flag = litellm.get_model_info(model=backend_model).get(flag)
+    builtin_flag = hangarllm.get_model_info(model=backend_model).get(flag)
     model_keys = {
-        deploy_id: litellm.model_cost.get(deploy_id),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        deploy_id: hangarllm.model_cost.get(deploy_id),
+        backend_model: copy.deepcopy(hangarllm.model_cost.get(backend_model)),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "grok-keep-regex",
-                    "litellm_params": {"model": backend_model},
+                    "hangarllm_params": {"model": backend_model},
                     "model_info": {"id": deploy_id, flag: not builtin_flag},
                 }
             ],
         )
 
-        assert litellm.model_cost[deploy_id][flag] is (not builtin_flag)
-        assert litellm.get_model_info(model=backend_model).get(flag) is builtin_flag
+        assert hangarllm.model_cost[deploy_id][flag] is (not builtin_flag)
+        assert hangarllm.get_model_info(model=backend_model).get(flag) is builtin_flag
     finally:
         _restore_model_cost_entries(model_keys)
 
@@ -607,25 +607,25 @@ def test_pdf_opt_out_on_one_deployment_does_not_block_its_sibling(respx_mock: re
         )
     )
     model_keys: Final = {
-        key: litellm.model_cost.get(key) for key in ("qa-pdf-marked", "qa-pdf-unmarked", backend_model)
+        key: hangarllm.model_cost.get(key) for key in ("qa-pdf-marked", "qa-pdf-unmarked", backend_model)
     }
     try:
         router: Final = Router(
             model_list=[
                 {
                     "model_name": "pdf-blocked",
-                    "litellm_params": {"model": backend_model, "api_base": api_base, "api_key": "fake-key"},
+                    "hangarllm_params": {"model": backend_model, "api_base": api_base, "api_key": "fake-key"},
                     "model_info": {"id": "qa-pdf-marked", "supports_pdf_input": False},
                 },
                 {
                     "model_name": "pdf-allowed",
-                    "litellm_params": {"model": backend_model, "api_base": api_base, "api_key": "fake-key"},
+                    "hangarllm_params": {"model": backend_model, "api_base": api_base, "api_key": "fake-key"},
                     "model_info": {"id": "qa-pdf-unmarked"},
                 },
             ],
         )
 
-        with pytest.raises(litellm.BadRequestError, match="does not accept PDF input"):
+        with pytest.raises(hangarllm.BadRequestError, match="does not accept PDF input"):
             router.completion(model="pdf-blocked", messages=pdf_messages)
         router.completion(model="pdf-allowed", messages=pdf_messages)
 
@@ -638,7 +638,7 @@ def test_pdf_opt_out_on_one_deployment_does_not_block_its_sibling(respx_mock: re
 def test_token_count_settings_stay_on_the_deployment_that_set_them() -> None:
     """A deployment's ``token_count_model`` and framing settings must not land on
     the shared ``{provider}/{model}`` key, or a sibling deployment of that model would count with them."""
-    from litellm.proxy.common_utils.token_count_settings import cost_map_entry
+    from hangarllm.proxy.common_utils.token_count_settings import cost_map_entry
 
     backend_model: Final = "bedrock/us.anthropic.claude-sonnet-5-5"
     deploy_id: Final = "sonnet-deploy-keep-token-count"
@@ -652,7 +652,7 @@ def test_token_count_settings_stay_on_the_deployment_that_set_them() -> None:
     builtin: Final = {field: cost_map_entry(backend_model).get(field) for field in configured}
     assert all(builtin[field] != value for field, value in configured.items()), builtin
     model_keys: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key))
+        key: copy.deepcopy(hangarllm.model_cost.get(key))
         for key in (deploy_id, backend_model, backend_model.removeprefix("bedrock/"))
     }
     try:
@@ -660,13 +660,13 @@ def test_token_count_settings_stay_on_the_deployment_that_set_them() -> None:
             model_list=[
                 {
                     "model_name": "sonnet-keep-token-count",
-                    "litellm_params": {"model": backend_model},
+                    "hangarllm_params": {"model": backend_model},
                     "model_info": {"id": deploy_id, **configured},
                 }
             ],
         )
 
-        assert {field: litellm.model_cost[deploy_id][field] for field in configured} == configured
+        assert {field: hangarllm.model_cost[deploy_id][field] for field in configured} == configured
         assert {field: cost_map_entry(backend_model).get(field) for field in configured} == builtin
     finally:
         _restore_model_cost_entries(model_keys)
@@ -675,7 +675,7 @@ def test_token_count_settings_stay_on_the_deployment_that_set_them() -> None:
 def test_should_store_full_pricing_under_deployment_model_id():
     """
     Per-deployment pricing (including zero) should be stored and
-    retrievable via the unique model_id key in litellm.model_cost.
+    retrievable via the unique model_id key in hangarllm.model_cost.
     """
     backend_model = "vertex_ai/gemini-2.5-flash"
 
@@ -683,7 +683,7 @@ def test_should_store_full_pricing_under_deployment_model_id():
         model_list=[
             {
                 "model_name": "zero-cost-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-5",
                 },
@@ -697,7 +697,7 @@ def test_should_store_full_pricing_under_deployment_model_id():
     )
 
     # The model_id entry should exist and have the zero pricing
-    entry = litellm.model_cost.get("deployment-zero-check")
+    entry = hangarllm.model_cost.get("deployment-zero-check")
     assert entry is not None, "Deployment should be registered by model_id"
     assert entry["input_cost_per_token"] == 0.0
     assert entry["output_cost_per_token"] == 0.0
@@ -710,7 +710,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
     """
     backend_model = "vertex_ai/gemini-2.5-flash"
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = hangarllm.get_model_info(model=backend_model)
     builtin_input_cost = builtin_info["input_cost_per_token"]
     builtin_output_cost = builtin_info["output_cost_per_token"]
 
@@ -719,7 +719,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
         model_list=[
             {
                 "model_name": "standard-first",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-6",
                 },
@@ -727,7 +727,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
             },
             {
                 "model_name": "zero-cost-second",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-7",
                 },
@@ -749,7 +749,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
         model_list=[
             {
                 "model_name": "zero-cost-first",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-8",
                 },
@@ -761,7 +761,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
             },
             {
                 "model_name": "standard-second",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": backend_model,
                     "api_key": "fake-key-9",
                 },
@@ -781,7 +781,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
 
 def test_responses_prefix_stripped_alias_registered_for_model_list():
     """
-    Register ``litellm.model_cost`` under the backend key with ``responses/`` and
+    Register ``hangarllm.model_cost`` under the backend key with ``responses/`` and
     under the stripped key (``responses_api_bridge_check`` removes that segment).
     """
     uid = "responses-strip-alias-test-a1b2c3d4"
@@ -789,7 +789,7 @@ def test_responses_prefix_stripped_alias_registered_for_model_list():
         model_list=[
             {
                 "model_name": "azure-responses-strip-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "responses/gpt-strip-test-a1b2c3d4",
                     "custom_llm_provider": "azure",
                     "api_key": "fake-key-strip",
@@ -801,9 +801,9 @@ def test_responses_prefix_stripped_alias_registered_for_model_list():
             }
         ],
     )
-    assert "azure/responses/gpt-strip-test-a1b2c3d4" in litellm.model_cost
-    assert "azure/gpt-strip-test-a1b2c3d4" in litellm.model_cost
-    assert litellm.model_cost["azure/gpt-strip-test-a1b2c3d4"].get("supports_native_streaming") is True
+    assert "azure/responses/gpt-strip-test-a1b2c3d4" in hangarllm.model_cost
+    assert "azure/gpt-strip-test-a1b2c3d4" in hangarllm.model_cost
+    assert hangarllm.model_cost["azure/gpt-strip-test-a1b2c3d4"].get("supports_native_streaming") is True
 
 
 def test_responses_prefix_stripped_alias_registered_for_add_deployment():
@@ -812,7 +812,7 @@ def test_responses_prefix_stripped_alias_registered_for_add_deployment():
     router = Router(model_list=[])
     deployment = Deployment(
         model_name="dyn-responses-strip",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="responses/gpt-add-strip-e5f6a7b8",
             custom_llm_provider="azure",
             api_key="fake-key-add",
@@ -820,9 +820,9 @@ def test_responses_prefix_stripped_alias_registered_for_add_deployment():
         model_info=ModelInfo(id=uid, supports_native_streaming=True),
     )
     router.add_deployment(deployment=deployment)
-    assert "azure/responses/gpt-add-strip-e5f6a7b8" in litellm.model_cost
-    assert "azure/gpt-add-strip-e5f6a7b8" in litellm.model_cost
-    assert litellm.model_cost["azure/gpt-add-strip-e5f6a7b8"].get("supports_native_streaming") is True
+    assert "azure/responses/gpt-add-strip-e5f6a7b8" in hangarllm.model_cost
+    assert "azure/gpt-add-strip-e5f6a7b8" in hangarllm.model_cost
+    assert hangarllm.model_cost["azure/gpt-add-strip-e5f6a7b8"].get("supports_native_streaming") is True
 
 
 def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
@@ -830,27 +830,27 @@ def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
     ChatGPT aliases that share the same backend model should not be able to
     downgrade the shared backend key from responses -> chat during router setup.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     backend_model = "chatgpt/gpt-5.4"
     model_keys = {
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
-        "chatgpt-shared-mode-base": copy.deepcopy(litellm.model_cost.get("chatgpt-shared-mode-base")),
-        "chatgpt-shared-mode-alias": copy.deepcopy(litellm.model_cost.get("chatgpt-shared-mode-alias")),
+        backend_model: copy.deepcopy(hangarllm.model_cost.get(backend_model)),
+        "chatgpt-shared-mode-base": copy.deepcopy(hangarllm.model_cost.get("chatgpt-shared-mode-base")),
+        "chatgpt-shared-mode-alias": copy.deepcopy(hangarllm.model_cost.get("chatgpt-shared-mode-alias")),
     }
 
     try:
         backend_entry = copy.deepcopy(model_keys[backend_model]) or {}
-        backend_entry["litellm_provider"] = "chatgpt"
+        backend_entry["hangarllm_provider"] = "chatgpt"
         backend_entry["mode"] = "responses"
-        litellm.model_cost[backend_model] = backend_entry
+        hangarllm.model_cost[backend_model] = backend_entry
         _invalidate_model_cost_lowercase_map()
 
         Router(
             model_list=[
                 {
                     "model_name": model_name,
-                    "litellm_params": {"model": "gpt-5.4", "custom_llm_provider": "chatgpt"},
+                    "hangarllm_params": {"model": "gpt-5.4", "custom_llm_provider": "chatgpt"},
                     "model_info": {"id": model_id, "mode": mode},
                 }
                 for model_name, model_id, mode in (
@@ -860,8 +860,8 @@ def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
             ]
         )
 
-        assert litellm.model_cost[backend_model]["mode"] == "responses"
-        assert "mode" in litellm.model_cost[backend_model]
+        assert hangarllm.model_cost[backend_model]["mode"] == "responses"
+        assert "mode" in hangarllm.model_cost[backend_model]
 
         bridge_model_info, bridge_model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -891,14 +891,14 @@ def test_bedrock_deployment_inherits_invoked_profile_around_custom_prices(
     registration_path: str,
     service_tier: str,
 ) -> None:
-    from litellm.cost_calculator import completion_cost
-    from litellm.types.utils import ModelResponse, Usage, PromptTokensDetailsWrapper
+    from hangarllm.cost_calculator import completion_cost
+    from hangarllm.types.utils import ModelResponse, Usage, PromptTokensDetailsWrapper
 
     model: Final = "openai.gpt-5.6-sol"
     profile: Final = f"us.{model}"
     base_model: Final = f"global.{model}"
     profile_prices: Final = {
-        "litellm_provider": "bedrock",
+        "hangarllm_provider": "bedrock",
         "mode": "chat",
         "input_cost_per_token": 0.01,
         "output_cost_per_token": 0.02,
@@ -910,11 +910,11 @@ def test_bedrock_deployment_inherits_invoked_profile_around_custom_prices(
     }
     base_prices: Final = {**profile_prices, "input_cost_per_token": 0.03, "output_cost_per_token": 0.04}
     monkeypatch.setattr(
-        litellm, "model_cost", {**litellm.model_cost, profile: dict(profile_prices), base_model: dict(base_prices)}
+        hangarllm, "model_cost", {**hangarllm.model_cost, profile: dict(profile_prices), base_model: dict(base_prices)}
     )
     deployment: Final = Deployment(
         model_name="profile-priced",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model=f"converse/{model}" if provider else f"bedrock/converse/{model}",
             model_id=profile,
             custom_llm_provider=provider,
@@ -953,10 +953,10 @@ def test_bedrock_deployment_inherits_invoked_profile_around_custom_prices(
         router_model_id="profile-priced-deployment",
         service_tier=service_tier,
     ) == pytest.approx(95 * input_rate + 3 * output_rate + 5 * cache_rate)
-    assert litellm.model_cost[profile] == profile_prices
+    assert hangarllm.model_cost[profile] == profile_prices
 
 
-@pytest.mark.parametrize("catalog_entry", (None, {"litellm_provider": 1, "mode": "chat"}))
+@pytest.mark.parametrize("catalog_entry", (None, {"hangarllm_provider": 1, "mode": "chat"}))
 @pytest.mark.parametrize("known_model", (False, True))
 @pytest.mark.parametrize("explicit_base", (False, True))
 @pytest.mark.parametrize("service_tier", ("default", "priority", "flex"))
@@ -971,8 +971,8 @@ def test_bedrock_deployment_keeps_custom_prices_when_profile_lookup_fails(
     override: str | None,
     reload: bool,
 ) -> None:
-    from litellm.cost_calculator import completion_cost
-    from litellm.types.utils import ModelResponse, Usage, PromptTokensDetailsWrapper
+    from hangarllm.cost_calculator import completion_cost
+    from hangarllm.types.utils import ModelResponse, Usage, PromptTokensDetailsWrapper
 
     model: Final = "anthropic.unmapped-profile-pricing-test"
     profile: Final = (
@@ -981,7 +981,7 @@ def test_bedrock_deployment_keeps_custom_prices_when_profile_lookup_fails(
         else "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/opaque-test"
     )
     configured_prices: Final = {
-        "litellm_provider": "bedrock",
+        "hangarllm_provider": "bedrock",
         "mode": "chat",
         "input_cost_per_token": 0.03,
         "output_cost_per_token": 0.04,
@@ -992,17 +992,17 @@ def test_bedrock_deployment_keeps_custom_prices_when_profile_lookup_fails(
         "output_cost_per_token_flex": 0.008,
     }
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.model_cost,
+            **hangarllm.model_cost,
             **({model: dict(configured_prices)} if known_model else {}),
             **({profile: catalog_entry} if catalog_entry is not None else {}),
         },
     )
     deployment: Final = Deployment(
         model_name="custom-priced",
-        litellm_params=LiteLLM_Params(model=f"bedrock/converse/{model}", model_id=profile),
+        hangarllm_params=HangarLLM_Params(model=f"bedrock/converse/{model}", model_id=profile),
         model_info=ModelInfo(
             id="unmapped-profile-deployment",
             input_cost_per_token=0.01,
@@ -1042,7 +1042,7 @@ def test_bedrock_deployment_keeps_custom_prices_when_profile_lookup_fails(
     ) == pytest.approx(20 * effective_input + 80 * cache_rate + 3 * output_rate)
     if known_model:
         assert {
-            key: value for key, value in litellm.model_cost[model].items() if key in configured_prices
+            key: value for key, value in hangarllm.model_cost[model].items() if key in configured_prices
         } == configured_prices
 
 
@@ -1056,22 +1056,22 @@ def test_partial_custom_pricing_inherits_builtin_cache_pricing():
     backend_model = "anthropic/claude-sonnet-4-5-20250929"
     deploy_id = "claude-deploy-partial-pricing"
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = hangarllm.get_model_info(model=backend_model)
     builtin_cache_create = builtin_info["cache_creation_input_token_cost"]
     builtin_cache_read = builtin_info["cache_read_input_token_cost"]
     assert builtin_cache_create is not None and builtin_cache_create > 0
     assert builtin_cache_read is not None and builtin_cache_read > 0
 
     model_keys = {
-        deploy_id: litellm.model_cost.get(deploy_id),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        deploy_id: hangarllm.model_cost.get(deploy_id),
+        backend_model: copy.deepcopy(hangarllm.model_cost.get(backend_model)),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "claude-custom",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key",
                     },
@@ -1084,7 +1084,7 @@ def test_partial_custom_pricing_inherits_builtin_cache_pricing():
             ],
         )
 
-        entry = litellm.model_cost[deploy_id]
+        entry = hangarllm.model_cost[deploy_id]
         assert entry["input_cost_per_token"] == 0.000003
         assert entry["output_cost_per_token"] == 0.000015
         assert entry.get("cache_creation_input_token_cost") == builtin_cache_create
@@ -1102,20 +1102,20 @@ def test_partial_pricing_does_not_overwrite_explicit_cache_fields():
 
     explicit_cache_create = 0.00001
     explicit_cache_read = 0.0000005
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = hangarllm.get_model_info(model=backend_model)
     assert builtin_info["cache_creation_input_token_cost"] != explicit_cache_create
     assert builtin_info["cache_read_input_token_cost"] != explicit_cache_read
 
     model_keys = {
-        deploy_id: litellm.model_cost.get(deploy_id),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        deploy_id: hangarllm.model_cost.get(deploy_id),
+        backend_model: copy.deepcopy(hangarllm.model_cost.get(backend_model)),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "claude-custom-explicit",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key",
                     },
@@ -1130,7 +1130,7 @@ def test_partial_pricing_does_not_overwrite_explicit_cache_fields():
             ],
         )
 
-        entry = litellm.model_cost[deploy_id]
+        entry = hangarllm.model_cost[deploy_id]
         assert entry.get("cache_creation_input_token_cost") == explicit_cache_create
         assert entry.get("cache_read_input_token_cost") == explicit_cache_read
     finally:
@@ -1148,11 +1148,11 @@ def test_partial_custom_pricing_bills_explicit_cache_hits(
     backend_model = "dashscope/qwen-explicit-cache-inherit-backend"
     deploy_id = "qwen-deploy-partial-pricing"
     model_keys = {
-        deploy_id: litellm.model_cost.get(deploy_id),
-        backend_model: litellm.model_cost.get(backend_model),
+        deploy_id: hangarllm.model_cost.get(deploy_id),
+        backend_model: hangarllm.model_cost.get(backend_model),
     }
-    litellm.model_cost[backend_model] = {
-        "litellm_provider": "dashscope",
+    hangarllm.model_cost[backend_model] = {
+        "hangarllm_provider": "dashscope",
         "mode": "chat",
         "input_cost_per_token": 2.5e-06,
         "output_cost_per_token": 7.5e-06,
@@ -1166,7 +1166,7 @@ def test_partial_custom_pricing_bills_explicit_cache_hits(
             model_list=[
                 {
                     "model_name": "qwen-custom",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key",
                         "input_cost_per_token": 2e-06,
@@ -1177,16 +1177,16 @@ def test_partial_custom_pricing_bills_explicit_cache_hits(
                 }
             ],
         )
-        response = litellm.ModelResponse(
+        response = hangarllm.ModelResponse(
             model=backend_model,
-            usage=litellm.Usage(
+            usage=hangarllm.Usage(
                 prompt_tokens=1000,
                 completion_tokens=0,
                 prompt_tokens_details={"cached_tokens": 1000, "cache_type": "ephemeral"},
             ),
         )
 
-        cost = litellm.completion_cost(
+        cost = hangarllm.completion_cost(
             completion_response=response,
             model=backend_model,
             custom_pricing=True,
@@ -1204,7 +1204,7 @@ _CUSTOM_STANDARD_INPUT_RATE: Final = 0.00011
 _CUSTOM_STANDARD_OUTPUT_RATE: Final = 0.00022
 _TIER_BACKEND_ENTRY: Final = {
     "key": _TIER_BACKEND_KEY,
-    "litellm_provider": "openai",
+    "hangarllm_provider": "openai",
     "mode": "chat",
     "max_tokens": 123456,
     "input_cost_per_token": 0.00021,
@@ -1227,26 +1227,26 @@ _AZURE_TIER_BACKEND_KEY: Final = "azure/tier-priced-backend"
 _AZURE_TIER_BACKEND_ENTRY: Final = {
     **_TIER_BACKEND_ENTRY,
     "key": _AZURE_TIER_BACKEND_KEY,
-    "litellm_provider": "azure",
+    "hangarllm_provider": "azure",
 }
 
 
 def _register_tier_backend() -> None:
-    litellm.model_cost[_TIER_BACKEND_KEY] = copy.deepcopy(_TIER_BACKEND_ENTRY)
-    litellm.get_model_info.cache_clear()
+    hangarllm.model_cost[_TIER_BACKEND_KEY] = copy.deepcopy(_TIER_BACKEND_ENTRY)
+    hangarllm.get_model_info.cache_clear()
     _invalidate_model_cost_lowercase_map()
 
 
 def _register_azure_tier_backend() -> None:
-    litellm.model_cost[_AZURE_TIER_BACKEND_KEY] = copy.deepcopy(_AZURE_TIER_BACKEND_ENTRY)
-    litellm.get_model_info.cache_clear()
+    hangarllm.model_cost[_AZURE_TIER_BACKEND_KEY] = copy.deepcopy(_AZURE_TIER_BACKEND_ENTRY)
+    hangarllm.get_model_info.cache_clear()
     _invalidate_model_cost_lowercase_map()
 
 
 def test_router_completion_uses_custom_standard_and_backend_ultrafast_pricing() -> None:
     model_id: Final = "tier-priced-deployment"
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, _TIER_BACKEND_MODEL, model_id)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, _TIER_BACKEND_MODEL, model_id)
     }
     try:
         _register_tier_backend()
@@ -1254,7 +1254,7 @@ def test_router_completion_uses_custom_standard_and_backend_ultrafast_pricing() 
             model_list=[
                 {
                     "model_name": "tier-priced-router",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": _TIER_BACKEND_MODEL,
                         "custom_llm_provider": "openai",
                         "api_key": "sk-tier-pricing-not-used",
@@ -1274,39 +1274,39 @@ def test_router_completion_uses_custom_standard_and_backend_ultrafast_pricing() 
             model="tier-priced-router",
             messages=[{"role": "user", "content": "tiered pricing"}],
             service_tier="ultrafast",
-            mock_response=litellm.ModelResponse(
+            mock_response=hangarllm.ModelResponse(
                 model=_TIER_BACKEND_MODEL,
                 service_tier="ultrafast",
-                usage=litellm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
+                usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
             ),
         )
         standard_response: Final = router.completion(
             model="tier-priced-router",
             messages=[{"role": "user", "content": "standard pricing"}],
-            mock_response=litellm.ModelResponse(
+            mock_response=hangarllm.ModelResponse(
                 model=_TIER_BACKEND_MODEL,
-                usage=litellm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
+                usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
             ),
         )
 
-        assert isinstance(ultrafast_response, litellm.ModelResponse)
+        assert isinstance(ultrafast_response, hangarllm.ModelResponse)
         assert ultrafast_response._hidden_params["response_cost"] == pytest.approx(
             1000 * _TIER_BACKEND_ENTRY["input_cost_per_token_ultrafast"]
             + 100 * _TIER_BACKEND_ENTRY["output_cost_per_token_ultrafast"]
         )
-        assert isinstance(standard_response, litellm.ModelResponse)
+        assert isinstance(standard_response, hangarllm.ModelResponse)
         assert standard_response._hidden_params["response_cost"] == pytest.approx(
             1000 * _CUSTOM_STANDARD_INPUT_RATE + 100 * _CUSTOM_STANDARD_OUTPUT_RATE
         )
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_router_completion_uses_backend_ultrafast_long_context_rates() -> None:
     model_id: Final = "tier-priced-long-context-deployment"
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, _TIER_BACKEND_MODEL, model_id)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, _TIER_BACKEND_MODEL, model_id)
     }
     try:
         _register_tier_backend()
@@ -1314,7 +1314,7 @@ def test_router_completion_uses_backend_ultrafast_long_context_rates() -> None:
             model_list=[
                 {
                     "model_name": "tier-priced-long-context-router",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": _TIER_BACKEND_MODEL,
                         "custom_llm_provider": "openai",
                         "api_key": "sk-tier-pricing-not-used",
@@ -1334,21 +1334,21 @@ def test_router_completion_uses_backend_ultrafast_long_context_rates() -> None:
             model="tier-priced-long-context-router",
             messages=[{"role": "user", "content": "long context tiered pricing"}],
             service_tier="ultrafast",
-            mock_response=litellm.ModelResponse(
+            mock_response=hangarllm.ModelResponse(
                 model=_TIER_BACKEND_MODEL,
                 service_tier="ultrafast",
-                usage=litellm.Usage(prompt_tokens=300_000, completion_tokens=100, total_tokens=300_100),
+                usage=hangarllm.Usage(prompt_tokens=300_000, completion_tokens=100, total_tokens=300_100),
             ),
         )
 
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         assert response._hidden_params["response_cost"] == pytest.approx(
             300_000 * _TIER_BACKEND_ENTRY["input_cost_per_token_above_272k_tokens_ultrafast"]
             + 100 * _TIER_BACKEND_ENTRY["output_cost_per_token_above_272k_tokens_ultrafast"]
         )
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 @pytest.mark.parametrize("ptu_enabled", (True, False))
@@ -1357,16 +1357,16 @@ def test_ptu_service_tier_pricing_is_disabled_only_when_attribution_is_enabled(
 ) -> None:
     model_id: Final = f"ptu-tier-deployment-{ptu_enabled}"
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, model_id)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, model_id)
     }
     try:
         _register_tier_backend()
-        monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True" if ptu_enabled else "")
+        monkeypatch.setenv("HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION", "True" if ptu_enabled else "")
         router: Final = Router(
             model_list=[
                 {
                     "model_name": f"ptu-tier-model-{ptu_enabled}",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": _TIER_BACKEND_MODEL,
                         "custom_llm_provider": "openai",
                         "api_key": "sk-tier-pricing-not-used",
@@ -1377,7 +1377,7 @@ def test_ptu_service_tier_pricing_is_disabled_only_when_attribution_is_enabled(
                 }
             ]
         )
-        registered: Final = litellm.model_cost[model_id]
+        registered: Final = hangarllm.model_cost[model_id]
         tier_fields: Final = tuple(
             field for field in _TIER_BACKEND_ENTRY if field.endswith(SERVICE_TIER_COST_KEY_SUFFIXES)
         )
@@ -1392,14 +1392,14 @@ def test_ptu_service_tier_pricing_is_disabled_only_when_attribution_is_enabled(
             # The deployment belongs to team-alpha, and a sync call is team filtered like an async one.
             metadata={"user_api_key_team_id": "team-alpha"},
             service_tier="priority",
-            mock_response=litellm.ModelResponse(
+            mock_response=hangarllm.ModelResponse(
                 model=_TIER_BACKEND_MODEL,
                 service_tier="priority",
-                usage=litellm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
+                usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
             ),
         )
 
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         expected_cost: Final = (
             0.0
             if ptu_enabled
@@ -1409,14 +1409,14 @@ def test_ptu_service_tier_pricing_is_disabled_only_when_attribution_is_enabled(
         assert response._hidden_params["response_cost"] == pytest.approx(expected_cost)
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_azure_base_model_inherits_service_tier_pricing_for_registration_and_payload() -> None:
     model_id: Final = "azure-tier-priced-alias"
     payload_id: Final = "azure-tier-priced-payload"
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (_AZURE_TIER_BACKEND_KEY, model_id, payload_id)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (_AZURE_TIER_BACKEND_KEY, model_id, payload_id)
     }
     try:
         _register_azure_tier_backend()
@@ -1424,7 +1424,7 @@ def test_azure_base_model_inherits_service_tier_pricing_for_registration_and_pay
             model_list=[
                 {
                     "model_name": "azure/tier-priced-alias",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/tier-priced-alias",
                         "custom_llm_provider": "azure",
                         "api_key": "sk-tier-pricing-not-used",
@@ -1445,14 +1445,14 @@ def test_azure_base_model_inherits_service_tier_pricing_for_registration_and_pay
             messages=[{"role": "user", "content": "azure base model pricing"}],
             service_tier="priority",
             allowed_openai_params=["service_tier"],
-            mock_response=litellm.ModelResponse(
+            mock_response=hangarllm.ModelResponse(
                 model=_AZURE_TIER_BACKEND_KEY,
                 service_tier="priority",
-                usage=litellm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
+                usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
             ),
         )
 
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         assert response._hidden_params["response_cost"] == pytest.approx(
             1000 * _AZURE_TIER_BACKEND_ENTRY["input_cost_per_token_priority"]
             + 100 * _AZURE_TIER_BACKEND_ENTRY["output_cost_per_token_priority"]
@@ -1461,7 +1461,7 @@ def test_azure_base_model_inherits_service_tier_pricing_for_registration_and_pay
         router.add_deployment(
             Deployment(
                 model_name="azure/tier-priced-alias-from-params",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     model="azure/tier-priced-alias",
                     custom_llm_provider="azure",
                     base_model=_AZURE_TIER_BACKEND_KEY,
@@ -1471,18 +1471,18 @@ def test_azure_base_model_inherits_service_tier_pricing_for_registration_and_pay
                 model_info=ModelInfo(id=payload_id),
             )
         )
-        payload: Final = litellm.model_cost[payload_id]
+        payload: Final = hangarllm.model_cost[payload_id]
 
         assert payload["input_cost_per_token_priority"] == _AZURE_TIER_BACKEND_ENTRY["input_cost_per_token_priority"]
         assert payload["output_cost_per_token_priority"] == _AZURE_TIER_BACKEND_ENTRY["output_cost_per_token_priority"]
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_custom_pricing_field_denylist_covers_all_builtin_pricing_fields():
     """The shared-backend-key stripping in Router relies on
-    CustomPricingLiteLLMParams enumerating every per-deployment pricing field.
+    CustomPricingHangarLLMParams enumerating every per-deployment pricing field.
     If a new pricing field is added to ModelInfoBase but not mirrored here, a
     deployment override on that field leaks into the shared backend key and
     every sibling deployment reads the wrong rate (LIT-3897). This guard fails
@@ -1490,17 +1490,17 @@ def test_custom_pricing_field_denylist_covers_all_builtin_pricing_fields():
     """
     import typing
 
-    from litellm.types.utils import CustomPricingLiteLLMParams, ModelInfoBase
+    from hangarllm.types.utils import CustomPricingHangarLLMParams, ModelInfoBase
 
     pricing_markers = ("cost", "price", "uplift", "vector_size", "tiered_pricing")
     builtin_pricing_fields = {
         name for name in typing.get_type_hints(ModelInfoBase) if any(marker in name for marker in pricing_markers)
     }
-    denylisted_fields = set(CustomPricingLiteLLMParams.model_fields.keys())
+    denylisted_fields = set(CustomPricingHangarLLMParams.model_fields.keys())
 
     uncovered = sorted(builtin_pricing_fields - denylisted_fields)
     assert not uncovered, (
-        "ModelInfoBase pricing fields missing from CustomPricingLiteLLMParams; "
+        "ModelInfoBase pricing fields missing from CustomPricingHangarLLMParams; "
         f"these would leak into shared backend keys: {uncovered}"
     )
 
@@ -1509,26 +1509,26 @@ def test_tiered_pricing_override_isolated_from_sibling_via_model_info_lookup():
     """LIT-3897: a deployment that overrides a tiered pricing field
     (input_cost_per_token_above_272k_tokens) must not pollute the shared
     backend key, so a sibling sharing the same backend resolves its pricing
-    via litellm.get_model_info (the path /model/info uses) without seeing the
+    via hangarllm.get_model_info (the path /model/info uses) without seeing the
     override.
     """
     backend_model = "gemini/gemini-2.5-flash"
     override = 0.000999
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = hangarllm.get_model_info(model=backend_model)
     assert builtin_info.get("input_cost_per_token_above_272k_tokens") != override
 
     model_keys = {
-        "lit3897-tiered-custom": litellm.model_cost.get("lit3897-tiered-custom"),
-        "lit3897-tiered-sibling": litellm.model_cost.get("lit3897-tiered-sibling"),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        "lit3897-tiered-custom": hangarllm.model_cost.get("lit3897-tiered-custom"),
+        "lit3897-tiered-sibling": hangarllm.model_cost.get("lit3897-tiered-sibling"),
+        backend_model: copy.deepcopy(hangarllm.model_cost.get(backend_model)),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "custom-priced-flash",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key-tiered-1",
                     },
@@ -1540,7 +1540,7 @@ def test_tiered_pricing_override_isolated_from_sibling_via_model_info_lookup():
                 },
                 {
                     "model_name": "gemini-2.5-flash",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key-tiered-2",
                     },
@@ -1549,13 +1549,13 @@ def test_tiered_pricing_override_isolated_from_sibling_via_model_info_lookup():
             ],
         )
 
-        shared = litellm.get_model_info(model=backend_model)
+        shared = hangarllm.get_model_info(model=backend_model)
         assert shared.get("input_cost_per_token_above_272k_tokens") != override, (
             "Tiered override leaked into the shared backend key; siblings read the wrong rate via /model/info"
         )
         assert shared.get("cache_read_input_token_cost_above_272k_tokens") != override
 
-        custom_entry = litellm.model_cost["lit3897-tiered-custom"]
+        custom_entry = hangarllm.model_cost["lit3897-tiered-custom"]
         assert custom_entry["input_cost_per_token_above_272k_tokens"] == override
         assert custom_entry["cache_read_input_token_cost_above_272k_tokens"] == override
     finally:
@@ -1566,29 +1566,29 @@ def test_custom_pricing_isolated_from_sibling_via_proxy_model_info_path():
     """LIT-3897 end to end through the proxy resolution helper: the override
     deployment reports its custom input rate while the sibling keeps the
     canonical gemini rate when /model/info resolves each deployment. Mirrors the
-    ticket config where the override is set on litellm_params.
+    ticket config where the override is set on hangarllm_params.
     """
-    from litellm.proxy.proxy_server import _get_proxy_model_info
+    from hangarllm.proxy.proxy_server import _get_proxy_model_info
 
     backend_model = "gemini/gemini-2.5-flash"
     override_input = 5e-05
     override_output = 1e-04
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = hangarllm.get_model_info(model=backend_model)
     builtin_input = builtin_info["input_cost_per_token"]
     assert builtin_input != override_input
 
     model_keys = {
-        "lit3897-proxy-custom": litellm.model_cost.get("lit3897-proxy-custom"),
-        "lit3897-proxy-sibling": litellm.model_cost.get("lit3897-proxy-sibling"),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        "lit3897-proxy-custom": hangarllm.model_cost.get("lit3897-proxy-custom"),
+        "lit3897-proxy-sibling": hangarllm.model_cost.get("lit3897-proxy-sibling"),
+        backend_model: copy.deepcopy(hangarllm.model_cost.get(backend_model)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "custom-priced-flash",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key-proxy-1",
                         "input_cost_per_token": override_input,
@@ -1598,7 +1598,7 @@ def test_custom_pricing_isolated_from_sibling_via_proxy_model_info_path():
                 },
                 {
                     "model_name": "gemini-2.5-flash",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key-proxy-2",
                     },
@@ -1623,7 +1623,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
     """LIT-4544: two deployments share the same backend model but carry
     different custom model_info (arbitrary keys, access_via_team_ids, ids).
     None of that per-deployment metadata may land on the shared backend key in
-    litellm.model_cost (served raw by /public/litellm_model_cost_map);
+    hangarllm.model_cost (served raw by /public/hangarllm_model_cost_map);
     before the fix it was merged last-write-wins so values flipped randomly.
     """
     backend_model = "openai/gpt-4o-mini"
@@ -1631,7 +1631,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
     leak_fields = ("id", "additionalProp1", "access_via_team_ids", "db_model")
 
     model_keys = {
-        key: copy.deepcopy(litellm.model_cost.get(key))
+        key: copy.deepcopy(hangarllm.model_cost.get(key))
         for key in (*shared_keys, "lit4544-deploy-a", "lit4544-deploy-b")
     }
     try:
@@ -1639,7 +1639,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
             model_list=[
                 {
                     "model_name": "alias-unrestricted",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key-a",
                     },
@@ -1650,7 +1650,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
                 },
                 {
                     "model_name": "alias-restricted",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key-b",
                     },
@@ -1664,13 +1664,13 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
         )
 
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = hangarllm.model_cost.get(shared_key) or {}
             leaked = [field for field in leak_fields if field in shared_entry]
             assert not leaked, f"per-deployment metadata {leaked} leaked onto shared key {shared_key}: {shared_entry}"
 
-        entry_a = litellm.model_cost["lit4544-deploy-a"]
+        entry_a = hangarllm.model_cost["lit4544-deploy-a"]
         assert entry_a["additionalProp1"] == {"restricted": False, "model_location": "EU"}
-        entry_b = litellm.model_cost["lit4544-deploy-b"]
+        entry_b = hangarllm.model_cost["lit4544-deploy-b"]
         assert entry_b["additionalProp1"] == {"restricted": True, "model_location": "US"}
         assert entry_b["access_via_team_ids"] == ["team-b-only"]
     finally:
@@ -1686,13 +1686,13 @@ def test_add_deployment_does_not_leak_custom_metadata_to_shared_backend_key():
     shared_keys = ("gpt-4o-mini", backend_model)
     deploy_id = "lit4544-add-deployment"
 
-    model_keys = {key: copy.deepcopy(litellm.model_cost.get(key)) for key in (*shared_keys, deploy_id)}
+    model_keys = {key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (*shared_keys, deploy_id)}
     try:
         router = Router(model_list=[])
         router.add_deployment(
             deployment=Deployment(
                 model_name="alias-dynamic",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     model=backend_model,
                     api_key="fake-key-dynamic",
                 ),
@@ -1705,13 +1705,13 @@ def test_add_deployment_does_not_leak_custom_metadata_to_shared_backend_key():
         )
 
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = hangarllm.model_cost.get(shared_key) or {}
             leaked = [
                 field for field in ("id", "additionalProp1", "access_via_team_ids", "db_model") if field in shared_entry
             ]
             assert not leaked, f"per-deployment metadata {leaked} leaked onto shared key {shared_key}: {shared_entry}"
 
-        assert litellm.model_cost[deploy_id]["access_via_team_ids"] == ["team-dynamic"]
+        assert hangarllm.model_cost[deploy_id]["access_via_team_ids"] == ["team-dynamic"]
     finally:
         _restore_model_cost_entries(model_keys)
 
@@ -1720,12 +1720,12 @@ def test_shared_backend_model_info_keeps_schema_fields_and_drops_the_rest():
     """Unit test of the whitelist helper: cost-map schema fields survive,
     custom pricing overrides and per-deployment metadata do not.
     """
-    from litellm.types.utils import shared_backend_model_info
+    from hangarllm.types.utils import shared_backend_model_info
 
     filtered = shared_backend_model_info(
         {
             "mode": "chat",
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "max_tokens": 128000,
             "supports_vision": True,
             "supported_endpoints": ["/v1/responses"],
@@ -1742,7 +1742,7 @@ def test_shared_backend_model_info_keeps_schema_fields_and_drops_the_rest():
 
     assert filtered == {
         "mode": "chat",
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "max_tokens": 128000,
         "supports_vision": True,
         "supported_endpoints": ["/v1/responses"],
@@ -1754,10 +1754,10 @@ def test_capability_flags_propagate_from_deployment_model_info_to_shared_key():
     """Backend-model capability facts (supported_endpoints,
     use_openai_responses_path) declared in a deployment's model_info must reach
     the shared backend key: the Bedrock Mantle routing gates read them raw off
-    litellm.model_cost and document proxy model_info as an override path for
+    hangarllm.model_cost and document proxy model_info as an override path for
     models missing from the built-in cost map.
     """
-    from litellm.llms.bedrock_mantle.common_utils import (
+    from hangarllm.llms.bedrock_mantle.common_utils import (
         mantle_base_segment,
         mantle_supports_responses,
     )
@@ -1766,13 +1766,13 @@ def test_capability_flags_propagate_from_deployment_model_info_to_shared_key():
     backend_model = f"bedrock_mantle/{bare_model}"
     deploy_id = "lit4544-mantle-deploy"
 
-    model_keys = {key: copy.deepcopy(litellm.model_cost.get(key)) for key in (bare_model, backend_model, deploy_id)}
+    model_keys = {key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (bare_model, backend_model, deploy_id)}
     try:
         Router(
             model_list=[
                 {
                     "model_name": "mantle-alias",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "api_key": "fake-key",
                     },
@@ -1785,12 +1785,12 @@ def test_capability_flags_propagate_from_deployment_model_info_to_shared_key():
             ],
         )
 
-        shared_entry = litellm.model_cost.get(backend_model) or {}
+        shared_entry = hangarllm.model_cost.get(backend_model) or {}
         assert shared_entry.get("supported_endpoints") == ["/v1/responses"]
         assert shared_entry.get("use_openai_responses_path") is True
         assert "id" not in shared_entry
-        assert mantle_supports_responses(bare_model, litellm.model_cost) is True
-        assert mantle_base_segment(bare_model, litellm.model_cost) == "openai/v1"
+        assert mantle_supports_responses(bare_model, hangarllm.model_cost) is True
+        assert mantle_base_segment(bare_model, hangarllm.model_cost) == "openai/v1"
     finally:
         _restore_model_cost_entries(model_keys)
 
@@ -1801,15 +1801,15 @@ def test_token_limits_stay_on_the_deployment_that_set_them(override_first: bool)
     shared_keys: Final = ("gpt-4o-mini", backend_model)
     token_fields: Final = ("max_input_tokens", "max_output_tokens", "max_tokens")
     catalog_limits: Final = {
-        key: {field: litellm.get_model_info(model=key).get(field) for field in token_fields} for key in shared_keys
+        key: {field: hangarllm.get_model_info(model=key).get(field) for field in token_fields} for key in shared_keys
     }
     catalog_cost_map_limits: Final = {
-        key: {field: (litellm.model_cost.get(key) or {}).get(field) for field in token_fields} for key in shared_keys
+        key: {field: (hangarllm.model_cost.get(key) or {}).get(field) for field in token_fields} for key in shared_keys
     }
     override_id: Final = "token-limit-override-deployment"
     plain_id: Final = "token-limit-plain-deployment"
     model_keys: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (*shared_keys, override_id, plain_id)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (*shared_keys, override_id, plain_id)
     }
     expected_cost_map_limits: Final = {
         key: {
@@ -1821,12 +1821,12 @@ def test_token_limits_stay_on_the_deployment_that_set_them(override_first: bool)
     }
     plain_deployment: Final = {
         "model_name": "plain-gpt-4o-mini",
-        "litellm_params": {"model": backend_model},
+        "hangarllm_params": {"model": backend_model},
         "model_info": {"id": plain_id},
     }
     override_deployment: Final = {
         "model_name": "overridden-gpt-4o-mini",
-        "litellm_params": {"model": backend_model},
+        "hangarllm_params": {"model": backend_model},
         "model_info": {
             "id": override_id,
             "max_input_tokens": 4321,
@@ -1840,17 +1840,17 @@ def test_token_limits_stay_on_the_deployment_that_set_them(override_first: bool)
             if override_first
             else [plain_deployment, override_deployment]
         )
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
         for key in shared_keys:
             assert {
-                field: (litellm.model_cost.get(key) or {}).get(field) for field in token_fields
+                field: (hangarllm.model_cost.get(key) or {}).get(field) for field in token_fields
             } == expected_cost_map_limits[key]
-            assert {field: litellm.get_model_info(model=key).get(field) for field in token_fields} == catalog_limits[
+            assert {field: hangarllm.get_model_info(model=key).get(field) for field in token_fields} == catalog_limits[
                 key
             ]
 
-        assert {field: litellm.get_model_info(model=override_id).get(field) for field in token_fields} == {
+        assert {field: hangarllm.get_model_info(model=override_id).get(field) for field in token_fields} == {
             "max_input_tokens": 4321,
             "max_output_tokens": 987,
             "max_tokens": 987,
@@ -1869,7 +1869,7 @@ def test_token_limits_stay_on_the_deployment_that_set_them(override_first: bool)
         assert (override_listing["max_input_tokens"], override_listing["max_output_tokens"]) == (4321, 987)
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_unknown_backend_token_limits_still_fill_the_shared_key() -> None:
@@ -1880,42 +1880,42 @@ def test_unknown_backend_token_limits_still_fill_the_shared_key() -> None:
     first_limits: Final = {"max_input_tokens": 4321, "max_output_tokens": 987, "max_tokens": 987}
     second_limits: Final = {"max_input_tokens": 1234, "max_output_tokens": 456, "max_tokens": 456}
     model_keys: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (backend_model, first_id, second_id)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (backend_model, first_id, second_id)
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "unknown-token-limit-first",
-                    "litellm_params": {"model": backend_model, "api_key": "fake-key"},
+                    "hangarllm_params": {"model": backend_model, "api_key": "fake-key"},
                     "model_info": {"id": first_id, **first_limits},
                 },
                 {
                     "model_name": "unknown-token-limit-second",
-                    "litellm_params": {"model": backend_model, "api_key": "fake-key"},
+                    "hangarllm_params": {"model": backend_model, "api_key": "fake-key"},
                     "model_info": {"id": second_id, **second_limits},
                 },
             ]
         )
 
         assert {
-            field: (litellm.model_cost.get(backend_model) or {}).get(field) for field in token_fields
+            field: (hangarllm.model_cost.get(backend_model) or {}).get(field) for field in token_fields
         } == second_limits
-        assert {field: litellm.get_model_info(first_id).get(field) for field in token_fields} == first_limits
-        assert {field: litellm.get_model_info(second_id).get(field) for field in token_fields} == second_limits
+        assert {field: hangarllm.get_model_info(first_id).get(field) for field in token_fields} == first_limits
+        assert {field: hangarllm.get_model_info(second_id).get(field) for field in token_fields} == second_limits
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_unknown_backend_token_limit_updates_when_deployment_is_upserted() -> None:
     backend_model: Final = "hosted_vllm/somelab.lit4544-token-limit-update"
     model_id: Final = "unknown-token-limit-updated-deployment"
-    model_keys: Final = {key: copy.deepcopy(litellm.model_cost.get(key)) for key in (backend_model, model_id)}
+    model_keys: Final = {key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (backend_model, model_id)}
     try:
         deployment: Final = Deployment(
             model_name="unknown-token-limit-update",
-            litellm_params=LiteLLM_Params(
+            hangarllm_params=HangarLLM_Params(
                 model=backend_model,
                 api_base="https://unknown-model.test/v1",
                 api_key="fake-key",
@@ -1923,12 +1923,12 @@ def test_unknown_backend_token_limit_updates_when_deployment_is_upserted() -> No
             model_info=ModelInfo(id=model_id, max_output_tokens=999),
         )
         router: Final = Router(model_list=[deployment.to_json()])
-        assert (litellm.model_cost.get(backend_model) or {}).get("max_output_tokens") == 999
+        assert (hangarllm.model_cost.get(backend_model) or {}).get("max_output_tokens") == 999
 
         router.upsert_deployment(
             Deployment(
                 model_name="unknown-token-limit-update",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     model=backend_model,
                     api_base="https://unknown-model.test/v1",
                     api_key="fake-key",
@@ -1937,10 +1937,10 @@ def test_unknown_backend_token_limit_updates_when_deployment_is_upserted() -> No
             )
         )
 
-        assert (litellm.model_cost.get(backend_model) or {}).get("max_output_tokens") == 1500
+        assert (hangarllm.model_cost.get(backend_model) or {}).get("max_output_tokens") == 1500
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
@@ -1952,13 +1952,13 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
     """
     shared_key = "openai/text-embedding-3-small"
     model_keys = {
-        shared_key: copy.deepcopy(litellm.model_cost.get(shared_key)),
-        "text-embedding-3-small": copy.deepcopy(litellm.model_cost.get("text-embedding-3-small")),
-        "openai/*": copy.deepcopy(litellm.model_cost.get("openai/*")),
-        "lit3991-named": litellm.model_cost.get("lit3991-named"),
-        "lit3991-wildcard": litellm.model_cost.get("lit3991-wildcard"),
+        shared_key: copy.deepcopy(hangarllm.model_cost.get(shared_key)),
+        "text-embedding-3-small": copy.deepcopy(hangarllm.model_cost.get("text-embedding-3-small")),
+        "openai/*": copy.deepcopy(hangarllm.model_cost.get("openai/*")),
+        "lit3991-named": hangarllm.model_cost.get("lit3991-named"),
+        "lit3991-wildcard": hangarllm.model_cost.get("lit3991-wildcard"),
     }
-    builtin_input_cost = litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+    builtin_input_cost = hangarllm.get_model_info(model=shared_key)["input_cost_per_token"]
     assert builtin_input_cost > 0
 
     try:
@@ -1966,7 +1966,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
             model_list=[
                 {
                     "model_name": "text-embedding-3-small",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/text-embedding-3-small",
                         "api_key": "fake-key-named",
                     },
@@ -1974,7 +1974,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
                 },
                 {
                     "model_name": "openai/*",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/*",
                         "api_key": "fake-key-wildcard",
                         "input_cost_per_token": 0.0,
@@ -1991,7 +1991,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
             mock_response=[0.1, 0.2],
         )
 
-        assert litellm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
+        assert hangarllm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
             f"one call through the zero-cost wildcard poisoned the shared {shared_key} pricing for the named deployment"
         )
 
@@ -2000,7 +2000,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
             input=["hello"],
             mock_response=[0.1, 0.2],
         )
-        named_cost = litellm.completion_cost(completion_response=named_response, call_type="embedding")
+        named_cost = hangarllm.completion_cost(completion_response=named_response, call_type="embedding")
         assert named_cost == pytest.approx(10 * builtin_input_cost)
     finally:
         _restore_model_cost_entries(model_keys)
@@ -2008,25 +2008,25 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
 
 def test_price_data_reload_preserves_router_registered_model_info(monkeypatch):
     """
-    A price-data reload replaces litellm.model_cost wholesale. Deployment
+    A price-data reload replaces hangarllm.model_cost wholesale. Deployment
     model_info registered by the Router is not in the fetched catalog, so
     without a replay of runtime registrations the reload silently strips
     max_input_tokens / max_output_tokens from every custom model group and
     /model_group/info starts reporting nulls.
     """
-    from litellm import utils as litellm_utils
+    from hangarllm import utils as hangarllm_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "custom-alias",
-                "litellm_params": {"model": "hosted_vllm/not-in-the-catalog"},
+                "hangarllm_params": {"model": "hosted_vllm/not-in-the-catalog"},
                 "model_info": {
                     "id": "custom-alias-id",
                     "max_input_tokens": 128000,
@@ -2041,10 +2041,10 @@ def test_price_data_reload_preserves_router_registered_model_info(monkeypatch):
     assert before.max_input_tokens == 128000
     assert before.max_output_tokens == 16384
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"hangarllm_provider": "openai", "mode": "chat"}},
         )
 
         after = router.get_model_group_info(model_group="custom-alias")
@@ -2052,7 +2052,7 @@ def test_price_data_reload_preserves_router_registered_model_info(monkeypatch):
         assert after.max_input_tokens == 128000
         assert after.max_output_tokens == 16384
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2062,19 +2062,19 @@ def test_price_data_reload_preserves_custom_override_of_a_catalog_model(monkeypa
     the same bug: the reload does not blank the metadata, it reverts the
     operator's model_info override to the upstream catalog values.
     """
-    from litellm import utils as litellm_utils
+    from hangarllm import utils as hangarllm_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "capped-gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "hangarllm_params": {"model": "openai/gpt-4o"},
                 "model_info": {
                     "id": "capped-gpt-4o-id",
                     "max_input_tokens": 12345,
@@ -2084,12 +2084,12 @@ def test_price_data_reload_preserves_custom_override_of_a_catalog_model(monkeypa
         ],
     )
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
         _simulate_price_data_reload(
             {
                 "openai/gpt-4o": {
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "chat",
                     "max_input_tokens": 999999,
                     "max_output_tokens": 888888,
@@ -2102,7 +2102,7 @@ def test_price_data_reload_preserves_custom_override_of_a_catalog_model(monkeypa
         assert after.max_input_tokens == 12345
         assert after.max_output_tokens == 678
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2114,52 +2114,52 @@ def test_deleted_deployments_are_not_replayed_onto_later_reloads(monkeypatch):
     key that another live deployment still points at must survive the same
     deletion.
     """
-    from litellm import utils as litellm_utils
+    from hangarllm import utils as hangarllm_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "doomed",
-                "litellm_params": {"model": "hosted_vllm/shared-backend"},
+                "hangarllm_params": {"model": "hosted_vllm/shared-backend"},
                 "model_info": {"id": "doomed-id", "max_input_tokens": 111},
             },
             {
                 "model_name": "kept",
-                "litellm_params": {"model": "hosted_vllm/shared-backend"},
+                "hangarllm_params": {"model": "hosted_vllm/shared-backend"},
                 "model_info": {"id": "kept-id", "max_input_tokens": 222},
             },
             {
                 "model_name": "solo",
-                "litellm_params": {"model": "hosted_vllm/solo-backend"},
+                "hangarllm_params": {"model": "hosted_vllm/solo-backend"},
                 "model_info": {"id": "solo-id", "max_input_tokens": 333},
             },
         ],
     )
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
         assert router.delete_deployment(id="doomed-id") is not None
         assert router.delete_deployment(id="solo-id") is not None
 
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"hangarllm_provider": "openai", "mode": "chat"}},
         )
 
-        assert "doomed-id" not in litellm.model_cost
-        assert "solo-id" not in litellm.model_cost
-        assert "hosted_vllm/solo-backend" not in litellm.model_cost
+        assert "doomed-id" not in hangarllm.model_cost
+        assert "solo-id" not in hangarllm.model_cost
+        assert "hosted_vllm/solo-backend" not in hangarllm.model_cost
 
-        surviving = litellm.model_cost["kept-id"]
+        surviving = hangarllm.model_cost["kept-id"]
         assert surviving["max_input_tokens"] == 222
-        assert "hosted_vllm/shared-backend" in litellm.model_cost
+        assert "hosted_vllm/shared-backend" in hangarllm.model_cost
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2168,27 +2168,27 @@ def test_deleting_a_deployment_leaves_catalog_pricing_for_its_backend_model(monk
     A backend key is shared with the fetched catalog, so withdrawing the entries
     a deleted deployment owns must not take real upstream pricing down with it.
     """
-    from litellm import utils as litellm_utils
+    from hangarllm import utils as hangarllm_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
 
     backend_model = "gemini/gemini-2.5-pro"
-    catalog_entry = litellm.get_model_info(model=backend_model)
+    catalog_entry = hangarllm.get_model_info(model=backend_model)
     catalog_input_cost = catalog_entry["input_cost_per_token"]
     assert catalog_input_cost > 0, "Test requires a catalog model with non-zero pricing"
 
-    saved_catalog = litellm.model_cost
-    fetched_catalog = copy.deepcopy(litellm.model_cost)
+    saved_catalog = hangarllm.model_cost
+    fetched_catalog = copy.deepcopy(hangarllm.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "doomed-gemini",
-                    "litellm_params": {"model": backend_model, "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": backend_model, "api_key": "sk-fake"},
                     "model_info": {"id": "doomed-gemini-id"},
                 }
             ],
@@ -2200,10 +2200,10 @@ def test_deleting_a_deployment_leaves_catalog_pricing_for_its_backend_model(monk
             copy.deepcopy(fetched_catalog),
         )
 
-        assert "doomed-gemini-id" not in litellm.model_cost
-        assert litellm.model_cost[backend_model]["input_cost_per_token"] == catalog_input_cost
+        assert "doomed-gemini-id" not in hangarllm.model_cost
+        assert hangarllm.model_cost[backend_model]["input_cost_per_token"] == catalog_input_cost
     finally:
-        litellm.model_cost = saved_catalog
+        hangarllm.model_cost = saved_catalog
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2213,43 +2213,43 @@ def test_repointing_a_deployment_drops_its_previous_backend_key(monkeypatch):
     old backend key behind, and a replayed registry would re-assert it onto every
     later catalog for the life of the process.
     """
-    from litellm import utils as litellm_utils
+    from hangarllm import utils as hangarllm_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "moving-target",
-                "litellm_params": {"model": "hosted_vllm/old-backend"},
+                "hangarllm_params": {"model": "hosted_vllm/old-backend"},
                 "model_info": {"id": "moving-target-id"},
             }
         ],
     )
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="moving-target",
-                litellm_params=LiteLLM_Params(model="hosted_vllm/new-backend"),
+                hangarllm_params=HangarLLM_Params(model="hosted_vllm/new-backend"),
                 model_info=ModelInfo(id="moving-target-id"),
             )
         )
 
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"hangarllm_provider": "openai", "mode": "chat"}},
         )
 
-        assert "hosted_vllm/old-backend" not in litellm.model_cost
-        assert "hosted_vllm/new-backend" in litellm.model_cost
-        assert "moving-target-id" in litellm.model_cost
+        assert "hosted_vllm/old-backend" not in hangarllm.model_cost
+        assert "hosted_vllm/new-backend" in hangarllm.model_cost
+        assert "moving-target-id" in hangarllm.model_cost
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2259,19 +2259,19 @@ def test_mantle_chat_deployment_does_not_rewrite_the_shared_responses_row():
     requests to Chat Completions, while the shared cost-map row keeps
     ``mode: responses`` for every other deployment and plain SDK calls.
     """
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     backend_model = "bedrock_mantle/openai.gpt-5.6-sol"
-    cost_map: Final = cast(dict[str, dict[str, object]], litellm.model_cost)
+    cost_map: Final = cast(dict[str, dict[str, object]], hangarllm.model_cost)
     model_keys = {
         key: copy.deepcopy(cost_map.get(key))
         for key in (backend_model, f"bedrock_mantle/{backend_model}", "mantle-chat-pinned")
     }
 
     try:
-        litellm.model_cost[backend_model] = {
+        hangarllm.model_cost[backend_model] = {
             **(model_keys[backend_model] or {}),
-            "litellm_provider": "bedrock_mantle",
+            "hangarllm_provider": "bedrock_mantle",
             "mode": "responses",
         }
         _invalidate_model_cost_lowercase_map()
@@ -2280,7 +2280,7 @@ def test_mantle_chat_deployment_does_not_rewrite_the_shared_responses_row():
             model_list=[
                 {
                     "model_name": "mantle-chat",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": backend_model,
                         "custom_llm_provider": "bedrock_mantle",
                         "api_key": "test-bearer",
@@ -2290,7 +2290,7 @@ def test_mantle_chat_deployment_does_not_rewrite_the_shared_responses_row():
             ]
         )
 
-        assert litellm.model_cost[backend_model]["mode"] == "responses"
+        assert hangarllm.model_cost[backend_model]["mode"] == "responses"
 
         shared_info, _ = responses_api_bridge_check(model=backend_model, custom_llm_provider="bedrock_mantle")
         assert shared_info["mode"] == "responses"
@@ -2305,9 +2305,9 @@ def test_mantle_chat_deployment_does_not_rewrite_the_shared_responses_row():
 
 
 def _register_routing_test_row(monkeypatch: pytest.MonkeyPatch, mode: str) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    litellm.model_cost["routing-test-model"] = {
-        "litellm_provider": "openai",
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    hangarllm.model_cost["routing-test-model"] = {
+        "hangarllm_provider": "openai",
         "mode": mode,
         "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
         "max_input_tokens": 1000,
@@ -2337,10 +2337,10 @@ def test_a_deployment_mode_never_rewrites_the_shared_row(
     """A ``mode`` pin routes only its own deployment. Every key registration merges into the shared
     ``<name>`` row, the ``responses/``-stripped twin included, has to keep the mode the SDK and the
     sibling deployments route by, whichever way the pin points."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     _register_routing_test_row(monkeypatch, registered_mode)
-    litellm_params: Final = {"model": model, "api_key": "sk-test"} | (
+    hangarllm_params: Final = {"model": model, "api_key": "sk-test"} | (
         {"custom_llm_provider": custom_llm_provider} if custom_llm_provider else {}
     )
 
@@ -2348,14 +2348,14 @@ def test_a_deployment_mode_never_rewrites_the_shared_row(
         model_list=[
             {
                 "model_name": "pinned",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "model_info": {"id": "pinned-id", "mode": pinned_mode},
             },
-            {"model_name": "sibling", "litellm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"}},
+            {"model_name": "sibling", "hangarllm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"}},
         ]
     )
 
-    assert litellm.model_cost["routing-test-model"]["mode"] == registered_mode
+    assert hangarllm.model_cost["routing-test-model"]["mode"] == registered_mode
     shared_info, _ = responses_api_bridge_check(model="routing-test-model", custom_llm_provider="openai")
     assert shared_info["mode"] == registered_mode
 
@@ -2403,7 +2403,7 @@ def test_a_custom_priced_chat_pin_request_leaves_its_unpinned_sibling_on_respons
         model_list=[
             {
                 "model_name": "priced-chat-pin",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/routing-test-model",
                     "api_key": "sk-test",
                     "input_cost_per_token": 3e-06,
@@ -2411,7 +2411,7 @@ def test_a_custom_priced_chat_pin_request_leaves_its_unpinned_sibling_on_respons
                 },
                 "model_info": {"id": "priced-chat-pin-id", "mode": "chat"},
             },
-            {"model_name": "sibling", "litellm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"}},
+            {"model_name": "sibling", "hangarllm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"}},
         ]
     )
 
@@ -2425,13 +2425,13 @@ def test_a_prefixed_deployment_override_leaves_the_shared_row_limits_alone(monke
     """A deployment that names its provider twice, in ``custom_llm_provider`` and in the model, registers
     under its own key, so its ``max_input_tokens`` override stays off the row its siblings read."""
     _register_routing_test_row(monkeypatch, "responses")
-    shared_before: Final = copy.deepcopy(litellm.model_cost["routing-test-model"])
+    shared_before: Final = copy.deepcopy(hangarllm.model_cost["routing-test-model"])
 
     Router(
         model_list=[
             {
                 "model_name": "small-window",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/routing-test-model",
                     "custom_llm_provider": "openai",
                     "api_key": "sk-test",
@@ -2441,7 +2441,7 @@ def test_a_prefixed_deployment_override_leaves_the_shared_row_limits_alone(monke
         ]
     )
 
-    assert litellm.model_cost["routing-test-model"] == shared_before
+    assert hangarllm.model_cost["routing-test-model"] == shared_before
 
 
 @pytest.mark.parametrize("pins", [("chat", "responses"), ("responses", "chat")], ids=["chat first", "responses first"])
@@ -2450,14 +2450,14 @@ def test_an_unmapped_model_routes_the_same_whichever_pin_registers_first(
 ) -> None:
     """A model missing from the cost map gets its shared row from the router, so conflicting pins must not
     leave a row that depends on deployment order, and a ``responses`` pin keeps opting the model in."""
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     Router(
         model_list=[
             {
                 "model_name": f"pinned-{mode}",
-                "litellm_params": {"model": "openai/unmapped-routing-test-model", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/unmapped-routing-test-model", "api_key": "sk-test"},
                 "model_info": {"id": f"pinned-{mode}", "mode": mode},
             }
             for mode in pins
@@ -2474,14 +2474,14 @@ _FINE_TUNE: Final = "openai/ft:gpt-4o-mini-2024-07-18:routing-test::abc123"
 def _fine_tune_routing(
     monkeypatch: pytest.MonkeyPatch, pristine_cost_map: dict[str, object], order: tuple[str | None, ...]
 ) -> tuple[object, ...]:
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(pristine_cost_map))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(pristine_cost_map))
     Router(
         model_list=[
             {
                 "model_name": f"ft-{mode}",
-                "litellm_params": {"model": _FINE_TUNE, "api_key": "sk-test"},
+                "hangarllm_params": {"model": _FINE_TUNE, "api_key": "sk-test"},
                 "model_info": {"id": f"ft-{mode}"} if mode is None else {"id": f"ft-{mode}", "mode": mode},
             }
             for mode in order
@@ -2503,7 +2503,7 @@ def test_a_fine_tune_routes_the_same_whichever_deployment_registers_first(
 ) -> None:
     """A fine-tune missing from the cost map inherits its base model's row on its first registration, so a
     ``responses`` pin must not opt the shared row in only when it happens to register before its siblings."""
-    pristine_cost_map: Final = litellm.model_cost
+    pristine_cost_map: Final = hangarllm.model_cost
 
     assert _fine_tune_routing(monkeypatch, pristine_cost_map, order) == _fine_tune_routing(
         monkeypatch, pristine_cost_map, ("responses", "chat", None)
@@ -2519,19 +2519,19 @@ def test_a_non_routing_mode_pin_still_reaches_the_shared_row(monkeypatch: pytest
         model_list=[
             {
                 "model_name": "transcriber",
-                "litellm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"},
                 "model_info": {"id": "transcriber-id", "mode": "audio_transcription"},
             }
         ]
     )
 
-    assert litellm.get_model_info(model="routing-test-model", custom_llm_provider="openai")["mode"] == (
+    assert hangarllm.get_model_info(model="routing-test-model", custom_llm_provider="openai")["mode"] == (
         "audio_transcription"
     )
 
 
 def test_a_non_routing_mode_pin_leaves_a_responses_row_on_the_responses_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     _register_routing_test_row(monkeypatch, "responses")
 
@@ -2539,7 +2539,7 @@ def test_a_non_routing_mode_pin_leaves_a_responses_row_on_the_responses_api(monk
         model_list=[
             {
                 "model_name": "transcriber",
-                "litellm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"},
                 "model_info": {"id": "transcriber-id", "mode": "audio_transcription"},
             }
         ]
@@ -2554,7 +2554,7 @@ def test_a_non_routing_mode_pin_leaves_a_responses_row_on_the_responses_api(monk
 def test_a_malformed_mode_never_reaches_the_shared_row(
     monkeypatch: pytest.MonkeyPatch, registered_mode: str, malformed_mode: object
 ) -> None:
-    from litellm.main import responses_api_bridge_check
+    from hangarllm.main import responses_api_bridge_check
 
     _register_routing_test_row(monkeypatch, registered_mode)
 
@@ -2562,13 +2562,13 @@ def test_a_malformed_mode_never_reaches_the_shared_row(
         model_list=[
             {
                 "model_name": "malformed",
-                "litellm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/routing-test-model", "api_key": "sk-test"},
                 "model_info": {"id": "malformed-id", "mode": malformed_mode},
             }
         ]
     )
 
-    assert litellm.model_cost["routing-test-model"]["mode"] == registered_mode
+    assert hangarllm.model_cost["routing-test-model"]["mode"] == registered_mode
     shared_info, _ = responses_api_bridge_check(model="routing-test-model", custom_llm_provider="openai")
     assert shared_info["mode"] == registered_mode
 
@@ -2578,13 +2578,13 @@ def test_a_github_copilot_chat_pin_opts_a_dual_endpoint_model_out_of_the_respons
 ) -> None:
     """``github_copilot`` sends a model listing both endpoints to ``/v1/responses`` unless its row says ``chat``,
     so a ``chat`` pin has to reach the row to keep that model on chat completions."""
-    from litellm.llms.github_copilot.responses.transformation import github_copilot_supports_responses_api
+    from hangarllm.llms.github_copilot.responses.transformation import github_copilot_supports_responses_api
 
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
     (tmp_path / "api-key.json").write_text(json.dumps({"token": "tid=test", "expires_at": _COPILOT_TOKEN_EXPIRES_AT}))
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    litellm.model_cost["github_copilot/routing-test-model"] = {
-        "litellm_provider": "github_copilot",
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    hangarllm.model_cost["github_copilot/routing-test-model"] = {
+        "hangarllm_provider": "github_copilot",
         "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
         "max_input_tokens": 1000,
     }
@@ -2595,7 +2595,7 @@ def test_a_github_copilot_chat_pin_opts_a_dual_endpoint_model_out_of_the_respons
         model_list=[
             {
                 "model_name": "copilot",
-                "litellm_params": {"model": "github_copilot/routing-test-model"},
+                "hangarllm_params": {"model": "github_copilot/routing-test-model"},
                 "model_info": {"id": "copilot-chat-pinned", "mode": "chat"},
             }
         ]
@@ -2619,13 +2619,13 @@ def test_a_github_copilot_responses_pin_still_opts_the_model_into_the_responses_
 ) -> None:
     """``github_copilot`` dispatches ``/v1/responses`` natively by the shared row's mode, and a ``responses``
     pin is its documented opt-in, while a ``chat`` pin must not move a Responses-only row off it."""
-    from litellm.llms.github_copilot.responses.transformation import github_copilot_supports_responses_api
+    from hangarllm.llms.github_copilot.responses.transformation import github_copilot_supports_responses_api
 
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
     (tmp_path / "api-key.json").write_text(json.dumps({"token": "tid=test", "expires_at": _COPILOT_TOKEN_EXPIRES_AT}))
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    litellm.model_cost["github_copilot/routing-test-model"] = {
-        "litellm_provider": "github_copilot",
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    hangarllm.model_cost["github_copilot/routing-test-model"] = {
+        "hangarllm_provider": "github_copilot",
         "mode": registered_mode,
         "supported_endpoints": ["/v1/responses"] if registered_mode == "responses" else ["/v1/chat/completions"],
         "max_input_tokens": 1000,
@@ -2636,7 +2636,7 @@ def test_a_github_copilot_responses_pin_still_opts_the_model_into_the_responses_
         model_list=[
             {
                 "model_name": "copilot",
-                "litellm_params": {"model": model}
+                "hangarllm_params": {"model": model}
                 | ({"custom_llm_provider": custom_llm_provider} if custom_llm_provider else {}),
                 "model_info": {"id": "copilot-pinned", "mode": pinned_mode},
             }
@@ -2653,13 +2653,13 @@ def test_a_discarded_router_stops_contributing_to_later_reloads(monkeypatch):
     so a rebuild driven off live routers is what keeps a caller from growing the
     cost map one request at a time.
     """
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
         kept = Router(
             model_list=[
                 {
                     "model_name": "kept",
-                    "litellm_params": {"model": "hosted_vllm/kept-backend"},
+                    "hangarllm_params": {"model": "hosted_vllm/kept-backend"},
                     "model_info": {"id": "kept-router-id", "max_input_tokens": 4242},
                 }
             ],
@@ -2668,7 +2668,7 @@ def test_a_discarded_router_stops_contributing_to_later_reloads(monkeypatch):
             model_list=[
                 {
                     "model_name": "throwaway",
-                    "litellm_params": {"model": "hosted_vllm/throwaway-backend"},
+                    "hangarllm_params": {"model": "hosted_vllm/throwaway-backend"},
                     "model_info": {"id": "throwaway-router-id", "max_input_tokens": 111},
                 }
             ],
@@ -2676,16 +2676,16 @@ def test_a_discarded_router_stops_contributing_to_later_reloads(monkeypatch):
         throwaway.discard()
 
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"hangarllm_provider": "openai", "mode": "chat"}},
         )
 
-        assert "throwaway-router-id" not in litellm.model_cost
-        assert "hosted_vllm/throwaway-backend" not in litellm.model_cost
-        assert litellm.model_cost["kept-router-id"]["max_input_tokens"] == 4242
-        assert "hosted_vllm/kept-backend" in litellm.model_cost
+        assert "throwaway-router-id" not in hangarllm.model_cost
+        assert "hosted_vllm/throwaway-backend" not in hangarllm.model_cost
+        assert hangarllm.model_cost["kept-router-id"]["max_input_tokens"] == 4242
+        assert "hosted_vllm/kept-backend" in hangarllm.model_cost
         assert kept.model_list  # keep the live router referenced for the duration
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2693,17 +2693,17 @@ def test_a_reload_rebuilds_exactly_what_a_fresh_boot_registered() -> None:
     """
     The rebuild is only correct if it reproduces the entries the original
     registration wrote, including the pieces that are derived rather than stored:
-    custom pricing carried on litellm_params, and the cache pricing inherited from
+    custom pricing carried on hangarllm_params, and the cache pricing inherited from
     the built-in cost map.
     """
-    saved_catalog = litellm.model_cost
-    fetched_catalog = copy.deepcopy(litellm.model_cost)
+    saved_catalog = hangarllm.model_cost
+    fetched_catalog = copy.deepcopy(hangarllm.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "priced",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.000123,
@@ -2713,37 +2713,37 @@ def test_a_reload_rebuilds_exactly_what_a_fresh_boot_registered() -> None:
                 }
             ],
         )
-        at_boot = copy.deepcopy(litellm.model_cost["priced-id"])
+        at_boot = copy.deepcopy(hangarllm.model_cost["priced-id"])
         assert at_boot["input_cost_per_token"] == 0.000123
         assert at_boot["cache_read_input_token_cost"] is not None
-        assert "member_auto_router" not in litellm.model_cost["gpt-4o"]
+        assert "member_auto_router" not in hangarllm.model_cost["gpt-4o"]
 
         _simulate_price_data_reload(
             copy.deepcopy(fetched_catalog),
         )
 
-        rebuilt = litellm.model_cost["priced-id"]
+        rebuilt = hangarllm.model_cost["priced-id"]
         assert at_boot == rebuilt
-        assert "member_auto_router" not in litellm.model_cost["gpt-4o"]
+        assert "member_auto_router" not in hangarllm.model_cost["gpt-4o"]
         assert router.model_list
     finally:
-        litellm.model_cost = saved_catalog
+        hangarllm.model_cost = saved_catalog
         _invalidate_model_cost_lowercase_map()
 
 
-def test_deployment_model_cost_payload_folds_in_litellm_params_pricing():
+def test_deployment_model_cost_payload_folds_in_hangarllm_params_pricing():
     """
-    Custom pricing is configured on litellm_params but has to land in the
+    Custom pricing is configured on hangarllm_params but has to land in the
     cost-map entry, and setting it pulls in the built-in cache pricing for the
     backend model. Both are what make the entry reproducible from a deployment.
     """
-    model_keys = {"payload-id": copy.deepcopy(litellm.model_cost.get("payload-id"))}
+    model_keys = {"payload-id": copy.deepcopy(hangarllm.model_cost.get("payload-id"))}
     try:
         Router(
             model_list=[
                 Deployment(
                     model_name="priced",
-                    litellm_params=LiteLLM_Params(
+                    hangarllm_params=HangarLLM_Params(
                         model="gemini/gemini-2.5-pro",
                         input_cost_per_token=0.000123,
                     ),
@@ -2751,7 +2751,7 @@ def test_deployment_model_cost_payload_folds_in_litellm_params_pricing():
                 ).to_json(exclude_none=True)
             ]
         )
-        payload = litellm.model_cost["payload-id"]
+        payload = hangarllm.model_cost["payload-id"]
 
         assert payload["id"] == "payload-id"
         assert payload["max_input_tokens"] == 4242
@@ -2764,7 +2764,7 @@ def test_deployment_model_cost_payload_folds_in_litellm_params_pricing():
 def test_deployment_model_cost_payload_includes_builtin_service_tier_pricing() -> None:
     model_id: Final = "tier-priced-payload"
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, _TIER_BACKEND_MODEL, model_id)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (_TIER_BACKEND_KEY, _TIER_BACKEND_MODEL, model_id)
     }
     try:
         _register_tier_backend()
@@ -2772,7 +2772,7 @@ def test_deployment_model_cost_payload_includes_builtin_service_tier_pricing() -
             model_list=[
                 Deployment(
                     model_name="tier-priced-payload",
-                    litellm_params=LiteLLM_Params(
+                    hangarllm_params=HangarLLM_Params(
                         model=_TIER_BACKEND_MODEL,
                         custom_llm_provider="openai",
                         input_cost_per_token=_CUSTOM_STANDARD_INPUT_RATE,
@@ -2782,7 +2782,7 @@ def test_deployment_model_cost_payload_includes_builtin_service_tier_pricing() -
                 ).to_json(exclude_none=True)
             ]
         )
-        payload: Final = litellm.model_cost[model_id]
+        payload: Final = hangarllm.model_cost[model_id]
 
         assert payload["input_cost_per_token_ultrafast"] == _TIER_BACKEND_ENTRY["input_cost_per_token_ultrafast"]
         assert payload["output_cost_per_token_ultrafast"] == _TIER_BACKEND_ENTRY["output_cost_per_token_ultrafast"]
@@ -2791,7 +2791,7 @@ def test_deployment_model_cost_payload_includes_builtin_service_tier_pricing() -
         assert payload["output_cost_per_token"] == _CUSTOM_STANDARD_OUTPUT_RATE
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_register_deployment_in_model_cost_writes_both_key_families():
@@ -2801,22 +2801,22 @@ def test_register_deployment_in_model_cost_writes_both_key_families():
     pick up the deployment's private metadata.
     """
     model_keys = {
-        "both-families-id": copy.deepcopy(litellm.model_cost.get("both-families-id")),
-        "hosted_vllm/both-families-backend": copy.deepcopy(litellm.model_cost.get("hosted_vllm/both-families-backend")),
+        "both-families-id": copy.deepcopy(hangarllm.model_cost.get("both-families-id")),
+        "hosted_vllm/both-families-backend": copy.deepcopy(hangarllm.model_cost.get("hosted_vllm/both-families-backend")),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "both-families",
-                    "litellm_params": {"model": "hosted_vllm/both-families-backend"},
+                    "hangarllm_params": {"model": "hosted_vllm/both-families-backend"},
                     "model_info": {"id": "both-families-id", "max_input_tokens": 999},
                 }
             ]
         )
 
-        assert litellm.model_cost["both-families-id"]["max_input_tokens"] == 999
-        shared = litellm.model_cost["hosted_vllm/both-families-backend"]
+        assert hangarllm.model_cost["both-families-id"]["max_input_tokens"] == 999
+        shared = hangarllm.model_cost["hosted_vllm/both-families-backend"]
         assert shared["max_input_tokens"] == 999
         assert "id" not in shared
     finally:
@@ -2833,38 +2833,38 @@ def test_router_registration_keeps_ultrafast_long_context_deployment_pricing() -
         "cache_creation_input_token_cost_above_272k_tokens_ultrafast": 0.00015,
     }
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (model_id, backend_key, "gpt-6-astra")
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (model_id, backend_key, "gpt-6-astra")
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "ultrafast-long-context-pricing",
-                    "litellm_params": {"model": backend_key, **rates},
+                    "hangarllm_params": {"model": backend_key, **rates},
                     "model_info": {"id": model_id},
                 }
             ]
         )
 
-        assert {key: litellm.model_cost[model_id][key] for key in rates} == rates
+        assert {key: hangarllm.model_cost[model_id][key] for key in rates} == rates
     finally:
         _restore_model_cost_entries(model_cost_entries)
 
 
-def test_reload_keeps_custom_pricing_configured_on_litellm_params_for_a_db_model():
+def test_reload_keeps_custom_pricing_configured_on_hangarllm_params_for_a_db_model():
     """
     A deployment added at runtime, which is what /model/new does, configures its
-    custom pricing on litellm_params rather than on model_info. A price data
+    custom pricing on hangarllm_params rather than on model_info. A price data
     reload must not revert that to the catalog's pricing.
     """
-    saved_catalog = litellm.model_cost
-    fetched_catalog = copy.deepcopy(litellm.model_cost)
+    saved_catalog = hangarllm.model_cost
+    fetched_catalog = copy.deepcopy(hangarllm.model_cost)
     try:
         router = Router(model_list=[])
         router.add_deployment(
             deployment=Deployment(
                 model_name="db-priced",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     model="openai/gpt-4o",
                     api_key="sk-fake",
                     input_cost_per_token=0.000123,
@@ -2874,16 +2874,16 @@ def test_reload_keeps_custom_pricing_configured_on_litellm_params_for_a_db_model
             )
         )
 
-        assert litellm.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
+        assert hangarllm.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
 
         _simulate_price_data_reload(
             copy.deepcopy(fetched_catalog),
         )
 
-        assert litellm.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
-        assert litellm.model_cost["db-priced-id"]["output_cost_per_token"] == 0.000456
+        assert hangarllm.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
+        assert hangarllm.model_cost["db-priced-id"]["output_cost_per_token"] == 0.000456
     finally:
-        litellm.model_cost = saved_catalog
+        hangarllm.model_cost = saved_catalog
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2895,12 +2895,12 @@ def test_reload_keeps_custom_pricing_of_a_db_model_on_a_router_built_without_a_m
     takes every deployment from the DB afterwards. A price data reload must restore
     that deployment's custom pricing exactly as it does for a config router.
     """
-    fetched_catalog: Final = copy.deepcopy(litellm.model_cost)
+    fetched_catalog: Final = copy.deepcopy(hangarllm.model_cost)
     router: Final = Router()
     router.add_deployment(
         deployment=Deployment(
             model_name="db-only-priced",
-            litellm_params=LiteLLM_Params(
+            hangarllm_params=HangarLLM_Params(
                 model="openai/gpt-4o",
                 api_key="sk-fake",
                 input_cost_per_token=0.000123,
@@ -2909,12 +2909,12 @@ def test_reload_keeps_custom_pricing_of_a_db_model_on_a_router_built_without_a_m
             model_info=ModelInfo(id="db-only-priced-id"),
         )
     )
-    assert litellm.model_cost["db-only-priced-id"]["input_cost_per_token"] == 0.000123
+    assert hangarllm.model_cost["db-only-priced-id"]["input_cost_per_token"] == 0.000123
 
     _simulate_price_data_reload_with_provider_sets(monkeypatch, fetched_catalog)
 
-    assert litellm.model_cost["db-only-priced-id"]["input_cost_per_token"] == 0.000123
-    assert litellm.model_cost["db-only-priced-id"]["output_cost_per_token"] == 0.000456
+    assert hangarllm.model_cost["db-only-priced-id"]["input_cost_per_token"] == 0.000123
+    assert hangarllm.model_cost["db-only-priced-id"]["output_cost_per_token"] == 0.000456
 
 
 def test_replay_live_router_model_cost_rebuilds_every_live_router():
@@ -2922,13 +2922,13 @@ def test_replay_live_router_model_cost_rebuilds_every_live_router():
     A process can hold more than one Router, so the rebuild has to fan out across
     all of them rather than restoring whichever one happens to be reachable.
     """
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
         first = Router(
             model_list=[
                 {
                     "model_name": "first",
-                    "litellm_params": {"model": "hosted_vllm/first-backend"},
+                    "hangarllm_params": {"model": "hosted_vllm/first-backend"},
                     "model_info": {"id": "first-id", "max_input_tokens": 111},
                 }
             ],
@@ -2937,19 +2937,19 @@ def test_replay_live_router_model_cost_rebuilds_every_live_router():
             model_list=[
                 {
                     "model_name": "second",
-                    "litellm_params": {"model": "hosted_vllm/second-backend"},
+                    "hangarllm_params": {"model": "hosted_vllm/second-backend"},
                     "model_info": {"id": "second-id", "max_input_tokens": 222},
                 }
             ],
         )
 
-        _simulate_price_data_reload({"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}})
+        _simulate_price_data_reload({"gpt-4o": {"hangarllm_provider": "openai", "mode": "chat"}})
 
-        assert litellm.model_cost["first-id"]["max_input_tokens"] == 111
-        assert litellm.model_cost["second-id"]["max_input_tokens"] == 222
+        assert hangarllm.model_cost["first-id"]["max_input_tokens"] == 111
+        assert hangarllm.model_cost["second-id"]["max_input_tokens"] == 222
         assert first.model_list and second.model_list
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2962,19 +2962,19 @@ def test_strategy_router_alias_pricing_never_enters_model_cost(monkeypatch):
     strip must also survive a price-data reload, which rebuilds entries by
     walking the live routers.
     """
-    from litellm import utils as litellm_utils
+    from hangarllm import utils as hangarllm_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "smart-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router/smart-router",
                     "complexity_router_default_model": "paid-model",
                     "input_cost_per_token": 0.0,
@@ -2985,14 +2985,14 @@ def test_strategy_router_alias_pricing_never_enters_model_cost(monkeypatch):
             },
             {
                 "model_name": "paid-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                 "model_info": {"id": "strategy-alias-paid-id"},
             },
         ],
     )
 
     def _assert_alias_unpriced():
-        entry = litellm.model_cost.get("strategy-alias-id")
+        entry = hangarllm.model_cost.get("strategy-alias-id")
         assert entry is not None, "Alias metadata should still be registered"
         assert entry["max_input_tokens"] == 128000
         assert "input_cost_per_token" not in entry
@@ -3000,15 +3000,15 @@ def test_strategy_router_alias_pricing_never_enters_model_cost(monkeypatch):
 
     _assert_alias_unpriced()
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"hangarllm_provider": "openai", "mode": "chat"}},
         )
         _assert_alias_unpriced()
         assert router.model_list
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -3023,17 +3023,17 @@ _PTU_MODEL_INFO = {
 }
 
 
-def _ptu_router(model_info=None, litellm_params=None, ptu_enabled=True):
+def _ptu_router(model_info=None, hangarllm_params=None, ptu_enabled=True):
     """A router built the way loading config.yaml builds one."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True" if ptu_enabled else ""}, clear=False):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True" if ptu_enabled else ""}, clear=False):
         return Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-ptu",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-sonnet-4-5-20250929",
                         "api_key": "sk-not-used",
-                        **(litellm_params or {}),
+                        **(hangarllm_params or {}),
                     },
                     "model_info": dict(_PTU_MODEL_INFO if model_info is None else model_info),
                 }
@@ -3045,13 +3045,13 @@ def test_a_config_ptu_deployment_bills_nothing_per_token():
     """Reserved capacity is already billed by the hour, so charging its traffic bills the
     same tokens twice. Left unset the rate falls back to the public cost map, which makes
     the double charge the default rather than an opt-in."""
-    router = _ptu_router(litellm_params={"input_cost_per_token": 5e-06, "output_cost_per_token": 1.5e-05})
+    router = _ptu_router(hangarllm_params={"input_cost_per_token": 5e-06, "output_cost_per_token": 1.5e-05})
     entry = router.model_list[0]
 
-    assert entry["litellm_params"]["input_cost_per_token"] == 0.0
-    assert entry["litellm_params"]["output_cost_per_token"] == 0.0
+    assert entry["hangarllm_params"]["input_cost_per_token"] == 0.0
+    assert entry["hangarllm_params"]["output_cost_per_token"] == 0.0
     assert entry["model_info"]["input_cost_per_token"] == 0.0
-    assert litellm.model_cost[entry["model_info"]["id"]]["input_cost_per_token"] == 0.0
+    assert hangarllm.model_cost[entry["model_info"]["id"]]["input_cost_per_token"] == 0.0
 
 
 @pytest.mark.parametrize(
@@ -3070,11 +3070,11 @@ def test_a_config_ptu_deployment_imports_no_cache_rate_from_its_backend(backend)
         "cache_read_input_token_cost",
         "cache_read_input_token_cost_above_200k_tokens",
     )
-    builtin = litellm.get_model_info(model=backend)
+    builtin = hangarllm.get_model_info(model=backend)
     assert any(builtin.get(field) for field in cache_fields), "backend publishes no cache pricing to leak"
 
-    router = _ptu_router(litellm_params={"model": backend})
-    priced = litellm.model_cost[router.model_list[0]["model_info"]["id"]]
+    router = _ptu_router(hangarllm_params={"model": backend})
+    priced = hangarllm.model_cost[router.model_list[0]["model_info"]["id"]]
 
     assert [field for field in cache_fields if priced.get(field)] == []
 
@@ -3082,12 +3082,12 @@ def test_a_config_ptu_deployment_imports_no_cache_rate_from_its_backend(backend)
 def test_zeroing_a_ptu_deployment_leaves_its_backend_model_priced():
     """A sibling deployment on the same backend must keep billing normally."""
     backend = "anthropic/claude-sonnet-4-5-20250929"
-    builtin = litellm.get_model_info(model=backend)["input_cost_per_token"]
+    builtin = hangarllm.get_model_info(model=backend)["input_cost_per_token"]
     assert builtin > 0
 
-    _ptu_router(litellm_params={"model": backend})
+    _ptu_router(hangarllm_params={"model": backend})
 
-    assert litellm.get_model_info(model=backend)["input_cost_per_token"] == builtin
+    assert hangarllm.get_model_info(model=backend)["input_cost_per_token"] == builtin
 
 
 def test_the_registered_id_is_the_one_the_operator_declared():
@@ -3098,8 +3098,8 @@ def test_the_registered_id_is_the_one_the_operator_declared():
     A derived id is no longer reachable for a reservation: zeroing requires PTU terms and
     PTU terms now require a declared id, so the two never combine."""
     params = {"input_cost_per_token": 5e-06}
-    priced = _ptu_router(litellm_params=params, ptu_enabled=False).model_list[0]["model_info"]["id"]
-    zeroed = _ptu_router(litellm_params=params).model_list[0]["model_info"]["id"]
+    priced = _ptu_router(hangarllm_params=params, ptu_enabled=False).model_list[0]["model_info"]["id"]
+    zeroed = _ptu_router(hangarllm_params=params).model_list[0]["model_info"]["id"]
 
     assert priced == zeroed == "ptu-alpha-eastus"
 
@@ -3109,14 +3109,14 @@ def test_a_database_backed_deployment_is_left_alone():
     rewriting a rate the caller sent."""
     entry = _ptu_router(model_info={**_PTU_MODEL_INFO, "db_model": True}).model_list[0]
 
-    assert entry["litellm_params"].get("input_cost_per_token") is None
+    assert entry["hangarllm_params"].get("input_cost_per_token") is None
 
 
 def test_nothing_is_zeroed_while_the_feature_is_off():
     """No flat cost accrues with the flag off, so zeroing would serve the traffic free."""
-    entry = _ptu_router(litellm_params={"input_cost_per_token": 5e-06}, ptu_enabled=False).model_list[0]
+    entry = _ptu_router(hangarllm_params={"input_cost_per_token": 5e-06}, ptu_enabled=False).model_list[0]
 
-    assert entry["litellm_params"]["input_cost_per_token"] == 5e-06
+    assert entry["hangarllm_params"]["input_cost_per_token"] == 5e-06
 
 
 @pytest.mark.parametrize("dropped", ["team_id", "ptu_effective_from"], ids=["no team_id", "no ptu_effective_from"])
@@ -3127,7 +3127,7 @@ def test_an_incomplete_reservation_is_refused_rather_than_served(dropped):
     incomplete = {k: v for k, v in _PTU_MODEL_INFO.items() if k != dropped}
 
     with pytest.raises(ValueError, match="PTU configuration on model 'gpt") as raised:
-        _ptu_router(model_info=incomplete, litellm_params={"input_cost_per_token": 5e-06})
+        _ptu_router(model_info=incomplete, hangarllm_params={"input_cost_per_token": 5e-06})
 
     assert "gpt-4o-ptu" in str(raised.value)
 
@@ -3158,10 +3158,10 @@ def test_an_incomplete_reservation_is_left_alone_while_the_feature_is_off(droppe
     serving model away from an operator who never opted in."""
     incomplete = {k: v for k, v in _PTU_MODEL_INFO.items() if k != dropped}
     entry = _ptu_router(
-        model_info=incomplete, litellm_params={"input_cost_per_token": 5e-06}, ptu_enabled=False
+        model_info=incomplete, hangarllm_params={"input_cost_per_token": 5e-06}, ptu_enabled=False
     ).model_list[0]
 
-    assert entry["litellm_params"]["input_cost_per_token"] == 5e-06
+    assert entry["hangarllm_params"]["input_cost_per_token"] == 5e-06
 
 
 @pytest.mark.parametrize("dropped", ["team_id", "ptu_effective_from"], ids=["no team_id", "no ptu_effective_from"])
@@ -3169,17 +3169,17 @@ def test_the_proxy_drops_the_deployment_rather_than_failing_to_boot(dropped):
     """The proxy builds its router with ignore_invalid_deployments, so one bad entry must
     cost that entry and not the whole config."""
     incomplete = {k: v for k, v in _PTU_MODEL_INFO.items() if k != dropped}
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-ptu",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
+                    "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
                     "model_info": dict(incomplete),
                 },
                 {
                     "model_name": "plain-sibling",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
+                    "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
                 },
             ],
             ignore_invalid_deployments=True,
@@ -3193,26 +3193,26 @@ def test_a_complete_reservation_still_registers():
     entry = _ptu_router().model_list[0]
 
     assert entry["model_name"] == "gpt-4o-ptu"
-    assert entry["litellm_params"]["input_cost_per_token"] == 0.0
+    assert entry["hangarllm_params"]["input_cost_per_token"] == 0.0
 
 
 def test_nested_custom_model_info_does_not_pollute_shared_backend():
     backend_model = "gpt-4o-search-preview"
     custom_id = "lit5471-search-custom"
     sibling_id = "lit5471-search-sibling"
-    builtin_info = copy.deepcopy(litellm.get_model_info(model=backend_model))
+    builtin_info = copy.deepcopy(hangarllm.get_model_info(model=backend_model))
     expected_nested = copy.deepcopy(builtin_info["search_context_cost_per_query"])
     model_keys = {
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
-        custom_id: copy.deepcopy(litellm.model_cost.get(custom_id)),
-        sibling_id: copy.deepcopy(litellm.model_cost.get(sibling_id)),
+        backend_model: copy.deepcopy(hangarllm.model_cost.get(backend_model)),
+        custom_id: copy.deepcopy(hangarllm.model_cost.get(custom_id)),
+        sibling_id: copy.deepcopy(hangarllm.model_cost.get(sibling_id)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "search-custom",
-                    "litellm_params": {"model": backend_model, "api_key": "fake-key"},
+                    "hangarllm_params": {"model": backend_model, "api_key": "fake-key"},
                     "model_info": {
                         "id": custom_id,
                         "search_context_cost_per_query": {
@@ -3222,7 +3222,7 @@ def test_nested_custom_model_info_does_not_pollute_shared_backend():
                 },
                 {
                     "model_name": "search-sibling",
-                    "litellm_params": {"model": backend_model, "api_key": "fake-key"},
+                    "hangarllm_params": {"model": backend_model, "api_key": "fake-key"},
                     "model_info": {"id": sibling_id},
                 },
             ],
@@ -3233,28 +3233,28 @@ def test_nested_custom_model_info_does_not_pollute_shared_backend():
 
         assert custom_info is not None
         assert custom_info["search_context_cost_per_query"]["search_context_size_low"] == 0.123
-        assert litellm.model_cost[backend_model]["search_context_cost_per_query"] == expected_nested
+        assert hangarllm.model_cost[backend_model]["search_context_cost_per_query"] == expected_nested
         assert sibling_info is not None
         assert sibling_info["search_context_cost_per_query"] == expected_nested
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_base_model_custom_info_does_not_pollute_cached_base_model():
     base_model = "azure/gpt-4o"
     deployment_id = "lit5471-base-model"
-    base_model_info = copy.deepcopy(litellm.get_model_info(model=base_model))
+    base_model_info = copy.deepcopy(hangarllm.get_model_info(model=base_model))
     model_keys = {
-        "azure/gpt-4o": copy.deepcopy(litellm.model_cost.get("azure/gpt-4o")),
-        deployment_id: copy.deepcopy(litellm.model_cost.get(deployment_id)),
+        "azure/gpt-4o": copy.deepcopy(hangarllm.model_cost.get("azure/gpt-4o")),
+        deployment_id: copy.deepcopy(hangarllm.model_cost.get(deployment_id)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "azure-custom",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-4o",
                         "custom_llm_provider": "azure",
                         "api_key": "fake-key",
@@ -3272,19 +3272,19 @@ def test_base_model_custom_info_does_not_pollute_cached_base_model():
 
         assert info is not None
         assert info["input_cost_per_token"] == 0.777
-        assert litellm.get_model_info(model=base_model) == base_model_info
+        assert hangarllm.get_model_info(model=base_model) == base_model_info
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_builtin_only_deployment_info_is_not_the_cached_object():
     backend_model = "gpt-4o-search-preview"
     deployment_id = "lit5471-builtin-only"
-    litellm.get_model_info.cache_clear()
-    model_keys = {deployment_id: copy.deepcopy(litellm.model_cost.get(deployment_id))}
+    hangarllm.get_model_info.cache_clear()
+    model_keys = {deployment_id: copy.deepcopy(hangarllm.model_cost.get(deployment_id))}
     try:
-        cached_info = litellm.get_model_info(model=backend_model)
+        cached_info = hangarllm.get_model_info(model=backend_model)
         assert cached_info["search_context_cost_per_query"]
 
         info = Router(model_list=[]).get_deployment_model_info(model_id=deployment_id, model_name=backend_model)
@@ -3294,7 +3294,7 @@ def test_builtin_only_deployment_info_is_not_the_cached_object():
         assert _nested_container_ids(info).isdisjoint(_nested_container_ids(cached_info))
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_custom_only_deployment_info_is_not_the_registry_entry():
@@ -3302,20 +3302,20 @@ def test_custom_only_deployment_info_is_not_the_registry_entry():
     deployment_id = "lit5471-custom-only"
     nested_pricing = {"search_context_size_low": 0.123}
     model_keys = {
-        unknown_backend: copy.deepcopy(litellm.model_cost.get(unknown_backend)),
-        deployment_id: copy.deepcopy(litellm.model_cost.get(deployment_id)),
+        unknown_backend: copy.deepcopy(hangarllm.model_cost.get(unknown_backend)),
+        deployment_id: copy.deepcopy(hangarllm.model_cost.get(deployment_id)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "custom-only",
-                    "litellm_params": {"model": unknown_backend, "api_key": "fake-key"},
+                    "hangarllm_params": {"model": unknown_backend, "api_key": "fake-key"},
                     "model_info": {"id": deployment_id, "search_context_cost_per_query": dict(nested_pricing)},
                 }
             ],
         )
-        registry_entry = litellm.model_cost[deployment_id]
+        registry_entry = hangarllm.model_cost[deployment_id]
 
         info = router.get_deployment_model_info(model_id=deployment_id, model_name=unknown_backend)
 
@@ -3324,14 +3324,14 @@ def test_custom_only_deployment_info_is_not_the_registry_entry():
         assert _nested_container_ids(info).isdisjoint(_nested_container_ids(registry_entry))
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_router_model_info_deep_copies_nested_cached_metadata():
     model = "openai/gpt-4o-search-preview"
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     try:
-        cached_info = litellm.get_model_info(model=model)
+        cached_info = hangarllm.get_model_info(model=model)
         assert cached_info is not None
         expected_nested = copy.deepcopy(cached_info["search_context_cost_per_query"])
         assert expected_nested
@@ -3340,7 +3340,7 @@ def test_router_model_info_deep_copies_nested_cached_metadata():
         merged_info = router.get_router_model_info(
             deployment={
                 "model_name": "search",
-                "litellm_params": {"model": "gpt-4o-search-preview"},
+                "hangarllm_params": {"model": "gpt-4o-search-preview"},
                 "model_info": {"id": "lit5471-router-model-info"},
             },
             received_model_name="search",
@@ -3348,16 +3348,16 @@ def test_router_model_info_deep_copies_nested_cached_metadata():
 
         assert merged_info["search_context_cost_per_query"] == expected_nested
         assert _nested_container_ids(merged_info).isdisjoint(_nested_container_ids(cached_info))
-        assert litellm.get_model_info(model=model)["search_context_cost_per_query"] == expected_nested
+        assert hangarllm.get_model_info(model=model)["search_context_cost_per_query"] == expected_nested
     finally:
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 # --- a config.yaml reservation must carry an id its operator owns --------------------
 
 
 def test_a_reservation_without_a_declared_id_is_refused():
-    """Left underived the id is a hash of the resolved litellm_params, so rotating the
+    """Left underived the id is a hash of the resolved hangarllm_params, so rotating the
     credential mints a second identity and the catch-up bills the window again under it.
     The flat cost is keyed by that id and a written charge is never retracted, so the
     duplicate is permanent."""
@@ -3384,18 +3384,18 @@ def test_a_reservation_is_left_alone_while_the_feature_is_off():
 def test_two_reservations_cannot_share_one_id():
     """Both would key the same sentinel row, so the second upsert overwrites the first and
     one reservation is billed at the other's rate."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         with pytest.raises(ValueError, match="declared on more than one deployment"):
             Router(
                 model_list=[
                     {
                         "model_name": "azure-ptu",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": dict(_PTU_MODEL_INFO),
                     },
                     {
                         "model_name": "azure-ptu-west",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                         "model_info": dict(_PTU_MODEL_INFO),
                     },
                 ]
@@ -3404,17 +3404,17 @@ def test_two_reservations_cannot_share_one_id():
 
 def test_two_reservations_with_distinct_ids_both_register():
     """The refusal must be scoped to a collision, not to a team running two regions."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         router = Router(
             model_list=[
                 {
                     "model_name": "azure-ptu",
-                    "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                    "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                     "model_info": dict(_PTU_MODEL_INFO),
                 },
                 {
                     "model_name": "azure-ptu-west",
-                    "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                    "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                     "model_info": {**_PTU_MODEL_INFO, "id": "ptu-alpha-westus"},
                 },
             ]
@@ -3431,11 +3431,11 @@ def test_a_duplicate_id_is_caught_whatever_yaml_parsed_it_as(declared):
     def entry(name, region):
         return {
             "model_name": name,
-            "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": f"https://{region}.azure.com"},
+            "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": f"https://{region}.azure.com"},
             "model_info": {**_PTU_MODEL_INFO, "id": declared},
         }
 
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         with pytest.raises(ValueError, match="declared on more than one deployment"):
             Router(model_list=[entry("a", "eastus"), entry("b", "westus")])
 
@@ -3461,18 +3461,18 @@ def test_a_reservation_declaring_id_zero_registers():
 def test_a_falsy_id_is_still_scanned_for_collisions():
     """The duplicate scan skipped falsy ids, so a reservation on '0' could share its key with
     an ordinary deployment and the id index would keep only the last one registered."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         with pytest.raises(ValueError, match="declared on more than one deployment"):
             Router(
                 model_list=[
                     {
                         "model_name": "azure-ptu",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": {**_PTU_MODEL_INFO, "id": "0"},
                     },
                     {
                         "model_name": "plain-sibling",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                         "model_info": {"id": 0},
                     },
                 ]
@@ -3486,25 +3486,25 @@ def _ptu_warnings(caplog):
     return tuple(
         record.getMessage()
         for record in caplog.records
-        if record.name == "LiteLLM Router" and record.levelno == logging.WARNING and "PTU" in record.getMessage()
+        if record.name == "HangarLLM Router" and record.levelno == logging.WARNING and "PTU" in record.getMessage()
     )
 
 
 def test_a_reservation_declared_while_the_feature_is_off_is_warned_about(caplog):
     """The deployment serves and bills per token, so without this the operator believes they
     reserved capacity and sees no signal anywhere that nothing accrues."""
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         _ptu_router(ptu_enabled=False)
 
     warnings = _ptu_warnings(caplog)
 
     assert len(warnings) == 1
     assert "gpt-4o-ptu" in warnings[0]
-    assert "LITELLM_ENABLE_PTU_COST_ATTRIBUTION" in warnings[0]
+    assert "HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION" in warnings[0]
 
 
 def test_a_reservation_is_not_warned_about_while_the_feature_is_on(caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         _ptu_router()
 
     assert _ptu_warnings(caplog) == ()
@@ -3512,7 +3512,7 @@ def test_a_reservation_is_not_warned_about_while_the_feature_is_on(caplog):
 
 def test_a_deployment_carrying_no_ptu_field_is_not_warned_about(caplog):
     """Most of every config.yaml, so warning here would fire on proxies that never asked."""
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         _ptu_router(model_info={"team_id": "team-alpha"}, ptu_enabled=False)
 
     assert _ptu_warnings(caplog) == ()
@@ -3523,7 +3523,7 @@ def test_a_half_written_reservation_is_warned_about(caplog):
     declare one, so what they wrote is what decides whether they hear about it."""
     half_written = {k: v for k, v in _PTU_MODEL_INFO.items() if k != "cost_per_ptu_per_hour"}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         _ptu_router(model_info=half_written, ptu_enabled=False)
 
     assert len(_ptu_warnings(caplog)) == 1
@@ -3545,14 +3545,14 @@ def test_a_reservation_dropped_by_a_typo_is_warned_about(caplog, typo):
     Built the way proxy_server builds it, since dropping rather than raising is what
     ``ignore_invalid_deployments`` does and config.yaml is loaded with it on.
     """
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
             router = Router(
                 ignore_invalid_deployments=True,
                 model_list=[
                     {
                         "model_name": "gpt-4o-ptu",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": {**_PTU_MODEL_INFO, **typo},
                     }
                 ],
@@ -3565,7 +3565,7 @@ def test_a_reservation_dropped_by_a_typo_is_warned_about(caplog, typo):
 def test_a_db_backed_reservation_is_not_warned_about(caplog):
     """/model/new already answered the caller with a 400, so repeating it on every reload
     would report the operator's own rejected write back to them as a standing problem."""
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         _ptu_router(model_info={**_PTU_MODEL_INFO, "db_model": True}, ptu_enabled=False)
 
     assert _ptu_warnings(caplog) == ()
@@ -3573,23 +3573,23 @@ def test_a_db_backed_reservation_is_not_warned_about(caplog):
 
 def test_every_declaring_deployment_is_named(caplog):
     """One line naming all of them, so a reload does not bury the config in repeats."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with patch.dict(os.environ, {"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
             Router(
                 model_list=[
                     {
                         "model_name": "azure-ptu-east",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": dict(_PTU_MODEL_INFO),
                     },
                     {
                         "model_name": "azure-ptu-west",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                         "model_info": {**_PTU_MODEL_INFO, "id": "ptu-alpha-westus"},
                     },
                     {
                         "model_name": "plain-gpt-4o",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://p.azure.com"},
+                        "hangarllm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://p.azure.com"},
                         "model_info": {"id": "plain"},
                     },
                 ]
@@ -3606,9 +3606,9 @@ def test_every_declaring_deployment_is_named(caplog):
 def _simulate_price_data_reload_with_provider_sets(monkeypatch, fetched_catalog):
     """Like `_simulate_price_data_reload`, plus the provider model-set refresh the proxy's
     `_swap_in_model_cost_map` does before replaying, so bare names in the new catalog resolve."""
-    monkeypatch.setattr(litellm, "model_cost", fetched_catalog)
+    monkeypatch.setattr(hangarllm, "model_cost", fetched_catalog)
     _invalidate_model_cost_lowercase_map()
-    litellm.add_known_models(model_cost_map=fetched_catalog)
+    hangarllm.add_known_models(model_cost_map=fetched_catalog)
     reapply_runtime_model_cost_registrations()
 
 
@@ -3625,12 +3625,12 @@ def test_a_config_deployment_dropped_by_a_stale_cost_map_comes_back_on_reload(mo
             model_list=[
                 {
                     "model_name": "new-model",
-                    "litellm_params": {"model": backend, "api_key": "k"},
+                    "hangarllm_params": {"model": backend, "api_key": "k"},
                     "model_info": {"id": "new-id", "access_groups": ["team-models"]},
                 },
                 {
                     "model_name": "control-model",
-                    "litellm_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
+                    "hangarllm_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
                     "model_info": {"id": "control-id", "access_groups": ["team-models"]},
                 },
             ],
@@ -3639,17 +3639,17 @@ def test_a_config_deployment_dropped_by_a_stale_cost_map_comes_back_on_reload(mo
         assert router.get_model_names() == ["control-model"]
         assert router.get_model_access_groups(model_name="new-model") == {}
 
-        fresh_catalog = {**litellm.model_cost, backend: {"litellm_provider": "openai", "mode": "chat"}}
+        fresh_catalog = {**hangarllm.model_cost, backend: {"hangarllm_provider": "openai", "mode": "chat"}}
         _simulate_price_data_reload_with_provider_sets(monkeypatch, fresh_catalog)
         _simulate_price_data_reload_with_provider_sets(monkeypatch, fresh_catalog)
 
         assert sorted(router.get_model_names()) == ["control-model", "new-model"]
         assert router.get_model_access_groups(model_name="new-model") == {"team-models": ["new-model"]}
         assert [d["model_info"]["id"] for d in router.model_list] == ["control-id", "new-id"]
-        assert "new-id" in litellm.model_cost
+        assert "new-id" in hangarllm.model_cost
     finally:
-        litellm.open_ai_chat_completion_models.discard(backend)
-        litellm.models_by_provider["openai"].discard(backend)
+        hangarllm.open_ai_chat_completion_models.discard(backend)
+        hangarllm.models_by_provider["openai"].discard(backend)
 
 
 def test_a_config_deployment_dropped_for_a_permanent_reason_is_not_retried_on_reload(monkeypatch):
@@ -3663,12 +3663,12 @@ def test_a_config_deployment_dropped_for_a_permanent_reason_is_not_retried_on_re
         model_list=[
             {
                 "model_name": "vertex-passthrough",
-                "litellm_params": {"model": "vertex_ai/gemini-2.5-flash", "use_in_pass_through": True},
+                "hangarllm_params": {"model": "vertex_ai/gemini-2.5-flash", "use_in_pass_through": True},
                 "model_info": {"id": "vertex-id"},
             },
             {
                 "model_name": "control-model",
-                "litellm_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
+                "hangarllm_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
                 "model_info": {"id": "control-id"},
             },
         ],
@@ -3677,7 +3677,7 @@ def test_a_config_deployment_dropped_for_a_permanent_reason_is_not_retried_on_re
     assert router.get_model_names() == ["control-model"]
     names_after_boot = list(router.deployment_names)
 
-    _simulate_price_data_reload_with_provider_sets(monkeypatch, dict(litellm.model_cost))
+    _simulate_price_data_reload_with_provider_sets(monkeypatch, dict(hangarllm.model_cost))
 
     assert router.get_model_names() == ["control-model"]
     assert router.deployment_names == names_after_boot
@@ -3694,7 +3694,7 @@ def test_price_data_reload_refreshes_the_cached_model_group_and_deployment_info(
         model_list=[
             {
                 "model_name": "grp",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k"},
                 "model_info": {"id": "dep-a"},
             }
         ]
@@ -3703,7 +3703,7 @@ def test_price_data_reload_refreshes_the_cached_model_group_and_deployment_info(
     assert router.cached_deployment_model_info("dep-a", "openai/gpt-4o")["input_cost_per_token"] == old_price
 
     new_price = old_price * 10
-    fresh_catalog = copy.deepcopy(litellm.model_cost)
+    fresh_catalog = copy.deepcopy(hangarllm.model_cost)
     fresh_catalog["gpt-4o"]["input_cost_per_token"] = new_price
     _simulate_price_data_reload_with_provider_sets(monkeypatch, fresh_catalog)
 
@@ -3714,9 +3714,9 @@ def test_price_data_reload_refreshes_the_cached_model_group_and_deployment_info(
 def test_price_data_reload_keeps_geo_deployments_priced_while_requests_register_pricing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    catalog: Final = litellm.get_model_cost_map(url="")
-    monkeypatch.setattr(litellm, "model_cost", dict(catalog))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    catalog: Final = hangarllm.get_model_cost_map(url="")
+    monkeypatch.setattr(hangarllm, "model_cost", dict(catalog))
     _invalidate_model_cost_lowercase_map()
     backends: Final = tuple(
         f"bedrock/au.anthropic.{model}"
@@ -3730,7 +3730,7 @@ def test_price_data_reload_keeps_geo_deployments_priced_while_requests_register_
         model_list=[
             {
                 "model_name": backend.rsplit(".", 1)[-1],
-                "litellm_params": {"model": backend, "aws_region_name": "ap-southeast-2"},
+                "hangarllm_params": {"model": backend, "aws_region_name": "ap-southeast-2"},
                 "model_info": {"id": f"lit-5853-dep-{index}"},
             }
             for index, backend in enumerate(backends)
@@ -3745,10 +3745,10 @@ def test_price_data_reload_keeps_geo_deployments_priced_while_requests_register_
                 if stop.is_set():
                     writer_outcome.put(i)
                     return
-                litellm.register_model(
+                hangarllm.register_model(
                     {
                         f"lit-5853-writer-{i}": {
-                            "litellm_provider": "lit-5853-writer",
+                            "hangarllm_provider": "lit-5853-writer",
                             "mode": "chat",
                             "input_cost_per_token": 1e-07,
                             "output_cost_per_token": 4e-07,
@@ -3775,9 +3775,9 @@ def test_price_data_reload_keeps_geo_deployments_priced_while_requests_register_
     registrations_landed: Final = writer_outcome.get(timeout=5)
     try:
         assert isinstance(registrations_landed, int) and registrations_landed > 0, registrations_landed
-        assert tuple(backend for backend in backends if backend in litellm.model_cost) == ()
+        assert tuple(backend for backend in backends if backend in hangarllm.model_cost) == ()
         for backend in backends:
-            assert litellm.get_model_info(backend)["input_cost_per_token"] == canonical_prices[backend]
+            assert hangarllm.get_model_info(backend)["input_cost_per_token"] == canonical_prices[backend]
         assert tuple(router.get_model_names()) == tuple(backend.rsplit(".", 1)[-1] for backend in backends)
     finally:
         _invalidate_model_cost_lowercase_map()
@@ -3794,7 +3794,7 @@ _COLLIDING_MODEL_INFO: Final = {
 
 
 def _colliding_id_deployment(model_id: str, custom_llm_provider: str) -> DeploymentTypedDict:
-    litellm_params: Final = LiteLLMParamsTypedDict(
+    hangarllm_params: Final = HangarLLMParamsTypedDict(
         model="zai-org/GLM-5.2",
         api_base="https://inference.baseten.co/v1",
         custom_llm_provider=custom_llm_provider,
@@ -3802,7 +3802,7 @@ def _colliding_id_deployment(model_id: str, custom_llm_provider: str) -> Deploym
     model_info: Final[dict] = {"id": model_id, **_COLLIDING_MODEL_INFO}
     return DeploymentTypedDict(
         model_name="nvidia/zai-org/glm-5.2",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         model_info=model_info,
     )
 
@@ -3810,11 +3810,11 @@ def _colliding_id_deployment(model_id: str, custom_llm_provider: str) -> Deploym
 @pytest.mark.parametrize("model_id", ("baseten/zai-org/glm-5.2",))
 def test_deployment_id_colliding_with_another_providers_catalog_key_keeps_its_own_pricing(model_id: str) -> None:
     """A deployment id equal to another provider's catalog key must not merge
-    into that row: the merge leaves litellm_provider=baseten on the entry, which
+    into that row: the merge leaves hangarllm_provider=baseten on the entry, which
     _check_provider_match then rejects for the openai request, billing $0."""
-    builtin_row_before: Final = copy.deepcopy(litellm.model_cost[_COLLIDING_BUILTIN_KEY])
+    builtin_row_before: Final = copy.deepcopy(hangarllm.model_cost[_COLLIDING_BUILTIN_KEY])
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key))
+        key: copy.deepcopy(hangarllm.model_cost.get(key))
         for key in (model_id, _COLLIDING_BUILTIN_KEY, _COLLIDING_SHARED_OPENAI_KEY)
     }
     try:
@@ -3823,18 +3823,18 @@ def test_deployment_id_colliding_with_another_providers_catalog_key_keeps_its_ow
         response: Final = router.completion(
             model="nvidia/zai-org/glm-5.2",
             messages=[{"role": "user", "content": "colliding id pricing"}],
-            mock_response=litellm.ModelResponse(
+            mock_response=hangarllm.ModelResponse(
                 model="zai-org/GLM-5.2",
-                usage=litellm.Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
+                usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
             ),
         )
 
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         assert response._hidden_params["response_cost"] == pytest.approx(1000 * 0.00000096 + 500 * 0.00000302)
-        assert litellm.model_cost[_COLLIDING_BUILTIN_KEY] == builtin_row_before
+        assert hangarllm.model_cost[_COLLIDING_BUILTIN_KEY] == builtin_row_before
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_deployment_id_matching_its_own_providers_catalog_key_still_merges() -> None:
@@ -3843,7 +3843,7 @@ def test_deployment_id_matching_its_own_providers_catalog_key_still_merges() -> 
     matches against."""
     model_id: Final = "baseten/zai-org/glm-5.2"
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (model_id, _COLLIDING_BUILTIN_KEY)
+        key: copy.deepcopy(hangarllm.model_cost.get(key)) for key in (model_id, _COLLIDING_BUILTIN_KEY)
     }
     try:
         router: Final = Router(model_list=[_colliding_id_deployment(model_id, "baseten")])
@@ -3851,17 +3851,17 @@ def test_deployment_id_matching_its_own_providers_catalog_key_still_merges() -> 
         response: Final = router.completion(
             model="nvidia/zai-org/glm-5.2",
             messages=[{"role": "user", "content": "same provider pricing"}],
-            mock_response=litellm.ModelResponse(
+            mock_response=hangarllm.ModelResponse(
                 model="zai-org/GLM-5.2",
-                usage=litellm.Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
+                usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
             ),
         )
 
-        assert isinstance(response, litellm.ModelResponse)
+        assert isinstance(response, hangarllm.ModelResponse)
         assert response._hidden_params["response_cost"] == pytest.approx(1000 * 0.00000096 + 500 * 0.00000302)
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 _CAPACITY_TEST_DEPLOYMENTS: Final = (
@@ -3881,7 +3881,7 @@ _CAPACITY_TEST_DEPLOYMENTS: Final = (
 
 def _capacity_test_metadata(provider: str, max_input_tokens: int) -> dict[str, object]:
     return {
-        "litellm_provider": provider,
+        "hangarllm_provider": provider,
         "mode": "chat",
         "max_input_tokens": max_input_tokens,
         "max_output_tokens": 512,
@@ -3896,9 +3896,9 @@ def _capacity_test_router(route: str, base: str, base_location: str | None, expl
         model_list=[
             {
                 "model_name": "capacity-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": route,
-                    **({"base_model": base} if base_location == "litellm_params" else {}),
+                    **({"base_model": base} if base_location == "hangarllm_params" else {}),
                 },
                 "model_info": {
                     "id": "capacity-test",
@@ -3921,7 +3921,7 @@ def _deployments_allowed_for_2048_input_tokens(router: Router) -> int:
                 input_token_count=2048,
             )
         )
-    except litellm.ContextWindowExceededError:
+    except hangarllm.ContextWindowExceededError:
         return 0
 
 
@@ -3932,7 +3932,7 @@ def _effective_max_input_tokens(router: Router) -> object:
 
 
 @pytest.mark.parametrize(("provider", "route", "base"), _CAPACITY_TEST_DEPLOYMENTS)
-@pytest.mark.parametrize("base_location", ("model_info", "litellm_params", None))
+@pytest.mark.parametrize("base_location", ("model_info", "hangarllm_params", None))
 @pytest.mark.parametrize("explicit_limit", (None, 4096))
 def test_router_capacity_widens_to_a_larger_base_model_window(
     monkeypatch: pytest.MonkeyPatch,
@@ -3943,10 +3943,10 @@ def test_router_capacity_widens_to_a_larger_base_model_window(
     explicit_limit: int | None,
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.model_cost,
+            **hangarllm.model_cost,
             route: _capacity_test_metadata(provider, 1024),
             base: _capacity_test_metadata(provider, 8192),
         },
@@ -3960,15 +3960,15 @@ def test_router_capacity_widens_to_a_larger_base_model_window(
 
 
 @pytest.mark.parametrize(("provider", "route", "base"), _CAPACITY_TEST_DEPLOYMENTS)
-@pytest.mark.parametrize("base_location", ("model_info", "litellm_params"))
+@pytest.mark.parametrize("base_location", ("model_info", "hangarllm_params"))
 def test_router_capacity_never_narrows_to_a_smaller_base_model_window(
     monkeypatch: pytest.MonkeyPatch, provider: str, route: str, base: str, base_location: str
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.model_cost,
+            **hangarllm.model_cost,
             route: _capacity_test_metadata(provider, 8192),
             base: _capacity_test_metadata(provider, 1024),
         },
@@ -3984,7 +3984,7 @@ def test_router_capacity_never_narrows_to_a_smaller_base_model_window(
 def test_router_capacity_never_takes_a_window_from_base_model_when_the_route_is_unmapped(
     monkeypatch: pytest.MonkeyPatch, provider: str, route: str, base: str
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", {**litellm.model_cost, base: _capacity_test_metadata(provider, 1024)})
+    monkeypatch.setattr(hangarllm, "model_cost", {**hangarllm.model_cost, base: _capacity_test_metadata(provider, 1024)})
     _invalidate_model_cost_lowercase_map()
     router: Final = _capacity_test_router(f"{route}-not-in-cost-map", base, "model_info", None)
     assert _deployments_allowed_for_2048_input_tokens(router) == 1
@@ -4001,9 +4001,9 @@ def test_router_capacity_never_takes_a_window_from_base_model_when_the_route_dec
         if key not in ("max_input_tokens", "max_tokens")
     }
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
-        {**litellm.model_cost, route: route_without_window, base: _capacity_test_metadata(provider, 1024)},
+        {**hangarllm.model_cost, route: route_without_window, base: _capacity_test_metadata(provider, 1024)},
     )
     _invalidate_model_cost_lowercase_map()
     router: Final = _capacity_test_router(route, base, "model_info", None)
@@ -4039,10 +4039,10 @@ def test_router_capacity_widens_only_for_an_exact_base_model_entry_of_the_same_m
 ) -> None:
     larger_window: Final = _capacity_test_metadata("bedrock", 8192)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.model_cost,
+            **hangarllm.model_cost,
             _SAME_MODEL_ROUTE: _capacity_test_metadata("bedrock", 1024),
             _SAME_MODEL_GLOBAL_ROUTE: _capacity_test_metadata("bedrock", 1024),
             _SAME_MODEL_QUALIFIED_ROUTE: _capacity_test_metadata("bedrock", 1024),
@@ -4064,14 +4064,14 @@ def test_router_capacity_widens_only_for_an_exact_base_model_entry_of_the_same_m
     _invalidate_model_cost_lowercase_map()
 
 
-def test_router_capacity_reads_a_model_info_base_model_before_a_litellm_params_one(
+def test_router_capacity_reads_a_model_info_base_model_before_a_hangarllm_params_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.model_cost,
+            **hangarllm.model_cost,
             _SAME_MODEL_ROUTE: _capacity_test_metadata("bedrock", 1024),
             "bedrock/us-east-1/anthropic.claude-routercapacitytest-9-9": _capacity_test_metadata("bedrock", 8192),
             "bedrock/us-east-1/anthropic.claude-routercapacitystandin-9-9": _capacity_test_metadata("bedrock", 8192),
@@ -4082,7 +4082,7 @@ def test_router_capacity_reads_a_model_info_base_model_before_a_litellm_params_o
         model_list=[
             {
                 "model_name": "capacity-test",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _SAME_MODEL_ROUTE,
                     "base_model": "bedrock/us-east-1/anthropic.claude-routercapacitytest-9-9",
                 },
@@ -4104,7 +4104,7 @@ def test_deployment_id_equal_to_another_providers_catalog_key_bills_its_own_pric
     provider check rejects it, billing $0. ``pricing_provider`` names the row's provider, so the
     deployment's own prices (merged into that row) bill."""
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key))
+        key: copy.deepcopy(hangarllm.model_cost.get(key))
         for key in (_COLLIDING_BUILTIN_KEY, _COLLIDING_SHARED_OPENAI_KEY)
     }
     try:
@@ -4122,32 +4122,32 @@ def test_deployment_id_equal_to_another_providers_catalog_key_bills_its_own_pric
         assert response._hidden_params["response_cost"] == pytest.approx(1000 * 0.00000096 + 500 * 0.00000302)
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def _pricing_provider_deployment(model_id: str, model_info: dict) -> DeploymentTypedDict:
-    litellm_params: Final = LiteLLMParamsTypedDict(
+    hangarllm_params: Final = HangarLLMParamsTypedDict(
         model="zai-org/GLM-5.2",
         api_base="https://inference.baseten.co/v1",
         custom_llm_provider="openai",
     )
     return DeploymentTypedDict(
         model_name="nvidia/zai-org/glm-5.2",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         model_info={"id": model_id, "pricing_provider": "baseten", **model_info},
     )
 
 
-def _glm_completion(router: Router) -> litellm.ModelResponse:
+def _glm_completion(router: Router) -> hangarllm.ModelResponse:
     response: Final = router.completion(
         model="nvidia/zai-org/glm-5.2",
         messages=[{"role": "user", "content": "priced under another provider"}],
-        mock_response=litellm.ModelResponse(
+        mock_response=hangarllm.ModelResponse(
             model="zai-org/GLM-5.2",
-            usage=litellm.Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
+            usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
         ),
     )
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     return response
 
 
@@ -4155,9 +4155,9 @@ def test_pricing_provider_without_custom_prices_bills_that_providers_catalog_rat
     """An openai-compatible deployment pointed at another provider's host can name that provider for
     pricing: the request is priced from its catalog row, where the routing provider has none."""
     model_id: Final = "glm52-priced-as-baseten"
-    catalog_row: Final = litellm.model_cost[_COLLIDING_BUILTIN_KEY]
+    catalog_row: Final = hangarllm.model_cost[_COLLIDING_BUILTIN_KEY]
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key))
+        key: copy.deepcopy(hangarllm.model_cost.get(key))
         for key in (model_id, _COLLIDING_BUILTIN_KEY, _COLLIDING_SHARED_OPENAI_KEY)
     }
     try:
@@ -4168,29 +4168,29 @@ def test_pricing_provider_without_custom_prices_bills_that_providers_catalog_rat
         )
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
 
 def test_pricing_provider_fills_unset_rates_from_that_providers_catalog_row() -> None:
     """Rates the deployment sets win, rates it leaves out come from the pricing provider's row for the
     backend model rather than defaulting to 0 because the routing provider has no row."""
     model_id: Final = "glm52-priced-as-baseten-custom"
-    catalog_row: Final = copy.deepcopy(litellm.model_cost[_COLLIDING_BUILTIN_KEY])
+    catalog_row: Final = copy.deepcopy(hangarllm.model_cost[_COLLIDING_BUILTIN_KEY])
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key))
+        key: copy.deepcopy(hangarllm.model_cost.get(key))
         for key in (model_id, _COLLIDING_BUILTIN_KEY, _COLLIDING_SHARED_OPENAI_KEY)
     }
     rates: Final = {"input_cost_per_token": 0.00000096, "output_cost_per_token": 0.00000302}
     try:
         router: Final = Router(model_list=[_pricing_provider_deployment(model_id, rates)])
 
-        registered: Final = litellm.model_cost[model_id]
+        registered: Final = hangarllm.model_cost[model_id]
         assert {key: registered[key] for key in rates} == rates
         assert registered["cache_read_input_token_cost"] == catalog_row["cache_read_input_token_cost"]
         assert _glm_completion(router)._hidden_params["response_cost"] == pytest.approx(
             1000 * 0.00000096 + 500 * 0.00000302
         )
-        assert litellm.model_cost[_COLLIDING_BUILTIN_KEY] == catalog_row
+        assert hangarllm.model_cost[_COLLIDING_BUILTIN_KEY] == catalog_row
     finally:
         _restore_model_cost_entries(model_cost_entries)
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()

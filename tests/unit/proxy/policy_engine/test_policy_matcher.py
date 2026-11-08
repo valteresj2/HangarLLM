@@ -13,13 +13,13 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-import litellm.proxy.policy_engine.attachment_registry as attachment_registry_module
-import litellm.proxy.policy_engine.policy_registry as policy_registry_module
-from litellm.proxy.policy_engine.attachment_registry import AttachmentRegistry
-from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-from litellm.proxy.policy_engine.policy_registry import PolicyRegistry
-from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-from litellm.types.proxy.policy_engine import (
+import hangarllm.proxy.policy_engine.attachment_registry as attachment_registry_module
+import hangarllm.proxy.policy_engine.policy_registry as policy_registry_module
+from hangarllm.proxy.policy_engine.attachment_registry import AttachmentRegistry
+from hangarllm.proxy.policy_engine.policy_matcher import PolicyMatcher
+from hangarllm.proxy.policy_engine.policy_registry import PolicyRegistry
+from hangarllm.proxy.policy_engine.policy_resolver import PolicyResolver
+from hangarllm.types.proxy.policy_engine import (
     Policy,
     PolicyCondition,
     PolicyGuardrails,
@@ -391,7 +391,7 @@ class TestAncestorAdmissionLogging:
 
     def test_logs_when_admitted_through_ancestor_only(self, caplog):
         context: Final = PolicyMatchContext(team_alias="t", key_alias="k", model="gpt-4o")
-        with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.INFO, logger="HangarLLM Proxy"):
             result: Final = PolicyMatcher.policy_applies(context, self._chain())("child")
         records: Final = [r for r in caplog.records if "applied through ancestor" in r.getMessage()]
         assert result is True
@@ -401,7 +401,7 @@ class TestAncestorAdmissionLogging:
 
     def test_no_log_when_own_condition_matches(self, caplog):
         context: Final = PolicyMatchContext(team_alias="t", key_alias="k", model="gpt-5.5")
-        with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.INFO, logger="HangarLLM Proxy"):
             result: Final = PolicyMatcher.policy_applies(context, self._chain())("child")
         assert result is True
         assert not [r for r in caplog.records if "applied through ancestor" in r.getMessage()]
@@ -419,14 +419,14 @@ class TestAncestorAdmissionLogging:
             ),
         }
         context: Final = PolicyMatchContext(team_alias="t", key_alias="k", model="gpt-4o")
-        with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.INFO, logger="HangarLLM Proxy"):
             result: Final = PolicyMatcher.policy_applies(context, policies)("child")
         assert result is False
         assert not [r for r in caplog.records if "applied through ancestor" in r.getMessage()]
 
     def test_condition_filter_logs_nothing(self, caplog):
         context: Final = PolicyMatchContext(team_alias="t", key_alias="k", model="gpt-4o")
-        with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.INFO, logger="HangarLLM Proxy"):
             result: Final = PolicyMatcher.get_policies_with_matching_conditions(
                 policy_names=["child"], context=context, policies=self._chain()
             )

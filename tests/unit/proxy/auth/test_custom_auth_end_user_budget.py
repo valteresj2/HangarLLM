@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-import litellm
-from litellm.proxy.auth.user_api_key_auth import (
+import hangarllm
+from hangarllm.proxy.auth.user_api_key_auth import (
     _run_post_custom_auth_checks,
     update_valid_token_with_end_user_params,
 )
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_EndUserTable,
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_EndUserTable,
     UserAPIKeyAuth,
 )
 
@@ -22,7 +22,7 @@ async def test_custom_auth_run_post_custom_auth_checks_without_end_user_id():
 
     # Default: common_checks should NOT be called inside the helper
     with patch(
-        "litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
+        "hangarllm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
     ) as mock_common:
         mock_common.return_value = True
         result = await _run_post_custom_auth_checks(
@@ -40,10 +40,10 @@ async def test_custom_auth_run_post_custom_auth_checks_without_end_user_id():
     # in the wrapper handles it.
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
+            "hangarllm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
         ) as mock_common,
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"custom_auth_run_common_checks": True},
         ),
     ):
@@ -71,17 +71,17 @@ async def test_custom_auth_run_post_custom_auth_checks_with_end_user_budget_exce
     request_data = {"model": "gpt-4"}
 
     with patch(
-        "litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
+        "hangarllm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
     ):
         with patch(
-            "litellm.proxy.proxy_server.model_max_budget_limiter.is_end_user_within_model_budget",
+            "hangarllm.proxy.proxy_server.model_max_budget_limiter.is_end_user_within_model_budget",
             new_callable=AsyncMock,
         ) as mock_budget_check:
-            mock_budget_check.side_effect = litellm.BudgetExceededError(
+            mock_budget_check.side_effect = hangarllm.BudgetExceededError(
                 message="Exceeded budget", current_cost=20.0, max_budget=10.0
             )
 
-            with pytest.raises(litellm.BudgetExceededError):
+            with pytest.raises(hangarllm.BudgetExceededError):
                 await _run_post_custom_auth_checks(
                     valid_token=valid_token,
                     request=None,
@@ -99,11 +99,11 @@ async def test_custom_auth_enforces_end_user_budget_when_common_checks_skipped()
     # gate, so the helper must enforce the end-user budget itself. Regression:
     # an over-budget end user must be rejected on this path.
     valid_token = UserAPIKeyAuth(token="test_token", end_user_id="customer-1")
-    over_budget_end_user = LiteLLM_EndUserTable(
+    over_budget_end_user = HangarLLM_EndUserTable(
         user_id="customer-1",
         blocked=False,
         spend=0.0,
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=1.0),
     )
 
     async def mock_get_current_spend(
@@ -115,14 +115,14 @@ async def test_custom_auth_enforces_end_user_budget_when_common_checks_skipped()
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.get_end_user_object",
+            "hangarllm.proxy.auth.user_api_key_auth.get_end_user_object",
             new_callable=AsyncMock,
             return_value=over_budget_end_user,
         ),
-        patch("litellm.proxy.proxy_server.get_current_spend", mock_get_current_spend),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.get_current_spend", mock_get_current_spend),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
     ):
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await _run_post_custom_auth_checks(
                 valid_token=valid_token,
                 request=None,
@@ -137,29 +137,29 @@ async def test_custom_auth_defers_end_user_budget_to_common_checks_when_enabled(
     # With custom_auth_run_common_checks set, the wrapper's common_checks()
     # enforces the end-user budget, so the helper must not double-enforce it.
     valid_token = UserAPIKeyAuth(token="test_token", end_user_id="customer-1")
-    end_user_obj = LiteLLM_EndUserTable(
+    end_user_obj = HangarLLM_EndUserTable(
         user_id="customer-1",
         blocked=False,
         spend=0.0,
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=1.0),
     )
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.get_end_user_object",
+            "hangarllm.proxy.auth.user_api_key_auth.get_end_user_object",
             new_callable=AsyncMock,
             return_value=end_user_obj,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.check_end_user_budget",
+            "hangarllm.proxy.auth.user_api_key_auth.check_end_user_budget",
             new_callable=AsyncMock,
         ) as mock_check,
         patch(
-            "litellm.proxy.auth.user_api_key_auth.enforce_key_and_fallback_model_access",
+            "hangarllm.proxy.auth.user_api_key_auth.enforce_key_and_fallback_model_access",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"custom_auth_run_common_checks": True},
         ),
     ):
@@ -185,8 +185,8 @@ async def test_custom_auth_token_budget_still_loads_and_caches_unrestricted_end_
     """
     from unittest.mock import MagicMock
 
-    from litellm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
-    from litellm.proxy.common_utils.user_api_key_cache import (
+    from hangarllm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
+    from hangarllm.proxy.common_utils.user_api_key_cache import (
         UserApiKeyCache,
         end_user_cache_key,
     )
@@ -200,8 +200,8 @@ async def test_custom_auth_token_budget_still_loads_and_caches_unrestricted_end_
     }
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_endusertable.find_unique = AsyncMock(return_value=end_user_row)
+    mock_prisma.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_endusertable.find_unique = AsyncMock(return_value=end_user_row)
     cache = UserApiKeyCache()
 
     _, end_user_object = await _lookup_end_user_and_apply_budget(
@@ -228,10 +228,10 @@ async def test_custom_auth_key_default_end_user_budget_reaches_the_token_for_a_n
     brand-new end user, ahead of the proxy-wide default, from the very first request."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", "global-eu-budget")
+    monkeypatch.setattr(hangarllm, "max_end_user_budget_id", "global-eu-budget")
     budgets = {"global-eu-budget": 100.0, "svc-a-budget": 0.5}
 
     async def _find_budget(where):
@@ -240,9 +240,9 @@ async def test_custom_auth_key_default_end_user_budget_reaches_the_token_for_a_n
         return row
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_endusertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
+    mock_prisma.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_endusertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
 
     valid_token, end_user_object = await _lookup_end_user_and_apply_budget(
         valid_token=UserAPIKeyAuth(
@@ -267,10 +267,10 @@ async def test_custom_auth_cap_stays_below_the_key_default_end_user_budget(monke
     budget keeps its cap: the key default never loosens what custom auth set."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", None)
+    monkeypatch.setattr(hangarllm, "max_end_user_budget_id", None)
 
     async def _find_budget(where):
         row = MagicMock()
@@ -278,9 +278,9 @@ async def test_custom_auth_cap_stays_below_the_key_default_end_user_budget(monke
         return row
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_endusertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
+    mock_prisma.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_endusertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
 
     valid_token, _ = await _lookup_end_user_and_apply_budget(
         valid_token=UserAPIKeyAuth(
@@ -305,10 +305,10 @@ async def test_custom_auth_proxy_wide_default_end_user_budget_reaches_an_uncappe
     proxy-wide default budget's cap, the same way the virtual-key path already applies it."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.proxy.auth.user_api_key_auth import _lookup_end_user_and_apply_budget
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", "global-eu-budget")
+    monkeypatch.setattr(hangarllm, "max_end_user_budget_id", "global-eu-budget")
 
     async def _find_budget(where):
         row = MagicMock()
@@ -316,9 +316,9 @@ async def test_custom_auth_proxy_wide_default_end_user_budget_reaches_an_uncappe
         return row
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_endusertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
+    mock_prisma.db.hangarllm_endusertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_endusertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
 
     valid_token, end_user_object = await _lookup_end_user_and_apply_budget(
         valid_token=UserAPIKeyAuth(token="test_token", end_user_id="customer-new"),
@@ -391,12 +391,12 @@ def test_update_valid_token_db_values_override_custom_auth_when_set():
 
 
 def test_end_user_budget_tpd_limit_reaches_the_token():
-    from litellm.proxy.auth.user_api_key_auth import _apply_budget_limits_to_end_user_params
+    from hangarllm.proxy.auth.user_api_key_auth import _apply_budget_limits_to_end_user_params
 
     end_user_params = {"end_user_id": "user_1"}
     _apply_budget_limits_to_end_user_params(
         end_user_params=end_user_params,
-        budget_info=LiteLLM_BudgetTable(rpm_limit=5, tpd_limit=750000),
+        budget_info=HangarLLM_BudgetTable(rpm_limit=5, tpd_limit=750000),
         end_user_id="user_1",
     )
     result = update_valid_token_with_end_user_params(UserAPIKeyAuth(token="test_token"), end_user_params)

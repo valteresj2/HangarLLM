@@ -13,17 +13,17 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.interactions import streaming_iterator as interactions_streaming_iterator_module
-from litellm.interactions.streaming_iterator import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.interactions import streaming_iterator as interactions_streaming_iterator_module
+from hangarllm.interactions.streaming_iterator import (
     InteractionsAPIStreamingIterator,
     SyncInteractionsAPIStreamingIterator,
 )
-from litellm.litellm_core_utils import thread_pool_executor as thread_pool_executor_module
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.llms.gemini.interactions.transformation import GoogleAIStudioInteractionsConfig
-from litellm.types.interactions import InteractionsAPIStreamingResponse
+from hangarllm.hangarllm_core_utils import thread_pool_executor as thread_pool_executor_module
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+from hangarllm.llms.gemini.interactions.transformation import GoogleAIStudioInteractionsConfig
+from hangarllm.types.interactions import InteractionsAPIStreamingResponse
 
 
 class RecordingCustomLogger(CustomLogger):
@@ -54,19 +54,19 @@ class RecordingExecutor:
 @pytest.fixture(autouse=True)
 def _isolate_callbacks():
     saved = (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        hangarllm.callbacks,
+        hangarllm.success_callback,
+        hangarllm._async_success_callback,
+        hangarllm.failure_callback,
+        hangarllm._async_failure_callback,
     )
     yield
     (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        hangarllm.callbacks,
+        hangarllm.success_callback,
+        hangarllm._async_success_callback,
+        hangarllm.failure_callback,
+        hangarllm._async_failure_callback,
     ) = saved
 
 
@@ -77,16 +77,16 @@ async def test_custom_logger_only_never_submits_sync_success_handler(monkeypatch
     monkeypatch.setattr(interactions_streaming_iterator_module, "executor", recording_executor)
 
     recorder = RecordingCustomLogger()
-    litellm.success_callback = [recorder]
-    litellm._async_success_callback = [recorder]
+    hangarllm.success_callback = [recorder]
+    hangarllm._async_success_callback = [recorder]
 
-    logging_obj = LitellmLogging(
+    logging_obj = HangarllmLogging(
         model="gemini/gemini-3-pro-preview",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="ainteraction",
         start_time=time.time(),
-        litellm_call_id="lit-4210-test",
+        hangarllm_call_id="lit-4210-test",
         function_id="lit-4210-test",
     )
     iterator = InteractionsAPIStreamingIterator(
@@ -121,13 +121,13 @@ class _SuccessRecorder(CustomLogger):
 async def test_stream_logs_its_first_event_time_measured_from_the_call_start():
     call_start: Final = datetime(2026, 10, 9, 12, 0, 0)
     recorder: Final = _SuccessRecorder()
-    logging_obj: Final = LitellmLogging(
+    logging_obj: Final = HangarllmLogging(
         model="gemini/gemini-3-pro-preview",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="ainteraction",
         start_time=call_start,
-        litellm_call_id="interactions-stream",
+        hangarllm_call_id="interactions-stream",
         function_id="interactions-stream",
         dynamic_async_success_callbacks=[recorder],
     )
@@ -177,13 +177,13 @@ async def test_stream_keeps_unicode_line_separators_inside_the_delta_text(
         ),
         model="gemini/gemini-3.1-pro-preview",
         interactions_api_config=GoogleAIStudioInteractionsConfig(),
-        logging_obj=LitellmLogging(
+        logging_obj=HangarllmLogging(
             model="gemini/gemini-3.1-pro-preview",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="ainteraction",
             start_time=datetime(2026, 10, 9, 12, 0, 0),
-            litellm_call_id="interactions-separators",
+            hangarllm_call_id="interactions-separators",
             function_id="interactions-separators",
         ),
     )

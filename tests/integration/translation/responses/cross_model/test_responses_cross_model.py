@@ -27,23 +27,23 @@ GPT_6_1_SOL_TWO_MESSAGES_BEFORE_TOOLS_TEST_CASE: Final = two_messages_before_too
 AZURE_CLAUDE_SONNET_5_5_CROSS_MODEL_TEST_CASE: Final = replace(
     AZURE_CLAUDE_SONNET_5_5_TEST_CASE,
     scenario="cross_model_rich_request",
-    litellm_request={**CLAUDE_SONNET_5_5_TEST_CASE.litellm_request, "model": "azure_ai/claude-sonnet-5-5"},
+    hangarllm_request={**CLAUDE_SONNET_5_5_TEST_CASE.hangarllm_request, "model": "azure_ai/claude-sonnet-5-5"},
     expected_provider_request=CLAUDE_SONNET_5_5_TEST_CASE.expected_provider_request,
     mock_provider_response=CLAUDE_SONNET_5_5_TEST_CASE.mock_provider_response,
-    expected_litellm_response={
-        **CLAUDE_SONNET_5_5_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_SONNET_5_5_TEST_CASE.expected_hangarllm_response,
         "model": "azure_ai/claude-sonnet-5-5",
     },
 )
 GPT_6_1_SOL_PREVIOUS_RESPONSE_ID_TEST_CASE: Final = replace(
     GPT_5_6_SOL_TEST_CASE,
     scenario="previous_response_id",
-    litellm_request={**GPT_5_6_SOL_TEST_CASE.litellm_request, "model": "openai/responses/gpt-6.1-sol"},
+    hangarllm_request={**GPT_5_6_SOL_TEST_CASE.hangarllm_request, "model": "openai/responses/gpt-6.1-sol"},
     expected_provider_request={**GPT_5_6_SOL_TEST_CASE.expected_provider_request, "model": "gpt-6.1-sol"},
     mock_provider_response={**GPT_5_6_SOL_TEST_CASE.mock_provider_response, "model": "gpt-6.1-sol"},
-    expected_litellm_response={
-        **GPT_5_6_SOL_TEST_CASE.expected_litellm_response,
-        "model": GPT_6_1_SOL_TEST_CASE.expected_litellm_response["model"],
+    expected_hangarllm_response={
+        **GPT_5_6_SOL_TEST_CASE.expected_hangarllm_response,
+        "model": GPT_6_1_SOL_TEST_CASE.expected_hangarllm_response["model"],
     },
 )
 
@@ -56,8 +56,8 @@ GPT_6_1_SOL_PREVIOUS_RESPONSE_ID_TEST_CASE: Final = replace(
 def test_responses_keep_the_same_public_contract_on_native_and_bridged_routes(
     case: TranslationTestCase, gateway: Gateway, provider: SharedProvider
 ) -> None:
-    assert {key: value for key, value in case.litellm_request.items() if key != "model"} == {
-        key: value for key, value in GPT_6_1_SOL_TEST_CASE.litellm_request.items() if key != "model"
+    assert {key: value for key, value in case.hangarllm_request.items() if key != "model"} == {
+        key: value for key, value in GPT_6_1_SOL_TEST_CASE.hangarllm_request.items() if key != "model"
     }
     native: Final = assert_translation(GPT_6_1_SOL_TEST_CASE, gateway, provider)
     compared: Final = assert_translation(case, gateway, provider)
@@ -96,14 +96,14 @@ def assert_previous_response_replay(case: TranslationTestCase, gateway: Gateway,
     first_case: Final = replace(
         case,
         mock_provider_response={**case.mock_provider_response, "id": identity},
-        expected_litellm_response={**case.expected_litellm_response, "id": ANY},
+        expected_hangarllm_response={**case.expected_hangarllm_response, "id": ANY},
     )
     first: Final = assert_translation(first_case, gateway, provider)
     responses_structure(first)
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
-            (string_value(case.litellm_request["model"]),),
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
+            (string_value(case.hangarllm_request["model"]),),
         ),
         lambda rows: any(same_response(str(row["request_id"]), str(first["id"])) for row in rows),
         seconds=70,
@@ -125,11 +125,11 @@ def assert_previous_response_replay(case: TranslationTestCase, gateway: Gateway,
     )
     followup: Final = replace(
         first_case,
-        litellm_request={**case.litellm_request, "input": "Say hello again.", "previous_response_id": first["id"]},
+        hangarllm_request={**case.hangarllm_request, "input": "Say hello again.", "previous_response_id": first["id"]},
         expected_provider_request=expected_request,
         mock_provider_response={**case.mock_provider_response, "id": f"{identity}_second"},
-        expected_litellm_response={
-            **case.expected_litellm_response,
+        expected_hangarllm_response={
+            **case.expected_hangarllm_response,
             "id": ANY,
             "previous_response_id": None if case is GPT_6_1_SOL_PREVIOUS_RESPONSE_ID_TEST_CASE else previous_identifier,
         },

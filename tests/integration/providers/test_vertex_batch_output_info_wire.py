@@ -14,7 +14,7 @@ LOCATION: Final = "us-central1"
 MODEL: Final = "vertex_ai/gemini-2.5-flash"
 VERTEX_MODEL_RESOURCE: Final = "publishers/google/models/gemini-2.5-flash"
 BUCKET: Final = "integration-batch-bucket"
-INPUT_FILE_ID: Final = f"gs://{BUCKET}/litellm-vertex-files/{VERTEX_MODEL_RESOURCE}/input.jsonl"
+INPUT_FILE_ID: Final = f"gs://{BUCKET}/hangarllm-vertex-files/{VERTEX_MODEL_RESOURCE}/input.jsonl"
 OUTPUT_PREFIX: Final = INPUT_FILE_ID.rsplit("/", 1)[0]
 JOB_NAME: Final = f"projects/{PROJECT}/locations/{LOCATION}/batchPredictionJobs/7412345678901234567"
 JOB_ID: Final = JOB_NAME.rsplit("/", 1)[-1]
@@ -25,7 +25,7 @@ EXPECTED_VERTEX_BODY: Final = {
 }
 VERTEX_REPLY: Final = {
     "name": JOB_NAME,
-    "displayName": "litellm-vertex-batch-scripted",
+    "displayName": "hangarllm-vertex-batch-scripted",
     "model": VERTEX_MODEL_RESOURCE,
     "inputConfig": {"gcsSource": {"uris": [INPUT_FILE_ID]}, "instancesFormat": "jsonl"},
     "outputConfig": {"predictionsFormat": "jsonl", "gcsDestination": {"outputUriPrefix": OUTPUT_PREFIX}},
@@ -65,7 +65,7 @@ def _vertex_service_account_json(url: str) -> str:
 
 
 def _encoded(raw: str, model: str, prefix: str) -> str:
-    return prefix + base64.urlsafe_b64encode(f"litellm:{raw};model,{model}".encode()).decode().rstrip("=")
+    return prefix + base64.urlsafe_b64encode(f"hangarllm:{raw};model,{model}".encode()).decode().rstrip("=")
 
 
 def vertex_peer(request: Request) -> Reply:
@@ -75,7 +75,7 @@ def vertex_peer(request: Request) -> Reply:
     assert request.headers["content-type"] == "application/json; charset=utf-8"
     body: Final = json.loads(request.body)
     display_name: Final = body.pop("displayName")
-    assert isinstance(display_name, str) and display_name.startswith("litellm-vertex-batch-"), display_name
+    assert isinstance(display_name, str) and display_name.startswith("hangarllm-vertex-batch-"), display_name
     assert body == EXPECTED_VERTEX_BODY, body
     return Reply(body=json.dumps(VERTEX_REPLY).encode())
 

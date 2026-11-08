@@ -11,10 +11,10 @@ import httpx
 import openai
 import pytest
 
-import litellm
-from litellm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
-from litellm.llms.azure.chat.o_series_transformation import AzureOpenAIO1Config
-from litellm.utils import ProviderConfigManager, get_optional_params
+import hangarllm
+from hangarllm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
+from hangarllm.llms.azure.chat.o_series_transformation import AzureOpenAIO1Config
+from hangarllm.utils import ProviderConfigManager, get_optional_params
 from tests.unit.llms.bedrock.slow_upstream import STREAM_TIMEOUT_SECONDS, slow_upstream_transport
 
 _O3_STREAM_ANSWER: Final = (
@@ -40,8 +40,8 @@ def test_live_stream_on_a_deployment_named_apart_from_its_base_model_keeps_its_s
         http_client=httpx.Client(transport=slow_upstream_transport(_O3_STREAM_ANSWER)),
     )
 
-    with pytest.raises(litellm.Timeout):
-        litellm.completion(
+    with pytest.raises(hangarllm.Timeout):
+        hangarllm.completion(
             model=model,
             base_model=base_model,
             messages=[{"role": "user", "content": "hi"}],
@@ -96,7 +96,7 @@ class TestGetProviderChatConfigWithBaseModel:
     """get_provider_chat_config should pass base_model to Azure config selection."""
 
     def test_should_return_gpt5_config_for_custom_deployment_with_base_model(self):
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         config = ProviderConfigManager.get_provider_chat_config(
             model="my-deployment-id",
@@ -106,7 +106,7 @@ class TestGetProviderChatConfigWithBaseModel:
         assert isinstance(config, AzureOpenAIGPT5Config)
 
     def test_should_return_o_series_config_for_custom_deployment_with_base_model(self):
-        from litellm.types.utils import LlmProviders
+        from hangarllm.types.utils import LlmProviders
 
         config = ProviderConfigManager.get_provider_chat_config(
             model="my-other-deployment",
@@ -125,7 +125,7 @@ class TestGetSupportedOpenAIParamsWithBaseModel:
     def test_should_return_gpt5_params_for_custom_deployment_with_gpt5_base_model(
         self,
     ):
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="my-deployment-id",
             custom_llm_provider="azure",
             base_model="azure/gpt-5",
@@ -138,7 +138,7 @@ class TestGetSupportedOpenAIParamsWithBaseModel:
     def test_should_return_o_series_params_for_custom_deployment_with_o_series_base_model(
         self,
     ):
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="my-other-deployment",
             custom_llm_provider="azure",
             base_model="azure/o4-mini",
@@ -148,7 +148,7 @@ class TestGetSupportedOpenAIParamsWithBaseModel:
 
     def test_should_return_regular_params_when_no_base_model(self):
         """When base_model is not set and model is non-standard, default Azure config."""
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="my-deployment-id",
             custom_llm_provider="azure",
         )
@@ -201,7 +201,7 @@ class TestGetOptionalParamsWithBaseModel:
         self,
     ):
         """A non-standard deployment + gpt-5 base_model should reject temperature."""
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             get_optional_params(
                 model="my-deployment-id",
                 custom_llm_provider="azure",
@@ -258,7 +258,7 @@ class TestBaseModelFlowsIntoConfigInternals:
         self,
     ):
         """Deployment 'my-gpt-5.2' with base_model='azure/gpt-5.2' should support logprobs."""
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="gpt5_series/my-gpt-5.2",
             custom_llm_provider="azure",
             base_model="azure/gpt-5.2",
@@ -269,7 +269,7 @@ class TestBaseModelFlowsIntoConfigInternals:
 
     def test_should_support_logprobs_for_plain_deployment_with_gpt52_base_model(self):
         """Deployment 'my-deployment-id' with base_model='azure/gpt-5.2' should support logprobs."""
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="my-deployment-id",
             custom_llm_provider="azure",
             base_model="azure/gpt-5.2",
@@ -280,7 +280,7 @@ class TestBaseModelFlowsIntoConfigInternals:
 
     def test_should_not_support_logprobs_for_gpt5_base_model(self):
         """Deployment with base_model='azure/gpt-5' (not 5.2) should NOT support logprobs."""
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="my-deployment-id",
             custom_llm_provider="azure",
             base_model="azure/gpt-5",

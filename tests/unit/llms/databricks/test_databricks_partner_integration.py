@@ -29,68 +29,68 @@ import pytest
 from unittest.mock import MagicMock, patch, Mock
 
 
-from litellm.llms.databricks.common_utils import DatabricksBase, DatabricksException
+from hangarllm.llms.databricks.common_utils import DatabricksBase, DatabricksException
 
 
 class TestBuildUserAgent:
     """Test cases for User-Agent string building."""
 
     def test_default_user_agent(self):
-        """No custom user agent returns litellm/{version}."""
+        """No custom user agent returns hangarllm/{version}."""
         ua = DatabricksBase._build_user_agent(None)
-        assert ua.startswith("litellm/")
+        assert ua.startswith("hangarllm/")
         assert "_" not in ua.split("/")[0]
 
     def test_custom_user_agent_with_version(self):
         """Custom user agent with version extracts partner name."""
         ua = DatabricksBase._build_user_agent("mycompany/1.0.0")
-        assert ua.startswith("mycompany_litellm/")
-        # Verify the version is litellm's, not the custom one
-        assert "/1.0.0" not in ua or "mycompany_litellm/1.0.0" not in ua
+        assert ua.startswith("mycompany_hangarllm/")
+        # Verify the version is hangarllm's, not the custom one
+        assert "/1.0.0" not in ua or "mycompany_hangarllm/1.0.0" not in ua
 
     def test_custom_user_agent_without_version(self):
         """Custom user agent without version still works."""
         ua = DatabricksBase._build_user_agent("mycompany")
-        assert ua.startswith("mycompany_litellm/")
+        assert ua.startswith("mycompany_hangarllm/")
 
     def test_custom_user_agent_with_underscore(self):
         """Partner names with underscores are preserved."""
         ua = DatabricksBase._build_user_agent("my_company/2.0.0")
-        assert ua.startswith("my_company_litellm/")
+        assert ua.startswith("my_company_hangarllm/")
 
     def test_custom_user_agent_with_hyphen(self):
         """Partner names with hyphens are preserved."""
         ua = DatabricksBase._build_user_agent("my-company/2.0.0")
-        assert ua.startswith("my-company_litellm/")
+        assert ua.startswith("my-company_hangarllm/")
 
     def test_custom_user_agent_ignores_custom_version(self):
-        """Custom version is ignored, litellm version is used."""
+        """Custom version is ignored, hangarllm version is used."""
         ua = DatabricksBase._build_user_agent("partner/99.99.99")
         parts = ua.split("/")
-        assert parts[0] == "partner_litellm"
+        assert parts[0] == "partner_hangarllm"
         assert parts[1] != "99.99.99"
 
     def test_empty_string_returns_default(self):
         """Empty string returns default user agent."""
         ua = DatabricksBase._build_user_agent("")
-        assert ua.startswith("litellm/")
+        assert ua.startswith("hangarllm/")
         assert "_" not in ua.split("/")[0]
 
     def test_whitespace_only_returns_default(self):
         """Whitespace-only string returns default user agent."""
         ua = DatabricksBase._build_user_agent("   ")
-        assert ua.startswith("litellm/")
+        assert ua.startswith("hangarllm/")
         assert "_" not in ua.split("/")[0]
 
     def test_invalid_partner_name_returns_default(self):
         """Invalid partner names (special chars) return default."""
         ua = DatabricksBase._build_user_agent("my@company/1.0.0")
-        assert ua.startswith("litellm/")
+        assert ua.startswith("hangarllm/")
 
     def test_partner_with_numbers(self):
         """Partner names with numbers work."""
         ua = DatabricksBase._build_user_agent("company123/1.0.0")
-        assert ua.startswith("company123_litellm/")
+        assert ua.startswith("company123_hangarllm/")
 
 
 class TestRedactSensitiveData:
@@ -315,7 +315,7 @@ class TestValidateEnvironmentUserAgent:
     def test_default_user_agent(self, monkeypatch):
         """Default user agent is set when no custom agent provided."""
         monkeypatch.delenv("DATABRICKS_USER_AGENT", raising=False)
-        monkeypatch.delenv("LITELLM_USER_AGENT", raising=False)
+        monkeypatch.delenv("HANGARLLM_USER_AGENT", raising=False)
 
         databricks_base = DatabricksBase()
 
@@ -328,7 +328,7 @@ class TestValidateEnvironmentUserAgent:
             custom_user_agent=None,
         )
 
-        assert headers["User-Agent"].startswith("litellm/")
+        assert headers["User-Agent"].startswith("hangarllm/")
         assert "_" not in headers["User-Agent"].split("/")[0]
 
     def test_custom_user_agent_via_param(self, monkeypatch):
@@ -344,7 +344,7 @@ class TestValidateEnvironmentUserAgent:
             custom_user_agent="mycompany/1.0.0",
         )
 
-        assert headers["User-Agent"].startswith("mycompany_litellm/")
+        assert headers["User-Agent"].startswith("mycompany_hangarllm/")
 
 
 class TestSDKPartnerTelemetry:
@@ -379,7 +379,7 @@ class TestSDKPartnerTelemetry:
             )
 
             # Verify that partner telemetry registration was called correctly
-            mock_useragent.with_partner.assert_called_once_with("litellm")
+            mock_useragent.with_partner.assert_called_once_with("hangarllm")
 
 
 class TestUserAgentFromEnvironment:
@@ -388,7 +388,7 @@ class TestUserAgentFromEnvironment:
     def test_user_agent_from_databricks_env_var(self, monkeypatch):
         """DATABRICKS_USER_AGENT environment variable is used."""
         monkeypatch.setenv("DATABRICKS_USER_AGENT", "envpartner")
-        monkeypatch.delenv("LITELLM_USER_AGENT", raising=False)
+        monkeypatch.delenv("HANGARLLM_USER_AGENT", raising=False)
 
         databricks_base = DatabricksBase()
 
@@ -401,7 +401,7 @@ class TestUserAgentFromEnvironment:
             custom_user_agent="envpartner",  # Simulating what transformation.py passes
         )
 
-        assert headers["User-Agent"].startswith("envpartner_litellm/")
+        assert headers["User-Agent"].startswith("envpartner_hangarllm/")
 
     def test_custom_param_takes_precedence(self, monkeypatch):
         """Custom user_agent parameter takes precedence over environment."""
@@ -418,15 +418,15 @@ class TestUserAgentFromEnvironment:
             custom_user_agent="parampartner/1.0.0",
         )
 
-        assert headers["User-Agent"].startswith("parampartner_litellm/")
+        assert headers["User-Agent"].startswith("parampartner_hangarllm/")
 
 
-class TestLiteLLMCompletionUserAgent:
-    """Test User-Agent is correctly passed through LiteLLM completion calls."""
+class TestHangarLLMCompletionUserAgent:
+    """Test User-Agent is correctly passed through HangarLLM completion calls."""
 
     def test_completion_passes_user_agent_to_headers(self):
-        """litellm.completion() correctly passes user_agent to request headers."""
-        from litellm.llms.databricks.chat.transformation import DatabricksConfig
+        """hangarllm.completion() correctly passes user_agent to request headers."""
+        from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
 
         config = DatabricksConfig()
         optional_params = {"user_agent": "testpartner/1.0.0"}
@@ -439,7 +439,7 @@ class TestLiteLLMCompletionUserAgent:
                 "https://test.net/serving-endpoints/chat/completions",
                 {
                     "Authorization": "Bearer test",
-                    "User-Agent": "testpartner_litellm/1.0.0",
+                    "User-Agent": "testpartner_hangarllm/1.0.0",
                 },
             ),
         ) as mock_validate:
@@ -448,7 +448,7 @@ class TestLiteLLMCompletionUserAgent:
                 model="databricks/test-model",
                 messages=[],
                 optional_params=optional_params,
-                litellm_params={},
+                hangarllm_params={},
                 api_key="test-key",
                 api_base="https://test.net/serving-endpoints",
             )
@@ -460,7 +460,7 @@ class TestLiteLLMCompletionUserAgent:
 
     def test_user_agent_removed_from_optional_params(self):
         """user_agent is removed from optional_params so it's not sent to API."""
-        from litellm.llms.databricks.chat.transformation import DatabricksConfig
+        from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
 
         config = DatabricksConfig()
         optional_params = {
@@ -481,7 +481,7 @@ class TestLiteLLMCompletionUserAgent:
                 model="databricks/test-model",
                 messages=[],
                 optional_params=optional_params,
-                litellm_params={},
+                hangarllm_params={},
                 api_key="test-key",
                 api_base="https://test.net/serving-endpoints",
             )
@@ -492,12 +492,12 @@ class TestLiteLLMCompletionUserAgent:
             assert optional_params.get("temperature") == 0.7
 
 
-class TestLiteLLMEmbeddingUserAgent:
-    """Test User-Agent is correctly passed through LiteLLM embedding calls."""
+class TestHangarLLMEmbeddingUserAgent:
+    """Test User-Agent is correctly passed through HangarLLM embedding calls."""
 
     def test_embedding_passes_user_agent_to_headers(self):
-        """litellm.embedding() correctly passes user_agent to request headers."""
-        from litellm.llms.databricks.embed.handler import DatabricksEmbeddingHandler
+        """hangarllm.embedding() correctly passes user_agent to request headers."""
+        from hangarllm.llms.databricks.embed.handler import DatabricksEmbeddingHandler
 
         handler = DatabricksEmbeddingHandler()
         optional_params = {"user_agent": "embedpartner/1.0.0"}
@@ -509,12 +509,12 @@ class TestLiteLLMEmbeddingUserAgent:
                 "https://test.net/serving-endpoints/embeddings",
                 {
                     "Authorization": "Bearer test",
-                    "User-Agent": "embedpartner_litellm/1.0.0",
+                    "User-Agent": "embedpartner_hangarllm/1.0.0",
                 },
             ),
         ) as mock_validate:
             with patch(
-                "litellm.llms.openai_like.embedding.handler.OpenAILikeEmbeddingHandler.embedding"
+                "hangarllm.llms.openai_like.embedding.handler.OpenAILikeEmbeddingHandler.embedding"
             ):
                 try:
                     handler.embedding(
@@ -658,7 +658,7 @@ class TestEndpointURLConstruction:
         assert api_base.endswith("/chat/completions")
 
     def test_chat_gateway_endpoint_for_unity_model_on_legacy_base(self, monkeypatch):
-        from litellm.llms.databricks.chat.transformation import DatabricksConfig
+        from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
 
         monkeypatch.delenv("DATABRICKS_CLIENT_ID", raising=False)
         monkeypatch.delenv("DATABRICKS_CLIENT_SECRET", raising=False)
@@ -668,13 +668,13 @@ class TestEndpointURLConstruction:
             api_key="test-key",
             model="system.ai.kimi-k3",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://test.net/ai-gateway/mlflow/v1/chat/completions"
 
     def test_chat_gateway_endpoint_preserves_explicit_gateway_base(self, monkeypatch):
-        from litellm.llms.databricks.chat.transformation import DatabricksConfig
+        from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
 
         monkeypatch.delenv("DATABRICKS_CLIENT_ID", raising=False)
         monkeypatch.delenv("DATABRICKS_CLIENT_SECRET", raising=False)
@@ -684,13 +684,13 @@ class TestEndpointURLConstruction:
             api_key="test-key",
             model="system.ai.kimi-k3",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://test.net/ai-gateway/mlflow/v1/chat/completions"
 
     def test_chat_gateway_preserves_unity_model_service_name_with_explicit_base(self, monkeypatch):
-        from litellm.llms.databricks.chat.transformation import DatabricksConfig
+        from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
 
         monkeypatch.delenv("DATABRICKS_CLIENT_ID", raising=False)
         monkeypatch.delenv("DATABRICKS_CLIENT_SECRET", raising=False)
@@ -699,7 +699,7 @@ class TestEndpointURLConstruction:
             model="catalog.schema.kimi-k3",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -708,12 +708,12 @@ class TestEndpointURLConstruction:
             api_key="test-key",
             model="catalog.schema.kimi-k3",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         ) == "https://test.net/ai-gateway/mlflow/v1/chat/completions"
         assert request["model"] == "catalog.schema.kimi-k3"
 
     def test_chat_legacy_endpoint_remains_default(self, monkeypatch):
-        from litellm.llms.databricks.chat.transformation import DatabricksConfig
+        from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
 
         monkeypatch.delenv("DATABRICKS_CLIENT_ID", raising=False)
         monkeypatch.delenv("DATABRICKS_CLIENT_SECRET", raising=False)
@@ -723,7 +723,7 @@ class TestEndpointURLConstruction:
             api_key="test-key",
             model="databricks-kimi-k3",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://test.net/serving-endpoints/chat/completions"

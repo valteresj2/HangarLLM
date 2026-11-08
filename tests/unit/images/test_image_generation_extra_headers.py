@@ -1,8 +1,8 @@
 """
-Unit test for https://github.com/BerriAI/litellm/issues/22285
+Unit test for upstream issue 22285
 
 Verifies that extra_headers passed to image_generation() are forwarded
-to the OpenAI SDK on the openai/litellm_proxy/openai_compatible_providers
+to the OpenAI SDK on the openai/hangarllm_proxy/openai_compatible_providers
 code paths.
 """
 
@@ -11,14 +11,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.images.main import image_generation
+import hangarllm
+from hangarllm.images.main import image_generation
 
 
 class TestImageGenerationExtraHeaders:
     """Test that extra_headers are forwarded on the OpenAI code path."""
 
-    @patch("litellm.images.main.openai_chat_completions")
+    @patch("hangarllm.images.main.openai_chat_completions")
     def test_extra_headers_forwarded_to_openai_image_generation(
         self, mock_openai_chat_completions
     ):
@@ -26,7 +26,7 @@ class TestImageGenerationExtraHeaders:
         extra_headers passed to image_generation() should appear in
         optional_params["extra_headers"] when the provider is openai.
         """
-        mock_image_response = litellm.utils.ImageResponse(
+        mock_image_response = hangarllm.utils.ImageResponse(
             created=1234567890,
             data=[{"url": "https://example.com/image.png"}],
         )
@@ -49,13 +49,13 @@ class TestImageGenerationExtraHeaders:
         assert "extra_headers" in optional_params
         assert optional_params["extra_headers"] == extra_headers
 
-    @patch("litellm.images.main.openai_chat_completions")
+    @patch("hangarllm.images.main.openai_chat_completions")
     def test_no_extra_headers_when_not_provided(self, mock_openai_chat_completions):
         """
         When extra_headers is not passed, optional_params should not
         contain extra_headers.
         """
-        mock_image_response = litellm.utils.ImageResponse(
+        mock_image_response = hangarllm.utils.ImageResponse(
             created=1234567890,
             data=[{"url": "https://example.com/image.png"}],
         )

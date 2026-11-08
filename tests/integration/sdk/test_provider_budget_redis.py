@@ -4,12 +4,12 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.types.utils import BudgetConfig
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.router_strategy.budget_limiter import RouterBudgetLimiting
+from hangarllm.types.utils import BudgetConfig
 from redis import Redis
 
 WINDOWS: Final = {"openai": ("1d", 86400), "vertex_ai": ("1h", 3600)}
@@ -19,7 +19,7 @@ START_KEYS: Final = tuple(f"provider_budget_start_time:{provider}" for provider 
 
 @pytest.fixture
 def redis_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[Redis]:
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     with Redis(host=os.environ["REDIS_HOST"], port=int(os.environ["REDIS_PORT"]), decode_responses=True) as client:
         client.delete(*SPEND_KEYS.values(), *START_KEYS)
         yield client

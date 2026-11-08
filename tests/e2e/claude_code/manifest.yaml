@@ -83,7 +83,7 @@ features:
     # asserts the response is shaped `{"input_tokens": <positive
     # int>}`. The CLI uses this endpoint internally but never
     # surfaces its result in stream-json, so the only way to test
-    # the proxy's handling of it is to hit it directly. LiteLLM has
+    # the proxy's handling of it is to hit it directly. HangarLLM has
     # shipped fixes here (e.g. Claude Code release-notes 2.1.121
     # "Vertex AI count_tokens returning 400 errors for proxy
     # gateways"), which is exactly the regression class this row
@@ -92,19 +92,19 @@ features:
     name: Tool search (MCP discovery)
     # HTTP-probe row. Sends a request whose `tools` array includes
     # a `tool_search_tool_regex_20251119` discovery tool and asserts
-    # the proxy + upstream accept it. This verifies LiteLLM's
+    # the proxy + upstream accept it. This verifies HangarLLM's
     # per-provider beta-header translation
     # (`advanced-tool-use-2025-11-20` for Anthropic/Azure,
     # `tool-search-tool-2025-10-19` for Vertex/Bedrock) is wired up.
     # We deliberately don't try to trigger Claude Code's MCP-fan-out
     # heuristic via `--mcp-config` -- that would couple the row to
     # an internal behavior threshold that changes between Claude
-    # Code releases. The HTTP probe hits the bug surface LiteLLM
+    # Code releases. The HTTP probe hits the bug surface HangarLLM
     # has actually shipped fixes for (2.1.117, 2.1.72, 2.1.70 per
     # the Claude Code release notes).
   - id: passthrough
     name: Native API passthrough
-    # Drives the CLI in each cloud's native mode against LiteLLM's
+    # Drives the CLI in each cloud's native mode against HangarLLM's
     # passthrough routes instead of the /v1/messages translation
     # layer -- the "LLM gateway" setup from
     # https://code.claude.com/docs/en/gateway. anthropic uses

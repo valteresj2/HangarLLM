@@ -15,7 +15,7 @@ import pytest
 import pytest_asyncio
 from prisma import Prisma
 
-from litellm.proxy.analytics_endpoints.cache_activity import (
+from hangarllm.proxy.analytics_endpoints.cache_activity import (
     ERROR_BREAKDOWN_SQL,
     GROUPS_SQL,
     INFO_ROUTES_JSON,
@@ -63,7 +63,7 @@ async def _spend_log(
 ) -> None:
     metadata: Final = {"error_information": {"error_code": error_code, "error_class": "ProxyException"}}
     await db.execute_raw(
-        'INSERT INTO "LiteLLM_SpendLogs" ("request_id", "call_type", "api_key", "startTime", "endTime", "model", '
+        'INSERT INTO "HangarLLM_SpendLogs" ("request_id", "call_type", "api_key", "startTime", "endTime", "model", '
         '"status", "metadata", "user", "team_id") '
         "VALUES ($1, $2, $3, $4::timestamp, $4::timestamp, $5, $6, $7::jsonb, $8, $9)",
         str(uuid.uuid4()),
@@ -86,7 +86,7 @@ async def seeded(db):
         (OUTSIDER_KEY, OUTSIDER_ALIAS),
     ):
         await db.execute_raw(
-            'INSERT INTO "LiteLLM_VerificationToken" ("token", "key_alias") VALUES ($1, $2)', token, alias
+            'INSERT INTO "HangarLLM_VerificationToken" ("token", "key_alias") VALUES ($1, $2)', token, alias
         )
     await _spend_log(db, INFERENCE_KEY, "acompletion", "success", model=INFERENCE_MODEL, user=OWNER)
     await _spend_log(
@@ -99,8 +99,8 @@ async def seeded(db):
     await _spend_log(db, OUTSIDER_KEY, "acompletion", "success", model=INFERENCE_MODEL, user=OUTSIDER)
     yield
     keys: Final = [INFERENCE_KEY, INFO_ONLY_KEY, OUTSIDER_KEY]
-    await db.execute_raw('DELETE FROM "LiteLLM_SpendLogs" WHERE "api_key" = ANY($1::text[])', keys)
-    await db.execute_raw('DELETE FROM "LiteLLM_VerificationToken" WHERE "token" = ANY($1::text[])', keys)
+    await db.execute_raw('DELETE FROM "HangarLLM_SpendLogs" WHERE "api_key" = ANY($1::text[])', keys)
+    await db.execute_raw('DELETE FROM "HangarLLM_VerificationToken" WHERE "token" = ANY($1::text[])', keys)
 
 
 async def _groups(db, key_aliases: list[str], scope: tuple = GRANT_ALL) -> dict[str, dict]:

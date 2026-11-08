@@ -10,7 +10,7 @@ import pytest
 from starlette.types import Message, Scope
 from uvicorn import config as uvicorn_config
 
-from litellm.proxy.dev_reload import (
+from hangarllm.proxy.dev_reload import (
     RELOAD_OPTIONS,
     RELOAD_WORKER_HEALTHCHECK_SECONDS,
     ReloadOptions,
@@ -19,7 +19,7 @@ from litellm.proxy.dev_reload import (
     multi_worker_reload_supported,
     pool_config,
 )
-from litellm.proxy.proxy_cli import ProxyInitializationHelpers
+from hangarllm.proxy.proxy_cli import ProxyInitializationHelpers
 
 UNCHANGED_LOGGING: Final = {"version": 1, "incremental": True}
 POOL_WORKERS: Final = 2

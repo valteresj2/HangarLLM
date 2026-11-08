@@ -7,9 +7,9 @@ import pytest
 import respx
 from openai import OpenAI
 
-import litellm
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.proxy.auth.model_checks import get_provider_models
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.proxy.auth.model_checks import get_provider_models
 
 ZEROGPU_API_BASE: Final = "https://api.zerogpu.ai/v1"
 
@@ -70,7 +70,7 @@ def test_prefixed_model_reaches_zerogpu_chat_completions_without_the_prefix():
     zerogpu: Final = _RecordingZeroGPU({"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4})
 
     with zerogpu.client() as client:
-        litellm.completion(
+        hangarllm.completion(
             model="zerogpu/gpt-oss-120b",
             messages=[{"role": "user", "content": "hello"}],
             client=client,
@@ -106,7 +106,7 @@ def test_responses_request_reaches_zerogpu_responses_natively():
                 "usage": {"input_tokens": 3, "output_tokens": 1, "total_tokens": 4},
             },
         )
-        response: Final = litellm.responses(model="zerogpu/gpt-oss-120b", input="hello", api_key="zerogpu-test-key")
+        response: Final = hangarllm.responses(model="zerogpu/gpt-oss-120b", input="hello", api_key="zerogpu-test-key")
 
     body: Final = json.loads(route.calls.last.request.content)
     assert body["model"] == "gpt-oss-120b"
@@ -118,7 +118,7 @@ def test_anthropic_messages_request_is_bridged_to_zerogpu_chat_completions():
     zerogpu: Final = _RecordingZeroGPU({"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4})
 
     with zerogpu.client() as client:
-        response: Final = litellm.anthropic.messages.create(
+        response: Final = hangarllm.anthropic.messages.create(
             model="zerogpu/gpt-oss-120b",
             messages=[{"role": "user", "content": "hello"}],
             max_tokens=10,
@@ -145,13 +145,13 @@ def test_zerogpu_completion_is_charged_at_the_cost_map_rates(model: str):
     zerogpu: Final = _RecordingZeroGPU(usage)
 
     with zerogpu.client() as client:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=f"zerogpu/{model}",
             messages=[{"role": "user", "content": "hello"}],
             client=client,
         )
 
-    rates: Final = litellm.model_cost[f"zerogpu/{model}"]
+    rates: Final = hangarllm.model_cost[f"zerogpu/{model}"]
     cached_rate: Final = rates.get("cache_read_input_token_cost", rates["input_cost_per_token"])
     expected_cost: Final = (
         600 * rates["input_cost_per_token"] + 400 * cached_rate + 200 * rates["output_cost_per_token"]
@@ -163,12 +163,12 @@ def test_zerogpu_completion_is_charged_at_the_cost_map_rates(model: str):
 @pytest.mark.parametrize("model", ZEROGPU_MODELS)
 def test_trim_messages_fits_zerogpu_history_into_the_model_context_window(model: str):
     budget: Final = 20
-    trim_ratio: Final = budget / litellm.model_cost[f"zerogpu/{model}"]["max_input_tokens"]
+    trim_ratio: Final = budget / hangarllm.model_cost[f"zerogpu/{model}"]["max_input_tokens"]
     messages: Final = [{"role": "user", "content": "lorem ipsum " * 300}]
 
-    trimmed: Final = litellm.utils.trim_messages(messages, model=f"zerogpu/{model}", trim_ratio=trim_ratio)
+    trimmed: Final = hangarllm.utils.trim_messages(messages, model=f"zerogpu/{model}", trim_ratio=trim_ratio)
 
-    trimmed_tokens: Final = litellm.token_counter(model=f"zerogpu/{model}", messages=trimmed)
+    trimmed_tokens: Final = hangarllm.token_counter(model=f"zerogpu/{model}", messages=trimmed)
     assert trimmed_tokens <= budget, trimmed
 
 
@@ -187,7 +187,7 @@ def test_tools_and_reasoning_effort_reach_zerogpu_only_for_models_that_support_t
     zerogpu: Final = _RecordingZeroGPU({"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4})
 
     with zerogpu.client() as client:
-        litellm.completion(
+        hangarllm.completion(
             model=f"zerogpu/{model}",
             messages=[{"role": "user", "content": "weather in Paris?"}],
             tools=[WEATHER_TOOL],
@@ -208,10 +208,10 @@ def test_tools_and_reasoning_effort_reach_zerogpu_only_for_models_that_support_t
 
 
 @pytest.mark.parametrize("model", ZEROGPU_MODELS)
-def test_model_info_reports_the_reasoning_support_litellm_routes_with(model: str):
-    model_info: Final = litellm.get_model_info(f"zerogpu/{model}")
+def test_model_info_reports_the_reasoning_support_hangarllm_routes_with(model: str):
+    model_info: Final = hangarllm.get_model_info(f"zerogpu/{model}")
 
-    assert bool(model_info.get("supports_reasoning")) == litellm.utils.supports_reasoning(f"zerogpu/{model}")
+    assert bool(model_info.get("supports_reasoning")) == hangarllm.utils.supports_reasoning(f"zerogpu/{model}")
 
 
 def test_zerogpu_key_and_base_come_from_zerogpu_env_vars(monkeypatch: pytest.MonkeyPatch):
@@ -232,7 +232,7 @@ def test_zerogpu_key_and_base_come_from_zerogpu_env_vars(monkeypatch: pytest.Mon
 
 def test_zerogpu_wildcard_lists_every_zerogpu_catalog_model():
     catalog_models: Final = sorted(
-        key for key, row in litellm.model_cost.items() if row.get("litellm_provider") == "zerogpu"
+        key for key, row in hangarllm.model_cost.items() if row.get("hangarllm_provider") == "zerogpu"
     )
 
     assert catalog_models

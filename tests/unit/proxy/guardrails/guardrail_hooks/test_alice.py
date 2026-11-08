@@ -7,15 +7,15 @@ import httpx
 import pytest
 from httpx import Request, Response
 
-import litellm
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.guardrails.guardrail_hooks.alice.alice import (
+import hangarllm
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy.guardrails.guardrail_hooks.alice.alice import (
     GUARDRAIL_NAME,
     AliceGuardrail,
     AliceGuardrailMissingSecrets,
     _json_safe,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
 
 
 def _guardrail(**overrides: object) -> AliceGuardrail:
@@ -28,26 +28,26 @@ def _verdict(payload: dict[str, object], status_code: int = 200) -> Response:
     return Response(
         status_code=status_code,
         json=payload,
-        request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+        request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
     )
 
 
 def test_alice_guardrail_config(monkeypatch: pytest.MonkeyPatch):
     """Should register through init_guardrails_v2 like any other provider."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
     monkeypatch.setenv("ALICE_API_KEY", "test-key")
 
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "alice",
-                "litellm_params": {"guardrail": "alice", "mode": "pre_call", "default_on": True},
+                "hangarllm_params": {"guardrail": "alice", "mode": "pre_call", "default_on": True},
             }
         ],
         config_file_path="",
     )
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, AliceGuardrail)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, AliceGuardrail)]
     assert len(registered) == 1
     assert registered[0].guardrail_name == "alice"
 
@@ -68,13 +68,13 @@ class TestAliceGuardrailInitialization:
         guardrail = AliceGuardrail(guardrail_name="alice", event_hook="pre_call")
 
         assert guardrail.alice_api_key == "env-key"
-        assert guardrail.api_base == "https://env.alice.test/v2/evaluate/litellm"
+        assert guardrail.api_base == "https://env.alice.test/v2/evaluate/hangarllm"
 
     def test_defaults_the_api_base(self):
-        assert _guardrail().api_base == "https://api.alice.io/v2/evaluate/litellm"
+        assert _guardrail().api_base == "https://api.alice.io/v2/evaluate/hangarllm"
 
     def test_trailing_slash_does_not_double_up(self):
-        assert _guardrail(api_base="https://api.alice.io/").api_base == ("https://api.alice.io/v2/evaluate/litellm")
+        assert _guardrail(api_base="https://api.alice.io/").api_base == ("https://api.alice.io/v2/evaluate/hangarllm")
 
 
 class TestAliceForwarding:
@@ -220,7 +220,7 @@ class TestAliceCredentialStripping:
                 "headers": {"authorization": "Bearer metadata-secret"},
                 "requester_metadata": {"headers": {"authorization": "Bearer requester-metadata-secret"}},
             },
-            "litellm_metadata": {"headers": {"authorization": "Bearer litellm-metadata-secret"}},
+            "hangarllm_metadata": {"headers": {"authorization": "Bearer hangarllm-metadata-secret"}},
         }
 
         await guardrail.apply_guardrail(inputs={"texts": ["hi"]}, request_data=request_data, input_type="request")
@@ -234,7 +234,7 @@ class TestAliceCredentialStripping:
         assert "body-metadata-secret" not in serialized
         assert "metadata-secret" not in serialized
         assert "requester-metadata-secret" not in serialized
-        assert "litellm-metadata-secret" not in serialized
+        assert "hangarllm-metadata-secret" not in serialized
 
         sent_request_data = posted_body["request_data"]
         assert sent_request_data["model"] == "claude-3-5-sonnet"
@@ -246,7 +246,7 @@ class TestAliceCredentialStripping:
         assert "headers" not in sent_request_data["metadata"]
         assert "requester_metadata" in sent_request_data["metadata"]
         assert "headers" not in sent_request_data["metadata"]["requester_metadata"]
-        assert "headers" not in sent_request_data["litellm_metadata"]
+        assert "headers" not in sent_request_data["hangarllm_metadata"]
         assert "secret_fields" not in sent_request_data
         assert "provider_specific_header" not in sent_request_data
 
@@ -424,7 +424,7 @@ class TestAliceTransportFailures:
     async def test_a_timeout_is_unreachable(self):
         guardrail = _guardrail()
         guardrail.async_handler.post = AsyncMock(
-            side_effect=litellm.exceptions.Timeout(message="slow", model="gpt-4o", llm_provider="openai")
+            side_effect=hangarllm.exceptions.Timeout(message="slow", model="gpt-4o", llm_provider="openai")
         )
 
         with pytest.raises(GuardrailRaisedException, match="unavailable"):
@@ -437,7 +437,7 @@ class TestAliceTransportFailures:
         guardrail.async_handler.post = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "server error",
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
                 response=_verdict({}, status_code=status),
             )
         )
@@ -452,7 +452,7 @@ class TestAliceTransportFailures:
         guardrail.async_handler.post = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "server error",
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
                 response=_verdict({}, status_code=500),
             )
         )
@@ -467,7 +467,7 @@ class TestAliceTransportFailures:
         guardrail.async_handler.post = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "unauthorized",
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
                 response=_verdict({}, status_code=401),
             )
         )
@@ -482,7 +482,7 @@ class TestAliceTransportFailures:
             return_value=Response(
                 status_code=200,
                 json=["not", "an", "object"],
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
             )
         )
 
@@ -496,7 +496,7 @@ class TestAliceTransportFailures:
             return_value=Response(
                 status_code=200,
                 json=["not", "an", "object"],
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
             )
         )
 
@@ -511,7 +511,7 @@ class TestAliceTransportFailures:
             return_value=Response(
                 status_code=200,
                 content=b"not json",
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
             )
         )
 
@@ -525,7 +525,7 @@ class TestAliceTransportFailures:
             return_value=Response(
                 status_code=200,
                 content=b"not json",
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
             )
         )
 
@@ -541,7 +541,7 @@ class TestAliceTransportFailures:
             return_value=Response(
                 status_code=200,
                 content=b"\xff\xfe not utf-8",
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
             )
         )
 
@@ -555,7 +555,7 @@ class TestAliceTransportFailures:
             return_value=Response(
                 status_code=200,
                 content=b"\xff\xfe not utf-8",
-                request=Request("POST", "https://api.alice.io/v2/evaluate/litellm"),
+                request=Request("POST", "https://api.alice.io/v2/evaluate/hangarllm"),
             )
         )
 

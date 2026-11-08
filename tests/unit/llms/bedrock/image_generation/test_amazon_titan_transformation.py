@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.llms.bedrock.image_generation.amazon_titan_transformation import AmazonTitanImageGenerationConfig
+from hangarllm.llms.bedrock.image_generation.amazon_titan_transformation import AmazonTitanImageGenerationConfig
 
 
 @pytest.mark.parametrize(

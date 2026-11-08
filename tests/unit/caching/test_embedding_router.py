@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
 
-import litellm
-from litellm.caching._embedding_router import (
+import hangarllm
+from hangarllm.caching._embedding_router import (
     build_router_embedding_metadata,
     resolve_embedding_max_input_tokens,
     resolve_embedding_router,
@@ -40,11 +40,11 @@ def test_resolve_returns_none_when_model_list_is_none():
 def test_resolve_skips_entries_missing_model_name():
     router = MagicMock()
     model_list = [
-        {"litellm_params": {"model": "bedrock/x"}},
+        {"hangarllm_params": {"model": "bedrock/x"}},
         {"model_name": "sem-embed"},
     ]
     assert resolve_embedding_router("sem-embed", router, model_list) is router
-    assert resolve_embedding_router("other", router, [{"litellm_params": {}}]) is None
+    assert resolve_embedding_router("other", router, [{"hangarllm_params": {}}]) is None
 
 
 def test_build_metadata_preserves_request_fields_and_adds_flag():
@@ -92,7 +92,7 @@ def test_truncate_embedding_input_keeps_prompt_within_limit():
     prompt = "The quick brown fox jumps over the lazy dog"
     assert truncate_embedding_input(prompt, "sem-embed", None) == prompt
     assert truncate_embedding_input(prompt, "sem-embed", 100) == prompt
-    token_count = len(litellm.encode(model="sem-embed", text=prompt))
+    token_count = len(hangarllm.encode(model="sem-embed", text=prompt))
     assert truncate_embedding_input(prompt, "sem-embed", token_count) == prompt
 
 
@@ -101,4 +101,4 @@ def test_truncate_embedding_input_cuts_prompt_to_token_limit():
     truncated = truncate_embedding_input(prompt, "sem-embed", 50)
     assert prompt.startswith(truncated)
     assert len(truncated) < len(prompt)
-    assert len(litellm.encode(model="sem-embed", text=truncated)) == 50
+    assert len(hangarllm.encode(model="sem-embed", text=truncated)) == 50

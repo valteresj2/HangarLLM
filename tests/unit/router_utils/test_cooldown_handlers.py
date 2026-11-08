@@ -14,18 +14,18 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.litellm_core_utils.litellm_logging import mask_api_base_credentials
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.router_cooldowns import RouterCooldowns, RouterCooldownStore
-from litellm.router_api import RoutingContext
-from litellm.router_utils.cooldown_cache import CooldownCache, CooldownCacheValue
-from litellm.router_utils.cooldown_callbacks import router_cooldown_event_callback
-from litellm.router_utils.cooldown_handlers import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.hangarllm_core_utils.hangarllm_logging import mask_api_base_credentials
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.router_cooldowns import RouterCooldowns, RouterCooldownStore
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_utils.cooldown_cache import CooldownCache, CooldownCacheValue
+from hangarllm.router_utils.cooldown_callbacks import router_cooldown_event_callback
+from hangarllm.router_utils.cooldown_handlers import (
     _get_deployment_cooldown_policy,
     _has_explicit_allowed_fails_policy_for_exception,
     _has_fallback_group,
@@ -42,21 +42,21 @@ from litellm.router_utils.cooldown_handlers import (
     set_cooldown_deployments,
     should_cooldown_based_on_allowed_fails_policy,
 )
-from litellm.router_utils.fallback_event_handlers import (
+from hangarllm.router_utils.fallback_event_handlers import (
     _trigger_cooldown_for_failed_deployment,
 )
-from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+from hangarllm.router_utils.router_callbacks.track_deployment_metrics import (
     get_deployment_failures_for_current_minute,
     increment_deployment_failures_for_current_minute,
     increment_deployment_successes_for_current_minute,
 )
-from litellm.types.router import (
+from hangarllm.types.router import (
     AllowedFailsPolicy,
     DeploymentTypedDict,
-    LiteLLMParamsTypedDict,
+    HangarLLMParamsTypedDict,
     RouterRateLimitError,
 )
-from litellm.types.utils import CooldownDeploymentInfo, CredentialItem
+from hangarllm.types.utils import CooldownDeploymentInfo, CredentialItem
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -84,19 +84,19 @@ def _ctx_double(
 @pytest.mark.parametrize(
     ("exception_type", "expected_cooldown"),
     (
-        (litellm.APIConnectionError, False),
-        (litellm.UnsupportedEndpointError, False),
-        (litellm.BadRequestError, True),
+        (hangarllm.APIConnectionError, False),
+        (hangarllm.UnsupportedEndpointError, False),
+        (hangarllm.BadRequestError, True),
     ),
 )
 async def test_unsupported_endpoint_preserves_cooldown_exclusion_with_bad_request_policy(
-    exception_type: type[litellm.APIConnectionError | litellm.BadRequestError], expected_cooldown: bool
+    exception_type: type[hangarllm.APIConnectionError | hangarllm.BadRequestError], expected_cooldown: bool
 ) -> None:
     router: Final = Router(
         model_list=[
             {
                 "model_name": "chat",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "not-needed"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "not-needed"},
                 "model_info": {"id": "deployment", "allowed_fails_policy": {"BadRequestErrorAllowedFails": 0}},
             }
         ],
@@ -154,42 +154,42 @@ class TestGetDeploymentCooldownPolicy:
 
 class TestResolveAllowedFailsFromPolicy:
     def test_none_policy_returns_none(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(None, exc) is None
 
     def test_matching_rate_limit_error(self):
         policy = {"RateLimitErrorAllowedFails": 3}
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 3
 
     def test_matching_internal_server_error(self):
         policy = {"InternalServerErrorAllowedFails": 5}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = hangarllm.InternalServerError("500", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 5
 
     def test_matching_service_unavailable_error(self):
         policy = {"ServiceUnavailableErrorAllowedFails": 4}
-        exc = litellm.ServiceUnavailableError("503", "openai", "gpt-4")
+        exc = hangarllm.ServiceUnavailableError("503", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 4
 
     def test_matching_bad_gateway_error(self):
         policy = {"BadGatewayErrorAllowedFails": 2}
-        exc = litellm.BadGatewayError("502", "openai", "gpt-4")
+        exc = hangarllm.BadGatewayError("502", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 2
 
     def test_matching_not_found_error(self):
         policy = {"NotFoundErrorAllowedFails": 1}
-        exc = litellm.NotFoundError("404", "openai", "gpt-4")
+        exc = hangarllm.NotFoundError("404", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 1
 
     def test_unmatched_exception_returns_none(self):
         policy = {"RateLimitErrorAllowedFails": 3}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = hangarllm.InternalServerError("500", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) is None
 
     def test_field_absent_from_policy_returns_none(self):
         policy: dict[str, int] = {}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = hangarllm.InternalServerError("500", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) is None
 
     def test_content_policy_violation_not_shadowed_by_bad_request_error(self):
@@ -198,7 +198,7 @@ class TestResolveAllowedFailsFromPolicy:
         BadRequestErrorAllowedFails (10) instead of
         ContentPolicyViolationErrorAllowedFails (2)."""
         policy = {"BadRequestErrorAllowedFails": 10, "ContentPolicyViolationErrorAllowedFails": 2}
-        exc = litellm.ContentPolicyViolationError("flagged content", "openai", "gpt-4")
+        exc = hangarllm.ContentPolicyViolationError("flagged content", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 2
 
 
@@ -208,10 +208,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
 
     def test_policy_match_uses_exception_type_as_cache_key_suffix(self):
         policy = {"RateLimitErrorAllowedFails": 0}
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, None, is_single_deployment_model_group=False
@@ -224,10 +224,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
 
     def test_no_policy_match_uses_dep_allowed_fails_and_generic_suffix(self):
         policy: dict[str, int] = {}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = hangarllm.InternalServerError("500", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = False
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, dep_allowed_fails=3, is_single_deployment_model_group=False
@@ -243,10 +243,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         policy and is a less deliberate opt-in, so on a single-deployment model group
         it must not silently disable the "avoid cooldowns on single deployment model
         groups" safety net."""
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = hangarllm.InternalServerError("500", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, dep_allowed_fails=3, is_single_deployment_model_group=True
             )
@@ -258,10 +258,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         """Unlike a generic allowed_fails, an explicit per-exception-type policy entry
         is a deliberate opt-in and must still apply on a single-deployment group."""
         policy = {"RateLimitErrorAllowedFails": 0}
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, None, is_single_deployment_model_group=True
@@ -275,10 +275,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         this exception, defer to router-level behavior instead of forcing an
         immediate cooldown (allowed_fails_override=0 would trip on the first failure
         of any exception type the deployment's config doesn't mention)."""
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = hangarllm.InternalServerError("500", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -293,10 +293,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         zero-fail threshold on an unrelated TimeoutError; it should defer to
         router-level behavior for exception types its policy doesn't mention."""
         policy = {"RateLimitErrorAllowedFails": 0}
-        exc = litellm.Timeout("timed out", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = hangarllm.Timeout("timed out", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = False
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, dep_allowed_fails=None, is_single_deployment_model_group=False
@@ -307,10 +307,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         assert call_kwargs["cache_key_suffix"] is None
 
     def test_cooldown_time_from_model_info_passed_through(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {"cooldown_time": 120.0}})
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {}, "model_info": {"cooldown_time": 120.0}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -319,14 +319,14 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         call_kwargs = mock_sc.call_args[1]
         assert call_kwargs["cooldown_time_override"] == 120.0
 
-    def test_cooldown_time_from_litellm_params_used_as_fallback(self):
-        """cooldown_time has pre-existing litellm_params support on the primary
+    def test_cooldown_time_from_hangarllm_params_used_as_fallback(self):
+        """cooldown_time has pre-existing hangarllm_params support on the primary
         failure path, so it must still be honored here when model_info doesn't
         set it."""
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {"cooldown_time": 120.0}, "model_info": {}})
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {"cooldown_time": 120.0}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -335,11 +335,11 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         call_kwargs = mock_sc.call_args[1]
         assert call_kwargs["cooldown_time_override"] == 120.0
 
-    def test_cooldown_time_from_model_info_takes_priority_over_litellm_params(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {"cooldown_time": 120.0}, "model_info": {"cooldown_time": 15.0}})
+    def test_cooldown_time_from_model_info_takes_priority_over_hangarllm_params(self):
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"hangarllm_params": {"cooldown_time": 120.0}, "model_info": {"cooldown_time": 15.0}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -349,10 +349,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         assert call_kwargs["cooldown_time_override"] == 15.0
 
     def test_model_info_none_passes_none_cooldown_time(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
         router = self._make_router(None)
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("hangarllm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = False
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -372,7 +372,7 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
         store: Final = MagicMock(spec=RouterCooldowns)
         store.increment_allowed_fails.return_value = 1
         ctx: Final = self._make_router(cooldown_time=60.0, store=store)
-        exc: Final = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc: Final = hangarllm.RateLimitError("429", "openai", "gpt-4")
         assert not should_cooldown_based_on_allowed_fails_policy(
             ctx=ctx, deployment="dep-1", original_exception=exc, allowed_fails_override=5, cooldown_time_override=0.0
         )
@@ -381,7 +381,7 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
     def test_fail_counter_is_shared_across_router_instances(self):
         shared: Final = RouterCooldownStore(connect(None).router_cooldowns())
         workers: Final = tuple(self._make_router(store=shared) for _ in range(2))
-        exc: Final = litellm.AuthenticationError("401", "openai", "gpt-4")
+        exc: Final = hangarllm.AuthenticationError("401", "openai", "gpt-4")
         results: Final = [
             should_cooldown_based_on_allowed_fails_policy(
                 ctx=workers[i % 2], deployment="dep-1", original_exception=exc, allowed_fails_override=5
@@ -394,7 +394,7 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
         store: Final = MagicMock(spec=RouterCooldowns)
         store.increment_allowed_fails.return_value = 6
         ctx: Final = self._make_router(store=store)
-        exc: Final = litellm.AuthenticationError("401", "openai", "gpt-4")
+        exc: Final = hangarllm.AuthenticationError("401", "openai", "gpt-4")
         assert should_cooldown_based_on_allowed_fails_policy(
             ctx=ctx, deployment="dep-1", original_exception=exc, allowed_fails_override=5
         )
@@ -403,18 +403,18 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
 
 class TestRoutingGroupCooldownAlternatives:
     def _router(self, routing_groups=None):
-        from litellm import Router
+        from hangarllm import Router
 
         return Router(
             model_list=[
                 {
                     "model_name": "solo-member",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
                     "model_info": {"id": "cg-deploy-1"},
                 },
                 {
                     "model_name": "other-member",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                     "model_info": {"id": "cg-deploy-2"},
                 },
             ],
@@ -422,7 +422,7 @@ class TestRoutingGroupCooldownAlternatives:
         )
 
     def test_group_call_429_cools_down_member_with_alternatives(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from hangarllm.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(
             routing_groups=[
@@ -445,7 +445,7 @@ class TestRoutingGroupCooldownAlternatives:
         )
 
     def test_direct_member_429_keeps_single_deployment_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from hangarllm.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(
             routing_groups=[
@@ -468,7 +468,7 @@ class TestRoutingGroupCooldownAlternatives:
         )
 
     def test_429_without_request_context_keeps_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from hangarllm.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(routing_groups=None)
         assert (
@@ -483,12 +483,12 @@ class TestRoutingGroupCooldownAlternatives:
 
 
 class TestTeamModelCooldownAlternatives:
-    def _router(self, team_deployments: int, blocked_ids: frozenset[str] = frozenset()) -> litellm.Router:
-        return litellm.Router(
+    def _router(self, team_deployments: int, blocked_ids: frozenset[str] = frozenset()) -> hangarllm.Router:
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": f"model_name_team-1_{i}",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                     "model_info": {
                         "id": f"team-deploy-{i}",
                         "team_id": "team-1",
@@ -501,7 +501,7 @@ class TestTeamModelCooldownAlternatives:
         )
 
     def test_429_on_team_deployment_with_sibling_cools_down(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from hangarllm.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(team_deployments=2)
         assert (
@@ -516,7 +516,7 @@ class TestTeamModelCooldownAlternatives:
         )
 
     def test_429_on_only_team_deployment_keeps_single_deployment_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from hangarllm.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(team_deployments=1)
         assert (
@@ -531,7 +531,7 @@ class TestTeamModelCooldownAlternatives:
         )
 
     def test_429_with_only_a_blocked_sibling_keeps_single_deployment_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from hangarllm.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(team_deployments=2, blocked_ids=frozenset({"team-deploy-1"}))
         assert (
@@ -556,15 +556,15 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function")
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+            importlib.reload(hangarllm.proxy.proxy_server)
     except Exception:
         pass
     loop = asyncio.get_event_loop_policy().new_event_loop()
@@ -589,7 +589,7 @@ class TestDeploymentLevelAllowedFails:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {
                         "id": "primary",
                         "allowed_fails": 0,
@@ -597,14 +597,14 @@ class TestDeploymentLevelAllowedFails:
                 },
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {"id": "secondary"},
                 },
             ],
             allowed_fails=10,
         )
 
-        _exception = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        _exception = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         should_cooldown = _should_cooldown_deployment(
             ctx=RoutingContext(router),
             deployment="primary",
@@ -623,7 +623,7 @@ class TestDeploymentLevelAllowedFails:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {
                         "id": "primary",
                         "allowed_fails": 0,
@@ -631,14 +631,14 @@ class TestDeploymentLevelAllowedFails:
                 },
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {"id": "secondary"},
                 },
             ],
             allowed_fails=10,
         )
 
-        _exception = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        _exception = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         should_cooldown = _should_cooldown_deployment(
             ctx=RoutingContext(router),
             deployment="secondary",
@@ -653,13 +653,13 @@ class TestDeploymentLevelAllowedFails:
 
 def _gpt_4_group_with_a_sibling() -> Sequence[Mapping[str, object]]:
     return (
-        {"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4"}, "model_info": {"id": "primary"}},
-        {"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4"}, "model_info": {"id": "secondary"}},
+        {"model_name": "gpt-4", "hangarllm_params": {"model": "openai/gpt-4"}, "model_info": {"id": "primary"}},
+        {"model_name": "gpt-4", "hangarllm_params": {"model": "openai/gpt-4"}, "model_info": {"id": "secondary"}},
     )
 
 
 def _primary_cooldown_decisions_on_repeated_503s(router: Router) -> tuple[bool, ...]:
-    exception: Final = litellm.ServiceUnavailableError("down", "openai", "gpt-4")
+    exception: Final = hangarllm.ServiceUnavailableError("down", "openai", "gpt-4")
     return tuple(
         _should_cooldown_deployment(
             ctx=RoutingContext(router),
@@ -667,7 +667,7 @@ def _primary_cooldown_decisions_on_repeated_503s(router: Router) -> tuple[bool, 
             exception_status=503,
             original_exception=exception,
         )
-        for _ in range(litellm.allowed_fails + 1)
+        for _ in range(hangarllm.allowed_fails + 1)
     )
 
 
@@ -675,21 +675,21 @@ def _primary_cooldown_decisions_on_repeated_503s(router: Router) -> tuple[bool, 
 class TestRouterLevelAllowedFailsEqualToDefault:
     def test_allowed_fails_equal_to_the_default_cools_down_after_that_many_fails(self):
         router: Final = _make_router(
-            model_list=list(_gpt_4_group_with_a_sibling()), allowed_fails=litellm.allowed_fails
+            model_list=list(_gpt_4_group_with_a_sibling()), allowed_fails=hangarllm.allowed_fails
         )
 
-        assert _primary_cooldown_decisions_on_repeated_503s(router) == (False,) * litellm.allowed_fails + (True,)
+        assert _primary_cooldown_decisions_on_repeated_503s(router) == (False,) * hangarllm.allowed_fails + (True,)
 
     def test_unset_allowed_fails_keeps_the_rate_based_default(self):
         router: Final = _make_router(model_list=list(_gpt_4_group_with_a_sibling()))
 
-        assert _primary_cooldown_decisions_on_repeated_503s(router) == (False,) * (litellm.allowed_fails + 1)
+        assert _primary_cooldown_decisions_on_repeated_503s(router) == (False,) * (hangarllm.allowed_fails + 1)
 
     def test_default_allowed_fails_saved_through_update_settings_keeps_the_rate_based_default(self):
         router: Final = _make_router(model_list=list(_gpt_4_group_with_a_sibling()))
-        router.update_settings(allowed_fails=litellm.allowed_fails)
+        router.update_settings(allowed_fails=hangarllm.allowed_fails)
 
-        assert _primary_cooldown_decisions_on_repeated_503s(router) == (False,) * (litellm.allowed_fails + 1)
+        assert _primary_cooldown_decisions_on_repeated_503s(router) == (False,) * (hangarllm.allowed_fails + 1)
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
@@ -703,7 +703,7 @@ class TestDeploymentLevelAllowedFailsPolicyByExceptionType:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {
                         "id": "primary",
                         "allowed_fails_policy": {
@@ -716,7 +716,7 @@ class TestDeploymentLevelAllowedFailsPolicyByExceptionType:
             allowed_fails=10,
         )
 
-        rate_limit_exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        rate_limit_exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         should_cooldown = _should_cooldown_deployment(
             ctx=RoutingContext(router),
             deployment="primary",
@@ -734,7 +734,7 @@ class TestDeploymentLevelAllowedFailsPolicyByExceptionType:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {
                         "id": "primary",
                         "allowed_fails_policy": {
@@ -747,7 +747,7 @@ class TestDeploymentLevelAllowedFailsPolicyByExceptionType:
             allowed_fails=10,
         )
 
-        ise = litellm.InternalServerError("Internal error", "openai", "gpt-4")
+        ise = hangarllm.InternalServerError("Internal error", "openai", "gpt-4")
 
         for _ in range(5):
             should_cooldown = _should_cooldown_deployment(
@@ -778,15 +778,15 @@ class TestExceptionTypeCountersTrackedIndependently:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {"id": "primary"},
                 },
             ],
             allowed_fails=10,
         )
 
-        rate_limit_exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
-        ise = litellm.InternalServerError("Internal error", "openai", "gpt-4")
+        rate_limit_exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
+        ise = hangarllm.InternalServerError("Internal error", "openai", "gpt-4")
 
         assert [
             should_cooldown_based_on_allowed_fails_policy(
@@ -850,10 +850,10 @@ class TestFallbackDeploymentCooldown:
         """
         ctx = _ctx_double(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(
                 ctx=ctx,
                 kwargs={},
@@ -872,7 +872,7 @@ class TestFallbackDeploymentCooldown:
         """
         ctx = _ctx_double()
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(
                 ctx=ctx,
                 kwargs={},
@@ -890,7 +890,7 @@ class TestFallbackDeploymentCooldown:
         """
         ctx = _ctx_double(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         kwargs = {
             "metadata": {
                 "model_info": {"id": "attacker-chosen-deployment"},
@@ -898,7 +898,7 @@ class TestFallbackDeploymentCooldown:
             }
         }
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(
                 ctx=ctx,
                 kwargs=kwargs,
@@ -915,13 +915,13 @@ class TestFallbackDeploymentCooldown:
         """
         ctx = _ctx_double(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
         with (
-            patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
+            patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown,
             patch(
-                "litellm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
+                "hangarllm.router_utils.fallback_event_handlers.increment_deployment_failures_for_current_minute"
             ) as mock_increment,
         ):
             _trigger_cooldown_for_failed_deployment(ctx=ctx, kwargs={}, exception=exc)
@@ -936,10 +936,10 @@ class TestFallbackDeploymentCooldown:
         """
         ctx = _ctx_double(cooldown_time=300.0, deployment_dict={"model_info": {"cooldown_time": 30.0}})
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(
                 ctx=ctx,
                 kwargs={},
@@ -959,11 +959,11 @@ class TestFallbackDeploymentCooldown:
         """
         ctx = _ctx_double(cooldown_time=60.0)
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
         mark_advisor_orchestration_failure(exc)
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(
                 ctx=ctx,
                 kwargs={},
@@ -972,19 +972,19 @@ class TestFallbackDeploymentCooldown:
 
             mock_set_cooldown.assert_not_called()
 
-    def test_trigger_cooldown_falls_back_to_litellm_params_cooldown_time(self):
+    def test_trigger_cooldown_falls_back_to_hangarllm_params_cooldown_time(self):
         """
-        cooldown_time has pre-existing litellm_params support on the primary
+        cooldown_time has pre-existing hangarllm_params support on the primary
         failure path (Router.deployment_callback_on_failure), so it must still be
         honored as a fallback when model_info doesn't set it, unlike the new
         allowed_fails/allowed_fails_policy fields which are model_info-only.
         """
-        ctx = _ctx_double(cooldown_time=300.0, deployment_dict={"litellm_params": {"cooldown_time": 30.0}})
+        ctx = _ctx_double(cooldown_time=300.0, deployment_dict={"hangarllm_params": {"cooldown_time": 30.0}})
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(
                 ctx=ctx,
                 kwargs={},
@@ -993,22 +993,22 @@ class TestFallbackDeploymentCooldown:
 
             call_kwargs = mock_set_cooldown.call_args[1]
             assert call_kwargs["time_to_cooldown"] == 30.0, (
-                "litellm_params.cooldown_time must still be honored as a fallback"
+                "hangarllm_params.cooldown_time must still be honored as a fallback"
             )
 
-    def test_trigger_cooldown_prefers_model_info_cooldown_time_over_litellm_params(self):
+    def test_trigger_cooldown_prefers_model_info_cooldown_time_over_hangarllm_params(self):
         ctx = _ctx_double(
             cooldown_time=300.0,
             deployment_dict={
                 "model_info": {"cooldown_time": 15.0},
-                "litellm_params": {"cooldown_time": 30.0},
+                "hangarllm_params": {"cooldown_time": 30.0},
             },
         )
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         exc.failed_deployment_id = "fallback-deployment"
 
-        with patch("litellm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
+        with patch("hangarllm.router_utils.fallback_event_handlers.set_cooldown_deployments") as mock_set_cooldown:
             _trigger_cooldown_for_failed_deployment(
                 ctx=ctx,
                 kwargs={},
@@ -1032,7 +1032,7 @@ class TestSingleDeploymentModelGroupProtection:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {"id": "solo", "allowed_fails": 1},
                 },
             ],
@@ -1060,7 +1060,7 @@ class TestSingleDeploymentModelGroupProtection:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {
                         "id": "solo",
                         "allowed_fails_policy": {"RateLimitErrorAllowedFails": 0},
@@ -1069,7 +1069,7 @@ class TestSingleDeploymentModelGroupProtection:
             ],
         )
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         should_cooldown = _should_cooldown_deployment(
             ctx=RoutingContext(router),
             deployment="solo",
@@ -1091,7 +1091,7 @@ class TestShouldCooldownBasedOnAllowedFailsPolicyFalsyZero:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "openai/gpt-4"},
+                    "hangarllm_params": {"model": "openai/gpt-4"},
                     "model_info": {"id": "primary"},
                 },
             ],
@@ -1099,7 +1099,7 @@ class TestShouldCooldownBasedOnAllowedFailsPolicyFalsyZero:
             allowed_fails_policy=AllowedFailsPolicy(RateLimitErrorAllowedFails=0),
         )
 
-        exc = litellm.RateLimitError("Rate limit", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("Rate limit", "openai", "gpt-4")
         should_cooldown = should_cooldown_based_on_allowed_fails_policy(
             ctx=RoutingContext(router),
             deployment="primary",
@@ -1121,7 +1121,7 @@ class TestResolveAllowedFailsFromPolicyFallsThrough:
             "ContentPolicyViolationErrorAllowedFails": None,
             "BadRequestErrorAllowedFails": 3,
         }
-        exc = litellm.ContentPolicyViolationError("flagged", "openai", "gpt-4")
+        exc = hangarllm.ContentPolicyViolationError("flagged", "openai", "gpt-4")
         result = _resolve_allowed_fails_from_policy(policy=policy, exception=exc)
         assert result == 3, "must fall through to BadRequestErrorAllowedFails when the more specific field is unset"
 
@@ -1131,16 +1131,16 @@ class TestCallerScopedOAuthAuthFailureCooldown:
     @staticmethod
     def _router(
         model_id: str,
-        litellm_params: dict[str, object],
+        hangarllm_params: dict[str, object],
         allowed_fails_policy: dict[str, int] | None = None,
     ) -> Router:
         return _make_router(
             model_list=[
                 {
                     "model_name": "copilot",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "microsoft_365_copilot/chat",
-                        **litellm_params,
+                        **hangarllm_params,
                     },
                     "model_info": {
                         "id": model_id,
@@ -1153,14 +1153,14 @@ class TestCallerScopedOAuthAuthFailureCooldown:
     @staticmethod
     def _auth_exception(status: int) -> Exception:
         if status == 401:
-            return litellm.AuthenticationError("caller assertion rejected", "microsoft_365_copilot", "copilot")
-        return litellm.PermissionDeniedError(
+            return hangarllm.AuthenticationError("caller assertion rejected", "microsoft_365_copilot", "copilot")
+        return hangarllm.PermissionDeniedError(
             "caller assertion rejected",
             "microsoft_365_copilot",
             "copilot",
             response=httpx.Response(
                 status_code=403,
-                request=httpx.Request("GET", "https://litellm.ai"),
+                request=httpx.Request("GET", "https://github.com/valteresj2/HangarLLM#readme"),
             ),
         )
 
@@ -1169,7 +1169,7 @@ class TestCallerScopedOAuthAuthFailureCooldown:
         return router.deployment_callback_on_failure(
             kwargs={
                 "exception": exception,
-                "litellm_params": {"model_info": {"id": model_id}},
+                "hangarllm_params": {"model_info": {"id": model_id}},
             },
             completion_response=None,
             start_time=0,
@@ -1204,7 +1204,7 @@ class TestCallerScopedOAuthAuthFailureCooldown:
     ) -> None:
         model_id: Final = "named-oauth"
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -1218,7 +1218,7 @@ class TestCallerScopedOAuthAuthFailureCooldown:
                 )
             ],
         )
-        router: Final = self._router(model_id, {"litellm_credential_name": "copilot-oauth"})
+        router: Final = self._router(model_id, {"hangarllm_credential_name": "copilot-oauth"})
 
         result: Final = self._callback(router, model_id, self._auth_exception(status))
 
@@ -1234,7 +1234,7 @@ class TestCallerScopedOAuthAuthFailureCooldown:
         self._callback(
             router,
             model_id,
-            litellm.AuthenticationError("upstream rejected the API key", "openai", "gpt-4o-mini"),
+            hangarllm.AuthenticationError("upstream rejected the API key", "openai", "gpt-4o-mini"),
         )
 
         assert get_deployment_failures_for_current_minute(RoutingContext(router), model_id) == 1
@@ -1257,9 +1257,9 @@ class TestCallerScopedOAuthAuthFailureCooldown:
             },
         )
         exception: Final[Exception] = (
-            litellm.RateLimitError("rate limited", "microsoft_365_copilot", "copilot")
+            hangarllm.RateLimitError("rate limited", "microsoft_365_copilot", "copilot")
             if status == 429
-            else litellm.InternalServerError("provider failed", "microsoft_365_copilot", "copilot")
+            else hangarllm.InternalServerError("provider failed", "microsoft_365_copilot", "copilot")
         )
 
         self._callback(router, model_id, exception)
@@ -1290,7 +1290,7 @@ class TestCallerScopedOAuthAuthFailureCooldown:
     async def test_fallback_api_key_auth_failure_still_cools_down(self) -> None:
         model_id: Final = "fallback-api-key"
         router: Final = self._router(model_id, {"api_key": "sk-test"})
-        exception: Final = litellm.AuthenticationError("API key rejected", "openai", "gpt-4o-mini")
+        exception: Final = hangarllm.AuthenticationError("API key rejected", "openai", "gpt-4o-mini")
         exception.failed_deployment_id = model_id
 
         _trigger_cooldown_for_failed_deployment(ctx=RoutingContext(router), kwargs={}, exception=exception)
@@ -1304,16 +1304,16 @@ class TestPerUserCopilotAuthFailureCooldown:
     @staticmethod
     def _router(
         model_id: str,
-        litellm_params: Mapping[str, object],
+        hangarllm_params: Mapping[str, object],
         allowed_fails_policy: Mapping[str, int] | None = None,
     ) -> Router:
         return _make_router(
             model_list=[
                 {
                     "model_name": "copilot",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "github_copilot/gpt-4o",
-                        **litellm_params,
+                        **hangarllm_params,
                     },
                     "model_info": {
                         "id": model_id,
@@ -1330,7 +1330,7 @@ class TestPerUserCopilotAuthFailureCooldown:
         return router.deployment_callback_on_failure(
             kwargs={
                 "exception": exception,
-                "litellm_params": {"model_info": {"id": model_id}},
+                "hangarllm_params": {"model_info": {"id": model_id}},
             },
             completion_response=None,
             start_time=0,
@@ -1342,11 +1342,11 @@ class TestPerUserCopilotAuthFailureCooldown:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from litellm.constants import GITHUB_COPILOT_AUTH_TYPE_KEY, GITHUB_COPILOT_PER_USER_AUTH_TYPE
+        from hangarllm.constants import GITHUB_COPILOT_AUTH_TYPE_KEY, GITHUB_COPILOT_PER_USER_AUTH_TYPE
 
         model_id: Final = "per-user-oauth"
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -1356,8 +1356,8 @@ class TestPerUserCopilotAuthFailureCooldown:
                 )
             ],
         )
-        router: Final = self._router(model_id, {"litellm_credential_name": "copilot-per-user"})
-        exception: Final = litellm.CallerCredentialAuthenticationError(
+        router: Final = self._router(model_id, {"hangarllm_credential_name": "copilot-per-user"})
+        exception: Final = hangarllm.CallerCredentialAuthenticationError(
             message="reconnect", llm_provider="github_copilot", model=""
         )
         result: Final = self._callback(router, model_id, exception)
@@ -1366,7 +1366,7 @@ class TestPerUserCopilotAuthFailureCooldown:
 
     @pytest.mark.asyncio
     async def test_shared_mode_copilot_auth_failure_still_cools_down(self) -> None:
-        from litellm.llms.github_copilot.authenticator import Authenticator
+        from hangarllm.llms.github_copilot.authenticator import Authenticator
 
         model_id: Final = "shared-mode"
         with (
@@ -1377,7 +1377,7 @@ class TestPerUserCopilotAuthFailureCooldown:
             self._callback(
                 router,
                 model_id,
-                litellm.AuthenticationError("upstream rejected the shared token", "github_copilot", "gpt-4o"),
+                hangarllm.AuthenticationError("upstream rejected the shared token", "github_copilot", "gpt-4o"),
             )
         assert get_deployment_failures_for_current_minute(RoutingContext(router), model_id) == 1
         assert get_cooldown_deployments(RoutingContext(router), parent_otel_span=None) == [model_id]
@@ -1387,11 +1387,11 @@ class TestPerUserCopilotAuthFailureCooldown:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from litellm.constants import GITHUB_COPILOT_AUTH_TYPE_KEY, GITHUB_COPILOT_PER_USER_AUTH_TYPE
+        from hangarllm.constants import GITHUB_COPILOT_AUTH_TYPE_KEY, GITHUB_COPILOT_PER_USER_AUTH_TYPE
 
         model_id: Final = "fallback-per-user"
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -1401,8 +1401,8 @@ class TestPerUserCopilotAuthFailureCooldown:
                 )
             ],
         )
-        router: Final = self._router(model_id, {"litellm_credential_name": "copilot-per-user"})
-        exception: Final = litellm.CallerCredentialAuthenticationError(
+        router: Final = self._router(model_id, {"hangarllm_credential_name": "copilot-per-user"})
+        exception: Final = hangarllm.CallerCredentialAuthenticationError(
             message="reconnect", llm_provider="github_copilot", model=""
         )
         exception.failed_deployment_id = model_id
@@ -1413,7 +1413,7 @@ class TestPerUserCopilotAuthFailureCooldown:
 
     @pytest.mark.asyncio
     async def test_fallback_shared_mode_auth_failure_still_cools_down(self) -> None:
-        from litellm.llms.github_copilot.authenticator import Authenticator
+        from hangarllm.llms.github_copilot.authenticator import Authenticator
 
         model_id: Final = "fallback-shared"
         with (
@@ -1421,7 +1421,7 @@ class TestPerUserCopilotAuthFailureCooldown:
             patch.object(Authenticator, "get_api_base", return_value="https://api.githubcopilot.com"),
         ):
             router: Final = self._router(model_id, {"api_key": "sk-shared"})
-            exception: Final = litellm.AuthenticationError(
+            exception: Final = hangarllm.AuthenticationError(
                 "upstream rejected the shared token", "github_copilot", "gpt-4o"
             )
             exception.failed_deployment_id = model_id
@@ -1435,11 +1435,11 @@ class TestPerUserCopilotAuthFailureCooldown:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from litellm.constants import GITHUB_COPILOT_AUTH_TYPE_KEY, GITHUB_COPILOT_PER_USER_AUTH_TYPE
+        from hangarllm.constants import GITHUB_COPILOT_AUTH_TYPE_KEY, GITHUB_COPILOT_PER_USER_AUTH_TYPE
 
         model_id: Final = "fallback-per-user-429"
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [
                 CredentialItem(
@@ -1451,10 +1451,10 @@ class TestPerUserCopilotAuthFailureCooldown:
         )
         router: Final = self._router(
             model_id,
-            {"litellm_credential_name": "copilot-per-user"},
+            {"hangarllm_credential_name": "copilot-per-user"},
             allowed_fails_policy={"RateLimitErrorAllowedFails": 0},
         )
-        exception: Final = litellm.RateLimitError("copilot 429", "github_copilot", "gpt-4o")
+        exception: Final = hangarllm.RateLimitError("copilot 429", "github_copilot", "gpt-4o")
         exception.failed_deployment_id = model_id
 
         _trigger_cooldown_for_failed_deployment(ctx=RoutingContext(router), kwargs={}, exception=exception)
@@ -1463,7 +1463,7 @@ class TestPerUserCopilotAuthFailureCooldown:
 
     @pytest.mark.asyncio
     async def test_fallback_rate_limit_on_shared_deployment_still_cools_down(self) -> None:
-        from litellm.llms.github_copilot.authenticator import Authenticator
+        from hangarllm.llms.github_copilot.authenticator import Authenticator
 
         model_id: Final = "fallback-shared-429"
         with (
@@ -1475,7 +1475,7 @@ class TestPerUserCopilotAuthFailureCooldown:
                 {"api_key": "sk-shared"},
                 allowed_fails_policy={"RateLimitErrorAllowedFails": 0},
             )
-            exception: Final = litellm.RateLimitError("copilot 429", "github_copilot", "gpt-4o")
+            exception: Final = hangarllm.RateLimitError("copilot 429", "github_copilot", "gpt-4o")
             exception.failed_deployment_id = model_id
 
             _trigger_cooldown_for_failed_deployment(ctx=RoutingContext(router), kwargs={}, exception=exception)
@@ -1490,7 +1490,7 @@ class TestNewAllowedFailsPolicyFields:
         ServiceUnavailableError must be matched against ServiceUnavailableErrorAllowedFails.
         """
         policy = {"ServiceUnavailableErrorAllowedFails": 0}
-        exc = litellm.ServiceUnavailableError("Service unavailable", "openai", "gpt-4")
+        exc = hangarllm.ServiceUnavailableError("Service unavailable", "openai", "gpt-4")
         result = _resolve_allowed_fails_from_policy(policy=policy, exception=exc)
         assert result == 0
 
@@ -1499,7 +1499,7 @@ class TestNewAllowedFailsPolicyFields:
         BadGatewayError must be matched against BadGatewayErrorAllowedFails.
         """
         policy = {"BadGatewayErrorAllowedFails": 2}
-        exc = litellm.BadGatewayError("Bad gateway", "openai", "gpt-4")
+        exc = hangarllm.BadGatewayError("Bad gateway", "openai", "gpt-4")
         result = _resolve_allowed_fails_from_policy(policy=policy, exception=exc)
         assert result == 2
 
@@ -1508,7 +1508,7 @@ class TestNewAllowedFailsPolicyFields:
         NotFoundError must be matched against NotFoundErrorAllowedFails.
         """
         policy = {"NotFoundErrorAllowedFails": 1}
-        exc = litellm.NotFoundError("Not found", "openai", "gpt-4")
+        exc = hangarllm.NotFoundError("Not found", "openai", "gpt-4")
         result = _resolve_allowed_fails_from_policy(policy=policy, exception=exc)
         assert result == 1
 
@@ -1541,33 +1541,33 @@ class TestRouterLevelGetAllowedFailsFromPolicy:
 
     def _make_router(self, **policy_kwargs):
         return Router(
-            model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4", "api_key": "fake"}}],
+            model_list=[{"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4", "api_key": "fake"}}],
             allowed_fails_policy=AllowedFailsPolicy(**policy_kwargs),
         )
 
     def test_internal_server_error_returned(self):
         router = self._make_router(InternalServerErrorAllowedFails=7)
-        exc = litellm.InternalServerError("500 error", "openai", "gpt-4")
+        exc = hangarllm.InternalServerError("500 error", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 7
 
     def test_service_unavailable_error_returned(self):
         router = self._make_router(ServiceUnavailableErrorAllowedFails=4)
-        exc = litellm.ServiceUnavailableError("503 error", "openai", "gpt-4")
+        exc = hangarllm.ServiceUnavailableError("503 error", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 4
 
     def test_bad_gateway_error_returned(self):
         router = self._make_router(BadGatewayErrorAllowedFails=2)
-        exc = litellm.BadGatewayError("502 error", "openai", "gpt-4")
+        exc = hangarllm.BadGatewayError("502 error", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 2
 
     def test_not_found_error_returned(self):
         router = self._make_router(NotFoundErrorAllowedFails=1)
-        exc = litellm.NotFoundError("404 error", "openai", "gpt-4")
+        exc = hangarllm.NotFoundError("404 error", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 1
 
     def test_unmatched_exception_returns_none(self):
         router = self._make_router(InternalServerErrorAllowedFails=5)
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = hangarllm.RateLimitError("429", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) is None
 
 
@@ -1596,22 +1596,22 @@ async def test_router_cooldown_event_callback_no_deployment():
 
 
 @pytest.fixture
-def testing_litellm_router():
+def testing_hangarllm_router():
     return Router(
         model_list=[
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini"},
+                "hangarllm_params": {"model": "gpt-5-mini"},
                 "model_id": "test_deployment",
             },
             {
                 "model_name": "test_deployment",
-                "litellm_params": {"model": "openai/test_deployment"},
+                "hangarllm_params": {"model": "openai/test_deployment"},
                 "model_id": "test_deployment_2",
             },
             {
                 "model_name": "test_deployment",
-                "litellm_params": {"model": "openai/test_deployment-2"},
+                "hangarllm_params": {"model": "openai/test_deployment-2"},
                 "model_id": "test_deployment_3",
             },
         ]
@@ -1619,22 +1619,22 @@ def testing_litellm_router():
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-def test_should_run_cooldown_logic(testing_litellm_router):
-    testing_litellm_router.disable_cooldowns = True
+def test_should_run_cooldown_logic(testing_hangarllm_router):
+    testing_hangarllm_router.disable_cooldowns = True
     # don't run cooldown logic if disable_cooldowns is True
     assert (
-        _should_run_cooldown_logic(RoutingContext(testing_litellm_router), "test_deployment", 500, Exception("Test"))
+        _should_run_cooldown_logic(RoutingContext(testing_hangarllm_router), "test_deployment", 500, Exception("Test"))
         is False
     )
 
     # don't cooldown if deployment is None
-    testing_litellm_router.disable_cooldowns = False
-    assert _should_run_cooldown_logic(RoutingContext(testing_litellm_router), None, 500, Exception("Test")) is False
+    testing_hangarllm_router.disable_cooldowns = False
+    assert _should_run_cooldown_logic(RoutingContext(testing_hangarllm_router), None, 500, Exception("Test")) is False
 
     # don't cooldown if it's a provider default deployment
-    testing_litellm_router.provider_default_deployment_ids = ["test_deployment"]
+    testing_hangarllm_router.provider_default_deployment_ids = ["test_deployment"]
     assert (
-        _should_run_cooldown_logic(RoutingContext(testing_litellm_router), "test_deployment", 500, Exception("Test"))
+        _should_run_cooldown_logic(RoutingContext(testing_hangarllm_router), "test_deployment", 500, Exception("Test"))
         is False
     )
 
@@ -1642,14 +1642,14 @@ def test_should_run_cooldown_logic(testing_litellm_router):
 @pytest.fixture
 def single_deployment_router():
     """A router with one deployment whose model_info.id is the lookup-able
-    "dep-1" (unlike `testing_litellm_router`'s top-level "model_id" key, which
+    "dep-1" (unlike `testing_hangarllm_router`'s top-level "model_id" key, which
     is not absorbed into model_info.id and so never resolves via
     get_model_info/get_model_group)."""
     return Router(
         model_list=[
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini"},
+                "hangarllm_params": {"model": "gpt-5-mini"},
                 "model_info": {"id": "dep-1"},
             },
         ]
@@ -1664,7 +1664,7 @@ def test_should_run_cooldown_logic_generic_bad_request_excluded_by_default(
     cooldown evaluation by _is_cooldown_required when no allowed_fails_policy is
     configured for that exception type. This is the pre-existing, intentional
     default: a client error is usually not the deployment's fault."""
-    exc = litellm.BadRequestError("bad request", "openai", "gpt-5-mini")
+    exc = hangarllm.BadRequestError("bad request", "openai", "gpt-5-mini")
     assert _should_run_cooldown_logic(RoutingContext(single_deployment_router), "dep-1", 400, exc) is False
 
 
@@ -1677,7 +1677,7 @@ def test_should_run_cooldown_logic_router_level_policy_does_not_override_bad_req
     and stay subject to the generic 4XX exclusion. Only an explicit deployment-level
     policy (an unambiguous per-exception opt-in for that one deployment) overrides it;
     see test_should_run_cooldown_logic_explicit_deployment_level_policy_overrides_content_policy_exclusion."""
-    exc = litellm.BadRequestError("bad request", "openai", "gpt-5-mini")
+    exc = hangarllm.BadRequestError("bad request", "openai", "gpt-5-mini")
     single_deployment_router.allowed_fails_policy = AllowedFailsPolicy(BadRequestErrorAllowedFails=5)
     assert _should_run_cooldown_logic(RoutingContext(single_deployment_router), "dep-1", 400, exc) is False
 
@@ -1688,7 +1688,7 @@ def test_should_run_cooldown_logic_explicit_deployment_level_policy_overrides_co
 ):
     """Same as the router-level case, but for a deployment-level allowed_fails_policy
     entry (this PR's per-deployment feature) targeting ContentPolicyViolationError."""
-    exc = litellm.ContentPolicyViolationError("flagged content", "openai", "gpt-5-mini")
+    exc = hangarllm.ContentPolicyViolationError("flagged content", "openai", "gpt-5-mini")
     deployment_dict = single_deployment_router.get_model_info(id="dep-1")
     deployment_dict["model_info"]["allowed_fails_policy"] = {"ContentPolicyViolationErrorAllowedFails": 0}
     assert _should_run_cooldown_logic(RoutingContext(single_deployment_router), "dep-1", 400, exc) is True
@@ -1697,7 +1697,7 @@ def test_should_run_cooldown_logic_explicit_deployment_level_policy_overrides_co
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 class TestHasExplicitAllowedFailsPolicyForException:
     def test_no_policy_anywhere_returns_false(self, single_deployment_router):
-        exc = litellm.BadRequestError("bad request", "openai", "gpt-5-mini")
+        exc = hangarllm.BadRequestError("bad request", "openai", "gpt-5-mini")
         assert (
             _has_explicit_allowed_fails_policy_for_exception(RoutingContext(single_deployment_router), "dep-1", exc)
             is False
@@ -1707,7 +1707,7 @@ class TestHasExplicitAllowedFailsPolicyForException:
         """Deliberately scoped to deployment-level only: a router-level policy
         predates this feature and must not be treated as an explicit per-exception
         opt-in for cooldown-gate purposes."""
-        exc = litellm.RateLimitError("rate limited", "openai", "gpt-5-mini")
+        exc = hangarllm.RateLimitError("rate limited", "openai", "gpt-5-mini")
         single_deployment_router.allowed_fails_policy = AllowedFailsPolicy(RateLimitErrorAllowedFails=3)
         assert (
             _has_explicit_allowed_fails_policy_for_exception(RoutingContext(single_deployment_router), "dep-1", exc)
@@ -1715,7 +1715,7 @@ class TestHasExplicitAllowedFailsPolicyForException:
         )
 
     def test_router_level_policy_for_different_exception_returns_false(self, single_deployment_router):
-        exc = litellm.BadRequestError("bad request", "openai", "gpt-5-mini")
+        exc = hangarllm.BadRequestError("bad request", "openai", "gpt-5-mini")
         single_deployment_router.allowed_fails_policy = AllowedFailsPolicy(RateLimitErrorAllowedFails=3)
         assert (
             _has_explicit_allowed_fails_policy_for_exception(RoutingContext(single_deployment_router), "dep-1", exc)
@@ -1723,7 +1723,7 @@ class TestHasExplicitAllowedFailsPolicyForException:
         )
 
     def test_deployment_level_policy_for_matching_exception_returns_true(self, single_deployment_router):
-        exc = litellm.ContentPolicyViolationError("flagged", "openai", "gpt-5-mini")
+        exc = hangarllm.ContentPolicyViolationError("flagged", "openai", "gpt-5-mini")
         deployment_dict = single_deployment_router.get_model_info(id="dep-1")
         deployment_dict["model_info"]["allowed_fails_policy"] = {"ContentPolicyViolationErrorAllowedFails": 0}
         assert (
@@ -1732,7 +1732,7 @@ class TestHasExplicitAllowedFailsPolicyForException:
         )
 
     def test_none_deployment_returns_false(self, single_deployment_router):
-        exc = litellm.RateLimitError("rate limited", "openai", "gpt-5-mini")
+        exc = hangarllm.RateLimitError("rate limited", "openai", "gpt-5-mini")
         single_deployment_router.allowed_fails_policy = AllowedFailsPolicy(RateLimitErrorAllowedFails=3)
         assert (
             _has_explicit_allowed_fails_policy_for_exception(RoutingContext(single_deployment_router), None, exc)
@@ -1741,35 +1741,35 @@ class TestHasExplicitAllowedFailsPolicyForException:
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-def test_should_cooldown_deployment_rate_limit_error(testing_litellm_router):
+def test_should_cooldown_deployment_rate_limit_error(testing_hangarllm_router):
     """
     Test the _should_cooldown_deployment function when a rate limit error occurs
     """
     # Test 429 error (rate limit) -> always cooldown a deployment returning 429s
-    _exception = litellm.exceptions.RateLimitError("Rate limit", "openai", "gpt-5-mini")
+    _exception = hangarllm.exceptions.RateLimitError("Rate limit", "openai", "gpt-5-mini")
     assert (
-        _should_cooldown_deployment(RoutingContext(testing_litellm_router), "test_deployment", 429, _exception) is True
+        _should_cooldown_deployment(RoutingContext(testing_hangarllm_router), "test_deployment", 429, _exception) is True
     )
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-def test_should_cooldown_deployment_auth_limit_error(testing_litellm_router):
+def test_should_cooldown_deployment_auth_limit_error(testing_hangarllm_router):
     """
     Test the _should_cooldown_deployment function when an auth limit error occurs
     """
     # Test 401 error (auth limit) -> always cooldown a deployment returning 401s
-    _exception = litellm.exceptions.AuthenticationError("Unauthorized", "openai", "gpt-5-mini")
+    _exception = hangarllm.exceptions.AuthenticationError("Unauthorized", "openai", "gpt-5-mini")
     assert (
-        _should_cooldown_deployment(RoutingContext(testing_litellm_router), "test_deployment", 401, _exception) is True
+        _should_cooldown_deployment(RoutingContext(testing_hangarllm_router), "test_deployment", 401, _exception) is True
     )
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 @pytest.mark.parametrize("exception_status", (401, 402))
-def test_is_cooldown_required_for_account_errors(testing_litellm_router, exception_status):
+def test_is_cooldown_required_for_account_errors(testing_hangarllm_router, exception_status):
     assert (
         _is_cooldown_required(
-            ctx=RoutingContext(testing_litellm_router),
+            ctx=RoutingContext(testing_hangarllm_router),
             model_id="test_deployment",
             exception_status=exception_status,
         )
@@ -1789,7 +1789,7 @@ def test_single_deployment_402_does_not_cooldown(
                     model_list=[
                         {
                             "model_name": "gpt-5-mini",
-                            "litellm_params": {"model": "gpt-5-mini"},
+                            "hangarllm_params": {"model": "gpt-5-mini"},
                             "model_info": {"id": "dep-1"},
                         },
                     ],
@@ -1798,7 +1798,7 @@ def test_single_deployment_402_does_not_cooldown(
             ),
             "dep-1",
             402,
-            litellm.PaymentRequiredError(
+            hangarllm.PaymentRequiredError(
                 message="Insufficient credits",
                 model="gpt-5-mini",
                 llm_provider="openai",
@@ -1817,7 +1817,7 @@ def test_single_deployment_402_respects_router_allowed_fails_policy() -> None:
                     model_list=[
                         {
                             "model_name": "gpt-5-mini",
-                            "litellm_params": {"model": "gpt-5-mini"},
+                            "hangarllm_params": {"model": "gpt-5-mini"},
                             "model_info": {"id": "dep-1"},
                         },
                     ],
@@ -1826,7 +1826,7 @@ def test_single_deployment_402_respects_router_allowed_fails_policy() -> None:
             ),
             "dep-1",
             402,
-            litellm.PaymentRequiredError(
+            hangarllm.PaymentRequiredError(
                 message="Insufficient credits",
                 model="gpt-5-mini",
                 llm_provider="openai",
@@ -1845,7 +1845,7 @@ def test_single_deployment_402_respects_deployment_allowed_fails_policy() -> Non
                     model_list=[
                         {
                             "model_name": "gpt-5-mini",
-                            "litellm_params": {"model": "gpt-5-mini"},
+                            "hangarllm_params": {"model": "gpt-5-mini"},
                             "model_info": {
                                 "id": "dep-1",
                                 "allowed_fails_policy": {"BadRequestErrorAllowedFails": 0},
@@ -1856,7 +1856,7 @@ def test_single_deployment_402_respects_deployment_allowed_fails_policy() -> Non
             ),
             "dep-1",
             402,
-            litellm.PaymentRequiredError(
+            hangarllm.PaymentRequiredError(
                 message="Insufficient credits",
                 model="gpt-5-mini",
                 llm_provider="openai",
@@ -1867,13 +1867,13 @@ def test_single_deployment_402_respects_deployment_allowed_fails_policy() -> Non
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-def test_multi_deployment_402_cools_down(testing_litellm_router: Router) -> None:
+def test_multi_deployment_402_cools_down(testing_hangarllm_router: Router) -> None:
     assert (
         _should_cooldown_deployment(
-            RoutingContext(testing_litellm_router),
+            RoutingContext(testing_hangarllm_router),
             "test_deployment",
             402,
-            litellm.PaymentRequiredError(
+            hangarllm.PaymentRequiredError(
                 message="Insufficient credits",
                 model="gpt-5-mini",
                 llm_provider="openai",
@@ -1885,23 +1885,23 @@ def test_multi_deployment_402_cools_down(testing_litellm_router: Router) -> None
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 @pytest.mark.asyncio
-async def test_should_cooldown_deployment(testing_litellm_router):
+async def test_should_cooldown_deployment(testing_hangarllm_router):
     """
     Cooldown a deployment if it fails 60% of requests in 1 minute - DEFAULT threshold is 50%
     """
     import logging
 
-    from litellm._logging import verbose_router_logger
+    from hangarllm._logging import verbose_router_logger
 
     verbose_router_logger.setLevel(logging.DEBUG)
 
     # Test 429 error (rate limit) -> always cooldown a deployment returning 429s
-    _exception = litellm.exceptions.RateLimitError("Rate limit", "openai", "gpt-5-mini")
+    _exception = hangarllm.exceptions.RateLimitError("Rate limit", "openai", "gpt-5-mini")
     assert (
-        _should_cooldown_deployment(RoutingContext(testing_litellm_router), "test_deployment", 429, _exception) is True
+        _should_cooldown_deployment(RoutingContext(testing_hangarllm_router), "test_deployment", 429, _exception) is True
     )
 
-    available_deployment = testing_litellm_router.get_available_deployment(model="test_deployment")
+    available_deployment = testing_hangarllm_router.get_available_deployment(model="test_deployment")
     print("available_deployment", available_deployment)
     assert available_deployment is not None
 
@@ -1911,18 +1911,18 @@ async def test_should_cooldown_deployment(testing_litellm_router):
     # set current success for deployment to 40
     for _ in range(40):
         increment_deployment_successes_for_current_minute(
-            ctx=RoutingContext(testing_litellm_router), deployment_id=deployment_id
+            ctx=RoutingContext(testing_hangarllm_router), deployment_id=deployment_id
         )
 
     # now we fail 40 requests in a row
     tasks = []
     for _ in range(41):
         tasks.append(
-            testing_litellm_router.acompletion(
+            testing_hangarllm_router.acompletion(
                 model=deployment_id,
                 messages=[{"role": "user", "content": "Hello, world!"}],
                 max_tokens=100,
-                mock_response="litellm.InternalServerError",
+                mock_response="hangarllm.InternalServerError",
             )
         )
     try:
@@ -1934,7 +1934,7 @@ async def test_should_cooldown_deployment(testing_litellm_router):
 
     # expect this to fail since it's now 51% of requests are failing
     assert (
-        _should_cooldown_deployment(RoutingContext(testing_litellm_router), deployment_id, 500, Exception("Test"))
+        _should_cooldown_deployment(RoutingContext(testing_hangarllm_router), deployment_id, 500, Exception("Test"))
         is True
     )
 
@@ -1950,7 +1950,7 @@ async def test_should_cooldown_deployment_allowed_fails_set_on_router():
         model_list=[
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini"},
+                "hangarllm_params": {"model": "gpt-5-mini"},
                 "model_id": "test_deployment",
             },
         ]
@@ -1968,31 +1968,31 @@ async def test_should_cooldown_deployment_allowed_fails_set_on_router():
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 def test_increment_deployment_successes_for_current_minute_does_not_write_to_redis(
-    testing_litellm_router,
+    testing_hangarllm_router,
 ):
     """
     Ensure tracking deployment metrics does not write to redis
 
     Important - If it writes to redis on every request it will seriously impact performance / latency
     """
-    from litellm.caching.dual_cache import DualCache
-    from litellm.caching.in_memory_cache import InMemoryCache
-    from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.caching.in_memory_cache import InMemoryCache
+    from hangarllm.router_utils.router_callbacks.track_deployment_metrics import (
         increment_deployment_successes_for_current_minute,
     )
 
     # Mock RedisCache
     mock_redis_cache = MagicMock(spec=RedisCache)
 
-    testing_litellm_router.cache = DualCache(redis_cache=mock_redis_cache, in_memory_cache=InMemoryCache())
+    testing_hangarllm_router.cache = DualCache(redis_cache=mock_redis_cache, in_memory_cache=InMemoryCache())
 
     # Call the function we're testing
     increment_deployment_successes_for_current_minute(
-        ctx=RoutingContext(testing_litellm_router), deployment_id="test_deployment"
+        ctx=RoutingContext(testing_hangarllm_router), deployment_id="test_deployment"
     )
 
     increment_deployment_failures_for_current_minute(
-        ctx=RoutingContext(testing_litellm_router), deployment_id="test_deployment"
+        ctx=RoutingContext(testing_hangarllm_router), deployment_id="test_deployment"
     )
 
     time.sleep(1)
@@ -2002,9 +2002,9 @@ def test_increment_deployment_successes_for_current_minute_does_not_write_to_red
 
     print(
         "in memory cache values=",
-        testing_litellm_router.cache.in_memory_cache.cache_dict,
+        testing_hangarllm_router.cache.in_memory_cache.cache_dict,
     )
-    assert testing_litellm_router.cache.in_memory_cache.get_cache("test_deployment:successes") is not None
+    assert testing_hangarllm_router.cache.in_memory_cache.get_cache("test_deployment:successes") is not None
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
@@ -2020,7 +2020,7 @@ def router():
         model_list=[
             {
                 "model_name": "gpt-5.5",
-                "litellm_params": {"model": "gpt-5.5"},
+                "hangarllm_params": {"model": "gpt-5.5"},
                 "model_info": {
                     "id": "gpt-4--0",
                 },
@@ -2030,11 +2030,11 @@ def router():
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
 def test_should_cooldown_high_traffic_all_fails(mock_failures, mock_successes, router):
     # Simulate 10 failures, 0 successes
-    from litellm.constants import SINGLE_DEPLOYMENT_TRAFFIC_FAILURE_THRESHOLD
+    from hangarllm.constants import SINGLE_DEPLOYMENT_TRAFFIC_FAILURE_THRESHOLD
 
     mock_failures.return_value = SINGLE_DEPLOYMENT_TRAFFIC_FAILURE_THRESHOLD + 1
     mock_successes.return_value = 0
@@ -2050,8 +2050,8 @@ def test_should_cooldown_high_traffic_all_fails(mock_failures, mock_successes, r
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
 def test_no_cooldown_low_traffic(mock_failures, mock_successes, router):
     # Simulate 3 failures (below MIN_TRAFFIC_THRESHOLD)
     mock_failures.return_value = 3
@@ -2068,8 +2068,8 @@ def test_no_cooldown_low_traffic(mock_failures, mock_successes, router):
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
 def test_cooldown_rate_limit(mock_failures, mock_successes, router):
     """
     Don't cooldown single deployment models, for anything besides traffic
@@ -2088,8 +2088,8 @@ def test_cooldown_rate_limit(mock_failures, mock_successes, router):
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
-@patch("litellm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_successes_for_current_minute")
+@patch("hangarllm.router_utils.cooldown_handlers.get_deployment_failures_for_current_minute")
 def test_mixed_success_failure(mock_failures, mock_successes, router):
     # Simulate 3 failures, 7 successes
     mock_failures.return_value = 3
@@ -2106,12 +2106,12 @@ def test_mixed_success_failure(mock_failures, mock_successes, router):
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-def test_is_cooldown_required_empty_string_exception_status(testing_litellm_router):
+def test_is_cooldown_required_empty_string_exception_status(testing_hangarllm_router):
     """
     Test that _is_cooldown_required returns False when exception_status is an empty string
     """
     result = _is_cooldown_required(
-        ctx=RoutingContext(testing_litellm_router),
+        ctx=RoutingContext(testing_hangarllm_router),
         model_id="test_deployment",
         exception_status="",
     )
@@ -2120,7 +2120,7 @@ def test_is_cooldown_required_empty_string_exception_status(testing_litellm_rout
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
-def test_should_cooldown_deployment_minimum_request_threshold(testing_litellm_router):
+def test_should_cooldown_deployment_minimum_request_threshold(testing_hangarllm_router):
     """
     Test that error rate cooldown does NOT trigger on first failure.
 
@@ -2132,25 +2132,25 @@ def test_should_cooldown_deployment_minimum_request_threshold(testing_litellm_ro
     The fix: Add a minimum request threshold (DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS)
     before applying error rate cooldown.
     """
-    from litellm.constants import DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS
+    from hangarllm.constants import DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS
 
     # Get a deployment that's not a single-deployment model group
     # (test_deployment_2 and test_deployment_3 are both for "test_deployment" model)
-    available_deployment = testing_litellm_router.get_available_deployment(model="test_deployment")
+    available_deployment = testing_hangarllm_router.get_available_deployment(model="test_deployment")
     assert available_deployment is not None
     deployment_id = available_deployment["model_info"]["id"]
 
     # Simulate only 1 failure (below minimum threshold)
     # This should NOT trigger cooldown even though 100% > 50%
     increment_deployment_failures_for_current_minute(
-        ctx=RoutingContext(testing_litellm_router), deployment_id=deployment_id
+        ctx=RoutingContext(testing_hangarllm_router), deployment_id=deployment_id
     )
 
-    _exception = litellm.exceptions.InternalServerError("Internal error", "openai", "gpt-5-mini")
+    _exception = hangarllm.exceptions.InternalServerError("Internal error", "openai", "gpt-5-mini")
 
     # With only 1 request, should NOT cooldown (below minimum threshold)
     should_cooldown = _should_cooldown_deployment(
-        RoutingContext(testing_litellm_router), deployment_id, 500, _exception
+        RoutingContext(testing_hangarllm_router), deployment_id, 500, _exception
     )
     assert should_cooldown is False, (
         f"Should NOT cooldown with only 1 failed request (below minimum threshold of {DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS})"
@@ -2159,12 +2159,12 @@ def test_should_cooldown_deployment_minimum_request_threshold(testing_litellm_ro
     # Now add more failures to reach the minimum threshold
     for _ in range(DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS - 1):
         increment_deployment_failures_for_current_minute(
-            ctx=RoutingContext(testing_litellm_router), deployment_id=deployment_id
+            ctx=RoutingContext(testing_hangarllm_router), deployment_id=deployment_id
         )
 
     # Now with enough requests (all failures), it SHOULD trigger cooldown
     should_cooldown = _should_cooldown_deployment(
-        RoutingContext(testing_litellm_router), deployment_id, 500, _exception
+        RoutingContext(testing_hangarllm_router), deployment_id, 500, _exception
     )
     assert should_cooldown is True, (
         f"Should cooldown when we have {DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS} failed requests (100% failure rate)"
@@ -2174,18 +2174,18 @@ def test_should_cooldown_deployment_minimum_request_threshold(testing_litellm_ro
 @pytest.mark.asyncio
 async def test_dynamic_cooldowns():
     """
-    Assert kwargs for completion/embedding have 'cooldown_time' as a litellm_param
+    Assert kwargs for completion/embedding have 'cooldown_time' as a hangarllm_param
     """
-    # litellm.set_verbose = True
+    # hangarllm.set_verbose = True
     tmp_mock = MagicMock()
 
-    litellm.failure_callback = [tmp_mock]
+    hangarllm.failure_callback = [tmp_mock]
 
     router = Router(
         model_list=[
             {
                 "model_name": "my-fake-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-1",
                     "api_key": "my-key",
                     "mock_response": Exception("this is an error"),
@@ -2209,8 +2209,8 @@ async def test_dynamic_cooldowns():
 
     print(tmp_mock.call_count)
 
-    assert "cooldown_time" in tmp_mock.call_args[0][0]["litellm_params"]
-    assert tmp_mock.call_args[0][0]["litellm_params"]["cooldown_time"] == 0
+    assert "cooldown_time" in tmp_mock.call_args[0][0]["hangarllm_params"]
+    assert tmp_mock.call_args[0][0]["hangarllm_params"]["cooldown_time"] == 0
 
 
 @pytest.mark.asyncio
@@ -2223,14 +2223,14 @@ async def test_cooldown_time_zero_uses_zero_not_default():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "cooldown_time": 0,
                 },
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4",
                 },
             },
@@ -2243,9 +2243,9 @@ async def test_cooldown_time_zero_uses_zero_not_default():
         await router.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hey, how's it going?"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="hangarllm.RateLimitError",
         )
-    except litellm.RateLimitError:
+    except hangarllm.RateLimitError:
         pass
 
     cooldown_list = await async_get_cooldown_deployments(ctx=RoutingContext(router), parent_otel_span=None)
@@ -2263,7 +2263,7 @@ def test_should_run_cooldown_logic_early_exit_on_zero_cooldown():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                 },
                 "model_info": {
@@ -2278,7 +2278,7 @@ def test_should_run_cooldown_logic_early_exit_on_zero_cooldown():
         ctx=RoutingContext(router),
         deployment="test-deployment-id",
         exception_status=429,
-        original_exception=litellm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
+        original_exception=hangarllm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
         time_to_cooldown=0.0,
     )
     assert result is False, "Should not run cooldown logic when time_to_cooldown is 0"
@@ -2287,7 +2287,7 @@ def test_should_run_cooldown_logic_early_exit_on_zero_cooldown():
         ctx=RoutingContext(router),
         deployment="test-deployment-id",
         exception_status=429,
-        original_exception=litellm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
+        original_exception=hangarllm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
         time_to_cooldown=1e-10,
     )
     assert result is False, "Should not run cooldown logic when time_to_cooldown is effectively 0"
@@ -2296,7 +2296,7 @@ def test_should_run_cooldown_logic_early_exit_on_zero_cooldown():
         ctx=RoutingContext(router),
         deployment="test-deployment-id",
         exception_status=429,
-        original_exception=litellm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
+        original_exception=hangarllm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
         time_to_cooldown=None,
     )
     assert result is True, "Should run cooldown logic when time_to_cooldown is None"
@@ -2305,7 +2305,7 @@ def test_should_run_cooldown_logic_early_exit_on_zero_cooldown():
         ctx=RoutingContext(router),
         deployment="test-deployment-id",
         exception_status=429,
-        original_exception=litellm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
+        original_exception=hangarllm.RateLimitError("test error", "openai", "gpt-3.5-turbo"),
         time_to_cooldown=60.0,
     )
     assert result is True, "Should run cooldown logic when time_to_cooldown is positive"
@@ -2322,7 +2322,7 @@ def test_single_deployment_no_cooldowns(num_deployments: int):
     for i in range(num_deployments):
         model = DeploymentTypedDict(
             model_name="gpt-3.5-turbo",
-            litellm_params=LiteLLMParamsTypedDict(
+            hangarllm_params=HangarLLMParamsTypedDict(
                 model="gpt-3.5-turbo",
             ),
         )
@@ -2334,9 +2334,9 @@ def test_single_deployment_no_cooldowns(num_deployments: int):
         router.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hey, how's it going?"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="hangarllm.RateLimitError",
         )
-    except litellm.RateLimitError:
+    except hangarllm.RateLimitError:
         pass
 
     cooled = get_cooldown_deployments(RoutingContext(router), parent_otel_span=None)
@@ -2353,19 +2353,19 @@ async def test_single_deployment_no_cooldowns_test_prod():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                 },
             },
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5",
                 },
             },
             {
                 "model_name": "gpt-12",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-12",
                 },
             },
@@ -2378,9 +2378,9 @@ async def test_single_deployment_no_cooldowns_test_prod():
             await router.acompletion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Hey, how's it going?"}],
-                mock_response="litellm.RateLimitError",
+                mock_response="hangarllm.RateLimitError",
             )
-        except litellm.RateLimitError:
+        except hangarllm.RateLimitError:
             pass
 
         await asyncio.sleep(2)
@@ -2398,21 +2398,21 @@ async def test_high_traffic_cooldowns_all_healthy_deployments():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com",
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com-2",
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com-3",
                 },
@@ -2429,7 +2429,7 @@ async def test_high_traffic_cooldowns_all_healthy_deployments():
     # Create a defaultdict to track successes and failures for each model ID
     model_stats = defaultdict(lambda: {"successes": 0, "failures": 0})
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     for _ in range(100):
         try:
             model_id = random.choice(all_deployment_ids)
@@ -2454,7 +2454,7 @@ async def test_high_traffic_cooldowns_all_healthy_deployments():
                 if random.random() < 0.5:
                     mock_response = "hi"
                 else:
-                    mock_response = "litellm.InternalServerError"
+                    mock_response = "hangarllm.InternalServerError"
             else:
                 mock_response = "hi"
 
@@ -2466,7 +2466,7 @@ async def test_high_traffic_cooldowns_all_healthy_deployments():
             model_stats[model_id]["successes"] += 1
 
             await asyncio.sleep(0.0001)
-        except litellm.InternalServerError:
+        except hangarllm.InternalServerError:
             model_stats[model_id]["failures"] += 1
         except Exception as e:
             print("Failed test model stats=", model_stats)
@@ -2487,21 +2487,21 @@ async def test_high_traffic_cooldowns_one_bad_deployment():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com",
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com-2",
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com-3",
                 },
@@ -2518,7 +2518,7 @@ async def test_high_traffic_cooldowns_one_bad_deployment():
     # Create a defaultdict to track successes and failures for each model ID
     model_stats = defaultdict(lambda: {"successes": 0, "failures": 0})
     bad_deployment_id = random.choice(all_deployment_ids)
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     for _ in range(100):
         try:
             model_id = random.choice(all_deployment_ids)
@@ -2540,14 +2540,14 @@ async def test_high_traffic_cooldowns_one_bad_deployment():
                 mock_response = "hi"
             elif bad_deployment_id == model_id:
                 if num_failures / total_requests <= 0.6:
-                    mock_response = "litellm.InternalServerError"
+                    mock_response = "hangarllm.InternalServerError"
 
             elif num_failures / total_requests <= 0.25:
                 # Randomly decide between fail and succeed
                 if random.random() < 0.5:
                     mock_response = "hi"
                 else:
-                    mock_response = "litellm.InternalServerError"
+                    mock_response = "hangarllm.InternalServerError"
             else:
                 mock_response = "hi"
 
@@ -2559,7 +2559,7 @@ async def test_high_traffic_cooldowns_one_bad_deployment():
             model_stats[model_id]["successes"] += 1
 
             await asyncio.sleep(0.0001)
-        except litellm.InternalServerError:
+        except hangarllm.InternalServerError:
             model_stats[model_id]["failures"] += 1
         except Exception as e:
             print("Failed test model stats=", model_stats)
@@ -2580,21 +2580,21 @@ async def test_high_traffic_cooldowns_one_rate_limited_deployment():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com",
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com-2",
                 },
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_base": "https://api.openai.com-3",
                 },
@@ -2611,7 +2611,7 @@ async def test_high_traffic_cooldowns_one_rate_limited_deployment():
     # Create a defaultdict to track successes and failures for each model ID
     model_stats = defaultdict(lambda: {"successes": 0, "failures": 0})
     bad_deployment_id = random.choice(all_deployment_ids)
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     for _ in range(100):
         try:
             model_id = random.choice(all_deployment_ids)
@@ -2633,14 +2633,14 @@ async def test_high_traffic_cooldowns_one_rate_limited_deployment():
                 mock_response = "hi"
             elif bad_deployment_id == model_id:
                 if num_failures / total_requests <= 0.6:
-                    mock_response = "litellm.RateLimitError"
+                    mock_response = "hangarllm.RateLimitError"
 
             elif num_failures / total_requests <= 0.25:
                 # Randomly decide between fail and succeed
                 if random.random() < 0.5:
                     mock_response = "hi"
                 else:
-                    mock_response = "litellm.InternalServerError"
+                    mock_response = "hangarllm.InternalServerError"
             else:
                 mock_response = "hi"
 
@@ -2652,9 +2652,9 @@ async def test_high_traffic_cooldowns_one_rate_limited_deployment():
             model_stats[model_id]["successes"] += 1
 
             await asyncio.sleep(0.0001)
-        except litellm.InternalServerError:
+        except hangarllm.InternalServerError:
             model_stats[model_id]["failures"] += 1
-        except litellm.RateLimitError:
+        except hangarllm.RateLimitError:
             model_stats[bad_deployment_id]["failures"] += 1
         except Exception as e:
             print("Failed test model stats=", model_stats)
@@ -2675,7 +2675,7 @@ def test_router_fallbacks_with_cooldowns_and_model_id():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "id": "123",
                 },
@@ -2688,9 +2688,9 @@ def test_router_fallbacks_with_cooldowns_and_model_id():
         router.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="hangarllm.RateLimitError",
         )
-    except litellm.RateLimitError:
+    except hangarllm.RateLimitError:
         pass
 
     response = router.completion(
@@ -2707,13 +2707,13 @@ async def test_router_fallbacks_with_cooldowns_and_dynamic_credentials():
     A 429 answered to a caller-supplied credential cools down none of the shared deployments,
     so the next credential still reaches them, while a 429 owned by a shared deployment does
     """
-    from litellm.router_utils.cooldown_handlers import async_get_cooldown_deployments
+    from hangarllm.router_utils.cooldown_handlers import async_get_cooldown_deployments
 
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {"id": deployment_id},
             }
             for deployment_id in ("123", "456")
@@ -2722,9 +2722,9 @@ async def test_router_fallbacks_with_cooldowns_and_dynamic_credentials():
     )
     messages = [{"role": "user", "content": "hi"}]
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(
-            model="gpt-3.5-turbo", messages=messages, api_key="my-bad-key-1", mock_response="litellm.RateLimitError"
+            model="gpt-3.5-turbo", messages=messages, api_key="my-bad-key-1", mock_response="hangarllm.RateLimitError"
         )
     await asyncio.sleep(1)
     assert await async_get_cooldown_deployments(ctx=RoutingContext(router), parent_otel_span=None) == []
@@ -2734,8 +2734,8 @@ async def test_router_fallbacks_with_cooldowns_and_dynamic_credentials():
     )
     assert response.choices[0].message.content == "served with credential 2"
 
-    with pytest.raises(litellm.RateLimitError):
-        await router.acompletion(model="gpt-3.5-turbo", messages=messages, mock_response="litellm.RateLimitError")
+    with pytest.raises(hangarllm.RateLimitError):
+        await router.acompletion(model="gpt-3.5-turbo", messages=messages, mock_response="hangarllm.RateLimitError")
     await asyncio.sleep(1)
     cooled_down = await async_get_cooldown_deployments(ctx=RoutingContext(router), parent_otel_span=None)
     assert len(cooled_down) == 1 and cooled_down[0] in {"123", "456"}
@@ -2745,10 +2745,10 @@ async def test_router_fallbacks_with_cooldowns_and_dynamic_credentials():
     "exception,status",
     [
         (
-            litellm.CallerCredentialAuthenticationError(message="reconnect", llm_provider="github_copilot", model=""),
+            hangarllm.CallerCredentialAuthenticationError(message="reconnect", llm_provider="github_copilot", model=""),
             401,
         ),
-        (litellm.CallerCredentialRateLimitError(message="slow down", llm_provider="github_copilot", model=""), 429),
+        (hangarllm.CallerCredentialRateLimitError(message="slow down", llm_provider="github_copilot", model=""), 429),
     ],
 )
 def test_caller_credential_errors_never_cool_down_the_shared_deployment(single_deployment_router, exception, status):
@@ -2762,7 +2762,7 @@ async def test_bad_request_error_does_not_cool_down_a_deployment(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             400,
@@ -2776,11 +2776,11 @@ async def test_bad_request_error_does_not_cool_down_a_deployment(
             },
         )
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/test-model", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/test-model", "api_key": "test-key"},
                 "model_info": {"id": "test-deployment"},
             }
         ],
@@ -2788,7 +2788,7 @@ async def test_bad_request_error_does_not_cool_down_a_deployment(
         num_retries=0,
     )
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "invalid request"}],
@@ -2804,15 +2804,15 @@ async def test_bad_request_error_does_not_cool_down_a_deployment(
 
 
 async def _complete_like_the_proxy(router: Router, model: str) -> str:
-    logging_obj, request = litellm.utils.function_setup(
+    logging_obj, request = hangarllm.utils.function_setup(
         original_function="acompletion",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.datetime(2026, 1, 1),
         model=model,
         messages=[{"role": "user", "content": "hi"}],
-        litellm_call_id=str(uuid.uuid4()),
+        hangarllm_call_id=str(uuid.uuid4()),
     )
-    response: Final = await router.acompletion(**request, litellm_logging_obj=logging_obj)
+    response: Final = await router.acompletion(**request, hangarllm_logging_obj=logging_obj)
     model_id: Final = response._hidden_params["model_id"]
     assert isinstance(model_id, str)
     return model_id
@@ -2831,7 +2831,7 @@ _CHAT_COMPLETION_OK: Final = {
 def _openai_deployment(model_name: str, host: str, deployment_id: str) -> Mapping[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": "openai/gpt-4o", "api_key": "k", "api_base": f"https://{host}/v1"},
+        "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k", "api_base": f"https://{host}/v1"},
         "model_info": {"id": deployment_id},
     }
 
@@ -2841,20 +2841,20 @@ async def test_fallback_deployment_stays_up_while_the_primary_is_in_cooldown(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://primary.test/v1/chat/completions").mock(
         return_value=httpx.Response(503, json={"error": {"message": "down", "type": "server_error"}})
     )
     backup_route: Final = respx_mock.post("https://backup.test/v1/chat/completions").mock(
         return_value=httpx.Response(200, json=_CHAT_COMPLETION_OK)
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _openai_deployment("primary", "primary.test", "primary-dep"),
             _openai_deployment("backup", "backup.test", "backup-dep"),
         ],
         fallbacks=[{"primary": ["backup"]}],
-        allowed_fails=litellm.allowed_fails,
+        allowed_fails=hangarllm.allowed_fails,
         num_retries=0,
     )
 
@@ -2874,14 +2874,14 @@ async def test_fallback_group_stays_up_after_a_bad_key_cools_the_primary_under_t
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://primary.test/v1/chat/completions").mock(
         return_value=httpx.Response(401, json={"error": {"message": "bad key", "type": "invalid_request_error"}})
     )
     respx_mock.post("https://backup.test/v1/chat/completions").mock(
         return_value=httpx.Response(200, json=_CHAT_COMPLETION_OK)
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             _openai_deployment("primary", "primary.test", "primary-dep"),
             _openai_deployment("backup", "backup.test", "backup-1"),
@@ -2903,12 +2903,12 @@ async def test_fallback_group_stays_up_after_a_bad_key_cools_the_primary_under_t
 
 TIMED_OUT_DEPLOYMENT: Final = {
     "model_name": "test-model",
-    "litellm_params": {"model": "openai/test-model", "api_key": "test-key"},
+    "hangarllm_params": {"model": "openai/test-model", "api_key": "test-key"},
     "model_info": {"id": "test-deployment"},
 }
 BACKUP_DEPLOYMENT: Final = {
     "model_name": "backup-model",
-    "litellm_params": {"model": "openai/backup-model", "api_key": "test-key", "api_base": "https://backup.test/v1"},
+    "hangarllm_params": {"model": "openai/backup-model", "api_key": "test-key", "api_base": "https://backup.test/v1"},
     "model_info": {"id": "backup-deployment"},
 }
 BACKUP_REPLY: Final = {
@@ -2924,20 +2924,20 @@ BACKUP_REPLY: Final = {
 async def _lone_call_outcome(router: Router) -> type[Exception]:
     try:
         await router.acompletion(model="test-model", messages=[{"role": "user", "content": "timeout test"}])
-    except (litellm.Timeout, RouterRateLimitError) as error:
+    except (hangarllm.Timeout, RouterRateLimitError) as error:
         return type(error)
     pytest.fail("the timed-out deployment answered")
 
 
-BENCHED: Final = (litellm.Timeout, litellm.Timeout, RouterRateLimitError, RouterRateLimitError, RouterRateLimitError)
+BENCHED: Final = (hangarllm.Timeout, hangarllm.Timeout, RouterRateLimitError, RouterRateLimitError, RouterRateLimitError)
 
 
 @pytest.mark.parametrize(
     ("router_kwargs", "model_info", "outcomes"),
     [
-        ({"allowed_fails": 1}, {}, (litellm.Timeout,) * 5),
-        ({"allowed_fails": 1}, {"allowed_fails_policy": {}}, (litellm.Timeout,) * 5),
-        ({"allowed_fails_policy": AllowedFailsPolicy(RateLimitErrorAllowedFails=1)}, {}, (litellm.Timeout,) * 5),
+        ({"allowed_fails": 1}, {}, (hangarllm.Timeout,) * 5),
+        ({"allowed_fails": 1}, {"allowed_fails_policy": {}}, (hangarllm.Timeout,) * 5),
+        ({"allowed_fails_policy": AllowedFailsPolicy(RateLimitErrorAllowedFails=1)}, {}, (hangarllm.Timeout,) * 5),
         ({"allowed_fails_policy": AllowedFailsPolicy(TimeoutErrorAllowedFails=1)}, {}, BENCHED),
         ({"allowed_fails": 1, "fallbacks": [{"test-model": ["backup-model"]}]}, {}, BENCHED),
         (
@@ -2963,7 +2963,7 @@ async def test_router_allowed_fails_benches_a_lone_deployment_only_when_the_poli
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=httpx.ReadTimeout("upstream timeout")
     )
@@ -2973,7 +2973,7 @@ async def test_router_allowed_fails_benches_a_lone_deployment_only_when_the_poli
     seen: Final = tuple([await _lone_call_outcome(router) for _ in range(5)])
 
     assert seen == outcomes
-    assert len(route.calls) == outcomes.count(litellm.Timeout)
+    assert len(route.calls) == outcomes.count(hangarllm.Timeout)
 
 
 @pytest.mark.parametrize(
@@ -3009,7 +3009,7 @@ async def _group_call_outcome(router: Router) -> str:
         response: Final = await router.acompletion(
             model="test-model", messages=[{"role": "user", "content": "timeout test"}]
         )
-    except litellm.Timeout:
+    except hangarllm.Timeout:
         return "timeout"
     return response.id
 
@@ -3019,7 +3019,7 @@ async def test_router_allowed_fails_still_benches_a_deployment_that_has_a_siblin
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     timed_out: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=httpx.ReadTimeout("upstream timeout")
     )
@@ -3046,7 +3046,7 @@ async def test_router_allowed_fails_still_benches_a_deployment_that_has_a_siblin
 def test_per_user_session_upstream_errors_never_cool_down_the_shared_deployment(single_deployment_router):
     """A 429/401 from the caller's own Copilot seat is scoped to that user; it must
     not cool down the shared deployment for every other caller."""
-    from litellm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
+    from hangarllm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
 
     session_kwargs = {
         "github_copilot_user_session": GithubCopilotUserSession(
@@ -3054,9 +3054,9 @@ def test_per_user_session_upstream_errors_never_cool_down_the_shared_deployment(
         )
     }
     for exc, status in (
-        (litellm.RateLimitError("copilot 429", "github_copilot", "gpt-4o"), 429),
-        (litellm.AuthenticationError("copilot 401", "github_copilot", "gpt-4o"), 401),
-        (litellm.InternalServerError("copilot 500", "github_copilot", "gpt-4o"), 500),
+        (hangarllm.RateLimitError("copilot 429", "github_copilot", "gpt-4o"), 429),
+        (hangarllm.AuthenticationError("copilot 401", "github_copilot", "gpt-4o"), 401),
+        (hangarllm.InternalServerError("copilot 500", "github_copilot", "gpt-4o"), 500),
     ):
         assert (
             _should_run_cooldown_logic(
@@ -3069,7 +3069,7 @@ def test_per_user_session_upstream_errors_never_cool_down_the_shared_deployment(
 def test_shared_mode_upstream_429_still_cools_down_the_deployment(single_deployment_router):
     """Regression: without the session marker the same 429 is a deployment-health
     signal and cools down exactly as before."""
-    exc = litellm.RateLimitError("copilot 429", "github_copilot", "gpt-4o")
+    exc = hangarllm.RateLimitError("copilot 429", "github_copilot", "gpt-4o")
     assert (
         _should_run_cooldown_logic(
             RoutingContext(single_deployment_router),
@@ -3113,47 +3113,47 @@ def _cooled_router(routing_strategy: str, cooled: tuple[str, ...]) -> Router:
         model_list=[
             {
                 "model_name": "refused",
-                "litellm_params": {"model": "openai/gpt-5.4", "api_base": SECRET_API_BASE, "use_in_pass_through": True},
+                "hangarllm_params": {"model": "openai/gpt-5.4", "api_base": SECRET_API_BASE, "use_in_pass_through": True},
                 "model_info": {"id": "refused-1"},
             },
             {
                 "model_name": "refused",
-                "litellm_params": {"model": "openai/gpt-5.4", "use_in_pass_through": True, "tpm": 1},
+                "hangarllm_params": {"model": "openai/gpt-5.4", "use_in_pass_through": True, "tpm": 1},
                 "model_info": {"id": "refused-2"},
             },
             {
                 "model_name": "refused",
-                "litellm_params": {"model": "openai/gpt-5.4", "tpm": 1},
+                "hangarllm_params": {"model": "openai/gpt-5.4", "tpm": 1},
                 "model_info": {"id": "refused-3"},
             },
             {
                 "model_name": "refused",
-                "litellm_params": {"model": "openai/gpt-5.4", "use_in_pass_through": True},
+                "hangarllm_params": {"model": "openai/gpt-5.4", "use_in_pass_through": True},
                 "model_info": {"id": "refused-team-b", "team_id": "team-b"},
             },
             {
                 "model_name": "neighbour",
-                "litellm_params": {"model": "openai/gpt-5.4", "api_base": "https://neighbour.example/v1"},
+                "hangarllm_params": {"model": "openai/gpt-5.4", "api_base": "https://neighbour.example/v1"},
                 "model_info": {"id": "neighbour-1"},
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_base": "https://wildcard.example/v1"},
+                "hangarllm_params": {"model": "openai/*", "api_base": "https://wildcard.example/v1"},
                 "model_info": {"id": "wildcard-1"},
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*"},
+                "hangarllm_params": {"model": "openai/*"},
                 "model_info": {"id": "wildcard-2"},
             },
             {
                 "model_name": "tier",
-                "litellm_params": {"model": "openai/gpt-5.4", "api_base": "https://tier.example/v1"},
+                "hangarllm_params": {"model": "openai/gpt-5.4", "api_base": "https://tier.example/v1"},
                 "model_info": {"id": "tier-1"},
             },
             {
                 "model_name": "friendly",
-                "litellm_params": {"model": "anthropic/claude-friendly"},
+                "hangarllm_params": {"model": "anthropic/claude-friendly"},
                 "model_info": {"id": "friendly-1"},
             },
         ],
@@ -3161,7 +3161,7 @@ def _cooled_router(routing_strategy: str, cooled: tuple[str, ...]) -> Router:
     for model_id in cooled:
         router.cooldown_cache.add_deployment_to_cooldown(
             model_id=model_id,
-            original_exception=litellm.RateLimitError("scripted 429", "openai", "gpt-5.4"),
+            original_exception=hangarllm.RateLimitError("scripted 429", "openai", "gpt-5.4"),
             exception_status=429,
             cooldown_time=60,
         )
@@ -3274,7 +3274,7 @@ def _tenant_router(cooled: tuple[CooldownDeploymentInfo, ...], **router_settings
         model_list=[
             {
                 "model_name": "tenants",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4",
                     "api_base": deployment["api_base"],
                     "tags": [tag],
@@ -3290,7 +3290,7 @@ def _tenant_router(cooled: tuple[CooldownDeploymentInfo, ...], **router_settings
     for deployment in cooled:
         router.cooldown_cache.add_deployment_to_cooldown(
             model_id=deployment["model_id"],
-            original_exception=litellm.RateLimitError("scripted 429", "openai", "gpt-5.4"),
+            original_exception=hangarllm.RateLimitError("scripted 429", "openai", "gpt-5.4"),
             exception_status=429,
             cooldown_time=60,
         )
@@ -3310,7 +3310,7 @@ BOTH_ON: Final = {**TAGS_ON, **REGION_CHECKS_ON}
         (TAGS_ON, "async", {"metadata": {}}, EVERY_TENANT),
         (TAGS_ON, "async", {}, EVERY_TENANT),
         (TAGS_ON, "async", {"metadata": "unparsed"}, ()),
-        (TAGS_ON, "async", {"litellm_metadata": {"tags": ["tenant-a"]}}, (TENANT_A,)),
+        (TAGS_ON, "async", {"hangarllm_metadata": {"tags": ["tenant-a"]}}, (TENANT_A,)),
         (TAGS_ON, "async", {"metadata": {"tags": ["!tenant-a", "&tenant-b"]}}, (TENANT_B,)),
         (TAGS_ON, "async", {"metadata": {"tags": ["!tenant-a"]}}, (TENANT_B, SHARED)),
         (TAGS_ON, "async", {"metadata": {"tags": ["tenant-z"]}}, (SHARED,)),
@@ -3336,7 +3336,7 @@ BOTH_ON: Final = {**TAGS_ON, **REGION_CHECKS_ON}
         "untagged-falls-back-past-the-default",
         "no-metadata",
         "metadata-not-a-mapping",
-        "tag-litellm-metadata",
+        "tag-hangarllm-metadata",
         "tag-constraints",
         "tag-exclusion-falls-back-in-tiers",
         "unknown-tag-gets-default",
@@ -3427,7 +3427,7 @@ def test_the_refusal_names_each_cooled_deployment_some_cooldown_state_routes_the
     ],
 )
 def test_is_response_lookup_not_found(status_code: int, call_type: str, expected: bool) -> None:
-    error: Final = litellm.NotFoundError(message="gone", llm_provider="openai", model="gpt-4o-mini")
+    error: Final = hangarllm.NotFoundError(message="gone", llm_provider="openai", model="gpt-4o-mini")
     error.status_code = status_code
 
     assert is_response_lookup_not_found(error, {"call_type": call_type}) is expected

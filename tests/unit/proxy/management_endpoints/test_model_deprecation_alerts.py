@@ -4,11 +4,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.alerting_endpoints.model_deprecation_alerts import alert_state_repository, router
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.repositories.config_repository import ConfigParam, ConfigRepository
-from litellm.types.proxy.auth.user_roles import LitellmUserRoles
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.alerting_endpoints.model_deprecation_alerts import alert_state_repository, router
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.repositories.config_repository import ConfigParam, ConfigRepository
+from hangarllm.types.proxy.auth.user_roles import HangarllmUserRoles
 
 
 class MemoryConfig(ConfigRepository):
@@ -28,7 +28,7 @@ class MemoryConfig(ConfigRepository):
 def client() -> Iterator[tuple[TestClient, UserAPIKeyAuth]]:
     app = FastAPI()
     app.include_router(router)
-    user = UserAPIKeyAuth(user_id="admin-one", user_role=LitellmUserRoles.PROXY_ADMIN)
+    user = UserAPIKeyAuth(user_id="admin-one", user_role=HangarllmUserRoles.PROXY_ADMIN)
     repository = MemoryConfig()
     app.dependency_overrides[user_api_key_auth] = lambda: user
     app.dependency_overrides[alert_state_repository] = lambda: repository
@@ -75,14 +75,14 @@ def test_internal_users_cannot_read_or_change_global_alerts(
     client: tuple[TestClient, UserAPIKeyAuth], method: str
 ) -> None:
     http, user = client
-    user.user_role = LitellmUserRoles.INTERNAL_USER
+    user.user_role = HangarllmUserRoles.INTERNAL_USER
     response = http.get(PATH, params=IDENTITY) if method == "get" else http.put(PATH, json=UPDATE)
     assert response.status_code == 403
 
 
 def test_viewer_can_read_but_cannot_resolve_at_the_same_path(client: tuple[TestClient, UserAPIKeyAuth]) -> None:
     http, user = client
-    user.user_role = LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+    user.user_role = HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY
     assert http.get(PATH, params=IDENTITY).status_code == 200
     assert http.put(PATH, json=UPDATE).status_code == 403
     assert http.get(PATH, params=IDENTITY).json()["status"] == "open"
@@ -101,7 +101,7 @@ def test_tags_are_scoped_to_model_dates_and_the_visible_keys(client: tuple[TestC
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.alerting_endpoints.model_deprecation_alerts import alert_tag_repository
+    from hangarllm.proxy.alerting_endpoints.model_deprecation_alerts import alert_tag_repository
 
     http, _ = client
     grouped = AsyncMock(return_value=[{"api_key": "reporting-one", "tag": "support"}])
@@ -129,15 +129,15 @@ def test_tags_are_scoped_to_model_dates_and_the_visible_keys(client: tuple[TestC
 
 
 @pytest.mark.parametrize(
-    "role,expected", [(LitellmUserRoles.INTERNAL_USER, 403), (LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, 200)]
+    "role,expected", [(HangarllmUserRoles.INTERNAL_USER, 403), (HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, 200)]
 )
 def test_tag_access_matches_alert_visibility(
-    client: tuple[TestClient, UserAPIKeyAuth], role: LitellmUserRoles, expected: int
+    client: tuple[TestClient, UserAPIKeyAuth], role: HangarllmUserRoles, expected: int
 ) -> None:
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.alerting_endpoints.model_deprecation_alerts import alert_tag_repository
+    from hangarllm.proxy.alerting_endpoints.model_deprecation_alerts import alert_tag_repository
 
     http, user = client
     user.user_role = role
@@ -158,7 +158,7 @@ def test_tag_query_rejects_more_than_100_keys_before_database_access(client: tup
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.alerting_endpoints.model_deprecation_alerts import (
+    from hangarllm.proxy.alerting_endpoints.model_deprecation_alerts import (
         alert_tag_repository,
     )
 

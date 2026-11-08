@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.llms.base_llm.managed_resources.base_managed_resource import (
+from hangarllm.llms.base_llm.managed_resources.base_managed_resource import (
     BaseManagedResource,
 )
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
 
 class _StubResource(BaseManagedResource):
@@ -22,7 +22,7 @@ class _StubResource(BaseManagedResource):
 
     @property
     def table_name(self) -> str:
-        return "litellm_test_resource_table"
+        return "hangarllm_test_resource_table"
 
     def get_unified_resource_id_format(
         self, resource_object, target_model_names_list
@@ -30,7 +30,7 @@ class _StubResource(BaseManagedResource):
         return "test"
 
     async def create_resource_for_model(
-        self, llm_router, model, request_data, litellm_parent_otel_span
+        self, llm_router, model, request_data, hangarllm_parent_otel_span
     ):
         return {"id": "test"}
 
@@ -43,7 +43,7 @@ def _make_resource(records: List = None) -> _StubResource:
     table = MagicMock()
     table.find_many = AsyncMock(return_value=records or [])
     prisma.db = MagicMock()
-    setattr(prisma.db, "litellm_test_resource_table", table)
+    setattr(prisma.db, "hangarllm_test_resource_table", table)
 
     return _StubResource(internal_usage_cache=cache, prisma_client=prisma)
 
@@ -51,11 +51,11 @@ def _make_resource(records: List = None) -> _StubResource:
 @pytest.mark.asyncio
 async def test_list_admin_query_is_unscoped():
     resource = _make_resource()
-    admin = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     await resource.list_user_resources(user_api_key_dict=admin)
 
-    table = resource.prisma_client.db.litellm_test_resource_table
+    table = resource.prisma_client.db.hangarllm_test_resource_table
     where = table.find_many.await_args.kwargs["where"]
     assert "created_by" not in where
     assert "team_id" not in where
@@ -68,7 +68,7 @@ async def test_list_user_filters_by_user_id():
 
     await resource.list_user_resources(user_api_key_dict=user)
 
-    where = resource.prisma_client.db.litellm_test_resource_table.find_many.await_args.kwargs[
+    where = resource.prisma_client.db.hangarllm_test_resource_table.find_many.await_args.kwargs[
         "where"
     ]
     assert where["created_by"] == "alice"
@@ -82,7 +82,7 @@ async def test_list_service_account_filters_by_team_id():
 
     await resource.list_user_resources(user_api_key_dict=service_account)
 
-    where = resource.prisma_client.db.litellm_test_resource_table.find_many.await_args.kwargs[
+    where = resource.prisma_client.db.hangarllm_test_resource_table.find_many.await_args.kwargs[
         "where"
     ]
     assert where["team_id"] == "team-eng"
@@ -105,7 +105,7 @@ async def test_list_identity_less_caller_returns_empty_without_query():
         "last_id": None,
         "has_more": False,
     }
-    resource.prisma_client.db.litellm_test_resource_table.find_many.assert_not_awaited()
+    resource.prisma_client.db.hangarllm_test_resource_table.find_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio

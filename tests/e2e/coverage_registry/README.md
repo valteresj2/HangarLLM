@@ -43,7 +43,7 @@ test and a skipped one stays covered. Skip state comes from pytest's own evaluat
 `skip` and `skipif` resolve exactly as they do in the e2e run, which also means a
 `skipif` on an absent credential makes that cell uncovered in the environments where the
 test cannot run. Cells left uncovered this way are listed under the headline (and counted
-by `litellm_e2e_coverage_skipped_markers`) so an unskipped-pending gap is visible rather
+by `hangarllm_e2e_coverage_skipped_markers`) so an unskipped-pending gap is visible rather
 than inflating the number. The one skip the collector cannot see is `pytest.skip()`
 called from inside a test body, since it does not exist until the test runs.
 

@@ -8,12 +8,12 @@ which is critical for ChatGPT UI widget rendering.
 
 import pytest
 
-# Add the parent directory to the path so we can import litellm
+# Add the parent directory to the path so we can import hangarllm
 from mcp.types import Tool as MCPTool
 
-from litellm.proxy._types import MCPTransport
-from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.proxy._types import MCPTransport
+from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class TestMCPMetadataPreservation:

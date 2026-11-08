@@ -2,7 +2,7 @@ suite: test existing database token auth
 templates:
   - deployment.yaml
   - migrations-job.yaml
-  - configmap-litellm.yaml
+  - configmap-hangarllm.yaml
 tests:
   - it: should keep password auth from the secret when no token auth is set
     template: deployment.yaml
@@ -53,7 +53,7 @@ tests:
       db.useExisting: true
       db.deployStandalone: false
       db.useIAMAuth: true
-      db.username: litellm_iam
+      db.username: hangarllm_iam
       db.endpoint: writer.cluster-abc.us-west-1.rds.amazonaws.com
       db.port: 5433
       collector.enabled: true
@@ -67,7 +67,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: DATABASE_USERNAME
-            value: litellm_iam
+            value: hangarllm_iam
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -82,7 +82,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: DATABASE_NAME
-            value: litellm
+            value: hangarllm
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
@@ -116,7 +116,7 @@ tests:
       db.useExisting: true
       db.deployStandalone: false
       db.useIAMAuth: true
-      db.username: litellm_iam
+      db.username: hangarllm_iam
       db.endpoint: writer.cluster-abc.us-west-1.rds.amazonaws.com
     asserts:
       - contains:
@@ -128,7 +128,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: DATABASE_USERNAME
-            value: litellm_iam
+            value: hangarllm_iam
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -156,7 +156,7 @@ tests:
       db.useExisting: true
       db.deployStandalone: false
       db.useIAMAuth: true
-      db.username: litellm_iam
+      db.username: hangarllm_iam
       db.schema: tenant1
     asserts:
       - contains:
@@ -226,8 +226,8 @@ tests:
       db.useExisting: true
       db.deployStandalone: false
       db.useAzureEntraAuth: true
-      db.username: litellm@example.onmicrosoft.com
-      db.endpoint: litellm.postgres.database.azure.com
+      db.username: hangarllm@example.onmicrosoft.com
+      db.endpoint: hangarllm.postgres.database.azure.com
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -238,7 +238,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: DATABASE_USERNAME
-            value: litellm@example.onmicrosoft.com
+            value: hangarllm@example.onmicrosoft.com
       - notContains:
           path: spec.template.spec.containers[0].env
           content:

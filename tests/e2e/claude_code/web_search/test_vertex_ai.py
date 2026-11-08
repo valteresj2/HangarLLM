@@ -1,6 +1,6 @@
 """web_search x Vertex AI.
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 to Vertex AI, allow the built-in `WebSearch` tool, ask a question that
 requires fresh web data, and assert that the upstream emitted a
 `tool_use` block calling `WebSearch` — proving the proxy preserves
@@ -97,7 +97,7 @@ def _has_web_search_tool_use(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_web_search_vertex_ai(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert the
+    """Drive the `claude` CLI against the HangarLLM proxy and assert the
     upstream emitted a `tool_use` block calling `WebSearch`, proving
     the proxy preserved both the request-side tool definition and the
     response-side tool_use block."""

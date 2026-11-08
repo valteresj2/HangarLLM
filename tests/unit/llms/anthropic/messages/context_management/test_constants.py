@@ -6,12 +6,12 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.anthropic.messages.context_management.constants import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.anthropic.messages.context_management.constants import (
     CLEARED_TOOL_RESULT_PLACEHOLDER,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     Choices,
     Delta,
     Message,
@@ -111,8 +111,8 @@ async def test_polyfill_round_trip_non_streaming():
         captured.update(kwargs)
         return _mock_completion_response()
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion):
-        response = await litellm.anthropic.messages.acreate(
+    with patch("hangarllm.acompletion", side_effect=fake_acompletion):
+        response = await hangarllm.anthropic.messages.acreate(
             model=MODEL,
             messages=_make_history(n_pairs=5),
             max_tokens=128,
@@ -177,8 +177,8 @@ async def test_polyfill_trigger_not_met_passes_through_unchanged():
         captured.update(kwargs)
         return _mock_completion_response()
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion):
-        response = await litellm.anthropic.messages.acreate(
+    with patch("hangarllm.acompletion", side_effect=fake_acompletion):
+        response = await hangarllm.anthropic.messages.acreate(
             model=MODEL,
             messages=_make_history(n_pairs=2),
             max_tokens=128,
@@ -212,8 +212,8 @@ async def test_polyfill_streaming_attaches_to_message_delta():
     async def fake_acompletion(**kwargs):
         return _mock_streaming_chunks()
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion):
-        response = await litellm.anthropic.messages.acreate(
+    with patch("hangarllm.acompletion", side_effect=fake_acompletion):
+        response = await hangarllm.anthropic.messages.acreate(
             model=MODEL,
             messages=_make_history(n_pairs=5),
             max_tokens=128,

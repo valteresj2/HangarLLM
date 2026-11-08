@@ -1581,17 +1581,17 @@ async def test_sap_chat(
     fake_deployment_url,
     sync_mode,
 ):
-    import litellm
+    import hangarllm
 
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
     with (
         patch(
-            "litellm.llms.sap.embed.transformation.GenAIHubEmbeddingConfig.deployment_url",
+            "hangarllm.llms.sap.embed.transformation.GenAIHubEmbeddingConfig.deployment_url",
             new_callable=PropertyMock,
             return_value=fake_deployment_url,
         ),
         patch(
-            "litellm.llms.sap.embed.transformation.get_token_creator",
+            "hangarllm.llms.sap.embed.transformation.get_token_creator",
             return_value=fake_token_creator,
         ),
     ):
@@ -1602,9 +1602,9 @@ async def test_sap_chat(
         )
 
         if sync_mode:
-            response = litellm.embedding(model=model, input=input)
+            response = hangarllm.embedding(model=model, input=input)
         else:
-            response = await litellm.aembedding(model=model, input=input)
+            response = await hangarllm.aembedding(model=model, input=input)
 
         assert response
         assert response.data[0]["embedding"]
@@ -1618,25 +1618,25 @@ async def test_sap_embedding_required_headers(
     fake_deployment_url,
 ):
     """Test that required headers are correctly set in SAP embedding requests."""
-    import litellm
+    import hangarllm
 
     # Define required headers for SAP requests
     required_headers = {
         "Authorization": "Bearer FAKE_TOKEN",
         "AI-Resource-Group": "fake-group",
         "Content-Type": "application/json",
-        "AI-Client-Type": "LiteLLM",
+        "AI-Client-Type": "HangarLLM",
     }
 
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
     with (
         patch(
-            "litellm.llms.sap.embed.transformation.GenAIHubEmbeddingConfig.deployment_url",
+            "hangarllm.llms.sap.embed.transformation.GenAIHubEmbeddingConfig.deployment_url",
             new_callable=PropertyMock,
             return_value=fake_deployment_url,
         ),
         patch(
-            "litellm.llms.sap.embed.transformation.get_token_creator",
+            "hangarllm.llms.sap.embed.transformation.get_token_creator",
             return_value=fake_token_creator,
         ),
     ):
@@ -1647,7 +1647,7 @@ async def test_sap_embedding_required_headers(
         route = respx_mock.post(f"{fake_deployment_url}/v2/embeddings")
         route.respond(json=sap_api_response)
 
-        response = await litellm.aembedding(model=model, input=input)
+        response = await hangarllm.aembedding(model=model, input=input)
 
         # Verify the response is valid
         assert response

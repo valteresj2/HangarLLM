@@ -11,21 +11,21 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 import httpx
 import pytest
 
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.spend_counters import SpendCounterStore
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.spend_counters import SpendCounterStore
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.litellm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
-from litellm.proxy._types import ProxyException, SpendLogsPayload, UserAPIKeyAuth
-from litellm.proxy.collector import SpendEventConsumer
-from litellm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-from litellm.proxy.db.model_usage_rollup import build_model_usage_transaction
-from litellm.proxy.db.spend_log_tool_index import response_tool_call_names
-from litellm.proxy.hooks.proxy_track_cost_callback import (
+import hangarllm
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.hangarllm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
+from hangarllm.proxy._types import ProxyException, SpendLogsPayload, UserAPIKeyAuth
+from hangarllm.proxy.collector import SpendEventConsumer
+from hangarllm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
+from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from hangarllm.proxy.db.model_usage_rollup import build_model_usage_transaction
+from hangarllm.proxy.db.spend_log_tool_index import response_tool_call_names
+from hangarllm.proxy.hooks.proxy_track_cost_callback import (
     ProxyDBLogger,
     _charge_request_cost,
     _get_budget_reservation_from_metadata,
@@ -34,19 +34,19 @@ from litellm.proxy.hooks.proxy_track_cost_callback import (
     is_pre_routing_rejection,
     run_spend_event,
 )
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.spend_tracking.spend_event import SpendEventDecodeError, build_spend_event, decode_spend_event
-from litellm.proxy.spend_tracking.spend_event_producer import SpendEventProducer, UnixAddress
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.proxy.utils import (
+from hangarllm.proxy.route_llm_request import ProxyModelNotFoundError
+from hangarllm.proxy.spend_tracking.spend_event import SpendEventDecodeError, build_spend_event, decode_spend_event
+from hangarllm.proxy.spend_tracking.spend_event_producer import SpendEventProducer, UnixAddress
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm.proxy.utils import (
     REJECTED_BEFORE_REQUEST_SETUP,
     REJECTED_BEFORE_REQUEST_SETUP_KEY,
     BilledFailedAttempt,
     ProxyUpdateSpend,
 )
-from litellm.types.router import Deployment, LiteLLM_Params
-from litellm.types.utils import CallTypes, LiteLLMBatch, ModelResponse, PromptTokensDetailsWrapper, Usage
-from litellm.types.videos.main import VideoObject
+from hangarllm.types.router import Deployment, HangarLLM_Params
+from hangarllm.types.utils import CallTypes, HangarLLMBatch, ModelResponse, PromptTokensDetailsWrapper, Usage
+from hangarllm.types.videos.main import VideoObject
 
 
 @pytest.mark.asyncio
@@ -79,7 +79,7 @@ async def test_async_post_call_failure_hook():
 
     # Mock update_database function
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         # Call the method
@@ -103,9 +103,9 @@ async def test_async_post_call_failure_hook():
         assert call_args["completion_response"] == original_exception
 
         # Check that metadata was properly updated
-        assert "litellm_params" in call_args["kwargs"]
-        assert call_args["kwargs"]["litellm_params"]["proxy_server_request"] == {"request_id": "test_request_id"}
-        metadata = call_args["kwargs"]["litellm_params"]["metadata"]
+        assert "hangarllm_params" in call_args["kwargs"]
+        assert call_args["kwargs"]["hangarllm_params"]["proxy_server_request"] == {"request_id": "test_request_id"}
+        metadata = call_args["kwargs"]["hangarllm_params"]["metadata"]
         assert metadata["user_api_key"] == "test_api_key"
         assert metadata["status"] == "failure"
         assert "error_information" in metadata
@@ -117,14 +117,14 @@ async def test_each_earlier_billed_attempt_gets_its_own_spend_row():
     """A timed-out request that the router retried writes one row per billed attempt: the final
     attempt under the request id, every earlier Timeout attempt under ``<id>-attempt-<n>`` with its
     own cost, attempt number and deployment."""
-    from litellm.proxy.utils import BilledFailedAttempt
+    from hangarllm.proxy.utils import BilledFailedAttempt
 
     logger = ProxyDBLogger()
     user_api_key_dict = UserAPIKeyAuth(api_key="test_api_key", user_id="u1", team_id="t1")
-    usage = litellm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
+    usage = hangarllm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
     request_data = {
         "model": "gpt-4.1",
-        "litellm_call_id": "call-1",
+        "hangarllm_call_id": "call-1",
         "standard_logging_object": {"id": "call-1", "model_id": "dep-final"},
         "metadata": {
             "attempted_retries": 2,
@@ -140,31 +140,31 @@ async def test_each_earlier_billed_attempt_gets_its_own_spend_row():
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
             request_data=request_data,
-            original_exception=litellm.Timeout("Request timed out.", model="gpt-4.1", llm_provider="openai"),
+            original_exception=hangarllm.Timeout("Request timed out.", model="gpt-4.1", llm_provider="openai"),
             user_api_key_dict=user_api_key_dict,
         )
 
     rows = [call.kwargs for call in mock_update_database.call_args_list]
     assert [row["response_cost"] for row in rows] == [0.5, 0.25, 0.5]
     final_row, attempt_0, attempt_1 = (row["kwargs"] for row in rows)
-    assert final_row["litellm_call_id"] == "call-1"
-    assert final_row["litellm_params"]["metadata"]["attempted_retries"] == 2
-    assert attempt_0["litellm_call_id"] == "call-1-attempt-0"
+    assert final_row["hangarllm_call_id"] == "call-1"
+    assert final_row["hangarllm_params"]["metadata"]["attempted_retries"] == 2
+    assert attempt_0["hangarllm_call_id"] == "call-1-attempt-0"
     assert attempt_0["standard_logging_object"]["id"] == "call-1-attempt-0"
-    assert attempt_0["litellm_params"]["metadata"]["attempted_retries"] == 0
-    assert attempt_0["litellm_params"]["metadata"]["model_info"]["id"] == "dep-a"
-    assert "previous_models" not in attempt_0["litellm_params"]["metadata"]
+    assert attempt_0["hangarllm_params"]["metadata"]["attempted_retries"] == 0
+    assert attempt_0["hangarllm_params"]["metadata"]["model_info"]["id"] == "dep-a"
+    assert "previous_models" not in attempt_0["hangarllm_params"]["metadata"]
     assert "billed_failed_attempts" not in attempt_0
     assert attempt_0["combined_usage_object"] is usage
-    assert attempt_1["litellm_call_id"] == "call-1-attempt-1"
-    assert attempt_1["litellm_params"]["metadata"]["attempted_retries"] == 0
-    assert attempt_1["litellm_params"]["metadata"]["model_info"]["id"] == "dep-final"
-    assert final_row["litellm_params"]["metadata"]["model_info"]["id"] == "dep-final"
+    assert attempt_1["hangarllm_call_id"] == "call-1-attempt-1"
+    assert attempt_1["hangarllm_params"]["metadata"]["attempted_retries"] == 0
+    assert attempt_1["hangarllm_params"]["metadata"]["model_info"]["id"] == "dep-final"
+    assert final_row["hangarllm_params"]["metadata"]["model_info"]["id"] == "dep-final"
     for row in rows:
         assert row["token"] == "test_api_key"
         assert row["user_id"] == "u1"
@@ -174,7 +174,7 @@ async def test_each_earlier_billed_attempt_gets_its_own_spend_row():
 def _deployment(model_name: str, model_id: str, model: str, api_base: str | None) -> Deployment:
     return Deployment(
         model_name=model_name,
-        litellm_params=LiteLLM_Params(model=model, api_base=api_base),
+        hangarllm_params=HangarLLM_Params(model=model, api_base=api_base),
         model_info={"id": model_id},
     )
 
@@ -186,18 +186,18 @@ async def _spend_log_payloads_of_a_retried_timeout_across_a_fallback() -> list[S
     """The spend-log payloads a timed-out request writes when attempt 0 and 1 ran on the anthropic
     deployment of group ``essay`` and the request then fell back to the openai deployment of group
     ``essay-fallback``: the final row first, then one row per earlier billed attempt."""
-    from litellm.proxy.utils import BilledFailedAttempt
+    from hangarllm.proxy.utils import BilledFailedAttempt
 
     deployments = {
         "dep-anthropic": _deployment("essay", "dep-anthropic", "anthropic/claude-sonnet-4-6", None),
         "dep-openai": _deployment("essay-fallback", "dep-openai", "openai/gpt-4.1", "https://api.openai.com/v1"),
     }
-    usage = litellm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
+    usage = hangarllm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
     request_data = {
         "model": "anthropic/claude-sonnet-4-6",
         "custom_llm_provider": "anthropic",
-        "litellm_call_id": "call-1",
-        "litellm_params": {"api_base": "https://api.anthropic.com/v1/messages"},
+        "hangarllm_call_id": "call-1",
+        "hangarllm_params": {"api_base": "https://api.anthropic.com/v1/messages"},
         "standard_logging_object": {
             "id": "call-1",
             "model": "anthropic/claude-sonnet-4-6",
@@ -217,9 +217,9 @@ async def _spend_log_payloads_of_a_retried_timeout_across_a_fallback() -> list[S
             BilledFailedAttempt(attempted_retries=0, deployment_id="dep-openai", usage=usage, response_cost=4.8e-05),
         ),
     }
-    exception = litellm.Timeout("Request timed out.", model="gpt-4.1", llm_provider="openai")
+    exception = hangarllm.Timeout("Request timed out.", model="gpt-4.1", llm_provider="openai")
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await ProxyDBLogger(deployment_lookup=deployments.get).async_post_call_failure_hook(
@@ -293,10 +293,10 @@ async def test_attempt_rows_add_spend_but_not_requests_to_daily_spend():
 
 
 @pytest.mark.asyncio
-async def test_async_post_call_failure_hook_carries_guardrail_info_from_litellm_metadata():
+async def test_async_post_call_failure_hook_carries_guardrail_info_from_hangarllm_metadata():
     """
     LIT-5650 regression: on a pre_call guardrail block the unified guardrail
-    layer seeds request_data["litellm_metadata"], so the guardrail hook writes
+    layer seeds request_data["hangarllm_metadata"], so the guardrail hook writes
     standard_logging_guardrail_information there, while the failure spend log
     is serialized from request_data["metadata"]. Blocked invocations still
     consume provider usage units, so the info must be carried over or the
@@ -314,12 +314,12 @@ async def test_async_post_call_failure_hook_carries_guardrail_info_from_litellm_
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {"original_key": "original_value"},
-        "litellm_metadata": {"standard_logging_guardrail_information": guardrail_info},
+        "hangarllm_metadata": {"standard_logging_guardrail_information": guardrail_info},
         "proxy_server_request": {"request_id": "test_request_id"},
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -328,7 +328,7 @@ async def test_async_post_call_failure_hook_carries_guardrail_info_from_litellm_
             user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
         )
 
-        metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+        metadata = mock_update_database.call_args[1]["kwargs"]["hangarllm_params"]["metadata"]
         assert metadata["standard_logging_guardrail_information"] == guardrail_info
         assert metadata["original_key"] == "original_value"
 
@@ -337,9 +337,9 @@ async def test_async_post_call_failure_hook_carries_guardrail_info_from_litellm_
 @pytest.mark.parametrize(
     ("metadata_buckets", "expected_model_group"),
     [
-        ({"metadata": {}, "litellm_metadata": {"model_group": "ws-budget-sock"}}, "ws-budget-sock"),
-        ({"metadata": {"model_group": "caller-group"}, "litellm_metadata": {"model_group": "routed"}}, "caller-group"),
-        ({"metadata": {}, "litellm_metadata": {}}, ""),
+        ({"metadata": {}, "hangarllm_metadata": {"model_group": "ws-budget-sock"}}, "ws-budget-sock"),
+        ({"metadata": {"model_group": "caller-group"}, "hangarllm_metadata": {"model_group": "routed"}}, "caller-group"),
+        ({"metadata": {}, "hangarllm_metadata": {}}, ""),
     ],
 )
 async def test_async_post_call_failure_hook_logs_the_routed_model_group_on_the_failure_row(
@@ -355,7 +355,7 @@ async def test_async_post_call_failure_hook_logs_the_routed_model_group_on_the_f
     spend_writer: Final = create_autospec(DBSpendUpdateWriter, instance=True)
     await ProxyDBLogger(spend_writer=lambda: spend_writer).async_post_call_failure_hook(
         request_data=request_data,
-        original_exception=litellm.RateLimitError(message="crossed budget", llm_provider="", model="ws-budget-sock"),
+        original_exception=hangarllm.RateLimitError(message="crossed budget", llm_provider="", model="ws-budget-sock"),
         user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
     )
 
@@ -372,10 +372,10 @@ async def test_async_post_call_failure_hook_logs_the_routed_model_group_on_the_f
 @pytest.mark.parametrize(
     ("metadata_buckets", "expected_tags"),
     [
-        ({"metadata": {}, "litellm_metadata": {"tags": ["ws-tag"]}}, ["ws-tag"]),
-        ({"metadata": {"tags": ["caller-tag"]}, "litellm_metadata": {"tags": ["routed-tag"]}}, ["caller-tag"]),
-        ({"metadata": {}, "litellm_metadata": {"tags": "not-a-list"}}, []),
-        ({"metadata": {}, "litellm_metadata": {"tags": ["ws-tag", 1, {"a": 1}]}}, []),
+        ({"metadata": {}, "hangarllm_metadata": {"tags": ["ws-tag"]}}, ["ws-tag"]),
+        ({"metadata": {"tags": ["caller-tag"]}, "hangarllm_metadata": {"tags": ["routed-tag"]}}, ["caller-tag"]),
+        ({"metadata": {}, "hangarllm_metadata": {"tags": "not-a-list"}}, []),
+        ({"metadata": {}, "hangarllm_metadata": {"tags": ["ws-tag", 1, {"a": 1}]}}, []),
     ],
 )
 async def test_async_post_call_failure_hook_logs_the_routed_tags_on_the_failure_row(
@@ -391,7 +391,7 @@ async def test_async_post_call_failure_hook_logs_the_routed_tags_on_the_failure_
     spend_writer: Final = create_autospec(DBSpendUpdateWriter, instance=True)
     await ProxyDBLogger(spend_writer=lambda: spend_writer).async_post_call_failure_hook(
         request_data=request_data,
-        original_exception=litellm.RateLimitError(message="crossed budget", llm_provider="", model="ws-budget-sock"),
+        original_exception=hangarllm.RateLimitError(message="crossed budget", llm_provider="", model="ws-budget-sock"),
         user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
     )
 
@@ -412,12 +412,12 @@ async def test_async_post_call_failure_hook_does_not_clobber_guardrail_info_in_m
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {"standard_logging_guardrail_information": metadata_bucket_info},
-        "litellm_metadata": {"standard_logging_guardrail_information": [{"guardrail_name": "from-litellm-bucket"}]},
+        "hangarllm_metadata": {"standard_logging_guardrail_information": [{"guardrail_name": "from-hangarllm-bucket"}]},
         "proxy_server_request": {"request_id": "test_request_id"},
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -426,7 +426,7 @@ async def test_async_post_call_failure_hook_does_not_clobber_guardrail_info_in_m
             user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
         )
 
-        metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+        metadata = mock_update_database.call_args[1]["kwargs"]["hangarllm_params"]["metadata"]
         assert metadata["standard_logging_guardrail_information"] == metadata_bucket_info
 
 
@@ -434,11 +434,11 @@ async def test_async_post_call_failure_hook_does_not_clobber_guardrail_info_in_m
 @pytest.mark.parametrize(
     "request_headers, caller_metadata, redaction_is_global, code_word_is_stored",
     [
-        ({"x-litellm-enable-message-redaction": "true"}, {"user_id": "claude-code-session"}, False, False),
-        ({"litellm-enable-message-redaction": "true"}, {}, False, False),
+        ({"x-hangarllm-enable-message-redaction": "true"}, {"user_id": "claude-code-session"}, False, False),
+        ({"hangarllm-enable-message-redaction": "true"}, {}, False, False),
         ({"user-agent": "claude-cli"}, {"user_id": "claude-code-session"}, False, True),
-        ({"user-agent": "claude-cli"}, {"headers": {"x-litellm-enable-message-redaction": "true"}}, False, False),
-        ({"litellm-disable-message-redaction": "true"}, {"user_id": "claude-code-session"}, True, False),
+        ({"user-agent": "claude-cli"}, {"headers": {"x-hangarllm-enable-message-redaction": "true"}}, False, False),
+        ({"hangarllm-disable-message-redaction": "true"}, {"user_id": "claude-code-session"}, True, False),
     ],
     ids=[
         "enable_header_redacts",
@@ -448,7 +448,7 @@ async def test_async_post_call_failure_hook_does_not_clobber_guardrail_info_in_m
         "disable_header_never_loosens_global_redaction",
     ],
 )
-async def test_async_post_call_failure_hook_honors_the_redaction_header_on_a_litellm_metadata_route(
+async def test_async_post_call_failure_hook_honors_the_redaction_header_on_a_hangarllm_metadata_route(
     monkeypatch: pytest.MonkeyPatch,
     request_headers: dict[str, str],
     caller_metadata: dict[str, object],
@@ -456,20 +456,20 @@ async def test_async_post_call_failure_hook_honors_the_redaction_header_on_a_lit
     code_word_is_stored: bool,
 ):
     monkeypatch.setenv("STORE_PROMPTS_IN_SPEND_LOGS", "true")
-    monkeypatch.setattr(litellm, "turn_off_message_logging", redaction_is_global)
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", redaction_is_global)
     writer: Final = MagicMock(spec=DBSpendUpdateWriter)
     writer.update_database = AsyncMock()
     logger: Final = ProxyDBLogger(spend_writer=lambda: writer)
     request_input: Final = "The code word is VERMILION-42. Reply OK."
     body_metadata: Final = dict(caller_metadata)
-    litellm_metadata_headers: Final = dict(request_headers)
+    hangarllm_metadata_headers: Final = dict(request_headers)
 
     await logger.async_post_call_failure_hook(
         request_data={
             "model": "gpt-5.6",
             "input": request_input,
             "metadata": body_metadata,
-            "litellm_metadata": {"headers": litellm_metadata_headers},
+            "hangarllm_metadata": {"headers": hangarllm_metadata_headers},
             "proxy_server_request": {
                 "url": "http://localhost/v1/responses",
                 "body": {
@@ -477,7 +477,7 @@ async def test_async_post_call_failure_hook_honors_the_redaction_header_on_a_lit
                     "input": request_input,
                     "temperature": 7,
                     "metadata": body_metadata,
-                    "litellm_metadata": {"headers": litellm_metadata_headers},
+                    "hangarllm_metadata": {"headers": hangarllm_metadata_headers},
                 },
             },
         },
@@ -495,7 +495,7 @@ async def test_async_post_call_failure_hook_honors_the_redaction_header_on_a_lit
     assert stored_request["temperature"] == 7
     assert ("VERMILION-42" in row["proxy_server_request"]) is code_word_is_stored
     assert stored_request["metadata"].get("headers") == caller_metadata.get("headers")
-    assert stored_request["litellm_metadata"]["headers"] == request_headers
+    assert stored_request["hangarllm_metadata"]["headers"] == request_headers
 
 
 @pytest.mark.asyncio
@@ -523,7 +523,7 @@ async def test_async_post_call_failure_hook_honors_key_and_team_prompt_storage(
         request_data={
             "model": "gpt-5.6",
             "input": request_input,
-            "litellm_metadata": {},
+            "hangarllm_metadata": {},
             "proxy_server_request": {
                 "url": "http://localhost/v1/responses",
                 "body": {"model": "gpt-5.6", "input": request_input},
@@ -547,11 +547,11 @@ async def test_async_post_call_failure_hook_honors_key_and_team_prompt_storage(
     "used_client_oauth_token, custom_llm_provider, expected",
     [(True, "anthropic", True), (True, "bedrock", False), (False, "anthropic", False)],
 )
-async def test_async_post_call_failure_hook_carries_used_client_oauth_token_from_litellm_metadata(
+async def test_async_post_call_failure_hook_carries_used_client_oauth_token_from_hangarllm_metadata(
     used_client_oauth_token: bool, custom_llm_provider: str, expected: bool
 ):
     """
-    /v1/messages and /v1/responses stamp the proxy's own fields into request_data["litellm_metadata"]
+    /v1/messages and /v1/responses stamp the proxy's own fields into request_data["hangarllm_metadata"]
     and leave request_data["metadata"] to the caller's native metadata, so a failed request on those
     routes wrote a spend row whose used_client_oauth_token was null instead of the stamped value
     """
@@ -561,12 +561,12 @@ async def test_async_post_call_failure_hook_carries_used_client_oauth_token_from
         "custom_llm_provider": custom_llm_provider,
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {"user_id": "anthropic-native-metadata"},
-        "litellm_metadata": {"used_client_oauth_token": used_client_oauth_token},
+        "hangarllm_metadata": {"used_client_oauth_token": used_client_oauth_token},
         "proxy_server_request": {"request_id": "test_request_id"},
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -576,7 +576,7 @@ async def test_async_post_call_failure_hook_carries_used_client_oauth_token_from
         )
 
     call_kwargs = mock_update_database.call_args[1]["kwargs"]
-    assert call_kwargs["litellm_params"]["metadata"]["user_id"] == "anthropic-native-metadata"
+    assert call_kwargs["hangarllm_params"]["metadata"]["user_id"] == "anthropic-native-metadata"
     payload = get_logging_payload(
         kwargs=call_kwargs, response_obj={}, start_time=datetime.now(), end_time=datetime.now()
     )
@@ -587,8 +587,8 @@ async def test_async_post_call_failure_hook_carries_used_client_oauth_token_from
 @pytest.mark.parametrize(
     "metadata_buckets, expected",
     [
-        ({"metadata": {"used_client_oauth_token": True}, "litellm_metadata": {"used_client_oauth_token": False}}, False),
-        ({"metadata": {"used_client_oauth_token": True}, "litellm_metadata": {"user_id": "caller"}}, None),
+        ({"metadata": {"used_client_oauth_token": True}, "hangarllm_metadata": {"used_client_oauth_token": False}}, False),
+        ({"metadata": {"used_client_oauth_token": True}, "hangarllm_metadata": {"user_id": "caller"}}, None),
         ({"metadata": {"used_client_oauth_token": "yes"}}, None),
     ],
 )
@@ -609,7 +609,7 @@ async def test_async_post_call_failure_hook_never_lets_caller_metadata_set_used_
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -633,12 +633,12 @@ async def test_async_post_call_failure_hook_never_lets_caller_metadata_set_used_
     [
         (
             "/v1/chat/completions",
-            {"metadata": {"used_client_oauth_token": True}, "litellm_metadata": {"user_api_key_hash": "guardrail"}},
+            {"metadata": {"used_client_oauth_token": True}, "hangarllm_metadata": {"user_api_key_hash": "guardrail"}},
             True,
         ),
         (
             "/v1/messages",
-            {"metadata": {"used_client_oauth_token": True}, "litellm_metadata": {"user_api_key_hash": "proxy"}},
+            {"metadata": {"used_client_oauth_token": True}, "hangarllm_metadata": {"user_api_key_hash": "proxy"}},
             None,
         ),
     ],
@@ -656,7 +656,7 @@ async def test_async_post_call_failure_hook_reads_used_client_oauth_token_from_t
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -684,7 +684,7 @@ async def test_async_post_call_failure_hook_reads_used_client_oauth_token_from_t
             {
                 "input": "Hello",
                 "metadata": {"requester_ip_address": "203.0.113.9", "user_agent": "spoofed"},
-                "litellm_metadata": {"requester_ip_address": "127.0.0.1", "user_agent": "Cursor/1.0"},
+                "hangarllm_metadata": {"requester_ip_address": "127.0.0.1", "user_agent": "Cursor/1.0"},
             },
         ),
         (
@@ -692,7 +692,7 @@ async def test_async_post_call_failure_hook_reads_used_client_oauth_token_from_t
             {
                 "messages": [{"role": "user", "content": "Hello"}],
                 "metadata": {"requester_ip_address": "127.0.0.1", "user_agent": "Cursor/1.0"},
-                "litellm_metadata": {"requester_ip_address": "203.0.113.9", "user_agent": "spoofed"},
+                "hangarllm_metadata": {"requester_ip_address": "203.0.113.9", "user_agent": "spoofed"},
             },
         ),
     ],
@@ -705,7 +705,7 @@ async def test_async_post_call_failure_hook_logs_the_proxy_stamped_ip_and_user_a
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await ProxyDBLogger().async_post_call_failure_hook(
@@ -747,7 +747,7 @@ async def test_async_post_call_failure_hook_bills_guardrail_cost_on_blocked_requ
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -776,7 +776,7 @@ async def test_async_post_call_failure_hook_adds_guardrail_cost_to_recovered_str
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -824,8 +824,8 @@ async def test_async_post_call_failure_hook_keeps_a_guardrail_verdict_recorded_a
                     {"guardrail_name": "detect-only-scanner", "guardrail_status": "success"}
                 ]
             },
-            "litellm_logging_obj": SimpleNamespace(
-                model_call_details={"standard_logging_object": failure_snapshot}, litellm_trace_id="trace-1"
+            "hangarllm_logging_obj": SimpleNamespace(
+                model_call_details={"standard_logging_object": failure_snapshot}, hangarllm_trace_id="trace-1"
             ),
         },
         original_exception=Exception("provider dropped the stream"),
@@ -848,7 +848,7 @@ async def test_async_post_call_failure_hook_keeps_a_guardrail_verdict_recorded_a
 async def test_async_post_call_failure_hook_records_end_user_only_while_end_user_cost_tracking_is_on(
     monkeypatch: pytest.MonkeyPatch, tracking_disabled: bool | None, expected_end_user_id: str | None
 ):
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", tracking_disabled)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", tracking_disabled)
     writer: Final = MagicMock(spec=DBSpendUpdateWriter)
     writer.update_database = AsyncMock()
 
@@ -892,7 +892,7 @@ async def test_async_post_call_failure_hook_non_llm_route():
 
     # Mock update_database function
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         # Call the method
@@ -910,9 +910,9 @@ async def test_async_post_call_failure_hook_non_llm_route():
 @pytest.mark.parametrize(
     ("team_id", "route", "written"),
     [
-        ("litellm-dashboard", "/key/list", False),
-        ("litellm-dashboard", "/v2/user/info", False),
-        ("litellm-dashboard", "/chat/completions", True),
+        ("hangarllm-dashboard", "/key/list", False),
+        ("hangarllm-dashboard", "/v2/user/info", False),
+        ("hangarllm-dashboard", "/chat/completions", True),
         ("team-1", "/key/list", True),
         (None, "/key/list", True),
     ],
@@ -923,7 +923,7 @@ async def test_async_post_call_failure_hook_skips_dashboard_session_info_route_f
     """An expired Admin UI session key refetching dashboard info routes must not
     write a failure SpendLog row, while its LLM calls and other keys' info calls still do."""
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await ProxyDBLogger().async_post_call_failure_hook(
@@ -947,11 +947,11 @@ async def test_async_post_call_failure_hook_releases_budget_reservation_before_r
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_release_budget_reservation,
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
     ):
@@ -983,20 +983,20 @@ async def test_should_continue_failure_tracking_when_budget_release_fails():
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
             side_effect=RuntimeError("redis unavailable"),
         ) as mock_release_budget_reservation,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
         ) as mock_invalidate_budget_reservation_counters,
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
         ) as mock_log_exception,
     ):
         await logger.async_post_call_failure_hook(
@@ -1031,7 +1031,7 @@ async def test_track_cost_callback_releases_budget_reservation_when_spend_tracki
 
     kwargs = {
         "model": "gpt-4",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_auth": user_api_key_auth,
             },
@@ -1044,7 +1044,7 @@ async def test_track_cost_callback_releases_budget_reservation_when_spend_tracki
     }
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+        "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
         new_callable=AsyncMock,
     ) as mock_release_budget_reservation:
         await logger._PROXY_track_cost_callback(
@@ -1068,7 +1068,7 @@ async def test_track_cost_callback_releases_budget_reservation_when_response_cos
     kwargs = {
         "model": "gpt-4",
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_auth": user_api_key_auth,
             },
@@ -1083,10 +1083,10 @@ async def test_track_cost_callback_releases_budget_reservation_when_response_cos
 
     with (
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging,
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_release_budget_reservation,
     ):
@@ -1137,7 +1137,7 @@ async def test_update_database_and_spend_counters_releases_reservation_when_db_u
     budget_reservation = {"reserved_cost": 0.5, "entries": []}
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+        "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
         new_callable=AsyncMock,
     ) as mock_release_budget_reservation:
         with pytest.raises(Exception, match="db unavailable"):
@@ -1174,15 +1174,15 @@ async def test_update_database_and_spend_counters_preserves_db_exception_when_re
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
             side_effect=RuntimeError("release unavailable"),
         ) as mock_release_budget_reservation,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
         ) as mock_log_exception,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
             side_effect=RuntimeError("invalidate unavailable"),
         ) as mock_invalidate_budget_reservation_counters,
@@ -1271,7 +1271,7 @@ async def test_update_database_and_spend_counters_invalidates_reservation_when_c
     }
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
+        "hangarllm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
         new_callable=AsyncMock,
     ) as mock_invalidate_budget_reservation_counters:
         with pytest.raises(Exception, match="counter unavailable"):
@@ -1312,12 +1312,12 @@ async def test_update_database_and_spend_counters_preserves_counter_exception_wh
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
+            "hangarllm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
             side_effect=RuntimeError("invalidate unavailable"),
         ) as mock_invalidate_budget_reservation_counters,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
         ) as mock_log_exception,
     ):
         with pytest.raises(RuntimeError) as exc_info:
@@ -1366,7 +1366,7 @@ async def test_update_database_and_spend_counters_reconciles_reservation_before_
         call_order.append("reconcile")
 
     with patch(  # test-quality-ok: the helper imports reconcile_budget_reservation in its body, no injection seam
-        "litellm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
+        "hangarllm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
         new_callable=AsyncMock,
         side_effect=_reconcile,
     ) as mock_reconcile_budget_reservation:
@@ -1408,11 +1408,11 @@ async def test_update_database_and_spend_counters_releases_reservation_when_db_u
 
     with (
         patch(  # test-quality-ok: the helper imports reconcile_budget_reservation in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
+            "hangarllm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_reconcile_budget_reservation,
         patch(  # test-quality-ok: _release_budget_reservation imports the release in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_release_budget_reservation,
     ):
@@ -1459,12 +1459,12 @@ async def test_update_database_and_spend_counters_invalidates_reservation_when_e
 
     with (
         patch(  # test-quality-ok: the helper imports reconcile_budget_reservation in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
+            "hangarllm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
             new_callable=AsyncMock,
             side_effect=RuntimeError("redis unavailable"),
         ) as mock_reconcile_budget_reservation,
         patch(  # test-quality-ok: _invalidate_budget_reservation_counters imports it in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
+            "hangarllm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
         ) as mock_invalidate_budget_reservation_counters,
     ):
@@ -1509,13 +1509,13 @@ async def test_track_cost_callback_skips_when_no_standard_logging_object():
     kwargs = {
         "call_type": "afile_delete",
         "model": None,
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {},
+        "hangarllm_call_id": "test-call-id",
+        "hangarllm_params": {},
         "stream": False,
     }
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1549,13 +1549,13 @@ async def test_track_cost_callback_alerts_on_a_websocket_turn_with_no_logging_ob
     kwargs: Final = {
         "call_type": call_type,
         "model": "gpt-5-mini",
-        "litellm_call_id": "turn-call-id",
-        "litellm_params": {},
+        "hangarllm_call_id": "turn-call-id",
+        "hangarllm_params": {},
         "stream": False,
     }
     alerts: Final = _FailedTrackingAlerts()
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj", alerts):
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj", alerts):
         await ProxyDBLogger()._PROXY_track_cost_callback(
             kwargs=kwargs,
             completion_response=None,
@@ -1575,15 +1575,15 @@ async def test_track_cost_callback_defers_in_progress_background_interaction(): 
     The callback must skip quietly (billing happens later via the background
     poll task) instead of raising 'Cost tracking failed' and alerting.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from hangarllm.types.interactions import InteractionsAPIResponse
 
     logger = ProxyDBLogger()
 
     kwargs = {
         "call_type": "acreate_interaction",
         "model": "gemini/gemini-3-flash-preview",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {},
+        "hangarllm_call_id": "test-call-id",
+        "hangarllm_params": {},
         "stream": False,
     }
     in_progress_response = InteractionsAPIResponse(
@@ -1593,7 +1593,7 @@ async def test_track_cost_callback_defers_in_progress_background_interaction(): 
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1620,17 +1620,17 @@ def _batch_retrieve_kwargs(call_type: str, reservation: dict | None = None) -> d
     return {
         "call_type": call_type,
         "model": "gpt-5.6-luna",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {"metadata": metadata},
+        "hangarllm_call_id": "test-call-id",
+        "hangarllm_params": {"metadata": metadata},
         "standard_logging_object": {"response_cost": 0.0, "request_tags": None},
         "stream": False,
     }
 
 
 def _retrieved_batch(status: str, output_file_id: str | None):
-    from litellm.types.utils import LiteLLMBatch
+    from hangarllm.types.utils import HangarLLMBatch
 
-    return LiteLLMBatch(
+    return HangarLLMBatch(
         id="batch_abc",
         completion_window="24h",
         created_at=1,
@@ -1676,7 +1676,7 @@ async def test_track_cost_callback_charges_a_batch_once_and_only_when_final(  # 
     charges nothing hands its budget reservation back instead. Message redaction replaces
     the logged batch, so the gate reads the batch logging stamped before redacting it.
     """
-    from litellm.litellm_core_utils.batch_utils import POLLED_BATCH_COST_IS_FINAL_KWARG, POLLED_BATCH_ID_KWARG
+    from hangarllm.hangarllm_core_utils.batch_utils import POLLED_BATCH_COST_IS_FINAL_KWARG, POLLED_BATCH_ID_KWARG
 
     logger = ProxyDBLogger()
     budget_reservation = None if charged else {"reserved_cost": 0.5, "entries": []}
@@ -1690,16 +1690,16 @@ async def test_track_cost_callback_charges_a_batch_once_and_only_when_final(  # 
 
     with (
         patch(  # test-quality-ok: increment_spend_counters is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as mock_increment_spend_counters,
         patch(  # test-quality-ok: update_cache is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ) as mock_update_cache,
         patch(  # test-quality-ok: callback imports proxy_logging_obj off proxy_server in its body, no seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: the release is imported inside the callback's helper, no seam
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation", new_callable=AsyncMock
+            "hangarllm.proxy.spend_tracking.budget_reservation.release_budget_reservation", new_callable=AsyncMock
         ) as mock_release_budget_reservation,
     ):
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
@@ -1708,7 +1708,7 @@ async def test_track_cost_callback_charges_a_batch_once_and_only_when_final(  # 
 
         await logger._PROXY_track_cost_callback(
             kwargs=kwargs,
-            completion_response={"text": "redacted-by-litellm"} if redacted else retrieved,
+            completion_response={"text": "redacted-by-hangarllm"} if redacted else retrieved,
             start_time=datetime.now(),
             end_time=datetime.now(),
         )
@@ -1728,8 +1728,8 @@ def _in_progress_interaction_kwargs(reservation: dict) -> dict:
     return {
         "call_type": "acreate_interaction",
         "model": "gemini/gemini-3-flash-preview",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {"metadata": {"user_api_key_budget_reservation": reservation}},
+        "hangarllm_call_id": "test-call-id",
+        "hangarllm_params": {"metadata": {"user_api_key_budget_reservation": reservation}},
         "stream": False,
     }
 
@@ -1747,7 +1747,7 @@ async def test_track_cost_callback_keeps_reservation_open_for_in_progress_backgr
     estimate off the spend counters while the interaction is still going to run
     and still going to cost money.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from hangarllm.types.interactions import InteractionsAPIResponse
 
     logger = ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1758,7 +1758,7 @@ async def test_track_cost_callback_keeps_reservation_open_for_in_progress_backgr
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1784,8 +1784,8 @@ async def test_track_cost_callback_releases_reservation_for_in_progress_interact
     reservation, so the callback must release it or the spend counters stay
     pinned at the estimated cost forever.
     """
-    import litellm.proxy.hooks.proxy_track_cost_callback as callback_module
-    from litellm.types.interactions import InteractionsAPIResponse
+    import hangarllm.proxy.hooks.proxy_track_cost_callback as callback_module
+    from hangarllm.types.interactions import InteractionsAPIResponse
 
     monkeypatch.setattr(callback_module, "BACKGROUND_INTERACTION_COST_POLLING_ENABLED", False)
 
@@ -1798,7 +1798,7 @@ async def test_track_cost_callback_releases_reservation_for_in_progress_interact
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1833,7 +1833,7 @@ async def test_track_cost_callback_releases_reservation_for_unpollable_interacti
     ``failed_tracking_alert``: doing so would flood operators with false alerts
     and mask real cost-tracking failures.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from hangarllm.types.interactions import InteractionsAPIResponse
 
     logger = ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1844,7 +1844,7 @@ async def test_track_cost_callback_releases_reservation_for_unpollable_interacti
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1874,7 +1874,7 @@ async def test_track_cost_callback_alerts_when_an_interaction_that_produced_outp
     The reservation still has to be released, since suppressing the alert was
     never what freed it.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from hangarllm.types.interactions import InteractionsAPIResponse
 
     logger = ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1885,7 +1885,7 @@ async def test_track_cost_callback_alerts_when_an_interaction_that_produced_outp
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1910,7 +1910,7 @@ async def test_track_cost_callback_releases_reservation_for_interaction_without_
     exist, and it must not fire ``failed_tracking_alert`` for what is a
     legitimate no-usage response rather than a cost-tracking failure.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from hangarllm.types.interactions import InteractionsAPIResponse
 
     logger = ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1921,7 +1921,7 @@ async def test_track_cost_callback_releases_reservation_for_interaction_without_
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1951,8 +1951,8 @@ async def test_callback_handles_every_status_the_interactions_api_can_return():
     Driven off the generated spec enum so a status Google adds later fails here
     instead of quietly leaking reservations in production.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
-    from litellm.types.interactions.generated import Status1
+    from hangarllm.types.interactions import InteractionsAPIResponse
+    from hangarllm.types.interactions.generated import Status1
 
     deferred = set()
     released = set()
@@ -1967,7 +1967,7 @@ async def test_callback_handles_every_status_the_interactions_api_can_return():
         )
 
         with patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging:
             mock_proxy_logging.failed_tracking_alert = AsyncMock()
             mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1999,7 +1999,7 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
     """
     When an LLM call fails, the proxy calls post_call_failure_hook with
     request_data that doesn't contain standard_logging_object. But the
-    litellm_logging_obj (set by function_setup) is in request_data and
+    hangarllm_logging_obj (set by function_setup) is in request_data and
     holds the standard_logging_object with the correct trace_id.
 
     The failure hook should propagate this so the DB spend log's session_id
@@ -2013,10 +2013,10 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
         team_id="test_team_id",
     )
 
-    # Simulate a litellm_logging_obj with model_call_details containing
+    # Simulate a hangarllm_logging_obj with model_call_details containing
     # the standard_logging_object (as set by _failure_handler_helper_fn)
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_trace_id = "trace-id-from-logging-obj"
+    mock_logging_obj.hangarllm_trace_id = "trace-id-from-logging-obj"
     mock_logging_obj.model_call_details = {
         "standard_logging_object": {
             "trace_id": "trace-id-from-logging-obj",
@@ -2028,13 +2028,13 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
-        "litellm_logging_obj": mock_logging_obj,
-        # Note: no "standard_logging_object" and no "litellm_trace_id"
+        "hangarllm_params": {},
+        "hangarllm_logging_obj": mock_logging_obj,
+        # Note: no "standard_logging_object" and no "hangarllm_trace_id"
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -2049,8 +2049,8 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
         # standard_logging_object should have been propagated from logging obj
         assert call_kwargs.get("standard_logging_object") is not None
         assert call_kwargs["standard_logging_object"]["trace_id"] == "trace-id-from-logging-obj"
-        # litellm_trace_id should also be propagated as a fallback
-        assert call_kwargs.get("litellm_trace_id") == "trace-id-from-logging-obj"
+        # hangarllm_trace_id should also be propagated as a fallback
+        assert call_kwargs.get("hangarllm_trace_id") == "trace-id-from-logging-obj"
 
 
 @pytest.mark.asyncio
@@ -2064,7 +2064,7 @@ async def test_enrich_failure_metadata_with_team_alias():
     mock_team_obj.team_alias = "my-team-alias"
 
     with patch(
-        "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+        "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
         new_callable=AsyncMock,
         return_value=mock_team_obj,
     ):
@@ -2097,12 +2097,12 @@ async def test_enrich_failure_metadata_with_full_key_lookup():
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ),
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -2133,11 +2133,11 @@ async def test_enrich_failure_metadata_skips_when_team_alias_present():
     """
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
         ) as mock_get_team,
     ):
@@ -2160,7 +2160,7 @@ async def test_enrich_failure_metadata_skips_when_no_api_key():
     not perform any lookups.
     """
     with patch(
-        "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+        "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
         new_callable=AsyncMock,
     ) as mock_get_key:
         metadata = {
@@ -2191,12 +2191,12 @@ async def test_enrich_failure_metadata_keeps_captured_identity_when_not_resolvin
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -2232,11 +2232,11 @@ async def test_enrich_failure_metadata_ignores_flag_when_alias_present():
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -2284,9 +2284,9 @@ async def test_track_cost_callback_reads_key_only_for_in_request_logs(call_type,
     kwargs = {
         "call_type": call_type,
         "model": None,
-        "litellm_call_id": "test-call-id",
+        "hangarllm_call_id": "test-call-id",
         "stream": False,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "hashed_key",
                 "user_api_key_alias": None,
@@ -2299,16 +2299,16 @@ async def test_track_cost_callback_reads_key_only_for_in_request_logs(call_type,
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=MagicMock(team_alias=None),
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
     ):
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -2323,7 +2323,7 @@ async def test_track_cost_callback_reads_key_only_for_in_request_logs(call_type,
 
     assert mock_get_key.called is expect_key_read
 
-    written = kwargs["litellm_params"]["metadata"]
+    written = kwargs["hangarllm_params"]["metadata"]
     if expect_key_read:
         assert written["user_api_key_user_id"] == "user-assigned-later"
         assert written["user_api_key_team_id"] == "team-assigned-later"
@@ -2352,7 +2352,7 @@ async def test_async_post_call_failure_hook_enriches_auth_error_metadata():
         "model": "claude-haiku-4-5",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
 
     mock_key_obj = MagicMock()
@@ -2366,16 +2366,16 @@ async def test_async_post_call_failure_hook_enriches_auth_error_metadata():
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ),
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -2388,7 +2388,7 @@ async def test_async_post_call_failure_hook_enriches_auth_error_metadata():
 
         mock_update_database.assert_called_once()
         call_args = mock_update_database.call_args[1]
-        metadata = call_args["kwargs"]["litellm_params"]["metadata"]
+        metadata = call_args["kwargs"]["hangarllm_params"]["metadata"]
         assert metadata["user_api_key_alias"] == "my-key-alias"
         assert metadata["user_api_key_user_id"] == "my-user-id"
         assert metadata["user_api_key_team_id"] == "my-team-id"
@@ -2403,20 +2403,20 @@ async def test_async_post_call_failure_hook_skips_the_key_lookup_when_the_failur
         "model": "gpt-5.6",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
         ) as mock_get_key_object,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
         ) as mock_get_team_object,
     ):
@@ -2429,7 +2429,7 @@ async def test_async_post_call_failure_hook_skips_the_key_lookup_when_the_failur
     mock_get_key_object.assert_not_called()
     mock_get_team_object.assert_not_called()
     mock_update_database.assert_called_once()
-    metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+    metadata = mock_update_database.call_args[1]["kwargs"]["hangarllm_params"]["metadata"]
     assert metadata["status"] == "failure"
     assert metadata["user_api_key"] == "hashed_key"
     assert metadata["user_api_key_alias"] is None
@@ -2445,7 +2445,7 @@ async def test_async_post_call_failure_hook_still_enriches_metadata_for_a_non_st
         "model": "gpt-5.6",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
 
     mock_key_obj = MagicMock()
@@ -2457,16 +2457,16 @@ async def test_async_post_call_failure_hook_still_enriches_metadata_for_a_non_st
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ) as mock_get_key_object,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
         ),
     ):
@@ -2477,7 +2477,7 @@ async def test_async_post_call_failure_hook_still_enriches_metadata_for_a_non_st
         )
 
     mock_get_key_object.assert_called_once()
-    metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+    metadata = mock_update_database.call_args[1]["kwargs"]["hangarllm_params"]["metadata"]
     assert metadata["user_api_key_alias"] == "my-key-alias"
 
 
@@ -2502,7 +2502,7 @@ async def test_async_post_call_failure_hook_enriches_missing_team_alias():
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
 
     mock_team_obj = MagicMock()
@@ -2510,11 +2510,11 @@ async def test_async_post_call_failure_hook_enriches_missing_team_alias():
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -2527,7 +2527,7 @@ async def test_async_post_call_failure_hook_enriches_missing_team_alias():
 
         mock_update_database.assert_called_once()
         call_args = mock_update_database.call_args[1]
-        metadata = call_args["kwargs"]["litellm_params"]["metadata"]
+        metadata = call_args["kwargs"]["hangarllm_params"]["metadata"]
         assert metadata["user_api_key_team_alias"] == "enriched-team-alias"
         assert metadata["user_api_key_team_id"] == "test_team_id"
 
@@ -2544,12 +2544,12 @@ async def test_track_cost_callback_skips_for_falsy_model_and_no_slo(model_value)
     kwargs = {
         "call_type": "acompletion",
         "model": model_value,
-        "litellm_params": {},
+        "hangarllm_params": {},
         "stream": False,
     }
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -2592,20 +2592,20 @@ async def test_async_post_call_failure_hook_uses_actual_start_time():
     mock_logging_obj = MagicMock()
     mock_logging_obj.start_time = simulated_start
     mock_logging_obj.model_call_details = {}
-    mock_logging_obj.litellm_trace_id = None
+    mock_logging_obj.hangarllm_trace_id = None
 
     request_data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
         "proxy_server_request": {},
-        "litellm_logging_obj": mock_logging_obj,
+        "hangarllm_logging_obj": mock_logging_obj,
     }
 
     original_exception = Exception("Timeout error")
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -2654,7 +2654,7 @@ async def _invoke_failure_hook_with_raised_exception():
         original_exception = exc
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -2663,13 +2663,13 @@ async def _invoke_failure_hook_with_raised_exception():
             user_api_key_dict=user_api_key_dict,
         )
         call_args = mock_update_database.call_args[1]
-        return call_args["kwargs"]["litellm_params"]["metadata"]
+        return call_args["kwargs"]["hangarllm_params"]["metadata"]
 
 
 @pytest.mark.asyncio
 async def test_failure_hook_keeps_error_information_traceback_by_default(monkeypatch):
     """Without the opt-in env var, the SpendLogs row carries the full traceback."""
-    monkeypatch.delenv("LITELLM_SUPPRESS_SPEND_LOG_TRACEBACKS", raising=False)
+    monkeypatch.delenv("HANGARLLM_SUPPRESS_SPEND_LOG_TRACEBACKS", raising=False)
 
     metadata = await _invoke_failure_hook_with_raised_exception()
 
@@ -2690,9 +2690,9 @@ async def test_failure_hook_drops_error_information_traceback_when_env_set(
     error_code) are preserved."""
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from hangarllm._logging import verbose_proxy_logger
 
-    monkeypatch.setenv("LITELLM_SUPPRESS_SPEND_LOG_TRACEBACKS", "true")
+    monkeypatch.setenv("HANGARLLM_SUPPRESS_SPEND_LOG_TRACEBACKS", "true")
     original_level = verbose_proxy_logger.level
     verbose_proxy_logger.setLevel(logging.INFO)
     try:
@@ -2713,7 +2713,7 @@ async def test_async_post_call_failure_hook_records_recovered_partial_spend():
     hook must pass it through to update_database so the failure row records the
     real partial spend instead of the hardcoded zero.
     """
-    from litellm.types.utils import Usage
+    from hangarllm.types.utils import Usage
 
     logger = ProxyDBLogger()
     user_api_key_dict = UserAPIKeyAuth(api_key="test_api_key", user_id="u", team_id="t")
@@ -2728,7 +2728,7 @@ async def test_async_post_call_failure_hook_records_recovered_partial_spend():
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "hangarllm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -2744,10 +2744,10 @@ async def test_async_post_call_failure_hook_records_recovered_partial_spend():
 @pytest.fixture()
 def live_spend_counters(monkeypatch: pytest.MonkeyPatch) -> SpendCounterStore:
     counters: Final = SpendCounterStore(connect(None).spend_counters())
-    monkeypatch.setattr("litellm.proxy.proxy_server.spend_counter_store", counters)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", DualCache())
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.spend_counter_store", counters)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", DualCache())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
     return counters
 
 
@@ -2851,7 +2851,7 @@ async def test_a_completed_cost_failure_raises_the_live_spend_counters_once(live
 async def test_failure_spend_rows_leave_the_live_spend_counters_alone_while_spend_updates_are_disabled(
     live_spend_counters: SpendCounterStore, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"disable_spend_updates": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"disable_spend_updates": True})
     for key, spend in _LIVE_COUNTERS.items():
         live_spend_counters.set_local(key, spend)
 
@@ -2900,15 +2900,15 @@ async def test_a_failure_spend_row_lands_in_the_key_budget_window_as_of_the_requ
 ):
     """The window row's one-time seed from the spend log stops at the request start, which keeps the failure row
     it already logged from being counted twice. Only the legacy writers queue this row, so the ledger is off."""
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import proxy_logging_obj
 
     monkeypatch.setitem(proxy_server.general_settings, "use_spend_logs_ledger", False)
 
     window_queue: Final = proxy_logging_obj.db_spend_update_writer.window_spend_update_queue
     await window_queue.flush_and_get_aggregated_window_spend_transactions()
     key_cache: Final = DualCache()
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", key_cache)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_api_key_cache", key_cache)
     request_start: Final = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
     reset_at: Final = request_start + timedelta(days=10)
     await key_cache.async_set_cache(
@@ -2941,12 +2941,12 @@ async def test_a_billed_attempt_on_a_deployment_the_router_dropped_debits_every_
     """Its spend row names the dropped deployment, which narrows nothing, so the counters must not narrow it to the
     final attempt's groups either."""
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.llm_router",
-        litellm.Router(
+        "hangarllm.proxy.proxy_server.llm_router",
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-4.1",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                     "model_info": {"id": "dep-b", "access_groups": ["pool"]},
                 }
             ]
@@ -2970,7 +2970,7 @@ async def test_a_billed_attempt_on_a_deployment_the_router_dropped_debits_every_
 @pytest.mark.asyncio
 async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
     """MCP tool calls may only carry user_api_key; user/team rollups still need user_id."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     logger = ProxyDBLogger()
     key_obj = UserAPIKeyAuth(
@@ -2984,7 +2984,7 @@ async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
     kwargs = {
         "call_type": "call_mcp_tool",
         "model": "MCP: echo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "hashed-key",
             }
@@ -2998,20 +2998,20 @@ async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=key_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters",
+            "hangarllm.proxy.proxy_server.increment_spend_counters",
             new_callable=AsyncMock,
         ) as mock_increment,
         patch(
-            "litellm.proxy.proxy_server.update_cache",
+            "hangarllm.proxy.proxy_server.update_cache",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging,
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -3032,7 +3032,7 @@ async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
         update_kwargs = mock_proxy_logging.db_spend_update_writer.update_database.await_args.kwargs
         assert update_kwargs["user_id"] == "mcp-user@example.com"
         assert update_kwargs["team_id"] == "team-123"
-        assert kwargs["litellm_params"]["metadata"]["user_api_key_user_id"] == "mcp-user@example.com"
+        assert kwargs["hangarllm_params"]["metadata"]["user_api_key_user_id"] == "mcp-user@example.com"
 
 
 @pytest.mark.asyncio
@@ -3047,7 +3047,7 @@ async def test_track_cost_callback_keeps_guardrail_cost_on_cache_hit():
         "model": "gpt-4o",
         "cache_hit": True,
         "response_cost": 0.0,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "hashed-key",
                 "user_api_key_user_id": "user-1",
@@ -3064,13 +3064,13 @@ async def test_track_cost_callback_keeps_guardrail_cost_on_cache_hit():
 
     with (
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as mock_increment,  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
         patch(
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ),  # test-quality-ok: same function-body import, no injection seam
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,  # test-quality-ok: same function-body import, no injection seam
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -3103,15 +3103,15 @@ async def test_track_cost_callback_keeps_guardrail_cost_on_cache_hit():
 def test_should_track_cost_callback_pass_through_without_owner(call_type, expected):
     """Regression for LIT-3782: unauthenticated pass-through requests (auth=false)
     carry no key/user/team/end-user, yet must still be tracked so they land in
-    LiteLLM_SpendLogs. Explicit MCP passthrough calls require the same handling.
+    HangarLLM_SpendLogs. Explicit MCP passthrough calls require the same handling.
     Other call types with no owner stay untracked.
 
     aretrieve_batch is included for the same reason: CheckBatchCost's synthetic
     logging_obj for a completed managed batch only ever carries
-    user_api_key_user_id/user_api_key_team_id from LiteLLM_ManagedObjectTable,
+    user_api_key_user_id/user_api_key_team_id from HangarLLM_ManagedObjectTable,
     both of which are None for a batch created with the master key or a
     team-less key (the table never stores the raw key hash). Before this fix,
-    such a batch's cost silently never reached LiteLLM_SpendLogs."""
+    such a batch's cost silently never reached HangarLLM_SpendLogs."""
     assert (
         _should_track_cost_callback(
             user_api_key=None,
@@ -3165,7 +3165,7 @@ async def test_track_cost_callback_logs_unauthenticated_pass_through_request(cal
     kwargs = {
         "call_type": call_type,
         "model": "unknown",
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "standard_logging_object": {
             "response_cost": 0.0,
             "request_tags": None,
@@ -3175,15 +3175,15 @@ async def test_track_cost_callback_logs_unauthenticated_pass_through_request(cal
 
     with (
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters",
+            "hangarllm.proxy.proxy_server.increment_spend_counters",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.update_cache",
+            "hangarllm.proxy.proxy_server.update_cache",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging,
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -3221,8 +3221,8 @@ def _model_access_group_kwargs(granted, served_model_id=None):
     return {
         "call_type": "acompletion",
         "model": "premium-haiku",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {"metadata": metadata},
+        "hangarllm_call_id": "test-call-id",
+        "hangarllm_params": {"metadata": metadata},
         "stream": False,
         "standard_logging_object": {"response_cost": 0.25, "request_tags": None, "model_id": served_model_id},
     }
@@ -3237,14 +3237,14 @@ async def _groups_charged_by_the_callback(kwargs, deployments=None):
     logger = ProxyDBLogger()
     with (
         patch(  # test-quality-ok: callback imports proxy_logging_obj off proxy_server in its body, no seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: the arguments to this call are the boundary under test
-            "litellm.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
+            "hangarllm.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
             new=AsyncMock(),
         ) as mock_update,
         patch(  # test-quality-ok: llm_router is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.llm_router", new=_FakeDeploymentLookup(deployments or {})
+            "hangarllm.proxy.proxy_server.llm_router", new=_FakeDeploymentLookup(deployments or {})
         ),
     ):
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
@@ -3316,7 +3316,7 @@ def _offload_kwargs() -> dict:
     big_prompt = "x" * 10_000
     reservation = {"reserved_cost": 0.5, "entries": [{"counter_key": "key:hash-1", "reserved_cost": 0.5}]}
     return {
-        "litellm_call_id": "call-1",
+        "hangarllm_call_id": "call-1",
         "call_type": "acompletion",
         "model": "gpt-4o",
         "custom_llm_provider": "openai",
@@ -3326,7 +3326,7 @@ def _offload_kwargs() -> dict:
         "completion_start_time": datetime(2026, 1, 1, 0, 0, 1),
         "messages": [{"role": "user", "content": big_prompt}],
         "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
-        "litellm_params": {
+        "hangarllm_params": {
             "api_base": "https://api.openai.com",
             "preset_cache_key": None,
             "proxy_server_request": {"body": {"messages": [{"role": "user", "content": big_prompt}]}},
@@ -3366,7 +3366,7 @@ def _offload_kwargs() -> dict:
                 "user_api_key_end_user_id": "end-user-1",
                 "usage_object": {"prompt_tokens": 5000, "completion_tokens": 4000, "total_tokens": 9000},
             },
-            "hidden_params": {"litellm_overhead_time_ms": 3},
+            "hidden_params": {"hangarllm_overhead_time_ms": 3},
             "model_map_information": {},
             "cost_breakdown": {"input_cost": 0.0125, "output_cost": 0.0},
         },
@@ -3419,10 +3419,10 @@ async def test_async_log_success_event_hands_the_sidecar_a_compact_event_and_ski
 
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as counters,
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -3438,7 +3438,7 @@ async def test_async_log_success_event_hands_the_sidecar_a_compact_event_and_ski
     assert len(handler.lines[0]) < 4_000
     event = decode_spend_event(handler.lines[0])
     assert not isinstance(event, SpendEventDecodeError)
-    assert event.litellm_params["metadata"]["user_api_key_team_id"] == "team-1"
+    assert event.hangarllm_params["metadata"]["user_api_key_team_id"] == "team-1"
     assert event.response_cost == 0.0125
 
 
@@ -3455,7 +3455,7 @@ async def test_async_log_success_event_hands_the_sidecar_a_compact_event_and_ski
 async def test_spend_event_leaves_out_bodies_for_tenants_that_turned_off_prompt_storage(
     socket_path: Path, monkeypatch: pytest.MonkeyPatch, tenant_metadata: dict[str, object], stored: bool
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     handler: Final = _RecordingHandler()
@@ -3466,7 +3466,7 @@ async def test_spend_event_leaves_out_bodies_for_tenants_that_turned_off_prompt_
         address=address, on_unavailable="fallback", buffer_size=10, connect_timeout=1.0, fallback=_no_fallback
     )
     kwargs: Final[dict[str, object]] = _offload_kwargs()
-    kwargs["litellm_params"]["metadata"].update(tenant_metadata)
+    kwargs["hangarllm_params"]["metadata"].update(tenant_metadata)
 
     await ProxyDBLogger(producer).async_log_success_event(kwargs, _offload_response(), datetime.now(), datetime.now())
     await producer.close(drain_timeout=5.0)
@@ -3475,12 +3475,12 @@ async def test_spend_event_leaves_out_bodies_for_tenants_that_turned_off_prompt_
 
     event: Final = decode_spend_event(handler.lines[0])
     assert not isinstance(event, SpendEventDecodeError)
-    assert (event.litellm_params["proxy_server_request"] is not None) is stored
+    assert (event.hangarllm_params["proxy_server_request"] is not None) is stored
     assert ("messages" in event.standard_logging_object) is stored
 
 
-def _completed_batch() -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _completed_batch() -> HangarLLMBatch:
+    return HangarLLMBatch(
         id="batch_abc",
         completion_window="24h",
         created_at=1,
@@ -3516,13 +3516,13 @@ async def test_async_log_success_event_keeps_job_polls_in_process(call_type, pol
 
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ),
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ),
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock(return_value=True)
@@ -3536,13 +3536,13 @@ async def test_async_log_success_event_keeps_job_polls_in_process(call_type, pol
 async def _spend_row_written_by(run) -> tuple[SpendLogsPayload, dict, tuple[str, ...]]:
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as counters,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ),
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock(return_value=True)
@@ -3599,7 +3599,7 @@ async def test_sidecar_writes_the_same_spend_row_and_counters_as_the_in_process_
 async def test_sidecar_ignores_an_undecodable_event():  # test-quality-ok: a discarded event has no observable output other than the DB writer never being reached
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -3629,7 +3629,7 @@ async def test_failure_hook_spend_row_truncates_a_long_provider_error_exactly_on
 
     await logger.async_post_call_failure_hook(
         request_data={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]},
-        original_exception=litellm.InternalServerError(message=provider_error, llm_provider="openai", model="gpt-4o"),
+        original_exception=hangarllm.InternalServerError(message=provider_error, llm_provider="openai", model="gpt-4o"),
         user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
     )
 
@@ -3674,10 +3674,10 @@ def _spend_write_kwargs_with_metadata_value(metadata_value: object) -> dict:
     return {
         "call_type": "acompletion",
         "model": "gpt-5.4-mini",
-        "litellm_call_id": "test-call-id",
+        "hangarllm_call_id": "test-call-id",
         "stream": False,
         "response_cost": 4.725e-05,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "hashed-key",
                 "user_api_key_user_id": "user-1",
@@ -3700,7 +3700,7 @@ async def test_track_cost_callback_failure_alert_never_carries_request_metadata_
     verbose_proxy_logger.addHandler(handler)
     try:
         with patch(  # test-quality-ok: callback imports proxy_logging_obj off proxy_server in its body, no seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging:
             mock_proxy_logging.failed_tracking_alert = AsyncMock()
             mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -3746,10 +3746,10 @@ async def test_autonomous_llm_callback_persists_without_human_or_key(identity_fi
         "call_type": "acompletion",
         "model": "test-model",
         "response_cost": 0.01,
-        "litellm_params": {"metadata": {identity_field: "autonomous-agent"}},
+        "hangarllm_params": {"metadata": {identity_field: "autonomous-agent"}},
     }
     with patch(
-        "litellm.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
+        "hangarllm.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
         new_callable=AsyncMock,
         return_value=False,
     ) as persist:
@@ -3760,7 +3760,7 @@ async def test_autonomous_llm_callback_persists_without_human_or_key(identity_fi
     assert persist.call_args.kwargs["response_cost"] == 0.01
     assert persist.call_args.kwargs["user_id"] is None
     assert persist.call_args.kwargs["user_api_key"] is None
-    assert persist.call_args.kwargs["kwargs"]["litellm_params"]["metadata"][identity_field] == "autonomous-agent"
+    assert persist.call_args.kwargs["kwargs"]["hangarllm_params"]["metadata"][identity_field] == "autonomous-agent"
 
 
 @pytest.mark.parametrize("agent_id,expected", [(None, False), ("autonomous-agent", True)])
@@ -3778,17 +3778,17 @@ async def test_track_cost_callback_enqueue_emits_no_service_span():  # test-qual
     """Spend tracking only enqueues into the in-memory spend queues here, no Postgres round
     trip happens, so neither a ``batch_write_to_db`` nor a ``postgres`` service event may be
     emitted; the flush that writes the queue emits its own table-named spans."""
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from hangarllm.proxy.proxy_server import proxy_logging_obj
 
     logger = ProxyDBLogger()
     kwargs = {
         "model": "gpt-4",
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "hashed-key",
                 "user_api_key_user_id": "user-1",
-                "litellm_parent_otel_span": MagicMock(name="server-span"),
+                "hangarllm_parent_otel_span": MagicMock(name="server-span"),
             },
         },
         "standard_logging_object": {"response_cost": 0.1, "request_tags": None},
@@ -3822,7 +3822,7 @@ def _grounded_gemini_kwargs(response_cost: float) -> dict:
         "model": "vertex_ai/gemini-test",
         "call_type": "acompletion",
         "response_cost": response_cost,
-        "litellm_params": {"metadata": {"user_api_key": "sk-test", "user_api_key_user_id": "user-1"}},
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test", "user_api_key_user_id": "user-1"}},
         "standard_logging_object": {
             "response_cost": response_cost,
             "request_tags": None,
@@ -3837,7 +3837,7 @@ def _grounded_gemini_kwargs(response_cost: float) -> dict:
             "model_map_information": {
                 "model_map_key": "vertex_ai/gemini-test",
                 "model_map_value": {
-                    "litellm_provider": "vertex_ai",
+                    "hangarllm_provider": "vertex_ai",
                     "mode": "chat",
                     "web_search_billing_unit": "per_query",
                     "search_context_cost_per_query": {"search_context_size_medium": 0.1},
@@ -3852,7 +3852,7 @@ def _grounded_gemini_kwargs(response_cost: float) -> dict:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("opted_in", "finalized"), [(True, False), (False, False), (True, True)])
 async def test_track_cost_callback_frees_grounding_under_the_allowance_only_when_opted_in(monkeypatch, opted_in, finalized):
-    monkeypatch.setattr(litellm, "apply_search_free_tier", opted_in, raising=False)
+    monkeypatch.setattr(hangarllm, "apply_search_free_tier", opted_in, raising=False)
     counter = _SharedCounter()
     kwargs = _grounded_gemini_kwargs(response_cost=1.0)
     kwargs["standard_logging_object"]["cost_finalized"] = finalized
@@ -3867,13 +3867,13 @@ async def test_track_cost_callback_frees_grounding_under_the_allowance_only_when
 
     with (
         patch(  # test-quality-ok: increment_spend_counters is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ),
         patch(  # test-quality-ok: update_cache is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "hangarllm.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ),
         patch(  # test-quality-ok: callback imports proxy_logging_obj off proxy_server in its body, no seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
     ):
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
@@ -3904,7 +3904,7 @@ async def test_track_cost_callback_frees_grounding_under_the_allowance_only_when
 
 @pytest.mark.asyncio
 async def test_batch_accounting_failures_stay_with_their_originating_call() -> None:
-    from litellm.proxy.hooks.proxy_track_cost_callback import track_batch_accounting
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import track_batch_accounting
 
     logger: Final = ProxyDBLogger()
     dependency: Final = SimpleNamespace(failed_tracking_alert=AsyncMock())
@@ -3912,7 +3912,7 @@ async def test_batch_accounting_failures_stay_with_their_originating_call() -> N
     async def fail_before_accounting(call_id: str) -> None:
         await logger.async_log_success_event(
             kwargs={
-                "litellm_call_id": call_id,
+                "hangarllm_call_id": call_id,
                 "call_type": "aretrieve_batch",
                 "model": "batch-model",
                 "stream": False,
@@ -3928,7 +3928,7 @@ async def test_batch_accounting_failures_stay_with_their_originating_call() -> N
             await fail_before_accounting("independent")
         return outcome.retryable_failure
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj", dependency):
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj", dependency):
         with track_batch_accounting("outer") as outer:
             await fail_before_accounting("unrelated")
             assert outer.retryable_failure is False
@@ -3948,20 +3948,20 @@ async def test_batch_accounting_failures_stay_with_their_originating_call() -> N
 
 @pytest.mark.asyncio
 async def test_batch_accounting_does_not_retry_after_settling_a_budget_reservation() -> None:
-    from litellm.proxy.hooks.proxy_track_cost_callback import track_batch_accounting
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import track_batch_accounting
 
     reservation: Final[dict[str, object]] = {"reserved_cost": 0.5, "entries": ()}
     dependency: Final = SimpleNamespace(failed_tracking_alert=AsyncMock())
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj", dependency):
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj", dependency):
         with track_batch_accounting("reserved") as outcome:
             await ProxyDBLogger().async_log_success_event(
                 kwargs={
-                    "litellm_call_id": "reserved",
+                    "hangarllm_call_id": "reserved",
                     "call_type": "aretrieve_batch",
                     "model": "batch-model",
                     "stream": False,
                     "response_cost": None,
-                    "litellm_params": {"metadata": {"user_api_key_budget_reservation": reservation}},
+                    "hangarllm_params": {"metadata": {"user_api_key_budget_reservation": reservation}},
                 },
                 response_obj=None,
                 start_time=_CALL_START,
@@ -3973,15 +3973,15 @@ async def test_batch_accounting_does_not_retry_after_settling_a_budget_reservati
 
 @pytest.mark.asyncio
 async def test_batch_accounting_does_not_retry_after_a_search_allowance_update(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.hooks.proxy_track_cost_callback import track_batch_accounting
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import track_batch_accounting
 
-    monkeypatch.setattr(litellm, "apply_search_free_tier", True)
+    monkeypatch.setattr(hangarllm, "apply_search_free_tier", True)
     counter: Final = _SharedCounter()
     dependency: Final = SimpleNamespace(
         failed_tracking_alert=AsyncMock(),
         internal_usage_cache=SimpleNamespace(dual_cache=SimpleNamespace(redis_cache=counter)),
     )
-    kwargs: Final = {**_grounded_gemini_kwargs(response_cost=1.0), "litellm_call_id": "grounded-batch"}
+    kwargs: Final = {**_grounded_gemini_kwargs(response_cost=1.0), "hangarllm_call_id": "grounded-batch"}
     response: Final = ModelResponse(
         usage=Usage(
             prompt_tokens=10,
@@ -3990,7 +3990,7 @@ async def test_batch_accounting_does_not_retry_after_a_search_allowance_update(m
             prompt_tokens_details=PromptTokensDetailsWrapper(web_search_requests=5),
         )
     )
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj", dependency):
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj", dependency):
         with track_batch_accounting("grounded-batch") as outcome:
             await ProxyDBLogger().async_log_success_event(kwargs, response, _CALL_START, _CALL_START)
 
@@ -4003,7 +4003,7 @@ _ROUTED_REQUEST: Final[Mapping[str, object]] = {
     "model": "anthropic-haiku-4-5",
     "messages": [{"role": "user", "content": "hi"}],
     "proxy_server_request": {"request_id": "req-1"},
-    "litellm_call_id": "call-1",
+    "hangarllm_call_id": "call-1",
 }
 _PRE_ROUTING_REQUEST: Final[Mapping[str, object]] = {
     **_ROUTED_REQUEST,
@@ -4013,7 +4013,7 @@ _SPOOFED_REQUEST: Final[Mapping[str, object]] = {**_ROUTED_REQUEST, REJECTED_BEF
 _INVALID_REQUEST_400: Final = ProxyException(
     message="Violated guardrail policy", type="invalid_request_error", param=None, code=400
 )
-_PROVIDER_AUTH_ERROR: Final = litellm.AuthenticationError(
+_PROVIDER_AUTH_ERROR: Final = hangarllm.AuthenticationError(
     message="bad key", llm_provider="anthropic", model="claude-haiku-4-5"
 )
 
@@ -4022,13 +4022,13 @@ _PROVIDER_AUTH_ERROR: Final = litellm.AuthenticationError(
     ("exception", "request_data", "expected"),
     [
         (_INVALID_REQUEST_400, _PRE_ROUTING_REQUEST, True),
-        (litellm.BudgetExceededError(current_cost=1.0, max_budget=0.0), _PRE_ROUTING_REQUEST, True),
+        (hangarllm.BudgetExceededError(current_cost=1.0, max_budget=0.0), _PRE_ROUTING_REQUEST, True),
         (ProxyModelNotFoundError(route="/chat/completions", model_name="4.6"), _ROUTED_REQUEST, True),
         (_INVALID_REQUEST_400, _ROUTED_REQUEST, False),
         (_INVALID_REQUEST_400, _SPOOFED_REQUEST, False),
         (_PROVIDER_AUTH_ERROR, _ROUTED_REQUEST, False),
         (
-            litellm.RateLimitError(message="slow down", llm_provider="anthropic", model="claude-haiku-4-5"),
+            hangarllm.RateLimitError(message="slow down", llm_provider="anthropic", model="claude-haiku-4-5"),
             _ROUTED_REQUEST,
             False,
         ),
@@ -4064,13 +4064,13 @@ class _RecordingSpendWriter:
     ("flag_enabled", "exception", "request_data", "rows_written"),
     [
         (True, _INVALID_REQUEST_400, _PRE_ROUTING_REQUEST, 0),
-        (True, litellm.BudgetExceededError(current_cost=1.0, max_budget=0.0), _PRE_ROUTING_REQUEST, 0),
+        (True, hangarllm.BudgetExceededError(current_cost=1.0, max_budget=0.0), _PRE_ROUTING_REQUEST, 0),
         (True, ProxyModelNotFoundError(route="/chat/completions", model_name="4.6"), _ROUTED_REQUEST, 0),
         (True, _INVALID_REQUEST_400, _ROUTED_REQUEST, 1),
         (True, _INVALID_REQUEST_400, _SPOOFED_REQUEST, 1),
         (True, _PROVIDER_AUTH_ERROR, _ROUTED_REQUEST, 1),
         (False, _INVALID_REQUEST_400, _PRE_ROUTING_REQUEST, 1),
-        (False, litellm.BudgetExceededError(current_cost=1.0, max_budget=0.0), _PRE_ROUTING_REQUEST, 1),
+        (False, hangarllm.BudgetExceededError(current_cost=1.0, max_budget=0.0), _PRE_ROUTING_REQUEST, 1),
     ],
     ids=[
         "flag-bad-body",
@@ -4090,7 +4090,7 @@ async def test_async_post_call_failure_hook_disable_pre_routing_error_logs(
     user_api_key_dict: Final = UserAPIKeyAuth(
         api_key="test_api_key", user_id="u", team_id="t", request_route="/chat/completions"
     )
-    with patch("litellm.proxy.proxy_server.general_settings", {"disable_pre_routing_error_logs": flag_enabled}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"disable_pre_routing_error_logs": flag_enabled}):
         await ProxyDBLogger(spend_writer=lambda: cast(DBSpendUpdateWriter, writer)).async_post_call_failure_hook(
             request_data={**request_data, "metadata": dict[str, object]()},
             original_exception=exception,

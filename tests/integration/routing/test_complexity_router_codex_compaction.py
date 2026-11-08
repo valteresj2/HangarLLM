@@ -58,13 +58,13 @@ def test_codex_compaction_request_stays_on_the_held_user_turn_model(gateway: Gat
         config["model_list"] = [
             {
                 "model_name": name,
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_base": url, "api_key": "synthetic"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_base": url, "api_key": "synthetic"},
             }
             for name, url in (("judge", judge.url), ("simple", simple.url), ("reasoning", reasoning.url))
         ] + [
             {
                 "model_name": router,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "classifier_type": "llm",

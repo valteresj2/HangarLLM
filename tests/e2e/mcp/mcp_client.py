@@ -30,7 +30,7 @@ McpToolArguments = Mapping[str, McpToolArg]
 
 
 class ApiKeyHeaders(Headers):
-    x_litellm_api_key: str = Field(serialization_alias="x-litellm-api-key")
+    x_hangarllm_api_key: str = Field(serialization_alias="x-hangarllm-api-key")
 
 
 class McpServerNewBody(BaseModel):
@@ -101,13 +101,13 @@ class BlockedWordSpec(BaseModel):
 
 
 class ContentFilterMcpParams(BaseModel):
-    """litellm_content_filter params scoped to the MCP tool-call hook. mode is
+    """hangarllm_content_filter params scoped to the MCP tool-call hook. mode is
     pre_mcp_call because a pre_call config silently no-ops on the tools/call path
     (the event type is rewritten to pre_mcp_call for call_mcp_tool), and default_on
     is required there because per-key/request guardrail selection is dropped from
     the synthetic MCP request the hook sees."""
 
-    guardrail: str = "litellm_content_filter"
+    guardrail: str = "hangarllm_content_filter"
     mode: str = "pre_mcp_call"
     default_on: bool = True
     blocked_words: list[BlockedWordSpec]
@@ -115,7 +115,7 @@ class ContentFilterMcpParams(BaseModel):
 
 class GuardrailSpecBody(BaseModel):
     guardrail_name: str
-    litellm_params: ContentFilterMcpParams
+    hangarllm_params: ContentFilterMcpParams
 
 
 class GuardrailCreateBody(BaseModel):
@@ -242,7 +242,7 @@ class McpClient:
     def list_servers(self, key: str) -> Result[McpServerListResponse]:
         return self.proxy.transport.get(
             "/v1/mcp/server",
-            headers=ApiKeyHeaders(x_litellm_api_key=key),
+            headers=ApiKeyHeaders(x_hangarllm_api_key=key),
             params=NoBody(),
             response_type=McpServerListResponse,
         )
@@ -251,7 +251,7 @@ class McpClient:
     def server_health(self, key: str, server_ids: list[str] | None = None) -> Result[McpHealthResponse]:
         return self.proxy.transport.get(
             "/v1/mcp/server/health",
-            headers=ApiKeyHeaders(x_litellm_api_key=key),
+            headers=ApiKeyHeaders(x_hangarllm_api_key=key),
             params=McpHealthParams(server_ids=server_ids),
             response_type=McpHealthResponse,
         )
@@ -306,7 +306,7 @@ class McpClient:
     def list_tools(self, key: str, server_id: str | None = None) -> Result[McpToolsListResponse]:
         return self.proxy.transport.get(
             "/mcp-rest/tools/list",
-            headers=ApiKeyHeaders(x_litellm_api_key=key),
+            headers=ApiKeyHeaders(x_hangarllm_api_key=key),
             params=McpToolsListParams(server_id=server_id),
             response_type=McpToolsListResponse,
         )
@@ -444,7 +444,7 @@ class McpClient:
                 json=GuardrailCreateBody(
                     guardrail=GuardrailSpecBody(
                         guardrail_name=name,
-                        litellm_params=ContentFilterMcpParams(
+                        hangarllm_params=ContentFilterMcpParams(
                             blocked_words=[BlockedWordSpec(keyword=blocked_keyword)],
                         ),
                     )
@@ -475,7 +475,7 @@ class McpClient:
     ) -> Result[McpCallToolResponse]:
         return self.proxy.transport.post(
             "/mcp-rest/tools/call",
-            headers=ApiKeyHeaders(x_litellm_api_key=key),
+            headers=ApiKeyHeaders(x_hangarllm_api_key=key),
             json=McpCallToolBody(
                 name=name, arguments=dict(arguments), server_id=server_id
             ),
@@ -492,7 +492,7 @@ class McpClient:
     ) -> Result[McpCallToolResponse]:
         return self.proxy.transport.post(
             "/mcp-rest/tools/call",
-            headers=ApiKeyHeaders(x_litellm_api_key=key),
+            headers=ApiKeyHeaders(x_hangarllm_api_key=key),
             json=McpVirtualToolCallBody(name=name, arguments=dict(arguments)),
             response_type=McpCallToolResponse,
         )

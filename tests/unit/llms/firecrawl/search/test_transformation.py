@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 
 def test_firecrawl_search_request_body(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -20,7 +20,7 @@ def test_firecrawl_search_request_body(respx_mock: respx.MockRouter, monkeypatch
         )
     )
 
-    response: Final = litellm.search(query="test query", search_provider="firecrawl", max_results=10, country="US")
+    response: Final = hangarllm.search(query="test query", search_provider="firecrawl", max_results=10, country="US")
 
     assert route.call_count == 1
     sent: Final = route.calls[0].request

@@ -1,10 +1,10 @@
-import asyncio, importlib, litellm, pytest
+import asyncio, importlib, hangarllm, pytest
 import respx
 from httpx import Response
 from typing import Final
 
 
-from litellm.llms.bedrock.common_utils import (
+from hangarllm.llms.bedrock.common_utils import (
     AmazonBedrockGlobalConfig,
     BedrockModelInfo,
     NativeOutputFallback,
@@ -22,8 +22,8 @@ from litellm.llms.bedrock.common_utils import (
     without_bedrock_native_output_opt_in,
 )
 from collections.abc import Iterator
-from litellm import completion
-from litellm.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
+from hangarllm import completion
+from hangarllm.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from unittest.mock import Mock, patch
 
@@ -35,7 +35,7 @@ from unittest.mock import Mock, patch
 @pytest.fixture(autouse=True)
 def _reset_bedrock_response_stream_shape_cache():
     """Prevent lru_cache leakage between tests in this module."""
-    import litellm.llms.bedrock.common_utils as mod
+    import hangarllm.llms.bedrock.common_utils as mod
 
     mod.get_bedrock_response_stream_shape.cache_clear()
     mod._get_local_model_cost_map.cache_clear()
@@ -50,7 +50,7 @@ def test_bedrock_response_stream_shape_lazy_loads_once():
     """
     from unittest.mock import MagicMock, patch
 
-    import litellm.llms.bedrock.common_utils as mod
+    import hangarllm.llms.bedrock.common_utils as mod
 
     sentinel = MagicMock()
     with patch.object(mod, "_load_bedrock_response_stream_shape", return_value=sentinel) as mock_load:
@@ -65,7 +65,7 @@ def test_bedrock_response_stream_shape_loaded_on_first_access():
     In a standard environment with botocore installed it must be non-None.
     """
     pytest.importorskip("botocore")
-    from litellm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
+    from hangarllm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
 
     assert get_bedrock_response_stream_shape() is not None
 
@@ -78,7 +78,7 @@ def test_bedrock_response_stream_shape_load_failure_returns_none():
     """
     from unittest.mock import patch
 
-    import litellm.llms.bedrock.common_utils as mod
+    import hangarllm.llms.bedrock.common_utils as mod
 
     pytest.importorskip("botocore")
     with patch(
@@ -97,7 +97,7 @@ def test_bedrock_response_stream_shape_is_structure_shape():
     pytest.importorskip("botocore")
     from botocore.model import StructureShape
 
-    from litellm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
+    from hangarllm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
 
     loaded_shape = get_bedrock_response_stream_shape()
     assert loaded_shape is not None, "get_bedrock_response_stream_shape() is None — botocore may not be installed"
@@ -110,7 +110,7 @@ def test_bedrock_response_stream_shape_same_object_across_calls():
     """
     Repeated calls must return the identical cached object.
     """
-    from litellm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
+    from hangarllm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
 
     first = get_bedrock_response_stream_shape()
     second = get_bedrock_response_stream_shape()
@@ -123,7 +123,7 @@ def test_bedrock_event_stream_decoder_base_uses_module_shape():
     per-instance cache — _parse_message_from_event uses the module constant
     directly, so there is no instance-level _response_stream_shape_cache attr.
     """
-    from litellm.llms.bedrock.common_utils import BedrockEventStreamDecoderBase
+    from hangarllm.llms.bedrock.common_utils import BedrockEventStreamDecoderBase
 
     decoder_a = BedrockEventStreamDecoderBase()
     decoder_b = BedrockEventStreamDecoderBase()
@@ -140,8 +140,8 @@ def test_bedrock_parse_message_from_event_raises_on_none_shape():
     """
     from unittest.mock import MagicMock, patch
 
-    import litellm.llms.bedrock.common_utils as mod
-    from litellm.llms.bedrock.common_utils import (
+    import hangarllm.llms.bedrock.common_utils as mod
+    from hangarllm.llms.bedrock.common_utils import (
         BedrockError,
         BedrockEventStreamDecoderBase,
     )
@@ -192,7 +192,7 @@ def test_explicit_invoke_prefix_wins_over_application_inference_profile_arn():
     that explicitly asks for invoke gets invoke. The auto-route only rescues the
     documented bare form.
     """
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     model = "bedrock/invoke/arn:aws:bedrock:us-west-2:123412341234:application-inference-profile/a1b2c3"
     assert BedrockModelInfo.get_bedrock_route(model) == "invoke"
@@ -216,7 +216,7 @@ def test_system_defined_inference_profile_arn_still_routes_to_converse():
     ["provisioned-model/abcdefgh1234", "imported-model/abcdefgh1234", "custom-model-deployment/abcdefgh1234"],
 )
 def test_bare_opaque_arn_with_no_invoke_provider_routes_to_converse(arn_segment: str):
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     model: Final = f"bedrock/arn:aws:bedrock:us-east-1:123412341234:{arn_segment}"
     assert BaseAWSLLM.get_bedrock_invoke_provider(model) is None
@@ -258,7 +258,7 @@ def test_context_window_suffix_stripped_for_cost_lookup():
     Models configured like `bedrock/us.anthropic.claude-opus-4-6-v1[1m]`
     should resolve to the base model name so pricing can be found.
     """
-    from litellm.llms.bedrock.common_utils import get_bedrock_base_model
+    from hangarllm.llms.bedrock.common_utils import get_bedrock_base_model
 
     assert get_bedrock_base_model("us.anthropic.claude-opus-4-6-v1[1m]") == "anthropic.claude-opus-4-6-v1"
     assert get_bedrock_base_model("us.anthropic.claude-sonnet-4-6[1m]") == "anthropic.claude-sonnet-4-6"
@@ -278,7 +278,7 @@ def test_context_window_suffix_stripped_for_cost_lookup():
 def test_legacy_mantle_route_prefix_stripped_for_cost_lookup():
     """The mantle/ route token is a routing prefix like openai/, so a bedrock/mantle/<model>
     deployment must resolve the bare Bedrock model for cost lookup while still routing to Mantle."""
-    from litellm.llms.bedrock.common_utils import get_bedrock_base_model, strip_bedrock_routing_prefix
+    from hangarllm.llms.bedrock.common_utils import get_bedrock_base_model, strip_bedrock_routing_prefix
 
     assert strip_bedrock_routing_prefix("mantle/anthropic.claude-sonnet-5") == "anthropic.claude-sonnet-5"
     assert get_bedrock_base_model("bedrock/mantle/anthropic.claude-sonnet-5") == "anthropic.claude-sonnet-5"
@@ -306,7 +306,7 @@ def test_bedrock_model_name_without_provider_strips_routing_region_and_provider_
 
 
 def test_output_config_effort_normalization_uses_model_info_ceiling(monkeypatch):
-    import litellm.llms.bedrock.common_utils as mod
+    import hangarllm.llms.bedrock.common_utils as mod
 
     calls = []
 
@@ -338,7 +338,7 @@ def test_output_config_effort_normalization_uses_model_info_ceiling(monkeypatch)
     ],
 )
 def test_bundled_bedrock_opus_model_info_declares_output_config_effort_ceiling(model, expected_ceiling):
-    from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+    from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
 
     model_info = GetModelCostMap.load_local_model_cost_map()[model]
 
@@ -435,17 +435,17 @@ def test_capability_lookups_fall_back_to_base_model_when_regional_entry_lacks_fi
     must not shadow a base entry that has it (`get(model) or get(base)` used to
     short-circuit on the truthy regional dict and drop the capability).
     """
-    import litellm
-    from litellm.llms.bedrock.common_utils import (
+    import hangarllm
+    from hangarllm.llms.bedrock.common_utils import (
         bedrock_converse_supports_parallel_tool_use_config,
         supports_bedrock_prompt_cache_ttl,
     )
 
     base = "anthropic.claude-fallback-test"
     regional = f"eu.{base}"
-    monkeypatch.setitem(litellm.model_cost, regional, {"input_cost_per_token": 1e-06})
+    monkeypatch.setitem(hangarllm.model_cost, regional, {"input_cost_per_token": 1e-06})
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         base,
         {
             "cache_creation_input_token_cost_above_1hr": 1e-05,
@@ -458,16 +458,16 @@ def test_capability_lookups_fall_back_to_base_model_when_regional_entry_lacks_fi
 
 
 def test_deprecated_is_claude_4_5_on_bedrock_warns_and_matches_new_name(monkeypatch):
-    import litellm
-    from litellm.llms.bedrock.common_utils import (
+    import hangarllm
+    from hangarllm.llms.bedrock.common_utils import (
         is_claude_4_5_on_bedrock,
         supports_bedrock_prompt_cache_ttl,
     )
 
     with_ttl = "anthropic.claude-ttl-supported"
     without_ttl = "anthropic.claude-ttl-unsupported"
-    monkeypatch.setitem(litellm.model_cost, with_ttl, {"cache_creation_input_token_cost_above_1hr": 1e-05})
-    monkeypatch.setitem(litellm.model_cost, without_ttl, {"input_cost_per_token": 1e-06})
+    monkeypatch.setitem(hangarllm.model_cost, with_ttl, {"cache_creation_input_token_cost_above_1hr": 1e-05})
+    monkeypatch.setitem(hangarllm.model_cost, without_ttl, {"input_cost_per_token": 1e-06})
 
     with pytest.warns(UserWarning, match="supports_bedrock_prompt_cache_ttl"):
         assert is_claude_4_5_on_bedrock(with_ttl) is True
@@ -495,29 +495,29 @@ def test_deprecated_is_claude_4_5_on_bedrock_warns_and_matches_new_name(monkeypa
     ],
 )
 def test_bedrock_model_accepts_cache_points_prefers_the_explicit_breakpoint_flag(monkeypatch, entry, expected):
-    import litellm
-    from litellm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
+    import hangarllm
+    from hangarllm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
 
     base = "vendor.breakpoint-flag-test"
-    monkeypatch.setitem(litellm.model_cost, f"us.{base}", {"input_cost_per_token": 1e-06})
-    monkeypatch.setitem(litellm.model_cost, base, entry)
+    monkeypatch.setitem(hangarllm.model_cost, f"us.{base}", {"input_cost_per_token": 1e-06})
+    monkeypatch.setitem(hangarllm.model_cost, base, entry)
 
     assert bedrock_model_accepts_cache_points(f"us.{base}") is expected
 
 
 @pytest.mark.parametrize("model", ["moonshotai.kimi-k3", "us.moonshotai.kimi-k3", "global.moonshotai.kimi-k3"])
 def test_kimi_k3_keeps_cached_token_pricing_while_refusing_converse_cache_points(model, local_model_cost_map):
-    import litellm
-    from litellm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
+    import hangarllm
+    from hangarllm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
 
     assert bedrock_model_accepts_cache_points(model) is False
-    assert litellm.utils.supports_prompt_caching(model=model, custom_llm_provider="bedrock") is True
-    assert litellm.model_cost[model]["cache_read_input_token_cost"] > 0
+    assert hangarllm.utils.supports_prompt_caching(model=model, custom_llm_provider="bedrock") is True
+    assert hangarllm.model_cost[model]["cache_read_input_token_cost"] > 0
 
 
 def test_deployment_model_info_breakpoint_flag_covers_an_unmapped_arn(local_model_cost_map):
-    from litellm import Router
-    from litellm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
+    from hangarllm import Router
+    from hangarllm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
 
     flagged_arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/flagged"
     unflagged_arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/unflagged"
@@ -526,17 +526,17 @@ def test_deployment_model_info_breakpoint_flag_covers_an_unmapped_arn(local_mode
         model_list=[
             {
                 "model_name": "kimi-k3-profile-converse",
-                "litellm_params": {"model": f"bedrock/converse/{converse_arn}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/converse/{converse_arn}", "aws_region_name": "us-east-1"},
                 "model_info": {"supports_prompt_cache_breakpoint": False},
             },
             {
                 "model_name": "kimi-k3-profile",
-                "litellm_params": {"model": f"bedrock/{flagged_arn}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/{flagged_arn}", "aws_region_name": "us-east-1"},
                 "model_info": {"supports_prompt_cache_breakpoint": False},
             },
             {
                 "model_name": "kimi-k3-profile-unflagged",
-                "litellm_params": {"model": f"bedrock/{unflagged_arn}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/{unflagged_arn}", "aws_region_name": "us-east-1"},
             },
         ]
     )
@@ -615,9 +615,9 @@ async def test_a_bedrock_deployment_sends_cache_points_by_its_own_flag_not_a_sib
     entrypoint: str,
     flagless_registers_first: bool,
 ) -> None:
-    from litellm import Router
+    from hangarllm import Router
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     converse: Final = respx_mock.post(f"https://bedrock-runtime.us-east-1.amazonaws.com/model/{model}/converse").mock(
         return_value=Response(200, json=_CONVERSE_REPLY)
     )
@@ -627,7 +627,7 @@ async def test_a_bedrock_deployment_sends_cache_points_by_its_own_flag_not_a_sib
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"bedrock/{model}",
                     "aws_access_key_id": "bedrock-test-key",
                     "aws_secret_access_key": "bedrock-test-secret",
@@ -659,18 +659,18 @@ async def test_a_bedrock_deployment_sends_cache_points_by_its_own_flag_not_a_sib
 async def test_a_routed_bedrock_deployment_sends_cache_points_when_register_model_opted_its_model_in(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None
 ) -> None:
-    from litellm import Router
+    from hangarllm import Router
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     converse: Final = respx_mock.post(
         "https://bedrock-runtime.us-east-1.amazonaws.com/model/moonshotai.kimi-k3/converse"
     ).mock(return_value=Response(200, json=_CONVERSE_REPLY))
-    litellm.register_model({"bedrock/moonshotai.kimi-k3": {"supports_prompt_cache_breakpoint": True}})
+    hangarllm.register_model({"bedrock/moonshotai.kimi-k3": {"supports_prompt_cache_breakpoint": True}})
     router: Final = Router(
         model_list=[
             {
                 "model_name": "flagless",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/moonshotai.kimi-k3",
                     "aws_access_key_id": "bedrock-test-key",
                     "aws_secret_access_key": "bedrock-test-secret",
@@ -697,12 +697,12 @@ async def test_a_routed_bedrock_deployment_sends_cache_points_when_register_mode
 def test_a_routed_deployments_own_prompt_caching_flag_decides_cache_points_for_a_catalogued_model(
     catalog_caching: bool | None, deployment_caching: bool | None, expected: bool, local_model_cost_map: None
 ) -> None:
-    from litellm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
+    from hangarllm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
 
     model: Final = f"qa-catalogued-model-{catalog_caching}-{deployment_caching}"
     catalog_flag: Final = {} if catalog_caching is None else {"supports_prompt_caching": catalog_caching}
     deployment_flag: Final = {} if deployment_caching is None else {"supports_prompt_caching": deployment_caching}
-    litellm.register_model({model: {"litellm_provider": "bedrock", "mode": "chat", **catalog_flag}})
+    hangarllm.register_model({model: {"hangarllm_provider": "bedrock", "mode": "chat", **catalog_flag}})
 
     assert bedrock_model_accepts_cache_points(model, model_info={"id": "qa-deployment", **deployment_flag}) is expected
 
@@ -722,11 +722,11 @@ def test_a_routed_deployments_own_prompt_caching_flag_decides_cache_points_for_a
 def test_a_deployments_prompt_caching_flag_written_as_a_string_or_number_decides_cache_points_as_the_bool_it_spells(
     declared: object, catalog_caching: bool, expected: bool, local_model_cost_map: None
 ) -> None:
-    from litellm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
+    from hangarllm.llms.bedrock.common_utils import bedrock_model_accepts_cache_points
 
     model: Final = f"qa-catalogued-model-lax-{catalog_caching}"
-    litellm.register_model(
-        {model: {"litellm_provider": "bedrock", "mode": "chat", "supports_prompt_caching": catalog_caching}}
+    hangarllm.register_model(
+        {model: {"hangarllm_provider": "bedrock", "mode": "chat", "supports_prompt_caching": catalog_caching}}
     )
 
     assert (
@@ -738,10 +738,10 @@ def test_a_deployments_prompt_caching_flag_written_as_a_string_or_number_decides
 
 
 def test_merge_bedrock_aws_request_params_strips_caller_identity_when_deployment_has_static_credentials():
-    from litellm.llms.bedrock.common_utils import merge_bedrock_aws_request_params
+    from hangarllm.llms.bedrock.common_utils import merge_bedrock_aws_request_params
 
     merged = merge_bedrock_aws_request_params(
-        litellm_params={
+        hangarllm_params={
             "aws_access_key_id": "deployment-key",
             "aws_secret_access_key": "deployment-secret",
             "aws_region_name": "us-west-2",
@@ -774,10 +774,10 @@ def test_merge_bedrock_aws_request_params_strips_caller_identity_when_deployment
 
 
 def test_merge_bedrock_aws_request_params_keeps_caller_credentials_without_static_deployment_credentials():
-    from litellm.llms.bedrock.common_utils import merge_bedrock_aws_request_params
+    from hangarllm.llms.bedrock.common_utils import merge_bedrock_aws_request_params
 
     merged = merge_bedrock_aws_request_params(
-        litellm_params={"aws_region_name": "us-west-2"},
+        hangarllm_params={"aws_region_name": "us-west-2"},
         optional_params={
             "aws_access_key_id": "caller-key",
             "aws_secret_access_key": "caller-secret",
@@ -793,7 +793,7 @@ def test_merge_bedrock_aws_request_params_keeps_caller_credentials_without_stati
 
 def test_strip_unsupported_output_config_keeps_format_drops_effort(local_model_cost_map):
     """On a model with neither effort flag, only the ``format`` key survives."""
-    from litellm.llms.bedrock.common_utils import (
+    from hangarllm.llms.bedrock.common_utils import (
         strip_unsupported_bedrock_invoke_output_config_keys,
     )
 
@@ -811,7 +811,7 @@ def test_strip_unsupported_output_config_keeps_format_drops_effort(local_model_c
 def test_apply_structured_output_prefers_legacy_output_format(local_model_cost_map):
     """The legacy ``output_format`` wins over ``output_config.format`` when a
     request carries both, matching the pre-existing precedence."""
-    from litellm.llms.bedrock.common_utils import (
+    from hangarllm.llms.bedrock.common_utils import (
         apply_bedrock_invoke_structured_output,
     )
 
@@ -846,13 +846,13 @@ def test_sign_aws_request_assumes_role_with_external_id(monkeypatch):
     import boto3
     from botocore.exceptions import ClientError
 
-    from litellm.llms.bedrock.common_utils import CommonBatchFilesUtils
+    from hangarllm.llms.bedrock.common_utils import CommonBatchFilesUtils
 
     monkeypatch.delenv("AWS_EXTERNAL_ID", raising=False)
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-batch-sign":
@@ -873,22 +873,22 @@ def test_sign_aws_request_assumes_role_with_external_id(monkeypatch):
         "aws_region_name": "us-east-1",
         "aws_access_key_id": "AKIABATCHSIGNCALLER",
         "aws_secret_access_key": "pod-caller-secret",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-batch-sign-role",
-        "aws_session_name": "litellm-batch-sign-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-batch-sign-role",
+        "aws_session_name": "hangarllm-batch-sign-session",
         "aws_external_id": "external-id-batch-sign",
     }
 
     with patch.object(boto3, "client", return_value=FakeSTSClient()):
         signed_headers, signed_data = CommonBatchFilesUtils().sign_aws_request(
             service_name="bedrock",
-            data={"jobName": "litellm-batch-job"},
+            data={"jobName": "hangarllm-batch-job"},
             endpoint_url="https://bedrock.us-east-1.amazonaws.com/model-invocation-job",
             optional_params=optional_params,
         )
 
     authorization = {key.lower(): value for key, value in signed_headers.items()}["authorization"]
     assert "ASIABATCHSIGNROLE" in authorization
-    assert signed_data == b'{"jobName": "litellm-batch-job"}'
+    assert signed_data == b'{"jobName": "hangarllm-batch-job"}'
 
 
 def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
@@ -899,7 +899,7 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
     import boto3
     from botocore.exceptions import ClientError
 
-    from litellm.llms.bedrock.common_utils import CommonBatchFilesUtils
+    from hangarllm.llms.bedrock.common_utils import CommonBatchFilesUtils
 
     monkeypatch.delenv("AWS_WEB_IDENTITY_TOKEN_FILE", raising=False)
     monkeypatch.delenv("AWS_ROLE_ARN", raising=False)
@@ -907,7 +907,7 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -928,15 +928,15 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
         "aws_region_name": "us-east-1",
         "aws_access_key_id": "AKIABATCHSIGNCALLER",
         "aws_secret_access_key": "pod-caller-secret",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-batch-sign-role",
-        "aws_session_name": "litellm-batch-sign-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-batch-sign-role",
+        "aws_session_name": "hangarllm-batch-sign-session",
         "aws_session_tags": tags,
     }
 
     with patch.object(boto3, "client", return_value=FakeSTSClient()):
         signed_headers, _signed_data = CommonBatchFilesUtils().sign_aws_request(
             service_name="bedrock",
-            data={"jobName": "litellm-batch-job"},
+            data={"jobName": "hangarllm-batch-job"},
             endpoint_url="https://bedrock.us-east-1.amazonaws.com/model-invocation-job",
             optional_params=optional_params,
         )
@@ -951,16 +951,16 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
 
 
 def _bedrock_chat_error_configs():
-    from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.llms.bedrock.chat.invoke_agent.transformation import AmazonInvokeAgentConfig
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+    from hangarllm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.llms.bedrock.chat.invoke_agent.transformation import AmazonInvokeAgentConfig
+    from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
         AmazonMoonshotConfig,
     )
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
         AmazonBedrockOpenAIConfig,
     )
-    from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
         AmazonInvokeConfig,
     )
 
@@ -992,7 +992,7 @@ def test_bedrock_chat_get_error_class_keeps_provider_headers(config):
 def test_error_response_text_reads_a_read_response():
     import httpx
 
-    from litellm.llms.bedrock.common_utils import error_response_text
+    from hangarllm.llms.bedrock.common_utils import error_response_text
 
     response = httpx.Response(status_code=500, text="Amazon Bedrock is unable to process your request.")
 
@@ -1004,7 +1004,7 @@ def test_error_response_text_falls_back_when_a_streamed_response_was_never_read(
     throws ResponseNotRead and would lose the status and headers this fix preserves."""
     import httpx
 
-    from litellm.llms.bedrock.common_utils import error_response_text
+    from hangarllm.llms.bedrock.common_utils import error_response_text
 
     request = httpx.Request(method="POST", url="https://bedrock-runtime.amazonaws.com")
     response = httpx.Response(
@@ -1025,7 +1025,7 @@ def test_bedrock_error_skips_header_values_httpx_cannot_carry():
     so a non-str value must not take down the whole error (LIT-5428)."""
     import httpx
 
-    from litellm.llms.bedrock.common_utils import BedrockError
+    from hangarllm.llms.bedrock.common_utils import BedrockError
 
     error = BedrockError(
         status_code=500,
@@ -1041,7 +1041,7 @@ def test_bedrock_error_skips_header_values_httpx_cannot_carry():
 def test_bedrock_error_keeps_duplicate_httpx_header_values():
     import httpx
 
-    from litellm.llms.bedrock.common_utils import BedrockError
+    from hangarllm.llms.bedrock.common_utils import BedrockError
 
     error = BedrockError(
         status_code=500,
@@ -1058,7 +1058,7 @@ def _bedrock_httpx_status_error_sites():
     import pathlib
 
     sites = []
-    for path in sorted(pathlib.Path("litellm/llms/bedrock").rglob("*.py")):
+    for path in sorted(pathlib.Path("hangarllm/llms/bedrock").rglob("*.py")):
         tree = ast.parse(path.read_text())
         for handler in (n for n in ast.walk(tree) if isinstance(n, ast.ExceptHandler)):
             caught = ast.unparse(handler.type) if handler.type is not None else ""
@@ -1092,9 +1092,9 @@ async def test_bedrock_embedding_call_keeps_provider_headers(is_async):
     """The embeddings surface raises from the same shape as chat and lost the same header."""
     import httpx
 
-    from litellm.llms.bedrock.common_utils import BedrockError
-    from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from hangarllm.llms.bedrock.common_utils import BedrockError
+    from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
     failure = httpx.Response(
         status_code=500,
@@ -1130,8 +1130,8 @@ async def test_bedrock_embedding_call_keeps_provider_headers(is_async):
 
 
 def _bedrock_mantle_error_configs():
-    from litellm.llms.bedrock_mantle.chat.transformation import BedrockMantleChatConfig
-    from litellm.llms.bedrock_mantle.responses.transformation import BedrockMantleResponsesAPIConfig
+    from hangarllm.llms.bedrock_mantle.chat.transformation import BedrockMantleChatConfig
+    from hangarllm.llms.bedrock_mantle.responses.transformation import BedrockMantleResponsesAPIConfig
 
     return [BedrockMantleChatConfig, BedrockMantleResponsesAPIConfig]
 
@@ -1157,13 +1157,13 @@ def _bedrock_configs_with_get_error_class():
     import inspect
     import pathlib
 
-    import litellm
+    import hangarllm
 
-    llms_root = pathlib.Path(inspect.getfile(litellm)).parent / "llms"
+    llms_root = pathlib.Path(inspect.getfile(hangarllm)).parent / "llms"
     configs = []
     for package in ("bedrock", "bedrock_mantle"):
         for path in sorted((llms_root / package).rglob("*.py")):
-            module_name = "litellm.llms." + ".".join(path.relative_to(llms_root).with_suffix("").parts)
+            module_name = "hangarllm.llms." + ".".join(path.relative_to(llms_root).with_suffix("").parts)
             module = importlib.import_module(module_name)
             for name, obj in vars(module).items():
                 if not inspect.isclass(obj) or obj.__module__ != module_name:
@@ -1203,7 +1203,7 @@ def test_bedrock_get_error_class_audit_covers_every_surface():
 
 
 def test_s3_static_key_pair_returns_the_pair_when_both_keys_are_set():
-    from litellm.llms.bedrock.common_utils import s3_static_key_pair
+    from hangarllm.llms.bedrock.common_utils import s3_static_key_pair
 
     assert s3_static_key_pair(
         {
@@ -1225,7 +1225,7 @@ def test_s3_static_key_pair_returns_the_pair_when_both_keys_are_set():
     ],
 )
 def test_s3_static_key_pair_is_none_without_a_full_pair(partial_s3_pair):
-    from litellm.llms.bedrock.common_utils import s3_static_key_pair
+    from hangarllm.llms.bedrock.common_utils import s3_static_key_pair
 
     assert s3_static_key_pair({"aws_access_key_id": "bedrock-key", **partial_s3_pair}) is None
 
@@ -1238,10 +1238,10 @@ def test_unmapped_openai_family_model_routes_to_converse():
     """
     from typing import Final
 
-    import litellm
+    import hangarllm
 
     unmapped: Final = "bedrock/global.openai.gpt-99-unmapped"
-    assert unmapped.removeprefix("bedrock/") not in litellm.bedrock_converse_models
+    assert unmapped.removeprefix("bedrock/") not in hangarllm.bedrock_converse_models
     assert BedrockModelInfo.get_bedrock_route(unmapped) == "converse"
     imported: Final = "bedrock/openai/arn:aws:bedrock:us-east-1:123456789012:imported-model/abc123"
     assert BedrockModelInfo.get_bedrock_route(imported) == "openai"
@@ -1259,19 +1259,19 @@ def test_unmapped_openai_family_model_routes_to_converse():
     ],
 )
 def test_unmapped_converse_only_family_model_routes_to_converse(unmapped: str):
-    import litellm
+    import hangarllm
 
-    assert BedrockModelInfo.get_base_model(unmapped) not in litellm.bedrock_converse_models
+    assert BedrockModelInfo.get_base_model(unmapped) not in hangarllm.bedrock_converse_models
     assert BedrockModelInfo.get_bedrock_route(unmapped) == "converse"
 
 
 def test_unmapped_model_of_family_with_invoke_handler_still_routes_to_invoke():
     from typing import Final
 
-    import litellm
+    import hangarllm
 
     unmapped: Final = "bedrock/meta.llama99-unmapped-v1:0"
-    assert BedrockModelInfo.get_base_model(unmapped) not in litellm.bedrock_converse_models
+    assert BedrockModelInfo.get_base_model(unmapped) not in hangarllm.bedrock_converse_models
     assert BedrockModelInfo.get_bedrock_route(unmapped) == "invoke"
 
 
@@ -1299,9 +1299,9 @@ def test_completion_on_unmapped_model_posts_converse_unless_its_id_names_an_invo
 ):
     import httpx
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
-    assert BedrockModelInfo.get_base_model(model) not in litellm.bedrock_converse_models
+    assert BedrockModelInfo.get_base_model(model) not in hangarllm.bedrock_converse_models
     sent: Final[list[httpx.Request]] = []
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -1312,7 +1312,7 @@ def test_completion_on_unmapped_model_posts_converse_unless_its_id_names_an_invo
             headers={"x-amzn-bedrock-input-token-count": "1", "x-amzn-bedrock-output-token-count": "1"},
         )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond))),
@@ -1334,7 +1334,7 @@ def test_completion_on_unmapped_model_posts_converse_unless_its_id_names_an_invo
     ],
 )
 def test_without_bedrock_route_prefix_hands_converse_the_bare_model_id(model, expected):
-    from litellm.llms.bedrock.common_utils import without_bedrock_route_prefix
+    from hangarllm.llms.bedrock.common_utils import without_bedrock_route_prefix
 
     assert without_bedrock_route_prefix(model) == expected
 
@@ -1344,7 +1344,7 @@ def test_bedrock_stream_event_statuses_cover_every_modeled_member_of_both_stream
     from botocore.loaders import Loader
     from botocore.model import ServiceModel
 
-    import litellm.llms.bedrock.common_utils as mod
+    import hangarllm.llms.bedrock.common_utils as mod
 
     mod.get_bedrock_stream_event_statuses.cache_clear()
     statuses = mod.get_bedrock_stream_event_statuses()
@@ -1366,7 +1366,7 @@ def test_bedrock_stream_event_statuses_cover_every_modeled_member_of_both_stream
 def test_bedrock_stream_event_statuses_load_failure_returns_none():
     from unittest.mock import patch
 
-    import litellm.llms.bedrock.common_utils as mod
+    import hangarllm.llms.bedrock.common_utils as mod
 
     pytest.importorskip("botocore")
     mod.get_bedrock_stream_event_statuses.cache_clear()
@@ -1397,7 +1397,7 @@ def test_build_bedrock_stream_error_resolves_status_from_the_exception_type(
     headers: dict[str, str], expected_status: int, expected_message: str
 ):
     pytest.importorskip("botocore")
-    from litellm.llms.bedrock.common_utils import build_bedrock_stream_error, get_bedrock_response_stream_shape
+    from hangarllm.llms.bedrock.common_utils import build_bedrock_stream_error, get_bedrock_response_stream_shape
 
     error = build_bedrock_stream_error(
         {"status_code": 400, "headers": headers, "body": b'{"message":"upstream failed"}'},
@@ -1421,13 +1421,13 @@ def test_build_bedrock_stream_error_resolves_status_from_the_exception_type(
     ],
 )
 def test_get_anthropic_beta_from_headers_reads_a_json_array_header(header_value: str, expected: list[str]):
-    from litellm.llms.bedrock.common_utils import get_anthropic_beta_from_headers
+    from hangarllm.llms.bedrock.common_utils import get_anthropic_beta_from_headers
 
     assert get_anthropic_beta_from_headers({"anthropic-beta": header_value}) == expected
 
 
 def test_get_anthropic_beta_from_headers_never_splits_a_json_array_of_numbers_as_text():
-    from litellm.llms.bedrock.common_utils import get_anthropic_beta_from_headers
+    from hangarllm.llms.bedrock.common_utils import get_anthropic_beta_from_headers
 
     betas: Final = get_anthropic_beta_from_headers({"anthropic-beta": "[1, 2]"})
 
@@ -1454,7 +1454,7 @@ def event_loop():
 
 @pytest.fixture(scope="function")
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -1464,21 +1464,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -1487,17 +1487,17 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 
@@ -1678,9 +1678,9 @@ class TestBedrockModelInfoWrappers:
         arn = "arn:aws:bedrock:us-east-1:123456789012:provisioned-model/my-model"
         assert BedrockModelInfo.extract_model_name_from_arn(arn) == extract_model_name_from_bedrock_arn(arn)
 
-    def test_get_non_litellm_routing_model_name_matches_standalone(self):
+    def test_get_non_hangarllm_routing_model_name_matches_standalone(self):
         model = "bedrock/converse/claude-3"
-        assert BedrockModelInfo.get_non_litellm_routing_model_name(model) == strip_bedrock_routing_prefix(model)
+        assert BedrockModelInfo.get_non_hangarllm_routing_model_name(model) == strip_bedrock_routing_prefix(model)
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
@@ -1730,8 +1730,8 @@ def _pr4_bedrock_env(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(scope="module")
 def _use_local_model_cost_map() -> Iterator[None]:
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        importlib.reload(litellm)
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        importlib.reload(hangarllm)
         yield
 
 
@@ -1785,14 +1785,14 @@ class TestBedrockGovCloudSupport:
         base_model = BedrockModelInfo.get_base_model("bedrock/us-gov-west-1/meta.llama3-8b-instruct-v1:0")
         assert base_model == "meta.llama3-8b-instruct-v1:0"
 
-    @patch("litellm.llms.bedrock.common_utils.init_bedrock_client")
+    @patch("hangarllm.llms.bedrock.common_utils.init_bedrock_client")
     def test_govcloud_client_initialization(self, mock_init_client):
         """Test that Bedrock client can be initialized with GovCloud regions"""
         mock_client = Mock()
         mock_init_client.return_value = mock_client
 
         # Test that init_bedrock_client accepts GovCloud regions
-        from litellm.llms.bedrock.common_utils import init_bedrock_client
+        from hangarllm.llms.bedrock.common_utils import init_bedrock_client
 
         # This should not raise an error
         client = init_bedrock_client(
@@ -1815,14 +1815,14 @@ class TestBedrockGovCloudSupport:
         """Test that GovCloud models are NOT included in bedrock_models list (they are pricing-only)"""
         # Regional models including GovCloud should be excluded from bedrock_models list
         # They are only in model_cost for pricing purposes
-        assert not any("us-gov-east-1" in model for model in litellm.bedrock_models)
-        assert not any("us-gov-west-1" in model for model in litellm.bedrock_models)
+        assert not any("us-gov-east-1" in model for model in hangarllm.bedrock_models)
+        assert not any("us-gov-west-1" in model for model in hangarllm.bedrock_models)
 
-    @patch("litellm.completion")
+    @patch("hangarllm.completion")
     def test_govcloud_completion_cost_calculation(self, mock_completion):
         """Test that completion requests use correct pricing for GovCloud models"""
-        from litellm import Choices, Message, ModelResponse, completion_cost
-        from litellm.utils import Usage
+        from hangarllm import Choices, Message, ModelResponse, completion_cost
+        from hangarllm.utils import Usage
 
         # Mock completion response for base model
         # Use us.* inference profile ID to match us.* pricing ($1.10/$5.50 per MTok)
@@ -2013,7 +2013,7 @@ class TestBedrockGovCloudSupport:
             f"Large gov cost should be ~20% higher than base: got {large_gov_cost}, base {large_base_cost}"
         )
 
-    @patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+    @patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
     def test_govcloud_completion_with_cost_tracking(self, mock_post):
         """Test that completion requests with cost tracking use correct pricing for GovCloud models"""
         import json
@@ -2079,7 +2079,7 @@ class TestBedrockGovCloudSupport:
         assert mock_post.call_count == 3
 
         # Verify usage information is present
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         assert isinstance(base_result, ModelResponse)
         assert isinstance(gov_east_result, ModelResponse)
@@ -2140,8 +2140,8 @@ class TestBedrockGovCloudSupport:
 
     def test_govcloud_cost_per_token_with_region(self):
         """Test that cost_per_token function correctly uses region-based pricing for GovCloud models"""
-        from litellm import cost_per_token
-        from litellm.utils import Usage
+        from hangarllm import cost_per_token
+        from hangarllm.utils import Usage
 
         # Test usage object
         usage = Usage(prompt_tokens=20, completion_tokens=10, total_tokens=30)
@@ -2275,7 +2275,7 @@ class TestBedrockGovCloudSupport:
 @pytest.mark.parametrize("missing", ["botocore", "unrelated_dependency"])
 def test_event_decoder_reports_only_missing_aws_dependency(missing):
     from unittest.mock import patch
-    from litellm.llms.bedrock.common_utils import BedrockEventStreamDecoderBase
+    from hangarllm.llms.bedrock.common_utils import BedrockEventStreamDecoderBase
 
     failure = ModuleNotFoundError("missing dependency", name=missing)
     with patch("builtins.__import__", side_effect=failure):
@@ -2306,7 +2306,7 @@ def test_event_decoder_reports_only_missing_aws_dependency(missing):
     ids=["profile-arn-with-base-model", "profile-arn-without-base-model", "named-model-keeps-its-name"],
 )
 def test_bedrock_capability_model_reads_base_model_only_for_application_profile_arns(model, base_model, expected):
-    from litellm.llms.bedrock.common_utils import bedrock_capability_model
+    from hangarllm.llms.bedrock.common_utils import bedrock_capability_model
 
     assert bedrock_capability_model(model, base_model) == expected
 
@@ -2376,9 +2376,9 @@ def test_bedrock_native_output_is_opt_in_only_where_the_opt_in_key_turns_native_
 
 
 def test_without_bedrock_native_output_opt_in_turns_the_opt_in_off_and_keeps_the_deployment(local_model_cost_map):
-    litellm_params: Final = {"api_base": "https://bedrock.example", "model_info": {"id": "deployment-1"}}
+    hangarllm_params: Final = {"api_base": "https://bedrock.example", "model_info": {"id": "deployment-1"}}
 
-    turned_off: Final = without_bedrock_native_output_opt_in(litellm_params)
+    turned_off: Final = without_bedrock_native_output_opt_in(hangarllm_params)
 
     assert not bedrock_native_output_is_opt_in(
         "us.anthropic.claude-opus-4-8", model_info=deployment_model_info(turned_off)
@@ -2388,7 +2388,7 @@ def test_without_bedrock_native_output_opt_in_turns_the_opt_in_off_and_keeps_the
         "id": "deployment-1",
         "supports_bedrock_native_structured_output": False,
     }
-    assert litellm_params["model_info"] == {"id": "deployment-1"}
+    assert hangarllm_params["model_info"] == {"id": "deployment-1"}
 
     native_default: Final = without_bedrock_native_output_opt_in(
         {"model_info": {"supports_native_structured_output": True}}
@@ -2400,7 +2400,7 @@ def test_without_bedrock_native_output_opt_in_turns_the_opt_in_off_and_keeps_the
 
 
 def test_for_bedrock_json_tool_retry_disables_both_native_output_flags(local_model_cost_map: None) -> None:
-    litellm_params: Final = {
+    hangarllm_params: Final = {
         "model_info": {
             "id": "deployment-1",
             "supports_native_structured_output": True,
@@ -2408,14 +2408,14 @@ def test_for_bedrock_json_tool_retry_disables_both_native_output_flags(local_mod
         }
     }
 
-    retry_params: Final = for_bedrock_json_tool_retry(litellm_params)
+    retry_params: Final = for_bedrock_json_tool_retry(hangarllm_params)
 
     assert deployment_model_info(retry_params) == {
         "id": "deployment-1",
         "supports_native_structured_output": False,
         "supports_bedrock_native_structured_output": False,
     }
-    assert litellm_params["model_info"] == {
+    assert hangarllm_params["model_info"] == {
         "id": "deployment-1",
         "supports_native_structured_output": True,
         "supports_bedrock_native_structured_output": True,
@@ -2423,7 +2423,7 @@ def test_for_bedrock_json_tool_retry_disables_both_native_output_flags(local_mod
 
 
 def test_bedrock_response_stream_shape_is_unavailable_when_botocore_describes_the_service_as_a_list():
-    import litellm.llms.bedrock.common_utils as mod
+    import hangarllm.llms.bedrock.common_utils as mod
 
     pytest.importorskip("botocore")
     with (
@@ -2446,12 +2446,12 @@ def test_bedrock_strict_tools_fallback_drops_only_strict_and_keeps_everything_el
     plain_tool: Final = {"type": "function", "function": {"name": "plain", "parameters": {"type": "object"}}}
     anthropic_tool: Final = {"name": "native", "input_schema": {"type": "object"}}
     bedrock_tool: Final = {"toolSpec": {"name": "spec", "strict": True, "inputSchema": {"json": {"type": "object"}}}}
-    litellm_params: Final = {"drop_params": True}
+    hangarllm_params: Final = {"drop_params": True}
 
     fallback: Final = bedrock_strict_tools_fallback(
         "us.anthropic.claude-sonnet-4-6",
         {"tools": [strict_tool, plain_tool, anthropic_tool, bedrock_tool], "maxTokens": 16, "stream": True},
-        litellm_params,
+        hangarllm_params,
     )
 
     assert fallback == NativeOutputFallback(
@@ -2468,7 +2468,7 @@ def test_bedrock_strict_tools_fallback_drops_only_strict_and_keeps_everything_el
             "maxTokens": 16,
             "stream": True,
         },
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
     assert strict_tool["function"]["strict"] is True
     assert bedrock_tool["toolSpec"]["strict"] is True
@@ -2491,7 +2491,7 @@ _CLAUDE_PROFILE_ARN: Final = "arn:aws:bedrock:us-east-1:123456789012:application
 
 
 @pytest.mark.parametrize(
-    ("model", "litellm_params"),
+    ("model", "hangarllm_params"),
     [
         ("us.anthropic.claude-sonnet-4-6", {}),
         ("us.amazon.nova-pro-v1:0", {}),
@@ -2502,16 +2502,16 @@ _CLAUDE_PROFILE_ARN: Final = "arn:aws:bedrock:us-east-1:123456789012:application
 )
 @pytest.mark.parametrize("strict", [True, False])
 def test_bedrock_strict_tools_fallback_retries_only_when_the_request_sent_strict(
-    model: str, litellm_params: dict[str, object], strict: bool
+    model: str, hangarllm_params: dict[str, object], strict: bool
 ) -> None:
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     tools: Final = [{"type": "function", "function": {"name": "lookup", "strict": strict, "parameters": {}}}]
     request: Final = AmazonConverseConfig().transform_request(
-        model, [{"role": "user", "content": "hi"}], {"tools": tools}, {**litellm_params}, {}
+        model, [{"role": "user", "content": "hi"}], {"tools": tools}, {**hangarllm_params}, {}
     )
     sent_strict: Final = any("strict" in tool["toolSpec"] for tool in request["toolConfig"]["tools"])
 
-    fallback: Final = bedrock_strict_tools_fallback(model, {"tools": tools}, litellm_params)
+    fallback: Final = bedrock_strict_tools_fallback(model, {"tools": tools}, hangarllm_params)
 
     assert (fallback is not None) == sent_strict

@@ -24,7 +24,7 @@ from typing import Any, Dict, Optional
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import Actor
 from tests.integration._support.actors import create_scratch_org, create_scratch_team
@@ -54,7 +54,7 @@ async def _seed_scratch_actor_with_caps(
     """
     user_id = f"{scratch_prefix}-team-creator"
     cleartext = "sk-" + uuid.uuid4().hex
-    await db.db.litellm_usertable.create(
+    await db.db.hangarllm_usertable.create(
         data={
             "user_id": user_id,
             "user_role": user_role,
@@ -73,7 +73,7 @@ async def _seed_scratch_actor_with_caps(
         token_data["tpm_limit"] = tpm_limit
     if rpm_limit is not None:
         token_data["rpm_limit"] = rpm_limit
-    await db.db.litellm_verificationtoken.create(data=token_data)
+    await db.db.hangarllm_verificationtoken.create(data=token_data)
     return cleartext
 
 
@@ -133,7 +133,7 @@ async def test_check_org_team_limits_models_subset(
     )
     assert resp.status_code == expected_status, f"{body!r} → {resp.status_code}: {resp.text}"
 
-    rows = await db.db.litellm_teamtable.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teamtable.find_many(where={"team_id": team_id})
     assert len(rows) == (1 if expected_status == 200 else 0)
 
 
@@ -210,7 +210,7 @@ async def test_check_org_team_limits_budget_enforced(
         },
     )
     assert resp.status_code == expected_status, f"{body_extras!r} → {resp.status_code}: {resp.text}"
-    rows = await db.db.litellm_teamtable.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teamtable.find_many(where={"team_id": team_id})
     assert len(rows) == (1 if expected_status == 200 else 0)
 
 
@@ -237,7 +237,7 @@ async def test_check_org_team_limits_budget_enforced_on_update(
         json={"team_id": team_id, **body_extras},
     )
     assert resp.status_code == expected_status, f"{body_extras!r} → {resp.status_code}: {resp.text}"
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert row is not None
     persisted = {field: getattr(row, field) for field in body_extras}
     assert (persisted == body_extras) == (expected_status == 200)
@@ -329,7 +329,7 @@ async def test_check_user_team_limits(
         f"caps={actor_caps} body={body_extras} → {resp.status_code}: {resp.text}"
     )
 
-    rows = await db.db.litellm_teamtable.find_many(where={"team_id": team_id})
+    rows = await db.db.hangarllm_teamtable.find_many(where={"team_id": team_id})
     assert len(rows) == (1 if expected_status == 200 else 0)
 
 
@@ -368,7 +368,7 @@ async def test_team_admin_cannot_change_budget_while_max_budget_is_not_editable(
     assert resp.status_code == 403, resp.text
     assert "Team admin editable fields" in resp.text, resp.text
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert row is not None
     assert row.max_budget == 500.0, "a refused update must leave the team budget unchanged"
 
@@ -389,7 +389,7 @@ async def test_proxy_admin_raise_budget_allowed(gateway_client, db, resources):
     )
     assert resp.status_code == 200, resp.text
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert row is not None
     assert row.max_budget == 999.0, "proxy admin should be able to raise the budget"
 
@@ -411,7 +411,7 @@ async def test_team_admin_remove_budget_cap_blocked(gateway_client, db, resource
     )
     assert resp.status_code == 403, resp.text
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert row is not None
     assert row.max_budget == 50.0, "team budget cap must not be removed by a team admin"
 
@@ -431,6 +431,6 @@ async def test_proxy_admin_remove_budget_cap_allowed(gateway_client, db, resourc
     )
     assert resp.status_code == 200, resp.text
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": team_id})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
     assert row is not None
     assert row.max_budget is None, "proxy admin should be able to remove the cap"

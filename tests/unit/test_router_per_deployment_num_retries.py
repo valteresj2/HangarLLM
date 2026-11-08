@@ -1,6 +1,6 @@
 """
-Unit tests for per-deployment num_retries in litellm_params
-GitHub Issue: #18968 - Per-deployment max_retries/num_retries in litellm_params is not used in retry logic
+Unit tests for per-deployment num_retries in hangarllm_params
+GitHub Issue: #18968 - Per-deployment max_retries/num_retries in hangarllm_params is not used in retry logic
 """
 
 import httpx
@@ -11,10 +11,10 @@ from typing import Final, Literal
 from unittest.mock import AsyncMock, patch
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm import Router
-from litellm.types.router import RetryPolicy
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm import Router
+from hangarllm.types.router import RetryPolicy
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 @pytest.mark.asyncio
@@ -42,20 +42,20 @@ async def test_routed_images_do_not_multiply_sdk_and_router_retries(
         )
 
     transport: Final = httpx.MockTransport(respond)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     with httpx.Client(transport=transport) as sync_session:
         async with httpx.AsyncClient(transport=transport) as async_session:
-            monkeypatch.setattr(litellm, "client_session", sync_session)
-            monkeypatch.setattr(litellm, "aclient_session", async_session)
-            monkeypatch.setattr(litellm, "callbacks", [])
-            monkeypatch.setattr(litellm, "success_callback", [])
-            monkeypatch.setattr(litellm, "failure_callback", [])
-            monkeypatch.setattr(litellm, "num_retries", None)
+            monkeypatch.setattr(hangarllm, "client_session", sync_session)
+            monkeypatch.setattr(hangarllm, "aclient_session", async_session)
+            monkeypatch.setattr(hangarllm, "callbacks", [])
+            monkeypatch.setattr(hangarllm, "success_callback", [])
+            monkeypatch.setattr(hangarllm, "failure_callback", [])
+            monkeypatch.setattr(hangarllm, "num_retries", None)
             router: Final = Router(
                 model_list=[
                     {
                         "model_name": "image-retries",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-image-1-mini",
                             "api_key": "synthetic-image-key",
                             "api_base": "https://router-image.test/v1",
@@ -63,7 +63,7 @@ async def test_routed_images_do_not_multiply_sdk_and_router_retries(
                         },
                     }
                 ],
-                default_litellm_params={"max_retries": sdk_retries} if source == "default" else {},
+                default_hangarllm_params={"max_retries": sdk_retries} if source == "default" else {},
                 num_retries=router_retries,
                 disable_cooldowns=True,
             )
@@ -71,18 +71,18 @@ async def test_routed_images_do_not_multiply_sdk_and_router_retries(
             try:
                 with patch("time.sleep"), patch("asyncio.sleep", new_callable=AsyncMock):
                     if is_async:
-                        with pytest.raises(litellm.ServiceUnavailableError):
+                        with pytest.raises(hangarllm.ServiceUnavailableError):
                             await router.aimage_generation(model="image-retries", prompt="a red circle", **call_params)
                     else:
-                        with pytest.raises(litellm.ServiceUnavailableError):
+                        with pytest.raises(hangarllm.ServiceUnavailableError):
                             router.image_generation(model="image-retries", prompt="a red circle", **call_params)
             finally:
-                litellm.in_memory_llm_clients_cache.flush_cache()
+                hangarllm.in_memory_llm_clients_cache.flush_cache()
     assert requests.qsize() == router_retries + 1
 
 
 class TestPerDeploymentNumRetries:
-    """Test that per-deployment num_retries in litellm_params is correctly used."""
+    """Test that per-deployment num_retries in hangarllm_params is correctly used."""
 
     def test_request_level_num_retries_takes_precedence(self):
         """
@@ -92,7 +92,7 @@ class TestPerDeploymentNumRetries:
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                         "num_retries": 5,
@@ -112,13 +112,13 @@ class TestPerDeploymentNumRetries:
         A request that carries no num_retries must stay that way through
         _update_kwargs_before_fallbacks. Filling in the router default here is what made a
         request indistinguishable from "no request value", which let a deployment's
-        litellm_params.num_retries outrank the header/body value.
+        hangarllm_params.num_retries outrank the header/body value.
         """
         router = Router(
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                     },
@@ -154,7 +154,7 @@ class TestNumRetriesNoneGuard:
             model_list=[
                 {
                     "model_name": "mock-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-4o-mini",
                         "mock_response": "ok",
                     },
@@ -208,12 +208,12 @@ class TestNumRetriesNoneGuard:
         router.num_retries = None  # simulate update_settings(num_retries=None)
 
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await router.acompletion(
                     model="mock-model",
                     messages=[{"role": "user", "content": "hi"}],
                     num_retries=None,
-                    mock_response=litellm.RateLimitError(message="boom", model="mock-model", llm_provider="openai"),
+                    mock_response=hangarllm.RateLimitError(message="boom", model="mock-model", llm_provider="openai"),
                 )
 
 
@@ -222,12 +222,12 @@ class TestNoProviderRetryAmplification:
     A routed request must reach the upstream provider exactly ``1 + <router retries>``
     times. The Router is the sole retry owner for routed calls, so the provider SDK
     must never retry on top of it. Otherwise a per-deployment ``num_retries`` set in
-    ``litellm_params`` is applied twice - once by the Router loop and once as the
+    ``hangarllm_params`` is applied twice - once by the Router loop and once as the
     provider client's ``max_retries`` - turning one request into ``(1 + num_retries) ** 2``
     upstream requests.
 
     These tests count actual upstream HTTP requests through the full Router completion
-    path by injecting a counting transport via ``litellm.aclient_session`` (the
+    path by injecting a counting transport via ``hangarllm.aclient_session`` (the
     documented seam the OpenAI client builder reads), so both Router-level and any
     provider-SDK-level retries are observed.
     """
@@ -246,29 +246,29 @@ class TestNoProviderRetryAmplification:
                 json={"error": {"message": "boom", "type": "server_error"}},
             )
 
-        litellm.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        hangarllm.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         return counter
 
     @pytest_asyncio.fixture(autouse=True)
     async def _isolate_clients(self):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         yield
-        session = litellm.aclient_session
-        litellm.aclient_session = None
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        session = hangarllm.aclient_session
+        hangarllm.aclient_session = None
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         if session is not None:
             await session.aclose()
 
     @staticmethod
-    def _router(api_base: str, litellm_params: dict, **router_kwargs) -> Router:
+    def _router(api_base: str, hangarllm_params: dict, **router_kwargs) -> Router:
         params = {"model": "openai/gpt-4o-mini", "api_base": api_base, "api_key": "sk-fake"}
-        params.update(litellm_params)
-        return Router(model_list=[{"model_name": "mock", "litellm_params": params}], **router_kwargs)
+        params.update(hangarllm_params)
+        return Router(model_list=[{"model_name": "mock", "hangarllm_params": params}], **router_kwargs)
 
     async def _call_and_count(self, router: Router, **call_kwargs) -> int:
         counter = self._install_counting_upstream()
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(hangarllm.InternalServerError):
                 await router.acompletion(model="mock", messages=[{"role": "user", "content": "hi"}], **call_kwargs)
         return counter["n"]
 
@@ -283,7 +283,7 @@ class TestNoProviderRetryAmplification:
         counter = self._install_counting_upstream()
         router = self._router(f"https://amp-{num_retries}.local/v1", {"num_retries": num_retries}, num_retries=1)
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(hangarllm.InternalServerError):
                 await router.acompletion(model="mock", messages=[{"role": "user", "content": "hi"}])
         assert counter["n"] == num_retries + 1
 
@@ -334,17 +334,17 @@ class TestNoProviderRetryAmplification:
     @pytest.mark.asyncio
     async def test_direct_completion_still_forwards_num_retries_to_provider(self):
         """
-        For a NON-routed direct ``litellm.acompletion`` call, ``num_retries`` remains an
+        For a NON-routed direct ``hangarllm.acompletion`` call, ``num_retries`` remains an
         alias for the provider client's ``max_retries`` (the instructor use case). The
-        provider SDK therefore retries in addition to litellm's own retry wrapper, so the
+        provider SDK therefore retries in addition to hangarllm's own retry wrapper, so the
         upstream count exceeds ``num_retries + 1`` - proving the routed-call fix did not
         change direct-call behaviour.
         """
         counter = self._install_counting_upstream()
         num_retries = 2
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
-                await litellm.acompletion(
+            with pytest.raises(hangarllm.InternalServerError):
+                await hangarllm.acompletion(
                     model="openai/gpt-4o-mini",
                     api_base="https://direct.local/v1",
                     api_key="sk-fake",
@@ -366,24 +366,24 @@ class _AttemptCounter(CustomLogger):
 
 class TestRequestNumRetriesBeatsGlobal:
     """
-    A per-request num_retries (request body or the x-litellm-num-retries header, both of
+    A per-request num_retries (request body or the x-hangarllm-num-retries header, both of
     which arrive as the num_retries kwarg) must take precedence over the global
-    litellm.num_retries (litellm_settings.num_retries on the proxy) during retry handling.
+    hangarllm.num_retries (hangarllm_settings.num_retries on the proxy) during retry handling.
 
-    The regression: the @client wrapper stamped the global litellm.num_retries onto the
+    The regression: the @client wrapper stamped the global hangarllm.num_retries onto the
     raised exception, and async_function_with_retries then adopted that stamped value,
     overwriting the request-level num_retries it had already resolved. This exercises the
-    real retry loop end to end (the failing call flows through the wrapped litellm.acompletion),
+    real retry loop end to end (the failing call flows through the wrapped hangarllm.acompletion),
     which the kwargs-merge-only test above does not.
     """
 
     @pytest.fixture(autouse=True)
-    def _restore_litellm_globals(self):
-        prev_num_retries = litellm.num_retries
-        prev_callbacks = litellm.callbacks
+    def _restore_hangarllm_globals(self):
+        prev_num_retries = hangarllm.num_retries
+        prev_callbacks = hangarllm.callbacks
         yield
-        litellm.num_retries = prev_num_retries
-        litellm.callbacks = prev_callbacks
+        hangarllm.num_retries = prev_num_retries
+        hangarllm.callbacks = prev_callbacks
 
     @staticmethod
     def _router(global_num_retries):
@@ -391,10 +391,10 @@ class TestRequestNumRetriesBeatsGlobal:
             model_list=[
                 {
                     "model_name": "mock",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/mock",
                         "api_key": "sk-fake",
-                        "mock_response": "litellm.InternalServerError",
+                        "mock_response": "hangarllm.InternalServerError",
                     },
                 }
             ],
@@ -403,14 +403,14 @@ class TestRequestNumRetriesBeatsGlobal:
 
     async def _count_attempts(self, *, global_num_retries, request_num_retries):
         counter = _AttemptCounter()
-        litellm.callbacks = [counter]
-        litellm.num_retries = global_num_retries
+        hangarllm.callbacks = [counter]
+        hangarllm.num_retries = global_num_retries
         router = self._router(global_num_retries)
         kwargs = {"model": "mock", "messages": [{"role": "user", "content": "hi"}]}
         if request_num_retries is not None:
             kwargs["num_retries"] = request_num_retries
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(hangarllm.InternalServerError):
                 await router.acompletion(**kwargs)
         return counter.attempts
 
@@ -433,7 +433,7 @@ class TestRequestNumRetriesBeatsGlobal:
             model_list=[
                 {
                     "model_name": "mock",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/mock-timeout",
                         "api_key": "sk-fake",
                         "mock_timeout": True,
@@ -446,7 +446,7 @@ class TestRequestNumRetriesBeatsGlobal:
         )
 
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.Timeout):
+            with pytest.raises(hangarllm.Timeout):
                 await router.acompletion(
                     model="mock",
                     messages=[{"role": "user", "content": "hi"}],
@@ -466,20 +466,20 @@ class TestRequestNumRetriesBeatsGlobal:
     async def test_deployment_num_retries_reaches_wrapper_when_no_request_value(self):
         """
         With no request value and the router default at 0, a deployment's
-        litellm_params.num_retries reaches the wrapped call, is carried on the raised
+        hangarllm_params.num_retries reaches the wrapped call, is carried on the raised
         exception, and is applied: deployment 2 -> 1 initial + 2 retries = 3 (not 1).
         """
         counter = _AttemptCounter()
-        litellm.callbacks = [counter]
-        litellm.num_retries = None
+        hangarllm.callbacks = [counter]
+        hangarllm.num_retries = None
         router = Router(
             model_list=[
                 {
                     "model_name": "mock",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/mock",
                         "api_key": "sk-fake",
-                        "mock_response": "litellm.InternalServerError",
+                        "mock_response": "hangarllm.InternalServerError",
                         "num_retries": 2,
                     },
                 }
@@ -487,7 +487,7 @@ class TestRequestNumRetriesBeatsGlobal:
             num_retries=0,
         )
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(hangarllm.InternalServerError):
                 await router.acompletion(model="mock", messages=[{"role": "user", "content": "hi"}])
         assert counter.attempts == 3
 
@@ -496,35 +496,35 @@ class TestRequestNumRetriesBeatsDeployment:
     """
     Documented precedence for num_retries on the proxy:
 
-        x-litellm-num-retries header > request body > model_list litellm_params > litellm_settings
+        x-hangarllm-num-retries header > request body > model_list hangarllm_params > hangarllm_settings
 
     The header and the body both arrive at the router as the num_retries kwarg (the proxy
     overwrites the body value with the header one), so "request level" covers both.
 
-    The regression: a failing deployment stamps its own litellm_params.num_retries onto the
+    The regression: a failing deployment stamps its own hangarllm_params.num_retries onto the
     raised exception, and async_function_with_retries adopted that value unconditionally, so a
     deployment setting outranked the header and the body instead of sitting below them.
     """
 
     @pytest.fixture(autouse=True)
-    def _restore_litellm_globals(self):
-        prev_num_retries = litellm.num_retries
-        prev_callbacks = litellm.callbacks
+    def _restore_hangarllm_globals(self):
+        prev_num_retries = hangarllm.num_retries
+        prev_callbacks = hangarllm.callbacks
         yield
-        litellm.num_retries = prev_num_retries
-        litellm.callbacks = prev_callbacks
+        hangarllm.num_retries = prev_num_retries
+        hangarllm.callbacks = prev_callbacks
 
     @staticmethod
     def _router(*, global_num_retries, deployment_num_retries):
-        litellm_params = {
+        hangarllm_params = {
             "model": "openai/mock",
             "api_key": "sk-fake",
-            "mock_response": "litellm.InternalServerError",
+            "mock_response": "hangarllm.InternalServerError",
         }
         if deployment_num_retries is not None:
-            litellm_params["num_retries"] = deployment_num_retries
+            hangarllm_params["num_retries"] = deployment_num_retries
         return Router(
-            model_list=[{"model_name": "mock", "litellm_params": litellm_params}],
+            model_list=[{"model_name": "mock", "hangarllm_params": hangarllm_params}],
             num_retries=global_num_retries,
         )
 
@@ -537,8 +537,8 @@ class TestRequestNumRetriesBeatsDeployment:
         mock_testing_rate_limit_error=False,
     ):
         counter = _AttemptCounter()
-        litellm.callbacks = [counter]
-        litellm.num_retries = global_num_retries
+        hangarllm.callbacks = [counter]
+        hangarllm.num_retries = global_num_retries
         router = self._router(
             global_num_retries=global_num_retries,
             deployment_num_retries=deployment_num_retries,
@@ -549,7 +549,7 @@ class TestRequestNumRetriesBeatsDeployment:
         if mock_testing_rate_limit_error:
             kwargs["mock_testing_rate_limit_error"] = True
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises((litellm.InternalServerError, litellm.RateLimitError)):
+            with pytest.raises((hangarllm.InternalServerError, hangarllm.RateLimitError)):
                 await router.acompletion(**kwargs)
         return counter.attempts
 
@@ -570,7 +570,7 @@ class TestRequestNumRetriesBeatsDeployment:
     @pytest.mark.asyncio
     async def test_deployment_num_retries_still_beats_global_when_request_omits_it(self):
         """
-        The deployment value keeps its place directly above litellm_settings: global=1 and
+        The deployment value keeps its place directly above hangarllm_settings: global=1 and
         deployment=2 with no request value -> 1 initial attempt + 2 retries.
         """
         attempts = await self._count_attempts(global_num_retries=1, deployment_num_retries=2, request_num_retries=None)
@@ -604,7 +604,7 @@ class TestRequestNumRetriesBeatsDeployment:
 class TestDeploymentNumRetriesOnNonCompletionEntryPoints:
     """
     aimage_generation and its siblings (adapter completion, file create, batch create, batch cancel)
-    run through the same retry loop as acompletion, so a deployment's litellm_params.num_retries must
+    run through the same retry loop as acompletion, so a deployment's hangarllm_params.num_retries must
     apply there too whenever the request carries none.
 
     These entry points used to pre-fill num_retries with the router default before handing kwargs to
@@ -618,13 +618,13 @@ class TestDeploymentNumRetriesOnNonCompletionEntryPoints:
 
     @pytest.fixture(autouse=True)
     def _isolate(self):
-        prev = litellm.num_retries
-        litellm.num_retries = None
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        prev = hangarllm.num_retries
+        hangarllm.num_retries = None
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         yield
-        litellm.num_retries = prev
-        litellm.aclient_session = None
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.num_retries = prev
+        hangarllm.aclient_session = None
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     async def _upstream_count(self, label, deployment_num_retries=None, **call_kwargs):
         counter = {"n": 0}
@@ -633,21 +633,21 @@ class TestDeploymentNumRetriesOnNonCompletionEntryPoints:
             counter["n"] += 1
             return httpx.Response(500, headers={"retry-after": "0"}, json={"error": {"message": "boom"}})
 
-        litellm.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-        litellm.in_memory_llm_clients_cache.flush_cache()
-        litellm_params = {
+        hangarllm.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm_params = {
             "model": "openai/dall-e-3",
             "api_key": "sk-fake",
             "api_base": f"https://imgretry-{label}.local/v1",
         }
         if deployment_num_retries is not None:
-            litellm_params["num_retries"] = deployment_num_retries
+            hangarllm_params["num_retries"] = deployment_num_retries
         router = Router(
-            model_list=[{"model_name": "img", "litellm_params": litellm_params}],
+            model_list=[{"model_name": "img", "hangarllm_params": hangarllm_params}],
             num_retries=0,
         )
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(hangarllm.InternalServerError):
                 await router.aimage_generation(model="img", prompt="a cat", **call_kwargs)
         return counter["n"]
 

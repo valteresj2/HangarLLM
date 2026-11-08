@@ -11,10 +11,10 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.dataforseo.search.transformation import DataForSEOSearchConfig
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.dataforseo.search.transformation import DataForSEOSearchConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from tests.unit.conftest import in_operator_error
 
@@ -44,12 +44,12 @@ async def test_dataforseo_search_basic():
     )
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_search",
+        "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_search",
         new_callable=AsyncMock,
     ) as mock_search:
         mock_search.return_value = mock_response
 
-        response = await litellm.asearch(
+        response = await hangarllm.asearch(
             query="latest developments in AI",
             search_provider="dataforseo",
         )
@@ -68,7 +68,7 @@ def _transform(payload: object) -> SearchResponse:
         stream=False,
         call_type="search",
         start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-id",
+        hangarllm_call_id="call-id",
         function_id="function-id",
     )
     return DataForSEOSearchConfig().transform_search_response(
@@ -85,18 +85,18 @@ def test_dataforseo_keeps_only_organic_items_of_the_first_result_in_provider_ord
         _successful_task(
             [
                 {
-                    "keyword": "litellm",
+                    "keyword": "hangarllm",
                     "items_count": 4,
                     "items": [
                         {
                             "type": "organic",
                             "rank_absolute": 1,
-                            "title": "LiteLLM",
-                            "url": "https://example.com/litellm",
+                            "title": "HangarLLM",
+                            "url": "https://example.com/hangarllm",
                             "description": "Call every LLM API",
                             "links": None,
                         },
-                        {"type": "people_also_ask", "items": [{"title": "What is LiteLLM?"}]},
+                        {"type": "people_also_ask", "items": [{"title": "What is HangarLLM?"}]},
                         {"type": "paid", "title": "Ad", "url": "https://example.com/ad", "description": "Sponsored"},
                         {
                             "type": "organic",
@@ -114,7 +114,7 @@ def test_dataforseo_keeps_only_organic_items_of_the_first_result_in_provider_ord
 
     assert response.object == "search"
     assert response.results == [
-        SearchResult(title="LiteLLM", url="https://example.com/litellm", snippet="Call every LLM API"),
+        SearchResult(title="HangarLLM", url="https://example.com/hangarllm", snippet="Call every LLM API"),
         SearchResult(title="Docs", url="https://example.com/docs", snippet="Docs"),
     ]
 
@@ -128,7 +128,7 @@ def test_dataforseo_keeps_only_organic_items_of_the_first_result_in_provider_ord
         {"tasks": [{"status_code": 20000}]},
         _successful_task([]),
         _successful_task(""),
-        _successful_task([{"keyword": "litellm", "items_count": 0}]),
+        _successful_task([{"keyword": "hangarllm", "items_count": 0}]),
         _successful_task([{"items": []}]),
         _successful_task([{"items": ""}]),
         _successful_task([{"items": {}}]),

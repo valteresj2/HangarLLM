@@ -108,7 +108,7 @@ def test_vector_store_search_forwards_all_search_fields_on_both_routes(gateway: 
             {
                 "vector_store_id": store_id,
                 "custom_llm_provider": "openai",
-                "litellm_params": {"api_base": f"{wire.url}/v1", "api_key": registry_key},
+                "hangarllm_params": {"api_base": f"{wire.url}/v1", "api_key": registry_key},
             },
         )
         assert registered.status_code == 200, registered.text

@@ -1,10 +1,10 @@
 # Adaptive Router — Live Demo
 
-A 5-minute demo of LiteLLM's adaptive router learning, in real time, that
+A 5-minute demo of HangarLLM's adaptive router learning, in real time, that
 the smart model wins for code while the fast model is fine for facts.
 
 ```
-┌─ traffic.py ──┐    ┌─ litellm proxy ──────────┐    ┌─ dashboard.html ─┐
+┌─ traffic.py ──┐    ┌─ hangarllm proxy ──────────┐    ┌─ dashboard.html ─┐
 │ synthetic     │──▶│  adaptive_router strategy │──▶│  bandit bars +    │
 │ chat sessions │    │  /adaptive_router/state  │    │  cost meter +     │
 └───────────────┘    └──────────┬───────────────┘    │  activity log     │
@@ -41,10 +41,10 @@ The repo ships with a working example config:
 
 ```bash
 export OPENAI_API_KEY=sk-...     # underlying models hit OpenAI
-export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 32)"   # the example config reads its master key from here
-echo "$LITELLM_MASTER_KEY"       # copy it, the chat page and dashboard ask for it
-uv run litellm \
-    --config litellm/proxy/example_config_yaml/adaptive_router_example.yaml \
+export HANGARLLM_MASTER_KEY="sk-$(openssl rand -hex 32)"   # the example config reads its master key from here
+echo "$HANGARLLM_MASTER_KEY"       # copy it, the chat page and dashboard ask for it
+uv run hangarllm \
+    --config hangarllm/proxy/example_config_yaml/adaptive_router_example.yaml \
     --port 4000
 ```
 
@@ -62,17 +62,17 @@ Open `chat.html` in a browser (same `file://` or `python3 -m http.server` approa
   - **📚 Explain a concept** — get a clear technical explanation
   - **✍️ Write something** — draft emails, docs, or any prose
 - A starter message is pre-filled — edit it or send as-is.
-- Each response shows which model the router picked and the inferred request type (from the `x-litellm-adaptive-router-model` and `x-litellm-request-type` response headers).
+- Each response shows which model the router picked and the inferred request type (from the `x-hangarllm-adaptive-router-model` and `x-hangarllm-request-type` response headers).
 - A sidebar gate indicator tells you when the session has accumulated enough messages for the bandit to start updating (4+ turns).
 
-> **Note on headers:** The model/type headers are only readable in the browser if the proxy sets `Access-Control-Expose-Headers`. LiteLLM defaults to exposing them. If the info panel shows `check dashboard`, the router still works — you can verify picks in `dashboard.html`.
+> **Note on headers:** The model/type headers are only readable in the browser if the proxy sets `Access-Control-Expose-Headers`. HangarLLM defaults to exposing them. If the info panel shows `check dashboard`, the router still works — you can verify picks in `dashboard.html`.
 
 ## 4. Open the dashboard
 
 The dashboard is a single static HTML file. Either:
 
 - **Easy:** double-click `dashboard.html`. Most browsers will load it from
-  `file://` and the LiteLLM proxy's CORS defaults (`*`) will accept it.
+  `file://` and the HangarLLM proxy's CORS defaults (`*`) will accept it.
 - **If your browser blocks `file://` fetches:**
 
   ```bash
@@ -85,7 +85,7 @@ The dashboard is a single static HTML file. Either:
 In the connect bar, fill in:
 
 - **Proxy URL:** `http://localhost:4000`
-- **Master Key:** the `LITELLM_MASTER_KEY` printed in step 1.
+- **Master Key:** the `HANGARLLM_MASTER_KEY` printed in step 1.
 
 Click **Connect**. The dashboard polls `GET /adaptive_router/state` every
 500ms (admin-only endpoint, returns one snapshot per configured router).
@@ -108,7 +108,7 @@ What it does:
 - Picks a random `(request_type, prompt)` per round from a small labeled corpus.
 - Sends a 5-message conversation (passes the `SIGNAL_GATE_MIN_MESSAGES=4` gate
   in one round-trip) so the post-call hook runs and updates the bandit.
-- Reads the `x-litellm-adaptive-router-model` response header to see what
+- Reads the `x-hangarllm-adaptive-router-model` response header to see what
   the router picked.
 - Rolls Bernoulli against a hard-coded oracle:
   ```
@@ -129,7 +129,7 @@ asymmetry from the oracle.
 | Knob | Where | What changes |
 |---|---|---|
 | Quality vs. cost weight | `adaptive_router_config.weights` in proxy yaml | Bias toward quality or savings |
-| Per-cell cold-start mass | `litellm/router_strategy/adaptive_router/config.py` `COLD_START_MASS` | How long until the prior is overwritten |
+| Per-cell cold-start mass | `hangarllm/router_strategy/adaptive_router/config.py` `COLD_START_MASS` | How long until the prior is overwritten |
 | Avg tokens per request | dashboard input box | How the cost meter estimates spend |
 | Oracle | `traffic.py` `ORACLE` dict | Which model "should" win for which type |
 | Sessions to drive | `--rounds` | Total learning budget |
@@ -153,7 +153,7 @@ independent; the cost meter is per-router (and resets when you switch).
   gate skips them. `traffic.py` already builds 5-message conversations,
   so this only happens if you've changed the script.
 - **Cost meter stays at $0** — your model deployments don't have
-  `input_cost_per_token` set in `litellm_params`. Add it.
-- **CORS error in the dashboard console** — set `LITELLM_CORS_ORIGINS=*`
+  `input_cost_per_token` set in `hangarllm_params`. Add it.
+- **CORS error in the dashboard console** — set `HANGARLLM_CORS_ORIGINS=*`
   on the proxy (the default), or serve `dashboard.html` from
   `python3 -m http.server` instead of `file://`.

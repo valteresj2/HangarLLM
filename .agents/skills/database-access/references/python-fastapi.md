@@ -2,9 +2,9 @@
 
 ## Existing pattern
 
-- `UserBannerStore` in `litellm/models/user_banner.py` is the Protocol the banner routes call
-- `get_database` in `litellm/proxy/deps/database.py` reads the lifespan-owned handle from request state
-- `get_user_banner_repository` in `litellm/proxy/deps/repositories.py` builds the banner repository from that handle
+- `UserBannerStore` in `hangarllm/models/user_banner.py` is the Protocol the banner routes call
+- `get_database` in `hangarllm/proxy/deps/database.py` reads the lifespan-owned handle from request state
+- `get_user_banner_repository` in `hangarllm/proxy/deps/repositories.py` builds the banner repository from that handle
 - Choose each repository's replica routing once in its provider, never at call sites
 - A handler receives `UserBannerStore | None`, never a Prisma client or a concrete repository
 - `UserBannerRepository` implements `UserBannerStore` structurally, keeping the existing Prisma table, serialization and configuration-sync behavior
@@ -13,7 +13,7 @@
 
 ## Dependency injection
 
-- Add one provider and one `Annotated` alias per repository in `litellm/proxy/deps/repositories.py`
+- Add one provider and one `Annotated` alias per repository in `hangarllm/proxy/deps/repositories.py`
 - Annotate the provider and alias with the feature's Protocol, not the concrete repository
 - A route depends only on the repositories it calls, so a request never builds repositories it does not use
 - Do not build repositories once at lifespan, a reconnect can replace the Prisma client they wrap

@@ -17,9 +17,9 @@ estimate in place as if it were reconciled.
 
 import pytest
 
-from litellm.caching import DualCache
-from litellm.proxy import proxy_server
-from litellm.rust_bridge._native import NativeRedisStoreError
+from hangarllm.caching import DualCache
+from hangarllm.proxy import proxy_server
+from hangarllm.rust_bridge._native import NativeRedisStoreError
 from tests.unit.redis.stores.spend_counters_double import FakeSpendCounters
 
 

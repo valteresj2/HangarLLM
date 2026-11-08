@@ -284,7 +284,7 @@ def test_rag_ingest_request_multipart_json_and_registered_credentials(gateway: G
                     {
                         "vector_store_id": registered_store_id,
                         "custom_llm_provider": "openai",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "api_base": f"{registered_wire.url}/v1",
                             "api_key": registered_key,
                         },

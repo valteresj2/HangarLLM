@@ -14,38 +14,38 @@ import pytest
 import respx
 from pydantic import BaseModel
 
-import litellm
-from litellm import ModelResponse, completion, embedding, image_generation
-from litellm._logging import verbose_logger
-from litellm.cost_calculator import batch_cost_calculator
-from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token, parse_prompt_tokens_details
-from litellm.llms.anthropic.messages.native import handler as anthropic_messages_handler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
-from litellm.llms.vertex_ai.common_utils import GEMINI_MAX_ENUM_CHARACTERS, VertexAIError
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+import hangarllm
+from hangarllm import ModelResponse, completion, embedding, image_generation
+from hangarllm._logging import verbose_logger
+from hangarllm.cost_calculator import batch_cost_calculator
+from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import generic_cost_per_token, parse_prompt_tokens_details
+from hangarllm.llms.anthropic.messages.native import handler as anthropic_messages_handler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
+from hangarllm.llms.vertex_ai.common_utils import GEMINI_MAX_ENUM_CHARACTERS, VertexAIError
+from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     OPENAI_TO_GEMINI_TTS_VOICES,
     VertexGeminiConfig,
     _log_gemini_sampling_params_deprecated,
     normalize_gemini_speech_config,
     reject_unknown_gemini_tts_voice_keys,
 )
-from litellm.types.llms.base import CachedTokensDetails
-from litellm.types.llms.vertex_ai import GeminiFinishReason, RequestBody, UsageMetadata
-from litellm.types.utils import ChoiceLogprobs, ModelInfo, ModelResponseStream, Usage
-from litellm.utils import _invalidate_model_cost_lowercase_map, CustomStreamWrapper
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.vertex_ai.gemini.transformation import (
+from hangarllm.types.llms.base import CachedTokensDetails
+from hangarllm.types.llms.vertex_ai import GeminiFinishReason, RequestBody, UsageMetadata
+from hangarllm.types.utils import ChoiceLogprobs, ModelInfo, ModelResponseStream, Usage
+from hangarllm.utils import _invalidate_model_cost_lowercase_map, CustomStreamWrapper
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.vertex_ai.gemini.transformation import (
     gemini_convert_messages_with_history,
 )
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
-from litellm.llms.vertex_ai.context_caching.transformation import (
+from hangarllm.llms.vertex_ai.context_caching.transformation import (
     separate_cached_messages,
     transform_openai_messages_to_gemini_context_caching,
 )
@@ -221,7 +221,7 @@ def test_gemini_speech_config_keeps_only_speech_config_fields():
     ],
 )
 def test_unknown_gemini_tts_voice_keys_are_rejected_without_drop_params(voice, unknown_keys):
-    with pytest.raises(litellm.UnsupportedParamsError, match=f"voice keys {unknown_keys}\\."):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=f"voice keys {unknown_keys}\\."):
         reject_unknown_gemini_tts_voice_keys("gemini-3.1-flash-tts-preview", voice, False, "vertex_ai")
 
     reject_unknown_gemini_tts_voice_keys("gemini-3.1-flash-tts-preview", voice, True, "vertex_ai")
@@ -230,7 +230,7 @@ def test_unknown_gemini_tts_voice_keys_are_rejected_without_drop_params(voice, u
 def test_chat_audio_speech_config_unknown_keys_are_rejected_unless_dropped():
     audio: Final = {"format": "pcm16", "speech_config": {"voice_name": "Kore", "style": "calm"}}
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="voice keys style\\."):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="voice keys style\\."):
         VertexGeminiConfig().map_openai_params(
             non_default_params={"audio": audio},
             optional_params={},
@@ -256,7 +256,7 @@ def test_chat_audio_speech_config_unknown_keys_are_rejected_unless_dropped():
 
 
 def test_chat_audio_speech_config_unknown_keys_follow_global_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
 
     dropped: Final = VertexGeminiConfig().map_openai_params(
         non_default_params={"audio": {"format": "pcm16", "speech_config": {"voice_name": "Kore", "style": "calm"}}},
@@ -342,7 +342,7 @@ def test_chat_audio_reads_snake_case_wrapper_beside_null_camel_case_wrapper():
 def test_unknown_voice_key_error_stays_bounded_for_large_voice_objects():
     voice: Final = {"name": "Kore", **{f"{index:04d}{'x' * 1000}": index for index in range(2000)}}
 
-    with pytest.raises(litellm.UnsupportedParamsError) as excinfo:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as excinfo:
         reject_unknown_gemini_tts_voice_keys("gemini-3.1-flash-tts-preview", voice, False, "vertex_ai")
 
     assert "and 1990 more" in excinfo.value.message
@@ -575,7 +575,7 @@ def test_vertex_ai_get_json_schema_preserves_refs_for_nested_pydantic():
     (which preserves $ref/$defs) instead of OpenAI's to_strict_json_schema()
     (which inlines all $ref, inflating nesting depth).
 
-    This is the root cause fix for https://github.com/BerriAI/litellm/issues/21014
+    This is the root cause fix for upstream issue 21014
     """
     from pydantic import Field
 
@@ -722,10 +722,10 @@ def test_vertex_ai_retain_property_ordering():
 
 
 def test_vertex_ai_thinking_output_part():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from hangarllm.types.llms.vertex_ai import HttpxPartType
 
     v = VertexGeminiConfig()
     parts = [
@@ -741,10 +741,10 @@ def test_vertex_ai_thinking_output_part():
 
 
 def test_vertex_ai_empty_content():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from hangarllm.types.llms.vertex_ai import HttpxPartType
 
     v = VertexGeminiConfig()
     parts = [
@@ -827,7 +827,7 @@ def test_vertex_ai_candidate_token_count_inclusive(usage_metadata, inclusive, ex
 def test_vertex_ai_grounded_usage_surfaces_tool_use_tokens():
     """
     Grounded Gemini requests (googleSearch) return toolUsePromptTokenCount as part of totalTokenCount.
-    Regression for https://github.com/BerriAI/litellm/issues/33530: it must be folded into
+    Regression for upstream issue 33530 it must be folded into
     prompt_tokens (so prompt_tokens + completion_tokens == total_tokens) and surfaced on
     prompt_tokens_details.tool_use_tokens.
     """
@@ -919,7 +919,7 @@ def test_vertex_ai_maps_grounding_tool_use_tokens_excluded_from_prompt_tokens():
     separate per-request / per-query fee, with toolUsePromptTokenCount surfaced on
     prompt_tokens_details.tool_use_tokens but excluded from prompt_tokens. Before Maps detection
     existed, a Vertex AI Maps-only response folded the 120 tool-use tokens into prompt_tokens.
-    Regression for https://github.com/BerriAI/litellm/issues/35906
+    Regression for upstream issue 35906
     """
     v = VertexGeminiConfig()
     completion_response = {
@@ -952,7 +952,7 @@ def test_vertex_ai_maps_grounding_sets_google_maps_grounding_requests_non_stream
     google_maps_grounding_requests and leave web_search_requests unset, so the Maps fee is
     billed instead of nothing (Vertex) or the Google Search fee (Gemini API).
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -985,7 +985,7 @@ def test_vertex_ai_maps_grounding_sets_google_maps_grounding_requests_non_stream
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -1000,7 +1000,7 @@ def test_vertex_ai_search_grounding_tool_use_tokens_excluded_from_prompt_tokens(
     (Google charges a separate per-request / per-query search fee), so toolUsePromptTokenCount
     must be surfaced on prompt_tokens_details.tool_use_tokens but excluded from prompt_tokens.
     See https://ai.google.dev/gemini-api/docs/pricing and
-    https://github.com/BerriAI/litellm/discussions/33198
+    https://github.com/valteresj2/HangarLLM/discussions/33198
     """
     v = VertexGeminiConfig()
     completion_response = {
@@ -1058,7 +1058,7 @@ def test_url_context_tool_use_tokens_are_priced_as_input():
     """
     URL context tool-use tokens are billed at the input token rate, so the input cost must
     cover every token counted in usage.prompt_tokens, not just the reported text modality.
-    See https://github.com/BerriAI/litellm/issues/45991
+    See upstream issue 45991
     """
     v = VertexGeminiConfig()
     completion_response = {
@@ -1082,8 +1082,8 @@ def test_url_context_tool_use_tokens_are_priced_as_input():
 
     assert usage.prompt_tokens == 23 + 14115
     assert usage.prompt_tokens_details.text_tokens == usage.prompt_tokens
-    input_rate: Final = litellm.get_model_info("gemini-2.5-flash")["input_cost_per_token"]
-    prompt_cost, _ = litellm.cost_per_token(model="gemini/gemini-2.5-flash", usage_object=usage)
+    input_rate: Final = hangarllm.get_model_info("gemini-2.5-flash")["input_cost_per_token"]
+    prompt_cost, _ = hangarllm.cost_per_token(model="gemini/gemini-2.5-flash", usage_object=usage)
     assert prompt_cost == usage.prompt_tokens * input_rate
 
 
@@ -1110,8 +1110,8 @@ def test_search_grounding_tool_use_tokens_stay_unpriced():
 
     assert usage.prompt_tokens == 23
     assert usage.prompt_tokens_details.text_tokens == 23
-    input_rate: Final = litellm.get_model_info("gemini-2.5-flash")["input_cost_per_token"]
-    prompt_cost, _ = litellm.cost_per_token(model="gemini/gemini-2.5-flash", usage_object=usage)
+    input_rate: Final = hangarllm.get_model_info("gemini-2.5-flash")["input_cost_per_token"]
+    prompt_cost, _ = hangarllm.cost_per_token(model="gemini/gemini-2.5-flash", usage_object=usage)
     assert prompt_cost == 23 * input_rate
 
 
@@ -1141,17 +1141,17 @@ def test_missing_prompt_tokens_details_still_prices_the_full_prompt():
 
     assert usage.prompt_tokens == 23 + 14115
     assert usage.prompt_tokens_details.text_tokens is None
-    input_rate: Final = litellm.get_model_info("gemini-2.5-flash")["input_cost_per_token"]
-    prompt_cost, _ = litellm.cost_per_token(model="gemini/gemini-2.5-flash", usage_object=usage)
+    input_rate: Final = hangarllm.get_model_info("gemini-2.5-flash")["input_cost_per_token"]
+    prompt_cost, _ = hangarllm.cost_per_token(model="gemini/gemini-2.5-flash", usage_object=usage)
     assert prompt_cost == usage.prompt_tokens * input_rate
 
 
 def test_streaming_chunk_includes_reasoning_tokens():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    hangarllm_logging = MagicMock()
 
     # Simulate a streaming chunk as would be received from Gemini
     chunk = {
@@ -1163,7 +1163,7 @@ def test_streaming_chunk_includes_reasoning_tokens():
             "thoughtsTokenCount": 3,
         },
     }
-    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=litellm_logging)
+    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=hangarllm_logging)
     streaming_chunk = iterator.chunk_parser(chunk)
     assert streaming_chunk.usage is not None
     assert streaming_chunk.usage.prompt_tokens == 5
@@ -1176,11 +1176,11 @@ def test_streaming_chunk_includes_reasoning_content():
     """
     Ensure that when Gemini returns a chunk with `thought=True`, the parser maps it to `reasoning_content`.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    hangarllm_logging = MagicMock()
 
     # Simulate a streaming chunk from Gemini which contains reasoning (thought) content
     chunk = {
@@ -1199,7 +1199,7 @@ def test_streaming_chunk_includes_reasoning_content():
         "usageMetadata": {},
     }
 
-    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=litellm_logging)
+    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=hangarllm_logging)
     streaming_chunk = iterator.chunk_parser(chunk)
 
     # The text content should be empty and reasoning_content should be populated
@@ -1215,11 +1215,11 @@ def test_streaming_chunk_with_tool_calls_and_thought_includes_reasoning_content(
     Per Google's docs: thought: true indicates reasoning content, NOT thoughtSignature.
     thoughtSignature is just a token for multi-turn context preservation.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    hangarllm_logging = MagicMock()
 
     chunk = {
         "candidates": [
@@ -1249,7 +1249,7 @@ def test_streaming_chunk_with_tool_calls_and_thought_includes_reasoning_content(
         },
     }
 
-    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=litellm_logging)
+    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=hangarllm_logging)
     streaming_chunk = iterator.chunk_parser(chunk)
 
     # Verify reasoning_content comes from the thought: true part
@@ -1270,11 +1270,11 @@ def test_streaming_chunk_with_tool_calls_no_thought_no_reasoning_content():
     being placed into reasoning_content when thoughtSignature was present.
     Per Google's docs: thoughtSignature is just a token for multi-turn, not reasoning.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    hangarllm_logging = MagicMock()
 
     chunk = {
         "candidates": [
@@ -1300,7 +1300,7 @@ def test_streaming_chunk_with_tool_calls_no_thought_no_reasoning_content():
         },
     }
 
-    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=litellm_logging)
+    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=hangarllm_logging)
     streaming_chunk = iterator.chunk_parser(chunk)
 
     # reasoning_content should be None - thoughtSignature alone does NOT mean reasoning
@@ -1357,7 +1357,7 @@ def test_finish_reason_unspecified_and_malformed_function_call():
 
 def test_vertex_ai_usage_metadata_response_token_count():
     """For Gemini Live API"""
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from hangarllm.types.utils import PromptTokensDetailsWrapper
 
     v = VertexGeminiConfig()
     usage_metadata = {
@@ -1670,7 +1670,7 @@ def test_vertex_ai_map_thinking_param_with_budget_tokens_0():
     """
     If budget_tokens is 0, do not set includeThoughts to True
     """
-    from litellm.types.llms.anthropic import AnthropicThinkingParam
+    from hangarllm.types.llms.anthropic import AnthropicThinkingParam
 
     v = VertexGeminiConfig()
     thinking_param: AnthropicThinkingParam = {"type": "enabled", "budget_tokens": 0}
@@ -2056,7 +2056,7 @@ def test_vertex_ai_tool_choice_naming_a_namespace_gemini_gets_no_member_of(
 ) -> None:
     params = {"tools": tools, "tool_choice": {"type": "function", "function": {"name": forced_name}}}
 
-    with pytest.raises(litellm.UnsupportedParamsError, match=f"tool_choice '{forced_name}'"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match=f"tool_choice '{forced_name}'"):
         VertexGeminiConfig().map_openai_params(
             non_default_params=params, optional_params={}, model="gemini-3.8-flash", drop_params=False
         )
@@ -2070,9 +2070,9 @@ def test_vertex_ai_tool_choice_naming_a_namespace_gemini_gets_no_member_of(
 
 def test_vertex_ai_map_tool_with_anyof():
     """
-    Related issue: https://github.com/BerriAI/litellm/issues/11164
+    Related issue: upstream issue 11164
 
-    Ensure if anyof is present, only the anyof field and its contents are kept - otherwise VertexAI will throw an error - https://github.com/BerriAI/litellm/issues/11164
+    Ensure if anyof is present, only the anyof field and its contents are kept - otherwise VertexAI will throw an error - upstream issue 11164
     """
     v = VertexGeminiConfig()
     optional_params = {}
@@ -2145,7 +2145,7 @@ def test_vertex_ai_streaming_usage_calculation():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
         VertexGeminiConfig,
     )
@@ -2189,7 +2189,7 @@ def test_vertex_ai_streaming_usage_calculation():
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -2206,7 +2206,7 @@ def test_vertex_ai_streaming_usage_web_search_calculation():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
         VertexGeminiConfig,
     )
@@ -2250,7 +2250,7 @@ def test_vertex_ai_maps_grounding_chunk_parser_sets_maps_requests():
     """A Vertex-shaped Maps-only streaming chunk sets the Maps counter and not the Search one."""
     from unittest.mock import MagicMock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -2279,7 +2279,7 @@ def test_gemini_api_maps_grounding_chunk_parser_counts_queries_as_maps_requests(
     """A Gemini-API-shaped Maps chunk (webSearchQueries plus maps chunks) bills Maps, not Search."""
     from unittest.mock import MagicMock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -2381,7 +2381,7 @@ GEMINI_IMAGE_RESPONSE: Final = {
             "content": {
                 "role": "model",
                 "parts": [
-                    {"text": "Here is a banana wearing a LiteLLM costume."},
+                    {"text": "Here is a banana wearing a HangarLLM costume."},
                     {"inlineData": {"mimeType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUg=="}},
                 ],
             },
@@ -2397,12 +2397,12 @@ GEMINI_IMAGE_RESPONSE: Final = {
 
 @pytest.fixture
 def _gemini_httpx_transport(monkeypatch: pytest.MonkeyPatch):
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from hangarllm.caching.llm_caching_handler import LLMClientCache
 
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
     yield
     client_cache.flush_cache()
 
@@ -2422,13 +2422,13 @@ async def test_gemini_image_generation_async(respx_mock: respx.MockRouter) -> No
         return_value=httpx.Response(200, json=GEMINI_IMAGE_RESPONSE)
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gemini/gemini-2.5-flash-image",
-        messages=[{"role": "user", "content": "Generate an image of a banana wearing a costume that says LiteLLM"}],
+        messages=[{"role": "user", "content": "Generate an image of a banana wearing a costume that says HangarLLM"}],
         api_key="test-api-key",
     )
 
-    assert response.choices[0].message.content == "Here is a banana wearing a LiteLLM costume."
+    assert response.choices[0].message.content == "Here is a banana wearing a HangarLLM costume."
     assert response.choices[0].message.images == [
         {
             "image_url": {"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==", "detail": "auto"},
@@ -2466,9 +2466,9 @@ async def test_gemini_image_generation_async_stream(respx_mock: respx.MockRouter
         )
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gemini/gemini-2.5-flash-image",
-        messages=[{"role": "user", "content": "Generate an image of a banana wearing a costume that says LiteLLM"}],
+        messages=[{"role": "user", "content": "Generate an image of a banana wearing a costume that says HangarLLM"}],
         stream=True,
         api_key="test-api-key",
     )
@@ -2591,7 +2591,7 @@ def test_gemini_tool_use(respx_mock: respx.MockRouter) -> None:
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gemini/gemini-2.5-flash",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
@@ -2759,7 +2759,7 @@ def test_gemini_with_grounding(respx_mock: respx.MockRouter) -> None:
     )
 
     chunks: Final = list(
-        litellm.completion(
+        hangarllm.completion(
             model="gemini/gemini-2.5-flash",
             messages=[{"role": "user", "content": "What is the capital of France?"}],
             tools=[{"googleSearch": {}}],
@@ -2768,7 +2768,7 @@ def test_gemini_with_grounding(respx_mock: respx.MockRouter) -> None:
             api_key="test-api-key",
         )
     )
-    complete_response: Final = litellm.stream_chunk_builder(chunks)
+    complete_response: Final = hangarllm.stream_chunk_builder(chunks)
 
     assert json.loads(route.calls.last.request.content)["tools"] == [{"googleSearch": {}}]
     assert complete_response.choices[0].message.content == "The capital of France is Paris."
@@ -2778,15 +2778,15 @@ def test_gemini_with_grounding(respx_mock: respx.MockRouter) -> None:
 @pytest.mark.parametrize(
     ("status_code", "expected_exception"),
     [
-        (400, litellm.BadRequestError),
-        (401, litellm.AuthenticationError),
-        (403, litellm.BadRequestError),
-        (404, litellm.NotFoundError),
-        (408, litellm.Timeout),
-        (429, litellm.RateLimitError),
-        (500, litellm.InternalServerError),
-        (502, litellm.APIConnectionError),
-        (503, litellm.ServiceUnavailableError),
+        (400, hangarllm.BadRequestError),
+        (401, hangarllm.AuthenticationError),
+        (403, hangarllm.BadRequestError),
+        (404, hangarllm.NotFoundError),
+        (408, hangarllm.Timeout),
+        (429, hangarllm.RateLimitError),
+        (500, hangarllm.InternalServerError),
+        (502, hangarllm.APIConnectionError),
+        (503, hangarllm.ServiceUnavailableError),
     ],
 )
 def test_gemini_error_status_codes_map_to_exceptions(status_code: int, expected_exception: type[Exception]) -> None:
@@ -3051,10 +3051,10 @@ def test_vertex_ai_transform_parts():
     1. Multiple tool calls within a single message
     2. Multiple tool calls across different messages (cumulative indexing)
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from hangarllm.types.llms.vertex_ai import HttpxPartType
 
     # Test case 1: Function call mode (is_function_call=True)
     parts_with_function = [
@@ -3232,7 +3232,7 @@ def test_vertex_ai_transform_parts():
 
 def test_vertex_ai_usage_metadata_missing_token_count():
     """Test that missing tokenCount in responseTokensDetails defaults to 0"""
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from hangarllm.types.utils import PromptTokensDetailsWrapper
 
     v = VertexGeminiConfig()
     usage_metadata = {
@@ -3257,7 +3257,7 @@ def test_vertex_ai_usage_metadata_missing_token_count():
 
 
 def test_vertex_ai_process_candidates_with_grounding_metadata():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -3372,10 +3372,10 @@ def test_vertex_ai_tool_call_id_format():
     The ID should be in format 'call_' + 28 hex characters (total 33 characters).
     This test verifies the fix for keeping the code line under 40 characters.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from hangarllm.types.llms.vertex_ai import HttpxPartType
 
     # Create parts with function calls
     parts_with_functions = [
@@ -3665,12 +3665,12 @@ def test_vertex_ai_annotation_streaming_events():
     2. Annotations are included in the delta of streaming chunks
     3. Multiple annotations are handled correctly
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
-    from litellm.types.llms.openai import ChatCompletionAnnotation
+    from hangarllm.types.llms.openai import ChatCompletionAnnotation
 
-    litellm_logging = MagicMock()
+    hangarllm_logging = MagicMock()
 
     # Simulate a streaming chunk with grounding metadata (as Gemini sends it)
     chunk_with_annotations = {
@@ -3711,7 +3711,7 @@ def test_vertex_ai_annotation_streaming_events():
     }
 
     # Create iterator and parse chunk
-    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=litellm_logging)
+    iterator = ModelResponseIterator(streaming_response=[], sync_stream=True, logging_obj=hangarllm_logging)
     streaming_chunk = iterator.chunk_parser(chunk_with_annotations)
 
     # Verify the chunk was parsed correctly
@@ -3738,7 +3738,7 @@ def test_vertex_ai_annotation_streaming_events():
 async def test_vertex_ai_streaming_bad_request_is_not_wrapped():
     class DummyLogging:
         def __init__(self):
-            self.model_call_details = {"litellm_params": {}}
+            self.model_call_details = {"hangarllm_params": {}}
             self.optional_params = {}
             self.messages = []
             self.completion_start_time = None
@@ -3770,7 +3770,7 @@ async def test_vertex_ai_streaming_bad_request_is_not_wrapped():
         custom_llm_provider="vertex_ai_beta",
     )
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         await stream.__anext__()
 
     assert getattr(exc_info.value, "status_code", None) == 400
@@ -3783,7 +3783,7 @@ def test_vertex_ai_annotation_conversion():
     This test verifies the _convert_grounding_metadata_to_annotations method
     correctly transforms grounding metadata into the expected format.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -3907,7 +3907,7 @@ def test_vertex_ai_annotation_empty_grounding_metadata():
 
     This test ensures the annotation conversion handles edge cases gracefully.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -3941,7 +3941,7 @@ def test_vertex_ai_annotation_empty_grounding_metadata():
 
 def test_is_gemini_3_or_newer():
     """Test the _is_gemini_3_or_newer method for version detection"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -3987,8 +3987,8 @@ def test_is_gemini_3_or_newer():
 )
 def test_gemini_3_reasoning_effort_maps_to_thinking_level(model: str):
     """Test that reasoning_effort maps to thinkingLevel and no temperature is injected"""
-    from litellm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4020,7 +4020,7 @@ def test_gemini_3_reasoning_effort_maps_to_thinking_level(model: str):
     ["4965075652664360960", "gemini/4965075652664360960", "gemini/ft-uuid", "gemma-3-27b-it"],
 )
 def test_fine_tuned_endpoint_and_gemma_get_no_gemini_3_default_temperature(model: str):
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4076,7 +4076,7 @@ def _collect_function_call_ids(contents):
 
 def test_forward_gemini_function_call_id_is_gated_on_model_version_only():
     """Gemini 3+ takes `id` on Vertex AI and Google AI Studio alike; older models reject it."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4093,7 +4093,7 @@ def test_gemini_35_tool_calls_include_function_call_id(custom_llm_provider):
     Both parts are asserted together: Vertex pairs a result to its call by id, so emitting one
     side without the other would break strict tool-call matching.
     """
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4110,7 +4110,7 @@ def test_gemini_35_tool_calls_include_function_call_id(custom_llm_provider):
 @pytest.mark.parametrize("custom_llm_provider", ["vertex_ai", "gemini"])
 def test_gemini_25_tool_calls_omit_function_call_id(custom_llm_provider):
     """Regression: models older than Gemini 3 reject `id`, so the key must be absent entirely."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4135,10 +4135,10 @@ def test_vertex_ai_forwarded_function_call_id_strips_thought_signature_suffix():
 
     Vertex now sees this code path for the first time, so the suffix has to be stripped here too.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         THOUGHT_SIGNATURE_SEPARATOR,
     )
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4156,7 +4156,7 @@ def test_vertex_ai_forwarded_function_call_id_strips_thought_signature_suffix():
 @pytest.mark.parametrize("model", ["gemini-3.5-flash", "gemini-2.5-flash"])
 def test_tool_response_without_matching_tool_call_is_rejected(model):
     """An unpairable tool result must raise, not ship a functionResponse with no matching call."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4189,7 +4189,7 @@ def test_tool_response_without_matching_tool_call_is_rejected(model):
 
 def test_reasoning_effort_maps_to_thinking_level_gemini_3():
     """Test that reasoning_effort maps to thinking_level AND includeThoughts for Gemini 3+ models"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4315,7 +4315,7 @@ def test_gemini_flash_minimal_thinking_support(
 
 
 def test_gemini_38_flash_feature_flag_uses_low_thinking_level(local_model_cost_map, monkeypatch):
-    monkeypatch.setattr(litellm, "enable_gemini_default_thinking_level_low", True)
+    monkeypatch.setattr(hangarllm, "enable_gemini_default_thinking_level_low", True)
     thinking_param = {"type": "enabled", "budget_tokens": 1024}
 
     result_38 = VertexGeminiConfig._map_thinking_param(thinking_param, model="gemini-3.8-flash")
@@ -4380,9 +4380,9 @@ def test_reasoning_effort_dict_format_gemini_3():
     The OpenAI Agents SDK passes reasoning_effort as {"effort": "high", "summary": "auto"}
     instead of just a string. This test verifies that we correctly extract the effort value.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/19411
+    Related issue: upstream issue 19411
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4442,7 +4442,7 @@ def test_reasoning_effort_dict_format_gemini_3():
 @pytest.mark.parametrize("config_cls", ["vertex", "studio"])
 def test_gemini_3_omits_temperature_when_not_specified(model: str, config_cls: Literal["vertex", "studio"]) -> None:
     """Gemini 3+ requests must not gain a temperature the caller did not send"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4460,7 +4460,7 @@ def test_gemini_3_omits_temperature_when_not_specified(model: str, config_cls: L
 @pytest.mark.parametrize("config_cls", ["vertex", "studio"])
 def test_gemini_3_explicit_temperature_is_still_forwarded(config_cls: Literal["vertex", "studio"]) -> None:
     """An explicitly supplied temperature is still forwarded"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4480,7 +4480,7 @@ def test_get_optional_params_gemini_3_has_no_default_temperature(
     custom_llm_provider: Literal["gemini", "vertex_ai"],
 ) -> None:
     """Neither the gemini nor the vertex_ai route injects a temperature"""
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
     optional_params: Final = get_optional_params(
         model="gemini-3-pro-preview",
@@ -4502,16 +4502,16 @@ def _gemini_config(config_cls: Literal["vertex", "studio"]) -> VertexGeminiConfi
 def _gemini_request_body(
     custom_llm_provider: Literal["vertex_ai", "gemini"],
     optional_params: dict[str, object],
-    litellm_params: dict[str, object],
+    hangarllm_params: dict[str, object],
 ) -> RequestBody:
-    from litellm.llms.vertex_ai.gemini.transformation import transform_request_body
+    from hangarllm.llms.vertex_ai.gemini.transformation import transform_request_body
 
     return transform_request_body(
         messages=[{"role": "user", "content": "hi"}],
         model="gemini-zeta-9",
         optional_params=optional_params,
         custom_llm_provider=custom_llm_provider,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         cached_content=None,
     )
 
@@ -4523,12 +4523,12 @@ def test_get_optional_params_raises_a_400_naming_drop_params_for_a_flagged_gemin
 ) -> None:
     """Google ignores sampling params on models flagged ``supports_sampling_params: false``, so without
     drop_params the caller gets the 400 that names the escape hatch instead of a 200 that lied (#47015)"""
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setitem(litellm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params") as excinfo:
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params") as excinfo:
         get_optional_params(
             model="gemini-zeta-9", custom_llm_provider=custom_llm_provider, **{param: _SAMPLING_PARAMS[param]}
         )
@@ -4542,10 +4542,10 @@ def test_allowed_openai_params_still_forwards_a_sampling_param_the_map_flags_off
     custom_llm_provider: Literal["vertex_ai", "gemini"], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The 400 tells the caller to send allowed_openai_params, so that escape hatch has to work"""
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setitem(litellm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
 
     optional_params: Final = get_optional_params(
         model="gemini-zeta-9",
@@ -4563,7 +4563,7 @@ def test_top_k_is_stripped_from_the_request_body_of_a_flagged_gemini_model_under
 ) -> None:
     """top_k is a provider-specific kwarg that skips the shared unsupported-param check, so it is gated
     where the request body is built"""
-    monkeypatch.setitem(litellm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
 
     body: Final = _gemini_request_body(
         custom_llm_provider, {"top_k": 20, "max_output_tokens": 10}, {"drop_params": True}
@@ -4576,10 +4576,10 @@ def test_top_k_is_stripped_from_the_request_body_of_a_flagged_gemini_model_under
 def test_top_k_raises_a_400_naming_drop_params_for_a_flagged_gemini_model(
     custom_llm_provider: Literal["vertex_ai", "gemini"], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
-    monkeypatch.setitem(litellm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params") as excinfo:
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params") as excinfo:
         _gemini_request_body(custom_llm_provider, {"top_k": 20}, {})
 
     assert excinfo.value.status_code == 400
@@ -4592,9 +4592,9 @@ def test_gemini_keeps_forwarding_sampling_params_unless_the_model_map_flags_them
     custom_llm_provider: Literal["vertex_ai", "gemini"], row: dict[str, bool], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An explicit true and a model the map says nothing about both keep today's pass-through, top_k included"""
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
-    monkeypatch.setitem(litellm.model_cost, "gemini-zeta-9", row)
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-zeta-9", row)
 
     optional_params: Final = get_optional_params(
         model="gemini-zeta-9", custom_llm_provider=custom_llm_provider, drop_params=True, **_SAMPLING_PARAMS
@@ -4608,7 +4608,7 @@ def test_gemini_keeps_forwarding_sampling_params_unless_the_model_map_flags_them
 def test_gemini_sampling_flag_is_read_from_whichever_provider_row_carries_it(
     model_key: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost, model_key, {"supports_sampling_params": False})
+    monkeypatch.setitem(hangarllm.model_cost, model_key, {"supports_sampling_params": False})
 
     result: Final = VertexGeminiConfig().map_openai_params(
         non_default_params={"temperature": 0.3},
@@ -4624,7 +4624,7 @@ def test_gemini_sampling_flag_is_read_from_whichever_provider_row_carries_it(
 def test_gemini_supported_openai_params_omit_sampling_params_when_flagged_off(
     config_cls: Literal["vertex", "studio"], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
 
     supported: Final = set(_gemini_config(config_cls).get_supported_openai_params("gemini-zeta-9"))
 
@@ -4637,9 +4637,9 @@ def test_get_optional_params_drops_sampling_params_for_a_flagged_gemini_model_un
     custom_llm_provider: Literal["vertex_ai", "gemini"], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The path every SDK and proxy call takes, on both the Vertex and the AI Studio route"""
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
-    monkeypatch.setitem(litellm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setitem(hangarllm.model_cost, "gemini-zeta-9", {"supports_sampling_params": False})
 
     optional_params: Final = get_optional_params(
         model="gemini-zeta-9",
@@ -4657,7 +4657,7 @@ def test_get_optional_params_drops_sampling_params_for_a_flagged_gemini_model_un
 
 def test_media_resolution_from_detail_parameter():
     """Test that OpenAI's detail parameter is correctly mapped to media_resolution"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         _convert_detail_to_media_resolution_enum,
         gemini_convert_messages_with_history,
     )
@@ -4703,7 +4703,7 @@ def test_media_resolution_from_detail_parameter():
 
 def test_media_resolution_low_detail():
     """Test that detail='low' maps to media_resolution enum with MEDIA_RESOLUTION_LOW"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4738,7 +4738,7 @@ def test_media_resolution_low_detail():
 
 def test_media_resolution_auto_detail():
     """Test that detail='auto' or None doesn't set media_resolution"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4793,7 +4793,7 @@ def test_media_resolution_auto_detail():
 
 def test_media_resolution_per_part():
     """Test that different images can have different media_resolution values"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4841,7 +4841,7 @@ def test_media_resolution_per_part():
 
 def test_media_resolution_only_for_gemini_3_models():
     """Ensure media_resolution is not added for non-Gemini 3 models."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -4878,11 +4878,11 @@ def test_gemini_3_image_models_no_thinking_config():
     """
     Test that Gemini 3 image models do NOT receive automatic thinkingConfig.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/17013
+    Related issue: upstream issue 17013
     gemini-3-pro-image-preview does not support thinking_level parameter
     and returns BadRequestError: "Thinking level is not supported for this model"
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4910,7 +4910,7 @@ def test_gemini_3_text_models_get_thinking_config():
     Test that Gemini 3 text models do NOT receive automatic thinkingConfig
     when no reasoning_effort or thinking param is provided.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4938,7 +4938,7 @@ def test_gemini_image_models_excluded_from_thinking():
     Test that any Gemini model with 'image' in the name is excluded from thinking config.
     This covers current and future image models.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4972,16 +4972,16 @@ def test_partial_json_chunk_after_first_chunk():
     Test that partial JSON chunks are handled correctly even AFTER the first chunk.
 
     This tests the fix for:
-    - https://github.com/BerriAI/litellm/issues/16562
-    - https://github.com/BerriAI/litellm/issues/16037
-    - https://github.com/BerriAI/litellm/issues/14747
-    - https://github.com/BerriAI/litellm/issues/10410
-    - https://github.com/BerriAI/litellm/issues/5650
+    - upstream issue 16562
+    - upstream issue 16037
+    - upstream issue 14747
+    - upstream issue 10410
+    - upstream issue 5650
 
     The bug was that accumulation mode only activated on the first chunk.
     If chunk 1 was valid and chunk 5 arrived partial, it would crash.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5008,7 +5008,7 @@ def test_partial_json_chunk_after_first_chunk():
 
 def test_partial_json_chunk_on_first_chunk():
     """Test that first chunk being partial still works (existing behavior)."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5028,7 +5028,7 @@ def test_partial_json_chunk_on_first_chunk():
 
 def test_accumulated_json_does_not_reparse_every_fragment():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/26181
+    Regression test for upstream issue 26181
 
     handle_accumulated_json_chunk used to call json.loads on the entire
     accumulated buffer after EVERY fragment. For a large response fragmented
@@ -5043,7 +5043,7 @@ def test_accumulated_json_does_not_reparse_every_fragment():
     `json.JSONDecoder.raw_decode`, not `json.loads` (see the equivalent
     Anthropic tests) so the spy targets that call, not `json.loads`.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5081,7 +5081,7 @@ def test_accumulated_json_partial_fragment_returns_none_without_parsing():
     attempt over the whole growing buffer (issue #26181). Decoding goes
     through `json.JSONDecoder.raw_decode` post-JSONFragmentAccumulator
     migration, not `json.loads`."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5104,7 +5104,7 @@ def test_google_ai_studio_presence_penalty_supported():
     """
     Test that presence_penalty is supported for Google AI Studio Gemini.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/14753
+    Regression test for upstream issue 14753
     """
     config = GoogleAIStudioGeminiConfig()
     supported_params = config.get_supported_openai_params(model="gemini-2.0-flash")
@@ -5128,7 +5128,7 @@ async def test_google_ai_studio_forwards_seed_to_generation_config(drop_params: 
             request=request,
         )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gemini/gemini-3.8-flash",
         messages=[{"role": "user", "content": "hi"}],
         seed=42,
@@ -5289,7 +5289,7 @@ def test_vertex_ai_mixed_search_and_function_tools_drops_search():
     This happens when deployment config has search tools (enterpriseWebSearch,
     urlContext) and user request adds function calling tools (e.g. via MCP).
 
-    Ref: https://github.com/BerriAI/litellm/issues/23337
+    Ref: upstream issue 23337
     """
     v = VertexGeminiConfig()
     optional_params = {}
@@ -5424,7 +5424,7 @@ def test_get_optional_params_keeps_google_search_with_server_side_flag():
     include_server_side_tool_invocations must be in non_default_params before
     map_openai_params runs (not only via add_provider_specific_params after).
     """
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
     optional_params = get_optional_params(
         model="gemini-3.1-pro-preview",
@@ -5801,7 +5801,7 @@ def test_gemini_image_gen_usage_metadata_prompt_vs_completion_separation():
 
 def test_file_object_detail_parameter():
     """Test that detail parameter works for type: file objects (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -5842,7 +5842,7 @@ def test_file_object_detail_parameter():
 
 def test_video_metadata_fps():
     """Test fps parameter in video_metadata (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -5879,7 +5879,7 @@ def test_video_metadata_fps():
 
 def test_video_metadata_complete():
     """Test all video_metadata fields: fps, start_offset, end_offset (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -5925,7 +5925,7 @@ def test_video_metadata_complete():
 
 def test_detail_and_video_metadata_combined():
     """Test using both detail and video_metadata together (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -5965,7 +5965,7 @@ def test_detail_and_video_metadata_combined():
 
 def test_new_detail_levels():
     """Test new detail levels: medium and ultra_high (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         _convert_detail_to_media_resolution_enum,
         gemini_convert_messages_with_history,
     )
@@ -6007,7 +6007,7 @@ def test_new_detail_levels():
 
 def test_video_metadata_supported_for_all_gemini_models():
     """Test that video_metadata is applied for all Gemini models (Issue #25474)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -6062,7 +6062,7 @@ def test_chunk_parser_handles_prompt_feedback_block():
     """Test chunk_parser correctly handles promptFeedback.blockReason"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6097,7 +6097,7 @@ def test_chunk_parser_handles_prompt_feedback_safety_block():
     """Test chunk_parser handles different blockReason types (SAFETY)"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6128,7 +6128,7 @@ def test_chunk_parser_handles_prompt_feedback_block_with_usage():
     """Test chunk_parser correctly extracts usageMetadata when promptFeedback.blockReason is present"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6173,7 +6173,7 @@ def test_chunk_parser_handles_prompt_feedback_block_with_usage():
 
 def test_vertex_ai_traffic_type_preserved_in_hidden_params_streaming():
     """Test trafficType is preserved in _hidden_params for streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6195,7 +6195,7 @@ def test_vertex_ai_traffic_type_preserved_in_hidden_params_streaming():
 
 def test_vertex_ai_traffic_type_preserved_in_hidden_params_non_streaming():
     """Test trafficType is preserved in _hidden_params for non-streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -6225,7 +6225,7 @@ def test_vertex_ai_traffic_type_preserved_in_hidden_params_non_streaming():
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -6234,7 +6234,7 @@ def test_vertex_ai_traffic_type_preserved_in_hidden_params_non_streaming():
 
 def test_vertex_ai_service_tier_streaming():
     """Test service_tier is preserved in model_response from headers for streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6266,7 +6266,7 @@ def test_vertex_ai_service_tier_streaming():
 
 def test_vertex_ai_service_tier_non_streaming():
     """Test service_tier is preserved in model_response from headers for non-streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -6296,7 +6296,7 @@ def test_vertex_ai_service_tier_non_streaming():
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -6305,12 +6305,12 @@ def test_vertex_ai_service_tier_non_streaming():
 
 def test_vertex_ai_traffic_type_surfaced_in_responses_api():
     """Test trafficType is surfaced as provider_specific_fields in ResponsesAPIResponse."""
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from hangarllm.responses.hangarllm_completion_transformation.transformation import (
+        HangarLLMCompletionResponsesConfig,
     )
 
     # Create a ModelResponse with provider_specific_fields in _hidden_params
-    from litellm.types.utils import Choices, Message
+    from hangarllm.types.utils import Choices, Message
 
     model_response = ModelResponse()
     model_response._hidden_params["provider_specific_fields"] = {"traffic_type": "ON_DEMAND"}
@@ -6323,7 +6323,7 @@ def test_vertex_ai_traffic_type_surfaced_in_responses_api():
     ]
 
     responses_api_response = (
-        LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        HangarLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="test",
             chat_completion_response=model_response,
             responses_api_request={},
@@ -6349,7 +6349,7 @@ def test_vertex_ai_web_search_options_parameter():
     Expected Output:
         tools=[{"googleSearch": {}}]
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -6380,7 +6380,7 @@ def test_vertex_ai_web_search_options_in_map_openai_params():
     Expected:
         optional_params should have tools with googleSearch
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -6410,7 +6410,7 @@ def test_vertex_ai_web_search_options_in_map_openai_params():
 
 def test_vertex_ai_service_tier_in_map_openai_params():
     """Test that service_tier is correctly mapped to optional_params."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -6605,7 +6605,7 @@ def test_vertex_ai_usage_metadata_video_tokens_with_caching():
 def test_vertex_ai_usage_metadata_with_document_tokens_in_prompt():
     """Test promptTokensDetails with DOCUMENT modality for PDF inputs.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/24375
+    Fixes: upstream issue 24375
 
     When a PDF is sent to Gemini, the API returns a DOCUMENT modality in
     promptTokensDetails. These tokens should be mapped to text_tokens since
@@ -6703,12 +6703,12 @@ def test_async_streaming_uses_custom_client():
     Test that user-specified async client is correctly passed to make_call
     for async streaming calls.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/17148
+    Fixes: upstream issue 17148
     """
     from functools import partial
 
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         make_call,
     )
 
@@ -6741,8 +6741,8 @@ def test_sync_streaming_uses_custom_client():
     """
     from functools import partial
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         make_sync_call,
     )
 
@@ -6778,7 +6778,7 @@ def test_transform_response_does_not_leak_body_on_parse_failure():
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -6791,8 +6791,8 @@ def test_chunk_parser_raises_on_429_error_chunk():
     """Test chunk_parser raises VertexAIError on 429 RESOURCE_EXHAUSTED error chunk"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6825,8 +6825,8 @@ def test_chunk_parser_raises_on_500_error_chunk():
     """Test chunk_parser raises VertexAIError on 500 INTERNAL error chunk"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6858,8 +6858,8 @@ def test_chunk_parser_raises_on_error_chunk_with_minimal_fields():
     """Test chunk_parser handles error chunks with missing optional fields"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6889,7 +6889,7 @@ def test_chunk_parser_normal_chunk_unaffected_by_error_check():
     """Test that normal streaming chunks still work correctly after error check addition"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6929,8 +6929,8 @@ def test_chunk_parser_raises_on_non_dict_error():
     """Test chunk_parser raises VertexAIError when chunk['error'] is not a dict"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6956,8 +6956,8 @@ def test_chunk_parser_raises_on_string_error_code():
     """Test chunk_parser correctly converts string error code to int"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6990,8 +6990,8 @@ def test_chunk_parser_error_chunk_explicit_null_code_uses_500():
     """JSON null for code must not call int(None); status defaults to 500."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7023,8 +7023,8 @@ def test_chunk_parser_error_chunk_non_numeric_code_defaults_to_500():
     """Non-numeric code must not become ValueError -> RuntimeError in __next__."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7056,8 +7056,8 @@ def test_chunk_parser_error_chunk_empty_dict_defaults_to_500():
     """Empty error object {} uses default code 500 and default message/status strings."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7084,8 +7084,8 @@ def test_chunk_parser_error_chunk_non_dict_int_value():
     """Non-dict error payloads (e.g. bare JSON number) must raise with status 500, not TypeError."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7112,8 +7112,8 @@ def test_chunk_parser_error_chunk_non_dict_null_value():
     """JSON null for error must hit the non-dict branch (same as int/string)."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7144,8 +7144,8 @@ def test_mid_stream_429_error_raises_during_iteration():
     import json
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7241,7 +7241,7 @@ class TestModelResponseIteratorCleanup:
     def test_aclose_closes_iterator_and_response(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -7267,7 +7267,7 @@ class TestModelResponseIteratorCleanup:
     def test_close_closes_iterator_and_response(self):
         from unittest.mock import MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -7290,7 +7290,7 @@ class TestModelResponseIteratorCleanup:
     def test_aclose_without_response_does_not_raise(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -7311,7 +7311,7 @@ class TestModelResponseIteratorCleanup:
     def test_aclose_tolerates_iterator_error(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -7337,8 +7337,8 @@ class TestModelResponseIteratorCleanup:
         """CustomStreamWrapper.aclose() must propagate to ModelResponseIterator.aclose()."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -7408,7 +7408,7 @@ def test_process_candidates_merges_thought_signatures_and_server_side_tools():
 
 
 def _accumulating_gemini_iterator():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7571,12 +7571,12 @@ def test_invalid_reasoning_effort_is_a_400_not_a_500(custom_llm_provider, model,
     Both reasoning_effort mappers used to end their if/elif chain in a bare `ValueError`, which
     `exception_type()` has no branch for, so it fell through to `APIConnectionError` and the proxy
     answered a malformed client request with a retryable HTTP 500. `xhigh` is covered alongside the
-    nonsense value because it is a member of litellm's own `REASONING_EFFORT` literal, so callers
+    nonsense value because it is a member of hangarllm's own `REASONING_EFFORT` literal, so callers
     bridging from OpenAI-shaped code reach it without typing anything wrong.
     """
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         get_optional_params(
             model=model,
             custom_llm_provider=custom_llm_provider,
@@ -7597,7 +7597,7 @@ def test_invalid_reasoning_effort_surfaces_as_400_through_completion(custom_llm_
 
     Needs no provider credentials: param mapping runs before any network call.
     """
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         completion(
             model=f"{custom_llm_provider}/gemini-3-pro-preview",
             messages=[{"role": "user", "content": "hi"}],
@@ -7605,13 +7605,13 @@ def test_invalid_reasoning_effort_surfaces_as_400_through_completion(custom_llm_
         )
 
     assert exc_info.value.status_code == 400
-    assert not isinstance(exc_info.value, litellm.APIConnectionError)
+    assert not isinstance(exc_info.value, hangarllm.APIConnectionError)
 
 
 @pytest.mark.parametrize("model", ["gemini-2.5-flash", "gemini-3-pro-preview"])
 def test_supported_reasoning_efforts_still_map(model):
     """Guards the fix against over-rejecting: every advertised value must still produce a config."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         SUPPORTED_REASONING_EFFORTS,
     )
 
@@ -7741,9 +7741,9 @@ def test_gemini_3_sampling_deprecation_for_names_priced_at_runtime_shares_one_no
     priced: Final = tuple(f"gemini-3.9-flash-{uuid.uuid4().hex}" for _ in range(20))
     for name in priced:
         monkeypatch.setitem(
-            litellm.model_cost,  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
+            hangarllm.model_cost,  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
             f"gemini/{name}",
-            {"input_cost_per_token": 1e-7, "output_cost_per_token": 1e-7, "litellm_provider": "gemini"},
+            {"input_cost_per_token": 1e-7, "output_cost_per_token": 1e-7, "hangarllm_provider": "gemini"},
         )
     config: Final = VertexGeminiConfig()
 
@@ -7823,7 +7823,7 @@ def test_generate_content_transform_falls_back_to_requested_model():
 
 
 def test_streaming_chunk_carries_model_version():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7835,8 +7835,8 @@ def test_streaming_chunk_carries_model_version():
 
 
 def test_served_model_version_reaches_assembled_stream_through_custom_stream_wrapper():
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7860,7 +7860,7 @@ def test_served_model_version_reaches_assembled_stream_through_custom_stream_wra
     assert len(chunks) >= 3
     for chunk in chunks[:-1]:
         assert chunk._hidden_params["provider_response_model"] == served_model
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
     assert assembled._hidden_params["provider_response_model"] == served_model
 
 
@@ -7880,7 +7880,7 @@ def test_generate_content_transform_strips_version_suffix_from_model_version():
 
 
 def test_prompt_blocked_chunk_keeps_served_model_version():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -7931,8 +7931,8 @@ def test_gemini_candidate_with_finish_reason_no_content_chat_completion():
 
 
 def test_gemini_candidate_with_finish_reason_no_content_anthropic_messages():
-    from litellm.llms.anthropic.messages.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from hangarllm.llms.anthropic.messages.adapters.transformation import (
+        HangarLLMAnthropicMessagesAdapter,
     )
 
     config = VertexGeminiConfig()
@@ -7957,7 +7957,7 @@ def test_gemini_candidate_with_finish_reason_no_content_anthropic_messages():
         raw_response=MagicMock(headers={}),
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = HangarLLMAnthropicMessagesAdapter()
     anthropic_resp = adapter.translate_openai_response_to_anthropic(
         response=resp,
         tool_name_mapping={},
@@ -7967,8 +7967,8 @@ def test_gemini_candidate_with_finish_reason_no_content_anthropic_messages():
 
 
 def test_gemini_candidate_with_finish_reason_no_content_responses_api():
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from hangarllm.responses.hangarllm_completion_transformation.transformation import (
+        HangarLLMCompletionResponsesConfig,
     )
 
     config = VertexGeminiConfig()
@@ -7993,7 +7993,7 @@ def test_gemini_candidate_with_finish_reason_no_content_responses_api():
         raw_response=MagicMock(headers={}),
     )
 
-    responses_resp = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    responses_resp = HangarLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="Generate picture",
         responses_api_request={},
         chat_completion_response=resp,
@@ -8004,11 +8004,11 @@ def test_gemini_candidate_with_finish_reason_no_content_responses_api():
 
 
 def test_gemini_candidate_other_finish_reasons_no_content():
-    from litellm.llms.anthropic.messages.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from hangarllm.llms.anthropic.messages.adapters.transformation import (
+        HangarLLMAnthropicMessagesAdapter,
     )
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from hangarllm.responses.hangarllm_completion_transformation.transformation import (
+        HangarLLMCompletionResponsesConfig,
     )
 
     config = VertexGeminiConfig()
@@ -8027,13 +8027,13 @@ def test_gemini_candidate_other_finish_reasons_no_content():
     assert resp_length.choices[0].finish_reason == "length"
     assert resp_length.choices[0].provider_specific_fields["native_finish_reason"] == "MAX_TOKENS"
 
-    anthropic_length = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
+    anthropic_length = HangarLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
         response=resp_length,
         tool_name_mapping={},
     )
     assert anthropic_length["stop_reason"] == "max_tokens"
 
-    responses_length = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    responses_length = HangarLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="thinking request",
         responses_api_request={},
         chat_completion_response=resp_length,
@@ -8043,7 +8043,7 @@ def test_gemini_candidate_other_finish_reasons_no_content():
 
 
 def test_gemini_candidate_with_finish_reason_no_content_streaming_chunk():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -8112,11 +8112,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -8128,18 +8128,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -8149,66 +8149,66 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_thought_true_creates_thinking_block():
     """
     Test that a part with thought=True and non-empty text creates a thinking block.
@@ -8223,7 +8223,7 @@ def test_thought_true_creates_thinking_block():
     assert block["signature"] == "sig-1"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_thought_true_with_empty_text_creates_block():
     """
     Test that a part with thought=True but empty text still creates a thinking block.
@@ -8235,7 +8235,7 @@ def test_thought_true_with_empty_text_creates_block():
     assert thinking_blocks[0]["thinking"] == ""
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_thought_signature_without_thought_does_not_create_block():
     """
     Test that a part with thoughtSignature but without thought=True does NOT create
@@ -8248,7 +8248,7 @@ def test_thought_signature_without_thought_does_not_create_block():
     assert thinking_blocks == []
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_extract_thought_signatures_from_regular_parts():
     """
     Test that thoughtSignatures are extracted from regular text parts (without thought=True).
@@ -8268,7 +8268,7 @@ def test_extract_thought_signatures_from_regular_parts():
     assert signatures[0] == "sig-regular-123"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_extract_multiple_thought_signatures():
     """
     Test extraction of multiple thoughtSignatures from different parts.
@@ -8287,7 +8287,7 @@ def test_extract_multiple_thought_signatures():
     assert signatures[1] == "sig-2"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_round_trip_thought_signature_in_conversation():
     """
     Test that thoughtSignatures are properly round-tripped through conversation history.
@@ -8322,7 +8322,7 @@ def test_round_trip_thought_signature_in_conversation():
     assert text_part["thoughtSignature"] == "sig-round-trip-abc"
 
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_round_trip_without_thought_signature_still_works():
     """
     Test that messages without thoughtSignatures continue to work normally.
@@ -8555,12 +8555,12 @@ def test_gemini_flash_image_preview_models(model_name: str):
     and invoke the generateContent endpoint returning inline image data.
     """
     from unittest.mock import patch, MagicMock
-    from litellm.types.utils import ImageResponse, ImageObject
+    from hangarllm.types.utils import ImageResponse, ImageObject
 
     mock_response = ImageResponse()
     mock_response.data = [ImageObject(b64_json="test_base64_data", url=None)]
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = {
             "candidates": [{"content": {"parts": [{"inlineData": {"data": "test_base64_image_data"}}]}}]
@@ -8568,7 +8568,7 @@ def test_gemini_flash_image_preview_models(model_name: str):
         mock_http_response.status_code = 200
         mock_post.return_value = mock_http_response
 
-        response = litellm.image_generation(
+        response = hangarllm.image_generation(
             model=model_name,
             prompt="Generate a simple test image",
             api_key="test_api_key",
@@ -8616,7 +8616,7 @@ def test_gemini_flash_image_preview_models(model_name: str):
 def test_gemini_image_generation_forwards_image_config(model: str, kwargs: dict, expected_image_config: dict):
     from unittest.mock import patch, MagicMock
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = {
             "candidates": [{"content": {"parts": [{"inlineData": {"data": "test_base64_image_data"}}]}}]
@@ -8624,7 +8624,7 @@ def test_gemini_image_generation_forwards_image_config(model: str, kwargs: dict,
         mock_http_response.status_code = 200
         mock_post.return_value = mock_http_response
 
-        litellm.image_generation(
+        hangarllm.image_generation(
             model=model,
             prompt="Generate a simple test image",
             api_key="test_api_key",
@@ -8636,7 +8636,7 @@ def test_gemini_image_generation_forwards_image_config(model: str, kwargs: dict,
 
 
 def test_gemini_image_generation_image_config_takes_precedence_over_size():
-    from litellm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
+    from hangarllm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
 
     explicit_image_config = {"aspectRatio": "16:9", "imageSize": "2K"}
 
@@ -8654,7 +8654,7 @@ def test_gemini_image_generation_image_config_takes_precedence_over_size():
 
 
 def test_gemini_image_generation_ignores_non_dict_image_config():
-    from litellm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
+    from hangarllm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
 
     mapped_params = GoogleImageGenConfig().map_openai_params(
         non_default_params={
@@ -8677,7 +8677,7 @@ def test_gemini_image_generation_openai_size_maps_to_google_table(
     size: str, expected_aspect_ratio: str, expected_image_size: str
 ):
     """Flash table as of 2026-10-26, https://ai.google.dev/gemini-api/docs/image-generation#aspect_ratios_and_image_size."""
-    from litellm.llms.gemini.common_utils import (
+    from hangarllm.llms.gemini.common_utils import (
         map_openai_size_to_gemini_image_config,
     )
 
@@ -8701,7 +8701,7 @@ def test_gemini_image_generation_openai_size_maps_to_google_table(
 def test_gemini_image_generation_openai_size_snaps_to_nearest_option(
     size: str, expected_aspect_ratio: str, expected_image_size: str
 ):
-    from litellm.llms.gemini.common_utils import (
+    from hangarllm.llms.gemini.common_utils import (
         map_openai_size_to_gemini_image_config,
     )
 
@@ -8713,7 +8713,7 @@ def test_gemini_image_generation_openai_size_snaps_to_nearest_option(
 
 @pytest.mark.parametrize("size", ["auto", "invalid", "0x1024", "1024x0"])
 def test_gemini_image_generation_openai_size_auto_uses_google_defaults(size: str):
-    from litellm.llms.gemini.common_utils import (
+    from hangarllm.llms.gemini.common_utils import (
         map_openai_size_to_gemini_image_config,
     )
 
@@ -8725,15 +8725,15 @@ def test_gemini_imagen_models_use_predict_endpoint():
     Test that Imagen models still use :predict endpoint (not broken by gemini-2.5-flash-image-preview fix)
     """
     from unittest.mock import patch, MagicMock
-    from litellm.types.utils import ImageResponse, ImageObject
+    from hangarllm.types.utils import ImageResponse, ImageObject
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = {"predictions": [{"bytesBase64Encoded": "test_base64_image_data"}]}
         mock_http_response.status_code = 200
         mock_post.return_value = mock_http_response
 
-        response = litellm.image_generation(
+        response = hangarllm.image_generation(
             model="gemini/imagen-3.0-generate-001",
             prompt="Generate a simple test image",
             size="1280x896",
@@ -8760,9 +8760,9 @@ def test_gemini_imagen_models_use_predict_endpoint():
 
 
 def test_gemini_thinking_budget_0():
-    litellm.turn_on_debug()
-    from litellm.types.utils import Message, CallTypes
-    from litellm.utils import return_raw_request
+    hangarllm.turn_on_debug()
+    from hangarllm.types.utils import Message, CallTypes
+    from hangarllm.utils import return_raw_request
     import json
 
     raw_request = return_raw_request(
@@ -8785,7 +8785,7 @@ def test_gemini_thinking_budget_0():
 @pytest.mark.asyncio
 async def test_claude_tool_use_with_gemini():
     """
-    Tests that tool use via litellm.anthropic.messages.acreate with a non-Anthropic model
+    Tests that tool use via hangarllm.anthropic.messages.acreate with a non-Anthropic model
     (Gemini) correctly produces Anthropic SSE streaming format with tool_use blocks.
 
     Uses a mocked acompletion response to make the test deterministic — Gemini 2.5 flash
@@ -8793,7 +8793,7 @@ async def test_claude_tool_use_with_gemini():
     test focuses on verifying the streaming transformation logic rather than live model behavior.
     """
     from unittest.mock import patch, AsyncMock
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ModelResponseStream,
         StreamingChoices,
         Delta,
@@ -8868,10 +8868,10 @@ async def test_claude_tool_use_with_gemini():
                 return chunk
             raise StopAsyncIteration
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = MockAsyncStream()
 
-        response = await litellm.anthropic.messages.acreate(
+        response = await hangarllm.anthropic.messages.acreate(
             messages=[
                 {
                     "role": "user",
@@ -8952,8 +8952,8 @@ def test_gemini_reasoning_effort_minimal():
     """
     Test that reasoning_effort='minimal' correctly maps to model-specific minimum thinking budgets
     """
-    from litellm.utils import return_raw_request
-    from litellm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
     import json
 
     test_cases = [
@@ -9018,8 +9018,8 @@ def test_gemini_exception_message_format():
     """
     import httpx
     from unittest.mock import Mock
-    from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-    from litellm import BadRequestError
+    from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
+    from hangarllm import BadRequestError
 
     mock_response = Mock(spec=httpx.Response)
     mock_response.status_code = 400
@@ -9054,9 +9054,9 @@ def test_gemini_exception_message_format():
 def test_reasoning_effort_none_mapping():
     """
     Test that reasoning_effort='none' correctly maps to thinkingConfig.
-    Related issue: https://github.com/BerriAI/litellm/issues/16420
+    Related issue: upstream issue 16420
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -9073,12 +9073,12 @@ def test_reasoning_effort_none_mapping():
 def test_gemini_function_args_preserve_unicode():
     """
     Test for Issue #16533: Gemini function call arguments should preserve non-ASCII characters
-    https://github.com/BerriAI/litellm/issues/16533
+    upstream issue 16533
 
     Before fix: "や" becomes "\u3084"
     After fix: "や" stays as "や"
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -9139,15 +9139,15 @@ def test_anthropic_thinking_param_to_gemini_3_provider_defaults():
     - Should not force thinkingLevel by default
     - Should still set includeThoughts correctly
 
-    Related issue: https://github.com/BerriAI/litellm/issues/XXXX
+    Related issue: https://github.com/valteresj2/HangarLLM/issues/XXXX
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.anthropic import AnthropicThinkingParam
+    from hangarllm.types.llms.anthropic import AnthropicThinkingParam
 
-    original_force_low_flag = litellm.enable_gemini_default_thinking_level_low
-    litellm.enable_gemini_default_thinking_level_low = False
+    original_force_low_flag = hangarllm.enable_gemini_default_thinking_level_low
+    hangarllm.enable_gemini_default_thinking_level_low = False
 
     thinking_param: AnthropicThinkingParam = {
         "type": "enabled",
@@ -9198,20 +9198,20 @@ def test_anthropic_thinking_param_to_gemini_3_provider_defaults():
         assert "thinkingBudget" not in result_gemini3flashpreview
         assert result_gemini3flashpreview["includeThoughts"] is True
     finally:
-        litellm.enable_gemini_default_thinking_level_low = original_force_low_flag
+        hangarllm.enable_gemini_default_thinking_level_low = original_force_low_flag
 
 
 def test_anthropic_thinking_param_to_gemini_3_force_low_feature_flag():
     """
     Test that Gemini 3 thinkingLevel forced mapping is available behind a feature flag.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.anthropic import AnthropicThinkingParam
+    from hangarllm.types.llms.anthropic import AnthropicThinkingParam
 
-    original_force_low_flag = litellm.enable_gemini_default_thinking_level_low
-    litellm.enable_gemini_default_thinking_level_low = True
+    original_force_low_flag = hangarllm.enable_gemini_default_thinking_level_low
+    hangarllm.enable_gemini_default_thinking_level_low = True
 
     thinking_param: AnthropicThinkingParam = {
         "type": "enabled",
@@ -9233,7 +9233,7 @@ def test_anthropic_thinking_param_to_gemini_3_force_low_feature_flag():
         assert result_pro["thinkingLevel"] == "low"
         assert result_pro["includeThoughts"] is True
     finally:
-        litellm.enable_gemini_default_thinking_level_low = original_force_low_flag
+        hangarllm.enable_gemini_default_thinking_level_low = original_force_low_flag
 
 
 def test_anthropic_thinking_param_to_gemini_2_thinkingBudget():
@@ -9245,12 +9245,12 @@ def test_anthropic_thinking_param_to_gemini_2_thinkingBudget():
     - Should continue using thinkingBudget
     - thinkingLevel should NOT be used
 
-    Related issue: https://github.com/BerriAI/litellm/issues/XXXX
+    Related issue: https://github.com/valteresj2/HangarLLM/issues/XXXX
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.anthropic import AnthropicThinkingParam
+    from hangarllm.types.llms.anthropic import AnthropicThinkingParam
 
     thinking_param: AnthropicThinkingParam = {
         "type": "enabled",
@@ -9285,10 +9285,10 @@ def test_anthropic_thinking_param_via_map_openai_params():
 
     This tests the full integration from Anthropic API format to Gemini format.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.anthropic import AnthropicThinkingParam
+    from hangarllm.types.llms.anthropic import AnthropicThinkingParam
 
     config = VertexGeminiConfig()
 
@@ -9336,7 +9336,7 @@ def test_gemini_31_flash_lite_reasoning_effort_minimal():
 
     Regression test for: "minimal" reasoning_effort not supported for gemini-3.1-flash-lite-preview
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -9349,8 +9349,8 @@ def test_gemini_31_flash_lite_reasoning_effort_minimal():
     )
     assert result["includeThoughts"] is True
 
-    from litellm.utils import return_raw_request
-    from litellm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
 
     raw_request = return_raw_request(
         endpoint=CallTypes.completion,
@@ -9379,13 +9379,13 @@ def test_gemini_image_size_limit_exceeded(monkeypatch):
     that could cause memory issues and pod crashes.
 
     The image fetch is mocked (mirroring the LargeImageClient pattern in
-    tests/unit/litellm_core_utils/test_image_handling.py) so the test
+    tests/unit/hangarllm_core_utils/test_image_handling.py) so the test
     deterministically exercises the size-limit rejection path without any
     external network dependency.
     """
     from httpx import Request, Response
 
-    from litellm.litellm_core_utils.prompt_templates import image_handling
+    from hangarllm.hangarllm_core_utils.prompt_templates import image_handling
 
     class LargeImageClient:
         """Returns a response whose Content-Length exceeds the 50MB limit."""
@@ -9412,7 +9412,7 @@ def test_gemini_image_size_limit_exceeded(monkeypatch):
         "safe_get",
         lambda client, url, **kw: client.get(url, follow_redirects=True),
     )
-    monkeypatch.setattr(litellm, "module_level_client", LargeImageClient())
+    monkeypatch.setattr(hangarllm, "module_level_client", LargeImageClient())
 
     messages = [
         {
@@ -9427,7 +9427,7 @@ def test_gemini_image_size_limit_exceeded(monkeypatch):
         }
     ]
 
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
+    with pytest.raises(hangarllm.ImageFetchError) as excinfo:
         completion(model="gemini/gemini-2.5-flash-lite", messages=messages)
 
     error_message = str(excinfo.value)
@@ -9452,8 +9452,8 @@ def tool_call_no_arguments():
 
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_tool_call_no_arguments(tool_call_no_arguments):
-    """Test that tool calls with no arguments is translated correctly. Relevant issue: https://github.com/BerriAI/litellm/issues/6833"""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    """Test that tool calls with no arguments is translated correctly. Relevant issue: upstream issue 6833"""
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -9670,16 +9670,16 @@ async def test_gemini_pro_json_schema_args_sent_httpx(
     vertex_location,
     invalid_response,
     enforce_validation,
-    isolate_litellm_state,
+    isolate_hangarllm_state,
     monkeypatch,
 ):
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-api-key")
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     _invalidate_model_cost_lowercase_map()
-    monkeypatch.setattr(litellm, "set_verbose", True)
+    monkeypatch.setattr(hangarllm, "set_verbose", True)
     messages = [{"role": "user", "content": "List 5 cookie recipes"}]
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     response_schema = {
         "type": "object",
@@ -9718,7 +9718,7 @@ async def test_gemini_pro_json_schema_args_sent_httpx(
         ),
         patch.object(client, "post", new=httpx_response) as mock_call,
     ):
-        monkeypatch.setattr(litellm, "set_verbose", True)
+        monkeypatch.setattr(hangarllm, "set_verbose", True)
         print(f"model entering completion: {model}")
         try:
             resp = completion(
@@ -9735,7 +9735,7 @@ async def test_gemini_pro_json_schema_args_sent_httpx(
             print("Received={}".format(resp))
             if invalid_response is True and enforce_validation is True:
                 pytest.fail("Expected this to fail")
-        except litellm.JSONSchemaValidationError as e:
+        except hangarllm.JSONSchemaValidationError as e:
             if invalid_response is False:
                 pytest.fail("Expected this to pass. Got={}".format(e))
         mock_call.assert_called_once()
@@ -9770,22 +9770,22 @@ async def test_gemini_pro_json_schema_args_sent_httpx_openai_schema(
     vertex_location,
     invalid_response,
     enforce_validation,
-    isolate_litellm_state,
+    isolate_hangarllm_state,
     monkeypatch,
 ):
     from typing import List
 
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-api-key")
     if enforce_validation:
-        monkeypatch.setattr(litellm, "enable_json_schema_validation", True)
+        monkeypatch.setattr(hangarllm, "enable_json_schema_validation", True)
     from pydantic import BaseModel
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     _invalidate_model_cost_lowercase_map()
-    monkeypatch.setattr(litellm, "set_verbose", True)
+    monkeypatch.setattr(hangarllm, "set_verbose", True)
     messages = [{"role": "user", "content": "List 5 cookie recipes"}]
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     class Recipe(BaseModel):
         recipe_name: str
@@ -9826,7 +9826,7 @@ async def test_gemini_pro_json_schema_args_sent_httpx_openai_schema(
             print("Received={}".format(resp))
             if invalid_response is True and enforce_validation is True:
                 pytest.fail("Expected this to fail")
-        except litellm.JSONSchemaValidationError as e:
+        except hangarllm.JSONSchemaValidationError as e:
             if invalid_response is False:
                 pytest.fail("Expected this to pass. Got={}".format(e))
         mock_call.assert_called_once()
@@ -9850,7 +9850,7 @@ async def test_gemini_pro_json_schema_args_sent_httpx_openai_schema(
 
 def test_tool_name_conversion():
     messages = [
-        {"role": "system", "content": "Your name is Litellm Bot, you are a helpful assistant"},
+        {"role": "system", "content": "Your name is Hangarllm Bot, you are a helpful assistant"},
         {"role": "user", "content": "Hello, what is your name and can you tell me the weather?"},
         {
             "role": "assistant",
@@ -9897,16 +9897,16 @@ async def test_gemini_context_caching_disabled_flag(sync_mode):
 
     When the flag is set to True, messages with cache_control should not trigger caching API calls.
     """
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     # Store original value to restore later
-    original_flag_value = litellm.disable_anthropic_gemini_context_caching_transform
+    original_flag_value = hangarllm.disable_anthropic_gemini_context_caching_transform
 
     try:
         # Enable the disable flag
-        litellm.disable_anthropic_gemini_context_caching_transform = True
+        hangarllm.disable_anthropic_gemini_context_caching_transform = True
 
         gemini_context_caching_messages = [
             # System Message with cache_control
@@ -9954,7 +9954,7 @@ async def test_gemini_context_caching_disabled_flag(sync_mode):
         with patch.object(client, "post", side_effect=mock_gemini_request) as mock_client:
             try:
                 if sync_mode:
-                    response = litellm.completion(
+                    response = hangarllm.completion(
                         model="gemini/gemini-2.5-flash-lite-001",
                         messages=gemini_context_caching_messages,
                         temperature=0.2,
@@ -9962,7 +9962,7 @@ async def test_gemini_context_caching_disabled_flag(sync_mode):
                         client=client,
                     )
                 else:
-                    response = await litellm.acompletion(
+                    response = await hangarllm.acompletion(
                         model="gemini/gemini-2.5-flash-lite-001",
                         messages=gemini_context_caching_messages,
                         temperature=0.2,
@@ -9993,13 +9993,13 @@ async def test_gemini_context_caching_disabled_flag(sync_mode):
 
     finally:
         # Restore original flag value
-        litellm.disable_anthropic_gemini_context_caching_transform = original_flag_value
+        hangarllm.disable_anthropic_gemini_context_caching_transform = original_flag_value
 
 
 def test_gemini_function_call_parameter_in_messages():
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     load_vertex_ai_credentials()
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     tools = [
         {
@@ -10061,7 +10061,7 @@ def test_gemini_function_call_parameter_in_messages():
     }
 
     with patch(
-        "litellm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
+        "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token",
         return_value=({"Authorization": "Bearer fake"}, "test-project"),
     ):
         with patch.object(client, "post", new=MagicMock()) as mock_client:
@@ -10134,8 +10134,8 @@ def test_gemini_function_call_parameter_in_messages():
 
 
 def test_gemini_function_call_parameter_in_messages_2():
-    litellm.set_verbose = True
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    hangarllm.set_verbose = True
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -10221,13 +10221,13 @@ def test_custom_api_base(api_base):
     ],
     ids=["completion-gemini", "embedding-gemini", "image_generation-vertex_ai"],
 )
-def test_litellm_api_base(monkeypatch, provider, route):
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+def test_hangarllm_api_base(monkeypatch, provider, route):
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "api_base", "https://litellm.com")
+    monkeypatch.setattr(hangarllm, "api_base", "https://hangarllm.com")
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-api-key")
     if route == "image_generation" and provider == "gemini":
         pytest.skip("Gemini does not support image generation")
@@ -10270,7 +10270,7 @@ def test_litellm_api_base(monkeypatch, provider, route):
         elif route == "image_generation":
             image_generation(model=f"{provider}/gemini-2.0-flash-001", prompt="Hello, world!", client=client)
         mock_client.assert_called()
-        assert mock_client.call_args.kwargs["url"].startswith("https://litellm.com")
+        assert mock_client.call_args.kwargs["url"].startswith("https://hangarllm.com")
 
 
 def test_gemini_tool_calling_working_demo():
@@ -10279,8 +10279,8 @@ def test_gemini_tool_calling_working_demo():
     branch (no items field at all) must synthesize items before the request
     is sent to Vertex (Vertex rejects array types missing items).
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
     args = {
         "messages": [
@@ -10365,8 +10365,8 @@ def test_gemini_tool_calling_not_working():
     array branch and a null branch must serialize with items present on the
     array branch (Vertex rejects array types missing `items`).
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
     args = {
         "messages": [
@@ -10446,9 +10446,9 @@ def test_gemini_tool_calling_not_working():
 
 
 def test_vertex_ai_streaming_response_id():
-    """Test that litellm preserves the response ID from Vertex AI's API for streaming responses"""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    """Test that hangarllm preserves the response ID from Vertex AI's API for streaming responses"""
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         make_sync_call,
     )
 
@@ -10508,8 +10508,8 @@ def test_vertex_ai_gemini_audio_ogg():
     in the request sent to Vertex AI. Uses mocked HTTP and auth to avoid flaky external
     URL fetches and credential requirements.
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -10553,8 +10553,8 @@ def test_vertex_ai_gemini_audio_ogg():
 
 
 def test_vertex_ai_cache_creation_kwarg_cannot_change_usage_or_cost() -> None:
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -10569,7 +10569,7 @@ def test_vertex_ai_cache_creation_kwarg_cannot_change_usage_or_cost() -> None:
         patch.object(client, "post", new=httpx_mock),
         patch.object(VertexBase, "_ensure_access_token", return_value=("fake-token", "fake-project")),
     ):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="vertex_ai/gemini-2.5-flash",
             messages=[{"role": "user", "content": "hi"}],
             vertex_project="fake-project",
@@ -10731,7 +10731,7 @@ _FORMAT_PLACEMENTS: Final = (
 def test_chat_audio_unsupported_format_is_a_400_naming_the_model_and_format(
     model: str, audio: Callable[[str], Mapping[str, object]], audio_format: str
 ) -> None:
-    with respx.mock, pytest.raises(litellm.BadRequestError) as raised:
+    with respx.mock, pytest.raises(hangarllm.BadRequestError) as raised:
         completion(
             model=model,
             messages=[{"role": "user", "content": "Say hello"}],
@@ -10754,7 +10754,7 @@ def test_chat_audio_unsupported_format_is_dropped_under_drop_params(
     global_drop_params: bool,
     audio: Callable[[str], Mapping[str, object]],
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", global_drop_params)
+    monkeypatch.setattr(hangarllm, "drop_params", global_drop_params)
 
     optional_params: Final = VertexGeminiConfig().map_openai_params(
         non_default_params={"modalities": ["audio"], "audio": audio("mp3")},
@@ -10770,7 +10770,7 @@ def test_chat_audio_unsupported_format_is_dropped_under_drop_params(
 
 
 def test_chat_audio_unsupported_format_error_caps_the_echoed_format() -> None:
-    with pytest.raises(litellm.UnsupportedParamsError) as raised:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as raised:
         VertexGeminiConfig().map_openai_params(
             non_default_params={"modalities": ["audio"], "audio": {"voice": "Kore", "format": "x" * 300}},
             optional_params={},
@@ -10784,7 +10784,7 @@ def test_chat_audio_unsupported_format_error_caps_the_echoed_format() -> None:
 
 @pytest.mark.parametrize("audio_format", [5, {"codec": "mp3"}, ["x"] * 300])
 def test_chat_audio_non_string_format_error_names_the_value_as_sent(audio_format: object) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError) as raised:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as raised:
         VertexGeminiConfig().map_openai_params(
             non_default_params={"modalities": ["audio"], "audio": {"voice": "Kore", "format": audio_format}},
             optional_params={},
@@ -10796,7 +10796,7 @@ def test_chat_audio_non_string_format_error_names_the_value_as_sent(audio_format
 
 
 def test_map_audio_params_rejects_an_unsupported_format() -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match="audio format 'mp3'"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="audio format 'mp3'"):
         VertexGeminiConfig().map_audio_params({"voice": "Kore", "format": "mp3"})
 
 
@@ -10816,7 +10816,7 @@ _CACHED_PROMPT_USAGE_METADATA = {
 
 
 def test_calculate_usage_bills_context_cache_creation_tokens_once():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
 
     usage = VertexGeminiConfig._calculate_usage(
         {"candidates": [], "usageMetadata": _CACHED_PROMPT_USAGE_METADATA}, cache_creation_tokens=1280
@@ -10831,7 +10831,7 @@ def test_calculate_usage_bills_context_cache_creation_tokens_once():
 
 
 def test_calculate_usage_without_cache_creation_leaves_usage_unchanged():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
 
     usage = VertexGeminiConfig._calculate_usage({"candidates": [], "usageMetadata": _CACHED_PROMPT_USAGE_METADATA})
 
@@ -10841,7 +10841,7 @@ def test_calculate_usage_without_cache_creation_leaves_usage_unchanged():
 
 
 def test_streaming_usage_reads_cache_creation_tokens_recorded_on_logging_obj():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import ModelResponseIterator
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import ModelResponseIterator
 
     logging_obj = MagicMock()
     logging_obj.vertex_ai_cache_creation_input_tokens = 1280
@@ -10889,7 +10889,7 @@ async def _sent_thinking_config(model: str, thinking_params: dict[str, object]) 
 
     client: Final = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=f"gemini/{model}",
         messages=[{"role": "user", "content": "hi"}],
         api_key="fake-gemini-key",
@@ -10908,7 +10908,7 @@ async def test_gemini_thought_summaries_off_keeps_thinking_config_otherwise_unch
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     summaries_on: Final = await _sent_thinking_config(model, thinking_params)
-    monkeypatch.setattr(litellm, "gemini_include_thoughts_default", False)
+    monkeypatch.setattr(hangarllm, "gemini_include_thoughts_default", False)
     summaries_off: Final = await _sent_thinking_config(model, thinking_params)
 
     assert summaries_on["includeThoughts"] is True
@@ -11034,7 +11034,7 @@ async def test_gemini_per_request_thought_summary_ask_beats_gateway_default(
     local_model_cost_map: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "gemini_include_thoughts_default", gateway_default)
+    monkeypatch.setattr(hangarllm, "gemini_include_thoughts_default", gateway_default)
 
     sent: Final = await _sent_thinking_config(model, thinking_params)
 
@@ -11059,7 +11059,7 @@ def _includes_thoughts_client(sent: list[bool]) -> AsyncHTTPHandler:
 
 
 async def _chat_summary_ask(client: AsyncHTTPHandler, asks: bool) -> None:
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gemini/gemini-3.8-flash",
         messages=[{"role": "user", "content": "hi"}],
         api_key="fake-gemini-key",
@@ -11070,7 +11070,7 @@ async def _chat_summary_ask(client: AsyncHTTPHandler, asks: bool) -> None:
 
 
 async def _messages_summary_ask(client: AsyncHTTPHandler, asks: bool) -> None:
-    await litellm.anthropic.messages.acreate(
+    await hangarllm.anthropic.messages.acreate(
         model="gemini/gemini-3.8-flash",
         messages=[{"role": "user", "content": "hi"}],
         max_tokens=64,
@@ -11081,7 +11081,7 @@ async def _messages_summary_ask(client: AsyncHTTPHandler, asks: bool) -> None:
 
 
 async def _responses_summary_ask(client: AsyncHTTPHandler, asks: bool) -> None:
-    await litellm.aresponses(
+    await hangarllm.aresponses(
         model="gemini/gemini-3.8-flash",
         input="hi",
         api_key="fake-gemini-key",
@@ -11113,8 +11113,8 @@ async def test_gemini_summary_ask_turns_thoughts_on_and_logs_the_same_reasoning_
         ) -> None:
             logged.append(kwargs["standard_logging_object"]["model_parameters"].get("reasoning_effort"))
 
-    monkeypatch.setattr(litellm, "gemini_include_thoughts_default", False)
-    monkeypatch.setattr(litellm, "callbacks", [ReasoningEffortLogger()])
+    monkeypatch.setattr(hangarllm, "gemini_include_thoughts_default", False)
+    monkeypatch.setattr(hangarllm, "callbacks", [ReasoningEffortLogger()])
     sent: Final[list[bool]] = []
     client: Final = _includes_thoughts_client(sent)
 
@@ -11137,7 +11137,7 @@ async def test_gemini_summary_ask_turns_thoughts_on_and_logs_the_same_reasoning_
 async def test_gemini_sends_a_boolean_for_a_gateway_default_written_as_text_or_null(
     gateway_default: object, expected: bool, local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "gemini_include_thoughts_default", gateway_default)
+    monkeypatch.setattr(hangarllm, "gemini_include_thoughts_default", gateway_default)
 
     sent: Final = await _sent_thinking_config("gemini-3.8-flash", {"reasoning_effort": "high"})
 
@@ -11162,8 +11162,8 @@ _GEMINI_ROUTES: Final = (
 
 @pytest.mark.parametrize(("config_class", "route"), _GEMINI_ROUTES)
 def test_a_hosted_mcp_tool_answers_400_on_gemini_without_drop_params(monkeypatch, config_class, route):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         config_class().map_openai_params(
             non_default_params={"tools": [_WEATHER_FUNCTION_TOOL, _HOSTED_MCP_TOOL]},
             optional_params={},
@@ -11173,14 +11173,14 @@ def test_a_hosted_mcp_tool_answers_400_on_gemini_without_drop_params(monkeypatch
     assert raised.value.status_code == 400
     assert f"gemini-3.8-flash on {route} " in str(raised.value)
     assert "`deepwiki`" in str(raised.value)
-    assert "litellm_proxy/mcp/" in str(raised.value)
+    assert "hangarllm_proxy/mcp/" in str(raised.value)
 
 
 @pytest.mark.parametrize(("config_class", "route"), _GEMINI_ROUTES)
 def test_gemini_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_function_tool(
     monkeypatch, caplog, config_class, route
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     with caplog.at_level("WARNING"):
         mapped: Final = config_class().map_openai_params(
             non_default_params={"tools": [_HOSTED_MCP_TOOL, _WEATHER_FUNCTION_TOOL]},
@@ -11197,7 +11197,7 @@ def test_gemini_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_function
 
 @pytest.mark.parametrize(("config_class", "route"), _GEMINI_ROUTES)
 def test_gemini_sends_no_tools_when_drop_params_drops_every_hosted_mcp_tool(monkeypatch, config_class, route):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = config_class().map_openai_params(
         non_default_params={"tools": [_HOSTED_MCP_TOOL], "tool_choice": "required"},
         optional_params={},
@@ -11212,7 +11212,7 @@ def test_gemini_sends_no_tools_when_drop_params_drops_every_hosted_mcp_tool(monk
 def test_gemini_keeps_tool_choice_none_for_legacy_functions_after_dropping_every_hosted_mcp_tool(
     monkeypatch, config_class, route
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = config_class().map_openai_params(
         non_default_params={
             "tools": [_HOSTED_MCP_TOOL],
@@ -11256,12 +11256,12 @@ async def _gemini_stream(is_async: bool, chunks: tuple[bytes, ...]) -> list[Mode
         "api_key": "fake-gemini-key",
     }
     if is_async:
-        stream: Final = await litellm.acompletion(
+        stream: Final = await hangarllm.acompletion(
             **kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(handler))
         )
         return [chunk async for chunk in stream]
     return list(
-        litellm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))))
+        hangarllm.completion(**kwargs, client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))))
     )
 
 

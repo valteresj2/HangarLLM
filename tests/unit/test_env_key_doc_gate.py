@@ -1,7 +1,7 @@
 """Tests for the env-var extraction used by tests/documentation_tests/test_env_keys.py.
 
 That script is the CI gate that fails when a user-facing environment variable read
-under litellm/ is mentioned nowhere on the docs site. It only sees a key if one of its
+under hangarllm/ is mentioned nowhere on the docs site. It only sees a key if one of its
 patterns matches the call, so a call shape the patterns miss silently bypasses the gate.
 Each supported shape is asserted here, along with the shapes that must not be treated as
 env var reads, so narrowing a pattern makes a test fail instead of quietly reopening the
@@ -38,8 +38,8 @@ def test_get_secret_bool_with_keyword_default_is_captured() -> None:
     }
 
 
-def test_litellm_prefixed_get_secret_bool_is_captured() -> None:
-    assert gate.extract_env_keys('litellm.get_secret_bool("QSTASH_FLUSH_ON_BOOT")') == {"QSTASH_FLUSH_ON_BOOT"}
+def test_hangarllm_prefixed_get_secret_bool_is_captured() -> None:
+    assert gate.extract_env_keys('hangarllm.get_secret_bool("QSTASH_FLUSH_ON_BOOT")') == {"QSTASH_FLUSH_ON_BOOT"}
 
 
 def test_bare_get_secret_is_captured() -> None:
@@ -59,7 +59,7 @@ def test_bare_get_secret_str_with_keyword_default_is_captured() -> None:
 
 
 def test_get_secret_reached_through_the_utils_module_is_captured() -> None:
-    assert gate.extract_env_keys('litellm.utils.get_secret("QSTASH_ALPHA")') == {"QSTASH_ALPHA"}
+    assert gate.extract_env_keys('hangarllm.utils.get_secret("QSTASH_ALPHA")') == {"QSTASH_ALPHA"}
 
 
 def test_get_secret_on_an_unrelated_utils_attribute_is_not_an_env_read() -> None:
@@ -77,8 +77,8 @@ def test_previously_supported_call_shapes_are_still_captured() -> None:
         (
             'os.getenv("QSTASH_ALPHA")',
             'os.getenv("QSTASH_BRAVO", "fallback")',
-            'litellm.get_secret("QSTASH_CHARLIE")',
-            'litellm.get_secret_str("QSTASH_DELTA", default_value=None)',
+            'hangarllm.get_secret("QSTASH_CHARLIE")',
+            'hangarllm.get_secret_str("QSTASH_DELTA", default_value=None)',
         )
     )
     assert gate.extract_env_keys(source) == {"QSTASH_ALPHA", "QSTASH_BRAVO", "QSTASH_CHARLIE", "QSTASH_DELTA"}
@@ -107,8 +107,8 @@ def test_excluded_keys_are_filtered_for_every_call_shape() -> None:
     source = "\n".join(
         (
             'os.getenv("TERM_PROGRAM")',
-            'get_secret_bool("LITELLM_RUST")',
-            'litellm.get_secret_str("MAVVRIK_FOCUS_FREQUENCY")',
+            'get_secret_bool("HANGARLLM_RUST")',
+            'hangarllm.get_secret_str("MAVVRIK_FOCUS_FREQUENCY")',
         )
     )
     assert gate.extract_env_keys(source) == frozenset()
@@ -157,7 +157,7 @@ def test_documented_keys_are_collected_from_every_page_of_the_docs_site(tmp_path
 
 
 def _write_tree(tmp_path: Path, source: str, docs_page: str) -> tuple[str, str]:
-    source_dir = tmp_path / "litellm"
+    source_dir = tmp_path / "hangarllm"
     docs_dir = tmp_path / "docs" / "providers"
     source_dir.mkdir()
     docs_dir.mkdir(parents=True)

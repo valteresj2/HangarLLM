@@ -115,7 +115,7 @@ class TestMcpKeyWithoutAccessIsDenied:
         tool_name = client.await_tool(permitted_key, server_id, SEARCH_LOGS_TOOL)
 
         search_args = {
-            "query": "service:litellm",
+            "query": "service:hangarllm",
             "from": DD_SEARCH_FROM,
             "to": "now",
             "max_tokens": 1000,
@@ -152,7 +152,7 @@ class TestMcpHealthVisibility:
         tool: Final = client.await_tool(permitted, server_x, SEARCH_LOGS_TOOL)
         result: Final = client.await_call_tool(
             permitted, server_id=server_x, name=tool,
-            arguments={"query": "service:litellm", "from": DD_SEARCH_FROM, "to": "now", "max_tokens": 1000},
+            arguments={"query": "service:hangarllm", "from": DD_SEARCH_FROM, "to": "now", "max_tokens": 1000},
         )
         assert result.is_error is not True, f"permitted control failed: {result}"
 

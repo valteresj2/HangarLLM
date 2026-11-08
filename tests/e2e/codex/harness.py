@@ -18,8 +18,8 @@ from e2e_metadata import step
 
 CODEX_CLI: Final = "codex"
 EXEC_TIMEOUT_SECONDS: Final = 600.0
-_API_KEY_ENV: Final = "LITELLM_API_KEY"
-_PROVIDER: Final = "litellm"
+_API_KEY_ENV: Final = "HANGARLLM_API_KEY"
+_PROVIDER: Final = "hangarllm"
 _CONFIG_TOML: Final = """\
 model_provider = "{provider}"
 approval_policy = "never"
@@ -30,7 +30,7 @@ check_for_update_on_startup = false
 enabled = false
 
 [model_providers.{provider}]
-name = "LiteLLM"
+name = "HangarLLM"
 base_url = "{gateway}/v1"
 env_key = "{api_key_env}"
 wire_api = "responses"

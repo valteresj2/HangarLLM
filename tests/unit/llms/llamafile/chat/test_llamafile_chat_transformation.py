@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.llms.llamafile.chat.transformation import LlamafileChatConfig
+import hangarllm
+from hangarllm.llms.llamafile.chat.transformation import LlamafileChatConfig
 
 
 @pytest.mark.parametrize(
@@ -146,7 +146,7 @@ def test_get_openai_compatible_provider_info(
 
 def test_completion_with_custom_llamafile_model():
     with patch(
-        "litellm.main.openai_chat_completions.completion"
+        "hangarllm.main.openai_chat_completions.completion"
     ) as mock_llamafile_completion_func:
         mock_llamafile_completion_func.return_value = (
             {}
@@ -157,7 +157,7 @@ def test_completion_with_custom_llamafile_model():
         model = f"{provider}/{model_name}"
         messages = [{"role": "user", "content": "Hey, how's it going?"}]
 
-        _ = litellm.completion(
+        _ = hangarllm.completion(
             model=model,
             messages=messages,
             max_retries=2,

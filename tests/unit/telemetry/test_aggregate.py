@@ -5,9 +5,9 @@ from typing import Final
 
 import pytest
 
-from litellm.telemetry.aggregate import AggregatingSink
-from litellm.telemetry.histogram import ATTEMPT_BOUNDS, BLOCK_COUNT_BOUNDS, LATENCY_BOUNDS_MS, Histogram
-from litellm.telemetry.records import (
+from hangarllm.telemetry.aggregate import AggregatingSink
+from hangarllm.telemetry.histogram import ATTEMPT_BOUNDS, BLOCK_COUNT_BOUNDS, LATENCY_BOUNDS_MS, Histogram
+from hangarllm.telemetry.records import (
     AttemptRecord,
     BlockCounts,
     BlockType,
@@ -19,8 +19,8 @@ from litellm.telemetry.records import (
     UIAction,
     UIEvent,
 )
-from litellm.telemetry.report import Report, RequestKey
-from litellm.telemetry.sink import Exporter, ExportOutcome
+from hangarllm.telemetry.report import Report, RequestKey
+from hangarllm.telemetry.sink import Exporter, ExportOutcome
 
 
 @dataclass
@@ -41,7 +41,7 @@ class _Clock:
         return self.now
 
 
-_INSTANCE: Final = InstanceInfo(instance_id="i", litellm_version="1.0.0", groups=frozenset(TelemetryGroup))
+_INSTANCE: Final = InstanceInfo(instance_id="i", hangarllm_version="1.0.0", groups=frozenset(TelemetryGroup))
 
 
 def _request(
@@ -50,7 +50,7 @@ def _request(
     return RequestRecord(
         endpoint="/chat/completions",
         stream=False,
-        litellm_status=StatusClass.SUCCESS,
+        hangarllm_status=StatusClass.SUCCESS,
         latency_to_first_byte_ms=latency_ms,
         provider=provider,
         provider_status=StatusClass.SUCCESS,

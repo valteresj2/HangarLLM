@@ -25,8 +25,8 @@ GENERATORS: Final[Mapping[str, Callable[[], str]]] = {
     "redis_password": lambda: secrets.token_hex(24),
 }
 MOVED_FROM_ENV: Final[Mapping[str, tuple[str, ...]]] = {
-    "master_key": ("HANGARLLM_MASTER_KEY", "LITELLM_MASTER_KEY"),
-    "salt_key": ("HANGARLLM_SALT_KEY", "LITELLM_SALT_KEY"),
+    "master_key": ("HANGARLLM_MASTER_KEY", "HANGARLLM_MASTER_KEY"),
+    "salt_key": ("HANGARLLM_SALT_KEY", "HANGARLLM_SALT_KEY"),
     "ui_password": ("UI_PASSWORD",),
 }
 _ASSIGNMENT: Final = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")

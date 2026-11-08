@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock
 
-from litellm import Router
-from litellm.router_strategy.lar1_routing import (
+from hangarllm import Router
+from hangarllm.router_strategy.lar1_routing import (
     LAR1RoutingStrategy,
     _normalize_thresholds,
     _parse_lar1_metadata,
@@ -16,7 +16,7 @@ def _model_list():
     return [
         {
             "model_name": "agent-router",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "fake-key",
             },
@@ -24,7 +24,7 @@ def _model_list():
         },
         {
             "model_name": "agent-router",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "fake-key",
             },
@@ -32,7 +32,7 @@ def _model_list():
         },
         {
             "model_name": "agent-router",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "ollama/qwythos",
                 "api_key": "fake-key",
             },
@@ -40,7 +40,7 @@ def _model_list():
         },
         {
             "model_name": "agent-router",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "ollama/mythos",
                 "api_key": "fake-key",
             },
@@ -262,7 +262,7 @@ async def test_empty_healthy_deployments_returns_none():
 async def test_specific_deployment_dict_short_circuit():
     deployment = {
         "model_info": {"type": "deep"},
-        "litellm_params": {"model": "ollama/mythos"},
+        "hangarllm_params": {"model": "ollama/mythos"},
     }
     router = _create_test_router()
     strategy = LAR1RoutingStrategy(router._core_ctx)
@@ -440,7 +440,7 @@ async def test_missing_target_type_falls_back_with_warning(caplog):
         model_list=[
             {
                 "model_name": "agent-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "fake-key",
                 },

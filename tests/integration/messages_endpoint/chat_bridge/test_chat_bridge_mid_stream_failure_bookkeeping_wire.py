@@ -32,10 +32,10 @@ _PROVIDER_MODEL: Final = f"hosted_vllm/{_BACKEND}"
 _PROVIDER_KEY: Final = "integration-provider-key"
 _UPSTREAM_TARGET: Final = "/v1/chat/completions"
 _TEXT: Final = "Hello"
-_CALL_ID_HEADER: Final = "x-litellm-call-id"
+_CALL_ID_HEADER: Final = "x-hangarllm-call-id"
 _ROWS: Final = (
-    "SELECT metadata->>'litellm_call_id' AS call_id, request_id, status, cache_hit, metadata "
-    'FROM "LiteLLM_SpendLogs" WHERE model_group=%s'
+    "SELECT metadata->>'hangarllm_call_id' AS call_id, request_id, status, cache_hit, metadata "
+    'FROM "HangarLLM_SpendLogs" WHERE model_group=%s'
 )
 _ROW_SECONDS: Final = 60
 _SLOW_PAUSE: Final = 1.0

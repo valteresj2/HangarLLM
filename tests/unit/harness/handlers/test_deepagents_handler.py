@@ -8,22 +8,22 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from litellm.harness.context import GatewayTarget, SessionContext
-from litellm.harness.errors import HarnessError, HarnessInstallFailed
-from litellm.harness.handlers import deepagents_handler as dh
-from litellm.harness.sandbox.local import LocalSandbox
-from litellm.harness.types import Approval, Harness, Text, ToolCall, ToolResult
-from litellm.llms.deepagents.harness.transformation import DeepAgentsHarnessConfig
+from hangarllm.harness.context import GatewayTarget, SessionContext
+from hangarllm.harness.errors import HarnessError, HarnessInstallFailed
+from hangarllm.harness.handlers import deepagents_handler as dh
+from hangarllm.harness.sandbox.local import LocalSandbox
+from hangarllm.harness.types import Approval, Harness, Text, ToolCall, ToolResult
+from hangarllm.llms.deepagents.harness.transformation import DeepAgentsHarnessConfig
 
 pytest.importorskip("deepagents")
-pytest.importorskip("langchain_litellm")
+pytest.importorskip("langchain_hangarllm")
 
 from langchain_core.language_models.fake_chat_models import (  # noqa: E402
     FakeMessagesListChatModel,
 )
 from langchain_core.messages import AIMessage  # noqa: E402
 
-from litellm.llms.deepagents.harness.sandbox_backend import (  # noqa: E402
+from hangarllm.llms.deepagents.harness.sandbox_backend import (  # noqa: E402
     SandboxBackend,
     message_cost,
 )
@@ -283,8 +283,8 @@ def test_build_chat_model_uses_chat_model_kwargs(tmp_path: Path) -> None:
     deps = dh.load_deps()
     gw = GatewayTarget(api_base="https://gw.example.com", api_key="sk-virtual")
     model = dh.build_chat_model(make_ctx(tmp_path, gateway=gw), deps)
-    assert isinstance(model, deps.chat_litellm)
-    assert model.model == "litellm_proxy/gpt-4o-mini"
+    assert isinstance(model, deps.chat_hangarllm)
+    assert model.model == "hangarllm_proxy/gpt-4o-mini"
 
 
 def test_shared_checkpointer_is_process_wide() -> None:
@@ -351,17 +351,17 @@ def test_missing_deps_raise_install_hint(monkeypatch: pytest.MonkeyPatch) -> Non
         monkeypatch.delitem(sys.modules, mod)
     monkeypatch.setattr(builtins, "__import__", fake_import)
     with pytest.raises(
-        HarnessInstallFailed, match="pip install deepagents langchain-litellm"
+        HarnessInstallFailed, match="pip install deepagents langchain-hangarllm"
     ):
         dh.load_deps()
 
 
-LIVE_BASE = os.environ.get("LITELLM_PROXY_API_BASE", "")
-LIVE_KEY = os.environ.get("LITELLM_PROXY_API_KEY", "")
+LIVE_BASE = os.environ.get("HANGARLLM_PROXY_API_BASE", "")
+LIVE_KEY = os.environ.get("HANGARLLM_PROXY_API_KEY", "")
 
 
 @pytest.mark.skipif(
-    not (LIVE_BASE and LIVE_KEY), reason="LITELLM_PROXY_API_BASE / KEY not set"
+    not (LIVE_BASE and LIVE_KEY), reason="HANGARLLM_PROXY_API_BASE / KEY not set"
 )
 async def test_live_gateway_write_file(tmp_path: Path) -> None:
     model = os.environ.get("HARNESS_DEEPAGENTS_LIVE_MODEL", "claude-haiku-4-5-20251001")

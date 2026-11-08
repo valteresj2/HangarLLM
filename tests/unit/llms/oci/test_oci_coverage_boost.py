@@ -2,10 +2,10 @@
 Coverage-boost tests for the OCI provider happy paths.
 
 Covers:
-  - litellm/llms/oci/common_utils.py  (sign_with_manual_credentials, routing)
-  - litellm/llms/oci/chat/generic.py  (message adaptation, tool conversion, streaming)
-  - litellm/llms/oci/chat/cohere.py   (message adaptation, response parsing, streaming)
-  - litellm/llms/oci/chat/transformation.py  (OCIChatConfig methods, stream wrappers)
+  - hangarllm/llms/oci/common_utils.py  (sign_with_manual_credentials, routing)
+  - hangarllm/llms/oci/chat/generic.py  (message adaptation, tool conversion, streaming)
+  - hangarllm/llms/oci/chat/cohere.py   (message adaptation, response parsing, streaming)
+  - hangarllm/llms/oci/chat/transformation.py  (OCIChatConfig methods, stream wrappers)
 
 All tests are self-contained and require no real OCI credentials or network access.
 """
@@ -18,30 +18,30 @@ import httpx
 import pytest
 
 if TYPE_CHECKING:
-    from litellm.llms.oci.chat.transformation import OCIStreamWrapper
+    from hangarllm.llms.oci.chat.transformation import OCIStreamWrapper
 
-from litellm import ModelResponse
-from litellm.llms.oci.chat.cohere import (
+from hangarllm import ModelResponse
+from hangarllm.llms.oci.chat.cohere import (
     adapt_messages_to_cohere_standard,
     extract_text_content,
     handle_cohere_response,
     handle_cohere_stream_chunk,
 )
-from litellm.llms.oci.chat.generic import (
+from hangarllm.llms.oci.chat.generic import (
     adapt_messages_to_generic_oci_standard,
     adapt_messages_to_generic_oci_standard_tool_response,
     adapt_tool_definition_to_oci_standard,
     adapt_tools_to_openai_standard,
     handle_generic_stream_chunk,
 )
-from litellm.llms.oci.chat.transformation import OCIChatConfig, get_vendor_from_model
-from litellm.llms.oci.common_utils import (
+from hangarllm.llms.oci.chat.transformation import OCIChatConfig, get_vendor_from_model
+from hangarllm.llms.oci.common_utils import (
     OCIError,
     sign_with_manual_credentials,
     sign_oci_request,
     validate_oci_environment,
 )
-from litellm.types.llms.oci import OCIVendors, OCIToolCall
+from hangarllm.types.llms.oci import OCIVendors, OCIToolCall
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -66,10 +66,10 @@ _GENERIC_MODEL = "meta.llama-3-70b-instruct"
 # ===========================================================================
 
 
-@patch("litellm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
-@patch("litellm.llms.oci.common_utils.load_private_key_from_str")
-@patch("litellm.llms.oci.common_utils.padding")
-@patch("litellm.llms.oci.common_utils.hashes")
+@patch("hangarllm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
+@patch("hangarllm.llms.oci.common_utils.load_private_key_from_str")
+@patch("hangarllm.llms.oci.common_utils.padding")
+@patch("hangarllm.llms.oci.common_utils.hashes")
 def test_sign_with_manual_credentials_inline_key(
     mock_hashes, mock_padding, mock_load_key
 ):
@@ -89,10 +89,10 @@ def test_sign_with_manual_credentials_inline_key(
     mock_key.sign.assert_called_once()
 
 
-@patch("litellm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
-@patch("litellm.llms.oci.common_utils.load_private_key_from_file")
-@patch("litellm.llms.oci.common_utils.padding")
-@patch("litellm.llms.oci.common_utils.hashes")
+@patch("hangarllm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
+@patch("hangarllm.llms.oci.common_utils.load_private_key_from_file")
+@patch("hangarllm.llms.oci.common_utils.padding")
+@patch("hangarllm.llms.oci.common_utils.hashes")
 def test_sign_with_manual_credentials_key_file(
     mock_hashes, mock_padding, mock_load_file
 ):
@@ -112,10 +112,10 @@ def test_sign_with_manual_credentials_key_file(
     mock_load_file.assert_called_once_with("/tmp/key.pem")
 
 
-@patch("litellm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
-@patch("litellm.llms.oci.common_utils.load_private_key_from_str")
-@patch("litellm.llms.oci.common_utils.padding")
-@patch("litellm.llms.oci.common_utils.hashes")
+@patch("hangarllm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
+@patch("hangarllm.llms.oci.common_utils.load_private_key_from_str")
+@patch("hangarllm.llms.oci.common_utils.padding")
+@patch("hangarllm.llms.oci.common_utils.hashes")
 def test_sign_with_manual_credentials_authorization_contains_key_id(
     mock_hashes, mock_padding, mock_load_key
 ):
@@ -153,10 +153,10 @@ def test_sign_oci_request_routes_to_signer_when_present():
     assert isinstance(body, bytes)
 
 
-@patch("litellm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
-@patch("litellm.llms.oci.common_utils.load_private_key_from_str")
-@patch("litellm.llms.oci.common_utils.padding")
-@patch("litellm.llms.oci.common_utils.hashes")
+@patch("hangarllm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
+@patch("hangarllm.llms.oci.common_utils.load_private_key_from_str")
+@patch("hangarllm.llms.oci.common_utils.padding")
+@patch("hangarllm.llms.oci.common_utils.hashes")
 def test_sign_oci_request_routes_to_manual_when_no_signer(
     mock_hashes, mock_padding, mock_load_key
 ):
@@ -176,9 +176,9 @@ def test_sign_oci_request_routes_to_manual_when_no_signer(
 
 def test_require_cryptography_available_does_not_raise():
     """_require_cryptography() should not raise when the package is importable."""
-    from litellm.llms.oci.common_utils import _require_cryptography
+    from hangarllm.llms.oci.common_utils import _require_cryptography
 
-    with patch("litellm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True):
+    with patch("hangarllm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True):
         _require_cryptography()  # must not raise
 
 
@@ -761,7 +761,7 @@ class TestOCIChatConfigGetCompleteUrl:
             api_key=None,
             model=_GENERIC_MODEL,
             optional_params={"oci_region": "eu-frankfurt-1"},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == (
             "https://inference.generativeai.eu-frankfurt-1.oci.oraclecloud.com"
@@ -775,7 +775,7 @@ class TestOCIChatConfigGetCompleteUrl:
             api_key=None,
             model=_GENERIC_MODEL,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.endpoint.com/20231130/actions/chat"
 
@@ -790,7 +790,7 @@ class TestOCIChatConfigGetCompleteUrl:
             api_key=None,
             model=_GENERIC_MODEL,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == full_url
 
@@ -804,10 +804,10 @@ class TestOCIChatConfigGetErrorClass:
 
 
 class TestOCIChatConfigSignRequest:
-    @patch("litellm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
-    @patch("litellm.llms.oci.common_utils.load_private_key_from_str")
-    @patch("litellm.llms.oci.common_utils.padding")
-    @patch("litellm.llms.oci.common_utils.hashes")
+    @patch("hangarllm.llms.oci.common_utils._CRYPTOGRAPHY_AVAILABLE", True)
+    @patch("hangarllm.llms.oci.common_utils.load_private_key_from_str")
+    @patch("hangarllm.llms.oci.common_utils.padding")
+    @patch("hangarllm.llms.oci.common_utils.hashes")
     def test_sign_request_delegates(self, mock_hashes, mock_padding, mock_load_key):
         mock_key = MagicMock()
         mock_key.sign.return_value = b"sig"
@@ -834,7 +834,7 @@ class TestOCIChatConfigValidateEnvironment:
             model=_GENERIC_MODEL,
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"oci_signer": signer},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result["content-type"] == "application/json"
 
@@ -846,7 +846,7 @@ class TestOCIChatConfigValidateEnvironment:
                 model=_GENERIC_MODEL,
                 messages=[],
                 optional_params={"oci_signer": MagicMock()},
-                litellm_params={},
+                hangarllm_params={},
             )
         assert exc_info.value.status_code == 400
 
@@ -972,7 +972,7 @@ class TestOCIChatConfigTransformRequest:
             model=_GENERIC_MODEL,
             messages=[{"role": "user", "content": "hello"}],
             optional_params=self._base_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert result["compartmentId"] == _MANUAL_CREDS["oci_compartment_id"]
@@ -985,7 +985,7 @@ class TestOCIChatConfigTransformRequest:
             model=_COHERE_MODEL,
             messages=[{"role": "user", "content": "tell me a joke"}],
             optional_params=self._base_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         chat_req = result["chatRequest"]
@@ -1001,7 +1001,7 @@ class TestOCIChatConfigTransformRequest:
                 {"role": "user", "content": "hi"},
             ],
             optional_params=self._base_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert result["chatRequest"]["preambleOverride"] == "You are helpful."
@@ -1014,7 +1014,7 @@ class TestOCIChatConfigTransformRequest:
                 model=_GENERIC_MODEL,
                 messages=[{"role": "user", "content": "hi"}],
                 optional_params=params,
-                litellm_params={},
+                hangarllm_params={},
                 headers={},
             )
         assert exc_info.value.status_code == 400
@@ -1028,7 +1028,7 @@ class TestOCIChatConfigTransformRequest:
 
 class TestOCIStreamWrapperChunkCreator:
     def _make_wrapper(self, model: str) -> "OCIStreamWrapper":
-        from litellm.llms.oci.chat.transformation import OCIStreamWrapper
+        from hangarllm.llms.oci.chat.transformation import OCIStreamWrapper
 
         return OCIStreamWrapper(
             completion_stream=iter([]),
@@ -1096,7 +1096,7 @@ class TestOCIStreamWrapperChunkCreator:
 
 
 def test_get_sync_custom_stream_wrapper_returns_wrapper():
-    from litellm.llms.oci.chat.transformation import OCIStreamWrapper
+    from hangarllm.llms.oci.chat.transformation import OCIStreamWrapper
 
     config = OCIChatConfig()
 
@@ -1110,7 +1110,7 @@ def test_get_sync_custom_stream_wrapper_returns_wrapper():
     mock_client.post.return_value = mock_response
 
     wrapper = config.get_sync_custom_stream_wrapper(
-        litellm_params={},
+        hangarllm_params={},
         model=_GENERIC_MODEL,
         custom_llm_provider="oci",
         logging_obj=MagicMock(),
@@ -1128,7 +1128,7 @@ def test_get_sync_custom_stream_wrapper_returns_wrapper():
 
 @pytest.mark.asyncio
 async def test_get_async_custom_stream_wrapper_returns_wrapper():
-    from litellm.llms.oci.chat.transformation import OCIStreamWrapper
+    from hangarllm.llms.oci.chat.transformation import OCIStreamWrapper
 
     config = OCIChatConfig()
 
@@ -1143,7 +1143,7 @@ async def test_get_async_custom_stream_wrapper_returns_wrapper():
     mock_client.post = AsyncMock(return_value=mock_response)
 
     wrapper = await config.get_async_custom_stream_wrapper(
-        litellm_params={},
+        hangarllm_params={},
         model=_GENERIC_MODEL,
         custom_llm_provider="oci",
         logging_obj=MagicMock(),

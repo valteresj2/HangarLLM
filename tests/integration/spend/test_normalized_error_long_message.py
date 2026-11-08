@@ -74,7 +74,7 @@ def _patient_client(gateway: Gateway) -> Iterator[httpx.Client]:
 def _error_information(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            "SELECT status, metadata->'error_information' AS info FROM \"LiteLLM_SpendLogs\" WHERE request_id=%s",
+            "SELECT status, metadata->'error_information' AS info FROM \"HangarLLM_SpendLogs\" WHERE request_id=%s",
             (call_id,),
         ),
         lambda values: len(values) == 1,
@@ -89,7 +89,7 @@ def _assert_crafted_failure(timed: _Timed, expected_status: int = 400) -> None:
     assert response.status_code == expected_status, response.text[:300]
     assert "Invalid model name passed in" in response.text, response.text[:300]
     assert timed.seconds < FAST_SECONDS, f"crafted 288 KB model took {timed.seconds:.2f}s"
-    info: Final = _error_information(response.headers["x-litellm-call-id"])
+    info: Final = _error_information(response.headers["x-hangarllm-call-id"])
     assert info["normalized_error"] == "400_INVALID_REQUEST" and info["error_code"] == "400", info
 
 
@@ -125,7 +125,7 @@ def test_crafted_288kb_model_through_async_openai_sdk_fails_fast(gateway: Gatewa
         error, seconds = asyncio.run(call(scenario.key()))
         assert seconds < FAST_SECONDS, f"crafted 288 KB model took {seconds:.2f}s"
         assert "Invalid model name passed in" in str(error), str(error)[:300]
-        info: Final = _error_information(error.response.headers["x-litellm-call-id"])
+        info: Final = _error_information(error.response.headers["x-hangarllm-call-id"])
         assert info["normalized_error"] == "400_INVALID_REQUEST", info
 
 
@@ -144,7 +144,7 @@ def test_crafted_288kb_model_through_anthropic_sdk_fails_fast(gateway: Gateway) 
         crafted: Final = timed(lambda: refused(CRAFTED_MODEL))
         assert_within_factor_of_control(crafted.seconds, control=control.seconds, factor=CRAFTED_SLOWDOWN_FACTOR)
         assert "Invalid model name passed in" in str(crafted.value), str(crafted.value)[:300]
-        info: Final = _error_information(crafted.value.response.headers["x-litellm-call-id"])
+        info: Final = _error_information(crafted.value.response.headers["x-hangarllm-call-id"])
         assert info["normalized_error"] == "400_INVALID_REQUEST", info
 
 
@@ -214,7 +214,7 @@ def _rate_limited(message: str) -> Callable[[Request], Reply]:
 def _budget_denied_row(key: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            "SELECT request_id, metadata->'error_information' AS info FROM \"LiteLLM_SpendLogs\" "
+            "SELECT request_id, metadata->'error_information' AS info FROM \"HangarLLM_SpendLogs\" "
             "WHERE api_key=%s AND status='failure'",
             (sha256(key.encode()).hexdigest(),),
         ),
@@ -251,7 +251,7 @@ def test_exhausted_key_budget_denial_clusters_as_budget_exceeded(gateway: Gatewa
     with gateway.scenario() as scenario, _patient_client(gateway) as client:
         model: Final = scenario.model(input_cost_per_token=0.001, output_cost_per_token=0.002)
         key: Final = scenario.key(models=[model], max_budget=0.06)
-        _exhaust(gateway, client, model, key, "LiteLLM_VerificationToken", "token", sha256(key.encode()).hexdigest())
+        _exhaust(gateway, client, model, key, "HangarLLM_VerificationToken", "token", sha256(key.encode()).hexdigest())
 
 
 def test_exhausted_team_budget_denial_clusters_as_budget_exceeded(gateway: Gateway) -> None:
@@ -259,7 +259,7 @@ def test_exhausted_team_budget_denial_clusters_as_budget_exceeded(gateway: Gatew
         model: Final = scenario.model(input_cost_per_token=0.001, output_cost_per_token=0.002)
         team: Final = scenario.team(models=[model], max_budget=0.06)
         key: Final = scenario.key(team_id=team, models=[model])
-        _exhaust(gateway, client, model, key, "LiteLLM_TeamTable", "team_id", team)
+        _exhaust(gateway, client, model, key, "HangarLLM_TeamTable", "team_id", team)
 
 
 def _upstream_failure_row(gateway: Gateway, message: str) -> dict[str, JsonValue]:
@@ -269,7 +269,7 @@ def _upstream_failure_row(gateway: Gateway, message: str) -> dict[str, JsonValue
         failed: Final = gateway.request("POST", CHAT, _body(CHAT, model, uuid.uuid4().hex), key=key)
         assert failed.status_code == 429 and message in failed.json()["error"]["message"], failed.text[:300]
         assert len(wire.drain()) == 1
-        return _error_information(failed.headers["x-litellm-call-id"])
+        return _error_information(failed.headers["x-hangarllm-call-id"])
 
 
 @pytest.mark.parametrize(
@@ -303,18 +303,18 @@ def test_hostile_model_values_are_rejected_without_taking_the_proxy_down(gateway
         for hostile in hostile_values:
             rejected = _timed_post(client, CHAT, {"model": hostile, "messages": []}, key)
             assert rejected.response.status_code == 400 and "must be a string" in rejected.response.text
-            assert _error_information(rejected.response.headers["x-litellm-call-id"])["normalized_error"] == (
+            assert _error_information(rejected.response.headers["x-hangarllm-call-id"])["normalized_error"] == (
                 "400_INVALID_REQUEST"
             )
         empty: Final = _timed_post(client, CHAT, _body(CHAT, "", uuid.uuid4().hex), key)
         assert empty.response.status_code == 400, empty.response.text
-        assert _error_information(empty.response.headers["x-litellm-call-id"])["normalized_error"] == (
+        assert _error_information(empty.response.headers["x-hangarllm-call-id"])["normalized_error"] == (
             "400_INVALID_REQUEST"
         )
         repeated: Final = tuple(
             _timed_post(client, CHAT, _body(CHAT, HOSTILE_5KB_MODEL, uuid.uuid4().hex), key) for _ in range(2)
         )
-        call_ids: Final = tuple(timed.response.headers["x-litellm-call-id"] for timed in repeated)
+        call_ids: Final = tuple(timed.response.headers["x-hangarllm-call-id"] for timed in repeated)
         assert len(set(call_ids)) == 2 and all(timed.response.status_code == 400 for timed in repeated)
         assert all(timed.seconds < FAST_SECONDS for timed in repeated), [timed.seconds for timed in repeated]
         codes: Final = tuple(_error_information(call_id)["normalized_error"] for call_id in call_ids)
@@ -343,7 +343,7 @@ def _burst_call(client: httpx.Client, label: str, path: str, body: Mapping[str, 
     return _BurstResult(
         label,
         response.status_code,
-        response.headers.get("x-litellm-call-id"),
+        response.headers.get("x-hangarllm-call-id"),
         identity if isinstance(identity, str) else None,
         time.perf_counter() - started,
     )
@@ -403,7 +403,7 @@ def _assert_rows_land_exactly_once(results: tuple[_BurstResult, ...], prefix: st
     assert len(set(response_ids)) == len(response_ids), response_ids
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s::text[])',
+            'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s::text[])',
             ("{" + ",".join(response_ids) + "}",),
         ),
         lambda values: len(values) == len(response_ids),

@@ -30,7 +30,7 @@ from integration._support.daily_activity import (
 from integration._support.database import scratch_database
 from integration._support.process import OwnedProxy, group_members, owned_proxy_process
 from integration._support.timing import assert_enforced_within, timed
-from litellm.constants import SPEND_LOG_KEY_METADATA_QUERY_TIMEOUT_MS
+from hangarllm.constants import SPEND_LOG_KEY_METADATA_QUERY_TIMEOUT_MS
 
 USER_ACTIVITY: Final = "/user/daily/activity"
 TEAM_ACTIVITY: Final = "/team/daily/activity"

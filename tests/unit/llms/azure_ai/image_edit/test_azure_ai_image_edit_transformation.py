@@ -7,15 +7,15 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.azure_ai.image_edit.flux2_transformation import (
+import hangarllm
+from hangarllm.images.utils import ImageEditRequestUtils
+from hangarllm.llms.azure_ai.image_edit.flux2_transformation import (
     AzureFoundryFlux2ImageEditConfig,
 )
-from litellm.llms.azure_ai.image_edit.transformation import (
+from hangarllm.llms.azure_ai.image_edit.transformation import (
     AzureFoundryFluxImageEditConfig,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 
 def test_azure_ai_validate_environment():
@@ -36,7 +36,7 @@ def test_azure_ai_url_generation():
     complete_url = config.get_complete_url(
         model="FLUX.1-Kontext-pro",
         api_base=api_base,
-        litellm_params={"api_version": "2025-04-01-preview"},
+        hangarllm_params={"api_version": "2025-04-01-preview"},
     )
     expected_url = f"{api_base}/openai/deployments/FLUX.1-Kontext-pro/images/edits?api-version=2025-04-01-preview"
     assert complete_url == expected_url
@@ -44,13 +44,13 @@ def test_azure_ai_url_generation():
 
 def test_azure_ai_validate_environment_with_entra_token(monkeypatch, no_ambient_azure_credentials):
     monkeypatch.delenv("AZURE_AI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     config = AzureFoundryFluxImageEditConfig()
 
     headers = config.validate_environment(
         {},
         "FLUX.1-Kontext-pro",
-        litellm_params={"azure_ad_token": "entra-token"},
+        hangarllm_params={"azure_ad_token": "entra-token"},
     )
 
     assert headers == {"Authorization": "Bearer entra-token"}
@@ -58,13 +58,13 @@ def test_azure_ai_validate_environment_with_entra_token(monkeypatch, no_ambient_
 
 def test_flux2_validate_environment_with_entra_token(monkeypatch, no_ambient_azure_credentials):
     monkeypatch.delenv("AZURE_AI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
     config = AzureFoundryFlux2ImageEditConfig()
 
     headers = config.validate_environment(
         {},
         "flux.2-pro",
-        litellm_params={"azure_ad_token": "entra-token"},
+        hangarllm_params={"azure_ad_token": "entra-token"},
     )
 
     assert headers["Authorization"] == "Bearer entra-token"
@@ -112,7 +112,7 @@ def test_flux2_image_edit_uses_all_reference_fields(model: str, max_reference_im
         prompt="Blend every reference",
         image=images,
         image_edit_optional_request_params={"guidance": 4.5, "steps": 20},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -140,7 +140,7 @@ def test_flux2_image_edit_rejects_too_many_references(model: str, reference_imag
             prompt="Blend every reference",
             image=[b"image"] * reference_images,
             image_edit_optional_request_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -151,7 +151,7 @@ def _flux2_reference_request(image: object) -> dict[str, object]:
         prompt="Add a red hat",
         image=image,
         image_edit_optional_request_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     return request
@@ -184,7 +184,7 @@ def test_flux2_image_edit_preserves_controls_and_pixel_cost(dimensions: Mapping[
         return httpx.Response(200, json={"data": [{"b64_json": "aW1n"}, {"b64_json": "aW1n"}]})
 
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
-    response: Final = litellm.image_edit(
+    response: Final = hangarllm.image_edit(
         model="azure_ai/FLUX.2-flex",
         image=b"image",
         prompt="Add a hat",

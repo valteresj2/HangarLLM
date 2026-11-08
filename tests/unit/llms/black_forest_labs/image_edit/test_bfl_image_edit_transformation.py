@@ -16,16 +16,16 @@ import httpx
 import pytest
 
 
-from litellm.llms.black_forest_labs.image_edit import (
+from hangarllm.llms.black_forest_labs.image_edit import (
     transformation as bfl_transformation,
 )
-from litellm.llms.black_forest_labs.image_edit.transformation import (
+from hangarllm.llms.black_forest_labs.image_edit.transformation import (
     BlackForestLabsImageEditConfig,
 )
-from litellm.llms.black_forest_labs.common_utils import BlackForestLabsError
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageObject, ImageResponse
+from hangarllm.llms.black_forest_labs.common_utils import BlackForestLabsError
+from hangarllm.types.images.main import ImageEditOptionalRequestParams
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import ImageObject, ImageResponse
 
 
 class TestBlackForestLabsImageEditTransformation:
@@ -103,7 +103,7 @@ class TestBlackForestLabsImageEditTransformation:
         headers = {}
 
         with patch(
-            "litellm.llms.black_forest_labs.image_edit.transformation.get_secret_str"
+            "hangarllm.llms.black_forest_labs.image_edit.transformation.get_secret_str"
         ) as mock_get_secret:
             mock_get_secret.return_value = None
 
@@ -142,7 +142,7 @@ class TestBlackForestLabsImageEditTransformation:
         url = self.config.get_complete_url(
             model="flux-kontext-pro",
             api_base=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://api.bfl.ai/v1/flux-kontext-pro"
@@ -152,7 +152,7 @@ class TestBlackForestLabsImageEditTransformation:
         url = self.config.get_complete_url(
             model="flux-kontext-pro",
             api_base="https://custom.api.com/",
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://custom.api.com/v1/flux-kontext-pro"
@@ -167,7 +167,7 @@ class TestBlackForestLabsImageEditTransformation:
             "output_format": "jpeg",
         }
 
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {}
 
         data, files = self.config.transform_image_edit_request(
@@ -175,7 +175,7 @@ class TestBlackForestLabsImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=image_edit_optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -202,7 +202,7 @@ class TestBlackForestLabsImageEditTransformation:
             "output_format": "png",
         }
 
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
         headers = {}
 
         data, files = self.config.transform_image_edit_request(
@@ -210,7 +210,7 @@ class TestBlackForestLabsImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=image_edit_optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -323,7 +323,7 @@ async def test_async_transform_image_edit_request_downloads_url_images_with_the_
         prompt="Add a red hat",
         image="https://cdn.example/photo.png",
         image_edit_optional_request_params={"mask": "https://cdn.example/mask.png", "seed": 7},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -346,7 +346,7 @@ async def test_async_transform_image_edit_request_never_fetches_for_local_images
         prompt="Add a red hat",
         image=[BytesIO(b"first"), BytesIO(b"other")],
         image_edit_optional_request_params={"mask": b"mask-bytes"},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -369,7 +369,7 @@ async def test_async_transform_image_edit_request_downloads_only_the_first_url_o
         prompt="Add a red hat",
         image=["https://cdn.example/a.png", "https://cdn.example/b.png"],
         image_edit_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 

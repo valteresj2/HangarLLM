@@ -14,9 +14,9 @@ from unittest.mock import MagicMock, create_autospec, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy.agent_endpoints.databricks_oauth import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy.agent_endpoints.databricks_oauth import (
     DatabricksAppOAuthConfig,
     DatabricksAppOAuthTokenCache,
     has_databricks_oauth,
@@ -33,7 +33,7 @@ def _expected_basic_auth(client_id: str, client_secret: str) -> str:
 
 
 def _mock_http_handler(access_token="tok-abc", expires_in=3600, post_error=None):
-    """Return a mock that mirrors litellm's ``AsyncHTTPHandler`` contract.
+    """Return a mock that mirrors hangarllm's ``AsyncHTTPHandler`` contract.
 
     Two properties of the real handler matter for these tests and were the
     source of a runtime bug the original suite missed:
@@ -116,7 +116,7 @@ def test_parse_custom_scope():
 
 AGENT_KINDS: Final = pytest.mark.parametrize(
     ("agent_params", "error"),
-    [({}, ValueError), ({"custom_llm_provider": "databricks_agent"}, litellm.BadRequestError)],
+    [({}, ValueError), ({"custom_llm_provider": "databricks_agent"}, hangarllm.BadRequestError)],
     ids=["url-agent", "databricks-agent"],
 )
 
@@ -147,7 +147,7 @@ def test_parse_raises_on_non_mapping_block(agent_params, error):
 def test_parse_raises_on_an_empty_nested_block(block, error):
     params = {"custom_llm_provider": "databricks_agent", "databricks_oauth": block}
     assert has_databricks_oauth(params)
-    with pytest.raises(litellm.BadRequestError, match=error):
+    with pytest.raises(hangarllm.BadRequestError, match=error):
         parse_databricks_oauth_config(params)
 
 
@@ -156,7 +156,7 @@ def test_parse_raises_on_an_empty_nested_block(block, error):
 async def test_an_empty_nested_block_on_a_url_agent_is_ignored_as_before(block):
     auth: Final = await resolve_databricks_backend_auth({"databricks_oauth": block, "api_key": "hop-key"})
     assert auth.header is None
-    assert auth.litellm_params == {"api_key": "hop-key"}
+    assert auth.hangarllm_params == {"api_key": "hop-key"}
 
 
 def test_parse_resolves_os_environ_references(monkeypatch):
@@ -193,7 +193,7 @@ async def test_fetch_token_posts_client_credentials_with_basic_auth():
     client = _mock_http_handler(access_token="tok-1")
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         token = await cache.async_get_token(config)
@@ -207,7 +207,7 @@ async def test_fetch_token_posts_client_credentials_with_basic_auth():
         "scope": "all-apis",
     }
     # Databricks authenticates the client with HTTP Basic; it must be sent as a
-    # header because litellm's AsyncHTTPHandler.post has no ``auth`` parameter.
+    # header because hangarllm's AsyncHTTPHandler.post has no ``auth`` parameter.
     assert call.kwargs["headers"]["Authorization"] == _expected_basic_auth("cid", "secret")
     assert "auth" not in call.kwargs
 
@@ -224,7 +224,7 @@ async def test_token_is_cached_across_calls():
     client = _mock_http_handler(access_token="tok-cached")
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         first = await cache.async_get_token(config)
@@ -256,7 +256,7 @@ async def test_distinct_clients_do_not_share_token():
         return clients.pop(0)
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         side_effect=_next_client,
     ):
         token_a = await cache.async_get_token(config_a)
@@ -286,7 +286,7 @@ async def test_ttl_applies_expiry_buffer():
 
     with (
         patch(
-            "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+            "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
             return_value=client,
         ),
         patch.object(cache, "set_cache", side_effect=_spy_set),
@@ -309,7 +309,7 @@ async def test_missing_access_token_raises():
     client.post.return_value.json.return_value = {"not_a_token": "x"}
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         with pytest.raises(ValueError, match="access_token"):
@@ -335,7 +335,7 @@ async def test_http_status_error_raises_value_error():
     )
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         with pytest.raises(ValueError, match="status 401"):
@@ -348,7 +348,7 @@ async def test_transport_error_raises_value_error():
     client = _mock_http_handler(post_error=httpx.ConnectError("boom"))
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         with pytest.raises(ValueError, match="token request failed"):
@@ -362,7 +362,7 @@ async def test_non_object_json_body_raises():
     client.post.return_value.json.return_value = ["not", "an", "object"]
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         with pytest.raises(ValueError, match="non-object JSON"):
@@ -384,7 +384,7 @@ async def test_invalid_expires_in_falls_back_to_default_ttl(expires_in):
 
     with (
         patch(
-            "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+            "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
             return_value=client,
         ),
         patch.object(cache, "set_cache", side_effect=_spy_set),
@@ -404,7 +404,7 @@ async def test_short_lived_token_not_cached():
     client = _mock_http_handler(access_token="short", expires_in=30)
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         await cache.async_get_token(config)
@@ -436,7 +436,7 @@ async def test_rotated_secret_forces_new_token():
     clients = [_mock_http_handler("old-token"), _mock_http_handler("new-token")]
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         side_effect=lambda *a, **k: clients.pop(0),
     ):
         assert await cache.async_get_token(old) == "old-token"
@@ -451,7 +451,7 @@ async def test_lock_pruned_when_token_evicted():
     client = _mock_http_handler("tok")
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         await cache.async_get_token(config)
@@ -471,7 +471,7 @@ async def test_flush_cache_clears_locks():
     client = _mock_http_handler("tok")
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
         await cache.async_get_token(config)
@@ -497,13 +497,13 @@ async def test_resolve_returns_none_when_not_configured():
 
 @pytest.mark.asyncio
 async def test_resolve_returns_bearer_header():
-    from litellm.proxy.agent_endpoints.databricks_oauth import (
+    from hangarllm.proxy.agent_endpoints.databricks_oauth import (
         databricks_app_oauth_token_cache,
     )
 
     databricks_app_oauth_token_cache.flush_cache()
 
-    litellm_params = {
+    hangarllm_params = {
         "databricks_oauth": {
             "client_id": "resolve-cid",
             "client_secret": "secret",
@@ -513,10 +513,10 @@ async def test_resolve_returns_bearer_header():
     client = _mock_http_handler(access_token="resolved-token")
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "hangarllm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=client,
     ):
-        header = await resolve_databricks_app_auth_header(litellm_params)
+        header = await resolve_databricks_app_auth_header(hangarllm_params)
 
     assert header == {"Authorization": "Bearer resolved-token"}
 
@@ -574,7 +574,7 @@ def test_parse_flat_fields_prefer_an_explicit_workspace_url_for_an_app():
     ["https://my-app-1.azure.databricksapps.com/responses", "https://my-app-1.azure.databricksapps.com"],
 )
 def test_parse_flat_fields_of_an_app_without_a_workspace_url_raise_instead_of_using_the_app_host(app_base):
-    with pytest.raises(litellm.BadRequestError, match="workspace_url") as info:
+    with pytest.raises(hangarllm.BadRequestError, match="workspace_url") as info:
         parse_databricks_oauth_config(
             {
                 "custom_llm_provider": "databricks_agent",
@@ -591,7 +591,7 @@ def test_parse_flat_fields_of_an_app_without_a_workspace_url_raise_instead_of_us
     ["https://my-app-1.azure.databricksapps.com", "https://my-app-1.azure.databricksapps.com/responses"],
 )
 def test_parse_rejects_an_app_url_typed_as_the_workspace_url(workspace_url):
-    with pytest.raises(litellm.BadRequestError, match="not a Databricks App URL") as info:
+    with pytest.raises(hangarllm.BadRequestError, match="not a Databricks App URL") as info:
         parse_databricks_oauth_config(
             {
                 "custom_llm_provider": "databricks_agent",
@@ -605,7 +605,7 @@ def test_parse_rejects_an_app_url_typed_as_the_workspace_url(workspace_url):
 
 
 def test_parse_flat_fields_with_only_a_client_id_raise_on_the_missing_secret():
-    with pytest.raises(litellm.BadRequestError, match="client_secret"):
+    with pytest.raises(hangarllm.BadRequestError, match="client_secret"):
         parse_databricks_oauth_config(
             {
                 "custom_llm_provider": "databricks_agent",

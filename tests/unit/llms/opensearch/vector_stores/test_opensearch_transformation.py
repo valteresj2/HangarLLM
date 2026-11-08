@@ -15,17 +15,17 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 from botocore.exceptions import CredentialRetrievalError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.opensearch.vector_stores.transformation import OpenSearchVectorStoreConfig
-from litellm.types.llms.bedrock import AwsAuthParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import EmbeddingResponse
-from litellm.types.vector_stores import VectorStoreSearchResponse
-from litellm.vector_stores import main as vector_stores
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.opensearch.vector_stores.transformation import OpenSearchVectorStoreConfig
+from hangarllm.types.llms.bedrock import AwsAuthParams
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import EmbeddingResponse
+from hangarllm.types.vector_stores import VectorStoreSearchResponse
+from hangarllm.vector_stores import main as vector_stores
 
 ACCESS_KEY: Final = "AKIDOPENSEARCHTEST"
 SECRET_KEY: Final = "opensearch-test-secret"
@@ -37,7 +37,7 @@ BASE_PARAMS: Final = {
     "api_base": SERVERLESS,
     "aws_access_key_id": ACCESS_KEY,
     "aws_secret_access_key": SECRET_KEY,
-    "litellm_embedding_model": "embedding-alias",
+    "hangarllm_embedding_model": "embedding-alias",
 }
 _AUTHORIZATION: Final = re.compile(
     r"\AAWS4-HMAC-SHA256 Credential=(?P<key>[^/]+)/(?P<date>\d{8})/(?P<region>[^/]+)/(?P<service>[^/]+)/aws4_request, "
@@ -91,7 +91,7 @@ def _opensearch_hits(text_field: str, embedding_field: str) -> Mapping[str, obje
             "max_score": 0.581,
             "hits": [
                 {
-                    "_index": "litellm-qa-docs",
+                    "_index": "hangarllm-qa-docs",
                     "_id": "1%3A0%3Aw6ftW6EB",
                     "_score": 0.581,
                     "_source": {
@@ -107,7 +107,7 @@ def _opensearch_hits(text_field: str, embedding_field: str) -> Mapping[str, obje
                         "reviewed_by": None,
                     },
                 },
-                {"_index": "litellm-qa-docs", "_id": "doc-2", "_score": 0.42, "_source": {"category": "facilities"}},
+                {"_index": "hangarllm-qa-docs", "_id": "doc-2", "_score": 0.42, "_source": {"category": "facilities"}},
             ],
         },
     }
@@ -133,18 +133,18 @@ async def _search(
 ) -> VectorStoreSearchResponse:
     request_kwargs: Final = {
         **BASE_PARAMS,
-        "vector_store_id": "litellm-qa-docs",
+        "vector_store_id": "hangarllm-qa-docs",
         "query": QUERY,
         "custom_llm_provider": "opensearch",
         "_direct_vector_store_embedding_executor": executor,
         **kwargs,
     }
     if asynchronous:
-        return await litellm.vector_stores.asearch(
+        return await hangarllm.vector_stores.asearch(
             **request_kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(respond))
         )
     with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
-        return litellm.vector_stores.search(**request_kwargs, client=HTTPHandler(client=transport))
+        return hangarllm.vector_stores.search(**request_kwargs, client=HTTPHandler(client=transport))
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -189,7 +189,7 @@ async def test_search_sends_a_signed_knn_query_and_returns_an_openai_results_pag
     assert response == {"object": "vector_store.search_results.page", "search_query": QUERY, "data": EXPECTED_RESULTS}
     sent: Final = _sent(respond)
     assert len(sent) == 1
-    assert str(sent[0].url) == f"{api_base.rstrip('/')}/litellm-qa-docs/_search"
+    assert str(sent[0].url) == f"{api_base.rstrip('/')}/hangarllm-qa-docs/_search"
     assert json.loads(sent[0].content) == {
         "size": 3,
         "query": {"knn": {embedding_field: {"vector": QUERY_VECTOR, "k": 3}}},
@@ -244,7 +244,7 @@ async def test_opensearch_error_keeps_its_status(asynchronous: bool, status: int
         ({"max_num_results": 0}, "max_num_results"),
         ({"max_num_results": 51}, "max_num_results"),
         ({"max_num_results": "ten"}, "Invalid vector store search parameters"),
-        ({"litellm_embedding_model": None}, "litellm_embedding_model"),
+        ({"hangarllm_embedding_model": None}, "hangarllm_embedding_model"),
         ({"opensearch_text_feild": "passage"}, "opensearch_text_feild"),
         ({"opensearch_text_field": 7}, "opensearch_text_field"),
         ({"opensearch_index_name": ["docs"]}, "opensearch_index_name"),
@@ -262,7 +262,7 @@ async def test_unsupported_search_is_rejected_before_embedding_or_any_request(
     executor: Final = RecordingEmbeddingExecutor()
     respond: Final = MagicMock(return_value=httpx.Response(200, json={"hits": {"hits": []}}))
 
-    with pytest.raises(litellm.BadRequestError, match=message) as error:
+    with pytest.raises(hangarllm.BadRequestError, match=message) as error:
         await _search(True, respond, executor, overrides)
 
     assert error.value.status_code == 400
@@ -325,7 +325,7 @@ async def test_missing_aws_credentials_are_a_401_before_embedding_or_any_request
     executor: Final = RecordingEmbeddingExecutor()
     respond: Final = MagicMock(return_value=httpx.Response(200, json={"hits": {"hits": []}}))
 
-    with pytest.raises(litellm.AuthenticationError, match="No usable AWS credentials") as error:
+    with pytest.raises(hangarllm.AuthenticationError, match="No usable AWS credentials") as error:
         await _search(
             asynchronous,
             respond,
@@ -346,8 +346,8 @@ class _FailingCredentialSource(BaseAWSLLM):
 def test_failing_credential_source_is_a_401_that_keeps_its_output_out_of_the_reply() -> None:
     config: Final = OpenSearchVectorStoreConfig(aws=_FailingCredentialSource())
 
-    with pytest.raises(litellm.AuthenticationError, match="the AWS credential source failed") as error:
-        config.validate_environment({}, GenericLiteLLMParams(api_base=SERVERLESS))
+    with pytest.raises(hangarllm.AuthenticationError, match="the AWS credential source failed") as error:
+        config.validate_environment({}, GenericHangarLLMParams(api_base=SERVERLESS))
 
     assert error.value.status_code == 401
     assert CREDENTIAL_SOURCE_OUTPUT not in str(error.value)
@@ -406,14 +406,14 @@ async def test_no_op_values_of_unsupported_params_are_accepted() -> None:
 
 
 def test_create_is_rejected_because_the_store_is_search_only() -> None:
-    with pytest.raises(litellm.BadRequestError, match="search-only"):
-        litellm.vector_stores.create(custom_llm_provider="opensearch")
+    with pytest.raises(hangarllm.BadRequestError, match="search-only"):
+        hangarllm.vector_stores.create(custom_llm_provider="opensearch")
 
 
 async def _store_operation(
     asynchronous: bool, operation: str, respond: Callable[[httpx.Request], httpx.Response]
 ) -> object:
-    request_kwargs: Final = {**BASE_PARAMS, "vector_store_id": "litellm-qa-docs", "custom_llm_provider": "opensearch"}
+    request_kwargs: Final = {**BASE_PARAMS, "vector_store_id": "hangarllm-qa-docs", "custom_llm_provider": "opensearch"}
     if asynchronous:
         return await getattr(vector_stores, f"a{operation}")(
             **request_kwargs, client=AsyncHTTPHandler(transport=httpx.MockTransport(respond))
@@ -428,7 +428,7 @@ async def _store_operation(
 async def test_store_operations_besides_search_send_nothing_to_the_index(asynchronous: bool, operation: str) -> None:
     respond: Final = MagicMock(return_value=httpx.Response(200, json={"acknowledged": True}))
 
-    with pytest.raises(litellm.BadRequestError, match="search-only") as error:
+    with pytest.raises(hangarllm.BadRequestError, match="search-only") as error:
         await _store_operation(asynchronous, operation, respond)
 
     assert error.value.status_code == 400
@@ -450,7 +450,7 @@ async def _list_stores(asynchronous: bool, respond: Callable[[httpx.Request], ht
 async def test_listing_stores_sends_nothing_to_the_endpoint(asynchronous: bool) -> None:
     respond: Final = MagicMock(return_value=httpx.Response(200, json={"cluster_name": "docs", "tagline": "OpenSearch"}))
 
-    with pytest.raises(litellm.BadRequestError, match="search-only") as error:
+    with pytest.raises(hangarllm.BadRequestError, match="search-only") as error:
         await _list_stores(asynchronous, respond)
 
     assert error.value.status_code == 400
@@ -472,7 +472,7 @@ def test_response_without_search_hits_is_an_error_not_an_empty_page(response: ht
         stream=False,
         call_type="vector_store_search",
         start_time=datetime(2026, 10, 20, tzinfo=timezone.utc),
-        litellm_call_id="opensearch-test",
+        hangarllm_call_id="opensearch-test",
         function_id="opensearch-test",
     )
 

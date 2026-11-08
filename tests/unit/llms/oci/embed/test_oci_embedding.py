@@ -4,8 +4,8 @@ import httpx
 import pytest
 
 
-from litellm.llms.oci.embed.transformation import OCIEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.oci.embed.transformation import OCIEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 # Test constants
 TEST_MODEL_NAME = "cohere.embed-english-v3.0"
@@ -53,7 +53,7 @@ class TestOCIEmbeddingConfig:
             api_key=None,
             model=TEST_MODEL_NAME,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "us-ashburn-1" in url
         assert "embedText" in url
@@ -66,7 +66,7 @@ class TestOCIEmbeddingConfig:
             api_key=None,
             model=TEST_MODEL_NAME,
             optional_params={"oci_region": "us-chicago-1"},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "us-chicago-1" in url
         assert "embedText" in url
@@ -80,7 +80,7 @@ class TestOCIEmbeddingConfig:
             api_key=None,
             model=TEST_MODEL_NAME,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{custom_base}/20231130/actions/embedText"
 
@@ -113,14 +113,14 @@ class TestOCIEmbeddingConfig:
             model=TEST_MODEL,
             messages=[],
             optional_params=supplied_params,
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result["content-type"] == "application/json"
-        assert "litellm" in result["user-agent"]
+        assert "hangarllm" in result["user-agent"]
 
     def test_validate_environment_missing_credentials(self):
         """test validate_environment raises OCIError when required credentials are missing."""
-        from litellm.llms.oci.common_utils import OCIError
+        from hangarllm.llms.oci.common_utils import OCIError
 
         config = OCIEmbeddingConfig()
         incomplete_params = {
@@ -133,7 +133,7 @@ class TestOCIEmbeddingConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params=incomplete_params,
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_validate_environment_with_signer(self):
@@ -153,7 +153,7 @@ class TestOCIEmbeddingConfig:
             model=TEST_MODEL,
             messages=[],
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result["content-type"] == "application/json"
 
@@ -233,7 +233,7 @@ class TestOCIEmbeddingConfig:
 
     def test_transform_embedding_request_token_list_raises(self):
         """test token-array inputs raise OCIError instead of silent conversion."""
-        from litellm.llms.oci.common_utils import OCIError
+        from hangarllm.llms.oci.common_utils import OCIError
 
         config = OCIEmbeddingConfig()
         optional_params = {
@@ -267,7 +267,7 @@ class TestOCIEmbeddingConfig:
             api_key=None,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(result, EmbeddingResponse)
@@ -283,7 +283,7 @@ class TestOCIEmbeddingConfig:
 
     def test_transform_embedding_response_error(self):
         """test non-200 status code raises OCIError."""
-        from litellm.llms.oci.common_utils import OCIError
+        from hangarllm.llms.oci.common_utils import OCIError
 
         config = OCIEmbeddingConfig()
         mock_response = httpx.Response(
@@ -303,7 +303,7 @@ class TestOCIEmbeddingConfig:
                 api_key=None,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
 

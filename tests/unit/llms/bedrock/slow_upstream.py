@@ -14,7 +14,7 @@ from typing import Final
 import httpx
 from pydantic import TypeAdapter
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
 STREAM_TIMEOUT_SECONDS: Final = 0.5
 UPSTREAM_FIRST_BYTE_SECONDS: Final = 2.0

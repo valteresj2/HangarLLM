@@ -7,12 +7,12 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-import litellm
-from litellm.endpoints.speech.speech_to_completion_bridge.transformation import (
+import hangarllm
+from hangarllm.endpoints.speech.speech_to_completion_bridge.transformation import (
     SpeechToCompletionBridgeTransformationHandler,
 )
-from litellm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
-from litellm.utils import get_supported_openai_params
+from hangarllm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
+from hangarllm.utils import get_supported_openai_params
 
 pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
@@ -302,7 +302,7 @@ class TestGeminiTTSTransformation:
         }
         optional_params = {}
 
-        with pytest.raises(litellm.UnsupportedParamsError, match="audio format 'mp3'"):
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="audio format 'mp3'"):
             config.map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
@@ -311,7 +311,7 @@ class TestGeminiTTSTransformation:
             )
 
     def test_gemini_tts_utils_integration(self):
-        """Test integration with LiteLLM utils functions"""
+        """Test integration with HangarLLM utils functions"""
         # Test that get_supported_openai_params works with TTS models
         params = get_supported_openai_params("gemini-2.5-flash-preview-tts", "gemini")
         assert "audio" in params
@@ -323,7 +323,7 @@ class TestGeminiTTSTransformation:
 
 def test_gemini_tts_completion_mock():
     """Test Gemini TTS completion with mocked response"""
-    with patch("litellm.completion") as mock_completion:
+    with patch("hangarllm.completion") as mock_completion:
         # Mock a successful TTS response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -331,7 +331,7 @@ def test_gemini_tts_completion_mock():
         mock_completion.return_value = mock_response
 
         # Test completion call with audio parameter
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gemini-2.5-flash-preview-tts",
             messages=[{"role": "user", "content": "Say hello"}],
             audio={"voice": "Kore", "format": "pcm16"},
@@ -349,9 +349,9 @@ def test_gemini_tts_speech_bridge_accepts_multi_speaker_voice_dict():
         input="Ryan: How are you doing today Katie?\nKatie: Not too bad.",
         voice=MULTI_SPEAKER_SPEECH_CONFIG,
         optional_params={"response_format": "pcm"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="vertex_ai",
     )
 
@@ -385,7 +385,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
     )
     def test_speechconfig_in_generation_config_transform_request_body(self, model, custom_llm_provider):
         """Test that speechConfig is included in generationConfig after transform_request_body()"""
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from hangarllm.llms.vertex_ai.gemini.transformation import (
             transform_request_body,
         )
 
@@ -403,7 +403,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
             model=model,
             optional_params=optional_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -428,10 +428,10 @@ class TestGeminiTTSSpeechConfigInRequestBody:
     )
     def test_speechconfig_end_to_end_mapping(self, model, custom_llm_provider):
         """Test full pipeline: audio param -> map_openai_params -> transform_request_body"""
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from hangarllm.llms.vertex_ai.gemini.transformation import (
             transform_request_body,
         )
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -459,7 +459,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
             model=model,
             optional_params=mapped_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -485,10 +485,10 @@ class TestGeminiTTSSpeechConfigInRequestBody:
     )
     def test_multi_speaker_speechconfig_end_to_end_mapping(self, custom_llm_provider):
         """Test full pipeline for Gemini 3.1 multi-speaker TTS speechConfig"""
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from hangarllm.llms.vertex_ai.gemini.transformation import (
             _transform_request_body,
         )
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -511,7 +511,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
             model=GEMINI_3_1_FLASH_TTS_MODEL,
             optional_params=mapped_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -528,10 +528,10 @@ class TestGeminiTTSSpeechConfigInRequestBody:
         ],
     )
     def test_language_code_end_to_end_mapping(self, model, custom_llm_provider):
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from hangarllm.llms.vertex_ai.gemini.transformation import (
             transform_request_body,
         )
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -554,7 +554,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
             model=model,
             optional_params=mapped_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -580,9 +580,9 @@ def test_speech_bridge_preserves_single_speaker_voice_mapping(voice_key: str, wr
         input="Hello",
         voice=voice,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="vertex_ai",
     )
     assert result["audio"] == {

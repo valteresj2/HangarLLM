@@ -9,9 +9,9 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.transcribe_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.transcribe_passthrough_logging_handler import (
     TRANSCRIBE_MAX_MEDIA_DURATION_SECONDS,
     TRANSCRIBE_OWNER_TAG,
     TranscribePassthroughLoggingHandler,
@@ -33,7 +33,7 @@ from litellm.proxy.pass_through_endpoints.llm_provider_handlers.transcribe_passt
     transcribe_unpriceable_request_reason,
     write_media_within_limit,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
 
@@ -64,7 +64,7 @@ async def _relayed_response(operation: str, body: bytes) -> httpx.Response:
 
 def _make_logging_obj() -> MagicMock:
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "test-call-id"
+    logging_obj.hangarllm_call_id = "test-call-id"
     logging_obj.model_call_details = {}
     return logging_obj
 
@@ -141,16 +141,16 @@ class TestTranscribeSupportedOperations:
 
 class TestTranscribeCostMap:
     def test_start_transcription_job_is_priced_per_second_of_audio(self):
-        entry = litellm.model_cost["transcribe/StartTranscriptionJob"]
+        entry = hangarllm.model_cost["transcribe/StartTranscriptionJob"]
 
-        assert entry["litellm_provider"] == "transcribe"
+        assert entry["hangarllm_provider"] == "transcribe"
         assert entry["mode"] == "audio_transcription"
         assert transcribe_cost_per_second() == entry["input_cost_per_second"] > 0
 
     def test_missing_or_malformed_entry_yields_no_rate(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setitem(litellm.model_cost, "transcribe/StartTranscriptionJob", {"input_cost_per_second": "x"})
+        monkeypatch.setitem(hangarllm.model_cost, "transcribe/StartTranscriptionJob", {"input_cost_per_second": "x"})
         assert transcribe_cost_per_second() is None
-        monkeypatch.delitem(litellm.model_cost, "transcribe/StartTranscriptionJob")
+        monkeypatch.delitem(hangarllm.model_cost, "transcribe/StartTranscriptionJob")
         assert transcribe_cost_per_second() is None
 
 
@@ -504,7 +504,7 @@ class TestMediaPredatesJob:
 
 VIRTUAL_KEY = UserAPIKeyAuth(api_key="hashed-key-a", user_id="user-a", team_id="team-a")
 OTHER_VIRTUAL_KEY = UserAPIKeyAuth(api_key="hashed-key-b", user_id="user-b", team_id="team-b")
-ADMIN_KEY = UserAPIKeyAuth(api_key="hashed-admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+ADMIN_KEY = UserAPIKeyAuth(api_key="hashed-admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 class TestTranscribeAdminOnlyRefusal:
@@ -704,7 +704,7 @@ class TestTranscribeJobAccessRefusal:
 class TestTranscribePassthroughHandler:
     def test_records_model_provider_and_the_given_cost(self):
         logging_obj = _make_logging_obj()
-        request_body = {"TranscriptionJobName": "litellm-job-1"}
+        request_body = {"TranscriptionJobName": "hangarllm-job-1"}
 
         handler_result = TranscribePassthroughLoggingHandler.transcribe_passthrough_handler(
             httpx_response=_make_response("StartTranscriptionJob"),
@@ -726,7 +726,7 @@ class TestTranscribePassthroughHandler:
         assert logging_obj.model_call_details["model"] == "transcribe/StartTranscriptionJob"
         assert logging_obj.model_call_details["custom_llm_provider"] == "transcribe"
         assert logging_obj.model_call_details["response_cost"] == 0.0018
-        assert request_body == {"TranscriptionJobName": "litellm-job-1"}
+        assert request_body == {"TranscriptionJobName": "hangarllm-job-1"}
 
     def test_read_only_operations_default_to_zero_cost(self):
         handler_result = TranscribePassthroughLoggingHandler.transcribe_passthrough_handler(
@@ -737,7 +737,7 @@ class TestTranscribePassthroughHandler:
             start_time=datetime.now(),
             end_time=datetime.now(),
             cache_hit=False,
-            request_body={"TranscriptionJobName": "litellm-job-1"},
+            request_body={"TranscriptionJobName": "hangarllm-job-1"},
         )
 
         assert handler_result["kwargs"]["response_cost"] == 0.0
@@ -770,13 +770,13 @@ class TestStartTranscriptionJobIsLoggedAtJobCost:
             start_time=datetime.now(),
             end_time=datetime.now(),
             cache_hit=False,
-            request_body={"TranscriptionJobName": "litellm-job-1"},
+            request_body={"TranscriptionJobName": "hangarllm-job-1"},
             log=log,
             standard_pass_through_logging_payload={"cost_per_request": None},
         )
         await task
 
-        assert priced == [("litellm-job-1", "us-west-2", transcribe_cost_per_second(), TranscriptionJobRecord())]
+        assert priced == [("hangarllm-job-1", "us-west-2", transcribe_cost_per_second(), TranscriptionJobRecord())]
         assert len(logged) == 1
         assert logged[0]["response_cost"] == 0.0018
         assert logged[0]["model"] == "transcribe/StartTranscriptionJob"
@@ -795,7 +795,7 @@ class TestStartTranscriptionJobIsLoggedAtJobCost:
         async def log(**kwargs: object) -> None:
             logged.append(kwargs)
 
-        monkeypatch.delitem(litellm.model_cost, "transcribe/StartTranscriptionJob")
+        monkeypatch.delitem(hangarllm.model_cost, "transcribe/StartTranscriptionJob")
         await TranscribePassthroughLoggingHandler(job_pricer=job_pricer).schedule_priced_job_logging(
             httpx_response=_make_response("StartTranscriptionJob"),
             response_body={"TranscriptionJob": {}},
@@ -805,7 +805,7 @@ class TestStartTranscriptionJobIsLoggedAtJobCost:
             start_time=datetime.now(),
             end_time=datetime.now(),
             cache_hit=False,
-            request_body={"TranscriptionJobName": "litellm-job-1"},
+            request_body={"TranscriptionJobName": "hangarllm-job-1"},
             log=log,
         )
 
@@ -839,13 +839,13 @@ class TestStartTranscriptionJobIsLoggedAtJobCost:
             start_time=datetime.now(),
             end_time=datetime.now(),
             cache_hit=False,
-            request_body={"TranscriptionJobName": "litellm-job-1"},
+            request_body={"TranscriptionJobName": "hangarllm-job-1"},
             passthrough_logging_payload={"url": "https://transcribe.us-west-2.amazonaws.com/"},
             custom_llm_provider="transcribe",
         )
         await asyncio.gather(*logging.transcribe_passthrough_logging_handler._pricing_tasks)
 
-        assert scheduled == ["litellm-job-1"]
+        assert scheduled == ["hangarllm-job-1"]
         assert [entry["response_cost"] for entry in immediate] == [0.0]
 
     @pytest.mark.asyncio
@@ -864,7 +864,7 @@ class TestStartTranscriptionJobIsLoggedAtJobCost:
 
         start_response = {
             "TranscriptionJob": {
-                "TranscriptionJobName": "litellm-job-1",
+                "TranscriptionJobName": "hangarllm-job-1",
                 "TranscriptionJobStatus": "IN_PROGRESS",
                 "Media": {"MediaFileUri": "s3://b/started.wav"},
                 "CreationTime": 5.0,
@@ -883,7 +883,7 @@ class TestStartTranscriptionJobIsLoggedAtJobCost:
             start_time=datetime.now(),
             end_time=datetime.now(),
             cache_hit=False,
-            request_body={"TranscriptionJobName": "litellm-job-1"},
+            request_body={"TranscriptionJobName": "hangarllm-job-1"},
             passthrough_logging_payload={"url": "https://transcribe.us-west-2.amazonaws.com/"},
             custom_llm_provider="transcribe",
         )
@@ -910,7 +910,7 @@ class TestIsTranscribeRoute:
         normalized = PassThroughEndpointLogging().normalize_llm_passthrough_logging_payload(
             httpx_response=_make_response("GetTranscriptionJob"),
             response_body={"TranscriptionJob": {}},
-            request_body={"TranscriptionJobName": "litellm-job-1"},
+            request_body={"TranscriptionJobName": "hangarllm-job-1"},
             logging_obj=logging_obj,
             url_route="https://transcribe.us-west-2.amazonaws.com/",
             result='{"TranscriptionJob": {}}',
@@ -929,7 +929,7 @@ class TestIsTranscribeRoute:
         normalized = PassThroughEndpointLogging().normalize_llm_passthrough_logging_payload(
             httpx_response=_make_response("GetTranscriptionJob"),
             response_body={"TranscriptionJob": {}},
-            request_body={"TranscriptionJobName": "litellm-job-1"},
+            request_body={"TranscriptionJobName": "hangarllm-job-1"},
             logging_obj=logging_obj,
             url_route="https://transcribe.us-west-2.amazonaws.com/",
             result='{"TranscriptionJob": {}}',

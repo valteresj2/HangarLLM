@@ -14,9 +14,9 @@ from prompt_toolkit.application import AppSession, create_app_session
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
-from litellm.proxy.client.cli.commands.autoroute import wizard as wizard_module
-from litellm.proxy.client.cli.commands.autoroute.config import DiscoveredModel
-from litellm.proxy.client.cli.commands.autoroute.wizard import run_configure_wizard
+from hangarllm.proxy.client.cli.commands.autoroute import wizard as wizard_module
+from hangarllm.proxy.client.cli.commands.autoroute.config import DiscoveredModel
+from hangarllm.proxy.client.cli.commands.autoroute.wizard import run_configure_wizard
 
 CHAT_AND_EMBEDDING_GROUPS: List[Dict[str, Any]] = [
     {"id": "gpt-4o-mini", "object": "model", "mode": "chat", "max_input_tokens": 128000},
@@ -88,7 +88,7 @@ def _run(
 def _router_config(config_path) -> Dict[str, Any]:
     written = yaml.safe_load(config_path.read_text())
     autorouter = next(m for m in written["model_list"] if m["model_name"] == "autorouter")
-    return autorouter["litellm_params"]["complexity_router_config"]
+    return autorouter["hangarllm_params"]["complexity_router_config"]
 
 
 _SIMPLE_TIER_PICKS: Dict[str, Tuple[str, ...]] = {

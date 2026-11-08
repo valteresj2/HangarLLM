@@ -6,9 +6,9 @@ import pytest
 from httpx import Request, Response
 from pydantic import BaseModel, computed_field
 
-from litellm.integrations.datadog.datadog import DataDogLogger
-from litellm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
-from litellm.types.integrations.datadog import (
+from hangarllm.integrations.datadog.datadog import DataDogLogger
+from hangarllm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
+from hangarllm.types.integrations.datadog import (
     DD_MAX_BATCH_SIZE,
     DD_MAX_PAYLOAD_SIZE_BYTES,
     DatadogPayload,
@@ -18,7 +18,7 @@ from litellm.types.integrations.datadog import (
 def _payloads(n, message=None):
     return [
         DatadogPayload(
-            ddsource="litellm",
+            ddsource="hangarllm",
             ddtags="env:test",
             hostname="host",
             message=f"{message}{i}" if message else f'{{"event": {i}}}',
@@ -63,7 +63,7 @@ async def test_async_send_batch_keeps_events_appended_during_send(datadog_env):
 
     logger.log_queue = [
         DatadogPayload(
-            ddsource="litellm",
+            ddsource="hangarllm",
             ddtags="env:test",
             hostname="host",
             message=f'{{"event": {i}}}',
@@ -76,7 +76,7 @@ async def test_async_send_batch_keeps_events_appended_during_send(datadog_env):
     async def _mock_send(data):
         logger.log_queue.append(
             DatadogPayload(
-                ddsource="litellm",
+                ddsource="hangarllm",
                 ddtags="env:test",
                 hostname="host",
                 message='{"event": 2}',
@@ -190,7 +190,7 @@ def _make_recording_send(sent_batches, delivered):
 async def test_oversized_payload_splits_before_any_send(datadog_env):
     """Regression for LIT-4325: a batch above Datadog's uncompressed payload limit is
     split proactively, so the intake never has to reject it with a 413."""
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+    from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
 
     with patch("asyncio.create_task"):
         logger = DataDogLogger()
@@ -348,7 +348,7 @@ async def test_async_send_batch_requeues_events_on_exception(datadog_env):
 
     logger.log_queue = [
         DatadogPayload(
-            ddsource="litellm",
+            ddsource="hangarllm",
             ddtags="env:test",
             hostname="host",
             message=f'{{"event": {i}}}',
@@ -377,7 +377,7 @@ async def test_log_async_event_threshold_flush_uses_flush_queue(datadog_env):
     logger.flush_queue = AsyncMock()
     logger.create_datadog_logging_payload = Mock(
         return_value=DatadogPayload(
-            ddsource="litellm",
+            ddsource="hangarllm",
             ddtags="env:test",
             hostname="host",
             message='{"event": 0}',
@@ -403,7 +403,7 @@ async def test_flush_queue_updates_last_flush_time(datadog_env):
 
     logger.log_queue = [
         DatadogPayload(
-            ddsource="litellm",
+            ddsource="hangarllm",
             ddtags="env:test",
             hostname="host",
             message='{"event": 0}',
@@ -433,7 +433,7 @@ async def test_flush_queue_does_not_update_last_flush_time_when_send_requeues(
 
     logger.log_queue = [
         DatadogPayload(
-            ddsource="litellm",
+            ddsource="hangarllm",
             ddtags="env:test",
             hostname="host",
             message='{"event": 0}',
@@ -446,7 +446,7 @@ async def test_flush_queue_does_not_update_last_flush_time_when_send_requeues(
     async def _requeue_batch():
         logger.log_queue = [
             DatadogPayload(
-                ddsource="litellm",
+                ddsource="hangarllm",
                 ddtags="env:test",
                 hostname="host",
                 message='{"event": 0}',
@@ -471,7 +471,7 @@ async def test_flush_queue_returns_without_lock(datadog_env):
     logger.flush_lock = None
     logger.log_queue = [
         DatadogPayload(
-            ddsource="litellm",
+            ddsource="hangarllm",
             ddtags="env:test",
             hostname="host",
             message='{"event": 0}',

@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, call
 @pytest.mark.asyncio
 async def test_create_views_reraises_connection_error():
     """should re-raise exceptions that are NOT 'does not exist' errors (e.g. connection errors)."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(
@@ -30,12 +30,12 @@ async def test_create_views_reraises_connection_error():
 @pytest.mark.asyncio
 async def test_create_views_reraises_permission_error():
     """should re-raise permission denied errors, not treat them as missing views."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(
         side_effect=Exception(
-            "permission denied for table LiteLLM_VerificationTokenView"
+            "permission denied for table HangarLLM_VerificationTokenView"
         )
     )
     mock_db.execute_raw = AsyncMock()
@@ -49,12 +49,12 @@ async def test_create_views_reraises_permission_error():
 @pytest.mark.asyncio
 async def test_create_views_creates_view_on_does_not_exist():
     """should call execute_raw to create view when error contains 'does not exist'."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(
         side_effect=[
-            Exception('relation "LiteLLM_VerificationTokenView" does not exist'),
+            Exception('relation "HangarLLM_VerificationTokenView" does not exist'),
             None,  # MonthlyGlobalSpend exists
             None,  # Last30dKeysBySpend exists
             None,  # Last30dModelsBySpend exists
@@ -70,19 +70,19 @@ async def test_create_views_creates_view_on_does_not_exist():
 
     mock_db.execute_raw.assert_called_once()
     created_sql = mock_db.execute_raw.call_args[0][0]
-    assert 'CREATE VIEW "LiteLLM_VerificationTokenView"' in created_sql
+    assert 'CREATE VIEW "HangarLLM_VerificationTokenView"' in created_sql
     assert "t.model_max_budget AS team_model_max_budget" in created_sql
 
 
 @pytest.mark.asyncio
 async def test_create_views_creates_view_on_undefined_error():
     """should treat 'undefined' errors as 'view not found' and attempt creation."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(
         side_effect=[
-            Exception("undefined table LiteLLM_VerificationTokenView"),
+            Exception("undefined table HangarLLM_VerificationTokenView"),
             None,
             None,
             None,
@@ -102,7 +102,7 @@ async def test_create_views_creates_view_on_undefined_error():
 @pytest.mark.asyncio
 async def test_create_views_skips_creation_when_view_exists():
     """should not call execute_raw when all views already exist."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(return_value=[{"?column?": 1}])
@@ -117,7 +117,7 @@ async def test_create_views_skips_creation_when_view_exists():
 async def test_create_views_reraises_undefined_function_error():
     """should re-raise 'undefined function' errors — bare 'undefined' is too broad
     and would previously misclassify DB function errors as missing-view signals."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(
@@ -134,7 +134,7 @@ async def test_create_views_reraises_undefined_function_error():
 @pytest.mark.asyncio
 async def test_should_create_missing_views_reltuples_zero():
     """should return True when reltuples is 0 (fresh empty table)."""
-    from litellm.proxy.db.create_views import should_create_missing_views
+    from hangarllm.proxy.db.create_views import should_create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(return_value=[{"reltuples": 0}])
@@ -146,7 +146,7 @@ async def test_should_create_missing_views_reltuples_zero():
 @pytest.mark.asyncio
 async def test_should_create_missing_views_reltuples_negative_one():
     """should return True when reltuples is -1 (table created, no ANALYZE yet)."""
-    from litellm.proxy.db.create_views import should_create_missing_views
+    from hangarllm.proxy.db.create_views import should_create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(return_value=[{"reltuples": -1}])
@@ -158,7 +158,7 @@ async def test_should_create_missing_views_reltuples_negative_one():
 @pytest.mark.asyncio
 async def test_should_create_missing_views_reltuples_positive():
     """should return False when reltuples > 0 (table has data)."""
-    from litellm.proxy.db.create_views import should_create_missing_views
+    from hangarllm.proxy.db.create_views import should_create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(return_value=[{"reltuples": 1000}])
@@ -170,12 +170,12 @@ async def test_should_create_missing_views_reltuples_positive():
 @pytest.mark.asyncio
 async def test_create_views_creates_view_on_undefined_table_error():
     """should treat 'undefined table' as a missing-view signal and attempt creation."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(
         side_effect=[
-            Exception('undefined table "LiteLLM_VerificationTokenView"'),
+            Exception('undefined table "HangarLLM_VerificationTokenView"'),
             None,
             None,
             None,
@@ -212,7 +212,7 @@ async def test_create_views_tolerates_a_concurrent_creator_on_every_view():
     still died on MonthlyGlobalSpend against a real Postgres. Counting the
     attempts is the assertion, because a partial fix simply stops early.
     """
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(side_effect=Exception("relation does not exist"))
@@ -232,7 +232,7 @@ async def test_create_views_tolerates_a_concurrent_creator_on_every_view():
 @pytest.mark.asyncio
 async def test_create_views_reraises_genuine_ddl_error():
     """An already-exists guard must not swallow real DDL failures."""
-    from litellm.proxy.db.create_views import create_missing_views
+    from hangarllm.proxy.db.create_views import create_missing_views
 
     mock_db = MagicMock()
     mock_db.query_raw = AsyncMock(side_effect=Exception("relation does not exist"))
@@ -244,7 +244,7 @@ async def test_create_views_reraises_genuine_ddl_error():
 
 @pytest.mark.asyncio
 async def test_create_view_tolerating_race_swallows_only_already_exists():
-    from litellm.proxy.db.create_views import create_view_tolerating_race
+    from hangarllm.proxy.db.create_views import create_view_tolerating_race
 
     mock_db = MagicMock()
     mock_db.execute_raw = AsyncMock(side_effect=Exception("duplicate object"))

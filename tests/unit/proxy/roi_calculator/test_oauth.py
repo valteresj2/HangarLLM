@@ -3,7 +3,7 @@ from typing import Final
 
 from pydantic import SecretStr
 
-from litellm.proxy.roi_calculator.oauth import OAuthConfig
+from hangarllm.proxy.roi_calculator.oauth import OAuthConfig
 
 
 def test_app_urls_support_enterprise_and_a_gateway_path_prefix() -> None:

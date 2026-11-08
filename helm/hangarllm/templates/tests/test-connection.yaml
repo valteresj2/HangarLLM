@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "litellm.fullname" . }}-test-connection"
+  name: "{{ include "hangarllm.fullname" . }}-test-connection"
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
@@ -17,7 +17,7 @@ spec:
           sleep 10
           # Try multiple times with a delay between attempts
           for i in $(seq 1 30); do
-            wget -T 5 "{{ include "litellm.fullname" . }}:{{ .Values.service.port }}/health/readiness" && exit 0
+            wget -T 5 "{{ include "hangarllm.fullname" . }}:{{ .Values.service.port }}/health/readiness" && exit 0
             echo "Attempt $i failed, waiting..."
             sleep 2
           done

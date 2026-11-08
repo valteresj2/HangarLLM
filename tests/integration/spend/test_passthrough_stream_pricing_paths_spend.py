@@ -39,7 +39,7 @@ _HOSTS: Final = (
     "generativelanguage.googleapis.com",
     "api.openai.com",
 )
-_COST_MAP: Final = Path("litellm/model_prices_and_context_window_backup.json")
+_COST_MAP: Final = Path("hangarllm/model_prices_and_context_window_backup.json")
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _CUT_MARKER: Final = "cut this stream after the usage frame"
 _GEMINI_USAGE: Final = {
@@ -197,7 +197,7 @@ def _config(directory: Path, token_url: str) -> Path:
     deployments: Final = [
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"vertex_ai/{_GEMINI}",
                 "vertex_project": _PROJECT,
                 "vertex_location": location,
@@ -208,7 +208,7 @@ def _config(directory: Path, token_url: str) -> Path:
     ]
     custom_priced_gemini: Final = {
         "model_name": _CUSTOM_PRICED_GEMINI_ID,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"gemini/{_GEMINI}",
             "api_key": "scripted-gemini-key",
             "input_cost_per_token": _CUSTOM_INPUT_RATE,
@@ -237,7 +237,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
                 "NO_PROXY": "127.0.0.1,localhost",
                 "AIOHTTP_TRUST_ENV": "True",
                 "SSL_VERIFY": "False",
-                "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+                "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
                 "OPENAI_API_KEY": "sk-scripted-openai",
                 "GEMINI_API_KEY": "scripted-gemini-key",
             },
@@ -279,7 +279,7 @@ def gateway_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
             {
                 "GEMINI_API_BASE": f"{upstream.url}/google",
                 "GEMINI_API_KEY": "scripted-gemini-key",
-                "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+                "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
             },
             config=_gateway_config(directory, upstream.url),
             workers=2,
@@ -291,7 +291,7 @@ def gateway_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
 def _spend_row(gateway: Gateway, key: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: gateway.rows(
-            'SELECT spend, custom_llm_provider FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+            'SELECT spend, custom_llm_provider FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
             (sha256(key.encode()).hexdigest(),),
         ),
         lambda found: len(found) == 1,
@@ -344,7 +344,7 @@ def test_claude_on_vertex_passthrough_spend_carries_the_regional_uplift_whether_
                 rig,
                 _claude_path(location, action),
                 {**body, "stream": action == "streamRawPredict"},
-                {"x-litellm-api-key": f"Bearer {key}", "Authorization": f"Bearer {_CALLER_GOOGLE_TOKEN}"},
+                {"x-hangarllm-api-key": f"Bearer {key}", "Authorization": f"Bearer {_CALLER_GOOGLE_TOKEN}"},
             )
         spend: Final = {cell: _spend_for_key(rig.proxy, key) for cell, key in keys.items()}
     standard: Final = _list_price(f"vertex_ai/{_CLAUDE_ROUTE_MODEL}")
@@ -450,7 +450,7 @@ def test_openai_passthrough_stream_cut_off_after_its_usage_bills_what_the_finish
 
 def _caller_headers(route: str, key: str) -> Mapping[str, str]:
     if route == "vertex_ai":
-        return {"x-litellm-api-key": f"Bearer {key}", "Authorization": f"Bearer {_CALLER_GOOGLE_TOKEN}"}
+        return {"x-hangarllm-api-key": f"Bearer {key}", "Authorization": f"Bearer {_CALLER_GOOGLE_TOKEN}"}
     return {"x-goog-api-key": key}
 
 

@@ -10,12 +10,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from litellm.models.subscription_account import LiteLLM_SubscriptionAccountTable
-from litellm.proxy._types import LiteLLM_JWTAuth, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import allowed_routes_check
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.management_endpoints.subscription_accounts import (
+from hangarllm.models.subscription_account import HangarLLM_SubscriptionAccountTable
+from hangarllm.proxy._types import HangarLLM_JWTAuth, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.auth_checks import allowed_routes_check
+from hangarllm.proxy.auth.route_checks import RouteChecks
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.management_endpoints.subscription_accounts import (
     SubscriptionDeployment,
     get_subscription_account_repository,
     get_subscription_deployments,
@@ -23,12 +23,12 @@ from litellm.proxy.management_endpoints.subscription_accounts import (
     subscription_deployments_from_model_list,
     subscription_deployments_of_router,
 )
-from litellm.router import Router
-from litellm.types.proxy.management_endpoints.subscription_accounts import (
+from hangarllm.router import Router
+from hangarllm.types.proxy.management_endpoints.subscription_accounts import (
     SubscriptionAccountFeeRequest,
     UpdateSubscriptionAccountFeeRequest,
 )
-from litellm.repositories.subscription_account_repository import (
+from hangarllm.repositories.subscription_account_repository import (
     DuplicateSubscriptionAccount,
     SubscriptionAccountFeeChanges,
     SubscriptionAccountFeeFields,
@@ -51,23 +51,23 @@ _TWO_DEPLOYMENTS_ONE_ACCOUNT: Final = (
 
 class _FakeStore:
     def __init__(self) -> None:
-        self.rows: dict[str, LiteLLM_SubscriptionAccountTable] = {}
+        self.rows: dict[str, HangarLLM_SubscriptionAccountTable] = {}
         self.written_columns: list[dict[str, float | str | None]] = []
 
-    async def list_all(self) -> list[LiteLLM_SubscriptionAccountTable]:
+    async def list_all(self) -> list[HangarLLM_SubscriptionAccountTable]:
         return sorted(self.rows.values(), key=lambda row: row.created_at)
 
-    async def find_by_id(self, id_value: str) -> LiteLLM_SubscriptionAccountTable | None:
+    async def find_by_id(self, id_value: str) -> HangarLLM_SubscriptionAccountTable | None:
         return self.rows.get(id_value)
 
     async def create_account(
         self, custom_llm_provider: str, account_id: str, fee: SubscriptionAccountFeeFields, created_by: str
-    ) -> LiteLLM_SubscriptionAccountTable | DuplicateSubscriptionAccount:
+    ) -> HangarLLM_SubscriptionAccountTable | DuplicateSubscriptionAccount:
         for row in self.rows.values():
             if (row.custom_llm_provider, row.account_id) == (custom_llm_provider, account_id):
                 return DuplicateSubscriptionAccount(custom_llm_provider=custom_llm_provider, account_id=account_id)
         now = datetime.now(timezone.utc)
-        row = LiteLLM_SubscriptionAccountTable(
+        row = HangarLLM_SubscriptionAccountTable(
             subscription_account_id=str(uuid4()),
             custom_llm_provider=custom_llm_provider,
             account_id=account_id,
@@ -85,7 +85,7 @@ class _FakeStore:
 
     async def update_fee(
         self, subscription_account_id: str, changes: SubscriptionAccountFeeChanges, updated_by: str
-    ) -> LiteLLM_SubscriptionAccountTable | None:
+    ) -> HangarLLM_SubscriptionAccountTable | None:
         columns = dict(changes.columns())
         self.written_columns.append(columns)
         existing = self.rows.get(subscription_account_id)
@@ -97,12 +97,12 @@ class _FakeStore:
         self.rows[subscription_account_id] = updated
         return updated
 
-    async def delete_account(self, subscription_account_id: str) -> LiteLLM_SubscriptionAccountTable | None:
+    async def delete_account(self, subscription_account_id: str) -> HangarLLM_SubscriptionAccountTable | None:
         return self.rows.pop(subscription_account_id, None)
 
 
 def _resolve_auth(request: Request) -> UserAPIKeyAuth:
-    role: Final = LitellmUserRoles(request.headers.get("x-user-role", LitellmUserRoles.PROXY_ADMIN.value))
+    role: Final = HangarllmUserRoles(request.headers.get("x-user-role", HangarllmUserRoles.PROXY_ADMIN.value))
     return UserAPIKeyAuth(user_id="admin", user_role=role, api_key="sk-test")
 
 
@@ -315,7 +315,7 @@ def test_usage_rejects_a_malformed_or_inverted_range(client):
 
 def test_viewer_reads_usage_but_cannot_write(client):
     test_client, store = client
-    viewer = {"x-user-role": LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value}
+    viewer = {"x-user-role": HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY.value}
 
     assert _usage(test_client, "2026-10-01", "2026-10-07", **viewer)["accounts"][0]["account_id"] == _ACCOUNT
     assert test_client.post("/subscription_accounts/new", json=_TEST_FEE, headers=viewer).status_code == 403
@@ -331,17 +331,17 @@ _SUBSCRIPTION_ROUTES: Final = (
 
 
 def test_routes_follow_the_admin_route_policy():
-    jwt_admin_defaults = LiteLLM_JWTAuth()
+    jwt_admin_defaults = HangarLLM_JWTAuth()
 
     for route in _SUBSCRIPTION_ROUTES:
         assert allowed_routes_check(
-            user_role=LitellmUserRoles.PROXY_ADMIN, user_route=route, litellm_proxy_roles=jwt_admin_defaults
+            user_role=HangarllmUserRoles.PROXY_ADMIN, user_route=route, hangarllm_proxy_roles=jwt_admin_defaults
         )
         assert RouteChecks.is_management_route(route)
 
 
 def test_viewer_route_gate_reads_usage_and_blocks_writes():
-    viewer_role: Final = LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value
+    viewer_role: Final = HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY.value
     get_usage = MagicMock(spec=Request, method="GET", query_params={})
     post_new = MagicMock(spec=Request, method="POST", query_params={})
 
@@ -361,7 +361,7 @@ def test_internal_user_cannot_read_subscription_accounts(client):
     response = test_client.get(
         "/subscription_accounts/usage",
         params={"start_date": "2026-10-01", "end_date": "2026-10-07"},
-        headers={"x-user-role": LitellmUserRoles.INTERNAL_USER.value},
+        headers={"x-user-role": HangarllmUserRoles.INTERNAL_USER.value},
     )
 
     assert response.status_code == 403
@@ -369,20 +369,20 @@ def test_internal_user_cannot_read_subscription_accounts(client):
 
 def test_deployments_take_the_account_of_their_own_login():
     model_list = [
-        {"model_name": "gpt-5.6-terra", "litellm_params": {"model": "chatgpt/gpt-5.6-terra"}},
-        {"model_name": "gpt-5.6-sol", "litellm_params": {"model": "chatgpt/gpt-5.6-sol"}},
+        {"model_name": "gpt-5.6-terra", "hangarllm_params": {"model": "chatgpt/gpt-5.6-terra"}},
+        {"model_name": "gpt-5.6-sol", "hangarllm_params": {"model": "chatgpt/gpt-5.6-sol"}},
         {
             "model_name": "gpt-5.6-luna",
-            "litellm_params": {"model": "chatgpt/gpt-5.6-luna", "chatgpt_auth_file": "/logins/other.json"},
+            "hangarllm_params": {"model": "chatgpt/gpt-5.6-luna", "chatgpt_auth_file": "/logins/other.json"},
         },
-        {"model_name": "sonnet", "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-x"}},
-        {"model_name": "broken", "litellm_params": {"model": "no-such-provider-model"}},
+        {"model_name": "sonnet", "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-x"}},
+        {"model_name": "broken", "hangarllm_params": {"model": "no-such-provider-model"}},
     ]
     lookups: list[tuple[str, object]] = []
 
-    def resolver(provider: str, litellm_params) -> str | None:
-        lookups.append((provider, litellm_params.get("model")))
-        return "org-other" if litellm_params.get("chatgpt_auth_file") == "/logins/other.json" else _ACCOUNT
+    def resolver(provider: str, hangarllm_params) -> str | None:
+        lookups.append((provider, hangarllm_params.get("model")))
+        return "org-other" if hangarllm_params.get("chatgpt_auth_file") == "/logins/other.json" else _ACCOUNT
 
     deployments = subscription_deployments_from_model_list(model_list, resolver)
 
@@ -400,17 +400,17 @@ def test_deployments_take_the_account_of_their_own_login():
 def test_deployments_list_each_router_deployment_once_by_the_name_callers_use():
     llm_router: Final = Router(
         model_list=[
-            {"model_name": "gpt-5.6-sol", "litellm_params": {"model": "chatgpt/gpt-5.6-sol"}},
+            {"model_name": "gpt-5.6-sol", "hangarllm_params": {"model": "chatgpt/gpt-5.6-sol"}},
             {
                 "model_name": "model_name_team-1_7f3a",
-                "litellm_params": {"model": "chatgpt/gpt-5.6-terra"},
+                "hangarllm_params": {"model": "chatgpt/gpt-5.6-terra"},
                 "model_info": {"team_id": "team-1", "team_public_model_name": "team-terra"},
             },
         ],
         model_group_alias={"sol-alias": "gpt-5.6-sol"},
     )
 
-    deployments = subscription_deployments_of_router(llm_router, lambda provider, litellm_params: _ACCOUNT)
+    deployments = subscription_deployments_of_router(llm_router, lambda provider, hangarllm_params: _ACCOUNT)
 
     assert sorted(deployment.model_name for deployment in deployments) == ["gpt-5.6-sol", "team-terra"]
 

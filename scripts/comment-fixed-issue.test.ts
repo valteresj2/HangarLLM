@@ -35,11 +35,11 @@ const mergedPr = {
   number: 41767,
   merged: true,
   baseRefName: "main",
-  repository: { nameWithOwner: "BerriAI/litellm" },
+  repository: { nameWithOwner: "valteresj2/HangarLLM" },
   mergeCommit: { oid: MERGE_COMMIT },
 };
 
-const commitCloser = { __typename: "Commit" as const, oid: MERGE_COMMIT, repository: { nameWithOwner: "BerriAI/litellm" } };
+const commitCloser = { __typename: "Commit" as const, oid: MERGE_COMMIT, repository: { nameWithOwner: "valteresj2/HangarLLM" } };
 
 type Closer = IssueClosure["timelineItems"]["nodes"][number]["closer"];
 
@@ -64,7 +64,7 @@ const reopenedAt = (createdAt: string): LinkedPullRequest["reopens"] => ({ nodes
 
 const linkedIssue = (number: number, closer: Closer = mergedPr, state?: IssueClosure["state"]): LinkedIssue => ({
   number,
-  repository: { nameWithOwner: "BerriAI/litellm" },
+  repository: { nameWithOwner: "valteresj2/HangarLLM" },
   ...closure(closer, state),
 });
 
@@ -74,16 +74,16 @@ const openPr = (number: number, overrides: Partial<LinkedPullRequest> = {}): Lin
   number,
   state: "OPEN",
   baseRefName: "main",
-  repository: { nameWithOwner: "BerriAI/litellm" },
+  repository: { nameWithOwner: "valteresj2/HangarLLM" },
   closingIssuesReferences: links(linkedIssue(ISSUE)),
   reopens: { nodes: [] },
   ...overrides,
 });
 
 const pyproject = (version: string): string =>
-  `[project]\nname = "litellm"\nversion = "${version}"\n\n[tool.commitizen]\nversion = "${version}"\n`;
+  `[project]\nname = "hangarllm"\nversion = "${version}"\n\n[tool.commitizen]\nversion = "${version}"\n`;
 
-const config: FixedConfig = { repo: "BerriAI/litellm", defaultBranch: "main", commentDryRun: false, closeDryRun: false };
+const config: FixedConfig = { repo: "valteresj2/HangarLLM", defaultBranch: "main", commentDryRun: false, closeDryRun: false };
 
 const prFix = (issue = ISSUE, number = 41767) => ({ issue, source: { kind: "pull_request" as const, number, oid: MERGE_COMMIT } });
 const commitFix = (issue = ISSUE) => ({ issue, source: { kind: "commit" as const, oid: MERGE_COMMIT } });
@@ -133,19 +133,19 @@ function fakeApi(world: World = {}): { readonly api: GitHubApi; readonly writes:
         writes.push(`${method} ${path} ${JSON.stringify(body)}`);
         return {} as T;
       }
-      const comments = /^\/repos\/BerriAI\/litellm\/issues\/(\d+)\/comments/.exec(path);
+      const comments = /^\/repos\/BerriAI\/hangarllm\/issues\/(\d+)\/comments/.exec(path);
       if (comments !== null) {
         const number = Number(comments[1]);
         return ((number === ISSUE ? world.comments : world.pullRequestComments?.[number]) ?? []) as T;
       }
-      if (path === `/repos/BerriAI/litellm/contents/pyproject.toml?ref=${MERGE_COMMIT}`) {
+      if (path === `/repos/valteresj2/HangarLLM/contents/pyproject.toml?ref=${MERGE_COMMIT}`) {
         return { content: btoa(pyproject(world.version ?? "1.103.0")).replace(/(.{60})/g, "$1\n") } as T;
       }
-      const matching = /^\/repos\/BerriAI\/litellm\/git\/matching-refs\/tags\/(.+)$/.exec(path);
+      const matching = /^\/repos\/BerriAI\/hangarllm\/git\/matching-refs\/tags\/(.+)$/.exec(path);
       if (matching !== null) {
         return (matching[1] in tags ? [{ ref: `refs/tags/${matching[1]}` }] : []) as T;
       }
-      const compare = /^\/repos\/BerriAI\/litellm\/compare\/(.+)\.\.\.(.+)$/.exec(path);
+      const compare = /^\/repos\/BerriAI\/hangarllm\/compare\/(.+)\.\.\.(.+)$/.exec(path);
       const branch = compare === null ? undefined : reachable[compare[1] ?? ""];
       if (compare !== null && branch !== undefined) {
         return { status: branch.includes(compare[2] ?? "") ? "behind" : "diverged" } as T;
@@ -161,28 +161,28 @@ function fakeApi(world: World = {}): { readonly api: GitHubApi; readonly writes:
 
 describe("closerOf", () => {
   test("a pull request merged into the default branch is the fix", () => {
-    expect(closerOf(closedBy(mergedPr), "BerriAI/litellm", "main")).toEqual({ kind: "pull_request", number: 41767, mergeCommit: MERGE_COMMIT });
+    expect(closerOf(closedBy(mergedPr), "valteresj2/HangarLLM", "main")).toEqual({ kind: "pull_request", number: 41767, mergeCommit: MERGE_COMMIT });
   });
 
   test("an issue closed by hand, by a commit, or by an unmerged pull request gets no comment", () => {
-    expect(closerOf(closedBy(null), "BerriAI/litellm", "main")).toEqual({ kind: "skip", reason: "closed by hand, not by a pull request" });
-    expect(closerOf(closedBy(commitCloser), "BerriAI/litellm", "main").kind).toBe("skip");
-    expect(closerOf(closedBy({ ...mergedPr, merged: false }), "BerriAI/litellm", "main").kind).toBe("skip");
-    expect(closerOf(closedBy({ ...mergedPr, mergeCommit: null }), "BerriAI/litellm", "main").kind).toBe("skip");
+    expect(closerOf(closedBy(null), "valteresj2/HangarLLM", "main")).toEqual({ kind: "skip", reason: "closed by hand, not by a pull request" });
+    expect(closerOf(closedBy(commitCloser), "valteresj2/HangarLLM", "main").kind).toBe("skip");
+    expect(closerOf(closedBy({ ...mergedPr, merged: false }), "valteresj2/HangarLLM", "main").kind).toBe("skip");
+    expect(closerOf(closedBy({ ...mergedPr, mergeCommit: null }), "valteresj2/HangarLLM", "main").kind).toBe("skip");
   });
 
   test("a pull request merged into a release branch is not a fix on main", () => {
-    const verdict = closerOf(closedBy({ ...mergedPr, baseRefName: "release/1.102.0rc2" }), "BerriAI/litellm", "main");
+    const verdict = closerOf(closedBy({ ...mergedPr, baseRefName: "release/1.102.0rc2" }), "valteresj2/HangarLLM", "main");
     expect(verdict).toEqual({ kind: "skip", reason: "#41767 merged into release/1.102.0rc2, not main" });
   });
 
   test("an issue reopened after the close event is left alone", () => {
-    expect(closerOf(closedBy(mergedPr, "OPEN"), "BerriAI/litellm", "main")).toEqual({ kind: "skip", reason: "the issue is open again" });
+    expect(closerOf(closedBy(mergedPr, "OPEN"), "valteresj2/HangarLLM", "main")).toEqual({ kind: "skip", reason: "the issue is open again" });
   });
 
   test("a pull request merged in a fork closes the issue on GitHub but is no fix here", () => {
-    const forkPr = { ...mergedPr, number: 9, repository: { nameWithOwner: "someone/litellm" } };
-    expect(closerOf(closedBy(forkPr), "BerriAI/litellm", "main")).toEqual({ kind: "skip", reason: "closed by someone/litellm#9, a pull request in another repository" });
+    const forkPr = { ...mergedPr, number: 9, repository: { nameWithOwner: "someone/hangarllm" } };
+    expect(closerOf(closedBy(forkPr), "valteresj2/HangarLLM", "main")).toEqual({ kind: "skip", reason: "closed by someone/hangarllm#9, a pull request in another repository" });
   });
 });
 
@@ -190,7 +190,7 @@ describe("version helpers", () => {
   test("parseVersion reads the project version and ignores everything else", () => {
     expect(parseVersion(pyproject("1.103.0"))).toBe("1.103.0");
     expect(parseVersion('[project]\nversion = "1.103.0rc1"\n')).toBeUndefined();
-    expect(parseVersion("[project]\nname = 'litellm'\n")).toBeUndefined();
+    expect(parseVersion("[project]\nname = 'hangarllm'\n")).toBeUndefined();
   });
 
   test("the first rc of a version is the release that carries a fix merged under it", () => {
@@ -206,33 +206,33 @@ describe("version helpers", () => {
 describe("placement", () => {
   test("no rc yet: the fix ships in the rc.1 of the version at the merge commit", async () => {
     const { api } = fakeApi({ version: "1.103.0" });
-    expect(await placement(api, "BerriAI/litellm", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.103.0-rc.1", shipped: false });
+    expect(await placement(api, "valteresj2/HangarLLM", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.103.0-rc.1", shipped: false });
   });
 
   test("rc.1 already cut with the commit in it: the fix is out", async () => {
     const { api } = fakeApi({ version: "1.102.0", tags: { "v1.102.0-rc.1": true } });
-    expect(await placement(api, "BerriAI/litellm", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.102.0-rc.1", shipped: true });
+    expect(await placement(api, "valteresj2/HangarLLM", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.102.0-rc.1", shipped: true });
   });
 
   test("rc.1 cut before the merge while main still said that version: the fix waits for the next minor", async () => {
     const { api } = fakeApi({ version: "1.102.0", tags: { "v1.102.0-rc.1": false } });
-    expect(await placement(api, "BerriAI/litellm", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.103.0-rc.1", shipped: false });
+    expect(await placement(api, "valteresj2/HangarLLM", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.103.0-rc.1", shipped: false });
   });
 
   test("keeps walking minors while each rc.1 exists without the commit, then gives up", async () => {
     const twoTaken = fakeApi({ version: "1.102.0", tags: { "v1.102.0-rc.1": false, "v1.103.0-rc.1": false } });
-    expect(await placement(twoTaken.api, "BerriAI/litellm", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.104.0-rc.1", shipped: false });
+    expect(await placement(twoTaken.api, "valteresj2/HangarLLM", MERGE_COMMIT)).toEqual({ kind: "release", tag: "v1.104.0-rc.1", shipped: false });
 
     const allTaken = fakeApi({
       version: "1.102.0",
       tags: { "v1.102.0-rc.1": false, "v1.103.0-rc.1": false, "v1.104.0-rc.1": false, "v1.105.0-rc.1": false },
     });
-    expect((await placement(allTaken.api, "BerriAI/litellm", MERGE_COMMIT)).kind).toBe("skip");
+    expect((await placement(allTaken.api, "valteresj2/HangarLLM", MERGE_COMMIT)).kind).toBe("skip");
   });
 
   test("a pyproject without a version line is a skip, not a comment", async () => {
     const { api } = fakeApi({ version: "not-a-version" });
-    expect((await placement(api, "BerriAI/litellm", MERGE_COMMIT)).kind).toBe("skip");
+    expect((await placement(api, "valteresj2/HangarLLM", MERGE_COMMIT)).kind).toBe("skip");
   });
 });
 
@@ -262,18 +262,18 @@ describe("fixedBody", () => {
 
 describe("fixOf", () => {
   test("a merged pull request or a commit is a fix, whatever branch it was merged into", () => {
-    expect(fixOf(closure(mergedPr), "BerriAI/litellm")).toEqual({ kind: "pull_request", number: 41767, oid: MERGE_COMMIT });
-    expect(fixOf(closure({ ...mergedPr, baseRefName: "release_branch" }), "BerriAI/litellm")).toEqual({ kind: "pull_request", number: 41767, oid: MERGE_COMMIT });
-    expect(fixOf(closure(commitCloser), "BerriAI/litellm")).toEqual({ kind: "commit", oid: MERGE_COMMIT });
+    expect(fixOf(closure(mergedPr), "valteresj2/HangarLLM")).toEqual({ kind: "pull_request", number: 41767, oid: MERGE_COMMIT });
+    expect(fixOf(closure({ ...mergedPr, baseRefName: "release_branch" }), "valteresj2/HangarLLM")).toEqual({ kind: "pull_request", number: 41767, oid: MERGE_COMMIT });
+    expect(fixOf(closure(commitCloser), "valteresj2/HangarLLM")).toEqual({ kind: "commit", oid: MERGE_COMMIT });
   });
 
   test("a hand close, a fork's pull request, an unmerged pull request, or a reopened issue is no fix", () => {
-    expect(fixOf(closure(null), "BerriAI/litellm")).toEqual({ kind: "skip", reason: "was closed by hand" });
-    expect(fixOf(closure({ ...mergedPr, repository: { nameWithOwner: "someone/litellm" } }), "BerriAI/litellm")).toEqual({ kind: "skip", reason: "was closed from someone/litellm" });
-    expect(fixOf(closure({ ...commitCloser, repository: { nameWithOwner: "someone/litellm" } }), "BerriAI/litellm")).toEqual({ kind: "skip", reason: "was closed from someone/litellm" });
-    expect(fixOf(closure({ ...mergedPr, merged: false }), "BerriAI/litellm")).toEqual({ kind: "skip", reason: "was closed by #41767, which is not merged" });
-    expect(fixOf(closure({ ...mergedPr, mergeCommit: null }), "BerriAI/litellm").kind).toBe("skip");
-    expect(fixOf(closure(mergedPr, "OPEN"), "BerriAI/litellm")).toEqual({ kind: "skip", reason: "is open again" });
+    expect(fixOf(closure(null), "valteresj2/HangarLLM")).toEqual({ kind: "skip", reason: "was closed by hand" });
+    expect(fixOf(closure({ ...mergedPr, repository: { nameWithOwner: "someone/hangarllm" } }), "valteresj2/HangarLLM")).toEqual({ kind: "skip", reason: "was closed from someone/hangarllm" });
+    expect(fixOf(closure({ ...commitCloser, repository: { nameWithOwner: "someone/hangarllm" } }), "valteresj2/HangarLLM")).toEqual({ kind: "skip", reason: "was closed from someone/hangarllm" });
+    expect(fixOf(closure({ ...mergedPr, merged: false }), "valteresj2/HangarLLM")).toEqual({ kind: "skip", reason: "was closed by #41767, which is not merged" });
+    expect(fixOf(closure({ ...mergedPr, mergeCommit: null }), "valteresj2/HangarLLM").kind).toBe("skip");
+    expect(fixOf(closure(mergedPr, "OPEN"), "valteresj2/HangarLLM")).toEqual({ kind: "skip", reason: "is open again" });
   });
 });
 
@@ -319,7 +319,7 @@ describe("closeVerdict", () => {
   });
 
   test("a pull request in a fork, one that is not open, or one linking no issue is left alone", () => {
-    expect(closeVerdict(openPr(1, { repository: { nameWithOwner: "someone/litellm" } }), config)).toEqual({ kind: "skip", reason: "lives in someone/litellm" });
+    expect(closeVerdict(openPr(1, { repository: { nameWithOwner: "someone/hangarllm" } }), config)).toEqual({ kind: "skip", reason: "lives in someone/hangarllm" });
     expect(closeVerdict(openPr(41767, { state: "MERGED" }), config)).toEqual({ kind: "skip", reason: "is merged" });
     expect(closeVerdict(openPr(41760, { closingIssuesReferences: links() }), config)).toEqual({ kind: "skip", reason: "links no issue" });
   });
@@ -349,7 +349,7 @@ describe("handleFixedIssue", () => {
     expect(comment).toMatchObject({ kind: "commented", pullRequest: 41767, tag: "v1.103.0-rc.1" });
     expect(pullRequests).toEqual([]);
     expect(writes).toHaveLength(1);
-    expect(writes[0]).toContain("POST /repos/BerriAI/litellm/issues/41750/comments");
+    expect(writes[0]).toContain("POST /repos/valteresj2/HangarLLM/issues/41750/comments");
     expect(writes[0]).toContain("Fixed by #41767. This ships in v1.103.0-rc.1 and up");
   });
 
@@ -361,11 +361,11 @@ describe("handleFixedIssue", () => {
     });
     expect(pullRequests.map((pullRequest) => pullRequest.kind)).toEqual(["closed", "closed"]);
     expect(writes).toEqual([
-      expect.stringContaining("POST /repos/BerriAI/litellm/issues/41750/comments"),
-      `POST /repos/BerriAI/litellm/issues/41760/comments ${JSON.stringify({ body: oneFixBody })}`,
-      'PATCH /repos/BerriAI/litellm/pulls/41760 {"state":"closed"}',
-      expect.stringContaining("POST /repos/BerriAI/litellm/issues/41761/comments"),
-      'PATCH /repos/BerriAI/litellm/pulls/41761 {"state":"closed"}',
+      expect.stringContaining("POST /repos/valteresj2/HangarLLM/issues/41750/comments"),
+      `POST /repos/valteresj2/HangarLLM/issues/41760/comments ${JSON.stringify({ body: oneFixBody })}`,
+      'PATCH /repos/valteresj2/HangarLLM/pulls/41760 {"state":"closed"}',
+      expect.stringContaining("POST /repos/valteresj2/HangarLLM/issues/41761/comments"),
+      'PATCH /repos/valteresj2/HangarLLM/pulls/41761 {"state":"closed"}',
     ]);
     expect(pauses).toBe(4);
   });
@@ -387,7 +387,7 @@ describe("handleFixedIssue", () => {
     const { api, writes } = fakeApi({ issue: closedBy(mergedPr, "CLOSED", [openPr(41760)]) });
     const outcome = await handleFixedIssue(api, { ...config, commentDryRun: true }, ISSUE, noPause);
     expect(outcome.comment.kind).toBe("commented");
-    expect(writes).toEqual([expect.stringContaining("/issues/41760/comments"), 'PATCH /repos/BerriAI/litellm/pulls/41760 {"state":"closed"}']);
+    expect(writes).toEqual([expect.stringContaining("/issues/41760/comments"), 'PATCH /repos/valteresj2/HangarLLM/pulls/41760 {"state":"closed"}']);
   });
 
   test("an issue that already carries the fixed-in comment is not commented twice, and its linked pull requests still get closed", async () => {
@@ -400,7 +400,7 @@ describe("handleFixedIssue", () => {
     const { api, writes } = fakeApi({ comments: [existing], issue: closedBy(mergedPr, "CLOSED", [openPr(41760)]) });
     const outcome = await handleFixedIssue(api, config, ISSUE, noPause);
     expect(outcome.comment).toEqual({ kind: "skip", reason: "already carries a fixed-in comment" });
-    expect(writes).toEqual([expect.stringContaining("/issues/41760/comments"), 'PATCH /repos/BerriAI/litellm/pulls/41760 {"state":"closed"}']);
+    expect(writes).toEqual([expect.stringContaining("/issues/41760/comments"), 'PATCH /repos/valteresj2/HangarLLM/pulls/41760 {"state":"closed"}']);
   });
 
   test("a fix merged into the retired development branch or pushed as a commit counts once it is on the default branch", async () => {
@@ -442,9 +442,9 @@ describe("handleFixedIssue", () => {
     const { pullRequests } = await handleFixedIssue(api, config, ISSUE, noPause);
     expect(pullRequests).toEqual([{ kind: "closed", number: 41760, body: oneFixBody }]);
     expect(writes.map((write) => write.split(" ")[1])).toEqual([
-      "/repos/BerriAI/litellm/issues/41750/comments",
-      "/repos/BerriAI/litellm/issues/41760/comments",
-      "/repos/BerriAI/litellm/pulls/41760",
+      "/repos/valteresj2/HangarLLM/issues/41750/comments",
+      "/repos/valteresj2/HangarLLM/issues/41760/comments",
+      "/repos/valteresj2/HangarLLM/pulls/41760",
     ]);
   });
 
@@ -472,8 +472,8 @@ describe("handleFixedIssue", () => {
       { kind: "closed", number: 41761, body: supersededComment.body },
     ]);
     expect(writes.filter((write) => write.includes("/4176"))).toEqual([
-      'PATCH /repos/BerriAI/litellm/pulls/41760 {"state":"closed"}',
-      'PATCH /repos/BerriAI/litellm/pulls/41761 {"state":"closed"}',
+      'PATCH /repos/valteresj2/HangarLLM/pulls/41760 {"state":"closed"}',
+      'PATCH /repos/valteresj2/HangarLLM/pulls/41761 {"state":"closed"}',
     ]);
   });
 
@@ -486,8 +486,8 @@ describe("handleFixedIssue", () => {
     const { pullRequests } = await handleFixedIssue(api, config, ISSUE, noPause);
     expect(pullRequests).toEqual([{ kind: "closed", number: 41760, body: oneFixBody }]);
     expect(writes.filter((write) => write.includes("/41760"))).toEqual([
-      `POST /repos/BerriAI/litellm/issues/41760/comments ${JSON.stringify({ body: oneFixBody })}`,
-      'PATCH /repos/BerriAI/litellm/pulls/41760 {"state":"closed"}',
+      `POST /repos/valteresj2/HangarLLM/issues/41760/comments ${JSON.stringify({ body: oneFixBody })}`,
+      'PATCH /repos/valteresj2/HangarLLM/pulls/41760 {"state":"closed"}',
     ]);
   });
 
@@ -502,12 +502,12 @@ describe("handleFixedIssue", () => {
   });
 
   test("a linked pull request from a fork or one still tied to another open issue is reported, not closed", async () => {
-    const fork = openPr(1, { repository: { nameWithOwner: "someone/litellm" } });
+    const fork = openPr(1, { repository: { nameWithOwner: "someone/hangarllm" } });
     const busy = openPr(41762, { closingIssuesReferences: links(linkedIssue(ISSUE), linkedIssue(41751, null, "OPEN")) });
     const { api, writes } = fakeApi({ issue: closedBy(mergedPr, "CLOSED", [fork, busy]) });
     const { pullRequests } = await handleFixedIssue(api, config, ISSUE, noPause);
     expect(pullRequests).toEqual([
-      { kind: "skip", number: 1, reason: "lives in someone/litellm" },
+      { kind: "skip", number: 1, reason: "lives in someone/hangarllm" },
       { kind: "skip", number: 41762, reason: "still linked to open #41751" },
     ]);
     expect(writes).toHaveLength(1);
@@ -528,7 +528,7 @@ describe("handleFixedIssue", () => {
     const { comment, pullRequests } = await handleFixedIssue(api, config, ISSUE, noPause);
     expect(comment).toEqual({ kind: "skip", reason: "closed by commit 68c4c82ac9, not by a pull request" });
     expect(pullRequests).toEqual([{ kind: "closed", number: 41760, body: supersededBody([commitFix()], "main") }]);
-    expect(writes).toEqual([expect.stringContaining("/issues/41760/comments"), 'PATCH /repos/BerriAI/litellm/pulls/41760 {"state":"closed"}']);
+    expect(writes).toEqual([expect.stringContaining("/issues/41760/comments"), 'PATCH /repos/valteresj2/HangarLLM/pulls/41760 {"state":"closed"}']);
     expect(writes[0]).toContain("#41750 was fixed by commit 68c4c82ac9 on main");
   });
 
@@ -539,7 +539,7 @@ describe("handleFixedIssue", () => {
     const { comment, pullRequests } = await handleFixedIssue(api, config, ISSUE, noPause);
     expect(comment).toEqual({ kind: "skip", reason: "#41767 merged into release_branch, not main" });
     expect(pullRequests).toEqual([{ kind: "closed", number: 41760, body: oneFixBody }]);
-    expect(writes.map((write) => write.split(" ")[1])).toEqual(["/repos/BerriAI/litellm/issues/41760/comments", "/repos/BerriAI/litellm/pulls/41760"]);
+    expect(writes.map((write) => write.split(" ")[1])).toEqual(["/repos/valteresj2/HangarLLM/issues/41760/comments", "/repos/valteresj2/HangarLLM/pulls/41760"]);
   });
 
   test("an issue that is open again gets no comment and its linked pull requests are neither read nor touched", async () => {
@@ -570,10 +570,10 @@ describe("sweep", () => {
       { kind: "closed", number: 41761, body: oneFixBody },
     ]);
     expect(writes).toEqual([
-      expect.stringContaining("POST /repos/BerriAI/litellm/issues/41760/comments"),
-      'PATCH /repos/BerriAI/litellm/pulls/41760 {"state":"closed"}',
-      expect.stringContaining("POST /repos/BerriAI/litellm/issues/41761/comments"),
-      'PATCH /repos/BerriAI/litellm/pulls/41761 {"state":"closed"}',
+      expect.stringContaining("POST /repos/valteresj2/HangarLLM/issues/41760/comments"),
+      'PATCH /repos/valteresj2/HangarLLM/pulls/41760 {"state":"closed"}',
+      expect.stringContaining("POST /repos/valteresj2/HangarLLM/issues/41761/comments"),
+      'PATCH /repos/valteresj2/HangarLLM/pulls/41761 {"state":"closed"}',
     ]);
   });
 
@@ -586,12 +586,12 @@ describe("sweep", () => {
 });
 
 describe("readConfig", () => {
-  const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "BerriAI/litellm", ISSUE_NUMBER: "41750", DEFAULT_BRANCH: "main" };
+  const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "valteresj2/HangarLLM", ISSUE_NUMBER: "41750", DEFAULT_BRANCH: "main" };
 
   test("reads the inputs and treats anything but the literal true as a real run for each gate", () => {
     expect(readConfig(env)).toEqual({
       token: "t",
-      repo: "BerriAI/litellm",
+      repo: "valteresj2/HangarLLM",
       defaultBranch: "main",
       commentDryRun: false,
       closeDryRun: false,
@@ -610,7 +610,7 @@ describe("readConfig", () => {
 
   test("refuses a missing token, repo, branch or a bad issue number", () => {
     expect(() => readConfig({ ...env, GITHUB_TOKEN: undefined })).toThrow("GITHUB_TOKEN");
-    expect(() => readConfig({ ...env, GITHUB_REPOSITORY: "litellm" })).toThrow("owner/repo");
+    expect(() => readConfig({ ...env, GITHUB_REPOSITORY: "hangarllm" })).toThrow("owner/repo");
     expect(() => readConfig({ ...env, DEFAULT_BRANCH: "" })).toThrow("DEFAULT_BRANCH");
     expect(() => readConfig({ ...env, ISSUE_NUMBER: "0" })).toThrow("ISSUE_NUMBER");
     expect(() => readConfig({ ...env, ISSUE_NUMBER: "abc" })).toThrow("ISSUE_NUMBER");

@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.github_copilot.github_host import (
+from hangarllm.llms.github_copilot.github_host import (
     github_host_endpoints,
     normalized_github_host,
 )

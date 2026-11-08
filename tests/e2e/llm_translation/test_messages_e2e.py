@@ -5,7 +5,7 @@ the gateway with the real Anthropic SDK, the client customers actually use
 (LIT-4577), and asserts an assistant message with text came back, both
 non-streaming and streamed. Malformed bodies the SDK refuses to build stay on the
 shared transport. Migrated from
-litellm-regression-tests/tests/test_inference_endpoints.py.
+hangarllm-regression-tests/tests/test_inference_endpoints.py.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ from e2e_config import (
 from e2e_http import assert_client_error
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import AnthropicErrorEvent, AnthropicMessagesBody, ChatMessage, LiteLLMParamsBody, SpendLogRow
+from models import AnthropicErrorEvent, AnthropicMessagesBody, ChatMessage, HangarLLMParamsBody, SpendLogRow
 from provider_edge import EDGE_MOUNTS, LiveEdge, RunningEdge, StreamCut, start_provider_edge
 from provider_edge_bedrock import bedrock_signer
 from proxy_client import ProxyClient
@@ -81,19 +81,19 @@ def _approx_equal(actual: float, expected: float) -> bool:
     return abs(actual - expected) <= max(1e-9, abs(expected) * 1e-2)
 
 
-def _anthropic_params() -> LiteLLMParamsBody:
+def _anthropic_params() -> HangarLLMParamsBody:
     """The Anthropic deployment, wired through the record/replay edge when a fixture
-    mode is active (LIT-5974). The mount base carries no ``/v1``: litellm's Anthropic
+    mode is active (LIT-5974). The mount base carries no ``/v1``: hangarllm's Anthropic
     handler appends ``/v1/messages`` to ``api_base`` itself, where the OpenAI handler
     appends only ``/chat/completions``."""
     base = provider_edge_base("anthropic")
-    return LiteLLMParamsBody(model=ANTHROPIC_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY", api_base=base)
+    return HangarLLMParamsBody(model=ANTHROPIC_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY", api_base=base)
 
 
 def _register(
     proxy: ProxyClient,
     resources: ResourceManager,
-    params: LiteLLMParamsBody | None = None,
+    params: HangarLLMParamsBody | None = None,
     prefix: str = "e2e-messages",
 ) -> tuple[str, str]:
     model = f"{prefix}-{unique_marker()}"
@@ -161,12 +161,12 @@ class TestAnthropicMessages:
 
         # The customer reads per-request cost off the response header (LIT-4076), so
         # it must be present and positive on /v1/messages, not only /chat/completions.
-        raw_header_cost = response_header(raw.headers, "x-litellm-response-cost")
+        raw_header_cost = response_header(raw.headers, "x-hangarllm-response-cost")
         assert raw_header_cost is not None, (
-            f"x-litellm-response-cost header missing on /v1/messages; headers={dict(raw.headers)}"
+            f"x-hangarllm-response-cost header missing on /v1/messages; headers={dict(raw.headers)}"
         )
         header_cost = float(raw_header_cost)
-        assert header_cost > 0, f"x-litellm-response-cost header non-positive on /v1/messages: {header_cost}"
+        assert header_cost > 0, f"x-hangarllm-response-cost header non-positive on /v1/messages: {header_cost}"
 
         # Correlate the spend row by the unique scoped key, not the Anthropic response
         # id: on /v1/messages the spend-log request_id is the proxy's own call id, which
@@ -184,7 +184,7 @@ class TestAnthropicMessages:
             f"messages spend row missing token counts, so the cost is not real usage: {row}"
         )
         assert row.spend is not None and _approx_equal(row.spend, header_cost), (
-            f"logged spend {row.spend} disagrees with the x-litellm-response-cost header {header_cost}; "
+            f"logged spend {row.spend} disagrees with the x-hangarllm-response-cost header {header_cost}; "
             "the customer bills against the header, so the two must match"
         )
 
@@ -465,7 +465,7 @@ class TestOpenAIMessagesToolContinuation:
         base: Final = provider_edge_base("openai")
         model_id: Final = proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=OPENAI_BRIDGE_BACKEND, api_key="os.environ/OPENAI_API_KEY", api_base=f"{base}/v1" if base else None
             ),
         )
@@ -534,7 +534,7 @@ def _register_cut_bedrock(proxy: ProxyClient, resources: ResourceManager, cut: S
     return _register(
         proxy,
         resources,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=BEDROCK_BACKEND,
             api_base=edge.edge.api_base(mount),
             aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
@@ -551,7 +551,7 @@ def _register_cut_anthropic(proxy: ProxyClient, resources: ResourceManager, cut:
     return _register(
         proxy,
         resources,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=ANTHROPIC_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY", api_base=edge.edge.api_base("anthropic")
         ),
         prefix="e2e-messages-cut",

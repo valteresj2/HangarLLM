@@ -1,7 +1,7 @@
 suite: test in-container connection pool
 templates:
   - deployment.yaml
-  - configmap-litellm.yaml
+  - configmap-hangarllm.yaml
 tests:
   - it: should not emit pgbouncer env vars by default
     template: deployment.yaml
@@ -9,12 +9,12 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "20"
 
   - it: should enable the pool with the default sizing when connectionPool.enabled is set
@@ -25,17 +25,17 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "20"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
             value: "1000"
 
   - it: should pass custom sizing through as strings next to the worker count
@@ -49,12 +49,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "8"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
             value: "400"
       - contains:
           path: spec.template.spec.containers[0].args
@@ -70,21 +70,21 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[1].name
-          value: litellm-collector
+          value: hangarllm-collector
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "8"
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
             value: "400"
 
   - it: should give the collector sidecar no pool env when the pool is off
@@ -94,19 +94,19 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[1].name
-          value: litellm-collector
+          value: hangarllm-collector
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
           any: true
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
           any: true
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
           any: true

@@ -5,17 +5,17 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.lakera_ai import lakeraAI_Moderation
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai import lakeraAI_Moderation
 
 
 @pytest.mark.asyncio
 async def test_prompt_check_appends_replayed_server_tool_call_arguments_to_system_message(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "add_function_to_prompt", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "add_function_to_prompt", False)
     route: Final = respx_mock.post("https://api.lakera.ai/v1/prompt_injection").mock(
         return_value=httpx.Response(200, json={"results": [{"flagged": False}]})
     )
@@ -61,8 +61,8 @@ async def test_prompt_check_appends_replayed_server_tool_call_arguments_to_syste
 async def test_prompt_check_scans_a_replayed_turn_that_only_has_server_tool_calls(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "add_function_to_prompt", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "add_function_to_prompt", False)
     route: Final = respx_mock.post("https://api.lakera.ai/v1/prompt_injection").mock(
         return_value=httpx.Response(200, json={"results": [{"flagged": False}]})
     )

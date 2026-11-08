@@ -125,7 +125,7 @@ def _relayed_proxy(
         {
             "DATABASE_URL": relayed_url,
             "PRISMA_HEALTH_WATCHDOG_ENABLED": "false",
-            "LITELLM_DISABLE_NO_REDIS_WARNING": "true",
+            "HANGARLLM_DISABLE_NO_REDIS_WARNING": "true",
             **environment,
         },
         config=config,
@@ -233,7 +233,7 @@ def _cbf_record(owned: Owned, *, alias: str | None) -> dict[str, str]:
     return {
         "time/usage_start": "2026-02-03T00:00:00Z",
         "cost/cost": "0.25",
-        "resource/id": "czrn:litellm:openai:cross-region:unknown:llm-usage:gpt-4o-mini",
+        "resource/id": "czrn:hangarllm:openai:cross-region:unknown:llm-usage:gpt-4o-mini",
         "usage/amount": "15",
         "usage/units": "tokens",
         "resource/service": "gpt-4o-mini",

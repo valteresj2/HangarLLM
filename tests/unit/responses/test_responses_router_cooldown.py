@@ -1,6 +1,6 @@
 """
 Regression: Responses API router must register cooldowns on deployment
-failures. Previously the Responses API path built ``litellm_params`` without
+failures. Previously the Responses API path built ``hangarllm_params`` without
 ``model_info``, so ``Router.deployment_callback_on_failure`` exited early via
 the "No model_info found" branch and the failing deployment was never added
 to the cooldown set.
@@ -11,18 +11,18 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-import litellm
+import hangarllm
 
 
 @pytest.mark.asyncio
 async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
     deployment_ids = {"mock-api-key-1": "deployment-a", "mock-api-key-2": "deployment-b"}
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -30,7 +30,7 @@ async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -41,7 +41,7 @@ async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
         cooldown_time=60,
     )
 
-    rate_limit_error = litellm.RateLimitError(
+    rate_limit_error = hangarllm.RateLimitError(
         message="upstream throttled",
         llm_provider="openai",
         model="openai/gpt-5.1-codex",
@@ -54,15 +54,15 @@ async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
     called_api_keys = []
 
     async def fail_and_record(*args, **kwargs):
-        called_api_keys.append(kwargs["litellm_params"].api_key)
+        called_api_keys.append(kwargs["hangarllm_params"].api_key)
         raise rate_limit_error
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "hangarllm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         side_effect=fail_and_record,
     ):
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await router.aresponses(
                 model="openai.gpt-5.1-codex",
                 input="hi",

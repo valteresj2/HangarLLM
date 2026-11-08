@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.mcp_server.client_allowlist import (
+from hangarllm.proxy.mcp_server.client_allowlist import (
     MCP_ALLOWED_CLIENTS_SETTING,
     MCP_CLIENT_ID_HEADER_SETTING,
     MCP_CLIENT_ID_JWT_FIELD_SETTING,
@@ -57,14 +57,14 @@ def test_parse_allowed_mcp_clients(raw_setting: object, expected: Mapping[str, s
 
 
 def test_load_returns_none_when_the_allowlist_setting_is_absent_even_if_identity_sources_are_set() -> None:
-    settings: Final = {"litellm_jwtauth": {"mcp_client_id_jwt_field": "azp"}, "mcp_client_id_header": "x-mcp-client"}
+    settings: Final = {"hangarllm_jwtauth": {"mcp_client_id_jwt_field": "azp"}, "mcp_client_id_header": "x-mcp-client"}
     assert load_mcp_client_allowlist(settings) is None
 
 
-def test_load_reads_the_jwt_field_from_litellm_jwtauth_and_lowercases_the_header_name() -> None:
+def test_load_reads_the_jwt_field_from_hangarllm_jwtauth_and_lowercases_the_header_name() -> None:
     settings: Final = {
         "mcp_allowed_clients": [ANTIGRAVITY, CODEX],
-        "litellm_jwtauth": {"user_id_jwt_field": "sub", "mcp_client_id_jwt_field": "resource_access.mcp.client"},
+        "hangarllm_jwtauth": {"user_id_jwt_field": "sub", "mcp_client_id_jwt_field": "resource_access.mcp.client"},
         "mcp_client_id_header": "X-MCP-Client",
     }
     assert load_mcp_client_allowlist(settings) == MCPClientAllowlist(
@@ -78,9 +78,9 @@ def test_load_reads_the_jwt_field_from_litellm_jwtauth_and_lowercases_the_header
     "settings",
     (
         {"mcp_allowed_clients": [ANTIGRAVITY]},
-        {"mcp_allowed_clients": [ANTIGRAVITY], "litellm_jwtauth": {}, "mcp_client_id_header": ""},
-        {"mcp_allowed_clients": [ANTIGRAVITY], "litellm_jwtauth": {"mcp_client_id_jwt_field": ""}},
-        {"mcp_allowed_clients": [ANTIGRAVITY], "litellm_jwtauth": "azp", "mcp_client_id_header": ["x"]},
+        {"mcp_allowed_clients": [ANTIGRAVITY], "hangarllm_jwtauth": {}, "mcp_client_id_header": ""},
+        {"mcp_allowed_clients": [ANTIGRAVITY], "hangarllm_jwtauth": {"mcp_client_id_jwt_field": ""}},
+        {"mcp_allowed_clients": [ANTIGRAVITY], "hangarllm_jwtauth": "azp", "mcp_client_id_header": ["x"]},
     ),
 )
 def test_load_without_a_usable_identity_source_keeps_the_allowlist_but_no_source(
@@ -108,7 +108,7 @@ def test_two_clients_may_share_an_alias_and_both_are_admitted() -> None:
             {"alias": "Coding CLI", "value": "cli-dev"},
             {"alias": "Coding CLI", "value": "cli-prod"},
         ],
-        "litellm_jwtauth": {"mcp_client_id_jwt_field": "azp"},
+        "hangarllm_jwtauth": {"mcp_client_id_jwt_field": "azp"},
     }
     loaded: Final = load_mcp_client_allowlist(settings)
     assert check_mcp_client_allowed(loaded, {"azp": "cli-dev"}, NO_HEADERS) is None

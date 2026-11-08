@@ -71,7 +71,7 @@ def _name(entry: EntryPoint, alias: str, tool: str) -> str:
 
 
 def _open_aliases() -> frozenset[str]:
-    rows: Final = read_rows('SELECT alias FROM "LiteLLM_MCPServerTable" WHERE allow_all_keys', ())
+    rows: Final = read_rows('SELECT alias FROM "HangarLLM_MCPServerTable" WHERE allow_all_keys', ())
     return frozenset(str(row["alias"]) for row in rows)
 
 
@@ -193,7 +193,7 @@ _GUARDRAIL_CODE: Final = (
 _ECHO_GUARDRAIL_YAML: Final = (
     "guardrails:\n"
     "  - guardrail_name: catalog-echo\n"
-    "    litellm_params:\n"
+    "    hangarllm_params:\n"
     "      guardrail: custom_code\n"
     "      mode: pre_mcp_call\n"
     "      default_on: true\n"
@@ -264,7 +264,7 @@ def test_end_users_of_one_key_share_its_catalog_slot_because_the_identity_exclud
         granted: Final = grant(scenario, "end_user", (identity,), (identity,))
         first: Final = McpCaller(echo_rig, granted.key, "mcp", alias, granted.headers)
         second: Final = McpCaller(
-            echo_rig, granted.key, "mcp", alias, {"x-litellm-end-user-id": "integration-" + uuid.uuid4().hex[:10]}
+            echo_rig, granted.key, "mcp", alias, {"x-hangarllm-end-user-id": "integration-" + uuid.uuid4().hex[:10]}
         )
         assert second.initialize().ok
         cold: Final = _echoed_description(second.call(f"{alias}-add", {"probe": _PROBE}))
@@ -281,13 +281,13 @@ def test_end_users_of_one_key_share_its_catalog_slot_because_the_identity_exclud
 def _rest_call(gateway: Gateway, key: str, server_id: str, name: str, arguments: JsonRpc) -> httpx.Response:
     return gateway.client.post(
         "/mcp-rest/tools/call",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         json={"server_id": server_id, "name": name, "arguments": dict(arguments)},
     )
 
 
 def _rest_listing(gateway: Gateway, key: str, params: Mapping[str, str]) -> httpx.Response:
-    return gateway.client.get("/mcp-rest/tools/list", headers={"x-litellm-api-key": key}, params=dict(params))
+    return gateway.client.get("/mcp-rest/tools/list", headers={"x-hangarllm-api-key": key}, params=dict(params))
 
 
 def _single_tools_call(peer: McpPeer, name: str, arguments: JsonRpc) -> None:
@@ -354,7 +354,7 @@ def test_a_config_alias_shadowing_a_db_server_name_resolves_alias_first_and_neve
         path: Final = tmp_path / "shadowing_alias.yaml"
         path.write_text(yaml.safe_dump(config))
         with owned_proxy(gateway, tmp_path, {}, config=path) as candidate, candidate.scenario() as scenario:
-            servers: Final = candidate.client.get("/v1/mcp/server", headers={"x-litellm-api-key": candidate.key})
+            servers: Final = candidate.client.get("/v1/mcp/server", headers={"x-hangarllm-api-key": candidate.key})
             assert servers.status_code == 200, servers.text
             config_server: Final = next(
                 string_value(server["server_id"])
@@ -490,7 +490,7 @@ def test_config_declared_disallowed_tools_hide_and_refuse_the_tool_in_bare_and_p
         path: Final = tmp_path / "disallowed.yaml"
         path.write_text(yaml.safe_dump(config))
         with owned_proxy(gateway, tmp_path, {}, config=path) as candidate, candidate.scenario() as scenario:
-            servers: Final = candidate.client.get("/v1/mcp/server", headers={"x-litellm-api-key": candidate.key})
+            servers: Final = candidate.client.get("/v1/mcp/server", headers={"x-hangarllm-api-key": candidate.key})
             assert servers.status_code == 200, servers.text
             ids: Final = {
                 string_value(server["server_name"]): string_value(server["server_id"])
@@ -506,7 +506,7 @@ def test_api_created_disallowed_tools_hide_and_refuse_the_tool_in_bare_and_prefi
     with peer_of("http") as peer, gateway.scenario() as scenario:
         alias: Final = "apideny" + uuid.uuid4().hex[:8]
         identity: Final = register_mcp(scenario, peer, alias, disallowed_tools=["multiply", "fail"])
-        readback: Final = gateway.client.get(f"/v1/mcp/server/{identity}", headers={"x-litellm-api-key": gateway.key})
+        readback: Final = gateway.client.get(f"/v1/mcp/server/{identity}", headers={"x-hangarllm-api-key": gateway.key})
         assert readback.status_code == 200, readback.text
         assert JSON_OBJECT.validate_json(readback.content)["disallowed_tools"] == ["multiply", "fail"], readback.text
         key: Final = scenario.key(object_permission={"mcp_servers": [identity]})
@@ -600,7 +600,7 @@ def _forwarded_ip_rig(gateway: Gateway, tmp_path: Path, settings: Mapping[str, J
 
 
 def _forwarded_ip_headers(key: str, forwarded: str) -> dict[str, str]:
-    return {"x-litellm-api-key": key, "x-forwarded-for": forwarded}
+    return {"x-hangarllm-api-key": key, "x-forwarded-for": forwarded}
 
 
 def _forwarded_ip_listing(

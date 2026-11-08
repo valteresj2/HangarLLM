@@ -1,8 +1,8 @@
 from typing import Final
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_PLACEHOLDER
-from litellm.llms.bedrock.chat.tool_result_images import place_tool_result_images
-from litellm.types.llms.bedrock import (
+from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_PLACEHOLDER
+from hangarllm.llms.bedrock.chat.tool_result_images import place_tool_result_images
+from hangarllm.types.llms.bedrock import (
     ContentBlock,
     ImageBlock,
     MessageBlock,

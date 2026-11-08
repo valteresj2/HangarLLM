@@ -7,7 +7,7 @@ from e2e_config import provider_edge_base, unique_marker
 from e2e_http import unwrap
 from e2e_metadata import step
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatResponse, KeyGenerateBody, LiteLLMParamsBody, TeamNewBody
+from models import ChatBody, ChatMessage, ChatResponse, KeyGenerateBody, HangarLLMParamsBody, TeamNewBody
 from spend_e2e_client import SpendClient
 
 BACKEND: Final = "openai/gpt-5.6-luna"
@@ -43,7 +43,7 @@ def create_traffic(client: SpendClient, resources: ResourceManager) -> tuple[Tea
     model: Final = f"e2e-reconciliation-{unique_marker()}"
     model_id: Final = client.proxy.create_model(
         model,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=BACKEND,
             api_key="os.environ/OPENAI_API_KEY",
             api_base=None if base is None else f"{base}/v1",

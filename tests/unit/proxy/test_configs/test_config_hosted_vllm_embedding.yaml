@@ -1,5 +1,5 @@
 model_list:
-- litellm_params:
+- hangarllm_params:
     model: hosted_vllm/embed_model
   model_info:
     description: this is a test embedding hosted_vllm model

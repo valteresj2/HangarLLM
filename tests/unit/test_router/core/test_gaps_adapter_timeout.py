@@ -11,7 +11,7 @@ from typing import Final
 
 import pytest
 
-from litellm.router_core import RouterCore
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost
 from tests.unit.test_router.core.scripted_host import deployment
 

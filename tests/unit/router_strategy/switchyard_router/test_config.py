@@ -3,7 +3,7 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from litellm.router_strategy.switchyard_router.config import SwitchyardRouterConfig, validate_switchyard_config_write
+from hangarllm.router_strategy.switchyard_router.config import SwitchyardRouterConfig, validate_switchyard_config_write
 
 
 @pytest.mark.parametrize("classifier", [None, {}])
@@ -85,7 +85,7 @@ def test_missing_package_rejects_save_with_install_instructions() -> None:
     with patch.dict(sys.modules, {"switchyard_rust.libsy": None}):
         violation: Final = validate_switchyard_config_write({"models": {"capable": "strong", "efficient": "fast"}})
     assert violation is not None
-    assert "litellm[switchyard]" in violation
+    assert "hangarllm[switchyard]" in violation
 
 
 @pytest.mark.parametrize(

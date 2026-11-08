@@ -125,7 +125,7 @@ SETTINGS: Final[Mapping[Variant, Mapping[str, JsonValue]]] = {
     "pre_call": {"mode": "pre_call", "streaming_buffer_until_moderated": True},
 }
 SUBCLASS_MODULE: Final = "noma_v2_subclass"
-SUBCLASS_SOURCE: Final = """from litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2 import NomaV2Guardrail
+SUBCLASS_SOURCE: Final = """from hangarllm.proxy.guardrails.guardrail_hooks.noma.noma_v2 import NomaV2Guardrail
 
 
 class NomaV2Subclass(NomaV2Guardrail):
@@ -338,7 +338,7 @@ def _verdict(action: Action, text: str, earlier: int, texts: Sequence[str]) -> d
 
 @dataclass(slots=True)
 class NomaDouble:
-    """Scripted Noma v2 `/litellm/guardrail` endpoint; the action word in the stream's marker picks the verdict."""
+    """Scripted Noma v2 `/hangarllm/guardrail` endpoint; the action word in the stream's marker picks the verdict."""
 
     scans: list[Scan] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -346,7 +346,7 @@ class NomaDouble:
 
     def respond(self, request: Request) -> Reply:
         guardrail: Final = request.target.strip("/").split("/")[0]
-        assert request.target == f"/{guardrail}/litellm/guardrail", request.target
+        assert request.target == f"/{guardrail}/hangarllm/guardrail", request.target
         body: Final = JSON_OBJECT.validate_json(request.body)
         texts: Final = tuple(string_value(text) for text in list_value(object_value(body["inputs"]).get("texts", [])))
         text: Final = "".join(texts)
@@ -396,14 +396,14 @@ def _config(provider_url: str, noma_url: str, names: Mapping[tuple[Spelling, Var
     return {
         **base,
         "guardrails": [
-            {"guardrail_name": name, "litellm_params": _guardrail_params(noma_url, name, spelling, variant)}
+            {"guardrail_name": name, "hangarllm_params": _guardrail_params(noma_url, name, spelling, variant)}
             for (spelling, variant), name in names.items()
             if spelling != "stored"
         ],
         "model_list": [
             {
                 "model_name": MODELS["chat"],
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{provider_url}/v1",
                     "api_key": "synthetic-provider-key",
@@ -411,7 +411,7 @@ def _config(provider_url: str, noma_url: str, names: Mapping[tuple[Spelling, Var
             },
             {
                 "model_name": MODELS["messages"],
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
                     "api_base": provider_url,
                     "api_key": "synthetic-provider-key",
@@ -419,7 +419,7 @@ def _config(provider_url: str, noma_url: str, names: Mapping[tuple[Spelling, Var
             },
             {
                 "model_name": MODELS["responses"],
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{provider_url}/v1",
                     "api_key": "synthetic-provider-key",
@@ -433,7 +433,7 @@ def _store(gateway: Gateway, noma_url: str, name: str, variant: Variant) -> str:
     response: Final = gateway.request(
         "POST",
         "/guardrails",
-        {"guardrail": {"guardrail_name": name, "litellm_params": _guardrail_params(noma_url, name, "stored", variant)}},
+        {"guardrail": {"guardrail_name": name, "hangarllm_params": _guardrail_params(noma_url, name, "stored", variant)}},
     )
     assert response.status_code == 200, response.text
     return string_value(JSON_OBJECT.validate_json(response.content)["guardrail_id"])
@@ -869,7 +869,7 @@ def test_sdk_clients_receive_no_text_before_a_buffered_block(rig: Rig, endpoint:
 @pytest.mark.parametrize("variant", ["buffered", "invalid", "unset"])
 def test_stored_guardrail_info_reports_the_settings_as_stored(rig: Rig, variant: Variant) -> None:
     info: Final = rig.gateway.get(f"/guardrails/{rig.stored[variant]}/info")
-    params: Final = object_value(info["litellm_params"])
+    params: Final = object_value(info["hangarllm_params"])
     assert {key: params.get(key) for key in SETTINGS[variant]} == dict(SETTINGS[variant]), params
 
 
@@ -911,7 +911,7 @@ def test_patching_a_stored_guardrail_applies_the_setting_on_every_worker(rig: Ri
         assert all(SECRET in attempt.content for attempt in before), [attempt.response.text for attempt in before]
 
         patched: Final = rig.gateway.request(
-            "PATCH", f"/guardrails/{identity}", {"litellm_params": {"streaming_buffer_until_moderated": True}}
+            "PATCH", f"/guardrails/{identity}", {"hangarllm_params": {"streaming_buffer_until_moderated": True}}
         )
         assert patched.status_code == 200, patched.text
         after: Final = tuple(

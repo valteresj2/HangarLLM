@@ -304,7 +304,7 @@ def _registered_store(gateway: Gateway, scenario: Scenario, identity: str, handl
         {
             "vector_store_id": store,
             "custom_llm_provider": "openai",
-            "litellm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity},
+            "hangarllm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity},
         },
     )
     scenario.cleanups.callback(gateway.post, "/vector_store/delete", {"vector_store_id": store})

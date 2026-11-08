@@ -2,14 +2,14 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
-from litellm.router_strategy.adaptive_router import adaptive_router as ar_module
+from hangarllm.router_strategy.adaptive_router import adaptive_router as ar_module
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
-from litellm.router_strategy.adaptive_router.bandit import initial_cell
-from litellm.router_strategy.adaptive_router.signals import Turn
-from litellm.types.router import (
+from hangarllm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
+from hangarllm.router_strategy.adaptive_router.bandit import initial_cell
+from hangarllm.router_strategy.adaptive_router.signals import Turn
+from hangarllm.types.router import (
     AdaptiveRouterConfig,
     AdaptiveRouterPreferences,
     RequestType,
@@ -315,7 +315,7 @@ async def test_load_state_from_db_adds_the_persisted_delta_to_the_cold_start_pri
     fake_row.beta = 13.0
 
     prisma = MagicMock()
-    prisma.db.litellm_adaptiverouterstate.find_many = AsyncMock(return_value=[fake_row])
+    prisma.db.hangarllm_adaptiverouterstate.find_many = AsyncMock(return_value=[fake_row])
     await r.load_state_from_db(prisma)
 
     new_cell = r._cells[(RequestType.GENERAL, "fast")]
@@ -326,7 +326,7 @@ async def test_load_state_from_db_adds_the_persisted_delta_to_the_cold_start_pri
 async def test_load_state_from_db_keeps_a_one_sided_delta_row_sampleable():
     """A cell whose only DB activity is one signal type persists a one-sided row (e.g.
     beta=0.0); loading it must not zero out a Beta shape parameter and crash thompson_sample()."""
-    from litellm.router_strategy.adaptive_router.bandit import thompson_sample
+    from hangarllm.router_strategy.adaptive_router.bandit import thompson_sample
 
     r = _make_router()
 
@@ -337,7 +337,7 @@ async def test_load_state_from_db_keeps_a_one_sided_delta_row_sampleable():
     one_sided_row.beta = 0.0
 
     prisma = MagicMock()
-    prisma.db.litellm_adaptiverouterstate.find_many = AsyncMock(return_value=[one_sided_row])
+    prisma.db.hangarllm_adaptiverouterstate.find_many = AsyncMock(return_value=[one_sided_row])
     await r.load_state_from_db(prisma)
 
     loaded_cell = r._cells[(RequestType.GENERAL, "fast")]
@@ -365,7 +365,7 @@ async def test_load_state_from_db_handles_unknown_request_type():
     good_row.beta = 3.0
 
     prisma = MagicMock()
-    prisma.db.litellm_adaptiverouterstate.find_many = AsyncMock(return_value=[bad_row, good_row])
+    prisma.db.hangarllm_adaptiverouterstate.find_many = AsyncMock(return_value=[bad_row, good_row])
     await r.load_state_from_db(prisma)
 
     # Unknown skipped; good added to the cold-start prior.
@@ -383,7 +383,7 @@ def test_session_state_is_evicted_after_ttl():
     sweep runs (triggered by hitting _SESSION_STATE_SWEEP_THRESHOLD)."""
     import time as _time
 
-    from litellm.router_strategy.adaptive_router import adaptive_router as ar
+    from hangarllm.router_strategy.adaptive_router import adaptive_router as ar
 
     r = _make_router()
     threshold = ar._SESSION_STATE_SWEEP_THRESHOLD

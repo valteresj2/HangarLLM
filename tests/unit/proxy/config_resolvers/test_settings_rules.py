@@ -5,7 +5,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.config_resolvers.settings_rules import (
+from hangarllm.proxy.config_resolvers.settings_rules import (
     ABSENT,
     DUAL_SOURCE_KEYS,
     Absent,
@@ -17,12 +17,12 @@ from litellm.proxy.config_resolvers.settings_rules import (
     resolve,
     rule_for,
 )
-from litellm.proxy.config_resolvers.settings_store import SettingsStore
+from hangarllm.proxy.config_resolvers.settings_store import SettingsStore
 
 _SECTIONS: Final[tuple[Section, ...]] = (
     "general_settings",
     "router_settings",
-    "litellm_settings",
+    "hangarllm_settings",
     "environment_variables",
 )
 
@@ -33,7 +33,7 @@ _ROUTES: Final[tuple[tuple[Section, str], ...]] = (
     ("general_settings", "pass_through_endpoints"),
     ("general_settings", "forward_client_headers_to_llm_api"),
     ("router_settings", "fallbacks"),
-    ("litellm_settings", "drop_params"),
+    ("hangarllm_settings", "drop_params"),
     ("general_settings", "an_unregistered_key"),
 )
 

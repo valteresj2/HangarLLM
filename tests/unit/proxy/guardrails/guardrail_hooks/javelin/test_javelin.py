@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.javelin import JavelinGuardrail
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.javelin import JavelinGuardrail
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -17,14 +17,14 @@ async def test_javelin_guardrail_reject_prompt():
     """
     Test that the Javelin guardrail raises HTTPException when violations are detected, preventing the request from going to the LLM.
     """
-    # litellm.turn_on_debug()
+    # hangarllm.turn_on_debug()
     guardrail = JavelinGuardrail(
         guardrail_name="promptinjectiondetection",
         api_base="https://api-dev.javelin.live",
         api_key="test_key",
         api_version="v1",
-        metadata={"request_source": "litellm-test"},
-        application="litellm-test",
+        metadata={"request_source": "hangarllm-test"},
+        application="hangarllm-test",
     )
 
     mock_response = {
@@ -92,8 +92,8 @@ async def test_javelin_guardrail_trustsafety():
         api_base="https://api-dev.javelin.live",
         api_key="test_key",
         api_version="v1",
-        metadata={"request_source": "litellm-test"},
-        application="litellm-test",
+        metadata={"request_source": "hangarllm-test"},
+        application="hangarllm-test",
     )
 
     mock_response = {
@@ -172,8 +172,8 @@ async def test_javelin_guardrail_language_detection():
         api_base="https://api-dev.javelin.live",
         api_key="test_key",
         api_version="v1",
-        metadata={"request_source": "litellm-test"},
-        application="litellm-test",
+        metadata={"request_source": "hangarllm-test"},
+        application="hangarllm-test",
     )
 
     mock_response = {
@@ -237,8 +237,8 @@ async def test_javelin_guardrail_no_user_message():
         api_base="https://api-dev.javelin.live",
         api_key="test_key",
         api_version="v1",
-        metadata={"request_source": "litellm-test"},
-        application="litellm-test",
+        metadata={"request_source": "hangarllm-test"},
+        application="hangarllm-test",
     )
 
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
@@ -276,11 +276,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Saves and restores litellm callback/global state so tests don't leak
+    Saves and restores hangarllm callback/global state so tests don't leak
     side effects. Works safely under pytest-xdist parallel execution.
     """
     original_state = {}
@@ -291,43 +291,43 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("set_verbose", "cache", "num_retries"):
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in ("success_callback", "failure_callback", "_async_success_callback", "_async_failure_callback"):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield

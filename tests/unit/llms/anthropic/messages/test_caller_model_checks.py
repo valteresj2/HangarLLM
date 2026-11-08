@@ -5,33 +5,33 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.llms.anthropic.messages.caller_model_checks import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.llms.anthropic.messages.caller_model_checks import (
     _caller_within_team_member_model_budget,
     caller_model_verdict,
     rate_limit_verdict,
 )
-from litellm.proxy import proxy_server
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_EndUserTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_EndUserTable,
+    HangarLLM_ProjectTableCachedObj,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTableCachedObj,
+    HangarLLM_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import run_centralized_common_checks
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from hangarllm.proxy.auth.user_api_key_auth import run_centralized_common_checks
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3,
     RateLimitDescriptor,
     RateLimitResponse,
     RateLimitUnverifiableError,
 )
-from litellm.proxy.utils import InternalUsageCache, hash_token
-from litellm.router import Router
-from litellm.types.agents import AgentResponse
+from hangarllm.proxy.utils import InternalUsageCache, hash_token
+from hangarllm.router import Router
+from hangarllm.types.agents import AgentResponse
 from tests.unit.llms.anthropic.messages.conftest import ProxyAuthState
 
 CLASSIFIER: Final = "classifier"
@@ -66,7 +66,7 @@ def _member_auth() -> UserAPIKeyAuth:
 
 @pytest.mark.asyncio
 async def test_member_over_their_classifier_budget_is_denied():
-    limiter: Final = _RecordingLimiter(litellm.BudgetExceededError(current_cost=0.2, max_budget=0.1))
+    limiter: Final = _RecordingLimiter(hangarllm.BudgetExceededError(current_cost=0.2, max_budget=0.1))
 
     verdict: Final = await _caller_within_team_member_model_budget(
         user_api_key_auth=_member_auth(), model_max_budget_limiter=limiter, model=CLASSIFIER
@@ -113,7 +113,7 @@ async def test_a_limiter_failure_denies_for_now_like_the_other_budget_scopes():
     ids=["no-member-budget", "empty-member-budget", "no-user", "no-team"],
 )
 async def test_callers_without_a_member_budget_skip_the_limiter(auth: UserAPIKeyAuth):
-    limiter: Final = _RecordingLimiter(litellm.BudgetExceededError(current_cost=0.2, max_budget=0.1))
+    limiter: Final = _RecordingLimiter(hangarllm.BudgetExceededError(current_cost=0.2, max_budget=0.1))
 
     verdict: Final = await _caller_within_team_member_model_budget(
         user_api_key_auth=auth, model_max_budget_limiter=limiter, model=CLASSIFIER
@@ -198,11 +198,11 @@ async def test_a_full_rate_limit_window_denies_for_now(limiter: _RecordingRateLi
 
 
 _ProxyRow = (
-    LiteLLM_TeamTableCachedObj
-    | LiteLLM_UserTable
-    | LiteLLM_EndUserTable
-    | LiteLLM_ProjectTableCachedObj
-    | LiteLLM_TeamMembership
+    HangarLLM_TeamTableCachedObj
+    | HangarLLM_UserTable
+    | HangarLLM_EndUserTable
+    | HangarLLM_ProjectTableCachedObj
+    | HangarLLM_TeamMembership
 )
 
 
@@ -212,48 +212,48 @@ _ProxyRow = (
     [
         (
             UserAPIKeyAuth(api_key="sk-personal", user_id="u-1"),
-            (LiteLLM_UserTable(user_id="u-1", models=["other-model"]),),
+            (HangarLLM_UserTable(user_id="u-1", models=["other-model"]),),
             "denied",
         ),
         (
             UserAPIKeyAuth(api_key="sk-team", user_id="u-1", team_id="t-1"),
             (
-                LiteLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER]),
-                LiteLLM_UserTable(user_id="u-1", models=["other-model"]),
-                LiteLLM_TeamMembership(user_id="u-1", team_id="t-1"),
+                HangarLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER]),
+                HangarLLM_UserTable(user_id="u-1", models=["other-model"]),
+                HangarLLM_TeamMembership(user_id="u-1", team_id="t-1"),
             ),
             "allowed",
         ),
         (
             UserAPIKeyAuth(api_key="sk-team", team_id="t-1"),
-            (LiteLLM_TeamTableCachedObj(team_id="t-1", models=["other-model"]),),
+            (HangarLLM_TeamTableCachedObj(team_id="t-1", models=["other-model"]),),
             "denied",
         ),
         (
             UserAPIKeyAuth(api_key="sk-team", user_id="u-1", team_id="t-1"),
             (
-                LiteLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER]),
-                LiteLLM_TeamMembership(
+                HangarLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER]),
+                HangarLLM_TeamMembership(
                     user_id="u-1",
                     team_id="t-1",
-                    litellm_budget_table=LiteLLM_BudgetTable(allowed_models=["other-model"]),
+                    hangarllm_budget_table=HangarLLM_BudgetTable(allowed_models=["other-model"]),
                 ),
             ),
             "denied",
         ),
         (
             UserAPIKeyAuth(api_key="sk-project", project_id="p-1"),
-            (LiteLLM_ProjectTableCachedObj(project_id="p-1", models=["other-model"]),),
+            (HangarLLM_ProjectTableCachedObj(project_id="p-1", models=["other-model"]),),
             "denied",
         ),
         (
             UserAPIKeyAuth(api_key="sk-app", end_user_id="eu-1"),
-            (LiteLLM_EndUserTable(user_id="eu-1", blocked=False, models=["other-model"]),),
+            (HangarLLM_EndUserTable(user_id="eu-1", blocked=False, models=["other-model"]),),
             "denied",
         ),
         (
             UserAPIKeyAuth(api_key="sk-team", user_id="u-1", team_id="t-1"),
-            (LiteLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER]),),
+            (HangarLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER]),),
             "denied_for_now",
         ),
     ],
@@ -348,7 +348,7 @@ def _classifier_router(cost_per_token: float) -> Router:
         model_list=[
             {
                 "model_name": CLASSIFIER,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/classifier",
                     "api_key": "sk-fake",
                     "input_cost_per_token": cost_per_token,
@@ -366,7 +366,7 @@ def _classifier_router(cost_per_token: float) -> Router:
         (UserAPIKeyAuth(api_key="sk-spent", spend=2.0, max_budget=1.0), ()),
         (
             UserAPIKeyAuth(api_key="sk-team", team_id="t-1"),
-            (LiteLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER], spend=2.0, max_budget=1.0),),
+            (HangarLLM_TeamTableCachedObj(team_id="t-1", models=[CLASSIFIER], spend=2.0, max_budget=1.0),),
         ),
     ],
     ids=["key-budget-spent", "team-budget-spent"],
@@ -419,7 +419,7 @@ async def test_a_parent_header_the_sub_call_request_cannot_carry_denies_for_now(
     parent_metadata: Final = {"headers": {"x-client-name": "snow ☃"}}
 
     verdict: Final = await caller_model_verdict(
-        UserAPIKeyAuth(models=[CLASSIFIER]), CLASSIFIER, llm_router=None, parent_litellm_metadata=parent_metadata
+        UserAPIKeyAuth(models=[CLASSIFIER]), CLASSIFIER, llm_router=None, parent_hangarllm_metadata=parent_metadata
     )
 
     assert verdict == "denied_for_now"

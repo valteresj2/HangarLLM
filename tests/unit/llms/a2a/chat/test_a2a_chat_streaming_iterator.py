@@ -1,9 +1,9 @@
-"""Tests for litellm/llms/a2a/chat/streaming_iterator.py."""
+"""Tests for hangarllm/llms/a2a/chat/streaming_iterator.py."""
 
 import pytest
 
-from litellm.llms.a2a.chat.streaming_iterator import A2AModelResponseIterator
-from litellm.llms.a2a.common_utils import A2AError
+from hangarllm.llms.a2a.chat.streaming_iterator import A2AModelResponseIterator
+from hangarllm.llms.a2a.common_utils import A2AError
 
 
 def _iterator(lines: list[str]) -> A2AModelResponseIterator:

@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient, Response
 from typing_extensions import LiteralString
 
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.telemetry.endpoints import (
+from hangarllm.proxy._types import CommonProxyErrors, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.telemetry.endpoints import (
     TelemetrySettingsResponse,
     router,
     telemetry_consent,
@@ -18,12 +18,12 @@ from litellm.proxy.telemetry.endpoints import (
     telemetry_sink,
     telemetry_store,
 )
-from litellm.proxy.telemetry.runtime import TelemetryRuntime
-from litellm.proxy.telemetry.settings import TelemetryDestination, TelemetrySettings
-from litellm.proxy.telemetry.store import TelemetryStore
-from litellm.telemetry.consent import TelemetryConsent
-from litellm.telemetry.records import AttemptRecord, InstanceInfo, RequestRecord, TelemetryGroup, UIAction, UIEvent
-from litellm.telemetry.sink import TelemetrySink
+from hangarllm.proxy.telemetry.runtime import TelemetryRuntime
+from hangarllm.proxy.telemetry.settings import TelemetryDestination, TelemetrySettings
+from hangarllm.proxy.telemetry.store import TelemetryStore
+from hangarllm.telemetry.consent import TelemetryConsent
+from hangarllm.telemetry.records import AttemptRecord, InstanceInfo, RequestRecord, TelemetryGroup, UIAction, UIEvent
+from hangarllm.telemetry.sink import TelemetrySink
 from tests.unit.proxy.telemetry.fake_database import SettingsDatabase
 
 
@@ -44,7 +44,7 @@ def _row(report_id: str, window_end: float) -> Mapping[str, object]:
     return {"id": report_id, "window_start": window_end - 60, "window_end": window_end, "report": {"requests": []}}
 
 
-def _client(role: LitellmUserRoles, store: TelemetryStore | None) -> TestClient:
+def _client(role: HangarllmUserRoles, store: TelemetryStore | None) -> TestClient:
     app: Final = FastAPI()
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=role)
@@ -54,7 +54,7 @@ def _client(role: LitellmUserRoles, store: TelemetryStore | None) -> TestClient:
 
 def test_a_full_page_returns_a_cursor_at_its_last_report() -> None:
     table: Final = _ReportTable(rows=(_row("a", 100.0), _row("b", 100.0)))
-    response: Final = _client(LitellmUserRoles.PROXY_ADMIN, TelemetryStore(table, retention_days=30)).get(
+    response: Final = _client(HangarllmUserRoles.PROXY_ADMIN, TelemetryStore(table, retention_days=30)).get(
         "/telemetry/reports", params={"after": 40.0, "after_id": "z", "limit": 2}
     )
     assert response.status_code == 200, response.text
@@ -68,7 +68,7 @@ def test_a_full_page_returns_a_cursor_at_its_last_report() -> None:
 
 def test_a_short_page_is_the_last_one() -> None:
     table: Final = _ReportTable(rows=(_row("a", 100.0),))
-    response: Final = _client(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, TelemetryStore(table, retention_days=30)).get(
+    response: Final = _client(HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, TelemetryStore(table, retention_days=30)).get(
         "/telemetry/reports", params={"limit": 2}
     )
     assert response.status_code == 200, response.text
@@ -76,8 +76,8 @@ def test_a_short_page_is_the_last_one() -> None:
     assert table.queried_with == (0.0, "", 2)
 
 
-@pytest.mark.parametrize("role", [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.ORG_ADMIN, LitellmUserRoles.TEAM])
-def test_non_admin_roles_cannot_export_reports(role: LitellmUserRoles) -> None:
+@pytest.mark.parametrize("role", [HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.ORG_ADMIN, HangarllmUserRoles.TEAM])
+def test_non_admin_roles_cannot_export_reports(role: HangarllmUserRoles) -> None:
     table: Final = _ReportTable(rows=(_row("a", 100.0),))
     response: Final = _client(role, TelemetryStore(table, retention_days=30)).get("/telemetry/reports")
     assert response.status_code == 403, response.text
@@ -85,7 +85,7 @@ def test_non_admin_roles_cannot_export_reports(role: LitellmUserRoles) -> None:
 
 
 def test_exporting_without_a_local_store_is_an_error() -> None:
-    response: Final = _client(LitellmUserRoles.PROXY_ADMIN, None).get("/telemetry/reports")
+    response: Final = _client(HangarllmUserRoles.PROXY_ADMIN, None).get("/telemetry/reports")
     assert response.status_code == 500, response.text
 
 
@@ -109,7 +109,7 @@ class _UIEventSink:
         pass
 
 
-def _ui_client(role: LitellmUserRoles, sink: TelemetrySink | None) -> TestClient:
+def _ui_client(role: HangarllmUserRoles, sink: TelemetrySink | None) -> TestClient:
     app: Final = FastAPI()
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=role)
@@ -117,8 +117,8 @@ def _ui_client(role: LitellmUserRoles, sink: TelemetrySink | None) -> TestClient
     return TestClient(app)
 
 
-@pytest.mark.parametrize("role", [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.INTERNAL_USER])
-def test_any_signed_in_ui_user_records_ui_events_into_the_sink(role: LitellmUserRoles) -> None:
+@pytest.mark.parametrize("role", [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.INTERNAL_USER])
+def test_any_signed_in_ui_user_records_ui_events_into_the_sink(role: HangarllmUserRoles) -> None:
     sink: Final = _UIEventSink()
     response: Final = _ui_client(role, sink).post(
         "/telemetry/ui_events", json={"page": "models-and-endpoints", "action": "click", "target": "tab=health"}
@@ -146,13 +146,13 @@ def test_any_signed_in_ui_user_records_ui_events_into_the_sink(role: LitellmUser
 )
 def test_ui_events_outside_the_allowlisted_shape_are_rejected(body: Mapping[str, object]) -> None:
     sink: Final = _UIEventSink()
-    response: Final = _ui_client(LitellmUserRoles.PROXY_ADMIN, sink).post("/telemetry/ui_events", json=body)
+    response: Final = _ui_client(HangarllmUserRoles.PROXY_ADMIN, sink).post("/telemetry/ui_events", json=body)
     assert response.status_code == 422, response.text
     assert sink.events == []
 
 
 def test_ui_events_are_accepted_and_dropped_while_telemetry_is_off() -> None:
-    response: Final = _ui_client(LitellmUserRoles.PROXY_ADMIN, None).post(
+    response: Final = _ui_client(HangarllmUserRoles.PROXY_ADMIN, None).post(
         "/telemetry/ui_events", json={"page": "teams", "action": "view"}
     )
     assert response.status_code == 200, response.text
@@ -160,10 +160,10 @@ def test_ui_events_are_accepted_and_dropped_while_telemetry_is_off() -> None:
 
 
 def test_the_proxy_app_serves_the_export_route_from_its_own_telemetry_runtime() -> None:
-    from litellm.proxy.proxy_server import app, telemetry_runtime
+    from hangarllm.proxy.proxy_server import app, telemetry_runtime
 
     assert telemetry_runtime.store is None
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     try:
         response: Final = TestClient(app).get("/telemetry/reports")
     finally:
@@ -173,10 +173,10 @@ def test_the_proxy_app_serves_the_export_route_from_its_own_telemetry_runtime() 
 
 
 def test_the_proxy_app_accepts_ui_events_while_its_telemetry_runtime_is_off() -> None:
-    from litellm.proxy.proxy_server import app, telemetry_runtime
+    from hangarllm.proxy.proxy_server import app, telemetry_runtime
 
     assert telemetry_runtime.sink is None
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER)
     try:
         response: Final = TestClient(app).post("/telemetry/ui_events", json={"page": "teams", "action": "view"})
     finally:
@@ -186,10 +186,10 @@ def test_the_proxy_app_accepts_ui_events_while_its_telemetry_runtime_is_off() ->
 
 
 async def _settings_client(
-    role: LitellmUserRoles, settings: TelemetrySettings, db: SettingsDatabase | None
+    role: HangarllmUserRoles, settings: TelemetrySettings, db: SettingsDatabase | None
 ) -> tuple[AsyncClient, TelemetryRuntime]:
     runtime: Final = TelemetryRuntime()
-    await runtime.start(litellm_version="1.0.0", settings=settings, db=lambda: db, register=lambda _logger: None)
+    await runtime.start(hangarllm_version="1.0.0", settings=settings, db=lambda: db, register=lambda _logger: None)
     app: Final = FastAPI()
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=role, user_id="admin")
@@ -210,7 +210,7 @@ def _enabled(response: Response) -> tuple[str, ...]:
 @pytest.mark.asyncio
 async def test_an_admin_can_store_groups_and_reads_them_back_with_a_sample_report() -> None:
     db: Final = SettingsDatabase()
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
     async with client:
         saved: Final = await client.put(
             "/telemetry/settings", json={"groups": ["heartbeat", "request_success"], "destination": "local_table"}
@@ -236,7 +236,7 @@ async def test_an_admin_can_store_groups_and_reads_them_back_with_a_sample_repor
 @pytest.mark.asyncio
 async def test_invalid_groups_are_rejected_and_nothing_is_stored(groups: list[str], status: int) -> None:
     db: Final = SettingsDatabase()
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
     async with client:
         response: Final = await client.put("/telemetry/settings", json={"groups": groups})
     await runtime.stop()
@@ -246,7 +246,7 @@ async def test_invalid_groups_are_rejected_and_nothing_is_stored(groups: list[st
 
 @pytest.mark.asyncio
 async def test_unknown_fields_in_the_update_are_rejected() -> None:
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(), SettingsDatabase())
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(), SettingsDatabase())
     async with client:
         response: Final = await client.put("/telemetry/settings", json={"groups": [], "endpoint": "https://x"})
     await runtime.stop()
@@ -256,7 +256,7 @@ async def test_unknown_fields_in_the_update_are_rejected() -> None:
 @pytest.mark.asyncio
 async def test_a_view_only_admin_can_read_but_not_change_the_settings() -> None:
     db: Final = SettingsDatabase()
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, TelemetrySettings(), db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, TelemetrySettings(), db)
     async with client:
         read: Final = await client.get("/telemetry/settings")
         write: Final = await client.put("/telemetry/settings", json={"groups": ["heartbeat"]})
@@ -268,7 +268,7 @@ async def test_a_view_only_admin_can_read_but_not_change_the_settings() -> None:
 
 @pytest.mark.asyncio
 async def test_internal_users_cannot_read_the_settings() -> None:
-    client, runtime = await _settings_client(LitellmUserRoles.INTERNAL_USER, TelemetrySettings(), SettingsDatabase())
+    client, runtime = await _settings_client(HangarllmUserRoles.INTERNAL_USER, TelemetrySettings(), SettingsDatabase())
     async with client:
         response: Final = await client.get("/telemetry/settings")
     await runtime.stop()
@@ -279,9 +279,9 @@ async def test_internal_users_cannot_read_the_settings() -> None:
 async def test_env_vars_lock_the_settings_and_are_listed_without_their_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_TELEMETRY_ENDPOINT", "https://user:secret@telemetry.example")
+    monkeypatch.setenv("HANGARLLM_TELEMETRY_ENDPOINT", "https://user:secret@telemetry.example")
     db: Final = SettingsDatabase(stored_groups='{"groups": ["heartbeat"]}')
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(disabled=True), db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(disabled=True), db)
     async with client:
         read: Final = await client.get("/telemetry/settings")
         write: Final = await client.put("/telemetry/settings", json={"groups": []})
@@ -289,7 +289,7 @@ async def test_env_vars_lock_the_settings_and_are_listed_without_their_values(
     assert write.status_code == 409
     body: Final = _settings(read)
     assert (body.vetoed, body.editable, _enabled(read)) == (True, False, ())
-    assert body.environment_variables == ("LITELLM_TELEMETRY_DISABLED", "LITELLM_TELEMETRY_ENDPOINT")
+    assert body.environment_variables == ("HANGARLLM_TELEMETRY_DISABLED", "HANGARLLM_TELEMETRY_ENDPOINT")
     assert "secret" not in read.text
 
 
@@ -306,7 +306,7 @@ def test_any_ui_user_can_ask_whether_page_navigation_events_are_wanted(
 ) -> None:
     app: Final = FastAPI()
     app.include_router(router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER)
     app.dependency_overrides[telemetry_consent] = lambda: TelemetryConsent(groups)
     response: Final = TestClient(app).get("/telemetry/ui_events/enabled")
     assert response.status_code == 200, response.text
@@ -316,7 +316,7 @@ def test_any_ui_user_can_ask_whether_page_navigation_events_are_wanted(
 @pytest.mark.asyncio
 async def test_without_a_chosen_destination_the_settings_say_none_and_offer_only_what_is_configured() -> None:
     db: Final = SettingsDatabase(stored_groups='{"groups": ["heartbeat"]}')
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
     async with client:
         read: Final = await client.get("/telemetry/settings")
     await runtime.stop()
@@ -328,7 +328,7 @@ async def test_without_a_chosen_destination_the_settings_say_none_and_offer_only
 @pytest.mark.asyncio
 async def test_choosing_http_without_an_endpoint_is_rejected_and_nothing_is_stored() -> None:
     db: Final = SettingsDatabase()
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
     async with client:
         response: Final = await client.put("/telemetry/settings", json={"groups": ["heartbeat"], "destination": "http"})
     await runtime.stop()
@@ -340,7 +340,7 @@ async def test_choosing_http_without_an_endpoint_is_rejected_and_nothing_is_stor
 async def test_an_env_destination_cannot_be_overridden_from_the_settings_page() -> None:
     db: Final = SettingsDatabase()
     settings: Final = TelemetrySettings(destination=TelemetryDestination.LOCAL_TABLE)
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, settings, db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, settings, db)
     async with client:
         override: Final = await client.put(
             "/telemetry/settings", json={"groups": ["heartbeat"], "destination": "local_table"}
@@ -355,7 +355,7 @@ async def test_an_env_destination_cannot_be_overridden_from_the_settings_page() 
 @pytest.mark.asyncio
 async def test_a_failing_settings_read_is_a_503_instead_of_a_crash() -> None:
     db: Final = SettingsDatabase(stored_groups='{"groups": ["heartbeat"]}')
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(), db)
     db.fail_reads = True
     async with client:
         response: Final = await client.get("/telemetry/settings")
@@ -366,7 +366,7 @@ async def test_a_failing_settings_read_is_a_503_instead_of_a_crash() -> None:
 
 @pytest.mark.asyncio
 async def test_the_settings_report_the_fixed_five_minute_window() -> None:
-    client, runtime = await _settings_client(LitellmUserRoles.PROXY_ADMIN, TelemetrySettings(), SettingsDatabase())
+    client, runtime = await _settings_client(HangarllmUserRoles.PROXY_ADMIN, TelemetrySettings(), SettingsDatabase())
     async with client:
         read: Final = await client.get("/telemetry/settings")
     await runtime.stop()

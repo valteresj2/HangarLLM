@@ -40,7 +40,7 @@ from openai.types.chat import ChatCompletionChunk
 from openai.types.responses import ResponseStreamEvent
 from pydantic import JsonValue
 
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
 PROXY_WORKERS: Final = int(os.environ.get("INTEGRATION_PROXY_WORKERS", "1"))
 WORKER_SYNC_SECONDS: Final = 0.0 if PROXY_WORKERS == 1 else PROXY_CONFIG_RELOAD_INTERVAL_SECONDS + 5.0
@@ -410,7 +410,7 @@ def _config_with_provider_settings(directory: Path, api_base: str) -> Path:
                 "finetune_settings": [{"custom_llm_provider": "openai", "api_base": api_base, "api_key": PROVIDER_KEY}],
                 "assistant_settings": {
                     "custom_llm_provider": "openai",
-                    "litellm_params": {"api_base": api_base, "api_key": PROVIDER_KEY},
+                    "hangarllm_params": {"api_base": api_base, "api_key": PROVIDER_KEY},
                 },
             }
         )
@@ -616,13 +616,13 @@ def _upstream_id(managed: str, prefix: str) -> str:
         decoded: Final = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)).decode()
     except (binascii.Error, UnicodeDecodeError):
         return managed
-    return decoded.removeprefix("litellm:").split(";", 1)[0] if decoded.startswith("litellm:") else managed
+    return decoded.removeprefix("hangarllm:").split(";", 1)[0] if decoded.startswith("hangarllm:") else managed
 
 
 def _spend_row(identity: str) -> Mapping[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, call_type, model FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (identity,)
+            'SELECT request_id, call_type, model FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (identity,)
         ),
         lambda rows: len(rows) == 1,
         seconds=70,
@@ -632,7 +632,7 @@ def _spend_row(identity: str) -> Mapping[str, JsonValue]:
 
 def _spend_request_ids(identities: tuple[str, str, str]) -> frozenset[str]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id IN (%s, %s, %s)', identities),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id IN (%s, %s, %s)', identities),
         lambda rows: len(rows) == 3,
         seconds=70,
     )
@@ -659,7 +659,7 @@ def _new_model(gateway: Gateway, api_base: str, timeout: JsonValue) -> httpx.Res
         "/model/new",
         {
             "model_name": f"integration-{uuid.uuid4().hex}",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{UPSTREAM_MODEL}",
                 "api_key": PROVIDER_KEY,
                 "api_base": api_base,
@@ -1039,7 +1039,7 @@ def test_r18_audio_speech_answers_with_the_upstream_audio_type_through_the_sync_
             TEXT,
             "mp3",
         ), upstream_body
-        assert _spend_row(speech.headers["x-litellm-call-id"])["call_type"] == "aspeech"
+        assert _spend_row(speech.headers["x-hangarllm-call-id"])["call_type"] == "aspeech"
 
 
 def test_s01_chat_completions_upstream_400_reaches_the_sync_openai_sdk_as_a_bad_request(gateway: Gateway) -> None:

@@ -16,7 +16,7 @@ from e2e_config import (
 )
 from lifecycle import ResourceManager
 from load_client import LoadClient
-from models import KeyGenerateBody, LiteLLMParamsBody
+from models import KeyGenerateBody, HangarLLMParamsBody
 from proxy_client import ProxyClient
 from session_anomaly import run_concurrent_sessions, settled_spend, summarize
 
@@ -26,17 +26,17 @@ pytestmark = [pytest.mark.e2e, pytest.mark.weekly]
 @dataclass(frozen=True, slots=True)
 class AnomalyRoute:
     route_id: str
-    params: LiteLLMParamsBody
+    params: HangarLLMParamsBody
 
 
 ANOMALY_ROUTES = (
     AnomalyRoute(
         route_id="anthropic",
-        params=LiteLLMParamsBody(model="anthropic/claude-sonnet-5"),
+        params=HangarLLMParamsBody(model="anthropic/claude-sonnet-5"),
     ),
     AnomalyRoute(
         route_id="bedrock_invoke",
-        params=LiteLLMParamsBody(
+        params=HangarLLMParamsBody(
             model="bedrock/invoke/us.anthropic.claude-sonnet-5",
             aws_region_name="us-east-1",
         ),

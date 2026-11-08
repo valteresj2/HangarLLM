@@ -5,8 +5,8 @@ from typing import Any, Final, cast
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.proxy.common_utils.realtime_utils import realtime_request_body
-from litellm.proxy.proxy_server import _realtime_query_params_template
+from hangarllm.proxy.common_utils.realtime_utils import realtime_request_body
+from hangarllm.proxy.proxy_server import _realtime_query_params_template
 
 
 @pytest.fixture(autouse=True)

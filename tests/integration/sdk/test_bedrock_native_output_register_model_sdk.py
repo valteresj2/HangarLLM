@@ -8,9 +8,9 @@ import pytest
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm import ModelResponse, Router
-from litellm.utils import _invalidate_model_cost_lowercase_map  # pyright: ignore[reportPrivateUsage]  # required cache invalidation
+import hangarllm
+from hangarllm import ModelResponse, Router
+from hangarllm.utils import _invalidate_model_cost_lowercase_map  # pyright: ignore[reportPrivateUsage]  # required cache invalidation
 
 _OPUS_4_8: Final = "us.anthropic.claude-opus-4-8"
 _JSON_TOOL: Final = "json_tool_call"
@@ -81,8 +81,8 @@ def _bedrock(request: Request) -> Reply:
 
 @pytest.fixture
 def opus_4_8_opted_in_for_the_process(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "model_cost", _COST_MAP.validate_python(litellm.model_cost))  # pyright: ignore[reportUnknownMemberType]  # the cost map is untyped
-    litellm.register_model(
+    monkeypatch.setattr(hangarllm, "model_cost", _COST_MAP.validate_python(hangarllm.model_cost))  # pyright: ignore[reportUnknownMemberType]  # the cost map is untyped
+    hangarllm.register_model(
         {_OPUS_4_8: {"supports_bedrock_native_structured_output": True}}, persist_across_reloads=False
     )
     yield
@@ -115,10 +115,10 @@ def test_a_register_model_native_output_opt_in_reaches_every_call_but_a_deployme
             model_list=[
                 {
                     "model_name": "opted-out",
-                    "litellm_params": {"model": _model(route), **_connection(wire)},
+                    "hangarllm_params": {"model": _model(route), **_connection(wire)},
                     "model_info": {"supports_bedrock_native_structured_output": False},
                 },
-                {"model_name": "inherits", "litellm_params": {"model": _model(route), **_connection(wire)}},
+                {"model_name": "inherits", "hangarllm_params": {"model": _model(route), **_connection(wire)}},
             ],
             num_retries=0,
         )
@@ -135,5 +135,5 @@ def test_a_register_model_native_output_opt_in_reaches_every_call_but_a_deployme
         assert _sent_native(
             wire,
             route,
-            lambda messages: litellm.completion(_model(route), messages, **_connection(wire), **_OPTIONS),
+            lambda messages: hangarllm.completion(_model(route), messages, **_connection(wire), **_OPTIONS),
         )

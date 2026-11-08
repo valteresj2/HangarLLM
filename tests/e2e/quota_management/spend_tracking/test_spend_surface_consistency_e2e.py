@@ -4,7 +4,7 @@ A customer reconciles the bill from whichever surface they look at: the spend
 log row, the key's and the team's rolled-up spend on /key/info and /team/info,
 the usage page's Export Usage Data CSV (the dashboard serializes the
 /user/daily/activity/aggregated rows it already holds; there is no server-side
-CSV endpoint), and the litellm_spend_metric counter Prometheus scrapes. Each is
+CSV endpoint), and the hangarllm_spend_metric counter Prometheus scrapes. Each is
 written by a different writer (the spend log insert, the key and team rollups in
 db_spend_update_writer, the daily spend tables, the Prometheus success callback),
 so one of them can drift without the others noticing: the cause of the
@@ -34,7 +34,7 @@ from e2e_config import provider_edge_base, unique_marker
 from e2e_http import ProbeResult
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, KeyGenerateBody, LiteLLMParamsBody, TeamNewBody
+from models import ChatBody, ChatMessage, KeyGenerateBody, HangarLLMParamsBody, TeamNewBody
 from prometheus_client.parser import text_string_to_metric_families
 from proxy_client import Converged, await_converged
 from spend_e2e_client import SpendClient, unwrap
@@ -43,7 +43,7 @@ from spend_reconciliation import INPUT_RATE, OUTPUT_RATE
 pytestmark = pytest.mark.e2e
 
 BACKEND: Final = "openai/gpt-5.6-luna"
-SPEND_METRIC: Final = "litellm_spend_metric_total"
+SPEND_METRIC: Final = "hangarllm_spend_metric_total"
 KEY_HASH_LABEL: Final = "hashed_api_key"
 TEAM_LABEL: Final = "team"
 
@@ -105,7 +105,7 @@ class TestSpendSurfaceConsistency:
         model: Final = f"e2e-spend-surfaces-{marker}"
         model_id: Final = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BACKEND,
                 api_key="os.environ/OPENAI_API_KEY",
                 api_base=None if base is None else f"{base}/v1",

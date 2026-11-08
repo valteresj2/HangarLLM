@@ -24,7 +24,7 @@ import pytest
 from e2e_http import RateLimitedError, Success
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import KeyGenerateBody, LiteLLMParamsBody, SpendLogs, SpendLogsParams
+from models import KeyGenerateBody, HangarLLMParamsBody, SpendLogs, SpendLogsParams
 from spend_e2e_client import (
     ClientAttributionHeaders,
     SpendClient,
@@ -173,7 +173,7 @@ def test_streaming_messages_via_responses_bridge_tracks_spend(
     client: SpendClient, scoped_key: str
 ) -> None:
     """A streaming anthropic-format /v1/messages request served by an openai-provider
-    model is bridged through litellm's anthropic-messages -> Responses adapter, and
+    model is bridged through hangarllm's anthropic-messages -> Responses adapter, and
     consuming the whole SSE stream writes exactly one costed spend row.
 
     The deployment is a Responses-only OpenAI model (gpt-5.3-codex, exposed only on
@@ -544,19 +544,19 @@ def test_end_user_spend_attributed_on_row(
         mode=Mode.NONSTREAM,
     )
 )
-@pytest.mark.parametrize("header", ["x-litellm-customer-id", "x-litellm-end-user-id"])
+@pytest.mark.parametrize("header", ["x-hangarllm-customer-id", "x-hangarllm-end-user-id"])
 def test_end_user_header_attributes_responses_row(
     client: SpendClient, scoped_key: str, resources: ResourceManager, header: str
 ) -> None:
     """Codex CLI has no body field for the end user, so its config.toml http_headers
-    attach the customer header (and x-litellm-tags) to every /v1/responses call.
+    attach the customer header (and x-hangarllm-tags) to every /v1/responses call.
     A regression that stops reading either header on the Responses route, drops the
     tags, costs the row at zero, or leaves the customer's own spend total behind the
     row fails here."""
     customer = resources.customer(f"e2e-codex-{unique_marker()}")
     tag = f"codex-{unique_marker()}"
     headers = ClientAttributionHeaders.model_validate(
-        {"authorization": f"Bearer {scoped_key}", header: customer, "x-litellm-tags": tag}
+        {"authorization": f"Bearer {scoped_key}", header: customer, "x-hangarllm-tags": tag}
     )
     sent = client.send_responses_with_headers(
         headers, CODEX_MODEL, f"one word {unique_marker()}"
@@ -650,7 +650,7 @@ def test_failure_call_writes_failure_status_row(
     model = f"e2e-spend-failure-{unique_marker()}"
     model_id = client.proxy.create_model(
         model,
-        LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="sk-invalid-e2e-failure-row"),
+        HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="sk-invalid-e2e-failure-row"),
     )
     resources.defer(lambda: client.proxy.delete_model(model_id))
 
@@ -690,7 +690,7 @@ def test_failure_rows_share_normalized_error_across_provider_wording(
     )
     for name, provider_model in deployments:
         model_id = client.proxy.create_model(
-            name, LiteLLMParamsBody(model=provider_model, api_key=f"sk-invalid-{marker}")
+            name, HangarLLMParamsBody(model=provider_model, api_key=f"sk-invalid-{marker}")
         )
         resources.defer(lambda model_id=model_id: client.proxy.delete_model(model_id))
         result = client.chat(scoped_key, name, f"normalize failure {marker}", max_tokens=1)
@@ -736,7 +736,7 @@ def test_pre_call_rejection_row_attributes_provider_and_model_id(
     can count it."""
     model = f"e2e-spend-precall-{unique_marker()}"
     model_id = client.proxy.create_model(
-        model, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+        model, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
     )
     resources.defer(lambda: client.proxy.delete_model(model_id))
     key = client.proxy.generate_key(KeyGenerateBody(models=[model], rpm_limit=1))

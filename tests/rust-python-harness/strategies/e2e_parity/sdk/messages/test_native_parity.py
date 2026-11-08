@@ -33,15 +33,15 @@ from typing import Final, cast
 import pytest
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
-from litellm.messages import dispatch
-from litellm.rust_bridge import catalog
-from litellm.rust_bridge.catalog import Route, RouteRule
-from litellm.rust_bridge.configuration import Rollout
-from tests.test_litellm_rust.support.callback_recorder import RecordingLogger, drain_logging
-from tests.test_litellm_rust.support.isolation import isolated_callback_registries, rebound
-from tests.test_litellm_rust.support.recording_server import RecordingServer, ResponseSpec
+import hangarllm
+from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
+from hangarllm.messages import dispatch
+from hangarllm.rust_bridge import catalog
+from hangarllm.rust_bridge.catalog import Route, RouteRule
+from hangarllm.rust_bridge.configuration import Rollout
+from tests.test_hangarllm_rust.support.callback_recorder import RecordingLogger, drain_logging
+from tests.test_hangarllm_rust.support.isolation import isolated_callback_registries, rebound
+from tests.test_hangarllm_rust.support.recording_server import RecordingServer, ResponseSpec
 
 pytestmark = pytest.mark.requires_rust_extension
 
@@ -596,15 +596,15 @@ REQUEST_CASES: Final = (
     Case(
         "reasoning_auto_summary",
         _kw(thinking={"type": "enabled", "budget_tokens": 2048}, max_tokens=4096),
-        env=MappingProxyType({"LITELLM_REASONING_AUTO_SUMMARY": "true"}),
+        env=MappingProxyType({"HANGARLLM_REASONING_AUTO_SUMMARY": "true"}),
     ),
     Case("global_drop_params", _kw(top_k=5), model=OPUS_ADAPTIVE, settings=MappingProxyType({"drop_params": True})),
     Case("request_timeout_setting", settings=MappingProxyType({"request_timeout": 30})),
     Case(
-        "litellm_metadata_and_metadata",
+        "hangarllm_metadata_and_metadata",
         _kw(
             metadata={"user_id": "user-123"},
-            litellm_metadata={"user_api_key": "hashed-key", "user_api_key_team_id": "t1"},
+            hangarllm_metadata={"user_api_key": "hashed-key", "user_api_key_team_id": "t1"},
         ),
     ),
     Case("model_info_with_id", _kw(model_info={"id": "deployment-1", "db_model": False})),
@@ -731,7 +731,7 @@ SYNC_CASES: Final = (
 
 FALLBACK_CASES: Final = (
     Case("mock_response", _kw(mock_response="Hi from the mock"), upstream=()),
-    Case("mock_response_rate_limit", _kw(mock_response="litellm.RateLimitError"), upstream=()),
+    Case("mock_response_rate_limit", _kw(mock_response="hangarllm.RateLimitError"), upstream=()),
     Case(
         "thinking_replay",
         _kw(messages=list(THINKING_REPLAY), thinking={"type": "enabled", "budget_tokens": 2048}, max_tokens=4096),
@@ -815,13 +815,13 @@ def native_messages() -> Iterator[FallbackProbe]:
 
 @contextmanager
 def _environment(env: Mapping[str, str]) -> Generator[None]:
-    # LITELLM_RUST overrides the catalog rule, so a shell that sets it would route the native leg to Python.
+    # HANGARLLM_RUST overrides the catalog rule, so a shell that sets it would route the native leg to Python.
     names: Final = (
         *env,
         "ANTHROPIC_API_KEY",
         "ANTHROPIC_AUTH_TOKEN",
-        "LITELLM_REASONING_AUTO_SUMMARY",
-        "LITELLM_RUST",
+        "HANGARLLM_REASONING_AUTO_SUMMARY",
+        "HANGARLLM_RUST",
     )
     with pytest.MonkeyPatch.context() as patch:
         for name in names:
@@ -833,18 +833,18 @@ def _environment(env: Mapping[str, str]) -> Generator[None]:
 
 @contextmanager
 def _settings(settings: Mapping[str, object]) -> Generator[None]:
-    saved: Final[dict[str, object]] = {name: cast(object, getattr(litellm, name)) for name in settings}
+    saved: Final[dict[str, object]] = {name: cast(object, getattr(hangarllm, name)) for name in settings}
     for name, value in settings.items():
-        setattr(litellm, name, value)
+        setattr(hangarllm, name, value)
     try:
         yield
     finally:
         for name, value in saved.items():
-            setattr(litellm, name, value)
+            setattr(hangarllm, name, value)
 
 
 def _kwargs(case: Case, server: RecordingServer) -> dict[str, object]:
-    # Deep: Python writes into the caller's own `litellm_metadata`, which must not leak into the
+    # Deep: Python writes into the caller's own `hangarllm_metadata`, which must not leak into the
     # other leg.
     supplied: Final = copy.deepcopy(dict(case.kwargs))
     suffix: Final = supplied.pop("api_base_suffix", "")
@@ -871,7 +871,7 @@ def _normalized(text: str) -> str:
 
 def _error(error: BaseException, phase: str, chunks: Iterable[object] = ()) -> Mapping[str, object]:
     header_items: Final = {
-        name.lower(): value for name, value in _mapping(getattr(error, "litellm_response_headers", None)).items()
+        name.lower(): value for name, value in _mapping(getattr(error, "hangarllm_response_headers", None)).items()
     }
     return {
         "kind": "error",
@@ -903,7 +903,7 @@ def _response(result: object, private_keys: bool) -> Mapping[str, object]:
 def _hidden_params(result: object) -> Mapping[str, object]:
     hidden: Final = dict(_mapping(get_hidden_params_dict(result)))
     headers: Final = _mapping(hidden.pop("additional_headers", None))
-    header_names: Final = sorted(name for name in headers if name not in ("x-litellm-rust", "x-litellm-cache-key"))
+    header_names: Final = sorted(name for name in headers if name not in ("x-hangarllm-rust", "x-hangarllm-cache-key"))
     return {"keys": sorted(hidden), "additional_headers": header_names}
 
 
@@ -978,8 +978,8 @@ def _logged(recorder: RecordingLogger, events: tuple[str, ...]) -> tuple[Mapping
     details: Final = _mapping(terminal[-1].kwargs)
     standard: Final = _mapping(details.get("standard_logging_object"))
     error_class: Final = _mapping(standard.get("error_information")).get("error_class")
-    litellm_params: Final = _mapping(details.get("litellm_params"))
-    metadata: Final = litellm_params.get("metadata")
+    hangarllm_params: Final = _mapping(details.get("hangarllm_params"))
+    metadata: Final = hangarllm_params.get("metadata")
     metadata_keys: Final = _mapping(metadata).keys()
     logged: Final[Mapping[str, object]] = {
         "events": events,
@@ -988,7 +988,7 @@ def _logged(recorder: RecordingLogger, events: tuple[str, ...]) -> tuple[Mapping
     }
     callback_kwargs: Final[Mapping[str, object]] = {
         "logged_metadata": sorted(metadata_keys) if isinstance(metadata, dict) else metadata,
-        "logged_model_info": litellm_params.get("model_info"),
+        "logged_model_info": hangarllm_params.get("model_info"),
         "logged_response_headers": bool(details.get("response_headers")),
         "logged_api_key": details.get("api_key"),
         "logged_call": {
@@ -1003,7 +1003,7 @@ def _logged(recorder: RecordingLogger, events: tuple[str, ...]) -> tuple[Mapping
 async def _leg(case: Case, server: RecordingServer, probe: FallbackProbe | None) -> Leg:
     with isolated_callback_registries(), _environment(case.env), _settings(case.settings):
         recorder: Final = RecordingLogger()
-        litellm.callbacks.append(recorder)
+        hangarllm.callbacks.append(recorder)
         for spec in case.upstream:
             server.enqueue(replace(spec))
         request_count: Final = len(server.requests)

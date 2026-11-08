@@ -9,16 +9,16 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.base_llm.audio_transcription.transformation import AudioTranscriptionRequestData
-from litellm.llms.deepgram.audio_transcription.transformation import (
+from hangarllm.llms.base_llm.audio_transcription.transformation import AudioTranscriptionRequestData
+from hangarllm.llms.deepgram.audio_transcription.transformation import (
     DeepgramAudioTranscriptionConfig,
 )
-from litellm.types.utils import TranscriptionResponse
+from hangarllm.types.utils import TranscriptionResponse
 
 
 @pytest.fixture
 def test_bytes():
-    return b"litellm", b"litellm"
+    return b"hangarllm", b"hangarllm"
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def test_audio_file_handling(fixture_name, request):
         model="deepseek-audio-transcription",
         audio_file=audio_file,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     # Check that result is AudioTranscriptionRequestData
@@ -74,7 +74,7 @@ def test_get_complete_url_basic():
         api_key=None,
         model="nova-2",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2"
     assert url == expected_url
@@ -88,7 +88,7 @@ def test_get_complete_url_with_punctuate():
         api_key=None,
         model="nova-2",
         optional_params={"punctuate": True},
-        litellm_params={},
+        hangarllm_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&punctuate=true"
     assert url == expected_url
@@ -102,7 +102,7 @@ def test_get_complete_url_with_diarize():
         api_key=None,
         model="nova-2",
         optional_params={"diarize": True},
-        litellm_params={},
+        hangarllm_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&diarize=true"
     assert url == expected_url
@@ -116,7 +116,7 @@ def test_get_complete_url_with_measurements():
         api_key=None,
         model="nova-2",
         optional_params={"measurements": True},
-        litellm_params={},
+        hangarllm_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&measurements=true"
     assert url == expected_url
@@ -135,7 +135,7 @@ def test_get_complete_url_with_multiple_params():
             "measurements": True,
             "smart_format": True,
         },
-        litellm_params={},
+        hangarllm_params={},
     )
     # URL should contain all parameters
     assert "model=nova-2" in url
@@ -157,7 +157,7 @@ def test_get_complete_url_with_language_parameter():
             "language": "en",
             "punctuate": True,
         },
-        litellm_params={},
+        hangarllm_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&punctuate=true"
     assert url == expected_url
@@ -173,7 +173,7 @@ def test_get_complete_url_with_custom_api_base():
         api_key=None,
         model="nova-2",
         optional_params={"punctuate": True},
-        litellm_params={},
+        hangarllm_params={},
     )
     expected_url = "https://custom.deepgram.com/v2/listen?model=nova-2&punctuate=true"
     assert url == expected_url
@@ -191,7 +191,7 @@ def test_get_complete_url_with_string_values():
             "version": "latest",
             "punctuate": True,
         },
-        litellm_params={},
+        hangarllm_params={},
     )
     # URL should contain all parameters
     assert "model=nova-2" in url
@@ -209,7 +209,7 @@ def test_get_complete_url_with_detect_language():
         api_key=None,
         model="nova-2",
         optional_params={"detect_language": True},
-        litellm_params={},
+        hangarllm_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&detect_language=true"
     assert url == expected_url
@@ -227,7 +227,7 @@ def test_get_complete_url_with_detect_language_and_other_params():
             "punctuate": True,
             "diarize": False,
         },
-        litellm_params={},
+        hangarllm_params={},
     )
     # URL should contain all parameters
     assert "model=nova-2" in url

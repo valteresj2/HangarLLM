@@ -5,42 +5,42 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
-    LiteLLM_ManagedVectorStore,
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+    HangarLLM_ManagedVectorStore,
 )
-from litellm.llms.base_llm.vector_store.transformation import (
-    LiteLLMVectorStoreEmbeddingExecutor,
+from hangarllm.llms.base_llm.vector_store.transformation import (
+    HangarLLMVectorStoreEmbeddingExecutor,
     RouterVectorStoreEmbeddingExecutor,
 )
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.vector_store_endpoints.endpoints import (
-    _update_request_data_with_litellm_managed_vector_store_registry,
+from hangarllm.proxy._types import CommonProxyErrors, HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.vector_store_endpoints.endpoints import (
+    _update_request_data_with_hangarllm_managed_vector_store_registry,
     index_create,
     index_list,
 )
-from litellm.proxy.vector_store_endpoints.management_endpoints import (
+from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
     _check_vector_store_access,
     create_vector_store_in_db,
     new_vector_store,
 )
-from litellm.proxy.vector_store_endpoints.utils import (
+from hangarllm.proxy.vector_store_endpoints.utils import (
     check_vector_store_permission,
     is_allowed_to_call_vector_store_endpoint,
     is_allowed_to_call_vector_store_files_endpoint,
 )
-from litellm.proxy.vector_store_files_endpoints.endpoints import (
+from hangarllm.proxy.vector_store_files_endpoints.endpoints import (
     _update_request_data_with_model_routing_hint,
 )
-from litellm.types.utils import EmbeddingResponse, LlmProviders
-from litellm.types.vector_stores import IndexCreateRequest, IndexListResponse
-from litellm.vector_stores.main import _direct_vector_store_embedding_executor
+from hangarllm.types.utils import EmbeddingResponse, LlmProviders
+from hangarllm.types.vector_stores import IndexCreateRequest, IndexListResponse
+from hangarllm.vector_stores.main import _direct_vector_store_embedding_executor
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 
-def _serialize_litellm_params(litellm_params):
-    """Serialize ``litellm_params`` to a string for substring assertions.
+def _serialize_hangarllm_params(hangarllm_params):
+    """Serialize ``hangarllm_params`` to a string for substring assertions.
 
     The redact helper preserves the persisted shape — string in, string
     out; dict in, dict out — so callers that just want to assert "this
@@ -48,9 +48,9 @@ def _serialize_litellm_params(litellm_params):
     """
     import json
 
-    if isinstance(litellm_params, str):
-        return litellm_params
-    return json.dumps(litellm_params or {})
+    if isinstance(hangarllm_params, str):
+        return hangarllm_params
+    return json.dumps(hangarllm_params or {})
 
 
 def test_direct_vector_store_embedding_executor_rejects_invalid_value():
@@ -59,17 +59,17 @@ def test_direct_vector_store_embedding_executor_rejects_invalid_value():
 
 
 def test_router_vector_store_search_injects_executor_and_request_metadata():
-    router = litellm.Router(model_list=[])
+    router = hangarllm.Router(model_list=[])
 
     with patch(  # test-quality-ok: isolates the SDK search the router dispatches to
-        "litellm.vector_stores.main.search", return_value="searched"
+        "hangarllm.vector_stores.main.search", return_value="searched"
     ) as search:
         assert (
             router.vector_store_search(
                 vector_store_id="store",
                 query="query",
                 custom_llm_provider="valkey",
-                litellm_metadata={"user_api_key_team_id": "team-a"},
+                hangarllm_metadata={"user_api_key_team_id": "team-a"},
             )
             == "searched"
         )
@@ -81,7 +81,7 @@ def test_router_vector_store_search_injects_executor_and_request_metadata():
     assert executor.metadata == {"user_api_key_team_id": "team-a"}
 
     with patch(  # test-quality-ok: isolates the SDK create the router dispatches to
-        "litellm.vector_stores.main.create", return_value="created"
+        "hangarllm.vector_stores.main.create", return_value="created"
     ) as create:
         assert router.vector_store_create(name="store") == "created"
     create.assert_called_once_with(name="store")
@@ -90,14 +90,14 @@ def test_router_vector_store_search_injects_executor_and_request_metadata():
 @pytest.mark.asyncio
 async def test_vector_store_embedding_executors_preserve_explicit_configuration():
     response = EmbeddingResponse(data=[{"embedding": [0.1], "index": 0, "object": "embedding"}])
-    sdk_executor = LiteLLMVectorStoreEmbeddingExecutor()
+    sdk_executor = HangarLLMVectorStoreEmbeddingExecutor()
 
     with (
         patch(  # test-quality-ok: isolates SDK dispatch from external embedding providers
-            "litellm.embedding", return_value=response
+            "hangarllm.embedding", return_value=response
         ) as embedding,
         patch(  # test-quality-ok: isolates async SDK dispatch from external embedding providers
-            "litellm.aembedding", new=AsyncMock(return_value=response)
+            "hangarllm.aembedding", new=AsyncMock(return_value=response)
         ) as aembedding,
     ):
         assert sdk_executor.embed("openai/model", "sync", {"api_key": "explicit"}) is response
@@ -123,10 +123,10 @@ async def test_vector_store_embedding_executors_preserve_explicit_configuration(
 
     with (
         patch(  # test-quality-ok: verifies explicit store configuration at the SDK boundary
-            "litellm.embedding", return_value=response
+            "hangarllm.embedding", return_value=response
         ) as explicit_embedding,
         patch(  # test-quality-ok: verifies async explicit store configuration at the SDK boundary
-            "litellm.aembedding", new=AsyncMock(return_value=response)
+            "hangarllm.aembedding", new=AsyncMock(return_value=response)
         ) as explicit_aembedding,
     ):
         assert router_executor.embed("openai/model", "query", {"api_key": "store-key"}) is response
@@ -152,13 +152,13 @@ async def test_vector_store_embedding_executors_preserve_explicit_configuration(
 async def test_router_avector_store_search_passes_correct_args():
     """
     Test that router.avector_store_search() passes the correct arguments
-    to downstream litellm.vector_stores.asearch() with custom_llm_provider and query.
+    to downstream hangarllm.vector_stores.asearch() with custom_llm_provider and query.
     """
     # Create a router
-    router = litellm.Router(model_list=[])
+    router = hangarllm.Router(model_list=[])
 
     with patch(  # test-quality-ok: isolates the SDK search the router dispatches to
-        "litellm.vector_stores.main.asearch",
+        "hangarllm.vector_stores.main.asearch",
         new=AsyncMock(
             return_value={
                 "object": "vector_store.search_results.page",
@@ -186,16 +186,16 @@ async def test_router_avector_store_search_passes_correct_args():
 
 @pytest.mark.asyncio
 async def test_vector_store_embedding_executor_uses_team_scoped_router_deployment():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "shared-embedding",
-                "litellm_params": {"model": "openai/text-embedding-3-small", "api_key": "team-a-key"},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_key": "team-a-key"},
                 "model_info": {"team_id": "team-a", "team_public_model_name": "shared-embedding"},
             },
             {
                 "model_name": "shared-embedding",
-                "litellm_params": {"model": "openai/text-embedding-3-small", "api_key": "team-b-key"},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small", "api_key": "team-b-key"},
                 "model_info": {"team_id": "team-b", "team_public_model_name": "shared-embedding"},
             },
         ]
@@ -206,7 +206,7 @@ async def test_vector_store_embedding_executor_uses_team_scoped_router_deploymen
     )
     response = EmbeddingResponse(data=[{"embedding": [0.1], "index": 0, "object": "embedding"}])
 
-    with patch("litellm.aembedding", new=AsyncMock(return_value=response)) as mock_aembedding:
+    with patch("hangarllm.aembedding", new=AsyncMock(return_value=response)) as mock_aembedding:
         result = await executor.aembed("shared-embedding", "query", {})
 
     assert result is response
@@ -216,10 +216,10 @@ async def test_vector_store_embedding_executor_uses_team_scoped_router_deploymen
 @pytest.mark.asyncio
 async def test_router_avector_store_file_list_passes_correct_args():
     with patch(
-        "litellm.vector_store_files.main.alist",
+        "hangarllm.vector_store_files.main.alist",
         new=AsyncMock(return_value={"object": "list", "data": []}),
     ) as mock_alist:
-        router = litellm.Router(model_list=[])
+        router = hangarllm.Router(model_list=[])
 
         result = await router.avector_store_file_list(
             vector_store_id="test_store_id",
@@ -239,10 +239,10 @@ async def test_router_avector_store_file_list_passes_correct_args():
 
 def test_router_vector_store_file_delete_passes_correct_args():
     with patch(
-        "litellm.vector_store_files.main.delete",
+        "hangarllm.vector_store_files.main.delete",
         return_value={"deleted": True},
     ) as mock_delete:
-        router = litellm.Router(model_list=[])
+        router = hangarllm.Router(model_list=[])
 
         result = router.vector_store_file_delete(
             vector_store_id="test_store_id",
@@ -397,7 +397,7 @@ async def test_vector_store_file_list_wildcard_model_hint_falls_back_to_team_dep
 
 @pytest.mark.asyncio
 async def test_vector_store_file_list_authorizes_wildcard_query_param_before_credentials():
-    from litellm.proxy.auth.auth_checks import ProxyException
+    from hangarllm.proxy.auth.auth_checks import ProxyException
 
     request = MagicMock(spec=Request)
     request.query_params = {"model": "openai/*"}
@@ -452,7 +452,7 @@ async def test_vector_store_file_list_uses_single_team_model_for_router_routing(
 
 @pytest.mark.asyncio
 async def test_vector_store_file_list_authorizes_inferred_team_model():
-    from litellm.proxy.auth.auth_checks import ProxyException
+    from hangarllm.proxy.auth.auth_checks import ProxyException
 
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -570,7 +570,7 @@ async def test_vector_store_file_list_requires_explicit_openai_provider_for_team
 
 @pytest.mark.asyncio
 async def test_vector_store_file_list_authorizes_model_query_param_before_credentials():
-    from litellm.proxy.auth.auth_checks import ProxyException
+    from hangarllm.proxy.auth.auth_checks import ProxyException
 
     request = MagicMock(spec=Request)
     request.query_params = {"model": "restricted-deployment"}
@@ -597,9 +597,9 @@ async def test_vector_store_file_list_authorizes_model_query_param_before_creden
 
 @pytest.mark.asyncio
 async def test_vector_store_file_list_model_query_param_enforces_project_model_grant():
-    from litellm.proxy._types import LiteLLM_ProjectTableCachedObj, LiteLLM_TeamTableCachedObj
-    from litellm.proxy.auth.auth_checks import ProxyException
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, project_cache_key
+    from hangarllm.proxy._types import HangarLLM_ProjectTableCachedObj, HangarLLM_TeamTableCachedObj
+    from hangarllm.proxy.auth.auth_checks import ProxyException
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, project_cache_key
 
     request = MagicMock(spec=Request)
     request.query_params = {"model": "team-openai"}
@@ -610,17 +610,17 @@ async def test_vector_store_file_list_model_query_param_enforces_project_model_g
     cache = UserApiKeyCache()
     await cache.async_set_cache(
         key="team_id:team-123",
-        value=LiteLLM_TeamTableCachedObj(team_id="team-123", models=["team-openai"]),
+        value=HangarLLM_TeamTableCachedObj(team_id="team-123", models=["team-openai"]),
     )
     await cache.async_set_cache(
         key=project_cache_key("proj-1"),
-        value=LiteLLM_ProjectTableCachedObj(project_id="proj-1", models=["other-deployment"]),
+        value=HangarLLM_ProjectTableCachedObj(project_id="proj-1", models=["other-deployment"]),
     )
     user_api_key_dict = UserAPIKeyAuth(team_id="team-123", team_models=["team-openai"], project_id="proj-1")
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: proxy_server global, no seam
-        patch("litellm.proxy.proxy_server.user_api_key_cache", cache),  # test-quality-ok: proxy_server global, no seam
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: proxy_server global, no seam
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", cache),  # test-quality-ok: proxy_server global, no seam
     ):
         with pytest.raises(ProxyException):
             await _update_request_data_with_model_routing_hint(
@@ -634,9 +634,9 @@ async def test_vector_store_file_list_model_query_param_enforces_project_model_g
 
 
 @pytest.mark.asyncio
-async def test_update_request_data_with_litellm_managed_vector_store_registry():
+async def test_update_request_data_with_hangarllm_managed_vector_store_registry():
     """
-    Test that _update_request_data_with_litellm_managed_vector_store_registry
+    Test that _update_request_data_with_hangarllm_managed_vector_store_registry
     correctly updates request data with vector store registry information.
     """
     # Setup test data
@@ -644,43 +644,43 @@ async def test_update_request_data_with_litellm_managed_vector_store_registry():
     vector_store_id = "test_store_id"
 
     # Mock vector store registry
-    mock_vector_store: LiteLLM_ManagedVectorStore = {
+    mock_vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "test_store_id",
         "custom_llm_provider": "bedrock",
-        "litellm_credential_name": "test_credential",
-        "litellm_params": {"api_key": "test_key", "aws_region_name": "us-east-1"},
+        "hangarllm_credential_name": "test_credential",
+        "hangarllm_params": {"api_key": "test_key", "aws_region_name": "us-east-1"},
     }
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = (
+    mock_registry.get_hangarllm_managed_vector_store_from_registry.return_value = (
         mock_vector_store
     )
 
     # Test with vector store registry
-    with patch.object(litellm, "vector_store_registry", mock_registry):
-        result = await _update_request_data_with_litellm_managed_vector_store_registry(
+    with patch.object(hangarllm, "vector_store_registry", mock_registry):
+        result = await _update_request_data_with_hangarllm_managed_vector_store_registry(
             data=data, vector_store_id=vector_store_id
         )
 
         # Verify the data was updated correctly
         assert result["existing_key"] == "existing_value"  # Original data preserved
         assert result["custom_llm_provider"] == "bedrock"
-        assert result["litellm_credential_name"] == "test_credential"
+        assert result["hangarllm_credential_name"] == "test_credential"
         assert result["api_key"] == "test_key"
         assert result["aws_region_name"] == "us-east-1"
 
         # Verify registry was called correctly
-        mock_registry.get_litellm_managed_vector_store_from_registry.assert_called_once_with(
+        mock_registry.get_hangarllm_managed_vector_store_from_registry.assert_called_once_with(
             vector_store_id="test_store_id"
         )
 
     # Test with no vector store registry or DB fallback
     with (
-        patch.object(litellm, "vector_store_registry", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch.object(hangarllm, "vector_store_registry", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
     ):
         original_data = {"existing_key": "existing_value"}
-        result = await _update_request_data_with_litellm_managed_vector_store_registry(
+        result = await _update_request_data_with_hangarllm_managed_vector_store_registry(
             data=original_data, vector_store_id=vector_store_id
         )
 
@@ -691,26 +691,26 @@ async def test_update_request_data_with_litellm_managed_vector_store_registry():
 @pytest.mark.asyncio
 async def test_managed_vector_store_keeps_embedding_reference_and_explicit_config():
     explicit_config = {"api_key": "store-specific-key", "api_base": "https://embedding.example"}
-    managed_vector_store: LiteLLM_ManagedVectorStore = {
+    managed_vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "test_store",
         "custom_llm_provider": "valkey",
-        "litellm_params": {
-            "litellm_embedding_model": "team-embedding-alias",
-            "litellm_embedding_config": explicit_config,
+        "hangarllm_params": {
+            "hangarllm_embedding_model": "team-embedding-alias",
+            "hangarllm_embedding_config": explicit_config,
         },
     }
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = managed_vector_store
+    mock_registry.get_hangarllm_managed_vector_store_from_registry.return_value = managed_vector_store
 
-    with patch.object(litellm, "vector_store_registry", mock_registry):
-        result = await _update_request_data_with_litellm_managed_vector_store_registry(
+    with patch.object(hangarllm, "vector_store_registry", mock_registry):
+        result = await _update_request_data_with_hangarllm_managed_vector_store_registry(
             data={},
             vector_store_id="test_store",
         )
 
-    assert result["litellm_embedding_model"] == "team-embedding-alias"
-    assert result["litellm_embedding_config"] == explicit_config
-    assert managed_vector_store["litellm_params"]["litellm_embedding_config"] == explicit_config
+    assert result["hangarllm_embedding_model"] == "team-embedding-alias"
+    assert result["hangarllm_embedding_config"] == explicit_config
+    assert managed_vector_store["hangarllm_params"]["hangarllm_embedding_config"] == explicit_config
 
 
 
@@ -970,7 +970,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             result = is_allowed_to_call_vector_store_endpoint(
@@ -1007,7 +1007,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             result = is_allowed_to_call_vector_store_endpoint(
@@ -1044,7 +1044,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1069,7 +1069,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         mock_user_api_key.team_metadata = None
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=None,
         ):
             result = is_allowed_to_call_vector_store_endpoint(
@@ -1105,7 +1105,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1140,7 +1140,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1161,7 +1161,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         mock_request.url.path = "/azure_ai/indexes/my-index"
 
         mock_user_api_key = MagicMock(spec=UserAPIKeyAuth)
-        mock_user_api_key.user_role = LitellmUserRoles.PROXY_ADMIN
+        mock_user_api_key.user_role = HangarllmUserRoles.PROXY_ADMIN
 
         mock_provider_config = MagicMock()
         mock_provider_config.get_vector_store_endpoints_by_type.return_value = {
@@ -1170,7 +1170,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             result = is_allowed_to_call_vector_store_endpoint(
@@ -1204,7 +1204,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1236,7 +1236,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1275,7 +1275,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             result = is_allowed_to_call_vector_store_endpoint(
@@ -1307,7 +1307,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1326,8 +1326,8 @@ class TestIsAllowedToCallVectorStoreEndpoint:
 
         from fastapi import HTTPException
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.types.utils import LlmProviders
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.types.utils import LlmProviders
 
         mock_request = MagicMock()
         mock_request.method = "GET"
@@ -1349,7 +1349,7 @@ class TestIsAllowedToCallVectorStoreEndpoint:
         }
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=mock_provider_config,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1369,7 +1369,7 @@ class TestIndexCreate:
         """Non-admin users must not register managed vector store indexes."""
         request = IndexCreateRequest(
             index_name="test-index",
-            litellm_params={
+            hangarllm_params={
                 "vector_store_index": "real-index",
                 "vector_store_name": "azure-ai-search",
             },
@@ -1385,7 +1385,7 @@ class TestIndexCreate:
                 user_api_key_dict=UserAPIKeyAuth(
                     token="sk-test",
                     key_name="sk-...test",
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=HangarllmUserRoles.INTERNAL_USER,
                 ),
             )
 
@@ -1397,7 +1397,7 @@ class TestIndexCreate:
         """Proxy admins can register managed vector store indexes."""
         create_request = IndexCreateRequest(
             index_name="test-index",
-            litellm_params={
+            hangarllm_params={
                 "vector_store_index": "real-index",
                 "vector_store_name": "azure-ai-search",
             },
@@ -1407,19 +1407,19 @@ class TestIndexCreate:
         mock_row = MagicMock()
         mock_row.model_dump.return_value = {
             "index_name": "test-index",
-            "litellm_params": create_request.litellm_params.model_dump(),
+            "hangarllm_params": create_request.hangarllm_params.model_dump(),
         }
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_managedvectorstoreindextable.find_unique = AsyncMock(
+        mock_prisma.db.hangarllm_managedvectorstoreindextable.find_unique = AsyncMock(
             return_value=None
         )
-        mock_prisma.db.litellm_managedvectorstoreindextable.create = AsyncMock(
+        mock_prisma.db.hangarllm_managedvectorstoreindextable.create = AsyncMock(
             return_value=mock_row
         )
 
         with patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "hangarllm.proxy.proxy_server.prisma_client",
             mock_prisma,
         ):
             result = await index_create(
@@ -1429,13 +1429,13 @@ class TestIndexCreate:
                 user_api_key_dict=UserAPIKeyAuth(
                     token="sk-test",
                     key_name="sk-...test",
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     user_id="admin-user",
                 ),
             )
 
         assert result["index_name"] == "test-index"
-        mock_prisma.db.litellm_managedvectorstoreindextable.create.assert_awaited_once()
+        mock_prisma.db.hangarllm_managedvectorstoreindextable.create.assert_awaited_once()
 
 
 class TestIndexList:
@@ -1443,7 +1443,7 @@ class TestIndexList:
         return UserAPIKeyAuth(
             token="sk-test",
             key_name="sk-...test",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             user_id="admin-user",
         )
 
@@ -1451,7 +1451,7 @@ class TestIndexList:
         return {
             "id": index_id,
             "index_name": index_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "vector_store_index": f"real-{index_name}",
                 "vector_store_name": "azure-ai-search",
             },
@@ -1466,25 +1466,25 @@ class TestIndexList:
     async def test_index_list_requires_admin(self):
         """Index topology must never reach non-admins, not even via a DB read."""
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_managedvectorstoreindextable.find_many = AsyncMock()
+        mock_prisma.db.hangarllm_managedvectorstoreindextable.find_many = AsyncMock()
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             with pytest.raises(HTTPException) as exc_info:
                 await index_list(
                     user_api_key_dict=UserAPIKeyAuth(
                         token="sk-test",
                         key_name="sk-...test",
-                        user_role=LitellmUserRoles.INTERNAL_USER,
+                        user_role=HangarllmUserRoles.INTERNAL_USER,
                     )
                 )
 
         assert exc_info.value.status_code == 403
         assert "Only proxy admins can list" in exc_info.value.detail
-        mock_prisma.db.litellm_managedvectorstoreindextable.find_many.assert_not_awaited()
+        mock_prisma.db.hangarllm_managedvectorstoreindextable.find_many.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_index_list_requires_db_connection(self):
-        with patch("litellm.proxy.proxy_server.prisma_client", None):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", None):
             with pytest.raises(HTTPException) as exc_info:
                 await index_list(user_api_key_dict=self._admin())
 
@@ -1499,23 +1499,23 @@ class TestIndexList:
             self._index_row("idx-1", "index-a"),
         ]
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_managedvectorstoreindextable.find_many = AsyncMock(return_value=rows)
+        mock_prisma.db.hangarllm_managedvectorstoreindextable.find_many = AsyncMock(return_value=rows)
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             result = await index_list(user_api_key_dict=self._admin())
 
         assert isinstance(result, IndexListResponse)
         assert result.object == "list"
         assert [index.index_name for index in result.data] == ["index-b", "index-a"]
-        assert result.data[0].litellm_params.vector_store_index == "real-index-b"
-        assert result.data[0].litellm_params.vector_store_name == "azure-ai-search"
-        assert result.data[1].litellm_params.vector_store_index == "real-index-a"
-        mock_prisma.db.litellm_managedvectorstoreindextable.find_many.assert_awaited_once_with(
+        assert result.data[0].hangarllm_params.vector_store_index == "real-index-b"
+        assert result.data[0].hangarllm_params.vector_store_name == "azure-ai-search"
+        assert result.data[1].hangarllm_params.vector_store_index == "real-index-a"
+        mock_prisma.db.hangarllm_managedvectorstoreindextable.find_many.assert_awaited_once_with(
             order={"created_at": "desc"}
         )
 
     def test_get_v1_indexes_route_registered(self):
-        from litellm.proxy.vector_store_endpoints.endpoints import router
+        from hangarllm.proxy.vector_store_endpoints.endpoints import router
 
         routes = [
             (method, getattr(route, "path", None))
@@ -1552,7 +1552,7 @@ class TestIsAllowedToCallVectorStoreFilesEndpoint:
         mock_user_api_key.team_metadata = None
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_store_files_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_store_files_config",
             return_value=self._mock_provider_config(),
         ):
             result = is_allowed_to_call_vector_store_files_endpoint(
@@ -1579,7 +1579,7 @@ class TestIsAllowedToCallVectorStoreFilesEndpoint:
         mock_user_api_key.team_metadata = None
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_store_files_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_store_files_config",
             return_value=self._mock_provider_config(),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1603,7 +1603,7 @@ class TestIsAllowedToCallVectorStoreFilesEndpoint:
         mock_user_api_key.team_metadata = {}
 
         with patch(
-            "litellm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_store_files_config",
+            "hangarllm.proxy.vector_store_endpoints.utils.ProviderConfigManager.get_provider_vector_store_files_config",
             return_value=None,
         ):
             result = is_allowed_to_call_vector_store_files_endpoint(
@@ -1630,8 +1630,8 @@ class TestVectorStoreManagementEndpointsExist:
         """
         import importlib
 
-        from litellm.proxy._lazy_features import LAZY_FEATURES
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy._lazy_features import LAZY_FEATURES
+        from hangarllm.proxy.proxy_server import app
 
         # Force-register the lazy vector_store_management routes so the
         # assertions can find them.
@@ -1685,11 +1685,11 @@ async def test_vector_store_synchronization_across_instances():
     from datetime import datetime, timezone
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.types.vector_stores import (
-        LiteLLM_ManagedVectorStore,
+    from hangarllm.types.vector_stores import (
+        HangarLLM_ManagedVectorStore,
         VectorStoreDeleteRequest,
     )
-    from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+    from hangarllm.vector_stores.vector_store_registry import VectorStoreRegistry
 
     # Simulate two instances with separate in-memory registries
     instance_1_registry = VectorStoreRegistry(vector_stores=[])
@@ -1757,27 +1757,27 @@ async def test_vector_store_synchronization_across_instances():
 
     # Create mock prisma client
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
         side_effect=mock_find_unique
     )
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_many = AsyncMock(
         side_effect=mock_find_many
     )
-    mock_prisma_client.db.litellm_managedvectorstorestable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.create = AsyncMock(
         side_effect=mock_create
     )
-    mock_prisma_client.db.litellm_managedvectorstorestable.delete = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.delete = AsyncMock(
         side_effect=mock_delete
     )
 
     # Test vector store data
     test_vector_store_id = "test-sync-store-001"
-    test_vector_store: LiteLLM_ManagedVectorStore = {
+    test_vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": test_vector_store_id,
         "custom_llm_provider": "bedrock",
         "vector_store_name": "Test Sync Store",
         "vector_store_description": "Testing synchronization",
-        "litellm_params": {
+        "hangarllm_params": {
             "vector_store_id": test_vector_store_id,
             "custom_llm_provider": "bedrock",
             "region_name": "us-east-1",
@@ -1788,21 +1788,21 @@ async def test_vector_store_synchronization_across_instances():
 
     # Step 1: Create vector store on Instance 1
     # (Simulate what happens in new_vector_store endpoint)
-    await mock_prisma_client.db.litellm_managedvectorstorestable.create(
+    await mock_prisma_client.db.hangarllm_managedvectorstorestable.create(
         data=test_vector_store
     )
     instance_1_registry.add_vector_store_to_registry(vector_store=test_vector_store)
 
     # Verify it's in Instance 1's memory
     assert (
-        instance_1_registry.get_litellm_managed_vector_store_from_registry(
+        instance_1_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
         is not None
     ), "Vector store should be in Instance 1's memory"
 
     # Verify it's in the database
-    db_store = await mock_prisma_client.db.litellm_managedvectorstorestable.find_unique(
+    db_store = await mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique(
         where={"vector_store_id": test_vector_store_id}
     )
     assert db_store is not None, "Vector store should be in database"
@@ -1810,7 +1810,7 @@ async def test_vector_store_synchronization_across_instances():
     # Step 2: Instance 2 should be able to find it via database fallback
     # (Simulate what happens in pop_vector_stores_to_run_with_db_fallback)
     found_store = (
-        await instance_2_registry.get_litellm_managed_vector_store_from_registry_or_db(
+        await instance_2_registry.get_hangarllm_managed_vector_store_from_registry_or_db(
             vector_store_id=test_vector_store_id, prisma_client=mock_prisma_client
         )
     )
@@ -1819,7 +1819,7 @@ async def test_vector_store_synchronization_across_instances():
 
     # Verify it's now cached in Instance 2's memory
     assert (
-        instance_2_registry.get_litellm_managed_vector_store_from_registry(
+        instance_2_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
         is not None
@@ -1854,7 +1854,7 @@ async def test_vector_store_synchronization_across_instances():
 
     # After cleanup, instance 2 should still have the vector store (it's in DB)
     assert (
-        instance_2_registry.get_litellm_managed_vector_store_from_registry(
+        instance_2_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
         is not None
@@ -1862,7 +1862,7 @@ async def test_vector_store_synchronization_across_instances():
 
     # Step 4: Delete vector store on Instance 1
     # (Simulate what happens in delete_vector_store endpoint)
-    await mock_prisma_client.db.litellm_managedvectorstorestable.delete(
+    await mock_prisma_client.db.hangarllm_managedvectorstorestable.delete(
         where={"vector_store_id": test_vector_store_id}
     )
     instance_1_registry.delete_vector_store_from_registry(
@@ -1871,7 +1871,7 @@ async def test_vector_store_synchronization_across_instances():
 
     # Verify it's removed from Instance 1's memory
     assert (
-        instance_1_registry.get_litellm_managed_vector_store_from_registry(
+        instance_1_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
         is None
@@ -1879,7 +1879,7 @@ async def test_vector_store_synchronization_across_instances():
 
     # Verify it's removed from database
     db_store_after_delete = (
-        await mock_prisma_client.db.litellm_managedvectorstorestable.find_unique(
+        await mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique(
             where={"vector_store_id": test_vector_store_id}
         )
     )
@@ -1916,7 +1916,7 @@ async def test_vector_store_synchronization_across_instances():
 
     # Verify it was removed from Instance 2's cache
     assert (
-        instance_2_registry.get_litellm_managed_vector_store_from_registry(
+        instance_2_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
         is None
@@ -1955,8 +1955,8 @@ async def test_vector_store_update_and_list_synchronization():
     from datetime import datetime, timezone
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
-    from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+    from hangarllm.types.vector_stores import HangarLLM_ManagedVectorStore
+    from hangarllm.vector_stores.vector_store_registry import VectorStoreRegistry
 
     # Simulate two instances with separate in-memory registries
     instance_1_registry = VectorStoreRegistry(vector_stores=[])
@@ -2004,13 +2004,13 @@ async def test_vector_store_update_and_list_synchronization():
 
     # Create mock prisma client
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_many = AsyncMock(
         side_effect=mock_find_many
     )
-    mock_prisma_client.db.litellm_managedvectorstorestable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.create = AsyncMock(
         side_effect=mock_create
     )
-    mock_prisma_client.db.litellm_managedvectorstorestable.update = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.update = AsyncMock(
         side_effect=mock_update
     )
 
@@ -2019,12 +2019,12 @@ async def test_vector_store_update_and_list_synchronization():
     original_name = "Original Name"
     updated_name = "Updated Name"
 
-    test_vector_store: LiteLLM_ManagedVectorStore = {
+    test_vector_store: HangarLLM_ManagedVectorStore = {
         "vector_store_id": test_vector_store_id,
         "custom_llm_provider": "bedrock",
         "vector_store_name": original_name,
         "vector_store_description": "Testing update synchronization",
-        "litellm_params": {
+        "hangarllm_params": {
             "vector_store_id": test_vector_store_id,
             "custom_llm_provider": "bedrock",
             "region_name": "us-east-1",
@@ -2034,7 +2034,7 @@ async def test_vector_store_update_and_list_synchronization():
     }
 
     # Step 1: Create vector store on Instance 1
-    await mock_prisma_client.db.litellm_managedvectorstorestable.create(
+    await mock_prisma_client.db.hangarllm_managedvectorstorestable.create(
         data=test_vector_store
     )
     instance_1_registry.add_vector_store_to_registry(vector_store=test_vector_store)
@@ -2048,10 +2048,10 @@ async def test_vector_store_update_and_list_synchronization():
             instance_2_registry.add_vector_store_to_registry(vector_store=vs)
 
     # Verify both instances have the original data
-    instance_1_vs = instance_1_registry.get_litellm_managed_vector_store_from_registry(
+    instance_1_vs = instance_1_registry.get_hangarllm_managed_vector_store_from_registry(
         test_vector_store_id
     )
-    instance_2_vs = instance_2_registry.get_litellm_managed_vector_store_from_registry(
+    instance_2_vs = instance_2_registry.get_hangarllm_managed_vector_store_from_registry(
         test_vector_store_id
     )
     assert instance_1_vs.get("vector_store_name") == original_name
@@ -2060,7 +2060,7 @@ async def test_vector_store_update_and_list_synchronization():
     # Step 3: Instance 1 updates the vector store in the database
     # (Simulating what happens in update_vector_store endpoint)
     update_data = {"vector_store_name": updated_name}
-    await mock_prisma_client.db.litellm_managedvectorstorestable.update(
+    await mock_prisma_client.db.hangarllm_managedvectorstorestable.update(
         where={"vector_store_id": test_vector_store_id}, data=update_data
     )
 
@@ -2073,7 +2073,7 @@ async def test_vector_store_update_and_list_synchronization():
 
     # Verify Instance 1 has the updated data
     instance_1_vs_after_update = (
-        instance_1_registry.get_litellm_managed_vector_store_from_registry(
+        instance_1_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
     )
@@ -2081,7 +2081,7 @@ async def test_vector_store_update_and_list_synchronization():
 
     # Verify Instance 2 still has stale data in cache
     instance_2_vs_before_list = (
-        instance_2_registry.get_litellm_managed_vector_store_from_registry(
+        instance_2_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
     )
@@ -2111,7 +2111,7 @@ async def test_vector_store_update_and_list_synchronization():
 
     # Step 5: Verify Instance 2 now has the updated data
     instance_2_vs_after_list = (
-        instance_2_registry.get_litellm_managed_vector_store_from_registry(
+        instance_2_registry.get_hangarllm_managed_vector_store_from_registry(
             test_vector_store_id
         )
     )
@@ -2132,17 +2132,17 @@ async def test_vector_store_update_and_list_synchronization():
 async def test_new_vector_store_persists_embedding_reference_without_credentials():
     import json
 
-    from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
+    from hangarllm.types.vector_stores import HangarLLM_ManagedVectorStore
 
     mock_prisma_client = MagicMock()
 
     # Mock vector store request with embedding_model but no embedding_config
-    vector_store_data: LiteLLM_ManagedVectorStore = {
+    vector_store_data: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "test-store-001",
         "custom_llm_provider": "openai",
-        "litellm_params": {
-            "litellm_embedding_model": "text-embedding-ada-002",
-            # Note: litellm_embedding_config is not provided
+        "hangarllm_params": {
+            "hangarllm_embedding_model": "text-embedding-ada-002",
+            # Note: hangarllm_embedding_config is not provided
         },
     }
 
@@ -2153,7 +2153,7 @@ async def test_new_vector_store_persists_embedding_reference_without_credentials
     mock_user_api_key.user_id = None
 
     # Mock database operations
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
         return_value=None  # Vector store doesn't exist yet
     )
     # Track what was passed to create
@@ -2165,11 +2165,11 @@ async def test_new_vector_store_persists_embedding_reference_without_credentials
         mock_created_vector_store.model_dump.return_value = {
             "vector_store_id": "test-store-001",
             "custom_llm_provider": "openai",
-            "litellm_params": kwargs.get("data", {}).get("litellm_params"),
+            "hangarllm_params": kwargs.get("data", {}).get("hangarllm_params"),
         }
         return mock_created_vector_store
 
-    mock_prisma_client.db.litellm_managedvectorstorestable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.create = AsyncMock(
         side_effect=mock_create
     )
 
@@ -2178,20 +2178,20 @@ async def test_new_vector_store_persists_embedding_reference_without_credentials
     mock_registry.is_config_vector_store.return_value = False
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch.object(litellm, "vector_store_registry", mock_registry),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch.object(hangarllm, "vector_store_registry", mock_registry),
     ):
         result = await new_vector_store(vector_store=vector_store_data, user_api_key_dict=mock_user_api_key)
 
     assert result["status"] == "success"
-    litellm_params_json = captured_create_data.get("litellm_params")
-    assert litellm_params_json is not None
-    litellm_params_dict = json.loads(litellm_params_json)
-    assert "litellm_embedding_config" not in litellm_params_dict
-    assert litellm_params_dict["litellm_embedding_model"] == "text-embedding-ada-002"
+    hangarllm_params_json = captured_create_data.get("hangarllm_params")
+    assert hangarllm_params_json is not None
+    hangarllm_params_dict = json.loads(hangarllm_params_json)
+    assert "hangarllm_embedding_config" not in hangarllm_params_dict
+    assert hangarllm_params_dict["hangarllm_embedding_model"] == "text-embedding-ada-002"
 
     response_vs = result["vector_store"]
-    assert "api_key" not in _serialize_litellm_params(response_vs.get("litellm_params"))
+    assert "api_key" not in _serialize_hangarllm_params(response_vs.get("hangarllm_params"))
 
 
 @pytest.mark.asyncio
@@ -2199,30 +2199,30 @@ async def test_new_vector_store_auto_resolves_from_router():
     """Test that new_vector_store auto-resolves embedding config from router when model is config-defined."""
     import json
 
-    from litellm.types.router import Deployment, LiteLLM_Params
-    from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
+    from hangarllm.types.router import Deployment, HangarLLM_Params
+    from hangarllm.types.vector_stores import HangarLLM_ManagedVectorStore
 
     mock_prisma_client = MagicMock()
 
     # Mock vector store request with embedding_model but no embedding_config
-    vector_store_data: LiteLLM_ManagedVectorStore = {
+    vector_store_data: HangarLLM_ManagedVectorStore = {
         "vector_store_id": "test-store-router-001",
         "custom_llm_provider": "openai",
-        "litellm_params": {
-            "litellm_embedding_model": "config-embedding-model",
-            # Note: litellm_embedding_config is not provided
+        "hangarllm_params": {
+            "hangarllm_embedding_model": "config-embedding-model",
+            # Note: hangarllm_embedding_config is not provided
         },
     }
 
     # Mock router with the model
     mock_router = MagicMock()
-    mock_litellm_params = MagicMock(spec=LiteLLM_Params)
-    mock_litellm_params.api_key = "router-resolved-api-key"
-    mock_litellm_params.api_base = "https://router-resolved-base.com"
-    mock_litellm_params.api_version = "2024-03-01"
+    mock_hangarllm_params = MagicMock(spec=HangarLLM_Params)
+    mock_hangarllm_params.api_key = "router-resolved-api-key"
+    mock_hangarllm_params.api_base = "https://router-resolved-base.com"
+    mock_hangarllm_params.api_version = "2024-03-01"
 
     mock_deployment = MagicMock(spec=Deployment)
-    mock_deployment.litellm_params = mock_litellm_params
+    mock_deployment.hangarllm_params = mock_hangarllm_params
 
     mock_router.get_deployment_by_model_group_name.return_value = mock_deployment
 
@@ -2233,7 +2233,7 @@ async def test_new_vector_store_auto_resolves_from_router():
     mock_user_api_key.user_id = None
 
     # Mock database operations
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
         return_value=None  # Vector store doesn't exist yet
     )
 
@@ -2246,20 +2246,20 @@ async def test_new_vector_store_auto_resolves_from_router():
         mock_created_vector_store.model_dump.return_value = {
             "vector_store_id": "test-store-router-001",
             "custom_llm_provider": "openai",
-            "litellm_params": kwargs.get("data", {}).get("litellm_params"),
+            "hangarllm_params": kwargs.get("data", {}).get("hangarllm_params"),
         }
         return mock_created_vector_store
 
-    mock_prisma_client.db.litellm_managedvectorstorestable.create = AsyncMock(side_effect=mock_create)
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.create = AsyncMock(side_effect=mock_create)
 
     mock_registry = MagicMock()
     mock_registry.add_vector_store_to_registry = MagicMock()
     mock_registry.is_config_vector_store.return_value = False
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch.object(litellm, "vector_store_registry", mock_registry),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch.object(hangarllm, "vector_store_registry", mock_registry),
     ):
         result = await new_vector_store(
             vector_store=vector_store_data, user_api_key_dict=mock_user_api_key
@@ -2267,17 +2267,17 @@ async def test_new_vector_store_auto_resolves_from_router():
 
     assert result["status"] == "success"
     # Resolution against the router happens at request-handling time now,
-    # not at row creation. The persisted ``litellm_params`` carries only
+    # not at row creation. The persisted ``hangarllm_params`` carries only
     # the model reference, never the cleartext credential.
-    litellm_params_json = captured_create_data.get("litellm_params")
-    assert litellm_params_json is not None
-    litellm_params_dict = json.loads(litellm_params_json)
-    assert "litellm_embedding_config" not in litellm_params_dict
-    assert litellm_params_dict["litellm_embedding_model"] == "config-embedding-model"
+    hangarllm_params_json = captured_create_data.get("hangarllm_params")
+    assert hangarllm_params_json is not None
+    hangarllm_params_dict = json.loads(hangarllm_params_json)
+    assert "hangarllm_embedding_config" not in hangarllm_params_dict
+    assert hangarllm_params_dict["hangarllm_embedding_model"] == "config-embedding-model"
 
     response_vs = result["vector_store"]
-    assert "router-resolved-api-key" not in _serialize_litellm_params(
-        response_vs.get("litellm_params")
+    assert "router-resolved-api-key" not in _serialize_hangarllm_params(
+        response_vs.get("hangarllm_params")
     )
 
 
@@ -2302,7 +2302,7 @@ class TestCheckVectorStoreAccess:
     @pytest.mark.asyncio
     async def test_access_granted_when_no_team_id(self):
         """Test that access is granted when vector store has no team_id (legacy behavior)."""
-        vector_store: LiteLLM_ManagedVectorStore = {
+        vector_store: HangarLLM_ManagedVectorStore = {
             "vector_store_id": "test-store",
             "custom_llm_provider": "openai",
             # No team_id field
@@ -2315,7 +2315,7 @@ class TestCheckVectorStoreAccess:
     @pytest.mark.asyncio
     async def test_access_granted_when_team_ids_match(self):
         """Test that access is granted when user's team_id matches vector store's team_id."""
-        vector_store: LiteLLM_ManagedVectorStore = {
+        vector_store: HangarLLM_ManagedVectorStore = {
             "vector_store_id": "test-store",
             "custom_llm_provider": "openai",
             "team_id": "team-123",
@@ -2328,7 +2328,7 @@ class TestCheckVectorStoreAccess:
     @pytest.mark.asyncio
     async def test_access_denied_when_team_ids_dont_match(self):
         """Test that access is denied when user's team_id doesn't match vector store's team_id."""
-        vector_store: LiteLLM_ManagedVectorStore = {
+        vector_store: HangarLLM_ManagedVectorStore = {
             "vector_store_id": "test-store",
             "custom_llm_provider": "openai",
             "team_id": "team-123",
@@ -2341,7 +2341,7 @@ class TestCheckVectorStoreAccess:
     @pytest.mark.asyncio
     async def test_access_denied_when_vector_store_has_team_id_but_user_doesnt(self):
         """Test that access is denied when vector store has team_id but user doesn't."""
-        vector_store: LiteLLM_ManagedVectorStore = {
+        vector_store: HangarLLM_ManagedVectorStore = {
             "vector_store_id": "test-store",
             "custom_llm_provider": "openai",
             "team_id": "team-123",
@@ -2365,12 +2365,12 @@ async def test_create_vector_store_in_db():
     vector_store_name = "Test Store"
     vector_store_description = "Test Description"
     vector_store_metadata = {"key": "value"}
-    litellm_params = {"api_key": "test-key"}
+    hangarllm_params = {"api_key": "test-key"}
     team_id = "team-123"
     user_id = "user-456"
 
     # Mock database operations
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
         return_value=None  # Vector store doesn't exist yet
     )
 
@@ -2380,7 +2380,7 @@ async def test_create_vector_store_in_db():
         "vector_store_name": vector_store_name,
         "vector_store_description": vector_store_description,
         "vector_store_metadata": '{"key": "value"}',
-        "litellm_params": '{"api_key": "test-key"}',
+        "hangarllm_params": '{"api_key": "test-key"}',
         "team_id": team_id,
         "user_id": user_id,
         "created_at": datetime.now(timezone.utc),
@@ -2390,14 +2390,14 @@ async def test_create_vector_store_in_db():
     mock_created_vector_store = MagicMock()
     mock_created_vector_store.model_dump.return_value = created_vector_store_data
 
-    mock_prisma_client.db.litellm_managedvectorstorestable.create = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.create = AsyncMock(
         return_value=mock_created_vector_store
     )
 
     mock_registry = MagicMock()
     mock_registry.add_vector_store_to_registry = MagicMock()
 
-    with patch.object(litellm, "vector_store_registry", mock_registry):
+    with patch.object(hangarllm, "vector_store_registry", mock_registry):
         result = await create_vector_store_in_db(
             vector_store_id=vector_store_id,
             custom_llm_provider=custom_llm_provider,
@@ -2405,7 +2405,7 @@ async def test_create_vector_store_in_db():
             vector_store_name=vector_store_name,
             vector_store_description=vector_store_description,
             vector_store_metadata=vector_store_metadata,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             team_id=team_id,
             user_id=user_id,
         )
@@ -2416,17 +2416,17 @@ async def test_create_vector_store_in_db():
     assert result["custom_llm_provider"] == custom_llm_provider
 
     # Verify database was called correctly
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_unique.assert_called_once_with(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique.assert_called_once_with(
         where={"vector_store_id": vector_store_id}
     )
-    mock_prisma_client.db.litellm_managedvectorstorestable.create.assert_called_once()
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.create.assert_called_once()
 
     # Verify registry was updated
     mock_registry.add_vector_store_to_registry.assert_called_once()
 
     # Verify that create was called with correct data structure
     create_call_args = (
-        mock_prisma_client.db.litellm_managedvectorstorestable.create.call_args
+        mock_prisma_client.db.hangarllm_managedvectorstorestable.create.call_args
     )
     create_data = create_call_args.kwargs.get("data", {})
     assert create_data["vector_store_id"] == vector_store_id
@@ -2446,7 +2446,7 @@ async def test_create_vector_store_in_db_raises_when_exists():
 
     # Mock that vector store already exists
     existing_vector_store = MagicMock()
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
         return_value=existing_vector_store
     )
 
@@ -2461,7 +2461,7 @@ async def test_create_vector_store_in_db_raises_when_exists():
     assert "already exists" in exc_info.value.detail.lower()
 
     # Verify create was not called
-    mock_prisma_client.db.litellm_managedvectorstorestable.create.assert_not_called()
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.create.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -2478,9 +2478,9 @@ async def test_create_vector_store_in_db_raises_when_no_db():
     assert "database not connected" in exc_info.value.detail.lower()
 
 
-class TestRedactSensitiveLitellmParams:
+class TestRedactSensitiveHangarllmParams:
     """
-    ``litellm_params`` on a managed vector store carries the upstream
+    ``hangarllm_params`` on a managed vector store carries the upstream
     provider credential (OpenAI ``api_key``, AWS ``aws_secret_access_key``,
     GCP ``vertex_credentials``, etc.). The list/info endpoints must redact
     those values before returning them to any caller — including read-only
@@ -2488,9 +2488,9 @@ class TestRedactSensitiveLitellmParams:
     """
 
     def test_redacts_well_known_credential_keys(self):
-        from litellm.constants import REDACTED_BY_LITELM_STRING
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+        from hangarllm.constants import REDACTED_BY_LITELM_STRING
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
         params = {
@@ -2502,15 +2502,15 @@ class TestRedactSensitiveLitellmParams:
             ),
             "azure_authorization_token": "Bearer eyJhbGciOi...",
         }
-        out = _redact_sensitive_litellm_params(params)
+        out = _redact_sensitive_hangarllm_params(params)
         for k in params:
             assert (
                 out[k] == REDACTED_BY_LITELM_STRING
             ), f"{k} should be redacted, got {out[k]!r}"
 
     def test_preserves_non_sensitive_keys(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
         params = {
@@ -2520,7 +2520,7 @@ class TestRedactSensitiveLitellmParams:
             "vector_store_id": "vs_abc123",
             "api_version": "2023-05-15",
         }
-        out = _redact_sensitive_litellm_params(params)
+        out = _redact_sensitive_hangarllm_params(params)
         for k, v in params.items():
             assert out[k] == v, f"{k} should be preserved verbatim"
 
@@ -2532,9 +2532,9 @@ class TestRedactSensitiveLitellmParams:
         the key name, so an unextended masker returns it verbatim to every
         caller of /vector_store/list and /vector_store/info.
         """
-        from litellm.constants import REDACTED_BY_LITELM_STRING
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+        from hangarllm.constants import REDACTED_BY_LITELM_STRING
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
         password = "hunter2-not-for-callers"
@@ -2544,9 +2544,9 @@ class TestRedactSensitiveLitellmParams:
             "mongodb_collection": "embedded_movies",
             "mongodb_embedding_field": "plot_embedding",
             "mongodb_text_field": "plot",
-            "litellm_embedding_model": "openai/text-embedding-ada-002",
+            "hangarllm_embedding_model": "openai/text-embedding-ada-002",
         }
-        out = _redact_sensitive_litellm_params(params)
+        out = _redact_sensitive_hangarllm_params(params)
 
         assert out["mongodb_connection_string"] == REDACTED_BY_LITELM_STRING
         assert password not in json.dumps(out)
@@ -2555,21 +2555,21 @@ class TestRedactSensitiveLitellmParams:
             "mongodb_collection",
             "mongodb_embedding_field",
             "mongodb_text_field",
-            "litellm_embedding_model",
+            "hangarllm_embedding_model",
         ):
             assert out[k] == params[k], f"{k} is not a credential and must survive redaction"
 
     def test_handles_none_and_empty(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
-        assert _redact_sensitive_litellm_params(None) is None
-        assert _redact_sensitive_litellm_params({}) == {}
+        assert _redact_sensitive_hangarllm_params(None) is None
+        assert _redact_sensitive_hangarllm_params({}) == {}
 
-    def test_redaction_does_not_mutate_input_litellm_params(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+    def test_redaction_does_not_mutate_input_hangarllm_params(self):
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
         original = {
@@ -2577,33 +2577,33 @@ class TestRedactSensitiveLitellmParams:
             "api_base": "https://api.openai.com/v1",
         }
         snapshot = dict(original)
-        _redact_sensitive_litellm_params(original)
+        _redact_sensitive_hangarllm_params(original)
         assert original == snapshot, "input dict must not be mutated"
 
     def test_redacts_nested_credentials_in_embedding_config(self):
         """
         ``/vector_store/new`` and ``/vector_store/update`` auto-resolve
-        ``litellm_embedding_config`` from the model registry and store it
-        as a nested dict inside ``litellm_params``. The nested dict carries
+        ``hangarllm_embedding_config`` from the model registry and store it
+        as a nested dict inside ``hangarllm_params``. The nested dict carries
         its own ``api_key`` / ``aws_*`` / ``vertex_credentials``, and a
         non-recursive redactor would leak them.
         """
-        from litellm.constants import REDACTED_BY_LITELM_STRING
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+        from hangarllm.constants import REDACTED_BY_LITELM_STRING
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
         params = {
             "model": "openai/text-embedding-3-large",
             "api_base": "https://api.openai.com/v1",
-            "litellm_embedding_config": {
+            "hangarllm_embedding_config": {
                 "api_key": "sk-nested-secret",
                 "api_base": "https://nested.example.com",
                 "vertex_credentials": '{"private_key":"-----BEGIN..."}',
             },
         }
-        out = _redact_sensitive_litellm_params(params)
-        nested = out["litellm_embedding_config"]
+        out = _redact_sensitive_hangarllm_params(params)
+        nested = out["hangarllm_embedding_config"]
         assert nested["api_key"] == REDACTED_BY_LITELM_STRING
         assert nested["vertex_credentials"] == REDACTED_BY_LITELM_STRING
         assert nested["api_base"] == "https://nested.example.com"
@@ -2611,17 +2611,17 @@ class TestRedactSensitiveLitellmParams:
         assert out["api_base"] == "https://api.openai.com/v1"
         assert out["model"] == "openai/text-embedding-3-large"
 
-    def test_redacts_json_string_litellm_params(self):
+    def test_redacts_json_string_hangarllm_params(self):
         """
-        The in-memory registry occasionally holds ``litellm_params`` as a
+        The in-memory registry occasionally holds ``hangarllm_params`` as a
         JSON-serialized string rather than a dict. The redactor must parse,
         redact, and re-serialize so callers don't get the raw string back.
         """
         import json as _json
 
-        from litellm.constants import REDACTED_BY_LITELM_STRING
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+        from hangarllm.constants import REDACTED_BY_LITELM_STRING
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
         params_json = _json.dumps(
@@ -2630,24 +2630,24 @@ class TestRedactSensitiveLitellmParams:
                 "api_base": "https://api.openai.com/v1",
             }
         )
-        out = _redact_sensitive_litellm_params(params_json)
+        out = _redact_sensitive_hangarllm_params(params_json)
         assert isinstance(out, str)
         parsed = _json.loads(out)
         assert parsed["api_key"] == REDACTED_BY_LITELM_STRING
         assert parsed["api_base"] == "https://api.openai.com/v1"
 
-    def test_redacts_unparseable_string_litellm_params(self):
+    def test_redacts_unparseable_string_hangarllm_params(self):
         """
-        If ``litellm_params`` is a string that isn't valid JSON, the
+        If ``hangarllm_params`` is a string that isn't valid JSON, the
         redactor must NOT echo the value back verbatim — it could contain
         opaque credential material.
         """
-        from litellm.constants import REDACTED_BY_LITELM_STRING
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
-            _redact_sensitive_litellm_params,
+        from hangarllm.constants import REDACTED_BY_LITELM_STRING
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
+            _redact_sensitive_hangarllm_params,
         )
 
-        out = _redact_sensitive_litellm_params(
+        out = _redact_sensitive_hangarllm_params(
             "this is not json but might contain a secret"
         )
         assert out == REDACTED_BY_LITELM_STRING
@@ -2658,7 +2658,7 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
     ``/vector_store/update`` previously skipped per-store access control
     (only the premium-feature gate ran), letting any authenticated
     premium principal mutate *any* vector store. It also returned the
-    full DB row including ``litellm_params``, leaking provider
+    full DB row including ``hangarllm_params``, leaking provider
     credentials to the caller. Both are fixed at the endpoint level.
     """
 
@@ -2666,37 +2666,37 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
     async def test_update_denied_when_caller_cannot_access_store(self):
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
             update_vector_store,
         )
-        from litellm.types.vector_stores import VectorStoreUpdateRequest
+        from hangarllm.types.vector_stores import VectorStoreUpdateRequest
 
         existing_row = MagicMock()
         existing_row.model_dump = MagicMock(
             return_value={
                 "vector_store_id": "vs_other_team",
                 "team_id": "team-A",
-                "litellm_params": {"api_key": "sk-team-A-secret"},
+                "hangarllm_params": {"api_key": "sk-team-A-secret"},
             }
         )
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
             return_value=existing_row
         )
 
         with (
             patch(
-                "litellm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
+                "hangarllm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
+                "hangarllm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await update_vector_store(
@@ -2713,25 +2713,25 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
         # error message either.
         assert "sk-team-A-secret" not in str(exc_info.value.detail)
         # And the DB update must not have been called.
-        mock_prisma_client.db.litellm_managedvectorstorestable.update.assert_not_called()
+        mock_prisma_client.db.hangarllm_managedvectorstorestable.update.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_update_response_redacts_litellm_params(self):
+    async def test_update_response_redacts_hangarllm_params(self):
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from litellm.constants import REDACTED_BY_LITELM_STRING
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
+        from hangarllm.constants import REDACTED_BY_LITELM_STRING
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
             update_vector_store,
         )
-        from litellm.types.vector_stores import VectorStoreUpdateRequest
+        from hangarllm.types.vector_stores import VectorStoreUpdateRequest
 
         existing_row = MagicMock()
         existing_row.model_dump = MagicMock(
             return_value={
                 "vector_store_id": "vs_owned",
                 "team_id": "team-A",
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_key": "sk-real-openai-key-123",
                     "api_base": "https://api.openai.com/v1",
                 },
@@ -2743,7 +2743,7 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
                 "vector_store_id": "vs_owned",
                 "team_id": "team-A",
                 "vector_store_description": "new desc",
-                "litellm_params": {
+                "hangarllm_params": {
                     "api_key": "sk-real-openai-key-123",
                     "api_base": "https://api.openai.com/v1",
                 },
@@ -2751,25 +2751,25 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
         )
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
             return_value=existing_row
         )
-        mock_prisma_client.db.litellm_managedvectorstorestable.update = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedvectorstorestable.update = AsyncMock(
             return_value=updated_row
         )
 
         with (
             patch(
-                "litellm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
+                "hangarllm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
+                "hangarllm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
                 new_callable=AsyncMock,
                 return_value=True,
             ),
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-            patch("litellm.vector_store_registry", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+            patch("hangarllm.vector_store_registry", None),
         ):
             response = await update_vector_store(
                 data=VectorStoreUpdateRequest(
@@ -2779,7 +2779,7 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
                 user_api_key_dict=UserAPIKeyAuth(user_id="owner", team_id="team-A"),
             )
 
-        params = response["vector_store"]["litellm_params"]
+        params = response["vector_store"]["hangarllm_params"]
         assert params["api_key"] == REDACTED_BY_LITELM_STRING
         assert params["api_base"] == "https://api.openai.com/v1"
 
@@ -2790,11 +2790,11 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
         turning an AttributeError into an opaque 500."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.vector_store_endpoints.management_endpoints import (
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
             update_vector_store,
         )
-        from litellm.types.vector_stores import VectorStoreUpdateRequest
+        from hangarllm.types.vector_stores import VectorStoreUpdateRequest
 
         existing_row = MagicMock()
         existing_row.model_dump = MagicMock(
@@ -2802,25 +2802,25 @@ class TestUpdateVectorStoreAccessControlAndRedaction:
         )
 
         mock_prisma_client = MagicMock()
-        mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(
             return_value=existing_row
         )
-        mock_prisma_client.db.litellm_managedvectorstorestable.update = AsyncMock(
+        mock_prisma_client.db.hangarllm_managedvectorstorestable.update = AsyncMock(
             return_value=None
         )
 
         with (
             patch(  # test-quality-ok: stubs the auth gate so the test exercises the not-found branch under test
-                "litellm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
+                "hangarllm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
                 new_callable=AsyncMock,
             ),
             patch(  # test-quality-ok: stubs the auth gate so the test exercises the not-found branch under test
-                "litellm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
+                "hangarllm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
                 new_callable=AsyncMock,
                 return_value=True,
             ),
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),  # test-quality-ok: proxy_server module global is the endpoint's only injection point
-            patch("litellm.vector_store_registry", None),  # test-quality-ok: litellm module global is the only injection point for the registry
+            patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),  # test-quality-ok: proxy_server module global is the endpoint's only injection point
+            patch("hangarllm.vector_store_registry", None),  # test-quality-ok: hangarllm module global is the only injection point for the registry
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await update_vector_store(
@@ -3021,7 +3021,7 @@ class TestAzureAIAnalyzeNamedIndexClassification:
 
 @pytest.mark.parametrize(
     "blocked_key",
-    ["embedding_model", "litellm_embedding_model", "litellm_embedding_config", "litellm_credential_name"],
+    ["embedding_model", "hangarllm_embedding_model", "hangarllm_embedding_config", "hangarllm_credential_name"],
 )
 def test_vector_store_search_rejects_caller_embedding_selection_params(blocked_key):
     """
@@ -3032,10 +3032,10 @@ def test_vector_store_search_rejects_caller_embedding_selection_params(blocked_k
     """
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.proxy_server import app
 
-    mock_auth = UserAPIKeyAuth(user_id="test_internal_user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    mock_auth = UserAPIKeyAuth(user_id="test_internal_user", user_role=HangarllmUserRoles.INTERNAL_USER.value)
     original_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[user_api_key_auth] = lambda: mock_auth
     try:
@@ -3064,34 +3064,34 @@ def test_vector_store_search_rejects_caller_opensearch_index_name_only_on_opense
     """
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.proxy_server import app
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.proxy_server import app
+    from hangarllm.types.vector_stores import VectorStoreSearchResponse
 
     store = {
         "vector_store_id": "kb",
         "custom_llm_provider": provider,
-        "litellm_params": {"vector_store_id": "kb", "custom_llm_provider": provider},
+        "hangarllm_params": {"vector_store_id": "kb", "custom_llm_provider": provider},
     }
     registry = MagicMock()
-    registry.get_litellm_managed_vector_store_from_registry.return_value = store
+    registry.get_hangarllm_managed_vector_store_from_registry.return_value = store
     fake_search = AsyncMock(
         return_value=VectorStoreSearchResponse(object="vector_store.search_results.page", search_query="q", data=[])
     )
-    mock_auth = UserAPIKeyAuth(user_id="test_internal_user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    mock_auth = UserAPIKeyAuth(user_id="test_internal_user", user_role=HangarllmUserRoles.INTERNAL_USER.value)
     original_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[user_api_key_auth] = lambda: mock_auth
     try:
         with (
-            patch("litellm.vector_stores.main.asearch", new=fake_search),  # test-quality-ok: the search boundary under test
-            patch.object(litellm, "vector_store_registry", registry),  # test-quality-ok: seeds the store under test
+            patch("hangarllm.vector_stores.main.asearch", new=fake_search),  # test-quality-ok: the search boundary under test
+            patch.object(hangarllm, "vector_store_registry", registry),  # test-quality-ok: seeds the store under test
             patch(  # test-quality-ok: store access is not under test, so the request reaches the search boundary
-                "litellm.proxy.vector_store_endpoints.utils.can_user_access_vector_store",
+                "hangarllm.proxy.vector_store_endpoints.utils.can_user_access_vector_store",
                 new=AsyncMock(return_value=True),
             ),
         ):
-            router = litellm.Router(model_list=[])
-            with patch("litellm.proxy.proxy_server.llm_router", router):  # test-quality-ok: router built over the fake search
+            router = hangarllm.Router(model_list=[])
+            with patch("hangarllm.proxy.proxy_server.llm_router", router):  # test-quality-ok: router built over the fake search
                 response = TestClient(app).post(
                     "/v1/vector_stores/kb/search",
                     json={"query": "q", "opensearch_index_name": "another-teams-index"},
@@ -3110,14 +3110,14 @@ class TestConfigOwnedVectorStores:
     DB_ID = "vs_from_db"
 
     def _registry(self):
-        from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+        from hangarllm.vector_stores.vector_store_registry import VectorStoreRegistry
 
         registry = VectorStoreRegistry(vector_stores=[])
         registry.load_vector_stores_from_config(
             [
                 {
                     "vector_store_name": "config-store",
-                    "litellm_params": {"vector_store_id": self.CONFIG_ID, "custom_llm_provider": "openai"},
+                    "hangarllm_params": {"vector_store_id": self.CONFIG_ID, "custom_llm_provider": "openai"},
                 }
             ]
         )
@@ -3131,26 +3131,26 @@ class TestConfigOwnedVectorStores:
             "vector_store_id": vector_store_id,
             "custom_llm_provider": "openai",
             "vector_store_name": vector_store_name,
-            "litellm_params": {},
+            "hangarllm_params": {},
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
 
     @staticmethod
     def _admin() -> UserAPIKeyAuth:
-        return UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
+        return UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin")
 
     @pytest.mark.asyncio
     async def test_list_keeps_config_store_that_has_no_db_row(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import list_vector_stores
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import list_vector_stores
 
         registry = self._registry()
         prisma = MagicMock()
-        prisma.db.litellm_managedvectorstorestable.find_many = AsyncMock(return_value=[self._db_row(self.DB_ID, "db-store")])
+        prisma.db.hangarllm_managedvectorstorestable.find_many = AsyncMock(return_value=[self._db_row(self.DB_ID, "db-store")])
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
-            patch.object(litellm, "vector_store_registry", registry),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
+            patch.object(hangarllm, "vector_store_registry", registry),
         ):
             first = await list_vector_stores(user_api_key_dict=self._admin())
             second = await list_vector_stores(user_api_key_dict=self._admin())
@@ -3161,17 +3161,17 @@ class TestConfigOwnedVectorStores:
 
     @pytest.mark.asyncio
     async def test_list_keeps_config_store_and_db_row_with_same_id_does_not_overwrite_it(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import list_vector_stores
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import list_vector_stores
 
         registry = self._registry()
         prisma = MagicMock()
-        prisma.db.litellm_managedvectorstorestable.find_many = AsyncMock(
+        prisma.db.hangarllm_managedvectorstorestable.find_many = AsyncMock(
             return_value=[self._db_row(self.DB_ID, "db-store"), self._db_row(self.CONFIG_ID, "renamed-in-db")]
         )
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
-            patch.object(litellm, "vector_store_registry", registry),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
+            patch.object(hangarllm, "vector_store_registry", registry),
         ):
             response = await list_vector_stores(user_api_key_dict=self._admin())
 
@@ -3180,16 +3180,16 @@ class TestConfigOwnedVectorStores:
         assert (by_id[self.CONFIG_ID]["vector_store_name"], by_id[self.CONFIG_ID]["is_config"]) == ("config-store", True)
         assert (by_id[self.DB_ID]["vector_store_name"], by_id[self.DB_ID]["is_config"]) == ("db-store", False)
         assert [vs["vector_store_id"] for vs in registry.vector_stores] == [self.CONFIG_ID, self.DB_ID]
-        assert registry.get_litellm_managed_vector_store_from_registry(self.CONFIG_ID)["vector_store_name"] == "config-store"
+        assert registry.get_hangarllm_managed_vector_store_from_registry(self.CONFIG_ID)["vector_store_name"] == "config-store"
 
     @pytest.mark.asyncio
     async def test_info_reports_config_ownership(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import get_vector_store_info
-        from litellm.types.vector_stores import VectorStoreInfoRequest
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import get_vector_store_info
+        from hangarllm.types.vector_stores import VectorStoreInfoRequest
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: proxy_server global, no seam
-            patch.object(litellm, "vector_store_registry", self._registry()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: proxy_server global, no seam
+            patch.object(hangarllm, "vector_store_registry", self._registry()),
         ):
             config_info = await get_vector_store_info(
                 data=VectorStoreInfoRequest(vector_store_id=self.CONFIG_ID), user_api_key_dict=self._admin()
@@ -3204,12 +3204,12 @@ class TestConfigOwnedVectorStores:
     @pytest.mark.asyncio
     async def test_new_with_config_store_id_is_rejected_before_db_write(self):
         prisma = MagicMock()
-        prisma.db.litellm_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
-        prisma.db.litellm_managedvectorstorestable.create = AsyncMock()
+        prisma.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
+        prisma.db.hangarllm_managedvectorstorestable.create = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
-            patch.object(litellm, "vector_store_registry", self._registry()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
+            patch.object(hangarllm, "vector_store_registry", self._registry()),
             pytest.raises(HTTPException) as exc_info,
         ):
             await new_vector_store(
@@ -3220,21 +3220,21 @@ class TestConfigOwnedVectorStores:
         assert exc_info.value.status_code == 400, exc_info.value.detail
         assert exc_info.value.detail["vector_store_id"] == self.CONFIG_ID
         assert "config file" in exc_info.value.detail["error"]
-        prisma.db.litellm_managedvectorstorestable.create.assert_not_called()
+        prisma.db.hangarllm_managedvectorstorestable.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_update_of_config_store_is_rejected_before_db_write(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import update_vector_store
-        from litellm.types.vector_stores import VectorStoreUpdateRequest
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import update_vector_store
+        from hangarllm.types.vector_stores import VectorStoreUpdateRequest
 
         prisma = MagicMock()
-        prisma.db.litellm_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
-        prisma.db.litellm_managedvectorstorestable.update = AsyncMock()
+        prisma.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
+        prisma.db.hangarllm_managedvectorstorestable.update = AsyncMock()
         registry = self._registry()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
-            patch.object(litellm, "vector_store_registry", registry),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
+            patch.object(hangarllm, "vector_store_registry", registry),
             pytest.raises(HTTPException) as exc_info,
         ):
             await update_vector_store(
@@ -3244,22 +3244,22 @@ class TestConfigOwnedVectorStores:
 
         assert exc_info.value.status_code == 400, exc_info.value.detail
         assert exc_info.value.detail["vector_store_id"] == self.CONFIG_ID
-        prisma.db.litellm_managedvectorstorestable.update.assert_not_called()
-        assert registry.get_litellm_managed_vector_store_from_registry(self.CONFIG_ID)["vector_store_name"] == "config-store"
+        prisma.db.hangarllm_managedvectorstorestable.update.assert_not_called()
+        assert registry.get_hangarllm_managed_vector_store_from_registry(self.CONFIG_ID)["vector_store_name"] == "config-store"
 
     @pytest.mark.asyncio
     async def test_delete_of_config_store_is_rejected_and_store_stays_registered(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import delete_vector_store
-        from litellm.types.vector_stores import VectorStoreDeleteRequest
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import delete_vector_store
+        from hangarllm.types.vector_stores import VectorStoreDeleteRequest
 
         prisma = MagicMock()
-        prisma.db.litellm_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
-        prisma.db.litellm_managedvectorstorestable.delete = AsyncMock()
+        prisma.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
+        prisma.db.hangarllm_managedvectorstorestable.delete = AsyncMock()
         registry = self._registry()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
-            patch.object(litellm, "vector_store_registry", registry),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
+            patch.object(hangarllm, "vector_store_registry", registry),
             pytest.raises(HTTPException) as exc_info,
         ):
             await delete_vector_store(
@@ -3268,32 +3268,32 @@ class TestConfigOwnedVectorStores:
 
         assert exc_info.value.status_code == 400, exc_info.value.detail
         assert exc_info.value.detail["vector_store_id"] == self.CONFIG_ID
-        prisma.db.litellm_managedvectorstorestable.delete.assert_not_called()
+        prisma.db.hangarllm_managedvectorstorestable.delete.assert_not_called()
         assert registry.is_config_vector_store(self.CONFIG_ID) is True
 
     @pytest.mark.asyncio
     async def test_delete_of_db_store_still_works(self):
-        from litellm.proxy.vector_store_endpoints.management_endpoints import delete_vector_store
-        from litellm.types.vector_stores import VectorStoreDeleteRequest
+        from hangarllm.proxy.vector_store_endpoints.management_endpoints import delete_vector_store
+        from hangarllm.types.vector_stores import VectorStoreDeleteRequest
 
         row = MagicMock()
         row.model_dump = MagicMock(return_value=self._db_row(self.DB_ID, "db-store"))
         prisma = MagicMock()
-        prisma.db.litellm_managedvectorstorestable.find_unique = AsyncMock(return_value=row)
-        prisma.db.litellm_managedvectorstorestable.delete = AsyncMock()
+        prisma.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(return_value=row)
+        prisma.db.hangarllm_managedvectorstorestable.delete = AsyncMock()
         registry = self._registry()
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
-            patch.object(litellm, "vector_store_registry", registry),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: proxy_server global, no seam
+            patch.object(hangarllm, "vector_store_registry", registry),
         ):
             response = await delete_vector_store(
                 data=VectorStoreDeleteRequest(vector_store_id=self.DB_ID), user_api_key_dict=self._admin()
             )
 
         assert response["status"] == "success", response
-        prisma.db.litellm_managedvectorstorestable.delete.assert_awaited_once_with(where={"vector_store_id": self.DB_ID})
-        assert registry.get_litellm_managed_vector_store_from_registry(self.DB_ID) is None
+        prisma.db.hangarllm_managedvectorstorestable.delete.assert_awaited_once_with(where={"vector_store_id": self.DB_ID})
+        assert registry.get_hangarllm_managed_vector_store_from_registry(self.DB_ID) is None
 
 
 CALLERS_METADATA = {"team": "llmproxy", "endpoint": "ingest", "trace_id": "callers-trace"}
@@ -3305,7 +3305,7 @@ class _PreCallBodies(CustomLogger):
         self.logged_bodies = []
 
     def log_pre_api_call(self, model, messages, kwargs):
-        self.logged_bodies.append(kwargs["litellm_params"]["proxy_server_request"]["body"])
+        self.logged_bodies.append(kwargs["hangarllm_params"]["proxy_server_request"]["body"])
 
 
 @pytest.mark.parametrize("operation", ["create", "update"])
@@ -3327,23 +3327,23 @@ def test_proxy_vector_store_writes_send_the_provider_exactly_the_callers_metadat
     import respx
     from fastapi.testclient import TestClient
 
-    from litellm.constants import VECTOR_STORE_CALLER_METADATA_KWARG
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import app
+    from hangarllm.constants import VECTOR_STORE_CALLER_METADATA_KWARG
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import app
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setattr(proxy_server, "master_key", "sk-master-test")
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
-            model_list=[{"model_name": "gpt-5", "litellm_params": {"model": "openai/gpt-5", "api_key": "sk-test"}}]
+        hangarllm.Router(
+            model_list=[{"model_name": "gpt-5", "hangarllm_params": {"model": "openai/gpt-5", "api_key": "sk-test"}}]
         ),
     )
     pre_call_bodies = _PreCallBodies()
-    monkeypatch.setattr(litellm, "callbacks", [pre_call_bodies])
+    monkeypatch.setattr(hangarllm, "callbacks", [pre_call_bodies])
     sent_bodies = []
 
     def echo(request: httpx.Request) -> httpx.Response:
@@ -3372,9 +3372,9 @@ def test_proxy_vector_store_writes_send_the_provider_exactly_the_callers_metadat
             json={"name": "x", **routing, **metadata_field},
             headers={
                 "Authorization": "Bearer sk-master-test",
-                "x-litellm-tags": "header-tag",
-                "x-litellm-trace-id": "header-trace",
-                "x-litellm-session-id": "header-session",
+                "x-hangarllm-tags": "header-tag",
+                "x-hangarllm-trace-id": "header-trace",
+                "x-hangarllm-session-id": "header-session",
             },
         )
 
@@ -3409,14 +3409,14 @@ def test_proxy_vector_store_writes_send_only_the_callers_metadata_when_the_raw_b
     import respx
     from fastapi.testclient import TestClient
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import app
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setattr(proxy_server, "master_key", "sk-master-test")
-    monkeypatch.setattr(proxy_server, "llm_router", litellm.Router(model_list=[]))
+    monkeypatch.setattr(proxy_server, "llm_router", hangarllm.Router(model_list=[]))
     sent_bodies = []
 
     def echo(request: httpx.Request) -> httpx.Response:
@@ -3439,7 +3439,7 @@ def test_proxy_vector_store_writes_send_only_the_callers_metadata_when_the_raw_b
     path = "/v1/vector_stores" if operation == "create" else "/v1/vector_stores/vs_1"
     headers = {
         "Authorization": "Bearer sk-master-test",
-        "x-litellm-trace-id": "header-trace",
+        "x-hangarllm-trace-id": "header-trace",
         **request_body.get("headers", {}),
     }
     body_kwargs = {key: value for key, value in request_body.items() if key != "headers"}
@@ -3482,7 +3482,7 @@ def _vector_store_create_request(body: dict[str, object]) -> Request:
 def _install_managed_vector_stores(
     monkeypatch: pytest.MonkeyPatch, managed: _RecordingManagedVectorStores
 ) -> MagicMock:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     llm_router = MagicMock()
     proxy_logging_obj = MagicMock()
@@ -3503,7 +3503,7 @@ async def test_vector_store_create_with_target_model_names_creates_a_managed_sto
 ) -> None:
     from fastapi import Response
 
-    from litellm.proxy.vector_store_endpoints.endpoints import vector_store_create
+    from hangarllm.proxy.vector_store_endpoints.endpoints import vector_store_create
 
     managed = _RecordingManagedVectorStores()
     llm_router = _install_managed_vector_stores(monkeypatch, managed)
@@ -3528,7 +3528,7 @@ async def test_vector_store_create_rejects_target_model_names_that_are_not_a_str
 ) -> None:
     from fastapi import Response
 
-    from litellm.proxy.vector_store_endpoints.endpoints import vector_store_create
+    from hangarllm.proxy.vector_store_endpoints.endpoints import vector_store_create
 
     managed = _RecordingManagedVectorStores()
     _install_managed_vector_stores(monkeypatch, managed)
@@ -3546,27 +3546,27 @@ async def test_vector_store_create_rejects_target_model_names_that_are_not_a_str
 
 @pytest.mark.asyncio
 async def test_update_vector_store_persists_submitted_metadata_as_json() -> None:
-    from litellm.proxy.vector_store_endpoints.management_endpoints import update_vector_store
-    from litellm.types.vector_stores import VectorStoreUpdateRequest
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import update_vector_store
+    from hangarllm.types.vector_stores import VectorStoreUpdateRequest
 
     stored_row = MagicMock()
     stored_row.model_dump = MagicMock(return_value={"vector_store_id": "vs_owned", "team_id": "team-A"})
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(return_value=stored_row)
-    mock_prisma_client.db.litellm_managedvectorstorestable.update = AsyncMock(return_value=stored_row)
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.find_unique = AsyncMock(return_value=stored_row)
+    mock_prisma_client.db.hangarllm_managedvectorstorestable.update = AsyncMock(return_value=stored_row)
 
     with (
         patch(
-            "litellm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
+            "hangarllm.proxy.vector_store_endpoints.management_endpoints.check_feature_access_for_user",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
+            "hangarllm.proxy.vector_store_endpoints.management_endpoints._check_vector_store_access",
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.vector_store_registry", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.vector_store_registry", None),
     ):
         await update_vector_store(
             data=VectorStoreUpdateRequest(
@@ -3576,5 +3576,5 @@ async def test_update_vector_store_persists_submitted_metadata_as_json() -> None
             user_api_key_dict=UserAPIKeyAuth(user_id="owner", team_id="team-A"),
         )
 
-    written = mock_prisma_client.db.litellm_managedvectorstorestable.update.await_args.kwargs["data"]
+    written = mock_prisma_client.db.hangarllm_managedvectorstorestable.update.await_args.kwargs["data"]
     assert json.loads(written["vector_store_metadata"]) == {"owner": "search-team", "tier": 2}

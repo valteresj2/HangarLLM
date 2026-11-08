@@ -135,11 +135,11 @@ class Rig:
 
 def _config(root: Path, provider: Wire, analyzer: Wire, anonymizer: Wire, scope: Literal["input"] | None) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"]["cache"] = False
+    config["hangarllm_settings"]["cache"] = False
     config["model_list"].append(
         {
             "model_name": MODEL,
-            "litellm_params": {"model": f"openai/{MODEL}", "api_base": provider.url + "/v1", "api_key": "synthetic"},
+            "hangarllm_params": {"model": f"openai/{MODEL}", "api_base": provider.url + "/v1", "api_key": "synthetic"},
         }
     )
     guardrail: Final = {
@@ -151,7 +151,7 @@ def _config(root: Path, provider: Wire, analyzer: Wire, anonymizer: Wire, scope:
         "presidio_anonymizer_api_base": anonymizer.url + "/",
     }
     scoped: Final = guardrail if scope is None else {**guardrail, "presidio_filter_scope": scope}
-    config["guardrails"] = [{"guardrail_name": "presidio-pii", "litellm_params": scoped}]
+    config["guardrails"] = [{"guardrail_name": "presidio-pii", "hangarllm_params": scoped}]
     path: Final = root / "presidio-overlapping-spans.yaml"
     path.write_text(yaml.safe_dump(config))
     return path

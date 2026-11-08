@@ -12,9 +12,9 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.base_llm.sandbox.transformation import ContainerHandle
-from litellm.llms.e2b.sandbox.transformation import (
+import hangarllm
+from hangarllm.llms.base_llm.sandbox.transformation import ContainerHandle
+from hangarllm.llms.e2b.sandbox.transformation import (
     MAX_OUTPUT_BYTES,
     E2BSandboxConfig,
 )
@@ -193,7 +193,7 @@ async def test_code_interpreter_tool_deletes_even_when_run_raises():
     client = FakeHTTPClient(execute_raises=RuntimeError("boom"))
 
     with pytest.raises(RuntimeError, match="boom"):
-        await litellm.acode_interpreter_tool(
+        await hangarllm.acode_interpreter_tool(
             provider="e2b", code="1/0", api_key="e2b_key", client=client
         )
 
@@ -283,12 +283,12 @@ async def test_public_lifecycle_create_run_delete():
     client = FakeHTTPClient(
         execute_lines=[json.dumps({"type": "stdout", "text": "42\n"})]
     )
-    container = await litellm.acreate_sandbox(
+    container = await hangarllm.acreate_sandbox(
         provider="e2b", api_key="e2b_key", client=client
     )
     assert container.id == "sbx_123"
 
-    result = await litellm.arun_code(
+    result = await hangarllm.arun_code(
         provider="e2b",
         container=container,
         api_key="e2b_key",
@@ -298,7 +298,7 @@ async def test_public_lifecycle_create_run_delete():
     assert result.stdout.strip() == "42"
 
     assert (
-        await litellm.adelete_sandbox(
+        await hangarllm.adelete_sandbox(
             provider="e2b", container=container, api_key="e2b_key", client=client
         )
         is True
@@ -308,7 +308,7 @@ async def test_public_lifecycle_create_run_delete():
 @pytest.mark.asyncio
 async def test_unsupported_provider_raises():
     with pytest.raises(ValueError, match="not-a-provider' is not a valid SandboxProviders"):
-        await litellm.acreate_sandbox(provider="not-a-provider")
+        await hangarllm.acreate_sandbox(provider="not-a-provider")
 
 
 # ---------- api_base override ----------

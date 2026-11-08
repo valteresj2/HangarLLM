@@ -8,8 +8,8 @@ from typing import Optional
 import httpx
 import pytest
 
-import litellm
-from litellm.interactions.background_cost_polling import (
+import hangarllm
+from hangarllm.interactions.background_cost_polling import (
     _create_context,
     _poll_intervals,
     _rebuild_logging_obj,
@@ -22,10 +22,10 @@ from litellm.interactions.background_cost_polling import (
     PollSchedule,
     resume_unsettled_background_interactions,
 )
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.types.interactions import InteractionsAPIResponse
+from hangarllm.hangarllm_core_utils.core_helpers import get_hangarllm_metadata_from_kwargs
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm.types.interactions import InteractionsAPIResponse
 
 USAGE_BLOCK = {
     "total_tokens": 175,
@@ -41,19 +41,19 @@ USAGE_BLOCK = {
 
 def _logging_obj(
     call_type: str = "acreate_interaction",
-    litellm_params: Optional[dict] = None,
-) -> LitellmLogging:
-    logging_obj = LitellmLogging(
+    hangarllm_params: Optional[dict] = None,
+) -> HangarllmLogging:
+    logging_obj = HangarllmLogging(
         model="gemini-2.5-flash",
         messages=[],
         stream=False,
         call_type=call_type,
         start_time=time.time(),
-        litellm_call_id="bg-interactions-call-id",
+        hangarllm_call_id="bg-interactions-call-id",
         function_id="bg-interactions-fn-id",
     )
     logging_obj.update_environment_variables(
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
         optional_params={},
         model="gemini-2.5-flash",
         custom_llm_provider="gemini",
@@ -66,8 +66,8 @@ def _reservation() -> dict:
     return {"reserved_cost": 0.05, "entries": [], "finalized": False, "input_cost": 0.001}
 
 
-def _logging_obj_with_reservation(reservation: dict) -> LitellmLogging:
-    return _logging_obj(litellm_params={"metadata": {"user_api_key_budget_reservation": reservation}})
+def _logging_obj_with_reservation(reservation: dict) -> HangarllmLogging:
+    return _logging_obj(hangarllm_params={"metadata": {"user_api_key_budget_reservation": reservation}})
 
 
 async def _raise_on_billing(result: InteractionsAPIResponse) -> None:
@@ -75,7 +75,7 @@ async def _raise_on_billing(result: InteractionsAPIResponse) -> None:
 
 
 def _context(
-    logging_obj: LitellmLogging,
+    logging_obj: HangarllmLogging,
     timeout_seconds: float = 1.0,
     store: Optional[InMemoryBackgroundSettlementStore] = None,
     resumed: bool = False,
@@ -269,15 +269,15 @@ def _provider_error_response(status_code: int) -> httpx.Response:
 @pytest.mark.parametrize(
     "error",
     [
-        litellm.BadRequestError(message="invalid interaction id", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.AuthenticationError(message="API key not valid", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.PermissionDeniedError(
+        hangarllm.BadRequestError(message="invalid interaction id", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.AuthenticationError(message="API key not valid", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.PermissionDeniedError(
             message="permission denied",
             model="gemini-2.5-flash",
             llm_provider="gemini",
             response=_provider_error_response(403),
         ),
-        litellm.NotFoundError(message="interaction not found", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.NotFoundError(message="interaction not found", model="gemini-2.5-flash", llm_provider="gemini"),
     ],
 )
 @pytest.mark.asyncio
@@ -318,7 +318,7 @@ async def test_a_resumed_poll_the_provider_refuses_leaves_the_bill_to_the_replic
 
     async def resumed_fetch(context):
         resumed_fetched.set()
-        raise litellm.NotFoundError(message="interaction not found", model="gemini-2.5-flash", llm_provider="gemini")
+        raise hangarllm.NotFoundError(message="interaction not found", model="gemini-2.5-flash", llm_provider="gemini")
 
     creator_outcome, resumed_outcome = await asyncio.gather(
         poll_and_log_background_interaction_cost(
@@ -336,13 +336,13 @@ async def test_a_resumed_poll_the_provider_refuses_leaves_the_bill_to_the_replic
 @pytest.mark.parametrize(
     "error",
     [
-        litellm.RateLimitError(message="quota exceeded", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.ServiceUnavailableError(message="overloaded", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.InternalServerError(message="internal error", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.Timeout(message="timed out", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.BadRequestError(message="invalid interaction id", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.AuthenticationError(message="API key not valid", model="gemini-2.5-flash", llm_provider="gemini"),
-        litellm.NotFoundError(message="interaction not found", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.RateLimitError(message="quota exceeded", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.ServiceUnavailableError(message="overloaded", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.InternalServerError(message="internal error", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.Timeout(message="timed out", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.BadRequestError(message="invalid interaction id", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.AuthenticationError(message="API key not valid", model="gemini-2.5-flash", llm_provider="gemini"),
+        hangarllm.NotFoundError(message="interaction not found", model="gemini-2.5-flash", llm_provider="gemini"),
     ],
 )
 @pytest.mark.asyncio
@@ -441,7 +441,7 @@ async def test_schedule_creates_poll_task_for_in_progress_create():
     logging_obj = _logging_obj()
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=InMemoryBackgroundSettlementStore(),
     )
@@ -454,21 +454,21 @@ async def test_schedule_creates_poll_task_for_in_progress_create():
 
 @pytest.mark.asyncio
 async def test_schedule_registers_an_agent_only_create_that_names_no_model():
-    logging_obj = LitellmLogging(
+    logging_obj = HangarllmLogging(
         model=None,
         messages=None,
         stream=False,
         call_type="acreate_interaction",
         start_time=time.time(),
-        litellm_call_id="bg-agent-call-id",
+        hangarllm_call_id="bg-agent-call-id",
         function_id="bg-agent-fn-id",
     )
-    logging_obj.update_environment_variables(litellm_params={}, optional_params={}, custom_llm_provider="gemini")
+    logging_obj.update_environment_variables(hangarllm_params={}, optional_params={}, custom_llm_provider="gemini")
     store = InMemoryBackgroundSettlementStore()
 
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=store,
     )
@@ -490,12 +490,12 @@ async def test_schedule_registers_a_create_whose_tags_are_a_string_and_keeps_the
     and raised, so a create sent with a tags string answered with an error
     after the provider had already started the interaction.
     """
-    logging_obj = _logging_obj(litellm_params={"metadata": _create_metadata(tags="team-a,nightly-batch")})
+    logging_obj = _logging_obj(hangarllm_params={"metadata": _create_metadata(tags="team-a,nightly-batch")})
     store = InMemoryBackgroundSettlementStore()
 
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=store,
     )
@@ -507,13 +507,13 @@ async def test_schedule_registers_a_create_whose_tags_are_a_string_and_keeps_the
     pending = await store.pending("interactions/bg-abc")
     assert pending is not None
     rebuilt = _rebuild_logging_obj(pending.create_context)
-    assert get_litellm_metadata_from_kwargs(kwargs=rebuilt.model_call_details)["tags"] == "team-a,nightly-batch"
+    assert get_hangarllm_metadata_from_kwargs(kwargs=rebuilt.model_call_details)["tags"] == "team-a,nightly-batch"
 
 
 @pytest.mark.asyncio
 async def test_delete_fetches_with_the_vertex_project_location_and_credentials_the_request_used():
     store = InMemoryBackgroundSettlementStore()
-    await _create_on_a_replica_that_then_dies(_logging_obj(litellm_params={"metadata": _create_metadata()}), store)
+    await _create_on_a_replica_that_then_dies(_logging_obj(hangarllm_params={"metadata": _create_metadata()}), store)
     fetch, captured = _capturing_fetch(_response("completed", with_usage=True))
 
     outcome = await maybe_settle_background_interaction_before_delete(
@@ -540,14 +540,14 @@ async def test_delete_fetches_with_the_vertex_project_location_and_credentials_t
 @pytest.mark.parametrize(
     "response,create_kwargs",
     [
-        (_response("completed", with_usage=True), {"litellm_logging_obj": "placeholder"}),
+        (_response("completed", with_usage=True), {"hangarllm_logging_obj": "placeholder"}),
         (_response("in_progress", with_usage=False), {}),
-        ("not a response", {"litellm_logging_obj": "placeholder"}),
+        ("not a response", {"hangarllm_logging_obj": "placeholder"}),
     ],
 )
 async def test_schedule_skips_non_pollable_results(response, create_kwargs):
-    if create_kwargs.get("litellm_logging_obj") == "placeholder":
-        create_kwargs = {"litellm_logging_obj": _logging_obj()}
+    if create_kwargs.get("hangarllm_logging_obj") == "placeholder":
+        create_kwargs = {"hangarllm_logging_obj": _logging_obj()}
 
     task = await maybe_schedule_background_interaction_cost_polling(
         response=response,
@@ -559,8 +559,8 @@ async def test_schedule_skips_non_pollable_results(response, create_kwargs):
     assert task is None
 
 
-def _register_poll(logging_obj: LitellmLogging, poll_fetch=None, store=None) -> asyncio.Task:
-    import litellm.interactions.background_cost_polling as bg
+def _register_poll(logging_obj: HangarllmLogging, poll_fetch=None, store=None) -> asyncio.Task:
+    import hangarllm.interactions.background_cost_polling as bg
 
     if poll_fetch is None:
         poll_fetch, _ = _fetch_sequence(_response("in_progress", with_usage=False))
@@ -726,13 +726,13 @@ async def test_poller_exits_without_billing_once_settled_elsewhere():
 
 @pytest.mark.asyncio
 async def test_schedule_respects_kill_switch(monkeypatch):
-    import litellm.interactions.background_cost_polling as module
+    import hangarllm.interactions.background_cost_polling as module
 
     monkeypatch.setattr(module, "BACKGROUND_INTERACTION_COST_POLLING_ENABLED", False)
 
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": _logging_obj()},
+        create_kwargs={"hangarllm_logging_obj": _logging_obj()},
         custom_llm_provider="gemini",
         store=InMemoryBackgroundSettlementStore(),
     )
@@ -752,8 +752,8 @@ def test_every_status_the_api_can_return_is_either_pollable_or_terminal():
     a status Google adds later breaks this test instead of silently shipping
     another unbilled path.
     """
-    from litellm.interactions.background_cost_polling import _POLLABLE_STATUSES, _TERMINAL_STATUSES
-    from litellm.types.interactions.generated import Status1
+    from hangarllm.interactions.background_cost_polling import _POLLABLE_STATUSES, _TERMINAL_STATUSES
+    from hangarllm.types.interactions.generated import Status1
 
     spec_statuses = {member.value for member in Status1}
     handled = _POLLABLE_STATUSES | _TERMINAL_STATUSES
@@ -772,7 +772,7 @@ async def test_schedule_creates_poll_task_for_queued_create():
     logging_obj = _logging_obj()
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("queued", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=InMemoryBackgroundSettlementStore(),
     )
@@ -820,7 +820,7 @@ async def test_giving_up_on_an_unrecognized_status_says_which_status_it_was(monk
     The give-up line is the only trace it leaves, so it has to name the status
     rather than reporting it as an interaction that was merely still running.
     """
-    import litellm.interactions.background_cost_polling as bg
+    import hangarllm.interactions.background_cost_polling as bg
 
     errors = []
     monkeypatch.setattr(bg.verbose_logger, "error", lambda *args, **kwargs: errors.append(args))
@@ -860,13 +860,13 @@ def _create_metadata(**extra) -> dict:
     }
 
 
-async def _create_on_a_replica_that_then_dies(logging_obj: LitellmLogging, store) -> None:
-    import litellm.interactions.background_cost_polling as bg
+async def _create_on_a_replica_that_then_dies(logging_obj: HangarllmLogging, store) -> None:
+    import hangarllm.interactions.background_cost_polling as bg
 
     poll_fetch, _ = _fetch_sequence(_response("in_progress", with_usage=False))
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=store,
         fetch_interaction=poll_fetch,
@@ -887,7 +887,7 @@ async def test_delete_on_another_replica_bills_the_create_from_the_store():
     its auth object, to whichever replica settles.
     """
     store = InMemoryBackgroundSettlementStore()
-    logging_obj = _logging_obj(litellm_params={"metadata": _create_metadata()})
+    logging_obj = _logging_obj(hangarllm_params={"metadata": _create_metadata()})
     await _create_on_a_replica_that_then_dies(logging_obj, store)
     fetch, captured = _capturing_fetch(_response("completed", with_usage=True))
 
@@ -905,14 +905,14 @@ async def test_delete_on_another_replica_bills_the_create_from_the_store():
     payload_metadata = settled.model_call_details["standard_logging_object"]["metadata"]
     assert payload_metadata["user_api_key_hash"] == KEY_HASH
     assert payload_metadata["user_api_key_team_id"] == "team-1"
-    assert "user_api_key_auth" not in get_litellm_metadata_from_kwargs(kwargs=settled.model_call_details)
+    assert "user_api_key_auth" not in get_hangarllm_metadata_from_kwargs(kwargs=settled.model_call_details)
 
 
 @pytest.mark.asyncio
 async def test_delete_on_another_replica_releases_the_create_reservation():
     store = InMemoryBackgroundSettlementStore()
     logging_obj = _logging_obj(
-        litellm_params={"metadata": _create_metadata(user_api_key_budget_reservation=_reservation())}
+        hangarllm_params={"metadata": _create_metadata(user_api_key_budget_reservation=_reservation())}
     )
     await _create_on_a_replica_that_then_dies(logging_obj, store)
     fetch, captured = _capturing_fetch(_response("in_progress", with_usage=False))
@@ -925,7 +925,7 @@ async def test_delete_on_another_replica_releases_the_create_reservation():
     )
 
     assert outcome == "released"
-    settled_metadata = get_litellm_metadata_from_kwargs(kwargs=captured[0].logging_obj.model_call_details)
+    settled_metadata = get_hangarllm_metadata_from_kwargs(kwargs=captured[0].logging_obj.model_call_details)
     assert settled_metadata["user_api_key_budget_reservation"]["finalized"] is True
 
 
@@ -939,7 +939,7 @@ async def test_delete_on_another_replica_fails_when_it_cannot_fetch_and_leaves_t
     and the poll on the creating replica still owns the bill.
     """
     store = InMemoryBackgroundSettlementStore()
-    logging_obj = _logging_obj(litellm_params={"metadata": _create_metadata()})
+    logging_obj = _logging_obj(hangarllm_params={"metadata": _create_metadata()})
     await _create_on_a_replica_that_then_dies(logging_obj, store)
     fetch, _ = _fetch_sequence(RuntimeError("Google API key is required"))
 
@@ -957,7 +957,7 @@ async def test_delete_on_another_replica_fails_when_it_cannot_fetch_and_leaves_t
 @pytest.mark.asyncio
 async def test_delete_settles_once_however_many_replicas_try():
     store = InMemoryBackgroundSettlementStore()
-    await _create_on_a_replica_that_then_dies(_logging_obj(litellm_params={"metadata": _create_metadata()}), store)
+    await _create_on_a_replica_that_then_dies(_logging_obj(hangarllm_params={"metadata": _create_metadata()}), store)
     first_fetch, first_calls = _capturing_fetch(_response("completed", with_usage=True))
     second_fetch, second_calls = _capturing_fetch(_response("completed", with_usage=True))
 
@@ -975,7 +975,7 @@ async def test_delete_settles_once_however_many_replicas_try():
 
 def test_create_context_carries_no_request_headers():
     logging_obj = _logging_obj(
-        litellm_params={
+        hangarllm_params={
             "metadata": _create_metadata(
                 requester_custom_headers={"x-api-key": "sk-customer-secret"},
                 proxy_server_request={"headers": {"x-api-key": "sk-customer-secret"}},
@@ -993,7 +993,7 @@ def test_create_context_carries_no_request_headers():
 @pytest.mark.asyncio
 async def test_restart_resumes_only_the_rows_no_replica_claimed():
     store = InMemoryBackgroundSettlementStore()
-    create_context = _create_context(_logging_obj(litellm_params={"metadata": _create_metadata()}), "gemini")
+    create_context = _create_context(_logging_obj(hangarllm_params={"metadata": _create_metadata()}), "gemini")
     for interaction_id in ("interactions/bg-orphaned", "interactions/bg-settled"):
         await store.register(
             PendingBackgroundInteraction(
@@ -1027,7 +1027,7 @@ async def test_a_restart_long_after_the_create_still_retries_a_failed_fetch_befo
         PendingBackgroundInteraction(
             interaction_id="interactions/bg-abc",
             custom_llm_provider="gemini",
-            create_context=_create_context(_logging_obj(litellm_params={"metadata": _create_metadata()}), "gemini"),
+            create_context=_create_context(_logging_obj(hangarllm_params={"metadata": _create_metadata()}), "gemini"),
             created_at=datetime.now(timezone.utc) - timedelta(seconds=FAST_SCHEDULE.timeout_seconds * 100),
         )
     )
@@ -1042,14 +1042,14 @@ async def test_a_restart_long_after_the_create_still_retries_a_failed_fetch_befo
     assert len(calls) == 2
 
 
-def _create_through_the_proxy_router(tags: list) -> LitellmLogging:
-    logging_obj = LitellmLogging(
+def _create_through_the_proxy_router(tags: list) -> HangarllmLogging:
+    logging_obj = HangarllmLogging(
         model="gemini-2.5-flash",
         messages=[],
         stream=False,
         call_type="acreate_interaction",
         start_time=time.time(),
-        litellm_call_id="bg-interactions-call-id",
+        hangarllm_call_id="bg-interactions-call-id",
         function_id="bg-interactions-fn-id",
     )
     logging_obj.update_from_kwargs(
@@ -1057,26 +1057,26 @@ def _create_through_the_proxy_router(tags: list) -> LitellmLogging:
             "metadata": _create_metadata(
                 tags=tags, spend_logs_metadata={"job": "nightly"}, model_group="client-chosen-group"
             ),
-            "litellm_metadata": {"model_info": {"id": "deployment-1"}, "model_group": "gemini-background"},
+            "hangarllm_metadata": {"model_info": {"id": "deployment-1"}, "model_group": "gemini-background"},
         },
         model="gemini-2.5-flash",
         optional_params={},
-        litellm_params={"litellm_call_id": "bg-interactions-call-id"},
+        hangarllm_params={"hangarllm_call_id": "bg-interactions-call-id"},
         custom_llm_provider="gemini",
     )
     return logging_obj
 
 
-def _create_with_header_tags(tags: list) -> LitellmLogging:
+def _create_with_header_tags(tags: list) -> HangarllmLogging:
     return _logging_obj(
-        litellm_params={
+        hangarllm_params={
             "metadata": _create_metadata(tags=tags, spend_logs_metadata={"job": "nightly"}),
             "proxy_server_request": {"headers": {"user-agent": "claude-cli/2.1.0"}},
         }
     )
 
 
-async def _billed_spend_row(logging_obj: LitellmLogging) -> dict:
+async def _billed_spend_row(logging_obj: HangarllmLogging) -> dict:
     response = _response("completed", with_usage=True)
     fetch, _ = _fetch_sequence(response)
     assert await poll_and_log_background_interaction_cost(_context(logging_obj), fetch_interaction=fetch) == "billed"
@@ -1214,11 +1214,11 @@ async def test_create_whose_registration_raised_after_landing_still_claims_the_s
     to bill again. The row that landed is the gate every settler shares.
     """
     store = _RegistersThenRaises()
-    logging_obj = _logging_obj(litellm_params={"metadata": _create_metadata()})
+    logging_obj = _logging_obj(hangarllm_params={"metadata": _create_metadata()})
     poll_fetch, _ = _fetch_sequence(_response("in_progress", with_usage=False))
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=store,
         fetch_interaction=poll_fetch,
@@ -1250,7 +1250,7 @@ async def test_delete_on_a_worker_that_resumed_the_poll_fails_when_it_cannot_fet
         PendingBackgroundInteraction(
             interaction_id="interactions/bg-abc",
             custom_llm_provider="gemini",
-            create_context=_create_context(_logging_obj(litellm_params={"metadata": _create_metadata()}), "gemini"),
+            create_context=_create_context(_logging_obj(hangarllm_params={"metadata": _create_metadata()}), "gemini"),
             created_at=datetime.now(timezone.utc),
         )
     )
@@ -1338,11 +1338,11 @@ async def test_create_whose_registration_and_read_back_both_failed_bills_once_th
     state unknown, the claim waits for the store and settles through the row.
     """
     store = _LandsThenGoesDown()
-    logging_obj = _logging_obj(litellm_params={"metadata": _create_metadata()})
+    logging_obj = _logging_obj(hangarllm_params={"metadata": _create_metadata()})
     poll_fetch, _ = _fetch_sequence(_response("in_progress", with_usage=False))
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=store,
         fetch_interaction=poll_fetch,
@@ -1373,7 +1373,7 @@ async def test_create_whose_store_never_answers_is_not_billed_through_a_private_
     poll_fetch, _ = _fetch_sequence(_response("in_progress", with_usage=False))
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=_DownStore(),
         fetch_interaction=poll_fetch,
@@ -1402,7 +1402,7 @@ async def test_create_on_a_replica_without_the_settlement_table_still_settles_in
     poll_fetch, _ = _fetch_sequence(_response("in_progress", with_usage=False))
     task = await maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"hangarllm_logging_obj": logging_obj},
         custom_llm_provider="gemini",
         store=_TableLessStore(),
         fetch_interaction=poll_fetch,

@@ -3,7 +3,7 @@ Tests for mid-task stall detection: repeated identical tool calls or repeated to
 errors, read from both Anthropic Messages and chat-completions tool-call shapes.
 """
 
-from litellm.router_strategy.complexity_router.stall_detector import detect_stalled_task
+from hangarllm.router_strategy.complexity_router.stall_detector import detect_stalled_task
 
 
 def _anthropic_call(call_id: str, name: str, arguments: dict, *, is_error: bool) -> list[dict]:

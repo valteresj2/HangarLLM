@@ -10,7 +10,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from litellm.proxy._lazy_features import (
+from hangarllm.proxy._lazy_features import (
     LAZY_FEATURES,
     LazyFeature,
     LazyFeatureMiddleware,
@@ -19,9 +19,9 @@ from litellm.proxy._lazy_features import (
     loaded_lazy_modules,
     reserve_lazy_slot,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import LITELLM_PASS_THROUGH_ENDPOINT_MARKER
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER
 
-FLAG: Final = "LITELLM_DISABLE_LAZY_ROUTES"
+FLAG: Final = "HANGARLLM_DISABLE_LAZY_ROUTES"
 WARMUP_PATH: Final = "/lazy/warm/{name}"
 
 
@@ -199,7 +199,7 @@ def test_configured_pass_through_added_after_attach_beats_a_reserved_slot_featur
     async def configured() -> dict[str, str]:
         return {"feature": "configured"}
 
-    setattr(configured, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(configured, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, True)
 
     app: Final = FastAPI()
     app.add_api_route("/early", early, methods=["GET"])
@@ -229,7 +229,7 @@ def test_flag_configured_pass_through_added_during_startup_beats_a_reserved_slot
     async def configured() -> dict[str, str]:
         return {"feature": "configured"}
 
-    setattr(configured, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(configured, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, True)
 
     @asynccontextmanager
     async def adds_a_pass_through(app_: FastAPI) -> AsyncGenerator[None]:
@@ -252,7 +252,7 @@ def test_builtin_routes_first_flag_keeps_a_reserved_slot_feature_ahead_of_a_conf
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv(FLAG, raising=False)
-    monkeypatch.setenv("LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
+    monkeypatch.setenv("HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST", "true")
     zeta: Final = _feature_module(monkeypatch, "zeta", "/zeta/{endpoint:path}")
     features: Final = (LazyFeature(name="zeta", module_path=zeta.module_path, path_prefixes=("/zeta",)),)
 
@@ -262,7 +262,7 @@ def test_builtin_routes_first_flag_keeps_a_reserved_slot_feature_ahead_of_a_conf
     async def configured() -> dict[str, str]:
         return {"feature": "configured"}
 
-    setattr(configured, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(configured, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, True)
 
     app: Final = FastAPI()
     app.add_api_route("/early", early, methods=["GET"])
@@ -272,7 +272,7 @@ def test_builtin_routes_first_flag_keeps_a_reserved_slot_feature_ahead_of_a_conf
 
     with TestClient(app) as client:
         assert client.get("/zeta/health").json() == {"feature": "zeta"}, (
-            "LITELLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST restores the old built-in-first order"
+            "HANGARLLM_BUILTIN_PASS_THROUGH_ROUTES_FIRST restores the old built-in-first order"
         )
 
 
@@ -312,7 +312,7 @@ def test_configured_pass_through_under_a_different_segment_is_not_moved(
     async def configured() -> dict[str, str]:
         return {"feature": "configured"}
 
-    setattr(configured, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(configured, HANGARLLM_PASS_THROUGH_ENDPOINT_MARKER, True)
 
     app: Final = FastAPI()
     reserve_lazy_slot(app, "zeta", features=features)
@@ -392,7 +392,7 @@ def test_flag_keeps_registering_after_one_feature_fails_to_import(monkeypatch: p
 
 
 def test_flag_hides_the_swagger_warmup_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm.proxy._lazy_openapi_snapshot as snapshot
+    import hangarllm.proxy._lazy_openapi_snapshot as snapshot
 
     monkeypatch.setattr(snapshot, "SNAPSHOT_FILE", snapshot.SNAPSHOT_FILE.with_name("missing-snapshot.json"))
     monkeypatch.setenv(FLAG, "false")

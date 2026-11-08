@@ -1,18 +1,18 @@
-"""Unit tests for ``AzureBatchesAPI`` (litellm/llms/azure/batches/handler.py).
+"""Unit tests for ``AzureBatchesAPI`` (hangarllm/llms/azure/batches/handler.py).
 
 The Azure batches handler is HTTP/auth glue: each public method
 (create/retrieve/cancel/list) resolves an Azure OpenAI client via the inherited
 ``get_azure_openai_client`` seam, branches on ``_is_async`` (returning the
 ``a*`` coroutine in the async case, calling the sync client otherwise), validates
-the client type, and parses the SDK response into ``LiteLLMBatch``.
+the client type, and parses the SDK response into ``HangarLLMBatch``.
 
 We mock only true boundaries:
   * ``get_azure_openai_client`` - the credential/client-construction seam. We
     assert the EXACT auth args (api_key / api_base / api_version / client /
-    _is_async / litellm_params) forwarded to it.
+    _is_async / hangarllm_params) forwarded to it.
   * the returned Azure OpenAI client's ``batches.*`` methods - the network call.
     We assert the request data forwarded and that the SDK response is parsed
-    into ``LiteLLMBatch`` (sibling SDK methods asserted NOT called).
+    into ``HangarLLMBatch`` (sibling SDK methods asserted NOT called).
 
 Pure logic (the _is_async branch, the isinstance guards, the model_dump parse)
 runs for real.
@@ -28,11 +28,11 @@ import pytest
 
 from openai import AsyncOpenAI, OpenAI  # noqa: E402
 
-from litellm.llms.azure.azure import AsyncAzureOpenAI, AzureOpenAI  # noqa: E402
-from litellm.llms.azure.batches.handler import AzureBatchesAPI  # noqa: E402
-from litellm.types.utils import LiteLLMBatch  # noqa: E402
+from hangarllm.llms.azure.azure import AsyncAzureOpenAI, AzureOpenAI  # noqa: E402
+from hangarllm.llms.azure.batches.handler import AzureBatchesAPI  # noqa: E402
+from hangarllm.types.utils import HangarLLMBatch  # noqa: E402
 
-GET_CLIENT = "litellm.llms.azure.batches.handler.AzureBatchesAPI.get_azure_openai_client"
+GET_CLIENT = "hangarllm.llms.azure.batches.handler.AzureBatchesAPI.get_azure_openai_client"
 
 AUTH_KW = dict(
     api_key="sk-azure-test",
@@ -52,7 +52,7 @@ CANCEL_DATA = {"batch_id": "batch-123"}
 
 
 def _batch_dict(batch_id: str = "batch-123", status: str = "completed") -> dict:
-    """A minimal-but-valid dict for ``LiteLLMBatch(**response.model_dump())``."""
+    """A minimal-but-valid dict for ``HangarLLMBatch(**response.model_dump())``."""
     return {
         "id": batch_id,
         "completion_window": "24h",
@@ -118,8 +118,8 @@ def test_create_sync_forwards_auth_to_client_seam(handler):
     assert kw["api_version"] == "2024-12-01"
     assert kw["_is_async"] is False
     assert kw["client"] is None
-    # litellm_params defaults to {} (not None) when not supplied.
-    assert kw["litellm_params"] == {}
+    # hangarllm_params defaults to {} (not None) when not supplied.
+    assert kw["hangarllm_params"] == {}
 
     # PAYLOAD: request data forwarded verbatim to the SDK as kwargs.
     client.batches.create.assert_called_once_with(**CREATE_DATA)
@@ -127,14 +127,14 @@ def test_create_sync_forwards_auth_to_client_seam(handler):
     client.batches.retrieve.assert_not_called()
     client.batches.cancel.assert_not_called()
 
-    # RESULT: parsed into LiteLLMBatch from the SDK response's model_dump.
-    assert isinstance(result, LiteLLMBatch)
+    # RESULT: parsed into HangarLLMBatch from the SDK response's model_dump.
+    assert isinstance(result, HangarLLMBatch)
     assert result.id == "batch-123"
     assert result.status == "completed"
     assert result.output_file_id == "file-out-xyz"
 
 
-def test_create_sync_passes_litellm_params_through(handler):
+def test_create_sync_passes_hangarllm_params_through(handler):
     client = _sync_client()
     client.batches.create.return_value = _sdk_response(_batch_dict())
     lp = {"azure_ad_token": "tok", "tenant_id": "t1"}
@@ -143,11 +143,11 @@ def test_create_sync_passes_litellm_params_through(handler):
         handler.create_batch(
             _is_async=False,
             create_batch_data=CREATE_DATA,
-            litellm_params=lp,
+            hangarllm_params=lp,
             **AUTH_KW,
         )
 
-    assert get_client.call_args.kwargs["litellm_params"] == lp
+    assert get_client.call_args.kwargs["hangarllm_params"] == lp
 
 
 def test_create_sync_explicit_client_forwarded_to_seam(handler):
@@ -192,7 +192,7 @@ async def test_create_async_returns_coroutine_and_awaits_async_client(handler):
 
     assert get_client.call_args.kwargs["_is_async"] is True
     client.batches.create.assert_awaited_once_with(**CREATE_DATA)
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
     assert result.id == "batch-123"
 
 
@@ -220,7 +220,7 @@ async def test_acreate_batch_parses_response(handler):
     )
 
     client.batches.create.assert_awaited_once_with(**CREATE_DATA)
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
     assert result.status == "validating"
 
 
@@ -242,7 +242,7 @@ def test_retrieve_sync_dispatch_payload_and_result(handler):
     client.batches.retrieve.assert_called_once_with(**RETRIEVE_DATA)
     client.batches.create.assert_not_called()
     client.batches.cancel.assert_not_called()
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
     assert result.id == "batch-123"
 
 
@@ -268,7 +268,7 @@ async def test_retrieve_async_returns_coroutine_and_awaits(handler):
 
     assert get_client.call_args.kwargs["_is_async"] is True
     client.batches.retrieve.assert_awaited_once_with(**RETRIEVE_DATA)
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
 
 
 @pytest.mark.asyncio
@@ -292,7 +292,7 @@ async def test_aretrieve_batch_parses_response(handler):
     )
 
     client.batches.retrieve.assert_awaited_once_with(**RETRIEVE_DATA)
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
 
 
 # =========================================================================== #
@@ -313,7 +313,7 @@ def test_cancel_sync_dispatch_payload_and_result(handler):
     client.batches.cancel.assert_called_once_with(**CANCEL_DATA)
     client.batches.create.assert_not_called()
     client.batches.retrieve.assert_not_called()
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
     assert result.status == "cancelled"
 
 
@@ -354,7 +354,7 @@ async def test_cancel_async_returns_coroutine_and_awaits(handler):
 
     assert get_client.call_args.kwargs["_is_async"] is True
     client.batches.cancel.assert_awaited_once_with(**CANCEL_DATA)
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
     assert result.status == "cancelled"
 
 
@@ -377,12 +377,12 @@ async def test_acancel_batch_parses_response(handler):
     result = await handler.acancel_batch(cancel_batch_data=CANCEL_DATA, client=client)
 
     client.batches.cancel.assert_awaited_once_with(**CANCEL_DATA)
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
     assert result.status == "cancelled"
 
 
 # =========================================================================== #
-# list_batches  (returns the raw SDK response, NOT a LiteLLMBatch)
+# list_batches  (returns the raw SDK response, NOT a HangarLLMBatch)
 # =========================================================================== #
 
 
@@ -398,7 +398,7 @@ def test_list_sync_forwards_after_limit_and_returns_raw_response(handler):
 
     assert get_client.call_args.kwargs["_is_async"] is False
     client.batches.list.assert_called_once_with(after="cur-1", limit=20)
-    # list returns the SDK response untouched (no LiteLLMBatch parsing).
+    # list returns the SDK response untouched (no HangarLLMBatch parsing).
     assert result is raw
 
 
@@ -472,7 +472,7 @@ def test_create_sync_accepts_plain_openai_client(handler):
             _is_async=False, create_batch_data=CREATE_DATA, **AUTH_KW
         )
 
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)
 
 
 @pytest.mark.asyncio
@@ -485,4 +485,4 @@ async def test_create_async_accepts_plain_async_openai_client(handler):
             _is_async=True, create_batch_data=CREATE_DATA, **AUTH_KW
         )
 
-    assert isinstance(result, LiteLLMBatch)
+    assert isinstance(result, HangarLLMBatch)

@@ -4,13 +4,13 @@ import os
 import httpx
 import pytest
 
-from litellm.proxy.proxy_server import app
+from hangarllm.proxy.proxy_server import app
 
 
 @pytest.mark.asyncio
 async def test_get_favicon_default():
     """Test that get_favicon returns the default favicon when no URL set."""
-    os.environ.pop("LITELLM_FAVICON_URL", None)
+    os.environ.pop("HANGARLLM_FAVICON_URL", None)
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://testserver"
@@ -25,7 +25,7 @@ async def test_get_favicon_default():
 @pytest.mark.asyncio
 async def test_get_favicon_with_custom_url(monkeypatch):
     """Test that get_favicon redirects browser-loaded custom URLs."""
-    monkeypatch.setenv("LITELLM_FAVICON_URL", "https://example.com/favicon.ico")
+    monkeypatch.setenv("HANGARLLM_FAVICON_URL", "https://example.com/favicon.ico")
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
@@ -40,7 +40,7 @@ async def test_get_favicon_with_custom_url(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_favicon_remote_url_is_not_server_fetched(monkeypatch):
     """Test that get_favicon does not validate remote URLs server-side."""
-    monkeypatch.setenv("LITELLM_FAVICON_URL", "https://invalid.com/favicon.ico")
+    monkeypatch.setenv("HANGARLLM_FAVICON_URL", "https://invalid.com/favicon.ico")
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),

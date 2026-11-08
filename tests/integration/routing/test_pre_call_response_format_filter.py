@@ -28,7 +28,7 @@ SMALL_WINDOW_TOKENS: Final = 50
 def _deployment(group: str, upstream_model: str, upstream_url: str, **params: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"openai/{upstream_model}",
             "api_base": f"{upstream_url}/v1",
             "api_key": "synthetic-json-mode-key",

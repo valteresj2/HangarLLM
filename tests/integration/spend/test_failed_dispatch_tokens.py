@@ -41,11 +41,11 @@ def test_provider_500_after_dispatch_records_estimated_prompt_tokens_on_failure_
             key=key,
         )
         assert failed.status_code == 500 and "synthetic provider outage" in failed.text, failed.text
-        call_id: Final = failed.headers["x-litellm-call-id"]
+        call_id: Final = failed.headers["x-hangarllm-call-id"]
         assert len(wire.drain()) == 1
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT status, spend, prompt_tokens, completion_tokens, total_tokens FROM "LiteLLM_SpendLogs" '
+                'SELECT status, spend, prompt_tokens, completion_tokens, total_tokens FROM "HangarLLM_SpendLogs" '
                 "WHERE request_id=%s",
                 (call_id,),
             ),
@@ -104,8 +104,8 @@ def _provider_500_failure_row(
         assert wire.drain()
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT status, model_group, request_tags FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
-                (failed.headers["x-litellm-call-id"],),
+                'SELECT status, model_group, request_tags FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
+                (failed.headers["x-hangarllm-call-id"],),
             ),
             lambda values: len(values) == 1,
             seconds=70,
@@ -129,7 +129,7 @@ def test_a_provider_500_failure_row_keeps_the_tags_the_caller_sent(
 ) -> None:
     tag: Final = f"failed-dispatch-{uuid.uuid4().hex}"
 
-    _, row = _provider_500_failure_row(gateway, route, body, {"x-litellm-tags": tag})
+    _, row = _provider_500_failure_row(gateway, route, body, {"x-hangarllm-tags": tag})
 
     assert tag in list_value(row["request_tags"]), row
 
@@ -147,8 +147,8 @@ def _failure_row_prompt_tokens(gateway: Gateway, model: str, key: str, text: str
     assert failed.status_code == 500, failed.text
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT status, prompt_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
-            (failed.headers["x-litellm-call-id"],),
+            'SELECT status, prompt_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
+            (failed.headers["x-hangarllm-call-id"],),
         ),
         lambda values: len(values) == 1,
         seconds=70,
@@ -186,8 +186,8 @@ def _failed_responses_prompt_tokens(gateway: Gateway, model: str, key: str, item
     assert failed.status_code == 500 and "synthetic provider outage" in failed.text, failed.text
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT status, prompt_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
-            (failed.headers["x-litellm-call-id"],),
+            'SELECT status, prompt_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
+            (failed.headers["x-hangarllm-call-id"],),
         ),
         lambda values: len(values) == 1,
         seconds=70,

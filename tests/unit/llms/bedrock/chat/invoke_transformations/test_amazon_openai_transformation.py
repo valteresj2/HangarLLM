@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
+from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
     AmazonBedrockOpenAIConfig,
 )
 
@@ -25,7 +25,7 @@ def test_openai_imported_model_preserves_message_types_and_request_parameters() 
         model=model,
         messages=messages,
         optional_params={"max_tokens": 300, "temperature": 0.5},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     url: Final = config.get_complete_url(
@@ -37,7 +37,7 @@ def test_openai_imported_model_preserves_message_types_and_request_parameters() 
             "aws_secret_access_key": "unit-test-secret",
             "aws_region_name": "us-east-1",
         },
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
 

@@ -58,7 +58,7 @@
     },
     "version": {
       "type": ["string", "null"],
-      "description": "The LiteLLM release the reporter is on, found anywhere in the issue, or null."
+      "description": "The HangarLLM release the reporter is on, found anywhere in the issue, or null."
     },
     "needs_repro": {
       "type": "boolean",

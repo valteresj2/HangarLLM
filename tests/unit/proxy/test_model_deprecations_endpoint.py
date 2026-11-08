@@ -5,12 +5,12 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.proxy_server import app
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.proxy_server import app
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 client = TestClient(app)
@@ -19,19 +19,19 @@ client = TestClient(app)
 @pytest.fixture
 def authenticated_client(monkeypatch):
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876"
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
             "sunset-model": {
                 "deprecation_date": "2020-01-01",
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
             },
             "future-model": {
                 "deprecation_date": "2099-01-01",
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
             },
         },
     )
@@ -39,12 +39,12 @@ def authenticated_client(monkeypatch):
     router.get_model_list.return_value = [
         {
             "model_name": "sunset-alias",
-            "litellm_params": {"model": "sunset-model"},
+            "hangarllm_params": {"model": "sunset-model"},
             "model_info": {"id": "1"},
         },
         {
             "model_name": "future-alias",
-            "litellm_params": {"model": "future-model"},
+            "hangarllm_params": {"model": "future-model"},
             "model_info": {"id": "2"},
         },
     ]
@@ -78,50 +78,50 @@ def test_should_rebucket_with_warn_within_days_override(authenticated_client):
 @pytest.fixture
 def client_with_cost_map_successors(monkeypatch):
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-9876"
+        user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-9876"
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
             "retiring-model": {
                 "deprecation_date": "2020-01-01",
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "successor_model": "fresh-model",
             },
-            "orphan-model": {"deprecation_date": "2020-01-01", "litellm_provider": "openai"},
+            "orphan-model": {"deprecation_date": "2020-01-01", "hangarllm_provider": "openai"},
         },
     )
     router = route_entry_points_to_stubs(MagicMock())
     router.get_model_list.return_value = [
         {
             "model_name": "retiring-alias",
-            "litellm_params": {"model": "retiring-model"},
+            "hangarllm_params": {"model": "retiring-model"},
             "model_info": {"id": "1"},
         },
         {
             "model_name": "retiring-overridden",
-            "litellm_params": {"model": "retiring-model"},
+            "hangarllm_params": {"model": "retiring-model"},
             "model_info": {"id": "2", "successor_model": "my-own-pick"},
         },
         {
             "model_name": "shared-name",
-            "litellm_params": {"model": "retiring-model", "api_key": "fake"},
+            "hangarllm_params": {"model": "retiring-model", "api_key": "fake"},
             "model_info": {"id": "4"},
         },
         {
             "model_name": "shared-name",
-            "litellm_params": {"model": "retiring-model", "api_key": "fake"},
+            "hangarllm_params": {"model": "retiring-model", "api_key": "fake"},
             "model_info": {"id": "5", "successor_model": "my-own-pick"},
         },
         {
             "model_name": "dated-by-hand",
-            "litellm_params": {"model": "retiring-model", "api_key": "fake"},
+            "hangarllm_params": {"model": "retiring-model", "api_key": "fake"},
             "model_info": {"id": "6", "deprecation_date": "2020-06-01"},
         },
         {
             "model_name": "orphan-alias",
-            "litellm_params": {"model": "orphan-model"},
+            "hangarllm_params": {"model": "orphan-model"},
             "model_info": {"id": "3"},
         },
     ]
@@ -175,22 +175,22 @@ def test_mixed_successor_group_logs_below_warning_through_endpoint(
     models: Final[tuple[dict[str, object], ...]] = (
         {
             "model_name": "mixed-successor-group",
-            "litellm_params": {"model": "retiring-model"},
+            "hangarllm_params": {"model": "retiring-model"},
             "model_info": {"id": "10", "successor_model": "successor-a"},
         },
         {
             "model_name": "mixed-successor-group",
-            "litellm_params": {"model": "retiring-model"},
+            "hangarllm_params": {"model": "retiring-model"},
             "model_info": {"id": "11", "successor_model": "successor-b"},
         },
         {
             "model_name": "successor-a",
-            "litellm_params": {"model": "fresh-model"},
+            "hangarllm_params": {"model": "fresh-model"},
             "model_info": {"id": "12"},
         },
         {
             "model_name": "successor-b",
-            "litellm_params": {"model": "fresh-model"},
+            "hangarllm_params": {"model": "fresh-model"},
             "model_info": {"id": "13"},
         },
     )

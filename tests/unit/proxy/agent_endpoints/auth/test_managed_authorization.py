@@ -5,15 +5,15 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LiteLLMRoutes, UserAPIKeyAuth
-from litellm.proxy.agent_endpoints.auth.managed_authorization import (
+from hangarllm.proxy._types import HangarLLMRoutes, UserAPIKeyAuth
+from hangarllm.proxy.agent_endpoints.auth.managed_authorization import (
     actor_admission_failure,
     admit_managed_actor,
     invocation_target,
 )
-from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import AgentIdentityBinding, AgentIdentityFailure, ManagedAgentContext
+from hangarllm.proxy.agent_endpoints.identity_store import AgentIdentityStore
+from hangarllm.types.agents import AgentResponse
+from hangarllm.types.proxy.agent_identity import AgentIdentityBinding, AgentIdentityFailure, ManagedAgentContext
 
 BINDING: Final = AgentIdentityBinding(
     agent_id="agent",
@@ -106,20 +106,20 @@ async def test_invocation_prepares_target_fee_for_the_correct_agent(
 ) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
-    from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
+    from hangarllm.proxy.agent_endpoints.identity_store import AgentIdentityStore
 
-    target: Final = agent(litellm_params={"cost_per_query": 0.25})
+    target: Final = agent(hangarllm_params={"cost_per_query": 0.25})
     registry: Final = agent_registry.AgentRegistry()
     registry.register_agent(target)
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=target)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=target)
     monkeypatch.setattr(proxy_server, "prisma_client", database)
-    permission: Final = LiteLLM_ObjectPermissionTable(object_permission_id="invoke-grant", agents=["agent"])
+    permission: Final = HangarLLM_ObjectPermissionTable(object_permission_id="invoke-grant", agents=["agent"])
     auth: Final = UserAPIKeyAuth(
         agent_id="caller" if autonomous else None,
         user_id=None if autonomous else "human",
@@ -139,22 +139,22 @@ async def test_invocation_prepares_target_fee_for_the_correct_agent(
 @pytest.mark.asyncio
 async def test_deleted_agent_key_cannot_fall_back_to_unmanaged_authentication() -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=None)
-    database.writer_db.litellm_retiredagent.find_unique = AsyncMock(return_value={"original_agent_id": "deleted"})
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=None)
+    database.writer_db.hangarllm_retiredagent.find_unique = AsyncMock(return_value={"original_agent_id": "deleted"})
     with pytest.raises(HTTPException, match="Agent no longer exists"):
         await admit_managed_actor(UserAPIKeyAuth(agent_id="deleted"), AgentIdentityStore.from_client(database))
-    database.writer_db.litellm_retiredagent.find_unique.return_value = None
+    database.writer_db.hangarllm_retiredagent.find_unique.return_value = None
     auth: Final = UserAPIKeyAuth(agent_id="legacy-attribution-label")
     await admit_managed_actor(auth, AgentIdentityStore.from_client(database))
     assert auth.managed_agent_policy is None
-    database.db.litellm_agentstable.find_unique.assert_not_called()
+    database.db.hangarllm_agentstable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_agent_history_outage_does_not_permit_legacy_fallback() -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=None)
-    database.writer_db.litellm_retiredagent.find_unique = AsyncMock(side_effect=RuntimeError("unavailable"))
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=None)
+    database.writer_db.hangarllm_retiredagent.find_unique = AsyncMock(side_effect=RuntimeError("unavailable"))
     with pytest.raises(HTTPException) as failure:
         await admit_managed_actor(UserAPIKeyAuth(agent_id="deleted"), AgentIdentityStore.from_client(database))
     assert failure.value.status_code == 503
@@ -181,7 +181,7 @@ def test_invocation_routes_resolve_the_same_target(route: str, body: dict[str, o
 @pytest.mark.asyncio
 async def test_agent_admission_database_outage_fails_closed() -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(side_effect=RuntimeError("DB unavailable"))
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(side_effect=RuntimeError("DB unavailable"))
     with pytest.raises(HTTPException) as failure:
         await admit_managed_actor(UserAPIKeyAuth(agent_id="agent"), AgentIdentityStore.from_client(database))
     assert failure.value.status_code == 503
@@ -190,15 +190,15 @@ async def test_agent_admission_database_outage_fails_closed() -> None:
 @pytest.mark.asyncio
 async def test_human_authentication_does_not_load_an_agent() -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock()
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock()
     await admit_managed_actor(UserAPIKeyAuth(user_id="human"), AgentIdentityStore.from_client(database))
-    database.writer_db.litellm_agentstable.find_unique.assert_not_awaited()
+    database.writer_db.hangarllm_agentstable.find_unique.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_disabled_agent_key_is_rejected_at_admission() -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=agent(enabled=False))
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=agent(enabled=False))
     with pytest.raises(HTTPException) as failure:
         await admit_managed_actor(UserAPIKeyAuth(agent_id="agent"), AgentIdentityStore.from_client(database))
     assert failure.value.status_code == 403
@@ -210,19 +210,19 @@ async def test_verified_human_still_needs_an_explicit_agent_invocation_grant(
     monkeypatch: pytest.MonkeyPatch,
     permitted: bool,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable, LiteLLM_UserTable
-    from litellm.proxy.auth import auth_checks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, HangarLLM_UserTable
+    from hangarllm.proxy.auth import auth_checks
 
     policy: Final = agent()
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=policy)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=policy)
     monkeypatch.setattr(proxy_server, "prisma_client", database)
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = HangarLLM_ObjectPermissionTable(
         object_permission_id="human-grants",
         agents=["agent"] if permitted else [],
     )
-    human: Final = LiteLLM_UserTable(user_id="human", teams=[], object_permission=permission)
+    human: Final = HangarLLM_UserTable(user_id="human", teams=[], object_permission=permission)
     monkeypatch.setattr(auth_checks, "get_user_object", AsyncMock(return_value=human))
     auth: Final = UserAPIKeyAuth(agent_id="agent")
     auth.managed_agent_context = ManagedAgentContext(
@@ -253,22 +253,22 @@ def test_execution_mode_must_match_verified_token_mode() -> None:
 async def test_invocation_cannot_bypass_missing_policy_permission_or_invalid_price(
     monkeypatch: pytest.MonkeyPatch, state: str, status: int
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
 
-    registered: Final = agent(litellm_params={"cost_per_query": -1 if state == "invalid-fee" else 0.25})
+    registered: Final = agent(hangarllm_params={"cost_per_query": -1 if state == "invalid-fee" else 0.25})
     registry: Final = agent_registry.AgentRegistry()
     registry.register_agent(registered)
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=None if state == "missing" else registered,
         side_effect=RuntimeError("unavailable") if state == "outage" else None,
     )
     monkeypatch.setattr(proxy_server, "prisma_client", database)
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = HangarLLM_ObjectPermissionTable(
         object_permission_id="grant", agents=[] if state == "denied" else ["agent"]
     )
     auth: Final = UserAPIKeyAuth(user_id="human", object_permission=permission)
@@ -281,7 +281,7 @@ async def test_invocation_cannot_bypass_missing_policy_permission_or_invalid_pri
 @pytest.mark.asyncio
 async def test_legacy_jwt_cannot_adopt_an_agent_bound_on_another_worker() -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=agent(execution_mode="autonomous"))
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=agent(execution_mode="autonomous"))
     auth: Final = UserAPIKeyAuth(agent_id="agent", jwt_claims={"agent": "agent", "sub": "unrelated-subject"})
     with pytest.raises(HTTPException) as denied:
         await admit_managed_actor(auth, AgentIdentityStore.from_client(database))
@@ -292,8 +292,8 @@ async def test_legacy_jwt_cannot_adopt_an_agent_bound_on_another_worker() -> Non
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bound", [False, True])
 async def test_managed_context_or_binding_requires_database(monkeypatch: pytest.MonkeyPatch, bound: bool) -> None:
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.agent_registry import AgentRegistry
 
     registry: Final = AgentRegistry()
     registry.register_agent(agent(identity_managed=bound, identity=BINDING if bound else None))
@@ -311,9 +311,9 @@ async def test_managed_context_or_binding_requires_database(monkeypatch: pytest.
 @pytest.mark.asyncio
 @pytest.mark.parametrize("managed_flag", [False, True])
 async def test_managed_invocation_requires_database(monkeypatch: pytest.MonkeyPatch, managed_flag: bool) -> None:
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.agent_registry import AgentRegistry
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
 
     registry: Final = AgentRegistry()
     registry.register_agent(agent(identity_managed=managed_flag))
@@ -327,7 +327,7 @@ async def test_managed_invocation_requires_database(monkeypatch: pytest.MonkeyPa
 async def test_autonomous_app_rejects_persisted_virtual_key_impersonation() -> None:
     policy: Final = agent(execution_mode="autonomous")
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=policy)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=policy)
     auth: Final = UserAPIKeyAuth(agent_id="agent", api_key="persisted-key")
     with pytest.raises(HTTPException, match="bound identity provider token") as denied:
         await admit_managed_actor(auth, AgentIdentityStore.from_client(database))
@@ -338,9 +338,9 @@ async def test_autonomous_app_rejects_persisted_virtual_key_impersonation() -> N
 
 @pytest.mark.asyncio
 async def test_unknown_invocation_target_leaves_billing_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
 
     monkeypatch.setattr(agent_registry, "global_agent_registry", agent_registry.AgentRegistry())
     monkeypatch.setattr(proxy_server, "prisma_client", None)
@@ -385,7 +385,7 @@ async def test_unknown_invocation_target_leaves_billing_unset(monkeypatch: pytes
     ],
 )
 def test_managed_route_scope_excludes_provider_resources(route: str, method: str, allowed: bool) -> None:
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_route_allowed
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_route_allowed
 
     assert managed_agent_route_allowed(route, method) is allowed
 
@@ -414,13 +414,13 @@ def test_managed_inference_resolves_dispatch_precedence(
     path_model: str | None,
     expected: str | None,
 ) -> None:
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
 
     assert managed_inference_request(route, body, settings, cli_model, path_model).get("model") == expected
 
 
 def test_managed_inference_without_any_model_cannot_skip_model_grants():
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
 
     with pytest.raises(HTTPException, match="explicit or configured model"):
         managed_inference_request("/v1/moderations", {}, {}, None)
@@ -428,13 +428,13 @@ def test_managed_inference_without_any_model_cannot_skip_model_grants():
 
 @pytest.mark.parametrize("route", ["/v1/chat/completions", "/v1/images/generations", "/v1/images/edits"])
 def test_managed_inference_query_model_takes_precedence_over_body(route: str):
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
 
     assert managed_inference_request(route, {"model": "body"}, {}, None, query_model="query")["model"] == "query"
 
 
 def test_managed_inference_ignores_unsupported_query_model():
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
 
     assert (
         managed_inference_request("/v1/messages", {"model": "body"}, {}, None, query_model="query")["model"] == "body"
@@ -450,7 +450,7 @@ def test_managed_inference_ignores_unsupported_query_model():
     ),
 )
 def test_managed_realtime_requires_a_model_and_ignores_completion_defaults(route: str) -> None:
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
 
     with pytest.raises(HTTPException, match="explicit or configured model"):
         managed_inference_request(route, {}, {"completion_model": "allowed-default"}, "cli")
@@ -464,7 +464,7 @@ def test_managed_realtime_requires_a_model_and_ignores_completion_defaults(route
 
 @pytest.mark.parametrize("route", ["/live/sessions", "/v1/live/sessions", "/openai/v1/live/sessions"])
 def test_managed_live_upgrade_defers_the_model_to_the_session_start_frame(route: str) -> None:
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import (
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import (
         managed_agent_route_allowed,
         managed_inference_request,
     )
@@ -479,8 +479,8 @@ def test_managed_live_upgrade_defers_the_model_to_the_session_start_frame(route:
 @pytest.mark.parametrize("route", ("/realtime/translations", "/v1/realtime/translations"))
 @pytest.mark.parametrize("query_model", (None, "requested"))
 def test_managed_translation_authorizes_the_same_model_as_the_endpoint(route: str, query_model: str | None) -> None:
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
-    from litellm.proxy.common_utils.http_parsing_utils import resolve_realtime_route_model
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_inference_request
+    from hangarllm.proxy.common_utils.http_parsing_utils import resolve_realtime_route_model
 
     admitted: Final = managed_inference_request(
         route, {}, {"completion_model": "unrelated-default"}, "cli", query_model=query_model
@@ -500,9 +500,9 @@ def test_matching_identity_revision_and_execution_mode_pass_admission(mode: str,
 
 @pytest.mark.asyncio
 async def test_unmanaged_agent_invocation_retains_legacy_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import prepare_agent_invocation
 
     legacy: Final = agent(identity=None, identity_managed=False)
     registry: Final = agent_registry.AgentRegistry()
@@ -512,7 +512,7 @@ async def test_unmanaged_agent_invocation_retains_legacy_behavior(monkeypatch: p
     auth: Final = UserAPIKeyAuth(agent_id="agent")
     await admit_managed_actor(auth, None)
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=legacy)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=legacy)
     await admit_managed_actor(auth, AgentIdentityStore.from_client(database))
     await prepare_agent_invocation(auth, "agent", AgentIdentityStore.from_client(database))
     assert auth.managed_agent_policy is None
@@ -523,7 +523,7 @@ async def test_unmanaged_agent_invocation_retains_legacy_behavior(monkeypatch: p
 @pytest.mark.asyncio
 async def test_bound_autonomous_actor_is_admitted_without_a_human() -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=agent())
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=agent())
     auth: Final = UserAPIKeyAuth(agent_id="agent")
     auth.managed_agent_context = ManagedAgentContext(agent_id="agent", binding_revision="current", mode="autonomous")
     await admit_managed_actor(auth, AgentIdentityStore.from_client(database))
@@ -537,7 +537,7 @@ async def test_admitted_managed_actor_requires_fresh_policy_so_revocations_bind_
     """Managed MCP grants (toolsets, access groups) are read through the shared resolvers, which only
     bypass the warm cache and the replica when the subject carries requires_fresh_policy"""
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=agent())
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=agent())
     auth: Final = UserAPIKeyAuth(agent_id="agent")
     auth.managed_agent_context = ManagedAgentContext(agent_id="agent", binding_revision="current", mode="autonomous")
     assert auth.requires_fresh_policy is False
@@ -550,11 +550,11 @@ async def test_admitted_managed_actor_requires_fresh_policy_so_revocations_bind_
 async def test_jwt_delegation_verification_is_consumed_once_and_cannot_be_supplied_by_a_caller(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.agent_endpoints.auth import agent_permission_handler
+    from hangarllm.proxy.agent_endpoints.auth import agent_permission_handler
 
     policy: Final = agent()
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=policy)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=policy)
     store: Final = AgentIdentityStore.from_client(database)
     grants: Final = AsyncMock(return_value=frozenset())
     monkeypatch.setattr(agent_permission_handler, "verified_human_agent_grants", grants)
@@ -579,14 +579,14 @@ async def test_jwt_delegation_verification_is_consumed_once_and_cannot_be_suppli
 async def test_ordinary_agent_admission_preserves_legacy_authentication(
     monkeypatch: pytest.MonkeyPatch, database_available: bool
 ) -> None:
-    from litellm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints import agent_registry
 
     registry: Final = agent_registry.AgentRegistry()
     ordinary: Final = agent(identity_managed=False, identity=None)
     registry.register_agent(ordinary)
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=ordinary)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=ordinary)
     auth: Final = UserAPIKeyAuth(agent_id="agent")
     await admit_managed_actor(auth, AgentIdentityStore.from_client(database) if database_available else None)
     assert auth.agent_id == "agent"
@@ -600,12 +600,12 @@ async def test_ordinary_agent_admission_preserves_legacy_authentication(
     "route",
     tuple(
         dict.fromkeys(
-            LiteLLMRoutes.openai_routes.value + LiteLLMRoutes.anthropic_routes.value + LiteLLMRoutes.google_routes.value
+            HangarLLMRoutes.openai_routes.value + HangarLLMRoutes.anthropic_routes.value + HangarLLMRoutes.google_routes.value
         )
     ),
 )
 def test_registered_inference_routes_have_an_explicit_managed_access_decision(route: str) -> None:
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_route_allowed
+    from hangarllm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_route_allowed
 
     normalized: Final = route.removeprefix("/openai").removeprefix("/v1beta").removeprefix("/v1")
     unsupported: Final = normalized.startswith(

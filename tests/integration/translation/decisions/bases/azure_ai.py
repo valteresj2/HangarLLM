@@ -6,8 +6,8 @@ from integration.translation.case import TranslationTestCase
 """
 MICROSOFT_DECISION_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "azure_ai/decision-1",
         "state": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": {
@@ -56,7 +56,7 @@ MICROSOFT_DECISION_1_TEST_CASE: Final = TranslationTestCase(
         },
         "usage": {"input_tokens": 87, "output_tokens": 3},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "microsoft-decision-1",
         "answers": {
             "defect": {"type": "noul", "noul": 0.982013764002278},

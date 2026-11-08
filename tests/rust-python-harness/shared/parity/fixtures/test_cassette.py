@@ -40,7 +40,7 @@ def test_cassette_replays_repeated_requests_with_vcr_and_preserves_bytes(tmp_pat
         )
         for status in (200, 429)
     )
-    case: Final = ParityCase[_Input](litellm_input=sdk_input, provider_responses=responses)
+    case: Final = ParityCase[_Input](hangarllm_input=sdk_input, provider_responses=responses)
     interactions: Final = tuple(
         RecordedInteraction(Request("POST", _URI, b"\xffrequest", {}), response) for response in responses
     )
@@ -66,7 +66,7 @@ def test_stream_cassette_preserves_chunk_boundaries_through_local_replay(tmp_pat
         headers=(HttpHeader(name="content-type", value="text/event-stream"),),
         chunks=tuple(RecordedStreamChunk.from_bytes(chunk) for chunk in chunks),
     )
-    case: Final = ParityCase[_Input](litellm_input=sdk_input, provider_responses=(response,))
+    case: Final = ParityCase[_Input](hangarllm_input=sdk_input, provider_responses=(response,))
     path: Final = save_fixture(
         tmp_path, sdk_input, case, (RecordedInteraction(Request("POST", _URI, b"{}", {}), response),)
     )
@@ -89,7 +89,7 @@ def test_cassette_preserves_duplicate_response_headers(tmp_path: Path) -> None:
         (HttpHeader(name="x-test", value="first"), HttpHeader(name="x-test", value="second")),
         b"{}",
     )
-    case: Final = ParityCase[_Input](litellm_input=sdk_input, provider_responses=(response,))
+    case: Final = ParityCase[_Input](hangarllm_input=sdk_input, provider_responses=(response,))
     save_fixture(tmp_path, sdk_input, case, (RecordedInteraction(Request("POST", _URI, b"", {}), response),))
 
     assert load_fixture(tmp_path, sdk_input, ParityCase[_Input]) == case

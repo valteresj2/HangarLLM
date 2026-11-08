@@ -7,16 +7,16 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.models.deployment_warning import AdminIgnore
-from litellm.models.gateway_activity import GatewayActivity
-from litellm.models.user_banner import UserBanner
-from litellm.proxy.deps.database import get_database
-from litellm.proxy.deps.repositories import (
+from hangarllm.models.deployment_warning import AdminIgnore
+from hangarllm.models.gateway_activity import GatewayActivity
+from hangarllm.models.user_banner import UserBanner
+from hangarllm.proxy.deps.database import get_database
+from hangarllm.proxy.deps.repositories import (
     DeploymentWarningIgnoreRepositoryDep,
     GatewayActivityRepositoryDep,
     UserBannerRepositoryDep,
 )
-from litellm.repositories import database as database_runtime
+from hangarllm.repositories import database as database_runtime
 from tests._support.native_database import native_database
 
 NATIVE: Final = native_database()
@@ -46,11 +46,11 @@ def _app(database: database_runtime.Database | None) -> FastAPI:
 
 def test_lifespan_database_is_shared_until_shutdown():
     prisma: Final = MagicMock()
-    prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
+    prisma.db.hangarllm_uisettings.find_unique = AsyncMock(return_value=None)
     app: Final = _app(database_runtime.Database(prisma=prisma, native=NATIVE))
     with TestClient(app) as client:
         assert client.get("/banner").json() == UserBanner().model_dump()
-        prisma.db.litellm_uisettings.find_unique.return_value = SimpleNamespace(
+        prisma.db.hangarllm_uisettings.find_unique.return_value = SimpleNamespace(
             ui_settings={"enabled": True, "message": "published", "revision": "revision"}
         )
         assert (
@@ -61,11 +61,11 @@ def test_lifespan_database_is_shared_until_shutdown():
 
 def test_both_repositories_use_the_lifespan_database():
     prisma: Final = MagicMock()
-    prisma.db.litellm_uisettings.find_unique = AsyncMock(
+    prisma.db.hangarllm_uisettings.find_unique = AsyncMock(
         return_value=SimpleNamespace(ui_settings={"message": "stored banner"})
     )
     stored_ignores: Final = {"detailed_debug": {"ignored_by": "admin", "ignored_at": "2026-10-14T12:00:00Z"}}
-    prisma.writer_db.litellm_uisettings.find_unique = AsyncMock(
+    prisma.writer_db.hangarllm_uisettings.find_unique = AsyncMock(
         return_value=SimpleNamespace(ui_settings=stored_ignores)
     )
     with TestClient(_app(database_runtime.Database(prisma=prisma, native=NATIVE))) as client:
@@ -84,7 +84,7 @@ def test_no_database_state_preserves_optional_repository():
 
 def test_dependency_override_changes_next_request_without_changing_lifespan_owner(monkeypatch):
     prisma: Final = MagicMock()
-    prisma.db.litellm_uisettings.find_unique = AsyncMock(
+    prisma.db.hangarllm_uisettings.find_unique = AsyncMock(
         return_value=SimpleNamespace(ui_settings={"message": "stored"})
     )
     app: Final = _app(database_runtime.Database(prisma=prisma, native=NATIVE))

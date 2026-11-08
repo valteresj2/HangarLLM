@@ -4,11 +4,11 @@ import uuid
 from itertools import chain
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.wire import Reply, Request, wire_server
-from litellm import Router
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm import Router
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 from prometheus_client import REGISTRY
 
 CHAT_RESPONSE: Final = json.dumps(
@@ -30,13 +30,13 @@ def _reply(request: Request) -> Reply:
 
 def _redis_metrics() -> tuple[float, float, float]:
     failed_metrics: Final = tuple(
-        metric for metric in REGISTRY.collect() if metric.name == "litellm_redis_failed_requests"
+        metric for metric in REGISTRY.collect() if metric.name == "hangarllm_redis_failed_requests"
     )
     samples: Final = chain.from_iterable(metric.samples for metric in failed_metrics)
     failed: Final = sum(sample.value for sample in samples if sample.name.endswith("_total"))
     return (
-        REGISTRY.get_sample_value("litellm_redis_total_requests_total", LABELS) or 0.0,
-        REGISTRY.get_sample_value("litellm_redis_latency_count", LABELS) or 0.0,
+        REGISTRY.get_sample_value("hangarllm_redis_total_requests_total", LABELS) or 0.0,
+        REGISTRY.get_sample_value("hangarllm_redis_latency_count", LABELS) or 0.0,
         failed,
     )
 
@@ -45,13 +45,13 @@ def _redis_metrics() -> tuple[float, float, float]:
 async def test_router_redis_traffic_is_counted_in_the_prometheus_service_metrics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     with wire_server(_reply) as wire:
         router: Final = Router(
             model_list=[
                 {
                     "model_name": "redis-metrics",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": f"{wire.url}/v1",
                         "api_key": "synthetic-redis-metrics-key",

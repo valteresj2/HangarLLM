@@ -124,7 +124,7 @@ def test_customer_and_key_model_lists_are_both_enforced(gateway: Gateway) -> Non
         model_b: Final = scenario.model(api_base=f"{wire.url}/v1")
         model_c: Final = scenario.model(api_base=f"{wire.url}/v1")
         key: Final = scenario.key(models=[model_a, model_b])
-        headers: Final = {"x-litellm-end-user-id": _customer(scenario, [model_b, model_c])}
+        headers: Final = {"x-hangarllm-end-user-id": _customer(scenario, [model_b, model_c])}
 
         marker_a: Final = uuid.uuid4().hex
         denied_by_customer: Final = _chat(gateway, key, model_a, marker_a, headers=headers)
@@ -187,7 +187,7 @@ def _router_config(
         "model_list": [
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": provider_model,
                     "api_key": "integration-provider-key",
                     "api_base": f"{wire.url}/v1",
@@ -196,11 +196,11 @@ def _router_config(
             for name, provider_model in models
         ],
         "general_settings": {
-            "master_key": "os.environ/LITELLM_MASTER_KEY",
+            "master_key": "os.environ/HANGARLLM_MASTER_KEY",
             "store_model_in_db": False,
             "enforce_fallback_model_access": enforce,
         },
-        "litellm_settings": {"cache": False},
+        "hangarllm_settings": {"cache": False},
         "router_settings": {
             "num_retries": 0,
             "disable_cooldowns": True,

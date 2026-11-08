@@ -9,9 +9,9 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.llms.openai.evals.transformation import OpenAIEvalsConfig
-from litellm.types.router import GenericLiteLLMParams
+import hangarllm
+from hangarllm.llms.openai.evals.transformation import OpenAIEvalsConfig
+from hangarllm.types.router import GenericHangarLLMParams
 
 _API_BASE: Final = "https://api.openai.com"
 _API_KEY: Final = "sk-test"
@@ -39,9 +39,9 @@ def _request_json(request: httpx.Request) -> dict[str, object]:
 def test_validate_environment_sets_headers(config: OpenAIEvalsConfig):
     """Test that validate_environment correctly sets authorization headers"""
     headers: dict = {}
-    params = GenericLiteLLMParams(api_key="sk-test-12345")
+    params = GenericHangarLLMParams(api_key="sk-test-12345")
 
-    result = config.validate_environment(headers=headers, litellm_params=params)
+    result = config.validate_environment(headers=headers, hangarllm_params=params)
 
     assert result["Authorization"] == "Bearer sk-test-12345"
     assert result["Content-Type"] == "application/json"
@@ -54,10 +54,10 @@ def test_validate_environment_requires_api_key(config: OpenAIEvalsConfig, monkey
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     headers: dict = {}
-    params = GenericLiteLLMParams()
+    params = GenericHangarLLMParams()
 
     with pytest.raises(ValueError, match="OPENAI_API_KEY is required"):
-        config.validate_environment(headers=headers, litellm_params=params)
+        config.validate_environment(headers=headers, hangarllm_params=params)
 
 
 def test_get_complete_url_with_eval_id(config: OpenAIEvalsConfig):
@@ -112,7 +112,7 @@ def test_transform_create_eval_request(config: OpenAIEvalsConfig):
 
     result = config.transform_create_eval_request(
         create_request=create_request,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -157,7 +157,7 @@ def test_transform_list_evals_request(config: OpenAIEvalsConfig):
 
     url, query_params = config.transform_list_evals_request(
         list_params=list_params,
-        litellm_params=GenericLiteLLMParams(api_base="https://api.openai.com"),
+        hangarllm_params=GenericHangarLLMParams(api_base="https://api.openai.com"),
         headers={},
     )
 
@@ -212,7 +212,7 @@ def test_transform_update_eval_request(config: OpenAIEvalsConfig):
         eval_id="eval_123",
         update_request=update_request,
         api_base="https://api.openai.com",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -226,7 +226,7 @@ def test_transform_delete_eval_request(config: OpenAIEvalsConfig):
     url, headers = config.transform_delete_eval_request(
         eval_id="eval_123",
         api_base="https://api.openai.com",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -256,7 +256,7 @@ def test_transform_cancel_eval_request(config: OpenAIEvalsConfig):
     url, headers, request_body = config.transform_cancel_eval_request(
         eval_id="eval_123",
         api_base="https://api.openai.com",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -266,10 +266,10 @@ def test_transform_cancel_eval_request(config: OpenAIEvalsConfig):
 
 def test_transform_cancel_eval_request_appends_cancel_to_an_eval_id_named_cancel(config: OpenAIEvalsConfig) -> None:
     eval_url, _ = config.transform_get_eval_request(
-        eval_id="cancel", api_base="https://api.openai.com", litellm_params=GenericLiteLLMParams(), headers={}
+        eval_id="cancel", api_base="https://api.openai.com", hangarllm_params=GenericHangarLLMParams(), headers={}
     )
     cancel_url, _, _ = config.transform_cancel_eval_request(
-        eval_id="cancel", api_base="https://api.openai.com", litellm_params=GenericLiteLLMParams(), headers={}
+        eval_id="cancel", api_base="https://api.openai.com", hangarllm_params=GenericHangarLLMParams(), headers={}
     )
 
     assert cancel_url == f"{eval_url}/cancel"
@@ -302,7 +302,7 @@ def test_transform_run_requests_encode_eval_and_run_ids(config: OpenAIEvalsConfi
         eval_id="../../evals?x=1#frag",
         run_id="../runs#other",
         api_base="https://api.openai.com",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -378,7 +378,7 @@ def test_transform_list_runs_request(config: OpenAIEvalsConfig):
     url, query_params = config.transform_list_runs_request(
         eval_id="eval_123",
         list_params={"limit": 5, "after": "evalrun_1", "order": "asc"},
-        litellm_params=GenericLiteLLMParams(api_base="https://api.openai.com"),
+        hangarllm_params=GenericHangarLLMParams(api_base="https://api.openai.com"),
         headers={},
     )
 
@@ -450,7 +450,7 @@ def test_transform_delete_run_request(config: OpenAIEvalsConfig):
         eval_id="eval_123",
         run_id="evalrun_123",
         api_base="https://api.openai.com",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -477,7 +477,7 @@ def test_transform_delete_run_response(config: OpenAIEvalsConfig):
 def test_create_eval_sends_configuration_and_parses_eval(respx_mock: respx.MockRouter) -> None:
     route: Final = respx_mock.post(f"{_API_BASE}/v1/evals").mock(return_value=httpx.Response(200, json=_EVAL_RESPONSE))
 
-    response: Final = litellm.create_eval(
+    response: Final = hangarllm.create_eval(
         name="Sentiment evaluation",
         data_source_config={"type": "stored_completions"},
         testing_criteria=[{"type": "ground_truth", "metric": "exact_match"}],
@@ -504,7 +504,7 @@ def test_get_eval_requests_the_requested_id_and_parses_eval(respx_mock: respx.Mo
         return_value=httpx.Response(200, json=_EVAL_RESPONSE)
     )
 
-    response: Final = litellm.get_eval(eval_id=_EVAL_ID, api_key=_API_KEY, api_base=_API_BASE)
+    response: Final = hangarllm.get_eval(eval_id=_EVAL_ID, api_key=_API_KEY, api_base=_API_BASE)
 
     request: Final = route.calls[0].request
     assert request.method == "GET"
@@ -529,7 +529,7 @@ def test_list_evals_sends_pagination_query_and_parses_page(respx_mock: respx.Moc
         )
     )
 
-    response: Final = litellm.list_evals(
+    response: Final = hangarllm.list_evals(
         limit=10,
         after=_EVAL_ID,
         order="asc",
@@ -551,7 +551,7 @@ def test_update_eval_sends_name_to_requested_id_and_parses_eval(respx_mock: resp
         return_value=httpx.Response(200, json=_EVAL_RESPONSE)
     )
 
-    response: Final = litellm.update_eval(
+    response: Final = hangarllm.update_eval(
         eval_id=_EVAL_ID,
         name="Renamed evaluation",
         api_key=_API_KEY,
@@ -572,15 +572,15 @@ def test_update_eval_sends_name_to_requested_id_and_parses_eval(respx_mock: resp
 async def test_delete_eval_sends_delete_to_requested_id_and_parses_confirmation(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.delete(f"{_API_BASE}/v1/evals/{_EVAL_ID}").mock(
         return_value=httpx.Response(200, json={"object": "eval.deleted", "deleted": True, "eval_id": _EVAL_ID})
     )
 
     response: Final = (
-        litellm.delete_eval(eval_id=_EVAL_ID, api_key=_API_KEY, api_base=_API_BASE)
+        hangarllm.delete_eval(eval_id=_EVAL_ID, api_key=_API_KEY, api_base=_API_BASE)
         if sync_mode
-        else await litellm.adelete_eval(eval_id=_EVAL_ID, api_key=_API_KEY, api_base=_API_BASE)
+        else await hangarllm.adelete_eval(eval_id=_EVAL_ID, api_key=_API_KEY, api_base=_API_BASE)
     )
 
     request: Final = route.calls[0].request

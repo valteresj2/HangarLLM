@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.proxy._types import ConfigGeneralSettings
-from litellm.proxy.common_utils.error_body_call_id import error_body_call_id, with_call_id
+from hangarllm.proxy._types import ConfigGeneralSettings
+from hangarllm.proxy.common_utils.error_body_call_id import error_body_call_id, with_call_id
 
 
 @pytest.mark.parametrize(
@@ -24,9 +24,9 @@ def test_only_the_boolean_opt_in_with_a_real_id_yields_a_body_call_id(general_se
 def test_with_call_id_appends_the_key_without_touching_the_input():
     error = {"message": "bad input", "type": "invalid_request_error", "param": None, "code": "400"}
 
-    assert with_call_id(error, "call-1") == {**error, "litellm_call_id": "call-1"}
+    assert with_call_id(error, "call-1") == {**error, "hangarllm_call_id": "call-1"}
     assert with_call_id(error, None) == error
-    assert "litellm_call_id" not in error
+    assert "hangarllm_call_id" not in error
 
 
 def test_the_setting_name_is_a_config_general_settings_field():

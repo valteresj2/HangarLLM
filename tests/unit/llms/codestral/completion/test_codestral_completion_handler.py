@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 _LINE_SEPARATED_TEXT: Final = "before\u2028between\u2029after"
 
@@ -30,8 +30,8 @@ async def _streamed_texts(sync_stream: bool) -> list[str | None]:
         "max_retries": 0,
     }
     if sync_stream:
-        return [chunk.choices[0].text for chunk in litellm.text_completion(**request)]
-    return [chunk.choices[0].text async for chunk in await litellm.atext_completion(**request)]
+        return [chunk.choices[0].text for chunk in hangarllm.text_completion(**request)]
+    return [chunk.choices[0].text async for chunk in await hangarllm.atext_completion(**request)]
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,7 @@ async def _streamed_texts(sync_stream: bool) -> list[str | None]:
 async def test_fim_stream_keeps_unicode_line_separators_inside_a_delta(
     sync_stream: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://codestral.mistral.ai/v1/fim/completions").mock(
         return_value=httpx.Response(200, content=_fim_stream_body(_LINE_SEPARATED_TEXT))
     )

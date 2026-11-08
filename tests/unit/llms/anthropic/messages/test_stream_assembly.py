@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.anthropic.messages.stream_assembly import (
+from hangarllm.llms.anthropic.messages.stream_assembly import (
     anthropic_message_delta_fields,
     anthropic_sse_error_events,
     assemble_anthropic_sse_stream,
@@ -13,7 +13,7 @@ from litellm.llms.anthropic.messages.stream_assembly import (
     is_raw_sse_stream,
     is_sse_error_stream,
 )
-from litellm.types.utils import Choices
+from hangarllm.types.utils import Choices
 
 
 def _frame(event: str, data: dict[str, object]) -> bytes:

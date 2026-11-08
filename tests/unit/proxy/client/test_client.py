@@ -2,9 +2,9 @@
 import pytest
 
 
-from litellm.proxy.client import ChatClient, Client, ModelsManagementClient
-from litellm.proxy.client.http_client import HTTPClient
-from litellm.proxy.client.keys import KeysManagementClient
+from hangarllm.proxy.client import ChatClient, Client, ModelsManagementClient
+from hangarllm.proxy.client.http_client import HTTPClient
+from hangarllm.proxy.client.keys import KeysManagementClient
 
 
 @pytest.fixture

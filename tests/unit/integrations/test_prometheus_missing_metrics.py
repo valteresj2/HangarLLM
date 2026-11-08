@@ -2,13 +2,13 @@
 Unit tests for the new Prometheus metrics that were previously missing from validation.
 
 Tests for:
-- litellm_remaining_api_key_requests_for_model
-- litellm_remaining_api_key_tokens_for_model
-- litellm_callback_logging_failures_metric
+- hangarllm_remaining_api_key_requests_for_model
+- hangarllm_remaining_api_key_tokens_for_model
+- hangarllm_callback_logging_failures_metric
 """
 
 from typing import get_args
-from litellm.types.integrations.prometheus import (
+from hangarllm.types.integrations.prometheus import (
     DEFINED_PROMETHEUS_METRICS,
     PrometheusMetricLabels,
     UserAPIKeyLabelNames,
@@ -22,9 +22,9 @@ def test_new_metrics_in_defined_metrics():
     defined_metrics = get_args(DEFINED_PROMETHEUS_METRICS)
 
     new_metrics = [
-        "litellm_remaining_api_key_requests_for_model",
-        "litellm_remaining_api_key_tokens_for_model",
-        "litellm_callback_logging_failures_metric",
+        "hangarllm_remaining_api_key_requests_for_model",
+        "hangarllm_remaining_api_key_tokens_for_model",
+        "hangarllm_callback_logging_failures_metric",
     ]
 
     for metric in new_metrics:
@@ -39,14 +39,14 @@ def test_new_metrics_have_correct_labels():
     """
     # Test API Key limits metrics labels
     api_key_metrics = [
-        "litellm_remaining_api_key_requests_for_model",
-        "litellm_remaining_api_key_tokens_for_model",
+        "hangarllm_remaining_api_key_requests_for_model",
+        "hangarllm_remaining_api_key_tokens_for_model",
     ]
 
     expected_api_key_labels = [
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_HANGARLLM_MODEL_NAME.value,
     ]
 
     for metric in api_key_metrics:
@@ -57,7 +57,7 @@ def test_new_metrics_have_correct_labels():
             ), f"{metric} should have label {expected_label}"
 
     # Test Callback failure metric labels
-    callback_metric = "litellm_callback_logging_failures_metric"
+    callback_metric = "hangarllm_callback_logging_failures_metric"
     callback_labels = PrometheusMetricLabels.get_labels(callback_metric)
 
     assert (

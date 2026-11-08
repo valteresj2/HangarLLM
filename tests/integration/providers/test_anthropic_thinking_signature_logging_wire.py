@@ -41,8 +41,8 @@ pytestmark: Final = [pytest.mark.timeout(240), pytest.mark.shares_worker_state]
 
 _ANTHROPIC_KEY: Final = "scripted-anthropic-key"
 _ANTHROPIC_BASE: Final = "http://api.anthropic.com"
-_BY_REQUEST_ID: Final = 'SELECT response FROM "LiteLLM_SpendLogs" WHERE request_id=%s'
-_BY_DEPLOYMENT: Final = 'SELECT response FROM "LiteLLM_SpendLogs" WHERE model_group=%s'
+_BY_REQUEST_ID: Final = 'SELECT response FROM "HangarLLM_SpendLogs" WHERE request_id=%s'
+_BY_DEPLOYMENT: Final = 'SELECT response FROM "HangarLLM_SpendLogs" WHERE model_group=%s'
 
 
 @pytest.fixture(scope="module")

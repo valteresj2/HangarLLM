@@ -17,8 +17,8 @@ from psycopg import sql
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter
 
-from litellm.proxy.auth.authorization import AllRows, OwnedRows, ReadScope
-from litellm.proxy.spend_tracking.spend_management_endpoints import _spend_log_payload_query, read_scope_sql
+from hangarllm.proxy.auth.authorization import AllRows, OwnedRows, ReadScope
+from hangarllm.proxy.spend_tracking.spend_management_endpoints import _spend_log_payload_query, read_scope_sql
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,10 +56,10 @@ def _seed_rows(
     with connection.cursor() as cursor:
         cursor.executemany(
             sql.SQL(
-                'INSERT INTO {} (request_id, "user", team_id, litellm_call_id, session_id, '
+                'INSERT INTO {} (request_id, "user", team_id, hangarllm_call_id, session_id, '
                 '"startTime", "endTime", messages, response, call_type) '
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'acompletion')"
-            ).format(sql.Identifier(schema, "LiteLLM_SpendLogs")),
+            ).format(sql.Identifier(schema, "HangarLLM_SpendLogs")),
             tuple(
                 (
                     row.request_id,
@@ -89,8 +89,8 @@ async def spend_database() -> AsyncIterator[Prisma]:
         setup.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
         try:
             setup.execute(
-                sql.SQL('CREATE TABLE {} (LIKE public."LiteLLM_SpendLogs" INCLUDING ALL)').format(
-                    sql.Identifier(schema, "LiteLLM_SpendLogs")
+                sql.SQL('CREATE TABLE {} (LIKE public."HangarLLM_SpendLogs" INCLUDING ALL)').format(
+                    sql.Identifier(schema, "HangarLLM_SpendLogs")
                 )
             )
             _seed_rows(setup, schema, ROWS, "scope-session", datetime(2026, 1, 1, tzinfo=timezone.utc))
@@ -137,7 +137,7 @@ async def test_ownership_sql_selects_allowed_rows_and_intersects_filters(
     filter_sql: Final = f' AND "user" = ${len(window_params) + len(scope_params) + 1}' if user_filter else ""
     params: Final = window_params + scope_params + ((user_filter,) if user_filter else ())
     result: Final = await spend_database.query_raw(
-        f'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE {window_sql}{clause or "TRUE"}{filter_sql} '
+        f'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE {window_sql}{clause or "TRUE"}{filter_sql} '
         "ORDER BY request_id",
         *params,
     )
@@ -159,7 +159,7 @@ async def test_payload_sql_filters_foreign_collisions_and_prefers_exact_ids_for_
 
 def _delete_session(session_id: str) -> None:
     with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
-        connection.execute('DELETE FROM "LiteLLM_SpendLogs" WHERE session_id = %s', (session_id,))
+        connection.execute('DELETE FROM "HangarLLM_SpendLogs" WHERE session_id = %s', (session_id,))
 
 
 @pytest.mark.parametrize(
@@ -258,7 +258,7 @@ def test_legacy_spend_logs_clamp_internal_user_filters_to_their_own_user(gateway
         for request_id in (request_a, request_b):
             eventually(
                 lambda request_id=request_id: read_rows(
-                    'SELECT request_id, "user" FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,)
+                    'SELECT request_id, "user" FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,)
                 ),
                 lambda rows: len(rows) == 1,
                 seconds=70,

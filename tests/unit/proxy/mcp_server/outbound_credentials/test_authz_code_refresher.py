@@ -2,10 +2,10 @@
 
 import pytest
 
-from litellm.proxy.mcp_server.outbound_credentials.authz_code_refresher import (
+from hangarllm.proxy.mcp_server.outbound_credentials.authz_code_refresher import (
     AuthorizationCodeRefresher,
 )
-from litellm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
 
@@ -331,7 +331,7 @@ async def test_verified_refresh_preserves_binding_proof_in_storage():
 
 @pytest.mark.asyncio
 async def test_cimd_refresh_on_fresh_replica_preserves_user_and_client_identity(monkeypatch):
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     monkeypatch.setenv("PROXY_BASE_URL", "https://gateway.example.com")
     server = MCPServer.model_validate(
@@ -374,8 +374,8 @@ async def test_cimd_refresh_on_fresh_replica_preserves_user_and_client_identity(
 
 @pytest.mark.asyncio
 async def test_saved_cimd_identity_refreshes_without_discovery(monkeypatch):
-    from litellm.proxy.mcp_server.outbound_credentials.v2_token_store import V2PerUserTokenStore
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy.mcp_server.outbound_credentials.v2_token_store import V2PerUserTokenStore
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     monkeypatch.setenv("PROXY_BASE_URL", "https://gateway.example.com")
     identity = "https://gateway.example.com/oauth/client-metadata.json"

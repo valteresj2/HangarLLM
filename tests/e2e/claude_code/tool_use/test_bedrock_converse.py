@@ -1,6 +1,6 @@
 """tool_use x Bedrock (Converse).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to AWS Bedrock via the unified `Converse` API path, ask
 Claude to invoke a built-in tool (`Bash`), and assert that the upstream
 returned a `tool_use` content block.
@@ -74,7 +74,7 @@ def _has_tool_use_event(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_tool_use_bedrock_converse(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     tool call was emitted on the wire."""
     base_url, api_key = require_proxy(compat_result)
 

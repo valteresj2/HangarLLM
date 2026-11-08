@@ -369,16 +369,16 @@ def _codes_at(tmp_path, parts, source):
 
 def test_config_surface_module_scope_is_exempt(tmp_path):
     src = "api_key = None\napi_key = 'sk'\n"
-    assert "LIT010" not in _codes_at(tmp_path, ("litellm", "__init__.py"), src)
+    assert "LIT010" not in _codes_at(tmp_path, ("hangarllm", "__init__.py"), src)
 
 
 def test_config_surface_function_scopes_are_still_checked(tmp_path):
     src = "def f() -> None:\n    x = 1\n"
-    assert "LIT010" in _codes_at(tmp_path, ("litellm", "__init__.py"), src)
+    assert "LIT010" in _codes_at(tmp_path, ("hangarllm", "__init__.py"), src)
 
 
 def test_nested_init_modules_are_not_config_surface(tmp_path):
-    assert "LIT010" in _codes_at(tmp_path, ("litellm", "types", "__init__.py"), "x = 1\n")
+    assert "LIT010" in _codes_at(tmp_path, ("hangarllm", "types", "__init__.py"), "x = 1\n")
 
 
 # --------------------------------------------------------------------------- #
@@ -672,8 +672,8 @@ def test_subclass_of_in_file_unfrozen_model_flags_both(tmp_path):
     assert _codes(tmp_path, src).count("LIT015") == 2
 
 
-def test_litellm_pydantic_object_base_without_frozen_is_flagged(tmp_path):
-    src = "class P(LiteLLMPydanticObjectBase):\n    a: int\n"
+def test_hangarllm_pydantic_object_base_without_frozen_is_flagged(tmp_path):
+    src = "class P(HangarLLMPydanticObjectBase):\n    a: int\n"
     assert "LIT015" in _codes(tmp_path, src)
 
 
@@ -788,13 +788,13 @@ def test_extra_allow_does_not_exempt(tmp_path):
     assert "LIT015" in _codes(tmp_path, src)
 
 
-def test_litellm_base_model_is_flagged(tmp_path):
-    src = "class Foo(LiteLLMBaseModel):\n    x: int\n"
+def test_hangarllm_base_model_is_flagged(tmp_path):
+    src = "class Foo(HangarLLMBaseModel):\n    x: int\n"
     assert "LIT015" in _codes(tmp_path, src)
 
 
-def test_litellm_openai_response_base_is_flagged(tmp_path):
-    src = "class R(BaseLiteLLMOpenAIResponseObject):\n    x: int\n"
+def test_hangarllm_openai_response_base_is_flagged(tmp_path):
+    src = "class R(BaseHangarLLMOpenAIResponseObject):\n    x: int\n"
     assert "LIT015" in _codes(tmp_path, src)
 
 

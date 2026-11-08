@@ -8,12 +8,12 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+import hangarllm
+from hangarllm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
     AmazonInvokeConfig,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from tests._support.stream_chunk_size import DEFAULT_CHUNKING_REQUESTS, ROUTER_CHUNK_SIZE_CASES, keys_at_every_depth
 
 
@@ -29,7 +29,7 @@ def test_completion_keeps_stream_chunk_size_out_of_invoke_bodies(model: str) -> 
     send: Final = MagicMock(return_value=httpx.Response(200))
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(send)))
 
-    litellm.completion(
+    hangarllm.completion(
         model=f"bedrock/invoke/{model}",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -63,7 +63,7 @@ def test_validate_environment_maps_guardrail_config_to_invoke_headers():
         model="anthropic.claude-3-sonnet-20240229-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert headers["X-Amzn-Bedrock-GuardrailIdentifier"] == "ff6ujrregl1q"
@@ -78,7 +78,7 @@ def test_validate_environment_without_guardrail_config_leaves_headers_untouched(
         model="anthropic.claude-3-sonnet-20240229-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"max_tokens": 10},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert headers == {"foo": "bar"}
@@ -90,7 +90,7 @@ def test_validate_environment_skips_absent_guardrail_fields():
         model="amazon.titan-text-express-v1",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"guardrailConfig": {"guardrailIdentifier": "gr-id", "guardrailVersion": "1"}},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert headers == {
@@ -110,7 +110,7 @@ def test_validate_environment_does_not_clobber_explicit_guardrail_headers():
         optional_params={
             "guardrailConfig": {"guardrailIdentifier": "config-id", "guardrailVersion": "2"},
         },
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert headers["x-amzn-bedrock-guardrailidentifier"] == "explicit-id"
@@ -135,7 +135,7 @@ def test_validate_environment_rejects_malformed_guardrail_config(bad_guardrail_c
             model="anthropic.claude-3-sonnet-20240229-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"guardrailConfig": bad_guardrail_config},
-            litellm_params={},
+            hangarllm_params={},
         )
 
     assert excinfo.value.status_code == 400
@@ -171,13 +171,13 @@ def test_guardrail_config_flows_to_headers_not_request_body(model):
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
     )
     request_body = config.transform_request(
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -202,7 +202,7 @@ def test_get_error_class_preserves_provider_headers():
 
 def test_transform_response_hands_json_mode_to_nova():
     """The invoke dispatcher forwards its json_mode argument to Nova instead of dropping it."""
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "output": {
@@ -232,7 +232,7 @@ def test_transform_response_hands_json_mode_to_nova():
         request_data={},
         messages=[{"role": "user", "content": "weather"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         api_key=None,
         json_mode=True,
@@ -244,7 +244,7 @@ def test_transform_response_hands_json_mode_to_nova():
 
 @pytest.mark.parametrize(("finish_reason", "expected"), [("MAX_TOKENS", "length"), (None, "stop")])
 def test_transform_response_accepts_null_cohere_finish_reason(finish_reason: str | None, expected: str) -> None:
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     raw_response: Final = httpx.Response(
         200,
@@ -260,7 +260,7 @@ def test_transform_response_accepts_null_cohere_finish_reason(finish_reason: str
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         api_key=None,
     )
@@ -276,7 +276,7 @@ def _stream_invoke_completion_with_spied_client(**kwargs: object) -> tuple[Magic
     client = HTTPHandler()
     client.post = MagicMock(return_value=mock_response)
 
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -318,7 +318,7 @@ async def _astream_invoke_completion_with_spied_client(**kwargs: object) -> tupl
     client = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=mock_response)
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -369,13 +369,13 @@ def test_router_deployment_stream_chunk_size_reaches_iter_bytes(
     mock_response.iter_bytes = MagicMock(return_value=iter([]))
     client: Final = HTTPHandler()
     client.post = MagicMock(return_value=mock_response)
-    router: Final = litellm.Router(
-        model_list=[{"model_name": "invoke-chunked", "litellm_params": {**INVOKE_DEPLOYMENT, **deployment_extras}}],
+    router: Final = hangarllm.Router(
+        model_list=[{"model_name": "invoke-chunked", "hangarllm_params": {**INVOKE_DEPLOYMENT, **deployment_extras}}],
         num_retries=0,
     )
 
     # the empty body is a stream that ends before its first chunk, which the Router now reports from the call
-    with pytest.raises(litellm.BadGatewayError):
+    with pytest.raises(hangarllm.BadGatewayError):
         router.completion(
             model="invoke-chunked",
             messages=[{"role": "user", "content": "hi"}],
@@ -392,8 +392,8 @@ def test_invoke_stream_rejects_non_int_stream_chunk_size_before_calling_bedrock(
     send: Final = MagicMock(return_value=httpx.Response(200))
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(send)))
 
-    with pytest.raises(litellm.BadRequestError):
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError):
+        hangarllm.completion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -410,16 +410,16 @@ def test_invoke_stream_rejects_non_int_stream_chunk_size_before_calling_bedrock(
 def test_router_deployment_with_a_non_numeric_stream_chunk_size_gets_a_400_before_calling_bedrock() -> None:
     send: Final = MagicMock(return_value=httpx.Response(200))
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(send)))
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "invoke-chunked",
-                "litellm_params": {**INVOKE_DEPLOYMENT, "stream_chunk_size": "sixty-four"},
+                "hangarllm_params": {**INVOKE_DEPLOYMENT, "stream_chunk_size": "sixty-four"},
             }
         ]
     )
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         router.completion(
             model="invoke-chunked",
             messages=[{"role": "user", "content": "hi"}],
@@ -454,7 +454,7 @@ def test_get_bedrock_invoke_provider_finds_a_provider_named_anywhere_in_the_mode
 
 @pytest.mark.respx(assert_all_called=False)
 def test_transform_request_meta_llama(monkeypatch, respx_mock):
-    monkeypatch.setattr(litellm, "known_tokenizer_config", dict(litellm.known_tokenizer_config))
+    monkeypatch.setattr(hangarllm, "known_tokenizer_config", dict(hangarllm.known_tokenizer_config))
     respx_mock.get(host="huggingface.co").respond(404, text="Entry not found")
     bedrock_transformer = AmazonInvokeConfig()
     messages = [{"role": "user", "content": "Hello"}]
@@ -463,7 +463,7 @@ def test_transform_request_meta_llama(monkeypatch, respx_mock):
         model="meta.llama2-70b",
         messages=messages,
         optional_params={"max_gen_len": 2048},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -476,7 +476,7 @@ def test_custom_prompt_roles_wrap_the_mistral_invoke_prompt(respx_mock: respx.Ro
     route: Final = respx_mock.post(
         "https://bedrock-runtime.us-west-2.amazonaws.com/model/mistral.OpenOrca/invoke"
     ).mock(return_value=httpx.Response(200, json={"outputs": [{"text": "ok", "stop_reason": "stop"}]}))
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/mistral.OpenOrca",
         messages=[{"role": "user", "content": "What's AWS?"}],
         roles={
@@ -506,7 +506,7 @@ def test_imported_llama_model_arn_is_encoded_and_max_tokens_become_max_gen_len(r
         return_value=httpx.Response(200, json={"generation": "Here's a joke...", "stop_reason": "stop"})
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/llama/arn:aws:bedrock:us-east-1:086734376398:imported-model/r4c4kewx2s0n",
         messages=[{"role": "user", "content": "Tell me a joke"}],
         max_tokens=100,

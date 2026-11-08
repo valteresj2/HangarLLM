@@ -12,7 +12,7 @@ from typing import Final
 
 import pytest
 
-import litellm
+import hangarllm
 from tests._wait_helpers import await_until
 from tests.integration._support.wire import Reply, Request, wire_server
 
@@ -44,15 +44,15 @@ async def test_datadog_logging_async_delivers_logs(monkeypatch: pytest.MonkeyPat
     monkeypatch.setenv("DD_API_KEY", "unit-dd-key")
     monkeypatch.setenv("DD_SITE", "us5.datadoghq.com")
 
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
 
     with wire_server(upstream) as wire:
         monkeypatch.setenv("DD_BASE_URL", wire.url)
-        litellm.success_callback = ["datadog"]
+        hangarllm.success_callback = ["datadog"]
         try:
             responses = await asyncio.gather(
                 *(
-                    litellm.acompletion(
+                    hangarllm.acompletion(
                         model="openai/chatgpt-v-3",
                         messages=[{"role": "user", "content": "This is a test"}],
                         max_tokens=5,
@@ -64,7 +64,7 @@ async def test_datadog_logging_async_delivers_logs(monkeypatch: pytest.MonkeyPat
             )
             assert len(responses) == REQUEST_COUNT
 
-            from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+            from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
             await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=30)
 
@@ -74,12 +74,12 @@ async def test_datadog_logging_async_delivers_logs(monkeypatch: pytest.MonkeyPat
                 timeout_s=30,
             )
         finally:
-            litellm.success_callback = []
-            litellm.logging_callback_manager._reset_all_callbacks()
+            hangarllm.success_callback = []
+            hangarllm.logging_callback_manager._reset_all_callbacks()
 
     logs = _delivered_logs(captured)
     assert len(logs) == REQUEST_COUNT
-    assert {log["ddsource"] for log in logs} == {"litellm"}
+    assert {log["ddsource"] for log in logs} == {"hangarllm"}
     payloads = [json.loads(log["message"]) for log in logs]
     assert len({payload["id"] for payload in payloads}) == REQUEST_COUNT
     assert {(payload["status"], payload["model"]) for payload in payloads} == {("success", "chatgpt-v-3")}

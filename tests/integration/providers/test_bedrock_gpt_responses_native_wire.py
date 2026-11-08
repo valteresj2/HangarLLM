@@ -11,7 +11,7 @@ from integration._support.wire import Request, Wire, wire_server
 from openai.types.responses import ResponseCompletedEvent, ResponseTextDeltaEvent
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
 GPT: Final = "us.openai.gpt-5.6-sol"
 TOKEN: Final = "synthetic-bedrock-bearer"
@@ -65,7 +65,7 @@ def _body(request: Request) -> dict[str, JsonValue]:
 def _spend_row(*request_ids: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT model_group, status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+            'SELECT model_group, status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
             "WHERE request_id = ANY(%s)",
             (list(request_ids),),  # pyright: ignore[reportArgumentType]  # psycopg adapts the list to a text array
         ),

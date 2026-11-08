@@ -28,7 +28,7 @@ _GENERATE: Final = "generateContent"
 _STREAM: Final = "streamGenerateContent?alt=sse"
 _LOCATIONS: Final = ("global", "us")
 _ACTIONS: Final = (_GENERATE, _STREAM)
-_COST_MAP: Final = Path("litellm/model_prices_and_context_window_backup.json")
+_COST_MAP: Final = Path("hangarllm/model_prices_and_context_window_backup.json")
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _BODY: Final[Mapping[str, JsonValue]] = {"contents": [{"role": "user", "parts": [{"text": "hi"}]}]}
 _CUT_PROMPT: Final = "end this stream early"
@@ -96,7 +96,7 @@ def _config_with_custom_priced_deployment(directory: Path, token_url: str) -> Pa
     assert isinstance(existing, list), base
     deployment: Final = {
         "model_name": _CUSTOM_DEPLOYMENT,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"vertex_ai/{_MODEL}",
             "vertex_project": _PROJECT,
             "vertex_location": "us",
@@ -127,7 +127,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
                 "NO_PROXY": "127.0.0.1,localhost",
                 "AIOHTTP_TRUST_ENV": "True",
                 "SSL_VERIFY": "False",
-                "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+                "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
             },
             config=_config_with_custom_priced_deployment(directory, base.upstream_url.rstrip("/")),
             workers=2,
@@ -141,20 +141,20 @@ def _path(location: str, model: str, action: str) -> str:
 
 
 def _headers(key: str) -> dict[str, str]:
-    return {"x-litellm-api-key": f"Bearer {key}", "Authorization": f"Bearer {_CALLER_GOOGLE_TOKEN}"}
+    return {"x-hangarllm-api-key": f"Bearer {key}", "Authorization": f"Bearer {_CALLER_GOOGLE_TOKEN}"}
 
 
 def _spend(rig: _Rig, key: str, location: str, action: str, model: str = _MODEL) -> float:
     with rig.proxy.client.stream("POST", _path(location, model, action), json=_BODY, headers=_headers(key)) as response:
         body: Final = response.read()
         assert response.status_code == 200, body
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
     return _logged_spend(rig.proxy, call_id)
 
 
 def _logged_spend(gateway: Gateway, call_id: str) -> float:
     rows: Final = eventually(
-        lambda: gateway.rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: gateway.rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -189,7 +189,7 @@ def test_custom_priced_vertex_passthrough_bills_the_deployment_price_even_when_t
             "POST", _path("us", _CUSTOM_DEPLOYMENT, _STREAM), json=_CUT_BODY, headers=_headers(key)
         ) as response:
             assert response.status_code == 200
-            call_id: Final = response.headers["x-litellm-call-id"]
+            call_id: Final = response.headers["x-hangarllm-call-id"]
             with pytest.raises(httpx.RemoteProtocolError):
                 response.read()
         cut_off: Final = _logged_spend(rig.proxy, call_id)

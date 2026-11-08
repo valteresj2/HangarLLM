@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# LiteLLM CLI Installer (the thin `lite` client)
-# Usage: curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/main/scripts/install-cli.sh | sh
+# HangarLLM CLI Installer (the thin `lite` client)
+# Usage: curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/main/scripts/install-cli.sh | sh
 #
-# Installs only litellm[cli]: the `lite` command for authenticating to a LiteLLM
+# Installs only hangarllm[cli]: the `lite` command for authenticating to a HangarLLM
 # proxy and running coding agents (lite claude / codex / opencode) through it.
 # None of the proxy server runtime is pulled in. To run a proxy server instead,
-# use scripts/install.sh, which installs litellm[proxy].
+# use scripts/install.sh, which installs hangarllm[proxy].
 #
 # Needs only curl: uv is bootstrapped if missing, and uv provisions a compatible
-# Python itself (honouring litellm's requires-python), downloading a managed one
+# Python itself (honouring hangarllm's requires-python), downloading a managed one
 # when the host has no suitable interpreter.
 #
 # To try an unreleased branch instead of the latest PyPI release (for example, to
-# QA a CLI feature before it ships), set LITELLM_CLI_REF to a branch, tag, or commit:
-#   curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm/<branch>/scripts/install-cli.sh | \
-#     LITELLM_CLI_REF=<branch> sh
+# QA a CLI feature before it ships), set HANGARLLM_CLI_REF to a branch, tag, or commit:
+#   curl -fsSL https://raw.githubusercontent.com/valteresj2/HangarLLM/<branch>/scripts/install-cli.sh | \
+#     HANGARLLM_CLI_REF=<branch> sh
 #
 # NOTE: set -e without pipefail for POSIX sh compatibility (dash on Ubuntu/Debian
 # ignores the shebang when invoked as `sh` and does not support `pipefail`).
 set -eu
 
-# Defaults to the PyPI release; LITELLM_CLI_REF opts into installing from source instead.
-if [ -n "${LITELLM_CLI_REF:-}" ]; then
-  LITELLM_PACKAGE="litellm[cli] @ git+https://github.com/BerriAI/litellm.git@${LITELLM_CLI_REF}"
+# Defaults to the PyPI release; HANGARLLM_CLI_REF opts into installing from source instead.
+if [ -n "${HANGARLLM_CLI_REF:-}" ]; then
+  HANGARLLM_PACKAGE="hangarllm[cli] @ git+https://github.com/valteresj2/HangarLLM.git@${HANGARLLM_CLI_REF}"
 else
-  LITELLM_PACKAGE="litellm[cli]"
+  HANGARLLM_PACKAGE="hangarllm[cli]"
 fi
 UV_VERSION="0.10.9"
 
@@ -53,7 +53,7 @@ cat << 'EOF'
   ███████╗██║   ██║   ███████╗
   ╚══════╝╚═╝   ╚═╝   ╚══════╝
 EOF
-printf "  ${BOLD}LiteLLM CLI Installer${RESET}  ${GREY}the thin 'lite' client for your proxy${RESET}\n\n"
+printf "  ${BOLD}HangarLLM CLI Installer${RESET}  ${GREY}the thin 'lite' client for your proxy${RESET}\n\n"
 
 # ── OS detection ───────────────────────────────────────────────────────────
 OS="$(uname -s)"
@@ -62,7 +62,7 @@ ARCH="$(uname -m)"
 case "$OS" in
   Darwin)  PLATFORM="macOS ($ARCH)" ;;
   Linux)   PLATFORM="Linux ($ARCH)" ;;
-  *)       die "Unsupported OS: $OS. LiteLLM supports macOS and Linux." ;;
+  *)       die "Unsupported OS: $OS. HangarLLM supports macOS and Linux." ;;
 esac
 
 info "Platform: $PLATFORM"
@@ -100,27 +100,27 @@ fi
 # Python (stock macOS ships 3.9) and fails resolution instead of downloading a
 # managed one. --python-preference system still reuses a compatible system Python.
 echo ""
-if [ -n "${LITELLM_CLI_REF:-}" ]; then
-  header "Installing litellm[cli] from ${LITELLM_CLI_REF}…"
+if [ -n "${HANGARLLM_CLI_REF:-}" ]; then
+  header "Installing hangarllm[cli] from ${HANGARLLM_CLI_REF}…"
 else
-  header "Installing litellm[cli]…"
+  header "Installing hangarllm[cli]…"
 fi
 echo ""
 
-"$UV_BIN" tool install --python '>=3.10,<3.15' --python-preference system --force "${LITELLM_PACKAGE}" \
-  || die "uv tool install failed. Try manually: $UV_BIN tool install --python '>=3.10,<3.15' '${LITELLM_PACKAGE}'"
+"$UV_BIN" tool install --python '>=3.10,<3.15' --python-preference system --force "${HANGARLLM_PACKAGE}" \
+  || die "uv tool install failed. Try manually: $UV_BIN tool install --python '>=3.10,<3.15' '${HANGARLLM_PACKAGE}'"
 
 # ── find the lite binary installed by uv tool ──────────────────────────────
 SCRIPTS_DIR="$("$UV_BIN" tool dir --bin)"
 LITE_BIN="${SCRIPTS_DIR}/lite"
 
 if [ ! -x "$LITE_BIN" ]; then
-  die "lite binary not found after install. Try: $UV_BIN tool install '${LITELLM_PACKAGE}'"
+  die "lite binary not found after install. Try: $UV_BIN tool install '${HANGARLLM_PACKAGE}'"
 fi
 
 # ── success banner ─────────────────────────────────────────────────────────
 echo ""
-success "LiteLLM CLI installed"
+success "HangarLLM CLI installed"
 
 installed_ver="$("$LITE_BIN" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
 [ -n "$installed_ver" ] && info "Version: $installed_ver"
@@ -134,9 +134,9 @@ fi
 echo ""
 header "Next steps:"
 echo ""
-info "  export LITELLM_PROXY_URL=https://your-proxy   # point at your gateway"
+info "  export HANGARLLM_PROXY_URL=https://your-proxy   # point at your gateway"
 info "  lite login                                    # authenticate via SSO"
 info "  lite claude                                   # run Claude Code through the proxy"
 echo ""
-info "Docs: https://docs.litellm.ai/docs/proxy/management_cli"
+info "Docs: https://github.com/valteresj2/HangarLLM#readme"
 echo ""

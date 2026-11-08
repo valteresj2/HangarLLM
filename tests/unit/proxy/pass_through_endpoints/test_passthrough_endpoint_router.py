@@ -7,20 +7,20 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
+from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
     PassthroughEndpointRouter,
 )
-from litellm.types.utils import CredentialItem
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
+from hangarllm.types.utils import CredentialItem
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
 @pytest.fixture(autouse=True)
 def isolated_credential_list(monkeypatch):
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(hangarllm, "credential_list", [])
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ASSEMBLYAI_API_KEY", raising=False)
@@ -34,20 +34,20 @@ def _credential(name: str, api_key: str) -> CredentialItem:
     )
 
 
-def _flagged_deployment(model: str, **litellm_params) -> dict:
+def _flagged_deployment(model: str, **hangarllm_params) -> dict:
     return {
         "model_name": model.split("/", 1)[-1],
-        "litellm_params": {"model": model, "use_in_pass_through": True, **litellm_params},
+        "hangarllm_params": {"model": model, "use_in_pass_through": True, **hangarllm_params},
     }
 
 
-def _passthrough_router(llm_router: litellm.Router | None) -> PassthroughEndpointRouter:
+def _passthrough_router(llm_router: hangarllm.Router | None) -> PassthroughEndpointRouter:
     return PassthroughEndpointRouter(llm_router_getter=lambda: llm_router)
 
 
 def test_credential_loaded_after_deployment_registration_still_resolves():
-    llm_router = litellm.Router(
-        model_list=[_flagged_deployment("openai/gpt-4o", litellm_credential_name="cred_openai")]
+    llm_router = hangarllm.Router(
+        model_list=[_flagged_deployment("openai/gpt-4o", hangarllm_credential_name="cred_openai")]
     )
     passthrough_router = _passthrough_router(llm_router)
 
@@ -62,7 +62,7 @@ def test_credential_loaded_after_deployment_registration_still_resolves():
 
 
 def test_proxy_wide_credentials_pair_a_deployment_key_with_that_deployment_base() -> None:
-    llm_router: Final = litellm.Router(
+    llm_router: Final = hangarllm.Router(
         model_list=[
             _flagged_deployment("openai/gpt-4o", api_base="https://keyless.example/v1"),
             _flagged_deployment("openai/gpt-4o-mini", api_key="sk-deployment", api_base="https://keyed.example/v1"),
@@ -80,7 +80,7 @@ def test_proxy_wide_credentials_never_come_from_a_team_deployment(monkeypatch: p
         **_flagged_deployment("openai/gpt-4o", api_key="sk-team-a", api_base="https://team-a.example/v1"),
         "model_info": {"team_id": "team-a"},
     }
-    passthrough_router: Final = _passthrough_router(litellm.Router(model_list=[team_deployment]))
+    passthrough_router: Final = _passthrough_router(hangarllm.Router(model_list=[team_deployment]))
 
     credentials: Final = passthrough_router.get_proxy_wide_credentials(custom_llm_provider="openai")
 
@@ -93,21 +93,21 @@ def test_credentials_for_a_provider_route_still_include_a_team_deployment_key() 
         **_flagged_deployment("openai/gpt-4o", api_key="sk-team-a"),
         "model_info": {"team_id": "team-a"},
     }
-    passthrough_router: Final = _passthrough_router(litellm.Router(model_list=[team_deployment]))
+    passthrough_router: Final = _passthrough_router(hangarllm.Router(model_list=[team_deployment]))
 
     assert passthrough_router.get_credentials(custom_llm_provider="openai", region_name=None) == "sk-team-a"
 
 
 def test_proxy_wide_credentials_are_missing_without_a_deployment_or_env_key() -> None:
-    passthrough_router: Final = _passthrough_router(litellm.Router(model_list=[]))
+    passthrough_router: Final = _passthrough_router(hangarllm.Router(model_list=[]))
 
     assert passthrough_router.get_proxy_wide_credentials(custom_llm_provider="anthropic") is None
 
 
 def test_credential_rotation_is_reflected_without_deployment_update():
     CredentialAccessor.upsert_credentials([_credential("cred_openai", "sk-before-rotation")])
-    llm_router = litellm.Router(
-        model_list=[_flagged_deployment("openai/gpt-4o", litellm_credential_name="cred_openai")]
+    llm_router = hangarllm.Router(
+        model_list=[_flagged_deployment("openai/gpt-4o", hangarllm_credential_name="cred_openai")]
     )
     passthrough_router = _passthrough_router(llm_router)
 
@@ -125,7 +125,7 @@ def test_credential_rotation_is_reflected_without_deployment_update():
 
 
 def test_deleted_deployment_stops_serving_its_key(monkeypatch):
-    llm_router = litellm.Router(model_list=[_flagged_deployment("openai/gpt-4o", api_key="sk-inline")])
+    llm_router = hangarllm.Router(model_list=[_flagged_deployment("openai/gpt-4o", api_key="sk-inline")])
     passthrough_router = _passthrough_router(llm_router)
 
     assert passthrough_router.get_credentials(custom_llm_provider="openai", region_name=None) == "sk-inline"
@@ -139,7 +139,7 @@ def test_deleted_deployment_stops_serving_its_key(monkeypatch):
 
 
 def test_inline_api_key_resolves_without_credential_name():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[_flagged_deployment("anthropic/claude-sonnet-4-5", api_key="sk-ant-inline")]
     )
     passthrough_router = _passthrough_router(llm_router)
@@ -151,8 +151,8 @@ def test_inline_api_key_resolves_without_credential_name():
 
 
 def test_missing_credential_and_no_inline_key_falls_back_to_env(monkeypatch):
-    llm_router = litellm.Router(
-        model_list=[_flagged_deployment("openai/gpt-4o", litellm_credential_name="cred_deleted")]
+    llm_router = hangarllm.Router(
+        model_list=[_flagged_deployment("openai/gpt-4o", hangarllm_credential_name="cred_deleted")]
     )
     passthrough_router = _passthrough_router(llm_router)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
@@ -163,7 +163,7 @@ def test_missing_credential_and_no_inline_key_falls_back_to_env(monkeypatch):
 
 
 def test_deployment_for_other_provider_does_not_match():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[_flagged_deployment("anthropic/claude-sonnet-4-5", api_key="sk-ant-inline")]
     )
     passthrough_router = _passthrough_router(llm_router)
@@ -172,11 +172,11 @@ def test_deployment_for_other_provider_does_not_match():
 
 
 def test_unflagged_deployment_does_not_match():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-not-flagged"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-not-flagged"},
             }
         ]
     )
@@ -186,7 +186,7 @@ def test_unflagged_deployment_does_not_match():
 
 
 def test_first_matching_deployment_wins():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             _flagged_deployment("openai/gpt-4o", api_key="sk-first"),
             _flagged_deployment("openai/gpt-4o-mini", api_key="sk-second"),
@@ -198,7 +198,7 @@ def test_first_matching_deployment_wins():
 
 
 def test_assemblyai_region_matching():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             _flagged_deployment(
                 "assemblyai/best", api_key="sk-eu", api_base="https://api.eu.assemblyai.com"
@@ -215,9 +215,9 @@ def test_assemblyai_region_matching():
 def test_azure_speech_dashboard_credential_resolves_through_flagged_deployment(monkeypatch):
     monkeypatch.delenv("AZURE_SPEECH_API_KEY", raising=False)
     CredentialAccessor.upsert_credentials([_credential("azure-speech-prod", "azure-subscription-key")])
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
-            _flagged_deployment("azure_speech/short-audio", litellm_credential_name="azure-speech-prod"),
+            _flagged_deployment("azure_speech/short-audio", hangarllm_credential_name="azure-speech-prod"),
         ]
     )
     passthrough_router = _passthrough_router(llm_router)
@@ -247,10 +247,10 @@ def _vertex_credential(name: str, values: dict) -> CredentialItem:
     return CredentialItem(credential_name=name, credential_values=values, credential_info={})
 
 
-def _vertex_deployment(model_name: str, model: str, **litellm_params) -> dict:
+def _vertex_deployment(model_name: str, model: str, **hangarllm_params) -> dict:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "use_in_pass_through": True, **litellm_params},
+        "hangarllm_params": {"model": model, "use_in_pass_through": True, **hangarllm_params},
     }
 
 
@@ -267,10 +267,10 @@ def test_vertex_deployment_resolves_via_named_credential():
             )
         ]
     )
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             _vertex_deployment(
-                "gemini-live", "vertex_ai/gemini-live-2.5-flash", litellm_credential_name="cred_gcp"
+                "gemini-live", "vertex_ai/gemini-live-2.5-flash", hangarllm_credential_name="cred_gcp"
             )
         ]
     )
@@ -284,8 +284,8 @@ def test_vertex_deployment_resolves_via_named_credential():
     assert resolved.vertex_credentials == '{"type": "service_account"}'
 
 
-def test_vertex_deployment_resolves_from_inline_litellm_params():
-    llm_router = litellm.Router(
+def test_vertex_deployment_resolves_from_inline_hangarllm_params():
+    llm_router = hangarllm.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-live",
@@ -306,8 +306,8 @@ def test_vertex_deployment_resolves_from_inline_litellm_params():
     assert resolved.vertex_credentials == '{"type": "service_account", "project_id": "proj-inline"}'
 
 
-def _two_vertex_deployments_router() -> litellm.Router:
-    return litellm.Router(
+def _two_vertex_deployments_router() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-flash",
@@ -345,7 +345,7 @@ def test_vertex_without_usable_hint_refuses_to_guess_between_projects():
 
 
 def test_vertex_without_hint_falls_back_when_deployments_share_a_target():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-flash", "vertex_ai/gemini-2.5-flash", vertex_project="proj-one", vertex_location="global"
@@ -363,7 +363,7 @@ def test_vertex_without_hint_falls_back_when_deployments_share_a_target():
 
 
 def test_vertex_without_hint_refuses_to_guess_between_service_accounts():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-flash",
@@ -400,10 +400,10 @@ def test_vertex_named_credential_keeps_dict_service_account():
             )
         ]
     )
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             _vertex_deployment(
-                "gemini-live", "vertex_ai/gemini-live-2.5-flash", litellm_credential_name="cred_gcp_dict"
+                "gemini-live", "vertex_ai/gemini-live-2.5-flash", hangarllm_credential_name="cred_gcp_dict"
             )
         ]
     )
@@ -416,11 +416,11 @@ def test_vertex_named_credential_keeps_dict_service_account():
 
 
 def test_no_flagged_vertex_deployment_returns_none():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-live",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-live-2.5-flash",
                     "vertex_project": "proj-unflagged",
                     "vertex_location": "global",
@@ -439,21 +439,21 @@ def test_vertex_deployment_with_deleted_credential_is_skipped(monkeypatch):
     CredentialAccessor.upsert_credentials(
         [_vertex_credential("cred_gone", {"vertex_project": "proj-db", "vertex_location": "global"})]
     )
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             _vertex_deployment(
-                "gemini-live", "vertex_ai/gemini-live-2.5-flash", litellm_credential_name="cred_gone"
+                "gemini-live", "vertex_ai/gemini-live-2.5-flash", hangarllm_credential_name="cred_gone"
             )
         ]
     )
     passthrough_router = _passthrough_router(llm_router)
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(hangarllm, "credential_list", [])
 
     assert passthrough_router.get_vertex_credentials_from_router_deployments(model=None) is None
 
 
 def _token_file(tmp_path, monkeypatch, value: str):
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     token = tmp_path / "token"
     token.write_text(value)
     return token
@@ -473,7 +473,7 @@ def test_env_oidc_file_reference_is_read_on_every_call(tmp_path, monkeypatch):
 
 def test_deployment_oidc_file_reference_is_resolved(tmp_path, monkeypatch):
     token = _token_file(tmp_path, monkeypatch, "deployment-token")
-    llm_router = litellm.Router(model_list=[_flagged_deployment("openai/gpt-4o", api_key=f"oidc/file/{token}")])
+    llm_router = hangarllm.Router(model_list=[_flagged_deployment("openai/gpt-4o", api_key=f"oidc/file/{token}")])
 
     assert (
         _passthrough_router(llm_router).get_credentials(custom_llm_provider="openai", region_name=None)
@@ -484,7 +484,7 @@ def test_deployment_oidc_file_reference_is_resolved(tmp_path, monkeypatch):
 def test_oidc_file_reference_outside_allowed_dirs_is_refused(tmp_path, monkeypatch):
     allowed = tmp_path / "allowed"
     allowed.mkdir()
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(allowed))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(allowed))
     outside = tmp_path / "token"
     outside.write_text("not-allowed")
     monkeypatch.setenv("OPENAI_API_KEY", f"oidc/file/{outside}")
@@ -498,7 +498,7 @@ def test_oidc_file_reference_outside_allowed_dirs_is_refused(tmp_path, monkeypat
 
 
 def test_missing_oidc_token_file_is_a_clear_auth_error(monkeypatch):
-    monkeypatch.delenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", raising=False)
+    monkeypatch.delenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "oidc/file//run/secrets/lit-missing-token")
 
     with pytest.raises(HTTPException) as excinfo:
@@ -534,7 +534,7 @@ def test_oidc_google_reference_is_refused_without_a_metadata_fetch(monkeypatch):
         raise AssertionError("network-backed oidc reference was resolved inside the request path")
 
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str",
+        "hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str",
         lambda name, *a, **k: "oidc/google/https://example.com" if name == "OPENAI_API_KEY" else fail(),
     )
 
@@ -547,7 +547,7 @@ def test_oidc_google_reference_is_refused_without_a_metadata_fetch(monkeypatch):
 
 
 def test_deployment_oidc_google_reference_is_not_sent_upstream(monkeypatch):
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[_flagged_deployment("openai/gpt-4o", api_key="oidc/google/https://vllm.example.test")]
     )
 
@@ -603,13 +603,13 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
             - Flag deployments for OpenAI, AssemblyAI, Anthropic, Cohere with use_in_pass_through
             - GET credentials from passthrough_endpoint_router (resolved live from the llm router)
         """
-        import litellm
+        import hangarllm
 
-        llm_router = litellm.Router(
+        llm_router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-4o",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o",
                         "api_key": "openai_key",
                         "use_in_pass_through": True,
@@ -617,7 +617,7 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
                 },
                 {
                     "model_name": "best",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "assemblyai/best",
                         "api_key": "assemblyai_key",
                         "api_base": "https://api.eu.assemblyai.com",
@@ -626,7 +626,7 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
                 },
                 {
                     "model_name": "claude-sonnet-4-5",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-sonnet-4-5",
                         "api_key": "anthropic_key",
                         "use_in_pass_through": True,
@@ -634,7 +634,7 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
                 },
                 {
                     "model_name": "embed-english-v3.0",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "cohere/embed-english-v3.0",
                         "api_key": "cohere_key",
                         "use_in_pass_through": True,
@@ -658,7 +658,7 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
         """
         # Patch the get_secret_str function within the router's module.
         with patch(
-            "litellm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
+            "hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
         ) as mock_get_secret:
             mock_get_secret.return_value = "env_openai_key"
             # For "openai", if credentials are not set, it should fallback to the env variable.
@@ -667,7 +667,7 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
             mock_get_secret.assert_called_once_with("OPENAI_API_KEY")
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
+            "hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
         ) as mock_get_secret:
             mock_get_secret.return_value = "env_cohere_key"
             result = self.router.get_credentials("cohere", None)
@@ -675,7 +675,7 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
             mock_get_secret.assert_called_once_with("COHERE_API_KEY")
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
+            "hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
         ) as mock_get_secret:
             mock_get_secret.return_value = "env_anthropic_key"
             result = self.router.get_credentials("anthropic", None)
@@ -683,7 +683,7 @@ class TestPassthroughEndpointRouter(unittest.TestCase):
             mock_get_secret.assert_called_once_with("ANTHROPIC_API_KEY")
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
+            "hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router.get_secret_str"
         ) as mock_get_secret:
             mock_get_secret.return_value = "env_azure_key"
             result = self.router.get_credentials("azure", None)

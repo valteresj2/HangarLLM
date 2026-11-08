@@ -5,26 +5,26 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.guardrails_ai.guardrails_ai import (
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.guardrails_ai.guardrails_ai import (
     GuardrailsAI,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.utils import Choices, Message, ModelResponse
 
 
 def test_guardrails_ai_init_registers_the_configured_guardrail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
 
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "gibberish-guard",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "guardrails_ai",
                     "guard_name": "gibberish_guard",
                     "mode": "post_call",
@@ -35,7 +35,7 @@ def test_guardrails_ai_init_registers_the_configured_guardrail(
         config_file_path="",
     )
 
-    callbacks = [callback for callback in litellm.callbacks if isinstance(callback, GuardrailsAI)]
+    callbacks = [callback for callback in hangarllm.callbacks if isinstance(callback, GuardrailsAI)]
     assert len(callbacks) == 1
     assert callbacks[0].guardrail_name == "gibberish-guard"
     assert callbacks[0].guardrails_ai_guard_name == "gibberish_guard"
@@ -45,7 +45,7 @@ def test_guardrails_ai_init_registers_the_configured_guardrail(
 @pytest.mark.asyncio
 async def test_guardrails_ai_process_input():
     """Test the process_input method of GuardrailsAI with various scenarios"""
-    from litellm.proxy.guardrails.guardrail_hooks.guardrails_ai.guardrails_ai import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.guardrails_ai.guardrails_ai import (
         GuardrailsAIResponse,
     )
 
@@ -113,7 +113,7 @@ async def test_guardrails_ai_process_input():
 
     # Test case 4: Messages with no user text (get_last_user_message returns None)
     with patch(
-        "litellm.litellm_core_utils.prompt_templates.common_utils.get_last_user_message",
+        "hangarllm.hangarllm_core_utils.prompt_templates.common_utils.get_last_user_message",
         return_value=None,
     ):
         data = {
@@ -249,7 +249,7 @@ def _guardrails_ai() -> GuardrailsAI:
 async def test_guardrails_ai_api_request_returns_the_passing_verdict(monkeypatch: pytest.MonkeyPatch) -> None:
     verdict = {"callId": "call-1", "rawLlmOutput": "hello", "validatedOutput": "hello", "validationPassed": True}
     client = _RecordingGuardrailsClient(200, verdict)
-    monkeypatch.setattr(litellm, "module_level_aclient", client)
+    monkeypatch.setattr(hangarllm, "module_level_aclient", client)
 
     result = await _guardrails_ai().make_guardrails_ai_api_request(llm_output="hello", request_data={})
 
@@ -261,7 +261,7 @@ async def test_guardrails_ai_api_request_returns_the_passing_verdict(monkeypatch
 @pytest.mark.asyncio
 async def test_guardrails_ai_api_request_blocks_a_failed_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     verdict = {"callId": "call-2", "rawLlmOutput": "asdfgh", "validationPassed": False}
-    monkeypatch.setattr(litellm, "module_level_aclient", _RecordingGuardrailsClient(200, verdict))
+    monkeypatch.setattr(hangarllm, "module_level_aclient", _RecordingGuardrailsClient(200, verdict))
 
     with pytest.raises(HTTPException) as exc_info:
         await _guardrails_ai().make_guardrails_ai_api_request(llm_output="asdfgh", request_data={})
@@ -274,7 +274,7 @@ async def test_guardrails_ai_api_request_blocks_a_failed_validation(monkeypatch:
 async def test_guardrails_ai_pre_call_request_returns_the_first_output_text(monkeypatch: pytest.MonkeyPatch) -> None:
     body = {"outputs": [{"name": "text", "shape": [1], "datatype": "BYTES", "data": ["cleaned text"]}]}
     client = _RecordingGuardrailsClient(200, body)
-    monkeypatch.setattr(litellm, "module_level_aclient", client)
+    monkeypatch.setattr(hangarllm, "module_level_aclient", client)
 
     result = await _guardrails_ai().make_guardrails_ai_api_request_pre_call_request(
         text_input="raw text", request_data={}

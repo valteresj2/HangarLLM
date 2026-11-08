@@ -5,8 +5,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm._logging import turn_on_json, verbose_logger, verbose_proxy_logger
+import hangarllm
+from hangarllm._logging import turn_on_json, verbose_logger, verbose_proxy_logger
 
 
 def test_check_migration_out_of_sync(mocker):
@@ -19,7 +19,7 @@ def test_check_migration_out_of_sync(mocker):
     # then patch the logger reference in that module directly (not the source
     # module) so the patch works regardless of import order or xdist worker
     # assignment.
-    from litellm.proxy.db import check_migration
+    from hangarllm.proxy.db import check_migration
 
     # Mock the helper function to simulate out-of-sync state
     mock_logger = mocker.patch.object(
@@ -51,7 +51,7 @@ def test_migrate_diff_stops_at_its_budget_and_takes_its_process_tree_with_it(fak
     `prisma migrate diff` ran unbounded, so a database that never answers hung boot
     before uvicorn ever started, and interrupting the proxy orphaned the schema engine.
     """
-    from litellm.proxy.db.check_migration import check_prisma_schema_diff_helper
+    from hangarllm.proxy.db.check_migration import check_prisma_schema_diff_helper
 
     monkeypatch.setenv("FAKE_PRISMA_HANG_FIRST", "1")
 
@@ -70,9 +70,9 @@ def test_migrate_diff_without_the_prisma_runner_skips_instead_of_crashing_boot(m
     """
     import sys
 
-    from litellm.proxy.db.check_migration import check_prisma_schema_diff_helper
+    from hangarllm.proxy.db.check_migration import check_prisma_schema_diff_helper
 
-    monkeypatch.setitem(sys.modules, "litellm_proxy_extras.prisma_toolchain", None)
+    monkeypatch.setitem(sys.modules, "hangarllm_proxy_extras.prisma_toolchain", None)
 
     assert check_prisma_schema_diff_helper("postgresql://u:p@localhost:9/x") == (False, [])
 
@@ -82,12 +82,12 @@ def test_a_skipped_migration_diff_is_one_json_record_in_json_mode(
 ) -> None:
     """
     With json_logs on, the notice that the migration diff was skipped is one WARNING record on stdout,
-    also while the loggers sit at WARNING, as they do at boot without LITELLM_LOG.
+    also while the loggers sit at WARNING, as they do at boot without HANGARLLM_LOG.
     """
-    from litellm.proxy.db.check_migration import check_prisma_schema_diff_helper
+    from hangarllm.proxy.db.check_migration import check_prisma_schema_diff_helper
 
-    monkeypatch.setitem(sys.modules, "litellm_proxy_extras.prisma_toolchain", None)
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setitem(sys.modules, "hangarllm_proxy_extras.prisma_toolchain", None)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
     verbose_logger.setLevel(logging.WARNING)
@@ -102,6 +102,6 @@ def test_a_skipped_migration_diff_is_one_json_record_in_json_mode(
     record: Final = json.loads(lines[0])
     assert (record["level"], record["message"]) == (
         "WARNING",
-        "Skipping the migration diff: litellm-proxy-extras has no Prisma runner. "
-        "Error: import of litellm_proxy_extras.prisma_toolchain halted; None in sys.modules",
+        "Skipping the migration diff: hangarllm-proxy-extras has no Prisma runner. "
+        "Error: import of hangarllm_proxy_extras.prisma_toolchain halted; None in sys.modules",
     )

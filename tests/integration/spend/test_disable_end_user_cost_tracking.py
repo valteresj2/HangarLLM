@@ -79,8 +79,8 @@ def _config(directory: Path, flag: bool | None) -> Path:
                     **object_value(configuration["general_settings"]),
                     "disable_responses_id_security": True,
                 },
-                "litellm_settings": {
-                    **object_value(configuration["litellm_settings"]),
+                "hangarllm_settings": {
+                    **object_value(configuration["hangarllm_settings"]),
                     "disable_end_user_cost_tracking": flag,
                 },
             }
@@ -99,7 +99,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
         owned_proxy_process(
             shared,
             directory,
-            {"LITELLM_LENS_URL": lens.url, "LITELLM_LENS_SERVICE_TOKEN": _LENS_TOKEN},
+            {"HANGARLLM_LENS_URL": lens.url, "HANGARLLM_LENS_SERVICE_TOKEN": _LENS_TOKEN},
             config=_config(directory, True),
             workers=2,
         ) as proxy,
@@ -262,7 +262,7 @@ def _chat_stream(gateway: Gateway, model: str, key: str, end_user: str, text: st
                 messages=[{"role": "user", "content": text}],
                 stream=True,
                 stream_options={"include_usage": True},
-                extra_headers={"x-litellm-end-user-id": end_user},
+                extra_headers={"x-hangarllm-end-user-id": end_user},
             )
         )
     finishes: Final = tuple(choice.finish_reason for chunk in chunks for choice in chunk.choices)
@@ -354,7 +354,7 @@ def _spend_rows(model: str, count: int) -> tuple[dict[str, JsonValue], ...]:
     return tuple(
         eventually(
             lambda: read_rows(
-                'SELECT request_id, end_user, spend, cache_hit, status FROM "LiteLLM_SpendLogs" '
+                'SELECT request_id, end_user, spend, cache_hit, status FROM "HangarLLM_SpendLogs" '
                 'WHERE model_group = %s ORDER BY "startTime"',
                 (model,),
             ),
@@ -367,7 +367,7 @@ def _spend_rows(model: str, count: int) -> tuple[dict[str, JsonValue], ...]:
 def _team_requests_flushed(team: str, count: int) -> None:
     eventually(
         lambda: read_rows(
-            'SELECT COALESCE(SUM(api_requests), 0)::int AS requests FROM "LiteLLM_DailyTeamSpend" WHERE team_id = %s',
+            'SELECT COALESCE(SUM(api_requests), 0)::int AS requests FROM "HangarLLM_DailyTeamSpend" WHERE team_id = %s',
             (team,),
         ),
         lambda rows: int(str(rows[0]["requests"])) >= count,
@@ -380,10 +380,10 @@ def _end_user_rows(end_users: tuple[str, ...]) -> tuple[tuple[dict[str, JsonValu
     return (
         tuple(
             read_rows(
-                f'SELECT end_user_id FROM "LiteLLM_DailyEndUserSpend" WHERE end_user_id IN ({placeholders})', end_users
+                f'SELECT end_user_id FROM "HangarLLM_DailyEndUserSpend" WHERE end_user_id IN ({placeholders})', end_users
             )
         ),
-        tuple(read_rows(f'SELECT user_id FROM "LiteLLM_EndUserTable" WHERE user_id IN ({placeholders})', end_users)),
+        tuple(read_rows(f'SELECT user_id FROM "HangarLLM_EndUserTable" WHERE user_id IN ({placeholders})', end_users)),
     )
 
 
@@ -534,8 +534,8 @@ def test_flag_on_header_sent_twice_and_body_user_are_none_attributed(rig: _Rig) 
             json={"model": model, "messages": [{"role": "user", "content": text}], "user": end_users[2]},
             headers=[
                 ("Authorization", f"Bearer {key}"),
-                ("x-litellm-end-user-id", end_users[0]),
-                ("x-litellm-end-user-id", end_users[1]),
+                ("x-hangarllm-end-user-id", end_users[0]),
+                ("x-hangarllm-end-user-id", end_users[1]),
             ],
         )
 
@@ -631,7 +631,7 @@ def test_flag_off_or_null_still_attributes_the_end_user(gateway: Gateway, tmp_pa
         assert [(row["request_id"], row["end_user"]) for row in rows] == [(response_id, end_user)], rows
         daily: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, api_requests FROM "LiteLLM_DailyEndUserSpend" WHERE end_user_id = %s', (end_user,)
+                'SELECT spend, api_requests FROM "HangarLLM_DailyEndUserSpend" WHERE end_user_id = %s', (end_user,)
             ),
             lambda values: len(values) == 1,
             seconds=70,

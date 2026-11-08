@@ -1,5 +1,5 @@
-"""The perf mock guardrail: a server speaking litellm's Generic Guardrail API contract
-(POST /beta/litellm_basic_guardrail_api), registered once as pre_call and once as post_call.
+"""The perf mock guardrail: a server speaking hangarllm's Generic Guardrail API contract
+(POST /beta/hangarllm_basic_guardrail_api), registered once as pre_call and once as post_call.
 What it does with a request is decided by the marker's flag: `-n` passes it through
 (`action: NONE`), `-i` rewrites the text (`[pre]` on the request, `[post]` on the response) so the
 test can see the rewrite reach the provider and the client, and `-b` blocks the request with the
@@ -25,7 +25,7 @@ class GuardrailRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
     input_type: Literal["request", "response"]
     texts: list[str] | None = None
-    litellm_call_id: str | None = None
+    hangarllm_call_id: str | None = None
     additional_provider_specific_params: dict[str, object] | None = None
 
     def latency_s(self) -> float:
@@ -48,13 +48,13 @@ class GuardrailResetResponse(BaseModel):
 
 
 def marker_of(body: GuardrailRequest, remembered: Mapping[str, str]) -> str | None:
-    """The request's marker: in the prompt on the request hook, remembered by `litellm_call_id` on the response
+    """The request's marker: in the prompt on the request hook, remembered by `hangarllm_call_id` on the response
     hook, since a generated provider reply does not contain it."""
     texts: Final = body.texts or []
     in_text: Final = next((found for text in texts if (found := marker_in(text)) is not None), None)
-    if in_text is not None or body.litellm_call_id is None:
+    if in_text is not None or body.hangarllm_call_id is None:
         return in_text
-    return remembered.get(body.litellm_call_id)
+    return remembered.get(body.hangarllm_call_id)
 
 
 def decide(body: GuardrailRequest, marker: str | None) -> tuple[Action, dict[str, object]]:
@@ -88,8 +88,8 @@ def build_app() -> FastAPI:
         if latency > 0:
             await asyncio.sleep(latency)
         marker: Final = marker_of(body, markers)
-        if marker is not None and body.litellm_call_id is not None and body.input_type == "request":
-            markers[body.litellm_call_id] = marker
+        if marker is not None and body.hangarllm_call_id is not None and body.input_type == "request":
+            markers[body.hangarllm_call_id] = marker
         action, content = decide(body, marker)
         calls.append(
             GuardrailCall(
@@ -109,7 +109,7 @@ def build_app() -> FastAPI:
         return GuardrailResetResponse(cleared=count)
 
     app.add_api_route("/health", health, methods=["GET"])
-    app.add_api_route("/beta/litellm_basic_guardrail_api", guard, methods=["POST"])
+    app.add_api_route("/beta/hangarllm_basic_guardrail_api", guard, methods=["POST"])
     app.add_api_route("/mock/calls", calls_seen, methods=["GET"])
     app.add_api_route("/mock/reset", reset, methods=["POST"])
     return app

@@ -143,7 +143,7 @@ def _started(directory: Path, callbacks: list[str]) -> Iterator[Rig]:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     path: Final = directory / "weave.yaml"
     path.write_text(
-        yaml.safe_dump({**config, "litellm_settings": {**config["litellm_settings"], "callbacks": callbacks}})
+        yaml.safe_dump({**config, "hangarllm_settings": {**config["hangarllm_settings"], "callbacks": callbacks}})
     )
     with (
         wire_server(_upstream_reply) as provider,
@@ -153,7 +153,7 @@ def _started(directory: Path, callbacks: list[str]) -> Iterator[Rig]:
             gateway,
             directory,
             {
-                "LITELLM_OTEL_V2": "1",
+                "HANGARLLM_OTEL_V2": "1",
                 "OTEL_BSP_SCHEDULE_DELAY": "100",
                 "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "span_only",
                 "WANDB_API_KEY": "operator-wandb-key",
@@ -187,7 +187,7 @@ def _chat(rig: Rig, key: str, prompt: str) -> tuple[int, str, str]:
         {"model": rig.model, "messages": [{"role": "user", "content": prompt}]},
         key=key,
     )
-    return response.status_code, response.headers.get("x-litellm-response-cost", ""), response.text
+    return response.status_code, response.headers.get("x-hangarllm-response-cost", ""), response.text
 
 
 def test_key_scoped_weave_gets_one_span_with_the_request_cost_in_the_keys_project(rig: Rig) -> None:
@@ -203,7 +203,7 @@ def test_key_scoped_weave_gets_one_span_with_the_request_cost_in_the_keys_projec
     assert span.status_code != Status.STATUS_CODE_ERROR, span
     expected_cost: Final = PROMPT_TOKENS * INPUT_RATE + COMPLETION_TOKENS * OUTPUT_RATE
     assert float(header_cost) == pytest.approx(expected_cost), header_cost
-    assert float(span.attributes["litellm.cost.total"]) == pytest.approx(expected_cost), span
+    assert float(span.attributes["hangarllm.cost.total"]) == pytest.approx(expected_cost), span
     assert span.attributes["gen_ai.usage.input_tokens"] == str(PROMPT_TOKENS), span
     assert span.attributes["gen_ai.usage.output_tokens"] == str(COMPLETION_TOKENS), span
 
@@ -220,4 +220,4 @@ def test_key_scoped_weave_gets_one_error_span_for_a_provider_failure_without_cos
     assert span.status_code == Status.STATUS_CODE_ERROR, span
     assert span.attributes["error.type"] == "AuthenticationError", span
     assert UPSTREAM_AUTH_ERROR in span.attributes["error.message"], span
-    assert float(span.attributes["litellm.cost.total"]) == 0, span
+    assert float(span.attributes["hangarllm.cost.total"]) == 0, span

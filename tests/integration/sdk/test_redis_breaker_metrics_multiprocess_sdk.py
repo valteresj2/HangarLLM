@@ -1,6 +1,6 @@
 """An SDK app under a prefork worker pool (Celery, gunicorn) with ``PROMETHEUS_MULTIPROC_DIR`` set: the Redis
 circuit-breaker state gauge must collect as one series per state across every worker, and it must stay off
-the registry entirely for an app that never turned on LiteLLM's own Prometheus logging."""
+the registry entirely for an app that never turned on HangarLLM's own Prometheus logging."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def test_prometheus_logging_turned_on_after_the_cache_still_reports_the_closed_b
     assert _collected_state_series(tmp_path) == _all_closed(1.0), report
 
 
-def test_app_without_litellm_prometheus_logging_gets_no_breaker_series(tmp_path: Path) -> None:
+def test_app_without_hangarllm_prometheus_logging_gets_no_breaker_series(tmp_path: Path) -> None:
     with wire_server(_reply) as wire:
         report: Final = _worked(run_breaker_worker("no_callbacks", wire.url, tmp_path))
     assert report.state_series == (), report

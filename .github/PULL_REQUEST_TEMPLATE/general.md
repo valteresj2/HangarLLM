@@ -38,7 +38,7 @@ How it solves it:
      Lead each list with one plain sentence saying where the flow fails (Before) or succeeds (After), then number the steps
      Keep it tight: aim for 3 to 5 steps per list, one line each, roughly 20 words max, and never pad a shorter flow with filler steps to hit the count. Cover the one path the PR changes and fold variants (case, other field, second endpoint) into a clause on the step they belong to rather than their own steps. The example below is the target length
      Every step is something the user does or observes: the HTTP method and full URL they hit, what they sent, and what visibly came back (status code, error text, the shape of an ID). UI steps name the page URL and what is on screen
-     No LiteLLM internals: never name functions, files, DB tables, config classes, hooks, callbacks, or code paths. "The upload hands back an ID that looks like OpenAI's own `file-abc123` instead of the scrambled one the gateway returned" is right, "no managed-file row was registered" is wrong
+     No HangarLLM internals: never name functions, files, DB tables, config classes, hooks, callbacks, or code paths. "The upload hands back an ID that looks like OpenAI's own `file-abc123` instead of the scrambled one the gateway returned" is right, "no managed-file row was registered" is wrong
      Keep the two lists step-for-step identical until they diverge, so the changed step is obvious
      If the bug had a security or authorization consequence, end each list with what another user could or could no longer do
      Regenerate this section, screenshots included, whenever new commits change the PR's behavior, so it never describes an older revision
@@ -48,16 +48,16 @@ Example:
 
 Before: a developer whose app streams chat completions gets no token counts back, so their cost dashboard reads zero
 
-1. They send POST https://litellm-domain/v1/chat/completions with `"stream": true` and no `stream_options`
+1. They send POST https://hangarllm-domain/v1/chat/completions with `"stream": true` and no `stream_options`
 2. The last SSE chunk arrives with `"usage": null`, so their app records 0 prompt and 0 completion tokens
-3. They open https://litellm-domain/ui/?page=logs and see the request logged at $0 spend
+3. They open https://hangarllm-domain/ui/?page=logs and see the request logged at $0 spend
 
 After: the same request comes back with real token counts, so the dashboard shows real spend
 
 1. The proxy admin sets `always_include_stream_usage: true` and restarts the proxy
-2. The developer sends the same POST https://litellm-domain/v1/chat/completions with `"stream": true` and no `stream_options`
+2. The developer sends the same POST https://hangarllm-domain/v1/chat/completions with `"stream": true` and no `stream_options`
 3. The last SSE chunk now carries a `usage` object with real prompt and completion token counts
-4. https://litellm-domain/ui/?page=logs shows that request at non-zero spend
+4. https://hangarllm-domain/ui/?page=logs shows that request at non-zero spend
 -->
 
 ## Relevant issues
@@ -74,7 +74,7 @@ After: the same request comes back with real token counts, so the dashboard show
 
 ## Pre-Submission checklist
 
-**Please complete all items before asking a LiteLLM maintainer to review your PR**
+**Please complete all items before asking a HangarLLM maintainer to review your PR**
 
 - [ ] I have added meaningful tests
 - [ ] The handful of test files covering my change pass locally, e.g. `uv run pytest tests/unit/<your_test_file>.py -v`. Leave the suites (`make test-unit-*`, `make test-unit`) to CI: it finishes in ~15 minutes where a laptop takes an hour or more
@@ -84,7 +84,7 @@ After: the same request comes back with real token counts, so the dashboard show
 
 ## Delays in PR merge?
 
-If you're seeing a delay in your PR being merged, ping the LiteLLM Team on [Slack (#pr-review)](https://join.slack.com/t/litellmossslack/shared_invite/zt-3o7nkuyfr-p_kbNJj8taRfXGgQI1~YyA).
+If you're seeing a delay in your PR being merged, ping the HangarLLM Team on [Slack (#pr-review)](https://join.slack.com/t/hangarllmossslack/shared_invite/zt-3o7nkuyfr-p_kbNJj8taRfXGgQI1~YyA).
 
 ## Screenshots / Proof of Fix
 
@@ -164,7 +164,7 @@ For each e2e test you added or changed, list the manual steps a reviewer can fol
 Example checklists:
 
 - tests/e2e/quota_management/ratelimit/test_rate_limit_e2e.py::TestKeyRateLimits::test_rpm_limit_blocks_over_limit - a key allowed 2 requests a minute serves exactly 2 and refuses the 3rd
-  - [ ] Generate a limited key: curl -X POST http://localhost:4000/key/generate -H "Authorization: Bearer $LITELLM_MASTER_KEY" -d '{"rpm_limit": 2}'
+  - [ ] Generate a limited key: curl -X POST http://localhost:4000/key/generate -H "Authorization: Bearer $HANGARLLM_MASTER_KEY" -d '{"rpm_limit": 2}'
   - [ ] Send three /v1/chat/completions requests with that key inside one minute
   - [ ] Expect the first two to return 200 and the third to return 429 naming the rpm limit
   - [ ] Sanity check: this test makes sense to add and is not hand-wavey (e.g., assert actual expected spend instead of just spend > 0) or potentially flaky

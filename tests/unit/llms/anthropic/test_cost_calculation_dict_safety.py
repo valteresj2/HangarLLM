@@ -2,14 +2,14 @@
 Tests that ``get_cost_for_anthropic_web_search`` tolerates ``server_tool_use``
 being either a ``dict`` or a ``ServerToolUse`` pydantic instance.
 
-See https://github.com/BerriAI/litellm/issues/26153.
+See upstream issue 26153
 """
 
 import pytest
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import get_web_search_requests
-from litellm.llms.anthropic.cost_calculation import get_cost_for_anthropic_web_search
-from litellm.types.utils import ModelInfo, ServerToolUse
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import get_web_search_requests
+from hangarllm.llms.anthropic.cost_calculation import get_cost_for_anthropic_web_search
+from hangarllm.types.utils import ModelInfo, ServerToolUse
 
 
 class _UsageWithServerToolUse:

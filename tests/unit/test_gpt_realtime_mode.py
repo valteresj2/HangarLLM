@@ -4,7 +4,7 @@ from typing import get_args
 
 from typing_extensions import get_type_hints
 
-from litellm.types.utils import ModelInfoBase
+from hangarllm.types.utils import ModelInfoBase
 
 REALTIME_ONLY_GPT_MODELS = (
     "azure/gpt-realtime-2025-08-28",
@@ -48,7 +48,7 @@ def test_backup_matches_main_for_realtime_models():
     repo_root = Path(__file__).parents[2]
     with open(repo_root / "model_prices_and_context_window.json") as f:
         main_cost = json.load(f)
-    with open(repo_root / "litellm" / "model_prices_and_context_window_backup.json") as f:
+    with open(repo_root / "hangarllm" / "model_prices_and_context_window_backup.json") as f:
         backup_cost = json.load(f)
     for model in ALL_REALTIME_ONLY_GPT_MODELS:
         assert backup_cost.get(model) == main_cost.get(model)

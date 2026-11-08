@@ -36,7 +36,7 @@ from anthropic.types import Message, MessageParam, TextBlockParam
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from pydantic import BaseModel
 from sdk_clients import NO_PROXY_CACHE, SdkClients
@@ -97,7 +97,7 @@ def _send(client: Anthropic, model: str, system_block: TextBlockParam, messages:
 
 def _register_invoke_deployment(proxy: ProxyClient, resources: ResourceManager, bedrock_model: str) -> str:
     model = f"e2e-midsys-{unique_marker()}"
-    model_id = proxy.create_model(model, LiteLLMParamsBody(model=bedrock_model, aws_region_name=AWS_REGION))
+    model_id = proxy.create_model(model, HangarLLMParamsBody(model=bedrock_model, aws_region_name=AWS_REGION))
     resources.defer(lambda: proxy.delete_model(model_id))
     return model
 
@@ -198,7 +198,7 @@ def _reminder_turn_messages(primed: PrimedCache) -> tuple[MessageParam, ...]:
 MID_CONVERSATION_CACHE_SKIP_REASON = (
     "LIT-4873: a mid-conversation role='system' reminder invalidates the prompt cache on the "
     "vertex_ai / azure_ai / bedrock_invoke Messages paths, while the same request preserves it "
-    "both direct to Anthropic and through litellm's first-party anthropic path. Product bug, not "
+    "both direct to Anthropic and through hangarllm's first-party anthropic path. Product bug, not "
     "a test defect: the assertion here is correct and must be restored unchanged with the fix"
 )
 

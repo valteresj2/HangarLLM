@@ -4,24 +4,24 @@ Tests for XAI Responses API transformation
 Tests the XAIResponsesAPIConfig class that handles XAI-specific
 transformations for the Responses API.
 
-Source: litellm/llms/xai/responses/transformation.py
+Source: hangarllm/llms/xai/responses/transformation.py
 """
 
 from unittest.mock import MagicMock, Mock
 
 import httpx
 
-from litellm.llms.xai.cost_calculator import cost_per_token
-from litellm.llms.xai.responses.transformation import XAIResponsesAPIConfig
-from litellm.responses.utils import ResponseAPILoggingUtils
-from litellm.types.llms.openai import (
+from hangarllm.llms.xai.cost_calculator import cost_per_token
+from hangarllm.llms.xai.responses.transformation import XAIResponsesAPIConfig
+from hangarllm.responses.utils import ResponseAPILoggingUtils
+from hangarllm.types.llms.openai import (
     ResponseAPIUsage,
     ResponseCompletedEvent,
     ResponsesAPIOptionalRequestParams,
     ResponsesAPIResponse,
 )
-from litellm.types.utils import LlmProviders, Usage
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.utils import LlmProviders, Usage
+from hangarllm.utils import ProviderConfigManager
 
 
 class TestXAIResponsesAPITransformation:
@@ -77,15 +77,15 @@ class TestXAIResponsesAPITransformation:
         config = XAIResponsesAPIConfig()
 
         # Test with default XAI API base
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, hangarllm_params={})
         assert url == "https://api.x.ai/v1/responses", f"Expected XAI responses endpoint, got {url}"
 
         # Test with custom api_base
-        custom_url = config.get_complete_url(api_base="https://custom.x.ai/v1", litellm_params={})
+        custom_url = config.get_complete_url(api_base="https://custom.x.ai/v1", hangarllm_params={})
         assert custom_url == "https://custom.x.ai/v1/responses", f"Expected custom endpoint, got {custom_url}"
 
         # Test with trailing slash
-        url_with_slash = config.get_complete_url(api_base="https://api.x.ai/v1/", litellm_params={})
+        url_with_slash = config.get_complete_url(api_base="https://api.x.ai/v1/", hangarllm_params={})
         assert url_with_slash == "https://api.x.ai/v1/responses", "Should handle trailing slash"
 
     def test_web_search_tool_transformation(self):
@@ -453,7 +453,7 @@ class TestXAIResponsesWebSearchBilling:
 
 
 class TestXAIResponsesReportedCost:
-    """xAI reports what it charged; the transformation moves it to where litellm bills from.
+    """xAI reports what it charged; the transformation moves it to where hangarllm bills from.
 
     ``ResponseAPILoggingUtils`` copies ``usage.cost`` onto the chat Usage that cost
     tracking prices, so restating ``cost_in_usd_ticks`` there is what makes /v1/responses

@@ -171,7 +171,7 @@ def _openai_client(gateway: Gateway) -> openai.OpenAI:
 def _spend_row(request_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, model_group FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)
+            'SELECT request_id, status, model_group FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)
         ),
         lambda found: len(found) == 1,
         seconds=70,
@@ -666,7 +666,7 @@ def _completed_id(item: _Served) -> str | None:
 
 def _success_rows(model: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s AND status=%s', (model, "success")
+        'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s AND status=%s', (model, "success")
     )
 
 
@@ -712,7 +712,7 @@ def _chaos_config(wire: Wire, directory: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": _CONFIG_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"anthropic/{MODEL}",
                 "api_base": wire.url,
                 "api_key": "scripted-anthropic-key",

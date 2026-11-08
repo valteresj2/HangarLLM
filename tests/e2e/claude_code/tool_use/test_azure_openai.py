@@ -1,13 +1,13 @@
 """tool_use x Azure OpenAI (GPT-5.6).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that
+Drive the real `claude` CLI against a running HangarLLM proxy that
 routes Anthropic Messages requests to Azure OpenAI deployments of the
 GPT-5.6 family (Sol, Terra, Luna), ask the model to invoke a built-in
 tool (`Bash`), and assert that a `tool_use` content block came back
 over the wire.
 
 Azure OpenAI serves the same function-calling wire shape as
-openai.com behind per-resource deployments; LiteLLM's `azure/gpt-*`
+openai.com behind per-resource deployments; HangarLLM's `azure/gpt-*`
 route reuses the OpenAI tool translation on top of Azure's deployment
 addressing and auth.
 
@@ -79,7 +79,7 @@ def _has_tool_use_event(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_tool_use_azure_openai(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     tool call was emitted on the wire by each GPT-5.6 tier."""
     proxy = require_proxy(compat_result)
 

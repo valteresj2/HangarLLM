@@ -88,7 +88,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
         deployments: Final = {name: entry for (name, *_), (_, entry) in zip(_SPECS, built, strict=True)}
         config: Final[dict[str, JsonValue]] = {
             "model_list": [entry for _, entry in built],
-            "router_settings": {"default_litellm_params": ROUTER_DEFAULTS, "num_retries": 0},
+            "router_settings": {"default_hangarllm_params": ROUTER_DEFAULTS, "num_retries": 0},
             "general_settings": {"allow_client_side_credentials": True},
         }
         with owned_gateway(tmp_path_factory.mktemp("audit-defaults"), config) as owned:
@@ -103,7 +103,7 @@ _POSITIONAL: Final[dict[str, tuple[str, str, str, str, dict[str, JsonValue]]]] =
 
 
 def _user_config(rig: _Rig, name: str, defaults: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
-    return {"model_list": [rig.deployments[name]], "default_litellm_params": dict(defaults)}
+    return {"model_list": [rig.deployments[name]], "default_hangarllm_params": dict(defaults)}
 
 
 @pytest.mark.parametrize("route", tuple(_POSITIONAL))
@@ -132,7 +132,7 @@ def test_positional_param_from_any_default_source_returns_400(rig: _Rig, route: 
 @pytest.mark.parametrize("route", tuple(_POSITIONAL))
 def test_positional_param_in_the_body_reaches_upstream(rig: _Rig, route: str) -> None:
     pytest.skip(
-        "BUG: a router-wide default_litellm_params value replaces the caller's own positional param "
+        "BUG: a router-wide default_hangarllm_params value replaces the caller's own positional param "
         "(prompt/input) on its way to the provider; same on the merge base"
     )
     path, _error_route, name, param, extra = _POSITIONAL[route]

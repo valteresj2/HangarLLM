@@ -20,8 +20,8 @@ GEMINI_3_1_FLASH_IMAGE_USAGE: Final = JSON_OBJECT.validate_python(GEMINI_3_1_FLA
 
 CLAUDE_SONNET_4_TEST_CASE: Final = TranslationTestCase(
     scenario="reasoning_content",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "openrouter/anthropic/claude-sonnet-4",
         "messages": [{"role": "user", "content": "Hello world"}],
         "reasoning": {"effort": "high"},
@@ -31,8 +31,8 @@ CLAUDE_SONNET_4_TEST_CASE: Final = TranslationTestCase(
     expected_provider_headers={
         "authorization": "Bearer synthetic-openrouter-key",
         "content-type": "application/json",
-        "http-referer": "https://litellm.ai",
-        "x-title": "liteLLM",
+        "http-referer": "https://github.com/valteresj2/HangarLLM#readme",
+        "x-title": "hangarLLM",
     },
     expected_provider_request={
         "model": "anthropic/claude-sonnet-4",
@@ -42,7 +42,7 @@ CLAUDE_SONNET_4_TEST_CASE: Final = TranslationTestCase(
         "usage": {"include": True},
     },
     mock_provider_response=CLAUDE_SONNET_4_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": CLAUDE_SONNET_4_RESPONSE["id"],
         "object": "chat.completion",
         "created": CLAUDE_SONNET_4_RESPONSE["created"],
@@ -81,8 +81,8 @@ CLAUDE_SONNET_4_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_3_1_FLASH_IMAGE_TEST_CASE: Final = TranslationTestCase(
     scenario="image_generation",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "openrouter/google/gemini-3.1-flash-image",
         "messages": [
             {
@@ -97,8 +97,8 @@ GEMINI_3_1_FLASH_IMAGE_TEST_CASE: Final = TranslationTestCase(
     expected_provider_headers={
         "authorization": "Bearer synthetic-openrouter-key",
         "content-type": "application/json",
-        "http-referer": "https://litellm.ai",
-        "x-title": "liteLLM",
+        "http-referer": "https://github.com/valteresj2/HangarLLM#readme",
+        "x-title": "hangarLLM",
     },
     expected_provider_request={
         "model": "google/gemini-3.1-flash-image",
@@ -113,7 +113,7 @@ GEMINI_3_1_FLASH_IMAGE_TEST_CASE: Final = TranslationTestCase(
         "usage": {"include": True},
     },
     mock_provider_response=GEMINI_3_1_FLASH_IMAGE_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": GEMINI_3_1_FLASH_IMAGE_RESPONSE["id"],
         "object": "chat.completion",
         "created": GEMINI_3_1_FLASH_IMAGE_RESPONSE["created"],

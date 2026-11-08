@@ -74,7 +74,7 @@ const test = base.extend<Fixtures>({
     const name = `e2e_rules_${uniqueSuffix().replaceAll("-", "")}`;
     const registration = await page.request.post(`${rootPath()}/v1/mcp/server/register`, {
       headers: {
-        "x-litellm-api-key": teamKey,
+        "x-hangarllm-api-key": teamKey,
         "Content-Type": "application/json",
       },
       data: {

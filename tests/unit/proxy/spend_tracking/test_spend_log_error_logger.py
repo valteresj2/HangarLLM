@@ -1,5 +1,5 @@
 """
-Unit tests for ``litellm.proxy.spend_tracking.spend_log_error_logger``.
+Unit tests for ``hangarllm.proxy.spend_tracking.spend_log_error_logger``.
 
 The helper exists to let proxy operators silence the multi-line stack traces
 that the spend-tracking machinery normally emits on 4xx/5xx and DB errors.
@@ -16,8 +16,8 @@ import logging
 
 import pytest
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.spend_tracking.spend_log_error_logger import (
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.proxy.spend_tracking.spend_log_error_logger import (
     SUPPRESS_SPEND_LOG_TRACEBACKS_ENV,
     should_suppress_spend_log_tracebacks,
     spend_log_error,

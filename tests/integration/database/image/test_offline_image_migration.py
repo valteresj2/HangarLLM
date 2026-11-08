@@ -9,7 +9,7 @@ under `docker run` as the default uid with network still passes every existing
 check, because the migration entrypoint exits 0 even when it applied nothing.
 Asserting the table count is what turns that silent success into a hard fail.
 
-Gated on LITELLM_IMAGE (the tag of the image to exercise) so it is skipped in
+Gated on HANGARLLM_IMAGE (the tag of the image to exercise) so it is skipped in
 the normal unit-test run and exercised only where an image has been built (the
 image-scan workflow). Requires a working docker CLI.
 """
@@ -21,18 +21,18 @@ import uuid
 import os
 import pytest
 
-IMAGE = os.getenv("LITELLM_IMAGE")
-POSTGRES_IMAGE = os.getenv("LITELLM_TEST_POSTGRES_IMAGE", "postgres:16-alpine")
-MIN_TABLES = int(os.getenv("LITELLM_TEST_MIN_TABLES", "20"))
+IMAGE = os.getenv("HANGARLLM_IMAGE")
+POSTGRES_IMAGE = os.getenv("HANGARLLM_TEST_POSTGRES_IMAGE", "postgres:16-alpine")
+MIN_TABLES = int(os.getenv("HANGARLLM_TEST_MIN_TABLES", "20"))
 NON_ROOT_UID = "12345:0"  # arbitrary uid in GID 0, as OpenShift restricted-v2 assigns
 
-MIGRATION_INTERPRETER = os.getenv("LITELLM_MIGRATION_INTERPRETER", "python")
+MIGRATION_INTERPRETER = os.getenv("HANGARLLM_MIGRATION_INTERPRETER", "python")
 MIGRATION_SCRIPT = os.getenv(
-    "LITELLM_MIGRATION_SCRIPT", "litellm/proxy/prisma_migration.py"
+    "HANGARLLM_MIGRATION_SCRIPT", "hangarllm/proxy/prisma_migration.py"
 )
 
 pytestmark = [
-    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set LITELLM_IMAGE)"),
+    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set HANGARLLM_IMAGE)"),
     pytest.mark.skipif(shutil.which("docker") is None, reason="requires the docker CLI"),
 ]
 
@@ -62,7 +62,7 @@ def offline_postgres():
     try:
         _docker(
             "run", "-d", "--name", pg, "--network", network,
-            "-e", "POSTGRES_PASSWORD=pw", "-e", "POSTGRES_DB=litellm",
+            "-e", "POSTGRES_PASSWORD=pw", "-e", "POSTGRES_DB=hangarllm",
             POSTGRES_IMAGE,
         )
         _wait_until_ready(pg)
@@ -82,7 +82,7 @@ def _wait_until_ready(pg: str, attempts: int = 60) -> None:
             logs = _docker("logs", pg, check=False).stdout + _docker("logs", pg, check=False).stderr
             pytest.fail(f"postgres container is not running:\n{logs}")
         ready = _docker(
-            "exec", pg, "pg_isready", "-U", "postgres", "-d", "litellm", check=False
+            "exec", pg, "pg_isready", "-U", "postgres", "-d", "hangarllm", check=False
         )
         if ready.returncode == 0:
             return
@@ -92,7 +92,7 @@ def _wait_until_ready(pg: str, attempts: int = 60) -> None:
 
 def _table_count(pg: str) -> int:
     result = _docker(
-        "exec", pg, "psql", "-U", "postgres", "-d", "litellm", "-tAc",
+        "exec", pg, "psql", "-U", "postgres", "-d", "hangarllm", "-tAc",
         "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';",
     )
     return int(result.stdout.strip() or "0")
@@ -110,8 +110,8 @@ def test_migration_offline_as_non_root_uid(offline_postgres):
 
     migrate = _docker(
         "run", "--rm", "--network", network, "--user", NON_ROOT_UID,
-        "-e", f"DATABASE_URL=postgresql://postgres:pw@{pg}:5432/litellm",
-        "-e", "LITELLM_MASTER_KEY=sk-offline-migration-test",
+        "-e", f"DATABASE_URL=postgresql://postgres:pw@{pg}:5432/hangarllm",
+        "-e", "HANGARLLM_MASTER_KEY=sk-offline-migration-test",
         "-e", "DISABLE_SCHEMA_UPDATE=false",
         "-w", "/app", "--entrypoint", MIGRATION_INTERPRETER,
         IMAGE, MIGRATION_SCRIPT,

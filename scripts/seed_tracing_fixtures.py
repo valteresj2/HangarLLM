@@ -25,15 +25,15 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
-from litellm.rust_bridge.clickhouse import spend_storage_config
-from litellm.tracing.generated.types import AllQueryScope, Trace
-from litellm.tracing.remote import LensConnection, RemoteTraceStore
-from litellm.tracing.storage import LensTraceStorage
-from litellm.tracing.types import SpendLogRecord
+from hangarllm.rust_bridge.clickhouse import spend_storage_config
+from hangarllm.tracing.generated.types import AllQueryScope, Trace
+from hangarllm.tracing.remote import LensConnection, RemoteTraceStore
+from hangarllm.tracing.storage import LensTraceStorage
+from hangarllm.tracing.types import SpendLogRecord
 
 if TYPE_CHECKING:
     from prisma import Prisma
-    from prisma.types import LiteLLM_SpendLogsCreateWithoutRelationsInput
+    from prisma.types import HangarLLM_SpendLogsCreateWithoutRelationsInput
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
 TRACE_FIXTURES: Final = REPO_ROOT / "scripts/lens_assets/fixtures/traces"
@@ -92,7 +92,7 @@ def spend_fixtures(directory: Path = SPEND_FIXTURES) -> tuple[tuple[str, tuple[S
             path.stem.removesuffix("_spend_logs"),
             SPEND_ROWS.validate_python(
                 tuple(
-                    {"litellm_call_id": "", **JSON_OBJECT.validate_json(line)} for line in path.read_text().splitlines()
+                    {"hangarllm_call_id": "", **JSON_OBJECT.validate_json(line)} for line in path.read_text().splitlines()
                 )
             ),
         )
@@ -125,7 +125,7 @@ def response_pattern(rows: tuple[SpendLogRecord, ...]) -> re.Pattern[str]:
             identity
             for identity in chain(
                 response_ids(rows),
-                (row["litellm_call_id"] for row in rows),
+                (row["hangarllm_call_id"] for row in rows),
                 (row.get("provider_request_id", "") for row in rows),
             )
             if identity
@@ -261,11 +261,11 @@ def rebase_spend(
     )
 
 
-def postgres_row(row: SpendLogRecord) -> LiteLLM_SpendLogsCreateWithoutRelationsInput:
+def postgres_row(row: SpendLogRecord) -> HangarLLM_SpendLogsCreateWithoutRelationsInput:
     from prisma import Json
-    from prisma.types import LiteLLM_SpendLogsCreateWithoutRelationsInput
+    from prisma.types import HangarLLM_SpendLogsCreateWithoutRelationsInput
 
-    return LiteLLM_SpendLogsCreateWithoutRelationsInput(
+    return HangarLLM_SpendLogsCreateWithoutRelationsInput(
         request_id=row["request_id"],
         call_type=row["call_type"],
         api_key=row["api_key"],
@@ -340,7 +340,7 @@ async def seed_copy(
     stamped: Final = tuple((name, tuple(stamp(row, tenant) for row in rows)) for name, rows in paired)
     stamped_spends: Final = tuple(chain.from_iterable(rows for _, rows in stamped))
     await storage.insert_rows("spend_logs", stamped_spends)
-    await database.litellm_spendlogs.create_many(data=[postgres_row(row) for row in stamped_spends])
+    await database.hangarllm_spendlogs.create_many(data=[postgres_row(row) for row in stamped_spends])
     return stamped
 
 
@@ -374,7 +374,7 @@ async def ingest_replays(
         "SELECT DISTINCT TeamId AS team_id, ApiKeyHash AS api_key, UserId AS user "
         f"FROM otel_traces WHERE TraceId = '{trace_id}'",
         AllQueryScope(kind="all"),
-        os.environ["LITELLM_MASTER_KEY"],
+        os.environ["HANGARLLM_MASTER_KEY"],
     )
     return TenantIdentity.model_validate(identity.data[0])
 
@@ -384,7 +384,7 @@ async def seeded_trace_ids(storage: RemoteTraceStore, api_key_hash: str) -> tupl
     result: Final = await LensTraceStorage(storage).query_sql(
         f"SELECT DISTINCT TraceId AS trace_id FROM otel_traces WHERE ApiKeyHash = '{literal}' ORDER BY trace_id",
         AllQueryScope(kind="all"),
-        os.environ["LITELLM_MASTER_KEY"],
+        os.environ["HANGARLLM_MASTER_KEY"],
     )
     return TypeAdapter(tuple[str, ...]).validate_python(tuple(row["trace_id"] for row in result.data))
 
@@ -443,7 +443,7 @@ SELECT t.* REPLACE (
     t.Duration + if({folded_root}, {{last:UInt64}} * {{step_ms:UInt64}} * 1000000, 0) AS Duration,
     arrayMap(at -> at - {shift}, t.`Events.Timestamp`) AS `Events.Timestamp`,
     mapApply((name, value) -> (name, {clickhouse_call_id("value")}), t.SpanAttributes) AS SpanAttributes,
-    {clickhouse_call_id("t.LiteLLMRequestId")} AS LiteLLMRequestId,
+    {clickhouse_call_id("t.HangarLLMRequestId")} AS HangarLLMRequestId,
     arrayMap(key -> concat(extract(key, '^[^:]*:'), {clickhouse_call_id("replaceRegexpOne(key, '^[^:]*:', '')")}),
         t.CallKeys) AS CallKeys
 )
@@ -455,7 +455,7 @@ SELECT s.* REPLACE (
     {clickhouse_call_id("s.request_id")} AS request_id,
     {clickhouse_call_id("s.response_id")} AS response_id,
     {clickhouse_call_id("s.provider_request_id")} AS provider_request_id,
-    {clickhouse_call_id("s.litellm_call_id")} AS litellm_call_id,
+    {clickhouse_call_id("s.hangarllm_call_id")} AS hangarllm_call_id,
     {clickhouse_hash("s.trace_id", trace_salt, 32)} AS trace_id,
     {clickhouse_hash("s.session_id", trace_salt, 32)} AS session_id,
     if(s.span_id IN {roots}, s.span_id, {clickhouse_hash("s.span_id", "toString(c.n)", 16)}) AS span_id,
@@ -490,7 +490,7 @@ async def copy_clickhouse(client: httpx.AsyncClient, database: str, copies: Copi
 
 POSTGRES_COPY_TARGET: Final = "($2 || c.n || '-')"
 POSTGRES_COPY_SHIFT: Final = "make_interval(secs => c.n * $6::bigint / 1000.0)"
-POSTGRES_COPY_SQL: Final = f"""INSERT INTO "LiteLLM_SpendLogs"
+POSTGRES_COPY_SQL: Final = f"""INSERT INTO "HangarLLM_SpendLogs"
 SELECT (jsonb_populate_record(s, jsonb_build_object(
     'request_id', CASE WHEN left(s.request_id, 5) = 'resp_'
         THEN 'resp_' || translate(encode(convert_to(replace(convert_from(decode(substr(s.request_id, 6), 'base64'),
@@ -503,7 +503,7 @@ SELECT (jsonb_populate_record(s, jsonb_build_object(
     'endTime', s."endTime" - {POSTGRES_COPY_SHIFT},
     'completionStartTime', s."completionStartTime" - {POSTGRES_COPY_SHIFT}
 ))).*
-FROM "LiteLLM_SpendLogs" AS s CROSS JOIN generate_series($4::int, $5::int) AS c(n)
+FROM "HangarLLM_SpendLogs" AS s CROSS JOIN generate_series($4::int, $5::int) AS c(n)
 WHERE s.request_id = ANY(string_to_array($7, E'\\n'))"""
 
 
@@ -553,7 +553,7 @@ async def ingestion_client(client: httpx.AsyncClient, timeout_seconds: float) ->
         if not created.active:
             raise RuntimeError("Lens ingestion is not ready; start the Lens service before seeding")
         async with httpx.AsyncClient(
-            base_url=os.environ["LITELLM_LENS_URL"],
+            base_url=os.environ["HANGARLLM_LENS_URL"],
             headers={"Authorization": f"Bearer {created.key}"},
             timeout=timeout_seconds,
         ) as uploader:
@@ -578,7 +578,7 @@ async def seed(profile: str = "default", copies: int | None = None, timeout_seco
     async with (
         httpx.AsyncClient(
             base_url=os.environ.get("PROXY_BASE_URL", "http://127.0.0.1:4002"),
-            headers={"Authorization": f"Bearer {os.environ['LITELLM_MASTER_KEY']}"},
+            headers={"Authorization": f"Bearer {os.environ['HANGARLLM_MASTER_KEY']}"},
             timeout=timeout_seconds,
         ) as client,
         httpx.AsyncClient(base_url=config.url, params={"database": config.database}, timeout=600) as clickhouse,

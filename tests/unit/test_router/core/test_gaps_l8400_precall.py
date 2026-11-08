@@ -1,7 +1,7 @@
 """
 Gaps in the routing-strategy pre-call checks and the Responses-websocket turn admission of ``PythonCore``
 (router_python_core.py ``routing_strategy_pre_call_checks``, ``async_routing_strategy_pre_call_checks``,
-``async_admit_deployment_turn``). A ``CustomLogger`` on the host's ``callbacks`` list (``litellm.callbacks``)
+``async_admit_deployment_turn``). A ``CustomLogger`` on the host's ``callbacks`` list (``hangarllm.callbacks``)
 takes part in those checks through ``pre_call_check`` / ``async_pre_call_check``.
 """
 
@@ -10,9 +10,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_core import RouterCore
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost
 from tests.unit.test_router.core.retries_health_helpers import attempt, attempt_sync, cooled_down
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rate_limit
@@ -62,8 +62,8 @@ async def test_a_rate_limit_from_a_pre_call_check_cools_the_deployment_down_and_
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RateLimitError)
-    assert str(error) == "litellm.RateLimitError: gate says no"
+    assert isinstance(error, hangarllm.RateLimitError)
+    assert str(error) == "hangarllm.RateLimitError: gate says no"
     assert host.calls == []
     ((kind, checked),) = gate.seen
     assert kind == "async"
@@ -109,7 +109,7 @@ def test_a_rate_limit_from_a_sync_pre_call_check_is_raised_without_a_cooldown(
 
     error: Final = attempt_sync(core)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert host.calls == []
     assert [kind for kind, _ in gate.seen] == ["sync"]
     assert cooled_down(core, ["a", "b"]) == {}
@@ -156,7 +156,7 @@ class TestResponsesWebsocketTurnAdmission:
         admit: Final = await self.open_socket(core, host)
         gate.error = rate_limit(message="turn refused")
 
-        with pytest.raises(litellm.RateLimitError, match="turn refused"):
+        with pytest.raises(hangarllm.RateLimitError, match="turn refused"):
             await admit()  # pyright: ignore[reportGeneralTypeIssues]
 
     @pytest.mark.asyncio
@@ -169,10 +169,10 @@ class TestResponsesWebsocketTurnAdmission:
         admit: Final = await self.open_socket(core, host)
 
         admitted: Final = [dict(await admit()) for _ in range(3)]  # pyright: ignore[reportGeneralTypeIssues]
-        with pytest.raises(litellm.RateLimitError) as refused:
+        with pytest.raises(hangarllm.RateLimitError) as refused:
             await admit()  # pyright: ignore[reportGeneralTypeIssues]
 
         assert admitted == [{}, {}, {}]
         assert str(refused.value).startswith(
-            "litellm.RateLimitError: No deployments available for selected model. Passed model=g. Deployments="
+            "hangarllm.RateLimitError: No deployments available for selected model. Passed model=g. Deployments="
         )

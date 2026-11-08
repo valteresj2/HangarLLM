@@ -20,14 +20,14 @@ def test_aggregated_team_activity_reports_the_whole_range_team_spend_in_one_page
                 reply: Final = gateway.chat(model, key=key, text=f"team activity {uuid.uuid4().hex}")
                 assert reply["usage"]["total_tokens"] == 40, reply
         logged: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE team_id=%s', (team,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE team_id=%s', (team,)),
             lambda values: len(values) == 4,
             seconds=70,
         )
         assert sum(float(row["spend"]) for row in logged) == pytest.approx(0.24)
         daily: Final = eventually(
             lambda: read_rows(
-                'SELECT api_key, spend, successful_requests FROM "LiteLLM_DailyTeamSpend" WHERE team_id=%s', (team,)
+                'SELECT api_key, spend, successful_requests FROM "HangarLLM_DailyTeamSpend" WHERE team_id=%s', (team,)
             ),
             lambda values: sum(float(row["spend"]) for row in values) >= 0.24 - 1e-9,
             seconds=70,

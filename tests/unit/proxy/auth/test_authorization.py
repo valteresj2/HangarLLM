@@ -2,8 +2,8 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.authorization import OwnedRows, resolve_owned_read_scope, resolve_trace_read_scope
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.auth.authorization import OwnedRows, resolve_owned_read_scope, resolve_trace_read_scope
 
 
 @pytest.mark.asyncio

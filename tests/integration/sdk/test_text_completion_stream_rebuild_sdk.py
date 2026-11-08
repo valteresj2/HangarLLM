@@ -10,8 +10,8 @@ from integration._support.timing import assert_within_factor_of_control, timed
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.types.utils import TextCompletionResponse
+import hangarllm
+from hangarllm.types.utils import TextCompletionResponse
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _PROVIDER_KEY: Final = "synthetic-provider-key"
@@ -129,7 +129,7 @@ def _stream_options(include_usage: bool) -> dict[str, object]:
 async def _async_chunks(
     member: Member, wire: Wire, include_usage: bool, extra: Mapping[str, object]
 ) -> tuple[TextCompletionResponse, ...]:
-    stream: Final = await litellm.atext_completion(
+    stream: Final = await hangarllm.atext_completion(
         model=member.model,
         prompt="rebuild probe",
         api_base=wire.url + "/v1",
@@ -144,7 +144,7 @@ async def _async_chunks(
 
 
 def _sync_chunks(member: Member, wire: Wire, include_usage: bool) -> tuple[TextCompletionResponse, ...]:
-    stream: Final = litellm.text_completion(
+    stream: Final = hangarllm.text_completion(
         model=member.model,
         prompt="rebuild probe",
         api_base=wire.url + "/v1",
@@ -158,7 +158,7 @@ def _sync_chunks(member: Member, wire: Wire, include_usage: bool) -> tuple[TextC
 
 
 def _rebuilt(chunks: tuple[TextCompletionResponse, ...]) -> TextCompletionResponse:
-    rebuilt: Final = litellm.stream_chunk_builder(chunks=list(chunks))
+    rebuilt: Final = hangarllm.stream_chunk_builder(chunks=list(chunks))
     assert isinstance(rebuilt, TextCompletionResponse), rebuilt
     return rebuilt
 
@@ -213,7 +213,7 @@ async def test_rebuilt_text_completion_stream_without_reported_usage_counts_the_
     text: Final = "".join(_PIECES)
     assert rebuilt.choices[0].text == text, rebuilt
     assert rebuilt.choices[0].finish_reason == "length", rebuilt
-    expected_completion: Final = litellm.token_counter(model=chosen.model, text=text, count_response_tokens=True)
+    expected_completion: Final = hangarllm.token_counter(model=chosen.model, text=text, count_response_tokens=True)
     assert expected_completion > 0
     assert rebuilt.usage.completion_tokens == expected_completion, rebuilt.usage
     assert rebuilt.usage.total_tokens == rebuilt.usage.prompt_tokens + rebuilt.usage.completion_tokens, rebuilt.usage

@@ -23,7 +23,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
 WRITER_PROBE_SQL: Final = "SELECT current_setting('transaction_read_only') AS transaction_read_only"
 

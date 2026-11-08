@@ -1,4 +1,4 @@
-"""Tests for litellm/harness/sync.py: the sync bridge over the async runtime."""
+"""Tests for hangarllm/harness/sync.py: the sync bridge over the async runtime."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import threading
 
 import pytest
 
-from litellm.harness import sync
-from litellm.harness.types import Approval, Done, Harness, State, Text
+from hangarllm.harness import sync
+from hangarllm.harness.types import Approval, Done, Harness, State, Text
 from tests.unit.harness.core_fakes import (
     FakeSandbox,
     install_adapter,
@@ -95,7 +95,7 @@ def test_single_background_loop_thread(monkeypatch, sandbox):
     sync.agent(Harness.CLAUDE_CODE, "hi", sandbox=sandbox)
     assert sync._LOOP.loop() is first
     names = [t.name for t in threading.enumerate()]
-    assert names.count("litellm-harness-loop") == 1
+    assert names.count("hangarllm-harness-loop") == 1
 
 
 async def test_run_inside_event_loop_raises(monkeypatch, sandbox):
@@ -110,5 +110,5 @@ async def test_run_inside_event_loop_raises(monkeypatch, sandbox):
 
 def test_run_inside_asyncio_run_raises(monkeypatch, sandbox):
     install_adapter(monkeypatch)
-    with pytest.raises(RuntimeError, match=r"await litellm\.aagent"):
+    with pytest.raises(RuntimeError, match=r"await hangarllm\.aagent"):
         asyncio.run(_call_run_in_loop(sandbox))

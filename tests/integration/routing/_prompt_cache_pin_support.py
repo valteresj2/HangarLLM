@@ -109,7 +109,7 @@ def pin_at(redis: Redis, key: str) -> Pin | None:
 
 
 def spend_rows(response_id: str) -> int:
-    return len(read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response_id,)))
+    return len(read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response_id,)))
 
 
 def spend_row_lands(response_id: str) -> None:
@@ -119,11 +119,11 @@ def spend_row_lands(response_id: str) -> None:
 
 def end_user_row_lands(user: str) -> None:
     eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE end_user=%s', (user,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE end_user=%s', (user,)),
         lambda rows: len(rows) >= 1,
         seconds=70,
     )
-    assert len(read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE end_user=%s', (user,))) == 1
+    assert len(read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE end_user=%s', (user,))) == 1
 
 
 def no_pin_written(redis: Redis, before: frozenset[str], response_id: str) -> None:
@@ -205,7 +205,7 @@ def openai_peer(request: Request) -> Reply:
 def anthropic_deployment(name: str, identity: str, api_base: str, **fields: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "anthropic/claude-opus-5-5",
             "api_base": api_base,
             "api_key": PROVIDER_KEY,
@@ -220,7 +220,7 @@ def bedrock_deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": model,
             "api_key": BEDROCK_TOKEN,
             "aws_region_name": "us-east-1",
@@ -231,8 +231,8 @@ def bedrock_deployment(
     }
 
 
-def deployment(name: str, identity: str, **litellm_params: JsonValue) -> dict[str, JsonValue]:
-    return {"model_name": name, "litellm_params": dict(litellm_params), "model_info": {"id": identity}}
+def deployment(name: str, identity: str, **hangarllm_params: JsonValue) -> dict[str, JsonValue]:
+    return {"model_name": name, "hangarllm_params": dict(hangarllm_params), "model_info": {"id": identity}}
 
 
 def vertex_deployment(name: str, identity: str, api_base: str) -> dict[str, JsonValue]:
@@ -251,7 +251,7 @@ def pin_config(
     directory: Path,
     model_list: Sequence[JsonValue],
     *,
-    litellm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
+    hangarllm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
     router_settings: Mapping[str, JsonValue] = MappingProxyType({}),
     general_settings: Mapping[str, JsonValue] = MappingProxyType({}),
 ) -> Path:
@@ -262,7 +262,7 @@ def pin_config(
         **config,
         "model_list": list(model_list),
         "general_settings": {**object_value(config["general_settings"]), **general_settings},
-        "litellm_settings": {**object_value(config["litellm_settings"]), **litellm_settings},
+        "hangarllm_settings": {**object_value(config["hangarllm_settings"]), **hangarllm_settings},
         "router_settings": {
             **object_value(config["router_settings"]),
             "num_retries": 0,
@@ -278,4 +278,4 @@ def pin_config(
 def post_chat(gateway: Gateway, body: Mapping[str, JsonValue]) -> tuple[str, str]:
     response: Final = gateway.request("POST", "/v1/chat/completions", body)
     assert response.status_code == 200, response.text
-    return str(_JSON_OBJECT.validate_json(response.content)["id"]), response.headers["x-litellm-model-id"]
+    return str(_JSON_OBJECT.validate_json(response.content)["id"]), response.headers["x-hangarllm-model-id"]

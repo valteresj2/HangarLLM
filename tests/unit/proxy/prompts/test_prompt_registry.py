@@ -1,15 +1,15 @@
 import pytest
 
-import litellm
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.proxy.prompts.prompt_registry import InMemoryPromptRegistry, parse_prompt_version
-from litellm.types.prompts.init_prompts import PromptInfo, PromptLiteLLMParams, PromptSpec
+import hangarllm
+from hangarllm.integrations.custom_prompt_management import CustomPromptManagement
+from hangarllm.proxy.prompts.prompt_registry import InMemoryPromptRegistry, parse_prompt_version
+from hangarllm.types.prompts.init_prompts import PromptInfo, PromptHangarLLMParams, PromptSpec
 
 
 def _db_prompt_spec(content: str, environment: str = "development", version: int = 1) -> PromptSpec:
     return PromptSpec(
         prompt_id=f"greeting.v{version}",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="greeting",
             prompt_integration="dotprompt",
             prompt_data={"content": content, "metadata": {}},
@@ -34,8 +34,8 @@ def _served_content(registry: InMemoryPromptRegistry, environment: str | None = 
 
 @pytest.fixture
 def isolated_callbacks(monkeypatch: pytest.MonkeyPatch) -> list:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    return litellm.callbacks
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    return hangarllm.callbacks
 
 
 def test_sync_prompt_from_db_reloads_row_edited_elsewhere(isolated_callbacks: list) -> None:
@@ -49,7 +49,7 @@ def test_sync_prompt_from_db_reloads_row_edited_elsewhere(isolated_callbacks: li
     assert _served_content(registry) == "begin every reply with HOWDY"
     reloaded_spec = registry.resolve_prompt_spec("greeting", environment="development")
     assert reloaded_spec is not None
-    assert reloaded_spec.litellm_params.prompt_data["content"] == "begin every reply with HOWDY"
+    assert reloaded_spec.hangarllm_params.prompt_data["content"] == "begin every reply with HOWDY"
     assert stale_callback not in isolated_callbacks
     assert isolated_callbacks == [_resolved_callback(registry)]
 
@@ -85,7 +85,7 @@ def test_reload_prompt_keeps_the_old_template_when_the_replacement_fails(isolate
 
     broken = PromptSpec(
         prompt_id="greeting.v1",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="greeting",
             prompt_integration="does_not_exist",
             prompt_data={"content": "begin every reply with HOWDY", "metadata": {}},
@@ -139,11 +139,11 @@ def test_resolution_picks_exact_version_and_latest_within_an_environment(isolate
 
     exact = registry.resolve_prompt_spec("greeting", version=1, environment="development")
     assert exact is not None
-    assert exact.litellm_params.prompt_data["content"] == "begin every reply with AHOY"
+    assert exact.hangarllm_params.prompt_data["content"] == "begin every reply with AHOY"
 
     latest = registry.resolve_prompt_spec("greeting", environment="development")
     assert latest is not None
-    assert latest.litellm_params.prompt_data["content"] == "begin every reply with YO"
+    assert latest.hangarllm_params.prompt_data["content"] == "begin every reply with YO"
 
     assert registry.resolve_prompt_spec("greeting", version=3, environment="development") is None
 
@@ -179,7 +179,7 @@ def test_has_config_prompt_matches_any_version_of_the_base_id(isolated_callbacks
     registry = InMemoryPromptRegistry()
     config_spec = PromptSpec(
         prompt_id="greeting",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="greeting",
             prompt_integration="dotprompt",
             prompt_data={"content": "begin every reply with AHOY", "metadata": {}},
@@ -193,7 +193,7 @@ def test_has_config_prompt_matches_any_version_of_the_base_id(isolated_callbacks
     assert registry.has_config_prompt(base_prompt_id="other_prompt") is False
 
 
-def test_delete_prompts_by_base_id_removes_the_callbacks_from_litellm_callbacks(isolated_callbacks: list) -> None:
+def test_delete_prompts_by_base_id_removes_the_callbacks_from_hangarllm_callbacks(isolated_callbacks: list) -> None:
     registry = InMemoryPromptRegistry()
     registry.initialize_prompt(prompt=_db_prompt_spec("begin every reply with AHOY", version=1))
     registry.initialize_prompt(prompt=_db_prompt_spec("begin every reply with YO", version=2))

@@ -53,7 +53,7 @@ def _spend_rows(identity: str, expected: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
             "SELECT request_id, call_type, status, model_group, prompt_tokens, completion_tokens, cache_hit"
-            ' FROM "LiteLLM_SpendLogs" WHERE starts_with(request_id, %s) ORDER BY "startTime"',
+            ' FROM "HangarLLM_SpendLogs" WHERE starts_with(request_id, %s) ORDER BY "startTime"',
             (identity,),
         ),
         lambda found: len(found) == expected,

@@ -51,7 +51,7 @@ def _deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"bedrock/converse/{model}",
             "api_key": _TOKEN,
             "aws_region_name": "us-east-1",
@@ -70,7 +70,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
             directory,
             [
                 _deployment("base-in-model-info", _KIMI, wire.url, model_info={"base_model": _KIMI_BASE}),
-                _deployment("base-in-litellm-params", _KIMI, wire.url, base_model=_KIMI_BASE),
+                _deployment("base-in-hangarllm-params", _KIMI, wire.url, base_model=_KIMI_BASE),
                 _deployment("no-base", _KIMI, wire.url),
                 _deployment("other-model-base", _KIMI, wire.url, model_info={"base_model": _SONNET}),
                 _deployment(
@@ -91,7 +91,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
                 _deployment("one-million", _SONNET, wire.url),
                 {
                     "model_name": "complexity",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/complexity_router",
                         "complexity_router_config": {
                             "tiers": {
@@ -105,7 +105,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
                     },
                 },
             ],
-            litellm_settings={"cache": False},
+            hangarllm_settings={"cache": False},
             router_settings={"enable_pre_call_checks": True},
         )
         with owned_proxy_process(gateway, directory, {}, config=config, workers=2, client_timeout=120) as owned:
@@ -142,8 +142,8 @@ def test_a_same_model_base_model_row_widens_the_window_pre_call_checks_enforce(r
 
 
 @pytest.mark.timeout(2 * graceful_stop_seconds() + 120)
-def test_a_same_model_base_model_in_litellm_params_widens_the_window_too(rig: _Rig) -> None:
-    status, text, targets = _send(rig, "chat", "base-in-litellm-params", _PAST_ROUTE_ROW_LINES)
+def test_a_same_model_base_model_in_hangarllm_params_widens_the_window_too(rig: _Rig) -> None:
+    status, text, targets = _send(rig, "chat", "base-in-hangarllm-params", _PAST_ROUTE_ROW_LINES)
     assert status == 200, text
     assert targets == (_KIMI_TARGET,)
 

@@ -31,7 +31,7 @@ SCHEMAS_WITH_PREFERENCE: Final = ("RegisterPluginRequest", "UpdatePluginRequest"
 MARKETPLACE: Final = "/claude-code/marketplace.json"
 PLUGINS: Final = "/claude-code/plugins"
 SKILL_HUB: Final = "/public/skill_hub"
-PLUGIN_ROWS: Final = 'SELECT manifest_json, enabled, files_json FROM "LiteLLM_ClaudeCodePluginTable" WHERE name = %s'
+PLUGIN_ROWS: Final = 'SELECT manifest_json, enabled, files_json FROM "HangarLLM_ClaudeCodePluginTable" WHERE name = %s'
 
 
 def plugin_name() -> str:
@@ -413,7 +413,7 @@ def test_hand_edited_unknown_preference_is_not_served(gateway: Gateway, peer: Ga
         registered(scenario, name, installation_preference="required")
         edited: Final = {**stored_manifest(name), "installation_preference": "someday"}
         write_rows(
-            'UPDATE "LiteLLM_ClaudeCodePluginTable" SET manifest_json = %s WHERE name = %s',
+            'UPDATE "HangarLLM_ClaudeCodePluginTable" SET manifest_json = %s WHERE name = %s',
             (json.dumps(edited), name),
         )
         assert stored_manifest(name)["installation_preference"] == "someday"

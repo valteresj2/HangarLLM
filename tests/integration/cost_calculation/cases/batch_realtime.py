@@ -14,7 +14,7 @@ GPT_5_6_BATCH_HALVED_RATES_WHEN_MAP_HAS_NO_BATCH_KEYS: Final = BatchCostCase(
     name="gpt-5.6-batch-halved_rates_when_map_has_no_batch_keys",
     covers="quota_management.spend_tracking.batch_costs.fallback_rates",
     model="gpt-5.6",
-    litellm_model="openai/gpt-5.6",
+    hangarllm_model="openai/gpt-5.6",
     output_lines=(
         BatchOutputLine(status_code=200, prompt_tokens=100, completion_tokens=50),
         BatchOutputLine(status_code=200, prompt_tokens=120, completion_tokens=30),
@@ -34,7 +34,7 @@ GPT_5_6_BATCH_CACHED_INPUT_HALVED: Final = BatchCostCase(
     name="gpt-5.6-batch-cached_input_halved",
     covers="quota_management.spend_tracking.batch_costs.cached_input",
     model="gpt-5.6",
-    litellm_model="openai/gpt-5.6",
+    hangarllm_model="openai/gpt-5.6",
     output_lines=(BatchOutputLine(status_code=200, prompt_tokens=100, completion_tokens=10, cached_tokens=40),),
     expected=ExactExpected(
         spend=0.000126,
@@ -50,7 +50,7 @@ GPT_5_4_BATCH_EXPLICIT_BATCH_RATES_BILL_CACHED_AT_BATCH_INPUT_RATE: Final = Batc
     name="gpt-5.4-batch-explicit_batch_rates_bill_cached_at_batch_input_rate",
     covers="quota_management.spend_tracking.batch_costs.explicit_rates",
     model="gpt-5.4",
-    litellm_model="openai/gpt-5.4",
+    hangarllm_model="openai/gpt-5.4",
     output_lines=(
         BatchOutputLine(status_code=200, prompt_tokens=100, completion_tokens=50, cached_tokens=40),
         BatchOutputLine(status_code=200, prompt_tokens=120, completion_tokens=30),
@@ -69,7 +69,7 @@ GPT_5_6_BATCH_ALL_REQUESTS_FAILED_ZERO_SPEND: Final = BatchCostCase(
     name="gpt-5.6-batch-all_requests_failed_zero_spend",
     covers="quota_management.spend_tracking.batch_costs.failed_requests",
     model="gpt-5.6",
-    litellm_model="openai/gpt-5.6",
+    hangarllm_model="openai/gpt-5.6",
     output_lines=(
         BatchOutputLine(status_code=400),
         BatchOutputLine(status_code=400),
@@ -83,7 +83,7 @@ GPT_REALTIME_MINI_2025_12_15_REALTIME_SINGLE_TURN_TEXT_AUDIO_CACHED: Final = Rea
     name="gpt-realtime-mini-2025-12-15-realtime-single_turn_text_audio_cached",
     covers="quota_management.spend_tracking.realtime_costs.single_turn",
     model="gpt-realtime-mini-2025-12-15",
-    litellm_model="openai/gpt-realtime-mini-2025-12-15",
+    hangarllm_model="openai/gpt-realtime-mini-2025-12-15",
     turns=(
         RealtimeTurn(
             input_tokens=150,
@@ -109,7 +109,7 @@ GPT_REALTIME_MINI_2025_12_15_REALTIME_TWO_TURNS_SUMMED_INTO_ONE_ROW: Final = Rea
     name="gpt-realtime-mini-2025-12-15-realtime-two_turns_summed_into_one_row",
     covers="quota_management.spend_tracking.realtime_costs.multiple_turns",
     model="gpt-realtime-mini-2025-12-15",
-    litellm_model="openai/gpt-realtime-mini-2025-12-15",
+    hangarllm_model="openai/gpt-realtime-mini-2025-12-15",
     turns=(
         RealtimeTurn(
             input_tokens=150,
@@ -144,7 +144,7 @@ GPT_REALTIME_MINI_2025_12_15_REALTIME_PRICED_FROM_SESSION_CREATED_MODEL: Final =
     name="gpt-realtime-mini-2025-12-15-realtime-priced_from_session_created_model",
     covers="quota_management.spend_tracking.realtime_costs.session_model",
     model="gpt-realtime-mini-2025-12-15",
-    litellm_model="openai/gpt-realtime-mini-2025-12-15",
+    hangarllm_model="openai/gpt-realtime-mini-2025-12-15",
     turns=(
         RealtimeTurn(
             input_tokens=150,
@@ -171,7 +171,7 @@ GPT_REALTIME_MINI_2025_12_15_REALTIME_SESSION_WITHOUT_TURNS_ZERO_SPEND: Final = 
     name="gpt-realtime-mini-2025-12-15-realtime-session_without_turns_zero_spend",
     covers="quota_management.spend_tracking.realtime_costs.session_without_turns",
     model="gpt-realtime-mini-2025-12-15",
-    litellm_model="openai/gpt-realtime-mini-2025-12-15",
+    hangarllm_model="openai/gpt-realtime-mini-2025-12-15",
     turns=(),
     expected=ExactExpected(
         spend=0.0,

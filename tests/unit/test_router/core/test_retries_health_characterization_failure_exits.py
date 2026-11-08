@@ -2,7 +2,7 @@
 Characterization of the failures a router core does not hold against a deployment, on every path a
 failure is recorded from: the early exits of ``deployment_callback_on_failure`` (nothing counted, no
 cooldown), the per-caller exits of ``_should_run_cooldown_logic`` (counted, no cooldown), and what else
-decides a cooldown: the ``retry-after`` header, ``litellm.allowed_fails`` and a team deployment's siblings.
+decides a cooldown: the ``retry-after`` header, ``hangarllm.allowed_fails`` and a team deployment's siblings.
 """
 
 import asyncio
@@ -13,12 +13,12 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.router_core import RouterCore
-from litellm.router_utils.cooldown_handlers import mark_deployment_selection_failure
-from litellm.types.router import AllowedFailsPolicy
-from litellm.types.utils import BACKGROUND_RESPONSE_STATUS_POLL_CALL_ORIGIN
+import hangarllm
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.router_core import RouterCore
+from hangarllm.router_utils.cooldown_handlers import mark_deployment_selection_failure
+from hangarllm.types.router import AllowedFailsPolicy
+from hangarllm.types.utils import BACKGROUND_RESPONSE_STATUS_POLL_CALL_ORIGIN
 from tests.unit.test_router.core.retries_health_helpers import (
     ErrorBuilder,
     MakeCore,
@@ -41,14 +41,14 @@ MESSAGES: Final = [{"role": "user", "content": "hi"}]
 TOKEN_EXCHANGE: Final = "http://127.0.0.1:9/token"
 PER_USER_COPILOT: Final = {
     "model": "github_copilot/gpt-4o",
-    "litellm_credential_name": "ghc",
+    "hangarllm_credential_name": "ghc",
     "github_copilot_auth_type": "per_user_oauth",
 }
 
 
 def group(
     *ids: str, **params: object
-) -> list[dict[str, object]]:  # kwargs-ok: litellm_params  # mutable-ok: a model_list
+) -> list[dict[str, object]]:  # kwargs-ok: hangarllm_params  # mutable-ok: a model_list
     return [deployment("g", deployment_id, **params) for deployment_id in ids]
 
 
@@ -59,19 +59,19 @@ def selection_failure() -> Exception:
 
 
 def caller_auth_error() -> Exception:
-    return litellm.CallerCredentialAuthenticationError(
+    return hangarllm.CallerCredentialAuthenticationError(
         message="not connected", llm_provider="github_copilot", model="gpt-4o"
     )
 
 
 def caller_rate_limit() -> Exception:
-    return litellm.CallerCredentialRateLimitError(
+    return hangarllm.CallerCredentialRateLimitError(
         message="token exchange limited", llm_provider="github_copilot", model="gpt-4o"
     )
 
 
-def rate_limited_with(headers: dict[str, str]) -> litellm.RateLimitError:  # mutable-ok: httpx's header mapping
-    return litellm.RateLimitError(
+def rate_limited_with(headers: dict[str, str]) -> hangarllm.RateLimitError:  # mutable-ok: httpx's header mapping
+    return hangarllm.RateLimitError(
         message="slow down", llm_provider="openai", model="gpt-4o", response=httpx.Response(429, headers=headers)
     )
 
@@ -145,7 +145,7 @@ async def test_a_stream_failure_outside_the_deployment_still_counts_its_request(
     )
 
     stream: Final = await core.acompletion(model="g", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # every core serves acompletion
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await collect_texts(stream)
     await settle()
 
@@ -164,7 +164,7 @@ def test_a_sync_stream_failure_outside_the_deployment_is_neither_counted_nor_coo
     )
 
     stream: Final = core.completion(model="g", messages=MESSAGES, stream=True)  # pyright: ignore[reportAttributeAccessIssue]  # every core serves completion
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         collect_texts_sync(stream)
 
     assert cooled_down(core, ["a", "b"]) == {}
@@ -178,7 +178,7 @@ async def test_the_failure_hook_counts_a_failure_outside_the_deployment_as_nothi
     core: Final = make_core(model_list=group("a", "b"), num_retries=0, allowed_fails=0)
     logged: Final = {
         "exception": selection_failure(),
-        "litellm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
+        "hangarllm_params": {"metadata": {"model_group": "g"}, "model_info": {"id": "a"}},
     }
 
     assert core.deployment_callback_on_failure(logged, None, None, None) is False  # pyright: ignore[reportAttributeAccessIssue]  # every core serves it
@@ -261,7 +261,7 @@ async def test_a_cooldown_reads_a_retry_after_date(make_core: MakeCore, host: Sc
     assert isinstance(cooldown_time, int | float) and 100 <= cooldown_time <= 120
 
 
-# --- U5: litellm.allowed_fails -----------------------------------------------------------------------
+# --- U5: hangarllm.allowed_fails -----------------------------------------------------------------------
 
 
 def weighted() -> list[dict[str, object]]:  # mutable-ok: a model_list
@@ -273,7 +273,7 @@ async def test_a_write_to_the_process_allowed_fails_starts_the_count_at_the_copi
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     core: Final = make_core(model_list=weighted(), num_retries=0)
-    monkeypatch.setattr(litellm, "allowed_fails", 0)
+    monkeypatch.setattr(hangarllm, "allowed_fails", 0)
     host.answer("*", fresh(rate_limit))
 
     await attempt(core)
@@ -288,11 +288,11 @@ async def test_a_process_allowed_fails_put_back_ends_the_count(
 ) -> None:
     core: Final = make_core(model_list=weighted(), num_retries=0)
     host.answer("*", fresh(rate_limit))
-    monkeypatch.setattr(litellm, "allowed_fails", 0)
+    monkeypatch.setattr(hangarllm, "allowed_fails", 0)
     await attempt(core)
     assert cooled_down(core, ["a", "b"]) == {}
 
-    monkeypatch.setattr(litellm, "allowed_fails", 3)
+    monkeypatch.setattr(hangarllm, "allowed_fails", 3)
     await attempt(core)
 
     assert list(cooled_down(core, ["a", "b"])) == ["a"]
@@ -302,7 +302,7 @@ async def test_a_process_allowed_fails_put_back_ends_the_count(
 async def test_the_allowed_fails_count_is_the_process_value_copied_at_init(
     make_core: MakeCore, host: ScriptedHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "allowed_fails", 1)
+    monkeypatch.setattr(hangarllm, "allowed_fails", 1)
     host.set_dynamic(allowed_fails=1)
     core: Final = make_core(
         model_list=weighted(), num_retries=0, allowed_fails_policy=AllowedFailsPolicy(TimeoutErrorAllowedFails=0)

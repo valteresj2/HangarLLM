@@ -12,16 +12,16 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.llms.bedrock.common_utils import bedrock_supports_openai_responses
-from litellm.llms.bedrock.responses.transformation import (
+import hangarllm
+from hangarllm.llms.bedrock.common_utils import bedrock_supports_openai_responses
+from hangarllm.llms.bedrock.responses.transformation import (
     BedrockOpenAIResponsesConfig,
     _without_disabled_reasoning_effort,
 )
-from litellm.responses.file_search.emulated_handler import should_use_emulated_file_search
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.responses.file_search.emulated_handler import should_use_emulated_file_search
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 MODEL = "global.openai.gpt-5.6-sol"
 
@@ -64,12 +64,12 @@ class TestCompleteURL:
 
 class TestAuth:
     def test_bearer_token_is_used_when_present(self):
-        headers = _cfg().validate_environment({}, MODEL, GenericLiteLLMParams(api_key="sk-bedrock"))
+        headers = _cfg().validate_environment({}, MODEL, GenericHangarLLMParams(api_key="sk-bedrock"))
         assert headers["Authorization"] == "Bearer sk-bedrock"
 
     def test_no_authorization_header_without_a_token(self, monkeypatch):
         monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
-        headers = _cfg().validate_environment({}, MODEL, GenericLiteLLMParams())
+        headers = _cfg().validate_environment({}, MODEL, GenericHangarLLMParams())
         assert "Authorization" not in headers
 
     def test_sigv4_is_skipped_when_a_bearer_token_is_present(self):
@@ -150,25 +150,25 @@ class TestForModelGate:
 
     def test_returns_a_config_for_a_signalled_model(self):
         with patch.object(  # test-quality-ok: the gate reads the global cost map by design; no injection point exists
-            litellm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
+            hangarllm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
         ):
             assert isinstance(BedrockOpenAIResponsesConfig.for_model(MODEL), BedrockOpenAIResponsesConfig)
 
     def test_returns_none_for_an_unsignalled_model(self):
         with patch.object(  # test-quality-ok: the gate reads the global cost map by design; no injection point exists
-            litellm, "model_cost", {}
+            hangarllm, "model_cost", {}
         ):
             assert BedrockOpenAIResponsesConfig.for_model(MODEL) is None
 
     def test_returns_none_for_no_model(self):
         with patch.object(  # test-quality-ok: the gate reads the global cost map by design; no injection point exists
-            litellm, "model_cost", {}
+            hangarllm, "model_cost", {}
         ):
             assert BedrockOpenAIResponsesConfig.for_model(None) is None
 
     def test_chat_completions_route_keeps_the_native_responses_surface(self):
         with patch.object(  # test-quality-ok: the gate reads the global cost map by design; no injection point exists
-            litellm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
+            hangarllm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
         ):
             cfg = BedrockOpenAIResponsesConfig.for_model(f"chat_completions/{MODEL}")
         assert isinstance(cfg, BedrockOpenAIResponsesConfig)
@@ -176,26 +176,26 @@ class TestForModelGate:
             model=f"chat_completions/{MODEL}",
             input="hi",
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["model"] == MODEL
 
     def test_converse_route_keeps_the_chat_completions_bridge(self):
         with patch.object(  # test-quality-ok: the gate reads the global cost map by design; no injection point exists
-            litellm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
+            hangarllm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
         ):
             assert BedrockOpenAIResponsesConfig.for_model(f"converse/{MODEL}") is None
 
 
 class TestProviderResolution:
     """model_cost is patched explicitly: it is populated at import time from a GitHub
-    fetch unless LITELLM_LOCAL_MODEL_COST_MAP is set, and conftest's monkeypatch of
+    fetch unless HANGARLLM_LOCAL_MODEL_COST_MAP is set, and conftest's monkeypatch of
     that variable lands after import — so these must not read the global."""
 
     def test_signalled_model_resolves_to_the_bedrock_responses_config(self):
         with patch.object(  # test-quality-ok: resolution reads the global cost map by design; no HTTP boundary or injection point exists
-            litellm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
+            hangarllm, "model_cost", {MODEL: {"supported_endpoints": ["/v1/responses"]}}
         ):
             cfg = ProviderConfigManager.get_provider_responses_api_config(model=MODEL, provider=LlmProviders.BEDROCK)
         assert isinstance(cfg, BedrockOpenAIResponsesConfig)
@@ -203,7 +203,7 @@ class TestProviderResolution:
     def test_unsignalled_model_keeps_the_existing_bridge(self):
         """Claude on Bedrock has no OpenAI surface; it must keep falling through to
         the chat-completions bridge exactly as before."""
-        with patch.object(litellm, "model_cost", {}):  # test-quality-ok: resolution reads the global cost map by design
+        with patch.object(hangarllm, "model_cost", {}):  # test-quality-ok: resolution reads the global cost map by design
             cfg = ProviderConfigManager.get_provider_responses_api_config(
                 model="anthropic.claude-3-haiku-20240307-v1:0", provider=LlmProviders.BEDROCK
             )
@@ -216,7 +216,7 @@ class TestProviderResolution:
     def test_the_shipped_price_map_signals_the_openai_families(self, family: str, variants: tuple[str, ...]):
         """Reads the bundled backup directly rather than the network-fetched global."""
         shipped = json.loads(
-            files("litellm").joinpath("model_prices_and_context_window_backup.json").read_text(encoding="utf-8")
+            files("hangarllm").joinpath("model_prices_and_context_window_backup.json").read_text(encoding="utf-8")
         )
         for prefix in ("us", "global"):
             for variant in variants:
@@ -241,13 +241,13 @@ class TestUnsupportedToolDrop:
             model=MODEL,
             input="count the lines",
             response_api_optional_request_params=params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         return body.get("tools")
 
     def test_codex_default_tools_reach_the_endpoint_without_web_search(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             outbound = self._outbound_tools([self._SHELL_TOOL, self._WEB_SEARCH_TOOL, self._NAMESPACE_TOOL])
         assert outbound == [self._SHELL_TOOL, self._NAMESPACE_TOOL]
         dropped = [r.getMessage() for r in caplog.records if "dropping unsupported tool type" in r.getMessage()]
@@ -257,7 +257,7 @@ class TestUnsupportedToolDrop:
         assert self._outbound_tools([self._WEB_SEARCH_TOOL, {"type": "web_search_preview"}]) is None
 
     def test_supported_tools_are_not_logged_as_dropped(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             outbound = self._outbound_tools([self._SHELL_TOOL, {"type": "custom", "name": "exec"}])
         assert outbound == [self._SHELL_TOOL, {"type": "custom", "name": "exec"}]
         assert not [r for r in caplog.records if "dropping unsupported tool type" in r.getMessage()]
@@ -286,7 +286,7 @@ class TestCodexHistoryNormalization:
                 {"role": "user", "content": "carry on"},
             ],
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert [i.get("type") or i.get("role") for i in body["input"]] == [
@@ -313,7 +313,7 @@ class TestCodexHistoryNormalization:
             model=MODEL,
             input=[json.loads(json.dumps(agent_message)), {"role": "user", "content": "carry on"}],
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"] == [agent_message, {"role": "user", "content": "carry on"}]
@@ -325,7 +325,7 @@ class TestCodexHistoryNormalization:
             model=MODEL,
             input=list(original),
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"] == original
@@ -335,7 +335,7 @@ class TestBackgroundDrop:
     """The Converse bridge answered `background` requests synchronously; bedrock-runtime 400s the parameter."""
 
     def test_background_is_dropped_with_a_warning(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             params = _cfg().map_openai_params(
                 response_api_optional_params={"background": True, "max_output_tokens": 64},
                 model=MODEL,
@@ -346,7 +346,7 @@ class TestBackgroundDrop:
         assert len(dropped) == 1 and "background" in dropped[0]
 
     def test_without_background_nothing_is_dropped_or_logged(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             params = _cfg().map_openai_params(
                 response_api_optional_params={"max_output_tokens": 64}, model=MODEL, drop_params=False
             )
@@ -357,7 +357,7 @@ class TestBackgroundDrop:
 class TestDisabledReasoningEffort:
     @pytest.mark.parametrize("model", ["us.openai.gpt-5.6-luna", MODEL])
     def test_effort_level_disabled_in_model_map_is_rejected(self, model, local_model_cost_map):
-        with pytest.raises(litellm.UnsupportedParamsError, match="minimal"):
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="minimal"):
             _cfg().map_openai_params(
                 response_api_optional_params={"reasoning": {"effort": "minimal"}}, model=model, drop_params=False
             )
@@ -366,7 +366,7 @@ class TestDisabledReasoningEffort:
     def test_effort_level_disabled_in_model_map_is_dropped_with_a_warning(
         self, model: str, local_model_cost_map: None, caplog: pytest.LogCaptureFixture
     ) -> None:
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             params: Final = _cfg().map_openai_params(
                 response_api_optional_params={
                     "reasoning": {"effort": "minimal", "summary": "auto"},
@@ -385,7 +385,7 @@ class TestDisabledReasoningEffort:
     def test_bedrock_disabled_effort_drop_warns_on_its_own(
         self, local_model_cost_map: None, caplog: pytest.LogCaptureFixture
     ) -> None:
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"):
             params: Final = _without_disabled_reasoning_effort(
                 {"reasoning": {"effort": "minimal"}, "max_output_tokens": 64}, MODEL, True
             )
@@ -452,7 +452,7 @@ class TestRemoteImageInlining:
             model=MODEL,
             input=self._input(self._REMOTE),
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"] == self._input(self._INLINED)
@@ -486,7 +486,7 @@ class TestRemoteImageInlining:
             model=MODEL,
             input=tool_turn(self._REMOTE),
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"] == tool_turn(self._INLINED)
@@ -525,7 +525,7 @@ class TestRemoteImageInlining:
             model=MODEL,
             input=computer_turn(self._REMOTE),
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"] == computer_turn(self._INLINED)
@@ -545,7 +545,7 @@ class TestRemoteImageInlining:
             model=MODEL,
             input=self._input(self._REMOTE),
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert body["input"] == self._input(self._INLINED)
@@ -559,14 +559,14 @@ class TestRemoteImageInlining:
             model=MODEL,
             input=local_only,
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         async_body = await cfg.async_transform_responses_api_request(
             model=MODEL,
             input="a plain string prompt",
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert sync_body["input"] == local_only
@@ -586,7 +586,7 @@ class TestRemoteImageInlining:
                 {"role": "user", "content": [{"type": "input_image", "image_url": self._REMOTE}]},
             ],
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
         assert [i.get("type") or i.get("role") for i in body["input"]] == ["message", "user"]

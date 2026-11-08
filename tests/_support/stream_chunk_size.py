@@ -4,8 +4,8 @@ from typing import Final
 
 import pytest
 
-from litellm.constants import CONTROL_OPTIONS_KEY
-from litellm.types.litellm_params import ControlOptions
+from hangarllm.constants import CONTROL_OPTIONS_KEY
+from hangarllm.types.hangarllm_params import ControlOptions
 
 DEFAULT_CHUNKING_REQUESTS: Final = (
     pytest.param(MappingProxyType({}), id="unset"),

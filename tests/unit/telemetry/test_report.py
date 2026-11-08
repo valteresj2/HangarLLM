@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.telemetry.histogram import LATENCY_BOUNDS_MS
-from litellm.telemetry.records import (
+from hangarllm.telemetry.histogram import LATENCY_BOUNDS_MS
+from hangarllm.telemetry.records import (
     AttemptRecord,
     BlockCounts,
     BlockType,
@@ -12,7 +12,7 @@ from litellm.telemetry.records import (
     UIAction,
     UIEvent,
 )
-from litellm.telemetry.report import AttemptKey, AttemptMetrics, Report, RequestKey, RequestMetrics, report_to_json
+from hangarllm.telemetry.report import AttemptKey, AttemptMetrics, Report, RequestKey, RequestMetrics, report_to_json
 
 
 def _metrics_of(*records: AttemptRecord) -> AttemptMetrics:
@@ -38,7 +38,7 @@ def test_attempt_and_ui_event_rows_serialize_with_merged_counts() -> None:
         latency_to_first_token_ms=200.0,
     )
     report: Final = Report(
-        instance=InstanceInfo(instance_id="i", litellm_version="1.0.0", groups=frozenset(TelemetryGroup)),
+        instance=InstanceInfo(instance_id="i", hangarllm_version="1.0.0", groups=frozenset(TelemetryGroup)),
         window_start=0.0,
         window_end=60.0,
         attempts=((AttemptKey.of(first), _metrics_of(first, second)),),
@@ -64,14 +64,14 @@ def test_block_types_and_header_keys_serialize_with_merged_counts() -> None:
     first: Final = RequestRecord(
         endpoint="/v1/messages",
         stream=False,
-        litellm_status=StatusClass.SUCCESS,
+        hangarllm_status=StatusClass.SUCCESS,
         blocks=BlockCounts(total=3, by_type=((BlockType.TEXT, 2), (BlockType.IMAGE, 1))),
         header_keys=frozenset({"anthropic-beta", "x-custom"}),
     )
     second: Final = RequestRecord(
         endpoint="/v1/messages",
         stream=False,
-        litellm_status=StatusClass.SUCCESS,
+        hangarllm_status=StatusClass.SUCCESS,
         blocks=BlockCounts(total=1, by_type=((BlockType.TEXT, 1),)),
         header_keys=frozenset({"anthropic-beta"}),
     )
@@ -79,7 +79,7 @@ def test_block_types_and_header_keys_serialize_with_merged_counts() -> None:
     metrics.add(first)
     metrics.add(second)
     report: Final = Report(
-        instance=InstanceInfo(instance_id="i", litellm_version="1.0.0", groups=frozenset(TelemetryGroup)),
+        instance=InstanceInfo(instance_id="i", hangarllm_version="1.0.0", groups=frozenset(TelemetryGroup)),
         window_start=0.0,
         window_end=60.0,
         requests=((RequestKey.of(first), metrics),),

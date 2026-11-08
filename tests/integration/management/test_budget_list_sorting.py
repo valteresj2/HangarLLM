@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds_from
+from hangarllm.hangarllm_core_utils.duration_parser import duration_in_seconds_from
 from tests.integration._support.client import Gateway, Scenario
 
 

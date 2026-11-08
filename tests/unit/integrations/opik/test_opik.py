@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.utils import _invalidate_model_cost_lowercase_map
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -31,7 +31,7 @@ async def _await_with_spawned_tasks(call: Awaitable[_T]) -> _T:
 def isolate_opik_logging_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     original_level = verbose_logger.level
     verbose_logger.setLevel(logging.DEBUG)
-    monkeypatch.setattr(litellm, "set_verbose", True)
+    monkeypatch.setattr(hangarllm, "set_verbose", True)
     yield
     verbose_logger.setLevel(original_level)
 
@@ -45,7 +45,7 @@ async def test_opik_logging_http_request():
     - Test that HTTP requests are made to Opik
     - Traces and spans are batched correctly
     """
-    from litellm.integrations.opik.opik import OpikLogger
+    from hangarllm.integrations.opik.opik import OpikLogger
 
     os.environ["OPIK_URL_OVERRIDE"] = "https://fake.comet.com/opik/api"
     os.environ["OPIK_API_KEY"] = "anything"
@@ -55,7 +55,7 @@ async def test_opik_logging_http_request():
     test_opik_logger.flush_interval = INTERVAL_TOO_LONG_TO_FIRE_DURING_THIS_TEST
     test_opik_logger.batch_size = 12
 
-    litellm.callbacks = [test_opik_logger]
+    hangarllm.callbacks = [test_opik_logger]
 
     mock_post = AsyncMock(return_value=Mock(status_code=202, text="Accepted"))
     test_opik_logger.async_httpx_client.post = mock_post
@@ -67,7 +67,7 @@ async def test_opik_logging_http_request():
 
     for _ in range(5):
         await _await_with_spawned_tasks(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Test message"}],
                 max_tokens=10,
@@ -82,7 +82,7 @@ async def test_opik_logging_http_request():
 
     for _ in range(3):
         await _await_with_spawned_tasks(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Test message"}],
                 max_tokens=10,
@@ -109,7 +109,7 @@ def test_sync_opik_logging_http_request():
     - Traces and spans are batched correctly
     """
     try:
-        from litellm.integrations.opik.opik import OpikLogger
+        from hangarllm.integrations.opik.opik import OpikLogger
 
         os.environ["OPIK_URL_OVERRIDE"] = "https://fake.comet.com/opik/api"
         os.environ["OPIK_API_KEY"] = "anything"
@@ -118,8 +118,8 @@ def test_sync_opik_logging_http_request():
         # Initialize OpikLogger
         test_opik_logger = OpikLogger()
 
-        litellm.callbacks = [test_opik_logger]
-        litellm.set_verbose = True
+        hangarllm.callbacks = [test_opik_logger]
+        hangarllm.set_verbose = True
 
         # Create a mock for the clients's post method
         mock_post = Mock()
@@ -129,7 +129,7 @@ def test_sync_opik_logging_http_request():
 
         # Make multiple calls to ensure we don't hit the batch size
         for _ in range(5):
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Test message"}],
                 max_tokens=10,
@@ -156,7 +156,7 @@ def test_opik_attach_to_existing_trace():
     - Verify span has correct trace_id and parent_span_id
     """
     try:
-        from litellm.integrations.opik.opik import OpikLogger
+        from hangarllm.integrations.opik.opik import OpikLogger
 
         os.environ["OPIK_URL_OVERRIDE"] = "https://fake.comet.com/opik/api"
         os.environ["OPIK_API_KEY"] = "anything"
@@ -164,8 +164,8 @@ def test_opik_attach_to_existing_trace():
 
         # Initialize OpikLogger
         test_opik_logger = OpikLogger()
-        litellm.callbacks = [test_opik_logger]
-        litellm.set_verbose = True
+        hangarllm.callbacks = [test_opik_logger]
+        hangarllm.set_verbose = True
 
         # Create a mock for the sync client's post method
         mock_post = Mock()
@@ -178,7 +178,7 @@ def test_opik_attach_to_existing_trace():
         existing_parent_span_id = "existing-span-67890"
 
         # Make a completion call with existing trace_id
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Test message"}],
             max_tokens=10,
@@ -232,7 +232,7 @@ def test_opik_create_new_trace():
     - Verify tags are included in both trace and span
     """
     try:
-        from litellm.integrations.opik.opik import OpikLogger
+        from hangarllm.integrations.opik.opik import OpikLogger
 
         os.environ["OPIK_URL_OVERRIDE"] = "https://fake.comet.com/opik/api"
         os.environ["OPIK_API_KEY"] = "anything"
@@ -240,8 +240,8 @@ def test_opik_create_new_trace():
 
         # Initialize OpikLogger
         test_opik_logger = OpikLogger()
-        litellm.callbacks = [test_opik_logger]
-        litellm.set_verbose = True
+        hangarllm.callbacks = [test_opik_logger]
+        hangarllm.set_verbose = True
 
         # Create a mock for the sync client's post method
         mock_post = Mock()
@@ -250,7 +250,7 @@ def test_opik_create_new_trace():
         test_opik_logger.sync_httpx_client.post = mock_post
 
         # Make a completion call WITHOUT providing trace_id
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Test message"}],
             max_tokens=10,
@@ -292,11 +292,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -308,18 +308,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -329,58 +329,58 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server as proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server as proxy_server
 
                 importlib.reload(proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield

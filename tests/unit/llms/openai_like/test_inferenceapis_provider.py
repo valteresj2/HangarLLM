@@ -5,10 +5,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
 INFERENCEAPIS_API_BASE: Final = "https://api.inferenceapis.com/v1"
 INFERENCEAPIS_MODEL_ID: Final = "deepseek-ai/DeepSeek-V4-Flash"
@@ -68,7 +68,7 @@ def test_inferenceapis_cost_map_rows_only_list_registered_endpoints():
     assert provider is not None
     registered: Final = set(provider.supported_endpoints)
     rows: Final = {
-        name: info for name, info in litellm.model_cost.items() if info.get("litellm_provider") == "inferenceapis"
+        name: info for name, info in hangarllm.model_cost.items() if info.get("hangarllm_provider") == "inferenceapis"
     }
 
     assert rows
@@ -80,7 +80,7 @@ def test_inferenceapis_chat_completion_request():
         route: Final = upstream.post(f"{INFERENCEAPIS_API_BASE}/chat/completions").respond(
             200, json=_chat_completion_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7})
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=INFERENCEAPIS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             max_completion_tokens=7,
@@ -105,7 +105,7 @@ def test_inferenceapis_chat_completion_reads_key_and_base_from_env(monkeypatch: 
         route: Final = upstream.post("https://inferenceapis.internal.example/v1/chat/completions").respond(
             200, json=_chat_completion_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7})
         )
-        litellm.completion(model=INFERENCEAPIS_MODEL, messages=[{"role": "user", "content": "Say hello"}])
+        hangarllm.completion(model=INFERENCEAPIS_MODEL, messages=[{"role": "user", "content": "Say hello"}])
 
     assert route.call_count == 1
     assert route.calls.last.request.headers["authorization"] == "Bearer inferenceapis-env-key"
@@ -116,7 +116,7 @@ def test_inferenceapis_chat_completion_sends_provider_specific_params_in_the_bod
         route: Final = upstream.post(f"{INFERENCEAPIS_API_BASE}/chat/completions").respond(
             200, json=_chat_completion_body({"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7})
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=INFERENCEAPIS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             top_k=5,
@@ -143,8 +143,8 @@ def test_inferenceapis_context_length_error_raises_context_window_exceeded():
                 }
             },
         )
-        with pytest.raises(litellm.ContextWindowExceededError):
-            litellm.completion(
+        with pytest.raises(hangarllm.ContextWindowExceededError):
+            hangarllm.completion(
                 model=INFERENCEAPIS_MODEL,
                 messages=[{"role": "user", "content": "Say hello"}],
                 api_key="inferenceapis-test-key",
@@ -173,7 +173,7 @@ def test_inferenceapis_responses_request():
                 "usage": {"input_tokens": 4, "output_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model=INFERENCEAPIS_MODEL,
             input="Say hello",
             api_key="inferenceapis-test-key",
@@ -204,7 +204,7 @@ async def test_inferenceapis_anthropic_messages_request_is_sent_natively():
                 "usage": {"input_tokens": 4, "output_tokens": 3},
             },
         )
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model=INFERENCEAPIS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,
@@ -236,8 +236,8 @@ async def test_inferenceapis_anthropic_messages_context_length_error_raises_cont
                 },
             },
         )
-        with pytest.raises(litellm.ContextWindowExceededError):
-            await litellm.anthropic.messages.acreate(
+        with pytest.raises(hangarllm.ContextWindowExceededError):
+            await hangarllm.anthropic.messages.acreate(
                 model=INFERENCEAPIS_MODEL,
                 messages=[{"role": "user", "content": "Say hello"}],
                 max_tokens=32,
@@ -247,7 +247,7 @@ async def test_inferenceapis_anthropic_messages_context_length_error_raises_cont
 
 
 def test_inferenceapis_chat_completion_cost_bills_cached_tokens_at_cache_read_rate():
-    row: Final = litellm.model_cost[INFERENCEAPIS_MODEL]
+    row: Final = hangarllm.model_cost[INFERENCEAPIS_MODEL]
     with respx.mock() as upstream:
         upstream.post(f"{INFERENCEAPIS_API_BASE}/chat/completions").respond(
             200,
@@ -260,13 +260,13 @@ def test_inferenceapis_chat_completion_cost_bills_cached_tokens_at_cache_read_ra
                 }
             ),
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model=INFERENCEAPIS_MODEL,
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="inferenceapis-test-key",
         )
 
     assert row["cache_read_input_token_cost"] < row["input_cost_per_token"]
-    assert litellm.completion_cost(completion_response=response, model=INFERENCEAPIS_MODEL) == pytest.approx(
+    assert hangarllm.completion_cost(completion_response=response, model=INFERENCEAPIS_MODEL) == pytest.approx(
         200 * row["input_cost_per_token"] + 800 * row["cache_read_input_token_cost"] + 20 * row["output_cost_per_token"]
     )

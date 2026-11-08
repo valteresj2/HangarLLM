@@ -60,12 +60,12 @@ def _expected_generation_config(case: TranslationTestCase) -> dict[str, JsonValu
     return expected
 
 
-@pytest.mark.parametrize("case", ENDPOINT_CASES, ids=lambda case: case.litellm_endpoint)
+@pytest.mark.parametrize("case", ENDPOINT_CASES, ids=lambda case: case.hangarllm_endpoint)
 def test_streamed_request_without_temperature_forwards_none(
     case: TranslationTestCase, gateway: Gateway, provider: SharedProvider
 ) -> None:
     provider.expect(_streamed_reply())
-    response: Final = gateway.request("POST", case.litellm_endpoint, {**case.litellm_request, "stream": True})
+    response: Final = gateway.request("POST", case.hangarllm_endpoint, {**case.hangarllm_request, "stream": True})
     assert response.status_code == 200, response.text
     assert "Hello." in response.text, response.text
     received: Final = provider.received()
@@ -80,7 +80,7 @@ def test_concurrent_mixed_endpoint_burst_without_temperature_forwards_none(
     provider.expect(*(Reply(body=reply_body) for _ in BURST))
     with ThreadPoolExecutor(max_workers=len(BURST)) as pool:
         responses: Final = tuple(
-            pool.map(lambda case: gateway.request("POST", case.litellm_endpoint, case.litellm_request), BURST)
+            pool.map(lambda case: gateway.request("POST", case.hangarllm_endpoint, case.hangarllm_request), BURST)
         )
     assert [response.status_code for response in responses] == [200] * len(BURST), [r.text for r in responses]
     assert all(BURST_ANSWER in response.text for response in responses), [r.text for r in responses]

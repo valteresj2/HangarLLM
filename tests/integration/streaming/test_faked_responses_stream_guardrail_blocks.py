@@ -56,7 +56,7 @@ class _Rails:
 def _rail(name: str, mode: str, code: str) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {"guardrail": "custom_code", "mode": mode, "default_on": False, "custom_code": code},
+        "hangarllm_params": {"guardrail": "custom_code", "mode": mode, "default_on": False, "custom_code": code},
     }
 
 
@@ -71,7 +71,7 @@ def _bedrock_policy(request: Request) -> Reply:
 def _bedrock_rail(name: str, endpoint: str, *, buffer_until_moderated: bool) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "bedrock",
             "mode": "post_call",
             "default_on": False,

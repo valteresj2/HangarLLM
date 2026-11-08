@@ -1,6 +1,6 @@
 """V2 entrypoint: the FastAPI instrumentation proxy_server mounts at app creation
-(gated by LITELLM_OTEL_V2). The mount logic lives in
-``litellm.integrations.otel.mount``; this exercises both that module's public
+(gated by HANGARLLM_OTEL_V2). The mount logic lives in
+``hangarllm.integrations.otel.mount``; this exercises both that module's public
 surface and the server-span + shared-provider behavior it produces.
 """
 
@@ -39,25 +39,25 @@ from opentelemetry import trace  # noqa: E402
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF  # noqa: E402
 from opentelemetry.trace import SpanKind  # noqa: E402
 
-from litellm.constants import LITELLM_UI_ALLOW_HEADERS  # noqa: E402
-from litellm.types.services import ServiceLoggerPayload, ServiceTypes  # noqa: E402  # optional dependencies are skipped first
+from hangarllm.constants import HANGARLLM_UI_ALLOW_HEADERS  # noqa: E402
+from hangarllm.types.services import ServiceLoggerPayload, ServiceTypes  # noqa: E402  # optional dependencies are skipped first
 
-from litellm.integrations.otel.model.config import (  # noqa: E402
+from hangarllm.integrations.otel.model.config import (  # noqa: E402
     OpenTelemetryV2Config,
     is_otel_v2_enabled,
 )
-from litellm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
-from litellm.integrations.otel.mount import (  # noqa: E402
+from hangarllm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
+from hangarllm.integrations.otel.mount import (  # noqa: E402
     PASSTHROUGH_PREFIXES,
     _passthrough_span_name_hook,
     instrument_fastapi_app,
     trace_response_expose_headers,
     trace_response_headers,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (  # noqa: E402
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (  # noqa: E402
     HttpPassThroughEndpointHelpers,
 )
-from litellm.integrations.otel.plumbing.context import (  # noqa: E402
+from hangarllm.integrations.otel.plumbing.context import (  # noqa: E402
     request_root_http_route,
     set_request_root_span,
 )
@@ -67,7 +67,7 @@ from litellm.integrations.otel.plumbing.context import (  # noqa: E402
 def _reset_request_root_span():
     """Clear the root-span anchor around every test. Production gets a fresh
     contextvar copy per request task; the test process shares one context."""
-    from litellm.integrations.otel.plumbing import context as _otel_context
+    from hangarllm.integrations.otel.plumbing import context as _otel_context
 
     _otel_context._request_root_span.set(None)
     _otel_context._mcp_message_transport_span.set(None)
@@ -124,10 +124,10 @@ def _instrumented_app():
 
 def test_gate_toggles_with_env(monkeypatch):
     """The startup mount is guarded by this flag."""
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
     is_otel_v2_enabled.cache_clear()
     assert is_otel_v2_enabled() is False
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     is_otel_v2_enabled.cache_clear()
     assert is_otel_v2_enabled() is True
 
@@ -183,15 +183,15 @@ def test_llm_span_route_is_read_off_the_server_span(monkeypatch):
     """``request_root_http_route`` answers with the SERVER span's own ``http.route``.
 
     Driven through ``instrument_fastapi_app`` and the same
-    ``create_litellm_proxy_request_started_span`` call the proxy makes per request,
+    ``create_hangarllm_proxy_request_started_span`` call the proxy makes per request,
     so breaking either the mount or the anchor capture fails this."""
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     is_otel_v2_enabled.cache_clear()
     app = fastapi.FastAPI()
     seen = {}
 
     def _anchor_then_read(key):
-        logger.create_litellm_proxy_request_started_span(start_time=datetime.now(timezone.utc), headers=None)
+        logger.create_hangarllm_proxy_request_started_span(start_time=datetime.now(timezone.utc), headers=None)
         seen[key] = request_root_http_route()
 
     @app.post("/engines/{model:path}/chat/completions")
@@ -279,7 +279,7 @@ def test_known_passthrough_prefixes_present():
 
 def test_instrument_fastapi_app_noop_when_gate_off(monkeypatch):
     """With the gate off the mount is a no-op — no instrumentation attached."""
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
     app = fastapi.FastAPI()
     instrument_fastapi_app(app)
     assert getattr(app, "_is_instrumented_by_opentelemetry", False) is False
@@ -287,7 +287,7 @@ def test_instrument_fastapi_app_noop_when_gate_off(monkeypatch):
 
 def test_instrument_fastapi_app_attaches_when_gate_on(monkeypatch):
     """With the gate on the FastAPI app is instrumented for server spans."""
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     app = fastapi.FastAPI()
 
     @app.get("/ping")
@@ -306,25 +306,25 @@ _UPSTREAM_TRACERESPONSE = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-
 
 class _TupleHeadersApp:
     async def __call__(self, scope, receive, send):
-        await send({"type": "http.response.start", "status": 200, "headers": ((b"x-litellm-call-id", b"call-tuple"),)})
+        await send({"type": "http.response.start", "status": 200, "headers": ((b"x-hangarllm-call-id", b"call-tuple"),)})
         await send({"type": "http.response.body", "body": b"ok"})
 
 
 def _traced_app(monkeypatch, tracer_provider):
-    from litellm.proxy.proxy_server import otel_unhandled_exception_handler
+    from hangarllm.proxy.proxy_server import otel_unhandled_exception_handler
 
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     is_otel_v2_enabled.cache_clear()
     app = fastapi.FastAPI()
     app.add_exception_handler(Exception, otel_unhandled_exception_handler)
 
     @app.get("/success")
     async def success():
-        return fastapi.Response(headers={"x-litellm-call-id": "call-success"})
+        return fastapi.Response(headers={"x-hangarllm-call-id": "call-success"})
 
     @app.get("/failure")
     async def failure():
-        raise fastapi.HTTPException(status_code=400, headers={"x-litellm-call-id": "call-failure"})
+        raise fastapi.HTTPException(status_code=400, headers={"x-hangarllm-call-id": "call-failure"})
 
     async def chunks():
         yield b"data: first\n\n"
@@ -332,7 +332,7 @@ def _traced_app(monkeypatch, tracer_provider):
 
     @app.get("/stream")
     async def stream():
-        return StreamingResponse(chunks(), headers={"x-litellm-call-id": "call-stream"})
+        return StreamingResponse(chunks(), headers={"x-hangarllm-call-id": "call-stream"})
 
     async def relay_upstream():
         upstream = httpx.Headers({"traceresponse": _UPSTREAM_TRACERESPONSE})
@@ -434,7 +434,7 @@ def test_server_span_carries_the_call_id_its_response_returns(monkeypatch):
 
     server_spans = _server_spans_by_route(exporter)
     for path, response in responses.items():
-        assert (server_spans[path].attributes or {})["litellm.call_id"] == response.headers["x-litellm-call-id"]
+        assert (server_spans[path].attributes or {})["hangarllm.call_id"] == response.headers["x-hangarllm-call-id"]
 
 
 def test_traceresponse_keeps_the_caller_trace(monkeypatch):
@@ -467,7 +467,7 @@ def test_websocket_handshakes_carry_no_traceresponse(monkeypatch):
 
 
 def test_gate_off_responses_carry_no_traceresponse(monkeypatch):
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
     app = fastapi.FastAPI()
 
     @app.get("/ping")
@@ -480,7 +480,7 @@ def test_gate_off_responses_carry_no_traceresponse(monkeypatch):
 
 
 def test_failed_instrumentation_registers_no_response_propagator(monkeypatch):
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     app = fastapi.FastAPI()
 
     with TestClient(app):
@@ -507,7 +507,7 @@ def test_browsers_can_read_traceresponse_through_cors(monkeypatch):
     provider, _ = _exporting_provider()
     app = _traced_app(monkeypatch, provider)
     app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], expose_headers=[*LITELLM_UI_ALLOW_HEADERS, *trace_response_expose_headers()]
+        CORSMiddleware, allow_origins=["*"], expose_headers=[*HANGARLLM_UI_ALLOW_HEADERS, *trace_response_expose_headers()]
     )
 
     response = TestClient(app).get("/success", headers={"origin": "https://ui.example.com"})
@@ -518,15 +518,15 @@ def test_browsers_can_read_traceresponse_through_cors(monkeypatch):
 
 
 def test_cors_leaves_traceresponse_unexposed_with_the_gate_off(monkeypatch):
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
     is_otel_v2_enabled.cache_clear()
 
-    assert "traceresponse" not in [*LITELLM_UI_ALLOW_HEADERS, *trace_response_expose_headers()]
+    assert "traceresponse" not in [*HANGARLLM_UI_ALLOW_HEADERS, *trace_response_expose_headers()]
 
 
 def test_other_instrumented_apps_in_the_process_get_no_traceresponse(monkeypatch):
     provider, _ = _exporting_provider()
-    litellm_client = TestClient(_traced_app(monkeypatch, provider))
+    hangarllm_client = TestClient(_traced_app(monkeypatch, provider))
     operator_app = fastapi.FastAPI()
 
     @operator_app.get("/operator")
@@ -536,12 +536,12 @@ def test_other_instrumented_apps_in_the_process_get_no_traceresponse(monkeypatch
     FastAPIInstrumentor.instrument_app(operator_app, tracer_provider=provider)
     try:
         operator_response = TestClient(operator_app).get("/operator")
-        litellm_response = litellm_client.get("/success")
+        hangarllm_response = hangarllm_client.get("/success")
     finally:
         FastAPIInstrumentor.uninstrument_app(operator_app)
 
     assert "traceresponse" not in operator_response.headers
-    assert litellm_response.headers["traceresponse"]
+    assert hangarllm_response.headers["traceresponse"]
 
 
 def test_the_unhandled_error_helper_names_the_span_it_is_given_in_any_context(monkeypatch):
@@ -573,7 +573,7 @@ def test_url_exclusions_cover_auth_and_service_spans(
     monkeypatch: pytest.MonkeyPatch, excluded_urls: str | None, path: str,
     root_path: str, status: int, excluded: bool, active_parent: bool,
 ) -> None:
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     if excluded_urls is None:
         monkeypatch.delenv("OTEL_PYTHON_FASTAPI_EXCLUDED_URLS", raising=False)
     else:
@@ -615,7 +615,7 @@ def test_url_exclusions_cover_auth_and_service_spans(
 async def test_exclusion_survives_deferred_work_without_suppressing_other_requests(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     monkeypatch.setenv("OTEL_PYTHON_FASTAPI_EXCLUDED_URLS", "/model/info")
     app: Final = FastAPI()
     logger: Final = OpenTelemetryV2(config=OpenTelemetryV2Config(exporter="in_memory"))
@@ -661,7 +661,7 @@ async def test_exclusion_survives_deferred_work_without_suppressing_other_reques
 def test_url_exclusions_cover_unhandled_error_handlers_after_repeated_mount(
     monkeypatch: pytest.MonkeyPatch, path: str,
 ) -> None:
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "1")
     monkeypatch.setenv("OTEL_PYTHON_FASTAPI_EXCLUDED_URLS", "/excluded")
     app: Final = FastAPI()
     logger: Final = OpenTelemetryV2(config=OpenTelemetryV2Config(exporter="in_memory"))

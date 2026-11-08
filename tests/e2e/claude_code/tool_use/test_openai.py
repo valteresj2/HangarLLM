@@ -1,11 +1,11 @@
 """tool_use x OpenAI (GPT-5.6).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that
+Drive the real `claude` CLI against a running HangarLLM proxy that
 routes Anthropic Messages requests to OpenAI's GPT-5.6 family (Sol,
 Terra, Luna), ask the model to invoke a built-in tool (`Bash`), and
 assert that a `tool_use` content block came back over the wire.
 
-Claude Code declares its tools in Anthropic `tools` format; LiteLLM's
+Claude Code declares its tools in Anthropic `tools` format; HangarLLM's
 `openai/gpt-*` route translates them to OpenAI function calling and
 maps the returned `tool_calls` back to Anthropic `tool_use` blocks, so
 this cell exercises the tool-schema translation in both directions.
@@ -79,7 +79,7 @@ def _has_tool_use_event(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_tool_use_openai(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     tool call was emitted on the wire by each GPT-5.6 tier."""
     skip_unless_openai_gpt_cells_enabled()
     proxy = require_proxy(compat_result)

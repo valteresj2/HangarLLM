@@ -9,7 +9,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.auth.master_key_boot_check import (
+from hangarllm.proxy.auth.master_key_boot_check import (
     GENERATE_MASTER_KEY_COMMAND,
     MASTER_KEY_ENV_VAR,
     MIGRATE_FROM_MASTER_KEY_ENV_VAR,
@@ -433,7 +433,7 @@ def test_safe_and_overridden_keys_boot_without_announcing(verdict: MasterKeyBoot
 
 def test_announced_fix_is_the_last_thing_a_crashing_process_prints():
     crash_after_announcing = (
-        "from litellm.proxy.auth.master_key_boot_check import announce_on_stderr_at_exit\n"
+        "from hangarllm.proxy.auth.master_key_boot_check import announce_on_stderr_at_exit\n"
         "announce_on_stderr_at_exit('THE FIX')\n"
         "print('buffered stdout')\n"
         "raise RuntimeError('lifespan failed')\n"

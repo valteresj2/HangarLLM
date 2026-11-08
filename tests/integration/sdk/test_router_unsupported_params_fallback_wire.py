@@ -8,8 +8,8 @@ from typing import Final
 import pytest
 from integration._support.wire import Reply, Request, Wire, wire_server
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 _MODEL: Final = "gpt-5-wire-unmapped"
 _API_KEY: Final = "synthetic-unsupported-params-key"
@@ -88,12 +88,12 @@ def _router(wire: Wire, primary_model_info: Mapping[str, object] | None = None, 
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/primary", "api_key": _API_KEY},
+                "hangarllm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/primary", "api_key": _API_KEY},
                 "model_info": dict(primary_model_info or {}),
             },
             {
                 "model_name": "backup",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"openai/{_MODEL}",
                     "api_base": f"{wire.url}/backup",
                     "api_key": _API_KEY,
@@ -110,15 +110,15 @@ def _router(wire: Wire, primary_model_info: Mapping[str, object] | None = None, 
 _MESSAGES: Final = [{"role": "user", "content": _PROMPT}]
 
 
-def _content(response: litellm.ModelResponse) -> str:
+def _content(response: hangarllm.ModelResponse) -> str:
     choice: Final = response.choices[0]
-    assert isinstance(choice, litellm.Choices), choice
+    assert isinstance(choice, hangarllm.Choices), choice
     return str(choice.message.content)
 
 
 async def _acomplete(router: Router, **request: object) -> str:
     response: Final = await router.acompletion(model="primary", messages=_MESSAGES, **request)
-    assert isinstance(response, litellm.ModelResponse), response
+    assert isinstance(response, hangarllm.ModelResponse), response
     return _content(response)
 
 
@@ -126,7 +126,7 @@ def _complete(client: str, router: Router, **request: object) -> str:
     if client == "async":
         return asyncio.run(_acomplete(router, **request))
     response: Final = router.completion(model="primary", messages=_MESSAGES, **request)
-    assert isinstance(response, litellm.ModelResponse), response
+    assert isinstance(response, hangarllm.ModelResponse), response
     return _content(response)
 
 
@@ -134,7 +134,7 @@ def _complete(client: str, router: Router, **request: object) -> str:
 def test_client_side_param_rejection_reaches_the_caller_without_trying_fallbacks(client: str) -> None:
     with wire_server(_peer({"backup": _BACKUP_ANSWERS})) as wire:
         router: Final = _router(wire, fallback_on_unsupported_params=False)
-        with pytest.raises(litellm.UnsupportedParamsError, match="reasoning_effort"):
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="reasoning_effort"):
             _complete(client, router, **_UNSUPPORTED_BY_PRIMARY)
         assert _deployments_hit(wire) == ()
 
@@ -190,7 +190,7 @@ def test_content_policy_error_still_uses_its_own_fallbacks_when_bad_requests_rai
 def test_upstream_400_reaches_the_caller_without_trying_fallbacks(client: str) -> None:
     with wire_server(_peer({"primary": _UPSTREAM_400, "backup": _BACKUP_ANSWERS})) as wire:
         router: Final = _router(wire, fallback_on_unsupported_params=False)
-        with pytest.raises(litellm.BadRequestError, match="Unsupported value: temperature"):
+        with pytest.raises(hangarllm.BadRequestError, match="Unsupported value: temperature"):
             _complete(client, router)
         assert _deployments_hit(wire) == ("primary",)
 
@@ -200,7 +200,7 @@ def test_flag_applied_through_update_settings_stops_fallbacks_on_upstream_400(cl
     with wire_server(_peer({"primary": _UPSTREAM_400, "backup": _BACKUP_ANSWERS})) as wire:
         router: Final = _router(wire)
         router.update_settings(fallback_on_unsupported_params=False)
-        with pytest.raises(litellm.BadRequestError, match="Unsupported value: temperature"):
+        with pytest.raises(hangarllm.BadRequestError, match="Unsupported value: temperature"):
             _complete(client, router)
         assert _deployments_hit(wire) == ("primary",)
 

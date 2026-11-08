@@ -12,17 +12,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy._types import (
-    LiteLLM_JWTAuth,
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
+from hangarllm.proxy._types import (
+    HangarLLM_JWTAuth,
+    HangarLLM_ObjectPermissionTable,
+    HangarLLM_TeamTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+from hangarllm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
     MCPRequestHandler,
 )
-from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
 
 
 @pytest.mark.asyncio
@@ -38,26 +38,26 @@ async def test_reproduce_jwt_mcp_enforcement_issue(monkeypatch):
     Expected: team_id should be set to "ABC" so MCP permissions are enforced
     Actual (BUG): team_id is None because route check fails for MCP routes
     """
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
 
     # Setup mock router
     router = Router(
-        model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4"}}]
+        model_list=[{"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4"}}]
     )
     import sys
     import types
 
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
     # Team "ABC" has models configured AND MCPs assigned
-    team_with_mcp = LiteLLM_TeamTable(
+    team_with_mcp = HangarLLM_TeamTable(
         team_id="ABC",
         models=["gpt-4"],  # Team HAS models
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="perm-123",
             mcp_servers=["mcp-server-1"],  # Team has MCPs assigned
         ),
@@ -70,12 +70,12 @@ async def test_reproduce_jwt_mcp_enforcement_issue(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
     )
 
     # Setup JWT handler with team_ids_jwt_field (groups)
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_ids_jwt_field="groups",  # Use groups field for teams
         # NOTE: team_allowed_routes defaults to ["openai_routes", "info_routes"]
         # which does NOT include "mcp_routes"
@@ -127,7 +127,7 @@ async def test_verify_mcp_routes_in_default_team_allowed_routes():
     Verify that mcp_routes IS in the default team_allowed_routes.
     This is required for team MCP permissions to work with JWT auth.
     """
-    default_jwt_auth = LiteLLM_JWTAuth()
+    default_jwt_auth = HangarLLM_JWTAuth()
 
     print(f"Default team_allowed_routes: {default_jwt_auth.team_allowed_routes}")
 
@@ -143,16 +143,16 @@ async def test_mcp_route_check_passes_for_team():
     Verify that allowed_routes_check returns True for MCP routes with default settings.
     This is required for teams to access MCP endpoints with JWT auth.
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.auth_checks import allowed_routes_check
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.auth.auth_checks import allowed_routes_check
 
-    jwt_auth = LiteLLM_JWTAuth()  # Use defaults
+    jwt_auth = HangarLLM_JWTAuth()  # Use defaults
 
     # Check if MCP route is allowed for TEAM role
     is_allowed = allowed_routes_check(
-        user_role=LitellmUserRoles.TEAM,
+        user_role=HangarllmUserRoles.TEAM,
         user_route="/mcp/tools/list",
-        litellm_proxy_roles=jwt_auth,
+        hangarllm_proxy_roles=jwt_auth,
     )
 
     print(f"Is /mcp/tools/list allowed for TEAM with defaults? {is_allowed}")
@@ -169,10 +169,10 @@ async def test_mcp_route_check_passes_for_team_server_subpaths():
     Verify that allowed_routes_check returns True for /v1/mcp/server sub-paths with default settings.
     Regression test for JWT users accessing /v1/mcp/server/register and similar endpoints.
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.auth_checks import allowed_routes_check
+    from hangarllm.proxy._types import HangarllmUserRoles
+    from hangarllm.proxy.auth.auth_checks import allowed_routes_check
 
-    jwt_auth = LiteLLM_JWTAuth()
+    jwt_auth = HangarLLM_JWTAuth()
 
     for route in [
         "/v1/mcp/server/register",
@@ -180,9 +180,9 @@ async def test_mcp_route_check_passes_for_team_server_subpaths():
         "/v1/mcp/server/abc/approve",
     ]:
         is_allowed = allowed_routes_check(
-            user_role=LitellmUserRoles.TEAM,
+            user_role=HangarllmUserRoles.TEAM,
             user_route=route,
-            litellm_proxy_roles=jwt_auth,
+            hangarllm_proxy_roles=jwt_auth,
         )
         assert (
             is_allowed is True
@@ -201,13 +201,13 @@ async def test_e2e_jwt_team_mcp_permissions_enforced(monkeypatch):
     3. JWT auth properly sets team_id on UserAPIKeyAuth
     4. MCPRequestHandler.get_allowed_mcp_servers() returns team's MCP servers
     """
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
 
     # Setup mock router
     router = Router(
-        model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4"}}]
+        model_list=[{"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4"}}]
     )
     import sys
     import types
@@ -218,18 +218,18 @@ async def test_e2e_jwt_team_mcp_permissions_enforced(monkeypatch):
     proxy_server_module.user_api_key_cache = DualCache()
     proxy_server_module.proxy_logging_obj = MagicMock()
     proxy_server_module.general_settings = {}
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
     # Team "ABC" has MCP servers assigned via object_permission
     team_mcp_servers = ["mcp-server-1", "mcp-server-2"]
-    team_object_permission = LiteLLM_ObjectPermissionTable(
+    team_object_permission = HangarLLM_ObjectPermissionTable(
         object_permission_id="perm-abc-123",
         mcp_servers=team_mcp_servers,
         mcp_access_groups=[],
         vector_stores=[],
     )
 
-    team_with_mcp = LiteLLM_TeamTable(
+    team_with_mcp = HangarLLM_TeamTable(
         team_id="ABC",
         models=["gpt-4"],
         object_permission=team_object_permission,
@@ -243,15 +243,15 @@ async def test_e2e_jwt_team_mcp_permissions_enforced(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.auth_checks.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.auth_checks.get_team_object", mock_get_team_object
     )
 
     # Setup JWT handler with team_ids_jwt_field (groups)
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_ids_jwt_field="groups",
     )
 
@@ -334,9 +334,9 @@ async def test_e2e_jwt_without_team_no_mcp_servers(monkeypatch):
     1. JWT token with no groups returns no team_id
     2. MCPRequestHandler.get_allowed_mcp_servers() returns empty list
     """
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
 
     # Setup mock router
     router = Router(model_list=[])
@@ -345,18 +345,18 @@ async def test_e2e_jwt_without_team_no_mcp_servers(monkeypatch):
 
     proxy_server_module = types.ModuleType("proxy_server")
     proxy_server_module.llm_router = router
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
     async def mock_get_team_object(*args, **kwargs):
         return None
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
     )
 
     # Setup JWT handler
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_ids_jwt_field="groups",
     )
 
@@ -415,13 +415,13 @@ async def test_e2e_jwt_team_mcp_key_intersection(monkeypatch):
     - Key has MCP servers: ["server-2", "server-4"]
     - Result should be intersection: ["server-2"]
     """
-    from litellm.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.router import Router
 
     # Setup mock router
     router = Router(
-        model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4"}}]
+        model_list=[{"model_name": "gpt-4", "hangarllm_params": {"model": "gpt-4"}}]
     )
     import sys
     import types
@@ -432,16 +432,16 @@ async def test_e2e_jwt_team_mcp_key_intersection(monkeypatch):
     proxy_server_module.user_api_key_cache = DualCache()
     proxy_server_module.proxy_logging_obj = MagicMock()
     proxy_server_module.general_settings = {}
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_module)
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", proxy_server_module)
 
     # Team MCP servers
     team_mcp_servers = ["server-1", "server-2", "server-3"]
-    team_object_permission = LiteLLM_ObjectPermissionTable(
+    team_object_permission = HangarLLM_ObjectPermissionTable(
         object_permission_id="team-perm",
         mcp_servers=team_mcp_servers,
     )
 
-    team_with_mcp = LiteLLM_TeamTable(
+    team_with_mcp = HangarLLM_TeamTable(
         team_id="TEAM-X",
         models=["gpt-4"],
         object_permission=team_object_permission,
@@ -449,7 +449,7 @@ async def test_e2e_jwt_team_mcp_key_intersection(monkeypatch):
 
     # Key MCP servers
     key_mcp_servers = ["server-2", "server-4"]
-    key_object_permission = LiteLLM_ObjectPermissionTable(
+    key_object_permission = HangarLLM_ObjectPermissionTable(
         object_permission_id="key-perm",
         mcp_servers=key_mcp_servers,
     )
@@ -461,14 +461,14 @@ async def test_e2e_jwt_team_mcp_key_intersection(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.handle_jwt.get_team_object", mock_get_team_object
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.auth_checks.get_team_object", mock_get_team_object
+        "hangarllm.proxy.auth.auth_checks.get_team_object", mock_get_team_object
     )
 
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_ids_jwt_field="groups")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_ids_jwt_field="groups")
 
     user_api_key_cache = DualCache()
     proxy_logging_obj = ProxyLogging(user_api_key_cache=user_api_key_cache)

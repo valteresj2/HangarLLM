@@ -29,11 +29,11 @@ Start with `test_cross_model_contract.py` for the four scenarios and `contracts.
 
 `OPTIONAL_FIELDS` lists standard fields whose presence can legitimately vary, including `system_fingerprint`, `service_tier`, `logprobs`, `refusal`, `annotations`, `audio`, legacy `function_call` and usage detail objects. Their types are validated when present, but their presence is not compared across models. `PROVIDER_EXTENSIONS` explicitly lists provider-specific fields excluded from this comparison, including reasoning formats and Vertex metadata. Unlisted fields are not silently discarded
 
-Streaming cases store `expected_litellm_message` and `expected_litellm_usage`. Message values are compared after joining deltas and parsing tool argument JSON, so whitespace and chunk boundaries are irrelevant. Reasoning text, thinking signatures, redacted data and encrypted reasoning items must survive. An empty reasoning-item `content` list may be omitted. Thinking indexes are transport metadata, not compared as content. The separate SDK assembly check enforces SDK-compatible deltas
+Streaming cases store `expected_hangarllm_message` and `expected_hangarllm_usage`. Message values are compared after joining deltas and parsing tool argument JSON, so whitespace and chunk boundaries are irrelevant. Reasoning text, thinking signatures, redacted data and encrypted reasoning items must survive. An empty reasoning-item `content` list may be omitted. Thinking indexes are transport metadata, not compared as content. The separate SDK assembly check enforces SDK-compatible deltas
 
 Usage requires nonnegative integer counts, positive prompt and completion counts, and `total_tokens == prompt_tokens + completion_tokens`. The complete normalized usage must equal the independently expected counters, including cached and reasoning tokens and derived text/cache details. Missing, changed or unexpected counters fail. Only null optional fields, the explicitly listed provider metadata/duplicate counters and computed `cost` are excluded. Thus a wrong prompt count with an adjusted total still fails
 
-The raw stream check assembles tool names and argument fragments by index. The SDK check separately uses `OpenAI.chat.completions.stream()` without removing reasoning fields. All 52 SDK checks run, including the seven Haiku rows. [LIT-9653](https://linear.app/litellm-ai/issue/LIT-9653) was fixed in [#46611](https://github.com/BerriAI/litellm/pull/46611), so there are no Haiku skips
+The raw stream check assembles tool names and argument fragments by index. The SDK check separately uses `OpenAI.chat.completions.stream()` without removing reasoning fields. All 52 SDK checks run, including the seven Haiku rows. [LIT-9653](https://linear.app/hangarllm-ai/issue/LIT-9653) was fixed in [#46611](upstream issue 46611), so there are no Haiku skips
 
 ## Recorded upstreams
 
@@ -45,7 +45,7 @@ To refresh a row, follow the capture procedure in the parent translation README 
 
 Replace project paths, signatures, encrypted reasoning and redacted blocks with synthetic values, preserving relationships between a response and its follow-up. Keep the documented Gemini skip-validation signature unchanged. Targets use the synthetic deployment's API base, so OpenAI targets omit `/v1` and Vertex Anthropic stream targets include `?alt=sse`
 
-Do not generate expectations with LiteLLM translators. Add the model's synthetic deployment to the shared proxy config. Reuse the common request in `chat_completions/templates.py` and the matching wire request in `translation/templates/<provider>.py`. Store only model-specific differences in the base or agent variant. Populate the stream message and usage expectations from the provider's own frames, including any reported optional counters. Add its initial, follow-up and streaming cases to the appropriate tier tuple
+Do not generate expectations with HangarLLM translators. Add the model's synthetic deployment to the shared proxy config. Reuse the common request in `chat_completions/templates.py` and the matching wire request in `translation/templates/<provider>.py`. Store only model-specific differences in the base or agent variant. Populate the stream message and usage expectations from the provider's own frames, including any reported optional counters. Add its initial, follow-up and streaming cases to the appropriate tier tuple
 
 ## Run
 

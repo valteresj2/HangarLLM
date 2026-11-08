@@ -42,7 +42,7 @@ DEFAULT_COST: Final = 0.25
 ADD_COST: Final = 0.5
 FORBIDDEN: Final = "forbidden-integration-word"
 SPEND_ROWS: Final = (
-    'SELECT call_type, model, spend, status, metadata FROM "LiteLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime"'
+    'SELECT call_type, model, spend, status, metadata FROM "HangarLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime"'
 )
 
 
@@ -115,7 +115,7 @@ def test_key_spend_and_key_max_budget_count_mcp_tool_calls(gateway: Gateway) -> 
         caller: Final = McpCaller(gateway, key, "mcp", alias)
         assert caller.call(f"{alias}-add", {"a": 2, "b": 3}).text == "5"
         info: Final = eventually(
-            lambda: gateway.client.get("/key/info", params={"key": key}, headers={"x-litellm-api-key": gateway.key}),
+            lambda: gateway.client.get("/key/info", params={"key": key}, headers={"x-hangarllm-api-key": gateway.key}),
             lambda response: response.status_code == 200 and float(response.json()["info"]["spend"]) > 0,
             seconds=70,
         )
@@ -136,12 +136,12 @@ def _content_filter(gateway: Gateway, mode: str) -> Iterator[str]:
     name: Final = "filter" + uuid.uuid4().hex[:8]
     created: Final = gateway.client.post(
         "/guardrails",
-        headers={"x-litellm-api-key": gateway.key},
+        headers={"x-hangarllm-api-key": gateway.key},
         json={
             "guardrail": {
                 "guardrail_name": name,
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "hangarllm_params": {
+                    "guardrail": "hangarllm_content_filter",
                     "mode": mode,
                     "default_on": True,
                     "blocked_words": [{"keyword": FORBIDDEN, "action": "BLOCK"}],
@@ -154,7 +154,7 @@ def _content_filter(gateway: Gateway, mode: str) -> Iterator[str]:
     try:
         yield name
     finally:
-        deleted: Final = gateway.client.delete(f"/guardrails/{identity}", headers={"x-litellm-api-key": gateway.key})
+        deleted: Final = gateway.client.delete(f"/guardrails/{identity}", headers={"x-hangarllm-api-key": gateway.key})
         assert deleted.status_code == 200, deleted.text
 
 
@@ -221,24 +221,24 @@ LOOKUP_SCHEMA: Final = {
     "type": "object",
     "properties": {"record": {"type": "string", "description": "record identifier"}},
 }
-SPEND_ROW: Final = 'SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+SPEND_ROW: Final = 'SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 _RECORDER_CODE: Final = """\
 import os
 
 import httpx
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
 
 SINK = "{sink}/native"
 
 
 def _record(stage, data, call_type):
-    logging_obj = data.get("litellm_logging_obj")
+    logging_obj = data.get("hangarllm_logging_obj")
     return {{
         "stage": stage,
         "pid": os.getpid(),
         "call_type": call_type,
-        "litellm_call_id": None if logging_obj is None else logging_obj.litellm_call_id,
+        "hangarllm_call_id": None if logging_obj is None else logging_obj.hangarllm_call_id,
         "messages": data.get("messages"),
         "mcp_tool_name": data.get("mcp_tool_name"),
         "mcp_arguments": data.get("mcp_arguments"),
@@ -264,7 +264,7 @@ class HookRecorder(CustomLogger):
             {{
                 "stage": "post",
                 "pid": os.getpid(),
-                "litellm_call_id": kwargs.get("litellm_call_id"),
+                "hangarllm_call_id": kwargs.get("hangarllm_call_id"),
                 "tool": kwargs.get("mcp_tool_call_metadata"),
                 "content": [item.model_dump() for item in response_obj.mcp_tool_call_response],
             }}
@@ -280,7 +280,7 @@ class SinkGuardrail(CustomGuardrail):
         payload = {{
             "pid": os.getpid(),
             "input_type": input_type,
-            "litellm_call_id": None if logging_obj is None else logging_obj.litellm_call_id,
+            "hangarllm_call_id": None if logging_obj is None else logging_obj.hangarllm_call_id,
             "texts": inputs.get("texts"),
             "tools": inputs.get("tools"),
             "structured_messages": inputs.get("structured_messages"),
@@ -334,7 +334,7 @@ def hooks_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[HooksRig]:
         config["guardrails"] = [
             {
                 "guardrail_name": guardrail,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "hook_recorder.SinkGuardrail",
                     "mode": ["pre_mcp_call", "post_mcp_call"],
                     "default_on": True,
@@ -342,8 +342,8 @@ def hooks_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[HooksRig]:
                 },
             }
         ]
-        config["litellm_settings"] = {
-            **object_value(config["litellm_settings"]),
+        config["hangarllm_settings"] = {
+            **object_value(config["hangarllm_settings"]),
             "callbacks": ["hook_recorder.recorder"],
         }
         path: Final = directory / "config.yaml"
@@ -357,7 +357,7 @@ def hooks_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[HooksRig]:
 
 
 def _worker(gateway: Gateway) -> int:
-    response: Final = gateway.client.get("/debug/memory/summary", headers={"x-litellm-api-key": gateway.key})
+    response: Final = gateway.client.get("/debug/memory/summary", headers={"x-hangarllm-api-key": gateway.key})
     assert response.status_code == 200, response.text
     worker: Final = JSON_OBJECT.validate_json(response.content)["worker_pid"]
     assert isinstance(worker, int), response.text
@@ -392,7 +392,7 @@ def _only(records: tuple[dict[str, JsonValue], ...]) -> dict[str, JsonValue]:
 
 
 def _scan(sunk: tuple[Sunk, ...], call_id: JsonValue) -> dict[str, JsonValue]:
-    return _only(tuple(record for record in _generic(sunk, "request") if record["litellm_call_id"] == call_id))
+    return _only(tuple(record for record in _generic(sunk, "request") if record["hangarllm_call_id"] == call_id))
 
 
 def _texts(content: JsonValue) -> list[JsonValue]:
@@ -438,7 +438,7 @@ def test_generic_sink_and_native_hooks_receive_listed_metadata_on_typed_keys_wit
         assert _worker(pinned) == worker
         sunk: Final = hooks_rig.sunk()
         pre: Final = _only(_native(sunk, "pre"))
-        call_id: Final = pre["litellm_call_id"]
+        call_id: Final = pre["hangarllm_call_id"]
         generic: Final = _scan(sunk, call_id)
         assert generic["texts"] == [LOOKUP_DESCRIPTION, "record identifier", "r-1"], generic
         assert generic["tools"] == [
@@ -457,7 +457,7 @@ def test_generic_sink_and_native_hooks_receive_listed_metadata_on_typed_keys_wit
         during: Final = _only(_native(sunk, "during"))
         post: Final = _only(_native(sunk, "post"))
         assert all(record["pid"] == worker for record in (pre, during, post)), sunk
-        assert all(record["litellm_call_id"] == call_id for record in (pre, during, post)), sunk
+        assert all(record["hangarllm_call_id"] == call_id for record in (pre, during, post)), sunk
         assert pre["call_type"] == "call_mcp_tool" and during["call_type"] == "call_mcp_tool", sunk
         assert pre["messages"] == _synthetic_message("lookup", arguments), pre
         assert during["messages"] == _synthetic_message("lookup", arguments), during
@@ -499,15 +499,15 @@ def test_pre_call_mask_reaches_the_peer_and_post_call_mask_reaches_the_caller_on
         params: Final = object_value(JSON_OBJECT.validate_python(reached[0]["body"])["params"])
         assert params["arguments"] == {"record": MASKED}, params
         sunk: Final = hooks_rig.sunk()
-        generic: Final = _scan(sunk, _only(_native(sunk, "pre"))["litellm_call_id"])
+        generic: Final = _scan(sunk, _only(_native(sunk, "pre"))["hangarllm_call_id"])
         scanned: Final = generic["texts"]
         assert isinstance(scanned, list) and scanned[-1] == MASK_ME and MASKED not in scanned, generic
         assert _only(_generic(sunk, "response"))["texts"] == [f"found {MASK_ME}"], sunk
         during: Final = _only(_native(sunk, "during"))
         assert during["mcp_arguments"] == {"record": MASKED}, during
         assert during["messages"] == _synthetic_message("lookup", {"record": MASKED}), during
-        assert _only(_native(sunk, "post"))["litellm_call_id"] == generic["litellm_call_id"], sunk
-        assert _spend_row(generic["litellm_call_id"])["status"] == "success"
+        assert _only(_native(sunk, "post"))["hangarllm_call_id"] == generic["hangarllm_call_id"], sunk
+        assert _spend_row(generic["hangarllm_call_id"])["status"] == "success"
 
 
 def test_call_time_description_and_schema_are_guarded_on_a_worker_that_never_served_the_listing(
@@ -543,7 +543,7 @@ def test_call_time_description_and_schema_are_guarded_on_a_worker_that_never_ser
             scans: Final = tuple(
                 scan
                 for scan in _generic(elsewhere, "request")
-                if scan["litellm_call_id"] == unlisted["litellm_call_id"]
+                if scan["hangarllm_call_id"] == unlisted["hangarllm_call_id"]
             )
             assert tuple(scan["texts"] for scan in scans) == (
                 [LOOKUP_DESCRIPTION, "record identifier"],
@@ -555,7 +555,7 @@ def test_call_time_description_and_schema_are_guarded_on_a_worker_that_never_ser
             listed: Final = _only(_native(at_lister, "pre"))
             assert listed["pid"] == first_worker, listed
             assert (listed["mcp_tool_description"], listed["mcp_input_schema"]) == (LOOKUP_DESCRIPTION, LOOKUP_SCHEMA)
-            assert _scan(at_lister, listed["litellm_call_id"])["texts"] == [
+            assert _scan(at_lister, listed["hangarllm_call_id"])["texts"] == [
                 LOOKUP_DESCRIPTION,
                 "record identifier",
                 "r-3",
@@ -608,7 +608,7 @@ def test_long_descriptions_do_not_refuse_small_tpm_calls_or_change_masked_messag
         during: Final = _only(tuple(hook for hook in _native(sunk, "during") if hook["mcp_tool_name"] == "lookup"))
         assert pre["messages"] == _synthetic_message("lookup", arguments), pre
         assert during["messages"] == _synthetic_message("lookup", masked_arguments), during
-        assert _spend_row(pre["litellm_call_id"])["status"] == "success"
+        assert _spend_row(pre["hangarllm_call_id"])["status"] == "success"
 
 
 def _nested_schema(levels: int) -> dict[str, object]:
@@ -647,7 +647,7 @@ def test_a_schema_past_the_scan_depth_is_not_published_while_one_at_the_limit_is
             "shallow"
         ]
         relisted: Final = _generic(hooks_rig.sunk(), "request")
-        assert all((scan["mcp_tool_name"], scan["litellm_call_id"]) == ("shallow", None) for scan in relisted), relisted
+        assert all((scan["mcp_tool_name"], scan["hangarllm_call_id"]) == ("shallow", None) for scan in relisted), relisted
         rows: Final = _rows(key, 3)
         assert [(row["call_type"], row["status"]) for row in rows] == [
             ("list_mcp_tools", "success"),

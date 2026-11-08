@@ -4,7 +4,7 @@ Tests for Tensormesh provider configuration and integration.
 
 import pytest
 
-import litellm
+import hangarllm
 
 TENSORMESH_MODELS = [
     "tensormesh/Qwen/Qwen3.5-397B-A17B-FP8",
@@ -25,15 +25,15 @@ class TestTensormeshProviderConfig:
 
     def test_tensormesh_in_provider_list(self):
         """Test that tensormesh is in the provider list"""
-        from litellm import LlmProviders
+        from hangarllm import LlmProviders
 
         assert hasattr(LlmProviders, "TENSORMESH")
         assert LlmProviders.TENSORMESH.value == "tensormesh"
-        assert "tensormesh" in litellm.provider_list
+        assert "tensormesh" in hangarllm.provider_list
 
     def test_tensormesh_json_config_exists(self):
         """Test that tensormesh is configured in providers.json"""
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         assert JSONProviderRegistry.exists("tensormesh")
 
@@ -46,7 +46,7 @@ class TestTensormeshProviderConfig:
 
     def test_tensormesh_provider_resolution(self):
         """Test that provider resolution finds tensormesh and the default base URL"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="tensormesh/openai/gpt-oss-120b",
@@ -61,7 +61,7 @@ class TestTensormeshProviderConfig:
 
     def test_tensormesh_api_base_override(self):
         """Test that an explicit api_base / api_key overrides the serverless default"""
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="tensormesh/openai/gpt-oss-120b",
@@ -77,13 +77,13 @@ class TestTensormeshProviderConfig:
     def test_tensormesh_text_completion_enabled(self):
         """Tensormesh is wired for the /completions (text completion) route,
         matching the text_completion flag in provider_endpoints_support.json."""
-        assert "tensormesh" in litellm.openai_text_completion_compatible_providers
+        assert "tensormesh" in hangarllm.openai_text_completion_compatible_providers
 
     def test_tensormesh_responses_api_enabled(self):
-        """Tensormesh declares /v1/responses in supported_endpoints, so litellm
+        """Tensormesh declares /v1/responses in supported_endpoints, so hangarllm
         resolves a responses config for it."""
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.utils import ProviderConfigManager
 
         assert JSONProviderRegistry.supports_responses_api("tensormesh") is True
         config = ProviderConfigManager.get_provider_responses_api_config(
@@ -95,13 +95,13 @@ class TestTensormeshProviderConfig:
 
     def test_tensormesh_router_config(self):
         """Test that tensormesh can be used in Router configuration"""
-        from litellm import Router
+        from hangarllm import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "tensormesh-chat",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "tensormesh/openai/gpt-oss-120b",
                         "api_key": "test-key",
                     },
@@ -114,20 +114,20 @@ class TestTensormeshProviderConfig:
 
 
 class TestTensormeshCostMap:
-    """The serverless models are registered in the cost map so LiteLLM can
+    """The serverless models are registered in the cost map so HangarLLM can
     price requests and unblock tool-calling params on the JSON provider path."""
 
     @pytest.fixture(autouse=True)
     def _use_local_model_cost_map(self, monkeypatch):
-        original_model_cost = litellm.model_cost
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        litellm.model_cost = litellm.get_model_cost_map(url="")
-        litellm.get_model_info.cache_clear()
+        original_model_cost = hangarllm.model_cost
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+        hangarllm.get_model_info.cache_clear()
         try:
             yield
         finally:
-            litellm.model_cost = original_model_cost
-            litellm.get_model_info.cache_clear()
+            hangarllm.model_cost = original_model_cost
+            hangarllm.get_model_info.cache_clear()
 
 
     def test_reasoning_flag_matches_expected_set(self):
@@ -143,5 +143,5 @@ class TestTensormeshCostMap:
             "tensormesh/google/gemma-4-31B-it",
         }
         for model in TENSORMESH_MODELS:
-            assert litellm.supports_reasoning(model) is (model in reasoning_models), model
+            assert hangarllm.supports_reasoning(model) is (model in reasoning_models), model
 

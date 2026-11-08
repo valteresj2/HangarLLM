@@ -5,14 +5,14 @@ from typing import Final, Literal
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.spend_tracking.cost_finalization import finalize_response_cost
-from litellm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.spend_counters import SpendCounterStore
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.spend_tracking.cost_finalization import finalize_response_cost
+from hangarllm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.spend_counters import SpendCounterStore
 
 NOW: Final = datetime(2026, 10, 20, 12, 30, tzinfo=timezone.utc)
 MODEL: Final = "gemini-finalization-test"
@@ -46,12 +46,12 @@ class BlockingCounter(Counter):
 
 @pytest.fixture
 def logging_obj(monkeypatch: pytest.MonkeyPatch) -> Logging:
-    monkeypatch.setattr(litellm, "apply_search_free_tier", True)
+    monkeypatch.setattr(hangarllm, "apply_search_free_tier", True)
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         MODEL,
         {
-            "litellm_provider": "vertex_ai",
+            "hangarllm_provider": "vertex_ai",
             "mode": "chat",
             "input_cost_per_token": 0.01,
             "output_cost_per_token": 0.02,
@@ -66,11 +66,11 @@ def logging_obj(monkeypatch: pytest.MonkeyPatch) -> Logging:
         stream=False,
         call_type="acompletion",
         start_time=NOW.timestamp(),
-        litellm_call_id="finalization-call",
+        hangarllm_call_id="finalization-call",
         function_id="finalization-function",
     )
     logging.update_environment_variables(
-        model=MODEL, custom_llm_provider="vertex_ai", litellm_params={}, optional_params={}
+        model=MODEL, custom_llm_provider="vertex_ai", hangarllm_params={}, optional_params={}
     )
     return logging
 
@@ -106,9 +106,9 @@ async def test_header_and_logging_share_one_allowance_allocation(
     logging_obj._success_handler_helper_fn(result=result, start_time=NOW, end_time=NOW)
     payload: Final = logging_obj.model_call_details["standard_logging_object"]
     headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
-        user_api_key_dict=UserAPIKeyAuth(), response_cost=costs[0].amount, litellm_logging_obj=logging_obj
+        user_api_key_dict=UserAPIKeyAuth(), response_cost=costs[0].amount, hangarllm_logging_obj=logging_obj
     )
-    assert float(headers["x-litellm-response-cost"]) == pytest.approx(payload["response_cost"])
+    assert float(headers["x-hangarllm-response-cost"]) == pytest.approx(payload["response_cost"])
     assert payload["cost_finalized"] is True
     assert payload["cost_breakdown"] == costs[0].logging_breakdown()
 
@@ -148,9 +148,9 @@ async def test_cache_hit_finalizes_zero_without_allocating(logging_obj: Logging)
 
 @pytest.mark.asyncio
 async def test_both_callback_paths_wait_for_finalization(logging_obj: Logging) -> None:
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-    from litellm.utils import dispatch_success_logging
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.utils import dispatch_success_logging
 
     loop: Final = asyncio.get_running_loop()
     sync_cost: Final = loop.create_future()
@@ -196,7 +196,7 @@ async def test_both_callback_paths_wait_for_finalization(logging_obj: Logging) -
 
 @pytest.mark.asyncio
 async def test_rejected_response_does_not_release_success_callbacks(logging_obj: Logging) -> None:
-    from litellm.utils import dispatch_success_logging
+    from hangarllm.utils import dispatch_success_logging
 
     logging_obj.defer_async_logging = True
     dispatch_success_logging(logging_obj, response(), NOW, NOW, False, False)
@@ -222,7 +222,7 @@ async def test_prebuilt_payload_is_reconciled_with_final_cost(logging_obj: Loggi
 
 @pytest.mark.asyncio
 async def test_cached_response_waits_for_guardrail_cost(logging_obj: Logging) -> None:
-    from litellm.caching.caching_handler import LLMCachingHandler
+    from hangarllm.caching.caching_handler import LLMCachingHandler
 
     result: Final = response(0.0)
     result._hidden_params["cache_hit"] = True
@@ -242,7 +242,7 @@ async def test_cached_response_waits_for_guardrail_cost(logging_obj: Logging) ->
 
 @pytest.mark.asyncio
 async def test_collector_event_preserves_finalized_cost(logging_obj: Logging) -> None:
-    from litellm.proxy.spend_tracking.spend_event import (
+    from hangarllm.proxy.spend_tracking.spend_event import (
         SpendEvent,
         build_spend_event,
         decode_spend_event,
@@ -302,17 +302,17 @@ async def test_guardrail_json_response_uses_finalized_header_when_cost_is_known(
     import httpx
 
     from fastapi import Response
-    from litellm.caching.dual_cache import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.proxy.utils import ProxyLogging
 
     class IdentityGuardrail(CustomGuardrail):
         async def async_post_call_success_hook(self, data, user_api_key_dict, response):
             return response
 
     guardrail: Final = IdentityGuardrail(guardrail_name="identity", event_hook="post_call", default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
-    monkeypatch.setattr(litellm, "apply_search_free_tier", False)
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "apply_search_free_tier", False)
     ProxyLogging._callback_capabilities_cache.clear()
     normalized: Final = response()
     if not known_cost:
@@ -332,10 +332,10 @@ async def test_guardrail_json_response_uses_finalized_header_when_cost_is_known(
     assert result.headers["x-request-id"] == "upstream-id"
     assert result.body == b'{"message": "hello"}'
     if known_cost:
-        assert result.headers["x-litellm-response-cost"] == "0.5"
+        assert result.headers["x-hangarllm-response-cost"] == "0.5"
         assert logging_obj.finalized_cost is not None and logging_obj.finalized_cost.amount == 0.5
     else:
-        assert "x-litellm-response-cost" not in result.headers
+        assert "x-hangarllm-response-cost" not in result.headers
         assert logging_obj.finalized_cost is None
     ProxyLogging._callback_capabilities_cache.clear()
 
@@ -347,9 +347,9 @@ async def test_malformed_passthrough_logging_preserves_response_dispatch_contrac
 ) -> None:
 
     import httpx
-    from litellm.llms.anthropic.common_utils import AnthropicError
-    from litellm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import PassthroughStandardLoggingPayload
+    from hangarllm.llms.anthropic.common_utils import AnthropicError
+    from hangarllm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import PassthroughStandardLoggingPayload
 
     url: Final = "https://api.anthropic.com/v1/messages"
     upstream: Final = httpx.Response(200, content=b"invalid-json", request=httpx.Request("POST", url))
@@ -391,8 +391,8 @@ async def test_finalization_failure_leaves_the_request_and_callback_billing_inta
 
 @pytest.mark.asyncio
 async def test_deferred_cache_hit_finalizes_zero_for_results_without_hidden_params(logging_obj: Logging) -> None:
-    from litellm import completion
-    from litellm.caching.caching_handler import LLMCachingHandler
+    from hangarllm import completion
+    from hangarllm.caching.caching_handler import LLMCachingHandler
 
     logging_obj.defer_async_logging = True
     cached_result: Final = response().model_dump()
@@ -433,14 +433,14 @@ async def test_completed_call_keeps_its_charge_when_post_call_processing_fails(
     import anyio
     from fastapi import Request, Response
 
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-    from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-    from litellm.proxy.proxy_server import ProxyConfig
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+    from hangarllm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.utils import ProxyLogging
 
     scope: Final = anyio.CancelScope()
 
@@ -465,8 +465,8 @@ async def test_completed_call_keeps_its_charge_when_post_call_processing_fails(
         },
     )
     writer: Final = create_autospec(DBSpendUpdateWriter, instance=True)
-    monkeypatch.setattr(litellm, "callbacks", [RejectCompletedCall(), ProxyDBLogger(spend_writer=lambda: writer)])
-    monkeypatch.setattr(litellm, "apply_search_free_tier", False)
+    monkeypatch.setattr(hangarllm, "callbacks", [RejectCompletedCall(), ProxyDBLogger(spend_writer=lambda: writer)])
+    monkeypatch.setattr(hangarllm, "apply_search_free_tier", False)
     data: Final = {
         "model": MODEL,
         "custom_llm_provider": "vertex_ai",
@@ -478,8 +478,8 @@ async def test_completed_call_keeps_its_charge_when_post_call_processing_fails(
                 {"guardrail_name": "charged-guardrail", "guardrail_cost": guardrail_cost, "guardrail_status": "success"}
             ]
         },
-        "litellm_logging_obj": logging_obj,
-        "litellm_call_id": logging_obj.litellm_call_id,
+        "hangarllm_logging_obj": logging_obj,
+        "hangarllm_call_id": logging_obj.hangarllm_call_id,
     }
     processor: Final = ProxyBaseLLMRequestProcessing(data=data)
     proxy_logging: Final = ProxyLogging(user_api_key_cache=DualCache())
@@ -521,7 +521,7 @@ async def test_completed_call_keeps_its_charge_when_post_call_processing_fails(
     if isinstance(failure, Exception):
         with pytest.raises(ProxyException) as error:
             await processor.handle_llm_api_exception(e=failure, user_api_key_dict=auth, proxy_logging_obj=proxy_logging)
-        assert float(error.value.headers["x-litellm-response-cost"]) == pytest.approx(0.5 + guardrail_cost)
+        assert float(error.value.headers["x-hangarllm-response-cost"]) == pytest.approx(0.5 + guardrail_cost)
     if disable_spend_updates:
         assert writer.update_database.await_count == 0
         for key in ("spend:key:completed-key", "spend:team:completed-team", "spend:tag:User-Agent: budget-client"):
@@ -550,9 +550,9 @@ async def test_completed_call_keeps_its_charge_when_post_call_processing_fails(
 async def test_redacted_completed_call_preserves_usage_and_search_allowance(
     logging_obj: Logging, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.proxy.spend_tracking.cost_finalization import prepare_response_cost
+    from hangarllm.proxy.spend_tracking.cost_finalization import prepare_response_cost
 
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", True)
     result: Final = response()
     prepared: Final = prepare_response_cost(logging_obj, result, NOW)
     assert prepared is not None
@@ -566,7 +566,7 @@ async def test_redacted_completed_call_preserves_usage_and_search_allowance(
     payload: Final = logging_obj.model_call_details["standard_logging_object"]
     assert (payload["prompt_tokens"], payload["completion_tokens"]) == (10, 5)
     assert payload["response_cost"] == pytest.approx(0.48)
-    assert payload["response"] == {"text": "redacted-by-litellm"}
+    assert payload["response"] == {"text": "redacted-by-hangarllm"}
 
 
 @pytest.mark.asyncio
@@ -575,18 +575,18 @@ async def test_guardrail_json_rejection_retains_completed_provider_usage(
 ) -> None:
     import httpx
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.proxy.utils import ProxyLogging
 
     class RejectJSON(CustomGuardrail):
         async def async_post_call_success_hook(self, data, user_api_key_dict, response):
             raise RuntimeError("blocked JSON response")
 
     monkeypatch.setattr(
-        litellm, "callbacks", [RejectJSON(guardrail_name="reject", event_hook="post_call", default_on=True)]
+        hangarllm, "callbacks", [RejectJSON(guardrail_name="reject", event_hook="post_call", default_on=True)]
     )
-    monkeypatch.setattr(litellm, "apply_search_free_tier", False)
+    monkeypatch.setattr(hangarllm, "apply_search_free_tier", False)
     ProxyLogging._callback_capabilities_cache.clear()
     normalized: Final = response()
     logging_obj.deferred_success_result = (normalized, NOW, NOW)
@@ -619,12 +619,12 @@ async def test_finalized_header_distinguishes_missing_prices_from_free_models(
     monkeypatch: pytest.MonkeyPatch, price: float | None, discount: float
 ) -> None:
     model: Final = "claude-header-pricing-test"
-    monkeypatch.setattr(litellm, "cost_discount_config", {"azure": discount})
+    monkeypatch.setattr(hangarllm, "cost_discount_config", {"azure": discount})
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         f"azure/{model}",
         {
-            "litellm_provider": "azure",
+            "hangarllm_provider": "azure",
             "mode": "chat",
             "regional_endpoint_uplift_multiplier": 1.0,
             **({"input_cost_per_token": price, "output_cost_per_token": price} if price is not None else {}),
@@ -636,11 +636,11 @@ async def test_finalized_header_distinguishes_missing_prices_from_free_models(
         stream=False,
         call_type="acompletion",
         start_time=NOW,
-        litellm_call_id="pricing-header",
+        hangarllm_call_id="pricing-header",
         function_id="pricing-header",
     )
     logging.update_environment_variables(
-        model=model, custom_llm_provider="azure", litellm_params={}, optional_params={}
+        model=model, custom_llm_provider="azure", hangarllm_params={}, optional_params={}
     )
     result: Final = ModelResponse(model=model, usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15))
     finalized: Final = await finalize_response_cost(logging, result, None, NOW)
@@ -649,9 +649,9 @@ async def test_finalized_header_distinguishes_missing_prices_from_free_models(
     headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
         user_api_key_dict=UserAPIKeyAuth(),
         response_cost=finalized.amount,
-        litellm_logging_obj=logging,
+        hangarllm_logging_obj=logging,
     )
-    assert headers.get("x-litellm-response-cost") == (None if price is None else str(finalized.amount))
+    assert headers.get("x-hangarllm-response-cost") == (None if price is None else str(finalized.amount))
 
 
 @pytest.mark.asyncio
@@ -673,11 +673,11 @@ async def test_zero_cost_headers_preserve_known_free_calls_and_guardrail_charges
         stream=False,
         call_type="adelete_responses" if source == "non-inference" else "acompletion",
         start_time=NOW,
-        litellm_call_id="zero-cost-header",
+        hangarllm_call_id="zero-cost-header",
         function_id="zero-cost-header",
     )
     logging.update_environment_variables(
-        model=model, custom_llm_provider="openai", litellm_params={}, optional_params={}
+        model=model, custom_llm_provider="openai", hangarllm_params={}, optional_params={}
     )
     result: Final = ModelResponse(model=model, usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15))
     result._hidden_params = {"response_cost": 0.0, "cache_hit": source == "cache"}
@@ -685,7 +685,7 @@ async def test_zero_cost_headers_preserve_known_free_calls_and_guardrail_charges
         case "provider":
             logging._provider_reported_cost = 0.0
         case "provider-header":
-            result._hidden_params["additional_headers"] = {"llm_provider-x-litellm-response-cost": 0.0}
+            result._hidden_params["additional_headers"] = {"llm_provider-x-hangarllm-response-cost": 0.0}
         case "per-token":
             logging.custom_cost_per_token = {"input_cost_per_token": 0.0, "output_cost_per_token": 0.0}
         case "per-second":
@@ -700,9 +700,9 @@ async def test_zero_cost_headers_preserve_known_free_calls_and_guardrail_charges
     headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
         user_api_key_dict=UserAPIKeyAuth(),
         response_cost=finalized.amount,
-        litellm_logging_obj=logging,
+        hangarllm_logging_obj=logging,
     )
-    assert headers.get("x-litellm-response-cost") == (
+    assert headers.get("x-hangarllm-response-cost") == (
         None if source == "unpriced" and guardrail_cost == 0 else str(guardrail_cost)
     )
 
@@ -711,7 +711,7 @@ async def test_zero_cost_headers_preserve_known_free_calls_and_guardrail_charges
 async def test_free_model_priced_only_per_request_keeps_the_zero_cost_header(monkeypatch: pytest.MonkeyPatch) -> None:
     model: Final = "gpt-free-per-request-header"
     monkeypatch.setitem(
-        litellm.model_cost, model, {"litellm_provider": "openai", "mode": "chat", "input_cost_per_request": 0.0}
+        hangarllm.model_cost, model, {"hangarllm_provider": "openai", "mode": "chat", "input_cost_per_request": 0.0}
     )
     logging: Final = Logging(
         model=model,
@@ -719,11 +719,11 @@ async def test_free_model_priced_only_per_request_keeps_the_zero_cost_header(mon
         stream=False,
         call_type="acompletion",
         start_time=NOW,
-        litellm_call_id="per-request-header",
+        hangarllm_call_id="per-request-header",
         function_id="per-request-header",
     )
     logging.update_environment_variables(
-        model=model, custom_llm_provider="openai", litellm_params={}, optional_params={}
+        model=model, custom_llm_provider="openai", hangarllm_params={}, optional_params={}
     )
     result: Final = ModelResponse(model=model, usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15))
     finalized: Final = await finalize_response_cost(logging, result, None, NOW)
@@ -731,19 +731,19 @@ async def test_free_model_priced_only_per_request_keeps_the_zero_cost_header(mon
     headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
         user_api_key_dict=UserAPIKeyAuth(),
         response_cost=finalized.amount,
-        litellm_logging_obj=logging,
+        hangarllm_logging_obj=logging,
     )
-    assert headers["x-litellm-response-cost"] == "0.0"
+    assert headers["x-hangarllm-response-cost"] == "0.0"
 
 
 @pytest.mark.asyncio
 async def test_free_off_peak_pricing_keeps_the_finalized_zero_cost_header(monkeypatch: pytest.MonkeyPatch) -> None:
     model: Final = "gpt-free-off-peak-header"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "off_peak_pricing": {"hours_utc": "00:00-23:59", "input_cost_per_token": 0.0, "output_cost_per_token": 0.0},
         },
@@ -754,11 +754,11 @@ async def test_free_off_peak_pricing_keeps_the_finalized_zero_cost_header(monkey
         stream=False,
         call_type="acompletion",
         start_time=NOW,
-        litellm_call_id="off-peak-header",
+        hangarllm_call_id="off-peak-header",
         function_id="off-peak-header",
     )
     logging.update_environment_variables(
-        model=model, custom_llm_provider="openai", litellm_params={}, optional_params={}
+        model=model, custom_llm_provider="openai", hangarllm_params={}, optional_params={}
     )
     result: Final = ModelResponse(model=model, usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15))
     result._hidden_params["response_cost"] = 0.0
@@ -767,9 +767,9 @@ async def test_free_off_peak_pricing_keeps_the_finalized_zero_cost_header(monkey
     headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
         user_api_key_dict=UserAPIKeyAuth(),
         response_cost=finalized.amount,
-        litellm_logging_obj=logging,
+        hangarllm_logging_obj=logging,
     )
-    assert headers["x-litellm-response-cost"] == "0.0"
+    assert headers["x-hangarllm-response-cost"] == "0.0"
 
 
 @pytest.mark.asyncio
@@ -778,7 +778,7 @@ async def test_free_off_peak_pricing_keeps_the_finalized_zero_cost_header(monkey
 async def test_rule_pricing_preserves_free_headers_without_treating_capabilities_as_prices(
     monkeypatch: pytest.MonkeyPatch, mapped: bool, price: float | None
 ) -> None:
-    from litellm.litellm_core_utils.fallback_generalizations import (
+    from hangarllm.hangarllm_core_utils.fallback_generalizations import (
         get_fallback_generalization_rules,
         set_fallback_generalizations,
     )
@@ -786,7 +786,7 @@ async def test_rule_pricing_preserves_free_headers_without_treating_capabilities
     model: Final = "gpt-rule-header-model"
     previous_rules: Final = TypeAdapter(list[object]).validate_python(get_fallback_generalization_rules())
     if mapped:
-        monkeypatch.setitem(litellm.model_cost, model, {"litellm_provider": "openai", "mode": "chat"})
+        monkeypatch.setitem(hangarllm.model_cost, model, {"hangarllm_provider": "openai", "mode": "chat"})
     try:
         set_fallback_generalizations(
             [
@@ -809,11 +809,11 @@ async def test_rule_pricing_preserves_free_headers_without_treating_capabilities
             stream=False,
             call_type="acompletion",
             start_time=NOW,
-            litellm_call_id="rule-header",
+            hangarllm_call_id="rule-header",
             function_id="rule-header",
         )
         logging.update_environment_variables(
-            model=model, custom_llm_provider="openai", litellm_params={}, optional_params={}
+            model=model, custom_llm_provider="openai", hangarllm_params={}, optional_params={}
         )
         result: Final = ModelResponse(model=model, usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15))
         finalized: Final = await finalize_response_cost(logging, result, None, NOW)
@@ -823,9 +823,9 @@ async def test_rule_pricing_preserves_free_headers_without_treating_capabilities
             ProxyBaseLLMRequestProcessing.get_custom_headers(
                 user_api_key_dict=UserAPIKeyAuth(),
                 response_cost=finalized.amount,
-                litellm_logging_obj=logging,
+                hangarllm_logging_obj=logging,
             )
         )
-        assert headers.get("x-litellm-response-cost") == (None if price is None else str(finalized.amount))
+        assert headers.get("x-hangarllm-response-cost") == (None if price is None else str(finalized.amount))
     finally:
         set_fallback_generalizations(previous_rules)

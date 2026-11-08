@@ -2,12 +2,12 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from litellm.integrations.focus.database import FocusLiteLLMDatabase
-from litellm.integrations.focus.destinations import FocusTimeWindow
-from litellm.integrations.focus.destinations.factory import FocusDestinationFactory
-from litellm.integrations.focus.export_engine import FocusExportEngine
-from litellm.integrations.focus.serializers import FocusParquetSerializer
-from litellm.integrations.focus.transformer import FocusTransformer
+from hangarllm.integrations.focus.database import FocusHangarLLMDatabase
+from hangarllm.integrations.focus.destinations import FocusTimeWindow
+from hangarllm.integrations.focus.destinations.factory import FocusDestinationFactory
+from hangarllm.integrations.focus.export_engine import FocusExportEngine
+from hangarllm.integrations.focus.serializers import FocusParquetSerializer
+from hangarllm.integrations.focus.transformer import FocusTransformer
 
 
 def _vantage_csv_engine() -> FocusExportEngine:
@@ -38,7 +38,7 @@ def test_legacy_engine_properties_forward_to_public_storage():
     engine._transformer = replacement_transformer
     assert engine._transformer is engine.transformer is replacement_transformer
 
-    replacement_database = FocusLiteLLMDatabase()
+    replacement_database = FocusHangarLLMDatabase()
     engine._database = replacement_database
     assert engine._database is engine.database is replacement_database
 

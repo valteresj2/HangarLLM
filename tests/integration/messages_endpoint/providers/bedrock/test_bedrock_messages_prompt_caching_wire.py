@@ -89,7 +89,7 @@ def _stream_frames(message_id: str) -> tuple[bytes, ...]:
 def _spend_row(message_id: str) -> dict[str, object]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (message_id,),
         ),
         lambda values: len(values) == 1,

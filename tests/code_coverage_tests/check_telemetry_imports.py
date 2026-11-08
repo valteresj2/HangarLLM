@@ -1,4 +1,4 @@
-"""Fails when a module under litellm/telemetry/ imports any other part of litellm."""
+"""Fails when a module under hangarllm/telemetry/ imports any other part of hangarllm."""
 
 import ast
 import sys
@@ -7,8 +7,8 @@ from itertools import chain
 from pathlib import Path
 from typing import Final
 
-PACKAGE: Final = "litellm.telemetry"
-PACKAGE_DIR: Final = Path(__file__).resolve().parents[2] / "litellm" / "telemetry"
+PACKAGE: Final = "hangarllm.telemetry"
+PACKAGE_DIR: Final = Path(__file__).resolve().parents[2] / "hangarllm" / "telemetry"
 
 
 def _resolved(package: tuple[str, ...], node: ast.ImportFrom) -> Iterator[str]:
@@ -28,9 +28,9 @@ def _imported_modules(tree: ast.AST, package: tuple[str, ...]) -> Iterator[tuple
 
 
 def _is_forbidden(module: str) -> bool:
-    is_litellm: Final = module == "litellm" or module.startswith("litellm.")
+    is_hangarllm: Final = module == "hangarllm" or module.startswith("hangarllm.")
     is_own_package: Final = module == PACKAGE or module.startswith(f"{PACKAGE}.")
-    return is_litellm and not is_own_package
+    return is_hangarllm and not is_own_package
 
 
 def _violations_in(path: Path, package: tuple[str, ...]) -> Iterator[str]:
@@ -52,9 +52,9 @@ def find_violations(package_dir: Path) -> tuple[str, ...]:
 def main() -> int:
     violations: Final = find_violations(PACKAGE_DIR)
     if not violations:
-        sys.stdout.write(f"{PACKAGE} imports nothing else from litellm\n")
+        sys.stdout.write(f"{PACKAGE} imports nothing else from hangarllm\n")
         return 0
-    sys.stderr.write(f"{PACKAGE} must not depend on the rest of litellm:\n" + "\n".join(violations) + "\n")
+    sys.stderr.write(f"{PACKAGE} must not depend on the rest of hangarllm:\n" + "\n".join(violations) + "\n")
     return 1
 
 

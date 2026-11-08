@@ -1,5 +1,5 @@
 """
-Gap tests for the first part of ``litellm/router_python_core.py`` (module helpers, the entry points,
+Gap tests for the first part of ``hangarllm/router_python_core.py`` (module helpers, the entry points,
 ``__init__``, callback registration, strategy setup, routing groups and the strategy dispatch):
 behaviors no other characterization test pinned down.
 
@@ -12,11 +12,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.router_api import ChangeSet
-from litellm.types.router import Deployment, RouterRateLimitError
-from litellm.utils import reapply_runtime_model_cost_registrations
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.router_api import ChangeSet
+from hangarllm.types.router import Deployment, RouterRateLimitError
+from hangarllm.utils import reapply_runtime_model_cost_registrations
 from tests.unit.test_router.core.construction_precall_helpers import collect_other_routers, host_callback_names
 from tests.unit.test_router.core.registry_helpers import unique_id
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment
@@ -34,19 +34,19 @@ def _group(
     return {"group_name": name, "models": models, "routing_strategy": strategy, **extra}
 
 
-def _logging_obj() -> LiteLLMLogging:
-    return LiteLLMLogging(
+def _logging_obj() -> HangarLLMLogging:
+    return HangarLLMLogging(
         model="g",
         messages=MESSAGES,
         stream=False,
         call_type="acompletion",
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="c1",
+        hangarllm_call_id="c1",
         function_id="f1",
     )
 
 
-def _dynamic_callback_names(logging_obj: LiteLLMLogging) -> list[str]:  # mutable-ok: a fresh list
+def _dynamic_callback_names(logging_obj: HangarLLMLogging) -> list[str]:  # mutable-ok: a fresh list
     return [type(callback).__name__ for callback in logging_obj.dynamic_async_success_callbacks or ()]
 
 
@@ -94,10 +94,10 @@ def test_healthy_deployments_is_the_live_deployment_list(make_core: MakeCore) ->
     assert core.healthy_deployments is core.registry().all()  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_chat_completions_create_calls_the_router_with_the_default_litellm_params(
+def test_chat_completions_create_calls_the_router_with_the_default_hangarllm_params(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
-    core: Final = make_core(model_list=[deployment("g", "a")], default_litellm_params={"temperature": 0.3})
+    core: Final = make_core(model_list=[deployment("g", "a")], default_hangarllm_params={"temperature": 0.3})
     core.chat.completions.create(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert [(call.op, call.deployment_id, call.kwargs.get("temperature")) for call in host.calls] == [
         ("completion", "a", 0.3)
@@ -128,15 +128,15 @@ def test_a_price_data_reload_restores_a_live_routers_deployment_pricing_until_it
     model_id: Final = unique_id("l0001")
     core: Final = make_core(model_list=[deployment("gpt", model_id, model="openai/gpt-4o", input_cost_per_token=1e-3)])
     try:
-        litellm.model_cost.pop(model_id)
+        hangarllm.model_cost.pop(model_id)
         reapply_runtime_model_cost_registrations()
-        assert litellm.model_cost[model_id]["input_cost_per_token"] == 1e-3
+        assert hangarllm.model_cost[model_id]["input_cost_per_token"] == 1e-3
         core.retire()
-        litellm.model_cost.pop(model_id)
+        hangarllm.model_cost.pop(model_id)
         reapply_runtime_model_cost_registrations()
-        assert model_id not in litellm.model_cost
+        assert model_id not in hangarllm.model_cost
     finally:
-        litellm.model_cost.pop(model_id, None)
+        hangarllm.model_cost.pop(model_id, None)
 
 
 # --- runtime routing_strategy_args ----------------------------------------------------------------
@@ -341,11 +341,11 @@ async def test_an_override_selector_is_bound_to_the_request_logging_object_and_r
     strategy reuses the global selector and binds nothing."""
     core: Final = make_core(model_list=[deployment("g", "a"), deployment("g", "b")], routing_strategy="least-busy")
     own: Final = _logging_obj()
-    await core.select("g", {"routing_strategy": "least-busy", "litellm_logging_obj": own})
+    await core.select("g", {"routing_strategy": "least-busy", "hangarllm_logging_obj": own})
     first: Final = _logging_obj()
-    await core.select("g", {"routing_strategy": "usage-based-routing-v2", "litellm_logging_obj": first})
+    await core.select("g", {"routing_strategy": "usage-based-routing-v2", "hangarllm_logging_obj": first})
     second: Final = _logging_obj()
-    await core.select("g", {"routing_strategy": "usage-based-routing-v2", "litellm_logging_obj": second})
+    await core.select("g", {"routing_strategy": "usage-based-routing-v2", "hangarllm_logging_obj": second})
     assert _dynamic_callback_names(own) == []
     assert _dynamic_callback_names(first) == ["LowestTPMLoggingHandler_v2"]
     assert (first.dynamic_async_success_callbacks or [None])[0] is (second.dynamic_async_success_callbacks or [])[0]
@@ -358,7 +358,7 @@ async def test_an_override_matching_a_routing_group_strategy_is_not_bound_to_the
         routing_groups=[_group("gg", ["m"], "usage-based-routing-v2")],
     )
     logging_obj: Final = _logging_obj()
-    await core.select("g", {"routing_strategy": "usage-based-routing-v2", "litellm_logging_obj": logging_obj})
+    await core.select("g", {"routing_strategy": "usage-based-routing-v2", "hangarllm_logging_obj": logging_obj})
     assert _dynamic_callback_names(logging_obj) == []
 
 
@@ -379,7 +379,7 @@ async def test_an_async_usage_based_v2_override_counts_rpm_before_the_call(
 ) -> None:
     core: Final = make_core(model_list=[deployment("g", "a", rpm=1)], num_retries=0)
     await core.acompletion(model="g", messages=MESSAGES, routing_strategy="usage-based-routing-v2")  # pyright: ignore[reportAttributeAccessIssue]
-    with pytest.raises(litellm.RateLimitError, match=re.escape("No deployments available for selected model.")):
+    with pytest.raises(hangarllm.RateLimitError, match=re.escape("No deployments available for selected model.")):
         await core.acompletion(model="g", messages=MESSAGES, routing_strategy="usage-based-routing-v2")  # pyright: ignore[reportAttributeAccessIssue]
     assert host.deployments_called() == ["a"]
 
@@ -397,7 +397,7 @@ async def test_request_scoped_routing_still_runs_the_strategy_rpm_check(
     core.observe(request_scoped=True)
     assert host.lists["callbacks"] == []
     await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.acompletion(model="g", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.deployments_called() == ["a"]
 

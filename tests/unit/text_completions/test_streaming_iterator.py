@@ -5,11 +5,11 @@ from typing import Final
 import pytest
 from openai.types.completion import Completion
 
-from litellm.exceptions import APIConnectionError
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.text_completions.streaming_iterator import TextCompletionStreamWrapper
-from litellm.types.utils import Choices, Delta, ModelResponseStream, StreamingChoices, TextCompletionResponse, Usage
+from hangarllm.exceptions import APIConnectionError
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.text_completions.streaming_iterator import TextCompletionStreamWrapper
+from hangarllm.types.utils import Choices, Delta, ModelResponseStream, StreamingChoices, TextCompletionResponse, Usage
 
 
 def test_reasoning_content_preserved_in_text_completion_wrapper():
@@ -106,7 +106,7 @@ def _text_completion_stream(upstream: Sequence[Completion]) -> list[TextCompleti
         stream=True,
         call_type="text_completion",
         start_time=0.0,
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="function-1",
     )
     chat_stream: Final = CustomStreamWrapper(

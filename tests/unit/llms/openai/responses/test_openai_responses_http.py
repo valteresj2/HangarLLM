@@ -10,16 +10,16 @@ import pytest
 import respx
 from pydantic import BaseModel, TypeAdapter
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.llms.openai import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.types.llms.openai import (
     ContentPartDonePartOutputText,
     IncompleteDetails,
     ResponseAPIUsage,
     ResponseCompletedEvent,
     ResponsesAPIResponse,
 )
-from litellm.types.utils import StandardLoggingPayload, Usage
+from hangarllm.types.utils import StandardLoggingPayload, Usage
 from tests.unit.proxy.conftest import httpx_transport
 
 pytestmark: Final = pytest.mark.usefixtures(httpx_transport.__name__)
@@ -245,9 +245,9 @@ def _completed_response(events: tuple[object, ...]) -> ResponsesAPIResponse:
 
 def _install_capture(monkeypatch: pytest.MonkeyPatch) -> _ResponsesLoggingCapture:
     capture: Final = _ResponsesLoggingCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
-    monkeypatch.setattr(litellm, "success_callback", [capture])
-    monkeypatch.setattr(litellm, "_async_success_callback", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "success_callback", [capture])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [capture])
     return capture
 
 
@@ -280,12 +280,12 @@ def _assert_logged_payload_matches(capture: _ResponsesLoggingCapture, response: 
 async def _async_logged_openai_response(mode: _AsyncLoggingMode) -> ResponsesAPIResponse:
     match mode:
         case "stream":
-            response_stream: Final = await litellm.aresponses(
+            response_stream: Final = await hangarllm.aresponses(
                 model="openai/gpt-4o-mini", api_key="sk-test", input="hi", stream=True
             )
             return _completed_response(tuple([event async for event in response_stream]))
         case "non_stream":
-            response: Final = await litellm.aresponses(model="openai/gpt-4o-mini", api_key="sk-test", input="hi")
+            response: Final = await hangarllm.aresponses(model="openai/gpt-4o-mini", api_key="sk-test", input="hi")
             assert isinstance(response, ResponsesAPIResponse)
             return response
 
@@ -308,9 +308,9 @@ async def test_responses_exposes_provider_rate_limit_headers(sync_mode: bool) ->
             )
         )
         response: Final = (
-            litellm.responses(model="openai/gpt-4o", api_key="sk-test", input="hi")
+            hangarllm.responses(model="openai/gpt-4o", api_key="sk-test", input="hi")
             if sync_mode
-            else await litellm.aresponses(model="openai/gpt-4o", api_key="sk-test", input="hi")
+            else await hangarllm.aresponses(model="openai/gpt-4o", api_key="sk-test", input="hi")
         )
         requests: Final = tuple(mock_router.calls)
 
@@ -328,7 +328,7 @@ async def test_responses_converts_created_at_to_int_and_forwards_store() -> None
 
     with respx.mock() as mock_router:
         mock_router.post(_OPENAI_URL).mock(return_value=httpx.Response(status_code=200, json=response_body))
-        response: Final = await litellm.aresponses(
+        response: Final = await hangarllm.aresponses(
             model="openai/gpt-4o",
             api_key="sk-test",
             input="hi",
@@ -355,7 +355,7 @@ def test_chat_completion_bridges_responses_only_model_tools() -> None:
         route: Final = mock_router.post(_OPENAI_URL).mock(
             return_value=httpx.Response(status_code=200, json=_response_body("resp_bridge"))
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="openai/gpt-5.5-pro",
             api_key="sk-test",
             messages=[{"role": "user", "content": "Summarize this page."}],
@@ -379,11 +379,11 @@ def test_chat_completion_bridges_responses_only_model_tools() -> None:
 
 @pytest.mark.parametrize("sync_mode", [True, False])
 async def test_codex_chat_completion_uses_responses_endpoint(sync_mode: bool) -> None:
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai-codex-mini-latest",
-                "litellm_params": {"model": "openai/gpt-5.3-codex", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-5.3-codex", "api_key": "sk-test"},
             }
         ]
     )
@@ -435,7 +435,7 @@ def test_codex_chat_completion_stream_strips_cache_control_and_transforms_tools(
 
     with respx.mock() as mock_router:
         route: Final = mock_router.post(_OPENAI_URL).mock(return_value=_sse_reply(_response_sse("resp_codex_stream")))
-        stream: Final = litellm.completion(
+        stream: Final = hangarllm.completion(
             model="openai/gpt-5.3-codex",
             api_key="sk-test",
             messages=messages,
@@ -488,14 +488,14 @@ async def test_responses_mcp_followup_forwards_approval_and_previous_id() -> Non
         route: Final = mock_router.post(_OPENAI_URL).mock(
             return_value=httpx.Response(status_code=200, json=_response_body("resp_mcp"))
         )
-        first_response: Final = await litellm.aresponses(
+        first_response: Final = await hangarllm.aresponses(
             model="openai/gpt-4o",
             api_key="sk-test",
             input="Search for recent weather",
             tools=mcp_tools,
         )
         assert isinstance(first_response, ResponsesAPIResponse)
-        second_response: Final = await litellm.aresponses(
+        second_response: Final = await hangarllm.aresponses(
             model="openai/gpt-4o",
             api_key="sk-test",
             input=approval,
@@ -543,7 +543,7 @@ def test_sync_stream_standard_logging_matches_final_response(monkeypatch: pytest
 
     with respx.mock() as mock_router:
         mock_router.post(_OPENAI_URL).mock(return_value=_sse_reply(_response_sse("resp_sync_logging")))
-        stream: Final = litellm.responses(model="openai/gpt-4o-mini", api_key="sk-test", input="hi", stream=True)
+        stream: Final = hangarllm.responses(model="openai/gpt-4o-mini", api_key="sk-test", input="hi", stream=True)
         response: Final = _completed_response(tuple(stream))
         requests: Final = tuple(mock_router.calls)
         logged: Final = capture.completed.wait(10)
@@ -559,12 +559,12 @@ async def test_responses_stream_emits_valid_events(sync_mode: bool) -> None:
     with respx.mock() as mock_router:
         route: Final = mock_router.post(_OPENAI_URL).mock(return_value=_sse_reply(_response_sse("resp_stream")))
         events: Final = (
-            tuple(litellm.responses(model="openai/gpt-4o", api_key="sk-test", input="hi", stream=True))
+            tuple(hangarllm.responses(model="openai/gpt-4o", api_key="sk-test", input="hi", stream=True))
             if sync_mode
             else tuple(
                 [
                     event
-                    async for event in await litellm.aresponses(
+                    async for event in await hangarllm.aresponses(
                         model="openai/gpt-4o", api_key="sk-test", input="hi", stream=True
                     )
                 ]
@@ -593,10 +593,10 @@ async def test_responses_stream_error_event_raises_bad_request() -> None:
 
     with respx.mock() as mock_router:
         route: Final = mock_router.post(_OPENAI_URL).mock(return_value=_sse_reply(_sse((created, error_event))))
-        stream: Final = await litellm.aresponses(
+        stream: Final = await hangarllm.aresponses(
             model="openai/gpt-5-mini", api_key="sk-test", input="oversized prompt", stream=True
         )
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
             _ = [event async for event in stream]
         requests: Final = tuple(route.calls)
 
@@ -605,12 +605,12 @@ async def test_responses_stream_error_event_raises_bad_request() -> None:
     assert message in str(exc_info.value)
 
 
-def _alias_router() -> litellm.Router:
-    return litellm.Router(
+def _alias_router() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "openai-offline-alias",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
             }
         ]
     )

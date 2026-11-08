@@ -1,13 +1,13 @@
-# litellm_fallback Resource
+# hangarllm_fallback Resource
 
-Manages a fallback configuration for a model in LiteLLM. Fallbacks are triggered when a call to the primary model fails after retries.
+Manages a fallback configuration for a model in HangarLLM. Fallbacks are triggered when a call to the primary model fails after retries.
 
 ## Example Usage
 
 ### Basic Fallback Configuration
 
 ```hcl
-resource "litellm_fallback" "gpt4_fallbacks" {
+resource "hangarllm_fallback" "gpt4_fallbacks" {
   model           = "gpt-4"
   fallback_models = ["claude-3-sonnet", "gpt-3.5-turbo"]
 }
@@ -16,7 +16,7 @@ resource "litellm_fallback" "gpt4_fallbacks" {
 ### Context Window Fallback
 
 ```hcl
-resource "litellm_fallback" "gpt4_context_window" {
+resource "hangarllm_fallback" "gpt4_context_window" {
   model           = "gpt-4"
   fallback_models = ["claude-3-sonnet"]
   fallback_type   = "context_window"
@@ -42,7 +42,7 @@ In addition to the arguments above, the following attribute is exported:
 Fallback configurations can be imported using the primary model name:
 
 ```shell
-terraform import litellm_fallback.example gpt-4
+terraform import hangarllm_fallback.example gpt-4
 ```
 
 Note: import always reads the `general` fallback type. Fallbacks of type `context_window` or `content_policy` cannot be imported.

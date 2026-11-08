@@ -21,20 +21,20 @@ from mcp.types import Tool as MCPTool
 from starlette.responses import StreamingResponse
 from starlette.types import Message
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.responses.mcp import chat_completions_handler
-from litellm.responses.mcp.chat_completions_handler import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.responses.mcp import chat_completions_handler
+from hangarllm.responses.mcp.chat_completions_handler import (
     acompletion_with_mcp,
 )
-from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-    LiteLLM_Proxy_MCP_Handler,
+from hangarllm.responses.mcp.hangarllm_proxy_mcp_handler import (
+    HangarLLM_Proxy_MCP_Handler,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.utils import ModelResponse, ModelResponseStream, StandardLoggingPayload, Usage
-from litellm.utils import CustomStreamWrapper
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.utils import ModelResponse, ModelResponseStream, StandardLoggingPayload, Usage
+from hangarllm.utils import CustomStreamWrapper
 
 
 @pytest.mark.asyncio
@@ -43,7 +43,7 @@ async def test_acompletion_with_mcp_returns_normal_completion_without_tools(
 ):
     mock_acompletion = AsyncMock(return_value="normal_response")
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("hangarllm.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="test-model",
             messages=[],
@@ -60,12 +60,12 @@ async def test_acompletion_with_mcp_without_auto_execution_calls_model(monkeypat
     mock_acompletion = AsyncMock(return_value="ok")
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -74,17 +74,17 @@ async def test_acompletion_with_mcp_without_auto_execution_calls_model(monkeypat
         return ([], {})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: ["openai-tool"]),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: False),
     )
@@ -100,7 +100,7 @@ async def test_acompletion_with_mcp_without_auto_execution_calls_model(monkeypat
         staticmethod(mock_extract),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("hangarllm.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="test-model",
             messages=[],
@@ -125,7 +125,7 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
     Test that MCP auth headers extracted from secret_fields (e.g. x-mcp-linear_config-authorization)
     are passed to _process_mcp_tools_without_openai_transform for dynamic auth when fetching tools.
     """
-    tools = [{"type": "mcp", "server_url": "litellm_proxy"}]
+    tools = [{"type": "mcp", "server_url": "hangarllm_proxy"}]
     mock_acompletion = AsyncMock(return_value="ok")
 
     captured_process_kwargs = {}
@@ -135,27 +135,27 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
         return ([], {})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda t: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda t: (t, [])),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: ["openai-tool"]),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: False),
     )
@@ -168,7 +168,7 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
         },
     }
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("hangarllm.acompletion", mock_acompletion):
         await acompletion_with_mcp(
             model="test-model",
             messages=[],
@@ -191,14 +191,14 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
 async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
         ModelResponseStream,
         StreamingChoices,
     )
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.utils import CustomStreamWrapper
 
     tools = [{"type": "function", "function": {"name": "tool"}}]
 
@@ -309,12 +309,12 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
     mock_acompletion_func = AsyncMock(side_effect=mock_acompletion)
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -323,22 +323,22 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
         return (tools, {"tool": "server"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "extract_tool_calls_from_chat_response",
         staticmethod(
             lambda **_: [
@@ -355,12 +355,12 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
         return [{"tool_call_id": "call-1", "result": "executed"}]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         mock_execute,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "create_follow_up_messages_for_chat",
         staticmethod(
             lambda **_: [
@@ -390,12 +390,12 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    # Patch litellm.acompletion at module level to catch function-level imports
+    # Patch hangarllm.acompletion at module level to catch function-level imports
     with (
-        patch("litellm.acompletion", mock_acompletion_func),
+        patch("hangarllm.acompletion", mock_acompletion_func),
         patch.object(
             chat_completions_handler,
-            "litellm_acompletion",
+            "hangarllm_acompletion",
             mock_acompletion_func,
             create=True,
         ),
@@ -441,11 +441,11 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
     Test that acompletion_with_mcp adds MCP metadata to CustomStreamWrapper
     and it appears in the final chunk's delta.provider_specific_fields.
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm.utils import CustomStreamWrapper
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "hangarllm_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
     tool_calls = [
         {
@@ -516,12 +516,12 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
     mock_acompletion = AsyncMock(return_value=MockStreamingResponse())
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -530,17 +530,17 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: False),
     )
@@ -550,7 +550,7 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("hangarllm.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
@@ -597,10 +597,10 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
     Test that acompletion_with_mcp makes the initial LLM call with streaming=True
     when stream=True is requested, instead of making a non-streaming call first.
     """
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm.utils import CustomStreamWrapper
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "hangarllm_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
 
     # Create mock streaming chunks
@@ -655,12 +655,12 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
     mock_acompletion = AsyncMock(return_value=MockStreamingResponse())
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -669,22 +669,22 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "extract_tool_calls_from_chat_response",
         staticmethod(
             lambda **_: [
@@ -701,12 +701,12 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
         return [{"tool_call_id": "call-1", "result": "executed"}]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         mock_execute,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "create_follow_up_messages_for_chat",
         staticmethod(
             lambda **_: [
@@ -736,12 +736,12 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    # Patch litellm.acompletion at module level to catch function-level imports
+    # Patch hangarllm.acompletion at module level to catch function-level imports
     with (
-        patch("litellm.acompletion", mock_acompletion),
+        patch("hangarllm.acompletion", mock_acompletion),
         patch.object(
             chat_completions_handler,
-            "litellm_acompletion",
+            "hangarllm_acompletion",
             mock_acompletion,
             create=True,
         ),
@@ -771,16 +771,16 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
     - mcp_list_tools should be in the first chunk
     - mcp_tool_calls and mcp_call_results should be in the final chunk of initial response
     """
-    from litellm.types.utils import (
+    from hangarllm.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
         ModelResponseStream,
         StreamingChoices,
     )
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.utils import CustomStreamWrapper
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "hangarllm_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
     tool_calls = [
         {
@@ -897,12 +897,12 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
     mock_acompletion_func = AsyncMock(side_effect=mock_acompletion)
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -911,22 +911,22 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "extract_tool_calls_from_chat_response",
         staticmethod(lambda **_: tool_calls),
     )
@@ -935,12 +935,12 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
         return tool_results
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "execute_tool_calls",
         mock_execute,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "create_follow_up_messages_for_chat",
         staticmethod(
             lambda **_: [
@@ -970,12 +970,12 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    # Patch litellm.acompletion at module level to catch function-level imports
+    # Patch hangarllm.acompletion at module level to catch function-level imports
     with (
-        patch("litellm.acompletion", mock_acompletion_func),
+        patch("hangarllm.acompletion", mock_acompletion_func),
         patch.object(
             chat_completions_handler,
-            "litellm_acompletion",
+            "hangarllm_acompletion",
             side_effect=mock_acompletion,
             create=True,
         ),
@@ -1084,15 +1084,15 @@ async def test_execute_tool_calls_sets_proxy_server_request_arguments(monkeypatc
     async def mock_call_tool(**kwargs):
         return mock_result
 
-    # NOTE: avoid monkeypatch string path here because `litellm.responses` is also
-    # exported as a function on the top-level `litellm` package, which can confuse
+    # NOTE: avoid monkeypatch string path here because `hangarllm.responses` is also
+    # exported as a function on the top-level `hangarllm` package, which can confuse
     # pytest's dotted-path resolver.
     mcp_handler_module = importlib.import_module(
-        "litellm.responses.mcp.litellm_proxy_mcp_handler"
+        "hangarllm.responses.mcp.hangarllm_proxy_mcp_handler"
     )
     monkeypatch.setattr(mcp_handler_module, "function_setup", mock_function_setup)
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager.call_tool",
+        "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager.call_tool",
         mock_call_tool,
     )
 
@@ -1112,7 +1112,7 @@ async def test_execute_tool_calls_sets_proxy_server_request_arguments(monkeypatc
     user_api_key_auth.api_key = "test_key"
 
     # Call _execute_tool_calls
-    result = await LiteLLM_Proxy_MCP_Handler.execute_tool_calls(
+    result = await HangarLLM_Proxy_MCP_Handler.execute_tool_calls(
         tool_server_map=tool_server_map,
         tool_calls=tool_calls,
         user_api_key_auth=user_api_key_auth,
@@ -1144,10 +1144,10 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
     """
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm.utils import CustomStreamWrapper
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "hangarllm_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
 
     def create_chunk(content, finish_reason=None):
@@ -1199,12 +1199,12 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
     mock_acompletion = AsyncMock(return_value=DrainErrorStreamingResponse())
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -1213,22 +1213,22 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "extract_tool_calls_from_chat_response",
         staticmethod(lambda **_: []),
     )
@@ -1238,7 +1238,7 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("hangarllm.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
@@ -1263,10 +1263,10 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
 async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhaustion(monkeypatch):
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
-    from litellm.utils import CustomStreamWrapper
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from hangarllm.utils import CustomStreamWrapper
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "hangarllm_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
 
     def create_chunk(content):
@@ -1317,12 +1317,12 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
     mock_acompletion = AsyncMock(return_value=initial_stream)
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "should_use_litellm_mcp_gateway",
+        HangarLLM_Proxy_MCP_Handler,
+        "should_use_hangarllm_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -1331,22 +1331,22 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        HangarLLM_Proxy_MCP_Handler,
         "extract_tool_calls_from_chat_response",
         staticmethod(lambda **_: []),
     )
@@ -1356,7 +1356,7 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("hangarllm.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
@@ -1375,12 +1375,12 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
 @pytest.mark.asyncio
 @respx.mock
 async def test_acompletion_with_mcp_forwards_unserved_external_mcp_tool_to_the_provider(monkeypatch):
-    from litellm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager
+    from hangarllm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager
 
     zapier_tool = {"type": "mcp", "server_label": "zapier", "server_url": "https://mcp.zapier.com/api/mcp/mcp"}
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", types.SimpleNamespace(prisma_client=None))
+    monkeypatch.setitem(sys.modules, "hangarllm.proxy.proxy_server", types.SimpleNamespace(prisma_client=None))
     monkeypatch.setattr(global_mcp_server_manager, "get_registry", lambda: {})
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     provider = respx.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=Response(
             200,
@@ -1411,21 +1411,21 @@ async def test_acompletion_with_mcp_forwards_unserved_external_mcp_tool_to_the_p
 @pytest.mark.asyncio
 @pytest.mark.parametrize("selected", [False, True])
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("selection_source", ["metadata", "litellm_metadata", "body"])
+@pytest.mark.parametrize("selection_source", ["metadata", "hangarllm_metadata", "body"])
 @pytest.mark.parametrize("logging_failure", [False, True])
 async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch, selected, stream, selection_source, logging_failure):
     from mcp.types import Tool
 
-    from litellm.caching.caching import DualCache
-    from litellm.exceptions import GuardrailRaisedException
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-    from litellm.proxy.mcp_server import mcp_server_manager, server, tool_registry
-    from litellm.proxy.mcp_server.faults.list_outcomes import AggregateToolListing
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.exceptions import GuardrailRaisedException
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, UserAPIKeyAuth
+    from hangarllm.proxy.mcp_server import mcp_server_manager, server, tool_registry
+    from hangarllm.proxy.mcp_server.faults.list_outcomes import AggregateToolListing
+    from hangarllm.proxy.utils import ProxyLogging
+    from hangarllm.types.guardrails import GuardrailEventHooks
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     class BlockSelected(CustomGuardrail):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -1434,7 +1434,7 @@ async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch
             return data
 
     guardrail = BlockSelected(guardrail_name="block-all", event_hook="pre_mcp_call", default_on=False)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     manager = mcp_server_manager.MCPServerManager()
     manager.registry = {"observer": MCPServer(
         server_id="observer", name="observer", server_name="observer", transport="http",
@@ -1457,9 +1457,9 @@ async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch
         ModelResponse(choices=[{"message": {"role": "assistant", "content": "done"}}]),
     ]
     if stream:
-        from litellm.types.utils import ModelResponseStream
+        from hangarllm.types.utils import ModelResponseStream
         responses = [
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="openai/gpt-5", messages=[{"role": "user", "content": "execute"}], stream=True,
                 mock_response=ModelResponseStream(choices=[{"index": 0, "delta": {
                     "role": "assistant", "content": None, "tool_calls": [{
@@ -1468,24 +1468,24 @@ async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch
                     }],
                 }, "finish_reason": "tool_calls"}]),
             ),
-            await litellm.acompletion(
+            await hangarllm.acompletion(
                 model="openai/gpt-5", messages=[{"role": "user", "content": "done"}],
                 stream=True, mock_response="done",
             ),
         ]
     if logging_failure:
-        from litellm.responses.mcp import litellm_proxy_mcp_handler
+        from hangarllm.responses.mcp import hangarllm_proxy_mcp_handler
         def fail_logging(*args, **kwargs):
             raise RuntimeError("logging initialization failed")
-        monkeypatch.setattr(litellm_proxy_mcp_handler, "function_setup", fail_logging)
+        monkeypatch.setattr(hangarllm_proxy_mcp_handler, "function_setup", fail_logging)
     model_call = AsyncMock(side_effect=responses)
-    monkeypatch.setattr(litellm, "acompletion", model_call)
+    monkeypatch.setattr(hangarllm, "acompletion", model_call)
     result = await acompletion_with_mcp(
         model="test-model", messages=[{"role": "user", "content": "execute"}],
-        tools=[{"type": "mcp", "server_url": "litellm_proxy/observer", "require_approval": "never"}],
+        tools=[{"type": "mcp", "server_url": "hangarllm_proxy/observer", "require_approval": "never"}],
         stream=stream,
         user_api_key_auth=UserAPIKeyAuth(
-            object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="test", mcp_servers=["observer"])
+            object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="test", mcp_servers=["observer"])
         ),
         **({"guardrails": ["block-all"] if selected else []} if selection_source == "body" else {
             selection_source: {"guardrails": ["block-all"] if selected else []}
@@ -1613,7 +1613,7 @@ class _ChatRoundRecorder(CustomLogger):
 
 
 def _chat_round_cost(body: Mapping[str, object]) -> float:
-    return litellm.completion_cost(
+    return hangarllm.completion_cost(
         completion_response=ModelResponse(**json.loads(json.dumps(body, default=dict))),
         model="gpt-5.6",
         custom_llm_provider="openai",
@@ -1628,9 +1628,9 @@ async def _settled() -> None:
 def _serve_chat_rounds(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, rounds: Sequence[Response]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post("https://mcp-chat-rounds.example.com/v1/chat/completions").mock(side_effect=list(rounds))
 
 
@@ -1641,7 +1641,7 @@ def _chat_rounds_logging_obj(recorder: _ChatRoundRecorder, call_id: str, stream:
         stream=stream,
         call_type="acompletion",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
         function_id=call_id,
         dynamic_async_success_callbacks=[recorder],
         dynamic_async_failure_callbacks=[recorder],
@@ -1656,12 +1656,12 @@ def _echo_tool_served() -> Iterator[None]:
     )
     with (
         patch.object(
-            LiteLLM_Proxy_MCP_Handler,
+            HangarLLM_Proxy_MCP_Handler,
             "process_mcp_tools_without_openai_transform",
             AsyncMock(return_value=([echo_tool], {"echo": "demo"})),
         ),
         patch.object(
-            LiteLLM_Proxy_MCP_Handler,
+            HangarLLM_Proxy_MCP_Handler,
             "execute_tool_calls",
             AsyncMock(return_value=[{"tool_call_id": "call_echo", "result": "PING", "name": "echo"}]),
         ),
@@ -1677,13 +1677,13 @@ async def _auto_execute_chat_echo(
     logging_obj: Final = _chat_rounds_logging_obj(recorder, call_id, stream=False)
     with _echo_tool_served():
         try:
-            response: Final = await litellm.acompletion(
+            response: Final = await hangarllm.acompletion(
                 model="openai/gpt-5.6",
                 messages=[{"role": "user", "content": "Call echo with PING"}],
-                tools=[{"type": "mcp", "server_url": "litellm_proxy/mcp/demo", "require_approval": "never"}],
+                tools=[{"type": "mcp", "server_url": "hangarllm_proxy/mcp/demo", "require_approval": "never"}],
                 api_key="sk-mcp-chat-rounds",
                 api_base="https://mcp-chat-rounds.example.com/v1",
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
             )
         except Exception as error:
             await _settled()
@@ -1747,7 +1747,7 @@ async def test_non_stream_auto_execute_bills_the_paid_first_round_when_the_follo
         "mcp-chat-rounds-follow-up-fails",
     )
 
-    assert isinstance(outcome, litellm.BadRequestError)
+    assert isinstance(outcome, hangarllm.BadRequestError)
     assert recorder.logged == ()
     assert len(recorder.failed) == 1
     assert (recorder.failed[0]["prompt_tokens"], recorder.failed[0]["completion_tokens"]) == (71, 19)
@@ -1799,15 +1799,15 @@ def _cut_once_the_answer_starts() -> Response:
 async def _open_chat_echo_stream(
     logging_obj: Logging, metadata: dict[str, object] | None = None
 ) -> CustomStreamWrapper:
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="openai/gpt-5.6",
         messages=[{"role": "user", "content": "Call echo with PING"}],
-        tools=[{"type": "mcp", "server_url": "litellm_proxy/mcp/demo", "require_approval": "never"}],
+        tools=[{"type": "mcp", "server_url": "hangarllm_proxy/mcp/demo", "require_approval": "never"}],
         api_key="sk-mcp-chat-rounds",
         api_base="https://mcp-chat-rounds.example.com/v1",
         stream=True,
         stream_options={"include_usage": True},
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         metadata=metadata,
     )
     assert isinstance(stream, CustomStreamWrapper)
@@ -1850,7 +1850,7 @@ def _assert_one_stream_row_bills_both_rounds_once(
 
 def _prompt_tokens_the_follow_up_sent(respx_mock: respx.MockRouter) -> int:
     follow_up_request: Final = json.loads(respx_mock.calls[1].request.content)
-    return litellm.token_counter(model="gpt-5.6", messages=follow_up_request["messages"])
+    return hangarllm.token_counter(model="gpt-5.6", messages=follow_up_request["messages"])
 
 
 def _assert_one_row_bills_round_one(logged: Sequence[StandardLoggingPayload]) -> None:
@@ -1863,7 +1863,7 @@ def _assert_one_row_bills_round_one(logged: Sequence[StandardLoggingPayload]) ->
 async def test_stream_auto_execute_read_to_the_end_logs_one_row_whose_usage_cost_counts_the_fixed_margin_once(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-read-to-the-end", stream=True)
@@ -1879,10 +1879,10 @@ async def test_stream_auto_execute_read_to_the_end_logs_one_row_whose_usage_cost
 async def test_stream_auto_execute_deferred_for_a_post_call_guardrail_logs_both_rounds_once_when_the_proxy_releases(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.utils import ProxyLogging
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-rounds-deferred", stream=True)
@@ -1895,7 +1895,7 @@ async def test_stream_auto_execute_deferred_for_a_post_call_guardrail_logs_both_
         chunks: Final = await _read_all(stream)
     await _settled()
     logged_before_release: Final = recorder.logged
-    ProxyLogging.fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+    ProxyLogging.fire_deferred_stream_logging({"hangarllm_logging_obj": logging_obj})
     await recorder.settled(logged=1)
 
     assert logged_before_release == ()
@@ -1906,11 +1906,11 @@ async def test_stream_auto_execute_deferred_for_a_post_call_guardrail_logs_both_
 async def test_stream_auto_execute_blocked_by_a_post_call_guardrail_bills_both_rounds_on_the_failure_row(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.exceptions import GuardrailRaisedException
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.exceptions import GuardrailRaisedException
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.utils import ProxyLogging
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-rounds-blocked", stream=True)
@@ -1922,7 +1922,7 @@ async def test_stream_auto_execute_blocked_by_a_post_call_guardrail_bills_both_r
             response=stream, route_type="acompletion", user_api_key_dict=MagicMock(), logging_obj=logging_obj
         )
         await _read_all(stream)
-    assert ProxyLogging._discard_deferred_stream_logging_for_failure({"litellm_logging_obj": logging_obj}, blocked)
+    assert ProxyLogging._discard_deferred_stream_logging_for_failure({"hangarllm_logging_obj": logging_obj}, blocked)
     await logging_obj.async_failure_handler(blocked, "blocked by output-policy")
     await recorder.settled(failed=1)
 
@@ -1938,10 +1938,10 @@ async def test_stream_auto_execute_rejected_by_the_proxy_during_the_follow_up_bi
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
     from fastapi import HTTPException
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.utils import ProxyLogging
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-rejected-mid-follow-up", stream=True)
@@ -1953,7 +1953,7 @@ async def test_stream_auto_execute_rejected_by_the_proxy_during_the_follow_up_bi
             response=stream, route_type="acompletion", user_api_key_dict=MagicMock(), logging_obj=logging_obj
         )
         await _read_until(stream, "PING")
-        assert ProxyLogging._discard_deferred_stream_logging_for_failure({"litellm_logging_obj": logging_obj}, rejected)
+        assert ProxyLogging._discard_deferred_stream_logging_for_failure({"hangarllm_logging_obj": logging_obj}, rejected)
         await logging_obj.async_failure_handler(rejected, "rejected by a stream hook")
         await recorder.settled(failed=1)
 
@@ -2032,7 +2032,7 @@ async def test_stream_auto_execute_whose_first_round_breaks_mid_answer_bills_onl
 
     with _echo_tool_served():
         stream: Final = await _open_chat_echo_stream(logging_obj)
-        with pytest.raises(litellm.ServiceUnavailableError):
+        with pytest.raises(hangarllm.ServiceUnavailableError):
             await _read_all(stream)
     await recorder.settled(failed=1)
 
@@ -2046,14 +2046,14 @@ async def test_stream_auto_execute_whose_first_round_breaks_mid_answer_bills_onl
 async def test_stream_auto_execute_bills_a_broken_follow_up_on_its_own_failure_row_with_no_second_fixed_margin(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, deferred_for_a_post_call_guardrail: bool
 ):
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.utils import ProxyLogging, _failure_fields_to_lift
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.utils import ProxyLogging, _failure_fields_to_lift
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _cut_once_the_answer_starts()))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-follow-up-breaks", stream=True)
-    request_data: Final = MappingProxyType({"litellm_logging_obj": logging_obj})
+    request_data: Final = MappingProxyType({"hangarllm_logging_obj": logging_obj})
 
     with _echo_tool_served():
         stream: Final = await _open_chat_echo_stream(logging_obj)
@@ -2061,7 +2061,7 @@ async def test_stream_auto_execute_bills_a_broken_follow_up_on_its_own_failure_r
             ProxyBaseLLMRequestProcessing(data={})._arm_deferred_stream_dispatch(
                 response=stream, route_type="acompletion", user_api_key_dict=MagicMock(), logging_obj=logging_obj
             )
-        with pytest.raises(litellm.ServiceUnavailableError) as broken:
+        with pytest.raises(hangarllm.ServiceUnavailableError) as broken:
             await _read_all(stream)
     if not ProxyLogging._discard_deferred_stream_logging_for_failure(dict(request_data), broken.value):
         ProxyLogging.fire_deferred_stream_logging(dict(request_data))
@@ -2071,7 +2071,7 @@ async def test_stream_auto_execute_bills_a_broken_follow_up_on_its_own_failure_r
     assert len(recorder.failed) == 1
     failed: Final = recorder.failed[0]
     unmargined: Final = (
-        litellm.completion_cost(
+        hangarllm.completion_cost(
             completion_response=ModelResponse(
                 model="gpt-5.6",
                 usage=Usage(
@@ -2098,15 +2098,15 @@ async def test_stream_auto_execute_bills_a_broken_follow_up_on_its_own_failure_r
 async def test_stream_auto_execute_whose_follow_up_breaks_reports_the_request_guardrail_result_on_the_failure_row_only(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, deferred_for_a_post_call_guardrail: bool
 ):
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.utils import ProxyLogging
 
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _cut_once_the_answer_starts()))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-follow-up-breaks-guarded", stream=True)
     metadata: Final[dict[str, object]] = {}
-    request_data: Final = {"metadata": metadata, "litellm_logging_obj": logging_obj}
+    request_data: Final = {"metadata": metadata, "hangarllm_logging_obj": logging_obj}
     content_filter: Final = CustomGuardrail(guardrail_name="request-content-filter", event_hook="post_call")
 
     with _echo_tool_served():
@@ -2115,7 +2115,7 @@ async def test_stream_auto_execute_whose_follow_up_breaks_reports_the_request_gu
             ProxyBaseLLMRequestProcessing(data={})._arm_deferred_stream_dispatch(
                 response=stream, route_type="acompletion", user_api_key_dict=MagicMock(), logging_obj=logging_obj
             )
-        with pytest.raises(litellm.ServiceUnavailableError) as broken:
+        with pytest.raises(hangarllm.ServiceUnavailableError) as broken:
             await _read_all(stream)
     content_filter.add_standard_logging_guardrail_information_to_request_data(
         guardrail_json_response=str(broken.value),
@@ -2137,11 +2137,11 @@ async def test_stream_auto_execute_whose_follow_up_breaks_reports_the_request_gu
 async def test_stream_auto_execute_served_through_the_proxy_stream_hook_logs_both_rounds_once_when_it_ends(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.utils import ProxyLogging
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-proxy-stream-hook", stream=True)
@@ -2150,7 +2150,7 @@ async def test_stream_auto_execute_served_through_the_proxy_stream_hook_logs_bot
         served: Final = ProxyLogging(user_api_key_cache=DualCache()).async_post_call_streaming_iterator_hook(
             response=await _open_chat_echo_stream(logging_obj),
             user_api_key_dict=UserAPIKeyAuth(),
-            request_data={"litellm_logging_obj": logging_obj},
+            request_data={"hangarllm_logging_obj": logging_obj},
         )
         chunks: Final = tuple([chunk async for chunk in served])
     await recorder.settled(logged=1)
@@ -2224,8 +2224,8 @@ async def test_stream_auto_execute_sends_its_usage_chunk_under_the_id_of_the_row
     deferred_for_a_post_call_guardrail: bool,
     answer: Mapping[str, object],
 ):
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.utils import ProxyLogging
 
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(answer)))
     recorder: Final = _ChatRoundRecorder()
@@ -2238,7 +2238,7 @@ async def test_stream_auto_execute_sends_its_usage_chunk_under_the_id_of_the_row
                 response=stream, route_type="acompletion", user_api_key_dict=MagicMock(), logging_obj=logging_obj
             )
         chunks: Final = await _read_all(stream)
-    ProxyLogging.fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+    ProxyLogging.fire_deferred_stream_logging({"hangarllm_logging_obj": logging_obj})
     await recorder.settled(logged=1)
 
     usage_chunks: Final = tuple(chunk for chunk in chunks if isinstance(getattr(chunk, "usage", None), Usage))
@@ -2258,7 +2258,7 @@ def _assert_one_row_bills_round_one_and_the_partial_answer(
     partial_prompt, partial_completion = (row["prompt_tokens"] - 71, row["completion_tokens"] - 19)
     assert partial_prompt == _prompt_tokens_the_follow_up_sent(respx_mock)
     assert partial_completion > 0
-    partial_answer: Final = litellm.completion_cost(
+    partial_answer: Final = hangarllm.completion_cost(
         completion_response=ModelResponse(
             model="gpt-5.6",
             usage=Usage(
@@ -2279,9 +2279,9 @@ def _assert_one_row_bills_round_one_and_the_partial_answer(
 async def test_stream_auto_execute_hung_up_during_the_follow_up_bills_round_one_and_the_partial_answer_on_one_row(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, deferred_for_a_post_call_guardrail: bool
 ):
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-hung-up-mid-answer", stream=True)
@@ -2294,19 +2294,19 @@ async def test_stream_auto_execute_hung_up_during_the_follow_up_bills_round_one_
             )
         await _read_until(stream, "PING")
         await ProxyBaseLLMRequestProcessing.finalize_streaming_generator_cleanup(
-            request=None, request_data={"litellm_logging_obj": logging_obj}, response=stream, client_disconnected=True
+            request=None, request_data={"hangarllm_logging_obj": logging_obj}, response=stream, client_disconnected=True
         )
     await recorder.settled(logged=1)
 
     _assert_one_row_bills_round_one_and_the_partial_answer(recorder, respx_mock)
 
 
-def _chat_rounds_router() -> litellm.Router:
-    return litellm.Router(
+def _chat_rounds_router() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "mcp-chat-rounds",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-mcp-chat-rounds",
                     "api_base": "https://mcp-chat-rounds.example.com/v1",
@@ -2348,11 +2348,11 @@ async def _serve_until_the_client_hangs_up_after(response: StreamingResponse, co
 async def test_stream_auto_execute_routed_through_the_proxy_bills_the_partial_answer_when_the_client_hangs_up(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, deferred_for_a_post_call_guardrail: bool
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing, create_response
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing, create_response
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(
         respx_mock,
         monkeypatch,
@@ -2370,10 +2370,10 @@ async def test_stream_auto_execute_routed_through_the_proxy_bills_the_partial_an
         stream: Final = await router.acompletion(
             model="mcp-chat-rounds",
             messages=[{"role": "user", "content": "Call echo with PING"}],
-            tools=[{"type": "mcp", "server_url": "litellm_proxy/mcp/demo", "require_approval": "never"}],
+            tools=[{"type": "mcp", "server_url": "hangarllm_proxy/mcp/demo", "require_approval": "never"}],
             stream=True,
             stream_options={"include_usage": True},
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
         if deferred_for_a_post_call_guardrail:
             ProxyBaseLLMRequestProcessing(data={})._arm_deferred_stream_dispatch(
@@ -2383,7 +2383,7 @@ async def test_stream_auto_execute_routed_through_the_proxy_bills_the_partial_an
             proxy_server.async_data_generator(
                 response=stream,
                 user_api_key_dict=UserAPIKeyAuth(),
-                request_data={"litellm_logging_obj": logging_obj, "model": "mcp-chat-rounds", "metadata": {}},
+                request_data={"hangarllm_logging_obj": logging_obj, "model": "mcp-chat-rounds", "metadata": {}},
             ),
             "text/event-stream",
             {},
@@ -2407,11 +2407,11 @@ async def _stop_reading_once_the_proxy_sent(served: AsyncIterator[object], conte
 async def test_stream_auto_execute_routed_through_the_proxy_bills_the_partial_answer_when_hung_up_between_reads(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, deferred_for_a_post_call_guardrail: bool
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     router: Final = _chat_rounds_router()
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -2422,10 +2422,10 @@ async def test_stream_auto_execute_routed_through_the_proxy_bills_the_partial_an
         stream: Final = await router.acompletion(
             model="mcp-chat-rounds",
             messages=[{"role": "user", "content": "Call echo with PING"}],
-            tools=[{"type": "mcp", "server_url": "litellm_proxy/mcp/demo", "require_approval": "never"}],
+            tools=[{"type": "mcp", "server_url": "hangarllm_proxy/mcp/demo", "require_approval": "never"}],
             stream=True,
             stream_options={"include_usage": True},
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
         if deferred_for_a_post_call_guardrail:
             ProxyBaseLLMRequestProcessing(data={})._arm_deferred_stream_dispatch(
@@ -2434,7 +2434,7 @@ async def test_stream_auto_execute_routed_through_the_proxy_bills_the_partial_an
         served: Final = proxy_server.async_data_generator(
             response=stream,
             user_api_key_dict=UserAPIKeyAuth(),
-            request_data={"litellm_logging_obj": logging_obj, "model": "mcp-chat-rounds", "metadata": {}},
+            request_data={"hangarllm_logging_obj": logging_obj, "model": "mcp-chat-rounds", "metadata": {}},
         )
         await _stop_reading_once_the_proxy_sent(served, "PING")
         await served.aclose()
@@ -2468,7 +2468,7 @@ class _CountsTheToolResultWhileTheLoopRuns:
 
 @contextmanager
 def _partial_count_watched(monkeypatch: pytest.MonkeyPatch) -> Iterator[_CountsTheToolResultWhileTheLoopRuns]:
-    from litellm.litellm_core_utils import streaming_chunk_builder_utils
+    from hangarllm.hangarllm_core_utils import streaming_chunk_builder_utils
 
     counter: Final = _CountsTheToolResultWhileTheLoopRuns(
         asyncio.get_running_loop(), streaming_chunk_builder_utils.token_counter
@@ -2495,7 +2495,7 @@ class _StallsAfterTheAnswerStarts(httpx.AsyncByteStream):
 async def test_stream_auto_execute_cancelled_mid_answer_counts_the_partial_off_the_loop_and_bills_it_once(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     answer: Final = _StallsAfterTheAnswerStarts()
     _serve_chat_rounds(
         respx_mock,
@@ -2523,10 +2523,10 @@ async def test_stream_auto_execute_cancelled_mid_answer_counts_the_partial_off_t
 async def test_stream_auto_execute_routed_through_the_proxy_and_closed_between_reads_counts_the_partial_off_the_loop(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     router: Final = _chat_rounds_router()
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -2537,15 +2537,15 @@ async def test_stream_auto_execute_routed_through_the_proxy_and_closed_between_r
         stream: Final = await router.acompletion(
             model="mcp-chat-rounds",
             messages=[{"role": "user", "content": "Call echo with PING"}],
-            tools=[{"type": "mcp", "server_url": "litellm_proxy/mcp/demo", "require_approval": "never"}],
+            tools=[{"type": "mcp", "server_url": "hangarllm_proxy/mcp/demo", "require_approval": "never"}],
             stream=True,
             stream_options={"include_usage": True},
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
         served: Final = proxy_server.async_data_generator(
             response=stream,
             user_api_key_dict=UserAPIKeyAuth(),
-            request_data={"litellm_logging_obj": logging_obj, "model": "mcp-chat-rounds", "metadata": {}},
+            request_data={"hangarllm_logging_obj": logging_obj, "model": "mcp-chat-rounds", "metadata": {}},
         )
         await _stop_reading_once_the_proxy_sent(served, "PING")
         await served.aclose()
@@ -2570,7 +2570,7 @@ class _StallsBeforeTheAnswerStarts(httpx.AsyncByteStream):
 async def test_stream_auto_execute_hung_up_before_the_answer_starts_bills_round_one_alone_on_one_row(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, deferred_for_a_post_call_guardrail: bool
 ):
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     answer: Final = _StallsBeforeTheAnswerStarts()
     _serve_chat_rounds(
@@ -2593,7 +2593,7 @@ async def test_stream_auto_execute_hung_up_before_the_answer_starts_bills_round_
         with pytest.raises(asyncio.CancelledError):
             await reading
         await ProxyBaseLLMRequestProcessing.finalize_streaming_generator_cleanup(
-            request=None, request_data={"litellm_logging_obj": logging_obj}, response=stream, client_disconnected=True
+            request=None, request_data={"hangarllm_logging_obj": logging_obj}, response=stream, client_disconnected=True
         )
     await recorder.settled(logged=1)
 
@@ -2615,9 +2615,9 @@ async def _read_through_the_usage_chunk(
 async def test_stream_auto_execute_hung_up_after_its_whole_answer_bills_both_rounds_once(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, deferred_for_a_post_call_guardrail: bool
 ):
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
-    monkeypatch.setattr(litellm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
+    monkeypatch.setattr(hangarllm, "cost_margin_config", {"openai": {"fixed_amount": _FIXED_MARGIN}})
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _streamed(_CHAT_ROUND_TWO)))
     recorder: Final = _ChatRoundRecorder()
     logging_obj: Final = _chat_rounds_logging_obj(recorder, "mcp-chat-stream-hung-up-after-answer", stream=True)
@@ -2630,7 +2630,7 @@ async def test_stream_auto_execute_hung_up_after_its_whole_answer_bills_both_rou
             )
         chunks: Final = await _read_through_the_usage_chunk(aiter(stream))
         await ProxyBaseLLMRequestProcessing.finalize_streaming_generator_cleanup(
-            request=None, request_data={"litellm_logging_obj": logging_obj}, response=stream, client_disconnected=True
+            request=None, request_data={"hangarllm_logging_obj": logging_obj}, response=stream, client_disconnected=True
         )
     await recorder.settled(logged=1)
 
@@ -2642,7 +2642,7 @@ async def test_stream_auto_execute_hung_up_after_its_whole_answer_bills_both_rou
 async def test_stream_auto_execute_bridged_to_messages_bills_round_one_when_its_follow_up_breaks(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     _serve_chat_rounds(respx_mock, monkeypatch, (_streamed(_CHAT_ROUND_ONE), _cut_once_the_answer_starts()))
     recorder: Final = _ChatRoundRecorder()
@@ -2657,7 +2657,7 @@ async def test_stream_auto_execute_bridged_to_messages_bills_round_one_when_its_
         ProxyBaseLLMRequestProcessing(data={})._arm_deferred_stream_dispatch(
             response=relayed, route_type="anthropic_messages", user_api_key_dict=MagicMock(), logging_obj=logging_obj
         )
-        with pytest.raises(litellm.ServiceUnavailableError):
+        with pytest.raises(hangarllm.ServiceUnavailableError):
             _ = [chunk async for chunk in relayed]
     await recorder.settled(logged=1, failed=1)
 

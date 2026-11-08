@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from prisma.errors import UniqueViolationError
 
 
-from litellm.proxy.management_endpoints.workflow_management_endpoints import (
+from hangarllm.proxy.management_endpoints.workflow_management_endpoints import (
     _read_scope_caller,
     _require_run,
     router,
@@ -86,14 +86,14 @@ def _make_message(
 def _make_tx(event_return=None, run_return=None, msg_return=None) -> MagicMock:
     """Build an async context-manager mock for prisma_client.db.tx()."""
     tx = MagicMock()
-    tx.litellm_workflowevent = MagicMock()
-    tx.litellm_workflowevent.create = AsyncMock(
+    tx.hangarllm_workflowevent = MagicMock()
+    tx.hangarllm_workflowevent.create = AsyncMock(
         return_value=event_return or _make_event()
     )
-    tx.litellm_workflowrun = MagicMock()
-    tx.litellm_workflowrun.update = AsyncMock(return_value=run_return or _make_run())
-    tx.litellm_workflowmessage = MagicMock()
-    tx.litellm_workflowmessage.create = AsyncMock(
+    tx.hangarllm_workflowrun = MagicMock()
+    tx.hangarllm_workflowrun.update = AsyncMock(return_value=run_return or _make_run())
+    tx.hangarllm_workflowmessage = MagicMock()
+    tx.hangarllm_workflowmessage.create = AsyncMock(
         return_value=msg_return or _make_message()
     )
     tx.__aenter__ = AsyncMock(return_value=tx)
@@ -104,9 +104,9 @@ def _make_tx(event_return=None, run_return=None, msg_return=None) -> MagicMock:
 def _make_prisma_client() -> MagicMock:
     client = MagicMock()
     client.db = MagicMock()
-    client.db.litellm_workflowrun = MagicMock()
-    client.db.litellm_workflowevent = MagicMock()
-    client.db.litellm_workflowmessage = MagicMock()
+    client.db.hangarllm_workflowrun = MagicMock()
+    client.db.hangarllm_workflowevent = MagicMock()
+    client.db.hangarllm_workflowmessage = MagicMock()
     # default tx() returns a no-op transaction
     client.db.tx = MagicMock(return_value=_make_tx())
     return client
@@ -119,7 +119,7 @@ def _make_app() -> FastAPI:
 
 
 def _override_auth() -> Any:
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     auth = UserAPIKeyAuth(api_key="sk-test", user_id="admin")
     auth.token = "tok-test"
@@ -127,16 +127,16 @@ def _override_auth() -> Any:
 
 
 def _override_auth_admin() -> Any:
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
     auth = UserAPIKeyAuth(api_key="sk-master")
-    auth.user_role = LitellmUserRoles.PROXY_ADMIN  # type: ignore[assignment]
+    auth.user_role = HangarllmUserRoles.PROXY_ADMIN  # type: ignore[assignment]
     return auth
 
 
 def _override_auth_user_with_token(token: str = "tok-abc") -> Any:
     """Return a non-admin caller whose hashed token equals `token`."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     auth = UserAPIKeyAuth(api_key="sk-user", user_id="user-1")
     auth.token = token  # override the computed hash with a predictable value
@@ -145,24 +145,24 @@ def _override_auth_user_with_token(token: str = "tok-abc") -> Any:
 
 def _override_auth_admin_viewer(token: str = "tok-viewer") -> Any:
     """Viewer carries a real token, so a re-scoped read path would be observable."""
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
     auth = UserAPIKeyAuth(
         api_key="sk-viewer",
         user_id="viewer-1",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY,
     )
     auth.token = token
     return auth
 
 
 def _override_auth_internal_user(token: str = "tok-internal") -> Any:
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
     auth = UserAPIKeyAuth(
         api_key="sk-internal",
         user_id="user-2",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
     auth.token = token
     return auth
@@ -175,26 +175,26 @@ def _override_auth_internal_user(token: str = "tok-internal") -> Any:
 
 class TestCreateWorkflowRun:
     def setup_method(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = _override_auth
         self.client = TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_create_returns_run(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.create = AsyncMock(return_value=_make_run())
+        self._prisma.db.hangarllm_workflowrun.create = AsyncMock(return_value=_make_run())
 
         resp = self.client.post(
             "/v1/workflows/runs",
             json={"workflow_type": "shin-builder"},
         )
         assert resp.status_code == 200
-        self._prisma.db.litellm_workflowrun.create.assert_awaited_once()
+        self._prisma.db.hangarllm_workflowrun.create.assert_awaited_once()
 
-    @patch("litellm.proxy.proxy_server.prisma_client", None)
+    @patch("hangarllm.proxy.proxy_server.prisma_client", None)
     def test_create_500_when_no_db(self):
         resp = self.client.post(
             "/v1/workflows/runs",
@@ -205,17 +205,17 @@ class TestCreateWorkflowRun:
 
 class TestListWorkflowRuns:
     def setup_method(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = _override_auth
         self.client = TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_returns_runs(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_many = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_many = AsyncMock(
             return_value=[_make_run()]
         )
 
@@ -224,50 +224,50 @@ class TestListWorkflowRuns:
         data = resp.json()
         assert data["count"] == 1
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_filters_by_status(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowrun.find_many = AsyncMock(return_value=[])
 
         resp = self.client.get("/v1/workflows/runs?status=running")
         assert resp.status_code == 200
-        call_kwargs = self._prisma.db.litellm_workflowrun.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowrun.find_many.call_args[1]
         assert call_kwargs["where"]["status"] == "running"
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_filters_by_multiple_statuses(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowrun.find_many = AsyncMock(return_value=[])
 
         resp = self.client.get("/v1/workflows/runs?status=running,paused")
         assert resp.status_code == 200
-        call_kwargs = self._prisma.db.litellm_workflowrun.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowrun.find_many.call_args[1]
         assert call_kwargs["where"]["status"] == {"in": ["running", "paused"]}
 
 
 class TestGetWorkflowRun:
     def setup_method(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = _override_auth
         self.client = TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_get_existing_run(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
 
         resp = self.client.get("/v1/workflows/runs/run-1")
         assert resp.status_code == 200
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_get_missing_run_returns_404(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(return_value=None)
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(return_value=None)
 
         resp = self.client.get("/v1/workflows/runs/nonexistent")
         assert resp.status_code == 404
@@ -275,29 +275,29 @@ class TestGetWorkflowRun:
 
 class TestUpdateWorkflowRun:
     def setup_method(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = _override_auth
         self.client = TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_update_status(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
         updated = _make_run(status="completed")
-        self._prisma.db.litellm_workflowrun.update = AsyncMock(return_value=updated)
+        self._prisma.db.hangarllm_workflowrun.update = AsyncMock(return_value=updated)
 
         resp = self.client.patch(
             "/v1/workflows/runs/run-1", json={"status": "completed"}
         )
         assert resp.status_code == 200
-        self._prisma.db.litellm_workflowrun.update.assert_awaited_once()
+        self._prisma.db.hangarllm_workflowrun.update.assert_awaited_once()
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_update_no_fields_returns_400(self, mock_pc):
         mock_pc.db = self._prisma.db
         resp = self.client.patch("/v1/workflows/runs/run-1", json={})
@@ -306,21 +306,21 @@ class TestUpdateWorkflowRun:
 
 class TestAppendWorkflowEvent:
     def setup_method(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = _override_auth
         self.client = TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_append_event_updates_run_status(self, mock_pc):
         mock_pc.db = self._prisma.db
         # _require_run check
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowevent.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowevent.find_many = AsyncMock(return_value=[])
         tx = _make_tx(
             event_return=_make_event(), run_return=_make_run(status="running")
         )
@@ -332,17 +332,17 @@ class TestAppendWorkflowEvent:
         )
         assert resp.status_code == 200
         # run status updated inside tx
-        tx.litellm_workflowrun.update.assert_awaited_once()
-        update_call = tx.litellm_workflowrun.update.call_args[1]
+        tx.hangarllm_workflowrun.update.assert_awaited_once()
+        update_call = tx.hangarllm_workflowrun.update.call_args[1]
         assert update_call["data"]["status"] == "running"
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_append_event_no_status_update_for_unknown_type(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowevent.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowevent.find_many = AsyncMock(return_value=[])
         tx = _make_tx(event_return=_make_event(event_type="custom.event"))
         self._prisma.db.tx = MagicMock(return_value=tx)
 
@@ -352,16 +352,16 @@ class TestAppendWorkflowEvent:
         )
         assert resp.status_code == 200
         # no status update inside tx for unknown event_type
-        tx.litellm_workflowrun.update.assert_not_awaited()
+        tx.hangarllm_workflowrun.update.assert_not_awaited()
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_sequence_number_increments(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
         existing = _make_event(sequence_number=4)
-        self._prisma.db.litellm_workflowevent.find_many = AsyncMock(
+        self._prisma.db.hangarllm_workflowevent.find_many = AsyncMock(
             return_value=[existing]
         )
         tx = _make_tx(event_return=_make_event(sequence_number=5))
@@ -371,13 +371,13 @@ class TestAppendWorkflowEvent:
             "/v1/workflows/runs/run-1/events",
             json={"event_type": "step.started", "step_name": "plan"},
         )
-        create_call = tx.litellm_workflowevent.create.call_args[1]
+        create_call = tx.hangarllm_workflowevent.create.call_args[1]
         assert create_call["data"]["sequence_number"] == 5
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_unknown_run_id_returns_404(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(return_value=None)
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(return_value=None)
 
         resp = self.client.post(
             "/v1/workflows/runs/nonexistent/events",
@@ -385,19 +385,19 @@ class TestAppendWorkflowEvent:
         )
         assert resp.status_code == 404
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_sequence_collision_retries_and_succeeds(self, mock_pc):
         """UniqueViolationError on first attempt triggers retry; second attempt succeeds."""
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowevent.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowevent.find_many = AsyncMock(return_value=[])
 
         # First tx raises UniqueViolationError; second succeeds.
         tx_fail = _make_tx()
         tx_fail.__aenter__ = AsyncMock(return_value=tx_fail)
-        tx_fail.litellm_workflowevent.create = AsyncMock(
+        tx_fail.hangarllm_workflowevent.create = AsyncMock(
             side_effect=UniqueViolationError(
                 {"user_facing_error": {"message": "unique"}}
             )
@@ -417,21 +417,21 @@ class TestAppendWorkflowEvent:
 
 class TestWorkflowMessages:
     def setup_method(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = _override_auth
         self.client = TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_append_message(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowmessage.find_many = AsyncMock(return_value=[])
-        self._prisma.db.litellm_workflowmessage.create = AsyncMock(
+        self._prisma.db.hangarllm_workflowmessage.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowmessage.create = AsyncMock(
             return_value=_make_message()
         )
 
@@ -441,10 +441,10 @@ class TestWorkflowMessages:
         )
         assert resp.status_code == 200
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_append_message_unknown_run_returns_404(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(return_value=None)
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(return_value=None)
 
         resp = self.client.post(
             "/v1/workflows/runs/nonexistent/messages",
@@ -452,13 +452,13 @@ class TestWorkflowMessages:
         )
         assert resp.status_code == 404
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_messages_ordered(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowmessage.find_many = AsyncMock(
+        self._prisma.db.hangarllm_workflowmessage.find_many = AsyncMock(
             return_value=[
                 _make_message(sequence_number=0),
                 _make_message(sequence_number=1, role="assistant"),
@@ -469,39 +469,39 @@ class TestWorkflowMessages:
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] == 2
-        call_kwargs = self._prisma.db.litellm_workflowmessage.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowmessage.find_many.call_args[1]
         assert call_kwargs["order"] == {"sequence_number": "asc"}
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_messages_respects_limit(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowmessage.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowmessage.find_many = AsyncMock(return_value=[])
 
         resp = self.client.get("/v1/workflows/runs/run-1/messages?limit=25")
         assert resp.status_code == 200
-        call_kwargs = self._prisma.db.litellm_workflowmessage.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowmessage.find_many.call_args[1]
         assert call_kwargs["take"] == 25
 
 
 class TestListWorkflowEvents:
     def setup_method(self):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = _override_auth
         self.client = TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_events_ordered(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowevent.find_many = AsyncMock(
+        self._prisma.db.hangarllm_workflowevent.find_many = AsyncMock(
             return_value=[
                 _make_event(sequence_number=0),
                 _make_event(sequence_number=1),
@@ -512,26 +512,26 @@ class TestListWorkflowEvents:
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] == 2
-        call_kwargs = self._prisma.db.litellm_workflowevent.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowevent.find_many.call_args[1]
         assert call_kwargs["order"] == {"sequence_number": "asc"}
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_events_respects_limit(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run()
         )
-        self._prisma.db.litellm_workflowevent.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowevent.find_many = AsyncMock(return_value=[])
 
         resp = self.client.get("/v1/workflows/runs/run-1/events?limit=10")
         assert resp.status_code == 200
-        call_kwargs = self._prisma.db.litellm_workflowevent.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowevent.find_many.call_args[1]
         assert call_kwargs["take"] == 10
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_list_events_unknown_run_returns_404(self, mock_pc):
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(return_value=None)
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(return_value=None)
 
         resp = self.client.get("/v1/workflows/runs/nonexistent/events")
         assert resp.status_code == 404
@@ -541,97 +541,97 @@ class TestTenantIsolation:
     """Ownership enforcement: non-admin callers only see their own runs."""
 
     def _make_app_with_auth(self, auth_fn):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
         app.dependency_overrides[user_api_key_auth] = auth_fn
         return TestClient(app, raise_server_exceptions=True)
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_create_stores_caller_token(self, mock_pc):
         token = "tok-owner"
         client = self._make_app_with_auth(lambda: _override_auth_user_with_token(token))
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.create = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.create = AsyncMock(
             return_value=_make_run(created_by=token)
         )
 
         resp = client.post("/v1/workflows/runs", json={"workflow_type": "test"})
         assert resp.status_code == 200
-        create_call = self._prisma.db.litellm_workflowrun.create.call_args[1]
+        create_call = self._prisma.db.hangarllm_workflowrun.create.call_args[1]
         assert create_call["data"]["created_by"] == token
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_non_admin_list_scoped_to_caller_token(self, mock_pc):
         token = "tok-owner"
         client = self._make_app_with_auth(lambda: _override_auth_user_with_token(token))
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowrun.find_many = AsyncMock(return_value=[])
 
         resp = client.get("/v1/workflows/runs")
         assert resp.status_code == 200
-        call_kwargs = self._prisma.db.litellm_workflowrun.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowrun.find_many.call_args[1]
         assert call_kwargs["where"].get("created_by") == token
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_admin_list_not_scoped(self, mock_pc):
         client = self._make_app_with_auth(_override_auth_admin)
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowrun.find_many = AsyncMock(return_value=[])
 
         resp = client.get("/v1/workflows/runs")
         assert resp.status_code == 200
-        call_kwargs = self._prisma.db.litellm_workflowrun.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowrun.find_many.call_args[1]
         assert "created_by" not in call_kwargs["where"]
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_non_admin_get_other_users_run_returns_404(self, mock_pc):
         token = "tok-caller"
         client = self._make_app_with_auth(lambda: _override_auth_user_with_token(token))
         mock_pc.db = self._prisma.db
         # Run owned by a different key
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by="tok-other-owner")
         )
 
         resp = client.get("/v1/workflows/runs/run-1")
         assert resp.status_code == 404
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_non_admin_get_null_owner_run_returns_404(self, mock_pc):
         token = "tok-caller"
         client = self._make_app_with_auth(lambda: _override_auth_user_with_token(token))
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by=None)
         )
 
         resp = client.get("/v1/workflows/runs/run-1")
         assert resp.status_code == 404
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_non_admin_update_null_owner_run_returns_404(self, mock_pc):
         token = "tok-caller"
         client = self._make_app_with_auth(lambda: _override_auth_user_with_token(token))
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by=None)
         )
-        self._prisma.db.litellm_workflowrun.update = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.update = AsyncMock(
             return_value=_make_run(status="completed")
         )
 
         resp = client.patch("/v1/workflows/runs/run-1", json={"status": "completed"})
         assert resp.status_code == 404
-        self._prisma.db.litellm_workflowrun.update.assert_not_awaited()
+        self._prisma.db.hangarllm_workflowrun.update.assert_not_awaited()
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_non_admin_get_own_run_succeeds(self, mock_pc):
         token = "tok-caller"
         client = self._make_app_with_auth(lambda: _override_auth_user_with_token(token))
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by=token)
         )
 
@@ -643,7 +643,7 @@ class TestAdminViewerReadParity:
     """proxy_admin_viewer reads every run; write paths stay on the strict admin gate."""
 
     def _make_app_with_auth(self, auth_fn):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         self._prisma = _make_prisma_client()
         app = _make_app()
@@ -656,36 +656,36 @@ class TestAdminViewerReadParity:
         assert _read_scope_caller(_override_auth_admin_viewer()) is None
         assert _read_scope_caller(internal) is internal
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_admin_viewer_list_not_scoped(self, mock_pc):
         client = self._make_app_with_auth(_override_auth_admin_viewer)
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_many = AsyncMock(return_value=[])
+        self._prisma.db.hangarllm_workflowrun.find_many = AsyncMock(return_value=[])
 
         resp = client.get("/v1/workflows/runs")
         assert resp.status_code == 200
-        call_kwargs = self._prisma.db.litellm_workflowrun.find_many.call_args[1]
+        call_kwargs = self._prisma.db.hangarllm_workflowrun.find_many.call_args[1]
         assert "created_by" not in call_kwargs["where"]
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_admin_viewer_get_other_owners_run_succeeds(self, mock_pc):
         client = self._make_app_with_auth(_override_auth_admin_viewer)
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by="tok-other-owner")
         )
 
         resp = client.get("/v1/workflows/runs/run-1")
         assert resp.status_code == 200
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_admin_viewer_lists_other_owners_events(self, mock_pc):
         client = self._make_app_with_auth(_override_auth_admin_viewer)
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by="tok-other-owner")
         )
-        self._prisma.db.litellm_workflowevent.find_many = AsyncMock(
+        self._prisma.db.hangarllm_workflowevent.find_many = AsyncMock(
             return_value=[_make_event(sequence_number=0)]
         )
 
@@ -693,14 +693,14 @@ class TestAdminViewerReadParity:
         assert resp.status_code == 200
         assert resp.json()["count"] == 1
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_admin_viewer_lists_other_owners_messages(self, mock_pc):
         client = self._make_app_with_auth(_override_auth_admin_viewer)
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by="tok-other-owner")
         )
-        self._prisma.db.litellm_workflowmessage.find_many = AsyncMock(
+        self._prisma.db.hangarllm_workflowmessage.find_many = AsyncMock(
             return_value=[_make_message(sequence_number=0)]
         )
 
@@ -708,26 +708,26 @@ class TestAdminViewerReadParity:
         assert resp.status_code == 200
         assert resp.json()["count"] == 1
 
-    @patch("litellm.proxy.proxy_server.prisma_client")
+    @patch("hangarllm.proxy.proxy_server.prisma_client")
     def test_admin_viewer_cannot_update_other_owners_run(self, mock_pc):
         """Read parity must not become write parity: PATCH still passes the caller through."""
         client = self._make_app_with_auth(_override_auth_admin_viewer)
         mock_pc.db = self._prisma.db
-        self._prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by="tok-other-owner")
         )
-        self._prisma.db.litellm_workflowrun.update = AsyncMock(
+        self._prisma.db.hangarllm_workflowrun.update = AsyncMock(
             return_value=_make_run(status="completed")
         )
 
         resp = client.patch("/v1/workflows/runs/run-1", json={"status": "completed"})
         assert resp.status_code == 404
-        self._prisma.db.litellm_workflowrun.update.assert_not_awaited()
+        self._prisma.db.hangarllm_workflowrun.update.assert_not_awaited()
 
     def test_require_run_still_scopes_when_handed_a_viewer(self):
         """Only read callers pass None; the helper itself never loosened."""
         prisma = _make_prisma_client()
-        prisma.db.litellm_workflowrun.find_unique = AsyncMock(
+        prisma.db.hangarllm_workflowrun.find_unique = AsyncMock(
             return_value=_make_run(created_by="tok-other-owner")
         )
 

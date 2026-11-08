@@ -9,10 +9,10 @@ from unittest.mock import Mock, patch
 import pytest
 from click.testing import CliRunner
 
-import litellm.proxy.client.cli
-from litellm._version import version as litellm_version
-from litellm.proxy.client.cli import cli, litellm_proxy_cli
-from litellm.proxy.client.cli.main import LITELLM_PROXY_DEPRECATION_NOTICE
+import hangarllm.proxy.client.cli
+from hangarllm._version import version as hangarllm_version
+from hangarllm.proxy.client.cli import cli, hangarllm_proxy_cli
+from hangarllm.proxy.client.cli.main import HANGARLLM_PROXY_DEPRECATION_NOTICE
 
 
 @pytest.fixture
@@ -24,14 +24,14 @@ def test_cli_version_flag(cli_runner):
     """Test that --version prints the correct version, server URL, and server version, and exits successfully"""
     with (
         patch(
-            "litellm.proxy.client.health.HealthManagementClient.get_server_version",
+            "hangarllm.proxy.client.health.HealthManagementClient.get_server_version",
             return_value="1.2.3",
         ),
-        patch.dict(os.environ, {"LITELLM_PROXY_URL": "http://localhost:4000"}),
+        patch.dict(os.environ, {"HANGARLLM_PROXY_URL": "http://localhost:4000"}),
     ):
         result = cli_runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert f"HangarLLM Proxy CLI Version: {litellm_version}" in result.output
+    assert f"HangarLLM Proxy CLI Version: {hangarllm_version}" in result.output
     assert "HangarLLM Proxy Server URL: http://localhost:4000" in result.output
     assert "HangarLLM Proxy Server Version: 1.2.3" in result.output
 
@@ -39,7 +39,7 @@ def test_cli_version_flag(cli_runner):
 def test_cli_source_is_ascii_only():
     """Non-ASCII output (emoji, box-drawing chars) raises UnicodeEncodeError on legacy Windows
     consoles (cp1252), so the whole CLI package must stay ASCII-only."""
-    cli_root = Path(litellm.proxy.client.cli.__file__).parent
+    cli_root = Path(hangarllm.proxy.client.cli.__file__).parent
     offenders = [
         f"{path.relative_to(cli_root)}:{line_number}: {line.strip()}"
         for path in sorted(cli_root.rglob("*.py"))
@@ -78,37 +78,37 @@ def test_cli_version_command(cli_runner):
     """Test that 'version' command prints the correct version, server URL, and server version, and exits successfully"""
     with (
         patch(
-            "litellm.proxy.client.health.HealthManagementClient.get_server_version",
+            "hangarllm.proxy.client.health.HealthManagementClient.get_server_version",
             return_value="1.2.3",
         ),
-        patch.dict(os.environ, {"LITELLM_PROXY_URL": "http://localhost:4000"}),
+        patch.dict(os.environ, {"HANGARLLM_PROXY_URL": "http://localhost:4000"}),
     ):
         result = cli_runner.invoke(cli, ["version"])
     assert result.exit_code == 0
-    assert f"HangarLLM Proxy CLI Version: {litellm_version}" in result.output
+    assert f"HangarLLM Proxy CLI Version: {hangarllm_version}" in result.output
     assert "HangarLLM Proxy Server URL: http://localhost:4000" in result.output
     assert "HangarLLM Proxy Server Version: 1.2.3" in result.output
 
 
 @pytest.fixture
 def isolated_home(monkeypatch, tmp_path):
-    """Point HOME at tmp_path so tests never touch the developer's real ~/.litellm."""
+    """Point HOME at tmp_path so tests never touch the developer's real ~/.hangarllm."""
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
-    monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_URL", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
     return tmp_path
 
 
 def _write_config_file(home: Path, config: dict[str, str]) -> None:
-    config_dir = home / ".litellm"
+    config_dir = home / ".hangarllm"
     config_dir.mkdir(exist_ok=True)
     (config_dir / "config.json").write_text(json.dumps(config))
 
 
 def _invoke_version(cli_runner: CliRunner, *args: str):
     with patch(
-        "litellm.proxy.client.health.HealthManagementClient.get_server_version",
+        "hangarllm.proxy.client.health.HealthManagementClient.get_server_version",
         return_value="1.2.3",
     ):
         return cli_runner.invoke(cli, [*args, "version"])
@@ -126,7 +126,7 @@ def test_base_url_read_from_config_file(cli_runner, isolated_home):
 
 def test_env_var_beats_config_file_base_url(cli_runner, isolated_home, monkeypatch):
     _write_config_file(isolated_home, {"base_url": "https://config-proxy.example.com"})
-    monkeypatch.setenv("LITELLM_PROXY_URL", "http://env-proxy.example.com:5000")
+    monkeypatch.setenv("HANGARLLM_PROXY_URL", "http://env-proxy.example.com:5000")
 
     result = _invoke_version(cli_runner)
 
@@ -136,7 +136,7 @@ def test_env_var_beats_config_file_base_url(cli_runner, isolated_home, monkeypat
 
 def test_base_url_flag_beats_env_var_and_config_file(cli_runner, isolated_home, monkeypatch):
     _write_config_file(isolated_home, {"base_url": "https://config-proxy.example.com"})
-    monkeypatch.setenv("LITELLM_PROXY_URL", "http://env-proxy.example.com:5000")
+    monkeypatch.setenv("HANGARLLM_PROXY_URL", "http://env-proxy.example.com:5000")
 
     result = _invoke_version(cli_runner, "--base-url", "http://flag-proxy.example.com:9000")
 
@@ -152,7 +152,7 @@ def test_default_base_url_unchanged_without_config_file(cli_runner, isolated_hom
 
 
 def _write_login_token(home: Path, base_url: str, key: str | None) -> None:
-    token_dir = home / ".litellm"
+    token_dir = home / ".hangarllm"
     token_dir.mkdir(exist_ok=True)
     secret: Final = {} if key is None else {"key": key}
     (token_dir / "token.json").write_text(json.dumps({"base_url": base_url, "user_id": "u-1", **secret}))
@@ -164,12 +164,12 @@ SHELL_VERSION_THEN_QUIT: Final = "version\nquit\n"
 
 def test_bare_lite_connects_to_the_server_it_logged_in_to(cli_runner, isolated_home, requests_mock, secret_vault_factory):
     _write_login_token(isolated_home, LOGIN_SERVER, "sk-from-login")
-    requests_mock.get(f"{LOGIN_SERVER}/health/readiness", json={"litellm_version": "1.2.3"})
+    requests_mock.get(f"{LOGIN_SERVER}/health/readiness", json={"hangarllm_version": "1.2.3"})
     context: Final[dict[str, object]] = {"secret_vault": secret_vault_factory()}
 
     result = cli_runner.invoke(cli, [], obj=context, input=SHELL_VERSION_THEN_QUIT)
 
-    assert f"Connected to LiteLLM server: {LOGIN_SERVER}" in result.output
+    assert f"Connected to HangarLLM server: {LOGIN_SERVER}" in result.output
     assert f"HangarLLM Proxy Server URL: {LOGIN_SERVER}" in result.output
     assert requests_mock.last_request.headers.get("Authorization") == "Bearer sk-from-login"
     assert context["base_url_explicit"] is False
@@ -179,7 +179,7 @@ def test_a_one_shot_command_never_goes_to_the_logged_in_server(
     cli_runner, isolated_home, requests_mock, secret_vault_factory
 ):
     _write_login_token(isolated_home, LOGIN_SERVER, "sk-from-login")
-    requests_mock.get("http://localhost:4000/health/readiness", json={"litellm_version": "1.2.3"})
+    requests_mock.get("http://localhost:4000/health/readiness", json={"hangarllm_version": "1.2.3"})
 
     result = cli_runner.invoke(cli, ["version"], obj={"secret_vault": secret_vault_factory()})
 
@@ -192,7 +192,7 @@ def test_a_one_shot_command_never_goes_to_the_logged_in_server(
     ("args", "env", "config", "expected_base_url"),
     [
         (["--base-url", "https://flag-proxy.example.com"], {}, {}, "https://flag-proxy.example.com"),
-        ([], {"LITELLM_PROXY_URL": "https://env-proxy.example.com"}, {}, "https://env-proxy.example.com"),
+        ([], {"HANGARLLM_PROXY_URL": "https://env-proxy.example.com"}, {}, "https://env-proxy.example.com"),
         ([], {}, {"base_url": "https://config-proxy.example.com"}, "https://config-proxy.example.com"),
     ],
 )
@@ -203,11 +203,11 @@ def test_a_named_server_beats_the_logged_in_one_and_never_gets_its_key(
     _write_config_file(isolated_home, config)
     for name, value in env.items():
         monkeypatch.setenv(name, value)
-    requests_mock.get(f"{expected_base_url}/health/readiness", json={"litellm_version": "1.2.3"})
+    requests_mock.get(f"{expected_base_url}/health/readiness", json={"hangarllm_version": "1.2.3"})
 
     result = cli_runner.invoke(cli, args, obj={"secret_vault": secret_vault_factory()}, input=SHELL_VERSION_THEN_QUIT)
 
-    assert f"Connected to LiteLLM server: {expected_base_url}" in result.output
+    assert f"Connected to HangarLLM server: {expected_base_url}" in result.output
     assert f"HangarLLM Proxy Server URL: {expected_base_url}" in result.output
     assert requests_mock.last_request.headers.get("Authorization") is None
 
@@ -216,7 +216,7 @@ def test_a_named_server_beats_the_logged_in_one_and_never_gets_its_key(
     ("args", "env"),
     [
         (["--api-key", "sk-named-key"], {}),
-        ([], {"LITELLM_PROXY_API_KEY": "sk-named-key"}),
+        ([], {"HANGARLLM_PROXY_API_KEY": "sk-named-key"}),
     ],
 )
 def test_a_key_given_without_a_server_never_goes_to_the_logged_in_one(
@@ -225,11 +225,11 @@ def test_a_key_given_without_a_server_never_goes_to_the_logged_in_one(
     _write_login_token(isolated_home, LOGIN_SERVER, "sk-from-login")
     for name, value in env.items():
         monkeypatch.setenv(name, value)
-    requests_mock.get("http://localhost:4000/health/readiness", json={"litellm_version": "1.2.3"})
+    requests_mock.get("http://localhost:4000/health/readiness", json={"hangarllm_version": "1.2.3"})
 
     result = cli_runner.invoke(cli, args, obj={"secret_vault": secret_vault_factory()}, input=SHELL_VERSION_THEN_QUIT)
 
-    assert "Connected to LiteLLM server: http://localhost:4000" in result.output
+    assert "Connected to HangarLLM server: http://localhost:4000" in result.output
     assert [request.url for request in requests_mock.request_history] == ["http://localhost:4000/health/readiness"]
     assert requests_mock.last_request.headers.get("Authorization") == "Bearer sk-named-key"
 
@@ -241,7 +241,7 @@ def test_bare_lite_says_why_it_stays_on_localhost_when_the_keychain_is_locked(
 
     result = cli_runner.invoke(cli, [], obj={"secret_vault": secret_vault_factory(available=False)}, input="quit\n")
 
-    assert "Connected to LiteLLM server: http://localhost:4000" in result.output
+    assert "Connected to HangarLLM server: http://localhost:4000" in result.output
     assert f"could not be read. Unlock it, or run 'lite --base-url {LOGIN_SERVER} login'" in result.output
 
 
@@ -252,13 +252,13 @@ def test_lite_goes_back_to_localhost_after_logout_without_a_keychain(cli_runner,
 
     result = cli_runner.invoke(cli, [], obj={"secret_vault": no_keychain}, input="quit\n")
 
-    assert "Connected to LiteLLM server: http://localhost:4000" in result.output
+    assert "Connected to HangarLLM server: http://localhost:4000" in result.output
 
 
 def test_corrupt_config_file_falls_back_to_default(cli_runner, isolated_home):
     """A corrupt config file must never crash the CLI. Exactly one warning proves
     the config file is read once per invocation, not once per lookup."""
-    config_dir = isolated_home / ".litellm"
+    config_dir = isolated_home / ".hangarllm"
     config_dir.mkdir(exist_ok=True)
     (config_dir / "config.json").write_text("{not json")
 
@@ -285,7 +285,7 @@ def test_version_flag_reads_config_file_base_url(cli_runner, isolated_home):
     _write_config_file(isolated_home, {"base_url": "https://config-proxy.example.com"})
 
     with patch(
-        "litellm.proxy.client.health.HealthManagementClient.get_server_version",
+        "hangarllm.proxy.client.health.HealthManagementClient.get_server_version",
         return_value="1.2.3",
     ):
         result = cli_runner.invoke(cli, ["--version"])
@@ -296,10 +296,10 @@ def test_version_flag_reads_config_file_base_url(cli_runner, isolated_home):
 
 def test_version_flag_prefers_env_var_over_config_file(cli_runner, isolated_home, monkeypatch):
     _write_config_file(isolated_home, {"base_url": "https://config-proxy.example.com"})
-    monkeypatch.setenv("LITELLM_PROXY_URL", "http://env-proxy.example.com:5000")
+    monkeypatch.setenv("HANGARLLM_PROXY_URL", "http://env-proxy.example.com:5000")
 
     with patch(
-        "litellm.proxy.client.health.HealthManagementClient.get_server_version",
+        "hangarllm.proxy.client.health.HealthManagementClient.get_server_version",
         return_value="1.2.3",
     ):
         result = cli_runner.invoke(cli, ["--version"])
@@ -314,7 +314,7 @@ def test_version_flag_prefers_explicit_base_url_over_config_file(cli_runner, iso
     _write_config_file(isolated_home, {"base_url": "https://config-proxy.example.com"})
 
     with patch(
-        "litellm.proxy.client.health.HealthManagementClient.get_server_version",
+        "hangarllm.proxy.client.health.HealthManagementClient.get_server_version",
         return_value="1.2.3",
     ):
         result = cli_runner.invoke(cli, ["--base-url", "https://flag-proxy.example.com", "--version"])
@@ -328,10 +328,10 @@ def test_version_flag_never_sends_api_key_to_unnamed_server(cli_runner, isolated
     """The version request carries a bearer token; it must reach only the server the
     user named, never whichever host happens to sit in the config file."""
     _write_config_file(isolated_home, {"base_url": "https://config-proxy.example.com"})
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-intended-for-flag-proxy")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-intended-for-flag-proxy")
 
-    with patch("litellm.proxy.client.http_client.requests.request") as mock_request:
-        mock_request.return_value.json.return_value = {"litellm_version": "1.2.3"}
+    with patch("hangarllm.proxy.client.http_client.requests.request") as mock_request:
+        mock_request.return_value.json.return_value = {"hangarllm_version": "1.2.3"}
         mock_request.return_value.raise_for_status.return_value = None
         result = cli_runner.invoke(cli, ["--base-url", "https://flag-proxy.example.com", "--version"])
 
@@ -343,32 +343,32 @@ def test_version_flag_never_sends_api_key_to_unnamed_server(cli_runner, isolated
     assert sent_keys == ["Bearer sk-intended-for-flag-proxy"] * len(requested_urls)
 
 
-def test_litellm_proxy_entrypoint_prints_deprecation_notice_on_stderr_and_still_runs(monkeypatch, capsys, requests_mock):
-    requests_mock.get("http://localhost:4000/health/readiness", json={"litellm_version": "1.2.3"})
-    monkeypatch.setattr(sys, "argv", ["litellm-proxy", "--version"])
-    monkeypatch.setenv("LITELLM_PROXY_URL", "http://localhost:4000")
+def test_hangarllm_proxy_entrypoint_prints_deprecation_notice_on_stderr_and_still_runs(monkeypatch, capsys, requests_mock):
+    requests_mock.get("http://localhost:4000/health/readiness", json={"hangarllm_version": "1.2.3"})
+    monkeypatch.setattr(sys, "argv", ["hangarllm-proxy", "--version"])
+    monkeypatch.setenv("HANGARLLM_PROXY_URL", "http://localhost:4000")
     with pytest.raises(SystemExit) as exit_info:
-        litellm_proxy_cli()
+        hangarllm_proxy_cli()
 
     captured: Final = capsys.readouterr()
     assert exit_info.value.code == 0
-    assert captured.err.strip() == LITELLM_PROXY_DEPRECATION_NOTICE
-    assert f"HangarLLM Proxy CLI Version: {litellm_version}" in captured.out
+    assert captured.err.strip() == HANGARLLM_PROXY_DEPRECATION_NOTICE
+    assert f"HangarLLM Proxy CLI Version: {hangarllm_version}" in captured.out
     assert "HangarLLM Proxy Server Version: 1.2.3" in captured.out
     assert "deprecated" not in captured.out
 
 
 def test_lite_entrypoint_prints_nothing_on_stderr(monkeypatch, capsys, requests_mock):
-    requests_mock.get("http://localhost:4000/health/readiness", json={"litellm_version": "1.2.3"})
+    requests_mock.get("http://localhost:4000/health/readiness", json={"hangarllm_version": "1.2.3"})
     monkeypatch.setattr(sys, "argv", ["lite", "--version"])
-    monkeypatch.setenv("LITELLM_PROXY_URL", "http://localhost:4000")
+    monkeypatch.setenv("HANGARLLM_PROXY_URL", "http://localhost:4000")
     with pytest.raises(SystemExit) as exit_info:
         cli()
 
     captured: Final = capsys.readouterr()
     assert exit_info.value.code == 0
     assert "HangarLLM Proxy Server Version: 1.2.3" in captured.out
-    assert f"HangarLLM Proxy CLI Version: {litellm_version}" in captured.out
+    assert f"HangarLLM Proxy CLI Version: {hangarllm_version}" in captured.out
     assert captured.err == ""
 
 
@@ -414,7 +414,7 @@ def test_cli_stores_the_resolved_connection_on_the_supplied_context_object(
     cli_runner, isolated_home, requests_mock, args, config, expected_context, expected_authorization
 ):
     _write_config_file(isolated_home, config)
-    requests_mock.get(f"{expected_context['base_url']}/health/readiness", json={"litellm_version": "1.2.3"})
+    requests_mock.get(f"{expected_context['base_url']}/health/readiness", json={"hangarllm_version": "1.2.3"})
     context: Final[dict[str, object]] = {}
 
     result = cli_runner.invoke(cli, [*args, "version"], obj=context)
@@ -448,12 +448,12 @@ def test_cli_stores_the_resolved_connection_on_the_supplied_context_object(
 def test_version_command_reads_the_connection_from_the_context_object(
     cli_runner, requests_mock, context, expected_lines, expected_authorization
 ):
-    requests_mock.get("http://localhost:4000/health/readiness", json={"litellm_version": "1.2.3"})
+    requests_mock.get("http://localhost:4000/health/readiness", json={"hangarllm_version": "1.2.3"})
 
     result = cli_runner.invoke(cli.commands["version"], [], obj=context)
 
     assert result.exit_code == 0
-    assert result.output.splitlines() == [f"HangarLLM Proxy CLI Version: {litellm_version}", *expected_lines]
+    assert result.output.splitlines() == [f"HangarLLM Proxy CLI Version: {hangarllm_version}", *expected_lines]
     assert requests_mock.last_request.headers.get("Authorization") == expected_authorization
 
 
@@ -463,7 +463,7 @@ def test_version_command_without_a_base_url_reports_the_failed_lookup(cli_runner
     lines: Final = result.output.splitlines()
     assert result.exit_code == 0
     assert len(lines) == 2
-    assert lines[0] == f"HangarLLM Proxy CLI Version: {litellm_version}"
+    assert lines[0] == f"HangarLLM Proxy CLI Version: {hangarllm_version}"
     assert lines[1].startswith("Could not retrieve server version: ")
 
 
@@ -476,7 +476,7 @@ def test_version_command_without_a_context_object_fails_reading_it(cli_runner):
 
 
 def test_every_listed_command_runs_the_command_of_that_name():
-    from litellm.proxy.client.cli.commands.agents import agent_commands
+    from hangarllm.proxy.client.cli.commands.agents import agent_commands
 
     commands: Final = {name: cli.commands[name] for name in cli.commands}
 

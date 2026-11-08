@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.rust_bridge.public_call import AsyncFlag, native_call, signature
+from hangarllm.rust_bridge.public_call import AsyncFlag, native_call, signature
 
 
 def _messages(

@@ -4,10 +4,10 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.openai_like import dynamic_config
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry, SimpleProviderConfig
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.openai_like import dynamic_config
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry, SimpleProviderConfig
 
 
 def _provider(*, responses: bool = False) -> SimpleProviderConfig:
@@ -80,13 +80,13 @@ def test_dynamic_provider_receives_affinity_header_for_chat():
         http_client=httpx.Client(transport=httpx.MockTransport(respond)),
     )
     try:
-        litellm.completion(
+        hangarllm.completion(
             model="db_only_provider/test-model",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-key",
             client=client,
             extra_headers={"X-Customer-Header": "customer-value"},
-            litellm_session_id="session-sync",
+            hangarllm_session_id="session-sync",
             provider_affinity_header="X-Conversation-Id",
         )
     finally:
@@ -112,7 +112,7 @@ def test_dynamic_provider_does_not_use_trace_id_for_chat_affinity():
         http_client=httpx.Client(transport=httpx.MockTransport(respond)),
     )
     try:
-        litellm.completion(
+        hangarllm.completion(
             model="db_only_provider/test-model",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-key",
@@ -143,12 +143,12 @@ async def test_dynamic_provider_receives_affinity_header_for_async_chat():
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
     )
     try:
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="db_only_provider/test-model",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-key",
             client=client,
-            litellm_session_id="session-async",
+            hangarllm_session_id="session-async",
             provider_affinity_header="X-Conversation-Id",
         )
     finally:
@@ -198,13 +198,13 @@ def test_dynamic_provider_receives_affinity_header_for_streaming_chat():
     )
     try:
         response_chunks = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="db_only_provider/test-model",
                 messages=[{"role": "user", "content": "hello"}],
                 api_key="test-key",
                 client=client,
                 stream=True,
-                litellm_session_id="session-stream",
+                hangarllm_session_id="session-stream",
                 provider_affinity_header="X-Conversation-Id",
             )
         )
@@ -226,13 +226,13 @@ def test_dynamic_provider_receives_affinity_header_for_responses():
 
     http_client = httpx.Client(transport=httpx.MockTransport(respond))
     try:
-        litellm.responses(
+        hangarllm.responses(
             model="db_only_provider/test-model",
             input="hello",
             api_key="test-key",
-            litellm_session_id="session-responses",
+            hangarllm_session_id="session-responses",
             provider_affinity_header="X-Conversation-Id",
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             client=HTTPHandler(client=http_client),
         )
     finally:
@@ -240,7 +240,7 @@ def test_dynamic_provider_receives_affinity_header_for_responses():
 
     assert requests[0].headers["X-Conversation-Id"] == "session-responses"
     assert (
-        logging_obj.update_from_kwargs.call_args.kwargs["litellm_params"]["provider_affinity_header"]
+        logging_obj.update_from_kwargs.call_args.kwargs["hangarllm_params"]["provider_affinity_header"]
         == "X-Conversation-Id"
     )
 
@@ -255,13 +255,13 @@ def test_dynamic_provider_uses_metadata_session_id_for_responses():
 
     http_client = httpx.Client(transport=httpx.MockTransport(respond))
     try:
-        litellm.responses(
+        hangarllm.responses(
             model="db_only_provider/test-model",
             input="hello",
             api_key="test-key",
             metadata={"session_id": "session-from-metadata"},
             provider_affinity_header="X-Conversation-Id",
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             client=HTTPHandler(client=http_client),
         )
     finally:
@@ -284,12 +284,12 @@ async def test_dynamic_provider_receives_affinity_header_for_async_responses(str
     await client.close()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     try:
-        response = await litellm.aresponses(
+        response = await hangarllm.aresponses(
             model="db_only_provider/test-model",
             input="hello",
             api_key="test-key",
             stream=stream,
-            litellm_session_id="session-async-responses",
+            hangarllm_session_id="session-async-responses",
             provider_affinity_header="X-Conversation-Id",
             client=client,
         )
@@ -319,13 +319,13 @@ def test_control_characters_in_session_id_are_a_bad_request_for_chat():
         http_client=httpx.Client(transport=httpx.MockTransport(respond)),
     )
     try:
-        with pytest.raises(litellm.BadRequestError, match="HTTP header control characters"):
-            litellm.completion(
+        with pytest.raises(hangarllm.BadRequestError, match="HTTP header control characters"):
+            hangarllm.completion(
                 model="db_only_provider/test-model",
                 messages=[{"role": "user", "content": "hello"}],
                 api_key="test-key",
                 client=client,
-                litellm_session_id="session\nsplit",
+                hangarllm_session_id="session\nsplit",
                 provider_affinity_header="X-Conversation-Id",
             )
     finally:
@@ -344,14 +344,14 @@ def test_control_characters_in_session_id_are_a_bad_request_for_responses():
 
     http_client = httpx.Client(transport=httpx.MockTransport(respond))
     try:
-        with pytest.raises(litellm.BadRequestError, match="HTTP header control characters"):
-            litellm.responses(
+        with pytest.raises(hangarllm.BadRequestError, match="HTTP header control characters"):
+            hangarllm.responses(
                 model="db_only_provider/test-model",
                 input="hello",
                 api_key="test-key",
-                litellm_session_id="session\nsplit",
+                hangarllm_session_id="session\nsplit",
                 provider_affinity_header="X-Conversation-Id",
-                litellm_logging_obj=MagicMock(),
+                hangarllm_logging_obj=MagicMock(),
                 client=HTTPHandler(client=http_client),
             )
     finally:
@@ -375,12 +375,12 @@ def test_builtin_provider_receives_affinity_header():
         http_client=httpx.Client(transport=httpx.MockTransport(respond)),
     )
     try:
-        litellm.completion(
+        hangarllm.completion(
             model="openai/test-model",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-key",
             client=client,
-            litellm_session_id="session-builtin",
+            hangarllm_session_id="session-builtin",
             provider_affinity_header="X-Conversation-Id",
         )
     finally:

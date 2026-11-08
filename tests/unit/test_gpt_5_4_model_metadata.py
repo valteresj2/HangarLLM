@@ -6,7 +6,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).parents[2]
 MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PATH = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PATH = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 DOCUMENTED_MAX_INPUT_TOKENS = 272000
 DOCUMENTED_MAX_OUTPUT_TOKENS = 128000

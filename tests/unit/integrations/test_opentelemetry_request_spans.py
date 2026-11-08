@@ -10,11 +10,11 @@ from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-import litellm
-from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+import hangarllm
+from hangarllm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
 
 _OPENAI_URL: Final = "https://api.openai.com/v1/chat/completions"
-_EXPECTED_SPAN_NAMES: Final = ("litellm_request", "raw_gen_ai_request")
+_EXPECTED_SPAN_NAMES: Final = ("hangarllm_request", "raw_gen_ai_request")
 _USER: Final = "OTEL_USER"
 _USAGE: Final = {"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10}
 _COMPLETION: Final = {
@@ -50,7 +50,7 @@ _STREAM: Final = (
     )
     + "data: [DONE]\n\n"
 )
-_LITELLM_REQUEST_ATTRIBUTES: Final = (
+_HANGARLLM_REQUEST_ATTRIBUTES: Final = (
     "gen_ai.request.model",
     "gen_ai.system",
     "gen_ai.request.temperature",
@@ -82,7 +82,7 @@ _RAW_NON_STREAMING_ATTRIBUTES: Final = (
 
 
 def _is_our_request(span: ReadableSpan) -> bool:
-    return span.name == "litellm_request" and (span.attributes or {}).get("llm.user") == _USER
+    return span.name == "hangarllm_request" and (span.attributes or {}).get("llm.user") == _USER
 
 
 def _trace_id(span: ReadableSpan) -> int:
@@ -108,13 +108,13 @@ class _SignallingExporter(InMemorySpanExporter):
 async def test_otel_callback_emits_the_request_and_raw_provider_spans(
     streaming: bool, monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.delenv("OTEL_SEMCONV_STABILITY_OPT_IN", raising=False)
     exporter: Final = _SignallingExporter(asyncio.get_running_loop())
     tracer_provider: Final = TracerProvider()
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [OpenTelemetry(config=OpenTelemetryConfig(exporter=exporter), tracer_provider=tracer_provider)],
     )
@@ -124,7 +124,7 @@ async def test_otel_callback_emits_the_request_and_raw_provider_spans(
         else httpx.Response(200, json=_COMPLETION)
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         temperature=0.1,
@@ -141,8 +141,8 @@ async def test_otel_callback_emits_the_request_and_raw_provider_spans(
     ours: Final = tuple(span for span in finished if _trace_id(span) == _trace_id(request_span))
     assert tuple(sorted(span.name for span in ours)) == _EXPECTED_SPAN_NAMES
     spans: Final = {span.name: span for span in ours}
-    request_attributes: Final = spans["litellm_request"].attributes or {}
-    assert all(request_attributes.get(name) is not None for name in _LITELLM_REQUEST_ATTRIBUTES)
+    request_attributes: Final = spans["hangarllm_request"].attributes or {}
+    assert all(request_attributes.get(name) is not None for name in _HANGARLLM_REQUEST_ATTRIBUTES)
     assert request_attributes["gen_ai.request.model"] == "gpt-4.1-mini"
     assert request_attributes["gen_ai.system"] == "openai"
     assert request_attributes["gen_ai.request.temperature"] == 0.1

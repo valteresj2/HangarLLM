@@ -5,13 +5,13 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.azure_ai.image_edit import (
+import hangarllm
+from hangarllm.images.utils import ImageEditRequestUtils
+from hangarllm.llms.azure_ai.image_edit import (
     AzureFoundryMAIImageEditConfig,
     get_azure_ai_image_edit_config,
 )
-from litellm.llms.azure_ai.image_generation.mai_transformation import (
+from hangarllm.llms.azure_ai.image_generation.mai_transformation import (
     AzureFoundryMAIImageGenerationConfig,
 )
 
@@ -66,14 +66,14 @@ class TestAzureMAIImageEdit:
         url = config.get_complete_url(
             model="MAI-Image-2.5",
             api_base="https://my-resource.services.ai.azure.com",
-            litellm_params={"api_version": "preview"},
+            hangarllm_params={"api_version": "preview"},
         )
         assert "/mai/v1/images/edits" in url
         assert "api-version=preview" in url
 
     def test_get_optional_params_image_edit_size_raises_400(self, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
-        with pytest.raises(litellm.UnsupportedParamsError, match="size") as exc_info:
+        monkeypatch.setattr(hangarllm, "drop_params", False)
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="size") as exc_info:
             ImageEditRequestUtils.get_optional_params_image_edit(
                 model="MAI-Image-2.5",
                 image_edit_provider_config=AzureFoundryMAIImageEditConfig(),
@@ -82,7 +82,7 @@ class TestAzureMAIImageEdit:
         assert exc_info.value.status_code == 400
 
     def test_get_optional_params_image_edit_size_dropped_with_drop_params(self, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         optional_params = ImageEditRequestUtils.get_optional_params_image_edit(
             model="MAI-Image-2.5",
             image_edit_provider_config=AzureFoundryMAIImageEditConfig(),
@@ -93,7 +93,7 @@ class TestAzureMAIImageEdit:
         assert optional_params["n"] == 1
 
     def test_get_optional_params_image_edit_without_size_forwards_nothing_extra(self, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         optional_params = ImageEditRequestUtils.get_optional_params_image_edit(
             model="MAI-Image-2.5",
             image_edit_provider_config=AzureFoundryMAIImageEditConfig(),
@@ -102,9 +102,9 @@ class TestAzureMAIImageEdit:
         assert optional_params == {}
 
     def test_image_edit_size_surfaces_as_400(self, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
-        with pytest.raises(litellm.BadRequestError) as exc_info:
-            litellm.image_edit(
+        monkeypatch.setattr(hangarllm, "drop_params", False)
+        with pytest.raises(hangarllm.BadRequestError) as exc_info:
+            hangarllm.image_edit(
                 model="azure_ai/MAI-Image-2.5",
                 image=io.BytesIO(b"fake-image-bytes"),
                 prompt="Turn this into a studio product shot",
@@ -123,7 +123,7 @@ class TestAzureMAIImageEdit:
             prompt="Turn this into a studio product shot",
             image=image_bytes,
             image_edit_optional_request_params={"n": 1},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -176,12 +176,12 @@ class TestAzureMAIImageEdit:
 
 def test_mai_validate_environment_with_entra_token(monkeypatch, no_ambient_azure_credentials):
     monkeypatch.delenv("AZURE_AI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
 
     headers = AzureFoundryMAIImageEditConfig().validate_environment(
         headers={},
         model="MAI-Image-2.5",
-        litellm_params={"azure_ad_token": "entra-token"},
+        hangarllm_params={"azure_ad_token": "entra-token"},
     )
 
     assert headers == {"Authorization": "Bearer entra-token"}

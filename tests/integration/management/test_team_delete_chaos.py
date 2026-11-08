@@ -15,9 +15,9 @@ and the pinned delete finishes, or is dropped, under the failure:
 - C3 SIGTERMs the owned proxy root and a fresh proxy starts on the same database.
 
 After recovery the burst outcomes (status or transport error per team) are recorded, every team whose
-row survived is deleted once more, and the invariants must hold for every team: no ``LiteLLM_TeamTable``
-row, no ``LiteLLM_TeamMembership`` row, no ``LiteLLM_UserTable.teams`` entry naming it, its key gone
-from ``LiteLLM_VerificationToken``, and one ``LiteLLM_DeletedTeamTable`` row per attempt that reached
+row survived is deleted once more, and the invariants must hold for every team: no ``HangarLLM_TeamTable``
+row, no ``HangarLLM_TeamMembership`` row, no ``HangarLLM_UserTable.teams`` entry naming it, its key gone
+from ``HangarLLM_VerificationToken``, and one ``HangarLLM_DeletedTeamTable`` row per attempt that reached
 the tombstone write. Both legs commit that tombstone before the locked transaction that removes the
 team, so an attempt that died in between leaves a tombstone for a live team and the retry adds a
 second; that count is pinned as observed (pre-existing, outside this PR's diff, recorded in the audit
@@ -69,11 +69,11 @@ WORKERS: Final = 2
 DELETE_TIMEOUT_SECONDS: Final = 60
 REMOVE_FROM_ENVIRONMENT: Final = ("DATABASE_URL_READ_REPLICA",)
 
-TEAM_SQL: Final = 'SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s'
-TOMBSTONE_SQL: Final = 'SELECT id FROM "LiteLLM_DeletedTeamTable" WHERE team_id = %s'
-MEMBERSHIP_SQL: Final = 'SELECT user_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s'
-REFERENCING_USERS_SQL: Final = 'SELECT user_id FROM "LiteLLM_UserTable" WHERE %s = ANY(teams)'
-TOKEN_SQL: Final = 'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s'
+TEAM_SQL: Final = 'SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s'
+TOMBSTONE_SQL: Final = 'SELECT id FROM "HangarLLM_DeletedTeamTable" WHERE team_id = %s'
+MEMBERSHIP_SQL: Final = 'SELECT user_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s'
+REFERENCING_USERS_SQL: Final = 'SELECT user_id FROM "HangarLLM_UserTable" WHERE %s = ANY(teams)'
+TOKEN_SQL: Final = 'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s'
 TAKE_TEAM_LOCK_SQL: Final = "SELECT pg_advisory_xact_lock(hashtext(%s))"
 # Sessions blocked on an advisory lock the given backend holds: the pinned team's delete, on either leg.
 WAITERS_ON_HELD_LOCK_SQL: Final = """
@@ -307,7 +307,7 @@ def _retry_survivors(target: Gateway, fleet: Sequence[Team], observed: Sequence[
 
 
 def _expected_tombstones(before: TeamState, retried: bool) -> int:
-    """One ``LiteLLM_DeletedTeamTable`` row per attempt that reached the tombstone write.
+    """One ``HangarLLM_DeletedTeamTable`` row per attempt that reached the tombstone write.
 
     Both legs commit the tombstone before the locked transaction that removes the team, so a burst
     attempt that died in between left one (``before.tombstones``, 0 or 1) for a team whose row

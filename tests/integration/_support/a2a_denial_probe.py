@@ -7,8 +7,8 @@ from typing import Final
 import httpx
 from fastapi import HTTPException
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -21,7 +21,7 @@ def _logged(hook: str, kwargs: Mapping[str, object]) -> Mapping[str, object]:
     return {
         "hook": hook,
         "call_type": kwargs.get("call_type"),
-        "litellm_call_id": kwargs.get("litellm_call_id"),
+        "hangarllm_call_id": kwargs.get("hangarllm_call_id"),
         "model": logged.get("model"),
         "status": logged.get("status"),
         "key_alias": metadata.get("user_api_key_alias"),
@@ -45,7 +45,7 @@ def _hooked(
     return {
         "hook": "post_call_failure",
         "call_type": request_data.get("call_type"),
-        "litellm_call_id": request_data.get("litellm_call_id"),
+        "hangarllm_call_id": request_data.get("hangarllm_call_id"),
         "key_alias": user_api_key_dict.key_alias,
         "key_hash": user_api_key_dict.api_key,
         "user_id": user_api_key_dict.user_id,

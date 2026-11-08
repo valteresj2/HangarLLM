@@ -119,8 +119,8 @@ export interface SweepOutcome {
   readonly pullRequests: readonly CloseOutcome[];
 }
 
-export const FIXED_MARKER = "<!-- litellm:fixed-in -->";
-export const SUPERSEDED_MARKER = "<!-- litellm:superseded -->";
+export const FIXED_MARKER = "<!-- hangarllm:fixed-in -->";
+export const SUPERSEDED_MARKER = "<!-- hangarllm:superseded -->";
 const MAX_MINOR_BUMPS = 3;
 const MAX_LINKED_PULL_REQUESTS = 50;
 const MAX_LINKED_ISSUES = 10;

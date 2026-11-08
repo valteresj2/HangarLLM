@@ -10,8 +10,8 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from litellm.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec
-from litellm.proxy.proxy_server import app
+from hangarllm.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec
+from hangarllm.proxy.proxy_server import app
 
 
 @pytest.mark.xdist_group("swagger")
@@ -35,7 +35,7 @@ class TestSwaggerChatCompletions:
         for /chat/completions endpoints after add_llm_api_request_schema_body runs.
         """
         # Clear any cached schema to ensure we get the latest version
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         app.openapi_schema = None
 
@@ -89,8 +89,8 @@ class TestSwaggerChatCompletions:
                 field in properties
             ), f"Expected field '{field}' not found in ProxyChatCompletionRequest schema"
 
-        # Check for LiteLLM-specific fields added by ProxyChatCompletionRequest
-        expected_litellm_fields = [
+        # Check for HangarLLM-specific fields added by ProxyChatCompletionRequest
+        expected_hangarllm_fields = [
             "guardrails",
             "caching",
             "num_retries",
@@ -98,10 +98,10 @@ class TestSwaggerChatCompletions:
             "fallbacks",
         ]
 
-        for field in expected_litellm_fields:
+        for field in expected_hangarllm_fields:
             assert (
                 field in properties
-            ), f"Expected LiteLLM field '{field}' not found in ProxyChatCompletionRequest schema"
+            ), f"Expected HangarLLM field '{field}' not found in ProxyChatCompletionRequest schema"
 
         # Verify model and messages are required fields
         if "required" in chat_completion_schema:
@@ -115,7 +115,7 @@ class TestSwaggerChatCompletions:
         with all individual fields visible (not just a $ref).
         """
         # Clear any cached schema to ensure we get the latest version
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         app.openapi_schema = None
 
@@ -173,12 +173,12 @@ class TestSwaggerChatCompletions:
                 field in properties
             ), f"Core field '{field}' should be in expanded properties"
 
-        # Should have LiteLLM-specific fields
-        litellm_fields = ["guardrails", "caching", "fallbacks", "num_retries"]
-        for field in litellm_fields:
+        # Should have HangarLLM-specific fields
+        hangarllm_fields = ["guardrails", "caching", "fallbacks", "num_retries"]
+        for field in hangarllm_fields:
             assert (
                 field in properties
-            ), f"LiteLLM field '{field}' should be in expanded properties"
+            ), f"HangarLLM field '{field}' should be in expanded properties"
 
         # Check required fields
         required_fields = schema_def.get("required", [])
@@ -194,7 +194,7 @@ class TestSwaggerChatCompletions:
             ), f"Only path parameters expected, found {param.get('in')} parameter: {param.get('name')}"
 
     @patch(
-        "litellm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_chat_completion_request_schema"
+        "hangarllm.proxy.common_utils.custom_openapi_spec.CustomOpenAPISpec.add_chat_completion_request_schema"
     )
     def test_add_llm_api_request_schema_body_calls_chat_completion_method(
         self, mock_add_chat
@@ -241,9 +241,9 @@ class TestSwaggerChatCompletions:
     def test_proxy_chat_completion_request_pydantic_model_works(self):
         """
         Test that ProxyChatCompletionRequest properly generates schemas
-        and includes the expected LiteLLM-specific fields.
+        and includes the expected HangarLLM-specific fields.
         """
-        from litellm.proxy._types import ProxyChatCompletionRequest
+        from hangarllm.proxy._types import ProxyChatCompletionRequest
 
         # Check that we can get the schema
         try:
@@ -266,25 +266,25 @@ class TestSwaggerChatCompletions:
         assert "model" in properties, "Field 'model' should be in schema"
         assert "messages" in properties, "Field 'messages' should be in schema"
 
-        # Check for LiteLLM-specific fields
-        litellm_fields = [
+        # Check for HangarLLM-specific fields
+        hangarllm_fields = [
             "guardrails",
             "caching",
             "num_retries",
             "context_window_fallback_dict",
             "fallbacks",
         ]
-        for field in litellm_fields:
+        for field in hangarllm_fields:
             assert (
                 field in properties
-            ), f"LiteLLM field '{field}' should be in ProxyChatCompletionRequest schema"
+            ), f"HangarLLM field '{field}' should be in ProxyChatCompletionRequest schema"
 
     def test_messages_field_has_example(self, client):
         """
         Test that the messages field in the expanded request body includes a helpful example.
         """
         # Clear any cached schema to ensure we get the latest version
-        from litellm.proxy.proxy_server import app
+        from hangarllm.proxy.proxy_server import app
 
         app.openapi_schema = None
 
@@ -376,14 +376,14 @@ class TestSwaggerChatCompletions:
         """
         from unittest.mock import patch
 
-        from litellm.proxy.proxy_server import app, custom_openapi, get_openapi_schema
+        from hangarllm.proxy.proxy_server import app, custom_openapi, get_openapi_schema
 
         # Test cases: (server_root_path, expected_servers_url)
         # Note: empty string is falsy in Python, so servers won't be set
         test_cases = [
-            ("/litellm", "/litellm"),
-            ("/litellm/", "/litellm"),  # trailing slash should be removed
-            ("litellm", "/litellm"),  # missing leading slash should be added
+            ("/hangarllm", "/hangarllm"),
+            ("/hangarllm/", "/hangarllm"),  # trailing slash should be removed
+            ("hangarllm", "/hangarllm"),  # missing leading slash should be added
             ("/api/v1", "/api/v1"),
         ]
 
@@ -391,7 +391,7 @@ class TestSwaggerChatCompletions:
             # Clear cached schema
             app.openapi_schema = None
 
-            with patch("litellm.proxy.proxy_server.server_root_path", root_path):
+            with patch("hangarllm.proxy.proxy_server.server_root_path", root_path):
                 # Test get_openapi_schema
                 schema = get_openapi_schema()
 
@@ -405,7 +405,7 @@ class TestSwaggerChatCompletions:
 
             # Test custom_openapi as well
             app.openapi_schema = None
-            with patch("litellm.proxy.proxy_server.server_root_path", root_path):
+            with patch("hangarllm.proxy.proxy_server.server_root_path", root_path):
                 schema = custom_openapi()
 
                 assert (
@@ -416,7 +416,7 @@ class TestSwaggerChatCompletions:
                 ), f"Expected servers URL '{expected_url}' in custom_openapi, got '{schema['servers'][0]['url']}'"
 
     def test_should_make_duplicate_operation_ids_unique_by_method(self):
-        from litellm.proxy.proxy_server import ensure_unique_openapi_operation_ids
+        from hangarllm.proxy.proxy_server import ensure_unique_openapi_operation_ids
 
         schema = {
             "paths": {
@@ -463,7 +463,7 @@ class TestSwaggerChatCompletions:
     def test_should_not_add_method_suffix_to_multi_method_route_base_id(self):
         from types import SimpleNamespace
 
-        from litellm.proxy.proxy_server import _generate_stable_operation_id
+        from hangarllm.proxy.proxy_server import _generate_stable_operation_id
 
         multi_method_route = SimpleNamespace(
             name="anthropic_proxy_route",
@@ -486,7 +486,7 @@ class TestSwaggerChatCompletions:
         )
 
     def test_should_reserve_operation_ids_across_lazy_fragments(self):
-        from litellm.proxy.proxy_server import ensure_unique_openapi_operation_ids
+        from hangarllm.proxy.proxy_server import ensure_unique_openapi_operation_ids
 
         used_operation_ids = set()
         first_schema = {

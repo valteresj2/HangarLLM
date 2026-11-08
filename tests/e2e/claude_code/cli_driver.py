@@ -35,7 +35,7 @@ CLAUDE_CLI_DEFAULT = "claude"
 # We expose the timeout as an env var so binary-search runs can grow
 # it without touching the test code.
 DEFAULT_TIMEOUT_SECONDS = float(
-    os.environ.get("LITELLM_COMPAT_CLI_TIMEOUT_SECONDS") or 120
+    os.environ.get("HANGARLLM_COMPAT_CLI_TIMEOUT_SECONDS") or 120
 )
 
 RATE_LIMIT_SHAPED_RE = re.compile(
@@ -61,10 +61,10 @@ out of capacity."""
 
 
 DEFAULT_RATE_LIMIT_RETRIES = int(
-    os.environ.get("LITELLM_COMPAT_RATE_LIMIT_RETRIES") or 2
+    os.environ.get("HANGARLLM_COMPAT_RATE_LIMIT_RETRIES") or 2
 )
 DEFAULT_RATE_LIMIT_BACKOFF_SECONDS = float(
-    os.environ.get("LITELLM_COMPAT_RATE_LIMIT_BACKOFF_SECONDS") or 65
+    os.environ.get("HANGARLLM_COMPAT_RATE_LIMIT_BACKOFF_SECONDS") or 65
 )
 """Rate-limit-shaped failures are retried after a backoff long enough
 for a per-minute quota window (the dominant 429 source across
@@ -151,7 +151,7 @@ def _stable_cli_state() -> Tuple[str, str]:
     working directory is deliberately not the checkout, so a model-directed
     `Read` sees an empty directory instead of the repository.
     """
-    root = os.path.join(tempfile.gettempdir(), f"litellm-e2e-claude-{os.getuid()}")
+    root = os.path.join(tempfile.gettempdir(), f"hangarllm-e2e-claude-{os.getuid()}")
     config_dir = os.path.join(root, "config")
     workspace = os.path.join(root, "workspace")
     for path in (root, config_dir, workspace):
@@ -200,7 +200,7 @@ def run_claude(
 ) -> DriverResult:
     """Invoke `claude` once in headless stream-JSON mode and return the result.
 
-    The CLI is pointed at a LiteLLM proxy via `ANTHROPIC_BASE_URL` /
+    The CLI is pointed at a HangarLLM proxy via `ANTHROPIC_BASE_URL` /
     `ANTHROPIC_AUTH_TOKEN`, so the same code path exercises every provider
     column — only the model id and the proxy's routing differ between
     invocations.
@@ -379,7 +379,7 @@ def run_claude_models_parallel(
     Retryable failures (see `is_retryable_shaped`) are retried
     per model up to `rate_limit_retries` times, sleeping
     `rate_limit_backoff_seconds` before each retry so per-minute quota
-    windows can reset; both default to the `LITELLM_COMPAT_RATE_LIMIT_*`
+    windows can reset; both default to the `HANGARLLM_COMPAT_RATE_LIMIT_*`
     env knobs. Each retry goes back through `run_claude`, so it
     re-acquires a token from the provider rate limiter like any other
     invocation. `sleep` is an injection seam for unit tests.

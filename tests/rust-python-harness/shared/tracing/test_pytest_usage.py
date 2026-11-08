@@ -161,7 +161,7 @@ def test_candidate_test_files_finds_top_level_calls_and_import_aliases(tmp_path:
 def test_parses_rust_function_identity_and_derives_test_module() -> None:
     function: Final = RustFunctionIdentity.from_trace(
         "crates/core/src/providers/mistral/ocr/transformation.rs:73 "
-        "litellm_core::providers::mistral::ocr::transformation::supported_ocr_params"
+        "hangarllm_core::providers::mistral::ocr::transformation::supported_ocr_params"
     )
 
     assert function.file == "crates/core/src/providers/mistral/ocr/transformation.rs"

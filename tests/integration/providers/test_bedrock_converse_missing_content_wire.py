@@ -31,7 +31,7 @@ from integration._support.database import read_rows
 from integration._support.process import owned_proxy_process
 from integration._support.upstream import _aws_event_frame
 from integration._support.wire import Reply, Request, Wire, wire_server
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 from pydantic import JsonValue, TypeAdapter
 
 pytestmark: Final = pytest.mark.shares_worker_state
@@ -115,7 +115,7 @@ _NEUTRALIZED_TOOL_RESULT: Final[dict[str, JsonValue]] = {
     "content": [{"text": "[tool result for call_1: <non-text tool result omitted>]"}],
 }
 _EXTRA: Final[dict[str, JsonValue]] = {"num_retries": 0, "cache": {"no-cache": True}}
-_SIGNING_KEY: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+_SIGNING_KEY: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 _AWS: Final[dict[str, JsonValue]] = {
     "aws_access_key_id": "AKIASCRIPTEDPROVIDER",
     "aws_secret_access_key": "scripted-secret",
@@ -251,7 +251,7 @@ def _chat_stream_text(chunks: Iterable[dict[str, JsonValue]]) -> str:
 def _spend_row(request_id: str) -> dict[str, JsonValue]:
     (row,) = eventually(
         lambda: read_rows(
-            'SELECT request_id, status, call_type, end_user FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'SELECT request_id, status, call_type, end_user FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (request_id,),
         ),
         lambda found: len(found) >= 1,
@@ -263,7 +263,7 @@ def _spend_row(request_id: str) -> dict[str, JsonValue]:
 def _success_rows(prefix: str, expected: int) -> tuple[dict[str, JsonValue], ...]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, call_type, end_user FROM "LiteLLM_SpendLogs" WHERE end_user LIKE %s AND status=%s',
+            'SELECT request_id, call_type, end_user FROM "HangarLLM_SpendLogs" WHERE end_user LIKE %s AND status=%s',
             (f"{prefix}%", "success"),
         ),
         lambda found: len(found) >= expected,
@@ -293,13 +293,13 @@ def _owned_config(wire: Wire, directory: Path, *, modify_params: bool) -> Path:
     config: Final[dict[str, JsonValue]] = {
         **base,
         "model_list": [
-            {"model_name": _PLAIN, "litellm_params": deployment},
+            {"model_name": _PLAIN, "hangarllm_params": deployment},
             {
                 "model_name": _CONTINUE,
-                "litellm_params": {**deployment, "user_continue_message": _DEPLOYMENT_CONTINUE_MESSAGE},
+                "hangarllm_params": {**deployment, "user_continue_message": _DEPLOYMENT_CONTINUE_MESSAGE},
             },
         ],
-        "litellm_settings": {**_JSON.validate_python(base["litellm_settings"]), "modify_params": modify_params},
+        "hangarllm_settings": {**_JSON.validate_python(base["hangarllm_settings"]), "modify_params": modify_params},
         "router_settings": {**_JSON.validate_python(base["router_settings"]), "num_retries": 0},
     }
     path: Final = directory / f"bedrock-missing-content-{'modify-params' if modify_params else 'plain'}.yaml"
@@ -698,7 +698,7 @@ def test_e02_the_same_content_less_request_twice_is_served_from_the_response_cac
         assert _spend_row(first)["status"] == "success"
         cache_hits: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id LIKE %s', (f"{first}_cache_hit%",)
+                'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id LIKE %s', (f"{first}_cache_hit%",)
             ),
             lambda rows: len(rows) >= 1,
             seconds=70,
@@ -739,7 +739,7 @@ def test_e03_updating_the_deployment_continue_message_under_traffic_never_breaks
             "/model/update",
             {
                 "model_info": {"id": _model_id(gateway, model)},
-                "litellm_params": {"user_continue_message": _DEPLOYMENT_CONTINUE_MESSAGE},
+                "hangarllm_params": {"user_continue_message": _DEPLOYMENT_CONTINUE_MESSAGE},
             },
         )
         settled: Final = eventually(
@@ -958,7 +958,7 @@ async def test_c03_proxy_terminated_mid_burst_lands_every_answered_content_less_
             landed: Final = tuple(
                 row["request_id"]
                 for row in read_rows(
-                    'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE end_user LIKE %s AND status=%s',
+                    'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE end_user LIKE %s AND status=%s',
                     (f"{marker}%", "success"),
                 )
             )

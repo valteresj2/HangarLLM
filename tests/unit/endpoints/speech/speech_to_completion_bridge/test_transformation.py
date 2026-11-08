@@ -4,12 +4,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm.constants import OPENAI_CHAT_COMPLETION_PARAMS
-from litellm.endpoints.speech.speech_to_completion_bridge.transformation import (
+import hangarllm
+from hangarllm.constants import OPENAI_CHAT_COMPLETION_PARAMS
+from hangarllm.endpoints.speech.speech_to_completion_bridge.transformation import (
     SpeechToCompletionBridgeTransformationHandler,
 )
-from litellm.types.utils import ChatCompletionAudioResponse, Choices, Message, ModelResponse
+from hangarllm.types.utils import ChatCompletionAudioResponse, Choices, Message, ModelResponse
 
 pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
@@ -28,12 +28,12 @@ def _bridge_request(response_format: str | None) -> dict:
     )
     return SpeechToCompletionBridgeTransformationHandler().transform_request(
         model=GEMINI_TTS_MODEL,
-        input="Hello from LiteLLM",
+        input="Hello from HangarLLM",
         voice="Kore",
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="gemini",
     )
 
@@ -47,7 +47,7 @@ def test_gemini_tts_request_keeps_speech_response_format_out_of_chat_params(resp
     assert request["temperature"] == 0.4
     assert request["modalities"] == ["audio"]
 
-    gemini_params: Final = litellm.get_optional_params(
+    gemini_params: Final = hangarllm.get_optional_params(
         model=GEMINI_TTS_MODEL,
         custom_llm_provider="gemini",
         **{param: value for param, value in request.items() if param in OPENAI_CHAT_COMPLETION_PARAMS},
@@ -59,12 +59,12 @@ def test_gemini_tts_request_keeps_speech_response_format_out_of_chat_params(resp
 def test_non_gemini_request_forwards_speech_response_format_as_audio_format() -> None:
     request: Final = SpeechToCompletionBridgeTransformationHandler().transform_request(
         model="gpt-4o-audio-preview",
-        input="Hello from LiteLLM",
+        input="Hello from HangarLLM",
         voice="alloy",
         optional_params={"response_format": "wav"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="openai",
     )
 
@@ -78,9 +78,9 @@ def test_gemini_request_keeps_voice_beside_nested_speech_config() -> None:
         input="Bonjour",
         voice={"speech_config": {"language_code": "fr-FR"}, "voice": "Kore"},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="gemini",
     )
 
@@ -91,16 +91,16 @@ def test_gemini_request_keeps_voice_beside_nested_speech_config() -> None:
 
 
 def test_gemini_request_keeps_voice_object_for_a_model_alias_map_alias(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_alias_map", {"voice-alias": GEMINI_TTS_MODEL})
+    monkeypatch.setattr(hangarllm, "model_alias_map", {"voice-alias": GEMINI_TTS_MODEL})
 
     request: Final = SpeechToCompletionBridgeTransformationHandler().transform_request(
         model="voice-alias",
         input="Hello there",
         voice={"voice": "Puck"},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="gemini",
     )
 
@@ -118,9 +118,9 @@ def test_gemini_request_keeps_voice_and_language_without_audio_format(wrapper: s
         input="Bonjour",
         voice=voice if wrapper is None else {wrapper: voice},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="gemini",
     )
 
@@ -145,9 +145,9 @@ def test_gemini_request_drops_unknown_nested_voice_fields_only_with_drop_params(
         input="Bonjour",
         voice={"voice_config": {"prebuilt_voice_config": {"voice_name": "Kore", "style": "calm"}, "tone": "warm"}},
         optional_params={},
-        litellm_params={"drop_params": drop_params},
+        hangarllm_params={"drop_params": drop_params},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="gemini",
     )
 
@@ -160,9 +160,9 @@ def test_gemini_request_reads_snake_case_wrapper_beside_null_camel_case_wrapper(
         input="Bonjour",
         voice={"speechConfig": None, "speech_config": {"voice_name": "Kore"}},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         custom_llm_provider="gemini",
     )
 
@@ -171,7 +171,7 @@ def test_gemini_request_reads_snake_case_wrapper_beside_null_camel_case_wrapper(
 
 @pytest.mark.parametrize("response_format", ["mp3", "flac", "opus", "aac"])
 def test_gemini_tts_request_rejects_formats_gemini_cannot_produce(response_format: str) -> None:
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(hangarllm.BadRequestError) as excinfo:
         _bridge_request(response_format)
 
     assert excinfo.value.status_code == 400

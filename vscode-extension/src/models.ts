@@ -137,7 +137,7 @@ const tooltipFor = (group: ModelGroupInfo): string => {
       ? "Reasoning effort: not configurable"
       : `Reasoning effort: ${group.supportedReasoningEfforts.join(", ")}`;
   return [
-    `LiteLLM model group ${group.modelGroup}${providers}`,
+    `HangarLLM model group ${group.modelGroup}${providers}`,
     priceLine("Input", group.inputCostPerToken),
     priceLine("Output", group.outputCostPerToken),
     context,

@@ -30,7 +30,7 @@ const classified = (overrides: Partial<Classification> = {}): Classification => 
 
 const gated: GateVerdict = { gate: "template", template: "bug", missing: ["Config", "Steps to Repro"] };
 
-const config: LabelConfig = { repo: "BerriAI/litellm", issueNumber: 41700, dryRun: false };
+const config: LabelConfig = { repo: "valteresj2/HangarLLM", issueNumber: 41700, dryRun: false };
 
 describe("desiredLabels", () => {
   test("a classification is one label per namespace, provider and needs only when present", () => {
@@ -85,14 +85,14 @@ describe("templateComment", () => {
   test("names the missing sections, links the right template, and carries the marker", () => {
     const body = templateComment(gated);
     expect(body.startsWith(`${TEMPLATE_MARKER}\n`)).toBe(true);
-    expect(body).toContain("missing **Config**, **Steps to Repro** from the [bug template](https://github.com/BerriAI/litellm/issues/new?template=bug_report.yml)");
+    expect(body).toContain("missing **Config**, **Steps to Repro** from the [bug template](https://github.com/valteresj2/HangarLLM/issues/new?template=bug_report.yml)");
     expect(body).toContain("add them and it will be labelled automatically");
     expect(body.split("\n")[1]?.split(" ").length).toBeLessThanOrEqual(30);
   });
 
   test("a single missing section reads naturally and a feature links the feature template", () => {
     const body = templateComment({ gate: "template", template: "feature", missing: ["User Flow"] });
-    expect(body).toContain("missing **User Flow** from the [feature template](https://github.com/BerriAI/litellm/issues/new?template=feature_request.yml)");
+    expect(body).toContain("missing **User Flow** from the [feature template](https://github.com/valteresj2/HangarLLM/issues/new?template=feature_request.yml)");
     expect(body).toContain("add it and");
   });
 });
@@ -138,10 +138,10 @@ describe("labelIssue", () => {
           writes.push(`${method} ${path}${body === undefined ? "" : ` ${JSON.stringify(body)}`}`);
           return undefined as T;
         }
-        if (path.startsWith("/repos/BerriAI/litellm/issues/41700/comments")) {
+        if (path.startsWith("/repos/valteresj2/HangarLLM/issues/41700/comments")) {
           return comments as T;
         }
-        if (path === "/repos/BerriAI/litellm/issues/41700") {
+        if (path === "/repos/valteresj2/HangarLLM/issues/41700") {
           return { labels: labels.map((name) => ({ name })) } as T;
         }
         throw new Error(`unexpected GET ${path}`);
@@ -154,10 +154,10 @@ describe("labelIssue", () => {
     const { api, writes } = fakeApi(["bug", "priority:p2", "needs:template"], [notice]);
     const outcome = await labelIssue(api, config, classified());
     expect(writes).toEqual([
-      "DELETE /repos/BerriAI/litellm/issues/41700/labels/priority%3Ap2",
-      "DELETE /repos/BerriAI/litellm/issues/41700/labels/needs%3Atemplate",
-      'POST /repos/BerriAI/litellm/issues/41700/labels {"labels":["domain:caching","kind:bug","priority:p0","lift:small"]}',
-      "DELETE /repos/BerriAI/litellm/issues/comments/77",
+      "DELETE /repos/valteresj2/HangarLLM/issues/41700/labels/priority%3Ap2",
+      "DELETE /repos/valteresj2/HangarLLM/issues/41700/labels/needs%3Atemplate",
+      'POST /repos/valteresj2/HangarLLM/issues/41700/labels {"labels":["domain:caching","kind:bug","priority:p0","lift:small"]}',
+      "DELETE /repos/valteresj2/HangarLLM/issues/comments/77",
     ]);
     expect(outcome).toEqual({ plan: { add: ["domain:caching", "kind:bug", "priority:p0", "lift:small"], remove: ["priority:p2", "needs:template"] }, comment: null, removedNotices: 1 });
   });
@@ -166,8 +166,8 @@ describe("labelIssue", () => {
     const { api, writes } = fakeApi(["bug"]);
     const outcome = await labelIssue(api, config, gated);
     expect(writes.map((write) => write.split(" ").slice(0, 2).join(" "))).toEqual([
-      "POST /repos/BerriAI/litellm/issues/41700/labels",
-      "POST /repos/BerriAI/litellm/issues/41700/comments",
+      "POST /repos/valteresj2/HangarLLM/issues/41700/labels",
+      "POST /repos/valteresj2/HangarLLM/issues/41700/comments",
     ]);
     expect(writes[0]).toContain('{"labels":["needs:template"]}');
     expect(writes[1]).toContain(TEMPLATE_MARKER);
@@ -186,13 +186,13 @@ describe("labelIssue", () => {
     const outcome = await labelIssue(gatedRun.api, config, gated);
     expect(outcome.comment).toContain(TEMPLATE_MARKER);
     expect(gatedRun.writes.map((write) => write.split(" ").slice(0, 2).join(" "))).toEqual([
-      "POST /repos/BerriAI/litellm/issues/41700/labels",
-      "POST /repos/BerriAI/litellm/issues/41700/comments",
+      "POST /repos/valteresj2/HangarLLM/issues/41700/labels",
+      "POST /repos/valteresj2/HangarLLM/issues/41700/comments",
     ]);
 
     const passedRun = fakeApi(["needs:template"], [impostor]);
     await labelIssue(passedRun.api, config, classified());
-    expect(passedRun.writes).not.toContain("DELETE /repos/BerriAI/litellm/issues/comments/78");
+    expect(passedRun.writes).not.toContain("DELETE /repos/valteresj2/HangarLLM/issues/comments/78");
   });
 
   test("a dry run reports the plan and the comment and touches nothing", async () => {
@@ -210,15 +210,15 @@ describe("labelIssue", () => {
 
     const passed = fakeApi(["needs:template"], [notice]);
     await labelIssue(passed.api, config, classified());
-    expect(passed.writes).toContain("DELETE /repos/BerriAI/litellm/issues/comments/77");
+    expect(passed.writes).toContain("DELETE /repos/valteresj2/HangarLLM/issues/comments/77");
   });
 });
 
 describe("readConfig", () => {
-  const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "BerriAI/litellm", ISSUE_NUMBER: "41700" };
+  const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "valteresj2/HangarLLM", ISSUE_NUMBER: "41700" };
 
   test("defaults to a real run and honors DRY_RUN", () => {
-    expect(readConfig(env)).toEqual({ token: "t", repo: "BerriAI/litellm", issueNumber: 41700, dryRun: false });
+    expect(readConfig(env)).toEqual({ token: "t", repo: "valteresj2/HangarLLM", issueNumber: 41700, dryRun: false });
     expect(readConfig({ ...env, DRY_RUN: "true" }).dryRun).toBe(true);
   });
 

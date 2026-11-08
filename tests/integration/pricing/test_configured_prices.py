@@ -12,7 +12,7 @@ import pytest
 import yaml
 from pydantic import JsonValue
 
-from litellm import get_model_info
+from hangarllm import get_model_info
 from tests.integration._support.client import Gateway, eventually, object_value, string_value
 from tests.integration._support.database import read_rows
 from tests.integration._support.process import owned_proxy
@@ -94,7 +94,7 @@ def test_realtime_session_is_charged_at_the_deployment_configured_rates(
         assert session.get("type") == "session.created", session
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, call_type FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+                'SELECT spend, call_type FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
                 (sha256(key.encode()).hexdigest(),),
             ),
             lambda values: len(values) == 1,
@@ -118,12 +118,12 @@ def test_custom_price_is_reported_and_charged(gateway: Gateway) -> None:
             "POST", "/v1/chat/completions", {"model": model, "messages": [{"role": "user", "content": "price control"}]}
         )
         assert response.status_code == 200, response.text
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(20 * 0.001 + 20 * 0.002)
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(20 * 0.001 + 20 * 0.002)
         entries: Final = gateway.get("/model/info")["data"]
         assert isinstance(entries, list)
         matching: Final = tuple(object_value(entry) for entry in entries if object_value(entry)["model_name"] == model)
         assert len(matching) == 1
-        params: Final = object_value(matching[0]["litellm_params"])
+        params: Final = object_value(matching[0]["hangarllm_params"])
         assert params["input_cost_per_token"] == 0.001
         assert params["output_cost_per_token"] == 0.002
 
@@ -198,7 +198,7 @@ def test_default_prices_survive_nullable_sibling_and_reload(gateway: Gateway) ->
                         )
                         assert response.status_code == 200, response.text
                         expected: Final = 20 * rates[kind][0] + 20 * rates[kind][1]
-                        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected, rel=1e-6)
+                        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected, rel=1e-6)
                         request_id: Final = string_value(object_value(response.json())["id"])
                         yield request_id, expected
                     target: Final = next(
@@ -216,7 +216,7 @@ def test_default_prices_survive_nullable_sibling_and_reload(gateway: Gateway) ->
             for request_id, expected in observations:
                 rows: Final = eventually(
                     lambda request_id=request_id: read_rows(
-                        'SELECT request_id, spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+                        'SELECT request_id, spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
                         "WHERE request_id = %s",
                         (request_id,),
                     ),
@@ -239,7 +239,7 @@ COST_MAP_DISPLAY_PRICING_KEYS: Final = frozenset(
 
 
 def persisted_model_info(identity: str) -> dict[str, JsonValue]:
-    rows: Final = read_rows('SELECT model_info FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (identity,))
+    rows: Final = read_rows('SELECT model_info FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (identity,))
     assert len(rows) == 1, f"Deployment {identity} has {len(rows)} rows"
     stored: Final = rows[0]["model_info"]
     return object_value(json.loads(stored) if isinstance(stored, str) else stored)
@@ -312,7 +312,7 @@ def test_saving_the_cost_map_value_back_over_a_stored_override_clears_it(gateway
 
 @pytest.mark.covers("quota_management.spend_tracking.default_prices.loaded_router_preserves_cached_defaults")
 def test_loaded_router_preserves_cached_defaults_during_real_requests(gateway: Gateway, tmp_path: Path) -> None:
-    from litellm import Router
+    from hangarllm import Router
 
     aliases: Final = tuple(f"pricing-{uuid.uuid4().hex}" for _ in range(3))
     path: Final = tmp_path / "models.yaml"
@@ -322,7 +322,7 @@ def test_loaded_router_preserves_cached_defaults_during_real_requests(gateway: G
                 "model_list": [
                     {
                         "model_name": alias,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_key": "integration-provider-key",
                             "api_base": f"{gateway.upstream_url}/v1",
@@ -406,7 +406,7 @@ def test_block_requests_for_models_without_pricing_refuses_unpriced_deployments(
         assert enabled.json() == {"enabled": True}, enabled.text
         assert gateway.get("/config/block_requests_for_models_without_pricing") == {"enabled": True}
         settings_rows: Final = read_rows(
-            'SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s', ("litellm_settings",)
+            'SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s', ("hangarllm_settings",)
         )
         settings: Final = object_value(settings_rows[0]["param_value"])
         assert settings["block_requests_for_models_without_pricing"] is True, settings
@@ -429,7 +429,7 @@ def test_block_requests_for_models_without_pricing_refuses_unpriced_deployments(
         assert blocked.status_code == 403, blocked.text
         assert blocked.json() == {
             "error": {
-                "message": f"Model '{unpriced}' has no pricing in the cost map, so litellm cannot price the request. "
+                "message": f"Model '{unpriced}' has no pricing in the cost map, so hangarllm cannot price the request. "
                 "Requests for unpriced models are blocked because 'block_requests_for_models_without_pricing' is "
                 "enabled. Add pricing (input_cost_per_token/output_cost_per_token) to allow the request.",
                 "type": "model_cost_map_missing",
@@ -442,7 +442,7 @@ def test_block_requests_for_models_without_pricing_refuses_unpriced_deployments(
         priced_content: Final = f"priced {uuid.uuid4().hex}"
         served: Final = _bounded_chat(gateway, priced, key, priced_content)
         assert served.status_code == 200, served.text
-        assert float(served.headers["x-litellm-response-cost"]) == pytest.approx(0.06), served.text
+        assert float(served.headers["x-hangarllm-response-cost"]) == pytest.approx(0.06), served.text
         assert _observed(upstream) == [_upstream_chat("gpt-4o-mini", priced_content)], served.text
 
         disabled: Final = _block_unpriced(gateway, False)
@@ -450,7 +450,7 @@ def test_block_requests_for_models_without_pricing_refuses_unpriced_deployments(
         assert disabled.json() == {"enabled": False}, disabled.text
         assert gateway.get("/config/block_requests_for_models_without_pricing") == {"enabled": False}
         settings_rows: Final = read_rows(
-            'SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s', ("litellm_settings",)
+            'SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s', ("hangarllm_settings",)
         )
         disabled_settings: Final = object_value(settings_rows[0]["param_value"])
         assert disabled_settings["block_requests_for_models_without_pricing"] is False, disabled_settings

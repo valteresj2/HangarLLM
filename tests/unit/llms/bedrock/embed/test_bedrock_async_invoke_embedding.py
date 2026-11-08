@@ -6,9 +6,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.base import HiddenParams
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.llms.base import HiddenParams
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 # Mock async invoke responses
@@ -33,7 +33,7 @@ async_invoke_completed_response = {
 }
 
 # Test data
-test_input = "Hello world from litellm async invoke"
+test_input = "Hello world from hangarllm async invoke"
 test_image_base64 = "data:image/png,test_image_base64_data"
 
 
@@ -42,7 +42,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_response_transformation_twelvelabs(self):
         """Test that async invoke responses are properly transformed with hidden params."""
-        from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+        from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
             TwelveLabsMarengoEmbeddingConfig,
         )
 
@@ -50,7 +50,7 @@ class TestBedrockAsyncInvokeEmbedding:
         response = config.transform_async_invoke_response(async_invoke_response, "test-model")
 
         # Verify response structure
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         assert hasattr(response, "_hidden_params")
         assert response._hidden_params is not None
 
@@ -69,7 +69,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_response_transformation_generic(self):
         """Test that generic async invoke responses are properly transformed."""
-        from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+        from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
 
         bedrock_embedding = BedrockEmbedding()
 
@@ -83,7 +83,7 @@ class TestBedrockAsyncInvokeEmbedding:
         )
 
         # Verify response structure
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         assert hasattr(response, "_hidden_params")
         assert response._hidden_params is not None
 
@@ -107,7 +107,7 @@ class TestBedrockAsyncInvokeEmbedding:
         self, model, input_type
     ):
         """Test that async invoke requests are properly transformed for TwelveLabs."""
-        from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+        from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
             TwelveLabsMarengoEmbeddingConfig,
         )
 
@@ -157,7 +157,7 @@ class TestBedrockAsyncInvokeEmbedding:
             mock_response.json = lambda: json.loads(mock_response.text)
             mock_post.return_value = mock_response
 
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model=model,
                 input=test_input,
                 client=client,
@@ -169,7 +169,7 @@ class TestBedrockAsyncInvokeEmbedding:
             )
 
             # Verify response structure
-            assert isinstance(response, litellm.EmbeddingResponse)
+            assert isinstance(response, hangarllm.EmbeddingResponse)
             assert hasattr(response, "_hidden_params")
             assert response._hidden_params is not None
             assert hasattr(response._hidden_params, "_invocation_arn")
@@ -192,7 +192,7 @@ class TestBedrockAsyncInvokeEmbedding:
             mock_response.json = lambda: json.loads(mock_response.text)
             mock_post.return_value = mock_response
 
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="bedrock/async_invoke/twelvelabs.marengo-embed-3-0-v1:0",
                 input="s3://test-bucket/clip.mp4",
                 client=client,
@@ -235,7 +235,7 @@ class TestBedrockAsyncInvokeEmbedding:
             mock_response.json = Mock(return_value=async_invoke_response)
             mock_post.return_value = mock_response
 
-            response = await litellm.aembedding(
+            response = await hangarllm.aembedding(
                 model=model,
                 input=test_input,
                 client=client,
@@ -247,7 +247,7 @@ class TestBedrockAsyncInvokeEmbedding:
             )
 
             # Verify response structure
-            assert isinstance(response, litellm.EmbeddingResponse)
+            assert isinstance(response, hangarllm.EmbeddingResponse)
             assert hasattr(response, "_hidden_params")
             assert response._hidden_params is not None
             assert hasattr(response._hidden_params, "_invocation_arn")
@@ -259,7 +259,7 @@ class TestBedrockAsyncInvokeEmbedding:
     @pytest.mark.asyncio
     async def test_async_invoke_status_checking(self):
         """Test async invoke status checking functionality."""
-        from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+        from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
 
         bedrock_embedding = BedrockEmbedding()
 
@@ -278,7 +278,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_error_handling_missing_output_s3_uri(self):
         """Test error handling when output_s3_uri is missing for async invoke."""
-        from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+        from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
             TwelveLabsMarengoEmbeddingConfig,
         )
 
@@ -295,7 +295,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_error_handling_video_audio_without_async_route(self):
         """Test error handling when video/audio input is used without async invoke route."""
-        from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+        from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
             TwelveLabsMarengoEmbeddingConfig,
         )
 
@@ -312,7 +312,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_invocation_arn_preservation(self):
         """Test that invocation ARN is correctly preserved in hidden params."""
-        from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+        from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
             TwelveLabsMarengoEmbeddingConfig,
         )
 
@@ -334,7 +334,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_hidden_params_structure(self):
         """Test that hidden params have the correct structure and can be accessed."""
-        from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+        from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
             TwelveLabsMarengoEmbeddingConfig,
         )
 
@@ -361,7 +361,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_model_parsing(self):
         """Test that async invoke models are correctly parsed."""
-        from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+        from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
 
         bedrock_embedding = BedrockEmbedding()
 
@@ -388,7 +388,7 @@ class TestBedrockAsyncInvokeEmbedding:
 
     def test_async_invoke_endpoint_construction(self):
         """Test that async invoke endpoints are correctly constructed."""
-        from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+        from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
 
         bedrock_embedding = BedrockEmbedding()
 
@@ -419,11 +419,11 @@ async def test_async_invoke_status_signs_off_the_event_loop(monkeypatch):
     """Regression for issue #40165: the GetAsyncInvoke poll is a signed GET, and botocore refreshes
     expiring credentials inside that signing with a blocking HTTP call, so it must run on a worker
     thread to keep the loop serving other requests."""
-    from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+    from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
 
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     embedder = BedrockEmbedding()
     probe = EventLoopProbe()
 

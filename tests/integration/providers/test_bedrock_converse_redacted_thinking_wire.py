@@ -20,7 +20,7 @@ TOKEN: Final = "synthetic-bedrock-bearer"
 # real value embeds the caller's AWS account id, so it is not committed.
 NATIVE_REDACTED: Final = "EmwKAhgBEgy3va3pzix/LafPsn4aDFIT2Xlxh0L5L8rLVyIwxtE3rAFBa8cr3qpP"
 CONVERSE_REDACTED: Final = base64.b64encode(NATIVE_REDACTED.encode()).decode()
-OPENAI_ENCRYPTED: Final = "litellm_encrypted_reasoning:gAAAAABsynthetic-openai-reasoning=="
+OPENAI_ENCRYPTED: Final = "hangarllm_encrypted_reasoning:gAAAAABsynthetic-openai-reasoning=="
 ANTHROPIC_MODEL: Final = "claude-sonnet-4-6"
 ANTHROPIC_REPLY: Final[dict[str, JsonValue]] = {
     "id": "msg_redacted_replay",

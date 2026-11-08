@@ -17,7 +17,7 @@ import pytest
 
 async def test_aiohttp_handler_cleanup():
     """Test BaseLLMAIOHTTPHandler session cleanup via __del__"""
-    from litellm.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
+    from hangarllm.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
 
     # Create handler and trigger session creation
     handler = BaseLLMAIOHTTPHandler()
@@ -35,28 +35,28 @@ async def test_aiohttp_handler_cleanup():
 
 async def test_atexit_cleanup():
     """Test that atexit cleanup works with new event loop approach"""
-    from litellm.llms.custom_httpx.async_client_cleanup import (
-        close_litellm_async_clients,
+    from hangarllm.llms.custom_httpx.async_client_cleanup import (
+        close_hangarllm_async_clients,
     )
 
-    import litellm
+    import hangarllm
 
-    # Use the actual global base_llm_aiohttp_handler from litellm
-    handler = litellm.base_llm_aiohttp_handler
+    # Use the actual global base_llm_aiohttp_handler from hangarllm
+    handler = hangarllm.base_llm_aiohttp_handler
     session = handler._get_async_client_session()
 
     assert not session.closed, "Session should be open after creation"
 
     # Call cleanup function (simulates atexit)
-    await close_litellm_async_clients()
+    await close_hangarllm_async_clients()
 
     assert session.closed, "Session should be closed after atexit cleanup"
 
 
 def test_new_event_loop_atexit():
     """Test that the new atexit handler can create a fresh event loop"""
-    from litellm.llms.custom_httpx.async_client_cleanup import (
-        close_litellm_async_clients,
+    from hangarllm.llms.custom_httpx.async_client_cleanup import (
+        close_hangarllm_async_clients,
     )
 
     # At atexit time, there's typically no running event loop
@@ -71,7 +71,7 @@ def test_new_event_loop_atexit():
     asyncio.set_event_loop(new_loop)
 
     try:
-        new_loop.run_until_complete(close_litellm_async_clients())
+        new_loop.run_until_complete(close_hangarllm_async_clients())
     finally:
         new_loop.close()
 

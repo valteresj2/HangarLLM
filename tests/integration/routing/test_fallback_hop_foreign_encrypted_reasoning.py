@@ -55,7 +55,7 @@ pytestmark: Final = pytest.mark.shares_worker_state
 ORDER_ONE_BLOB: Final = "gAAAAA-minted-by-order-1"
 ORDER_TWO_BLOB: Final = "gAAAAA-minted-by-order-2"
 SUMMARY_TEXT: Final = "multiply 17 by 23"
-TAGGED_SIGNATURE: Final = f"litellm_encrypted_reasoning:{ORDER_ONE_BLOB}"
+TAGGED_SIGNATURE: Final = f"hangarllm_encrypted_reasoning:{ORDER_ONE_BLOB}"
 PROVIDER_KEY: Final = "integration-provider-key"
 RESPONSES_MODEL: Final = "openai/gpt-5"
 BRIDGED_MODEL: Final = "openai/gpt-5-codex"
@@ -313,7 +313,7 @@ def deployment(
         "/model/new",
         {
             "model_name": group,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": model,
                 "api_key": PROVIDER_KEY,
                 **({} if api_base is None else {"api_base": api_base}),
@@ -627,7 +627,7 @@ def messages_answer(
 def assert_served_by(answer: Answer, model_id: str) -> None:
     assert answer.status == 200, answer.text
     assert answer.response_id is not None, answer.text
-    assert answer.headers.get("x-litellm-model-id") == model_id, (model_id, answer.headers, answer.text)
+    assert answer.headers.get("x-hangarllm-model-id") == model_id, (model_id, answer.headers, answer.text)
 
 
 def assert_served_by_order_two(answer: Answer, group: OrderedGroup) -> None:
@@ -647,10 +647,10 @@ def success_rows(call_ids: Sequence[str]) -> list[dict[str, JsonValue]]:
     placeholders: Final = ", ".join("%s" for _ in call_ids)
     rows: Final = eventually(
         lambda: read_rows(
-            f'SELECT litellm_call_id, status, model_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id IN ({placeholders})',
+            f'SELECT hangarllm_call_id, status, model_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id IN ({placeholders})',
             tuple(call_ids),
         ),
-        lambda found: len({row["litellm_call_id"] for row in found if row["status"] == "success"}) == len(call_ids),
+        lambda found: len({row["hangarllm_call_id"] for row in found if row["status"] == "success"}) == len(call_ids),
         seconds=90,
     )
     return [row for row in rows if row["status"] == "success"]
@@ -659,7 +659,7 @@ def success_rows(call_ids: Sequence[str]) -> list[dict[str, JsonValue]]:
 def spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT litellm_call_id, status, model_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = %s',
+            'SELECT hangarllm_call_id, status, model_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = %s',
             (call_id,),
         ),
         lambda rows: any(row["status"] == "success" for row in rows),
@@ -707,7 +707,7 @@ def test_responses_hop_drops_the_order_one_reasoning_order_two_cannot_decrypt(ga
         answer: Final = responses_answer(gateway, client, group.target, history(mark))
         assert_served_by_order_two(answer, group)
         assert_hop_stripped(hop_record(gateway, group), history(mark), stripped_history(mark))
-        assert_logged_once_on_order_two(answer.headers["x-litellm-call-id"], group)
+        assert_logged_once_on_order_two(answer.headers["x-hangarllm-call-id"], group)
 
 
 @pytest.mark.parametrize("client", RESPONSES_CLIENTS)
@@ -803,7 +803,7 @@ def affinity_turn_one(gateway: Gateway, group: OrderedGroup) -> list[JsonValue]:
         gateway, HTTPX, group.target, f"hello affinity {marker()}", extra={"include": ["reasoning.encrypted_content"]}
     )
     assert answer.status == 200, answer.text
-    assert answer.headers.get("x-litellm-model-id") == group.order_one, answer.headers
+    assert answer.headers.get("x-hangarllm-model-id") == group.order_one, answer.headers
     output: Final = object_value(json.loads(answer.text)).get("output")
     assert isinstance(output, list), answer.text
     reasoning: Final = next(
@@ -858,7 +858,7 @@ def test_hop_inside_one_encryption_boundary_keeps_the_reasoning(gateway: Gateway
             gateway, HTTPX, Target(shared, frozenset({order_one, order_two})), history(mark)
         )
         assert answer.status == 200, answer.text
-        assert answer.headers.get("x-litellm-model-id") == order_two, (order_one, answer.headers)
+        assert answer.headers.get("x-hangarllm-model-id") == order_two, (order_one, answer.headers)
         bodies: Final = bodies_for(observed(gateway), shared)
         assert [body.get("input") for body in bodies] == [history(mark), history(mark)], bodies
 
@@ -945,7 +945,7 @@ def test_client_fallbacks_entry_hop_strips_the_source_groups_reasoning(gateway: 
 
 def assert_served_by_order_one_intact(gateway: Gateway, group: OrderedGroup, answer: Answer, mark: str) -> None:
     assert answer.status == 200, answer.text
-    assert answer.headers.get("x-litellm-model-id") == group.order_one, answer.headers
+    assert answer.headers.get("x-hangarllm-model-id") == group.order_one, answer.headers
     record: Final = hop_record(gateway, group)
     assert [body.get("input") for body in record.order_one] == [history(mark)], record
     assert record.order_two == (), record
@@ -1100,7 +1100,7 @@ def test_next_turn_without_a_hop_forwards_the_reasoning_untouched(gateway: Gatew
         replayed: Final = reasoning_item(ORDER_TWO_BLOB)
         answer: Final = responses_answer(gateway, HTTPX, group.target, history(mark, replayed))
         assert answer.status == 200, answer.text
-        assert answer.headers.get("x-litellm-model-id") == group.order_one, answer.headers
+        assert answer.headers.get("x-hangarllm-model-id") == group.order_one, answer.headers
         record: Final = hop_record(gateway, group)
         assert [body.get("input") for body in record.order_one] == [history(mark, replayed)], record
         assert record.order_two == (), record
@@ -1191,7 +1191,7 @@ def fire(gateway: Gateway, groups: Mapping[str, OrderedGroup], kind: str, mark: 
             answer = messages_answer(gateway, HTTPX, group, chat_messages(mark), stream=stream)
     except (httpx.HTTPError, AssertionError) as error:
         return Fired(kind, mark, None, None, repr(error))
-    return Fired(kind, mark, answer.status, answer.headers.get("x-litellm-call-id"), answer.text)
+    return Fired(kind, mark, answer.status, answer.headers.get("x-hangarllm-call-id"), answer.text)
 
 
 def assert_burst_hopped_stripped(gateway: Gateway, groups: Mapping[str, OrderedGroup], fired: Sequence[Fired]) -> None:
@@ -1211,7 +1211,7 @@ def assert_burst_hopped_stripped(gateway: Gateway, groups: Mapping[str, OrderedG
     call_ids: Final = [shot.call_id for shot in fired if shot.call_id is not None]
     assert len(call_ids) == len(fired), fired
     successes: Final = success_rows(call_ids)
-    assert sorted(string_value(row["litellm_call_id"]) for row in successes) == sorted(call_ids), successes
+    assert sorted(string_value(row["hangarllm_call_id"]) for row in successes) == sorted(call_ids), successes
     order_two_ids: Final = {group.order_two for group in groups.values()}
     assert all(row["model_id"] in order_two_ids for row in successes), successes
 
@@ -1238,7 +1238,7 @@ def peer_reply(request: Request) -> Reply:
 
 
 def served_by_order_one(answer: Answer, order_one: str) -> bool:
-    return answer.status == 200 and answer.headers.get("x-litellm-model-id") == order_one
+    return answer.status == 200 and answer.headers.get("x-hangarllm-model-id") == order_one
 
 
 @pytest.mark.timeout(240)
@@ -1266,13 +1266,13 @@ def test_order_one_outage_mid_burst_hops_stripped_and_recovers_after_restart(gat
                     )
                 )
         for answer in answers:
-            assert answer.status == 200 and answer.headers.get("x-litellm-model-id") == order_two, answer.text
+            assert answer.status == 200 and answer.headers.get("x-hangarllm-model-id") == order_two, answer.text
         bodies: Final = bodies_for(observed(gateway), two_scenario)
         assert sorted(json.dumps(body.get("input")) for body in bodies) == sorted(
             json.dumps(stripped_history(mark)) for mark in shots
         ), bodies
-        call_ids: Final = [answer.headers["x-litellm-call-id"] for answer in answers]
-        assert sorted(string_value(row["litellm_call_id"]) for row in success_rows(call_ids)) == sorted(call_ids)
+        call_ids: Final = [answer.headers["x-hangarllm-call-id"] for answer in answers]
+        assert sorted(string_value(row["hangarllm_call_id"]) for row in success_rows(call_ids)) == sorted(call_ids)
         with wire_server(peer_reply, port=port) as restarted:
             recovered: Final = marker()
             assert served_by_order_one(responses_answer(gateway, HTTPX, target, history(recovered)), order_one), (

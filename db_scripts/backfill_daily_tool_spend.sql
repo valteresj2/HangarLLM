@@ -1,5 +1,5 @@
--- One-shot backfill of the LiteLLM_DailyToolSpend rollup from the per-request
--- LiteLLM_SpendLogToolIndex x LiteLLM_SpendLogs tables.
+-- One-shot backfill of the HangarLLM_DailyToolSpend rollup from the per-request
+-- HangarLLM_SpendLogToolIndex x HangarLLM_SpendLogs tables.
 --
 -- This is an opt-in, manual operation. New deployments do not need it: the
 -- rollup is written at request time from the moment the release is deployed.
@@ -30,7 +30,7 @@
 
 SET TIME ZONE 'UTC';
 
-INSERT INTO "LiteLLM_DailyToolSpend" (date, tool_name, spend, total_tokens, request_count, created_at, updated_at)
+INSERT INTO "HangarLLM_DailyToolSpend" (date, tool_name, spend, total_tokens, request_count, created_at, updated_at)
 SELECT
     to_char(ti.start_time, 'YYYY-MM-DD') AS date,
     ti.tool_name,
@@ -39,8 +39,8 @@ SELECT
     COUNT(*) AS request_count,
     now() AS created_at,
     now() AS updated_at
-FROM "LiteLLM_SpendLogToolIndex" ti
-JOIN "LiteLLM_SpendLogs" sl ON sl.request_id = ti.request_id
+FROM "HangarLLM_SpendLogToolIndex" ti
+JOIN "HangarLLM_SpendLogs" sl ON sl.request_id = ti.request_id
 WHERE ti.start_time < :cutover::timestamptz
 GROUP BY 1, 2
 ON CONFLICT (date, tool_name) DO NOTHING;

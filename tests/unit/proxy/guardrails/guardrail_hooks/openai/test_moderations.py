@@ -15,21 +15,21 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.openai.workload_identity import _workload_identity_auth
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import get_logging_caching_headers
-from litellm.proxy.guardrails.guardrail_hooks.openai import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.openai.workload_identity import _workload_identity_auth
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.callback_utils import get_logging_caching_headers
+from hangarllm.proxy.guardrails.guardrail_hooks.openai import (
     initialize_guardrail as initialize_openai_moderation_guardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.openai.moderations import (
+from hangarllm.proxy.guardrails.guardrail_hooks.openai.moderations import (
     OpenAIModerationGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER, InMemoryGuardrailHandler
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.guardrails import Guardrail, LitellmParams, SupportedGuardrailIntegrations
-from litellm.types.llms.openai import OpenAIModerationResponse, OpenAIModerationResult
+from hangarllm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER, InMemoryGuardrailHandler
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.guardrails import Guardrail, HangarllmParams, SupportedGuardrailIntegrations
+from hangarllm.types.llms.openai import OpenAIModerationResponse, OpenAIModerationResult
 
 
 @pytest.mark.asyncio
@@ -47,57 +47,57 @@ async def test_openai_moderation_guardrail_init():
 
 
 @pytest.mark.asyncio
-async def test_openai_moderation_guardrail_adds_to_litellm_callbacks():
-    """Test that OpenAI moderation guardrail adds itself to litellm callbacks during initialization"""
-    import litellm
-    from litellm.proxy.guardrails.guardrail_hooks.openai import (
+async def test_openai_moderation_guardrail_adds_to_hangarllm_callbacks():
+    """Test that OpenAI moderation guardrail adds itself to hangarllm callbacks during initialization"""
+    import hangarllm
+    from hangarllm.proxy.guardrails.guardrail_hooks.openai import (
         initialize_guardrail as openai_initialize_guardrail,
     )
-    from litellm.types.guardrails import (
+    from hangarllm.types.guardrails import (
         Guardrail,
-        LitellmParams,
+        HangarllmParams,
         SupportedGuardrailIntegrations,
     )
 
     # Clear existing callbacks for clean test
-    original_callbacks = litellm.callbacks.copy()
-    litellm.logging_callback_manager._reset_all_callbacks()
+    original_callbacks = hangarllm.callbacks.copy()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
 
     try:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-            guardrail_litellm_params = LitellmParams(
+            guardrail_hangarllm_params = HangarllmParams(
                 guardrail=SupportedGuardrailIntegrations.OPENAI_MODERATION,
                 api_key="test-key",
                 model="omni-moderation-latest",
                 mode="pre_call",
             )
             guardrail = openai_initialize_guardrail(
-                litellm_params=guardrail_litellm_params,
+                hangarllm_params=guardrail_hangarllm_params,
                 guardrail=Guardrail(
                     guardrail_name="test-openai-moderation",
-                    litellm_params=guardrail_litellm_params,
+                    hangarllm_params=guardrail_hangarllm_params,
                 ),
             )
 
-            # Check that the guardrail was added to litellm callbacks
-            assert guardrail in litellm.callbacks
-            assert len(litellm.callbacks) == 1
+            # Check that the guardrail was added to hangarllm callbacks
+            assert guardrail in hangarllm.callbacks
+            assert len(hangarllm.callbacks) == 1
 
             # Verify it's the correct guardrail
-            callback = litellm.callbacks[0]
+            callback = hangarllm.callbacks[0]
             assert isinstance(callback, OpenAIModerationGuardrail)
             assert callback.guardrail_name == "test-openai-moderation"
     finally:
         # Restore original callbacks
-        litellm.logging_callback_manager._reset_all_callbacks()
+        hangarllm.logging_callback_manager._reset_all_callbacks()
         for callback in original_callbacks:
-            litellm.logging_callback_manager.add_litellm_callback(callback)
+            hangarllm.logging_callback_manager.add_hangarllm_callback(callback)
 
 
 @pytest.mark.asyncio
 async def test_openai_moderation_guardrail_safe_content():
     """Test OpenAI moderation guardrail with safe content via apply_guardrail"""
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(
@@ -161,7 +161,7 @@ async def test_openai_moderation_guardrail_safe_content():
 @pytest.mark.asyncio
 async def test_openai_moderation_guardrail_apply_guardrail():
     """Test OpenAI moderation guardrail apply_guardrail method (unified guardrail interface)"""
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(
@@ -219,7 +219,7 @@ async def test_openai_moderation_guardrail_apply_guardrail():
 @pytest.mark.asyncio
 async def test_openai_moderation_guardrail_harmful_content():
     """Test OpenAI moderation guardrail with harmful content via apply_guardrail"""
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(
@@ -287,7 +287,7 @@ async def test_openai_moderation_guardrail_harmful_content():
 @pytest.mark.asyncio
 async def test_openai_moderation_guardrail_streaming_safe_content():
     """Test OpenAI moderation guardrail with streaming safe content via UnifiedLLMGuardrails"""
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
         UnifiedLLMGuardrails,
     )
 
@@ -370,7 +370,7 @@ async def test_openai_moderation_guardrail_streaming_safe_content():
         with (
             patch.object(guardrail, "async_make_request", return_value=mock_response),
             patch(
-                "litellm.llms.openai.chat.guardrail_translation.handler.stream_chunk_builder",
+                "hangarllm.llms.openai.chat.guardrail_translation.handler.stream_chunk_builder",
                 return_value=mock_model_response,
             ),
         ):
@@ -401,7 +401,7 @@ async def test_openai_moderation_guardrail_streaming_safe_content():
 @pytest.mark.asyncio
 async def test_openai_moderation_guardrail_streaming_harmful_content():
     """Test OpenAI moderation guardrail with streaming harmful content via UnifiedLLMGuardrails"""
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
         UnifiedLLMGuardrails,
     )
 
@@ -467,17 +467,17 @@ async def test_openai_moderation_guardrail_streaming_harmful_content():
             for chunk in [chunk1, chunk2]:
                 yield chunk
 
-        # Mock for stream_chunk_builder - use real litellm types so isinstance checks pass
-        from litellm.types.utils import ModelResponse
-        import litellm
+        # Mock for stream_chunk_builder - use real hangarllm types so isinstance checks pass
+        from hangarllm.types.utils import ModelResponse
+        import hangarllm
 
         mock_model_response = ModelResponse(
             id="mock-response",
             model="gpt-4",
             choices=[
-                litellm.Choices(
+                hangarllm.Choices(
                     index=0,
-                    message=litellm.Message(
+                    message=hangarllm.Message(
                         role="assistant",
                         content="This is harmful content",
                     ),
@@ -489,7 +489,7 @@ async def test_openai_moderation_guardrail_streaming_harmful_content():
         with (
             patch.object(guardrail, "async_make_request", return_value=mock_response),
             patch(
-                "litellm.llms.openai.chat.guardrail_translation.handler.stream_chunk_builder",
+                "hangarllm.llms.openai.chat.guardrail_translation.handler.stream_chunk_builder",
                 return_value=mock_model_response,
             ),
         ):
@@ -527,7 +527,7 @@ async def test_openai_moderation_guardrail_streaming_harmful_content():
 async def test_openai_moderation_guardrail_logs_full_response_safe_content():
     """Test that safe content logs the full moderation response (categories, scores)
     in StandardLoggingGuardrailInformation, not just 'allow'."""
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(
@@ -600,7 +600,7 @@ async def test_openai_moderation_guardrail_logs_full_response_safe_content():
 async def test_openai_moderation_guardrail_logs_full_response_harmful_content():
     """Test that harmful content logs guardrail_intervened status with the full
     moderation response, not just the exception string."""
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(
@@ -675,12 +675,12 @@ async def test_openai_moderation_post_call_request_data_passthrough():
     via the unified guardrail dispatcher (Bug 1 fix)."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
         UnifiedLLMGuardrails,
     )
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
-    import litellm
+    import hangarllm
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(
@@ -724,9 +724,9 @@ async def test_openai_moderation_post_call_request_data_passthrough():
             id="chatcmpl-test",
             model="gpt-4",
             choices=[
-                litellm.Choices(
+                hangarllm.Choices(
                     index=0,
-                    message=litellm.Message(role="assistant", content="Hello world"),
+                    message=hangarllm.Message(role="assistant", content="Hello world"),
                     finish_reason="stop",
                 )
             ],
@@ -751,9 +751,9 @@ async def test_openai_moderation_post_call_request_data_passthrough():
         mock_make_request.assert_called_once()
 
         # Guardrail info in the REAL request_data (not a throwaway). The unified hook
-        # seeds litellm_metadata, so read the bucket the resolver names rather than
+        # seeds hangarllm_metadata, so read the bucket the resolver names rather than
         # assuming "metadata"; the spend log reads it the same way.
-        from litellm.litellm_core_utils.core_helpers import (
+        from hangarllm.hangarllm_core_utils.core_helpers import (
             get_metadata_variable_name_from_kwargs,
         )
 
@@ -857,7 +857,7 @@ async def test_openai_moderation_logs_violation_categories_harmful_content():
     response blob (LIT-3801)."""
     from fastapi import HTTPException
 
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(guardrail_name="test-openai-moderation")
@@ -912,7 +912,7 @@ async def test_openai_moderation_logs_violation_categories_harmful_content():
 async def test_openai_moderation_no_violation_categories_safe_content():
     """Safe content carries no violation_categories key, so the short attribute
     is absent rather than empty on allowed requests (LIT-3801)."""
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
         guardrail = OpenAIModerationGuardrail(guardrail_name="test-openai-moderation")
@@ -975,21 +975,21 @@ async def test_openai_moderation_guardrail_streaming_overrides():
 
 @pytest.mark.asyncio
 async def test_openai_moderation_initialize_guardrail_forwards_streaming_flags():
-    """initialize_guardrail forwards streaming knobs from litellm_params (extra='allow')."""
-    import litellm
-    from litellm.proxy.guardrails.guardrail_hooks.openai import (
+    """initialize_guardrail forwards streaming knobs from hangarllm_params (extra='allow')."""
+    import hangarllm
+    from hangarllm.proxy.guardrails.guardrail_hooks.openai import (
         initialize_guardrail as openai_initialize_guardrail,
     )
-    from litellm.types.guardrails import (
+    from hangarllm.types.guardrails import (
         Guardrail,
-        LitellmParams,
+        HangarllmParams,
         SupportedGuardrailIntegrations,
     )
 
-    litellm.logging_callback_manager._reset_all_callbacks()
+    hangarllm.logging_callback_manager._reset_all_callbacks()
     try:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-            litellm_params = LitellmParams(
+            hangarllm_params = HangarllmParams(
                 guardrail=SupportedGuardrailIntegrations.OPENAI_MODERATION,
                 api_key="test-key",
                 model="omni-moderation-latest",
@@ -998,17 +998,17 @@ async def test_openai_moderation_initialize_guardrail_forwards_streaming_flags()
                 streaming_sampling_rate=2,
             )
             guardrail = openai_initialize_guardrail(
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 guardrail=Guardrail(
                     guardrail_name="test-openai-moderation",
-                    litellm_params=litellm_params,
+                    hangarllm_params=hangarllm_params,
                 ),
             )
 
             assert guardrail.streaming_end_of_stream_only is False
             assert guardrail.streaming_sampling_rate == 2
     finally:
-        litellm.logging_callback_manager._reset_all_callbacks()
+        hangarllm.logging_callback_manager._reset_all_callbacks()
 
 
 @pytest.mark.asyncio
@@ -1032,15 +1032,15 @@ async def test_openai_moderation_records_moderation_id_as_scan_metadata(input_ty
 
     headers: Final = get_logging_caching_headers(request_data)
     assert headers is not None
-    assert headers["x-litellm-guardrail-scan-id"] == f"modr-{stage}"
-    assert json.loads(headers["x-litellm-guardrail-scan-metadata"]) == [
+    assert headers["x-hangarllm-guardrail-scan-id"] == f"modr-{stage}"
+    assert json.loads(headers["x-hangarllm-guardrail-scan-metadata"]) == [
         {"guardrail": "openai-mod", "stage": stage, "provider": "openai_moderation", "scan_id": f"modr-{stage}"}
     ]
 
 
 @pytest.mark.asyncio
 async def test_openai_moderation_responses_api_input_field():
-    from litellm.types.utils import GenericGuardrailAPIInputs
+    from hangarllm.types.utils import GenericGuardrailAPIInputs
 
     flagged_moderation: Final = {
         "id": "modr-123",
@@ -1128,7 +1128,7 @@ async def test_openai_moderation_sends_the_federated_bearer_when_only_workload_i
     for name in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_BASE"):
         monkeypatch.delenv(name, raising=False)
     for attribute in ("api_key", "openai_key", "api_base"):
-        monkeypatch.setattr(litellm, attribute, None)
+        monkeypatch.setattr(hangarllm, attribute, None)
     monkeypatch.setenv("OPENAI_IDENTITY_PROVIDER_ID", "idp_guardrail")
     monkeypatch.setenv("OPENAI_SERVICE_ACCOUNT_ID", "user-guardrail")
     monkeypatch.setenv("OPENAI_IDENTITY_TOKEN_FILE", str(token_file))
@@ -1165,7 +1165,7 @@ async def test_openai_moderation_federates_with_the_identity_in_its_own_guardrai
     ):
         monkeypatch.delenv(name, raising=False)
     for attribute in ("api_key", "openai_key", "api_base"):
-        monkeypatch.setattr(litellm, attribute, None)
+        monkeypatch.setattr(hangarllm, attribute, None)
     monkeypatch.setenv("GUARDRAIL_IDENTITY_PROVIDER_ID", "idp_guardrail_config")
     _workload_identity_auth.cache_clear()
     exchange: Final = respx.post("https://auth.openai.com/oauth/token").mock(
@@ -1175,17 +1175,17 @@ async def test_openai_moderation_federates_with_the_identity_in_its_own_guardrai
     http_client: Final = AsyncHTTPHandler()
     http_client.client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
 
-    guardrail_config: Final = LitellmParams(
+    guardrail_config: Final = HangarllmParams(
         guardrail=SupportedGuardrailIntegrations.OPENAI_MODERATION,
         mode="pre_call",
         openai_identity_provider_id="os.environ/GUARDRAIL_IDENTITY_PROVIDER_ID",
         openai_service_account_id="user-guardrail-config",
         openai_identity_token_file=str(token_file),
     )
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     guardrail: Final = initialize_openai_moderation_guardrail(
-        litellm_params=guardrail_config,
-        guardrail=Guardrail(guardrail_name="openai-mod", litellm_params=guardrail_config),
+        hangarllm_params=guardrail_config,
+        guardrail=Guardrail(guardrail_name="openai-mod", hangarllm_params=guardrail_config),
     )
     guardrail.async_handler = http_client
     await guardrail.async_make_request("hello")
@@ -1208,8 +1208,8 @@ def no_ambient_openai_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         monkeypatch.delenv(name, raising=False)
     for attribute in ("api_key", "openai_key", "api_base"):
-        monkeypatch.setattr(litellm, attribute, None)
-    monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(hangarllm, attribute, None)
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
 
 PARTIAL_IDENTITY_MODERATION: Final = {
@@ -1223,7 +1223,7 @@ PARTIAL_IDENTITY_MODERATION: Final = {
 def test_openai_moderation_with_a_partial_identity_is_a_configuration_error_naming_the_gap() -> None:
     with pytest.raises(ValueError, match="openai_service_account_id, openai_identity_token_file"):
         InMemoryGuardrailHandler().initialize_guardrail(
-            guardrail={"guardrail_name": "partial-identity-mod", "litellm_params": PARTIAL_IDENTITY_MODERATION},
+            guardrail={"guardrail_name": "partial-identity-mod", "hangarllm_params": PARTIAL_IDENTITY_MODERATION},
             source="db",
         )
 
@@ -1235,10 +1235,10 @@ def test_proxy_boot_skips_an_openai_moderation_with_a_partial_identity() -> None
 
     init_guardrails_v2(
         all_guardrails=[
-            {"guardrail_name": "partial-identity-mod", "litellm_params": PARTIAL_IDENTITY_MODERATION},
+            {"guardrail_name": "partial-identity-mod", "hangarllm_params": PARTIAL_IDENTITY_MODERATION},
             {
                 "guardrail_name": "keyed-mod",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": SupportedGuardrailIntegrations.OPENAI_MODERATION.value,
                     "mode": "pre_call",
                     "api_key": "sk-moderation",

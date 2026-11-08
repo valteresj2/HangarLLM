@@ -13,7 +13,7 @@ GENERATION_CONFIG: Final = object_value(GEMINI_3_5_FLASH_TEST_CASE.expected_prov
 GEMINI_3_5_FLASH_TEMPERATURE_TEST_CASE: Final = replace(
     GEMINI_3_5_FLASH_TEST_CASE,
     scenario="temperature",
-    litellm_request={**GEMINI_3_5_FLASH_TEST_CASE.litellm_request, "temperature": 0.4},
+    hangarllm_request={**GEMINI_3_5_FLASH_TEST_CASE.hangarllm_request, "temperature": 0.4},
     expected_provider_request={
         **GEMINI_3_5_FLASH_TEST_CASE.expected_provider_request,
         "generationConfig": {**GENERATION_CONFIG, "temperature": 0.4},

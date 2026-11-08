@@ -1,7 +1,7 @@
 """
 Test A2A provider registry lookup functionality.
 
-Maps to: litellm/llms/a2a/chat/transformation.py
+Maps to: hangarllm/llms/a2a/chat/transformation.py
 """
 
 import json
@@ -10,8 +10,8 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.a2a.chat.transformation import A2AConfig
+import hangarllm
+from hangarllm.llms.a2a.chat.transformation import A2AConfig
 
 
 def test_resolve_agent_config_from_registry_static_method():
@@ -43,15 +43,15 @@ def test_resolve_agent_config_from_registry_static_method():
 def test_a2a_registry_integration():
     """A chat call for a registered agent must post to the registered url with the registered key as the
     bearer even though completion() strips the a2a/ prefix before the lookup runs."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     test_agent = AgentResponse(
         agent_id="test-id",
         agent_name="test-agent",
         agent_card_params={"url": "http://registry-url.example.com:9999"},
-        litellm_params={"api_key": "registry-key", "headers": {"X-Agent": "static"}},
+        hangarllm_params={"api_key": "registry-key", "headers": {"X-Agent": "static"}},
     )
     client = HTTPHandler()
     agent_reply = httpx.Response(
@@ -63,7 +63,7 @@ def test_a2a_registry_integration():
 
     try:
         with patch.object(client, "post", return_value=agent_reply) as post:  # test-quality-ok: injected client
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="a2a/test-agent", messages=[{"role": "user", "content": "What is 2+2?"}], client=client
             )
     finally:
@@ -79,15 +79,15 @@ def test_one_callers_bearer_never_reaches_another_caller_of_the_same_registered_
     """The registered headers dict is shared by every request to the agent, so the bearer one caller
     supplies must be written to that request alone and never persisted onto the agent for the next
     caller, who has no key of their own."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     shared_agent = AgentResponse(
         agent_id="shared-id",
         agent_name="shared-agent",
         agent_card_params={"url": "http://registry-url.example.com:9999"},
-        litellm_params={"headers": {"X-Agent": "static"}},
+        hangarllm_params={"headers": {"X-Agent": "static"}},
     )
     client = HTTPHandler()
     agent_reply = httpx.Response(
@@ -100,8 +100,8 @@ def test_one_callers_bearer_never_reaches_another_caller_of_the_same_registered_
 
     try:
         with patch.object(client, "post", return_value=agent_reply) as post:  # test-quality-ok: injected client
-            litellm.completion(model="a2a/shared-agent", messages=messages, api_key="caller-one-key", client=client)
-            litellm.completion(model="a2a/shared-agent", messages=messages, client=client)
+            hangarllm.completion(model="a2a/shared-agent", messages=messages, api_key="caller-one-key", client=client)
+            hangarllm.completion(model="a2a/shared-agent", messages=messages, client=client)
     finally:
         global_agent_registry.agent_list = original_agents
 
@@ -109,11 +109,11 @@ def test_one_callers_bearer_never_reaches_another_caller_of_the_same_registered_
     assert first_call_headers["Authorization"] == "Bearer caller-one-key"
     assert "Authorization" not in second_call_headers
     assert second_call_headers["X-Agent"] == "static"
-    assert shared_agent.litellm_params == {"headers": {"X-Agent": "static"}}
+    assert shared_agent.hangarllm_params == {"headers": {"X-Agent": "static"}}
 
 
 def _foundry_card_stored_through_the_agents_api() -> dict:
-    from litellm.proxy.a2a.agent_card import merge_agent_card
+    from hangarllm.proxy.a2a.agent_card import merge_agent_card
 
     return merge_agent_card(
         {"name": "Foundry", "url": "https://foundry.example.com/a2a", "capabilities": {"streaming": False}},
@@ -135,15 +135,15 @@ def test_streaming_chat_to_an_agent_whose_card_declines_streaming_uses_a_blockin
     JSON-RPC error. A streaming chat call to such an agent must post a blocking message/send and hand the
     caller the answer as a stream, whether the card was registered verbatim from config.yaml or stored
     through POST /v1/agents, which keeps only truthy capabilities and so drops the `false` itself."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     foundry_agent = AgentResponse(
         agent_id="foundry-id",
         agent_name="foundry-agent",
         agent_card_params=agent_card_params,
-        litellm_params={"api_key": "registry-key"},
+        hangarllm_params={"api_key": "registry-key"},
     )
     client = HTTPHandler()
     agent_reply = httpx.Response(
@@ -164,7 +164,7 @@ def test_streaming_chat_to_an_agent_whose_card_declines_streaming_uses_a_blockin
     try:
         with patch.object(client, "post", return_value=agent_reply) as post:  # test-quality-ok: injected client
             chunks = list(
-                litellm.completion(
+                hangarllm.completion(
                     model="a2a/foundry-agent",
                     messages=[{"role": "user", "content": "What is 2+2?"}],
                     stream=True,
@@ -191,14 +191,14 @@ def test_streaming_chat_to_an_agent_whose_card_declines_streaming_uses_a_blockin
     ids=["card without a capabilities block", "card says streaming true"],
 )
 def test_registry_lookup_leaves_streaming_alone_when_the_card_does_not_decline_it(agent_card_params: dict):
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     silent_agent = AgentResponse(
         agent_id="silent-id",
         agent_name="silent-agent",
         agent_card_params=agent_card_params,
-        litellm_params={"api_key": "registry-key"},
+        hangarllm_params={"api_key": "registry-key"},
     )
     original_agents = global_agent_registry.agent_list.copy()
     global_agent_registry.register_agent(silent_agent)
@@ -218,14 +218,14 @@ def test_registry_entra_agent_authenticates_with_the_entra_token_and_keeps_its_s
     """An agent registered with Entra credentials has no api_key, so the chat route must resolve the
     bearer from those credentials, and the credential fields must not ride along into optional_params
     where they would reach spend logs and callbacks."""
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     entra_agent = AgentResponse(
         agent_id="entra-id",
         agent_name="entra-agent",
         agent_card_params={"url": "https://foundry.example.com/a2a"},
-        litellm_params={"azure_ad_token": "entra-token", "tenant_id": "tenant", "timeout": 30},
+        hangarllm_params={"azure_ad_token": "entra-token", "tenant_id": "tenant", "timeout": 30},
     )
     original_agents = global_agent_registry.agent_list.copy()
     global_agent_registry.register_agent(entra_agent)
@@ -254,7 +254,7 @@ _STORED_STATIC_CREDENTIALS: dict = {
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected_authorization_lines"),
+    ("hangarllm_params", "expected_authorization_lines"),
     [
         (
             {**_STORED_STATIC_CREDENTIALS, "azure_ad_token": "entra-token"},
@@ -276,20 +276,20 @@ _STORED_STATIC_CREDENTIALS: dict = {
     ],
 )
 def test_entra_credentials_beat_the_static_credentials_stored_next_to_them_on_the_chat_route(
-    litellm_params: dict, expected_authorization_lines: dict
+    hangarllm_params: dict, expected_authorization_lines: dict
 ):
     """The relay sends the minted Entra bearer over any static Authorization stored on the agent; the chat
     route must agree, or an api_key or authorization header left next to the Entra fields makes the same
     agent answer on /a2a and fail with the backend's 401 on /v1/chat/completions."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
     agent = AgentResponse(
         agent_id="mixed-credentials-id",
         agent_name="mixed-credentials-agent",
         agent_card_params={"url": "https://foundry.example.com/a2a"},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
     client = HTTPHandler()
     agent_reply = httpx.Response(
@@ -301,7 +301,7 @@ def test_entra_credentials_beat_the_static_credentials_stored_next_to_them_on_th
 
     try:
         with patch.object(client, "post", return_value=agent_reply) as post:  # test-quality-ok: injected client
-            litellm.completion(
+            hangarllm.completion(
                 model="a2a/mixed-credentials-agent", messages=[{"role": "user", "content": "hi"}], client=client
             )
     finally:
@@ -317,21 +317,21 @@ def test_entra_credentials_beat_the_static_credentials_stored_next_to_them_on_th
 def test_registry_entra_agent_with_an_unresolvable_credential_fails_the_chat_call(monkeypatch):
     """The chat route mints the Foundry bearer from the registered credentials; when they resolve to
     nothing the caller must get the credential error instead of an unauthenticated backend call."""
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.types.agents import AgentResponse
 
-    monkeypatch.delenv("LITELLM_TEST_UNSET_FOUNDRY_TOKEN", raising=False)
+    monkeypatch.delenv("HANGARLLM_TEST_UNSET_FOUNDRY_TOKEN", raising=False)
     entra_agent = AgentResponse(
         agent_id="entra-unset-id",
         agent_name="entra-unset-agent",
         agent_card_params={"url": "https://foundry.example.com/a2a"},
-        litellm_params={"azure_ad_token": "os.environ/LITELLM_TEST_UNSET_FOUNDRY_TOKEN"},
+        hangarllm_params={"azure_ad_token": "os.environ/HANGARLLM_TEST_UNSET_FOUNDRY_TOKEN"},
     )
     original_agents = global_agent_registry.agent_list.copy()
     global_agent_registry.register_agent(entra_agent)
 
     try:
-        with pytest.raises(litellm.APIConnectionError, match="client_secret"):
-            litellm.completion(model="a2a/entra-unset-agent", messages=[{"role": "user", "content": "hi"}])
+        with pytest.raises(hangarllm.APIConnectionError, match="client_secret"):
+            hangarllm.completion(model="a2a/entra-unset-agent", messages=[{"role": "user", "content": "hi"}])
     finally:
         global_agent_registry.agent_list = original_agents

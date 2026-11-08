@@ -10,16 +10,16 @@ from typing import Final
 import pytest
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.fallback_generalizations import match_capability_generalizations
-from litellm.litellm_core_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
-from litellm.llms.openai.chat.gpt_reasoning_transformation import is_gpt_reasoning_series_name
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.types.utils import SearchFreeRequests
+import hangarllm
+from hangarllm.hangarllm_core_utils.fallback_generalizations import match_capability_generalizations
+from hangarllm.hangarllm_core_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
+from hangarllm.llms.openai.chat.gpt_reasoning_transformation import is_gpt_reasoning_series_name
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+from hangarllm.types.utils import SearchFreeRequests
 
 REPO_ROOT = Path(__file__).parents[2]
 PRICES_PATH = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PRICES_PATH = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PRICES_PATH = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 
 @pytest.fixture(scope="module")
@@ -39,9 +39,9 @@ def test_azure_audio_snapshot_capabilities_match_declared_modalities(model: str,
     assert isinstance(input_modalities, list)
     assert isinstance(output_modalities, list)
     expected: Final = ("audio" in input_modalities, "audio" in output_modalities)
-    info: Final = litellm.get_model_info(model)
+    info: Final = hangarllm.get_model_info(model)
     assert (info["supports_audio_input"], info["supports_audio_output"]) == expected
-    assert (litellm.supports_audio_input(model), litellm.supports_audio_output(model)) == expected
+    assert (hangarllm.supports_audio_input(model), hangarllm.supports_audio_output(model)) == expected
 
 
 class _CopilotEndpointRow(BaseModel):
@@ -135,7 +135,7 @@ def test_zerogpu_rows_have_an_output_limit_that_fits_the_context_window(path: Pa
 def test_github_copilot_rows_resolve_through_get_model_info() -> None:
     rows: Final[Mapping[str, _CopilotEndpointRow]] = _copilot_endpoint_rows(PRICES_PATH)
     assert {
-        key: (litellm.get_model_info(key)["mode"], litellm.get_model_info(key)["max_input_tokens"]) for key in rows
+        key: (hangarllm.get_model_info(key)["mode"], hangarllm.get_model_info(key)["max_input_tokens"]) for key in rows
     } == {key: (row.mode, row.max_input_tokens) for key, row in rows.items()}
 
 
@@ -150,12 +150,12 @@ def test_github_copilot_rows_keep_the_reasoning_flag_their_family_fallback_suppl
     assert {key: _thinking_capabilities(prices, key).supports_reasoning for key in reasoning_rows} == dict.fromkeys(
         reasoning_rows, True
     )
-    assert {key: litellm.get_model_info(key).get("supports_reasoning") for key in reasoning_rows} == dict.fromkeys(
+    assert {key: hangarllm.get_model_info(key).get("supports_reasoning") for key in reasoning_rows} == dict.fromkeys(
         reasoning_rows, True
     )
     assert {
         key: resolve_supported_reasoning_efforts(
-            litellm.get_model_info(key),
+            hangarllm.get_model_info(key),
             deployment_is_mapped=True,
         )
         != ()
@@ -175,11 +175,11 @@ def test_github_copilot_messages_claude_rows_keep_their_anthropic_thinking_capab
         key: _thinking_capabilities(prices, _anthropic_counterpart(key)) for key in claude_rows
     }
     assert {
-        key: tuple(litellm.get_model_info(key).get(thinking_key) for thinking_key in _THINKING_KEYS)
+        key: tuple(hangarllm.get_model_info(key).get(thinking_key) for thinking_key in _THINKING_KEYS)
         for key in claude_rows
     } == {
         key: tuple(
-            litellm.get_model_info(_anthropic_counterpart(key)).get(thinking_key) for thinking_key in _THINKING_KEYS
+            hangarllm.get_model_info(_anthropic_counterpart(key)).get(thinking_key) for thinking_key in _THINKING_KEYS
         )
         for key in claude_rows
     }
@@ -341,7 +341,7 @@ def test_azure_gpt_6_1_sol_data_zone_rows_price_requests_at_the_regional_premium
     usage = {"prompt_tokens": 300_000, "completion_tokens": 1_000, "cache_read_input_tokens": 100_000}
 
     def total_cost(model: str) -> float:
-        prompt_cost, completion_cost = litellm.cost_per_token(
+        prompt_cost, completion_cost = hangarllm.cost_per_token(
             model=model,
             custom_llm_provider="azure",
             prompt_tokens=usage["prompt_tokens"],
@@ -464,7 +464,7 @@ def test_openai_reasoning_family_entries_carry_supports_reasoning(prices: dict):
         name
         for name, entry in prices.items()
         if isinstance(entry, dict)
-        and entry.get("litellm_provider") == "openai"
+        and entry.get("hangarllm_provider") == "openai"
         and is_openai_reasoning_family(name)
         and entry.get("supports_reasoning") is not True
     ]
@@ -500,7 +500,7 @@ def chatgpt_openai_twins(prices: dict) -> list[tuple[str, str]]:
             continue
         bare = name.split("/", 1)[1]
         twin = prices.get(bare)
-        if isinstance(twin, dict) and twin.get("litellm_provider") == "openai":
+        if isinstance(twin, dict) and twin.get("hangarllm_provider") == "openai":
             pairs.append((name, bare))
     return pairs
 
@@ -508,7 +508,7 @@ def chatgpt_openai_twins(prices: dict) -> list[tuple[str, str]]:
 def test_chatgpt_rows_carry_their_openai_twin_reasoning_annotations(prices: dict):
     """A chatgpt row must not silently drop the reasoning annotations of the model it proxies.
 
-    `litellm.utils._get_model_info_from_generalization` refuses to fall back when an exact cost-map
+    `hangarllm.utils._get_model_info_from_generalization` refuses to fall back when an exact cost-map
     key exists, so an unannotated `chatgpt/<model>` row wins over its annotated twin and
     `/model/info` reports the model as non-reasoning.
     """
@@ -585,7 +585,7 @@ def test_every_bedrock_openai_gpt_row_advertises_xhigh(prices: dict):
         name
         for name, entry in prices.items()
         if isinstance(entry, dict)
-        and entry.get("litellm_provider") in BEDROCK_PROVIDERS
+        and entry.get("hangarllm_provider") in BEDROCK_PROVIDERS
         and any(marker in name for marker in BEDROCK_OPENAI_GPT_MARKERS)
         and "xhigh" not in (resolve_supported_reasoning_efforts(entry, deployment_is_mapped=True) or ())
     ]
@@ -729,7 +729,7 @@ def test_tencent_tokenhub_glm_rows_match_published_metadata(path: Path):
         name
         for name in TENCENT_TOKENHUB_GLM_ROWS
         if not isinstance(entry := rows.get(name), dict)
-        or entry.get("litellm_provider") != "tencent"
+        or entry.get("hangarllm_provider") != "tencent"
         or entry.get("max_input_tokens") != 1000000
         or entry.get("max_output_tokens") != 128000
         or entry.get("input_cost_per_token_cache_hit") != entry.get("cache_read_input_token_cost")
@@ -761,7 +761,7 @@ def test_tencent_tokenhub_kimi_rows_match_published_metadata(path: Path):
         name
         for name, expected in TENCENT_TOKENHUB_KIMI_ROWS.items()
         if not isinstance(entry := rows.get(name), dict)
-        or entry.get("litellm_provider") != "tencent"
+        or entry.get("hangarllm_provider") != "tencent"
         or entry.get("max_input_tokens") != expected[3]
         or entry.get("max_output_tokens") != expected[3]
         or entry.get("input_cost_per_token_cache_hit") != entry.get("cache_read_input_token_cost")
@@ -816,10 +816,10 @@ MODES_SERVED_OUTSIDE_THE_LLM_PROVIDER_REGISTRY: Final = frozenset({"search", "de
 
 
 def is_registered_provider(label: str, model_names: tuple[str, ...]) -> bool:
-    if label in litellm.models_by_provider or JSONProviderRegistry.exists(label):
+    if label in hangarllm.models_by_provider or JSONProviderRegistry.exists(label):
         return True
     family_root: Final = label.split("-", 1)[0]
-    wildcard_models: Final = litellm.models_by_provider.get(family_root, ())
+    wildcard_models: Final = hangarllm.models_by_provider.get(family_root, ())
     return any(
         name in wildcard_models or name.removeprefix(f"{family_root}/") in wildcard_models for name in model_names
     )
@@ -827,13 +827,13 @@ def is_registered_provider(label: str, model_names: tuple[str, ...]) -> bool:
 
 def unregistered_providers(rows: Mapping[str, object]) -> list[str]:
     labelled_rows: Final = tuple(
-        (name, entry["litellm_provider"])
+        (name, entry["hangarllm_provider"])
         for name, entry in rows.items()
         if name != "sample_spec"
         and isinstance(entry, dict)
-        and "litellm_provider" in entry
+        and "hangarllm_provider" in entry
         and entry.get("mode") not in MODES_SERVED_OUTSIDE_THE_LLM_PROVIDER_REGISTRY
-        and entry["litellm_provider"] not in PROVIDER_LABELS_WITHOUT_A_MODEL_SET
+        and entry["hangarllm_provider"] not in PROVIDER_LABELS_WITHOUT_A_MODEL_SET
     )
     return sorted(
         label
@@ -845,23 +845,23 @@ def unregistered_providers(rows: Mapping[str, object]) -> list[str]:
 @pytest.mark.parametrize("path", (PRICES_PATH, BACKUP_PRICES_PATH), ids=("main", "backup"))
 def test_every_cost_map_provider_is_registered(path: Path):
     assert unregistered_providers(json.loads(path.read_text())) == [], (
-        f"{path.name} carries a litellm_provider whose models a `<provider>/*` grant does not list. A new provider "
-        "needs a `<provider>_models` set in litellm/__init__.py, filled in _populate_provider_model_sets and listed "
+        f"{path.name} carries a hangarllm_provider whose models a `<provider>/*` grant does not list. A new provider "
+        "needs a `<provider>_models` set in hangarllm/__init__.py, filled in _populate_provider_model_sets and listed "
         "in _build_models_by_provider. A new `<provider>-<family>` label needs its rows added to a set that "
         "`models_by_provider[<provider>]` includes"
     )
 
 
 def test_unregistered_provider_guard_flags_only_labels_nobody_registered():
-    wired_vertex_model: Final = sorted(litellm.vertex_language_models)[0]
+    wired_vertex_model: Final = sorted(hangarllm.vertex_language_models)[0]
     rows: Final = {
-        "sample_spec": {"litellm_provider": "one of the supported providers", "mode": "chat"},
-        "nobody_registered/StartJob": {"litellm_provider": "nobody_registered", "mode": "audio_transcription"},
-        "gpt-4o": {"litellm_provider": "openai", "mode": "chat"},
-        wired_vertex_model: {"litellm_provider": "vertex_ai-language-models", "mode": "chat"},
-        "vertex_ai/new-family-model": {"litellm_provider": "vertex_ai-new_family_models", "mode": "chat"},
-        "unknown_root/model": {"litellm_provider": "unknown_root-new_family_models", "mode": "chat"},
-        "some_search/search": {"litellm_provider": "some_search", "mode": "search"},
+        "sample_spec": {"hangarllm_provider": "one of the supported providers", "mode": "chat"},
+        "nobody_registered/StartJob": {"hangarllm_provider": "nobody_registered", "mode": "audio_transcription"},
+        "gpt-4o": {"hangarllm_provider": "openai", "mode": "chat"},
+        wired_vertex_model: {"hangarllm_provider": "vertex_ai-language-models", "mode": "chat"},
+        "vertex_ai/new-family-model": {"hangarllm_provider": "vertex_ai-new_family_models", "mode": "chat"},
+        "unknown_root/model": {"hangarllm_provider": "unknown_root-new_family_models", "mode": "chat"},
+        "some_search/search": {"hangarllm_provider": "some_search", "mode": "search"},
     }
     assert unregistered_providers(rows) == [
         "nobody_registered",
@@ -987,7 +987,7 @@ def test_volcengine_doubao_seed_2_1_pro_260915_row_matches_published_metadata(pa
     rows: Mapping[str, object] = json.loads(path.read_text())
     entry = rows.get("volcengine/doubao-seed-2-1-pro-260915")
     assert isinstance(entry, dict)
-    assert entry["litellm_provider"] == "volcengine"
+    assert entry["hangarllm_provider"] == "volcengine"
     assert entry["mode"] == "chat"
     assert entry["max_input_tokens"] == 1024000
     assert entry["max_output_tokens"] == 256000
@@ -1007,7 +1007,7 @@ def _bedrock_gpt_oss_rows(prices: Mapping[str, JsonValue]) -> tuple[str, ...]:
     return tuple(
         key
         for key, row in prices.items()
-        if "gpt-oss" in key and isinstance(row, dict) and str(row.get("litellm_provider", "")).startswith("bedrock")
+        if "gpt-oss" in key and isinstance(row, dict) and str(row.get("hangarllm_provider", "")).startswith("bedrock")
     )
 
 
@@ -1022,5 +1022,5 @@ def test_bedrock_gpt_oss_rows_declare_vision_support_like_their_safeguard_siblin
 
 
 def test_bedrock_gpt_oss_vision_is_explicitly_disabled_for_the_router_gate() -> None:
-    assert litellm.utils.is_vision_explicitly_disabled("bedrock/openai.gpt-oss-120b-1:0") is True
-    assert litellm.utils.is_vision_explicitly_disabled("bedrock_mantle/openai.gpt-oss-20b") is True
+    assert hangarllm.utils.is_vision_explicitly_disabled("bedrock/openai.gpt-oss-120b-1:0") is True
+    assert hangarllm.utils.is_vision_explicitly_disabled("bedrock_mantle/openai.gpt-oss-20b") is True

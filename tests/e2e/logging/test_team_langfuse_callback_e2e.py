@@ -3,7 +3,7 @@
 Covers logging.langfuse.success.logs_spend: a team configured with a Langfuse
 callback via POST /team/{id}/callback must deliver its members' calls to the
 real Langfuse project (generation readable back through Langfuse's own API,
-with the cost agreeing with the x-litellm-response-cost header), while traffic
+with the cost agreeing with the x-hangarllm-response-cost header), while traffic
 from keys outside the team must NOT reach that project - the isolation is the
 point of team-scoped callbacks.
 
@@ -88,7 +88,7 @@ class TestTeamLangfuseCallback:
                 ),
             )
             assert team_outcome.response_cost is not None and team_outcome.response_cost > 0, (
-                f"the response must report x-litellm-response-cost, got {team_outcome.response_cost!r}"
+                f"the response must report x-hangarllm-response-cost, got {team_outcome.response_cost!r}"
             )
             observation = client.poll_langfuse_observation(
                 langfuse_creds,

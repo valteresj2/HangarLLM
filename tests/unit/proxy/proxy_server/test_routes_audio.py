@@ -27,19 +27,19 @@ from fastapi.testclient import TestClient
 from openai import AsyncOpenAI
 from starlette.datastructures import FormData, UploadFile
 
-import litellm
-from litellm import Router
-from litellm.caching.caching import Cache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy import proxy_server
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.route_llm_request import route_request
-from litellm.proxy.utils import _failure_fields_to_lift
-from litellm.types.guardrails import GuardrailEventHooks, GuardrailStreamScope
-from litellm.types.llms.openai import HttpxBinaryResponseContent
-from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
-from litellm.types.router import RouterErrors
-from litellm.types.utils import TranscriptionResponse
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.caching import Cache
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import ProxyErrorTypes, ProxyException
+from hangarllm.proxy.route_llm_request import route_request
+from hangarllm.proxy.utils import _failure_fields_to_lift
+from hangarllm.types.guardrails import GuardrailEventHooks, GuardrailStreamScope
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent
+from hangarllm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
+from hangarllm.types.router import RouterErrors
+from hangarllm.types.utils import TranscriptionResponse
 
 _TAG_ROUTING_DENIAL = f"{RouterErrors.no_deployments_with_tag_routing.value}. Passed model=tts-1 and tags=['x']"
 
@@ -62,7 +62,7 @@ def patched_speech(monkeypatch, request):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _add_data)
 
     async def _llm_call():
         return HttpxBinaryResponseContent(
@@ -97,7 +97,7 @@ def patched_speech_error(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _add_data)
 
     async def _raise(*args, **kwargs):
         raise ValueError("speech boom")
@@ -108,10 +108,10 @@ def patched_speech_error(monkeypatch):
 
 @pytest.fixture
 def patched_speech_provider_rejection(monkeypatch, patched_speech_error):
-    import litellm
+    import hangarllm
 
     async def _raise(*args, **kwargs):
-        raise litellm.BadRequestError(
+        raise hangarllm.BadRequestError(
             message=(
                 "Gemini TTS only produces raw PCM16 audio, so response_format='mp3' is not supported."
                 " Supported response formats: pcm, wav."
@@ -143,7 +143,7 @@ def patched_transcription(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _add_data)
     monkeypatch.setattr(proxy_server, "check_file_size_under_limit", lambda **kwargs: True)
 
     async def _form_data(request):
@@ -314,11 +314,11 @@ def test_audio_transcription_happy_path(client, auth_as, patched_transcription, 
 def test_audio_transcription_over_the_file_size_cap_is_rejected_as_a_bad_request(
     client, auth_as, patched_transcription, monkeypatch, path
 ):
-    from litellm.proxy.common_utils.http_parsing_utils import check_file_size_under_limit
+    from hangarllm.proxy.common_utils.http_parsing_utils import check_file_size_under_limit
 
     capped_router = Router(
         model_list=[
-            {"model_name": "whisper-1", "litellm_params": {"model": "openai/whisper-1", "max_file_size_mb": 0.000001}}
+            {"model_name": "whisper-1", "hangarllm_params": {"model": "openai/whisper-1", "max_file_size_mb": 0.000001}}
         ]
     )
     monkeypatch.setattr(proxy_server, "llm_router", capped_router)
@@ -400,7 +400,7 @@ def test_audio_transcription_keeps_the_status_of_a_proxy_rejection(
     async def _reject(data, **kwargs):
         raise rejection
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _reject)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _reject)
     files = {"file": ("audio.mp3", b"\x00\x01\x02", "audio/mpeg")}
     with auth_as():
         response = client.post("/v1/audio/transcriptions", files=files, data={"model": "whisper-1"})
@@ -444,7 +444,7 @@ def test_streaming_transcription_keeps_streaming_with_output_guardrails(
         event_hook=GuardrailEventHooks.post_call,
         default_on=configuration == "default",
     )
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     if configuration == "policy":
         pipeline: Final = GuardrailPipeline(mode="post_call", steps=[PipelineStep(guardrail="transcription-output")])
         proxy_server.proxy_logging_obj.pre_call_hook.side_effect = lambda **kwargs: {
@@ -465,7 +465,7 @@ def test_streaming_transcription_keeps_streaming_with_output_guardrails(
 
 
 @pytest.mark.usefixtures("patched_transcription_stream")
-def test_streamed_transcription_returns_the_litellm_call_and_model_headers(
+def test_streamed_transcription_returns_the_hangarllm_call_and_model_headers(
     client: TestClient,
     auth_as: Callable[[], AbstractContextManager[None]],
     monkeypatch: pytest.MonkeyPatch,
@@ -487,12 +487,12 @@ def test_streamed_transcription_returns_the_litellm_call_and_model_headers(
     async def route_to_the_sdk(
         data: Mapping[str, object], route_type: str, llm_router: object, user_model: object
     ) -> object:
-        return litellm.atranscription(
+        return hangarllm.atranscription(
             model="openai/gpt-transcribe",
             file=data["file"],
             stream=True,
             client=upstream,
-            litellm_call_id=data["litellm_call_id"],
+            hangarllm_call_id=data["hangarllm_call_id"],
             model_info={"id": "transcription-deployment"},
         )
 
@@ -503,16 +503,16 @@ def test_streamed_transcription_returns_the_litellm_call_and_model_headers(
             "/v1/audio/transcriptions",
             files={"file": ("sample.wav", b"audio", "audio/wav")},
             data={"model": "gpt-transcribe", "stream": "true"},
-            headers={"x-litellm-call-id": "streamed-transcription-call"},
+            headers={"x-hangarllm-call-id": "streamed-transcription-call"},
         )
 
     assert response.status_code == 200
     assert '"text":"hello world"' in response.text
-    assert response.headers["x-litellm-call-id"] == "streamed-transcription-call"
-    assert response.headers["x-litellm-model-id"] == "transcription-deployment"
-    assert [name for name in response.headers if name.startswith("x-litellm-response-cost")] == []
+    assert response.headers["x-hangarllm-call-id"] == "streamed-transcription-call"
+    assert response.headers["x-hangarllm-model-id"] == "transcription-deployment"
+    assert [name for name in response.headers if name.startswith("x-hangarllm-response-cost")] == []
     proxy_server.proxy_logging_obj.update_request_status.assert_called_once_with(
-        litellm_call_id="streamed-transcription-call", status="success"
+        hangarllm_call_id="streamed-transcription-call", status="success"
     )
 
 
@@ -553,8 +553,8 @@ def test_streamed_transcription_honors_a_deployment_post_call_guardrail(
     respx_mock: respx.MockRouter,
     deployment_guardrails: list[str] | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [_TranscriptRedactor()])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [_TranscriptRedactor()])
     respx_mock.post("https://transcribe-upstream.example/v1/audio/transcriptions").mock(side_effect=_streams_when_asked)
     deployment_params: Final = {
         "model": "openai/gpt-transcribe",
@@ -564,11 +564,11 @@ def test_streamed_transcription_honors_a_deployment_post_call_guardrail(
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-transcribe",
-                    "litellm_params": (
+                    "hangarllm_params": (
                         {**deployment_params, "guardrails": deployment_guardrails}
                         if deployment_guardrails
                         else deployment_params
@@ -612,19 +612,19 @@ def test_streamed_transcription_applies_a_deployment_guardrail_only_in_its_strea
     upstream_streamed: bool,
     expected_text: str,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [_TranscriptRedactor(stream_scope=stream_scope)])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [_TranscriptRedactor(stream_scope=stream_scope)])
     upstream_route: Final = respx_mock.post("https://transcribe-upstream.example/v1/audio/transcriptions").mock(
         side_effect=_streams_when_asked
     )
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-transcribe",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-transcribe",
                         "api_key": "sk-test",
                         "api_base": "https://transcribe-upstream.example/v1",
@@ -664,8 +664,8 @@ def test_a_deployment_that_streams_transcription_answers_sse_to_a_client_that_se
     respx_mock: respx.MockRouter,
     deployment_guardrails: list[str] | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [_TranscriptRedactor()])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [_TranscriptRedactor()])
     monkeypatch.setattr(proxy_server, "get_form_data", _form_without_stream_field)
     respx_mock.post("https://transcribe-upstream.example/v1/audio/transcriptions").mock(side_effect=_streams_when_asked)
     deployment_params: Final = {
@@ -677,11 +677,11 @@ def test_a_deployment_that_streams_transcription_answers_sse_to_a_client_that_se
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-transcribe",
-                    "litellm_params": (
+                    "hangarllm_params": (
                         {**deployment_params, "guardrails": deployment_guardrails}
                         if deployment_guardrails
                         else deployment_params
@@ -717,20 +717,20 @@ def test_cached_guarded_transcription_still_streams_to_a_stream_client(
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [_TranscriptRedactor()])
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [_TranscriptRedactor()])
+    monkeypatch.setattr(hangarllm, "cache", Cache(type="local"))
     upstream_route: Final = respx_mock.post("https://transcribe-upstream.example/v1/audio/transcriptions").mock(
         side_effect=_streams_when_asked
     )
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-transcribe",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-transcribe",
                         "api_key": "sk-test",
                         "api_base": "https://transcribe-upstream.example/v1",
@@ -789,7 +789,7 @@ def test_streamed_transcription_frames_keep_the_provider_event_shape(
     async def route_to_the_sdk(
         data: Mapping[str, object], route_type: str, llm_router: object, user_model: object
     ) -> object:
-        return litellm.atranscription(
+        return hangarllm.atranscription(
             model="openai/gpt-transcribe", file=data["file"], stream=data["stream"], client=upstream
         )
 
@@ -843,7 +843,7 @@ def test_a_streamed_transcription_that_fails_mid_transcript_bills_the_uploaded_s
     async def route_to_the_sdk(
         data: Mapping[str, object], route_type: str, llm_router: object, user_model: object
     ) -> object:
-        return litellm.atranscription(model="openai/gpt-transcribe", file=data["file"], stream=True, client=upstream)
+        return hangarllm.atranscription(model="openai/gpt-transcribe", file=data["file"], stream=True, client=upstream)
 
     four_second_upload: Final = _silent_wav(4)
 
@@ -871,7 +871,7 @@ def test_a_streamed_transcription_that_fails_mid_transcript_bills_the_uploaded_s
     failure_request: Final = proxy_server.proxy_logging_obj.post_call_failure_hook.await_args.kwargs["request_data"]
     billed_cost: Final = _failure_fields_to_lift(failure_request)["response_cost"]
     assert isinstance(billed_cost, float)
-    assert math.isclose(billed_cost, 4 * litellm.model_cost["gpt-transcribe"]["input_cost_per_second"])
+    assert math.isclose(billed_cost, 4 * hangarllm.model_cost["gpt-transcribe"]["input_cost_per_second"])
 
 
 async def _scribe_stream_form(request: object) -> FormData:
@@ -891,18 +891,18 @@ def test_transcription_stream_form_field_reaches_other_providers_as_sent(
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = respx_mock.post("https://elevenlabs.example/v1/speech-to-text").mock(
         return_value=httpx.Response(200, json={"text": "hello world", "language_code": "en"})
     )
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "scribe",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "elevenlabs/scribe_v1",
                         "api_key": "sk-test",
                         "api_base": "https://elevenlabs.example",
@@ -940,11 +940,11 @@ def _streams_chat_and_transcription(request: httpx.Request) -> httpx.Response:
     )
 
 
-def _litellm_header_names(response: httpx.Response) -> frozenset[str]:
+def _hangarllm_header_names(response: httpx.Response) -> frozenset[str]:
     return frozenset(
         name
         for name in response.headers
-        if name.startswith("x-litellm-") and not name.startswith("x-litellm-response-cost")
+        if name.startswith("x-hangarllm-") and not name.startswith("x-hangarllm-response-cost")
     )
 
 
@@ -954,16 +954,16 @@ def test_streamed_transcription_carries_the_headers_a_streamed_chat_completion_c
     monkeypatch: pytest.MonkeyPatch,
     respx_mock: respx.MockRouter,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.route(host="stream-upstream.example").mock(side_effect=_streams_chat_and_transcription)
     upstream: Final = {"api_key": "sk-test", "api_base": "https://stream-upstream.example/v1"}
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o", **upstream}},
-                {"model_name": "gpt-transcribe", "litellm_params": {"model": "openai/gpt-transcribe", **upstream}},
+                {"model_name": "gpt-4o", "hangarllm_params": {"model": "openai/gpt-4o", **upstream}},
+                {"model_name": "gpt-transcribe", "hangarllm_params": {"model": "openai/gpt-transcribe", **upstream}},
             ]
         ),
     )
@@ -982,10 +982,10 @@ def test_streamed_transcription_carries_the_headers_a_streamed_chat_completion_c
     assert chat.status_code == 200
     assert transcription.status_code == 200
     assert transcription.headers["content-type"].startswith("text/event-stream")
-    assert _litellm_header_names(chat) - _litellm_header_names(transcription) <= {"x-litellm-overhead-duration-ms"}
-    assert transcription.headers["x-litellm-model-name"] == "openai/gpt-transcribe"
+    assert _hangarllm_header_names(chat) - _hangarllm_header_names(transcription) <= {"x-hangarllm-overhead-duration-ms"}
+    assert transcription.headers["x-hangarllm-model-name"] == "openai/gpt-transcribe"
     assert transcription.headers["llm_provider-x-ratelimit-remaining-requests"] == "99"
-    assert [name for name in transcription.headers if name.startswith("x-litellm-response-cost")] == []
+    assert [name for name in transcription.headers if name.startswith("x-hangarllm-response-cost")] == []
 
 
 class _FailsAfterTwoDeltas(httpx.AsyncByteStream):
@@ -1016,7 +1016,7 @@ def test_streamed_transcription_error_mid_stream_ends_with_an_error_event_and_ru
     async def route_to_the_sdk(
         data: Mapping[str, object], route_type: str, llm_router: object, user_model: object
     ) -> object:
-        return litellm.atranscription(model="openai/gpt-transcribe", file=data["file"], stream=True, client=upstream)
+        return hangarllm.atranscription(model="openai/gpt-transcribe", file=data["file"], stream=True, client=upstream)
 
     failure_hook: Final = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server.proxy_logging_obj, "post_call_failure_hook", failure_hook)
@@ -1047,7 +1047,7 @@ def test_streamed_transcription_error_mid_stream_ends_with_an_error_event_and_ru
         "500",
     )
     failure_hook.assert_awaited_once()
-    assert isinstance(failure_hook.await_args.kwargs["original_exception"], litellm.APIConnectionError)
+    assert isinstance(failure_hook.await_args.kwargs["original_exception"], hangarllm.APIConnectionError)
 
 
 def _post_speech(client: TestClient) -> httpx.Response:

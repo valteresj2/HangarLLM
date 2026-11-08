@@ -7,11 +7,11 @@ import pytest
 from pydantic import ValidationError
 
 
-from litellm.llms.recraft.image_generation.transformation import (
+from hangarllm.llms.recraft.image_generation.transformation import (
     RecraftImageGenerationConfig,
 )
-from litellm.types.llms.openai import OpenAIImageGenerationOptionalParams
-from litellm.types.utils import ImageObject, ImageResponse
+from hangarllm.types.llms.openai import OpenAIImageGenerationOptionalParams
+from hangarllm.types.utils import ImageObject, ImageResponse
 
 
 class TestRecraftImageGenerationTransformation:
@@ -71,7 +71,7 @@ class TestRecraftImageGenerationTransformation:
         assert "unsupported_param" in str(exc_info.value)
         assert "is not supported for model" in str(exc_info.value)
 
-    @patch("litellm.llms.recraft.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.recraft.image_generation.transformation.get_secret_str")
     def test_get_complete_url_with_api_base(self, mock_get_secret):
         """Test that get_complete_url returns correct URL when api_base is provided."""
         api_base = "https://custom.api.recraft.ai"
@@ -81,14 +81,14 @@ class TestRecraftImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         expected_url = f"{api_base}/{self.config.IMAGE_GENERATION_ENDPOINT}"
         assert result == expected_url
         mock_get_secret.assert_not_called()
 
-    @patch("litellm.llms.recraft.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.recraft.image_generation.transformation.get_secret_str")
     def test_get_complete_url_with_secret_base(self, mock_get_secret):
         """Test that get_complete_url uses secret when api_base is None."""
         mock_get_secret.return_value = "https://secret.api.recraft.ai"
@@ -98,7 +98,7 @@ class TestRecraftImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         expected_url = (
@@ -107,7 +107,7 @@ class TestRecraftImageGenerationTransformation:
         assert result == expected_url
         mock_get_secret.assert_called_once_with("RECRAFT_API_BASE")
 
-    @patch("litellm.llms.recraft.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.recraft.image_generation.transformation.get_secret_str")
     def test_get_complete_url_with_default_base(self, mock_get_secret):
         """Test that get_complete_url uses default base URL when no other options are available."""
         mock_get_secret.return_value = None
@@ -117,7 +117,7 @@ class TestRecraftImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         expected_url = (
@@ -125,7 +125,7 @@ class TestRecraftImageGenerationTransformation:
         )
         assert result == expected_url
 
-    @patch("litellm.llms.recraft.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.recraft.image_generation.transformation.get_secret_str")
     def test_validate_environment_with_api_key(self, mock_get_secret):
         """Test that validate_environment correctly sets authorization header when api_key is provided."""
         headers = {}
@@ -136,14 +136,14 @@ class TestRecraftImageGenerationTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
         )
 
         assert result["Authorization"] == f"Bearer {api_key}"
         mock_get_secret.assert_not_called()
 
-    @patch("litellm.llms.recraft.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.recraft.image_generation.transformation.get_secret_str")
     def test_validate_environment_with_secret_key(self, mock_get_secret):
         """Test that validate_environment uses secret API key when api_key is None."""
         mock_get_secret.return_value = "secret_api_key"
@@ -154,14 +154,14 @@ class TestRecraftImageGenerationTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
         )
 
         assert result["Authorization"] == "Bearer secret_api_key"
         mock_get_secret.assert_called_once_with("RECRAFT_API_KEY")
 
-    @patch("litellm.llms.recraft.image_generation.transformation.get_secret_str")
+    @patch("hangarllm.llms.recraft.image_generation.transformation.get_secret_str")
     def test_validate_environment_no_api_key_raises_error(self, mock_get_secret):
         """Test that validate_environment raises ValueError when no API key is available."""
         mock_get_secret.return_value = None
@@ -173,7 +173,7 @@ class TestRecraftImageGenerationTransformation:
                 model=self.model,
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=None,
             )
 
@@ -183,14 +183,14 @@ class TestRecraftImageGenerationTransformation:
         """Test that transform_image_generation_request correctly transforms request parameters."""
         prompt = "A beautiful sunset over mountains"
         optional_params = {"n": 2, "size": "1024x1024", "style": "photographic"}
-        litellm_params = {}
+        hangarllm_params = {}
         headers = {}
 
         result = self.config.transform_image_generation_request(
             model=self.model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -224,7 +224,7 @@ class TestRecraftImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -252,7 +252,7 @@ class TestRecraftImageGenerationTransformation:
                 logging_obj=self.logging_obj,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -267,7 +267,7 @@ def _transform(payload: object) -> ImageResponse:
         logging_obj=MagicMock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

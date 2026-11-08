@@ -17,7 +17,7 @@ report = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = report
 _spec.loader.exec_module(report)
 
-_CONFIG = {"paths_to_mutate": ["litellm/proxy/management_endpoints/"], "tests_dir": ["tests/"]}
+_CONFIG = {"paths_to_mutate": ["hangarllm/proxy/management_endpoints/"], "tests_dir": ["tests/"]}
 
 
 def test_a_run_that_reported_nothing_is_not_a_clean_sweep():
@@ -92,9 +92,9 @@ def test_no_survivors_and_no_stats_cannot_claim_a_sweep():
 def test_survivors_are_read_out_of_the_verdicts_they_came_with(monkeypatch):
     class _Proc:
         stdout = (
-            "litellm.proxy.management_endpoints.key_management_endpoints.x_1: killed\n"
-            "litellm.proxy.management_endpoints.key_management_endpoints.x_2: survived\n"
-            "litellm.proxy.management_endpoints.key_management_endpoints.x_3: no tests\n"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.x_1: killed\n"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.x_2: survived\n"
+            "hangarllm.proxy.management_endpoints.key_management_endpoints.x_3: no tests\n"
             "not a verdict line at all\n"
         )
 
@@ -103,7 +103,7 @@ def test_survivors_are_read_out_of_the_verdicts_they_came_with(monkeypatch):
     results = report.get_survivors()
 
     assert results.survivors == (
-        "litellm.proxy.management_endpoints.key_management_endpoints.x_2",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.x_2",
     )
     assert results.reported == 3
 
@@ -111,7 +111,7 @@ def test_survivors_are_read_out_of_the_verdicts_they_came_with(monkeypatch):
 def test_every_multi_word_verdict_mutmut_can_emit_still_counts(monkeypatch):
     class _Proc:
         stdout = "".join(
-            f"litellm.proxy.management_endpoints.key_management_endpoints.x_{i}: {verdict}\n"
+            f"hangarllm.proxy.management_endpoints.key_management_endpoints.x_{i}: {verdict}\n"
             for i, verdict in enumerate(
                 (
                     "no tests",

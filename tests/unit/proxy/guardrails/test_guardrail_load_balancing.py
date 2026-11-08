@@ -5,12 +5,12 @@ Test guardrail load balancing through the Router and ProxyLogging.
 from unittest.mock import MagicMock, patch, AsyncMock
 
 
-import litellm
+import hangarllm
 import pytest
-from litellm import Router
-from litellm.caching import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy.utils import ProxyLogging
+from hangarllm import Router
+from hangarllm.caching import DualCache
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy.utils import ProxyLogging
 
 
 class MockGuardrail(CustomGuardrail):
@@ -43,13 +43,13 @@ async def test_proxy_logging_pre_call_hook_load_balancing():
     guardrail_list = [
         {
             "guardrail_name": "content-filter",
-            "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+            "hangarllm_params": {"guardrail": "custom", "mode": "pre_call"},
             "callback": guardrail_1,
             "id": "guardrail-1",
         },
         {
             "guardrail_name": "content-filter",
-            "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+            "hangarllm_params": {"guardrail": "custom", "mode": "pre_call"},
             "callback": guardrail_2,
             "id": "guardrail-2",
         },
@@ -59,7 +59,7 @@ async def test_proxy_logging_pre_call_hook_load_balancing():
         model_list=[
             {
                 "model_name": "gpt-5.5",
-                "litellm_params": {"model": "gpt-5.5", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "gpt-5.5", "api_key": "fake-key"},
             }
         ],
         guardrail_list=guardrail_list,
@@ -67,11 +67,11 @@ async def test_proxy_logging_pre_call_hook_load_balancing():
 
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
-    original_callbacks = litellm.callbacks.copy()
-    litellm.callbacks = [guardrail_1]
+    original_callbacks = hangarllm.callbacks.copy()
+    hangarllm.callbacks = [guardrail_1]
 
     try:
-        with patch("litellm.proxy.proxy_server.llm_router", router):
+        with patch("hangarllm.proxy.proxy_server.llm_router", router):
             for _ in range(50):
                 await proxy_logging.pre_call_hook(
                     user_api_key_dict=MagicMock(),
@@ -91,4 +91,4 @@ async def test_proxy_logging_pre_call_hook_load_balancing():
             ), f"Expected at least 10 calls to each guardrail, got min={min_calls}"
 
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks

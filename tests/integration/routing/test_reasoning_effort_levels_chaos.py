@@ -155,8 +155,8 @@ def _owned_proxy(
 ) -> Iterator[OwnedProxy]:
     directory.mkdir(parents=True, exist_ok=True)
     with gateway_from_environment() as shared:
-        config: Final = owned_config(directory, model_list, litellm_settings=settings)
-        with owned_proxy_process(shared, directory, {"LITELLM_LOG": "INFO"}, config=config, workers=2) as owned:
+        config: Final = owned_config(directory, model_list, hangarllm_settings=settings)
+        with owned_proxy_process(shared, directory, {"HANGARLLM_LOG": "INFO"}, config=config, workers=2) as owned:
             yield owned
 
 

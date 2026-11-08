@@ -2,14 +2,14 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
+import hangarllm
 
 
 @pytest.mark.parametrize("mock_response", ["", "Hello"])
 @pytest.mark.parametrize("stream", [False, True])
 def test_completion_mock_response(mock_response: str, stream: bool) -> None:
     with patch("httpx.Client.send", side_effect=AssertionError("Unexpected HTTP request")):
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="openai/gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
             mock_response=mock_response,
@@ -33,7 +33,7 @@ async def test_acompletion_mock_response(mock_response: str, stream: bool) -> No
         ),
         patch("httpx.Client.send", side_effect=AssertionError("Unexpected HTTP request")),
     ):
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="openai/gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
             mock_response=mock_response,

@@ -28,20 +28,20 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
+import hangarllm
 
 sys.path.insert(0, os.path.abspath("../../../../.."))
 
-from litellm.exceptions import MidStreamFallbackError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
     _mid_stream_error_sse_event,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.utils import Delta, ModelResponseStream, StandardLoggingPayload, StreamingChoices, Usage
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.types.utils import Delta, ModelResponseStream, StandardLoggingPayload, StreamingChoices, Usage
 
 
 def _make_chunk(delta: Delta, finish_reason: Optional[str] = None) -> MagicMock:
@@ -153,8 +153,8 @@ def test_error_event_preserves_midstream_fallback_error():
     assert "internalServerException" in payload["error"]["message"]
 
 
-def test_error_event_keeps_status_of_mapped_litellm_exception():
-    exc = litellm.ContextWindowExceededError(
+def test_error_event_keeps_status_of_mapped_hangarllm_exception():
+    exc = hangarllm.ContextWindowExceededError(
         message="prompt is too long: your prompt exceeds the model's context window",
         model="openai.gpt-5.6-luna",
         llm_provider="bedrock_mantle",
@@ -168,11 +168,11 @@ def test_error_event_keeps_status_of_mapped_litellm_exception():
 @pytest.mark.parametrize(
     "exc",
     [
-        litellm.BadRequestError(
+        hangarllm.BadRequestError(
             message="temperature must be in the range [0.0, 2.0]", model="m", llm_provider="gemini"
         ),
-        litellm.AuthenticationError(message="API key not valid", llm_provider="gemini", model="m"),
-        litellm.NotFoundError(message="model is not found", model="m", llm_provider="gemini"),
+        hangarllm.AuthenticationError(message="API key not valid", llm_provider="gemini", model="m"),
+        hangarllm.NotFoundError(message="model is not found", model="m", llm_provider="gemini"),
     ],
 )
 def test_error_event_reports_other_provider_4xx_as_retriable_500(exc):
@@ -239,7 +239,7 @@ def test_anthropic_adapter_does_not_repeat_custom_stream_failure_dispatch() -> N
     wrapper: Final = AnthropicStreamWrapper(
         completion_stream=inner_stream,
         model="openai/gpt-5.6",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
     events: Final = asyncio.run(_drain_sse(wrapper))
@@ -268,14 +268,14 @@ def _make_logging_obj(
     test_name: str,
     async_recorder: _AsyncFailureRecorder,
     sync_recorder: _SyncFailureRecorder,
-) -> LiteLLMLoggingObj:
-    return LiteLLMLoggingObj(
+) -> HangarLLMLoggingObj:
+    return HangarLLMLoggingObj(
         model="bedrock-converse-sonnet-4-6",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id=test_name,
+        hangarllm_call_id=test_name,
         function_id=test_name,
         dynamic_failure_callbacks=[sync_recorder],
         dynamic_async_failure_callbacks=[async_recorder],
@@ -316,13 +316,13 @@ _RAISED_ERRORS = pytest.mark.parametrize(
 
 
 def _failing_wrapper(
-    logging_obj: LiteLLMLoggingObj | None,
+    logging_obj: HangarLLMLoggingObj | None,
     raised: Callable[[], Exception] = _bedrock_drop,
 ) -> AnthropicStreamWrapper:
     return AnthropicStreamWrapper(
         completion_stream=_AsyncStreamThenRaise([_make_chunk(Delta(content="partial"))], raised()),
         model="bedrock-converse-sonnet-4-6",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
 
@@ -358,7 +358,7 @@ async def test_mid_stream_error_dispatches_the_provider_error_to_failure_handler
     assert _parse_sse(events[-1])[0] == "error"
 
 
-class _BrokenFailureDispatchLogging(LiteLLMLoggingObj):
+class _BrokenFailureDispatchLogging(HangarLLMLoggingObj):
     async def dispatch_failure_handlers(self, *args, **kwargs):
         raise RuntimeError("failure sink is down")
 
@@ -371,7 +371,7 @@ async def test_mid_stream_error_frame_survives_a_raising_failure_dispatch():
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id="broken-dispatch",
+        hangarllm_call_id="broken-dispatch",
         function_id="broken-dispatch",
     )
 

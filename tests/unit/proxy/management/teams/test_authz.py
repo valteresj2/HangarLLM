@@ -6,8 +6,8 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LiteLLM_TeamTable, LitellmUserRoles, Member, UserAPIKeyAuth
-from litellm.proxy.management.teams.authz import (
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarllmUserRoles, Member, UserAPIKeyAuth
+from hangarllm.proxy.management.teams.authz import (
     TEAM_ADMIN_ONLY,
     TEAM_OR_ORG_ADMIN,
     TeamAccess,
@@ -33,11 +33,11 @@ class NoOrgLookup:
         raise AssertionError(f"org lookup ran for {user_id} in {organization_id}")
 
 
-def team(*members: Member, organization_id: str | None = "org-1") -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable(team_id="team-1", organization_id=organization_id, members_with_roles=list(members))
+def team(*members: Member, organization_id: str | None = "org-1") -> HangarLLM_TeamTable:
+    return HangarLLM_TeamTable(team_id="team-1", organization_id=organization_id, members_with_roles=list(members))
 
 
-def caller(user_id: str | None, role: LitellmUserRoles = LitellmUserRoles.INTERNAL_USER) -> UserAPIKeyAuth:
+def caller(user_id: str | None, role: HangarllmUserRoles = HangarllmUserRoles.INTERNAL_USER) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(user_id=user_id, api_key="sk-x", user_role=role)
 
 
@@ -47,9 +47,9 @@ BOSS_OF_ORG_1: Final = OrgAdmins(of=frozenset({("boss", "org-1")}))
 @pytest.mark.parametrize(
     ("who", "allow", "expected"),
     [
-        (caller("root", LitellmUserRoles.PROXY_ADMIN), TEAM_ADMIN_ONLY, True),
-        (caller("root", LitellmUserRoles.PROXY_ADMIN), TEAM_OR_ORG_ADMIN, True),
-        (caller("root", LitellmUserRoles.PROXY_ADMIN), frozenset({"team_admin"}), False),
+        (caller("root", HangarllmUserRoles.PROXY_ADMIN), TEAM_ADMIN_ONLY, True),
+        (caller("root", HangarllmUserRoles.PROXY_ADMIN), TEAM_OR_ORG_ADMIN, True),
+        (caller("root", HangarllmUserRoles.PROXY_ADMIN), frozenset({"team_admin"}), False),
         (caller("admin"), TEAM_ADMIN_ONLY, True),
         (caller("admin"), frozenset({"proxy_admin"}), False),
         (caller("member"), TEAM_ADMIN_ONLY, False),
@@ -75,7 +75,7 @@ async def test_allows_checks_the_roster_before_the_org_lookup() -> None:
     ],
 )
 async def test_allows_admits_org_admins_only_of_the_teams_org_and_only_when_asked(
-    who: UserAPIKeyAuth, on_team: LiteLLM_TeamTable, allow: frozenset[TeamRole], expected: bool
+    who: UserAPIKeyAuth, on_team: HangarLLM_TeamTable, allow: frozenset[TeamRole], expected: bool
 ) -> None:
     assert await TeamAccess(org_roles=BOSS_OF_ORG_1).allows(who, on_team, allow) is expected
 
@@ -90,7 +90,7 @@ async def test_allows_admits_org_admins_only_of_the_teams_org_and_only_when_aske
     ],
 )
 async def test_allows_skips_the_org_lookup_without_a_user_and_an_org(
-    who: UserAPIKeyAuth, on_team: LiteLLM_TeamTable
+    who: UserAPIKeyAuth, on_team: HangarLLM_TeamTable
 ) -> None:
     assert await TeamAccess(org_roles=NoOrgLookup()).allows(who, on_team, TEAM_OR_ORG_ADMIN) is False
 
@@ -98,7 +98,7 @@ async def test_allows_skips_the_org_lookup_without_a_user_and_an_org(
 @pytest.mark.parametrize(
     ("who", "on_team", "org_roles", "expected"),
     [
-        (caller("root", LitellmUserRoles.PROXY_ADMIN), team(), NoOrgLookup(), "proxy_admin"),
+        (caller("root", HangarllmUserRoles.PROXY_ADMIN), team(), NoOrgLookup(), "proxy_admin"),
         (caller("boss"), team(Member(user_id="boss", role="admin")), BOSS_OF_ORG_1, "org_admin"),
         (caller("boss"), team(), BOSS_OF_ORG_1, "org_admin"),
         (caller("admin"), team(ADMIN), BOSS_OF_ORG_1, "team_admin"),
@@ -107,7 +107,7 @@ async def test_allows_skips_the_org_lookup_without_a_user_and_an_org(
 )
 async def test_strongest_role_ranks_org_admin_above_team_admin(
     who: UserAPIKeyAuth,
-    on_team: LiteLLM_TeamTable,
+    on_team: HangarLLM_TeamTable,
     org_roles: OrgAdmins | NoOrgLookup,
     expected: TeamRole | None,
 ) -> None:
@@ -137,7 +137,7 @@ def test_team_access_denied_is_the_403_management_routes_have_always_raised() ->
 
 
 def test_the_old_access_module_still_serves_the_published_enterprise_wheel() -> None:
-    from litellm.proxy.management.teams import access, authz
+    from hangarllm.proxy.management.teams import access, authz
 
     assert access.is_team_admin is authz.is_team_admin
     assert set(access.__all__) <= set(dir(authz))

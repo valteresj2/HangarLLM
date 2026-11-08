@@ -1,5 +1,5 @@
 """``a2a_protocol_version`` is agent-only metadata: the completion bridge must strip it before
-``litellm.acompletion`` so it never reaches a provider, and paths that do not build an a2a-sdk client (card
+``hangarllm.acompletion`` so it never reaches a provider, and paths that do not build an a2a-sdk client (card
 discovery, the ``a2a/<agent>`` chat-completions provider) must not change for a pinned agent."""
 
 from __future__ import annotations

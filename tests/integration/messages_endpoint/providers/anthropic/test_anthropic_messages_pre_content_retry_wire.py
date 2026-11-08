@@ -133,7 +133,7 @@ def _stream(gateway: Gateway, body: Mapping[str, JsonValue]) -> tuple[int, tuple
 
 
 def _rows(gateway: Gateway, request_id: str) -> list[dict[str, JsonValue]]:
-    return gateway.rows('SELECT status, model_group FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,))
+    return gateway.rows('SELECT status, model_group FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,))
 
 
 def _success_rows(gateway: Gateway, request_id: str) -> list[dict[str, JsonValue]]:
@@ -399,14 +399,14 @@ def test_retry_rejected_before_it_opens_counts_against_the_same_budget(gateway: 
         response: Final = gateway.request("POST", "/v1/messages", _body(model, prompt, "deployment"))
         _assert_rejected_before_content(response, wire, status=529, attempts=2, error="overloaded_error")
         rows: Final = eventually(
-            lambda: _request_rows(gateway, response.headers["x-litellm-call-id"]),
+            lambda: _request_rows(gateway, response.headers["x-hangarllm-call-id"]),
             lambda values: len(values) >= 1,
             seconds=70,
         )
         rejected: Final = gateway.request("POST", "/v1/messages", _body(model, prompt, "request", budget=0))
         _assert_rejected_before_content(rejected, wire, status=529, attempts=1, error="overloaded_error")
         rejection_rows: Final = eventually(
-            lambda: _request_rows(gateway, rejected.headers["x-litellm-call-id"]),
+            lambda: _request_rows(gateway, rejected.headers["x-hangarllm-call-id"]),
             lambda values: len(values) >= 1,
             seconds=70,
         )
@@ -444,8 +444,8 @@ def test_retried_stream_response_headers_name_the_attempt(gateway: Gateway) -> N
         response: Final = gateway.request("POST", "/v1/messages", _body(model, prompt, "deployment"))
         events: Final = parse_sse(response.text)
         _assert_completed_by_retry(gateway, response.status_code, events, prompt, model, wire)
-        assert response.headers.get("x-litellm-attempted-retries") == "1", dict(response.headers)
-        assert response.headers.get("x-litellm-max-retries") == "1", dict(response.headers)
+        assert response.headers.get("x-hangarllm-attempted-retries") == "1", dict(response.headers)
+        assert response.headers.get("x-hangarllm-max-retries") == "1", dict(response.headers)
 
 
 def test_two_drops_stamp_two_attempted_retries_on_the_response(gateway: Gateway) -> None:
@@ -462,8 +462,8 @@ def test_two_drops_stamp_two_attempted_retries_on_the_response(gateway: Gateway)
         assert event_types(events) == LIFECYCLE, events
         assert message_id(events) == _served_id(prompt, 3), events
         assert [request.target for request in wire.drain()] == ["/v1/messages"] * 3
-        assert response.headers.get("x-litellm-attempted-retries") == "2", dict(response.headers)
-        assert response.headers.get("x-litellm-max-retries") == "2", dict(response.headers)
+        assert response.headers.get("x-hangarllm-attempted-retries") == "2", dict(response.headers)
+        assert response.headers.get("x-hangarllm-max-retries") == "2", dict(response.headers)
 
 
 def test_retried_stream_spend_row_records_the_attempt_count(gateway: Gateway) -> None:
@@ -478,7 +478,7 @@ def test_retried_stream_spend_row_records_the_attempt_count(gateway: Gateway) ->
         _assert_completed_by_retry(gateway, status, events, prompt, model, wire)
         rows: Final = read_rows(
             "SELECT metadata->>'attempted_retries' AS attempted, metadata->>'max_retries' AS budget "
-            'FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+            'FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
             (_served_id(prompt, 2),),
         )
         assert rows == [{"attempted": "1", "budget": "1"}], rows
@@ -488,11 +488,11 @@ def _proxy_with_callback_sink(gateway: Gateway, tmp_path: Path, sink: Wire) -> A
     loaded_config: Final = TypeAdapter(dict[str, object]).validate_python(
         yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     )
-    litellm_settings: Final = TypeAdapter(dict[str, object]).validate_python(loaded_config["litellm_settings"])
+    hangarllm_settings: Final = TypeAdapter(dict[str, object]).validate_python(loaded_config["hangarllm_settings"])
     config: Final = {
         **loaded_config,
-        "litellm_settings": {
-            **litellm_settings,
+        "hangarllm_settings": {
+            **hangarllm_settings,
             "callbacks": ["generic_api"],
             "DEFAULT_FLUSH_INTERVAL_SECONDS": 1,
         },
@@ -531,7 +531,7 @@ class _SinkReader:
 
 def _request_rows(gateway: Gateway, call_id: str) -> list[dict[str, JsonValue]]:
     return gateway.rows(
-        'SELECT status, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (call_id,)
+        'SELECT status, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (call_id,)
     )
 
 
@@ -579,7 +579,7 @@ def test_every_dropped_attempt_logs_its_own_failure_and_the_request_row_still_bi
         )
         assert delivered == (("failure", 5, 1), ("failure", 5, 1)), delivered
         rows: Final = eventually(
-            lambda: _request_rows(candidate, response.headers["x-litellm-call-id"]),
+            lambda: _request_rows(candidate, response.headers["x-hangarllm-call-id"]),
             lambda values: len(values) >= 1,
             seconds=70,
         )

@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator, Iterable
 
 import pytest
 
-from litellm.proxy.pass_through_endpoints.injected_stream_usage import (
+from hangarllm.proxy.pass_through_endpoints.injected_stream_usage import (
     stream_usage_relay,
     without_injected_usage_frames,
 )

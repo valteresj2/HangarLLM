@@ -13,12 +13,12 @@ from fastapi.testclient import TestClient
 from prisma import Base64
 from prisma import models as prisma_models
 
-import litellm
-from litellm.models.skills import LiteLLM_SkillsTable
-from litellm.proxy.anthropic_endpoints.claude_code_endpoints.skill_upload_archive import build_uploaded_skill_archive
-from litellm.proxy.deps.repositories import get_plugin_upload_repository
-from litellm.proxy.discovery_endpoints.agent_skills_archive import build_agent_skill_archive
-from litellm.proxy.discovery_endpoints.agent_skills_endpoints import (
+import hangarllm
+from hangarllm.models.skills import HangarLLM_SkillsTable
+from hangarllm.proxy.anthropic_endpoints.claude_code_endpoints.skill_upload_archive import build_uploaded_skill_archive
+from hangarllm.proxy.deps.repositories import get_plugin_upload_repository
+from hangarllm.proxy.discovery_endpoints.agent_skills_archive import build_agent_skill_archive
+from hangarllm.proxy.discovery_endpoints.agent_skills_endpoints import (
     MAX_CACHED_ARCHIVE_BYTES,
     MAX_INDEXED_SKILLS,
     _ARCHIVE_CACHE,
@@ -26,9 +26,9 @@ from litellm.proxy.discovery_endpoints.agent_skills_endpoints import (
     stored_skill,
     stored_skills,
 )
-from litellm.proxy.discovery_endpoints.skill_hub_endpoints import router as hub_router
-from litellm.repositories.plugin_upload_repository import PluginUploadRepository
-from litellm.types.proxy.discovery_endpoints.agent_skills_endpoints import (
+from hangarllm.proxy.discovery_endpoints.skill_hub_endpoints import router as hub_router
+from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
+from hangarllm.types.proxy.discovery_endpoints.agent_skills_endpoints import (
     AGENT_SKILLS_DISCOVERY_SCHEMA_URL,
     MAX_SKILL_NAME_LENGTH,
 )
@@ -59,8 +59,8 @@ def skill(
     description: str | None = None,
     files: dict[str, bytes] | None = None,
     updated_at: datetime | None = None,
-) -> LiteLLM_SkillsTable:
-    return LiteLLM_SkillsTable(
+) -> HangarLLM_SkillsTable:
+    return HangarLLM_SkillsTable(
         skill_id=skill_id,
         display_title=display_title,
         description=description,
@@ -69,15 +69,15 @@ def skill(
     )
 
 
-def client_for(*skills: LiteLLM_SkillsTable, uploads: PluginUploadRepository | None = None) -> TestClient:
+def client_for(*skills: HangarLLM_SkillsTable, uploads: PluginUploadRepository | None = None) -> TestClient:
     app = FastAPI()
     app.include_router(router)
     app.include_router(hub_router)
 
-    def _skills() -> tuple[LiteLLM_SkillsTable, ...]:
+    def _skills() -> tuple[HangarLLM_SkillsTable, ...]:
         return skills
 
-    def _skill(skill_id: str) -> LiteLLM_SkillsTable | None:
+    def _skill(skill_id: str) -> HangarLLM_SkillsTable | None:
         return next((candidate for candidate in skills if candidate.skill_id == skill_id), None)
 
     app.dependency_overrides[stored_skills] = _skills
@@ -88,7 +88,7 @@ def client_for(*skills: LiteLLM_SkillsTable, uploads: PluginUploadRepository | N
 
 def hub_record(
     name: str,
-) -> tuple[prisma_models.LiteLLM_ClaudeCodePluginTable, prisma_models.LiteLLM_ClaudeCodePluginUpload]:
+) -> tuple[prisma_models.HangarLLM_ClaudeCodePluginTable, prisma_models.HangarLLM_ClaudeCodePluginUpload]:
     manifest: Final = MANIFEST.replace(b"pdf-summarizer", name.encode())
     portable: Final = build_agent_skill_archive(zip_bytes({"SKILL.md": manifest}))
     assert portable is not None
@@ -96,7 +96,7 @@ def hub_record(
     assert wrapper is not None
     digest: Final = hashlib.sha256(wrapper).hexdigest()
     return (
-        prisma_models.LiteLLM_ClaudeCodePluginTable(
+        prisma_models.HangarLLM_ClaudeCodePluginTable(
             id=f"hub-{name}", name=name, enabled=True, anonymous_download_count=0, manifest_json=json.dumps({
                 "source": {
                     "source": "archive", "sha256": digest,
@@ -105,7 +105,7 @@ def hub_record(
                 "agent_skill": {"name": name, "description": portable.declared_description, "digest": portable.digest},
             }),
         ),
-        prisma_models.LiteLLM_ClaudeCodePluginUpload(plugin_name=name, content=Base64.encode(wrapper)),
+        prisma_models.HangarLLM_ClaudeCodePluginUpload(plugin_name=name, content=Base64.encode(wrapper)),
     )
 
 
@@ -113,37 +113,37 @@ def hub_repository(*names: str) -> PluginUploadRepository:
     records: Final = tuple(hub_record(name) for name in names)
     prisma: Final = MagicMock()
     prisma.writer_db.execute_raw = AsyncMock(return_value=1)
-    plugins: Final = prisma.writer_db.litellm_claudecodeplugintable
+    plugins: Final = prisma.writer_db.hangarllm_claudecodeplugintable
     plugins.find_many = AsyncMock(return_value=[record for record, _ in records])
 
-    async def metadata(where: Mapping[str, str]) -> prisma_models.LiteLLM_ClaudeCodePluginTable | None:
+    async def metadata(where: Mapping[str, str]) -> prisma_models.HangarLLM_ClaudeCodePluginTable | None:
         return next((record for record, _ in records if record.name == where["name"]), None)
 
-    async def content(where: Mapping[str, object]) -> prisma_models.LiteLLM_ClaudeCodePluginUpload | None:
+    async def content(where: Mapping[str, object]) -> prisma_models.HangarLLM_ClaudeCodePluginUpload | None:
         return next((archive for _, archive in records if archive.plugin_name == where["plugin_name"]), None)
 
     plugins.find_unique = AsyncMock(side_effect=metadata)
-    prisma.writer_db.litellm_claudecodepluginupload.find_first = AsyncMock(side_effect=content)
+    prisma.writer_db.hangarllm_claudecodepluginupload.find_first = AsyncMock(side_effect=content)
     return PluginUploadRepository(prisma)
 
 
 @pytest.fixture
 def index_enabled(monkeypatch):
-    monkeypatch.setattr(litellm, "public_skills_index", True)
+    monkeypatch.setattr(hangarllm, "public_skills_index", True)
 
 
 def test_discovery_is_absent_until_public_skills_index_is_enabled(monkeypatch):
-    monkeypatch.setattr(litellm, "public_skills_index", False)
-    client = client_for(skill("litellm_skill_1"))
+    monkeypatch.setattr(hangarllm, "public_skills_index", False)
+    client = client_for(skill("hangarllm_skill_1"))
 
     for path in WELL_KNOWN_PATHS:
         assert client.get(path).status_code == 404
-    assert client.get("/v1/skills/litellm_skill_1/archive").status_code == 404
+    assert client.get("/v1/skills/hangarllm_skill_1/archive").status_code == 404
 
 
 @pytest.mark.parametrize("path", WELL_KNOWN_PATHS)
 def test_index_publishes_each_stored_skill_in_the_v0_2_0_shape(index_enabled, path):
-    client = client_for(skill("litellm_skill_1"))
+    client = client_for(skill("hangarllm_skill_1"))
 
     body = client.get(path).json()
 
@@ -153,12 +153,12 @@ def test_index_publishes_each_stored_skill_in_the_v0_2_0_shape(index_enabled, pa
     assert entry["name"] == "pdf-summarizer"
     assert entry["type"] == "archive"
     assert entry["description"] == "Summarize a PDF into an executive brief."
-    assert entry["url"].endswith("/v1/skills/litellm_skill_1/archive")
+    assert entry["url"].endswith("/v1/skills/hangarllm_skill_1/archive")
     assert entry["digest"].startswith("sha256:")
 
 
 def test_index_digest_matches_the_bytes_the_archive_route_serves(index_enabled):
-    client = client_for(skill("litellm_skill_1"))
+    client = client_for(skill("hangarllm_skill_1"))
 
     entry = client.get(WELL_KNOWN_PATHS[0]).json()["skills"][0]
     downloaded = client.get(entry["url"])
@@ -169,7 +169,7 @@ def test_index_digest_matches_the_bytes_the_archive_route_serves(index_enabled):
 
 
 def test_install_name_falls_back_to_the_manifest_name_without_a_display_title(index_enabled):
-    client = client_for(skill("litellm_skill_1", display_title=None))
+    client = client_for(skill("hangarllm_skill_1", display_title=None))
 
     assert client.get(WELL_KNOWN_PATHS[0]).json()["skills"][0]["name"] == "pdf-summarizer"
 
@@ -187,7 +187,7 @@ def test_description_prefers_the_manifest_then_the_registry_then_the_title(
 ):
     client = client_for(
         skill(
-            "litellm_skill_1",
+            "hangarllm_skill_1",
             description=stored_description,
             files={"pdf-summarizer/SKILL.md": manifest},
         )
@@ -198,8 +198,8 @@ def test_description_prefers_the_manifest_then_the_registry_then_the_title(
 
 def test_skills_sharing_a_title_get_distinct_install_names(index_enabled):
     client = client_for(
-        skill("litellm_skill_2", files={"pdf-summarizer/SKILL.md": b"second"}),
-        skill("litellm_skill_1", files={"pdf-summarizer/SKILL.md": b"first"}),
+        skill("hangarllm_skill_2", files={"pdf-summarizer/SKILL.md": b"second"}),
+        skill("hangarllm_skill_1", files={"pdf-summarizer/SKILL.md": b"first"}),
     )
 
     names = [entry["name"] for entry in client.get(WELL_KNOWN_PATHS[0]).json()["skills"]]
@@ -258,33 +258,33 @@ def test_combined_index_cap_keeps_hosted_entries_before_hub_entries(index_enable
 
 def test_uploads_without_a_root_manifest_are_left_out_of_the_index(index_enabled):
     client = client_for(
-        skill("litellm_skill_1"),
-        skill("litellm_skill_2", files={"pdf-summarizer/reference.md": b"no manifest"}),
+        skill("hangarllm_skill_1"),
+        skill("hangarllm_skill_2", files={"pdf-summarizer/reference.md": b"no manifest"}),
     )
 
     body = client.get(WELL_KNOWN_PATHS[0]).json()
 
-    assert [entry["url"].split("/")[-2] for entry in body["skills"]] == ["litellm_skill_1"]
-    assert client.get("/v1/skills/litellm_skill_2/archive").status_code == 404
+    assert [entry["url"].split("/")[-2] for entry in body["skills"]] == ["hangarllm_skill_1"]
+    assert client.get("/v1/skills/hangarllm_skill_2/archive").status_code == 404
 
 
 def test_archive_route_404s_for_a_skill_that_does_not_exist(index_enabled):
-    client = client_for(skill("litellm_skill_1"))
+    client = client_for(skill("hangarllm_skill_1"))
 
-    assert client.get("/v1/skills/litellm_skill_missing/archive").status_code == 404
+    assert client.get("/v1/skills/hangarllm_skill_missing/archive").status_code == 404
 
 
 def test_a_stored_skill_is_repacked_once_per_version(index_enabled):
     stamp = datetime(2026, 9, 6, 9, 0, tzinfo=timezone.utc)
-    first = client_for(skill("litellm_skill_cached", files={"s/SKILL.md": MANIFEST}, updated_at=stamp))
+    first = client_for(skill("hangarllm_skill_cached", files={"s/SKILL.md": MANIFEST}, updated_at=stamp))
     published = first.get(WELL_KNOWN_PATHS[0]).json()["skills"][0]["digest"]
 
     unchanged_row = client_for(
-        skill("litellm_skill_cached", files={"s/SKILL.md": MANIFEST, "s/extra.md": b"rewritten"}, updated_at=stamp)
+        skill("hangarllm_skill_cached", files={"s/SKILL.md": MANIFEST, "s/extra.md": b"rewritten"}, updated_at=stamp)
     )
 
     assert unchanged_row.get(WELL_KNOWN_PATHS[0]).json()["skills"][0]["digest"] == published
-    assert hashlib.sha256(unchanged_row.get("/v1/skills/litellm_skill_cached/archive").content).hexdigest() == (
+    assert hashlib.sha256(unchanged_row.get("/v1/skills/hangarllm_skill_cached/archive").content).hexdigest() == (
         published.removeprefix("sha256:")
     )
 
@@ -293,7 +293,7 @@ def test_retained_manifest_bytes_count_toward_the_archive_cache_limit(
     index_enabled: None,
 ) -> None:
     stamp: Final = datetime(2026, 9, 6, 9, 0, tzinfo=timezone.utc)
-    name: Final = "litellm_skill_large_manifest"
+    name: Final = "hangarllm_skill_large_manifest"
     manifest: Final = MANIFEST + b"x" * MAX_CACHED_ARCHIVE_BYTES
     client: Final = client_for(skill(name, files={"s/SKILL.md": manifest}, updated_at=stamp))
     response: Final = client.get(f"/v1/skills/{name}/archive")
@@ -309,12 +309,12 @@ def test_retained_manifest_bytes_count_toward_the_archive_cache_limit(
 
 def test_a_skill_edited_since_the_last_read_is_republished(index_enabled):
     stamp = datetime(2026, 9, 6, 9, 0, tzinfo=timezone.utc)
-    before = client_for(skill("litellm_skill_edited", files={"s/SKILL.md": MANIFEST}, updated_at=stamp))
+    before = client_for(skill("hangarllm_skill_edited", files={"s/SKILL.md": MANIFEST}, updated_at=stamp))
     published = before.get(WELL_KNOWN_PATHS[0]).json()["skills"][0]["digest"]
 
     after = client_for(
         skill(
-            "litellm_skill_edited",
+            "hangarllm_skill_edited",
             files={"s/SKILL.md": MANIFEST, "s/extra.md": b"rewritten"},
             updated_at=datetime(2026, 9, 6, 10, 0, tzinfo=timezone.utc),
         )
@@ -322,13 +322,13 @@ def test_a_skill_edited_since_the_last_read_is_republished(index_enabled):
     republished = after.get(WELL_KNOWN_PATHS[0]).json()["skills"][0]["digest"]
 
     assert republished != published
-    assert hashlib.sha256(after.get("/v1/skills/litellm_skill_edited/archive").content).hexdigest() == (
+    assert hashlib.sha256(after.get("/v1/skills/hangarllm_skill_edited/archive").content).hexdigest() == (
         republished.removeprefix("sha256:")
     )
 
 
 def test_openapi_declares_the_archive_route_as_a_zip_download(index_enabled):
-    schema = client_for(skill("litellm_skill_1")).get("/openapi.json").json()
+    schema = client_for(skill("hangarllm_skill_1")).get("/openapi.json").json()
 
     content = schema["paths"]["/v1/skills/{skill_id}/archive"]["get"]["responses"]["200"]["content"]
 

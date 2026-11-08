@@ -1,14 +1,14 @@
 """
 Tests for Vertex AI partner models count_tokens location resolution.
 
-Ref: https://github.com/BerriAI/litellm/issues/23872
+Ref: upstream issue 23872
 """
 
 from typing import Final
 
 import pytest
 
-from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
     VertexAIPartnerModelsTokenCounter,
     count_tokens_request_body,
 )
@@ -22,7 +22,7 @@ def counter():
 class TestCountTokensLocationResolution:
     """Verify that vertex_count_tokens_location is respected in handle_count_tokens_request."""
 
-    def _build_litellm_params(
+    def _build_hangarllm_params(
         self,
         vertex_location=None,
         vertex_count_tokens_location=None,
@@ -77,13 +77,13 @@ class TestCountTokensLocationResolution:
             async def post(self, url, headers=None, json=None, **kwargs):
                 return FakeResponse()
 
-        import litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
+        import hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
 
         monkeypatch.setattr(
             handler_mod, "get_async_httpx_client", lambda **kwargs: FakeClient()
         )
 
-        litellm_params = self._build_litellm_params(
+        hangarllm_params = self._build_hangarllm_params(
             vertex_location="us-east5",
             vertex_count_tokens_location="europe-west1",
         )
@@ -91,7 +91,7 @@ class TestCountTokensLocationResolution:
         await counter.handle_count_tokens_request(
             model="claude-sonnet-4-6",
             request_data={"messages": [{"role": "user", "content": "hi"}]},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert captured["vertex_location"] == "europe-west1"
@@ -140,18 +140,18 @@ class TestCountTokensLocationResolution:
             async def post(self, url, headers=None, json=None, **kwargs):
                 return FakeResponse()
 
-        import litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
+        import hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
 
         monkeypatch.setattr(
             handler_mod, "get_async_httpx_client", lambda **kwargs: FakeClient()
         )
 
-        litellm_params = self._build_litellm_params()  # no location at all
+        hangarllm_params = self._build_hangarllm_params()  # no location at all
 
         await counter.handle_count_tokens_request(
             model="claude-sonnet-4-6",
             request_data={"messages": [{"role": "user", "content": "hi"}]},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert captured["vertex_location"] == "us-east5"
@@ -196,18 +196,18 @@ class TestCountTokensLocationResolution:
             async def post(self, url, headers=None, json=None, **kwargs):
                 return FakeResponse()
 
-        import litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
+        import hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
 
         monkeypatch.setattr(
             handler_mod, "get_async_httpx_client", lambda **kwargs: FakeClient()
         )
 
-        litellm_params = self._build_litellm_params(vertex_location="asia-southeast1")
+        hangarllm_params = self._build_hangarllm_params(vertex_location="asia-southeast1")
 
         await counter.handle_count_tokens_request(
             model="claude-sonnet-4-6",
             request_data={"messages": [{"role": "user", "content": "hi"}]},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert captured["vertex_location"] == "asia-southeast1"
@@ -280,7 +280,7 @@ class TestCountTokensVersionSuffixStripping:
                 captured_json.update(json or {})
                 return FakeResponse()
 
-        import litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
+        import hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler as handler_mod
 
         monkeypatch.setattr(
             handler_mod, "get_async_httpx_client", lambda **kwargs: FakeClient()
@@ -292,7 +292,7 @@ class TestCountTokensVersionSuffixStripping:
                 "model": "claude-sonnet-4-6@default",
                 "messages": [{"role": "user", "content": "hi"}],
             },
-            litellm_params={"vertex_location": "us-east5"},
+            hangarllm_params={"vertex_location": "us-east5"},
         )
 
         # The model name sent to the API must NOT have the @default suffix

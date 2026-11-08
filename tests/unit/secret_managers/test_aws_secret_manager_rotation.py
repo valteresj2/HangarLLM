@@ -8,10 +8,10 @@ from typing import Final, TypeAlias
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
-from litellm.types.llms.custom_http import httpxSpecialProvider
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+from hangarllm.types.llms.custom_http import httpxSpecialProvider
 
 
 OptionalParams: TypeAlias = Mapping[str, object] | None
@@ -293,15 +293,15 @@ def fake_secrets_manager(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeSecret
     monkeypatch.setenv("AWS_REGION_NAME", "us-east-1")
     service: Final = FakeSecretsManagerService(FakeSecretsManagerState(live=MappingProxyType({})))
     cache_key: Final = "async_httpx_clienttimeout_None" + httpxSpecialProvider.SecretManager
-    litellm.in_memory_llm_clients_cache.set_cache(
+    hangarllm.in_memory_llm_clients_cache.set_cache(
         key=cache_key,
         value=AsyncHTTPHandler(transport=httpx.MockTransport(service.handle)),
     )
     try:
         yield service
     finally:
-        litellm.in_memory_llm_clients_cache.delete_cache(
-            litellm.in_memory_llm_clients_cache.update_cache_key_with_event_loop(cache_key)
+        hangarllm.in_memory_llm_clients_cache.delete_cache(
+            hangarllm.in_memory_llm_clients_cache.update_cache_key_with_event_loop(cache_key)
         )
 
 

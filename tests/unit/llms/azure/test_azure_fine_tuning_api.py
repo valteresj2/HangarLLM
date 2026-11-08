@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from openai import AsyncAzureOpenAI
 
-import litellm
-from litellm.llms.azure.fine_tuning.handler import AzureOpenAIFineTuningAPI
+import hangarllm
+from hangarllm.llms.azure.fine_tuning.handler import AzureOpenAIFineTuningAPI
 
 
 def _expected_dir() -> Path:
@@ -65,7 +65,7 @@ async def test_azure_acreate_fine_tuning_job_request_and_output_match_expected_j
     with patch.object(
         AzureOpenAIFineTuningAPI, "get_openai_client", return_value=mock_client
     ):
-        response = await litellm.acreate_fine_tuning_job(
+        response = await hangarllm.acreate_fine_tuning_job(
             model="gpt-35-turbo-1106",
             training_file="file-5e4b20ecbd724182b9964f3cd2ab7212",
             custom_llm_provider="azure",
@@ -96,7 +96,7 @@ async def test_azure_alist_fine_tuning_jobs_request_matches_expected_json():
     with patch.object(
         AzureOpenAIFineTuningAPI, "get_openai_client", return_value=mock_client
     ):
-        response = await litellm.alist_fine_tuning_jobs(
+        response = await hangarllm.alist_fine_tuning_jobs(
             after=expected_request["after"],
             limit=expected_request["limit"],
             custom_llm_provider="azure",
@@ -121,7 +121,7 @@ async def test_azure_acancel_fine_tuning_job_request_and_output_match_expected_j
     with patch.object(
         AzureOpenAIFineTuningAPI, "get_openai_client", return_value=mock_client
     ):
-        response = await litellm.acancel_fine_tuning_job(
+        response = await hangarllm.acancel_fine_tuning_job(
             fine_tuning_job_id=expected_request["fine_tuning_job_id"],
             custom_llm_provider="azure",
             api_base="https://exampleopenaiendpoint-production.up.railway.app",

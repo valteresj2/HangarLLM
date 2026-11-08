@@ -34,15 +34,15 @@ from integration._support.database import read_rows
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue
 
-from litellm.proxy._types import LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.proxy._types import HangarLLM_UserTable
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
 REQUESTS_OF_KEY: Final = (
-    'SELECT COALESCE(SUM(api_requests), 0)::int AS requests FROM "LiteLLM_DailyUserSpend" '
+    'SELECT COALESCE(SUM(api_requests), 0)::int AS requests FROM "HangarLLM_DailyUserSpend" '
     "WHERE api_key=%s AND user_id=%s"
 )
 NAMED_SPEND_LOGS_OF_KEY: Final = (
-    'SELECT COUNT(*)::int AS named FROM "LiteLLM_SpendLogs" '
+    'SELECT COUNT(*)::int AS named FROM "HangarLLM_SpendLogs" '
     "WHERE api_key=%s AND NULLIF(metadata->>'user_api_key_alias', '') IS NOT NULL"
 )
 UNIFIED_ENDPOINTS: Final = ("/v1/chat/completions", "/v1/messages", "/v1/responses")
@@ -157,7 +157,7 @@ def _wait_for_named_spend_logs(api_key: str, requests: int) -> None:
 
 
 def _cli_session_token(user: str, team: str) -> str:
-    cli_user: Final = LiteLLM_UserTable(user_id=user, user_role="internal_user", teams=[team], models=[])
+    cli_user: Final = HangarLLM_UserTable(user_id=user, user_role="internal_user", teams=[team], models=[])
     return ExperimentalUIJWTToken.get_cli_jwt_auth_token(user_info=cli_user, team_id=team, team_alias="cli-team")
 
 
@@ -226,7 +226,7 @@ def test_key_purged_from_the_key_tables_is_reported_with_the_alias_its_spend_log
 def test_cli_session_spend_is_reported_with_the_user_and_team_of_the_session(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt"))
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt"))
     prompt: Final = _prompt()
     with wire_server(_provider) as wire, gateway.scenario() as scenario:
         model: Final = _priced_model(scenario, wire.url)

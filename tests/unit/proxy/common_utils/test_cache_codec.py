@@ -5,8 +5,8 @@ from unittest.mock import patch
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from litellm.models.managed_files import LiteLLM_ManagedVectorStoresTable
-from litellm.proxy.common_utils.cache_pydantic_utils import CacheCodec
+from hangarllm.models.managed_files import HangarLLM_ManagedVectorStoresTable
+from hangarllm.proxy.common_utils.cache_pydantic_utils import CacheCodec
 
 
 class _SampleModel(BaseModel):
@@ -122,7 +122,7 @@ class TestCacheCodecDeserialize:
         assert CacheCodec.deserialize("not-a-dict", _SampleModel) is None
 
     def test_invalid_dict_returns_none_and_logs_warning(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
             out = CacheCodec.deserialize({"count": 1}, _SampleModel)
         assert out is None
         assert any(
@@ -148,7 +148,7 @@ class TestCacheCodecRoundTripPreservesNoneFields:
         assert restored == original
 
     def test_managed_vector_store_row_round_trips_with_optional_fields_none(self):
-        vs = LiteLLM_ManagedVectorStoresTable(
+        vs = HangarLLM_ManagedVectorStoresTable(
             vector_store_id="vs_1",
             custom_llm_provider="openai",
             vector_store_name=None,
@@ -156,13 +156,13 @@ class TestCacheCodecRoundTripPreservesNoneFields:
             vector_store_metadata=None,
             created_at=None,
             updated_at=None,
-            litellm_credential_name=None,
-            litellm_params=None,
+            hangarllm_credential_name=None,
+            hangarllm_params=None,
             team_id=None,
             user_id=None,
         )
-        wire = CacheCodec.serialize(vs, model_type=LiteLLM_ManagedVectorStoresTable)
+        wire = CacheCodec.serialize(vs, model_type=HangarLLM_ManagedVectorStoresTable)
         assert wire.get("vector_store_name", "MISSING") is None
         assert wire.get("team_id", "MISSING") is None
-        restored = CacheCodec.deserialize(wire, model_type=LiteLLM_ManagedVectorStoresTable)
+        restored = CacheCodec.deserialize(wire, model_type=HangarLLM_ManagedVectorStoresTable)
         assert restored == vs

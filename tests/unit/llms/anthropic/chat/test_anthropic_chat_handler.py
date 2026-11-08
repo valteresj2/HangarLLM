@@ -13,22 +13,22 @@ import respx
 from openai.lib.streaming.chat import ChatCompletionStreamState
 from openai.types.chat import ChatCompletionChunk
 
-import litellm
-from litellm._uuid import uuid
-from litellm.constants import NON_LLM_CONNECTION_TIMEOUT, RESPONSE_FORMAT_TOOL_NAME
-from litellm.litellm_core_utils.prompt_templates import image_handling
-from litellm.litellm_core_utils.prompt_templates.factory import anthropic_messages_pt
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import message_field, parts_of
-from litellm.llms.anthropic.chat.handler import ModelResponseIterator, _envelope_verdict, make_call, make_sync_call
-from litellm.llms.anthropic.common_utils import anthropic_server_tool_call_params
-from litellm.llms.base_llm.base_utils import response_format_schema, unwrap_response_format_envelope
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.openai import (
+import hangarllm
+from hangarllm._uuid import uuid
+from hangarllm.constants import NON_LLM_CONNECTION_TIMEOUT, RESPONSE_FORMAT_TOOL_NAME
+from hangarllm.hangarllm_core_utils.prompt_templates import image_handling
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import anthropic_messages_pt
+from hangarllm.hangarllm_core_utils.prompt_templates.mid_conversation_system import message_field, parts_of
+from hangarllm.llms.anthropic.chat.handler import ModelResponseIterator, _envelope_verdict, make_call, make_sync_call
+from hangarllm.llms.anthropic.common_utils import anthropic_server_tool_call_params
+from hangarllm.llms.base_llm.base_utils import response_format_schema, unwrap_response_format_envelope
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.llms.openai import (
     ChatCompletionToolCallChunk,
     ChatCompletionToolCallFunctionChunk,
 )
-from litellm.types.responses.main import OutputCodeInterpreterCall
-from litellm.types.utils import ChatCompletionDeltaToolCall, ChatCompletionMessageToolCall, Choices, ModelResponseStream
+from hangarllm.types.responses.main import OutputCodeInterpreterCall
+from hangarllm.types.utils import ChatCompletionDeltaToolCall, ChatCompletionMessageToolCall, Choices, ModelResponseStream
 from tests.unit.llms.anthropic.anthropic_docs_refusal import ANTHROPIC_DOCS_REFUSAL_MESSAGE
 
 
@@ -54,7 +54,7 @@ def _streamed_text(chunks: list[object]) -> str:
 
 @pytest.mark.asyncio
 async def test_make_call_passes_logging_obj_to_client_post():
-    """make_call must pass logging_obj to client.post so track_llm_api_timing can set llm_api_duration_ms for litellm_overhead_time_ms."""
+    """make_call must pass logging_obj to client.post so track_llm_api_timing can set llm_api_duration_ms for hangarllm_overhead_time_ms."""
     mock_client = AsyncMock()
     mock_client.post.return_value = httpx.Response(200, stream=httpx.ByteStream(_text_delta_stream("Hi there")))
 
@@ -131,7 +131,7 @@ def test_anthropic_completion_does_not_send_deployment_default_limits():
 
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
     try:
-        litellm.completion(
+        hangarllm.completion(
             model="anthropic/claude-3-5-haiku-20241022",
             messages=[{"role": "user", "content": "Hello"}],
             api_key="test-key",
@@ -150,7 +150,7 @@ def test_anthropic_completion_does_not_send_deployment_default_limits():
 def test_anthropic_tool_history_without_tools_injects_a_dummy_tool(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     route: Final = respx_mock.post("https://api.anthropic.com/v1/messages").mock(
         return_value=httpx.Response(
             200,
@@ -167,7 +167,7 @@ def test_anthropic_tool_history_without_tools_injects_a_dummy_tool(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="anthropic/claude-haiku-4-5-20251001",
         messages=[
             {"role": "user", "content": "What's the weather like in San Francisco?"},
@@ -238,8 +238,8 @@ def test_anthropic_tool_call_error_is_mapped_from_the_provider_response():
         )
     )
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.completion(
             model="anthropic/claude-3-5-haiku-20241022",
             messages=[{"role": "user", "content": "call the tool"}],
             tools=[
@@ -285,7 +285,7 @@ async def test_anthropic_async_completion_inlines_http_images_off_the_event_loop
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="anthropic/claude-sonnet-4-6",
         messages=[
             {
@@ -343,7 +343,7 @@ async def test_anthropic_async_completion_sends_a_pdf_path_link_it_cannot_downlo
     client: Final = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="anthropic/claude-haiku-5-5",
         messages=[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": pdf_link}}]}],
         client=client,
@@ -385,7 +385,7 @@ async def test_anthropic_async_completion_gives_up_on_a_pdf_link_within_the_non_
     client: Final = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="anthropic/claude-haiku-5-5",
         messages=[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": pdf_link}}]}],
         client=client,
@@ -437,7 +437,7 @@ async def test_anthropic_async_completion_sends_a_link_that_serves_a_pdf_as_a_ur
     client: Final = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(_anthropic_reply(captured)))
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="anthropic/claude-haiku-5-5",
         messages=[
             {
@@ -474,7 +474,7 @@ def test_anthropic_sync_completion_sends_a_link_that_serves_a_pdf_as_a_url_docum
     monkeypatch.setattr(image_handling, "safe_get", serve)
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_anthropic_reply(captured))))
 
-    litellm.completion(
+    hangarllm.completion(
         model="anthropic/claude-haiku-5-5",
         messages=[
             {
@@ -607,7 +607,7 @@ def test_streamed_signed_thinking_round_trips_to_the_next_turn_once():
     )
     user_message: Final = {"role": "user", "content": "What's the weather in Paris?"}
 
-    streamed: Final = litellm.stream_chunk_builder(
+    streamed: Final = hangarllm.stream_chunk_builder(
         chunks=[iterator.chunk_parser(event) for event in events], messages=[user_message]
     )
     assistant: Final = streamed.choices[0].message
@@ -1051,7 +1051,7 @@ def test_streamed_completion_sets_assistant_role_on_exactly_one_chunk(respx_mock
         return_value=httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream_body)
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="anthropic/claude-sonnet-4-5-20250929",
         api_key="mock_api_key",
         messages=[{"role": "user", "content": "Call the tool and say what you are doing first."}],
@@ -1115,8 +1115,8 @@ def test_message_delta_without_usage_returns_chunk_with_no_usage():
 
 async def _collect_anthropic_stream(sync_mode: bool, **kwargs: object) -> tuple[ModelResponseStream, ...]:
     if sync_mode:
-        return tuple(litellm.completion(**kwargs))
-    return tuple([chunk async for chunk in await litellm.acompletion(**kwargs)])
+        return tuple(hangarllm.completion(**kwargs))
+    return tuple([chunk async for chunk in await hangarllm.acompletion(**kwargs)])
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
@@ -1124,7 +1124,7 @@ async def _collect_anthropic_stream(sync_mode: bool, **kwargs: object) -> tuple[
 async def test_anthropic_stream_options_return_usage_after_the_finish_chunk(
     monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     events: Final = (
         {
             "type": "message_start",
@@ -1235,7 +1235,7 @@ def _stream_one_anthropic_tool_use(content_block: dict[str, object]) -> tuple[Ch
             return_value=httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
         )
         chunks: Final = tuple(
-            litellm.completion(
+            hangarllm.completion(
                 model="anthropic/claude-sonnet-4-6",
                 api_key="test-key",
                 messages=[{"role": "user", "content": "Hit the snooze button."}],
@@ -1496,7 +1496,7 @@ def test_anthropic_completion_streaming_usage_matches_non_streaming_with_thinkin
             "max_tokens": 128,
         }
 
-        non_stream_response = litellm.completion(**request_kwargs, stream=False)
+        non_stream_response = hangarllm.completion(**request_kwargs, stream=False)
         non_stream_details = non_stream_response.usage.completion_tokens_details
         assert non_stream_details is not None
         assert non_stream_details.reasoning_tokens > 0
@@ -1504,7 +1504,7 @@ def test_anthropic_completion_streaming_usage_matches_non_streaming_with_thinkin
         reasoning_chunks = []
         content_chunks = []
         stream_usage = None
-        for chunk in litellm.completion(
+        for chunk in hangarllm.completion(
             **request_kwargs,
             stream=True,
             stream_options={"include_usage": True},
@@ -1717,7 +1717,7 @@ def test_partial_json_chunk_accumulation():
     """
     Test that partial JSON chunks are accumulated correctly.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/17473
+    This tests the fix for upstream issue 17473
     where network fragmentation can cause SSE data to arrive in partial chunks.
     """
     iterator = ModelResponseIterator(streaming_response=MagicMock(), sync_stream=True, json_mode=False)
@@ -1899,7 +1899,7 @@ def test_web_search_tool_result_no_extra_tool_calls():
     """
     Test that web_search_tool_result blocks don't emit tool call chunks.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/17254
+    This tests the fix for upstream issue 17254
     where streaming with Anthropic web search was adding trailing {} to tool call arguments.
 
     The issue was that web_search_tool_result blocks have input_json_delta events with {}
@@ -2184,7 +2184,7 @@ def test_web_search_tool_result_captured_in_provider_specific_fields():
     """
     Test that web_search_tool_result content is captured in provider_specific_fields.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/17737
+    This tests the fix for upstream issue 17737
     where streaming with Anthropic web search wasn't capturing web_search_tool_result
     blocks, causing multi-turn conversations to fail.
 
@@ -2277,7 +2277,7 @@ def test_web_fetch_tool_result_captured_in_provider_specific_fields():
     """
     Test that web_fetch_tool_result content is captured in provider_specific_fields.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/18137
+    This tests the fix for upstream issue 18137
     where streaming with Anthropic web fetch wasn't capturing web_fetch_tool_result
     blocks, causing multi-turn conversations to fail.
 
@@ -2370,7 +2370,7 @@ def test_web_fetch_tool_result_no_extra_tool_calls():
     """
     Test that web_fetch_tool_result blocks don't emit tool call chunks.
 
-    This tests the fix for https://github.com/BerriAI/litellm/issues/18137
+    This tests the fix for upstream issue 18137
     where streaming with Anthropic web fetch was causing issues with tool call arguments.
 
     The issue was that web_fetch_tool_result blocks have input_json_delta events with {}
@@ -3022,7 +3022,7 @@ def test_non_bash_tool_result_skipped():
 class TestAnthropicChatCompletionPreCallLogging:
     @staticmethod
     def _completion_kwargs(**overrides):
-        from litellm.types.utils import ModelResponse
+        from hangarllm.types.utils import ModelResponse
 
         kwargs = {
             "model": "claude-sonnet-4-5",
@@ -3037,7 +3037,7 @@ class TestAnthropicChatCompletionPreCallLogging:
             "logging_obj": MagicMock(),
             "optional_params": {"max_tokens": 16},
             "timeout": 30.0,
-            "litellm_params": {},
+            "hangarllm_params": {},
             "acompletion": False,
             "headers": {},
             "client": None,
@@ -3046,8 +3046,8 @@ class TestAnthropicChatCompletionPreCallLogging:
         return kwargs
 
     def test_pre_call_logging_fires_once_on_the_python_path(self):
-        from litellm.llms.anthropic.chat.handler import AnthropicChatCompletion
-        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+        from hangarllm.llms.anthropic.chat.handler import AnthropicChatCompletion
+        from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
 
         calls = {"pre_call": []}
         logging_obj = MagicMock()
@@ -3117,7 +3117,7 @@ def test_message_start_without_model_leaves_chunk_model_unset():
 
 
 def test_served_model_reaches_assembled_stream_through_custom_stream_wrapper():
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
 
     served_model: Final = "claude-served-1"
     sse_lines: Final = [f"data: {json.dumps(chunk)}\n".encode() for chunk in _served_model_stream_chunks(served_model)]
@@ -3134,7 +3134,7 @@ def test_served_model_reaches_assembled_stream_through_custom_stream_wrapper():
     assert len(chunks) > 1
     for chunk in chunks[1:]:
         assert chunk._hidden_params["provider_response_model"] == served_model
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
     assert assembled._hidden_params["provider_response_model"] == served_model
 
 
@@ -4036,7 +4036,7 @@ def test_streamed_json_mode_answer_cut_at_max_tokens_ends_with_length():
 def test_anthropic_streaming_function_call_arguments_are_assembled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     events: Final = (
         {
             "type": "message_start",
@@ -4086,7 +4086,7 @@ def test_anthropic_streaming_function_call_arguments_are_assembled(
         )
     )
     messages: Final = [{"role": "user", "content": "Check the weather in Boston"}]
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="anthropic/claude-haiku-4-5-20251001",
         messages=messages,
         tools=[
@@ -4118,7 +4118,7 @@ def test_anthropic_streaming_function_call_arguments_are_assembled(
     )
     arguments: Final = "".join(tool_call.function.arguments or "" for tool_call in tool_call_deltas)
     assert json.loads(arguments) == {"location": "Boston", "unit": "fahrenheit"}
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(chunks), messages=messages)
+    assembled: Final = hangarllm.stream_chunk_builder(chunks=list(chunks), messages=messages)
     assert assembled.choices[0].message.tool_calls[0].function.name == "get_current_weather"
     assert json.loads(assembled.choices[0].message.tool_calls[0].function.arguments) == {
         "location": "Boston",
@@ -4142,8 +4142,8 @@ def test_anthropic_streaming_invalid_key_maps_to_authentication_error() -> None:
         )
     )
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        hangarllm.completion(
             model="anthropic/claude-haiku-4-5-20251001",
             messages=[{"role": "user", "content": "Say hello"}],
             stream=True,
@@ -4178,10 +4178,10 @@ def _message_stream_events(stop_reason: str, stop_details: dict | None) -> tuple
     )
 
 
-def _assemble_stream(events: tuple[dict, ...]) -> litellm.ModelResponse:
+def _assemble_stream(events: tuple[dict, ...]) -> hangarllm.ModelResponse:
     iterator: Final = ModelResponseIterator(streaming_response=MagicMock(), sync_stream=True, json_mode=False)
     chunks: Final = [iterator.chunk_parser(event) for event in events]
-    return litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    return hangarllm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
 
 def test_streamed_refusal_stop_details_reach_the_assembled_message():
@@ -4306,7 +4306,7 @@ def _anthropic_chat_request_for_bound_thinking(
     thinking: Final = {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "error"}}
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
     try:
-        litellm.completion(
+        hangarllm.completion(
             model="anthropic/claude-opus-4-8",
             messages=[{"role": "user", "content": "Hello"}],
             api_key="test-key",
@@ -4330,7 +4330,7 @@ def _anthropic_chat_body_for_bound_thinking(
 def test_anthropic_chat_keeps_block_binding_when_the_final_header_carries_the_binding_beta(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
     body: Final = _anthropic_chat_body_for_bound_thinking(
         {"anthropic-beta": "thinking-binding-controls-2026-08-01"}, drop_params=True
     )
@@ -4341,8 +4341,8 @@ def test_anthropic_chat_keeps_block_binding_when_the_final_header_carries_the_bi
 def test_anthropic_chat_adds_the_binding_beta_so_block_binding_is_kept(
     drop_params: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     request: Final = _anthropic_chat_request_for_bound_thinking(None, drop_params=drop_params)
     assert json.loads(request.content)["thinking"] == {
         "type": "adaptive",
@@ -4352,8 +4352,8 @@ def test_anthropic_chat_adds_the_binding_beta_so_block_binding_is_kept(
 
 
 def test_anthropic_chat_sends_block_binding_as_is_without_drop_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     body: Final = _anthropic_chat_body_for_bound_thinking(None)
     assert body["thinking"] == {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "error"}}
 
@@ -4410,14 +4410,14 @@ _BETAS_FOUNDRY_REJECTS_AND_ACCEPTS: Final = "advisor-tool-2026-03-01,thinking-bi
 def test_anthropic_chat_completion_picks_the_beta_row_by_api_base(
     monkeypatch: pytest.MonkeyPatch, api_base: str, forwarded_betas: frozenset[str]
 ) -> None:
-    from litellm import anthropic_beta_headers_manager
+    from hangarllm import anthropic_beta_headers_manager
 
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
     upstream: Final = _AnthropicChatUpstream()
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(upstream.respond)))
     try:
-        litellm.completion(
+        hangarllm.completion(
             model="anthropic/claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Say ok"}],
             api_base=api_base,

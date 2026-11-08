@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.responses.count_tokens.handler import OpenAICountTokensHandler
+from hangarllm.llms.openai.common_utils import OpenAIError
+from hangarllm.llms.openai.responses.count_tokens.handler import OpenAICountTokensHandler
 
 
 @pytest.mark.asyncio

@@ -7,13 +7,13 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from litellm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
-from litellm.proxy.client.cli.commands.autoroute import commands as commands_module
-from litellm.proxy.client.cli.commands.autoroute import process as process_module
-from litellm.proxy.client.cli.commands.autoroute.commands import autoroute_group, start, stop
-from litellm.proxy.client.cli.commands.autoroute.process import PidRecord, ProcessLaunchError, write_pid_record
-from litellm.proxy.client.cli.commands.up import BackupRecord as ClaudeBackupRecord
-from litellm.proxy.client.cli.commands.up import write_backup
+from hangarllm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
+from hangarllm.proxy.client.cli.commands.autoroute import commands as commands_module
+from hangarllm.proxy.client.cli.commands.autoroute import process as process_module
+from hangarllm.proxy.client.cli.commands.autoroute.commands import autoroute_group, start, stop
+from hangarllm.proxy.client.cli.commands.autoroute.process import PidRecord, ProcessLaunchError, write_pid_record
+from hangarllm.proxy.client.cli.commands.up import BackupRecord as ClaudeBackupRecord
+from hangarllm.proxy.client.cli.commands.up import write_backup
 
 
 class FakeProcess:
@@ -74,7 +74,7 @@ class TestStartCommand:
         assert "lite autoroute configure" in result.output
 
     def test_refuses_with_actionable_error_when_proxy_runtime_missing(self, monkeypatch, tmp_path):
-        """`start` launches a real litellm proxy, which the thin `litellm[cli]` install cannot run.
+        """`start` launches a real hangarllm proxy, which the thin `hangarllm[cli]` install cannot run.
         It must fail fast with an actionable message pointing at the proxy install, before it ever
         tries to launch the doomed subprocess (which would otherwise die with a bare ImportError)."""
         config_path, _log_path, _settings_path, _backup_path, _pid_record_path = _patch_paths(monkeypatch, tmp_path)
@@ -90,7 +90,7 @@ class TestStartCommand:
 
         assert result.exit_code != 0
         assert "fastapi, websockets" in result.output
-        assert "litellm[proxy]" in result.output
+        assert "hangarllm[proxy]" in result.output
 
     def test_refuses_when_pid_record_exists_and_process_still_running(self, monkeypatch, tmp_path):
         config_path, _log_path, _settings_path, _backup_path, pid_record_path = _patch_paths(monkeypatch, tmp_path)

@@ -14,9 +14,9 @@ pytestmark: Final = [pytest.mark.e2e, pytest.mark.migration_startup]
 
 def adopt_legacy(containers: Containers, database: Database) -> None:
     count: Final = database.query("SELECT count(*) FROM _prisma_migrations")[0][0]
-    existing_keys: Final = database.query('SELECT token FROM "LiteLLM_VerificationToken" ORDER BY token')
+    existing_keys: Final = database.query('SELECT token FROM "HangarLLM_VerificationToken" ORDER BY token')
     database.execute(
-        'INSERT INTO "LiteLLM_ShadowEvalJob" (id, group_id, target_id, router_name, judge_model, '
+        'INSERT INTO "HangarLLM_ShadowEvalJob" (id, group_id, target_id, router_name, judge_model, '
         "shadow_percentage, max_turns, ends_at, stopped_at) VALUES ('migration-legacy', "
         "'migration-legacy', 'target', 'router', 'judge', 1, 1, now(), now())"
     )
@@ -36,8 +36,8 @@ def adopt_legacy(containers: Containers, database: Database) -> None:
         'SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NULL OR rolled_back_at IS '
         'NOT NULL OR applied_steps_count <> 0'
     ) == ((0,),)
-    assert set(existing_keys).issubset(database.query('SELECT token FROM "LiteLLM_VerificationToken" ORDER BY token'))
-    assert database.query("SELECT stopped_by FROM \"LiteLLM_ShadowEvalJob\" WHERE id = 'migration-legacy'") == (
+    assert set(existing_keys).issubset(database.query('SELECT token FROM "HangarLLM_VerificationToken" ORDER BY token'))
+    assert database.query("SELECT stopped_by FROM \"HangarLLM_ShadowEvalJob\" WHERE id = 'migration-legacy'") == (
         (None,),
     )
 
@@ -65,7 +65,7 @@ class TestLegacyMigrations:
         else:
             database.execute("DROP TABLE _prisma_migrations")
         if fault == "schema_drift":
-            database.execute('ALTER TABLE "LiteLLM_VerificationToken" DROP COLUMN key_alias CASCADE')
+            database.execute('ALTER TABLE "HangarLLM_VerificationToken" DROP COLUMN key_alias CASCADE')
         with containers.start(database, (COMPLETE,) if fault == "custom_migrations" else ()) as replica:
             failed((replica,), "Cannot automatically baseline" if fault != "empty_ledger" else "migration")
         assert not database.exists("migration_effect")
@@ -100,4 +100,4 @@ class TestLegacyMigrations:
                     adopt_legacy(containers, database)
             public: Final = replace(database, schema="public")
             assert not public.exists("_prisma_migrations")
-            assert not public.exists('"LiteLLM_VerificationToken"')
+            assert not public.exists('"HangarLLM_VerificationToken"')

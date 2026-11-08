@@ -180,7 +180,7 @@ def _config(directory: Path, s3_url: str, line_item_callbacks: JsonValue, *, oau
             *(
                 {
                     "model_name": TWO_ACCOUNT_MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-scripted-provider",
                         "api_base": f"{CONTROL_URL}/{account}",
@@ -195,11 +195,11 @@ def _config(directory: Path, s3_url: str, line_item_callbacks: JsonValue, *, oau
         "general_settings": {
             **shipped["general_settings"],
             "enable_jwt_auth": True,
-            "litellm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True},
+            "hangarllm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True},
             "enable_oauth2_auth": oauth2,
         },
-        "litellm_settings": {
-            **shipped["litellm_settings"],
+        "hangarllm_settings": {
+            **shipped["hangarllm_settings"],
             "callbacks": ["s3_v2"],
             "batch_line_item_callbacks": line_item_callbacks,
             "s3_callback_params": {
@@ -442,7 +442,7 @@ def _add_model(rig: Rig, handle: ScenarioHandle) -> str:
             "/model/new",
             {
                 "model_name": f"line-items-{uuid.uuid4().hex[:12]}",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-scripted-provider",
                     "api_base": handle.api_base(),
@@ -511,7 +511,7 @@ def _written(sink: ObjectSink, name: str) -> tuple[dict[str, JsonValue], ...]:
 def _batch_spend(rig: Rig, key: str) -> float:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s',
+            'SELECT spend FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s',
             (sha256(key.encode()).hexdigest(), "aretrieve_batch"),
             database_url=rig.database_url,
         ),
@@ -658,7 +658,7 @@ def test_a_batch_created_with_a_jwt_and_no_key_gets_its_lines_with_request_and_r
         delete_scenario(batch.handle)
 
     assert read_rows(
-        'SELECT api_key, created_by FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+        'SELECT api_key, created_by FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
         (batch.batch_id,),
         database_url=rig.database_url,
     ) == [{"api_key": None, "created_by": subject}]
@@ -701,7 +701,7 @@ def test_a_batch_created_with_an_oauth2_token_follows_its_teams_logging_setting_
         delete_scenario(quieted.handle)
 
     assert read_rows(
-        'SELECT api_key, created_by, team_id FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+        'SELECT api_key, created_by, team_id FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
         (opened.batch_id,),
         database_url=rig.database_url,
     ) == [{"api_key": _oauth2_token(open_team, user_id), "created_by": user_id, "team_id": open_team}]
@@ -778,7 +778,7 @@ def test_a_failed_batch_on_the_second_deployment_of_its_model_group_keeps_each_l
         delete_scenario(second)
 
     assert read_rows(
-        'SELECT model_object_id FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+        'SELECT model_object_id FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
         (batch.batch_id,),
         database_url=rig.database_url,
     ) == [{"model_object_id": f"batch-{SECOND_ACCOUNT}"}]
@@ -803,7 +803,7 @@ def test_a_failing_bucket_still_bills_the_batch_and_the_other_sink_keeps_its_lin
         spend: Final = _batch_spend(rig, batch.key)
         processed: Final = eventually(
             lambda: read_rows(
-                'SELECT batch_processed FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+                'SELECT batch_processed FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
                 (batch.batch_id,),
                 database_url=rig.database_url,
             ),
@@ -887,7 +887,7 @@ def test_a_null_list_bills_the_batch_and_writes_no_line_items(rig_with_a_null_li
         spend: Final = _batch_spend(rig, batch.key)
         eventually(
             lambda: read_rows(
-                'SELECT batch_processed FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+                'SELECT batch_processed FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
                 (batch.batch_id,),
                 database_url=rig.database_url,
             ),

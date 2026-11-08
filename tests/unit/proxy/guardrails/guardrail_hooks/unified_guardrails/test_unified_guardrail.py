@@ -13,45 +13,45 @@ from typing import TYPE_CHECKING, Final, Literal
 import anyio
 import pytest
 
-import litellm
-from litellm.caching import DualCache
-from litellm.integrations.custom_guardrail import (
+import hangarllm
+from hangarllm.caching import DualCache
+from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
-from litellm.llms import discover_guardrail_translation_mappings, load_guardrail_translation_mappings
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from hangarllm.hangarllm_core_utils.api_route_to_call_types import get_call_types_for_route
+from hangarllm.llms import discover_guardrail_translation_mappings, load_guardrail_translation_mappings
+from hangarllm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from hangarllm.llms.base_llm.guardrail_translation.utils import (
     effective_skip_system_message_for_guardrail,
     effective_skip_tool_message_for_guardrail,
     openai_messages_without_system,
     openai_messages_without_tool,
 )
-from litellm.llms.base_llm.ocr.transformation import OCRPage, OCRResponse
-from litellm.llms.mistral.ocr.guardrail_translation.handler import OCRHandler
-from litellm.llms.openai.chat.guardrail_translation.handler import (
+from hangarllm.llms.base_llm.ocr.transformation import OCRPage, OCRResponse
+from hangarllm.llms.mistral.ocr.guardrail_translation.handler import OCRHandler
+from hangarllm.llms.openai.chat.guardrail_translation.handler import (
     OpenAIChatCompletionsHandler,
 )
-from litellm.llms.openai.responses.guardrail_translation.handler import (
+from hangarllm.llms.openai.responses.guardrail_translation.handler import (
     OpenAIResponsesHandler,
 )
-from litellm.llms.pass_through.guardrail_translation.handler import PassThroughEndpointHandler
-from litellm.proxy._types import LiteLLMRoutes, UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail import (
+from hangarllm.llms.pass_through.guardrail_translation.handler import PassThroughEndpointHandler
+from hangarllm.proxy._types import HangarLLMRoutes, UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail import (
     unified_guardrail as unified_module,
 )
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
     UnifiedLLMGuardrails,
 )
-from litellm.proxy.mcp_server.guardrail_translation.handler import (
+from hangarllm.proxy.mcp_server.guardrail_translation.handler import (
     MCPGuardrailTranslationHandler,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.responses.main import build_web_search_call
-from litellm.types.utils import (
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.responses.main import build_web_search_call
+from hangarllm.types.utils import (
     CallTypes,
     CallTypesLiteral,
     Delta,
@@ -63,7 +63,7 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 
 
 class RecordingGuardrail(CustomGuardrail):
@@ -89,7 +89,7 @@ class RewritingGuardrail(RecordingGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,  # mutable-ok: CustomGuardrail.apply_guardrail contract
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "HangarLLMLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         recorded: Final = await super().apply_guardrail(inputs, request_data, input_type, logging_obj=logging_obj)
         return GenericGuardrailAPIInputs(texts=[f"{text} [GUARDRAILED]" for text in recorded["texts"]])
@@ -98,14 +98,14 @@ class RewritingGuardrail(RecordingGuardrail):
 class _NoopTranslation(BaseTranslation):
     """Test translation handler that simply echoes input/output."""
 
-    async def process_input_messages(self, data, guardrail_to_apply, litellm_logging_obj=None):  # type: ignore[override]
+    async def process_input_messages(self, data, guardrail_to_apply, hangarllm_logging_obj=None):  # type: ignore[override]
         return data
 
     async def process_output_response(  # type: ignore[override]
         self,
         response,
         guardrail_to_apply,
-        litellm_logging_obj=None,
+        hangarllm_logging_obj=None,
         user_api_key_dict=None,
     ):
         return response
@@ -149,7 +149,7 @@ class TestUnifiedLLMGuardrails:
             assert msgs[0]["content"] == "sys"
 
         def test_effective_skip_respects_per_guardrail_over_global(self, monkeypatch):
-            monkeypatch.setattr(litellm, "skip_system_message_in_guardrail", True, raising=False)
+            monkeypatch.setattr(hangarllm, "skip_system_message_in_guardrail", True, raising=False)
 
             class G:
                 skip_system_message_in_guardrail = False
@@ -163,7 +163,7 @@ class TestUnifiedLLMGuardrails:
 
         @pytest.mark.asyncio
         async def test_openai_handler_skips_system_in_guardrail_inputs(self, monkeypatch):
-            monkeypatch.setattr(litellm, "skip_system_message_in_guardrail", True, raising=False)
+            monkeypatch.setattr(hangarllm, "skip_system_message_in_guardrail", True, raising=False)
 
             captured = {}
 
@@ -186,7 +186,7 @@ class TestUnifiedLLMGuardrails:
             await handler.process_input_messages(
                 data=data,
                 guardrail_to_apply=MockGuardrail(),
-                litellm_logging_obj=None,
+                hangarllm_logging_obj=None,
             )
 
             assert captured["inputs"]["texts"] == ["hello"]
@@ -196,7 +196,7 @@ class TestUnifiedLLMGuardrails:
 
         @pytest.mark.asyncio
         async def test_openai_handler_per_guardrail_skip_false_overrides_global(self, monkeypatch):
-            monkeypatch.setattr(litellm, "skip_system_message_in_guardrail", True, raising=False)
+            monkeypatch.setattr(hangarllm, "skip_system_message_in_guardrail", True, raising=False)
 
             captured = {}
 
@@ -217,7 +217,7 @@ class TestUnifiedLLMGuardrails:
             await OpenAIChatCompletionsHandler().process_input_messages(
                 data=data,
                 guardrail_to_apply=MockGuardrail(),
-                litellm_logging_obj=None,
+                hangarllm_logging_obj=None,
             )
 
             assert "sys" in captured["inputs"]["texts"]
@@ -247,7 +247,7 @@ class TestUnifiedLLMGuardrails:
             assert msgs[2]["content"] == "tool result"
 
         def test_effective_skip_tool_respects_per_guardrail_over_global(self, monkeypatch):
-            monkeypatch.setattr(litellm, "skip_tool_message_in_guardrail", True, raising=False)
+            monkeypatch.setattr(hangarllm, "skip_tool_message_in_guardrail", True, raising=False)
 
             class G:
                 skip_tool_message_in_guardrail = False
@@ -261,7 +261,7 @@ class TestUnifiedLLMGuardrails:
 
         @pytest.mark.asyncio
         async def test_openai_handler_skips_tool_in_guardrail_inputs(self, monkeypatch):
-            monkeypatch.setattr(litellm, "skip_tool_message_in_guardrail", True, raising=False)
+            monkeypatch.setattr(hangarllm, "skip_tool_message_in_guardrail", True, raising=False)
 
             captured = {}
 
@@ -299,7 +299,7 @@ class TestUnifiedLLMGuardrails:
             await handler.process_input_messages(
                 data=data,
                 guardrail_to_apply=MockGuardrail(),
-                litellm_logging_obj=None,
+                hangarllm_logging_obj=None,
             )
 
             assert "secret tool result" not in captured["inputs"]["texts"]
@@ -309,7 +309,7 @@ class TestUnifiedLLMGuardrails:
 
         @pytest.mark.asyncio
         async def test_openai_handler_per_guardrail_skip_tool_false_overrides_global(self, monkeypatch):
-            monkeypatch.setattr(litellm, "skip_tool_message_in_guardrail", True, raising=False)
+            monkeypatch.setattr(hangarllm, "skip_tool_message_in_guardrail", True, raising=False)
 
             captured = {}
 
@@ -330,7 +330,7 @@ class TestUnifiedLLMGuardrails:
             await OpenAIChatCompletionsHandler().process_input_messages(
                 data=data,
                 guardrail_to_apply=MockGuardrail(),
-                litellm_logging_obj=None,
+                hangarllm_logging_obj=None,
             )
 
             assert "tr" in captured["inputs"]["texts"]
@@ -507,11 +507,11 @@ class TestUnifiedLLMGuardrails:
             class _ContentClearingTranslation(BaseTranslation):
                 """Simulates the real OpenAI handler behavior that triggers the bug."""
 
-                async def process_input_messages(self, data, guardrail_to_apply, litellm_logging_obj=None):  # type: ignore[override]
+                async def process_input_messages(self, data, guardrail_to_apply, hangarllm_logging_obj=None):  # type: ignore[override]
                     return data
 
                 async def process_output_response(
-                    self, response, guardrail_to_apply, litellm_logging_obj=None, user_api_key_dict=None
+                    self, response, guardrail_to_apply, hangarllm_logging_obj=None, user_api_key_dict=None
                 ):  # type: ignore[override]
                     return response
 
@@ -519,7 +519,7 @@ class TestUnifiedLLMGuardrails:
                     self,
                     responses_so_far,
                     guardrail_to_apply,
-                    litellm_logging_obj=None,
+                    hangarllm_logging_obj=None,
                     user_api_key_dict=None,
                     request_data=None,
                 ):
@@ -707,14 +707,14 @@ class TestUnifiedLLMGuardrails:
             assert "has no guardrail translation handler" in caplog.text
 
         def test_openai_prefixed_aliases_are_authorized_like_canonical_routes(self) -> None:
-            openai_routes = LiteLLMRoutes.openai_routes.value
+            openai_routes = HangarLLMRoutes.openai_routes.value
             for route in (
                 "/openai/v1/responses",
                 "/openai/v1/responses/{response_id}",
                 "/openai/v1/responses/{response_id}/input_items",
             ):
                 assert route in openai_routes, (
-                    f"{route!r} missing from LiteLLMRoutes.openai_routes; team and "
+                    f"{route!r} missing from HangarLLMRoutes.openai_routes; team and "
                     f"key-scoped users get 403 on this alias"
                 )
 
@@ -734,7 +734,7 @@ class TestUnifiedLLMGuardrails:
             result: Final = await UnifiedLLMGuardrails().async_post_call_success_hook(
                 data={
                     "guardrail_to_apply": guardrail,
-                    "litellm_logging_obj": SimpleNamespace(call_type=call_type.value),
+                    "hangarllm_logging_obj": SimpleNamespace(call_type=call_type.value),
                 },
                 user_api_key_dict=UserAPIKeyAuth(),
                 response=response,
@@ -752,7 +752,7 @@ class TestUnifiedLLMGuardrails:
         async def test_ocr_logging_fallback_preserves_route_and_response_precedence(
             self, request_route: str | None, monkeypatch: pytest.MonkeyPatch
         ) -> None:
-            from litellm.types.utils import ModelResponse
+            from hangarllm.types.utils import ModelResponse
 
             _patch_translation_mappings(
                 monkeypatch,
@@ -769,7 +769,7 @@ class TestUnifiedLLMGuardrails:
                 request_data={
                     "guardrails": [guardrail.guardrail_name],
                     "user_api_key_request_route": request_route,
-                    "litellm_logging_obj": SimpleNamespace(call_type=CallTypes.aocr.value),
+                    "hangarllm_logging_obj": SimpleNamespace(call_type=CallTypes.aocr.value),
                 },
                 response=response,
                 call_type=CallTypes.aocr,
@@ -1475,7 +1475,7 @@ class TestStreamingTransform:
     async def test_tool_call_blocking_guardrail_is_enforced(self):
         """A guardrail that blocks on tool calls must terminate the incremental_diff
         stream: tool calls go through the block decision, not bypass it."""
-        from litellm.exceptions import GuardrailRaisedException
+        from hangarllm.exceptions import GuardrailRaisedException
 
         class _ToolCallBlocker(_StreamingTextGuardrail):
             async def apply_guardrail(self, inputs, request_data, input_type, **kwargs):
@@ -1871,7 +1871,7 @@ class TestStreamingTransform:
 
 
 def _applied_guardrails(data: dict) -> list:
-    for key in ("metadata", "litellm_metadata"):
+    for key in ("metadata", "hangarllm_metadata"):
         meta = data.get(key)
         if isinstance(meta, dict) and isinstance(meta.get("applied_guardrails"), list):
             return meta["applied_guardrails"]
@@ -1882,12 +1882,12 @@ class _TextsOnlyTranslation(BaseTranslation):
     """Mimics a passthrough handler: hands the guardrail only `texts`, never
     structured_messages, so a structured_messages-based guardrail no-ops."""
 
-    async def process_input_messages(self, data, guardrail_to_apply, litellm_logging_obj=None):  # type: ignore[override]
+    async def process_input_messages(self, data, guardrail_to_apply, hangarllm_logging_obj=None):  # type: ignore[override]
         await guardrail_to_apply.apply_guardrail(
             inputs={"texts": ["payload"]},
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=hangarllm_logging_obj,
         )
         return data
 
@@ -1895,7 +1895,7 @@ class _TextsOnlyTranslation(BaseTranslation):
         self,
         response,
         guardrail_to_apply,
-        litellm_logging_obj=None,
+        hangarllm_logging_obj=None,
         user_api_key_dict=None,
         request_data=None,
     ):
@@ -1915,7 +1915,7 @@ class _SelfLoggingGuardrail(CustomGuardrail):
     @log_guardrail_information
     async def apply_guardrail(self, inputs, request_data, input_type, **kwargs):
         if self._self_add:
-            from litellm.proxy.common_utils.callback_utils import (
+            from hangarllm.proxy.common_utils.callback_utils import (
                 add_guardrail_to_applied_guardrails_header,
             )
 
@@ -2175,7 +2175,7 @@ class TestStreamingGuardrailInformationBucket:
     """guardrail_information written during a chat streaming end-of-stream scan
     must land in the request's ``metadata`` bucket that spend logging snapshots.
     Regression for PR #38722 defect 2: the chat handler used to plant a
-    ``litellm_metadata`` key first, flipping the bucket so every later
+    ``hangarllm_metadata`` key first, flipping the bucket so every later
     guardrail_information write was diverted and /spend/logs showed null."""
 
     @pytest.fixture(autouse=True)
@@ -2202,7 +2202,7 @@ class TestStreamingGuardrailInformationBucket:
         ):
             out.append(item)
 
-        assert "litellm_metadata" not in request_data
+        assert "hangarllm_metadata" not in request_data
         recorded = request_data["metadata"]["standard_logging_guardrail_information"]
         assert len(recorded) == 1
         assert recorded[0]["guardrail_name"] == "audit-recorder"
@@ -2606,7 +2606,7 @@ class TestStreamingClientDisconnectScan:
 
     @staticmethod
     async def _tool_call_upstream() -> AsyncIterator[ModelResponseStream]:
-        from litellm.types.utils import ChatCompletionDeltaToolCall, Function
+        from hangarllm.types.utils import ChatCompletionDeltaToolCall, Function
 
         tool_call = ChatCompletionDeltaToolCall(
             id="call_1", index=0, type="function", function=Function(name="get_weather", arguments='{"city": "Paris"}')
@@ -2865,7 +2865,7 @@ class TestStreamingScanDedup:
 
     @pytest.mark.asyncio
     async def test_chat_finish_chunk_carrying_tool_calls_is_still_scanned(self):
-        from litellm.types.utils import ChatCompletionDeltaToolCall, Function
+        from hangarllm.types.utils import ChatCompletionDeltaToolCall, Function
 
         guardrail = _ScanCountingGuardrail(sampling_rate=3)
         tool_call = ChatCompletionDeltaToolCall(
@@ -3323,7 +3323,7 @@ async def test_pass_through_guardrail_text_is_the_client_body_without_the_inject
 
     texts: Final = [call["inputs"]["texts"] for call in guardrail.apply_calls]
     assert [[json.loads(text) for text in call_texts] for call_texts in texts] == [[body]], texts
-    assert data["litellm_metadata"]["user_api_key_user_email"] == "someone@example.com", data["litellm_metadata"]
+    assert data["hangarllm_metadata"]["user_api_key_user_email"] == "someone@example.com", data["hangarllm_metadata"]
 
 
 @pytest.mark.asyncio

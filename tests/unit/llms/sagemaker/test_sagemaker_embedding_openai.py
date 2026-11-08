@@ -15,16 +15,16 @@ import httpx
 import pytest
 from botocore.exceptions import ClientError, ConnectionClosedError
 
-import litellm
-from litellm import Router
-from litellm.llms.sagemaker.common_utils import SagemakerError
-from litellm.llms.sagemaker.completion.handler import SagemakerLLM
-from litellm.llms.sagemaker.embedding.openai_transformation import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.llms.sagemaker.common_utils import SagemakerError
+from hangarllm.llms.sagemaker.completion.handler import SagemakerLLM
+from hangarllm.llms.sagemaker.embedding.openai_transformation import (
     SagemakerOpenAIEmbeddingConfig,
 )
-from litellm.llms.sagemaker.embedding.transformation import SagemakerEmbeddingConfig
-from litellm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.sagemaker.embedding.transformation import SagemakerEmbeddingConfig
+from hangarllm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 OPENAI_RESPONSE = {
     "object": "list",
@@ -257,7 +257,7 @@ class TestSagemakerEmbeddingInferenceComponents:
             ),
             (
                 "Inference Component Name header is required for this endpoint.",
-                "pass in via `litellm.embedding(..., model_id={InferenceComponentName})`",
+                "pass in via `hangarllm.embedding(..., model_id={InferenceComponentName})`",
             ),
             ('Received server error (500) from model with message "boom".', ""),
         ],
@@ -332,7 +332,7 @@ class TestSagemakerOpenAIEmbeddingSdkCalls:
     def test_sdk_sync(self):
         session, client = fake_sagemaker_session(OPENAI_RESPONSE)
         with patch("boto3.Session", return_value=session):
-            result = litellm.embedding(**SDK_KWARGS)
+            result = hangarllm.embedding(**SDK_KWARGS)
 
         kwargs = invoke_kwargs(client)
         assert (kwargs["EndpointName"], kwargs["InferenceComponentName"]) == ("my-embed-endpoint", "my-component")
@@ -344,7 +344,7 @@ class TestSagemakerOpenAIEmbeddingSdkCalls:
     def test_sdk_async(self):
         session, client = fake_sagemaker_session(OPENAI_RESPONSE)
         with patch("boto3.Session", return_value=session):
-            result = asyncio.run(litellm.aembedding(**SDK_KWARGS))
+            result = asyncio.run(hangarllm.aembedding(**SDK_KWARGS))
 
         kwargs = invoke_kwargs(client)
         assert (kwargs["EndpointName"], kwargs["InferenceComponentName"]) == ("my-embed-endpoint", "my-component")
@@ -356,7 +356,7 @@ class TestSagemakerOpenAIEmbeddingSdkCalls:
             model_list=[
                 {
                     "model_name": "my-embeddings",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "sagemaker/openai/my-embed-endpoint",
                         "model_id": "my-component",
                         "extra_body": {"model": "served-embedding-model"},

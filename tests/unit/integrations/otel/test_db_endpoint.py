@@ -1,4 +1,4 @@
-"""Tests for litellm/integrations/otel/model/db_endpoint.py
+"""Tests for hangarllm/integrations/otel/model/db_endpoint.py
 
 Prisma talks to PostgreSQL through a loopback query engine, so a DB span with no
 ``server.address`` gets attributed to ``localhost`` by the backend. These cover
@@ -12,16 +12,16 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.integrations.otel.model.db_endpoint import (
+from hangarllm.integrations.otel.model.db_endpoint import (
     DatabaseEndpoint,
     db_span_attributes,
     parse_database_endpoint,
     postgres_endpoint,
 )
 
-LOCAL_DSN = "postgresql://llmproxy:dbpassword9090@localhost:5432/litellm"
-REMOTE_DSN = "postgresql://llmproxy:s3cr3t@litellm-prod.abc123.us-east-1.rds.amazonaws.com:6432/litellm?schema=reporting&sslmode=require"
-REPLICA_DSN = "postgresql://reader:r3ad0nly@litellm-prod-ro.abc123.us-east-1.rds.amazonaws.com/litellm_replica"
+LOCAL_DSN = "postgresql://llmproxy:dbpassword9090@localhost:5432/hangarllm"
+REMOTE_DSN = "postgresql://llmproxy:s3cr3t@hangarllm-prod.abc123.us-east-1.rds.amazonaws.com:6432/hangarllm?schema=reporting&sslmode=require"
+REPLICA_DSN = "postgresql://reader:r3ad0nly@hangarllm-prod-ro.abc123.us-east-1.rds.amazonaws.com/hangarllm_replica"
 
 
 def _resolve(service, call_type=None, database_url=None, read_replica_url=None):
@@ -35,31 +35,31 @@ def _resolve(service, call_type=None, database_url=None, read_replica_url=None):
 
 def test_local_prisma_engine_endpoint_is_the_postgres_server_not_the_engine():
     assert parse_database_endpoint(LOCAL_DSN) == DatabaseEndpoint(
-        address="localhost", port=5432, namespace="litellm"
+        address="localhost", port=5432, namespace="hangarllm"
     )
 
 
 def test_remote_endpoint_keeps_host_port_and_schema_qualified_namespace():
     assert parse_database_endpoint(REMOTE_DSN) == DatabaseEndpoint(
-        address="litellm-prod.abc123.us-east-1.rds.amazonaws.com",
+        address="hangarllm-prod.abc123.us-east-1.rds.amazonaws.com",
         port=6432,
-        namespace="litellm|reporting",
+        namespace="hangarllm|reporting",
     )
 
 
 def test_read_replica_dsn_parses_to_the_replica_host_and_database():
     assert parse_database_endpoint(REPLICA_DSN) == DatabaseEndpoint(
-        address="litellm-prod-ro.abc123.us-east-1.rds.amazonaws.com",
+        address="hangarllm-prod-ro.abc123.us-east-1.rds.amazonaws.com",
         port=5432,
-        namespace="litellm_replica",
+        namespace="hangarllm_replica",
     )
 
 
 def test_default_schema_is_not_spelled_out_in_the_namespace():
     """``?schema=public`` and no schema at all are the same deployment, so they
     must not split a group-by on db.namespace."""
-    assert parse_database_endpoint("postgresql://u:p@db.internal/litellm?schema=public") == parse_database_endpoint(
-        "postgresql://u:p@db.internal/litellm"
+    assert parse_database_endpoint("postgresql://u:p@db.internal/hangarllm?schema=public") == parse_database_endpoint(
+        "postgresql://u:p@db.internal/hangarllm"
     )
 
 
@@ -67,36 +67,36 @@ def test_unix_socket_host_parameter_wins_over_the_netloc():
     """libpq and the Cloud SQL connector both put the real target in ``host=``
     behind a localhost netloc, which is the attribution this module removes."""
     assert parse_database_endpoint(
-        "postgresql://u:p@localhost:5432/litellm?host=/cloudsql/proj:us-east1:inst"
-    ) == DatabaseEndpoint(address="/cloudsql/proj:us-east1:inst", port=5432, namespace="litellm")
+        "postgresql://u:p@localhost:5432/hangarllm?host=/cloudsql/proj:us-east1:inst"
+    ) == DatabaseEndpoint(address="/cloudsql/proj:us-east1:inst", port=5432, namespace="hangarllm")
 
 
 def test_socket_only_dsn_without_a_netloc_host_still_resolves():
-    assert parse_database_endpoint("postgresql:///litellm?host=/var/run/postgresql") == DatabaseEndpoint(
-        address="/var/run/postgresql", port=5432, namespace="litellm"
+    assert parse_database_endpoint("postgresql:///hangarllm?host=/var/run/postgresql") == DatabaseEndpoint(
+        address="/var/run/postgresql", port=5432, namespace="hangarllm"
     )
 
 
 def test_percent_encoded_database_name_is_decoded():
-    endpoint = parse_database_endpoint("postgresql://u:p@db.internal/litellm%20prod")
-    assert endpoint is not None and endpoint.namespace == "litellm prod"
+    endpoint = parse_database_endpoint("postgresql://u:p@db.internal/hangarllm%20prod")
+    assert endpoint is not None and endpoint.namespace == "hangarllm prod"
 
 
 MISPARSED_AUTHORITY_DSNS = (
-    ("postgresql://litellm:/kJ8xQz+9wT@db.internal:5432/litellm", "kJ8xQz+9wT"),
-    ("postgresql://litellm:12345/aBcD@db.internal:5432/litellm", "aBcD"),
+    ("postgresql://hangarllm:/kJ8xQz+9wT@db.internal:5432/hangarllm", "kJ8xQz+9wT"),
+    ("postgresql://hangarllm:12345/aBcD@db.internal:5432/hangarllm", "aBcD"),
     # '#' sends the tail to the fragment and '?' to the query, so the path is
     # empty and only the stranded userinfo '@' reveals the mis-split.
-    ("postgresql://litellm:12345#aBcD@db.internal/litellm", "aBcD"),
-    ("postgresql://litellm:12345?aBcD@db.internal/litellm", "aBcD"),
+    ("postgresql://hangarllm:12345#aBcD@db.internal/hangarllm", "aBcD"),
+    ("postgresql://hangarllm:12345?aBcD@db.internal/hangarllm", "aBcD"),
     # A '?'-stranded tail that happens to parse as parameters, including one
     # that hijacks the host= parameter into server.address.
-    ("postgresql://litellm:12345?a=aBcD@db.internal/litellm", "aBcD"),
-    ("postgresql://litellm:12345?host=aBcD@db.internal/litellm", "aBcD"),
+    ("postgresql://hangarllm:12345?a=aBcD@db.internal/hangarllm", "aBcD"),
+    ("postgresql://hangarllm:12345?host=aBcD@db.internal/hangarllm", "aBcD"),
     # Both '/' and '?key=value' together: the slash leaves a clean path holding
     # the password remainder and the query still parses, so only the stranded
     # at-sign gives it away.
-    ("postgresql://litellm:12345/aBcD?x=1@db.internal/litellm", "aBcD"),
+    ("postgresql://hangarllm:12345/aBcD?x=1@db.internal/hangarllm", "aBcD"),
 )
 
 
@@ -120,7 +120,7 @@ def test_unencoded_slash_in_password_never_reaches_a_span(dsn, secret):
 def test_extra_path_segment_yields_no_endpoint():
     """A database name cannot hold an unencoded '/', so a second path segment
     means the authority was mis-split even when no '@' survived into the path."""
-    assert parse_database_endpoint("postgresql://db.internal:5432/litellm/extra") is None
+    assert parse_database_endpoint("postgresql://db.internal:5432/hangarllm/extra") is None
 
 
 @pytest.mark.parametrize("dsn", [d for d, _ in MISPARSED_AUTHORITY_DSNS])
@@ -129,14 +129,14 @@ def test_a_mis_split_authority_never_exports_the_database_username(dsn):
     a span would name the DB user as the server."""
     attrs = _resolve("postgres", "get_data", database_url=dsn)
     assert "server.address" not in attrs
-    assert "litellm" not in " ".join(str(v) for v in attrs.values())
+    assert "hangarllm" not in " ".join(str(v) for v in attrs.values())
 
 
 @pytest.mark.parametrize(
     "dsn",
     [
-        "postgresql://db.internal:5432/litellm?application_name=svc@prod",
-        "postgresql://db.internal:5432/litellm?user=admin@company.com",
+        "postgresql://db.internal:5432/hangarllm?application_name=svc@prod",
+        "postgresql://db.internal:5432/hangarllm?user=admin@company.com",
     ],
 )
 def test_an_unencoded_at_sign_in_a_query_forfeits_the_endpoint(dsn):
@@ -148,29 +148,29 @@ def test_an_unencoded_at_sign_in_a_query_forfeits_the_endpoint(dsn):
 
 
 def test_host_and_port_query_parameters_are_honoured_together():
-    assert parse_database_endpoint("postgresql://ignored/litellm?host=real.internal&port=6543") == DatabaseEndpoint(
-        address="real.internal", port=6543, namespace="litellm"
+    assert parse_database_endpoint("postgresql://ignored/hangarllm?host=real.internal&port=6543") == DatabaseEndpoint(
+        address="real.internal", port=6543, namespace="hangarllm"
     )
 
 
 def test_percent_encoded_password_still_resolves_the_endpoint():
     """The encoded spelling is the one a driver accepts, so it must keep working."""
-    assert parse_database_endpoint("postgresql://litellm:pa%2Fssw0rd@db.internal:5432/litellm") == DatabaseEndpoint(
-        address="db.internal", port=5432, namespace="litellm"
+    assert parse_database_endpoint("postgresql://hangarllm:pa%2Fssw0rd@db.internal:5432/hangarllm") == DatabaseEndpoint(
+        address="db.internal", port=5432, namespace="hangarllm"
     )
 
 
 def test_hostless_socket_dsn_still_names_the_database():
-    """``postgresql:///litellm`` is a valid local-socket DSN that Prisma accepts,
+    """``postgresql:///hangarllm`` is a valid local-socket DSN that Prisma accepts,
     so the database is knowable even though no server address is."""
-    assert parse_database_endpoint("postgresql:///litellm") == DatabaseEndpoint(
-        address=None, port=None, namespace="litellm"
+    assert parse_database_endpoint("postgresql:///hangarllm") == DatabaseEndpoint(
+        address=None, port=None, namespace="hangarllm"
     )
 
 
 def test_hostless_socket_dsn_emits_namespace_without_a_server():
-    attrs = _resolve("postgres", "get_data", database_url="postgresql:///litellm")
-    assert attrs["db.namespace"] == "litellm"
+    attrs = _resolve("postgres", "get_data", database_url="postgresql:///hangarllm")
+    assert attrs["db.namespace"] == "hangarllm"
     assert "server.address" not in attrs
     assert "server.port" not in attrs
 
@@ -180,8 +180,8 @@ def test_dsn_with_neither_host_nor_database_yields_no_endpoint():
 
 
 def test_prisma_default_schema_is_left_implicit():
-    endpoint = parse_database_endpoint("postgresql://u:p@db.internal/litellm?schema=public")
-    assert endpoint is not None and endpoint.namespace == "litellm"
+    endpoint = parse_database_endpoint("postgresql://u:p@db.internal/hangarllm?schema=public")
+    assert endpoint is not None and endpoint.namespace == "hangarllm"
 
 
 @pytest.mark.parametrize("spelling", ["PUBLIC", "Public", "reporting"])
@@ -189,13 +189,13 @@ def test_a_non_default_schema_stays_in_the_namespace(spelling):
     """Prisma quotes the schema name, so ``?schema=PUBLIC`` provisions a second
     schema alongside ``public`` with its own tables. Case-folding them into one
     namespace would report two different schemas as the same database."""
-    endpoint = parse_database_endpoint(f"postgresql://u:p@db.internal/litellm?schema={spelling}")
-    assert endpoint is not None and endpoint.namespace == f"litellm|{spelling}"
+    endpoint = parse_database_endpoint(f"postgresql://u:p@db.internal/hangarllm?schema={spelling}")
+    assert endpoint is not None and endpoint.namespace == f"hangarllm|{spelling}"
 
 
 def test_postgres_scheme_alias_is_accepted():
-    assert parse_database_endpoint("postgres://u:p@db.internal/litellm") == DatabaseEndpoint(
-        address="db.internal", port=5432, namespace="litellm"
+    assert parse_database_endpoint("postgres://u:p@db.internal/hangarllm") == DatabaseEndpoint(
+        address="db.internal", port=5432, namespace="hangarllm"
     )
 
 
@@ -204,8 +204,8 @@ def test_postgres_scheme_alias_is_accepted():
     [
         None,
         "",
-        "mysql://u:p@db.internal:3306/litellm",
-        "postgresql://u:p@db.internal:not-a-port/litellm",
+        "mysql://u:p@db.internal:3306/hangarllm",
+        "postgresql://u:p@db.internal:not-a-port/hangarllm",
         "not a url at all",
     ],
 )
@@ -224,9 +224,9 @@ def test_postgres_service_span_carries_system_operation_and_endpoint():
         "db.system.name": "postgresql",
         "db.system": "postgresql",
         "db.operation.name": "get_data",
-        "server.address": "litellm-prod.abc123.us-east-1.rds.amazonaws.com",
+        "server.address": "hangarllm-prod.abc123.us-east-1.rds.amazonaws.com",
         "server.port": 6432,
-        "db.namespace": "litellm|reporting",
+        "db.namespace": "hangarllm|reporting",
     }
 
 
@@ -240,25 +240,25 @@ def test_legacy_db_system_is_dual_emitted_for_datadog():
 def test_batch_write_service_is_also_attributed_to_postgres():
     attrs = _resolve("batch_write_to_db", "_PROXY_track_cost_callback", database_url=REMOTE_DSN)
     assert attrs["db.system.name"] == "postgresql"
-    assert attrs["server.address"] == "litellm-prod.abc123.us-east-1.rds.amazonaws.com"
+    assert attrs["server.address"] == "hangarllm-prod.abc123.us-east-1.rds.amazonaws.com"
 
 
 def test_resolved_prisma_operation_puts_verb_table_and_summary_on_the_db_keys():
-    from litellm.integrations.otel.model.spans import PostgresOperation
+    from hangarllm.integrations.otel.model.spans import PostgresOperation
 
     with patch.dict(os.environ, {"DATABASE_URL": LOCAL_DSN}, clear=False):
         os.environ.pop("DATABASE_URL_READ_REPLICA", None)
-        attrs = dict(db_span_attributes("postgres", "update_data", PostgresOperation("update", "LiteLLM_TeamTable")))
+        attrs = dict(db_span_attributes("postgres", "update_data", PostgresOperation("update", "HangarLLM_TeamTable")))
         bare = dict(db_span_attributes("postgres", "update_data", PostgresOperation("update", None)))
     assert attrs == {
         "db.system.name": "postgresql",
         "db.system": "postgresql",
         "db.operation.name": "update",
-        "db.collection.name": "LiteLLM_TeamTable",
-        "db.query.summary": "UPDATE LiteLLM_TeamTable",
+        "db.collection.name": "HangarLLM_TeamTable",
+        "db.query.summary": "UPDATE HangarLLM_TeamTable",
         "server.address": "localhost",
         "server.port": 5432,
-        "db.namespace": "litellm",
+        "db.namespace": "hangarllm",
     }
     assert bare["db.operation.name"] == "update"
     assert {"db.collection.name", "db.query.summary"}.isdisjoint(bare)
@@ -324,7 +324,7 @@ def test_a_runtime_endpoint_change_is_reflected_on_the_next_span():
     first = _resolve("postgres", "get_data", database_url=LOCAL_DSN)
     assert first["server.address"] == "localhost"
     moved = _resolve("postgres", "get_data", database_url=REMOTE_DSN)
-    assert moved["server.address"] == "litellm-prod.abc123.us-east-1.rds.amazonaws.com"
+    assert moved["server.address"] == "hangarllm-prod.abc123.us-east-1.rds.amazonaws.com"
 
 
 def test_a_replica_configured_after_the_first_span_suppresses_the_endpoint():

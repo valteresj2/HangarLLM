@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.openai_files_endpoints.general_upload_validation import (
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.openai_files_endpoints.general_upload_validation import (
     MB,
     UploadedFileBlockedExtension,
     UploadedFileExtensionNotAllowed,

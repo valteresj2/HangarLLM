@@ -9,8 +9,8 @@ from pydantic import JsonValue
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "azure_ai/claude-haiku-4-5",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -52,7 +52,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "azure_ai/claude-haiku-4-5",
         "id": "msg_011Cg7vB62SdiZVj3M7xJXpr",
         "type": "message",
@@ -78,8 +78,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "azure_ai/claude-sonnet-4-6",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -121,7 +121,7 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "azure_ai/claude-sonnet-4-6",
         "id": "msg_011Cg7vCCFGaPEhwGwoS6VPy",
         "type": "message",
@@ -147,8 +147,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "azure_ai/claude-sonnet-5",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -190,7 +190,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "azure_ai/claude-sonnet-5",
         "id": "msg_011Cfjaxm5HXLX7FBu38pDBJ",
         "type": "message",
@@ -216,8 +216,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "azure_ai/claude-opus-4-8",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -260,7 +260,7 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "azure_ai/claude-opus-4-8",
         "id": "msg_011Cg7vBVpRK6kd1kkYXJXyb",
         "type": "message",
@@ -287,8 +287,8 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "azure_ai/claude-sonnet-5-5",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -330,7 +330,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "azure_ai/claude-sonnet-5-5",
         "id": "msg_011Cfjay3Wzxnz5vkMFngMey",
         "type": "message",
@@ -356,8 +356,8 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "azure_ai/claude-opus-5-5",
         "max_tokens": 64,
         "system": "You are a terse assistant.",
@@ -399,7 +399,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "azure_ai/claude-opus-5-5",
         "id": "msg_011CfjayNQ3rbTgxNGMRusPa",
         "type": "message",
@@ -470,8 +470,8 @@ CLAUDE_HAIKU_5_5_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "azure_ai/claude-haiku-5-5"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "azure_ai/claude-haiku-5-5"},
     expected_provider_endpoint="/anthropic/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-azure-ai-key",
@@ -492,7 +492,7 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
         "model": "claude-haiku-5-5",
         "usage": {**object_value(CLAUDE_HAIKU_5_5_RESPONSE_FIELDS["usage"]), "speed": "standard"},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_RESPONSE,
         **CLAUDE_HAIKU_5_5_RESPONSE_FIELDS,
         "model": "azure_ai/claude-haiku-5-5",
@@ -530,8 +530,8 @@ CLAUDE_FABLE_5_1_RESPONSE_FIELDS: Final[Mapping[str, JsonValue]] = {
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={**MESSAGES_REQUEST, "model": "azure_ai/claude-fable-5-1"},
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={**MESSAGES_REQUEST, "model": "azure_ai/claude-fable-5-1"},
     expected_provider_endpoint="/anthropic/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-azure-ai-key",
@@ -552,7 +552,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
         "model": "claude-fable-5-1",
         "usage": {**object_value(CLAUDE_FABLE_5_1_RESPONSE_FIELDS["usage"]), "speed": "standard"},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **MESSAGES_RESPONSE,
         **CLAUDE_FABLE_5_1_RESPONSE_FIELDS,
         "model": "azure_ai/claude-fable-5-1",

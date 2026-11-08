@@ -70,15 +70,15 @@ def test_G7_database_invalid_scope_reads_preserve_pre_call_blocking(gateway: Gat
                 api_key="synthetic-provider-key",
             )
             write_rows(
-                'INSERT INTO "LiteLLM_GuardrailsTable" '
-                "(guardrail_id, guardrail_name, litellm_params, guardrail_info, updated_at) "
+                'INSERT INTO "HangarLLM_GuardrailsTable" '
+                "(guardrail_id, guardrail_name, hangarllm_params, guardrail_info, updated_at) "
                 "VALUES (%s, %s, %s::jsonb, %s::jsonb, NOW())",
                 (
                     guardrail_id,
                     identity,
                     json.dumps(
                         {
-                            "guardrail": "litellm_content_filter",
+                            "guardrail": "hangarllm_content_filter",
                             "mode": "pre_call",
                             "logging_only_scope": "Input",
                             "default_on": True,
@@ -96,16 +96,16 @@ def test_G7_database_invalid_scope_reads_preserve_pre_call_blocking(gateway: Gat
                     listing: Final = JSON_OBJECT.validate_json(listing_response.content)
                     rows: Final = tuple(object_value(row) for row in listing["guardrails"])
                     stored_guardrail: Final = next(row for row in rows if row.get("guardrail_id") == guardrail_id)
-                    stored_params: Final = object_value(stored_guardrail["litellm_params"])
+                    stored_params: Final = object_value(stored_guardrail["hangarllm_params"])
                     expected_scope: Final = "Input" if _is_base_audit_leg() else None
                     assert stored_params.get("logging_only_scope") == expected_scope, stored_guardrail
                     assert stored_params["mode"] == "pre_call", stored_guardrail
-                    assert stored_params["guardrail"] == "litellm_content_filter", stored_guardrail
+                    assert stored_params["guardrail"] == "hangarllm_content_filter", stored_guardrail
 
                     info_response: Final = candidate.request("GET", f"/guardrails/{guardrail_id}/info")
                     assert info_response.status_code == 200, info_response.text
                     info: Final = JSON_OBJECT.validate_json(info_response.content)
-                    info_params: Final = object_value(info["litellm_params"])
+                    info_params: Final = object_value(info["hangarllm_params"])
                     assert info_params.get("logging_only_scope") == expected_scope, info
 
                     blocked_response: Final = candidate.request(
@@ -498,7 +498,7 @@ def test_F7_guardrail_ui_settings_classify_directional_scope_support(gateway: Ga
         "semantic_guard",
         "cato_networks",
     }, response
-    assert not {"generic_guardrail_api", "litellm_content_filter", "model_armor"}.intersection(unsupported), response
+    assert not {"generic_guardrail_api", "hangarllm_content_filter", "model_armor"}.intersection(unsupported), response
 
 
 @pytest.mark.parametrize(
@@ -535,7 +535,7 @@ def test_yaml_scope_loading_keeps_guardrail_enforcement(
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic yaml denial"}')
 
     try:
@@ -552,7 +552,7 @@ def test_yaml_scope_loading_keeps_guardrail_enforcement(
                         "POST",
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                        headers={"x-litellm-call-id": f"{scenario_id}-baseline"},
+                        headers={"x-hangarllm-call-id": f"{scenario_id}-baseline"},
                     )
                     assert baseline.status_code == 200, baseline.text
                     assert baseline.json()["choices"][0]["message"]["content"] == reply, baseline.text
@@ -562,7 +562,7 @@ def test_yaml_scope_loading_keeps_guardrail_enforcement(
                         "POST",
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                        headers={"x-litellm-call-id": call_id},
+                        headers={"x-hangarllm-call-id": call_id},
                     )
                     assert guarded.status_code == expected_status, guarded.text
                     caller_body: Final = JSON_OBJECT.validate_python(guarded.json())
@@ -632,7 +632,7 @@ def test_database_guardrail_load_keeps_pre_call_blocking(
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic DB denial"}')
 
     try:
@@ -646,7 +646,7 @@ def test_database_guardrail_load_keeps_pre_call_blocking(
                 "POST",
                 "/v1/chat/completions",
                 {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                headers={"x-litellm-call-id": f"{scenario_id}-baseline"},
+                headers={"x-hangarllm-call-id": f"{scenario_id}-baseline"},
             )
             assert baseline.status_code == 200, baseline.text
             assert len(_upstream_requests(gateway.upstream_url)) == 1
@@ -657,7 +657,7 @@ def test_database_guardrail_load_keeps_pre_call_blocking(
                     config: Final = _empty_proxy_configuration(tmp_path, identity)
                     with owned_proxy(gateway, tmp_path, {}, config=config, workers=1) as candidate:
                         loaded: Final = read_rows(
-                            'SELECT guardrail_name, litellm_params FROM "LiteLLM_GuardrailsTable" '
+                            'SELECT guardrail_name, hangarllm_params FROM "HangarLLM_GuardrailsTable" '
                             "WHERE guardrail_name=%s",
                             (identity,),
                         )
@@ -666,7 +666,7 @@ def test_database_guardrail_load_keeps_pre_call_blocking(
                             "POST",
                             "/v1/chat/completions",
                             {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                            headers={"x-litellm-call-id": call_id},
+                            headers={"x-hangarllm-call-id": call_id},
                         )
                         assert guarded.status_code == 400 and "synthetic DB denial" in guarded.text, guarded.text
                         assert _upstream_requests(gateway.upstream_url) == ()
@@ -696,7 +696,7 @@ def test_G6_database_guardrail_polling_normalizes_invalid_scope_without_reinitia
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def denial(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic polling denial"}')
 
     try:
@@ -710,7 +710,7 @@ def test_G6_database_guardrail_polling_normalizes_invalid_scope_without_reinitia
                 "POST",
                 "/v1/chat/completions",
                 {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                headers={"x-litellm-call-id": f"{scenario_id}-baseline"},
+                headers={"x-hangarllm-call-id": f"{scenario_id}-baseline"},
             )
             assert baseline.status_code == 200, baseline.text
             assert len(_upstream_requests(gateway.upstream_url)) == 1
@@ -725,7 +725,7 @@ def test_G6_database_guardrail_polling_normalizes_invalid_scope_without_reinitia
                             "POST",
                             "/v1/chat/completions",
                             {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                            headers={"x-litellm-call-id": first_call_id},
+                            headers={"x-hangarllm-call-id": first_call_id},
                         )
                         assert first.status_code == 400 and "synthetic polling denial" in first.text, first.text
                         first_policy_calls: Final = original_policy.drain()
@@ -736,11 +736,11 @@ def test_G6_database_guardrail_polling_normalizes_invalid_scope_without_reinitia
                             "default_on": True,
                             "api_base": updated_policy.url,
                             "api_key": "synthetic-guardrail-key",
-                            "extra_headers": ["x-litellm-call-id"],
+                            "extra_headers": ["x-hangarllm-call-id"],
                             "logging_only_scope": "sideways",
                         }
                         write_rows(
-                            'UPDATE "LiteLLM_GuardrailsTable" SET litellm_params=%s::jsonb, updated_at=NOW() '
+                            'UPDATE "HangarLLM_GuardrailsTable" SET hangarllm_params=%s::jsonb, updated_at=NOW() '
                             "WHERE guardrail_name=%s",
                             (json.dumps(updated_params), identity),
                         )
@@ -751,7 +751,7 @@ def test_G6_database_guardrail_polling_normalizes_invalid_scope_without_reinitia
                                 "POST",
                                 "/v1/chat/completions",
                                 {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                                headers={"x-litellm-call-id": call_id},
+                                headers={"x-hangarllm-call-id": call_id},
                             )
                             assert response.status_code == 400 and "synthetic polling denial" in response.text, (
                                 response.text
@@ -768,7 +768,7 @@ def test_G6_database_guardrail_polling_normalizes_invalid_scope_without_reinitia
                             "POST",
                             "/v1/chat/completions",
                             {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                            headers={"x-litellm-call-id": final_call_id},
+                            headers={"x-hangarllm-call-id": final_call_id},
                         )
                         assert final.status_code == 400 and "synthetic polling denial" in final.text, final.text
                         old_payloads: Final = tuple(
@@ -932,12 +932,12 @@ def test_management_post_validates_logging_only_scope(
                 assert expected_message in response.text, response.text
             if expected_leg_status == 200:
                 body: Final = JSON_OBJECT.validate_json(response.content)
-                params: Final = object_value(body["litellm_params"])
+                params: Final = object_value(body["hangarllm_params"])
                 assert params.get("logging_only_scope") == expected_leg_scope, body
                 rows: Final = _management_guardrail_rows(identity)
                 assert (
                     len(rows) == 1
-                    and object_value(rows[0]["litellm_params"]).get("logging_only_scope") == expected_leg_scope
+                    and object_value(rows[0]["hangarllm_params"]).get("logging_only_scope") == expected_leg_scope
                 ), rows
             else:
                 if row_id == "H2" and not _is_base_audit_leg():
@@ -946,7 +946,7 @@ def test_management_post_validates_logging_only_scope(
                     assert details["loc"] == [
                         "body",
                         "guardrail",
-                        "litellm_params",
+                        "hangarllm_params",
                         "logging_only_scope",
                     ], details
                 assert _management_guardrail_rows(identity) == before_rows == ()
@@ -966,7 +966,7 @@ def test_H5_management_put_rejection_preserves_database_and_runtime(gateway: Gat
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic management denial"}')
 
     try:
@@ -1006,7 +1006,7 @@ def test_H5_management_put_rejection_preserves_database_and_runtime(gateway: Gat
                     "POST",
                     "/v1/chat/completions",
                     {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                    headers={"x-litellm-call-id": before_call_id},
+                    headers={"x-hangarllm-call-id": before_call_id},
                 )
                 assert before_response.status_code == 400, before_response.text
                 before_policy: Final = tuple(JSON_OBJECT.validate_json(call.body) for call in guardrail.drain())
@@ -1029,10 +1029,10 @@ def test_H5_management_put_rejection_preserves_database_and_runtime(gateway: Gat
                     assert update.status_code == 200, update.text
                     updated_rows: Final = _management_guardrail_rows(identity)
                     assert len(updated_rows) == 1, updated_rows
-                    assert object_value(updated_rows[0]["litellm_params"]).get("logging_only_scope") == "output", (
+                    assert object_value(updated_rows[0]["hangarllm_params"]).get("logging_only_scope") == "output", (
                         updated_rows
                     )
-                    assert object_value(updated_rows[0]["litellm_params"])["mode"] == "pre_call", updated_rows
+                    assert object_value(updated_rows[0]["hangarllm_params"])["mode"] == "pre_call", updated_rows
                 else:
                     assert update.status_code == 422, update.text
                     assert "logging_only_scope" in update.text and "logging_only" in update.text, update.text
@@ -1049,7 +1049,7 @@ def test_H5_management_put_rejection_preserves_database_and_runtime(gateway: Gat
                 if _is_base_audit_leg():
                     assert (
                         len(after_list) == 1
-                        and object_value(after_list[0]["litellm_params"]).get("logging_only_scope") == "output"
+                        and object_value(after_list[0]["hangarllm_params"]).get("logging_only_scope") == "output"
                     ), after_list
                 else:
                     assert tuple(
@@ -1062,7 +1062,7 @@ def test_H5_management_put_rejection_preserves_database_and_runtime(gateway: Gat
                     "POST",
                     "/v1/chat/completions",
                     {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                    headers={"x-litellm-call-id": after_call_id},
+                    headers={"x-hangarllm-call-id": after_call_id},
                 )
                 assert after_response.status_code == before_response.status_code, after_response.text
                 assert after_response.text == before_response.text, (after_response.text, before_response.text)
@@ -1092,7 +1092,7 @@ def test_H6_management_patch_clears_scope_when_switching_to_blocking_only_mode(
     )
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic mode patch denial"}')
 
     try:
@@ -1125,12 +1125,12 @@ def test_H6_management_patch_clears_scope_when_switching_to_blocking_only_mode(
                 patched: Final = candidate.request(
                     "PATCH",
                     f"/guardrails/{guardrail_id}",
-                    {"litellm_params": {"mode": ["pre_call"]}},
+                    {"hangarllm_params": {"mode": ["pre_call"]}},
                 )
                 assert patched.status_code == 200, patched.text
                 persisted: Final = _management_guardrail_rows(identity)
                 assert len(persisted) == 1, persisted
-                params: Final = object_value(persisted[0]["litellm_params"])
+                params: Final = object_value(persisted[0]["hangarllm_params"])
                 assert params.get("logging_only_scope") == ("output" if _is_base_audit_leg() else None), persisted
                 assert params["mode"] == ["pre_call"], persisted
                 call_id: Final = f"{scenario_id}-after-patch"
@@ -1138,7 +1138,7 @@ def test_H6_management_patch_clears_scope_when_switching_to_blocking_only_mode(
                     "POST",
                     "/v1/chat/completions",
                     {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                    headers={"x-litellm-call-id": call_id},
+                    headers={"x-hangarllm-call-id": call_id},
                 )
                 assert response.status_code == 400 and "synthetic mode patch denial" in response.text, response.text
                 calls: Final = tuple(JSON_OBJECT.validate_json(call.body) for call in guardrail.drain())
@@ -1169,7 +1169,7 @@ def test_H7_management_patch_rejection_preserves_pre_call_guardrail(gateway: Gat
     )
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic invalid patch denial"}')
 
     try:
@@ -1202,20 +1202,20 @@ def test_H7_management_patch_rejection_preserves_pre_call_guardrail(gateway: Gat
                     "POST",
                     "/v1/chat/completions",
                     {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                    headers={"x-litellm-call-id": before_call_id},
+                    headers={"x-hangarllm-call-id": before_call_id},
                 )
                 assert response_before.status_code == 400, response_before.text
                 policy_before: Final = tuple(JSON_OBJECT.validate_json(call.body) for call in guardrail.drain())
                 rejected: Final = candidate.request(
                     "PATCH",
                     f"/guardrails/{guardrail_id}",
-                    {"litellm_params": {"logging_only_scope": "input"}},
+                    {"hangarllm_params": {"logging_only_scope": "input"}},
                 )
                 if _is_base_audit_leg():
                     assert rejected.status_code == 200, rejected.text
                     updated: Final = _management_guardrail_rows(identity)
                     assert len(updated) == 1, updated
-                    assert object_value(updated[0]["litellm_params"]).get("logging_only_scope") == "input", updated
+                    assert object_value(updated[0]["hangarllm_params"]).get("logging_only_scope") == "input", updated
                 else:
                     assert rejected.status_code == 422, rejected.text
                     assert "logging_only_scope" in rejected.text and "logging_only" in rejected.text, rejected.text
@@ -1225,7 +1225,7 @@ def test_H7_management_patch_rejection_preserves_pre_call_guardrail(gateway: Gat
                     "POST",
                     "/v1/chat/completions",
                     {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                    headers={"x-litellm-call-id": after_call_id},
+                    headers={"x-hangarllm-call-id": after_call_id},
                 )
                 assert response_after.status_code == response_before.status_code, response_after.text
                 policy_after: Final = tuple(JSON_OBJECT.validate_json(call.body) for call in guardrail.drain())
@@ -1265,7 +1265,7 @@ def test_management_patch_default_on_heals_stored_scope(
     )
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic healed scope denial"}')
 
     try:
@@ -1279,7 +1279,7 @@ def test_management_patch_default_on_heals_stored_scope(
                 "POST",
                 "/v1/chat/completions",
                 {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                headers={"x-litellm-call-id": f"{scenario_id}-baseline"},
+                headers={"x-hangarllm-call-id": f"{scenario_id}-baseline"},
             )
             assert baseline.status_code == 200, baseline.text
             assert len(_upstream_requests(gateway.upstream_url)) == 1
@@ -1300,15 +1300,15 @@ def test_management_patch_default_on_heals_stored_scope(
                         patched: Final = candidate.request(
                             "PATCH",
                             f"/guardrails/{guardrail_id}",
-                            {"litellm_params": {"default_on": True}},
+                            {"hangarllm_params": {"default_on": True}},
                         )
                         assert patched.status_code == 200, patched.text
                         body: Final = JSON_OBJECT.validate_json(patched.content)
-                        params: Final = object_value(body["litellm_params"])
+                        params: Final = object_value(body["hangarllm_params"])
                         assert params["default_on"] is True, body
                         persisted: Final = _management_guardrail_rows(identity)
                         assert len(persisted) == 1, persisted
-                        persisted_params: Final = object_value(persisted[0]["litellm_params"])
+                        persisted_params: Final = object_value(persisted[0]["hangarllm_params"])
                         assert persisted_params.get("logging_only_scope") == (
                             stored_scope if _is_base_audit_leg() else None
                         ), persisted
@@ -1318,7 +1318,7 @@ def test_management_patch_default_on_heals_stored_scope(
                             "POST",
                             "/v1/chat/completions",
                             {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                            headers={"x-litellm-call-id": call_id},
+                            headers={"x-hangarllm-call-id": call_id},
                         )
                         assert response.status_code == 400 and "synthetic healed scope denial" in response.text, (
                             response.text
@@ -1349,7 +1349,7 @@ def test_H10_management_patch_null_scope_restores_both_directions(gateway: Gatew
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         payload: Final = JSON_OBJECT.validate_json(request.body)
         direction: Final = _direction(payload)
         verdict: Final = (
@@ -1391,12 +1391,12 @@ def test_H10_management_patch_null_scope_restores_both_directions(gateway: Gatew
                 patched: Final = candidate.request(
                     "PATCH",
                     f"/guardrails/{guardrail_id}",
-                    {"litellm_params": {"logging_only_scope": None}},
+                    {"hangarllm_params": {"logging_only_scope": None}},
                 )
                 assert patched.status_code == 200, patched.text
                 persisted: Final = _management_guardrail_rows(identity)
                 assert len(persisted) == 1, persisted
-                params: Final = object_value(persisted[0]["litellm_params"])
+                params: Final = object_value(persisted[0]["hangarllm_params"])
                 assert params.get("logging_only_scope") is None, persisted
                 result: Final = _call_client("openai_sync", "chat", candidate, model, prompt, False, guarded_call_id)
                 assert (result.status, _response_body_without_ids(result.body)) == (
@@ -1446,7 +1446,7 @@ def test_H11_management_patch_same_scope_is_idempotent_and_output_only(gateway: 
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic idempotent monitor"}')
 
     try:
@@ -1483,12 +1483,12 @@ def test_H11_management_patch_same_scope_is_idempotent_and_output_only(gateway: 
                 first: Final = candidate.request(
                     "PATCH",
                     f"/guardrails/{guardrail_id}",
-                    {"litellm_params": {"logging_only_scope": "output"}},
+                    {"hangarllm_params": {"logging_only_scope": "output"}},
                 )
                 second: Final = candidate.request(
                     "PATCH",
                     f"/guardrails/{guardrail_id}",
-                    {"litellm_params": {"logging_only_scope": "output"}},
+                    {"hangarllm_params": {"logging_only_scope": "output"}},
                 )
                 assert first.status_code == 200, first.text
                 assert second.status_code == 200, second.text
@@ -1550,8 +1550,8 @@ def test_H12_management_reads_expose_typed_logging_only_scope(gateway: Gateway, 
                 object_value(item) for item in listed if object_value(item)["guardrail_id"] == guardrail_id
             )
             assert len(matches) == 1, listed
-            assert object_value(info["litellm_params"])["logging_only_scope"] == "input", info
-            assert object_value(matches[0]["litellm_params"])["logging_only_scope"] == "input", matches
+            assert object_value(info["hangarllm_params"])["logging_only_scope"] == "input", info
+            assert object_value(matches[0]["hangarllm_params"])["logging_only_scope"] == "input", matches
     finally:
         _delete_database_guardrail(gateway, identity)
 
@@ -1565,7 +1565,7 @@ def test_H13_unauthenticated_management_and_chat_requests_do_not_scan(gateway: G
     )
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"NONE"}')
 
     try:
@@ -1596,7 +1596,7 @@ def test_H13_unauthenticated_management_and_chat_requests_do_not_scan(gateway: G
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
                         key="synthetic-invalid-key",
-                        headers={"x-litellm-call-id": f"{scenario_id}-unauthorized"},
+                        headers={"x-hangarllm-call-id": f"{scenario_id}-unauthorized"},
                     )
                     assert unauthorized_chat.status_code == 401, unauthorized_chat.text
                     assert _management_guardrail_rows(f"{identity}-unauthorized") == ()
@@ -1653,19 +1653,19 @@ def test_K3_patch_flag_rejection_preserves_raw_stored_row(gateway: Gateway, tmp_
             )
             guardrail_id: Final = string_value(created["guardrail_id"])
             before_raw: Final = read_rows(
-                'SELECT litellm_params::text AS raw_params FROM "LiteLLM_GuardrailsTable" WHERE guardrail_name=%s',
+                'SELECT hangarllm_params::text AS raw_params FROM "HangarLLM_GuardrailsTable" WHERE guardrail_name=%s',
                 (identity,),
             )
             assert len(before_raw) == 1, before_raw
             rejected: Final = candidate.request(
                 "PATCH",
                 f"/guardrails/{guardrail_id}",
-                {"litellm_params": {"logging_only_continue_on_input_failure": True}},
+                {"hangarllm_params": {"logging_only_continue_on_input_failure": True}},
             )
             assert rejected.status_code == 422, rejected.text
             assert "logging_only_continue_on_input_failure" in rejected.text, rejected.text
             after_raw: Final = read_rows(
-                'SELECT litellm_params::text AS raw_params FROM "LiteLLM_GuardrailsTable" WHERE guardrail_name=%s',
+                'SELECT hangarllm_params::text AS raw_params FROM "HangarLLM_GuardrailsTable" WHERE guardrail_name=%s',
                 (identity,),
             )
             assert len(after_raw) == 1, after_raw
@@ -1676,7 +1676,7 @@ def test_K3_patch_flag_rejection_preserves_raw_stored_row(gateway: Gateway, tmp_
             assert {
                 key: before_params[key] for key in before_params if key != "api_key"
             } == {key: after_params[key] for key in after_params if key != "api_key"}, (before_params, after_params)
-            assert str(after_params["api_key"]).startswith("litellm_enc::"), after_params
+            assert str(after_params["api_key"]).startswith("hangarllm_enc::"), after_params
     finally:
         _delete_database_guardrail(gateway, identity)
 
@@ -1701,18 +1701,18 @@ def test_K4_patch_dropping_logging_only_mode_clears_stored_flag(gateway: Gateway
             guardrail_id: Final = string_value(created["guardrail_id"])
             before: Final = _management_guardrail_rows(identity)
             assert len(before) == 1, before
-            assert object_value(before[0]["litellm_params"]).get("logging_only_continue_on_input_failure") is True, (
+            assert object_value(before[0]["hangarllm_params"]).get("logging_only_continue_on_input_failure") is True, (
                 before
             )
             patched: Final = candidate.request(
                 "PATCH",
                 f"/guardrails/{guardrail_id}",
-                {"litellm_params": {"mode": ["pre_call"]}},
+                {"hangarllm_params": {"mode": ["pre_call"]}},
             )
             assert patched.status_code == 200, patched.text
             persisted: Final = _management_guardrail_rows(identity)
             assert len(persisted) == 1, persisted
-            params: Final = object_value(persisted[0]["litellm_params"])
+            params: Final = object_value(persisted[0]["hangarllm_params"])
             assert params.get("logging_only_continue_on_input_failure") is None, persisted
             assert params["mode"] == ["pre_call"], persisted
     finally:
@@ -1727,7 +1727,7 @@ def test_K5_yaml_flag_on_blocking_guardrail_boots_and_keeps_blocking(gateway: Ga
     upstream_handle: Final = register_scenario(scenario_id, _provider_response("chat", scenario_id, reply, False))
 
     def policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=b'{"action":"BLOCKED","blocked_reason":"synthetic yaml flag denial"}')
 
     try:
@@ -1753,7 +1753,7 @@ def test_K5_yaml_flag_on_blocking_guardrail_boots_and_keeps_blocking(gateway: Ga
                         "POST",
                         "/v1/chat/completions",
                         {"model": model, "messages": [{"role": "user", "content": prompt}]},
-                        headers={"x-litellm-call-id": f"{scenario_id}-guarded"},
+                        headers={"x-hangarllm-call-id": f"{scenario_id}-guarded"},
                     )
                     assert guarded.status_code == 400 and "synthetic yaml flag denial" in guarded.text, guarded.text
                     assert _upstream_requests(gateway.upstream_url) == ()

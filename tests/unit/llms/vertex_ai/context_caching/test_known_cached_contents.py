@@ -10,16 +10,16 @@ import openai
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.llms.vertex_ai.context_caching import vertex_ai_context_caching
-from litellm.llms.vertex_ai.context_caching.known_cached_contents import KnownCachedContents, parse_expire_time
-from litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching import ContextCachingEndpoints
-from litellm.utils import get_prompt_cache_min_tokens
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+from hangarllm.llms.vertex_ai.context_caching import vertex_ai_context_caching
+from hangarllm.llms.vertex_ai.context_caching.known_cached_contents import KnownCachedContents, parse_expire_time
+from hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching import ContextCachingEndpoints
+from hangarllm.utils import get_prompt_cache_min_tokens
 
-_REGISTRY_MODULE: Final = "litellm.llms.vertex_ai.context_caching.known_cached_contents"
+_REGISTRY_MODULE: Final = "hangarllm.llms.vertex_ai.context_caching.known_cached_contents"
 _SCOPE: Final = ("https://vertex.test/v1/projects/p/locations/us/cachedContents", "")
 _NOW: Final = datetime(2026, 10, 14, 18, 0, tzinfo=timezone.utc).timestamp()
 _FAR_FUTURE: Final = "2100-01-01T00:00:00.123456789Z"
@@ -441,11 +441,11 @@ def _rejected(status_code: int, message: str) -> httpx.Response:
 async def _complete(sync_mode: bool, stream: bool, **kwargs) -> str:
     request: Final = {"model": "gemini/gemini-3.1-pro", "messages": _messages(), "stream": stream, **kwargs}
     if sync_mode:
-        response = litellm.completion(**request)
+        response = hangarllm.completion(**request)
         if stream:
             return "".join(chunk.choices[0].delta.content or "" for chunk in response)
         return response.choices[0].message.content
-    response = await litellm.acompletion(**request)
+    response = await hangarllm.acompletion(**request)
     if stream:
         return "".join([chunk.choices[0].delta.content or "" async for chunk in response])
     return response.choices[0].message.content
@@ -461,7 +461,7 @@ async def test_rejected_cache_is_replaced_when_a_request_param_cannot_be_deep_co
     sync_mode: bool,
     stream: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.get(url__regex=r".*/cachedContents.*").mock(return_value=httpx.Response(200, json={}))
     respx_mock.post(url__regex=r".*/cachedContents$").mock(
         side_effect=[
@@ -504,7 +504,7 @@ async def test_remembered_cache_rejected_by_generate_content_is_replaced_within_
     message: str,
     replaced: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     list_route: Final = respx_mock.get(url__regex=r".*/cachedContents.*").mock(
         return_value=httpx.Response(200, json={})
     )
@@ -529,7 +529,7 @@ async def test_remembered_cache_rejected_by_generate_content_is_replaced_within_
     sent: Final = [json.loads(call.request.content)["cachedContent"] for call in generate_route.calls]
     assert sent == ["cachedContents/deleted", "cachedContents/deleted"] + (["cachedContents/fresh"] if replaced else [])
     assert list_route.call_count == (2 if replaced else 1)
-    assert "enerateContent" in logged[-1]["litellm_params"]["api_base"]
+    assert "enerateContent" in logged[-1]["hangarllm_params"]["api_base"]
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
@@ -564,7 +564,7 @@ async def test_error_that_does_not_name_a_missing_cache_is_not_retried(
     message: str,
     forgotten: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     list_route: Final = respx_mock.get(url__regex=r".*/cachedContents.*").mock(
         return_value=httpx.Response(200, json={})
     )
@@ -602,7 +602,7 @@ async def test_rejected_caller_supplied_cached_content_is_not_sent_again(
     sync_mode: bool,
     stream: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     list_route: Final = respx_mock.get(url__regex=r".*/cachedContents.*").mock(
         return_value=httpx.Response(200, json={})
     )
@@ -641,7 +641,7 @@ async def test_cache_rejected_on_a_resume_hop_is_not_sent_again(
     monkeypatch: pytest.MonkeyPatch,
     sync_mode: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     list_route: Final = respx_mock.get(url__regex=r".*/cachedContents.*").mock(
         return_value=httpx.Response(200, json={})
     )

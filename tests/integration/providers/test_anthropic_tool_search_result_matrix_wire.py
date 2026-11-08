@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from typing import Final, cast
 
 import httpx
-import litellm
+import hangarllm
 import openai
 import pytest
 from integration._support.anthropic_thinking import JSON_LIST, JSON_OBJECT, chunks_of, deltas_of
@@ -26,8 +26,8 @@ from integration.providers._cache_control_marks_support import (
     tool_call,
     tool_use_label,
 )
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage
-from litellm.types.utils import ChatCompletionMessageToolCall
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage
+from hangarllm.types.utils import ChatCompletionMessageToolCall
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 from pydantic import JsonValue
 
@@ -712,8 +712,8 @@ def test_run_tool_loop_through_the_proxy_executes_only_the_client_tool(gateway: 
 
     with wire_server(scripted_peer()) as wire, gateway.scenario() as scenario:
         model: Final = deployment(scenario, "anthropic", wire.url, gateway.upstream_url)
-        content: Final = litellm.run_tool_loop(
-            model=f"litellm_proxy/{model}",
+        content: Final = hangarllm.run_tool_loop(
+            model=f"hangarllm_proxy/{model}",
             messages=cast(list[AllMessageValues], first_messages(marker)),
             tools=cast(list[ChatCompletionToolParam], TOOLS),
             execute_tool=execute,

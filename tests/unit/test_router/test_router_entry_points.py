@@ -14,12 +14,12 @@ import warnings
 import httpx
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.router_api import SETTING_FIELDS, ChangeSet, RouterSettings
-from litellm.router_deprecated import DEPRECATED_ROUTER_MEMBER_USES, DeprecatedRouterMembers
-from litellm.types.router import Deployment
+import hangarllm
+from hangarllm import Router
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.router_api import SETTING_FIELDS, ChangeSet, RouterSettings
+from hangarllm.router_deprecated import DEPRECATED_ROUTER_MEMBER_USES, DeprecatedRouterMembers
+from hangarllm.types.router import Deployment
 
 
 def _router() -> Router:
@@ -27,22 +27,22 @@ def _router() -> Router:
         model_list=[
             {
                 "model_name": "gpt",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"},
                 "model_info": {"id": "dep-a", "access_groups": ["grp"]},
             },
             {
                 "model_name": "gpt",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-b"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-b"},
                 "model_info": {"id": "dep-b"},
             },
             {
                 "model_name": "team-internal",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-t"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-t"},
                 "model_info": {"id": "dep-team", "team_id": "team-1", "team_public_model_name": "team-gpt"},
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "sk-w"},
+                "hangarllm_params": {"model": "openai/*", "api_key": "sk-w"},
                 "model_info": {"id": "dep-wild"},
             },
         ],
@@ -229,7 +229,7 @@ def test_assignment_goes_through_apply(router):
         warnings.simplefilter("ignore")
         router.fallbacks = [{"gpt": ["openai/gpt-4.1"]}]
         assert router.settings().fallbacks == [{"gpt": ["openai/gpt-4.1"]}]
-        router.search_tools = [{"search_tool_name": "s", "litellm_params": {"search_provider": "tavily"}}]
+        router.search_tools = [{"search_tool_name": "s", "hangarllm_params": {"search_provider": "tavily"}}]
         assert router.settings().search_tools[0]["search_tool_name"] == "s"
     router.apply(ChangeSet(assign={"cooldown_time": 3}))
     assert router.settings().cooldown_time == 3
@@ -241,7 +241,7 @@ def test_apply_upsert_and_delete_bump_version(router):
     v0 = router.registry().version
     added = Deployment(
         model_name="new-group",
-        litellm_params={"model": "openai/gpt-4o-mini", "api_key": "sk-n"},
+        hangarllm_params={"model": "openai/gpt-4o-mini", "api_key": "sk-n"},
         model_info={"id": "dep-new"},
     )
     result = router.apply(ChangeSet(upsert=[added]))
@@ -266,12 +266,12 @@ def test_old_deployment_writes_also_advance_the_version(router):
         router.add_deployment(
             Deployment(
                 model_name="added",
-                litellm_params={"model": "openai/gpt-4o-mini", "api_key": "sk-x"},
+                hangarllm_params={"model": "openai/gpt-4o-mini", "api_key": "sk-x"},
                 model_info={"id": "dep-added"},
             )
         )
         v1 = router.registry().version
-        router.set_model_list([{"model_name": "only", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-o"}}])
+        router.set_model_list([{"model_name": "only", "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-o"}}])
     assert v0 < v1 < router.registry().version
     assert router.registry().names() == ["only"]
     v2 = router.registry().version
@@ -287,12 +287,12 @@ def test_update_settings_through_apply(router):
 
 
 def test_aapply_applies_changes_then_refreshes_model_info(monkeypatch):
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
     router = Router(
         model_list=[
             {
                 "model_name": "local",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "hosted_vllm/local-model",
                     "api_base": "https://capacity.test/v1",
                     "api_key": "local-key",
@@ -383,7 +383,7 @@ def test_counter_and_internal_silence(router):
 def test_every_deprecated_member_names_a_replacement():
     import inspect
 
-    from litellm.router_deprecated import _DeprecatedAttribute
+    from hangarllm.router_deprecated import _DeprecatedAttribute
 
     for name, member in vars(DeprecatedRouterMembers).items():
         if name.startswith("__"):
@@ -397,7 +397,7 @@ def test_every_deprecated_member_names_a_replacement():
 
 
 def test_generate_model_id_is_the_module_function():
-    from litellm.router_api import deployment_id
+    from hangarllm.router_api import deployment_id
 
     params = {"model": "openai/gpt-4o", "api_key": "k", "extra": {"a": 1}}
     with warnings.catch_warnings():
@@ -406,14 +406,14 @@ def test_generate_model_id_is_the_module_function():
 
 
 def test_router_cannot_be_subclassed():
-    with pytest.raises(TypeError, match=r"^litellm\.Router cannot be subclassed"):
+    with pytest.raises(TypeError, match=r"^hangarllm\.Router cannot be subclassed"):
 
-        class Sub(litellm.Router):
+        class Sub(hangarllm.Router):
             pass
 
 
 def test_core_classes_can_still_be_subclassed():
-    from litellm.router_rust.core import RustCore
+    from hangarllm.router_rust.core import RustCore
 
     class RustSub(RustCore):
         pass
@@ -444,7 +444,7 @@ def test_wrong_arity_errors_still_name_router(router):
             router.get_deployment("dep-a", "extra")  # pyright: ignore[reportCallIssue]
         with pytest.raises(TypeError, match=r"^Router\.get_available_guardrail\(\) missing 1 required"):
             router.get_available_guardrail()  # pyright: ignore[reportCallIssue]
-        with pytest.raises(TypeError, match=r"^litellm\.router\.Router\.has_model_id\(\) argument after \*\*"):
+        with pytest.raises(TypeError, match=r"^hangarllm\.router\.Router\.has_model_id\(\) argument after \*\*"):
             router.has_model_id(**None)  # pyright: ignore[reportCallIssue, reportArgumentType]
         with pytest.raises(TypeError, match=r"^Router\.is_deployment_blocked\(\) missing 1 required"):
             router.is_deployment_blocked()  # pyright: ignore[reportCallIssue]
@@ -461,7 +461,7 @@ def test_registry_reads_without_a_core_forward(router):
         (lambda r: r.registry().deployments(source="named"), TypeError),
         (lambda r: r.registry().deployments("gpt", source="nope"), ValueError),
         (lambda r: r.registry().index("nope"), ValueError),
-        (lambda r: r.registry().names(kind="litellm_models"), TypeError),
+        (lambda r: r.registry().names(kind="hangarllm_models"), TypeError),
         (lambda r: r.registry().names("gpt", kind="nope"), ValueError),
         (lambda r: r.registry().resolve("team-gpt", kind="team_model"), TypeError),
         (lambda r: r.registry().resolve(None, kind="alias"), TypeError),
@@ -481,10 +481,10 @@ def test_entry_points_reject_unknown_kinds_and_missing_names(router, call, error
 def test_health_is_blocked_and_the_old_static_name_agree():
     paused = Deployment(
         model_name="m",
-        litellm_params={"model": "openai/gpt-4o-mini"},  # pyright: ignore[reportArgumentType]
+        hangarllm_params={"model": "openai/gpt-4o-mini"},  # pyright: ignore[reportArgumentType]
         model_info={"id": "d1", "blocked": True},  # pyright: ignore[reportArgumentType]
     )
-    from litellm.router_api import RouterHealth
+    from hangarllm.router_api import RouterHealth
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -492,14 +492,14 @@ def test_health_is_blocked_and_the_old_static_name_agree():
 
 
 def test_old_members_refuse_objects_that_are_not_routers():
-    from litellm.router_deprecated import _as_router
+    from hangarllm.router_deprecated import _as_router
 
-    with pytest.raises(TypeError, match=r"is not a litellm\.Router"):
+    with pytest.raises(TypeError, match=r"is not a hangarllm\.Router"):
         _as_router(object())  # pyright: ignore[reportArgumentType]
 
 
 def test_routing_context_forwards_to_the_router(router):
-    from litellm.router_api import RoutingContext
+    from hangarllm.router_api import RoutingContext
 
     ctx = RoutingContext(router)
     assert ctx.registry().version == router.registry().version
@@ -508,7 +508,7 @@ def test_routing_context_forwards_to_the_router(router):
 
 
 def test_attribute_errors_about_other_objects_pass_through_unchanged(router):
-    from litellm.router_deprecated import _public_attribute_error
+    from hangarllm.router_deprecated import _public_attribute_error
 
     other = AttributeError("'dict' object has no attribute 'x'", name="x", obj={})
     assert _public_attribute_error(router, "_core_x", "x", other) is other
@@ -551,13 +551,13 @@ _GROUP_AFFINITY = ["encrypted_content_affinity"]
 def test_decryptable_reasoning_keeps_encrypted_reasoning_only_when_the_router_sends_it_to_a_deployment_that_decrypts_it(
     affinity, target_ids, reasoning_stays
 ):
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     r = Router(
         model_list=[
             {
                 "model_name": "pair",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_base": api_base, "api_key": "sk-pair"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_base": api_base, "api_key": "sk-pair"},
                 "model_info": {"id": model_id},
             }
             for api_base, model_id in (
@@ -593,20 +593,20 @@ def test_decryptable_reasoning_keeps_encrypted_reasoning_only_when_the_router_se
 
 
 def test_renamed_router_keyword_still_works_and_warns(router):
-    from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+    from hangarllm.router_utils.router_callbacks.track_deployment_metrics import (
         get_deployment_failures_for_current_minute,
         increment_deployment_failures_for_current_minute,
     )
 
     deployment_id = router.registry().names(kind="ids")[0]
     label = (
-        "litellm.router_utils.router_callbacks.track_deployment_metrics."
+        "hangarllm.router_utils.router_callbacks.track_deployment_metrics."
         "increment_deployment_failures_for_current_minute"
     )
     before = DEPRECATED_ROUTER_MEMBER_USES[label]
 
-    with pytest.warns(DeprecationWarning, match=r"litellm_router_instance= is deprecated; pass ctx="):
-        increment_deployment_failures_for_current_minute(litellm_router_instance=router, deployment_id=deployment_id)
+    with pytest.warns(DeprecationWarning, match=r"hangarllm_router_instance= is deprecated; pass ctx="):
+        increment_deployment_failures_for_current_minute(hangarllm_router_instance=router, deployment_id=deployment_id)
 
     assert DEPRECATED_ROUTER_MEMBER_USES[label] == before + 1
     with warnings.catch_warnings():
@@ -615,7 +615,7 @@ def test_renamed_router_keyword_still_works_and_warns(router):
 
 
 def test_router_passed_where_the_context_goes_is_converted_with_a_warning(router):
-    from litellm.router_utils.cooldown_handlers import get_cooldown_deployments
+    from hangarllm.router_utils.cooldown_handlers import get_cooldown_deployments
 
     with pytest.warns(DeprecationWarning, match="passing a Router is deprecated"):
         assert get_cooldown_deployments(router, None) == []
@@ -624,29 +624,29 @@ def test_router_passed_where_the_context_goes_is_converted_with_a_warning(router
 
 
 def test_renamed_router_keyword_alongside_the_new_one_is_rejected(router):
-    from litellm.router_utils.cooldown_handlers import get_cooldown_deployments
+    from hangarllm.router_utils.cooldown_handlers import get_cooldown_deployments
 
-    with pytest.raises(TypeError, match="got both litellm_router_instance= and ctx="):
-        get_cooldown_deployments(ctx=router._core_ctx, litellm_router_instance=router, parent_otel_span=None)
+    with pytest.raises(TypeError, match="got both hangarllm_router_instance= and ctx="):
+        get_cooldown_deployments(ctx=router._core_ctx, hangarllm_router_instance=router, parent_otel_span=None)
 
 
 def test_renamed_router_param_maps_to_a_differently_named_context(router):
-    from litellm.router_api import RoutingContext
-    from litellm.router_deprecated import renamed_router_param
+    from hangarllm.router_api import RoutingContext
+    from hangarllm.router_deprecated import renamed_router_param
 
-    @renamed_router_param("litellm_router", new="litellm_routing_ctx")
-    def helper(*, litellm_routing_ctx: RoutingContext) -> RoutingContext:
-        return litellm_routing_ctx
+    @renamed_router_param("hangarllm_router", new="hangarllm_routing_ctx")
+    def helper(*, hangarllm_routing_ctx: RoutingContext) -> RoutingContext:
+        return hangarllm_routing_ctx
 
-    with pytest.warns(DeprecationWarning, match="litellm_router= is deprecated; pass litellm_routing_ctx="):
-        assert helper(litellm_router=router) is router._core_ctx
+    with pytest.warns(DeprecationWarning, match="hangarllm_router= is deprecated; pass hangarllm_routing_ctx="):
+        assert helper(hangarllm_router=router) is router._core_ctx
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert helper(litellm_routing_ctx=router._core_ctx) is router._core_ctx
+        assert helper(hangarllm_routing_ctx=router._core_ctx) is router._core_ctx
 
 
 def test_renamed_router_attribute_reads_and_writes_the_context(router):
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from hangarllm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 

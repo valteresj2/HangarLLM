@@ -1,6 +1,6 @@
 """
 Tests for the gateway request (SGR) fold and its commit to
-LiteLLM_DailyGatewayRequests.
+HangarLLM_DailyGatewayRequests.
 """
 
 import asyncio
@@ -13,22 +13,22 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.constants import (
+from hangarllm.constants import (
     GATEWAY_REQUESTS_MAX_ROWS_PER_UPSERT,
     MAX_REDIS_BUFFER_DEQUEUE_COUNT,
     REDIS_GATEWAY_REQUESTS_BUFFER_KEY,
     REDIS_GATEWAY_REQUESTS_BUFFER_KEY_V2,
 )
-from litellm.proxy.db.gateway_request_tracking import (
+from hangarllm.proxy.db.gateway_request_tracking import (
     GATEWAY_REQUESTS_JOB_NAME,
     GatewayRequestAccumulator,
     GatewayRequestRedisBuffer,
     commit_gateway_requests_to_db,
     flush_gateway_requests,
 )
-from litellm.proxy.db.log_db_metrics import record_db_io
-from litellm.proxy.middleware.billable_request_metrics_middleware import BillableCategory
-from litellm.types.proxy.gateway_requests import GatewayRequestCounts, GatewayRequestKey
+from hangarllm.proxy.db.log_db_metrics import record_db_io
+from hangarllm.proxy.middleware.billable_request_metrics_middleware import BillableCategory
+from hangarllm.types.proxy.gateway_requests import GatewayRequestCounts, GatewayRequestKey
 
 _NOW: Final = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
 _DAY: Final = _NOW.strftime("%Y-%m-%d")
@@ -161,7 +161,7 @@ def _rows_written(client: FakePrismaClient) -> list[tuple[object, ...]]:
 
 
 def _main_param_offset(query: str) -> int:
-    main_query: Final[str] = query[query.index('INSERT INTO "LiteLLM_DailyGatewayRequests"') :]
+    main_query: Final[str] = query[query.index('INSERT INTO "HangarLLM_DailyGatewayRequests"') :]
     first_placeholder: Final[int] = main_query.index("$")
     placeholder_type: Final[int] = main_query.index("::", first_placeholder)
     offset: Final[int] = int(main_query[first_placeholder + 1 : placeholder_type]) - 1
@@ -180,7 +180,7 @@ def _failure_rows_written(client: FakePrismaClient) -> list[tuple[object, ...]]:
 
 
 def _failure_rows_for_statement(query: str, params: tuple[object, ...]) -> list[tuple[object, ...]]:
-    if 'INSERT INTO "LiteLLM_DailyGatewayFailedRequests"' not in query:
+    if 'INSERT INTO "HangarLLM_DailyGatewayFailedRequests"' not in query:
         return []
     return [params[i : i + 5] for i in range(0, _main_param_offset(query), 5)]
 
@@ -217,13 +217,13 @@ def test_commit_sql_adds_to_the_existing_row_instead_of_replacing_it():
     asyncio.run(commit_gateway_requests_to_db(prisma_client=client, snapshot=snapshot))
 
     sql, params = client.db.statements[0]
-    assert 'INSERT INTO "LiteLLM_DailyGatewayRequests"' in sql
+    assert 'INSERT INTO "HangarLLM_DailyGatewayRequests"' in sql
     assert 'ON CONFLICT ("date", "category", "route") DO UPDATE SET' in sql
     assert (
-        '"successful_requests" = "LiteLLM_DailyGatewayRequests"."successful_requests" + EXCLUDED."successful_requests"'
+        '"successful_requests" = "HangarLLM_DailyGatewayRequests"."successful_requests" + EXCLUDED."successful_requests"'
         in sql
     )
-    assert '"failed_requests" = "LiteLLM_DailyGatewayRequests"."failed_requests" + EXCLUDED."failed_requests"' in sql
+    assert '"failed_requests" = "HangarLLM_DailyGatewayRequests"."failed_requests" + EXCLUDED."failed_requests"' in sql
     assert params == ("2026-08-01", "llm", "/chat/completions", 7, 2)
 
 
@@ -260,9 +260,9 @@ def test_commit_upserts_per_status_and_sums_main_table_counts_in_one_statement()
 
     assert len(client.db.statements) == 1
     sql, params = client.db.statements[0]
-    assert sql.startswith('WITH failed AS (INSERT INTO "LiteLLM_DailyGatewayFailedRequests"')
-    assert sql.index('INSERT INTO "LiteLLM_DailyGatewayFailedRequests"') < sql.index(
-        'INSERT INTO "LiteLLM_DailyGatewayRequests"'
+    assert sql.startswith('WITH failed AS (INSERT INTO "HangarLLM_DailyGatewayFailedRequests"')
+    assert sql.index('INSERT INTO "HangarLLM_DailyGatewayFailedRequests"') < sql.index(
+        'INSERT INTO "HangarLLM_DailyGatewayRequests"'
     )
     assert "$1::text, $2::text, $3::text, $4::integer, $5::bigint" in sql
     assert "$6::text, $7::text, $8::text, $9::integer, $10::bigint" in sql
@@ -307,8 +307,8 @@ def test_success_only_snapshot_uses_only_the_existing_table_upsert():
     asyncio.run(commit_gateway_requests_to_db(prisma_client=client, snapshot=snapshot))
 
     sql, _ = client.db.statements[0]
-    assert sql.startswith('INSERT INTO "LiteLLM_DailyGatewayRequests"')
-    assert "LiteLLM_DailyGatewayFailedRequests" not in sql
+    assert sql.startswith('INSERT INTO "HangarLLM_DailyGatewayRequests"')
+    assert "HangarLLM_DailyGatewayFailedRequests" not in sql
     assert _failure_rows_written(client) == []
 
 
@@ -778,7 +778,7 @@ def test_commit_if_leader_writes_v2_counts_when_legacy_key_read_fails():
 
 
 def test_pop_keeps_v2_first_batch_when_a_later_batch_read_fails(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr("litellm.proxy.db.gateway_request_tracking.MAX_REDIS_BUFFER_DEQUEUE_COUNT", 2)
+    monkeypatch.setattr("hangarllm.proxy.db.gateway_request_tracking.MAX_REDIS_BUFFER_DEQUEUE_COUNT", 2)
     redis: Final = FailureAfterFullV2BatchRedis()
     redis.lists[REDIS_GATEWAY_REQUESTS_BUFFER_KEY_V2] = [
         json.dumps(((_DAY, "llm", "/chat/completions", 500, 0, 2),)),
@@ -830,4 +830,4 @@ async def test_a_gateway_request_flush_renders_a_postgres_upsert_span(
 
     await commit_gateway_requests_to_db(prisma_client=prisma, snapshot=snapshot)
 
-    assert await postgres_span_names() == ("postgres.upsert LiteLLM_DailyGatewayRequests",)
+    assert await postgres_span_names() == ("postgres.upsert HangarLLM_DailyGatewayRequests",)

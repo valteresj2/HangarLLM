@@ -1,6 +1,6 @@
-"""Tests for litellm.proxy.read_model_list (Rust AI gateway config bridge)."""
+"""Tests for hangarllm.proxy.read_model_list (Rust AI gateway config bridge)."""
 
-from litellm.proxy.read_model_list import read_model_list
+from hangarllm.proxy.read_model_list import read_model_list
 
 
 def test_read_model_list_resolves_os_environ(monkeypatch, tmp_path):
@@ -10,7 +10,7 @@ def test_read_model_list_resolves_os_environ(monkeypatch, tmp_path):
     config.write_text(
         "model_list:\n"
         "  - model_name: gpt-realtime\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         "      model: openai/gpt-realtime\n"
         "      api_key: os.environ/OPENAI_API_KEY\n"
     )
@@ -18,7 +18,7 @@ def test_read_model_list_resolves_os_environ(monkeypatch, tmp_path):
     model_list = read_model_list(str(config))
 
     assert len(model_list) == 1
-    params = model_list[0]["litellm_params"]
+    params = model_list[0]["hangarllm_params"]
     assert model_list[0]["model_name"] == "gpt-realtime"
     assert params["model"] == "openai/gpt-realtime"
     assert params["api_key"] == "sk-resolved-123"

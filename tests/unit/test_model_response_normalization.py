@@ -2,7 +2,7 @@ import warnings
 
 import pytest
 
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     Choices,
     Delta,
     Message,
@@ -14,7 +14,7 @@ from litellm.types.utils import (
 
 def test_modelresponse_normalizes_openai_base_models() -> None:
     # OpenAI SDK returns Pydantic BaseModel objects for message/choice.
-    # LiteLLM should normalize these into its own internal `Message` / `Choices` types.
+    # HangarLLM should normalize these into its own internal `Message` / `Choices` types.
     from openai.types.chat.chat_completion import Choice as OpenAIChoice
     from openai.types.chat.chat_completion_message import ChatCompletionMessage
 

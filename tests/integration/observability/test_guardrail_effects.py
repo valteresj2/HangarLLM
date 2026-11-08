@@ -40,7 +40,7 @@ def test_guardrail_rewrites_system_and_user_in_actual_anthropic_request(gateway:
     replacements: Final = ["permitted system", "permitted user", "unchanged sibling"]
 
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api"
+        assert request.target == "/beta/hangarllm_basic_guardrail_api"
         body: Final = json.loads(request.body)
         assert body["texts"] == originals
         return Reply(body=json.dumps({"action": "GUARDRAIL_INTERVENED", "texts": replacements}).encode())
@@ -76,7 +76,7 @@ def test_guardrail_rewrites_system_and_user_in_actual_anthropic_request(gateway:
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": True,
@@ -119,7 +119,7 @@ def test_anthropic_messages_with_caller_metadata_keeps_guardrail_information_in_
     caller_metadata: Final = {"user_id": "device-account-session"}
 
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api"
+        assert request.target == "/beta/hangarllm_basic_guardrail_api"
         assert json.loads(request.body)["texts"] == [prompt]
         return Reply(body=json.dumps({"action": "NONE"}).encode())
 
@@ -148,7 +148,7 @@ def test_anthropic_messages_with_caller_metadata_keeps_guardrail_information_in_
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": True,
@@ -175,11 +175,11 @@ def test_anthropic_messages_with_caller_metadata_keeps_guardrail_information_in_
             )
             assert response.status_code == 200, response.text
             assert response.json()["content"] == [{"type": "text", "text": "permitted response"}], response.text
-            assert response.headers["x-litellm-applied-guardrails"] == identity, dict(response.headers)
+            assert response.headers["x-hangarllm-applied-guardrails"] == identity, dict(response.headers)
             assert len(policy.drain()) == len(upstream.drain()) == 1
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT call_type, metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+                    'SELECT call_type, metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
                     (model,),
                 ),
                 lambda values: len(values) == 1,
@@ -200,7 +200,7 @@ def test_guardrail_denial_prevents_provider_and_preserves_allowed_control(gatewa
     identity: Final = "guardrail" + uuid.uuid4().hex
 
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api"
+        assert request.target == "/beta/hangarllm_basic_guardrail_api"
         body: Final = json.loads(request.body)
         assert body["texts"] in (["synthetic denied marker"], ["synthetic allowed marker"])
         result: Final = (
@@ -215,7 +215,7 @@ def test_guardrail_denial_prevents_provider_and_preserves_allowed_control(gatewa
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": True,
@@ -331,7 +331,7 @@ def test_panw_latest_role_message_only_scans_only_latest_turn_on_responses_input
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "panw_prisma_airs",
                     "mode": "pre_call",
                     "default_on": True,
@@ -417,7 +417,7 @@ def test_panw_scans_and_masks_top_level_instructions_on_responses_input(gateway:
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "panw_prisma_airs",
                     "mode": "pre_call",
                     "default_on": True,
@@ -507,7 +507,7 @@ def _panw_config(tmp_path: Path, identity: str, policy_url: str, **flags: bool) 
     config["guardrails"] = [
         {
             "guardrail_name": identity,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "panw_prisma_airs",
                 "mode": "pre_call",
                 "default_on": True,
@@ -777,7 +777,7 @@ def test_bedrock_latest_only_masks_latest_turn_on_responses_input_with_instructi
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "bedrock",
                     "mode": "pre_call",
                     "default_on": True,
@@ -883,7 +883,7 @@ def test_bedrock_passthrough_converse_guardrail_ignores_denied_term_in_tool_defi
     }
 
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api"
+        assert request.target == "/beta/hangarllm_basic_guardrail_api"
         texts: Final = json.loads(request.body)["texts"]
         result: Final = (
             {"action": "BLOCKED", "blocked_reason": "synthetic policy denial"}
@@ -921,7 +921,7 @@ def test_bedrock_passthrough_converse_guardrail_ignores_denied_term_in_tool_defi
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "default_on": True,
@@ -1006,7 +1006,7 @@ def test_bedrock_guardrail_streams_anthropic_messages_tool_use_instead_of_chunk_
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "bedrock",
                     "mode": "post_call",
                     "default_on": True,
@@ -1065,7 +1065,7 @@ def test_request_selected_mcp_guardrail_blocks_direct_and_virtual_calls(gateway:
     config["guardrails"] = [
         {
             "guardrail_name": guardrail,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "custom_code",
                 "mode": "pre_mcp_call",
                 "default_on": False,
@@ -1107,7 +1107,7 @@ def test_request_selected_mcp_guardrail_blocks_direct_and_virtual_calls(gateway:
                 peer.drain()
                 response = candidate.client.post(
                     "/mcp-rest/tools/call",
-                    headers={"x-litellm-api-key": caller},
+                    headers={"x-hangarllm-api-key": caller},
                     json={
                         "server_id": identity,
                         "name": "mcp_tool_call" if virtual else names[tool],
@@ -1137,7 +1137,7 @@ _RESPONSES_DENIAL: Final = "This model is not currently available."
 def _deny_guardrail(name: str, denial: str = _RESPONSES_DENIAL) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "custom_code",
             "mode": "pre_call",
             "default_on": False,
@@ -1253,7 +1253,7 @@ def _responses_output_denial_config(tmp_path: Path, identity: str, model: str) -
     config["guardrails"] = [
         {
             "guardrail_name": identity,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "custom_code",
                 "mode": "post_call",
                 "default_on": False,
@@ -1484,7 +1484,7 @@ def _register_named_model(candidate: Gateway, name: str, api_base: str | None = 
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "integration-provider-key",
                 "api_base": api_base or f"{candidate.upstream_url}/v1",
@@ -1672,7 +1672,7 @@ def _refusing_provider(request: Request) -> Reply:
 
 
 _STRING_REJECTION: Final = "__DENIAL__"
-_STRING_REJECTER_MODULE: Final = """from litellm.integrations.custom_guardrail import CustomGuardrail
+_STRING_REJECTER_MODULE: Final = """from hangarllm.integrations.custom_guardrail import CustomGuardrail
 
 
 class StringRejecter(CustomGuardrail):
@@ -1706,7 +1706,7 @@ def _string_rejection_config(tmp_path: Path, identity: str) -> Path:
     config["guardrails"] = [
         {
             "guardrail_name": identity,
-            "litellm_params": {"guardrail": f"{module}.StringRejecter", "mode": "pre_call"},
+            "hangarllm_params": {"guardrail": f"{module}.StringRejecter", "mode": "pre_call"},
         }
     ]
     path: Final = tmp_path / "string-rejection.yaml"
@@ -1935,7 +1935,7 @@ def test_responses_pre_call_denial_writes_zero_spend_row(gateway: Gateway, tmp_p
         assert response.status_code == 200, response.text
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, total_tokens FROM "LiteLLM_SpendLogs" WHERE model=%s AND call_type=%s',
+                'SELECT spend, total_tokens FROM "HangarLLM_SpendLogs" WHERE model=%s AND call_type=%s',
                 (model, "aresponses"),
             ),
             lambda values: len(values) == 1,
@@ -2018,7 +2018,7 @@ def test_logging_only_scope_observes_only_the_configured_direction_without_block
     texts_by_direction: Final = {"request": [prompt], "response": [reply]}
 
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api"
+        assert request.target == "/beta/hangarllm_basic_guardrail_api"
         return Reply(body=json.dumps({"action": "BLOCKED", "blocked_reason": "synthetic observed denial"}).encode())
 
     def provider(request: Request) -> Reply:
@@ -2044,7 +2044,7 @@ def test_logging_only_scope_observes_only_the_configured_direction_without_block
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "logging_only",
                     **logging_only_settings,
@@ -2065,7 +2065,7 @@ def test_logging_only_scope_observes_only_the_configured_direction_without_block
             assert response.json()["choices"][0]["message"]["content"] == reply, response.text
             assert len(upstream.drain()) == 1
             rows: Final = eventually(
-                lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+                lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
                 lambda values: len(values) == 1,
                 seconds=70,
             )
@@ -2106,7 +2106,7 @@ def test_logging_only_scope_literal_or_mode_mismatch_is_ignored_at_load_and_keep
     prompt: Final = "synthetic invalid-scope prompt pineapple " + identity
 
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api"
+        assert request.target == "/beta/hangarllm_basic_guardrail_api"
         return Reply(body=json.dumps({"action": "BLOCKED", "blocked_reason": "synthetic policy denial"}).encode())
 
     def provider(request: Request) -> Reply:
@@ -2136,7 +2136,7 @@ def test_logging_only_scope_literal_or_mode_mismatch_is_ignored_at_load_and_keep
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "generic_guardrail_api",
                     "mode": "pre_call",
                     "logging_only_scope": logging_only_scope,
@@ -2344,13 +2344,13 @@ def _scripted_provider(gate: threading.Event | None, pause: float, shape: str) -
 
 
 def _allowing_guardrail(request: Request) -> Reply:
-    assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+    assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
     return Reply(body=json.dumps({"action": "NONE"}).encode())
 
 
 def _failing_response_scans(reply: Reply) -> Callable[[Request], Reply]:
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         if json.loads(request.body)["input_type"] == "response":
             return reply
         return Reply(body=json.dumps({"action": "NONE"}).encode())
@@ -2378,7 +2378,7 @@ def _post_call_config(
     config["guardrails"] = [
         {
             "guardrail_name": identity,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "generic_guardrail_api",
                 "mode": "post_call",
                 "default_on": default_on,
@@ -2598,7 +2598,7 @@ def _post_call_rows(
     found: Final = eventually(
         lambda: tuple(
             row
-            for row in read_rows('SELECT call_type, metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,))
+            for row in read_rows('SELECT call_type, metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,))
             if call_types is None or row["call_type"] in call_types
         ),
         lambda values: len(values) == rows,
@@ -2704,7 +2704,7 @@ def test_client_disconnect_while_end_of_stream_scan_is_in_flight_still_records_t
     scan_released: Final = threading.Event()
 
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         if json.loads(request.body)["input_type"] == "response":
             scan_started.set()
             assert scan_released.wait(timeout=30), "The in-flight scan was never released"
@@ -2907,7 +2907,7 @@ def _openai_chat_chunks(candidate: Gateway, model: str, prompt: str) -> tuple[Ch
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 stream=True,
-                extra_headers={"x-litellm-call-id": prompt},
+                extra_headers={"x-hangarllm-call-id": prompt},
             )
         )
 
@@ -2921,7 +2921,7 @@ def _async_openai_chat_chunks(candidate: Gateway, model: str, prompt: str) -> tu
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 stream=True,
-                extra_headers={"x-litellm-call-id": prompt},
+                extra_headers={"x-hangarllm-call-id": prompt},
             )
             return tuple([chunk async for chunk in stream])
 
@@ -2946,7 +2946,7 @@ def test_progress_chunk_without_choice_index_streams_and_logs_served_answer(
     read_stream: Callable[[Gateway, str, str], tuple[ChatCompletionChunk, ...]],
 ) -> None:
     identity: Final = "guardrail" + uuid.uuid4().hex
-    record_property("litellm_call_id", identity)
+    record_property("hangarllm_call_id", identity)
     answer: Final = "synthetic answer " + identity
     reasoning: Final = "backend progress " + identity
     expected: Final = (progress_content or "") + answer
@@ -2991,8 +2991,8 @@ def test_progress_chunk_without_choice_index_streams_and_logs_served_answer(
             assert len(upstream.drain()) == 1
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT request_id, status, response, metadata FROM "LiteLLM_SpendLogs" '
-                    "WHERE model_group=%s AND (request_id=%s OR metadata->>'litellm_call_id'=%s)",
+                    'SELECT request_id, status, response, metadata FROM "HangarLLM_SpendLogs" '
+                    "WHERE model_group=%s AND (request_id=%s OR metadata->>'hangarllm_call_id'=%s)",
                     (model, identity, identity),
                 ),
                 lambda values: len(values) == 1,
@@ -3024,7 +3024,7 @@ def test_progress_chunk_without_choice_index_preserves_upstream_stream_error(
     read_stream: Callable[[Gateway, str, str], tuple[ChatCompletionChunk, ...]],
 ) -> None:
     identity: Final = "guardrail" + uuid.uuid4().hex
-    record_property("litellm_call_id", identity)
+    record_property("hangarllm_call_id", identity)
     message: Final = "synthetic upstream failure marker " + identity
     frames: Final = (
         _chat_frame(
@@ -3059,8 +3059,8 @@ def test_progress_chunk_without_choice_index_preserves_upstream_stream_error(
             assert len(upstream.drain()) == 1
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT request_id, status, metadata FROM "LiteLLM_SpendLogs" '
-                    "WHERE model_group=%s AND (request_id=%s OR metadata->>'litellm_call_id'=%s)",
+                    'SELECT request_id, status, metadata FROM "HangarLLM_SpendLogs" '
+                    "WHERE model_group=%s AND (request_id=%s OR metadata->>'hangarllm_call_id'=%s)",
                     (model, identity, identity),
                 ),
                 lambda values: len(values) == 1,
@@ -3082,7 +3082,7 @@ def test_disconnect_after_progress_without_choice_index_logs_only_the_received_p
     record_property: Callable[[str, object], None],
 ) -> None:
     identity: Final = "guardrail" + uuid.uuid4().hex
-    record_property("litellm_call_id", identity)
+    record_property("hangarllm_call_id", identity)
     prefix: Final = "synthetic received prefix " + identity
     tail: Final = "synthetic withheld tail " + identity
     gate: Final = threading.Event()
@@ -3131,7 +3131,7 @@ def test_disconnect_after_progress_without_choice_index_logs_only_the_received_p
                             model=model,
                             messages=[{"role": "user", "content": identity}],
                             stream=True,
-                            extra_headers={"x-litellm-call-id": identity},
+                            extra_headers={"x-hangarllm-call-id": identity},
                         )
                         async for chunk in stream:
                             for choice in chunk.choices:
@@ -3143,8 +3143,8 @@ def test_disconnect_after_progress_without_choice_index_logs_only_the_received_p
                 assert asyncio.run(disconnect()) == prefix
                 rows: Final = eventually(
                     lambda: read_rows(
-                        'SELECT request_id, status, response FROM "LiteLLM_SpendLogs" '
-                        "WHERE model_group=%s AND (request_id=%s OR metadata->>'litellm_call_id'=%s)",
+                        'SELECT request_id, status, response FROM "HangarLLM_SpendLogs" '
+                        "WHERE model_group=%s AND (request_id=%s OR metadata->>'hangarllm_call_id'=%s)",
                         (model, identity, identity),
                     ),
                     lambda values: len(values) == 1,
@@ -3190,7 +3190,7 @@ def test_concurrent_disconnects_during_a_guardrail_outage_each_record_exactly_on
     gateway: Gateway, tmp_path: Path
 ) -> None:
     def guardrail(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         body: Final = json.loads(request.body)
         index: Final = int(_secret_for(request).rsplit("-", 1)[1])
         if body["input_type"] == "response" and index % 3 == 0:
@@ -3276,7 +3276,7 @@ def test_client_disconnect_during_the_body_upload_runs_no_endpoint_and_writes_no
         _post_half_of_the_body_then_hang_up(owned.gateway, path, body.replace(b"MODEL", model.encode()))
         control: Final = owned.gateway.chat(model)
         rows: Final = eventually(
-            lambda: owned.gateway.rows('SELECT request_id, call_type, status FROM "LiteLLM_SpendLogs"', ()),
+            lambda: owned.gateway.rows('SELECT request_id, call_type, status FROM "HangarLLM_SpendLogs"', ()),
             lambda values: any(row["request_id"] == control["id"] for row in values),
             seconds=70,
         )

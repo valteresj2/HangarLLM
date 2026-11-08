@@ -24,11 +24,11 @@ def test_existing_toolset_format_loads_before_start_and_keeps_sibling_denied(gat
         def cleanup() -> None:
             response: Final = gateway.request("DELETE", f"/v1/mcp/toolset/{toolset}")
             assert response.status_code == 202, response.text
-            assert read_rows('SELECT toolset_id FROM "LiteLLM_MCPToolsetTable" WHERE toolset_id=%s', (toolset,)) == []
+            assert read_rows('SELECT toolset_id FROM "HangarLLM_MCPToolsetTable" WHERE toolset_id=%s', (toolset,)) == []
 
         with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
             connection.execute(
-                'INSERT INTO "LiteLLM_MCPToolsetTable" (toolset_id, toolset_name, tools, updated_at) '
+                'INSERT INTO "HangarLLM_MCPToolsetTable" (toolset_id, toolset_name, tools, updated_at) '
                 'VALUES (%s,%s,%s::jsonb,NOW())',
                 (toolset, "integration" + uuid.uuid4().hex, json.dumps([{"server_id": identity, "tool_name": "add"}])),
             )

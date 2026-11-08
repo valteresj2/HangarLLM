@@ -25,7 +25,7 @@ from models import (
     ImageGenerationResponse,
     KeyGenerateBody,
     KeyMetadata,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     TeamDeleteBody,
     TeamInfoParams,
     TeamInfoResponse,
@@ -55,7 +55,7 @@ class GuardrailParamsBase(BaseModel):
 
 
 class ContentFilterParamsBody(GuardrailParamsBase):
-    guardrail: Literal["litellm_content_filter"] = "litellm_content_filter"
+    guardrail: Literal["hangarllm_content_filter"] = "hangarllm_content_filter"
     blocked_words: list[BlockedWordBody]
 
 
@@ -119,7 +119,7 @@ GuardrailParamsBody = (
 
 class GuardrailSpecBody(BaseModel):
     guardrail_name: str
-    litellm_params: GuardrailParamsBody
+    hangarllm_params: GuardrailParamsBody
 
 
 class GuardrailCreateBody(BaseModel):
@@ -231,7 +231,7 @@ class GuardrailsClient:
         model_name = f"{prefix}-{unique_marker()}"
         model_id = self.proxy.create_model(
             model_name,
-            LiteLLMParamsBody(model=backend, api_key=api_key),
+            HangarLLMParamsBody(model=backend, api_key=api_key),
         )
         resources.defer(lambda: self.proxy.delete_model(model_id))
         return model_name
@@ -254,7 +254,7 @@ class GuardrailsClient:
             self.proxy.transport.post(
                 "/guardrails",
                 headers=self.proxy.transport.master,
-                json=GuardrailCreateBody(guardrail=GuardrailSpecBody(guardrail_name=name, litellm_params=params)),
+                json=GuardrailCreateBody(guardrail=GuardrailSpecBody(guardrail_name=name, hangarllm_params=params)),
                 response_type=GuardrailCreateResponse,
             )
         ).guardrail_id
@@ -420,7 +420,7 @@ class GuardrailsClient:
         tags: list[str] | None = None,
     ) -> StreamingResponse:
         """Drive /chat/completions returning the raw HTTP outcome, for the
-        assertions a typed body cannot carry: the `x-litellm-applied-guardrails`
+        assertions a typed body cannot carry: the `x-hangarllm-applied-guardrails`
         response header, which is how an ALLOW scenario proves the guardrail ran
         rather than being absent. `tags` land in `metadata.tags`, which is what a
         tag-scoped policy attachment matches on."""
@@ -603,7 +603,7 @@ def poll_until_guardrail_applied(
         return result
     while (
         guardrail_name
-        not in (name.strip() for name in result.headers.get("x-litellm-applied-guardrails", "").split(","))
+        not in (name.strip() for name in result.headers.get("x-hangarllm-applied-guardrails", "").split(","))
         and (remaining := deadline - now()) > 0
     ):
         sleep(min(interval, remaining))

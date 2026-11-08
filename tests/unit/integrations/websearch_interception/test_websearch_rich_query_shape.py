@@ -12,17 +12,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.integrations.websearch_interception.handler import (
+from hangarllm.integrations.websearch_interception.handler import (
     WebSearchInterceptionLogger,
 )
-from litellm.integrations.websearch_interception.tools import (
-    get_litellm_web_search_tool,
-    get_litellm_web_search_tool_openai,
-    get_litellm_web_search_tool_responses,
+from hangarllm.integrations.websearch_interception.tools import (
+    get_hangarllm_web_search_tool,
+    get_hangarllm_web_search_tool_openai,
+    get_hangarllm_web_search_tool_responses,
 )
-from litellm.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
-from litellm.llms.parallel_ai.search.transformation import ParallelAISearchConfig
-from litellm.router_api import RouterSettings
+from hangarllm.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
+from hangarllm.llms.parallel_ai.search.transformation import ParallelAISearchConfig
+from hangarllm.router_api import RouterSettings
 
 RICH_INPUT = {
     "query": "stripe node sdk v14 authentication",
@@ -42,7 +42,7 @@ def _mock_router(search_provider: str) -> MagicMock:
         search_tools=[
             {
                 "search_tool_name": "test-search",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": search_provider,
                     "api_key": "sk-test",
                 },
@@ -54,9 +54,9 @@ def _mock_router(search_provider: str) -> MagicMock:
 
 class TestToolSchema:
     def test_all_formats_expose_rich_fields_and_keep_query_required(self):
-        anthropic_schema = get_litellm_web_search_tool()["input_schema"]
-        openai_schema = get_litellm_web_search_tool_openai()["function"]["parameters"]
-        responses_schema = get_litellm_web_search_tool_responses()["parameters"]
+        anthropic_schema = get_hangarllm_web_search_tool()["input_schema"]
+        openai_schema = get_hangarllm_web_search_tool_openai()["function"]["parameters"]
+        responses_schema = get_hangarllm_web_search_tool_responses()["parameters"]
 
         for schema in (anthropic_schema, openai_schema, responses_schema):
             assert schema["required"] == ["query"]
@@ -110,13 +110,13 @@ class TestExecuteSearchShape:
     @pytest.mark.asyncio
     async def test_rich_shape_reaches_supporting_provider(self, monkeypatch):
         """Parallel AI receives the query list plus objective."""
-        import litellm
-        from litellm.proxy import proxy_server
+        import hangarllm
+        from hangarllm.proxy import proxy_server
 
         logger = WebSearchInterceptionLogger()
         mock_asearch = AsyncMock(return_value=_search_response())
         monkeypatch.setattr(proxy_server, "llm_router", _mock_router("parallel_ai"))
-        monkeypatch.setattr(litellm, "asearch", mock_asearch)
+        monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
         rich = WebSearchInterceptionLogger._rich_search_input(RICH_INPUT)
         await logger._execute_search(RICH_INPUT["query"], rich=rich)
@@ -129,13 +129,13 @@ class TestExecuteSearchShape:
     @pytest.mark.asyncio
     async def test_string_only_provider_keeps_single_query(self, monkeypatch):
         """A provider without rich support receives the plain query string."""
-        import litellm
-        from litellm.proxy import proxy_server
+        import hangarllm
+        from hangarllm.proxy import proxy_server
 
         logger = WebSearchInterceptionLogger()
         mock_asearch = AsyncMock(return_value=_search_response())
         monkeypatch.setattr(proxy_server, "llm_router", _mock_router("perplexity"))
-        monkeypatch.setattr(litellm, "asearch", mock_asearch)
+        monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
         rich = WebSearchInterceptionLogger._rich_search_input(RICH_INPUT)
         await logger._execute_search(RICH_INPUT["query"], rich=rich)
@@ -147,13 +147,13 @@ class TestExecuteSearchShape:
     @pytest.mark.asyncio
     async def test_single_string_callers_unchanged(self, monkeypatch):
         """No rich input: behavior is identical to before for any provider."""
-        import litellm
-        from litellm.proxy import proxy_server
+        import hangarllm
+        from hangarllm.proxy import proxy_server
 
         logger = WebSearchInterceptionLogger()
         mock_asearch = AsyncMock(return_value=_search_response())
         monkeypatch.setattr(proxy_server, "llm_router", _mock_router("parallel_ai"))
-        monkeypatch.setattr(litellm, "asearch", mock_asearch)
+        monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
         await logger._execute_search("plain query")
 
@@ -163,16 +163,16 @@ class TestExecuteSearchShape:
 
     @pytest.mark.asyncio
     async def test_configured_objective_not_overwritten(self, monkeypatch):
-        """An objective set on the search tool's litellm_params wins over the model's."""
-        import litellm
-        from litellm.proxy import proxy_server
+        """An objective set on the search tool's hangarllm_params wins over the model's."""
+        import hangarllm
+        from hangarllm.proxy import proxy_server
 
         logger = WebSearchInterceptionLogger()
         router = _mock_router("parallel_ai")
-        router.settings().search_tools[0]["litellm_params"]["objective"] = "configured objective"
+        router.settings().search_tools[0]["hangarllm_params"]["objective"] = "configured objective"
         mock_asearch = AsyncMock(return_value=_search_response())
         monkeypatch.setattr(proxy_server, "llm_router", router)
-        monkeypatch.setattr(litellm, "asearch", mock_asearch)
+        monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
         rich = WebSearchInterceptionLogger._rich_search_input(RICH_INPUT)
         await logger._execute_search(RICH_INPUT["query"], rich=rich)
@@ -187,15 +187,15 @@ class TestCallSiteWiring:
 
     @pytest.mark.asyncio
     async def test_anthropic_tool_call_forwards_rich_shape(self, monkeypatch):
-        import litellm
-        from litellm.proxy import proxy_server
+        import hangarllm
+        from hangarllm.proxy import proxy_server
 
         logger = WebSearchInterceptionLogger()
         mock_asearch = AsyncMock(return_value=_search_response())
         monkeypatch.setattr(proxy_server, "llm_router", _mock_router("parallel_ai"))
-        monkeypatch.setattr(litellm, "asearch", mock_asearch)
+        monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
-        tool_calls = [{"id": "toolu_1", "name": "litellm_web_search", "input": dict(RICH_INPUT)}]
+        tool_calls = [{"id": "toolu_1", "name": "hangarllm_web_search", "input": dict(RICH_INPUT)}]
         await logger._build_anthropic_request_patch(
             model="claude",
             messages=[{"role": "user", "content": "hi"}],
@@ -214,13 +214,13 @@ class TestCallSiteWiring:
     async def test_chat_completion_tool_call_forwards_rich_shape(self, monkeypatch):
         import json
 
-        import litellm
-        from litellm.proxy import proxy_server
+        import hangarllm
+        from hangarllm.proxy import proxy_server
 
         logger = WebSearchInterceptionLogger()
         mock_asearch = AsyncMock(return_value=_search_response())
         monkeypatch.setattr(proxy_server, "llm_router", _mock_router("parallel_ai"))
-        monkeypatch.setattr(litellm, "asearch", mock_asearch)
+        monkeypatch.setattr(hangarllm, "asearch", mock_asearch)
 
         # The normalized shape transform_request produces for OpenAI responses:
         # function.arguments (raw) plus top-level name/input (parsed).
@@ -228,9 +228,9 @@ class TestCallSiteWiring:
             {
                 "id": "call_1",
                 "type": "function",
-                "name": "litellm_web_search",
+                "name": "hangarllm_web_search",
                 "function": {
-                    "name": "litellm_web_search",
+                    "name": "hangarllm_web_search",
                     "arguments": json.dumps(RICH_INPUT),
                 },
                 "input": dict(RICH_INPUT),

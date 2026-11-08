@@ -8,7 +8,7 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
+import hangarllm
 
 from ...shared.reporting.models import Coverage, HarnessCase, HarnessRun, RunStatus, SdkFunction, Surface
 from ...shared.reporting.strategy import ModuleCaseSpec
@@ -82,7 +82,7 @@ def test_python_trace_preserves_native_ocr_dispatch_setting(monkeypatch: pytest.
         *,
         asynchronous: bool,
     ) -> SimpleNamespace:
-        observed.append(os.environ.get("LITELLM_RUST"))
+        observed.append(os.environ.get("HANGARLLM_RUST"))
         return SimpleNamespace(
             events=(FunctionTraceEvent(0, None, "aocr" if asynchronous else "ocr"),),
             error=None,
@@ -90,13 +90,13 @@ def test_python_trace_preserves_native_ocr_dispatch_setting(monkeypatch: pytest.
 
     monkeypatch.setattr(execution, "_collect", collect)
 
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("HANGARLLM_RUST", "0")
     collect_trace(route, asynchronous=False)
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("HANGARLLM_RUST", "1")
     collect_trace(route, asynchronous=True)
 
     assert observed == ["0", "1"]
-    assert os.environ["LITELLM_RUST"] == "1"
+    assert os.environ["HANGARLLM_RUST"] == "1"
 
 
 def test_expected_provider_failure_omits_feedback_banner(
@@ -105,13 +105,13 @@ def test_expected_provider_failure_omits_feedback_banner(
     loaded: Final = importlib.import_module("tests.rust-python-harness.strategies.trace_parity.sdk.responses.case")
     suite: Final = cast(TraceSuite, loaded.TRACE_SUITE)
     scenario: Final = next(item for item in suite.scenarios if item.name == "async-openai-provider-error")
-    monkeypatch.setattr(litellm, "suppress_debug_info", False)
+    monkeypatch.setattr(hangarllm, "suppress_debug_info", False)
 
     result: Final = execute_trace(suite.route, scenario, "sdk")
 
     assert result.python_error is None
     assert "Give Feedback / Get Help" not in capsys.readouterr().out
-    assert litellm.suppress_debug_info is False
+    assert hangarllm.suppress_debug_info is False
 
 
 @pytest.mark.parametrize("asynchronous", (False, True))

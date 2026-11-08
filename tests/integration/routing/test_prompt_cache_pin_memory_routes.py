@@ -61,7 +61,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
         config: Final = pin_config(
             directory,
             [anthropic_deployment(_GROUP, _LEFT, left.url), anthropic_deployment(_GROUP, _RIGHT, right.url)],
-            litellm_settings=_NO_RESPONSE_CACHE,
+            hangarllm_settings=_NO_RESPONSE_CACHE,
         )
         with (
             owned_proxy_process(
@@ -174,7 +174,7 @@ def test_master_key_only_memory_routes_refuse_a_virtual_key_and_show_it_no_pin(r
 
 def test_memory_routes_report_zero_pins_on_a_proxy_with_no_deployments(tmp_path: Path) -> None:
     config: Final = pin_config(
-        tmp_path, [], litellm_settings=_NO_RESPONSE_CACHE, general_settings={"store_model_in_db": False}
+        tmp_path, [], hangarllm_settings=_NO_RESPONSE_CACHE, general_settings={"store_model_in_db": False}
     )
     with gateway_from_environment() as gateway, owned_proxy_process(gateway, tmp_path, {}, config=config) as owned:
         counts: Final = _read(owned.gateway, "/memory-usage-in-mem-cache")

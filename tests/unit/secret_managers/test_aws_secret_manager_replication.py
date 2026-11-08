@@ -9,20 +9,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+from hangarllm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
 _CREATE_RESPONSE = {
-    "ARN": "arn:aws:secretsmanager:us-east-1:123456789012:secret:litellm/test-key",
-    "Name": "litellm/test-key",
+    "ARN": "arn:aws:secretsmanager:us-east-1:123456789012:secret:hangarllm/test-key",
+    "Name": "hangarllm/test-key",
     "VersionId": "mock-version-id",
 }
 
 _REPLICATE_RESPONSE = {
-    "ARN": "arn:aws:secretsmanager:us-east-1:123456789012:secret:litellm/test-key",
+    "ARN": "arn:aws:secretsmanager:us-east-1:123456789012:secret:hangarllm/test-key",
     "ReplicationStatus": [
         {"Region": "us-west-2", "Status": "InProgress"},
     ],
@@ -54,11 +54,11 @@ async def test_write_secret_replicates_when_configured():
         return_value=(
             "https://secretsmanager.us-east-1.amazonaws.com",
             {"Content-Type": "application/x-amz-json-1.1"},
-            b'{"Name":"litellm/test-key"}',
+            b'{"Name":"hangarllm/test-key"}',
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client(_CREATE_RESPONSE),
         ):
             with patch.object(
@@ -68,13 +68,13 @@ async def test_write_secret_replicates_when_configured():
                 return_value=_REPLICATE_RESPONSE,
             ) as mock_replicate:
                 result = await manager.async_write_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     secret_value="sk-test-value",
                 )
 
     assert result == _CREATE_RESPONSE
     mock_replicate.assert_called_once_with(
-        secret_name="litellm/test-key",
+        secret_name="hangarllm/test-key",
         replica_regions=["us-west-2"],
         optional_params=None,
         timeout=None,
@@ -92,11 +92,11 @@ async def test_write_secret_no_replication_when_not_configured():
         return_value=(
             "https://secretsmanager.us-east-1.amazonaws.com",
             {"Content-Type": "application/x-amz-json-1.1"},
-            b'{"Name":"litellm/test-key"}',
+            b'{"Name":"hangarllm/test-key"}',
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client(_CREATE_RESPONSE),
         ):
             with patch.object(
@@ -105,7 +105,7 @@ async def test_write_secret_no_replication_when_not_configured():
                 new_callable=AsyncMock,
             ) as mock_replicate:
                 result = await manager.async_write_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     secret_value="sk-test-value",
                 )
 
@@ -124,11 +124,11 @@ async def test_replication_failure_does_not_fail_write():
         return_value=(
             "https://secretsmanager.us-east-1.amazonaws.com",
             {"Content-Type": "application/x-amz-json-1.1"},
-            b'{"Name":"litellm/test-key"}',
+            b'{"Name":"hangarllm/test-key"}',
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client(_CREATE_RESPONSE),
         ):
             with patch.object(
@@ -138,7 +138,7 @@ async def test_replication_failure_does_not_fail_write():
                 side_effect=ValueError("AccessDenied: not authorized"),
             ):
                 result = await manager.async_write_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     secret_value="sk-test-value",
                 )
 
@@ -156,10 +156,10 @@ async def test_async_replicate_secret_empty_regions_returns_empty():
     manager = AWSSecretsManagerV2()
 
     with patch(
-        "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client"
+        "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client"
     ) as mock_get_client:
         result = await manager.async_replicate_secret(
-            secret_name="litellm/test-key",
+            secret_name="hangarllm/test-key",
             replica_regions=[],
         )
 
@@ -186,17 +186,17 @@ async def test_async_replicate_secret_correct_payload():
         AWSSecretsManagerV2, "_prepare_request", side_effect=capture_prepare
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client(_REPLICATE_RESPONSE),
         ):
             result = await manager.async_replicate_secret(
-                secret_name="litellm/test-key",
+                secret_name="hangarllm/test-key",
                 replica_regions=["us-west-2", "eu-west-1"],
             )
 
     assert result == _REPLICATE_RESPONSE
     assert captured["_action"] == "ReplicateSecretToRegions"
-    assert captured["SecretId"] == "litellm/test-key"
+    assert captured["SecretId"] == "hangarllm/test-key"
     assert captured["AddReplicaRegions"] == [
         {"Region": "us-west-2"},
         {"Region": "eu-west-1"},
@@ -220,12 +220,12 @@ async def test_replication_fires_on_create(caplog):
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client(_REPLICATE_RESPONSE),
         ):
-            with caplog.at_level(logging.INFO, logger="LiteLLM"):
+            with caplog.at_level(logging.INFO, logger="HangarLLM"):
                 await manager.async_replicate_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     replica_regions=["us-west-2"],
                 )
 
@@ -239,9 +239,9 @@ async def test_replication_fires_on_create(caplog):
 
 def test_load_aws_secret_manager_passes_replica_regions():
     """load_aws_secret_manager must forward replica_regions from key_management_settings."""
-    import litellm
+    import hangarllm
 
-    original = litellm.secret_manager_client
+    original = hangarllm.secret_manager_client
     settings = MagicMock()
     settings.aws_region_name = "us-east-1"
     settings.aws_role_name = None
@@ -258,13 +258,13 @@ def test_load_aws_secret_manager_passes_replica_regions():
             key_management_settings=settings,
         )
 
-        assert isinstance(litellm.secret_manager_client, AWSSecretsManagerV2)
-        assert litellm.secret_manager_client.replica_regions == [
+        assert isinstance(hangarllm.secret_manager_client, AWSSecretsManagerV2)
+        assert hangarllm.secret_manager_client.replica_regions == [
             "us-west-2",
             "eu-west-1",
         ]
     finally:
-        litellm.secret_manager_client = original
+        hangarllm.secret_manager_client = original
 
 
 def _http_status_error(status_code: int, body: str) -> httpx.HTTPStatusError:
@@ -297,18 +297,18 @@ async def test_write_secret_http_error_raises():
         return_value=(
             "https://secretsmanager.us-east-1.amazonaws.com",
             {"Content-Type": "application/x-amz-json-1.1"},
-            b'{"Name":"litellm/test-key"}',
+            b'{"Name":"hangarllm/test-key"}',
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client_raising(
                 _http_status_error(400, "ResourceExistsException")
             ),
         ):
             with pytest.raises(ValueError, match="HTTP error occurred"):
                 await manager.async_write_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     secret_value="sk-test-value",
                 )
 
@@ -324,18 +324,18 @@ async def test_write_secret_timeout_raises():
         return_value=(
             "https://secretsmanager.us-east-1.amazonaws.com",
             {"Content-Type": "application/x-amz-json-1.1"},
-            b'{"Name":"litellm/test-key"}',
+            b'{"Name":"hangarllm/test-key"}',
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client_raising(
                 httpx.ReadTimeout("timed out", request=None)
             ),
         ):
             with pytest.raises(ValueError, match="Timeout error occurred"):
                 await manager.async_write_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     secret_value="sk-test-value",
                 )
 
@@ -360,14 +360,14 @@ async def test_replicate_secret_http_error_raises():
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client_raising(
                 _http_status_error(403, "AccessDeniedException")
             ),
         ):
             with pytest.raises(ValueError, match="HTTP error occurred"):
                 await manager.async_replicate_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     replica_regions=["us-west-2"],
                 )
 
@@ -387,13 +387,13 @@ async def test_replicate_secret_timeout_raises():
         ),
     ):
         with patch(
-            "litellm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
+            "hangarllm.secret_managers.aws_secret_manager_v2.get_async_httpx_client",
             return_value=_mock_http_client_raising(
                 httpx.ReadTimeout("timed out", request=None)
             ),
         ):
             with pytest.raises(ValueError, match="Timeout error occurred"):
                 await manager.async_replicate_secret(
-                    secret_name="litellm/test-key",
+                    secret_name="hangarllm/test-key",
                     replica_regions=["us-west-2"],
                 )

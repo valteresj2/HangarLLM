@@ -15,20 +15,20 @@ from typing import Any, AsyncGenerator, List, Literal, Optional
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_guardrail import (
+import hangarllm
+from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
 )
-from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+from hangarllm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
     UnifiedLLMGuardrails,
     _is_redundant_scan,
 )
-from litellm.proxy.utils import _pipelines_stream_live
-from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
-from litellm.types.utils import (
+from hangarllm.proxy.utils import _pipelines_stream_live
+from hangarllm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
+from hangarllm.types.utils import (
     ChatCompletionDeltaToolCall,
     Delta,
     Function,
@@ -602,6 +602,6 @@ def test_pipeline_live_streaming_resolves_the_flag_like_the_flat_streaming_path(
         guardrail.streaming_buffer_until_moderated = attribute
     if guardrail_config is not None:
         guardrail.guardrail_config = guardrail_config
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     assert _pipelines_stream_live(_detect_only_pipeline(guardrail)) is streams_live

@@ -6,14 +6,14 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.dashscope.common_utils import DashScopeError
-from litellm.llms.dashscope.text_to_speech.transformation import DashScopeTextToSpeechConfig
-from litellm.types.llms.openai import HttpxBinaryResponseContent
-from litellm.types.utils import Usage
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.llms.dashscope.common_utils import DashScopeError
+from hangarllm.llms.dashscope.text_to_speech.transformation import DashScopeTextToSpeechConfig
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent
+from hangarllm.types.utils import Usage
 
 INTL: Final = "https://dashscope-intl.aliyuncs.com"
 MULTIMODAL_PATH: Final = "/api/v1/services/aigc/multimodal-generation/generation"
@@ -59,7 +59,7 @@ def _logging() -> Logging:
         stream=False,
         call_type="aspeech",
         start_time=datetime.datetime(2026, 10, 28, tzinfo=datetime.timezone.utc),
-        litellm_call_id="call-tts",
+        hangarllm_call_id="call-tts",
         function_id="fn-tts",
     )
 
@@ -115,7 +115,7 @@ async def test_each_family_posts_to_its_endpoint_and_the_async_handler_returns_t
         text_to_speech_provider_config=config,
         text_to_speech_optional_params=mapped,
         custom_llm_provider="dashscope",
-        litellm_params={"api_key": "sk-dashscope-test", "api_base": None},
+        hangarllm_params={"api_key": "sk-dashscope-test", "api_base": None},
         logging_obj=_logging(),
         timeout=30,
         client=AsyncHTTPHandler(transport=_recording(api_seen, _api(SYNTHESIZED))),
@@ -146,7 +146,7 @@ def test_the_sync_handler_downloads_through_the_injected_blocking_client_within_
         text_to_speech_provider_config=config,
         text_to_speech_optional_params={},
         custom_llm_provider="dashscope",
-        litellm_params={"api_key": "k", "api_base": None},
+        hangarllm_params={"api_key": "k", "api_base": None},
         logging_obj=_logging(),
         timeout=30,
         client=HTTPHandler(client=httpx.Client(transport=_recording(api_seen, _api(SYNTHESIZED)))),
@@ -178,7 +178,7 @@ def test_the_sync_handler_downloads_through_the_injected_blocking_client_within_
 def test_an_alibaba_cloud_audio_url_is_downloaded_over_https(
     monkeypatch: pytest.MonkeyPatch, audio_url: str, download_url: str
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     download_seen: Final[list[httpx.Request]] = []  # mutable-ok: request log
     config: Final = DashScopeTextToSpeechConfig(
         sync_client=lambda: HTTPHandler(client=httpx.Client(transport=_recording(download_seen, _audio)))
@@ -191,7 +191,7 @@ def test_an_alibaba_cloud_audio_url_is_downloaded_over_https(
         text_to_speech_provider_config=config,
         text_to_speech_optional_params={},
         custom_llm_provider="dashscope",
-        litellm_params={"api_key": "k", "api_base": None},
+        hangarllm_params={"api_key": "k", "api_base": None},
         logging_obj=_logging(),
         timeout=30,
         client=HTTPHandler(
@@ -244,7 +244,7 @@ def test_the_endpoint_follows_the_model_family_on_the_configured_host(
     if environment is not None:
         monkeypatch.setenv("DASHSCOPE_API_BASE", environment)
 
-    assert DashScopeTextToSpeechConfig().get_complete_url(model=model, api_base=api_base, litellm_params={}) == url
+    assert DashScopeTextToSpeechConfig().get_complete_url(model=model, api_base=api_base, hangarllm_params={}) == url
 
 
 @pytest.mark.parametrize(
@@ -265,7 +265,7 @@ def test_an_unsupported_param_answers_400_and_is_dropped_under_drop_params(
 ) -> None:
     config: Final = DashScopeTextToSpeechConfig()
 
-    with pytest.raises(litellm.UnsupportedParamsError) as rejected:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as rejected:
         config.map_openai_params(model=model, optional_params=optional_params, voice=voice)
     dropped_voice, dropped = config.map_openai_params(
         model=model, optional_params=optional_params, voice=voice, kwargs={"drop_params": True}
@@ -281,8 +281,8 @@ async def test_aspeech_uses_the_native_endpoint_on_the_caller_api_base_and_refus
     api_seen: Final[list[httpx.Request]] = []  # mutable-ok: request log
     private_audio: Final = {"output": {"audio": {"url": "http://169.254.169.254/latest/meta-data"}}}
 
-    with pytest.raises(litellm.BadGatewayError) as refused:
-        await litellm.aspeech(
+    with pytest.raises(hangarllm.BadGatewayError) as refused:
+        await hangarllm.aspeech(
             model="dashscope/qwen-audio-3.1-tts-flash",
             input="Hello.",
             voice="longanhuan_v3.1",
@@ -368,7 +368,7 @@ async def test_character_priced_speech_bills_the_characters_dashscope_reports() 
         logging_obj=_logging(),
     )
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=speech,
         model="dashscope/qwen3-tts-flash",
         call_type="aspeech",
@@ -376,8 +376,8 @@ async def test_character_priced_speech_bills_the_characters_dashscope_reports() 
         custom_llm_provider="dashscope",
     )
 
-    assert litellm.utils.count_characters(text) != 10
-    assert cost == pytest.approx(10 * litellm.model_cost["dashscope/qwen3-tts-flash"]["input_cost_per_character"])
+    assert hangarllm.utils.count_characters(text) != 10
+    assert cost == pytest.approx(10 * hangarllm.model_cost["dashscope/qwen3-tts-flash"]["input_cost_per_character"])
 
 
 @pytest.mark.parametrize(
@@ -385,7 +385,7 @@ async def test_character_priced_speech_bills_the_characters_dashscope_reports() 
 )
 @pytest.mark.usefixtures("local_model_cost_map")
 def test_character_priced_speech_bills_each_input_character_at_the_model_rate(model: str) -> None:
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=HttpxBinaryResponseContent(httpx.Response(200, content=AUDIO)),
         model=f"dashscope/{model}",
         call_type="aspeech",
@@ -393,7 +393,7 @@ def test_character_priced_speech_bills_each_input_character_at_the_model_rate(mo
         custom_llm_provider="dashscope",
     )
 
-    assert cost == pytest.approx(6 * litellm.model_cost[f"dashscope/{model}"]["input_cost_per_character"])
+    assert cost == pytest.approx(6 * hangarllm.model_cost[f"dashscope/{model}"]["input_cost_per_character"])
     assert cost > 0
 
 
@@ -401,9 +401,9 @@ def test_character_priced_speech_bills_each_input_character_at_the_model_rate(mo
 def test_token_priced_speech_bills_the_provider_reported_input_and_output_tokens() -> None:
     speech: Final = HttpxBinaryResponseContent(httpx.Response(200, content=AUDIO))
     speech.usage = Usage(prompt_tokens=8, completion_tokens=30, total_tokens=38)
-    row: Final = litellm.model_cost["dashscope/qwen-audio-3.1-tts-flash"]
+    row: Final = hangarllm.model_cost["dashscope/qwen-audio-3.1-tts-flash"]
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=speech,
         model="dashscope/qwen-audio-3.1-tts-flash",
         call_type="aspeech",

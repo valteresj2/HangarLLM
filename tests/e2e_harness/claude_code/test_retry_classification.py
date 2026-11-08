@@ -5,7 +5,7 @@ outcomes, not a product feature, so they run without a proxy and carry no
 `e2e` marker.
 
 The pairing that matters is that a saturated upstream is retryable but is not
-rate-limit-shaped. litellm-e2e-pr build 182 failed a green cell on a Bedrock
+rate-limit-shaped. hangarllm-e2e-pr build 182 failed a green cell on a Bedrock
 503 that no pattern matched, while feeding a 503 to the rate-limit summary
 would tell the rate-limiter's binary search to lower a request rate that was
 never the problem.
@@ -25,7 +25,7 @@ from claude_code.cli_driver import (
 
 _BEDROCK_503 = (
     "[claude-opus-4-7-bedrock-converse] tool_search probe failed: status 503: "
-    '{"error":{"message":"litellm.ServiceUnavailableError: BedrockException - '
+    '{"error":{"message":"hangarllm.ServiceUnavailableError: BedrockException - '
     '{\\"message\\":\\"Bedrock is unable to process your request.\\"}"}}'
 )
 _ANTHROPIC_529 = "status 529: {\"type\":\"overloaded_error\"}"

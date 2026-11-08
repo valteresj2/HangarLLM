@@ -11,7 +11,7 @@ from integration.translation.runner import assert_translation
 GROK_4_7_TOOL_SEARCH_TEST_CASE: Final = replace(
     GROK_4_7_TEST_CASE,
     scenario="tool_search",
-    litellm_request={
+    hangarllm_request={
         "model": "bedrock/global.xai.grok-4.7",
         "max_tokens": 1024,
         "thinking": {"type": "adaptive"},
@@ -131,8 +131,8 @@ GROK_4_7_TOOL_SEARCH_TEST_CASE: Final = replace(
         },
         "system_fingerprint": None,
     },
-    expected_litellm_response={
-        **GROK_4_7_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **GROK_4_7_TEST_CASE.expected_hangarllm_response,
         "id": "chatcmpl-xevjeh2pxs6gjvcn2yz76piwdc4pi6fb2sqwb7psnwitm5higvvq",
         "usage": {"input_tokens": 162, "output_tokens": 76},
         "content": [{"type": "text", "text": "The web search tool is now loaded and available for use."}],

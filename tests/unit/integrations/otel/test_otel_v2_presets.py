@@ -10,10 +10,10 @@ import requests_mock
 import respx
 from opentelemetry.sdk.trace.export import SpanExportResult
 
-from litellm.integrations.otel.plumbing import providers
-from litellm.integrations.otel.model.config import ExporterSpec
-from litellm.integrations.otel.presets import agentops as agentops_mod
-from litellm.integrations.otel.presets.agentops import (
+from hangarllm.integrations.otel.plumbing import providers
+from hangarllm.integrations.otel.model.config import ExporterSpec
+from hangarllm.integrations.otel.presets import agentops as agentops_mod
+from hangarllm.integrations.otel.presets.agentops import (
     _AGENTOPS_AUTH_ENDPOINT,
     _AGENTOPS_ENDPOINT,
     _AGENTOPS_EXPORTER_KIND,
@@ -56,7 +56,7 @@ def test_dynamic_cred_presets_tag_exporter_with_matching_owner(monkeypatch):
     (``TenantTracerCache``) applies that integration's credentials only to its
     own exporter and never bleeds them onto a co-configured backend.
     """
-    from litellm.integrations.otel.presets import (
+    from hangarllm.integrations.otel.presets import (
         DYNAMIC_HEADERS_BY_CALLBACK,
         PRESET_BY_CALLBACK,
     )
@@ -69,7 +69,7 @@ def test_dynamic_cred_presets_tag_exporter_with_matching_owner(monkeypatch):
     monkeypatch.setenv("WANDB_API_KEY", "w")
     monkeypatch.setenv("WANDB_PROJECT_ID", "entity/project")
 
-    from litellm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.model.config import ExporterOwner
 
     for callback_name in DYNAMIC_HEADERS_BY_CALLBACK:
         cfg = PRESET_BY_CALLBACK[callback_name]()
@@ -164,8 +164,8 @@ def test_agentops_endpoint_points_at_live_host():
 
 def test_newrelic_preset_reads_env_license_key(monkeypatch):
     monkeypatch.setenv("NEW_RELIC_LICENSE_KEY", "env-license-key")
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.presets.newrelic import newrelic_preset
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.presets.newrelic import newrelic_preset
 
     cfg = newrelic_preset()
     spec = next(e for e in cfg.exporters if e.owner == ExporterOwner.NEWRELIC)
@@ -181,8 +181,8 @@ def test_newrelic_preset_without_key_still_contributes_owned_spec(monkeypatch):
     # exist even with no operator env key; requires_headers keeps the keyless
     # copy from ever exporting.
     monkeypatch.delenv("NEW_RELIC_LICENSE_KEY", raising=False)
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.presets.newrelic import newrelic_preset
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.presets.newrelic import newrelic_preset
 
     cfg = newrelic_preset()
     spec = next(e for e in cfg.exporters if e.owner == ExporterOwner.NEWRELIC)
@@ -194,8 +194,8 @@ def test_newrelic_preset_operator_region_and_content_knob(monkeypatch):
     monkeypatch.setenv("NEW_RELIC_LICENSE_KEY", "env-license-key")
     monkeypatch.setenv("NEW_RELIC_REGION", "EU")
     monkeypatch.setenv("NEW_RELIC_AI_MONITORING_RECORD_CONTENT_ENABLED", "true")
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.presets.newrelic import newrelic_preset
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.presets.newrelic import newrelic_preset
 
     cfg = newrelic_preset()
     spec = next(e for e in cfg.exporters if e.owner == ExporterOwner.NEWRELIC)
@@ -209,7 +209,7 @@ def test_newrelic_preset_operator_region_and_content_knob(monkeypatch):
 def test_newrelic_preset_unset_content_knob_keeps_default(monkeypatch):
     monkeypatch.delenv("NEW_RELIC_AI_MONITORING_RECORD_CONTENT_ENABLED", raising=False)
     monkeypatch.delenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", raising=False)
-    from litellm.integrations.otel.presets.newrelic import newrelic_preset
+    from hangarllm.integrations.otel.presets.newrelic import newrelic_preset
 
     assert newrelic_preset().capture_span_content is False
 
@@ -217,8 +217,8 @@ def test_newrelic_preset_unset_content_knob_keeps_default(monkeypatch):
 def test_signoz_preset_reads_env_endpoint_and_key(monkeypatch):
     monkeypatch.setenv("SIGNOZ_INGESTION_ENDPOINT", "https://ingest.eu.signoz.cloud:443")
     monkeypatch.setenv("SIGNOZ_INGESTION_KEY", "env-ingestion-key")
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.presets.signoz import signoz_preset
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.presets.signoz import signoz_preset
 
     cfg = signoz_preset()
     spec = next(e for e in cfg.exporters if e.owner == ExporterOwner.SIGNOZ)
@@ -234,8 +234,8 @@ def test_signoz_preset_without_key_is_self_hosted(monkeypatch):
     # would drop exports that would have succeeded.
     monkeypatch.setenv("SIGNOZ_INGESTION_ENDPOINT", "http://signoz-collector.internal:4318")
     monkeypatch.delenv("SIGNOZ_INGESTION_KEY", raising=False)
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.presets.signoz import signoz_preset
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.presets.signoz import signoz_preset
 
     cfg = signoz_preset()
     spec = next(e for e in cfg.exporters if e.owner == ExporterOwner.SIGNOZ)
@@ -248,8 +248,8 @@ def test_signoz_preset_has_no_default_endpoint(monkeypatch):
     # No region table and no default host: the preset never invents a destination.
     monkeypatch.delenv("SIGNOZ_INGESTION_ENDPOINT", raising=False)
     monkeypatch.delenv("SIGNOZ_INGESTION_KEY", raising=False)
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.presets.signoz import signoz_preset
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.presets.signoz import signoz_preset
 
     cfg = signoz_preset()
     spec = next(e for e in cfg.exporters if e.owner == ExporterOwner.SIGNOZ)
@@ -260,9 +260,9 @@ def test_signoz_preset_endpoint_passed_through_verbatim(monkeypatch):
     # The plumbing appends the signal path, so pre-appending would double it.
     monkeypatch.setenv("SIGNOZ_INGESTION_ENDPOINT", "https://ingest.us.signoz.cloud:443/v1/traces")
     monkeypatch.delenv("SIGNOZ_INGESTION_KEY", raising=False)
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.plumbing.providers import _otlp_traces_endpoint
-    from litellm.integrations.otel.presets.signoz import signoz_preset
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.plumbing.providers import _otlp_traces_endpoint
+    from hangarllm.integrations.otel.presets.signoz import signoz_preset
 
     cfg = signoz_preset()
     spec = next(e for e in cfg.exporters if e.owner == ExporterOwner.SIGNOZ)
@@ -273,8 +273,8 @@ def test_signoz_preset_endpoint_passed_through_verbatim(monkeypatch):
 def test_signoz_preset_accepts_the_factory_call_shape(monkeypatch):
     monkeypatch.setenv("SIGNOZ_INGESTION_ENDPOINT", "http://127.0.0.1:1")
     monkeypatch.delenv("SIGNOZ_INGESTION_KEY", raising=False)
-    from litellm.integrations.otel.model.config import ExporterOwner
-    from litellm.integrations.otel.presets import PRESET_BY_CALLBACK
+    from hangarllm.integrations.otel.model.config import ExporterOwner
+    from hangarllm.integrations.otel.presets import PRESET_BY_CALLBACK
 
     cfg = PRESET_BY_CALLBACK["signoz"](allow_missing_credentials=True)
     assert any(e.owner == ExporterOwner.SIGNOZ for e in cfg.exporters)

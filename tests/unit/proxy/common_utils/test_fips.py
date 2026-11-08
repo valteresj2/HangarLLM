@@ -8,7 +8,7 @@ from cryptography.exceptions import InternalError
 from cryptography.hazmat.bindings._rust import openssl as rust_openssl
 from cryptography.hazmat.primitives import hashes
 
-from litellm.proxy.common_utils.fips import (
+from hangarllm.proxy.common_utils.fips import (
     FipsModeError,
     cryptography_enforces_fips,
     enforce_fips_mode,

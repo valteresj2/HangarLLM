@@ -8,8 +8,8 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Final, Literal, TypeVar
 
-from litellm.redis.stores.spend_counters import SpendCounterStore, SpendIncrement
-from litellm.rust_bridge._native import NativeRedisClient, NativeRedisStoreError, SpendRead
+from hangarllm.redis.stores.spend_counters import SpendCounterStore, SpendIncrement
+from hangarllm.rust_bridge._native import NativeRedisClient, NativeRedisStoreError, SpendRead
 
 T = TypeVar("T")
 

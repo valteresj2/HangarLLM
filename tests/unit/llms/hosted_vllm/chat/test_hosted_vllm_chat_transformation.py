@@ -6,12 +6,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.constants import (
+from hangarllm.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
 )
-from litellm.llms.hosted_vllm.chat.transformation import HostedVLLMChatConfig
-from litellm.types.utils import ModelResponse
+from hangarllm.llms.hosted_vllm.chat.transformation import HostedVLLMChatConfig
+from hangarllm.types.utils import ModelResponse
 
 
 def test_hosted_vllm_chat_transformation_file_url():
@@ -35,7 +35,7 @@ def test_hosted_vllm_chat_transformation_file_url():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert transformed_response["messages"] == [
@@ -66,7 +66,7 @@ def test_hosted_vllm_supports_thinking():
     Anthropic-style thinking is converted to OpenAI-style reasoning_effort
     since vLLM is OpenAI-compatible.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/19761
+    Related issue: upstream issue 19761
     """
     config = HostedVLLMChatConfig()
     supported_params = config.get_supported_openai_params(model="hosted_vllm/GLM-4.6-FP8")
@@ -149,7 +149,7 @@ def test_hosted_vllm_reasoning_content_kept_and_thinking_blocks_removed():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assistant_msg = transformed["messages"][1]
@@ -181,7 +181,7 @@ def test_hosted_vllm_forwards_only_string_reasoning_content(reasoning_content, e
             {"role": "user", "content": "Again"},
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assistant_msg = transformed["messages"][1]
@@ -217,7 +217,7 @@ def test_hosted_vllm_thinking_blocks_with_list_content():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assistant_msg = transformed["messages"][0]
@@ -243,7 +243,7 @@ def test_hosted_vllm_assistant_structured_content_is_preserved():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -274,7 +274,7 @@ def test_hosted_vllm_assistant_tool_use_content_becomes_tool_calls():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -322,7 +322,7 @@ def test_hosted_vllm_assistant_tool_use_does_not_duplicate_existing_tool_calls()
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -430,7 +430,7 @@ def _transform_vllm_chat_response(choice_extras: dict[str, object]) -> ModelResp
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

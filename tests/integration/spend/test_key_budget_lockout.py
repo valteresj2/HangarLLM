@@ -18,7 +18,7 @@ from redis import Redis
 pytestmark: Final = pytest.mark.shares_worker_state
 
 _CHAT_BODY: Final = TypeAdapter(dict[str, JsonValue])
-_CHANNEL: Final = "litellm_proxy.auth_cache_invalidation"
+_CHANNEL: Final = "hangarllm_proxy.auth_cache_invalidation"
 _EXPECTED_MODEL_DISCOVERY: Final = ("GET", "/v1/models")
 _EXPECTED_CHAT: Final = ("POST", "/v1/chat/completions")
 
@@ -154,7 +154,7 @@ def _model_is_available(gateway: Gateway, model: str) -> bool:
 
 def _spend(gateway: Gateway, key_hash: str) -> float:
     rows: Final = TypeAdapter(tuple[_SpendRow, ...]).validate_python(
-        read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (key_hash,))
+        read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (key_hash,))
     )
     assert len(rows) == 1
     return rows[0].spend
@@ -178,7 +178,7 @@ def test_an_exhausted_key_is_refused_inference_but_can_still_read_its_own_info(g
         )
         digest: Final = sha256(key.encode()).hexdigest()
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) >= 0.06,
             seconds=70,
         )
@@ -237,7 +237,7 @@ def _served_chat(gateway: Gateway, upstream: httpx.Client, model: str, key: str)
     upstream.delete("/__observations").raise_for_status()
     served: Final = _bounded_chat(gateway, model, key, content)
     assert served.status_code == 200, served.text
-    assert float(served.headers["x-litellm-response-cost"]) == 0.06, dict(served.headers)
+    assert float(served.headers["x-hangarllm-response-cost"]) == 0.06, dict(served.headers)
     assert _observed(upstream) == [_upstream_chat(content)], served.text
 
 
@@ -252,7 +252,7 @@ def test_raising_a_spent_keys_budget_restores_serving(gateway: Gateway) -> None:
         assert first.status_code == 200, first.text
         eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
+                'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
             ),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) >= 0.06,
             seconds=70,
@@ -373,7 +373,7 @@ def test_reset_spend_lifts_an_exhausted_key_on_both_workers_for_both_path_spelli
                 workers = (gateway, second) if spelling == "plaintext" else (second, gateway)
                 first_chat = _wire_chat(workers[0], model, key, prompts[3 + cycle * 4], max_tokens=10)
                 _assert_wire_success(first_chat, _POST_RESET_USAGE)
-                first_reported_spend = float(first_chat.headers["x-litellm-key-spend"])
+                first_reported_spend = float(first_chat.headers["x-hangarllm-key-spend"])
                 assert first_reported_spend == pytest.approx(reset_to + 0.03), first_chat.headers
                 eventually(
                     lambda: float(cache.get(f"spend:key:{key_hash}") or 0),
@@ -382,7 +382,7 @@ def test_reset_spend_lifts_an_exhausted_key_on_both_workers_for_both_path_spelli
                 )
                 second_chat = _wire_chat(workers[1], model, key, prompts[4 + cycle * 4], max_tokens=10)
                 _assert_wire_success(second_chat, _POST_RESET_USAGE)
-                second_reported_spend = float(second_chat.headers["x-litellm-key-spend"])
+                second_reported_spend = float(second_chat.headers["x-hangarllm-key-spend"])
                 assert reset_to + 0.03 <= second_reported_spend <= reset_to + 0.06, second_chat.headers
                 re_exhausted_spend = eventually(
                     lambda: _spend(gateway, key_hash),
@@ -414,7 +414,7 @@ def test_raising_a_spent_tier_budget_restores_serving(gateway: Gateway) -> None:
         info: Final = object_value(gateway.get("/key/info", {"key": key})["info"])
         assert info["budget_id"] == budget_id, info
         tier_rows: Final = read_rows(
-            'SELECT max_budget, budget_duration FROM "LiteLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
+            'SELECT max_budget, budget_duration FROM "HangarLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
         )
         assert len(tier_rows) == 1
         assert float(str(tier_rows[0]["max_budget"])) == 0.06
@@ -422,7 +422,7 @@ def test_raising_a_spent_tier_budget_restores_serving(gateway: Gateway) -> None:
         _served_chat(gateway, upstream, model, key)
         eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
+                'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
             ),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) >= 0.06,
             seconds=70,
@@ -432,7 +432,7 @@ def test_raising_a_spent_tier_budget_restores_serving(gateway: Gateway) -> None:
         assert upstream.get("/__observations").json()["requests"] == []
         gateway.post("/budget/update", {"budget_id": budget_id, "max_budget": 1.0})
         updated_rows: Final = read_rows(
-            'SELECT max_budget FROM "LiteLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
+            'SELECT max_budget FROM "HangarLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
         )
         assert float(str(updated_rows[0]["max_budget"])) == 1.0, updated_rows
         restored_content: Final = f"tier restored {uuid.uuid4().hex}"
@@ -459,7 +459,7 @@ def test_lowering_a_tier_budget_below_spend_blocks_the_key(gateway: Gateway) -> 
         _served_chat(gateway, upstream, model, key)
         eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
+                'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (sha256(key.encode()).hexdigest(),)
             ),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) >= 0.06,
             seconds=30,
@@ -476,7 +476,7 @@ def test_lowering_a_tier_budget_below_spend_blocks_the_key(gateway: Gateway) -> 
         assert upstream.get("/__observations").json()["requests"] == []
         gateway.post("/budget/update", {"budget_id": budget_id, "max_budget": 0.01})
         updated_rows: Final = read_rows(
-            'SELECT max_budget FROM "LiteLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
+            'SELECT max_budget FROM "HangarLLM_BudgetTable" WHERE budget_id = %s', (budget_id,)
         )
         assert len(updated_rows) == 1
         assert float(str(updated_rows[0]["max_budget"])) == 0.01, updated_rows

@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.llms.azure_ai.embed.cohere_transformation import AzureAICohereConfig
-from litellm.types.utils import EmbeddingResponse, Usage
+from hangarllm.llms.azure_ai.embed.cohere_transformation import AzureAICohereConfig
+from hangarllm.types.utils import EmbeddingResponse, Usage
 
 
 def test_azure_ai_cohere_request_splits_images_from_text_and_keeps_order():

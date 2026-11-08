@@ -12,10 +12,10 @@ from typing import Final
 import openai
 import pytest
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
+import hangarllm
+from hangarllm._logging import verbose_router_logger
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.fallbacks_helpers import (
     TIERED_A,
     MakeCore,
@@ -34,7 +34,7 @@ from tests.unit.test_router.core.scripted_host import (
     server_error,
 )
 
-LOG_HEAD: Final = "litellm.router.py::async_function_with_fallbacks() - Error occurred while trying to do fallbacks - "
+LOG_HEAD: Final = "hangarllm.router.py::async_function_with_fallbacks() - Error occurred while trying to do fallbacks - "
 NO_COOLDOWNS: Final = "\nDebug Information:\nCooldown Deployments=[]"
 
 
@@ -292,7 +292,7 @@ def test_a_sync_call_logs_through_the_same_handling(
     host.answer("openai/a", server_error())
     core: Final = build(make_core, fallbacks=[{"b": ["c"]}], disable_cooldowns=True)
 
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         _ = complete_sync(core)
 
     assert _fallback_logs(router_errors) == [f"{LOG_HEAD}{raised.value}{NO_COOLDOWNS}"]

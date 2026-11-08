@@ -31,7 +31,7 @@ from models import (
     KeyGenerateBody,
     KeyGenerateResponse,
     KeyUpdateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModelInfoEntry,
     OrgInfoResponse,
     OrgNewBody,
@@ -881,7 +881,7 @@ class TestModelRoutes:
         model_name = f"e2e-mgmt-model-{unique_marker()}"
         model_id = client.proxy.create_model(
             model_name,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model="gpt-4o-mini",
                 mock_response="ok",
                 input_cost_per_token=_INITIAL_INPUT_COST,
@@ -891,21 +891,21 @@ class TestModelRoutes:
 
         before = _model_entry(client, model_name)
         assert before is not None, f"{model_name} absent from /model/info right after /model/new"
-        initial = before.litellm_params.input_cost_per_token
+        initial = before.hangarllm_params.input_cost_per_token
         assert initial is not None and math.isclose(initial, _INITIAL_INPUT_COST, rel_tol=1e-9), (
             f"/model/info reports input_cost_per_token {initial}, registered {_INITIAL_INPUT_COST}"
         )
 
         client.proxy.update_model(
             model_id,
-            LiteLLMParamsBody(model="gpt-4o-mini", input_cost_per_token=_UPDATED_INPUT_COST),
+            HangarLLMParamsBody(model="gpt-4o-mini", input_cost_per_token=_UPDATED_INPUT_COST),
         )
 
         def updated() -> ModelInfoEntry | None:
             entry = _model_entry(client, model_name)
             if entry is None:
                 return None
-            cost = entry.litellm_params.input_cost_per_token
+            cost = entry.hangarllm_params.input_cost_per_token
             if cost is not None and math.isclose(cost, _UPDATED_INPUT_COST, rel_tol=1e-9):
                 return entry
             return None
@@ -931,7 +931,7 @@ class TestModelRoutes:
         design: it is the safety net if this test fails before the in-body delete, and
         a repeat /model/delete is a warn-only no-op the teardown absorbs."""
         model_name = f"e2e-mgmt-model-{unique_marker()}"
-        model_id = client.proxy.create_model(model_name, LiteLLMParamsBody(model="openai/gpt-5.5", api_key="dummy"))
+        model_id = client.proxy.create_model(model_name, HangarLLMParamsBody(model="openai/gpt-5.5", api_key="dummy"))
         resources.defer(lambda: client.proxy.delete_model(model_id))
 
         assert model_name in [entry.model_name for entry in client.proxy.model_info()], (
@@ -958,7 +958,7 @@ class TestModelRoutes:
         model_name = f"e2e-mgmt-model-{unique_marker()}"
         model_id = client.proxy.create_model(
             model_name,
-            LiteLLMParamsBody(model="openai/gpt-5.5", api_key="e2e-dummy-key"),
+            HangarLLMParamsBody(model="openai/gpt-5.5", api_key="e2e-dummy-key"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
 
@@ -1055,7 +1055,7 @@ def _assert_single_deleted_row(page: AuditLogPage, token_hash: str) -> None:
     assert page.total == 1, page
     row = page.audit_logs[0]
     assert row.action == "deleted", row
-    assert row.table_name == "LiteLLM_VerificationToken", row
+    assert row.table_name == "HangarLLM_VerificationToken", row
     assert row.object_id == token_hash, row
     assert row.changed_by, row
 

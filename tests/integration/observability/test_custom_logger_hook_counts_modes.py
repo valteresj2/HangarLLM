@@ -84,12 +84,12 @@ def test_logger_the_async_handler_skips_gets_one_sync_hook_per_request_rejected_
     sync_hook_proxy: tuple[Gateway, HookRecords, str], surface: str
 ) -> None:
     proxy, records, _ = sync_hook_proxy
-    known_calls: Final = {record["litellm_call_id"] for record in records.drained()}
+    known_calls: Final = {record["hangarllm_call_id"] for record in records.drained()}
     response: Final = send(proxy, surface, "success", str(uuid.uuid4()), key="sk-not-a-virtual-key")
     assert response.status_code == 401, response.text
 
     def new_calls(found: tuple[dict[str, str], ...]) -> set[str]:
-        return {record["litellm_call_id"] for record in found if record["litellm_call_id"] not in known_calls}
+        return {record["hangarllm_call_id"] for record in found if record["hangarllm_call_id"] not in known_calls}
 
     (rejected_call,) = eventually(lambda: new_calls(records.drained()), bool, seconds=20)
     assert_hooks(records, surface, rejected_call, ["function_failure", "sync_failure"])

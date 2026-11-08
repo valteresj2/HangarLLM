@@ -12,8 +12,8 @@ from typing import Final, cast
 
 import pytest
 
-from litellm.router_core import RouterCore
-from litellm.router_python_host import Endpoint
+from hangarllm.router_core import RouterCore
+from hangarllm.router_python_host import Endpoint
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost
 from tests.unit.test_router.core.scripted_host import deployment, server_error
 
@@ -25,7 +25,7 @@ _TO_B: Final = [{"a": ["b"]}]
 
 
 class _NamedHost(EndpointHost):
-    """``EndpointHost`` whose endpoints carry the op's name, as litellm's own functions do: the Python
+    """``EndpointHost`` whose endpoints carry the op's name, as hangarllm's own functions do: the Python
     core reads a generic op's handler name to decide it names a provider-scoped resource."""
 
     __slots__ = ()

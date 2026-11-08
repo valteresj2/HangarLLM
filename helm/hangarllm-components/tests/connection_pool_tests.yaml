@@ -13,17 +13,17 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
           any: true
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
           any: true
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
           any: true
 
   - it: enabled pool renders the three pgbouncer vars with the configured sizes
@@ -37,17 +37,17 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "8"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
             value: "250"
       - contains:
           path: spec.template.spec.containers[0].env
@@ -63,12 +63,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "20"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
             value: "1000"
 
   - it: backend never gets the pool env
@@ -79,7 +79,7 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
           any: true
 
   - it: collector sidecar gets the same pool env as the gateway container, the metrics sidecar none
@@ -97,7 +97,7 @@ tests:
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
           any: true
       - equal:
           path: spec.template.spec.containers[2].name
@@ -105,17 +105,17 @@ tests:
       - contains:
           path: spec.template.spec.containers[2].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[2].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "8"
       - contains:
           path: spec.template.spec.containers[2].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
             value: "250"
 
   - it: collector sidecar gets no pool env when the pool is off
@@ -129,17 +129,17 @@ tests:
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
           any: true
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
           any: true
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_CLIENT_CONN
+            name: HANGARLLM_PGBOUNCER_MAX_CLIENT_CONN
           any: true
 
   - it: pool with IAM auth renders both the pool and the token auth flag
@@ -152,7 +152,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[0].env
@@ -162,7 +162,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[1].env
@@ -179,7 +179,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[0].env
@@ -200,5 +200,5 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
           any: true

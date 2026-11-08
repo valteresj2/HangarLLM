@@ -21,10 +21,10 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard import ZscalerAIGuard
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.types.utils import GenericGuardrailAPIInputs
+import hangarllm
+from hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard import ZscalerAIGuard
+from hangarllm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -125,7 +125,7 @@ def test_extract_blocking_info():
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_apply_guardrail_text_concatenation(mock_api_call):
@@ -168,7 +168,7 @@ async def _execute_policy_bodies(
         guardrail_id: Final = handler.initialize_guardrail(
             guardrail={
                 "guardrail_name": "zscaler-last-user-turn",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "zscaler_ai_guard",
                     "mode": "pre_call",
                     "api_key": "test_key",
@@ -355,7 +355,7 @@ async def test_scan_only_tool_results_sends_the_tool_results() -> None:
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_policy_id_from_request_metadata(mock_api_call):
@@ -380,7 +380,7 @@ async def test_policy_id_from_request_metadata(mock_api_call):
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_policy_id_from_user_api_key_metadata(mock_api_call):
@@ -404,7 +404,7 @@ async def test_policy_id_from_user_api_key_metadata(mock_api_call):
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_policy_id_from_team_metadata(mock_api_call):
@@ -423,7 +423,7 @@ async def test_policy_id_from_team_metadata(mock_api_call):
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_policy_id_from_init(mock_api_call):
@@ -442,7 +442,7 @@ async def test_policy_id_from_init(mock_api_call):
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_policy_id_zero_from_request_metadata(mock_api_call):
@@ -482,17 +482,17 @@ async def test_should_preserve_policy_id_zero_in_init():
 
 
 @pytest.mark.asyncio
-async def test_should_resolve_from_litellm_metadata_during_post_call():
-    """Test that user_api_key_alias is resolved from litellm_metadata during post-call"""
-    request_data = {"litellm_metadata": {"user_api_key_alias": "test-alias-post-call"}}
+async def test_should_resolve_from_hangarllm_metadata_during_post_call():
+    """Test that user_api_key_alias is resolved from hangarllm_metadata during post-call"""
+    request_data = {"hangarllm_metadata": {"user_api_key_alias": "test-alias-post-call"}}
     result = ZscalerAIGuard._resolve_metadata_value(request_data, "user_api_key_alias")
     assert result == "test-alias-post-call"
 
 
 @pytest.mark.asyncio
 async def test_should_resolve_user_api_key_key_alias_mapping():
-    """Test key_alias -> user_api_key_key_alias mapping in litellm_metadata"""
-    request_data = {"litellm_metadata": {"user_api_key_key_alias": "test-key-alias"}}
+    """Test key_alias -> user_api_key_key_alias mapping in hangarllm_metadata"""
+    request_data = {"hangarllm_metadata": {"user_api_key_key_alias": "test-key-alias"}}
     result = ZscalerAIGuard._resolve_metadata_value(request_data, "user_api_key_alias")
     assert result == "test-key-alias"
 
@@ -541,7 +541,7 @@ async def test_should_omit_policy_id_when_zero_or_negative():
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_apply_guardrail_block_raises_400(mock_api_call):
@@ -569,7 +569,7 @@ async def test_apply_guardrail_block_raises_400(mock_api_call):
 
 @pytest.mark.asyncio
 @patch(
-    "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
+    "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.ZscalerAIGuard.make_zscaler_ai_guard_api_call",
     new_callable=AsyncMock,
 )
 async def test_apply_guardrail_block_does_not_log_error(mock_api_call):
@@ -589,7 +589,7 @@ async def test_apply_guardrail_block_does_not_log_error(mock_api_call):
     request_data = {}
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.zscaler_ai_guard.verbose_proxy_logger"
+        "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.zscaler_ai_guard.verbose_proxy_logger"
     ) as mock_logger:
         with pytest.raises(HTTPException) as exc_info:
             await guardrail.apply_guardrail(inputs, request_data, "request")
@@ -609,7 +609,7 @@ async def test_send_request_uses_default_timeout_when_unconfigured():
     assert guardrail.timeout == 5.0
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.zscaler_ai_guard.get_async_httpx_client"
+        "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.zscaler_ai_guard.get_async_httpx_client"
     ) as mock_get_client:
         mock_client = Mock()
         mock_client.post = AsyncMock(return_value=Mock(status_code=200))
@@ -633,7 +633,7 @@ async def test_send_request_uses_configured_timeout():
     assert guardrail.timeout == 30
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.zscaler_ai_guard.get_async_httpx_client"
+        "hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard.zscaler_ai_guard.get_async_httpx_client"
     ) as mock_get_client:
         mock_client = Mock()
         mock_client.post = AsyncMock(return_value=Mock(status_code=200))
@@ -647,15 +647,15 @@ async def test_send_request_uses_configured_timeout():
 def test_initialize_guardrail_forwards_configured_timeout():
     """
     Regression for LIT-5222: the `timeout` key from config.yaml must survive
-    initialization. It reaches LitellmParams already, but the initializer used
+    initialization. It reaches HangarllmParams already, but the initializer used
     to drop it before it could reach the guardrail instance.
     """
-    from litellm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.zscaler_ai_guard import (
         initialize_guardrail,
     )
-    from litellm.types.guardrails import LitellmParams
+    from hangarllm.types.guardrails import HangarllmParams
 
-    litellm_params = LitellmParams(
+    hangarllm_params = HangarllmParams(
         guardrail="zscaler_ai_guard",
         mode="pre_call",
         api_key="test_key",
@@ -664,7 +664,7 @@ def test_initialize_guardrail_forwards_configured_timeout():
         timeout="30",
     )
 
-    guardrail = initialize_guardrail(litellm_params, {"guardrail_name": "zscaler-configured-timeout"})
+    guardrail = initialize_guardrail(hangarllm_params, {"guardrail_name": "zscaler-configured-timeout"})
 
     assert guardrail.timeout == 30.0
 
@@ -692,24 +692,24 @@ def test_non_positive_timeout_falls_back_to_default(bad_timeout):
     assert guardrail.timeout == 5.0
 
 
-def test_update_in_memory_litellm_params_keeps_timeout_resolved():
+def test_update_in_memory_hangarllm_params_keeps_timeout_resolved():
     """
-    Regression: the base implementation copies every LitellmParams attribute
+    Regression: the base implementation copies every HangarllmParams attribute
     onto the guardrail, so an unset timeout would overwrite the resolved value
     with None and silently fall back to the shared client's 600s default.
     """
-    from litellm.types.guardrails import LitellmParams
+    from hangarllm.types.guardrails import HangarllmParams
 
     guardrail = ZscalerAIGuard(api_key="test_key", policy_id=1, timeout=30)
     assert guardrail.timeout == 30
 
-    guardrail.update_in_memory_litellm_params(
-        LitellmParams(guardrail="zscaler_ai_guard", mode="pre_call", api_key="test_key")
+    guardrail.update_in_memory_hangarllm_params(
+        HangarllmParams(guardrail="zscaler_ai_guard", mode="pre_call", api_key="test_key")
     )
     assert guardrail.timeout == 5.0
 
-    guardrail.update_in_memory_litellm_params(
-        LitellmParams(guardrail="zscaler_ai_guard", mode="pre_call", api_key="test_key", timeout=45)
+    guardrail.update_in_memory_hangarllm_params(
+        HangarllmParams(guardrail="zscaler_ai_guard", mode="pre_call", api_key="test_key", timeout=45)
     )
     assert guardrail.timeout == 45.0
 
@@ -722,11 +722,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Saves and restores litellm callback/global state so tests don't leak
+    Saves and restores hangarllm callback/global state so tests don't leak
     side effects. Works safely under pytest-xdist parallel execution.
     """
     original_state = {}
@@ -737,45 +737,45 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("set_verbose", "cache", "num_retries"):
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in ("success_callback", "failure_callback", "_async_success_callback", "_async_failure_callback"):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 

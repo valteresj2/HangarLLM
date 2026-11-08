@@ -15,21 +15,21 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm import Router
-from litellm.caching.redis_cache import RedisPipelineIncrementOperation
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_api import RoutingContext
-from litellm.router_strategy.least_busy import picks_reserve
-from litellm.types.router import DeploymentTypedDict, FallbackAccessCheck, RoutingGroup
-from litellm.utils import Rules, function_setup
+import hangarllm
+from hangarllm import Router
+from hangarllm.caching.redis_cache import RedisPipelineIncrementOperation
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_strategy.least_busy import picks_reserve
+from hangarllm.types.router import DeploymentTypedDict, FallbackAccessCheck, RoutingGroup
+from hangarllm.utils import Rules, function_setup
 
 
 def _model_list():
     return [
         {
             "model_name": "filtered-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "sk-test-1",
                 "api_base": "https://example.invalid",
@@ -38,7 +38,7 @@ def _model_list():
         },
         {
             "model_name": "filtered-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-test-2",
                 "api_base": "https://example.invalid",
@@ -47,7 +47,7 @@ def _model_list():
         },
         {
             "model_name": "other-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "sk-test-3",
                 "api_base": "https://example.invalid",
@@ -129,13 +129,13 @@ def test_duplicate_group_name_raises():
 
 def test_two_least_busy_groups_count_a_request_once(monkeypatch):
     """
-    Least-busy counts a request up from the pre-call hooks on `litellm.input_callback` and
-    back down from the success hooks on `litellm.callbacks`. The success list drops a second
+    Least-busy counts a request up from the pre-call hooks on `hangarllm.input_callback` and
+    back down from the success hooks on `hangarllm.callbacks`. The success list drops a second
     selector of the same class, so a pre-call list that kept both counted every request twice
     and released it once, and the deployment's in-flight count climbed until it looked pinned.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
 
     router = _build_router(
         routing_strategy="least-busy",
@@ -148,16 +148,16 @@ def test_two_least_busy_groups_count_a_request_once(monkeypatch):
         ],
     )
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_group": "filtered-model"},
             "model_info": {"id": "deploy-1"},
         }
     }
 
-    for callback in litellm.input_callback:
+    for callback in hangarllm.input_callback:
         if isinstance(callback, CustomLogger):
             callback.log_pre_api_call(model="filtered-model", messages=[], kwargs=kwargs)
-    for callback in litellm.callbacks:
+    for callback in hangarllm.callbacks:
         if isinstance(callback, CustomLogger):
             callback.log_success_event(kwargs, None, None, None)
 
@@ -172,8 +172,8 @@ def _filtered_model_pick(router: Router) -> str:
 
 
 def test_a_least_busy_group_pick_stops_counting_once_its_request_finishes(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
     router: Final = _build_router(
         routing_strategy="least-busy",
         routing_groups=[{"group_name": "fast", "models": ["filtered-model"], "routing_strategy": "least-busy"}],
@@ -183,13 +183,13 @@ def test_a_least_busy_group_pick_stops_counting_once_its_request_finishes(monkey
     with picks_reserve(True):
         first: Final = router.get_available_deployment("filtered-model", request_kwargs=request)["model_info"]["id"]
     kwargs: Final = {
-        "litellm_params": {"metadata": {"model_group": "filtered-model"}, "model_info": {"id": first}},
-        "litellm_call_id": request["litellm_call_id"],
+        "hangarllm_params": {"metadata": {"model_group": "filtered-model"}, "model_info": {"id": first}},
+        "hangarllm_call_id": request["hangarllm_call_id"],
     }
-    for callback in litellm.input_callback:
+    for callback in hangarllm.input_callback:
         if isinstance(callback, CustomLogger):
             callback.log_pre_api_call(model="filtered-model", messages=[], kwargs=kwargs)
-    for callback in litellm.callbacks:
+    for callback in hangarllm.callbacks:
         if isinstance(callback, CustomLogger):
             callback.log_success_event(kwargs, None, None, None)
 
@@ -198,25 +198,25 @@ def test_a_least_busy_group_pick_stops_counting_once_its_request_finishes(monkey
 
 def test_two_routers_in_one_process_each_count_their_own_requests(monkeypatch):
     """
-    Least-busy hangs its counting off litellm's global callback lists, and those lists keep one
+    Least-busy hangs its counting off hangarllm's global callback lists, and those lists keep one
     logger per class unless the instances differ in a plain attribute. Two routers in one process
     (a second Router, or a per-request `user_config` one) therefore have to register separately:
     a second router whose selector is dropped counts nothing, reads zero for every deployment,
     and sends every request to whichever one is listed first.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
 
     first = _build_router(routing_strategy="least-busy")
     second = _build_router(routing_strategy="least-busy")
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_group": "filtered-model"},
             "model_info": {"id": "deploy-1"},
         }
     }
 
-    for callback in litellm.input_callback:
+    for callback in hangarllm.input_callback:
         if isinstance(callback, CustomLogger):
             callback.log_pre_api_call(model="filtered-model", messages=[], kwargs=kwargs)
 
@@ -226,7 +226,7 @@ def test_two_routers_in_one_process_each_count_their_own_requests(monkeypatch):
         == "deploy-2"
     )
 
-    for callback in litellm.callbacks:
+    for callback in hangarllm.callbacks:
         if isinstance(callback, CustomLogger):
             callback.log_success_event(kwargs, None, None, None)
 
@@ -244,8 +244,8 @@ def _single_latency_group():
 
 
 def test_failed_routing_groups_update_does_not_poison_later_strategy_changes(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
     router = _build_router(routing_groups=_single_latency_group())
 
     with pytest.raises(ValueError, match="appears in"):
@@ -287,7 +287,7 @@ def _rpm_limited_model_list():
     return [
         {
             "model_name": "other-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "sk-test-3",
                 "api_base": "https://example.invalid",
@@ -305,7 +305,7 @@ async def test_usage_based_v2_override_enforces_rpm_when_a_specific_deployment_i
 
     first = await router.acompletion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert first.choices[0].message.content == "ok"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert (await router.acompletion(**kwargs)).choices[0].message.content == "ok"
 
@@ -316,14 +316,14 @@ def test_sync_usage_based_v2_override_enforces_rpm_when_a_specific_deployment_is
 
     first = router.completion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert first.choices[0].message.content == "ok"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         router.completion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert router.completion(**kwargs).choices[0].message.content == "ok"
 
 
 def _pass_through_rpm_limited_model_list():
     deployment = _rpm_limited_model_list()[0]
-    return [{**deployment, "litellm_params": {**deployment["litellm_params"], "use_in_pass_through": True}}]
+    return [{**deployment, "hangarllm_params": {**deployment["hangarllm_params"], "use_in_pass_through": True}}]
 
 
 @pytest.mark.asyncio
@@ -335,7 +335,7 @@ async def test_async_early_return_paths_run_the_override_pre_call_check():
         model="other-model", request_kwargs={**override, "_encrypted_content_affinity_pinned": True}
     )
     assert pinned["model_info"]["id"] == "deploy-3"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.async_get_available_deployment_for_pass_through(model="deploy-3", request_kwargs=override)
     plain = await router.async_get_available_deployment_for_pass_through(model="deploy-3", request_kwargs={})
     assert plain["model_info"]["id"] == "deploy-3"
@@ -347,7 +347,7 @@ def test_sync_pass_through_specific_deployment_runs_the_override_pre_call_check(
 
     first = router.get_available_deployment_for_pass_through(model="deploy-3", request_kwargs=override)
     assert first["model_info"]["id"] == "deploy-3"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         router.get_available_deployment_for_pass_through(model="deploy-3", request_kwargs=override)
     plain = router.get_available_deployment_for_pass_through(model="deploy-3", request_kwargs={})
     assert plain["model_info"]["id"] == "deploy-3"
@@ -357,12 +357,12 @@ def _two_deployment_model_list(**d1_params: object) -> list[dict[str, object]]:
     return [
         {
             "model_name": "grp",
-            "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test-1", "mock_response": "ok", **d1_params},
+            "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test-1", "mock_response": "ok", **d1_params},
             "model_info": {"id": "d1"},
         },
         {
             "model_name": "grp",
-            "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test-2", "mock_response": "ok"},
+            "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test-2", "mock_response": "ok"},
             "model_info": {"id": "d2"},
         },
     ]
@@ -374,11 +374,11 @@ def _proxy_shaped_request(**data: object) -> dict[str, object]:
         "acompletion",
         Rules(),
         datetime.datetime.now(),
-        litellm_call_id=str(uuid.uuid4()),
+        hangarllm_call_id=str(uuid.uuid4()),
         messages=[{"role": "user", "content": "hi"}],
         **data,
     )
-    return {**kwargs, "litellm_logging_obj": logging_obj}
+    return {**kwargs, "hangarllm_logging_obj": logging_obj}
 
 
 def test_override_matching_the_router_strategy_is_not_bound_twice():
@@ -387,7 +387,7 @@ def test_override_matching_the_router_strategy_is_not_bound_twice():
 
     router.get_available_deployment("grp", request_kwargs=request)
 
-    assert request["litellm_logging_obj"].dynamic_input_callbacks is None
+    assert request["hangarllm_logging_obj"].dynamic_input_callbacks is None
 
 
 def _quality_group(strategy="latency-based-routing"):
@@ -418,7 +418,7 @@ def test_group_name_appears_in_model_names_and_model_list():
 async def test_group_name_colliding_with_model_name_is_shadowed_with_warning(caplog):
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         router = _build_router(
             routing_groups=[
                 {"group_name": "filtered-model", "models": ["other-model"], "routing_strategy": "latency-based-routing"}
@@ -433,7 +433,7 @@ async def test_group_name_colliding_with_model_name_is_shadowed_with_warning(cap
 async def test_group_name_colliding_with_model_group_alias_is_shadowed_with_warning(caplog):
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Router"):
         router = Router(
             model_list=_model_list(),
             model_group_alias={"quality": "filtered-model"},
@@ -449,12 +449,12 @@ async def test_real_model_added_later_shadows_group():
     router = _build_router(routing_groups=_quality_group())
     assert router.get_routing_group("quality") is not None
 
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
     router.add_deployment(
         Deployment(
             model_name="quality",
-            litellm_params={"model": "openai/gpt-4o", "api_key": "sk-test-4", "api_base": "https://example.invalid"},
+            hangarllm_params={"model": "openai/gpt-4o", "api_key": "sk-test-4", "api_base": "https://example.invalid"},
             model_info={"id": "deploy-shadow"},
         )
     )
@@ -473,7 +473,7 @@ async def test_group_with_no_member_deployments_raises_no_healthy():
         model_list=_model_list(),
         routing_groups=[{"group_name": "empty-group", "models": ["ghost-model"], "routing_strategy": "simple-shuffle"}],
     )
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await router.async_get_healthy_deployments(model="empty-group", request_kwargs={})
 
 
@@ -554,7 +554,7 @@ def test_routing_group_has_alternatives_resolves_aliases():
 
 
 def test_group_rows_cache_invalidated_on_model_list_change():
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
     router = _build_router(routing_groups=_quality_group())
     assert sum(1 for row in router.get_model_list() if row["model_name"] == "quality") == 3
@@ -562,7 +562,7 @@ def test_group_rows_cache_invalidated_on_model_list_change():
     router.add_deployment(
         Deployment(
             model_name="filtered-model",
-            litellm_params={"model": "openai/gpt-4o", "api_key": "sk-test-5", "api_base": "https://example.invalid"},
+            hangarllm_params={"model": "openai/gpt-4o", "api_key": "sk-test-5", "api_base": "https://example.invalid"},
             model_info={"id": "deploy-4"},
         )
     )
@@ -575,11 +575,11 @@ async def _call_and_get_cooldowns(router, model):
         router.cooldown_cache.add_deployment_to_cooldown(
             model_id=model_id, original_exception=RuntimeError("unavailable"), exception_status=500, cooldown_time=60
         )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(
             model=model,
             messages=[{"role": "user", "content": "hi"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="hangarllm.RateLimitError",
         )
     return [model_id for model_id, _ in await router.cooldown_cache.async_get_active_cooldowns(["deploy-3"], None)]
 
@@ -626,7 +626,7 @@ def test_group_rows_do_not_inherit_member_access_groups():
         model_list=[
             {
                 "model_name": "gated-member",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
                 "model_info": {"id": "gated-1", "access_groups": ["restricted-team"]},
             }
         ],
@@ -680,8 +680,8 @@ def _priority_deployments(
     return [
         {
             **deployment,
-            "litellm_params": {
-                **deployment["litellm_params"],
+            "hangarllm_params": {
+                **deployment["hangarllm_params"],
                 "mock_response": (
                     primary_response if deployment["model_name"] == "filtered-model" else backup_response
                 ),
@@ -721,7 +721,7 @@ async def test_priority_group_fails_over_without_retries_and_leaves_direct_calls
     requested_model: str,
 ) -> None:
     router: Final = Router(
-        model_list=_priority_deployments(primary_response="litellm.RateLimitError"),
+        model_list=_priority_deployments(primary_response="hangarllm.RateLimitError"),
         routing_groups=[_priority_group()],
         model_group_alias={"priority-alias": "priority-group"},
         num_retries=0,
@@ -731,7 +731,7 @@ async def test_priority_group_fails_over_without_retries_and_leaves_direct_calls
         model=requested_model, messages=[{"role": "user", "content": "hi"}]
     )
     assert response.choices[0].message.content == "backup"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(model="filtered-model", messages=[{"role": "user", "content": "hi"}])
 
 
@@ -755,7 +755,7 @@ async def test_opposite_priority_groups_preserve_deployments_and_legacy_member_p
     )
     assert (forward.choices[0].message.content, reverse.choices[0].message.content) == ("primary", "backup")
     assert router.get_model_list(model_name="filtered-model") == before
-    assert all(deployment["litellm_params"]["order"] == 10 for deployment in before)
+    assert all(deployment["hangarllm_params"]["order"] == 10 for deployment in before)
 
 
 @pytest.mark.parametrize("backup_priority, expected", [(1, "backup"), (2, "primary")])
@@ -793,12 +793,12 @@ async def test_priority_group_skips_paused_primary_and_returns_to_it_after_recov
 @pytest.mark.asyncio
 async def test_priority_group_respects_request_fallback_controls(controls: dict[str, object]) -> None:
     router: Final = Router(
-        model_list=_priority_deployments(primary_response="litellm.RateLimitError"),
+        model_list=_priority_deployments(primary_response="hangarllm.RateLimitError"),
         routing_groups=[_priority_group()],
         num_retries=0,
         disable_cooldowns=True,
     )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(
             model="priority-group", messages=[{"role": "user", "content": "hi"}], **controls
         )
@@ -885,7 +885,7 @@ async def test_priority_group_settings_roundtrip_replaces_the_order() -> None:
 def _priority_auto_router_deployment() -> DeploymentTypedDict:
     return {
         "model_name": "smart-router",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "classifier_type": "heuristic",
@@ -904,7 +904,7 @@ def _priority_auto_router_deployment() -> DeploymentTypedDict:
 async def test_auto_router_selected_priority_group_fails_over_inside_the_group() -> None:
     router: Final = Router(
         model_list=[
-            *_priority_deployments(primary_response="litellm.RateLimitError"),
+            *_priority_deployments(primary_response="hangarllm.RateLimitError"),
             _priority_auto_router_deployment(),
         ],
         routing_groups=[_priority_group()],
@@ -919,7 +919,7 @@ async def test_auto_router_selected_priority_group_fails_over_inside_the_group()
 
 @pytest.mark.asyncio
 async def test_priority_group_ignores_cached_backup_affinity() -> None:
-    from litellm.router_utils.prompt_caching_cache import PromptCachingCache
+    from hangarllm.router_utils.prompt_caching_cache import PromptCachingCache
 
     router: Final = Router(
         model_list=_priority_deployments(),
@@ -939,7 +939,7 @@ async def test_priority_group_ignores_cached_backup_affinity() -> None:
 
 @pytest.mark.asyncio
 async def test_priority_group_preserves_responses_continuity_on_a_backup() -> None:
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     router: Final = Router(
         model_list=_priority_deployments(),
@@ -972,7 +972,7 @@ async def test_auto_priority_advance_preserves_access_scope_and_checks_paid_grou
     budget_checks: Final[list[str]] = []
     router: Final = Router(
         model_list=[
-            *_priority_deployments(primary_response="litellm.RateLimitError"),
+            *_priority_deployments(primary_response="hangarllm.RateLimitError"),
             _priority_auto_router_deployment(),
         ],
         routing_groups=[_priority_group()],
@@ -989,7 +989,7 @@ async def test_auto_priority_advance_preserves_access_scope_and_checks_paid_grou
         )
         assert response.choices[0].message.content == "backup"
     else:
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await router.acompletion(model="smart-router", messages=[{"role": "user", "content": "hi"}])
     assert access_checks == []
     assert budget_checks == ["priority-group"]
@@ -1001,13 +1001,13 @@ async def test_auto_priority_group_exhaustion_still_checks_external_fallback_acc
     router: Final = Router(
         model_list=[
             *_priority_deployments(
-                primary_response="litellm.RateLimitError", backup_response="litellm.RateLimitError"
+                primary_response="hangarllm.RateLimitError", backup_response="hangarllm.RateLimitError"
             ),
             _priority_auto_router_deployment(),
             {
                 **_model_list()[2],
                 "model_name": "external",
-                "litellm_params": {**_model_list()[2]["litellm_params"], "mock_response": "external"},
+                "hangarllm_params": {**_model_list()[2]["hangarllm_params"], "mock_response": "external"},
                 "model_info": {"id": "external-deployment"},
             },
         ],
@@ -1017,13 +1017,13 @@ async def test_auto_priority_group_exhaustion_still_checks_external_fallback_acc
         disable_cooldowns=True,
         fallback_access_check=_recording_fallback_gate(frozenset({"smart-router"}), access_checks),
     )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(model="smart-router", messages=[{"role": "user", "content": "hi"}])
     assert access_checks and set(access_checks) == {"external"}
 
 
 @pytest.mark.parametrize("check_kind", ["access", "budget"])
-@pytest.mark.parametrize("metadata_bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_bucket", ["metadata", "hangarllm_metadata"])
 @pytest.mark.asyncio
 async def test_caller_cannot_spoof_a_priority_group_to_bypass_fallback_gates(
     check_kind: Literal["access", "budget"], metadata_bucket: str,
@@ -1031,7 +1031,7 @@ async def test_caller_cannot_spoof_a_priority_group_to_bypass_fallback_gates(
     checked: Final[list[str]] = []
     check: Final = _recording_fallback_gate(frozenset({"filtered-model"}), checked)
     router: Final = Router(
-        model_list=_priority_deployments(primary_response="litellm.RateLimitError"),
+        model_list=_priority_deployments(primary_response="hangarllm.RateLimitError"),
         routing_groups=[_priority_group()],
         fallbacks=[{"filtered-model": ["priority-group"]}],
         num_retries=0,
@@ -1039,7 +1039,7 @@ async def test_caller_cannot_spoof_a_priority_group_to_bypass_fallback_gates(
         fallback_access_check=check if check_kind == "access" else None,
         fallback_budget_check=check if check_kind == "budget" else None,
     )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await router.acompletion(
             model="filtered-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -1059,8 +1059,8 @@ def _sync_task_count() -> int:
 
 @pytest.mark.asyncio
 async def test_update_settings_same_routing_strategy_args_does_not_leak_sync_tasks(monkeypatch) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
     router: Final = Router(
         model_list=_model_list(),
         routing_strategy="usage-based-routing-v2",
@@ -1107,8 +1107,8 @@ class _RecordingRedisCache:
 async def test_update_settings_changed_routing_strategy_args_flushes_replaced_selector_queue(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
     router: Final = Router(
         model_list=_model_list(),
         routing_strategy="usage-based-routing-v2",

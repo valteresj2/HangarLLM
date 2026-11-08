@@ -13,13 +13,13 @@ from redis.asyncio import Redis, RedisCluster
 from redis.asyncio.cluster import ClusterNode
 from redis.asyncio.connection import SSLConnection
 
-from litellm.caching.evicted_client_closer import EvictedClientCloser
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.caching.redis_cluster_cache import ClusterConnectionGate, RedisClusterCache
+from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.caching.redis_cluster_cache import ClusterConnectionGate, RedisClusterCache
 
 
-@patch("litellm._redis.init_redis_cluster")
+@patch("hangarllm._redis.init_redis_cluster")
 def test_redis_cluster_batch_get(mock_init_redis_cluster):
     """
     Test that RedisClusterCache uses mget_nonatomic instead of mget for batch operations
@@ -45,7 +45,7 @@ def test_redis_cluster_batch_get(mock_init_redis_cluster):
 
 
 @pytest.mark.asyncio
-@patch("litellm._redis.init_redis_cluster")
+@patch("hangarllm._redis.init_redis_cluster")
 async def test_redis_cluster_async_batch_get(mock_init_redis_cluster):
     """
     Test that RedisClusterCache uses mget_nonatomic instead of mget for async batch operations
@@ -72,16 +72,16 @@ async def test_redis_cluster_async_batch_get(mock_init_redis_cluster):
     assert not mock_redis.mget.called
 
 
-@patch("litellm._redis.get_redis_connection_pool")
-@patch("litellm._redis.get_redis_client")
-@patch.object(import_module("litellm.caching.redis_cache").RedisCache, "_setup_health_pings")
+@patch("hangarllm._redis.get_redis_connection_pool")
+@patch("hangarllm._redis.get_redis_client")
+@patch.object(import_module("hangarllm.caching.redis_cache").RedisCache, "_setup_health_pings")
 def test_cache_init_creates_cluster_cache_from_env_var(mock_health, mock_get_client, mock_get_pool, monkeypatch):
     """
     Test that Cache() creates RedisClusterCache when REDIS_CLUSTER_NODES env var is set.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22748
+    Regression test for upstream issue 22748
     """
-    from litellm.caching.caching import Cache
+    from hangarllm.caching.caching import Cache
 
     startup_nodes = [{"host": "127.0.0.1", "port": "7001"}]
     monkeypatch.setenv("REDIS_CLUSTER_NODES", json.dumps(startup_nodes))
@@ -97,9 +97,9 @@ def test_cache_init_creates_cluster_cache_from_env_var(mock_health, mock_get_cli
     assert isinstance(cache.cache, RedisClusterCache)
 
 
-@patch("litellm._redis.get_redis_connection_pool")
-@patch("litellm._redis.get_redis_client")
-@patch.object(import_module("litellm.caching.redis_cache").RedisCache, "_setup_health_pings")
+@patch("hangarllm._redis.get_redis_connection_pool")
+@patch("hangarllm._redis.get_redis_client")
+@patch.object(import_module("hangarllm.caching.redis_cache").RedisCache, "_setup_health_pings")
 def test_cache_init_creates_redis_cache_without_cluster_config(
     mock_health, mock_get_client, mock_get_pool, monkeypatch
 ):
@@ -109,7 +109,7 @@ def test_cache_init_creates_redis_cache_without_cluster_config(
     Ensures backward compatibility: without REDIS_CLUSTER_NODES or
     redis_startup_nodes, the standard RedisCache is still used.
     """
-    from litellm.caching.caching import Cache
+    from hangarllm.caching.caching import Cache
 
     monkeypatch.delenv("REDIS_CLUSTER_NODES", raising=False)
     monkeypatch.setenv("REDIS_HOST", "localhost")
@@ -159,9 +159,9 @@ def test_router_create_redis_cache_cluster_detection(startup_nodes, env_var, exp
     either startup_nodes is in cache_kwargs or REDIS_CLUSTER_NODES env var is set.
     Also verifies that explicit startup_nodes take precedence over env var.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22748
+    Regression test for upstream issue 22748
     """
-    from litellm import Router
+    from hangarllm import Router
 
     cache_kwargs = {"startup_nodes": startup_nodes} if startup_nodes is not None else None
 
@@ -174,7 +174,7 @@ def test_router_create_redis_cache_cluster_detection(startup_nodes, env_var, exp
 
     with patch.object(RedisCache, "__init__", _mock_redis_cache_init):
         router = Router(
-            model_list=[{"model_name": "m", "litellm_params": {"model": "gpt-4o", "api_key": "x"}}],
+            model_list=[{"model_name": "m", "hangarllm_params": {"model": "gpt-4o", "api_key": "x"}}],
             redis_host="mockhost",
             redis_port=6379,
             redis_password="mock-password",
@@ -187,8 +187,8 @@ def test_router_create_redis_cache_cluster_detection(startup_nodes, env_var, exp
 def _isolated_redis_cache(host: str) -> RedisCache:
     """RedisCache whose sync client and pool are stubbed out."""
     with (
-        patch("litellm._redis.get_redis_client", return_value=MagicMock()),
-        patch("litellm._redis.get_redis_connection_pool", return_value=MagicMock()),
+        patch("hangarllm._redis.get_redis_client", return_value=MagicMock()),
+        patch("hangarllm._redis.get_redis_connection_pool", return_value=MagicMock()),
     ):
         return RedisCache(host=host, port=6379)
 
@@ -344,14 +344,14 @@ def test_expired_pubsub_client_closes_connections_after_eviction() -> None:
         assert replacement is not client
         connection.disconnect.assert_awaited_once()
 
-    with patch("litellm.in_memory_llm_clients_cache", clients):
+    with patch("hangarllm.in_memory_llm_clients_cache", clients):
         asyncio.run(exercise())
 
 
 def test_init_async_client_returns_one_cluster_client_per_event_loop() -> None:
     clients = LLMClientCache()
     with (
-        patch("litellm.in_memory_llm_clients_cache", clients),
+        patch("hangarllm.in_memory_llm_clients_cache", clients),
         patch("redis.RedisCluster", return_value=MagicMock()),
         patch("redis.Redis", return_value=MagicMock()),
     ):
@@ -386,7 +386,7 @@ def test_init_async_client_returns_one_cluster_client_per_event_loop() -> None:
 def test_evicted_async_client_is_closed_only_for_cluster(cluster: bool) -> None:
     clients = LLMClientCache(evicted_client_closer=EvictedClientCloser(grace_seconds=0))
     with (
-        patch("litellm.in_memory_llm_clients_cache", clients),
+        patch("hangarllm.in_memory_llm_clients_cache", clients),
         patch("redis.RedisCluster", return_value=MagicMock()),
         patch("redis.Redis", return_value=MagicMock()),
     ):
@@ -441,7 +441,7 @@ def _cluster_set_cache_with_client(
     max_connections: int | None = None,
     connection_gate: ClusterConnectionGate | None = None,
 ) -> Callable[[str, str], Awaitable[object]]:
-    with patch("litellm._redis.init_redis_cluster"):
+    with patch("hangarllm._redis.init_redis_cluster"):
         cache = RedisClusterCache(
             startup_nodes=[{"host": "localhost", "port": 7000}],
             max_connections=max_connections,

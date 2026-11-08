@@ -10,17 +10,17 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.guardrails.guardrail_hooks.reco import (
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy.guardrails.guardrail_hooks.reco import (
     RecoGuardrail,
     initialize_guardrail,
 )
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.proxy.guardrails.guardrail_hooks.reco import (
+from hangarllm.types.guardrails import GuardrailEventHooks, HangarllmParams
+from hangarllm.types.proxy.guardrails.guardrail_hooks.reco import (
     RecoConfigModel,
     RecoOptionalParams,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 
 @pytest.fixture
@@ -74,17 +74,17 @@ class TestRecoGuardrailConfiguration:
     def test_config_model_ui_friendly_name(self) -> None:
         assert RecoConfigModel.ui_friendly_name() == "Reco"
 
-    def test_litellm_params_stay_assignable_for_registry_secret_resolution(self) -> None:
-        litellm_params: Final = LitellmParams(guardrail="reco", mode="pre_call")
+    def test_hangarllm_params_stay_assignable_for_registry_secret_resolution(self) -> None:
+        hangarllm_params: Final = HangarllmParams(guardrail="reco", mode="pre_call")
 
-        litellm_params.api_base = "https://edge1.us.reco.ai"
+        hangarllm_params.api_base = "https://edge1.us.reco.ai"
 
-        assert litellm_params.api_base == "https://edge1.us.reco.ai"
+        assert hangarllm_params.api_base == "https://edge1.us.reco.ai"
 
 
 class TestRecoGuardrailInitializer:
     def test_initialize_guardrail_wires_optional_params(self) -> None:
-        litellm_params: Final = LitellmParams(
+        hangarllm_params: Final = HangarllmParams(
             guardrail="reco",
             mode="pre_call",
             optional_params={
@@ -93,18 +93,18 @@ class TestRecoGuardrailInitializer:
             },
         )
 
-        guardrail: Final = initialize_guardrail(litellm_params, {"guardrail_name": "prod-reco"})
+        guardrail: Final = initialize_guardrail(hangarllm_params, {"guardrail_name": "prod-reco"})
 
         assert isinstance(guardrail, RecoGuardrail)
         assert guardrail.guardrail_name == "prod-reco"
         assert guardrail.headers == {"X-Reco-Tenant-Id": "22222222-2222-2222-2222-222222222222"}
-        assert guardrail.api_base == "https://edge2.eu.reco.ai/beta/litellm_basic_guardrail_api"
+        assert guardrail.api_base == "https://edge2.eu.reco.ai/beta/hangarllm_basic_guardrail_api"
 
     def test_initialize_guardrail_reads_plain_dict_optional_params(self) -> None:
         """Guardrails reconciled from the DB can carry `optional_params` as a
         plain dict rather than a pydantic object; attribute-only access would
         silently read None for every field."""
-        litellm_params: Final = LitellmParams.model_construct(
+        hangarllm_params: Final = HangarllmParams.model_construct(
             guardrail="reco",
             optional_params={
                 "reco_tenant_id": "33333333-3333-3333-3333-333333333333",
@@ -114,14 +114,14 @@ class TestRecoGuardrailInitializer:
             default_on=True,
         )
 
-        guardrail: Final = initialize_guardrail(litellm_params, {"guardrail_name": "prod-reco"})
+        guardrail: Final = initialize_guardrail(hangarllm_params, {"guardrail_name": "prod-reco"})
 
         assert guardrail.headers == {"X-Reco-Tenant-Id": "33333333-3333-3333-3333-333333333333"}
-        assert guardrail.api_base == "https://edge3.eu.reco.ai/beta/litellm_basic_guardrail_api"
+        assert guardrail.api_base == "https://edge3.eu.reco.ai/beta/hangarllm_basic_guardrail_api"
 
     def test_initialize_guardrail_resolves_env_var_reference(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("RECO_TEST_TENANT_ID", "44444444-4444-4444-4444-444444444444")
-        litellm_params: Final = LitellmParams(
+        hangarllm_params: Final = HangarllmParams(
             guardrail="reco",
             optional_params={
                 "reco_tenant_id": "os.environ/RECO_TEST_TENANT_ID",
@@ -131,13 +131,13 @@ class TestRecoGuardrailInitializer:
             default_on=True,
         )
 
-        guardrail: Final = initialize_guardrail(litellm_params, {"guardrail_name": "prod-reco"})
+        guardrail: Final = initialize_guardrail(hangarllm_params, {"guardrail_name": "prod-reco"})
 
         assert guardrail.headers == {"X-Reco-Tenant-Id": "44444444-4444-4444-4444-444444444444"}
 
 
-def _litellm_params(top_level: Mapping[str, object], nested: Mapping[str, object]) -> LitellmParams:
-    return LitellmParams(
+def _hangarllm_params(top_level: Mapping[str, object], nested: Mapping[str, object]) -> HangarllmParams:
+    return HangarllmParams(
         guardrail="reco",
         mode="pre_call",
         optional_params={
@@ -200,7 +200,7 @@ class TestRecoGuardrailFailureModes:
     async def test_initialize_guardrail_fails_closed_when_configured(
         self, top_level: Mapping[str, object], nested: Mapping[str, object]
     ) -> None:
-        guardrail: Final = initialize_guardrail(_litellm_params(top_level, nested), {"guardrail_name": "prod-reco"})
+        guardrail: Final = initialize_guardrail(_hangarllm_params(top_level, nested), {"guardrail_name": "prod-reco"})
 
         with pytest.raises(Exception, match="connection refused"):
             await _apply_with_reco_unreachable(guardrail)
@@ -221,7 +221,7 @@ class TestRecoGuardrailFailureModes:
     async def test_initialize_guardrail_fails_open_when_configured(
         self, top_level: Mapping[str, object], nested: Mapping[str, object]
     ) -> None:
-        guardrail: Final = initialize_guardrail(_litellm_params(top_level, nested), {"guardrail_name": "prod-reco"})
+        guardrail: Final = initialize_guardrail(_hangarllm_params(top_level, nested), {"guardrail_name": "prod-reco"})
 
         result: Final = await _apply_with_reco_unreachable(guardrail)
 
@@ -232,11 +232,11 @@ class TestRecoGuardrailFailureModes:
         nested: Final = RecoOptionalParams(
             reco_tenant_id="22222222-2222-2222-2222-222222222222", api_base="https://edge2.eu.reco.ai"
         )
-        litellm_params: Final = LitellmParams.model_construct(
+        hangarllm_params: Final = HangarllmParams.model_construct(
             guardrail="reco", mode="pre_call", optional_params=nested, fail_on_error=False
         )
 
-        guardrail: Final = initialize_guardrail(litellm_params, {"guardrail_name": "prod-reco"})
+        guardrail: Final = initialize_guardrail(hangarllm_params, {"guardrail_name": "prod-reco"})
         result: Final = await _apply_with_reco_unreachable(guardrail)
 
         assert result["texts"] == ["hello"]

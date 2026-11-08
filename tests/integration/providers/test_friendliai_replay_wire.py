@@ -11,7 +11,7 @@ _PROMPT: Final = "What is the weather in Paris? Use the tool."
 _REASONING: Final = "The user wants the weather in Paris, so call get_weather."
 _TOOL_RESULT: Final = "18C and sunny"
 _ANSWER: Final = "It is 18C and sunny in Paris."
-_LITELLM_ONLY_FIELDS: Final = frozenset({"thinking_blocks", "reasoning_items", "provider_specific_fields"})
+_HANGARLLM_ONLY_FIELDS: Final = frozenset({"thinking_blocks", "reasoning_items", "provider_specific_fields"})
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _MESSAGES: Final = TypeAdapter(tuple[dict[str, JsonValue], ...])
 _CALL: Final[JsonValue] = {
@@ -52,7 +52,7 @@ def _sent_messages(requests: tuple[Request, ...]) -> tuple[dict[str, JsonValue],
     return _MESSAGES.validate_python(body["messages"])
 
 
-def test_chat_replay_of_returned_assistant_message_reaches_friendliai_without_litellm_fields(gateway: Gateway) -> None:
+def test_chat_replay_of_returned_assistant_message_reaches_friendliai_without_hangarllm_fields(gateway: Gateway) -> None:
     with wire_server(_respond) as wire, gateway.scenario() as scenario:
         model: Final = scenario.model(model=f"friendliai/{_MODEL}", api_base=wire.url, api_key=_API_KEY)
         response: Final = gateway.request(
@@ -88,7 +88,7 @@ def test_chat_replay_of_returned_assistant_message_reaches_friendliai_without_li
         )
 
 
-def test_messages_replay_of_thinking_and_tool_use_reaches_friendliai_without_litellm_fields(gateway: Gateway) -> None:
+def test_messages_replay_of_thinking_and_tool_use_reaches_friendliai_without_hangarllm_fields(gateway: Gateway) -> None:
     with wire_server(_respond) as wire, gateway.scenario() as scenario:
         model: Final = scenario.model(model=f"friendliai/{_MODEL}", api_base=wire.url, api_key=_API_KEY)
         response: Final = gateway.request(
@@ -117,6 +117,6 @@ def test_messages_replay_of_thinking_and_tool_use_reaches_friendliai_without_lit
         assert response.status_code == 200, response.text
         assert _JSON_OBJECT.validate_json(response.content)["content"] == [{"type": "text", "text": _ANSWER}]
         messages: Final = _sent_messages(wire.drain())
-        assert [sorted(_LITELLM_ONLY_FIELDS & message.keys()) for message in messages] == [[]] * len(messages)
+        assert [sorted(_HANGARLLM_ONLY_FIELDS & message.keys()) for message in messages] == [[]] * len(messages)
         assistant: Final = next(message for message in messages if message["role"] == "assistant")
         assert assistant["reasoning_content"] == _REASONING

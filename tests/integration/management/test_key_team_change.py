@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 import pytest
 from prisma import Json
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import TEAM_ALPHA, Actor
 from tests.integration._support.actors import create_scratch_team
@@ -55,7 +55,7 @@ async def _seed_key_with_limits(
         data["tpm_limit"] = tpm_limit
     if rpm_limit is not None:
         data["rpm_limit"] = rpm_limit
-    await db.db.litellm_verificationtoken.create(data=data)
+    await db.db.hangarllm_verificationtoken.create(data=data)
     return cleartext
 
 
@@ -93,7 +93,7 @@ async def test_key_team_change_accepted(gateway_client, db, resources, actors):
     )
     assert resp.status_code == 200, resp.text
 
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(key_cleartext)}
     )
     assert row is not None
@@ -168,7 +168,7 @@ async def test_key_team_change_rejected_guards(
         403,
     ), f"{scenario}: expected 400/403, got {resp.status_code}: {resp.text}"
 
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(key_cleartext)}
     )
     assert row is not None
@@ -222,7 +222,7 @@ async def test_key_team_change_rejected_initiator_not_admin(
         401,
         403,
     ), f"expected 401/403, got {resp.status_code}: {resp.text}"
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(key_cleartext)}
     )
     assert row is not None

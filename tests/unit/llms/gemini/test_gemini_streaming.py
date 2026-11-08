@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 
 def _sse_body(chunks: tuple[Mapping[str, object], ...]) -> str:
@@ -18,7 +18,7 @@ def _sse_body(chunks: tuple[Mapping[str, object], ...]) -> str:
 async def test_async_gemini_streaming_tool_call_arguments_are_valid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     chunks: Final = (
         {
             "candidates": [
@@ -74,7 +74,7 @@ async def test_async_gemini_streaming_tool_call_arguments_are_valid(
         )
     )
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="gemini/gemini-2.5-flash-lite",
         messages=[
             {"role": "system", "content": "You are an AI assistant"},
@@ -130,7 +130,7 @@ async def test_gemini_streaming_legacy_function_call_arguments_are_valid(
     sync_mode: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     chunks: Final = (
         {
             "candidates": [
@@ -186,7 +186,7 @@ async def test_gemini_streaming_legacy_function_call_arguments_are_valid(
     ]
     if sync_mode:
         stream_chunks: Final = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="gemini/gemini-2.5-flash-lite",
                 messages=messages,
                 functions=functions,
@@ -195,7 +195,7 @@ async def test_gemini_streaming_legacy_function_call_arguments_are_valid(
             )
         )
     else:
-        stream: Final = await litellm.acompletion(
+        stream: Final = await hangarllm.acompletion(
             model="gemini/gemini-2.5-flash-lite",
             messages=messages,
             functions=functions,
@@ -214,6 +214,6 @@ async def test_gemini_streaming_legacy_function_call_arguments_are_valid(
     ) == ("get_current_weather",)
     arguments: Final = "".join(function_call.arguments or "" for function_call in function_calls)
     assert json.loads(arguments) == {"location": "Boston", "unit": "fahrenheit"}
-    rebuilt: Final = litellm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
+    rebuilt: Final = hangarllm.stream_chunk_builder(chunks=list(stream_chunks), messages=messages)
     assert rebuilt.choices[0].message.function_call.name == "get_current_weather"
     assert json.loads(rebuilt.choices[0].message.function_call.arguments) == {"location": "Boston", "unit": "fahrenheit"}

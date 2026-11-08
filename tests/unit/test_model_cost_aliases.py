@@ -7,8 +7,8 @@ entries, creating shared dict references for alias entries at load time.
 
 from unittest.mock import patch
 
-from litellm import verbose_logger
-from litellm.litellm_core_utils.get_model_cost_map import _expand_model_aliases
+from hangarllm import verbose_logger
+from hangarllm.hangarllm_core_utils.get_model_cost_map import _expand_model_aliases
 
 
 # ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ class TestExpandModelAliases:
             "my-model-latest": {
                 "aliases": ["my-model-20250101"],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -33,7 +33,7 @@ class TestExpandModelAliases:
 
         assert "my-model-20250101" in result
         assert result["my-model-20250101"]["input_cost_per_token"] == 1e-06
-        assert result["my-model-20250101"]["litellm_provider"] == "test"
+        assert result["my-model-20250101"]["hangarllm_provider"] == "test"
 
     def test_multiple_aliases(self):
         """A single entry can declare multiple aliases."""
@@ -41,7 +41,7 @@ class TestExpandModelAliases:
             "provider/model-latest": {
                 "aliases": ["provider/model-v1", "provider/model-v2"],
                 "input_cost_per_token": 5e-06,
-                "litellm_provider": "provider",
+                "hangarllm_provider": "provider",
                 "mode": "chat",
             },
         }
@@ -56,7 +56,7 @@ class TestExpandModelAliases:
             "canonical-model": {
                 "aliases": ["alias-model"],
                 "input_cost_per_token": 2e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -70,7 +70,7 @@ class TestExpandModelAliases:
             "my-model": {
                 "aliases": ["my-model-alias"],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -84,7 +84,7 @@ class TestExpandModelAliases:
         model_cost = {
             "plain-model": {
                 "input_cost_per_token": 3e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -100,7 +100,7 @@ class TestExpandModelAliases:
             "model-a": {
                 "aliases": [],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -125,12 +125,12 @@ class TestAliasConflicts:
             "model-latest": {
                 "aliases": ["model-dated"],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
             "model-dated": {
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -150,13 +150,13 @@ class TestAliasConflicts:
             "model-a": {
                 "aliases": ["shared-alias"],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
             "model-b": {
                 "aliases": ["shared-alias"],
                 "input_cost_per_token": 2e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -177,13 +177,13 @@ class TestAliasConflicts:
         model_cost = {
             "existing-model": {
                 "input_cost_per_token": original_cost,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
             "other-model": {
                 "aliases": ["existing-model"],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -207,7 +207,7 @@ class TestAliasIntegration:
             "canonical": {
                 "aliases": ["alias"],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }
@@ -223,12 +223,12 @@ class TestAliasIntegration:
             "model-with-alias": {
                 "aliases": ["alias-1", "alias-2"],
                 "input_cost_per_token": 1e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
             "plain-model": {
                 "input_cost_per_token": 2e-06,
-                "litellm_provider": "test",
+                "hangarllm_provider": "test",
                 "mode": "chat",
             },
         }

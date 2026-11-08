@@ -6,26 +6,26 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     UI_TEAM_ID,
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+    HangarLLM_OrganizationTable,
+    HangarLLM_ProjectTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarllmUserRoles,
     Member,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_helpers.auto_router_permissions import (
+from hangarllm.proxy.management_helpers.auto_router_permissions import (
     MemberAutoRouterDependencyObjects,
     authorize_member_auto_router_dependencies,
     authorize_member_auto_router_team,
     authorize_member_auto_router_write,
     validate_member_auto_router_config,
 )
-from litellm.router import Router
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo, updateDeployment
+from hangarllm.router import Router
+from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo, updateDeployment
 
 
 class _ReadTable:
@@ -35,7 +35,7 @@ class _ReadTable:
 
 @dataclass(frozen=True)
 class _PermissionDb:
-    litellm_teammembership: _ReadTable = _ReadTable()
+    hangarllm_teammembership: _ReadTable = _ReadTable()
 
 
 @dataclass(frozen=True)
@@ -43,8 +43,8 @@ class _Client:
     db: _PermissionDb = _PermissionDb()
 
 
-def _team(**updates: object) -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable.model_validate(
+def _team(**updates: object) -> HangarLLM_TeamTable:
+    return HangarLLM_TeamTable.model_validate(
         {
             "team_id": "team-a",
             "models": ["allowed"],
@@ -65,7 +65,7 @@ def _actor(**updates: object) -> UserAPIKeyAuth:
 def catalog() -> Router:
     return Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}}
+            {"model_name": name, "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}}
             for name in ("allowed", "other")
         ]
     )
@@ -77,14 +77,14 @@ def catalog() -> Router:
         ({}, {}, True, True),
         ({"team_id": UI_TEAM_ID}, {}, True, True),
         ({"team_id": "team-a"}, {}, True, True),
-        ({"user_role": LitellmUserRoles.TEAM}, {}, True, True),
-        ({"user_role": LitellmUserRoles.ORG_ADMIN}, {}, True, True),
+        ({"user_role": HangarllmUserRoles.TEAM}, {}, True, True),
+        ({"user_role": HangarllmUserRoles.ORG_ADMIN}, {}, True, True),
         ({"team_id": "team-b"}, {}, True, False),
         ({"user_id": None}, {}, True, False),
         ({"user_id": ""}, {}, True, False),
         ({"user_id": "peer"}, {}, True, False),
-        ({"user_role": LitellmUserRoles.INTERNAL_USER_VIEW_ONLY}, {}, True, False),
-        ({"user_role": LitellmUserRoles.CUSTOMER}, {}, True, False),
+        ({"user_role": HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY}, {}, True, False),
+        ({"user_role": HangarllmUserRoles.CUSTOMER}, {}, True, False),
         ({}, {"team_member_permissions": []}, True, False),
         ({}, {"team_member_permissions": None}, True, False),
         ({}, {"blocked": True}, True, False),
@@ -113,7 +113,7 @@ def test_opt_in_requires_live_named_membership_and_write_role(
 def test_all_tier_parameter_representations_reject_privileged_overrides(
     placement: str, overrides: Mapping[str, object]
 ) -> None:
-    entry: Final = {"model_name": "allowed", "litellm_params": overrides}
+    entry: Final = {"model_name": "allowed", "hangarllm_params": overrides}
     config: Final = (
         {"tiers": {"SIMPLE": [entry]}}
         if placement == "inline"
@@ -126,10 +126,10 @@ def test_all_tier_parameter_representations_reject_privileged_overrides(
 
 def test_tier_config_is_normalized_and_unknown_router_extras_are_rejected() -> None:
     validated: Final = validate_member_auto_router_config(
-        {"tiers": {"SIMPLE": [{"model_name": "allowed", "litellm_params": {"reasoning_effort": "low"}}]}}
+        {"tiers": {"SIMPLE": [{"model_name": "allowed", "hangarllm_params": {"reasoning_effort": "low"}}]}}
     )
     assert validated.tiers == {"SIMPLE": ["allowed"]}
-    assert validated.tier_model_configs["SIMPLE"][0].litellm_params == {"reasoning_effort": "low"}
+    assert validated.tier_model_configs["SIMPLE"][0].hangarllm_params == {"reasoning_effort": "low"}
     assert validate_member_auto_router_config(validated.model_dump()).tiers == validated.tiers
     with pytest.raises(HTTPException):
         validate_member_auto_router_config({"tiers": {"SIMPLE": "allowed"}, "api_base": "https://example.invalid"})
@@ -205,19 +205,19 @@ def test_members_can_still_tune_the_jev_classifier(provider: str, model: str, le
         {"blocked": False},
         {"model_info": {"team_id": "other-team"}},
         {"model_info": {"member_auto_router": False}},
-        {"litellm_params": {"model": "auto_router/quality_router"}},
-        {"litellm_params": {"api_key": "fake"}},
+        {"hangarllm_params": {"model": "auto_router/quality_router"}},
+        {"hangarllm_params": {"api_key": "fake"}},
     ],
 )
 async def test_member_updates_restrict_fields_and_preserve_an_inherited_default(
     catalog: Router, monkeypatch: pytest.MonkeyPatch, patch_fields: Mapping[str, object]
 ) -> None:
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "member-router-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "member-router-test-salt")
     existing: Final = Deployment(
         model_name="model_name_team-a_uuid",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model=encrypt_value_helper("auto_router/complexity_router"),
             complexity_router_config={"tiers": {"SIMPLE": "allowed"}},
             complexity_router_default_model=encrypt_value_helper("allowed"),
@@ -226,7 +226,7 @@ async def test_member_updates_restrict_fields_and_preserve_an_inherited_default(
         created_by="owner",
     )
     patch: Final = updateDeployment.model_validate(
-        {"litellm_params": {"complexity_router_config": {"tiers": {"SIMPLE": "allowed"}}}, **patch_fields}
+        {"hangarllm_params": {"complexity_router_config": {"tiers": {"SIMPLE": "allowed"}}}, **patch_fields}
     )
     operation: Final = authorize_member_auto_router_write(
         incoming=patch,
@@ -266,13 +266,13 @@ async def test_member_updates_restrict_fields_and_preserve_an_inherited_default(
 async def test_member_authorization_and_persistence_resolve_the_same_classifier(
     catalog: Router, monkeypatch: pytest.MonkeyPatch, nested: object, expected_identity: str | None, restricted: bool
 ) -> None:
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_management_endpoints import (
         _strategy_router_write_violation,
         update_db_model,
     )
-    from litellm.router_strategy.complexity_router.request_models import RequestComplexityRouterConfig
+    from hangarllm.router_strategy.complexity_router.request_models import RequestComplexityRouterConfig
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "member-router-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "member-router-test-salt")
     stored_config: Final = {
         "classifier_type": "jev", "tiers": {"SIMPLE": "allowed"},
         "jev_classifier_config": {
@@ -282,7 +282,7 @@ async def test_member_authorization_and_persistence_resolve_the_same_classifier(
     }
     existing: Final = Deployment(
         model_name="member-router",
-        litellm_params=LiteLLM_Params(model="auto_router/complexity_router", complexity_router_config=stored_config),
+        hangarllm_params=HangarLLM_Params(model="auto_router/complexity_router", complexity_router_config=stored_config),
         model_info=ModelInfo(id="router-a", team_id="team-a"), created_by="owner",
     )
     incoming_config: Final = (
@@ -291,7 +291,7 @@ async def test_member_authorization_and_persistence_resolve_the_same_classifier(
             **({} if nested == "omit-block" else {"jev_classifier_config": nested}),
         }
     )
-    patch: Final = updateDeployment.model_validate({"litellm_params": {
+    patch: Final = updateDeployment.model_validate({"hangarllm_params": {
         "complexity_router_config": incoming_config, "complexity_router_default_model": "allowed",
     }})
     operation: Final = authorize_member_auto_router_write(
@@ -301,7 +301,7 @@ async def test_member_authorization_and_persistence_resolve_the_same_classifier(
         team=_team(models=["allowed", "laya/english", "laya/multilingual", "typesafe/jev-latest"]),
         premium_user=True, prisma_client=_Client(), llm_router=catalog,
     )
-    violation: Final = _strategy_router_write_violation(patch.litellm_params, existing.litellm_params)
+    violation: Final = _strategy_router_write_violation(patch.hangarllm_params, existing.hangarllm_params)
     if expected_identity is None:
         assert violation is not None
         with pytest.raises(HTTPException) as rejected:
@@ -316,7 +316,7 @@ async def test_member_authorization_and_persistence_resolve_the_same_classifier(
     grant: Final = await operation
     persisted: Final = update_db_model(existing, patch)
     saved: Final = RequestComplexityRouterConfig.model_validate(
-        json.loads(persisted["litellm_params"])["complexity_router_config"]
+        json.loads(persisted["hangarllm_params"])["complexity_router_config"]
     )
     assert grant.config == saved
     assert saved.jev_classifier_config is not None
@@ -329,7 +329,7 @@ async def test_member_authorization_and_persistence_resolve_the_same_classifier(
     assert saved.jev_classifier_config.timeout_ms == (
         12000 if nested == "omit-config" else 500 if nested == {"model": "english", "timeout_ms": 500} else 3000
     )
-    assert existing.litellm_params.complexity_router_config == stored_config
+    assert existing.hangarllm_params.complexity_router_config == stored_config
 
 
 @pytest.mark.asyncio
@@ -337,10 +337,10 @@ async def test_member_authorization_and_persistence_resolve_the_same_classifier(
 async def test_member_dependencies_require_plain_configured_models(target: str) -> None:
     catalog: Final = Router(
         model_list=[
-            {"model_name": "allowed", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}},
+            {"model_name": "allowed", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}},
             {
                 "model_name": "nested",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {"tiers": {"SIMPLE": "allowed"}},
                 },
@@ -394,14 +394,14 @@ async def test_jev_evaluation_obeys_each_containing_scope(
     catalog: Router, restricted: str | None, provider: str, model: str
 ) -> None:
     allowed: Final = ["allowed", f"{provider}/{model}"]
-    membership: Final = LiteLLM_TeamMembership.model_validate(
+    membership: Final = HangarLLM_TeamMembership.model_validate(
         {
             "user_id": "owner",
             "team_id": "team-a",
-            "litellm_budget_table": {"allowed_models": ["allowed"] if restricted == "member" else allowed},
+            "hangarllm_budget_table": {"allowed_models": ["allowed"] if restricted == "member" else allowed},
         }
     )
-    organization: Final = LiteLLM_OrganizationTable.model_validate(
+    organization: Final = HangarLLM_OrganizationTable.model_validate(
         {
             "organization_id": "org-a",
             "models": ["allowed"] if restricted == "organization" else allowed,
@@ -410,7 +410,7 @@ async def test_jev_evaluation_obeys_each_containing_scope(
             "updated_by": "admin",
         }
     )
-    project: Final = LiteLLM_ProjectTable.model_validate(
+    project: Final = HangarLLM_ProjectTable.model_validate(
         {"project_id": "project-a", "team_id": "team-a", "models": ["allowed"] if restricted == "project" else allowed}
     )
     operation: Final = authorize_member_auto_router_dependencies(

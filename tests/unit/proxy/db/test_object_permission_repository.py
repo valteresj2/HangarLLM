@@ -4,7 +4,7 @@ from typing import Final
 
 import pytest
 
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
+from hangarllm.repositories.object_permission_repository import ObjectPermissionRepository
 
 
 class _RecordingPermissionTable:
@@ -23,7 +23,7 @@ class _RecordingPermissionTable:
 
 
 def _repository(table: _RecordingPermissionTable) -> ObjectPermissionRepository:
-    return ObjectPermissionRepository(SimpleNamespace(db=SimpleNamespace(litellm_objectpermissiontable=table)))
+    return ObjectPermissionRepository(SimpleNamespace(db=SimpleNamespace(hangarllm_objectpermissiontable=table)))
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,7 @@ The Cloudflare list was badly stale (only 4 ancient entries). These tests pin
 the newly added current Workers AI models (sourced from Cloudflare's live
 ``/ai/models/search?task=Text Generation`` catalog) and guard against the root
 ``model_prices_and_context_window.json`` and the bundled
-``litellm/model_prices_and_context_window_backup.json`` drifting out of sync for
+``hangarllm/model_prices_and_context_window_backup.json`` drifting out of sync for
 the ``cloudflare/`` namespace.
 """
 
@@ -15,14 +15,14 @@ import os
 
 import pytest
 
-import litellm
+import hangarllm
 
 ROOT_MAP = os.path.join(
-    os.path.dirname(os.path.dirname(litellm.__file__)),
+    os.path.dirname(os.path.dirname(hangarllm.__file__)),
     "model_prices_and_context_window.json",
 )
 BACKUP_MAP = os.path.join(
-    os.path.dirname(litellm.__file__),
+    os.path.dirname(hangarllm.__file__),
     "model_prices_and_context_window_backup.json",
 )
 

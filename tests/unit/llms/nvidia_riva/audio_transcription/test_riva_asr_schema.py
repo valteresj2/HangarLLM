@@ -4,7 +4,7 @@ from typing import Final
 from google.protobuf.descriptor import FieldDescriptor
 from riva.client.proto import riva_asr_pb2, riva_audio_pb2
 
-from litellm.llms.nvidia_riva.audio_transcription import riva_asr_schema
+from hangarllm.llms.nvidia_riva.audio_transcription import riva_asr_schema
 
 
 def _declared_fields() -> Iterator[tuple[str, FieldDescriptor]]:

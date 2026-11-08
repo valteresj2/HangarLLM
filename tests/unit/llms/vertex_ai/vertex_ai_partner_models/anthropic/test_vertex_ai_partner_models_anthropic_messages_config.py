@@ -13,15 +13,15 @@ import pytest
 import requests
 import responses
 
-import litellm
-from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation import (
+import hangarllm
+from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation import (
     VertexAIPartnerModelsAnthropicMessagesConfig,
 )
-from litellm.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
-from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES, ANTHROPIC_HOSTED_TOOLS
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
+from hangarllm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES, ANTHROPIC_HOSTED_TOOLS
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 @pytest.mark.parametrize("stream", (False, True))
@@ -38,7 +38,7 @@ async def test_messages_auth_load_and_refresh_leave_the_event_loop(stream: bool,
         "stream": stream,
         "tools": [{"type": ANTHROPIC_HOSTED_TOOLS.WEB_SEARCH.value, "name": "web_search"}],
     }
-    litellm_params: Final = {
+    hangarllm_params: Final = {
         "vertex_ai_project": None if infer_project else "auth-project",
         "vertex_ai_location": "global",
         "vertex_credentials": json.dumps(
@@ -54,7 +54,7 @@ async def test_messages_auth_load_and_refresh_leave_the_event_loop(stream: bool,
 
     async def validate() -> tuple[Mapping[str, object], str | None]:
         return await config.avalidate_anthropic_messages_environment(
-            headers=headers, model=model, messages=[], optional_params=optional_params, litellm_params=litellm_params
+            headers=headers, model=model, messages=[], optional_params=optional_params, hangarllm_params=hangarllm_params
         )
 
     with patch("google.auth._helpers.utcnow", return_value=now) as clock, responses.RequestsMock() as oauth:
@@ -77,7 +77,7 @@ async def test_messages_auth_load_and_refresh_leave_the_event_loop(stream: bool,
         assert refreshed_url == cold_url
         assert len(oauth.calls) == 2
         assert config.validate_anthropic_messages_environment(
-            headers=headers, model=model, messages=[], optional_params=optional_params, litellm_params=litellm_params
+            headers=headers, model=model, messages=[], optional_params=optional_params, hangarllm_params=hangarllm_params
         ) == (refreshed_headers, refreshed_url)
         assert len(oauth.calls) == 2
 
@@ -122,7 +122,7 @@ async def _send_to_vertex(client: MagicMock, caller_headers: Mapping[str, str], 
             "https://oauth2.googleapis.com/token",
             json={"access_token": "vertex-token", "expires_in": 3600},
         )
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             model="vertex_ai/claude-sonnet-5",
             messages=[{"role": "user", "content": "hi"}],
             max_tokens=16,
@@ -176,7 +176,7 @@ async def test_caller_anthropic_version_reaches_vertex_only_in_the_body(
 @pytest.mark.asyncio
 async def test_unsupported_anthropic_version_is_refused_without_drop_params(requested: str) -> None:
     client: Final = _vertex_client()
-    with pytest.raises(litellm.BadRequestError, match=f"anthropic-version={requested}. To drop unsupported params"):
+    with pytest.raises(hangarllm.BadRequestError, match=f"anthropic-version={requested}. To drop unsupported params"):
         await _send_to_vertex(client, {"anthropic-version": requested}, drop_params=False)
     client.post.assert_not_awaited()
 
@@ -184,7 +184,7 @@ async def test_unsupported_anthropic_version_is_refused_without_drop_params(requ
 def test_validate_environment_uses_vertex_ai_location():
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "europe-west1",
         "vertex_credentials": "{}",
@@ -200,7 +200,7 @@ def test_validate_environment_uses_vertex_ai_location():
             model="claude-3-sonnet",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
         assert mock_get_url.call_args.kwargs["vertex_location"] == "europe-west1"
@@ -210,7 +210,7 @@ def test_web_search_header_added_for_messages_endpoint():
     """Test that web search tool adds the required beta header for Vertex AI /v1/messages requests"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -227,7 +227,7 @@ def test_web_search_header_added_for_messages_endpoint():
             model="claude-sonnet-4",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -246,7 +246,7 @@ def test_web_search_header_added_for_messages_endpoint():
 def test_safeguards_add_dangerous_tool_use_beta_header(client_headers):
     """Vertex rejects `safeguards` without the dangerous-tool-use beta, so the beta rides along with the field the way the web search and context management betas do."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "global",
         "vertex_credentials": "{}",
@@ -264,7 +264,7 @@ def test_safeguards_add_dangerous_tool_use_beta_header(client_headers):
             model="claude-sonnet-5",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -273,7 +273,7 @@ def test_safeguards_add_dangerous_tool_use_beta_header(client_headers):
 
 def test_no_safeguards_leaves_dangerous_tool_use_beta_header_out():
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "global",
         "vertex_credentials": "{}",
@@ -288,7 +288,7 @@ def test_no_safeguards_leaves_dangerous_tool_use_beta_header_out():
             model="claude-sonnet-5",
             messages=[],
             optional_params={"max_tokens": 64},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -302,7 +302,7 @@ def _validate_vertex_headers(
     thinking: Mapping[str, object] | None = None,
 ) -> dict[str, str]:
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "global",
         "vertex_credentials": "{}",
@@ -320,7 +320,7 @@ def _validate_vertex_headers(
                 **(optional_params or {"max_tokens": 64}),
                 **({"thinking": thinking} if thinking is not None else {}),
             },
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
     return updated_headers
@@ -333,10 +333,10 @@ def _validate_vertex_headers(
 )
 def test_per_message_output_config_reaches_vertex_with_per_turn_control_beta(client_headers, monkeypatch):
     """Vertex rejects a message-level `output_config` as an extra input unless the per-turn-control beta is present, so the beta must survive the Vertex beta filter."""
-    from litellm import anthropic_beta_headers_manager
-    from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+    from hangarllm import anthropic_beta_headers_manager
+    from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
 
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
 
     messages = [
@@ -352,7 +352,7 @@ def test_per_message_output_config_reaches_vertex_with_per_turn_control_beta(cli
 
 
 def test_block_binding_reaches_vertex_messages_with_its_beta_under_drop_params(local_beta_headers_config: None) -> None:
-    from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+    from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
 
     thinking: Final = {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "error"}}
     messages: Final = [{"role": "user", "content": "Say hi in French"}]
@@ -363,7 +363,7 @@ def test_block_binding_reaches_vertex_messages_with_its_beta_under_drop_params(l
         model="claude-opus-5-5",
         messages=[dict(message) for message in messages],
         anthropic_messages_optional_request_params={"max_tokens": 64, "thinking": dict(thinking)},
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers=headers,
     )
     assert "thinking-binding-controls-2026-08-01" in headers["anthropic-beta"].split(",")
@@ -380,7 +380,7 @@ def test_inline_tools_beta_reaches_the_vertex_messages_request(local_beta_header
     """Vertex rejects a `tool_addition` system message unless inline-tools-2026-09-15 is on the request, so the
     /v1/messages beta filter must keep the header the client sent (source and date in
     tests/unit/test_anthropic_beta_headers_filtering.py)."""
-    from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+    from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
 
     messages: Final[list[dict[str, object]]] = [
         {"role": "user", "content": "What is the weather in Paris?"},
@@ -414,7 +414,7 @@ def test_web_search_header_not_added_without_tool():
     """Test that beta header is NOT added when web search tool is not present"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -431,7 +431,7 @@ def test_web_search_header_not_added_without_tool():
             model="claude-sonnet-4",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -445,7 +445,7 @@ def test_compact_context_management_header_added():
     """Test that compact-2026-01-12 beta header is added when context_management with compact_20260112 is used"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -462,7 +462,7 @@ def test_compact_context_management_header_added():
             model="claude-vertex-ai-opus-4-6",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -477,7 +477,7 @@ def test_context_management_header_added_for_other_edits():
     """Test that context-management-2025-06-27 beta header is added for non-compact edits"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -494,7 +494,7 @@ def test_context_management_header_added_for_other_edits():
             model="claude-vertex-ai-opus-4-6",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -509,7 +509,7 @@ def test_both_compact_and_context_management_headers_added():
     """Test that both compact and context-management beta headers are added when both edit types are present"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -526,7 +526,7 @@ def test_both_compact_and_context_management_headers_added():
             model="claude-vertex-ai-opus-4-6",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -552,7 +552,7 @@ def test_openai_list_form_context_management_sends_the_compact_beta():
             model="claude-vertex-ai-opus-4-6",
             messages=[],
             optional_params={"context_management": [{"type": "compaction", "compact_threshold": 150000}]},
-            litellm_params={
+            hangarllm_params={
                 "vertex_ai_project": "test-project",
                 "vertex_ai_location": "us-central1",
                 "vertex_credentials": "{}",
@@ -568,7 +568,7 @@ def test_validate_environment_always_refreshes_token_ignoring_stale_bearer():
     skip token refresh on /v1/messages — _ensure_access_token is always called."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {"Authorization": "Bearer EXPIRED"}
-    litellm_params = {
+    hangarllm_params = {
         "vertex_project": "test-project",
         "vertex_location": "us-central1",
     }
@@ -582,7 +582,7 @@ def test_validate_environment_always_refreshes_token_ignoring_stale_bearer():
             model="claude-sonnet-4",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base=None,
         )
 
@@ -597,7 +597,7 @@ def test_validate_environment_appends_stream_raw_predict_with_custom_api_base():
     get_complete_vertex_url entirely, leaving the api_base without
     `:streamRawPredict`."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
     }
@@ -615,7 +615,7 @@ def test_validate_environment_appends_stream_raw_predict_with_custom_api_base():
             model="claude-sonnet-4",
             messages=[],
             optional_params={"stream": True},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base="https://my-proxy.example.com",
         )
 
@@ -627,7 +627,7 @@ def test_validate_environment_appends_stream_raw_predict_with_custom_api_base():
 def test_validate_environment_appends_raw_predict_with_custom_api_base():
     """Regression: non-streaming custom api_base must end with `:rawPredict`."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    hangarllm_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
     }
@@ -645,7 +645,7 @@ def test_validate_environment_appends_raw_predict_with_custom_api_base():
             model="claude-sonnet-4",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_base="https://my-proxy.example.com",
         )
 
@@ -685,7 +685,7 @@ def test_transform_anthropic_messages_request_removes_scope_from_cache_control()
         model="claude-sonnet-4-6",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -714,7 +714,7 @@ def test_messages_request_strips_effort_for_haiku_45():
             "max_tokens": 1024,
             "output_config": {"effort": "high"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert "output_config" not in haiku_result
@@ -726,7 +726,7 @@ def test_messages_request_strips_effort_for_haiku_45():
             "max_tokens": 1024,
             "output_config": {"effort": "high"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert opus_result["output_config"] == {"effort": "high"}
@@ -747,7 +747,7 @@ def test_messages_request_moves_output_format_into_output_config():
             "output_format": output_format,
             "output_config": {"effort": "high"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -770,7 +770,7 @@ def _messages_request_with_output_format(output_format: object, drop_params: boo
             "output_format": output_format,
             "output_config": copy.deepcopy(_CALLER_OUTPUT_CONFIG),
         },
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -785,9 +785,9 @@ def test_messages_request_drops_a_malformed_output_format_under_drop_params(outp
 
 @pytest.mark.parametrize("output_format", ["json", ["json_schema"], 42])
 def test_messages_request_rejects_a_malformed_output_format_without_drop_params(output_format: object):
-    import litellm
+    import hangarllm
 
-    with pytest.raises(litellm.UnsupportedParamsError) as error:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as error:
         _messages_request_with_output_format(output_format, drop_params=False)
 
     assert error.value.status_code == 400
@@ -798,18 +798,18 @@ def test_provider_config_manager_reuses_vertex_anthropic_messages_config_instanc
     Regression test: repeated provider config lookups for the same Vertex Claude model
     should return the same config instance (which preserves auth cache state).
     """
-    import litellm
-    from litellm.utils import ProviderConfigManager
+    import hangarllm
+    from hangarllm.utils import ProviderConfigManager
 
     ProviderConfigManager._get_provider_anthropic_messages_config_cached.cache_clear()
     try:
         first_config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model="claude-opus-4-6",
-            provider=litellm.LlmProviders.VERTEX_AI,
+            provider=hangarllm.LlmProviders.VERTEX_AI,
         )
         second_config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model="claude-opus-4-6",
-            provider=litellm.LlmProviders.VERTEX_AI,
+            provider=hangarllm.LlmProviders.VERTEX_AI,
         )
 
         assert isinstance(first_config, VertexAIPartnerModelsAnthropicMessagesConfig)
@@ -834,7 +834,7 @@ def test_validate_environment_does_not_mutate_caller_headers():
             model="claude-sonnet-4",
             messages=[],
             optional_params={"tools": [{"type": "web_search_20250305", "name": "web_search"}]},
-            litellm_params={
+            hangarllm_params={
                 "vertex_ai_project": "p",
                 "vertex_ai_location": "us-central1",
             },
@@ -845,11 +845,11 @@ def test_validate_environment_does_not_mutate_caller_headers():
 
 
 def test_vertex_claude_completion_does_not_mutate_shared_extra_headers():
-    """Regression: router shallow-copies litellm_params so extra_headers is a shared
+    """Regression: router shallow-copies hangarllm_params so extra_headers is a shared
     reference. Verify that the chat/completions path builds a new headers dict instead
     of calling .update() on the shared object."""
     handler = VertexAIPartnerModels()
-    shared_extra_headers = {}  # simulates deployment["litellm_params"]["extra_headers"]
+    shared_extra_headers = {}  # simulates deployment["hangarllm_params"]["extra_headers"]
 
     mock_response = MagicMock()
 
@@ -857,7 +857,7 @@ def test_vertex_claude_completion_does_not_mutate_shared_extra_headers():
         patch.object(handler, "_ensure_access_token", return_value=("ya29.fresh", "proj")),
         patch.object(handler, "get_complete_vertex_url", return_value="https://mock-url"),
         patch(
-            "litellm.llms.anthropic.chat.AnthropicChatCompletion.completion",
+            "hangarllm.llms.anthropic.chat.AnthropicChatCompletion.completion",
             return_value=mock_response,
         ),
     ):
@@ -873,7 +873,7 @@ def test_vertex_claude_completion_does_not_mutate_shared_extra_headers():
             custom_prompt_dict={},
             headers=shared_extra_headers,
             timeout=30,
-            litellm_params={},
+            hangarllm_params={},
         )
 
     assert shared_extra_headers == {}, "extra_headers must not be mutated by completion()"
@@ -885,7 +885,7 @@ def test_messages_thinking_shape_follows_exact_vertex_entry_flag(local_model_cos
     ``vertex_ai/claude-opus-4-8`` entry beats the unmodified ``anthropic`` entry.
     With the inherited ``"anthropic"`` provider default the flip was ignored and
     the transform kept emitting ``thinking.type='adaptive'``."""
-    import litellm
+    import hangarllm
 
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
 
@@ -897,7 +897,7 @@ def test_messages_thinking_shape_follows_exact_vertex_entry_flag(local_model_cos
                 "max_tokens": 4096,
                 "reasoning_effort": "medium",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -905,9 +905,9 @@ def test_messages_thinking_shape_follows_exact_vertex_entry_flag(local_model_cos
     assert result.get("thinking") == {"type": "adaptive", "display": "summarized"}
     assert result.get("output_config") == {"effort": "medium"}
 
-    monkeypatch.setitem(litellm.model_cost["vertex_ai/claude-opus-4-8"], "supports_adaptive_thinking", False)
-    litellm.get_model_info.cache_clear()
-    assert litellm.model_cost["claude-opus-4-8"]["supports_adaptive_thinking"] is True
+    monkeypatch.setitem(hangarllm.model_cost["vertex_ai/claude-opus-4-8"], "supports_adaptive_thinking", False)
+    hangarllm.get_model_info.cache_clear()
+    assert hangarllm.model_cost["claude-opus-4-8"]["supports_adaptive_thinking"] is True
 
     flipped = transform()
     thinking = flipped.get("thinking")
@@ -926,7 +926,7 @@ def _vertex_transform(model, messages, system=None):
         model=model,
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params=params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -978,7 +978,7 @@ class TestVertexAnthropicMidConversationSystem:
             model="claude-sonnet-4-6",
             messages=list(messages),
             anthropic_messages_optional_request_params={"max_tokens": 64},
-            litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+            hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
             headers={},
         )
         assert result["messages"] == messages
@@ -1032,9 +1032,9 @@ def test_vertex_claude_4_8_plus_cost_map_entries_carry_mid_conversation_system_f
     cache. Every mapped vertex_ai entry the rule matches must carry the flag."""
     import re
 
-    import litellm
+    import hangarllm
 
-    cost_map_path = os.path.join(os.path.dirname(litellm.__file__), "model_prices_and_context_window_backup.json")
+    cost_map_path = os.path.join(os.path.dirname(hangarllm.__file__), "model_prices_and_context_window_backup.json")
     with open(cost_map_path) as f:
         cost_map = json.load(f)
     rules = cost_map["fallback_generalizations"]["rules"]
@@ -1048,7 +1048,7 @@ def test_vertex_claude_4_8_plus_cost_map_entries_carry_mid_conversation_system_f
         key
         for key, info in cost_map.items()
         if isinstance(info, dict)
-        and str(info.get("litellm_provider", "")).startswith("vertex_ai")
+        and str(info.get("hangarllm_provider", "")).startswith("vertex_ai")
         and "claude" in key
         and pattern.search(key)
         and info.get("supports_mid_conversation_system") is not True
@@ -1127,10 +1127,10 @@ async def test_vertex_messages_request_sends_compact_2026_09_04_beta_on_the_wire
     client.post = AsyncMock(return_value=mock_response)
 
     with patch(
-        "litellm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token_async",
+        "hangarllm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token_async",
         AsyncMock(return_value=("token", "test-project")),
     ):
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             model="vertex_ai/claude-sonnet-4-6",
             max_tokens=64,
             messages=[{"role": "user", "content": "Reply with the single word: pong"}],
@@ -1156,11 +1156,11 @@ def test_messages_feature_beta_headers(feature: str, explicit_beta: bool) -> Non
 
     from google.oauth2.credentials import Credentials
 
-    from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation import (
+    from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.messages.transformation import (
         VertexAIPartnerModelsAnthropicMessagesConfig,
     )
-    from litellm.types.llms.anthropic import (
+    from hangarllm.types.llms.anthropic import (
         ANTHROPIC_BETA_HEADER_VALUES,
         ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER,
         ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER,
@@ -1189,7 +1189,7 @@ def test_messages_feature_beta_headers(feature: str, explicit_beta: bool) -> Non
             model="claude-fable-5-1",
             messages=[{"role": "user", "content": "Hello"}, message],
             optional_params={"thinking": {"type": "adaptive", "display": "updates"}} if feature == "thinking" else {},
-            litellm_params={"vertex_ai_project": "test-project", "vertex_ai_location": "us-east5"},
+            hangarllm_params={"vertex_ai_project": "test-project", "vertex_ai_location": "us-east5"},
             api_key="test-key",
             api_base="https://example.com/anthropic",
         )
@@ -1210,7 +1210,7 @@ def test_beta_detection_preserves_unrecognized_thinking(thinking: object) -> Non
 
     from google.oauth2.credentials import Credentials
 
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
 
     params: Final = {"thinking": thinking}
     with patch(
@@ -1222,7 +1222,7 @@ def test_beta_detection_preserves_unrecognized_thinking(thinking: object) -> Non
             model="claude-fable-5-1",
             messages=[],
             optional_params=params,
-            litellm_params={"vertex_ai_project": "test-project", "vertex_ai_location": "us-east5"},
+            hangarllm_params={"vertex_ai_project": "test-project", "vertex_ai_location": "us-east5"},
             api_key="test-key",
             api_base="https://example.com/anthropic",
         )

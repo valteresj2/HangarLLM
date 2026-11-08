@@ -1,0 +1,7 @@
+import hangarllm.mcp_client as _mcp_client
+from hangarllm.hangarllm_core_utils.deprecated_package import alias_deprecated_package
+from hangarllm.mcp_client import call_openai_tool, load_mcp_tools
+
+alias_deprecated_package(__name__, _mcp_client)
+
+__all__ = ["call_openai_tool", "load_mcp_tools"]

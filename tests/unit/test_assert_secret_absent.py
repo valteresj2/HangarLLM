@@ -92,7 +92,7 @@ def test_every_planted_copy_blocks_the_upload_without_printing_the_secret(tmp_pa
 def test_clean_results_pass_and_count_every_file(tmp_path: Path) -> None:
     (tmp_path / "junit.xml").write_text("<testsuite/>")
     (tmp_path / "gw0").mkdir()
-    (tmp_path / "gw0" / "proxy.log").write_text("LITELLM_LICENSE is not set")
+    (tmp_path / "gw0" / "proxy.log").write_text("HANGARLLM_LICENSE is not set")
     code, output = _run(tmp_path)
     assert code == 0
     assert "no copy of the secret in 2 files" in output
@@ -115,7 +115,7 @@ def test_a_symlinked_directory_fails_closed(tmp_path: Path) -> None:
 
 
 def test_an_unreadable_archive_fails_without_echoing_its_contents(tmp_path: Path) -> None:
-    archive: Final = _zip({"env.txt": f"LITELLM_LICENSE={SECRET}".encode()}, zipfile.ZIP_STORED)
+    archive: Final = _zip({"env.txt": f"HANGARLLM_LICENSE={SECRET}".encode()}, zipfile.ZIP_STORED)
     at: Final = archive.index(SECRET.encode())
     (tmp_path / "trace.zip").write_bytes(archive[:at] + bytes([archive[at] ^ 0xFF]) + archive[at + 1 :])
     code, output = _run(tmp_path)

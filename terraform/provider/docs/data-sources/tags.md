@@ -1,14 +1,14 @@
-# litellm_tags (Data Source)
+# hangarllm_tags (Data Source)
 
-Retrieves the list of all LiteLLM tags. This includes stored tags created via `litellm_tag` or the API, and dynamic tags that were passed on requests
+Retrieves the list of all HangarLLM tags. This includes stored tags created via `hangarllm_tag` or the API, and dynamic tags that were passed on requests
 
 ## Example Usage
 
 ```hcl
-data "litellm_tags" "all" {}
+data "hangarllm_tags" "all" {}
 
 output "tag_names" {
-  value = data.litellm_tags.all.ids
+  value = data.hangarllm_tags.all.ids
 }
 ```
 
@@ -16,7 +16,7 @@ output "tag_names" {
 
 ```hcl
 # Limit dynamic tags to those active in a window; stored tags are always returned
-data "litellm_tags" "january" {
+data "hangarllm_tags" "january" {
   start_date = "2026-01-01"
   end_date   = "2026-01-31"
 }

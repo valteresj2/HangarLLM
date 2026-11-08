@@ -2,19 +2,19 @@
 Tests for the Meta Model API (Muse Spark) provider configuration and integration.
 """
 
-import litellm
+import hangarllm
 
 
 class TestMetaProviderConfig:
     def test_meta_in_provider_list(self):
-        from litellm import LlmProviders
+        from hangarllm import LlmProviders
 
         assert hasattr(LlmProviders, "META")
         assert LlmProviders.META.value == "meta"
-        assert "meta" in litellm.provider_list
+        assert "meta" in hangarllm.provider_list
 
     def test_meta_json_config_exists(self):
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         assert JSONProviderRegistry.exists("meta")
 
@@ -26,12 +26,12 @@ class TestMetaProviderConfig:
 
 
     def test_meta_in_openai_compatible_providers(self):
-        from litellm.constants import openai_compatible_providers
+        from hangarllm.constants import openai_compatible_providers
 
         assert "meta" in openai_compatible_providers
 
     def test_meta_provider_resolution(self):
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="meta/muse-spark-1.1",
@@ -45,7 +45,7 @@ class TestMetaProviderConfig:
         assert api_base == "https://api.meta.ai/v1"
 
     def test_meta_api_base_override(self):
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="meta/muse-spark-1.1",
@@ -59,7 +59,7 @@ class TestMetaProviderConfig:
         assert api_key == "sk-test"
 
     def test_meta_url_autodetection(self):
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
         model, provider, api_key, api_base = get_llm_provider(
             model="muse-spark-1.1",
@@ -71,13 +71,13 @@ class TestMetaProviderConfig:
         assert api_base == "https://api.meta.ai/v1"
 
     def test_meta_router_config(self):
-        from litellm import Router
+        from hangarllm import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "muse-spark",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "meta/muse-spark-1.1",
                         "api_key": "test-key",
                     },
@@ -91,15 +91,15 @@ class TestMetaProviderConfig:
 
 class TestMetaReasoningParams:
     def test_muse_spark_supports_reasoning_effort(self):
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="muse-spark-1.1", custom_llm_provider="meta"
         )
         assert params is not None
         assert "reasoning_effort" in params
 
     def test_reasoning_effort_mapped_through(self):
-        cfg = litellm.ProviderConfigManager.get_provider_chat_config(
-            model="muse-spark-1.1", provider=litellm.LlmProviders.META
+        cfg = hangarllm.ProviderConfigManager.get_provider_chat_config(
+            model="muse-spark-1.1", provider=hangarllm.LlmProviders.META
         )
         assert cfg is not None
         mapped = cfg.map_openai_params(
@@ -112,7 +112,7 @@ class TestMetaReasoningParams:
 
     def test_reasoning_effort_gated_on_capability(self):
         """A meta model without reasoning metadata must not advertise reasoning_effort."""
-        params = litellm.get_supported_openai_params(
+        params = hangarllm.get_supported_openai_params(
             model="some-non-reasoning-model", custom_llm_provider="meta"
         )
         assert params is not None
@@ -121,24 +121,24 @@ class TestMetaReasoningParams:
 
 class TestMetaAnthropicMessages:
     def test_meta_resolves_native_messages_config(self):
-        from litellm.llms.openai_like.messages.transformation import (
+        from hangarllm.llms.openai_like.messages.transformation import (
             JSONProviderAnthropicMessagesConfig,
         )
 
-        cfg = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
-            model="muse-spark-1.1", provider=litellm.LlmProviders.META
+        cfg = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
+            model="muse-spark-1.1", provider=hangarllm.LlmProviders.META
         )
         assert isinstance(cfg, JSONProviderAnthropicMessagesConfig)
 
     def test_json_provider_without_messages_endpoint_resolves_none(self):
-        cfg = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
-            model="some-model", provider=litellm.LlmProviders.PINSTRIPES
+        cfg = hangarllm.ProviderConfigManager.get_provider_anthropic_messages_config(
+            model="some-model", provider=hangarllm.LlmProviders.PINSTRIPES
         )
         assert cfg is None
 
     def test_complete_url_defaults_to_meta_base(self):
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-        from litellm.llms.openai_like.messages.transformation import (
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.messages.transformation import (
             JSONProviderAnthropicMessagesConfig,
         )
 
@@ -151,7 +151,7 @@ class TestMetaAnthropicMessages:
             api_key="sk-test",
             model="muse-spark-1.1",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://api.meta.ai/v1/messages"
 
@@ -160,13 +160,13 @@ class TestMetaAnthropicMessages:
             api_key="sk-test",
             model="muse-spark-1.1",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert override_url == "https://custom.meta.ai/v1/messages"
 
     def test_api_key_resolved_from_env(self, monkeypatch):
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-        from litellm.llms.openai_like.messages.transformation import (
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.messages.transformation import (
             JSONProviderAnthropicMessagesConfig,
         )
 
@@ -180,7 +180,7 @@ class TestMetaAnthropicMessages:
             model="muse-spark-1.1",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
             api_base=None,
         )

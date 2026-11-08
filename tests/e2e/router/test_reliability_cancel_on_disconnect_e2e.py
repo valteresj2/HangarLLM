@@ -14,7 +14,7 @@ window proves nothing and benches nothing either, since a success never counts
 against the deployment, so the cell asks again up to HANG_UP_ATTEMPTS times and
 fails out loud naming the window only when every ask came back early. After the
 cooldown suite's replica propagation window, every one of the next calls has to
-come back 200 from the Azure deployment itself, named in x-litellm-model-id; a
+come back 200 from the Azure deployment itself, named in x-hangarllm-model-id; a
 single answer from the backup means the hang-up was booked as a failure.
 
 The test reads `cancel_on_disconnect` back from the proxy first: without the flag

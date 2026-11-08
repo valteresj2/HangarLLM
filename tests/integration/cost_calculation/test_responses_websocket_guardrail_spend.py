@@ -29,7 +29,7 @@ _COST_PER_WORD: Final = 0.1
 _MARKER: Final = " [guarded]"
 _BLOCKED_WORD: Final = "forbidden"
 _GUARDRAIL_MODULE: Final = f"""
-from litellm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
 
 
 class TurnGuardrail(CustomGuardrail):
@@ -63,7 +63,7 @@ def _config(directory: Path) -> Path:
     configuration["guardrails"] = [
         {
             "guardrail_name": "turn-guardrail",
-            "litellm_params": {"guardrail": "turn_guardrail.TurnGuardrail", "mode": "pre_call", "default_on": True},
+            "hangarllm_params": {"guardrail": "turn_guardrail.TurnGuardrail", "mode": "pre_call", "default_on": True},
         }
     ]
     path: Final = directory / "responses-ws-guardrail.yaml"
@@ -102,14 +102,14 @@ async def _session(
 
 def _spend_rows(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT spend, status FROM "LiteLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime"',
+        'SELECT spend, status FROM "HangarLLM_SpendLogs" WHERE api_key = %s ORDER BY "startTime"',
         (hashlib.sha256(key.encode()).hexdigest(),),
     )
 
 
 def _key_spend(key: str) -> float:
     (row,) = read_rows(
-        'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s', (hashlib.sha256(key.encode()).hexdigest(),)
+        'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s', (hashlib.sha256(key.encode()).hexdigest(),)
     )
     return float(row["spend"])
 

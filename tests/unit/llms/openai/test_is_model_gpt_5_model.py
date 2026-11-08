@@ -34,10 +34,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
-from litellm.llms.openai.chat.gpt_reasoning_transformation import OpenAIGPT5Config
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+import hangarllm
+from hangarllm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
+from hangarllm.llms.openai.chat.gpt_reasoning_transformation import OpenAIGPT5Config
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 
 # ---------------------------------------------------------------------------
 # Parametrized fixtures
@@ -132,7 +132,7 @@ class TestOpenAIGPT5ConfigIsModelGpt5Model:
 
     @pytest.mark.parametrize("model", ["ft:gpt-5-chat-latest:org:abc", "my-custom-gpt-5-chat"])
     def test_gpt5_chat_aliases_keep_non_default_temperature(self, model: str):
-        chat_params: Final = litellm.get_optional_params(
+        chat_params: Final = hangarllm.get_optional_params(
             model=model, custom_llm_provider="openai", temperature=0.7
         )
         responses_params: Final = OpenAIResponsesAPIConfig().map_openai_params(

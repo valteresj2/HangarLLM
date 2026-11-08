@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.cohere.common_utils import ModelResponseIterator
+from hangarllm.llms.cohere.common_utils import ModelResponseIterator
 
 
 def test_stream_parses_object_chunks_and_rejects_a_chunk_that_is_not_an_object() -> None:

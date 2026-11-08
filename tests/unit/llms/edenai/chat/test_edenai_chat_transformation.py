@@ -7,16 +7,16 @@ from pathlib import Path
 import httpx
 import pytest
 
-import litellm
-from litellm.cost_calculator import get_response_cost_from_hidden_params, response_cost_calculator
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.edenai.chat.transformation import EdenAIChatCompletionStreamingHandler, EdenAIChatConfig
-from litellm.llms.edenai.common_utils import EdenAIException
-from litellm.proxy.auth.model_checks import get_provider_models
-from litellm.types.router import LiteLLM_Params
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.cost_calculator import get_response_cost_from_hidden_params, response_cost_calculator
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.edenai.chat.transformation import EdenAIChatCompletionStreamingHandler, EdenAIChatConfig
+from hangarllm.llms.edenai.common_utils import EdenAIException
+from hangarllm.proxy.auth.model_checks import get_provider_models
+from hangarllm.types.router import HangarLLM_Params
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 EDEN_BASE = "https://api.edenai.run/v3"
@@ -119,23 +119,23 @@ class TestProviderResolution:
 class TestRegistration:
     def test_provider_is_registered_everywhere_routing_looks(self):
         assert LlmProviders.EDENAI.value == "edenai"
-        assert "edenai" in litellm.provider_list
-        assert "edenai" in litellm.openai_compatible_providers
-        assert EDEN_BASE in litellm.openai_compatible_endpoints
+        assert "edenai" in hangarllm.provider_list
+        assert "edenai" in hangarllm.openai_compatible_providers
+        assert EDEN_BASE in hangarllm.openai_compatible_endpoints
         assert isinstance(
             ProviderConfigManager.get_provider_chat_config(model="openai/gpt-4.1-nano", provider=LlmProviders.EDENAI),
             EdenAIChatConfig,
         )
 
     def test_supported_params_are_the_openai_chat_params(self):
-        supported = litellm.get_supported_openai_params(model="openai/gpt-4.1-nano", custom_llm_provider="edenai")
+        supported = hangarllm.get_supported_openai_params(model="openai/gpt-4.1-nano", custom_llm_provider="edenai")
 
         assert supported is not None
         assert {"tools", "tool_choice", "response_format", "stream_options", "max_completion_tokens"} <= set(supported)
 
     def test_reasoning_effort_is_supported_only_for_models_the_price_map_flags_as_reasoning(self):
-        reasoning = litellm.get_supported_openai_params(model="openai/gpt-5-mini", custom_llm_provider="edenai")
-        plain = litellm.get_supported_openai_params(model="openai/gpt-4.1-nano", custom_llm_provider="edenai")
+        reasoning = hangarllm.get_supported_openai_params(model="openai/gpt-5-mini", custom_llm_provider="edenai")
+        plain = hangarllm.get_supported_openai_params(model="openai/gpt-4.1-nano", custom_llm_provider="edenai")
 
         assert reasoning is not None and plain is not None
         assert "reasoning_effort" in reasoning
@@ -143,9 +143,9 @@ class TestRegistration:
 
     def test_validate_environment_names_the_eden_key(self, monkeypatch):
         monkeypatch.delenv("EDENAI_API_KEY", raising=False)
-        missing = litellm.validate_environment(model="edenai/openai/gpt-4.1-nano")
+        missing = hangarllm.validate_environment(model="edenai/openai/gpt-4.1-nano")
         monkeypatch.setenv("EDENAI_API_KEY", "eden-test-key")
-        present = litellm.validate_environment(model="edenai/openai/gpt-4.1-nano")
+        present = hangarllm.validate_environment(model="edenai/openai/gpt-4.1-nano")
 
         assert (missing["keys_in_environment"], missing["missing_keys"]) == (False, ["EDENAI_API_KEY"])
         assert (present["keys_in_environment"], present["missing_keys"]) == (True, [])
@@ -154,19 +154,19 @@ class TestRegistration:
         """A cost map may name an Eden model without the `edenai/` prefix, leaving the provider
         registry as the only way key validation can tell whose key the model needs."""
         alias = "eden-cost-map-alias"
-        litellm.register_model(
-            {alias: {"litellm_provider": "edenai", "mode": "chat", "input_cost_per_token": 1e-06}},
+        hangarllm.register_model(
+            {alias: {"hangarllm_provider": "edenai", "mode": "chat", "input_cost_per_token": 1e-06}},
             persist_across_reloads=False,
         )
         try:
             monkeypatch.delenv("EDENAI_API_KEY", raising=False)
-            missing = litellm.validate_environment(model=alias)
+            missing = hangarllm.validate_environment(model=alias)
             monkeypatch.setenv("EDENAI_API_KEY", "eden-test-key")
-            present = litellm.validate_environment(model=alias)
+            present = hangarllm.validate_environment(model=alias)
         finally:
-            litellm.edenai_models.discard(alias)
-            litellm.model_cost.pop(alias, None)
-            litellm.add_known_models(model_cost_map={})
+            hangarllm.edenai_models.discard(alias)
+            hangarllm.model_cost.pop(alias, None)
+            hangarllm.add_known_models(model_cost_map={})
 
         assert (missing["keys_in_environment"], missing["missing_keys"]) == (False, ["EDENAI_API_KEY"])
         assert (present["keys_in_environment"], present["missing_keys"]) == (True, [])
@@ -175,15 +175,15 @@ class TestRegistration:
         """Wildcard expansion reads the provider registry, which a cost map reload rebuilds in
         place, so models added after startup have to show up without a restart."""
         alias = "edenai/openai/gpt-4.1-nano-from-cost-map"
-        wildcard = LiteLLM_Params(model="edenai/*", api_key="wildcard-key")
+        wildcard = HangarLLM_Params(model="edenai/*", api_key="wildcard-key")
         assert alias not in (get_provider_models("edenai", wildcard) or [])
 
-        litellm.add_known_models(model_cost_map={alias: {"litellm_provider": "edenai", "mode": "chat"}})
+        hangarllm.add_known_models(model_cost_map={alias: {"hangarllm_provider": "edenai", "mode": "chat"}})
         try:
             expanded = get_provider_models("edenai", wildcard)
         finally:
-            litellm.edenai_models.discard(alias)
-            litellm.add_known_models(model_cost_map={})
+            hangarllm.edenai_models.discard(alias)
+            hangarllm.add_known_models(model_cost_map={})
 
         assert expanded is not None
         assert alias in expanded
@@ -196,7 +196,7 @@ class TestRequestTransformation:
             model="openai/gpt-4.1-nano",
             messages=MESSAGES,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -216,7 +216,7 @@ class TestCompletion:
     def test_posts_to_eden_with_the_bearer_key_and_the_seller_model_id(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(200, json=_eden_chat_completion()))
 
-        response = litellm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, max_tokens=5)
+        response = hangarllm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, max_tokens=5)
 
         assert response.choices[0].message.content == "OK"
         assert respx_mock.calls.last.request.headers["Authorization"] == f"Bearer {eden_key}"
@@ -226,14 +226,14 @@ class TestCompletion:
     def test_reasoning_effort_reaches_eden_without_drop_params(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(200, json=_eden_chat_completion()))
 
-        litellm.completion(model="edenai/openai/gpt-5-mini", messages=MESSAGES, reasoning_effort="low")
+        hangarllm.completion(model="edenai/openai/gpt-5-mini", messages=MESSAGES, reasoning_effort="low")
 
         assert _request_body(respx_mock)["reasoning_effort"] == "low"
 
     def test_eden_reported_cost_beats_the_price_map(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(200, json=_eden_chat_completion()))
 
-        response = litellm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, max_tokens=5)
+        response = hangarllm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, max_tokens=5)
 
         assert get_response_cost_from_hidden_params(response._hidden_params) == EDEN_REPORTED_COST
         assert (
@@ -250,7 +250,7 @@ class TestCompletion:
     def test_a_body_without_cost_leaves_pricing_to_the_price_map(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(200, json=_eden_chat_completion(cost=None)))
 
-        response = litellm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, max_tokens=5)
+        response = hangarllm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, max_tokens=5)
 
         assert response.choices[0].message.content == "OK"
         assert get_response_cost_from_hidden_params(response._hidden_params) is None
@@ -258,7 +258,7 @@ class TestCompletion:
     def test_extra_body_forwards_eden_only_fields(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(200, json=_eden_chat_completion()))
 
-        litellm.completion(
+        hangarllm.completion(
             model="edenai/openai/gpt-4.1-nano",
             messages=MESSAGES,
             extra_body={"fallbacks": ["anthropic/claude-sonnet-latest"], "routing": {"sort": "latency"}},
@@ -272,7 +272,7 @@ class TestCompletion:
     def test_unknown_kwargs_ride_along_as_eden_fields(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(200, json=_eden_chat_completion()))
 
-        litellm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, routing={"sort": "latency"})
+        hangarllm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, routing={"sort": "latency"})
 
         assert _request_body(respx_mock)["routing"] == {"sort": "latency"}
 
@@ -282,7 +282,7 @@ class TestStreaming:
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=_sse(_eden_stream_frames()))
 
         chunks = list(
-            litellm.completion(
+            hangarllm.completion(
                 model="edenai/openai/gpt-4.1-nano",
                 messages=MESSAGES,
                 stream=True,
@@ -299,7 +299,7 @@ class TestStreaming:
     def test_without_include_usage_eden_cost_is_still_tracked_but_hidden(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=_sse(_eden_stream_frames()))
 
-        chunks = list(litellm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, stream=True))
+        chunks = list(hangarllm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, stream=True))
 
         assert _request_body(respx_mock)["stream_options"] == {"include_usage": True}
         assert "".join(chunk.choices[0].delta.content or "" for chunk in chunks if chunk.choices) == "OK"
@@ -335,8 +335,8 @@ class TestErrors:
     def test_middleware_401_detail_body_maps_to_authentication_error(self, eden_key, respx_mock):
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(401, json={"detail": "Invalid token"}))
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            litellm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES)
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            hangarllm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES)
 
     def test_unknown_model_envelope_maps_to_bad_request(self, eden_key, respx_mock):
         envelope = {
@@ -349,8 +349,8 @@ class TestErrors:
         }
         respx_mock.post(EDEN_CHAT_URL).mock(return_value=httpx.Response(400, json=envelope))
 
-        with pytest.raises(litellm.BadRequestError, match="not found or inactive"):
-            litellm.completion(model="edenai/openai/does-not-exist", messages=MESSAGES)
+        with pytest.raises(hangarllm.BadRequestError, match="not found or inactive"):
+            hangarllm.completion(model="edenai/openai/does-not-exist", messages=MESSAGES)
 
     def test_429_maps_to_rate_limit_error(self, eden_key, respx_mock):
         envelope = {
@@ -360,8 +360,8 @@ class TestErrors:
             return_value=httpx.Response(429, json=envelope, headers={"Retry-After": "7"})
         )
 
-        with pytest.raises(litellm.RateLimitError, match="Rate limit exceeded"):
-            litellm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, num_retries=0)
+        with pytest.raises(hangarllm.RateLimitError, match="Rate limit exceeded"):
+            hangarllm.completion(model="edenai/openai/gpt-4.1-nano", messages=MESSAGES, num_retries=0)
 
     def test_error_class_is_the_eden_exception(self):
         error = EdenAIChatConfig().get_error_class("boom", 503, {"Content-Type": "application/json"})
@@ -389,7 +389,7 @@ class TestModelListing:
     def test_get_valid_models_reads_the_live_catalog(self, eden_key, respx_mock):
         respx_mock.get(f"{EDEN_BASE}/models").mock(return_value=httpx.Response(200, json=self.CATALOG))
 
-        models = litellm.get_valid_models(
+        models = hangarllm.get_valid_models(
             custom_llm_provider="edenai", check_provider_endpoint=True, api_key="listing-key"
         )
 
@@ -407,18 +407,18 @@ class TestModelListing:
         assert "Invalid token" in rejected.value.message
 
     def test_proxy_wildcard_expands_to_the_live_catalog(self, eden_key, monkeypatch, respx_mock):
-        monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+        monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
         respx_mock.get(f"{EDEN_BASE}/models").mock(return_value=httpx.Response(200, json=self.CATALOG))
 
-        models = get_provider_models("edenai", LiteLLM_Params(model="edenai/*", api_key="wildcard-key"))
+        models = get_provider_models("edenai", HangarLLM_Params(model="edenai/*", api_key="wildcard-key"))
 
         assert models == self.ROUTABLE
 
 
 class TestDashboardRegistration:
     def test_add_model_form_offers_eden_with_a_required_key_and_optional_base(self):
-        fields_path = REPO_ROOT / "litellm" / "proxy" / "public_endpoints" / "provider_create_fields.json"
-        entries = [e for e in json.loads(fields_path.read_text()) if e["litellm_provider"] == "edenai"]
+        fields_path = REPO_ROOT / "hangarllm" / "proxy" / "public_endpoints" / "provider_create_fields.json"
+        entries = [e for e in json.loads(fields_path.read_text()) if e["hangarllm_provider"] == "edenai"]
 
         assert len(entries) == 1
         entry = entries[0]
@@ -432,11 +432,11 @@ class TestDashboardRegistration:
         "matrix_path",
         [
             REPO_ROOT / "provider_endpoints_support.json",
-            REPO_ROOT / "litellm" / "provider_endpoints_support_backup.json",
+            REPO_ROOT / "hangarllm" / "provider_endpoints_support_backup.json",
         ],
         ids=["root", "backup"],
     )
     def test_endpoint_matrix_documents_every_served_surface(self, matrix_path):
         entry = json.loads(matrix_path.read_text())["providers"]["edenai"]
 
-        assert entry["url"] == "https://docs.litellm.ai/docs/providers/edenai"
+        assert entry["url"] == "https://github.com/valteresj2/HangarLLM#readme"

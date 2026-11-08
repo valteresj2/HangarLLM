@@ -13,9 +13,9 @@ import pytest
 from starlette.requests import Request
 from starlette.responses import Response
 
-from litellm.caching.caching import DualCache
-from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-from litellm.proxy.mcp_server.gateway_dcr_flow import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+from hangarllm.proxy.mcp_server.gateway_dcr_flow import (
     _AUTH_CODE_DEBUG_KEY,
     ACCESS_TOKEN_TOKEN_TYPE,
     CONNECT_FLOW_COOKIE_PREFIX,
@@ -49,14 +49,14 @@ from litellm.proxy.mcp_server.gateway_dcr_flow import (
     revoke_refresh_token,
     supported_grant_types,
 )
-from litellm.proxy.mcp_server.outbound_credentials.session_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials.session_credentials import (
     SessionBearerAdmitted,
     SessionRefreshOpened,
     open_session_refresh_bearer,
     resolve_session_bearer,
     session_keys_from_master_key,
 )
-from litellm.proxy.mcp_server.outbound_credentials.session_token import (
+from hangarllm.proxy.mcp_server.outbound_credentials.session_token import (
     SESSION_ISSUER,
     SESSION_REFRESH_PREFIX,
     SessionPrincipal,
@@ -79,7 +79,7 @@ CODE_CHALLENGE = urlsafe_b64encode(hashlib.sha256(CODE_VERIFIER.encode("ascii"))
 
 @pytest.fixture(autouse=True)
 def _salt_key(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", MASTER_KEY)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", MASTER_KEY)
 
 
 def _request(path="/authorize", query="", cookies=None, method="GET"):
@@ -205,7 +205,7 @@ def test_pkce_mismatched_challenge_returns_false_never_raises(code_challenge):
     two str with non-ASCII content, but on bytes of unequal length it simply returns False. A
     review flagged this as an unhandled 500 on length mismatch; encoding both sides to bytes is
     exactly what makes that impossible, so the claim is pinned here rather than in a comment."""
-    from litellm.proxy.mcp_server.gateway_dcr_flow import _pkce_verifier_matches
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import _pkce_verifier_matches
 
     assert _pkce_verifier_matches("a" * 43, code_challenge) is False
 
@@ -309,12 +309,12 @@ async def test_authorize_validation_failures_never_redirect_to_client():
 @pytest.mark.asyncio
 async def test_authorize_without_session_redirects_to_login_with_return_to():
     client_id = (await _register([REDIRECT_URI]))["client_id"]
-    response = _authorize(client_id, session_user_id=None, scope="litellm:mcp_server:missing")
+    response = _authorize(client_id, session_user_id=None, scope="hangarllm:mcp_server:missing")
     assert response.status_code == 303
     location = response.headers["location"]
     assert location.startswith("https://llm.example.com/sso/key/generate?return_to=")
     assert "return_to=%2Fauthorize" in location
-    assert "scope=litellm:mcp_server:missing" in parse_qs(urlparse(location).query)["return_to"][0]
+    assert "scope=hangarllm:mcp_server:missing" in parse_qs(urlparse(location).query)["return_to"][0]
 
 
 @pytest.mark.asyncio
@@ -563,7 +563,7 @@ def test_permanent_db_fault_503_does_not_promise_a_retry_will_help():
     """Both DB failures are 503 temporarily_unavailable (the only OAuth error a client reads as a
     server-side outage), so the description is the one place the two are told apart: a transient outage
     says retry, a fault that never heals must say retrying will not help and point at the deployment."""
-    from litellm.proxy.mcp_server.gateway_dcr_flow import (
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import (
         _consent_lookup_failure_response,
         _mint_failure_response,
         _reload_failure_response,
@@ -682,7 +682,7 @@ async def test_non_ascii_code_challenge_fails_grant_not_500():
 async def test_single_use_guard_in_memory_is_single_use_within_process():
     """No Redis configured (single-replica): the in-memory increment is authoritative — the first claim
     wins, a replay of the same id loses."""
-    from litellm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
 
     guard = _SingleUseGuard(DualCache())  # redis_cache is None
     assert await guard.claim("jti-inmem", 60) == "first"
@@ -695,7 +695,7 @@ async def test_single_use_guard_uses_redis_as_sole_authority_when_configured():
     first caller, >1 → replay), and the per-worker in-memory count is never consulted."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
 
     cache = DualCache()
     cache.redis_cache = MagicMock()
@@ -716,7 +716,7 @@ async def test_single_use_guard_fails_closed_when_redis_errors():
     Cursor/Veria replay-across-workers finding)."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
 
     cache = DualCache()
     cache.redis_cache = MagicMock()
@@ -734,7 +734,7 @@ async def test_single_use_guard_peek_fails_closed_when_redis_errors():
     look unclaimed for exactly as long as Redis is down."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
 
     cache = DualCache()
     cache.redis_cache = MagicMock()
@@ -756,7 +756,7 @@ async def test_single_use_guard_peek_reads_the_key_under_the_namespace_claim_wro
     peeked at the bare key would never be seen, and the revoked chain would keep renewing."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import _SingleUseGuard
 
     stored: dict[str, int] = {}  # mutable-ok: the fake Redis store the test inspects
 
@@ -987,8 +987,8 @@ async def test_manual_delivery_page_renders_the_url_as_data_never_as_a_shell_com
 
 
 def _scoped_mcp_server(name="github", auth_type="oauth2", **kw):
-    from litellm.types.mcp import MCPAuth
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp import MCPAuth
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     return MCPServer(
         server_id=f"{name}-id",
@@ -1003,7 +1003,7 @@ def _scoped_mcp_server(name="github", auth_type="oauth2", **kw):
 
 
 SCOPED_RESOURCE = "https://llm.example.com/mcp/github"
-_MANAGER_PATCH = "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager"
+_MANAGER_PATCH = "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager"
 
 
 def _scoped_authorize(
@@ -1107,7 +1107,7 @@ async def _finish_connect_page(response, scoped_server=None):
 
 
 def _sealed_wire_json(sealed, prefix, debug_key):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
 
     raw = decrypt_value_helper(sealed.removeprefix(prefix), debug_key, return_original_value=False)
     assert isinstance(raw, str)
@@ -1275,7 +1275,7 @@ async def test_aggregate_scope_seals_server_through_redemption_and_refresh(resou
         response: Final = _scoped_authorize(
             client_id,
             resource,
-            scope="litellm:mcp_server:github",
+            scope="hangarllm:mcp_server:github",
         )
     assert response.status_code == 303
     _, cookies = _flow_cookie_from(response)
@@ -1320,7 +1320,7 @@ async def test_multi_server_scope_seals_set_through_consent_redemption_and_refre
         response: Final = _scoped_authorize(
             client_id,
             "https://llm.example.com/mcp",
-            scope="litellm:mcp_server:alpha litellm:mcp_server:beta",
+            scope="hangarllm:mcp_server:alpha hangarllm:mcp_server:beta",
         )
     assert response.status_code == 303
     handle, cookies = _flow_cookie_from(response)
@@ -1430,7 +1430,7 @@ async def test_per_server_resource_takes_precedence_over_conflicting_scope() -> 
         response: Final = _scoped_authorize(
             client_id,
             SCOPED_RESOURCE,
-            scope="litellm:mcp_server:linear",
+            scope="hangarllm:mcp_server:linear",
         )
     _, cookies = _flow_cookie_from(response)
     sealed_flow: Final = _sealed_wire_json(next(iter(cookies.values())), "", "gateway_connect_flow")
@@ -1448,7 +1448,7 @@ async def test_unknown_server_scope_redirects_with_invalid_scope_and_state() -> 
             client_id,
             "https://llm.example.com/mcp",
             session_user_id="u1",
-            scope="openid litellm:mcp_server:missing",
+            scope="openid hangarllm:mcp_server:missing",
         )
 
     assert response.status_code == 303
@@ -1466,8 +1466,8 @@ async def test_unknown_server_scope_redirects_with_invalid_scope_and_state() -> 
 @pytest.mark.parametrize(
     ("server_name", "expected"),
     [
-        ("alpha", "litellm:mcp_server:alpha"),
-        ("server~name", "litellm:mcp_server:server~name"),
+        ("alpha", "hangarllm:mcp_server:alpha"),
+        ("server~name", "hangarllm:mcp_server:server~name"),
         ("", None),
         ("bad name", None),
         ('bad"name', None),
@@ -1475,7 +1475,7 @@ async def test_unknown_server_scope_redirects_with_invalid_scope_and_state() -> 
     ],
 )
 def test_gateway_server_scope_accepts_only_rfc6749_scope_tokens(server_name: str, expected: str | None) -> None:
-    from litellm.proxy.mcp_server.gateway_dcr_flow import gateway_server_scope
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import gateway_server_scope
 
     assert gateway_server_scope(server_name) == expected
 
@@ -1728,7 +1728,7 @@ async def test_resolve_scoped_resource_server_matrix():
     modes all return None so nothing outside the served set can enter the scoped flow."""
     from unittest.mock import patch
 
-    from litellm.proxy.mcp_server.gateway_dcr_flow import resolve_scoped_resource_server
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import resolve_scoped_resource_server
 
     request = _request()
     github = _scoped_mcp_server()
@@ -1757,7 +1757,7 @@ async def test_resource_resolution_is_identity_not_ip_filtered_access():
     between authorize and token would turn a matching redemption into invalid_target."""
     from unittest.mock import patch
 
-    from litellm.proxy.mcp_server.gateway_dcr_flow import resolve_scoped_resource_server
+    from hangarllm.proxy.mcp_server.gateway_dcr_flow import resolve_scoped_resource_server
 
     with patch(_MANAGER_PATCH) as manager:
         manager.get_mcp_server_by_identifier.return_value = _scoped_mcp_server()
@@ -2480,7 +2480,7 @@ async def test_revoke_refuses_unknown_clients_and_a_missing_master_key():
 
 
 def test_native_client_auth_contract_points_every_endpoint_at_this_proxy():
-    assert json.loads(json.dumps(native_client_auth_contract(_request("/.well-known/litellm-cli-auth"), True))) == {
+    assert json.loads(json.dumps(native_client_auth_contract(_request("/.well-known/hangarllm-cli-auth"), True))) == {
         "contract_version": 1,
         "issuer": "https://llm.example.com",
         "authorization_endpoint": "https://llm.example.com/authorize",
@@ -2501,7 +2501,7 @@ def test_native_client_auth_contract_points_every_endpoint_at_this_proxy():
 
 
 def test_native_client_auth_contract_omits_the_exchange_grant_where_the_gateway_cannot_serve_it():
-    contract = native_client_auth_contract(_request("/.well-known/litellm-cli-auth"), False)
+    contract = native_client_auth_contract(_request("/.well-known/hangarllm-cli-auth"), False)
     assert list(contract["grant_types_supported"]) == ["authorization_code", "refresh_token"]
 
 
@@ -2665,8 +2665,8 @@ async def test_introspect_accepts_rs256_signed_tokens_under_configured_signing(m
     from cryptography.hazmat.primitives.asymmetric import rsa
     from pydantic import SecretStr
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.mcp_server.outbound_credentials.session_token import AsymmetricSessionKeys
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.mcp_server.outbound_credentials.session_token import AsymmetricSessionKeys
 
     private_pem = (
         rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -2984,7 +2984,7 @@ async def test_aggregate_step_up_requires_the_upstream_grant_without_narrowing_g
 
     client_id = (await _register([REDIRECT_URI]))["client_id"]
     server = _scoped_mcp_server()
-    encoded = f"litellm:mcp_scope:{server.server_id.encode().hex()}:{b'tools.write'.hex()}"
+    encoded = f"hangarllm:mcp_scope:{server.server_id.encode().hex()}:{b'tools.write'.hex()}"
     response = _scoped_authorize(client_id, "https://llm.example.com/mcp", scope=encoded)
     vendor = AsyncMock(return_value="absent")
     described = await _describe_page(response, scoped_server=server, vendor=vendor)
@@ -3007,10 +3007,10 @@ async def test_aggregate_step_up_requires_the_upstream_grant_without_narrowing_g
 @pytest.mark.parametrize(
     "scope",
     [
-        "litellm:mcp_scope:",
-        "litellm:mcp_scope:aa:bb",
-        "litellm:mcp_scope:6769746875622d6964:20",
-        "litellm:mcp_scope:6964:5A",
+        "hangarllm:mcp_scope:",
+        "hangarllm:mcp_scope:aa:bb",
+        "hangarllm:mcp_scope:6769746875622d6964:20",
+        "hangarllm:mcp_scope:6964:5A",
     ],
 )
 async def test_aggregate_step_up_rejects_malformed_permissions(scope):
@@ -3024,7 +3024,7 @@ async def test_aggregate_step_up_rejects_malformed_permissions(scope):
 async def test_step_up_validates_every_target_before_credential_reads_and_preserves_each_grant():
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.mcp_server.oauth_utils import encode_upstream_scope
+    from hangarllm.proxy.mcp_server.oauth_utils import encode_upstream_scope
 
     client_id = (await _register([REDIRECT_URI]))["client_id"]
     first, second = _scoped_mcp_server("first"), _scoped_mcp_server("second")
@@ -3075,7 +3075,7 @@ async def test_step_up_validates_every_target_before_credential_reads_and_preser
 async def test_named_resource_rejects_another_upstreams_permission_before_consent():
     from unittest.mock import patch
 
-    from litellm.proxy.mcp_server.oauth_utils import encode_upstream_scope
+    from hangarllm.proxy.mcp_server.oauth_utils import encode_upstream_scope
 
     client_id = (await _register([REDIRECT_URI]))["client_id"]
     with patch(_MANAGER_PATCH) as manager:
@@ -3094,7 +3094,7 @@ async def test_named_resource_rejects_another_upstreams_permission_before_consen
     ],
 )
 def test_upstream_permission_scope_round_trip_preserves_identity_and_permission(identity, permission):
-    from litellm.proxy.mcp_server.oauth_utils import decode_upstream_scope, encode_upstream_scope
+    from hangarllm.proxy.mcp_server.oauth_utils import decode_upstream_scope, encode_upstream_scope
 
     encoded = encode_upstream_scope(identity, permission)
     decoded = decode_upstream_scope(encoded)
@@ -3108,7 +3108,7 @@ def test_upstream_permission_scope_round_trip_preserves_identity_and_permission(
 async def test_upstream_step_up_cannot_finish_with_an_unproven_grant(state, expected):
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.oauth_utils import encode_upstream_scope
+    from hangarllm.proxy.mcp_server.oauth_utils import encode_upstream_scope
 
     client_id = (await _register([REDIRECT_URI]))["client_id"]
     server = _scoped_mcp_server()
@@ -3133,11 +3133,11 @@ async def test_sdk_completes_aggregate_step_up_discovery_consent_and_pkce(route)
     from mcp.client.auth import OAuthClientProvider
     from mcp.shared.auth import AuthorizationCodeResult, OAuthClientMetadata
 
-    from litellm.proxy.mcp_server.discoverable_endpoints import (
+    from hangarllm.proxy.mcp_server.discoverable_endpoints import (
         _build_aggregate_authorization_server_response,
         oauth_protected_resource_root,
     )
-    from litellm.proxy.mcp_server.exceptions import MCPUpstreamAuthError
+    from hangarllm.proxy.mcp_server.exceptions import MCPUpstreamAuthError
 
     server = _scoped_mcp_server()
     storage = AsyncMock()
@@ -3206,10 +3206,10 @@ async def test_sdk_completes_aggregate_step_up_discovery_consent_and_pkce(route)
 
 @pytest.mark.parametrize(
     "scope",
-    ["tools.write", "litellm:mcp_scope::7772697465", "litellm:mcp_scope:6964:5A", "litellm:mcp_scope:6964:7772 697465"],
+    ["tools.write", "hangarllm:mcp_scope::7772697465", "hangarllm:mcp_scope:6964:5A", "hangarllm:mcp_scope:6964:7772 697465"],
 )
 def test_upstream_permission_rejects_noncanonical_tokens(scope):
-    from litellm.proxy.mcp_server.oauth_utils import decode_upstream_scope
+    from hangarllm.proxy.mcp_server.oauth_utils import decode_upstream_scope
 
     assert decode_upstream_scope(scope) is None
 
@@ -3218,7 +3218,7 @@ def test_upstream_permission_rejects_noncanonical_tokens(scope):
 async def test_named_step_up_finish_describes_and_retains_its_single_server_ceiling():
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.mcp_server.oauth_utils import encode_upstream_scope
+    from hangarllm.proxy.mcp_server.oauth_utils import encode_upstream_scope
 
     client_id = (await _register([REDIRECT_URI]))["client_id"]
     server = _scoped_mcp_server()
@@ -3244,7 +3244,7 @@ async def test_named_step_up_finish_describes_and_retains_its_single_server_ceil
 async def test_upstream_step_up_inside_multi_server_scope_describes_every_sealed_server() -> None:
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.mcp_server.oauth_utils import encode_upstream_scope
+    from hangarllm.proxy.mcp_server.oauth_utils import encode_upstream_scope
 
     client_id: Final = (await _register([REDIRECT_URI]))["client_id"]
     alpha: Final = _scoped_mcp_server(name="alpha")
@@ -3255,7 +3255,7 @@ async def test_upstream_step_up_inside_multi_server_scope_describes_every_sealed
             client_id,
             "https://llm.example.com/mcp",
             scope=" ".join(
-                ["litellm:mcp_server:alpha", "litellm:mcp_server:beta", encode_upstream_scope(alpha.server_id, "w")]
+                ["hangarllm:mcp_server:alpha", "hangarllm:mcp_server:beta", encode_upstream_scope(alpha.server_id, "w")]
             ),
         )
     assert response.status_code == 303
@@ -3295,7 +3295,7 @@ async def test_gateway_scope_still_narrows_when_the_resource_does_not_resolve() 
         manager.get_mcp_server_by_identifier.side_effect = {"alpha": alpha}.get
         manager.get_mcp_server_by_name.return_value = None
         response: Final = _scoped_authorize(
-            client_id, "https://llm.example.com/mcp/deleted-server", scope="litellm:mcp_server:alpha"
+            client_id, "https://llm.example.com/mcp/deleted-server", scope="hangarllm:mcp_server:alpha"
         )
     assert response.status_code == 303
     _, cookies = _flow_cookie_from(response)
@@ -3310,7 +3310,7 @@ ASSERTED = AssertionIdentity(
     team_id="team-b",
     replay_key="mcp_gateway_dcr:id_jag:jti-1",
     replay_ttl_seconds=300,
-    scope="litellm:mcp",
+    scope="hangarllm:mcp",
     allowed_routes=("mcp_inference_routes",),
 )
 
@@ -3351,7 +3351,7 @@ async def test_jwt_bearer_grant_mints_the_proxy_credential_for_the_asserted_user
     assert minter.calls == [("u1", "team-b")]
     assert body["access_token"] == "sk-cli-u1"
     assert body["token_type"] == "Bearer"
-    assert body["scope"] == "litellm:mcp"
+    assert body["scope"] == "hangarllm:mcp"
     assert "issued_token_type" not in body
     assert (body["user_id"], body["team_id"]) == ("u1", "team-b")
     assert "refresh_token" not in body
@@ -3443,7 +3443,7 @@ async def test_an_unknown_grant_type_names_the_jwt_bearer_grant_among_the_served
 )
 def test_the_jwt_bearer_grant_is_advertised_exactly_when_it_is_served(token_exchange, jwt_bearer, expected):
     assert supported_grant_types(token_exchange, jwt_bearer) == expected
-    contract = native_client_auth_contract(_request("/.well-known/litellm-cli-auth"), token_exchange, jwt_bearer)
+    contract = native_client_auth_contract(_request("/.well-known/hangarllm-cli-auth"), token_exchange, jwt_bearer)
     assert contract["grant_types_supported"] == expected
 
 
@@ -3454,11 +3454,11 @@ async def test_jwt_bearer_grant_narrows_the_credential_to_the_routes_the_scope_b
     exactly the scope that was enforced. No scope on the assertion mints the full credential."""
     minter = _Minter()
     both = ASSERTED.model_copy(
-        update={"scope": "litellm:mcp litellm:llm", "allowed_routes": ("mcp_inference_routes", "openai_routes")}
+        update={"scope": "hangarllm:mcp hangarllm:llm", "allowed_routes": ("mcp_inference_routes", "openai_routes")}
     )
     scoped = await _redeem_assertion_native(minter, _Redeemer(both), cache=DualCache())
     assert scoped.status_code == 200
-    assert json.loads(scoped.body)["scope"] == "litellm:mcp litellm:llm"
+    assert json.loads(scoped.body)["scope"] == "hangarllm:mcp hangarllm:llm"
     full = await _redeem_assertion_native(
         minter, _Redeemer(ASSERTED.model_copy(update={"scope": None, "allowed_routes": None})), cache=DualCache()
     )
@@ -3490,7 +3490,7 @@ def test_aggregate_metadata_advertises_basic_client_auth_only_with_the_grant_tha
     ``client_secret`` from the form, so ``client_secret_basic`` is advertised only when that grant
     is on. A client following the document otherwise sends Basic alone and authenticates with no
     secret."""
-    from litellm.proxy.mcp_server.discoverable_endpoints import (
+    from hangarllm.proxy.mcp_server.discoverable_endpoints import (
         _build_aggregate_authorization_server_response,
     )
 

@@ -51,13 +51,13 @@ def test_messages_endpoint_honors_configured_timeout_against_stalled_upstream(
         )
 
     config: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
-    settings: Final = JSON_OBJECT.validate_python(config["litellm_settings"])
+    settings: Final = JSON_OBJECT.validate_python(config["hangarllm_settings"])
     config_path: Final = tmp_path / "request-timeout.yaml"
     config_path.write_text(
         yaml.safe_dump(
             {
                 **config,
-                "litellm_settings": {**settings, "request_timeout": _CONFIGURED_TIMEOUT_SECONDS},
+                "hangarllm_settings": {**settings, "request_timeout": _CONFIGURED_TIMEOUT_SECONDS},
             }
         )
     )

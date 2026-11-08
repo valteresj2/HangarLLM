@@ -28,8 +28,8 @@ import os
 import re
 from typing import List, Tuple
 
-# Add parent directory to path so we can import litellm
-import litellm
+# Add parent directory to path so we can import hangarllm
+import hangarllm
 
 
 class SpanAttributesUsageChecker(ast.NodeVisitor):
@@ -156,12 +156,12 @@ def main():
     args = parser.parse_args()
 
     # Path to the OpenTelemetry integration file
-    target_file = os.path.join("litellm", "integrations", "opentelemetry.py")
+    target_file = os.path.join("hangarllm", "integrations", "opentelemetry.py")
 
     if not os.path.exists(target_file):
         # Try alternate path for local development
         target_file = os.path.join(
-            "..", "..", "litellm", "integrations", "opentelemetry.py"
+            "..", "..", "hangarllm", "integrations", "opentelemetry.py"
         )
 
     if not os.path.exists(target_file):

@@ -1,4 +1,4 @@
-"""Bedrock runtime /openai/v1/chat/completions cost tracking cases (xAI grok-4.7 and OpenAI gpt-6-sol on Bedrock), the rows LiteLLM routes to the OpenAI-compatible Bedrock endpoint instead of Converse."""
+"""Bedrock runtime /openai/v1/chat/completions cost tracking cases (xAI grok-4.7 and OpenAI gpt-6-sol on Bedrock), the rows HangarLLM routes to the OpenAI-compatible Bedrock endpoint instead of Converse."""
 
 from __future__ import annotations
 

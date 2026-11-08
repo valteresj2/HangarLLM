@@ -6,13 +6,13 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from litellm.llms.base_llm.auth.identity_source import InternalIssuerSource
-from litellm.llms.base_llm.auth.internal_issuer import (
+from hangarllm.llms.base_llm.auth.identity_source import InternalIssuerSource
+from hangarllm.llms.base_llm.auth.internal_issuer import (
     internal_issuer_assertion_source,
     internal_issuer_jwks_document,
     mint_internal_issuer_assertion,
 )
-from litellm.llms.base_llm.auth.jwt_signing import build_jwks, rfc7638_thumbprint
+from hangarllm.llms.base_llm.auth.jwt_signing import build_jwks, rfc7638_thumbprint
 
 SIGNING_KEY_REF: Final = "oidc/env/ISSUER_SIGNING_KEY_PEM"
 ISSUER_URL: Final = "https://issuer.internal.example"

@@ -35,13 +35,13 @@ GUARDRAIL_ROWS: Final = (
     "SELECT COALESCE(jsonb_path_query_first(metadata, "
     "'$.guardrail_information[*] ? (@.guardrail_name == $name).guardrail_status', "
     "jsonb_build_object('name', %s::text)) #>> '{}', 'none') AS status "
-    'FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s ORDER BY "startTime"'
+    'FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s ORDER BY "startTime"'
 )
 FALLBACKS: Final = (None, "fail_open", "fail_closed")
 
 
 def _generic_guardrail_outage(request: Request) -> Reply:
-    assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+    assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
     return Reply(status=503, body=json.dumps({"error": "synthetic sibling guardrail outage"}).encode())
 
 
@@ -50,7 +50,7 @@ def _config(tmp_path: Path, name: str, fallback: str | None, sibling_url: str | 
     config["guardrails"] = [
         {
             "guardrail_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "agent_365",
                 "mode": "pre_mcp_call",
                 "default_on": True,
@@ -64,7 +64,7 @@ def _config(tmp_path: Path, name: str, fallback: str | None, sibling_url: str | 
             [
                 {
                     "guardrail_name": f"{name}-sibling",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "generic_guardrail_api",
                         "mode": "pre_call",
                         "default_on": True,

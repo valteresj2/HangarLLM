@@ -1,9 +1,9 @@
-import json, litellm
+import json, hangarllm
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from litellm.llms.nimble.search.transformation import NimbleSearchConfig
+from hangarllm.llms.nimble.search.transformation import NimbleSearchConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -39,7 +39,7 @@ def test_validate_environment_with_explicit_key():
     headers = _config().validate_environment({}, api_key="explicit-key")
     assert headers["Authorization"] == "Bearer explicit-key"
     assert headers["Content-Type"] == "application/json"
-    assert headers["X-Client-Source"] == "litellm"
+    assert headers["X-Client-Source"] == "hangarllm"
 
 
 def test_validate_environment_reads_env_key(monkeypatch: pytest.MonkeyPatch):
@@ -209,7 +209,7 @@ def test_transform_search_response_zero_hits():
     ],
 )
 def test_transform_search_response_malformed_body_raises_instead_of_reporting_empty(body: str):
-    """A body LiteLLM cannot parse must not be reported as a successful zero-result search."""
+    """A body HangarLLM cannot parse must not be reported as a successful zero-result search."""
     with pytest.raises(Exception, match="Nimble Search"):
         _config().transform_search_response(_resp(body, status_code=502), logging_obj=Mock())
 
@@ -292,7 +292,7 @@ def _mock_response():
 @pytest.mark.usefixtures("_vcr_outcome_gate")
 class TestNimbleSearchTransformation:
     """
-    Full-stack tests through `litellm.search` / `litellm.asearch` with the HTTP layer mocked.
+    Full-stack tests through `hangarllm.search` / `hangarllm.asearch` with the HTTP layer mocked.
     Transformation details are unit-tested in tests/unit/llms/nimble/search/.
     """
 
@@ -303,10 +303,10 @@ class TestNimbleSearchTransformation:
 
     def test_nimble_search_request_and_response(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=_mock_response(),
         ) as mock_post:
-            response = litellm.search(
+            response = hangarllm.search(
                 query="nimble web scraping",
                 search_provider="nimble",
                 max_results=2,
@@ -318,7 +318,7 @@ class TestNimbleSearchTransformation:
         call_kwargs = mock_post.call_args.kwargs
         assert call_kwargs["url"] == "https://sdk.nimbleway.com/v2/search"
         assert call_kwargs["headers"]["Authorization"] == "Bearer test-api-key"
-        assert call_kwargs["headers"]["X-Client-Source"] == "litellm"
+        assert call_kwargs["headers"]["X-Client-Source"] == "hangarllm"
 
         request_body = call_kwargs["json"]
         assert request_body["query"] == "nimble web scraping"
@@ -338,12 +338,12 @@ class TestNimbleSearchTransformation:
         assert response.results[1].date is None
 
     def test_provider_specific_params_survive_to_the_wire(self):
-        """Nimble-native params must not be eaten by `filter_out_litellm_params`."""
+        """Nimble-native params must not be eaten by `filter_out_hangarllm_params`."""
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=_mock_response(),
         ) as mock_post:
-            litellm.search(
+            hangarllm.search(
                 query="test query",
                 search_provider="nimble",
                 focus="news",
@@ -365,10 +365,10 @@ class TestNimbleSearchTransformation:
     @pytest.mark.asyncio
     async def test_nimble_asearch(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=AsyncMock(return_value=_mock_response()),
         ) as mock_post:
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="latest ai developments",
                 search_provider="nimble",
                 focus="news",
@@ -379,9 +379,9 @@ class TestNimbleSearchTransformation:
 
     def test_nimble_search_tracks_cost(self):
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=_mock_response(),
         ):
-            response = litellm.search(query="pricing check", search_provider="nimble")
+            response = hangarllm.search(query="pricing check", search_provider="nimble")
 
         assert response._hidden_params["response_cost"] == pytest.approx(0.005)

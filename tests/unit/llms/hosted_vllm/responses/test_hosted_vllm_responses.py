@@ -1,7 +1,7 @@
 """
 Tests for hosted_vllm responses API support.
 
-Regression test for: https://github.com/BerriAI/litellm/issues
+Regression test for: https://github.com/valteresj2/HangarLLM/issues
 Bug: client.responses.create() raised TypeError: 'NoneType' object is not a mapping
 when extra_body=None was passed through the responses→completion pipeline for
 hosted_vllm (and any OpenAI-compatible provider using add_provider_specific_params_to_optional_params).
@@ -17,13 +17,13 @@ import pytest
 import respx
 
 
-import litellm
-from litellm.llms.hosted_vllm.responses.transformation import (
+import hangarllm
+from hangarllm.llms.hosted_vllm.responses.transformation import (
     HostedVLLMResponsesAPIConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 
 def _make_mock_responses_api_response(content: str = "Hello! I'm doing well.") -> dict:
@@ -75,17 +75,17 @@ def test_hosted_vllm_responses_create_with_string_input():
     mock_client = _make_mock_http_client(_make_mock_responses_api_response("I'm doing well, thanks!"))
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.get_httpx_client",
+        "hangarllm.llms.custom_httpx.llm_http_handler.get_httpx_client",
         return_value=mock_client,
     ):
-        response = litellm.responses(
+        response = hangarllm.responses(
             model="hosted_vllm/Qwen/Qwen3-8B",
             input="Hello, how are you?",
             api_base="https://test-vllm.example.com/v1",
             api_key="test-key",
         )
 
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from hangarllm.types.llms.openai import ResponsesAPIResponse
 
     assert response is not None
     assert isinstance(response, ResponsesAPIResponse)
@@ -101,7 +101,7 @@ def test_hosted_vllm_responses_create_with_explicit_none_extra_body():
     Directly verify the fix in add_provider_specific_params_to_optional_params:
     extra_body=None must not crash when building optional_params.
     """
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
     # This should not raise TypeError: 'NoneType' object is not a mapping
     optional_params = get_optional_params(
@@ -133,21 +133,21 @@ def test_hosted_vllm_responses_api_url():
     # api_base without /v1
     url = config.get_complete_url(
         api_base="http://localhost:8000",
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "http://localhost:8000/v1/responses"
 
     # api_base with /v1
     url_with_v1 = config.get_complete_url(
         api_base="http://localhost:8000/v1",
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url_with_v1 == "http://localhost:8000/v1/responses"
 
     # api_base with trailing slash
     url_with_slash = config.get_complete_url(
         api_base="http://localhost:8000/v1/",
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url_with_slash == "http://localhost:8000/v1/responses"
 
@@ -159,7 +159,7 @@ def test_hosted_vllm_responses_api_url_requires_api_base():
     with pytest.raises(ValueError, match="api_base not set"):
         config.get_complete_url(
             api_base=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -170,7 +170,7 @@ def test_hosted_vllm_validate_environment_default_api_key():
     headers = config.validate_environment(
         headers={},
         model="Qwen/Qwen3-8B",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
     )
 
     assert headers.get("Authorization") == "Bearer fake-api-key"
@@ -183,7 +183,7 @@ def test_hosted_vllm_validate_environment_custom_api_key():
     headers = config.validate_environment(
         headers={},
         model="Qwen/Qwen3-8B",
-        litellm_params=GenericLiteLLMParams(api_key="my-custom-key"),
+        hangarllm_params=GenericHangarLLMParams(api_key="my-custom-key"),
     )
 
     assert headers.get("Authorization") == "Bearer my-custom-key"
@@ -215,7 +215,7 @@ def test_hosted_vllm_responses_folds_a_later_developer_item_into_instructions_fo
 ) -> None:
     declare_mid_conversation_system("hosted_vllm/Qwen/Qwen3.6-27B", False)
     route: Final = _vllm_responses_route("Paris")
-    litellm.responses(
+    hangarllm.responses(
         model="hosted_vllm/Qwen/Qwen3.6-27B",
         instructions="You are a terse assistant.",
         input=list(_LATER_DEVELOPER_INPUT),
@@ -230,7 +230,7 @@ def test_hosted_vllm_responses_folds_a_later_developer_item_into_instructions_fo
 def test_hosted_vllm_responses_folds_for_a_deployment_declared_system_first_and_sends_a_closing_developer_as_user() -> None:
     assistant_turn: Final = {"type": "message", "role": "assistant", "content": "Paris"}
     route: Final = _vllm_responses_route("PONG")
-    litellm.responses(
+    hangarllm.responses(
         model="hosted_vllm/Qwen/Qwen3-8B",
         instructions="You are a terse assistant.",
         input=[*_LATER_DEVELOPER_INPUT, assistant_turn, {"role": "developer", "content": "Reply with PONG."}],
@@ -250,7 +250,7 @@ def test_hosted_vllm_responses_folds_for_a_deployment_declared_system_first_and_
 @respx.mock
 def test_hosted_vllm_responses_forwards_a_later_developer_item_in_place_for_an_undeclared_model() -> None:
     route: Final = _vllm_responses_route("Paris")
-    litellm.responses(
+    hangarllm.responses(
         model="hosted_vllm/Qwen/Qwen3-8B",
         instructions="You are a terse assistant.",
         input=list(_LATER_DEVELOPER_INPUT),
@@ -269,7 +269,7 @@ def test_hosted_vllm_responses_forwards_a_developer_item_without_content_on_a_de
         {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Paris."}]},
         {"type": "message", "role": "developer"},
     )
-    litellm.responses(
+    hangarllm.responses(
         model="hosted_vllm/Qwen/Qwen3-8B",
         input=list(input_items),
         model_info={"id": "deployment-1", "supports_mid_conversation_system": False},

@@ -6,7 +6,7 @@ distinct default and *_priority rates, so a bill computed on the wrong tier cann
 match the hand-computed expectation. /v1/messages deployments on hosted_vllm have
 no anthropic-messages provider config, so they take the chat adapter: the
 streamed response is an AnthropicStreamWrapper under AnthropicSSEStream, wrapped
-by AnthropicMessagesStreamCacheWriter when litellm.cache is on and then by the
+by AnthropicMessagesStreamCacheWriter when hangarllm.cache is on and then by the
 router's FallbackAwareAnthropicMessagesStream; each layer must delegate the
 inner stream's chunks for disconnect billing to find them.
 
@@ -110,12 +110,12 @@ def _tiered_model(
     scenario: Scenario,
     wire: Wire,
     *,
-    litellm_model: str,
+    hangarllm_model: str,
     api_base: str | None = None,
     **extra: JsonValue,
 ) -> str:
     return scenario.model(
-        model=litellm_model,
+        model=hangarllm_model,
         api_base=api_base or f"{wire.url}/v1",
         input_cost_per_token=INPUT_RATE,
         output_cost_per_token=OUTPUT_RATE,
@@ -137,7 +137,7 @@ def _events(lines: list[str]) -> list[dict[str, JsonValue]]:
 
 def _rows_for_key(key: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id, status, prompt_tokens, completion_tokens, spend, metadata FROM "LiteLLM_SpendLogs" '
+        'SELECT request_id, status, prompt_tokens, completion_tokens, spend, metadata FROM "HangarLLM_SpendLogs" '
         "WHERE api_key=%s",
         (sha256(key.encode()).hexdigest(),),
     )
@@ -162,7 +162,7 @@ def test_completed_chat_stream_bills_the_served_tier(gateway: Gateway) -> None:
         wire_server(_respond_for(request_id, prompt)) as wire,
         gateway.scenario() as scenario,
     ):
-        model: Final = _tiered_model(scenario, wire, litellm_model="openai/gpt-4o-mini")
+        model: Final = _tiered_model(scenario, wire, hangarllm_model="openai/gpt-4o-mini")
         key: Final = scenario.key(models=[model])
         response: Final = gateway.request(
             "POST",
@@ -196,7 +196,7 @@ def test_disconnected_chat_stream_bills_partial_usage_at_the_served_tier(gateway
         wire_server(_respond_for(request_id, prompt, pause=2.0)) as wire,
         gateway.scenario() as scenario,
     ):
-        model: Final = _tiered_model(scenario, wire, litellm_model="openai/gpt-4o-mini")
+        model: Final = _tiered_model(scenario, wire, hangarllm_model="openai/gpt-4o-mini")
         key: Final = scenario.key(models=[model])
         with gateway.client.stream(
             "POST",
@@ -231,7 +231,7 @@ def test_completed_messages_stream_bills_the_served_tier(gateway: Gateway) -> No
         wire_server(_respond_for(f"chatcmpl-{uuid4().hex[:8]}", prompt)) as wire,
         gateway.scenario() as scenario,
     ):
-        model: Final = _tiered_model(scenario, wire, litellm_model="hosted_vllm/gpt-4o-mini")
+        model: Final = _tiered_model(scenario, wire, hangarllm_model="hosted_vllm/gpt-4o-mini")
         key: Final = scenario.key(models=[model])
         with gateway.client.stream(
             "POST",
@@ -267,7 +267,7 @@ def test_disconnected_messages_stream_bills_partial_usage_at_the_served_tier(gat
         wire_server(_respond_for(f"chatcmpl-{uuid4().hex[:8]}", prompt, pause=2.0)) as wire,
         gateway.scenario() as scenario,
     ):
-        model: Final = _tiered_model(scenario, wire, litellm_model="hosted_vllm/gpt-4o-mini")
+        model: Final = _tiered_model(scenario, wire, hangarllm_model="hosted_vllm/gpt-4o-mini")
         key: Final = scenario.key(models=[model])
         with gateway.client.stream(
             "POST",
@@ -451,7 +451,7 @@ def test_azure_chat_stream_bills_the_served_tier(gateway: Gateway) -> None:
         model: Final = _tiered_model(
             scenario,
             wire,
-            litellm_model="azure/gpt-4o-mini",
+            hangarllm_model="azure/gpt-4o-mini",
             api_base=wire.url,
             api_version="2024-10-21",
         )
@@ -490,7 +490,7 @@ def test_databricks_chat_stream_bills_the_served_tier(gateway: Gateway) -> None:
         model: Final = _tiered_model(
             scenario,
             wire,
-            litellm_model="databricks/dbrx-instruct",
+            hangarllm_model="databricks/dbrx-instruct",
             api_base=f"{wire.url}/serving-endpoints",
         )
         key: Final = scenario.key(models=[model])
@@ -524,7 +524,7 @@ def test_responses_bridge_stream_bills_the_served_tier(gateway: Gateway) -> None
         wire_server(_respond_responses_for(f"resp_{uuid4().hex[:8]}", prompt)) as wire,
         gateway.scenario() as scenario,
     ):
-        model: Final = _tiered_model(scenario, wire, litellm_model="openai/responses/gpt-4o-mini")
+        model: Final = _tiered_model(scenario, wire, hangarllm_model="openai/responses/gpt-4o-mini")
         key: Final = scenario.key(models=[model])
         response: Final = gateway.request(
             "POST",
@@ -559,7 +559,7 @@ def test_gemini_chat_stream_bills_the_flex_tier(gateway: Gateway) -> None:
         model: Final = _tiered_model(
             scenario,
             wire,
-            litellm_model="gemini/gemini-2.5-flash",
+            hangarllm_model="gemini/gemini-2.5-flash",
             api_base=wire.url,
         )
         key: Final = scenario.key(models=[model])
@@ -593,7 +593,7 @@ def test_requested_priority_downgraded_to_default_bills_base_rates(gateway: Gate
         ) as wire,
         gateway.scenario() as scenario,
     ):
-        model: Final = _tiered_model(scenario, wire, litellm_model="openai/gpt-4o-mini")
+        model: Final = _tiered_model(scenario, wire, hangarllm_model="openai/gpt-4o-mini")
         key: Final = scenario.key(models=[model])
         response: Final = gateway.request(
             "POST",
@@ -634,7 +634,7 @@ def test_requested_priority_with_auto_echo_bills_priority(gateway: Gateway) -> N
         wire_server(_respond_for(request_id, prompt, served_tier="auto")) as wire,
         gateway.scenario() as scenario,
     ):
-        model: Final = _tiered_model(scenario, wire, litellm_model="openai/gpt-4o-mini")
+        model: Final = _tiered_model(scenario, wire, hangarllm_model="openai/gpt-4o-mini")
         key: Final = scenario.key(models=[model])
         response: Final = gateway.request(
             "POST",

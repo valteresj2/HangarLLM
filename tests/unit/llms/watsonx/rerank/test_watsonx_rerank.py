@@ -11,11 +11,11 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.watsonx.common_utils import (
+from hangarllm.llms.watsonx.common_utils import (
     WatsonXAIError,
 )
-from litellm.llms.watsonx.rerank.transformation import IBMWatsonXRerankConfig
-from litellm.types.rerank import RerankResponse
+from hangarllm.llms.watsonx.rerank.transformation import IBMWatsonXRerankConfig
+from hangarllm.types.rerank import RerankResponse
 
 
 class TestIBMWatsonXRerankTransform:

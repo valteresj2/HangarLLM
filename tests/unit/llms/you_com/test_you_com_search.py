@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 
-import litellm
+import hangarllm
 
 
 class TestYouComSearch:
@@ -57,12 +57,12 @@ class TestYouComSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="latest developments in AI",
                 search_provider="you_com",
                 max_results=5,
@@ -110,12 +110,12 @@ class TestYouComSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="machine learning",
                 search_provider="you_com",
                 search_domain_filter=["arxiv.org", "nature.com"],
@@ -158,12 +158,12 @@ class TestYouComSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="anything",
                 search_provider="you_com",
             )
@@ -203,12 +203,12 @@ class TestYouComSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="anything",
                 search_provider="you_com",
             )
@@ -225,7 +225,7 @@ class TestYouComSearch:
         base like `https://x.example/v1/search/` does not become
         `https://x.example/v1/search/v1/search`.
         """
-        from litellm.llms.you_com.search.transformation import YouComSearchConfig
+        from hangarllm.llms.you_com.search.transformation import YouComSearchConfig
 
         config = YouComSearchConfig()
         assert (
@@ -271,12 +271,12 @@ class TestYouComSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await hangarllm.asearch(
                 query="hello world",
                 search_provider="you_com",
             )
@@ -309,12 +309,12 @@ class TestYouComSearch:
         }
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = mock_response
 
-            await litellm.asearch(
+            await hangarllm.asearch(
                 query="anything",
                 search_provider="you_com",
                 api_key="my-programmatic-key",
@@ -332,7 +332,7 @@ class TestYouComSearch:
         """
         monkeypatch.delenv("YOUCOM_API_KEY", raising=False)
 
-        from litellm.llms.you_com.search.transformation import YouComSearchConfig
+        from hangarllm.llms.you_com.search.transformation import YouComSearchConfig
 
         config = YouComSearchConfig()
         assert (
@@ -353,7 +353,7 @@ class TestYouComSearch:
         """
         monkeypatch.delenv("YOUCOM_API_KEY", raising=False)
 
-        from litellm.llms.you_com.search.transformation import YouComSearchConfig
+        from hangarllm.llms.you_com.search.transformation import YouComSearchConfig
 
         config = YouComSearchConfig()
         headers = config.validate_environment(headers={}, api_key=None)
@@ -368,7 +368,7 @@ class TestYouComSearch:
         """
         monkeypatch.delenv("YOUCOM_API_KEY", raising=False)
 
-        from litellm.llms.you_com.search.transformation import YouComSearchConfig
+        from hangarllm.llms.you_com.search.transformation import YouComSearchConfig
 
         config = YouComSearchConfig()
         headers = config.validate_environment(headers={}, api_key=None)

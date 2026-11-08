@@ -35,7 +35,7 @@ def _lines_with(log: str, text: str) -> int:
 
 
 def _write_config(
-    directory: Path, upstream_url: str, model: str, search_tool: str, litellm_settings: Mapping[str, JsonValue]
+    directory: Path, upstream_url: str, model: str, search_tool: str, hangarllm_settings: Mapping[str, JsonValue]
 ) -> Path:
     config: Final = directory / f"startup_output_{uuid.uuid4().hex}.yaml"
     config.write_text(
@@ -44,7 +44,7 @@ def _write_config(
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"openai/{model}",
                             "api_base": f"{upstream_url}/v1",
                             "api_key": "integration-provider-key",
@@ -54,12 +54,12 @@ def _write_config(
                 "search_tools": [
                     {
                         "search_tool_name": search_tool,
-                        "litellm_params": {"search_provider": "tavily", "api_key": "integration-search-key"},
+                        "hangarllm_params": {"search_provider": "tavily", "api_key": "integration-search-key"},
                     }
                 ],
-                "litellm_settings": dict(litellm_settings),
+                "hangarllm_settings": dict(hangarllm_settings),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "proxy_config_reload_interval_seconds": 1,
                 },
@@ -73,18 +73,18 @@ def _write_config(
 def _boot_reload_and_stop(
     gateway: Gateway,
     directory: Path,
-    litellm_settings: Mapping[str, JsonValue],
+    hangarllm_settings: Mapping[str, JsonValue],
     overrides: Mapping[str, str],
     workers: int,
 ) -> tuple[str, str]:
     stamp: Final = uuid.uuid4().hex
     model: Final = f"startup-output-{stamp}"
     search_tool: Final = f"startup-output-search-{stamp}"
-    config: Final = _write_config(directory, gateway.upstream_url, model, search_tool, litellm_settings)
+    config: Final = _write_config(directory, gateway.upstream_url, model, search_tool, hangarllm_settings)
     with owned_proxy_process(
         gateway,
         directory,
-        {"LITELLM_LOG": "INFO", **overrides},
+        {"HANGARLLM_LOG": "INFO", **overrides},
         config=config,
         workers=workers,
     ) as owned:
@@ -116,17 +116,17 @@ def test_startup_messages_reach_a_piped_stdout_once_and_without_color_codes(
 
 
 @pytest.mark.parametrize(
-    ("litellm_settings", "overrides"),
+    ("hangarllm_settings", "overrides"),
     [
-        pytest.param(CACHE_SETTINGS, {"LITELLM_SUPPRESS_STARTUP_OUTPUT": "true"}, id="env-plain"),
+        pytest.param(CACHE_SETTINGS, {"HANGARLLM_SUPPRESS_STARTUP_OUTPUT": "true"}, id="env-plain"),
         pytest.param({**CACHE_SETTINGS, "json_logs": True, "suppress_startup_output": True}, {}, id="config-json"),
     ],
 )
 def test_suppress_startup_output_leaves_out_every_startup_message(
-    gateway: Gateway, tmp_path: Path, litellm_settings: Mapping[str, JsonValue], overrides: Mapping[str, str]
+    gateway: Gateway, tmp_path: Path, hangarllm_settings: Mapping[str, JsonValue], overrides: Mapping[str, str]
 ) -> None:
     workers: Final = 2
-    log, search_tool = _boot_reload_and_stop(gateway, tmp_path, litellm_settings, overrides, workers)
+    log, search_tool = _boot_reload_and_stop(gateway, tmp_path, hangarllm_settings, overrides, workers)
 
     assert _lines_with(log, STARTED_WORKER) == workers, log
     printed: Final = tuple(message for message in (*STARTUP_MESSAGES, search_tool) if message in log)

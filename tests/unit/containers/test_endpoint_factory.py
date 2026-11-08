@@ -5,8 +5,8 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from litellm.containers import endpoint_factory
-from litellm.containers.endpoint_factory import (
+from hangarllm.containers import endpoint_factory
+from hangarllm.containers.endpoint_factory import (
     RESPONSE_TYPES,
     _load_endpoints_config,
     create_sync_endpoint_function,
@@ -14,7 +14,7 @@ from litellm.containers.endpoint_factory import (
     get_all_endpoint_names,
     get_async_endpoint_names,
 )
-from litellm.types.containers.main import (
+from hangarllm.types.containers.main import (
     ContainerFileListResponse,
     ContainerFileObject,
     DeleteContainerFileResponse,

@@ -29,17 +29,17 @@ from typing import Final, cast
 
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.azure.prompt_shield import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.azure.prompt_shield import (
     AzureContentSafetyPromptShieldGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
+from hangarllm.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
     AzureContentSafetyTextModerationGuardrail,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import CallTypesLiteral
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.utils import CallTypesLiteral
 
 
 class TupleWriter(CustomGuardrail):
@@ -421,7 +421,7 @@ def guardrail_configs(azure_url: str, *, default_on: bool = False) -> tuple[dict
     return (
         {
             "guardrail_name": "tuple-writer",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure_dispatch_hooks.TupleWriter",
                 "mode": "pre_call",
                 "default_on": default_on,
@@ -429,7 +429,7 @@ def guardrail_configs(azure_url: str, *, default_on: bool = False) -> tuple[dict
         },
         {
             "guardrail_name": "shield",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure/prompt_shield",
                 "mode": "pre_call",
                 "default_on": default_on,
@@ -439,7 +439,7 @@ def guardrail_configs(azure_url: str, *, default_on: bool = False) -> tuple[dict
         },
         {
             "guardrail_name": "moderation",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure/text_moderations",
                 "mode": "pre_call",
                 "default_on": False,
@@ -449,7 +449,7 @@ def guardrail_configs(azure_url: str, *, default_on: bool = False) -> tuple[dict
         },
         {
             "guardrail_name": "all-turns-shield",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure_dispatch_hooks.AllTurnsPromptShield",
                 "mode": "pre_call",
                 "default_on": False,
@@ -459,7 +459,7 @@ def guardrail_configs(azure_url: str, *, default_on: bool = False) -> tuple[dict
         },
         {
             "guardrail_name": "all-turns-moderation",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure_dispatch_hooks.AllTurnsTextModeration",
                 "mode": "pre_call",
                 "default_on": False,
@@ -469,7 +469,7 @@ def guardrail_configs(azure_url: str, *, default_on: bool = False) -> tuple[dict
         },
         {
             "guardrail_name": "requiring-shield",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure_dispatch_hooks.RequiringPromptShield",
                 "mode": "pre_call",
                 "default_on": False,
@@ -479,7 +479,7 @@ def guardrail_configs(azure_url: str, *, default_on: bool = False) -> tuple[dict
         },
         {
             "guardrail_name": "requiring-moderation",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "azure_dispatch_hooks.RequiringTextModeration",
                 "mode": "pre_call",
                 "default_on": False,
@@ -524,7 +524,7 @@ def dispatch_proxy(
         {
             "REDIS_HOST": redis.host,
             "REDIS_PORT": str(redis.port),
-            "LITELLM_DISABLE_NO_REDIS_WARNING": "true",
+            "HANGARLLM_DISABLE_NO_REDIS_WARNING": "true",
         },
         config=config,
         workers=workers,

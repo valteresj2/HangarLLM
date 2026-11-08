@@ -1,11 +1,11 @@
 """basic_messaging_streaming x OpenAI (GPT-5.6).
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Anthropic Messages
+mode against a running HangarLLM proxy that routes Anthropic Messages
 requests to OpenAI's GPT-5.6 family (Sol, Terra, Luna), and report the
 outcome via `compat_result`.
 
-LiteLLM translates OpenAI's chat-completions SSE chunks into Anthropic
+HangarLLM translates OpenAI's chat-completions SSE chunks into Anthropic
 `message_start` / `content_block_delta` / `message_stop` events on the
 fly; the `verify_streaming=True` assertion (via
 `--include-partial-messages`) proves the proxy re-emitted incremental
@@ -45,7 +45,7 @@ OPENAI_MODELS = [
     )
 )
 def test_basic_messaging_streaming_openai(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     non-empty streamed reply from each GPT-5.6 tier."""
     skip_unless_openai_gpt_cells_enabled()
     run_basic_messaging_cell(

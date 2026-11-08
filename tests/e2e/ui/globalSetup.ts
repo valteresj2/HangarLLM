@@ -21,7 +21,7 @@ async function globalSetup() {
 
   // The Projects sidebar item is hidden unless the enterprise-gated
   // enable_projects_ui setting is on, and the seeded DB starts with it off.
-  // The proxy runs with LITELLM_LICENSE in CI, so enable it the same way
+  // The proxy runs with HANGARLLM_LICENSE in CI, so enable it the same way
   // the admin UI toggle does; the projects migration smoke needs the link.
   const masterKey = getMasterKey();
   const api = await request.newContext();
@@ -80,11 +80,11 @@ async function globalSetup() {
       if (role === Role.ProxyAdmin) {
         await setAriaHidden(page, true);
       }
-      // The login flow stores a post-login return URL in the litellm_return_url
+      // The login flow stores a post-login return URL in the hangarllm_return_url
       // cookie. If the snapshot captures it before the app consumes it, every
       // test inheriting this storageState gets yanked to that stale URL the
       // first time it mounts a page (the e2e suite's main flake source).
-      await page.context().clearCookies({ name: "litellm_return_url" });
+      await page.context().clearCookies({ name: "hangarllm_return_url" });
       await page.context().storageState({ path: storagePath });
     } catch (e) {
       // Best-effort diagnostics only: this handler must never replace the real

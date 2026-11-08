@@ -143,11 +143,11 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_PROVIDER_RESPONSE: Final = {
 GEMINI_3_8_FLASH_AGENT_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "gemini/gemini-3.8-flash"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "gemini/gemini-3.8-flash"},
     expected_provider_endpoint="/models/gemini-3.8-flash:generateContent",
     expected_provider_request=VERTEX_AI_AGENT_REQUEST,
     mock_provider_response=GEMINI_3_8_FLASH_AGENT_PROVIDER_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "gemini/gemini-3.8-flash",
         "choices": [
@@ -206,11 +206,11 @@ GEMINI_3_8_FLASH_AGENT_TEST_CASE: Final = replace(
 GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE: Final = replace(
     GEMINI_3_1_PRO_PREVIEW_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "gemini/gemini-3.1-pro-preview"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "gemini/gemini-3.1-pro-preview"},
     expected_provider_endpoint="/models/gemini-3.1-pro-preview:generateContent",
     expected_provider_request=VERTEX_AI_AGENT_REQUEST,
     mock_provider_response=GEMINI_3_1_PRO_PREVIEW_AGENT_PROVIDER_RESPONSE,
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "gemini/gemini-3.1-pro-preview",
         "choices": [
@@ -412,9 +412,9 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_PROVIDER_REQUEST: Final = {
 GEMINI_3_8_FLASH_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GEMINI_3_8_FLASH_AGENT_TEST_CASE.litellm_request,
-        GEMINI_3_8_FLASH_AGENT_TEST_CASE.expected_litellm_response,
+    hangarllm_request=followup_request(
+        GEMINI_3_8_FLASH_AGENT_TEST_CASE.hangarllm_request,
+        GEMINI_3_8_FLASH_AGENT_TEST_CASE.expected_hangarllm_response,
     ),
     expected_provider_endpoint="/models/gemini-3.8-flash:generateContent",
     expected_provider_request=GEMINI_3_8_FLASH_AGENT_FOLLOWUP_PROVIDER_REQUEST,
@@ -444,7 +444,7 @@ GEMINI_3_8_FLASH_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         "modelVersion": "gemini-3.8-flash",
         "responseId": "nyLWatOHEKHoz7IPnICMuAs",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "gemini/gemini-3.8-flash",
         "choices": [
@@ -480,9 +480,9 @@ GEMINI_3_8_FLASH_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.litellm_request,
-        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.expected_litellm_response,
+    hangarllm_request=followup_request(
+        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.hangarllm_request,
+        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.expected_hangarllm_response,
     ),
     expected_provider_endpoint="/models/gemini-3.1-pro-preview:generateContent",
     expected_provider_request=GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_PROVIDER_REQUEST,
@@ -514,7 +514,7 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         "modelVersion": "gemini-3.1-pro-preview",
         "responseId": "oiLWauy3Kr2Ez7IPse_RwAs",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "gemini/gemini-3.1-pro-preview",
         "choices": [
@@ -555,9 +555,9 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GEMINI_3_8_FLASH_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GEMINI_3_8_FLASH_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GEMINI_3_8_FLASH_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GEMINI_3_8_FLASH_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GEMINI_3_8_FLASH_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -647,10 +647,10 @@ GEMINI_3_8_FLASH_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             }
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_5122749__thought__" + GEMINI_SKIP_VALIDATION_SIGNATURE, "call_5122752"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 516,
         "completion_tokens": 41,
         "total_tokens": 557,
@@ -661,9 +661,9 @@ GEMINI_3_8_FLASH_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 
 GEMINI_3_1_PRO_PREVIEW_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -756,10 +756,10 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTe
             }
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_6112941__thought__" + GEMINI_SKIP_VALIDATION_SIGNATURE, "call_6112947"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 516,
         "completion_tokens": 105,
         "total_tokens": 621,

@@ -56,7 +56,7 @@ GATEWAY_PATH_PREFIXES: tuple[str, ...] = (
     "/v1/skills",
     "/v1/a2a/",
     "/a2a/",
-    # LiteLLM-native LLM surface
+    # HangarLLM-native LLM surface
     "/v1/rerank",
     "/v2/rerank",
     "/rerank",

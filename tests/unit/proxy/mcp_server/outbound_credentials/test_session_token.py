@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.utils import base64url_decode, base64url_encode
 from pydantic import SecretStr, ValidationError
 
-from litellm.proxy.mcp_server.outbound_credentials.session_token import (
+from hangarllm.proxy.mcp_server.outbound_credentials.session_token import (
     MAX_SESSION_TOKEN_BYTES,
     SESSION_ISSUER,
     SESSION_REFRESH_PREFIX,
@@ -177,7 +177,7 @@ def test_multibyte_candidate_over_byte_cap_but_under_char_cap_is_rejected():
 
 
 def test_alg_none_token_is_rejected():
-    unsigned = jwt.api_jws.encode(b'{"iss":"litellm-mcp-gateway"}', key=None, algorithm="none")
+    unsigned = jwt.api_jws.encode(b'{"iss":"hangarllm-mcp-gateway"}', key=None, algorithm="none")
     assert isinstance(open_session_token(SESSION_TOKEN_PREFIX + unsigned, KEYS, NOW), SessionMalformed)
 
 
@@ -451,7 +451,7 @@ def test_rs256_token_signed_by_a_foreign_key_claiming_the_current_kid_is_bad_sig
 
 def test_alg_none_token_with_the_current_kid_is_rejected_in_rs256_mode():
     unsigned = jwt.api_jws.encode(
-        b'{"iss":"litellm-mcp-gateway"}', key=None, algorithm="none", headers={"kid": RSA_KEYS.kid}
+        b'{"iss":"hangarllm-mcp-gateway"}', key=None, algorithm="none", headers={"kid": RSA_KEYS.kid}
     )
     assert isinstance(open_session_token(SESSION_TOKEN_PREFIX + unsigned, RSA_KEYS, NOW), SessionMalformed)
 

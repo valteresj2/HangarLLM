@@ -4,14 +4,14 @@ import pytest
 from mcp import MCPError
 from mcp.types import CallToolRequest, CallToolRequestParams, InputRequiredResult
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.mcp_server.contracts import OperationContext
-from litellm.proxy.mcp_server.interactions import bind_target, open_continuation, seal_continuation
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.mcp_server.contracts import OperationContext
+from hangarllm.proxy.mcp_server.interactions import bind_target, open_continuation, seal_continuation
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def test_continuation_is_repeatable_and_bound_to_caller_operation_and_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "local-continuation-test")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "local-continuation-test")
     context: Final = OperationContext(
         _caller=UserAPIKeyAuth(user_id="alice", team_id="team"), mcp_servers=("upstream",)
     )
@@ -37,18 +37,18 @@ def test_continuation_is_repeatable_and_bound_to_caller_operation_and_expiry(mon
         )
     with pytest.raises(MCPError, match="Invalid or expired"):
         open_continuation(retry, context, now=700)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "rotated-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "rotated-test-salt")
     with pytest.raises(MCPError, match="Invalid or expired"):
         open_continuation(retry, context, now=101)
 
 
 def test_continuation_missing_salt_does_not_reject_initial_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
     context: Final = OperationContext(_caller=UserAPIKeyAuth(user_id="alice"))
     operation: Final = CallToolRequest(params=CallToolRequestParams(name="confirm", arguments={}))
     assert open_continuation(operation, context, now=100) is None
     server: Final = MCPServer(server_id="upstream", name="upstream", url="https://example.com/mcp", transport="http")
-    with pytest.raises(MCPError, match="LITELLM_SALT_KEY"):
+    with pytest.raises(MCPError, match="HANGARLLM_SALT_KEY"):
         seal_continuation(bind_target(InputRequiredResult(request_state="opaque"), server), operation, context, now=100)
 
 
@@ -56,7 +56,7 @@ def test_continuation_missing_salt_does_not_reject_initial_request(monkeypatch: 
 def test_continuation_requires_stable_authenticated_principal(
     identity: UserAPIKeyAuth | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt")
     operation: Final = CallToolRequest(params=CallToolRequestParams(name="confirm", arguments={}))
     server: Final = MCPServer(server_id="server", name="server", url="https://example.com/mcp", transport="http")
     with pytest.raises(MCPError, match="authenticated caller identity"):
@@ -69,7 +69,7 @@ def test_continuation_requires_stable_authenticated_principal(
 
 
 def test_continuation_keeps_original_expiry_and_survives_credential_rotation(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt")
     before: Final = OperationContext(_caller=UserAPIKeyAuth(user_id="alice", api_key="old-test-key"))
     after: Final = OperationContext(_caller=UserAPIKeyAuth(user_id="alice", api_key="new-test-key"))
     operation: Final = CallToolRequest(params=CallToolRequestParams(name="confirm", arguments={"a": 1, "b": 2}))
@@ -98,7 +98,7 @@ def test_continuation_keeps_original_expiry_and_survives_credential_rotation(mon
 def test_altered_continuations_are_rejected(change: str, monkeypatch: pytest.MonkeyPatch) -> None:
     from mcp.types import GetPromptRequest, GetPromptRequestParams
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt")
     context: Final = OperationContext(_caller=UserAPIKeyAuth(user_id="alice", team_id="one", org_id="org"))
     operation: Final = CallToolRequest(params=CallToolRequestParams(name="confirm", arguments={}))
     server: Final = MCPServer(server_id="server", name="server", url="https://example.com/mcp", transport="http")
@@ -131,9 +131,9 @@ def test_altered_continuations_are_rejected(change: str, monkeypatch: pytest.Mon
 def test_input_responses_without_state_and_unbound_results_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     from mcp.types import ElicitResult
 
-    from litellm.proxy.mcp_server.interactions import BoundInputRequiredResult
+    from hangarllm.proxy.mcp_server.interactions import BoundInputRequiredResult
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt")
     context: Final = OperationContext(_caller=UserAPIKeyAuth(user_id="alice"))
     operation: Final = CallToolRequest(
         params=CallToolRequestParams(name="confirm", input_responses={"consent": ElicitResult(action="accept")})
@@ -145,10 +145,10 @@ def test_input_responses_without_state_and_unbound_results_are_rejected(monkeypa
 
 
 def test_authenticated_but_invalid_state_payload_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.mcp_server.outbound_credentials.result import Ok
-    from litellm.proxy.mcp_server.state_tokens import seal_state
+    from hangarllm.proxy.mcp_server.outbound_credentials.result import Ok
+    from hangarllm.proxy.mcp_server.state_tokens import seal_state
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt")
     sealed: Final = seal_state(
         {"unsupported": "state-schema"}, purpose="mcp:interaction:repeatable:v1", expires_at=200, now=100
     )
@@ -171,7 +171,7 @@ async def test_modern_sampling_errors_abort_without_relaying_form_input() -> Non
         ErrorData,
     )
 
-    from litellm.proxy.mcp_server.interactions import ModernClientInteraction
+    from hangarllm.proxy.mcp_server.interactions import ModernClientInteraction
 
     async def sampling(context: object, params: CreateMessageRequestParams) -> ErrorData:
         return ErrorData(code=-32603, message="Sampling refused by gateway policy")
@@ -209,11 +209,11 @@ async def test_gateway_rejects_invalid_interaction_boundaries(
 
     from mcp.types import CreateMessageResult, ElicitResult, TextContent
 
-    from litellm.proxy.mcp_server import operations
-    from litellm.proxy.mcp_server.contracts import WireCompat
-    from litellm.proxy.mcp_server.interactions import BoundInputRequiredResult
+    from hangarllm.proxy.mcp_server import operations
+    from hangarllm.proxy.mcp_server.contracts import WireCompat
+    from hangarllm.proxy.mcp_server.interactions import BoundInputRequiredResult
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt")
     context: Final = OperationContext(
         _caller=UserAPIKeyAuth(user_id="alice"),
         wire_compat=WireCompat.LEGACY if invalid_response == "legacy_state" else WireCompat.MODERN,

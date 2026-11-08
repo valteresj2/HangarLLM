@@ -5,13 +5,13 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.bedrock.audio_transcription import BedrockAudioTranscriptionRustDispatch
-from litellm.rust_bridge import configuration
-from litellm.rust_bridge._native import RustBridgeDeclined, RustUpstreamError
-from litellm.rust_bridge.public_call import NativeCall
-from litellm.rust_bridge.transcription.native import NATIVE_ATRANSCRIPTION, NATIVE_TRANSCRIPTION
-from litellm.types.utils import TranscriptionUsageTokensObject
+import hangarllm
+from hangarllm.llms.bedrock.audio_transcription import BedrockAudioTranscriptionRustDispatch
+from hangarllm.rust_bridge import configuration
+from hangarllm.rust_bridge._native import RustBridgeDeclined, RustUpstreamError
+from hangarllm.rust_bridge.public_call import NativeCall
+from hangarllm.rust_bridge.transcription.native import NATIVE_ATRANSCRIPTION, NATIVE_TRANSCRIPTION
+from hangarllm.types.utils import TranscriptionUsageTokensObject
 
 MODEL: Final = "bedrock/mistral.voxtral-mini-3b-2507"
 AUDIO_FILE: Final = ("audio.wav", b"audio", "audio/wav")
@@ -31,7 +31,7 @@ TRANSCRIPTION_FIELDS: Final = frozenset(
 
 @pytest.fixture(autouse=True)
 def isolated_bridge(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
-    monkeypatch.delenv("LITELLM_RUST", raising=False)
+    monkeypatch.delenv("HANGARLLM_RUST", raising=False)
     configuration.reset_rust_configuration()
     yield
     NATIVE_TRANSCRIPTION.reset()
@@ -68,7 +68,7 @@ class UsageBridge:
         }
 
 
-def dispatch_sync() -> litellm.TranscriptionResponse:
+def dispatch_sync() -> hangarllm.TranscriptionResponse:
     return BedrockAudioTranscriptionRustDispatch().audio_transcriptions(
         model=MODEL,
         audio_file=AUDIO_FILE,
@@ -104,9 +104,9 @@ def test_dispatch_marshals_audio_into_rust_call() -> None:
 @pytest.mark.parametrize("disable", ("process", "environment"))
 def test_bedrock_transcription_ignores_optional_rust_switches(disable: str, monkeypatch: pytest.MonkeyPatch) -> None:
     if disable == "process":
-        litellm.rust(False)
+        hangarllm.rust(False)
     else:
-        monkeypatch.setenv("LITELLM_RUST", "0")
+        monkeypatch.setenv("HANGARLLM_RUST", "0")
     bridge: Final = SyncBridge()
     NATIVE_TRANSCRIPTION.override(bridge)
 
@@ -131,7 +131,7 @@ def test_admission_decline_raises_for_required_route() -> None:
 def test_upstream_error_maps_to_api_error() -> None:
     NATIVE_TRANSCRIPTION.override(SyncBridge(RustUpstreamError(503, "bedrock down")))
 
-    with pytest.raises(litellm.APIError, match="bedrock down") as raised:
+    with pytest.raises(hangarllm.APIError, match="bedrock down") as raised:
         dispatch_sync()
     assert raised.value.status_code == 503
 
@@ -170,9 +170,9 @@ def test_bedrock_transcription_dispatches_to_rust_from_sdk_entrypoint() -> None:
     bridge: Final = SyncBridge()
     NATIVE_TRANSCRIPTION.override(bridge)
 
-    response: Final = litellm.transcription(model=MODEL, file=AUDIO_FILE)
+    response: Final = hangarllm.transcription(model=MODEL, file=AUDIO_FILE)
 
-    assert isinstance(response, litellm.TranscriptionResponse)
+    assert isinstance(response, hangarllm.TranscriptionResponse)
     assert response.text == "rust"
     assert bridge.calls[0].resolved["model"] == MODEL.removeprefix("bedrock/")
     assert frozenset(bridge.calls[0].resolved) == TRANSCRIPTION_FIELDS
@@ -183,7 +183,7 @@ async def test_bedrock_atranscription_dispatches_to_rust_from_sdk_entrypoint() -
     bridge: Final = AsyncBridge()
     NATIVE_ATRANSCRIPTION.override(bridge)
 
-    response: Final = await litellm.atranscription(model=MODEL, file=AUDIO_FILE)
+    response: Final = await hangarllm.atranscription(model=MODEL, file=AUDIO_FILE)
 
     assert response.text == "async rust"
     assert tuple(call.resolved["model"] for call in bridge.calls) == (MODEL.removeprefix("bedrock/"),)
@@ -233,9 +233,9 @@ def test_bedrock_transcription_bills_the_converse_token_usage(
         monkeypatch.setenv(name, value)
     NATIVE_TRANSCRIPTION.override(UsageBridge())
 
-    response: Final = litellm.transcription(model=MODEL, file=AUDIO_FILE, **region_kwargs)
+    response: Final = hangarllm.transcription(model=MODEL, file=AUDIO_FILE, **region_kwargs)
 
-    model_info: Final = litellm.get_model_info(priced_model)
+    model_info: Final = hangarllm.get_model_info(priced_model)
     expected_cost: Final = 390 * (model_info.get("input_cost_per_token") or 0.0) + 60 * (
         model_info.get("output_cost_per_token") or 0.0
     )
@@ -243,7 +243,7 @@ def test_bedrock_transcription_bills_the_converse_token_usage(
         type="tokens", input_tokens=390, output_tokens=60, total_tokens=450
     )
     assert expected_cost > 0
-    assert litellm.completion_cost(
+    assert hangarllm.completion_cost(
         completion_response=response, model=MODEL, call_type="transcription"
     ) == pytest.approx(expected_cost)
 
@@ -252,7 +252,7 @@ def test_bedrock_transcription_forwards_language_and_text_formats_to_rust() -> N
     bridge: Final = SyncBridge()
     NATIVE_TRANSCRIPTION.override(bridge)
 
-    litellm.transcription(model=MODEL, file=AUDIO_FILE, language="fr", response_format="text", prompt="Names")
+    hangarllm.transcription(model=MODEL, file=AUDIO_FILE, language="fr", response_format="text", prompt="Names")
 
     forwarded: Final = bridge.calls[0].resolved["optional_params"]
     assert {key: forwarded.get(key) for key in ("language", "response_format", "prompt")} == {
@@ -267,7 +267,7 @@ def test_bedrock_transcription_forwards_form_temperature_as_a_number(sent: objec
     bridge: Final = SyncBridge()
     NATIVE_TRANSCRIPTION.override(bridge)
 
-    litellm.transcription(model=MODEL, file=AUDIO_FILE, temperature=sent)
+    hangarllm.transcription(model=MODEL, file=AUDIO_FILE, temperature=sent)
 
     forwarded: Final = bridge.calls[0].resolved["optional_params"]["temperature"]
     assert (type(forwarded), forwarded) == (float, expected)
@@ -288,14 +288,14 @@ def test_bedrock_transcription_rejects_params_it_cannot_honor(unsupported: dict[
     bridge: Final = SyncBridge()
     NATIVE_TRANSCRIPTION.override(bridge)
 
-    with pytest.raises(litellm.BadRequestError) as raised:
-        litellm.transcription(model=MODEL, file=AUDIO_FILE, language="fr", **unsupported)
+    with pytest.raises(hangarllm.BadRequestError) as raised:
+        hangarllm.transcription(model=MODEL, file=AUDIO_FILE, language="fr", **unsupported)
 
     assert raised.value.status_code == 400
     assert next(iter(unsupported)) in str(raised.value)
     assert bridge.calls == ()
 
-    dropped: Final = litellm.transcription(model=MODEL, file=AUDIO_FILE, language="fr", drop_params=True, **unsupported)
+    dropped: Final = hangarllm.transcription(model=MODEL, file=AUDIO_FILE, language="fr", drop_params=True, **unsupported)
 
     assert dropped.text == "rust"
     forwarded: Final = bridge.calls[0].resolved["optional_params"]

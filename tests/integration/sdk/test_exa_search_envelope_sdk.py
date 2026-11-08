@@ -6,8 +6,8 @@ import pytest
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse
 
 pytestmark: Final = pytest.mark.timeout(60)
 
@@ -51,7 +51,7 @@ def _respond(request: Request) -> Reply:
 
 def test_sync_exa_search_returns_highlights_scores_and_the_response_envelope() -> None:
     with wire_server(_respond) as wire:
-        response: Final = litellm.search(
+        response: Final = hangarllm.search(
             query=f"sdk sync {uuid.uuid4().hex}",
             search_provider="exa_ai",
             api_key="synthetic-exa-key",
@@ -68,7 +68,7 @@ def test_sync_exa_search_returns_highlights_scores_and_the_response_envelope() -
 @pytest.mark.asyncio
 async def test_async_exa_search_returns_highlights_scores_and_the_response_envelope() -> None:
     with wire_server(_respond) as wire:
-        response: Final = await litellm.asearch(
+        response: Final = await hangarllm.asearch(
             query=f"sdk async {uuid.uuid4().hex}",
             search_provider="exa_ai",
             api_key="synthetic-exa-key",

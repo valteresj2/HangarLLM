@@ -71,9 +71,9 @@ OWNED_PROXY_TIMEOUT: Final = int(2 * graceful_stop_seconds() + 2 * UNFIXED_PUSH_
 CHAOS_GROUP: Final = 100
 KEY_WRITERS: Final = 16
 ROLLBACK_SECONDS: Final = 90
-TEAM_ROW_SQL: Final = 'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s'
-LOCK_USER_ROW_SQL: Final = 'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s FOR UPDATE'
-LOCK_KEY_ROW_SQL: Final = 'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s FOR UPDATE'
+TEAM_ROW_SQL: Final = 'SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s'
+LOCK_USER_ROW_SQL: Final = 'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s FOR UPDATE'
+LOCK_KEY_ROW_SQL: Final = 'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s FOR UPDATE'
 SESSIONS_BLOCKED_BY_SQL: Final = (
     "SELECT count(*)::int AS waiting FROM pg_stat_activity WHERE %s::int = ANY(pg_blocking_pids(pid))"
 )
@@ -104,7 +104,7 @@ _UTC_MICROSECONDS: Final = "YYYY-MM-DD HH24:MI:SS.US"
 
 def _updated_at(user_id: str) -> str:
     rows: Final = read_rows(
-        f"SELECT to_char(updated_at, '{_UTC_MICROSECONDS}') AS updated_at FROM \"LiteLLM_UserTable\" WHERE user_id = %s",
+        f"SELECT to_char(updated_at, '{_UTC_MICROSECONDS}') AS updated_at FROM \"HangarLLM_UserTable\" WHERE user_id = %s",
         (user_id,),
     )
     return string_value(rows[0]["updated_at"])
@@ -294,14 +294,14 @@ def _refusing_memberships_for(user_id: str) -> Iterator[None]:
         )
         _ = connection.execute(
             sql.SQL(
-                'CREATE TRIGGER {} BEFORE INSERT ON "LiteLLM_TeamMembership" FOR EACH ROW '
+                'CREATE TRIGGER {} BEFORE INSERT ON "HangarLLM_TeamMembership" FOR EACH ROW '
                 "WHEN (NEW.user_id = {}) EXECUTE FUNCTION {}()"
             ).format(name, sql.Literal(user_id), name)
         )
         try:
             yield
         finally:
-            _ = connection.execute(sql.SQL('DROP TRIGGER {} ON "LiteLLM_TeamMembership"').format(name))
+            _ = connection.execute(sql.SQL('DROP TRIGGER {} ON "HangarLLM_TeamMembership"').format(name))
             _ = connection.execute(sql.SQL("DROP FUNCTION {}()").format(name))
 
 
@@ -324,7 +324,7 @@ def test_a_push_whose_membership_write_fails_answers_5xx_keeps_the_old_roster_an
 
 def _five_kilobyte_member(scenario: Scenario) -> str:
     user_id: Final = f"integration-scim-{uuid.uuid4().hex}-".ljust(5 * 1024, "x")
-    scenario.cleanups.callback(write_rows, 'DELETE FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,))
+    scenario.cleanups.callback(write_rows, 'DELETE FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,))
     return user_id
 
 
@@ -463,7 +463,7 @@ def test_a_worker_killed_mid_push_leaves_the_old_roster_and_a_retry_lands_the_ne
         assert_landed(candidate, team, arriving)
         assert (
             read_rows(
-                'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s',
+                'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s',
                 (sha256(pinned_key.encode()).hexdigest(),),
             )
             == []

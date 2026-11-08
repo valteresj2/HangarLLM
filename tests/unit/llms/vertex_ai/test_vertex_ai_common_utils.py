@@ -12,12 +12,12 @@ import pytest
 import respx
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm import anthropic_beta_headers_manager
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.gemini.count_tokens import handler as gemini_count_tokens_handler
-from litellm.llms.vertex_ai.common_utils import (
+import hangarllm
+from hangarllm import anthropic_beta_headers_manager
+from hangarllm.constants import DEFAULT_MAX_RECURSE_DEPTH
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.gemini.count_tokens import handler as gemini_count_tokens_handler
+from hangarllm.llms.vertex_ai.common_utils import (
     VertexAITokenCounter,
     _fix_enum_types,
     build_vertex_schema,
@@ -30,11 +30,11 @@ from litellm.llms.vertex_ai.common_utils import (
     set_schema_property_ordering,
     supports_response_json_schema,
     validate_vertex_location,
-    vertex_request_labels_from_litellm_params,
+    vertex_request_labels_from_hangarllm_params,
 )
-from litellm.llms.vertex_ai.count_tokens import handler as vertex_count_tokens_handler
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import VertexAIAnthropicConfig
-from litellm.types.utils import CountContextManagement, TokenCountMessagesFormat
+from hangarllm.llms.vertex_ai.count_tokens import handler as vertex_count_tokens_handler
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import VertexAIAnthropicConfig
+from hangarllm.types.utils import CountContextManagement, TokenCountMessagesFormat
 
 
 @pytest.mark.asyncio
@@ -77,7 +77,7 @@ async def test_vertex_partner_model_without_an_inference_matching_count_answers_
         model_to_use=model,
         messages=[{"role": "user", "content": "Count this"}],
         contents=None,
-        deployment={"litellm_params": {"vertex_project": "test-project", "vertex_location": "global"}},
+        deployment={"hangarllm_params": {"vertex_project": "test-project", "vertex_location": "global"}},
         request_model=f"vertex_ai/{model}",
         messages_format="anthropic",
     )
@@ -85,7 +85,7 @@ async def test_vertex_partner_model_without_an_inference_matching_count_answers_
     assert result is not None
     assert result.error is True
     assert result.status_code == 400
-    assert result.error_message == f"LiteLLM does not support counting tokens for Vertex AI model {model}."
+    assert result.error_message == f"HangarLLM does not support counting tokens for Vertex AI model {model}."
 
 
 class _VertexCountTokensPeer:
@@ -124,7 +124,7 @@ def _vertex_count_tokens_peer(status_code: int) -> Iterator[_VertexCountTokensPe
         yield peer
 
 
-_VERTEX_DEPLOYMENT: Final = {"litellm_params": {"vertex_project": "test-project", "vertex_location": "us-central1"}}
+_VERTEX_DEPLOYMENT: Final = {"hangarllm_params": {"vertex_project": "test-project", "vertex_location": "us-central1"}}
 _JSON_BODY: Final = TypeAdapter(dict[str, JsonValue])
 
 
@@ -150,7 +150,7 @@ async def test_vertex_gemini_count_answers_with_the_status_google_rejected_it_wi
 async def test_vertex_gemini_count_rejects_an_image_url_it_refuses_to_fetch_without_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", True)
+    monkeypatch.setattr(hangarllm, "user_url_validation", True)
     with _vertex_count_tokens_peer(200) as peer:
         result: Final = await VertexAITokenCounter().count_tokens(
             model_to_use="gemini-2.5-flash",
@@ -221,7 +221,7 @@ async def test_vertex_gemini_count_leaves_out_a_numeric_tool_result_text_when_th
             messages=_weather_tool_result_messages(5),
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                     "drop_params": True,
@@ -271,7 +271,7 @@ async def test_vertex_gemini_count_applies_the_context_edits_inference_applies()
             messages=[*_tool_round(0), *_tool_round(1), *_tool_round(2), {"role": "user", "content": "Summarize."}],
             contents=None,
             deployment={
-                "litellm_params": {**_VERTEX_DEPLOYMENT["litellm_params"], "model": "vertex_ai/gemini-2.5-flash"}
+                "hangarllm_params": {**_VERTEX_DEPLOYMENT["hangarllm_params"], "model": "vertex_ai/gemini-2.5-flash"}
             },
             request_model="vertex_ai/gemini-2.5-flash",
             tools=[
@@ -567,7 +567,7 @@ def test_anyof_with_excessive_nesting():
 @pytest.mark.asyncio
 async def test_get_supports_system_message():
     """Test get_supports_system_message with different models"""
-    from litellm.llms.vertex_ai.common_utils import get_supports_system_message
+    from hangarllm.llms.vertex_ai.common_utils import get_supports_system_message
 
     # fine-tuned vertex gemini models will specifiy they are in the /gemini spec format
     result = get_supports_system_message(model="gemini/1234567890", custom_llm_provider="vertex_ai")
@@ -630,7 +630,7 @@ def test_set_schema_property_ordering_skips_non_dict_property_values():
 
 def test_build_vertex_schema():
     """Test build_vertex_schema with a sample schema"""
-    from litellm.llms.vertex_ai.common_utils import build_vertex_schema
+    from hangarllm.llms.vertex_ai.common_utils import build_vertex_schema
 
     parameters = {
         "properties": {
@@ -712,7 +712,7 @@ def test_build_vertex_schema():
 def test_process_items_with_excessive_nesting():
     """Test process_items with excessive nesting > max levels +1 deep."""
     # generate a schema with excessive nesting
-    from litellm.llms.vertex_ai.common_utils import process_items
+    from hangarllm.llms.vertex_ai.common_utils import process_items
 
     schema = {"type": "object", "properties": {}}
     current = schema
@@ -729,7 +729,7 @@ def test_process_items_with_excessive_nesting():
 
 def test_process_items_basic():
     """Test basic functionality of process_items."""
-    from litellm.llms.vertex_ai.common_utils import process_items
+    from hangarllm.llms.vertex_ai.common_utils import process_items
 
     # Test empty items
     schema = {"type": "array", "items": {}}
@@ -774,7 +774,7 @@ def test_build_vertex_schema_array_branch_missing_items_in_anyof():
     end up with synthesized `items: {"type": "object"}` after the schema
     transform — Vertex returns INVALID_ARGUMENT otherwise.
     """
-    from litellm.llms.vertex_ai.common_utils import build_vertex_schema
+    from hangarllm.llms.vertex_ai.common_utils import build_vertex_schema
 
     parameters = {
         "properties": {
@@ -800,7 +800,7 @@ def test_build_vertex_schema_array_branch_missing_items_in_anyof():
 def test_vertex_ai_complex_response_schema():
     from copy import deepcopy
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -1039,10 +1039,10 @@ def test_get_vertex_url_global_region(stream, expected_endpoint_suffix):
     vertex_location = "global"
     vertex_api_version = "v1"
 
-    # Mock litellm.VertexGeminiConfig.get_model_for_vertex_ai_url to return model as is
+    # Mock hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url to return model as is
     # as we are not testing that part here, just the URL construction
     with patch(
-        "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+        "hangarllm.VertexGeminiConfig.get_model_for_vertex_ai_url",
         side_effect=lambda model: model,
     ):
         url, endpoint = get_vertex_url(
@@ -1100,13 +1100,13 @@ def test_get_vertex_url_global_region(stream, expected_endpoint_suffix):
 )
 def test_get_vertex_region_global_only_model(model_cost_entry, vertex_region, expected_region):
     """Test get_vertex_region resolves region from model_cost supported_regions"""
-    import litellm
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    import hangarllm
+    from hangarllm.llms.vertex_ai.vertex_llm_base import VertexBase
 
     vertex_base = VertexBase()
 
     with patch.dict(
-        litellm.model_cost,
+        hangarllm.model_cost,
         {"vertex_ai/test-model": model_cost_entry},
         clear=False,
     ):
@@ -1118,7 +1118,7 @@ def test_get_vertex_region_global_only_model(model_cost_entry, vertex_region, ex
 def test_vertex_filter_format_uri():
     import json
 
-    from litellm.llms.vertex_ai.common_utils import filter_schema_fields
+    from hangarllm.llms.vertex_ai.common_utils import filter_schema_fields
 
     parameters = {
         "type": "object",
@@ -1176,9 +1176,9 @@ def test_convert_schema_types_type_array_conversion():
     This test verifies the fix for the issue where type arrays like ["string", "number"]
     would raise an exception in Vertex AI schema validation.
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/14091
+    Relevant issue: upstream issue 14091
     """
-    from litellm.llms.vertex_ai.common_utils import _convert_schema_types
+    from hangarllm.llms.vertex_ai.common_utils import _convert_schema_types
 
     # Input: OpenAI-style schema with type array (the problematic case)
     input_schema = {
@@ -1241,7 +1241,7 @@ def test_fix_enum_empty_strings():
 
     Relevant issue: Gemini does not accept empty strings in enum values
     """
-    from litellm.llms.vertex_ai.common_utils import _fix_enum_empty_strings
+    from hangarllm.llms.vertex_ai.common_utils import _fix_enum_empty_strings
 
     # Input: Schema with empty string in enum (the problematic case)
     input_schema = {
@@ -1289,7 +1289,7 @@ def test_fix_enum_empty_strings():
 
 def test_get_vertex_model_id_from_url():
     """Test get_vertex_model_id_from_url with various URLs"""
-    from litellm.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
+    from hangarllm.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
 
     # Test with valid URL
     url = "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/publishers/google/models/gemini-pro:streamGenerateContent"
@@ -1312,7 +1312,7 @@ def test_get_vertex_model_id_from_url_with_slashes():
     were being truncated (e.g., 'gcp/google/gemini-2.5-flash' -> 'gcp'), causing access_groups
     checks to fail.
     """
-    from litellm.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
+    from hangarllm.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
 
     # Test with model name containing slashes: gcp/google/gemini-2.5-flash
     url = "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/publishers/google/models/gcp/google/gemini-2.5-flash:generateContent"
@@ -1337,7 +1337,7 @@ def test_get_vertex_model_id_from_url_with_slashes():
 
 def test_construct_target_url_with_version_prefix():
     """Test construct_target_url with version prefixes"""
-    from litellm.llms.vertex_ai.common_utils import construct_target_url
+    from hangarllm.llms.vertex_ai.common_utils import construct_target_url
 
     # Test with /v1/ prefix
     url = "/v1/publishers/google/models/gemini-pro:streamGenerateContent"
@@ -1401,7 +1401,7 @@ def test_construct_target_url_with_version_prefix():
 def test_construct_target_url_versionless_project_route_gets_api_version(
     requested_route: str, expected_url: str
 ) -> None:
-    from litellm.llms.vertex_ai.common_utils import construct_target_url
+    from hangarllm.llms.vertex_ai.common_utils import construct_target_url
 
     target_url = construct_target_url(
         base_url="https://aiplatform.googleapis.com",
@@ -1421,7 +1421,7 @@ def test_fix_enum_types():
     Gemini rejects non-string enum values, causing API failures. Integer enums are
     sent as type INTEGER with string values.
     """
-    from litellm.llms.vertex_ai.common_utils import _fix_enum_types
+    from hangarllm.llms.vertex_ai.common_utils import _fix_enum_types
 
     # Input: Schema with enum on non-string type (the problematic case)
     input_schema = {
@@ -1550,7 +1550,7 @@ def test_fix_enum_types():
 
 def test_build_vertex_schema_sends_integer_enum_as_string_values():
     """An integer enum tool parameter reaches Gemini as INTEGER with string values and no enum format."""
-    from litellm.llms.vertex_ai.common_utils import _build_vertex_schema
+    from hangarllm.llms.vertex_ai.common_utils import _build_vertex_schema
 
     parameters = {
         "type": "object",
@@ -1599,7 +1599,7 @@ def test_build_vertex_schema_keeps_integer_enum_on_nullable_type_list(
 
 
 def test_map_function_keeps_integer_enum_when_tools_are_reused():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
 
     tools = [
         {
@@ -1663,7 +1663,7 @@ def test_fix_enum_types_sends_only_integer_enums_gemini_accepts(
     assert "format" not in schema
 
 def test_get_token_url():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexLLM,
     )
 
@@ -1714,14 +1714,14 @@ async def test_vertex_ai_token_counter_routes_partner_models():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
-    from litellm.types.utils import TokenCountResponse
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.types.utils import TokenCountResponse
 
     token_counter = VertexAITokenCounter()
 
     # Mock the partner models handler
     with patch(
-        "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
+        "hangarllm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
     ) as mock_partner_count_tokens:
         mock_partner_count_tokens.return_value = {
             "input_tokens": 42,
@@ -1734,7 +1734,7 @@ async def test_vertex_ai_token_counter_routes_partner_models():
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-east5",
                 }
@@ -1755,8 +1755,8 @@ async def test_vertex_ai_token_counter_forwards_system_and_tools_to_partner_requ
     from typing import Final
     from unittest.mock import AsyncMock, patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
 
     class FakeResponse:
         status_code = 200
@@ -1790,7 +1790,7 @@ async def test_vertex_ai_token_counter_forwards_system_and_tools_to_partner_requ
         }
     ]
     deployment: Final = {
-        "litellm_params": {
+        "hangarllm_params": {
             "vertex_project": "test-project",
             "vertex_location": "us-east5",
         }
@@ -1837,7 +1837,7 @@ async def test_vertex_ai_token_counter_forwards_system_and_tools_to_partner_requ
 async def test_vertex_claude_count_forwards_the_context_edits_and_beta_vertex_inference_sends(
     edit_type: str, expected_beta: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
 
     class FakeResponse:
         status_code = 200
@@ -1863,7 +1863,7 @@ async def test_vertex_claude_count_forwards_the_context_edits_and_beta_vertex_in
             model_to_use="claude-opus-4-8",
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
-            deployment={"litellm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
+            deployment={"hangarllm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
             messages_format="anthropic",
             context_management=CountContextManagement(spec=spec, drop_invalid_edits=False),
         )
@@ -1879,7 +1879,7 @@ async def test_vertex_claude_count_forwards_the_context_edits_and_beta_vertex_in
 async def test_vertex_claude_count_with_an_edit_fetches_the_remote_beta_config_off_the_event_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
 
     class FakeResponse:
         status_code = 200
@@ -1900,18 +1900,18 @@ async def test_vertex_claude_count_with_an_edit_fetches_the_remote_beta_config_o
             self.seen = (*self.seen, threading.get_ident())
             return httpx.Response(200, json={})
 
-    monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
     fetch_threads: Final = FetchThreads()
     application_default_credentials: Final = MagicMock(token="fake-token", valid=True, expiry=None)
     monkeypatch.setattr("google.auth.default", lambda *args, **kwargs: (application_default_credentials, "test-project"))
     with patch.object(handler, "get_async_httpx_client", return_value=FakeHttpClient()), respx.mock:
-        respx.get(litellm.anthropic_beta_headers_url).mock(side_effect=fetch_threads)
+        respx.get(hangarllm.anthropic_beta_headers_url).mock(side_effect=fetch_threads)
         result: Final = await VertexAITokenCounter().count_tokens(
             model_to_use="claude-opus-4-8",
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
-            deployment={"litellm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
+            deployment={"hangarllm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
             messages_format="anthropic",
             context_management=CountContextManagement(
                 spec={"edits": [{"type": "clear_tool_uses_20250919"}]}, drop_invalid_edits=False
@@ -1942,7 +1942,7 @@ _PARTNER_RESPONSES_TOOL: Final[dict[str, object]] = {
 async def _partner_counted_bodies(
     model: str, chat_params: dict[str, JsonValue] | None = None
 ) -> tuple[dict[str, object], ...]:
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
 
     class FakeResponse:
         status_code = 200
@@ -1972,7 +1972,7 @@ async def _partner_counted_bodies(
             model_to_use=model,
             messages=copy.deepcopy(_PARTNER_CHAT_TOOL_TURNS),
             contents=None,
-            deployment={"litellm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
+            deployment={"hangarllm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
             tools=[_PARTNER_RESPONSES_TOOL],
             chat_params=chat_params or {},
         )
@@ -2041,7 +2041,7 @@ async def test_vertex_claude_count_sends_the_structured_output_vertex_inference_
             model,
             drop_params=False,
         ),
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2081,9 +2081,9 @@ async def test_vertex_ai_token_counter_returns_partner_provider_error_as_value(
 
     import httpx
 
-    from litellm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
+    from hangarllm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.count_tokens import handler
 
     class RejectingHttpClient:
         async def post(
@@ -2114,7 +2114,7 @@ async def test_vertex_ai_token_counter_returns_partner_provider_error_as_value(
             model_to_use="claude-opus-5-5",
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
-            deployment={"litellm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
+            deployment={"hangarllm_params": {"vertex_project": "test-project", "vertex_location": "us-east5"}},
             request_model="vertex-claude",
             tools=[{"type": "function", "function": {"name": "lookup", "parameters": {}}}],
         )
@@ -2140,13 +2140,13 @@ async def test_vertex_ai_token_counter_uses_count_tokens_location():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
 
     token_counter = VertexAITokenCounter()
 
     # Mock the partner models handler
     with patch(
-        "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
+        "hangarllm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
     ) as mock_partner_count_tokens:
         mock_partner_count_tokens.return_value = {
             "input_tokens": 42,
@@ -2159,7 +2159,7 @@ async def test_vertex_ai_token_counter_uses_count_tokens_location():
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "global",  # Original location (not supported for count_tokens)
                     "vertex_count_tokens_location": "us-east5",  # Override for count_tokens
@@ -2183,14 +2183,14 @@ async def test_vertex_ai_token_counter_routes_gemini_models():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
-    from litellm.types.utils import TokenCountResponse
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.types.utils import TokenCountResponse
 
     token_counter = VertexAITokenCounter()
 
     # Mock the Gemini handler (different import path)
     with patch(
-        "litellm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
+        "hangarllm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
     ) as mock_gemini_count_tokens:
         mock_gemini_count_tokens.return_value = {
             "totalTokens": 50,
@@ -2203,7 +2203,7 @@ async def test_vertex_ai_token_counter_routes_gemini_models():
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                 }
@@ -2244,7 +2244,7 @@ async def test_vertex_gemini_count_tokens_uses_request_system_over_deployment_sy
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                     "system_instruction": {"parts": [{"text": "deployment-level"}]},
@@ -2271,11 +2271,11 @@ async def test_vertex_ai_token_counter_converts_messages_to_contents_for_gemini(
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
 
     token_counter = VertexAITokenCounter()
 
-    with patch("litellm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens") as mock_acount_tokens:
+    with patch("hangarllm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens") as mock_acount_tokens:
         mock_acount_tokens.return_value = {
             "totalTokens": 42,
             "tokenizer_used": "gemini",
@@ -2286,7 +2286,7 @@ async def test_vertex_ai_token_counter_converts_messages_to_contents_for_gemini(
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                 }
@@ -2313,11 +2313,11 @@ async def test_vertex_ai_token_counter_returns_none_when_api_omits_total_tokens(
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
 
     token_counter = VertexAITokenCounter()
 
-    with patch("litellm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens") as mock_acount_tokens:
+    with patch("hangarllm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens") as mock_acount_tokens:
         mock_acount_tokens.return_value = {"tokenizer_used": "gemini"}
 
         result = await token_counter.count_tokens(
@@ -2325,7 +2325,7 @@ async def test_vertex_ai_token_counter_returns_none_when_api_omits_total_tokens(
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                 }
@@ -2342,7 +2342,7 @@ async def test_vertex_ai_partner_model_detection():
     Test that VertexAIPartnerModels.is_vertex_partner_model correctly identifies
     partner models (Claude, Mistral, Llama, etc.).
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2376,7 +2376,7 @@ def test_vertex_ai_minimax_uses_openai_handler():
     """
     Ensure Minimax partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2387,7 +2387,7 @@ def test_vertex_ai_moonshot_uses_openai_handler():
     """
     Ensure Moonshot partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2398,7 +2398,7 @@ def test_vertex_ai_zai_uses_openai_handler():
     """
     Ensure ZAI partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2409,7 +2409,7 @@ def test_vertex_ai_zai_is_partner_model():
     """
     Ensure ZAI models are detected as Vertex AI partner models.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2422,7 +2422,7 @@ def test_vertex_ai_gemma_maas_is_partner_model():
     route through the OpenAI-compatible /endpoints/openapi path (not the
     legacy non-gemini path or the vertex_ai/gemma/ predict-endpoint handler).
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2433,7 +2433,7 @@ def test_vertex_ai_gemma_maas_uses_openai_handler():
     """
     Ensure Gemma MaaS partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2446,7 +2446,7 @@ def test_vertex_ai_gemma_maas_routes_to_partner_models():
     a gemma model. get_vertex_ai_model_route must return PARTNER_MODELS, never
     GEMMA, MODEL_GARDEN, or NON_GEMINI.
     """
-    from litellm.llms.vertex_ai.common_utils import (
+    from hangarllm.llms.vertex_ai.common_utils import (
         VertexAIModelRoute,
         get_vertex_ai_model_route,
     )
@@ -2461,7 +2461,7 @@ def test_vertex_ai_google_gemini_not_detected_as_gemma_maas():
     other google/* models like google/gemini-* (which should keep flowing
     through the gemini route, not partner_models).
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -2482,7 +2482,7 @@ def test_build_vertex_schema_empty_properties():
 
     The fix removes empty properties objects and their associated type/required fields.
     """
-    from litellm.llms.vertex_ai.common_utils import build_vertex_schema
+    from hangarllm.llms.vertex_ai.common_utils import build_vertex_schema
 
     # Input: Schema with empty properties (the problematic case from real request)
     input_schema = {
@@ -2544,7 +2544,7 @@ def test_add_object_type_schema_with_no_properties_and_no_type():
     Test that add_object_type adds type: object when schema has no properties and no type.
     Fixes issue where tools with no arguments (e.g. EnterPlanMode) fail on Gemini.
     """
-    from litellm.llms.vertex_ai.common_utils import add_object_type
+    from hangarllm.llms.vertex_ai.common_utils import add_object_type
 
     # Input: Schema with no properties and no type (the problematic case)
     input_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema"}
@@ -2563,7 +2563,7 @@ def test_add_object_type_does_not_override_existing_type():
     """
     Test add_object_type does not override existing type field.
     """
-    from litellm.llms.vertex_ai.common_utils import add_object_type
+    from hangarllm.llms.vertex_ai.common_utils import add_object_type
 
     # Input: Schema with existing type
     input_schema = {"type": "string", "description": "A string field"}
@@ -2579,7 +2579,7 @@ def test_add_object_type_does_not_add_type_when_anyof_present():
     """
     Test add_object_type does not add type: object when anyOf is present.
     """
-    from litellm.llms.vertex_ai.common_utils import add_object_type
+    from hangarllm.llms.vertex_ai.common_utils import add_object_type
 
     # Input: Schema with anyOf but no type
     input_schema = {"anyOf": [{"type": "string"}, {"type": "null"}]}
@@ -2591,54 +2591,54 @@ def test_add_object_type_does_not_add_type_when_anyof_present():
     assert "type" not in input_schema, "type should not be added when anyOf is present"
 
 
-def test_vertex_request_labels_from_litellm_params_extracts_requester_metadata():
-    assert vertex_request_labels_from_litellm_params(None) is None
-    assert vertex_request_labels_from_litellm_params({}) is None
-    assert vertex_request_labels_from_litellm_params({"metadata": None}) is None
+def test_vertex_request_labels_from_hangarllm_params_extracts_requester_metadata():
+    assert vertex_request_labels_from_hangarllm_params(None) is None
+    assert vertex_request_labels_from_hangarllm_params({}) is None
+    assert vertex_request_labels_from_hangarllm_params({"metadata": None}) is None
     lp = {"metadata": {"requester_metadata": {"team": "analytics", "count": 3}}}
-    assert vertex_request_labels_from_litellm_params(lp) == {"team": "analytics"}
+    assert vertex_request_labels_from_hangarllm_params(lp) == {"team": "analytics"}
 
 
-def test_vertex_request_labels_from_litellm_params_accepts_litellm_metadata():
-    lp = {"litellm_metadata": {"requester_metadata": {"team": "platform", "count": 3}}}
-    assert vertex_request_labels_from_litellm_params(lp) == {"team": "platform"}
+def test_vertex_request_labels_from_hangarllm_params_accepts_hangarllm_metadata():
+    lp = {"hangarllm_metadata": {"requester_metadata": {"team": "platform", "count": 3}}}
+    assert vertex_request_labels_from_hangarllm_params(lp) == {"team": "platform"}
 
 
-def test_vertex_request_labels_prefers_metadata_over_litellm_metadata():
+def test_vertex_request_labels_prefers_metadata_over_hangarllm_metadata():
     lp = {
         "metadata": {"requester_metadata": {"source": "metadata"}},
-        "litellm_metadata": {"requester_metadata": {"source": "litellm_metadata"}},
+        "hangarllm_metadata": {"requester_metadata": {"source": "hangarllm_metadata"}},
     }
-    assert vertex_request_labels_from_litellm_params(lp) == {"source": "metadata"}
+    assert vertex_request_labels_from_hangarllm_params(lp) == {"source": "metadata"}
 
 
 def test_pop_vertex_request_labels_prefers_explicit_labels_then_metadata():
     optional = {"labels": {"env": "prod"}}
-    litellm_params = {"metadata": {"requester_metadata": {"team": "x"}}}
-    assert pop_vertex_request_labels(optional, litellm_params) == {"env": "prod"}
+    hangarllm_params = {"metadata": {"requester_metadata": {"team": "x"}}}
+    assert pop_vertex_request_labels(optional, hangarllm_params) == {"env": "prod"}
     assert "labels" not in optional
 
     optional2: dict = {}
-    assert pop_vertex_request_labels(optional2, litellm_params) == {"team": "x"}
+    assert pop_vertex_request_labels(optional2, hangarllm_params) == {"team": "x"}
 
     optional3 = {"labels": {"team": 123}}
-    assert pop_vertex_request_labels(optional3, litellm_params) == {"team": "x"}
+    assert pop_vertex_request_labels(optional3, hangarllm_params) == {"team": "x"}
 
 
-def test_pop_vertex_request_labels_uses_litellm_metadata_when_metadata_absent():
+def test_pop_vertex_request_labels_uses_hangarllm_metadata_when_metadata_absent():
     optional: dict = {}
-    litellm_params = {"litellm_metadata": {"requester_metadata": {"team": "from_litellm_meta"}}}
-    assert pop_vertex_request_labels(optional, litellm_params) == {"team": "from_litellm_meta"}
+    hangarllm_params = {"hangarllm_metadata": {"requester_metadata": {"team": "from_hangarllm_meta"}}}
+    assert pop_vertex_request_labels(optional, hangarllm_params) == {"team": "from_hangarllm_meta"}
 
 
 def test_vertex_text_embedding_request_includes_labels_from_metadata():
-    import litellm
+    import hangarllm
 
-    req = litellm.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
+    req = hangarllm.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
         input="hi",
         optional_params={},
         model="text-embedding-004",
-        litellm_params={"metadata": {"requester_metadata": {"project_id": "cost-center-1"}}},
+        hangarllm_params={"metadata": {"requester_metadata": {"project_id": "cost-center-1"}}},
     )
     assert req.get("labels") == {"project_id": "cost-center-1"}
 
@@ -2653,7 +2653,7 @@ def test_vertex_text_embedding_request_includes_labels_from_metadata():
     ],
 )
 def test_get_vertex_ai_lyria_model_info_resolves_audio_api(model, expected_api):
-    from litellm.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
+    from hangarllm.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
 
     model_info = get_vertex_ai_lyria_model_info(model=model)
 
@@ -2663,7 +2663,7 @@ def test_get_vertex_ai_lyria_model_info_resolves_audio_api(model, expected_api):
 
 @pytest.mark.parametrize("model", ["en-US-Studio-O", "gemini-2.5-flash-preview-tts", "chirp-3-hd-charon"])
 def test_get_vertex_ai_lyria_model_info_is_none_for_non_lyria_speech_models(model):
-    from litellm.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
+    from hangarllm.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
 
     assert get_vertex_ai_lyria_model_info(model=model) is None
 
@@ -2707,10 +2707,10 @@ def test_convert_vertex_datetime_to_openai_datetime_is_the_utc_epoch_on_any_host
 async def test_vertex_ai_token_counter_routes_like_generate_content(
     base_model: str | None, vertex_counted_tokens: int | None
 ):
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from hangarllm.llms.vertex_ai.common_utils import VertexAITokenCounter
 
     with patch(
-        "litellm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens",
+        "hangarllm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens",
         new=AsyncMock(return_value={"totalTokens": 7}),
     ):
         result: Final = await VertexAITokenCounter().count_tokens(
@@ -2718,7 +2718,7 @@ async def test_vertex_ai_token_counter_routes_like_generate_content(
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "global",
                     **({} if base_model is None else {"base_model": base_model}),

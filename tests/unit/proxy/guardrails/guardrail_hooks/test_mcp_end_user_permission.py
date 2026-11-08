@@ -7,12 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.mcp_end_user_permission import (
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.mcp_end_user_permission import (
     MCPEndUserPermissionGuardrail,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Function,
@@ -71,7 +71,7 @@ class TestMCPEndUserPermissionGuardrail:
     @pytest.mark.asyncio
     async def test_apply_guardrail_with_authorized_tools(self):
         """Test guardrail when end user has access to MCP servers"""
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
         guardrail = MCPEndUserPermissionGuardrail()
 
@@ -109,7 +109,7 @@ class TestMCPEndUserPermissionGuardrail:
             MCPEndUserPermissionGuardrail,
             "_fetch_end_user_object",
             return_value=MagicMock(
-                object_permission=LiteLLM_ObjectPermissionTable(
+                object_permission=HangarLLM_ObjectPermissionTable(
                     object_permission_id="perm-1",
                     mcp_servers=["github", "slack"],
                 )
@@ -127,7 +127,7 @@ class TestMCPEndUserPermissionGuardrail:
     @pytest.mark.asyncio
     async def test_apply_guardrail_with_unauthorized_tools(self):
         """Test guardrail filters out unauthorized MCP tools"""
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
         guardrail = MCPEndUserPermissionGuardrail()
 
@@ -165,7 +165,7 @@ class TestMCPEndUserPermissionGuardrail:
             MCPEndUserPermissionGuardrail,
             "_fetch_end_user_object",
             return_value=MagicMock(
-                object_permission=LiteLLM_ObjectPermissionTable(
+                object_permission=HangarLLM_ObjectPermissionTable(
                     object_permission_id="perm-1",
                     mcp_servers=["slack", "jira"],
                 )
@@ -223,7 +223,7 @@ class TestMCPEndUserPermissionGuardrail:
     @pytest.mark.asyncio
     async def test_apply_guardrail_with_non_mcp_tools(self):
         """Test guardrail passes through non-MCP tools"""
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
         guardrail = MCPEndUserPermissionGuardrail()
 
@@ -254,7 +254,7 @@ class TestMCPEndUserPermissionGuardrail:
             MCPEndUserPermissionGuardrail,
             "_fetch_end_user_object",
             return_value=MagicMock(
-                object_permission=LiteLLM_ObjectPermissionTable(
+                object_permission=HangarLLM_ObjectPermissionTable(
                     object_permission_id="perm-1",
                     mcp_servers=["github"],
                 )
@@ -273,7 +273,7 @@ class TestMCPEndUserPermissionGuardrail:
     @pytest.mark.asyncio
     async def test_apply_guardrail_with_mixed_tools(self):
         """Test guardrail with both MCP and non-MCP tools"""
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
         guardrail = MCPEndUserPermissionGuardrail()
 
@@ -311,7 +311,7 @@ class TestMCPEndUserPermissionGuardrail:
             MCPEndUserPermissionGuardrail,
             "_fetch_end_user_object",
             return_value=MagicMock(
-                object_permission=LiteLLM_ObjectPermissionTable(
+                object_permission=HangarLLM_ObjectPermissionTable(
                     object_permission_id="perm-1",
                     mcp_servers=["slack"],
                 )

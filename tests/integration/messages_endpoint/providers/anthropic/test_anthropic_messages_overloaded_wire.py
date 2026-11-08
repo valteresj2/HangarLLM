@@ -160,7 +160,7 @@ def _spend_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
             "SELECT status, metadata->'error_information'->>'error_code' AS code, "
             "metadata->'error_information'->>'error_class' AS error_class, "
             "metadata->'error_information'->>'normalized_error' AS normalized_error "
-            'FROM "LiteLLM_SpendLogs" WHERE model_group=%s',
+            'FROM "HangarLLM_SpendLogs" WHERE model_group=%s',
             (model,),
         ),
         lambda rows: len(rows) >= expected,
@@ -556,7 +556,7 @@ def _failure_rows_of(models: tuple[str, str], expected: int) -> list[dict[str, J
             "SELECT metadata->'error_information'->>'error_code' AS code, "
             "metadata->'error_information'->>'error_class' AS error_class, "
             "metadata->'error_information'->>'normalized_error' AS normalized_error "
-            'FROM "LiteLLM_SpendLogs" WHERE status = %s AND model_group IN (%s, %s)',
+            'FROM "HangarLLM_SpendLogs" WHERE status = %s AND model_group IN (%s, %s)',
             ("failure", *models),
         ),
         lambda rows: len(rows) >= expected,

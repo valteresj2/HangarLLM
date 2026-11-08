@@ -10,8 +10,8 @@ from integration.translation.templates.openai import (
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "openai/responses/gpt-5.6-sol",
         "max_tokens": 64,
         "messages": [
@@ -92,7 +92,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "resp_0c11adb5b3fcca34006ac3f043a44087d0ba76b3b869764314",
         "created": ANY,
         "model": "openai/responses/gpt-5.6-sol",
@@ -135,8 +135,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/responses/gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "openai/responses/gpt-6.1-sol"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -231,7 +231,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 478,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "openai/responses/gpt-6.1-sol",
         "id": "resp_0e8134ce088f63e7006ad023a2e5b887d0a0f422419e0bfbe7",

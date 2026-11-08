@@ -42,8 +42,8 @@ from starlette.types import Lifespan
 
 from tests._master_key import MASTER_KEY
 
-# Importing ``litellm.proxy.proxy_server`` runs its module-level setup, which
-# reads ``DATABASE_URL`` (Prisma) and ``LITELLM_MASTER_KEY``. Tier-zero CI
+# Importing ``hangarllm.proxy.proxy_server`` runs its module-level setup, which
+# reads ``DATABASE_URL`` (Prisma) and ``HANGARLLM_MASTER_KEY``. Tier-zero CI
 # runners don't set these. We pin throwaway values before the import so the
 # test never depends on a live database or master key, then restore the prior
 # environment so the throwaway values don't leak into sibling tests sharing the
@@ -51,7 +51,7 @@ from tests._master_key import MASTER_KEY
 # treat a phantom database as available instead of skipping).
 _THROWAWAY_ENV = {
     "DATABASE_URL": "sqlite:///:memory:",
-    "LITELLM_MASTER_KEY": MASTER_KEY,
+    "HANGARLLM_MASTER_KEY": MASTER_KEY,
 }
 _PRE_EXISTING_ENV = {key: os.environ.get(key) for key in _THROWAWAY_ENV}
 for _key, _value in _THROWAWAY_ENV.items():
@@ -59,20 +59,20 @@ for _key, _value in _THROWAWAY_ENV.items():
 
 from prometheus_client import CollectorRegistry, Counter, make_asgi_app
 
-# gateway/ and backend/ live at the repo root, not inside litellm/.
+# gateway/ and backend/ live at the repo root, not inside hangarllm/.
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from backend.routes.allowlist import BACKEND_MOUNT_PATHS
 from gateway.routes.allowlist import GATEWAY_MOUNT_PATHS
-from litellm.proxy import tracing_endpoints
-from litellm.proxy._lazy_features import LazyFeature, attach_lazy_features
-from litellm.proxy.auth.authorization_dependencies import get_log_team_lookup
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.proxy_server import app
-from litellm.integrations.prometheus_metrics_endpoint import make_metrics_asgi_app
-from tests.test_litellm_rust.support.child_interpreter import run_child_interpreter
+from hangarllm.proxy import tracing_endpoints
+from hangarllm.proxy._lazy_features import LazyFeature, attach_lazy_features
+from hangarllm.proxy.auth.authorization_dependencies import get_log_team_lookup
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.proxy_server import app
+from hangarllm.integrations.prometheus_metrics_endpoint import make_metrics_asgi_app
+from tests.test_hangarllm_rust.support.child_interpreter import run_child_interpreter
 
 for _key, _previous in _PRE_EXISTING_ENV.items():
     if _previous is None:
@@ -105,12 +105,12 @@ for _key, _previous in _PRE_DB_ENV.items():
 
 _COVERAGE_PROBE: Final = """
 import json, os, sys
-sys.path.insert(0, os.environ["LITELLM_COMPONENT_ALLOWLIST_REPO_ROOT"])
+sys.path.insert(0, os.environ["HANGARLLM_COMPONENT_ALLOWLIST_REPO_ROOT"])
 from starlette.routing import Mount
 from backend.routes.allowlist import BACKEND_EXACT_PATHS, BACKEND_PATH_PREFIXES
 from gateway.routes.allowlist import GATEWAY_EXACT_PATHS, GATEWAY_PATH_PREFIXES
-from litellm.proxy._lazy_features import loaded_lazy_modules
-from litellm.proxy.proxy_server import app
+from hangarllm.proxy._lazy_features import loaded_lazy_modules
+from hangarllm.proxy.proxy_server import app
 
 all_paths = {
     r.path for r in app.router.routes
@@ -144,7 +144,7 @@ def test_composed_lifespan_preserves_request_state_and_teardown(
     eager: bool,
     state_kind: Literal["enabled", "disabled", "stateless"],
 ) -> None:
-    monkeypatch.setenv("LITELLM_DISABLE_LAZY_ROUTES", str(eager).lower())
+    monkeypatch.setenv("HANGARLLM_DISABLE_LAZY_ROUTES", str(eager).lower())
     receiver: Final = object()
     resource: Final = object()
     state: Final[Mapping[str, object]] = {
@@ -203,7 +203,7 @@ def test_composed_lifespan_preserves_request_state_and_teardown(
 def test_composed_lifespan_propagates_lifecycle_failures(
     monkeypatch: pytest.MonkeyPatch, component_lifespan: Lifespan[Starlette] | None, eager: bool, phase: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_DISABLE_LAZY_ROUTES", str(eager).lower())
+    monkeypatch.setenv("HANGARLLM_DISABLE_LAZY_ROUTES", str(eager).lower())
     failure: Final = RuntimeError(f"{phase} failed")
     events: Final[list[str]] = []  # mutable-ok: observe lifecycle events across the ASGI boundary
 
@@ -266,7 +266,7 @@ def test_gateway_plus_backend_covers_full_app():
     route table deterministic; nothing is subtracted, so every route the trim
     will actually see stays in the assertion.
     """
-    env: Final = {**os.environ, "LITELLM_COMPONENT_ALLOWLIST_REPO_ROOT": _REPO_ROOT}
+    env: Final = {**os.environ, "HANGARLLM_COMPONENT_ALLOWLIST_REPO_ROOT": _REPO_ROOT}
     for key, value in _THROWAWAY_ENV.items():
         env.setdefault(key, value)
 
@@ -343,7 +343,7 @@ def test_gateway_mount_paths_defined():
 def test_gateway_trim_keeps_metrics_mount():
     """The Prometheus /metrics Mount must survive the gateway route trim.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/30291:
+    Regression test for upstream issue 30291
     ``_is_gateway_route`` used to reject every Mount before the allowlist
     check, so the /metrics Mount registered by
     ``PrometheusLogger._mount_metrics_endpoint()`` was dropped at startup and
@@ -359,7 +359,7 @@ def test_gateway_trim_keeps_metrics_mount():
 @pytest.mark.parametrize("enabled", (False, True))
 def test_backend_serves_metrics_after_startup_when_enabled(enabled: bool) -> None:
     registry: Final = CollectorRegistry()
-    failures: Final = Counter("litellm_postgres_failed_requests", "Failed database requests", registry=registry)
+    failures: Final = Counter("hangarllm_postgres_failed_requests", "Failed database requests", registry=registry)
     failures.inc(2)
 
     @asynccontextmanager
@@ -373,12 +373,12 @@ def test_backend_serves_metrics_after_startup_when_enabled(enabled: bool) -> Non
         response: Final = client.get("/metrics")
         assert response.status_code == (200 if enabled else 404), response.text
         if enabled:
-            assert "litellm_postgres_failed_requests_total 2.0\n" in response.text
+            assert "hangarllm_postgres_failed_requests_total 2.0\n" in response.text
 
 
 def test_gateway_drops_ui_and_swagger_mounts():
     """UI static and swagger Mounts must still be trimmed from the gateway."""
-    for path in ("/ui", "/_next", "/litellm-asset-prefix/_next", "/swagger"):
+    for path in ("/ui", "/_next", "/hangarllm-asset-prefix/_next", "/swagger"):
         assert not _is_gateway_route(Mount(path, app=make_asgi_app())), \
             f"Mount {path} must not be served by the gateway"
 
@@ -422,7 +422,7 @@ def test_every_app_mount_is_assigned_to_a_component():
     a componentized deployment, which is exactly how the /metrics Mount was
     silently dropped.
     """
-    ui_served_prefixes = ("/ui", "/_next", "/litellm-asset-prefix")
+    ui_served_prefixes = ("/ui", "/_next", "/hangarllm-asset-prefix")
     mounts = [*app.router.routes, Mount("/metrics", app=make_asgi_app())]
     unassigned = {
         path
@@ -448,14 +448,14 @@ def test_every_app_mount_is_assigned_to_a_component():
 def test_admin_mcp_survives_only_management_component_lifespans(
     monkeypatch: pytest.MonkeyPatch, component_lifespan: Lifespan[Starlette] | None, enabled: bool
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.admin_mcp import admin_mcp_lifespan
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.admin_mcp import admin_mcp_lifespan
 
     monkeypatch.setattr(proxy_server, "premium_user", True)
-    monkeypatch.setenv("LITELLM_ENABLE_ADMIN_MCP", str(enabled).lower())
+    monkeypatch.setenv("HANGARLLM_ENABLE_ADMIN_MCP", str(enabled).lower())
     for name in (
-        "PROXY_BASE_URL", "LITELLM_MCP_PUBLIC_URL", "LITELLM_ADMIN_TOOLS", "LITELLM_ADMIN_READ_ONLY",
-        "LITELLM_ADMIN_RESPONSE_VIEW", "LITELLM_ADMIN_SCHEMA_MODE",
+        "PROXY_BASE_URL", "HANGARLLM_MCP_PUBLIC_URL", "HANGARLLM_ADMIN_TOOLS", "HANGARLLM_ADMIN_READ_ONLY",
+        "HANGARLLM_ADMIN_RESPONSE_VIEW", "HANGARLLM_ADMIN_SCHEMA_MODE",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -491,4 +491,4 @@ def test_admin_mcp_survives_only_management_component_lifespans(
             expected_status: Final = 200 if enabled and component_lifespan is not _gateway_lifespan else 404
             assert response.status_code == expected_status, response.text
             if response.status_code == 200:
-                assert response.json()["result"]["serverInfo"]["name"] == "litellm-admin-mcp"
+                assert response.json()["result"]["serverInfo"]["name"] == "hangarllm-admin-mcp"

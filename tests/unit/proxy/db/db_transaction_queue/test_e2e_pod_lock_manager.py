@@ -1,6 +1,6 @@
 import os
 import traceback
-from litellm._uuid import uuid
+from hangarllm._uuid import uuid
 from typing import List
 from datetime import datetime, timezone, timedelta
 
@@ -16,20 +16,20 @@ import io
 import time
 import fakeredis
 
-# this file is to test litellm/proxy
+# this file is to test hangarllm/proxy
 
 import asyncio
 
 import pytest
-from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-import litellm
-from litellm.proxy.management_endpoints.internal_user_endpoints import (
+from hangarllm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+import hangarllm
+from hangarllm.proxy.management_endpoints.internal_user_endpoints import (
     new_user,
     user_info,
     user_update,
 )
-from litellm.proxy.auth.auth_checks import get_key_object
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from hangarllm.proxy.auth.auth_checks import get_key_object
+from hangarllm.proxy.management_endpoints.key_management_endpoints import (
     delete_key_fn,
     generate_key_fn,
     generate_key_helper_fn,
@@ -38,13 +38,13 @@ from litellm.proxy.management_endpoints.key_management_endpoints import (
     regenerate_key_fn,
     update_key_fn,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from hangarllm.proxy.management_endpoints.team_endpoints import (
     new_team,
     team_info,
     update_team,
 )
-from litellm.proxy.proxy_server import (
-    LitellmUserRoles,
+from hangarllm.proxy.proxy_server import (
+    HangarllmUserRoles,
     audio_transcriptions,
     chat_completion,
     completion,
@@ -53,25 +53,25 @@ from litellm.proxy.proxy_server import (
     moderations,
     user_api_key_auth,
 )
-from litellm.proxy.management_endpoints.customer_endpoints import (
+from hangarllm.proxy.management_endpoints.customer_endpoints import (
     new_end_user,
 )
-from litellm.proxy.spend_tracking.spend_management_endpoints import (
+from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
     global_spend,
     spend_key_fn,
     spend_user_fn,
     view_spend_logs,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
 
 
 from starlette.datastructures import URL
 
-from litellm.caching.caching import DualCache, RedisCache
-from litellm.types.proxy.management_endpoints.ui_sso import (
-    LiteLLM_UpperboundKeyGenerateParams,
+from hangarllm.caching.caching import DualCache, RedisCache
+from hangarllm.types.proxy.management_endpoints.ui_sso import (
+    HangarLLM_UpperboundKeyGenerateParams,
 )
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     DynamoDBArgs,
     GenerateKeyRequest,
     KeyRequest,
@@ -100,7 +100,7 @@ request_data = {
 
 @pytest.fixture
 def prisma_client():
-    from litellm.proxy.proxy_cli import append_query_params
+    from hangarllm.proxy.proxy_cli import append_query_params
 
     ### add connection pool + pool timeout args
     params = {"connection_limit": 100, "pool_timeout": 60}
@@ -113,19 +113,19 @@ def prisma_client():
         database_url=os.environ["DATABASE_URL"], proxy_logging_obj=proxy_logging_obj
     )
 
-    # Reset litellm.proxy.proxy_server.prisma_client to None
-    litellm.proxy.proxy_server.litellm_proxy_budget_name = (
-        f"litellm-proxy-budget-{time.time()}"
+    # Reset hangarllm.proxy.proxy_server.prisma_client to None
+    hangarllm.proxy.proxy_server.hangarllm_proxy_budget_name = (
+        f"hangarllm-proxy-budget-{time.time()}"
     )
-    litellm.proxy.proxy_server.user_custom_key_generate = None
+    hangarllm.proxy.proxy_server.user_custom_key_generate = None
 
     return prisma_client
 
 
 async def setup_db_connection(prisma_client):
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
 
 @pytest.mark.skip(reason="Requires Redis connection.")
@@ -378,10 +378,10 @@ async def test_e2e_size_of_redis_buffer():
 
     Goal of this is to ensure Redis does not blow up in size
     """
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-    from litellm.proxy.db.db_transaction_queue.base_update_queue import BaseUpdateQueue
-    from litellm.caching import RedisCache
-    from litellm._uuid import uuid
+    from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from hangarllm.proxy.db.db_transaction_queue.base_update_queue import BaseUpdateQueue
+    from hangarllm.caching import RedisCache
+    from hangarllm._uuid import uuid
 
     redis_cache = RedisCache(
         host=os.getenv("REDIS_HOST"),
@@ -391,7 +391,7 @@ async def test_e2e_size_of_redis_buffer():
     fake_redis_client = fakeredis.FakeAsyncRedis()
     redis_cache.redis_async_client = fake_redis_client
 
-    setattr(litellm.proxy.proxy_server, "use_redis_transaction_buffer", True)
+    setattr(hangarllm.proxy.proxy_server, "use_redis_transaction_buffer", True)
     db_writer = DBSpendUpdateWriter(redis_cache=redis_cache)
 
     # get all the queues
@@ -437,7 +437,7 @@ async def test_e2e_size_of_redis_buffer():
 
     # flush from in-memory -> redis -> to DB
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.PodLockManager.acquire_lock",
+        "hangarllm.proxy.db.db_spend_update_writer.PodLockManager.acquire_lock",
         return_value=True,
     ):
         await db_writer._commit_spend_updates_to_db_with_redis(

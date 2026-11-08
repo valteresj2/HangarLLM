@@ -11,13 +11,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
-from litellm.responses.main import _resolve_responses_api_provider_config
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.utils import ModelResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
+from hangarllm.responses.main import _resolve_responses_api_provider_config
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.utils import ModelResponse
 
 API_BASE = "https://backend.example/v1"
 RESPONSES_URL = f"{API_BASE}/responses"
@@ -74,7 +74,7 @@ def _prompt_manager_swapping_to(model: str) -> MagicMock:
     """A logging object whose prompt hook rewrites the request's model, as a prompt manager does."""
     prompt_return = (model, [{"role": "user", "content": "hi"}], {})
     logging_obj = MagicMock()
-    logging_obj.__class__ = LiteLLMLoggingObj
+    logging_obj.__class__ = HangarLLMLoggingObj
     logging_obj.should_run_prompt_management_hooks.return_value = True
     logging_obj.get_chat_completion_prompt.return_value = prompt_return
     logging_obj.async_get_chat_completion_prompt = AsyncMock(return_value=prompt_return)
@@ -97,11 +97,11 @@ def _mock_swap_targets(router: respx.MockRouter, monkeypatch) -> tuple[respx.Rou
 
 @pytest.fixture(autouse=True)
 def _respx_interceptable_httpx_client(monkeypatch):
-    monkeypatch.setattr(litellm, "num_retries", 0)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "num_retries", 0)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.parametrize(
@@ -129,7 +129,7 @@ def test_resolver_keeps_native_provider_config():
 async def test_opt_in_forwards_responses_natively():
     responses_route, chat_route = _mock_backend(respx.mock)
 
-    result = await litellm.aresponses(
+    result = await hangarllm.aresponses(
         model="custom_openai/my-model",
         input="hi",
         api_base=API_BASE,
@@ -148,15 +148,15 @@ async def test_opt_in_forwards_responses_natively():
 
 @respx.mock
 async def test_opt_in_forwards_streaming_responses_natively(monkeypatch):
-    """The router registers each deployment in `litellm.model_cost`; an unregistered model is
+    """The router registers each deployment in `hangarllm.model_cost`; an unregistered model is
     treated as non-streaming and would be faked, so mirror that registration here."""
-    monkeypatch.setitem(litellm.model_cost, "custom_openai/my-model", {"litellm_provider": "custom_openai"})
+    monkeypatch.setitem(hangarllm.model_cost, "custom_openai/my-model", {"hangarllm_provider": "custom_openai"})
     responses_route = respx.post(RESPONSES_URL).mock(
         return_value=httpx.Response(200, text=SSE_BODY, headers={"content-type": "text/event-stream"})
     )
     chat_route = respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=CHAT_BODY))
 
-    stream = await litellm.aresponses(
+    stream = await hangarllm.aresponses(
         model="custom_openai/my-model",
         input="hi",
         stream=True,
@@ -176,7 +176,7 @@ async def test_opt_in_forwards_streaming_responses_natively(monkeypatch):
 async def test_without_opt_in_still_bridges_through_chat_completions():
     responses_route, chat_route = _mock_backend(respx.mock)
 
-    result = await litellm.aresponses(
+    result = await hangarllm.aresponses(
         model="custom_openai/my-model",
         input="hi",
         api_base=API_BASE,
@@ -196,11 +196,11 @@ async def test_prompt_swap_to_other_provider_drops_deployment_opt_in(monkeypatch
     `supported_endpoints` no longer describes the upstream, so the swapped provider bridges."""
     swapped_chat_route, stale_responses_route = _mock_swap_targets(respx.mock, monkeypatch)
 
-    result = await litellm.aresponses(
+    result = await hangarllm.aresponses(
         model="custom_openai/my-model",
         input="hi",
         prompt_id="p1",
-        litellm_logging_obj=_prompt_manager_swapping_to(SWAPPED_MODEL),
+        hangarllm_logging_obj=_prompt_manager_swapping_to(SWAPPED_MODEL),
         model_info=OPT_IN,
     )
 
@@ -214,11 +214,11 @@ async def test_prompt_swap_to_other_provider_drops_deployment_opt_in(monkeypatch
 def test_sync_prompt_swap_to_other_provider_drops_deployment_opt_in(monkeypatch):
     swapped_chat_route, stale_responses_route = _mock_swap_targets(respx.mock, monkeypatch)
 
-    result = litellm.responses(
+    result = hangarllm.responses(
         model="custom_openai/my-model",
         input="hi",
         prompt_id="p1",
-        litellm_logging_obj=_prompt_manager_swapping_to(SWAPPED_MODEL),
+        hangarllm_logging_obj=_prompt_manager_swapping_to(SWAPPED_MODEL),
         model_info=OPT_IN,
     )
 
@@ -235,12 +235,12 @@ async def test_mode_responses_chat_completion_reaches_native_responses(monkeypat
     to `/chat/completions`."""
     responses_route, chat_route = _mock_backend(respx.mock)
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "custom_openai/my-model",
-        {"mode": "responses", "litellm_provider": "custom_openai"},
+        {"mode": "responses", "hangarllm_provider": "custom_openai"},
     )
 
-    result = await litellm.acompletion(
+    result = await hangarllm.acompletion(
         model="custom_openai/my-model",
         messages=[{"role": "user", "content": "hi"}],
         api_base=API_BASE,

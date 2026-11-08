@@ -69,7 +69,7 @@ def _deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": f"anthropic/{backend}", "api_base": api_base, "api_key": _PROVIDER_KEY, **params},
+        "hangarllm_params": {"model": f"anthropic/{backend}", "api_base": api_base, "api_key": _PROVIDER_KEY, **params},
         "model_info": dict(model_info or {}),
     }
 
@@ -113,7 +113,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
                 _deployment(_ITPM, "claude-sonnet-4-6", wire.url, itpm=_LIMIT),
                 _deployment(_BUDGET, "claude-opus-4-8", held.url),
             ],
-            litellm_settings={"cache": False},
+            hangarllm_settings={"cache": False},
             router_settings={
                 "enable_pre_call_checks": True,
                 "optional_pre_call_checks": ["enforce_model_rate_limits"],
@@ -128,7 +128,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
 
 def _spend_row(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s', (call_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -203,7 +203,7 @@ def test_a_pre_call_rejection_logs_one_failure_row_and_calls_no_upstream(rig: _R
     path, body = _request("messages", _WINDOW, _PAGE_COUNT, _marker())
     response: Final = rig.owned.gateway.request("POST", path, body)
     assert response.status_code == 400, (response.status_code, response.text)
-    assert _spend_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+    assert _spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"
     assert rig.wire.drain() == ()
 
 
@@ -249,7 +249,7 @@ def test_prompt_caching_affinity_pins_follow_ups_of_a_cached_turn_that_carries_a
                 _deployment(_AFFINITY, "claude-opus-5-5", left.url, model_info={"id": f"pdf-left-{session}"}),
                 _deployment(_AFFINITY, "claude-opus-5-5", right.url, model_info={"id": f"pdf-right-{session}"}),
             ],
-            litellm_settings={"cache": False},
+            hangarllm_settings={"cache": False},
             router_settings={
                 "optional_pre_call_checks": ["prompt_caching"],
                 "redis_host": os.environ["REDIS_HOST"],

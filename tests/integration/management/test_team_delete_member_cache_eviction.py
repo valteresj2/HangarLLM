@@ -36,7 +36,7 @@ from tests.integration._support.database import read_rows, write_rows
 from tests.integration._support.wire import Reply, Request, wire_server
 
 _USAGE: Final = {"prompt_tokens": 11, "completion_tokens": 4, "total_tokens": 15}
-_CACHE_KEY_HEADER: Final = "x-litellm-cache-key"
+_CACHE_KEY_HEADER: Final = "x-hangarllm-cache-key"
 _GROUP_SCHEMA: Final = "urn:ietf:params:scim:schemas:core:2.0:Group"
 _PATCH_OP_SCHEMA: Final = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
 
@@ -62,7 +62,7 @@ def _warmed_user(cache: Redis, user_id: str) -> dict[str, JsonValue]:
 
 
 def _delete_team_if_present(gateway: Gateway, team_id: str) -> None:
-    if read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,)):
+    if read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,)):
         gateway.post("/team/delete", {"team_ids": [team_id]})
 
 
@@ -85,7 +85,7 @@ def _team_key(gateway: Gateway, scenario: Scenario, team_id: str, model: str) ->
 def _delete_team(gateway: Gateway, team_id: str) -> None:
     deleted: Final = gateway.post("/team/delete", {"team_ids": [team_id]})
     assert deleted == {"deleted_teams": [team_id]}, deleted
-    assert read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,)) == []
+    assert read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,)) == []
 
 
 def _chat_body(model: str, text: str, stream: bool = False) -> dict[str, JsonValue]:
@@ -116,10 +116,10 @@ def test_team_delete_evicts_legacy_email_only_member_from_redis(gateway: Gateway
         roster_email: Final = email if roster_case == "exact" else email.lower()
         assert (roster_email == email) is (roster_case == "exact"), (email, roster_email)
         write_rows(
-            'UPDATE "LiteLLM_TeamTable" SET members_with_roles = %s::jsonb WHERE team_id = %s',
+            'UPDATE "HangarLLM_TeamTable" SET members_with_roles = %s::jsonb WHERE team_id = %s',
             (json.dumps([{"role": "user", "user_id": None, "user_email": roster_email}]), team),
         )
-        write_rows('UPDATE "LiteLLM_UserTable" SET teams = array_append(teams, %s) WHERE user_id = %s', (team, user))
+        write_rows('UPDATE "HangarLLM_UserTable" SET teams = array_append(teams, %s) WHERE user_id = %s', (team, user))
         warm: Final = _chat(gateway, model, key, "warm legacy member " + uuid.uuid4().hex)
         assert warm.status_code == 200, warm.text
         warmed: Final = _warmed_user(cache, user)
@@ -128,7 +128,7 @@ def test_team_delete_evicts_legacy_email_only_member_from_redis(gateway: Gateway
         _delete_team(gateway, team)
 
         eventually(lambda: _cached_user(cache, user), lambda cached: cached is None, seconds=10)
-        rows: Final = read_rows('SELECT teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,))
+        rows: Final = read_rows('SELECT teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,))
         assert rows == [{"teams": []}], rows
 
 

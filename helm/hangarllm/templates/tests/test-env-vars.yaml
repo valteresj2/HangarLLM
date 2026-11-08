@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "litellm.fullname" . }}-env-test"
+  name: "{{ include "hangarllm.fullname" . }}-env-test"
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
@@ -21,8 +21,8 @@ spec:
           echo "✅ Environment variable DD_ENV matches expected value: $DD_ENV"
           
           # Test DD_SERVICE
-          if [ "$DD_SERVICE" != "litellm" ]; then
-            echo "❌ Environment variable DD_SERVICE mismatch. Expected: litellm, Got: $DD_SERVICE"
+          if [ "$DD_SERVICE" != "hangarllm" ]; then
+            echo "❌ Environment variable DD_SERVICE mismatch. Expected: hangarllm, Got: $DD_SERVICE"
             exit 1
           fi
           echo "✅ Environment variable DD_SERVICE matches expected value: $DD_SERVICE"

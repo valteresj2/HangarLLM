@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Fail CI on SQL `IN (...)` lists whose length nothing bounds (Postgres caps a statement at 32,767 binds).
 
-Reported under litellm/ and enterprise/: a Prisma `"in"` / `"not_in"` filter over a value with no
+Reported under hangarllm/ and enterprise/: a Prisma `"in"` / `"not_in"` filter over a value with no
 fixed size, and a raw-SQL `IN (` followed by a value spliced in at runtime. Chunk an `in` list with
-`litellm.repositories.chunked_in`, pass raw SQL one array parameter, or record a real bound with
+`hangarllm.repositories.chunked_in`, pass raw SQL one array parameter, or record a real bound with
 `# bounded-ok: <reason>` on the reported line or the line above.
 
 Existing findings live in `unbounded_in_baseline.txt`, keyed without line numbers. A finding the
@@ -27,9 +27,9 @@ from pathlib import Path
 from typing import Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
-DEFAULT_TARGETS: Final = ("litellm", "enterprise")
+DEFAULT_TARGETS: Final = ("hangarllm", "enterprise")
 DEFAULT_BASELINE: Final = Path(__file__).resolve().with_name("unbounded_in_baseline.txt")
-EXEMPT_PATHS: Final = frozenset({"litellm/repositories/chunked_in.py"})
+EXEMPT_PATHS: Final = frozenset({"hangarllm/repositories/chunked_in.py"})
 MODULE_SCOPE: Final = "<module>"
 BASELINE_HEADER: Final = (
     "# Grandfathered findings of check_unbounded_in_lists.py: path::scope::kind::subject::occurrence.\n"
@@ -257,7 +257,7 @@ def _typed_dict_field_maps(tree: ast.AST) -> frozenset[int]:
 def _prisma_advice(key: str) -> str:
     if key == "in":
         return (
-            "Chunk it with `litellm.repositories.chunked_in` (find_many_in / count_in / update_many_in / "
+            "Chunk it with `hangarllm.repositories.chunked_in` (find_many_in / count_in / update_many_in / "
             "delete_many_in)"
         )
     return "A negated list cannot be chunked: use `<> ALL($1::text[])` in raw SQL or a relation filter"

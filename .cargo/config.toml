@@ -7,7 +7,7 @@ multiplexing = false
 [net]
 retry = 5
 
-# PyO3 cdylib (`litellm-python-bridge`) links against the host interpreter's
+# PyO3 cdylib (`hangarllm-python-bridge`) links against the host interpreter's
 # symbols, which are not present at link time when building an extension module.
 # On macOS, tell the linker to resolve undefined `_Py*` symbols dynamically at
 # load time (the standard pyo3 extension-module flag) so the cdylib links without

@@ -47,10 +47,10 @@ from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 INTERNAL_FIELDS: Final = frozenset(
     {
-        "litellm_params",
-        "litellm_logging_obj",
-        "litellm_call_id",
-        "litellm_metadata",
+        "hangarllm_params",
+        "hangarllm_logging_obj",
+        "hangarllm_call_id",
+        "hangarllm_metadata",
         "proxy_server_request",
         "rpm",
         "tpm",

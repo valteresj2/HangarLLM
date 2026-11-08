@@ -11,16 +11,16 @@ load_dotenv()
 
 import pytest
 
-import litellm
+import hangarllm
 from unittest.mock import MagicMock, patch
 
 
-from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
+from hangarllm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
 
 def test_process_gemini_media_gcs_explicit_format_octet_stream_and_alias():
     """Explicit format bypasses registry; image/jpg alias still applies."""
-    from litellm.types.llms.vertex_ai import FileDataType
+    from hangarllm.types.llms.vertex_ai import FileDataType
 
     r1 = _process_gemini_media(
         "gs://bucket/object-no-ext",
@@ -39,17 +39,17 @@ def test_process_gemini_media_gcs_explicit_format_octet_stream_and_alias():
 
 def test_process_gemini_media_gcs_without_extension_errors_and_metadata_mock():
     with patch(
-        "litellm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
+        "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
         return_value=None,
     ):
-        with pytest.raises(litellm.BadRequestError) as exc:
+        with pytest.raises(hangarllm.BadRequestError) as exc:
             _process_gemini_media("gs://bucket/image-without-extension")
     assert "Unable to determine mime type for gs URI" in str(exc.value)
 
-    from litellm.types.llms.vertex_ai import FileDataType
+    from hangarllm.types.llms.vertex_ai import FileDataType
 
     with patch(
-        "litellm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
+        "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
         return_value="image/jpeg",
     ) as m:
         r = _process_gemini_media("gs://bucket/image-without-extension")
@@ -59,7 +59,7 @@ def test_process_gemini_media_gcs_without_extension_errors_and_metadata_mock():
     m.assert_called()
 
     with patch(
-        "litellm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
+        "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
         return_value="image/jpg",
     ):
         r_alias = _process_gemini_media("gs://bucket/image-without-extension")
@@ -69,21 +69,21 @@ def test_process_gemini_media_gcs_without_extension_errors_and_metadata_mock():
 def test_process_gemini_media_rejects_gcs_metadata_mime_not_supported_by_gemini():
     """Non-empty GCS contentType that fails _normalize_and_validate_gemini_mime_type."""
     with patch(
-        "litellm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
-        return_value="application/x-litellm-unit-test-unknown-mime",
+        "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_object_content_type",
+        return_value="application/x-hangarllm-unit-test-unknown-mime",
     ):
         with pytest.raises(
-            litellm.BadRequestError,
+            hangarllm.BadRequestError,
             match="File type not supported by gemini",
         ):
             _process_gemini_media("gs://bucket/object-without-extension")
 
 
 def test_file_block_uses_mime_type_alias_for_extensionless_gcs():
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
-    from litellm.types.llms.vertex_ai import FileDataType
+    from hangarllm.types.llms.vertex_ai import FileDataType
 
     messages = [
         {
@@ -124,13 +124,13 @@ def test_file_block_uses_mime_type_alias_for_extensionless_gcs():
     ],
 )
 def test_is_valid_gcs_bucket_name_matrix(bucket, expected):
-    from litellm.llms.vertex_ai.gemini.transformation import _is_valid_gcs_bucket_name
+    from hangarllm.llms.vertex_ai.gemini.transformation import _is_valid_gcs_bucket_name
 
     assert _is_valid_gcs_bucket_name(bucket) is expected
 
 
 def test_get_gcs_object_content_type_explicit_vertex_success_and_token_failure():
-    from litellm.llms.vertex_ai.gemini import transformation as gt
+    from hangarllm.llms.vertex_ai.gemini import transformation as gt
 
     mock_v = MagicMock()
     mock_v.get_access_token.return_value = ("test-token", "test-project")
@@ -144,7 +144,7 @@ def test_get_gcs_object_content_type_explicit_vertex_success_and_token_failure()
     with (
         patch.object(gt, "_GCS_METADATA_VERTEX_BASE", mock_v),
         patch(
-            "litellm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
+            "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
             return_value=http,
         ),
     ):
@@ -165,7 +165,7 @@ def test_get_gcs_object_content_type_explicit_vertex_success_and_token_failure()
     mock_v2.get_access_token.side_effect = Exception("token failure")
     with patch.object(gt, "_GCS_METADATA_VERTEX_BASE", mock_v2):
         with pytest.raises(
-            litellm.BadRequestError,
+            hangarllm.BadRequestError,
             match="Unable to fetch GCS metadata with provided Vertex credentials/project",
         ):
             gt._get_gcs_object_content_type(
@@ -176,7 +176,7 @@ def test_get_gcs_object_content_type_explicit_vertex_success_and_token_failure()
 
 
 def test_get_gcs_object_content_type_http_error_explicit_vs_anonymous():
-    from litellm.llms.vertex_ai.gemini import transformation as gt
+    from hangarllm.llms.vertex_ai.gemini import transformation as gt
 
     mock_v = MagicMock()
     mock_v.get_access_token.return_value = ("t", "p")
@@ -190,11 +190,11 @@ def test_get_gcs_object_content_type_http_error_explicit_vs_anonymous():
     with (
         patch.object(gt, "_GCS_METADATA_VERTEX_BASE", mock_v),
         patch(
-            "litellm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
+            "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
             return_value=http,
         ),
     ):
-        with pytest.raises(litellm.BadRequestError, match="HTTP 403") as ei:
+        with pytest.raises(hangarllm.BadRequestError, match="HTTP 403") as ei:
             gt._get_gcs_object_content_type(
                 image_url="gs://my-bucket/path/to/obj",
                 vertex_project="project-123",
@@ -212,7 +212,7 @@ def test_get_gcs_object_content_type_http_error_explicit_vs_anonymous():
     with (
         patch.object(gt, "_GCS_METADATA_VERTEX_BASE", mock_v2),
         patch(
-            "litellm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
+            "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
             return_value=http2,
         ),
     ):
@@ -224,7 +224,7 @@ def test_get_gcs_object_content_type_http_error_explicit_vs_anonymous():
 
 
 def test_get_gcs_object_content_type_anonymous_success_no_auth_header():
-    from litellm.llms.vertex_ai.gemini import transformation as gt
+    from hangarllm.llms.vertex_ai.gemini import transformation as gt
 
     mock_v = MagicMock()
     ok = MagicMock()
@@ -237,7 +237,7 @@ def test_get_gcs_object_content_type_anonymous_success_no_auth_header():
     with (
         patch.object(gt, "_GCS_METADATA_VERTEX_BASE", mock_v),
         patch(
-            "litellm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
+            "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
             return_value=http,
         ),
     ):
@@ -251,7 +251,7 @@ def test_get_gcs_object_content_type_anonymous_success_no_auth_header():
 
 
 def test_async_transform_request_body_offloads_extensionless_gs_not_plain_text():
-    from litellm.llms.vertex_ai.gemini import transformation as gemini_transformation
+    from hangarllm.llms.vertex_ai.gemini import transformation as gemini_transformation
 
     messages = [
         {
@@ -310,7 +310,7 @@ def test_async_transform_request_body_offloads_extensionless_gs_not_plain_text()
                 optional_params={},
                 logging_obj=MagicMock(),
                 custom_llm_provider="vertex_ai",
-                litellm_params={},
+                hangarllm_params={},
                 vertex_project=None,
                 vertex_location=None,
                 vertex_auth_header=None,
@@ -322,11 +322,11 @@ def test_async_transform_request_body_offloads_extensionless_gs_not_plain_text()
     with (
         patch.object(gemini_transformation, "_GCS_METADATA_VERTEX_BASE", mock_v),
         patch(
-            "litellm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
+            "hangarllm.llms.vertex_ai.gemini.transformation._get_gcs_metadata_http_handler",
             return_value=mock_http,
         ),
         patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching."
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching."
             "ContextCachingEndpoints.async_check_and_create_cache",
             new=fake_check_and_create_cache,
         ),
@@ -342,7 +342,7 @@ def test_async_transform_request_body_offloads_extensionless_gs_not_plain_text()
 
     async def run_plain():
         with patch(
-            "litellm.llms.vertex_ai.gemini.transformation.asyncify",
+            "hangarllm.llms.vertex_ai.gemini.transformation.asyncify",
             side_effect=AssertionError("asyncify must not run without extensionless gs://"),
         ):
             return await gemini_transformation.async_transform_request_body(
@@ -356,14 +356,14 @@ def test_async_transform_request_body_offloads_extensionless_gs_not_plain_text()
                 optional_params={},
                 logging_obj=MagicMock(),
                 custom_llm_provider="vertex_ai",
-                litellm_params={},
+                hangarllm_params={},
                 vertex_project=None,
                 vertex_location=None,
                 vertex_auth_header=None,
             )
 
     with patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching."
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching."
         "ContextCachingEndpoints.async_check_and_create_cache",
         new=fake_cache2,
     ):
@@ -490,7 +490,7 @@ def test_async_transform_request_body_offloads_extensionless_gs_not_plain_text()
     ],
 )
 def test_openai_messages_may_need_sync_gcs_metadata_fetch_matrix(messages, expected):
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         _openai_messages_may_need_sync_gcs_metadata_fetch,
     )
 

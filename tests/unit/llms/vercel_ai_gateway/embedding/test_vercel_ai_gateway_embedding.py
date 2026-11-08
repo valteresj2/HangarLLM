@@ -5,11 +5,11 @@ import httpx
 import pytest
 
 
-from litellm.llms.vercel_ai_gateway.embedding.transformation import (
+from hangarllm.llms.vercel_ai_gateway.embedding.transformation import (
     VercelAIGatewayEmbeddingConfig,
 )
-from litellm.llms.vercel_ai_gateway.common_utils import VercelAIGatewayException
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.vercel_ai_gateway.common_utils import VercelAIGatewayException
+from hangarllm.types.utils import EmbeddingResponse
 
 
 def test_vercel_ai_gateway_embedding_get_complete_url():
@@ -22,7 +22,7 @@ def test_vercel_ai_gateway_embedding_get_complete_url():
         api_key=None,
         model="openai/text-embedding-3-small",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://ai-gateway.vercel.sh/v1/embeddings"
 
@@ -32,7 +32,7 @@ def test_vercel_ai_gateway_embedding_get_complete_url():
         api_key=None,
         model="openai/text-embedding-3-small",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://custom.vercel.sh/v1/embeddings"
 
@@ -42,7 +42,7 @@ def test_vercel_ai_gateway_embedding_get_complete_url():
         api_key=None,
         model="openai/text-embedding-3-small",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://custom.vercel.sh/v1/embeddings"
 
@@ -105,7 +105,7 @@ def test_vercel_ai_gateway_embedding_validate_environment():
         model="openai/text-embedding-3-small",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test_key",
     )
     assert headers["Content-Type"] == "application/json"
@@ -117,7 +117,7 @@ def test_vercel_ai_gateway_embedding_validate_environment():
         model="openai/text-embedding-3-small",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test_key",
     )
     assert headers["X-Custom"] == "value"
@@ -187,7 +187,7 @@ def test_vercel_ai_gateway_embedding_transform_response():
         api_key="test_key",
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert response is not None
@@ -209,6 +209,6 @@ def test_vercel_ai_gateway_embedding_env_vars():
             api_key=None,
             model="openai/text-embedding-3-small",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://env.vercel.sh/v1/embeddings"

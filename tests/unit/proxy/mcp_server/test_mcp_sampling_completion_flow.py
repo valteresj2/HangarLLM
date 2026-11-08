@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from mcp.types import CreateMessageResult, ErrorData
 
-from litellm.proxy.mcp_server.sampling_handler import (
+from hangarllm.proxy.mcp_server.sampling_handler import (
     _build_completion_kwargs,
     _run_guardrails_and_call_llm,
     handle_sampling_create_message,
@@ -61,7 +61,7 @@ class TestBuildCompletionKwargs:
             metadata={"trace": "abc"},
         )
         with patch(
-            "litellm.proxy.litellm_pre_call_utils.add_litellm_data_to_request",
+            "hangarllm.proxy.hangarllm_pre_call_utils.add_hangarllm_data_to_request",
             side_effect=_passthrough_add_data(),
         ):
             kwargs = await _build_completion_kwargs(
@@ -84,7 +84,7 @@ class TestBuildCompletionKwargs:
 
     async def test_should_omit_optional_fields_when_unset(self):
         with patch(
-            "litellm.proxy.litellm_pre_call_utils.add_litellm_data_to_request",
+            "hangarllm.proxy.hangarllm_pre_call_utils.add_hangarllm_data_to_request",
             side_effect=_passthrough_add_data(),
         ):
             kwargs = await _build_completion_kwargs(
@@ -107,8 +107,8 @@ class TestRunGuardrailsAndCallLlm:
         router = MagicMock()
         router.acompletion = AsyncMock(return_value="router-response")
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", None),
-            patch("litellm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
         ):
             result = await _run_guardrails_and_call_llm(
                 completion_kwargs={"model": "gpt-4o", "messages": []},
@@ -121,7 +121,7 @@ class TestRunGuardrailsAndCallLlm:
     async def test_should_propagate_guardrail_rejection(self):
         plo = MagicMock()
         plo.pre_call_hook = AsyncMock(side_effect=ValueError("blocked by guardrail"))
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj", plo):
+        with patch("hangarllm.proxy.proxy_server.proxy_logging_obj", plo):
             with pytest.raises(ValueError, match="blocked by guardrail"):
                 await _run_guardrails_and_call_llm(
                     completion_kwargs={"model": "gpt-4o", "messages": []},
@@ -145,26 +145,26 @@ class TestHandleSamplingCreateMessagePipeline:
         )
         with (
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
+                "hangarllm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
                 return_value="gpt-4o",
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._check_model_access",
+                "hangarllm.proxy.mcp_server.sampling_handler._check_model_access",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._run_budget_checks",
+                "hangarllm.proxy.mcp_server.sampling_handler._run_budget_checks",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._build_completion_kwargs",
+                "hangarllm.proxy.mcp_server.sampling_handler._build_completion_kwargs",
                 new_callable=AsyncMock,
                 return_value={"model": "gpt-4o", "messages": []},
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._run_guardrails_and_call_llm",
+                "hangarllm.proxy.mcp_server.sampling_handler._run_guardrails_and_call_llm",
                 new_callable=AsyncMock,
                 return_value=response,
             ),
@@ -181,26 +181,26 @@ class TestHandleSamplingCreateMessagePipeline:
         assert result.stop_reason== "endTurn"
 
     async def test_should_reraise_known_proxy_exceptions(self):
-        from litellm.exceptions import RateLimitError
+        from hangarllm.exceptions import RateLimitError
 
         auth = SimpleNamespace(user_id="u1", api_key="sk-test", token="tok")
         with (
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
+                "hangarllm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
                 return_value="gpt-4o",
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._check_model_access",
+                "hangarllm.proxy.mcp_server.sampling_handler._check_model_access",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._run_budget_checks",
+                "hangarllm.proxy.mcp_server.sampling_handler._run_budget_checks",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._build_completion_kwargs",
+                "hangarllm.proxy.mcp_server.sampling_handler._build_completion_kwargs",
                 new_callable=AsyncMock,
                 side_effect=RateLimitError(
                     "rate limited", llm_provider="openai", model="gpt-4o"
@@ -219,21 +219,21 @@ class TestHandleSamplingCreateMessagePipeline:
         auth = SimpleNamespace(user_id="u1", api_key="sk-test", token="tok")
         with (
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
+                "hangarllm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
                 return_value="gpt-4o",
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._check_model_access",
+                "hangarllm.proxy.mcp_server.sampling_handler._check_model_access",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._run_budget_checks",
+                "hangarllm.proxy.mcp_server.sampling_handler._run_budget_checks",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._build_completion_kwargs",
+                "hangarllm.proxy.mcp_server.sampling_handler._build_completion_kwargs",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("kaboom"),
             ),

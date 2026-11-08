@@ -14,27 +14,27 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 from starlette.responses import Response
 
-import litellm
-from litellm._logging import session_id_var, trace_id_var, verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.models.team import LiteLLM_TeamTableCachedObj
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.image_endpoints import endpoints
-from litellm.proxy.proxy_server import PrismaClient, ProxyConfig
-from litellm.proxy.utils import ProxyLogging
-from litellm.router_utils.router_callbacks.track_deployment_metrics import get_deployment_failures_for_current_minute
-from litellm.types.utils import ImageObject, ImageResponse
-from litellm.utils import custom_llm_setup
+import hangarllm
+from hangarllm._logging import session_id_var, trace_id_var, verbose_proxy_logger
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.models.team import HangarLLM_TeamTableCachedObj
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.image_endpoints import endpoints
+from hangarllm.proxy.proxy_server import PrismaClient, ProxyConfig
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router_utils.router_callbacks.track_deployment_metrics import get_deployment_failures_for_current_minute
+from hangarllm.types.utils import ImageObject, ImageResponse
+from hangarllm.utils import custom_llm_setup
 
 
 @pytest.mark.asyncio
 async def test_image_generation_prompt_rerouting(monkeypatch):
     """Ensure image prompts are exposed to guardrails and restored afterwards."""
 
-    async def fake_add_litellm_data_to_request(**kwargs):
+    async def fake_add_hangarllm_data_to_request(**kwargs):
         return kwargs["data"]
 
     async def fake_update_request_status(**_: Any) -> None:
@@ -101,20 +101,20 @@ async def test_image_generation_prompt_rerouting(monkeypatch):
     user_api_key = UserAPIKeyAuth()
 
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.add_litellm_data_to_request",
-        fake_add_litellm_data_to_request,
+        "hangarllm.proxy.proxy_server.add_hangarllm_data_to_request",
+        fake_add_hangarllm_data_to_request,
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", fake_proxy_logger)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.version", "test-version")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_config", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_logging_obj", fake_proxy_logger)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.version", "test-version")
     monkeypatch.setattr(
-        "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.get_custom_headers",
+        "hangarllm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.get_custom_headers",
         classmethod(lambda *args, **kwargs: {}),
     )
-    monkeypatch.setattr("litellm.proxy.image_endpoints.endpoints.route_request", fake_route_request)
+    monkeypatch.setattr("hangarllm.proxy.image_endpoints.endpoints.route_request", fake_route_request)
 
     result = await endpoints.image_generation(
         request=request,
@@ -140,8 +140,8 @@ def _image_edit_client(monkeypatch, captured: Dict[str, Any]) -> TestClient:
             return {"data": [{"b64_json": "aGk="}]}
 
     monkeypatch.setattr(endpoints, "ProxyBaseLLMRequestProcessing", CaptureProcessing)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
 
     app = FastAPI()
     app.include_router(endpoints.router)
@@ -261,7 +261,7 @@ async def test_a_model_the_router_cannot_serve_answers_an_openai_typed_error(mon
     """A bare HTTPException carries no type or param, so the tail used to ship the
     literal string "None" in both fields."""
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
     async def fake_pre_call_hook(
@@ -277,17 +277,17 @@ async def test_a_model_the_router_cannot_serve_answers_an_openai_typed_error(mon
             status_code=404, detail={"error": "image_generation: Invalid model name passed in model=dall-e-3"}
         )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_config", {})
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         SimpleNamespace(pre_call_hook=fake_pre_call_hook, post_call_failure_hook=fake_post_call_failure_hook),
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.version", "test-version")
-    monkeypatch.setattr("litellm.proxy.image_endpoints.endpoints.route_request", failing_route_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.version", "test-version")
+    monkeypatch.setattr("hangarllm.proxy.image_endpoints.endpoints.route_request", failing_route_request)
 
     body = orjson.dumps({"model": "dall-e-3", "prompt": "a lighthouse at dusk"})
 
@@ -314,14 +314,14 @@ def propagating_proxy_logger() -> Iterator[None]:
 
 
 @pytest.mark.asyncio
-async def test_failure_log_carries_the_callers_litellm_call_id(
+async def test_failure_log_carries_the_callers_hangarllm_call_id(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, propagating_proxy_logger: None
 ) -> None:
-    """LIT-7836: the /v1/images/generations error line must carry the litellm_call_id
+    """LIT-7836: the /v1/images/generations error line must carry the hangarllm_call_id
     the client sent, both rendered in the message and as a structured record field."""
     call_id = "images-call-7836"
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_hangarllm_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
     async def fake_pre_call_hook(
@@ -335,17 +335,17 @@ async def test_failure_log_carries_the_callers_litellm_call_id(
     async def failing_route_request(**_: object) -> None:
         raise HTTPException(status_code=401, detail={"error": "invalid api key"})
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", fake_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_config", {})
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         SimpleNamespace(pre_call_hook=fake_pre_call_hook, post_call_failure_hook=fake_post_call_failure_hook),
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.version", "test-version")
-    monkeypatch.setattr("litellm.proxy.image_endpoints.endpoints.route_request", failing_route_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.version", "test-version")
+    monkeypatch.setattr("hangarllm.proxy.image_endpoints.endpoints.route_request", failing_route_request)
 
     body = orjson.dumps({"model": "dall-e-3", "prompt": "a lighthouse at dusk"})
 
@@ -357,50 +357,50 @@ async def test_failure_log_carries_the_callers_litellm_call_id(
             "type": "http",
             "method": "POST",
             "path": "/v1/images/generations",
-            "headers": [(b"x-litellm-call-id", call_id.encode())],
+            "headers": [(b"x-hangarllm-call-id", call_id.encode())],
         },
         receive,
     )
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"), pytest.raises(ProxyException) as raised:
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"), pytest.raises(ProxyException) as raised:
         await endpoints.image_generation(
             request=request, fastapi_response=Response(), user_api_key_dict=UserAPIKeyAuth()
         )
 
-    assert raised.value.headers["x-litellm-call-id"] == call_id
+    assert raised.value.headers["x-hangarllm-call-id"] == call_id
     record = next(r for r in caplog.records if "Exception occured" in r.getMessage())
-    assert record.litellm_call_id == call_id
+    assert record.hangarllm_call_id == call_id
     assert call_id in record.getMessage()
 
 
 @pytest.mark.asyncio
-async def test_failure_before_the_provider_call_bills_the_callers_litellm_call_id(
+async def test_failure_before_the_provider_call_bills_the_callers_hangarllm_call_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """LIT-7836: when the request is rejected while it is still being prepared, the
-    failure hook must see the same litellm_call_id the response header answers with,
+    failure hook must see the same hangarllm_call_id the response header answers with,
     otherwise the spend row is stored under a freshly minted id nobody can look up."""
     call_id = "images-early-7836"
     hook_request_data: list[Mapping[str, object]] = []
 
-    async def rejecting_add_litellm_data_to_request(**_: object) -> object:
+    async def rejecting_add_hangarllm_data_to_request(**_: object) -> object:
         raise HTTPException(status_code=400, detail={"error": "tag not allowed"})
 
     async def fake_post_call_failure_hook(*, request_data: Mapping[str, object], **_: object) -> None:
         hook_request_data.append(request_data)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", rejecting_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.add_hangarllm_data_to_request", rejecting_add_hangarllm_data_to_request)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.proxy_config", {})
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         SimpleNamespace(post_call_failure_hook=fake_post_call_failure_hook),
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.version", "test-version")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.version", "test-version")
 
-    body = orjson.dumps({"model": "dall-e-3", "prompt": "a lighthouse at dusk", "litellm_call_id": "from-the-body"})
+    body = orjson.dumps({"model": "dall-e-3", "prompt": "a lighthouse at dusk", "hangarllm_call_id": "from-the-body"})
 
     async def receive() -> dict[str, object]:
         return {"type": "http.request", "body": body, "more_body": False}
@@ -410,7 +410,7 @@ async def test_failure_before_the_provider_call_bills_the_callers_litellm_call_i
             "type": "http",
             "method": "POST",
             "path": "/v1/images/generations",
-            "headers": [(b"x-litellm-call-id", call_id.encode())],
+            "headers": [(b"x-hangarllm-call-id", call_id.encode())],
         },
         receive,
     )
@@ -420,11 +420,11 @@ async def test_failure_before_the_provider_call_bills_the_callers_litellm_call_i
             request=request, fastapi_response=Response(), user_api_key_dict=UserAPIKeyAuth()
         )
 
-    assert raised.value.headers["x-litellm-call-id"] == call_id
-    assert [data["litellm_call_id"] for data in hook_request_data] == [call_id]
+    assert raised.value.headers["x-hangarllm-call-id"] == call_id
+    assert [data["hangarllm_call_id"] for data in hook_request_data] == [call_id]
 
 
-class _ImageRouterHandler(litellm.CustomLLM):
+class _ImageRouterHandler(hangarllm.CustomLLM):
     def __init__(self) -> None:
         self.calls: list[str] = []
 
@@ -442,7 +442,7 @@ class _ImageRouterHandler(litellm.CustomLLM):
     ) -> ImageResponse:
         self.calls.append(model)
         if model.endswith("failing"):
-            raise litellm.RateLimitError(message="primary failed", llm_provider="image-regression", model=model)
+            raise hangarllm.RateLimitError(message="primary failed", llm_provider="image-regression", model=model)
         return ImageResponse(created=1, data=[ImageObject(url="https://images.example/generated.png")])
 
 
@@ -452,41 +452,41 @@ def _image_generation_client(
     team_settings: Mapping[str, object] | None = None,
     working_params: Mapping[str, object] | None = None,
 ) -> tuple[TestClient, _ImageRouterHandler]:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     handler: Final = _ImageRouterHandler()
     cache: Final = UserApiKeyCache()
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers])
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "image-regression", "custom_handler": handler}])
+    monkeypatch.setattr(hangarllm, "provider_list", [*hangarllm.provider_list])
+    monkeypatch.setattr(hangarllm, "_custom_providers", [*hangarllm._custom_providers])
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "image-regression", "custom_handler": handler}])
     custom_llm_setup()
     if team_settings is not None:
         team_id: Final = user_api_key_dict.team_id
         assert team_id is not None
         cache.set_cache(
             key=f"team_id:{team_id}",
-            value=LiteLLM_TeamTableCachedObj(team_id=team_id, router_settings=dict(team_settings)),
+            value=HangarLLM_TeamTableCachedObj(team_id=team_id, router_settings=dict(team_settings)),
             local_only=True,
-            model_type=LiteLLM_TeamTableCachedObj,
+            model_type=HangarLLM_TeamTableCachedObj,
         )
         monkeypatch.setattr(proxy_server, "prisma_client", cast(PrismaClient, object()))
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "A",
-                "litellm_params": {"model": "image-regression/failing"},
+                "hangarllm_params": {"model": "image-regression/failing"},
                 "model_info": {"id": "image-regression-failing"},
             },
             {
                 "model_name": "B",
-                "litellm_params": {"model": "image-regression/working", **(working_params or {})},
+                "hangarllm_params": {"model": "image-regression/working", **(working_params or {})},
                 "model_info": {"id": "image-regression-working"},
             },
         ],
         num_retries=0,
     )
-    monkeypatch.setattr(litellm, "model_alias_map", {})
+    monkeypatch.setattr(hangarllm, "model_alias_map", {})
     monkeypatch.setattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "proxy_config", ProxyConfig())
@@ -517,7 +517,7 @@ class _ImageOutcomeLogger(CustomLogger):
     ) -> None:
         self.messages.put(kwargs.get("messages"))
         self.correlation.put((trace_id_var.get(), session_id_var.get()))
-        self.events.put((kwargs.get("call_type"), kwargs.get("litellm_call_id"), kwargs.get("exception")))
+        self.events.put((kwargs.get("call_type"), kwargs.get("hangarllm_call_id"), kwargs.get("exception")))
 
     async def async_log_success_event(
         self,
@@ -527,7 +527,7 @@ class _ImageOutcomeLogger(CustomLogger):
         end_time: datetime,
     ) -> None:
         self.messages.put(kwargs.get("messages"))
-        self.events.put((kwargs.get("call_type"), kwargs.get("litellm_call_id"), response_obj))
+        self.events.put((kwargs.get("call_type"), kwargs.get("hangarllm_call_id"), response_obj))
 
 
 class _RewritingImageLogger(_ImageOutcomeLogger):
@@ -544,10 +544,10 @@ class _RewritingImageLogger(_ImageOutcomeLogger):
 async def test_router_refused_image_generation_reaches_failure_callbacks(
     monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     logger: Final = _ImageOutcomeLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
     client, handler = _image_generation_client(
         monkeypatch, UserAPIKeyAuth(), working_params={"max_budget": 1, "budget_duration": "1d"}
     )
@@ -557,7 +557,7 @@ async def test_router_refused_image_generation_reaches_failure_callbacks(
 
     with client:
         response: Final = client.post(
-            path, json={"model": "B", "prompt": "draw a tree"}, headers={"x-litellm-call-id": "refused-image"}
+            path, json={"model": "B", "prompt": "draw a tree"}, headers={"x-hangarllm-call-id": "refused-image"}
         )
         assert response.status_code == 429, response.text
         call_type, call_id, exception = logger.events.get(timeout=5)
@@ -573,22 +573,22 @@ async def test_router_refused_image_generation_reaches_failure_callbacks(
 async def test_image_router_refusal_without_or_with_caller_logging(
     monkeypatch: pytest.MonkeyPatch, supply_logging: bool
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     logger: Final = _ImageOutcomeLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     _image_generation_client(monkeypatch, UserAPIKeyAuth(), working_params={"max_budget": 1, "budget_duration": "1d"})
     router: Final = proxy_server.llm_router
     assert router is not None and router.router_budget_logger is not None
     router.router_budget_logger.dual_cache.set_cache("deployment_spend:image-regression-working:1d", 2)
-    kwargs: Final[dict[str, object]] = {"litellm_trace_id": "refused-trace", "litellm_session_id": "refused-session"}
+    kwargs: Final[dict[str, object]] = {"hangarllm_trace_id": "refused-trace", "hangarllm_session_id": "refused-session"}
     if supply_logging:
-        logging_obj, _ = litellm.utils.function_setup(
-            "aimage_generation", litellm.utils.Rules(), datetime.now(),
-            model="B", prompt="draw a tree", litellm_call_id="supplied-image", **kwargs,
+        logging_obj, _ = hangarllm.utils.function_setup(
+            "aimage_generation", hangarllm.utils.Rules(), datetime.now(),
+            model="B", prompt="draw a tree", hangarllm_call_id="supplied-image", **kwargs,
         )
-        kwargs.update(litellm_logging_obj=logging_obj, litellm_call_id="supplied-image")
+        kwargs.update(hangarllm_logging_obj=logging_obj, hangarllm_call_id="supplied-image")
 
     context_before: Final = (trace_id_var.get(), session_id_var.get())
     with pytest.raises(ValueError, match="crossed budget"):
@@ -607,18 +607,18 @@ def test_image_generation_provider_outcome_is_logged_once(
     monkeypatch: pytest.MonkeyPatch, model: str, status_code: int, rewrite_prompt: bool
 ) -> None:
     logger: Final = _RewritingImageLogger() if rewrite_prompt else _ImageOutcomeLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
     client, handler = _image_generation_client(monkeypatch, UserAPIKeyAuth())
     with client:
         response: Final = client.post(
             "/v1/images/generations",
             json={"model": model, "prompt": "draw a tree"},
-            headers={"x-litellm-call-id": "provider-image"},
+            headers={"x-hangarllm-call-id": "provider-image"},
         )
         assert response.status_code == status_code, response.text
         call_type, call_id, outcome = logger.events.get(timeout=5)
     assert (call_type, call_id) == ("aimage_generation", "provider-image")
-    assert isinstance(outcome, litellm.RateLimitError if model == "A" else ImageResponse)
+    assert isinstance(outcome, hangarllm.RateLimitError if model == "A" else ImageResponse)
     assert logger.messages.get_nowait() == [
         {"role": "user", "content": "sanitized prompt" if rewrite_prompt else "draw a tree"}
     ]
@@ -695,10 +695,10 @@ def test_image_generation_uses_key_model_group_alias(monkeypatch: pytest.MonkeyP
 
 
 def test_image_generation_uses_key_num_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     logger: Final = _ImageOutcomeLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
     client, handler = _image_generation_client(
         monkeypatch,
         UserAPIKeyAuth(router_settings={"num_retries": 2}),
@@ -710,7 +710,7 @@ def test_image_generation_uses_key_num_retries(monkeypatch: pytest.MonkeyPatch) 
 
     assert response.status_code == 429, response.text
     assert handler.calls == ["failing", "failing", "failing"], response.text
-    assert all(isinstance(event[2], litellm.RateLimitError) for event in events)
+    assert all(isinstance(event[2], hangarllm.RateLimitError) for event in events)
     assert logger.events.empty()
     router: Final = proxy_server.llm_router
     assert router is not None
@@ -720,11 +720,11 @@ def test_image_generation_uses_key_num_retries(monkeypatch: pytest.MonkeyPatch) 
 def test_failed_image_generation_spend_row_records_aimage_generation(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
     spend_writer: Final = MagicMock(update_database=AsyncMock())
-    monkeypatch.setattr(litellm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
+    monkeypatch.setattr(hangarllm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
     client, handler = _image_generation_client(monkeypatch, UserAPIKeyAuth(api_key="sk-test"))
     try:
         with client:

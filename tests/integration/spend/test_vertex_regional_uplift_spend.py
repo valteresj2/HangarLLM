@@ -39,7 +39,7 @@ _ONE_PIXEL_PNG: Final = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
-_ROW_QUERY: Final = 'SELECT request_id, spend, status, cache_hit FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime", request_id'
+_ROW_QUERY: Final = 'SELECT request_id, spend, status, cache_hit FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime", request_id'
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,7 +208,7 @@ def test_chat_completion_spend_follows_the_vertex_location(gateway: Gateway, loc
             _IMAGE_TOKENS,
         ), completion.usage
         expected: Final = _expected(gateway, model, placed)
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(expected), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), raw.headers
         sent: Final = _only_generate_calls(wire, 1)[0]
         assert prompt in sent.body.decode(), sent.body
         assert _spend(_single_row(key, (completion.id,))) == pytest.approx(expected)
@@ -224,7 +224,7 @@ async def test_async_chat_completion_on_a_regional_endpoint_is_uplifted(gateway:
         )
         completion: Final = raw.parse()
         expected: Final = _expected(gateway, model, _US)
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(expected), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), raw.headers
         _only_generate_calls(wire, 1)
         assert _spend(_single_row(key, (completion.id,))) == pytest.approx(expected)
 
@@ -307,7 +307,7 @@ def test_responses_spend_follows_the_vertex_location(gateway: Gateway, location:
             _IMAGE_TOKENS,
         ), response.usage
         expected: Final = _expected(gateway, model, placed)
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(expected), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), raw.headers
         _only_generate_calls(wire, 1)
         assert _spend(_single_row(key, _responses_identities(response.id))) == pytest.approx(expected)
 
@@ -343,9 +343,9 @@ def test_image_generation_spend_follows_the_vertex_location(gateway: Gateway, lo
             _IMAGE_TOKENS,
         ), images.usage
         expected: Final = _expected(gateway, model, placed)
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(expected), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), raw.headers
         _only_generate_calls(wire, 1)
-        assert _spend(_single_row(key, (raw.headers["x-litellm-call-id"],))) == pytest.approx(expected)
+        assert _spend(_single_row(key, (raw.headers["x-hangarllm-call-id"],))) == pytest.approx(expected)
 
 
 async def test_async_image_generation_on_a_regional_endpoint_is_uplifted(gateway: Gateway) -> None:
@@ -357,9 +357,9 @@ async def test_async_image_generation_on_a_regional_endpoint_is_uplifted(gateway
         images: Final = raw.parse()
         assert images.data is not None and len(images.data) == 1, images
         expected: Final = _expected(gateway, model, _US)
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(expected), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), raw.headers
         _only_generate_calls(wire, 1)
-        assert _spend(_single_row(key, (raw.headers["x-litellm-call-id"],))) == pytest.approx(expected)
+        assert _spend(_single_row(key, (raw.headers["x-hangarllm-call-id"],))) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("location", ("global", "us"))
@@ -374,9 +374,9 @@ def test_image_generation_without_usage_charges_the_flat_image_price(gateway: Ga
         assert images.data is not None and len(images.data) == 1, images
         prices: Final = _published_prices(gateway, model)
         expected: Final = _rate(prices, "output_cost_per_image") * _uplift(prices, placed)
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(expected), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), raw.headers
         _only_generate_calls(wire, 1)
-        assert _spend(_single_row(key, (raw.headers["x-litellm-call-id"],))) == pytest.approx(expected)
+        assert _spend(_single_row(key, (raw.headers["x-hangarllm-call-id"],))) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("location", ("global", "us"))
@@ -394,11 +394,11 @@ def test_image_edit_spend_follows_the_vertex_location(gateway: Gateway, location
         assert images.data is not None and [image.b64_json for image in images.data] == ["aW1n"], images
         prices: Final = _published_prices(gateway, model)
         expected: Final = _rate(prices, "output_cost_per_image") * _uplift(prices, placed)
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(expected), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), raw.headers
         (sent,) = _only_generate_calls(wire, 1)
         forwarded: Final = sent.body.decode()
         assert prompt in forwarded and base64.b64encode(_ONE_PIXEL_PNG).decode() in forwarded, forwarded[:300]
-        assert _spend(_single_row(key, (raw.headers["x-litellm-call-id"],))) == pytest.approx(expected)
+        assert _spend(_single_row(key, (raw.headers["x-hangarllm-call-id"],))) == pytest.approx(expected)
 
 
 def _chat_spend(gateway: Gateway, scenario: Scenario, wire: Wire, location: _Location) -> tuple[float, str]:
@@ -453,7 +453,7 @@ def test_an_uppercase_vertex_location_is_refused_before_any_provider_call(gatewa
         assert wire.drain() == (), "the location validator runs before any provider call"
         row: Final = _rows(key, 1)[0]
         assert row["status"] == "failure" and _spend(row) == 0, row
-        assert row["request_id"] == response.headers["x-litellm-call-id"], (row, dict(response.headers))
+        assert row["request_id"] == response.headers["x-hangarllm-call-id"], (row, dict(response.headers))
 
 
 def test_a_response_cache_hit_on_a_regional_endpoint_is_not_charged(gateway: Gateway) -> None:
@@ -496,7 +496,7 @@ def test_a_provider_failure_on_a_regional_endpoint_is_not_charged(gateway: Gatew
         _only_generate_calls(wire, 1)
         row: Final = _rows(key, 1)[0]
         assert row["status"] == "failure" and _spend(row) == 0, row
-        assert row["request_id"] == response.headers["x-litellm-call-id"], (row, dict(response.headers))
+        assert row["request_id"] == response.headers["x-hangarllm-call-id"], (row, dict(response.headers))
 
 
 @dataclass(frozen=True, slots=True)
@@ -532,13 +532,13 @@ def _burst_call(
         response: Final = client.post(
             "/v1/images/generations", json={"model": image_model, "prompt": job.prompt, **_NO_CACHE}, headers=headers
         )
-        return _Outcome(kind, response.status_code, (response.headers["x-litellm-call-id"],), expected)
+        return _Outcome(kind, response.status_code, (response.headers["x-hangarllm-call-id"],), expected)
     if kind == "responses":
         answered: Final = client.post(
             "/v1/responses", json={"model": chat_model, "input": job.prompt, **_NO_CACHE}, headers=headers
         )
         if answered.status_code != 200:
-            return _Outcome(kind, answered.status_code, (answered.headers["x-litellm-call-id"],), expected)
+            return _Outcome(kind, answered.status_code, (answered.headers["x-hangarllm-call-id"],), expected)
         return _Outcome(kind, 200, _responses_identities(str(answered.json()["id"])), expected)
     path: Final = "/v1/messages" if kind.startswith("messages") else "/v1/chat/completions"
     body: Final = {
@@ -551,7 +551,7 @@ def _burst_call(
     with client.stream("POST", path, json=body, headers=headers) as streamed:
         if streamed.status_code != 200:
             streamed.read()
-            return _Outcome(kind, streamed.status_code, (streamed.headers["x-litellm-call-id"],), expected)
+            return _Outcome(kind, streamed.status_code, (streamed.headers["x-hangarllm-call-id"],), expected)
         if not kind.endswith("_stream"):
             return _Outcome(kind, 200, (str(_JSON_OBJECT.validate_json(streamed.read())["id"]),), expected)
         frames: Final = tuple(

@@ -1,6 +1,6 @@
-{{- include "litellm.pdb" (dict
+{{- include "hangarllm.pdb" (dict
   "root" $
   "component" .Values.backend
   "componentName" "backend"
-  "fullname" (include "litellm.backend.fullname" .)
-  "selectorLabels" (include "litellm.backend.selectorLabels" .)) }}
+  "fullname" (include "hangarllm.backend.fullname" .)
+  "selectorLabels" (include "hangarllm.backend.selectorLabels" .)) }}

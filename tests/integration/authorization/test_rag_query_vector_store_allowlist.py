@@ -31,7 +31,7 @@ CONFIG_STORE_ID: Final = "vs_integration_config_store"
 PROXY_CONFIG: Final = Path(__file__).resolve().parents[1] / "proxy_config.yaml"
 REMOVE_OPENAI_API_BASE: Final = ("OPENAI_API_BASE",)
 JWT_KEY_ID: Final = "integration-vector-store-jwt-key"
-AUTH_CACHE_INVALIDATION_CHANNEL: Final = "litellm_proxy.auth_cache_invalidation"
+AUTH_CACHE_INVALIDATION_CHANNEL: Final = "hangarllm_proxy.auth_cache_invalidation"
 JsonObject: TypeAlias = dict[str, JsonValue]
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 
@@ -152,7 +152,7 @@ def _strict_config(directory: Path, *, deny_by_default: bool = True) -> Path:
             **general_settings,
             "vector_store_deny_by_default": deny_by_default,
             "enable_jwt_auth": True,
-            "litellm_jwtauth": {
+            "hangarllm_jwtauth": {
                 "user_id_jwt_field": "sub",
                 "team_ids_jwt_field": "groups",
                 "team_allowed_routes": _json_array("openai_routes", "info_routes", "/v1/rag/query"),
@@ -344,7 +344,7 @@ def test_jwt_team_route_outside_operator_allowed_routes_is_denied_before_search(
 
         assert response.status_code == 403, response.text
         assert (
-            f"Team {team} can access model {model} but route /rag/query is not in litellm_jwtauth.team_allowed_routes"
+            f"Team {team} can access model {model} but route /rag/query is not in hangarllm_jwtauth.team_allowed_routes"
         ) in response.text, response.text
         assert _searches_for_marker(strict_gateway.upstream, marker, store_id) == ()
 
@@ -646,7 +646,7 @@ def test_rag_query_streaming_injects_search_context_and_records_spend(gateway: G
             {
                 "vector_store_id": store_id,
                 "custom_llm_provider": "openai",
-                "litellm_params": {"api_base": f"{wire.url}/v1", "api_key": search_key},
+                "hangarllm_params": {"api_base": f"{wire.url}/v1", "api_key": search_key},
             },
         )
         assert registered.status_code == 200, registered.text
@@ -704,7 +704,7 @@ def test_rag_query_streaming_injects_search_context_and_records_spend(gateway: G
         spend_rows: Final = eventually(
             lambda: read_rows(
                 "SELECT request_id, api_key, spend, prompt_tokens, completion_tokens "
-                'FROM "LiteLLM_SpendLogs" WHERE request_id IN (%s, %s, %s, %s)',
+                'FROM "HangarLLM_SpendLogs" WHERE request_id IN (%s, %s, %s, %s)',
                 response_ids,
             ),
             lambda rows: len(rows) == 4,

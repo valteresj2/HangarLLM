@@ -8,7 +8,7 @@ import os
 import random
 import time
 import traceback
-from litellm._uuid import uuid
+from hangarllm._uuid import uuid
 
 from dotenv import load_dotenv
 
@@ -24,19 +24,19 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Request, HTTPException
 from fastapi.routing import APIRoute
 from fastapi.responses import Response
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import (
-    LiteLLM_JWTAuth,
-    LiteLLM_UserTable,
-    LiteLLMRoutes,
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import (
+    HangarLLM_JWTAuth,
+    HangarLLM_UserTable,
+    HangarLLMRoutes,
     JWTAuthBuilderResult,
 )
-from litellm.proxy.auth.handle_jwt import JWTHandler, JWTAuthManager
-from litellm.proxy.management_endpoints.team_endpoints import new_team
-from litellm.proxy.proxy_server import chat_completion
+from hangarllm.proxy.auth.handle_jwt import JWTHandler, JWTAuthManager
+from hangarllm.proxy.management_endpoints.team_endpoints import new_team
+from hangarllm.proxy.proxy_server import chat_completion
 from typing import Literal, Optional
-from litellm.proxy._types import ProxyException
+from hangarllm.proxy._types import ProxyException
 
 public_key = {
     "kty": "RSA",
@@ -49,16 +49,16 @@ public_key = {
 def test_load_config_with_custom_role_names():
     config = {
         "general_settings": {
-            "litellm_proxy_roles": {"admin_jwt_scope": "litellm-proxy-admin"}
+            "hangarllm_proxy_roles": {"admin_jwt_scope": "hangarllm-proxy-admin"}
         }
     }
-    proxy_roles = LiteLLM_JWTAuth(
-        **config.get("general_settings", {}).get("litellm_proxy_roles", {})
+    proxy_roles = HangarLLM_JWTAuth(
+        **config.get("general_settings", {}).get("hangarllm_proxy_roles", {})
     )
 
     print(f"proxy_roles: {proxy_roles}")
 
-    assert proxy_roles.admin_jwt_scope == "litellm-proxy-admin"
+    assert proxy_roles.admin_jwt_scope == "hangarllm-proxy-admin"
 
 
 # test_load_config_with_custom_role_names()
@@ -87,7 +87,7 @@ async def test_token_single_public_key(monkeypatch):
     cache = DualCache()
 
     await cache.async_set_cache(
-        key="litellm_jwt_auth_keys_https://example.com/public-key",
+        key="hangarllm_jwt_auth_keys_https://example.com/public-key",
         value=backend_keys["keys"],
     )
 
@@ -103,7 +103,7 @@ async def test_token_single_public_key(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("audience", [None, "litellm-proxy"])
+@pytest.mark.parametrize("audience", [None, "hangarllm-proxy"])
 @pytest.mark.asyncio
 async def test_valid_invalid_token(audience, monkeypatch):
     """
@@ -154,7 +154,7 @@ async def test_valid_invalid_token(audience, monkeypatch):
     cache = DualCache()
 
     await cache.async_set_cache(
-        key="litellm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
+        key="hangarllm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
     )
 
     jwt_handler = JWTHandler()
@@ -169,7 +169,7 @@ async def test_valid_invalid_token(audience, monkeypatch):
     payload = {
         "sub": "user123",
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm-proxy-admin",
+        "scope": "hangarllm-proxy-admin",
         "aud": audience,
     }
 
@@ -197,7 +197,7 @@ async def test_valid_invalid_token(audience, monkeypatch):
     payload = {
         "sub": "user123",
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm-NO-SCOPE",
+        "scope": "hangarllm-NO-SCOPE",
         "aud": audience,
     }
 
@@ -218,9 +218,9 @@ async def test_valid_invalid_token(audience, monkeypatch):
 
 @pytest.fixture
 def prisma_client():
-    import litellm
-    from litellm.proxy.proxy_cli import append_query_params
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    import hangarllm
+    from hangarllm.proxy.proxy_cli import append_query_params
+    from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -241,7 +241,7 @@ def prisma_client():
 @pytest.fixture
 def team_token_tuple():
     import json
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
     import jwt
     from cryptography.hazmat.backends import default_backend
@@ -250,9 +250,9 @@ def team_token_tuple():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    from litellm.proxy._types import NewTeamRequest, UserAPIKeyAuth
-    from litellm.proxy.proxy_server import user_api_key_auth
+    import hangarllm
+    from hangarllm.proxy._types import NewTeamRequest, UserAPIKeyAuth
+    from hangarllm.proxy.proxy_server import user_api_key_auth
 
     # Generate a private / public key pair using RSA algorithm
     key = rsa.generate_private_key(
@@ -287,7 +287,7 @@ def team_token_tuple():
     payload = {
         "sub": "user123",
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm_team",
+        "scope": "hangarllm_team",
         "client_id": team_id,
         "aud": None,
     }
@@ -303,11 +303,11 @@ def team_token_tuple():
 
 
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
-@pytest.mark.parametrize("audience", [None, "litellm-proxy"])
+@pytest.mark.parametrize("audience", [None, "hangarllm-proxy"])
 @pytest.mark.asyncio
 async def test_team_token_output(prisma_client, audience, monkeypatch):
     import json
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
     import jwt
     from cryptography.hazmat.backends import default_backend
@@ -316,12 +316,12 @@ async def test_team_token_output(prisma_client, audience, monkeypatch):
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    from litellm.proxy._types import NewTeamRequest, UserAPIKeyAuth
-    from litellm.proxy.proxy_server import user_api_key_auth
+    import hangarllm
+    from hangarllm.proxy._types import NewTeamRequest, UserAPIKeyAuth
+    from hangarllm.proxy.proxy_server import user_api_key_auth
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     os.environ.pop("JWT_AUDIENCE", None)
     if audience:
@@ -359,14 +359,14 @@ async def test_team_token_output(prisma_client, audience, monkeypatch):
     cache = DualCache()
 
     await cache.async_set_cache(
-        key="litellm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
+        key="hangarllm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
     )
 
     jwt_handler = JWTHandler()
 
     jwt_handler.user_api_key_cache = cache
 
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="client_id")
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="client_id")
 
     # VALID TOKEN
     ## GENERATE A TOKEN
@@ -377,7 +377,7 @@ async def test_team_token_output(prisma_client, audience, monkeypatch):
     payload = {
         "sub": "user123",
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm_team",
+        "scope": "hangarllm_team",
         "client_id": team_id,
         "aud": audience,
     }
@@ -393,7 +393,7 @@ async def test_team_token_output(prisma_client, audience, monkeypatch):
     payload = {
         "sub": "user123",
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm_proxy_admin",
+        "scope": "hangarllm_proxy_admin",
         "aud": audience,
     }
 
@@ -420,15 +420,15 @@ async def test_team_token_output(prisma_client, audience, monkeypatch):
 
     ## 1. INITIAL TEAM CALL - should fail
     # use generated key to auth in
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
+    setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "general_settings",
         {
             "enable_jwt_auth": True,
         },
     )
-    setattr(litellm.proxy.proxy_server, "jwt_handler", jwt_handler)
+    setattr(hangarllm.proxy.proxy_server, "jwt_handler", jwt_handler)
     try:
         result = await user_api_key_auth(request=request, api_key=bearer_token)
         pytest.fail("Team doesn't exist. This should fail")
@@ -471,7 +471,7 @@ async def test_team_token_output(prisma_client, audience, monkeypatch):
     assert team_result.team_models == ["gpt-3.5-turbo", "gpt-4"]
 
 
-@pytest.mark.parametrize("audience", [None, "litellm-proxy"])
+@pytest.mark.parametrize("audience", [None, "hangarllm-proxy"])
 @pytest.mark.parametrize(
     "team_id_set, default_team_id",
     [(True, False), (False, True)],
@@ -481,7 +481,7 @@ async def test_team_token_output(prisma_client, audience, monkeypatch):
 async def aaaatest_user_token_output(
     prisma_client, audience, team_id_set, default_team_id, user_id_upsert, monkeypatch
 ):
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
     args = locals()
     print(f"received args - {args}")
@@ -494,7 +494,7 @@ async def aaaatest_user_token_output(
     - retry -> it should pass now
     """
     import json
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
     import jwt
     from cryptography.hazmat.backends import default_backend
@@ -503,16 +503,16 @@ async def aaaatest_user_token_output(
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    from litellm.proxy._types import NewTeamRequest, NewUserRequest, UserAPIKeyAuth
-    from litellm.proxy.management_endpoints.internal_user_endpoints import (
+    import hangarllm
+    from hangarllm.proxy._types import NewTeamRequest, NewUserRequest, UserAPIKeyAuth
+    from hangarllm.proxy.management_endpoints.internal_user_endpoints import (
         new_user,
         user_info,
     )
-    from litellm.proxy.proxy_server import user_api_key_auth
+    from hangarllm.proxy.proxy_server import user_api_key_auth
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     os.environ.pop("JWT_AUDIENCE", None)
     if audience:
@@ -550,21 +550,21 @@ async def aaaatest_user_token_output(
     cache = DualCache()
 
     await cache.async_set_cache(
-        key="litellm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
+        key="hangarllm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
     )
 
     jwt_handler = JWTHandler()
 
     jwt_handler.user_api_key_cache = cache
 
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth()
 
-    jwt_handler.litellm_jwtauth.user_id_jwt_field = "sub"
-    jwt_handler.litellm_jwtauth.team_id_default = default_team_id
-    jwt_handler.litellm_jwtauth.user_id_upsert = user_id_upsert
+    jwt_handler.hangarllm_jwtauth.user_id_jwt_field = "sub"
+    jwt_handler.hangarllm_jwtauth.team_id_default = default_team_id
+    jwt_handler.hangarllm_jwtauth.user_id_upsert = user_id_upsert
 
     if team_id_set:
-        jwt_handler.litellm_jwtauth.team_id_jwt_field = "client_id"
+        jwt_handler.hangarllm_jwtauth.team_id_jwt_field = "client_id"
 
     # VALID TOKEN
     ## GENERATE A TOKEN
@@ -576,7 +576,7 @@ async def aaaatest_user_token_output(
     payload = {
         "sub": user_id,
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm_team",
+        "scope": "hangarllm_team",
         "client_id": team_id,
         "aud": audience,
     }
@@ -592,7 +592,7 @@ async def aaaatest_user_token_output(
     payload = {
         "sub": user_id,
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm_proxy_admin",
+        "scope": "hangarllm_proxy_admin",
         "aud": audience,
     }
 
@@ -622,8 +622,8 @@ async def aaaatest_user_token_output(
 
     ## 1. INITIAL TEAM CALL - should fail
     # use generated key to auth in
-    setattr(litellm.proxy.proxy_server, "general_settings", {"enable_jwt_auth": True})
-    setattr(litellm.proxy.proxy_server, "jwt_handler", jwt_handler)
+    setattr(hangarllm.proxy.proxy_server, "general_settings", {"enable_jwt_auth": True})
+    setattr(hangarllm.proxy.proxy_server, "jwt_handler", jwt_handler)
     try:
         result = await user_api_key_auth(request=request, api_key=bearer_token)
         pytest.fail("Team doesn't exist. This should fail")
@@ -717,7 +717,7 @@ async def aaaatest_user_token_output(
 
 
 @pytest.mark.parametrize("admin_allowed_routes", [None, ["ui_routes"]])
-@pytest.mark.parametrize("audience", [None, "litellm-proxy"])
+@pytest.mark.parametrize("audience", [None, "hangarllm-proxy"])
 @pytest.mark.asyncio
 async def test_allowed_routes_admin(
     prisma_client, audience, admin_allowed_routes, monkeypatch
@@ -729,7 +729,7 @@ async def test_allowed_routes_admin(
     - check if admin passes user_api_key_auth for them
     """
     import json
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
     import jwt
     from cryptography.hazmat.backends import default_backend
@@ -738,11 +738,11 @@ async def test_allowed_routes_admin(
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    from litellm.proxy._types import NewTeamRequest, UserAPIKeyAuth
-    from litellm.proxy.proxy_server import user_api_key_auth
+    import hangarllm
+    from hangarllm.proxy._types import NewTeamRequest, UserAPIKeyAuth
+    from hangarllm.proxy.proxy_server import user_api_key_auth
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
 
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", "https://example.com/public-key")
 
@@ -780,7 +780,7 @@ async def test_allowed_routes_admin(
     cache = DualCache()
 
     await cache.async_set_cache(
-        key="litellm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
+        key="hangarllm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
     )
 
     jwt_handler = JWTHandler()
@@ -788,11 +788,11 @@ async def test_allowed_routes_admin(
     jwt_handler.user_api_key_cache = cache
 
     if admin_allowed_routes:
-        jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+        jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
             team_id_jwt_field="client_id", admin_allowed_routes=admin_allowed_routes
         )
     else:
-        jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_id_jwt_field="client_id")
+        jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(team_id_jwt_field="client_id")
 
     # VALID TOKEN
     ## GENERATE A TOKEN
@@ -807,7 +807,7 @@ async def test_allowed_routes_admin(
     payload = {
         "sub": "user123",
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm_proxy_admin",
+        "scope": "hangarllm_proxy_admin",
         "aud": audience,
     }
 
@@ -828,12 +828,12 @@ async def test_allowed_routes_admin(
 
     bearer_token = "Bearer " + admin_token
 
-    pseudo_routes = jwt_handler.litellm_jwtauth.admin_allowed_routes
+    pseudo_routes = jwt_handler.hangarllm_jwtauth.admin_allowed_routes
 
     actual_routes = []
     for route in pseudo_routes:
-        if route in LiteLLMRoutes.__members__:
-            actual_routes.extend(LiteLLMRoutes[route].value)
+        if route in HangarLLMRoutes.__members__:
+            actual_routes.extend(HangarLLMRoutes[route].value)
 
     for route in actual_routes:
         request = Request(scope={"type": "http", "headers": []})
@@ -842,15 +842,15 @@ async def test_allowed_routes_admin(
 
         ## 1. INITIAL TEAM CALL - should fail
         # use generated key to auth in
-        setattr(litellm.proxy.proxy_server, "premium_user", True)
+        setattr(hangarllm.proxy.proxy_server, "premium_user", True)
         setattr(
-            litellm.proxy.proxy_server,
+            hangarllm.proxy.proxy_server,
             "general_settings",
             {
                 "enable_jwt_auth": True,
             },
         )
-        setattr(litellm.proxy.proxy_server, "jwt_handler", jwt_handler)
+        setattr(hangarllm.proxy.proxy_server, "jwt_handler", jwt_handler)
         try:
             result = await user_api_key_auth(request=request, api_key=bearer_token)
         except Exception as e:
@@ -903,7 +903,7 @@ async def mock_user_object(*args, **kwargs):
     # Return a mock user object
     user_id = kwargs.get("user_id")
     user_email = kwargs.get("user_email")
-    return LiteLLM_UserTable(
+    return HangarLLM_UserTable(
         spend=0, user_id=user_id, max_budget=None, user_email=user_email
     )
 
@@ -918,13 +918,13 @@ async def test_allow_access_by_email(
     """
     Allow anyone with an `@xyz.com` email make a request to the proxy.
 
-    Relevant issue: https://github.com/BerriAI/litellm/issues/5605
+    Relevant issue: upstream issue 5605
     """
     import jwt
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import NewTeamRequest, UserAPIKeyAuth
-    from litellm.proxy.proxy_server import user_api_key_auth
+    from hangarllm.proxy._types import NewTeamRequest, UserAPIKeyAuth
+    from hangarllm.proxy.proxy_server import user_api_key_auth
 
     public_jwk = public_jwt_key["public_jwk"]
     private_key = public_jwt_key["private_key"]
@@ -935,14 +935,14 @@ async def test_allow_access_by_email(
     cache = DualCache()
 
     await cache.async_set_cache(
-        key="litellm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
+        key="hangarllm_jwt_auth_keys_https://example.com/public-key", value=[public_jwk]
     )
 
     jwt_handler = JWTHandler()
 
     jwt_handler.user_api_key_cache = cache
 
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         user_email_jwt_field="email",
         user_allowed_email_domain="berri.ai",
         user_id_upsert=True,
@@ -957,9 +957,9 @@ async def test_allow_access_by_email(
     payload = {
         "sub": "user123",
         "exp": expiration_time,  # set the token to expire in 10 minutes
-        "scope": "litellm_team",
+        "scope": "hangarllm_team",
         "client_id": team_id,
-        "aud": "litellm-proxy",
+        "aud": "hangarllm-proxy",
         "email": user_email,
     }
 
@@ -984,24 +984,24 @@ async def test_allow_access_by_email(
 
     ## 1. INITIAL TEAM CALL - should fail
     # use generated key to auth in
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
+    setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "general_settings",
         {
             "enable_jwt_auth": True,
         },
     )
-    setattr(litellm.proxy.proxy_server, "jwt_handler", jwt_handler)
-    setattr(litellm.proxy.proxy_server, "prisma_client", {})
+    setattr(hangarllm.proxy.proxy_server, "jwt_handler", jwt_handler)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", {})
 
     # AsyncMock(
-    #     return_value=LiteLLM_UserTable(
+    #     return_value=HangarLLM_UserTable(
     #         spend=0, user_id=user_email, max_budget=None, user_email=user_email
     #     )
     # ),
     with patch.object(
-        litellm.proxy.auth.handle_jwt,
+        hangarllm.proxy.auth.handle_jwt,
         "get_user_object",
         side_effect=mock_user_object,
     ) as mock_client:
@@ -1016,8 +1016,8 @@ async def test_allow_access_by_email(
 
 
 def test_get_public_key_from_jwk_url():
-    import litellm
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    import hangarllm
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     jwt_handler = JWTHandler()
 
@@ -1043,18 +1043,18 @@ def test_get_public_key_from_jwk_url():
 
 @pytest.mark.asyncio
 async def test_end_user_jwt_auth(monkeypatch):
-    import litellm
-    from litellm.proxy.auth.handle_jwt import JWTHandler
-    from litellm.caching import DualCache
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.proxy_server import user_api_key_auth
+    import hangarllm
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.proxy_server import user_api_key_auth
     import json
 
     monkeypatch.delenv("JWT_AUDIENCE", None)
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", "https://example.com/public-key")
     jwt_handler = JWTHandler()
 
-    litellm_jwtauth = LiteLLM_JWTAuth(
+    hangarllm_jwtauth = HangarLLM_JWTAuth(
         end_user_id_jwt_field="sub",
     )
 
@@ -1080,14 +1080,14 @@ async def test_end_user_jwt_auth(monkeypatch):
     ]
 
     cache.set_cache(
-        key="litellm_jwt_auth_keys_https://example.com/public-key",
+        key="hangarllm_jwt_auth_keys_https://example.com/public-key",
         value=keys,
     )
 
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=litellm_jwtauth,
+        hangarllm_jwtauth=hangarllm_jwtauth,
         leeway=100000000000000,
     )
 
@@ -1132,8 +1132,8 @@ async def test_end_user_jwt_auth(monkeypatch):
 
     ## 1. INITIAL TEAM CALL - should fail
     # use generated key to auth in
-    from litellm import Router
-    from litellm.types.router import RouterGeneralSettings
+    from hangarllm import Router
+    from hangarllm.types.router import RouterGeneralSettings
 
     # Create a router with pass_through_all_models enabled
     router = Router(
@@ -1141,20 +1141,20 @@ async def test_end_user_jwt_auth(monkeypatch):
         router_general_settings=RouterGeneralSettings(pass_through_all_models=True),
     )
 
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
+    setattr(hangarllm.proxy.proxy_server, "premium_user", True)
     setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "general_settings",
         {"enable_jwt_auth": True},
     )
     setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "llm_router",
         router,
     )
-    setattr(litellm.proxy.proxy_server, "prisma_client", {})
-    setattr(litellm.proxy.proxy_server, "jwt_handler", jwt_handler)
-    from litellm.proxy.proxy_server import cost_tracking
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", {})
+    setattr(hangarllm.proxy.proxy_server, "jwt_handler", jwt_handler)
+    from hangarllm.proxy.proxy_server import cost_tracking
 
     cost_tracking()
     result = await user_api_key_auth(request=request, api_key=bearer_token)
@@ -1163,18 +1163,18 @@ async def test_end_user_jwt_auth(monkeypatch):
     assert result.end_user_id == "81b3e52a-67a6-4efb-9645-70527e101479"
 
     temp_response = Response()
-    from litellm.proxy.hooks.proxy_track_cost_callback import (
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import (
         _should_track_cost_callback,
     )
 
     # Mock the actual LLM completion call
-    mock_response = litellm.ModelResponse(
+    mock_response = hangarllm.ModelResponse(
         id="chatcmpl-mock",
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 finish_reason="stop",
                 index=0,
-                message=litellm.Message(
+                message=hangarllm.Message(
                     content="Hello! I'm doing well, thank you for asking.",
                     role="assistant",
                 ),
@@ -1183,7 +1183,7 @@ async def test_end_user_jwt_auth(monkeypatch):
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
-        usage=litellm.Usage(
+        usage=hangarllm.Usage(
             prompt_tokens=10,
             completion_tokens=15,
             total_tokens=25,
@@ -1191,7 +1191,7 @@ async def test_end_user_jwt_auth(monkeypatch):
     )
 
     with patch(
-        "litellm.acompletion", new=AsyncMock(return_value=mock_response)
+        "hangarllm.acompletion", new=AsyncMock(return_value=mock_response)
     ) as mock_completion:
         resp = await chat_completion(
             request=request,
@@ -1217,17 +1217,17 @@ async def test_end_user_jwt_auth(monkeypatch):
 
 
 def test_can_rbac_role_call_route():
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager
-    from litellm.proxy._types import RoleBasedPermissions
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager
+    from hangarllm.proxy._types import RoleBasedPermissions
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     with pytest.raises(HTTPException):
         JWTAuthManager.can_rbac_role_call_route(
-            rbac_role=LitellmUserRoles.TEAM,
+            rbac_role=HangarllmUserRoles.TEAM,
             general_settings={
                 "role_permissions": [
                     RoleBasedPermissions(
-                        role=LitellmUserRoles.TEAM, routes=["/v1/chat/completions"]
+                        role=HangarllmUserRoles.TEAM, routes=["/v1/chat/completions"]
                     )
                 ]
             },
@@ -1243,8 +1243,8 @@ def test_user_api_key_auth_jwt_hashing():
 
     Critical: This was a security fix for users
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     # Test with a JWT token (3 parts separated by dots)
     jwt_token = "test-jwt-token-header.payload.signature"
@@ -1280,7 +1280,7 @@ def test_jwt_handler_is_jwt_static_method():
     """
     Test that JWTHandler.is_jwt is a static method and works correctly
     """
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from hangarllm.proxy.auth.handle_jwt import JWTHandler
 
     # Test with valid JWT format
     valid_jwt = "test-jwt-token-header.payload.signature"
@@ -1309,28 +1309,28 @@ def test_jwt_handler_is_jwt_static_method():
     ],
 )
 def test_check_scope_based_access(requested_model, should_work):
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager
-    from litellm.proxy._types import ScopeMapping
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager
+    from hangarllm.proxy._types import ScopeMapping
 
     args = {
         "scope_mappings": [
             ScopeMapping(
                 models=["anthropic-claude"],
                 routes=["/v1/chat/completions"],
-                scope="litellm.api.consumer",
+                scope="hangarllm.api.consumer",
             ),
             ScopeMapping(
                 models=["gpt-3.5-turbo-testing"],
                 routes=None,
-                scope="litellm.api.gpt_3_5_turbo",
+                scope="hangarllm.api.gpt_3_5_turbo",
             ),
         ],
         "scopes": [
             "profile",
             "groups-scope",
             "email",
-            "litellm.api.gpt_3_5_turbo",
-            "litellm.api.consumer",
+            "hangarllm.api.gpt_3_5_turbo",
+            "hangarllm.api.consumer",
         ],
         "request_data": {
             "model": requested_model,
@@ -1338,17 +1338,17 @@ def test_check_scope_based_access(requested_model, should_work):
         },
         "general_settings": {
             "enable_jwt_auth": True,
-            "litellm_jwtauth": {
+            "hangarllm_jwtauth": {
                 "team_id_jwt_field": "client_id",
                 "team_id_upsert": True,
                 "scope_mappings": [
                     {
-                        "scope": "litellm.api.consumer",
+                        "scope": "hangarllm.api.consumer",
                         "models": ["anthropic-claude"],
                         "routes": ["/v1/chat/completions"],
                     },
                     {
-                        "scope": "litellm.api.gpt_3_5_turbo",
+                        "scope": "hangarllm.api.gpt_3_5_turbo",
                         "models": ["gpt-3.5-turbo-testing"],
                     },
                 ],
@@ -1371,7 +1371,7 @@ async def test_custom_validate_called():
     mock_custom_validate = MagicMock(return_value=True)
 
     jwt_handler = MagicMock()
-    jwt_handler.litellm_jwtauth = MagicMock(
+    jwt_handler.hangarllm_jwtauth = MagicMock(
         custom_validate=mock_custom_validate,
         allowed_routes=["/chat/completions"],
         oidc_userinfo_enabled=False,
@@ -1429,7 +1429,7 @@ async def test_auth_jwt_es256_jwk_path(monkeypatch):
     token = jwt.encode(
         {
             "sub": "alice",
-            "aud": "litellm-proxy",
+            "aud": "hangarllm-proxy",
             "iss": "http://example",
             "iat": now,
             "exp": now + 300,
@@ -1482,7 +1482,7 @@ async def test_auth_jwt_rs256_regression(monkeypatch):
     token = jwt.encode(
         {
             "sub": "bob",
-            "aud": "litellm-proxy",
+            "aud": "hangarllm-proxy",
             "iss": "http://example",
             "iat": now,
             "exp": now + 300,
@@ -1520,7 +1520,7 @@ async def test_auth_jwt_mismatched_key_fails(monkeypatch):
     token = jwt.encode(
         {
             "sub": "mallory",
-            "aud": "litellm-proxy",
+            "aud": "hangarllm-proxy",
             "iss": "http://example",
             "iat": now,
             "exp": now + 300,
@@ -1611,7 +1611,7 @@ def _get_jwt_handler_with_issuer_keys(issuers: list, keys_by_url: dict) -> JWTHa
     cache = DualCache()
     for jwks_url, keys in keys_by_url.items():
         cache.set_cache(
-            key=f"litellm_jwt_auth_keys_{jwks_url}",
+            key=f"hangarllm_jwt_auth_keys_{jwks_url}",
             value=keys,
         )
 
@@ -1619,7 +1619,7 @@ def _get_jwt_handler_with_issuer_keys(issuers: list, keys_by_url: dict) -> JWTHa
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(issuers=issuers),
+        hangarllm_jwtauth=HangarLLM_JWTAuth(issuers=issuers),
     )
     return jwt_handler
 
@@ -1670,16 +1670,16 @@ async def test_multi_issuer_jwt_validates_selected_issuer_and_maps_claims(
         kid=shared_kid,
         extra_claims={
             "repository_owner": "example-org",
-            "repository": "example-org/litellm-fork",
+            "repository": "example-org/hangarllm-fork",
         },
     )
 
     claims = await jwt_handler.auth_jwt(token=token)
 
-    assert claims[JWTHandler.LITELLM_JWT_ISSUER_CLAIM] == issuer_two
+    assert claims[JWTHandler.HANGARLLM_JWT_ISSUER_CLAIM] == issuer_two
     assert jwt_handler.get_user_id(token=claims, default_value=None) == ("example-org")
     assert jwt_handler.get_team_id(token=claims, default_value=None) == (
-        "example-org/litellm-fork"
+        "example-org/hangarllm-fork"
     )
 
 
@@ -1877,7 +1877,7 @@ async def test_multi_issuer_jwt_missing_mapped_claim_is_optional(monkeypatch):
 
     When the token simply omits a mapped field (e.g. a service-to-service token
     with no ``email`` claim), JWT auth still succeeds and the normalized claim
-    is just absent — matching the global ``litellm_jwtauth`` behaviour.
+    is just absent — matching the global ``hangarllm_jwtauth`` behaviour.
     """
     monkeypatch.delenv("JWT_AUDIENCE", raising=False)
     monkeypatch.delenv("JWT_PUBLIC_KEY_URL", raising=False)
@@ -1905,8 +1905,8 @@ async def test_multi_issuer_jwt_missing_mapped_claim_is_optional(monkeypatch):
 
     claims = await jwt_handler.auth_jwt(token=token)
 
-    assert claims[JWTHandler.LITELLM_JWT_ISSUER_CLAIM] == issuer
-    assert JWTHandler.LITELLM_USER_ID_CLAIM not in claims
+    assert claims[JWTHandler.HANGARLLM_JWT_ISSUER_CLAIM] == issuer
+    assert JWTHandler.HANGARLLM_USER_ID_CLAIM not in claims
 
 
 def test_multi_issuer_jwt_requires_audience_unless_explicitly_disabled(
@@ -1919,7 +1919,7 @@ def test_multi_issuer_jwt_requires_audience_unless_explicitly_disabled(
     jwks_url = f"{issuer}/keys"
 
     with pytest.raises(Exception, match='must configure audience or set') as exc:
-        LiteLLM_JWTAuth(
+        HangarLLM_JWTAuth(
             issuers=[
                 {
                     "issuer": issuer,
@@ -1941,13 +1941,13 @@ async def test_global_jwt_ignores_user_supplied_internal_claims(monkeypatch):
 
     private_key, jwk = _get_rsa_key_and_jwk(kid="global-key")
     cache = DualCache()
-    cache.set_cache(key=f"litellm_jwt_auth_keys_{jwks_url}", value=[jwk])
+    cache.set_cache(key=f"hangarllm_jwt_auth_keys_{jwks_url}", value=[jwk])
 
     jwt_handler = JWTHandler()
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(
+        hangarllm_jwtauth=HangarLLM_JWTAuth(
             user_id_jwt_field="email",
             user_email_jwt_field="email",
             team_id_jwt_field="team.id",
@@ -1967,13 +1967,13 @@ async def test_global_jwt_ignores_user_supplied_internal_claims(monkeypatch):
             "teams": ["real-team", "secondary-team"],
             "org": {"id": "real-org"},
             "end_user": {"id": "real-end-user"},
-            JWTHandler.LITELLM_JWT_ISSUER_CLAIM: "https://issuer.example.com",
-            JWTHandler.LITELLM_USER_ID_CLAIM: "victim-user",
-            JWTHandler.LITELLM_USER_EMAIL_CLAIM: "victim@example.com",
-            JWTHandler.LITELLM_TEAM_ID_CLAIM: "victim-team",
-            JWTHandler.LITELLM_TEAM_IDS_CLAIM: ["victim-team"],
-            JWTHandler.LITELLM_ORG_ID_CLAIM: "victim-org",
-            JWTHandler.LITELLM_END_USER_ID_CLAIM: "victim-end-user",
+            JWTHandler.HANGARLLM_JWT_ISSUER_CLAIM: "https://issuer.example.com",
+            JWTHandler.HANGARLLM_USER_ID_CLAIM: "victim-user",
+            JWTHandler.HANGARLLM_USER_EMAIL_CLAIM: "victim@example.com",
+            JWTHandler.HANGARLLM_TEAM_ID_CLAIM: "victim-team",
+            JWTHandler.HANGARLLM_TEAM_IDS_CLAIM: ["victim-team"],
+            JWTHandler.HANGARLLM_ORG_ID_CLAIM: "victim-org",
+            JWTHandler.HANGARLLM_END_USER_ID_CLAIM: "victim-end-user",
         },
     )
 
@@ -2022,15 +2022,15 @@ async def test_multi_issuer_jwt_strips_unmapped_internal_claims(monkeypatch):
         kid="issuer-key",
         extra_claims={
             "email": "real-user@example.com",
-            JWTHandler.LITELLM_USER_ID_CLAIM: "victim-user",
-            JWTHandler.LITELLM_TEAM_ID_CLAIM: "victim-team",
+            JWTHandler.HANGARLLM_USER_ID_CLAIM: "victim-user",
+            JWTHandler.HANGARLLM_TEAM_ID_CLAIM: "victim-team",
         },
     )
 
     claims = await jwt_handler.auth_jwt(token=token)
 
-    assert JWTHandler.LITELLM_USER_ID_CLAIM not in claims
-    assert JWTHandler.LITELLM_TEAM_ID_CLAIM not in claims
+    assert JWTHandler.HANGARLLM_USER_ID_CLAIM not in claims
+    assert JWTHandler.HANGARLLM_TEAM_ID_CLAIM not in claims
     assert jwt_handler.get_user_id(token=claims, default_value=None) is None
     assert jwt_handler.get_team_id(token=claims, default_value=None) is None
     assert jwt_handler.get_user_email(token=claims, default_value=None) == (

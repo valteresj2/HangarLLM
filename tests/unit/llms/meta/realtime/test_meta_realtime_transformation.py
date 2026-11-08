@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.meta.realtime.transformation import (
+from hangarllm.llms.meta.realtime.transformation import (
     DEFAULT_MUSE_REALTIME_URL,
     MUSE_MODEL,
     MetaRealtimeConfig,
@@ -19,10 +19,10 @@ from litellm.llms.meta.realtime.transformation import (
     parse_session_update,
     session_created_event,
 )
-from litellm.types.llms.meta import MuseMode
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
-from litellm.types.realtime import RealtimeResponseTransformInput
+from hangarllm.types.llms.meta import MuseMode
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
+from hangarllm.types.realtime import RealtimeResponseTransformInput
 
 EMPTY_TRANSFORM_INPUT: Final[RealtimeResponseTransformInput] = {
     "session_configuration_request": None,

@@ -4,13 +4,13 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.types.utils import Usage
+import hangarllm
+from hangarllm.types.utils import Usage
 
 CLAUDE_PLATFORM_PREFIX: Final = "bedrock/claude_platform/"
 CLAUDE_PLATFORM_KEYS: Final = tuple(
     key
-    for key in json.loads(files("litellm").joinpath("model_prices_and_context_window_backup.json").read_text())
+    for key in json.loads(files("hangarllm").joinpath("model_prices_and_context_window_backup.json").read_text())
     if key.startswith(CLAUDE_PLATFORM_PREFIX)
 )
 
@@ -32,10 +32,10 @@ def test_claude_platform_cost_matches_claude_api_cost(
         inference_geo=inference_geo,
     )
 
-    claude_platform_cost: Final = litellm.cost_per_token(
+    claude_platform_cost: Final = hangarllm.cost_per_token(
         model=key.removeprefix("bedrock/"), custom_llm_provider="bedrock", usage_object=usage
     )
-    claude_api_cost: Final = litellm.cost_per_token(
+    claude_api_cost: Final = hangarllm.cost_per_token(
         model=key.removeprefix(CLAUDE_PLATFORM_PREFIX), custom_llm_provider="anthropic", usage_object=usage
     )
 

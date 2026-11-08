@@ -43,7 +43,7 @@ from pydantic import JsonValue, TypeAdapter
 from redis import Redis
 
 if TYPE_CHECKING:
-    from litellm.llms.azure.ptu_capacity import PTUCapacity
+    from hangarllm.llms.azure.ptu_capacity import PTUCapacity
 
 pytestmark: Final = [pytest.mark.timeout(2 * graceful_stop_seconds() + 120), pytest.mark.shares_worker_state]
 
@@ -59,8 +59,8 @@ _CLAUDE_BACKEND: Final = "claude-ptu-backend"
 _AZURE_KEY: Final = "synthetic-azure-key"
 _ANTHROPIC_KEY: Final = "synthetic-anthropic-key"
 _UPSTREAM_URL_PLACEHOLDER: Final = "upstream-url-placeholder"
-_ATTRIBUTION_ON: Final = MappingProxyType({"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"})
-_ATTRIBUTION_OFF: Final = MappingProxyType({"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "False"})
+_ATTRIBUTION_ON: Final = MappingProxyType({"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "True"})
+_ATTRIBUTION_OFF: Final = MappingProxyType({"HANGARLLM_ENABLE_PTU_COST_ATTRIBUTION": "False"})
 _RESERVED: Final = "is reserved for the teams holding a PTU share of it"
 _TEXT: Final = "served"
 _SMALL_MAX_TOKENS: Final = 16
@@ -96,7 +96,7 @@ Behavior = Literal["ok", "settle", "cached", "fail", "fail-once", "hold", "drop-
 
 
 def _gpt41() -> "PTUCapacity":
-    from litellm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
+    from hangarllm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
 
     return AZURE_PTU_CAPACITY["gpt-4.1"]
 
@@ -199,7 +199,7 @@ def _ptu_terms(shares: Mapping[str, int]) -> dict[str, JsonValue]:
 def _azure(model_name: str, deployment: str, model_info: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"azure/{deployment}",
             "api_base": _UPSTREAM_URL_PLACEHOLDER,
             "api_key": _AZURE_KEY,
@@ -218,7 +218,7 @@ def _model_list(teams: Mapping[str, str]) -> list[JsonValue]:
         *(_azure(_PAIR, deployment, _ptu_terms({teams["pair"]: 1})) for deployment in _PAIR_DEPLOYMENTS),
         {
             "model_name": _CLAUDE,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"anthropic/{_CLAUDE_BACKEND}",
                 "api_base": _UPSTREAM_URL_PLACEHOLDER,
                 "api_key": _ANTHROPIC_KEY,
@@ -566,7 +566,7 @@ def test_the_priority_scheduler_serves_share_holders_and_refuses_everyone_else(r
     refused: Final = rig.chat(_SHARED, "outsider", "ok", refused_marker, priority=1)
     assert served.status_code == 200, served.text
     assert served.json()["id"] == _served_id(_SHARED_DEPLOYMENT, served_marker, 1), served.text
-    assert "x-litellm-request-prioritization-used" in served.headers, served.headers
+    assert "x-hangarllm-request-prioritization-used" in served.headers, served.headers
     assert refused.status_code == 400, refused.text
     assert _RESERVED in refused.text, refused.text
     assert (rig.hits(_SHARED_DEPLOYMENT, served_marker), rig.hits(_SHARED_DEPLOYMENT, refused_marker)) == (1, 0)

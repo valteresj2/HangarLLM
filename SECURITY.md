@@ -2,7 +2,7 @@
 
 ## Security Announcements
 
-LiteLLM maintains a security announcements mailing list that is open to anyone. Subscribers receive advance notice, typically one to two days, before we release a fix for a particularly severe vulnerability or for any vulnerability exploitable by an unauthenticated attacker. This notice is provided on a best-effort basis
+HangarLLM maintains a security announcements mailing list that is open to anyone. Subscribers receive advance notice, typically one to two days, before we release a fix for a particularly severe vulnerability or for any vulnerability exploitable by an unauthenticated attacker. This notice is provided on a best-effort basis
 
 To subscribe, visit [https://berriai.github.io/security-announce-signup/](https://berriai.github.io/security-announce-signup/)
 
@@ -13,9 +13,9 @@ To subscribe, visit [https://berriai.github.io/security-announce-signup/](https:
 
 We value the security community's role in protecting our systems and users. To report a security vulnerability:
 
-- File a private vulnerability report on GitHub: [Report a vulnerability](https://github.com/BerriAI/litellm/security/advisories/new)
+- File a private vulnerability report on GitHub: [Report a vulnerability](https://github.com/valteresj2/HangarLLM/security/advisories/new)
 - Include steps to reproduce the issue
-- Include a video or screen recording demonstrating the full exploit against a live LiteLLM instance, from initial access through to impact. A terminal recording (for example asciinema) is fine for CLI-only exploits.
+- Include a video or screen recording demonstrating the full exploit against a live HangarLLM instance, from initial access through to impact. A terminal recording (for example asciinema) is fine for CLI-only exploits.
 - Provide any relevant additional information
 
 ### Reproduction Video Requirement
@@ -32,7 +32,7 @@ Attacks that compromise our CI/CD pipeline, allowing a malicious actor to point 
 
 **P1: Unauthenticated Proxy Access**
 
-Application-level attacks where an unauthenticated user is able to gain access to protected data on a LiteLLM proxy instance that should be protected (e.g api keys).
+Application-level attacks where an unauthenticated user is able to gain access to protected data on a HangarLLM proxy instance that should be protected (e.g api keys).
 
 **P2: Authenticated Malicious Actions**
 
@@ -59,31 +59,31 @@ To qualify for a bounty, reports must include clear reproduction steps, a reprod
 
 ## Security Measures
 
-### LiteLLM Github
+### HangarLLM Github
 
 - All commits run through Github's CodeQL checking
 
-### Self-hosted Instances LiteLLM
+### Self-hosted Instances HangarLLM
 
-- **No data or telemetry is stored on LiteLLM Servers when you self host**
-- For installation and configuration, see: [Self-hosting guided](https://docs.litellm.ai/docs/proxy/deploy)
-- **Telemetry** We run no telemetry when you self host LiteLLM
+- **No data or telemetry is stored on HangarLLM Servers when you self host**
+- For installation and configuration, see: [Self-hosting guided](https://github.com/valteresj2/HangarLLM#readme)
+- **Telemetry** We run no telemetry when you self host HangarLLM
 
-### LiteLLM Cloud
+### HangarLLM Cloud
 
-- We encrypt all data stored using your `LITELLM_MASTER_KEY` and in transit using TLS.
+- We encrypt all data stored using your `HANGARLLM_MASTER_KEY` and in transit using TLS.
 - Our database and application run on GCP, AWS infrastructure, partly managed by NeonDB.
     - US data region: Northern California (AWS/GCP `us-west-1`) & Virginia (AWS `us-east-1`)
     - EU data region Germany/Frankfurt (AWS/GCP `eu-central-1`)
 - All users have access to SSO (Single Sign-On) through OAuth 2.0 with Google, Okta, Microsoft, KeyCloak. 
 - Audit Logs with retention policy
-- Control Allowed IP Addresses that can access your Cloud LiteLLM Instance
+- Control Allowed IP Addresses that can access your Cloud HangarLLM Instance
 
 For security inquiries, please contact us at security@berri.ai
 
-#### Supported data regions for LiteLLM Cloud
+#### Supported data regions for HangarLLM Cloud
 
-LiteLLM supports the following data regions:
+HangarLLM supports the following data regions:
 
 - US, Northern California (AWS/GCP `us-west-1`)
 - Europe, Frankfurt, Germany (AWS/GCP `eu-central-1`)

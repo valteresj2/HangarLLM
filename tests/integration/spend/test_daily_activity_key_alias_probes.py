@@ -36,7 +36,7 @@ from integration._support.daily_activity import (
 from integration._support.database import read_rows, scratch_database
 from integration._support.process import OwnedProxy, owned_proxy_process
 from integration._support.timing import assert_enforced_within, timed
-from litellm.constants import SPEND_LOG_KEY_METADATA_QUERY_TIMEOUT_MS
+from hangarllm.constants import SPEND_LOG_KEY_METADATA_QUERY_TIMEOUT_MS
 from pydantic import JsonValue
 
 DAY_OUTSIDE_THE_WINDOW: Final = "2026-02-10"
@@ -44,7 +44,7 @@ LOCKED_LOOKUP_SLACK_SECONDS: Final = 5
 CONCURRENT_READS: Final = 20
 CACHED_MISS_CLEARS_WITHIN_SECONDS: Final = 45
 ALIAS_OF_ONE_SPEND_LOG: Final = (
-    "SELECT metadata->>'user_api_key_alias' AS alias FROM \"LiteLLM_SpendLogs\" WHERE request_id = %s"
+    "SELECT metadata->>'user_api_key_alias' AS alias FROM \"HangarLLM_SpendLogs\" WHERE request_id = %s"
 )
 
 

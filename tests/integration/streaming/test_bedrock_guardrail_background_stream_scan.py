@@ -128,7 +128,7 @@ def _model_reply(request: Request) -> Reply:
 def _bedrock_rail(name: str, endpoint: str, background: bool) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "bedrock",
             "mode": "post_call",
             "default_on": False,
@@ -162,7 +162,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
                         *list_value(stock["model_list"]),
                         {
                             "model_name": _MODEL,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": f"openai/{_MODEL}",
                                 "api_base": f"{model.url}/v1",
                                 "api_key": "synthetic",
@@ -170,7 +170,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Rig]:
                         },
                         {
                             "model_name": _CLAUDE,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "anthropic/claude-sonnet-4-6",
                                 "api_base": model.url,
                                 "api_key": "synthetic",

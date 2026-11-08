@@ -12,9 +12,9 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.chatgpt.chat.streaming_utils import ChatGPTToolCallNormalizer
-from litellm.llms.chatgpt.chat.transformation import ChatGPTConfig
-from litellm.types.utils import (
+from hangarllm.llms.chatgpt.chat.streaming_utils import ChatGPTToolCallNormalizer
+from hangarllm.llms.chatgpt.chat.transformation import ChatGPTConfig
+from hangarllm.types.utils import (
     ChatCompletionDeltaToolCall,
     Delta,
     Function,

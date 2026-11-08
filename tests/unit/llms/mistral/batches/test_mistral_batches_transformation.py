@@ -14,10 +14,10 @@ import json
 import httpx
 import pytest
 
-from litellm.llms.mistral.batches.transformation import MistralBatchesConfig
-from litellm.llms.mistral.common_utils import MistralError
-from litellm.types.llms.openai import CreateBatchRequest
-from litellm.types.utils import LiteLLMBatch, LlmProviders
+from hangarllm.llms.mistral.batches.transformation import MistralBatchesConfig
+from hangarllm.llms.mistral.common_utils import MistralError
+from hangarllm.types.llms.openai import CreateBatchRequest
+from hangarllm.types.utils import HangarLLMBatch, LlmProviders
 
 STATUS_MAP = {
     "QUEUED": "validating",
@@ -84,7 +84,7 @@ def test_create_request_maps_openai_fields_onto_mistral_job(config):
         metadata={"team": "docs"},
     )
     body = config.transform_create_batch_request(
-        model="mistral-ocr-latest", create_batch_data=data, optional_params={}, litellm_params={}
+        model="mistral-ocr-latest", create_batch_data=data, optional_params={}, hangarllm_params={}
     )
     assert body == {
         "input_files": ("file-123",),
@@ -102,7 +102,7 @@ def test_create_request_omits_empty_metadata(config):
         metadata=None,
     )
     body = config.transform_create_batch_request(
-        model="mistral-small-latest", create_batch_data=data, optional_params={}, litellm_params={}
+        model="mistral-small-latest", create_batch_data=data, optional_params={}, hangarllm_params={}
     )
     assert "metadata" not in body
 
@@ -113,7 +113,7 @@ def test_create_request_requires_input_file_and_endpoint(config):
             model="m",
             create_batch_data=CreateBatchRequest(completion_window="24h"),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -127,21 +127,21 @@ def test_create_request_requires_input_file_and_endpoint(config):
 )
 def test_create_url(config, api_base, expected):
     url = config.get_complete_batch_url(
-        api_base=api_base, api_key="k", model="m", optional_params={}, litellm_params={}, data={}
+        api_base=api_base, api_key="k", model="m", optional_params={}, hangarllm_params={}, data={}
     )
     assert url == expected
 
 
 def test_validate_environment_uses_bearer_auth(config, api_key):
     headers = config.validate_environment(
-        headers={"x-extra": "1"}, model="m", messages=[], optional_params={}, litellm_params={}
+        headers={"x-extra": "1"}, model="m", messages=[], optional_params={}, hangarllm_params={}
     )
     assert headers == {"x-extra": "1", "Authorization": f"Bearer {api_key}"}
 
 
 def test_validate_environment_explicit_key_wins(config, api_key):
     headers = config.validate_environment(
-        headers={}, model="m", messages=[], optional_params={}, litellm_params={}, api_key="sk-explicit"
+        headers={}, model="m", messages=[], optional_params={}, hangarllm_params={}, api_key="sk-explicit"
     )
     assert headers["Authorization"] == "Bearer sk-explicit"
 
@@ -149,7 +149,7 @@ def test_validate_environment_explicit_key_wins(config, api_key):
 def test_validate_environment_without_key_raises(config, monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     with pytest.raises(ValueError, match="Missing Mistral API Key"):
-        config.validate_environment(headers={}, model="m", messages=[], optional_params={}, litellm_params={})
+        config.validate_environment(headers={}, model="m", messages=[], optional_params={}, hangarllm_params={})
 
 
 def test_create_response_maps_job_onto_openai_batch(config):
@@ -157,9 +157,9 @@ def test_create_response_maps_job_onto_openai_batch(config):
         model="mistral-ocr-latest",
         raw_response=_response(_job(status="QUEUED", started_at=None, completed_at=None)),
         logging_obj=None,
-        litellm_params={},
+        hangarllm_params={},
     )
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert batch.id == "8ff5e0d1-6bc2-4c3a-9f7d-0d1c2e3f4a5b"
     assert batch.endpoint == "/v1/ocr"
     assert batch.input_file_id == "c1a2b3d4-0000-4000-8000-000000000001"
@@ -172,16 +172,16 @@ def test_create_response_maps_job_onto_openai_batch(config):
 
 def test_retrieve_request_is_presigned_get_with_auth(config, api_key):
     req = config.transform_retrieve_batch_request(
-        batch_id="job/with slash", optional_params={}, litellm_params={"api_base": "https://api.mistral.ai"}
+        batch_id="job/with slash", optional_params={}, hangarllm_params={"api_base": "https://api.mistral.ai"}
     )
     assert req["method"] == "GET"
     assert req["url"] == "https://api.mistral.ai/v1/batch/jobs/job%2Fwith%20slash"
     assert req["headers"] == {"Authorization": f"Bearer {api_key}"}
 
 
-def test_retrieve_request_prefers_litellm_params_api_key(config, api_key):
+def test_retrieve_request_prefers_hangarllm_params_api_key(config, api_key):
     req = config.transform_retrieve_batch_request(
-        batch_id="job-1", optional_params={}, litellm_params={"api_key": "sk-from-deployment"}
+        batch_id="job-1", optional_params={}, hangarllm_params={"api_key": "sk-from-deployment"}
     )
     assert req["headers"]["Authorization"] == "Bearer sk-from-deployment"
 
@@ -189,7 +189,7 @@ def test_retrieve_request_prefers_litellm_params_api_key(config, api_key):
 @pytest.mark.parametrize("mistral_status,openai_status", sorted(STATUS_MAP.items()))
 def test_retrieve_response_status_mapping(config, mistral_status, openai_status):
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=_response(_job(status=mistral_status)), logging_obj=None, litellm_params={}
+        model=None, raw_response=_response(_job(status=mistral_status)), logging_obj=None, hangarllm_params={}
     )
     assert batch.status == openai_status
 
@@ -205,7 +205,7 @@ def test_retrieve_response_status_mapping(config, mistral_status, openai_status)
 )
 def test_retrieve_response_terminal_timestamp_lands_on_matching_field(config, mistral_status, populated_field):
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=_response(_job(status=mistral_status)), logging_obj=None, litellm_params={}
+        model=None, raw_response=_response(_job(status=mistral_status)), logging_obj=None, hangarllm_params={}
     )
     terminal_fields = {"completed_at", "failed_at", "expired_at", "cancelled_at"}
     assert getattr(batch, populated_field) == 1_757_400_500
@@ -216,7 +216,7 @@ def test_retrieve_response_terminal_timestamp_lands_on_matching_field(config, mi
 
 def test_retrieve_response_maps_counts_and_files(config):
     batch = config.transform_retrieve_batch_response(
-        model=None, raw_response=_response(_job()), logging_obj=None, litellm_params={}
+        model=None, raw_response=_response(_job()), logging_obj=None, hangarllm_params={}
     )
     assert batch.request_counts.total == 3
     assert batch.request_counts.completed == 2
@@ -233,7 +233,7 @@ def test_retrieve_response_surfaces_job_errors(config):
             _job(status="FAILED", errors=[{"message": "invalid document", "count": 2}, {"message": "timeout"}])
         ),
         logging_obj=None,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert [e.message for e in batch.errors.data] == ["invalid document (x2)", "timeout"]
 
@@ -243,7 +243,7 @@ def test_retrieve_response_without_files_or_input(config):
         model=None,
         raw_response=_response(_job(input_files=[], output_file=None, error_file=None, metadata=None)),
         logging_obj=None,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert batch.input_file_id == ""
     assert batch.output_file_id is None

@@ -1,7 +1,7 @@
 """basic_messaging_non_streaming × Anthropic.
 
 The thinnest end-to-end path through every layer of the matrix: drive the
-real `claude` CLI in headless mode against a running LiteLLM proxy that
+real `claude` CLI in headless mode against a running HangarLLM proxy that
 routes to Anthropic, and report the outcome via `compat_result`.
 
 The (feature, provider) for this cell is inferred from the file path by
@@ -25,7 +25,7 @@ from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from claude_code._basic_messaging import run_basic_messaging_cell
 
 # Per the PRD: each cell is exercised against three Claude tiers via the
-# Anthropic provider. Aliases are configured in the LiteLLM proxy's
+# Anthropic provider. Aliases are configured in the HangarLLM proxy's
 # routing config; the driver only sends the alias.
 ANTHROPIC_MODELS = [
     "claude-haiku-4-5",
@@ -45,7 +45,7 @@ ANTHROPIC_MODELS = [
     )
 )
 def test_basic_messaging_non_streaming_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a reply.
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a reply.
 
     "Basic messaging" means: send a single user prompt, receive any
     non-empty assistant text reply, no tools, no streaming, no thinking.

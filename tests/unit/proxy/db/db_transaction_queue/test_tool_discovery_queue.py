@@ -4,7 +4,7 @@ Unit tests for ToolDiscoveryQueue.
 
 import pytest
 
-from litellm.proxy.db.db_transaction_queue.tool_discovery_queue import (
+from hangarllm.proxy.db.db_transaction_queue.tool_discovery_queue import (
     ToolDiscoveryQueue,
     aggregate_tool_discoveries,
 )

@@ -144,7 +144,7 @@ def metered_reply(request: Request) -> Reply:
 def model_entry(group: str, wire: Wire, **extra: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": group,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": OPENAI_MODEL,
             "api_base": wire.url + "/v1",
             "api_key": "synthetic-openai-key",
@@ -162,12 +162,12 @@ def proxy_config(
     callbacks: Sequence[str] = (),
 ) -> Path:
     base: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
-    litellm_settings: Final = object_value(base["litellm_settings"])
+    hangarllm_settings: Final = object_value(base["hangarllm_settings"])
     config: Final = {
         **base,
         "model_list": [dict(entry) for entry in model_list],
         "general_settings": {**object_value(base["general_settings"]), **general_settings},
-        "litellm_settings": {**litellm_settings, **({"callbacks": list(callbacks)} if callbacks else {})},
+        "hangarllm_settings": {**hangarllm_settings, **({"callbacks": list(callbacks)} if callbacks else {})},
         "router_settings": {
             **object_value(base["router_settings"]),
             "num_retries": 0,
@@ -289,7 +289,7 @@ def assert_refused(
 ) -> None:
     assert response.status_code == 429, (
         response.status_code,
-        response.headers.get("x-litellm-model-group"),
+        response.headers.get("x-hangarllm-model-group"),
         response.text,
     )
     assert_limit_message(response.text, descriptor, group, kind, limit)
@@ -297,8 +297,8 @@ def assert_refused(
 
 def assert_served(response: httpx.Response, group: str, identity: str) -> None:
     assert response.status_code == 200, response.text
-    assert response.headers["x-litellm-model-group"] == group, (
-        response.headers.get("x-litellm-model-group"),
+    assert response.headers["x-hangarllm-model-group"] == group, (
+        response.headers.get("x-hangarllm-model-group"),
         response.text,
     )
     assert identity in response.text, response.text
@@ -314,7 +314,7 @@ def burst(gateway: Gateway, calls: Sequence[tuple[str, str]], group: str) -> tup
 
 def served_once_in_a_burst(rig: Rig, markers: Sequence[str], responses: Sequence[httpx.Response]) -> str:
     assert Counter(response.status_code for response in responses) == Counter({200: 1, 429: BURST - 1}), tuple(
-        (response.status_code, response.headers.get("x-litellm-model-group"), response.text[:200])
+        (response.status_code, response.headers.get("x-hangarllm-model-group"), response.text[:200])
         for response in responses
     )
     refusals: Final = tuple(response for response in responses if response.status_code == 429)
@@ -357,7 +357,7 @@ def test_chat_openai_sdk_over_key_model_rpm_gets_429_instead_of_the_fallback(enf
         served: Final = client.chat.completions.with_raw_response.create(
             model=primary, messages=[{"role": "user", "content": first}]
         )
-        assert served.headers["x-litellm-model-group"] == primary
+        assert served.headers["x-hangarllm-model-group"] == primary
         assert served.parse().id == f"chatcmpl-{first}"
         with pytest.raises(openai.RateLimitError) as refused:
             client.chat.completions.create(model=primary, messages=[{"role": "user", "content": second}])
@@ -395,7 +395,7 @@ def test_messages_anthropic_sdk_over_key_model_rpm_gets_429_instead_of_the_fallb
         served: Final = client.messages.with_raw_response.create(
             model=primary, max_tokens=32, messages=[{"role": "user", "content": first}]
         )
-        assert served.headers["x-litellm-model-group"] == primary
+        assert served.headers["x-hangarllm-model-group"] == primary
         block: Final = served.parse().content[0]
         assert isinstance(block, anthropic.types.TextBlock), block
         assert block.text == f"served {first}"

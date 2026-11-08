@@ -13,32 +13,32 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    Litellm_EntityType,
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
+import hangarllm
+from hangarllm import Router
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    Hangarllm_EntityType,
+    HangarLLM_OrganizationTable,
+    HangarLLM_ProjectTableCachedObj,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.proxy.auth.auth_checks import (
     _model_access_group_max_budget_check,
     collect_matched_model_access_groups,
     common_checks,
     stamp_matched_model_access_groups,
 )
-from litellm.proxy.common_utils.reset_budget_job import _model_access_group_counter_key
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.proxy.common_utils.reset_budget_job import _model_access_group_counter_key
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     NO_TEAM_MEMBERSHIP_SENTINEL,
     UserApiKeyCache,
     model_access_group_registry_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.redis.stores.spend_counters import model_access_group_counter
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.redis.stores.spend_counters import model_access_group_counter
 
 TEAM_ID = "team-1"
 USER_ID = "user-1"
@@ -49,12 +49,12 @@ MODEL_ACCESS_GROUP_COUNTER_KEY = model_access_group_counter("tier-a")
 MODEL_LIST = [
     {
         "model_name": "gpt-4o",
-        "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+        "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "k"},
         "model_info": {"access_groups": ["tier-a", "tier-b"]},
     },
     {
         "model_name": "claude-sonnet",
-        "litellm_params": {"model": "anthropic/claude-sonnet", "api_key": "k"},
+        "hangarllm_params": {"model": "anthropic/claude-sonnet", "api_key": "k"},
         "model_info": {"access_groups": ["claude-tier"]},
     },
 ]
@@ -77,13 +77,13 @@ async def _cache(
     if member_allowed_models:
         await cache.async_set_cache(
             key=team_membership_reservation_cache_key(user_id=USER_ID, team_id=TEAM_ID),
-            value=LiteLLM_TeamMembership(
+            value=HangarLLM_TeamMembership(
                 user_id=USER_ID,
                 team_id=TEAM_ID,
                 budget_id="member-budget",
-                litellm_budget_table=LiteLLM_BudgetTable(allowed_models=list(member_allowed_models)),
+                hangarllm_budget_table=HangarLLM_BudgetTable(allowed_models=list(member_allowed_models)),
             ),
-            model_type=LiteLLM_TeamMembership,
+            model_type=HangarLLM_TeamMembership,
         )
     else:
         await cache.async_set_cache(
@@ -93,14 +93,14 @@ async def _cache(
     if org_models:
         await cache.async_set_cache(
             key=f"org_id:{ORG_ID}",
-            value=LiteLLM_OrganizationTable(
+            value=HangarLLM_OrganizationTable(
                 organization_id=ORG_ID,
                 budget_id="org-budget",
                 models=list(org_models),
                 created_by=USER_ID,
                 updated_by=USER_ID,
             ),
-            model_type=LiteLLM_OrganizationTable,
+            model_type=HangarLLM_OrganizationTable,
         )
     return cache
 
@@ -123,12 +123,12 @@ async def _matched(
         if valid_token is not None
         else UserAPIKeyAuth(api_key="hashed", models=key_models or [], team_id=TEAM_ID, user_id=USER_ID),
         team_object=(
-            LiteLLM_TeamTable(team_id=TEAM_ID, models=team_models, organization_id=team_org_id)
+            HangarLLM_TeamTable(team_id=TEAM_ID, models=team_models, organization_id=team_org_id)
             if team_models is not None
             else None
         ),
         project_object=(
-            LiteLLM_ProjectTableCachedObj(project_id="project-1", models=project_models)
+            HangarLLM_ProjectTableCachedObj(project_id="project-1", models=project_models)
             if project_models is not None
             else None
         ),
@@ -303,12 +303,12 @@ async def test_stamp_leaves_the_auth_object_untouched_when_nothing_matched():
 
 
 class _MagBudgetRow:
-    """One ``LiteLLM_ModelAccessGroupBudgetTable`` row as prisma hands it back."""
+    """One ``HangarLLM_ModelAccessGroupBudgetTable`` row as prisma hands it back."""
 
     def __init__(self, access_group_name: str, spend: float = 0.0, max_budget: float | None = None) -> None:
         self.access_group_name = access_group_name
         self.spend = spend
-        self.litellm_budget_table = None if max_budget is None else SimpleNamespace(max_budget=max_budget)
+        self.hangarllm_budget_table = None if max_budget is None else SimpleNamespace(max_budget=max_budget)
 
 
 class _RecordingPrismaClient:
@@ -317,7 +317,7 @@ class _RecordingPrismaClient:
     def __init__(self, *rows: _MagBudgetRow) -> None:
         self.rows = {row.access_group_name: row for row in rows}
         self.batches: list[list[str]] = []
-        self.db = SimpleNamespace(litellm_modelaccessgroupbudgettable=SimpleNamespace(find_many=self._find_many))
+        self.db = SimpleNamespace(hangarllm_modelaccessgroupbudgettable=SimpleNamespace(find_many=self._find_many))
 
     async def _find_many(self, **kwargs):
         requested = list(kwargs["where"]["access_group_name"]["in"])
@@ -345,9 +345,9 @@ async def _enforce(
 ) -> list[str]:
     read, seen = _spend_reader(spend_by_counter_key or {})
     # The check takes its client and cache as arguments, injected just below. get_current_spend is the
-    # one collaborator it reaches by a lazy `from litellm.proxy.proxy_server import`, with no parameter.
+    # one collaborator it reaches by a lazy `from hangarllm.proxy.proxy_server import`, with no parameter.
     with patch(  # test-quality-ok: get_current_spend is lazily imported inside the budget check
-        "litellm.proxy.proxy_server.get_current_spend", read
+        "hangarllm.proxy.proxy_server.get_current_spend", read
     ):
         await _model_access_group_max_budget_check(
             matched_model_access_groups=matched,
@@ -373,7 +373,7 @@ async def test_group_exactly_at_its_max_budget_blocks_the_request():
     This is where the check departs from the tag one it otherwise mirrors, and it matches where
     keys and organizations already draw the line.
     """
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await _enforce(
             ("tier-a",),
             _MagBudgetRow("tier-a", max_budget=10.0),
@@ -414,7 +414,7 @@ async def test_a_non_positive_budget_means_no_budget():
 
 @pytest.mark.asyncio
 async def test_group_over_its_max_budget_blocks_the_request_and_names_the_group():
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await _enforce(
             ("tier-a",),
             _MagBudgetRow("tier-a", max_budget=10.0),
@@ -422,7 +422,7 @@ async def test_group_over_its_max_budget_blocks_the_request_and_names_the_group(
         )
 
     assert exc_info.value.entity_id == "tier-a"
-    assert exc_info.value.entity_type == Litellm_EntityType.MODEL_ACCESS_GROUP.value
+    assert exc_info.value.entity_type == Hangarllm_EntityType.MODEL_ACCESS_GROUP.value
     assert exc_info.value.current_cost == 10.5
     assert exc_info.value.max_budget == 10.0
     assert "tier-a" in str(exc_info.value)
@@ -444,7 +444,7 @@ async def test_group_with_a_row_but_no_budget_never_blocks():
 @pytest.mark.asyncio
 async def test_a_cold_counter_falls_back_to_the_spend_recorded_on_the_row():
     """After a counter expires the DB row is the only record of the spend, so it has to be read."""
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await _enforce(("tier-a",), _MagBudgetRow("tier-a", spend=12.0, max_budget=10.0))
 
     assert exc_info.value.current_cost == 12.0
@@ -452,7 +452,7 @@ async def test_a_cold_counter_falls_back_to_the_spend_recorded_on_the_row():
 
 @pytest.mark.asyncio
 async def test_an_over_budget_group_blocks_even_when_another_matched_group_is_fine():
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await _enforce(
             ("tier-a", "tier-b"),
             _MagBudgetRow("tier-a", max_budget=10.0),
@@ -494,7 +494,7 @@ async def test_a_second_request_serves_the_budget_row_from_cache():
 async def test_a_database_error_does_not_block_the_request():
     class _FailingPrismaClient:
         def __init__(self) -> None:
-            self.db = SimpleNamespace(litellm_modelaccessgroupbudgettable=SimpleNamespace(find_many=self._boom))
+            self.db = SimpleNamespace(hangarllm_modelaccessgroupbudgettable=SimpleNamespace(find_many=self._boom))
 
         async def _boom(self, **kwargs):
             raise RuntimeError("database unavailable")
@@ -509,13 +509,13 @@ async def _common_checks_with_over_budget_group(*, skip_budget_checks: bool) -> 
 
     with (
         patch(  # test-quality-ok: common_checks lazily imports prisma_client from proxy_server
-            "litellm.proxy.proxy_server.prisma_client", prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", prisma_client
         ),
         patch(  # test-quality-ok: common_checks lazily imports user_api_key_cache from proxy_server
-            "litellm.proxy.proxy_server.user_api_key_cache", cache
+            "hangarllm.proxy.proxy_server.user_api_key_cache", cache
         ),
         patch(  # test-quality-ok: get_current_spend is lazily imported inside the budget check
-            "litellm.proxy.proxy_server.get_current_spend", read
+            "hangarllm.proxy.proxy_server.get_current_spend", read
         ),
     ):
         return await common_checks(
@@ -538,7 +538,7 @@ async def _common_checks_with_over_budget_group(*, skip_budget_checks: bool) -> 
 
 @pytest.mark.asyncio
 async def test_common_checks_blocks_a_request_whose_group_is_over_budget():
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await _common_checks_with_over_budget_group(skip_budget_checks=False)
 
     assert exc_info.value.entity_id == "tier-a"

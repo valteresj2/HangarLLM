@@ -42,7 +42,7 @@ def _invoke(
             return response
         finally:
             await asyncio.sleep(0)
-            from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+            from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
             await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=10)
             await GLOBAL_LOGGING_WORKER.stop()
@@ -56,10 +56,10 @@ def _invoke(
 
 
 def _entrypoint(spec: RouteSpec, *, asynchronous: bool) -> SdkCall:
-    import litellm
-    from litellm.anthropic_interface import messages as sdk_messages
+    import hangarllm
+    from hangarllm.anthropic_interface import messages as sdk_messages
 
-    owner: Final = sdk_messages if spec.route == "messages" else litellm
+    owner: Final = sdk_messages if spec.route == "messages" else hangarllm
     return cast(SdkCall, getattr(owner, spec.python_entrypoints[int(asynchronous)]))
 
 
@@ -69,13 +69,13 @@ def _collect(
     *,
     asynchronous: bool,
 ) -> _CollectedTrace:
-    import litellm
+    import hangarllm
 
-    previous_suppress_debug_info: Final = litellm.suppress_debug_info
+    previous_suppress_debug_info: Final = hangarllm.suppress_debug_info
     try:
         if fixture.expected_failure:
-            litellm.suppress_debug_info = True
-        with profile_python(Path(litellm.__file__).parent, threads=True) as profiler:
+            hangarllm.suppress_debug_info = True
+        with profile_python(Path(hangarllm.__file__).parent, threads=True) as profiler:
             error: str | None
             try:
                 _invoke(function, fixture.kwargs, asynchronous=asynchronous, consume_stream=fixture.consume_stream)
@@ -83,7 +83,7 @@ def _collect(
             except Exception as caught:
                 error = f"{type(caught).__name__}: {caught}"
     finally:
-        litellm.suppress_debug_info = previous_suppress_debug_info
+        hangarllm.suppress_debug_info = previous_suppress_debug_info
     return _CollectedTrace(tuple(profiler.events), error)
 
 

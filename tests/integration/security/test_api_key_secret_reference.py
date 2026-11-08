@@ -74,11 +74,11 @@ _ATTACKS: Final = (
     "user_config",
 )
 _CREDENTIAL_ROW: Final = (
-    'SELECT credential_values::text AS stored, updated_at::text AS updated_at FROM "LiteLLM_CredentialsTable" '
+    'SELECT credential_values::text AS stored, updated_at::text AS updated_at FROM "HangarLLM_CredentialsTable" '
     "WHERE credential_name = %s"
 )
 _MODEL_ROW: Final = (
-    'SELECT litellm_params::text AS stored, updated_at::text AS updated_at FROM "LiteLLM_ProxyModelTable" '
+    'SELECT hangarllm_params::text AS stored, updated_at::text AS updated_at FROM "HangarLLM_ProxyModelTable" '
     "WHERE model_id = %s"
 )
 _ENDPOINTS: Final = MappingProxyType(
@@ -93,7 +93,7 @@ _TEAM_WRITES: Final = MappingProxyType(
     }
 )
 _MODEL_ROWS: Final = (
-    "SELECT model_id FROM \"LiteLLM_ProxyModelTable\" WHERE model_info::jsonb ->> 'team_public_model_name' = %s"
+    "SELECT model_id FROM \"HangarLLM_ProxyModelTable\" WHERE model_info::jsonb ->> 'team_public_model_name' = %s"
 )
 
 
@@ -114,7 +114,7 @@ class _Secrets:
 
     def overrides(self) -> Mapping[str, str]:
         return MappingProxyType(
-            {"LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS": str(self.allowed), "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": "2"}
+            {"HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS": str(self.allowed), "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": "2"}
         )
 
 
@@ -238,7 +238,7 @@ def _intruder(request: Request) -> Reply:
 def _deployment(
     name: str, params: Mapping[str, JsonValue], info: Mapping[str, JsonValue] = MappingProxyType({})
 ) -> dict[str, JsonValue]:
-    return {"model_name": name, "litellm_params": dict(params), "model_info": dict(info)}
+    return {"model_name": name, "hangarllm_params": dict(params), "model_info": dict(info)}
 
 
 def _credential(name: str, api_key: str, api_base: str) -> dict[str, JsonValue]:
@@ -250,7 +250,7 @@ def _credential(name: str, api_key: str, api_base: str) -> dict[str, JsonValue]:
 
 
 def _named(model: str, credential: str) -> dict[str, JsonValue]:
-    return {"model": model, "litellm_credential_name": credential}
+    return {"model": model, "hangarllm_credential_name": credential}
 
 
 def _config(directory: Path, secrets: _Secrets, provider: str) -> Path:
@@ -318,10 +318,10 @@ def _config(directory: Path, secrets: _Secrets, provider: str) -> Path:
         "vector_store_registry": [
             {
                 "vector_store_name": "wif-vector-store",
-                "litellm_params": {
+                "hangarllm_params": {
                     "vector_store_id": _VECTOR_STORE,
                     "custom_llm_provider": "openai",
-                    "litellm_credential_name": "wif-config",
+                    "hangarllm_credential_name": "wif-config",
                 },
             }
         ],
@@ -329,8 +329,8 @@ def _config(directory: Path, secrets: _Secrets, provider: str) -> Path:
             "fallbacks": [{"wif-missing-fallback": ["wif-config-credential"]}],
             "disable_cooldowns": True,
         },
-        "litellm_settings": {"check_provider_endpoint": True},
-        "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY", "allow_client_side_credentials": True},
+        "hangarllm_settings": {"check_provider_endpoint": True},
+        "general_settings": {"master_key": "os.environ/HANGARLLM_MASTER_KEY", "allow_client_side_credentials": True},
     }
     path: Final = directory / "api_key_secret_reference_config.yaml"
     path.write_text(yaml.safe_dump(configuration, sort_keys=False))
@@ -543,7 +543,7 @@ def test_connection_with_an_admin_reference_reaches_the_provider(rig: _Rig, shap
     )
     seen: Final = len(rig.provider.requests())
     response: Final = rig.owned.gateway.request(
-        "POST", "/health/test_connection", {"litellm_params": params, "mode": "chat"}, headers=_CLOSE
+        "POST", "/health/test_connection", {"hangarllm_params": params, "mode": "chat"}, headers=_CLOSE
     )
     sent: Final = frozenset(_bearers(rig.provider.requests()[seen:]))
     assert response.status_code == 200, response.text
@@ -669,7 +669,7 @@ def test_updated_api_base_carries_the_token_to_the_new_host(rig: _Rig) -> None:
         )
         eventually(partial(rig.owned.serves_only_on_every_worker, name, identity), bool, seconds=120)
         patched: Final = rig.owned.gateway.request(
-            "PATCH", f"/model/{identity}/update", {"litellm_params": {"api_base": moved_base}}
+            "PATCH", f"/model/{identity}/update", {"hangarllm_params": {"api_base": moved_base}}
         )
         assert patched.status_code == 200, patched.text
         expected: Final = ((200, ((httpx.URL(moved_base).netloc.decode(), f"Bearer {rig.secrets.current()}"),)),) * 2
@@ -695,11 +695,11 @@ def _attack(rig: _Rig, attack: str) -> tuple[str, dict[str, JsonValue]]:
         case "body_reference":
             return "wif-config-inline", {**redirected, "api_key": _reference(rig.secrets.token)}
         case "body_credential_name":
-            return "wif-config-inline", {**redirected, "litellm_credential_name": "wif-config"}
+            return "wif-config-inline", {**redirected, "hangarllm_credential_name": "wif-config"}
         case "user_config":
             injected: Final = {"model": _CHAT_MODEL, "api_key": _reference(rig.secrets.token), **redirected}
             return "wif-injected", {
-                "user_config": {"model_list": [{"model_name": "wif-injected", "litellm_params": injected}]}
+                "user_config": {"model_list": [{"model_name": "wif-injected", "hangarllm_params": injected}]}
             }
         case _:
             pytest.fail(f"unknown attack {attack}")
@@ -741,7 +741,7 @@ def _team_write_params(rig: _Rig, shape: str) -> dict[str, JsonValue]:
         case "plain_key":
             return {"api_key": f"sk-team-{uuid.uuid4().hex}", "api_base": rig.provider_base}
         case "names_credential":
-            return {"litellm_credential_name": "wif-config"}
+            return {"hangarllm_credential_name": "wif-config"}
         case "inline_reference":
             return {"api_key": _reference(rig.secrets.token), "api_base": rig.provider_base}
         case _:
@@ -779,7 +779,7 @@ def test_team_row_naming_the_credential_sends_the_token_only_to_its_host(rig: _R
         stored_name, identity = _created_model(
             rig.owned.gateway,
             scenario,
-            _team_body(name, team_id, {"litellm_credential_name": "wif-config", **redirected}),
+            _team_body(name, team_id, {"hangarllm_credential_name": "wif-config", **redirected}),
         )
         eventually(lambda: rig.owned.serves_only_on_every_worker(stored_name, identity), bool, seconds=120)
         marker: Final = _marker()

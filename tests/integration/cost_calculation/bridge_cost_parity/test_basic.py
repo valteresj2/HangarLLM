@@ -2,7 +2,7 @@
 
 A bridge translates one API into another before the provider call and translates the provider's usage back after it
 (LIT-7730, LIT-9098). Each case is one stored provider response sent twice through the same key, once through the
-provider's own API and once through a client API LiteLLM bridges into it. Both LiteLLM_SpendLogs rows must bill the
+provider's own API and once through a client API HangarLLM bridges into it. Both HangarLLM_SpendLogs rows must bill the
 case's row, and they must agree with each other except where a documented provider quirk says otherwise.
 """
 

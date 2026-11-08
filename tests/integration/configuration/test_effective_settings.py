@@ -78,7 +78,7 @@ def _config_callback_rig(
             "DATABASE_URL": database_url,
             "DEFAULT_FLUSH_INTERVAL_SECONDS": generic_flush_interval,
             "LANGFUSE_FLUSH_INTERVAL": "1",
-            "LITELLM_STORE_AUDIT_LOGS": "True",
+            "HANGARLLM_STORE_AUDIT_LOGS": "True",
         }
         removed: Final = (
             "DATABASE_URL_READ_REPLICA",
@@ -97,7 +97,7 @@ def _config_callback_rig(
 
 def _config_section(database_url: str, section: str) -> dict[str, JsonValue]:
     rows: Final = read_rows(
-        'SELECT param_value FROM "LiteLLM_Config" WHERE param_name = %s',
+        'SELECT param_value FROM "HangarLLM_Config" WHERE param_name = %s',
         (section,),
         database_url=database_url,
     )
@@ -169,7 +169,7 @@ def test_multi_section_config_update_merges_sent_keys_normalizes_callbacks_and_a
             "/config/update",
             {
                 "general_settings": {"alerting_threshold": 321},
-                "litellm_settings": {"success_callback": ["generic_api"], "drop_params": True},
+                "hangarllm_settings": {"success_callback": ["generic_api"], "drop_params": True},
                 "environment_variables": {
                     "GENERIC_LOGGER_ENDPOINT": rig.generic.url,
                     "GENERIC_LOGGER_HEADERS": "Authorization=Bearer integration-generic-sink-secret",
@@ -184,7 +184,7 @@ def test_multi_section_config_update_merges_sent_keys_normalizes_callbacks_and_a
             "/config/update",
             {
                 "general_settings": {"store_prompts_in_spend_logs": True},
-                "litellm_settings": {"success_callback": ["Langfuse"]},
+                "hangarllm_settings": {"success_callback": ["Langfuse"]},
                 "environment_variables": {
                     "LANGFUSE_HOST": rig.langfuse.url,
                     "LANGFUSE_PUBLIC_KEY": langfuse_public_key,
@@ -199,9 +199,9 @@ def test_multi_section_config_update_merges_sent_keys_normalizes_callbacks_and_a
             "alerting_threshold": 321,
             "store_prompts_in_spend_logs": True,
         }
-        litellm_settings: Final = _config_section(rig.database_url, "litellm_settings")
-        assert litellm_settings["drop_params"] is True
-        success_callbacks: Final = TypeAdapter(list[str]).validate_python(litellm_settings["success_callback"])
+        hangarllm_settings: Final = _config_section(rig.database_url, "hangarllm_settings")
+        assert hangarllm_settings["drop_params"] is True
+        success_callbacks: Final = TypeAdapter(list[str]).validate_python(hangarllm_settings["success_callback"])
         assert sorted(success_callbacks) == ["generic_api", "langfuse"]
         assert _config_section(rig.database_url, "router_settings") == {"allowed_fails": 7, "num_retries": 1}
         environment_values: Final = _config_section(rig.database_url, "environment_variables")
@@ -295,7 +295,7 @@ def test_multi_section_config_update_merges_sent_keys_normalizes_callbacks_and_a
 def test_deleted_callback_case_variant_stops_delivery_on_both_workers(
     gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert os.environ.get("LITELLM_LICENSE"), "LITELLM_LICENSE must be set: audit logs are an enterprise feature"
+    assert os.environ.get("HANGARLLM_LICENSE"), "HANGARLLM_LICENSE must be set: audit logs are an enterprise feature"
     marker: Final = "callback-delete-" + uuid.uuid4().hex
     provider_secret: Final = "provider-secret-" + marker
 
@@ -318,7 +318,7 @@ def test_deleted_callback_case_variant_stops_delivery_on_both_workers(
             "POST",
             "/config/update",
             {
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "success_callback": ["langfuse", "generic_api"],
                     "DEFAULT_FLUSH_INTERVAL_SECONDS": 3,
                 },
@@ -416,7 +416,7 @@ def test_deleted_callback_case_variant_stops_delivery_on_both_workers(
         assert deleted_body["removed_callback"] == "langfuse", deleted.text
         assert deleted_body["remaining_callbacks"] == ["generic_api"], deleted.text
         datetime.fromisoformat(string_value(deleted_body["deleted_at"]))
-        assert _config_section(rig.database_url, "litellm_settings") == {
+        assert _config_section(rig.database_url, "hangarllm_settings") == {
             "DEFAULT_FLUSH_INTERVAL_SECONDS": 3,
             "success_callback": ["generic_api"],
         }
@@ -439,9 +439,9 @@ def test_deleted_callback_case_variant_stops_delivery_on_both_workers(
 
         audit: Final = eventually(
             lambda: read_rows(
-                'SELECT action, table_name, object_id, before_value, updated_values FROM "LiteLLM_AuditLog" '
+                'SELECT action, table_name, object_id, before_value, updated_values FROM "HangarLLM_AuditLog" '
                 "WHERE table_name = %s AND object_id = %s ORDER BY updated_at DESC LIMIT 1",
-                ("LiteLLM_Config", "litellm_settings"),
+                ("HangarLLM_Config", "hangarllm_settings"),
                 database_url=rig.database_url,
             ),
             lambda rows: bool(rows),
@@ -451,8 +451,8 @@ def test_deleted_callback_case_variant_stops_delivery_on_both_workers(
         audit_row: Final = object_value(audit[0])
         assert set(audit_row) == {"action", "table_name", "object_id", "before_value", "updated_values"}, audit_row
         assert audit_row["action"] == "deleted", audit_row
-        assert audit_row["table_name"] == "LiteLLM_Config", audit_row
-        assert audit_row["object_id"] == "litellm_settings", audit_row
+        assert audit_row["table_name"] == "HangarLLM_Config", audit_row
+        assert audit_row["object_id"] == "hangarllm_settings", audit_row
         before_value: Final = object_value(audit_row["before_value"])
         assert set(before_value) == {"success_callback"}, audit_row
         before_callbacks: Final = TypeAdapter(list[str]).validate_python(before_value["success_callback"])
@@ -498,7 +498,7 @@ def test_deleted_callback_case_variant_stops_delivery_on_both_workers(
             "POST",
             "/config/update",
             {
-                "litellm_settings": {"success_callback": ["langfuse"]},
+                "hangarllm_settings": {"success_callback": ["langfuse"]},
                 "environment_variables": {
                     "LANGFUSE_HOST": rig.langfuse.url,
                     "LANGFUSE_PUBLIC_KEY": "public-key-" + marker,
@@ -550,8 +550,8 @@ def test_deleted_callback_case_variant_stops_delivery_on_both_workers(
 def test_dashboard_field_updates_preserve_plugin_key_and_apply_at_runtime(
     gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert os.environ.get("LITELLM_LICENSE"), (
-        "LITELLM_LICENSE must be set: max_request_size_mb enforcement is an enterprise feature"
+    assert os.environ.get("HANGARLLM_LICENSE"), (
+        "HANGARLLM_LICENSE must be set: max_request_size_mb enforcement is an enterprise feature"
     )
     plugin_key: Final = "plugin-key-" + uuid.uuid4().hex
     plugin_body: Final = {"message": "plugin-" + uuid.uuid4().hex}
@@ -827,7 +827,7 @@ def test_model_block_changes_actual_route_and_leaves_other_route_working(gateway
         gateway.chat(model)
         gateway.chat(other)
         gateway.post("/model/block", {"model_id": identity})
-        assert read_rows('SELECT blocked FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == [
+        assert read_rows('SELECT blocked FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == [
             {"blocked": True}
         ]
         response: Final = gateway.request(
@@ -837,10 +837,10 @@ def test_model_block_changes_actual_route_and_leaves_other_route_working(gateway
         )
         assert response.status_code == 403, response.text
         assert response.json()["error"]["type"] == "permission_error"
-        assert response.json()["error"]["message"] == "litellm.PermissionDeniedError: Model is blocked"
+        assert response.json()["error"]["message"] == "hangarllm.PermissionDeniedError: Model is blocked"
         assert object_value(gateway.chat(other)["usage"])["total_tokens"] == 40
         gateway.post("/model/unblock", {"model_id": identity})
-        assert read_rows('SELECT blocked FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == [
+        assert read_rows('SELECT blocked FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (identity,)) == [
             {"blocked": False}
         ]
         assert object_value(gateway.chat(model)["usage"])["total_tokens"] == 40
@@ -917,7 +917,7 @@ def _openai_reply(request: Request) -> Reply:
 
 def _stored_credential_values(name: str) -> dict[str, object]:
     rows: Final = read_rows(
-        'SELECT credential_values FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s', (name,)
+        'SELECT credential_values FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s', (name,)
     )
     assert len(rows) == 1, rows
     return object_value(rows[0]["credential_values"])
@@ -976,7 +976,7 @@ def test_partial_credential_patch_merges_values_and_deletes_only_the_named_field
             },
         )
         scenario.cleanups.callback(gateway.request, "DELETE", f"/credentials/{name}")
-        model: Final = scenario.model(api_key=None, api_base=None, litellm_credential_name=name)
+        model: Final = scenario.model(api_key=None, api_base=None, hangarllm_credential_name=name)
         first, untouched = _provider_call(gateway, model, "before patch", original, moved)
         assert [_sent_headers(request) for request in first] == [(f"Bearer {api_key}", "org-merge")]
         assert untouched == ()
@@ -1033,7 +1033,7 @@ def test_dashboard_credential_edit_keeps_the_stripped_secret_and_round_trips_cre
             },
         )
         scenario.cleanups.callback(gateway.request, "DELETE", f"/credentials/{name}")
-        model: Final = scenario.model(api_key=None, api_base=None, litellm_credential_name=name)
+        model: Final = scenario.model(api_key=None, api_base=None, hangarllm_credential_name=name)
         stored: Final = _stored_credential_values(name)
 
         _patch_credential(
@@ -1048,7 +1048,7 @@ def test_dashboard_credential_edit_keeps_the_stripped_secret_and_round_trips_cre
         assert sorted(edited) == ["api_base", "api_key", "organization"], edited
         assert edited["api_key"] == stored["api_key"], edited
         assert read_rows(
-            'SELECT credential_info FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s', (name,)
+            'SELECT credential_info FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s', (name,)
         ) == [{"credential_info": info}]
         assert _masked_credential(gateway, name) == _MaskedCredential(
             credential_name=name,
@@ -1084,12 +1084,12 @@ def test_credential_value_update_and_model_reload_reach_provider(gateway: Gatewa
             response: Final = gateway.request("DELETE", f"/credentials/{name}")
             assert response.status_code == 200, response.text
             assert (
-                read_rows('SELECT credential_name FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s', (name,))
+                read_rows('SELECT credential_name FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s', (name,))
                 == []
             )
 
         scenario.cleanups.callback(remove_credential)
-        model: Final = scenario.model(api_key=None, litellm_credential_name=name)
+        model: Final = scenario.model(api_key=None, hangarllm_credential_name=name)
         identity: Final = model_identity(gateway, model)
         for value in ("synthetic-credential-first", "synthetic-credential-second"):
             patched: Final = gateway.request(
@@ -1099,7 +1099,7 @@ def test_credential_value_update_and_model_reload_reach_provider(gateway: Gatewa
             )
             assert patched.status_code == 200, patched.text
             rows: Final = read_rows(
-                'SELECT credential_values FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s', (name,)
+                'SELECT credential_values FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s', (name,)
             )
             assert len(rows) == 1
             stored: Final = object_value(rows[0]["credential_values"])
@@ -1122,7 +1122,7 @@ def test_credential_value_update_and_model_reload_reach_provider(gateway: Gatewa
 
 
 _ENVIRONMENT_VARIABLES_REVISION_MIGRATION: Final = (
-    "litellm-proxy-extras/litellm_proxy_extras/migrations/"
+    "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations/"
     "20261015120000_add_environment_variables_revision_trigger/migration.sql"
 )
 
@@ -1132,13 +1132,13 @@ def _prisma(*arguments: str) -> None:
 
 
 def _push_schema() -> None:
-    _prisma("db", "push", "--schema", "litellm/proxy/schema.prisma", "--skip-generate")
+    _prisma("db", "push", "--schema", "hangarllm/proxy/schema.prisma", "--skip-generate")
 
 
 def _push_schema_with_environment_variables_revision_trigger() -> None:
     _push_schema()
     _prisma(
-        "db", "execute", "--schema", "litellm/proxy/schema.prisma", "--file", _ENVIRONMENT_VARIABLES_REVISION_MIGRATION
+        "db", "execute", "--schema", "hangarllm/proxy/schema.prisma", "--file", _ENVIRONMENT_VARIABLES_REVISION_MIGRATION
     )
 
 
@@ -1158,7 +1158,7 @@ def _environment_variables_proxy_config(
     config.write_text(
         json.dumps(
             {
-                "model_list": [{"model_name": alias, "litellm_params": {"model": "openai/gpt-4o-mini"}}],
+                "model_list": [{"model_name": alias, "hangarllm_params": {"model": "openai/gpt-4o-mini"}}],
                 "general_settings": {"master_key": gateway.key, "store_model_in_db": True},
                 "environment_variables": {"OPENAI_BASE_URL": config_file_provider.url + "/v1"},
             }
@@ -1171,7 +1171,7 @@ def _environment_variables_proxy_environment(database_url: str, process_key: str
     return {
         "DATABASE_URL": database_url,
         "DISABLE_SCHEMA_UPDATE": "true",
-        "LITELLM_CONFIG_PARAM_CACHE_TTL_SECONDS": "1",
+        "HANGARLLM_CONFIG_PARAM_CACHE_TTL_SECONDS": "1",
         "OPENAI_API_KEY": process_key,
         "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": "2",
     }
@@ -1301,7 +1301,7 @@ def test_a_proxy_that_pushes_its_own_schema_unsets_a_removed_db_environment_vari
 
 def _environment_variables_row(database_url: str) -> dict[str, JsonValue]:
     return read_rows(
-        'SELECT param_value, reload_revision FROM "LiteLLM_Config" WHERE param_name = %s',
+        'SELECT param_value, reload_revision FROM "HangarLLM_Config" WHERE param_name = %s',
         ("environment_variables",),
         database_url=database_url,
     )[0]
@@ -1310,7 +1310,7 @@ def _environment_variables_row(database_url: str) -> dict[str, JsonValue]:
 def _load_environment_variables_row(replica_url: str, row: dict[str, JsonValue]) -> None:
     with psycopg.connect(replica_url, autocommit=True) as replica:
         replica.execute(
-            'INSERT INTO "LiteLLM_Config" (param_name, param_value, reload_revision) VALUES (%s, %s, %s) '
+            'INSERT INTO "HangarLLM_Config" (param_name, param_value, reload_revision) VALUES (%s, %s, %s) '
             "ON CONFLICT (param_name) DO UPDATE "
             "SET param_value = EXCLUDED.param_value, reload_revision = EXCLUDED.reload_revision",
             ("environment_variables", Jsonb(row["param_value"]), row["reload_revision"]),
@@ -1611,7 +1611,7 @@ def _login_role_with_no_sequence_grants() -> Iterator[str]:
 def _save_environment_variables_as(database_url: str, values: dict[str, str]) -> None:
     with psycopg.connect(database_url, autocommit=True) as writer:
         writer.execute(
-            'INSERT INTO "LiteLLM_Config" (param_name, param_value) VALUES (%s, %s) '
+            'INSERT INTO "HangarLLM_Config" (param_name, param_value) VALUES (%s, %s) '
             "ON CONFLICT (param_name) DO UPDATE SET param_value = EXCLUDED.param_value",
             ("environment_variables", Jsonb(values)),
         )
@@ -1619,7 +1619,7 @@ def _save_environment_variables_as(database_url: str, values: dict[str, str]) ->
 
 def _environment_variables_revision(database_url: str) -> JsonValue:
     return read_rows(
-        'SELECT reload_revision FROM "LiteLLM_Config" WHERE param_name = %s',
+        'SELECT reload_revision FROM "HangarLLM_Config" WHERE param_name = %s',
         ("environment_variables",),
         database_url=database_url,
     )[0]["reload_revision"]
@@ -1662,7 +1662,7 @@ def test_db_environment_variables_revision_keeps_rising_after_its_sequence_falls
             _save_environment_variables_as(database_url, {"SEQUENCE_BEHIND_KEY": value})
         before_the_sequence_restarts: Final = _environment_variables_revision(database_url)
         with psycopg.connect(database_url, autocommit=True) as owner:
-            owner.execute('ALTER SEQUENCE "litellm_environment_variables_revision_seq" RESTART WITH 1')
+            owner.execute('ALTER SEQUENCE "hangarllm_environment_variables_revision_seq" RESTART WITH 1')
 
         _save_environment_variables_as(database_url, {})
         after_the_sequence_restarts: Final = _environment_variables_revision(database_url)
@@ -1674,8 +1674,8 @@ def test_db_environment_variables_revision_keeps_rising_after_its_sequence_falls
 def test_db_environment_variables_saved_from_a_session_outside_the_tables_schema_still_get_a_revision(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    schema: Final = "litellm_tenant"
-    table: Final = sql.SQL('{}."LiteLLM_Config"').format(sql.Identifier(schema))
+    schema: Final = "hangarllm_tenant"
+    table: Final = sql.SQL('{}."HangarLLM_Config"').format(sql.Identifier(schema))
     with scratch_database() as database_url:
         monkeypatch.setenv("DATABASE_URL", f"{database_url}?schema={schema}")
         _push_schema_with_environment_variables_revision_trigger()
@@ -1712,7 +1712,7 @@ def test_a_stored_general_setting_no_settings_api_manages_stays_off_and_the_rest
         _push_schema()
         with psycopg.connect(database_url, autocommit=True) as writer:
             writer.execute(
-                'INSERT INTO "LiteLLM_Config" (param_name, param_value) VALUES (%s, %s)',
+                'INSERT INTO "HangarLLM_Config" (param_name, param_value) VALUES (%s, %s)',
                 ("general_settings", Jsonb({"enforce_user_param": True, "store_prompts_in_spend_logs": True})),
             )
         config: Final = tmp_path / "stale-database-setting.yaml"
@@ -1722,7 +1722,7 @@ def test_a_stored_general_setting_no_settings_api_manages_stays_off_and_the_rest
                     "model_list": [
                         {
                             "model_name": alias,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "openai/gpt-4o-mini",
                                 "api_base": provider.url + "/v1",
                                 "api_key": "integration-provider-key",

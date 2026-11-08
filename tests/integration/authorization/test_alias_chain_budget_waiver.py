@@ -131,7 +131,7 @@ def _wildcard_route(rig: ChainRig, scenario: Scenario, prefix: str, input_cost: 
         "/model/new",
         {
             "model_name": f"{prefix}/*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/*",
                 "api_key": "integration-provider-key",
                 "api_base": f"{rig.gateway.upstream_url}/v1",
@@ -147,7 +147,7 @@ def _wildcard_route(rig: ChainRig, scenario: Scenario, prefix: str, input_cost: 
 
 
 def _deployment_id(name: str) -> str:
-    rows: Final = read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_name = %s', (name,))
+    rows: Final = read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_name = %s', (name,))
     assert len(rows) == 1, rows
     return str(rows[0]["model_id"])
 
@@ -155,7 +155,7 @@ def _deployment_id(name: str) -> str:
 def _serving_deployments(candidate: Gateway, model: str, count: int) -> frozenset[str | None]:
     def serving(marker: str) -> str | None:
         response: Final = fresh_chat(candidate, model, candidate.key, marker)
-        return response.headers.get("x-litellm-model-id") if response.status_code == 200 else None
+        return response.headers.get("x-hangarllm-model-id") if response.status_code == 200 else None
 
     with ThreadPoolExecutor(max_workers=count) as pool:
         return frozenset(pool.map(serving, (f"route-{uuid.uuid4().hex}" for _ in range(count))))
@@ -520,7 +520,7 @@ def test_chain_middle_by_name_is_judged_by_its_own_alias(rig: ChainRig) -> None:
         budgeted: Final = scenario.key(max_budget=HEADROOM)
         served: Final = fresh_chat(rig.gateway, rig.mid_free, budgeted, billed_marker)
         assert served.status_code == 200, served.text
-        assert served.headers["x-litellm-model-id"] == _deployment_id(rig.paid), dict(served.headers)
+        assert served.headers["x-hangarllm-model-id"] == _deployment_id(rig.paid), dict(served.headers)
         row: Final = landed_once(budgeted, billed_marker)
         assert math.isclose(float(str(row["spend"])), PAID_REPLY_COST), row
         assert row["model_group"] == rig.mid_free, row
@@ -535,12 +535,12 @@ def test_reverse_chain_is_priced_by_the_middle_it_is_served_from(rig: ChainRig) 
             _assert_refused_on_every_route(rig, candidate, exhausted, rig.reverse_entry)
         served: Final = fresh_chat(rig.gateway, rig.mid_paid, exhausted, free_marker)
         assert served.status_code == 200, served.text
-        assert served.headers["x-litellm-model-id"] == _deployment_id(rig.tail_free), dict(served.headers)
+        assert served.headers["x-hangarllm-model-id"] == _deployment_id(rig.tail_free), dict(served.headers)
         assert_free_row(landed_once(exhausted, free_marker), rig.mid_paid)
         budgeted: Final = scenario.key(max_budget=HEADROOM)
         billed: Final = fresh_chat(rig.gateway, rig.reverse_entry, budgeted, billed_marker)
         assert billed.status_code == 200, billed.text
-        assert billed.headers["x-litellm-model-id"] == _deployment_id(rig.mid_paid), dict(billed.headers)
+        assert billed.headers["x-hangarllm-model-id"] == _deployment_id(rig.mid_paid), dict(billed.headers)
         row: Final = landed_once(budgeted, billed_marker)
         assert math.isclose(float(str(row["spend"])), PAID_REPLY_COST), row
         assert row["model_group"] == rig.reverse_entry, row
@@ -620,7 +620,7 @@ def _assert_served_by_route(candidate: Gateway, model: str, key: str, route: str
     marker: Final = f"{prefix}-" + uuid.uuid4().hex
     served: Final = fresh_chat(candidate, model, key, marker)
     assert served.status_code == 200, served.text
-    assert served.headers["x-litellm-model-id"] == route, dict(served.headers)
+    assert served.headers["x-hangarllm-model-id"] == route, dict(served.headers)
     assert_free_row(landed_once(key, marker), model)
 
 
@@ -778,7 +778,7 @@ def test_exhausted_key_is_served_a_cached_reply_through_chain_entry(rig: ChainRi
         assert second.status_code == 200, second.text
         first_id: Final = str(JSON_OBJECT.validate_json(first.content)["id"])
         assert str(JSON_OBJECT.validate_json(second.content)["id"]) == first_id, second.text
-        assert "x-litellm-cache-key" in second.headers, dict(second.headers)
+        assert "x-hangarllm-cache-key" in second.headers, dict(second.headers)
         assert upstream_hits(upstream_requests(rig.gateway.upstream_url), marker) == 1
         rows: Final = eventually(lambda: landed(key, marker), lambda found: len(found) >= 2, seconds=70)
         assert len(rows) == 2, rows
@@ -849,7 +849,7 @@ def _routing_group_config(rig: ChainRig, directory: Path, group: str, member: st
     assert isinstance(model_list, list), model_list
     deployment: Final[JsonValue] = {
         "model_name": member,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"lemonade/{member}",
             "api_key": "integration-provider-key",
             "api_base": f"{rig.gateway.upstream_url}/v1",

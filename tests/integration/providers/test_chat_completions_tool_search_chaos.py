@@ -132,7 +132,7 @@ async def _send(client: httpx.AsyncClient, key: str, models: Mapping[Kind, str],
         raw: Final = (await response.aread()).decode()
     payload: Final = rv.JSON_OBJECT.validate_json(raw) if raw.startswith("{") else {}
     answer: Final = Answer(response.status_code, payload, chat_frames(raw) if call.stream else (), raw)
-    return _Served(call, answer, response.headers.get("x-litellm-call-id", ""))
+    return _Served(call, answer, response.headers.get("x-hangarllm-call-id", ""))
 
 
 async def _burst(
@@ -217,7 +217,7 @@ async def test_a_mixed_burst_carries_the_regex_tool_and_drops_the_history_call_a
 
 def _spend_status(model: str, expected: int) -> dict[str, str]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=70,
     )
@@ -266,8 +266,8 @@ def _config(tmp_path: Path, name: str, model: Mapping[str, JsonValue], settings:
         yaml.safe_dump(
             {
                 **config,
-                "model_list": [{"model_name": name, "litellm_params": dict(model)}],
-                "litellm_settings": {**config["litellm_settings"], **settings},
+                "model_list": [{"model_name": name, "hangarllm_params": dict(model)}],
+                "hangarllm_settings": {**config["hangarllm_settings"], **settings},
             }
         )
     )

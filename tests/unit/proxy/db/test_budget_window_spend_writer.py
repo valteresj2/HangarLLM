@@ -6,17 +6,17 @@ from typing import Any
 
 import pytest
 
-from litellm.proxy.db.budget_window_spend_writer import (
+from hangarllm.proxy.db.budget_window_spend_writer import (
     WindowSeedTotals,
     commit_window_spend_updates,
     open_window_spend_row,
     roll_window_spend_row,
     spend_logs_seed_totals,
 )
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import (
+from hangarllm.proxy.db.db_transaction_queue.window_spend_update_queue import (
     build_window_spend_transaction,
 )
-from litellm.proxy.db.log_db_metrics import record_db_io
+from hangarllm.proxy.db.log_db_metrics import record_db_io
 
 WINDOW_A = datetime(2026, 8, 1, tzinfo=timezone.utc)
 WINDOW_B = datetime(2026, 8, 31, tzinfo=timezone.utc)
@@ -77,7 +77,7 @@ class _FakePrismaClient:
 
 
 class _RecordingAggregate:
-    """Stands in for the LiteLLM_SpendLogs seed aggregate. before_batch
+    """Stands in for the HangarLLM_SpendLogs seed aggregate. before_batch
     defaults to the full total, the state where none of this batch's own log
     rows have been persisted yet."""
 
@@ -108,7 +108,7 @@ class _RecordingAggregate:
 
 
 class _SpendLogsFake:
-    """Sums the LiteLLM_SpendLogs rows (request_id, spend, startTime) it holds,
+    """Sums the HangarLLM_SpendLogs rows (request_id, spend, startTime) it holds,
     splitting them at the batch start exactly as the real aggregate's
     SUM(...) FILTER (WHERE startTime < bound) does."""
 
@@ -190,7 +190,7 @@ async def test_missing_row_is_seeded_from_spend_logs_once():
 
 @pytest.mark.asyncio
 async def test_existing_row_is_never_reseeded():
-    """The seed is a full LiteLLM_SpendLogs scan; running it for a row that is
+    """The seed is a full HangarLLM_SpendLogs scan; running it for a row that is
     already maintained would both cost a scan and double count."""
     db = _FakeDB(existing_rows=[_existing("key", "k1", "30d")])
     aggregate = _RecordingAggregate(total=5.0)
@@ -260,10 +260,10 @@ async def test_upsert_sql_adds_for_a_current_window_and_replaces_for_a_newer_one
     ((query, _),) = db.batcher.calls
     normalized = " ".join(query.split())
     assert (
-        'spend = CASE WHEN "LiteLLM_BudgetWindowSpend".window_start >= EXCLUDED.window_start '
-        'THEN "LiteLLM_BudgetWindowSpend".spend + $6 ELSE EXCLUDED.spend END' in normalized
+        'spend = CASE WHEN "HangarLLM_BudgetWindowSpend".window_start >= EXCLUDED.window_start '
+        'THEN "HangarLLM_BudgetWindowSpend".spend + $6 ELSE EXCLUDED.spend END' in normalized
     )
-    assert 'window_start = GREATEST("LiteLLM_BudgetWindowSpend".window_start, EXCLUDED.window_start)' in normalized
+    assert 'window_start = GREATEST("HangarLLM_BudgetWindowSpend".window_start, EXCLUDED.window_start)' in normalized
     assert "ON CONFLICT (entity_type, entity_id, window_duration) DO UPDATE SET" in normalized
 
 
@@ -350,7 +350,7 @@ async def test_all_upserts_are_committed_in_one_transaction():
 
 @pytest.mark.asyncio
 async def test_unknown_entity_type_contributes_no_seed():
-    """Only key and team windows have a LiteLLM_SpendLogs column to aggregate;
+    """Only key and team windows have a HangarLLM_SpendLogs column to aggregate;
     anything else starts from its increment alone."""
     db = _FakeDB(existing_rows=[])
 
@@ -424,7 +424,7 @@ async def test_open_window_spend_row_moves_only_the_window_the_caller_saw_end(re
     normalized = " ".join(query.split())
     assert "ON CONFLICT (entity_type, entity_id, window_duration) DO UPDATE" in normalized
     assert normalized.endswith(
-        "WHERE \"LiteLLM_BudgetWindowSpend\".window_start <= ($5::timestamptz AT TIME ZONE 'UTC')"
+        "WHERE \"HangarLLM_BudgetWindowSpend\".window_start <= ($5::timestamptz AT TIME ZONE 'UTC')"
     )
     assert params == ("model_max_budget", "k1", "1d", datetime(2026, 8, 31), replaced_param)
 
@@ -562,12 +562,12 @@ async def test_seed_aggregate_sql_splits_the_window_at_the_batch_start(entity_ty
     normalized = " ".join(query.split())
     assert expected_column in normalized
     assert (
-        'FILTER (WHERE EXISTS (SELECT 1 FROM "LiteLLM_SpendLogDelivery" delivery '
-        'WHERE delivery.request_id = "LiteLLM_SpendLogs".request_id) '
+        'FILTER (WHERE EXISTS (SELECT 1 FROM "HangarLLM_SpendLogDelivery" delivery '
+        'WHERE delivery.request_id = "HangarLLM_SpendLogs".request_id) '
         "OR \"startTime\" < ($3::timestamptz AT TIME ZONE 'UTC'))"
         in normalized
     )
-    assert 'FROM "LiteLLM_SpendLogs"' in normalized
+    assert 'FROM "HangarLLM_SpendLogs"' in normalized
     # startTime is TIMESTAMP(3): the bound is floored to the second so the
     # batch's own earliest row cannot round under it.
     assert params == ("e1", WINDOW_A, datetime(2026, 8, 10, 12, 0, 0))
@@ -639,7 +639,7 @@ async def test_rolling_a_window_row_renders_a_postgres_update_span(
         window_duration="30d",
         new_window_start=WINDOW_B,
     )
-    assert await postgres_span_names() == ("postgres.update LiteLLM_BudgetWindowSpend",)
+    assert await postgres_span_names() == ("postgres.update HangarLLM_BudgetWindowSpend",)
 
 
 @pytest.mark.asyncio

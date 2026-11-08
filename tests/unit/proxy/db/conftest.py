@@ -71,7 +71,7 @@ def pytest_runtest_teardown(item: pytest.Item, nextitem: Optional[pytest.Item]) 
 def reset_entra_token_provider_cache() -> Generator[None, None, None]:
     """The Entra provider factory is cached process-wide so one Azure credential serves
     the whole proxy; that cache would otherwise carry one test's stub into the next."""
-    from litellm.proxy.db.token_auth import build_azure_entra_token_provider
+    from hangarllm.proxy.db.token_auth import build_azure_entra_token_provider
 
     build_azure_entra_token_provider.cache_clear()
     yield
@@ -140,7 +140,7 @@ def fake_prisma_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generato
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_PRISMA_CALLS", str(cli.calls_file))
     monkeypatch.setenv("FAKE_PRISMA_GRANDCHILD_PIDFILE", str(cli.grandchild_pidfile))
-    monkeypatch.setenv("LITELLM_PRISMA_COMMAND_TIMEOUT", "1")
+    monkeypatch.setenv("HANGARLLM_PRISMA_COMMAND_TIMEOUT", "1")
     monkeypatch.delenv("FAKE_PRISMA_HANG_FIRST", raising=False)
     yield cli
     if cli.grandchild_pidfile.exists():

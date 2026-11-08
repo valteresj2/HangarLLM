@@ -28,21 +28,21 @@ _USER_CODES: Final[Mapping[Provider, str]] = MappingProxyType(
     {"chatgpt": dl.CHATGPT_USER_CODE, "copilot": dl.COPILOT_USER_CODE}
 )
 _AUTHENTICATORS: Final[Mapping[Provider, str]] = MappingProxyType(
-    {"chatgpt": "litellm.llms.chatgpt.authenticator", "copilot": "litellm.llms.github_copilot.authenticator"}
+    {"chatgpt": "hangarllm.llms.chatgpt.authenticator", "copilot": "hangarllm.llms.github_copilot.authenticator"}
 )
 _SCRIPT_SECONDS: Final = 60
 
 _SCRIPT: Final = textwrap.dedent(
     """
     import asyncio, json, sys, threading
-    import litellm
-    from litellm import Router
+    import hangarllm
+    from hangarllm import Router
 
     variant, model, marker, authenticator_module = sys.argv[1:5]
     messages = [{"role": "user", "content": f"Reply to marker-{marker}"}]
 
     def sync_completion():
-        return litellm.completion(model=model, messages=messages, num_retries=0)
+        return hangarllm.completion(model=model, messages=messages, num_retries=0)
 
     def server_tool_call_turns(marked):
         call = {"id": "srvtoolu_01DeviceLogin", "type": "function", "function": {"name": "tool_search_tool_bm25", "arguments": "{}"}}
@@ -60,18 +60,18 @@ _SCRIPT: Final = textwrap.dedent(
         if variant == "completion":
             return sync_completion()
         if variant in ("marked-server-tool-call", "unmarked-server-tool-call"):
-            return litellm.completion(
+            return hangarllm.completion(
                 model=model,
                 messages=server_tool_call_turns(variant == "marked-server-tool-call"),
                 num_retries=0,
                 cache_control_injection_points=[{"location": "message", "role": "system"}, {"location": "message", "index": -1}],
             )
         if variant == "responses":
-            return litellm.responses(model=model, input=f"Reply to marker-{marker}", num_retries=0)
+            return hangarllm.responses(model=model, input=f"Reply to marker-{marker}", num_retries=0)
         if variant == "acompletion":
-            return asyncio.run(litellm.acompletion(model=model, messages=messages, num_retries=0))
+            return asyncio.run(hangarllm.acompletion(model=model, messages=messages, num_retries=0))
         if variant == "aresponses":
-            return asyncio.run(litellm.aresponses(model=model, input=f"Reply to marker-{marker}", num_retries=0))
+            return asyncio.run(hangarllm.aresponses(model=model, input=f"Reply to marker-{marker}", num_retries=0))
         if variant == "worker-thread":
             outcome = {}
             def target():
@@ -86,7 +86,7 @@ _SCRIPT: Final = textwrap.dedent(
                 raise outcome["error"]
             return outcome["value"]
         if variant == "batch-completion":
-            (only,) = litellm.batch_completion(model=model, messages=[messages], num_retries=0)
+            (only,) = hangarllm.batch_completion(model=model, messages=[messages], num_retries=0)
             if isinstance(only, Exception):
                 raise only
             return only
@@ -101,11 +101,11 @@ _SCRIPT: Final = textwrap.dedent(
             return asyncio.run(main())
         if variant == "router-built-in-async":
             async def main():
-                router = Router(model_list=[{"model_name": "login", "litellm_params": {"model": model}}])
+                router = Router(model_list=[{"model_name": "login", "hangarllm_params": {"model": model}}])
                 return await router.acompletion(model="login", messages=messages, num_retries=0)
             return asyncio.run(main())
         if variant == "wildcard-router-in-loop":
-            router = Router(model_list=[{"model_name": "*", "litellm_params": {"model": "*"}}])
+            router = Router(model_list=[{"model_name": "*", "hangarllm_params": {"model": "*"}}])
             async def main():
                 return await router.acompletion(model=model, messages=messages, num_retries=0)
             return asyncio.run(main())
@@ -150,7 +150,7 @@ class _Bench:
                 **self.peers.environment(),
                 "CHATGPT_TOKEN_DIR": str(self.chatgpt_dir),
                 "GITHUB_COPILOT_TOKEN_DIR": str(self.copilot_dir),
-                "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+                "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
             },
             capture_output=True,
             text=True,

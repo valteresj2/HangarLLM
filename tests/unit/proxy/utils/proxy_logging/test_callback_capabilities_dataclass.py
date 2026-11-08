@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from litellm.proxy.utils import _CallbackCapabilities
+from hangarllm.proxy.utils import _CallbackCapabilities
 
 
 def test_callback_capabilities_default_values():

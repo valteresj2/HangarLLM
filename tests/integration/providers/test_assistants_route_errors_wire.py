@@ -68,7 +68,7 @@ _AZURE_CREDENTIALS: Final = (
     "AZURE_CLIENT_SECRET",
     "AZURE_TENANT_ID",
 )
-_PRIVATE_DETAILS: Final = ("10.20.30.40", "/etc/litellm/secrets/db.yaml", "sk-proj-" + "a1B2c3D4" * 5)
+_PRIVATE_DETAILS: Final = ("10.20.30.40", "/etc/hangarllm/secrets/db.yaml", "sk-proj-" + "a1B2c3D4" * 5)
 _URL_MODEL: Final = "http://169.254.169.254/latest"
 _BURST_STATUSES: Final = (400, 401, 404, 429, 500, 503)
 _BURST_PER_WORKER: Final = 24
@@ -105,7 +105,7 @@ def azure_without_credentials(tmp_path_factory: pytest.TempPathFactory) -> Itera
     directory: Final = tmp_path_factory.mktemp("assistants-route-errors-azure")
     settings: Final[dict[str, JsonValue]] = {
         "custom_llm_provider": "azure",
-        "litellm_params": {"api_base": "http://127.0.0.1:9/", "api_version": "2024-05-01-preview", "max_retries": 0},
+        "hangarllm_params": {"api_base": "http://127.0.0.1:9/", "api_version": "2024-05-01-preview", "max_retries": 0},
     }
     config: Final = owned_config(directory, (), settings, {"missing_session_id": "reject"})
     with (
@@ -256,7 +256,7 @@ def test_azure_without_credentials_answers_a_clean_connection_error(
 def test_refused_upstream_answers_a_connection_error(scripted: _Scripted, route: Route) -> None:
     response: Final = _send(scripted.gateway, route, new_marker())
     message: Final = assert_openai_error(response, UNMAPPED_500)
-    assert "litellm.APIConnectionError" in message, response.text
+    assert "hangarllm.APIConnectionError" in message, response.text
 
 
 async def test_upstream_held_past_the_deployment_timeout_answers_408_on_every_route(scripted: _Scripted) -> None:
@@ -277,7 +277,7 @@ async def test_upstream_held_past_the_deployment_timeout_answers_408_on_every_ro
         received: Final = wire.drain()
     assert len(answers) == len(ROUTES)
     for answer in answers:
-        assert "litellm.Timeout" in assert_openai_error(answer.response, MAPPED_BY_STATUS[408]), answer.response.text
+        assert "hangarllm.Timeout" in assert_openai_error(answer.response, MAPPED_BY_STATUS[408]), answer.response.text
     assert sorted(upstream_trail(received)) == sorted((route.method, proxy_path(route, marker)) for route in ROUTES)
 
 
@@ -424,7 +424,7 @@ async def test_outage_then_recovery_answers_connection_errors_then_upstream_bodi
     marker: Final = new_marker()
     refused: Final = await answer_all(scripted.gateway, tuple(Call(route, marker) for route in ROUTES))
     for answer in refused:
-        assert "litellm.APIConnectionError" in assert_openai_error(answer.response, UNMAPPED_500), answer.response.text
+        assert "hangarllm.APIConnectionError" in assert_openai_error(answer.response, UNMAPPED_500), answer.response.text
     with assistants_wire(success_peer(marker), port=scripted.port) as wire:
         recovered: Final = tuple(_send(scripted.gateway, route, marker) for route in ROUTES)
         chat: Final = scripted.gateway.request(

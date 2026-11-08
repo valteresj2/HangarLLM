@@ -1,6 +1,6 @@
 """basic_messaging_non_streaming x Bedrock (Invoke).
 
-Drive the real `claude` CLI in headless mode against a running LiteLLM
+Drive the real `claude` CLI in headless mode against a running HangarLLM
 proxy that routes Claude requests to AWS Bedrock via the legacy
 `InvokeModel` API path, and report the outcome via `compat_result`.
 
@@ -24,7 +24,7 @@ import pytest
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from claude_code._basic_messaging import run_basic_messaging_cell
 
-# Per-model aliases registered in the LiteLLM proxy's routing config to
+# Per-model aliases registered in the HangarLLM proxy's routing config to
 # point at Bedrock's legacy InvokeModel endpoint. The driver only sends
 # the alias; the proxy is the one that knows the upstream model id and
 # routing strategy.
@@ -46,7 +46,7 @@ BEDROCK_INVOKE_MODELS = [
     )
 )
 def test_basic_messaging_non_streaming_bedrock_invoke(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a reply."""
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a reply."""
     run_basic_messaging_cell(
         compat_result=compat_result,
         models=BEDROCK_INVOKE_MODELS,

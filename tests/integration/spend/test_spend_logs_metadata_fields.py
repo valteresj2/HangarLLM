@@ -104,7 +104,7 @@ def test_reused_ollama_response_ids_keep_every_spend_row(gateway: Gateway, strea
             assert object_value(chunks[-1]["usage"])["total_tokens"] == 6
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+                'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
                 (sha256(key.encode()).hexdigest(),),
             ),
             lambda values: len(values) == 3,
@@ -120,7 +120,7 @@ def _config(
     spend_logs_metadata_fields: Mapping[str, JsonValue] | None,
     *,
     model_list: tuple[Mapping[str, JsonValue], ...] = (),
-    litellm_settings: Mapping[str, JsonValue] | None = None,
+    hangarllm_settings: Mapping[str, JsonValue] | None = None,
     guardrails: tuple[Mapping[str, JsonValue], ...] = (),
 ) -> Path:
     retention: Final = (
@@ -132,14 +132,14 @@ def _config(
             {
                 "model_list": [dict(model) for model in model_list],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                     **retention,
                 },
-                "litellm_settings": dict(litellm_settings or {}),
+                "hangarllm_settings": dict(hangarllm_settings or {}),
                 "guardrails": [dict(guardrail) for guardrail in guardrails],
             }
         )
@@ -182,7 +182,7 @@ def _stored_row_after_one_chat(
         response_id: Final = string_value(isolated.chat(model, key=api_key)["id"])
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT metadata, proxy_server_request, response FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT metadata, proxy_server_request, response FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (response_id,),
             ),
             lambda values: len(values) == 1,
@@ -205,7 +205,7 @@ def test_excluded_metadata_fields_are_not_stored_but_still_reach_daily_spend(gat
     assert row["response"] == {}
     daily: Final = eventually(
         lambda: read_rows(
-            'SELECT prompt_tokens, cache_read_input_tokens FROM "LiteLLM_DailyUserSpend" WHERE api_key=%s',
+            'SELECT prompt_tokens, cache_read_input_tokens FROM "HangarLLM_DailyUserSpend" WHERE api_key=%s',
             (hashed_key,),
         ),
         lambda values: len(values) == 1,
@@ -237,7 +237,7 @@ def test_guardrail_usage_is_tracked_when_guardrail_information_is_not_stored(gat
                 guardrails=(
                     {
                         "guardrail_name": guardrail_name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "generic_guardrail_api",
                             "mode": "pre_call",
                             "default_on": True,
@@ -254,21 +254,21 @@ def test_guardrail_usage_is_tracked_when_guardrail_information_is_not_stored(gat
         response_id: Final = string_value(isolated.chat(model, key=scenario.key(models=[model]))["id"])
         assert len(policy.drain()) == 1
         rows: Final = eventually(
-            lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response_id,)),
+            lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response_id,)),
             lambda values: len(values) == 1,
             seconds=70,
         )
         assert "guardrail_information" not in object_value(rows[0]["metadata"]), rows[0]
         indexed: Final = eventually(
             lambda: read_rows(
-                'SELECT guardrail_id FROM "LiteLLM_SpendLogGuardrailIndex" WHERE request_id=%s', (response_id,)
+                'SELECT guardrail_id FROM "HangarLLM_SpendLogGuardrailIndex" WHERE request_id=%s', (response_id,)
             ),
             lambda values: len(values) == 1,
             seconds=70,
         )
         metrics: Final = eventually(
             lambda: read_rows(
-                'SELECT requests_evaluated, passed_count FROM "LiteLLM_DailyGuardrailMetrics" WHERE guardrail_id=%s',
+                'SELECT requests_evaluated, passed_count FROM "HangarLLM_DailyGuardrailMetrics" WHERE guardrail_id=%s',
                 (string_value(indexed[0]["guardrail_id"]),),
             ),
             lambda values: values == [{"requests_evaluated": 1, "passed_count": 1}],
@@ -296,7 +296,7 @@ class _Isolated:
             eventually(
                 lambda: read_rows(
                     "SELECT request_id, call_type, status, spend, cache_hit, metadata "
-                    f'FROM "LiteLLM_SpendLogs" WHERE api_key=%s AND {where} ORDER BY "startTime"',
+                    f'FROM "HangarLLM_SpendLogs" WHERE api_key=%s AND {where} ORDER BY "startTime"',
                     (self.hashed_key,),
                     database_url=self.database_url,
                 ),
@@ -429,7 +429,7 @@ def test_failed_request_keeps_its_error_and_status_but_drops_excluded_metadata(
 
 def test_response_cache_hit_row_is_filtered_and_charged_nothing(gateway: Gateway, tmp_path: Path) -> None:
     config: Final = _config(
-        tmp_path, {"exclude": list(EXCLUDED)}, litellm_settings={"cache": True, "cache_params": {"type": "local"}}
+        tmp_path, {"exclude": list(EXCLUDED)}, hangarllm_settings={"cache": True, "cache_params": {"type": "local"}}
     )
     with wire_server(_respond) as wire, _isolated(gateway, config, tmp_path) as isolated:
         model: Final = isolated.scenario.model(model="openai/gpt-4o-mini", api_base=wire.url, api_key="synthetic")
@@ -555,12 +555,12 @@ def _router_models(wire: Wire, router: str) -> tuple[Mapping[str, JsonValue], ..
     tiers: Final = {"cheap": "anthropic/claude-sonnet-4-6", "frontier": "anthropic/claude-opus-4-8"}
     return (
         *(
-            {"model_name": name, "litellm_params": {"model": model, "api_base": wire.url, "api_key": "synthetic"}}
+            {"model_name": name, "hangarllm_params": {"model": model, "api_base": wire.url, "api_key": "synthetic"}}
             for name, model in tiers.items()
         ),
         {
             "model_name": router,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": {
                     "tiers": {"SIMPLE": "cheap", "MEDIUM": "cheap", "COMPLEX": "frontier", "REASONING": "frontier"},
@@ -588,14 +588,14 @@ def test_delayed_autorouter_savings_publication_respects_retention(
                 "/v1/messages",
                 {"model": router, "max_tokens": 16, "messages": [{"role": "user", "content": "hi"}]},
                 key=isolated.key,
-                headers={"x-litellm-session-id": f"session-{uuid4()}"},
+                headers={"x-hangarllm-session-id": f"session-{uuid4()}"},
             )
             assert response.status_code == 200, response.text
 
             published: Final = isolated.rows(
                 1,
                 "metadata::jsonb ? 'routing_decision' AND NOT metadata::jsonb ? 'autorouter_baseline_observation' "
-                'AND request_id IN (SELECT request_id FROM "LiteLLM_AutoRouterBaselineObservation" '
+                'AND request_id IN (SELECT request_id FROM "HangarLLM_AutoRouterBaselineObservation" '
                 "WHERE publication IS NOT NULL)",
                 seconds=150,
             )[0]

@@ -5,12 +5,12 @@ import httpx
 import pytest
 from botocore.credentials import Credentials
 
-from litellm.llms.bedrock.passthrough.transformation import BedrockPassthroughConfig
-from litellm.llms.bedrock_mantle.passthrough.transformation import BedrockMantlePassthroughConfig
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.passthrough.main import llm_passthrough_route
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.bedrock.passthrough.transformation import BedrockPassthroughConfig
+from hangarllm.llms.bedrock_mantle.passthrough.transformation import BedrockMantlePassthroughConfig
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.passthrough.main import llm_passthrough_route
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 MANTLE_API_BASE = "https://bedrock-mantle.us-east-2.api.aws"
 INVOKE_ENDPOINT = "model/us.openai.gpt-5.6-sol/invoke"
@@ -48,7 +48,7 @@ def test_mantle_api_base_only_lends_its_region_to_the_runtime_url(no_ambient_aws
         model="us.openai.gpt-5.6-sol",
         endpoint=INVOKE_ENDPOINT,
         request_query_params=None,
-        litellm_params={"api_base": MANTLE_API_BASE},
+        hangarllm_params={"api_base": MANTLE_API_BASE},
     )
     assert str(url) == f"https://bedrock-runtime.us-east-2.amazonaws.com/{INVOKE_ENDPOINT}"
     assert base_url == "https://bedrock-runtime.us-east-2.amazonaws.com"
@@ -62,7 +62,7 @@ def test_explicit_region_and_non_mantle_api_base_are_kept(no_ambient_aws):
         model="us.openai.gpt-5.6-sol",
         endpoint=INVOKE_ENDPOINT,
         request_query_params=None,
-        litellm_params={"api_base": vpc_endpoint, "aws_region_name": "us-east-1"},
+        hangarllm_params={"api_base": vpc_endpoint, "aws_region_name": "us-east-1"},
     )
     assert str(url) == f"{vpc_endpoint}/{INVOKE_ENDPOINT}"
     assert base_url == vpc_endpoint
@@ -83,7 +83,7 @@ def test_lookalike_mantle_host_api_base_is_kept(no_ambient_aws, lookalike_host):
         model="us.openai.gpt-5.6-sol",
         endpoint=INVOKE_ENDPOINT,
         request_query_params=None,
-        litellm_params={"api_base": lookalike_host},
+        hangarllm_params={"api_base": lookalike_host},
     )
     assert str(url) == f"{lookalike_host}/{INVOKE_ENDPOINT}"
     assert base_url == lookalike_host
@@ -96,13 +96,13 @@ def test_region_falls_back_to_the_mantle_default_without_any_hint(no_ambient_aws
         model="us.openai.gpt-5.6-sol",
         endpoint=INVOKE_ENDPOINT,
         request_query_params=None,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert str(url) == f"https://bedrock-runtime.us-east-1.amazonaws.com/{INVOKE_ENDPOINT}"
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "env", "expected_bearer"),
+    ("hangarllm_params", "env", "expected_bearer"),
     [
         ({"api_key": "deployment-bedrock-api-key"}, {}, "deployment-bedrock-api-key"),
         ({}, {"BEDROCK_MANTLE_API_KEY": "mantle-env-key"}, "mantle-env-key"),
@@ -112,7 +112,7 @@ def test_region_falls_back_to_the_mantle_default_without_any_hint(no_ambient_aws
 def test_sign_request_uses_the_deployment_bearer_token(
     no_ambient_aws,
     monkeypatch,
-    litellm_params,
+    hangarllm_params,
     env,
     expected_bearer,
 ):
@@ -120,7 +120,7 @@ def test_sign_request_uses_the_deployment_bearer_token(
         monkeypatch.setenv(name, value)
     headers, body = BedrockMantlePassthroughConfig().sign_request(
         headers={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         request_data=REQUEST_BODY,
         api_base=f"https://bedrock-runtime.us-east-1.amazonaws.com/{INVOKE_ENDPOINT}",
         model="us.openai.gpt-5.6-sol",
@@ -135,7 +135,7 @@ def test_sign_request_falls_back_to_sigv4_scoped_to_the_mantle_region(no_ambient
     with patch.object(config, "get_credentials", return_value=Credentials("AKIA", "secret")):
         headers, body = config.sign_request(
             headers={},
-            litellm_params={"api_base": MANTLE_API_BASE},
+            hangarllm_params={"api_base": MANTLE_API_BASE},
             request_data=REQUEST_BODY,
             api_base=f"https://bedrock-runtime.us-east-2.amazonaws.com/{INVOKE_ENDPOINT}",
             model="us.openai.gpt-5.6-sol",
@@ -170,7 +170,7 @@ def test_invoke_passthrough_route_reaches_bedrock_runtime_for_a_mantle_deploymen
             api_base=MANTLE_API_BASE,
             json=dict(REQUEST_BODY),
             client=client,
-            litellm_logging_obj=MagicMock(),
+            hangarllm_logging_obj=MagicMock(),
             **route_kwargs,
         )
     assert response.status_code == 200

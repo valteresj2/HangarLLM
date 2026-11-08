@@ -1,9 +1,9 @@
 """Read-back for the gcs_bucket logging test against the real GCS bucket.
 
 The proxy ships StandardLoggingPayload objects with its own service account
-(litellm_settings.callbacks: ["gcs_bucket"] + GCS_BUCKET_NAME), and the test
+(hangarllm_settings.callbacks: ["gcs_bucket"] + GCS_BUCKET_NAME), and the test
 reads them back through the GCS JSON API. Auth is a self-signed service-account
-JWT (RS256 via PyJWT + cryptography, both litellm proxy dependencies the
+JWT (RS256 via PyJWT + cryptography, both hangarllm proxy dependencies the
 runner installs) minted per request and sent directly as the Bearer token -
 Google accepts that for storage.googleapis.com with no token exchange, which
 keeps every HTTP read inside ``e2e_http``.

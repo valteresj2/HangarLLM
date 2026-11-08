@@ -4,10 +4,10 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.redis_batch import Batch, request_redis_batch_scope
-from litellm.caching.redis_cache import RedisCache
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.rate_limits import (
+from hangarllm.caching.redis_batch import Batch, request_redis_batch_scope
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.rate_limits import (
     CounterIncrement,
     RateLimitScope,
     RateLimitStore,

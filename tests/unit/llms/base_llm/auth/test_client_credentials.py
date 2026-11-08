@@ -7,18 +7,18 @@ from urllib.parse import parse_qsl, unquote
 import httpx
 import pytest
 
-from litellm.llms.base_llm.auth.client_credentials import (
+from hangarllm.llms.base_llm.auth.client_credentials import (
     _HttpxSyncKeycloakPoster,
     _default_secret_reader,
     _new_keycloak_handler,
     fetch_keycloak_assertion,
     keycloak_assertion_source,
 )
-from litellm.llms.base_llm.auth.identity_source import KeycloakSource, identity_source_ref
-from litellm.llms.base_llm.auth.token_exchange import MAX_RESPONSE_BYTES
+from hangarllm.llms.base_llm.auth.identity_source import KeycloakSource, identity_source_ref
+from hangarllm.llms.base_llm.auth.token_exchange import MAX_RESPONSE_BYTES
 
-TOKEN_URL: Final = "https://keycloak.example/realms/litellm/protocol/openid-connect/token"
-CLIENT_ID: Final = "litellm"
+TOKEN_URL: Final = "https://keycloak.example/realms/hangarllm/protocol/openid-connect/token"
+CLIENT_ID: Final = "hangarllm"
 CLIENT_SECRET_REF: Final = "oidc/env/KEYCLOAK_CLIENT_SECRET"
 CLIENT_SECRET: Final = "s3cr3t-client-value"
 
@@ -395,7 +395,7 @@ class TestDefaultKeycloakPoster:
 
 
 class TestDefaultSecretReader:
-    def test_reads_through_litellm_secret_resolution(self, monkeypatch: pytest.MonkeyPatch):
+    def test_reads_through_hangarllm_secret_resolution(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("KEYCLOAK_CLIENT_SECRET_FOR_DEFAULT_READER", CLIENT_SECRET)
 
         assert _default_secret_reader("os.environ/KEYCLOAK_CLIENT_SECRET_FOR_DEFAULT_READER") == CLIENT_SECRET
@@ -419,13 +419,13 @@ class TestUnresolvedSecretRefIsNotEchoed:
     secret, and this error reaches model callers, so it must never echo the value."""
 
     def test_keycloak_ref_value_is_not_in_the_error(self):
-        from litellm.llms.base_llm.auth.client_credentials import keycloak_assertion_source
-        from litellm.llms.base_llm.auth.identity_source import KeycloakSource
+        from hangarllm.llms.base_llm.auth.client_credentials import keycloak_assertion_source
+        from hangarllm.llms.base_llm.auth.identity_source import KeycloakSource
 
         pasted_secret = "sUp3r-s3cret-value-not-a-pointer"
         config = KeycloakSource(
             token_url="https://keycloak.example.com/realms/p/protocol/openid-connect/token",
-            client_id="litellm",
+            client_id="hangarllm",
             client_secret_ref=pasted_secret,
         )
 
@@ -436,13 +436,13 @@ class TestUnresolvedSecretRefIsNotEchoed:
         assert "withheld" in str(excinfo.value)
 
     def test_internal_issuer_ref_value_is_not_in_the_error(self):
-        from litellm.llms.base_llm.auth.identity_source import InternalIssuerSource
-        from litellm.llms.base_llm.auth.internal_issuer import internal_issuer_assertion_source
+        from hangarllm.llms.base_llm.auth.identity_source import InternalIssuerSource
+        from hangarllm.llms.base_llm.auth.internal_issuer import internal_issuer_assertion_source
 
         pasted_pem = "-----BEGIN PRIVATE KEY-----MIGHAgEA-----END PRIVATE KEY-----"
         config = InternalIssuerSource(
             issuer_url="https://proxy.example.com",
-            subject="litellm-proxy",
+            subject="hangarllm-proxy",
             signing_key_ref=pasted_pem,
         )
 
@@ -458,7 +458,7 @@ class TestTokenUrlIsNotEchoedWholesale:
     stops an operator putting a credential in the URL, and these errors reach model callers."""
 
     def test_query_string_is_dropped_from_a_status_error(self):
-        from litellm.llms.base_llm.auth.token_exchange import endpoint_url_for_error_message
+        from hangarllm.llms.base_llm.auth.token_exchange import endpoint_url_for_error_message
 
         rendered = endpoint_url_for_error_message("https://idp.example/token?client_secret=supersecret")
 
@@ -466,7 +466,7 @@ class TestTokenUrlIsNotEchoedWholesale:
         assert rendered == "https://idp.example/token"
 
     def test_userinfo_is_dropped_too(self):
-        from litellm.llms.base_llm.auth.token_exchange import endpoint_url_for_error_message
+        from hangarllm.llms.base_llm.auth.token_exchange import endpoint_url_for_error_message
 
         rendered = endpoint_url_for_error_message("https://user:pw@idp.example:8443/token")
 

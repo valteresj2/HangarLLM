@@ -1,4 +1,4 @@
-# Custom Semgrep rules for LiteLLM
+# Custom Semgrep rules for HangarLLM
 
 Add custom rule YAML files here. Semgrep loads all `.yml`/`.yaml` files under this directory.
 

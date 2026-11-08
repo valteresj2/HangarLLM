@@ -9,9 +9,9 @@ import pytest
 from pydantic import JsonValue, TypeAdapter
 from respx import MockRouter
 
-import litellm
-from litellm import interactions
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm import interactions
+from hangarllm.integrations.custom_logger import CustomLogger
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 
@@ -59,7 +59,7 @@ def _openai_response_body(response_id: str, text: str) -> dict[str, object]:
 
 
 def _bridge_interaction_id(response_id: str) -> str:
-    encoded: Final = f"litellm:custom_llm_provider:openai;model_id:None;response_id:{response_id}".encode()
+    encoded: Final = f"hangarllm:custom_llm_provider:openai;model_id:None;response_id:{response_id}".encode()
     return f"resp_{base64.b64encode(encoded).decode()}"
 
 
@@ -100,7 +100,7 @@ class TestGoogleInteractionsCreate:
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_missing_model_and_agent(self, api_key):
         """Test error when neither model nor agent is provided."""
-        with pytest.raises((ValueError, litellm.APIConnectionError)):
+        with pytest.raises((ValueError, hangarllm.APIConnectionError)):
             interactions.create(
                 input="Hello",
                 api_key=api_key,
@@ -353,7 +353,7 @@ class TestGoogleInteractionsCreate:
             return_value=httpx.Response(200, json=_openai_response_body("resp-agent-config", "Hi"))
         )
 
-        with pytest.raises(litellm.UnsupportedParamsError, match="'agent_config' is not supported for openai") as e:
+        with pytest.raises(hangarllm.UnsupportedParamsError, match="'agent_config' is not supported for openai") as e:
             interactions.create(
                 model="gpt-5.6",
                 agent_config={"type": "antigravity", "model": "gemini-3.8-flash"},
@@ -476,7 +476,7 @@ class TestGoogleInteractionsCreate:
             )
         )
 
-        with pytest.raises(litellm.NotFoundError):
+        with pytest.raises(hangarllm.NotFoundError):
             interactions.create(
                 model="gemini/invalid-model-name-xyz",
                 input="Hello",
@@ -591,7 +591,7 @@ class TestInteractionsAcreateOffline:
 
     @pytest.mark.usefixtures("fake_provider_credentials")
     @pytest.mark.asyncio
-    async def test_acreate_simple_litellm_responses_bridge(self, respx_mock: MockRouter) -> None:
+    async def test_acreate_simple_hangarllm_responses_bridge(self, respx_mock: MockRouter) -> None:
         route: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
             return_value=httpx.Response(
                 200,
@@ -830,7 +830,7 @@ async def _stream_gemini_interaction(sync_mode: bool) -> list[dict[str, object]]
 async def test_streaming_skips_malformed_lines_and_stops_at_done(
     respx_mock: MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post(_GEMINI_STREAM_URL).mock(
         return_value=httpx.Response(200, text=_GEMINI_STREAM_WITH_DONE, headers={"content-type": "text/event-stream"})
     )
@@ -848,7 +848,7 @@ def test_create_streaming_hands_completed_interaction_to_success_callback(
     respx_mock: MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     recorder: Final = _CompletedInteractionRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post(_GEMINI_STREAM_URL).mock(
         return_value=httpx.Response(200, text=_GEMINI_STREAM_WITH_DONE, headers={"content-type": "text/event-stream"})
     )

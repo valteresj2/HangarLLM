@@ -184,15 +184,15 @@ def test_boto3_converse_invoke_and_stream_methods_forward_full_bodies_for_deploy
                 *base_config.get("model_list", []),
                 {
                     "model_name": router_name,
-                    "litellm_params": {"model": f"bedrock/{_MODEL_ID}", **deployment_params},
+                    "hangarllm_params": {"model": f"bedrock/{_MODEL_ID}", **deployment_params},
                 },
                 {
                     "model_name": raw_id,
-                    "litellm_params": {"model": f"bedrock/{raw_id}", **deployment_params},
+                    "hangarllm_params": {"model": f"bedrock/{raw_id}", **deployment_params},
                 },
                 {
                     "model_name": profile_arn,
-                    "litellm_params": {"model": f"bedrock/{profile_arn}", **deployment_params},
+                    "hangarllm_params": {"model": f"bedrock/{profile_arn}", **deployment_params},
                 },
             ],
         }
@@ -278,7 +278,7 @@ def test_boto3_direct_raw_model_ids_forward_full_bodies(gateway: Gateway, tmp_pa
         config_path.write_text(
             yaml.safe_dump(
                 {
-                    "model_list": [{"model_name": "bedrock/*", "litellm_params": {"model": "bedrock/*"}}],
+                    "model_list": [{"model_name": "bedrock/*", "hangarllm_params": {"model": "bedrock/*"}}],
                     "general_settings": {"supported_db_objects": []},
                 }
             )

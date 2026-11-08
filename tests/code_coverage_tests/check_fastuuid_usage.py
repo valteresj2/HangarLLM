@@ -3,7 +3,7 @@ import os
 from typing import List, Dict, Any
 
 
-ALLOWED_FILE = os.path.normpath("litellm/_uuid.py")
+ALLOWED_FILE = os.path.normpath("hangarllm/_uuid.py")
 
 
 def _to_module_path(relative_path: str) -> str:
@@ -57,7 +57,7 @@ def _find_fastuuid_imports_in_file(
 
 def scan_directory_for_fastuuid(base_dir: str) -> List[Dict[str, Any]]:
     violations: List[Dict[str, Any]] = []
-    scan_root = os.path.join(base_dir, "litellm")
+    scan_root = os.path.join(base_dir, "hangarllm")
     for root, _, files in os.walk(scan_root):
         for filename in files:
             if filename.endswith(".py"):
@@ -71,13 +71,13 @@ def main() -> None:
     violations = scan_directory_for_fastuuid(base_dir)
     if violations:
         print(
-            "\n🚨 fastuuid must only be imported inside litellm/_uuid.py. Found violations:"
+            "\n🚨 fastuuid must only be imported inside hangarllm/_uuid.py. Found violations:"
         )
         for v in violations:
             print(f"* {v['module']} ({v['file']}:{v['line']}) -> {v['import']}")
         print("\n")
         raise Exception(
-            "Found fastuuid imports outside litellm/_uuid.py. Use litellm._uuid.uuid or litellm._uuid.uuid4 instead."
+            "Found fastuuid imports outside hangarllm/_uuid.py. Use hangarllm._uuid.uuid or hangarllm._uuid.uuid4 instead."
         )
     else:
         print("✅ No invalid fastuuid imports found.")

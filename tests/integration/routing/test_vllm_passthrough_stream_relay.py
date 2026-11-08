@@ -23,7 +23,7 @@ from integration._support.wire import Reply, Request, Wire, wire_server
 from openai.types.chat import ChatCompletionChunk
 from pydantic import JsonValue
 
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
 _SERVED_MODEL: Final = "Qwen/Qwen2.5-0.5B-Instruct"
 _INPUT_COST: Final = 0.001
@@ -150,7 +150,7 @@ def _posted(wire: Wire) -> tuple[dict[str, JsonValue], ...]:
 
 
 def _read_rows(model: str) -> list[dict[str, JsonValue]]:
-    return read_rows(f'SELECT {_ROW_COLUMNS} FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,))
+    return read_rows(f'SELECT {_ROW_COLUMNS} FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,))
 
 
 def _rows(model: str, count: int = 1) -> list[dict[str, JsonValue]]:

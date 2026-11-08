@@ -2,7 +2,7 @@
 Fence for the Router's public surface.
 
 Code outside the router may use only the Router members listed in
-router_surface_allowlist.json, and may import only the litellm.router_utils
+router_surface_allowlist.json, and may import only the hangarllm.router_utils
 modules listed there. The lists hold what is used today and may only shrink:
 
 - a member or module used outside the router that is not listed fails the
@@ -10,15 +10,15 @@ modules listed there. The lists hold what is used today and may only shrink:
 - a listed member or module that nothing outside the router uses any more
   also fails, so the entry is removed in the same change.
 
-"Outside" means every non-test file under litellm/ and enterprise/ except
-litellm/router.py and the router's own modules (including every
-module under litellm/router_rust/, the Rust core's host-side glue). Uses from the router family
-(litellm/router_utils, litellm/router_strategy) are listed separately, because
+"Outside" means every non-test file under hangarllm/ and enterprise/ except
+hangarllm/router.py and the router's own modules (including every
+module under hangarllm/router_rust/, the Rust core's host-side glue). Uses from the router family
+(hangarllm/router_utils, hangarllm/router_strategy) are listed separately, because
 those modules become private parts of the router core in a later step.
 
 Member uses are found the same way the boundary survey found them: attribute
 access on a receiver whose name looks like a router (llm_router,
-litellm_router_instance, router, ...) or on the Router class, plus
+hangarllm_router_instance, router, ...) or on the Router class, plus
 getattr/setattr/hasattr with a constant name on such a receiver. Members
 include the endpoints the Rust core serves by name, container file endpoints included.
 
@@ -37,34 +37,34 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ALLOWLIST = os.path.join(os.path.dirname(__file__), "router_surface_allowlist.json")
 
 ROUTER_FILES = {
-    "litellm/router.py",
-    "litellm/router_api.py",
-    "litellm/router_config.py",
-    "litellm/router_core.py",
-    "litellm/router_python_host.py",
-    "litellm/router_rust/core.py",
-    "litellm/router_deprecated.py",
-    "litellm/router_host.py",
+    "hangarllm/router.py",
+    "hangarllm/router_api.py",
+    "hangarllm/router_config.py",
+    "hangarllm/router_core.py",
+    "hangarllm/router_python_host.py",
+    "hangarllm/router_rust/core.py",
+    "hangarllm/router_deprecated.py",
+    "hangarllm/router_host.py",
 }
 # The Rust core's host-side glue modules are part of the router.
-ROUTER_FILE_PREFIXES = ("litellm/router_rust/",)
-ROUTER_CLASS_FILES = ["litellm/router.py", "litellm/router_rust/core.py", "litellm/router_deprecated.py"]
+ROUTER_FILE_PREFIXES = ("hangarllm/router_rust/",)
+ROUTER_CLASS_FILES = ["hangarllm/router.py", "hangarllm/router_rust/core.py", "hangarllm/router_deprecated.py"]
 ROUTER_CLASS_NAMES = {"Router", "RustCore", "DeprecatedRouterMembers"}
 # The Rust core serves its endpoint methods by name (``RustCore.__getattr__``); these name lists hold them.
 ROUTER_ENDPOINT_LISTS = {
-    "litellm/router_rust/surface/legacy_members.py": {"_ROUTER_ENDPOINTS", "_ASSISTANTS_ENDPOINTS"},
-    "litellm/router_rust/invoke/endpoints.py": {"_DIRECT_ENDPOINTS"},
+    "hangarllm/router_rust/surface/legacy_members.py": {"_ROUTER_ENDPOINTS", "_ASSISTANTS_ENDPOINTS"},
+    "hangarllm/router_rust/invoke/endpoints.py": {"_DIRECT_ENDPOINTS"},
 }
 # ``RustEndpoints.member`` serves these methods by name, from its ``direct`` table.
-ROUTER_ENDPOINT_TABLE = "litellm/router_rust/invoke/endpoints.py"
+ROUTER_ENDPOINT_TABLE = "hangarllm/router_rust/invoke/endpoints.py"
 
-SCAN_ROOTS = ["litellm", "enterprise"]
+SCAN_ROOTS = ["hangarllm", "enterprise"]
 SKIP_DIRS = {
     ".git",
     "node_modules",
     ".venv",
     "__pycache__",
-    "litellm-rust",
+    "hangarllm-rust",
     "ui",
     "docs",
     "cookbook",
@@ -73,16 +73,16 @@ SKIP_DIRS = {
 }
 
 RECEIVER = re.compile(
-    r"(^|[._])(llm_router|router|litellm_router|litellm_router_instance|router_instance"
+    r"(^|[._])(llm_router|router|hangarllm_router|hangarllm_router_instance|router_instance"
     r"|_router|proxy_router|llm_router_instance|router_obj|mock_router|Router)$"
 )
 # The Rust core serves these by name too, so they never appear as self.<name>.
-CONTAINER_FILE_ENDPOINTS = "litellm/containers/endpoints.json"
+CONTAINER_FILE_ENDPOINTS = "hangarllm/containers/endpoints.json"
 DYNAMIC_FUNCS = {"getattr", "setattr", "hasattr"}
 
 
 def _area(rel: str) -> str:
-    if rel.startswith(("litellm/router_utils/", "litellm/router_strategy/")):
+    if rel.startswith(("hangarllm/router_utils/", "hangarllm/router_strategy/")):
         return "router_family"
     return "outside"
 
@@ -199,19 +199,19 @@ def member_uses(tree: ast.AST, members: Set[str]) -> Set[str]:
 
 def _router_utils_modules(node: ast.AST) -> List[str]:
     if isinstance(node, ast.ImportFrom) and node.module:
-        if node.module == "litellm.router_utils":
-            return ["litellm.router_utils." + a.name for a in node.names]
-        if node.module.startswith("litellm.router_utils."):
+        if node.module == "hangarllm.router_utils":
+            return ["hangarllm.router_utils." + a.name for a in node.names]
+        if node.module.startswith("hangarllm.router_utils."):
             return [node.module]
     if isinstance(node, ast.Import):
-        return [a.name for a in node.names if a.name.startswith("litellm.router_utils.")]
+        return [a.name for a in node.names if a.name.startswith("hangarllm.router_utils.")]
     return []
 
 
 def build_allowlist(found) -> dict:
     return {
         "_doc": (
-            "Router members and litellm.router_utils modules used outside the router. "
+            "Router members and hangarllm.router_utils modules used outside the router. "
             "Shrink-only: see tests/code_coverage_tests/router_surface_check.py."
         ),
         "members_outside": sorted(found["members"]["outside"]),
@@ -225,7 +225,7 @@ def compare(allow: dict, found) -> List[str]:
     sections = [
         ("members_outside", found["members"]["outside"], "Router member"),
         ("members_router_family", found["members"]["router_family"], "Router member (router family)"),
-        ("router_utils_imports_outside", found["router_utils_imports"], "litellm.router_utils import"),
+        ("router_utils_imports_outside", found["router_utils_imports"], "hangarllm.router_utils import"),
     ]
     for key, used, what in sections:
         listed = set(allow.get(key, []))

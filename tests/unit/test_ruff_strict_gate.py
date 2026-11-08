@@ -24,29 +24,29 @@ _ENABLED_BY_RUFF_DEFAULTS = frozenset({"F401"})
 
 def test_parse_changed_lines_maps_added_lines_per_file():
     diff = (
-        "+++ b/litellm/a.py\n"
+        "+++ b/hangarllm/a.py\n"
         "@@ -10 +10,3 @@\n+x\n+y\n+z\n"
-        "+++ b/litellm/b.py\n"
+        "+++ b/hangarllm/b.py\n"
         "@@ -5,2 +7 @@\n+q\n"
     )
     changed = gate.parse_changed_lines(diff)
-    assert changed["litellm/a.py"] == {10, 11, 12}
-    assert changed["litellm/b.py"] == {7}
+    assert changed["hangarllm/a.py"] == {10, 11, 12}
+    assert changed["hangarllm/b.py"] == {7}
 
 
 def test_introduced_keeps_only_violations_on_changed_lines():
     violations = [
-        Violation("litellm/a.py", 10, "ANN001"),
-        Violation("litellm/a.py", 99, "C901"),
+        Violation("hangarllm/a.py", 10, "ANN001"),
+        Violation("hangarllm/a.py", 99, "C901"),
     ]
-    assert gate.introduced(violations, {"litellm/a.py": {10}}) == [
-        Violation("litellm/a.py", 10, "ANN001")
+    assert gate.introduced(violations, {"hangarllm/a.py": {10}}) == [
+        Violation("hangarllm/a.py", 10, "ANN001")
     ]
 
 
 @pytest.mark.parametrize("hunk", ["@@ -1 +1 @@", "@@ -1,0 +1,2 @@"])
 def test_parse_changed_lines_handles_single_and_ranged_hunks(hunk):
-    assert gate.parse_changed_lines(f"+++ b/litellm/a.py\n{hunk}\n")["litellm/a.py"]
+    assert gate.parse_changed_lines(f"+++ b/hangarllm/a.py\n{hunk}\n")["hangarllm/a.py"]
 
 
 def _lint_section(config_name: str) -> dict:
@@ -89,7 +89,7 @@ def _ruff_output_for_noqa(code: str, *extra_args: str) -> str:
             "check",
             "--no-cache",
             "--stdin-filename",
-            "litellm/types/_external_probe.py",
+            "hangarllm/types/_external_probe.py",
             *extra_args,
             "-",
         ],
@@ -199,7 +199,7 @@ def test_a_stale_noqa_for_a_locally_enabled_rule_is_still_reported():
 
 def _ruff_output_for_source(source: str) -> str:
     proc = subprocess.run(
-        [_RUFF, "check", "--no-cache", "--stdin-filename", "litellm/types/_graduate_probe.py", "-"],
+        [_RUFF, "check", "--no-cache", "--stdin-filename", "hangarllm/types/_graduate_probe.py", "-"],
         cwd=_REPO_ROOT,
         input=source,
         capture_output=True,

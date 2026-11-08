@@ -2,7 +2,7 @@
 Helpers for the construction / pre-call characterization tests.
 
 ``CallbackHost`` is a ``ScriptedHost`` whose callback manager also has
-``remove_callback_from_list_by_object`` (litellm's ``LoggingCallbackManager`` has it; ``HostCallbacks``
+``remove_callback_from_list_by_object`` (hangarllm's ``LoggingCallbackManager`` has it; ``HostCallbacks``
 does not), so the path that switches optional pre-call checks off at runtime can run.
 """
 
@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Generator, Mapping
 from typing import Final
 
-import litellm
+import hangarllm
 from tests.unit.test_router.core.scripted_host import HostCallbacks, ScriptedHost, deployment
 
 
@@ -79,12 +79,12 @@ def collect_other_routers() -> None:
 def restoring_model_cost(*names: str) -> Generator[None, None, None]:
     """Undo what routers built meanwhile wrote into the process cost map: keys they added are removed
     and the named entries get their old value back."""
-    added_before: Final = frozenset(litellm.model_cost)
-    saved: Final = {name: copy.deepcopy(litellm.model_cost[name]) for name in names if name in litellm.model_cost}
+    added_before: Final = frozenset(hangarllm.model_cost)
+    saved: Final = {name: copy.deepcopy(hangarllm.model_cost[name]) for name in names if name in hangarllm.model_cost}
     yield
-    for key in frozenset(litellm.model_cost) - added_before:
-        litellm.model_cost.pop(key, None)
-    litellm.model_cost.update(saved)
+    for key in frozenset(hangarllm.model_cost) - added_before:
+        hangarllm.model_cost.pop(key, None)
+    hangarllm.model_cost.update(saved)
 
 
 __all__ = [

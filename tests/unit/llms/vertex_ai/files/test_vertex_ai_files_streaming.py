@@ -37,22 +37,22 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.files.types import FileContentStreamingResult
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.files.transformation import BaseFileUploadStream
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.llms.vertex_ai.files.transformation import (
+import hangarllm
+from hangarllm.files.types import FileContentStreamingResult
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.base_llm.files.transformation import BaseFileUploadStream
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+from hangarllm.llms.vertex_ai.files.transformation import (
     VertexAIFilesConfig,
-    _get_litellm_batch_custom_id_from_labels,
+    _get_hangarllm_batch_custom_id_from_labels,
     _iter_openai_jsonl_entries,
     _iter_numbered_openai_jsonl_lines,
     _openai_batch_jsonl_entry_to_vertex_rows,
     _OpenAIToVertexBatchUploadStream,
 )
-from litellm.types.llms.openai import CreateFileRequest, FileContentRequest
+from hangarllm.types.llms.openai import CreateFileRequest, FileContentRequest
 
 
 def _upload_stream(transformed) -> BaseFileUploadStream:
@@ -124,7 +124,7 @@ class TestStreamingOutputParity:
         }
 
         out = cfg.transform_create_file_request(
-            model="", create_file_data=request, optional_params={}, litellm_params={}
+            model="", create_file_data=request, optional_params={}, hangarllm_params={}
         )
 
         # A batch upload must be a streaming-media config carrying a streaming
@@ -164,20 +164,20 @@ class TestFileLikeInputNotPartiallyConsumed:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "test-bucket"},
+            hangarllm_params={"gcs_bucket_name": "test-bucket"},
             data=create_file_data,
         )
         out = cfg.transform_create_file_request(
             model="",
             create_file_data=create_file_data,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         lines = _join_upload_body(out).decode("utf-8").splitlines()
         assert len(lines) == n_rows, "no batch row may be dropped from the upload"
         first_labels = json.loads(lines[0])["request"]["labels"]
-        assert _get_litellm_batch_custom_id_from_labels(first_labels) == "request-0"
+        assert _get_hangarllm_batch_custom_id_from_labels(first_labels) == "request-0"
 
 
 class TestStreamingLineIterator:
@@ -288,11 +288,11 @@ def _tts_batch_row(**body_extra: object) -> bytes:
     return json.dumps({"custom_id": "r-0", "method": "POST", "url": "/v1/chat/completions", "body": body}).encode()
 
 
-def _upload_tts_batch_row(row: bytes, litellm_params: dict[str, object]) -> bytes:
+def _upload_tts_batch_row(row: bytes, hangarllm_params: dict[str, object]) -> bytes:
     request: Final[CreateFileRequest] = {"file": ("batch.jsonl", row + b"\n", "application/jsonl"), "purpose": "batch"}
     return _join_upload_body(
         VertexAIFilesConfig().transform_create_file_request(
-            model="", create_file_data=request, optional_params={}, litellm_params=litellm_params
+            model="", create_file_data=request, optional_params={}, hangarllm_params=hangarllm_params
         )
     )
 
@@ -304,14 +304,14 @@ class TestBatchRowUnknownVoiceKeys:
         assert exc_info.value.status_code == 400
 
     @pytest.mark.parametrize(
-        "row, litellm_params",
+        "row, hangarllm_params",
         [(_tts_batch_row(drop_params=True), {}), (_tts_batch_row(), {"drop_params": True})],
         ids=["row", "deployment"],
     )
     def test_drop_params_on_the_row_or_deployment_drops_unknown_voice_keys(
-        self, row: bytes, litellm_params: dict[str, object]
+        self, row: bytes, hangarllm_params: dict[str, object]
     ) -> None:
-        uploaded: Final = json.loads(_upload_tts_batch_row(row, litellm_params))
+        uploaded: Final = json.loads(_upload_tts_batch_row(row, hangarllm_params))
 
         assert uploaded["request"]["generationConfig"]["speechConfig"] == {
             "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Kore"}}
@@ -326,7 +326,7 @@ class TestStreamingLaziness:
         chunks: Final = _OpenAIToVertexBatchUploadStream(raw, cfg._map_openai_to_vertex_params).iter_bytes()
         pulled: Final = tuple(next(chunks) for _ in range(valid_rows))
         custom_ids: Final = tuple(
-            _get_litellm_batch_custom_id_from_labels(json.loads(chunk)["request"]["labels"]) for chunk in pulled
+            _get_hangarllm_batch_custom_id_from_labels(json.loads(chunk)["request"]["labels"]) for chunk in pulled
         )
 
         assert custom_ids == ("request-0", "request-1", "request-2")
@@ -375,19 +375,19 @@ class TestPathSourcedStreaming:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "test-bucket"},
+            hangarllm_params={"gcs_bucket_name": "test-bucket"},
             data=data,
         )
         assert "uploadType=media" in url
 
-        out = cfg.transform_create_file_request(model="", create_file_data=data, optional_params={}, litellm_params={})
+        out = cfg.transform_create_file_request(model="", create_file_data=data, optional_params={}, hangarllm_params={})
         assert isinstance(out, dict) and "streaming_media_upload" in out
         body = _join_upload_body(out).decode("utf-8")
         assert body == _reference_vertex_jsonl_string(cfg, raw.decode("utf-8"))
         lines = body.splitlines()
         assert len(lines) == n_rows, "no batch row may be dropped from a Path source"
         first_labels = json.loads(lines[0])["request"]["labels"]
-        assert _get_litellm_batch_custom_id_from_labels(first_labels) == "request-0"
+        assert _get_hangarllm_batch_custom_id_from_labels(first_labels) == "request-0"
 
     def test_path_source_is_read_as_the_upload_is_pulled(self, tmp_path: Path) -> None:
         cfg: Final = VertexAIFilesConfig()
@@ -399,11 +399,11 @@ class TestPathSourcedStreaming:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "test-bucket"},
+            hangarllm_params={"gcs_bucket_name": "test-bucket"},
             data=data,
         )
         out: Final = cfg.transform_create_file_request(
-            model="", create_file_data=data, optional_params={}, litellm_params={}
+            model="", create_file_data=data, optional_params={}, hangarllm_params={}
         )
         chunks: Final = _upload_stream(out).iter_bytes()
         first: Final = next(chunks)
@@ -412,7 +412,7 @@ class TestPathSourcedStreaming:
             handle.seek(raw.index(b'"request-6000"'))
             handle.write(b'"rewrote-6000"')
         custom_ids: Final = tuple(
-            _get_litellm_batch_custom_id_from_labels(json.loads(chunk)["request"]["labels"])
+            _get_hangarllm_batch_custom_id_from_labels(json.loads(chunk)["request"]["labels"])
             for chunk in (first, *chunks)
         )
 
@@ -425,7 +425,7 @@ class TestPathSourcedStreaming:
         path, _ = self._write_jsonl(tmp_path, 50)
         data = self._batch_request(path)
 
-        out = cfg.transform_create_file_request(model="", create_file_data=data, optional_params={}, litellm_params={})
+        out = cfg.transform_create_file_request(model="", create_file_data=data, optional_params={}, hangarllm_params={})
         stream = _upload_stream(out)
         first = b"".join(stream.iter_bytes())
         second = b"".join(stream.iter_bytes())
@@ -444,8 +444,8 @@ def _as_str(text: str) -> str:
 
 
 _GCS_OBJECT_JSON = {
-    "id": "test-bucket/litellm-vertex-files/x/123",
-    "name": "litellm-vertex-files/x",
+    "id": "test-bucket/hangarllm-vertex-files/x/123",
+    "name": "hangarllm-vertex-files/x",
     "size": "0",
     "timeCreated": "2026-01-01T00:00:00.000000Z",
     "purpose": "batch",
@@ -471,7 +471,7 @@ def _logging_obj() -> Logging:
         stream=False,
         call_type="acreate_file",
         start_time=time.time(),
-        litellm_call_id="test",
+        hangarllm_call_id="test",
         function_id="",
     )
 
@@ -512,7 +512,7 @@ class TestUploadUrl:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "test-bucket"},
+            hangarllm_params={"gcs_bucket_name": "test-bucket"},
             data=request,
         )
         # A single media upload is one continuous transfer (no per-chunk
@@ -531,7 +531,7 @@ class TestUploadUrl:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "test-bucket"},
+            hangarllm_params={"gcs_bucket_name": "test-bucket"},
             data=request,
         )
         assert "uploadType=media" in url
@@ -722,17 +722,17 @@ class TestStreamingMediaUpload:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "test-bucket"},
+            hangarllm_params={"gcs_bucket_name": "test-bucket"},
             data=request,
         )
         transformed = cfg.transform_create_file_request(
-            model="", create_file_data=request, optional_params={}, litellm_params={}
+            model="", create_file_data=request, optional_params={}, hangarllm_params={}
         )
         expected = _join_upload_body(transformed)
         mock, state = _gcs_media_mock(status=status)
         response = await BaseLLMHTTPHandler().async_create_file(
             transformed_request=transformed,
-            litellm_params={},
+            hangarllm_params={},
             provider_config=cfg,
             headers={"Authorization": "Bearer x"},
             api_base=api_base,
@@ -790,7 +790,7 @@ class TestStreamingMediaUpload:
 
 
 _MANAGED_OUTPUT_FILE_ID = (
-    "gs://test-bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-flash/abc/predictions.jsonl"
+    "gs://test-bucket/hangarllm-vertex-files/publishers/google/models/gemini-2.5-flash/abc/predictions.jsonl"
 )
 
 
@@ -799,7 +799,7 @@ def _vertex_batch_output_row(custom_id: str, text: str) -> bytes:
         {
             "status": "",
             "processed_time": "2024-11-01T18:13:16.826+00:00",
-            "request": {"labels": {"litellm_custom_id": custom_id}, "contents": [{"parts": [{"text": "hi"}]}]},
+            "request": {"labels": {"hangarllm_custom_id": custom_id}, "contents": [{"parts": [{"text": "hi"}]}]},
             "response": {
                 "candidates": [{"content": {"parts": [{"text": text}], "role": "model"}, "finishReason": "STOP"}],
                 "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 2, "totalTokenCount": 3},
@@ -881,7 +881,7 @@ class TestFileContentStreaming:
         result = await BaseLLMHTTPHandler().async_retrieve_file_content_streaming(
             file_content_request=FileContentRequest(file_id=_MANAGED_OUTPUT_FILE_ID),
             provider_config=_StaticTokenFilesConfig(),
-            litellm_params={"gcs_bucket_name": "test-bucket"},
+            hangarllm_params={"gcs_bucket_name": "test-bucket"},
             headers={},
             logging_obj=_logging_obj(),
             chunk_size=chunk_size,
@@ -898,7 +898,7 @@ class TestFileContentStreaming:
 
         assert state["urls"] == [
             "https://storage.googleapis.com/storage/v1/b/test-bucket/o/"
-            "litellm-vertex-files%2Fpublishers%2Fgoogle%2Fmodels%2Fgemini-2.5-flash%2Fabc%2Fpredictions.jsonl?alt=media"
+            "hangarllm-vertex-files%2Fpublishers%2Fgoogle%2Fmodels%2Fgemini-2.5-flash%2Fabc%2Fpredictions.jsonl?alt=media"
         ]
         assert state["headers"][0]["authorization"] == "Bearer test-token"
         assert result.headers["content-type"] == "application/octet-stream"
@@ -983,7 +983,7 @@ class TestFileContentStreaming:
         assert state["closed"] is True
 
     async def test_transform_opt_out_streams_raw_batch_output(self, monkeypatch):
-        monkeypatch.setattr("litellm.disable_vertex_batch_output_transformation", True)
+        monkeypatch.setattr("hangarllm.disable_vertex_batch_output_transformation", True)
         raw = b"\n".join(_vertex_batch_output_row(f"request-{i}", "x") for i in range(3)) + b"\n"
 
         result, _ = await self._open([raw], {"content-length": str(len(raw))})
@@ -1045,7 +1045,7 @@ class TestFileContentStreaming:
             await BaseLLMHTTPHandler().async_retrieve_file_content_streaming(
                 file_content_request=FileContentRequest(file_id=_MANAGED_OUTPUT_FILE_ID),
                 provider_config=_StaticTokenFilesConfig(),
-                litellm_params={"gcs_bucket_name": "test-bucket"},
+                hangarllm_params={"gcs_bucket_name": "test-bucket"},
                 headers={},
                 logging_obj=_logging_obj(),
                 chunk_size=16,
@@ -1062,7 +1062,7 @@ class TestFileContentStreaming:
             [raw[i : i + 64] for i in range(0, len(raw), 64)], {"content-length": str(len(raw))}
         )
 
-        result = await litellm.afile_content(
+        result = await hangarllm.afile_content(
             file_id=_MANAGED_OUTPUT_FILE_ID,
             custom_llm_provider="vertex_ai",
             stream=True,
@@ -1081,7 +1081,7 @@ class TestFileContentStreaming:
         raw = b'{"line": 1}\n{"line": 2}\n'
         mock, _ = _gcs_download_mock([raw], {"content-length": str(len(raw))})
 
-        result = await litellm.afile_content(
+        result = await hangarllm.afile_content(
             file_id=_MANAGED_OUTPUT_FILE_ID,
             custom_llm_provider="vertex_ai",
             api_key="test-token",
@@ -1094,8 +1094,8 @@ class TestFileContentStreaming:
     def test_sync_file_content_stream_is_rejected_for_vertex_ai(self):
         mock, state = _gcs_download_mock([b"x"], {})
 
-        with pytest.raises(litellm.BadRequestError, match="afile_content"):
-            litellm.file_content(
+        with pytest.raises(hangarllm.BadRequestError, match="afile_content"):
+            hangarllm.file_content(
                 file_id=_MANAGED_OUTPUT_FILE_ID,
                 custom_llm_provider="vertex_ai",
                 stream=True,

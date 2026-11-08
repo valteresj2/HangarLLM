@@ -77,7 +77,7 @@ def test_responses_cache_write_tokens_are_itemized_as_cache_creation_cost(gatewa
         request_id: Final = string_value(object_value(response.json())["id"])
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+                'SELECT spend, metadata, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
                 "WHERE request_id = %s",
                 (request_id,),
             ),

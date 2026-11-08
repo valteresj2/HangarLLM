@@ -149,7 +149,7 @@ def _installed_profiler(profiler: Callable[[FrameType, str, object], None], *, t
         def started(_code: CodeType, _offset: int) -> None:
             profiler(sys._getframe(1), "call", None)
 
-        sys.monitoring.use_tool_id(tool_id, "litellm-python-trace")
+        sys.monitoring.use_tool_id(tool_id, "hangarllm-python-trace")
         try:
             sys.monitoring.register_callback(tool_id, sys.monitoring.events.PY_START, started)
             sys.monitoring.set_events(tool_id, sys.monitoring.events.PY_START)

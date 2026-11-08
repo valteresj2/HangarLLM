@@ -18,30 +18,30 @@ import requests_mock as requests_mock_lib
 import respx
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-import litellm
-from litellm.constants import (
+import hangarllm
+from hangarllm.constants import (
     BEDROCK_MIN_THINKING_BUDGET_TOKENS,
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_XHIGH_THINKING_BUDGET,
 )
 
-# Ensure the project root is on the import path so `litellm` can be imported when
+# Ensure the project root is on the import path so `hangarllm` can be imported when
 # tests are executed from any working directory.
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.anthropic.messages.native.mid_conversation_system import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.anthropic.messages.native.mid_conversation_system import (
     as_system_content_blocks,
 )
-from litellm.llms.bedrock.common_utils import (
+from hangarllm.llms.bedrock.common_utils import (
     ensure_bedrock_anthropic_messages_tool_names,
     normalize_custom_field_on_tools,
     normalize_tool_input_schema_types_for_bedrock_invoke,
 )
-from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
     AmazonAnthropicClaudeMessagesConfig,
     AmazonAnthropicClaudeMessagesStreamDecoder,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
 REASONING_BODY_ADAPTER: Final = TypeAdapter(dict[str, object])
 
@@ -60,13 +60,13 @@ async def test_bedrock_sse_wrapper_encodes_dict_chunks():
     collected: list[bytes] = []
     async for chunk in cfg.bedrock_sse_wrapper(
         _dummy_stream(),
-        litellm_logging_obj=LiteLLMLoggingObj(
+        hangarllm_logging_obj=HangarLLMLoggingObj(
             model="bedrock/invoke/anthropic.claude-3-sonnet-20240229-v1:0",
             messages=[{"role": "user", "content": "Hello, can you tell me a short joke?"}],
             stream=True,
             call_type="chat",
             start_time=datetime.now(),
-            litellm_call_id="test_bedrock_sse_wrapper_encodes_dict_chunks",
+            hangarllm_call_id="test_bedrock_sse_wrapper_encodes_dict_chunks",
             function_id="test_bedrock_sse_wrapper_encodes_dict_chunks",
         ),
         request_body={},
@@ -113,13 +113,13 @@ async def test_bedrock_sse_wrapper_appends_error_event_when_stream_truncates_mid
     collected: list[bytes] = []
     async for chunk in cfg.bedrock_sse_wrapper(
         _truncated_stream(),
-        litellm_logging_obj=LiteLLMLoggingObj(
+        hangarllm_logging_obj=HangarLLMLoggingObj(
             model="bedrock/invoke/anthropic.claude-3-sonnet-20240229-v1:0",
             messages=[{"role": "user", "content": "write the file"}],
             stream=True,
             call_type="chat",
             start_time=datetime.now(),
-            litellm_call_id="test_bedrock_sse_wrapper_truncated_tool_use",
+            hangarllm_call_id="test_bedrock_sse_wrapper_truncated_tool_use",
             function_id="test_bedrock_sse_wrapper_truncated_tool_use",
         ),
         request_body={},
@@ -149,13 +149,13 @@ async def test_bedrock_sse_wrapper_no_error_event_when_stream_ends_with_message_
     collected: list[bytes] = []
     async for chunk in cfg.bedrock_sse_wrapper(
         _complete_stream(),
-        litellm_logging_obj=LiteLLMLoggingObj(
+        hangarllm_logging_obj=HangarLLMLoggingObj(
             model="bedrock/invoke/anthropic.claude-3-sonnet-20240229-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="chat",
             start_time=datetime.now(),
-            litellm_call_id="test_bedrock_sse_wrapper_complete_stream",
+            hangarllm_call_id="test_bedrock_sse_wrapper_complete_stream",
             function_id="test_bedrock_sse_wrapper_complete_stream",
         ),
         request_body={},
@@ -207,13 +207,13 @@ async def test_bedrock_sse_wrapper_keeps_usage_in_message_start_and_message_delt
     collected: list[bytes] = []
     async for chunk in cfg.bedrock_sse_wrapper(
         _dummy_stream(),
-        litellm_logging_obj=LiteLLMLoggingObj(
+        hangarllm_logging_obj=HangarLLMLoggingObj(
             model="bedrock/invoke/anthropic.claude-3-sonnet-20240229-v1:0",
             messages=[{"role": "user", "content": "Hello"}],
             stream=True,
             call_type="chat",
             start_time=datetime.now(),
-            litellm_call_id="test_bedrock_sse_wrapper_keeps_usage_in_both_events",
+            hangarllm_call_id="test_bedrock_sse_wrapper_keeps_usage_in_both_events",
             function_id="test_bedrock_sse_wrapper_keeps_usage_in_both_events",
         ),
         request_body={},
@@ -396,13 +396,13 @@ async def test_bedrock_sse_wrapper_preserves_cache_usage_with_invocation_metrics
     collected: list[bytes] = []
     async for chunk in cfg.bedrock_sse_wrapper(
         _decoded_stream(),
-        litellm_logging_obj=LiteLLMLoggingObj(
+        hangarllm_logging_obj=HangarLLMLoggingObj(
             model="bedrock/invoke/anthropic.claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Hello"}],
             stream=True,
             call_type="chat",
             start_time=datetime.now(),
-            litellm_call_id="test_bedrock_sse_wrapper_preserves_cache_usage",
+            hangarllm_call_id="test_bedrock_sse_wrapper_preserves_cache_usage",
             function_id="test_bedrock_sse_wrapper_preserves_cache_usage",
         ),
         request_body={},
@@ -515,7 +515,7 @@ def test_normalize_custom_field_on_tools():
     Bedrock does not accept a `custom` object on a tool and returns
     "Extra inputs are not permitted".
 
-    Ref: https://github.com/BerriAI/litellm/issues/22847
+    Ref: upstream issue 22847
     """
 
     # Case 1: tool with `custom` field should have it removed
@@ -590,7 +590,7 @@ def test_bedrock_invoke_messages_transform_emits_top_level_defer_loading(
     """A deferred tool must reach Bedrock as top-level ``defer_loading``, whether the
     client wrapped the flag in ``custom`` or sent it top-level, and the outbound body
     must still carry the Bedrock tool-search beta."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     result = cfg.transform_anthropic_messages_request(
@@ -610,7 +610,7 @@ def test_bedrock_invoke_messages_transform_emits_top_level_defer_loading(
                 {"type": "tool_search_tool_regex_20251119", "name": "tool_search"},
             ],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert result["tools"][0]["defer_loading"] is True
@@ -672,15 +672,15 @@ def test_ensure_bedrock_anthropic_messages_tool_names():
         ]
     }
     ensure_bedrock_anthropic_messages_tool_names(request)
-    assert request["tools"][0]["name"] == "litellm_unnamed_tool_0"
-    assert request["tools"][1]["name"] == "litellm_unnamed_tool_1"
-    assert request["tools"][2]["name"] == "litellm_unnamed_tool_2"
+    assert request["tools"][0]["name"] == "hangarllm_unnamed_tool_0"
+    assert request["tools"][1]["name"] == "hangarllm_unnamed_tool_1"
+    assert request["tools"][2]["name"] == "hangarllm_unnamed_tool_2"
     assert request["tools"][3]["name"] == "KeepMe"
 
 
 def test_bedrock_invoke_messages_transform_adds_name_when_tool_missing_name():
     """Bedrock requires tools.0.custom.name when the payload is schema-only."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     optional_params = {
@@ -700,16 +700,16 @@ def test_bedrock_invoke_messages_transform_adds_name_when_tool_missing_name():
         model="anthropic.claude-3-haiku-20240307-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=copy.deepcopy(optional_params),
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
-    assert result["tools"][0]["name"] == "litellm_unnamed_tool_0"
+    assert result["tools"][0]["name"] == "hangarllm_unnamed_tool_0"
 
 
 def test_bedrock_invoke_messages_skips_thinking_injection_when_already_enabled(
     local_model_cost_map,
 ):
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     optional_params = {
@@ -722,7 +722,7 @@ def test_bedrock_invoke_messages_skips_thinking_injection_when_already_enabled(
         model="global.anthropic.claude-sonnet-4-6-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=copy.deepcopy(optional_params),
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     # Claude 4.6/4.7 reject ``thinking.type=enabled``; legacy ``enabled`` is
@@ -739,7 +739,7 @@ def test_bedrock_invoke_messages_transform_converts_custom_tool_schema_type_to_o
     where every ``input_schema`` uses JSON Schema types (``object``), not Anthropic
     ``type: \"custom\"`` (root and nested).
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     tools = [
@@ -773,7 +773,7 @@ def test_bedrock_invoke_messages_transform_converts_custom_tool_schema_type_to_o
         model="anthropic.claude-3-haiku-20240307-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -911,11 +911,11 @@ def test_bedrock_messages_strips_output_config():
     Ensure output_config is stripped from the request for models that do not
     support it.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/22797
+    Regression test for: upstream issue 22797
     """
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -927,14 +927,14 @@ def test_bedrock_messages_strips_output_config():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=False,
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-3-haiku-20240307-v1:0",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -948,7 +948,7 @@ def test_bedrock_messages_preserves_output_config_for_claude_4_6():
     """
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -960,14 +960,14 @@ def test_bedrock_messages_preserves_output_config_for_claude_4_6():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-6-v1",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -979,7 +979,7 @@ def test_bedrock_messages_preserves_output_config_for_claude_4_6():
 def test_bedrock_messages_checks_output_config_support_with_bedrock_provider():
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -991,14 +991,14 @@ def test_bedrock_messages_checks_output_config_support_with_bedrock_provider():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ) as mock_supports_factory:
         result = cfg.transform_anthropic_messages_request(
             model="us.anthropic.claude-opus-4-7",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1010,7 +1010,7 @@ def test_bedrock_messages_forwards_output_config():
     """Bedrock Invoke /v1/messages forwards ``output_config`` for supported models."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1022,14 +1022,14 @@ def test_bedrock_messages_forwards_output_config():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-7",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1042,7 +1042,7 @@ def test_bedrock_messages_forwards_output_config_with_output_format():
     that support native structured outputs, alongside the effort key."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1061,14 +1061,14 @@ def test_bedrock_messages_forwards_output_config_with_output_format():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-7",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1082,7 +1082,7 @@ def test_bedrock_messages_converts_output_config_format_to_inline_schema():
     to the inline schema so Bedrock does not see an unknown nested key."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1099,14 +1099,14 @@ def test_bedrock_messages_converts_output_config_format_to_inline_schema():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         side_effect=lambda _model, key, *_: key == "supports_output_config",
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-7",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1128,12 +1128,12 @@ def test_bedrock_messages_normalizes_output_config_effort_for_opus(model, expect
     """Bedrock /v1/messages accepts ``xhigh`` and forwards the provider-safe effort."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ):
         result = cfg.transform_anthropic_messages_request(
@@ -1143,7 +1143,7 @@ def test_bedrock_messages_normalizes_output_config_effort_for_opus(model, expect
                 "max_tokens": 4096,
                 "output_config": {"effort": "xhigh"},
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1155,7 +1155,7 @@ def test_bedrock_messages_does_not_mutate_callers_messages_when_embedding_schema
     message dicts, or content list."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     caller_content = [{"type": "text", "text": "Hello"}]
@@ -1171,14 +1171,14 @@ def test_bedrock_messages_does_not_mutate_callers_messages_when_embedding_schema
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         side_effect=lambda _model, key, *_: key == "supports_output_config",
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-7",
             messages=caller_messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1197,7 +1197,7 @@ def test_bedrock_messages_does_not_mutate_callers_output_config():
     leak into the caller's ``optional_params`` dict."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     schema = {
@@ -1214,14 +1214,14 @@ def test_bedrock_messages_does_not_mutate_callers_output_config():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ):
         cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-5-20251101-v1:0",
             messages=[{"role": "user", "content": [{"type": "text", "text": "Hello"}]}],
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1239,7 +1239,7 @@ def test_bedrock_messages_strips_output_config_with_output_format():
     """
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1256,14 +1256,14 @@ def test_bedrock_messages_strips_output_config_with_output_format():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=False,
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-3-haiku-20240307-v1:0",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1273,8 +1273,8 @@ def test_bedrock_messages_strips_output_config_with_output_format():
 
 def test_bedrock_messages_drop_params_strips_output_config_for_pre_4_5():
     """``drop_params=True`` strips ``output_config`` for pre-4.5 Anthropic on /v1/messages."""
-    import litellm
-    from litellm.types.router import GenericLiteLLMParams
+    import hangarllm
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1283,18 +1283,18 @@ def test_bedrock_messages_drop_params_strips_output_config_for_pre_4_5():
         "output_config": {"effort": "low"},
     }
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-3-haiku-20240307-v1:0",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     assert "output_config" not in result
 
@@ -1303,8 +1303,8 @@ def test_bedrock_messages_drop_params_keeps_output_config_for_4_7():
     """``drop_params=True`` does not strip on opus-4-7 (supports effort)."""
     from unittest.mock import patch
 
-    import litellm
-    from litellm.types.router import GenericLiteLLMParams
+    import hangarllm
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1313,22 +1313,22 @@ def test_bedrock_messages_drop_params_keeps_output_config_for_4_7():
         "output_config": {"effort": "high"},
     }
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         with patch(
-            "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+            "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
             return_value=True,
         ):
             result = cfg.transform_anthropic_messages_request(
                 model="anthropic.claude-opus-4-7",
                 messages=messages,
                 anthropic_messages_optional_request_params=optional_params,
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     assert result.get("output_config") == {"effort": "high"}
 
@@ -1350,7 +1350,7 @@ def test_bedrock_messages_maps_reasoning_effort_for_adaptive_model(
     """``reasoning_effort`` maps to ``thinking`` + ``output_config.effort`` on /v1/messages."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1360,14 +1360,14 @@ def test_bedrock_messages_maps_reasoning_effort_for_adaptive_model(
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-7",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1378,7 +1378,7 @@ def test_bedrock_messages_maps_reasoning_effort_for_adaptive_model(
 
 def test_bedrock_messages_reasoning_effort_on_non_adaptive_uses_thinking_budget():
     """Non-adaptive models map ``reasoning_effort`` to ``thinking.budget_tokens``."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1391,7 +1391,7 @@ def test_bedrock_messages_reasoning_effort_on_non_adaptive_uses_thinking_budget(
         model="anthropic.claude-opus-4-5-20251101-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1406,7 +1406,7 @@ def test_bedrock_messages_reasoning_effort_on_non_adaptive_uses_thinking_budget(
 
 def test_bedrock_messages_reasoning_effort_none_clears_thinking():
     """``reasoning_effort='none'`` clears both ``thinking`` and ``output_config``."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1421,7 +1421,7 @@ def test_bedrock_messages_reasoning_effort_none_clears_thinking():
         model="anthropic.claude-opus-4-7",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1432,8 +1432,8 @@ def test_bedrock_messages_reasoning_effort_none_clears_thinking():
 
 def test_bedrock_messages_invalid_reasoning_effort_raises_400():
     """Garbage ``reasoning_effort`` raises AnthropicError (400)."""
-    from litellm.llms.anthropic.common_utils import AnthropicError
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.llms.anthropic.common_utils import AnthropicError
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1447,7 +1447,7 @@ def test_bedrock_messages_invalid_reasoning_effort_raises_400():
                     "max_tokens": 4096,
                     "reasoning_effort": bad_effort,
                 },
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -1456,7 +1456,7 @@ def test_bedrock_messages_explicit_output_config_wins_over_reasoning_effort():
     """Explicit ``output_config.effort`` wins over the ``reasoning_effort`` alias."""
     from unittest.mock import patch
 
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1467,14 +1467,14 @@ def test_bedrock_messages_explicit_output_config_wins_over_reasoning_effort():
     }
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "hangarllm.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ):
         result = cfg.transform_anthropic_messages_request(
             model="anthropic.claude-opus-4-7",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -1485,14 +1485,14 @@ def test_bedrock_messages_explicit_output_config_wins_over_reasoning_effort():
 def test_bedrock_messages_strips_context_management():
     """
     Ensure context_management is stripped from the request before sending to
-    Bedrock Invoke when it carries only LiteLLM-internal edits (e.g.
+    Bedrock Invoke when it carries only HangarLLM-internal edits (e.g.
     clear_thinking_20251015, which is consumed via thinking injection).
 
     Claude Code sends context_management on every request; leaving such edits
     in the body causes a 400 "context_management: Extra inputs are not
     permitted" from Bedrock.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1505,7 +1505,7 @@ def test_bedrock_messages_strips_context_management():
         model="anthropic.claude-3-haiku-20240307-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1523,9 +1523,9 @@ def test_bedrock_messages_preserves_compact_context_management_and_adds_beta():
          the right beta).
       2. Auto-inject ``compact-2026-01-12`` into ``anthropic_beta``.
 
-    Ref: https://github.com/BerriAI/litellm/issues/27532
+    Ref: upstream issue 27532
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]
@@ -1538,7 +1538,7 @@ def test_bedrock_messages_preserves_compact_context_management_and_adds_beta():
         model="anthropic.claude-sonnet-4-6-20250929-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1549,10 +1549,10 @@ def test_bedrock_messages_preserves_compact_context_management_and_adds_beta():
 
 def test_bedrock_messages_filters_unsupported_context_management_edits():
     """
-    Mixed edit lists must drop the LiteLLM-internal ``clear_thinking_20251015``
+    Mixed edit lists must drop the HangarLLM-internal ``clear_thinking_20251015``
     entries while keeping ``compact_20260112`` and adding the compact beta.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]
@@ -1570,7 +1570,7 @@ def test_bedrock_messages_filters_unsupported_context_management_edits():
         model="anthropic.claude-sonnet-4-6-20250929-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1586,7 +1586,7 @@ def test_bedrock_messages_allowlist_filters_anthropic_only_fields():
     extensions (speed, mcp_servers, container, ...) and any future additions
     Claude Code starts sending before we learn about them.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1605,7 +1605,7 @@ def test_bedrock_messages_allowlist_filters_anthropic_only_fields():
         model="anthropic.claude-opus-4-7",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1645,7 +1645,7 @@ def test_bedrock_messages_forwards_safeguards_with_dangerous_tool_use_beta(
     and the beta rides along whether or not the client sent it, as every other
     body-driven beta does here.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     safeguards = [{"type": "dangerous_tool_use", "classifier_context": {"v": 1, "permission_mode": "auto"}}]
@@ -1654,7 +1654,7 @@ def test_bedrock_messages_forwards_safeguards_with_dangerous_tool_use_beta(
         model="us.anthropic.claude-sonnet-5",
         messages=[{"role": "user", "content": [{"type": "text", "text": "Hello"}]}],
         anthropic_messages_optional_request_params={"max_tokens": 64, "safeguards": safeguards},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": client_beta_header},
     )
 
@@ -1663,7 +1663,7 @@ def test_bedrock_messages_forwards_safeguards_with_dangerous_tool_use_beta(
 
 
 def test_bedrock_messages_does_not_add_dangerous_tool_use_beta_without_safeguards(local_beta_headers_config):
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
 
@@ -1671,7 +1671,7 @@ def test_bedrock_messages_does_not_add_dangerous_tool_use_beta_without_safeguard
         model="us.anthropic.claude-sonnet-5",
         messages=[{"role": "user", "content": [{"type": "text", "text": "Hello"}]}],
         anthropic_messages_optional_request_params={"max_tokens": 64},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1699,13 +1699,13 @@ _NAME_SCHEMA: Final = {
 def test_bedrock_messages_drops_client_dangerous_tool_use_beta_without_safeguards(
     local_model_cost_map: None, local_beta_headers_config: None, request_params: dict[str, object]
 ) -> None:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": [{"type": "text", "text": "Name a color."}]}],
         anthropic_messages_optional_request_params={"max_tokens": 64, **request_params},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": "dangerous-tool-use-2026-09-03"},
     )
 
@@ -1716,7 +1716,7 @@ def test_bedrock_messages_drops_client_dangerous_tool_use_beta_without_safeguard
 def test_bedrock_messages_keeps_client_dangerous_tool_use_beta_with_safeguards_and_structured_outputs(
     local_model_cost_map: None, local_beta_headers_config: None
 ) -> None:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     safeguards: Final = [{"type": "dangerous_tool_use", "classifier_context": {"v": 1, "permission_mode": "auto"}}]
     strict_tool: Final = {"name": "get_name", "strict": True, "input_schema": _NAME_SCHEMA}
@@ -1729,7 +1729,7 @@ def test_bedrock_messages_keeps_client_dangerous_tool_use_beta_with_safeguards_a
             "safeguards": safeguards,
             "tools": [strict_tool],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": "dangerous-tool-use-2026-09-03"},
     )
 
@@ -1783,7 +1783,7 @@ def test_bedrock_messages_filters_user_provided_unsupported_beta_header():
     All betas must go through the provider mapping, not just auto-injected ones
     — otherwise Bedrock 400s on the unsupported value.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1798,7 +1798,7 @@ def test_bedrock_messages_filters_user_provided_unsupported_beta_header():
         model="anthropic.claude-3-haiku-20240307-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers=headers,
     )
 
@@ -1813,7 +1813,7 @@ def test_bedrock_messages_renames_user_provided_aliased_beta_header():
     `tool-search-tool-2025-10-19`. User-provided betas must go through the
     rename too, not be forwarded under their Anthropic-direct spelling.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
@@ -1824,7 +1824,7 @@ def test_bedrock_messages_renames_user_provided_aliased_beta_header():
         model="anthropic.claude-3-haiku-20240307-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers=headers,
     )
 
@@ -1936,8 +1936,8 @@ async def test_unified_bedrock_messages_cache_on_start_only_never_negative_cost(
     message_delta/message_stop), final reconstructed usage + cost must still
     be consistent and non-negative.
     """
-    from litellm import completion_cost
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from hangarllm import completion_cost
+    from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
 
@@ -1987,20 +1987,20 @@ async def test_unified_bedrock_messages_cache_on_start_only_never_negative_cost(
             "usage": {"input_tokens": 10, "output_tokens": 181},
         }
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
         messages=[{"role": "user", "content": "Hi"}],
         stream=True,
         call_type="chat",
         start_time=datetime.now(),
-        litellm_call_id="test_cache_on_start_only_never_negative_cost",
+        hangarllm_call_id="test_cache_on_start_only_never_negative_cost",
         function_id="test_cache_on_start_only_never_negative_cost",
     )
 
     collected: list[bytes] = []
     async for sse in cfg.bedrock_sse_wrapper(
         completion_stream=_stream(),
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         request_body={"model": "anthropic.claude-3-5-sonnet-20240620-v1:0"},
     ):
         collected.append(sse)
@@ -2008,7 +2008,7 @@ async def test_unified_bedrock_messages_cache_on_start_only_never_negative_cost(
     built = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
         all_chunks=collected,
         model="anthropic.claude-3-5-sonnet-20240620-v1:0",
-        litellm_logging_obj=Mock(),
+        hangarllm_logging_obj=Mock(),
     )
     assert built.usage is not None
     assert built.usage.prompt_tokens == 22177
@@ -2032,7 +2032,7 @@ async def test_unified_bedrock_messages_sse_usage_and_cost_claude_sonnet_46():
     same logging reconstruction as Anthropic /messages. Ensures token counts and
     completion_cost match model_prices for us.anthropic.claude-sonnet-4-6.
     """
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
 
@@ -2054,20 +2054,20 @@ async def test_unified_bedrock_messages_sse_usage_and_cost_claude_sonnet_46():
             "usage": {"input_tokens": 3, "output_tokens": 9},
         }
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="bedrock/us.anthropic.claude-sonnet-4-6",
         messages=[{"role": "user", "content": "Hello"}],
         stream=True,
         call_type="chat",
         start_time=datetime.now(),
-        litellm_call_id="test_unified_bedrock_messages_sse_cost",
+        hangarllm_call_id="test_unified_bedrock_messages_sse_cost",
         function_id="test_unified_bedrock_messages_sse_cost",
     )
 
     collected: list[bytes] = []
     async for sse in cfg.bedrock_sse_wrapper(
         completion_stream=_stream(),
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         request_body={"model": "us.anthropic.claude-sonnet-4-6"},
     ):
         collected.append(sse)
@@ -2075,7 +2075,7 @@ async def test_unified_bedrock_messages_sse_usage_and_cost_claude_sonnet_46():
     built = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
         all_chunks=collected,
         model="us.anthropic.claude-sonnet-4-6",
-        litellm_logging_obj=Mock(),
+        hangarllm_logging_obj=Mock(),
     )
     assert built.usage is not None
     assert built.usage.completion_tokens == 12
@@ -2174,7 +2174,7 @@ def test_bedrock_invoke_transform_emits_adaptive_thinking_for_opus_4_8():
     """End-to-end: a Claude Code clear_thinking payload (no ``thinking`` field) on
     Opus 4.8 must produce a Bedrock Invoke body with adaptive thinking and an
     effort, never ``thinking.type.enabled``."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     optional_params = {
@@ -2187,7 +2187,7 @@ def test_bedrock_invoke_transform_emits_adaptive_thinking_for_opus_4_8():
         model="us.anthropic.claude-opus-4-8",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=copy.deepcopy(optional_params),
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2199,7 +2199,7 @@ def test_bedrock_invoke_transform_normalizes_system_role_message_into_system():
     """Bedrock Invoke rejects ``role: "system"`` entries in ``messages`` on some
     Claude aliases; they must be moved into the top-level ``system`` field
     (Anthropic Messages carries that content there)."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2211,7 +2211,7 @@ def test_bedrock_invoke_transform_normalizes_system_role_message_into_system():
         model="anthropic.claude-3-haiku-20240307-v1:0",
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params={"max_tokens": 256, "stream": False},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2223,7 +2223,7 @@ def test_bedrock_invoke_transform_normalizes_system_role_message_into_system():
 def test_bedrock_invoke_transform_merges_system_role_into_existing_system():
     """A ``role: "system"`` message is appended to any pre-existing top-level
     ``system`` content rather than replacing it."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2239,7 +2239,7 @@ def test_bedrock_invoke_transform_merges_system_role_into_existing_system():
             "stream": False,
             "system": "Base system prompt.",
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2254,7 +2254,7 @@ def test_bedrock_invoke_transform_merges_list_content_system_role_into_system():
     """A ``role: "system"`` message whose content is a list of content blocks is
     merged block-by-block into the top-level ``system`` field, preserving any
     pre-existing system blocks."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2276,7 +2276,7 @@ def test_bedrock_invoke_transform_merges_list_content_system_role_into_system():
             "stream": False,
             "system": [{"type": "text", "text": "Base."}],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2306,7 +2306,7 @@ def test_bedrock_invoke_transform_keeps_mid_conversation_system_role_in_place(lo
     4.8+, which Invoke accepts the role on) such entries must be forwarded
     in place. Billing-header blocks must still be stripped from the top-level
     ``system`` field even when nothing is hoisted."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2327,7 +2327,7 @@ def test_bedrock_invoke_transform_keeps_mid_conversation_system_role_in_place(lo
                 {"type": "text", "text": "Base.", "cache_control": {"type": "ephemeral"}},
             ],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2340,7 +2340,7 @@ def test_bedrock_invoke_transform_hoists_only_leading_system_run(local_model_cos
     run of ``role: "system"`` messages is hoisted into the top-level ``system``
     field; a later system entry keeps its position in ``messages`` so the
     serialized prefix stays stable across turns."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2355,7 +2355,7 @@ def test_bedrock_invoke_transform_hoists_only_leading_system_run(local_model_cos
         model="anthropic.claude-opus-4-8",
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params={"max_tokens": 256, "stream": False},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2375,7 +2375,7 @@ def test_bedrock_invoke_transform_forwards_per_turn_control_beta_with_message_ou
 ) -> None:
     """A live InvokeModel call on 2026-11-05 answered 200 with per-turn-control-2026-07-01 next to a message
     ``output_config`` on Opus 5.5, so the client's beta and that message must both reach Bedrock."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     messages: Final = [
         {"role": "user", "content": "hi"},
@@ -2388,7 +2388,7 @@ def test_bedrock_invoke_transform_forwards_per_turn_control_beta_with_message_ou
         model="us.anthropic.claude-opus-5-5",
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params={"max_tokens": 256, "stream": False},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": "per-turn-control-2026-07-01"},
     )
 
@@ -2404,7 +2404,7 @@ def test_bedrock_invoke_transform_converts_mid_conversation_system_for_older_cla
     without ``supports_mid_conversation_system`` the reminder is converted to a
     user turn in place instead: the request stays valid and a cache breakpoint
     before the reminder still hits."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2422,7 +2422,7 @@ def test_bedrock_invoke_transform_converts_mid_conversation_system_for_older_cla
             "stream": False,
             "system": [{"type": "text", "text": "Base."}],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2453,7 +2453,7 @@ def test_bedrock_invoke_transform_moves_converted_system_after_tool_result_turn(
     requires the result right after the call ("tool_use ids were found without
     tool_result blocks immediately after"). The converted turn goes after the
     tool-result turn instead, where consecutive user turns merge upstream."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     tool_use_turn = {
@@ -2479,7 +2479,7 @@ def test_bedrock_invoke_transform_moves_converted_system_after_tool_result_turn(
         model="us.anthropic.claude-opus-4-7",
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params={"max_tokens": 256, "stream": False},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2520,7 +2520,7 @@ def test_bedrock_invoke_transform_converted_system_carries_only_its_content(loca
     """Hoisting only ever kept a system entry's content, so the in-place
     conversion must not forward the entry's other keys either ("messages.2.name:
     Extra inputs are not permitted")."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2534,7 +2534,7 @@ def test_bedrock_invoke_transform_converted_system_carries_only_its_content(loca
         model="us.anthropic.claude-opus-4-7",
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params={"max_tokens": 256, "stream": False},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2558,7 +2558,7 @@ def test_bedrock_invoke_transform_converts_system_for_unmapped_model(local_model
     the unsupported-model treatment: the safe default converts the reminder to
     a user turn in place, never a provider 400 from forwarding a role the model
     may not accept, and never a mutated cache prefix."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2572,7 +2572,7 @@ def test_bedrock_invoke_transform_converts_system_for_unmapped_model(local_model
         model="us.anthropic.claude-opus-3-9",
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params={"max_tokens": 256, "stream": False},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2602,7 +2602,7 @@ def test_bedrock_invoke_transform_keeps_system_in_place_for_unmapped_future_clau
     ``claude-mid-conversation-system`` capability rule, so a future model that
     has not landed in the cost map yet keeps the cache-preserving in-place
     behavior instead of falling back to hoist-all."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [
@@ -2616,7 +2616,7 @@ def test_bedrock_invoke_transform_keeps_system_in_place_for_unmapped_future_clau
         model="us.anthropic.claude-opus-4-9",
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params={"max_tokens": 256, "stream": False},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2633,9 +2633,9 @@ def test_bedrock_claude_4_8_plus_cost_map_entries_carry_mid_conversation_system_
     flag explicitly."""
     import re
 
-    import litellm
+    import hangarllm
 
-    cost_map_path = os.path.join(os.path.dirname(litellm.__file__), "model_prices_and_context_window_backup.json")
+    cost_map_path = os.path.join(os.path.dirname(hangarllm.__file__), "model_prices_and_context_window_backup.json")
     with open(cost_map_path) as f:
         cost_map = json.load(f)
     rules = cost_map["fallback_generalizations"]["rules"]
@@ -2647,7 +2647,7 @@ def test_bedrock_claude_4_8_plus_cost_map_entries_carry_mid_conversation_system_
         key
         for key, info in cost_map.items()
         if isinstance(info, dict)
-        and str(info.get("litellm_provider", "")).startswith("bedrock")
+        and str(info.get("hangarllm_provider", "")).startswith("bedrock")
         and pattern.search(key)
         and info.get("supports_mid_conversation_system") is not True
     ]
@@ -2776,7 +2776,7 @@ def test_bedrock_messages_preserves_clear_tool_uses_context_management_and_adds_
     AWS docs ("Automatic tool call clearing (Beta)"):
     https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-anthropic-claude-messages-tool-use.md
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]
@@ -2789,7 +2789,7 @@ def test_bedrock_messages_preserves_clear_tool_uses_context_management_and_adds_
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2809,7 +2809,7 @@ def test_bedrock_messages_preserves_mixed_compact_and_clear_tool_uses_edits(
     ``clear_tool_uses_20250919`` must keep BOTH edits and emit BOTH
     anthropic-beta values (``compact-2026-01-12`` + ``context-management-2025-06-27``).
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]
@@ -2827,7 +2827,7 @@ def test_bedrock_messages_preserves_mixed_compact_and_clear_tool_uses_edits(
         model="anthropic.claude-sonnet-4-6-20250929-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2845,12 +2845,12 @@ def test_bedrock_messages_filters_clear_thinking_keeps_clear_tool_uses(
     local_beta_headers_config,
 ):
     """
-    LIT-3393: ``clear_thinking_20251015`` remains LiteLLM-internal (consumed via
+    LIT-3393: ``clear_thinking_20251015`` remains HangarLLM-internal (consumed via
     thinking-injection) and MUST be stripped from the body, while
     ``clear_tool_uses_20250919`` (officially supported on Bedrock InvokeModel)
     survives in the same request.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]
@@ -2868,14 +2868,14 @@ def test_bedrock_messages_filters_clear_thinking_keeps_clear_tool_uses(
         model="anthropic.claude-opus-4-7",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
     cm = result.get("context_management")
     assert cm is not None
     assert [e.get("type") for e in cm["edits"]] == ["clear_tool_uses_20250919"], (
-        "clear_thinking_20251015 must still be stripped (LiteLLM-internal)"
+        "clear_thinking_20251015 must still be stripped (HangarLLM-internal)"
     )
 
     betas = result.get("anthropic_beta", [])
@@ -2894,11 +2894,11 @@ def test_filter_and_transform_beta_headers_passes_context_management_for_bedrock
     transformation tried to set it. This regression guard locks the bundled
     mapping in place.
 
-    Pinned to the bundled local config via ``LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS``
+    Pinned to the bundled local config via ``HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS``
     so the assertion is not subject to whatever the upstream remote currently
     serves or what previous tests left in the module cache.
     """
-    from litellm.anthropic_beta_headers_manager import filter_and_transform_beta_headers
+    from hangarllm.anthropic_beta_headers_manager import filter_and_transform_beta_headers
 
     out = filter_and_transform_beta_headers(
         ["context-management-2025-06-27"],
@@ -2942,7 +2942,7 @@ def test_bedrock_messages_tool_search_adds_beta_header(local_model_cost_map, loc
     on the Bedrock entries, and the ``claude-tool-search`` rule for Claude 4.5
     and newer) instead of a per-model name list.
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     messages = [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]
@@ -2966,7 +2966,7 @@ def test_bedrock_messages_tool_search_adds_beta_header(local_model_cost_map, loc
         model=model,
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -2978,8 +2978,8 @@ def test_bedrock_messages_tool_search_model_map_flag_is_authoritative(local_mode
     rule only fills entries that carry no opinion. Flipping the mapped entry's
     flag to ``False`` must win even though the id is a Claude 4.5 the rule
     would flag."""
-    import litellm
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    import hangarllm
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     cfg = AmazonAnthropicClaudeMessagesConfig()
@@ -2987,8 +2987,8 @@ def test_bedrock_messages_tool_search_model_map_flag_is_authoritative(local_mode
     assert AnthropicModelInfo._get_provider_resolved_capability(model, "supports_tool_search", "bedrock") is True
     assert cfg._supports_tool_search_on_bedrock(model) is True
 
-    monkeypatch.setitem(litellm.model_cost[model], "supports_tool_search", False)
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setitem(hangarllm.model_cost[model], "supports_tool_search", False)
+    hangarllm.get_model_info.cache_clear()
 
     assert cfg._supports_tool_search_on_bedrock(model) is False
 
@@ -3024,8 +3024,8 @@ def test_bedrock_messages_thinking_shape_follows_exact_bedrock_entry_flag(local_
     entry was rejected by the provider match and the anthropic-scoped fallback rule
     forced ``thinking.type='adaptive'`` even with ``supports_adaptive_thinking``
     explicitly set to ``false`` on the entry."""
-    import litellm
-    from litellm.types.router import GenericLiteLLMParams
+    import hangarllm
+    from hangarllm.types.router import GenericHangarLLMParams
 
     model = "global.anthropic.claude-opus-4-8"
     cfg = AmazonAnthropicClaudeMessagesConfig()
@@ -3038,7 +3038,7 @@ def test_bedrock_messages_thinking_shape_follows_exact_bedrock_entry_flag(local_
                 "max_tokens": 4096,
                 "reasoning_effort": "medium",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -3046,8 +3046,8 @@ def test_bedrock_messages_thinking_shape_follows_exact_bedrock_entry_flag(local_
     assert result.get("thinking") == {"type": "adaptive", "display": "summarized"}
     assert result.get("output_config") == {"effort": "medium"}
 
-    monkeypatch.setitem(litellm.model_cost[model], "supports_adaptive_thinking", False)
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setitem(hangarllm.model_cost[model], "supports_adaptive_thinking", False)
+    hangarllm.get_model_info.cache_clear()
 
     flipped = transform()
     thinking = flipped.get("thinking")
@@ -3079,13 +3079,13 @@ def test_replayed_intercepted_search_turn_leaves_no_unsupported_block_for_bedroc
     as text instead. Built from the real builder rather than a hand-written fixture
     so the two cannot drift apart.
     """
-    from litellm.integrations.websearch_interception.transformation import (
+    from hangarllm.integrations.websearch_interception.transformation import (
         WebSearchTransformation,
     )
-    from litellm.llms.anthropic.common_utils import (
+    from hangarllm.llms.anthropic.common_utils import (
         flatten_unencrypted_web_search_results_in_anthropic_messages,
     )
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     replayed_turn = [
         {
@@ -3110,7 +3110,7 @@ def test_replayed_intercepted_search_turn_leaves_no_unsupported_block_for_bedroc
         model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=flatten_unencrypted_web_search_results_in_anthropic_messages(messages),
         anthropic_messages_optional_request_params={"max_tokens": 64},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3126,48 +3126,48 @@ def test_bedrock_invoke_messages_rejects_server_web_search_tool(tool_type: str):
     """Bedrock can't execute Anthropic's server-side web search; the transform
     must raise an actionable 400 pointing at the interception docs instead of
     letting Bedrock return an opaque "provided request is not valid"."""
-    import litellm
-    from litellm.types.router import GenericLiteLLMParams
+    import hangarllm
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         cfg.transform_anthropic_messages_request(
             model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-            messages=[{"role": "user", "content": "search the web for litellm"}],
+            messages=[{"role": "user", "content": "search the web for hangarllm"}],
             anthropic_messages_optional_request_params={
                 "max_tokens": 128,
                 "tools": [{"type": tool_type, "name": "web_search", "max_uses": 5}],
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
-    assert "https://docs.litellm.ai/docs/integrations/websearch_interception" in str(exc_info.value)
+    assert "https://github.com/valteresj2/HangarLLM#readme" in str(exc_info.value)
     assert "us.anthropic.claude-haiku-4-5-20251001-v1:0" in str(exc_info.value)
 
 
 def test_bedrock_invoke_messages_allows_converted_websearch_function_tool():
     """The interception hook rewrites web_search into a plain custom tool
-    (litellm_web_search); that converted shape must pass through untouched."""
-    from litellm.types.router import GenericLiteLLMParams
+    (hangarllm_web_search); that converted shape must pass through untouched."""
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     result = cfg.transform_anthropic_messages_request(
         model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-        messages=[{"role": "user", "content": "search the web for litellm"}],
+        messages=[{"role": "user", "content": "search the web for hangarllm"}],
         anthropic_messages_optional_request_params={
             "max_tokens": 128,
             "tools": [
                 {
-                    "name": "litellm_web_search",
+                    "name": "hangarllm_web_search",
                     "description": "Search the web",
                     "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}},
                 }
             ],
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
-    assert result["tools"][0]["name"] == "litellm_web_search"
+    assert result["tools"][0]["name"] == "hangarllm_web_search"
 
 
 @pytest.mark.asyncio
@@ -3190,16 +3190,16 @@ async def test_bedrock_sse_wrapper_dispatches_logging_on_client_disconnect():
         yield {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "partial"}}
         await release_upstream.wait()
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="bedrock/invoke/anthropic.claude-3-sonnet-20240229-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="chat",
         start_time=datetime.now(),
-        litellm_call_id="test_bedrock_sse_wrapper_disconnect_logging",
+        hangarllm_call_id="test_bedrock_sse_wrapper_disconnect_logging",
         function_id="test_bedrock_sse_wrapper_disconnect_logging",
     )
-    wrapped = cfg.bedrock_sse_wrapper(_gated_stream(), litellm_logging_obj=logging_obj, request_body={})
+    wrapped = cfg.bedrock_sse_wrapper(_gated_stream(), hangarllm_logging_obj=logging_obj, request_body={})
     await wrapped.__anext__()
     await wrapped.__anext__()
     assert logging_obj.completion_start_time is None
@@ -3218,7 +3218,7 @@ def test_bedrock_messages_forwards_output_config_format_natively(local_model_cos
     """Regression: on a model Bedrock enforces structured outputs for (Claude
     Sonnet 4.5), ``output_config.format`` must be forwarded verbatim, not
     silently rewritten into inline prompt text."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     schema_format = {
@@ -3241,7 +3241,7 @@ def test_bedrock_messages_forwards_output_config_format_natively(local_model_cos
             "max_tokens": 100,
             "output_config": {"format": schema_format},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3252,7 +3252,7 @@ def test_bedrock_messages_forwards_output_config_format_natively(local_model_cos
 def test_bedrock_messages_inlines_schema_for_a_profile_without_native_output(set_native_structured_output):
     """On a profile without native structured output the schema falls back to the
     inline-text path instead of a deterministic 400."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     set_native_structured_output("us.anthropic.claude-sonnet-5", None)
     cfg = AmazonAnthropicClaudeMessagesConfig()
@@ -3268,7 +3268,7 @@ def test_bedrock_messages_inlines_schema_for_a_profile_without_native_output(set
             "max_tokens": 100,
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3278,7 +3278,7 @@ def test_bedrock_messages_inlines_schema_for_a_profile_without_native_output(set
 
 
 def _bedrock_messages_request_with_schema(model: str, schema: Mapping[str, object]) -> Mapping[str, object]:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     return AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model=model,
@@ -3287,7 +3287,7 @@ def _bedrock_messages_request_with_schema(model: str, schema: Mapping[str, objec
             "max_tokens": 100,
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3389,7 +3389,7 @@ def test_bedrock_messages_schema_native_output_cannot_hold_is_forwarded_on_a_leg
 def test_bedrock_messages_legacy_output_format_wins_over_output_config_format(local_model_cost_map):
     """When a request carries both schema forms, the legacy top-level
     ``output_format`` keeps winning, matching the pre-existing precedence."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     legacy_format = {
@@ -3413,7 +3413,7 @@ def test_bedrock_messages_legacy_output_format_wins_over_output_config_format(lo
             "output_format": legacy_format,
             "output_config": {"format": newer_format},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3425,10 +3425,10 @@ def test_bedrock_messages_legacy_output_format_wins_over_output_config_format(lo
 def test_bedrock_messages_drop_params_keeps_native_output_config_format(local_model_cost_map, monkeypatch):
     """``drop_params=True`` must not strip a natively forwarded
     ``output_config.format`` on models without effort support (Sonnet 4.5)."""
-    import litellm
-    from litellm.types.router import GenericLiteLLMParams
+    import hangarllm
+    from hangarllm.types.router import GenericHangarLLMParams
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     cfg = AmazonAnthropicClaudeMessagesConfig()
     schema_format = {
         "type": "json_schema",
@@ -3442,7 +3442,7 @@ def test_bedrock_messages_drop_params_keeps_native_output_config_format(local_mo
             "max_tokens": 100,
             "output_config": {"format": schema_format},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3452,7 +3452,7 @@ def test_bedrock_messages_drop_params_keeps_native_output_config_format(local_mo
 def test_bedrock_messages_strips_effort_but_keeps_format_for_sonnet_4_5(local_model_cost_map):
     """Sonnet 4.5 has native structured-output support but no effort support, so
     a mixed ``output_config`` keeps ``format`` and drops ``effort``."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     cfg = AmazonAnthropicClaudeMessagesConfig()
     schema_format = {
@@ -3467,7 +3467,7 @@ def test_bedrock_messages_strips_effort_but_keeps_format_for_sonnet_4_5(local_mo
             "max_tokens": 4096,
             "output_config": {"format": schema_format, "effort": "high"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3480,13 +3480,13 @@ FINE_GRAINED_TOOL_STREAMING_BETA: Final = "fine-grained-tool-streaming-2025-05-1
 def _invoke_request_with_tools(
     tools: list[dict[str, object]], headers: dict[str, str] | None = None
 ) -> dict[str, object]:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     return AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=[{"role": "user", "content": "write a big file"}],
         anthropic_messages_optional_request_params={"max_tokens": 4096, "tools": copy.deepcopy(tools), "stream": True},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers=headers or {},
     )
 
@@ -3604,13 +3604,13 @@ async def test_get_async_streaming_response_iterator_yields_small_frame_before_u
         model="us.anthropic.claude-sonnet-4-6",
         httpx_response=response,
         request_body={"model": "us.anthropic.claude-sonnet-4-6"},
-        litellm_logging_obj=LiteLLMLoggingObj(
+        hangarllm_logging_obj=HangarLLMLoggingObj(
             model="bedrock/us.anthropic.claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Hello"}],
             stream=True,
             call_type="chat",
             start_time=datetime.now(),
-            litellm_call_id="test_small_frame_before_upstream_pauses",
+            hangarllm_call_id="test_small_frame_before_upstream_pauses",
             function_id="test_small_frame_before_upstream_pauses",
         ),
     )
@@ -3631,8 +3631,8 @@ async def test_get_async_streaming_response_iterator_yields_small_frame_before_u
 def test_bedrock_messages_mid_conversation_output_config_beta(
     nested_output_config: bool, explicit_beta: bool, output_config: dict[str, object]
 ) -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
+    from hangarllm.types.router import GenericHangarLLMParams
 
     beta: Final = ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
 
@@ -3646,7 +3646,7 @@ def test_bedrock_messages_mid_conversation_output_config_beta(
         model="global.anthropic.claude-fable-5-1",
         messages=messages,
         anthropic_messages_optional_request_params={"max_tokens": 1024, "output_config": {"effort": "high"}},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": beta} if explicit_beta else {},
     )
 
@@ -3658,8 +3658,8 @@ def test_bedrock_messages_mid_conversation_output_config_beta(
 @pytest.mark.usefixtures("local_model_cost_map", "local_beta_headers_config")
 @pytest.mark.parametrize("explicit_beta", [False, True])
 def test_bedrock_messages_removed_output_config_does_not_add_beta(explicit_beta: bool) -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
+    from hangarllm.types.router import GenericHangarLLMParams
 
     beta: Final = ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
@@ -3669,7 +3669,7 @@ def test_bedrock_messages_removed_output_config_does_not_add_beta(explicit_beta:
             {"role": "user", "content": "Reply with OK"},
         ],
         anthropic_messages_optional_request_params={"max_tokens": 1024},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": beta} if explicit_beta else {},
     )
 
@@ -3748,7 +3748,7 @@ async def test_reasoning_effort_grid_wire_shapes(
             assert "reasoning_effort" not in request_body
             return httpx.Response(200, json=response_body)
 
-        await litellm.anthropic_messages(
+        await hangarllm.anthropic_messages(
             model=f"bedrock/invoke/{model}",
             messages=messages,
             max_tokens=4096,
@@ -3764,7 +3764,7 @@ async def test_reasoning_effort_grid_wire_shapes(
 
     match route_name:
         case "anthropic_direct":
-            litellm.completion(
+            hangarllm.completion(
                 model=model,
                 messages=messages,
                 max_tokens=4096,
@@ -3774,7 +3774,7 @@ async def test_reasoning_effort_grid_wire_shapes(
                 client=HTTPHandler(),
             )
         case "azure_ai":
-            litellm.completion(
+            hangarllm.completion(
                 model=f"azure_ai/{model}",
                 messages=messages,
                 max_tokens=4096,
@@ -3788,7 +3788,7 @@ async def test_reasoning_effort_grid_wire_shapes(
                 "https://oauth2.googleapis.com/token",
                 json={"access_token": "test-access-token", "expires_in": 3600, "token_type": "Bearer"},
             )
-            litellm.completion(
+            hangarllm.completion(
                 model=f"vertex_ai/{model}",
                 messages=messages,
                 max_tokens=4096,
@@ -3805,7 +3805,7 @@ async def test_reasoning_effort_grid_wire_shapes(
                 client=HTTPHandler(),
             )
         case "bedrock_converse" | "bedrock_invoke_chat":
-            litellm.completion(
+            hangarllm.completion(
                 model=model,
                 messages=messages,
                 max_tokens=4096,
@@ -3835,8 +3835,8 @@ async def test_reasoning_effort_grid_wire_shapes(
 @pytest.mark.parametrize("display", (None, "summarized", "omitted", "updates"))
 @pytest.mark.parametrize("explicit_beta", (False, True))
 def test_bedrock_messages_thinking_display_updates_beta(display: str | None, explicit_beta: bool) -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.router import GenericHangarLLMParams
 
     beta: Final = ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
     thinking: Final = {"type": "adaptive", "display": display} if display else None
@@ -3844,7 +3844,7 @@ def test_bedrock_messages_thinking_display_updates_beta(display: str | None, exp
         model="eu.anthropic.claude-opus-5",
         messages=[{"role": "user", "content": "Reply with OK"}],
         anthropic_messages_optional_request_params={"max_tokens": 512, **({"thinking": thinking} if thinking else {})},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": beta} if explicit_beta else {},
     )
 
@@ -3854,8 +3854,8 @@ def test_bedrock_messages_thinking_display_updates_beta(display: str | None, exp
 
 @pytest.mark.usefixtures("local_model_cost_map", "local_beta_headers_config")
 def test_bedrock_messages_preserves_display_when_translating_legacy_thinking() -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.router import GenericHangarLLMParams
 
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model="eu.anthropic.claude-opus-5",
@@ -3864,7 +3864,7 @@ def test_bedrock_messages_preserves_display_when_translating_legacy_thinking() -
             "max_tokens": 512,
             "thinking": {"type": "enabled", "budget_tokens": 24000, "display": "updates"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3874,8 +3874,8 @@ def test_bedrock_messages_preserves_display_when_translating_legacy_thinking() -
 
 @pytest.mark.usefixtures("local_model_cost_map", "local_beta_headers_config")
 def test_bedrock_clear_thinking_preserves_display_updates() -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.llms.anthropic import ANTHROPIC_THINKING_DISPLAY_UPDATES_BETA_HEADER
+    from hangarllm.types.router import GenericHangarLLMParams
 
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model="us.anthropic.claude-opus-4-6",
@@ -3885,7 +3885,7 @@ def test_bedrock_clear_thinking_preserves_display_updates() -> None:
             "thinking": {"type": "enabled", "budget_tokens": 2048, "display": "updates"},
             "context_management": {"edits": [{"type": "clear_thinking_20251015"}]},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3917,13 +3917,13 @@ BLOCK_BINDING: Final = {"prefix_mismatch_behavior": "error"}
 def test_bedrock_messages_keeps_block_binding_with_display_updates(
     model: str, requested_thinking: dict[str, object], extra_params: dict[str, object]
 ) -> None:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model=model,
         messages=[{"role": "user", "content": "Reply with OK"}],
         anthropic_messages_optional_request_params={"max_tokens": 512, "thinking": requested_thinking, **extra_params},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -3968,9 +3968,9 @@ def test_bedrock_messages_thinking_drops_unknown_keys_only_under_drop_params(
     drop_params_source: str | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
-    monkeypatch.setattr(litellm, "drop_params", drop_params_source == "global")
+    monkeypatch.setattr(hangarllm, "drop_params", drop_params_source == "global")
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model=model,
         messages=[{"role": "user", "content": "Reply with OK"}],
@@ -3979,7 +3979,7 @@ def test_bedrock_messages_thinking_drops_unknown_keys_only_under_drop_params(
             "thinking": {**requested_thinking, "block_binding": BLOCK_BINDING, **rejected_keys},
             **extra_params,
         },
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params_source == "request"),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params_source == "request"),
         headers={},
     )
 
@@ -3991,8 +3991,8 @@ def test_bedrock_messages_thinking_drops_unknown_keys_only_under_drop_params(
 @pytest.mark.parametrize("action", (None, "tool_addition", "tool_removal"))
 @pytest.mark.parametrize("explicit_beta", (False, True))
 def test_bedrock_messages_tool_changes_beta(action: str | None, explicit_beta: bool) -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
+    from hangarllm.types.router import GenericHangarLLMParams
 
     beta: Final = ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
     content: Final = (
@@ -4005,7 +4005,7 @@ def test_bedrock_messages_tool_changes_beta(action: str | None, explicit_beta: b
         model="global.anthropic.claude-fable-5-1",
         messages=messages,
         anthropic_messages_optional_request_params={"max_tokens": 512},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": beta} if explicit_beta else {},
     )
 
@@ -4016,8 +4016,8 @@ def test_bedrock_messages_tool_changes_beta(action: str | None, explicit_beta: b
 @pytest.mark.usefixtures("local_model_cost_map", "local_beta_headers_config")
 @pytest.mark.parametrize("explicit_beta", (False, True))
 def test_bedrock_removed_tool_change_does_not_add_beta(explicit_beta: bool) -> None:
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
+    from hangarllm.types.router import GenericHangarLLMParams
 
     beta: Final = ANTHROPIC_MID_CONVERSATION_TOOL_CHANGES_BETA_HEADER
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
@@ -4030,7 +4030,7 @@ def test_bedrock_removed_tool_change_does_not_add_beta(explicit_beta: bool) -> N
             {"role": "user", "content": "Reply with OK"},
         ],
         anthropic_messages_optional_request_params={"max_tokens": 512},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={"anthropic-beta": beta} if explicit_beta else {},
     )
 
@@ -4100,7 +4100,7 @@ async def _send_bedrock_messages(
 ) -> tuple[ScriptedBedrockInvoke, Exception | None]:
     bedrock: Final = ScriptedBedrockInvoke(replies=tuple(replies))
     try:
-        await litellm.anthropic_messages(
+        await hangarllm.anthropic_messages(
             model=f"bedrock/invoke/{model}",
             messages=[dict(message) for message in messages],
             max_tokens=4000,
@@ -4142,7 +4142,7 @@ async def test_bedrock_invoke_messages_forward_per_turn_control_beta_only_where_
     profiles."""
     bedrock: Final = ScriptedBedrockInvoke(replies=((200, _ANTHROPIC_MESSAGE),))
 
-    await litellm.anthropic_messages(
+    await hangarllm.anthropic_messages(
         model=f"bedrock/invoke/{model}",
         messages=[{"role": "user", "content": "hi"}],
         max_tokens=16,
@@ -4174,14 +4174,14 @@ async def test_bedrock_invoke_messages_per_turn_control_flag_stays_on_its_own_de
     flag: bool,
     expected: tuple[bool, bool],
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     bedrock: Final = ScriptedBedrockInvoke(replies=((200, _ANTHROPIC_MESSAGE), (200, _ANTHROPIC_MESSAGE)))
     respx_mock.post(url__regex=r"https://bedrock-runtime\..*").mock(side_effect=bedrock)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"bedrock/invoke/{model}",
                     "aws_access_key_id": "test-access-key",
                     "aws_secret_access_key": "test-secret-key",
@@ -4244,7 +4244,7 @@ async def test_bedrock_messages_thinking_signature_400_that_persists_reaches_bed
         "us.anthropic.claude-opus-4-8", model_info, [(400, _STALE_SIGNATURE_ERROR)] * 3, _THINKING_HISTORY
     )
 
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     assert len(bedrock.bodies) == 2
 
 
@@ -4308,10 +4308,10 @@ async def test_bedrock_messages_retries_only_native_output_rejections(
 def test_bedrock_messages_offers_a_native_output_retry_only_when_it_sends_native_output(
     model: str, model_info: Mapping[str, object] | None
 ) -> None:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     config: Final = AmazonAnthropicClaudeMessagesConfig()
-    litellm_params: Final = GenericLiteLLMParams(model_info=model_info)
+    hangarllm_params: Final = GenericHangarLLMParams(model_info=model_info)
     optional_params: Final = {
         "max_tokens": 100,
         "output_config": {"format": {"type": "json_schema", "schema": _CONSTRAINED_SCHEMA}},
@@ -4322,11 +4322,11 @@ def test_bedrock_messages_offers_a_native_output_retry_only_when_it_sends_native
             model=model,
             messages=[{"role": "user", "content": [{"type": "text", "text": "say hello"}]}],
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
     )
-    retry_params: Final = config.native_output_fallback_litellm_params(model, optional_params, litellm_params)
+    retry_params: Final = config.native_output_fallback_hangarllm_params(model, optional_params, hangarllm_params)
 
     assert (retry_params is not None) is ("format" in REASONING_BODY_ADAPTER.validate_python(body.get("output_config", {})))
 
@@ -4375,7 +4375,7 @@ async def _send_strict_tools_to_bedrock(
 ) -> tuple[ScriptedBedrockInvoke, object]:
     bedrock: Final = ScriptedBedrockInvoke(replies=tuple(replies))
     try:
-        response: Final = await litellm.anthropic_messages(
+        response: Final = await hangarllm.anthropic_messages(
             model="bedrock/invoke/us.anthropic.claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Use lookup_record to find invoice 42"}],
             max_tokens=200,
@@ -4387,7 +4387,7 @@ async def _send_strict_tools_to_bedrock(
             aws_region_name="us-east-1",
             client=AsyncHTTPHandler(transport=httpx.MockTransport(bedrock)),
         )
-    except litellm.BadRequestError as error:
+    except hangarllm.BadRequestError as error:
         return bedrock, error
     if isinstance(response, AsyncIterator):
         return bedrock, b"".join([chunk async for chunk in response])
@@ -4419,7 +4419,7 @@ async def test_bedrock_messages_strict_tools_rejection_is_sent_again_without_str
 async def test_bedrock_messages_strict_tools_rejection_is_sent_again_under_global_drop_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
 
     bedrock, response = await _send_strict_tools_to_bedrock(
         [(400, _STRICT_TOOLS_REJECTIONS[0]), (200, _ANTHROPIC_MESSAGE)], None
@@ -4478,14 +4478,14 @@ async def test_bedrock_messages_400_reaches_the_caller_unless_drop_params_can_dr
         [(400, rejection), (200, _ANTHROPIC_MESSAGE)], drop_params, tools
     )
 
-    assert isinstance(raised, litellm.BadRequestError)
+    assert isinstance(raised, hangarllm.BadRequestError)
     assert str(rejection["message"]) in str(raised)
     assert len(bedrock.bodies) == 1
 
 
 @pytest.mark.parametrize("trace", ["enabled", "disabled"])
 def test_bedrock_messages_applies_the_deployment_guardrail_config_as_invoke_headers(trace: str) -> None:
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -4494,7 +4494,7 @@ def test_bedrock_messages_applies_the_deployment_guardrail_config_as_invoke_head
         model="anthropic.claude-sonnet-5-v1:0",
         messages=[],
         optional_params={},
-        litellm_params={"guardrailConfig": {"guardrailIdentifier": "gid", "guardrailVersion": "2", "trace": trace}},
+        hangarllm_params={"guardrailConfig": {"guardrailIdentifier": "gid", "guardrailVersion": "2", "trace": trace}},
     )
     assert headers["X-Amzn-Bedrock-GuardrailIdentifier"] == "gid"
     assert headers["X-Amzn-Bedrock-GuardrailVersion"] == "2"
@@ -4502,12 +4502,12 @@ def test_bedrock_messages_applies_the_deployment_guardrail_config_as_invoke_head
 
 
 def test_bedrock_messages_without_guardrail_config_sends_no_guardrail_headers() -> None:
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.messages.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
     headers, _ = AmazonAnthropicClaudeMessagesConfig().validate_anthropic_messages_environment(
-        headers={}, model="anthropic.claude-sonnet-5-v1:0", messages=[], optional_params={}, litellm_params={}
+        headers={}, model="anthropic.claude-sonnet-5-v1:0", messages=[], optional_params={}, hangarllm_params={}
     )
     assert not any(name.startswith("X-Amzn-Bedrock-Guardrail") for name in headers)
 
@@ -4515,7 +4515,7 @@ def test_bedrock_messages_without_guardrail_config_sends_no_guardrail_headers() 
 @pytest.mark.usefixtures("local_model_cost_map", "local_beta_headers_config")
 def test_bedrock_messages_keeps_mid_conversation_output_config_its_auto_added_beta_gates() -> None:
     """Invoke learns its body betas after the shared transform, so the gated field it supports must survive."""
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     messages: Final = [
         {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
@@ -4527,7 +4527,7 @@ def test_bedrock_messages_keeps_mid_conversation_output_config_its_auto_added_be
         model="anthropic.claude-opus-4-8-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params={"max_tokens": 4096},
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={},
     )
 
@@ -4551,8 +4551,8 @@ def test_bedrock_messages_drops_tool_changes_from_a_system_turn_an_older_model_g
 ) -> None:
     """A model without mid-conversation system support sends no tool-changes beta, so under drop_params the
     converted turn must not carry the blocks that beta gates, and without it they go out as sent."""
-    monkeypatch.setattr(litellm, "drop_params", False)
-    from litellm.types.router import GenericLiteLLMParams
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    from hangarllm.types.router import GenericHangarLLMParams
 
     messages: Final = [
         {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
@@ -4570,7 +4570,7 @@ def test_bedrock_messages_drops_tool_changes_from_a_system_turn_an_older_model_g
         model="anthropic.claude-3-7-sonnet-20250219-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params={"max_tokens": 4096},
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -4587,7 +4587,7 @@ def test_bedrock_messages_drops_tool_changes_from_a_system_turn_an_older_model_g
 @pytest.mark.usefixtures("local_model_cost_map", "local_beta_headers_config")
 @pytest.mark.parametrize("drop_params", (True, False))
 def test_bedrock_messages_sends_the_binding_beta_with_block_binding_whatever_drop_params(drop_params: bool) -> None:
-    from litellm.types.router import GenericLiteLLMParams
+    from hangarllm.types.router import GenericHangarLLMParams
 
     result: Final = AmazonAnthropicClaudeMessagesConfig().transform_anthropic_messages_request(
         model="us.anthropic.claude-sonnet-4-6",
@@ -4596,7 +4596,7 @@ def test_bedrock_messages_sends_the_binding_beta_with_block_binding_whatever_dro
             "max_tokens": 2048,
             "thinking": {"type": "enabled", "budget_tokens": 1024, "block_binding": BLOCK_BINDING},
         },
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -4630,21 +4630,21 @@ async def test_bedrock_messages_fallback_to_anthropic_sends_the_tool_names_bedro
     unnamed_tool_extras: dict[str, object],
     sent_extras: dict[str, object],
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = BedrockDownAnthropicUp()
     respx_mock.post(url__regex=r"https://.*").mock(side_effect=upstream)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/invoke/us.anthropic.claude-opus-4-8",
                     "aws_access_key_id": "test-access-key",
                     "aws_secret_access_key": "test-secret-key",
                     "aws_region_name": "us-east-1",
                 },
             },
-            {"model_name": "anthropic-claude", "litellm_params": {"model": "anthropic/claude-opus-4-8", "api_key": "test"}},
+            {"model_name": "anthropic-claude", "hangarllm_params": {"model": "anthropic/claude-opus-4-8", "api_key": "test"}},
         ],
         fallbacks=[{"bedrock-claude": ["anthropic-claude"]}],
         num_retries=0,
@@ -4660,7 +4660,7 @@ async def test_bedrock_messages_fallback_to_anthropic_sends_the_tool_names_bedro
 
     (body,) = upstream.anthropic_bodies
     assert body["tools"] == [
-        {"name": "litellm_unnamed_tool_0", "input_schema": schema, **sent_extras},
+        {"name": "hangarllm_unnamed_tool_0", "input_schema": schema, **sent_extras},
         {"name": "get_weather", "input_schema": schema},
     ]
 
@@ -4676,14 +4676,14 @@ async def test_bedrock_chat_fallback_to_anthropic_sends_the_tool_bedrock_cleaned
     custom: dict[str, object],
     sent_extras: dict[str, object],
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = BedrockDownAnthropicUp()
     respx_mock.post(url__regex=r"https://.*").mock(side_effect=upstream)
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/invoke/us.anthropic.claude-opus-4-8",
                     "aws_access_key_id": "test-access-key",
                     "aws_secret_access_key": "test-secret-key",
@@ -4692,7 +4692,7 @@ async def test_bedrock_chat_fallback_to_anthropic_sends_the_tool_bedrock_cleaned
             },
             {
                 "model_name": "anthropic-claude",
-                "litellm_params": {"model": "anthropic/claude-opus-4-8", "api_key": "test", "drop_params": True},
+                "hangarllm_params": {"model": "anthropic/claude-opus-4-8", "api_key": "test", "drop_params": True},
             },
         ],
         fallbacks=[{"bedrock-claude": ["anthropic-claude"]}],

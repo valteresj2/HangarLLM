@@ -5,7 +5,7 @@ import re
 from itertools import count
 from typing import Final
 
-from litellm.proxy.common_utils.slow_gc_logger import SlowGcLogger
+from hangarllm.proxy.common_utils.slow_gc_logger import SlowGcLogger
 
 
 def _collect_once(step_seconds: float) -> tuple[str, ...]:

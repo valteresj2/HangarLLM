@@ -2,7 +2,7 @@
 
 Drive the real `claude` CLI in headless mode with a ~210k-token padded
 prompt and the `--betas context-1m-2025-08-07` beta header, route
-through a LiteLLM proxy aimed at Anthropic, and assert the request
+through a HangarLLM proxy aimed at Anthropic, and assert the request
 round-trips: no 400 from a stripped beta header, no 413 from a body
 the proxy refused to forward, and a non-empty assistant reply at the
 end.
@@ -77,7 +77,7 @@ ANTHROPIC_MODELS: Sequence[str] = (
 
 # Beta header that opts an Anthropic-shape model into the 1M context
 # window. Same string is accepted on Bedrock (Invoke + Converse) and
-# Vertex per LiteLLM's transformers -- no per-provider translation is
+# Vertex per HangarLLM's transformers -- no per-provider translation is
 # needed for this header, unlike `advanced-tool-use-2025-11-20` /
 # `tool-search-tool-2025-10-19`.
 LONG_CONTEXT_BETA = "context-1m-2025-08-07"

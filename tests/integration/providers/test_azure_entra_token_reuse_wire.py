@@ -113,10 +113,10 @@ def _config(directory: Path) -> Path:
         yaml.safe_dump(
             {
                 **stock,
-                "litellm_settings": {**object_value(stock["litellm_settings"]), "enable_azure_ad_token_refresh": True},
+                "hangarllm_settings": {**object_value(stock["hangarllm_settings"]), "enable_azure_ad_token_refresh": True},
                 "router_settings": {**object_value(stock["router_settings"]), "num_retries": 0},
                 "search_tools": [
-                    {"search_tool_name": _BING_TOOL, "litellm_params": {"search_provider": "bing_grounding"}}
+                    {"search_tool_name": _BING_TOOL, "hangarllm_params": {"search_provider": "bing_grounding"}}
                 ],
             }
         )

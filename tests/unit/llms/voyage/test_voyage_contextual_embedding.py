@@ -6,7 +6,7 @@ import pytest
 
 class TestVoyageContextualEmbeddings:
     def test_contextual_model_detection(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -15,7 +15,7 @@ class TestVoyageContextualEmbeddings:
         assert not VoyageContextualEmbeddingConfig.is_contextualized_embeddings("voyage-3-lite")
 
     def test_url_generation(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -40,7 +40,7 @@ class TestVoyageContextualEmbeddings:
         )
 
     def test_get_supported_openai_params(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -51,7 +51,7 @@ class TestVoyageContextualEmbeddings:
         ]
 
     def test_map_openai_params(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -63,7 +63,7 @@ class TestVoyageContextualEmbeddings:
         assert result["output_dimension"] == 512
 
     def test_validate_environment_with_api_key(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -74,7 +74,7 @@ class TestVoyageContextualEmbeddings:
         assert headers == {"Authorization": "Bearer test-key"}
 
     def test_validate_environment_secret_fallback(self, monkeypatch):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -86,7 +86,7 @@ class TestVoyageContextualEmbeddings:
         assert headers == {"Authorization": "Bearer secret-key"}
 
     def test_nested_list_passthrough(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -100,7 +100,7 @@ class TestVoyageContextualEmbeddings:
         assert "enable_auto_chunking" not in transformed
 
     def test_flat_list_str_auto_chunked(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -114,7 +114,7 @@ class TestVoyageContextualEmbeddings:
         assert transformed["input_type"] == "document"
 
     def test_flat_list_str_query_no_auto_chunk(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -127,7 +127,7 @@ class TestVoyageContextualEmbeddings:
         assert "enable_auto_chunking" not in transformed
 
     def test_flat_list_str_document_preserves_input_type(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -139,7 +139,7 @@ class TestVoyageContextualEmbeddings:
         assert transformed["enable_auto_chunking"] is True
 
     def test_flat_list_str_caller_chunk_params_win(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -156,7 +156,7 @@ class TestVoyageContextualEmbeddings:
         assert transformed["input_type"] == "document"
 
     def test_flat_list_str_caller_can_disable_auto_chunking(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -168,7 +168,7 @@ class TestVoyageContextualEmbeddings:
         assert transformed["input_type"] == "document"
 
     def test_nested_list_keeps_caller_params(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -184,7 +184,7 @@ class TestVoyageContextualEmbeddings:
         }
 
     def test_single_string_auto_chunked(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -197,7 +197,7 @@ class TestVoyageContextualEmbeddings:
         assert transformed["input_type"] == "document"
 
     def test_single_string_query_no_auto_chunk(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
 
@@ -210,10 +210,10 @@ class TestVoyageContextualEmbeddings:
         assert "enable_auto_chunking" not in transformed
 
     def test_response_transformation(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
         )
-        from litellm.types.utils import EmbeddingResponse
+        from hangarllm.types.utils import EmbeddingResponse
 
         config = VoyageContextualEmbeddingConfig()
         response_payload = {
@@ -238,11 +238,11 @@ class TestVoyageContextualEmbeddings:
         assert transformed.usage.total_tokens == 24
 
     def test_error_response_and_error_class(self):
-        from litellm.llms.voyage.embedding.transformation_contextual import (
+        from hangarllm.llms.voyage.embedding.transformation_contextual import (
             VoyageContextualEmbeddingConfig,
             VoyageError,
         )
-        from litellm.types.utils import EmbeddingResponse
+        from hangarllm.types.utils import EmbeddingResponse
 
         config = VoyageContextualEmbeddingConfig()
         raw_response = MagicMock()

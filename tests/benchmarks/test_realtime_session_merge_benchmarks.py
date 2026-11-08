@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.realtime_streaming import _merge_session_fields
+from hangarllm.hangarllm_core_utils.realtime_streaming import _merge_session_fields
 
 NESTED_LEVELS: Final = 8
 LEAVES: Final = 2000

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from litellm.proxy.utils import _to_ns
+from hangarllm.proxy.utils import _to_ns
 
 
 def normalize(value):

@@ -11,28 +11,28 @@ from fakeredis import FakeRedis, FakeServer
 from fakeredis.aioredis import FakeConnection
 from redis.asyncio import BlockingConnectionPool, Redis
 
-import litellm
-from litellm.caching.affinity_cache import claim_affinity_pin
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import (
+import hangarllm
+from hangarllm.caching.affinity_cache import claim_affinity_pin
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.constants import (
     REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD,
     SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY,
     SESSION_ID_GENERATED_METADATA_KEY,
 )
-from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import (
     DeploymentAffinityCheck,
 )
 
 
 
-def _repinning_router(enabled: bool | None = True) -> litellm.Router:
-    return litellm.Router(
+def _repinning_router(enabled: bool | None = True) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "repin-group",
-                "litellm_params": {"model": "openai/test-model", "api_key": "fake-api-key"},
+                "hangarllm_params": {"model": "openai/test-model", "api_key": "fake-api-key"},
                 "model_info": {"id": deployment_id},
             }
             for deployment_id in ("original", "replacement", "other")
@@ -40,7 +40,7 @@ def _repinning_router(enabled: bool | None = True) -> litellm.Router:
         + [
             {
                 "model_name": "unrelated-group",
-                "litellm_params": {"model": "openai/test-model", "api_key": "fake-api-key"},
+                "hangarllm_params": {"model": "openai/test-model", "api_key": "fake-api-key"},
                 "model_info": {"id": "unrelated"},
             }
         ],
@@ -65,18 +65,18 @@ def _repin_key(caller: str = "caller-1") -> str:
     return DeploymentAffinityCheck.get_session_affinity_cache_key("repin-group", "repin-session", caller)
 
 
-def _cool_down_original(router: litellm.Router) -> None:
+def _cool_down_original(router: hangarllm.Router) -> None:
     router.cooldown_cache.add_deployment_to_cooldown(
         model_id="original", original_exception=RuntimeError("test outage"), exception_status=503, cooldown_time=3600
     )
 
 
 async def _record_replacement_success(
-    router: litellm.Router, deployment_id: str = "replacement", response: object = None
+    router: hangarllm.Router, deployment_id: str = "replacement", response: object = None
 ) -> None:
     timestamp: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
     await router.deployment_callback_on_success(
-        {"litellm_params": _repin_params(deployment_id), "standard_logging_object": {"total_tokens": 0}},
+        {"hangarllm_params": _repin_params(deployment_id), "standard_logging_object": {"total_tokens": 0}},
         {"choices": [{"message": {"content": "ok"}}]} if response is None else response,
         timestamp,
         timestamp,
@@ -187,7 +187,7 @@ async def test_session_selection_observes_another_workers_repin_only_when_enable
 
 
 @pytest.fixture
-async def shared_session_router() -> AsyncIterator[tuple[litellm.Router, FakeServer, RedisCache]]:
+async def shared_session_router() -> AsyncIterator[tuple[hangarllm.Router, FakeServer, RedisCache]]:
     server: Final = FakeServer()
     sync_client: Final = FakeRedis(server=server)
     pool: Final = BlockingConnectionPool(connection_class=FakeConnection, server=server)
@@ -206,7 +206,7 @@ async def shared_session_router() -> AsyncIterator[tuple[litellm.Router, FakeSer
         sync_client.close()
 
 
-async def _selected_session_ids(router: litellm.Router) -> tuple[str, ...]:
+async def _selected_session_ids(router: hangarllm.Router) -> tuple[str, ...]:
     callback: Final = next(cb for cb in router.optional_callbacks or () if isinstance(cb, DeploymentAffinityCheck))
     selected: Final = await callback.async_filter_deployments(
         model="repin-group",
@@ -219,7 +219,7 @@ async def _selected_session_ids(router: litellm.Router) -> tuple[str, ...]:
 
 @pytest.mark.parametrize("has_pin", [False, True])
 async def test_redis_read_failures_and_open_breaker_preserve_session_routing(
-    shared_session_router: tuple[litellm.Router, FakeServer, RedisCache], has_pin: bool
+    shared_session_router: tuple[hangarllm.Router, FakeServer, RedisCache], has_pin: bool
 ) -> None:
     router, server, redis = shared_session_router
     if has_pin:
@@ -236,7 +236,7 @@ async def test_redis_read_failures_and_open_breaker_preserve_session_routing(
 
 
 async def test_confirmed_redis_miss_does_not_revive_a_local_pin_during_outage(
-    shared_session_router: tuple[litellm.Router, FakeServer, RedisCache],
+    shared_session_router: tuple[hangarllm.Router, FakeServer, RedisCache],
 ) -> None:
     router, server, _ = shared_session_router
     router.cache.in_memory_cache.set_cache(_repin_key(), {"model_id": "original"}, ttl=3600)
@@ -246,7 +246,7 @@ async def test_confirmed_redis_miss_does_not_revive_a_local_pin_during_outage(
 
 
 async def test_shared_session_pin_resumes_after_a_transient_redis_failure(
-    shared_session_router: tuple[litellm.Router, FakeServer, RedisCache],
+    shared_session_router: tuple[hangarllm.Router, FakeServer, RedisCache],
 ) -> None:
     router, server, redis = shared_session_router
     await redis.async_set_cache(_repin_key(), {"model_id": "replacement"}, ttl=3600)
@@ -259,7 +259,7 @@ async def test_shared_session_pin_resumes_after_a_transient_redis_failure(
 
 @pytest.mark.parametrize("shared_value", [None, {"model_id": "original"}])
 async def test_delayed_shared_pin_read_preserves_a_newer_local_write(
-    shared_session_router: tuple[litellm.Router, FakeServer, RedisCache], shared_value: Mapping[str, str] | None
+    shared_session_router: tuple[hangarllm.Router, FakeServer, RedisCache], shared_value: Mapping[str, str] | None
 ) -> None:
     router, server, redis = shared_session_router
     if shared_value is not None:
@@ -275,7 +275,7 @@ async def test_delayed_shared_pin_read_preserves_a_newer_local_write(
             return value
 
     reader: Final = DelayedReader(connection_pool=redis.init_async_client().connection_pool)
-    litellm.in_memory_llm_clients_cache.set_cache(key=redis._get_async_client_cache_key(), value=reader)
+    hangarllm.in_memory_llm_clients_cache.set_cache(key=redis._get_async_client_cache_key(), value=reader)
     pending: Final = asyncio.create_task(_selected_session_ids(router))
     try:
         await observed.wait()
@@ -350,11 +350,11 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
         "previous_response_id": None,
     }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -364,7 +364,7 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -389,11 +389,11 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -403,7 +403,7 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
             model=model_group,
             input="Hello, how are you?",
             truncation="auto",
-            litellm_metadata={"session_id": session_id},
+            hangarllm_metadata={"session_id": session_id},
         )
         first_model_id = first_response._hidden_params["model_id"]
 
@@ -411,7 +411,7 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
             model=model_group,
             input="Follow-up question",
             truncation="auto",
-            litellm_metadata={"session_id": session_id},
+            hangarllm_metadata={"session_id": session_id},
         )
         assert second_response._hidden_params["model_id"] == first_model_id
 
@@ -435,12 +435,12 @@ async def test_async_session_id_affinity_priority_over_user_key():
     healthy_deployments = [
         {
             "model_name": "model_group",
-            "litellm_params": {"model": "model_1"},
+            "hangarllm_params": {"model": "model_1"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": "model_group",
-            "litellm_params": {"model": "model_2"},
+            "hangarllm_params": {"model": "model_2"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -480,8 +480,8 @@ async def test_proxy_generated_session_id_does_not_pin_a_deployment():
         enable_session_id_affinity=True,
     )
     healthy_deployments = [
-        {"model_name": "model_group", "litellm_params": {"model": "model_1"}, "model_info": {"id": "deployment-1"}},
-        {"model_name": "model_group", "litellm_params": {"model": "model_2"}, "model_info": {"id": "deployment-2"}},
+        {"model_name": "model_group", "hangarllm_params": {"model": "model_1"}, "model_info": {"id": "deployment-1"}},
+        {"model_name": "model_group", "hangarllm_params": {"model": "model_2"}, "model_info": {"id": "deployment-2"}},
     ]
     await cache.async_set_cache(
         DeploymentAffinityCheck.get_session_affinity_cache_key("model_group", "generated-1", user_key="user1"),
@@ -525,11 +525,11 @@ MOCK_RESPONSES_API_RESPONSE = {
 
 
 def _smart_router(session_affinity=True, ttl_seconds=777, deployment_affinity=True):
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "smart-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_default_model": "target-group",
                     "complexity_router_config": {
@@ -547,7 +547,7 @@ def _smart_router(session_affinity=True, ttl_seconds=777, deployment_affinity=Tr
             },
             {
                 "model_name": "target-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -557,7 +557,7 @@ def _smart_router(session_affinity=True, ttl_seconds=777, deployment_affinity=Tr
             },
             {
                 "model_name": "target-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -577,7 +577,7 @@ def _session_pin_key(session_id, user_key):
 
 def _cleanup_router_callbacks(router):
     for callback in router.optional_callbacks or []:
-        litellm.logging_callback_manager.remove_callback_from_all_lists(callback)
+        hangarllm.logging_callback_manager.remove_callback_from_all_lists(callback)
 
 
 async def _one_turn(router, model, session_id, key_hash):
@@ -585,11 +585,11 @@ async def _one_turn(router, model, session_id, key_hash):
     deployment can only come from a pin read."""
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "hangarllm.router_strategy.simple_shuffle.random.choice",
             side_effect=lambda seq: seq[0],
         ),
     ):
@@ -597,7 +597,7 @@ async def _one_turn(router, model, session_id, key_hash):
         response = await router.aresponses(
             model=model,
             input=f"turn for {session_id} {key_hash}",
-            litellm_metadata={"session_id": session_id, "user_api_key_hash": key_hash},
+            hangarllm_metadata={"session_id": session_id, "user_api_key_hash": key_hash},
         )
     return response._hidden_params["model_id"]
 
@@ -995,7 +995,7 @@ async def test_marker_session_affinity_read_and_write_agree_for_wildcard_groups(
         healthy_deployments=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "hangarllm_params": {"model": "openai/gpt-4o"},
                 "model_info": {"id": f"wild-deployment-{i}"},
             }
             for i in (1, 2)
@@ -1034,7 +1034,7 @@ async def test_pre_routing_hook_stamps_or_clears_the_marker_per_attempt(
     try:
         request_kwargs = {
             "metadata": {SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY: 111},
-            "litellm_metadata": {SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY: 111},
+            "hangarllm_metadata": {SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY: 111},
         }
         await router.async_pre_routing_hook(
             model=model,
@@ -1042,10 +1042,10 @@ async def test_pre_routing_hook_stamps_or_clears_the_marker_per_attempt(
             messages=[{"role": "user", "content": "Hello"}],
         )
         if expect_marker:
-            assert request_kwargs["litellm_metadata"][SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY] == 777
+            assert request_kwargs["hangarllm_metadata"][SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY] == 777
         else:
             assert SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY not in request_kwargs["metadata"]
-            assert SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY not in request_kwargs["litellm_metadata"]
+            assert SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY not in request_kwargs["hangarllm_metadata"]
     finally:
         _cleanup_router_callbacks(router)
 

@@ -14,7 +14,7 @@ from integration._support.database import read_rows
 from prisma import Prisma
 from psycopg import sql
 
-from litellm.proxy.db.db_transaction_queue.spend_log_cleanup import SpendLogCleanup
+from hangarllm.proxy.db.db_transaction_queue.spend_log_cleanup import SpendLogCleanup
 
 
 @dataclass(frozen=True)
@@ -30,7 +30,7 @@ async def test_delete_batch_survives_witnessed_lock_past_transaction_default(cap
     scoped_url: Final = urlunsplit(
         parsed._replace(query=urlencode({**dict(parse_qsl(parsed.query)), "schema": schema}))
     )
-    table: Final = sql.Identifier(schema, "LiteLLM_SpendLogs")
+    table: Final = sql.Identifier(schema, "HangarLLM_SpendLogs")
     now: Final = datetime.now(timezone.utc).replace(tzinfo=None)
     cutoff_date: Final = now - timedelta(days=30)
     with psycopg.connect(url, autocommit=True) as setup:
@@ -61,7 +61,7 @@ async def test_delete_batch_survives_witnessed_lock_past_transaction_default(cap
                         cleanup._delete_old_rows_batched(
                             PartitionConnection(database),
                             cutoff_date=cutoff_date,
-                            table_name="LiteLLM_SpendLogs",
+                            table_name="HangarLLM_SpendLogs",
                             key_columns=("request_id",),
                             time_column="startTime",
                             deadline=time.monotonic() + 30,
@@ -117,22 +117,22 @@ async def test_size_rule_deletes_the_oldest_rows_until_under_the_target_and_does
     files still measure the same; the next check must read what the last run freed from its saved count and
     leave the table alone instead of calling the whole file live again.
     """
-    caplog.set_level(logging.INFO, logger="LiteLLM Proxy")
+    caplog.set_level(logging.INFO, logger="HangarLLM Proxy")
     schema: Final = f"integration_{uuid.uuid4().hex}"
     url: Final = os.environ["DATABASE_URL"]
     parsed: Final = urlsplit(url)
     scoped_url: Final = urlunsplit(
         parsed._replace(query=urlencode({**dict(parse_qsl(parsed.query)), "schema": schema}))
     )
-    logs: Final = sql.Identifier(schema, "LiteLLM_SpendLogs")
-    index: Final = sql.Identifier(schema, "LiteLLM_SpendLogToolIndex")
-    config: Final = sql.Identifier(schema, "LiteLLM_Config")
+    logs: Final = sql.Identifier(schema, "HangarLLM_SpendLogs")
+    index: Final = sql.Identifier(schema, "HangarLLM_SpendLogToolIndex")
+    config: Final = sql.Identifier(schema, "HangarLLM_Config")
     seeded: Final = 6000
     now: Final = datetime.now(timezone.utc).replace(tzinfo=None)
     stats_sql: Final = (
         "SELECT sum(n_live_tup)::int AS live, sum(n_dead_tup)::int AS dead, sum(n_tup_ins)::int AS inserted "
         "FROM pg_stat_user_tables "
-        "WHERE schemaname = %s AND relname IN ('LiteLLM_SpendLogs', 'LiteLLM_SpendLogToolIndex')"
+        "WHERE schemaname = %s AND relname IN ('HangarLLM_SpendLogs', 'HangarLLM_SpendLogToolIndex')"
     )
     with psycopg.connect(url, autocommit=True) as setup:
         setup.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))

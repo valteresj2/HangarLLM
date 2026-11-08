@@ -1,7 +1,7 @@
 """
 Simplified tests for default end user budget feature.
 
-Tests the core scenarios where litellm.max_end_user_budget_id applies
+Tests the core scenarios where hangarllm.max_end_user_budget_id applies
 a default budget to end users without explicit budgets.
 """
 
@@ -11,10 +11,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.proxy._types import LiteLLM_BudgetTable, LiteLLM_EndUserTable
-from litellm.proxy.auth.auth_checks import get_end_user_object
-from litellm.caching import DualCache
+import hangarllm
+from hangarllm.proxy._types import HangarLLM_BudgetTable, HangarLLM_EndUserTable
+from hangarllm.proxy.auth.auth_checks import get_end_user_object
+from hangarllm.caching import DualCache
 
 
 @pytest.mark.asyncio
@@ -25,9 +25,9 @@ async def test_default_budget_applied_to_end_user_without_budget():
     """
     end_user_id = f"test_user_{uuid.uuid4().hex}"
     default_budget_id = str(uuid.uuid4())
-    litellm.max_end_user_budget_id = default_budget_id
+    hangarllm.max_end_user_budget_id = default_budget_id
 
-    default_budget = LiteLLM_BudgetTable(
+    default_budget = HangarLLM_BudgetTable(
         budget_id=default_budget_id,
         max_budget=10.0,
         rpm_limit=2,
@@ -38,7 +38,7 @@ async def test_default_budget_applied_to_end_user_without_budget():
     mock_end_user_data = {
         "user_id": end_user_id,
         "spend": 1.0,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
         "alias": None,
         "allowed_model_region": None,
         "default_model": None,
@@ -46,10 +46,10 @@ async def test_default_budget_applied_to_end_user_without_budget():
     }
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_endusertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_unique = AsyncMock(
         return_value=MagicMock(dict=lambda: mock_end_user_data)
     )
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(
         return_value=MagicMock(dict=lambda: default_budget.dict())
     )
 
@@ -66,13 +66,13 @@ async def test_default_budget_applied_to_end_user_without_budget():
 
     # Verify default budget was applied
     assert result is not None
-    assert result.litellm_budget_table is not None
-    assert result.litellm_budget_table.budget_id == default_budget_id
-    assert result.litellm_budget_table.max_budget == 10.0
-    assert result.litellm_budget_table.rpm_limit == 2
-    assert result.litellm_budget_table.tpm_limit == 10
+    assert result.hangarllm_budget_table is not None
+    assert result.hangarllm_budget_table.budget_id == default_budget_id
+    assert result.hangarllm_budget_table.max_budget == 10.0
+    assert result.hangarllm_budget_table.rpm_limit == 2
+    assert result.hangarllm_budget_table.tpm_limit == 10
 
-    litellm.max_end_user_budget_id = None
+    hangarllm.max_end_user_budget_id = None
 
 
 @pytest.mark.asyncio
@@ -84,9 +84,9 @@ async def test_explicit_budget_not_overridden_by_default():
     end_user_id = f"test_user_{uuid.uuid4().hex}"
     explicit_budget_id = str(uuid.uuid4())
     default_budget_id = str(uuid.uuid4())
-    litellm.max_end_user_budget_id = default_budget_id
+    hangarllm.max_end_user_budget_id = default_budget_id
 
-    explicit_budget = LiteLLM_BudgetTable(
+    explicit_budget = HangarLLM_BudgetTable(
         budget_id=explicit_budget_id,
         max_budget=100.0,
         rpm_limit=50,
@@ -96,7 +96,7 @@ async def test_explicit_budget_not_overridden_by_default():
     mock_end_user_data = {
         "user_id": end_user_id,
         "spend": 10.0,
-        "litellm_budget_table": explicit_budget.dict(),
+        "hangarllm_budget_table": explicit_budget.dict(),
         "alias": None,
         "allowed_model_region": None,
         "default_model": None,
@@ -104,7 +104,7 @@ async def test_explicit_budget_not_overridden_by_default():
     }
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_endusertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_unique = AsyncMock(
         return_value=MagicMock(dict=lambda: mock_end_user_data)
     )
 
@@ -121,11 +121,11 @@ async def test_explicit_budget_not_overridden_by_default():
 
     # Verify explicit budget is kept (not replaced with default)
     assert result is not None
-    assert result.litellm_budget_table.budget_id == explicit_budget_id
-    assert result.litellm_budget_table.max_budget == 100.0
-    assert result.litellm_budget_table.rpm_limit == 50
+    assert result.hangarllm_budget_table.budget_id == explicit_budget_id
+    assert result.hangarllm_budget_table.max_budget == 100.0
+    assert result.hangarllm_budget_table.rpm_limit == 50
 
-    litellm.max_end_user_budget_id = None
+    hangarllm.max_end_user_budget_id = None
 
 
 @pytest.mark.asyncio
@@ -137,13 +137,13 @@ async def test_budget_enforcement_blocks_over_budget_users():
     Note: Budget enforcement happens in common_checks() via _check_end_user_budget(),
     not in get_end_user_object(). get_end_user_object only fetches the user data.
     """
-    from litellm.proxy.auth.auth_checks import check_end_user_budget
+    from hangarllm.proxy.auth.auth_checks import check_end_user_budget
     
     end_user_id = f"test_user_{uuid.uuid4().hex}"
     default_budget_id = str(uuid.uuid4())
-    litellm.max_end_user_budget_id = default_budget_id
+    hangarllm.max_end_user_budget_id = default_budget_id
 
-    default_budget = LiteLLM_BudgetTable(
+    default_budget = HangarLLM_BudgetTable(
         budget_id=default_budget_id,
         max_budget=10.0,
         rpm_limit=2,
@@ -153,7 +153,7 @@ async def test_budget_enforcement_blocks_over_budget_users():
     mock_end_user_data = {
         "user_id": end_user_id,
         "spend": 15.0,  # Exceeds budget of 10.0
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
         "alias": None,
         "allowed_model_region": None,
         "default_model": None,
@@ -161,10 +161,10 @@ async def test_budget_enforcement_blocks_over_budget_users():
     }
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_endusertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_unique = AsyncMock(
         return_value=MagicMock(dict=lambda: mock_end_user_data)
     )
-    mock_prisma_client.db.litellm_budgettable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_budgettable.find_unique = AsyncMock(
         return_value=MagicMock(dict=lambda: default_budget.dict())
     )
 
@@ -182,11 +182,11 @@ async def test_budget_enforcement_blocks_over_budget_users():
     
     # Verify user was fetched with default budget applied
     assert result is not None
-    assert result.litellm_budget_table is not None
-    assert result.litellm_budget_table.max_budget == 10.0
+    assert result.hangarllm_budget_table is not None
+    assert result.hangarllm_budget_table.max_budget == 10.0
 
     # Now test budget enforcement separately via _check_end_user_budget
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await check_end_user_budget(
             end_user_obj=result,
             route="/chat/completions",
@@ -195,7 +195,7 @@ async def test_budget_enforcement_blocks_over_budget_users():
     assert "ExceededBudget" in str(exc_info.value)
     assert end_user_id in str(exc_info.value)
 
-    litellm.max_end_user_budget_id = None
+    hangarllm.max_end_user_budget_id = None
 
 
 @pytest.mark.asyncio
@@ -205,13 +205,13 @@ async def test_system_works_without_default_budget_configured():
     This ensures backward compatibility.
     """
     end_user_id = f"test_user_{uuid.uuid4().hex}"
-    litellm.max_end_user_budget_id = None  # Not configured
+    hangarllm.max_end_user_budget_id = None  # Not configured
 
     # Mock end user without budget
     mock_end_user_data = {
         "user_id": end_user_id,
         "spend": 5.0,
-        "litellm_budget_table": None,
+        "hangarllm_budget_table": None,
         "alias": None,
         "allowed_model_region": None,
         "default_model": None,
@@ -219,7 +219,7 @@ async def test_system_works_without_default_budget_configured():
     }
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_endusertable.find_unique = AsyncMock(
+    mock_prisma_client.db.hangarllm_endusertable.find_unique = AsyncMock(
         return_value=MagicMock(dict=lambda: mock_end_user_data)
     )
 
@@ -237,4 +237,4 @@ async def test_system_works_without_default_budget_configured():
     # Should work fine, just without budget limits
     assert result is not None
     assert result.user_id == end_user_id
-    assert result.litellm_budget_table is None  # No budget applied
+    assert result.hangarllm_budget_table is None  # No budget applied

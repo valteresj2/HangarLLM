@@ -81,7 +81,7 @@ def _body(call: _Call) -> dict[str, JsonValue]:
 
 async def _send(client: httpx.AsyncClient, key: str, call: _Call) -> _Served:
     response: Final = await client.post(call.route, json=_body(call), headers={"Authorization": f"Bearer {key}"})
-    return _Served(call, response.status_code, response.headers.get("x-litellm-call-id", ""), response.text)
+    return _Served(call, response.status_code, response.headers.get("x-hangarllm-call-id", ""), response.text)
 
 
 async def _burst(
@@ -113,7 +113,7 @@ def _statuses_by_call_id(call_ids: tuple[str, ...]) -> dict[str, JsonValue]:
     placeholders: Final = ", ".join("%s" for _ in call_ids)
     rows: Final = eventually(
         lambda: read_rows(
-            f'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id IN ({placeholders})', call_ids
+            f'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id IN ({placeholders})', call_ids
         ),
         lambda found: len(found) >= len(call_ids),
         seconds=70,
@@ -218,7 +218,7 @@ def _yaml_config(wire: Wire, tmp_path: Path, backends: Mapping[str, str]) -> Pat
     model_list: Final = [
         {
             "model_name": name,
-            "litellm_params": {"model": backends[backend], "api_base": wire.url, "api_key": _API_KEY},
+            "hangarllm_params": {"model": backends[backend], "api_base": wire.url, "api_key": _API_KEY},
             **({} if model_info is None else {"model_info": dict(model_info)}),
         }
         for name, backend, model_info, _ in _YAML_FLAGS

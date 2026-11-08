@@ -5,8 +5,8 @@ import polars as pl
 import pytest
 
 
-from litellm.integrations.cloudzero.transform import CBFTransformer
-from litellm.types.integrations.cloudzero import CBFRecord
+from hangarllm.integrations.cloudzero.transform import CBFTransformer
+from hangarllm.types.integrations.cloudzero import CBFRecord
 
 
 class TestCBFTransformer:
@@ -118,7 +118,7 @@ class TestCBFTransformer:
         transformer = CBFTransformer()
         with (
             patch.object(
-                transformer.czrn_generator, "create_from_litellm_data"
+                transformer.czrn_generator, "create_from_hangarllm_data"
             ) as mock_czrn,
             patch.object(
                 transformer.czrn_generator, "extract_components"
@@ -164,7 +164,7 @@ class TestCBFTransformer:
         transformer = CBFTransformer()
         with (
             patch.object(
-                transformer.czrn_generator, "create_from_litellm_data"
+                transformer.czrn_generator, "create_from_hangarllm_data"
             ) as mock_czrn,
             patch.object(
                 transformer.czrn_generator, "extract_components"
@@ -202,7 +202,7 @@ class TestCBFTransformer:
         transformer = CBFTransformer()
         with (
             patch.object(
-                transformer.czrn_generator, "create_from_litellm_data"
+                transformer.czrn_generator, "create_from_hangarllm_data"
             ) as mock_czrn,
             patch.object(
                 transformer.czrn_generator, "extract_components"
@@ -240,7 +240,7 @@ class TestCBFTransformer:
         transformer = CBFTransformer()
         with (
             patch.object(
-                transformer.czrn_generator, "create_from_litellm_data"
+                transformer.czrn_generator, "create_from_hangarllm_data"
             ) as mock_czrn,
             patch.object(
                 transformer.czrn_generator, "extract_components"

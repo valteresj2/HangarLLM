@@ -430,7 +430,7 @@ def sent_without_cache_points(requests: Sequence[Request], marker: str) -> list[
 def gateway_injected(response_id: str) -> bool:
     rows: Final = eventually(
         lambda: read_rows(
-            """SELECT metadata->>'litellm_gateway_injected_cache' AS injected FROM "LiteLLM_SpendLogs" """
+            """SELECT metadata->>'hangarllm_gateway_injected_cache' AS injected FROM "HangarLLM_SpendLogs" """
             "WHERE request_id=%s",
             (response_id,),
         ),
@@ -449,7 +449,7 @@ def post_chat(gateway: Gateway, body: dict[str, JsonValue], *, key: str | None =
 def anthropic_deployment(name: str, api_base: str, **fields: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"anthropic/{ANTHROPIC_MODEL}",
             "api_base": api_base,
             "api_key": PROVIDER_KEY,
@@ -462,7 +462,7 @@ def owned_config(
     directory: Path,
     model_list: Sequence[JsonValue],
     *,
-    litellm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
+    hangarllm_settings: Mapping[str, JsonValue] = MappingProxyType({}),
     router_settings: Mapping[str, JsonValue] = MappingProxyType({}),
 ) -> Path:
     config: Final = _JSON_OBJECT.validate_python(
@@ -471,7 +471,7 @@ def owned_config(
     merged: Final = {
         **config,
         "model_list": list(model_list),
-        "litellm_settings": {**object_value(config["litellm_settings"]), **litellm_settings},
+        "hangarllm_settings": {**object_value(config["hangarllm_settings"]), **hangarllm_settings},
         "router_settings": {**object_value(config["router_settings"]), "num_retries": 0, **router_settings},
     }
     path: Final = directory / f"cache-control-marks-{uuid.uuid4().hex}.yaml"

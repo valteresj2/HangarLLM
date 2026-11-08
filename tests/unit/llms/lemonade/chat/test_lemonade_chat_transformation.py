@@ -2,7 +2,7 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-from litellm.llms.lemonade.chat.transformation import LemonadeChatConfig
+from hangarllm.llms.lemonade.chat.transformation import LemonadeChatConfig
 
 LEMONADE_BASE = "http://lemonade.test/api/v1"
 MODEL = "Qwen3-4B-GGUF"
@@ -11,7 +11,7 @@ MODEL = "Qwen3-4B-GGUF"
 def _expected_model_info(**overrides: object) -> dict[str, object]:
     return {
         "key": f"lemonade/{MODEL}",
-        "litellm_provider": "lemonade",
+        "hangarllm_provider": "lemonade",
         "mode": "chat",
         "input_cost_per_token": 0.0,
         "output_cost_per_token": 0.0,

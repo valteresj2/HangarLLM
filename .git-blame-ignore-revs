@@ -12,7 +12,7 @@
 # style(ui): run prettier --write across the dashboard (#29622)
 7edf3a9cb55548b143df1692f4ed7c4681d7fcf7
 
-# style: reformat litellm/ with ruff format (#31317)
+# style: reformat hangarllm/ with ruff format (#31317)
 17bfd415aeb5a57fb646b5cc67da1c730aa7c50b
 
 # style: unify ruff format width on 120 (#31518)
@@ -33,7 +33,7 @@ c9887a1f94bc1e7e4bdfe64d640f0509a0bc19dd
 # feat(lint): enforce Final on locals and freeze function parameters (#35807)
 2708620d6a599cc73c1950a942d26ac26a7ed3d4
 
-# chore(lint): remove litellm/types from the ruff lint exclusion (#35926)
+# chore(lint): remove hangarllm/types from the ruff lint exclusion (#35926)
 4e32a8bf6a1e1af1e04b67c759841ccef44b2235
 
 # chore(lint): strip inert type: ignore comments and zero LIT009/LIT010/LIT011 headroom (#35928)

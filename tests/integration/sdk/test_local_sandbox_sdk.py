@@ -11,8 +11,8 @@ import pytest_asyncio
 
 from integration._support.client import eventually
 from integration._support.process import kill_stray_process
-from litellm import sandbox
-from litellm.harness.sandbox import LocalSandbox
+from hangarllm import sandbox
+from hangarllm.harness.sandbox import LocalSandbox
 
 WRITE_AT_PWD: Final = "import os;open(os.path.join(os.environ['PWD'],'hello.txt'),'w').write('hi')"
 SLEEPER_SPAWNED_ONCE_STDIN_CLOSES: Final = (

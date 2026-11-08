@@ -1,14 +1,14 @@
 """
-Test that all standard HTTP error exceptions are exported from litellm.__init__.
+Test that all standard HTTP error exceptions are exported from hangarllm.__init__.
 """
 
-import litellm
+import hangarllm
 
 
 def test_permission_denied_error_is_exported():
-    """PermissionDeniedError (403) should be accessible as litellm.PermissionDeniedError."""
-    assert hasattr(litellm, "PermissionDeniedError")
-    assert litellm.PermissionDeniedError is not None
+    """PermissionDeniedError (403) should be accessible as hangarllm.PermissionDeniedError."""
+    assert hasattr(hangarllm, "PermissionDeniedError")
+    assert hangarllm.PermissionDeniedError is not None
 
 
 def test_all_http_error_exceptions_exported():
@@ -27,5 +27,5 @@ def test_all_http_error_exceptions_exported():
     ]
     for exc_name in expected_exceptions:
         assert hasattr(
-            litellm, exc_name
-        ), f"litellm.{exc_name} is not exported from litellm.__init__"
+            hangarllm, exc_name
+        ), f"hangarllm.{exc_name} is not exported from hangarllm.__init__"

@@ -49,7 +49,7 @@ def config_store_info(gateway: Gateway) -> dict[str, JsonValue]:
 
 def store_rows(vector_store_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT vector_store_id, vector_store_name FROM "LiteLLM_ManagedVectorStoresTable" WHERE vector_store_id = %s',
+        'SELECT vector_store_id, vector_store_name FROM "HangarLLM_ManagedVectorStoresTable" WHERE vector_store_id = %s',
         (vector_store_id,),
     )
 
@@ -118,7 +118,7 @@ def test_config_store_is_listed_beside_db_store_and_survives_listing(gateway: Ga
         config_row: Final = listed_store(gateway, CONFIG_STORE_ID)
         assert config_row["is_config"] is True, config_row
         assert config_row["vector_store_name"] == CONFIG_STORE_NAME, config_row
-        assert object_value(config_row["litellm_params"])["api_key"] != "integration-provider-key", config_row
+        assert object_value(config_row["hangarllm_params"])["api_key"] != "integration-provider-key", config_row
         db_row: Final = listed_store(gateway, db_store_id)
         assert db_row["is_config"] is False, db_row
 
@@ -196,7 +196,7 @@ def test_team_owned_store_rejects_other_team_info_update_and_delete(gateway: Gat
                 "vector_store_id": store_id,
                 "custom_llm_provider": "openai",
                 "vector_store_name": "owner name",
-                "litellm_params": {"api_base": "https://example.invalid/v1", "api_key": "original synthetic key"},
+                "hangarllm_params": {"api_base": "https://example.invalid/v1", "api_key": "original synthetic key"},
             },
             key=owner_admin_key,
         )
@@ -205,7 +205,7 @@ def test_team_owned_store_rejects_other_team_info_update_and_delete(gateway: Gat
             gateway.request, "POST", "/vector_store/delete", {"vector_store_id": store_id}, key=gateway.key
         )
         snapshot_query: Final = (
-            'SELECT to_jsonb(store) FROM "LiteLLM_ManagedVectorStoresTable" AS store WHERE vector_store_id = %s'
+            'SELECT to_jsonb(store) FROM "HangarLLM_ManagedVectorStoresTable" AS store WHERE vector_store_id = %s'
         )
         before_denial: Final = read_rows(snapshot_query, (store_id,))
         assert len(before_denial) == 1, before_denial
@@ -224,7 +224,7 @@ def test_team_owned_store_rejects_other_team_info_update_and_delete(gateway: Gat
             {
                 "vector_store_id": store_id,
                 "vector_store_name": "unauthorized name",
-                "litellm_params": {"api_base": "https://example.invalid/changed", "api_key": "changed synthetic key"},
+                "hangarllm_params": {"api_base": "https://example.invalid/changed", "api_key": "changed synthetic key"},
             },
             key=other_key,
         )
@@ -519,7 +519,7 @@ def test_redis_outage_keeps_config_store_served_and_recovers(
                     assert store_rows(CONFIG_STORE_ID) == []
                     with psycopg.connect(database_url) as fresh:
                         counted: Final = fresh.execute(
-                            'SELECT count(*) FROM "LiteLLM_ManagedVectorStoresTable" WHERE vector_store_id LIKE %s',
+                            'SELECT count(*) FROM "HangarLLM_ManagedVectorStoresTable" WHERE vector_store_id LIKE %s',
                             (f"{db_store_id}%",),
                         ).fetchone()
                         assert counted is not None and counted[0] == 3, counted

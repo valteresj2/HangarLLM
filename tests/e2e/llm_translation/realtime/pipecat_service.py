@@ -2,8 +2,8 @@
 
 Both pipecat suites drive the proxy through pipecat's GA realtime service. The
 stock ``OpenAIRealtimeLLMService`` sends websocket keepalive pings at its default
-interval, and the LiteLLM proxy does not answer them, so the connection is closed
-with a 1011 before the run completes. ``LiteLLMRealtimeLLMService`` carries the
+interval, and the HangarLLM proxy does not answer them, so the connection is closed
+with a 1011 before the run completes. ``HangarLLMRealtimeLLMService`` carries the
 three overrides from bot.py needed to talk to the proxy, the keepalive-disabling
 ``_connect`` being the load-bearing one for every provider.
 
@@ -26,11 +26,11 @@ from pipecat.services.openai.realtime.llm import (  # noqa: E402
 from websockets.asyncio.client import connect as websocket_connect  # noqa: E402
 
 
-class LiteLLMRealtimeLLMService(OpenAIRealtimeLLMService):
-    """Minimal LiteLLM-aware realtime service for tests.
+class HangarLLMRealtimeLLMService(OpenAIRealtimeLLMService):
+    """Minimal HangarLLM-aware realtime service for tests.
 
     Three overrides carried from bot.py:
-      1. _connect   - disables websockets keepalive pings (LiteLLM proxy
+      1. _connect   - disables websockets keepalive pings (HangarLLM proxy
                       does not respond to pings, causing 1011 errors).
       2. _create_response - sends session.update with tools BEFORE history
                       items so that Gemini's deferred-setup logic in the
@@ -38,7 +38,7 @@ class LiteLLMRealtimeLLMService(OpenAIRealtimeLLMService):
                       message it forwards to the backend.
       3. _handle_evt_session_created - immediately marks the session ready
                       without waiting for a session.updated echo (the
-                      LiteLLM Gemini bridge does not send one).
+                      HangarLLM Gemini bridge does not send one).
     """
 
     async def _connect(self) -> None:

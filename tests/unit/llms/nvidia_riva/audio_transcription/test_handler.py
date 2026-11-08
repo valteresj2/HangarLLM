@@ -22,11 +22,11 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from riva.client.proto import riva_asr_pb2, riva_asr_pb2_grpc, riva_audio_pb2
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.nvidia_riva.audio_transcription.handler import NvidiaRivaAudioTranscription
-from litellm.llms.nvidia_riva.common_utils import NvidiaRivaException
-from litellm.types.utils import TranscriptionResponse
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.nvidia_riva.audio_transcription.handler import NvidiaRivaAudioTranscription
+from hangarllm.llms.nvidia_riva.common_utils import NvidiaRivaException
+from hangarllm.types.utils import TranscriptionResponse
 
 _SAMPLE_RATE_HZ: Final = 16000
 _SERVER_WAIT_SECONDS: Final = 30
@@ -212,7 +212,7 @@ def _logging() -> Logging:
         stream=False,
         call_type="transcription",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id=str(uuid.uuid4()),
+        hangarllm_call_id=str(uuid.uuid4()),
         function_id="riva-test",
     )
 
@@ -223,13 +223,13 @@ def _transcribe(
     *,
     api_key: str | None = None,
     timeout: float | str | httpx.Timeout | None = 60,
-    litellm_params: dict[str, object] | None = None,
+    hangarllm_params: dict[str, object] | None = None,
 ) -> TranscriptionResponse:
     return NvidiaRivaAudioTranscription().audio_transcriptions(
         model="m",
         audio_file=_wav(),
         optional_params={"language_code": "en-US", **(optional_params or {})},
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
         model_response=TranscriptionResponse(),
         timeout=timeout,
         logging_obj=_logging(),
@@ -362,7 +362,7 @@ def test_riva_offline_malformed_value_is_rejected_before_any_rpc(riva_offline: o
 
 def test_riva_offline_malformed_value_is_dropped_under_drop_params() -> None:
     with _riva_server(_Script(streaming=(_streamed("streamed"),), offline=_offline("offline"))) as riva:
-        response: Final = _transcribe(riva, {"riva_offline": "yes"}, litellm_params={"drop_params": True})
+        response: Final = _transcribe(riva, {"riva_offline": "yes"}, hangarllm_params={"drop_params": True})
         call: Final = riva.only_call()
 
     assert response.text == "streamed"
@@ -371,7 +371,7 @@ def test_riva_offline_malformed_value_is_dropped_under_drop_params() -> None:
 
 def test_deployment_riva_offline_reaches_the_handler_through_transcription() -> None:
     with _riva_server(_Script(offline=_offline("offline"))) as riva:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="nvidia_riva/nvidia/parakeet-0.6b-tdt",
             file=("clip.wav", _wav(), "audio/wav"),
             api_base=riva.address,
@@ -397,7 +397,7 @@ def test_streaming_deadline_is_the_timeout_in_seconds_whatever_its_form(
     timeout: float | str | httpx.Timeout | None, deadline_seconds: float | None
 ) -> None:
     with _riva_server(_answers("streamed")) as riva:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="nvidia_riva/nvidia/parakeet-ctc-1.1b",
             file=("clip.wav", _wav(), "audio/wav"),
             api_base=riva.address,
@@ -414,7 +414,7 @@ def test_streaming_deadline_is_the_timeout_in_seconds_whatever_its_form(
 def test_malformed_timeout_is_a_400_before_any_rpc(riva_offline: bool, timeout: str) -> None:
     with _riva_server(_answers("ok")) as riva:
         with pytest.raises(NvidiaRivaException) as excinfo:
-            litellm.transcription(
+            hangarllm.transcription(
                 model="nvidia_riva/nvidia/parakeet-0.6b-tdt",
                 file=("clip.wav", _wav(), "audio/wav"),
                 api_base=riva.address,
@@ -430,7 +430,7 @@ def test_malformed_timeout_is_a_400_before_any_rpc(riva_offline: bool, timeout: 
 
 def test_malformed_streaming_timeout_falls_back_to_the_default_deadline_under_drop_params() -> None:
     with _riva_server(_answers("ok")) as riva:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="nvidia_riva/nvidia/parakeet-ctc-1.1b",
             file=("clip.wav", _wav(), "audio/wav"),
             api_base=riva.address,
@@ -446,7 +446,7 @@ def test_malformed_streaming_timeout_falls_back_to_the_default_deadline_under_dr
 
 def test_malformed_offline_timeout_is_ignored_under_drop_params() -> None:
     with _riva_server(_answers("ok")) as riva:
-        response: Final = litellm.transcription(
+        response: Final = hangarllm.transcription(
             model="nvidia_riva/nvidia/parakeet-0.6b-tdt",
             file=("clip.wav", _wav(), "audio/wav"),
             api_base=riva.address,
@@ -493,7 +493,7 @@ def test_oversized_offline_audio_is_a_non_retryable_413() -> None:
         assert riva.calls.empty()
 
     assert excinfo.value.status_code == 413, excinfo.value.message
-    assert litellm.utils.should_retry(excinfo.value.status_code) is False
+    assert hangarllm.utils.should_retry(excinfo.value.status_code) is False
 
 
 @pytest.mark.parametrize(
@@ -608,7 +608,7 @@ def test_missing_api_base_raises_clear_error() -> None:
             model="m",
             audio_file=_wav(),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             model_response=TranscriptionResponse(),
             timeout=60,
             logging_obj=_logging(),
@@ -627,7 +627,7 @@ def test_async_path_transcribes() -> None:
                 model="m",
                 audio_file=_wav(),
                 optional_params={"language_code": "en-US"},
-                litellm_params={},
+                hangarllm_params={},
                 model_response=TranscriptionResponse(),
                 timeout=60,
                 logging_obj=_logging(),

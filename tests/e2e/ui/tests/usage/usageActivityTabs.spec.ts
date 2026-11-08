@@ -97,7 +97,7 @@ test.describe("Usage page activity tabs", () => {
     await expect(entityCard(page, "Model Activity", DEPLOYMENT_MODEL_A)).toHaveCount(0);
 
     // Admins reconcile provider bills against the deployment, not the name their users call.
-    await panel.getByRole("button", { name: "Litellm Model Name" }).click();
+    await panel.getByRole("button", { name: "Hangarllm Model Name" }).click();
     await expect(entityCard(page, "Model Activity", DEPLOYMENT_MODEL_A)).toBeVisible({ timeout: 20_000 });
   });
 

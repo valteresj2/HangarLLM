@@ -1,7 +1,7 @@
 """
 Memory Violation Detection Test
 
-Detects bad memory patterns in the LiteLLM codebase that can lead to memory leaks or OOMs.
+Detects bad memory patterns in the HangarLLM codebase that can lead to memory leaks or OOMs.
 
 The detector uses a modular pattern-based system. To add detection for new memory patterns:
 
@@ -703,7 +703,7 @@ def check_directory_for_memory_violations(
 
 def main():
     """Run memory violation detection on codebase"""
-    codebase_path = "./litellm"
+    codebase_path = "./hangarllm"
 
     print("=" * 80)
     print("MEMORY VIOLATION DETECTION TEST")

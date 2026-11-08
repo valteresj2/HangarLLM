@@ -1,6 +1,6 @@
 """Unit tests for the sandbox-tool registry."""
 
-from litellm.sandbox import sandbox_tools
+from hangarllm.sandbox import sandbox_tools
 
 
 def _reset():
@@ -13,7 +13,7 @@ def test_register_resolves_provider_key_and_base():
         [
             {
                 "sandbox_tool_name": "e2b_default",
-                "litellm_params": {
+                "hangarllm_params": {
                     "sandbox_provider": "e2b",
                     "api_key": "sk-literal",
                     "api_base": "https://sandbox.internal",
@@ -38,7 +38,7 @@ def test_register_clears_stale_entries_on_reload():
         [
             {
                 "sandbox_tool_name": "old",
-                "litellm_params": {"sandbox_provider": "e2b"},
+                "hangarllm_params": {"sandbox_provider": "e2b"},
             }
         ]
     )
@@ -48,7 +48,7 @@ def test_register_clears_stale_entries_on_reload():
         [
             {
                 "sandbox_tool_name": "new",
-                "litellm_params": {"sandbox_provider": "e2b"},
+                "hangarllm_params": {"sandbox_provider": "e2b"},
             }
         ]
     )
@@ -68,7 +68,7 @@ def test_register_empty_list_clears_removed_tools():
         [
             {
                 "sandbox_tool_name": "e2b_default",
-                "litellm_params": {"sandbox_provider": "e2b", "api_key": "sk-x"},
+                "hangarllm_params": {"sandbox_provider": "e2b", "api_key": "sk-x"},
             }
         ]
     )
@@ -89,7 +89,7 @@ def test_register_resolves_secret_from_env(monkeypatch):
         [
             {
                 "sandbox_tool_name": "e2b_default",
-                "litellm_params": {
+                "hangarllm_params": {
                     "sandbox_provider": "e2b",
                     "api_key": "os.environ/MY_SANDBOX_KEY",
                 },
@@ -116,12 +116,12 @@ def test_register_skips_malformed_entries_without_crashing():
     _reset()
     sandbox_tools.register_sandbox_tools(
         [
-            {"litellm_params": {"sandbox_provider": "e2b"}},  # missing name
+            {"hangarllm_params": {"sandbox_provider": "e2b"}},  # missing name
             "not-a-dict",  # wrong type
-            {"sandbox_tool_name": "", "litellm_params": {}},  # empty name
+            {"sandbox_tool_name": "", "hangarllm_params": {}},  # empty name
             {
                 "sandbox_tool_name": "good",
-                "litellm_params": {"sandbox_provider": "e2b"},
+                "hangarllm_params": {"sandbox_provider": "e2b"},
             },
         ]
     )
@@ -139,14 +139,14 @@ def test_register_skips_entry_missing_sandbox_provider():
     _reset()
     sandbox_tools.register_sandbox_tools(
         [
-            {"sandbox_tool_name": "no_provider", "litellm_params": {"api_key": "sk-x"}},
+            {"sandbox_tool_name": "no_provider", "hangarllm_params": {"api_key": "sk-x"}},
             {
                 "sandbox_tool_name": "null_provider",
-                "litellm_params": {"sandbox_provider": None},
+                "hangarllm_params": {"sandbox_provider": None},
             },
             {
                 "sandbox_tool_name": "good",
-                "litellm_params": {"sandbox_provider": "e2b"},
+                "hangarllm_params": {"sandbox_provider": "e2b"},
             },
         ]
     )
@@ -163,14 +163,14 @@ def test_register_swaps_registry_atomically():
     registry between clearing and repopulating."""
     _reset()
     sandbox_tools.register_sandbox_tools(
-        [{"sandbox_tool_name": "a", "litellm_params": {"sandbox_provider": "e2b"}}]
+        [{"sandbox_tool_name": "a", "hangarllm_params": {"sandbox_provider": "e2b"}}]
     )
     before = sandbox_tools._SANDBOX_TOOL_REGISTRY
 
     sandbox_tools.register_sandbox_tools(
         [
-            {"sandbox_tool_name": "b", "litellm_params": {"sandbox_provider": "e2b"}},
-            {"sandbox_tool_name": "c", "litellm_params": {"sandbox_provider": "e2b"}},
+            {"sandbox_tool_name": "b", "hangarllm_params": {"sandbox_provider": "e2b"}},
+            {"sandbox_tool_name": "c", "hangarllm_params": {"sandbox_provider": "e2b"}},
         ]
     )
     after = sandbox_tools._SANDBOX_TOOL_REGISTRY

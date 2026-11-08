@@ -12,10 +12,10 @@ import asyncio
 import json
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
+from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
 
 
 def _text_chunk(text: str) -> ModelResponseStream:

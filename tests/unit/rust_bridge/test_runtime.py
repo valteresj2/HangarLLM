@@ -5,19 +5,19 @@ from typing import Final, Protocol
 
 import pytest
 
-from litellm.exceptions import APIError
-from litellm.litellm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.rust_bridge import bindings, configuration, runtime
-from litellm.rust_bridge._native import RustBridgeDeclined, RustUpstreamError
-from litellm.rust_bridge.catalog import Route, RouteContext, RouteRule
-from litellm.rust_bridge.configuration import Rollout
-from litellm.rust_bridge.execution import AsyncStream, Complete, StreamChunk, SyncStream
+from hangarllm.exceptions import APIError
+from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
+from hangarllm.llms.base_llm.ocr.transformation import OCRResponse
+from hangarllm.rust_bridge import bindings, configuration, runtime
+from hangarllm.rust_bridge._native import RustBridgeDeclined, RustUpstreamError
+from hangarllm.rust_bridge.catalog import Route, RouteContext, RouteRule
+from hangarllm.rust_bridge.configuration import Rollout
+from hangarllm.rust_bridge.execution import AsyncStream, Complete, StreamChunk, SyncStream
 
 
 @pytest.fixture(autouse=True)
 def rust_configuration(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
-    monkeypatch.delenv("LITELLM_RUST", raising=False)
+    monkeypatch.delenv("HANGARLLM_RUST", raising=False)
     configuration.reset_rust_configuration()
     yield
     configuration.reset_rust_configuration()
@@ -98,7 +98,7 @@ def test_rollout_and_switch_select_native_or_python(
 
 def test_environment_switch_enables_opt_in_route(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: Final = recorder()
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("HANGARLLM_RUST", "1")
 
     assert run(Rollout.RUST_OPT_IN, calls) == "rust"
     assert calls.calls == (RUST,)
@@ -123,7 +123,7 @@ def test_environment_switch_wins_over_process_switch(
     expected: tuple[str, ...],
 ) -> None:
     calls: Final = recorder()
-    monkeypatch.setenv("LITELLM_RUST", environment)
+    monkeypatch.setenv("HANGARLLM_RUST", environment)
     configuration.rust(switch)
 
     assert run(rollout, calls) == expected[-1]
@@ -150,7 +150,7 @@ def test_context_outside_rule_stays_on_python() -> None:
     ),
 )
 async def test_shipped_python_routes_never_load_native(monkeypatch: pytest.MonkeyPatch, context: RouteContext) -> None:
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("HANGARLLM_RUST", "1")
     configuration.rust(True)
     calls: Final = recorder()
 
@@ -253,8 +253,8 @@ async def test_native_response_marker_reaches_caller_with_existing_metadata(
         "response_cost": 0.01,
         "additional_headers": {
             "x-request-id": "upstream",
-            "x-litellm-rust": "true",
-            **({"x-litellm-cache-key": cache_key} if cache_key is not None else {}),
+            "x-hangarllm-rust": "true",
+            **({"x-hangarllm-cache-key": cache_key} if cache_key is not None else {}),
         },
         **({"cache_key": cache_key} if cache_key is not None else {}),
     }
@@ -305,7 +305,7 @@ async def test_native_stream_marker_reaches_caller_without_wrapping_or_consuming
         )
     )
     assert result is stream
-    assert get_hidden_params_dict(result) == {"additional_headers": {"x-litellm-rust": "true"}}
+    assert get_hidden_params_dict(result) == {"additional_headers": {"x-hangarllm-rust": "true"}}
     assert not execution.closed
     delivered: Final = tuple([chunk async for chunk in result]) if isinstance(result, AsyncStream) else tuple(result)
     assert delivered == chunks

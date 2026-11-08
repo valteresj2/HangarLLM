@@ -1,13 +1,13 @@
-"""End-to-end: every harness, real runtime, real LiteLLM AI Gateway via litellm_proxy/."""
+"""End-to-end: every harness, real runtime, real HangarLLM AI Gateway via hangarllm_proxy/."""
 
 from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
 
-import litellm
-from litellm import Harness, sandbox
-from litellm.harness import (
+import hangarllm
+from hangarllm import Harness, sandbox
+from hangarllm.harness import (
     CapabilityUnsupported,
     Done,
     FileChange,
@@ -30,7 +30,7 @@ class Answer(BaseModel):
 
 @pytest.mark.parametrize("harness", harness_params())
 def test_agent_creates_file_and_reports_cost(harness: Harness, workspace: Path) -> None:
-    result = litellm.agent(
+    result = hangarllm.agent(
         harness,
         "Create a file named hello.txt whose entire content is the single word: hi",
         sandbox=sandbox.local(workspace),
@@ -50,7 +50,7 @@ def test_agent_creates_file_and_reports_cost(harness: Harness, workspace: Path) 
 def test_agent_stream_event_order(harness: Harness, workspace: Path) -> None:
     (workspace / "secret.txt").write_text("The secret word is ZEBRA.\n")
     events = list(
-        litellm.agent(
+        hangarllm.agent(
             harness,
             "Read secret.txt and reply with just the secret word in it.",
             sandbox=sandbox.local(workspace),
@@ -69,7 +69,7 @@ def test_agent_stream_event_order(harness: Harness, workspace: Path) -> None:
 
 @pytest.mark.parametrize("harness", harness_params())
 def test_agent_structured_output(harness: Harness, workspace: Path) -> None:
-    result = litellm.agent(
+    result = hangarllm.agent(
         harness,
         "What is the capital of France? Do not use any tools.",
         sandbox=sandbox.local(workspace),
@@ -87,7 +87,7 @@ def test_agent_structured_output(harness: Harness, workspace: Path) -> None:
 def test_agent_session_remembers_previous_turn(
     harness: Harness, workspace: Path
 ) -> None:
-    with litellm.agent_session(
+    with hangarllm.agent_session(
         harness,
         sandbox=sandbox.local(workspace),
         model=model_for(harness),
@@ -104,13 +104,13 @@ def test_agent_session_remembers_previous_turn(
 @pytest.mark.parametrize("harness", harness_params())
 def test_agent_detach_and_resume(harness: Harness, workspace: Path) -> None:
     box = sandbox.local(workspace)
-    s = litellm.agent_session(
+    s = hangarllm.agent_session(
         harness, sandbox=box, model=model_for(harness), timeout=TURN_TIMEOUT
     )
     s.run("Remember this number: 4817. Reply with just OK.")
     raw = s.detach().dumps()
 
-    with litellm.agent_resume(
+    with hangarllm.agent_resume(
         State.loads(raw), sandbox=box, model=model_for(harness)
     ) as resumed:
         r = resumed.run(
@@ -129,7 +129,7 @@ def test_opencode_session_resumed_in_another_sandbox_keeps_working_in_both(
     workspace: Path, tmp_path: Path
 ) -> None:
     model = model_for(Harness.OPENCODE)
-    s = litellm.agent_session(
+    s = hangarllm.agent_session(
         Harness.OPENCODE,
         sandbox=sandbox.local(workspace),
         model=model,
@@ -140,11 +140,11 @@ def test_opencode_session_resumed_in_another_sandbox_keeps_working_in_both(
     moved = tmp_path / "moved"
     moved.mkdir()
 
-    with litellm.agent_resume(
+    with hangarllm.agent_resume(
         State.loads(raw), sandbox=sandbox.local(workspace), model=model, timeout=TURN_TIMEOUT
     ) as original:
         original.run("Reply with just OK.")
-        with litellm.agent_resume(
+        with hangarllm.agent_resume(
             State.loads(raw), sandbox=sandbox.local(moved), model=model, timeout=TURN_TIMEOUT
         ) as resumed:
             resumed.run(
@@ -173,7 +173,7 @@ def test_opencode_resume_of_a_missing_session_ends_with_a_runtime_error(
         model=model,
     )
 
-    with litellm.agent_resume(
+    with hangarllm.agent_resume(
         missing, sandbox=sandbox.local(workspace), model=model, timeout=TURN_TIMEOUT
     ) as resumed:
         result = resumed.run("Reply with just OK.")
@@ -184,7 +184,7 @@ def test_opencode_resume_of_a_missing_session_ends_with_a_runtime_error(
 
 @pytest.mark.parametrize("harness", harness_params())
 def test_agent_read_only_blocks_writes(harness: Harness, workspace: Path) -> None:
-    result = litellm.agent(
+    result = hangarllm.agent(
         harness,
         "Create a file named blocked.txt containing x. If you cannot, just say you cannot.",
         sandbox=sandbox.local(workspace),
@@ -199,12 +199,12 @@ def test_agent_read_only_blocks_writes(harness: Harness, workspace: Path) -> Non
 
 def test_string_harness_rejected(workspace: Path) -> None:
     with pytest.raises(TypeError, match=r"Harness\.CODEX"):
-        litellm.agent("codex", "hi", sandbox=sandbox.local(workspace))  # type: ignore[arg-type]
+        hangarllm.agent("codex", "hi", sandbox=sandbox.local(workspace))  # type: ignore[arg-type]
 
 
 def test_capability_checked_before_start(workspace: Path) -> None:
     with pytest.raises(CapabilityUnsupported):
-        litellm.agent(
+        hangarllm.agent(
             Harness.CODEX,
             "hi",
             sandbox=sandbox.local(workspace),

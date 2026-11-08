@@ -4,7 +4,7 @@ Validate Claude Fable 5 and Claude Fable 5.1 model configuration entries.
 Fable 5 is a new tier above Opus ($10/$50 per MTok) with the same adaptive-only
 API surface as Opus 4.7/4.8. The cost-map entries below are what make the model
 resolvable across Anthropic, Bedrock, Vertex AI, and Azure AI (Microsoft
-Foundry), and the ``supports_adaptive_thinking`` flag is what makes LiteLLM send
+Foundry), and the ``supports_adaptive_thinking`` flag is what makes HangarLLM send
 ``thinking.type='adaptive'`` instead of the legacy ``enabled``/``budget_tokens``
 shape, which Fable 5 rejects with a 400.
 """
@@ -14,8 +14,8 @@ import os
 
 import pytest
 
-from litellm.constants import BEDROCK_CONVERSE_MODELS
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.constants import BEDROCK_CONVERSE_MODELS
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
 
 REPO_ROOT = os.path.join(os.path.dirname(__file__), "../..")
 
@@ -46,7 +46,7 @@ def test_fable_5_registered_for_bedrock_converse():
 def test_adaptive_thinking_detected_for_fable_5(local_model_cost_map, model):
     """Provider-routed ids must resolve to a flagged entry so ``reasoning_effort``
     maps to ``thinking.type='adaptive'`` + ``output_config.effort``."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is True
 
@@ -89,6 +89,6 @@ def test_fable_5_1_registered_for_bedrock_converse():
     ],
 )
 def test_adaptive_thinking_detected_for_fable_5_1(local_model_cost_map, model):
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     assert AnthropicModelInfo.is_adaptive_thinking_model(model, "anthropic") is True

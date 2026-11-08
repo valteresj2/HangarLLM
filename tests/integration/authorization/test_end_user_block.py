@@ -25,7 +25,7 @@ class _BlockUsersResponse(BaseModel):
 
 
 def _blocked_row(user_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT blocked FROM "LiteLLM_EndUserTable" WHERE user_id=%s', (user_id,))
+    return read_rows('SELECT blocked FROM "HangarLLM_EndUserTable" WHERE user_id=%s', (user_id,))
 
 
 def _observed(upstream: httpx.Client) -> list[dict[str, JsonValue]]:
@@ -89,12 +89,12 @@ class _CallbackRig:
 def _callback_config(directory: Path, blocked_user_list: list[str] | None = None) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     settings: Final = {
-        **object_value(config["litellm_settings"]),
+        **object_value(config["hangarllm_settings"]),
         "callbacks": ["blocked_user_check"],
     }
     if blocked_user_list is not None:
         settings["blocked_user_list"] = blocked_user_list
-    config["litellm_settings"] = settings
+    config["hangarllm_settings"] = settings
     path: Final = directory / "config.yaml"
     path.write_text(yaml.safe_dump(config))
     return path
@@ -347,7 +347,7 @@ def test_blocked_end_user_is_refused_without_the_callback(gateway: Gateway) -> N
 
 
 def test_blocked_end_user_header_spelling_is_refused_with_the_callback(gateway: Gateway, tmp_path: Path) -> None:
-    pytest.skip("BUG: x-litellm-end-user-id request for a blocked customer returns 200 instead of 400")
+    pytest.skip("BUG: x-hangarllm-end-user-id request for a blocked customer returns 200 instead of 400")
     end_user: Final = f"integration-end-user-{uuid.uuid4().hex}"
     config: Final = _callback_config(tmp_path, blocked_user_list=[end_user])
     with (
@@ -366,7 +366,7 @@ def test_blocked_end_user_header_spelling_is_refused_with_the_callback(gateway: 
                 "/v1/chat/completions",
                 {"model": model, "messages": [{"role": "user", "content": f"blocked {uuid.uuid4().hex}"}]},
                 key=key,
-                headers={"x-litellm-end-user-id": end_user},
+                headers={"x-hangarllm-end-user-id": end_user},
             )
             _assert_blocked_refusal(refused, end_user)
             assert _observed(upstream) == []

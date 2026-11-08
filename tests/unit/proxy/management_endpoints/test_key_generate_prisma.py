@@ -22,7 +22,7 @@
 import os
 import re
 import traceback
-from litellm._uuid import uuid
+from hangarllm._uuid import uuid
 from datetime import datetime, timezone
 from unittest import mock
 
@@ -35,22 +35,22 @@ load_dotenv()
 import io
 import time
 
-# this file is to test litellm/proxy
+# this file is to test hangarllm/proxy
 
 import asyncio
 import logging
 
 import pytest
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.management_endpoints.internal_user_endpoints import (
+import hangarllm
+from hangarllm._logging import verbose_proxy_logger
+from hangarllm.proxy.management_endpoints.internal_user_endpoints import (
     new_user,
     user_info,
     user_update,
 )
-from litellm.proxy.auth.auth_checks import get_key_object
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from hangarllm.proxy.auth.auth_checks import get_key_object
+from hangarllm.proxy.management_endpoints.key_management_endpoints import (
     delete_key_fn,
     generate_key_fn,
     generate_key_helper_fn,
@@ -60,13 +60,13 @@ from litellm.proxy.management_endpoints.key_management_endpoints import (
     update_key_fn,
     key_aliases,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from hangarllm.proxy.management_endpoints.team_endpoints import (
     new_team,
     team_info,
     update_team,
 )
-from litellm.proxy.proxy_server import (
-    LitellmUserRoles,
+from hangarllm.proxy.proxy_server import (
+    HangarllmUserRoles,
     audio_transcriptions,
     chat_completion,
     completion,
@@ -75,26 +75,26 @@ from litellm.proxy.proxy_server import (
     moderations,
     user_api_key_auth,
 )
-from litellm.proxy.image_endpoints import image_generation
-from litellm.proxy.management_endpoints.customer_endpoints import (
+from hangarllm.proxy.image_endpoints import image_generation
+from hangarllm.proxy.management_endpoints.customer_endpoints import (
     new_end_user,
 )
-from litellm.proxy.spend_tracking.spend_management_endpoints import (
+from hangarllm.proxy.spend_tracking.spend_management_endpoints import (
     global_spend,
     spend_key_fn,
     spend_user_fn,
     view_spend_logs,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
 
 
 from starlette.datastructures import URL
 
-from litellm.caching.caching import DualCache
-from litellm.types.proxy.management_endpoints.ui_sso import (
-    LiteLLM_UpperboundKeyGenerateParams,
+from hangarllm.caching.caching import DualCache
+from hangarllm.types.proxy.management_endpoints.ui_sso import (
+    HangarLLM_UpperboundKeyGenerateParams,
 )
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     DynamoDBArgs,
     GenerateKeyRequest,
     KeyRequest,
@@ -123,7 +123,7 @@ request_data = {
 
 @pytest.fixture
 def prisma_client():
-    from litellm.proxy.proxy_cli import append_query_params
+    from hangarllm.proxy.proxy_cli import append_query_params
 
     ### add connection pool + pool timeout args
     params = {"connection_limit": 100, "pool_timeout": 60}
@@ -136,11 +136,11 @@ def prisma_client():
         database_url=os.environ["DATABASE_URL"], proxy_logging_obj=proxy_logging_obj
     )
 
-    # Reset litellm.proxy.proxy_server.prisma_client to None
-    litellm.proxy.proxy_server.litellm_proxy_budget_name = (
-        f"litellm-proxy-budget-{time.time()}"
+    # Reset hangarllm.proxy.proxy_server.prisma_client to None
+    hangarllm.proxy.proxy_server.hangarllm_proxy_budget_name = (
+        f"hangarllm-proxy-budget-{time.time()}"
     )
-    litellm.proxy.proxy_server.user_custom_key_generate = None
+    hangarllm.proxy.proxy_server.user_custom_key_generate = None
 
     return prisma_client
 
@@ -152,11 +152,11 @@ async def test_new_user_response(prisma_client):
     try:
         print("prisma client=", prisma_client)
 
-        setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-        setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+        setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+        setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
-        await litellm.proxy.proxy_server.prisma_client.connect()
-        from litellm.proxy.proxy_server import user_api_key_cache
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
+        from hangarllm.proxy.proxy_server import user_api_key_cache
 
         _team_id = "ishaan-special-team_{}".format(uuid.uuid4())
         await new_team(
@@ -165,7 +165,7 @@ async def test_new_user_response(prisma_client):
             ),
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -177,7 +177,7 @@ async def test_new_user_response(prisma_client):
                 team_id=_team_id,
                 tpm_limit=20,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -239,20 +239,20 @@ def test_generate_and_call_with_valid_key(prisma_client, api_route):
 
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
-            from litellm.proxy.proxy_server import user_api_key_cache
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
+            from hangarllm.proxy.proxy_server import user_api_key_cache
 
             user_api_key_dict = UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             )
-            request = NewUserRequest(user_role=LitellmUserRoles.INTERNAL_USER)
+            request = NewUserRequest(user_role=HangarllmUserRoles.INTERNAL_USER)
             key = await new_user(request, user_api_key_dict=user_api_key_dict)
             print(key)
             user_id = key.user_id
@@ -266,7 +266,7 @@ def test_generate_and_call_with_valid_key(prisma_client, api_route):
             )
             new_user_info = new_user_info.user_info
             print("new_user_info=", new_user_info)
-            assert new_user_info["user_role"] == LitellmUserRoles.INTERNAL_USER
+            assert new_user_info["user_role"] == HangarllmUserRoles.INTERNAL_USER
             assert new_user_info["user_id"] == user_id
 
             generated_key = key.key
@@ -300,11 +300,11 @@ def test_generate_and_call_with_valid_key(prisma_client, api_route):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_invalid_key(prisma_client):
     # 2. Make a call with invalid key, expect it to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         generated_key = "sk-126666"
         bearer_token = "Bearer " + generated_key
 
@@ -326,18 +326,18 @@ def test_call_with_invalid_key(prisma_client):
 
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_invalid_model(prisma_client):
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     # 3. Make a call to a key with an invalid model - expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = NewUserRequest(models=["mistral"])
         key = await new_user(
             data=request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -375,17 +375,17 @@ def test_call_with_invalid_model(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_valid_model(prisma_client):
     # 4. Make a call to a key with a valid model - expect to pass
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
             request = NewUserRequest(models=["mistral"])
             key = await new_user(
                 request,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -422,11 +422,11 @@ async def test_call_with_valid_model_using_all_models(prisma_client):
     2. Create a key with model = `all-team-models`
     3. Call /chat/completions with the key -> expect to pass
     """
-    # Make a call to a key with model = `all-proxy-models` this is an Alias from LiteLLM Admin UI
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    # Make a call to a key with model = `all-proxy-models` this is an Alias from HangarLLM Admin UI
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
 
         team_request = NewTeamRequest(
             team_alias="testing-team",
@@ -435,7 +435,7 @@ async def test_call_with_valid_model_using_all_models(prisma_client):
 
         new_team_response = await new_team(
             data=team_request,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             http_request=Request(scope={"type": "http"}),
         )
         print("new_team_response", new_team_response)
@@ -447,7 +447,7 @@ async def test_call_with_valid_model_using_all_models(prisma_client):
         key = await generate_key_fn(
             data=request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -472,7 +472,7 @@ async def test_call_with_valid_model_using_all_models(prisma_client):
         # call /key/info for key - models == "all-proxy-models"
         key_info = await info_key_fn(
             key=generated_key,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
         print("key_info", key_info)
         models = key_info["info"]["models"]
@@ -485,16 +485,16 @@ async def test_call_with_valid_model_using_all_models(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_user_over_budget(prisma_client):
     # 5. Make a call with a key over budget, expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = NewUserRequest(max_budget=0.00001)
         key = await new_user(
             data=request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -513,8 +513,8 @@ def test_call_with_user_over_budget(prisma_client):
         print("result from user auth with new key", result)
 
         # update spend using track_cost callback, make 2nd request, it should fail
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
 
         proxy_db_logger = ProxyDBLogger()
 
@@ -536,7 +536,7 @@ def test_call_with_user_over_budget(prisma_client):
         await proxy_db_logger._PROXY_track_cost_callback(
             kwargs={
                 "stream": False,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": generated_key,
                         "user_api_key_user_id": user_id,
@@ -575,15 +575,15 @@ def test_end_user_cache_write_unit_test():
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_end_user_over_budget(prisma_client):
     # Test if a user passed to /chat/completions is tracked & fails when they cross their budget
-    # we only check this when litellm.max_end_user_budget is set
+    # we only check this when hangarllm.max_end_user_budget is set
     import random
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm, "max_end_user_budget", 0.00001)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm, "max_end_user_budget", 0.00001)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         user = f"ishaan {uuid.uuid4().hex}"
         request = NewCustomerRequest(
             user_id=user, max_budget=0.000001
@@ -591,7 +591,7 @@ def test_call_with_end_user_over_budget(prisma_client):
         await new_end_user(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -611,8 +611,8 @@ def test_call_with_end_user_over_budget(prisma_client):
         result = await user_api_key_auth(request=request, api_key=bearer_token)
 
         # update spend using track_cost callback, make 2nd request, it should fail
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
 
         proxy_db_logger = ProxyDBLogger()
 
@@ -634,7 +634,7 @@ def test_call_with_end_user_over_budget(prisma_client):
         await proxy_db_logger._PROXY_track_cost_callback(
             kwargs={
                 "stream": False,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": MASTER_KEY,
                         "user_api_key_end_user_id": user,
@@ -680,29 +680,29 @@ def test_call_with_end_user_over_budget(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_proxy_over_budget(prisma_client):
     # 5.1 Make a call with a proxy over budget, expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    litellm_proxy_budget_name = f"litellm-proxy-budget-{time.time()}"
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    hangarllm_proxy_budget_name = f"hangarllm-proxy-budget-{time.time()}"
     setattr(
-        litellm.proxy.proxy_server,
-        "litellm_proxy_admin_name",
-        litellm_proxy_budget_name,
+        hangarllm.proxy.proxy_server,
+        "hangarllm_proxy_admin_name",
+        hangarllm_proxy_budget_name,
     )
-    setattr(litellm, "max_budget", 0.00001)
-    from litellm.proxy.proxy_server import user_api_key_cache
+    setattr(hangarllm, "max_budget", 0.00001)
+    from hangarllm.proxy.proxy_server import user_api_key_cache
 
     user_api_key_cache.set_cache(
-        key="{}:spend".format(litellm_proxy_budget_name), value=0
+        key="{}:spend".format(hangarllm_proxy_budget_name), value=0
     )
-    setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = NewUserRequest()
         key = await new_user(
             data=request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -721,8 +721,8 @@ def test_call_with_proxy_over_budget(prisma_client):
         print("result from user auth with new key", result)
 
         # update spend using track_cost callback, make 2nd request, it should fail
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
 
         proxy_db_logger = ProxyDBLogger()
 
@@ -744,7 +744,7 @@ def test_call_with_proxy_over_budget(prisma_client):
         await proxy_db_logger._PROXY_track_cost_callback(
             kwargs={
                 "stream": False,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": generated_key,
                         "user_api_key_user_id": user_id,
@@ -779,22 +779,22 @@ def test_call_with_proxy_over_budget(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_user_over_budget_stream(prisma_client):
     # 6. Make a call with a key over budget, expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from hangarllm._logging import verbose_proxy_logger
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     verbose_proxy_logger.setLevel(logging.DEBUG)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = NewUserRequest(max_budget=0.00001)
         key = await new_user(
             data=request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -813,8 +813,8 @@ def test_call_with_user_over_budget_stream(prisma_client):
         print("result from user auth with new key", result)
 
         # update spend using track_cost callback, make 2nd request, it should fail
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
 
         proxy_db_logger = ProxyDBLogger()
 
@@ -837,7 +837,7 @@ def test_call_with_user_over_budget_stream(prisma_client):
             kwargs={
                 "stream": True,
                 "complete_streaming_response": resp,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": generated_key,
                         "user_api_key_user_id": user_id,
@@ -868,40 +868,40 @@ def test_call_with_user_over_budget_stream(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_proxy_over_budget_stream(prisma_client):
     # 6.1 Make a call with a global proxy over budget, expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    litellm_proxy_budget_name = f"litellm-proxy-budget-{time.time()}"
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    hangarllm_proxy_budget_name = f"hangarllm-proxy-budget-{time.time()}"
     setattr(
-        litellm.proxy.proxy_server,
-        "litellm_proxy_admin_name",
-        litellm_proxy_budget_name,
+        hangarllm.proxy.proxy_server,
+        "hangarllm_proxy_admin_name",
+        hangarllm_proxy_budget_name,
     )
-    setattr(litellm, "max_budget", 0.00001)
-    from litellm.proxy.proxy_server import user_api_key_cache
+    setattr(hangarllm, "max_budget", 0.00001)
+    from hangarllm.proxy.proxy_server import user_api_key_cache
 
     user_api_key_cache.set_cache(
-        key="{}:spend".format(litellm_proxy_budget_name), value=0
+        key="{}:spend".format(hangarllm_proxy_budget_name), value=0
     )
-    setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
 
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from hangarllm._logging import verbose_proxy_logger
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     verbose_proxy_logger.setLevel(logging.DEBUG)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         ## CREATE PROXY + USER BUDGET ##
         # request = NewUserRequest(
-        #     max_budget=0.00001, user_id=litellm_proxy_budget_name
+        #     max_budget=0.00001, user_id=hangarllm_proxy_budget_name
         # )
         request = NewUserRequest()
         key = await new_user(
             data=request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -920,8 +920,8 @@ def test_call_with_proxy_over_budget_stream(prisma_client):
         print("result from user auth with new key", result)
 
         # update spend using track_cost callback, make 2nd request, it should fail
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
 
         proxy_db_logger = ProxyDBLogger()
 
@@ -944,7 +944,7 @@ def test_call_with_proxy_over_budget_stream(prisma_client):
             kwargs={
                 "stream": True,
                 "complete_streaming_response": resp,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": generated_key,
                         "user_api_key_user_id": user_id,
@@ -976,17 +976,17 @@ def test_generate_and_call_with_valid_key_never_expires(prisma_client):
 
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
             request = NewUserRequest(duration=None)
             key = await new_user(
                 data=request,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1014,16 +1014,16 @@ def test_generate_and_call_with_expired_key(prisma_client):
 
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = NewUserRequest(duration="0s")
         key = await new_user(
             data=request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -1056,20 +1056,20 @@ def test_delete_key(prisma_client):
 
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "user_custom_auth", None)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "user_custom_auth", None)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
-            from litellm.proxy.proxy_server import user_api_key_cache
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
+            from hangarllm.proxy.proxy_server import user_api_key_cache
 
             request = NewUserRequest()
             key = await new_user(
                 data=request,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1089,7 +1089,7 @@ def test_delete_key(prisma_client):
             # use generated key to auth in
             result = await user_api_key_auth(request=request, api_key=bearer_token)
             print(f"result: {result}")
-            result.user_role = LitellmUserRoles.PROXY_ADMIN
+            result.user_role = HangarllmUserRoles.PROXY_ADMIN
             # delete the key
             result_delete_key = await delete_key_fn(
                 data=delete_key_request, user_api_key_dict=result
@@ -1114,19 +1114,19 @@ def test_delete_key_auth(prisma_client):
 
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
-            from litellm.proxy.proxy_server import user_api_key_cache
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
+            from hangarllm.proxy.proxy_server import user_api_key_cache
 
             request = NewUserRequest()
             key = await new_user(
                 data=request,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1147,7 +1147,7 @@ def test_delete_key_auth(prisma_client):
             # use generated key to auth in
             result = await user_api_key_auth(request=request, api_key=bearer_token)
             print(f"result: {result}")
-            result.user_role = LitellmUserRoles.PROXY_ADMIN
+            result.user_role = HangarllmUserRoles.PROXY_ADMIN
 
             result_delete_key = await delete_key_fn(
                 data=delete_key_request, user_api_key_dict=result
@@ -1193,19 +1193,19 @@ def test_generate_and_call_key_info(prisma_client):
 
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
             request = NewUserRequest(
-                metadata={"team": "litellm-team3", "project": "litellm-project3"}
+                metadata={"team": "hangarllm-team3", "project": "hangarllm-project3"}
             )
             key = await new_user(
                 data=request,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1218,7 +1218,7 @@ def test_generate_and_call_key_info(prisma_client):
             result = await info_key_fn(
                 key=generated_key,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                 ),
             )
             print("result from info_key_fn", result)
@@ -1226,8 +1226,8 @@ def test_generate_and_call_key_info(prisma_client):
             print("\n info for key=", result["info"])
             assert result["info"]["max_parallel_requests"] == None
             assert result["info"]["metadata"] == {
-                "team": "litellm-team3",
-                "project": "litellm-project3",
+                "team": "hangarllm-team3",
+                "project": "hangarllm-project3",
             }
 
             # cleanup - delete key
@@ -1240,7 +1240,7 @@ def test_generate_and_call_key_info(prisma_client):
             # use generated key to auth in
             result = await user_api_key_auth(request=request, api_key=bearer_token)
             print(f"result: {result}")
-            result.user_role = LitellmUserRoles.PROXY_ADMIN
+            result.user_role = HangarllmUserRoles.PROXY_ADMIN
 
             result_delete_key = await delete_key_fn(
                 data=delete_key_request, user_api_key_dict=result
@@ -1256,26 +1256,26 @@ def test_generate_and_update_key(prisma_client):
     # 11. Generate a Key, cal key/info, call key/update, call key/info
     # Check if data gets updated
     # Check if untouched data does not get updated
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
 
-            # create team "litellm-core-infra@gmail.com""
-            print("creating team litellm-core-infra@gmail.com")
-            _team_1 = "litellm-core-infra@gmail.com_{}".format(uuid.uuid4())
+            # create team "hangarllm-core-infra@gmail.com""
+            print("creating team hangarllm-core-infra@gmail.com")
+            _team_1 = "hangarllm-core-infra@gmail.com_{}".format(uuid.uuid4())
             await new_team(
                 NewTeamRequest(
                     team_id=_team_1,
                 ),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1288,7 +1288,7 @@ def test_generate_and_update_key(prisma_client):
                     team_id=_team_2,
                 ),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1296,14 +1296,14 @@ def test_generate_and_update_key(prisma_client):
             )
 
             request = NewUserRequest(
-                metadata={"project": "litellm-project3"},
+                metadata={"project": "hangarllm-project3"},
                 team_id=_team_1,
             )
 
             key = await new_user(
                 data=request,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1316,7 +1316,7 @@ def test_generate_and_update_key(prisma_client):
             result = await info_key_fn(
                 key=generated_key,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                 ),
             )
             print("result from info_key_fn", result)
@@ -1324,7 +1324,7 @@ def test_generate_and_update_key(prisma_client):
             print("\n info for key=", result["info"])
             assert result["info"]["max_parallel_requests"] == None
             assert result["info"]["metadata"] == {
-                "project": "litellm-project3",
+                "project": "hangarllm-project3",
             }
             assert result["info"]["team_id"] == _team_1
 
@@ -1341,7 +1341,7 @@ def test_generate_and_update_key(prisma_client):
                     max_budget=100,
                 ),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1354,7 +1354,7 @@ def test_generate_and_update_key(prisma_client):
                 request=Request,
                 data=UpdateKeyRequest(key=generated_key, tpm_limit=1000),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1365,7 +1365,7 @@ def test_generate_and_update_key(prisma_client):
             result = await info_key_fn(
                 key=generated_key,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                 ),
             )
             print("result from info_key_fn", result)
@@ -1373,7 +1373,7 @@ def test_generate_and_update_key(prisma_client):
             print("\n info for key=", result["info"])
             assert result["info"]["max_parallel_requests"] == None
             assert result["info"]["metadata"] == {
-                "project": "litellm-project3",
+                "project": "hangarllm-project3",
             }
             assert result["info"]["models"] == ["ada", "babbage", "curie", "davinci"]
             assert result["info"]["tpm_limit"] == 1000
@@ -1425,7 +1425,7 @@ def test_generate_and_update_key(prisma_client):
             # use generated key to auth in
             result = await user_api_key_auth(request=request, api_key=bearer_token)
             print(f"result: {result}")
-            result.user_role = LitellmUserRoles.PROXY_ADMIN
+            result.user_role = HangarllmUserRoles.PROXY_ADMIN
 
             result_delete_key = await delete_key_fn(
                 data=delete_key_request, user_api_key_dict=result
@@ -1451,7 +1451,7 @@ def test_key_generate_with_custom_auth(prisma_client):
             dict: A dictionary containing the decision and an optional message.
             {
                 "decision": False,
-                "message": "This violates LiteLLM Proxy Rules. No team id provided.",
+                "message": "This violates HangarLLM Proxy Rules. No team id provided.",
             }
         """
 
@@ -1472,8 +1472,8 @@ def test_key_generate_with_custom_auth(prisma_client):
         tpm_limit = data_json.get("tpm_limit")
         rpm_limit = data_json.get("rpm_limit")
 
-        if team_id is not None and team_id == "litellm-core-infra@gmail.com":
-            # only team_id="litellm-core-infra@gmail.com" can make keys
+        if team_id is not None and team_id == "hangarllm-core-infra@gmail.com":
+            # only team_id="hangarllm-core-infra@gmail.com" can make keys
             return {
                 "decision": True,
             }
@@ -1481,27 +1481,27 @@ def test_key_generate_with_custom_auth(prisma_client):
             print("Failed custom auth")
             return {
                 "decision": False,
-                "message": "This violates LiteLLM Proxy Rules. No team id provided.",
+                "message": "This violates HangarLLM Proxy Rules. No team id provided.",
             }
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     setattr(
-        litellm.proxy.proxy_server, "user_custom_key_generate", custom_generate_key_fn
+        hangarllm.proxy.proxy_server, "user_custom_key_generate", custom_generate_key_fn
     )
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
             request = GenerateKeyRequest()
 
             with pytest.raises(
-                Exception, match=re.escape("This violates LiteLLM Proxy Rules. No team id provided.")
+                Exception, match=re.escape("This violates HangarLLM Proxy Rules. No team id provided.")
             ) as exc_info:
                 key = await generate_key_fn(
                     request,
                     user_api_key_dict=UserAPIKeyAuth(
-                        user_role=LitellmUserRoles.PROXY_ADMIN,
+                        user_role=HangarllmUserRoles.PROXY_ADMIN,
                         api_key=MASTER_KEY,
                         user_id="1234",
                     ),
@@ -1511,18 +1511,18 @@ def test_key_generate_with_custom_auth(prisma_client):
             print(e.message)
             print("First request failed!. This is expected")
             assert (
-                "This violates LiteLLM Proxy Rules. No team id provided."
+                "This violates HangarLLM Proxy Rules. No team id provided."
                 in e.message
             )
 
             request_2 = GenerateKeyRequest(
-                team_id="litellm-core-infra@gmail.com",
+                team_id="hangarllm-core-infra@gmail.com",
             )
 
             key = await generate_key_fn(
                 request_2,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -1543,16 +1543,16 @@ def test_key_generate_with_custom_auth(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 def test_call_with_key_over_budget(prisma_client):
     # 12. Make a call with a key over budget, expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = GenerateKeyRequest(max_budget=0.00001)
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -1571,15 +1571,15 @@ def test_call_with_key_over_budget(prisma_client):
         print("result from user auth with new key", result)
 
         # update spend using track_cost callback, make 2nd request, it should fail
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.caching.caching import Cache
-        from litellm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.caching.caching import Cache
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
 
         proxy_db_logger = ProxyDBLogger()
 
-        litellm.cache = Cache()
+        hangarllm.cache = Cache()
         import time
-        from litellm._uuid import uuid
+        from hangarllm._uuid import uuid
 
         request_id = f"chatcmpl-e41836bb-bb8b-4df2-8e70-8f3e160155ac{uuid.uuid4()}"
 
@@ -1602,7 +1602,7 @@ def test_call_with_key_over_budget(prisma_client):
             kwargs={
                 "model": "chatgpt-v-3",
                 "stream": False,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": hash_token(generated_key),
                         "user_api_key_user_id": user_id,
@@ -1661,17 +1661,17 @@ def test_call_with_key_over_budget(prisma_client):
 def test_call_with_key_over_budget_no_cache(prisma_client):
     # 12. Make a call with a key over budget, expect to fail
     # ✅  Tests if spend trackign works when the key does not exist in memory
-    # Related to this: https://github.com/BerriAI/litellm/issues/3920
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    # Related to this: upstream issue 3920
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
     async def test():
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = GenerateKeyRequest(max_budget=0.00001)
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -1690,18 +1690,18 @@ def test_call_with_key_over_budget_no_cache(prisma_client):
         print("result from user auth with new key", result)
 
         # update spend using track_cost callback, make 2nd request, it should fail
-        from litellm.proxy.proxy_server import ProxyDBLogger
-        from litellm.proxy.proxy_server import user_api_key_cache
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm.proxy.proxy_server import user_api_key_cache
 
         user_api_key_cache.in_memory_cache.cache_dict = {}
-        setattr(litellm.proxy.proxy_server, "proxy_batch_write_at", 1)
+        setattr(hangarllm.proxy.proxy_server, "proxy_batch_write_at", 1)
 
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.caching.caching import Cache
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.caching.caching import Cache
 
-        litellm.cache = Cache()
+        hangarllm.cache = Cache()
         import time
-        from litellm._uuid import uuid
+        from hangarllm._uuid import uuid
 
         request_id = f"chatcmpl-e41836bb-bb8b-4df2-8e70-8f3e160155ac{uuid.uuid4()}"
 
@@ -1725,7 +1725,7 @@ def test_call_with_key_over_budget_no_cache(prisma_client):
             kwargs={
                 "model": "chatgpt-v-3",
                 "stream": False,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": hash_token(generated_key),
                         "user_api_key_user_id": user_id,
@@ -1796,15 +1796,15 @@ async def test_aasync_call_with_key_over_model_budget(
     prisma_client, request_model, should_pass
 ):
     # 12. Make a call with a key over budget, expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "premium_user", True)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     verbose_proxy_logger.setLevel(logging.DEBUG)
 
     # Use the proxy server's existing budget limiter instead of creating a new one
     # This ensures the budget limiter's cache is shared between the callback and auth checks
-    from litellm.proxy.proxy_server import model_max_budget_limiter
+    from hangarllm.proxy.proxy_server import model_max_budget_limiter
 
     # set budget for chatgpt-v-3 to 0.000001, expect the next request to fail
     model_max_budget = {
@@ -1825,7 +1825,7 @@ async def test_aasync_call_with_key_over_model_budget(
     key = await generate_key_fn(
         request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -1850,7 +1850,7 @@ async def test_aasync_call_with_key_over_model_budget(
     print("result from user auth with new key", result)
 
     # update spend using track_cost callback, make 2nd request, it should fail
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model=request_model,
         messages=[{"role": "user", "content": "Hello, how are you?"}],
         metadata={
@@ -1874,7 +1874,7 @@ async def test_aasync_call_with_key_over_model_budget(
                 "user_api_key_hash": hash_token(generated_key),
             },
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": hash_token(generated_key),
                 "user_api_key_model_max_budget": model_max_budget,
@@ -1912,15 +1912,15 @@ async def test_aasync_call_with_key_over_model_budget(
 @pytest.mark.asyncio()
 async def test_call_with_key_never_over_budget(prisma_client):
     # Make a call with a key with budget=None, it should never fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = GenerateKeyRequest(max_budget=None)
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -1940,10 +1940,10 @@ async def test_call_with_key_never_over_budget(prisma_client):
 
         # update spend using track_cost callback, make 2nd request, it should fail
         import time
-        from litellm._uuid import uuid
+        from hangarllm._uuid import uuid
 
-        from litellm import Choices, Message, ModelResponse, Usage
-        from litellm.proxy.proxy_server import ProxyDBLogger
+        from hangarllm import Choices, Message, ModelResponse, Usage
+        from hangarllm.proxy.proxy_server import ProxyDBLogger
 
         proxy_db_logger = ProxyDBLogger()
 
@@ -1970,7 +1970,7 @@ async def test_call_with_key_never_over_budget(prisma_client):
             kwargs={
                 "model": "chatgpt-v-3",
                 "stream": False,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": hash_token(generated_key),
                         "user_api_key_user_id": user_id,
@@ -1998,20 +1998,20 @@ async def test_call_with_key_never_over_budget(prisma_client):
 @pytest.mark.asyncio
 async def test_call_with_key_over_budget_stream(prisma_client):
     # 14. Make a call with a key over budget, expect to fail
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from hangarllm._logging import verbose_proxy_logger
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     verbose_proxy_logger.setLevel(logging.DEBUG)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     request = GenerateKeyRequest(max_budget=0.00001)
     key = await generate_key_fn(
         request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -2031,10 +2031,10 @@ async def test_call_with_key_over_budget_stream(prisma_client):
 
     # update spend using track_cost callback, make 2nd request, it should fail
     import time
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
-    from litellm import Choices, Message, ModelResponse, Usage
-    from litellm.proxy.proxy_server import ProxyDBLogger
+    from hangarllm import Choices, Message, ModelResponse, Usage
+    from hangarllm.proxy.proxy_server import ProxyDBLogger
 
     proxy_db_logger = ProxyDBLogger()
 
@@ -2060,7 +2060,7 @@ async def test_call_with_key_over_budget_stream(prisma_client):
             "model": "sagemaker-chatgpt-v-3",
             "stream": True,
             "complete_streaming_response": resp,
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key": hash_token(generated_key),
                     "user_api_key_user_id": user_id,
@@ -2087,9 +2087,9 @@ async def test_call_with_key_over_budget_stream(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 @pytest.mark.asyncio()
 async def test_aview_spend_per_user(prisma_client):
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     try:
         user_by_spend = await spend_user_fn(user_id=None)
         assert type(user_by_spend) == list
@@ -2109,16 +2109,16 @@ async def test_view_spend_per_key(prisma_client):
     """
     Test viewing spend per key.
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     try:
         # First create a key to ensure there's data to query
         request = GenerateKeyRequest(models=["gpt-3.5-turbo"], max_budget=100)
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="test_user_spend",
             ),
@@ -2156,16 +2156,16 @@ async def test_key_name_null(prisma_client):
     - get key info
     - assert key_name is null
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     os.environ["DISABLE_KEY_NAME"] = "True"
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     try:
         request = GenerateKeyRequest()
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2174,7 +2174,7 @@ async def test_key_name_null(prisma_client):
         generated_key = key.key
         result = await info_key_fn(
             key=generated_key,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
         print("result from info_key_fn", result)
         assert result["info"]["key_name"] is None
@@ -2193,16 +2193,16 @@ async def test_key_name_set(prisma_client):
     - get key info
     - assert key_name is not null
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "general_settings", {"allow_user_auth": True})
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "general_settings", {"allow_user_auth": True})
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     try:
         request = GenerateKeyRequest()
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2210,7 +2210,7 @@ async def test_key_name_set(prisma_client):
         generated_key = key.key
         result = await info_key_fn(
             key=generated_key,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
         print("result from info_key_fn", result)
         assert isinstance(result["info"]["key_name"], str)
@@ -2227,17 +2227,17 @@ async def test_default_key_params(prisma_client):
     - get key info
     - assert key_name is not null
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "general_settings", {"allow_user_auth": True})
-    litellm.default_key_generate_params = {"max_budget": 0.000122}
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "general_settings", {"allow_user_auth": True})
+    hangarllm.default_key_generate_params = {"max_budget": 0.000122}
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     try:
         request = GenerateKeyRequest()
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2245,7 +2245,7 @@ async def test_default_key_params(prisma_client):
         generated_key = key.key
         result = await info_key_fn(
             key=generated_key,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         )
         print("result from info_key_fn", result)
         assert result["info"]["max_budget"] == 0.000122
@@ -2262,12 +2262,12 @@ async def test_upperbound_key_param_larger_budget(prisma_client):
     - get key info
     - assert key_name is not null
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    litellm.upperbound_key_generate_params = LiteLLM_UpperboundKeyGenerateParams(
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    hangarllm.upperbound_key_generate_params = HangarLLM_UpperboundKeyGenerateParams(
         max_budget=0.001, budget_duration="1m"
     )
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     request = GenerateKeyRequest(
         max_budget=200000,
         budget_duration="30d",
@@ -2276,7 +2276,7 @@ async def test_upperbound_key_param_larger_budget(prisma_client):
         await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2287,12 +2287,12 @@ async def test_upperbound_key_param_larger_budget(prisma_client):
 @pytest.mark.asyncio()
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 async def test_upperbound_key_param_larger_duration(prisma_client):
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    litellm.upperbound_key_generate_params = LiteLLM_UpperboundKeyGenerateParams(
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    hangarllm.upperbound_key_generate_params = HangarLLM_UpperboundKeyGenerateParams(
         max_budget=100, duration="14d"
     )
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     request = GenerateKeyRequest(
         max_budget=10,
         duration="30d",
@@ -2301,7 +2301,7 @@ async def test_upperbound_key_param_larger_duration(prisma_client):
         await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2314,18 +2314,18 @@ async def test_upperbound_key_param_larger_duration(prisma_client):
 async def test_upperbound_key_param_none_duration(prisma_client):
     from datetime import datetime, timedelta
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    litellm.upperbound_key_generate_params = LiteLLM_UpperboundKeyGenerateParams(
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    hangarllm.upperbound_key_generate_params = HangarLLM_UpperboundKeyGenerateParams(
         max_budget=100, duration="14d"
     )
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     try:
         request = GenerateKeyRequest()
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2346,7 +2346,7 @@ async def test_upperbound_key_param_none_duration(prisma_client):
 
 
 def test_get_bearer_token():
-    from litellm.proxy.auth.user_api_key_auth import get_bearer_token
+    from hangarllm.proxy.auth.user_api_key_auth import get_bearer_token
 
     # Test valid Bearer token
     api_key = "Bearer valid_token"
@@ -2380,7 +2380,7 @@ async def test_update_logs_with_spend_logs_url(prisma_client):
     """
     Unit test for making sure spend logs list is still updated when url passed in
     """
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
 
     db_spend_update_writer = DBSpendUpdateWriter()
 
@@ -2405,12 +2405,12 @@ async def test_update_logs_with_spend_logs_url(prisma_client):
 @pytest.mark.asyncio
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 async def test_user_api_key_auth(prisma_client):
-    from litellm.proxy.proxy_server import ProxyException
+    from hangarllm.proxy.proxy_server import ProxyException
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "general_settings", {"allow_user_auth": True})
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "general_settings", {"allow_user_auth": True})
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     request = Request(scope={"type": "http"})
     request._url = URL(url="/chat/completions")
@@ -2447,14 +2447,14 @@ async def test_user_api_key_auth(prisma_client):
 async def test_user_api_key_auth_without_master_key(prisma_client):
     # if master key is not set, expect all calls to go through
     try:
-        from litellm.proxy.proxy_server import ProxyException
+        from hangarllm.proxy.proxy_server import ProxyException
 
-        setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-        setattr(litellm.proxy.proxy_server, "master_key", None)
+        setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+        setattr(hangarllm.proxy.proxy_server, "master_key", None)
         setattr(
-            litellm.proxy.proxy_server, "general_settings", {"allow_user_auth": True}
+            hangarllm.proxy.proxy_server, "general_settings", {"allow_user_auth": True}
         )
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
 
         request = Request(scope={"type": "http"})
         request._url = URL(url="/chat/completions")
@@ -2477,14 +2477,14 @@ async def test_key_with_no_permissions(prisma_client):
     - get key info
     - assert key_name is null
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "general_settings", {"allow_user_auth": False})
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "general_settings", {"allow_user_auth": False})
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     try:
         response = await generate_key_helper_fn(
             request_type="key",
-            **{"duration": "1hr", "key_max_budget": 0, "models": [], "aliases": {}, "config": {}, "spend": 0, "user_id": "ishaan", "team_id": "litellm-dashboard"},  # type: ignore
+            **{"duration": "1hr", "key_max_budget": 0, "models": [], "aliases": {}, "config": {}, "spend": 0, "user_id": "ishaan", "team_id": "hangarllm-dashboard"},  # type: ignore
         )
 
         print(response)
@@ -2504,10 +2504,10 @@ async def test_key_with_no_permissions(prisma_client):
 
 
 async def track_cost_callback_helper_fn(generated_key: str, user_id: str):
-    from litellm._uuid import uuid
+    from hangarllm._uuid import uuid
 
-    from litellm import Choices, Message, ModelResponse, Usage
-    from litellm.proxy.proxy_server import ProxyDBLogger
+    from hangarllm import Choices, Message, ModelResponse, Usage
+    from hangarllm.proxy.proxy_server import ProxyDBLogger
 
     request_id = f"chatcmpl-e41836bb-bb8b-4df2-8e70-8f3e160155ac{uuid.uuid4()}"
     resp = ModelResponse(
@@ -2532,7 +2532,7 @@ async def track_cost_callback_helper_fn(generated_key: str, user_id: str):
             "model": "sagemaker-chatgpt-v-3",
             "stream": True,
             "complete_streaming_response": resp,
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key": hash_token(generated_key),
                     "user_api_key_user_id": user_id,
@@ -2552,23 +2552,23 @@ async def test_proxy_load_test_db(prisma_client):
     """
     Run 1500 req./s against track_cost_callback function
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     import logging
     import time
 
-    from litellm._logging import verbose_proxy_logger
+    from hangarllm._logging import verbose_proxy_logger
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     verbose_proxy_logger.setLevel(logging.DEBUG)
     try:
         start_time = time.time()
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
         request = GenerateKeyRequest(max_budget=0.00001)
         key = await generate_key_fn(
             request,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2614,28 +2614,28 @@ async def test_proxy_load_test_db(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 async def test_master_key_hashing(prisma_client):
     try:
-        from litellm._uuid import uuid
+        from hangarllm._uuid import uuid
 
         print("prisma client=", prisma_client)
 
         master_key = MASTER_KEY
 
-        setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-        setattr(litellm.proxy.proxy_server, "master_key", master_key)
+        setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+        setattr(hangarllm.proxy.proxy_server, "master_key", master_key)
 
-        await litellm.proxy.proxy_server.prisma_client.connect()
-        from litellm.proxy.proxy_server import user_api_key_cache
+        await hangarllm.proxy.proxy_server.prisma_client.connect()
+        from hangarllm.proxy.proxy_server import user_api_key_cache
 
         _team_id = "ishaans-special-team_{}".format(uuid.uuid4())
         user_api_key_dict = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         )
         await new_team(
             NewTeamRequest(team_id=_team_id),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2667,9 +2667,9 @@ async def test_master_key_hashing(prisma_client):
 
         # Master-key auth substitutes a stable alias so the master key (or
         # its hash) never propagates into spend logs / metrics / audit trails.
-        from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+        from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
-        assert result.api_key == LITELLM_PROXY_MASTER_KEY_ALIAS
+        assert result.api_key == HANGARLLM_PROXY_MASTER_KEY_ALIAS
         assert result.api_key != hash_token(master_key)
 
     except Exception as e:
@@ -2683,18 +2683,18 @@ async def test_reset_spend_authentication(prisma_client):
     """
     1. Test master key can access this route  -> ONLY MASTER KEY SHOULD BE ABLE TO RESET SPEND
     2. Test that non-master key gets rejected
-    3. Test that non-master key with role == LitellmUserRoles.PROXY_ADMIN or admin gets rejected
+    3. Test that non-master key with role == HangarllmUserRoles.PROXY_ADMIN or admin gets rejected
     """
 
     print("prisma client=", prisma_client)
 
     master_key = MASTER_KEY
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", master_key)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", master_key)
 
-    await litellm.proxy.proxy_server.prisma_client.connect()
-    from litellm.proxy.proxy_server import user_api_key_cache
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
+    from hangarllm.proxy.proxy_server import user_api_key_cache
 
     bearer_token = "Bearer " + master_key
 
@@ -2715,7 +2715,7 @@ async def test_reset_spend_authentication(prisma_client):
             tpm_limit=20,
         ),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=master_key,
             user_id="1234",
         ),
@@ -2734,14 +2734,14 @@ async def test_reset_spend_authentication(prisma_client):
         in e.message
     )
 
-    # Test 3 - Non-Master Key with role == LitellmUserRoles.PROXY_ADMIN or admin
+    # Test 3 - Non-Master Key with role == HangarllmUserRoles.PROXY_ADMIN or admin
     _response = await new_user(
         data=NewUserRequest(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             tpm_limit=20,
         ),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=master_key,
             user_id="1234",
         ),
@@ -2777,12 +2777,12 @@ async def test_create_update_team(prisma_client):
 
     master_key = MASTER_KEY
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", master_key)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", master_key)
     import datetime
 
-    await litellm.proxy.proxy_server.prisma_client.connect()
-    from litellm.proxy.proxy_server import user_api_key_cache
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
+    from hangarllm.proxy.proxy_server import user_api_key_cache
 
     _team_id = "test-team_{}".format(uuid.uuid4())
     response = await new_team(
@@ -2795,7 +2795,7 @@ async def test_create_update_team(prisma_client):
         ),
         http_request=Request(scope={"type": "http"}),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -2824,7 +2824,7 @@ async def test_create_update_team(prisma_client):
         ),
         http_request=Request(scope={"type": "http"}),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -2862,7 +2862,7 @@ async def test_create_update_team(prisma_client):
             team_id=_team_id,
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -2894,12 +2894,12 @@ async def test_update_user_role(prisma_client):
     -> update user role to == PROXY_ADMIN
     -> access an Admin only route -> expect to succeed
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     key = await new_user(
         data=NewUserRequest(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         )
     )
 
@@ -2928,10 +2928,10 @@ async def test_update_user_role(prisma_client):
 
     await user_update(
         data=UpdateUserRequest(
-            user_id=key.user_id, user_role=LitellmUserRoles.PROXY_ADMIN
+            user_id=key.user_id, user_role=HangarllmUserRoles.PROXY_ADMIN
         ),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -2953,9 +2953,9 @@ async def test_update_user_unit_test(prisma_client):
 
     Ensure that params are updated for UpdateUserRequest
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     key = await new_user(
         data=NewUserRequest(
             user_email=f"test-{uuid.uuid4()}@test.com",
@@ -2975,7 +2975,7 @@ async def test_update_user_unit_test(prisma_client):
             metadata={"very-new-metadata": "something"},
         ),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -3011,14 +3011,14 @@ async def test_update_user_unit_test(prisma_client):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 async def test_custom_api_key_header_name(prisma_client):
     """ """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "general_settings",
-        {"litellm_key_header_name": "x-litellm-key"},
+        {"hangarllm_key_header_name": "x-hangarllm-key"},
     )
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     api_route = APIRoute(path="/chat/completions", endpoint=chat_completion)
     request = Request(
@@ -3027,15 +3027,15 @@ async def test_custom_api_key_header_name(prisma_client):
             "route": api_route,
             "path": api_route.path,
             "headers": [
-                (b"x-litellm-key", b"Bearer sk-9876"),
+                (b"x-hangarllm-key", b"Bearer sk-9876"),
             ],
         }
     )
 
-    # this should pass because we pass the master key as X-Litellm-Key and litellm_key_header_name="X-Litellm-Key" in general settings
+    # this should pass because we pass the master key as X-Hangarllm-Key and hangarllm_key_header_name="X-Hangarllm-Key" in general settings
     result = await user_api_key_auth(request=request, api_key="Bearer invalid-key")
 
-    # this should fail because X-Litellm-Key is invalid
+    # this should fail because X-Hangarllm-Key is invalid
     request = Request(
         {
             "type": "http",
@@ -3054,7 +3054,7 @@ async def test_custom_api_key_header_name(prisma_client):
         "Malformed API Key passed in. Ensure Key has `Bearer ` prefix" in e.message
     )
 
-    # this should pass because X-Litellm-Key is valid
+    # this should pass because X-Hangarllm-Key is valid
 
 
 @pytest.mark.asyncio()
@@ -3062,12 +3062,12 @@ async def test_custom_api_key_header_name(prisma_client):
 async def test_generate_key_with_model_tpm_limit(prisma_client):
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     request = GenerateKeyRequest(
         metadata={
-            "team": "litellm-team3",
+            "team": "hangarllm-team3",
             "model_tpm_limit": {"gpt-4": 100},
             "model_rpm_limit": {"gpt-4": 2},
         }
@@ -3075,7 +3075,7 @@ async def test_generate_key_with_model_tpm_limit(prisma_client):
     key = await generate_key_fn(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -3087,13 +3087,13 @@ async def test_generate_key_with_model_tpm_limit(prisma_client):
     # use generated key to auth in
     result = await info_key_fn(
         key=generated_key,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     print("result from info_key_fn", result)
     assert result["key"] == generated_key
     print("\n info for key=", result["info"])
     assert result["info"]["metadata"] == {
-        "team": "litellm-team3",
+        "team": "hangarllm-team3",
         "model_tpm_limit": {"gpt-4": 100},
         "model_rpm_limit": {"gpt-4": 2},
     }
@@ -3110,17 +3110,17 @@ async def test_generate_key_with_model_tpm_limit(prisma_client):
     await update_key_fn(
         data=request,
         request=_request,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     result = await info_key_fn(
         key=generated_key,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     print("result from info_key_fn", result)
     assert result["key"] == generated_key
     print("\n info for key=", result["info"])
     assert result["info"]["metadata"] == {
-        "team": "litellm-team3",
+        "team": "hangarllm-team3",
         "model_tpm_limit": {"gpt-4": 200},
         "model_rpm_limit": {"gpt-4": 3},
     }
@@ -3131,19 +3131,19 @@ async def test_generate_key_with_model_tpm_limit(prisma_client):
 async def test_generate_key_with_guardrails(prisma_client):
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     request = GenerateKeyRequest(
         guardrails=["aporia-pre-call"],
         metadata={
-            "team": "litellm-team3",
+            "team": "hangarllm-team3",
         },
     )
     key = await generate_key_fn(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -3155,13 +3155,13 @@ async def test_generate_key_with_guardrails(prisma_client):
     # use generated key to auth in
     result = await info_key_fn(
         key=generated_key,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     print("result from info_key_fn", result)
     assert result["key"] == generated_key
     print("\n info for key=", result["info"])
     assert result["info"]["metadata"] == {
-        "team": "litellm-team3",
+        "team": "hangarllm-team3",
         "guardrails": ["aporia-pre-call"],
     }
 
@@ -3176,17 +3176,17 @@ async def test_generate_key_with_guardrails(prisma_client):
     await update_key_fn(
         data=request,
         request=_request,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     result = await info_key_fn(
         key=generated_key,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
     print("result from info_key_fn", result)
     assert result["key"] == generated_key
     print("\n info for key=", result["info"])
     assert result["info"]["metadata"] == {
-        "team": "litellm-team3",
+        "team": "hangarllm-team3",
         "guardrails": ["aporia-pre-call", "aporia-post-call"],
     }
 
@@ -3200,10 +3200,10 @@ async def test_team_guardrails(prisma_client):
     - Team/update with guardrails should update the guardrails
     - Assert new guardrails are returned when calling /team/info
     """
-    litellm.set_verbose = True
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    hangarllm.set_verbose = True
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     _new_team = NewTeamRequest(
         team_alias="test-teamA",
@@ -3212,7 +3212,7 @@ async def test_team_guardrails(prisma_client):
 
     new_team_response = await new_team(
         data=_new_team,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
 
@@ -3221,7 +3221,7 @@ async def test_team_guardrails(prisma_client):
     # call /team/info
     team_info_response = await team_info(
         team_id=new_team_response["team_id"],
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
     print("team_info_response", team_info_response)
@@ -3234,7 +3234,7 @@ async def test_team_guardrails(prisma_client):
             team_id=new_team_response["team_id"],
             guardrails=["aporia-pre-call", "aporia-post-call"],
         ),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
 
@@ -3243,7 +3243,7 @@ async def test_team_guardrails(prisma_client):
     # call /team/info again
     team_info_response = await team_info(
         team_id=new_team_response["team_id"],
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
 
@@ -3264,30 +3264,30 @@ async def test_team_access_groups(prisma_client):
     - Test calling a model in the access group  -> pass
     - Test calling a model not in the access group -> fail
     """
-    litellm.set_verbose = True
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    hangarllm.set_verbose = True
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     # create router with access groups
-    litellm_router = litellm.Router(
+    hangarllm_router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gemini-pro-vision",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/gemini-1.0-pro-vision-001",
                 },
                 "model_info": {"access_groups": ["beta-models"]},
             },
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                 },
                 "model_info": {"access_groups": ["beta-models"]},
             },
         ]
     )
-    setattr(litellm.proxy.proxy_server, "llm_router", litellm_router)
+    setattr(hangarllm.proxy.proxy_server, "llm_router", hangarllm_router)
 
     # Create team with models=["beta-models"]
     team_request = NewTeamRequest(
@@ -3297,7 +3297,7 @@ async def test_team_access_groups(prisma_client):
 
     new_team_response = await new_team(
         data=team_request,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
     print("new_team_response", new_team_response)
@@ -3311,7 +3311,7 @@ async def test_team_access_groups(prisma_client):
     key = await generate_key_fn(
         data=request,
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -3369,10 +3369,10 @@ async def test_team_tags(prisma_client):
     - Team/update with tags should update the tags
     - Assert new tags are returned when calling /team/info
     """
-    litellm.set_verbose = True
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    hangarllm.set_verbose = True
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     _new_team = NewTeamRequest(
         team_alias="test-teamA",
@@ -3381,7 +3381,7 @@ async def test_team_tags(prisma_client):
 
     new_team_response = await new_team(
         data=_new_team,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
 
@@ -3390,7 +3390,7 @@ async def test_team_tags(prisma_client):
     # call /team/info
     team_info_response = await team_info(
         team_id=new_team_response["team_id"],
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
     print("team_info_response", team_info_response)
@@ -3403,7 +3403,7 @@ async def test_team_tags(prisma_client):
             team_id=new_team_response["team_id"],
             tags=["teamA", "teamB"],
         ),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
 
@@ -3412,7 +3412,7 @@ async def test_team_tags(prisma_client):
     # call /team/info again
     team_info_response = await team_info(
         team_id=new_team_response["team_id"],
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
         http_request=Request(scope={"type": "http"}),
     )
 
@@ -3428,16 +3428,16 @@ async def test_aadmin_only_routes(prisma_client):
 
     only an admin should be able to access admin only routes
     """
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     print(f"os.getenv('DATABASE_URL')={os.getenv('DATABASE_URL')}")
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     general_settings = {
         "allowed_routes": ["/embeddings", "/key/generate"],
         "admin_only_routes": ["/key/generate"],
     }
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     initial_general_settings = getattr(proxy_server, "general_settings")
 
@@ -3446,17 +3446,17 @@ async def test_aadmin_only_routes(prisma_client):
     admin_user = await new_user(
         data=NewUserRequest(
             user_name="admin",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
         ),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
 
     non_admin_user = await new_user(
         data=NewUserRequest(
             user_name="non-admin",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
         ),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
 
     admin_user_key = admin_user.key
@@ -3501,19 +3501,19 @@ async def test_list_keys(prisma_client):
     """
     from fastapi import Query
 
-    from litellm.proxy.proxy_server import hash_token
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy.proxy_server import hash_token
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     # Test basic listing
     request = Request(scope={"type": "http", "query_string": b""})
     response = await list_keys(
         request,
         UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN.value,
+            user_role=HangarllmUserRoles.PROXY_ADMIN.value,
         ),
         page=1,
         size=10,
@@ -3540,7 +3540,7 @@ async def test_list_keys(prisma_client):
     # Test pagination
     response = await list_keys(
         request,
-        UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN.value),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN.value),
         page=1,
         size=2,
         user_id=None,
@@ -3569,10 +3569,10 @@ async def test_list_keys(prisma_client):
     response = await new_user(
         data=NewUserRequest(
             user_id=f"key-list-user-{unique_id}",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             key_alias=f"key-list-alias-{unique_id}",
         ),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
 
     _key = hash_token(response.key)
@@ -3582,7 +3582,7 @@ async def test_list_keys(prisma_client):
     # Test filtering by user_id
     response = await list_keys(
         request,
-        UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN.value),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN.value),
         page=1,
         size=10,
         user_id=user_id,
@@ -3605,7 +3605,7 @@ async def test_list_keys(prisma_client):
     # Test filtering by key_alias
     response = await list_keys(
         request,
-        UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN.value),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN.value),
         page=1,
         size=10,
         user_id=None,
@@ -3637,13 +3637,13 @@ async def test_key_aliases(prisma_client):
     """
     import asyncio
     import uuid
-    import litellm
-    from litellm.proxy._types import LitellmUserRoles
+    import hangarllm
+    from hangarllm.proxy._types import HangarllmUserRoles
 
     # Wire up test prisma client
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     # Basic call - check pagination response shape
     response = await key_aliases(page=1, size=50)
@@ -3664,10 +3664,10 @@ async def test_key_aliases(prisma_client):
     await new_user(
         data=NewUserRequest(
             user_id=test_user_id,
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=HangarllmUserRoles.INTERNAL_USER,
             key_alias=test_alias,
         ),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
 
     # Allow async DB writes to settle
@@ -3696,11 +3696,11 @@ async def test_auth_vertex_ai_route(prisma_client):
     """
     If user is premium user and vertex-ai route is used. Assert Virtual Key checks are run
     """
-    litellm.set_verbose = True
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    hangarllm.set_verbose = True
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "premium_user", True)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     route = "/vertex-ai/publishers/google/models/gemini-1.5-flash-001:generateContent"
     request = Request(scope={"type": "http"})
@@ -3723,7 +3723,7 @@ async def test_user_api_key_auth_db_unavailable(monkeypatch):
     1. DB connection fails during token validation
     2. allow_requests_on_db_unavailable=True
     """
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     # Mock dependencies
     class MockPrismaClient:
@@ -3746,11 +3746,11 @@ async def test_user_api_key_auth_db_unavailable(monkeypatch):
             pass
 
     # Set up test environment
-    setattr(litellm.proxy.proxy_server, "prisma_client", MockPrismaClient())
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", MockDualCache())
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", MockPrismaClient())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", MockDualCache())
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     setattr(
-        litellm.proxy.proxy_server,
+        hangarllm.proxy.proxy_server,
         "general_settings",
         {"allow_requests_on_db_unavailable": True},
     )
@@ -3765,7 +3765,7 @@ async def test_user_api_key_auth_db_unavailable(monkeypatch):
         api_key="Bearer sk-987656789",
     )
 
-    from litellm.proxy.auth.auth_exception_handler import (
+    from hangarllm.proxy.auth.auth_exception_handler import (
         DB_UNAVAILABLE_FALLBACK_USER_ID,
     )
 
@@ -3807,17 +3807,17 @@ async def test_user_api_key_auth_db_unavailable_not_allowed(monkeypatch):
             pass
 
     # Set up test environment
-    setattr(litellm.proxy.proxy_server, "prisma_client", MockPrismaClient())
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", MockDualCache())
-    setattr(litellm.proxy.proxy_server, "general_settings", {})
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", MockPrismaClient())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "user_api_key_cache", MockDualCache())
+    setattr(hangarllm.proxy.proxy_server, "general_settings", {})
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
 
     # Create test request
     request = Request(scope={"type": "http"})
     request._url = URL(url="/chat/completions")
 
     # Run test with a sample API key
-    with pytest.raises(litellm.proxy._types.ProxyException):
+    with pytest.raises(hangarllm.proxy._types.ProxyException):
         await user_api_key_auth(
             request=request,
             api_key="Bearer sk-987656789",
@@ -3830,13 +3830,13 @@ async def test_user_api_key_auth_db_unavailable_not_allowed(monkeypatch):
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 @pytest.mark.asyncio
 @mock.patch(
-    "litellm.secret_managers.aws_secret_manager_v2.AWSSecretsManagerV2.async_write_secret"
+    "hangarllm.secret_managers.aws_secret_manager_v2.AWSSecretsManagerV2.async_write_secret"
 )
 @mock.patch(
-    "litellm.secret_managers.aws_secret_manager_v2.AWSSecretsManagerV2.async_read_secret"
+    "hangarllm.secret_managers.aws_secret_manager_v2.AWSSecretsManagerV2.async_read_secret"
 )
 @mock.patch(
-    "litellm.secret_managers.aws_secret_manager_v2.AWSSecretsManagerV2.async_delete_secret"
+    "hangarllm.secret_managers.aws_secret_manager_v2.AWSSecretsManagerV2.async_delete_secret"
 )
 async def test_key_generate_with_secret_manager_call(
     mock_delete_secret, mock_read_secret, mock_write_secret, prisma_client
@@ -3848,23 +3848,23 @@ async def test_key_generate_with_secret_manager_call(
     delete the key
     assert it is deleted from the secret manager
     """
-    from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
-    from litellm.types.secret_managers.main import (
+    from hangarllm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+    from hangarllm.types.secret_managers.main import (
         KeyManagementSystem,
         KeyManagementSettings,
     )
 
-    from litellm.proxy.hooks.key_management_event_hooks import (
-        LITELLM_PREFIX_STORED_VIRTUAL_KEYS,
+    from hangarllm.proxy.hooks.key_management_event_hooks import (
+        HANGARLLM_PREFIX_STORED_VIRTUAL_KEYS,
     )
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     #### Test Setup ############################################################
     aws_secret_manager_client = AWSSecretsManagerV2()
-    litellm.secret_manager_client = aws_secret_manager_client
-    litellm._key_management_system = KeyManagementSystem.AWS_SECRET_MANAGER
-    litellm._key_management_settings = KeyManagementSettings(
+    hangarllm.secret_manager_client = aws_secret_manager_client
+    hangarllm._key_management_system = KeyManagementSystem.AWS_SECRET_MANAGER
+    hangarllm._key_management_settings = KeyManagementSettings(
         store_virtual_keys=True,
     )
     general_settings = {
@@ -3874,10 +3874,10 @@ async def test_key_generate_with_secret_manager_call(
         },
     }
 
-    setattr(litellm.proxy.proxy_server, "general_settings", general_settings)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "general_settings", general_settings)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
     ############################################################################
 
     # generate new key
@@ -3894,7 +3894,7 @@ async def test_key_generate_with_secret_manager_call(
             key_alias=key_alias, spend=spend, max_budget=max_budget, models=models
         ),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=HangarllmUserRoles.PROXY_ADMIN,
             api_key=MASTER_KEY,
             user_id="1234",
         ),
@@ -3910,7 +3910,7 @@ async def test_key_generate_with_secret_manager_call(
     mock_read_secret.return_value = generated_key
 
     result = await aws_secret_manager_client.async_read_secret(
-        secret_name=f"{litellm._key_management_settings.prefix_for_stored_virtual_keys}{key_alias}"
+        secret_name=f"{hangarllm._key_management_settings.prefix_for_stored_virtual_keys}{key_alias}"
     )
 
     # Assert the correct key is stored in the secret manager
@@ -3925,7 +3925,7 @@ async def test_key_generate_with_secret_manager_call(
     await delete_key_fn(
         data=KeyRequest(keys=[generated_key]),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key=MASTER_KEY, user_id="1234"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key=MASTER_KEY, user_id="1234"
         ),
     )
 
@@ -3936,12 +3936,12 @@ async def test_key_generate_with_secret_manager_call(
     mock_read_secret.return_value = None
 
     result = await aws_secret_manager_client.async_read_secret(
-        secret_name=f"{litellm._key_management_settings.prefix_for_stored_virtual_keys}{key_alias}"
+        secret_name=f"{hangarllm._key_management_settings.prefix_for_stored_virtual_keys}{key_alias}"
     )
     assert result is None
 
     # cleanup
-    setattr(litellm.proxy.proxy_server, "general_settings", {})
+    setattr(hangarllm.proxy.proxy_server, "general_settings", {})
 
 
 ################################################################################
@@ -3956,9 +3956,9 @@ async def test_key_alias_uniqueness(prisma_client):
     2. We cannot update a key to use an alias that's already taken
     3. We can update a key while keeping its existing alias
     """
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     try:
         # Create first key with an alias
@@ -3966,7 +3966,7 @@ async def test_key_alias_uniqueness(prisma_client):
         key1 = await generate_key_fn(
             data=GenerateKeyRequest(key_alias=unique_alias),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -3977,7 +3977,7 @@ async def test_key_alias_uniqueness(prisma_client):
             key2 = await generate_key_fn(
                 data=GenerateKeyRequest(key_alias=unique_alias),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -3991,7 +3991,7 @@ async def test_key_alias_uniqueness(prisma_client):
         key3 = await generate_key_fn(
             data=GenerateKeyRequest(key_alias=another_alias),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -4003,7 +4003,7 @@ async def test_key_alias_uniqueness(prisma_client):
                 data=UpdateKeyRequest(key=key3.key, key_alias=unique_alias),
                 request=Request(scope={"type": "http"}),
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=HangarllmUserRoles.PROXY_ADMIN,
                     api_key=MASTER_KEY,
                     user_id="1234",
                 ),
@@ -4016,7 +4016,7 @@ async def test_key_alias_uniqueness(prisma_client):
             data=UpdateKeyRequest(key=key1.key, key_alias=unique_alias),
             request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -4039,12 +4039,12 @@ async def test_enforce_unique_key_alias(prisma_client):
     3. Test it allows updating a key with its own existing alias
     4. Test it blocks updating a key with another key's alias
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         _enforce_unique_key_alias,
     )
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     try:
         # Test 1: Allow unique alias
@@ -4058,7 +4058,7 @@ async def test_enforce_unique_key_alias(prisma_client):
         key1 = await generate_key_fn(
             data=GenerateKeyRequest(key_alias=unique_alias),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -4084,7 +4084,7 @@ async def test_enforce_unique_key_alias(prisma_client):
         another_key = await generate_key_fn(
             data=GenerateKeyRequest(key_alias=f"test-alias-{uuid.uuid4()}"),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -4108,7 +4108,7 @@ def test_should_track_cost_callback():
     """
     Test that the should_track_cost_callback function works as expected
     """
-    from litellm.proxy.hooks.proxy_track_cost_callback import (
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import (
         _should_track_cost_callback,
     )
 
@@ -4129,11 +4129,11 @@ async def test_get_paginated_teams(prisma_client):
     2. Test total count matches across pages
     3. Test page size is respected
     """
-    from litellm.proxy.management_endpoints.team_endpoints import get_paginated_teams
+    from hangarllm.proxy.management_endpoints.team_endpoints import get_paginated_teams
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     try:
         # Get first page with page_size=2
@@ -4183,13 +4183,13 @@ async def test_reset_budget_job(prisma_client, entity_type):
     from datetime import datetime, timedelta
     import time
 
-    from litellm.proxy.common_utils.reset_budget_job import ResetBudgetJob
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy.common_utils.reset_budget_job import ResetBudgetJob
+    from hangarllm.proxy.utils import ProxyLogging
 
     # Setup
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
+    await hangarllm.proxy.proxy_server.prisma_client.connect()
 
     proxy_logging_obj = ProxyLogging(user_api_key_cache=None)
     reset_budget_job = ResetBudgetJob(
@@ -4206,7 +4206,7 @@ async def test_reset_budget_job(prisma_client, entity_type):
                 budget_duration="5s",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -4215,7 +4215,7 @@ async def test_reset_budget_job(prisma_client, entity_type):
         print("generated key=", key)
 
         # Update the key to set spend and reset_at to now
-        updated = await prisma_client.db.litellm_verificationtoken.update_many(
+        updated = await prisma_client.db.hangarllm_verificationtoken.update_many(
             where={"token": key.token_id},
             data={
                 "spend": 99.0,
@@ -4231,7 +4231,7 @@ async def test_reset_budget_job(prisma_client, entity_type):
                 budget_duration="5s",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -4239,7 +4239,7 @@ async def test_reset_budget_job(prisma_client, entity_type):
         entity_id = user.user_id
 
         # Update the user to set spend and reset_at to now
-        await prisma_client.db.litellm_usertable.update_many(
+        await prisma_client.db.hangarllm_usertable.update_many(
             where={"user_id": user.user_id},
             data={
                 "spend": 99.0,
@@ -4256,7 +4256,7 @@ async def test_reset_budget_job(prisma_client, entity_type):
                 budget_duration="5s",
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
                 api_key=MASTER_KEY,
                 user_id="1234",
             ),
@@ -4266,7 +4266,7 @@ async def test_reset_budget_job(prisma_client, entity_type):
 
         # Update the team to set spend and reset_at to now
         current_time = datetime.utcnow()
-        await prisma_client.db.litellm_teamtable.update(
+        await prisma_client.db.hangarllm_teamtable.update(
             where={"team_id": team_id},
             data={
                 "spend": 99.0,
@@ -4275,15 +4275,15 @@ async def test_reset_budget_job(prisma_client, entity_type):
 
     # Verify entity was created and updated with spend
     if entity_type == "key":
-        entity_before = await prisma_client.db.litellm_verificationtoken.find_unique(
+        entity_before = await prisma_client.db.hangarllm_verificationtoken.find_unique(
             where={"token": entity_id}
         )
     elif entity_type == "user":
-        entity_before = await prisma_client.db.litellm_usertable.find_unique(
+        entity_before = await prisma_client.db.hangarllm_usertable.find_unique(
             where={"user_id": entity_id}
         )
     elif entity_type == "team":
-        entity_before = await prisma_client.db.litellm_teamtable.find_unique(
+        entity_before = await prisma_client.db.hangarllm_teamtable.find_unique(
             where={"team_id": entity_id}
         )
 
@@ -4299,15 +4299,15 @@ async def test_reset_budget_job(prisma_client, entity_type):
 
     # Verify the entity's spend is reset and budget_reset_at is updated
     if entity_type == "key":
-        entity_after = await prisma_client.db.litellm_verificationtoken.find_unique(
+        entity_after = await prisma_client.db.hangarllm_verificationtoken.find_unique(
             where={"token": entity_id}
         )
     elif entity_type == "user":
-        entity_after = await prisma_client.db.litellm_usertable.find_unique(
+        entity_after = await prisma_client.db.hangarllm_usertable.find_unique(
             where={"user_id": entity_id}
         )
     elif entity_type == "team":
-        entity_after = await prisma_client.db.litellm_teamtable.find_unique(
+        entity_after = await prisma_client.db.hangarllm_teamtable.find_unique(
             where={"team_id": entity_id}
         )
 
@@ -4319,25 +4319,25 @@ async def test_reset_budget_job(prisma_client, entity_type):
 def test_delete_nonexistent_key_returns_404(prisma_client):
     # Try to delete a key that does not exist, expect a 404 error
     import random, string
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         KeyRequest,
         UserAPIKeyAuth,
-        LitellmUserRoles,
+        HangarllmUserRoles,
         ProxyException,
     )
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.key_management_endpoints import (
         delete_key_fn,
     )
     from starlette.datastructures import URL
     from fastapi import Request
 
     print("prisma client=", prisma_client)
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", MASTER_KEY)
+    setattr(hangarllm.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(hangarllm.proxy.proxy_server, "master_key", MASTER_KEY)
     try:
 
         async def test():
-            await litellm.proxy.proxy_server.prisma_client.connect()
+            await hangarllm.proxy.proxy_server.prisma_client.connect()
             # Generate a random key that does not exist
             random_key = "sk-" + "".join(
                 random.choices(string.ascii_letters + string.digits, k=24)
@@ -4347,10 +4347,10 @@ def test_delete_nonexistent_key_returns_404(prisma_client):
             request = Request(scope={"type": "http"})
             request._url = URL(url="/key/delete")
             # use admin to auth in
-            result = await litellm.proxy.proxy_server.user_api_key_auth(
+            result = await hangarllm.proxy.proxy_server.user_api_key_auth(
                 request=request, api_key=bearer_token
             )
-            result.user_role = LitellmUserRoles.PROXY_ADMIN
+            result.user_role = HangarllmUserRoles.PROXY_ADMIN
             with pytest.raises(ProxyException) as exc_info:
                 await delete_key_fn(data=delete_key_request, user_api_key_dict=result)
             e = exc_info.value

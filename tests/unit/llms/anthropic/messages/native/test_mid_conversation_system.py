@@ -1,6 +1,6 @@
 from collections import Counter
 
-from litellm.llms.anthropic.messages.native.mid_conversation_system import (
+from hangarllm.llms.anthropic.messages.native.mid_conversation_system import (
     CONVERTED_SYSTEM_NOTE,
     convert_mid_conversation_system_turns,
 )

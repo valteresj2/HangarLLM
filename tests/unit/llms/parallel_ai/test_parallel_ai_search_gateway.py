@@ -10,16 +10,16 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm import Router
-from litellm.integrations.websearch_interception.handler import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.websearch_interception.handler import (
     WebSearchInterceptionLogger,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy import proxy_server
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.types.utils import LlmProviders
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.types.utils import LlmProviders
 
 PARALLEL_SEARCH_URL: Final = "https://api.parallel.ai/v1/search"
 
@@ -69,7 +69,7 @@ def _parallel_router(mode: str = "turbo") -> Router:
         search_tools=[
             {
                 "search_tool_name": "parallel-search",
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": "parallel_ai",
                     "api_key": "parallel-search-key",
                     "mode": mode,
@@ -102,7 +102,7 @@ def test_parallel_search_gateway_route(client, auth_as, monkeypatch):
     The tool-level `mode` must survive the router hop, so the upstream request
     is sent as `turbo` rather than falling back to the adapter default.
     """
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     monkeypatch.setattr(proxy_server, "llm_router", _parallel_router())
     mock_post = _mock_async_post(
         monkeypatch,
@@ -141,7 +141,7 @@ def test_parallel_search_gateway_route(client, auth_as, monkeypatch):
 @pytest.mark.asyncio
 async def test_web_search_interception_executes_parallel_search(monkeypatch):
     """An intercepted web-search call uses the configured Parallel Search tool."""
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     monkeypatch.setattr(proxy_server, "llm_router", _parallel_router(mode="fast"))
     mock_post = _mock_async_post(
         monkeypatch,
@@ -160,7 +160,7 @@ async def test_web_search_interception_executes_parallel_search(monkeypatch):
                     "id": "fc_parallel",
                     "call_id": "fc_parallel",
                     "type": "function_call",
-                    "name": "litellm_web_search",
+                    "name": "hangarllm_web_search",
                     "arguments": '{"query":"Parallel AI news"}',
                     "input": {"query": "Parallel AI news"},
                 }
@@ -169,7 +169,7 @@ async def test_web_search_interception_executes_parallel_search(monkeypatch):
         model="gpt-5",
         messages=[{"role": "user", "content": "Research Parallel"}],
         response=None,
-        optional_params={"tools": [{"type": "function", "name": "litellm_web_search"}]},
+        optional_params={"tools": [{"type": "function", "name": "hangarllm_web_search"}]},
         logging_obj=None,
         stream=False,
         kwargs={"custom_llm_provider": "openai"},

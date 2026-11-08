@@ -8,8 +8,8 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
+import hangarllm
+from hangarllm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
 
 _API_BASE: Final = "https://gemini.example"
 _STORE: Final = "fileSearchStores/docs-1"
@@ -44,8 +44,8 @@ async def _store_notes(ingestion: GeminiRAGIngestion) -> tuple[str | None, str |
 
 @pytest.fixture
 def start_upload(monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter) -> respx.Route:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx_mock.put(_UPLOAD_SESSION_URL).mock(return_value=httpx.Response(200, json={"name": _DOCUMENT}))
     return respx_mock.post(_START_UPLOAD_URL).mock(
         return_value=httpx.Response(200, headers={"x-goog-upload-url": _UPLOAD_SESSION_URL})

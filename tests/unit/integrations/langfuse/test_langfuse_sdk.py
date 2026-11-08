@@ -1,4 +1,4 @@
-"""Covers litellm's own Langfuse export channel: plain OTel spans carrying the v2 contracts.
+"""Covers hangarllm's own Langfuse export channel: plain OTel spans carrying the v2 contracts.
 
 The timestamp assertions are the regression guard for the migration: the v4 SDK's public
 API has no observation start time, so a callback running after the model call would
@@ -28,12 +28,12 @@ from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from litellm.integrations.langfuse.langfuse import (
+from hangarllm.integrations.langfuse.langfuse import (
     MINIMUM_LANGFUSE_VERSION,
     installed_langfuse_version,
     raise_if_unsupported_langfuse_version,
 )
-from litellm.integrations.langfuse.langfuse_sdk import (
+from hangarllm.integrations.langfuse.langfuse_sdk import (
     DiscardingSpanExporter,
     LangfuseApiClient,
     LangfusePromptError,
@@ -58,7 +58,7 @@ from litellm.integrations.langfuse.langfuse_sdk import (
     to_unix_nanos,
     trace_attributes,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 CALL_START = datetime(2024, 3, 1, 12, 0, 0, tzinfo=timezone.utc)
 FIRST_TOKEN = CALL_START + timedelta(seconds=5)
@@ -70,7 +70,7 @@ PARENT_C = "c" * 16
 @pytest.fixture(autouse=True)
 def _own_channel_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     """Channels leaked by other test modules would otherwise take part in every process-wide flush here."""
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk._TRACING", {})
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk._TRACING", {})
 
 
 @pytest.fixture(name="channel")
@@ -301,7 +301,7 @@ def test_observation_attributes_serialize_the_generation_fields():
         observation_type="generation",
         input=[{"role": "user", "content": "hi"}],
         output={"role": "assistant", "content": "hello"},
-        metadata=MappingProxyType({"litellm_call_id": "call-1", "cache_hit": False}),
+        metadata=MappingProxyType({"hangarllm_call_id": "call-1", "cache_hit": False}),
         level="ERROR",
         status_message="boom",
         model="gpt-4o",
@@ -319,7 +319,7 @@ def test_observation_attributes_serialize_the_generation_fields():
     assert json.loads(attributes[A.OBSERVATION_MODEL_PARAMETERS]) == {"temperature": 0.1}
     assert json.loads(attributes[A.OBSERVATION_USAGE_DETAILS]) == {"input": 1, "output": 2}
     assert json.loads(attributes[A.OBSERVATION_COST_DETAILS]) == {"total": 0.01}
-    assert attributes[f"{A.OBSERVATION_METADATA}.litellm_call_id"] == "call-1"
+    assert attributes[f"{A.OBSERVATION_METADATA}.hangarllm_call_id"] == "call-1"
     assert attributes[f"{A.OBSERVATION_METADATA}.cache_hit"] is False
     assert A.OBSERVATION_PROMPT_NAME not in attributes
 
@@ -464,7 +464,7 @@ def test_unusable_sample_rate_warns_and_exports_everything(
     monkeypatch: pytest.MonkeyPatch, raw: str, caplog: pytest.LogCaptureFixture
 ):
     monkeypatch.setenv("LANGFUSE_SAMPLE_RATE", raw)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         assert configured_sample_rate() == 1.0
     assert "LANGFUSE_SAMPLE_RATE" in caplog.text
 
@@ -594,7 +594,7 @@ def test_prompt_cache_ttl_env_falls_back_instead_of_raising(monkeypatch: pytest.
         monkeypatch.delenv("LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS", raising=False)
     else:
         monkeypatch.setenv("LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS", raw)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         assert configured_prompt_cache_ttl() == expected
     assert ("LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS" in caplog.text) is (expected == 60.0 and raw is not None)
 
@@ -623,7 +623,7 @@ def test_many_metadata_keys_never_evict_the_generation_input_and_output():
 def test_otel_sdk_disabled_still_wins_but_is_called_out(monkeypatch: pytest.MonkeyPatch, caplog):
     monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
     exporter = InMemorySpanExporter()
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         tracing = build_langfuse_tracing(
             exporter=exporter, environment=None, release=None, sample_rate=1.0, flush_interval_millis=10
         )
@@ -682,7 +682,7 @@ def test_langfuse_flush_at_is_parsed_like_the_sdk_did(monkeypatch: pytest.Monkey
         monkeypatch.delenv("LANGFUSE_FLUSH_AT", raising=False)
     else:
         monkeypatch.setenv("LANGFUSE_FLUSH_AT", raw)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         assert configured_flush_at() == expected
     assert ("LANGFUSE_FLUSH_AT" in caplog.text) is (raw is not None and str(expected) != raw)
 
@@ -773,7 +773,7 @@ class _RecordsShutdown(InMemorySpanExporter):
 
 def _acquire_recorded(monkeypatch: pytest.MonkeyPatch, public_key: str) -> tuple[LangfuseTracing, _RecordsShutdown]:
     exporter = _RecordsShutdown()
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk._build_span_exporter", lambda **_: exporter)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk._build_span_exporter", lambda **_: exporter)
     return _acquire(public_key=public_key, mock_mode=False, flush_interval=600.0), exporter
 
 
@@ -852,7 +852,7 @@ def test_flush_is_false_when_the_destination_rejected_a_batch(monkeypatch: pytes
     """The shutdown hook logs "channels flushed" off this value; a drained queue whose batches all
     failed at the destination is a loss, not a flush."""
     monkeypatch.setattr(
-        "litellm.integrations.langfuse.langfuse_sdk._build_span_exporter", lambda **_: _RejectsEverything()
+        "hangarllm.integrations.langfuse.langfuse_sdk._build_span_exporter", lambda **_: _RejectsEverything()
     )
     tracing = _acquire(public_key="pk-flush-truth-test", mock_mode=False, flush_interval=600.0)
     tracing.tracer.start_span("generation").end()
@@ -885,7 +885,7 @@ def test_flush_langfuse_tracing_exports_the_queued_spans_of_every_channel(monkey
         exporters.append(InMemorySpanExporter())
         return exporters[-1]
 
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk._build_span_exporter", build_in_memory)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk._build_span_exporter", build_in_memory)
     for public_key in ("pk-flush-test-a", "pk-flush-test-b"):
         _acquire(public_key=public_key, mock_mode=False, flush_interval=600.0).tracer.start_span("generation").end()
 
@@ -919,7 +919,7 @@ def test_flush_langfuse_tracing_flushes_channels_concurrently_under_one_deadline
     def build_next(*, public_key: str, secret_key: str, base_url: str) -> SpanExporter:
         return next(exporters)
 
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk._build_span_exporter", build_next)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk._build_span_exporter", build_next)
     for public_key in ("pk-concurrent-flush-a", "pk-concurrent-flush-b"):
         _acquire(public_key=public_key, mock_mode=False, flush_interval=600.0).tracer.start_span("generation").end()
 
@@ -1008,7 +1008,7 @@ def test_auth_check_names_the_servers_rejection(caplog):
         base_url="http://127.0.0.1:1",
         httpx_client=_recording_transport([], status=401),
     )
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         failure = client.auth_check()
     assert failure is not None
     assert failure.reason == "status_code: 401, body: {'message': 'unauthorized'}"
@@ -1230,18 +1230,18 @@ def test_rest_client_reports_the_project_id_and_a_passing_auth_check():
 
 def test_rest_client_leaves_a_host_applications_langfuse_client_alone():
     """The SDK hands every ``Langfuse()`` built for one public key the same resource bundle, so a
-    litellm-built SDK client used to make a host application's client fetch through litellm's
-    host, secret and httpx client. litellm now speaks REST directly and registers nothing."""
+    hangarllm-built SDK client used to make a host application's client fetch through hangarllm's
+    host, secret and httpx client. hangarllm now speaks REST directly and registers nothing."""
     from langfuse import Langfuse
 
     requests: list[httpx.Request] = []
-    litellm_client = build_langfuse_client(
+    hangarllm_client = build_langfuse_client(
         public_key="pk-shared-with-host",
-        secret_key="sk-litellm",
-        base_url="http://litellm.example",
+        secret_key="sk-hangarllm",
+        base_url="http://hangarllm.example",
         httpx_client=_recording_transport(requests, status=200),
     )
-    assert litellm_client.project_id() == "proj-under-test"
+    assert hangarllm_client.project_id() == "proj-under-test"
 
     host_requests: list[httpx.Request] = []
     host = Langfuse(
@@ -1256,7 +1256,7 @@ def test_rest_client_leaves_a_host_applications_langfuse_client_alone():
     finally:
         host.shutdown()
 
-    assert [request.url.host for request in requests] == ["litellm.example"]
+    assert [request.url.host for request in requests] == ["hangarllm.example"]
     assert host_requests[-1].url.host == "host.example"
     assert host_requests[-1].headers["authorization"] == "Basic " + b64encode(b"pk-shared-with-host:sk-host").decode()
 
@@ -1277,8 +1277,8 @@ def _finished_span():
 
 
 def _exporter_over(responses, *, delays=(0.5, 1.5), timeout=5.0):
-    """A LangfuseSpanExporter whose litellm HTTPHandler talks to a scripted transport instead of the network."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    """A LangfuseSpanExporter whose hangarllm HTTPHandler talks to a scripted transport instead of the network."""
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     seen = []
     script = list(responses)
@@ -1301,12 +1301,12 @@ def _exporter_over(responses, *, delays=(0.5, 1.5), timeout=5.0):
     return exporter, seen
 
 
-def test_exporter_posts_the_otlp_batch_through_litellm_http_handler(monkeypatch):
-    """Traces travel through litellm's own handler, so litellm's TLS and proxy settings apply to them."""
+def test_exporter_posts_the_otlp_batch_through_hangarllm_http_handler(monkeypatch):
+    """Traces travel through hangarllm's own handler, so hangarllm's TLS and proxy settings apply to them."""
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
     slept = []
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
     exporter, seen = _exporter_over([200])
     span = _finished_span()
 
@@ -1333,7 +1333,7 @@ def test_exporter_posts_the_otlp_batch_through_litellm_http_handler(monkeypatch)
 def test_exporter_retries_a_failed_round_trip_and_then_succeeds(monkeypatch, failure):
     """A stalled or restarting destination used to drop the batch outright; v2 backed off and re-sent every 5xx."""
     slept = []
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
     exporter, seen = _exporter_over([failure, failure, 200], delays=(0.5, 1.5, 2.5))
 
     assert exporter.export((_finished_span(),)) is SpanExportResult.SUCCESS
@@ -1344,7 +1344,7 @@ def test_exporter_retries_a_failed_round_trip_and_then_succeeds(monkeypatch, fai
 
 def test_exporter_gives_up_after_the_last_delay(monkeypatch):
     slept = []
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
     exporter, seen = _exporter_over([httpx.ConnectError("refused")] * 3, delays=(1.0, 2.0))
 
     assert exporter.export((_finished_span(),)) is SpanExportResult.FAILURE
@@ -1354,7 +1354,7 @@ def test_exporter_gives_up_after_the_last_delay(monkeypatch):
 
 def _exporter_with_body_cap(max_bytes: int, *, deliveries: list[int]):
     """A destination that answers 413 to any body over ``max_bytes``, the way an ingress with a body limit does."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     def transport(request: httpx.Request) -> httpx.Response:
         if len(request.content) > max_bytes:
@@ -1373,7 +1373,7 @@ def _exporter_with_body_cap(max_bytes: int, *, deliveries: list[int]):
 
 def test_exporter_splits_a_batch_the_destination_finds_too_large(monkeypatch):
     """One 413 used to drop every span in the batch; the v2 consumer sized its batches by bytes before posting."""
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
     spans = tuple(_finished_span() for _ in range(8))
     whole = _encode(spans)
     assert whole is not None
@@ -1389,7 +1389,7 @@ def test_exporter_splits_a_batch_the_destination_finds_too_large(monkeypatch):
 
 
 def test_exporter_drops_only_the_single_span_that_alone_exceeds_the_cap(monkeypatch, caplog):
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
     provider = TracerProvider()
     huge = provider.get_tracer("t").start_span("generation", attributes={"body": "x" * 4000})
     huge.end()
@@ -1399,7 +1399,7 @@ def test_exporter_drops_only_the_single_span_that_alone_exceeds_the_cap(monkeypa
     deliveries: list[int] = []
     exporter = _exporter_with_body_cap(len(single_small) * 3, deliveries=deliveries)
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         result = exporter.export((*small, huge))
 
     assert result is SpanExportResult.FAILURE
@@ -1426,7 +1426,7 @@ def _generation_span(**attributes: str):
 def test_exporter_truncates_a_single_oversized_span_the_way_v2_did_instead_of_dropping_it(monkeypatch, caplog):
     """v2 replaced the largest of input, output and metadata with a marker and still delivered the observation; a
     vision request over a self-hosted ingress cap used to lose the whole generation, model and usage included."""
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
     span = _generation_span(
         **{
             "langfuse.observation.input": "data:image/png;base64," + "A" * 6000,
@@ -1451,7 +1451,7 @@ def test_exporter_truncates_a_single_oversized_span_the_way_v2_did_instead_of_dr
         timeout=5.0,
         delays=(),
     )
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         result = exporter.export((span,))
 
     assert result is SpanExportResult.SUCCESS
@@ -1467,7 +1467,7 @@ def test_exporter_truncates_a_single_oversized_span_the_way_v2_did_instead_of_dr
 def test_exporter_truncates_largest_first_and_drops_only_when_nothing_is_left(monkeypatch, caplog):
     """Langfuse stores a bare ``langfuse.observation.metadata`` string as nothing, so the metadata marker travels
     under a flattened key the way every other metadata value does."""
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
     span = _generation_span(
         **{
             "langfuse.observation.input": "i" * 3000,
@@ -1489,7 +1489,7 @@ def test_exporter_truncates_largest_first_and_drops_only_when_nothing_is_left(mo
         timeout=5.0,
         delays=(),
     )
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         assert exporter.export((span,)) is SpanExportResult.FAILURE
 
     marker = "<truncated due to size exceeding limit>"
@@ -1512,7 +1512,7 @@ def test_exporter_truncates_largest_first_and_drops_only_when_nothing_is_left(mo
 def test_exporter_does_not_retry_a_rejected_batch(monkeypatch, status):
     """Bad credentials or a bad payload will not get better on the next attempt, so retrying only delays the flush."""
     slept = []
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", slept.append)
     exporter, seen = _exporter_over([status, 200])
 
     assert exporter.export((_finished_span(),)) is SpanExportResult.FAILURE
@@ -1522,10 +1522,10 @@ def test_exporter_does_not_retry_a_rejected_batch(monkeypatch, status):
 
 def test_exporter_names_the_server_floor_when_the_otlp_route_is_missing(monkeypatch, caplog):
     """A Langfuse server too old to serve the OTLP route answers 404; a bare status leaves the operator guessing."""
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
     exporter, _ = _exporter_over([404])
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         assert exporter.export((_finished_span(),)) is SpanExportResult.FAILURE
 
     assert "HTTP 404" in caplog.text and "3.63.0" in caplog.text
@@ -1543,10 +1543,10 @@ def test_exporter_drops_a_span_the_encoder_rejects_and_still_posts_the_rest(monk
     """One span the OTLP encoder cannot serialize used to raise out of ``export`` and lose every span in the batch."""
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
-    monkeypatch.setattr("litellm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
+    monkeypatch.setattr("hangarllm.integrations.langfuse.langfuse_sdk.sleep", lambda _: None)
     exporter, seen = _exporter_over([200])
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM"):
         result = exporter.export((_finished_span(), _finished_span_named(12345), _finished_span()))
 
     assert result is SpanExportResult.SUCCESS
@@ -1564,9 +1564,9 @@ def test_exporter_reports_failure_when_no_span_of_the_batch_can_be_encoded(monke
     assert seen == []
 
 
-def test_built_exporter_uses_the_shared_litellm_handler_and_langfuse_headers(monkeypatch):
-    """No private requests session or TLS adapter: the channel is the same handler the rest of litellm uses."""
-    from litellm.llms.custom_httpx.http_handler import get_httpx_client
+def test_built_exporter_uses_the_shared_hangarllm_handler_and_langfuse_headers(monkeypatch):
+    """No private requests session or TLS adapter: the channel is the same handler the rest of hangarllm uses."""
+    from hangarllm.llms.custom_httpx.http_handler import get_httpx_client
 
     monkeypatch.delenv("LANGFUSE_TIMEOUT", raising=False)
     monkeypatch.delenv("LANGFUSE_MAX_RETRIES", raising=False)
@@ -1600,7 +1600,7 @@ def test_large_retry_count_builds_an_exporter_with_capped_backoff(monkeypatch):
 def test_absurd_retry_count_is_clamped_instead_of_allocating_one_delay_per_retry(monkeypatch, caplog):
     """A retry count with twelve digits must not turn callback init into a multi-gigabyte tuple allocation."""
     monkeypatch.setenv("LANGFUSE_MAX_RETRIES", "999999999999")
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         exporter = _build_span_exporter(public_key="pk", secret_key="sk", base_url="https://lf.internal.example")
     assert 3 < len(exporter.delays) <= 1025
     assert exporter.delays[-1] <= 64.0
@@ -1608,14 +1608,14 @@ def test_absurd_retry_count_is_clamped_instead_of_allocating_one_delay_per_retry
 
     caplog.clear()
     monkeypatch.setenv("LANGFUSE_MAX_RETRIES", "5")
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         modest = _build_span_exporter(public_key="pk", secret_key="sk", base_url="https://lf.internal.example")
     assert len(modest.delays) == 5
     assert not any("LANGFUSE_MAX_RETRIES" in record.getMessage() for record in caplog.records)
 
 
 def test_enable_langfuse_debug_logging_makes_deliveries_visible_on_the_langfuse_logger(caplog):
-    """``LANGFUSE_DEBUG`` turned on the v2 SDK's own logger; it has to do the same for litellm's export channel."""
+    """``LANGFUSE_DEBUG`` turned on the v2 SDK's own logger; it has to do the same for hangarllm's export channel."""
     exporter, _ = _exporter_over([200])
     langfuse_logger = logging.getLogger("langfuse")
     level_before = langfuse_logger.level
@@ -1743,7 +1743,7 @@ def test_a_failed_background_refresh_keeps_the_stale_prompt_in_service(caplog):
     client = LangfuseApiClient(api, prompt_cache_ttl_seconds=0)  # pyright: ignore[reportArgumentType]  # duck-typed prompts API
 
     first = client.get_prompt("greeting")
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         started = monotonic()
         assert client.get_prompt("greeting") is first
         assert monotonic() - started < 1.0, "the stale read waited on the blocked refresh"

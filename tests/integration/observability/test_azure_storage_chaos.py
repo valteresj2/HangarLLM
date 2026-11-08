@@ -32,7 +32,7 @@ def _readiness_ok(candidate: Gateway) -> bool:
 def _present_count(payloads: tuple[dict[str, JsonValue], ...], answered: tuple[tuple[str, str | None], ...]) -> int:
     response_ids: Final = frozenset(response_id for response_id, _ in answered)
     call_ids: Final = frozenset(call_id for _, call_id in answered if call_id is not None)
-    return sum(1 for payload in payloads if payload["id"] in response_ids or payload["litellm_call_id"] in call_ids)
+    return sum(1 for payload in payloads if payload["id"] in response_ids or payload["hangarllm_call_id"] in call_ids)
 
 
 def test_sink_outage_mid_burst_loses_only_the_outage_window_and_recovers_exactly_once(

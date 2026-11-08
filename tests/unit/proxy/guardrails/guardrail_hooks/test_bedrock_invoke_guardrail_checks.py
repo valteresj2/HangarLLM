@@ -14,15 +14,15 @@ import httpx
 from fastapi import HTTPException
 
 
-from litellm.exceptions import ModifyResponseException
-from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+from hangarllm.exceptions import ModifyResponseException
+from hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
     _BEDROCK_INVOKE_GUARDRAIL_CHECKS_PATH,
     BedrockGuardrail,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+from hangarllm.types.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
     BedrockGuardrailResponse,
 )
-from litellm.types.utils import Choices, Message, ModelResponse
+from hangarllm.types.utils import Choices, Message, ModelResponse
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 CONTENT_FILTER_CHECKS = {"contentFilter": {"categories": [{"category": "VIOLENCE"}]}}
@@ -84,7 +84,7 @@ def test_normalize_checks_keeps_empty_known_check_config():
 
 
 def test_normalize_checks_warns_on_unknown_keys(caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = BedrockGuardrail._normalize_checks({"contentFilter": {}, "typo_key": True})
     assert result == {"contentFilter": {}}
     assert any("typo_key" in m for m in caplog.messages)
@@ -723,7 +723,7 @@ async def test_dispatcher_routes_to_apply_mode_when_no_checks():
 
 def test_normalize_checks_accepts_pydantic_model():
     """The proxy initializer passes a BedrockChecksConfigModel, not a raw dict."""
-    from litellm.types.guardrails import (
+    from hangarllm.types.guardrails import (
         BedrockChecksConfigModel,
         BedrockChecksContentFilterModel,
     )
@@ -739,7 +739,7 @@ def test_normalize_checks_accepts_pydantic_model():
 
 def test_init_warns_when_masking_set_with_checks():
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails.verbose_proxy_logger.warning"
+        "hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails.verbose_proxy_logger.warning"
     ) as mock_warning:
         BedrockGuardrail(checks=CONTENT_FILTER_CHECKS, mask_request_content=True)
     assert any("detect-only" in str(call) for call in mock_warning.call_args_list)
@@ -787,7 +787,7 @@ def test_checks_config_model_rejects_empty():
     """BedrockChecksConfigModel must require at least one check (fail closed)."""
     import pydantic
 
-    from litellm.types.guardrails import BedrockChecksConfigModel
+    from hangarllm.types.guardrails import BedrockChecksConfigModel
 
     with pytest.raises(pydantic.ValidationError):
         BedrockChecksConfigModel()
@@ -847,7 +847,7 @@ async def test_checks_bearer_token_never_runs_the_sigv4_credential_chain(monkeyp
     g = BedrockGuardrail(
         checks=CONTENT_FILTER_CHECKS,
         content_filter_threshold=0.5,
-        aws_profile_name="litellm-no-such-aws-profile",
+        aws_profile_name="hangarllm-no-such-aws-profile",
     )
     payload = {"results": {"contentFilter": {"results": [{"category": "VIOLENCE", "severityScore": 0.8}]}}}
     post = AsyncMock(return_value=_mock_http_response(200, payload))

@@ -9,13 +9,13 @@ installed; the transformation layer is intentionally pure-Python on dicts.
 import pytest
 
 
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from hangarllm.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
 )
-from litellm.llms.nvidia_riva.audio_transcription.transformation import (
+from hangarllm.llms.nvidia_riva.audio_transcription.transformation import (
     NvidiaRivaAudioTranscriptionConfig,
 )
-from litellm.llms.nvidia_riva.common_utils import NvidiaRivaException
+from hangarllm.llms.nvidia_riva.common_utils import NvidiaRivaException
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ def test_transform_request_builds_recognition_config(cfg):
             "use_ssl": True,
             "riva_model_name": "parakeet-1.1b-en-US-asr-streaming-silero-vad-sortformer",
         },
-        litellm_params={
+        hangarllm_params={
             "api_base": "grpc.nvcf.nvidia.com:443",
             "api_key": "nvapi-xxx",
         },
@@ -128,7 +128,7 @@ def test_transform_request_default_riva_model_is_empty_for_auto_select(cfg):
         model="nvidia/parakeet-ctc-1_1b-asr",
         audio_file=b"fake-audio",
         optional_params={"language_code": "en-US"},
-        litellm_params={"api_base": "grpc.nvcf.nvidia.com:443"},
+        hangarllm_params={"api_base": "grpc.nvcf.nvidia.com:443"},
     )
     assert result.data["recognition_config"]["model"] == ""
 
@@ -145,7 +145,7 @@ def test_chunking_strategy_server_vad_maps_to_endpointing_config(cfg):
                 "prefix_padding_ms": 250,
             }
         },
-        litellm_params={"api_base": "localhost:50051"},
+        hangarllm_params={"api_base": "localhost:50051"},
     )
     ep = result.data["recognition_config"].get("endpointing_config")
     assert ep is not None
@@ -160,7 +160,7 @@ def test_chunking_strategy_auto_leaves_endpointing_config_unset(cfg):
         model="m",
         audio_file=b"x",
         optional_params={"chunking_strategy": "auto"},
-        litellm_params={"api_base": "localhost:50051"},
+        hangarllm_params={"api_base": "localhost:50051"},
     )
     assert "endpointing_config" not in result.data["recognition_config"]
 
@@ -172,7 +172,7 @@ def test_explicit_endpointing_config_pass_through(cfg):
         optional_params={
             "endpointing_config": {"stop_history": 1200, "start_threshold": 0.3}
         },
-        litellm_params={"api_base": "localhost:50051"},
+        hangarllm_params={"api_base": "localhost:50051"},
     )
     ep = result.data["recognition_config"]["endpointing_config"]
     assert ep == {"stop_history": 1200, "start_threshold": 0.3}

@@ -1,6 +1,6 @@
-# LiteLLM Release Notes Generation Instructions
+# HangarLLM Release Notes Generation Instructions
 
-This document provides comprehensive instructions for AI agents to generate release notes for LiteLLM following the established format and style.
+This document provides comprehensive instructions for AI agents to generate release notes for HangarLLM following the established format and style.
 
 ## Required Inputs
 
@@ -11,10 +11,10 @@ This document provides comprehensive instructions for AI agents to generate rele
 
 ### Resolving Staging PRs
 
-The GitHub release page (e.g. `https://github.com/BerriAI/litellm/releases/tag/v1.83.3-stable`) does **not** list the real changelog directly. The "What's Changed" section contains **staging PRs** that each bundle many individual commits/PRs. For example:
+The GitHub release page (e.g. `https://github.com/valteresj2/HangarLLM/releases/tag/v1.83.3-stable`) does **not** list the real changelog directly. The "What's Changed" section contains **staging PRs** that each bundle many individual commits/PRs. For example:
 
-- `Litellm oss staging 03 14 2026 by @RheagalFire in #23686`
-- `Litellm ryan march 16 by @ryan-crabbe in #23822`
+- `Hangarllm oss staging 03 14 2026 by @RheagalFire in #23686`
+- `Hangarllm ryan march 16 by @ryan-crabbe in #23822`
 
 To get the real changelog, you MUST click into each staging PR (e.g. `#23686`, `#23822`), open its **Commits** tab, and extract every underlying commit/PR (look for the `(#NNNNN)` suffix on commit titles). Those underlying PRs — not the staging PRs — are what get categorized in the release notes. Never treat a staging PR title as a single changelog entry.
 
@@ -30,7 +30,7 @@ Union the PR set from the staging-PR walk with the PR set from `git log`. Any PR
 **Sanity check for new contributors.** The GH release body's "New Contributors" list is a *floor*, not authoritative. For every PR author who appears in the release (including underlying PRs from staging and PRs found only via `git log`), verify whether they are a first-time contributor by running:
 
 ```bash
-gh api "search/issues?q=is:pr+author:<login>+repo:BerriAI/litellm+is:merged&sort=created&order=asc" --jq '.items[0] | {n:.number, merged:.closed_at}'
+gh api "search/issues?q=is:pr+author:<login>+repo:valteresj2/HangarLLM+is:merged&sort=created&order=asc" --jq '.items[0] | {n:.number, merged:.closed_at}'
 ```
 
 If the author's earliest merged PR number matches a PR in this release window, they are a new contributor. If their earliest merged PR predates the previous release tag, they are not. Do not copy the GH release body's list blindly — it can both miss contributors (PRs that merged via an older dev branch) and falsely include contributors whose "first" PR in this window was not actually their first ever.
@@ -289,7 +289,7 @@ From git diff analysis, create tables like:
 
 **Formatting:**
 - Use consistent markdown formatting
-- Include PR links: `[PR #XXXXX](https://github.com/BerriAI/litellm/pull/XXXXX)`
+- Include PR links: `[PR #XXXXX](https://github.com/valteresj2/HangarLLM/pull/XXXXX)`
 - Use code blocks for configuration examples
 - Bold important terms and section headers
 
@@ -443,7 +443,7 @@ This release has a known issue...
 ```markdown
 ### New Providers (4 new providers)
 
-| Provider | Supported LiteLLM Endpoints | Description |
+| Provider | Supported HangarLLM Endpoints | Description |
 | -------- | --------------------------- | ----------- |
 ...
 
@@ -470,7 +470,7 @@ This release has a known issue...
 
 **When adding new providers or endpoints, you MUST also update `provider_endpoints_support.json` in the repository root.**
 
-This file tracks which endpoints are supported by each LiteLLM provider and is used to generate documentation.
+This file tracks which endpoints are supported by each HangarLLM provider and is used to generate documentation.
 
 **Required Steps:**
 1. For each new provider added to the release notes, add a corresponding entry to `provider_endpoints_support.json`
@@ -480,7 +480,7 @@ This file tracks which endpoints are supported by each LiteLLM provider and is u
 ```json
 "provider_slug": {
   "display_name": "Provider Name (`provider_slug`)",
-  "url": "https://docs.litellm.ai/docs/providers/provider_slug",
+  "url": "https://github.com/valteresj2/HangarLLM#readme",
   "endpoints": {
     "chat_completions": true,
     "messages": true,

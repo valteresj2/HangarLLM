@@ -5,10 +5,10 @@ The cache intentionally does NOT close clients on eviction because evicted
 clients may still be referenced by in-flight requests.  Closing them eagerly
 causes ``RuntimeError: Cannot send a request, as the client has been closed.``
 
-See: https://github.com/BerriAI/litellm/pull/22247
+See: upstream issue 22247
 """
 
-import asyncio, gc, httpx, importlib, litellm, os, threading, time, weakref
+import asyncio, gc, httpx, importlib, hangarllm, os, threading, time, weakref
 import warnings
 from typing import Final
 
@@ -17,18 +17,18 @@ import pytest
 from openai import AsyncOpenAI
 
 
-from litellm.caching.evicted_client_closer import EvictedClientCloser
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
+from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.custom_httpx.aiohttp_transport import HangarLLMAiohttpTransport
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.custom_httpx.http_handler import(
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.custom_httpx.http_handler import(
     AsyncHTTPHandler,
     get_async_httpx_client,
     HTTPHandler,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 from tests.unit.caching._event_loop_reuse import runs_until_a_loop_address_repeats
 
@@ -203,7 +203,7 @@ async def test_eviction_no_unawaited_coroutine_warning():
     Evicting an async client from LLMClientCache must not produce
     'coroutine was never awaited' warnings.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/22128
+    Regression test for upstream issue 22128
     """
     cache = LLMClientCache(max_size_in_memory=2)
 
@@ -253,7 +253,7 @@ class _FakeClock:
 
 
 @pytest.mark.asyncio
-async def test_evicted_litellm_owned_client_is_closed_once_the_grace_window_elapses():
+async def test_evicted_hangarllm_owned_client_is_closed_once_the_grace_window_elapses():
     """
     Eviction only drops the cache's reference. The SDK clients are reference
     cycles, so without an explicit close the client keeps its connection pool
@@ -266,7 +266,7 @@ async def test_evicted_litellm_owned_client_is_closed_once_the_grace_window_elap
     )
 
     client = MockAsyncClient()
-    cache.set_cache("client-key", client, litellm_owned_client=True, ttl=600)
+    cache.set_cache("client-key", client, hangarllm_owned_client=True, ttl=600)
 
     cache.ttl_dict = {key: 0 for key in cache.ttl_dict}
     cache.expiration_heap = [(0, key) for _, key in cache.expiration_heap]
@@ -297,23 +297,23 @@ async def test_an_evicted_owned_client_collected_inside_its_grace_window_still_c
     session = aiohttp.ClientSession()
     client = AsyncOpenAI(
         api_key="sk-evicted",
-        http_client=httpx.AsyncClient(transport=LiteLLMAiohttpTransport(client=session)),
+        http_client=httpx.AsyncClient(transport=HangarLLMAiohttpTransport(client=session)),
     )
-    cache.set_cache("client-key", client, litellm_owned_client=True, ttl=600)
+    cache.set_cache("client-key", client, hangarllm_owned_client=True, ttl=600)
 
     cache.ttl_dict = {key: 0 for key in cache.ttl_dict}
     cache.expiration_heap = [(0, key) for _, key in cache.expiration_heap]
     cache.evict_cache()
     del client
     gc.collect()
-    await asyncio.gather(*LiteLLMAiohttpTransport._background_close_tasks)
+    await asyncio.gather(*HangarLLMAiohttpTransport._background_close_tasks)
 
     assert session.closed, "the evicted client was collected inside the grace window and left its session open"
 
 
 @pytest.mark.asyncio
 async def test_evicted_caller_supplied_client_is_never_closed():
-    """litellm does not own a client the caller passed in, so it must stay open."""
+    """hangarllm does not own a client the caller passed in, so it must stay open."""
     clock = _FakeClock()
     cache = LLMClientCache(
         max_size_in_memory=2,
@@ -359,11 +359,11 @@ def _vcr_outcome_gate(request, vcr):
     record_vcr_outcome(request, vcr)
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -375,18 +375,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -396,60 +396,60 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 @pytest.fixture(scope="module")
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 FRAME_COUNT = 6
@@ -510,8 +510,8 @@ class _ChunkedSSEServer:
 
 def _select_transport(monkeypatch, disable_aiohttp_transport: bool) -> None:
     monkeypatch.delenv("DISABLE_AIOHTTP_TRANSPORT", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", disable_aiohttp_transport)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", disable_aiohttp_transport)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
 
 async def _read_frames(response: httpx.Response) -> int:
     """Count SSE frames, collecting garbage between chunks so a finalizer has every chance to fire.
@@ -533,7 +533,7 @@ async def _wait_until(is_done, failure: str) -> None:
         await asyncio.sleep(0.05)
     pytest.fail(failure)
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 @BOTH_TRANSPORTS
 async def test_async_stream_survives_handler_collection(monkeypatch, disable_aiohttp_transport):
@@ -560,15 +560,15 @@ async def test_async_stream_survives_handler_collection(monkeypatch, disable_aio
         gc.collect()
         assert ref() is None, NOT_RELEASED
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 def test_sync_stream_survives_handler_collection(monkeypatch):
     """The sync handler closes inline from its finalizer, so a stream must hold it off.
 
-    litellm/main.py builds a sync handler only for non-streaming calls, commented
+    hangarllm/main.py builds a sync handler only for non-streaming calls, commented
     "Keep this here, otherwise, the httpx.client closes and streaming is
     impossible" -- a workaround for this finalizer rather than a fix for it.
     """
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
 
     with _ChunkedSSEServer() as server:
         handler = HTTPHandler(timeout=httpx.Timeout(10.0, connect=5.0))
@@ -590,7 +590,7 @@ def test_sync_stream_survives_handler_collection(monkeypatch):
         gc.collect()
         assert ref() is None, NOT_RELEASED
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 @BOTH_TRANSPORTS
 async def test_an_abandoned_stream_still_releases_its_handler(monkeypatch, disable_aiohttp_transport):
@@ -619,7 +619,7 @@ async def test_an_abandoned_stream_still_releases_its_handler(monkeypatch, disab
             "the client outlived the abandoned stream without being closed",
         )
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 @BOTH_TRANSPORTS
 async def test_the_pool_is_released_once_the_stream_it_carried_ends(monkeypatch, disable_aiohttp_transport):
@@ -659,7 +659,7 @@ async def test_the_pool_is_released_once_the_stream_it_carried_ends(monkeypatch,
 
         await _wait_until(is_released, "the pool outlived the stream it carried, unclosed")
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 @BOTH_TRANSPORTS
 async def test_a_non_streaming_response_does_not_pin_its_handler(monkeypatch, disable_aiohttp_transport):
@@ -682,7 +682,7 @@ async def test_a_non_streaming_response_does_not_pin_its_handler(monkeypatch, di
 
         assert ref() is None, "a fully-read response pinned its handler"
 
-@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_litellm_state", "setup_and_teardown")
+@pytest.mark.usefixtures("_vcr_outcome_gate", "isolate_hangarllm_state", "setup_and_teardown")
 @pytest.mark.asyncio
 @BOTH_TRANSPORTS
 async def test_cached_handler_eviction_does_not_abort_an_in_flight_stream(monkeypatch, disable_aiohttp_transport):
@@ -693,7 +693,7 @@ async def test_cached_handler_eviction_does_not_abort_an_in_flight_stream(monkey
     still streaming -- the production shape of #24929.
     """
     _select_transport(monkeypatch, disable_aiohttp_transport)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
 
     with _ChunkedSSEServer() as server:
         handler = get_async_httpx_client(llm_provider=LlmProviders.OPENAI)
@@ -701,7 +701,7 @@ async def test_cached_handler_eviction_does_not_abort_an_in_flight_stream(monkey
 
         # An hour passes: the TTL expires and the cache lets the handler go.
         ref = weakref.ref(handler)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
         del handler
         gc.collect()
 

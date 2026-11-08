@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
 from starlette.types import Message, Receive, Scope, Send
 
-from litellm.proxy.middleware.request_size_limit_middleware import (
+from hangarllm.proxy.middleware.request_size_limit_middleware import (
     RequestSizeLimitMiddleware,
 )
 
@@ -219,7 +219,7 @@ def test_an_oversized_messages_request_gets_the_anthropic_request_too_large_erro
 async def test_chunked_upload_overflow_stops_fastapi_and_auth_multipart_parsing(
     method: str, path: str, route: str,
 ) -> None:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     limited: Final = RequestSizeLimitMiddleware(
         app,

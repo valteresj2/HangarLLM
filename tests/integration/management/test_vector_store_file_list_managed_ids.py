@@ -29,14 +29,14 @@ from pydantic import JsonValue, TypeAdapter
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
-MANAGED_PREFIX: Final = "litellm_proxy:"
+MANAGED_PREFIX: Final = "hangarllm_proxy:"
 CARRIED_PROVIDER_FILE_ID: Final = re.compile(r"(?:^|;)llm_output_file_id,([^;]+)")
 UPLOAD_FILENAME: Final = re.compile(rb'filename="([^"]+)"')
 FILE_PATH: Final = re.compile(r"^/v1/files/([^/]+)$")
 STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 MANAGED_FILE_ROW: Final = (
-    'SELECT flat_model_file_ids, created_by, team_id FROM "LiteLLM_ManagedFileTable" WHERE unified_file_id = %s'
+    'SELECT flat_model_file_ids, created_by, team_id FROM "HangarLLM_ManagedFileTable" WHERE unified_file_id = %s'
 )
 T = TypeVar("T")
 _FILE_CHUNKING: Final[dict[str, JsonValue]] = {
@@ -317,7 +317,7 @@ def _sdk_base_url(gateway: Gateway) -> str:
 
 def _deployment_id(model: str) -> str:
     rows: Final = read_rows(
-        'SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_name = %s '
+        'SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_name = %s '
         "OR model_info->>'team_public_model_name' = %s",
         (model, model),
     )
@@ -329,13 +329,13 @@ def _worker_has_deployment(gateway: Gateway, deployment_id: str, _: int) -> bool
     with httpx.Client(base_url=gateway.client.base_url, timeout=15, trust_env=False) as client:
         response: Final = client.get(
             "/model/info",
-            params={"litellm_model_id": deployment_id},
+            params={"hangarllm_model_id": deployment_id},
             headers={"Authorization": f"Bearer {gateway.key}"},
         )
     if response.status_code == 200:
         return True
     assert response.status_code == 400, response.text
-    assert "not found on litellm proxy" in response.text.lower(), response.text
+    assert "not found on hangarllm proxy" in response.text.lower(), response.text
     return False
 
 
@@ -918,7 +918,7 @@ def test_model_header_routing_returns_managed_ids(gateway: Gateway) -> None:
     with _rig(gateway, "a.txt") as rig:
         member: Final = _member(rig.scenario, rig.model)
         managed_a: Final = rig.upload(member.key, "a.txt")
-        page: Final = _listed(rig.list(member.key, {}, {"x-litellm-model": rig.model}))
+        page: Final = _listed(rig.list(member.key, {}, {"x-hangarllm-model": rig.model}))
         assert _ids(page) == (managed_a,), page
         assert _query(rig.single_list_request()) == {}
 
@@ -934,7 +934,7 @@ def test_managed_vector_store_registry_routing_returns_managed_ids(gateway: Gate
                 "vector_store_id": rig.store,
                 "custom_llm_provider": "openai",
                 "vector_store_name": "managed-ids-registry",
-                "litellm_params": {"api_base": rig.wire.url + "/v1", "api_key": registry_bearer},
+                "hangarllm_params": {"api_base": rig.wire.url + "/v1", "api_key": registry_bearer},
             },
         )
         rig.scenario.cleanups.callback(gateway.post, "/vector_store/delete", {"vector_store_id": rig.store})
@@ -1049,7 +1049,7 @@ def _team_wildcard(scenario: Scenario, pattern: str, api_base: str, bearer: str,
         "/model/new",
         {
             "model_name": pattern,
-            "litellm_params": {"model": "openai/*", "api_key": bearer, "api_base": api_base},
+            "hangarllm_params": {"model": "openai/*", "api_key": bearer, "api_base": api_base},
             "model_info": {"id": identity, "team_id": team},
         },
     )
@@ -1184,7 +1184,7 @@ def _unpadded(raw: bytes) -> str:
         pytest.param("12345", id="integer-like"),
         pytest.param("", id="empty"),
         pytest.param("x" * 5000, id="five-kilobyte"),
-        pytest.param(_unpadded(b"litellm_proxy:text/plain;unified_id,abc"), id="managed-without-provider-id"),
+        pytest.param(_unpadded(b"hangarllm_proxy:text/plain;unified_id,abc"), id="managed-without-provider-id"),
         pytest.param(_unpadded(b"\xff\xfe\xfd\xfc"), id="non-utf8-base64"),
     ),
 )
@@ -1219,7 +1219,7 @@ def test_provider_errors_reach_the_caller_and_other_models_keep_mapping(
     with _rig(gateway, listing=_error_listing(status, message)) as failing, _rig(gateway, "a.txt") as healthy:
         member: Final = _member(failing.scenario, failing.model, healthy.model, router_settings={"num_retries": 2})
         managed_a: Final = healthy.upload(member.key, "a.txt")
-        failed: Final = failing.list(member.key, {"model": failing.model}, {"x-litellm-num-retries": "0"})
+        failed: Final = failing.list(member.key, {"model": failing.model}, {"x-hangarllm-num-retries": "0"})
         assert failed.status_code == status, failed.text
         error: Final = object_value(_json(failed)["error"])
         assert message in string_value(error["message"]), failed.text
@@ -1235,7 +1235,7 @@ def test_non_json_provider_body_is_an_error_response_and_other_models_keep_mappi
     with _rig(gateway, listing=_html_listing()) as failing, _rig(gateway, "a.txt") as healthy:
         member: Final = _member(failing.scenario, failing.model, healthy.model, router_settings={"num_retries": 2})
         managed_a: Final = healthy.upload(member.key, "a.txt")
-        failed: Final = failing.list(member.key, {"model": failing.model}, {"x-litellm-num-retries": "0"})
+        failed: Final = failing.list(member.key, {"model": failing.model}, {"x-hangarllm-num-retries": "0"})
         assert failed.status_code == 500, failed.text
         assert string_value(object_value(_json(failed)["error"])["message"]), failed.text
         assert _ids(healthy.listed(member.key)) == (managed_a,)

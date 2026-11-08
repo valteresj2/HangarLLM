@@ -9,19 +9,19 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.bug_report_config import build_proxy_bug_report
-from litellm.proxy.common_utils.debug_utils import (
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.bug_report_config import build_proxy_bug_report
+from hangarllm.proxy.common_utils.debug_utils import (
     PSUTIL_MISSING_ERROR,
     _ProcFilesystemProcess,
     _summary_process_memory,
     get_memory_summary,
 )
-from litellm.proxy.common_utils.debug_utils import router as debug_router
-from litellm.router import Router
-from litellm.router_utils.prompt_caching_cache import PromptCachingCache
+from hangarllm.proxy.common_utils.debug_utils import router as debug_router
+from hangarllm.router import Router
+from hangarllm.router_utils.prompt_caching_cache import PromptCachingCache
 
 PAGE_SIZE = 4096
 STATM_SIZE_PAGES = 100_000
@@ -84,19 +84,19 @@ HOSTILE_CONFIG: Mapping[str, object] = {
     "model_list": [
         {
             "model_name": "acme-prod-gpt4",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/acme-gpt4o-deployment",
                 "api_base": "https://acme-eastus.openai.azure.com",
                 "api_key": "sk-live-secret-1",
             },
         }
     ],
-    "litellm_settings": {"drop_params": True, "callbacks": ["langfuse", "acme_hooks.audit_logger"]},
+    "hangarllm_settings": {"drop_params": True, "callbacks": ["langfuse", "acme_hooks.audit_logger"]},
 }
 
 HOSTILE_GENERAL_SETTINGS: Mapping[str, object] = {
     "master_key": "sk-live-secret-master",
-    "database_url": "postgres://user:hunter2@10.0.0.7/litellm",
+    "database_url": "postgres://user:hunter2@10.0.0.7/hangarllm",
     "store_model_in_db": True,
 }
 
@@ -123,8 +123,8 @@ def _debug_client(caller: UserAPIKeyAuth) -> TestClient:
     "caller",
     [
         UserAPIKeyAuth(),
-        UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER),
-        UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY),
     ],
 )
 @pytest.mark.usefixtures("hostile_proxy_config")
@@ -132,19 +132,19 @@ def test_debug_report_refuses_everyone_but_proxy_admins(caller: UserAPIKeyAuth) 
     response = _debug_client(caller).get("/debug/report")
 
     assert response.status_code == 403, response.text
-    assert "litellm_version" not in response.text
+    assert "hangarllm_version" not in response.text
 
 
 @pytest.mark.usefixtures("hostile_proxy_config")
 def test_debug_report_returns_what_the_bug_report_link_carries_and_nothing_from_the_operator() -> None:
-    response = _debug_client(UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)).get("/debug/report")
+    response = _debug_client(UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)).get("/debug/report")
 
     assert response.status_code == 200, response.text
     assert response.json() == json.loads(json.dumps(asdict(build_proxy_bug_report(RuntimeError("boom")).environment)))
     assert response.json()["config_lines"] == [
         "general_settings.store_model_in_db = true",
-        "litellm_settings.drop_params = true",
-        "litellm_settings.callbacks = [langfuse]",
+        "hangarllm_settings.drop_params = true",
+        "hangarllm_settings.callbacks = [langfuse]",
         "model_list[*].provider = [azure]",
     ]
     assert not any(hostile in response.text for hostile in HOSTILE_STRINGS), response.text
@@ -155,7 +155,7 @@ PINNED_PREFIXES = 3
 
 @pytest.fixture
 def router_with_pins(monkeypatch: pytest.MonkeyPatch) -> None:
-    router = Router(model_list=[{"model_name": "claude", "litellm_params": {"model": "anthropic/claude-sonnet-4-5"}}])
+    router = Router(model_list=[{"model_name": "claude", "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5"}}])
     pins = PromptCachingCache(cache=router.prompt_caching_pin_cache)
     for prefix in range(PINNED_PREFIXES):
         pins.add_model_id(
@@ -194,7 +194,7 @@ def router_with_pins(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_memory_routes_count_prompt_caching_pins(
     path: str, pin_count: Callable[[dict[str, object]], int], expected: int
 ) -> None:
-    response = _debug_client(UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)).get(path)
+    response = _debug_client(UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)).get(path)
 
     assert response.status_code == 200
     assert pin_count(response.json()) == expected

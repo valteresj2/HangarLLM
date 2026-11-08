@@ -10,27 +10,27 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.constants import (
     DEFAULT_MINIMUM_PROMPT_CACHE_TOKEN_COUNT,
     PROMPT_CACHE_LOOKBACK_POSITIONS,
-    REDACTED_BY_LITELLM,
+    REDACTED_BY_HANGARLLM,
 )
-from litellm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import (
+from hangarllm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import StandardLoggingPayloadSetup
+from hangarllm.router_utils.pre_call_checks.prompt_caching_deployment_check import (
     PromptCachingDeploymentCheck,
     _honors_one_hour_cache_ttl,
     _get_min_token_count_for_deployments,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.router_utils.prompt_caching_cache import PROMPT_CACHE_PIN_TTL_SECONDS, PromptCachingCache
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import StandardLoggingPayload
-from litellm.utils import get_prompt_cache_min_tokens, is_prompt_caching_valid_prompt, token_counter
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.router_utils.prompt_caching_cache import PROMPT_CACHE_PIN_TTL_SECONDS, PromptCachingCache
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.utils import StandardLoggingPayload
+from hangarllm.utils import get_prompt_cache_min_tokens, is_prompt_caching_valid_prompt, token_counter
 
 MODEL_GROUP_ALIAS = "my-claude-group"
 OPUS_4_6_MIN_TOKENS = 4096
@@ -46,20 +46,20 @@ CALLBACK_REGISTRIES: Final = (
 
 @pytest.fixture(autouse=True)
 def _fresh_callback_registries(monkeypatch):
-    """`litellm.logging_callback_manager` keeps one callback per class, so a
+    """`hangarllm.logging_callback_manager` keeps one callback per class, so a
     `PromptCachingDeploymentCheck` or `_SentMessagesCapture` left behind by an
     earlier test would swallow the next test's success events."""
     for registry in CALLBACK_REGISTRIES:
-        monkeypatch.setattr(litellm, registry, [])
+        monkeypatch.setattr(hangarllm, registry, [])
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +74,7 @@ def _deployments(*models: str) -> list[dict]:
     return [
         {
             "model_name": MODEL_GROUP_ALIAS,
-            "litellm_params": {"model": model},
+            "hangarllm_params": {"model": model},
             "model_info": {"id": f"dep-{index}"},
         }
         for index, model in enumerate(models, start=1)
@@ -346,10 +346,10 @@ _RETRIES_ON_DEP_1: Final = tuple({"deployment_id": "dep-1"} for _ in range(4))
         {"_excluded_deployment_ids": ["dep-2"]},
         {"_retry_skipped_deployment_ids": ("dep-2",)},
         {"metadata": {"previous_models": [{"deployment_id": "dep-2"}], "request_retry_count": 1}},
-        {"litellm_metadata": {"previous_models": ({"deployment_id": "dep-2"},), "request_retry_count": 1}},
+        {"hangarllm_metadata": {"previous_models": ({"deployment_id": "dep-2"},), "request_retry_count": 1}},
         {"metadata": {"previous_models": _RETRIES_ON_DEP_1, "request_retry_count": 5}},
     ],
-    ids=["excluded", "retry_skipped", "retried", "retried_litellm_metadata", "retries_rolled_over"],
+    ids=["excluded", "retry_skipped", "retried", "retried_hangarllm_metadata", "retries_rolled_over"],
 )
 async def test_async_filter_deployments_does_not_pin_to_a_deployment_that_failed_this_request(
     failed_in_request: dict[str, object],
@@ -443,7 +443,7 @@ async def test_replayed_redacted_thinking_block_still_records_and_pins():
             {
                 "role": "assistant",
                 "content": [
-                    {"type": "redacted_thinking", "data": "litellm_encrypted_reasoning:" + "Z" * 400},
+                    {"type": "redacted_thinking", "data": "hangarllm_encrypted_reasoning:" + "Z" * 400},
                     {"type": "text", "text": "Draw from the box labeled Mixed."},
                 ],
             },
@@ -497,12 +497,12 @@ def _affinity_messages(messages: list[AllMessageValues]) -> list[AllMessageValue
 
 
 class _SentMessagesCapture(CustomLogger):
-    def __init__(self, litellm_call_id: str):
-        self.litellm_call_id = litellm_call_id
+    def __init__(self, hangarllm_call_id: str):
+        self.hangarllm_call_id = hangarllm_call_id
         self.messages: list[AllMessageValues] | None = None
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        if kwargs.get("litellm_call_id") != self.litellm_call_id:
+        if kwargs.get("hangarllm_call_id") != self.hangarllm_call_id:
             return
         standard_logging_object = kwargs.get("standard_logging_object")
         if standard_logging_object is not None:
@@ -524,23 +524,23 @@ async def _eventually(predicate, timeout: float = 10.0):
 async def test_affinity_key_matches_the_messages_auto_caching_actually_sends(monkeypatch, local_model_cost_map):
     """
     The regression. `enable_anthropic_prompt_caching` injects cache_control inside
-    `litellm.acompletion`, which runs after routing, so at filter time the messages carried no
+    `hangarllm.acompletion`, which runs after routing, so at filter time the messages carried no
     marker, `extract_cacheable_prefix` returned [], the key was None, and the check no-opped on
     every request. Routing must derive the same key the success event writes from the messages the
     request was actually sent with, otherwise auto-injected caching gets no affinity at all.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     call_id: Final = str(uuid.uuid4())
     capture = _SentMessagesCapture(call_id)
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     messages = _auto_caching_messages()
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=AUTO_CACHING_MODEL,
         messages=copy.deepcopy(messages),
         mock_response="ok",
         api_key="sk-fake",
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
     )
     sent_messages = await _eventually(lambda: capture.messages)
     assert sent_messages is not None
@@ -558,12 +558,12 @@ async def test_repeated_auto_cached_prefix_pins_to_one_deployment(monkeypatch, l
     across a multi-deployment group once one deployment has cached the prefix. Bedrock and Anthropic
     caches are per account and region, so every bounce paid the cache write premium and never read.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
+                "hangarllm_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
                 "model_info": {"id": model_id},
             }
             for model_id in ("dep-1", "dep-2")
@@ -595,7 +595,7 @@ async def test_per_request_enable_prompt_caching_reaches_the_affinity_key(monkey
     off, so routing has to read it too. Ignore it and the key comes off unmarked messages, which is
     never what the request goes on to send, and the pin is lost for every per-key enablement.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", False)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", False)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -619,7 +619,7 @@ async def test_per_request_enable_prompt_caching_reaches_the_affinity_key(monkey
 
 @pytest.mark.asyncio
 async def test_claude_code_one_shot_subagent_does_not_reuse_an_auto_injected_affinity_key(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -654,7 +654,7 @@ async def test_claude_code_one_shot_subagent_does_not_reuse_an_auto_injected_aff
 
 @pytest.mark.asyncio
 async def test_root_cache_control_does_not_reuse_an_auto_injected_affinity_key(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -682,11 +682,11 @@ async def test_root_cache_control_does_not_reuse_an_auto_injected_affinity_key(m
 async def test_tool_marked_cache_control_keeps_routing_off_another_requests_prefix(monkeypatch, local_model_cost_map):
     """
     Tools carrying the client's own cache_control make auto-injection stand down, so this request
-    will not carry litellm's breakpoints. Routing must see the tools as well. Ignore them and it
+    will not carry hangarllm's breakpoints. Routing must see the tools as well. Ignore them and it
     keys off the injected prefix, pinning the request to whichever deployment cached a different,
     tool-less request whose prefix it can never actually reuse.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -724,7 +724,7 @@ def test_client_supplied_cache_control_keeps_its_own_prefix_boundary(monkeypatch
     keep keying off the client's boundary. Injecting on top would push the boundary to the trailing
     turn and break affinity for prompts that already worked.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     messages = cast(
         list[AllMessageValues],
         [
@@ -746,13 +746,13 @@ def test_client_supplied_cache_control_keeps_its_own_prefix_boundary(monkeypatch
 
 @pytest.mark.asyncio
 async def test_wildcard_route_resolves_underlying_model_minimum(local_model_cost_map):
-    from litellm import Router
+    from hangarllm import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {"model": "anthropic/*", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "anthropic/*", "api_key": "sk-fake"},
                 "model_info": {"id": "wild-1"},
             }
         ]
@@ -760,14 +760,14 @@ async def test_wildcard_route_resolves_underlying_model_minimum(local_model_cost
 
     deployments = await router.async_get_healthy_deployments(model="anthropic/claude-opus-4-6", request_kwargs={})
 
-    assert deployments[0]["litellm_params"]["model"] == "anthropic/claude-opus-4-6"
+    assert deployments[0]["hangarllm_params"]["model"] == "anthropic/claude-opus-4-6"
     assert _get_min_token_count_for_deployments(deployments) == 4096
 
 
 @pytest.mark.asyncio
 async def test_async_filter_deployments_counts_the_prompt_off_the_event_loop():
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -791,7 +791,7 @@ async def test_async_filter_deployments_counts_the_prompt_off_the_event_loop():
 @pytest.mark.asyncio
 async def test_async_log_success_event_counts_the_prompt_off_the_event_loop():
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -1157,16 +1157,16 @@ async def test_pin_matches_when_the_success_event_truncated_an_image_payload(mon
     """
     call_id: Final = str(uuid.uuid4())
     capture = _SentMessagesCapture(call_id)
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     image = {"type": "image_url", "image_url": {"url": ONE_PIXEL_PNG}}
     turn_one = _turn({"role": "user", "content": [image, _marked(LONG_PROMPT)]})
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model=AUTO_CACHING_MODEL,
         messages=copy.deepcopy(turn_one),
         mock_response="ok",
         api_key="sk-fake",
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
     )
     logged = await _eventually(lambda: capture.messages)
     assert logged is not None
@@ -1194,11 +1194,11 @@ async def test_claude_code_style_session_stays_on_one_deployment_across_turns(lo
     End to end over the router with a client that marks only the newest user message each turn, the
     way Claude Code does. Every turn has to land on the deployment that served the first one.
     """
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
+                "hangarllm_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
                 "model_info": {"id": model_id},
             }
             for model_id in (f"dep-{number}" for number in range(1, 7))
@@ -1265,13 +1265,13 @@ async def test_router_with_prompt_caching(anthropic_messages):
     if prompt caching supported model called with prompt caching valid prompt,
     then 2nd call should go to the same model.
     """
-    from litellm.router import Router
+    from hangarllm.router import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "claude-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
                     "api_key": os.environ.get("ANTHROPIC_API_KEY"),
                     "mock_response": "The sky is blue.",
@@ -1279,7 +1279,7 @@ async def test_router_with_prompt_caching(anthropic_messages):
             },
             {
                 "model_name": "claude-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic.claude-haiku-4-5-20251001-v1:0",
                     "mock_response": "The sky is green.",
                 },
@@ -1557,19 +1557,19 @@ async def test_pin_is_written_with_message_logging_off_while_loggers_still_see_r
 ):
     """
     `turn_off_message_logging` redacted the shared success-event payload before the check read it, so the
-    pin was keyed off `redacted-by-litellm`, never written, and a cacheable conversation bounced across the
+    pin was keyed off `redacted-by-hangarllm`, never written, and a cacheable conversation bounced across the
     group. The pin must land whatever the flag says, while a real logger alongside still sees only the
     redacted messages.
     """
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", False)
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", False)
     probe = _LoggedMessagesProbe()
-    monkeypatch.setattr(litellm, "callbacks", [probe])
-    router = litellm.Router(
+    monkeypatch.setattr(hangarllm, "callbacks", [probe])
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": "anthropic/claude-opus-4-6", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "anthropic/claude-opus-4-6", "api_key": "sk-fake"},
                 "model_info": {"id": model_id},
             }
             for model_id in ("dep-1", "dep-2")
@@ -1594,7 +1594,7 @@ async def test_pin_is_written_with_message_logging_off_while_loggers_still_see_r
     assert subsequent == [served_by] * 4
 
     await _eventually(lambda: len(probe.logged_messages) == 5)
-    redacted = [{"role": "user", "content": "redacted-by-litellm"}]
+    redacted = [{"role": "user", "content": "redacted-by-hangarllm"}]
     assert probe.logged_messages == [(redacted, redacted)] * 5, probe.logged_messages
 
 
@@ -1618,12 +1618,12 @@ def _marked_responses_input() -> list[dict[str, object]]:
     ]
 
 
-def _responses_router(model: str) -> litellm.Router:
-    return litellm.Router(
+def _responses_router(model: str) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": model, "api_key": "sk-fake"},
+                "hangarllm_params": {"model": model, "api_key": "sk-fake"},
                 "model_info": {"id": model_id},
             }
             for model_id in ("dep-1", "dep-2")
@@ -1632,7 +1632,7 @@ def _responses_router(model: str) -> litellm.Router:
     )
 
 
-async def _serve_response(router: litellm.Router, request_input: object) -> str:
+async def _serve_response(router: hangarllm.Router, request_input: object) -> str:
     response = await router.aresponses(
         model=MODEL_GROUP_ALIAS,
         input=copy.deepcopy(request_input),
@@ -1643,7 +1643,7 @@ async def _serve_response(router: litellm.Router, request_input: object) -> str:
     return response._hidden_params["model_id"]
 
 
-async def _deployments_serving_repeats(router: litellm.Router, request_input: object) -> set[str]:
+async def _deployments_serving_repeats(router: hangarllm.Router, request_input: object) -> set[str]:
     await _serve_response(router, request_input)
     assert await _eventually(lambda: router.prompt_caching_pin_cache.in_memory_cache.cache_dict)
     return {await _serve_response(router, request_input) for _ in range(8)}
@@ -1683,12 +1683,12 @@ async def test_responses_request_pins_after_prompt_caching_is_turned_off_and_on_
     assert len(await _deployments_serving_repeats(router, _marked_responses_input())) == 1
 
 
-def _team_tagged_router(model: str) -> litellm.Router:
-    return litellm.Router(
+def _team_tagged_router(model: str) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": model, "api_key": "sk-fake", "tags": [team]},
+                "hangarllm_params": {"model": model, "api_key": "sk-fake", "tags": [team]},
                 "model_info": {"id": model_id},
             }
             for model_id, team in (("dep-1", "team-a"), ("dep-2", "team-b"))
@@ -1698,19 +1698,19 @@ def _team_tagged_router(model: str) -> litellm.Router:
     )
 
 
-async def _serve_team_response(router: litellm.Router, team: str) -> str:
+async def _serve_team_response(router: hangarllm.Router, team: str) -> str:
     response = await router.aresponses(
         model=MODEL_GROUP_ALIAS,
         input=_marked_responses_input(),
         instructions="Be terse.",
         tools=[_RESPONSES_TOOL],
-        litellm_metadata={"tags": [team]},
+        hangarllm_metadata={"tags": [team]},
         mock_response="ok",
     )
     return response._hidden_params["model_id"]
 
 
-async def _serve_team_completion(router: litellm.Router, team: str) -> str:
+async def _serve_team_completion(router: hangarllm.Router, team: str) -> str:
     response = await router.acompletion(
         model=MODEL_GROUP_ALIAS,
         messages=_messages(word_count=5000),
@@ -1736,11 +1736,11 @@ async def test_prompt_cache_pin_never_overrides_the_request_tags(model: str, ser
 
 @pytest.mark.asyncio
 async def test_retry_moves_off_the_pinned_deployment_that_failed():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": RESPONSES_BRIDGED_MODEL,
                     "api_key": "sk-fake",
                     "mock_response": mock_response,
@@ -1749,7 +1749,7 @@ async def test_retry_moves_off_the_pinned_deployment_that_failed():
                 "model_info": {"id": model_id},
             }
             for model_id, mock_response, weight in (
-                ("dep-1", "litellm.InternalServerError", 1),
+                ("dep-1", "hangarllm.InternalServerError", 1),
                 ("dep-2", "ok", 1000),
             )
         ],
@@ -1769,13 +1769,13 @@ async def test_retry_moves_off_the_pinned_deployment_that_failed():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("reused_as", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("reused_as", ["metadata", "hangarllm_metadata"])
 async def test_pin_holds_for_a_metadata_dict_reused_after_a_request_failed_on_the_pinned_deployment(reused_as: str):
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": RESPONSES_BRIDGED_MODEL, "api_key": "sk-fake", "weight": weight},
+                "hangarllm_params": {"model": RESPONSES_BRIDGED_MODEL, "api_key": "sk-fake", "weight": weight},
                 "model_info": {"id": model_id},
             }
             for model_id, weight in (("dep-1", 1000), ("dep-2", 1))
@@ -1787,19 +1787,19 @@ async def test_pin_holds_for_a_metadata_dict_reused_after_a_request_failed_on_th
     )
     router.cooldown_cache.add_deployment_to_cooldown(
         model_id="dep-1",
-        original_exception=litellm.RateLimitError(
+        original_exception=hangarllm.RateLimitError(
             message="upstream 429", llm_provider="anthropic", model=RESPONSES_BRIDGED_MODEL
         ),
         exception_status=429,
         cooldown_time=60,
     )
     reused_metadata: Final[dict[str, object]] = {}
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await router.acompletion(
             model=MODEL_GROUP_ALIAS,
             messages=[{"role": "user", "content": "hello"}],
             metadata=reused_metadata,
-            mock_response="litellm.InternalServerError",
+            mock_response="hangarllm.InternalServerError",
         )
     router.cooldown_cache.cooldown_store.evict_local("dep-1")
     messages: Final = _messages(word_count=5000)
@@ -1860,7 +1860,7 @@ async def _log_responses_success(
                 **event["standard_logging_object"],
                 "model_map_information": {"model_map_key": AUTO_CACHING_MODEL, "model_map_value": model_map_value},
             },
-            "litellm_params": {"litellm_metadata": metadata},
+            "hangarllm_params": {"hangarllm_metadata": metadata},
         },
         response_obj=None,
         start_time=None,
@@ -1873,9 +1873,9 @@ async def _pinned_deployment_ids(
 ) -> tuple[str, ...]:
     check = PromptCachingDeploymentCheck(cache=DualCache())
     metadata: dict[str, object] = {}
-    await _read_responses_pin(check, {**first_request, "litellm_metadata": metadata})
+    await _read_responses_pin(check, {**first_request, "hangarllm_metadata": metadata})
     await _log_responses_success(check, logged_messages, metadata)
-    return await _read_responses_pin(check, {**next_request, "litellm_metadata": {}})
+    return await _read_responses_pin(check, {**next_request, "hangarllm_metadata": {}})
 
 
 @pytest.mark.asyncio
@@ -1889,7 +1889,7 @@ async def _pinned_deployment_ids(
             {"role": "assistant", "tool_calls": [{"id": "call_1", "type": "function"}]},
             {"role": "tool", "tool_call_id": "call_1", "content": "12:00"},
         ],
-        [{"role": "user", "content": REDACTED_BY_LITELLM}],
+        [{"role": "user", "content": REDACTED_BY_HANGARLLM}],
     ],
     ids=["client_input", "bridged_chat_messages", "redacted"],
 )
@@ -1928,14 +1928,14 @@ async def test_interleaved_responses_requests_each_pin_their_own_prompt():
     verbose = {"input": _marked_responses_input(), "instructions": "Be verbose."}
     terse_metadata: dict[str, object] = {}
     verbose_metadata: dict[str, object] = {}
-    await _read_responses_pin(check, {**terse, "litellm_metadata": terse_metadata})
-    await _read_responses_pin(check, {**verbose, "litellm_metadata": verbose_metadata})
+    await _read_responses_pin(check, {**terse, "hangarllm_metadata": terse_metadata})
+    await _read_responses_pin(check, {**verbose, "hangarllm_metadata": verbose_metadata})
 
     await _log_responses_success(check, _marked_responses_input(), terse_metadata, model_id="dep-1")
     await _log_responses_success(check, _marked_responses_input(), verbose_metadata, model_id="dep-2")
 
-    assert await _read_responses_pin(check, {**terse, "litellm_metadata": {}}) == ("dep-1",)
-    assert await _read_responses_pin(check, {**verbose, "litellm_metadata": {}}) == ("dep-2",)
+    assert await _read_responses_pin(check, {**terse, "hangarllm_metadata": {}}) == ("dep-1",)
+    assert await _read_responses_pin(check, {**verbose, "hangarllm_metadata": {}}) == ("dep-2",)
 
 
 @pytest.mark.asyncio
@@ -1943,7 +1943,7 @@ async def test_retried_responses_request_leaves_no_pin_in_flight_once_it_succeed
     pins_in_flight = InMemoryCache()
     check = PromptCachingDeploymentCheck(cache=DualCache(), responses_pins_in_flight=pins_in_flight)
     metadata: dict[str, object] = {}
-    request = {"input": _marked_responses_input(), "litellm_metadata": metadata}
+    request = {"input": _marked_responses_input(), "hangarllm_metadata": metadata}
     await _read_responses_pin(check, request)
     await _read_responses_pin(check, request)
 
@@ -1959,7 +1959,7 @@ async def test_request_sharing_the_responses_input_shape_leaves_no_pin_behind(ca
     pins_in_flight = InMemoryCache()
     check = PromptCachingDeploymentCheck(cache=cache, responses_pins_in_flight=pins_in_flight)
     metadata: dict[str, object] = {}
-    await _read_responses_pin(check, {"input": _marked_responses_input(), "litellm_metadata": metadata})
+    await _read_responses_pin(check, {"input": _marked_responses_input(), "hangarllm_metadata": metadata})
     assert pins_in_flight.cache_dict
 
     await _log_responses_success(check, _marked_responses_input(), metadata, call_type=call_type)
@@ -1979,14 +1979,14 @@ async def test_responses_request_served_by_the_only_healthy_deployment_pins_it()
         model=MODEL_GROUP_ALIAS,
         healthy_deployments=only_healthy,
         messages=None,
-        request_kwargs={**request, "litellm_metadata": metadata},
+        request_kwargs={**request, "hangarllm_metadata": metadata},
     )
     assert filtered == only_healthy
     assert cache.pin_lookups == 0
 
     await _log_responses_success(check, _marked_responses_input(), metadata, model_id="dep-2")
 
-    assert await _read_responses_pin(check, {**request, "litellm_metadata": {}}) == ("dep-2",)
+    assert await _read_responses_pin(check, {**request, "hangarllm_metadata": {}}) == ("dep-2",)
 
 
 @pytest.mark.asyncio
@@ -2002,7 +2002,7 @@ async def test_responses_request_to_a_single_deployment_group_skips_the_prefix_h
         model=MODEL_GROUP_ALIAS,
         healthy_deployments=deployments,
         messages=None,
-        request_kwargs={"input": _marked_responses_input(), "litellm_metadata": {}},
+        request_kwargs={"input": _marked_responses_input(), "hangarllm_metadata": {}},
     )
 
     assert filtered == deployments
@@ -2012,11 +2012,11 @@ async def test_responses_request_to_a_single_deployment_group_skips_the_prefix_h
 
 @pytest.mark.asyncio
 async def test_responses_request_to_a_single_deployment_router_group_writes_no_pin(monkeypatch):
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": RESPONSES_NATIVE_MODEL, "api_key": "sk-fake"},
+                "hangarllm_params": {"model": RESPONSES_NATIVE_MODEL, "api_key": "sk-fake"},
                 "model_info": {"id": "dep-1"},
             }
         ],
@@ -2026,9 +2026,9 @@ async def test_responses_request_to_a_single_deployment_router_group_writes_no_p
 
     class _LoggedAfterTheCheck(CustomLogger):
         async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-            logged_after_the_check.append(kwargs["litellm_call_id"])
+            logged_after_the_check.append(kwargs["hangarllm_call_id"])
 
-    monkeypatch.setattr(litellm, "callbacks", [*litellm.callbacks, _LoggedAfterTheCheck()])
+    monkeypatch.setattr(hangarllm, "callbacks", [*hangarllm.callbacks, _LoggedAfterTheCheck()])
 
     assert await _serve_response(router, _marked_responses_input()) == "dep-1"
 
@@ -2049,7 +2049,7 @@ async def test_responses_prompts_served_while_a_peer_cools_down_stay_pinned_once
     pins = router.prompt_caching_pin_cache.in_memory_cache.cache_dict
     router.cooldown_cache.add_deployment_to_cooldown(
         model_id="dep-1",
-        original_exception=litellm.RateLimitError(
+        original_exception=hangarllm.RateLimitError(
             message="upstream 429", llm_provider="openai", model=RESPONSES_NATIVE_MODEL
         ),
         exception_status=429,
@@ -2161,7 +2161,7 @@ async def test_responses_marked_tool_set_long_enough_to_cache_pins_on_its_own():
 
 @pytest.mark.asyncio
 async def test_responses_continuation_turn_is_left_to_the_deployment_holding_its_previous_response(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     new_thread = {"input": "hello", "instructions": LONG_PROMPT}
 
     pinned = await _pinned_deployment_ids(
@@ -2177,11 +2177,11 @@ async def test_responses_answer_from_a_fallback_group_keeps_the_primary_groups_p
     request = {"input": _marked_responses_input()}
     assert await _serve_turn(check, request["input"]) == 2
     fallback_hop_metadata: dict[str, object] = {}
-    await _read_responses_pin(check, {**request, "litellm_metadata": fallback_hop_metadata})
+    await _read_responses_pin(check, {**request, "hangarllm_metadata": fallback_hop_metadata})
 
     await _log_responses_success(check, request["input"], fallback_hop_metadata, model_id="fallback-dep")
 
-    pinned = await _read_responses_pin(check, {**request, "litellm_metadata": {}})
+    pinned = await _read_responses_pin(check, {**request, "hangarllm_metadata": {}})
     assert pinned == ("dep-1",)
 
 
@@ -2198,11 +2198,11 @@ async def test_responses_pin_goes_only_to_a_deployment_whose_model_caches_the_pr
     check = PromptCachingDeploymentCheck(cache=DualCache())
     request = {"input": [{"role": "user", "content": [_marked_input_text("word " * 1400)]}]}
     metadata: dict[str, object] = {}
-    await _read_responses_pin(check, {**request, "litellm_metadata": metadata}, mixed_group)
+    await _read_responses_pin(check, {**request, "hangarllm_metadata": metadata}, mixed_group)
 
     await _log_responses_success(check, request["input"], metadata, model_id=answering_deployment)
 
-    pinned = await _read_responses_pin(check, {**request, "litellm_metadata": {}}, mixed_group)
+    pinned = await _read_responses_pin(check, {**request, "hangarllm_metadata": {}}, mixed_group)
     assert pinned == expected_pin
 
 
@@ -2211,7 +2211,7 @@ async def test_embedding_request_never_takes_a_responses_pin():
     check = PromptCachingDeploymentCheck(cache=DualCache())
     pinned_input = _marked_responses_input()
     assert await _serve_turn(check, pinned_input) == 2
-    assert len(await _read_responses_pin(check, {"input": pinned_input, "litellm_metadata": {}})) == 1
+    assert len(await _read_responses_pin(check, {"input": pinned_input, "hangarllm_metadata": {}})) == 1
 
     filtered = await _read_responses_pin(check, {"input": pinned_input, "metadata": {}})
 
@@ -2237,7 +2237,7 @@ async def test_responses_thread_is_converted_off_the_event_loop():
     asyncio.get_running_loop().call_soon(loop_turned.set)
 
     await _read_responses_pin(
-        PromptCachingDeploymentCheck(cache=DualCache()), {"input": thread, "litellm_metadata": {}}
+        PromptCachingDeploymentCheck(cache=DualCache()), {"input": thread, "hangarllm_metadata": {}}
     )
 
     assert thread.loop_turned_before_first_read is True
@@ -2245,7 +2245,7 @@ async def test_responses_thread_is_converted_off_the_event_loop():
 
 @pytest.mark.asyncio
 async def test_responses_long_instructions_count_toward_the_caching_minimum(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     request = {"input": "hello", "instructions": LONG_PROMPT}
 
     pinned = await _pinned_deployment_ids(request, [{"role": "user", "content": "hello"}], request)
@@ -2269,17 +2269,17 @@ async def test_responses_one_hour_pin_follows_the_deployments_one_hour_cache_sup
     marked = {**_marked_input_text(LONG_PROMPT), "cache_control": {"type": "ephemeral", "ttl": "1h"}}
     request = {"input": [{"role": "user", "content": [marked]}]}
     metadata: dict[str, object] = {}
-    await _read_responses_pin(check, {**request, "litellm_metadata": metadata})
+    await _read_responses_pin(check, {**request, "hangarllm_metadata": metadata})
     await _log_responses_success(check, request["input"], metadata, model_map_value=model_map_value)
 
     clock.advance(PROMPT_CACHE_PIN_TTL_SECONDS + 1)
 
-    assert (len(await _read_responses_pin(check, {**request, "litellm_metadata": {}})) == 1) is pinned_past_five_minutes
+    assert (len(await _read_responses_pin(check, {**request, "hangarllm_metadata": {}})) == 1) is pinned_past_five_minutes
 
 
 @pytest.mark.asyncio
 async def test_responses_turn_without_input_leaves_routing_to_its_previous_response(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     request = {"previous_response_id": "resp_1", "instructions": LONG_PROMPT}
 
     pinned = await _pinned_deployment_ids(request, None, request)
@@ -2289,14 +2289,14 @@ async def test_responses_turn_without_input_leaves_routing_to_its_previous_respo
 
 async def _serve_turn(check: PromptCachingDeploymentCheck, request_input: object) -> int:
     metadata: dict[str, object] = {}
-    pinned = await _read_responses_pin(check, {"input": request_input, "litellm_metadata": metadata})
+    pinned = await _read_responses_pin(check, {"input": request_input, "hangarllm_metadata": metadata})
     await _log_responses_success(check, request_input, metadata)
     return len(pinned)
 
 
 @pytest.mark.asyncio
 async def test_responses_thread_longer_than_the_lookback_window_keeps_its_deployment(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
     check = PromptCachingDeploymentCheck(cache=DualCache())
     turns = [
         {"role": "system", "content": LONG_PROMPT},
@@ -2316,11 +2316,11 @@ async def test_responses_failover_writes_the_pin_for_the_deployment_that_answere
     check = PromptCachingDeploymentCheck(cache=DualCache())
     request = {"input": _marked_responses_input()}
     metadata: dict[str, object] = {}
-    await _read_responses_pin(check, {**request, "litellm_metadata": metadata})
-    await _read_responses_pin(check, {**request, "litellm_metadata": metadata})
+    await _read_responses_pin(check, {**request, "hangarllm_metadata": metadata})
+    await _read_responses_pin(check, {**request, "hangarllm_metadata": metadata})
     await _log_responses_success(check, _marked_responses_input(), metadata, model_id="dep-2")
 
-    pinned = await _read_responses_pin(check, {**request, "litellm_metadata": {}})
+    pinned = await _read_responses_pin(check, {**request, "hangarllm_metadata": {}})
 
     assert pinned == ("dep-2",)
 
@@ -2365,7 +2365,7 @@ async def test_responses_image_in_the_prefix_pins_to_one_deployment():
     ids=["item_list", "plain_string"],
 )
 async def test_responses_auto_cached_prefix_pins_to_one_deployment(monkeypatch, request_input: object):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(hangarllm, "enable_anthropic_prompt_caching", True)
 
     assert len(await _deployments_serving_repeats(_responses_router(RESPONSES_BRIDGED_MODEL), request_input)) == 1
 
@@ -2397,7 +2397,7 @@ async def test_input_that_is_not_a_responses_prompt_never_narrows_or_raises(requ
     check = PromptCachingDeploymentCheck(cache=cache)
     metadata: dict[str, object] = {}
 
-    filtered = await _read_responses_pin(check, {"input": request_input, "litellm_metadata": metadata})
+    filtered = await _read_responses_pin(check, {"input": request_input, "hangarllm_metadata": metadata})
     await _log_responses_success(check, request_input, metadata)
 
     assert filtered == ("dep-1", "dep-2")
@@ -2431,7 +2431,7 @@ async def test_responses_native_tool_routed_to_a_native_model_logs_no_dropped_to
 ):
     router = _responses_router(RESPONSES_NATIVE_MODEL)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         await router.aresponses(
             model=MODEL_GROUP_ALIAS,
             input=_marked_responses_input(),
@@ -2448,13 +2448,13 @@ class _MetadataSerializingLogger(CustomLogger):
         self.serialized_metadata: list[str] = []
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        self.serialized_metadata.append(json.dumps(kwargs["litellm_params"]["metadata"]))
+        self.serialized_metadata.append(json.dumps(kwargs["hangarllm_params"]["metadata"]))
 
 
 @pytest.mark.asyncio
 async def test_logger_serializing_the_request_metadata_never_sees_the_prompt_cache_key(monkeypatch):
     serializing_logger = _MetadataSerializingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [serializing_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [serializing_logger])
     router = _responses_router(RESPONSES_NATIVE_MODEL)
 
     assert len(await _deployments_serving_repeats(router, _marked_responses_input())) == 1
@@ -2474,7 +2474,7 @@ async def test_responses_call_hands_back_the_callers_metadata_without_the_pin_to
     await router.aresponses(
         model=MODEL_GROUP_ALIAS,
         input=_marked_responses_input(),
-        litellm_metadata=caller_metadata,
+        hangarllm_metadata=caller_metadata,
         mock_response="ok",
     )
 
@@ -2495,7 +2495,7 @@ async def test_responses_continuation_turn_goes_to_the_deployment_that_answered_
     request: dict[str, object] = {
         "input": "hello",
         "previous_response_id": previous_response_id,
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
     }
 
     pinned = await _read_responses_pin(
@@ -2508,7 +2508,7 @@ async def test_responses_continuation_turn_goes_to_the_deployment_that_answered_
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bad_tool", ["get_time", None, 42], ids=["string", "null", "number"])
 async def test_responses_request_with_a_malformed_tool_is_left_to_the_provider(bad_tool: object):
-    request: dict[str, object] = {"input": _marked_responses_input(), "tools": [bad_tool], "litellm_metadata": {}}
+    request: dict[str, object] = {"input": _marked_responses_input(), "tools": [bad_tool], "hangarllm_metadata": {}}
 
     pinned = await _read_responses_pin(PromptCachingDeploymentCheck(cache=DualCache()), request)
 

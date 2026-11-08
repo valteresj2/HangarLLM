@@ -55,7 +55,7 @@ def test_admin_can_reset_tag_spend_and_resume_budget_blocked_requests(
         assert first.status_code == 200, first.text
         assert len(provider.received()) == 1
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_TagTable" WHERE tag_name=%s', (tag,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_TagTable" WHERE tag_name=%s', (tag,)),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) > 0.0001,
             seconds=70,
         )

@@ -7,18 +7,18 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.anthropic.messages.adapters.handler import (
-    LiteLLMMessagesToCompletionTransformationHandler,
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.anthropic.messages.adapters.handler import (
+    HangarLLMMessagesToCompletionTransformationHandler,
     request_safeguards_evaluator,
 )
-from litellm.llms.anthropic.messages.safeguards import ToolUseUnderReview
-from litellm.proxy._types import LiteLLM_TeamTableCachedObj, UserAPIKeyAuth
-from litellm.router import Router
-from litellm.types.utils import (
+from hangarllm.llms.anthropic.messages.safeguards import ToolUseUnderReview
+from hangarllm.proxy._types import HangarLLM_TeamTableCachedObj, UserAPIKeyAuth
+from hangarllm.router import Router
+from hangarllm.types.utils import (
     ChatCompletionDeltaToolCall,
     ChatCompletionMessageToolCall,
     Choices,
@@ -35,7 +35,7 @@ from tests.unit.llms.anthropic.messages.conftest import ProxyAuthState
 SAFEGUARDS: Final = [{"type": "dangerous_tool_use", "classifier_context": {"permission_mode": "auto"}}]
 BASH_TOOL: Final = {"name": "Bash", "description": "run", "input_schema": {"type": "object", "properties": {}}}
 MESSAGES: Final = [{"role": "user", "content": "install the deps"}]
-LITELLM_METADATA: Final = {"user_api_key": "hashed-key", "user_api_key_team_id": "team-1", "headers": {}}
+HANGARLLM_METADATA: Final = {"user_api_key": "hashed-key", "user_api_key_team_id": "team-1", "headers": {}}
 
 
 def _tool_call_response() -> ModelResponse:
@@ -128,17 +128,17 @@ async def _call(
     backend: _Backend, router: _ClassifierRouter, stream: bool, settings: Mapping[str, object], **extra: object
 ) -> object:
     with (
-        patch("litellm.acompletion", new=backend),
-        patch("litellm.proxy.proxy_server.general_settings", dict(settings)),
+        patch("hangarllm.acompletion", new=backend),
+        patch("hangarllm.proxy.proxy_server.general_settings", dict(settings)),
     ):
-        return await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+        return await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
             max_tokens=256,
             messages=list(MESSAGES),
             model="fireworks_ai/kimi",
             tools=[dict(BASH_TOOL)],
             stream=stream,
-            litellm_router=router,
-            litellm_metadata=dict(LITELLM_METADATA),
+            hangarllm_router=router,
+            hangarllm_metadata=dict(HANGARLLM_METADATA),
             **extra,
         )
 
@@ -168,7 +168,7 @@ async def test_non_stream_response_carries_a_verdict_for_the_tool_use_and_bills_
     assert "safeguards" not in backend.calls[0]
     classifier_call: Final = router.calls[0]
     assert classifier_call["model"] == "classifier"
-    assert classifier_call["litellm_metadata"] == {
+    assert classifier_call["hangarllm_metadata"] == {
         "user_api_key": "hashed-key",
         "user_api_key_team_id": "team-1",
         "headers": {},
@@ -201,10 +201,10 @@ async def test_classifier_reads_the_turns_before_a_compaction_block_the_agent_mo
     backend: Final = _Backend(stream=False)
     router: Final = _ClassifierRouter('{"verdicts": {"call_main": {"flagged": false}}}')
     with (
-        patch("litellm.acompletion", new=backend),
-        patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
+        patch("hangarllm.acompletion", new=backend),
+        patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
     ):
-        await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+        await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
             max_tokens=256,
             messages=[
                 {"role": "user", "content": "install the deps"},
@@ -214,8 +214,8 @@ async def test_classifier_reads_the_turns_before_a_compaction_block_the_agent_mo
             model="fireworks_ai/kimi",
             tools=[dict(BASH_TOOL)],
             stream=False,
-            litellm_router=router,
-            litellm_metadata=dict(LITELLM_METADATA),
+            hangarllm_router=router,
+            hangarllm_metadata=dict(HANGARLLM_METADATA),
             safeguards=SAFEGUARDS,
         )
     assert "install the deps" not in json.dumps(backend.calls[0]["messages"])
@@ -274,7 +274,7 @@ async def _drain_logging_worker() -> None:
     [
         ({}, {}, False),
         ({"turn_off_message_logging": True}, {}, True),
-        ({}, {"x-litellm-enable-message-redaction": "true"}, True),
+        ({}, {"x-hangarllm-enable-message-redaction": "true"}, True),
     ],
     ids=["parent-logs-messages", "parent-turns-message-logging-off", "parent-enables-redaction-by-header"],
 )
@@ -283,13 +283,13 @@ async def test_the_classifier_call_logs_under_the_parent_requests_message_redact
 ) -> None:
     await _drain_logging_worker()
     logs: Final = _ClassifierLogs()
-    monkeypatch.setattr(litellm, "callbacks", [logs])
-    monkeypatch.setattr(litellm, "_async_success_callback", [logs])
+    monkeypatch.setattr(hangarllm, "callbacks", [logs])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [logs])
     router: Final = Router(
         model_list=[
             {
                 "model_name": "classifier",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-mini",
                     "api_key": "sk-fake",
                     "mock_response": '{"verdicts": {"call_ls": {"flagged": false}}}',
@@ -303,17 +303,17 @@ async def test_the_classifier_call_logs_under_the_parent_requests_message_redact
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id="parent-call",
+        hangarllm_call_id="parent-call",
         function_id="parent",
         kwargs=parent_kwargs,
     )
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = request_safeguards_evaluator(
             {
                 "safeguards": SAFEGUARDS,
-                "litellm_metadata": {**LITELLM_METADATA, "headers": headers},
-                "litellm_router": router,
-                "litellm_logging_obj": parent_logging,
+                "hangarllm_metadata": {**HANGARLLM_METADATA, "headers": headers},
+                "hangarllm_router": router,
+                "hangarllm_logging_obj": parent_logging,
             },
             MESSAGES,
         )
@@ -335,12 +335,12 @@ async def test_the_classifier_call_logs_under_the_parent_requests_message_redact
 async def test_the_classifier_call_skips_a_callback_the_parents_disable_callbacks_header_turned_off(
     monkeypatch: pytest.MonkeyPatch, disable_header: str, logged: bool
 ) -> None:
-    from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
+    from hangarllm.hangarllm_core_utils.custom_logger_registry import CustomLoggerRegistry
 
     await _drain_logging_worker()
     logs: Final = _ClassifierLogs()
-    monkeypatch.setattr(litellm, "callbacks", [logs])
-    monkeypatch.setattr(litellm, "_async_success_callback", [logs])
+    monkeypatch.setattr(hangarllm, "callbacks", [logs])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [logs])
     router: Final = Router(
         model_list=[_mock_deployment("classifier", '{"verdicts": {"call_ls": {"flagged": false}}}')], num_retries=0
     )
@@ -350,21 +350,21 @@ async def test_the_classifier_call_skips_a_callback_the_parents_disable_callback
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id="parent-call",
+        hangarllm_call_id="parent-call",
         function_id="parent",
     )
     with (
         patch.dict(CustomLoggerRegistry.CALLBACK_CLASS_STR_TO_CLASS_TYPE, {"classifier_logs": _ClassifierLogs}),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}),
     ):
         evaluator: Final = request_safeguards_evaluator(
             {
                 "safeguards": SAFEGUARDS,
-                "litellm_metadata": dict(LITELLM_METADATA),
-                "litellm_router": router,
-                "litellm_logging_obj": parent_logging,
-                "proxy_server_request": {"headers": {"x-litellm-disable-callbacks": disable_header}},
+                "hangarllm_metadata": dict(HANGARLLM_METADATA),
+                "hangarllm_router": router,
+                "hangarllm_logging_obj": parent_logging,
+                "proxy_server_request": {"headers": {"x-hangarllm-disable-callbacks": disable_header}},
             },
             MESSAGES,
         )
@@ -378,7 +378,7 @@ async def test_the_classifier_call_skips_a_callback_the_parents_disable_callback
 def _mock_deployment(model_name: str, reply: str) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-fake", "mock_response": reply},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-fake", "mock_response": reply},
     }
 
 
@@ -390,7 +390,7 @@ async def test_a_subagent_turns_classifier_call_stays_on_the_classifier_model_wh
             _mock_deployment("cheap-model", "a reply from the session's routed model"),
             {
                 "model_name": "smart-router",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_default_model": "cheap-model",
                     "complexity_router_config": {
@@ -409,16 +409,16 @@ async def test_a_subagent_turns_classifier_call_stays_on_the_classifier_model_wh
         proxy_server_request={"headers": session_headers},
     )
     subagent_headers: Final = {**session_headers, "x-claude-code-agent-id": "agent-1234"}
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         evaluator: Final = request_safeguards_evaluator(
             {
                 "safeguards": SAFEGUARDS,
-                "litellm_metadata": {
-                    **LITELLM_METADATA,
+                "hangarllm_metadata": {
+                    **HANGARLLM_METADATA,
                     "user_api_key_hash": "key-hash-a",
                     "headers": subagent_headers,
                 },
-                "litellm_router": router,
+                "hangarllm_router": router,
                 "proxy_server_request": {"headers": subagent_headers},
             },
             MESSAGES,
@@ -435,7 +435,7 @@ async def test_a_trace_id_sent_in_the_body_carries_the_classifier_and_summary_ca
     proxy_auth_state: ProxyAuthState,
 ) -> None:
     proxy_auth_state.seed(
-        LiteLLM_TeamTableCachedObj(
+        HangarLLM_TeamTableCachedObj(
             team_id="team-1", models=["classifier", "summarizer"], metadata={"require_trace_id": True}
         )
     )
@@ -447,7 +447,7 @@ async def test_a_trace_id_sent_in_the_body_carries_the_classifier_and_summary_ca
         num_retries=0,
     )
     backend: Final = _Backend(stream=False)
-    router_deployment_call: Final = litellm.acompletion
+    router_deployment_call: Final = hangarllm.acompletion
 
     async def agent_model_or_router_deployment(**kwargs: object) -> object:
         if kwargs.get("model") == "fireworks_ai/kimi":
@@ -456,24 +456,24 @@ async def test_a_trace_id_sent_in_the_body_carries_the_classifier_and_summary_ca
 
     settings: Final = {"safeguards_classifier_model": "classifier", "context_management_summary_model": "summarizer"}
     with (
-        patch("litellm.acompletion", new=agent_model_or_router_deployment),
-        patch("litellm.proxy.proxy_server.general_settings", settings),
-        patch("litellm.token_counter", return_value=200_000),
+        patch("hangarllm.acompletion", new=agent_model_or_router_deployment),
+        patch("hangarllm.proxy.proxy_server.general_settings", settings),
+        patch("hangarllm.token_counter", return_value=200_000),
     ):
-        response: Final = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+        response: Final = await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
             max_tokens=256,
             messages=list(MESSAGES),
             model="fireworks_ai/kimi",
             tools=[dict(BASH_TOOL)],
             stream=False,
-            litellm_router=router,
-            litellm_metadata={
-                **LITELLM_METADATA,
+            hangarllm_router=router,
+            hangarllm_metadata={
+                **HANGARLLM_METADATA,
                 "user_api_key_auth": UserAPIKeyAuth(api_key="sk-team", team_id="team-1"),
             },
             safeguards=SAFEGUARDS,
             context_management={"edits": [{"type": "compact_20260112"}]},
-            litellm_trace_id="trace-from-the-body",
+            hangarllm_trace_id="trace-from-the-body",
         )
 
     assert isinstance(response, dict)

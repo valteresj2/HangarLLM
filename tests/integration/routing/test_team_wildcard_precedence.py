@@ -16,7 +16,7 @@ def _wildcard(scenario: Scenario, pattern: str, *, team_id: str | None) -> str:
         "/model/new",
         {
             "model_name": pattern,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/*",
                 "api_key": f"provider-key-{identity}",
                 "api_base": f"{scenario.gateway.upstream_url}/v1",
@@ -36,7 +36,7 @@ def _served_by(gateway: Gateway, key: str, model: str) -> str:
         key=key,
     )
     assert response.status_code == 200, response.text
-    return response.headers["x-litellm-model-id"]
+    return response.headers["x-hangarllm-model-id"]
 
 
 def test_a_teams_wildcard_serves_its_keys_before_a_proxy_wide_wildcard_of_the_same_pattern(gateway: Gateway) -> None:

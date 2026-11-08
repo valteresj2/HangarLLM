@@ -12,9 +12,9 @@ import httpx
 import pytest
 
 
-from litellm.llms.oci.common_utils import OCIError
-from litellm.llms.oci.embed.transformation import OCI_EMBED_BATCH_LIMIT, OCIEmbedConfig
-from litellm.types.utils import EmbeddingResponse, Usage
+from hangarllm.llms.oci.common_utils import OCIError
+from hangarllm.llms.oci.embed.transformation import OCI_EMBED_BATCH_LIMIT, OCIEmbedConfig
+from hangarllm.types.utils import EmbeddingResponse, Usage
 
 # ---------------------------------------------------------------------------
 # Test fixtures
@@ -46,10 +46,10 @@ class TestOCIEmbedConfig:
             model="oci/cohere.embed-v3.0",
             messages=[],
             optional_params=BASE_PARAMS,
-            litellm_params={},
+            hangarllm_params={},
         )
         assert headers["content-type"] == "application/json"
-        assert "litellm/" in headers["user-agent"]
+        assert "hangarllm/" in headers["user-agent"]
 
     # ------------------------------------------------------------------
     # get_complete_url
@@ -62,7 +62,7 @@ class TestOCIEmbedConfig:
             api_key=None,
             model="cohere.embed-v3.0",
             optional_params={"oci_region": "us-chicago-1"},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert (
             url
@@ -77,7 +77,7 @@ class TestOCIEmbedConfig:
             api_key=None,
             model="cohere.embed-v3.0",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.endpoint.example.com/20231130/actions/embedText"
 
@@ -89,7 +89,7 @@ class TestOCIEmbedConfig:
             api_key=None,
             model="cohere.embed-v3.0",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://custom.endpoint.example.com/20231130/actions/embedText"
 
@@ -105,7 +105,7 @@ class TestOCIEmbedConfig:
             api_key=None,
             model="cohere.embed-v3.0",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == full_url
 
@@ -261,7 +261,7 @@ class TestOCIEmbedConfig:
             api_key=None,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert len(result.data) == 2
         assert result.data[0]["embedding"] == [0.1, 0.2, 0.3]
@@ -282,7 +282,7 @@ class TestOCIEmbedConfig:
                 api_key=None,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
         assert exc_info.value.status_code == 401
 
@@ -302,7 +302,7 @@ class TestOCIEmbedConfig:
                 api_key=None,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     # ------------------------------------------------------------------
@@ -321,7 +321,7 @@ class TestOCIEmbedConfig:
     def test_map_openai_params_encoding_format_not_supported(self):
         """encoding_format is not a supported OCI param — it is silently ignored by map_openai_params.
 
-        The litellm framework handles unsupported-param rejection above this layer,
+        The hangarllm framework handles unsupported-param rejection above this layer,
         based on get_supported_openai_params() not including 'encoding_format'.
         """
         cfg = self._config()
@@ -376,7 +376,7 @@ class TestOCIEmbedConfig:
             api_key=None,
             model="cohere.embed-v3.0",
             optional_params={},  # no explicit region
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "eu-frankfurt-1" in url
 
@@ -390,7 +390,7 @@ def _transform(raw_response: httpx.Response) -> EmbeddingResponse:
         api_key=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 

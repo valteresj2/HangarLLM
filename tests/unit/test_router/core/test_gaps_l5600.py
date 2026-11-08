@@ -15,10 +15,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.router_core import RouterCore
-from litellm.types.utils import CredentialItem, LiteLLMBatch
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.router_core import RouterCore
+from hangarllm.types.utils import CredentialItem, HangarLLMBatch
 from tests.unit.test_router.core.endpoints_helpers import EndpointHost, patch_direct_endpoints
 from tests.unit.test_router.core.scripted_host import (
     ScriptedHost,
@@ -38,8 +38,8 @@ def host() -> EndpointHost:
     return EndpointHost()
 
 
-def _batch() -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _batch() -> HangarLLMBatch:
+    return HangarLLMBatch(
         id="b1",
         completion_window="24h",
         created_at=1,
@@ -119,7 +119,7 @@ async def test_a_prioritized_request_for_a_deployment_id_is_queued_and_served_by
     core: Final = make_core(model_list=TWO_DEPLOYMENTS)
     for _ in range(3):
         response = await core.acompletion(model="d1", messages=MESSAGES, priority=2)
-        assert _headers(response)["x-litellm-request-prioritization-used"] is True
+        assert _headers(response)["x-hangarllm-request-prioritization-used"] is True
     assert host.deployments_called() == ["d1", "d1", "d1"]
 
 
@@ -128,9 +128,9 @@ async def test_a_bad_priority_for_a_deployment_id_follows_that_deployments_drop_
 ):
     core: Final = make_core(model_list=[deployment("g", "d1", drop_params=True), deployment("g", "d2")])
     response: Final = await core.acompletion(model="d1", messages=MESSAGES, priority="high")
-    assert "x-litellm-request-prioritization-used" not in _headers(response)
+    assert "x-hangarllm-request-prioritization-used" not in _headers(response)
     assert "priority" not in host.calls[0].kwargs
-    with pytest.raises(litellm.BadRequestError, match="priority must be an integer, got str 'high'"):
+    with pytest.raises(hangarllm.BadRequestError, match="priority must be an integer, got str 'high'"):
         await core.acompletion(model="d2", messages=MESSAGES, priority="high")
     assert host.deployments_called() == ["d1"]
 
@@ -140,14 +140,14 @@ async def test_a_bad_priority_is_dropped_when_any_deployment_of_the_group_drops_
 ):
     core: Final = make_core(model_list=[deployment("g", "d1", drop_params=True), deployment("g", "d2")])
     response: Final = await core.acompletion(model="g", messages=MESSAGES, priority="high")
-    assert "x-litellm-request-prioritization-used" not in _headers(response)
+    assert "x-hangarllm-request-prioritization-used" not in _headers(response)
     assert len(host.calls) == 1
 
 
 # --- prompt-management groups (5893-6034) ---------------------------------------------------
 
 
-class _PromptLogging(LiteLLMLogging):
+class _PromptLogging(HangarLLMLogging):
     """A logging object whose prompt template renders to ``rendered_model`` with a system message."""
 
     rendered_model: str = "openai/rendered"
@@ -165,7 +165,7 @@ def _prompt_logging(rendered_model: str = "openai/rendered") -> _PromptLogging:
         stream=False,
         call_type="acompletion",
         start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        litellm_call_id="c1",
+        hangarllm_call_id="c1",
         function_id="f1",
     )
     logging_obj.rendered_model = rendered_model
@@ -193,7 +193,7 @@ async def test_a_prompt_management_group_renders_the_deployment_prompt_and_calls
         ]
     )
     logging_obj: Final = _prompt_logging()
-    response: Final = await core.acompletion(model="pm", messages=MESSAGES, litellm_logging_obj=logging_obj)
+    response: Final = await core.acompletion(model="pm", messages=MESSAGES, hangarllm_logging_obj=logging_obj)
     call: Final = host.calls[0]
     assert (call.op, call.model, call.deployment_id, call.model_group) == ("acompletion", "openai/rendered", "p1", "pm")
     sent: Final = call.kwargs
@@ -204,7 +204,7 @@ async def test_a_prompt_management_group_renders_the_deployment_prompt_and_calls
         7.0,
         [{"role": "system", "content": "rendered"}],
     )
-    assert sent["litellm_logging_obj"] is logging_obj
+    assert sent["hangarllm_logging_obj"] is logging_obj
     assert (logging_obj.seen["model"], logging_obj.seen["messages"], logging_obj.seen["prompt_id"]) == (
         "langfuse/gpt-4o",
         MESSAGES,
@@ -226,7 +226,7 @@ async def test_a_prompt_rendered_to_another_group_routes_into_it_with_the_reques
     response: Final = await core.acompletion(
         model="pm",
         messages=MESSAGES,
-        litellm_logging_obj=_prompt_logging("rendered-g"),
+        hangarllm_logging_obj=_prompt_logging("rendered-g"),
         prompt_id="req-pid",
         timeout=3,
     )
@@ -237,7 +237,7 @@ async def test_a_prompt_rendered_to_another_group_routes_into_it_with_the_reques
         "req-pid",
         3,
     )
-    assert _headers(response)["x-litellm-model-group"] == "rendered-g"
+    assert _headers(response)["x-hangarllm-model-group"] == "rendered-g"
 
 
 async def test_a_single_deployment_without_a_provider_prefix_is_not_a_prompt_management_group(
@@ -272,7 +272,7 @@ async def test_a_routed_endpoint_ignores_the_deployment_num_retries(
     num_retries on the error, so the router's num_retries=0 governs."""
     host.answer("*", server_error())
     core: Final = make_core(model_list=[deployment("g", "d1", num_retries=2)], num_retries=0)
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.call(endpoint, {"model": "g", **ROUTED_ENDPOINTS[endpoint]})
     assert len(host.calls) == 1
     assert host.raised[-1].num_retries is None  # pyright: ignore[reportAttributeAccessIssue]  # stamped by the retry loop
@@ -284,7 +284,7 @@ async def test_a_generic_endpoint_retries_with_the_deployment_num_retries(
     patch_direct_endpoints(monkeypatch, host)
     host.answer("*", server_error())
     core: Final = make_core(model_list=[deployment("g", "d1", num_retries=2)], num_retries=0)
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         await core.aresponses(model="g", input="hi")
     assert len(host.calls) == 3
     assert raised.value.num_retries == 2  # pyright: ignore[reportAttributeAccessIssue]  # stamped from the deployment
@@ -293,7 +293,7 @@ async def test_a_generic_endpoint_retries_with_the_deployment_num_retries(
 async def test_sync_image_generation_is_retried_with_the_router_num_retries(make_core: MakeCore, host: EndpointHost):
     host.answer("*", rate_limit())
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=2)
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         core.image_generation(model="g", prompt="p")
     assert len(host.calls_to("image_generation")) == 3
 
@@ -303,7 +303,7 @@ async def test_image_generation_for_an_unknown_group_raises_without_calling_the_
     make_core: MakeCore, host: EndpointHost, endpoint: str
 ):
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=0)
-    with pytest.raises(litellm.BadRequestError, match="There are no healthy deployments for this model"):
+    with pytest.raises(hangarllm.BadRequestError, match="There are no healthy deployments for this model"):
         await core.call(endpoint, {"model": "nope", "prompt": "p"})
     assert host.calls == []
 
@@ -331,7 +331,7 @@ async def test_call_counters_are_keyed_differently_per_endpoint(
     host.answer("*", rate_limit())
     core: Final = make_core(model_list=[deployment("g", "d1")], num_retries=1)
     request: Final = ROUTED_ENDPOINTS.get(endpoint, {"prompt": "p"})
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await core.call(endpoint, {"model": "g", **request})
     assert dict(core.total_calls) == {total_key: 2}  # pyright: ignore[reportAttributeAccessIssue]  # a public counter
     assert dict(core.fail_calls) == {fail_key: 2}  # pyright: ignore[reportAttributeAccessIssue]  # a public counter
@@ -355,12 +355,12 @@ async def test_aguardrail_picks_among_same_named_guardrails_by_weight(make_core:
     async def guard(**kwargs: object) -> str:  # kwargs-ok: the guardrail's keyword payload
         selected: Final = kwargs["selected_guardrail"]
         assert isinstance(selected, Mapping)
-        picked.append(selected["litellm_params"]["guardrail"])
+        picked.append(selected["hangarllm_params"]["guardrail"])
         return "verdict"
 
     guardrails: Final = [
-        {"guardrail_name": "gr", "litellm_params": {"guardrail": "never", "weight": 0}},
-        {"guardrail_name": "gr", "litellm_params": {"guardrail": "always", "weight": 1}},
+        {"guardrail_name": "gr", "hangarllm_params": {"guardrail": "never", "weight": 0}},
+        {"guardrail_name": "gr", "hangarllm_params": {"guardrail": "always", "weight": 1}},
     ]
     core: Final = make_core(model_list=[deployment("g", "d1")], guardrail_list=guardrails)
     for _ in range(10):
@@ -374,12 +374,12 @@ async def test_aguardrail_without_weights_spreads_over_same_named_guardrails(mak
     async def guard(**kwargs: object) -> str:  # kwargs-ok: the guardrail's keyword payload
         selected: Final = kwargs["selected_guardrail"]
         assert isinstance(selected, Mapping)
-        picked.add(selected["litellm_params"]["guardrail"])
+        picked.add(selected["hangarllm_params"]["guardrail"])
         return "verdict"
 
     guardrails: Final = [
-        {"guardrail_name": "gr", "litellm_params": {"guardrail": "a"}},
-        {"guardrail_name": "gr", "litellm_params": {"guardrail": "b"}},
+        {"guardrail_name": "gr", "hangarllm_params": {"guardrail": "a"}},
+        {"guardrail_name": "gr", "hangarllm_params": {"guardrail": "b"}},
     ]
     core: Final = make_core(model_list=[deployment("g", "d1")], guardrail_list=guardrails)
     for _ in range(60):
@@ -444,7 +444,7 @@ async def test_acancel_batch_resolves_the_deployment_credential_but_acreate_batc
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch, host: EndpointHost
 ):
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -455,16 +455,16 @@ async def test_acancel_batch_resolves_the_deployment_credential_but_acreate_batc
         ],
     )
     host.answer("*", _batch())
-    core: Final = make_core(model_list=[deployment("g", "d1", litellm_credential_name="cred1")])
+    core: Final = make_core(model_list=[deployment("g", "d1", hangarllm_credential_name="cred1")])
     await core.acancel_batch(model="g", batch_id="b1")
     await core.acreate_batch(model="g", **ROUTED_ENDPOINTS["acreate_batch"])
     cancel, create = host.calls[0].kwargs, host.calls[1].kwargs
-    assert (cancel["api_key"], cancel["api_base"], "litellm_credential_name" in cancel) == (
+    assert (cancel["api_key"], cancel["api_base"], "hangarllm_credential_name" in cancel) == (
         "sk-cred",
         "https://cred.example",
         False,
     )
-    assert (create["api_key"], create.get("api_base"), create["litellm_credential_name"]) == ("sk-test", None, "cred1")
+    assert (create["api_key"], create.get("api_base"), create["hangarllm_credential_name"]) == ("sk-test", None, "cred1")
 
 
 # --- files (7814-7934) ----------------------------------------------------------------------

@@ -7,11 +7,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.anthropic.messages.native.transformation import (
+import hangarllm
+from hangarllm.llms.anthropic.messages.native.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 def test_output_format_supported_and_transforms_correctly():
@@ -36,7 +36,7 @@ def test_output_format_supported_and_transforms_correctly():
         model="claude-sonnet-4-5",
         messages=[{"role": "user", "content": "test"}],
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -73,7 +73,7 @@ def test_output_config_format_supported_and_transforms_correctly():
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "test"}],
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        hangarllm_params={},
         headers=headers,
     )
 
@@ -101,7 +101,7 @@ def test_output_format_works_with_bedrock_and_azure():
         model="bedrock/anthropic.claude-sonnet-4-5-v2:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "output_format" in bedrock_result
@@ -111,7 +111,7 @@ def test_output_format_works_with_bedrock_and_azure():
         model="azure_ai/claude-sonnet-4-5",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "output_format" in azure_result
@@ -121,20 +121,20 @@ _OBJECT_OUTPUT_FORMAT: Final = {"type": "json_schema", "schema": {"type": "objec
 
 
 def _request_with_output_format(
-    output_format: object, litellm_params: GenericLiteLLMParams
+    output_format: object, hangarllm_params: GenericHangarLLMParams
 ) -> Mapping[str, object]:
     return AnthropicMessagesConfig().transform_anthropic_messages_request(
         model="claude-haiku-5-5",
         messages=[{"role": "user", "content": "What is 6 times 7?"}],
         anthropic_messages_optional_request_params={"max_tokens": 1024, "output_format": output_format},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers={},
     )
 
 
 @pytest.mark.parametrize("output_format", ["json", ["json_schema"], 42])
 def test_malformed_output_format_is_dropped_under_drop_params(output_format: object) -> None:
-    result: Final = _request_with_output_format(output_format, GenericLiteLLMParams(drop_params=True))
+    result: Final = _request_with_output_format(output_format, GenericHangarLLMParams(drop_params=True))
 
     assert "output_format" not in result
 
@@ -142,20 +142,20 @@ def test_malformed_output_format_is_dropped_under_drop_params(output_format: obj
 def test_malformed_output_format_is_dropped_under_the_global_drop_params_flag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
 
-    result: Final = _request_with_output_format("json", GenericLiteLLMParams())
+    result: Final = _request_with_output_format("json", GenericHangarLLMParams())
 
     assert "output_format" not in result
 
 
 def test_object_output_format_is_kept_under_drop_params() -> None:
-    result: Final = _request_with_output_format(_OBJECT_OUTPUT_FORMAT, GenericLiteLLMParams(drop_params=True))
+    result: Final = _request_with_output_format(_OBJECT_OUTPUT_FORMAT, GenericHangarLLMParams(drop_params=True))
 
     assert result["output_format"] == _OBJECT_OUTPUT_FORMAT
 
 
 def test_malformed_output_format_is_forwarded_for_the_provider_to_reject_without_drop_params() -> None:
-    result: Final = _request_with_output_format("json", GenericLiteLLMParams())
+    result: Final = _request_with_output_format("json", GenericHangarLLMParams())
 
     assert result["output_format"] == "json"

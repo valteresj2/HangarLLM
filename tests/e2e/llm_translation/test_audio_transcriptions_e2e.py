@@ -23,7 +23,7 @@ from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from e2e_http import UnknownApiError, unwrap
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody, SpendLogRow
+from models import HangarLLMParamsBody, SpendLogRow
 from proxy_client import ProxyClient
 from pydantic import BaseModel, Field
 from sdk_clients import SdkClients, response_header
@@ -52,7 +52,7 @@ def _register(proxy: ProxyClient, resources: ResourceManager) -> tuple[str, str]
     model = f"e2e-transcribe-{unique_marker()}"
     model_id = proxy.create_model(
         model,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=OPENAI_TRANSCRIBE_MODEL, api_key="os.environ/OPENAI_API_KEY"
         ),
     )
@@ -113,7 +113,7 @@ class TestAudioTranscriptions:
             case UnknownApiError(status_code=400, body=body):
                 assert "OpenAIException" in body, (
                     f"the rejection must relay the provider's own error rather than a "
-                    f"litellm-internal failure that hides why the upload was refused: {body[:300]}"
+                    f"hangarllm-internal failure that hides why the upload was refused: {body[:300]}"
                 )
                 assert "invalid_request_error" in body, (
                     f"an unusable upload must be typed as a client input error: {body[:300]}"
@@ -173,7 +173,7 @@ class TestWhisperTranscriptionFormats:
         self, proxy: ProxyClient, resources: ResourceManager, form: _WhisperForm, response_type: type[R]
     ) -> R:
         model_id = proxy.create_model(
-            form.model, LiteLLMParamsBody(model=OPENAI_WHISPER_MODEL, api_key="os.environ/OPENAI_API_KEY")
+            form.model, HangarLLMParamsBody(model=OPENAI_WHISPER_MODEL, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         return unwrap(
@@ -234,7 +234,7 @@ class _StreamingTranscriber:
     id: str
     registry_route: str
     provider: Provider
-    litellm_params: LiteLLMParamsBody
+    hangarllm_params: HangarLLMParamsBody
 
 
 STREAMING_TRANSCRIBERS: Final = (
@@ -242,13 +242,13 @@ STREAMING_TRANSCRIBERS: Final = (
         "openai",
         "openai",
         Provider.OPENAI,
-        LiteLLMParamsBody(model="openai/gpt-transcribe", api_key="os.environ/OPENAI_API_KEY"),
+        HangarLLMParamsBody(model="openai/gpt-transcribe", api_key="os.environ/OPENAI_API_KEY"),
     ),
     _StreamingTranscriber(
         "azure",
         "azure_openai",
         Provider.AZURE,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model="azure/gpt-transcribe",
             api_base="os.environ/AZURE_API_BASE",
             api_key="os.environ/AZURE_API_KEY",
@@ -268,7 +268,7 @@ STREAMING_PARAMS: Final = tuple(
                     domain=Domain.LLM_TRANSLATION,
                     route=Route.AUDIO,
                     providers=(t.provider,),
-                    models=(t.litellm_params.model,),
+                    models=(t.hangarllm_params.model,),
                     mode=Mode.STREAM,
                 )
             ),
@@ -294,7 +294,7 @@ class TestStreamedAudioTranscriptions:
         self, proxy: ProxyClient, resources: ResourceManager, sdk: SdkClients, transcriber: _StreamingTranscriber
     ) -> None:
         model: Final = f"e2e-transcribe-stream-{transcriber.id}-{unique_marker()}"
-        model_id: Final = proxy.create_model(model, transcriber.litellm_params)
+        model_id: Final = proxy.create_model(model, transcriber.hangarllm_params)
         resources.defer(lambda: proxy.delete_model(model_id))
         client: Final = sdk.openai(resources.key())
 
@@ -302,7 +302,7 @@ class TestStreamedAudioTranscriptions:
             model=model, file=(WEATHER_WAV.name, WEATHER_WAV.read_bytes(), "audio/wav"), stream=True
         ) as response:
             content_type: Final = response_header(response.headers, "content-type")
-            call_id: Final = response_header(response.headers, "x-litellm-call-id")
+            call_id: Final = response_header(response.headers, "x-hangarllm-call-id")
             payloads: Final = tuple(
                 line.removeprefix("data: ") for line in response.iter_lines() if line.startswith("data: ")
             )
@@ -320,6 +320,6 @@ class TestStreamedAudioTranscriptions:
             f"the deltas {deltas} do not add up to the final transcript {done.text!r}"
         )
 
-        assert call_id, "the streamed response carries no x-litellm-call-id to find its spend log"
+        assert call_id, "the streamed response carries no x-hangarllm-call-id to find its spend log"
         rows: Final = proxy.poll_logs_for_request_id(call_id, predicate=_has_billed_row)
         assert _has_billed_row(rows), f"the streamed transcription was not billed: {rows}"

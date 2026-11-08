@@ -35,7 +35,7 @@ from tests.unit.proxy.guardrails.guardrail_hooks._cisco_ai_defense_test_utils im
     _violation_response,
     datetime,
     init_guardrails_v2,
-    litellm,
+    hangarllm,
     os,
     patch,
     pytest,
@@ -52,13 +52,13 @@ from openai.types.responses.response_function_web_search import (
 
 def test_cisco_ai_defense_config_via_init_v2_chat(monkeypatch):
     monkeypatch.setenv("CISCO_AI_DEFENSE_API_KEY", "test-key")
-    litellm.guardrail_name_config_map = {}
+    hangarllm.guardrail_name_config_map = {}
 
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "cisco-chat",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "cisco_ai_defense",
                     "mode": "pre_call",
                     "default_on": True,
@@ -71,16 +71,16 @@ def test_cisco_ai_defense_config_via_init_v2_chat(monkeypatch):
 
 def test_init_registers_on_both_callbacks_and_success_callback(monkeypatch):
     monkeypatch.setenv("CISCO_AI_DEFENSE_API_KEY", "test-key")
-    litellm.guardrail_name_config_map = {}
-    litellm.callbacks = []
-    litellm.success_callback = []
-    litellm._async_success_callback = []
+    hangarllm.guardrail_name_config_map = {}
+    hangarllm.callbacks = []
+    hangarllm.success_callback = []
+    hangarllm._async_success_callback = []
 
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "dual-register-probe",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "cisco_ai_defense",
                     "mode": "pre_mcp_call",
                     "default_on": True,
@@ -92,7 +92,7 @@ def test_init_registers_on_both_callbacks_and_success_callback(monkeypatch):
     )
 
     def _has_our_guardrail(callback_list):
-        from litellm.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
             CiscoAIDefenseGuardrail,
         )
 
@@ -102,13 +102,13 @@ def test_init_registers_on_both_callbacks_and_success_callback(monkeypatch):
             for cb in callback_list
         )
 
-    assert _has_our_guardrail(litellm.callbacks), (
-        "Cisco guardrail missing from litellm.callbacks — proxy's "
+    assert _has_our_guardrail(hangarllm.callbacks), (
+        "Cisco guardrail missing from hangarllm.callbacks — proxy's "
         "pre_call/during_call/post_call dispatch will skip it."
     )
-    assert _has_our_guardrail(litellm.success_callback), (
-        "Cisco guardrail missing from litellm.success_callback — "
-        "litellm_logging.async_post_mcp_tool_call_hook will skip it, "
+    assert _has_our_guardrail(hangarllm.success_callback), (
+        "Cisco guardrail missing from hangarllm.success_callback — "
+        "hangarllm_logging.async_post_mcp_tool_call_hook will skip it, "
         "so MCP responses will never be scanned."
     )
 
@@ -124,10 +124,10 @@ class TestCiscoAIDefenseFlattenedConfig:
             "CISCO_AI_DEFENSE_TIMEOUT",
         ):
             os.environ.pop(key, None)
-        litellm.guardrail_name_config_map = {}
-        litellm.callbacks = []
-        litellm.success_callback = []
-        litellm._async_success_callback = []
+        hangarllm.guardrail_name_config_map = {}
+        hangarllm.callbacks = []
+        hangarllm.success_callback = []
+        hangarllm._async_success_callback = []
 
     def teardown_method(self):
         self.setup_method()
@@ -138,7 +138,7 @@ class TestCiscoAIDefenseFlattenedConfig:
             all_guardrails=[
                 {
                     "guardrail_name": "flat-cfg",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "cisco_ai_defense",
                         "mode": "pre_call",
                         "default_on": True,
@@ -161,7 +161,7 @@ class TestCiscoAIDefenseFlattenedConfig:
             all_guardrails=[
                 {
                     "guardrail_name": "mixed-cfg",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "cisco_ai_defense",
                         "mode": "pre_call",
                         "default_on": True,
@@ -184,7 +184,7 @@ class TestCiscoAIDefenseFlattenedConfig:
             all_guardrails=[
                 {
                     "guardrail_name": "default-cfg",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "cisco_ai_defense",
                         "mode": "pre_call",
                         "default_on": True,
@@ -199,9 +199,9 @@ class TestCiscoAIDefenseFlattenedConfig:
         assert cb.timeout == 10.0
 
     def test_grayswan_optional_params_survive_cisco_mro(self):
-        from litellm.types.guardrails import LitellmParams
+        from hangarllm.types.guardrails import HangarllmParams
 
-        params = LitellmParams(
+        params = HangarllmParams(
             guardrail="grayswan",
             mode="pre_call",
             optional_params={
@@ -276,7 +276,7 @@ class TestCiscoAIDefenseGuardrailInit:
         assert g.inspect_path == "/api/v1/inspect/mcp"
 
     def test_event_hooks_include_both_surfaces(self):
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         for inspection_type in ("chat", "mcp"):
             g = _make_guardrail(inspection_type=inspection_type)
@@ -419,7 +419,7 @@ _CLAUDE_HOSTED_WEB_ACTIONS: Final = (
 
 
 def _claude_hosted_web_call_response(action: Action):
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from hangarllm.types.llms.openai import ResponsesAPIResponse
 
     return ResponsesAPIResponse(
         id="resp_1",
@@ -441,8 +441,8 @@ class TestCiscoAIDefenseResponsesAPIOutput:
 
     @staticmethod
     def _make_responses_api_response(text: str):
-        from litellm.types.llms.openai import ResponsesAPIResponse
-        from litellm.types.responses.main import (
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.responses.main import (
             GenericResponseOutputItem,
             OutputText,
         )
@@ -500,8 +500,8 @@ class TestCiscoAIDefenseResponsesAPIOutput:
 
     @pytest.mark.asyncio
     async def test_post_call_scans_responses_api_function_call_arguments(self):
-        from litellm.types.llms.openai import ResponsesAPIResponse
-        from litellm.types.responses.main import OutputFunctionToolCall
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.responses.main import OutputFunctionToolCall
 
         g = _make_guardrail(event_hook="post_call")
         data = {"input": [{"role": "user", "content": "anything"}]}
@@ -837,7 +837,7 @@ class TestCiscoAIDefenseRedactionEdgeCases:
     ):
         g = _make_guardrail(event_hook="post_call", on_flagged_action="monitor")
         if response_shape == "chat":
-            from litellm.types.utils import ChatCompletionMessageToolCall, Function
+            from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
             response = ModelResponse(
                 choices=[
@@ -866,8 +866,8 @@ class TestCiscoAIDefenseRedactionEdgeCases:
                 return result.choices[0].message.tool_calls[0].function.arguments
 
         else:
-            from litellm.types.llms.openai import ResponsesAPIResponse
-            from litellm.types.responses.main import OutputFunctionToolCall
+            from hangarllm.types.llms.openai import ResponsesAPIResponse
+            from hangarllm.types.responses.main import OutputFunctionToolCall
 
             response = ResponsesAPIResponse(
                 id="resp_1",
@@ -917,7 +917,7 @@ class TestCiscoAIDefenseRedactionEdgeCases:
 
     @pytest.mark.asyncio
     async def test_redact_applies_to_all_choices_for_n_gt_1(self):
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         g = _make_guardrail(event_hook="post_call", on_flagged_action="monitor")
         response = ModelResponse(
@@ -991,7 +991,7 @@ class TestCiscoAIDefenseRedactionEdgeCases:
 
     @pytest.mark.asyncio
     async def test_redact_sanitized_messages_clears_extra_choices(self):
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         g = _make_guardrail(event_hook="post_call", on_flagged_action="monitor")
         response = ModelResponse(
@@ -1092,8 +1092,8 @@ class TestCiscoAIDefenseRedactionEdgeCases:
                 return result.choices[0].message.content or ""
 
         else:
-            from litellm.types.llms.openai import ResponsesAPIResponse
-            from litellm.types.responses.main import (
+            from hangarllm.types.llms.openai import ResponsesAPIResponse
+            from hangarllm.types.responses.main import (
                 GenericResponseOutputItem,
                 OutputText,
             )
@@ -1178,7 +1178,7 @@ class TestCiscoAIDefenseRedactionEdgeCases:
     @pytest.mark.asyncio
     async def test_block_payload_canonical(self, surface, direction, transport):
         import json as _json
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from hangarllm.types.mcp import MCPPostCallResponseObject
 
         url = MCP_URL if surface == "mcp" else CHAT_URL
         if surface == "mcp":
@@ -1337,7 +1337,7 @@ class TestCiscoAIDefenseEdgeCases:
         post_mock = AsyncMock(return_value=_safe_response())
 
         with patch(
-            "litellm.main.stream_chunk_builder",
+            "hangarllm.main.stream_chunk_builder",
             return_value=assembled_text_completion,
         ):
             with _patch_inspection_post(g, post_mock):
@@ -1431,7 +1431,7 @@ class TestCiscoAIDefenseEdgeCases:
 
     @pytest.mark.asyncio
     async def test_handle_api_error_uses_output_event_type_for_response_scan(self):
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         g = _make_guardrail(event_hook="post_call", fallback_on_error="allow")
         data = {"messages": [{"role": "user", "content": "hi"}]}
@@ -1468,7 +1468,7 @@ class TestCiscoAIDefenseEdgeCases:
         )
 
     def test_config_model_no_mcp_api_key_reference(self):
-        from litellm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+        from hangarllm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
             CiscoAIDefenseGuardrailConfigModel,
             CiscoAIDefenseGuardrailConfigModelOptionalParams,
         )
@@ -1513,7 +1513,7 @@ class TestCiscoAIDefenseEnabledRulesPydanticShape:
 
     @pytest.mark.asyncio
     async def test_enabled_rules_from_pydantic_model_does_not_500(self):
-        from litellm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+        from hangarllm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
             CiscoAIDefenseGuardrailConfigModelOptionalParams,
             CiscoAIDefenseRule,
         )
@@ -1564,7 +1564,7 @@ class TestCiscoAIDefenseEnabledRulesPydanticShape:
         )
 
     def test_normalize_rule_handles_pydantic_basemodel_directly(self):
-        from litellm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+        from hangarllm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
             CiscoAIDefenseRule,
         )
 
@@ -1826,7 +1826,7 @@ class TestCiscoAIDefenseToolCallBypass:
     async def test_post_call_scans_tool_call_payloads(
         self, message_kwargs, expected_text_in_scan
     ):
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         g = _make_guardrail(event_hook="post_call")
 
@@ -1879,7 +1879,7 @@ class TestCiscoAIDefenseToolCallBypass:
 
     @staticmethod
     def _server_tool_call_response() -> ModelResponse:
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         return ModelResponse(
             choices=[
@@ -2633,7 +2633,7 @@ class TestCiscoAIDefenseEventTypeDirection:
     async def test_direction_logs_as_expected_event_type(
         self, inspection_type, direction, expected_event_attr
     ):
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         if inspection_type == "chat":
             event_hook = (
@@ -2682,7 +2682,7 @@ class TestCiscoAIDefenseEventTypeDirection:
                 await g.async_pre_call_hook(
                     user_api_key_dict=UserAPIKeyAuth(),
                     cache=DualCache(),
-                    data=_mcp_request(name="tool", args={"x": 1}, litellm_call_id="c"),
+                    data=_mcp_request(name="tool", args={"x": 1}, hangarllm_call_id="c"),
                     call_type="mcp_call",
                 )
 
@@ -3059,7 +3059,7 @@ class TestCiscoAIDefenseStandardLogging:
 
 
 def test_config_model_exposed():
-    from litellm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+    from hangarllm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
         CiscoAIDefenseGuardrailConfigModel,
     )
 

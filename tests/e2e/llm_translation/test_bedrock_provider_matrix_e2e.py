@@ -21,7 +21,7 @@ from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from e2e_http import StreamingResponse, unwrap
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatResponse, LiteLLMParamsBody
+from models import ChatBody, ChatMessage, ChatResponse, HangarLLMParamsBody
 from passthrough_client import PassthroughClient
 
 pytestmark = pytest.mark.e2e
@@ -79,7 +79,7 @@ def _register_bedrock_model(
     model = f"{prefix}-{unique_marker()}"
     model_id = client.proxy.create_model(
         model,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=backend,
             aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
             aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -156,7 +156,7 @@ def _register_bedrock_batch_deployment(client: PassthroughClient, resources: Res
     model = f"e2e-bedrock-batch-chat-{unique_marker()}"
     model_id = client.proxy.create_model(
         model,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=CONVERSE_REGIONAL_BACKEND,
             aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
             aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

@@ -10,9 +10,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
-from litellm.types.router import RoutingContext as PluginContext
+import hangarllm
+from hangarllm.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
+from hangarllm.types.router import RoutingContext as PluginContext
 from tests.unit.test_router.core.fallbacks_helpers import (
     MakeCore,
     build,
@@ -122,7 +122,7 @@ async def test_a_usage_refusal_takes_the_fallback(make_core: MakeCore, host: Scr
     response: Final = await complete(core, "one")
 
     assert host.deployments_called("acompletion") == ["o", "s"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
 
 
 @pytest.mark.asyncio
@@ -133,7 +133,7 @@ async def test_a_usage_refusal_carries_the_routing_note(make_core: MakeCore, hos
     show_router_debug(host)
     await complete(core, "g")
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core, "g")
 
     assert "No fallback" in str(raised.value)
@@ -158,7 +158,7 @@ async def test_a_pre_routing_error_runs_the_pipeline_once_per_retry(make_core: M
     plugin: Final = _RaisingPlugin("openai/a")
     core: Final = build(make_core, num_retries=1, retry_after=0, plugins=[plugin])
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
     assert plugin.runs == 2
@@ -190,7 +190,7 @@ async def test_a_sync_access_check_ends_the_chain_with_the_levels_own_error(
     show_router_debug(host)
     host.answer("openai/a", server_error())
 
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         await complete(core)
 
     assert "also failed" in str(raised.value)
@@ -230,7 +230,7 @@ async def test_a_dict_target_with_a_non_string_model_is_a_hop_that_calls_nothing
     response: Final = await complete(core)
 
     assert host.deployments_called("acompletion") == ["a", "b"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 2
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 2
 
 
 @pytest.mark.asyncio
@@ -241,7 +241,7 @@ async def test_a_chain_ending_on_a_non_string_model_notes_the_hops_error(
     show_router_debug(host)
     host.answer("openai/a", server_error())
 
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         await complete(core)
 
     assert "argument of type 'int'" in str(raised.value)
@@ -275,7 +275,7 @@ async def test_weighted_failover_skips_an_affinity_pin_on_the_failed_deployment(
     response: Final = await complete(core, "g", metadata={"session_id": "s", "user_api_key_hash": "c"})
 
     assert host.deployments_called("acompletion") == ["a", "b"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
 
 
 def _fails_then_raises(raised: BaseException):  # noqa: ANN202  # a scripted outcome
@@ -292,7 +292,7 @@ def _fails_then_raises(raised: BaseException):  # noqa: ANN202  # a scripted out
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("hop_error", "error"),
-    [(TypeError("a bug"), TypeError), (rate_limit(), litellm.InternalServerError)],
+    [(TypeError("a bug"), TypeError), (rate_limit(), hangarllm.InternalServerError)],
     ids=["a-bug-propagates", "a-provider-error-defers"],
 )
 async def test_weighted_failover_swallows_only_api_and_rate_limit_errors(

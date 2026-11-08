@@ -67,7 +67,7 @@ def _create_guardrail(
     response: Final = gateway.request(
         "POST",
         "/guardrails",
-        {"guardrail": {"guardrail_name": name, "litellm_params": params}},
+        {"guardrail": {"guardrail_name": name, "hangarllm_params": params}},
     )
     assert response.status_code == 200, response.text
     created: Final = _CreatedGuardrail.model_validate_json(response.content)
@@ -77,19 +77,19 @@ def _create_guardrail(
 
 
 def _assert_guardrail_request(request: Request, text: str, response: httpx.Response) -> None:
-    assert (request.method, request.target) == ("POST", "/beta/litellm_basic_guardrail_api")
+    assert (request.method, request.target) == ("POST", "/beta/hangarllm_basic_guardrail_api")
     payload: Final = _JSON_OBJECT.validate_json(request.body)
     assert set(payload) == {
         "input_type",
-        "litellm_call_id",
-        "litellm_trace_id",
+        "hangarllm_call_id",
+        "hangarllm_trace_id",
         "structured_messages",
         "images",
         "tools",
         "texts",
         "request_data",
         "request_headers",
-        "litellm_version",
+        "hangarllm_version",
         "additional_provider_specific_params",
         "tool_calls",
         "model",
@@ -121,11 +121,11 @@ def _assert_guardrail_request(request: Request, text: str, response: httpx.Respo
     assert request_headers is None or isinstance(request_headers, dict), response.text
     if isinstance(request_headers, dict):
         assert "authorization" not in request_headers, response.text
-    assert payload["litellm_call_id"] is None or isinstance(payload["litellm_call_id"], str), response.text
-    assert payload["litellm_trace_id"] is None or isinstance(payload["litellm_trace_id"], str), response.text
-    assert payload["litellm_version"] is None or isinstance(payload["litellm_version"], str), response.text
-    if response.headers.get("x-litellm-call-id") is not None:
-        assert payload["litellm_call_id"] == response.headers["x-litellm-call-id"], response.text
+    assert payload["hangarllm_call_id"] is None or isinstance(payload["hangarllm_call_id"], str), response.text
+    assert payload["hangarllm_trace_id"] is None or isinstance(payload["hangarllm_trace_id"], str), response.text
+    assert payload["hangarllm_version"] is None or isinstance(payload["hangarllm_version"], str), response.text
+    if response.headers.get("x-hangarllm-call-id") is not None:
+        assert payload["hangarllm_call_id"] == response.headers["x-hangarllm-call-id"], response.text
     assert request.headers["x-api-key"] == "synthetic-apply-guardrail-key", response.text
 
 
@@ -142,7 +142,7 @@ def test_apply_guardrail_returns_a_block_error_for_generic_guardrails(gateway: G
                 "guardrail": "generic_guardrail_api",
                 "mode": "pre_call",
                 "default_on": False,
-                "api_base": f"{guardrail.url}/beta/litellm_basic_guardrail_api",
+                "api_base": f"{guardrail.url}/beta/hangarllm_basic_guardrail_api",
                 "api_key": "synthetic-apply-guardrail-key",
             },
         )
@@ -163,7 +163,7 @@ def test_apply_guardrail_returns_a_block_error_for_generic_guardrails(gateway: G
         }, response.text
         requests: Final = guardrail.drain()
         assert [(request.method, request.target) for request in requests] == [
-            ("POST", "/beta/litellm_basic_guardrail_api")
+            ("POST", "/beta/hangarllm_basic_guardrail_api")
         ]
         request: Final = requests[0]
         _assert_guardrail_request(request, _BLOCKED_TEXT, response)
@@ -212,8 +212,8 @@ def test_apply_guardrail_forwards_messages_to_the_guardrail(gateway: Gateway) ->
 
         requests: Final = akto.drain()
         assert [(request.method, request.target) for request in requests] == [
-            ("POST", "/api/http-proxy?akto_connector=litellm&guardrails=true&ingest_data=true"),
-            ("POST", "/api/http-proxy?akto_connector=litellm&guardrails=true&ingest_data=true"),
+            ("POST", "/api/http-proxy?akto_connector=hangarllm&guardrails=true&ingest_data=true"),
+            ("POST", "/api/http-proxy?akto_connector=hangarllm&guardrails=true&ingest_data=true"),
         ]
         assert [request.headers["authorization"] for request in requests] == ["synthetic-akto-apply-key"] * 2
         bodies: Final = tuple(
@@ -240,13 +240,13 @@ def test_apply_guardrail_forwards_metadata_to_custom_code(
         config: Final = _JSON_OBJECT.validate_python(
             yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
         )
-        settings: Final = _JSON_OBJECT.validate_python(config["litellm_settings"])
+        settings: Final = _JSON_OBJECT.validate_python(config["hangarllm_settings"])
         config_path: Final = tmp_path / "apply-guardrail-owned-proxy.yaml"
         config_path.write_text(
             yaml.safe_dump(
                 {
                     **config,
-                    "litellm_settings": {**settings, "user_url_allowed_hosts": ["127.0.0.1"]},
+                    "hangarllm_settings": {**settings, "user_url_allowed_hosts": ["127.0.0.1"]},
                 }
             )
         )

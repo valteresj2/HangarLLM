@@ -9,12 +9,12 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-from litellm._internal_context import is_internal_call
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.rust_bridge.host import callbacks_legacy_python as legacy
-from litellm.rust_bridge.host.callbacks_legacy_python import failure_handler, setup
-from litellm.types.utils import ModelResponse
+from hangarllm._internal_context import is_internal_call
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.rust_bridge.host import callbacks_legacy_python as legacy
+from hangarllm.rust_bridge.host.callbacks_legacy_python import failure_handler, setup
+from hangarllm.types.utils import ModelResponse
 
 _OCR_KWARGS: Final = MappingProxyType(
     {
@@ -31,7 +31,7 @@ def _supplied_logger() -> Logging:
         stream=False,
         call_type="aocr",
         start_time=datetime.datetime.now(),
-        litellm_call_id="supplied",
+        hangarllm_call_id="supplied",
         function_id="supplied",
     )
 
@@ -47,7 +47,7 @@ def test_native_stream_headers_reach_spend_callbacks() -> None:
 def test_setup_reuses_a_supplied_logger() -> None:
     supplied: Final = _supplied_logger()
     result: Final = setup(
-        "aocr", (), {**_OCR_KWARGS, "litellm_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True
+        "aocr", (), {**_OCR_KWARGS, "hangarllm_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True
     )
     assert result.logger is supplied
 
@@ -67,7 +67,7 @@ def test_cache_hit_finalization_preserves_execution_provider_attribution(explici
         prepared.kwargs,
         "resolved-cache-model",
         {},
-        {**prepared.logger.litellm_params, "custom_llm_provider": "azure"},
+        {**prepared.logger.hangarllm_params, "custom_llm_provider": "azure"},
         "azure",
     )
     prepared.logger.model_call_details.update({"cache_hit": True, "cache_key": "cached-response"})
@@ -75,7 +75,7 @@ def test_cache_hit_finalization_preserves_execution_provider_attribution(explici
     legacy.finalize(response, prepared.logger, prepared.kwargs, now, now)
     assert prepared.logger.model_call_details["custom_llm_provider"] == "azure"
     assert prepared.logger.model_call_details["model"] == "resolved-cache-model"
-    assert prepared.logger.litellm_params["metadata"]["user_api_key"] == "key-hash"
+    assert prepared.logger.hangarllm_params["metadata"]["user_api_key"] == "key-hash"
     assert response._hidden_params["cache_key"] == "cached-response"
     assert response._hidden_params["response_cost"] == 0
 
@@ -90,7 +90,7 @@ def test_cache_hit_finalization_preserves_execution_provider_attribution(explici
 )
 def test_setup_builds_a_logger_when_none_is_supplied(call_type: str, kwargs: Mapping[str, object]) -> None:
     result: Final = setup(call_type, (), kwargs, datetime.datetime.now(), asynchronous=True)
-    assert result.logger.litellm_call_id == result.kwargs["litellm_call_id"]
+    assert result.logger.hangarllm_call_id == result.kwargs["hangarllm_call_id"]
 
 
 def _budget_reservation() -> dict:
@@ -113,11 +113,11 @@ def test_setup_claims_the_budget_reservation_a_supplied_logger_already_saw() -> 
     reservation: Final = _budget_reservation()
     supplied: Final = _supplied_logger()
     supplied.update_environment_variables(
-        litellm_params={"metadata": {"user_api_key_budget_reservation": reservation}}, optional_params={}
+        hangarllm_params={"metadata": {"user_api_key_budget_reservation": reservation}}, optional_params={}
     )
     assert reservation["callback_bound"] is False
 
-    setup("aocr", (), {**_OCR_KWARGS, "litellm_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True)
+    setup("aocr", (), {**_OCR_KWARGS, "hangarllm_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True)
 
     assert reservation["callback_bound"] is True
 
@@ -198,14 +198,14 @@ def _logger_with_hooks(hooks: _Hooks) -> Logging:
         stream=False,
         call_type="aocr",
         start_time=datetime.datetime.now(),
-        litellm_call_id="hooks",
+        hangarllm_call_id="hooks",
         function_id="hooks",
         dynamic_success_callbacks=[hooks],
         dynamic_async_success_callbacks=[hooks],
         dynamic_failure_callbacks=[hooks],
         dynamic_async_failure_callbacks=[hooks],
     )
-    logger.update_environment_variables(litellm_params={"metadata": {}}, optional_params={})
+    logger.update_environment_variables(hangarllm_params={"metadata": {}}, optional_params={})
     return logger
 
 
@@ -213,7 +213,7 @@ def _logger_with_hooks(hooks: _Hooks) -> Logging:
 async def test_failure_of_an_async_call_gives_a_logger_with_both_failure_hooks_only_the_async_one() -> None:
     hooks: Final = _Hooks()
     now: Final = datetime.datetime.now()
-    kwargs: Final = {**_OCR_KWARGS, "litellm_logging_obj": _logger_with_hooks(hooks)}
+    kwargs: Final = {**_OCR_KWARGS, "hangarllm_logging_obj": _logger_with_hooks(hooks)}
     result: Final = setup("aocr", (), kwargs, now, asynchronous=True)
 
     assert failure_handler(result.logger, RuntimeError("upstream refused"), now, now, asynchronous=False) is None
@@ -228,7 +228,7 @@ async def test_failure_of_an_async_call_gives_a_logger_with_both_failure_hooks_o
 def test_failure_of_a_sync_call_keeps_the_sync_failure_hook(earlier_async_call: bool) -> None:
     hooks: Final = _Hooks()
     now: Final = datetime.datetime.now()
-    kwargs: Final = {**_OCR_KWARGS, "litellm_logging_obj": _logger_with_hooks(hooks)}
+    kwargs: Final = {**_OCR_KWARGS, "hangarllm_logging_obj": _logger_with_hooks(hooks)}
     if earlier_async_call:
         setup("aocr", (), kwargs, now, asynchronous=True)
     result: Final = setup("ocr", (), kwargs, now, asynchronous=False)
@@ -238,7 +238,7 @@ def test_failure_of_a_sync_call_keeps_the_sync_failure_hook(earlier_async_call: 
     assert hooks.hooks == ["sync_failure"]
 
 
-CONTRACT_PATH: Final = Path(__file__).parents[4] / "litellm-rust/crates/callbacks-legacy-python/python_contract.json"
+CONTRACT_PATH: Final = Path(__file__).parents[4] / "hangarllm-rust/crates/callbacks-legacy-python/python_contract.json"
 
 
 def test_the_rust_contract_matches_the_shim_signatures() -> None:
@@ -254,7 +254,7 @@ def _messages_logger() -> Logging:
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(),
-        litellm_call_id="messages",
+        hangarllm_call_id="messages",
         function_id="messages",
     )
 
@@ -273,12 +273,12 @@ def test_native_provider_response_is_recorded_for_logging_replay() -> None:
 
 def test_native_provider_exchange_window_is_recorded_like_the_timed_post() -> None:
     logger: Final = _messages_logger()
-    logger.model_call_details["litellm_params"] = {"litellm_metadata": {"user_api_key": "hashed"}}
+    logger.model_call_details["hangarllm_params"] = {"hangarllm_metadata": {"user_api_key": "hashed"}}
 
     legacy.record_api_window(logger, 1_700_000_000.0, 1_700_000_000.25)
 
     assert logger.model_call_details["llm_api_duration_ms"] == 250.0
-    metadata: Final = logger.model_call_details["litellm_params"]["litellm_metadata"]
+    metadata: Final = logger.model_call_details["hangarllm_params"]["hangarllm_metadata"]
     assert metadata["llm_api_timing_windows"] == ((1_700_000_000.0, 1_700_000_000.25),)
 
 
@@ -290,11 +290,11 @@ def test_stream_head_is_stamped_in_place_with_the_call_hidden_params() -> None:
     legacy.stamp_stream_head(
         head,
         logger,
-        {"model": "anthropic/claude-sonnet-4-5", "litellm_call_id": "messages"},
+        {"model": "anthropic/claude-sonnet-4-5", "hangarllm_call_id": "messages"},
         started,
         started + datetime.timedelta(milliseconds=5),
     )
 
     assert head["additional_headers"] == {"request-id": "req_native", "llm_provider-request-id": "req_native"}
-    assert head["litellm_call_id"] == "messages"
+    assert head["hangarllm_call_id"] == "messages"
     assert "_response_ms" in head

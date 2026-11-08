@@ -7,9 +7,9 @@ import httpx
 import pytest
 from pydantic import JsonValue
 
-from litellm.tracing.errors import TraceChanged
-from litellm.tracing.generated.types import AllQueryScope, TraceScope
-from litellm.tracing.remote import LensConnection, RemoteTraceStore, bounded_response
+from hangarllm.tracing.errors import TraceChanged
+from hangarllm.tracing.generated.types import AllQueryScope, TraceScope
+from hangarllm.tracing.remote import LensConnection, RemoteTraceStore, bounded_response
 
 
 @pytest.mark.parametrize(
@@ -17,14 +17,14 @@ from litellm.tracing.remote import LensConnection, RemoteTraceStore, bounded_res
 )
 def test_service_url_rejects_unsupported_or_credential_bearing_destinations(url: str) -> None:
     with pytest.raises(ValueError, match="URL"):
-        LensConnection.from_env({"LITELLM_LENS_URL": url, "LITELLM_LENS_SERVICE_TOKEN": "x" * 32})
+        LensConnection.from_env({"HANGARLLM_LENS_URL": url, "HANGARLLM_LENS_SERVICE_TOKEN": "x" * 32})
 
 
 def test_connection_requires_a_strong_secret_and_preserves_the_configured_prefix() -> None:
     with pytest.raises(ValueError, match="secret"):
-        LensConnection.from_env({"LITELLM_LENS_URL": "https://lens", "LITELLM_LENS_SERVICE_TOKEN": "short"})
+        LensConnection.from_env({"HANGARLLM_LENS_URL": "https://lens", "HANGARLLM_LENS_SERVICE_TOKEN": "short"})
     connection: Final = LensConnection.from_env(
-        {"LITELLM_LENS_URL": "https://lens/prefix/", "LITELLM_LENS_SERVICE_TOKEN": "x" * 32}
+        {"HANGARLLM_LENS_URL": "https://lens/prefix/", "HANGARLLM_LENS_SERVICE_TOKEN": "x" * 32}
     )
     assert connection.url == "https://lens/prefix"
     assert "x" * 32 not in repr(connection)

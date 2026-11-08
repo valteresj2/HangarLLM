@@ -4,14 +4,14 @@ Adaptive router evaluator — LLM-as-judge harness.
 
 For each test case:
   1. Sends the prompt to the adaptive router.
-  2. Reads which model was picked (x-litellm-adaptive-router-model header).
+  2. Reads which model was picked (x-hangarllm-adaptive-router-model header).
   3. Asks the judge model whether the response meets the ideal criteria.
   4. Prints PASS or FAIL with one line of reasoning.
 
 Run:
   uv run python scripts/adaptive_router_demo/eval.py \
       --proxy-url   http://localhost:4000 \
-      --api-key     "$LITELLM_MASTER_KEY" \
+      --api-key     "$HANGARLLM_MASTER_KEY" \
       --router      smart-cheap-router \
       --judge-model smart
 """
@@ -147,7 +147,7 @@ async def _chat(
     """
     body: Dict = {"model": model, "messages": messages}
     if session_id:
-        body["metadata"] = {"litellm_session_id": session_id}
+        body["metadata"] = {"hangarllm_session_id": session_id}
 
     resp = await client.post(
         f"{proxy_url}/v1/chat/completions",
@@ -158,7 +158,7 @@ async def _chat(
     resp.raise_for_status()
     data = resp.json()
     text = data["choices"][0]["message"]["content"]
-    chosen = resp.headers.get("x-litellm-adaptive-router-model", "")
+    chosen = resp.headers.get("x-hangarllm-adaptive-router-model", "")
     return text, chosen
 
 

@@ -6,16 +6,16 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.deepgram_listen_passthrough_logging_handler import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.deepgram_listen_passthrough_logging_handler import (
     DeepgramListenPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
-from litellm.types.passthrough_endpoints.pass_through_endpoints import PassthroughStandardLoggingPayload
-from litellm.types.utils import StandardLoggingPayload, TranscriptionResponse
+from hangarllm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import PassthroughStandardLoggingPayload
+from hangarllm.types.utils import StandardLoggingPayload, TranscriptionResponse
 
 NOVA_3_URL: Final = "wss://api.deepgram.com/v1/listen?model=nova-3&encoding=linear16&sample_rate=16000"
 
@@ -42,7 +42,7 @@ def _metadata(duration: object, channels: int = 1) -> dict[str, object]:
         ("/deepgram/v1/listen", True),
         ("/deepgram/listen", True),
         ("/deepgram/v1/listen?model=nova-3", True),
-        ("/litellm/deepgram/v1/listen", True),
+        ("/hangarllm/deepgram/v1/listen", True),
         ("/deepgram/v1/speak", False),
         ("/deepgram/v1/listen/extra", False),
         ("/openai/v1/realtime", False),
@@ -54,21 +54,21 @@ def test_is_deepgram_listen_route(url_route: str, expected: bool):
     assert DeepgramListenPassthroughLoggingHandler.is_deepgram_listen_route(url_route) is expected
 
 
-def _logging_obj(call_id: str = "call-dg") -> LiteLLMLoggingObj:
-    return LiteLLMLoggingObj(
+def _logging_obj(call_id: str = "call-dg") -> HangarLLMLoggingObj:
+    return HangarLLMLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "WebSocket connection"}],
         stream=True,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id=call_id,
+        hangarllm_call_id=call_id,
         function_id="websocket_passthrough",
     )
 
 
 def _registry_cost(pricing_model: str, seconds: float) -> float:
     """Derives the expected charge from the live cost map rather than pinning a vendor price."""
-    per_second: Final = litellm.model_cost[f"deepgram/{pricing_model}"]["input_cost_per_second"]
+    per_second: Final = hangarllm.model_cost[f"deepgram/{pricing_model}"]["input_cost_per_second"]
     assert per_second > 0
     return per_second * seconds
 
@@ -90,7 +90,7 @@ def test_handler_bills_metadata_duration_at_the_registry_rate_and_names_the_mode
         websocket_messages=frames,
         logging_obj=logging_obj,
         upstream_url=NOVA_3_URL,
-        kwargs={"litellm_params": {"metadata": {}}},
+        kwargs={"hangarllm_params": {"metadata": {}}},
     )
 
     result = handler_result["result"]
@@ -101,7 +101,7 @@ def test_handler_bills_metadata_duration_at_the_registry_rate_and_names_the_mode
     assert handler_result["kwargs"]["response_cost"] == pytest.approx(_registry_cost("streaming/nova-3", 12.5))
     assert handler_result["kwargs"]["model"] == "nova-3"
     assert handler_result["kwargs"]["custom_llm_provider"] == "deepgram"
-    assert handler_result["kwargs"]["litellm_params"] == {"metadata": {}}
+    assert handler_result["kwargs"]["hangarllm_params"] == {"metadata": {}}
     assert logging_obj.model == "nova-3"
     assert logging_obj.model_call_details["model"] == "nova-3"
     assert logging_obj.model_call_details["custom_llm_provider"] == "deepgram"
@@ -111,8 +111,8 @@ def test_handler_bills_metadata_duration_at_the_registry_rate_and_names_the_mode
 def test_handler_bills_streaming_not_prerecorded_rates():
     """Deepgram prices /v1/listen over a WebSocket separately from pre-recorded transcription, so the streaming entry
     must be the one charged; the two registry rows only need to differ for this to matter, whatever their values."""
-    streaming = litellm.model_cost["deepgram/streaming/nova-3"]["input_cost_per_second"]
-    prerecorded = litellm.model_cost["deepgram/nova-3"]["input_cost_per_second"]
+    streaming = hangarllm.model_cost["deepgram/streaming/nova-3"]["input_cost_per_second"]
+    prerecorded = hangarllm.model_cost["deepgram/nova-3"]["input_cost_per_second"]
     assert streaming != prerecorded
 
     assert _cost(NOVA_3_URL, _metadata(60.0)) == pytest.approx(60.0 * streaming)
@@ -131,7 +131,7 @@ def test_handler_bills_multilingual_streaming_when_language_is_multi():
     [
         pytest.param("redact=pci", ("redact",), id="redaction"),
         pytest.param("redact=pci&redact=numbers", ("redact",), id="redaction counted once"),
-        pytest.param("keyterm=LiteLLM&keyterm=Deepgram", ("keyterm",), id="keyterm prompting"),
+        pytest.param("keyterm=HangarLLM&keyterm=Deepgram", ("keyterm",), id="keyterm prompting"),
         pytest.param("detect_entities=true", ("detect_entities",), id="entity detection"),
         pytest.param("diarize=true", ("diarize",), id="diarization"),
         pytest.param("diarize_model=v1", ("diarize",), id="diarization via diarize_model"),
@@ -168,8 +168,8 @@ def test_handler_add_ons_scale_with_channels_like_the_base_rate():
 def test_handler_never_substitutes_another_rate_for_a_missing_streaming_entry(monkeypatch, upstream_url):
     """The route refuses these sessions up front; should the registry change under a live one, the spend row
     keeps the duration and carries no cost, rather than the pre-recorded rate or any other stand-in."""
-    monkeypatch.delitem(litellm.model_cost, "deepgram/streaming/nova-2", raising=False)
-    assert "deepgram/nova-2" in litellm.model_cost
+    monkeypatch.delitem(hangarllm.model_cost, "deepgram/streaming/nova-2", raising=False)
+    assert "deepgram/nova-2" in hangarllm.model_cost
 
     handler_result = DeepgramListenPassthroughLoggingHandler().deepgram_listen_passthrough_handler(
         websocket_messages=(_metadata(60.0),), logging_obj=_logging_obj(), upstream_url=upstream_url
@@ -244,9 +244,9 @@ async def test_success_handler_dispatches_deepgram_listen_and_logs_duration_base
     """Drives the shared passthrough success handler the way the WebSocket relay does at socket close and reads
     what a spend logger receives: Deepgram model and provider, the audio duration billed at the registry rate."""
     capturing_logger = _CapturingLogger()
-    monkeypatch.setattr(litellm, "_async_success_callback", [capturing_logger])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [capturing_logger])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     logging_obj = _logging_obj("call-dg-e2e")
     frames = [_results(0.0, 5.0, "hello world", is_final=False), _results(0.0, 5.0, "hello world"), _metadata(20.0)]
     user_api_key_dict = UserAPIKeyAuth(api_key="hashed-key", team_id="team-stt", user_id="user-1")
@@ -258,7 +258,7 @@ async def test_success_handler_dispatches_deepgram_listen_and_logs_duration_base
         model="unknown",
         user="unknown",
         optional_params={},
-        litellm_params={
+        hangarllm_params={
             "metadata": {
                 "user_api_key": user_api_key_dict.api_key,
                 "user_api_key_team_id": user_api_key_dict.team_id,
@@ -284,7 +284,7 @@ async def test_success_handler_dispatches_deepgram_listen_and_logs_duration_base
         cache_hit=False,
         request_body={},
         passthrough_logging_payload=passthrough_logging_payload,
-        litellm_params={
+        hangarllm_params={
             "metadata": {
                 "user_api_key": user_api_key_dict.api_key,
                 "user_api_key_team_id": user_api_key_dict.team_id,

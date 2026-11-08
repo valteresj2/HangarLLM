@@ -13,11 +13,11 @@ import pytest
 import sys
 import os
 
-# Add the parent directory to the path so we can import litellm
+# Add the parent directory to the path so we can import hangarllm
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     _EMPTY_TEXT_PLACEHOLDER as PLACEHOLDER,
     _sanitize_empty_text_content,
     sanitize_messages_for_tool_calling,
@@ -30,7 +30,7 @@ class TestMessageSanitization:
 
     @pytest.fixture(autouse=True)
     def _modify_params_on(self, monkeypatch):
-        monkeypatch.setattr(litellm, "modify_params", True)
+        monkeypatch.setattr(hangarllm, "modify_params", True)
 
     def test_case_a_orphaned_tool_call_single(self):
         """
@@ -256,7 +256,7 @@ class TestMessageSanitization:
         """
         Test that sanitization is skipped when modify_params=False
         """
-        monkeypatch.setattr(litellm, "modify_params", False)
+        monkeypatch.setattr(hangarllm, "modify_params", False)
 
         messages = [
             {"role": "user", "content": ""},
@@ -316,11 +316,11 @@ class TestMessageSanitization:
         """
         Regression: An empty user message ({"role": "user", "content": ""}) must
         be rewritten to a non-empty placeholder *before* it reaches Anthropic,
-        even when litellm.modify_params is False. Otherwise Anthropic returns:
+        even when hangarllm.modify_params is False. Otherwise Anthropic returns:
             "messages: text content blocks must be non-empty"
         Reproduces a real failure from the pr-review agent (pydantic-ai).
         """
-        monkeypatch.setattr(litellm, "modify_params", False)
+        monkeypatch.setattr(hangarllm, "modify_params", False)
 
         messages = [
             {"role": "user", "content": "First message"},
@@ -346,7 +346,7 @@ class TestMessageSanitization:
             {"role": "user", "content": [{"type": "text", "text": ""}]}
         Empty text *blocks* must be rewritten too, regardless of modify_params.
         """
-        monkeypatch.setattr(litellm, "modify_params", False)
+        monkeypatch.setattr(hangarllm, "modify_params", False)
 
         messages = [
             {
@@ -373,7 +373,7 @@ class TestMessageSanitization:
         Sanity check: when nothing is empty, the messages flow through unchanged
         even with modify_params disabled.
         """
-        monkeypatch.setattr(litellm, "modify_params", False)
+        monkeypatch.setattr(hangarllm, "modify_params", False)
 
         messages = [
             {"role": "user", "content": "Hello"},
@@ -404,7 +404,7 @@ class TestMessageSanitization:
         is just tool_use, so there is nothing to substitute; injecting the placeholder made
         it look like the assistant had said it, and the model echoed it on later turns.
         """
-        monkeypatch.setattr(litellm, "modify_params", modify_params)
+        monkeypatch.setattr(hangarllm, "modify_params", modify_params)
 
         messages = [
             {"role": "user", "content": "list the files"},
@@ -488,7 +488,7 @@ class TestMessageSanitization:
         the assistant turn vanishing from the request. modify_params stays off so no
         dummy tool result answers the call and keeps it.
         """
-        monkeypatch.setattr(litellm, "modify_params", False)
+        monkeypatch.setattr(hangarllm, "modify_params", False)
 
         messages = [
             {"role": "user", "content": "find a tool"},

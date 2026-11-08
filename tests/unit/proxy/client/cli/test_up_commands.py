@@ -9,10 +9,10 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from litellm.proxy.client.cli.commands import up as up_module
-from litellm.proxy.client.cli.commands.agents import AgentRunError
-from litellm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError, StaticToken
-from litellm.proxy.client.cli.commands.up import (
+from hangarllm.proxy.client.cli.commands import up as up_module
+from hangarllm.proxy.client.cli.commands.agents import AgentRunError
+from hangarllm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError, StaticToken
+from hangarllm.proxy.client.cli.commands.up import (
     BackupRecord,
     UpError,
     down,
@@ -25,8 +25,8 @@ from litellm.proxy.client.cli.commands.up import (
     write_backup,
 )
 
-UP_MODULE = "litellm.proxy.client.cli.commands.up"
-AUTH_MODULE = "litellm.proxy.client.cli.commands.auth"
+UP_MODULE = "hangarllm.proxy.client.cli.commands.up"
+AUTH_MODULE = "hangarllm.proxy.client.cli.commands.auth"
 
 
 def _patch_paths(monkeypatch, tmp_path):
@@ -490,13 +490,13 @@ class TestUpCommand:
             patch(f"{UP_MODULE}.resolve_api_key", return_value="sk-fresh"),
             patch(
                 f"{UP_MODULE}.verify_proxy_key",
-                side_effect=AgentRunError("Could not reach the LiteLLM proxy at http://localhost:4000"),
+                side_effect=AgentRunError("Could not reach the HangarLLM proxy at http://localhost:4000"),
             ),
         ):
             result = self.runner.invoke(up, obj={"base_url": "http://localhost:4000"})
 
         assert result.exit_code != 0
-        assert "Could not reach the LiteLLM proxy" in result.output
+        assert "Could not reach the HangarLLM proxy" in result.output
 
     def test_happy_path_writes_settings_and_backup_then_restores_on_stop(self, monkeypatch, tmp_path):
         settings_path, backup_path = _patch_paths(monkeypatch, tmp_path)
@@ -594,7 +594,7 @@ class TestUpCanInvokeTheRealLoginCommand:
     """
 
     def test_ctx_invoke_supplies_every_login_parameter(self):
-        from litellm.proxy.client.cli.commands.auth import login as real_login
+        from hangarllm.proxy.client.cli.commands.auth import login as real_login
 
         reached = []
 
@@ -614,7 +614,7 @@ class TestUpCanInvokeTheRealLoginCommand:
         assert reached == ["http://127.0.0.1:9"]
 
     def test_ctx_invoke_leaves_claude_settings_alone(self, tmp_path):
-        from litellm.proxy.client.cli.commands.auth import login as real_login
+        from hangarllm.proxy.client.cli.commands.auth import login as real_login
 
         settings_path = tmp_path / "settings.json"
 

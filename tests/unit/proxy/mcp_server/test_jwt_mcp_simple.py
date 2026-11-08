@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy._types import (
-    LiteLLM_JWTAuth,
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
+from hangarllm.proxy._types import (
+    HangarLLM_JWTAuth,
+    HangarLLM_ObjectPermissionTable,
+    HangarLLM_TeamTable,
     UserAPIKeyAuth,
 )
 
@@ -25,7 +25,7 @@ async def test_simple_jwt_mcp_permissions_enforced():
 
     Expected: Only ["github-mcp", "slack-mcp"] should be allowed
     """
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -38,11 +38,11 @@ async def test_simple_jwt_mcp_permissions_enforced():
 
     # 2. Team's MCP permissions
     team_mcp_servers = ["github-mcp", "slack-mcp"]
-    team_object_permission = LiteLLM_ObjectPermissionTable(
+    team_object_permission = HangarLLM_ObjectPermissionTable(
         object_permission_id="perm-123",
         mcp_servers=team_mcp_servers,
     )
-    team_obj = LiteLLM_TeamTable(
+    team_obj = HangarLLM_TeamTable(
         team_id="my-team",
         access_group_ids=[],
         object_permission_id="perm-123",
@@ -51,9 +51,9 @@ async def test_simple_jwt_mcp_permissions_enforced():
 
     # 3. Mock the team object lookup (object_permission attached) and prisma_client
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "hangarllm.proxy.auth.auth_checks.get_team_object",
             new_callable=AsyncMock,
             return_value=team_obj,
         ) as mock_get_team,
@@ -87,7 +87,7 @@ async def test_simple_jwt_no_team_no_mcp_servers():
     """
     Simple test: JWT user with no team should get no MCP servers.
     """
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -112,7 +112,7 @@ async def test_simple_jwt_team_id_required_for_mcp_permissions():
     This is the key insight - if JWT auth doesn't set team_id,
     team MCP permissions won't be enforced.
     """
-    from litellm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
+    from hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -124,11 +124,11 @@ async def test_simple_jwt_team_id_required_for_mcp_permissions():
     )
 
     team_mcp_servers = ["server-1", "server-2"]
-    team_perm = LiteLLM_ObjectPermissionTable(
+    team_perm = HangarLLM_ObjectPermissionTable(
         object_permission_id="perm-1",
         mcp_servers=team_mcp_servers,
     )
-    team_obj = LiteLLM_TeamTable(
+    team_obj = HangarLLM_TeamTable(
         team_id="team-abc",
         access_group_ids=[],
         object_permission_id="perm-1",
@@ -136,9 +136,9 @@ async def test_simple_jwt_team_id_required_for_mcp_permissions():
     team_obj.object_permission = team_perm
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "hangarllm.proxy.auth.auth_checks.get_team_object",
             new_callable=AsyncMock,
             return_value=team_obj,
         ) as mock_get_team,
@@ -177,18 +177,18 @@ async def test_jwt_auth_sets_team_id_for_mcp_route():
     This is the critical test - when user calls /mcp/tools/list with JWT,
     the team_id from JWT groups must be set on UserAPIKeyAuth.
     """
-    from litellm.caching import DualCache
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+    from hangarllm.proxy.utils import ProxyLogging
 
     # Setup
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_ids_jwt_field="groups",  # Teams come from "groups" field in JWT
     )
 
     # Team exists with models
-    team = LiteLLM_TeamTable(
+    team = HangarLLM_TeamTable(
         team_id="team-from-jwt",
         models=["gpt-4"],
     )
@@ -207,7 +207,7 @@ async def test_jwt_auth_sets_team_id_for_mcp_route():
         mock_auth.return_value = jwt_payload
 
         with patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_team:
             mock_get_team.return_value = team
 
@@ -246,19 +246,19 @@ async def test_mcp_route_without_model_still_returns_team_id():
     4. Route check passes because "mcp_routes" is in team_allowed_routes
     5. team_id is returned and set on UserAPIKeyAuth
     """
-    from litellm.caching import DualCache
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching import DualCache
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+    from hangarllm.proxy.utils import ProxyLogging
 
     # Setup
     jwt_handler = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.hangarllm_jwtauth = HangarLLM_JWTAuth(
         team_ids_jwt_field="groups",
     )
 
     # Team exists - note: models is a list (can be empty or have values)
     # The key is that when no model is requested, model check is skipped
-    team = LiteLLM_TeamTable(
+    team = HangarLLM_TeamTable(
         team_id="my-team",
         models=[
             "gpt-4",
@@ -280,7 +280,7 @@ async def test_mcp_route_without_model_still_returns_team_id():
         mock_auth.return_value = jwt_payload
 
         with patch(
-            "litellm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
+            "hangarllm.proxy.auth.handle_jwt.get_team_object", new_callable=AsyncMock
         ) as mock_get_team:
             mock_get_team.return_value = team
 

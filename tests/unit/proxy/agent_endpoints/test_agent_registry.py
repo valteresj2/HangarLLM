@@ -9,16 +9,16 @@ from typing import Final
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from prisma.models import LiteLLM_AgentsTable
+from prisma.models import HangarLLM_AgentsTable
 
-from litellm.constants import REDACTED_BY_LITELM_STRING
-from litellm.proxy.agent_endpoints.agent_registry import (
+from hangarllm.constants import REDACTED_BY_LITELM_STRING
+from hangarllm.proxy.agent_endpoints.agent_registry import (
     AgentRegistry,
     GrantMigrationResult,
-    _restore_redacted_litellm_params,
-    redact_sensitive_agent_litellm_params,
+    _restore_redacted_hangarllm_params,
+    redact_sensitive_agent_hangarllm_params,
 )
-from litellm.types.agents import PatchAgentRequest
+from hangarllm.types.agents import PatchAgentRequest
 
 # Obviously-fake stand-ins for a real AWS credential pair (LIT-6736 regression
 # fixtures) -- never a real key shape, and must never appear in any response.
@@ -55,7 +55,7 @@ async def test_update_agent_in_db_clears_static_headers_and_extra_headers_when_o
         "agent_id": "agent-123",
         "agent_name": "Updated Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "static_headers": {},
         "extra_headers": [],
         "object_permission": None,
@@ -63,14 +63,14 @@ async def test_update_agent_in_db_clears_static_headers_and_extra_headers_when_o
     updated_agent.object_permission = None
 
     mock_update = AsyncMock(return_value=updated_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=None)
 
     # Agent config WITHOUT static_headers or extra_headers (omitted)
     agent_config = {
         "agent_name": "Updated Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
     }
 
     await registry.update_agent_in_db(
@@ -102,7 +102,7 @@ async def test_update_agent_in_db_preserves_explicit_static_headers_and_extra_he
         "agent_id": "agent-123",
         "agent_name": "Updated Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "static_headers": {"Authorization": "Bearer xyz"},
         "extra_headers": ["X-Custom-Header"],
         "object_permission": None,
@@ -110,13 +110,13 @@ async def test_update_agent_in_db_preserves_explicit_static_headers_and_extra_he
     updated_agent.object_permission = None
 
     mock_update = AsyncMock(return_value=updated_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=None)
 
     agent_config = {
         "agent_name": "Updated Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "static_headers": {"Authorization": "Bearer xyz"},
         "extra_headers": ["X-Custom-Header"],
     }
@@ -364,7 +364,7 @@ def test_legacy_full_entry_hash_still_resolves_the_config_agent():
 def test_public_agent_groups_holding_the_legacy_id_still_mark_the_config_agent_public(monkeypatch):
     """LIT-5144: config.yaml written before the fix stores the full-entry hash in
     public_agent_groups; the agent must stay public after its id became name-based."""
-    import litellm
+    import hangarllm
 
     entry: Final = {
         "agent_name": "public-agent",
@@ -377,13 +377,13 @@ def test_public_agent_groups_holding_the_legacy_id_still_mark_the_config_agent_p
     legacy_id: Final = hashlib.sha256(json.dumps(entry, sort_keys=True).encode()).hexdigest()
     assert legacy_id != agent.agent_id
 
-    monkeypatch.setattr(litellm, "public_agent_groups", [legacy_id])
+    monkeypatch.setattr(hangarllm, "public_agent_groups", [legacy_id])
     assert [a.agent_id for a in registry.get_public_agent_list()] == [agent.agent_id]
 
-    monkeypatch.setattr(litellm, "public_agent_groups", ["unrelated-id"])
+    monkeypatch.setattr(hangarllm, "public_agent_groups", ["unrelated-id"])
     assert registry.get_public_agent_list() == ()
 
-    monkeypatch.setattr(litellm, "public_agent_groups", None)
+    monkeypatch.setattr(hangarllm, "public_agent_groups", None)
     assert registry.get_public_agent_list() == ()
 
 
@@ -453,10 +453,10 @@ async def test_update_agent_in_db_raises_when_row_deleted_mid_update():
     guard the code dereferences None and reports an opaque AttributeError instead of the id."""
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
-        return_value=_stored_agent_row(SimpleNamespace(litellm_params={}, object_permission_id=None))
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
+        return_value=_stored_agent_row(SimpleNamespace(hangarllm_params={}, object_permission_id=None))
     )
-    mock_prisma.db.litellm_agentstable.update = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_agentstable.update = AsyncMock(return_value=None)
 
     with pytest.raises(Exception, match="Agent not found") as exc_info:
         await registry.update_agent_in_db(
@@ -464,7 +464,7 @@ async def test_update_agent_in_db_raises_when_row_deleted_mid_update():
             agent={
                 "agent_name": "Updated Agent",
                 "agent_card_params": _sample_agent_card_params(),
-                "litellm_params": {},
+                "hangarllm_params": {},
             },
             prisma_client=mock_prisma,
             updated_by="test-user",
@@ -478,12 +478,12 @@ async def test_patch_agent_in_db_raises_when_row_deleted_mid_update():
     """Same race on PATCH: the existing row is read, then deleted before the update lands."""
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             {"agent_id": "agent-123", "agent_name": "Old Agent", "object_permission_id": None}
         )
     )
-    mock_prisma.db.litellm_agentstable.update = AsyncMock(return_value=None)
+    mock_prisma.db.hangarllm_agentstable.update = AsyncMock(return_value=None)
 
     with pytest.raises(Exception, match="Agent not found") as exc_info:
         await registry.patch_agent_in_db(
@@ -501,10 +501,10 @@ async def test_delete_agent_from_db_raises_when_row_already_gone() -> None:
     registry: Final = AgentRegistry()
     database: Final = MagicMock()
     tx: Final = database.tx.return_value.__aenter__.return_value
-    tx.litellm_agentstable.find_unique = AsyncMock(return_value=None)
+    tx.hangarllm_agentstable.find_unique = AsyncMock(return_value=None)
     with pytest.raises(ValueError, match="Agent not found, passed agent_id=agent-123"):
         await registry.delete_agent_from_db(agent_id="agent-123", prisma_client=database)
-    tx.litellm_verificationtoken.delete_many.assert_not_called()
+    tx.hangarllm_verificationtoken.delete_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -514,31 +514,31 @@ async def test_agent_deletion_revokes_managed_keys_and_keeps_identity_history(ma
     database: Final = MagicMock()
     tx: Final = database.tx.return_value.__aenter__.return_value
     row: Final = _stored_agent_row({"agent_id": "agent-123", "identity_managed": managed})
-    tx.litellm_agentstable.find_unique = AsyncMock(return_value=row)
-    tx.litellm_agentstable.delete = AsyncMock(return_value=row)
-    tx.litellm_verificationtoken.delete_many = AsyncMock(return_value=2)
-    tx.litellm_retiredagent.upsert = AsyncMock()
+    tx.hangarllm_agentstable.find_unique = AsyncMock(return_value=row)
+    tx.hangarllm_agentstable.delete = AsyncMock(return_value=row)
+    tx.hangarllm_verificationtoken.delete_many = AsyncMock(return_value=2)
+    tx.hangarllm_retiredagent.upsert = AsyncMock()
     result: Final = await registry.delete_agent_from_db("agent-123", database)
     assert result["agent_id"] == "agent-123"
-    tx.litellm_agentstable.delete.assert_awaited_once_with(where={"agent_id": "agent-123"})
+    tx.hangarllm_agentstable.delete.assert_awaited_once_with(where={"agent_id": "agent-123"})
     if managed:
-        tx.litellm_retiredagent.upsert.assert_awaited_once_with(
+        tx.hangarllm_retiredagent.upsert.assert_awaited_once_with(
             where={"original_agent_id": "agent-123"},
             data={"create": {"original_agent_id": "agent-123"}, "update": {}},
         )
-        tx.litellm_verificationtoken.delete_many.assert_awaited_once_with(where={"agent_id": "agent-123"})
+        tx.hangarllm_verificationtoken.delete_many.assert_awaited_once_with(where={"agent_id": "agent-123"})
     else:
-        tx.litellm_retiredagent.upsert.assert_not_awaited()
-        tx.litellm_verificationtoken.delete_many.assert_not_awaited()
+        tx.hangarllm_retiredagent.upsert.assert_not_awaited()
+        tx.hangarllm_verificationtoken.delete_many.assert_not_awaited()
 
 
-# ---------- LIT-6736: agent litellm_params secret redaction ----------
+# ---------- LIT-6736: agent hangarllm_params secret redaction ----------
 
 
-def test_redact_sensitive_agent_litellm_params_masks_secrets_keeps_the_rest():
+def test_redact_sensitive_agent_hangarllm_params_masks_secrets_keeps_the_rest():
     """The sentinel secret must never appear in the redacted output; non-secret
     keys (model reference, is_public) must survive untouched."""
-    redacted = redact_sensitive_agent_litellm_params(
+    redacted = redact_sensitive_agent_hangarllm_params(
         {
             "aws_access_key_id": SENTINEL_AWS_ACCESS_KEY_ID,
             "aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY,
@@ -555,10 +555,10 @@ def test_redact_sensitive_agent_litellm_params_masks_secrets_keeps_the_rest():
     assert redacted["is_public"] is True
 
 
-def test_redact_sensitive_agent_litellm_params_recurses_into_nested_dicts():
+def test_redact_sensitive_agent_hangarllm_params_recurses_into_nested_dicts():
     """A secret nested one level down (e.g. a per-provider sub-config) must
     also be redacted, not just top-level keys."""
-    redacted = redact_sensitive_agent_litellm_params(
+    redacted = redact_sensitive_agent_hangarllm_params(
         {"provider_config": {"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY, "region": "us-east-1"}}
     )
 
@@ -567,22 +567,22 @@ def test_redact_sensitive_agent_litellm_params_recurses_into_nested_dicts():
     assert redacted["provider_config"]["region"] == "us-east-1"
 
 
-def test_redact_sensitive_agent_litellm_params_handles_none_and_json_string():
-    assert redact_sensitive_agent_litellm_params(None) is None
+def test_redact_sensitive_agent_hangarllm_params_handles_none_and_json_string():
+    assert redact_sensitive_agent_hangarllm_params(None) is None
 
     serialized = json.dumps({"api_key": SENTINEL_AWS_SECRET_ACCESS_KEY, "model": "gpt-4"})
-    redacted = redact_sensitive_agent_litellm_params(serialized)
+    redacted = redact_sensitive_agent_hangarllm_params(serialized)
 
     assert SENTINEL_AWS_SECRET_ACCESS_KEY not in redacted
     assert json.loads(redacted)["api_key"] == REDACTED_BY_LITELM_STRING
     assert json.loads(redacted)["model"] == "gpt-4"
 
 
-def test_redact_sensitive_agent_litellm_params_recurses_into_lists_of_dicts():
+def test_redact_sensitive_agent_hangarllm_params_recurses_into_lists_of_dicts():
     """A secret nested inside a list of provider sub-configs (a shape a
     non-sensitively-named key can legitimately hold) must also be redacted,
     not silently returned as-is."""
-    redacted = redact_sensitive_agent_litellm_params(
+    redacted = redact_sensitive_agent_hangarllm_params(
         {
             "provider_configs": [
                 {"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY, "region": "us-east-1"},
@@ -598,19 +598,19 @@ def test_redact_sensitive_agent_litellm_params_recurses_into_lists_of_dicts():
     assert redacted["provider_configs"][1]["region"] == "us-west-2"
 
 
-def test_redact_sensitive_agent_litellm_params_redacts_secrets_inside_model_list():
-    """The exact shape flagged in review: litellm_params.model_list, where each
-    entry carries its own nested litellm_params with a provider credential."""
-    redacted = redact_sensitive_agent_litellm_params(
+def test_redact_sensitive_agent_hangarllm_params_redacts_secrets_inside_model_list():
+    """The exact shape flagged in review: hangarllm_params.model_list, where each
+    entry carries its own nested hangarllm_params with a provider credential."""
+    redacted = redact_sensitive_agent_hangarllm_params(
         {
             "model_list": [
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"api_key": SENTINEL_AWS_SECRET_ACCESS_KEY, "model": "gpt-4"},
+                    "hangarllm_params": {"api_key": SENTINEL_AWS_SECRET_ACCESS_KEY, "model": "gpt-4"},
                 },
                 {
                     "model_name": "claude",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "aws_secret_access_key": "other-" + SENTINEL_AWS_SECRET_ACCESS_KEY,
                         "model": "bedrock/claude",
                     },
@@ -620,13 +620,13 @@ def test_redact_sensitive_agent_litellm_params_redacts_secrets_inside_model_list
     )
 
     assert SENTINEL_AWS_SECRET_ACCESS_KEY not in json.dumps(redacted)
-    assert redacted["model_list"][0]["litellm_params"]["api_key"] == REDACTED_BY_LITELM_STRING
-    assert redacted["model_list"][0]["litellm_params"]["model"] == "gpt-4"
-    assert redacted["model_list"][1]["litellm_params"]["aws_secret_access_key"] == REDACTED_BY_LITELM_STRING
-    assert redacted["model_list"][1]["litellm_params"]["model"] == "bedrock/claude"
+    assert redacted["model_list"][0]["hangarllm_params"]["api_key"] == REDACTED_BY_LITELM_STRING
+    assert redacted["model_list"][0]["hangarllm_params"]["model"] == "gpt-4"
+    assert redacted["model_list"][1]["hangarllm_params"]["aws_secret_access_key"] == REDACTED_BY_LITELM_STRING
+    assert redacted["model_list"][1]["hangarllm_params"]["model"] == "bedrock/claude"
 
 
-def test_restore_redacted_litellm_params_preserves_secret_inside_model_list():
+def test_restore_redacted_hangarllm_params_preserves_secret_inside_model_list():
     """The write-side counterpart: a caller editing a model_list entry's own
     non-secret field (renaming it) while leaving that same entry's nested
     secret masked must not corrupt the stored per-deployment credential.
@@ -638,7 +638,7 @@ def test_restore_redacted_litellm_params_preserves_secret_inside_model_list():
         "model_list": [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"api_key": SENTINEL_AWS_SECRET_ACCESS_KEY, "model": "gpt-4"},
+                "hangarllm_params": {"api_key": SENTINEL_AWS_SECRET_ACCESS_KEY, "model": "gpt-4"},
             },
         ],
     }
@@ -647,19 +647,19 @@ def test_restore_redacted_litellm_params_preserves_secret_inside_model_list():
         "model_list": [
             {
                 "model_name": "gpt-4-renamed",
-                "litellm_params": {"api_key": REDACTED_BY_LITELM_STRING, "model": "gpt-4"},
+                "hangarllm_params": {"api_key": REDACTED_BY_LITELM_STRING, "model": "gpt-4"},
             },
         ],
     }
 
-    restored = _restore_redacted_litellm_params(incoming, existing)
+    restored = _restore_redacted_hangarllm_params(incoming, existing)
 
-    assert SENTINEL_AWS_SECRET_ACCESS_KEY == restored["model_list"][0]["litellm_params"]["api_key"]
+    assert SENTINEL_AWS_SECRET_ACCESS_KEY == restored["model_list"][0]["hangarllm_params"]["api_key"]
     assert restored["model_list"][0]["model_name"] == "gpt-4-renamed"
     assert restored["agent_name"] == "my-agent-renamed"
 
 
-def test_restore_redacted_litellm_params_matches_list_entries_by_position():
+def test_restore_redacted_hangarllm_params_matches_list_entries_by_position():
     """Documents the accepted trade-off: a list has no stable per-element
     identity in a plain ``dict[str, object]`` schema, so restoration matches
     entries by index, the same correspondence every other part of this merge
@@ -672,23 +672,23 @@ def test_restore_redacted_litellm_params_matches_list_entries_by_position():
     than asserting it away."""
     existing = {
         "model_list": [
-            {"model_name": "gpt-4", "litellm_params": {"api_key": SENTINEL_AWS_SECRET_ACCESS_KEY}},
-            {"model_name": "claude", "litellm_params": {"api_key": "other-" + SENTINEL_AWS_SECRET_ACCESS_KEY}},
+            {"model_name": "gpt-4", "hangarllm_params": {"api_key": SENTINEL_AWS_SECRET_ACCESS_KEY}},
+            {"model_name": "claude", "hangarllm_params": {"api_key": "other-" + SENTINEL_AWS_SECRET_ACCESS_KEY}},
         ],
     }
     incoming = {
         "model_list": [
             # Same index (0) now holds what used to be at index 1's entry.
-            {"model_name": "claude", "litellm_params": {"api_key": REDACTED_BY_LITELM_STRING}},
+            {"model_name": "claude", "hangarllm_params": {"api_key": REDACTED_BY_LITELM_STRING}},
         ],
     }
 
-    restored = _restore_redacted_litellm_params(incoming, existing)
+    restored = _restore_redacted_hangarllm_params(incoming, existing)
 
-    assert restored["model_list"][0]["litellm_params"]["api_key"] == SENTINEL_AWS_SECRET_ACCESS_KEY
+    assert restored["model_list"][0]["hangarllm_params"]["api_key"] == SENTINEL_AWS_SECRET_ACCESS_KEY
 
 
-def test_restore_redacted_litellm_params_recovers_a_whole_subtree_collapsed_by_the_depth_cap():
+def test_restore_redacted_hangarllm_params_recovers_a_whole_subtree_collapsed_by_the_depth_cap():
     """Past the read-side recursion depth cap, a whole nested subtree is
     collapsed to the flat REDACTED_BY_LITELM marker rather than a dict/list.
     If the caller echoes that flat marker back unchanged, the whole
@@ -697,15 +697,15 @@ def test_restore_redacted_litellm_params_recovers_a_whole_subtree_collapsed_by_t
     incoming = {"provider_config": REDACTED_BY_LITELM_STRING}
     existing = {"provider_config": existing_subtree}
 
-    restored = _restore_redacted_litellm_params(incoming, existing)
+    restored = _restore_redacted_hangarllm_params(incoming, existing)
 
     assert restored["provider_config"] == existing_subtree
 
 
-def test_redact_sensitive_agent_litellm_params_does_not_reinterpret_plain_string_values_as_json():
+def test_redact_sensitive_agent_hangarllm_params_does_not_reinterpret_plain_string_values_as_json():
     """A plain non-JSON string value (most string leaves) must pass through
     unchanged rather than failing to parse and getting redacted."""
-    redacted = redact_sensitive_agent_litellm_params({"model": "bedrock/agentcore/my-agent", "is_public": True})
+    redacted = redact_sensitive_agent_hangarllm_params({"model": "bedrock/agentcore/my-agent", "is_public": True})
 
     assert redacted["model"] == "bedrock/agentcore/my-agent"
     assert redacted["is_public"] is True
@@ -723,18 +723,18 @@ async def test_add_agent_to_db_drops_a_sentinel_value_instead_of_storing_the_pla
         "agent_id": "agent-123",
         "agent_name": "Test Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "object_permission": None,
     }
     created_agent.object_permission = None
     mock_create = AsyncMock(return_value=created_agent)
-    mock_prisma.db.litellm_agentstable.create = mock_create
+    mock_prisma.db.hangarllm_agentstable.create = mock_create
 
     await registry.add_agent_to_db(
         agent={
             "agent_name": "Test Agent",
             "agent_card_params": _sample_agent_card_params(),
-            "litellm_params": {
+            "hangarllm_params": {
                 "aws_secret_access_key": REDACTED_BY_LITELM_STRING,
                 "model": "bedrock/agentcore/my-agent",
             },
@@ -743,7 +743,7 @@ async def test_add_agent_to_db_drops_a_sentinel_value_instead_of_storing_the_pla
         created_by="test-user",
     )
 
-    stored_params: Final = json.loads(mock_create.call_args.kwargs["data"]["litellm_params"])
+    stored_params: Final = json.loads(mock_create.call_args.kwargs["data"]["hangarllm_params"])
     assert "aws_secret_access_key" not in stored_params
     assert stored_params["model"] == "bedrock/agentcore/my-agent"
 
@@ -756,10 +756,10 @@ async def test_update_agent_in_db_preserves_secret_when_echoed_back_redacted():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
 
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             SimpleNamespace(
-                litellm_params={
+                hangarllm_params={
                     "aws_access_key_id": SENTINEL_AWS_ACCESS_KEY_ID,
                     "aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY,
                     "model": "bedrock/agentcore/my-agent",
@@ -773,12 +773,12 @@ async def test_update_agent_in_db_preserves_secret_when_echoed_back_redacted():
         "agent_id": "agent-123",
         "agent_name": "Renamed Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "object_permission": None,
     }
     updated_agent.object_permission = None
     mock_update = AsyncMock(return_value=updated_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.update_agent_in_db(
         agent_id="agent-123",
@@ -787,7 +787,7 @@ async def test_update_agent_in_db_preserves_secret_when_echoed_back_redacted():
             "agent_card_params": _sample_agent_card_params(),
             # The UI round-tripped the redacted secret and the untouched
             # access key id verbatim; only agent_name actually changed.
-            "litellm_params": {
+            "hangarllm_params": {
                 "aws_access_key_id": SENTINEL_AWS_ACCESS_KEY_ID,
                 "aws_secret_access_key": REDACTED_BY_LITELM_STRING,
                 "model": "bedrock/agentcore/my-agent",
@@ -797,7 +797,7 @@ async def test_update_agent_in_db_preserves_secret_when_echoed_back_redacted():
         updated_by="test-user",
     )
 
-    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["litellm_params"])
+    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["hangarllm_params"])
     assert stored_params["aws_secret_access_key"] == SENTINEL_AWS_SECRET_ACCESS_KEY
     assert stored_params["aws_access_key_id"] == SENTINEL_AWS_ACCESS_KEY_ID
     assert stored_params["model"] == "bedrock/agentcore/my-agent"
@@ -810,10 +810,10 @@ async def test_update_agent_in_db_preserves_secret_when_key_omitted_entirely():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
 
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             SimpleNamespace(
-                litellm_params={"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
+                hangarllm_params={"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
                 object_permission_id=None,
             )
         )
@@ -823,25 +823,25 @@ async def test_update_agent_in_db_preserves_secret_when_key_omitted_entirely():
         "agent_id": "agent-123",
         "agent_name": "Test Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "object_permission": None,
     }
     updated_agent.object_permission = None
     mock_update = AsyncMock(return_value=updated_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.update_agent_in_db(
         agent_id="agent-123",
         agent={
             "agent_name": "Test Agent",
             "agent_card_params": _sample_agent_card_params(),
-            "litellm_params": {"model": "bedrock/agentcore/my-agent"},
+            "hangarllm_params": {"model": "bedrock/agentcore/my-agent"},
         },
         prisma_client=mock_prisma,
         updated_by="test-user",
     )
 
-    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["litellm_params"])
+    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["hangarllm_params"])
     assert stored_params["aws_secret_access_key"] == SENTINEL_AWS_SECRET_ACCESS_KEY
 
 
@@ -853,10 +853,10 @@ async def test_update_agent_in_db_preserves_secret_nested_under_a_non_sensitive_
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
 
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             SimpleNamespace(
-                litellm_params={
+                hangarllm_params={
                     "provider_config": {
                         "aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY,
                         "region": "us-east-1",
@@ -871,19 +871,19 @@ async def test_update_agent_in_db_preserves_secret_nested_under_a_non_sensitive_
         "agent_id": "agent-123",
         "agent_name": "Test Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "object_permission": None,
     }
     updated_agent.object_permission = None
     mock_update = AsyncMock(return_value=updated_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.update_agent_in_db(
         agent_id="agent-123",
         agent={
             "agent_name": "Test Agent",
             "agent_card_params": _sample_agent_card_params(),
-            "litellm_params": {
+            "hangarllm_params": {
                 # The GET response redacted the nested secret; the caller
                 # round-trips it verbatim while changing nothing.
                 "provider_config": {
@@ -896,7 +896,7 @@ async def test_update_agent_in_db_preserves_secret_nested_under_a_non_sensitive_
         updated_by="test-user",
     )
 
-    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["litellm_params"])
+    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["hangarllm_params"])
     assert stored_params["provider_config"]["aws_secret_access_key"] == SENTINEL_AWS_SECRET_ACCESS_KEY
     assert stored_params["provider_config"]["region"] == "us-west-2"
 
@@ -908,10 +908,10 @@ async def test_update_agent_in_db_clears_secret_on_explicit_empty_value():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
 
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             SimpleNamespace(
-                litellm_params={"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
+                hangarllm_params={"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
                 object_permission_id=None,
             )
         )
@@ -921,41 +921,41 @@ async def test_update_agent_in_db_clears_secret_on_explicit_empty_value():
         "agent_id": "agent-123",
         "agent_name": "Test Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "object_permission": None,
     }
     updated_agent.object_permission = None
     mock_update = AsyncMock(return_value=updated_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.update_agent_in_db(
         agent_id="agent-123",
         agent={
             "agent_name": "Test Agent",
             "agent_card_params": _sample_agent_card_params(),
-            "litellm_params": {"aws_secret_access_key": ""},
+            "hangarllm_params": {"aws_secret_access_key": ""},
         },
         prisma_client=mock_prisma,
         updated_by="test-user",
     )
 
-    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["litellm_params"])
+    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["hangarllm_params"])
     assert stored_params["aws_secret_access_key"] == ""
 
 
 @pytest.mark.asyncio
-async def test_patch_agent_in_db_preserves_secret_when_litellm_params_omitted():
+async def test_patch_agent_in_db_preserves_secret_when_hangarllm_params_omitted():
     """A PATCH that only renames the agent must not touch (let alone drop) the
-    stored litellm_params secret."""
+    stored hangarllm_params secret."""
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
 
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             {
                 "agent_id": "agent-123",
                 "agent_name": "Old Name",
-                "litellm_params": {"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
+                "hangarllm_params": {"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
                 "object_permission_id": None,
             }
         )
@@ -965,12 +965,12 @@ async def test_patch_agent_in_db_preserves_secret_when_litellm_params_omitted():
         "agent_id": "agent-123",
         "agent_name": "New Name",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
+        "hangarllm_params": {"aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY},
         "object_permission": None,
     }
     patched_agent.object_permission = None
     mock_update = AsyncMock(return_value=patched_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.patch_agent_in_db(
         agent_id="agent-123",
@@ -980,23 +980,23 @@ async def test_patch_agent_in_db_preserves_secret_when_litellm_params_omitted():
     )
 
     update_data: Final = mock_update.call_args.kwargs["data"]
-    assert "litellm_params" not in update_data
+    assert "hangarllm_params" not in update_data
 
 
 @pytest.mark.asyncio
 async def test_patch_agent_in_db_preserves_secret_when_echoed_back_redacted():
-    """A PATCH that includes litellm_params (e.g. to flip an unrelated flag)
+    """A PATCH that includes hangarllm_params (e.g. to flip an unrelated flag)
     with the secret round-tripped as the redaction marker must not clobber
     the stored credential."""
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
 
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             {
                 "agent_id": "agent-123",
                 "agent_name": "Test Agent",
-                "litellm_params": {
+                "hangarllm_params": {
                     "aws_secret_access_key": SENTINEL_AWS_SECRET_ACCESS_KEY,
                     "is_public": False,
                 },
@@ -1009,17 +1009,17 @@ async def test_patch_agent_in_db_preserves_secret_when_echoed_back_redacted():
         "agent_id": "agent-123",
         "agent_name": "Test Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "object_permission": None,
     }
     patched_agent.object_permission = None
     mock_update = AsyncMock(return_value=patched_agent)
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.patch_agent_in_db(
         agent_id="agent-123",
         agent={
-            "litellm_params": {
+            "hangarllm_params": {
                 "aws_secret_access_key": REDACTED_BY_LITELM_STRING,
                 "is_public": True,
             }
@@ -1028,7 +1028,7 @@ async def test_patch_agent_in_db_preserves_secret_when_echoed_back_redacted():
         updated_by="test-user",
     )
 
-    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["litellm_params"])
+    stored_params: Final = json.loads(mock_update.call_args.kwargs["data"]["hangarllm_params"])
     assert stored_params["aws_secret_access_key"] == SENTINEL_AWS_SECRET_ACCESS_KEY
     assert stored_params["is_public"] is True
 
@@ -1045,31 +1045,31 @@ async def test_runtime_update_drops_legacy_identity_and_keeps_agent_id(operation
     }
     existing_params: Final = {"identity": identity, "model": "old"}
     existing: Final = (
-        SimpleNamespace(litellm_params=existing_params, object_permission_id=None)
+        SimpleNamespace(hangarllm_params=existing_params, object_permission_id=None)
         if operation == "put"
-        else {"agent_name": "Readable agent", "litellm_params": existing_params}
+        else {"agent_name": "Readable agent", "hangarllm_params": existing_params}
     )
-    prisma.db.litellm_agentstable.find_unique = AsyncMock(return_value=_stored_agent_row(existing))
+    prisma.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=_stored_agent_row(existing))
     saved: Final = MagicMock()
     saved.object_permission = None
     saved.model_dump.return_value = {
         "agent_id": "unchanged-id",
         "agent_name": "Renamed agent",
         "agent_card_params": {},
-        "litellm_params": {"model": "new"},
+        "hangarllm_params": {"model": "new"},
     }
-    prisma.db.litellm_agentstable.update = AsyncMock(return_value=saved)
+    prisma.db.hangarllm_agentstable.update = AsyncMock(return_value=saved)
     update: Final = registry.patch_agent_in_db if operation == "patch" else registry.update_agent_in_db
     result: Final = await update(
         agent_id="unchanged-id",
-        agent={"agent_name": "Renamed agent", "agent_card_params": {}, "litellm_params": {"model": "new"}},
+        agent={"agent_name": "Renamed agent", "agent_card_params": {}, "hangarllm_params": {"model": "new"}},
         prisma_client=prisma,
         updated_by="admin",
     )
-    stored: Final = prisma.db.litellm_agentstable.update.call_args.kwargs
+    stored: Final = prisma.db.hangarllm_agentstable.update.call_args.kwargs
     assert stored["where"] == {"agent_id": "unchanged-id"}
-    assert json.loads(stored["data"]["litellm_params"]) == {"model": "new"}, (
-        "a stored litellm_params.identity must not be resurrected once the JWT path no longer honours it"
+    assert json.loads(stored["data"]["hangarllm_params"]) == {"model": "new"}, (
+        "a stored hangarllm_params.identity must not be resurrected once the JWT path no longer honours it"
     )
     assert result.agent_id == "unchanged-id"
     assert "object_permission_id" not in stored["data"]
@@ -1081,7 +1081,7 @@ def _agent_row_mock(access_group_ids: list[str]) -> MagicMock:
         "agent_id": "agent-123",
         "agent_name": "Test Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {},
+        "hangarllm_params": {},
         "object_permission": None,
         "access_group_ids": access_group_ids,
     }
@@ -1094,7 +1094,7 @@ async def test_add_agent_to_db_persists_deduplicated_access_group_ids():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
     mock_create = AsyncMock(return_value=_agent_row_mock(["ag-1", "ag-2"]))
-    mock_prisma.db.litellm_agentstable.create = mock_create
+    mock_prisma.db.hangarllm_agentstable.create = mock_create
 
     result: Final = await registry.add_agent_to_db(
         agent={
@@ -1115,7 +1115,7 @@ async def test_add_agent_to_db_without_access_group_ids_leaves_column_to_its_def
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
     mock_create = AsyncMock(return_value=_agent_row_mock([]))
-    mock_prisma.db.litellm_agentstable.create = mock_create
+    mock_prisma.db.hangarllm_agentstable.create = mock_create
 
     await registry.add_agent_to_db(
         agent={"agent_name": "Test Agent", "agent_card_params": _sample_agent_card_params()},
@@ -1140,19 +1140,19 @@ async def test_patch_agent_in_db_replaces_access_group_ids_when_provided(
 ):
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             {
                 "agent_id": "agent-123",
                 "agent_name": "Test Agent",
-                "litellm_params": {},
+                "hangarllm_params": {},
                 "object_permission_id": None,
                 "access_group_ids": ["ag-1"],
             }
         )
     )
     mock_update = AsyncMock(return_value=_agent_row_mock(expected))
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.patch_agent_in_db(
         agent_id="agent-123", agent=patch_body, prisma_client=mock_prisma, updated_by="test-user"
@@ -1165,19 +1165,19 @@ async def test_patch_agent_in_db_replaces_access_group_ids_when_provided(
 async def test_patch_agent_in_db_keeps_access_group_ids_when_omitted():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             {
                 "agent_id": "agent-123",
                 "agent_name": "Old Name",
-                "litellm_params": {},
+                "hangarllm_params": {},
                 "object_permission_id": None,
                 "access_group_ids": ["ag-1"],
             }
         )
     )
     mock_update = AsyncMock(return_value=_agent_row_mock(["ag-1"]))
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.patch_agent_in_db(
         agent_id="agent-123", agent={"agent_name": "New Name"}, prisma_client=mock_prisma, updated_by="test-user"
@@ -1195,17 +1195,17 @@ async def test_update_agent_in_db_always_writes_access_group_ids(body_access_gro
     """PUT is a full replacement: omitting the field clears any previously attached groups."""
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
-            SimpleNamespace(litellm_params={}, object_permission_id=None, access_group_ids=["ag-1"])
+            SimpleNamespace(hangarllm_params={}, object_permission_id=None, access_group_ids=["ag-1"])
         )
     )
     mock_update = AsyncMock(return_value=_agent_row_mock(expected))
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
     body: Final = {
         "agent_name": "Test Agent",
         "agent_card_params": _sample_agent_card_params(),
-        "litellm_params": {"model": "bedrock/agentcore/my-agent"},
+        "hangarllm_params": {"model": "bedrock/agentcore/my-agent"},
         **({} if body_access_group_ids == "omitted" else {"access_group_ids": body_access_group_ids}),
     }
 
@@ -1216,9 +1216,9 @@ async def test_update_agent_in_db_always_writes_access_group_ids(body_access_gro
     assert tuple(mock_update.call_args.kwargs["data"]["access_group_ids"]) == tuple(expected)
 
 
-def _stored_agent_row(values: Mapping[str, object] | SimpleNamespace) -> LiteLLM_AgentsTable:
+def _stored_agent_row(values: Mapping[str, object] | SimpleNamespace) -> HangarLLM_AgentsTable:
     fields: Final = vars(values) if isinstance(values, SimpleNamespace) else values
-    return LiteLLM_AgentsTable.model_validate(
+    return HangarLLM_AgentsTable.model_validate(
         {
             "agent_id": "agent-123",
             "agent_name": "Test Agent",
@@ -1236,7 +1236,7 @@ def _stored_agent_row(values: Mapping[str, object] | SimpleNamespace) -> LiteLLM
             "execution_mode": "autonomous",
             **{
                 key: json.dumps(value)
-                if key in ("litellm_params", "agent_card_params", "kill_switch", "static_headers") and not isinstance(value, str)
+                if key in ("hangarllm_params", "agent_card_params", "kill_switch", "static_headers") and not isinstance(value, str)
                 else value
                 for key, value in fields.items()
             },
@@ -1259,7 +1259,7 @@ async def test_add_agent_to_db_stores_kill_switch_json_and_a_json_null_when_unse
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
     mock_create = AsyncMock(return_value=_agent_row_mock([]))
-    mock_prisma.db.litellm_agentstable.create = mock_create
+    mock_prisma.db.hangarllm_agentstable.create = mock_create
 
     await registry.add_agent_to_db(
         agent={
@@ -1284,7 +1284,7 @@ async def test_add_agent_to_db_stores_kill_switch_json_and_a_json_null_when_unse
 async def test_add_agent_to_db_rejects_a_kill_switch_with_a_non_http_url():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.create = AsyncMock(return_value=_agent_row_mock([]))
+    mock_prisma.db.hangarllm_agentstable.create = AsyncMock(return_value=_agent_row_mock([]))
 
     with pytest.raises(Exception, match="absolute http"):
         await registry.add_agent_to_db(
@@ -1296,26 +1296,26 @@ async def test_add_agent_to_db_rejects_a_kill_switch_with_a_non_http_url():
             prisma_client=mock_prisma,
             created_by="test-user",
         )
-    mock_prisma.db.litellm_agentstable.create.assert_not_awaited()
+    mock_prisma.db.hangarllm_agentstable.create.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_patch_agent_in_db_keeps_kill_switch_when_omitted_and_clears_it_on_null():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             {
                 "agent_id": "agent-123",
                 "agent_name": "Old",
-                "litellm_params": {},
+                "hangarllm_params": {},
                 "object_permission_id": None,
                 "kill_switch": _KILL_SWITCH,
             }
         )
     )
     mock_update = AsyncMock(return_value=_agent_row_mock([]))
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.patch_agent_in_db(
         agent_id="agent-123", agent={"agent_name": "New"}, prisma_client=mock_prisma, updated_by="u"
@@ -1334,19 +1334,19 @@ async def test_patch_agent_in_db_keeps_kill_switch_when_omitted_and_clears_it_on
 async def test_patch_agent_in_db_restores_the_stored_kill_switch_secret_behind_the_marker():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
             {
                 "agent_id": "agent-123",
                 "agent_name": "A",
-                "litellm_params": {},
+                "hangarllm_params": {},
                 "object_permission_id": None,
                 "kill_switch": _KILL_SWITCH,
             }
         )
     )
     mock_update = AsyncMock(return_value=_agent_row_mock([]))
-    mock_prisma.db.litellm_agentstable.update = mock_update
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
 
     await registry.patch_agent_in_db(
         agent_id="agent-123",
@@ -1371,14 +1371,14 @@ async def test_patch_agent_in_db_restores_the_stored_kill_switch_secret_behind_t
 async def test_update_agent_in_db_clears_kill_switch_when_omitted_and_restores_secret_when_echoed():
     registry: Final = AgentRegistry()
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_agentstable.find_unique = AsyncMock(
+    mock_prisma.db.hangarllm_agentstable.find_unique = AsyncMock(
         return_value=_stored_agent_row(
-            SimpleNamespace(litellm_params={}, object_permission_id=None, kill_switch=json.dumps(_KILL_SWITCH))
+            SimpleNamespace(hangarllm_params={}, object_permission_id=None, kill_switch=json.dumps(_KILL_SWITCH))
         )
     )
     mock_update = AsyncMock(return_value=_agent_row_mock([]))
-    mock_prisma.db.litellm_agentstable.update = mock_update
-    base: Final = {"agent_name": "Test Agent", "agent_card_params": _sample_agent_card_params(), "litellm_params": {}}
+    mock_prisma.db.hangarllm_agentstable.update = mock_update
+    base: Final = {"agent_name": "Test Agent", "agent_card_params": _sample_agent_card_params(), "hangarllm_params": {}}
 
     await registry.update_agent_in_db(agent_id="agent-123", agent=base, prisma_client=mock_prisma, updated_by="u")
     assert mock_update.call_args.kwargs["data"]["kill_switch"] == json.dumps(None)
@@ -1407,11 +1407,11 @@ def test_load_agents_from_config_exposes_a_typed_kill_switch():
 async def test_agent_listing_preserves_stored_identity_bindings(bound: bool) -> None:
     from datetime import datetime, timezone
 
-    from prisma.models import LiteLLM_AgentIdentity, LiteLLM_AgentsTable
+    from prisma.models import HangarLLM_AgentIdentity, HangarLLM_AgentsTable
 
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
-    binding: Final = LiteLLM_AgentIdentity(
+    binding: Final = HangarLLM_AgentIdentity(
         agent_id="agent",
         provider="microsoft_entra",
         issuer="issuer",
@@ -1422,7 +1422,7 @@ async def test_agent_listing_preserves_stored_identity_bindings(bound: bool) -> 
         required_scopes=["user_impersonation"],
         revision="revision",
     )
-    row: Final = LiteLLM_AgentsTable(
+    row: Final = HangarLLM_AgentsTable(
         agent_id="agent",
         agent_name="Bound agent",
         agent_card_params="{}",
@@ -1440,7 +1440,7 @@ async def test_agent_listing_preserves_stored_identity_bindings(bound: bool) -> 
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
     client: Final = MagicMock()
-    client.db.litellm_agentstable.find_many = AsyncMock(return_value=[row])
+    client.db.hangarllm_agentstable.find_many = AsyncMock(return_value=[row])
     listed: Final = await AgentRegistry.get_all_agents_from_db(client)
     response: Final = AgentResponse.model_validate(listed[0])
     if bound:
@@ -1449,7 +1449,7 @@ async def test_agent_listing_preserves_stored_identity_bindings(bound: bool) -> 
         assert response.identity.revision == binding.revision
     else:
         assert response.identity is None
-    client.db.litellm_agentstable.find_many.assert_awaited_once_with(
+    client.db.hangarllm_agentstable.find_many.assert_awaited_once_with(
         order={"created_at": "desc"},
         include={"object_permission": True, "identity": True},
     )
@@ -1458,17 +1458,17 @@ async def test_agent_listing_preserves_stored_identity_bindings(bound: bool) -> 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("operation", ["create", "patch", "put"])
 async def test_agent_permissions_are_written_atomically_with_the_registration(operation: str) -> None:
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable
 
     registry: Final = AgentRegistry()
     client: Final = MagicMock()
     existing: Final = _stored_agent_row({"agent_id": "agent-123", "object_permission_id": "permissions"})
-    client.db.litellm_agentstable.find_unique = AsyncMock(return_value=existing)
-    client.db.litellm_agentstable.create = AsyncMock(return_value=existing)
-    client.db.litellm_agentstable.update = AsyncMock(return_value=existing)
-    client.db.litellm_objectpermissiontable.find_unique = AsyncMock(
+    client.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=existing)
+    client.db.hangarllm_agentstable.create = AsyncMock(return_value=existing)
+    client.db.hangarllm_agentstable.update = AsyncMock(return_value=existing)
+    client.db.hangarllm_objectpermissiontable.find_unique = AsyncMock(
         return_value=(
-            LiteLLM_ObjectPermissionTable(object_permission_id="permissions", models=["prior"], mcp_servers=["slack"])
+            HangarLLM_ObjectPermissionTable(object_permission_id="permissions", models=["prior"], mcp_servers=["slack"])
             if operation != "create"
             else None
         )
@@ -1480,7 +1480,7 @@ async def test_agent_permissions_are_written_atomically_with_the_registration(op
         update: Final = registry.patch_agent_in_db if operation == "patch" else registry.update_agent_in_db
         await update("agent-123", incoming, client, updated_by="admin")
     write: Final = (
-        client.db.litellm_agentstable.create if operation == "create" else client.db.litellm_agentstable.update
+        client.db.hangarllm_agentstable.create if operation == "create" else client.db.hangarllm_agentstable.update
     )
     permission: Final = write.call_args.kwargs["data"]["object_permission"][
         "create" if operation == "create" else "update"
@@ -1489,8 +1489,8 @@ async def test_agent_permissions_are_written_atomically_with_the_registration(op
     if operation != "create":
         assert permission["mcp_servers"] == ["slack"]
         assert permission["object_permission_id"] == "permissions"
-    client.db.litellm_objectpermissiontable.update.assert_not_called()
-    client.db.litellm_objectpermissiontable.create.assert_not_called()
+    client.db.hangarllm_objectpermissiontable.update.assert_not_called()
+    client.db.hangarllm_objectpermissiontable.create.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1500,9 +1500,9 @@ async def test_invalid_identity_fails_before_registration_is_written(operation: 
 
     registry: Final = AgentRegistry()
     client: Final = MagicMock()
-    client.db.litellm_agentstable.create = AsyncMock()
-    client.db.litellm_agentstable.update = AsyncMock()
-    client.db.litellm_agentstable.find_unique = AsyncMock(return_value=_stored_agent_row({"agent_id": "agent-123"}))
+    client.db.hangarllm_agentstable.create = AsyncMock()
+    client.db.hangarllm_agentstable.update = AsyncMock()
+    client.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=_stored_agent_row({"agent_id": "agent-123"}))
     incoming: Final = {"agent_name": "Agent", "agent_card_params": {}, "identity": {"provider": "unknown"}}
     write: Final = (
         registry.add_agent_to_db(incoming, client, created_by="admin")
@@ -1514,8 +1514,8 @@ async def test_invalid_identity_fails_before_registration_is_written(operation: 
     with pytest.raises(HTTPException) as failure:
         await write
     assert failure.value.status_code == 400
-    client.db.litellm_agentstable.create.assert_not_awaited()
-    client.db.litellm_agentstable.update.assert_not_awaited()
+    client.db.hangarllm_agentstable.create.assert_not_awaited()
+    client.db.hangarllm_agentstable.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1526,7 +1526,7 @@ async def test_duplicate_agent_binding_returns_conflict_for_every_write(operatio
 
     registry: Final = AgentRegistry()
     client: Final = MagicMock()
-    client.db.litellm_agentstable.find_unique = AsyncMock(return_value=_stored_agent_row({"agent_id": "agent-123"}))
+    client.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=_stored_agent_row({"agent_id": "agent-123"}))
     failure: Final = UniqueViolationError(
         {
             "user_facing_error": {
@@ -1536,8 +1536,8 @@ async def test_duplicate_agent_binding_returns_conflict_for_every_write(operatio
             }
         }
     )
-    client.db.litellm_agentstable.create = AsyncMock(side_effect=failure)
-    client.db.litellm_agentstable.update = AsyncMock(side_effect=failure)
+    client.db.hangarllm_agentstable.create = AsyncMock(side_effect=failure)
+    client.db.hangarllm_agentstable.update = AsyncMock(side_effect=failure)
     incoming: Final = {"agent_name": "Agent", "agent_card_params": {}}
     write: Final = (
         registry.add_agent_to_db(incoming, client, created_by="admin")
@@ -1561,10 +1561,10 @@ async def test_retired_application_cannot_transfer_to_another_agent(operation: s
     registry: Final = AgentRegistry()
     client: Final = MagicMock()
     row: Final = _stored_agent_row({"agent_id": "agent-123"})
-    client.db.litellm_agentstable.find_unique = AsyncMock(return_value=row)
-    client.db.litellm_agentstable.create = AsyncMock(return_value=row)
-    client.db.litellm_agentstable.update = AsyncMock(return_value=row)
-    client.writer_db.litellm_retiredagentidentity.find_unique = AsyncMock(return_value=SimpleNamespace(agent_id=owner))
+    client.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=row)
+    client.db.hangarllm_agentstable.create = AsyncMock(return_value=row)
+    client.db.hangarllm_agentstable.update = AsyncMock(return_value=row)
+    client.writer_db.hangarllm_retiredagentidentity.find_unique = AsyncMock(return_value=SimpleNamespace(agent_id=owner))
     incoming: Final = {
         "agent_name": "Agent",
         "agent_card_params": {},
@@ -1585,8 +1585,8 @@ async def test_retired_application_cannot_transfer_to_another_agent(operation: s
     with pytest.raises(HTTPException) as denied:
         await write
     assert denied.value.status_code == 409
-    client.db.litellm_agentstable.create.assert_not_awaited()
-    client.db.litellm_agentstable.update.assert_not_awaited()
+    client.db.hangarllm_agentstable.create.assert_not_awaited()
+    client.db.hangarllm_agentstable.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1596,10 +1596,10 @@ async def test_application_registration_preserves_its_existing_owner(operation: 
     registry: Final = AgentRegistry()
     client: Final = MagicMock()
     row: Final = _stored_agent_row({"agent_id": "agent-123"})
-    client.db.litellm_agentstable.find_unique = AsyncMock(return_value=row)
-    client.db.litellm_agentstable.create = AsyncMock(return_value=row)
-    client.db.litellm_agentstable.update = AsyncMock(return_value=row)
-    client.writer_db.litellm_retiredagentidentity.find_unique = AsyncMock(
+    client.db.hangarllm_agentstable.find_unique = AsyncMock(return_value=row)
+    client.db.hangarllm_agentstable.create = AsyncMock(return_value=row)
+    client.db.hangarllm_agentstable.update = AsyncMock(return_value=row)
+    client.writer_db.hangarllm_retiredagentidentity.find_unique = AsyncMock(
         return_value=SimpleNamespace(agent_id="agent-123") if prior_owner and operation != "create" else None
     )
     incoming: Final = {
@@ -1619,7 +1619,7 @@ async def test_application_registration_preserves_its_existing_owner(operation: 
         result = await update("agent-123", incoming, client, updated_by="admin")
     assert result.agent_id == "agent-123"
     write: Final = (
-        client.db.litellm_agentstable.create if operation == "create" else client.db.litellm_agentstable.update
+        client.db.hangarllm_agentstable.create if operation == "create" else client.db.hangarllm_agentstable.update
     )
     data: Final = write.call_args.kwargs["data"]
     if prior_owner and operation != "create":

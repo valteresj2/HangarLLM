@@ -236,7 +236,7 @@ def _fallback_deployments(outage: _ClaudeOutage, route: _FallbackRoute) -> tuple
     return (
         {
             "model_name": route.claude,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"anthropic/{_CLAUDE}",
                 "api_base": outage.wire.url,
                 "api_key": "synthetic-invalid-key",
@@ -244,7 +244,7 @@ def _fallback_deployments(outage: _ClaudeOutage, route: _FallbackRoute) -> tuple
         },
         {
             "model_name": route.openai,
-            "litellm_params": {"model": _RESPONSES_MODEL, "api_base": _OPENAI_API_BASE, "api_key": route.key},
+            "hangarllm_params": {"model": _RESPONSES_MODEL, "api_base": _OPENAI_API_BASE, "api_key": route.key},
         },
     )
 
@@ -276,9 +276,9 @@ def openai_gateway(
 
 def _drop_params_config(directory: Path) -> Path:
     config: Final = _proxy_config()
-    settings: Final = rv.JSON_OBJECT.validate_python(config["litellm_settings"])
+    settings: Final = rv.JSON_OBJECT.validate_python(config["hangarllm_settings"])
     path: Final = directory / "openai-responses-tool-search-drop-params.yaml"
-    path.write_text(yaml.safe_dump({**config, "litellm_settings": {**settings, "drop_params": True}}))
+    path.write_text(yaml.safe_dump({**config, "hangarllm_settings": {**settings, "drop_params": True}}))
     return path
 
 
@@ -322,7 +322,7 @@ def test_router_fallback_maps_anthropic_tool_search_for_openai_responses(
         response: Final = _raw(openai_gateway, "/v1/responses", {**body, **_CACHE_BUST, "fallbacks": [route.openai]})
 
         assert response.status_code == 200, response.text
-        assert response.headers["x-litellm-attempted-fallbacks"] == "1", response.headers
+        assert response.headers["x-hangarllm-attempted-fallbacks"] == "1", response.headers
         claude_requests: Final = [request.target for request in claude_outage.wire.drain() if request.method == "POST"]
         assert claude_requests == ["/v1/messages"], claude_requests
         (received,) = _openai_api_requests(openai_api, route.key)
@@ -576,9 +576,9 @@ def test_an_openai_error_on_the_mapped_request_reaches_the_caller_and_lands_as_a
     assert exchange.response.status_code == status, exchange.response.text
     assert message in exchange.response.text, exchange.response.text
     assert exchange.only_body()["tools"] == _mapped_tools()
-    call_id: Final = exchange.response.headers["x-litellm-call-id"]
+    call_id: Final = exchange.response.headers["x-hangarllm-call-id"]
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda found: len(found) == 1,
         seconds=70,
     )

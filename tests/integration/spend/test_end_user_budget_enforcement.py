@@ -86,18 +86,18 @@ def _no_headers(_: str) -> dict[str, str]:
 
 SPELLINGS: Final[Mapping[str, Spelling]] = {
     "user": Spelling("/v1/chat/completions", lambda user: {"user": user}, _no_headers, lambda user: {"user": user}),
-    "x-litellm-customer-id": Spelling(
-        "/v1/chat/completions", _no_fields, lambda user: {"x-litellm-customer-id": user}, _no_fields
+    "x-hangarllm-customer-id": Spelling(
+        "/v1/chat/completions", _no_fields, lambda user: {"x-hangarllm-customer-id": user}, _no_fields
     ),
-    "x-litellm-end-user-id": Spelling(
-        "/v1/chat/completions", _no_fields, lambda user: {"x-litellm-end-user-id": user}, _no_fields
+    "x-hangarllm-end-user-id": Spelling(
+        "/v1/chat/completions", _no_fields, lambda user: {"x-hangarllm-end-user-id": user}, _no_fields
     ),
-    "litellm_metadata": Spelling(
-        "/v1/chat/completions", lambda user: {"litellm_metadata": {"user": user}}, _no_headers, _no_fields
+    "hangarllm_metadata": Spelling(
+        "/v1/chat/completions", lambda user: {"hangarllm_metadata": {"user": user}}, _no_headers, _no_fields
     ),
-    "litellm_metadata_json": Spelling(
+    "hangarllm_metadata_json": Spelling(
         "/v1/chat/completions",
-        lambda user: {"litellm_metadata": json.dumps({"user": user})},
+        lambda user: {"hangarllm_metadata": json.dumps({"user": user})},
         _no_headers,
         _no_fields,
     ),
@@ -118,9 +118,9 @@ SPELLINGS: Final[Mapping[str, Spelling]] = {
         lambda user: {"user": user, "stream": True, "stream_options": {"include_usage": True}},
         stream=True,
     ),
-    "litellm_metadata_stream": Spelling(
+    "hangarllm_metadata_stream": Spelling(
         "/v1/chat/completions",
-        lambda user: {"litellm_metadata": {"user": user}, "stream": True},
+        lambda user: {"hangarllm_metadata": {"user": user}, "stream": True},
         _no_headers,
         lambda _: {"stream": True, "stream_options": {"include_usage": True}},
         stream=True,
@@ -223,7 +223,7 @@ def _assert_served(spelling: Spelling, response: httpx.Response) -> None:
         assert {chunk.object for chunk in chunks} == {"chat.completion.chunk"}, response.text
         assert "".join(choice.delta.content or "" for chunk in chunks for choice in chunk.choices) == CANNED_CONTENT
         return
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(0.06), dict(response.headers)
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(0.06), dict(response.headers)
     match spelling.route:
         case "/v1/chat/completions":
             assert ChatCompletion.model_validate_json(response.content).object == "chat.completion", response.text
@@ -247,7 +247,7 @@ def _delete_customer(gateway: Gateway, user_id: str) -> None:
 
 
 def _end_user_spend(user_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT spend FROM "LiteLLM_EndUserTable" WHERE user_id = %s', (user_id,))
+    return read_rows('SELECT spend FROM "HangarLLM_EndUserTable" WHERE user_id = %s', (user_id,))
 
 
 def _observed(upstream: httpx.Client) -> list[JsonValue]:
@@ -305,7 +305,7 @@ def _prove_end_user_budget_lockout(
     assert customer["user_id"] == end_user_id, customer_info.text
     assert float(str(customer["spend"])) == pytest.approx(persisted_spend), customer_info.text
     assert customer["budget_id"] == expected_budget["budget_id"], customer_info.text
-    budget: Final = customer["litellm_budget_table"]
+    budget: Final = customer["hangarllm_budget_table"]
     expected_max_budget: Final = expected_budget["max_budget"]
     if expected_max_budget is None:
         assert budget is None, customer_info.text
@@ -376,7 +376,7 @@ def test_end_user_alias_routes_create_and_read_a_budgeted_customer(gateway: Gate
         end_user_id: Final = f"end-user-{uuid.uuid4().hex}"
         created: Final = gateway.post("/end_user/new", {"user_id": end_user_id, "max_budget": 0.05})
         assert created["user_id"] == end_user_id, created
-        assert float(str(object_value(created["litellm_budget_table"])["max_budget"])) == 0.05, created
+        assert float(str(object_value(created["hangarllm_budget_table"])["max_budget"])) == 0.05, created
         scenario.cleanups.callback(_delete_customer, gateway, end_user_id)
         other_end_user_id: Final = f"end-user-{uuid.uuid4().hex}"
         scenario.cleanups.callback(_delete_customer, gateway, other_end_user_id)
@@ -393,7 +393,7 @@ def test_end_user_alias_routes_create_and_read_a_budgeted_customer(gateway: Gate
         )
 
 
-@pytest.mark.parametrize("spelling", ("litellm_metadata", "litellm_metadata_stream"))
+@pytest.mark.parametrize("spelling", ("hangarllm_metadata", "hangarllm_metadata_stream"))
 def test_customer_tier_budget_refuses_second_request(gateway: Gateway, spelling: str) -> None:
     with (
         gateway.scenario() as scenario,
@@ -458,7 +458,7 @@ class _CustomerInfo(BaseModel):
     blocked: bool
     alias: str | None
     spend: float
-    litellm_budget_table: _Budget | None
+    hangarllm_budget_table: _Budget | None
 
 
 def _new_customer(gateway: Gateway, user_id: str, *, path: str = "/customer/new", **fields: JsonValue) -> None:
@@ -511,12 +511,12 @@ def _sent_body(response: httpx.Response, end_user: str) -> dict[str, JsonValue]:
 
 
 def _end_user_row(user_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT spend, blocked FROM "LiteLLM_EndUserTable" WHERE user_id=%s', (user_id,))
+    return read_rows('SELECT spend, blocked FROM "HangarLLM_EndUserTable" WHERE user_id=%s', (user_id,))
 
 
 def _daily_rows(user_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT model, model_group, spend, api_requests, successful_requests FROM "LiteLLM_DailyEndUserSpend" WHERE end_user_id=%s',
+        'SELECT model, model_group, spend, api_requests, successful_requests FROM "HangarLLM_DailyEndUserSpend" WHERE end_user_id=%s',
         (user_id,),
     )
 
@@ -549,9 +549,9 @@ def test_customer_budget_refuses_calls_and_writes_daily_spend(gateway: Gateway) 
         scenario.cleanups.callback(gateway.request, "POST", "/customer/delete", {"user_ids": [end_user]})
         info: Final = _customer_info(gateway, end_user)
         assert info.blocked is False
-        assert info.litellm_budget_table is not None and info.litellm_budget_table.max_budget == 0.05, info
+        assert info.hangarllm_budget_table is not None and info.hangarllm_budget_table.max_budget == 0.05, info
         joined: Final = read_rows(
-            'SELECT b.max_budget FROM "LiteLLM_EndUserTable" e JOIN "LiteLLM_BudgetTable" b'
+            'SELECT b.max_budget FROM "HangarLLM_EndUserTable" e JOIN "HangarLLM_BudgetTable" b'
             " ON e.budget_id = b.budget_id WHERE e.user_id = %s",
             (end_user,),
         )
@@ -602,9 +602,9 @@ def test_customer_budget_update_takes_effect_without_restart(gateway: Gateway) -
         updated: Final = gateway.request("POST", "/customer/update", {"user_id": end_user, "max_budget": 0.01})
         assert updated.status_code == 200, updated.text
         info: Final = _customer_info(gateway, end_user)
-        assert info.litellm_budget_table is not None and info.litellm_budget_table.max_budget == 0.01, info
+        assert info.hangarllm_budget_table is not None and info.hangarllm_budget_table.max_budget == 0.01, info
         budget_row: Final = read_rows(
-            'SELECT b.max_budget FROM "LiteLLM_EndUserTable" e JOIN "LiteLLM_BudgetTable" b'
+            'SELECT b.max_budget FROM "HangarLLM_EndUserTable" e JOIN "HangarLLM_BudgetTable" b'
             " ON e.budget_id = b.budget_id WHERE e.user_id = %s",
             (end_user,),
         )

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
 
 def test_sambanova_minimax_m27_model_info():
@@ -12,7 +12,7 @@ def test_sambanova_minimax_m27_model_info():
 
     info = model_cost.get(model)
     assert info is not None, f"{model} not found in model_prices_and_context_window.json"
-    assert info["litellm_provider"] == "sambanova"
+    assert info["hangarllm_provider"] == "sambanova"
     assert info["mode"] == "chat"
     assert info["input_cost_per_token"] > 0
     assert info["output_cost_per_token"] > 0

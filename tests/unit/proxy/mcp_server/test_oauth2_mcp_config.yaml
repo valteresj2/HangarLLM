@@ -1,6 +1,6 @@
 model_list:
   - model_name: fake-model
-    litellm_params:
+    hangarllm_params:
       model: openai/fake
       api_key: fake-key
 

@@ -1,0 +1,37 @@
+[project]
+name = "hangarllm-proxy-extras"
+version = "0.4.114"
+description = "Additional files for the HangarLLM Proxy. Reduces the size of the main hangarllm package."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "psycopg>=3.2,<4.0",
+    "psycopg-binary>=3.2,<4.0",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "BerriAI" },
+]
+
+[project.urls]
+Homepage = "https://github.com/valteresj2/HangarLLM#readme"
+Repository = "https://github.com/valteresj2/HangarLLM"
+Documentation = "https://github.com/valteresj2/HangarLLM#readme"
+
+[build-system]
+requires = ["uv_build==0.11.8"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = ">=0.10.9"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.commitizen]
+version = "0.4.114"
+version_files = [
+    "pyproject.toml:^version",
+    "../pyproject.toml:hangarllm-proxy-extras==",
+]

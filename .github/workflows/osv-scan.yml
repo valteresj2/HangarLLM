@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-      - "litellm_**"
+      - "hangarllm_**"
       - "rc/**"
       - "stable/**"
       - "lts/**"
@@ -42,5 +42,5 @@ jobs:
           "$RUNNER_TEMP/osv-scanner" scan source \
             --config osv-scanner.toml \
             -L uv.lock \
-            -L ui/litellm-dashboard/package-lock.json \
+            -L ui/hangarllm-dashboard/package-lock.json \
             -L vscode-extension/package-lock.json

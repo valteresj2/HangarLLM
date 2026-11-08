@@ -1,5 +1,5 @@
 """
-Tests for POST /user/password/change (litellm/proxy/management_endpoints/password_endpoints.py).
+Tests for POST /user/password/change (hangarllm/proxy/management_endpoints/password_endpoints.py).
 
 HIBP is served by an AsyncHTTPHandler wrapping an httpx.MockTransport that is
 injected straight into change_password; no test here touches the network.
@@ -13,11 +13,11 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import UI_TEAM_ID, LitellmTableNames, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.login_utils import PASSWORD_SESSION_METADATA
-from litellm.proxy.management_endpoints.password_endpoints import change_password
-from litellm.proxy.utils import hash_password, verify_password
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import UI_TEAM_ID, HangarllmTableNames, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.auth.login_utils import PASSWORD_SESSION_METADATA
+from hangarllm.proxy.management_endpoints.password_endpoints import change_password
+from hangarllm.proxy.utils import hash_password, verify_password
 
 CURRENT_PASSWORD = "OldP@ssw0rd-2026"
 NEW_PASSWORD = "NewP@ssw0rd-2026"
@@ -34,8 +34,8 @@ def _make_user_row(password: str | None) -> MagicMock:
 
 def _make_prisma(user: MagicMock | None) -> MagicMock:
     prisma = MagicMock()
-    prisma.db.litellm_usertable.find_first = AsyncMock(return_value=user)
-    prisma.db.litellm_usertable.update = AsyncMock(return_value=user)
+    prisma.db.hangarllm_usertable.find_first = AsyncMock(return_value=user)
+    prisma.db.hangarllm_usertable.update = AsyncMock(return_value=user)
     return prisma
 
 
@@ -76,16 +76,16 @@ def _hibp_client_recording(calls: list[httpx.Request]) -> AsyncHTTPHandler:
 
 @pytest.mark.asyncio
 async def test_change_password_success_writes_new_scrypt_hash():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         response = await change_password(
@@ -95,7 +95,7 @@ async def test_change_password_success_writes_new_scrypt_hash():
         )
 
     assert response.user_id == "user-123"
-    update_kwargs = prisma.db.litellm_usertable.update.call_args.kwargs
+    update_kwargs = prisma.db.hangarllm_usertable.update.call_args.kwargs
     assert update_kwargs["where"] == {"user_id": "user-123"}
     stored = update_kwargs["data"]["password"]
     assert stored != NEW_PASSWORD
@@ -108,16 +108,16 @@ async def test_change_password_success_writes_new_scrypt_hash():
 
 @pytest.mark.asyncio
 async def test_change_password_rejects_wrong_current_password():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -129,21 +129,21 @@ async def test_change_password_rejects_wrong_current_password():
 
     assert exc_info.value.status_code == 400
     assert "Current password is incorrect" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_change_password_rejects_unchanged_password():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -155,7 +155,7 @@ async def test_change_password_rejects_unchanged_password():
 
     assert exc_info.value.status_code == 400
     assert "must be different from the current password" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -170,16 +170,16 @@ async def test_change_password_rejects_non_password_login_session(caller: UserAP
     """Only the session minted by a password login may change the password, so a
     stolen virtual key or an SSO session cannot use the endpoint as a
     current_password guessing oracle."""
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -191,22 +191,22 @@ async def test_change_password_rejects_non_password_login_session(caller: UserAP
 
     assert exc_info.value.status_code == 403
     assert "logging in with a password" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.find_first.assert_not_called()
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.find_first.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_change_password_rejects_session_without_user():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(user=None)
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -217,23 +217,23 @@ async def test_change_password_rejects_session_without_user():
             )
 
     assert exc_info.value.status_code == 400
-    prisma.db.litellm_usertable.find_first.assert_not_called()
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.find_first.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_change_password_rejects_account_without_password():
     """SSO users and the env-credential admin have no DB password row to change."""
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(password=None))
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -245,21 +245,21 @@ async def test_change_password_rejects_account_without_password():
 
     assert exc_info.value.status_code == 400
     assert "no password set" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_change_password_enforces_min_length():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         with pytest.raises(ProxyException) as exc_info:
@@ -273,23 +273,23 @@ async def test_change_password_enforces_min_length():
     assert exc_info.value.type == ProxyErrorTypes.validation_error
     assert exc_info.value.param == "password"
     assert "at least 12 characters" in exc_info.value.message
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_change_password_rejects_breached_password():
     """With the default policy, the new password is screened against HIBP."""
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     breached_password = "Password123!"
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", {}
+            "hangarllm.proxy.proxy_server.general_settings", {}
         ),
     ):
         with pytest.raises(ProxyException) as exc_info:
@@ -303,7 +303,7 @@ async def test_change_password_rejects_breached_password():
     assert exc_info.value.type == ProxyErrorTypes.validation_error
     assert exc_info.value.param == "password"
     assert "data breaches" in exc_info.value.message
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -311,17 +311,17 @@ async def test_change_password_verifies_current_password_before_hibp_lookup():
     """A caller who fails current-password verification must not trigger any
     HIBP traffic: the injected client records each request it serves and the
     test asserts none were made."""
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
     hibp_calls: Final[list[httpx.Request]] = []
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", {}
+            "hangarllm.proxy.proxy_server.general_settings", {}
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -334,27 +334,27 @@ async def test_change_password_verifies_current_password_before_hibp_lookup():
     assert exc_info.value.status_code == 400
     assert "Current password is incorrect" in exc_info.value.detail["error"]
     assert hibp_calls == []
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.hangarllm_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_change_password_success_emits_redacted_audit_log():
     """A successful change must land in the audit trail as field names only;
     the plaintext passwords must never reach the audit call."""
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
     audit_mock = AsyncMock()
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
         patch(  # test-quality-ok: audit sink is a module-level import; no injection seam
-            "litellm.proxy.management_endpoints.password_endpoints.create_object_audit_log", audit_mock
+            "hangarllm.proxy.management_endpoints.password_endpoints.create_object_audit_log", audit_mock
         ),
     ):
         await change_password(
@@ -367,7 +367,7 @@ async def test_change_password_success_emits_redacted_audit_log():
     audit_kwargs = audit_mock.await_args.kwargs
     assert audit_kwargs["object_id"] == "user-123"
     assert audit_kwargs["action"] == "updated"
-    assert audit_kwargs["table_name"] == LitellmTableNames.USER_TABLE_NAME
+    assert audit_kwargs["table_name"] == HangarllmTableNames.USER_TABLE_NAME
     assert audit_kwargs["after_value"] == '{"fields_changed": ["password"]}'
     assert CURRENT_PASSWORD not in str(audit_kwargs)
     assert NEW_PASSWORD not in str(audit_kwargs)
@@ -375,20 +375,20 @@ async def test_change_password_success_emits_redacted_audit_log():
 
 @pytest.mark.asyncio
 async def test_change_password_failure_emits_no_audit_log():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
     audit_mock = AsyncMock()
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
         patch(  # test-quality-ok: audit sink is a module-level import; no injection seam
-            "litellm.proxy.management_endpoints.password_endpoints.create_object_audit_log", audit_mock
+            "hangarllm.proxy.management_endpoints.password_endpoints.create_object_audit_log", audit_mock
         ),
     ):
         with pytest.raises(HTTPException):
@@ -406,7 +406,7 @@ async def test_change_password_revokes_other_sessions_keeping_callers():
     """A successful change revokes the user's other UI sessions (the old
     password may be compromised) while keeping the session that just proved
     it holds the current password."""
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
     revoke_mock = AsyncMock(return_value=0)
@@ -419,13 +419,13 @@ async def test_change_password_revokes_other_sessions_keeping_callers():
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
         patch(
-            "litellm.proxy.management_endpoints.password_endpoints.revoke_ui_session_keys",
+            "hangarllm.proxy.management_endpoints.password_endpoints.revoke_ui_session_keys",
             revoke_mock,
         ),
     ):
@@ -443,20 +443,20 @@ async def test_change_password_revokes_other_sessions_keeping_callers():
 
 @pytest.mark.asyncio
 async def test_change_password_failure_revokes_no_sessions():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma = _make_prisma(_make_user_row(hash_password(CURRENT_PASSWORD)))
     revoke_mock = AsyncMock(return_value=0)
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
         patch(
-            "litellm.proxy.management_endpoints.password_endpoints.revoke_ui_session_keys",
+            "hangarllm.proxy.management_endpoints.password_endpoints.revoke_ui_session_keys",
             revoke_mock,
         ),
     ):
@@ -472,14 +472,14 @@ async def test_change_password_failure_revokes_no_sessions():
 
 @pytest.mark.asyncio
 async def test_change_password_requires_db():
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", None
+            "hangarllm.proxy.proxy_server.prisma_client", None
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -495,7 +495,7 @@ async def test_change_password_requires_db():
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("fips_mode")
 async def test_fips_password_change_runs_both_pbkdf2_off_the_event_loop(pbkdf2_on_event_loop: list[bool]) -> None:
-    from litellm.proxy._types import ChangePasswordRequest
+    from hangarllm.proxy._types import ChangePasswordRequest
 
     prisma: Final = _make_prisma(
         _make_user_row("pbkdf2:AAECAwQFBgcICQoLDA0OD+uxhNqRo/3ZFLEaKARqFBT+N3Kqek/SGM/5AvocSN0T")
@@ -503,10 +503,10 @@ async def test_fips_password_change_runs_both_pbkdf2_off_the_event_loop(pbkdf2_o
 
     with (
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma
+            "hangarllm.proxy.proxy_server.prisma_client", prisma
         ),
         patch(  # test-quality-ok: change_password reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "hangarllm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
     ):
         await change_password(
@@ -516,4 +516,4 @@ async def test_fips_password_change_runs_both_pbkdf2_off_the_event_loop(pbkdf2_o
         )
 
     assert pbkdf2_on_event_loop == [False, False]
-    assert prisma.db.litellm_usertable.update.call_args.kwargs["data"]["password"].startswith("pbkdf2:")
+    assert prisma.db.hangarllm_usertable.update.call_args.kwargs["data"]["password"].startswith("pbkdf2:")

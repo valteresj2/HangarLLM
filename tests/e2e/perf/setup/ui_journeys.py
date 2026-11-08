@@ -185,7 +185,7 @@ def _login(page: Page, dashboard: Dashboard) -> None:
     page.get_by_placeholder("Enter your password").fill(dashboard.password)
     page.get_by_role("button", name="Login", exact=True).click()
     page.wait_for_url(lambda url: "/ui" in url and "/login" not in url)
-    expect(page.get_by_label("LiteLLM home")).to_be_visible()
+    expect(page.get_by_label("HangarLLM home")).to_be_visible()
 
 
 def _is_data_fetch(response: Response) -> bool:
@@ -416,11 +416,11 @@ def journeys(api_key: str) -> tuple[Journey, ...]:
 
 def database_failures(text: str) -> float:
     families: Final = tuple(text_string_to_metric_families(text))
-    required: Final = frozenset(("litellm_postgres_failed_requests", "litellm_batch_write_to_db_failed_requests"))
+    required: Final = frozenset(("hangarllm_postgres_failed_requests", "hangarllm_batch_write_to_db_failed_requests"))
     missing: Final = required - frozenset(family.name for family in families)
     all_samples: Final = tuple(chain.from_iterable(family.samples for family in families))
     has_activity: Final = any(
-        sample.name == "litellm_postgres_total_requests_total" and math.isfinite(sample.value) and sample.value > 0
+        sample.name == "hangarllm_postgres_total_requests_total" and math.isfinite(sample.value) and sample.value > 0
         for sample in all_samples
     )
     assert not missing or has_activity, f"Missing PostgreSQL failure counters {missing}"

@@ -104,7 +104,7 @@ You MUST answer concisely with fewer than 4 lines of text (not including tool us
 
 Here is useful information about the environment you are running in:
 <env>
-Working directory: /workspace/litellm
+Working directory: /workspace/hangarllm
 Is directory a git repo: Yes
 Platform: linux
 OS Version: Linux 6.8.0

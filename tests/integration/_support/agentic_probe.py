@@ -9,7 +9,7 @@ from typing import Final
 from integration._support import responses_vendor as rv
 from pydantic import JsonValue
 
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 OUT_ENVIRONMENT: Final = "AGENTIC_PROBE_OUT"
 

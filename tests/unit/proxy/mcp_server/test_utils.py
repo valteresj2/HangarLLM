@@ -3,15 +3,15 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import NewMCPServerRequest
-from litellm.proxy.mcp_server.utils import (
+from hangarllm.proxy._types import NewMCPServerRequest
+from hangarllm.proxy.mcp_server.utils import (
     build_synthetic_mcp_request,
     logging_safe_mcp_headers,
     upstream_credential_headers,
     validate_and_normalize_mcp_server_payload,
     validate_tool_display_names,
 )
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def _server_forwarding(*header_names: str) -> MCPServer:
@@ -26,7 +26,7 @@ def _server_forwarding(*header_names: str) -> MCPServer:
 
 def _configured_servers(*servers: MCPServer):
     return patch.dict(
-        "litellm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager.config_mcp_servers",
+        "hangarllm.proxy.mcp_server.mcp_server_manager.global_mcp_server_manager.config_mcp_servers",
         {server.server_id: server for server in servers},
         clear=False,
     )
@@ -83,7 +83,7 @@ class TestLoggingSafeMcpHeaders:
             {
                 "x-nuid": "nuid-1",
                 "x-app-id": "app-1",
-                "x-litellm-api-key": "sk-proxy",
+                "x-hangarllm-api-key": "sk-proxy",
                 "cookie": "session=secret",
             }
         )
@@ -93,12 +93,12 @@ class TestLoggingSafeMcpHeaders:
             "cookie": "***REDACTED***",
         }
 
-    def test_strips_custom_litellm_key_header(self):
-        """general_settings.litellm_key_header_name carries the proxy virtual key, so it must
+    def test_strips_custom_hangarllm_key_header(self):
+        """general_settings.hangarllm_key_header_name carries the proxy virtual key, so it must
         never reach a callback or a guardrail even though clean_headers cannot know its name."""
         with patch.dict(
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+            "hangarllm.proxy.proxy_server.general_settings",
+            {"hangarllm_key_header_name": "x-company-key"},
             clear=False,
         ):
             safe = logging_safe_mcp_headers({"x-company-key": "sk-proxy", "x-nuid": "nuid-1"})
@@ -106,9 +106,9 @@ class TestLoggingSafeMcpHeaders:
         assert safe == {"x-nuid": "nuid-1"}
 
     def test_strips_client_controlled_redaction_opt_out(self):
-        """litellm-disable-message-redaction is read back out of the logged metadata to turn off
+        """hangarllm-disable-message-redaction is read back out of the logged metadata to turn off
         redaction, so leaving it in place lets any MCP client undo what an admin configured."""
-        safe = logging_safe_mcp_headers({"litellm-disable-message-redaction": "true", "x-nuid": "nuid-1"})
+        safe = logging_safe_mcp_headers({"hangarllm-disable-message-redaction": "true", "x-nuid": "nuid-1"})
 
         assert safe == {"x-nuid": "nuid-1"}
 
@@ -126,7 +126,7 @@ class TestLoggingSafeMcpHeaders:
 
     def test_strips_custom_mcp_client_side_auth_header(self):
         with patch.dict(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"mcp_client_side_auth_header_name": "x-upstream-token"},
             clear=False,
         ):
@@ -154,7 +154,7 @@ class TestLoggingSafeMcpHeaders:
         """get_user_from_headers resolves end user attribution off this same request, so a header
         the deployment reads identity from stays even when a server forwards it upstream."""
         with patch.dict(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"user_header_name": "x-user-email"},
             clear=False,
         ):
@@ -166,8 +166,8 @@ class TestLoggingSafeMcpHeaders:
     @pytest.mark.parametrize(
         "configured",
         [
-            [{"header_name": "X-User", "litellm_user_role": "customer"}],
-            {"header_name": "X-User", "litellm_user_role": "customer"},
+            [{"header_name": "X-User", "hangarllm_user_role": "customer"}],
+            {"header_name": "X-User", "hangarllm_user_role": "customer"},
         ],
         ids=["list-of-mappings", "bare-mapping"],
     )
@@ -176,7 +176,7 @@ class TestLoggingSafeMcpHeaders:
         accept a bare mapping as well as a list, and config_settings.md documents the key as a
         dict, so the exemption has to read both shapes."""
         with patch.dict(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"user_header_mappings": configured},
             clear=False,
         ):
@@ -201,7 +201,7 @@ class TestLoggingSafeMcpHeaders:
 
 class TestBuildSyntheticMcpRequest:
     def test_forwards_client_headers_without_upstream_credentials(self):
-        """The synthetic request feeds add_litellm_data_to_request, which derives
+        """The synthetic request feeds add_hangarllm_data_to_request, which derives
         metadata.headers, so upstream MCP credentials must not ride along."""
         request = build_synthetic_mcp_request(
             path="/mcp/tools/call",
@@ -216,12 +216,12 @@ class TestBuildSyntheticMcpRequest:
         assert "x-mcp-auth" not in request.headers
         assert "x-mcp-github-authorization" not in request.headers
 
-    def test_drops_custom_litellm_key_header(self):
+    def test_drops_custom_hangarllm_key_header(self):
         """Callers such as the sampling flow build metadata off this request, so the
         deployment's custom proxy key header must never be forwarded on it."""
         with patch.dict(
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+            "hangarllm.proxy.proxy_server.general_settings",
+            {"hangarllm_key_header_name": "x-company-key"},
             clear=False,
         ):
             request = build_synthetic_mcp_request(
@@ -233,7 +233,7 @@ class TestBuildSyntheticMcpRequest:
         assert "x-company-key" not in request.headers
 
     def test_drops_caller_host_so_the_logged_url_is_not_client_steerable(self):
-        """add_litellm_data_to_request records str(request.url) as proxy_server_request.url, and
+        """add_hangarllm_data_to_request records str(request.url) as proxy_server_request.url, and
         Request.url is built from the host header, so forwarding it hands the caller that value."""
         request = build_synthetic_mcp_request(
             path="/mcp/tools/call",
@@ -255,10 +255,10 @@ class TestBuildSyntheticMcpRequest:
         assert request.headers.get("x-nuid") == "nuid-1"
 
     def test_keeps_identity_header_so_end_user_attribution_survives(self):
-        """add_litellm_data_to_request reads user_header_name off this request to fill
+        """add_hangarllm_data_to_request reads user_header_name off this request to fill
         end_user_id, so forwarding that header upstream must not remove it here."""
         with patch.dict(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"user_header_name": "x-user-email"},
             clear=False,
         ):
@@ -273,7 +273,7 @@ class TestBuildSyntheticMcpRequest:
 
 @pytest.mark.parametrize("field", ["structuredContent", "structured_content"])
 def test_structured_content_redaction_updates_shared_dictionary(field):
-    from litellm.proxy.mcp_server.utils import (
+    from hangarllm.proxy.mcp_server.utils import (
         mcp_tool_result_structured_content,
         set_mcp_tool_result_structured_content,
     )

@@ -14,13 +14,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.constants import PROXY_REJECTED_BEFORE_ROUTING_KEY
-from litellm.exceptions import GuardrailRaisedException
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
-from litellm.proxy.utils import REJECTED_BEFORE_REQUEST_SETUP, REJECTED_BEFORE_REQUEST_SETUP_KEY, ProxyLogging
-from litellm.types.utils import CachingDetails
+import hangarllm
+from hangarllm.constants import PROXY_REJECTED_BEFORE_ROUTING_KEY
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
+from hangarllm.proxy.utils import REJECTED_BEFORE_REQUEST_SETUP, REJECTED_BEFORE_REQUEST_SETUP_KEY, ProxyLogging
+from hangarllm.types.utils import CachingDetails
 
 
 @pytest.fixture(autouse=True)
@@ -81,10 +81,10 @@ def test_is_proxy_only_llm_api_skips_dashboard_session_info_route_failures(proxy
         )
 
     assert {
-        "dashboard_key_list": decide("/key/list", "litellm-dashboard"),
-        "dashboard_user_info": decide("/v2/user/info", "litellm-dashboard"),
-        "dashboard_model_info": decide("/v2/model/info", "litellm-dashboard"),
-        "dashboard_chat": decide("/chat/completions", "litellm-dashboard"),
+        "dashboard_key_list": decide("/key/list", "hangarllm-dashboard"),
+        "dashboard_user_info": decide("/v2/user/info", "hangarllm-dashboard"),
+        "dashboard_model_info": decide("/v2/model/info", "hangarllm-dashboard"),
+        "dashboard_chat": decide("/chat/completions", "hangarllm-dashboard"),
         "team_key_list": decide("/key/list", "team-1"),
         "teamless_key_list": decide("/key/list", None),
     } == {
@@ -103,7 +103,7 @@ async def test_post_call_failure_hook_skips_logging_for_dashboard_session_info_r
     await proxy_logging.post_call_failure_hook(
         request_data={},
         original_exception=Exception("Authentication Error - Expired Key"),
-        user_api_key_dict=UserAPIKeyAuth(team_id="litellm-dashboard", request_route="/key/list"),
+        user_api_key_dict=UserAPIKeyAuth(team_id="hangarllm-dashboard", request_route="/key/list"),
         error_type=ProxyErrorTypes.auth_error,
         route="/key/list",
     )
@@ -126,7 +126,7 @@ async def test_post_call_failure_hook_no_callbacks_returns_none(
     proxy_logging, make_user_api_key_auth, mock_callbacks_disabled
 ):
     proxy_logging.alert_types = []
-    request_data = {"litellm_call_id": "abc", "model": "m", "messages": []}
+    request_data = {"hangarllm_call_id": "abc", "model": "m", "messages": []}
     out = await proxy_logging.post_call_failure_hook(
         request_data=request_data,
         original_exception=ValueError("oops"),
@@ -134,13 +134,13 @@ async def test_post_call_failure_hook_no_callbacks_returns_none(
     )
     snapshot = {
         "out_is_none": out is None,
-        "litellm_logging_obj_popped": "litellm_logging_obj" not in request_data,
-        "call_id_preserved": request_data["litellm_call_id"] == "abc",
+        "hangarllm_logging_obj_popped": "hangarllm_logging_obj" not in request_data,
+        "call_id_preserved": request_data["hangarllm_call_id"] == "abc",
         "first_api_call_start_time_present": "first_api_call_start_time" in request_data,
     }
     assert snapshot == {
         "out_is_none": True,
-        "litellm_logging_obj_popped": True,
+        "hangarllm_logging_obj_popped": True,
         "call_id_preserved": True,
         "first_api_call_start_time_present": False,
     }
@@ -150,7 +150,7 @@ async def test_post_call_failure_hook_no_callbacks_returns_none(
 async def test_post_call_failure_hook_attributes_single_router_deployment(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -161,17 +161,17 @@ async def test_post_call_failure_hook_attributes_single_router_deployment(
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                     "model_info": {"provider": "acme"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -184,10 +184,10 @@ async def test_post_call_failure_hook_attributes_single_router_deployment(
     assert len(recorded) == 1
     kwargs = recorded[0]
     assert kwargs["custom_llm_provider"] == "openai"
-    assert kwargs["litellm_params"]["custom_llm_provider"] == "openai"
-    assert kwargs["litellm_params"]["metadata"]["model_info"]["provider"] == "acme"
-    assert kwargs["litellm_params"]["metadata"]["deployment"] == "openai/gpt-4.1"
-    assert kwargs["litellm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] is True
+    assert kwargs["hangarllm_params"]["custom_llm_provider"] == "openai"
+    assert kwargs["hangarllm_params"]["metadata"]["model_info"]["provider"] == "acme"
+    assert kwargs["hangarllm_params"]["metadata"]["deployment"] == "openai/gpt-4.1"
+    assert kwargs["hangarllm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] is True
     assert kwargs["standard_logging_object"]["custom_llm_provider"] == "openai"
     assert (
         kwargs["standard_logging_object"]["model_id"] == proxy_server.llm_router.get_model_list()[0]["model_info"]["id"]
@@ -198,8 +198,8 @@ async def test_post_call_failure_hook_attributes_single_router_deployment(
 async def test_pre_routing_reject_spend_log_keeps_public_model_group(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
     recorded: list[dict] = []
 
@@ -210,16 +210,16 @@ async def test_pre_routing_reject_spend_log_keeps_public_model_group(
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -246,7 +246,7 @@ async def test_post_call_failure_hook_keeps_router_stamped_metadata_for_post_cal
     """A post-call guardrail block arrives after the provider handoff with the router's own
     ``model_info`` in the request metadata. The pre-routing flag must stay off so deployment
     metrics keep attributing the failure to the deployment that actually served the call."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -257,30 +257,30 @@ async def test_post_call_failure_hook_keeps_router_stamped_metadata_for_post_cal
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                     "model_info": {"id": "routed-deployment"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     request_data = {
-        "litellm_call_id": "post-call-guardrail",
+        "hangarllm_call_id": "post-call-guardrail",
         "model": "internal-model",
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": {"model_info": {"id": "routed-deployment", "served": True}},
     }
-    logging_obj, request_data = litellm.utils.function_setup(
-        original_function="acompletion", rules_obj=litellm.utils.Rules(), start_time=datetime.now(), **request_data
+    logging_obj, request_data = hangarllm.utils.function_setup(
+        original_function="acompletion", rules_obj=hangarllm.utils.Rules(), start_time=datetime.now(), **request_data
     )
     logging_obj.model_call_details["first_api_call_start_time"] = datetime.now()
-    request_data["litellm_logging_obj"] = logging_obj
+    request_data["hangarllm_logging_obj"] = logging_obj
 
     await proxy_logging.post_call_failure_hook(
         request_data=request_data,
@@ -291,8 +291,8 @@ async def test_post_call_failure_hook_keeps_router_stamped_metadata_for_post_cal
 
     assert len(recorded) == 1
     kwargs = recorded[0]
-    assert kwargs["litellm_params"]["metadata"]["model_info"] == {"id": "routed-deployment", "served": True}
-    assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in kwargs["litellm_params"]
+    assert kwargs["hangarllm_params"]["metadata"]["model_info"] == {"id": "routed-deployment", "served": True}
+    assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in kwargs["hangarllm_params"]
     assert kwargs["standard_logging_object"]["model_id"] == "routed-deployment"
 
 
@@ -300,10 +300,10 @@ async def test_post_call_failure_hook_keeps_router_stamped_metadata_for_post_cal
 async def test_post_call_failure_hook_keeps_deployment_attribution_for_cache_hit_post_call_failures(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    """A post-call guardrail blocks a response served from the litellm cache. No provider call was made,
+    """A post-call guardrail blocks a response served from the hangarllm cache. No provider call was made,
     so ``first_api_call_start_time`` is unset, but the router did pick the deployment: the pre-routing
-    flag must stay off so ``litellm_deployment_failure_responses`` keeps its model_id and provider labels."""
-    from litellm.proxy import proxy_server
+    flag must stay off so ``hangarllm_deployment_failure_responses`` keeps its model_id and provider labels."""
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -314,30 +314,30 @@ async def test_post_call_failure_hook_keeps_deployment_attribution_for_cache_hit
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                     "model_info": {"id": "routed-deployment"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     request_data = {
-        "litellm_call_id": "cache-hit-post-call-guardrail",
+        "hangarllm_call_id": "cache-hit-post-call-guardrail",
         "model": "internal-model",
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": {"model_info": {"id": "routed-deployment"}},
     }
-    logging_obj, request_data = litellm.utils.function_setup(
-        original_function="acompletion", rules_obj=litellm.utils.Rules(), start_time=datetime.now(), **request_data
+    logging_obj, request_data = hangarllm.utils.function_setup(
+        original_function="acompletion", rules_obj=hangarllm.utils.Rules(), start_time=datetime.now(), **request_data
     )
     logging_obj.caching_details = CachingDetails(cache_hit=True, cache_duration_ms=1.0)
-    request_data["litellm_logging_obj"] = logging_obj
+    request_data["hangarllm_logging_obj"] = logging_obj
 
     await proxy_logging.post_call_failure_hook(
         request_data=request_data,
@@ -348,11 +348,11 @@ async def test_post_call_failure_hook_keeps_deployment_attribution_for_cache_hit
 
     assert len(recorded) == 1
     kwargs = recorded[0]
-    assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in kwargs["litellm_params"], kwargs["litellm_params"]
+    assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in kwargs["hangarllm_params"], kwargs["hangarllm_params"]
     assert kwargs["standard_logging_object"]["model_id"] == "routed-deployment"
     assert kwargs["standard_logging_object"]["custom_llm_provider"] == "openai"
     assert kwargs["model"] == "internal-model"
-    assert kwargs["litellm_params"]["custom_llm_provider"] == "openai"
+    assert kwargs["hangarllm_params"]["custom_llm_provider"] == "openai"
 
 
 @pytest.mark.asyncio
@@ -362,7 +362,7 @@ async def test_post_call_failure_hook_flags_pre_routing_reject_despite_caller_mo
     """A key allowed to override pricing keeps caller-supplied ``metadata.model_info``. A reject
     before any provider handoff must still carry the pre-routing flag so deployment metrics do
     not record an outage for a deployment the request never reached."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -373,17 +373,17 @@ async def test_post_call_failure_hook_flags_pre_routing_reject_despite_caller_mo
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                     "model_info": {"id": "real-deployment"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -399,17 +399,17 @@ async def test_post_call_failure_hook_flags_pre_routing_reject_despite_caller_mo
 
     assert len(recorded) == 1
     kwargs = recorded[0]
-    assert kwargs["litellm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] is True
-    assert kwargs["litellm_params"]["custom_llm_provider"] == "openai"
+    assert kwargs["hangarllm_params"][PROXY_REJECTED_BEFORE_ROUTING_KEY] is True
+    assert kwargs["hangarllm_params"]["custom_llm_provider"] == "openai"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "hangarllm_metadata"])
 async def test_pre_routing_reject_logs_the_configured_deployment_over_caller_metadata(
     proxy_logging, make_user_api_key_auth, monkeypatch, metadata_field: str
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
     recorded: list[dict] = []
 
@@ -420,29 +420,29 @@ async def test_pre_routing_reject_logs_the_configured_deployment_over_caller_met
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
     request_data: Final[dict[str, object]] = {
         "model": "internal-model",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_call_id": "caller-routing-metadata",
+        "hangarllm_call_id": "caller-routing-metadata",
         metadata_field: {"deployment": "openai/caller-chosen", "model_group": "caller-group"},
     }
-    logging_obj, _ = litellm.utils.function_setup(
-        original_function="acompletion", rules_obj=litellm.utils.Rules(), start_time=datetime.now(), **request_data
+    logging_obj, _ = hangarllm.utils.function_setup(
+        original_function="acompletion", rules_obj=hangarllm.utils.Rules(), start_time=datetime.now(), **request_data
     )
 
     await proxy_logging.post_call_failure_hook(
-        request_data={**request_data, "litellm_logging_obj": logging_obj},
+        request_data={**request_data, "hangarllm_logging_obj": logging_obj},
         original_exception=HTTPException(status_code=400, detail="Content blocked"),
         user_api_key_dict=make_user_api_key_auth(request_route="/chat/completions"),
         route="/chat/completions",
@@ -472,7 +472,7 @@ async def test_pre_routing_reject_logs_the_configured_deployment_over_caller_met
 async def test_proxy_only_failure_log_keeps_caller_tags_only_after_auth(
     proxy_logging, monkeypatch, error_type: ProxyErrorTypes | None, logged_tags: list[str]
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -481,7 +481,7 @@ async def test_proxy_only_failure_log_keeps_caller_tags_only_after_auth(
             recorded.append(kwargs)
 
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -507,13 +507,13 @@ async def test_post_call_failure_hook_attribution_does_not_count_against_the_dep
     """The router's failure callbacks run on this path too. A proxy-side reject must not
     bump the deployment's failure or rpm counters, or a key hitting its own limit
     could cool down the only deployment for everyone."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "internal-model",
-                "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test", "rpm": 100},
+                "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test", "rpm": 100},
             }
         ]
     )
@@ -541,7 +541,7 @@ async def test_post_call_failure_hook_attributes_the_keys_team_deployment_over_t
 ):
     """A team key requesting its team public model name must be attributed to the team's
     deployment, not to a global group that happens to share the public name."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -552,16 +552,16 @@ async def test_post_call_failure_hook_attributes_the_keys_team_deployment_over_t
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "shared-name",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                     "model_info": {"id": "global-deployment"},
                 },
                 {
                     "model_name": "shared-name_test-team_deadbeef",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                     "model_info": {
                         "id": "team-deployment",
                         "team_id": "test-team",
@@ -571,7 +571,7 @@ async def test_post_call_failure_hook_attributes_the_keys_team_deployment_over_t
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -584,7 +584,7 @@ async def test_post_call_failure_hook_attributes_the_keys_team_deployment_over_t
     assert len(recorded) == 1
     kwargs = recorded[0]
     assert kwargs["custom_llm_provider"] == "anthropic"
-    assert kwargs["litellm_params"]["metadata"]["deployment"] == "anthropic/claude-sonnet-4-5"
+    assert kwargs["hangarllm_params"]["metadata"]["deployment"] == "anthropic/claude-sonnet-4-5"
     assert kwargs["standard_logging_object"]["model_id"] == "team-deployment"
 
 
@@ -592,7 +592,7 @@ async def test_post_call_failure_hook_attributes_the_keys_team_deployment_over_t
 async def test_post_call_failure_hook_omits_provider_for_mixed_router_deployments(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -603,20 +603,20 @@ async def test_post_call_failure_hook_omits_provider_for_mixed_router_deployment
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                 },
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test"},
                 },
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -629,7 +629,7 @@ async def test_post_call_failure_hook_omits_provider_for_mixed_router_deployment
     assert len(recorded) == 1
     kwargs = recorded[0]
     assert kwargs.get("custom_llm_provider") is None
-    assert "model_info" not in (kwargs["litellm_params"].get("metadata") or {})
+    assert "model_info" not in (kwargs["hangarllm_params"].get("metadata") or {})
 
 
 @pytest.mark.asyncio
@@ -638,7 +638,7 @@ async def test_post_call_failure_hook_omits_provider_when_a_deployment_does_not_
 ):
     """One deployment resolves to openai and its sibling resolves to nothing: the group
     is not known to be single-provider, so no provider is stamped on the failure."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -648,11 +648,11 @@ async def test_post_call_failure_hook_omits_provider_when_a_deployment_does_not_
 
     router = MagicMock()
     router.get_model_list.return_value = [
-        {"model_name": "internal-model", "litellm_params": {"model": "openai/gpt-4.1"}},
-        {"model_name": "internal-model", "litellm_params": {"model": "unmapped-model-with-no-provider"}},
+        {"model_name": "internal-model", "hangarllm_params": {"model": "openai/gpt-4.1"}},
+        {"model_name": "internal-model", "hangarllm_params": {"model": "unmapped-model-with-no-provider"}},
     ]
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -665,7 +665,7 @@ async def test_post_call_failure_hook_omits_provider_when_a_deployment_does_not_
     assert len(recorded) == 1
     kwargs = recorded[0]
     assert kwargs.get("custom_llm_provider") is None
-    assert kwargs["litellm_params"].get("custom_llm_provider") is None
+    assert kwargs["hangarllm_params"].get("custom_llm_provider") is None
 
 
 @pytest.mark.asyncio
@@ -674,16 +674,16 @@ async def test_handle_logging_proxy_only_path_attributes_with_read_only_metadata
 ):
     """With a logging object already on the request, allowlisted metadata is kept,
     a read-only mapping must not crash the stamp, and the failure handler receives provider attribution."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                     "model_info": {"provider": "acme"},
                 }
             ]
@@ -692,7 +692,7 @@ async def test_handle_logging_proxy_only_path_attributes_with_read_only_metadata
     logging_obj = MagicMock()
     logging_obj.call_type = "acompletion"
     logging_obj.model_call_details = {}
-    logging_obj.litellm_params = {"metadata": {"preexisting": "logged"}}
+    logging_obj.hangarllm_params = {"metadata": {"preexisting": "logged"}}
     logging_obj.async_failure_handler = AsyncMock()
     guardrail_info: Final = [
         {
@@ -704,7 +704,7 @@ async def test_handle_logging_proxy_only_path_attributes_with_read_only_metadata
 
     await proxy_logging._handle_logging_proxy_only_error(
         request_data={
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
             "model": "internal-model",
             "messages": [{"role": "user", "content": "hi"}],
             "metadata": MappingProxyType(
@@ -719,19 +719,19 @@ async def test_handle_logging_proxy_only_path_attributes_with_read_only_metadata
     assert logging_obj.async_failure_handler.called
     update_kwargs = logging_obj.update_environment_variables.call_args.kwargs
     assert update_kwargs["custom_llm_provider"] == "openai"
-    assert update_kwargs["litellm_params"]["custom_llm_provider"] == "openai"
+    assert update_kwargs["hangarllm_params"]["custom_llm_provider"] == "openai"
     assert {
-        key: update_kwargs["litellm_params"]["metadata"][key] for key in ("preexisting", "user_api_key_alias")
+        key: update_kwargs["hangarllm_params"]["metadata"][key] for key in ("preexisting", "user_api_key_alias")
     } == {"preexisting": "logged", "user_api_key_alias": "frozen"}
-    assert update_kwargs["litellm_params"]["metadata"]["tags"] == ["checkout"]
-    assert update_kwargs["litellm_params"]["metadata"]["standard_logging_guardrail_information"] == guardrail_info
+    assert update_kwargs["hangarllm_params"]["metadata"]["tags"] == ["checkout"]
+    assert update_kwargs["hangarllm_params"]["metadata"]["standard_logging_guardrail_information"] == guardrail_info
 
 
 @pytest.mark.asyncio
 async def test_post_call_failure_hook_fires_without_router_attribution(
     proxy_logging, make_user_api_key_auth, monkeypatch
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -742,16 +742,16 @@ async def test_post_call_failure_hook_fires_without_router_attribution(
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "different-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -764,7 +764,7 @@ async def test_post_call_failure_hook_fires_without_router_attribution(
     assert len(recorded) == 1
     kwargs = recorded[0]
     assert kwargs.get("custom_llm_provider") is None
-    assert "model_info" not in (kwargs["litellm_params"].get("metadata") or {})
+    assert "model_info" not in (kwargs["hangarllm_params"].get("metadata") or {})
 
 
 @pytest.mark.asyncio
@@ -774,7 +774,7 @@ async def test_post_call_failure_hook_fires_for_non_string_model(
 ):
     """A body whose ``model`` is not a string is rejected by the proxy before routing; its
     failure callback must still fire, unattributed, instead of a TypeError escaping the hook."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -785,16 +785,16 @@ async def test_post_call_failure_hook_fires_for_non_string_model(
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "internal-model",
-                    "litellm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
+                    "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": "sk-test"},
                 }
             ]
         ),
     )
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
@@ -807,7 +807,7 @@ async def test_post_call_failure_hook_fires_for_non_string_model(
     assert len(recorded) == 1
     kwargs = recorded[0]
     assert kwargs.get("custom_llm_provider") is None
-    assert "model_info" not in (kwargs["litellm_params"].get("metadata") or {})
+    assert "model_info" not in (kwargs["hangarllm_params"].get("metadata") or {})
 
 
 @pytest.mark.asyncio
@@ -820,10 +820,10 @@ async def test_post_call_failure_hook_callback_returns_http_exception(
         async def async_post_call_failure_hook(self, **kwargs):  # type: ignore[override]
             return transformed
 
-    monkeypatch.setattr(litellm, "callbacks", [_Cb()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Cb()])
     proxy_logging.alert_types = []
     out = await proxy_logging.post_call_failure_hook(
-        request_data={"litellm_call_id": "abc"},
+        request_data={"hangarllm_call_id": "abc"},
         original_exception=ValueError("oops"),
         user_api_key_dict=make_user_api_key_auth(),
     )
@@ -840,10 +840,10 @@ async def test_post_call_failure_hook_callback_raises_http_exception_first_wins(
         async def async_post_call_failure_hook(self, **kwargs):  # type: ignore[override]
             raise err
 
-    monkeypatch.setattr(litellm, "callbacks", [_Cb()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Cb()])
     proxy_logging.alert_types = []
     out = await proxy_logging.post_call_failure_hook(
-        request_data={"litellm_call_id": "abc"},
+        request_data={"hangarllm_call_id": "abc"},
         original_exception=ValueError("oops"),
         user_api_key_dict=make_user_api_key_auth(),
     )
@@ -858,10 +858,10 @@ async def test_post_call_failure_hook_non_http_exception_in_callback_swallowed(
         async def async_post_call_failure_hook(self, **kwargs):  # type: ignore[override]
             raise RuntimeError("non-http inside cb")
 
-    monkeypatch.setattr(litellm, "callbacks", [_Cb()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_Cb()])
     proxy_logging.alert_types = []
     out = await proxy_logging.post_call_failure_hook(
-        request_data={"litellm_call_id": "abc"},
+        request_data={"hangarllm_call_id": "abc"},
         original_exception=ValueError("oops"),
         user_api_key_dict=make_user_api_key_auth(),
     )
@@ -873,16 +873,16 @@ async def test_post_call_failure_hook_non_http_exception_in_callback_swallowed(
 async def test_terminal_baseline_cleanup_ignores_missing_or_untrusted_logging(
     proxy_logging: ProxyLogging, monkeypatch: pytest.MonkeyPatch, logging_value: object
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", ())
+    monkeypatch.setattr(hangarllm, "callbacks", ())
     proxy_logging.alert_types = []  # rebind-ok: isolate the fixture-owned alert configuration
-    request_data: Final = {"litellm_call_id": "untrusted-logging", "litellm_logging_obj": logging_value}
+    request_data: Final = {"hangarllm_call_id": "untrusted-logging", "hangarllm_logging_obj": logging_value}
     result: Final = await proxy_logging.post_call_failure_hook(  # pyright: ignore[reportUnknownMemberType]  # exercise the existing proxy terminal owner with its legacy request dictionary contract
         request_data=request_data,
         original_exception=ValueError("original provider failure"),
         user_api_key_dict=UserAPIKeyAuth(request_route="/v1/messages"),
     )
     assert result is None
-    assert "litellm_logging_obj" not in request_data
+    assert "hangarllm_logging_obj" not in request_data
 
 
 # ---------------------------------------------------------------------------
@@ -898,7 +898,7 @@ async def test_handle_logging_proxy_only_path_uses_existing_logging_obj(proxy_lo
     logging_obj.async_failure_handler = AsyncMock()
 
     request_data = {
-        "litellm_logging_obj": logging_obj,
+        "hangarllm_logging_obj": logging_obj,
         "messages": [{"role": "user", "content": "x"}],
         "model": "m",
         "metadata": {},
@@ -909,12 +909,12 @@ async def test_handle_logging_proxy_only_path_uses_existing_logging_obj(proxy_lo
         route="/chat/completions",
         original_exception=HTTPException(status_code=429, detail="rate"),
     )
-    from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
+    from hangarllm.constants import HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL
 
     snapshot = {
         "input_logged": "messages" in logging_obj.model_call_details,
         "call_type_normalized": logging_obj.call_type,
-        "marker_present": logging_obj.model_call_details.get(LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL) is True,
+        "marker_present": logging_obj.model_call_details.get(HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL) is True,
         "async_failure_called": logging_obj.async_failure_handler.called,
     }
     assert snapshot == {
@@ -927,7 +927,7 @@ async def test_handle_logging_proxy_only_path_uses_existing_logging_obj(proxy_lo
 
 @pytest.mark.asyncio
 async def test_handle_logging_proxy_only_path_skips_for_pass_through(proxy_logging, make_user_api_key_auth):
-    from litellm.types.utils import CallTypes
+    from hangarllm.types.utils import CallTypes
 
     logging_obj = MagicMock()
     logging_obj.call_type = CallTypes.pass_through.value
@@ -935,7 +935,7 @@ async def test_handle_logging_proxy_only_path_skips_for_pass_through(proxy_loggi
     logging_obj.async_failure_handler = AsyncMock()
     logging_obj.pre_call = MagicMock()
     request_data = {
-        "litellm_logging_obj": logging_obj,
+        "hangarllm_logging_obj": logging_obj,
         "messages": [{"role": "user"}],
         "model": "m",
     }
@@ -961,7 +961,7 @@ async def test_handle_logging_proxy_only_path_no_logging_obj_creates_one(
     def fake_function_setup(**kwargs):
         return fake_logging_obj, {}
 
-    monkeypatch.setattr(litellm.utils, "function_setup", fake_function_setup)
+    monkeypatch.setattr(hangarllm.utils, "function_setup", fake_function_setup)
     request_data = {"messages": [{"role": "user"}], "model": "m"}
     await proxy_logging._handle_logging_proxy_only_error(
         request_data=request_data,
@@ -969,7 +969,7 @@ async def test_handle_logging_proxy_only_path_no_logging_obj_creates_one(
         route="/chat/completions",
         original_exception=HTTPException(status_code=429, detail="rate"),
     )
-    assert "litellm_call_id" in request_data
+    assert "hangarllm_call_id" in request_data
     fake_logging_obj.async_failure_handler.assert_called_once()
 
 
@@ -980,7 +980,7 @@ async def test_handle_logging_proxy_only_path_propagates_async_failure_raises(pr
     logging_obj.model_call_details = {}
     logging_obj.async_failure_handler = AsyncMock(side_effect=RuntimeError("boom"))
     request_data = {
-        "litellm_logging_obj": logging_obj,
+        "hangarllm_logging_obj": logging_obj,
         "messages": [{"role": "user"}],
         "model": "m",
     }
@@ -1053,18 +1053,18 @@ async def test_post_call_failure_hook_keeps_the_call_type_request_setup_logged(
     """A request rejected after request setup already carries its endpoint's call type, so the body
     shape must not relabel a /v1/messages rejection as a chat completion or a list-input /v1/responses
     rejection as an embedding."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 
     proxy_logging.alert_types = []
     request_data: Final = {
         **body,
-        "litellm_logging_obj": LiteLLMLoggingObj(
+        "hangarllm_logging_obj": HangarLLMLoggingObj(
             model="m",
             messages=[{"role": "user", "content": "hi"}],
             stream=False,
             call_type=call_type,
             start_time=datetime.now(),
-            litellm_call_id=f"test_keeps_{call_type}",
+            hangarllm_call_id=f"test_keeps_{call_type}",
             function_id=f"test_keeps_{call_type}",
         ),
         "metadata": {},
@@ -1105,7 +1105,7 @@ async def test_post_call_failure_hook_guardrail_block_fires_failure_callback(
     object's ``async_failure_handler`` so custom loggers see a ``failure``
     status - without this, guardrail blocks produce only
     ``post_call_failure_hook`` and no failure logging event."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
 
     recorded: list[object] = []
 
@@ -1118,19 +1118,19 @@ async def test_post_call_failure_hook_guardrail_block_fires_failure_callback(
                 standard_logging_object.get("status") if isinstance(standard_logging_object, dict) else None
             )
 
-    monkeypatch.setattr(litellm, "_async_failure_callback", [_StatusRecorder()])
-    logging_obj = LiteLLMLoggingObj(
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [_StatusRecorder()])
+    logging_obj = HangarLLMLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
         start_time=datetime.now(),
-        litellm_call_id="test_guardrail_block_failure_cb",
+        hangarllm_call_id="test_guardrail_block_failure_cb",
         function_id="test_guardrail_block_failure_cb",
     )
     request_data = {
-        "litellm_logging_obj": logging_obj,
-        "litellm_call_id": "test_guardrail_block_failure_cb",
+        "hangarllm_logging_obj": logging_obj,
+        "hangarllm_call_id": "test_guardrail_block_failure_cb",
         "model": "gpt-4o-mini",
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": {},
@@ -1151,7 +1151,7 @@ async def test_handle_logging_proxy_only_path_flags_requests_that_died_before_re
     proxy_logging, make_user_api_key_auth
 ):
     """A reject before the pipeline set up logging (bad key, bad body) reaches the failure hook with no logging
-    object. The handler mints a ``litellm_call_id`` so error logs can carry it, and marks the request with a
+    object. The handler mints a ``hangarllm_call_id`` so error logs can carry it, and marks the request with a
     server-owned sentinel so spend tracking can tell it apart from a guardrail block, which arrives with the
     pipeline's logging object. ``request_data`` is the client body, so a client-sent call id or marker value must
     not change either outcome."""
@@ -1159,7 +1159,7 @@ async def test_handle_logging_proxy_only_path_flags_requests_that_died_before_re
         "model": "m",
         "messages": [{"role": "user", "content": "x"}],
         "metadata": {},
-        "litellm_call_id": "client-supplied",
+        "hangarllm_call_id": "client-supplied",
     }
     await proxy_logging._handle_logging_proxy_only_error(
         request_data=rejected_before_setup,
@@ -1173,8 +1173,8 @@ async def test_handle_logging_proxy_only_path_flags_requests_that_died_before_re
     logging_obj.model_call_details = {}
     logging_obj.async_failure_handler = AsyncMock()
     blocked_by_guardrail: dict[str, object] = {
-        "litellm_logging_obj": logging_obj,
-        "litellm_call_id": "call-1",
+        "hangarllm_logging_obj": logging_obj,
+        "hangarllm_call_id": "call-1",
         "model": "m",
         "messages": [{"role": "user", "content": "x"}],
         "metadata": {},
@@ -1189,9 +1189,9 @@ async def test_handle_logging_proxy_only_path_flags_requests_that_died_before_re
 
     assert (
         rejected_before_setup.get(REJECTED_BEFORE_REQUEST_SETUP_KEY) is REJECTED_BEFORE_REQUEST_SETUP,
-        rejected_before_setup["litellm_call_id"],
+        rejected_before_setup["hangarllm_call_id"],
         blocked_by_guardrail.get(REJECTED_BEFORE_REQUEST_SETUP_KEY) is REJECTED_BEFORE_REQUEST_SETUP,
-        blocked_by_guardrail["litellm_call_id"],
+        blocked_by_guardrail["hangarllm_call_id"],
     ) == (True, "client-supplied", False, "call-1")
 
 
@@ -1199,7 +1199,7 @@ async def test_handle_logging_proxy_only_path_flags_requests_that_died_before_re
 async def test_auth_failure_on_a_responses_body_with_a_json_string_metadata_is_logged_against_the_key(
     proxy_logging, monkeypatch
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     recorded: list[dict] = []
 
@@ -1208,12 +1208,12 @@ async def test_auth_failure_on_a_responses_body_with_a_json_string_metadata_is_l
             recorded.append(kwargs)
 
     monkeypatch.setattr(proxy_server, "llm_router", None)
-    monkeypatch.setattr(litellm, "callbacks", [_RecordingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [_RecordingLogger()])
     proxy_logging.alert_types = []
 
     await proxy_logging.post_call_failure_hook(
         request_data={"model": "internal-model", "input": "hi", "metadata": json.dumps({"tags": ["checkout"]})},
-        original_exception=litellm.BudgetExceededError(current_cost=1.0, max_budget=0.5),
+        original_exception=hangarllm.BudgetExceededError(current_cost=1.0, max_budget=0.5),
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-hashed", key_alias="checkout-key", request_route="/v1/responses"),
         error_type=ProxyErrorTypes.auth_error,
         route="/v1/responses",

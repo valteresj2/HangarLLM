@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.db.db_transaction_queue.spend_logs_partition_manager import (
+from hangarllm.proxy.db.db_transaction_queue.spend_logs_partition_manager import (
     SpendLogsPartitionManager,
     next_period_start,
     parse_partition_upper_bound,
@@ -79,7 +79,7 @@ def test_next_period_start_crosses_year_and_month_boundaries():
 
 
 def test_partition_name_uses_period_start_date():
-    assert partition_name(date(2026, 6, 1)) == "LiteLLM_SpendLogs_p20260601"
+    assert partition_name(date(2026, 6, 1)) == "HangarLLM_SpendLogs_p20260601"
 
 
 def test_upcoming_partitions_count_and_contiguous_ranges():
@@ -87,10 +87,10 @@ def test_upcoming_partitions_count_and_contiguous_ranges():
     assert len(specs) == 4  # current + 3 ahead
     names = [s[0] for s in specs]
     assert names == [
-        "LiteLLM_SpendLogs_p20260601",
-        "LiteLLM_SpendLogs_p20260602",
-        "LiteLLM_SpendLogs_p20260603",
-        "LiteLLM_SpendLogs_p20260604",
+        "HangarLLM_SpendLogs_p20260601",
+        "HangarLLM_SpendLogs_p20260602",
+        "HangarLLM_SpendLogs_p20260603",
+        "HangarLLM_SpendLogs_p20260604",
     ]
     # ranges must be contiguous and half-open: each upper is the next lower
     for (_, _, upper), (_, next_lower, _) in zip(specs, specs[1:]):
@@ -174,14 +174,14 @@ async def test_drop_partitions_older_than_drops_expired_only():
     client.db.query_raw = AsyncMock(
         return_value=[
             {
-                "name": "LiteLLM_SpendLogs_p20260601",
+                "name": "HangarLLM_SpendLogs_p20260601",
                 "bound": "FOR VALUES FROM ('2026-06-01 00:00:00') TO ('2026-06-02 00:00:00')",
             },
             {
-                "name": "LiteLLM_SpendLogs_p20260609",
+                "name": "HangarLLM_SpendLogs_p20260609",
                 "bound": "FOR VALUES FROM ('2026-06-09 00:00:00') TO ('2026-06-10 00:00:00')",
             },
-            {"name": "LiteLLM_SpendLogs_pdefault", "bound": "DEFAULT"},
+            {"name": "HangarLLM_SpendLogs_pdefault", "bound": "DEFAULT"},
         ]
     )
     client.db.execute_raw = AsyncMock(return_value=0)
@@ -190,9 +190,9 @@ async def test_drop_partitions_older_than_drops_expired_only():
     cutoff = datetime(2026, 6, 5, 0, 0, 0, tzinfo=timezone.utc)
     dropped = await mgr.drop_partitions_older_than(client, cutoff, _budget())
 
-    assert dropped == ["LiteLLM_SpendLogs_p20260601"]
+    assert dropped == ["HangarLLM_SpendLogs_p20260601"]
     executed = " ".join(call.args[0] for call in client.db.execute_raw.call_args_list)
-    assert 'DROP TABLE IF EXISTS "LiteLLM_SpendLogs_p20260601"' in executed
+    assert 'DROP TABLE IF EXISTS "HangarLLM_SpendLogs_p20260601"' in executed
     assert "p20260609" not in executed
     assert "pdefault" not in executed
 
@@ -209,7 +209,7 @@ async def test_ensure_partitions_issues_create_for_each_period():
     assert len(created) == 3  # current + 2 ahead
     assert client.db.execute_raw.await_count == 3
     first_sql = client.db.execute_raw.call_args_list[0].args[0]
-    assert 'PARTITION OF "LiteLLM_SpendLogs"' in first_sql
+    assert 'PARTITION OF "HangarLLM_SpendLogs"' in first_sql
     assert "CREATE TABLE IF NOT EXISTS" in first_sql
 
 
@@ -227,7 +227,7 @@ async def test_partition_ddl_carries_a_statement_and_lock_timeout():
     client.db.query_raw = AsyncMock(
         return_value=[
             {
-                "name": "LiteLLM_SpendLogs_p20260601",
+                "name": "HangarLLM_SpendLogs_p20260601",
                 "bound": "FOR VALUES FROM ('2026-06-01 00:00:00') TO ('2026-06-02 00:00:00')",
             }
         ]
@@ -396,11 +396,11 @@ async def test_drop_partitions_continues_when_one_drop_fails():
     client.db.query_raw = AsyncMock(
         return_value=[
             {
-                "name": "LiteLLM_SpendLogs_p20260601",
+                "name": "HangarLLM_SpendLogs_p20260601",
                 "bound": "FOR VALUES FROM ('2026-06-01 00:00:00') TO ('2026-06-02 00:00:00')",
             },
             {
-                "name": "LiteLLM_SpendLogs_p20260602",
+                "name": "HangarLLM_SpendLogs_p20260602",
                 "bound": "FOR VALUES FROM ('2026-06-02 00:00:00') TO ('2026-06-03 00:00:00')",
             },
         ]
@@ -412,7 +412,7 @@ async def test_drop_partitions_continues_when_one_drop_fails():
     dropped = await mgr.drop_partitions_older_than(client, cutoff, _budget())
 
     # both were eligible; the first drop failed so only the second is reported
-    assert dropped == ["LiteLLM_SpendLogs_p20260602"]
+    assert dropped == ["HangarLLM_SpendLogs_p20260602"]
 
 
 @pytest.mark.asyncio
@@ -424,4 +424,4 @@ async def test_the_partitioning_probe_renders_a_postgres_select_span(
     _wire_tx(client.db)
 
     assert await SpendLogsPartitionManager().is_partitioned(client, _budget()) is True
-    assert await postgres_span_names() == ("postgres.select LiteLLM_SpendLogs",)
+    assert await postgres_span_names() == ("postgres.select HangarLLM_SpendLogs",)

@@ -73,11 +73,11 @@ def test_nova_invoke_count_suffixed_cache_usage_fields_are_reported_and_charged(
             + CACHE_WRITE_TOKENS * CACHE_WRITE_RATE
             + OUTPUT_TOKENS * OUTPUT_RATE
         )
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected_cost), response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected_cost), response.text
         assert len(wire.drain()) == 1
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, prompt_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (body["id"],)
+                'SELECT spend, prompt_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (body["id"],)
             ),
             lambda values: len(values) == 1,
             seconds=70,

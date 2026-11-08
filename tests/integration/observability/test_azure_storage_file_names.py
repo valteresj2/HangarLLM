@@ -16,7 +16,7 @@ from integration._support.process import owned_proxy
 from integration._support.tls import server_context, write_self_signed_cert
 from integration._support.wire import Reply, Request, wire_server
 
-from litellm.constants import MAX_LITELLM_CALL_ID_LENGTH
+from hangarllm.constants import MAX_HANGARLLM_CALL_ID_LENGTH
 
 ADLS_SAFE_FILE_NAME: Final = re.compile(r"^[A-Za-z0-9._+-]+\.json$")
 WORKERS: Final = 2
@@ -118,7 +118,7 @@ def _log_names_by_call_id(
                     if failing
                     else {"model": model, "input": text},
                     key=api_key,
-                    headers={"x-litellm-call-id": call_id},
+                    headers={"x-hangarllm-call-id": call_id},
                 )
                 for call_id, text in zip(call_ids, inputs or call_ids, strict=True)
             )
@@ -139,7 +139,7 @@ def _log_names_by_call_id(
 def test_client_call_ids_differing_only_by_slash_or_underscore_land_in_separate_files(
     gateway: Gateway, tmp_path: Path
 ) -> None:
-    """An embedding response carries no id, so its log is named after the caller's `x-litellm-call-id`. Two
+    """An embedding response carries no id, so its log is named after the caller's `x-hangarllm-call-id`. Two
     caller ids that differ only by `/` and `_` are two requests and must leave two logs, neither overwriting
     the other"""
     marker: Final = f"svc-{uuid.uuid4().hex[:8]}"
@@ -148,7 +148,7 @@ def test_client_call_ids_differing_only_by_slash_or_underscore_land_in_separate_
 
 
 def test_client_call_ids_with_parent_segments_stay_inside_the_log_directory(gateway: Gateway, tmp_path: Path) -> None:
-    """A caller's `x-litellm-call-id` names its log file, so a `..` segment in it must not climb out of the
+    """A caller's `x-hangarllm-call-id` names its log file, so a `..` segment in it must not climb out of the
     dated log directory into another day's folder or another filesystem"""
     marker: Final = uuid.uuid4().hex[:8]
     call_ids: Final = (f"../other-filesystem/{marker}", f"../2026-09-30/{marker}", f"%2e%2e/other-filesystem/{marker}")
@@ -160,7 +160,7 @@ def test_client_call_ids_with_parent_segments_stay_inside_the_log_directory(gate
 
 
 def test_client_call_ids_with_dot_or_empty_segments_keep_their_own_files(gateway: Gateway, tmp_path: Path) -> None:
-    """A `.` or empty segment in a caller's `x-litellm-call-id` collapses on the Data Lake path, so `svc/./x` would
+    """A `.` or empty segment in a caller's `x-hangarllm-call-id` collapses on the Data Lake path, so `svc/./x` would
     overwrite the log of `svc/x` and `svc//x` would fail to upload. Each id must still leave its own log"""
     marker: Final = uuid.uuid4().hex[:8]
     call_ids: Final = (f"{marker}/x", f"{marker}/./x", f"{marker}//x")
@@ -172,7 +172,7 @@ def test_client_call_ids_with_dot_or_empty_segments_keep_their_own_files(gateway
 
 
 def test_failed_requests_with_look_alike_call_ids_keep_separate_failure_logs(gateway: Gateway, tmp_path: Path) -> None:
-    """A failed request has no response id, so its failure log is named after the caller's `x-litellm-call-id`. Two
+    """A failed request has no response id, so its failure log is named after the caller's `x-hangarllm-call-id`. Two
     failures whose ids differ only by `/` and `_` must leave two failure logs"""
     marker: Final = f"fail-{uuid.uuid4().hex[:8]}"
     call_ids: Final = (f"{marker}/req-1", f"{marker}_req-1")
@@ -196,10 +196,10 @@ def test_cache_hits_with_look_alike_call_ids_keep_separate_logs(gateway: Gateway
 
 
 def test_longest_oversized_and_blank_call_ids_each_leave_one_log(gateway: Gateway, tmp_path: Path) -> None:
-    """The longest accepted caller id keeps its own name, while a 5 KB or blank `x-litellm-call-id` falls back to a
+    """The longest accepted caller id keeps its own name, while a 5 KB or blank `x-hangarllm-call-id` falls back to a
     generated id, so none of the three requests loses its log"""
     marker: Final = f"edge-{uuid.uuid4().hex[:8]}/"
-    longest: Final = marker + "x" * (MAX_LITELLM_CALL_ID_LENGTH - len(marker))
+    longest: Final = marker + "x" * (MAX_HANGARLLM_CALL_ID_LENGTH - len(marker))
     call_ids: Final = (longest, marker + "x" * 5000, "")
     logs: Final = _log_names_by_call_id(gateway, tmp_path, call_ids, inputs=(f"{marker}0", f"{marker}1", f"{marker}2"))
     assert logs.get(f"{longest}.json") == longest, tuple(logs)

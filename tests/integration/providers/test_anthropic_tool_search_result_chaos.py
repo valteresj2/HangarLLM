@@ -156,7 +156,7 @@ def _chat_ids(served: Sequence[_Served]) -> tuple[str, ...]:
 
 def _success_rows(model: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s AND status=%s', (model, "success")
+        'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s AND status=%s', (model, "success")
     )
 
 
@@ -221,7 +221,7 @@ def _chaos_config(wire: Wire, directory: Path) -> Path:
                 "model_list": [
                     {
                         "model_name": _OWNED_MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"anthropic/{MODEL}",
                             "api_base": wire.url,
                             "api_key": "scripted-anthropic-key",

@@ -7,8 +7,8 @@ from integration.translation.templates.openai import OPENAI_RESPONSES_REQUEST, O
 
 GPT_5_4_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "openai/gpt-5.4",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -86,7 +86,7 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791225872,
         "error": None,
@@ -163,8 +163,8 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "openai/gpt-5.6-sol",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -242,7 +242,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791225875,
         "error": None,
@@ -319,8 +319,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "openai/gpt-5.6-luna",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -398,7 +398,7 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
         "user": None,
         "metadata": {},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": 1791225880,
         "error": None,
@@ -474,8 +474,8 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "openai/gpt-6-luna"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "openai/gpt-6-luna"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -530,7 +530,7 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 468,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025503,
@@ -657,8 +657,8 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "openai/gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "openai/gpt-6.1-sol"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -669,7 +669,7 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
         **OPENAI_RESPONSES_RESPONSE,
         "model": "gpt-6.1-sol",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025514,
@@ -796,8 +796,8 @@ GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "openai/gpt-6-astra"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "openai/gpt-6-astra"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -851,7 +851,7 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 486,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025491,
@@ -978,8 +978,8 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "openai/gpt-5.6-terra"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "openai/gpt-5.6-terra"},
     expected_provider_endpoint="/responses",
     expected_provider_headers={
         "content-type": "application/json",
@@ -1034,7 +1034,7 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 409,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_NATIVE_RESPONSE,
         "id": ANY,
         "created_at": 1792025482,

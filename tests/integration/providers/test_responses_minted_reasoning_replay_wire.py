@@ -90,7 +90,7 @@ _BEDROCK: Final = _Deployment(
 )
 _DROPPING: Final = (_OPENAI, _AZURE, _AZURE_AI_OPENAI_HOST, _BEDROCK_MANTLE, _BEDROCK)
 _KEEPING: Final = (
-    _Deployment("litellm_proxy", f"litellm_proxy/{_GPT}", "synthetic-proxy-key", "/responses"),
+    _Deployment("hangarllm_proxy", f"hangarllm_proxy/{_GPT}", "synthetic-proxy-key", "/responses"),
     _Deployment("databricks", "databricks/gpt-5.6", "synthetic-databricks-key", "/responses"),
     _Deployment("openrouter", f"openrouter/openai/{_GPT}", "synthetic-openrouter-key", "/responses"),
     _Deployment("xai", "xai/grok-4.7", "synthetic-xai-key", "/responses"),
@@ -219,7 +219,7 @@ def _only_request(wire: Wire) -> tuple[Request, dict[str, JsonValue]]:
 
 def _assert_spend_rows(model: str, response_ids: Sequence[str]) -> None:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= len(response_ids),
         seconds=70,
     )
@@ -376,7 +376,7 @@ def test_other_responses_providers_forward_the_minted_item_unchanged(
 @pytest.mark.parametrize(
     ("prefix", "forwarded_blocks"),
     [
-        ("litellm_proxy", ("thinking", "text", "tool_use")),
+        ("hangarllm_proxy", ("thinking", "text", "tool_use")),
         ("openai", ("text", "tool_use")),
     ],
 )

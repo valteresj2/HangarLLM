@@ -1,6 +1,6 @@
 """pdf_input x Bedrock (Invoke).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to AWS Bedrock via the legacy `InvokeModel` API path,
 write a tiny valid PDF to disk, allow the built-in `Read` tool, and
 ask Claude to read the PDF and report what it contains.

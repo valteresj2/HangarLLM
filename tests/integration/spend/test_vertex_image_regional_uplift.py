@@ -132,7 +132,7 @@ def _chat_deployment(gateway: Gateway, scenario: Scenario, wire: Wire) -> str:
 def _spend_rows(call_ids: tuple[str, ...], *, seconds: float = 70) -> dict[str, float]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)', (list(call_ids),)
+            'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)', (list(call_ids),)
         ),
         lambda found: len(found) == len(call_ids),
         seconds=seconds,
@@ -145,10 +145,10 @@ def _spend(call_id: str) -> float:
     return _spend_rows((call_id,))[call_id]
 
 
-def _spend_by_litellm_call_id(call_id: str) -> float:
+def _spend_by_hangarllm_call_id(call_id: str) -> float:
     rows: Final = eventually(
         lambda: read_rows(
-            "SELECT spend FROM \"LiteLLM_SpendLogs\" WHERE metadata->>'litellm_call_id' = %s", (call_id,)
+            "SELECT spend FROM \"HangarLLM_SpendLogs\" WHERE metadata->>'hangarllm_call_id' = %s", (call_id,)
         ),
         lambda found: len(found) == 1,
         seconds=70,
@@ -161,7 +161,7 @@ def _assert_image_response(response: httpx.Response, expected: float, *, images:
     data: Final = _JSON_OBJECT.validate_json(response.content)["data"]
     assert isinstance(data, list) and len(data) == images, response.text
     assert all(object_value(item)["b64_json"] == _PNG_B64 for item in data), response.text
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected), response.headers
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), response.headers
 
 
 def _assert_images(response: httpx.Response, call_id: str, expected: float, *, images: int = 1) -> None:
@@ -187,7 +187,7 @@ def _generate(
         "/v1/images/generations",
         {"model": model, "prompt": _PROMPT, "n": 1, **(extra or {})},
         key=key,
-        headers={"x-litellm-call-id": call_id},
+        headers={"x-hangarllm-call-id": call_id},
     )
     return call_id, response
 
@@ -198,7 +198,7 @@ def _edit(gateway: Gateway, model: str) -> tuple[str, httpx.Response]:
         "/v1/images/edits",
         data={"model": model, "prompt": _PROMPT},
         files={"image": ("red.png", _PNG, "image/png")},
-        headers={"Authorization": f"Bearer {gateway.key}", "x-litellm-call-id": call_id},
+        headers={"Authorization": f"Bearer {gateway.key}", "x-hangarllm-call-id": call_id},
     )
     return call_id, response
 
@@ -261,12 +261,12 @@ def test_openai_sdk_image_generation_bills_the_regional_uplift(gateway: Gateway)
         call_id: Final = uuid.uuid4().hex
         client: Final = openai.OpenAI(base_url=f"{gateway.client.base_url}/v1", api_key=gateway.key, timeout=60)
         raw: Final = client.images.with_raw_response.generate(
-            model=model, prompt=_PROMPT, extra_headers={"x-litellm-call-id": call_id}
+            model=model, prompt=_PROMPT, extra_headers={"x-hangarllm-call-id": call_id}
         )
         assert raw.status_code == 200, raw.text
         (image,) = raw.parse().data or ()
         assert image.b64_json == _PNG_B64
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(_REGIONAL_TOKEN_COST), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(_REGIONAL_TOKEN_COST), raw.headers
         assert _spend(call_id) == pytest.approx(_REGIONAL_TOKEN_COST)
         _assert_one_upstream_image_call(wire)
 
@@ -279,12 +279,12 @@ async def test_async_openai_sdk_image_generation_keeps_global_flat(gateway: Gate
             base_url=f"{gateway.client.base_url}/v1", api_key=gateway.key, timeout=60
         ) as client:
             raw: Final = await client.images.with_raw_response.generate(
-                model=model, prompt=_PROMPT, extra_headers={"x-litellm-call-id": call_id}
+                model=model, prompt=_PROMPT, extra_headers={"x-hangarllm-call-id": call_id}
             )
         assert raw.status_code == 200, raw.text
         (image,) = raw.parse().data or ()
         assert image.b64_json == _PNG_B64
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(_GLOBAL_TOKEN_COST), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(_GLOBAL_TOKEN_COST), raw.headers
         assert await asyncio.to_thread(_spend, call_id) == pytest.approx(_GLOBAL_TOKEN_COST)
         _assert_one_upstream_image_call(wire)
 
@@ -298,12 +298,12 @@ def test_openai_sdk_image_edit_bills_the_regional_uplift(gateway: Gateway) -> No
             model=model,
             image=("red.png", _PNG, "image/png"),
             prompt=_PROMPT,
-            extra_headers={"x-litellm-call-id": call_id},
+            extra_headers={"x-hangarllm-call-id": call_id},
         )
         assert raw.status_code == 200, raw.text
         (image,) = raw.parse().data or ()
         assert image.b64_json == _PNG_B64
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(_REGIONAL_IMAGE_COST), raw.headers
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(_REGIONAL_IMAGE_COST), raw.headers
         assert _spend(call_id) == pytest.approx(_REGIONAL_IMAGE_COST)
         received: Final = wire.drain()
         assert len(received) == 1 and _PNG_B64 in received[0].body.decode(), received
@@ -317,7 +317,7 @@ def test_model_info_reads_back_the_multiplier_the_price_follows(gateway: Gateway
         (entry,) = (object_value(item) for item in entries if object_value(item)["model_name"] == model)
         info: Final = object_value(entry["model_info"])
         assert info["regional_endpoint_uplift_multiplier"] == 1.1, info
-        assert object_value(entry["litellm_params"])["vertex_location"] == _REGION, entry
+        assert object_value(entry["hangarllm_params"])["vertex_location"] == _REGION, entry
 
 
 def test_invalid_multiplier_is_refused_at_registration(gateway: Gateway) -> None:
@@ -327,7 +327,7 @@ def test_invalid_multiplier_is_refused_at_registration(gateway: Gateway) -> None
             "/model/new",
             {
                 "model_name": f"integration-{uuid.uuid4().hex}",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"vertex_ai/{_IMAGE_BACKEND}",
                     "api_base": f"{wire.url}{_IMAGE_TARGET}",
                     "vertex_project": _PROJECT,
@@ -420,12 +420,12 @@ def test_chat_completions_on_a_regional_chat_deployment(gateway: Gateway) -> Non
             "POST",
             "/v1/chat/completions",
             {"model": model, "messages": [{"role": "user", "content": _PROMPT}], "cache": {"no-cache": True}},
-            headers={"x-litellm-call-id": call_id},
+            headers={"x-hangarllm-call-id": call_id},
         )
         assert response.status_code == 200, response.text
         body: Final = _JSON_OBJECT.validate_json(response.content)
-        assert "scripted answer" in response.text and response.headers["x-litellm-call-id"] == call_id, response.text
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(_REGIONAL_CHAT_COST), (
+        assert "scripted answer" in response.text and response.headers["x-hangarllm-call-id"] == call_id, response.text
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(_REGIONAL_CHAT_COST), (
             response.headers
         )
         assert _spend(str(body["id"])) == pytest.approx(_REGIONAL_CHAT_COST)
@@ -441,12 +441,12 @@ def test_messages_on_a_regional_chat_deployment(gateway: Gateway) -> None:
             model=model,
             max_tokens=64,
             messages=[{"role": "user", "content": _PROMPT}],
-            extra_headers={"x-litellm-call-id": call_id},
+            extra_headers={"x-hangarllm-call-id": call_id},
             extra_body={"cache": {"no-cache": True}},
         )
         assert raw.status_code == 200, raw.text
-        assert "scripted answer" in raw.text and raw.headers["x-litellm-call-id"] == call_id, raw.text
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(_REGIONAL_CHAT_COST), raw.headers
+        assert "scripted answer" in raw.text and raw.headers["x-hangarllm-call-id"] == call_id, raw.text
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(_REGIONAL_CHAT_COST), raw.headers
         assert _spend(str(_JSON_OBJECT.validate_json(raw.content)["id"])) == pytest.approx(_REGIONAL_CHAT_COST)
         assert len(wire.drain()) == 1
 
@@ -459,13 +459,13 @@ def test_responses_on_a_regional_chat_deployment(gateway: Gateway) -> None:
         raw: Final = client.responses.with_raw_response.create(
             model=model,
             input=_PROMPT,
-            extra_headers={"x-litellm-call-id": call_id},
+            extra_headers={"x-hangarllm-call-id": call_id},
             extra_body={"cache": {"no-cache": True}},
         )
         assert raw.status_code == 200, raw.text
-        assert "scripted answer" in raw.text and raw.headers["x-litellm-call-id"] == call_id, raw.text
-        assert float(raw.headers["x-litellm-response-cost"]) == pytest.approx(_REGIONAL_CHAT_COST), raw.headers
-        assert _spend_by_litellm_call_id(call_id) == pytest.approx(_REGIONAL_CHAT_COST)
+        assert "scripted answer" in raw.text and raw.headers["x-hangarllm-call-id"] == call_id, raw.text
+        assert float(raw.headers["x-hangarllm-response-cost"]) == pytest.approx(_REGIONAL_CHAT_COST), raw.headers
+        assert _spend_by_hangarllm_call_id(call_id) == pytest.approx(_REGIONAL_CHAT_COST)
         assert len(wire.drain()) == 1
 
 
@@ -491,7 +491,7 @@ def _burst_calls(global_model: str, regional_model: str) -> tuple[_Call, ...]:
 
 
 def _send(client: httpx.Client, key: str, call: _Call) -> httpx.Response:
-    headers: Final = {"Authorization": f"Bearer {key}", "x-litellm-call-id": call.call_id}
+    headers: Final = {"Authorization": f"Bearer {key}", "x-hangarllm-call-id": call.call_id}
     if call.route == "/v1/images/edits":
         return client.post(
             call.route,
@@ -528,7 +528,7 @@ async def _async_burst(base_url: str, key: str, call_ids: tuple[str, ...]) -> tu
         response: Final = await client.post(
             "/v1/images/generations",
             json={"model": _CONFIG_MODEL, "prompt": _PROMPT, "n": 1},
-            headers={"Authorization": f"Bearer {key}", "x-litellm-call-id": call_id},
+            headers={"Authorization": f"Bearer {key}", "x-hangarllm-call-id": call_id},
         )
         return _Served(call_id=call_id, status=response.status_code, text=response.text)
 
@@ -547,7 +547,7 @@ def _chaos_config(wire: Wire, tmp_path: Path, upstream_url: str) -> Path:
         "model_list": [
             {
                 "model_name": _CONFIG_MODEL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"vertex_ai/{_IMAGE_BACKEND}",
                     "api_base": f"{wire.url}{_IMAGE_TARGET}",
                     "vertex_project": _PROJECT,
@@ -682,7 +682,7 @@ async def test_proxy_restart_mid_burst_bills_each_landed_call_once(gateway: Gate
             _assert_images(follow_up, follow_up_id, _REGIONAL_TOKEN_COST)
             landed: Final = eventually(
                 lambda: read_rows(
-                    'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)', (list(call_ids),)
+                    'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)', (list(call_ids),)
                 ),
                 lambda rows: set(succeeded) <= {str(row["request_id"]) for row in rows},
                 seconds=120,

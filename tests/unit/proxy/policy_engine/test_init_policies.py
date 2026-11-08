@@ -9,9 +9,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm._logging import turn_on_json
-from litellm.proxy.policy_engine.init_policies import _print_policies_on_startup
+import hangarllm
+from hangarllm._logging import turn_on_json
+from hangarllm.proxy.policy_engine.init_policies import _print_policies_on_startup
 
 POLICIES: Final[Mapping[str, Mapping[str, object]]] = {
     "pii-policy": {
@@ -30,7 +30,7 @@ POLICY_ROWS: Final = (
     "      condition.model: gpt-4o",
 )
 PLAIN_POLICY_TABLE: Final = (
-    "\x1b[92m\nLiteLLM Policy Engine: Loaded 1 policies\x1b[0m\n\n"
+    "\x1b[92m\nHangarLLM Policy Engine: Loaded 1 policies\x1b[0m\n\n"
     "\x1b[94m  - pii-policy (inherits: base)\x1b[0m\n"
     "      description: Block PII\n"
     "      guardrails.add: ['pii-guard']\n"
@@ -73,7 +73,7 @@ def test_policy_table_prints_unchanged_in_plain_mode(
 ) -> None:
     """Operators without JSON logs keep the colored policy table byte for byte on a terminal, and the same text
     without color codes on a piped stdout."""
-    monkeypatch.setattr(litellm, "json_logs", False)
+    monkeypatch.setattr(hangarllm, "json_logs", False)
     monkeypatch.delenv("NO_COLOR", raising=False)
     stdout: Final = _Stream(terminal)
     monkeypatch.setattr(sys, "stdout", stdout)
@@ -88,7 +88,7 @@ def test_policy_table_is_one_json_record_in_json_mode(
     monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
     """With JSON logs on the whole table, attachments included, is one INFO record without color codes."""
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
 
@@ -102,7 +102,7 @@ def test_policy_table_is_one_json_record_in_json_mode(
     assert record["level"] == "INFO"
     assert record["message"] == "\n".join(
         (
-            "LiteLLM Policy Engine: Loaded 1 policies",
+            "HangarLLM Policy Engine: Loaded 1 policies",
             "",
             *POLICY_ROWS,
             "",
@@ -117,7 +117,7 @@ def test_missing_attachments_warning_is_a_second_json_record(
 ) -> None:
     """Without attachments the table and the yellow warning are an INFO and a WARNING record on stdout,
     where the two prints put them."""
-    monkeypatch.setattr(litellm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     turn_on_json()
 
@@ -127,7 +127,7 @@ def test_missing_attachments_warning_is_a_second_json_record(
     assert err == ""
     records: Final = [json.loads(raw) for raw in out.splitlines() if raw.strip()]
     assert [record["message"] for record in records] == [
-        "\n".join(("LiteLLM Policy Engine: Loaded 1 policies", "", *POLICY_ROWS)),
+        "\n".join(("HangarLLM Policy Engine: Loaded 1 policies", "", *POLICY_ROWS)),
         NO_ATTACHMENTS_WARNING,
     ]
     assert [record["level"] for record in records] == ["INFO", "WARNING"]

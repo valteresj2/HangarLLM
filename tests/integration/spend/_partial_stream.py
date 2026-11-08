@@ -15,8 +15,8 @@ JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 BACKEND: Final = "integration-partial-stream"
 PIECE: Final = "partial stream billed tokens "
 DELIVERED_PIECES: Final = 12
-_FAILURE_ROWS: Final = 'SELECT spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s AND status=%s ORDER BY "startTime"'
-ROWS: Final = 'SELECT status, spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
+_FAILURE_ROWS: Final = 'SELECT spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s AND status=%s ORDER BY "startTime"'
+ROWS: Final = 'SELECT status, spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
 
 
 class _SpendRow(BaseModel):

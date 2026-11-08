@@ -6,12 +6,12 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from litellm.harness.context import GatewayTarget, SessionContext
-from litellm.harness.errors import OptionsMismatch
-from litellm.harness.options import CodexOptions, DeepAgentsOptions
-from litellm.harness.sandbox.local import LocalSandbox
-from litellm.harness.types import Harness, Reasoning, Text, ToolCall, ToolResult
-from litellm.llms.deepagents.harness import transformation as da
+from hangarllm.harness.context import GatewayTarget, SessionContext
+from hangarllm.harness.errors import OptionsMismatch
+from hangarllm.harness.options import CodexOptions, DeepAgentsOptions
+from hangarllm.harness.sandbox.local import LocalSandbox
+from hangarllm.harness.types import Harness, Reasoning, Text, ToolCall, ToolResult
+from hangarllm.llms.deepagents.harness import transformation as da
 
 
 def make_ctx(tmp_path: Path, **kwargs: Any) -> SessionContext:
@@ -59,13 +59,13 @@ def test_chat_model_kwargs_gateway_and_sdk(tmp_path: Path) -> None:
     gw = GatewayTarget(api_base="https://gw.example.com", api_key="sk-virtual")
     ctx = make_ctx(tmp_path, gateway=gw, metadata={"team": "a"})
     kwargs = da.chat_model_kwargs(ctx)
-    assert kwargs["model"] == "litellm_proxy/gpt-4o-mini"
+    assert kwargs["model"] == "hangarllm_proxy/gpt-4o-mini"
     assert kwargs["api_base"] == "https://gw.example.com"
     assert kwargs["api_key"] == "sk-virtual"
-    assert kwargs["extra_headers"]["x-litellm-tags"] == "harness,deepagents"
-    assert '"team": "a"' in kwargs["extra_headers"]["x-litellm-spend-logs-metadata"]
+    assert kwargs["extra_headers"]["x-hangarllm-tags"] == "harness,deepagents"
+    assert '"team": "a"' in kwargs["extra_headers"]["x-hangarllm-spend-logs-metadata"]
     no_meta = da.chat_model_kwargs(make_ctx(tmp_path, gateway=gw))
-    assert "x-litellm-spend-logs-metadata" not in no_meta["extra_headers"]
+    assert "x-hangarllm-spend-logs-metadata" not in no_meta["extra_headers"]
 
     sdk = da.chat_model_kwargs(make_ctx(tmp_path, api_key="k", api_base="http://b"))
     assert sdk == {"model": "gpt-4o-mini", "api_key": "k", "api_base": "http://b"}
@@ -182,4 +182,4 @@ def test_config_capabilities_and_validation(tmp_path: Path) -> None:
         config.validate_environment(make_ctx(tmp_path, model=None))
     with pytest.raises(OptionsMismatch):
         config.validate_environment(make_ctx(tmp_path, options=CodexOptions()))
-    assert "pip install deepagents langchain-litellm" in da.INSTALL_HINT
+    assert "pip install deepagents langchain-hangarllm" in da.INSTALL_HINT

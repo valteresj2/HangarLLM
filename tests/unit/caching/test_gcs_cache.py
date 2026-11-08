@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 
 
-from litellm.caching.gcs_cache import GCSCache
+from hangarllm.caching.gcs_cache import GCSCache
 
 
 @pytest.fixture
@@ -14,14 +14,14 @@ def mock_gcs_dependencies():
     mock_async_client = AsyncMock()
 
     with (
-        patch.object(import_module("litellm.caching.gcs_cache"), "get_httpx_client", return_value=mock_sync_client),
+        patch.object(import_module("hangarllm.caching.gcs_cache"), "get_httpx_client", return_value=mock_sync_client),
         patch.object(
-            import_module("litellm.caching.gcs_cache"),
+            import_module("hangarllm.caching.gcs_cache"),
             "get_async_httpx_client",
             return_value=mock_async_client,
         ),
         patch.object(
-            import_module("litellm.caching.gcs_cache").GCSBucketBase,
+            import_module("hangarllm.caching.gcs_cache").GCSBucketBase,
             "sync_construct_request_headers",
             return_value={},
         ),
@@ -47,7 +47,7 @@ async def test_gcs_cache_async_set_and_get(mock_gcs_dependencies):
 @pytest.mark.asyncio
 async def test_gcs_cache_async_get_encodes_object_name_in_path(mock_gcs_dependencies):
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/30377
+    Regression test for upstream issue 30377
 
     When gcs_path is set, the object name contains a '/' (e.g. "my_cache/<hash>").
     The GCS JSON API requires the object name in the GET path to be URL-encoded,
@@ -110,8 +110,8 @@ async def test_gcs_cache_completion_hit_and_param_sensitivity(mock_gcs_dependenc
     """Same params hit the injected GCS cache client; different params do not."""
     import asyncio
 
-    import litellm
-    from litellm.caching import Cache
+    import hangarllm
+    from hangarllm.caching import Cache
 
     store = {}
 
@@ -145,9 +145,9 @@ async def test_gcs_cache_completion_hit_and_param_sensitivity(mock_gcs_dependenc
     mock_gcs_dependencies["sync_client"].get.side_effect = _get
 
     messages = [{"role": "user", "content": "write a one sentence poem about: gcs-cache-unit-key"}]
-    litellm.cache = Cache(type="gcs", gcs_bucket_name="test-bucket")
+    hangarllm.cache = Cache(type="gcs", gcs_bucket_name="test-bucket")
     try:
-        response1 = await litellm.acompletion(
+        response1 = await hangarllm.acompletion(
             "gpt-3.5-turbo",
             messages=messages,
             caching=True,
@@ -158,7 +158,7 @@ async def test_gcs_cache_completion_hit_and_param_sensitivity(mock_gcs_dependenc
         while not store and asyncio.get_event_loop().time() < deadline:
             await asyncio.sleep(0.05)
         assert store
-        response2 = await litellm.acompletion(
+        response2 = await hangarllm.acompletion(
             "gpt-3.5-turbo",
             messages=messages,
             caching=True,
@@ -167,7 +167,7 @@ async def test_gcs_cache_completion_hit_and_param_sensitivity(mock_gcs_dependenc
         )
         assert response1.choices[0].message.content == response2.choices[0].message.content
 
-        response3 = await litellm.acompletion(
+        response3 = await hangarllm.acompletion(
             "gpt-3.5-turbo",
             messages=messages,
             caching=True,
@@ -176,8 +176,8 @@ async def test_gcs_cache_completion_hit_and_param_sensitivity(mock_gcs_dependenc
         )
         assert response1.choices[0].message.content != response3.choices[0].message.content
     finally:
-        litellm.cache = None
-        litellm.success_callback = []
-        litellm._async_success_callback = []
+        hangarllm.cache = None
+        hangarllm.success_callback = []
+        hangarllm._async_success_callback = []
 
 

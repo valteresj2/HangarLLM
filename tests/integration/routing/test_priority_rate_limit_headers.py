@@ -66,8 +66,8 @@ def test_non_streaming_v1_messages_success_carries_v3_priority_rate_limit_header
         return Reply(body=UPSTREAM_REPLY)
 
     configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    configuration["litellm_settings"] = {
-        **configuration["litellm_settings"],
+    configuration["hangarllm_settings"] = {
+        **configuration["hangarllm_settings"],
         "callbacks": ["dynamic_rate_limiter_v3"],
         "priority_reservation": {"premium": PREMIUM_SHARE},
     }
@@ -96,8 +96,8 @@ def test_non_streaming_v1_messages_success_carries_v3_priority_rate_limit_header
         assert response.json()["content"] == [{"type": "text", "text": "priority header control"}], response.text
         assert len(wire.drain()) == 1
         expected: Final = {
-            "x-litellm-priority": "premium",
-            "x-litellm-rate-limiter-version": "v3",
+            "x-hangarllm-priority": "premium",
+            "x-hangarllm-rate-limiter-version": "v3",
             "x-ratelimit-model_saturation_check-limit-requests": str(MODEL_RPM),
             "x-ratelimit-model_saturation_check-remaining-requests": str(MODEL_RPM - 1),
             "x-ratelimit-priority_model-limit-requests": str(int(MODEL_RPM * PREMIUM_SHARE)),
@@ -133,8 +133,8 @@ def test_streaming_chat_completion_success_logs_v3_rate_limit_remaining_values_f
         return Reply()
 
     configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    configuration["litellm_settings"] = {
-        **configuration["litellm_settings"],
+    configuration["hangarllm_settings"] = {
+        **configuration["hangarllm_settings"],
         "callbacks": ["generic_api"],
         "DEFAULT_FLUSH_INTERVAL_SECONDS": 1,
     }

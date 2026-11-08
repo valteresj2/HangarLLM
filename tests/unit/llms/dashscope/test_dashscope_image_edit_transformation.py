@@ -6,12 +6,12 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.dashscope.image_edit.transformation import DashScopeImageEditConfig
-from litellm.llms.dashscope.text_to_speech.transformation import DashScopeTextToSpeechConfig
-from litellm.types.utils import ModelInfo
+import hangarllm
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.dashscope.image_edit.transformation import DashScopeImageEditConfig
+from hangarllm.llms.dashscope.text_to_speech.transformation import DashScopeTextToSpeechConfig
+from hangarllm.types.utils import ModelInfo
 
 PNG: Final = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -69,9 +69,9 @@ async def test_an_edit_posts_every_image_inline_with_provider_params_at_the_top_
         "api_key": "sk-dashscope-test",
     }
     response: Final = (
-        await litellm.aimage_edit(**arguments, client=AsyncHTTPHandler(transport=_recording(seen, _edited)))
+        await hangarllm.aimage_edit(**arguments, client=AsyncHTTPHandler(transport=_recording(seen, _edited)))
         if asynchronous
-        else litellm.image_edit(**arguments, client=_sync_client(seen))
+        else hangarllm.image_edit(**arguments, client=_sync_client(seen))
     )
 
     assert [image.url for image in response.data or []] == [EDITED_URL]
@@ -107,7 +107,7 @@ async def test_an_edit_posts_every_image_inline_with_provider_params_at_the_top_
 def test_an_openai_size_reaches_dashscope_in_its_star_format(size: str, dashscope_size: str) -> None:
     seen: Final[list[httpx.Request]] = []  # mutable-ok: request log
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="dashscope/qwen-image-2.0", image=PNG, prompt="p", size=size, api_key="k", client=_sync_client(seen)
     )
 
@@ -158,7 +158,7 @@ def test_an_edit_goes_to_the_image_endpoint_on_the_host_its_dashscope_base_names
         monkeypatch.setenv("DASHSCOPE_API_BASE_IMAGE", image_base)
     seen: Final[list[httpx.Request]] = []  # mutable-ok: request log
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="dashscope/qwen-image-2.0",
         image=PNG,
         prompt="p",
@@ -176,10 +176,10 @@ def test_an_edit_and_a_speech_call_with_the_same_dashscope_base_reach_the_same_h
 ) -> None:
     monkeypatch.setenv("DASHSCOPE_API_BASE", "https://gw.example.com/compatible-mode/v1")
     edit_url: Final = DashScopeImageEditConfig().get_complete_url(
-        model="qwen-image-2.0", api_base=api_base, litellm_params={}
+        model="qwen-image-2.0", api_base=api_base, hangarllm_params={}
     )
     speech_url: Final = DashScopeTextToSpeechConfig().get_complete_url(
-        model="qwen3-tts-flash", api_base=api_base, litellm_params={}
+        model="qwen3-tts-flash", api_base=api_base, hangarllm_params={}
     )
 
     assert httpx.URL(edit_url).host == httpx.URL(speech_url).host
@@ -188,8 +188,8 @@ def test_an_edit_and_a_speech_call_with_the_same_dashscope_base_reach_the_same_h
 def test_a_fourth_image_is_refused_with_a_400_before_any_request_even_under_drop_params() -> None:
     seen: Final[list[httpx.Request]] = []  # mutable-ok: request log
 
-    with pytest.raises(litellm.BadRequestError) as refused:
-        litellm.image_edit(
+    with pytest.raises(hangarllm.BadRequestError) as refused:
+        hangarllm.image_edit(
             model="dashscope/qwen-image-2.0",
             image=[PNG, PNG, PNG, PNG],
             prompt="p",
@@ -206,7 +206,7 @@ def test_a_fourth_image_is_refused_with_a_400_before_any_request_even_under_drop
 def test_three_images_are_accepted() -> None:
     seen: Final[list[httpx.Request]] = []  # mutable-ok: request log
 
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="dashscope/qwen-image-2.0", image=[PNG, PNG, PNG], prompt="p", api_key="k", client=_sync_client(seen)
     )
 
@@ -218,11 +218,11 @@ def test_an_unsupported_openai_param_answers_400_and_is_dropped_under_drop_param
     seen: Final[list[httpx.Request]] = []  # mutable-ok: request log
     client: Final = _sync_client(seen)
 
-    with pytest.raises(litellm.UnsupportedParamsError) as refused:
-        litellm.image_edit(
+    with pytest.raises(hangarllm.UnsupportedParamsError) as refused:
+        hangarllm.image_edit(
             model="dashscope/qwen-image-2.0", image=PNG, prompt="p", quality="high", api_key="k", client=client
         )
-    litellm.image_edit(
+    hangarllm.image_edit(
         model="dashscope/qwen-image-2.0",
         image=PNG,
         prompt="p",
@@ -243,12 +243,12 @@ def test_an_unsupported_openai_param_answers_400_and_is_dropped_under_drop_param
     (
         (
             httpx.Response(200, json={"code": "InvalidParameter", "message": "Image is too small"}),
-            litellm.APIError,
+            hangarllm.APIError,
             "Image is too small",
         ),
         (
             httpx.Response(400, json={"code": "InvalidParameter", "message": "Model not exist."}),
-            litellm.BadRequestError,
+            hangarllm.BadRequestError,
             "Model not exist.",
         ),
     ),
@@ -257,7 +257,7 @@ def test_a_dashscope_rejection_reaches_the_caller_with_its_message(
     reply: httpx.Response, error: type[Exception], message: str
 ) -> None:
     with pytest.raises(error, match=message):
-        litellm.image_edit(
+        hangarllm.image_edit(
             model="dashscope/qwen-image-2.0",
             image=PNG,
             prompt="p",
@@ -269,16 +269,16 @@ def test_a_dashscope_rejection_reaches_the_caller_with_its_message(
 @pytest.mark.parametrize("model", ("qwen-image-2.0", "qwen-image-2.0-pro", "qwen-image-3.0"))
 @pytest.mark.usefixtures("local_model_cost_map")
 def test_each_edited_image_is_billed_at_the_model_output_image_price(model: str) -> None:
-    response: Final = litellm.ImageResponse(data=[{"url": EDITED_URL}, {"url": EDITED_URL}])
+    response: Final = hangarllm.ImageResponse(data=[{"url": EDITED_URL}, {"url": EDITED_URL}])
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=response,
         model=f"dashscope/{model}",
         call_type="aimage_edit",
         custom_llm_provider="dashscope",
     )
 
-    assert cost == pytest.approx(2 * litellm.model_cost[f"dashscope/{model}"]["output_cost_per_image"])
+    assert cost == pytest.approx(2 * hangarllm.model_cost[f"dashscope/{model}"]["output_cost_per_image"])
     assert cost > 0
 
 
@@ -287,11 +287,11 @@ def test_the_input_images_dashscope_reports_are_billed_on_top_of_the_edited_imag
     def reply(_: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={**EDITED, "usage": {"input_image_count": 2, "output_image_count": 1}})
 
-    response: Final = litellm.image_edit(
+    response: Final = hangarllm.image_edit(
         model="dashscope/qwen-image-3.0", image=[PNG, PNG], prompt="p", api_key="k", client=_sync_client([], reply)
     )
 
-    assert isinstance(response, litellm.ImageResponse)
+    assert isinstance(response, hangarllm.ImageResponse)
     assert CostCalculatorUtils.route_image_generation_cost_calculator(
         model="qwen-image-3.0",
         completion_response=response,
@@ -301,8 +301,8 @@ def test_the_input_images_dashscope_reports_are_billed_on_top_of_the_edited_imag
     ) == pytest.approx(2 * 0.004 + 0.04)
 
 
-def _edited_images(count: int, input_images: int) -> litellm.ImageResponse:
-    response: Final = litellm.ImageResponse(data=[{"url": EDITED_URL}] * count)
+def _edited_images(count: int, input_images: int) -> hangarllm.ImageResponse:
+    response: Final = hangarllm.ImageResponse(data=[{"url": EDITED_URL}] * count)
     response.hidden_params = {"billable_input_image_count": input_images}
     return response
 
@@ -345,7 +345,7 @@ def test_a_deployment_that_copies_both_image_prices_bills_edited_and_input_image
 
 @pytest.mark.usefixtures("local_model_cost_map")
 def test_a_deployment_token_price_keeps_the_shared_per_image_billing() -> None:
-    prices: Final = litellm.model_cost["dashscope/qwen-image-3.0"]
+    prices: Final = hangarllm.model_cost["dashscope/qwen-image-3.0"]
 
     cost: Final = CostCalculatorUtils.route_image_generation_cost_calculator(
         model="qwen-image-3.0",

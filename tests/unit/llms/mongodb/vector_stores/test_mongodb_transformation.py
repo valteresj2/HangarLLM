@@ -6,16 +6,16 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.mongodb.vector_stores.transformation import MongoDBVectorStoreConfig
-from litellm.types.utils import EmbeddingResponse
-from litellm.types.vector_stores import VectorStoreSearchOptionalRequestParams, VectorStoreSearchResponse
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.mongodb.vector_stores.transformation import MongoDBVectorStoreConfig
+from hangarllm.types.utils import EmbeddingResponse
+from hangarllm.types.vector_stores import VectorStoreSearchOptionalRequestParams, VectorStoreSearchResponse
 
 BASE_PARAMS: Final = {
     "api_base": "https://sidecar.example/prefix",
     "api_key": "test-sidecar-key",
-    "litellm_embedding_model": "embedding-alias",
+    "hangarllm_embedding_model": "embedding-alias",
     "mongodb_database": "policies",
     "mongodb_collection": "documents",
 }
@@ -51,7 +51,7 @@ async def test_search_preserves_embedding_and_http_contract(
         **BASE_PARAMS,
         "mongodb_text_field": "metadata.body",
         "mongodb_embedding_field": "stored_vector",
-        "litellm_embedding_config": {"dimensions": 3},
+        "hangarllm_embedding_config": {"dimensions": 3},
         "timeout": 0.75,
     }
     kwargs: Final = {
@@ -59,8 +59,8 @@ async def test_search_preserves_embedding_and_http_contract(
         "query": ["travel", "policy"],
         "vector_store_search_optional_params": {"max_num_results": limit},
         "api_base": BASE_PARAMS["api_base"],
-        "litellm_logging_obj": MagicMock(),
-        "litellm_params": params,
+        "hangarllm_logging_obj": MagicMock(),
+        "hangarllm_params": params,
     }
     if asynchronous:
         url, body = await config.atransform_search_vector_store_request(**kwargs)
@@ -88,7 +88,7 @@ async def test_search_preserves_embedding_and_http_contract(
         ("", {}, {}),
         ("  ", {}, {}),
         ("x" * 32_001, {}, {}),
-        ("travel", {"litellm_embedding_model": None}, {}),
+        ("travel", {"hangarllm_embedding_model": None}, {}),
         ("travel", {"mongodb_database": None}, {}),
         ("travel", {"mongodb_collection": None}, {}),
         ("travel", {"mongodb_connection_string": "mongodb://obsolete-secret"}, {}),
@@ -107,14 +107,14 @@ def test_invalid_search_is_rejected_before_embedding(
 ) -> None:
     executor: Final = RecordingEmbeddingExecutor()
     config: Final = MongoDBVectorStoreConfig(executor)
-    with pytest.raises(litellm.BadRequestError) as error:
+    with pytest.raises(hangarllm.BadRequestError) as error:
         config.transform_search_vector_store_request(
             vector_store_id="policy_index",
             query=query,
             vector_store_search_optional_params=options,
             api_base=BASE_PARAMS["api_base"],
-            litellm_logging_obj=MagicMock(),
-            litellm_params={**BASE_PARAMS, **overrides},
+            hangarllm_logging_obj=MagicMock(),
+            hangarllm_params={**BASE_PARAMS, **overrides},
         )
     assert "obsolete-secret" not in str(error.value)
     executor.call.assert_not_called()
@@ -123,17 +123,17 @@ def test_invalid_search_is_rejected_before_embedding(
 @pytest.mark.parametrize(
     "status,body,error_type",
     [
-        (400, {"error": {"message": "Index is not queryable"}}, litellm.BadRequestError),
-        (401, {}, litellm.AuthenticationError),
-        (408, {}, litellm.Timeout),
-        (503, {}, litellm.ServiceUnavailableError),
-        (200, {}, litellm.ServiceUnavailableError),
-        (200, {**RESULT, "data": [{"score": "wrong"}]}, litellm.ServiceUnavailableError),
-        (0, {}, litellm.Timeout),
-        (-1, {}, litellm.BadRequestError),
-        (-2, {"api_base": "http://sidecar.example"}, litellm.BadRequestError),
-        (-2, {"api_base": "http://10.0.0.10:8080"}, litellm.BadRequestError),
-        (-2, {"api_base": "http://localhost:8080"}, litellm.BadRequestError),
+        (400, {"error": {"message": "Index is not queryable"}}, hangarllm.BadRequestError),
+        (401, {}, hangarllm.AuthenticationError),
+        (408, {}, hangarllm.Timeout),
+        (503, {}, hangarllm.ServiceUnavailableError),
+        (200, {}, hangarllm.ServiceUnavailableError),
+        (200, {**RESULT, "data": [{"score": "wrong"}]}, hangarllm.ServiceUnavailableError),
+        (0, {}, hangarllm.Timeout),
+        (-1, {}, hangarllm.BadRequestError),
+        (-2, {"api_base": "http://sidecar.example"}, hangarllm.BadRequestError),
+        (-2, {"api_base": "http://10.0.0.10:8080"}, hangarllm.BadRequestError),
+        (-2, {"api_base": "http://localhost:8080"}, hangarllm.BadRequestError),
         (200, RESULT, None),
     ],
 )
@@ -152,17 +152,17 @@ async def test_public_sdk_preserves_http_errors_response_and_timeout(
     executor: Final = RecordingEmbeddingExecutor()
     if status == -1:
         if asynchronous:
-            with pytest.raises(litellm.BadRequestError, match="search-only"):
-                await litellm.vector_stores.acreate(custom_llm_provider="mongodb")
+            with pytest.raises(hangarllm.BadRequestError, match="search-only"):
+                await hangarllm.vector_stores.acreate(custom_llm_provider="mongodb")
         else:
-            with pytest.raises(litellm.BadRequestError, match="search-only"):
-                litellm.vector_stores.create(custom_llm_provider="mongodb")
+            with pytest.raises(hangarllm.BadRequestError, match="search-only"):
+                hangarllm.vector_stores.create(custom_llm_provider="mongodb")
         return
     if status == -2:
         rejected_params: Final = {**BASE_PARAMS, "api_base": str(body["api_base"])}
         if asynchronous:
-            with pytest.raises(litellm.BadRequestError, match="requires HTTPS"):
-                await litellm.vector_stores.asearch(
+            with pytest.raises(hangarllm.BadRequestError, match="requires HTTPS"):
+                await hangarllm.vector_stores.asearch(
                     vector_store_id="policy_index",
                     query="travel policy",
                     custom_llm_provider="mongodb",
@@ -170,8 +170,8 @@ async def test_public_sdk_preserves_http_errors_response_and_timeout(
                     **rejected_params,
                 )
         else:
-            with pytest.raises(litellm.BadRequestError, match="requires HTTPS"):
-                litellm.vector_stores.search(
+            with pytest.raises(hangarllm.BadRequestError, match="requires HTTPS"):
+                hangarllm.vector_stores.search(
                     vector_store_id="policy_index",
                     query="travel policy",
                     custom_llm_provider="mongodb",
@@ -211,8 +211,8 @@ async def test_public_sdk_preserves_http_errors_response_and_timeout(
                     "timeout": timeout,
                 }
                 if asynchronous:
-                    return await litellm.vector_stores.asearch(**kwargs)
-                return litellm.vector_stores.search(**kwargs)
+                    return await hangarllm.vector_stores.asearch(**kwargs)
+                return hangarllm.vector_stores.search(**kwargs)
 
             if error_type is not None:
                 with pytest.raises(error_type):

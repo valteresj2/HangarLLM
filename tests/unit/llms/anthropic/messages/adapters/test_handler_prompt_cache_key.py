@@ -7,8 +7,8 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../..")))
 
-from litellm.llms.anthropic.messages.adapters.handler import (
-    LiteLLMMessagesToCompletionTransformationHandler,
+from hangarllm.llms.anthropic.messages.adapters.handler import (
+    HangarLLMMessagesToCompletionTransformationHandler,
 )
 
 MESSAGES = [{"role": "user", "content": "hello"}]
@@ -16,7 +16,7 @@ CLAUDE_CODE_USER_ID = json.dumps({"device_id": "d" * 64, "account_uuid": "", "se
 
 
 def _prepare(model: str, extra_kwargs: dict[str, object], thinking: dict[str, object] | None = None):
-    completion_kwargs, _ = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    completion_kwargs, _ = HangarLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model=model,
@@ -57,8 +57,8 @@ def test_prepare_completion_kwargs_skips_prompt_cache_key_without_provider_suppo
     assert "prompt_cache_key" not in completion_kwargs
 
 
-def test_prepare_completion_kwargs_skips_prompt_cache_key_for_chained_litellm_proxy():
-    completion_kwargs = _prepare("litellm_proxy/xai", {"custom_llm_provider": "litellm_proxy"})
+def test_prepare_completion_kwargs_skips_prompt_cache_key_for_chained_hangarllm_proxy():
+    completion_kwargs = _prepare("hangarllm_proxy/xai", {"custom_llm_provider": "hangarllm_proxy"})
     assert completion_kwargs["user"] == CLAUDE_CODE_USER_ID
     assert "prompt_cache_key" not in completion_kwargs
 
@@ -119,7 +119,7 @@ def test_prepare_completion_kwargs_derives_prompt_cache_key_for_codestral_only_o
 def test_prepare_completion_kwargs_derives_no_prompt_cache_key_mistral_cannot_take_from_a_non_ascii_session() -> None:
     non_ascii_user_id: Final = json.dumps({"device_id": "d" * 64, "account_uuid": "", "session_id": "sitzung-ü"})
 
-    mistral_kwargs: Final = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    mistral_kwargs: Final = HangarLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model="mistral/mistral-small-latest",
@@ -127,7 +127,7 @@ def test_prepare_completion_kwargs_derives_no_prompt_cache_key_mistral_cannot_ta
         thinking=None,
         extra_kwargs={"custom_llm_provider": "mistral"},
     )[0]
-    openai_kwargs: Final = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    openai_kwargs: Final = HangarLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model="openai/gpt-5.6-luna",

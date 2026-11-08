@@ -56,7 +56,7 @@ async def test_team_block_unblock_authz_matrix(
 
     # /unblock starts from a blocked row so a 200 is observable as True->False.
     if route == "unblock":
-        await db.db.litellm_teamtable.update(
+        await db.db.hangarllm_teamtable.update(
             where={"team_id": resources.prefix}, data={"blocked": True}
         )
 
@@ -69,7 +69,7 @@ async def test_team_block_unblock_authz_matrix(
         resp.status_code == expected_status
     ), f"{route} {actor.value} {shape}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None
@@ -88,7 +88,7 @@ async def test_team_block_unblock_round_trip(gateway_client, db, resources, acto
         "/team/block", headers=headers, json={"team_id": resources.prefix}
     )
     assert blocked.status_code == 200, blocked.text
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None and row.blocked is True
@@ -97,7 +97,7 @@ async def test_team_block_unblock_round_trip(gateway_client, db, resources, acto
         "/team/unblock", headers=headers, json={"team_id": resources.prefix}
     )
     assert unblocked.status_code == 200, unblocked.text
-    row = await db.db.litellm_teamtable.find_unique(
+    row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": resources.prefix}
     )
     assert row is not None and row.blocked is False

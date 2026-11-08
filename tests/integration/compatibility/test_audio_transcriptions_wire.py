@@ -201,16 +201,16 @@ def test_audio_transcription_verbose_json_forwards_every_form_field_and_returns_
                 response_format="verbose_json",
                 timestamp_granularities=["word", "segment"],
                 include=["logprobs"],
-                extra_headers={"x-litellm-call-id": call_id},
+                extra_headers={"x-hangarllm-call-id": call_id},
             )
         assert response.status_code == 200, response.text
         assert json.loads(response.content) == _VERBOSE_TRANSCRIPT, response.text
         _VerboseTranscript.model_validate_json(response.content)
-        assert response.headers["x-litellm-call-id"] == call_id, response.text
+        assert response.headers["x-hangarllm-call-id"] == call_id, response.text
         usage: Final = cast("dict[str, object]", _VERBOSE_TRANSCRIPT["usage"])
         token_details: Final = cast("dict[str, int]", usage["input_token_details"])
         assert math.isclose(
-            float(response.headers["x-litellm-response-cost"]),
+            float(response.headers["x-hangarllm-response-cost"]),
             token_details["audio_tokens"] * 0.000003
             + token_details["text_tokens"] * 0.000001
             + cast(int, usage["output_tokens"]) * 0.000002,
@@ -433,8 +433,8 @@ def test_audio_transcription_applies_json_string_metadata_without_forwarding_it(
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", "/v1/audio/transcriptions")]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_tags FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
-                (response.headers["x-litellm-call-id"],),
+                'SELECT request_tags FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
+                (response.headers["x-hangarllm-call-id"],),
             ),
             lambda values: len(values) == 1,
             seconds=70,
@@ -506,7 +506,7 @@ def test_audio_transcription_plain_response_format_returns_the_raw_transcript(
         assert transcript == _PLAIN_TRANSCRIPTS[response_format]
 
 
-def test_audio_transcription_applies_json_string_litellm_metadata_without_forwarding_it(
+def test_audio_transcription_applies_json_string_hangarllm_metadata_without_forwarding_it(
     gateway: Gateway,
 ) -> None:
     tag: Final = f"audio-metadata-{uuid.uuid4().hex}"
@@ -530,7 +530,7 @@ def test_audio_transcription_applies_json_string_litellm_metadata_without_forwar
             {
                 "model": model,
                 "response_format": "json",
-                "litellm_metadata": json.dumps({"tags": [tag]}),
+                "hangarllm_metadata": json.dumps({"tags": [tag]}),
             },
             {"file": ("a.wav", wav, _WAV_CONTENT_TYPE)},
         )
@@ -539,8 +539,8 @@ def test_audio_transcription_applies_json_string_litellm_metadata_without_forwar
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", "/v1/audio/transcriptions")]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_tags FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
-                (response.headers["x-litellm-call-id"],),
+                'SELECT request_tags FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
+                (response.headers["x-hangarllm-call-id"],),
             ),
             lambda values: len(values) == 1,
             seconds=70,
@@ -552,11 +552,11 @@ def test_audio_transcription_applies_json_string_litellm_metadata_without_forwar
         ) == (tag,), rows
 
 
-@pytest.mark.parametrize("metadata_field", ("metadata", "litellm_metadata"))
+@pytest.mark.parametrize("metadata_field", ("metadata", "hangarllm_metadata"))
 def test_audio_transcription_consumes_bracketed_form_metadata_tags(gateway: Gateway, metadata_field: str) -> None:
     pytest.skip(
-        "BUG: multipart metadata[tags]/litellm_metadata[tags] on /v1/audio/transcriptions reaches the upstream "
-        "as an extra text part and the tag never lands in LiteLLM_SpendLogs.request_tags"
+        "BUG: multipart metadata[tags]/hangarllm_metadata[tags] on /v1/audio/transcriptions reaches the upstream "
+        "as an extra text part and the tag never lands in HangarLLM_SpendLogs.request_tags"
     )
     tag: Final = f"audio-metadata-{uuid.uuid4().hex}"
     wav: Final = _WAV_BYTES + uuid.uuid4().bytes
@@ -587,8 +587,8 @@ def test_audio_transcription_consumes_bracketed_form_metadata_tags(gateway: Gate
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", "/v1/audio/transcriptions")]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_tags FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
-                (response.headers["x-litellm-call-id"],),
+                'SELECT request_tags FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
+                (response.headers["x-hangarllm-call-id"],),
             ),
             lambda values: len(values) == 1,
             seconds=70,
@@ -684,7 +684,7 @@ def test_audio_transcription_bills_audio_tokens_at_the_input_rate_when_no_audio_
         usage: Final = cast("dict[str, object]", _JSON_TRANSCRIPT["usage"])
         token_details: Final = cast("dict[str, int]", usage["input_token_details"])
         assert math.isclose(
-            float(response.headers["x-litellm-response-cost"]),
+            float(response.headers["x-hangarllm-response-cost"]),
             token_details["audio_tokens"] * 0.000001
             + token_details["text_tokens"] * 0.000001
             + cast(int, usage["output_tokens"]) * 0.000002,
@@ -737,12 +737,12 @@ def _advertised_cost_per_second(gateway: Gateway, model: str) -> float:
 
 
 def _response_cost(response: httpx.Response) -> float:
-    return float(response.headers["x-litellm-response-cost"]) if "x-litellm-response-cost" in response.headers else 0.0
+    return float(response.headers["x-hangarllm-response-cost"]) if "x-hangarllm-response-cost" in response.headers else 0.0
 
 
 def _logged_spend(call_id: str) -> float:
     rows: Final = eventually(
-        lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
+        lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -816,10 +816,10 @@ def test_gpt_transcribe_unmeasurable_upload_bills_the_seconds_openai_reports(
         assert response.status_code == 200, response.text
         assert JSON_OBJECT.validate_json(response.content)["text"] == "hello world", response.text
         assert math.isclose(_response_cost(response), expected_cost), (_response_cost(response), expected_cost)
-        assert math.isclose(_logged_spend(response.headers["x-litellm-call-id"]), expected_cost)
+        assert math.isclose(_logged_spend(response.headers["x-hangarllm-call-id"]), expected_cost)
         key_rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s',
+                'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s',
                 (sha256(key.encode()).hexdigest(),),
             ),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) > 0,
@@ -855,7 +855,7 @@ def test_gpt_transcribe_measured_upload_bills_the_measured_length_over_reported_
 
         assert response.status_code == 200, response.text
         assert math.isclose(_response_cost(response), expected_cost), (_response_cost(response), expected_cost)
-        assert math.isclose(_logged_spend(response.headers["x-litellm-call-id"]), expected_cost)
+        assert math.isclose(_logged_spend(response.headers["x-hangarllm-call-id"]), expected_cost)
         requests: Final = wire.drain()
 
     assert [(request.method, request.target) for request in requests] == [("POST", "/v1/audio/transcriptions")]

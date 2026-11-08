@@ -1,4 +1,4 @@
-"""Tests for litellm/a2a_protocol/main.py non-streaming send behavior."""
+"""Tests for hangarllm/a2a_protocol/main.py non-streaming send behavior."""
 
 import asyncio
 import contextlib
@@ -21,20 +21,20 @@ from a2a.compat.v0_3.types import (
     SendStreamingMessageRequest,
 )
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.a2a_protocol.main import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.a2a_protocol.main import (
     _send_message,
     _stream_messages,
     aget_agent_card,
     asend_message,
     create_a2a_client,
 )
-from litellm.a2a_protocol.exceptions import A2AError
-from litellm.a2a_protocol.utils import A2ARequestUtils
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.constants import DEFAULT_A2A_AGENT_TIMEOUT
-from litellm.llms.custom_httpx.http_handler import (
+from hangarllm.a2a_protocol.exceptions import A2AError
+from hangarllm.a2a_protocol.utils import A2ARequestUtils
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.constants import DEFAULT_A2A_AGENT_TIMEOUT
+from hangarllm.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
@@ -95,7 +95,7 @@ async def test_send_message_rejects_update_event_final_with_runtime_error():
 
 @pytest.mark.asyncio
 async def test_streaming_trace_id_prefers_logging_trace_id():
-    """The streaming X-LiteLLM-Trace-Id must use the logging object's trace id (same
+    """The streaming X-HangarLLM-Trace-Id must use the logging object's trace id (same
     as the non-streaming path), not the JSON-RPC request id, so traces correlate."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -104,8 +104,8 @@ async def test_streaming_trace_id_prefers_logging_trace_id():
         SendStreamingMessageRequest,
     )
 
-    from litellm.a2a_protocol import main as a2a_main
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.a2a_protocol import main as a2a_main
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     request = SendStreamingMessageRequest(
         id="rpc-1",
@@ -118,7 +118,7 @@ async def test_streaming_trace_id_prefers_logging_trace_id():
         ),
     )
     logging_obj = MagicMock(spec=Logging)
-    logging_obj.litellm_trace_id = "trace-from-logging"
+    logging_obj.hangarllm_trace_id = "trace-from-logging"
 
     captured: dict = {}
 
@@ -131,11 +131,11 @@ async def test_streaming_trace_id_prefers_logging_trace_id():
             async for _ in a2a_main.asend_message_streaming(
                 request=request,
                 api_base="http://upstream.local",
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
             ):
                 pass
 
-    assert captured["extra_headers"]["X-LiteLLM-Trace-Id"] == "trace-from-logging"
+    assert captured["extra_headers"]["X-HangarLLM-Trace-Id"] == "trace-from-logging"
 
 
 def test_streaming_logging_obj_carries_call_type_into_model_call_details():
@@ -146,7 +146,7 @@ def test_streaming_logging_obj_carries_call_type_into_model_call_details():
     and OTel's GenAI metrics label it ``chat`` instead of ``invoke_agent``."""
     from a2a.compat.v0_3.types import MessageSendParams, SendStreamingMessageRequest
 
-    from litellm.a2a_protocol.main import _build_streaming_logging_obj
+    from hangarllm.a2a_protocol.main import _build_streaming_logging_obj
 
     request = SendStreamingMessageRequest(
         id="rpc-call-type",
@@ -159,7 +159,7 @@ def test_streaming_logging_obj_carries_call_type_into_model_call_details():
         request=request,
         agent_name="some-agent",
         agent_id=None,
-        litellm_params=None,
+        hangarllm_params=None,
         metadata=None,
         proxy_server_request=None,
         start_time=datetime.datetime(2026, 10, 20, 12, 0, 0),
@@ -376,7 +376,7 @@ async def _seed_shared_a2a_client(
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(active_recorder))
     await owned_client.aclose()
 
-    litellm.in_memory_llm_clients_cache.set_cache(
+    hangarllm.in_memory_llm_clients_cache.set_cache(
         key=_a2a_client_cache_key(DEFAULT_A2A_AGENT_TIMEOUT, provider), value=handler
     )
     seeded = get_async_httpx_client(
@@ -392,7 +392,7 @@ async def _seed_shared_a2a_client(
 @pytest.fixture
 def isolated_client_cache(monkeypatch):
     cache = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", cache)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", cache)
     return cache
 
 
@@ -427,9 +427,9 @@ async def test_callers_with_different_headers_reuse_one_pooled_client(isolated_c
     client_b = await create_a2a_client(base_url="http://127.0.0.1:9", extra_headers=_AGENT_B_HEADERS)
     client_none = await create_a2a_client(base_url="http://127.0.0.1:9")
 
-    assert client_a._litellm_httpx_client is recorder.client
-    assert client_b._litellm_httpx_client is recorder.client
-    assert client_none._litellm_httpx_client is recorder.client
+    assert client_a._hangarllm_httpx_client is recorder.client
+    assert client_b._hangarllm_httpx_client is recorder.client
+    assert client_none._hangarllm_httpx_client is recorder.client
 
     cached = [key for key in isolated_client_cache.cache_dict if "a2a_provider" in key]
     assert len(cached) == 1, f"expected one pooled A2A client, cached: {cached}"
@@ -492,7 +492,7 @@ async def test_lowercase_protocol_binding_card_round_trips_the_langgraph_dialect
 
     assert type(response.root.result).__name__ == "Task"
     assert response.root.result.artifacts[0].parts[0].root.text == "langgraph echo: hi"
-    interface = a2a_client._litellm_agent_card.supported_interfaces[0]
+    interface = a2a_client._hangarllm_agent_card.supported_interfaces[0]
     assert interface.protocol_binding == "JSONRPC"
     assert interface.protocol_version == "0.3"
 
@@ -518,7 +518,7 @@ async def test_protocol_version_override_round_trips_the_langgraph_dialect(card,
 
     assert type(response.root.result).__name__ == "Task"
     assert response.root.result.artifacts[0].parts[0].root.text == "langgraph echo: hi"
-    assert a2a_client._litellm_agent_card.supported_interfaces[0].protocol_version == "0.3"
+    assert a2a_client._hangarllm_agent_card.supported_interfaces[0].protocol_version == "0.3"
     assert recorder.rpc_bodies[-1]["method"] == "message/send"
 
 
@@ -573,7 +573,7 @@ async def test_asend_message_resolves_float_protocol_version_from_agent_params(i
     response = await asend_message(
         request=_send_request("float-protocol-override"),
         api_base="http://127.0.0.1:9",
-        litellm_params={"a2a_protocol_version": 0.3},
+        hangarllm_params={"a2a_protocol_version": 0.3},
     )
 
     assert response.result["artifacts"][0]["parts"][0]["text"] == "langgraph echo: hi"
@@ -581,14 +581,14 @@ async def test_asend_message_resolves_float_protocol_version_from_agent_params(i
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected_protocol_version"),
+    ("hangarllm_params", "expected_protocol_version"),
     [({"a2a_protocol_version": "0.3"}, "0.3"), (None, None)],
 )
 @pytest.mark.asyncio
-async def test_streaming_passes_agent_protocol_version_to_client(litellm_params, expected_protocol_version):
+async def test_streaming_passes_agent_protocol_version_to_client(hangarllm_params, expected_protocol_version):
     from unittest.mock import AsyncMock, patch
 
-    from litellm.a2a_protocol import main as a2a_main
+    from hangarllm.a2a_protocol import main as a2a_main
 
     request = SendStreamingMessageRequest(
         id="stream-protocol-version",
@@ -609,7 +609,7 @@ async def test_streaming_passes_agent_protocol_version_to_client(litellm_params,
         async for _ in a2a_main.asend_message_streaming(
             request=request,
             api_base="http://upstream.local",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         ):
             pass
 
@@ -638,7 +638,7 @@ async def test_agent_card_path_param_fetches_that_path_with_the_agents_headers(i
     await asend_message(
         request=_send_request("req-foundry"),
         api_base="http://127.0.0.1:9",
-        litellm_params={"agent_card_path": "agentCard/v1.0"},
+        hangarllm_params={"agent_card_path": "agentCard/v1.0"},
         agent_extra_headers=_AGENT_A_HEADERS,
     )
 
@@ -705,14 +705,14 @@ class _CardServedAtRecorder(_RequestRecorder):
 async def test_streamed_send_is_timed_from_before_the_agent_card_fetch(
     isolated_client_cache: LLMClientCache, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.a2a_protocol import main as a2a_main
+    from hangarllm.a2a_protocol import main as a2a_main
 
     card_recorder: Final = _CardServedAtRecorder()
     await _seed_shared_a2a_client(recorder=card_recorder)
     logger: Final = _UsageRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
-    monkeypatch.setattr(litellm, "success_callback", [logger])
-    monkeypatch.setattr(litellm, "_async_success_callback", [logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "success_callback", [logger])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [logger])
     request: Final = SendStreamingMessageRequest(
         id="reply",
         params=MessageSendParams(
@@ -730,7 +730,7 @@ async def test_streamed_send_is_timed_from_before_the_agent_card_fetch(
 @pytest.mark.asyncio
 async def test_asend_message_counts_usage_off_the_event_loop(monkeypatch):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -738,9 +738,9 @@ async def test_asend_message_counts_usage_off_the_event_loop(monkeypatch):
 
     warm_tokenizer("gpt-5.6-luna")
     recorder = _UsageRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
 
     reply = _conv.pb2_v10.StreamResponse()
     reply.message.message_id = "reply-1"
@@ -765,9 +765,9 @@ async def test_asend_message_counts_usage_off_the_event_loop(monkeypatch):
 
 
 def test_streaming_logging_obj_keeps_agent_credentials_out_of_logging_params():
-    """Callbacks receive the streaming logging object's litellm_params as raw kwargs, so an agent's
+    """Callbacks receive the streaming logging object's hangarllm_params as raw kwargs, so an agent's
     Entra, Databricks, or static credentials must never be copied into it; only pricing keys are."""
-    from litellm.a2a_protocol.main import _build_streaming_logging_obj
+    from hangarllm.a2a_protocol.main import _build_streaming_logging_obj
 
     request = SendStreamingMessageRequest(
         id="rpc-secrets",
@@ -780,7 +780,7 @@ def test_streaming_logging_obj_keeps_agent_credentials_out_of_logging_params():
         request=request,
         agent_name="foundry-agent",
         agent_id="agent-1",
-        litellm_params={
+        hangarllm_params={
             "client_secret": "sp-secret",
             "azure_ad_token": "entra-token",
             "tenant_id": "tenant",
@@ -798,9 +798,9 @@ def test_streaming_logging_obj_keeps_agent_credentials_out_of_logging_params():
         "metadata": {"user_api_key": "hashed"},
         "proxy_server_request": {"url": "http://localhost:4000"},
     }
-    assert logging_obj.litellm_params == expected
+    assert logging_obj.hangarllm_params == expected
     assert logging_obj.optional_params == expected
-    assert logging_obj.model_call_details["litellm_params"] == expected
+    assert logging_obj.model_call_details["hangarllm_params"] == expected
 
 
 class _LoggedSpend(BaseModel):
@@ -839,19 +839,19 @@ class _A2ASpendRecorder(CustomLogger):
 @pytest.fixture
 def a2a_spend_recorder(monkeypatch: pytest.MonkeyPatch) -> _A2ASpendRecorder:
     recorder: Final = _A2ASpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     return recorder
 
 
 @pytest.fixture
 def respx_reachable_httpx(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 _AgentPrices: TypeAlias = Mapping[str, float]
@@ -915,15 +915,15 @@ def _assert_billed_at_agent_prices(
     assert recorder.agent_id == "agent-1"
 
 
-async def _drain_bridge_stream(litellm_params: Mapping[str, object]) -> None:
-    from litellm.a2a_protocol.main import asend_message_streaming
+async def _drain_bridge_stream(hangarllm_params: Mapping[str, object]) -> None:
+    from hangarllm.a2a_protocol.main import asend_message_streaming
 
     _ = [
         chunk
         async for chunk in asend_message_streaming(
             request=SendStreamingMessageRequest(id="bridge-stream", params=_bridge_message_params()),
             api_base="http://127.0.0.1:9",
-            litellm_params=dict(litellm_params),
+            hangarllm_params=dict(hangarllm_params),
             agent_id="agent-1",
             agent_name="trip-planner",
         )
@@ -963,7 +963,7 @@ async def test_completion_bridge_send_bills_the_agents_prices(
     await asend_message(
         request=SendMessageRequest(id="bridge-send", params=_bridge_message_params()),
         api_base="http://127.0.0.1:9",
-        litellm_params=_bridge_agent_params(prices),
+        hangarllm_params=_bridge_agent_params(prices),
         agent_id="agent-1",
     )
 
@@ -1002,7 +1002,7 @@ async def test_agentcore_send_bills_a_task_reply_at_the_agents_token_prices(
         router.post(url__regex=r".*/invocations.*").mock(return_value=httpx.Response(200, json=task_reply))
         await asend_message(
             request=SendMessageRequest(id="bridge-send", params=_bridge_message_params()),
-            litellm_params={**_AGENTCORE_PARAMS, **_PER_TOKEN_PRICES},
+            hangarllm_params={**_AGENTCORE_PARAMS, **_PER_TOKEN_PRICES},
             agent_id="agent-1",
         )
 
@@ -1073,24 +1073,24 @@ async def _cancel_reader_after_first_event(stream: AsyncGenerator[object, None])
 
 
 def _pydantic_bridge_agent_stream() -> AsyncGenerator[object, None]:
-    from litellm.a2a_protocol.main import asend_message_streaming
+    from hangarllm.a2a_protocol.main import asend_message_streaming
 
     return asend_message_streaming(
         request=SendStreamingMessageRequest(id="bridge-stream", params=_bridge_message_params()),
         api_base="http://127.0.0.1:9",
-        litellm_params={"custom_llm_provider": "pydantic_ai_agents", "cost_per_query": 0.25},
+        hangarllm_params={"custom_llm_provider": "pydantic_ai_agents", "cost_per_query": 0.25},
         agent_id="agent-1",
         agent_name="trip-planner",
     )
 
 
 def _url_agent_stream() -> AsyncGenerator[object, None]:
-    from litellm.a2a_protocol.main import asend_message_streaming
+    from hangarllm.a2a_protocol.main import asend_message_streaming
 
     return asend_message_streaming(
         request=SendStreamingMessageRequest(id="reply", params=_bridge_message_params()),
         api_base="http://127.0.0.1:9",
-        litellm_params={"cost_per_query": 0.25},
+        hangarllm_params={"cost_per_query": 0.25},
         agent_id="agent-1",
     )
 
@@ -1191,7 +1191,7 @@ async def test_agentcore_error_reply_is_not_billed_at_the_agents_price(
         else:
             response = await asend_message(
                 request=SendMessageRequest(id="agentcore-call", params=_bridge_message_params()),
-                litellm_params=dict(agent_params),
+                hangarllm_params=dict(agent_params),
                 agent_id="agent-1",
             )
             assert response.model_dump(mode="json", exclude_none=True)["error"]["message"] == "agent crashed"
@@ -1224,7 +1224,7 @@ class MockA2AStreamingChunk(MockA2AResponse):
 
 class MockA2AClient:
     def __init__(self):
-        self._litellm_agent_card = SimpleNamespace(name="mock-agent", url="http://mock-agent.local")
+        self._hangarllm_agent_card = SimpleNamespace(name="mock-agent", url="http://mock-agent.local")
 
     async def send_message(self, request, *, context=None):
         from a2a.compat.v0_3.conversions import pb2_v10
@@ -1239,7 +1239,7 @@ class MockA2AClient:
 
 @pytest.fixture
 def mock_a2a_client(monkeypatch):
-    import litellm.a2a_protocol.main as a2a_main
+    import hangarllm.a2a_protocol.main as a2a_main
 
     async def _fake_create_a2a_client(
         base_url, timeout=60.0, extra_headers=None, streaming=False, relative_card_path=None, **_
@@ -1253,7 +1253,7 @@ async def test_a2a_non_streaming(mock_a2a_client):
     """Test non-streaming A2A request."""
     from a2a.compat.v0_3.types import MessageSendParams, SendMessageRequest
 
-    from litellm.a2a_protocol import asend_message
+    from hangarllm.a2a_protocol import asend_message
 
     request = SendMessageRequest(
         id=str(uuid4()),
@@ -1279,7 +1279,7 @@ async def test_a2a_streaming(mock_a2a_client):
     """Test streaming A2A request."""
     from a2a.compat.v0_3.types import MessageSendParams, SendStreamingMessageRequest
 
-    from litellm.a2a_protocol import asend_message_streaming
+    from hangarllm.a2a_protocol import asend_message_streaming
 
     request = SendStreamingMessageRequest(
         id=str(uuid4()),

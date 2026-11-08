@@ -11,7 +11,7 @@ from typing import Final, Generic, TypeVar
 
 from pydantic import TypeAdapter
 
-from litellm.redis.stores.rate_limits import (
+from hangarllm.redis.stores.rate_limits import (
     AcquireReply,
     AtomicApplied,
     AtomicCounter,
@@ -28,7 +28,7 @@ from litellm.redis.stores.rate_limits import (
     RateLimitStore,
     WindowCount,
 )
-from litellm.rust_bridge._native import NativeRateLimits
+from hangarllm.rust_bridge._native import NativeRateLimits
 
 _T = TypeVar("_T")
 RawScript = Callable[..., Awaitable[object]]

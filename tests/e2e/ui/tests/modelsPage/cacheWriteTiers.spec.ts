@@ -13,7 +13,7 @@ const ONE_HOUR_LABEL = /^Cache Write Cost \(1 hour, per 1M tokens\)/;
 type Deployment = {
   model_name?: string;
   model_info?: { id?: string };
-  litellm_params: {
+  hangarllm_params: {
     cache_creation_input_token_cost?: number;
     cache_creation_input_token_cost_above_1hr?: number;
   };
@@ -27,7 +27,7 @@ async function deleteModel(page: PlaywrightPage, id: string) {
 }
 
 async function readDeployment(page: PlaywrightPage, modelId: string): Promise<Deployment | undefined> {
-  const body = await readBack<{ data: Deployment[] }>(page, `/model/info?litellm_model_id=${modelId}`);
+  const body = await readBack<{ data: Deployment[] }>(page, `/model/info?hangarllm_model_id=${modelId}`);
   return body.data[0];
 }
 
@@ -59,7 +59,7 @@ test.describe("Cache write cost tiers", () => {
       headers: auth,
       data: {
         model_name: modelName,
-        litellm_params: {
+        hangarllm_params: {
           model: "anthropic/claude-sonnet-4-6",
           api_key: "sk-e2e-not-used",
           cache_creation_input_token_cost: perToken(FIVE_MINUTE_PER_MILLION),
@@ -90,16 +90,16 @@ test.describe("Cache write cost tiers", () => {
         await page.getByRole("button", { name: "Save Changes" }).click();
       },
     );
-    expect(patchBody.litellm_params.cache_creation_input_token_cost_above_1hr, "1 hour rate sent per token").toBe(
+    expect(patchBody.hangarllm_params.cache_creation_input_token_cost_above_1hr, "1 hour rate sent per token").toBe(
       perToken(ONE_HOUR_PER_MILLION),
     );
     await expect(page.getByText("Model settings updated successfully")).toBeVisible({ timeout: 10_000 });
 
     const stored = await readDeployment(page, createdModelId!);
-    expect(stored?.litellm_params?.cache_creation_input_token_cost_above_1hr, "1 hour rate persisted").toBe(
+    expect(stored?.hangarllm_params?.cache_creation_input_token_cost_above_1hr, "1 hour rate persisted").toBe(
       perToken(ONE_HOUR_PER_MILLION),
     );
-    expect(stored?.litellm_params?.cache_creation_input_token_cost, "5 minute rate untouched").toBe(
+    expect(stored?.hangarllm_params?.cache_creation_input_token_cost, "5 minute rate untouched").toBe(
       perToken(FIVE_MINUTE_PER_MILLION),
     );
 
@@ -135,10 +135,10 @@ test.describe("Cache write cost tiers", () => {
     createdModelId = listed.data.find((row) => row.model_name === publicName)?.model_info?.id ?? null;
 
     expect(body.model_name).toBe(publicName);
-    expect(body.litellm_params.cache_creation_input_token_cost, "5 minute rate sent per token").toBe(
+    expect(body.hangarllm_params.cache_creation_input_token_cost, "5 minute rate sent per token").toBe(
       perToken(FIVE_MINUTE_PER_MILLION),
     );
-    expect(body.litellm_params.cache_creation_input_token_cost_above_1hr, "1 hour rate sent per token").toBe(
+    expect(body.hangarllm_params.cache_creation_input_token_cost_above_1hr, "1 hour rate sent per token").toBe(
       perToken(ONE_HOUR_PER_MILLION),
     );
     expect(createdModelId, "the model landed in the database").toBeTruthy();

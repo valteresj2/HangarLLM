@@ -8,7 +8,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Route
 
-from litellm.llms.custom_httpx.asgi_handler import get_async_asgi_client
+from hangarllm.llms.custom_httpx.asgi_handler import get_async_asgi_client
 
 
 @pytest.mark.asyncio

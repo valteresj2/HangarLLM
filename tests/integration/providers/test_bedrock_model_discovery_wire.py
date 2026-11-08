@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.aws_control_plane import (
     FOUNDATION_MODELS,
@@ -130,7 +130,7 @@ def _info_rows(gateway: Gateway, path: str, marker: str, identity: str) -> Mappi
     assert isinstance(entries, list)
     rows: Final = tuple(object_value(entry) for entry in entries)
     return {
-        string_value(row["model_name"]): string_value(object_value(row["litellm_params"])["model"])
+        string_value(row["model_name"]): string_value(object_value(row["hangarllm_params"])["model"])
         for row in rows
         if marker in string_value(row["model_name"]) and string_value(object_value(row["model_info"])["id"]) == identity
     }
@@ -206,7 +206,7 @@ def test_bearer_token_deployment_lists_with_the_token_and_no_signature(rig: Rig)
     marker: Final = stem()
     catalog: Final = catalog_for(marker)
     with rig.gateway.scenario() as scenario, rig.plane.answering(token, catalog.respond):
-        deployment(scenario, litellm_params={"api_key": token, "aws_region_name": "us-east-1"})
+        deployment(scenario, hangarllm_params={"api_key": token, "aws_region_name": "us-east-1"})
         assert discovered(rig.gateway, catalog, marker) == catalog.invocable_ids()
         requests: Final = mine(rig.plane, token)
         assert_listing_shape(requests)
@@ -254,7 +254,7 @@ def _response_id(text: str, *, stream: bool) -> str:
 
 def _call(gateway: Gateway, path: str, body: Mapping[str, JsonValue], *, key: str, tag: str) -> tuple[str, str]:
     """POST one call tagged for its spend row and return (response id, response text); a stream is read to its terminal frame."""
-    response: Final = gateway.request("POST", path, body, key=key, headers={**CLOSE, "x-litellm-tags": tag})
+    response: Final = gateway.request("POST", path, body, key=key, headers={**CLOSE, "x-hangarllm-tags": tag})
     assert response.status_code == 200, f"POST {path}: {response.status_code} {response.text}"
     stream: Final = body.get("stream") is True
     if stream:
@@ -285,7 +285,7 @@ def _calls_on(model: str, markers: tuple[str, ...]) -> tuple[tuple[str, Mapping[
 def _chat_rows_landed(ids: tuple[str, ...]) -> None:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = ANY(%s)',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = ANY(%s)',
             (list(ids),),  # pyright: ignore[reportArgumentType]  # psycopg adapts the list to a text array
         ),
         lambda found: len(found) >= len(ids),
@@ -304,7 +304,7 @@ def _landed_once(served: tuple[tuple[str, str, bool], ...], tags: tuple[str, ...
     """One spend row per tagged call, carrying the id the client saw."""
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id, request_tags FROM "LiteLLM_SpendLogs" WHERE request_tags ?| %s',
+            'SELECT request_id, request_tags FROM "HangarLLM_SpendLogs" WHERE request_tags ?| %s',
             (list(tags),),  # pyright: ignore[reportArgumentType]  # psycopg adapts the list to a text array
         ),
         lambda found: len(found) >= len(tags),
@@ -321,7 +321,7 @@ def test_discovered_model_is_callable_through_the_wildcard_on_every_endpoint(rig
     catalog: Final = Catalog(active_profiles=(f"us.{marker}.sonnet-v1:0",), on_demand_models=(CONVERSE_MODEL,))
     with rig.gateway.scenario() as scenario, rig.plane.answering(key, catalog.respond):
         sigv4_deployment(
-            scenario, key, secret, "us-east-1", litellm_params={"aws_bedrock_runtime_endpoint": rig.runtime.url}
+            scenario, key, secret, "us-east-1", hangarllm_params={"aws_bedrock_runtime_endpoint": rig.runtime.url}
         )
         scoped: Final = scenario.key(models=["bedrock/*"])
         assert discovered(rig.gateway, catalog, marker, key=scoped) == from_stem(marker, catalog.invocable_ids())
@@ -356,7 +356,7 @@ def test_flag_off_proxy_lists_the_static_catalog_and_never_calls_the_control_pla
     marker: Final = stem()
     catalog: Final = catalog_for(marker)
     static: Final = frozenset(
-        name if name.startswith("bedrock/") else f"bedrock/{name}" for name in litellm.models_by_provider["bedrock"]
+        name if name.startswith("bedrock/") else f"bedrock/{name}" for name in hangarllm.models_by_provider["bedrock"]
     )
     with flag_off_rig.gateway.scenario() as scenario, flag_off_rig.plane.answering(key, catalog.respond):
         sigv4_deployment(scenario, key, secret, "us-east-1")
@@ -406,7 +406,7 @@ def test_deployment_without_credentials_never_reaches_the_control_plane(rig: Rig
     marker: Final = stem()
     rig.plane.drain()
     with rig.gateway.scenario() as scenario:
-        deployment(scenario, litellm_params={"aws_region_name": "us-east-1"})
+        deployment(scenario, hangarllm_params={"aws_region_name": "us-east-1"})
         for _ in range(6):
             listed: Final = listed_ids(rig.gateway)
             assert from_stem(marker, listed) == frozenset() and CONTROL_MODEL in listed
@@ -517,7 +517,7 @@ def test_non_string_credential_fields_are_refused_at_model_creation(rig: Rig, fi
         "/model/new",
         {
             "model_name": "bedrock/*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock/*",
                 "aws_access_key_id": key,
                 "aws_secret_access_key": secret,
@@ -537,7 +537,7 @@ def test_empty_api_key_falls_back_to_sigv4(rig: Rig) -> None:
     marker: Final = stem()
     catalog: Final = catalog_for(marker)
     with rig.gateway.scenario() as scenario, rig.plane.answering(key, catalog.respond):
-        sigv4_deployment(scenario, key, secret, "us-east-1", litellm_params={"api_key": ""})
+        sigv4_deployment(scenario, key, secret, "us-east-1", hangarllm_params={"api_key": ""})
         assert discovered(rig.gateway, catalog, marker) == catalog.invocable_ids()
         requests: Final = mine(rig.plane, key)
         assert_listing_shape(requests)
@@ -721,7 +721,7 @@ def test_region_update_while_listings_flow_moves_the_listing_to_the_new_regions_
         poller.start()
         try:
             updated: Final = rig.gateway.request(
-                "PATCH", f"/model/{identity}/update", {"litellm_params": {"aws_region_name": "eu-west-1"}}
+                "PATCH", f"/model/{identity}/update", {"hangarllm_params": {"aws_region_name": "eu-west-1"}}
             )
             assert updated.status_code == 200, updated.text
             eventually(reached, lambda seen: control_plane_host("eu-west-1") in seen, seconds=RELOAD_SECONDS * 4)

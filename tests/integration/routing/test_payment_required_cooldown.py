@@ -49,7 +49,7 @@ pytestmark: Final = [pytest.mark.timeout(300), pytest.mark.shares_worker_state]
 COOLDOWN_SECONDS: Final = 300
 RELOAD_SECONDS: Final = 2
 NO_DEPLOYMENTS: Final = "No deployments available"
-COOLED_DOWN: Final = "litellm_deployment_cooled_down_total"
+COOLED_DOWN: Final = "hangarllm_deployment_cooled_down_total"
 PRIMARY_GROUP: Final = new_group()
 FALLBACK_GROUP: Final = new_group()
 MARKER: Final = re.compile(rb"pr402-[0-9a-f]{32}(?:-\d+)?")
@@ -129,12 +129,12 @@ def cooldown_config(
 ) -> Path:
     base: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     assert isinstance(base, dict)
-    litellm_settings: Final = (
-        {**base["litellm_settings"], "callbacks": ["prometheus"]} if prometheus else base["litellm_settings"]
+    hangarllm_settings: Final = (
+        {**base["hangarllm_settings"], "callbacks": ["prometheus"]} if prometheus else base["hangarllm_settings"]
     )
     config: Final = {
         **base,
-        "litellm_settings": litellm_settings,
+        "hangarllm_settings": hangarllm_settings,
         "router_settings": dict(settings),
         **({"model_list": [dict(entry) for entry in model_list]} if model_list else {}),
     }
@@ -170,12 +170,12 @@ def two_deployments(scenario: Scenario, group: str, refusing: Wire, healthy: Wir
 
 def raw_chat(gateway: Gateway, group: str, marker: str, **extra: JsonValue) -> Outcome:
     response: Final = post(gateway, "/v1/chat/completions", chat_body(group, marker, **extra))
-    return Outcome(marker, response.status_code, response.text, response.headers["x-litellm-call-id"])
+    return Outcome(marker, response.status_code, response.text, response.headers["x-hangarllm-call-id"])
 
 
 def raw_call(gateway: Gateway, call: Call) -> Outcome:
     response: Final = post(gateway, call.path, call.body)
-    return Outcome(call.marker, response.status_code, response.text, response.headers["x-litellm-call-id"])
+    return Outcome(call.marker, response.status_code, response.text, response.headers["x-hangarllm-call-id"])
 
 
 def openai_chat(client: openai.OpenAI, group: str, marker: str) -> Outcome:
@@ -184,8 +184,8 @@ def openai_chat(client: openai.OpenAI, group: str, marker: str) -> Outcome:
             model=group, messages=[{"role": "user", "content": marker}]
         )
     except openai.APIStatusError as error:
-        return Outcome(marker, error.status_code, error.message, error.response.headers["x-litellm-call-id"])
-    return Outcome(marker, raw.status_code, raw.parse().id, raw.headers["x-litellm-call-id"])
+        return Outcome(marker, error.status_code, error.message, error.response.headers["x-hangarllm-call-id"])
+    return Outcome(marker, raw.status_code, raw.parse().id, raw.headers["x-hangarllm-call-id"])
 
 
 def anthropic_message(client: anthropic.Anthropic, group: str, marker: str) -> Outcome:
@@ -194,10 +194,10 @@ def anthropic_message(client: anthropic.Anthropic, group: str, marker: str) -> O
             model=group, max_tokens=32, messages=[{"role": "user", "content": marker}]
         )
     except anthropic.APIStatusError as error:
-        return Outcome(marker, error.status_code, error.message, error.response.headers["x-litellm-call-id"])
+        return Outcome(marker, error.status_code, error.message, error.response.headers["x-hangarllm-call-id"])
     block: Final = raw.parse().content[0]
     assert isinstance(block, anthropic.types.TextBlock), block
-    return Outcome(marker, raw.status_code, block.text, raw.headers["x-litellm-call-id"])
+    return Outcome(marker, raw.status_code, block.text, raw.headers["x-hangarllm-call-id"])
 
 
 def until_refused(attempt: Callable[[str], Outcome], tries: int = 40) -> tuple[Outcome, ...]:
@@ -592,8 +592,8 @@ def test_chaos_burst_cooldown_holds_across_both_workers_and_a_worker_kill(tmp_pa
         refusing: Final = stack.enter_context(wire_server(refusing_reply))
         healthy: Final = stack.enter_context(wire_server(healthy_reply))
         model_list: Final = (
-            {"model_name": group, "litellm_params": anthropic_params(refusing), "model_info": {"id": refused_id}},
-            {"model_name": group, "litellm_params": openai_params(healthy), "model_info": {"id": healthy_id}},
+            {"model_name": group, "hangarllm_params": anthropic_params(refusing), "model_info": {"id": refused_id}},
+            {"model_name": group, "hangarllm_params": openai_params(healthy), "model_info": {"id": healthy_id}},
         )
         config: Final = cooldown_config(tmp_path, router_settings(cache), model_list=model_list, prometheus=False)
         owned: Final = stack.enter_context(owned_proxy_process(upstream, tmp_path, {}, config=config, workers=2))

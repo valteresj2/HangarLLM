@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm import get_llm_provider
-from litellm.types.utils import ModelResponse, Usage
+import hangarllm
+from hangarllm import get_llm_provider
+from hangarllm.types.utils import ModelResponse, Usage
 
 NADIR_BASE = "https://api.getnadir.com/v1"
-COST_HEADER = "llm_provider-x-litellm-response-cost"
+COST_HEADER = "llm_provider-x-hangarllm-response-cost"
 
 
 def _transform(payload):
@@ -20,7 +20,7 @@ def _transform(payload):
         headers={"content-type": "application/json"},
         request=httpx.Request("POST", f"{NADIR_BASE}/chat/completions"),
     )
-    return litellm.NadirConfig().transform_response(
+    return hangarllm.NadirConfig().transform_response(
         model="auto",
         raw_response=raw,
         model_response=ModelResponse(),
@@ -28,7 +28,7 @@ def _transform(payload):
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -46,11 +46,11 @@ def _payload(**extra):
 
 
 def _cost(response, provider):
-    return litellm.completion_cost(completion_response=response, custom_llm_provider=provider)
+    return hangarllm.completion_cost(completion_response=response, custom_llm_provider=provider)
 
 
 def _logged_cost(response):
-    return litellm.response_cost_calculator(
+    return hangarllm.response_cost_calculator(
         response_object=response,
         model="auto",
         custom_llm_provider="nadir",
@@ -122,7 +122,7 @@ class TestNadirCredentialScoping:
 
 class TestNadirParamMapping:
     def test_supported_params_are_mapped(self):
-        params = litellm.get_optional_params(
+        params = hangarllm.get_optional_params(
             model="auto",
             custom_llm_provider="nadir",
             temperature=0.5,
@@ -132,7 +132,7 @@ class TestNadirParamMapping:
         assert params["max_tokens"] == 64
 
     def test_streaming_is_advertised_and_tools_are_not(self):
-        params = litellm.get_supported_openai_params(model="auto", custom_llm_provider="nadir")
+        params = hangarllm.get_supported_openai_params(model="auto", custom_llm_provider="nadir")
         assert "stream" in params
         assert "tools" not in params
 
@@ -146,11 +146,11 @@ class TestNadirParamMapping:
         ],
     )
     def test_params_nadir_would_silently_drop_are_rejected(self, unsupported):
-        with pytest.raises(litellm.UnsupportedParamsError):
-            litellm.get_optional_params(model="auto", custom_llm_provider="nadir", **unsupported)
+        with pytest.raises(hangarllm.UnsupportedParamsError):
+            hangarllm.get_optional_params(model="auto", custom_llm_provider="nadir", **unsupported)
 
     def test_unsupported_params_are_dropped_when_asked(self):
-        params = litellm.get_optional_params(
+        params = hangarllm.get_optional_params(
             model="auto",
             custom_llm_provider="nadir",
             drop_params=True,
@@ -164,12 +164,12 @@ class TestNadirParamMapping:
 class TestNadirEnvValidation:
     def test_validate_environment_detects_key(self, monkeypatch):
         monkeypatch.setenv("NADIR_API_KEY", "sk-live-xyz")
-        result = litellm.validate_environment(model="nadir/auto")
+        result = hangarllm.validate_environment(model="nadir/auto")
         assert result["keys_in_environment"] is True
 
     def test_validate_environment_flags_missing_key(self, monkeypatch):
         monkeypatch.delenv("NADIR_API_KEY", raising=False)
-        result = litellm.validate_environment(model="nadir/auto")
+        result = hangarllm.validate_environment(model="nadir/auto")
         assert "NADIR_API_KEY" in result["missing_keys"]
 
 
@@ -218,9 +218,9 @@ class TestNadirCompletionDispatch:
             return ModelResponse()
 
         with patch(  # test-quality-ok: these tests assert the dispatch wiring itself (nadir must reach base_llm_http_handler, and which credentials it is handed); faking HTTP would not observe that
-            "litellm.main.base_llm_http_handler.completion", side_effect=fake_completion
+            "hangarllm.main.base_llm_http_handler.completion", side_effect=fake_completion
         ):
-            litellm.completion(
+            hangarllm.completion(
                 model="nadir/auto",
                 messages=[{"role": "user", "content": "hi"}],
                 **kwargs,
@@ -249,7 +249,7 @@ class TestNadirCompletionDispatch:
 
     def test_global_key_is_not_forwarded_to_a_caller_supplied_host(self, monkeypatch):
         monkeypatch.delenv("NADIR_API_KEY", raising=False)
-        monkeypatch.setattr(litellm, "api_key", "sk-global")
+        monkeypatch.setattr(hangarllm, "api_key", "sk-global")
         captured = self._call(api_base="https://attacker.example/v1")
         assert captured["api_key"] != "sk-global"
 

@@ -1,15 +1,15 @@
 import os
 from unittest import mock
 
-import litellm
+import hangarllm
 import pytest
 
-from litellm.llms.lambda_ai.chat.transformation import LambdaAIChatConfig
+from hangarllm.llms.lambda_ai.chat.transformation import LambdaAIChatConfig
 
 
 def test_get_llm_provider_lambda_ai():
     """Test that get_llm_provider correctly identifies Lambda AI"""
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     # Test with lambda_ai/model-name format
     model, provider, api_key, api_base = get_llm_provider(
@@ -64,6 +64,6 @@ def test_lambda_ai_get_openai_compatible_provider_info() -> None:
 
 def test_lambda_ai_in_provider_lists() -> None:
     """Test that Lambda AI is registered in all necessary provider lists"""
-    assert "lambda_ai" in litellm.openai_compatible_providers
-    assert "lambda_ai" in litellm.provider_list
-    assert "https://api.lambda.ai/v1" in litellm.openai_compatible_endpoints
+    assert "lambda_ai" in hangarllm.openai_compatible_providers
+    assert "lambda_ai" in hangarllm.provider_list
+    assert "https://api.lambda.ai/v1" in hangarllm.openai_compatible_endpoints

@@ -26,7 +26,7 @@ _USAGE: Final = {
 _NATIVE_COUNT: Final = 31
 _SPEND_SELECT: Final = (
     "SELECT request_id, call_type, model_group, status, cache_hit, prompt_tokens, completion_tokens, spend"
-    ' FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
+    ' FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
 )
 
 

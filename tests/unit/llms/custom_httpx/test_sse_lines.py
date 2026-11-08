@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.custom_httpx.sse_lines import (
+from hangarllm.llms.custom_httpx.sse_lines import (
     aiter_sse_lines,
     iter_sse_lines,
     split_sse_lines,

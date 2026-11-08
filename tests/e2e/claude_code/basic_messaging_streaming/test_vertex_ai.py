@@ -1,7 +1,7 @@
 """basic_messaging_streaming x Vertex AI.
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Claude requests to
+mode against a running HangarLLM proxy that routes Claude requests to
 Anthropic's models on Google Cloud Vertex AI, and report the outcome
 via `compat_result`.
 
@@ -37,7 +37,7 @@ VERTEX_AI_MODELS = [
     )
 )
 def test_basic_messaging_streaming_vertex_ai(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     non-empty streamed reply (one row per Claude tier).
     """
     run_basic_messaging_cell(

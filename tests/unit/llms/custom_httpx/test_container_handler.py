@@ -8,14 +8,14 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.custom_httpx import container_handler
-from litellm.llms.custom_httpx.container_handler import generic_container_handler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.containers.main import DeleteContainerFileResponse
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.custom_httpx import container_handler
+from hangarllm.llms.custom_httpx.container_handler import generic_container_handler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.containers.main import DeleteContainerFileResponse
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.utils import ProviderConfigManager
 
 FILE_NOT_FOUND_BODY = {
     "error": {
@@ -43,9 +43,9 @@ def _handle(endpoint_name: str, client, **overrides):
     return generic_container_handler.handle(
         endpoint_name=endpoint_name,
         container_provider_config=ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders.OPENAI
+            provider=hangarllm.LlmProviders.OPENAI
         ),
-        litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+        hangarllm_params=GenericHangarLLMParams(api_key="sk-test"),
         logging_obj=MagicMock(),
         client=client,
         container_id="cntr_real",
@@ -135,7 +135,7 @@ def test_json_endpoint_sends_the_configured_route_and_parses_its_response_model(
 def test_an_endpoint_table_without_a_param_list_fails_the_call(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, missing_key: str
 ):
-    packaged: Final = json.loads(files("litellm.containers").joinpath("endpoints.json").read_text())
+    packaged: Final = json.loads(files("hangarllm.containers").joinpath("endpoints.json").read_text())
     trimmed: Final = {
         "endpoints": [
             {key: value for key, value in entry.items() if key != missing_key} for entry in packaged["endpoints"]

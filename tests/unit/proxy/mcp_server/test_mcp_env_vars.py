@@ -1,7 +1,7 @@
 """Tests for MCP env-var interpolation utilities.
 
 These cover the pure helpers in
-``litellm.proxy.mcp_server.utils`` and do not require a DB
+``hangarllm.proxy.mcp_server.utils`` and do not require a DB
 connection. The DB-backed per-user flow is exercised in higher-level
 tests in tests/integration/mcp.
 """
@@ -19,8 +19,8 @@ from respx import MockRouter
 # old class object and ``pytest.raises(_u("MCPMissingUserEnvVarsError"))`` would
 # stop matching the new class. Accessing the attribute through the module
 # always picks up the current version.
-import litellm.proxy.mcp_server.utils as _mcp_utils
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+import hangarllm.proxy.mcp_server.utils as _mcp_utils
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def _u(name: str):
@@ -160,7 +160,7 @@ def test_missing_user_env_vars_error_falls_back_to_server_id():
 @pytest.fixture
 def mock_server():
     """A minimal MCPServer-like object for the static-headers resolver."""
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     return MCPServer(
         server_id="srv-1",
@@ -190,7 +190,7 @@ def mock_server():
 async def test_resolve_static_headers_interpolates_globals_and_user(
     mock_server, monkeypatch
 ):
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -215,7 +215,7 @@ async def test_resolve_static_headers_interpolates_globals_and_user(
 async def test_resolve_static_headers_raises_when_user_vars_missing(
     mock_server, monkeypatch
 ):
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -249,7 +249,7 @@ async def test_resolve_static_headers_rechecks_db_before_raising_412(
     MCPMissingUserEnvVarsError the resolver must re-read with force_refresh and
     honor the fresh DB values.
     """
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -287,7 +287,7 @@ async def test_resolve_static_headers_missing_is_non_blocking_for_listing(
     """With raise_on_missing=False (the tool-list path), missing per-user vars
     must NOT raise. Available vars interpolate; unfilled ${NAME} refs are left
     untouched so the server's tools still appear in the listing."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -316,7 +316,7 @@ async def test_resolve_static_headers_propagates_db_error_on_tool_call(
 ):
     """A DB failure on the tool-call path must surface as a real error, not be
     masked as a "missing credentials" MCPMissingUserEnvVarsError (412)."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -339,7 +339,7 @@ async def test_resolve_static_headers_swallows_db_error_on_listing(
 ):
     """On the listing path a DB failure is non-blocking: globals interpolate
     and unfilled per-user ${NAME} refs are left untouched."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -362,10 +362,10 @@ async def test_resolve_static_headers_swallows_db_error_on_listing(
 @pytest.mark.asyncio
 async def test_resolve_static_headers_passthrough_when_no_env_vars():
     """Servers without env_vars should keep static_headers untouched."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -387,10 +387,10 @@ async def test_resolve_static_headers_unreferenced_user_var_is_not_blocking(
     """A per-user var declared by the admin but never referenced in
     static_headers must not block the request — only blocking-by-use is
     enforced."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -422,10 +422,10 @@ async def test_resolve_static_headers_stale_user_value_cannot_override_global(
     """A var that used to be user-scoped (so the user has a stored value) but is
     now global must resolve to the admin's global value, not the stale per-user
     row. Otherwise a user could override admin-configured headers indefinitely."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -459,10 +459,10 @@ async def test_resolve_static_headers_dual_scope_var_uses_global_without_412(
     global value (globals win in the merge), so the tool-call path must resolve
     it from the global instead of raising a 412 when the user hasn't filled it
     in. This happens during a global-to-user (or user-to-global) migration."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -503,10 +503,10 @@ async def test_resolve_static_headers_empty_global_does_not_cover_user_var(
     global carries no usable value, so the tool-call path still raises a 412
     when the user hasn't supplied one, instead of silently interpolating an
     empty string into the header."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -542,10 +542,10 @@ async def test_resolve_static_headers_user_value_wins_over_empty_global(
     """When a global is empty, a value the user did supply must win the merge
     rather than being clobbered by the empty global. The header resolves to the
     user's value, not an empty string."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -602,10 +602,10 @@ def test_references_per_user_env_var(static_headers, env_vars, expected):
     """Only headers that actually reference a *per-user* var count: globals and
     declared-but-unreferenced user vars do not, since the userless probe can
     still resolve (or simply not need) them."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -623,7 +623,7 @@ def test_references_per_user_env_var(static_headers, env_vars, expected):
 async def test_health_check_reaches_servers_without_forwarding_per_user_env_vars(
     mock_server: MCPServer, monkeypatch: pytest.MonkeyPatch, respx_mock: MockRouter
 ) -> None:
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -649,10 +649,10 @@ async def test_health_check_reaches_servers_without_forwarding_per_user_env_vars
 @pytest.mark.asyncio
 async def test_load_user_env_vars_returns_empty_without_user():
     """No user auth → no per-user lookup is attempted."""
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -666,10 +666,10 @@ async def test_load_user_env_vars_returns_empty_without_user_id():
     """User auth without a user_id (e.g. anonymous virtual key) → empty dict."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -688,10 +688,10 @@ async def test_load_user_env_vars_raises_when_db_unavailable(monkeypatch):
     satisfy (per-user env vars are unusable without a DB)."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -699,7 +699,7 @@ async def test_load_user_env_vars_raises_when_db_unavailable(monkeypatch):
     )
     fake_auth = MagicMock()
     fake_auth.user_id = "alice"
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     with pytest.raises(RuntimeError, match="database connection"):
         await manager._load_user_env_vars(server, fake_auth)
 
@@ -714,14 +714,14 @@ async def test_resolve_static_headers_db_unavailable_is_not_missing_412(
     was None, making a DB outage look like "user has no credentials"."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
     manager = MCPServerManager()
     fake_auth = MagicMock()
     fake_auth.user_id = "alice"
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
 
     with pytest.raises(RuntimeError, match="database connection"):
         await manager._resolve_static_headers_with_env_vars(
@@ -735,11 +735,11 @@ async def test_load_user_env_vars_caches_within_ttl(env_vars_salt_key, monkeypat
     keeping the hot tool-call/tool-listing path off the DB."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server import mcp_server_manager as mgr_mod
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server import mcp_server_manager as mgr_mod
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     mgr_mod._user_env_vars_cache.clear()
 
@@ -747,7 +747,7 @@ async def test_load_user_env_vars_caches_within_ttl(env_vars_salt_key, monkeypat
     row.values_b64 = _encrypted_user_env_blob({"TOKEN": "t0p"})
 
     prisma = _mock_env_vars_prisma(row=row)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma)
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -759,7 +759,7 @@ async def test_load_user_env_vars_caches_within_ttl(env_vars_salt_key, monkeypat
     first = await manager._load_user_env_vars(server, fake_auth)
     second = await manager._load_user_env_vars(server, fake_auth)
     assert first == {"TOKEN": "t0p"} == second
-    assert prisma.db.litellm_mcpuserenvvars.find_unique.await_count == 1
+    assert prisma.db.hangarllm_mcpuserenvvars.find_unique.await_count == 1
 
     mgr_mod._user_env_vars_cache.clear()
 
@@ -772,11 +772,11 @@ async def test_load_user_env_vars_force_refresh_bypasses_cache(
     process-local stale value cannot mask credentials stored on another worker."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.mcp_server import mcp_server_manager as mgr_mod
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server import mcp_server_manager as mgr_mod
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     mgr_mod._user_env_vars_cache.clear()
 
@@ -786,10 +786,10 @@ async def test_load_user_env_vars_force_refresh_bypasses_cache(
     new_row.values_b64 = _encrypted_user_env_blob({"TOKEN": "new"})
 
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpuserenvvars.find_unique = AsyncMock(
+    prisma.db.hangarllm_mcpuserenvvars.find_unique = AsyncMock(
         side_effect=[old_row, new_row]
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma)
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -804,7 +804,7 @@ async def test_load_user_env_vars_force_refresh_bypasses_cache(
     assert await manager._load_user_env_vars(server, fake_auth, force_refresh=True) == {
         "TOKEN": "new"
     }
-    assert prisma.db.litellm_mcpuserenvvars.find_unique.await_count == 2
+    assert prisma.db.hangarllm_mcpuserenvvars.find_unique.await_count == 2
 
     mgr_mod._user_env_vars_cache.clear()
 
@@ -817,12 +817,12 @@ async def test_load_user_env_vars_invalidation_forces_refetch(
     instead of serving the stale cached value."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.mcp_server import mcp_server_manager as mgr_mod
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server import mcp_server_manager as mgr_mod
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
         invalidate_user_env_vars_cache,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     mgr_mod._user_env_vars_cache.clear()
 
@@ -832,10 +832,10 @@ async def test_load_user_env_vars_invalidation_forces_refetch(
     new_row.values_b64 = _encrypted_user_env_blob({"TOKEN": "new"})
 
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpuserenvvars.find_unique = AsyncMock(
+    prisma.db.hangarllm_mcpuserenvvars.find_unique = AsyncMock(
         side_effect=[old_row, new_row]
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma)
 
     manager = MCPServerManager()
     server = MCPServer(
@@ -847,7 +847,7 @@ async def test_load_user_env_vars_invalidation_forces_refetch(
     assert await manager._load_user_env_vars(server, fake_auth) == {"TOKEN": "old"}
     invalidate_user_env_vars_cache("alice", "srv-1")
     assert await manager._load_user_env_vars(server, fake_auth) == {"TOKEN": "new"}
-    assert prisma.db.litellm_mcpuserenvvars.find_unique.await_count == 2
+    assert prisma.db.hangarllm_mcpuserenvvars.find_unique.await_count == 2
 
     mgr_mod._user_env_vars_cache.clear()
 
@@ -859,8 +859,8 @@ _SALT_KEY = "test-salt-key-for-env-vars-tests-1234"
 
 @pytest.fixture
 def env_vars_salt_key(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", _SALT_KEY)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"encryption_algorithm": "xsalsa20-poly1305"})
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", _SALT_KEY)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"encryption_algorithm": "xsalsa20-poly1305"})
 
 
 def _mock_env_vars_prisma(row=None):
@@ -868,11 +868,11 @@ def _mock_env_vars_prisma(row=None):
     from unittest.mock import AsyncMock, MagicMock
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpuserenvvars.find_unique = AsyncMock(return_value=row)
-    prisma.db.litellm_mcpuserenvvars.find_many = AsyncMock(return_value=[])
-    prisma.db.litellm_mcpuserenvvars.upsert = AsyncMock()
-    prisma.db.litellm_mcpuserenvvars.delete_many = AsyncMock()
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock()
+    prisma.db.hangarllm_mcpuserenvvars.find_unique = AsyncMock(return_value=row)
+    prisma.db.hangarllm_mcpuserenvvars.find_many = AsyncMock(return_value=[])
+    prisma.db.hangarllm_mcpuserenvvars.upsert = AsyncMock()
+    prisma.db.hangarllm_mcpuserenvvars.delete_many = AsyncMock()
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock()
     return prisma
 
 
@@ -881,7 +881,7 @@ def _encrypted_user_env_blob(values: dict) -> str:
     seed a correctly-encrypted ``values_b64`` blob without a live DB."""
     import json
 
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
     return encrypt_value_helper(json.dumps(values))
 
@@ -934,7 +934,7 @@ def _transactional_env_vars_prisma(read_delay: float = 0.0):
         def __init__(self, store, delay):
             self._store = store
             self._held = None
-            self.litellm_mcpuserenvvars = _Table(store, delay=delay)
+            self.hangarllm_mcpuserenvvars = _Table(store, delay=delay)
 
         async def __aenter__(self):
             return self
@@ -956,7 +956,7 @@ def _transactional_env_vars_prisma(read_delay: float = 0.0):
         def __init__(self, store, delay):
             self._store = store
             self._delay = delay
-            self.litellm_mcpuserenvvars = _Table(store)
+            self.hangarllm_mcpuserenvvars = _Table(store)
 
         def tx(self):
             return _Tx(self._store, self._delay)
@@ -972,7 +972,7 @@ def _transactional_env_vars_prisma(read_delay: float = 0.0):
 async def test_merge_user_env_vars_does_not_persist_plaintext(env_vars_salt_key):
     """The per-user write path must encrypt values at rest; ``values_b64`` must
     never hold plaintext personal credentials, but must still round-trip."""
-    from litellm.proxy.mcp_server.db import (
+    from hangarllm.proxy.mcp_server.db import (
         _decode_user_env_vars,
         merge_user_env_vars,
     )
@@ -983,7 +983,7 @@ async def test_merge_user_env_vars_does_not_persist_plaintext(env_vars_salt_key)
         prisma, "alice", "srv-1", values, allowed_names=values.keys()
     )
 
-    row = await prisma.db.litellm_mcpuserenvvars.find_unique(
+    row = await prisma.db.hangarllm_mcpuserenvvars.find_unique(
         where={"user_id_server_id": {"user_id": "alice", "server_id": "srv-1"}}
     )
     stored = row.values_b64
@@ -996,7 +996,7 @@ async def test_merge_user_env_vars_does_not_persist_plaintext(env_vars_salt_key)
 async def test_get_user_env_vars_round_trip(env_vars_salt_key):
     from unittest.mock import MagicMock
 
-    from litellm.proxy.mcp_server.db import get_user_env_vars
+    from hangarllm.proxy.mcp_server.db import get_user_env_vars
 
     payload = {"CORP_USERNAME": "alice", "CORP_PASSWORD": "s3cret"}
     row = MagicMock()
@@ -1009,7 +1009,7 @@ async def test_get_user_env_vars_round_trip(env_vars_salt_key):
 
 @pytest.mark.asyncio
 async def test_get_user_env_vars_returns_empty_for_missing_row():
-    from litellm.proxy.mcp_server.db import get_user_env_vars
+    from hangarllm.proxy.mcp_server.db import get_user_env_vars
 
     prisma = _mock_env_vars_prisma(row=None)
     assert await get_user_env_vars(prisma, "alice", "srv-1") == {}
@@ -1019,7 +1019,7 @@ async def test_get_user_env_vars_returns_empty_for_missing_row():
 async def test_get_user_env_vars_stringifies_non_string_json_values(env_vars_salt_key):
     from types import SimpleNamespace
 
-    from litellm.proxy.mcp_server.db import get_user_env_vars
+    from hangarllm.proxy.mcp_server.db import get_user_env_vars
 
     row: Final = SimpleNamespace(values_b64=_encrypted_user_env_blob({"PORT": 8080, "DEBUG": True, "EMPTY": None}))
 
@@ -1035,8 +1035,8 @@ async def test_get_user_env_vars_stringifies_non_string_json_values(env_vars_sal
 async def test_get_user_env_vars_treats_a_blob_that_is_not_a_json_object_as_unset(env_vars_salt_key, stored_json):
     from types import SimpleNamespace
 
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-    from litellm.proxy.mcp_server.db import get_user_env_vars
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.mcp_server.db import get_user_env_vars
 
     row: Final = SimpleNamespace(values_b64=encrypt_value_helper(stored_json))
 
@@ -1048,17 +1048,17 @@ async def test_decode_user_env_vars_warns_when_undecryptable(
     env_vars_salt_key, monkeypatch
 ):
     """A stored blob encrypted under a previous salt key must surface a warning
-    (not just a debug line) and decode to ``{}`` so a rotated ``LITELLM_SALT_KEY``
+    (not just a debug line) and decode to ``{}`` so a rotated ``HANGARLLM_SALT_KEY``
     is diagnosable instead of silently sending the user a misleading "set up your
     credentials" 412 for values they already stored."""
     from unittest.mock import MagicMock
 
-    import litellm.proxy.mcp_server.db as mcp_db
-    from litellm.proxy.mcp_server.db import _decode_user_env_vars
+    import hangarllm.proxy.mcp_server.db as mcp_db
+    from hangarllm.proxy.mcp_server.db import _decode_user_env_vars
 
     blob = _encrypted_user_env_blob({"CORP_PASSWORD": "s3cret"})
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "a-totally-different-salt-key-0000")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "a-totally-different-salt-key-0000")
     logger = MagicMock()
     monkeypatch.setattr(mcp_db, "verbose_proxy_logger", logger)
 
@@ -1070,7 +1070,7 @@ async def test_decode_user_env_vars_warns_when_undecryptable(
 async def test_get_user_env_vars_bulk_distributes_results(env_vars_salt_key):
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.mcp_server.db import get_user_env_vars_bulk
+    from hangarllm.proxy.mcp_server.db import get_user_env_vars_bulk
 
     blob1 = _encrypted_user_env_blob({"A": "1"})
     blob2 = _encrypted_user_env_blob({"B": "2"})
@@ -1083,31 +1083,31 @@ async def test_get_user_env_vars_bulk_distributes_results(env_vars_salt_key):
     row2.values_b64 = blob2
 
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpuserenvvars.find_many = AsyncMock(return_value=[row1, row2])
+    prisma.db.hangarllm_mcpuserenvvars.find_many = AsyncMock(return_value=[row1, row2])
     result = await get_user_env_vars_bulk(prisma, "alice", ["srv-1", "srv-2", "srv-3"])
     assert result == {"srv-1": {"A": "1"}, "srv-2": {"B": "2"}}
 
 
 @pytest.mark.asyncio
 async def test_get_user_env_vars_bulk_empty_ids_short_circuits():
-    from litellm.proxy.mcp_server.db import get_user_env_vars_bulk
+    from hangarllm.proxy.mcp_server.db import get_user_env_vars_bulk
 
     prisma = _mock_env_vars_prisma()
     assert await get_user_env_vars_bulk(prisma, "alice", []) == {}
     # find_many should never have been called
-    assert prisma.db.litellm_mcpuserenvvars.find_many.await_count == 0
+    assert prisma.db.hangarllm_mcpuserenvvars.find_many.await_count == 0
 
 
 @pytest.mark.asyncio
 async def test_delete_user_env_vars_is_idempotent_delete_many():
     """Delete must use ``delete_many`` so a missing row is a no-op rather than
     raising RecordNotFound; real DB errors are left to propagate."""
-    from litellm.proxy.mcp_server.db import delete_user_env_vars
+    from hangarllm.proxy.mcp_server.db import delete_user_env_vars
 
     prisma = _mock_env_vars_prisma()
     await delete_user_env_vars(prisma, "alice", "srv-1")
-    prisma.db.litellm_mcpuserenvvars.delete_many.assert_awaited_once()
-    call = prisma.db.litellm_mcpuserenvvars.delete_many.call_args
+    prisma.db.hangarllm_mcpuserenvvars.delete_many.assert_awaited_once()
+    call = prisma.db.hangarllm_mcpuserenvvars.delete_many.call_args
     assert call.kwargs["where"] == {"user_id": "alice", "server_id": "srv-1"}
 
 
@@ -1117,7 +1117,7 @@ async def test_merge_user_env_vars_preserves_existing_and_prunes_disallowed(
 ):
     """Merging one update keeps the user's other stored values and drops any
     name the admin no longer declares as user-scoped."""
-    from litellm.proxy.mcp_server.db import merge_user_env_vars
+    from hangarllm.proxy.mcp_server.db import merge_user_env_vars
 
     prisma = _transactional_env_vars_prisma()
     await merge_user_env_vars(
@@ -1148,7 +1148,7 @@ async def test_merge_user_env_vars_serializes_concurrent_writes(env_vars_salt_ke
     both distinct values survive."""
     import asyncio
 
-    from litellm.proxy.mcp_server.db import (
+    from hangarllm.proxy.mcp_server.db import (
         get_user_env_vars,
         merge_user_env_vars,
     )
@@ -1177,12 +1177,12 @@ async def test_merge_user_env_vars_acquires_lock_without_deserializing_void(
 
     from prisma.errors import RawQueryError
 
-    from litellm.proxy.mcp_server.db import merge_user_env_vars
+    from hangarllm.proxy.mcp_server.db import merge_user_env_vars
 
     class _Tx:
         def __init__(self):
             self.stored = None
-            self.litellm_mcpuserenvvars = self
+            self.hangarllm_mcpuserenvvars = self
 
         async def __aenter__(self):
             return self
@@ -1230,15 +1230,15 @@ async def test_delete_mcp_server_removes_orphaned_user_env_vars():
     it; there is no FK cascade, so skipping this leaves orphaned credentials."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=object())
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=object())
 
     await delete_mcp_server(prisma, "srv-1")
 
-    prisma.db.litellm_mcpuserenvvars.delete_many.assert_awaited_once()
-    call = prisma.db.litellm_mcpuserenvvars.delete_many.call_args
+    prisma.db.hangarllm_mcpuserenvvars.delete_many.assert_awaited_once()
+    call = prisma.db.hangarllm_mcpuserenvvars.delete_many.call_args
     assert call.kwargs["where"] == {"server_id": "srv-1"}
 
 
@@ -1247,15 +1247,15 @@ async def test_delete_mcp_server_skips_env_var_cleanup_when_server_missing():
     """A no-op delete (server not found) must not touch the env var table."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=None)
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=None)
 
     result = await delete_mcp_server(prisma, "srv-1")
 
     assert result is None
-    prisma.db.litellm_mcpuserenvvars.delete_many.assert_not_awaited()
+    prisma.db.hangarllm_mcpuserenvvars.delete_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1266,19 +1266,19 @@ async def test_delete_mcp_server_succeeds_when_orphan_cleanup_fails():
     is already gone."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     deleted = object()
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=deleted)
-    prisma.db.litellm_mcpuserenvvars.delete_many = AsyncMock(
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=deleted)
+    prisma.db.hangarllm_mcpuserenvvars.delete_many = AsyncMock(
         side_effect=Exception("connection pool exhausted")
     )
 
     result = await delete_mcp_server(prisma, "srv-1")
 
     assert result is deleted
-    prisma.db.litellm_mcpuserenvvars.delete_many.assert_awaited_once()
+    prisma.db.hangarllm_mcpuserenvvars.delete_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1288,15 +1288,15 @@ async def test_delete_mcp_server_removes_orphaned_user_credentials():
     pointing at a now-missing server."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=object())
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=object())
 
     await delete_mcp_server(prisma, "srv-1")
 
-    prisma.db.litellm_mcpusercredentials.delete_many.assert_awaited_once()
-    call = prisma.db.litellm_mcpusercredentials.delete_many.call_args
+    prisma.db.hangarllm_mcpusercredentials.delete_many.assert_awaited_once()
+    call = prisma.db.hangarllm_mcpusercredentials.delete_many.call_args
     assert call.kwargs["where"] == {"server_id": "srv-1"}
 
 
@@ -1305,15 +1305,15 @@ async def test_delete_mcp_server_skips_credential_cleanup_when_server_missing():
     """A no-op delete (server not found) must not touch the credential table."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=None)
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=None)
 
     result = await delete_mcp_server(prisma, "srv-1")
 
     assert result is None
-    prisma.db.litellm_mcpusercredentials.delete_many.assert_not_awaited()
+    prisma.db.hangarllm_mcpusercredentials.delete_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1323,27 +1323,27 @@ async def test_delete_mcp_server_credential_cleanup_failure_still_cleans_env_var
     still succeed for the caller."""
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.db import delete_mcp_server
+    from hangarllm.proxy.mcp_server.db import delete_mcp_server
 
     deleted = object()
     prisma = _mock_env_vars_prisma()
-    prisma.db.litellm_mcpservertable.delete = AsyncMock(return_value=deleted)
-    prisma.db.litellm_mcpusercredentials.delete_many = AsyncMock(
+    prisma.db.hangarllm_mcpservertable.delete = AsyncMock(return_value=deleted)
+    prisma.db.hangarllm_mcpusercredentials.delete_many = AsyncMock(
         side_effect=Exception("connection pool exhausted")
     )
 
     result = await delete_mcp_server(prisma, "srv-1")
 
     assert result is deleted
-    prisma.db.litellm_mcpusercredentials.delete_many.assert_awaited_once()
-    prisma.db.litellm_mcpuserenvvars.delete_many.assert_awaited_once()
+    prisma.db.hangarllm_mcpusercredentials.delete_many.assert_awaited_once()
+    prisma.db.hangarllm_mcpuserenvvars.delete_many.assert_awaited_once()
 
 
 # ── DB helpers: global env vars encrypted at rest ─────────────────────────
 
 
 def _global_env_var_server_request(env_vars):
-    from litellm.proxy._types import NewMCPServerRequest
+    from hangarllm.proxy._types import NewMCPServerRequest
 
     return NewMCPServerRequest(
         alias="echo",
@@ -1360,8 +1360,8 @@ def test_prepare_mcp_server_data_encrypts_global_env_var_values(env_vars_salt_ke
     column, while ``scope="user"`` placeholders (not secrets) stay verbatim."""
     import json
 
-    from litellm.proxy._types import MCPEnvVar
-    from litellm.proxy.mcp_server.db import (
+    from hangarllm.proxy._types import MCPEnvVar
+    from hangarllm.proxy.mcp_server.db import (
         _prepare_mcp_server_data,
         decrypt_global_env_var_values,
     )
@@ -1399,8 +1399,8 @@ def test_prepare_mcp_server_data_skips_unset_env_vars_on_partial_update():
     be written, even when the request object carries a non-None env_vars that was
     never marked as set. Otherwise a partial update could silently overwrite the
     stored values."""
-    from litellm.proxy._types import MCPEnvVar, UpdateMCPServerRequest
-    from litellm.proxy.mcp_server.db import _prepare_mcp_server_data
+    from hangarllm.proxy._types import MCPEnvVar, UpdateMCPServerRequest
+    from hangarllm.proxy.mcp_server.db import _prepare_mcp_server_data
 
     data = UpdateMCPServerRequest.model_construct(
         _fields_set={"server_id"},
@@ -1419,8 +1419,8 @@ def test_prepare_mcp_server_data_writes_env_vars_when_set_on_partial_update(
     """A partial update that does set env_vars must serialize and encrypt them."""
     import json
 
-    from litellm.proxy._types import MCPEnvVar, UpdateMCPServerRequest
-    from litellm.proxy.mcp_server.db import _prepare_mcp_server_data
+    from hangarllm.proxy._types import MCPEnvVar, UpdateMCPServerRequest
+    from hangarllm.proxy.mcp_server.db import _prepare_mcp_server_data
 
     data = UpdateMCPServerRequest(
         server_id="srv-1",
@@ -1442,9 +1442,9 @@ async def test_build_mcp_server_from_table_decrypts_global_env_vars(env_vars_sal
     headers interpolate to the real secret instead of forwarding ciphertext."""
     import json
 
-    from litellm.proxy._types import LiteLLM_MCPServerTable, MCPEnvVar
-    from litellm.proxy.mcp_server.db import _prepare_mcp_server_data
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy._types import HangarLLM_MCPServerTable, MCPEnvVar
+    from hangarllm.proxy.mcp_server.db import _prepare_mcp_server_data
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -1453,7 +1453,7 @@ async def test_build_mcp_server_from_table_decrypts_global_env_vars(env_vars_sal
     )
     prepared = _prepare_mcp_server_data(req)
 
-    table = LiteLLM_MCPServerTable(
+    table = HangarLLM_MCPServerTable(
         server_id="srv-global",
         alias="echo",
         url="https://upstream.example.com/mcp",
@@ -1480,12 +1480,12 @@ async def test_add_server_does_not_double_decrypt_global_env_vars(env_vars_salt_
     upstream instead of the interpolated secret."""
     import json
 
-    from litellm.proxy._types import LiteLLM_MCPServerTable, MCPEnvVar
-    from litellm.proxy.mcp_server.db import (
+    from hangarllm.proxy._types import HangarLLM_MCPServerTable, MCPEnvVar
+    from hangarllm.proxy.mcp_server.db import (
         _prepare_mcp_server_data,
         decrypt_global_env_var_values,
     )
-    from litellm.proxy.mcp_server.mcp_server_manager import (
+    from hangarllm.proxy.mcp_server.mcp_server_manager import (
         MCPServerManager,
     )
 
@@ -1497,7 +1497,7 @@ async def test_add_server_does_not_double_decrypt_global_env_vars(env_vars_salt_
     decrypt_global_env_var_values(env_vars)
     assert env_vars[0]["value"] == "s3cr3t-p@ss"
 
-    table = LiteLLM_MCPServerTable(
+    table = HangarLLM_MCPServerTable(
         server_id="srv-add",
         alias="echo",
         url="https://upstream.example.com/mcp",
@@ -1528,12 +1528,12 @@ async def test_create_mcp_server_decrypts_env_vars_when_prisma_returns_json_stri
     (timestamps match), so headers forward ciphertext upstream."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy._types import (
+    from hangarllm.proxy._types import (
         MCPEnvVar,
         NewMCPServerRequest,
         UpdateMCPServerRequest,
     )
-    from litellm.proxy.mcp_server.db import (
+    from hangarllm.proxy.mcp_server.db import (
         _prepare_mcp_server_data,
         create_mcp_server,
         update_mcp_server,
@@ -1548,9 +1548,9 @@ async def test_create_mcp_server_decrypts_env_vars_when_prisma_returns_json_stri
     def _prisma_row_with_json_string_env_vars():
         import json
 
-        from prisma.models import LiteLLM_MCPServerTable
+        from prisma.models import HangarLLM_MCPServerTable
 
-        return LiteLLM_MCPServerTable.model_validate({
+        return HangarLLM_MCPServerTable.model_validate({
             "server_id": "srv-returned", "transport": "http", "mcp_access_groups": [], "allowed_tools": [],
             "extra_headers": [], "args": [], "allow_all_keys": False, "available_on_public_internet": True,
             "delegate_auth_to_upstream": False, "oauth_passthrough": False, "per_server_oauth_discovery": False,
@@ -1558,7 +1558,7 @@ async def test_create_mcp_server_decrypts_env_vars_when_prisma_returns_json_stri
         })
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_mcpservertable.create = AsyncMock(
+    mock_prisma.db.hangarllm_mcpservertable.create = AsyncMock(
         return_value=_prisma_row_with_json_string_env_vars()
     )
 
@@ -1577,7 +1577,7 @@ async def test_create_mcp_server_decrypts_env_vars_when_prisma_returns_json_stri
     assert created.env == {}
 
     mock_prisma_upd = MagicMock()
-    mock_prisma_upd.db.litellm_mcpservertable.update = AsyncMock(
+    mock_prisma_upd.db.hangarllm_mcpservertable.update = AsyncMock(
         return_value=_prisma_row_with_json_string_env_vars()
     )
     updated = await update_mcp_server(
@@ -1597,8 +1597,8 @@ def test_reencrypt_global_env_var_values_handles_json_string(env_vars_salt_key):
     helper must parse it instead of failing on ``dict(v)`` over a string."""
     import json
 
-    from litellm.proxy._types import MCPEnvVar
-    from litellm.proxy.mcp_server.db import (
+    from hangarllm.proxy._types import MCPEnvVar
+    from hangarllm.proxy.mcp_server.db import (
         _prepare_mcp_server_data,
         _reencrypt_global_env_var_values,
     )
@@ -1629,9 +1629,9 @@ async def test_rotate_mcp_user_env_vars_logs_rotated_and_skipped_counts(
     left untouched and counted as skipped."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.mcp_server.db as mcp_db
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-    from litellm.proxy.mcp_server.db import (
+    import hangarllm.proxy.mcp_server.db as mcp_db
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.mcp_server.db import (
         rotate_mcp_user_env_vars_master_key,
     )
 
@@ -1654,17 +1654,17 @@ async def test_rotate_mcp_user_env_vars_logs_rotated_and_skipped_counts(
     bad = _row("carol", "srv-3", undecryptable)
 
     prisma = MagicMock()
-    prisma.db.litellm_mcpuserenvvars.find_many = AsyncMock(
+    prisma.db.hangarllm_mcpuserenvvars.find_many = AsyncMock(
         return_value=[good_one, good_two, bad]
     )
-    prisma.db.litellm_mcpuserenvvars.update = AsyncMock()
+    prisma.db.hangarllm_mcpuserenvvars.update = AsyncMock()
 
     logger = MagicMock()
     monkeypatch.setattr(mcp_db, "verbose_proxy_logger", logger)
 
     await rotate_mcp_user_env_vars_master_key(prisma, new_master_key="rotated-key-0000")
 
-    update = prisma.db.litellm_mcpuserenvvars.update
+    update = prisma.db.hangarllm_mcpuserenvvars.update
     assert update.await_count == 2
     updated_servers = {
         call.kwargs["where"]["user_id_server_id"]["server_id"]
@@ -1688,13 +1688,13 @@ def test_decrypt_global_env_var_drops_undecryptable_value(
 ):
     """A global value encrypted under a previous salt key must be dropped (not
     forwarded as ciphertext) and surfaced as a warning, so a rotated
-    ``LITELLM_SALT_KEY`` can't silently leak ciphertext into ``${NAME}`` headers."""
+    ``HANGARLLM_SALT_KEY`` can't silently leak ciphertext into ``${NAME}`` headers."""
     import json
     from unittest.mock import MagicMock
 
-    import litellm.proxy.mcp_server.db as mcp_db
-    from litellm.proxy._types import MCPEnvVar
-    from litellm.proxy.mcp_server.db import (
+    import hangarllm.proxy.mcp_server.db as mcp_db
+    from hangarllm.proxy._types import MCPEnvVar
+    from hangarllm.proxy.mcp_server.db import (
         _prepare_mcp_server_data,
         decrypt_global_env_var_values,
     )
@@ -1707,7 +1707,7 @@ def test_decrypt_global_env_var_drops_undecryptable_value(
     assert ciphertext != "s3cr3t-p@ss"  # encrypted under the original salt key
 
     # Rotate the salt key so the stored ciphertext no longer decrypts.
-    monkeypatch.setenv("LITELLM_SALT_KEY", "a-totally-different-salt-key-0000")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "a-totally-different-salt-key-0000")
     logger = MagicMock()
     monkeypatch.setattr(mcp_db, "verbose_proxy_logger", logger)
 

@@ -6,7 +6,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.discovery_endpoints.agent_skills_archive import (
+from hangarllm.proxy.discovery_endpoints.agent_skills_archive import (
     MAX_ARCHIVE_ENTRIES,
     agent_skill_frontmatter,
     build_agent_skill_archive,

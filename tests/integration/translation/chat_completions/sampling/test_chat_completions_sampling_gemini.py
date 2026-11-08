@@ -27,7 +27,7 @@ VERTEX_AI_GENERATION_CONFIG: Final = object_value(
 GEMINI_3_5_FLASH_TEMPERATURE_TEST_CASE: Final = replace(
     GEMINI_3_5_FLASH_TEST_CASE,
     scenario="temperature",
-    litellm_request={**GEMINI_3_5_FLASH_TEST_CASE.litellm_request, "temperature": 0.4},
+    hangarllm_request={**GEMINI_3_5_FLASH_TEST_CASE.hangarllm_request, "temperature": 0.4},
     expected_provider_request={
         **GEMINI_3_5_FLASH_TEST_CASE.expected_provider_request,
         "generationConfig": {**GEMINI_3_5_FLASH_GENERATION_CONFIG, "temperature": 0.4},
@@ -37,7 +37,7 @@ GEMINI_3_5_FLASH_TEMPERATURE_TEST_CASE: Final = replace(
 GEMINI_3_5_FLASH_ZERO_TEMPERATURE_TEST_CASE: Final = replace(
     GEMINI_3_5_FLASH_TEST_CASE,
     scenario="zero_temperature",
-    litellm_request={**GEMINI_3_5_FLASH_TEST_CASE.litellm_request, "temperature": 0},
+    hangarllm_request={**GEMINI_3_5_FLASH_TEST_CASE.hangarllm_request, "temperature": 0},
     expected_provider_request={
         **GEMINI_3_5_FLASH_TEST_CASE.expected_provider_request,
         "generationConfig": {**GEMINI_3_5_FLASH_GENERATION_CONFIG, "temperature": 0},
@@ -47,7 +47,7 @@ GEMINI_3_5_FLASH_ZERO_TEMPERATURE_TEST_CASE: Final = replace(
 GEMINI_3_8_FLASH_REASONING_EFFORT_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_TEST_CASE,
     scenario="reasoning_effort",
-    litellm_request={**GEMINI_3_8_FLASH_TEST_CASE.litellm_request, "reasoning_effort": "medium"},
+    hangarllm_request={**GEMINI_3_8_FLASH_TEST_CASE.hangarllm_request, "reasoning_effort": "medium"},
     expected_provider_request={
         **GEMINI_3_8_FLASH_TEST_CASE.expected_provider_request,
         "generationConfig": {
@@ -60,7 +60,7 @@ GEMINI_3_8_FLASH_REASONING_EFFORT_TEST_CASE: Final = replace(
 VERTEX_AI_GEMINI_3_5_FLASH_TEMPERATURE_TEST_CASE: Final = replace(
     VERTEX_AI_GEMINI_3_5_FLASH_TEST_CASE,
     scenario="temperature",
-    litellm_request={**VERTEX_AI_GEMINI_3_5_FLASH_TEST_CASE.litellm_request, "temperature": 0.4},
+    hangarllm_request={**VERTEX_AI_GEMINI_3_5_FLASH_TEST_CASE.hangarllm_request, "temperature": 0.4},
     expected_provider_request={
         **VERTEX_AI_GEMINI_3_5_FLASH_TEST_CASE.expected_provider_request,
         "generationConfig": {**VERTEX_AI_GENERATION_CONFIG, "temperature": 0.4},

@@ -9,14 +9,14 @@ import pytest
 import respx
 from respx import MockRouter
 
-import litellm
-from litellm import Choices, Message, ModelResponse
+import hangarllm
+from hangarllm import Choices, Message, ModelResponse
 
 
 @pytest.mark.respx()
 def test_compactifai_completion_basic(respx_mock):
     """Test basic CompactifAI completion functionality"""
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     mock_response = {
         "id": "chatcmpl-123",
@@ -40,7 +40,7 @@ def test_compactifai_completion_basic(respx_mock):
         json=mock_response, status_code=200
     )
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="compactifai/cai-llama-3-1-8b-slim",
         messages=[{"role": "user", "content": "Hello"}],
         api_key="test-key",
@@ -54,7 +54,7 @@ def test_compactifai_completion_basic(respx_mock):
 @pytest.mark.respx()
 def test_compactifai_completion_streaming(respx_mock):
     """Test CompactifAI streaming completion"""
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     mock_chunks = [
         "data: "
@@ -92,7 +92,7 @@ def test_compactifai_completion_streaming(respx_mock):
         content="".join(mock_chunks),
     )
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="compactifai/cai-llama-3-1-8b-slim",
         messages=[{"role": "user", "content": "Hello"}],
         api_key="test-key",
@@ -107,7 +107,7 @@ def test_compactifai_completion_streaming(respx_mock):
 @pytest.mark.respx()
 def test_compactifai_authentication_error(respx_mock):
     """Test CompactifAI authentication error handling"""
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     mock_error = {
         "error": {
@@ -122,8 +122,8 @@ def test_compactifai_authentication_error(respx_mock):
         json=mock_error, status_code=401
     )
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        hangarllm.completion(
             model="compactifai/cai-llama-3-1-8b-slim",
             messages=[{"role": "user", "content": "test"}],
             api_key="invalid-key",
@@ -136,7 +136,7 @@ def test_compactifai_authentication_error(respx_mock):
 @pytest.mark.respx()
 def test_compactifai_provider_detection(respx_mock):
     """Test that CompactifAI provider is properly detected from model name"""
-    from litellm.utils import get_llm_provider
+    from hangarllm.utils import get_llm_provider
 
     model, provider, dynamic_api_key, api_base = get_llm_provider(
         model="compactifai/cai-llama-3-1-8b-slim"
@@ -149,7 +149,7 @@ def test_compactifai_provider_detection(respx_mock):
 @pytest.mark.respx()
 def test_compactifai_with_optional_params(respx_mock):
     """Test CompactifAI with optional parameters like temperature, max_tokens"""
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     mock_response = {
         "id": "chatcmpl-123",
@@ -173,7 +173,7 @@ def test_compactifai_with_optional_params(respx_mock):
         "https://api.compactif.ai/v1/chat/completions"
     ).respond(json=mock_response, status_code=200)
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="compactifai/cai-llama-3-1-8b-slim",
         messages=[{"role": "user", "content": "Hello with params"}],
         api_key="test-key",
@@ -199,7 +199,7 @@ def test_compactifai_with_optional_params(respx_mock):
 @pytest.mark.respx()
 def test_compactifai_headers_authentication(respx_mock):
     """Test that CompactifAI request includes proper authorization headers"""
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     mock_response = {
         "id": "chatcmpl-123",
@@ -220,7 +220,7 @@ def test_compactifai_headers_authentication(respx_mock):
         "https://api.compactif.ai/v1/chat/completions"
     ).respond(json=mock_response, status_code=200)
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="compactifai/cai-llama-3-1-8b-slim",
         messages=[{"role": "user", "content": "Test auth"}],
         api_key="test-api-key-123",
@@ -239,7 +239,7 @@ def test_compactifai_headers_authentication(respx_mock):
 @pytest.mark.respx()
 async def test_compactifai_async_completion(respx_mock):
     """Test CompactifAI async completion"""
-    litellm.disable_aiohttp_transport = True
+    hangarllm.disable_aiohttp_transport = True
 
     mock_response = {
         "id": "chatcmpl-123",
@@ -263,7 +263,7 @@ async def test_compactifai_async_completion(respx_mock):
         json=mock_response, status_code=200
     )
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="compactifai/cai-llama-3-1-8b-slim",
         messages=[{"role": "user", "content": "Async test"}],
         api_key="test-key",
@@ -285,7 +285,7 @@ async def test_compactifai_async_completion(respx_mock):
 def test_compactifai_malformed_response_body_raises_the_error_of_the_failing_lookup(body, json_mode, error, message):
     from unittest.mock import MagicMock
 
-    from litellm.llms.compactifai.chat.transformation import CompactifAIChatConfig
+    from hangarllm.llms.compactifai.chat.transformation import CompactifAIChatConfig
 
     raw_response: Final = httpx.Response(
         200, json=body, request=httpx.Request("POST", "https://api.compactif.ai/v1/chat/completions")
@@ -300,7 +300,7 @@ def test_compactifai_malformed_response_body_raises_the_error_of_the_failing_loo
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
             json_mode=json_mode,
         )

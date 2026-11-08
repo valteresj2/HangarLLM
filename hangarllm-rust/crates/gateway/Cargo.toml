@@ -1,0 +1,50 @@
+[package]
+name = "hangarllm-gateway"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hangarllm-secret-value.workspace = true
+axum.workspace = true
+envy = "0.4.2"
+http-body-util = "0.1"
+hangarllm-inference.workspace = true
+hangarllm-gateway-inference.workspace = true
+hangarllm-gateway-forward.workspace = true
+hangarllm-gateway-mcp.workspace = true
+tokio-util = "0.7"
+thiserror.workspace = true
+futures-util.workspace = true
+hangarllm-gateway-auth.workspace = true
+hangarllm-gateway-ui.workspace = true
+hangarllm-config.workspace = true
+hangarllm-core-utils.workspace = true
+hangarllm-error.workspace = true
+hangarllm-circuit-breaker.workspace = true
+hangarllm-redis-client.workspace = true
+hangarllm-redis-connect.workspace = true
+hangarllm-redis-resolve.workspace = true
+hangarllm-redis-types.workspace = true
+rustls.workspace = true
+hangarllm-http.workspace = true
+hangarllm-llms.workspace = true
+hangarllm-secrets.workspace = true
+hangarllm-tracing.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+tracing.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+uuid.workspace = true
+veil.workspace = true
+tower-sessions-moka-store = "0.15.0"
+
+[dev-dependencies]
+hangarllm-redis-testing.workspace = true
+hangarllm-http = { workspace = true, features = ["test-support"] }
+base64.workspace = true
+rstest.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+tower = { version = "0.5", features = ["util"] }

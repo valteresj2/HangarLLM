@@ -13,10 +13,10 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import TypeAdapter
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
-from litellm.proxy.management_endpoints.roi_calculator_endpoints import (
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.hangarllm_pre_call_utils import add_hangarllm_data_to_request
+from hangarllm.proxy.management_endpoints.roi_calculator_endpoints import (
     _estimator_choices_from_deployments,
     _estimator_models_from_deployments,
     _gateway_transport,
@@ -27,10 +27,10 @@ from litellm.proxy.management_endpoints.roi_calculator_endpoints import (
     router,
     run_scheduled_sync,
 )
-from litellm.proxy.roi_calculator.estimator import estimator_options
-from litellm.proxy.roi_calculator.sample import sample_report
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.types.roi_calculator import ROIReport, ROISettings, ROISummaryResponse, ROISyncStatus
+from hangarllm.proxy.roi_calculator.estimator import estimator_options
+from hangarllm.proxy.roi_calculator.sample import sample_report
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm.types.roi_calculator import ROIReport, ROISettings, ROISummaryResponse, ROISyncStatus
 
 _JSON_HEADERS: Final = MappingProxyType({"content-type": "application/json"})
 
@@ -39,25 +39,25 @@ _JSON_HEADERS: Final = MappingProxyType({"content-type": "application/json"})
 @pytest.mark.parametrize("path", ("/v1/chat/completions", "/v1/responses", "/v1/messages"))
 @pytest.mark.parametrize("string_metadata", (False, True))
 async def test_only_internal_estimator_transport_can_mark_persisted_spend(path: str, string_metadata: bool) -> None:
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     app: Final = FastAPI()
-    tags: Final = ("repo:org/repo", "branch:feature", "litellm-roi-estimator")
-    forged: Final = {"tags": tags, "litellm_roi_estimator": True}
+    tags: Final = ("repo:org/repo", "branch:feature", "hangarllm-roi-estimator")
+    forged: Final = {"tags": tags, "hangarllm_roi_estimator": True}
     metadata: Final = json.dumps(forged) if string_metadata else forged
-    body: Final = {"model": "test-model", "metadata": metadata, "litellm_metadata": metadata}
+    body: Final = {"model": "test-model", "metadata": metadata, "hangarllm_metadata": metadata}
     now: Final = datetime(2026, 9, 15, tzinfo=timezone.utc)
 
     @app.post(path)
     async def log_request(request: Request) -> Mapping[str, object]:
-        data: Final = await add_litellm_data_to_request(
+        data: Final = await add_hangarllm_data_to_request(
             data=await request.json(),
             request=request,
-            user_api_key_dict=UserAPIKeyAuth(api_key="test-key", metadata={"litellm_roi_estimator": True}),
+            user_api_key_dict=UserAPIKeyAuth(api_key="test-key", metadata={"hangarllm_roi_estimator": True}),
             proxy_config=ProxyConfig(),
         )
         payload: Final = get_logging_payload(
-            kwargs={"model": "test-model", "response_cost": 0.25, "litellm_params": data},
+            kwargs={"model": "test-model", "response_cost": 0.25, "hangarllm_params": data},
             response_obj={"id": "test-request", "usage": {"prompt_tokens": 10, "completion_tokens": 5}},
             start_time=now,
             end_time=now,
@@ -73,10 +73,10 @@ async def test_only_internal_estimator_transport_can_mark_persisted_spend(path: 
         httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as external,
     ):
         for client, expected in ((external, False), (internal, True), (external, False)):
-            response: Final = await client.post(path, json=body, headers={"x-litellm-roi-estimator": "true"})
+            response: Final = await client.post(path, json=body, headers={"x-hangarllm-roi-estimator": "true"})
             assert response.status_code == 200
             logged: Final = response.json()
-            assert logged["metadata"].get("litellm_roi_estimator") is expected
+            assert logged["metadata"].get("hangarllm_roi_estimator") is expected
             assert set(logged["tags"]) == set(tags)
             assert logged["spend"] == 0.25
 
@@ -121,7 +121,7 @@ class _ConfigRepository:
         return self.values[param_name]
 
     async def set_param_if_revision(self, param_name: str, param_value: object, revision: int) -> bool:
-        from litellm.proxy.roi_calculator.settings import StoredROISettings
+        from hangarllm.proxy.roi_calculator.settings import StoredROISettings
 
         stored: Final = StoredROISettings.model_validate(self.values.get(param_name, {}))
         if stored.revision != revision:
@@ -131,7 +131,7 @@ class _ConfigRepository:
 
 
 def _client(
-    role: LitellmUserRoles, repository: _ConfigRepository, transport: httpx.AsyncBaseTransport | None = None
+    role: HangarllmUserRoles, repository: _ConfigRepository, transport: httpx.AsyncBaseTransport | None = None
 ) -> TestClient:
     app: Final = FastAPI()
     app.include_router(router)
@@ -142,17 +142,17 @@ def _client(
 
 
 def test_router_group_uses_underlying_model_metadata_for_reasoning_option() -> None:
-    import litellm
+    import hangarllm
 
     supported_model: Final = next(
         model
-        for model, metadata in litellm.model_cost.items()
+        for model, metadata in hangarllm.model_cost.items()
         if metadata.get("supports_none_reasoning_effort") is True
     )
     deployments: Final = (
         {
             "model_name": "roi-estimator",
-            "litellm_params": {"model": "custom-deployment"},
+            "hangarllm_params": {"model": "custom-deployment"},
             "model_info": {"base_model": supported_model},
         },
     )
@@ -164,7 +164,7 @@ def test_router_group_uses_underlying_model_metadata_for_reasoning_option() -> N
 
 
 def test_non_admin_cannot_read_roi_settings() -> None:
-    client: Final = _client(LitellmUserRoles.INTERNAL_USER, _ConfigRepository())
+    client: Final = _client(HangarllmUserRoles.INTERNAL_USER, _ConfigRepository())
 
     response: Final = client.get("/roi-calculator/settings")
 
@@ -172,7 +172,7 @@ def test_non_admin_cannot_read_roi_settings() -> None:
 
 
 def test_view_only_admin_cannot_change_roi_settings() -> None:
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, _ConfigRepository())
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, _ConfigRepository())
 
     response: Final = client.put(
         "/roi-calculator/settings",
@@ -184,9 +184,9 @@ def test_view_only_admin_cannot_change_roi_settings() -> None:
 
 
 def test_github_token_is_never_returned_and_url_change_clears_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "roi-calculator-test-salt-key-0123456789")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "roi-calculator-test-salt-key-0123456789")
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
 
     saved: Final = client.put(
         "/roi-calculator/settings",
@@ -214,7 +214,7 @@ def test_github_token_is_never_returned_and_url_change_clears_it(monkeypatch: py
 
 def test_github_api_url_must_use_https() -> None:
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
 
     response: Final = client.put(
         "/roi-calculator/settings",
@@ -231,7 +231,7 @@ def test_github_api_url_must_use_https() -> None:
 )
 def test_invalid_connection_settings_are_rejected_without_saving(patch: Mapping[str, object]) -> None:
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
     assert client.put("/roi-calculator/settings", json=patch).status_code == 422
     assert not repository.values
 
@@ -247,7 +247,7 @@ def test_public_gitlab_repository_browser_and_errors(upstream_status: int) -> No
         )
 
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository, httpx.MockTransport(respond))
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository, httpx.MockTransport(respond))
     assert client.put("/roi-calculator/settings", json={"source_provider": "gitlab"}).status_code == 200
     response: Final = client.get("/roi-calculator/repositories", params={"query": "gateway"})
     if upstream_status == 200:
@@ -262,7 +262,7 @@ def test_public_gitlab_repository_browser_and_errors(upstream_status: int) -> No
         assert "HTTP 403" in response.json()["detail"]
 
 
-@pytest.mark.parametrize("role", [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY])
+@pytest.mark.parametrize("role", [HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY])
 @pytest.mark.parametrize(
     "method,path,body",
     [
@@ -273,7 +273,7 @@ def test_public_gitlab_repository_browser_and_errors(upstream_status: int) -> No
         ("PUT", "/roi-calculator/identity-map", {"github_login": "alice", "email": "alice@example.com"}),
     ],
 )
-def test_all_writes_require_full_admin(role: LitellmUserRoles, method: str, path: str, body: Mapping[str, str]) -> None:
+def test_all_writes_require_full_admin(role: HangarllmUserRoles, method: str, path: str, body: Mapping[str, str]) -> None:
     client: Final = _client(role, _ConfigRepository())
     assert client.request(method, path, json=body).status_code == 403
 
@@ -282,16 +282,16 @@ def test_all_writes_require_full_admin(role: LitellmUserRoles, method: str, path
 @pytest.mark.parametrize("email", ("alice@example.com", None))
 def test_invalid_identity_login_returns_validation_error(login: str, email: str | None) -> None:
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
     response: Final = client.put("/roi-calculator/identity-map", json={"github_login": login, "email": email})
     assert response.status_code == 422
     assert not repository.values
 
 
 def test_schedule_and_estimator_key_persist_without_exposing_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "roi-calculator-test-salt-key-0123456789")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "roi-calculator-test-salt-key-0123456789")
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
     saved: Final = client.put(
         "/roi-calculator/settings", json={"estimator_key": "sk-test-secret", "update_interval_minutes": 60}
     )
@@ -307,7 +307,7 @@ def test_schedule_and_estimator_key_persist_without_exposing_secrets(monkeypatch
 
 def test_sample_preview_does_not_change_live_settings_or_report() -> None:
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY, repository)
     response: Final = client.get("/roi-calculator/report", params={"mode": "demo"})
     assert response.status_code == 200
     report: Final = ROISummaryResponse.model_validate(response.json()["report"])
@@ -326,7 +326,7 @@ def test_sample_preview_does_not_change_live_settings_or_report() -> None:
 
 @pytest.mark.parametrize("interval", [0.1, 1, 4.99])
 def test_schedule_rejects_intervals_under_five_minutes(interval: float) -> None:
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, _ConfigRepository())
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, _ConfigRepository())
     assert client.put("/roi-calculator/settings", json={"update_interval_minutes": interval}).status_code == 422
 
 
@@ -361,7 +361,7 @@ def test_manual_match_recalculates_saved_report_and_removal_restores_cohort() ->
     report: Final[ROIReport] = {**sample_report(datetime(2026, 9, 30, tzinfo=timezone.utc)), "mode": "live"}
     serialized: Final = TypeAdapter(dict[str, object]).validate_json(TypeAdapter(ROIReport).dump_json(report))
     asyncio.run(repository.set_param("roi_calculator_report", serialized))
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
     before: Final = client.get("/roi-calculator/report")
     assert before.status_code == 200
     assert before.json()["report"]["metrics"]["output_hours"] == 10.5
@@ -385,9 +385,9 @@ def test_manual_match_recalculates_saved_report_and_removal_restores_cohort() ->
 def test_switching_sources_clears_report_and_identities_and_keeps_tokens_private(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "roi-calculator-test-salt-key-0123456789")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "roi-calculator-test-salt-key-0123456789")
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
     saved: Final = client.put(
         "/roi-calculator/settings",
         json={"source_provider": "gitlab", "gitlab_token": "private-gitlab-test", "repos": ["group/subgroup/project"]},
@@ -416,7 +416,7 @@ def test_switching_sources_clears_report_and_identities_and_keeps_tokens_private
 
 def test_old_source_report_is_not_returned_when_matching_new_source_identity() -> None:
     repository: Final = _ConfigRepository()
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, repository)
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, repository)
     assert client.put("/roi-calculator/settings", json={"source_provider": "gitlab"}).status_code == 200
     old_report: Final = sample_report(datetime.now(timezone.utc))
     serialized: Final = TypeAdapter(dict[str, object]).validate_json(TypeAdapter(ROIReport).dump_json(old_report))
@@ -434,27 +434,27 @@ def test_estimator_choices_show_underlying_models_and_exclude_non_chat_routes() 
     deployments: Final = (
         {
             "model_name": "estimator",
-            "litellm_params": {"model": "deployment-name"},
+            "hangarllm_params": {"model": "deployment-name"},
             "model_info": {"base_model": "gpt-6-luna", "mode": "chat"},
         },
         {
             "model_name": "estimator",
-            "litellm_params": {"model": "second-deployment"},
+            "hangarllm_params": {"model": "second-deployment"},
             "model_info": {"base_model": "gpt-6-luna", "mode": "chat"},
         },
         {
             "model_name": "embeddings",
-            "litellm_params": {"model": "custom-embedding"},
+            "hangarllm_params": {"model": "custom-embedding"},
             "model_info": {"mode": "embedding"},
         },
         {
             "model_name": "image",
-            "litellm_params": {"model": "custom-image"},
+            "hangarllm_params": {"model": "custom-image"},
             "model_info": {"mode": "image_generation"},
         },
-        {"model_name": "*", "litellm_params": {"model": "openai/*"}},
-        {"model_name": "missing", "litellm_params": {}},
-        {"model_name": "custom-chat", "litellm_params": {"model": "openai/private-model"}},
+        {"model_name": "*", "hangarllm_params": {"model": "openai/*"}},
+        {"model_name": "missing", "hangarllm_params": {}},
+        {"model_name": "custom-chat", "hangarllm_params": {"model": "openai/private-model"}},
     )
     choices: Final = _estimator_choices_from_deployments(deployments)
     assert tuple((choice.model_name, choice.provider_models) for choice in choices) == (
@@ -464,18 +464,18 @@ def test_estimator_choices_show_underlying_models_and_exclude_non_chat_routes() 
 
 
 def test_estimator_picker_keeps_callable_aliases_and_routing_groups(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.router import Router
+    from hangarllm.proxy import proxy_server
+    from hangarllm.router import Router
 
     configured_router: Final = Router(
         model_list=[
             {
                 "model_name": "concrete",
-                "litellm_params": {"model": "openai/gpt-6-luna", "api_key": "test"},
+                "hangarllm_params": {"model": "openai/gpt-6-luna", "api_key": "test"},
             },
             {
                 "model_name": "team-only",
-                "litellm_params": {"model": "openai/gpt-6-luna", "api_key": "test"},
+                "hangarllm_params": {"model": "openai/gpt-6-luna", "api_key": "test"},
                 "model_info": {"team_id": "other-team", "team_public_model_name": "private-estimator"},
             },
         ],
@@ -483,7 +483,7 @@ def test_estimator_picker_keeps_callable_aliases_and_routing_groups(monkeypatch:
         routing_groups=[{"group_name": "balanced", "models": ["concrete"], "routing_strategy": "simple-shuffle"}],
     )
     monkeypatch.setattr(proxy_server, "llm_router", configured_router)
-    client: Final = _client(LitellmUserRoles.PROXY_ADMIN, _ConfigRepository())
+    client: Final = _client(HangarllmUserRoles.PROXY_ADMIN, _ConfigRepository())
     for name in ("friendly", "balanced"):
         response: Final = client.put("/roi-calculator/settings", json={"repos": ["org/repo"], "estimator_model": name})
         assert response.status_code == 200, response.text

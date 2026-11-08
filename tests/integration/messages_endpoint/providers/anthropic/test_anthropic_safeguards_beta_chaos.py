@@ -113,7 +113,7 @@ def _assert_every_request_carried_the_beta(received: tuple[Request, ...], marker
 def _spend_success_ids(model: str, expected: frozenset[str]) -> None:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE model_group=%s AND status=%s', (model, "success")
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE model_group=%s AND status=%s', (model, "success")
         ),
         lambda found: expected <= {str(row["request_id"]) for row in found},
         seconds=70,
@@ -168,14 +168,14 @@ async def test_slow_streams_complete_with_the_beta_on_every_request(gateway: Gat
 def _anthropic_deployment(wire: Wire) -> dict[str, JsonValue]:
     return {
         "model_name": _CONFIG_MODEL,
-        "litellm_params": {"model": f"anthropic/{ANTHROPIC_MODEL}", "api_base": wire.url, "api_key": ANTHROPIC_KEY},
+        "hangarllm_params": {"model": f"anthropic/{ANTHROPIC_MODEL}", "api_base": wire.url, "api_key": ANTHROPIC_KEY},
     }
 
 
 def _foundry_deployment(wire: Wire) -> dict[str, JsonValue]:
     return {
         "model_name": _FOUNDRY_CONFIG_MODEL,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "azure_ai/claude-sonnet-4-6",
             "api_base": wire.url,
             "api_key": "synthetic-foundry-key",
@@ -285,7 +285,7 @@ async def _answered_while_the_beta_map_is_held(
 async def test_cold_workers_fetch_the_beta_map_only_for_filtered_safeguards_requests_off_the_shared_threads(
     gateway: Gateway, tmp_path: Path
 ) -> None:
-    beta_map: Final = Path("litellm/anthropic_beta_headers_config.json").read_bytes()
+    beta_map: Final = Path("hangarllm/anthropic_beta_headers_config.json").read_bytes()
     release: Final = threading.Event()
 
     def held_beta_map(_: Request) -> Reply:
@@ -308,8 +308,8 @@ async def test_cold_workers_fetch_the_beta_map_only_for_filtered_safeguards_requ
         with owned_proxy_process(
             gateway,
             tmp_path,
-            {"LITELLM_ANTHROPIC_BETA_HEADERS_URL": f"{beta_map_wire.url}/beta.json"},
-            remove_environment=("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS",),
+            {"HANGARLLM_ANTHROPIC_BETA_HEADERS_URL": f"{beta_map_wire.url}/beta.json"},
+            remove_environment=("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS",),
             config=path,
             workers=2,
         ) as owned:

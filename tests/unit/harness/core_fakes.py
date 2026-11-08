@@ -10,14 +10,14 @@ from typing import Any, ClassVar
 
 import pytest
 
-from litellm.harness import runtime
-from litellm.harness.context import SessionContext
-from litellm.harness.handlers.base import BaseHarnessHandler
-from litellm.llms.base_llm.harness.transformation import BaseHarnessConfig
-from litellm.harness.options import ClaudeCodeOptions
-from litellm.harness.sandbox.base import CompletedRun
-from litellm.harness.sandbox.snapshot import snapshot_local
-from litellm.harness.types import (
+from hangarllm.harness import runtime
+from hangarllm.harness.context import SessionContext
+from hangarllm.harness.handlers.base import BaseHarnessHandler
+from hangarllm.llms.base_llm.harness.transformation import BaseHarnessConfig
+from hangarllm.harness.options import ClaudeCodeOptions
+from hangarllm.harness.sandbox.base import CompletedRun
+from hangarllm.harness.sandbox.snapshot import snapshot_local
+from hangarllm.harness.types import (
     Approval,
     Capabilities,
     Event,
@@ -236,8 +236,8 @@ def install_adapter(
         runtime, "get_harness_handler", lambda config: adapter_cls(config)
     )
     monkeypatch.setattr(runtime, "ModelEndpoint", FakeEndpoint)
-    monkeypatch.delenv("LITELLM_PROXY_API_BASE", raising=False)
-    monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_API_BASE", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
     FakeEndpoint.instances = []
     return adapter_cls
 

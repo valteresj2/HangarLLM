@@ -13,9 +13,9 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from litellm.mcp_client.client import MCPClient
-from litellm.proxy.mcp_server.exceptions import MCPServerURLCredentialsError
-from litellm.proxy.mcp_server.outbound_credentials.adapter import (
+from hangarllm.mcp_client.client import MCPClient
+from hangarllm.proxy.mcp_server.exceptions import MCPServerURLCredentialsError
+from hangarllm.proxy.mcp_server.outbound_credentials.adapter import (
     oauth_protected_resource_path,
     raise_public,
     raise_user_oauth_challenge,
@@ -23,8 +23,8 @@ from litellm.proxy.mcp_server.outbound_credentials.adapter import (
     to_subject,
     validate_static_credential,
 )
-from litellm.proxy.mcp_server.outbound_credentials.result import Error, Ok
-from litellm.proxy.mcp_server.outbound_credentials.types import (
+from hangarllm.proxy.mcp_server.outbound_credentials.result import Error, Ok
+from hangarllm.proxy.mcp_server.outbound_credentials.types import (
     ApiKeyConfig,
     AuthorizationCodeConfig,
     ClientCredentialsConfig,
@@ -38,8 +38,8 @@ from litellm.proxy.mcp_server.outbound_credentials.types import (
     SharedKey,
     TokenExchangeConfig,
 )
-from litellm.types.mcp import MCPAuth, MCPAuthType, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.mcp import MCPAuth, MCPAuthType, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 
 @pytest.mark.parametrize("auth_type,header,value", [
@@ -84,8 +84,8 @@ def _id_jag_server(**overrides) -> MCPServer:
     defaults = dict(
         auth_type=MCPAuth.oauth2_id_jag,
         url="https://mcp.example.com/mcp",
-        client_id="litellm-client-id",
-        client_secret="litellm-client-secret",
+        client_id="hangarllm-client-id",
+        client_secret="hangarllm-client-secret",
         token_exchange_endpoint="https://idp.example.com/token",
         id_jag_resource_token_endpoint="https://mcp-as.example.com/token",
         audience="api://mcp-server",
@@ -601,7 +601,7 @@ def test_raise_user_oauth_challenge_per_request_prefix_is_routable(monkeypatch):
 
 
 def test_raise_token_exchange_challenge_is_rfc9728_invalid_token():
-    from litellm.proxy.mcp_server.outbound_credentials.adapter import (
+    from hangarllm.proxy.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -616,12 +616,12 @@ def test_raise_token_exchange_challenge_is_rfc9728_invalid_token():
     assert "error_description=" in www
     assert exc.detail == (
         "Missing or invalid subject token. Authenticate with your identity provider and send its token "
-        "in the Authorization Bearer header. LiteLLM API keys and Admin UI sessions cannot be used for token exchange."
+        "in the Authorization Bearer header. HangarLLM API keys and Admin UI sessions cannot be used for token exchange."
     )
 
 
 def test_raise_token_exchange_challenge_includes_server_root_path(monkeypatch):
-    from litellm.proxy.mcp_server.outbound_credentials.adapter import (
+    from hangarllm.proxy.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -633,7 +633,7 @@ def test_raise_token_exchange_challenge_includes_server_root_path(monkeypatch):
 
 
 def test_raise_token_exchange_challenge_per_request_prefix_is_routable(monkeypatch):
-    from litellm.proxy.mcp_server.outbound_credentials.adapter import (
+    from hangarllm.proxy.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -645,7 +645,7 @@ def test_raise_token_exchange_challenge_per_request_prefix_is_routable(monkeypat
 
 
 def test_raise_token_exchange_challenge_static_form_is_unchanged_without_step_up():
-    from litellm.proxy.mcp_server.outbound_credentials.adapter import (
+    from hangarllm.proxy.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -661,7 +661,7 @@ def test_raise_token_exchange_challenge_static_form_is_unchanged_without_step_up
 def test_raise_token_exchange_challenge_uses_insufficient_claims_with_claims_present():
     # Per the Microsoft claims-challenge format, a claims challenge MUST use error=insufficient_claims
     # (the value MSAL-family clients key on), and the claims ride base64-encoded, never raw.
-    from litellm.proxy.mcp_server.outbound_credentials.adapter import (
+    from hangarllm.proxy.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -681,13 +681,13 @@ def test_id_jag_client_secret_maps_to_config():
     assert spec is not None and isinstance(spec.config, IdJagConfig)
     assert spec.config.org_token_endpoint == "https://idp.example.com/token"
     assert spec.config.resource_token_endpoint == "https://mcp-as.example.com/token"
-    assert spec.config.client_id == "litellm-client-id"
+    assert spec.config.client_id == "hangarllm-client-id"
     assert spec.config.audience == "api://mcp-server"
     assert spec.config.scopes == ("mcp.read", "mcp.write")
     # ID-JAG asserts the user's id_token; the access_token default maps to id_token.
     assert spec.config.subject_token_type == "urn:ietf:params:oauth:token-type:id_token"
     assert isinstance(spec.config.client_auth, ClientSecretAuth)
-    assert spec.config.client_auth.client_secret.get_secret_value() == ("litellm-client-secret")
+    assert spec.config.client_auth.client_secret.get_secret_value() == ("hangarllm-client-secret")
 
 
 def test_id_jag_private_key_maps_to_private_key_jwt_auth():
@@ -715,10 +715,10 @@ def test_id_jag_private_key_wins_over_client_secret():
 @pytest.mark.parametrize(
     ("server", "expected_resource_client_id", "expected_secret", "expected_private_key"),
     [
-        (_id_jag_server(), "litellm-client-id", "litellm-client-secret", None),
+        (_id_jag_server(), "hangarllm-client-id", "hangarllm-client-secret", None),
         (
             _id_jag_server(client_secret=None, client_private_key="LEG1-PRIVATE-KEY"),
-            "litellm-client-id",
+            "hangarllm-client-id",
             None,
             "LEG1-PRIVATE-KEY",
         ),

@@ -4,17 +4,17 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from litellm.llms.azure.realtime.http_transformation import AzureRealtimeHTTPConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.openai.realtime.http_transformation import OpenAIRealtimeHTTPConfig
-from litellm.types.realtime import RealtimeSessionConfig
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.llms.azure.realtime.http_transformation import AzureRealtimeHTTPConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.llms.openai.realtime.http_transformation import OpenAIRealtimeHTTPConfig
+from hangarllm.types.realtime import RealtimeSessionConfig
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 def test_azure_realtime_http_headers_use_ad_token_without_api_key():
     config = AzureRealtimeHTTPConfig()
-    params = GenericLiteLLMParams(azure_ad_token="test-ad-token")
+    params = GenericHangarLLMParams(azure_ad_token="test-ad-token")
 
     assert config.get_extra_headers(params, "", {"X-Trace": "trace"}) == {
         "X-Trace": "trace",
@@ -33,7 +33,7 @@ def test_realtime_session_config_supports_translation_and_live_transcription_fie
                     "model": "gpt-live-transcribe",
                     "delay": "minimal",
                     "languages": ["en", "fr"],
-                    "keywords": ["LiteLLM"],
+                    "keywords": ["HangarLLM"],
                 }
             },
             "output": {"language": "es"},
@@ -45,7 +45,7 @@ def test_realtime_session_config_supports_translation_and_live_transcription_fie
     assert session.audio.input.transcription is not None
     assert session.audio.input.transcription.delay == "minimal"
     assert session.audio.input.transcription.languages == ["en", "fr"]
-    assert session.audio.input.transcription.keywords == ["LiteLLM"]
+    assert session.audio.input.transcription.keywords == ["HangarLLM"]
     assert session.audio.output is not None
     assert session.audio.output.language == "es"
 

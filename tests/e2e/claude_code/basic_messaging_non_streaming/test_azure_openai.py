@@ -1,12 +1,12 @@
 """basic_messaging_non_streaming x Azure OpenAI (GPT-5.6).
 
-Drive the real `claude` CLI in headless mode against a running LiteLLM
+Drive the real `claude` CLI in headless mode against a running HangarLLM
 proxy that routes Anthropic Messages requests to Azure OpenAI
 deployments of the GPT-5.6 family (Sol, Terra, Luna), and report the
 outcome via `compat_result`.
 
 Azure OpenAI serves the same chat-completions wire shape as
-openai.com behind per-resource deployments; LiteLLM's `azure/gpt-*`
+openai.com behind per-resource deployments; HangarLLM's `azure/gpt-*`
 route handles the deployment addressing while reusing the OpenAI
 translation, so this cell catches Azure-specific regressions
 (auth headers, api-version pinning, deployment routing) that the
@@ -45,7 +45,7 @@ AZURE_OPENAI_MODELS = [
     )
 )
 def test_basic_messaging_non_streaming_azure_openai(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     non-empty reply from each GPT-5.6 tier."""
     run_basic_messaging_cell(
         compat_result=compat_result,

@@ -5,11 +5,11 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.bedrock.image_generation.amazon_nova_canvas_transformation import (
+import hangarllm
+from hangarllm.llms.bedrock.image_generation.amazon_nova_canvas_transformation import (
     AmazonNovaCanvasConfig,
 )
-from litellm.types.utils import ImageResponse
+from hangarllm.types.utils import ImageResponse
 
 
 def test_transform_request_body_text_to_image():
@@ -97,7 +97,7 @@ def test_nova_canvas_image_gen_reports_positive_response_cost(respx_mock: respx.
         url__regex=r"^https://bedrock-runtime\.us-east-1\.amazonaws\.com/model/amazon\.nova-canvas-v1(:|%3A)0/invoke$"
     ).mock(return_value=httpx.Response(200, json={"images": list(_NOVA_CANVAS_IMAGES)}))
 
-    response: Final = litellm.image_generation(
+    response: Final = hangarllm.image_generation(
         model="bedrock/amazon.nova-canvas-v1:0",
         prompt=_NOVA_CANVAS_PROMPT,
         aws_region_name="us-east-1",
@@ -110,6 +110,6 @@ def test_nova_canvas_image_gen_reports_positive_response_cost(respx_mock: respx.
     assert sent["taskType"] == "TEXT_IMAGE"
     assert sent["textToImageParams"]["text"] == _NOVA_CANVAS_PROMPT
     assert [image.b64_json for image in response.data] == list(_NOVA_CANVAS_IMAGES)
-    per_image: Final = litellm.model_cost["amazon.nova-canvas-v1:0"]["output_cost_per_image"]
+    per_image: Final = hangarllm.model_cost["amazon.nova-canvas-v1:0"]["output_cost_per_image"]
     assert per_image > 0
     assert response._hidden_params["response_cost"] == pytest.approx(len(_NOVA_CANVAS_IMAGES) * per_image)  # pyright: ignore[reportPrivateUsage]  # cost is only surfaced on _hidden_params

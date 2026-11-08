@@ -4,8 +4,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.fal_ai.image_generation.ideogram_v3_transformation import FalAIIdeogramV3Config
-from litellm.types.utils import ImageResponse
+from hangarllm.llms.fal_ai.image_generation.ideogram_v3_transformation import FalAIIdeogramV3Config
+from hangarllm.types.utils import ImageResponse
 
 
 def _transform(payload: object) -> ImageResponse:
@@ -16,7 +16,7 @@ def _transform(payload: object) -> ImageResponse:
         logging_obj=Mock(),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

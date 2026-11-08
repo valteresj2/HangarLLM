@@ -12,9 +12,9 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.plugin_upload_repository import PluginUploadRepository
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.repositories.plugin_upload_repository import PluginUploadRepository
 from tests.integration._support.client import Gateway, list_value, object_value, string_value
 from tests.integration._support.database import read_rows
 
@@ -80,19 +80,19 @@ async def test_snapshot_failure_rolls_back_catalog_archive_and_history_then_sour
             connection.execute(
                 sql.SQL(
                     "CREATE FUNCTION {}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
-                    "IF EXISTS (SELECT 1 FROM \"LiteLLM_ClaudeCodePluginTable\" "
+                    "IF EXISTS (SELECT 1 FROM \"HangarLLM_ClaudeCodePluginTable\" "
                     "WHERE id = NEW.plugin_id AND name = {}) THEN PERFORM nextval({}); "
                     "RAISE EXCEPTION 'publication snapshot failure'; END IF; RETURN NEW; END $$"
                 ).format(sql.Identifier(function), sql.Literal(name), sql.Literal(witness))
             )
             failure.callback(connection.execute, sql.SQL("DROP FUNCTION {}()").format(sql.Identifier(function)))
             connection.execute(
-                sql.SQL('CREATE TRIGGER {} BEFORE INSERT ON "LiteLLM_ClaudeCodePluginVersion" '
+                sql.SQL('CREATE TRIGGER {} BEFORE INSERT ON "HangarLLM_ClaudeCodePluginVersion" '
                         "FOR EACH ROW EXECUTE FUNCTION {}()").format(sql.Identifier(trigger), sql.Identifier(function))
             )
             failure.callback(
                 connection.execute,
-                sql.SQL('DROP TRIGGER {} ON "LiteLLM_ClaudeCodePluginVersion"').format(sql.Identifier(trigger)),
+                sql.SQL('DROP TRIGGER {} ON "HangarLLM_ClaudeCodePluginVersion"').format(sql.Identifier(trigger)),
             )
             rejected: Final = gateway.request(
                 "PUT", path, {"source": {"source": "github", "repo": "example/changed"}, "description": "must roll back"},
@@ -117,7 +117,7 @@ async def test_snapshot_failure_rolls_back_catalog_archive_and_history_then_sour
         retained: Final = gateway.request("GET", archive_path)
         assert retained.status_code == 200 and retained.content == published_content
         assert read_rows(
-            'SELECT plugin_name FROM "LiteLLM_ClaudeCodePluginUpload" WHERE plugin_name=%s', (name,)
+            'SELECT plugin_name FROM "HangarLLM_ClaudeCodePluginUpload" WHERE plugin_name=%s', (name,)
         ) == []
         assert snapshot in await repository.versions(metadata, 100, 0)
         assert await repository.version(metadata, snapshot.id) == snapshot
@@ -187,7 +187,7 @@ def test_neutral_publication_preserves_portable_files_and_atomic_metadata_histor
         assert current["description"] == manifest["description"] == latest["description"]
         assert manifest["agent_skill"] == object_value(first["manifest"])["agent_skill"]
         stored: Final = read_rows(
-            'SELECT version, description, manifest_json FROM "LiteLLM_ClaudeCodePluginTable" WHERE name=%s', (name,)
+            'SELECT version, description, manifest_json FROM "HangarLLM_ClaudeCodePluginTable" WHERE name=%s', (name,)
         )
         assert len(stored) == 1
         assert stored[0]["version"] == current["version"]

@@ -32,15 +32,15 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPubl
 from prisma.errors import DataError
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import turn_on_json
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.proxy._types import CommonProxyErrors, ConfigGeneralSettings
-from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-from litellm.proxy.config_resolvers.settings_store import SettingsStore
-from litellm.router_api import ApplyResult, RouterSettings
-from litellm.types.router import Deployment, LiteLLM_Params
-from litellm.proxy.proxy_server import (
+import hangarllm
+from hangarllm._logging import turn_on_json
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.proxy._types import CommonProxyErrors, ConfigGeneralSettings
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+from hangarllm.proxy.config_resolvers.settings_store import SettingsStore
+from hangarllm.router_api import ApplyResult, RouterSettings
+from hangarllm.types.router import Deployment, HangarLLM_Params
+from hangarllm.proxy.proxy_server import (
     ProxyConfig,
     _is_remote_module_url,
     _reload_settings_store,
@@ -53,8 +53,8 @@ from litellm.proxy.proxy_server import (
     validate_deployment_complexity_router_placement,
     validate_deployment_max_agentic_loops,
 )
-from litellm.proxy.utils import evict_config_param
-from litellm.tracing.config import is_lens_tracing_enabled
+from hangarllm.proxy.utils import evict_config_param
+from hangarllm.tracing.config import is_lens_tracing_enabled
 
 from .conftest import normalize
 
@@ -62,7 +62,7 @@ from .conftest import normalize
 def _deployment(model_id: str, model_name: str = "gpt-3.5-turbo") -> Deployment:
     return Deployment(
         model_name=model_name,
-        litellm_params=LiteLLM_Params(model="openai/gpt-3.5-turbo"),
+        hangarllm_params=HangarLLM_Params(model="openai/gpt-3.5-turbo"),
         model_info={"id": model_id},
     )
 
@@ -72,7 +72,7 @@ def _db_model(model_id: str, model_name: str = "gpt-3.5-turbo") -> SimpleNamespa
         model_id=model_id,
         model_name=model_name,
         model_info={"id": model_id},
-        litellm_params={"model": encrypt_value_helper("openai/gpt-3.5-turbo")},
+        hangarllm_params={"model": encrypt_value_helper("openai/gpt-3.5-turbo")},
         blocked=False,
     )
 
@@ -88,11 +88,11 @@ def test_yaml_settings_reload_keeps_db_general_settings_until_sync() -> None:
 
 @pytest.mark.asyncio
 async def test_proxy_config_adds_and_deletes_stale_deployment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
-    router = litellm.Router(model_list=[])
+    router = hangarllm.Router(model_list=[])
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-proxy-config-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-proxy-config-test-salt")
     config_path = tmp_path / "config.json"
     config_path.write_text('{"model_list": []}')
     monkeypatch.setattr(proxy_server, "user_config_file_path", str(config_path))
@@ -100,17 +100,17 @@ async def test_proxy_config_adds_and_deletes_stale_deployment(tmp_path: Path, mo
 
     assert ProxyConfig()._add_deployment(db_models=[model]) == 1
     assert router.get_model_ids() == ["db-deployment"]
-    assert router.get_deployment(model_id="db-deployment").litellm_params.model == "openai/gpt-3.5-turbo"
+    assert router.get_deployment(model_id="db-deployment").hangarllm_params.model == "openai/gpt-3.5-turbo"
     await ProxyConfig()._delete_deployment(db_models=[])
     assert router.get_model_ids() == []
 
 
 def test_proxy_config_upserts_existing_deployment_without_duplicating_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
-    router = litellm.Router(model_list=[_deployment("existing-deployment").to_json(exclude_none=True)])
+    router = hangarllm.Router(model_list=[_deployment("existing-deployment").to_json(exclude_none=True)])
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-proxy-config-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-proxy-config-test-salt")
 
     ProxyConfig()._add_deployment(db_models=[_db_model("existing-deployment")])
     assert len(router.model_list) == 1
@@ -121,9 +121,9 @@ def test_proxy_config_upserts_existing_deployment_without_duplicating_it(monkeyp
 async def test_proxy_config_preserves_models_when_config_read_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
-    router = litellm.Router(model_list=[_deployment("config-deployment").to_json(exclude_none=True)])
+    router = hangarllm.Router(model_list=[_deployment("config-deployment").to_json(exclude_none=True)])
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "user_config_file_path", str(tmp_path / "missing.json"))
 
@@ -135,16 +135,16 @@ async def test_proxy_config_preserves_models_when_config_read_fails(
 async def test_proxy_config_keeps_database_models_and_deletes_stale_models(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             _deployment("kept-deployment").to_json(exclude_none=True),
             _deployment("stale-deployment", "stale-model").to_json(exclude_none=True),
         ]
     )
     monkeypatch.setattr(proxy_server, "llm_router", router)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-proxy-config-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-proxy-config-test-salt")
     config_path = tmp_path / "config.json"
     config_path.write_text('{"model_list": []}')
     monkeypatch.setattr(proxy_server, "user_config_file_path", str(config_path))
@@ -162,9 +162,9 @@ from tests._master_key import MASTER_KEY
 async def test_proxy_config_loads_lens_store_from_yaml(tmp_path, monkeypatch) -> None:
     config_file: Final = tmp_path / "tracing.yaml"
     config_file.write_text("model_list: []\ngeneral_settings:\n  tracing:\n    store:\n      type: lens\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     _, _, settings = await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
     assert is_lens_tracing_enabled(settings["tracing"], {}) is True
@@ -177,12 +177,12 @@ async def test_tracing_config_automatically_exports_spend_without_a_storage_depe
 ) -> None:
     import httpx
 
-    from litellm.proxy.tracing_runtime import manage_tracing
-    from litellm.tracing.exporter import LensExporter
-    from litellm.tracing.remote import LensConnection
+    from hangarllm.proxy.tracing_runtime import manage_tracing
+    from hangarllm.tracing.exporter import LensExporter
+    from hangarllm.tracing.remote import LensConnection
 
-    monkeypatch.setenv("LITELLM_LENS_URL", "http://lens.test")
-    monkeypatch.setenv("LITELLM_LENS_SERVICE_TOKEN", "test-service-token-with-32-characters")
+    monkeypatch.setenv("HANGARLLM_LENS_URL", "http://lens.test")
+    monkeypatch.setenv("HANGARLLM_LENS_SERVICE_TOKEN", "test-service-token-with-32-characters")
     received: Final = asyncio.Future[httpx.Request]()
 
     def accept(request: httpx.Request) -> httpx.Response:
@@ -196,7 +196,7 @@ async def test_tracing_config_automatically_exports_spend_without_a_storage_depe
     with outcome:
         async with manage_tracing(enabled=True, client_factory=client):
             logger: Final = next(
-                callback for callback in litellm._async_success_callback if isinstance(callback, LensExporter)
+                callback for callback in hangarllm._async_success_callback if isinstance(callback, LensExporter)
             )
             await logger.async_log_success_event(
                 {"standard_logging_object": {"id": "response-1", "response_cost": 0.25}}, None, None, None
@@ -209,7 +209,7 @@ async def test_tracing_config_automatically_exports_spend_without_a_storage_depe
     assert request.url.path == "/internal/spend"
     assert rows[0]["spend"] == 0.25
     assert rows[0]["response_id"] == "response-1"
-    assert logger not in litellm._async_success_callback
+    assert logger not in hangarllm._async_success_callback
     assert logger.task is not None and logger.task.done() and not logger.task.cancelled()
 
 
@@ -217,12 +217,12 @@ async def test_tracing_config_automatically_exports_spend_without_a_storage_depe
 async def test_tracing_logs_an_error_naming_the_store_when_lens_is_misconfigured(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from litellm.proxy.tracing_runtime import manage_tracing
+    from hangarllm.proxy.tracing_runtime import manage_tracing
 
-    monkeypatch.delenv("LITELLM_LENS_URL", raising=False)
-    monkeypatch.delenv("LITELLM_LENS_SERVICE_TOKEN", raising=False)
+    monkeypatch.delenv("HANGARLLM_LENS_URL", raising=False)
+    monkeypatch.delenv("HANGARLLM_LENS_SERVICE_TOKEN", raising=False)
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         async with manage_tracing(enabled=True) as receiver:
             assert receiver is None
 
@@ -232,16 +232,16 @@ async def test_tracing_logs_an_error_naming_the_store_when_lens_is_misconfigured
         if record.levelno == logging.ERROR and "lens" in record.getMessage()
     ]
     assert len(failures) == 1
-    assert "LITELLM_LENS_URL" in failures[0]
+    assert "HANGARLLM_LENS_URL" in failures[0]
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "config_text",
     (
-        "model_list: []\nlitellm_settings:\n  failure_callback:\n    - sentry\n",
-        "model_list: []\nlitellm_settings:\n  success_callback:\n    - sentry\n",
-        "model_list: []\nlitellm_settings:\n  input_callback:\n    - sentry\n",
+        "model_list: []\nhangarllm_settings:\n  failure_callback:\n    - sentry\n",
+        "model_list: []\nhangarllm_settings:\n  success_callback:\n    - sentry\n",
+        "model_list: []\nhangarllm_settings:\n  input_callback:\n    - sentry\n",
         "model_list: []\ngeneral_settings:\n  alerting:\n    - sentry\n",
     ),
     ids=("failure_callback", "success_callback", "input_callback", "alerting"),
@@ -251,21 +251,21 @@ async def test_proxy_config_starts_sentry_at_boot_without_request_bodies(
 ) -> None:
     import sentry_sdk
 
-    from litellm.litellm_core_utils import litellm_logging
+    from hangarllm.hangarllm_core_utils import hangarllm_logging
 
     init: Final = MagicMock()
     monkeypatch.setattr(sentry_sdk, "init", init)
     monkeypatch.setenv("SENTRY_DSN", "https://key@sentry.example/1")
-    monkeypatch.setattr(litellm_logging, "sentry_sdk_instance", None)
-    litellm_logging.start_sentry.cache_clear()
-    monkeypatch.setattr(litellm_logging, "capture_exception", None)
-    monkeypatch.setattr(litellm_logging, "add_breadcrumb", None)
-    monkeypatch.setattr(litellm, "input_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(hangarllm_logging, "sentry_sdk_instance", None)
+    hangarllm_logging.start_sentry.cache_clear()
+    monkeypatch.setattr(hangarllm_logging, "capture_exception", None)
+    monkeypatch.setattr(hangarllm_logging, "add_breadcrumb", None)
+    monkeypatch.setattr(hangarllm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     config_file: Final = tmp_path / "sentry.yaml"
     config_file.write_text(config_text)
 
@@ -273,7 +273,7 @@ async def test_proxy_config_starts_sentry_at_boot_without_request_bodies(
 
     init.assert_called_once()
     assert init.call_args.kwargs["max_request_body_size"] == "never"
-    assert litellm_logging.sentry_sdk_instance is sentry_sdk
+    assert hangarllm_logging.sentry_sdk_instance is sentry_sdk
 
 
 # ---------------------------------------------------------------------------
@@ -349,7 +349,7 @@ def test__scrub_db_overlay_remote_module_loads_strips_lists_and_strs():
             {"g1": {"callbacks": ["s3://x"], "guardrail": "ok"}},
         ],
     }
-    out = _scrub_db_overlay_remote_module_loads("litellm_settings", db_value)
+    out = _scrub_db_overlay_remote_module_loads("hangarllm_settings", db_value)
     assert normalize(out) == {
         "callbacks": ["safe"],
         "success_callback": ["safe2"],
@@ -360,7 +360,7 @@ def test__scrub_db_overlay_remote_module_loads_strips_lists_and_strs():
 
 def test__scrub_db_overlay_remote_module_loads_invalid_non_dict_returns_input():
     # Non-dict input bypasses scrubbing entirely.
-    assert _scrub_db_overlay_remote_module_loads("litellm_settings", "raw") == "raw"
+    assert _scrub_db_overlay_remote_module_loads("hangarllm_settings", "raw") == "raw"
 
 
 # ---------------------------------------------------------------------------
@@ -398,7 +398,7 @@ def test_validate_deployment_complexity_router_placement_refuses_to_start():
     turns the bad deployment into a silently missing model instead of a refusal to start."""
     model = {
         "model_name": "smart-router",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"tiers": {"SIMPLE": "gpt-4o-mini"}},
             "tier_boundaries": {"simple_medium": 0.1},
@@ -410,7 +410,7 @@ def test_validate_deployment_complexity_router_placement_refuses_to_start():
 
 
 @pytest.mark.parametrize(
-    "litellm_params",
+    "hangarllm_params",
     [
         {"model": "gpt-4o"},
         {"model": "openai/gpt-4o", "embedding_model": "text-embedding-3-small"},
@@ -420,20 +420,20 @@ def test_validate_deployment_complexity_router_placement_refuses_to_start():
         },
     ],
 )
-def test_validate_deployment_complexity_router_placement_leaves_valid_deployments_alone(litellm_params):
+def test_validate_deployment_complexity_router_placement_leaves_valid_deployments_alone(hangarllm_params):
     """`embedding_model` is a legitimate flat param on an s3_vectors vector store, so the gate is
     scoped to complexity routers rather than applied to every deployment."""
-    model = {"model_name": "m", "litellm_params": dict(litellm_params)}
+    model = {"model_name": "m", "hangarllm_params": dict(hangarllm_params)}
 
     validate_deployment_complexity_router_placement(model)
 
-    assert model["litellm_params"] == litellm_params
+    assert model["hangarllm_params"] == hangarllm_params
 
 
 def _heuristic_v2_row(model_name: str, classifier_type: str = "heuristic_v2") -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"classifier_type": classifier_type, "tiers": {"SIMPLE": "gpt-4o-mini"}},
         },
@@ -443,7 +443,7 @@ def _heuristic_v2_row(model_name: str, classifier_type: str = "heuristic_v2") ->
 def _custom_tier_row(model_name: str) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "classifier_type": "llm",
@@ -461,7 +461,7 @@ def _custom_tier_row(model_name: str) -> dict[str, object]:
 def _operator_examples_row(model_name: str) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "classifier_type": "llm",
@@ -476,7 +476,7 @@ def _operator_examples_row(model_name: str) -> dict[str, object]:
 def _custom_prompt_row(model_name: str) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "classifier_type": "llm",
@@ -522,7 +522,7 @@ def test_validate_auto_router_capability_limits_refuses_to_start_over_the_limit(
     [
         ([_heuristic_v2_row("a"), _heuristic_v2_row("b")], None),
         ([_heuristic_v2_row("a"), _heuristic_v2_row("c", "heuristic")], 1),
-        ([{"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}}], 1),
+        ([{"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}}], 1),
         ([_custom_tier_row("a"), _custom_tier_row("b")], None),
         ([_custom_tier_row("a"), _heuristic_v2_row("b")], 1),
     ],
@@ -537,17 +537,17 @@ def test_validate_auto_router_capability_limits_leaves_configs_within_the_limit_
 _TWO_HEURISTIC_V2_ROUTERS_YAML = (
     "model_list:\n"
     "  - model_name: gpt-4o-mini\n"
-    "    litellm_params:\n"
+    "    hangarllm_params:\n"
     "      model: openai/gpt-4o-mini\n"
     "      api_key: k\n"
     "  - model_name: v2-a\n"
-    "    litellm_params:\n"
+    "    hangarllm_params:\n"
     "      model: auto_router/complexity_router\n"
     "      complexity_router_config:\n"
     "        classifier_type: heuristic_v2\n"
     "        tiers: {SIMPLE: gpt-4o-mini}\n"
     "  - model_name: v2-b\n"
-    "    litellm_params:\n"
+    "    hangarllm_params:\n"
     "      model: auto_router/complexity_router\n"
     "      complexity_router_config:\n"
     "        classifier_type: heuristic_v2\n"
@@ -582,10 +582,10 @@ async def test_ProxyConfig_load_config_takes_the_classifier_limit_from_the_licen
         f"classifier_type: {classifier_type}\n{forecast_settings.get(classifier_type, '')}",
     ).replace("tiers: {SIMPLE: gpt-4o-mini}", "tiers: {SIMPLE: gpt-4o-mini, REASONING: gpt-4o}")
     f.write_text(config_yaml)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
-    monkeypatch.setattr("litellm.proxy.proxy_server._license_check.auto_router_capability_limit", lambda: license_limit)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.auto_router_capability_limit", lambda: license_limit)
 
     if license_limit is None:
         router, _model_list, _general_settings = await ProxyConfig().load_config(router=None, config_file_path=str(f))
@@ -604,7 +604,7 @@ async def test_ProxyConfig_load_config_router_refuses_a_db_heuristic_v2_router_b
 ) -> None:
     """config.yaml holds the one allowed heuristic_v2 router; a second one arriving later from the DB
     is refused at registration because the router was built with the license's ceiling."""
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
     f = tmp_path / "c.yaml"
     f.write_text(
@@ -613,10 +613,10 @@ async def test_ProxyConfig_load_config_router_refuses_a_db_heuristic_v2_router_b
             "classifier_type: heuristic\n        tiers: {SIMPLE: gpt-4o-mini}\nrouter_settings",
         )
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
-    monkeypatch.setattr("litellm.proxy.proxy_server._license_check.auto_router_capability_limit", lambda: 1)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.auto_router_capability_limit", lambda: 1)
 
     router, _model_list, _general_settings = await ProxyConfig().load_config(router=None, config_file_path=str(f))
 
@@ -629,19 +629,19 @@ async def test_ProxyConfig_load_config_router_refuses_a_db_heuristic_v2_router_b
 
 
 def test_validate_deployment_max_agentic_loops_allows_a_deployment_without_the_key():
-    model = {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}}
+    model = {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o"}}
 
     validate_deployment_max_agentic_loops(model)
 
-    assert "max_agentic_loops" not in model["litellm_params"]
+    assert "max_agentic_loops" not in model["hangarllm_params"]
 
 
 def test_validate_deployment_max_agentic_loops_leaves_a_valid_ceiling_alone():
-    model = {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o", "max_agentic_loops": 5}}
+    model = {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o", "max_agentic_loops": 5}}
 
     validate_deployment_max_agentic_loops(model)
 
-    assert model["litellm_params"]["max_agentic_loops"] == 5
+    assert model["hangarllm_params"]["max_agentic_loops"] == 5
 
 
 def test_validate_deployment_max_agentic_loops_rejects_zero():
@@ -651,7 +651,7 @@ def test_validate_deployment_max_agentic_loops_rejects_zero():
     """
     with pytest.raises(ValueError, match="must be at least 1, got 0"):
         validate_deployment_max_agentic_loops(
-            {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o", "max_agentic_loops": 0}}
+            {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o", "max_agentic_loops": 0}}
         )
 
 
@@ -662,14 +662,14 @@ def test_validate_deployment_max_agentic_loops_rejects_a_non_integer():
     """
     with pytest.raises(TypeError, match="must be an integer"):
         validate_deployment_max_agentic_loops(
-            {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o", "max_agentic_loops": "three"}}
+            {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o", "max_agentic_loops": "three"}}
         )
 
 
 def test_validate_deployment_max_agentic_loops_rejects_a_bool():
     with pytest.raises(TypeError, match="must be an integer"):
         validate_deployment_max_agentic_loops(
-            {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o", "max_agentic_loops": True}}
+            {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o", "max_agentic_loops": True}}
         )
 
 
@@ -679,17 +679,17 @@ def test_validate_deployment_max_agentic_loops_accepts_a_ceiling_from_an_env_var
     before this check runs, and the old `int(... or 3)` accepted that, so
     refusing it here would stop an already working proxy from booting.
     """
-    model = {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o", "max_agentic_loops": "5"}}
+    model = {"model_name": "gpt-4o", "hangarllm_params": {"model": "gpt-4o", "max_agentic_loops": "5"}}
 
     validate_deployment_max_agentic_loops(model)
 
-    assert model["litellm_params"]["max_agentic_loops"] == "5"
+    assert model["hangarllm_params"]["max_agentic_loops"] == "5"
 
 
 def test_validate_deployment_max_agentic_loops_names_the_offending_model():
     with pytest.raises(ValueError, match="on model 'claude-sonnet-4-5'"):
         validate_deployment_max_agentic_loops(
-            {"model_name": "claude-sonnet-4-5", "litellm_params": {"max_agentic_loops": -1}}
+            {"model_name": "claude-sonnet-4-5", "hangarllm_params": {"max_agentic_loops": -1}}
         )
 
 
@@ -941,13 +941,13 @@ def test_ProxyConfig__load_yaml_file_raises_on_missing_file():
 @pytest.mark.asyncio
 async def test_ProxyConfig__get_config_from_file_loads_yaml(tmp_path):
     f = tmp_path / "c.yaml"
-    f.write_text("model_list: []\ngeneral_settings: {}\nlitellm_settings:\n  drop_params: true\n")
+    f.write_text("model_list: []\ngeneral_settings: {}\nhangarllm_settings:\n  drop_params: true\n")
     pc = ProxyConfig()
     result = await pc._get_config_from_file(config_file_path=str(f))
     assert result == {
         "model_list": [],
         "general_settings": {},
-        "litellm_settings": {"drop_params": True},
+        "hangarllm_settings": {"drop_params": True},
     }
 
 
@@ -968,11 +968,11 @@ async def test_ProxyConfig__process_includes_merges_files(tmp_path):
     inc = tmp_path / "models.yaml"
     inc.write_text("model_list:\n  - model_name: gpt-4\n")
     pc = ProxyConfig()
-    cfg = {"include": ["models.yaml"], "model_list": [], "litellm_settings": {}}
+    cfg = {"include": ["models.yaml"], "model_list": [], "hangarllm_settings": {}}
     result = await pc._process_includes(cfg, config_file_path=str(tmp_path / "config.yaml"))
     assert result == {
         "model_list": [{"model_name": "gpt-4"}],
-        "litellm_settings": {},
+        "hangarllm_settings": {},
     }
 
 
@@ -1033,7 +1033,7 @@ async def test_ProxyConfig__process_includes_names_both_files_when_a_nested_incl
     (tmp_path / "shared" / "more_models.yaml").write_text("model_list:\n  - model_name: next-to-the-declaring-file\n")
     (tmp_path / "more_models.yaml").write_text("model_list:\n  - model_name: next-to-the-root-config\n")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         result = await ProxyConfig()._process_includes(
             {"include": ["shared/models.yaml"]}, config_file_path=str(tmp_path / "config.yaml")
         )
@@ -1120,7 +1120,7 @@ class _ConfigTable:
 
 class _ConfigTransaction:
     def __init__(self, table: _ConfigTable) -> None:
-        self.litellm_config: Final = table
+        self.hangarllm_config: Final = table
         self._section_lock: Final = table._section_lock
         self._locked = False
 
@@ -1138,10 +1138,10 @@ class _ConfigTransaction:
 
 @dataclass(frozen=True, slots=True)
 class _ConfigDb:
-    litellm_config: _ConfigTable
+    hangarllm_config: _ConfigTable
 
     def tx(self) -> _ConfigTransaction:
-        return _ConfigTransaction(self.litellm_config)
+        return _ConfigTransaction(self.hangarllm_config)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1155,18 +1155,18 @@ class _ConfigPrisma:
         if table_name != "config":
             raise AssertionError(f"Expected config write, got {table_name}")
         for param_name, value in data.items():
-            self.db.litellm_config.rows[param_name] = _CONFIG_VALUE.validate_python(value)
-            self.db.litellm_config.upserted_param_names.append(param_name)
+            self.db.hangarllm_config.rows[param_name] = _CONFIG_VALUE.validate_python(value)
+            self.db.hangarllm_config.upserted_param_names.append(param_name)
 
 
 def _db_backed_proxy_config(
     monkeypatch, rows: Mapping[str, Mapping[str, JsonValue]]
 ) -> tuple[ProxyConfig, _ConfigTable]:
     table: Final = _ConfigTable(rows)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", _ConfigPrisma(db=_ConfigDb(litellm_config=table)))
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"store_model_in_db": True})
-    monkeypatch.setattr("litellm.proxy.proxy_server.invalidate_config_param", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", _ConfigPrisma(db=_ConfigDb(hangarllm_config=table)))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"store_model_in_db": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.invalidate_config_param", AsyncMock())
     return ProxyConfig(), table
 
 
@@ -1177,7 +1177,7 @@ async def test_ProxyConfig_save_config_merges_changed_keys_without_copying_file_
         "model_list": [],
         "general_settings": {"max_parallel_requests": 5, "file_only": "yaml", "allowed_ips": []},
         "router_settings": {"num_retries": 1},
-        "litellm_settings": {"drop_params": True},
+        "hangarllm_settings": {"drop_params": True},
     }
     proxy_config.update_config_state(config=baseline)
     changed: Final = {
@@ -1198,7 +1198,7 @@ async def test_ProxyConfig_save_config_skips_unchanged_config(monkeypatch):
         "model_list": [],
         "general_settings": {"max_parallel_requests": 5},
         "router_settings": {"num_retries": 1},
-        "litellm_settings": {"drop_params": True},
+        "hangarllm_settings": {"drop_params": True},
     }
     proxy_config.update_config_state(config=baseline)
 
@@ -1295,15 +1295,15 @@ async def test_ProxyConfig_save_config_uses_the_baseline_from_the_loaded_config(
     config_file: Final = tmp_path / "config.yaml"
     config_file.write_text("general_settings:\n  yaml_only: true\n")
     proxy_config: Final = ProxyConfig()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
     first: Final = await proxy_config.get_config(config_file_path=str(config_file))
     second: Final = await proxy_config.get_config(config_file_path=str(config_file))
     table: Final = _ConfigTable({})
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", _ConfigPrisma(db=_ConfigDb(litellm_config=table)))
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"store_model_in_db": True})
-    monkeypatch.setattr("litellm.proxy.proxy_server.invalidate_config_param", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", _ConfigPrisma(db=_ConfigDb(hangarllm_config=table)))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"store_model_in_db": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.invalidate_config_param", AsyncMock())
     first["general_settings"]["first"] = True
     second["general_settings"]["second"] = True
 
@@ -1334,7 +1334,7 @@ async def test_ProxyConfig_save_config_writes_only_changed_router_settings(monke
         "model_list": [],
         "general_settings": {"max_parallel_requests": 5},
         "router_settings": {"num_retries": 1},
-        "litellm_settings": {"drop_params": True},
+        "hangarllm_settings": {"drop_params": True},
     }
     proxy_config.update_config_state(config=baseline)
     changed: Final = {**baseline, "router_settings": {"num_retries": 2}}
@@ -1376,9 +1376,9 @@ async def test_ProxyConfig_save_config_keeps_an_unstored_removed_key_as_a_noop(m
 async def test_ProxyConfig_get_config_keeps_state_separate_from_returned_config(tmp_path, monkeypatch):
     config_file: Final = tmp_path / "config.yaml"
     config_file.write_text("general_settings:\n  max_parallel_requests: 5\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_config_file_path", str(config_file))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_config_file_path", str(config_file))
 
     proxy_config: Final = ProxyConfig()
     loaded: Final = await proxy_config.get_config(config_file_path=str(config_file))
@@ -1399,12 +1399,12 @@ def test_ProxyConfig_update_config_state_keeps_a_copy_of_its_input():
 @pytest.mark.asyncio
 async def test_ProxyConfig_save_config_writes_yaml_when_no_db(tmp_path, monkeypatch):
     target = tmp_path / "out.yaml"
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_config_file_path", str(target))
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_config_file_path", str(target))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     pc = ProxyConfig()
-    cfg = {"model_list": [], "general_settings": {"a": 1}, "litellm_settings": {}}
+    cfg = {"model_list": [], "general_settings": {"a": 1}, "hangarllm_settings": {}}
     await pc.save_config(cfg)
     import yaml as _yaml
 
@@ -1416,10 +1416,10 @@ async def test_ProxyConfig_save_config_writes_yaml_when_no_db(tmp_path, monkeypa
 async def test_ProxyConfig_save_config_writes_a_loadable_yaml_for_a_loaded_config(tmp_path, monkeypatch):
     config_file: Final = tmp_path / "config.yaml"
     config_file.write_text("general_settings:\n  max_parallel_requests: 5\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_config_file_path", str(config_file))
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.user_config_file_path", str(config_file))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     proxy_config: Final = ProxyConfig()
     loaded_config: Final = await proxy_config.get_config(config_file_path=str(config_file))
     loaded_config["general_settings"]["max_parallel_requests"] = 6
@@ -1434,12 +1434,12 @@ async def test_ProxyConfig_save_config_writes_a_loadable_yaml_for_a_loaded_confi
 @pytest.mark.asyncio
 async def test_ProxyConfig_save_config_invalid_path_raises(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.user_config_file_path",
+        "hangarllm.proxy.proxy_server.user_config_file_path",
         "/no/such/dir/out.yaml",
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     pc = ProxyConfig()
     with pytest.raises(FileNotFoundError):
         await pc.save_config({"x": 1})
@@ -1448,27 +1448,27 @@ async def test_ProxyConfig_save_config_invalid_path_raises(monkeypatch):
 @pytest.mark.asyncio
 async def test_ProxyConfig_save_config_db_omits_environment_variables_by_default(monkeypatch):
     proxy_config, table = _db_backed_proxy_config(monkeypatch, {})
-    baseline: Final = {"model_list": [], "litellm_settings": {}}
+    baseline: Final = {"model_list": [], "hangarllm_settings": {}}
     proxy_config.update_config_state(config=baseline)
     config: Final = {
         "model_list": [{"model_name": "gpt-4o"}],
-        "litellm_settings": {"success_callback": ["langfuse"]},
+        "hangarllm_settings": {"success_callback": ["langfuse"]},
         "environment_variables": {"OPENAI_API_KEY": "sk-from-yaml"},
     }
 
     await proxy_config.save_config(config)
 
-    assert table.rows == {"litellm_settings": {"success_callback": ["langfuse"]}}
-    assert table.upserted_param_names == ["litellm_settings"]
+    assert table.rows == {"hangarllm_settings": {"success_callback": ["langfuse"]}}
+    assert table.upserted_param_names == ["hangarllm_settings"]
     assert config["environment_variables"] == {"OPENAI_API_KEY": "sk-from-yaml"}
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_save_config_db_persists_environment_variables_when_opted_in(monkeypatch):
     proxy_config, table = _db_backed_proxy_config(monkeypatch, {})
-    proxy_config.update_config_state(config={"litellm_settings": {}})
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-test-salt-key")
-    config: Final = {"litellm_settings": {}, "environment_variables": {"OPENAI_API_KEY": "sk-explicit"}}
+    proxy_config.update_config_state(config={"hangarllm_settings": {}})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-test-salt-key")
+    config: Final = {"hangarllm_settings": {}, "environment_variables": {"OPENAI_API_KEY": "sk-explicit"}}
 
     await proxy_config.save_config(config, include_env_vars=True)
 
@@ -1481,10 +1481,10 @@ async def test_ProxyConfig_save_config_db_persists_environment_variables_when_op
 async def test_ProxyConfig_save_config_persists_unchanged_environment_variables_when_opted_in(monkeypatch):
     proxy_config, table = _db_backed_proxy_config(monkeypatch, {})
     config: Final = {
-        "litellm_settings": {},
+        "hangarllm_settings": {},
         "environment_variables": {"OPENAI_API_KEY": "sk-explicit"},
     }
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-test-salt-key")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-test-salt-key")
 
     await proxy_config.save_config(config)
 
@@ -1513,8 +1513,8 @@ def _install_fake_config_repo(monkeypatch, existing_row):
         def __init__(self, client, *, use_writer=False):
             self.table = _FakeTable()
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.ConfigRepository", _FakeRepo)
-    monkeypatch.setattr("litellm.proxy.proxy_server.invalidate_config_param", AsyncMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.ConfigRepository", _FakeRepo)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.invalidate_config_param", AsyncMock())
     return captured
 
 
@@ -1525,15 +1525,15 @@ async def test_ProxyConfig_save_environment_variables_merges_sets_and_deletes(mo
     snapshotted."""
     captured = _install_fake_config_repo(
         monkeypatch,
-        existing_row={"EXISTING_KEY": "ciphertext-existing", "UI_LOGO_PATH": "old-logo", "LITELLM_FAVICON_URL": "old"},
+        existing_row={"EXISTING_KEY": "ciphertext-existing", "UI_LOGO_PATH": "old-logo", "HANGARLLM_FAVICON_URL": "old"},
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-test-salt-key")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", MagicMock())
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-test-salt-key")
 
     pc = ProxyConfig()
-    await pc.save_environment_variables({"UI_LOGO_PATH": "new-logo", "LITELLM_FAVICON_URL": None})
+    await pc.save_environment_variables({"UI_LOGO_PATH": "new-logo", "HANGARLLM_FAVICON_URL": None})
 
     written = captured["value"]
     # unrelated key preserved byte-for-byte
@@ -1541,7 +1541,7 @@ async def test_ProxyConfig_save_environment_variables_merges_sets_and_deletes(mo
     # set key updated and encrypted (not the plaintext)
     assert "UI_LOGO_PATH" in written and written["UI_LOGO_PATH"] != "new-logo"
     # None-valued key deleted
-    assert "LITELLM_FAVICON_URL" not in written
+    assert "HANGARLLM_FAVICON_URL" not in written
 
 
 @pytest.mark.asyncio
@@ -1552,12 +1552,12 @@ async def test_ProxyConfig_save_environment_variables_keeps_a_key_the_read_repli
     writer_table = config_table({"SAVED_A_MOMENT_AGO": "ciphertext-new"})
     replica_table = config_table({})
     database = SimpleNamespace(
-        writer_db=SimpleNamespace(litellm_config=writer_table), db=SimpleNamespace(litellm_config=replica_table)
+        writer_db=SimpleNamespace(hangarllm_config=writer_table), db=SimpleNamespace(hangarllm_config=replica_table)
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", database)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-test-salt-key")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", database)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-test-salt-key")
 
     await ProxyConfig().save_environment_variables({"UI_LOGO_PATH": None})
 
@@ -1570,9 +1570,9 @@ async def test_ProxyConfig_save_environment_variables_noop_without_db(monkeypatc
     """With no DB configured the per-key write must do nothing (never touch the
     config repository)."""
     captured = _install_fake_config_repo(monkeypatch, existing_row={})
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     pc = ProxyConfig()
     await pc.save_environment_variables({"UI_LOGO_PATH": "x"})
@@ -1635,7 +1635,7 @@ def test_ProxyConfig__get_team_config_missing_team_id_raises():
 def test_ProxyConfig_load_team_config_returns_team_dict():
     pc = ProxyConfig()
     pc.config = {
-        "litellm_settings": {
+        "hangarllm_settings": {
             "default_team_settings": [
                 {"team_id": "ta", "max_budget": 99, "drop_params": True},
             ]
@@ -1647,12 +1647,12 @@ def test_ProxyConfig_load_team_config_returns_team_dict():
 
 def test_ProxyConfig_load_team_config_no_settings_returns_empty():
     pc = ProxyConfig()
-    pc.config = {"litellm_settings": {}}
+    pc.config = {"hangarllm_settings": {}}
     # Missing entry — happy path returns {} (no default_team_settings).
     out = pc.load_team_config(team_id="missing")
     assert out == {}
     # Error-style: a misconfigured team list without team_id raises.
-    pc.config = {"litellm_settings": {"default_team_settings": [{"no_id": True}]}}
+    pc.config = {"hangarllm_settings": {"default_team_settings": [{"no_id": True}]}}
     with pytest.raises(Exception, match="team_id missing from team"):
         pc.load_team_config(team_id="anything")
 
@@ -1662,13 +1662,13 @@ def test_ProxyConfig_load_team_config_no_settings_returns_empty():
 # ---------------------------------------------------------------------------
 
 
-def test_ProxyConfig__init_cache_sets_litellm_cache(monkeypatch):
+def test_ProxyConfig__init_cache_sets_hangarllm_cache(monkeypatch):
     pc = ProxyConfig()
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
     pc._init_cache(cache_params={"type": "local"})
     snapshot = {
-        "cache_is_set": litellm.cache is not None,
-        "cache_type_name": type(litellm.cache).__name__,
+        "cache_is_set": hangarllm.cache is not None,
+        "cache_type_name": type(hangarllm.cache).__name__,
         "params_used": "local",
     }
     assert snapshot == {
@@ -1694,8 +1694,8 @@ def test_ProxyConfig_switch_on_llm_response_caching_sets_flag(monkeypatch):
     fake_router = MagicMock()
     fake_router.settings.return_value = RouterSettings(cache_responses=False)
     fake_cache = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
-    monkeypatch.setattr(litellm, "cache", fake_cache, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr(hangarllm, "cache", fake_cache, raising=False)
     pc.switch_on_llm_response_caching()
     snapshot = {
         "cache_responses": fake_router.apply.call_args.args[0].assign.get("cache_responses"),
@@ -1711,8 +1711,8 @@ def test_ProxyConfig_switch_on_llm_response_caching_sets_flag(monkeypatch):
 
 def test_ProxyConfig_switch_on_llm_response_caching_missing_router_noop(monkeypatch):
     pc = ProxyConfig()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr(litellm, "cache", None, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr(hangarllm, "cache", None, raising=False)
     # No router and no cache — should silently no-op (no raise).
     pc.switch_on_llm_response_caching()
     # Error-style: prove no router was created.
@@ -1728,16 +1728,16 @@ def test_ProxyConfig_switch_on_llm_response_caching_missing_router_noop(monkeypa
 @pytest.mark.asyncio
 async def test_ProxyConfig_get_config_loads_from_file(tmp_path, monkeypatch):
     f = tmp_path / "c.yaml"
-    f.write_text("model_list: []\ngeneral_settings: {}\nlitellm_settings: {}\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    f.write_text("model_list: []\ngeneral_settings: {}\nhangarllm_settings: {}\n")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     pc = ProxyConfig()
     cfg = await pc.get_config(config_file_path=str(f))
     assert cfg == {
         "model_list": [],
         "general_settings": {},
-        "litellm_settings": {},
+        "hangarllm_settings": {},
     }
 
 
@@ -1750,15 +1750,15 @@ async def test_ProxyConfig_get_config_from_a_bucket_merges_includes(monkeypatch)
         },
         "lit6982/model_config.yaml": {"model_list": [{"model_name": "included-model"}]},
     }
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
     monkeypatch.setattr(
-        "litellm.proxy.common_utils.load_config_utils.s3_object_reader",
+        "hangarllm.proxy.common_utils.load_config_utils.s3_object_reader",
         lambda bucket_name: objects.get,
     )
-    monkeypatch.setenv("LITELLM_CONFIG_BUCKET_NAME", "litellm-configs")
-    monkeypatch.setenv("LITELLM_CONFIG_BUCKET_OBJECT_KEY", "lit6982/config.yaml")
-    monkeypatch.setenv("LITELLM_CONFIG_BUCKET_TYPE", "s3")
+    monkeypatch.setenv("HANGARLLM_CONFIG_BUCKET_NAME", "hangarllm-configs")
+    monkeypatch.setenv("HANGARLLM_CONFIG_BUCKET_OBJECT_KEY", "lit6982/config.yaml")
+    monkeypatch.setenv("HANGARLLM_CONFIG_BUCKET_TYPE", "s3")
 
     cfg = await ProxyConfig().get_config()
 
@@ -1768,9 +1768,9 @@ async def test_ProxyConfig_get_config_from_a_bucket_merges_includes(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_get_config_missing_file_raises(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     pc = ProxyConfig()
     with pytest.raises(Exception, match="Config file not found"):
         await pc.get_config(config_file_path="/no/such/path.yaml")
@@ -1783,9 +1783,9 @@ async def test_ProxyConfig_get_config_missing_file_raises(monkeypatch):
 VAULT_SECRET_MANAGER_MODULE = """
 import os
 
-from litellm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
 
-VAULT = {"LITELLM_MASTER_KEY": "master-from-vault", "MY_PROVIDER_KEY": "provider-from-vault"}
+VAULT = {"HANGARLLM_MASTER_KEY": "master-from-vault", "MY_PROVIDER_KEY": "provider-from-vault"}
 
 
 class VaultSecretManager(CustomSecretManager):
@@ -1806,17 +1806,17 @@ class VaultSecretManager(CustomSecretManager):
 VAULT_BACKED_CONFIG = """
 model_list:
   - model_name: my-model
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-4o-mini
       api_key: os.environ/MY_PROVIDER_KEY
 
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/HANGARLLM_MASTER_KEY
   key_management_system: custom
   key_management_settings:
     custom_secret_manager: vault_secret_manager.VaultSecretManager
     hosted_keys:
-      - LITELLM_MASTER_KEY
+      - HANGARLLM_MASTER_KEY
       - MY_PROVIDER_KEY
 """
 
@@ -1826,13 +1826,13 @@ def _write_vault_backed_config(tmp_path, monkeypatch, config_yaml: str) -> str:
     (tmp_path / "vault_secret_manager.py").write_text(VAULT_SECRET_MANAGER_MODULE)
     config_file = tmp_path / "c.yaml"
     config_file.write_text(config_yaml)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
-    monkeypatch.delenv("LITELLM_MASTER_KEY", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.delenv("HANGARLLM_MASTER_KEY", raising=False)
     monkeypatch.delenv("MY_PROVIDER_KEY", raising=False)
     monkeypatch.setenv("VAULT_CONSTRUCTION_LOG", str(tmp_path / "constructions.log"))
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
     return str(config_file)
 
 
@@ -1855,12 +1855,12 @@ async def test_ProxyConfig_get_config_resolves_keys_held_only_by_the_secret_mana
 
     assert {
         "master_key": cfg["general_settings"]["master_key"],
-        "api_key": cfg["model_list"][0]["litellm_params"]["api_key"],
-        "hosted_keys": litellm._key_management_settings.hosted_keys,
+        "api_key": cfg["model_list"][0]["hangarllm_params"]["api_key"],
+        "hosted_keys": hangarllm._key_management_settings.hosted_keys,
     } == {
         "master_key": "master-from-vault",
         "api_key": "provider-from-vault",
-        "hosted_keys": ["LITELLM_MASTER_KEY", "MY_PROVIDER_KEY"],
+        "hosted_keys": ["HANGARLLM_MASTER_KEY", "MY_PROVIDER_KEY"],
     }
 
 
@@ -1892,11 +1892,11 @@ async def test_ProxyConfig_get_config_reuses_an_already_initialized_secret_manag
     config_file_path = _write_vault_backed_config(tmp_path, monkeypatch, VAULT_BACKED_CONFIG)
 
     await ProxyConfig().get_config(config_file_path=config_file_path)
-    first_client = litellm.secret_manager_client
+    first_client = hangarllm.secret_manager_client
     second = await ProxyConfig().get_config(config_file_path=config_file_path)
 
     assert {
-        "client_reused": litellm.secret_manager_client is first_client,
+        "client_reused": hangarllm.secret_manager_client is first_client,
         "master_key": second["general_settings"]["master_key"],
     } == {"client_reused": True, "master_key": "master-from-vault"}
 
@@ -1908,14 +1908,14 @@ async def test_ProxyConfig_get_config_without_key_management_system_leaves_secre
     config_yaml = VAULT_BACKED_CONFIG.replace("  key_management_system: custom\n", "")
     config_file_path = _write_vault_backed_config(tmp_path, monkeypatch, config_yaml)
     warn = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
 
     cfg = await ProxyConfig().get_config(config_file_path=config_file_path)
 
     assert {
         "master_key": cfg["general_settings"]["master_key"],
-        "api_key": cfg["model_list"][0]["litellm_params"]["api_key"],
-        "client": litellm.secret_manager_client,
+        "api_key": cfg["model_list"][0]["hangarllm_params"]["api_key"],
+        "client": hangarllm.secret_manager_client,
         "warned_about": [call.args[1] for call in warn.call_args_list],
     } == {"master_key": None, "api_key": None, "client": None, "warned_about": []}
 
@@ -1926,12 +1926,12 @@ async def test_ProxyConfig_get_config_warns_when_a_reference_is_missing_from_the
     config_yaml = VAULT_BACKED_CONFIG.replace("MY_PROVIDER_KEY", "NOT_IN_VAULT")
     config_file_path = _write_vault_backed_config(tmp_path, monkeypatch, config_yaml)
     warn = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
 
     cfg = await ProxyConfig().get_config(config_file_path=config_file_path)
 
     assert {
-        "api_key": cfg["model_list"][0]["litellm_params"]["api_key"],
+        "api_key": cfg["model_list"][0]["hangarllm_params"]["api_key"],
         "warned_about": [call.args[1] for call in warn.call_args_list],
     } == {"api_key": None, "warned_about": ["os.environ/NOT_IN_VAULT"]}
 
@@ -1946,13 +1946,13 @@ async def test_ProxyConfig_get_config_does_not_warn_for_a_name_outside_hosted_ke
     config_yaml = VAULT_BACKED_CONFIG.replace("api_key: os.environ/MY_PROVIDER_KEY", "api_key: os.environ/ENV_ONLY")
     config_file_path = _write_vault_backed_config(tmp_path, monkeypatch, config_yaml)
     warn = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
 
     cfg = await ProxyConfig().get_config(config_file_path=config_file_path)
 
     assert {
-        "api_key": cfg["model_list"][0]["litellm_params"]["api_key"],
-        "client_is_up": litellm.secret_manager_client is not None,
+        "api_key": cfg["model_list"][0]["hangarllm_params"]["api_key"],
+        "client_is_up": hangarllm.secret_manager_client is not None,
         "warned_about": [call.args[1] for call in warn.call_args_list],
     } == {"api_key": None, "client_is_up": True, "warned_about": []}
 
@@ -1969,13 +1969,13 @@ async def test_ProxyConfig_get_config_does_not_warn_under_write_only_access_mode
     )
     config_file_path = _write_vault_backed_config(tmp_path, monkeypatch, config_yaml)
     warn = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.verbose_proxy_logger.warning", warn)
 
     cfg = await ProxyConfig().get_config(config_file_path=config_file_path)
 
     assert {
         "master_key": cfg["general_settings"]["master_key"],
-        "client_is_up": litellm.secret_manager_client is not None,
+        "client_is_up": hangarllm.secret_manager_client is not None,
         "warned_about": [call.args[1] for call in warn.call_args_list],
     } == {"master_key": None, "client_is_up": True, "warned_about": []}
 
@@ -1987,7 +1987,7 @@ async def test_ProxyConfig_get_config_does_not_warn_under_write_only_access_mode
 
 def test_ProxyConfig_update_config_state_and_get_config_state_roundtrip():
     pc = ProxyConfig()
-    cfg = {"model_list": [], "general_settings": {"x": 1}, "litellm_settings": {}}
+    cfg = {"model_list": [], "general_settings": {"x": 1}, "hangarllm_settings": {}}
     pc.update_config_state(config=cfg)
     out = pc.get_config_state()
     assert out == cfg
@@ -2094,7 +2094,7 @@ def test_ProxyConfig_parse_search_tools_returns_parsed():
         "search_tools": [
             {
                 "search_tool_name": "web",
-                "litellm_params": {"search_provider": "google"},
+                "hangarllm_params": {"search_provider": "google"},
             }
         ]
     }
@@ -2103,7 +2103,7 @@ def test_ProxyConfig_parse_search_tools_returns_parsed():
     assert len(out) == 1
     assert dict(out[0]) == {
         "search_tool_name": "web",
-        "litellm_params": {"search_provider": "google"},
+        "hangarllm_params": {"search_provider": "google"},
     }
 
 
@@ -2123,14 +2123,14 @@ async def test_ProxyConfig_lists_search_tools_once_at_startup_not_on_every_repar
         "model_list: []\n"
         "search_tools:\n"
         "  - search_tool_name: web-search\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         "      search_provider: tavily\n"
     )
-    monkeypatch.setattr(litellm, "json_logs", False)
-    monkeypatch.setattr(litellm, "suppress_startup_output", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(hangarllm, "json_logs", False)
+    monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     proxy_config: Final = ProxyConfig()
 
     await proxy_config.load_config(router=None, config_file_path=str(config_file))
@@ -2153,18 +2153,18 @@ async def test_ProxyConfig_lists_each_search_tool_as_its_own_json_record(
         "model_list: []\n"
         "search_tools:\n"
         "  - search_tool_name: web-search\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         "      search_provider: tavily\n"
         "  - search_tool_name: news-search\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         "      search_provider: exa_ai\n"
     )
-    monkeypatch.setattr(litellm, "json_logs", True)
-    monkeypatch.setattr(litellm, "suppress_startup_output", False)
+    monkeypatch.setattr(hangarllm, "json_logs", True)
+    monkeypatch.setattr(hangarllm, "suppress_startup_output", False)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     turn_on_json()
 
     await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
@@ -2172,7 +2172,7 @@ async def test_ProxyConfig_lists_each_search_tool_as_its_own_json_record(
     messages: Final = [json.loads(raw)["message"] for raw in capfd.readouterr().out.splitlines() if raw.strip()]
     listing: Final = [message for message in messages if "Search Tools" in message or "-search (" in message]
     assert listing == [
-        "LiteLLM: Proxy initialized with Search Tools:",
+        "HangarLLM: Proxy initialized with Search Tools:",
         "    web-search (tavily)",
         "    news-search (exa_ai)",
     ], messages
@@ -2193,32 +2193,32 @@ async def test_ProxyConfig_load_config_keeps_startup_output_off_once_either_sett
     config_value: bool,
 ):
     """Only `true` turns suppress_startup_output on, from the env var or the config key, and a config `false`
-    never turns the env var back off. The key applies before any other litellm_settings key, so a `cache: true`
+    never turns the env var back off. The key applies before any other hangarllm_settings key, so a `cache: true`
     above it prints nothing either."""
     config_file: Final = tmp_path / "suppress.yaml"
     config_file.write_text(
         "model_list: []\n"
-        "litellm_settings:\n"
+        "hangarllm_settings:\n"
         "  cache: true\n"
         "  cache_params:\n"
         "    type: local\n"
         f"  suppress_startup_output: {str(config_value).lower()}\n"
         "search_tools:\n"
         "  - search_tool_name: web-search\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         "      search_provider: tavily\n"
     )
-    monkeypatch.setattr(litellm, "json_logs", False)
-    monkeypatch.setattr(litellm, "suppress_startup_output", already_on)
-    monkeypatch.setattr(litellm, "cache", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(hangarllm, "json_logs", False)
+    monkeypatch.setattr(hangarllm, "suppress_startup_output", already_on)
+    monkeypatch.setattr(hangarllm, "cache", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
 
     out: Final = capfd.readouterr().out
-    assert litellm.suppress_startup_output is True
+    assert hangarllm.suppress_startup_output is True
     assert "Setting Cache on Proxy" not in out, out
     assert "Proxy initialized with Search Tools:" not in out, out
 
@@ -2228,13 +2228,13 @@ def test_ProxyConfig_merge_config_and_db_search_tools_returns_superset():
     config_tools = [
         {
             "search_tool_name": "config-search",
-            "litellm_params": {"search_provider": "tavily"},
+            "hangarllm_params": {"search_provider": "tavily"},
         }
     ]
     db_tools = [
         {
             "search_tool_name": "db-search",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "exa_ai",
                 "api_key": "fake-db-key",
             },
@@ -2247,24 +2247,24 @@ def test_ProxyConfig_merge_config_and_db_search_tools_returns_superset():
     )
 
     assert [tool["search_tool_name"] for tool in merged] == ["config-search", "db-search"]
-    assert merged[1]["litellm_params"]["api_key"] == "fake-db-key"
+    assert merged[1]["hangarllm_params"]["api_key"] == "fake-db-key"
 
 
 def test_ProxyConfig_merge_config_and_db_search_tools_prefers_db_duplicate():
     config_tools = [
         {
             "search_tool_name": "shared-search",
-            "litellm_params": {"search_provider": "tavily"},
+            "hangarllm_params": {"search_provider": "tavily"},
         },
         {
             "search_tool_name": "config-only",
-            "litellm_params": {"search_provider": "perplexity"},
+            "hangarllm_params": {"search_provider": "perplexity"},
         },
     ]
     db_tools = [
         {
             "search_tool_name": "shared-search",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "exa_ai",
                 "api_key": "fake-db-key",
             },
@@ -2277,13 +2277,13 @@ def test_ProxyConfig_merge_config_and_db_search_tools_prefers_db_duplicate():
     )
 
     assert [tool["search_tool_name"] for tool in merged] == ["config-only", "shared-search"]
-    assert merged[1]["litellm_params"]["search_provider"] == "exa_ai"
-    assert merged[1]["litellm_params"]["api_key"] == "fake-db-key"
+    assert merged[1]["hangarllm_params"]["search_provider"] == "exa_ai"
+    assert merged[1]["hangarllm_params"]["api_key"] == "fake-db-key"
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__init_search_tools_in_db_loads_merged_tools(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     pc.update_config_state(
@@ -2291,11 +2291,11 @@ async def test_ProxyConfig__init_search_tools_in_db_loads_merged_tools(monkeypat
             "search_tools": [
                 {
                     "search_tool_name": "shared-search",
-                    "litellm_params": {"search_provider": "tavily"},
+                    "hangarllm_params": {"search_provider": "tavily"},
                 },
                 {
                     "search_tool_name": "config-only",
-                    "litellm_params": {"search_provider": "perplexity"},
+                    "hangarllm_params": {"search_provider": "perplexity"},
                 },
             ]
         }
@@ -2303,18 +2303,18 @@ async def test_ProxyConfig__init_search_tools_in_db_loads_merged_tools(monkeypat
     db_tools = [
         {
             "search_tool_name": "shared-search",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "exa_ai",
                 "api_key": "fake-db-key",
             },
         }
     ]
-    router = litellm.Router()
+    router = hangarllm.Router()
     mock_get_db_tools = AsyncMock(return_value=db_tools)
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(
-        "litellm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
+        "hangarllm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
         mock_get_db_tools,
     )
 
@@ -2326,22 +2326,22 @@ async def test_ProxyConfig__init_search_tools_in_db_loads_merged_tools(monkeypat
         "config-only",
         "shared-search",
     ]
-    assert loaded_tools[1]["litellm_params"]["api_key"] == "fake-db-key"
+    assert loaded_tools[1]["hangarllm_params"]["api_key"] == "fake-db-key"
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__init_search_tools_in_db_clears_router_when_last_tool_is_deleted(monkeypatch):
     """Deleting the last search tool must clear the router, not leave the tool live in memory."""
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     pc.update_config_state({})
-    router = litellm.Router(search_tools=[{"search_tool_name": "deleted-search", "litellm_params": {}}])
+    router = hangarllm.Router(search_tools=[{"search_tool_name": "deleted-search", "hangarllm_params": {}}])
     mock_get_db_tools = AsyncMock(return_value=[])
 
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(
-        "litellm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
+        "hangarllm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
         mock_get_db_tools,
     )
 
@@ -2353,22 +2353,22 @@ async def test_ProxyConfig__init_search_tools_in_db_clears_router_when_last_tool
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__init_search_tools_in_db_keeps_loaded_tools_whose_params_do_not_decrypt(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     pc.update_config_state({})
     loaded_tool = {
         "search_tool_id": "rotated-id",
         "search_tool_name": "rotated-search",
-        "litellm_params": {"search_provider": "perplexity", "api_key": "pplx-loaded"},
+        "hangarllm_params": {"search_provider": "perplexity", "api_key": "pplx-loaded"},
     }
-    router = litellm.Router(
+    router = hangarllm.Router(
         search_tools=[
             loaded_tool,
             {
                 "search_tool_id": "typo-id",
                 "search_tool_name": "typo-search",
-                "litellm_params": {"search_provider": "tavily"},
+                "hangarllm_params": {"search_provider": "tavily"},
             },
         ]
     )
@@ -2376,7 +2376,7 @@ async def test_ProxyConfig__init_search_tools_in_db_keeps_loaded_tools_whose_par
         {
             "search_tool_id": "rotated-id",
             "search_tool_name": "rotated-search",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "zM9FVihBfZj0LRkl6_J4TeIEO8ijpxKov0QnfZa1uM9J1lO7Txy9IQ==",
                 "api_key": "c2VhbGVkLWtleQ",
             },
@@ -2384,23 +2384,23 @@ async def test_ProxyConfig__init_search_tools_in_db_keeps_loaded_tools_whose_par
         {
             "search_tool_id": "fresh-id",
             "search_tool_name": "fresh-search",
-            "litellm_params": {"search_provider": "tavily", "api_key": "tvly-fresh"},
+            "hangarllm_params": {"search_provider": "tavily", "api_key": "tvly-fresh"},
         },
         {
             "search_tool_id": "typo-id",
             "search_tool_name": "typo-search",
-            "litellm_params": {"search_provider": "Tavily", "api_key": "tvly-edited"},
+            "hangarllm_params": {"search_provider": "Tavily", "api_key": "tvly-edited"},
         },
     ]
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(
-        "litellm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
+        "hangarllm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
         AsyncMock(return_value=db_tools),
     )
 
     await pc._init_search_tools_in_db(prisma_client=MagicMock())
 
-    assert [tool["litellm_params"] for tool in router.settings().search_tools] == [
+    assert [tool["hangarllm_params"] for tool in router.settings().search_tools] == [
         {"search_provider": "perplexity", "api_key": "pplx-loaded"},
         {"search_provider": "tavily", "api_key": "tvly-fresh"},
         {"search_provider": "Tavily", "api_key": "tvly-edited"},
@@ -2409,7 +2409,7 @@ async def test_ProxyConfig__init_search_tools_in_db_keeps_loaded_tools_whose_par
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_reload_search_tools_from_db_refreshes_router(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     mock_init = AsyncMock()
@@ -2423,7 +2423,7 @@ async def test_ProxyConfig_reload_search_tools_from_db_refreshes_router(monkeypa
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_reload_search_tools_from_db_honors_supported_db_objects(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     mock_init = AsyncMock()
@@ -2441,7 +2441,7 @@ async def test_ProxyConfig_reload_search_tools_from_db_serializes_overlapping_re
     """An older snapshot must not land last and restore a tool a newer refresh deleted."""
     import asyncio
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     pc.update_config_state({})
@@ -2452,7 +2452,7 @@ async def test_ProxyConfig_reload_search_tools_from_db_serializes_overlapping_re
     fresh_write_committed = asyncio.Event()
     snapshots = iter(
         (
-            [{"search_tool_name": "doomed-search", "litellm_params": {}}],
+            [{"search_tool_name": "doomed-search", "hangarllm_params": {}}],
             [],
         )
     )
@@ -2467,7 +2467,7 @@ async def test_ProxyConfig_reload_search_tools_from_db_serializes_overlapping_re
     monkeypatch.setattr(proxy_server, "llm_router", fake_router)
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
     monkeypatch.setattr(
-        "litellm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
+        "hangarllm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
         _read_db,
     )
 
@@ -2483,7 +2483,7 @@ async def test_ProxyConfig_reload_search_tools_from_db_serializes_overlapping_re
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_reload_search_tools_from_db_noops_without_prisma(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     mock_init = AsyncMock()
@@ -2518,7 +2518,7 @@ def test_ProxyConfig__load_environment_variables_warns_when_the_config_replaces_
     monkeypatch.setenv("TEST_LOAD_ENV_OVERRIDDEN", "from-process")
     monkeypatch.setenv("TEST_LOAD_ENV_SAME", "same-value")
     monkeypatch.delenv("TEST_LOAD_ENV_FRESH", raising=False)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         ProxyConfig()._load_environment_variables(
             {
                 "environment_variables": {
@@ -2561,7 +2561,7 @@ async def test_load_config_legacy_secret_manager_flags_capture_the_initialized_c
     else:
         client_type: Final = pytest.importorskip("google.cloud.kms_v1").KeyManagementServiceClient
 
-    from litellm.rust_bridge.host.secret_manager import native_secret_manager_config
+    from hangarllm.rust_bridge.host.secret_manager import native_secret_manager_config
 
     credentials_file: Final = tmp_path / "credentials.json"
     credentials_file.write_text(
@@ -2581,25 +2581,25 @@ async def test_load_config_legacy_secret_manager_flags_capture_the_initialized_c
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(credentials_file))
     monkeypatch.setenv("GOOGLE_KMS_RESOURCE_NAME", "projects/test/locations/global/keyRings/test/cryptoKeys/test")
     monkeypatch.setenv("AZURE_KEY_VAULT_URI", "https://test.vault.azure.net")
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
-    monkeypatch.setattr(litellm, "_key_management_system", None)
-    monkeypatch.setattr(litellm, "_google_kms_resource_name", None)
-    monkeypatch.setattr(litellm, "_key_management_settings", litellm._key_management_settings)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "_key_management_system", None)
+    monkeypatch.setattr(hangarllm, "_google_kms_resource_name", None)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", hangarllm._key_management_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
 
-    client: Final = litellm.secret_manager_client
+    client: Final = hangarllm.secret_manager_client
     assert isinstance(client, client_type)
     try:
         captured: Final = native_secret_manager_config(client)
         assert captured is not None
         assert captured.system == system
         assert dict(captured.environment)["GOOGLE_APPLICATION_CREDENTIALS"] == str(credentials_file)
-        assert litellm._key_management_system is not None
-        assert litellm._key_management_system.value == system
+        assert hangarllm._key_management_system is not None
+        assert hangarllm._key_management_system.value == system
     finally:
         if system == "azure_key_vault":
             client.close()
@@ -2614,11 +2614,11 @@ async def test_load_config_disabled_google_kms_does_not_initialize_a_manager(
 ) -> None:
     config_file: Final = tmp_path / "disabled-kms.yaml"
     config_file.write_text(f"model_list: []\ngeneral_settings:\n  use_google_kms: {flag}\n")
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
-    monkeypatch.setattr(litellm, "_key_management_system", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "_key_management_system", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
 
     _router, model_list, general_settings = await ProxyConfig().load_config(
@@ -2627,17 +2627,17 @@ async def test_load_config_disabled_google_kms_does_not_initialize_a_manager(
 
     assert model_list == []
     assert general_settings["use_google_kms"] is (None if flag == "null" else False)
-    assert litellm.secret_manager_client is None
-    assert litellm._key_management_system is None
+    assert hangarllm.secret_manager_client is None
+    assert hangarllm._key_management_system is None
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_load_config_minimal_yaml(tmp_path, monkeypatch):
     f = tmp_path / "c.yaml"
-    f.write_text("model_list: []\ngeneral_settings: {}\nlitellm_settings: {}\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    f.write_text("model_list: []\ngeneral_settings: {}\nhangarllm_settings: {}\n")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     pc = ProxyConfig()
     try:
         await pc.load_config(router=None, config_file_path=str(f))
@@ -2661,14 +2661,14 @@ async def test_ProxyConfig_load_config_minimal_yaml(tmp_path, monkeypatch):
 async def test_load_config_logs_disabled_budget_reservation_once(tmp_path, monkeypatch, caplog, setting):
     config_file = tmp_path / "budget.yaml"
     flag = f"  disable_budget_reservation: {setting}\n" if setting is not None else ""
-    config_file.write_text("model_list: []\nlitellm_settings: {}\ngeneral_settings:\n  master_key: null\n" + flag)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.constants.budget_reservation_disabled_info_emitted", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    config_file.write_text("model_list: []\nhangarllm_settings: {}\ngeneral_settings:\n  master_key: null\n" + flag)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.constants.budget_reservation_disabled_info_emitted", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     config = ProxyConfig()
 
-    with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.INFO, logger="HangarLLM Proxy"):
         for _ in range(3):
             await config.load_config(router=None, config_file_path=str(config_file))
 
@@ -2679,14 +2679,14 @@ async def test_load_config_logs_disabled_budget_reservation_once(tmp_path, monke
 @pytest.mark.asyncio
 async def test_load_config_refuses_allowed_ips_without_a_license(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     config_file: Final = tmp_path / "allowed_ips.yaml"
-    config_file.write_text('model_list: []\nlitellm_settings: {}\ngeneral_settings:\n  allowed_ips: ["127.0.0.1"]\n')
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    config_file.write_text('model_list: []\nhangarllm_settings: {}\ngeneral_settings:\n  allowed_ips: ["127.0.0.1"]\n')
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     expected_message: Final = (
-        "allowed_ips is an Enterprise Feature. Please add a valid LITELLM_LICENSE to your environment."
+        "allowed_ips is an Enterprise Feature. Please add a valid HANGARLLM_LICENSE to your environment."
     )
     with pytest.raises(ValueError, match=f"^{re.escape(expected_message)}$"):
         await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
@@ -2702,9 +2702,9 @@ def _signed_test_license(private_key: RSAPrivateKey, max_users: int) -> str:
     return base64.b64encode(message + b"." + signature).decode()
 
 
-def _write_config(path: Path, general_settings: dict[str, object], litellm_settings: dict[str, object]) -> str:
+def _write_config(path: Path, general_settings: dict[str, object], hangarllm_settings: dict[str, object]) -> str:
     path.write_text(
-        json.dumps({"model_list": [], "litellm_settings": litellm_settings, "general_settings": general_settings})
+        json.dumps({"model_list": [], "hangarllm_settings": hangarllm_settings, "general_settings": general_settings})
     )
     return str(path)
 
@@ -2716,7 +2716,7 @@ def _boot_proxy(
     license_server_urls: list[str],
     server_accepted_license: str | None = None,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     def _license_server(request: httpx.Request) -> httpx.Response:
         license_server_urls.append(str(request.url))
@@ -2724,23 +2724,23 @@ def _boot_proxy(
             200, json={"verify": server_accepted_license is not None and server_accepted_license in str(request.url)}
         )
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server._license_check.public_key", public_key)
-    monkeypatch.setattr("litellm.proxy.proxy_server._license_check.airgapped_license_data", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.public_key", public_key)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.airgapped_license_data", None)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server._license_check.http_handler",
+        "hangarllm.proxy.proxy_server._license_check.http_handler",
         HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_license_server))),
     )
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     if env_license is None:
-        monkeypatch.delenv("LITELLM_LICENSE", raising=False)
+        monkeypatch.delenv("HANGARLLM_LICENSE", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_LICENSE", env_license)
-    monkeypatch.setattr("litellm.proxy.proxy_server._license_check.license_str", env_license)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", proxy_server._license_check.is_premium())
+        monkeypatch.setenv("HANGARLLM_LICENSE", env_license)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server._license_check.license_str", env_license)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", proxy_server._license_check.is_premium())
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.premium_user_data", proxy_server._license_check.airgapped_license_data
+        "hangarllm.proxy.proxy_server.premium_user_data", proxy_server._license_check.airgapped_license_data
     )
 
 
@@ -2750,20 +2750,20 @@ def _boot_proxy(
     [
         {"general_settings": {"allowed_ips": ["127.0.0.1"]}},
         {"general_settings": {"enforced_params": ["user"]}},
-        {"litellm_settings": {"callbacks": ["openai_moderations"]}},
+        {"hangarllm_settings": {"callbacks": ["openai_moderations"]}},
     ],
 )
 async def test_load_config_lets_a_config_license_unlock_its_enterprise_gates(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, gated_config: dict[str, dict[str, list[str]]]
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     license_key: Final = _signed_test_license(private_key, max_users=10)
     config_file: Final = _write_config(
         tmp_path / "licensed.yaml",
-        {"litellm_license": license_key, **gated_config.get("general_settings", {})},
-        dict(gated_config.get("litellm_settings", {})),
+        {"hangarllm_license": license_key, **gated_config.get("general_settings", {})},
+        dict(gated_config.get("hangarllm_settings", {})),
     )
     _boot_proxy(monkeypatch, private_key.public_key(), env_license=None, license_server_urls=[])
 
@@ -2776,11 +2776,11 @@ async def test_load_config_lets_a_config_license_unlock_its_enterprise_gates(
 async def test_load_config_keeps_a_valid_env_license_when_the_config_license_is_invalid(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     config_file: Final = _write_config(
-        tmp_path / "stale_license.yaml", {"litellm_license": "not-a-valid-license", "allowed_ips": ["127.0.0.1"]}, {}
+        tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license", "allowed_ips": ["127.0.0.1"]}, {}
     )
     _boot_proxy(
         monkeypatch,
@@ -2799,13 +2799,13 @@ async def test_load_config_keeps_a_valid_env_license_when_the_config_license_is_
 async def test_load_config_prefers_the_config_license_when_both_licenses_are_valid(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_license_endpoint
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_license_endpoint
 
     private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     config_file: Final = _write_config(
-        tmp_path / "licensed.yaml", {"litellm_license": _signed_test_license(private_key, max_users=100)}, {}
+        tmp_path / "licensed.yaml", {"hangarllm_license": _signed_test_license(private_key, max_users=100)}, {}
     )
     _boot_proxy(
         monkeypatch,
@@ -2824,11 +2824,11 @@ async def test_load_config_prefers_the_config_license_when_both_licenses_are_val
 async def test_load_config_still_reports_an_invalid_config_license_as_configured(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_license_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_license_endpoint
 
     private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    config_file: Final = _write_config(tmp_path / "stale_license.yaml", {"litellm_license": "not-a-valid-license"}, {})
+    config_file: Final = _write_config(tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license"}, {})
     _boot_proxy(monkeypatch, private_key.public_key(), env_license=None, license_server_urls=[])
 
     await ProxyConfig().load_config(router=None, config_file_path=config_file)
@@ -2841,10 +2841,10 @@ async def test_load_config_still_reports_an_invalid_config_license_as_configured
 async def test_load_config_does_not_recheck_an_env_license_that_failed_at_boot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    config_file: Final = _write_config(tmp_path / "stale_license.yaml", {"litellm_license": "not-a-valid-license"}, {})
+    config_file: Final = _write_config(tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license"}, {})
     license_server_urls: Final[list[str]] = []
     _boot_proxy(monkeypatch, private_key.public_key(), "also-not-a-valid-license", license_server_urls)
     asked_at_boot: Final = len(license_server_urls)
@@ -2860,11 +2860,11 @@ async def test_load_config_does_not_recheck_an_env_license_that_failed_at_boot(
 async def test_load_config_keeps_the_boot_verdict_of_a_server_checked_env_license(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     private_key: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     config_file: Final = _write_config(
-        tmp_path / "stale_license.yaml", {"litellm_license": "not-a-valid-license", "allowed_ips": ["127.0.0.1"]}, {}
+        tmp_path / "stale_license.yaml", {"hangarllm_license": "not-a-valid-license", "allowed_ips": ["127.0.0.1"]}, {}
     )
     license_server_urls: Final[list[str]] = []
     _boot_proxy(
@@ -2892,10 +2892,10 @@ async def test_load_config_yaml_deny_by_default_is_boolean(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, setting: str, yaml_value: str, expected: bool
 ):
     config_file: Final = tmp_path / "deny_by_default.yaml"
-    config_file.write_text(f"model_list: []\nlitellm_settings: {{}}\ngeneral_settings:\n  {setting}: {yaml_value}\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    config_file.write_text(f"model_list: []\nhangarllm_settings: {{}}\ngeneral_settings:\n  {setting}: {yaml_value}\n")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     _, _, general_settings = await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
 
@@ -2912,10 +2912,10 @@ async def test_load_config_rejects_non_boolean_deny_by_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, setting: str, yaml_value: str
 ):
     config_file: Final = tmp_path / "deny_by_default.yaml"
-    config_file.write_text(f"model_list: []\nlitellm_settings: {{}}\ngeneral_settings:\n  {setting}: {yaml_value}\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    config_file.write_text(f"model_list: []\nhangarllm_settings: {{}}\ngeneral_settings:\n  {setting}: {yaml_value}\n")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     with pytest.raises(ValidationError, match=setting):
         await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
@@ -2930,12 +2930,12 @@ async def test_load_config_rejects_a_malformed_vertex_drop_anthropic_betas_list(
 ):
     config_file: Final = tmp_path / "vertex_drop_betas.yaml"
     config_file.write_text(
-        "model_list: []\nlitellm_settings: {}\ngeneral_settings:\n"
+        "model_list: []\nhangarllm_settings: {}\ngeneral_settings:\n"
         f"  vertex_ai_pass_through_drop_anthropic_betas: {yaml_value}\n"
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     with pytest.raises(ValidationError, match="vertex_ai_pass_through_drop_anthropic_betas"):
         await ProxyConfig().load_config(router=None, config_file_path=str(config_file))
@@ -2955,14 +2955,14 @@ async def test_ProxyConfig_load_config_resolves_router_settings_plugins(tmp_path
     f.write_text(
         "model_list: []\n"
         "general_settings: {}\n"
-        "litellm_settings: {}\n"
+        "hangarllm_settings: {}\n"
         "router_settings:\n"
         "  plugins:\n"
         "    - rs_plugin.rs_plugin_instance\n"
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     router, _model_list, _general_settings = await ProxyConfig().load_config(router=None, config_file_path=str(f))
 
@@ -2978,14 +2978,14 @@ async def test_ProxyConfig_load_config_rejects_bad_router_settings_plugin(tmp_pa
     f.write_text(
         "model_list: []\n"
         "general_settings: {}\n"
-        "litellm_settings: {}\n"
+        "hangarllm_settings: {}\n"
         "router_settings:\n"
         "  plugins:\n"
         "    - bad_rs_plugin.not_a_plugin\n"
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     with pytest.raises(ValueError, match="does not implement the RoutingPlugin interface"):
         await ProxyConfig().load_config(router=None, config_file_path=str(f))
@@ -2993,7 +2993,7 @@ async def test_ProxyConfig_load_config_rejects_bad_router_settings_plugin(tmp_pa
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_load_config_wires_general_settings_url_validation(tmp_path, monkeypatch):
-    """Regression for #26599: SSRF settings in general_settings must reach litellm globals."""
+    """Regression for #26599: SSRF settings in general_settings must reach hangarllm globals."""
     f = tmp_path / "c.yaml"
     f.write_text(
         "model_list: []\n"
@@ -3004,46 +3004,46 @@ async def test_ProxyConfig_load_config_wires_general_settings_url_validation(tmp
         "  provider_url_destination_allowed_hosts:\n"
         "    - api.example.com\n"
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
-    original_validation = litellm.user_url_validation
-    original_hosts = list(litellm.user_url_allowed_hosts)
-    original_provider_hosts = list(litellm.provider_url_destination_allowed_hosts)
+    original_validation = hangarllm.user_url_validation
+    original_hosts = list(hangarllm.user_url_allowed_hosts)
+    original_provider_hosts = list(hangarllm.provider_url_destination_allowed_hosts)
     try:
         await ProxyConfig().load_config(router=None, config_file_path=str(f))
-        assert litellm.user_url_validation is False
-        assert litellm.user_url_allowed_hosts == ["internal.corp"]
-        assert litellm.provider_url_destination_allowed_hosts == ["api.example.com"]
+        assert hangarllm.user_url_validation is False
+        assert hangarllm.user_url_allowed_hosts == ["internal.corp"]
+        assert hangarllm.provider_url_destination_allowed_hosts == ["api.example.com"]
     finally:
-        litellm.user_url_validation = original_validation
-        litellm.user_url_allowed_hosts = original_hosts
-        litellm.provider_url_destination_allowed_hosts = original_provider_hosts
+        hangarllm.user_url_validation = original_validation
+        hangarllm.user_url_allowed_hosts = original_hosts
+        hangarllm.provider_url_destination_allowed_hosts = original_provider_hosts
 
 
 @pytest.mark.asyncio
 async def test_ssrf_block_message_names_a_config_section_load_config_honors(tmp_path, monkeypatch):
     """Regression for LIT-8349: the remediation in the SSRF block message must point at a section that works."""
-    from litellm.litellm_core_utils.url_utils import SSRFError, validate_url
+    from hangarllm.hangarllm_core_utils.url_utils import SSRFError, validate_url
 
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", [])
-    monkeypatch.setattr(litellm, "user_url_validation", True)
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [])
+    monkeypatch.setattr(hangarllm, "user_url_validation", True)
     with pytest.raises(SSRFError) as blocked:
         validate_url("http://10.96.3.245:10002/agent.json")
     section_match = re.search(r"add the host to `user_url_allowed_hosts` in (\w+)\.", str(blocked.value))
     assert section_match is not None, str(blocked.value)
     section: Final = section_match.group(1)
-    assert section == "litellm_settings", f"block message points admins at {section}, which the docs contradict"
+    assert section == "hangarllm_settings", f"block message points admins at {section}, which the docs contradict"
 
     f = tmp_path / "c.yaml"
     f.write_text(f"model_list: []\n{section}:\n  user_url_allowed_hosts:\n    - '10.96.3.245:10002'\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     await ProxyConfig().load_config(router=None, config_file_path=str(f))
 
-    assert litellm.user_url_allowed_hosts == ["10.96.3.245:10002"], f"{section} did not apply the allowlist"
+    assert hangarllm.user_url_allowed_hosts == ["10.96.3.245:10002"], f"{section} did not apply the allowlist"
     assert validate_url("http://10.96.3.245:10002/agent.json") == (
         "http://10.96.3.245:10002/agent.json",
         "10.96.3.245:10002",
@@ -3055,15 +3055,15 @@ async def test_ProxyConfig_load_config_wires_config_reload_interval(tmp_path, mo
     """general_settings.proxy_config_reload_interval_seconds must reach the proxy_server
     module global that schedules the DB config-reload jobs, so operators can tune multi-pod
     convergence from config.yaml."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     f = tmp_path / "c.yaml"
     f.write_text(
-        "model_list: []\ngeneral_settings:\n  proxy_config_reload_interval_seconds: 47\nlitellm_settings: {}\n"
+        "model_list: []\ngeneral_settings:\n  proxy_config_reload_interval_seconds: 47\nhangarllm_settings: {}\n"
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     original = proxy_server.proxy_config_reload_interval_seconds
     try:
@@ -3075,9 +3075,9 @@ async def test_ProxyConfig_load_config_wires_config_reload_interval(tmp_path, mo
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_load_config_missing_file_raises(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     pc = ProxyConfig()
     with pytest.raises(Exception, match="Config file not found"):
         await pc.load_config(router=None, config_file_path="/no/file.yaml")
@@ -3103,12 +3103,12 @@ async def test_ProxyConfig_load_config_forwards_callback_specific_params(tmp_pat
         "      - capability\n"
         "      - platform\n"
         "      - ai_product\n"
-        "litellm_settings:\n"
+        "hangarllm_settings:\n"
         '  callbacks: ["datadog_cost_management"]\n'
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     captured = {}
 
@@ -3116,7 +3116,7 @@ async def test_ProxyConfig_load_config_forwards_callback_specific_params(tmp_pat
         captured.update(kwargs)
 
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.initialize_callbacks_on_proxy",
+        "hangarllm.proxy.proxy_server.initialize_callbacks_on_proxy",
         _fake_initialize_callbacks_on_proxy,
     )
 
@@ -3143,26 +3143,26 @@ async def test_ProxyConfig_load_config_blank_callback_settings_does_not_crash(tm
         "model_list: []\n"
         "general_settings: {}\n"
         "callback_settings:\n"
-        "litellm_settings:\n"
+        "hangarllm_settings:\n"
         '  callbacks: ["compression_interception"]\n'
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
-    from litellm.integrations.compression_interception.handler import (
+    from hangarllm.integrations.compression_interception.handler import (
         CompressionInterceptionLogger,
     )
 
-    original_callbacks = list(litellm.callbacks) if isinstance(litellm.callbacks, list) else []
-    litellm.callbacks = []
+    original_callbacks = list(hangarllm.callbacks) if isinstance(hangarllm.callbacks, list) else []
+    hangarllm.callbacks = []
     try:
         pc = ProxyConfig()
         await pc.load_config(router=None, config_file_path=str(f))
 
-        assert any(isinstance(c, CompressionInterceptionLogger) for c in litellm.callbacks)
+        assert any(isinstance(c, CompressionInterceptionLogger) for c in hangarllm.callbacks)
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
 
 # ---------------------------------------------------------------------------
@@ -3188,7 +3188,7 @@ async def test_ProxyConfig__init_non_llm_configs_empty_config():
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__init_non_llm_configs_premium_invalid_worker_registry_raises(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     pc = ProxyConfig()
     with pytest.raises(ValidationError):
         await pc._init_non_llm_configs(
@@ -3199,9 +3199,9 @@ async def test_ProxyConfig__init_non_llm_configs_premium_invalid_worker_registry
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__init_non_llm_configs_worker_registry_requires_premium(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
     pc = ProxyConfig()
-    with pytest.raises(ValueError, match="Trying to use `worker_registry`You must be a LiteLLM") as exc_info:
+    with pytest.raises(ValueError, match="Trying to use `worker_registry`You must be a HangarLLM") as exc_info:
         await pc._init_non_llm_configs(
             config={"worker_registry": [{"worker_id": "worker-a", "name": "Worker A", "url": "http://localhost:4001"}]},
             config_file_path=None,
@@ -3214,7 +3214,7 @@ async def test_ProxyConfig__init_non_llm_configs_worker_registry_requires_premiu
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__init_non_llm_configs_worker_registry_loads_for_premium(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     pc = ProxyConfig()
     await pc._init_non_llm_configs(
         config={
@@ -3234,7 +3234,7 @@ async def test_ProxyConfig__init_non_llm_configs_worker_registry_loads_for_premi
 @pytest.mark.parametrize("premium", [True, False])
 @pytest.mark.asyncio
 async def test_ProxyConfig__init_non_llm_configs_no_worker_registry_is_never_gated(monkeypatch, premium):
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", premium)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", premium)
     pc = ProxyConfig()
     await pc._init_non_llm_configs(config={}, config_file_path=None)
     assert pc.worker_registry == []
@@ -3312,15 +3312,15 @@ def test_ProxyConfig__load_alerting_settings_does_not_log_general_settings_dict(
     (``SecretRedactionFilter``) DISABLED, since defense in depth is the point.
     The caller must not construct the leaky string, so consumers of the log
     stream that bypass the module filter (versions before it existed,
-    ``LITELLM_DISABLE_REDACT_SECRETS=true`` operators, downstream handlers
+    ``HANGARLLM_DISABLE_REDACT_SECRETS=true`` operators, downstream handlers
     that snapshot the record pre-filter) still do not see the secret. Uses a
     dedicated handler rather than caplog because caplog is unreliable under
     pytest-xdist.
     """
     import logging
 
-    import litellm._logging as _logging_module
-    from litellm._logging import verbose_proxy_logger
+    import hangarllm._logging as _logging_module
+    from hangarllm._logging import verbose_proxy_logger
 
     monkeypatch.setattr(_logging_module, "_ENABLE_SECRET_REDACTION", False)
 
@@ -3377,7 +3377,7 @@ def _capture_proxy_warnings(config: dict) -> tuple[tuple[str, ...], list[str]]:
     """
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from hangarllm._logging import verbose_proxy_logger
 
     class LogRecordHandler(logging.Handler):
         def __init__(self) -> None:
@@ -3406,13 +3406,13 @@ def test_ProxyConfig__warn_on_misplaced_jwt_keys_warns_on_top_level_keys():
     """LIT-4584 Issue 3: JWT keys at the YAML top level are silently dropped, so
     load_config must warn. Both recognized keys are reported."""
     result, warnings = _capture_proxy_warnings(
-        {"enable_jwt_auth": True, "litellm_jwtauth": {"team_id_jwt_field": "client_id"}}
+        {"enable_jwt_auth": True, "hangarllm_jwtauth": {"team_id_jwt_field": "client_id"}}
     )
 
-    assert result == ("enable_jwt_auth", "litellm_jwtauth")
+    assert result == ("enable_jwt_auth", "hangarllm_jwtauth")
     assert len(warnings) == 1
     assert "enable_jwt_auth" in warnings[0]
-    assert "litellm_jwtauth" in warnings[0]
+    assert "hangarllm_jwtauth" in warnings[0]
     assert "general_settings" in warnings[0]
 
 
@@ -3433,7 +3433,7 @@ def test_ProxyConfig__warn_on_misplaced_jwt_keys_warns_even_when_also_under_gene
 
 def test_ProxyConfig__warn_on_misplaced_jwt_keys_silent_when_correctly_placed():
     """Keys living only under general_settings are valid, so no warning fires."""
-    result, warnings = _capture_proxy_warnings({"general_settings": {"enable_jwt_auth": True, "litellm_jwtauth": {}}})
+    result, warnings = _capture_proxy_warnings({"general_settings": {"enable_jwt_auth": True, "hangarllm_jwtauth": {}}})
 
     assert result == ()
     assert warnings == []
@@ -3529,54 +3529,54 @@ def test_ProxyConfig_get_model_info_with_id_keeps_pricing_typed_into_model_info(
 def test_ProxyConfig__add_deployment_pinned_row_follows_the_cost_map_across_reloads(monkeypatch, local_model_cost_map):
     """The customer's symptom end to end: a row pinned before 1.102 must bill at the live cost
     map price on boot and again after Reload Price Data, while a price typed on
-    ``litellm_params`` keeps overriding it."""
+    ``hangarllm_params`` keeps overriding it."""
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
-    router = litellm.Router(model_list=[])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    router = hangarllm.Router(model_list=[])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", router)
     pinned = SimpleNamespace(
         model_id="pinned-row",
         model_name="gpt-5.6",
         model_info=dict(PINNED_MODEL_INFO),
-        litellm_params={"model": "openai/gpt-5.6", "api_key": "sk-test"},
+        hangarllm_params={"model": "openai/gpt-5.6", "api_key": "sk-test"},
         blocked=False,
     )
     typed = SimpleNamespace(
         model_id="typed-row",
         model_name="gpt-5.6-typed",
         model_info={"id": "typed-row", "key": "gpt-5.6", "input_cost_per_token": 4e-06},
-        litellm_params={"model": "openai/gpt-5.6", "api_key": "sk-test", "input_cost_per_token": 3e-06},
+        hangarllm_params={"model": "openai/gpt-5.6", "api_key": "sk-test", "input_cost_per_token": 3e-06},
         blocked=False,
     )
 
     assert ProxyConfig()._add_deployment(db_models=[pinned, typed]) == 2
 
-    monkeypatch.setitem(litellm.model_cost["gpt-5.6"], "input_cost_per_token", 1e-06)
+    monkeypatch.setitem(hangarllm.model_cost["gpt-5.6"], "input_cost_per_token", 1e-06)
     router.replay_model_cost_registrations()
 
-    assert litellm.model_cost.get("pinned-row", {}).get("input_cost_per_token") is None
+    assert hangarllm.model_cost.get("pinned-row", {}).get("input_cost_per_token") is None
     assert router.get_deployment(model_id="pinned-row").model_info.input_cost_per_token is None
-    assert litellm.get_model_info("openai/gpt-5.6")["input_cost_per_token"] == 1e-06
-    assert litellm.model_cost["typed-row"]["input_cost_per_token"] == 3e-06
+    assert hangarllm.get_model_info("openai/gpt-5.6")["input_cost_per_token"] == 1e-06
+    assert hangarllm.model_cost["typed-row"]["input_cost_per_token"] == 3e-06
 
 
 def test_ProxyConfig__add_deployment_ptu_row_with_a_cost_map_copy_still_bills_zero(monkeypatch, local_model_cost_map):
     """A PTU deployment bills nothing per token: the proxy writes zeros to both blobs. When such
     a row also carries the echoed cost map, dropping the ``model_info`` copy must not send it
-    back to the per-token price, because the ``litellm_params`` zeros are the operator's."""
+    back to the per-token price, because the ``hangarllm_params`` zeros are the operator's."""
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
-    router = litellm.Router(model_list=[])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    router = hangarllm.Router(model_list=[])
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", router)
     ptu = SimpleNamespace(
         model_id="ptu-row",
         model_name="gpt-5.6-ptu",
         model_info={**PINNED_MODEL_INFO, "id": "ptu-row", "input_cost_per_token": 0.0, "output_cost_per_token": 0.0},
-        litellm_params={
+        hangarllm_params={
             "model": "openai/gpt-5.6",
             "api_key": "sk-test",
             "input_cost_per_token": 0.0,
@@ -3588,13 +3588,13 @@ def test_ProxyConfig__add_deployment_ptu_row_with_a_cost_map_copy_still_bills_ze
     assert ProxyConfig()._add_deployment(db_models=[ptu]) == 1
     router.replay_model_cost_registrations()
 
-    assert litellm.model_cost["ptu-row"]["input_cost_per_token"] == 0.0
-    assert litellm.model_cost["ptu-row"]["output_cost_per_token"] == 0.0
+    assert hangarllm.model_cost["ptu-row"]["input_cost_per_token"] == 0.0
+    assert hangarllm.model_cost["ptu-row"]["output_cost_per_token"] == 0.0
     assert router.get_deployment(model_id="ptu-row").model_info.input_cost_per_token == 0.0
 
 
 def test_ProxyConfig_get_model_info_with_id_missing_model_id_raises(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", False)
     pc = ProxyConfig()
     # model with no model_id, no model_info — accessing .model_id will fail.
     bad = SimpleNamespace(model_info=None)
@@ -3609,7 +3609,7 @@ def test_ProxyConfig_get_model_info_with_id_missing_model_id_raises(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__delete_deployment_no_router_returns_none(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
     pc = ProxyConfig()
     result = await pc._delete_deployment(db_models=[])
     snapshot = {"still_desired": result, "router_was": "none", "empty_db_models": True}
@@ -3620,7 +3620,7 @@ async def test_ProxyConfig__delete_deployment_no_router_returns_none(monkeypatch
 async def test_ProxyConfig__delete_deployment_invalid_models_raises(monkeypatch):
     fake_router = MagicMock()
     fake_router.get_model_ids = MagicMock(return_value=[])
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
     with pytest.raises(AttributeError):
         # Non-model objects without expected attrs trigger an error.
@@ -3633,19 +3633,19 @@ async def test_ProxyConfig__delete_deployment_invalid_models_raises(monkeypatch)
 
 
 def test_ProxyConfig__add_deployment_no_router_returns_zero(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
     pc = ProxyConfig()
     result = pc._add_deployment(db_models=[MagicMock()])
     snapshot = {"added": result, "router_was": "none", "called": True}
     assert snapshot == {"added": 0, "router_was": "none", "called": True}
 
 
-def test_ProxyConfig__add_deployment_invalid_litellm_params_skips(monkeypatch):
+def test_ProxyConfig__add_deployment_invalid_hangarllm_params_skips(monkeypatch):
     fake_router = MagicMock()
     fake_router.apply = MagicMock(return_value=ApplyResult(version=1, upserted=[None]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
-    bad = SimpleNamespace(litellm_params="not-a-dict", model_name="x", model_id="x")
+    bad = SimpleNamespace(hangarllm_params="not-a-dict", model_name="x", model_id="x")
     # invalid params logs and continues — assert zero added (error-style branch).
     assert pc._add_deployment(db_models=[bad]) == 0
 
@@ -3653,27 +3653,27 @@ def test_ProxyConfig__add_deployment_invalid_litellm_params_skips(monkeypatch):
 def test_ProxyConfig__add_deployment_resolves_env_refs_after_db_decrypt(monkeypatch):
     """Every ``os.environ/`` value on an admin-scoped DB row resolves at
     load time, regardless of the field name. Replaces the earlier
-    behavior where only fields in ``_DB_LITELLM_PARAM_ENV_REF_KEYS``
+    behavior where only fields in ``_DB_HANGARLLM_PARAM_ENV_REF_KEYS``
     resolved: the whitelist has been removed so the resolver applies to
     every string field."""
-    monkeypatch.setenv("LITELLM_DB_MODEL_API_KEY", "resolved-secret")
-    monkeypatch.setenv("LITELLM_MASTER_KEY", "master-secret")
+    monkeypatch.setenv("HANGARLLM_DB_MODEL_API_KEY", "resolved-secret")
+    monkeypatch.setenv("HANGARLLM_MASTER_KEY", "master-secret")
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
     fake_router = MagicMock()
     fake_router.apply = MagicMock(return_value=ApplyResult(version=1, upserted=[True]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
     db_model = SimpleNamespace(
         model_id="model-1",
         model_name="env-model",
         model_info={"id": "model-1"},
-        litellm_params={
+        hangarllm_params={
             "model": "openai/gpt-4o-mini",
-            "api_key": "os.environ/LITELLM_DB_MODEL_API_KEY",
-            "api_base": "os.environ/LITELLM_MASTER_KEY",
+            "api_key": "os.environ/HANGARLLM_DB_MODEL_API_KEY",
+            "api_base": "os.environ/HANGARLLM_MASTER_KEY",
         },
         blocked=False,
     )
@@ -3682,8 +3682,8 @@ def test_ProxyConfig__add_deployment_resolves_env_refs_after_db_decrypt(monkeypa
     (deployment,) = fake_router.apply.call_args.args[0].upsert
 
     assert added == 1
-    assert deployment.litellm_params.api_key == "resolved-secret"
-    assert deployment.litellm_params.api_base == "master-secret"
+    assert deployment.hangarllm_params.api_key == "resolved-secret"
+    assert deployment.hangarllm_params.api_base == "master-secret"
 
 
 def test_ProxyConfig__add_deployment_resolves_team_env_refs(monkeypatch):
@@ -3693,22 +3693,22 @@ def test_ProxyConfig__add_deployment_resolves_team_env_refs(monkeypatch):
     auth check in ``ModelManagementAuthChecks.can_user_make_model_call``
     remains the single trust boundary. A literal (non-``os.environ/``)
     value still passes through unchanged."""
-    monkeypatch.setenv("LITELLM_MASTER_KEY", "master-secret")
+    monkeypatch.setenv("HANGARLLM_MASTER_KEY", "master-secret")
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
     fake_router = MagicMock()
     fake_router.apply = MagicMock(return_value=ApplyResult(version=1, upserted=[True]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
     db_model = SimpleNamespace(
         model_id="model-1",
         model_name="model_name_team-1_abc",
         model_info={"id": "model-1", "team_id": "team-1"},
-        litellm_params={
+        hangarllm_params={
             "model": "openai/gpt-4o-mini",
-            "api_key": "os.environ/LITELLM_MASTER_KEY",
+            "api_key": "os.environ/HANGARLLM_MASTER_KEY",
             "api_base": "https://team.example",
         },
         blocked=False,
@@ -3718,21 +3718,21 @@ def test_ProxyConfig__add_deployment_resolves_team_env_refs(monkeypatch):
     (deployment,) = fake_router.apply.call_args.args[0].upsert
 
     assert added == 1
-    assert deployment.litellm_params.api_key == "master-secret"
-    assert deployment.litellm_params.api_base == "https://team.example"
+    assert deployment.hangarllm_params.api_key == "master-secret"
+    assert deployment.hangarllm_params.api_base == "https://team.example"
 
 
-def test_ProxyConfig__resolve_db_litellm_param_skips_non_string_values(monkeypatch):
+def test_ProxyConfig__resolve_db_hangarllm_param_skips_non_string_values(monkeypatch):
     def fail_on_call(value, key, return_original_value):
         raise AssertionError("decrypt_value_helper should only receive strings")
 
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         fail_on_call,
     )
     pc = ProxyConfig()
 
-    assert pc._resolve_db_litellm_param(key="tpm", value=100) == 100
+    assert pc._resolve_db_hangarllm_param(key="tpm", value=100) == 100
 
 
 def test_ProxyConfig__add_deployment_resolves_env_refs_for_aws_bedrock_auth_params(
@@ -3772,21 +3772,21 @@ def test_ProxyConfig__add_deployment_resolves_env_refs_for_aws_bedrock_auth_para
     for _, (env_name, env_value) in aws_env.items():
         monkeypatch.setenv(env_name, env_value)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
     fake_router = MagicMock()
     fake_router.apply = MagicMock(return_value=ApplyResult(version=1, upserted=[True]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
-    litellm_params: Dict[str, Any] = {"model": "bedrock/anthropic.claude-v2"}
+    hangarllm_params: Dict[str, Any] = {"model": "bedrock/anthropic.claude-v2"}
     for key, (env_name, _) in aws_env.items():
-        litellm_params[key] = f"os.environ/{env_name}"
+        hangarllm_params[key] = f"os.environ/{env_name}"
     db_model = SimpleNamespace(
         model_id="model-1",
         model_name="bedrock-model",
         model_info={"id": "model-1"},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         blocked=False,
     )
 
@@ -3795,7 +3795,7 @@ def test_ProxyConfig__add_deployment_resolves_env_refs_for_aws_bedrock_auth_para
 
     assert added == 1
     for key, (_, expected) in aws_env.items():
-        assert getattr(deployment.litellm_params, key) == expected, key
+        assert getattr(deployment.hangarllm_params, key) == expected, key
 
 
 def test_ProxyConfig__add_deployment_resolves_env_refs_on_arbitrary_field(monkeypatch):
@@ -3804,18 +3804,18 @@ def test_ProxyConfig__add_deployment_resolves_env_refs_on_arbitrary_field(monkey
     the resolver applies to every string field, not a curated list."""
     monkeypatch.setenv("SOME_CUSTOM_ENV", "resolved-custom-value")
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
     fake_router = MagicMock()
     fake_router.apply = MagicMock(return_value=ApplyResult(version=1, upserted=[True]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
     db_model = SimpleNamespace(
         model_id="model-1",
         model_name="custom-field-model",
         model_info={"id": "model-1"},
-        litellm_params={
+        hangarllm_params={
             "model": "openai/gpt-4o-mini",
             "some_future_field": "os.environ/SOME_CUSTOM_ENV",
         },
@@ -3826,7 +3826,7 @@ def test_ProxyConfig__add_deployment_resolves_env_refs_on_arbitrary_field(monkey
     (deployment,) = fake_router.apply.call_args.args[0].upsert
 
     assert added == 1
-    assert deployment.litellm_params.some_future_field == "resolved-custom-value"
+    assert deployment.hangarllm_params.some_future_field == "resolved-custom-value"
 
 
 @pytest.mark.parametrize(
@@ -3834,17 +3834,17 @@ def test_ProxyConfig__add_deployment_resolves_env_refs_on_arbitrary_field(monkey
     ["true", "os.environ/DROP_PARAMS_FLAG"],
 )
 def test_ProxyConfig__add_deployment_turns_stored_drop_params_string_into_bool(monkeypatch, stored_drop_params):
-    monkeypatch.setenv("LITELLM_SALT_KEY", MASTER_KEY)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", MASTER_KEY)
     monkeypatch.setenv("DROP_PARAMS_FLAG", "true")
     fake_router = MagicMock()
     fake_router.apply = MagicMock(return_value=ApplyResult(version=1, upserted=[True]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
     db_model = SimpleNamespace(
         model_id="model-1",
         model_name="gpt-5-nano",
         model_info={"id": "model-1"},
-        litellm_params={
+        hangarllm_params={
             "model": encrypt_value_helper(value="openai/gpt-5-nano"),
             "drop_params": encrypt_value_helper(value=stored_drop_params),
         },
@@ -3855,14 +3855,14 @@ def test_ProxyConfig__add_deployment_turns_stored_drop_params_string_into_bool(m
     (deployment,) = fake_router.apply.call_args.args[0].upsert
 
     assert added == 1
-    assert deployment.litellm_params.drop_params is True
+    assert deployment.hangarllm_params.drop_params is True
 
 
 def test_ProxyConfig__add_deployment_keeps_loading_rows_after_a_non_flag_drop_params(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", MASTER_KEY)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", MASTER_KEY)
     fake_router = MagicMock()
     fake_router.apply = MagicMock(return_value=ApplyResult(version=1, upserted=[True]))
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router)
     pc = ProxyConfig()
 
     def db_model(model_id, drop_params):
@@ -3870,7 +3870,7 @@ def test_ProxyConfig__add_deployment_keeps_loading_rows_after_a_non_flag_drop_pa
             model_id=model_id,
             model_name="gpt-5-nano",
             model_info={"id": model_id},
-            litellm_params={
+            hangarllm_params={
                 "model": encrypt_value_helper(value="openai/gpt-5-nano"),
                 "drop_params": encrypt_value_helper(value=drop_params),
             },
@@ -3881,57 +3881,57 @@ def test_ProxyConfig__add_deployment_keeps_loading_rows_after_a_non_flag_drop_pa
     deployments = [d for call in fake_router.apply.call_args_list for d in call.args[0].upsert]
 
     assert added == 2
-    assert [d.litellm_params.drop_params for d in deployments] == [None, True]
+    assert [d.hangarllm_params.drop_params for d in deployments] == [None, True]
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("configured, expected", [("true", True), ("false", False)])
-async def test_ProxyConfig_load_config_turns_litellm_settings_drop_params_string_into_bool(
+async def test_ProxyConfig_load_config_turns_hangarllm_settings_drop_params_string_into_bool(
     tmp_path, monkeypatch, configured, expected
 ):
     f = tmp_path / "c.yaml"
-    f.write_text(f'model_list: []\nlitellm_settings:\n  drop_params: "{configured}"\n')
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
-    monkeypatch.setattr(litellm, "drop_params", not expected)
+    f.write_text(f'model_list: []\nhangarllm_settings:\n  drop_params: "{configured}"\n')
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(hangarllm, "drop_params", not expected)
 
     await ProxyConfig().load_config(router=None, config_file_path=str(f))
 
-    assert litellm.drop_params is expected
+    assert hangarllm.drop_params is expected
 
 
 @pytest.mark.asyncio
-async def test_ProxyConfig_load_config_resolves_a_litellm_settings_drop_params_env_ref(tmp_path, monkeypatch):
+async def test_ProxyConfig_load_config_resolves_a_hangarllm_settings_drop_params_env_ref(tmp_path, monkeypatch):
     f = tmp_path / "c.yaml"
-    f.write_text("model_list: []\nlitellm_settings:\n  drop_params: os.environ/DROP_PARAMS_FROM_ENV\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    f.write_text("model_list: []\nhangarllm_settings:\n  drop_params: os.environ/DROP_PARAMS_FROM_ENV\n")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     monkeypatch.setenv("DROP_PARAMS_FROM_ENV", "true")
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
 
     await ProxyConfig().load_config(router=None, config_file_path=str(f))
 
-    assert litellm.drop_params is True
+    assert hangarllm.drop_params is True
 
 
 @pytest.mark.asyncio
-async def test_ProxyConfig_load_config_warns_and_turns_off_a_non_flag_litellm_settings_drop_params(
+async def test_ProxyConfig_load_config_warns_and_turns_off_a_non_flag_hangarllm_settings_drop_params(
     tmp_path, monkeypatch, caplog
 ):
     f = tmp_path / "c.yaml"
-    f.write_text("model_list: []\nlitellm_settings:\n  drop_params: ture\n")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
-    monkeypatch.setattr(litellm, "drop_params", True)
+    f.write_text("model_list: []\nhangarllm_settings:\n  drop_params: ture\n")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await ProxyConfig().load_config(router=None, config_file_path=str(f))
 
-    assert litellm.drop_params is False
-    assert "litellm_settings.drop_params='ture' is not a flag value, treating it as off" in caplog.text
+    assert hangarllm.drop_params is False
+    assert "hangarllm_settings.drop_params='ture' is not a flag value, treating it as off" in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -3940,9 +3940,9 @@ async def test_ProxyConfig_load_config_warns_and_turns_off_a_non_flag_litellm_se
 
 
 def test_ProxyConfig_decrypt_credentials_returns_an_encrypted_empty_value_as_empty(monkeypatch):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-decrypt-credentials-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-decrypt-credentials-test-salt")
     decrypted = ProxyConfig().decrypt_credentials(
         {
             "credential_name": "openai-wif",
@@ -3958,7 +3958,7 @@ def test_ProxyConfig_decrypt_credentials_returns_an_encrypted_empty_value_as_emp
 
 def test_ProxyConfig_decrypt_model_list_from_db_returns_decrypted(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
     pc = ProxyConfig()
@@ -3966,14 +3966,14 @@ def test_ProxyConfig_decrypt_model_list_from_db_returns_decrypted(monkeypatch):
         model_id="m-1",
         model_name="gpt-4",
         model_info={"id": "m-1"},
-        litellm_params={"api_key": "sk-x", "model": "gpt-4"},
+        hangarllm_params={"api_key": "sk-x", "model": "gpt-4"},
         blocked=False,
     )
     out = pc.decrypt_model_list_from_db(new_models=[m])
     assert len(out) == 1
     snapshot = {
         "model_name": out[0]["model_name"],
-        "params_model": out[0]["litellm_params"]["model"],
+        "params_model": out[0]["hangarllm_params"]["model"],
         "id_present": "id" in out[0].get("model_info", {}),
     }
     assert snapshot == {
@@ -3989,14 +3989,14 @@ def test_ProxyConfig_decrypt_model_list_from_db_resolves_env_refs_after_db_decry
     """Path B (feeding /v2/model/info fallback and /model/info fallback)
     resolves every ``os.environ/`` field on admin-scoped rows, mirroring
     path A. Both paths now share the same universal-resolution shape."""
-    monkeypatch.setenv("LITELLM_DB_MODEL_API_KEY", "resolved-secret")
-    monkeypatch.setenv("LITELLM_MASTER_KEY", "master-secret")
+    monkeypatch.setenv("HANGARLLM_DB_MODEL_API_KEY", "resolved-secret")
+    monkeypatch.setenv("HANGARLLM_MASTER_KEY", "master-secret")
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: (
-            "os.environ/LITELLM_DB_MODEL_API_KEY"
+            "os.environ/HANGARLLM_DB_MODEL_API_KEY"
             if key == "api_key"
-            else "os.environ/LITELLM_MASTER_KEY"
+            else "os.environ/HANGARLLM_MASTER_KEY"
             if key == "api_base"
             else value
         ),
@@ -4006,7 +4006,7 @@ def test_ProxyConfig_decrypt_model_list_from_db_resolves_env_refs_after_db_decry
         model_id="model-1",
         model_name="env-model",
         model_info={"id": "model-1"},
-        litellm_params={
+        hangarllm_params={
             "api_key": "encrypted-env-ref",
             "api_base": "encrypted-api-base-env-ref",
             "model": "openai/gpt-4o-mini",
@@ -4016,8 +4016,8 @@ def test_ProxyConfig_decrypt_model_list_from_db_resolves_env_refs_after_db_decry
 
     out = pc.decrypt_model_list_from_db(new_models=[m])
 
-    assert out[0]["litellm_params"]["api_key"] == "resolved-secret"
-    assert out[0]["litellm_params"]["api_base"] == "master-secret"
+    assert out[0]["hangarllm_params"]["api_key"] == "resolved-secret"
+    assert out[0]["hangarllm_params"]["api_base"] == "master-secret"
 
 
 def test_ProxyConfig_decrypt_model_list_from_db_resolves_team_env_refs_after_db_decrypt(
@@ -4027,17 +4027,17 @@ def test_ProxyConfig_decrypt_model_list_from_db_resolves_team_env_refs_after_db_
     admin rows do. Pairs with
     ``test_ProxyConfig__add_deployment_resolves_team_env_refs`` on path
     A — both paths now agree on the trust model."""
-    monkeypatch.setenv("LITELLM_MASTER_KEY", "master-secret")
+    monkeypatch.setenv("HANGARLLM_MASTER_KEY", "master-secret")
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
-        lambda value, key, return_original_value: "os.environ/LITELLM_MASTER_KEY" if key == "api_key" else value,
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
+        lambda value, key, return_original_value: "os.environ/HANGARLLM_MASTER_KEY" if key == "api_key" else value,
     )
     pc = ProxyConfig()
     m = SimpleNamespace(
         model_id="model-1",
         model_name="model_name_team-1_abc",
         model_info={"id": "model-1", "team_id": "team-1"},
-        litellm_params={
+        hangarllm_params={
             "api_key": "encrypted-env-ref",
             "api_base": "https://team.example",
             "model": "openai/gpt-4o-mini",
@@ -4047,13 +4047,13 @@ def test_ProxyConfig_decrypt_model_list_from_db_resolves_team_env_refs_after_db_
 
     out = pc.decrypt_model_list_from_db(new_models=[m])
 
-    assert out[0]["litellm_params"]["api_key"] == "master-secret"
-    assert out[0]["litellm_params"]["api_base"] == "https://team.example"
+    assert out[0]["hangarllm_params"]["api_key"] == "master-secret"
+    assert out[0]["hangarllm_params"]["api_base"] == "https://team.example"
 
 
 def test_ProxyConfig_decrypt_model_list_from_db_invalid_params_skips():
     pc = ProxyConfig()
-    bad = SimpleNamespace(model_id="m-1", model_name="x", model_info={}, litellm_params="not-a-dict")
+    bad = SimpleNamespace(model_id="m-1", model_name="x", model_info={}, hangarllm_params="not-a-dict")
     out = pc.decrypt_model_list_from_db(new_models=[bad])
     # Invalid entries skipped — empty list returned.
     assert out == []
@@ -4066,10 +4066,10 @@ def test_ProxyConfig_decrypt_model_list_from_db_invalid_params_skips():
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_llm_router_no_models_smoke(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-master")
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-master")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     pc = ProxyConfig()
 
     async def fake_get_config(*args, **kwargs):
@@ -4077,7 +4077,7 @@ async def test_ProxyConfig__update_llm_router_no_models_smoke(monkeypatch):
 
     monkeypatch.setattr(pc, "get_config", fake_get_config)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_config",
+        "hangarllm.proxy.proxy_server.proxy_config",
         pc,
     )
     try:
@@ -4090,36 +4090,36 @@ async def test_ProxyConfig__update_llm_router_no_models_smoke(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# ProxyConfig._add_callback_from_db_to_in_memory_litellm_callbacks
+# ProxyConfig._add_callback_from_db_to_in_memory_hangarllm_callbacks
 # ---------------------------------------------------------------------------
 
 
-def test_ProxyConfig__add_callback_from_db_to_in_memory_litellm_callbacks_adds(
+def test_ProxyConfig__add_callback_from_db_to_in_memory_hangarllm_callbacks_adds(
     monkeypatch,
 ):
-    monkeypatch.setattr(litellm, "callbacks", [], raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [], raising=False)
     pc = ProxyConfig()
-    pc._add_callback_from_db_to_in_memory_litellm_callbacks(
+    pc._add_callback_from_db_to_in_memory_hangarllm_callbacks(
         callback="my_custom_cb",
         event_types=["success", "failure"],
         existing_callbacks=[],
     )
     snapshot = {
-        "in_callbacks": "my_custom_cb" in litellm.callbacks,
-        "count": len(litellm.callbacks),
+        "in_callbacks": "my_custom_cb" in hangarllm.callbacks,
+        "count": len(hangarllm.callbacks),
         "method_called": True,
     }
     assert snapshot == {"in_callbacks": True, "count": 1, "method_called": True}
 
 
-def test_ProxyConfig__add_callback_from_db_to_in_memory_litellm_callbacks_invalid_event_raises(
+def test_ProxyConfig__add_callback_from_db_to_in_memory_hangarllm_callbacks_invalid_event_raises(
     monkeypatch,
 ):
-    monkeypatch.setattr(litellm, "callbacks", [], raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [], raising=False)
     pc = ProxyConfig()
     # For a "known" callback, event_types is iterated — non-iterable raises TypeError.
     with pytest.raises(TypeError):
-        pc._add_callback_from_db_to_in_memory_litellm_callbacks(
+        pc._add_callback_from_db_to_in_memory_hangarllm_callbacks(
             callback="lago",  # in _known_custom_logger_compatible_callbacks
             event_types=12345,  # type: ignore[arg-type]
             existing_callbacks=[],
@@ -4132,12 +4132,12 @@ def test_ProxyConfig__add_callback_from_db_to_in_memory_litellm_callbacks_invali
 
 
 def test_ProxyConfig__add_callbacks_from_db_config_processes_lists(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [], raising=False)
-    monkeypatch.setattr(litellm, "success_callback", [], raising=False)
-    monkeypatch.setattr(litellm, "failure_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "callbacks", [], raising=False)
+    monkeypatch.setattr(hangarllm, "success_callback", [], raising=False)
+    monkeypatch.setattr(hangarllm, "failure_callback", [], raising=False)
     pc = ProxyConfig()
     cfg = {
-        "litellm_settings": {
+        "hangarllm_settings": {
             "callbacks": ["cb_a"],
             "success_callback": ["s_a"],
             "failure_callback": ["f_a"],
@@ -4145,9 +4145,9 @@ def test_ProxyConfig__add_callbacks_from_db_config_processes_lists(monkeypatch):
     }
     pc._add_callbacks_from_db_config(cfg)
     snapshot = {
-        "cb_added": "cb_a" in litellm.callbacks,
-        "success_added": "s_a" in litellm.success_callback,
-        "failure_added": "f_a" in litellm.failure_callback,
+        "cb_added": "cb_a" in hangarllm.callbacks,
+        "success_added": "s_a" in hangarllm.success_callback,
+        "failure_added": "f_a" in hangarllm.failure_callback,
     }
     assert snapshot == {
         "cb_added": True,
@@ -4170,7 +4170,7 @@ def test_ProxyConfig__add_callbacks_from_db_config_bad_config_raises():
 
 def test_ProxyConfig__encrypt_env_variables_returns_dict(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.encrypt_value_helper",
+        "hangarllm.proxy.proxy_server.encrypt_value_helper",
         lambda value, new_encryption_key=None: f"ENC[{value}]",
     )
     pc = ProxyConfig()
@@ -4192,7 +4192,7 @@ def test_ProxyConfig__encrypt_env_variables_invalid_raises():
 
 def test_ProxyConfig__decrypt_and_set_db_env_variables_sets_env(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value=False: value + "-dec",
     )
     monkeypatch.delenv("KEY_X", raising=False)
@@ -4211,13 +4211,13 @@ def test_ProxyConfig__decrypt_and_set_db_env_variables_sets_env(monkeypatch):
     }
 
 
-@pytest.mark.parametrize("stored_key", ["LITELLM_ENABLE_MCP_STDIO", "litellm_enable_mcp_stdio"])
+@pytest.mark.parametrize("stored_key", ["HANGARLLM_ENABLE_MCP_STDIO", "hangarllm_enable_mcp_stdio"])
 def test_ProxyConfig__decrypt_and_set_db_env_variables_cannot_enable_mcp_stdio(monkeypatch, stored_key):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value=False: value,
     )
-    monkeypatch.delenv("LITELLM_ENABLE_MCP_STDIO", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_MCP_STDIO", raising=False)
     monkeypatch.delenv(stored_key, raising=False)
     monkeypatch.delenv("KEY_X", raising=False)
     pc = ProxyConfig()
@@ -4225,32 +4225,32 @@ def test_ProxyConfig__decrypt_and_set_db_env_variables_cannot_enable_mcp_stdio(m
     assert out == {"KEY_X": "x"}
     assert os.environ.get("KEY_X") == "x"
     assert os.environ.get(stored_key) is None
-    assert os.environ.get("LITELLM_ENABLE_MCP_STDIO") is None
+    assert os.environ.get("HANGARLLM_ENABLE_MCP_STDIO") is None
 
 
 def test_ProxyConfig__decrypt_and_set_db_env_variables_warns_once_about_the_ignored_mcp_stdio_flag(monkeypatch, caplog):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value=False: value,
     )
-    monkeypatch.delenv("LITELLM_ENABLE_MCP_STDIO", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_MCP_STDIO", raising=False)
     pc = ProxyConfig()
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         for _ in range(3):
-            pc._decrypt_and_set_db_env_variables({"LITELLM_ENABLE_MCP_STDIO": "true"})
-    assert os.environ.get("LITELLM_ENABLE_MCP_STDIO") is None
-    assert sum("Ignoring LITELLM_ENABLE_MCP_STDIO stored in the database" in m for m in caplog.messages) == 1
+            pc._decrypt_and_set_db_env_variables({"HANGARLLM_ENABLE_MCP_STDIO": "true"})
+    assert os.environ.get("HANGARLLM_ENABLE_MCP_STDIO") is None
+    assert sum("Ignoring HANGARLLM_ENABLE_MCP_STDIO stored in the database" in m for m in caplog.messages) == 1
 
 
-@pytest.mark.parametrize("config_key", ["LITELLM_ENABLE_MCP_STDIO", "litellm_enable_mcp_stdio"])
+@pytest.mark.parametrize("config_key", ["HANGARLLM_ENABLE_MCP_STDIO", "hangarllm_enable_mcp_stdio"])
 def test_ProxyConfig__load_environment_variables_cannot_enable_mcp_stdio(monkeypatch, config_key):
-    monkeypatch.delenv("LITELLM_ENABLE_MCP_STDIO", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_MCP_STDIO", raising=False)
     monkeypatch.delenv(config_key, raising=False)
     monkeypatch.delenv("KEY_X", raising=False)
     ProxyConfig()._load_environment_variables({"environment_variables": {config_key: "true", "KEY_X": "x"}})
     assert os.environ.get("KEY_X") == "x"
     assert os.environ.get(config_key) is None
-    assert os.environ.get("LITELLM_ENABLE_MCP_STDIO") is None
+    assert os.environ.get("HANGARLLM_ENABLE_MCP_STDIO") is None
 
 
 def test_ProxyConfig__decrypt_and_set_db_env_variables_invalid_dict_raises():
@@ -4266,7 +4266,7 @@ def test_ProxyConfig__decrypt_and_set_db_env_variables_invalid_dict_raises():
 
 def test_ProxyConfig__decrypt_db_variables_returns_decrypted(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: f"D({value})",
     )
     pc = ProxyConfig()
@@ -4287,11 +4287,11 @@ def test_ProxyConfig__decrypt_db_variables_invalid_raises():
 
 def test_ProxyConfig__encrypt_env_variables_for_db_idempotent(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.decrypt_value_helper",
+        "hangarllm.proxy.proxy_server.decrypt_value_helper",
         lambda value, key, return_original_value: value,
     )
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.encrypt_value_helper",
+        "hangarllm.proxy.proxy_server.encrypt_value_helper",
         lambda value, new_encryption_key=None: f"ENC[{value}]",
     )
     pc = ProxyConfig()
@@ -4370,7 +4370,7 @@ async def test_ProxyConfig__get_hierarchical_router_settings_falls_back_to_team(
     fake_key = SimpleNamespace(router_settings=None, team_id="team-1")
     team_settings = {"model_group_alias": {"group-a": "group-b"}}
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_team_object",
+        "hangarllm.proxy.proxy_server.get_team_object",
         AsyncMock(return_value=SimpleNamespace(router_settings=team_settings)),
     )
 
@@ -4391,7 +4391,7 @@ async def test_ProxyConfig__get_hierarchical_router_settings_key_shadows_team_en
     pc = ProxyConfig()
     fake_key = SimpleNamespace(router_settings={"num_retries": 3}, team_id="team-1")
     team_lookup = AsyncMock(return_value=SimpleNamespace(router_settings={"model_group_alias": {"group-a": "group-b"}}))
-    monkeypatch.setattr("litellm.proxy.proxy_server.get_team_object", team_lookup)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.get_team_object", team_lookup)
 
     out = await pc._get_hierarchical_router_settings(
         user_api_key_dict=fake_key,
@@ -4415,7 +4415,7 @@ async def test_ProxyConfig__add_router_settings_from_db_config_updates_router():
     fake_router = MagicMock()
     fake_router.apply = MagicMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_config.find_first = AsyncMock(
+    fake_prisma.db.hangarllm_config.find_first = AsyncMock(
         return_value=SimpleNamespace(param_value={"timeout": 30, "retries": 2, "fallbacks": []})
     )
     pc.router_settings.load_yaml({"timeout": 10})
@@ -4452,13 +4452,13 @@ async def test_ProxyConfig__add_router_settings_from_db_config_none_router_noop(
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_add_deployment_applies_db_router_settings(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     fake_router = MagicMock()
     fake_router.registry.return_value.deployments.return_value = []
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_config.find_first = AsyncMock(
+    fake_prisma.db.hangarllm_config.find_first = AsyncMock(
         return_value=SimpleNamespace(param_value={"routing_strategy": "latency-based-routing"})
     )
 
@@ -4485,7 +4485,7 @@ async def test_ProxyConfig_add_deployment_applies_db_router_settings(monkeypatch
 def _stub_add_deployment_collaborators(
     monkeypatch: pytest.MonkeyPatch, pc: ProxyConfig, fake_prisma: MagicMock
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     fake_router = MagicMock()
     fake_router.registry.return_value.deployments.return_value = []
@@ -4493,7 +4493,7 @@ def _stub_add_deployment_collaborators(
     async def fake_get_config(*args: object, **kwargs: object) -> dict[str, object]:
         return {}
 
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(hangarllm, "credential_list", [])
     monkeypatch.setattr(pc, "get_config", fake_get_config)
     monkeypatch.setattr(pc, "_init_non_llm_objects_in_db", AsyncMock())
     monkeypatch.setattr(proxy_server, "prefetch_config_params", AsyncMock())
@@ -4502,11 +4502,11 @@ def _stub_add_deployment_collaborators(
     monkeypatch.setattr(proxy_server, "master_key", "sk-master")
     monkeypatch.setattr(proxy_server, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server, "proxy_config", pc)
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
 
 
 def _encrypted_credential_row(credential_name: str, api_key: str) -> dict[str, object]:
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
     return {
         "credential_name": credential_name,
@@ -4517,7 +4517,7 @@ def _encrypted_credential_row(credential_name: str, api_key: str) -> dict[str, o
 
 def _fake_prisma_with_encrypted_credential(credential_name: str, api_key: str) -> MagicMock:
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_credentialstable.find_many = AsyncMock(
+    fake_prisma.db.hangarllm_credentialstable.find_many = AsyncMock(
         return_value=[_encrypted_credential_row(credential_name, api_key)]
     )
     return fake_prisma
@@ -4527,19 +4527,19 @@ def _fake_prisma_with_encrypted_credential(credential_name: str, api_key: str) -
 async def test_ProxyConfig_add_deployment_loads_db_credentials_before_reconciling_models(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-    from litellm.proxy import proxy_server
-    from litellm.utils import load_credentials_from_list
+    from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
+    from hangarllm.proxy import proxy_server
+    from hangarllm.utils import load_credentials_from_list
 
     pc = ProxyConfig()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_credentialstable.find_many = AsyncMock(return_value=[])
+    fake_prisma.db.hangarllm_credentialstable.find_many = AsyncMock(return_value=[])
     _stub_add_deployment_collaborators(monkeypatch, pc, fake_prisma)
     monkeypatch.setattr(proxy_server, "general_settings", {})
     installed = MagicMock()
 
     async def read_models_while_a_credential_lands(prisma_client: object) -> list[MagicMock]:
-        fake_prisma.db.litellm_credentialstable.find_many.return_value = [
+        fake_prisma.db.hangarllm_credentialstable.find_many.return_value = [
             _encrypted_credential_row("openai-cred", "sk-from-db")
         ]
         return [MagicMock()]
@@ -4554,17 +4554,17 @@ async def test_ProxyConfig_add_deployment_loads_db_credentials_before_reconcilin
 
     installed.assert_called_once_with(credential={"api_key": "sk-from-db"})
     assert CredentialAccessor.get_credential_values("openai-cred") == {"api_key": "sk-from-db"}
-    request_kwargs = {"litellm_credential_name": "openai-cred"}
+    request_kwargs = {"hangarllm_credential_name": "openai-cred"}
     load_credentials_from_list(request_kwargs)
-    assert request_kwargs == {"litellm_credential_name": "openai-cred", "api_key": "sk-from-db"}
+    assert request_kwargs == {"hangarllm_credential_name": "openai-cred", "api_key": "sk-from-db"}
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_add_deployment_loads_db_credentials_even_when_models_are_not_db_objects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-    from litellm.proxy import proxy_server
+    from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     fake_prisma = _fake_prisma_with_encrypted_credential("openai-cred", "sk-from-db")
@@ -4581,17 +4581,17 @@ async def test_ProxyConfig_add_deployment_loads_db_credentials_even_when_models_
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_get_credentials_reads_from_writer_not_replica(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-    from litellm.proxy.db.prisma_client import PrismaWrapper
-    from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+    from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
+    from hangarllm.proxy.db.prisma_client import PrismaWrapper
+    from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
     pc = ProxyConfig()
     writer_inner = MagicMock(name="writer_prisma")
     reader_inner = MagicMock(name="reader_prisma")
-    writer_inner.litellm_credentialstable.find_many = AsyncMock(
+    writer_inner.hangarllm_credentialstable.find_many = AsyncMock(
         return_value=[_encrypted_credential_row("openai-cred", "sk-from-writer")]
     )
-    reader_inner.litellm_credentialstable.find_many = AsyncMock(return_value=[])
+    reader_inner.hangarllm_credentialstable.find_many = AsyncMock(return_value=[])
     fake_prisma = MagicMock()
     fake_prisma.db = RoutingPrismaWrapper(
         writer=PrismaWrapper(original_prisma=writer_inner, iam_token_db_auth=False),
@@ -4602,18 +4602,18 @@ async def test_ProxyConfig_get_credentials_reads_from_writer_not_replica(monkeyp
     await pc.get_credentials(prisma_client=fake_prisma)
 
     assert CredentialAccessor.get_credential_values("openai-cred") == {"api_key": "sk-from-writer"}
-    reader_inner.litellm_credentialstable.find_many.assert_not_awaited()
+    reader_inner.hangarllm_credentialstable.find_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig_get_credentials_carries_the_stored_display_name_and_marks_rows_as_db(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
+    from hangarllm.hangarllm_core_utils.credential_accessor import CredentialAccessor
 
     pc = ProxyConfig()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_credentialstable.find_many = AsyncMock(
+    fake_prisma.db.hangarllm_credentialstable.find_many = AsyncMock(
         return_value=[{**_encrypted_credential_row("labeled-cred", "sk-labeled"), "display_name": "Prod OpenAI"}]
     )
     _stub_add_deployment_collaborators(monkeypatch, pc, fake_prisma)
@@ -4636,7 +4636,7 @@ async def test_ProxyConfig_get_credentials_carries_the_stored_display_name_and_m
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__reschedule_spend_log_cleanup_job_no_scheduler(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", None)
     pc = ProxyConfig()
     try:
         await pc._reschedule_spend_log_cleanup_job()
@@ -4652,15 +4652,15 @@ async def test_ProxyConfig__reschedule_spend_log_cleanup_job_invalid_cron(monkey
     fake_scheduler = MagicMock()
     fake_scheduler.remove_job = MagicMock()
     fake_scheduler.add_job = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", fake_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", fake_scheduler)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {
             "maximum_spend_logs_retention_period": "1d",
             "maximum_spend_logs_cleanup_cron": "INVALID CRON STRING",
         },
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     pc = ProxyConfig()
     # Invalid cron is caught and logged — does not raise outward.
     await pc._reschedule_spend_log_cleanup_job()
@@ -4671,12 +4671,12 @@ async def test_ProxyConfig__reschedule_spend_log_cleanup_job_invalid_cron(monkey
 @pytest.mark.asyncio
 async def test_ProxyConfig__reschedule_spend_log_cleanup_job_health_check_retention(monkeypatch):
     fake_scheduler = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", fake_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", fake_scheduler)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"maximum_health_check_retention_period": "30d"},
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     pc = ProxyConfig()
     await pc._reschedule_spend_log_cleanup_job()
     assert fake_scheduler.add_job.call_count == 1
@@ -4686,13 +4686,13 @@ async def test_ProxyConfig__reschedule_spend_log_cleanup_job_health_check_retent
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_updates_health_check_retention(monkeypatch):
     settings = {}
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", settings)
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", MagicMock(**{"get_job.return_value": None}))
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", MagicMock(**{"get_job.return_value": None}))
     pc = ProxyConfig()
     reschedule = AsyncMock()
     monkeypatch.setattr(pc, "_reschedule_spend_log_cleanup_job", reschedule)
     await pc._update_general_settings({"maximum_health_check_retention_period": "30d"})
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     assert proxy_server.general_settings["maximum_health_check_retention_period"] == "30d"
     reschedule.assert_awaited_once()
@@ -4702,14 +4702,14 @@ async def test_ProxyConfig__update_general_settings_updates_health_check_retenti
 async def test_ProxyConfig__update_general_settings_ignores_a_stored_key_no_settings_api_manages_and_warns_once(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     pc: Final = ProxyConfig()
     stored_row: Final = {"enforce_user_param": True, "store_prompts_in_spend_logs": True}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await pc._update_general_settings(stored_row)
         await pc._update_general_settings(stored_row)
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     assert proxy_server.general_settings["store_prompts_in_spend_logs"] is True
     assert "enforce_user_param" not in proxy_server.general_settings
@@ -4726,11 +4726,11 @@ async def test_ProxyConfig__update_general_settings_warns_about_an_ignored_store
 ) -> None:
     pc: Final = ProxyConfig()
     pc._load_yaml_settings_stores({"general_settings": {"enforce_user_param": False}})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await pc._update_general_settings({"enforce_user_param": True})
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     assert proxy_server.general_settings["enforce_user_param"] is False
     warnings: Final = [record.getMessage() for record in caplog.records if "enforce_user_param" in record.getMessage()]
@@ -4747,9 +4747,9 @@ async def test_ProxyConfig__update_general_settings_does_not_warn_about_a_stored
 ) -> None:
     pc: Final = ProxyConfig()
     pc._load_yaml_settings_stores({"general_settings": {}})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await pc._update_general_settings({"budget_rollover": True, "enforce_user_param": True})
 
     warned: Final = [record.getMessage().split(" ")[0] for record in caplog.records if "is ignored" in record.getMessage()]
@@ -4762,9 +4762,9 @@ async def test_ProxyConfig__update_general_settings_warns_once_each_time_the_sto
 ) -> None:
     pc: Final = ProxyConfig()
     pc._load_yaml_settings_stores({"general_settings": {}})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         await pc._update_general_settings(None)
         await pc._update_general_settings('{"store_prompts_in_spend_logs": true}')
         await pc._update_general_settings('{"store_prompts_in_spend_logs": true}')
@@ -4783,8 +4783,8 @@ def _paused_scheduler(monkeypatch):
 
     real_scheduler = AsyncIOScheduler()
     real_scheduler.start(paused=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     return real_scheduler
 
 
@@ -4802,8 +4802,8 @@ def _scheduler_whose_first_add_job_raises(monkeypatch):
 
     real_scheduler = FirstAddJobRaises()
     real_scheduler.start(paused=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     return real_scheduler
 
 
@@ -4811,7 +4811,7 @@ def _scheduler_whose_first_add_job_raises(monkeypatch):
 async def test_ProxyConfig__reschedule_spend_log_cleanup_job_daily_tag_spend_retention(monkeypatch):
     real_scheduler = _paused_scheduler(monkeypatch)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"maximum_daily_tag_spend_retention_period": "90d"},
     )
     pc = ProxyConfig()
@@ -4828,10 +4828,10 @@ async def test_ProxyConfig__reschedule_spend_log_cleanup_job_daily_tag_spend_ret
 async def test_ProxyConfig__update_general_settings_updates_daily_tag_spend_retention(monkeypatch):
     real_scheduler = _paused_scheduler(monkeypatch)
     pc = ProxyConfig()
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
         await pc._update_general_settings({"maximum_daily_tag_spend_retention_period": "90d"})
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         assert proxy_server.general_settings["maximum_daily_tag_spend_retention_period"] == "90d"
         assert real_scheduler.get_job("spend_log_cleanup_job") is not None, "runtime retention did not schedule cleanup"
@@ -4846,7 +4846,7 @@ async def test_ProxyConfig__update_general_settings_schedules_cleanup_when_db_ro
     real_scheduler = _paused_scheduler(monkeypatch)
     pc = ProxyConfig()
     pc.settings.apply_db_row("general_settings", {"maximum_daily_tag_spend_retention_period": "90d"})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
         await pc._update_general_settings({"maximum_daily_tag_spend_retention_period": "90d"})
         assert real_scheduler.get_job("spend_log_cleanup_job") is not None, "DB-only retention never scheduled cleanup"
@@ -4864,9 +4864,9 @@ async def test_ProxyConfig__update_general_settings_retries_a_failed_schedule_on
     pc = ProxyConfig()
     bad_cron = {"maximum_daily_tag_spend_retention_period": "90d", "maximum_spend_logs_cleanup_cron": "not a cron"}
     pc.settings.apply_db_row("general_settings", bad_cron)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
-        with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
             for _ in range(3):
                 await pc._update_general_settings(bad_cron)
         assert real_scheduler.get_job("spend_log_cleanup_job") is None
@@ -4889,7 +4889,7 @@ async def test_ProxyConfig__update_general_settings_retries_a_schedule_that_rais
     pc = ProxyConfig()
     retention = {"maximum_daily_tag_spend_retention_period": "90d"}
     pc.settings.apply_db_row("general_settings", retention)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
         await pc._update_general_settings(retention)
         assert real_scheduler.get_job("spend_log_cleanup_job") is None
@@ -4906,7 +4906,7 @@ async def test_ProxyConfig__update_general_settings_retries_a_failed_replacement
     real_scheduler = _scheduler_whose_first_add_job_raises(monkeypatch)
     pc = ProxyConfig()
     pc.settings.load_yaml({"maximum_daily_tag_spend_retention_period": "90d"})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     real_scheduler.raised = True
     await pc._reschedule_spend_log_cleanup_job()
     real_scheduler.raised = False
@@ -4931,10 +4931,10 @@ async def test_ProxyConfig__update_general_settings_leaves_a_changed_db_schedule
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
     real_scheduler = AsyncIOScheduler()
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     pc = ProxyConfig()
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     await pc._update_general_settings({"maximum_daily_tag_spend_retention_period": "90d"})
     assert real_scheduler.get_jobs() == [], "DB sync registered the cleanup job before the scheduler started"
 
@@ -4948,11 +4948,11 @@ async def test_ProxyConfig__update_general_settings_leaves_first_registration_to
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
     real_scheduler = AsyncIOScheduler()
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     pc = ProxyConfig()
     pc.settings.load_yaml({"maximum_daily_tag_spend_retention_period": "90d"})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     await pc._update_general_settings({"unrelated_key": "value"})
     assert real_scheduler.get_jobs() == [], "DB sync registered the cleanup job before the scheduler started"
 
@@ -4963,15 +4963,15 @@ async def test_ProxyConfig__update_general_settings_runtime_interval_job_carries
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     from apscheduler.triggers.interval import IntervalTrigger
 
-    from litellm.proxy.common_utils.scheduled_job_stagger import _OffsetTrigger
+    from hangarllm.proxy.common_utils.scheduled_job_stagger import _OffsetTrigger
 
     real_scheduler = AsyncIOScheduler()
     real_scheduler.start(paused=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     pc = ProxyConfig()
     pc.settings.load_yaml({"scheduled_job_stagger": {"offsets": {"spend_log_cleanup_job": 120}}})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
         await pc._update_general_settings({"maximum_daily_tag_spend_retention_period": "90d"})
         jobs = real_scheduler.get_jobs()
@@ -5004,12 +5004,12 @@ async def test_ProxyConfig__update_general_settings_keeps_the_live_cleanup_job_w
 
     real_scheduler = AsyncIOScheduler()
     real_scheduler.start(paused=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     ssrf_sync = MagicMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server._apply_ssrf_general_settings", ssrf_sync)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server._apply_ssrf_general_settings", ssrf_sync)
     pc = ProxyConfig()
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
         await pc._update_general_settings({"maximum_daily_tag_spend_retention_period": "90d"})
         old_trigger = real_scheduler.get_job("spend_log_cleanup_job").trigger
@@ -5032,10 +5032,10 @@ async def test_ProxyConfig__update_general_settings_logs_an_overflowing_interval
 
     real_scheduler = AsyncIOScheduler()
     real_scheduler.start(paused=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     pc = ProxyConfig()
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
         await pc._update_general_settings({"maximum_daily_tag_spend_retention_period": "90d"})
         old_trigger = real_scheduler.get_job("spend_log_cleanup_job").trigger
@@ -5043,7 +5043,7 @@ async def test_ProxyConfig__update_general_settings_logs_an_overflowing_interval
             "maximum_daily_tag_spend_retention_period": "90d",
             "maximum_spend_logs_retention_interval": "99999999999d",
         }
-        with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
             for _ in range(5):
                 await pc._update_general_settings(overflowing)
         errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
@@ -5058,7 +5058,7 @@ async def test_ProxyConfig__update_general_settings_reschedules_when_only_the_cr
     real_scheduler = _paused_scheduler(monkeypatch)
     pc = ProxyConfig()
     pc.settings.load_yaml({"maximum_daily_tag_spend_retention_period": "90d"})
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     await pc._reschedule_spend_log_cleanup_job()
     try:
         interval_job = real_scheduler.get_job("spend_log_cleanup_job")
@@ -5085,10 +5085,10 @@ async def test_ProxyConfig__update_general_settings_reschedules_a_cron_edit_the_
 
     real_scheduler = AsyncIOScheduler()
     real_scheduler.start(paused=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.scheduler", real_scheduler)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.scheduler", real_scheduler)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     pc = ProxyConfig()
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", pc.settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", pc.settings)
     try:
         first_row = {"maximum_daily_tag_spend_retention_period": "90d", "maximum_spend_logs_cleanup_cron": "0 3 * * *"}
         pc.settings.apply_db_row("general_settings", first_row)
@@ -5115,7 +5115,7 @@ async def test_ProxyConfig__update_general_settings_reschedules_a_cron_edit_the_
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_updates_max_parallel(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {},
     )
     pc = ProxyConfig()
@@ -5126,7 +5126,7 @@ async def test_ProxyConfig__update_general_settings_updates_max_parallel(monkeyp
             "ui_access_mode": "admin_only",
         }
     )
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     snapshot = {
         "max_parallel_requests": ps.general_settings.get("max_parallel_requests"),
@@ -5142,10 +5142,10 @@ async def test_ProxyConfig__update_general_settings_updates_max_parallel(monkeyp
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_applies_db_max_batch_file_size_mb(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     pc = ProxyConfig()
     await pc._update_general_settings({"max_batch_file_size_mb": 5})
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     assert ps.general_settings.get("max_batch_file_size_mb") == 5
 
@@ -5153,12 +5153,12 @@ async def test_ProxyConfig__update_general_settings_applies_db_max_batch_file_si
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_yaml_max_batch_file_size_mb_wins_over_db(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"max_batch_file_size_mb": 3},
     )
     pc = ProxyConfig()
     await pc._update_general_settings({"max_batch_file_size_mb": 5})
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     assert ps.general_settings.get("max_batch_file_size_mb") == 3
 
@@ -5166,22 +5166,22 @@ async def test_ProxyConfig__update_general_settings_yaml_max_batch_file_size_mb_
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_cleared_db_max_batch_file_size_mb_lifts_cap(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"max_batch_file_size_mb": 8},
     )
     pc = ProxyConfig()
     await pc._update_general_settings({"max_parallel_requests": 1})
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     assert ps.general_settings.get("max_batch_file_size_mb") == 8
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_applies_db_allowed_file_extensions(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     pc = ProxyConfig()
     await pc._update_general_settings({"allowed_file_extensions": [".jsonl"]})
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     assert ps.general_settings.get("allowed_file_extensions") == [".jsonl"]
 
@@ -5189,33 +5189,33 @@ async def test_ProxyConfig__update_general_settings_applies_db_allowed_file_exte
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_yaml_allowed_file_extensions_wins_over_db(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"allowed_file_extensions": [".pdf"]},
     )
     pc = ProxyConfig()
     await pc._update_general_settings({"allowed_file_extensions": [".jsonl"]})
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     assert ps.general_settings.get("allowed_file_extensions") == [".pdf"]
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_applies_db_transcribe_media_buckets(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
     pc = ProxyConfig()
     await pc._update_general_settings({"transcribe_media_buckets": ["team-audio"]})
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     assert ps.general_settings.get("transcribe_media_buckets") == ["team-audio"]
 
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_yaml_transcribe_media_buckets_wins_over_db(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"transcribe_media_buckets": ["yaml-audio"]})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"transcribe_media_buckets": ["yaml-audio"]})
     pc = ProxyConfig()
     pc._yaml_general_settings_keys = {"transcribe_media_buckets"}
     await pc._update_general_settings({"transcribe_media_buckets": ["team-audio"]})
-    from litellm.proxy import proxy_server as ps
+    from hangarllm.proxy import proxy_server as ps
 
     assert ps.general_settings.get("transcribe_media_buckets") == ["yaml-audio"]
 
@@ -5230,7 +5230,7 @@ async def test_ProxyConfig__update_general_settings_none_input_noop():
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_skips_redundant_retention_reschedule(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     reschedule: Final = AsyncMock()
@@ -5249,7 +5249,7 @@ async def test_ProxyConfig__update_general_settings_skips_redundant_retention_re
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_reschedules_after_retention_key_deletion(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     reschedule: Final = AsyncMock()
@@ -5293,7 +5293,7 @@ async def test_ProxyConfig__update_general_settings_dispatches_every_side_effect
 
 @pytest.mark.asyncio
 async def test_ProxyConfig__update_general_settings_unrelated_value_fires_no_runtime_effect(monkeypatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     initialize_endpoints: Final = AsyncMock()
@@ -5343,7 +5343,7 @@ async def test_ProxyConfig__update_config_from_db_resolves_through_settings_stor
         value = db_values.get(param_name)
         return SimpleNamespace(param_name=param_name, param_value=value) if value is not None else None
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.get_config_param", get_config_param)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.get_config_param", get_config_param)
     pc._load_yaml_settings_stores(config)
 
     resolved = await pc._update_config_from_db(MagicMock(), config, store_model_in_db=True)
@@ -5373,7 +5373,7 @@ async def test_ProxyConfig__update_config_from_db_keeps_keys_the_config_file_omi
         value = db_values.get(param_name)
         return SimpleNamespace(param_name=param_name, param_value=value) if value is not None else None
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.get_config_param", get_config_param)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.get_config_param", get_config_param)
     pc._load_yaml_settings_stores(config)
 
     resolved = await pc._update_config_from_db(MagicMock(), config, store_model_in_db=True)
@@ -5388,7 +5388,7 @@ async def test_ProxyConfig__update_config_from_db_keeps_keys_the_config_file_omi
 async def test_ProxyConfig_add_deployment_continues_after_null_pass_through_endpoints(
     monkeypatch: pytest.MonkeyPatch, ui_settings_already_synced: bool
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     pc = ProxyConfig()
     non_llm_initialization = AsyncMock()
@@ -5422,8 +5422,8 @@ async def test_ProxyConfig_add_deployment_continues_after_null_pass_through_endp
 async def test_ProxyConfig_add_deployment_rebuilds_pass_through_routes_only_from_an_object_general_settings_row(
     monkeypatch: pytest.MonkeyPatch, stored_row: object, rebuilds_routes: bool
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.pass_through_endpoints import pass_through_endpoints
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.pass_through_endpoints import pass_through_endpoints
 
     pc: Final = ProxyConfig()
     rebuild_routes: Final = AsyncMock()
@@ -5460,8 +5460,8 @@ async def test_ProxyConfig__update_config_from_db_does_not_log_general_settings_
     """
     import logging
 
-    import litellm._logging as _logging_module
-    from litellm._logging import verbose_proxy_logger
+    import hangarllm._logging as _logging_module
+    from hangarllm._logging import verbose_proxy_logger
 
     monkeypatch.setattr(_logging_module, "_ENABLE_SECRET_REDACTION", False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
@@ -5469,7 +5469,7 @@ async def test_ProxyConfig__update_config_from_db_does_not_log_general_settings_
     def _fake_decrypt_value_helper(value, key, **_kwargs):
         return value
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.decrypt_value_helper", _fake_decrypt_value_helper)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.decrypt_value_helper", _fake_decrypt_value_helper)
 
     master_key_secret = "sk-lit4152-db-path-master-key-abcdef1234567890"
     db_url_secret = "postgresql://leak_user:leak_password_9090@leak-host.internal:5432/leak_db"
@@ -5486,7 +5486,7 @@ async def test_ProxyConfig__update_config_from_db_does_not_log_general_settings_
             },
         ),
         "router_settings": None,
-        "litellm_settings": None,
+        "hangarllm_settings": None,
         "environment_variables": SimpleNamespace(
             param_name="environment_variables",
             param_value={"DATABASE_URL": env_db_url_secret},
@@ -5496,7 +5496,7 @@ async def test_ProxyConfig__update_config_from_db_does_not_log_general_settings_
     async def _fake_get_config_param(prisma_client, key):
         return responses[key]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.get_config_param", _fake_get_config_param)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.get_config_param", _fake_get_config_param)
 
     class LogRecordHandler(logging.Handler):
         def __init__(self) -> None:
@@ -5537,10 +5537,10 @@ async def test_ProxyConfig__update_config_from_db_does_not_log_general_settings_
 
 
 @pytest.mark.asyncio
-async def test_ProxyConfig_load_config_redacts_secret_litellm_setting_keeps_plain(tmp_path, monkeypatch):
-    """Regression for LIT-4152 on the ``litellm_settings`` apply loop.
+async def test_ProxyConfig_load_config_redacts_secret_hangarllm_setting_keeps_plain(tmp_path, monkeypatch):
+    """Regression for LIT-4152 on the ``hangarllm_settings`` apply loop.
 
-    ``load_config`` logged ``setting litellm.<key>=<value>`` verbatim at DEBUG,
+    ``load_config`` logged ``setting hangarllm.<key>=<value>`` verbatim at DEBUG,
     so a secret-bearing setting such as ``api_key`` leaked in cleartext. The
     value now routes through ``_redact_general_setting_value``. Crucially the
     redaction must be surgical: a secret-named key is masked, but a plain
@@ -5550,19 +5550,19 @@ async def test_ProxyConfig_load_config_redacts_secret_litellm_setting_keeps_plai
     """
     import logging
 
-    import litellm._logging as _logging_module
-    from litellm._logging import verbose_proxy_logger
+    import hangarllm._logging as _logging_module
+    from hangarllm._logging import verbose_proxy_logger
 
     monkeypatch.setattr(_logging_module, "_ENABLE_SECRET_REDACTION", False)
 
-    api_key_secret = "sk-lit4152-litellm-settings-secret-abcdef1234567890"
+    api_key_secret = "sk-lit4152-hangarllm-settings-secret-abcdef1234567890"
     f = tmp_path / "c.yaml"
     f.write_text(
-        f"model_list: []\ngeneral_settings: {{}}\nlitellm_settings:\n  api_key: {api_key_secret}\n  num_retries: 7\n"
+        f"model_list: []\ngeneral_settings: {{}}\nhangarllm_settings:\n  api_key: {api_key_secret}\n  num_retries: 7\n"
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
 
     class LogRecordHandler(logging.Handler):
         def __init__(self) -> None:
@@ -5575,8 +5575,8 @@ async def test_ProxyConfig_load_config_redacts_secret_litellm_setting_keeps_plai
     handler = LogRecordHandler()
     handler.setLevel(logging.DEBUG)
     original_level = verbose_proxy_logger.level
-    original_api_key = getattr(litellm, "api_key", None)
-    original_num_retries = getattr(litellm, "num_retries", None)
+    original_api_key = getattr(hangarllm, "api_key", None)
+    original_num_retries = getattr(hangarllm, "num_retries", None)
     verbose_proxy_logger.setLevel(logging.DEBUG)
     verbose_proxy_logger.addHandler(handler)
     try:
@@ -5585,8 +5585,8 @@ async def test_ProxyConfig_load_config_redacts_secret_litellm_setting_keeps_plai
     finally:
         verbose_proxy_logger.removeHandler(handler)
         verbose_proxy_logger.setLevel(original_level)
-        litellm.api_key = original_api_key
-        litellm.num_retries = original_num_retries
+        hangarllm.api_key = original_api_key
+        hangarllm.num_retries = original_num_retries
 
     assert api_key_secret not in rendered, f"api_key leaked in logs: {rendered!r}"
     assert "num_retries=7" in rendered, (
@@ -5612,7 +5612,7 @@ def _revision_test_environment() -> dict[str, str | None]:
 
 @pytest.fixture
 def revision_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-proxy-config-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-proxy-config-test-salt")
     for key in _REVISION_TEST_KEYS:
         monkeypatch.setenv(key, "restored-by-monkeypatch")
         monkeypatch.delenv(key)
@@ -5628,7 +5628,7 @@ def _environment_variables_row(values: Mapping[str, str | None] | None, revision
     )
 
 
-_CONFIG_SECTIONS: Final = ("general_settings", "router_settings", "litellm_settings", "environment_variables")
+_CONFIG_SECTIONS: Final = ("general_settings", "router_settings", "hangarllm_settings", "environment_variables")
 
 
 async def _evict_config_rows() -> None:
@@ -5648,7 +5648,7 @@ def _config_database(
 
     prisma_client: Final = MagicMock()
     prisma_client.get_generic_data = get_generic_data
-    prisma_client.writer_db.litellm_config.find_unique = writer_find_unique
+    prisma_client.writer_db.hangarllm_config.find_unique = writer_find_unique
     return prisma_client
 
 
@@ -5686,7 +5686,7 @@ async def _init_non_llm_objects_from_an_empty_database(pc: ProxyConfig) -> None:
 
 async def _sync_sso_settings_row(pc: ProxyConfig, values: Mapping[str, str] | None) -> None:
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_ssoconfig.find_unique = AsyncMock(
+    prisma_client.db.hangarllm_ssoconfig.find_unique = AsyncMock(
         return_value=None
         if values is None
         else SimpleNamespace(sso_settings={key: encrypt_value_helper(value) for key, value in values.items()})
@@ -5777,7 +5777,7 @@ async def test_a_writer_that_cannot_answer_keeps_the_applied_environment_variabl
     )
 
     prisma_client: Final = _rows_database(cached, stored=None)
-    prisma_client.writer_db.litellm_config.find_unique = AsyncMock(side_effect=writer_error)
+    prisma_client.writer_db.hangarllm_config.find_unique = AsyncMock(side_effect=writer_error)
     prisma_client.attempt_db_reconnect = AsyncMock(return_value=False)
 
     await _sync_from(pc, prisma_client)
@@ -5989,7 +5989,7 @@ async def test_sso_key_the_sso_settings_table_holds_stays_set_while_the_environm
 async def test_sso_key_the_environment_variables_row_drops_is_unset_when_sso_settings_are_not_loaded_from_the_db(
     monkeypatch,
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"supported_db_objects": ["models"]})
     pc: Final = ProxyConfig()
@@ -6009,7 +6009,7 @@ async def test_sso_key_the_environment_variables_row_drops_is_unset_when_sso_set
 
 @pytest.fixture
 def clean_agent_registry():
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from hangarllm.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     original_agents = list(global_agent_registry.agent_list)
     original_config_agents = getattr(global_agent_registry, "config_agents", ())
@@ -6037,9 +6037,9 @@ def _agent_db_row(agent_id: str, agent_name: str):
     import json
     from datetime import datetime, timezone
 
-    from prisma.models import LiteLLM_AgentsTable
+    from prisma.models import HangarLLM_AgentsTable
 
-    return LiteLLM_AgentsTable(
+    return HangarLLM_AgentsTable(
         agent_id=agent_id,
         agent_name=agent_name,
         agent_card_params=json.dumps({"name": agent_name, "url": "http://db-agent"}),
@@ -6078,7 +6078,7 @@ async def test_ProxyConfig__init_agents_in_db_keeps_config_defined_agents(clean_
     )
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_agentstable.find_many = AsyncMock(return_value=[_agent_db_row("db-id", "db-agent")])
+    prisma_client.db.hangarllm_agentstable.find_many = AsyncMock(return_value=[_agent_db_row("db-id", "db-agent")])
 
     await ProxyConfig()._init_agents_in_db(prisma_client=prisma_client)
 
@@ -6094,16 +6094,16 @@ async def test_ProxyStartupEvent_jwt_auth_resolves_agent_claims_against_live_reg
     clean_agent_registry, agents_source
 ):
     """A JWT agent claim must resolve against every agent the proxy knows, including ones created after startup."""
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.types.agents import AgentResponse
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_JWTAuth
+    from hangarllm.proxy.auth.handle_jwt import JWTAuthManager
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from hangarllm.types.agents import AgentResponse
 
     original_lookup = proxy_server.jwt_handler.agent_lookup
     try:
         proxy_server.ProxyStartupEvent._initialize_jwt_auth(
-            general_settings={"litellm_jwtauth": {"agent_id_jwt_field": "appid"}},
+            general_settings={"hangarllm_jwtauth": {"agent_id_jwt_field": "appid"}},
             prisma_client=None,
             user_api_key_cache=UserApiKeyCache(),
         )
@@ -6114,7 +6114,7 @@ async def test_ProxyStartupEvent_jwt_auth_resolves_agent_claims_against_live_reg
             )
         elif agents_source == "db":
             prisma_client = MagicMock()
-            prisma_client.db.litellm_agentstable.find_many = AsyncMock(
+            prisma_client.db.hangarllm_agentstable.find_many = AsyncMock(
                 return_value=[_agent_db_row("db-id", "loaded-agent")]
             )
             await ProxyConfig()._init_agents_in_db(prisma_client=prisma_client)
@@ -6131,7 +6131,7 @@ async def test_ProxyStartupEvent_jwt_auth_resolves_agent_claims_against_live_reg
     finally:
         proxy_server.jwt_handler.bind_agent_lookup(original_lookup)
         proxy_server.jwt_handler.update_environment(
-            prisma_client=None, user_api_key_cache=UserApiKeyCache(), litellm_jwtauth=LiteLLM_JWTAuth()
+            prisma_client=None, user_api_key_cache=UserApiKeyCache(), hangarllm_jwtauth=HangarLLM_JWTAuth()
         )
 
     assert resolved == clean_agent_registry.get_agent_by_name(agent_name="loaded-agent").agent_id
@@ -6194,7 +6194,7 @@ def _db_guardrail_row(guardrail_id: str, guardrail_type: str) -> dict[str, objec
     return {
         "guardrail_id": guardrail_id,
         "guardrail_name": f"name-{guardrail_id}",
-        "litellm_params": {"guardrail": guardrail_type, "mode": "pre_call"},
+        "hangarllm_params": {"guardrail": guardrail_type, "mode": "pre_call"},
         "guardrail_info": None,
         "team_id": None,
     }
@@ -6209,9 +6209,9 @@ async def test_ProxyConfig__init_guardrails_in_db_skips_only_the_unloadable_row(
     The failing row's id must still reach reconcile_db_guardrails so that eviction
     pass cannot treat a row that is alive in the DB as one that was deleted.
     """
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy.guardrails import guardrail_registry as registry_module
-    from litellm.types.guardrails import Guardrail, GuardrailEventHooks, LitellmParams
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.proxy.guardrails import guardrail_registry as registry_module
+    from hangarllm.types.guardrails import Guardrail, GuardrailEventHooks, HangarllmParams
 
     class _RecordingHandler(registry_module.InMemoryGuardrailHandler):
         def __init__(self) -> None:
@@ -6225,7 +6225,7 @@ async def test_ProxyConfig__init_guardrails_in_db_skips_only_the_unloadable_row(
     handler = _RecordingHandler()
     monkeypatch.setattr(registry_module, "IN_MEMORY_GUARDRAIL_HANDLER", handler)
 
-    def _initializer(litellm_params: LitellmParams, guardrail: Guardrail) -> CustomGuardrail:
+    def _initializer(hangarllm_params: HangarllmParams, guardrail: Guardrail) -> CustomGuardrail:
         return CustomGuardrail(
             guardrail_name=guardrail["guardrail_name"],
             event_hook=GuardrailEventHooks.pre_call,
@@ -6235,10 +6235,10 @@ async def test_ProxyConfig__init_guardrails_in_db_skips_only_the_unloadable_row(
     monkeypatch.setitem(registry_module.guardrail_initializer_registry, "lit5367_ok", _initializer)
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_guardrailstable.find_many = AsyncMock(
+    prisma_client.db.hangarllm_guardrailstable.find_many = AsyncMock(
         return_value=[
             _db_guardrail_row("first", "lit5367_ok"),
-            _db_guardrail_row("broken", "litellm_tool_permission"),
+            _db_guardrail_row("broken", "hangarllm_tool_permission"),
             _db_guardrail_row("last", "lit5367_ok"),
         ]
     )
@@ -6262,13 +6262,13 @@ async def test_add_deployment_re_reads_ui_settings_so_other_pods_converge(monkey
     that served the PATCH and nowhere else until every other pod restarted.
     """
     general_settings: Dict[str, Any] = {"allow_agents_for_team_admins": False}
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_config.find_many = AsyncMock(return_value=[])
-    prisma_client.db.litellm_config.find_first = AsyncMock(return_value=None)
-    prisma_client.db.litellm_credentialstable.find_many = AsyncMock(return_value=[])
-    prisma_client.db.litellm_uisettings.find_unique = AsyncMock(
+    prisma_client.db.hangarllm_config.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_config.find_first = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_credentialstable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_uisettings.find_unique = AsyncMock(
         return_value=SimpleNamespace(
             ui_settings=json.dumps({"allow_agents_for_team_admins": True, "enable_chat_ui": False})
         )
@@ -6280,7 +6280,7 @@ async def test_add_deployment_re_reads_ui_settings_so_other_pods_converge(monkey
 
     await config.add_deployment(prisma_client=prisma_client, proxy_logging_obj=MagicMock())
 
-    prisma_client.db.litellm_uisettings.find_unique.assert_awaited_once_with(where={"id": "ui_settings"})
+    prisma_client.db.hangarllm_uisettings.find_unique.assert_awaited_once_with(where={"id": "ui_settings"})
     assert general_settings["allow_agents_for_team_admins"] is True
     assert "enable_chat_ui" not in general_settings
 
@@ -6289,10 +6289,10 @@ async def test_add_deployment_re_reads_ui_settings_so_other_pods_converge(monkey
 async def test_add_deployment_syncs_ui_settings_even_when_the_model_reconcile_fails(monkeypatch):
     """A broken model reconcile must not strand every pod on stale settings."""
     general_settings: Dict[str, Any] = {"allow_agents_for_team_admins": False}
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_uisettings.find_unique = AsyncMock(
+    prisma_client.db.hangarllm_uisettings.find_unique = AsyncMock(
         return_value=SimpleNamespace(ui_settings={"allow_agents_for_team_admins": True})
     )
 
@@ -6305,7 +6305,7 @@ async def test_add_deployment_syncs_ui_settings_even_when_the_model_reconcile_fa
 
 
 def _websearch_logger_cls():
-    from litellm.integrations.websearch_interception.handler import (
+    from hangarllm.integrations.websearch_interception.handler import (
         WebSearchInterceptionLogger,
     )
 
@@ -6314,9 +6314,9 @@ def _websearch_logger_cls():
 
 def _run_websearch_init(monkeypatch, stored_params, starting_callbacks):
     pc = ProxyConfig()
-    monkeypatch.setattr(litellm, "callbacks", list(starting_callbacks))
+    monkeypatch.setattr(hangarllm, "callbacks", list(starting_callbacks))
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_config_param",
+        "hangarllm.proxy.proxy_server.get_config_param",
         AsyncMock(return_value=SimpleNamespace(param_value={"websearch_interception_params": stored_params}))
         if stored_params is not None
         else AsyncMock(return_value=SimpleNamespace(param_value={})),
@@ -6327,7 +6327,7 @@ def _run_websearch_init(monkeypatch, stored_params, starting_callbacks):
 
 def _poll_websearch_init(pc, monkeypatch, stored_params):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.get_config_param",
+        "hangarllm.proxy.proxy_server.get_config_param",
         AsyncMock(return_value=SimpleNamespace(param_value={"websearch_interception_params": stored_params})),
     )
     asyncio.run(pc.init_websearch_interception_settings_in_db(prisma_client=MagicMock()))
@@ -6336,12 +6336,12 @@ def _poll_websearch_init(pc, monkeypatch, stored_params):
 def test_init_websearch_interception_resyncs_after_a_write_drops_the_enabled_flag(monkeypatch):
     logger_cls = _websearch_logger_cls()
     pc = ProxyConfig()
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
     _poll_websearch_init(pc, monkeypatch, {"enabled": True, "search_tool_name": "old-tool"})
     _poll_websearch_init(pc, monkeypatch, {"search_tool_name": "new-tool"})
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)]
     assert len(registered) == 1
     assert registered[0].search_tool_name == "new-tool"
 
@@ -6355,7 +6355,7 @@ def test_init_websearch_interception_ignores_a_non_list_providers_value(monkeypa
         starting_callbacks=[],
     )
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)]
     assert len(registered) == 1
     assert registered[0].enabled_providers == ["bedrock"]
 
@@ -6366,7 +6366,7 @@ def test_init_websearch_interception_absent_key_leaves_callbacks_untouched(monke
 
     _run_websearch_init(monkeypatch, stored_params=None, starting_callbacks=[config_registered])
 
-    assert litellm.callbacks == [config_registered]
+    assert hangarllm.callbacks == [config_registered]
 
 
 def test_init_websearch_interception_without_enabled_key_leaves_callbacks_untouched(monkeypatch):
@@ -6379,7 +6379,7 @@ def test_init_websearch_interception_without_enabled_key_leaves_callbacks_untouc
         starting_callbacks=[config_registered],
     )
 
-    assert litellm.callbacks == [config_registered]
+    assert hangarllm.callbacks == [config_registered]
 
 
 def test_init_websearch_interception_registers_when_explicitly_enabled(monkeypatch):
@@ -6391,7 +6391,7 @@ def test_init_websearch_interception_registers_when_explicitly_enabled(monkeypat
         starting_callbacks=[],
     )
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)]
     assert len(registered) == 1
     assert registered[0].search_tool_name == "stored-tool"
 
@@ -6406,7 +6406,7 @@ def test_init_websearch_interception_treats_string_false_as_disabled(monkeypatch
         starting_callbacks=[existing],
     )
 
-    assert [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)] == []
+    assert [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)] == []
 
 
 def test_init_websearch_interception_empty_providers_falls_back_to_handler_default(monkeypatch):
@@ -6418,7 +6418,7 @@ def test_init_websearch_interception_empty_providers_falls_back_to_handler_defau
         starting_callbacks=[],
     )
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)]
     assert len(registered) == 1
     assert registered[0].enabled_providers == ["bedrock"]
 
@@ -6433,7 +6433,7 @@ def test_init_websearch_interception_keeps_working_callback_when_new_one_cannot_
         starting_callbacks=[working],
     )
 
-    assert litellm.callbacks == [working]
+    assert hangarllm.callbacks == [working]
 
 
 def test_init_websearch_interception_disabled_removes_the_callback(monkeypatch):
@@ -6446,7 +6446,7 @@ def test_init_websearch_interception_disabled_removes_the_callback(monkeypatch):
         starting_callbacks=[existing],
     )
 
-    assert [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)] == []
+    assert [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)] == []
 
 
 def test_init_websearch_interception_replaces_stale_instance_on_param_change(monkeypatch):
@@ -6459,7 +6459,7 @@ def test_init_websearch_interception_replaces_stale_instance_on_param_change(mon
         starting_callbacks=[stale],
     )
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)]
     assert len(registered) == 1
     assert (registered[0].search_tool_name, registered[0].max_agentic_loops) == ("new-tool", 7)
 
@@ -6473,14 +6473,14 @@ def test_init_websearch_interception_honors_enabled_providers(monkeypatch):
         starting_callbacks=[],
     )
 
-    registered = [cb for cb in litellm.callbacks if isinstance(cb, logger_cls)]
+    registered = [cb for cb in hangarllm.callbacks if isinstance(cb, logger_cls)]
     assert len(registered) == 1
     assert registered[0].enabled_providers == ["bedrock", "vertex_ai"]
 
 
 def test_websearch_interception_settings_can_be_named_in_supported_db_objects(monkeypatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import ConfigGeneralSettings
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import ConfigGeneralSettings
 
     allowlist = ConfigGeneralSettings(supported_db_objects=["websearch_interception_settings"]).supported_db_objects
     assert allowlist
@@ -6495,7 +6495,7 @@ def test_websearch_interception_settings_can_be_named_in_supported_db_objects(mo
 def test_validate_deployment_access_windows_rejects_malformed_time():
     model = {
         "model_name": "gpt-4o-shared",
-        "litellm_params": {"model": "gpt-4o"},
+        "hangarllm_params": {"model": "gpt-4o"},
         "model_info": {
             "access_windows": [{"start": "25:00", "end": "06:00", "timezone": "America/New_York", "team_ids": ["t"]}]
         },
@@ -6510,7 +6510,7 @@ def test_validate_deployment_access_windows_rejects_malformed_time():
 def test_validate_deployment_access_windows_rejects_unknown_timezone():
     model = {
         "model_name": "gpt-4o-shared",
-        "litellm_params": {"model": "gpt-4o"},
+        "hangarllm_params": {"model": "gpt-4o"},
         "model_info": {
             "access_windows": [{"start": "22:00", "end": "06:00", "timezone": "Mars/Olympus", "team_ids": ["t"]}]
         },
@@ -6525,7 +6525,7 @@ def test_validate_deployment_access_windows_accepts_valid_and_absent():
         validate_deployment_access_windows(
             {
                 "model_name": "gpt-4o-shared",
-                "litellm_params": {"model": "gpt-4o"},
+                "hangarllm_params": {"model": "gpt-4o"},
                 "model_info": {
                     "access_windows": [
                         {"start": "22:00", "end": "06:00", "timezone": "America/New_York", "team_ids": ["t"]}
@@ -6535,10 +6535,10 @@ def test_validate_deployment_access_windows_accepts_valid_and_absent():
         )
         is None
     )
-    assert validate_deployment_access_windows({"model_name": "m", "litellm_params": {"model": "m"}}) is None
+    assert validate_deployment_access_windows({"model_name": "m", "hangarllm_params": {"model": "m"}}) is None
     assert (
         validate_deployment_access_windows(
-            {"model_name": "m", "litellm_params": {"model": "m"}, "model_info": {"id": "x"}}
+            {"model_name": "m", "hangarllm_params": {"model": "m"}, "model_info": {"id": "x"}}
         )
         is None
     )
@@ -6551,13 +6551,13 @@ async def test_model_refresh_updates_availability_catalog_and_retains_it_on_db_f
         model_id="gated",
         created_by="owner",
         model_info={},
-        litellm_params={
+        hangarllm_params={
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"classifier_type": "heuristic_v2"},
         },
     )
     find_many = AsyncMock(side_effect=[[row], RuntimeError("database unavailable"), []])
-    client = SimpleNamespace(db=SimpleNamespace(litellm_proxymodeltable=SimpleNamespace(find_many=find_many)))
+    client = SimpleNamespace(db=SimpleNamespace(hangarllm_proxymodeltable=SimpleNamespace(find_many=find_many)))
     assert pc.auto_router_db_catalog is None
     assert await pc._get_models_from_db(client) == [row]
     loaded = pc.auto_router_db_catalog
@@ -6584,9 +6584,9 @@ async def test_model_refresh_updates_availability_catalog_and_retains_it_on_db_f
 async def test_proxy_config_validates_advertised_mcp_versions_at_load(tmp_path, monkeypatch, versions, valid):
     config = tmp_path / "mcp-versions.yaml"
     config.write_text(json.dumps({"model_list": [], "general_settings": {"mcp_advertised_versions": versions}}))
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", False)
-    monkeypatch.delenv("LITELLM_CONFIG_BUCKET_NAME", raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.store_model_in_db", False)
+    monkeypatch.delenv("HANGARLLM_CONFIG_BUCKET_NAME", raising=False)
     if valid:
         _, _, settings = await ProxyConfig().load_config(router=None, config_file_path=str(config))
         assert settings["mcp_advertised_versions"] == versions

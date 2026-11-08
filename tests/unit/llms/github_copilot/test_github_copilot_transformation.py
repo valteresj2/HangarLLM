@@ -4,13 +4,13 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
+import hangarllm
 
 # Import at the top to make the patch work correctly
-from litellm import ModelResponse, completion
-from litellm.exceptions import AuthenticationError
-from litellm.llms.github_copilot.chat.transformation import GithubCopilotConfig
-from litellm.llms.github_copilot.common_utils import (
+from hangarllm import ModelResponse, completion
+from hangarllm.exceptions import AuthenticationError
+from hangarllm.llms.github_copilot.chat.transformation import GithubCopilotConfig
+from hangarllm.llms.github_copilot.common_utils import (
     GetAccessTokenError,
 )
 
@@ -75,9 +75,9 @@ def test_github_copilot_config_get_openai_compatible_provider_info():
     assert "Failed to get API key" in str(excinfo.value)
 
 
-@patch("litellm.llms.github_copilot.authenticator.Authenticator.get_api_key")
-@patch("litellm.main.openai_chat_completions.completion")
-@patch("litellm.llms.openai.openai.OpenAIChatCompletion.completion")
+@patch("hangarllm.llms.github_copilot.authenticator.Authenticator.get_api_key")
+@patch("hangarllm.main.openai_chat_completions.completion")
+@patch("hangarllm.llms.openai.openai.OpenAIChatCompletion.completion")
 def test_completion_github_copilot_mock_response(
     mock_class_completion, mock_instance_completion, mock_get_api_key, monkeypatch
 ):
@@ -131,13 +131,13 @@ def test_completion_github_copilot_mock_response(
 
 def test_transform_messages_disable_copilot_system_to_assistant(monkeypatch):
     """Test that system messages are converted to assistant unless disable_copilot_system_to_assistant is True."""
-    from litellm.llms.github_copilot.chat.transformation import GithubCopilotConfig
+    from hangarllm.llms.github_copilot.chat.transformation import GithubCopilotConfig
 
     # Save original value
-    original_flag = litellm.disable_copilot_system_to_assistant
+    original_flag = hangarllm.disable_copilot_system_to_assistant
     try:
         # Case 1: Flag is False (default, conversion happens)
-        litellm.disable_copilot_system_to_assistant = False
+        hangarllm.disable_copilot_system_to_assistant = False
         config = GithubCopilotConfig()
         messages = [
             {"role": "system", "content": "System message."},
@@ -148,19 +148,19 @@ def test_transform_messages_disable_copilot_system_to_assistant(monkeypatch):
         assert out[1]["role"] == "user"
 
         # Case 2: Flag is True (conversion does not happen)
-        litellm.disable_copilot_system_to_assistant = True
+        hangarllm.disable_copilot_system_to_assistant = True
         out = config.transform_messages([m.copy() for m in messages], model="github_copilot/gpt-4")
         assert out[0]["role"] == "system"
         assert out[1]["role"] == "user"
 
         # Case 3: Flag is False again (conversion happens)
-        litellm.disable_copilot_system_to_assistant = False
+        hangarllm.disable_copilot_system_to_assistant = False
         out = config.transform_messages([m.copy() for m in messages], model="github_copilot/gpt-4")
         assert out[0]["role"] == "assistant"
         assert out[1]["role"] == "user"
     finally:
         # Restore original value
-        litellm.disable_copilot_system_to_assistant = original_flag
+        hangarllm.disable_copilot_system_to_assistant = original_flag
 
 
 def test_x_initiator_header_user_request():
@@ -182,7 +182,7 @@ def test_x_initiator_header_user_request():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -209,7 +209,7 @@ def test_x_initiator_header_agent_request_with_assistant():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -236,7 +236,7 @@ def test_x_initiator_header_agent_request_with_tool():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -264,7 +264,7 @@ def test_x_initiator_header_mixed_messages_with_agent_roles():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -292,7 +292,7 @@ def test_x_initiator_header_user_only_messages():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -316,7 +316,7 @@ def test_x_initiator_header_empty_messages():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -342,7 +342,7 @@ def test_x_initiator_header_system_only_messages():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -377,7 +377,7 @@ def test_copilot_vision_request_header_with_image():
         model="github_copilot/gpt-4-vision-preview",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -404,7 +404,7 @@ def test_copilot_vision_request_header_text_only():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -440,7 +440,7 @@ def test_copilot_vision_request_header_with_type_image_url():
         model="github_copilot/gpt-4-vision-preview",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
         api_base=None,
     )
@@ -454,7 +454,7 @@ class TestGithubCopilotTransformResponse:
     Tests for GithubCopilotConfig.transform_response handling of Anthropic-native
     responses from newer Copilot models (e.g. claude-opus-4.7, claude-opus-4.8).
 
-    See: https://github.com/BerriAI/litellm/issues/29391
+    See: upstream issue 29391
     """
 
     def _make_mock_response(self, json_data: dict, status_code: int = 200):
@@ -507,7 +507,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -547,7 +547,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -581,7 +581,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -621,7 +621,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -666,7 +666,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "What's the weather?"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -710,7 +710,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -754,7 +754,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "What is the answer?"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -787,7 +787,7 @@ class TestGithubCopilotTransformResponse:
                 request_data={},
                 messages=[{"role": "user", "content": "Hi"}],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 encoding=None,
             )
 
@@ -799,7 +799,7 @@ class TestGithubCopilotTransformParsedResponseDict:
     transform_response, so this is the seam that repairs empty-choices responses
     from newer Copilot Claude models on the live completion path.
 
-    See: https://github.com/BerriAI/litellm/issues/30927
+    See: upstream issue 30927
     """
 
     def test_synthesizes_choices_from_anthropic_content(self):
@@ -842,8 +842,8 @@ class TestGithubCopilotTransformParsedResponseDict:
         assert config.transform_parsed_response_dict(parsed) is parsed
 
 
-@patch("litellm.llms.openai.openai.OpenAIChatCompletion._get_openai_client")
-@patch("litellm.llms.openai.openai.OpenAIChatCompletion.make_sync_openai_chat_completion_request")
+@patch("hangarllm.llms.openai.openai.OpenAIChatCompletion._get_openai_client")
+@patch("hangarllm.llms.openai.openai.OpenAIChatCompletion.make_sync_openai_chat_completion_request")
 def test_openai_handler_repairs_github_copilot_empty_choices(mock_request, mock_get_client):
     """
     The OpenAI SDK handler calls convert_to_model_response_object directly on the
@@ -852,9 +852,9 @@ def test_openai_handler_repairs_github_copilot_empty_choices(mock_request, mock_
     transform_parsed_response_dict first. Removing that wiring (or resolving a
     config without the override) fails this test with APIError.
 
-    See: https://github.com/BerriAI/litellm/issues/30927
+    See: upstream issue 30927
     """
-    from litellm.llms.openai.openai import OpenAIChatCompletion
+    from hangarllm.llms.openai.openai import OpenAIChatCompletion
 
     mock_get_client.return_value = MagicMock()
 
@@ -878,7 +878,7 @@ def test_openai_handler_repairs_github_copilot_empty_choices(mock_request, mock_
         model_response=ModelResponse(),
         timeout=60.0,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         logging_obj=MagicMock(),
         custom_llm_provider="github_copilot",
         client=MagicMock(),
@@ -893,7 +893,7 @@ def test_openai_handler_repairs_github_copilot_empty_choices(mock_request, mock_
 
 
 def test_validate_environment_uses_per_user_session_and_skips_authenticator():
-    from litellm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
+    from hangarllm.llms.github_copilot.per_user_auth import GithubCopilotUserSession
 
     config = GithubCopilotConfig()
     config.authenticator = MagicMock()
@@ -905,7 +905,7 @@ def test_validate_environment_uses_per_user_session_and_skips_authenticator():
         model="github_copilot/gpt-4o",
         messages=[],
         optional_params={},
-        litellm_params={"github_copilot_user_session": session},
+        hangarllm_params={"github_copilot_user_session": session},
     )
     assert headers["Authorization"] == "Bearer user-copilot-token"
     config.authenticator.get_api_key.assert_not_called()
@@ -933,7 +933,7 @@ def test_transform_response_carries_upstream_usage():
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert result.usage.prompt_tokens == 11

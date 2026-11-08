@@ -48,8 +48,8 @@ def _env(lock_dir: Path, slots: str) -> dict[str, str]:
     return {
         "PATH": os.environ["PATH"],
         "HOME": str(lock_dir.parent),
-        "LITELLM_GATE_SLOT_DIR": str(lock_dir),
-        "LITELLM_GATE_SLOTS": slots,
+        "HANGARLLM_GATE_SLOT_DIR": str(lock_dir),
+        "HANGARLLM_GATE_SLOTS": slots,
     }
 
 
@@ -242,7 +242,7 @@ def test_non_integer_slot_count_warns_and_falls_back_to_default(tmp_path: Path) 
     )
     assert proc.returncode == 0
     assert b"ran" in proc.stdout
-    assert b"LITELLM_GATE_SLOTS" in proc.stderr
+    assert b"HANGARLLM_GATE_SLOTS" in proc.stderr
 
 
 def test_killed_holder_releases_its_slot_for_the_next_contender(tmp_path: Path) -> None:
@@ -272,12 +272,12 @@ def test_killed_holder_releases_its_slot_for_the_next_contender(tmp_path: Path) 
 
 def test_acquire_slot_holds_marks_and_releases_in_process(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     lock_dir = tmp_path / "locks"
-    monkeypatch.setenv("LITELLM_GATE_SLOT_HELD", "")
-    monkeypatch.setenv("LITELLM_GATE_SLOT_DIR", str(lock_dir))
-    monkeypatch.setenv("LITELLM_GATE_SLOTS", "1")
+    monkeypatch.setenv("HANGARLLM_GATE_SLOT_HELD", "")
+    monkeypatch.setenv("HANGARLLM_GATE_SLOT_DIR", str(lock_dir))
+    monkeypatch.setenv("HANGARLLM_GATE_SLOTS", "1")
     handle = gate_slot_lock.acquire_slot()
     assert handle is not None
-    assert os.environ["LITELLM_GATE_SLOT_HELD"] == "1"
+    assert os.environ["HANGARLLM_GATE_SLOT_HELD"] == "1"
     assert gate_slot_lock.acquire_slot() is None
     with (lock_dir / "slot-0.lock").open("wb") as probe:
         with pytest.raises(BlockingIOError):
@@ -289,15 +289,15 @@ def test_acquire_slot_holds_marks_and_releases_in_process(tmp_path: Path, monkey
 
 def test_held_slot_context_manager_releases_on_exit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     lock_dir = tmp_path / "locks"
-    monkeypatch.setenv("LITELLM_GATE_SLOT_HELD", "")
-    monkeypatch.setenv("LITELLM_GATE_SLOT_DIR", str(lock_dir))
-    monkeypatch.setenv("LITELLM_GATE_SLOTS", "1")
+    monkeypatch.setenv("HANGARLLM_GATE_SLOT_HELD", "")
+    monkeypatch.setenv("HANGARLLM_GATE_SLOT_DIR", str(lock_dir))
+    monkeypatch.setenv("HANGARLLM_GATE_SLOTS", "1")
     with gate_slot_lock.held_slot():
-        assert os.environ["LITELLM_GATE_SLOT_HELD"] == "1"
+        assert os.environ["HANGARLLM_GATE_SLOT_HELD"] == "1"
         with (lock_dir / "slot-0.lock").open("wb") as probe:
             with pytest.raises(BlockingIOError):
                 fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    assert not os.environ.get("LITELLM_GATE_SLOT_HELD")
+    assert not os.environ.get("HANGARLLM_GATE_SLOT_HELD")
     with (lock_dir / "slot-0.lock").open("wb") as probe:
         fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
         fcntl.flock(probe, fcntl.LOCK_UN)
@@ -311,7 +311,7 @@ def test_direct_make_lint_takes_a_slot_before_any_setup(tmp_path: Path) -> None:
     probe = tmp_path / "probe.py"
     probe.write_text(
         "import fcntl, json, os, pathlib, sys\n"
-        "with (pathlib.Path(os.environ['LITELLM_GATE_SLOT_DIR']) / 'slot-0.lock').open('wb') as slot:\n"
+        "with (pathlib.Path(os.environ['HANGARLLM_GATE_SLOT_DIR']) / 'slot-0.lock').open('wb') as slot:\n"
         "    try:\n"
         "        fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
         "        locked = False\n"

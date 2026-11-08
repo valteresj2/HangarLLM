@@ -42,7 +42,7 @@ from pydantic import BaseModel, Field, JsonValue, TypeAdapter
 
 _SPEND_NONCES: Final = (
     "SELECT status, metadata->'mcp_tool_call_metadata'->'arguments'->>'nonce' AS nonce"
-    ' FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
+    ' FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
 )
 _OBJECTS: Final = TypeAdapter(Mapping[str, object])
 _STRINGS: Final = TypeAdapter(Mapping[str, str])
@@ -104,7 +104,7 @@ def test_saved_headers_reach_real_mcp_tool_and_survive_unrelated_edit(gateway: G
                     "PUT", "/v1/mcp/server", {"server_id": identity, "server_name": alias + "renamed"}
                 )
                 assert updated.status_code == 202, updated.text
-        rows: Final = read_rows('SELECT server_name FROM "LiteLLM_MCPServerTable" WHERE server_id = %s', (identity,))
+        rows: Final = read_rows('SELECT server_name FROM "HangarLLM_MCPServerTable" WHERE server_id = %s', (identity,))
         assert rows == [{"server_name": alias + "renamed"}]
 
 
@@ -175,7 +175,7 @@ def test_generated_mcp_edits_preserve_actual_headers_and_tool_results(gateway: G
                 assert len(calls) == 1 and calls[0]["headers"][b"x-integration-saved"] == self.marker.encode()
                 assert (
                     len(
-                        read_rows('SELECT server_id FROM "LiteLLM_MCPServerTable" WHERE server_id=%s', (self.identity,))
+                        read_rows('SELECT server_id FROM "HangarLLM_MCPServerTable" WHERE server_id=%s', (self.identity,))
                     )
                     == 1
                 )
@@ -254,7 +254,7 @@ def test_warm_credential_removal_rejects_without_upstream_traffic(gateway: Gatew
         for operation in ("list", "call"):
             rejected = (
                 gateway.client.get(
-                    "/mcp-rest/tools/list", params={"server_id": identity}, headers={"x-litellm-api-key": key}
+                    "/mcp-rest/tools/list", params={"server_id": identity}, headers={"x-hangarllm-api-key": key}
                 )
                 if operation == "list"
                 else call_tool(gateway, key, identity, names["add"], {"a": 3, "b": 5})
@@ -504,7 +504,7 @@ def test_key_grant_added_by_key_update_is_visible_to_mcp_tool_listing_before_the
 
 
 async def _select_then_create(url: str, key: str) -> tuple[CallToolResult, CallToolResult]:
-    async with httpx2.AsyncClient(headers={"x-litellm-api-key": key}, timeout=30, trust_env=False) as http:
+    async with httpx2.AsyncClient(headers={"x-hangarllm-api-key": key}, timeout=30, trust_env=False) as http:
         async with streamable_http_client(url, http_client=http) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
@@ -668,7 +668,7 @@ def test_tool_calls_on_both_workers_stay_base_compatible_after_each_worker_lists
 _ENVELOPE_SPEND: Final = (
     "SELECT request_tags, metadata->'spend_logs_metadata' AS spend_logs_metadata,"
     " metadata->'mcp_tool_call_metadata' AS tool"
-    ' FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s ORDER BY "startTime"'
+    ' FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s ORDER BY "startTime"'
 )
 
 
@@ -731,7 +731,7 @@ def test_rest_call_envelope_keeps_caller_metadata_forwarded_headers_and_structur
             peer.drain()
             response = gateway.client.post(
                 "/mcp-rest/tools/call",
-                headers={"x-litellm-api-key": key, **forwarded},
+                headers={"x-hangarllm-api-key": key, **forwarded},
                 json={
                     "server_id": identity,
                     "name": "track",

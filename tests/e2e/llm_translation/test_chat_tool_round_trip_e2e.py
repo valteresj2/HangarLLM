@@ -15,7 +15,7 @@ from models import (
     ChatTool,
     ChatToolFunction,
     ChatToolResultTurn,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     OutMessage,
     ThinkingParam,
     ToolCall,
@@ -52,12 +52,12 @@ class _WeatherArgs(BaseModel):
     location: str
 
 
-def _api_key_params(backend: str, env: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=backend, api_key=f"os.environ/{env}")
+def _api_key_params(backend: str, env: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=backend, api_key=f"os.environ/{env}")
 
 
-def _bedrock_params(backend: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _bedrock_params(backend: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=backend,
         aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -65,7 +65,7 @@ def _bedrock_params(backend: str) -> LiteLLMParamsBody:
     )
 
 
-def _register(client: PassthroughClient, resources: ResourceManager, params: LiteLLMParamsBody) -> tuple[str, str]:
+def _register(client: PassthroughClient, resources: ResourceManager, params: HangarLLMParamsBody) -> tuple[str, str]:
     model = f"e2e-chat-tool-loop-{unique_marker()}"
     model_id = client.proxy.create_model(model, params)
     resources.defer(lambda: client.proxy.delete_model(model_id))

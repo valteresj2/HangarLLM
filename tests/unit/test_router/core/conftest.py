@@ -4,7 +4,7 @@ from typing import Final
 
 import pytest
 
-from litellm.router_core import RouterCore
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.scripted_host import CORE_BUILDERS, ScriptedHost
 
 

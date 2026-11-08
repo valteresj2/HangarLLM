@@ -34,7 +34,7 @@ def test_team_list_sorts_across_pages_and_respects_membership(
     outsider: Final = scenario.team(team_alias=f"{prefix}-outside")
     for team_id, value in zip(teams, values, strict=True):
         write_rows(
-            'UPDATE "LiteLLM_TeamTable" SET spend = %s::float, max_budget = %s::float, '
+            'UPDATE "HangarLLM_TeamTable" SET spend = %s::float, max_budget = %s::float, '
             "tpm_limit = %s::bigint, rpm_limit = %s::bigint, "
             "updated_at = timestamp '2030-01-01' + %s::int * interval '1 day', "
             "members_with_roles = %s::jsonb, models = ARRAY(SELECT generate_series(1, %s::int)::text) "
@@ -53,12 +53,12 @@ def test_team_list_sorts_across_pages_and_respects_membership(
             ),
         )
         write_rows(
-            'INSERT INTO "LiteLLM_VerificationToken" (token, team_id) '
+            'INSERT INTO "HangarLLM_VerificationToken" (token, team_id) '
             "SELECT %s || '-key-' || n::text, %s FROM generate_series(1, %s::int) n",
             (team_id, team_id, str(value)),
         )
     write_rows(
-        'UPDATE "LiteLLM_TeamTable" SET max_budget = NULL, tpm_limit = NULL, rpm_limit = NULL WHERE team_id = %s',
+        'UPDATE "HangarLLM_TeamTable" SET max_budget = NULL, tpm_limit = NULL, rpm_limit = NULL WHERE team_id = %s',
         (teams[-1],),
     )
     try:
@@ -98,7 +98,7 @@ def test_team_list_sorts_across_pages_and_respects_membership(
         assert all(page.json()["total"] == len(teams) for page in pages)
     finally:
         for team_id in teams:
-            write_rows('DELETE FROM "LiteLLM_VerificationToken" WHERE team_id = %s', (team_id,))
+            write_rows('DELETE FROM "HangarLLM_VerificationToken" WHERE team_id = %s', (team_id,))
 
 
 @pytest.mark.parametrize("direction", ("asc", "desc"))
@@ -112,13 +112,13 @@ def test_team_list_sorts_organization_names_and_missing_values(
     try:
         for (organization_id, alias), team_id in zip(organizations, teams):
             write_rows(
-                'INSERT INTO "LiteLLM_OrganizationTable" '
+                'INSERT INTO "HangarLLM_OrganizationTable" '
                 "(organization_id, organization_alias, budget_id, created_by, updated_by, updated_at) "
                 "VALUES (%s, %s, %s, 'sorting-test', 'sorting-test', NOW())",
                 (organization_id, alias, budget),
             )
             write_rows(
-                'UPDATE "LiteLLM_TeamTable" SET organization_id = %s WHERE team_id = %s',
+                'UPDATE "HangarLLM_TeamTable" SET organization_id = %s WHERE team_id = %s',
                 (organization_id, team_id),
             )
         ascending: Final = (teams[0], teams[2], teams[1])
@@ -141,9 +141,9 @@ def test_team_list_sorts_organization_names_and_missing_values(
         assert tuple(row["team_id"] for row in chain.from_iterable(page.json()["teams"] for page in pages)) == (*ordered, teams[-1])
     finally:
         for team_id in teams:
-            write_rows('UPDATE "LiteLLM_TeamTable" SET organization_id = NULL WHERE team_id = %s', (team_id,))
+            write_rows('UPDATE "HangarLLM_TeamTable" SET organization_id = NULL WHERE team_id = %s', (team_id,))
         for organization_id, _ in organizations:
-            write_rows('DELETE FROM "LiteLLM_OrganizationTable" WHERE organization_id = %s', (organization_id,))
+            write_rows('DELETE FROM "HangarLLM_OrganizationTable" WHERE organization_id = %s', (organization_id,))
 
 
 @pytest.mark.parametrize("field", ("organization_alias", "members", "models", "keys_count"))
@@ -166,19 +166,19 @@ def test_computed_team_sorts_preserve_org_and_membership_union(
     try:
         for org, alias in zip(orgs, ("alpha", "zulu"), strict=True):
             write_rows(
-                'INSERT INTO "LiteLLM_OrganizationTable" '
+                'INSERT INTO "HangarLLM_OrganizationTable" '
                 "(organization_id, organization_alias, budget_id, created_by, updated_by, updated_at) "
                 "VALUES (%s, %s, %s, 'sorting-test', 'sorting-test', NOW())",
                 (org, alias, budget),
             )
         write_rows(
-            'INSERT INTO "LiteLLM_OrganizationMembership" (user_id, organization_id, user_role) '
+            'INSERT INTO "HangarLLM_OrganizationMembership" (user_id, organization_id, user_role) '
             "VALUES (%s, %s, 'org_admin')",
             (owner, orgs[0]),
         )
         for index, team in enumerate(teams):
             write_rows(
-                'UPDATE "LiteLLM_TeamTable" SET organization_id = %s, members_with_roles = %s::jsonb, '
+                'UPDATE "HangarLLM_TeamTable" SET organization_id = %s, members_with_roles = %s::jsonb, '
                 "models = ARRAY(SELECT generate_series(1, %s::int)::text) WHERE team_id = %s",
                 (
                     orgs[0] if index < 2 else orgs[1],
@@ -193,7 +193,7 @@ def test_computed_team_sorts_preserve_org_and_membership_union(
                 ),
             )
             write_rows(
-                'INSERT INTO "LiteLLM_VerificationToken" (token, team_id) '
+                'INSERT INTO "HangarLLM_VerificationToken" (token, team_id) '
                 "SELECT %s || '-key-' || n::text, %s FROM generate_series(1, %s::int) n",
                 (team, team, str(index + 1)),
             )
@@ -237,8 +237,8 @@ def test_computed_team_sorts_preserve_org_and_membership_union(
         assert denied.status_code == 403, denied.text
     finally:
         for team in teams:
-            write_rows('DELETE FROM "LiteLLM_VerificationToken" WHERE team_id = %s', (team,))
-            write_rows('UPDATE "LiteLLM_TeamTable" SET organization_id = NULL WHERE team_id = %s', (team,))
+            write_rows('DELETE FROM "HangarLLM_VerificationToken" WHERE team_id = %s', (team,))
+            write_rows('UPDATE "HangarLLM_TeamTable" SET organization_id = NULL WHERE team_id = %s', (team,))
         for org in orgs:
-            write_rows('DELETE FROM "LiteLLM_OrganizationMembership" WHERE organization_id = %s', (org,))
-            write_rows('DELETE FROM "LiteLLM_OrganizationTable" WHERE organization_id = %s', (org,))
+            write_rows('DELETE FROM "HangarLLM_OrganizationMembership" WHERE organization_id = %s', (org,))
+            write_rows('DELETE FROM "HangarLLM_OrganizationTable" WHERE organization_id = %s', (org,))

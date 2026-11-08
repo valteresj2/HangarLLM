@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 import pytest
 import respx
 
-import litellm
-from litellm import completion
+import hangarllm
+from hangarllm import completion
 
 
 def test_wandb_logging():
@@ -22,7 +22,7 @@ def test_wandb_logging():
             temperature=0.2,
         )
         print(response)
-    except litellm.Timeout as e:
+    except hangarllm.Timeout as e:
         pass
     except Exception as e:
         print(e)
@@ -58,7 +58,7 @@ def _weights_biases_with_stub_trace_tree(monkeypatch: pytest.MonkeyPatch) -> Mod
     for name in ("wandb", "wandb.sdk"):
         monkeypatch.setitem(sys.modules, name, ModuleType(name))
     monkeypatch.setitem(sys.modules, "wandb.sdk.data_types", data_types)
-    spec: Final = importlib.util.find_spec("litellm.integrations.weights_biases")
+    spec: Final = importlib.util.find_spec("hangarllm.integrations.weights_biases")
     assert spec is not None and spec.loader is not None
     module: Final = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)

@@ -1,23 +1,23 @@
-# litellm_prompt Data Source
+# hangarllm_prompt Data Source
 
-Retrieves information about an existing LiteLLM prompt by ID. The provider API key is not exposed.
+Retrieves information about an existing HangarLLM prompt by ID. The provider API key is not exposed.
 
 ## Example Usage
 
 ```hcl
-data "litellm_prompt" "existing" {
+data "hangarllm_prompt" "existing" {
   prompt_id = "my-langfuse-prompt"
 }
 
 output "prompt_integration" {
-  value = data.litellm_prompt.existing.prompt_integration
+  value = data.hangarllm_prompt.existing.prompt_integration
 }
 ```
 
 ### With Environment
 
 ```hcl
-data "litellm_prompt" "prod" {
+data "hangarllm_prompt" "prod" {
   prompt_id   = "my-langfuse-prompt"
   environment = "production"
 }

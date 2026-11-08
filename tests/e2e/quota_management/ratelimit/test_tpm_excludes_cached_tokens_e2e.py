@@ -19,7 +19,7 @@ from models import (
     CacheControl,
     ChatResponse,
     KeyGenerateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     RichMessage,
     TextBlock,
     Usage,
@@ -117,7 +117,7 @@ class TestTpmExcludesCachedTokens:
         model = f"e2e-tpm-cache-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=ANTHROPIC_MODEL, api_key="os.environ/ANTHROPIC_API_KEY"
             ),
         )

@@ -5,10 +5,10 @@ import pytest
 from prometheus_client import REGISTRY
 from prometheus_client.samples import Sample
 
-import litellm
-from litellm.integrations.prometheus import PrometheusLogger
+import hangarllm
+from hangarllm.integrations.prometheus import PrometheusLogger
 
-METRIC: Final = "litellm_spend_capture_rate"
+METRIC: Final = "hangarllm_spend_capture_rate"
 
 
 def _clear_prometheus_registry() -> None:
@@ -44,7 +44,7 @@ def test_capture_rate_gauge_holds_the_latest_rate_per_provider_and_nan_when_ther
 
 
 def test_capture_rate_gauge_still_records_when_api_provider_is_an_excluded_label(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "prometheus_exclude_labels", ["api_provider"])
+    monkeypatch.setattr(hangarllm, "prometheus_exclude_labels", ["api_provider"])
     _clear_prometheus_registry()
     try:
         logger: Final = PrometheusLogger()

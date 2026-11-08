@@ -27,42 +27,42 @@ import pytest
 import respx
 from jsonschema import Draft7Validator, validate
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm._internal_context import is_internal_call
-from litellm._logging import (
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm._internal_context import is_internal_call
+from hangarllm._logging import (
     CorrelationContextFilter,
     JsonFormatter,
     session_id_var,
     trace_id_var,
     verbose_logger,
 )
-from litellm.caching.caching import Cache
-from litellm.caching.caching_handler import _PENDING_CACHE_WRITES
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.humanloop import HumanloopLogger
-from litellm.llms.base_llm.audio_transcription.transformation import BaseAudioTranscriptionConfig
-from litellm.integrations.langfuse.langfuse_prompt_management import LangfusePromptManagement
-from litellm.litellm_core_utils import litellm_logging
-from litellm.litellm_core_utils.duration_parser import (
+from hangarllm.caching.caching import Cache
+from hangarllm.caching.caching_handler import _PENDING_CACHE_WRITES
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.constants import DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.humanloop import HumanloopLogger
+from hangarllm.llms.base_llm.audio_transcription.transformation import BaseAudioTranscriptionConfig
+from hangarllm.integrations.langfuse.langfuse_prompt_management import LangfusePromptManagement
+from hangarllm.hangarllm_core_utils import hangarllm_logging
+from hangarllm.hangarllm_core_utils.duration_parser import (
     _extract_from_regex,
     duration_in_seconds,
 )
-from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-from litellm.litellm_core_utils.thread_pool_executor import executor as logging_executor
-from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, headers
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.proxy.utils import is_valid_api_key
-from litellm.responses.main import aresponses, responses
-from litellm.types.caching import CachingSupportedCallTypes
-from litellm.types.integrations.custom_logger import HEADROOM_CONVERTED_STREAM_KEY, STREAM_OPTIONS_STASH_KEYS
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.router import CredentialLiteLLMParams, GenericLiteLLMParams, LiteLLM_Params
-from litellm.types.utils import (
+from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+from hangarllm.hangarllm_core_utils.thread_pool_executor import executor as logging_executor
+from hangarllm.llms.base_llm.base_model_iterator import MockResponseIterator
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, headers
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+from hangarllm.proxy.utils import is_valid_api_key
+from hangarllm.responses.main import aresponses, responses
+from hangarllm.types.caching import CachingSupportedCallTypes
+from hangarllm.types.integrations.custom_logger import HEADROOM_CONVERTED_STREAM_KEY, STREAM_OPTIONS_STASH_KEYS
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.router import CredentialHangarLLMParams, GenericHangarLLMParams, HangarLLM_Params
+from hangarllm.types.utils import (
     CredentialItem,
     ADDRESSED_RESPONSE_ID_FIELD,
     CallTypes,
@@ -80,25 +80,25 @@ from litellm.types.utils import (
     StreamingChoices,
     TranscriptionResponse,
     Usage,
-    all_litellm_params,
-    bedrock_batch_litellm_params,
+    all_hangarllm_params,
+    bedrock_batch_hangarllm_params,
 )
-from litellm.secret_managers.main import oidc_cache
-from litellm.types.videos.main import VideoObject
-from litellm.utils import (
+from hangarllm.secret_managers.main import oidc_cache
+from hangarllm.types.videos.main import VideoObject
+from hangarllm.utils import (
     acredential_updates,
     _invalidate_model_cost_lowercase_map,
     add_custom_logger_callback_to_specific_event,
     check_valid_key,
     CustomStreamWrapper,
-    filter_out_litellm_params,
+    filter_out_hangarllm_params,
     get_applied_guardrails,
     get_llm_provider,
     get_optional_params_embeddings,
     ProviderConfigManager,
     _check_provider_match,
     get_potential_model_names,
-    _is_litellm_router_call,
+    _is_hangarllm_router_call,
     _is_streaming_request,
     _run_success_deployment_hook_on_converted_chat_stream,
     _snapshot_exception_for_hook,
@@ -124,13 +124,13 @@ from litellm.utils import (
 
 @pytest.mark.parametrize("root_base_model", [42, ["gemini-3.5-flash"], {"model": "gemini-3.5-flash"}])
 def test_get_base_model_from_metadata_ignores_a_non_string_root_value(root_base_model: object):
-    from litellm.utils import get_base_model_from_metadata
+    from hangarllm.utils import get_base_model_from_metadata
 
-    assert get_base_model_from_metadata({"litellm_params": {"base_model": root_base_model}}) is None
+    assert get_base_model_from_metadata({"hangarllm_params": {"base_model": root_base_model}}) is None
     assert (
         get_base_model_from_metadata(
             {
-                "litellm_params": {
+                "hangarllm_params": {
                     "base_model": root_base_model,
                     "metadata": {"model_info": {"base_model": "vertex_ai/gemini-3.5-flash"}},
                 }
@@ -144,20 +144,20 @@ def _reject_short_post_call_response(input: str, model: str | None = None) -> di
     if len(input) < 200:
         return {
             "decision": False,
-            "message": "This violates LiteLLM Proxy Rules. Response too short",
+            "message": "This violates HangarLLM Proxy Rules. Response too short",
         }
     return {"decision": True}
 
 
 def test_post_call_rule_rejects_mock_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "pre_call_rules", [])
-    monkeypatch.setattr(litellm, "post_call_rules", [_reject_short_post_call_response])
+    monkeypatch.setattr(hangarllm, "pre_call_rules", [])
+    monkeypatch.setattr(hangarllm, "post_call_rules", [_reject_short_post_call_response])
 
     with pytest.raises(
-        litellm.APIResponseValidationError,
-        match=re.escape("This violates LiteLLM Proxy Rules. Response too short"),
+        hangarllm.APIResponseValidationError,
+        match=re.escape("This violates HangarLLM Proxy Rules. Response too short"),
     ):
-        litellm.completion(
+        hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "say sorry"}],
             max_tokens=2,
@@ -166,10 +166,10 @@ def test_post_call_rule_rejects_mock_response(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_post_call_rule_rejects_streaming_mock_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "pre_call_rules", [])
-    monkeypatch.setattr(litellm, "post_call_rules", [_reject_short_post_call_response])
+    monkeypatch.setattr(hangarllm, "pre_call_rules", [])
+    monkeypatch.setattr(hangarllm, "post_call_rules", [_reject_short_post_call_response])
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "say sorry"}],
         max_tokens=2,
@@ -179,23 +179,23 @@ def test_post_call_rule_rejects_streaming_mock_response(monkeypatch: pytest.Monk
 
     with pytest.raises(
         MidStreamFallbackError,
-        match=re.escape("This violates LiteLLM Proxy Rules. Response too short"),
+        match=re.escape("This violates HangarLLM Proxy Rules. Response too short"),
     ) as raised:
         list(response)
 
-    assert isinstance(raised.value.original_exception, litellm.APIResponseValidationError)
+    assert isinstance(raised.value.original_exception, hangarllm.APIResponseValidationError)
 
 
 @pytest.mark.asyncio
 async def test_async_post_call_rule_error_is_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "pre_call_rules", [])
-    monkeypatch.setattr(litellm, "post_call_rules", [_reject_short_post_call_response])
+    monkeypatch.setattr(hangarllm, "pre_call_rules", [])
+    monkeypatch.setattr(hangarllm, "post_call_rules", [_reject_short_post_call_response])
 
     with pytest.raises(
-        litellm.APIResponseValidationError,
-        match=re.escape("This violates LiteLLM Proxy Rules. Response too short"),
+        hangarllm.APIResponseValidationError,
+        match=re.escape("This violates HangarLLM Proxy Rules. Response too short"),
     ):
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "say sorry"}],
             max_tokens=2,
@@ -204,7 +204,7 @@ async def test_async_post_call_rule_error_is_deterministic(monkeypatch: pytest.M
 
 
 def test_provider_config_manager_returns_bedrock_converse_like_config() -> None:
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     config = ProviderConfigManager.get_provider_chat_config(
         model="bedrock/converse_like/us.amazon.nova-pro-v1:0",
@@ -214,16 +214,16 @@ def test_provider_config_manager_returns_bedrock_converse_like_config() -> None:
     assert isinstance(config, AmazonConverseConfig)
 
 
-def test_litellm_proxy_responses_api_config_manager_returns_proxy_config() -> None:
-    from litellm.llms.litellm_proxy.responses.transformation import LiteLLMProxyResponsesAPIConfig
+def test_hangarllm_proxy_responses_api_config_manager_returns_proxy_config() -> None:
+    from hangarllm.llms.hangarllm_proxy.responses.transformation import HangarLLMProxyResponsesAPIConfig
 
     config = ProviderConfigManager.get_provider_responses_api_config(
-        model="litellm_proxy/gpt-4",
-        provider=LlmProviders.LITELLM_PROXY,
+        model="hangarllm_proxy/gpt-4",
+        provider=LlmProviders.HANGARLLM_PROXY,
     )
 
-    assert isinstance(config, LiteLLMProxyResponsesAPIConfig)
-    assert config.custom_llm_provider == LlmProviders.LITELLM_PROXY
+    assert isinstance(config, HangarLLMProxyResponsesAPIConfig)
+    assert config.custom_llm_provider == LlmProviders.HANGARLLM_PROXY
 
 
 # Adds the parent directory to the system path
@@ -244,10 +244,10 @@ def test_non_ocr_wrapper_preserves_logging_executor_and_context(monkeypatch: pyt
         return response
 
     logger.success_handler.side_effect = record_success
-    monkeypatch.setattr("litellm.utils.function_setup", MagicMock(return_value=(logger, {})))
+    monkeypatch.setattr("hangarllm.utils.function_setup", MagicMock(return_value=(logger, {})))
     try:
         with ThreadPoolExecutor(max_workers=1) as executor:
-            monkeypatch.setattr("litellm.utils.executor", executor)
+            monkeypatch.setattr("hangarllm.utils.executor", executor)
             result: Final = client(embedding)()
         logged_response, context, worker_thread = observed.get_nowait()
         assert result is response
@@ -261,7 +261,7 @@ def test_non_ocr_wrapper_preserves_logging_executor_and_context(monkeypatch: pyt
 
 def test_get_utc_datetime_returns_current_aware_utc_time() -> None:
     before: Final = datetime.now(timezone.utc)
-    result: Final = litellm.utils.get_utc_datetime()
+    result: Final = hangarllm.utils.get_utc_datetime()
     after: Final = datetime.now(timezone.utc)
 
     assert result.utcoffset() == timedelta(0)
@@ -320,10 +320,10 @@ def test_prompt_tokens_details_cache_write_creation_stay_in_sync_on_assignment()
 
 
 def test_potential_model_names_keeps_provider_prefixed_candidate():
-    """A provider whose own model ids repeat the litellm provider name (Perplexity's
+    """A provider whose own model ids repeat the hangarllm provider name (Perplexity's
     Agent API serves `perplexity/glm-5.2`, mapped as `perplexity/perplexity/glm-5.2`)
     needs the un-stripped `<provider>/<model>` candidate. Every other candidate reads
-    the leading `perplexity/` as the litellm prefix and strips it away."""
+    the leading `perplexity/` as the hangarllm prefix and strips it away."""
     already_prefixed = get_potential_model_names(model="perplexity/glm-5.2", custom_llm_provider="perplexity")
     assert already_prefixed["provider_prefixed_model_name"] == "perplexity/perplexity/glm-5.2"
     assert already_prefixed["split_model"] == "glm-5.2"
@@ -338,12 +338,12 @@ def test_potential_model_names_keeps_provider_prefixed_candidate():
 def test_get_model_info_anthropic_compaction(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch, capability: bool | None
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost["claude-sonnet-5"], "supports_anthropic_compaction", capability)
-    assert litellm.get_model_info("claude-sonnet-5")["supports_anthropic_compaction"] is capability
+    monkeypatch.setitem(hangarllm.model_cost["claude-sonnet-5"], "supports_anthropic_compaction", capability)
+    assert hangarllm.get_model_info("claude-sonnet-5")["supports_anthropic_compaction"] is capability
 
 
 def test_get_model_info_strips_openai_finetune_ids_without_a_custom_suffix(local_model_cost_map):
-    info = litellm.get_model_info(model="ft:gpt-4o-2024-08-06:my-org::abc123", custom_llm_provider="openai")
+    info = hangarllm.get_model_info(model="ft:gpt-4o-2024-08-06:my-org::abc123", custom_llm_provider="openai")
     assert info["key"] == "ft:gpt-4o-2024-08-06"
 
 
@@ -361,10 +361,10 @@ def test_get_model_info_falls_back_from_dated_snapshot_to_undated_entry(
     custom_llm_provider: str,
     expected_key: str,
 ) -> None:
-    monkeypatch.delitem(litellm.model_cost, model, raising=False)
-    monkeypatch.delitem(litellm.model_cost, f"{custom_llm_provider}/{model}", raising=False)
-    assert expected_key in litellm.model_cost
-    info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    monkeypatch.delitem(hangarllm.model_cost, model, raising=False)
+    monkeypatch.delitem(hangarllm.model_cost, f"{custom_llm_provider}/{model}", raising=False)
+    assert expected_key in hangarllm.model_cost
+    info: Final = hangarllm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     assert info["key"] == expected_key
 
 
@@ -378,16 +378,16 @@ def test_get_model_info_falls_back_from_dated_snapshot_to_undated_entry(
 def test_get_model_info_prefers_exact_dated_key_over_stripped(
     local_model_cost_map: None, model: str, custom_llm_provider: str, expected_key: str
 ) -> None:
-    assert expected_key in litellm.model_cost
-    info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    assert expected_key in hangarllm.model_cost
+    info: Final = hangarllm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     assert info["key"] == expected_key
 
 
 def test_get_model_info_internal_failure_is_not_reported_as_unmapped() -> None:
-    with patch("litellm.utils.get_potential_model_names", side_effect=RuntimeError("malformed metadata")):
+    with patch("hangarllm.utils.get_potential_model_names", side_effect=RuntimeError("malformed metadata")):
         with pytest.raises(Exception, match="This model isn't mapped yet") as exc_info:
-            litellm.utils.get_model_info_helper(model="gpt-4o", custom_llm_provider="openai")
-    assert not isinstance(exc_info.value, litellm.ModelNotMappedError)
+            hangarllm.utils.get_model_info_helper(model="gpt-4o", custom_llm_provider="openai")
+    assert not isinstance(exc_info.value, hangarllm.ModelNotMappedError)
 
 
 def test_check_provider_match_azure_ai_allows_openai_and_azure():
@@ -396,13 +396,13 @@ def test_check_provider_match_azure_ai_allows_openai_and_azure():
     This is needed for Azure Model Router which can route to OpenAI models.
     """
     # azure_ai should match openai models
-    assert _check_provider_match(model_info={"litellm_provider": "openai"}, custom_llm_provider="azure_ai") is True
+    assert _check_provider_match(model_info={"hangarllm_provider": "openai"}, custom_llm_provider="azure_ai") is True
 
     # azure_ai should match azure models
-    assert _check_provider_match(model_info={"litellm_provider": "azure"}, custom_llm_provider="azure_ai") is True
+    assert _check_provider_match(model_info={"hangarllm_provider": "azure"}, custom_llm_provider="azure_ai") is True
 
     # azure_ai should NOT match other providers
-    assert _check_provider_match(model_info={"litellm_provider": "anthropic"}, custom_llm_provider="azure_ai") is False
+    assert _check_provider_match(model_info={"hangarllm_provider": "anthropic"}, custom_llm_provider="azure_ai") is False
 
 
 def test_check_provider_match_github_allows_upstream_provider_metadata():
@@ -412,7 +412,7 @@ def test_check_provider_match_github_allows_upstream_provider_metadata():
     """
     assert (
         _check_provider_match(
-            model_info={"litellm_provider": "openai"},
+            model_info={"hangarllm_provider": "openai"},
             custom_llm_provider="github",
         )
         is True
@@ -420,7 +420,7 @@ def test_check_provider_match_github_allows_upstream_provider_metadata():
 
     assert (
         _check_provider_match(
-            model_info={"litellm_provider": "github"},
+            model_info={"hangarllm_provider": "github"},
             custom_llm_provider="github",
         )
         is True
@@ -428,7 +428,7 @@ def test_check_provider_match_github_allows_upstream_provider_metadata():
 
     assert (
         _check_provider_match(
-            model_info={"litellm_provider": "anthropic"},
+            model_info={"hangarllm_provider": "anthropic"},
             custom_llm_provider="github",
         )
         is True
@@ -436,7 +436,7 @@ def test_check_provider_match_github_allows_upstream_provider_metadata():
 
 
 def test_supports_function_calling_unknown_github_alias_returns_false():
-    assert litellm.utils.supports_function_calling(model="github/non-existent-model-for-capability-check") is False
+    assert hangarllm.utils.supports_function_calling(model="github/non-existent-model-for-capability-check") is False
 
 
 @pytest.mark.parametrize(("audio_input", "audio_output"), [(True, False), (False, True)])
@@ -445,17 +445,17 @@ def test_supports_audio_output_reads_its_own_cost_map_flag(
 ) -> None:
     model: Final = "openai/audio-flags-disagree-model"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "supports_audio_input": audio_input,
             "supports_audio_output": audio_output,
         },
     )
-    assert litellm.supports_audio_input(model) is audio_input
-    assert litellm.supports_audio_output(model) is audio_output
+    assert hangarllm.supports_audio_input(model) is audio_input
+    assert hangarllm.supports_audio_output(model) is audio_output
 
 
 @pytest.mark.parametrize(("audio_input", "video_input"), [(True, False), (False, True)])
@@ -464,18 +464,18 @@ def test_supports_video_input_reads_its_own_cost_map_flag(
 ) -> None:
     model: Final = "openai/video-flags-disagree-model"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "supports_audio_input": audio_input,
             "supports_video_input": video_input,
         },
     )
-    assert litellm.supports_video_input(model) is video_input
-    assert litellm.supports_audio_input(model) is audio_input
-    assert litellm.get_model_info(model)["supports_video_input"] is video_input
+    assert hangarllm.supports_video_input(model) is video_input
+    assert hangarllm.supports_audio_input(model) is audio_input
+    assert hangarllm.get_model_info(model)["supports_video_input"] is video_input
 
 
 @pytest.mark.parametrize("continuation", [True, False])
@@ -484,30 +484,30 @@ def test_supports_continuation_reads_its_own_cost_map_flag(
 ) -> None:
     model: Final = "gemini/continuation-flag-model"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {
-            "litellm_provider": "gemini",
+            "hangarllm_provider": "gemini",
             "mode": "chat",
             "supports_continuation": continuation,
             "supports_url_context": not continuation,
         },
     )
-    assert litellm.supports_continuation(model) is continuation
-    assert litellm.get_model_info(model).get("supports_continuation") is continuation
+    assert hangarllm.supports_continuation(model) is continuation
+    assert hangarllm.get_model_info(model).get("supports_continuation") is continuation
 
 
 def test_supports_continuation_is_unset_when_the_cost_map_omits_it(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     model: Final = "gemini/no-continuation-flag-model"
-    monkeypatch.setitem(litellm.model_cost, model, {"litellm_provider": "gemini", "mode": "chat"})
-    assert litellm.supports_continuation(model) is False
-    assert litellm.get_model_info(model).get("supports_continuation") is None
+    monkeypatch.setitem(hangarllm.model_cost, model, {"hangarllm_provider": "gemini", "mode": "chat"})
+    assert hangarllm.supports_continuation(model) is False
+    assert hangarllm.get_model_info(model).get("supports_continuation") is None
 
 
 def test_get_optional_params_image_gen():
-    from litellm.llms.azure.image_generation import AzureGPTImageGenerationConfig
+    from hangarllm.llms.azure.image_generation import AzureGPTImageGenerationConfig
 
     provider_config = AzureGPTImageGenerationConfig()
     optional_params = get_optional_params_image_gen(
@@ -525,8 +525,8 @@ def test_get_optional_params_image_gen():
 
 @pytest.mark.parametrize("custom_llm_provider", ["openai", "azure"])
 def test_get_optional_params_image_gen_keeps_gpt_image_supported_params(custom_llm_provider):
-    """https://github.com/BerriAI/litellm/issues/38649"""
-    from litellm.types.utils import LlmProviders
+    """upstream issue 38649"""
+    from hangarllm.types.utils import LlmProviders
 
     provider_config = ProviderConfigManager.get_provider_image_generation_config(
         model="gpt-image-2", provider=LlmProviders(custom_llm_provider)
@@ -602,17 +602,17 @@ def test_get_optional_params_image_gen_filters_empty_values():
 
 def test_gpt_image_provider_detection_covers_existing_family():
     for image_model in ("gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5"):
-        model, custom_llm_provider, _, _ = litellm.get_llm_provider(model=image_model)
+        model, custom_llm_provider, _, _ = hangarllm.get_llm_provider(model=image_model)
 
         assert model == image_model
         assert custom_llm_provider == "openai"
 
 
 def test_all_model_configs():
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.ai21.transformation import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.ai21.transformation import (
         VertexAIAi21Config,
     )
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.llama.transformation import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.llama.transformation import (
         VertexAILlama3Config,
     )
 
@@ -626,7 +626,7 @@ def test_all_model_configs():
         {"max_completion_tokens": 10}, {}, "jamba-1.5-mini@001", drop_params=False
     ) == {"max_tokens": 10}
 
-    from litellm.llms.fireworks_ai.chat.transformation import FireworksAIConfig
+    from hangarllm.llms.fireworks_ai.chat.transformation import FireworksAIConfig
 
     assert "max_completion_tokens" in FireworksAIConfig().get_supported_openai_params(model="llama3")
     assert FireworksAIConfig().map_openai_params(
@@ -636,7 +636,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens": 10}
 
-    from litellm.llms.nvidia_nim.chat.transformation import NvidiaNimConfig
+    from hangarllm.llms.nvidia_nim.chat.transformation import NvidiaNimConfig
 
     assert "max_completion_tokens" in NvidiaNimConfig().get_supported_openai_params(model="llama3")
     assert NvidiaNimConfig().map_openai_params(
@@ -646,7 +646,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens": 10}
 
-    from litellm.llms.ollama.chat.transformation import OllamaChatConfig
+    from hangarllm.llms.ollama.chat.transformation import OllamaChatConfig
 
     assert "max_completion_tokens" in OllamaChatConfig().get_supported_openai_params(model="llama3")
     assert OllamaChatConfig().map_openai_params(
@@ -656,7 +656,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"num_predict": 10}
 
-    from litellm.llms.predibase.chat.transformation import PredibaseConfig
+    from hangarllm.llms.predibase.chat.transformation import PredibaseConfig
 
     assert "max_completion_tokens" in PredibaseConfig().get_supported_openai_params(model="llama3")
     assert PredibaseConfig().map_openai_params(
@@ -666,7 +666,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_new_tokens": 10}
 
-    from litellm.llms.codestral.completion.transformation import (
+    from hangarllm.llms.codestral.completion.transformation import (
         CodestralTextCompletionConfig,
     )
 
@@ -678,7 +678,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens": 10}
 
-    from litellm.llms.volcengine.chat.transformation import (
+    from hangarllm.llms.volcengine.chat.transformation import (
         VolcEngineChatConfig as VolcEngineConfig,
     )
 
@@ -690,7 +690,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens": 10}
 
-    from litellm.llms.ai21.chat.transformation import AI21ChatConfig
+    from hangarllm.llms.ai21.chat.transformation import AI21ChatConfig
 
     assert "max_completion_tokens" in AI21ChatConfig().get_supported_openai_params("jamba-1.5-mini@001")
     assert AI21ChatConfig().map_openai_params(
@@ -700,7 +700,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens": 10}
 
-    from litellm.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
+    from hangarllm.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
 
     assert "max_completion_tokens" in AzureOpenAIConfig().get_supported_openai_params(model="gpt-3.5-turbo")
     assert AzureOpenAIConfig().map_openai_params(
@@ -711,7 +711,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_completion_tokens": 10}
 
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     assert "max_completion_tokens" in AmazonConverseConfig().get_supported_openai_params(
         model="anthropic.claude-3-sonnet-20240229-v1:0"
@@ -723,7 +723,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"maxTokens": 10}
 
-    from litellm.llms.codestral.completion.transformation import (
+    from hangarllm.llms.codestral.completion.transformation import (
         CodestralTextCompletionConfig,
     )
 
@@ -735,7 +735,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens": 10}
 
-    from litellm import AmazonAnthropicClaudeConfig, AmazonAnthropicConfig
+    from hangarllm import AmazonAnthropicClaudeConfig, AmazonAnthropicConfig
 
     assert "max_completion_tokens" in AmazonAnthropicClaudeConfig().get_supported_openai_params(
         model="anthropic.claude-3-sonnet-20240229-v1:0"
@@ -757,7 +757,7 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens_to_sample": 10}
 
-    from litellm.llms.databricks.chat.transformation import DatabricksConfig
+    from hangarllm.llms.databricks.chat.transformation import DatabricksConfig
 
     assert "max_completion_tokens" in DatabricksConfig().get_supported_openai_params()
 
@@ -768,7 +768,7 @@ def test_all_model_configs():
         optional_params={},
     ) == {"max_tokens": 10}
 
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+    from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
         VertexAIAnthropicConfig,
     )
 
@@ -781,8 +781,8 @@ def test_all_model_configs():
         drop_params=False,
     ) == {"max_tokens": 10}
 
-    from litellm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -815,7 +815,7 @@ def test_all_model_configs():
 
 
 def test_cohere_embedding_optional_params():
-    from litellm import get_optional_params_embeddings
+    from hangarllm import get_optional_params_embeddings
 
     optional_params = get_optional_params_embeddings(
         model="embed-v4.0",
@@ -1107,7 +1107,7 @@ _COST_MAP_ROW_SCHEMA: Final = {
             "ocr_cost_per_credit": {"type": "number"},
             "code_interpreter_cost_per_session": {"type": "number"},
             "inference_geo": {"type": "string"},
-            "litellm_provider": {"type": "string"},
+            "hangarllm_provider": {"type": "string"},
             "max_input_tokens": {"type": "number"},
             "max_output_tokens": {"type": "number"},
             "max_tokens": {"type": "number"},
@@ -1461,7 +1461,7 @@ def test_aaamodel_prices_and_context_window_json_is_valid():
 
 def test_cost_map_schema_accepts_vertex_modality_and_context_tiers() -> None:
     row: Final = {
-        "litellm_provider": "vertex_ai",
+        "hangarllm_provider": "vertex_ai",
         "mode": "chat",
         "input_cost_per_token": 1e-6,
         "output_cost_per_token": 2e-6,
@@ -1482,7 +1482,7 @@ def test_cost_map_schema_accepts_vertex_modality_and_context_tiers() -> None:
 
 def test_cost_map_schema_accepts_12hr_cache_write_rates_for_batch_and_ultrafast_tiers() -> None:
     row: Final = {
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "chat",
         "input_cost_per_token": 1e-6,
         "output_cost_per_token": 2e-6,
@@ -1554,8 +1554,8 @@ def test_get_model_info_bedrock_regional_inference_profile_pricing(local_model_c
     """Regression LIT-4056: with the bedrock/ routing prefix (plain, converse/, or
     invoke/), the exact regional cost-map entry must win over the region-stripped
     base entry, matching the unprefixed control form."""
-    regional = litellm.model_cost["eu.amazon.nova-pro-v1:0"]
-    base = litellm.model_cost["amazon.nova-pro-v1:0"]
+    regional = hangarllm.model_cost["eu.amazon.nova-pro-v1:0"]
+    base = hangarllm.model_cost["amazon.nova-pro-v1:0"]
     assert regional["input_cost_per_token"] > base["input_cost_per_token"]
 
     for model in (
@@ -1563,28 +1563,28 @@ def test_get_model_info_bedrock_regional_inference_profile_pricing(local_model_c
         "bedrock/converse/eu.amazon.nova-pro-v1:0",
         "bedrock/invoke/eu.amazon.nova-pro-v1:0",
     ):
-        info = litellm.get_model_info(model=model)
+        info = hangarllm.get_model_info(model=model)
         assert info["key"] == "eu.amazon.nova-pro-v1:0", model
         assert info["input_cost_per_token"] == regional["input_cost_per_token"], model
         assert info["output_cost_per_token"] == regional["output_cost_per_token"], model
 
-    control = litellm.get_model_info(model="eu.amazon.nova-pro-v1:0", custom_llm_provider="bedrock")
+    control = hangarllm.get_model_info(model="eu.amazon.nova-pro-v1:0", custom_llm_provider="bedrock")
     assert control["key"] == "eu.amazon.nova-pro-v1:0"
 
 
 @pytest.mark.parametrize("route", ["bedrock/", "bedrock/converse/", "bedrock/invoke/", "bedrock/eu-west-1/"])
 def test_get_model_info_bedrock_inference_profile_arn_keeps_regional_row(local_model_cost_map, route):
-    regional = litellm.model_cost["eu.amazon.nova-pro-v1:0"]
-    base = litellm.model_cost["amazon.nova-pro-v1:0"]
+    regional = hangarllm.model_cost["eu.amazon.nova-pro-v1:0"]
+    base = hangarllm.model_cost["amazon.nova-pro-v1:0"]
     assert regional["input_cost_per_token"] > base["input_cost_per_token"]
     arn_prefix = "arn:aws:bedrock:eu-west-1:123456789012:inference-profile/"
 
-    info = litellm.get_model_info(model=f"{route}{arn_prefix}eu.amazon.nova-pro-v1:0")
+    info = hangarllm.get_model_info(model=f"{route}{arn_prefix}eu.amazon.nova-pro-v1:0")
     assert info["key"] == "eu.amazon.nova-pro-v1:0"
     assert info["input_cost_per_token"] == regional["input_cost_per_token"]
     assert info["output_cost_per_token"] == regional["output_cost_per_token"]
 
-    bare = litellm.get_model_info(model=f"{route}{arn_prefix}amazon.nova-pro-v1:0")
+    bare = hangarllm.get_model_info(model=f"{route}{arn_prefix}amazon.nova-pro-v1:0")
     assert bare["key"] == "amazon.nova-pro-v1:0"
     assert bare["input_cost_per_token"] == base["input_cost_per_token"]
 
@@ -1609,9 +1609,9 @@ def test_get_model_info_bedrock_inference_profile_arn_keeps_regional_row(local_m
 def test_bedrock_bare_claude_id_is_priced_global(local_model_cost_map, bare_key):
     """A bare Bedrock Claude id is billed at the Global SKU, so it carries the same
     rate as its global. inference profile and sits below the regional us. rate."""
-    bare = litellm.model_cost[bare_key]
-    us = litellm.model_cost[f"us.{bare_key}"]
-    global_ = litellm.model_cost[f"global.{bare_key}"]
+    bare = hangarllm.model_cost[bare_key]
+    us = hangarllm.model_cost[f"us.{bare_key}"]
+    global_ = hangarllm.model_cost[f"global.{bare_key}"]
     cost_fields = [f for f in bare if "cost" in f]
     assert cost_fields
     for field in cost_fields:
@@ -1628,20 +1628,20 @@ def test_get_model_info_bedrock_mantle_region_prefix_falls_back_to_the_mantle_ro
         ("bedrock_mantle/us-east-2/openai.gpt-5.6-sol", "bedrock_mantle/openai.gpt-5.6-sol"),
         ("bedrock_mantle/us-gov-west-1/openai.gpt-5.4", "bedrock_mantle/us-gov-west-1/openai.gpt-5.4"),
     ):
-        info = litellm.get_model_info(model=model, custom_llm_provider="bedrock_mantle")
+        info = hangarllm.get_model_info(model=model, custom_llm_provider="bedrock_mantle")
         assert info["key"] == expected_key, model
-        assert info["input_cost_per_token"] == litellm.model_cost[expected_key]["input_cost_per_token"], model
+        assert info["input_cost_per_token"] == hangarllm.model_cost[expected_key]["input_cost_per_token"], model
         assert info["input_cost_per_token"] > 0, model
 
 
 def test_openai_models_in_model_info(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
-    model_map = litellm.model_cost
+    model_map = hangarllm.model_cost
     violated_models = []
     for model, info in model_map.items():
-        if info.get("litellm_provider") == "openai" and info.get("supports_vision") is True:
+        if info.get("hangarllm_provider") == "openai" and info.get("supports_vision") is True:
             if info.get("supports_pdf_input") is not True:
                 violated_models.append(model)
     assert len(violated_models) == 0, f"The following models should support pdf input: {violated_models}"
@@ -1652,46 +1652,46 @@ def test_check_provider_match():
     Test the _check_provider_match function for various provider scenarios
     """
     # Test bedrock and bedrock_converse cases
-    model_info = {"litellm_provider": "bedrock"}
-    assert litellm.utils._check_provider_match(model_info, "bedrock") is True
-    assert litellm.utils._check_provider_match(model_info, "bedrock_converse") is True
+    model_info = {"hangarllm_provider": "bedrock"}
+    assert hangarllm.utils._check_provider_match(model_info, "bedrock") is True
+    assert hangarllm.utils._check_provider_match(model_info, "bedrock_converse") is True
 
     # Test bedrock_converse provider
-    model_info = {"litellm_provider": "bedrock_converse"}
-    assert litellm.utils._check_provider_match(model_info, "bedrock") is True
-    assert litellm.utils._check_provider_match(model_info, "bedrock_converse") is True
+    model_info = {"hangarllm_provider": "bedrock_converse"}
+    assert hangarllm.utils._check_provider_match(model_info, "bedrock") is True
+    assert hangarllm.utils._check_provider_match(model_info, "bedrock_converse") is True
 
     # Test non-matching provider
-    model_info = {"litellm_provider": "bedrock"}
-    assert litellm.utils._check_provider_match(model_info, "openai") is False
+    model_info = {"hangarllm_provider": "bedrock"}
+    assert hangarllm.utils._check_provider_match(model_info, "openai") is False
 
 
 def test_check_provider_match_none_value_matches_any_provider():
     """
-    A ``litellm_provider`` of None must be treated the same as a missing
+    A ``hangarllm_provider`` of None must be treated the same as a missing
     key: both mean "no provider constraint" and should match any
     ``custom_llm_provider``.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/28336.
-    Before the fix, ``register_model`` persisted ``litellm_provider: None``
+    Regression test for upstream issue 28336
+    Before the fix, ``register_model`` persisted ``hangarllm_provider: None``
     via ``get_model_info`` for deployments registered without a provider
     (e.g. ``Router.add_deployment``), which caused ``_check_provider_match``
     to drop custom pricing intermittently.
     """
     # Missing key already returned True; None must behave identically.
-    assert litellm.utils._check_provider_match({}, "openai") is True
-    assert litellm.utils._check_provider_match({"litellm_provider": None}, "openai") is True
-    assert litellm.utils._check_provider_match({"litellm_provider": None}, "anthropic") is True
+    assert hangarllm.utils._check_provider_match({}, "openai") is True
+    assert hangarllm.utils._check_provider_match({"hangarllm_provider": None}, "openai") is True
+    assert hangarllm.utils._check_provider_match({"hangarllm_provider": None}, "anthropic") is True
     # When custom_llm_provider is also None nothing constrains the match.
-    assert litellm.utils._check_provider_match({"litellm_provider": None}, None) is True
+    assert hangarllm.utils._check_provider_match({"hangarllm_provider": None}, None) is True
 
 
 def test_get_provider_rerank_config():
     """
     Test the get_provider_rerank_config function for various providers
     """
-    from litellm import HostedVLLMRerankConfig
-    from litellm.utils import LlmProviders
+    from hangarllm import HostedVLLMRerankConfig
+    from hangarllm.utils import LlmProviders
 
     # Test for hosted_vllm provider
     config = ProviderConfigManager.get_provider_rerank_config(
@@ -1706,15 +1706,15 @@ def test_get_provider_video_config_resolves_a_custom_provider_map_base_video_con
     """A `BaseVideoConfig` registered in `custom_provider_map` answers for its provider name, a `CustomLLM`
     registered there does not, and a built-in name still resolves to its built-in config even when a `CustomLLM`
     shadows it in the map."""
-    from litellm.llms.custom_llm import CustomLLM
-    from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
+    from hangarllm.llms.custom_llm import CustomLLM
+    from hangarllm.llms.openai.videos.transformation import OpenAIVideoConfig
 
     class QueueVideoConfig(OpenAIVideoConfig):
         pass
 
     video_config: Final = QueueVideoConfig()
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "custom_provider_map",
         [
             {"provider": "queue-video", "custom_handler": video_config},
@@ -1722,7 +1722,7 @@ def test_get_provider_video_config_resolves_a_custom_provider_map_base_video_con
             {"provider": "openai", "custom_handler": CustomLLM()},
         ],
     )
-    monkeypatch.setattr(litellm, "_custom_providers", ["queue-video", "image-only", "openai"])
+    monkeypatch.setattr(hangarllm, "_custom_providers", ["queue-video", "image-only", "openai"])
 
     assert ProviderConfigManager.get_provider_video_config(model="seedance-1", provider="queue-video") is video_config
     assert ProviderConfigManager.get_provider_video_config(model="seedance-1", provider="image-only") is None
@@ -1735,8 +1735,8 @@ def test_get_provider_video_config_resolves_a_custom_provider_map_base_video_con
 def test_get_provider_text_to_speech_config_vertex_gemini_skips_cloud_tts():
     """Regression for LIT-6501: mapping vertex Gemini TTS params through Google Cloud TTS
     dropped response_format before the speech_to_completion bridge could honor it."""
-    from litellm.llms.vertex_ai.text_to_speech.transformation import VertexAITextToSpeechConfig
-    from litellm.utils import LlmProviders
+    from hangarllm.llms.vertex_ai.text_to_speech.transformation import VertexAITextToSpeechConfig
+    from hangarllm.utils import LlmProviders
 
     assert (
         ProviderConfigManager.get_provider_text_to_speech_config(
@@ -1799,7 +1799,7 @@ print("block_list", block_list)
 def test_pre_process_non_default_params(model, custom_llm_provider):
     from pydantic import BaseModel
 
-    from litellm.utils import pre_process_non_default_params
+    from hangarllm.utils import pre_process_non_default_params
 
     provider_config = ProviderConfigManager.get_provider_chat_config(
         model=model, provider=LlmProviders(custom_llm_provider)
@@ -1861,7 +1861,7 @@ def test_pre_process_non_default_params(model, custom_llm_provider):
     ],
 )
 def test_provider_supports_vertex_params(custom_llm_provider, expected):
-    from litellm.utils import _provider_supports_vertex_params
+    from hangarllm.utils import _provider_supports_vertex_params
 
     assert _provider_supports_vertex_params(custom_llm_provider) is expected
 
@@ -1876,7 +1876,7 @@ def test_provider_supports_vertex_params(custom_llm_provider, expected):
     ],
 )
 def test_vertex_params_not_stripped_for_vertex_family(model, custom_llm_provider, should_keep):
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = hangarllm.utils.get_optional_params(
         model=model,
         custom_llm_provider=custom_llm_provider,
         vertex_project="my-project",
@@ -1889,10 +1889,10 @@ def test_vertex_params_not_stripped_for_vertex_family(model, custom_llm_provider
         assert optional_params["vertex_location"] == "us-central1"
 
 
-from litellm.utils import supports_function_calling
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.utils import supports_function_calling
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
-from litellm import acompletion, completion
+from hangarllm import acompletion, completion
 
 
 class TestProxyFunctionCalling:
@@ -1901,7 +1901,7 @@ class TestProxyFunctionCalling:
     @pytest.fixture(autouse=True)
     def reset_mock_cache(self):
         """Reset model cache before each test."""
-        from litellm.utils import _model_cache
+        from hangarllm.utils import _model_cache
 
         _model_cache.flush_cache()
 
@@ -1909,33 +1909,33 @@ class TestProxyFunctionCalling:
         "direct_model,proxy_model,expected_result",
         [
             # OpenAI models
-            ("gpt-3.5-turbo", "litellm_proxy/gpt-3.5-turbo", True),
-            ("gpt-4", "litellm_proxy/gpt-4", True),
-            ("gpt-4o", "litellm_proxy/gpt-4o", True),
-            ("gpt-4o-mini", "litellm_proxy/gpt-4o-mini", True),
-            ("gpt-4-turbo", "litellm_proxy/gpt-4-turbo", True),
-            ("gpt-4-1106-preview", "litellm_proxy/gpt-4-1106-preview", True),
+            ("gpt-3.5-turbo", "hangarllm_proxy/gpt-3.5-turbo", True),
+            ("gpt-4", "hangarllm_proxy/gpt-4", True),
+            ("gpt-4o", "hangarllm_proxy/gpt-4o", True),
+            ("gpt-4o-mini", "hangarllm_proxy/gpt-4o-mini", True),
+            ("gpt-4-turbo", "hangarllm_proxy/gpt-4-turbo", True),
+            ("gpt-4-1106-preview", "hangarllm_proxy/gpt-4-1106-preview", True),
             # Azure OpenAI models
-            ("azure/gpt-4.1", "litellm_proxy/azure/gpt-4.1", True),
-            ("azure/gpt-3.5-turbo", "litellm_proxy/azure/gpt-3.5-turbo", True),
+            ("azure/gpt-4.1", "hangarllm_proxy/azure/gpt-4.1", True),
+            ("azure/gpt-3.5-turbo", "hangarllm_proxy/azure/gpt-3.5-turbo", True),
             (
                 "azure/gpt-4-1106-preview",
-                "litellm_proxy/azure/gpt-4-1106-preview",
+                "hangarllm_proxy/azure/gpt-4-1106-preview",
                 True,
             ),
             # Anthropic models (Claude supports function calling)
             (
                 "claude-sonnet-4-6",
-                "litellm_proxy/claude-sonnet-4-6",
+                "hangarllm_proxy/claude-sonnet-4-6",
                 True,
             ),
             # Google models
-            ("gemini-2.5-pro", "litellm_proxy/gemini-2.5-pro", True),
-            ("gemini/gemini-2.5-pro", "litellm_proxy/gemini/gemini-2.5-pro", True),
-            ("gemini/gemini-2.5-flash", "litellm_proxy/gemini/gemini-2.5-flash", True),
+            ("gemini-2.5-pro", "hangarllm_proxy/gemini-2.5-pro", True),
+            ("gemini/gemini-2.5-pro", "hangarllm_proxy/gemini/gemini-2.5-pro", True),
+            ("gemini/gemini-2.5-flash", "hangarllm_proxy/gemini/gemini-2.5-flash", True),
             # Groq models (mixed support)
             # Cohere models (generally don't support function calling)
-            ("command-nightly", "litellm_proxy/command-nightly", False),
+            ("command-nightly", "hangarllm_proxy/command-nightly", False),
         ],
     )
     def test_proxy_function_calling_support_consistency(self, direct_model, proxy_model, expected_result):
@@ -1956,72 +1956,72 @@ class TestProxyFunctionCalling:
         "proxy_model_name,underlying_model,expected_proxy_result",
         [
             # Custom model names that cannot be resolved without proxy configuration context
-            # These will return False because LiteLLM cannot determine the underlying model
+            # These will return False because HangarLLM cannot determine the underlying model
             (
-                "litellm_proxy/bedrock-claude-3-haiku",
+                "hangarllm_proxy/bedrock-claude-3-haiku",
                 "bedrock/anthropic.claude-3-haiku-20240307-v1:0",
                 False,
             ),
             (
-                "litellm_proxy/bedrock-claude-3-sonnet",
+                "hangarllm_proxy/bedrock-claude-3-sonnet",
                 "bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
                 False,
             ),
             (
-                "litellm_proxy/bedrock-claude-3-opus",
+                "hangarllm_proxy/bedrock-claude-3-opus",
                 "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0",
                 False,
             ),
             (
-                "litellm_proxy/bedrock-claude-instant",
+                "hangarllm_proxy/bedrock-claude-instant",
                 "bedrock/anthropic.claude-instant-v1",
                 False,
             ),
             (
-                "litellm_proxy/bedrock-titan-text",
+                "hangarllm_proxy/bedrock-titan-text",
                 "bedrock/amazon.titan-text-express-v1",
                 False,
             ),
             # Azure with custom deployment names (cannot be resolved)
-            ("litellm_proxy/my-gpt4-deployment", "azure/gpt-4", False),
-            ("litellm_proxy/production-gpt35", "azure/gpt-3.5-turbo", False),
-            ("litellm_proxy/dev-gpt4o", "azure/gpt-4o", False),
+            ("hangarllm_proxy/my-gpt4-deployment", "azure/gpt-4", False),
+            ("hangarllm_proxy/production-gpt35", "azure/gpt-3.5-turbo", False),
+            ("hangarllm_proxy/dev-gpt4o", "azure/gpt-4o", False),
             # Custom OpenAI deployments (cannot be resolved)
-            ("litellm_proxy/company-gpt4", "gpt-4", False),
-            ("litellm_proxy/internal-gpt35", "gpt-3.5-turbo", False),
+            ("hangarllm_proxy/company-gpt4", "gpt-4", False),
+            ("hangarllm_proxy/internal-gpt35", "gpt-3.5-turbo", False),
             # Vertex AI with custom names (cannot be resolved)
-            ("litellm_proxy/vertex-gemini-pro", "vertex_ai/gemini-1.5-pro", False),
-            ("litellm_proxy/vertex-gemini-flash", "vertex_ai/gemini-1.5-flash", False),
+            ("hangarllm_proxy/vertex-gemini-pro", "vertex_ai/gemini-1.5-pro", False),
+            ("hangarllm_proxy/vertex-gemini-flash", "vertex_ai/gemini-1.5-flash", False),
             # Anthropic with custom names (cannot be resolved)
-            ("litellm_proxy/claude-prod", "anthropic/claude-3-sonnet-20240229", False),
-            ("litellm_proxy/claude-dev", "anthropic/claude-3-haiku-20240307", False),
+            ("hangarllm_proxy/claude-prod", "anthropic/claude-3-sonnet-20240229", False),
+            ("hangarllm_proxy/claude-dev", "anthropic/claude-3-haiku-20240307", False),
             # Groq with custom names (cannot be resolved)
-            ("litellm_proxy/fast-llama", "groq/llama-3.1-8b-instant", False),
-            ("litellm_proxy/groq-gemma", "groq/gemma-7b-it", False),
+            ("hangarllm_proxy/fast-llama", "groq/llama-3.1-8b-instant", False),
+            ("hangarllm_proxy/groq-gemma", "groq/gemma-7b-it", False),
             # Cohere with custom names (cannot be resolved)
-            ("litellm_proxy/cohere-command", "cohere/command-r", False),
-            ("litellm_proxy/cohere-command-plus", "cohere/command-r-plus", False),
+            ("hangarllm_proxy/cohere-command", "cohere/command-r", False),
+            ("hangarllm_proxy/cohere-command-plus", "cohere/command-r-plus", False),
             # Together AI with custom names (cannot be resolved)
             (
-                "litellm_proxy/together-llama",
+                "hangarllm_proxy/together-llama",
                 "together_ai/meta-llama/Llama-2-70b-chat-hf",
                 False,
             ),
             (
-                "litellm_proxy/together-mistral",
+                "hangarllm_proxy/together-mistral",
                 "together_ai/mistralai/Mistral-7B-Instruct-v0.3",
                 False,
             ),
             # Ollama with custom names (cannot be resolved)
-            ("litellm_proxy/local-llama", "ollama/llama2", False),
-            ("litellm_proxy/local-mistral", "ollama/mistral", False),
+            ("hangarllm_proxy/local-llama", "ollama/llama2", False),
+            ("hangarllm_proxy/local-mistral", "ollama/mistral", False),
         ],
     )
     def test_proxy_custom_model_names_without_config(self, proxy_model_name, underlying_model, expected_proxy_result):
         """
         Test proxy models with custom model names that differ from underlying models.
 
-        Without proxy configuration context, LiteLLM cannot resolve custom model names
+        Without proxy configuration context, HangarLLM cannot resolve custom model names
         to their underlying models, so these will return False.
         This demonstrates the limitation and documents the expected behavior.
         """
@@ -2048,12 +2048,12 @@ class TestProxyFunctionCalling:
         3. The expected behavior for both scenarios
         """
         # Case 1: Custom model name that cannot be resolved
-        custom_model = "litellm_proxy/my-custom-claude"
+        custom_model = "hangarllm_proxy/my-custom-claude"
         result = supports_function_calling(custom_model)
         assert result is False, "Custom model names return False without proxy config context"
 
         # Case 2: Model name that can be resolved (matches pattern)
-        resolvable_model = "litellm_proxy/claude-sonnet-4-5-20250929"
+        resolvable_model = "hangarllm_proxy/claude-sonnet-4-5-20250929"
         result = supports_function_calling(resolvable_model)
         assert result is True, "Resolvable model names work with fallback logic"
 
@@ -2062,16 +2062,16 @@ class TestProxyFunctionCalling:
         PROXY MODEL RESOLUTION BEHAVIOR:
         
         ✅ WORKS (with current fallback logic):
-           - litellm_proxy/gpt-4
-           - litellm_proxy/claude-sonnet-4-5-20250929
-           - litellm_proxy/anthropic/claude-3-haiku-20240307
+           - hangarllm_proxy/gpt-4
+           - hangarllm_proxy/claude-sonnet-4-5-20250929
+           - hangarllm_proxy/anthropic/claude-3-haiku-20240307
            
         ❌ DOESN'T WORK (requires proxy server config):
-           - litellm_proxy/my-custom-gpt4
-           - litellm_proxy/bedrock-claude-3-haiku
-           - litellm_proxy/production-model
+           - hangarllm_proxy/my-custom-gpt4
+           - hangarllm_proxy/bedrock-claude-3-haiku
+           - hangarllm_proxy/production-model
            
-        💡 SOLUTION: Use LiteLLM proxy server with proper model_list configuration
+        💡 SOLUTION: Use HangarLLM proxy server with proper model_list configuration
            that maps custom names to underlying models.
         """)
 
@@ -2079,10 +2079,10 @@ class TestProxyFunctionCalling:
         "proxy_model_with_hints,expected_result",
         [
             # These are proxy models where we can infer the underlying model from the name
-            ("litellm_proxy/gpt-4-with-functions", True),  # Hints at GPT-4
-            ("litellm_proxy/claude-3-haiku-prod", True),  # Hints at Claude 3 Haiku
+            ("hangarllm_proxy/gpt-4-with-functions", True),  # Hints at GPT-4
+            ("hangarllm_proxy/claude-3-haiku-prod", True),  # Hints at Claude 3 Haiku
             (
-                "litellm_proxy/bedrock-anthropic-claude-3-sonnet",
+                "hangarllm_proxy/bedrock-anthropic-claude-3-sonnet",
                 True,
             ),  # Hints at Bedrock Claude 3 Sonnet
         ],
@@ -2104,32 +2104,32 @@ class TestProxyFunctionCalling:
         # For now, we expect False (current behavior), but document the limitation
         assert proxy_result is False, f"Current limitation: {proxy_model_with_hints} returns False without inference"
 
-    def test_litellm_utils_supports_function_calling_import(self):
-        """Test that supports_function_calling can be imported from litellm.utils."""
+    def test_hangarllm_utils_supports_function_calling_import(self):
+        """Test that supports_function_calling can be imported from hangarllm.utils."""
         try:
-            from litellm.utils import supports_function_calling
+            from hangarllm.utils import supports_function_calling
 
             assert callable(supports_function_calling)
         except ImportError as e:
             pytest.fail(f"Failed to import supports_function_calling: {e}")
 
-    def test_litellm_supports_function_calling_import(self):
-        """Test that supports_function_calling can be imported from litellm directly."""
+    def test_hangarllm_supports_function_calling_import(self):
+        """Test that supports_function_calling can be imported from hangarllm directly."""
         try:
-            import litellm
+            import hangarllm
 
-            assert hasattr(litellm, "supports_function_calling")
-            assert callable(litellm.supports_function_calling)
+            assert hasattr(hangarllm, "supports_function_calling")
+            assert callable(hangarllm.supports_function_calling)
         except Exception as e:
-            pytest.fail(f"Failed to access litellm.supports_function_calling: {e}")
+            pytest.fail(f"Failed to access hangarllm.supports_function_calling: {e}")
 
     def test_edge_cases_and_malformed_proxy_models(self):
         """Test edge cases and malformed proxy model names."""
         test_cases = [
-            ("litellm_proxy/", False),  # Empty model name after proxy prefix
-            ("litellm_proxy", False),  # Just the proxy prefix without slash
-            ("litellm_proxy//gpt-3.5-turbo", False),  # Double slash
-            ("litellm_proxy/nonexistent-model", False),  # Non-existent model
+            ("hangarllm_proxy/", False),  # Empty model name after proxy prefix
+            ("hangarllm_proxy", False),  # Just the proxy prefix without slash
+            ("hangarllm_proxy//gpt-3.5-turbo", False),  # Double slash
+            ("hangarllm_proxy/nonexistent-model", False),  # Non-existent model
         ]
 
         for model_name, expected_result in test_cases:
@@ -2152,7 +2152,7 @@ class TestProxyFunctionCalling:
         when the issue is fixed.
         """
         direct_model = "gpt-3.5-turbo"
-        proxy_model = "litellm_proxy/gpt-3.5-turbo"
+        proxy_model = "hangarllm_proxy/gpt-3.5-turbo"
 
         direct_result = supports_function_calling(model=direct_model)
         proxy_result = supports_function_calling(model=proxy_model)
@@ -2179,137 +2179,137 @@ class TestProxyFunctionCalling:
         [
             # Bedrock Converse API mappings - these are the real-world scenarios
             (
-                "litellm_proxy/bedrock-claude-3-haiku",
+                "hangarllm_proxy/bedrock-claude-3-haiku",
                 "bedrock/converse/anthropic.claude-3-haiku-20240307-v1:0",
                 False,
                 "Bedrock Claude 3 Haiku via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-claude-3-sonnet",
+                "hangarllm_proxy/bedrock-claude-3-sonnet",
                 "bedrock/converse/anthropic.claude-3-sonnet-20240229-v1:0",
                 False,
                 "Bedrock Claude 3 Sonnet via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-claude-3-opus",
+                "hangarllm_proxy/bedrock-claude-3-opus",
                 "bedrock/converse/anthropic.claude-sonnet-4-5-20250929-v1:0",
                 False,
                 "Bedrock Claude 3 Opus via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-claude-3-5-sonnet",
+                "hangarllm_proxy/bedrock-claude-3-5-sonnet",
                 "bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
                 False,
                 "Bedrock Claude 3.5 Sonnet via Converse API",
             ),
             # Bedrock Legacy API mappings (non-converse)
             (
-                "litellm_proxy/bedrock-claude-instant",
+                "hangarllm_proxy/bedrock-claude-instant",
                 "bedrock/anthropic.claude-instant-v1",
                 False,
                 "Bedrock Claude Instant Legacy API",
             ),
             (
-                "litellm_proxy/bedrock-claude-v2",
+                "hangarllm_proxy/bedrock-claude-v2",
                 "bedrock/anthropic.claude-v2",
                 False,
                 "Bedrock Claude v2 Legacy API",
             ),
             (
-                "litellm_proxy/bedrock-claude-v2-1",
+                "hangarllm_proxy/bedrock-claude-v2-1",
                 "bedrock/anthropic.claude-v2:1",
                 False,
                 "Bedrock Claude v2.1 Legacy API",
             ),
             # Bedrock other model providers via Converse API
             (
-                "litellm_proxy/bedrock-titan-text",
+                "hangarllm_proxy/bedrock-titan-text",
                 "bedrock/converse/amazon.titan-text-express-v1",
                 False,
                 "Bedrock Titan Text Express via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-titan-text-premier",
+                "hangarllm_proxy/bedrock-titan-text-premier",
                 "bedrock/converse/amazon.titan-text-premier-v1:0",
                 False,
                 "Bedrock Titan Text Premier via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-llama3-8b",
+                "hangarllm_proxy/bedrock-llama3-8b",
                 "bedrock/converse/meta.llama3-8b-instruct-v1:0",
                 False,
                 "Bedrock Llama 3 8B via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-llama3-70b",
+                "hangarllm_proxy/bedrock-llama3-70b",
                 "bedrock/converse/meta.llama3-70b-instruct-v1:0",
                 False,
                 "Bedrock Llama 3 70B via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-mistral-7b",
+                "hangarllm_proxy/bedrock-mistral-7b",
                 "bedrock/converse/mistral.mistral-7b-instruct-v0:2",
                 False,
                 "Bedrock Mistral 7B via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-mistral-8x7b",
+                "hangarllm_proxy/bedrock-mistral-8x7b",
                 "bedrock/converse/mistral.mixtral-8x7b-instruct-v0:1",
                 False,
                 "Bedrock Mistral 8x7B via Converse API",
             ),
             (
-                "litellm_proxy/bedrock-mistral-large",
+                "hangarllm_proxy/bedrock-mistral-large",
                 "bedrock/converse/mistral.mistral-large-2402-v1:0",
                 False,
                 "Bedrock Mistral Large via Converse API",
             ),
             # Company-specific naming patterns (real-world examples)
             (
-                "litellm_proxy/prod-claude-haiku",
+                "hangarllm_proxy/prod-claude-haiku",
                 "bedrock/converse/anthropic.claude-3-haiku-20240307-v1:0",
                 False,
                 "Production Claude Haiku",
             ),
             (
-                "litellm_proxy/dev-claude-sonnet",
+                "hangarllm_proxy/dev-claude-sonnet",
                 "bedrock/converse/anthropic.claude-3-sonnet-20240229-v1:0",
                 False,
                 "Development Claude Sonnet",
             ),
             (
-                "litellm_proxy/staging-claude-opus",
+                "hangarllm_proxy/staging-claude-opus",
                 "bedrock/converse/anthropic.claude-sonnet-4-5-20250929-v1:0",
                 False,
                 "Staging Claude Opus",
             ),
             (
-                "litellm_proxy/cost-optimized-claude",
+                "hangarllm_proxy/cost-optimized-claude",
                 "bedrock/converse/anthropic.claude-3-haiku-20240307-v1:0",
                 False,
                 "Cost-optimized Claude deployment",
             ),
             (
-                "litellm_proxy/high-performance-claude",
+                "hangarllm_proxy/high-performance-claude",
                 "bedrock/converse/anthropic.claude-sonnet-4-5-20250929-v1:0",
                 False,
                 "High-performance Claude deployment",
             ),
             # Regional deployment examples
             (
-                "litellm_proxy/us-east-claude",
+                "hangarllm_proxy/us-east-claude",
                 "bedrock/converse/anthropic.claude-3-sonnet-20240229-v1:0",
                 False,
                 "US East Claude deployment",
             ),
             (
-                "litellm_proxy/eu-west-claude",
+                "hangarllm_proxy/eu-west-claude",
                 "bedrock/converse/anthropic.claude-3-haiku-20240307-v1:0",
                 False,
                 "EU West Claude deployment",
             ),
             (
-                "litellm_proxy/ap-south-llama",
+                "hangarllm_proxy/ap-south-llama",
                 "bedrock/converse/meta.llama3-70b-instruct-v1:0",
                 False,
                 "Asia Pacific Llama deployment",
@@ -2331,7 +2331,7 @@ class TestProxyFunctionCalling:
         'bedrock/converse/anthropic.claude-3-haiku-20240307-v1:0'.
 
         These mappings are typically defined in proxy server configuration files
-        and cannot be resolved by LiteLLM without that context.
+        and cannot be resolved by HangarLLM without that context.
         """
         print(f"\nTesting: {description}")
         print(f"  Proxy model: {proxy_model_name}")
@@ -2363,10 +2363,10 @@ class TestProxyFunctionCalling:
 @pytest.mark.usefixtures("isolated_openai_model_sets", "local_model_cost_map")
 def test_get_model_info_derives_max_tokens_from_the_output_limit() -> None:
     model: Final = "derived-max-tokens-chat-model"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model: {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "max_input_tokens": 400000,
                 "max_output_tokens": 128000,
@@ -2376,17 +2376,17 @@ def test_get_model_info_derives_max_tokens_from_the_output_limit() -> None:
         },
         persist_across_reloads=False,
     )
-    info: Final = litellm.get_model_info(model, custom_llm_provider="openai")
+    info: Final = hangarllm.get_model_info(model, custom_llm_provider="openai")
     assert info["max_tokens"] == 128000
-    assert litellm.get_max_tokens(model) == 128000
+    assert hangarllm.get_max_tokens(model) == 128000
 
 
 def test_get_model_info_derives_max_tokens_from_the_input_limit_when_the_row_has_no_output_limit() -> None:
     model: Final = "derived-max-tokens-embedding-model"
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model: {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "embedding",
                 "max_input_tokens": 8191,
                 "input_cost_per_token": 0.0,
@@ -2395,7 +2395,7 @@ def test_get_model_info_derives_max_tokens_from_the_input_limit_when_the_row_has
         },
         persist_across_reloads=False,
     )
-    info: Final = litellm.get_model_info(model, custom_llm_provider="openai")
+    info: Final = hangarllm.get_model_info(model, custom_llm_provider="openai")
     assert info["max_tokens"] == 8191
     assert info["max_output_tokens"] is None
 
@@ -2405,17 +2405,17 @@ def test_register_model_price_is_used_for_completion_cost() -> None:
     price: Final = {
         "input_cost_per_token": 0.001,
         "output_cost_per_token": 0.002,
-        "litellm_provider": "openai",
+        "hangarllm_provider": "openai",
         "mode": "chat",
     }
-    litellm.register_model({model: price}, persist_across_reloads=False)
+    hangarllm.register_model({model: price}, persist_across_reloads=False)
     response: Final = ModelResponse(
         model=model,
         choices=[],
         usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=response,
         model=model,
         custom_llm_provider="openai",
@@ -2429,12 +2429,12 @@ def test_register_model_price_is_used_for_completion_cost() -> None:
 def test_completion_custom_prices_price_the_call_without_writing_the_cost_map() -> None:
     model: Final = "migration-owned-pricing-model"
     messages: Final = [{"role": "user", "content": "price control"}]
-    litellm.register_model(
+    hangarllm.register_model(
         {
             model: {
                 "input_cost_per_token": 0.0001,
                 "output_cost_per_token": 0.0002,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
             }
         },
@@ -2460,7 +2460,7 @@ def test_completion_custom_prices_price_the_call_without_writing_the_cost_map() 
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=messages,
         api_key="test-api-key",
@@ -2470,8 +2470,8 @@ def test_completion_custom_prices_price_the_call_without_writing_the_cost_map() 
 
     assert json.loads(route.calls[0].request.content) == {"model": model, "messages": messages}
     assert response._hidden_params["response_cost"] == pytest.approx(8 * 0.001 + 5 * 0.002)
-    assert litellm.model_cost[model]["input_cost_per_token"] == 0.0001
-    assert litellm.model_cost[model]["output_cost_per_token"] == 0.0002
+    assert hangarllm.model_cost[model]["input_cost_per_token"] == 0.0001
+    assert hangarllm.model_cost[model]["output_cost_per_token"] == 0.0002
     assert response._hidden_params["response_cost"] == pytest.approx(0.018)
 
 
@@ -2479,18 +2479,18 @@ def test_completion_custom_prices_price_the_call_without_writing_the_cost_map() 
 def test_add_known_models_skips_region_scoped_bedrock_pricing_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     price: Final = {"input_cost_per_token": 0.001, "output_cost_per_token": 0.002, "mode": "chat"}
     model_cost_map: Final = {
-        "migration.bedrock-model-v1:0": {**price, "litellm_provider": "bedrock"},
-        "bedrock/us-west-1/migration.bedrock-model-v1:0": {**price, "litellm_provider": "bedrock"},
-        "migration-openai-model": {**price, "litellm_provider": "openai"},
+        "migration.bedrock-model-v1:0": {**price, "hangarllm_provider": "bedrock"},
+        "bedrock/us-west-1/migration.bedrock-model-v1:0": {**price, "hangarllm_provider": "bedrock"},
+        "migration-openai-model": {**price, "hangarllm_provider": "openai"},
     }
-    monkeypatch.setattr(litellm, "bedrock_models", set(litellm.bedrock_models))
-    monkeypatch.setattr(litellm, "models_by_provider", dict(litellm.models_by_provider))
+    monkeypatch.setattr(hangarllm, "bedrock_models", set(hangarllm.bedrock_models))
+    monkeypatch.setattr(hangarllm, "models_by_provider", dict(hangarllm.models_by_provider))
 
-    litellm.add_known_models(model_cost_map=model_cost_map)
+    hangarllm.add_known_models(model_cost_map=model_cost_map)
 
-    assert "migration.bedrock-model-v1:0" in litellm.bedrock_models
-    assert "bedrock/us-west-1/migration.bedrock-model-v1:0" not in litellm.bedrock_models
-    assert "migration-openai-model" in litellm.models_by_provider["openai"]
+    assert "migration.bedrock-model-v1:0" in hangarllm.bedrock_models
+    assert "bedrock/us-west-1/migration.bedrock-model-v1:0" not in hangarllm.bedrock_models
+    assert "migration-openai-model" in hangarllm.models_by_provider["openai"]
 
 
 def test_utils_defines_tests_without_invoking_them_at_module_scope() -> None:
@@ -2521,7 +2521,7 @@ def test_register_model_with_scientific_notation():
     test_model_name = f"test-scientific-notation-model-{uuid.uuid4().hex[:12]}"
 
     # Clear LRU caches that might have stale data
-    from litellm.utils import (
+    from hangarllm.utils import (
         _invalidate_model_cost_lowercase_map,
     )
 
@@ -2531,111 +2531,111 @@ def test_register_model_with_scientific_notation():
             "max_tokens": 8192,
             "input_cost_per_token": "3e-07",
             "output_cost_per_token": "6e-07",
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
         },
     }
 
-    litellm.register_model(model_cost_dict)
+    hangarllm.register_model(model_cost_dict)
 
-    registered_model = litellm.model_cost[test_model_name]
+    registered_model = hangarllm.model_cost[test_model_name]
     print(registered_model)
     assert registered_model["input_cost_per_token"] == 3e-07
     assert registered_model["output_cost_per_token"] == 6e-07
-    assert registered_model["litellm_provider"] == "openai"
+    assert registered_model["hangarllm_provider"] == "openai"
     assert registered_model["mode"] == "chat"
 
     # Clean up after test
-    if test_model_name in litellm.model_cost:
-        del litellm.model_cost[test_model_name]
+    if test_model_name in hangarllm.model_cost:
+        del hangarllm.model_cost[test_model_name]
     _invalidate_model_cost_lowercase_map()
 
 
 @pytest.mark.usefixtures("isolated_openai_model_sets")
 @respx.mock
 def test_register_model_url_fetch_uses_single_attempt(monkeypatch):
-    monkeypatch.delenv("LITELLM_LOCAL_MODEL_COST_MAP", raising=False)
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
-    before = dict(litellm.model_cost)
+    monkeypatch.delenv("HANGARLLM_LOCAL_MODEL_COST_MAP", raising=False)
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
+    before = dict(hangarllm.model_cost)
     threads_before = {thread.name for thread in threading.enumerate()}
     route = respx.get("https://example.invalid/custom_pricing.json").mock(return_value=httpx.Response(503))
 
-    litellm.register_model(model_cost="https://example.invalid/custom_pricing.json")
+    hangarllm.register_model(model_cost="https://example.invalid/custom_pricing.json")
 
     threads_after = {thread.name for thread in threading.enumerate()}
     assert route.call_count == 1
-    assert not (threads_after - threads_before) & {"litellm-model-cost-map-retry"}
+    assert not (threads_after - threads_before) & {"hangarllm-model-cost-map-retry"}
     assert not any(
-        thread.name == "litellm-model-cost-map-retry" and thread.is_alive() for thread in threading.enumerate()
+        thread.name == "hangarllm-model-cost-map-retry" and thread.is_alive() for thread in threading.enumerate()
     )
-    assert litellm.model_cost.keys() >= before.keys()
+    assert hangarllm.model_cost.keys() >= before.keys()
 
 
 def test_register_model_openrouter_without_slash():
     """
     Test that register_model handles openrouter models without '/' in the name.
 
-    Fixes https://github.com/BerriAI/litellm/issues/18936
+    Fixes upstream issue 18936
 
     Previously, the code did `split_string[1]` which would fail with IndexError
     when the model name didn't contain '/'. Now it uses `split_string[-1]` which
     always works.
     """
     # Clear any existing entries
-    litellm.openrouter_models.discard("my-custom-alias")
-    litellm.openrouter_models.discard("gpt-4")
-    litellm.openrouter_models.discard("openai/gpt-4")
+    hangarllm.openrouter_models.discard("my-custom-alias")
+    hangarllm.openrouter_models.discard("gpt-4")
+    hangarllm.openrouter_models.discard("openai/gpt-4")
 
     # Test 1: Model name without '/' (this was the bug - would raise IndexError)
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "my-custom-alias": {
                 "max_tokens": 8192,
                 "input_cost_per_token": 0.00001,
                 "output_cost_per_token": 0.00002,
-                "litellm_provider": "openrouter",
+                "hangarllm_provider": "openrouter",
                 "mode": "chat",
             },
         }
     )
-    assert "my-custom-alias" in litellm.openrouter_models
+    assert "my-custom-alias" in hangarllm.openrouter_models
 
     # Test 2: Model name with single '/' (openrouter/model format)
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "openrouter/gpt-4": {
                 "max_tokens": 8192,
                 "input_cost_per_token": 0.00001,
                 "output_cost_per_token": 0.00002,
-                "litellm_provider": "openrouter",
+                "hangarllm_provider": "openrouter",
                 "mode": "chat",
             },
         }
     )
-    assert "gpt-4" in litellm.openrouter_models
+    assert "gpt-4" in hangarllm.openrouter_models
 
     # Test 3: Model name with double '/' (openrouter/provider/model format)
-    litellm.register_model(
+    hangarllm.register_model(
         {
             "openrouter/openai/gpt-4-turbo": {
                 "max_tokens": 8192,
                 "input_cost_per_token": 0.00001,
                 "output_cost_per_token": 0.00002,
-                "litellm_provider": "openrouter",
+                "hangarllm_provider": "openrouter",
                 "mode": "chat",
             },
         }
     )
-    assert "openai/gpt-4-turbo" in litellm.openrouter_models
+    assert "openai/gpt-4-turbo" in hangarllm.openrouter_models
 
 
 def test_register_model_makes_the_model_resolvable_and_wildcard_visible_without_a_restart():
     model_name: Final = "my-tuned-gemini-regression"
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {
                 model_name: {
-                    "litellm_provider": "vertex_ai-language-models",
+                    "hangarllm_provider": "vertex_ai-language-models",
                     "mode": "chat",
                     "input_cost_per_token": 0.000001,
                     "output_cost_per_token": 0.000002,
@@ -2644,60 +2644,60 @@ def test_register_model_makes_the_model_resolvable_and_wildcard_visible_without_
             persist_across_reloads=False,
         )
 
-        _, provider, _, _ = litellm.get_llm_provider(model=model_name)
+        _, provider, _, _ = hangarllm.get_llm_provider(model=model_name)
 
         assert provider == "vertex_ai"
-        assert model_name in litellm.models_by_provider["vertex_ai"]
+        assert model_name in hangarllm.models_by_provider["vertex_ai"]
     finally:
-        litellm.model_cost.pop(model_name, None)
-        litellm.vertex_language_models.discard(model_name)
-        litellm.models_by_provider["vertex_ai"].discard(model_name)
+        hangarllm.model_cost.pop(model_name, None)
+        hangarllm.vertex_language_models.discard(model_name)
+        hangarllm.models_by_provider["vertex_ai"].discard(model_name)
 
 
 @pytest.mark.parametrize(
-    ("litellm_provider", "wildcard", "provider_set"),
+    ("hangarllm_provider", "wildcard", "provider_set"),
     [
         ("ai21", "ai21/*", "ai21_chat_models"),
         ("vertex_ai-code-chat-models", "vertex_ai/*", "vertex_code_chat_models"),
     ],
 )
 def test_registered_chat_model_lists_under_its_provider_wildcard(
-    litellm_provider: str, wildcard: str, provider_set: str
+    hangarllm_provider: str, wildcard: str, provider_set: str
 ) -> None:
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
-    model_name: Final = f"chat-listing-regression-{litellm_provider}"
+    model_name: Final = f"chat-listing-regression-{hangarllm_provider}"
     try:
-        litellm.register_model(
-            {model_name: {"litellm_provider": litellm_provider, "mode": "chat"}}, persist_across_reloads=False
+        hangarllm.register_model(
+            {model_name: {"hangarllm_provider": hangarllm_provider, "mode": "chat"}}, persist_across_reloads=False
         )
 
         listed: Final = get_known_models_from_wildcard(wildcard)
 
         assert f"{wildcard.removesuffix('*')}{model_name}" in listed
     finally:
-        litellm.model_cost.pop(model_name, None)
-        getattr(litellm, provider_set).discard(model_name)
-        litellm.add_known_models(model_cost_map={})
+        hangarllm.model_cost.pop(model_name, None)
+        getattr(hangarllm, provider_set).discard(model_name)
+        hangarllm.add_known_models(model_cost_map={})
 
 
 def test_priced_router_deployment_id_stays_out_of_wildcard_model_listing():
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    from hangarllm.proxy.auth.model_checks import get_known_models_from_wildcard
 
     deployment_id: Final = "priced-deployment-id-regression"
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "priced-gemini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gemini/gemini-2.5-flash",
                     "api_key": "fake-key",
                     "input_cost_per_token": 0.000001,
                     "output_cost_per_token": 0.000002,
                 },
-                "model_info": {"id": deployment_id, "litellm_provider": "gemini", "mode": "chat"},
+                "model_info": {"id": deployment_id, "hangarllm_provider": "gemini", "mode": "chat"},
             },
-            {"model_name": "gemini/*", "litellm_params": {"model": "gemini/*", "api_key": "fake-key"}},
+            {"model_name": "gemini/*", "hangarllm_params": {"model": "gemini/*", "api_key": "fake-key"}},
         ]
     )
 
@@ -2706,13 +2706,13 @@ def test_priced_router_deployment_id_stays_out_of_wildcard_model_listing():
 
     assert "gemini/gemini-2.5-flash" in listed
     assert f"gemini/{deployment_id}" not in listed
-    assert deployment_id not in litellm.models_by_provider["gemini"]
-    assert litellm.model_cost[deployment_id]["input_cost_per_token"] == 0.000001
+    assert deployment_id not in hangarllm.models_by_provider["gemini"]
+    assert hangarllm.model_cost[deployment_id]["input_cost_per_token"] == 0.000001
 
 
 def test_anthropic_claude_4_invoke_chat_provider_config():
     """Test that the Anthropic Claude 4 Invoke chat provider config is correct."""
-    from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.anthropic_claude_transformation import (
         AmazonAnthropicClaudeConfig,
     )
 
@@ -2727,7 +2727,7 @@ def test_anthropic_claude_4_invoke_chat_provider_config():
 def test_bedrock_application_inference_profile():
     model = "arn:aws:bedrock:us-east-2:<AWS-ACCOUNT-ID>:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0"
 
-    from litellm.utils import supports_tool_choice
+    from hangarllm.utils import supports_tool_choice
 
     result = supports_tool_choice(model, custom_llm_provider="bedrock")
     result_2 = supports_tool_choice(model, custom_llm_provider="bedrock_converse")
@@ -2738,7 +2738,7 @@ def test_bedrock_application_inference_profile():
 
 def test_image_response_utils():
     """Test that the image response utils are correct."""
-    from litellm.utils import ImageResponse
+    from hangarllm.utils import ImageResponse
 
     result = {
         "created": None,
@@ -2794,7 +2794,7 @@ def test_block_key_hashing_logic():
     Test that block_key() function only hashes keys that start with "sk-"
     """
 
-    from litellm.proxy.utils import hash_token
+    from hangarllm.proxy.utils import hash_token
 
     # Test cases: (input_key, should_be_hashed, expected_output)
     test_cases = [
@@ -2852,7 +2852,7 @@ def test_generate_gcp_iam_access_token():
 
     # Test successful token generation by mocking sys.modules
     with patch.dict("sys.modules", {"google.cloud.iam_credentials_v1": mock_iam_credentials_v1}):
-        from litellm._redis import _generate_gcp_iam_access_token
+        from hangarllm._redis import _generate_gcp_iam_access_token
 
         result = _generate_gcp_iam_access_token(service_account)
 
@@ -2872,7 +2872,7 @@ def test_generate_gcp_iam_access_token_import_error():
     Test that _generate_gcp_iam_access_token raises ImportError when google-cloud-iam is not available.
     """
     # Import the function first, before mocking
-    from litellm._redis import _generate_gcp_iam_access_token
+    from hangarllm._redis import _generate_gcp_iam_access_token
 
     # Mock the import to fail when the function tries to import google.cloud.iam_credentials_v1
     original_import = __builtins__["__import__"]
@@ -2908,7 +2908,7 @@ def test_generate_azure_ad_redis_token():
     mock_azure_identity.ManagedIdentityCredential = Mock()
 
     with patch.dict("sys.modules", {"azure.identity": mock_azure_identity, "azure": Mock()}):
-        from litellm._redis import _generate_azure_ad_redis_token
+        from hangarllm._redis import _generate_azure_ad_redis_token
 
         result = _generate_azure_ad_redis_token()
 
@@ -2936,7 +2936,7 @@ def test_generate_azure_ad_redis_token_service_principal():
     mock_azure_identity.ManagedIdentityCredential = Mock()
 
     with patch.dict("sys.modules", {"azure.identity": mock_azure_identity, "azure": Mock()}):
-        from litellm._redis import _generate_azure_ad_redis_token
+        from hangarllm._redis import _generate_azure_ad_redis_token
 
         result = _generate_azure_ad_redis_token(
             azure_client_id="test-client-id",
@@ -2956,7 +2956,7 @@ def test_generate_azure_ad_redis_token_import_error():
     """Test that _generate_azure_ad_redis_token raises ImportError when azure-identity is missing."""
     from unittest.mock import patch
 
-    from litellm._redis import _generate_azure_ad_redis_token
+    from hangarllm._redis import _generate_azure_ad_redis_token
 
     with patch.dict("sys.modules", {"azure.identity": None}):
         with pytest.raises(ImportError) as exc_info:
@@ -2980,7 +2980,7 @@ def test_redis_client_logic_azure_ad_auth():
     mock_azure_identity.ManagedIdentityCredential = Mock(return_value=mock_credential)
 
     with patch.dict("sys.modules", {"azure.identity": mock_azure_identity, "azure": Mock()}):
-        from litellm._redis import _get_redis_client_logic
+        from hangarllm._redis import _get_redis_client_logic
 
         redis_kwargs = _get_redis_client_logic(
             host="myredis.redis.cache.windows.net",
@@ -3015,7 +3015,7 @@ class TestGetValidModelsWithCLI:
 
     @respx.mock
     def test_get_valid_models_with_cli_pattern(self, reset_mock_cache: None) -> None:
-        """Test get_valid_models with litellm_proxy provider and CLI token pattern"""
+        """Test get_valid_models with hangarllm_proxy provider and CLI token pattern"""
 
         route: Final = respx.get("https://gateway-cli.example.test/v1/models").respond(
             200,
@@ -3023,24 +3023,24 @@ class TestGetValidModelsWithCLI:
                 "data": [
                     {"id": "gpt-3.5-turbo", "object": "model"},
                     {"id": "gpt-4", "object": "model"},
-                    {"id": "litellm_proxy/gemini/gemini-2.5-flash", "object": "model"},
+                    {"id": "hangarllm_proxy/gemini/gemini-2.5-flash", "object": "model"},
                     {"id": "claude-3-sonnet", "object": "model"},
                 ]
             },
         )
 
-        result: Final = litellm.get_valid_models(
+        result: Final = hangarllm.get_valid_models(
             check_provider_endpoint=True,
-            custom_llm_provider="litellm_proxy",
+            custom_llm_provider="hangarllm_proxy",
             api_key="sk-test-cli-key-123",
             api_base="https://gateway-cli.example.test/",
         )
 
         assert result == [
-            "litellm_proxy/gpt-3.5-turbo",
-            "litellm_proxy/gpt-4",
-            "litellm_proxy/litellm_proxy/gemini/gemini-2.5-flash",
-            "litellm_proxy/claude-3-sonnet",
+            "hangarllm_proxy/gpt-3.5-turbo",
+            "hangarllm_proxy/gpt-4",
+            "hangarllm_proxy/hangarllm_proxy/gemini/gemini-2.5-flash",
+            "hangarllm_proxy/claude-3-sonnet",
         ]
         assert route.call_count == 1
         assert route.calls.last.request.headers["Authorization"] == "Bearer sk-test-cli-key-123"
@@ -3052,7 +3052,7 @@ def test_get_valid_models_bedrock_lists_what_the_deployment_credentials_can_invo
 ) -> None:
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
     region: Final = "eu-west-3"
-    deployment: Final = LiteLLM_Params(
+    deployment: Final = HangarLLM_Params(
         model="bedrock/*",
         aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
         aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
@@ -3089,8 +3089,8 @@ def test_get_valid_models_bedrock_lists_what_the_deployment_credentials_can_invo
         )
     )
 
-    assert litellm.get_valid_models(
-        check_provider_endpoint=True, custom_llm_provider="bedrock", litellm_params=deployment
+    assert hangarllm.get_valid_models(
+        check_provider_endpoint=True, custom_llm_provider="bedrock", hangarllm_params=deployment
     ) == ["amazon.nova-micro-v1:0", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"]
 
 
@@ -3216,8 +3216,8 @@ class TestProxyLoggingBudgetAlerts:
 
     async def test_budget_alerts_when_alerting_is_none(self):
         """Test that budget_alerts returns early when alerting is None."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = None
@@ -3235,8 +3235,8 @@ class TestProxyLoggingBudgetAlerts:
 
     async def test_budget_alerts_with_slack_only(self):
         """Test that budget_alerts calls slack_alerting_instance when slack is in alerting."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = ["slack"]
@@ -3252,8 +3252,8 @@ class TestProxyLoggingBudgetAlerts:
 
     async def test_budget_alerts_with_email_only(self):
         """Test that budget_alerts calls email_logging_instance when email is in alerting."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = ["email"]
@@ -3269,8 +3269,8 @@ class TestProxyLoggingBudgetAlerts:
 
     async def test_budget_alerts_with_email_when_instance_is_none(self):
         """Test that budget_alerts does not call email_logging_instance when it is None."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = ["email"]
@@ -3283,8 +3283,8 @@ class TestProxyLoggingBudgetAlerts:
 
     async def test_budget_alerts_with_both_slack_and_email(self):
         """Test that budget_alerts calls both slack and email instances when both are in alerting."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = ["slack", "email"]
@@ -3316,8 +3316,8 @@ class TestProxyLoggingBudgetAlerts:
     )
     async def test_budget_alerts_with_all_alert_types(self, alert_type):
         """Test that budget_alerts works with all supported alert types."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = ["slack", "email"]
@@ -3343,9 +3343,9 @@ class TestProxyLoggingBudgetAlerts:
         This tests the new logic that allows team-specific soft budget email alerts
         via metadata.soft_budget_alerting_emails to work even when global alerting is disabled.
         """
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import CallInfo, Litellm_EntityType
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import CallInfo, Hangarllm_EntityType
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = None  # Global alerting is disabled
@@ -3360,7 +3360,7 @@ class TestProxyLoggingBudgetAlerts:
             user_id="test-user",
             team_id="test-team",
             team_alias="test-team-alias",
-            event_group=Litellm_EntityType.TEAM,
+            event_group=Hangarllm_EntityType.TEAM,
             alert_emails=["team1@example.com", "team2@example.com"],
         )
 
@@ -3382,9 +3382,9 @@ class TestProxyLoggingBudgetAlerts:
         Test that soft_budget alerts WITHOUT alert_emails still respect alerting=None
         and do not send emails when alerting is None.
         """
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import CallInfo, Litellm_EntityType
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import CallInfo, Hangarllm_EntityType
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = None
@@ -3399,7 +3399,7 @@ class TestProxyLoggingBudgetAlerts:
             user_id="test-user",
             team_id="test-team",
             team_alias="test-team-alias",
-            event_group=Litellm_EntityType.TEAM,
+            event_group=Hangarllm_EntityType.TEAM,
             alert_emails=None,  # No alert emails
         )
 
@@ -3416,9 +3416,9 @@ class TestProxyLoggingBudgetAlerts:
         """
         Test that soft_budget alerts with empty alert_emails list still respect alerting=None.
         """
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import CallInfo, Litellm_EntityType
-        from litellm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
+        from hangarllm.proxy._types import CallInfo, Hangarllm_EntityType
+        from hangarllm.proxy.utils import ProxyLogging
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging.alerting = None
@@ -3433,7 +3433,7 @@ class TestProxyLoggingBudgetAlerts:
             user_id="test-user",
             team_id="test-team",
             team_alias="test-team-alias",
-            event_group=Litellm_EntityType.TEAM,
+            event_group=Hangarllm_EntityType.TEAM,
             alert_emails=[],  # Empty list
         )
 
@@ -3447,7 +3447,7 @@ class TestProxyLoggingBudgetAlerts:
 
 def test_azure_ai_claude_provider_config():
     """Test that Azure AI Claude models return AzureAnthropicConfig for proper tool transformation."""
-    from litellm import AzureAIStudioConfig, AzureAnthropicConfig
+    from hangarllm import AzureAIStudioConfig, AzureAnthropicConfig
 
     # Claude models should return AzureAnthropicConfig
     config = ProviderConfigManager.get_provider_chat_config(
@@ -3472,12 +3472,12 @@ def test_azure_ai_claude_provider_config():
 
 
 # Tests for thinking blocks helper functions
-# Related to issue: https://github.com/BerriAI/litellm/issues/18926
+# Related to issue: upstream issue 18926
 
 
 def test_any_assistant_message_has_thinking_blocks_with_thinking():
     """Test that function returns True when any assistant message has thinking_blocks."""
-    from litellm.utils import any_assistant_message_has_thinking_blocks
+    from hangarllm.utils import any_assistant_message_has_thinking_blocks
 
     messages = [
         {"role": "user", "content": "Hello"},
@@ -3499,7 +3499,7 @@ def test_any_assistant_message_has_thinking_blocks_with_thinking():
 
 def test_any_assistant_message_has_thinking_blocks_without_thinking():
     """Test that function returns False when no assistant message has thinking_blocks."""
-    from litellm.utils import any_assistant_message_has_thinking_blocks
+    from hangarllm.utils import any_assistant_message_has_thinking_blocks
 
     messages = [
         {"role": "user", "content": "Hello"},
@@ -3515,7 +3515,7 @@ def test_any_assistant_message_has_thinking_blocks_without_thinking():
 
 def test_any_assistant_message_has_thinking_blocks_empty_list():
     """Test that function returns False when thinking_blocks is an empty list."""
-    from litellm.utils import any_assistant_message_has_thinking_blocks
+    from hangarllm.utils import any_assistant_message_has_thinking_blocks
 
     messages = [
         {"role": "user", "content": "Hello"},
@@ -3539,7 +3539,7 @@ def test_last_assistant_with_tool_calls_has_no_thinking_blocks_issue_18926():
     has no thinking_blocks, but this breaks because the first message
     still has thinking blocks in the conversation.
     """
-    from litellm.utils import (
+    from hangarllm.utils import (
         any_assistant_message_has_thinking_blocks,
         last_assistant_with_tool_calls_has_no_thinking_blocks,
     )
@@ -3592,7 +3592,7 @@ class TestAdditionalDropParamsForNonOpenAIProviders:
     """
     Test additional_drop_params functionality for non-OpenAI providers.
 
-    Fixes https://github.com/BerriAI/litellm/issues/19225
+    Fixes upstream issue 19225
 
     The bug was that additional_drop_params only filtered params for OpenAI/Azure
     providers, but not for other providers like Bedrock. This caused OpenAI-specific
@@ -3608,7 +3608,7 @@ class TestAdditionalDropParamsForNonOpenAIProviders:
         'BedrockException - {"message":"The model returned the following errors:
         prompt_cache_key: Extra inputs are not permitted"}'
         """
-        from litellm.utils import add_provider_specific_params_to_optional_params
+        from hangarllm.utils import add_provider_specific_params_to_optional_params
 
         optional_params = {}
         passed_params = {
@@ -3634,7 +3634,7 @@ class TestAdditionalDropParamsForNonOpenAIProviders:
 
     def test_additional_drop_params_filters_multiple_params_for_non_openai(self):
         """Test filtering multiple params for non-OpenAI providers."""
-        from litellm.utils import add_provider_specific_params_to_optional_params
+        from hangarllm.utils import add_provider_specific_params_to_optional_params
 
         optional_params = {}
         passed_params = {
@@ -3662,7 +3662,7 @@ class TestAdditionalDropParamsForNonOpenAIProviders:
 
     def test_additional_drop_params_none_keeps_all_params(self):
         """Test that when additional_drop_params is None, all params are kept."""
-        from litellm.utils import add_provider_specific_params_to_optional_params
+        from hangarllm.utils import add_provider_specific_params_to_optional_params
 
         optional_params = {}
         passed_params = {
@@ -3685,7 +3685,7 @@ class TestAdditionalDropParamsForNonOpenAIProviders:
 
     def test_additional_drop_params_empty_list_keeps_all_params(self):
         """Test that when additional_drop_params is empty list, all params are kept."""
-        from litellm.utils import add_provider_specific_params_to_optional_params
+        from hangarllm.utils import add_provider_specific_params_to_optional_params
 
         optional_params = {}
         passed_params = {
@@ -3710,7 +3710,7 @@ class TestAdditionalDropParamsForNonOpenAIProviders:
 class TestExtraBodyCannotOverrideModel:
     @pytest.mark.parametrize("custom_llm_provider", ["edenai", "openai", "azure"])
     def test_extra_body_model_is_dropped_for_openai_compatible_providers(self, custom_llm_provider: str) -> None:
-        from litellm.utils import add_provider_specific_params_to_optional_params
+        from hangarllm.utils import add_provider_specific_params_to_optional_params
 
         result = add_provider_specific_params_to_optional_params(
             optional_params={"extra_body": {"model": "edenai/openai/gpt-4o", "provider_flag": True}},
@@ -3727,7 +3727,7 @@ class TestExtraBodyCannotOverrideModel:
         assert result == {"extra_body": {"provider_flag": True, "top_k": 5, "custom_param": "kept"}}, result
 
     def test_get_optional_params_strips_extra_body_model_for_edenai(self) -> None:
-        result = litellm.get_optional_params(
+        result = hangarllm.get_optional_params(
             model="openai/gpt-4o-mini",
             custom_llm_provider="edenai",
             extra_body={"model": "anthropic/claude-opus-4-1", "top_k": 5},
@@ -3736,7 +3736,7 @@ class TestExtraBodyCannotOverrideModel:
         assert result["extra_body"] == {"top_k": 5}, result
 
     def test_nested_drop_paths_do_not_break_extra_body_filtering(self) -> None:
-        from litellm.utils import add_provider_specific_params_to_optional_params
+        from hangarllm.utils import add_provider_specific_params_to_optional_params
 
         result = add_provider_specific_params_to_optional_params(
             optional_params={},
@@ -3760,10 +3760,10 @@ class TestExtraBodyCannotOverrideModel:
                 }
             ]
 
-        untouched = litellm.get_optional_params(model="my-vllm-model", custom_llm_provider="hosted_vllm", tools=tools())
+        untouched = hangarllm.get_optional_params(model="my-vllm-model", custom_llm_provider="hosted_vllm", tools=tools())
         assert untouched["tools"][0]["function"]["custom_marker"] == "LEAK", untouched
 
-        result = litellm.get_optional_params(
+        result = hangarllm.get_optional_params(
             model="my-vllm-model",
             custom_llm_provider="hosted_vllm",
             tools=tools(),
@@ -3777,7 +3777,7 @@ class TestDropParamsWithPromptCacheKey:
     """
     Test that drop_params: true correctly drops prompt_cache_key for non-OpenAI providers.
 
-    Fixes https://github.com/BerriAI/litellm/issues/19225
+    Fixes upstream issue 19225
 
     prompt_cache_key is an OpenAI-specific parameter that should be automatically
     dropped when using providers like Bedrock that don't support it.
@@ -3785,7 +3785,7 @@ class TestDropParamsWithPromptCacheKey:
 
     def test_prompt_cache_key_in_default_params(self):
         """Verify prompt_cache_key is now in DEFAULT_CHAT_COMPLETION_PARAM_VALUES."""
-        from litellm.constants import DEFAULT_CHAT_COMPLETION_PARAM_VALUES
+        from hangarllm.constants import DEFAULT_CHAT_COMPLETION_PARAM_VALUES
 
         assert "prompt_cache_key" in DEFAULT_CHAT_COMPLETION_PARAM_VALUES
         assert "prompt_cache_retention" in DEFAULT_CHAT_COMPLETION_PARAM_VALUES
@@ -3795,7 +3795,7 @@ class TestDropParamsWithPromptCacheKey:
         Test that get_optional_params with drop_params=True removes prompt_cache_key
         for Bedrock provider since it's not in Bedrock's supported params.
         """
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         # Call get_optional_params for Bedrock with prompt_cache_key
         # drop_params=True should remove it since Bedrock doesn't support it
@@ -3833,8 +3833,8 @@ class TestGetOptionalParamsSpeedGate:
     def test_drop_params_strips_speed_on_providers_without_fast_mode(
         self, monkeypatch: pytest.MonkeyPatch, custom_llm_provider: str, model: str, global_drop_params: bool
     ) -> None:
-        monkeypatch.setattr(litellm, "drop_params", global_drop_params)
-        result: Final = litellm.get_optional_params(
+        monkeypatch.setattr(hangarllm, "drop_params", global_drop_params)
+        result: Final = hangarllm.get_optional_params(
             model=model, custom_llm_provider=custom_llm_provider, speed="fast", drop_params=not global_drop_params
         )
         assert not self._speed_anywhere(result), result
@@ -3843,29 +3843,29 @@ class TestGetOptionalParamsSpeedGate:
     def test_speed_is_forwarded_untouched_without_drop_params(
         self, monkeypatch: pytest.MonkeyPatch, custom_llm_provider: str, model: str
     ) -> None:
-        monkeypatch.setattr(litellm, "drop_params", False)
-        result: Final = litellm.get_optional_params(
+        monkeypatch.setattr(hangarllm, "drop_params", False)
+        result: Final = hangarllm.get_optional_params(
             model=model, custom_llm_provider=custom_llm_provider, speed="fast", drop_params=False
         )
         assert self._speed_anywhere(result), result
 
-    def test_drop_params_keeps_speed_for_a_downstream_litellm_proxy(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "drop_params", False)
-        result: Final = litellm.get_optional_params(
-            model="claude-opus-4-8", custom_llm_provider="litellm_proxy", speed="fast", drop_params=True
+    def test_drop_params_keeps_speed_for_a_downstream_hangarllm_proxy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(hangarllm, "drop_params", False)
+        result: Final = hangarllm.get_optional_params(
+            model="claude-opus-4-8", custom_llm_provider="hangarllm_proxy", speed="fast", drop_params=True
         )
         assert self._speed_anywhere(result), result
 
     def test_speed_survives_on_a_direct_anthropic_fast_mode_model(
         self, monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None
     ) -> None:
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         fast_mode_model: Final = next(
             name
-            for name, info in litellm.model_cost.items()
-            if info.get("supports_speed") is True and info.get("litellm_provider") == "anthropic"
+            for name, info in hangarllm.model_cost.items()
+            if info.get("supports_speed") is True and info.get("hangarllm_provider") == "anthropic"
         )
-        result: Final = litellm.get_optional_params(
+        result: Final = hangarllm.get_optional_params(
             model=fast_mode_model, custom_llm_provider="anthropic", speed="fast", drop_params=True
         )
         assert result.get("speed") == "fast"
@@ -3879,7 +3879,7 @@ class TestGetOptionalParamsDeepSeek:
         Verify that get_optional_params for deepseek accepts the 'thinking' param,
         which is only supported by DeepSeekChatConfig, not OpenAIConfig.
         """
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         result = get_optional_params(
             model="deepseek-reasoner",
@@ -3893,7 +3893,7 @@ class TestGetOptionalParamsDeepSeek:
         Verify that get_optional_params for deepseek accepts 'reasoning_effort',
         which is only supported by DeepSeekChatConfig, not OpenAIConfig.
         """
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         result = get_optional_params(
             model="deepseek-reasoner",
@@ -3907,7 +3907,7 @@ class TestGetOptionalParamsDeepSeek:
         DeepSeekChatConfig strips budget_tokens from thinking param.
         This would not happen with OpenAIConfig.
         """
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         result = get_optional_params(
             model="deepseek-reasoner",
@@ -3952,75 +3952,75 @@ class TestCallbackAsyncSyncSeparation:
 
     def setup_method(self):
         """Reset callback lists before each test."""
-        litellm.input_callback = []
-        litellm.success_callback = []
-        litellm.failure_callback = []
-        litellm._async_input_callback = []
-        litellm._async_success_callback = []
-        litellm._async_failure_callback = []
+        hangarllm.input_callback = []
+        hangarllm.success_callback = []
+        hangarllm.failure_callback = []
+        hangarllm._async_input_callback = []
+        hangarllm._async_success_callback = []
+        hangarllm._async_failure_callback = []
 
     def test_async_success_callback_routed_to_async_list(self):
         async def my_async_cb(*args, **kwargs):
             pass
 
-        litellm.logging_callback_manager.add_litellm_success_callback(my_async_cb)
-        assert my_async_cb in litellm._async_success_callback
-        assert my_async_cb not in litellm.success_callback
+        hangarllm.logging_callback_manager.add_hangarllm_success_callback(my_async_cb)
+        assert my_async_cb in hangarllm._async_success_callback
+        assert my_async_cb not in hangarllm.success_callback
 
     def test_sync_success_callback_stays_in_sync_list(self):
         def my_sync_cb(*args, **kwargs):
             pass
 
-        litellm.logging_callback_manager.add_litellm_success_callback(my_sync_cb)
-        assert my_sync_cb in litellm.success_callback
-        assert my_sync_cb not in litellm._async_success_callback
+        hangarllm.logging_callback_manager.add_hangarllm_success_callback(my_sync_cb)
+        assert my_sync_cb in hangarllm.success_callback
+        assert my_sync_cb not in hangarllm._async_success_callback
 
     def test_string_callback_stays_in_sync_list(self):
-        litellm.logging_callback_manager.add_litellm_success_callback("langfuse")
-        assert "langfuse" in litellm.success_callback
-        assert "langfuse" not in litellm._async_success_callback
+        hangarllm.logging_callback_manager.add_hangarllm_success_callback("langfuse")
+        assert "langfuse" in hangarllm.success_callback
+        assert "langfuse" not in hangarllm._async_success_callback
 
     def test_async_failure_callback_routed_to_async_list(self):
         async def my_async_cb(*args, **kwargs):
             pass
 
-        litellm.logging_callback_manager.add_litellm_failure_callback(my_async_cb)
-        assert my_async_cb in litellm._async_failure_callback
-        assert my_async_cb not in litellm.failure_callback
+        hangarllm.logging_callback_manager.add_hangarllm_failure_callback(my_async_cb)
+        assert my_async_cb in hangarllm._async_failure_callback
+        assert my_async_cb not in hangarllm.failure_callback
 
     def test_sync_failure_callback_stays_in_sync_list(self):
         def my_sync_cb(*args, **kwargs):
             pass
 
-        litellm.logging_callback_manager.add_litellm_failure_callback(my_sync_cb)
-        assert my_sync_cb in litellm.failure_callback
-        assert my_sync_cb not in litellm._async_failure_callback
+        hangarllm.logging_callback_manager.add_hangarllm_failure_callback(my_sync_cb)
+        assert my_sync_cb in hangarllm.failure_callback
+        assert my_sync_cb not in hangarllm._async_failure_callback
 
     def test_dynamodb_routed_to_async_success(self):
-        litellm.logging_callback_manager.add_litellm_success_callback("dynamodb")
-        assert "dynamodb" in litellm._async_success_callback
-        assert "dynamodb" not in litellm.success_callback
+        hangarllm.logging_callback_manager.add_hangarllm_success_callback("dynamodb")
+        assert "dynamodb" in hangarllm._async_success_callback
+        assert "dynamodb" not in hangarllm.success_callback
 
     def test_openmeter_routed_to_async_success(self):
-        litellm.logging_callback_manager.add_litellm_success_callback("openmeter")
-        assert "openmeter" in litellm._async_success_callback
-        assert "openmeter" not in litellm.success_callback
+        hangarllm.logging_callback_manager.add_hangarllm_success_callback("openmeter")
+        assert "openmeter" in hangarllm._async_success_callback
+        assert "openmeter" not in hangarllm.success_callback
 
     def test_async_input_callback_routed_to_async_list(self):
         async def my_async_cb(*args, **kwargs):
             pass
 
-        litellm.logging_callback_manager.add_litellm_input_callback(my_async_cb)
-        assert my_async_cb in litellm._async_input_callback
-        assert my_async_cb not in litellm.input_callback
+        hangarllm.logging_callback_manager.add_hangarllm_input_callback(my_async_cb)
+        assert my_async_cb in hangarllm._async_input_callback
+        assert my_async_cb not in hangarllm.input_callback
 
     def test_sync_input_callback_stays_in_sync_list(self):
         def my_sync_cb(*args, **kwargs):
             pass
 
-        litellm.logging_callback_manager.add_litellm_input_callback(my_sync_cb)
-        assert my_sync_cb in litellm.input_callback
-        assert my_sync_cb not in litellm._async_input_callback
+        hangarllm.logging_callback_manager.add_hangarllm_input_callback(my_sync_cb)
+        assert my_sync_cb in hangarllm.input_callback
+        assert my_sync_cb not in hangarllm._async_input_callback
 
 
 class _DropsACallbackFromAnotherThreadWhenComparedToDynamodb:
@@ -4031,7 +4031,7 @@ class _DropsACallbackFromAnotherThreadWhenComparedToDynamodb:
     def __eq__(self, other: object) -> bool:
         if isinstance(other, str) and other == "dynamodb" and self.drop_thread is None:
             self.drop_thread = threading.Thread(
-                target=litellm.logging_callback_manager.drop_callbacks, args=((self.dropped,),)
+                target=hangarllm.logging_callback_manager.drop_callbacks, args=((self.dropped,),)
             )
             self.drop_thread.start()
             self.drop_thread.join(timeout=0.2)
@@ -4050,7 +4050,7 @@ def test_function_setup_moves_async_callbacks_while_another_thread_drops_a_callb
         return None
 
     drops_on_compare: Final = _DropsACallbackFromAnotherThreadWhenComparedToDynamodb(dropped_callback)
-    monkeypatch.setattr(litellm.utils, "callback_list", ["initialized"])
+    monkeypatch.setattr(hangarllm.utils, "callback_list", ["initialized"])
     for list_name in (
         "callbacks",
         "input_callback",
@@ -4060,22 +4060,22 @@ def test_function_setup_moves_async_callbacks_while_another_thread_drops_a_callb
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        monkeypatch.setattr(litellm, list_name, [])
-    monkeypatch.setattr(litellm, "success_callback", [dropped_callback, drops_on_compare, async_callback])
+        monkeypatch.setattr(hangarllm, list_name, [])
+    monkeypatch.setattr(hangarllm, "success_callback", [dropped_callback, drops_on_compare, async_callback])
 
-    litellm.utils.function_setup(
+    hangarllm.utils.function_setup(
         "completion",
-        litellm.utils.Rules(),
+        hangarllm.utils.Rules(),
         datetime.now(),
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
-        litellm_call_id="callback-drop-race",
+        hangarllm_call_id="callback-drop-race",
     )
     assert drops_on_compare.drop_thread is not None
     drops_on_compare.drop_thread.join()
 
-    assert litellm.success_callback == [drops_on_compare]
-    assert litellm._async_success_callback == [async_callback]
+    assert hangarllm.success_callback == [drops_on_compare]
+    assert hangarllm._async_success_callback == [async_callback]
 
 
 class _DropsACallbackFromAnotherThreadWhenComparedToSentry:
@@ -4087,7 +4087,7 @@ class _DropsACallbackFromAnotherThreadWhenComparedToSentry:
     def __eq__(self, other: object) -> bool:
         if isinstance(other, str) and other == "sentry" and self.drop_thread is None:
             self.drop_thread = threading.Thread(
-                target=litellm.logging_callback_manager.drop_callbacks, args=((self.dropped,),)
+                target=hangarllm.logging_callback_manager.drop_callbacks, args=((self.dropped,),)
             )
             self.drop_thread.start()
             self.drop_thread.join(timeout=5)
@@ -4104,7 +4104,7 @@ def test_function_setup_lets_other_threads_drop_callbacks_while_it_sets_up_logge
         return None
 
     drops_on_compare: Final = _DropsACallbackFromAnotherThreadWhenComparedToSentry(dropped_callback)
-    monkeypatch.setattr(litellm.utils, "callback_list", [])
+    monkeypatch.setattr(hangarllm.utils, "callback_list", [])
     for list_name in (
         "callbacks",
         "input_callback",
@@ -4114,16 +4114,16 @@ def test_function_setup_lets_other_threads_drop_callbacks_while_it_sets_up_logge
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        monkeypatch.setattr(litellm, list_name, [])
-    monkeypatch.setattr(litellm, "success_callback", [drops_on_compare])
+        monkeypatch.setattr(hangarllm, list_name, [])
+    monkeypatch.setattr(hangarllm, "success_callback", [drops_on_compare])
 
-    litellm.utils.function_setup(
+    hangarllm.utils.function_setup(
         "completion",
-        litellm.utils.Rules(),
+        hangarllm.utils.Rules(),
         datetime.now(),
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
-        litellm_call_id="logger-setup-outside-lock",
+        hangarllm_call_id="logger-setup-outside-lock",
     )
     assert drops_on_compare.drop_thread is not None
     drops_on_compare.drop_thread.join()
@@ -4152,8 +4152,8 @@ class TestMetadataNoneHandling:
     def test_metadata_none_model_group_check(self):
         """'model_group' in (kwargs.get("metadata") or {}) should not raise TypeError."""
         kwargs = {"metadata": None}
-        _is_litellm_router_call = "model_group" in (kwargs.get("metadata") or {})
-        assert _is_litellm_router_call is False
+        _is_hangarllm_router_call = "model_group" in (kwargs.get("metadata") or {})
+        assert _is_hangarllm_router_call is False
 
     def test_metadata_missing_key(self):
         """Should work when metadata key is completely absent."""
@@ -4166,8 +4166,8 @@ class TestMetadataNoneHandling:
         kwargs = {"metadata": {"previous_models": ["model1"], "model_group": "test"}}
         previous_models = (kwargs.get("metadata") or {}).get("previous_models", None)
         assert previous_models == ["model1"]
-        _is_litellm_router_call = "model_group" in (kwargs.get("metadata") or {})
-        assert _is_litellm_router_call is True
+        _is_hangarllm_router_call = "model_group" in (kwargs.get("metadata") or {})
+        assert _is_hangarllm_router_call is True
 
     def test_metadata_none_causes_error_with_old_pattern(self):
         """Demonstrate the bug: dict.get('metadata', {}) returns None when key exists with None value."""
@@ -4184,10 +4184,10 @@ class TestMetadataNoneHandling:
         with pytest.raises(TypeError):
             _ = "model_group" in kwargs.get("metadata", {})
 
-    def test_litellm_params_metadata_none(self):
-        """litellm_params.get("metadata") or {} should handle None value."""
-        litellm_params = {"metadata": None}
-        metadata = litellm_params.get("metadata") or {}
+    def test_hangarllm_params_metadata_none(self):
+        """hangarllm_params.get("metadata") or {} should handle None value."""
+        hangarllm_params = {"metadata": None}
+        metadata = hangarllm_params.get("metadata") or {}
         assert metadata == {}
 
 
@@ -4212,52 +4212,52 @@ def _capped_completion_kwargs(metadata_key: str, metadata: object) -> dict[str, 
     }
 
 
-@pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_key", ["metadata", "hangarllm_metadata"])
 @pytest.mark.parametrize("cap, metadata, refused", _RETRY_CAP_CASES)
 def test_num_retries_per_request_reads_request_retry_count_sync(
     monkeypatch: pytest.MonkeyPatch, metadata_key: str, cap: int, metadata: object, refused: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "num_retries_per_request", cap)
+    monkeypatch.setattr(hangarllm, "num_retries_per_request", cap)
     kwargs: Final = _capped_completion_kwargs(metadata_key, metadata)
     if refused:
         with pytest.raises(Exception, match="Max retries per request hit!"):
-            litellm.completion(**kwargs)
+            hangarllm.completion(**kwargs)
     else:
-        assert litellm.completion(**kwargs).choices[0].message.content == "ok"
+        assert hangarllm.completion(**kwargs).choices[0].message.content == "ok"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_key", ["metadata", "hangarllm_metadata"])
 @pytest.mark.parametrize("cap, metadata, refused", _RETRY_CAP_CASES)
 async def test_num_retries_per_request_reads_request_retry_count_async(
     monkeypatch: pytest.MonkeyPatch, metadata_key: str, cap: int, metadata: object, refused: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "num_retries_per_request", cap)
+    monkeypatch.setattr(hangarllm, "num_retries_per_request", cap)
     kwargs: Final = _capped_completion_kwargs(metadata_key, metadata)
     if refused:
         with pytest.raises(Exception, match="Max retries per request hit!"):
-            await litellm.acompletion(**kwargs)
+            await hangarllm.acompletion(**kwargs)
     else:
-        assert (await litellm.acompletion(**kwargs)).choices[0].message.content == "ok"
+        assert (await hangarllm.acompletion(**kwargs)).choices[0].message.content == "ok"
 
 
 class TestValidateAndFixThinkingParam:
     """Tests for validate_and_fix_thinking_param."""
 
     def test_none_returns_none(self):
-        from litellm.utils import validate_and_fix_thinking_param
+        from hangarllm.utils import validate_and_fix_thinking_param
 
         assert validate_and_fix_thinking_param(thinking=None) is None
 
     def test_already_snake_case(self):
-        from litellm.utils import validate_and_fix_thinking_param
+        from hangarllm.utils import validate_and_fix_thinking_param
 
         thinking = {"type": "enabled", "budget_tokens": 32000}
         result = validate_and_fix_thinking_param(thinking=thinking)
         assert result == {"type": "enabled", "budget_tokens": 32000}
 
     def test_camel_case_normalized(self):
-        from litellm.utils import validate_and_fix_thinking_param
+        from hangarllm.utils import validate_and_fix_thinking_param
 
         thinking = {"type": "enabled", "budgetTokens": 32000}
         result = validate_and_fix_thinking_param(thinking=thinking)
@@ -4265,7 +4265,7 @@ class TestValidateAndFixThinkingParam:
         assert "budgetTokens" not in result
 
     def test_both_keys_snake_case_wins(self):
-        from litellm.utils import validate_and_fix_thinking_param
+        from hangarllm.utils import validate_and_fix_thinking_param
 
         thinking = {"type": "enabled", "budget_tokens": 10000, "budgetTokens": 50000}
         result = validate_and_fix_thinking_param(thinking=thinking)
@@ -4273,7 +4273,7 @@ class TestValidateAndFixThinkingParam:
         assert "budgetTokens" not in result
 
     def test_original_dict_not_mutated(self):
-        from litellm.utils import validate_and_fix_thinking_param
+        from hangarllm.utils import validate_and_fix_thinking_param
 
         thinking = {"type": "enabled", "budgetTokens": 32000}
         validate_and_fix_thinking_param(thinking=thinking)
@@ -4281,8 +4281,8 @@ class TestValidateAndFixThinkingParam:
         assert "budget_tokens" not in thinking
 
     def test_bool_true_maps_to_enabled_with_default_budget(self):
-        from litellm.constants import DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET
-        from litellm.utils import validate_and_fix_thinking_param
+        from hangarllm.constants import DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET
+        from hangarllm.utils import validate_and_fix_thinking_param
 
         assert validate_and_fix_thinking_param(thinking=True) == {
             "type": "enabled",
@@ -4290,7 +4290,7 @@ class TestValidateAndFixThinkingParam:
         }
 
     def test_bool_false_returns_none(self):
-        from litellm.utils import validate_and_fix_thinking_param
+        from hangarllm.utils import validate_and_fix_thinking_param
 
         assert validate_and_fix_thinking_param(thinking=False) is None
 
@@ -4420,33 +4420,33 @@ _FIREWORKS_ROUTER_SHORT_FORMS = [
 @pytest.fixture
 def fireworks_short_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
             "fireworks_ai/accounts/fireworks/models/glm-5p3": {
                 "input_cost_per_token": 1e-6,
                 "output_cost_per_token": 2e-6,
-                "litellm_provider": "fireworks_ai",
+                "hangarllm_provider": "fireworks_ai",
                 "mode": "chat",
                 "max_tokens": 100,
             },
             "fireworks_ai/accounts/fireworks/routers/glm-5p3-fast": {
                 "input_cost_per_token": 2.1e-6,
                 "output_cost_per_token": 6.6e-6,
-                "litellm_provider": "fireworks_ai",
+                "hangarllm_provider": "fireworks_ai",
                 "mode": "chat",
             },
             "fireworks_ai/nomic-ai/nomic-embed-text-v1.5": {
                 "input_cost_per_token": 8e-9,
                 "output_cost_per_token": 0.0,
-                "litellm_provider": "fireworks_ai",
+                "hangarllm_provider": "fireworks_ai",
                 "mode": "embedding",
             },
         },
     )
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 class TestBedrockBaseModelLabelKeepsTools:
@@ -4467,7 +4467,7 @@ class TestBedrockBaseModelLabelKeepsTools:
     ]
 
     def test_base_model_label_keeps_tools_with_drop_params(self):
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         result = get_optional_params(
             model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -4484,7 +4484,7 @@ class TestBedrockBaseModelLabelKeepsTools:
     def test_base_model_label_alone_drops_tools(self):
         """Without the real model id the label resolves to no tool support, so passing
         the label as ``model`` is exactly what dropped tools before the fix."""
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         result = get_optional_params(
             model="claude-haiku-4-5",
@@ -4501,7 +4501,7 @@ def test_aws_bedrock_project_id_excluded_from_bedrock_optional_params():
     """`aws_bedrock_project_id` is sent as a bedrock-mantle request header, so it
     must never reach optional_params (and from there the request body), while
     other aws_* params keep flowing for boto3 auth."""
-    from litellm.utils import get_optional_params
+    from hangarllm.utils import get_optional_params
 
     result = get_optional_params(
         model="mantle/anthropic.claude-mythos-preview",
@@ -4520,11 +4520,11 @@ def test_aws_bedrock_project_id_excluded_from_bedrock_optional_params():
     [
         "get_non_default_completion_params",
         "get_non_default_transcription_params",
-        "filter_out_litellm_params",
+        "filter_out_hangarllm_params",
     ],
 )
 def test_scoped_weights_are_excluded_from_provider_params(filter_name: str) -> None:
-    filtered = getattr(litellm.utils, filter_name)(
+    filtered = getattr(hangarllm.utils, filter_name)(
         {"provider_option": "kept", "_router_weights": {"group": {"deployment": 100}}}
     )
     assert filtered == {"provider_option": "kept"}
@@ -4533,9 +4533,9 @@ def test_scoped_weights_are_excluded_from_provider_params(filter_name: str) -> N
 @pytest.mark.parametrize(
     "provider_filter",
     [
-        litellm.utils.get_non_default_completion_params,
-        litellm.utils.get_non_default_transcription_params,
-        litellm.utils.filter_out_litellm_params,
+        hangarllm.utils.get_non_default_completion_params,
+        hangarllm.utils.get_non_default_transcription_params,
+        hangarllm.utils.filter_out_hangarllm_params,
     ],
 )
 @pytest.mark.parametrize("setting", [("tag_regex", ["^team-a$"]), ("max_file_size_mb", 5)])
@@ -4558,10 +4558,10 @@ class TestGetOptionalParamsTencent:
         """
         from unittest.mock import patch
 
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         with patch(
-            "litellm.llms.tencent.chat.transformation.supports_reasoning",
+            "hangarllm.llms.tencent.chat.transformation.supports_reasoning",
             return_value=True,
         ):
             result = get_optional_params(
@@ -4576,10 +4576,10 @@ class TestGetOptionalParamsTencent:
         """Verify get_optional_params for tencent converts reasoning_effort to thinking."""
         from unittest.mock import patch
 
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
         with patch(
-            "litellm.llms.tencent.chat.transformation.supports_reasoning",
+            "hangarllm.llms.tencent.chat.transformation.supports_reasoning",
             return_value=True,
         ):
             result = get_optional_params(
@@ -4594,12 +4594,12 @@ class TestGetOptionalParamsTencent:
         """Verify get_supported_openai_params for tencent includes custom params."""
         from unittest.mock import patch
 
-        from litellm.litellm_core_utils.get_supported_openai_params import (
+        from hangarllm.hangarllm_core_utils.get_supported_openai_params import (
             get_supported_openai_params,
         )
 
         with patch(
-            "litellm.llms.tencent.chat.transformation.supports_reasoning",
+            "hangarllm.llms.tencent.chat.transformation.supports_reasoning",
             return_value=True,
         ):
             params = get_supported_openai_params(
@@ -4611,37 +4611,37 @@ class TestGetOptionalParamsTencent:
 
     def test_tencent_messages_config_routing(self):
         """Verify ProviderConfigManager routes tencent to TencentAnthropicMessagesConfig."""
-        import litellm
-        from litellm.llms.tencent.messages.transformation import (
+        import hangarllm
+        from hangarllm.llms.tencent.messages.transformation import (
             TencentAnthropicMessagesConfig,
         )
 
         config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model="deepseek-v4-pro",
-            provider=litellm.LlmProviders.TENCENT,
+            provider=hangarllm.LlmProviders.TENCENT,
         )
         assert isinstance(config, TencentAnthropicMessagesConfig)
         assert config.custom_llm_provider == "tencent"
 
     def test_bedrock_mantle_claude_messages_config_routing(self):
-        import litellm
-        from litellm.llms.bedrock_mantle.messages.transformation import (
+        import hangarllm
+        from hangarllm.llms.bedrock_mantle.messages.transformation import (
             BedrockMantleAnthropicMessagesConfig,
         )
 
         config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model="anthropic.claude-sonnet-5",
-            provider=litellm.LlmProviders.BEDROCK_MANTLE,
+            provider=hangarllm.LlmProviders.BEDROCK_MANTLE,
         )
         assert isinstance(config, BedrockMantleAnthropicMessagesConfig)
         assert config.custom_llm_provider == "bedrock_mantle"
 
     def test_bedrock_mantle_openai_models_keep_the_messages_bridge(self):
-        import litellm
+        import hangarllm
 
         config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model="openai.gpt-5.6-sol",
-            provider=litellm.LlmProviders.BEDROCK_MANTLE,
+            provider=hangarllm.LlmProviders.BEDROCK_MANTLE,
         )
         assert config is None
 
@@ -4651,14 +4651,14 @@ class TestValidateEnvironmentTencent:
 
     def test_reports_key_present(self):
         with patch.dict(os.environ, {"TENCENT_API_KEY": "sk-tencent"}):
-            result = litellm.validate_environment(model="tencent/deepseek-v4-pro")
+            result = hangarllm.validate_environment(model="tencent/deepseek-v4-pro")
 
         assert result["keys_in_environment"] is True
         assert result["missing_keys"] == []
 
     def test_reports_key_missing(self):
         with patch.dict(os.environ, {}, clear=True):
-            result = litellm.validate_environment(model="tencent/deepseek-v4-pro")
+            result = hangarllm.validate_environment(model="tencent/deepseek-v4-pro")
 
         assert result["keys_in_environment"] is False
         assert "TENCENT_API_KEY" in result["missing_keys"]
@@ -4671,7 +4671,7 @@ class TestVertexEmbeddingEncodingFormat:
     drop_params, raise otherwise). Issue #33173."""
 
     def test_encoding_format_float_is_accepted_and_dropped(self):
-        optional_params = litellm.utils.get_optional_params_embeddings(
+        optional_params = hangarllm.utils.get_optional_params_embeddings(
             model="gemini-embedding-001",
             encoding_format="float",
             custom_llm_provider="vertex_ai",
@@ -4679,7 +4679,7 @@ class TestVertexEmbeddingEncodingFormat:
         assert "encoding_format" not in optional_params
 
     def test_encoding_format_float_accepted_for_gemini_provider(self):
-        optional_params = litellm.utils.get_optional_params_embeddings(
+        optional_params = hangarllm.utils.get_optional_params_embeddings(
             model="gemini-embedding-001",
             encoding_format="float",
             custom_llm_provider="gemini",
@@ -4687,8 +4687,8 @@ class TestVertexEmbeddingEncodingFormat:
         assert "encoding_format" not in optional_params
 
     def test_encoding_format_base64_still_rejected_without_drop_params(self):
-        with pytest.raises(Exception, match="To drop these, set `litellm\\.drop_params=True` or for proxy") as excinfo:
-            litellm.utils.get_optional_params_embeddings(
+        with pytest.raises(Exception, match="To drop these, set `hangarllm\\.drop_params=True` or for proxy") as excinfo:
+            hangarllm.utils.get_optional_params_embeddings(
                 model="gemini-embedding-001",
                 encoding_format="base64",
                 custom_llm_provider="vertex_ai",
@@ -4696,7 +4696,7 @@ class TestVertexEmbeddingEncodingFormat:
         assert "encoding_format" in str(excinfo.value)
 
     def test_encoding_format_base64_dropped_with_drop_params(self):
-        optional_params = litellm.utils.get_optional_params_embeddings(
+        optional_params = hangarllm.utils.get_optional_params_embeddings(
             model="gemini-embedding-001",
             encoding_format="base64",
             custom_llm_provider="vertex_ai",
@@ -4705,7 +4705,7 @@ class TestVertexEmbeddingEncodingFormat:
         assert "encoding_format" not in optional_params
 
     def test_dimensions_still_mapped(self):
-        optional_params = litellm.utils.get_optional_params_embeddings(
+        optional_params = hangarllm.utils.get_optional_params_embeddings(
             model="gemini-embedding-001",
             encoding_format="float",
             dimensions=256,
@@ -4728,7 +4728,7 @@ class TestBedrockCohereEmbeddingDispatch:
         ],
     )
     def test_cohere_embed_models_accept_encoding_format(self, model):
-        optional_params = litellm.utils.get_optional_params_embeddings(
+        optional_params = hangarllm.utils.get_optional_params_embeddings(
             model=model,
             encoding_format="float",
             custom_llm_provider="bedrock",
@@ -4744,7 +4744,7 @@ class TestBedrockCohereEmbeddingDispatch:
         ],
     )
     def test_cohere_embed_models_map_base64_to_float(self, model):
-        optional_params = litellm.utils.get_optional_params_embeddings(
+        optional_params = hangarllm.utils.get_optional_params_embeddings(
             model=model,
             encoding_format="base64",
             custom_llm_provider="bedrock",
@@ -4752,7 +4752,7 @@ class TestBedrockCohereEmbeddingDispatch:
         assert optional_params.get("embedding_types") == ["float"]
 
     def test_cohere_embed_english_v3_maps_dimensions(self):
-        optional_params = litellm.utils.get_optional_params_embeddings(
+        optional_params = hangarllm.utils.get_optional_params_embeddings(
             model="cohere.embed-english-v3",
             encoding_format="float",
             dimensions=512,
@@ -4860,7 +4860,7 @@ def test_is_prompt_caching_valid_prompt_uses_per_model_minimum(local_model_cost_
     the flat-1024 check reported claude-opus-4-6 as cacheable and the cache write was rejected
     upstream. Both assertions must live together: is_prompt_caching_valid_prompt returns False on
     any internal error, so the True case is what proves the False case isn't a swallowed exception."""
-    token_count = litellm.token_counter(
+    token_count = hangarllm.token_counter(
         model="claude-opus-4-6", messages=PROMPT_CACHE_MESSAGES, use_default_image_token_count=True
     )
     assert 1024 <= token_count < 4096, (
@@ -4893,7 +4893,7 @@ def test_is_prompt_caching_valid_prompt_stops_counting_once_the_minimum_is_reach
     Claude Code conversation on every request only to compare it with a 1024-token minimum, which
     sat on the request's wall clock between auth and the LLM call. The check must decide after the
     first few messages and still agree with the full count on both sides of the minimum."""
-    import litellm.litellm_core_utils.token_counter as token_counter_module
+    import hangarllm.hangarllm_core_utils.token_counter as token_counter_module
 
     long_prompt = PROMPT_CACHE_MESSAGES * 50
     counted_messages: list[int] = []  # mutable-ok: recorder for the _count_messages double
@@ -4908,7 +4908,7 @@ def test_is_prompt_caching_valid_prompt_stops_counting_once_the_minimum_is_reach
     assert is_prompt_caching_valid_prompt(model="claude-opus-4-8", messages=long_prompt, min_token_count=1024) is True
     assert sum(counted_messages) < len(long_prompt), sum(counted_messages)
 
-    full_count = litellm.token_counter(
+    full_count = hangarllm.token_counter(
         model="claude-opus-4-8", messages=long_prompt, use_default_image_token_count=True
     )
     assert (
@@ -4934,8 +4934,8 @@ def test_custom_logger_guards_ignore_subclass_instances(monkeypatch: pytest.Monk
     report the built-in itself as registered and the configured logger was silently skipped.
     The exact-class assertions must hold alongside the subclass assertions: the guards still
     have to dedup a second instance of the same class, only a subclass must stop matching."""
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.utils import (
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.utils import (
         _custom_logger_class_exists_in_failure_callbacks,
         _custom_logger_class_exists_in_success_callbacks,
     )
@@ -4948,15 +4948,15 @@ def test_custom_logger_guards_ignore_subclass_instances(monkeypatch: pytest.Monk
 
     builtin_instance = BuiltinLogger()
 
-    monkeypatch.setattr(litellm, "success_callback", [UserSubclassLogger()])
-    monkeypatch.setattr(litellm, "failure_callback", [UserSubclassLogger()])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [UserSubclassLogger()])
+    monkeypatch.setattr(hangarllm, "failure_callback", [UserSubclassLogger()])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
     assert _custom_logger_class_exists_in_success_callbacks(builtin_instance) is False
     assert _custom_logger_class_exists_in_failure_callbacks(builtin_instance) is False
 
-    monkeypatch.setattr(litellm, "success_callback", [BuiltinLogger()])
-    monkeypatch.setattr(litellm, "failure_callback", [BuiltinLogger()])
+    monkeypatch.setattr(hangarllm, "success_callback", [BuiltinLogger()])
+    monkeypatch.setattr(hangarllm, "failure_callback", [BuiltinLogger()])
     assert _custom_logger_class_exists_in_success_callbacks(builtin_instance) is True
     assert _custom_logger_class_exists_in_failure_callbacks(builtin_instance) is True
 
@@ -4966,8 +4966,8 @@ def test_custom_logger_guards_distinguish_callback_names(monkeypatch: pytest.Mon
     so a class-only guard reported a UI-added arize as already registered whenever otel was
     active and silently skipped it. The guard has to match on class and callback_name together:
     the same preset twice is still a duplicate, a sibling preset or a subclass is not."""
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.utils import (
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.utils import (
         _custom_logger_class_exists_in_failure_callbacks,
         _custom_logger_class_exists_in_success_callbacks,
     )
@@ -4980,10 +4980,10 @@ def test_custom_logger_guards_distinguish_callback_names(monkeypatch: pytest.Mon
     class UserSubclassLogger(PresetLogger):
         pass
 
-    monkeypatch.setattr(litellm, "success_callback", [PresetLogger("otel"), UserSubclassLogger("arize")])
-    monkeypatch.setattr(litellm, "failure_callback", [PresetLogger("otel"), UserSubclassLogger("arize")])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [PresetLogger("otel"), UserSubclassLogger("arize")])
+    monkeypatch.setattr(hangarllm, "failure_callback", [PresetLogger("otel"), UserSubclassLogger("arize")])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
 
     assert _custom_logger_class_exists_in_success_callbacks(PresetLogger("otel")) is True
     assert _custom_logger_class_exists_in_failure_callbacks(PresetLogger("otel")) is True
@@ -4999,58 +4999,58 @@ def test_custom_logger_guards_distinguish_callback_names(monkeypatch: pytest.Mon
 async def test_s3_v2_success_callback_registers_alongside_user_subclass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression LIT-4392: with a user S3Logger subclass registered via litellm_settings.callbacks
+    """Regression LIT-4392: with a user S3Logger subclass registered via hangarllm_settings.callbacks
     and success_callback ["s3_v2"], the built-in s3_v2 logger was never added and S3 logs were
     silently dropped while requests kept returning 200."""
-    from litellm.integrations.s3_v2 import S3Logger
-    from litellm.utils import add_custom_logger_callback_to_specific_event
+    from hangarllm.integrations.s3_v2 import S3Logger
+    from hangarllm.utils import add_custom_logger_callback_to_specific_event
 
     class UserS3Logger(S3Logger):
         async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
             pass
 
     user_logger = UserS3Logger()
-    monkeypatch.setattr(litellm, "success_callback", [user_logger, "s3_v2"])
-    monkeypatch.setattr(litellm, "_async_success_callback", [user_logger])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [user_logger, "s3_v2"])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [user_logger])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
 
     add_custom_logger_callback_to_specific_event("s3_v2", "success")
 
-    assert any(type(cb) is S3Logger for cb in litellm.success_callback)
-    assert any(type(cb) is S3Logger for cb in litellm._async_success_callback)
-    assert "s3_v2" not in litellm.success_callback
-    assert user_logger in litellm.success_callback
+    assert any(type(cb) is S3Logger for cb in hangarllm.success_callback)
+    assert any(type(cb) is S3Logger for cb in hangarllm._async_success_callback)
+    assert "s3_v2" not in hangarllm.success_callback
+    assert user_logger in hangarllm.success_callback
 
 
 @pytest.mark.asyncio
 async def test_builtin_string_callback_registers_when_subclass_already_active(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression LIT-4392, litellm.callbacks path: the inline dedup in function_setup also
-    matched subclass instances, so a built-in name in litellm.callbacks was dropped whenever a
+    """Regression LIT-4392, hangarllm.callbacks path: the inline dedup in function_setup also
+    matched subclass instances, so a built-in name in hangarllm.callbacks was dropped whenever a
     user subclass was already promoted into _async_success_callback."""
-    from litellm.integrations.s3_v2 import S3Logger
+    from hangarllm.integrations.s3_v2 import S3Logger
 
     class UserS3Logger(S3Logger):
         async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
             pass
 
     user_logger = UserS3Logger()
-    monkeypatch.setattr(litellm, "callbacks", ["s3_v2"])
-    monkeypatch.setattr(litellm, "input_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [user_logger])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [user_logger])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", ["s3_v2"])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [user_logger])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [user_logger])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-5.6",
         messages=[{"role": "user", "content": "hi"}],
         mock_response="ok",
     )
 
-    assert any(type(cb) is S3Logger for cb in litellm._async_success_callback)
+    assert any(type(cb) is S3Logger for cb in hangarllm._async_success_callback)
 
 
 @pytest.mark.usefixtures("isolated_openai_model_sets", "local_model_cost_map")
@@ -5061,49 +5061,49 @@ def test_reapply_runtime_registrations_replays_register_model_overrides(
 ) -> None:
     """
     register_model is the documented way to override pricing for a model. A
-    price-data reload swaps litellm.model_cost for a freshly fetched catalog,
+    price-data reload swaps hangarllm.model_cost for a freshly fetched catalog,
     so without replaying those registrations the override is silently lost and
     the model reverts to upstream pricing.
     """
-    from litellm import utils as litellm_utils
-    from litellm.utils import (
+    from hangarllm import utils as hangarllm_utils
+    from hangarllm.utils import (
         _invalidate_model_cost_lowercase_map,
         reapply_runtime_model_cost_registrations,
     )
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
     # Only the recorded half is under test here; the live-router rebuild is covered
     # in test_router_model_cost_isolation.py. Routers built by earlier tests in this
     # process stay in the weak set until they are collected, so leaving the callback
     # installed would make this depend on when that happens.
-    monkeypatch.setattr(litellm_utils._LiveDeploymentReplay, "callback", None)
+    monkeypatch.setattr(hangarllm_utils._LiveDeploymentReplay, "callback", None)
 
-    saved_model_cost: Final = litellm.model_cost
-    monkeypatch.setattr(litellm, "model_cost", dict(saved_model_cost))
+    saved_model_cost: Final = hangarllm.model_cost
+    monkeypatch.setattr(hangarllm, "model_cost", dict(saved_model_cost))
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             model_cost={
                 "openai/gpt-4o": {
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                     "mode": "chat",
                     "input_cost_per_token": rate,
                 }
             }
         )
 
-        litellm.register_model({"openai/gpt-4o": {"supports_function_calling": True, "input_cost_per_token": None}})
-        litellm.register_model(
+        hangarllm.register_model({"openai/gpt-4o": {"supports_function_calling": True, "input_cost_per_token": None}})
+        hangarllm.register_model(
             {"openai/gpt-4o": {"input_cost_per_token": str(updated_rate) if updated_rate is not None else None}}
         )
-        litellm.register_model({"openai/gpt-4o": {"supports_function_calling": False}})
+        hangarllm.register_model({"openai/gpt-4o": {"supports_function_calling": False}})
 
-        litellm.model_cost = {
+        hangarllm.model_cost = {
             "openai/gpt-4o": {
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 0.000999,
                 "max_input_tokens": 4242,
@@ -5113,11 +5113,11 @@ def test_reapply_runtime_registrations_replays_register_model_overrides(
         reapply_runtime_model_cost_registrations()
 
         expected_rate: Final = rate if updated_rate is None else updated_rate
-        assert litellm.model_cost["openai/gpt-4o"]["input_cost_per_token"] == expected_rate
-        assert litellm.model_cost["openai/gpt-4o"]["supports_function_calling"] is False
-        assert litellm.model_cost["openai/gpt-4o"]["max_input_tokens"] == 4242
+        assert hangarllm.model_cost["openai/gpt-4o"]["input_cost_per_token"] == expected_rate
+        assert hangarllm.model_cost["openai/gpt-4o"]["supports_function_calling"] is False
+        assert hangarllm.model_cost["openai/gpt-4o"]["max_input_tokens"] == 4242
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -5129,63 +5129,63 @@ def test_reapply_runtime_registrations_drops_request_scoped_registrations(monkey
     the catalog generation it was applied to and silently beat fresh upstream
     pricing forever, while a durable override registered alongside it survives.
     """
-    from litellm import utils as litellm_utils
-    from litellm.utils import (
+    from hangarllm import utils as hangarllm_utils
+    from hangarllm.utils import (
         _invalidate_model_cost_lowercase_map,
         reapply_runtime_model_cost_registrations,
     )
 
     monkeypatch.setattr(
-        litellm_utils,
+        hangarllm_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(hangarllm_utils._runtime_registered_model_cost),
     )
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = hangarllm.model_cost
     try:
-        litellm.register_model(
-            model_cost={"openai/gpt-4o": {"litellm_provider": "openai", "input_cost_per_token": 0.000111}},
+        hangarllm.register_model(
+            model_cost={"openai/gpt-4o": {"hangarllm_provider": "openai", "input_cost_per_token": 0.000111}},
             persist_across_reloads=True,
         )
-        litellm.register_model(
-            model_cost={"openai/gpt-4o-mini": {"litellm_provider": "openai", "input_cost_per_token": 0.000222}},
+        hangarllm.register_model(
+            model_cost={"openai/gpt-4o-mini": {"hangarllm_provider": "openai", "input_cost_per_token": 0.000222}},
             persist_across_reloads=False,
         )
 
-        litellm.model_cost = {
-            "openai/gpt-4o": {"litellm_provider": "openai", "input_cost_per_token": 0.000999},
-            "openai/gpt-4o-mini": {"litellm_provider": "openai", "input_cost_per_token": 0.000888},
+        hangarllm.model_cost = {
+            "openai/gpt-4o": {"hangarllm_provider": "openai", "input_cost_per_token": 0.000999},
+            "openai/gpt-4o-mini": {"hangarllm_provider": "openai", "input_cost_per_token": 0.000888},
         }
         _invalidate_model_cost_lowercase_map()
         reapply_runtime_model_cost_registrations()
 
-        assert litellm.model_cost["openai/gpt-4o"]["input_cost_per_token"] == 0.000111
-        assert litellm.model_cost["openai/gpt-4o-mini"]["input_cost_per_token"] == 0.000888
+        assert hangarllm.model_cost["openai/gpt-4o"]["input_cost_per_token"] == 0.000111
+        assert hangarllm.model_cost["openai/gpt-4o-mini"]["input_cost_per_token"] == 0.000888
     finally:
-        litellm.model_cost = saved_model_cost
+        hangarllm.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
 def test_model_cost_walks_survive_a_registration_landing_mid_walk(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.utils import _invalidate_model_cost_lowercase_map, _rebuild_model_cost_lowercase_map
+    from hangarllm.utils import _invalidate_model_cost_lowercase_map, _rebuild_model_cost_lowercase_map
 
     class _KeyRegisteredMidWalk(str):
         def lower(self) -> str:
-            litellm.model_cost.setdefault("lit-5853-registered-during-the-rebuild", {"mode": "chat"})
+            hangarllm.model_cost.setdefault("lit-5853-registered-during-the-rebuild", {"mode": "chat"})
             return super().lower()
 
     class _EntryRegisteredMidWalk(dict):
         def get(self, field: str, default: object = None) -> object:
-            litellm.model_cost.setdefault("lit-5853-registered-during-add-known-models", {"mode": "chat"})
+            hangarllm.model_cost.setdefault("lit-5853-registered-during-add-known-models", {"mode": "chat"})
             return super().get(field, default)
 
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
-    litellm.model_cost[_KeyRegisteredMidWalk("LIT-5853-WALKED-LAST")] = _EntryRegisteredMidWalk(mode="chat")
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
+    hangarllm.model_cost[_KeyRegisteredMidWalk("LIT-5853-WALKED-LAST")] = _EntryRegisteredMidWalk(mode="chat")
     try:
         assert _rebuild_model_cost_lowercase_map()["lit-5853-walked-last"] == "LIT-5853-WALKED-LAST"
-        litellm.add_known_models(model_cost_map=litellm.model_cost)
-        assert "lit-5853-registered-during-the-rebuild" in litellm.model_cost
-        assert "lit-5853-registered-during-add-known-models" in litellm.model_cost
+        hangarllm.add_known_models(model_cost_map=hangarllm.model_cost)
+        assert "lit-5853-registered-during-the-rebuild" in hangarllm.model_cost
+        assert "lit-5853-registered-during-add-known-models" in hangarllm.model_cost
     finally:
         _invalidate_model_cost_lowercase_map()
 
@@ -5195,14 +5195,14 @@ class _KeyWhoseLoweringLosesTheRace(str):
     its read, so another thread's registration invalidating the map lands right there."""
 
     def lower(self) -> str:
-        from litellm.utils import _invalidate_model_cost_lowercase_map
+        from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
         _invalidate_model_cost_lowercase_map()
         return super().lower()
 
 
 def test_case_insensitive_model_cost_lookup_survives_an_invalidation_mid_lookup() -> None:
-    from litellm.utils import _get_model_cost_key, _invalidate_model_cost_lowercase_map
+    from hangarllm.utils import _get_model_cost_key, _invalidate_model_cost_lowercase_map
 
     _invalidate_model_cost_lowercase_map()
     try:
@@ -5212,7 +5212,7 @@ def test_case_insensitive_model_cost_lookup_survives_an_invalidation_mid_lookup(
 
 
 def _register_a_model_mid_walk() -> None:
-    litellm.model_cost.setdefault("lit-5853-registered-mid-walk", {"mode": "chat"})
+    hangarllm.model_cost.setdefault("lit-5853-registered-mid-walk", {"mode": "chat"})
 
 
 class _KeyReadDuringARegistration(str):
@@ -5240,11 +5240,11 @@ class _EntryReadDuringARegistration(dict[str, object]):
 def test_request_path_cost_map_walks_survive_a_registration_mid_walk(
     monkeypatch: pytest.MonkeyPatch, walk: str
 ) -> None:
-    from litellm.llms.fal_ai.cost_calculator import _keyed_rows
-    from litellm.llms.fireworks_ai.chat.transformation import FireworksAIConfig
-    from litellm.llms.ollama.common_utils import OllamaModelInfo
-    from litellm.llms.openai.chat.gpt_reasoning_transformation import _catalogue_declares_default_effort
-    from litellm.utils import _handle_new_key_with_scan, _invalidate_model_cost_lowercase_map
+    from hangarllm.llms.fal_ai.cost_calculator import _keyed_rows
+    from hangarllm.llms.fireworks_ai.chat.transformation import FireworksAIConfig
+    from hangarllm.llms.ollama.common_utils import OllamaModelInfo
+    from hangarllm.llms.openai.chat.gpt_reasoning_transformation import _catalogue_declares_default_effort
+    from hangarllm.utils import _handle_new_key_with_scan, _invalidate_model_cost_lowercase_map
 
     walks: Final[Mapping[str, Callable[[], object]]] = {
         "fal_ai": lambda: _keyed_rows("lit-5853-model", "standard"),
@@ -5254,14 +5254,14 @@ def test_request_path_cost_map_walks_survive_a_registration_mid_walk(
         "case-insensitive scan": lambda: _handle_new_key_with_scan("lit-5853-model"),
     }
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {_KeyReadDuringARegistration("lit-5853-catalog-model"): _EntryReadDuringARegistration(mode="chat")},
     )
 
     try:
         walks[walk]()
-        assert "lit-5853-registered-mid-walk" in litellm.model_cost
+        assert "lit-5853-registered-mid-walk" in hangarllm.model_cost
     finally:
         _invalidate_model_cost_lowercase_map()
 
@@ -5291,18 +5291,18 @@ async def test_wrapper_async_restores_originating_task_context_after_success(mon
     asyncio.create_task + the global logging worker - a different Task than the
     one running acompletion() itself (this test's own task). That handler's own
     restore only fixes up the detached child task it runs in; wrapper_async's own
-    finally block (in litellm/utils.py) must separately restore the *originating*
+    finally block (in hangarllm/utils.py) must separately restore the *originating*
     task's trace_id/session_id, since nothing else does.
     """
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
     trace_id_var.set("outer-trace-wrapper-test")
     session_id_var.set("outer-session-wrapper-test")
     try:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="Hello there!",
-            litellm_session_id="mock-call-session",
+            hangarllm_session_id="mock-call-session",
             num_retries=0,
         )
         assert trace_id_var.get() == "outer-trace-wrapper-test"
@@ -5340,11 +5340,11 @@ class _SuccessKwargsCapture(CustomLogger):
 
 def _install_converted_stream_callbacks(monkeypatch: pytest.MonkeyPatch) -> _SuccessKwargsCapture:
     capture: Final = _SuccessKwargsCapture()
-    monkeypatch.setattr(litellm, "callbacks", [_ConvertStreamDeploymentHook(), capture])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ConvertStreamDeploymentHook(), capture])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
     return capture
 
 
@@ -5373,7 +5373,7 @@ async def test_wrapper_async_logs_converted_chat_stream_with_standard_logging_ob
 ) -> None:
     capture: Final = _install_converted_stream_callbacks(monkeypatch)
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gpt-5.6",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -5416,9 +5416,9 @@ async def test_wrapper_async_runs_success_deployment_hook_on_converted_chat_stre
 ) -> None:
     _install_converted_stream_callbacks(monkeypatch)
     hook: Final = _RewritingSuccessDeploymentHook()
-    monkeypatch.setattr(litellm, "callbacks", [_ConvertStreamDeploymentHook(), hook])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ConvertStreamDeploymentHook(), hook])
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gpt-5.6",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -5448,7 +5448,7 @@ async def test_converted_chat_stream_hook_skips_unhandled_wrappers(
     monkeypatch: pytest.MonkeyPatch, completion_stream: object, call_type: str
 ) -> None:
     hook: Final = _RewritingSuccessDeploymentHook()
-    monkeypatch.setattr(litellm, "callbacks", [hook])
+    monkeypatch.setattr(hangarllm, "callbacks", [hook])
     wrapper: Final = CustomStreamWrapper(
         completion_stream=completion_stream, model="gpt-5.6", logging_obj=MagicMock(), custom_llm_provider="openai"
     )
@@ -5513,7 +5513,7 @@ async def test_success_deployment_hook_raising_keeps_response_and_runs_later_hoo
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, response: object, call_type: CallTypes
 ) -> None:
     second_hook: Final = _RecordingSuccessDeploymentHook()
-    monkeypatch.setattr(litellm, "callbacks", [_ChatShapedSuccessDeploymentHook(), second_hook])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ChatShapedSuccessDeploymentHook(), second_hook])
 
     with caplog.at_level(logging.ERROR, logger=verbose_logger.name):
         result: Final = await async_post_call_success_deployment_hook(
@@ -5535,7 +5535,7 @@ async def test_success_deployment_hook_raising_keeps_response_and_runs_later_hoo
 async def test_success_deployment_hook_raising_keeps_earlier_hook_rewrite(monkeypatch: pytest.MonkeyPatch) -> None:
     rewriter: Final = _RewritingSuccessDeploymentHook()
     trailing_hook: Final = _RecordingSuccessDeploymentHook()
-    monkeypatch.setattr(litellm, "callbacks", [rewriter, _ChatShapedSuccessDeploymentHook(), trailing_hook])
+    monkeypatch.setattr(hangarllm, "callbacks", [rewriter, _ChatShapedSuccessDeploymentHook(), trailing_hook])
     original: Final = ModelResponse(model="gpt-5.6")
 
     result: Final = await async_post_call_success_deployment_hook(
@@ -5563,7 +5563,7 @@ class _BlockingSuccessDeploymentGuardrail(CustomGuardrail):
 async def test_success_deployment_hook_still_propagates_guardrail_block(monkeypatch: pytest.MonkeyPatch) -> None:
     later_hook: Final = _RewritingSuccessDeploymentHook()
     monkeypatch.setattr(
-        litellm, "callbacks", [_BlockingSuccessDeploymentGuardrail(guardrail_name="blocking"), later_hook]
+        hangarllm, "callbacks", [_BlockingSuccessDeploymentGuardrail(guardrail_name="blocking"), later_hook]
     )
 
     with pytest.raises(_GuardrailBlocked):
@@ -5580,14 +5580,14 @@ async def test_wrapper_async_leaves_success_deployment_hook_off_requested_fake_s
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     hook: Final = _RewritingSuccessDeploymentHook()
-    monkeypatch.setattr(litellm, "callbacks", [hook])
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "callbacks", [hook])
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx.post("http://fake-stream.invalid/api/v1/run/flow-1").respond(
         json={"outputs": [{"outputs": [{"results": {"message": {"text": "plain stream body"}}}]}]}
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="langflow/flow-1",
         api_base="http://fake-stream.invalid",
         api_key="fake-key",
@@ -5608,11 +5608,11 @@ async def test_wrapper_async_leaves_success_deployment_hook_off_requested_fake_s
 async def test_wrapper_async_logs_converted_responses_stream_with_standard_logging_object(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+    from hangarllm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
 
     capture: Final = _install_converted_stream_callbacks(monkeypatch)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     respx.post("https://api.openai.com/v1/responses").respond(
         json={
             "id": "resp_converted",
@@ -5633,7 +5633,7 @@ async def test_wrapper_async_logs_converted_responses_stream_with_standard_loggi
         }
     )
 
-    response: Final = await litellm.aresponses(
+    response: Final = await hangarllm.aresponses(
         model="openai/gpt-5.6", input="hi", stream=True, api_key="sk-test", num_retries=0
     )
     assert isinstance(response, BaseResponsesAPIStreamingIterator)
@@ -5653,27 +5653,27 @@ async def test_wrapper_async_logs_converted_responses_stream_with_standard_loggi
     [
         ({"metadata": {"model_group": "g"}}, False, True),
         ({"metadata": {"model_group": "g"}}, True, True),
-        ({"litellm_metadata": {"model_group": "g"}}, False, False),
-        ({"litellm_metadata": {"model_group": "g"}}, True, True),
+        ({"hangarllm_metadata": {"model_group": "g"}}, False, False),
+        ({"hangarllm_metadata": {"model_group": "g"}}, True, True),
         ({}, False, False),
         ({}, True, False),
         ({"metadata": None}, False, False),
         ({"metadata": None}, True, False),
     ],
 )
-def test_is_litellm_router_call_is_async_aware(kwargs: Mapping[str, object], is_async: bool, expected: bool) -> None:
-    assert _is_litellm_router_call(kwargs, is_async=is_async) is expected
+def test_is_hangarllm_router_call_is_async_aware(kwargs: Mapping[str, object], is_async: bool, expected: bool) -> None:
+    assert _is_hangarllm_router_call(kwargs, is_async=is_async) is expected
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [False, True], ids=["non_streaming", "streaming"])
 async def test_router_aresponses_does_not_run_sdk_retries(monkeypatch: pytest.MonkeyPatch, stream: bool) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     model_list: Final = [
         {
             "model_name": "responses-retry",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-test",
                 "api_base": "https://responses-retry.local/v1",
@@ -5681,7 +5681,7 @@ async def test_router_aresponses_does_not_run_sdk_retries(monkeypatch: pytest.Mo
             },
         }
     ]
-    router: Final = litellm.Router(model_list=model_list, num_retries=0, retry_after=0, disable_cooldowns=True)
+    router: Final = hangarllm.Router(model_list=model_list, num_retries=0, retry_after=0, disable_cooldowns=True)
 
     try:
         with respx.mock(assert_all_called=True) as respx_mock:
@@ -5692,24 +5692,24 @@ async def test_router_aresponses_does_not_run_sdk_retries(monkeypatch: pytest.Mo
                     json={"error": {"message": "model is down", "type": "server_error"}},
                 )
             )
-            with pytest.raises(litellm.ServiceUnavailableError):
+            with pytest.raises(hangarllm.ServiceUnavailableError):
                 await router.aresponses(model="responses-retry", input="hi", stream=stream)
 
         assert upstream.call_count == 3
     finally:
         router.discard()
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def test_router_responses_keeps_sdk_retries_for_sync_router_call(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     model_list: Final = [
         {
             "model_name": "responses-retry",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-test",
                 "api_base": "https://responses-retry.local/v1",
@@ -5717,7 +5717,7 @@ def test_router_responses_keeps_sdk_retries_for_sync_router_call(
             },
         }
     ]
-    router: Final = litellm.Router(model_list=model_list, num_retries=0, retry_after=0, disable_cooldowns=True)
+    router: Final = hangarllm.Router(model_list=model_list, num_retries=0, retry_after=0, disable_cooldowns=True)
 
     try:
         with respx.mock(assert_all_called=True) as respx_mock:
@@ -5728,19 +5728,19 @@ def test_router_responses_keeps_sdk_retries_for_sync_router_call(
                     json={"error": {"message": "model is down", "type": "server_error"}},
                 )
             )
-            with pytest.raises(litellm.ServiceUnavailableError):
+            with pytest.raises(hangarllm.ServiceUnavailableError):
                 router.responses(model="responses-retry", input="hi")
 
         assert upstream.call_count == 3
     finally:
         router.discard()
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
 async def test_aresponses_uses_sdk_retries_without_router(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     try:
         with respx.mock(assert_all_called=True) as respx_mock:
@@ -5751,8 +5751,8 @@ async def test_aresponses_uses_sdk_retries_without_router(monkeypatch: pytest.Mo
                     json={"error": {"message": "model is down", "type": "server_error"}},
                 )
             )
-            with pytest.raises(litellm.ServiceUnavailableError):
-                await litellm.aresponses(
+            with pytest.raises(hangarllm.ServiceUnavailableError):
+                await hangarllm.aresponses(
                     model="openai/gpt-4o-mini",
                     input="hi",
                     api_base="https://responses-direct.local/v1",
@@ -5762,12 +5762,12 @@ async def test_aresponses_uses_sdk_retries_without_router(monkeypatch: pytest.Mo
 
         assert upstream.call_count == 3
     finally:
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def test_responses_uses_sdk_retries_without_router(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     try:
         with respx.mock(assert_all_called=True) as respx_mock:
@@ -5778,8 +5778,8 @@ def test_responses_uses_sdk_retries_without_router(monkeypatch: pytest.MonkeyPat
                     json={"error": {"message": "model is down", "type": "server_error"}},
                 )
             )
-            with pytest.raises(litellm.ServiceUnavailableError):
-                litellm.responses(
+            with pytest.raises(hangarllm.ServiceUnavailableError):
+                hangarllm.responses(
                     model="openai/gpt-4o-mini",
                     input="hi",
                     api_base="https://responses-sync.local/v1",
@@ -5789,7 +5789,7 @@ def test_responses_uses_sdk_retries_without_router(monkeypatch: pytest.MonkeyPat
 
         assert upstream.call_count == 3
     finally:
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
@@ -5797,7 +5797,7 @@ async def test_wrapper_async_replays_cached_converted_chat_stream_as_stream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     capture: Final = _install_converted_stream_callbacks(monkeypatch)
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type="local"))
     request: Final = {
         "model": "gpt-5.6",
         "messages": [{"role": "user", "content": "replay me from cache"}],
@@ -5806,12 +5806,12 @@ async def test_wrapper_async_replays_cached_converted_chat_stream_as_stream(
         "num_retries": 0,
     }
 
-    first: Final = await litellm.acompletion(**request)
+    first: Final = await hangarllm.acompletion(**request)
     first_chunks: Final = [chunk async for chunk in first]
     assert "".join(chunk.choices[0].delta.content or "" for chunk in first_chunks) == "converted stream body"
     await _wait_for_success_kwargs(capture)
 
-    replay: Final = await litellm.acompletion(**request)
+    replay: Final = await hangarllm.acompletion(**request)
     assert isinstance(replay, CustomStreamWrapper)
     replay_chunks: Final = [chunk async for chunk in replay]
     assert "".join(chunk.choices[0].delta.content or "" for chunk in replay_chunks) == "converted stream body"
@@ -5824,12 +5824,12 @@ async def test_wrapper_async_replays_cached_converted_chat_stream_as_stream(
 async def test_wrapper_async_replays_cached_converted_responses_stream_as_stream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+    from hangarllm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
 
     capture: Final = _install_converted_stream_callbacks(monkeypatch)
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "cache", Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     route: Final = respx.post("https://api.openai.com/v1/responses").respond(
         json={
             "id": "resp_cached_converted",
@@ -5857,11 +5857,11 @@ async def test_wrapper_async_replays_cached_converted_responses_stream_as_stream
         "num_retries": 0,
     }
 
-    first: Final = await litellm.aresponses(**request)
+    first: Final = await hangarllm.aresponses(**request)
     assert [event async for event in first][-1].type == "response.completed"
     await _wait_for_success_kwargs(capture)
 
-    replay: Final = await litellm.aresponses(**request)
+    replay: Final = await hangarllm.aresponses(**request)
     assert isinstance(replay, BaseResponsesAPIStreamingIterator)
     assert [event async for event in replay][-1].type == "response.completed"
     assert route.call_count == 1
@@ -5911,7 +5911,7 @@ def _native_responses_route(stream: bool) -> respx.Route:
 
 
 async def _drain_responses_result(result: object) -> None:
-    from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+    from hangarllm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
 
     if isinstance(result, BaseResponsesAPIStreamingIterator):
         assert [event async for event in result][-1].type == "response.completed"
@@ -5953,13 +5953,13 @@ async def test_wrapper_aresponses_reads_cache_once_and_replays_from_that_read(
     monkeypatch: pytest.MonkeyPatch, stream: bool, supported_call_types: list[CachingSupportedCallTypes]
 ) -> None:
     capture: Final = _install_converted_stream_callbacks(monkeypatch)
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     counting: Final = _ReadCountingInMemoryCache()
     monkeypatch.setattr(
-        litellm, "cache", Cache(type="local", _backend=counting, supported_call_types=supported_call_types)
+        hangarllm, "cache", Cache(type="local", _backend=counting, supported_call_types=supported_call_types)
     )
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     route: Final = _native_responses_route(stream)
     request: Final = {
         "model": "openai/gpt-5.6",
@@ -5969,11 +5969,11 @@ async def test_wrapper_aresponses_reads_cache_once_and_replays_from_that_read(
         "num_retries": 0,
     }
 
-    await _drain_responses_result(await litellm.aresponses(**request))
+    await _drain_responses_result(await hangarllm.aresponses(**request))
     await _wait_for_success_kwargs_with_input(capture, request["input"], count=1)
     assert counting.reads == 1, "aresponses must look the response cache up once, not again on the executor thread"
 
-    await _drain_responses_result(await litellm.aresponses(**request))
+    await _drain_responses_result(await hangarllm.aresponses(**request))
     assert counting.reads == 2
     assert route.call_count == 1, "the single async cache read must hit the key the first call stored"
     success_kwargs: Final = await _wait_for_success_kwargs_with_input(capture, request["input"], count=2)
@@ -5989,9 +5989,9 @@ def test_function_setup_failure_after_logging_construction_restores_context(monk
     function_setup()'s own except block must restore the correlation context
     itself in that case, or it leaks into every subsequent log line in this
     thread/task until something unrelated happens to reset it."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
 
     def _boom(self, *args, **kwargs):
         raise RuntimeError("simulated failure after Logging() construction")
@@ -6002,11 +6002,11 @@ def test_function_setup_failure_after_logging_construction_restores_context(monk
     session_id_var.set("pre-setup-failure-session")
     try:
         with pytest.raises(RuntimeError, match="simulated failure"):
-            litellm.completion(
+            hangarllm.completion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "hi"}],
                 mock_response="Hello there!",
-                litellm_session_id="doomed-call-session",
+                hangarllm_session_id="doomed-call-session",
                 num_retries=0,
             )
         assert trace_id_var.get() == "pre-setup-failure-trace"
@@ -6022,9 +6022,9 @@ def test_function_setup_failure_log_line_shows_outer_not_doomed_ids(monkeypatch)
     restoring context must happen *before* logging the exception, not after,
     since the failed call never produces a usable logging object for anything
     else to be attributed to."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", True)
 
     def _boom(self, *args, **kwargs):
         raise RuntimeError("simulated failure after Logging() construction")
@@ -6039,11 +6039,11 @@ def test_function_setup_failure_log_line_shows_outer_not_doomed_ids(monkeypatch)
         trace_id_var.set("outer-trace")
         session_id_var.set("outer-session")
         with pytest.raises(RuntimeError, match="simulated failure"):
-            litellm.completion(
+            hangarllm.completion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "hi"}],
                 mock_response="Hello there!",
-                litellm_session_id="doomed-call-session",
+                hangarllm_session_id="doomed-call-session",
                 num_retries=0,
             )
         setup_failure_records = [r for r in cap.records if "Error in function_setup" in r.get("message", "")]
@@ -6085,7 +6085,7 @@ def test_websearch_interception_control_fields_never_reach_the_provider():
         "web-search interception control fields leaked into the provider params: "
         f"{sorted(set(non_default) - {'a_real_provider_specific_param'})}"
     )
-    assert set(WEBSEARCH_INTERNAL_CONTROL_FIELDS) <= set(all_litellm_params)
+    assert set(WEBSEARCH_INTERNAL_CONTROL_FIELDS) <= set(all_hangarllm_params)
 
 
 @pytest.mark.parametrize("stash_key", STREAM_OPTIONS_STASH_KEYS)
@@ -6097,22 +6097,22 @@ def test_converted_stream_options_stash_never_reaches_the_provider(stash_key: st
     assert non_default == {"a_real_provider_specific_param": 1}
 
 
-def test_get_litellm_params_keys_never_reach_the_provider():
-    """Bridges (chat <-> Responses, agentic loop follow-ups) forward litellm_params as
+def test_get_hangarllm_params_keys_never_reach_the_provider():
+    """Bridges (chat <-> Responses, agentic loop follow-ups) forward hangarllm_params as
     `completion()` kwargs. Any key the param builder does not recognize is swept into
     extra_body, and OpenAI rejects the call with `Unknown parameter: 'model_alias_map'`.
     """
-    litellm_param_keys = frozenset(get_litellm_params()) - {"drop_params"}
+    hangarllm_param_keys = frozenset(get_hangarllm_params()) - {"drop_params"}
     kwargs = {
         "a_real_provider_specific_param": 1,
         "model_alias_map": {"alias": "gpt-5.4"},
-        **{key: "configured-value" for key in litellm_param_keys - {"model_alias_map"}},
+        **{key: "configured-value" for key in hangarllm_param_keys - {"model_alias_map"}},
     }
 
     non_default = get_non_default_completion_params(kwargs)
 
     assert non_default == {"a_real_provider_specific_param": 1}, (
-        "litellm params leaked into the provider params: "
+        "hangarllm params leaked into the provider params: "
         f"{sorted(set(non_default) - {'a_real_provider_specific_param'})}"
     )
 
@@ -6133,20 +6133,20 @@ def test_addressed_response_id_never_reaches_the_provider():
 
 def test_bedrock_batch_params_never_reach_the_provider():
     """A Bedrock managed-batch deployment carries aws_batch_role_arn / s3_* /
-    bedrock_tags in its litellm_params, and the same deployment also serves chat.
+    bedrock_tags in its hangarllm_params, and the same deployment also serves chat.
     Anything the param builder does not recognize is swept into extra_body, so
     Bedrock rejects the whole call: `aws_batch_role_arn: Extra inputs are not
     permitted` (Anthropic models) or `extraneous key [aws_batch_role_arn] is not
     permitted` (Nova/Llama/Titan), turning every non-batch request to that
     deployment into a 400.
 
-    The batch path is unaffected by registering them, because GenericLiteLLMParams
-    is extra="allow" and preserves them into litellm_params for the batch and files
+    The batch path is unaffected by registering them, because GenericHangarLLMParams
+    is extra="allow" and preserves them into hangarllm_params for the batch and files
     transformations that read them.
     """
     configured = {
         field: ([{"key": "team", "value": "configured-value"}] if field == "bedrock_tags" else "configured-value")
-        for field in bedrock_batch_litellm_params
+        for field in bedrock_batch_hangarllm_params
     }
     kwargs = {"a_real_provider_specific_param": 1, **configured}
 
@@ -6156,20 +6156,20 @@ def test_bedrock_batch_params_never_reach_the_provider():
         "bedrock batch params leaked into the provider params: "
         f"{sorted(set(non_default) - {'a_real_provider_specific_param'})}"
     )
-    assert set(bedrock_batch_litellm_params) <= set(all_litellm_params)
+    assert set(bedrock_batch_hangarllm_params) <= set(all_hangarllm_params)
 
-    batch_params = dict(GenericLiteLLMParams(**kwargs))
-    assert all(batch_params.get(field) == configured[field] for field in bedrock_batch_litellm_params), (
+    batch_params = dict(GenericHangarLLMParams(**kwargs))
+    assert all(batch_params.get(field) == configured[field] for field in bedrock_batch_hangarllm_params), (
         "registering these must not strip them from the batch path: "
-        f"{sorted(f for f in bedrock_batch_litellm_params if batch_params.get(f) != configured[f])}"
+        f"{sorted(f for f in bedrock_batch_hangarllm_params if batch_params.get(f) != configured[f])}"
     )
 
-    normalized = CredentialLiteLLMParams.model_validate(
-        GenericLiteLLMParams(**kwargs).model_dump(exclude_none=True)
+    normalized = CredentialHangarLLMParams.model_validate(
+        GenericHangarLLMParams(**kwargs).model_dump(exclude_none=True)
     ).model_dump(exclude_none=True)
-    assert all(normalized.get(field) == configured[field] for field in bedrock_batch_litellm_params), (
+    assert all(normalized.get(field) == configured[field] for field in bedrock_batch_hangarllm_params), (
         "credential normalization dropped batch params before the transformation: "
-        f"{sorted(f for f in bedrock_batch_litellm_params if normalized.get(f) != configured[f])}"
+        f"{sorted(f for f in bedrock_batch_hangarllm_params if normalized.get(f) != configured[f])}"
     )
 
 
@@ -6194,7 +6194,7 @@ def test_documented_batch_s3_credentials_never_reach_the_provider():
         f"{sorted(set(non_default) - {'a_real_provider_specific_param'})}"
     )
 
-    batch_params = dict(GenericLiteLLMParams(**kwargs))
+    batch_params = dict(GenericHangarLLMParams(**kwargs))
     assert {field: batch_params.get(field) for field in configured} == configured, (
         "registering these must not strip them from the batch path"
     )
@@ -6203,7 +6203,7 @@ def test_documented_batch_s3_credentials_never_reach_the_provider():
 def test_client_side_timeout_marker_never_reaches_the_provider():
     """The proxy stamps kwargs["client_side_timeout"] = True whenever a request carries
     a caller-supplied timeout (body timeout / request_timeout / stream_timeout or the
-    x-litellm-timeout headers) so the router can skip cooldowns on the resulting 408s.
+    x-hangarllm-timeout headers) so the router can skip cooldowns on the resulting 408s.
     The marker is only meaningful to the router, so it must be filtered out of the
     provider params: swept into extra_body / additionalModelRequestFields it turns every
     timed-out request into a provider 400 (`client_side_timeout: Extra inputs are not
@@ -6235,7 +6235,7 @@ async def test_async_post_call_failure_deployment_hook_calls_custom_logger_callb
     necessarily the same object - see test_..._snapshots_exception_so_callback_mutations_..._
     below) and the call_type resolved to its CallTypes enum member."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     exc = ValueError("deployment failed")
     await async_post_call_failure_deployment_hook(
@@ -6257,7 +6257,7 @@ async def test_async_post_call_failure_deployment_hook_falls_back_to_none_call_t
 ) -> None:
     """An unrecognized call_type string must resolve to None rather than raising."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     await async_post_call_failure_deployment_hook(
         request_data={}, exception=ValueError("x"), call_type="not_a_real_call_type"
@@ -6273,7 +6273,7 @@ async def test_async_post_call_failure_deployment_hook_passes_through_fallback_d
     """fallback_depth on request_data (set by Router on each fallback hop) must reach the
     callback unchanged, so a subscriber can tell which fallback hop this failure is from."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     await async_post_call_failure_deployment_hook(
         request_data={"fallback_depth": 2}, exception=ValueError("x"), call_type="acompletion"
@@ -6290,7 +6290,7 @@ async def test_async_post_call_failure_deployment_hook_fallback_depth_defaults_t
     no fallback_depth at all (first attempt, or a bare SDK call with no Router) or a
     non-int value there."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     await async_post_call_failure_deployment_hook(request_data={}, exception=ValueError("x"), call_type="acompletion")
     await async_post_call_failure_deployment_hook(
@@ -6319,7 +6319,7 @@ async def test_async_post_call_failure_deployment_hook_swallows_callback_errors(
             raise RuntimeError("hook exploded")
 
     exploding_logger = ExplodingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [exploding_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [exploding_logger])
 
     await async_post_call_failure_deployment_hook(request_data={}, exception=ValueError("x"), call_type="acompletion")
 
@@ -6336,7 +6336,7 @@ async def test_async_post_call_failure_deployment_hook_skips_non_custom_logger_c
     async def fn_callback(*args: object, **kwargs: object) -> None:
         called.append(True)
 
-    monkeypatch.setattr(litellm, "callbacks", [fn_callback])
+    monkeypatch.setattr(hangarllm, "callbacks", [fn_callback])
 
     await async_post_call_failure_deployment_hook(request_data={}, exception=ValueError("x"), call_type="acompletion")
 
@@ -6351,18 +6351,18 @@ async def test_wrapper_async_fires_post_call_failure_deployment_hook_once_per_fa
     exactly once, sourced from wrapper_async's own except block rather than the dedup-gated
     async_log_failure_event path, which would miss retries/fallback chain attempts 2+."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
-    with pytest.raises(litellm.AuthenticationError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.AuthenticationError):
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
 
     assert len(recorder.calls) == 1
     _, received_exc, call_type, fallback_depth = recorder.calls[0]
-    assert isinstance(received_exc, litellm.AuthenticationError)
+    assert isinstance(received_exc, hangarllm.AuthenticationError)
     assert call_type == CallTypes.acompletion
     assert fallback_depth is None
 
@@ -6380,13 +6380,13 @@ async def test_wrapper_async_raises_original_exception_even_if_hook_callback_err
         ):
             raise RuntimeError("hook exploded")
 
-    monkeypatch.setattr(litellm, "callbacks", [ExplodingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [ExplodingLogger()])
 
-    with pytest.raises(litellm.AuthenticationError, match="bad key"):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.AuthenticationError, match="bad key"):
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
 
 
@@ -6396,22 +6396,22 @@ async def test_router_fallback_chain_reports_increasing_fallback_depth(monkeypat
     first, pre-fallback attempt and fallback_depth=1 on the first fallback hop - the
     concrete scenario async_post_call_failure_deployment_hook exists to make visible."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "bad-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-a"}},
-            {"model_name": "good-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-b"}},
+            {"model_name": "bad-group", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-a"}},
+            {"model_name": "good-group", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-b"}},
         ],
         num_retries=0,
         fallbacks=[{"bad-group": ["good-group"]}],
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="bad-group",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
 
     assert len(recorder.calls) == 2
@@ -6425,23 +6425,23 @@ async def test_router_multi_hop_fallback_chain_reports_depth_per_hop(monkeypatch
     hop (group-a -> group-b -> group-c, all failing), not just report 1 for every
     fallback attempt regardless of how deep the chain has gone."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": "group-a", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-a"}},
-            {"model_name": "group-b", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-b"}},
-            {"model_name": "group-c", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-c"}},
+            {"model_name": "group-a", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-a"}},
+            {"model_name": "group-b", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-b"}},
+            {"model_name": "group-c", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "bad-c"}},
         ],
         num_retries=0,
         fallbacks=[{"group-a": ["group-b", "group-c"]}],
     )
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await router.acompletion(
             model="group-a",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
 
     assert len(recorder.calls) == 3
@@ -6456,15 +6456,15 @@ async def test_wrapper_async_fires_post_call_failure_deployment_hook_on_internal
     file-search step) must still reach async_post_call_failure_deployment_hook, matching
     async_pre_call_deployment_hook, which already fires unconditionally for such calls."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     token = is_internal_call.set(True)
     try:
-        with pytest.raises(litellm.AuthenticationError):
-            await litellm.acompletion(
+        with pytest.raises(hangarllm.AuthenticationError):
+            await hangarllm.acompletion(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "hi"}],
-                mock_response=litellm.AuthenticationError(
+                mock_response=hangarllm.AuthenticationError(
                     message="bad key", llm_provider="openai", model="gpt-4o-mini"
                 ),
             )
@@ -6472,7 +6472,7 @@ async def test_wrapper_async_fires_post_call_failure_deployment_hook_on_internal
         is_internal_call.reset(token)
 
     assert len(recorder.calls) == 1
-    assert isinstance(recorder.calls[0][1], litellm.AuthenticationError)
+    assert isinstance(recorder.calls[0][1], hangarllm.AuthenticationError)
 
 
 def _budget_reservation(callback_bound: bool = False) -> dict:
@@ -6480,7 +6480,7 @@ def _budget_reservation(callback_bound: bool = False) -> dict:
 
 
 _BUDGET_RESERVATION_CALL_KWARGS: Final = {"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]}
-_BUDGET_RESERVATION_REFUSAL: Final = litellm.AuthenticationError(
+_BUDGET_RESERVATION_REFUSAL: Final = hangarllm.AuthenticationError(
     message="bad key", llm_provider="openai", model="gpt-4o"
 )
 
@@ -6489,7 +6489,7 @@ _BUDGET_RESERVATION_REFUSAL: Final = litellm.AuthenticationError(
 async def test_wrapper_async_claims_the_budget_reservation_for_the_cost_callback() -> None:
     reservation = _budget_reservation()
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         **_BUDGET_RESERVATION_CALL_KWARGS,
         mock_response="ok",
         metadata={"user_api_key_budget_reservation": reservation},
@@ -6502,7 +6502,7 @@ async def test_wrapper_async_claims_the_budget_reservation_for_the_cost_callback
 async def test_wrapper_async_claims_the_budget_reservation_before_the_stream_is_consumed() -> None:
     reservation = _budget_reservation()
 
-    stream = await litellm.acompletion(
+    stream = await hangarllm.acompletion(
         **_BUDGET_RESERVATION_CALL_KWARGS,
         mock_response="ok",
         stream=True,
@@ -6517,17 +6517,17 @@ async def test_wrapper_async_claims_the_budget_reservation_before_the_stream_is_
 @pytest.mark.asyncio
 async def test_wrapper_async_claims_the_budget_reservation_a_supplied_logging_object_already_saw() -> None:
     reservation = _budget_reservation()
-    logging_obj, kwargs = litellm.utils.function_setup(
+    logging_obj, kwargs = hangarllm.utils.function_setup(
         original_function="acompletion",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.now(),
         **_BUDGET_RESERVATION_CALL_KWARGS,
-        litellm_call_id="proxy-pre-call-setup",
+        hangarllm_call_id="proxy-pre-call-setup",
         metadata={"user_api_key_budget_reservation": reservation},
     )
     assert reservation["callback_bound"] is False
 
-    await litellm.acompletion(**kwargs, litellm_logging_obj=logging_obj, mock_response="ok")
+    await hangarllm.acompletion(**kwargs, hangarllm_logging_obj=logging_obj, mock_response="ok")
 
     assert reservation["callback_bound"] is True
 
@@ -6536,8 +6536,8 @@ async def test_wrapper_async_claims_the_budget_reservation_a_supplied_logging_ob
 async def test_wrapper_async_hands_the_budget_reservation_back_when_the_call_fails() -> None:
     reservation = _budget_reservation()
 
-    with pytest.raises(litellm.AuthenticationError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.AuthenticationError):
+        await hangarllm.acompletion(
             **_BUDGET_RESERVATION_CALL_KWARGS,
             mock_response=_BUDGET_RESERVATION_REFUSAL,
             metadata={"user_api_key_budget_reservation": reservation},
@@ -6553,13 +6553,13 @@ async def test_wrapper_async_leaves_the_budget_reservation_alone_on_internal_cal
 
     token = is_internal_call.set(True)
     try:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             **_BUDGET_RESERVATION_CALL_KWARGS,
             mock_response="ok",
             metadata={"user_api_key_budget_reservation": never_claimed},
         )
-        with pytest.raises(litellm.AuthenticationError):
-            await litellm.acompletion(
+        with pytest.raises(hangarllm.AuthenticationError):
+            await hangarllm.acompletion(
                 **_BUDGET_RESERVATION_CALL_KWARGS,
                 mock_response=_BUDGET_RESERVATION_REFUSAL,
                 metadata={"user_api_key_budget_reservation": claimed_by_the_outer_call},
@@ -6579,12 +6579,12 @@ async def test_wrapper_async_does_not_fire_failure_hook_for_pre_call_budget_erro
     (the [OPTIONAL] CHECK BUDGET gate) is not a deployment attempt failure and must not
     reach async_post_call_failure_deployment_hook."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "max_budget", 0.0001)
-    monkeypatch.setattr(litellm, "_current_cost", 100.0)
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "max_budget", 0.0001)
+    monkeypatch.setattr(hangarllm, "_current_cost", 100.0)
 
-    with pytest.raises(litellm.BudgetExceededError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.BudgetExceededError):
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="should never be reached",
@@ -6623,10 +6623,10 @@ async def test_wrapper_async_does_not_fire_failure_hook_for_post_success_error(
             self.failure_calls = (*self.failure_calls, exception)
 
     exploding_guardrail: Final = ExplodingSuccessGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [exploding_guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [exploding_guardrail])
 
     with pytest.raises(RuntimeError, match="boom in success hook"):
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="this call succeeds",
@@ -6652,17 +6652,17 @@ async def test_wrapper_async_calls_hook_override_missing_fallback_depth_param(
             self.calls.append((request_data, exception, call_type))
 
     three_arg_logger = ThreeArgLogger()
-    monkeypatch.setattr(litellm, "callbacks", [three_arg_logger])
+    monkeypatch.setattr(hangarllm, "callbacks", [three_arg_logger])
 
-    with pytest.raises(litellm.AuthenticationError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.AuthenticationError):
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
 
     assert len(three_arg_logger.calls) == 1
-    assert isinstance(three_arg_logger.calls[0][1], litellm.AuthenticationError)
+    assert isinstance(three_arg_logger.calls[0][1], hangarllm.AuthenticationError)
 
 
 @pytest.mark.asyncio
@@ -6680,13 +6680,13 @@ async def test_wrapper_async_failure_hook_exception_mutation_does_not_change_rai
         ):
             exception.status_code = 429
 
-    monkeypatch.setattr(litellm, "callbacks", [StatusCodeMutatingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [StatusCodeMutatingLogger()])
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
 
     assert exc_info.value.status_code == 401
@@ -6702,7 +6702,7 @@ async def test_async_post_call_failure_deployment_hook_omits_attempted_targets_f
     on it would make the router skip a deployment it hasn't actually tried, so the
     dispatcher must never hand it to a callback."""
     recorder = _RecordingDeploymentFailureLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     sentinel_targets = object()
     await async_post_call_failure_deployment_hook(
@@ -6737,12 +6737,12 @@ async def test_router_fallback_not_skipped_when_failure_hook_callback_touches_at
             if attempted is not None:
                 attempted.record("good-group")
 
-    monkeypatch.setattr(litellm, "callbacks", [RecordingAttemptLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [RecordingAttemptLogger()])
 
     def _mock_timeout_deployment(model_name: str) -> dict:
         return {
             "model_name": model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "fake",
                 "mock_timeout": True,
@@ -6751,13 +6751,13 @@ async def test_router_fallback_not_skipped_when_failure_hook_callback_touches_at
             },
         }
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             _mock_timeout_deployment("bad-group"),
             _mock_timeout_deployment("mid-group"),
             {
                 "model_name": "good-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake",
                     "mock_response": "fallback worked",
@@ -6796,19 +6796,19 @@ async def test_wrapper_async_preserves_original_exception_when_hook_await_is_can
             hook_entered.set()
             await hook_released.wait()
 
-    monkeypatch.setattr(litellm, "callbacks", [SlowLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [SlowLogger()])
 
     call: Final = asyncio.create_task(
-        litellm.acompletion(
+        hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
     )
     assert await asyncio.wait_for(hook_entered.wait(), timeout=5)
     call.cancel()
 
-    with pytest.raises(litellm.AuthenticationError):
+    with pytest.raises(hangarllm.AuthenticationError):
         await call
 
 
@@ -6830,13 +6830,13 @@ async def test_wrapper_async_failure_hook_latency_does_not_inflate_reported_dura
         async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
             reported_durations.append((end_time - start_time).total_seconds())
 
-    monkeypatch.setattr(litellm, "callbacks", [SlowLoggerWithDurationCapture()])
+    monkeypatch.setattr(hangarllm, "callbacks", [SlowLoggerWithDurationCapture()])
 
-    with pytest.raises(litellm.AuthenticationError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.AuthenticationError):
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
     await asyncio.sleep(0.1)
 
@@ -6860,13 +6860,13 @@ async def test_wrapper_async_failure_hook_exception_snapshot_preserves_traceback
         ):
             received.append(exception)
 
-    monkeypatch.setattr(litellm, "callbacks", [TracebackCapturingLogger()])
+    monkeypatch.setattr(hangarllm, "callbacks", [TracebackCapturingLogger()])
 
-    with pytest.raises(litellm.AuthenticationError):
-        await litellm.acompletion(
+    with pytest.raises(hangarllm.AuthenticationError):
+        await hangarllm.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
-            mock_response=litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
+            mock_response=hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-4o-mini"),
         )
 
     assert len(received) == 1
@@ -6909,14 +6909,14 @@ class TestDefaultReasoningEffortHydration:
         [("gpt-5.1", "openai"), ("gpt-5.4", "openai"), ("azure/gpt-5.1", "azure")],
     )
     def test_the_declared_default_survives_model_info_hydration(self, local_model_cost_map, model, provider):
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model=model, custom_llm_provider=provider))
         assert model_info["default_reasoning_effort"] == "none"
 
     def test_a_model_that_declares_nothing_hydrates_to_none(self, local_model_cost_map):
         """Absent means "the map does not say", which the gate reads as reasoning being active."""
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model="gpt-5.6-terra", custom_llm_provider="openai"))
         assert model_info.get("default_reasoning_effort") is None
@@ -6934,16 +6934,16 @@ class TestHuggingFaceConfigFetch:
             )
 
     def test_get_max_tokens_reads_hf_config_with_a_bounded_timeout(self, hf_config_route):
-        from litellm.constants import HF_CONFIG_FETCH_TIMEOUT_SECONDS
-        from litellm.utils import get_max_tokens
+        from hangarllm.constants import HF_CONFIG_FETCH_TIMEOUT_SECONDS
+        from hangarllm.utils import get_max_tokens
 
         assert get_max_tokens("huggingface/some-org/some-model") == 512
         request_timeout = hf_config_route.calls.last.request.extensions["timeout"]
         assert request_timeout["read"] == HF_CONFIG_FETCH_TIMEOUT_SECONDS
 
     def test_get_max_position_embeddings_reads_hf_config_with_a_bounded_timeout(self, hf_config_route):
-        from litellm.constants import HF_CONFIG_FETCH_TIMEOUT_SECONDS
-        from litellm.utils import _get_max_position_embeddings
+        from hangarllm.constants import HF_CONFIG_FETCH_TIMEOUT_SECONDS
+        from hangarllm.utils import _get_max_position_embeddings
 
         assert _get_max_position_embeddings("some-org/some-model") == 512
         request_timeout = hf_config_route.calls.last.request.extensions["timeout"]
@@ -6957,7 +6957,7 @@ async def test_success_deployment_hook_chains_past_callback_returning_response(
     """Regression (LIT-5863): the dispatcher must run every callback, chaining each non-None
     result into the next call, instead of returning at the first callback answering non-None.
     A guardrail answering with the unmodified response used to starve every callback after it."""
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     original = ModelResponse()
     replacement = ModelResponse()
@@ -6986,7 +6986,7 @@ async def test_success_deployment_hook_chains_past_callback_returning_response(
 
     replacer = ReplacingLogger()
     observer = ObservingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [PassthroughLogger(), replacer, observer])
+    monkeypatch.setattr(hangarllm, "callbacks", [PassthroughLogger(), replacer, observer])
 
     result = await async_post_call_success_deployment_hook(
         request_data={}, response=original, call_type=CallTypes.acompletion
@@ -7007,11 +7007,11 @@ async def test_registered_guardrail_does_not_starve_vector_store_search_results(
     response and the dispatcher stopped there."""
     from types import SimpleNamespace
 
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
         VectorStorePreCallHook,
     )
-    from litellm.types.utils import ModelResponse
+    from hangarllm.types.utils import ModelResponse
 
     search_results: Final = [
         {"search_query": "coolant", "data": [{"content": [{"text": "Cryoline-9", "type": "text"}]}]}
@@ -7020,13 +7020,13 @@ async def test_registered_guardrail_does_not_starve_vector_store_search_results(
     response = ModelResponse(choices=[{"message": {"role": "assistant", "content": "Cryoline-9"}}])
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [CustomGuardrail(guardrail_name="dummy-guardrail"), VectorStorePreCallHook()],
     )
 
     result = await async_post_call_success_deployment_hook(
-        request_data={"litellm_logging_obj": logging_obj},
+        request_data={"hangarllm_logging_obj": logging_obj},
         response=response,
         call_type=CallTypes.acompletion,
     )
@@ -7044,7 +7044,7 @@ class TestIsVisionExplicitlyDisabled:
 
     @pytest.mark.parametrize("model", ["github_copilot/gpt-4o", "chatgpt/gpt-5"])
     def test_never_resolves_an_authenticating_prefix(self, model, monkeypatch):
-        from litellm.utils import is_vision_explicitly_disabled
+        from hangarllm.utils import is_vision_explicitly_disabled
 
         lookups: list = []
 
@@ -7052,20 +7052,20 @@ class TestIsVisionExplicitlyDisabled:
             lookups.append((args, kwargs))
             raise RuntimeError("provider resolution must not run for an authenticating provider")
 
-        monkeypatch.setattr(litellm, "get_llm_provider", _record)
+        monkeypatch.setattr(hangarllm, "get_llm_provider", _record)
 
         assert is_vision_explicitly_disabled(model) is False
         assert lookups == []
 
     def test_explicit_false_detected_and_absent_reads_enabled(self):
-        from litellm.utils import is_vision_explicitly_disabled
+        from hangarllm.utils import is_vision_explicitly_disabled
 
         assert is_vision_explicitly_disabled("fireworks_ai/accounts/fireworks/models/deepseek-v4-flash-0731") is True
         assert is_vision_explicitly_disabled("anthropic/claude-sonnet-4-5") is False
 
 
 class TestVerboseRequestLineRedaction:
-    """`litellm.set_verbose = True` echoes the caller's kwargs back as a `litellm.completion(...)`
+    """`hangarllm.set_verbose = True` echoes the caller's kwargs back as a `hangarllm.completion(...)`
     line on stdout, so a credential kwarg lands in whatever collects stdout: a terminal, a
     container log drain, a CI job log. Credential-named kwargs must not survive that echo,
     at any nesting depth, while ordinary params still must, or the line stops telling the
@@ -7074,22 +7074,22 @@ class TestVerboseRequestLineRedaction:
     FAKE_API_KEY: Final = "sk-fake-lit6823-0000000000000000"
 
     def _verbose_request_line(self, capsys, monkeypatch, **kwargs) -> str:
-        monkeypatch.setattr(litellm, "set_verbose", True)
-        monkeypatch.setattr("litellm._logging.set_verbose", True)
+        monkeypatch.setattr(hangarllm, "set_verbose", True)
+        monkeypatch.setattr("hangarllm._logging.set_verbose", True)
         capsys.readouterr()
-        litellm.completion(
+        hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hello"}],
             mock_response="hi",
             **kwargs,
         )
         captured: Final = capsys.readouterr()
-        return "\n".join(line for line in (captured.out + captured.err).splitlines() if "litellm.completion(" in line)
+        return "\n".join(line for line in (captured.out + captured.err).splitlines() if "hangarllm.completion(" in line)
 
     def test_api_key_never_reaches_the_request_line(self, capsys, monkeypatch):
         printed: Final = self._verbose_request_line(capsys, monkeypatch, api_key=self.FAKE_API_KEY)
 
-        assert "litellm.completion(" in printed
+        assert "hangarllm.completion(" in printed
         assert self.FAKE_API_KEY not in printed
         assert "api_key='REDACTED'" in printed
 
@@ -7130,13 +7130,13 @@ class TestFinalOptionalParamsLineRedaction:
     """A verbose run echoes the fully built optional params too, and `extra_body` carries whatever the
     caller nested inside it straight onto that line, so a credential tucked in there lands in a terminal
     or a log drain in plaintext. It has to be redacted on both surfaces `print_verbose` writes to, and the
-    line has to keep printing on both, because `litellm.set_verbose` and the DEBUG logger are independent
+    line has to keep printing on both, because `hangarllm.set_verbose` and the DEBUG logger are independent
     switches and neither implies the other."""
 
     FAKE_NESTED_KEY: Final = "sk-fake-lit6835-nested-0000000000"
 
     def _complete(self, **kwargs) -> None:
-        litellm.completion(
+        hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hello"}],
             mock_response="hi",
@@ -7150,7 +7150,7 @@ class TestFinalOptionalParamsLineRedaction:
         )
 
     def test_nested_credential_is_redacted_when_only_set_verbose_is_on(self, capsys, caplog, monkeypatch):
-        monkeypatch.setattr(litellm, "set_verbose", True)
+        monkeypatch.setattr(hangarllm, "set_verbose", True)
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
             capsys.readouterr()
             self._complete(extra_body={"providers": [{"name": "openai", "api_key": self.FAKE_NESTED_KEY}]})
@@ -7162,7 +7162,7 @@ class TestFinalOptionalParamsLineRedaction:
         assert "'name': 'openai'" in printed
 
     def test_line_still_reaches_the_logger_when_only_the_debug_logger_is_on(self, capsys, caplog, monkeypatch):
-        monkeypatch.setattr(litellm, "set_verbose", False)
+        monkeypatch.setattr(hangarllm, "set_verbose", False)
         with caplog.at_level(logging.DEBUG, logger=verbose_logger.name):
             self._complete(extra_body={"providers": [{"name": "openai", "api_key": self.FAKE_NESTED_KEY}]})
             logged: Final = "\n".join(
@@ -7176,7 +7176,7 @@ class TestFinalOptionalParamsLineRedaction:
         assert "'name': 'openai'" in logged
 
     def test_nothing_is_emitted_when_neither_verbose_switch_is_on(self, capsys, caplog, monkeypatch):
-        monkeypatch.setattr(litellm, "set_verbose", False)
+        monkeypatch.setattr(hangarllm, "set_verbose", False)
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
             capsys.readouterr()
             self._complete(extra_body={"providers": [{"name": "openai", "api_key": self.FAKE_NESTED_KEY}]})
@@ -7186,7 +7186,7 @@ class TestFinalOptionalParamsLineRedaction:
         assert self.FAKE_NESTED_KEY not in captured.out + captured.err
 
     def test_ordinary_optional_params_still_reach_the_line(self, capsys, caplog, monkeypatch):
-        monkeypatch.setattr(litellm, "set_verbose", True)
+        monkeypatch.setattr(hangarllm, "set_verbose", True)
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
             capsys.readouterr()
             self._complete(max_tokens=17, temperature=0.25)
@@ -7199,9 +7199,9 @@ class TestFinalOptionalParamsLineRedaction:
 class TestDropParamsStringCoercion:
     @pytest.mark.parametrize("drop_params", ["true", "True", True])
     def test_truthy_drop_params_drops_unsupported_temperature(self, drop_params, monkeypatch):
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(hangarllm, "drop_params", False)
         result = get_optional_params(
             model="gpt-5-nano",
             custom_llm_provider="openai",
@@ -7212,10 +7212,10 @@ class TestDropParamsStringCoercion:
 
     @pytest.mark.parametrize("drop_params", ["false", False, None])
     def test_falsy_drop_params_still_raises(self, drop_params, monkeypatch):
-        from litellm.utils import get_optional_params
+        from hangarllm.utils import get_optional_params
 
-        monkeypatch.setattr(litellm, "drop_params", False)
-        with pytest.raises(litellm.UnsupportedParamsError):
+        monkeypatch.setattr(hangarllm, "drop_params", False)
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             get_optional_params(
                 model="gpt-5-nano",
                 custom_llm_provider="openai",
@@ -7225,43 +7225,43 @@ class TestDropParamsStringCoercion:
 
 
 def _credential_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
-    return [record.getMessage() for record in caplog.records if "litellm_credential_name=" in record.getMessage()]
+    return [record.getMessage() for record in caplog.records if "hangarllm_credential_name=" in record.getMessage()]
 
 
 def test_load_credentials_from_list_warns_when_the_named_credential_is_not_loaded(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from litellm.utils import load_credentials_from_list
+    from hangarllm.utils import load_credentials_from_list
 
-    monkeypatch.setattr(litellm, "credential_list", [])
-    request_kwargs = {"litellm_credential_name": "openai-cred", "model": "openai/gpt-5.4-mini"}
+    monkeypatch.setattr(hangarllm, "credential_list", [])
+    request_kwargs = {"hangarllm_credential_name": "openai-cred", "model": "openai/gpt-5.4-mini"}
     with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
         load_credentials_from_list(request_kwargs)
 
-    assert request_kwargs == {"litellm_credential_name": "openai-cred", "model": "openai/gpt-5.4-mini"}
+    assert request_kwargs == {"hangarllm_credential_name": "openai-cred", "model": "openai/gpt-5.4-mini"}
     assert _credential_warnings(caplog) == [
-        "litellm_credential_name=openai-cred matched none of the 0 loaded credentials; the request runs without it"
+        "hangarllm_credential_name=openai-cred matched none of the 0 loaded credentials; the request runs without it"
     ]
 
 
 def test_load_credentials_from_list_fills_kwargs_from_the_loaded_credential_without_warning(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from litellm.types.utils import CredentialItem
-    from litellm.utils import load_credentials_from_list
+    from hangarllm.types.utils import CredentialItem
+    from hangarllm.utils import load_credentials_from_list
 
     loaded = CredentialItem(
         credential_name="openai-cred",
         credential_values={"api_key": "sk-from-db", "api_base": "https://credential.example"},
         credential_info={},
     )
-    monkeypatch.setattr(litellm, "credential_list", [loaded])
-    request_kwargs = {"litellm_credential_name": "openai-cred", "api_base": "https://request.example"}
+    monkeypatch.setattr(hangarllm, "credential_list", [loaded])
+    request_kwargs = {"hangarllm_credential_name": "openai-cred", "api_base": "https://request.example"}
     with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
         load_credentials_from_list(request_kwargs)
 
     assert request_kwargs == {
-        "litellm_credential_name": "openai-cred",
+        "hangarllm_credential_name": "openai-cred",
         "api_base": "https://request.example",
         "api_key": "sk-from-db",
     }
@@ -7280,7 +7280,7 @@ _MISTRAL_REPLY: Final = {
 
 
 def _allowed_token_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: str) -> Path:
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     token: Final = tmp_path / "token"
     token.write_text(content)
     return token
@@ -7294,7 +7294,7 @@ _PING: Final = [{"role": "user", "content": "ping"}]
 
 
 def _ping_mistral_through(credential_name: str) -> None:
-    litellm.completion(model="mistral/devstral-latest", messages=_PING, litellm_credential_name=credential_name)
+    hangarllm.completion(model="mistral/devstral-latest", messages=_PING, hangarllm_credential_name=credential_name)
 
 
 def test_named_credential_oidc_file_api_key_sends_the_token_read_on_each_call(
@@ -7302,7 +7302,7 @@ def test_named_credential_oidc_file_api_key_sends_the_token_read_on_each_call(
 ) -> None:
     token: Final = _allowed_token_file(tmp_path, monkeypatch, "token-before-rotation")
     reference: Final = f"oidc/file/{token}"
-    monkeypatch.setattr(litellm, "credential_list", [_mistral_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_mistral_credential(reference)])
 
     with respx.mock(assert_all_called=True) as upstream:
         upstream.post(_MISTRAL_CHAT_URL).respond(200, json=_MISTRAL_REPLY)
@@ -7312,20 +7312,20 @@ def test_named_credential_oidc_file_api_key_sends_the_token_read_on_each_call(
         sent: Final = [call.request.headers["Authorization"] for call in upstream.calls]
 
     assert sent == ["Bearer token-before-rotation", "Bearer token-after-rotation"]
-    assert litellm.credential_list[0].credential_values["api_key"] == reference
+    assert hangarllm.credential_list[0].credential_values["api_key"] == reference
 
 
 @pytest.mark.asyncio
 async def test_deployment_oidc_env_api_key_resolves_per_call_and_the_router_keeps_the_reference(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("MISTRAL_SA_TOKEN", "env-token-one")
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "devstral",
-                "litellm_params": {"model": "mistral/devstral-latest", "api_key": "oidc/env/MISTRAL_SA_TOKEN"},
+                "hangarllm_params": {"model": "mistral/devstral-latest", "api_key": "oidc/env/MISTRAL_SA_TOKEN"},
             }
         ]
     )
@@ -7338,21 +7338,21 @@ async def test_deployment_oidc_env_api_key_resolves_per_call_and_the_router_keep
         sent: Final = [call.request.headers["Authorization"] for call in upstream.calls]
 
     assert sent == ["Bearer env-token-one", "Bearer env-token-two"]
-    assert router.get_model_list(model_name="devstral")[0]["litellm_params"]["api_key"] == "oidc/env/MISTRAL_SA_TOKEN"
+    assert router.get_model_list(model_name="devstral")[0]["hangarllm_params"]["api_key"] == "oidc/env/MISTRAL_SA_TOKEN"
 
 
 def test_explicit_api_key_wins_over_a_named_credential_reference(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
-    monkeypatch.setattr(litellm, "credential_list", [_mistral_credential(f"oidc/file/{tmp_path / 'absent'}")])
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setattr(hangarllm, "credential_list", [_mistral_credential(f"oidc/file/{tmp_path / 'absent'}")])
 
     with respx.mock(assert_all_called=True) as upstream:
         upstream.post(_MISTRAL_CHAT_URL).respond(200, json=_MISTRAL_REPLY)
-        litellm.completion(
+        hangarllm.completion(
             model="mistral/devstral-latest",
             messages=_PING,
-            litellm_credential_name="mistral-sa",
+            hangarllm_credential_name="mistral-sa",
             api_key="sk-explicit",
         )
         sent: Final = upstream.calls.last.request.headers["Authorization"]
@@ -7379,17 +7379,17 @@ def test_unresolvable_oidc_api_key_fails_closed_naming_the_reason_without_its_ta
     make_reference: Callable[[Path], str],
     reason: str,
 ) -> None:
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     monkeypatch.delenv("LIT_UNSET_SA_TOKEN", raising=False)
     (tmp_path / "empty").write_text("")
     (tmp_path / "binary").write_bytes(b"\xffFILE-CONTENT")
     (tmp_path.parent / "outside").write_text("FILE-CONTENT")
     reference: Final = make_reference(tmp_path)
-    monkeypatch.setattr(litellm, "credential_list", [_mistral_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_mistral_credential(reference)])
 
     with respx.mock(assert_all_called=False) as upstream:
         route: Final = upstream.post(_MISTRAL_CHAT_URL).respond(200, json=_MISTRAL_REPLY)
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"), pytest.raises(litellm.AuthenticationError) as excinfo:
+        with caplog.at_level(logging.WARNING, logger="HangarLLM"), pytest.raises(hangarllm.AuthenticationError) as excinfo:
             _ping_mistral_through("mistral-sa")
 
     assert not route.called
@@ -7415,11 +7415,11 @@ def test_oidc_api_key_of_a_kind_api_key_cannot_resolve_fails_closed_as_an_authen
 ) -> None:
     token: Final = _allowed_token_file(tmp_path, monkeypatch, "must-not-be-sent")
     monkeypatch.setenv("MISTRAL_SA_TOKEN_PATH", str(token))
-    monkeypatch.setattr(litellm, "credential_list", [_mistral_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_mistral_credential(reference)])
 
     with respx.mock(assert_all_called=False) as upstream:
         route: Final = upstream.post(_MISTRAL_CHAT_URL).respond(200, json=_MISTRAL_REPLY)
-        with pytest.raises(litellm.AuthenticationError) as excinfo:
+        with pytest.raises(hangarllm.AuthenticationError) as excinfo:
             _ping_mistral_through("mistral-sa")
 
     assert not route.called
@@ -7434,12 +7434,12 @@ def test_oidc_api_key_of_a_kind_api_key_cannot_resolve_fails_closed_as_an_authen
 async def test_router_fails_over_from_a_deployment_whose_oidc_api_key_kind_cannot_resolve(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = litellm.Router(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "devstral",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "mistral/devstral-latest",
                     "api_key": "oidc/github/mistral",
                     "order": 1,
@@ -7447,7 +7447,7 @@ async def test_router_fails_over_from_a_deployment_whose_oidc_api_key_kind_canno
             },
             {
                 "model_name": "devstral",
-                "litellm_params": {"model": "mistral/devstral-latest", "api_key": "sk-healthy", "order": 2},
+                "hangarllm_params": {"model": "mistral/devstral-latest", "api_key": "sk-healthy", "order": 2},
             },
         ],
         num_retries=1,
@@ -7474,7 +7474,7 @@ def test_an_oidc_api_key_sent_with_the_call_goes_upstream_as_written(
 
     with respx.mock(assert_all_called=True) as upstream:
         upstream.post(_MISTRAL_CHAT_URL).respond(200, json=_MISTRAL_REPLY)
-        litellm.completion(model="mistral/devstral-latest", messages=_PING, api_key=reference)
+        hangarllm.completion(model="mistral/devstral-latest", messages=_PING, api_key=reference)
         sent: Final = upstream.calls.last.request.headers["Authorization"]
 
     assert sent == f"Bearer {reference}"
@@ -7520,9 +7520,9 @@ def _vllm_credential(api_key: str) -> CredentialItem:
 
 async def _ping_vllm_through(call_path: str, credential_name: str) -> None:
     if call_path == "async":
-        await litellm.acompletion(model=_VLLM_MODEL, messages=_PING, litellm_credential_name=credential_name)
+        await hangarllm.acompletion(model=_VLLM_MODEL, messages=_PING, hangarllm_credential_name=credential_name)
         return
-    litellm.completion(model=_VLLM_MODEL, messages=_PING, litellm_credential_name=credential_name)
+    hangarllm.completion(model=_VLLM_MODEL, messages=_PING, hangarllm_credential_name=credential_name)
 
 
 @pytest.mark.asyncio
@@ -7530,10 +7530,10 @@ async def _ping_vllm_through(call_path: str, credential_name: str) -> None:
 async def test_named_credential_oidc_google_api_key_sends_the_metadata_token_and_refreshes_it_before_it_expires(
     monkeypatch: pytest.MonkeyPatch, call_path: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(time, "time", lambda: _CLOCK_START)
     audience, reference = _google_reference()
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
     refreshed_at: Final = _CLOCK_START + _GOOGLE_TOKEN_LIFETIME - 59
 
     with respx.mock(assert_all_called=True) as upstream:
@@ -7552,22 +7552,22 @@ async def test_named_credential_oidc_google_api_key_sends_the_metadata_token_and
     first_token: Final = f"Bearer {_google_id_token(audience, _CLOCK_START)}"
     assert sent == [first_token, first_token, f"Bearer {_google_id_token(audience, refreshed_at)}"]
     assert (fetches_within_lifetime, audiences) == (1, [audience, audience])
-    assert litellm.credential_list[0].credential_values["api_key"] == reference
+    assert hangarllm.credential_list[0].credential_values["api_key"] == reference
 
 
 @pytest.mark.asyncio
 async def test_router_fetches_an_oidc_google_api_key_token_off_the_event_loop_and_keeps_the_reference(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(time, "time", lambda: _CLOCK_START)
     audience, reference = _google_reference()
     fetched_on: Final[queue.SimpleQueue[int]] = queue.SimpleQueue()
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vllm",
-                "litellm_params": {"model": _VLLM_MODEL, "api_base": _VLLM_BASE, "api_key": reference},
+                "hangarllm_params": {"model": _VLLM_MODEL, "api_base": _VLLM_BASE, "api_key": reference},
             }
         ]
     )
@@ -7584,7 +7584,7 @@ async def test_router_fetches_an_oidc_google_api_key_token_off_the_event_loop_an
     assert sent == f"Bearer {_google_id_token(audience, _CLOCK_START)}"
     assert fetched_on.qsize() == 1
     assert fetched_on.get_nowait() != threading.get_ident()
-    assert router.get_model_list(model_name="vllm")[0]["litellm_params"]["api_key"] == reference
+    assert router.get_model_list(model_name="vllm")[0]["hangarllm_params"]["api_key"] == reference
 
 
 @pytest.mark.asyncio
@@ -7608,10 +7608,10 @@ async def test_oidc_google_api_key_fails_closed_when_the_metadata_server_fails_a
     metadata_failure: Callable[[], httpx.Response | httpx.HTTPError],
     status_code: int,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(time, "time", lambda: _CLOCK_START)
     audience, reference = _google_reference()
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
     recovered_token: Final = _google_id_token(audience, _CLOCK_START)
 
     with respx.mock(assert_all_called=True) as upstream:
@@ -7620,8 +7620,8 @@ async def test_oidc_google_api_key_fails_closed_when_the_metadata_server_fails_a
         )
         chat: Final = upstream.post(_VLLM_CHAT_URL).respond(200, json=_VLLM_REPLY)
         with (
-            caplog.at_level(logging.WARNING, logger="LiteLLM"),
-            pytest.raises((litellm.AuthenticationError, litellm.ServiceUnavailableError)) as excinfo,
+            caplog.at_level(logging.WARNING, logger="HangarLLM"),
+            pytest.raises((hangarllm.AuthenticationError, hangarllm.ServiceUnavailableError)) as excinfo,
         ):
             await _ping_vllm_through(call_path, "vllm-sa")
         sent_while_failing: Final = chat.call_count
@@ -7646,12 +7646,12 @@ async def test_an_oidc_google_api_key_token_cached_when_the_call_starts_is_sent_
     oidc_cache.set_cache(key=reference, value=cached_token, ttl=60)
     clock: Final = itertools.chain([_CLOCK_START + 60], itertools.repeat(_CLOCK_START + 61))
     monkeypatch.setattr(time, "time", lambda: next(clock))
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
     fetched_on: Final[queue.SimpleQueue[int]] = queue.SimpleQueue()
 
     with respx.mock(assert_all_called=False) as upstream:
         upstream.get(_GOOGLE_METADATA_IDENTITY).mock(side_effect=partial(_metadata_identity, fetched_on))
-        updates: Final = await acredential_updates({"model": _VLLM_MODEL, "litellm_credential_name": "vllm-sa"})
+        updates: Final = await acredential_updates({"model": _VLLM_MODEL, "hangarllm_credential_name": "vllm-sa"})
 
     assert updates["api_key"] == cached_token
     assert fetched_on.empty()
@@ -7661,9 +7661,9 @@ async def test_an_oidc_google_api_key_token_cached_when_the_call_starts_is_sent_
 async def test_a_pending_oidc_google_metadata_fetch_leaves_the_default_executor_free(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     _, reference = _google_reference()
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
     loop: Final = asyncio.get_running_loop()
     loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
     fetch_started: Final[queue.SimpleQueue[int]] = queue.SimpleQueue()
@@ -7683,7 +7683,7 @@ async def test_a_pending_oidc_google_metadata_fetch_leaves_the_default_executor_
             other_work: Final = await asyncio.wait_for(loop.run_in_executor(None, lambda: "done"), timeout=30)
         finally:
             release.set()
-        with pytest.raises(litellm.ServiceUnavailableError) as excinfo:
+        with pytest.raises(hangarllm.ServiceUnavailableError) as excinfo:
             await call
 
     assert other_work == "done"
@@ -7700,10 +7700,10 @@ async def test_a_pending_oidc_google_metadata_fetch_leaves_the_default_executor_
 async def test_concurrent_calls_that_miss_the_oidc_google_token_cache_share_one_metadata_fetch(
     monkeypatch: pytest.MonkeyPatch, metadata_answer: Callable[[str], httpx.Response]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(time, "time", lambda: _CLOCK_START)
     audience, reference = _google_reference()
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
     token: Final = _google_id_token(audience, _CLOCK_START)
     fetch_started: Final[queue.SimpleQueue[int]] = queue.SimpleQueue()
     release: Final = threading.Event()
@@ -7750,15 +7750,15 @@ async def test_a_call_an_oidc_google_api_key_may_not_go_to_is_refused_without_a_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, reference = _google_reference()
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
 
     with respx.mock(assert_all_called=False) as upstream:
         metadata: Final = upstream.get(_GOOGLE_METADATA_IDENTITY).respond(500)
-        with pytest.raises(litellm.AuthenticationError) as excinfo:
+        with pytest.raises(hangarllm.AuthenticationError) as excinfo:
             await acredential_updates(
                 {
                     "model": _VLLM_MODEL,
-                    "litellm_credential_name": "vllm-sa",
+                    "hangarllm_credential_name": "vllm-sa",
                     "api_base": "https://elsewhere.example.test/v1",
                 }
             )
@@ -7770,13 +7770,13 @@ async def test_a_call_an_oidc_google_api_key_may_not_go_to_is_refused_without_a_
 async def _pass_through_chat_call(call_path: str, reference: str) -> None:
     pass_through: Final = {"method": "POST", "endpoint": "v1/chat/completions", "json": {"messages": _PING}}
     if call_path == "sync":
-        litellm.llm_passthrough_route(model=_VLLM_MODEL, litellm_credential_name="vllm-sa", **pass_through)
+        hangarllm.llm_passthrough_route(model=_VLLM_MODEL, hangarllm_credential_name="vllm-sa", **pass_through)
         return
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "vllm-model",
-                "litellm_params": {"model": _VLLM_MODEL, "api_base": _VLLM_BASE, "api_key": reference},
+                "hangarllm_params": {"model": _VLLM_MODEL, "api_base": _VLLM_BASE, "api_key": reference},
             }
         ],
         num_retries=0,
@@ -7789,17 +7789,17 @@ async def _pass_through_chat_call(call_path: str, reference: str) -> None:
 async def test_a_pass_through_call_with_an_oidc_google_api_key_is_refused_without_a_metadata_fetch(
     monkeypatch: pytest.MonkeyPatch, call_path: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(time, "time", lambda: _CLOCK_START)
     audience, reference = _google_reference()
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
 
     with respx.mock(assert_all_called=False) as upstream:
         metadata: Final = upstream.get(_GOOGLE_METADATA_IDENTITY).respond(
             200, text=_google_id_token(audience, _CLOCK_START)
         )
         vllm: Final = upstream.route(host="vllm.example.test").respond(200, json=_VLLM_REPLY)
-        with pytest.raises(litellm.AuthenticationError) as excinfo:
+        with pytest.raises(hangarllm.AuthenticationError) as excinfo:
             await _pass_through_chat_call(call_path, reference)
 
     assert "pass-through routes do not fetch Google ID tokens" in excinfo.value.message
@@ -7815,20 +7815,20 @@ async def test_a_pass_through_call_with_an_oidc_google_api_key_is_refused_withou
 def test_oidc_google_api_key_metadata_fetch_waits_at_most_gce_metadata_timeout_seconds(
     monkeypatch: pytest.MonkeyPatch, configured: str | None, bound: float
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     if configured is None:
         monkeypatch.delenv("GCE_METADATA_TIMEOUT", raising=False)
     else:
         monkeypatch.setenv("GCE_METADATA_TIMEOUT", configured)
     monkeypatch.setattr(time, "time", lambda: _CLOCK_START)
     audience, reference = _google_reference()
-    monkeypatch.setattr(litellm, "credential_list", [_vllm_credential(reference)])
+    monkeypatch.setattr(hangarllm, "credential_list", [_vllm_credential(reference)])
     token: Final = _google_id_token(audience, _CLOCK_START)
 
     with respx.mock(assert_all_called=True) as upstream:
         metadata: Final = upstream.get(_GOOGLE_METADATA_IDENTITY).respond(200, text=token)
         chat: Final = upstream.post(_VLLM_CHAT_URL).respond(200, json=_VLLM_REPLY)
-        litellm.completion(model=_VLLM_MODEL, messages=_PING, litellm_credential_name="vllm-sa")
+        hangarllm.completion(model=_VLLM_MODEL, messages=_PING, hangarllm_credential_name="vllm-sa")
         sent: Final = chat.calls.last.request.headers["Authorization"]
         waits: Final = metadata.calls.last.request.extensions["timeout"]
 
@@ -7841,7 +7841,7 @@ def test_an_oidc_google_api_key_sent_with_the_call_goes_upstream_as_written_with
 
     with respx.mock(assert_all_called=True) as upstream:
         chat: Final = upstream.post(_VLLM_CHAT_URL).respond(200, json=_VLLM_REPLY)
-        litellm.completion(model=_VLLM_MODEL, api_base=_VLLM_BASE, messages=_PING, api_key=reference)
+        hangarllm.completion(model=_VLLM_MODEL, api_base=_VLLM_BASE, messages=_PING, api_key=reference)
         sent: Final = chat.calls.last.request.headers["Authorization"]
 
     assert sent == f"Bearer {reference}"
@@ -7856,13 +7856,13 @@ def test_an_oidc_google_api_key_sent_with_the_call_goes_upstream_as_written_with
 async def test_router_resolves_an_oidc_api_key_only_on_a_proxy_level_deployment(
     monkeypatch: pytest.MonkeyPatch, model_info: Mapping[str, str], expected: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("MISTRAL_SA_TOKEN", "env-token")
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "devstral",
-                "litellm_params": {"model": "mistral/devstral-latest", "api_key": "oidc/env/MISTRAL_SA_TOKEN"},
+                "hangarllm_params": {"model": "mistral/devstral-latest", "api_key": "oidc/env/MISTRAL_SA_TOKEN"},
                 "model_info": dict(model_info),
             }
         ]
@@ -7889,13 +7889,13 @@ _BEDROCK_REPLY: Final = {
 }
 
 
-def _bedrock_router(api_key: str, endpoint: str | None) -> litellm.Router:
+def _bedrock_router(api_key: str, endpoint: str | None) -> hangarllm.Router:
     params: Final = {"model": f"bedrock/converse/{_BEDROCK_CLAUDE}", "aws_region_name": "us-east-1", "api_key": api_key}
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude",
-                "litellm_params": {**params, "aws_bedrock_runtime_endpoint": endpoint} if endpoint else params,
+                "hangarllm_params": {**params, "aws_bedrock_runtime_endpoint": endpoint} if endpoint else params,
             }
         ],
         num_retries=0,
@@ -7911,14 +7911,14 @@ def _bedrock_router(api_key: str, endpoint: str | None) -> litellm.Router:
 async def test_an_inline_oidc_api_key_is_refused_before_its_file_is_read_when_the_call_picks_another_host(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, deployment_endpoint: str | None, call_endpoint: str
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     router: Final = _bedrock_router("oidc/file//run/secrets/lit-missing-token", deployment_endpoint)
 
     try:
         with respx.mock(assert_all_called=False) as upstream:
             upstream.route().respond(200, json=_BEDROCK_REPLY)
-            with pytest.raises(litellm.AuthenticationError, match=_DEPLOYMENT_HOST_REFERENCE_REFUSAL) as excinfo:
+            with pytest.raises(hangarllm.AuthenticationError, match=_DEPLOYMENT_HOST_REFERENCE_REFUSAL) as excinfo:
                 await router.acompletion(model="claude", messages=_PING, aws_bedrock_runtime_endpoint=call_endpoint)
     finally:
         router.discard()
@@ -7931,7 +7931,7 @@ async def test_an_inline_oidc_api_key_is_refused_before_its_file_is_read_when_th
 async def test_an_inline_oidc_api_key_reaches_the_endpoint_its_deployment_configures_when_the_call_names_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     token: Final = _allowed_token_file(tmp_path, monkeypatch, "file-token")
     router: Final = _bedrock_router(f"oidc/file/{token}", _BEDROCK_RUNTIME)
 
@@ -7963,9 +7963,9 @@ def _authorizations(calls: respx.models.CallList) -> tuple[tuple[str, str], ...]
     )
 
 
-def _huggingface_router(model: str, api_key: str) -> litellm.Router:
-    return litellm.Router(
-        model_list=[{"model_name": model, "litellm_params": {"model": model, "api_key": api_key}}],
+def _huggingface_router(model: str, api_key: str) -> hangarllm.Router:
+    return hangarllm.Router(
+        model_list=[{"model_name": model, "hangarllm_params": {"model": model, "api_key": api_key}}],
         num_retries=0,
     )
 
@@ -7974,14 +7974,14 @@ def _huggingface_router(model: str, api_key: str) -> litellm.Router:
 async def test_an_inline_oidc_api_key_is_refused_when_a_wildcard_call_names_its_own_url_as_the_model(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     token: Final = _allowed_token_file(tmp_path, monkeypatch, "file-token")
     router: Final = _huggingface_router("huggingface/*", f"oidc/file/{token}")
 
     try:
         with respx.mock(assert_all_called=False) as upstream:
             upstream.route().respond(200, json=_HUGGINGFACE_EMBEDDING)
-            with pytest.raises(litellm.AuthenticationError, match=_DEPLOYMENT_HOST_REFERENCE_REFUSAL):
+            with pytest.raises(hangarllm.AuthenticationError, match=_DEPLOYMENT_HOST_REFERENCE_REFUSAL):
                 await router.aembedding(
                     model="huggingface/https://caller.example/embed", input=["hello"], input_type="feature-extraction"
                 )
@@ -7995,7 +7995,7 @@ async def test_an_inline_oidc_api_key_is_refused_when_a_wildcard_call_names_its_
 async def test_an_inline_oidc_api_key_reaches_the_url_its_deployment_names_as_the_model(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     token: Final = _allowed_token_file(tmp_path, monkeypatch, "file-token")
     model: Final = "huggingface/https://endpoint.example/embed"
     router: Final = _huggingface_router(model, f"oidc/file/{token}")
@@ -8041,18 +8041,18 @@ def test_a_named_credentials_oidc_api_key_never_goes_to_an_api_base_the_credenti
     monkeypatch.setenv("MISTRAL_SA_TOKEN", "env-token")
     credential_values: Final = {"api_key": "oidc/env/MISTRAL_SA_TOKEN", "api_base": credential_api_base}
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [CredentialItem(credential_name="mistral-sa", credential_values=credential_values, credential_info={})],
     )
 
     with respx.mock(assert_all_called=False) as upstream:
         upstream.route().respond(200, json=_MISTRAL_REPLY)
-        with pytest.raises(litellm.AuthenticationError, match=_CALLER_HOST_REFERENCE_REFUSAL):
-            litellm.completion(
+        with pytest.raises(hangarllm.AuthenticationError, match=_CALLER_HOST_REFERENCE_REFUSAL):
+            hangarllm.completion(
                 model="mistral/devstral-latest",
                 messages=_PING,
-                litellm_credential_name="mistral-sa",
+                hangarllm_credential_name="mistral-sa",
                 api_base=call_api_base,
             )
 
@@ -8073,17 +8073,17 @@ def test_a_named_credentials_oidc_api_key_reaches_an_api_base_on_the_same_origin
     monkeypatch.setenv("MISTRAL_SA_TOKEN", "env-token")
     credential_values: Final = {"api_key": "oidc/env/MISTRAL_SA_TOKEN", "api_base": credential_api_base}
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [CredentialItem(credential_name="mistral-sa", credential_values=credential_values, credential_info={})],
     )
 
     with respx.mock(assert_all_called=False) as upstream:
         upstream.route().respond(200, json=_MISTRAL_REPLY)
-        litellm.completion(
+        hangarllm.completion(
             model="mistral/devstral-latest",
             messages=_PING,
-            litellm_credential_name="mistral-sa",
+            hangarllm_credential_name="mistral-sa",
             api_base=call_api_base,
         )
         sent: Final = tuple(authorization for _, authorization in _authorizations(upstream.calls))
@@ -8100,10 +8100,10 @@ def test_a_named_credentials_oidc_api_key_reaches_an_api_base_on_the_same_origin
 async def test_a_team_row_naming_an_oidc_credential_reaches_only_the_credentials_host(
     monkeypatch: pytest.MonkeyPatch, row_api_base: str | None, refused: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("MISTRAL_SA_TOKEN", "env-token")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -8113,12 +8113,12 @@ async def test_a_team_row_naming_an_oidc_credential_reaches_only_the_credentials
             )
         ],
     )
-    row_params: Final = {"model": "mistral/devstral-latest", "litellm_credential_name": "mistral-sa"}
-    router: Final = litellm.Router(
+    row_params: Final = {"model": "mistral/devstral-latest", "hangarllm_credential_name": "mistral-sa"}
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "devstral",
-                "litellm_params": {**row_params, "api_base": row_api_base} if row_api_base else row_params,
+                "hangarllm_params": {**row_params, "api_base": row_api_base} if row_api_base else row_params,
                 "model_info": {"team_id": "team-1"},
             }
         ],
@@ -8129,7 +8129,7 @@ async def test_a_team_row_naming_an_oidc_credential_reaches_only_the_credentials
         with respx.mock(assert_all_called=False) as upstream:
             upstream.route().respond(200, json=_MISTRAL_REPLY)
             if refused:
-                with pytest.raises(litellm.AuthenticationError, match=_CALLER_HOST_REFERENCE_REFUSAL):
+                with pytest.raises(hangarllm.AuthenticationError, match=_CALLER_HOST_REFERENCE_REFUSAL):
                     await router.acompletion(
                         model="devstral", messages=_PING, metadata={"user_api_key_team_id": "team-1"}
                     )
@@ -8148,17 +8148,17 @@ async def test_a_team_row_naming_an_oidc_credential_reaches_only_the_credentials
     ("listing_params", "expected"),
     [
         (
-            lambda reference: LiteLLM_Params(
-                **litellm.Router(
+            lambda reference: HangarLLM_Params(
+                **hangarllm.Router(
                     model_list=[
-                        {"model_name": "openai/*", "litellm_params": {"model": "openai/*", "api_key": reference}}
+                        {"model_name": "openai/*", "hangarllm_params": {"model": "openai/*", "api_key": reference}}
                     ]
-                ).get_model_list(model_name="openai/*")[0]["litellm_params"]
+                ).get_model_list(model_name="openai/*")[0]["hangarllm_params"]
             ),
             lambda reference: "Bearer listing-token",
         ),
         (
-            lambda reference: LiteLLM_Params(model="openai/*", api_key=reference),
+            lambda reference: HangarLLM_Params(model="openai/*", api_key=reference),
             lambda reference: f"Bearer {reference}",
         ),
     ],
@@ -8167,7 +8167,7 @@ async def test_a_team_row_naming_an_oidc_credential_reaches_only_the_credentials
 def test_provider_model_listing_sends_the_token_only_behind_a_deployment_oidc_api_key(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    listing_params: Callable[[str], LiteLLM_Params],
+    listing_params: Callable[[str], HangarLLM_Params],
     expected: Callable[[str], str],
 ) -> None:
     token: Final = _allowed_token_file(tmp_path, monkeypatch, "listing-token")
@@ -8178,7 +8178,7 @@ def test_provider_model_listing_sends_the_token_only_behind_a_deployment_oidc_ap
             200, json={"object": "list", "data": [{"id": "gpt-listed", "object": "model"}]}
         )
         listed: Final = get_valid_models(
-            check_provider_endpoint=True, custom_llm_provider="openai", litellm_params=listing_params(reference)
+            check_provider_endpoint=True, custom_llm_provider="openai", hangarllm_params=listing_params(reference)
         )
         sent: Final = upstream.calls.last.request.headers["Authorization"]
 
@@ -8195,7 +8195,7 @@ def _snapshot(chunk: ModelResponseStream) -> _ChunkSnapshot:
 
 
 def _mock_stream_snapshots(mock_response: object, prompt_tokens: int | None) -> list[_ChunkSnapshot]:
-    from litellm.utils import mock_completion_streaming_obj
+    from hangarllm.utils import mock_completion_streaming_obj
 
     return [
         _snapshot(chunk)
@@ -8209,7 +8209,7 @@ def _mock_stream_snapshots(mock_response: object, prompt_tokens: int | None) -> 
 
 
 async def _async_mock_stream_snapshots(mock_response: object, prompt_tokens: int | None) -> list[_ChunkSnapshot]:
-    from litellm.utils import async_mock_completion_streaming_obj
+    from hangarllm.utils import async_mock_completion_streaming_obj
 
     return [
         _snapshot(chunk)
@@ -8268,10 +8268,10 @@ def test_mock_completion_streaming_obj_passes_prebuilt_stream_chunk_through_with
 
 @pytest.mark.asyncio
 async def test_async_mock_completion_streaming_obj_raises_mock_exception_before_usage_chunk() -> None:
-    mock_exception: Final = litellm.MockException(
+    mock_exception: Final = hangarllm.MockException(
         status_code=500, message="boom", llm_provider="openai", model="gpt-5.4-mini"
     )
-    with pytest.raises(litellm.MockException):
+    with pytest.raises(hangarllm.MockException):
         await _async_mock_stream_snapshots(mock_exception, 51234)
 
 
@@ -8280,7 +8280,7 @@ def _recording_hidden_params_at_submit(submit_target: str) -> "Iterator[queue.Si
     seen: Final = queue.SimpleQueue()
 
     def record_submit(_fn, *args, **_kwargs):
-        response: Final = next(arg for arg in args if isinstance(arg, litellm.ModelResponse))
+        response: Final = next(arg for arg in args if isinstance(arg, hangarllm.ModelResponse))
         seen.put(dict(response._hidden_params))
         return MagicMock()
 
@@ -8290,16 +8290,16 @@ def _recording_hidden_params_at_submit(submit_target: str) -> "Iterator[queue.Si
 
 @pytest.mark.asyncio
 async def test_acompletion_finishes_response_metadata_before_handing_the_response_to_the_logging_thread(monkeypatch):
-    monkeypatch.setattr(litellm, "success_callback", [lambda kwargs, response, start_time, end_time: None])
-    with _recording_hidden_params_at_submit("litellm.litellm_core_utils.litellm_logging.executor.submit") as seen:
-        await litellm.acompletion(
+    monkeypatch.setattr(hangarllm, "success_callback", [lambda kwargs, response, start_time, end_time: None])
+    with _recording_hidden_params_at_submit("hangarllm.hangarllm_core_utils.hangarllm_logging.executor.submit") as seen:
+        await hangarllm.acompletion(
             model="gpt-5.5",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="Hello there!",
             num_retries=0,
         )
     snapshot: Final = seen.get_nowait()
-    assert snapshot["litellm_call_id"]
+    assert snapshot["hangarllm_call_id"]
     assert snapshot["response_cost"] is not None
     assert snapshot["api_base"]
 
@@ -8313,7 +8313,7 @@ class _GatedSyncLoggingHookRecorder(CustomLogger):
     def logging_hook(
         self, kwargs: dict[str, object], result: object, call_type: str
     ) -> tuple[dict[str, object], object]:
-        self.seen.put(result.id if isinstance(result, litellm.ModelResponse) else None)
+        self.seen.put(result.id if isinstance(result, hangarllm.ModelResponse) else None)
         self.release.wait(timeout=5)
         return kwargs, result
 
@@ -8321,12 +8321,12 @@ class _GatedSyncLoggingHookRecorder(CustomLogger):
 @pytest.mark.asyncio
 async def test_acompletion_runs_a_custom_logger_sync_logging_hook_exactly_once(monkeypatch: pytest.MonkeyPatch) -> None:
     def legacy_sync_callback(
-        kwargs: dict[str, object], response: litellm.ModelResponse, start_time: datetime, end_time: datetime
+        kwargs: dict[str, object], response: hangarllm.ModelResponse, start_time: datetime, end_time: datetime
     ) -> None:
         pass
 
     recorder: Final = _GatedSyncLoggingHookRecorder()
-    monkeypatch.setattr(litellm, "success_callback", [legacy_sync_callback, recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [legacy_sync_callback, recorder])
     logging_futures: Final = queue.SimpleQueue[Future[object]]()
     real_submit: Final = logging_executor.submit
 
@@ -8336,9 +8336,9 @@ async def test_acompletion_runs_a_custom_logger_sync_logging_hook_exactly_once(m
         return future
 
     with patch(  # test-quality-ok: wraps the real submit only to collect the futures to join, the pool still runs
-        "litellm.litellm_core_utils.litellm_logging.executor.submit", side_effect=submit_and_track
+        "hangarllm.hangarllm_core_utils.hangarllm_logging.executor.submit", side_effect=submit_and_track
     ):
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model="gpt-5.5",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="Hello there!",
@@ -8352,14 +8352,14 @@ async def test_acompletion_runs_a_custom_logger_sync_logging_hook_exactly_once(m
 
 
 def test_completion_finishes_response_metadata_before_handing_the_response_to_the_logging_thread():
-    with _recording_hidden_params_at_submit("litellm.utils.executor.submit") as seen:
-        litellm.completion(
+    with _recording_hidden_params_at_submit("hangarllm.utils.executor.submit") as seen:
+        hangarllm.completion(
             model="gpt-5.5",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="Hello there!",
         )
     snapshot: Final = seen.get_nowait()
-    assert snapshot["litellm_call_id"]
+    assert snapshot["hangarllm_call_id"]
     assert snapshot["response_cost"] is not None
     assert snapshot["api_base"]
 
@@ -8368,10 +8368,10 @@ def test_get_model_info_gemini(monkeypatch):
     """
     Tests if ALL gemini models have 'tpm' and 'rpm' in the model info
     """
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
-    model_map = litellm.model_cost
+    model_map = hangarllm.model_cost
     for model, info in model_map.items():
         if (
             model.startswith("gemini/")
@@ -8392,18 +8392,18 @@ def test_get_model_info_gemini(monkeypatch):
 def test_register_model_without_a_provider_never_inherits_another_providers_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
     key: Final = "azure/claude-sonnet-4-6"
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
-    litellm.model_cost.pop(key, None)
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
+    hangarllm.model_cost.pop(key, None)
     try:
-        litellm.register_model(
+        hangarllm.register_model(
             {key: {"input_cost_per_token": 1e-07, "output_cost_per_token": 4e-07}}, persist_across_reloads=False
         )
-        assert litellm.model_cost[key].get("litellm_provider") is None
-        info: Final = litellm.get_model_info(key)
-        assert info["litellm_provider"] == "azure"
+        assert hangarllm.model_cost[key].get("hangarllm_provider") is None
+        info: Final = hangarllm.get_model_info(key)
+        assert info["hangarllm_provider"] == "azure"
         assert info["input_cost_per_token"] == 1e-07
         assert info["output_cost_per_token"] == 4e-07
     finally:
@@ -8425,12 +8425,12 @@ def test_register_model_without_a_provider_never_inherits_another_providers_entr
 def test_register_model_over_a_builtin_row_bills_explicit_cache_hits(
     monkeypatch: pytest.MonkeyPatch, registered_prices: dict[str, float], billed_cache_read_rate: float
 ) -> None:
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
     key: Final = "dashscope/qwen-register-explicit-cache-test"
-    monkeypatch.setattr(litellm, "model_cost", dict(litellm.model_cost))
-    litellm.model_cost[key] = {
-        "litellm_provider": "dashscope",
+    monkeypatch.setattr(hangarllm, "model_cost", dict(hangarllm.model_cost))
+    hangarllm.model_cost[key] = {
+        "hangarllm_provider": "dashscope",
         "mode": "chat",
         "input_cost_per_token": 2.5e-06,
         "output_cost_per_token": 7.5e-06,
@@ -8439,7 +8439,7 @@ def test_register_model_over_a_builtin_row_bills_explicit_cache_hits(
     }
     _invalidate_model_cost_lowercase_map()
     try:
-        litellm.register_model({key: registered_prices}, persist_across_reloads=False)
+        hangarllm.register_model({key: registered_prices}, persist_across_reloads=False)
         explicit_hit: Final = ModelResponse(
             usage=Usage(
                 prompt_tokens=1000,
@@ -8448,7 +8448,7 @@ def test_register_model_over_a_builtin_row_bills_explicit_cache_hits(
             )
         )
 
-        assert litellm.completion_cost(completion_response=explicit_hit, model=key) == pytest.approx(
+        assert hangarllm.completion_cost(completion_response=explicit_hit, model=key) == pytest.approx(
             1000 * billed_cache_read_rate
         )
     finally:
@@ -8456,7 +8456,7 @@ def test_register_model_over_a_builtin_row_bills_explicit_cache_hits(
 
 
 @pytest.mark.parametrize(
-    "model, litellm_params, expects_native_config",
+    "model, hangarllm_params, expects_native_config",
     [
         ("gemini-2.5-flash", None, True),
         ("xai/grok-4.6", None, False),
@@ -8468,12 +8468,12 @@ def test_register_model_over_a_builtin_row_bills_explicit_cache_hits(
     ],
 )
 def test_vertex_generate_content_config_follows_model_route(
-    model: str, litellm_params: dict[str, str] | None, expects_native_config: bool
+    model: str, hangarllm_params: dict[str, str] | None, expects_native_config: bool
 ):
-    from litellm.llms.vertex_ai.google_genai.transformation import VertexAIGoogleGenAIConfig
+    from hangarllm.llms.vertex_ai.google_genai.transformation import VertexAIGoogleGenAIConfig
 
     config: Final = ProviderConfigManager.get_provider_google_genai_generate_content_config(
-        model=model, provider=litellm.LlmProviders.VERTEX_AI, litellm_params=litellm_params
+        model=model, provider=hangarllm.LlmProviders.VERTEX_AI, hangarllm_params=hangarllm_params
     )
     if expects_native_config:
         assert isinstance(config, VertexAIGoogleGenAIConfig)
@@ -8517,12 +8517,12 @@ class _NamedStream(io.BytesIO):
 
 
 def _logged_request_messages(original_function: str, *args: object, **kwargs: object) -> object:
-    logging_obj, _ = litellm.utils.function_setup(
+    logging_obj, _ = hangarllm.utils.function_setup(
         original_function,
-        litellm.utils.Rules(),
+        hangarllm.utils.Rules(),
         datetime.now(),
         *args,
-        litellm_call_id="request-text-call",
+        hangarllm_call_id="request-text-call",
         **kwargs,
     )
     return logging_obj.messages
@@ -8596,8 +8596,8 @@ def test_function_setup_without_a_prompt_leaves_the_missing_prompt_to_request_va
 def test_search_with_a_mixed_type_query_list_still_reaches_its_own_validation_error() -> None:
     mixed_query: Final = cast(list[str], ["Eiffel Tower", 7])  # cast-ok: the invalid list is the point of the test
 
-    with pytest.raises(litellm.APIConnectionError, match="All items in query list must be strings"):
-        litellm.search(query=mixed_query, search_provider="duckduckgo")
+    with pytest.raises(hangarllm.APIConnectionError, match="All items in query list must be strings"):
+        hangarllm.search(query=mixed_query, search_provider="duckduckgo")
 
 
 def test_function_setup_never_logs_the_ocr_file_bytes() -> None:
@@ -8635,12 +8635,12 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function")
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
-    print(litellm)
+    print(hangarllm)
     yield
     loop.close()
     asyncio.set_event_loop(None)
@@ -8694,7 +8694,7 @@ def test_validate_tool_choice_cursor_format():
 def test_validate_tool_choice_invalid_dict_is_a_400(tool_choice):
     """A dict shape chat completions cannot carry is the caller's mistake: a 400 that names the field, never a 500."""
     with pytest.raises(
-        litellm.BadRequestError,
+        hangarllm.BadRequestError,
         match=f"Invalid tool choice, tool_choice={re.escape(str(tool_choice))}\\. Please ensure",
     ) as exc_info:
         validate_chat_completion_tool_choice(tool_choice, model=MODEL)
@@ -8729,7 +8729,7 @@ def test_validate_tool_choice_allowed_tools_chat_layout_passes_through(mode: str
     ],
 )
 def test_validate_tool_choice_allowed_tools_malformed_is_a_400(tool_choice: dict[str, object]):
-    with pytest.raises(litellm.BadRequestError, match="allowed_tools") as exc_info:
+    with pytest.raises(hangarllm.BadRequestError, match="allowed_tools") as exc_info:
         validate_chat_completion_tool_choice(tool_choice, model=MODEL)
     assert exc_info.value.status_code == 400
     assert exc_info.value.model == MODEL
@@ -8741,7 +8741,7 @@ def test_validate_tool_choice_allowed_tools_malformed_is_a_400(tool_choice: dict
 def test_validate_tool_choice_invalid_type_is_a_400(tool_choice):
     """A non-str, non-dict tool_choice is rejected as a 400 that names the type it got."""
     with pytest.raises(
-        litellm.BadRequestError, match=f"Got={re.escape(str(type(tool_choice)))}\\. Expecting str, or dict\\."
+        hangarllm.BadRequestError, match=f"Got={re.escape(str(type(tool_choice)))}\\. Expecting str, or dict\\."
     ) as exc_info:
         validate_chat_completion_tool_choice(tool_choice, model=MODEL)
     assert exc_info.value.status_code == 400
@@ -8750,7 +8750,7 @@ def test_validate_tool_choice_invalid_type_is_a_400(tool_choice):
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 def test_validate_tool_choice_without_model_is_still_a_400():
     """Callers that predate the model argument keep getting a 400, with an empty model on the error."""
-    with pytest.raises(litellm.BadRequestError, match="Invalid tool choice") as exc_info:
+    with pytest.raises(hangarllm.BadRequestError, match="Invalid tool choice") as exc_info:
         validate_chat_completion_tool_choice({"type": "bogus"})
     assert exc_info.value.status_code == 400
     assert exc_info.value.model == ""
@@ -8764,11 +8764,11 @@ def _vcr_outcome_gate_local_testing(request, vcr):
 
 
 @pytest.fixture(scope="function")
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -8780,18 +8780,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -8801,76 +8801,76 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module")
 def setup_and_teardown_local_testing():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
 
 
 @pytest.mark.usefixtures(
     "_vcr_outcome_gate_local_testing",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown_local_testing",
 )
 def test_vertex_projects():
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     model, custom_llm_provider, _, _ = get_llm_provider(model="vertex_ai/textembedding-gecko")
     optional_params = get_optional_params_embeddings(
         model=model,
-        user="test-litellm-user-5",
+        user="test-hangarllm-user-5",
         dimensions=None,
         encoding_format="base64",
         custom_llm_provider=custom_llm_provider,
@@ -8888,7 +8888,7 @@ def test_vertex_projects():
 
 @pytest.mark.usefixtures(
     "_vcr_outcome_gate_local_testing",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown_local_testing",
 )
 def test_bedrock_embed_v2_regular():
@@ -8904,16 +8904,16 @@ def test_bedrock_embed_v2_regular():
 
 @pytest.mark.usefixtures(
     "_vcr_outcome_gate_local_testing",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown_local_testing",
 )
 def test_bedrock_embed_v2_with_drop_params():
-    litellm.drop_params = True
+    hangarllm.drop_params = True
     model, custom_llm_provider, _, _ = get_llm_provider(model="bedrock/amazon.titan-embed-text-v2:0")
     optional_params = get_optional_params_embeddings(
         model=model,
         dimensions=512,
-        user="test-litellm-user-5",
+        user="test-hangarllm-user-5",
         encoding_format="base64",
         custom_llm_provider=custom_llm_provider,
     )
@@ -8923,7 +8923,7 @@ def test_bedrock_embed_v2_with_drop_params():
 
 @pytest.mark.usefixtures(
     "_vcr_outcome_gate_local_testing",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown_local_testing",
 )
 def test_openai_non_text_embedding_3_with_allowed_openai_params():
@@ -8945,7 +8945,7 @@ def test_openai_non_text_embedding_3_with_allowed_openai_params():
 
 @pytest.mark.usefixtures(
     "_vcr_outcome_gate_local_testing",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown_local_testing",
 )
 def test_openai_non_text_embedding_3_without_allowed_openai_params_raises():
@@ -8953,11 +8953,11 @@ def test_openai_non_text_embedding_3_without_allowed_openai_params_raises():
     Test that passing `dimensions` to a non-text-embedding-3 OpenAI model
     without `allowed_openai_params` still raises UnsupportedParamsError.
     """
-    from litellm.exceptions import UnsupportedParamsError
+    from hangarllm.exceptions import UnsupportedParamsError
 
     # ensure global drop_params is off (other tests in this file flip it on)
-    prev_drop_params = litellm.drop_params
-    litellm.drop_params = False
+    prev_drop_params = hangarllm.drop_params
+    hangarllm.drop_params = False
     try:
         model, custom_llm_provider, _, _ = get_llm_provider(model="openai/nvidia/llama-3.2-nv-embedqa-1b-v2")
         with pytest.raises(UnsupportedParamsError):
@@ -8967,24 +8967,24 @@ def test_openai_non_text_embedding_3_without_allowed_openai_params_raises():
                 custom_llm_provider=custom_llm_provider,
             )
     finally:
-        litellm.drop_params = prev_drop_params
+        hangarllm.drop_params = prev_drop_params
 
 
 @pytest.mark.usefixtures(
     "_vcr_outcome_gate_local_testing",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown_local_testing",
 )
 def test_openai_non_text_embedding_3_drop_params_per_call():
     """
-    Regression for https://github.com/BerriAI/litellm/issues/26787
+    Regression for upstream issue 26787
 
     When drop_params=True is passed per-call, `dimensions` should be silently
     stripped for a non-`text-embedding-3` OpenAI-provider model instead of
     raising UnsupportedParamsError.
     """
-    prev_drop_params = litellm.drop_params
-    litellm.drop_params = False  # ensure only per-call flag is in effect
+    prev_drop_params = hangarllm.drop_params
+    hangarllm.drop_params = False  # ensure only per-call flag is in effect
     try:
         model, custom_llm_provider, _, _ = get_llm_provider(model="openai/Qwen/Qwen3-Embedding-0.6B")
         optional_params = get_optional_params_embeddings(
@@ -8996,24 +8996,24 @@ def test_openai_non_text_embedding_3_drop_params_per_call():
         print(f"received optional_params: {optional_params}")
         assert "dimensions" not in optional_params
     finally:
-        litellm.drop_params = prev_drop_params
+        hangarllm.drop_params = prev_drop_params
 
 
 @pytest.mark.usefixtures(
     "_vcr_outcome_gate_local_testing",
-    "isolate_litellm_state",
+    "isolate_hangarllm_state",
     "setup_and_teardown_local_testing",
 )
 def test_openai_non_text_embedding_3_drop_params_global():
     """
-    Regression for https://github.com/BerriAI/litellm/issues/26787
+    Regression for upstream issue 26787
 
-    When `litellm.drop_params = True` is set globally, `dimensions` should be
+    When `hangarllm.drop_params = True` is set globally, `dimensions` should be
     silently stripped for a non-`text-embedding-3` OpenAI-provider model
     instead of raising UnsupportedParamsError.
     """
-    prev_drop_params = litellm.drop_params
-    litellm.drop_params = True
+    prev_drop_params = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         model, custom_llm_provider, _, _ = get_llm_provider(model="openai/Qwen/Qwen3-Embedding-0.6B")
         optional_params = get_optional_params_embeddings(
@@ -9024,7 +9024,7 @@ def test_openai_non_text_embedding_3_drop_params_global():
         print(f"received optional_params: {optional_params}")
         assert "dimensions" not in optional_params
     finally:
-        litellm.drop_params = prev_drop_params
+        hangarllm.drop_params = prev_drop_params
 
 
 @pytest.fixture()
@@ -9035,19 +9035,19 @@ def _vcr_outcome_gate_search_tests(request, vcr):
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate_search_tests")
-def test_search_tool_name_in_all_litellm_params():
+def test_search_tool_name_in_all_hangarllm_params():
     """
-    Test that search_tool_name is in all_litellm_params.
+    Test that search_tool_name is in all_hangarllm_params.
 
     If missing, it gets passed to provider APIs causing errors.
     """
-    assert "search_tool_name" in all_litellm_params
+    assert "search_tool_name" in all_hangarllm_params
 
 
 @pytest.mark.usefixtures("_vcr_outcome_gate_search_tests")
 def test_filter_out_search_tool_name():
     """
-    Test that filter_out_litellm_params correctly filters search_tool_name.
+    Test that filter_out_hangarllm_params correctly filters search_tool_name.
     """
     kwargs = {
         "query": "latest ai developments",
@@ -9055,14 +9055,14 @@ def test_filter_out_search_tool_name():
         "scrapeOptions": {"formats": ["markdown"]},
         "search_tool_name": "firecrawl-search",
         "metadata": {"user": "test"},
-        "litellm_call_id": "test-123",
+        "hangarllm_call_id": "test-123",
     }
 
-    filtered = filter_out_litellm_params(kwargs=kwargs)
+    filtered = filter_out_hangarllm_params(kwargs=kwargs)
 
     assert "search_tool_name" not in filtered
     assert "metadata" not in filtered
-    assert "litellm_call_id" not in filtered
+    assert "hangarllm_call_id" not in filtered
 
     assert "query" in filtered
     assert "max_results" in filtered
@@ -9078,10 +9078,10 @@ async def test_nested_wrapper_exits_schedule_one_async_success_log(monkeypatch: 
     the worker-thread base64 offload before it marked ``has_logged_async_success``, so the second
     passed the check too and the request was logged and billed twice. The schedule step claims the
     log for the object synchronously, so only the inner provider-shaped result is ever logged."""
-    from litellm.litellm_core_utils import litellm_logging
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-    from litellm.utils import dispatch_success_logging
+    from hangarllm.hangarllm_core_utils import hangarllm_logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.utils import dispatch_success_logging
 
     class CountingLogger(CustomLogger):
         def __init__(self) -> None:
@@ -9089,18 +9089,18 @@ async def test_nested_wrapper_exits_schedule_one_async_success_log(monkeypatch: 
             self.logged_results: list[object] = []
 
         async def async_log_success_event(self, kwargs, response_obj, start_time, end_time) -> None:
-            if kwargs["litellm_call_id"] == "bridge-call-id":
+            if kwargs["hangarllm_call_id"] == "bridge-call-id":
                 self.logged_results.append(response_obj)
 
     counting_logger: Final = CountingLogger()
-    monkeypatch.setattr(litellm, "_async_success_callback", [counting_logger])
-    real_truncate: Final = litellm_logging.truncate_base64_in_messages_async
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [counting_logger])
+    real_truncate: Final = hangarllm_logging.truncate_base64_in_messages_async
 
     async def yielding_truncate(messages):
         await asyncio.sleep(0)
         return await real_truncate(messages)
 
-    monkeypatch.setattr(litellm_logging, "truncate_base64_in_messages_async", yielding_truncate)
+    monkeypatch.setattr(hangarllm_logging, "truncate_base64_in_messages_async", yielding_truncate)
 
     messages: Final = [{"role": "user", "content": "hello"}]
     logging_obj: Final = Logging(
@@ -9109,11 +9109,11 @@ async def test_nested_wrapper_exits_schedule_one_async_success_log(monkeypatch: 
         stream=False,
         call_type="acompletion",
         start_time=datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp(),
-        litellm_call_id="bridge-call-id",
+        hangarllm_call_id="bridge-call-id",
         function_id="bridge-fn-id",
     )
     logging_obj.update_environment_variables(
-        litellm_params={}, optional_params={}, model="gpt-5.6-luna", custom_llm_provider="openai", input=messages
+        hangarllm_params={}, optional_params={}, model="gpt-5.6-luna", custom_llm_provider="openai", input=messages
     )
     inner_result: Final = ModelResponse(id="inner")
     outer_result: Final = ModelResponse(id="outer")
@@ -9126,7 +9126,7 @@ async def test_nested_wrapper_exits_schedule_one_async_success_log(monkeypatch: 
             start_time=now,
             end_time=now,
             is_completion_with_fallbacks=False,
-            is_litellm_internal_call=False,
+            is_hangarllm_internal_call=False,
         )
     await asyncio.sleep(0)
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=10)
@@ -9136,7 +9136,7 @@ async def test_nested_wrapper_exits_schedule_one_async_success_log(monkeypatch: 
 
 
 def test_basic_trimming():
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     messages = [
         {
             "role": "user",
@@ -9159,7 +9159,7 @@ def test_basic_trimming_no_max_tokens_specified():
     trimmed_messages = trim_messages(messages, model="gpt-4")
     print("trimmed messages for gpt-4")
     print(trimmed_messages)
-    assert (get_token_count(messages=trimmed_messages, model="gpt-4")) <= litellm.model_cost["gpt-4"][
+    assert (get_token_count(messages=trimmed_messages, model="gpt-4")) <= hangarllm.model_cost["gpt-4"][
         "max_input_tokens"
     ]
 
@@ -9222,7 +9222,7 @@ def test_trimming_with_system_message_within_max_tokens():
         {"role": "system", "content": "This is a short system message"},
         {
             "role": "user",
-            "content": "This is a medium normal message, let's say litellm is awesome.",
+            "content": "This is a medium normal message, let's say hangarllm is awesome.",
         },
     ]
     trimmed_messages = trim_messages(messages, max_tokens=30, model="gpt-4-0613")
@@ -9235,7 +9235,7 @@ def test_trimming_with_system_message_exceeding_max_tokens():
         {"role": "system", "content": "This is a short system message"},
         {
             "role": "user",
-            "content": "This is a medium normal message, let's say litellm is awesome.",
+            "content": "This is a medium normal message, let's say hangarllm is awesome.",
         },
     ]
     trimmed_messages = trim_messages(messages, max_tokens=12, model="gpt-4-0613")
@@ -9243,7 +9243,7 @@ def test_trimming_with_system_message_exceeding_max_tokens():
 
 
 def test_trimming_with_tool_calls():
-    from litellm.types.utils import ChatCompletionMessageToolCall, Function, Message
+    from hangarllm.types.utils import ChatCompletionMessageToolCall, Function, Message
 
     messages = [
         {
@@ -9318,7 +9318,7 @@ def test_trimming_should_not_change_original_messages():
         {"role": "system", "content": "This is a short system message"},
         {
             "role": "user",
-            "content": "This is a medium normal message, let's say litellm is awesome.",
+            "content": "This is a medium normal message, let's say hangarllm is awesome.",
         },
     ]
     messages_copy = copy.deepcopy(messages)
@@ -9336,11 +9336,11 @@ def test_trimming_with_model_cost_max_input_tokens(model):
         },
     ]
     trimmed_messages = trim_messages(messages, model=model)
-    assert get_token_count(trimmed_messages, model=model) < litellm.model_cost[model]["max_input_tokens"]
+    assert get_token_count(trimmed_messages, model=model) < hangarllm.model_cost[model]["max_input_tokens"]
 
 
 def test_trimming_with_untokenizable_field(caplog: pytest.LogCaptureFixture) -> None:
-    from litellm.types.utils import ChatCompletionMessageToolCall, Function, Message
+    from hangarllm.types.utils import ChatCompletionMessageToolCall, Function, Message
 
     messages = [
         {
@@ -9375,7 +9375,7 @@ def test_trimming_with_untokenizable_field(caplog: pytest.LogCaptureFixture) -> 
         },
     ]
 
-    with caplog.at_level(level=logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(level=logging.ERROR, logger="HangarLLM"):
         trimmed_messages = trim_messages(messages, max_tokens=999)
 
     assert trimmed_messages == messages
@@ -9383,7 +9383,7 @@ def test_trimming_with_untokenizable_field(caplog: pytest.LogCaptureFixture) -> 
 
 @pytest.fixture
 def reset_mock_cache() -> None:
-    from litellm.utils import _model_cache
+    from hangarllm.utils import _model_cache
 
     _model_cache.flush_cache()
 
@@ -9393,10 +9393,10 @@ def test_get_valid_models_does_not_ask_a_timed_out_provider_again_on_the_next_li
     catalog: Final = respx.get("https://openrouter.ai/api/v1/models/user").mock(
         side_effect=httpx.ReadTimeout("catalog hung")
     )
-    deployment: Final = LiteLLM_Params(model="openrouter/*", api_key="sk-or-during-an-outage")
+    deployment: Final = HangarLLM_Params(model="openrouter/*", api_key="sk-or-during-an-outage")
 
     listings: Final = tuple(
-        get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", litellm_params=deployment)
+        get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", hangarllm_params=deployment)
         for _ in range(2)
     )
 
@@ -9410,10 +9410,10 @@ def test_get_valid_models_does_not_ask_a_timed_out_hosted_vllm_server_again_on_t
     models_route: Final = respx.get("http://vllm-hung.test:8000/v1/models").mock(
         side_effect=httpx.ReadTimeout("vLLM did not answer")
     )
-    deployment: Final = LiteLLM_Params(model="hosted_vllm/*", api_base="http://vllm-hung.test:8000/v1")
+    deployment: Final = HangarLLM_Params(model="hosted_vllm/*", api_base="http://vllm-hung.test:8000/v1")
 
     listings: Final = tuple(
-        get_valid_models(check_provider_endpoint=True, custom_llm_provider="hosted_vllm", litellm_params=deployment)
+        get_valid_models(check_provider_endpoint=True, custom_llm_provider="hosted_vllm", hangarllm_params=deployment)
         for _ in range(2)
     )
 
@@ -9425,10 +9425,10 @@ def test_get_valid_models_lists_a_provider_again_right_after_a_fast_failure(rese
     respx.get("https://openrouter.ai/api/v1/models/user").mock(
         side_effect=(httpx.Response(503), httpx.Response(200, json={"data": [{"id": "anthropic/claude-haiku-5-5"}]}))
     )
-    deployment: Final = LiteLLM_Params(model="openrouter/*", api_key="sk-or-recovers")
+    deployment: Final = HangarLLM_Params(model="openrouter/*", api_key="sk-or-recovers")
 
     listings: Final = tuple(
-        get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", litellm_params=deployment)
+        get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", hangarllm_params=deployment)
         for _ in range(2)
     )
 
@@ -9439,20 +9439,20 @@ def test_get_valid_models_lists_a_provider_again_right_after_a_fast_failure(rese
 def test_get_valid_models_keeps_a_good_listing_when_an_overlapping_listing_fails_after_it(
     reset_mock_cache: None,
 ) -> None:
-    deployment: Final = LiteLLM_Params(model="openrouter/*", api_key="sk-or-overlapping-listings")
+    deployment: Final = HangarLLM_Params(model="openrouter/*", api_key="sk-or-overlapping-listings")
     first_request: Final = iter((True, False))
 
     def answer_after_an_overlapping_listing(request: httpx.Request) -> httpx.Response:
         if next(first_request):
-            get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", litellm_params=deployment)
+            get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", hangarllm_params=deployment)
             raise httpx.ReadTimeout("catalog hung", request=request)
         return httpx.Response(200, json={"data": [{"id": "anthropic/claude-haiku-5-5"}]})
 
     respx.get("https://openrouter.ai/api/v1/models/user").mock(side_effect=answer_after_an_overlapping_listing)
-    get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", litellm_params=deployment)
+    get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", hangarllm_params=deployment)
 
     assert get_valid_models(
-        check_provider_endpoint=True, custom_llm_provider="openrouter", litellm_params=deployment
+        check_provider_endpoint=True, custom_llm_provider="openrouter", hangarllm_params=deployment
     ) == ["openrouter/anthropic/claude-haiku-5-5"]
 
 
@@ -9463,11 +9463,11 @@ def test_get_valid_models_asks_a_provider_once_when_many_listings_start_together
         return httpx.Response(200, json={"data": [{"id": "anthropic/claude-haiku-5-5"}]})
 
     catalog: Final = respx.get("https://openrouter.ai/api/v1/models/user").mock(side_effect=slow_catalog)
-    deployment: Final = LiteLLM_Params(model="openrouter/*", api_key="sk-or-many-listings")
+    deployment: Final = HangarLLM_Params(model="openrouter/*", api_key="sk-or-many-listings")
 
     def list_models(_: int) -> tuple[str, ...]:
         return tuple(
-            get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", litellm_params=deployment)
+            get_valid_models(check_provider_endpoint=True, custom_llm_provider="openrouter", hangarllm_params=deployment)
         )
 
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -9479,14 +9479,14 @@ def test_get_valid_models_asks_a_provider_once_when_many_listings_start_together
 @pytest.fixture
 def isolated_openai_model_sets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "open_ai_chat_completion_models",
-        set(litellm.open_ai_chat_completion_models),
+        set(hangarllm.open_ai_chat_completion_models),
     )
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "open_ai_text_completion_models",
-        set(litellm.open_ai_text_completion_models),
+        set(hangarllm.open_ai_text_completion_models),
     )
 
 
@@ -9495,8 +9495,8 @@ def test_aget_valid_models():
         valid_models = get_valid_models()
         print(valid_models)
 
-        # list of openai supported llms on litellm
-        expected_models = litellm.open_ai_chat_completion_models | litellm.open_ai_text_completion_models
+        # list of openai supported llms on hangarllm
+        expected_models = hangarllm.open_ai_chat_completion_models | hangarllm.open_ai_text_completion_models
 
         assert set(valid_models) == set(expected_models)
 
@@ -9505,7 +9505,7 @@ def test_aget_valid_models():
         valid_models = get_valid_models()
 
         print(valid_models)
-        assert set(valid_models) == set(litellm.gemini_models)
+        assert set(valid_models) == set(hangarllm.gemini_models)
 
 
 def test_validate_environment_empty_model():
@@ -9563,21 +9563,21 @@ def test_get_chat_completion_prompt():
     """
     Unit test to ensure get_chat_completion_prompt updates messages in logging object.
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
-    litellm_logging_obj = Logging(
+    hangarllm_logging_obj = Logging(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
-        litellm_call_id="1234",
+        hangarllm_call_id="1234",
         start_time=datetime.now(),
         function_id="1234",
     )
 
     updated_message = "hello world"
 
-    litellm_logging_obj.get_chat_completion_prompt(
+    hangarllm_logging_obj.get_chat_completion_prompt(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": updated_message}],
         non_default_params={},
@@ -9585,7 +9585,7 @@ def test_get_chat_completion_prompt():
         prompt_variables=None,
     )
 
-    assert litellm_logging_obj.messages == [{"role": "user", "content": updated_message}]
+    assert hangarllm_logging_obj.messages == [{"role": "user", "content": updated_message}]
 
 
 def test_redact_msgs_from_logs():
@@ -9594,14 +9594,14 @@ def test_redact_msgs_from_logs():
 
     On the proxy some users were seeing the redaction impact client side responses
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.litellm_core_utils.redact_messages import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.hangarllm_core_utils.redact_messages import (
         redact_message_input_output_from_logging,
     )
 
-    litellm.turn_off_message_logging = True
+    hangarllm.turn_off_message_logging = True
 
-    response_obj = litellm.ModelResponse(
+    response_obj = hangarllm.ModelResponse(
         choices=[
             {
                 "finish_reason": "stop",
@@ -9614,19 +9614,19 @@ def test_redact_msgs_from_logs():
         ]
     )
 
-    litellm_logging_obj = Logging(
+    hangarllm_logging_obj = Logging(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
-        litellm_call_id="1234",
+        hangarllm_call_id="1234",
         start_time=datetime.now(),
         function_id="1234",
     )
 
     _redacted_response_obj = redact_message_input_output_from_logging(
         result=response_obj,
-        model_call_details=litellm_logging_obj.model_call_details,
+        model_call_details=hangarllm_logging_obj.model_call_details,
     )
 
     # Assert the response_obj content is NOT modified
@@ -9635,7 +9635,7 @@ def test_redact_msgs_from_logs():
         == "I'm LLaMA, an AI assistant developed by Meta AI that can understand and respond to human input in a conversational manner."
     )
 
-    litellm.turn_off_message_logging = False
+    hangarllm.turn_off_message_logging = False
     print("Test passed")
 
 
@@ -9649,40 +9649,40 @@ def test_redact_embedding_response():
     3. data field (containing embeddings) is cleared for privacy
     4. original response object is not modified
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.litellm_core_utils.redact_messages import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.hangarllm_core_utils.redact_messages import (
         redact_message_input_output_from_logging,
     )
 
-    litellm.turn_off_message_logging = True
+    hangarllm.turn_off_message_logging = True
 
     # Create a test EmbeddingResponse with usage data
-    original_usage = litellm.Usage(prompt_tokens=10, completion_tokens=0, total_tokens=10)
+    original_usage = hangarllm.Usage(prompt_tokens=10, completion_tokens=0, total_tokens=10)
     original_data = [
         {"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3, 0.4, 0.5]},
         {"object": "embedding", "index": 1, "embedding": [0.6, 0.7, 0.8, 0.9, 1.0]},
     ]
 
-    response_obj = litellm.EmbeddingResponse(
+    response_obj = hangarllm.EmbeddingResponse(
         model="text-embedding-3-small",
         data=original_data,
         usage=original_usage,
         object="list",
     )
 
-    litellm_logging_obj = Logging(
+    hangarllm_logging_obj = Logging(
         model="text-embedding-3-small",
         messages=[{"role": "user", "content": "test input"}],
         stream=False,
         call_type="embedding",
-        litellm_call_id="1234",
+        hangarllm_call_id="1234",
         start_time=datetime.now(),
         function_id="1234",
     )
 
     _redacted_response_obj = redact_message_input_output_from_logging(
         result=response_obj,
-        model_call_details=litellm_logging_obj.model_call_details,
+        model_call_details=hangarllm_logging_obj.model_call_details,
     )
 
     # Assert the original response_obj is NOT modified
@@ -9700,30 +9700,30 @@ def test_redact_embedding_response():
     assert _redacted_response_obj.data == []  # data should be cleared
 
     # Assert it's still an EmbeddingResponse instance
-    assert isinstance(_redacted_response_obj, litellm.EmbeddingResponse)
+    assert isinstance(_redacted_response_obj, hangarllm.EmbeddingResponse)
 
-    litellm.turn_off_message_logging = False
+    hangarllm.turn_off_message_logging = False
     print("Test passed")
 
 
 def test_redact_msgs_from_logs_with_dynamic_params():
     """
     Tests redaction behavior based on standard_callback_dynamic_params setting:
-    In all tests litellm.turn_off_message_logging is True
+    In all tests hangarllm.turn_off_message_logging is True
 
 
     1. When standard_callback_dynamic_params.turn_off_message_logging is False (or not set): No redaction should occur. User has opted out of redaction.
     2. When standard_callback_dynamic_params.turn_off_message_logging is True: Redaction should occur. User has opted in to redaction.
-    3. standard_callback_dynamic_params.turn_off_message_logging not set, litellm.turn_off_message_logging is True: Redaction should occur.
+    3. standard_callback_dynamic_params.turn_off_message_logging not set, hangarllm.turn_off_message_logging is True: Redaction should occur.
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.litellm_core_utils.redact_messages import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.hangarllm_core_utils.redact_messages import (
         redact_message_input_output_from_logging,
     )
 
-    litellm.turn_off_message_logging = True
+    hangarllm.turn_off_message_logging = True
     test_content = "I'm LLaMA, an AI assistant developed by Meta AI that can understand and respond to human input in a conversational manner."
-    response_obj = litellm.ModelResponse(
+    response_obj = hangarllm.ModelResponse(
         choices=[
             {
                 "finish_reason": "stop",
@@ -9736,49 +9736,49 @@ def test_redact_msgs_from_logs_with_dynamic_params():
         ]
     )
 
-    litellm_logging_obj = Logging(
+    hangarllm_logging_obj = Logging(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
-        litellm_call_id="1234",
+        hangarllm_call_id="1234",
         start_time=datetime.now(),
         function_id="1234",
     )
 
     # Test Case 1: standard_callback_dynamic_params = False (or not set)
     standard_callback_dynamic_params = StandardCallbackDynamicParams(turn_off_message_logging=False)
-    litellm_logging_obj.model_call_details["standard_callback_dynamic_params"] = standard_callback_dynamic_params
+    hangarllm_logging_obj.model_call_details["standard_callback_dynamic_params"] = standard_callback_dynamic_params
     _redacted_response_obj = redact_message_input_output_from_logging(
         result=response_obj,
-        model_call_details=litellm_logging_obj.model_call_details,
+        model_call_details=hangarllm_logging_obj.model_call_details,
     )
     # Assert no redaction occurred
     assert _redacted_response_obj.choices[0].message.content == test_content
 
     # Test Case 2: standard_callback_dynamic_params = True
     standard_callback_dynamic_params = StandardCallbackDynamicParams(turn_off_message_logging=True)
-    litellm_logging_obj.model_call_details["standard_callback_dynamic_params"] = standard_callback_dynamic_params
+    hangarllm_logging_obj.model_call_details["standard_callback_dynamic_params"] = standard_callback_dynamic_params
     _redacted_response_obj = redact_message_input_output_from_logging(
         result=response_obj,
-        model_call_details=litellm_logging_obj.model_call_details,
+        model_call_details=hangarllm_logging_obj.model_call_details,
     )
     # Assert redaction occurred
-    assert _redacted_response_obj.choices[0].message.content == "redacted-by-litellm"
+    assert _redacted_response_obj.choices[0].message.content == "redacted-by-hangarllm"
 
     # Test Case 3: standard_callback_dynamic_params does not set turn_off_message_logging
-    # since litellm.turn_off_message_logging is True redaction should occur
+    # since hangarllm.turn_off_message_logging is True redaction should occur
     standard_callback_dynamic_params = StandardCallbackDynamicParams()
-    litellm_logging_obj.model_call_details["standard_callback_dynamic_params"] = standard_callback_dynamic_params
+    hangarllm_logging_obj.model_call_details["standard_callback_dynamic_params"] = standard_callback_dynamic_params
     _redacted_response_obj = redact_message_input_output_from_logging(
         result=response_obj,
-        model_call_details=litellm_logging_obj.model_call_details,
+        model_call_details=hangarllm_logging_obj.model_call_details,
     )
     # Assert no redaction occurred
-    assert _redacted_response_obj.choices[0].message.content == "redacted-by-litellm"
+    assert _redacted_response_obj.choices[0].message.content == "redacted-by-hangarllm"
 
     # Reset settings
-    litellm.turn_off_message_logging = False
+    hangarllm.turn_off_message_logging = False
     print("Test passed")
 
 
@@ -9850,20 +9850,20 @@ def test_convert_model_response_object():
                 "code": 400,
             },
         },
-        "model_response_object": litellm.ModelResponse(
+        "model_response_object": hangarllm.ModelResponse(
             id="chatcmpl-b88ce43a-7bfc-437c-b8cc-e90d59372cfb",
             choices=[
-                litellm.Choices(
+                hangarllm.Choices(
                     finish_reason="stop",
                     index=0,
-                    message=litellm.Message(content="default", role="assistant"),
+                    message=hangarllm.Message(content="default", role="assistant"),
                 )
             ],
             created=1719376241,
             model="openrouter/anthropic/claude-3.5-sonnet",
             object="chat.completion",
             system_fingerprint=None,
-            usage=litellm.Usage(),
+            usage=hangarllm.Usage(),
         ),
         "response_type": "completion",
         "stream": False,
@@ -9873,7 +9873,7 @@ def test_convert_model_response_object():
     }
 
     with pytest.raises(Exception) as exc_info:  # noqa: PT011  # bare Exception() with attributes, so str(e) is empty
-        litellm.convert_to_model_response_object(**args)
+        hangarllm.convert_to_model_response_object(**args)
     e = exc_info.value
     assert e.status_code == 400
     assert (
@@ -9900,7 +9900,7 @@ def test_convert_model_response_object():
     ],
 )
 def test_parse_content_for_reasoning(content, expected_reasoning, expected_content):
-    assert litellm.utils._parse_content_for_reasoning(content) == (
+    assert hangarllm.utils._parse_content_for_reasoning(content) == (
         expected_reasoning,
         expected_content,
     )
@@ -9912,9 +9912,9 @@ def test_usage_object_null_tokens():
 
     Asserts Usage obj always returns int.
 
-    Fixes https://github.com/BerriAI/litellm/issues/5096
+    Fixes upstream issue 5096
     """
-    usage_obj = litellm.Usage(prompt_tokens=2, completion_tokens=None, total_tokens=2)
+    usage_obj = hangarllm.Usage(prompt_tokens=2, completion_tokens=None, total_tokens=2)
 
     assert usage_obj.completion_tokens == 0
 
@@ -9953,17 +9953,17 @@ def test_async_http_handler(mock_async_client):
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_async_http_handler_force_ipv4(mock_async_client):
     """
-    Test AsyncHTTPHandler when litellm.force_ipv4 is True
+    Test AsyncHTTPHandler when hangarllm.force_ipv4 is True
 
-    This is prod test - we need to ensure that httpx always uses ipv4 when litellm.force_ipv4 is True
+    This is prod test - we need to ensure that httpx always uses ipv4 when hangarllm.force_ipv4 is True
     """
     import httpx
     import ssl
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     # Set force_ipv4 to True
-    litellm.force_ipv4 = True
-    litellm.disable_aiohttp_transport = True
+    hangarllm.force_ipv4 = True
+    hangarllm.disable_aiohttp_transport = True
 
     try:
         timeout = 120
@@ -9992,11 +9992,11 @@ def test_async_http_handler_force_ipv4(mock_async_client):
 
     finally:
         # Reset force_ipv4 to default
-        litellm.force_ipv4 = False
+        hangarllm.force_ipv4 = False
 
 
 def test_is_base64_encoded_2():
-    from litellm.utils import is_base64_encoded
+    from hangarllm.utils import is_base64_encoded
 
     assert (
         is_base64_encoded(
@@ -10067,7 +10067,7 @@ def test_is_base64_encoded_2():
     ],
 )
 def test_validate_chat_completion_user_messages(messages, expected_bool):
-    from litellm.utils import validate_chat_completion_user_messages
+    from hangarllm.utils import validate_chat_completion_user_messages
 
     if expected_bool:
         validate_chat_completion_user_messages(messages=messages)
@@ -10087,12 +10087,12 @@ def test_validate_chat_completion_user_messages(messages, expected_bool):
     ],
 )
 def test_validate_chat_completion_tool_choice(tool_choice, expected_bool):
-    from litellm.utils import validate_chat_completion_tool_choice
+    from hangarllm.utils import validate_chat_completion_tool_choice
 
     if expected_bool:
         validate_chat_completion_tool_choice(tool_choice=tool_choice, model="gpt-5.6-sol")
     else:
-        with pytest.raises(litellm.BadRequestError, match="Invalid tool choice"):
+        with pytest.raises(hangarllm.BadRequestError, match="Invalid tool choice"):
             validate_chat_completion_tool_choice(tool_choice=tool_choice, model="gpt-5.6-sol")
 
 
@@ -10100,23 +10100,23 @@ def test_models_by_provider():
     """
     Make sure all providers from model map are in the valid providers list
     """
-    os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
-    from litellm import models_by_provider
+    from hangarllm import models_by_provider
 
     providers = set()
-    for k, v in litellm.model_cost.items():
-        if "_" in v["litellm_provider"] and "-" in v["litellm_provider"]:
+    for k, v in hangarllm.model_cost.items():
+        if "_" in v["hangarllm_provider"] and "-" in v["hangarllm_provider"]:
             continue
         elif k == "sample_spec":
             continue
-        elif v["litellm_provider"] == "sagemaker" or v["litellm_provider"] == "bedrock_converse":
+        elif v["hangarllm_provider"] == "sagemaker" or v["hangarllm_provider"] == "bedrock_converse":
             continue
         elif v.get("mode") in ("search", "decisions", "evaluation", "extraction"):
             continue
         else:
-            providers.add(v["litellm_provider"])
+            providers.add(v["hangarllm_provider"])
 
     for provider in providers:
         assert provider in models_by_provider.keys() or JSONProviderRegistry.exists(provider)
@@ -10124,33 +10124,33 @@ def test_models_by_provider():
 
 @pytest.fixture
 def restore_end_user_cost_tracking_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", litellm.disable_end_user_cost_tracking)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", hangarllm.disable_end_user_cost_tracking)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "enable_end_user_cost_tracking_prometheus_only",
-        litellm.enable_end_user_cost_tracking_prometheus_only,
+        hangarllm.enable_end_user_cost_tracking_prometheus_only,
     )
 
 
 @pytest.mark.usefixtures("restore_end_user_cost_tracking_flags")
 @pytest.mark.parametrize(
-    "litellm_params, disable_end_user_cost_tracking, expected_end_user_id",
+    "hangarllm_params, disable_end_user_cost_tracking, expected_end_user_id",
     [
         ({}, False, None),
         ({"user_api_key_end_user_id": "123"}, False, "123"),
         ({"user_api_key_end_user_id": "123"}, True, None),
     ],
 )
-def test_get_end_user_id_for_cost_tracking(litellm_params, disable_end_user_cost_tracking, expected_end_user_id):
-    from litellm.utils import get_end_user_id_for_cost_tracking
+def test_get_end_user_id_for_cost_tracking(hangarllm_params, disable_end_user_cost_tracking, expected_end_user_id):
+    from hangarllm.utils import get_end_user_id_for_cost_tracking
 
-    litellm.disable_end_user_cost_tracking = disable_end_user_cost_tracking
-    assert get_end_user_id_for_cost_tracking(litellm_params=litellm_params) == expected_end_user_id
+    hangarllm.disable_end_user_cost_tracking = disable_end_user_cost_tracking
+    assert get_end_user_id_for_cost_tracking(hangarllm_params=hangarllm_params) == expected_end_user_id
 
 
 @pytest.mark.usefixtures("restore_end_user_cost_tracking_flags")
 @pytest.mark.parametrize(
-    "litellm_params, enable_end_user_cost_tracking_prometheus_only, expected_end_user_id",
+    "hangarllm_params, enable_end_user_cost_tracking_prometheus_only, expected_end_user_id",
     [
         ({}, True, None),
         ({"user_api_key_end_user_id": "123"}, True, "123"),
@@ -10158,39 +10158,39 @@ def test_get_end_user_id_for_cost_tracking(litellm_params, disable_end_user_cost
     ],
 )
 def test_get_end_user_id_for_cost_tracking_prometheus_only(
-    litellm_params, enable_end_user_cost_tracking_prometheus_only, expected_end_user_id
+    hangarllm_params, enable_end_user_cost_tracking_prometheus_only, expected_end_user_id
 ):
-    from litellm.utils import get_end_user_id_for_cost_tracking
+    from hangarllm.utils import get_end_user_id_for_cost_tracking
 
-    litellm.enable_end_user_cost_tracking_prometheus_only = enable_end_user_cost_tracking_prometheus_only
+    hangarllm.enable_end_user_cost_tracking_prometheus_only = enable_end_user_cost_tracking_prometheus_only
     assert (
-        get_end_user_id_for_cost_tracking(litellm_params=litellm_params, service_type="prometheus")
+        get_end_user_id_for_cost_tracking(hangarllm_params=hangarllm_params, service_type="prometheus")
         == expected_end_user_id
     )
 
 
 @pytest.mark.parametrize(
-    "litellm_params, expected_end_user_id",
+    "hangarllm_params, expected_end_user_id",
     [
         # Test with only metadata field (old behavior)
         (
             {"metadata": {"user_api_key_end_user_id": "user_from_metadata"}},
             "user_from_metadata",
         ),
-        # Test with only litellm_metadata field (new behavior)
+        # Test with only hangarllm_metadata field (new behavior)
         (
-            {"litellm_metadata": {"user_api_key_end_user_id": "user_from_litellm_metadata"}},
-            "user_from_litellm_metadata",
+            {"hangarllm_metadata": {"user_api_key_end_user_id": "user_from_hangarllm_metadata"}},
+            "user_from_hangarllm_metadata",
         ),
         # Test with both fields - metadata should take precedence for user_api_key fields
         (
             {
                 "metadata": {"user_api_key_end_user_id": "user_from_metadata"},
-                "litellm_metadata": {"user_api_key_end_user_id": "user_from_litellm_metadata"},
+                "hangarllm_metadata": {"user_api_key_end_user_id": "user_from_hangarllm_metadata"},
             },
             "user_from_metadata",
         ),
-        # Test with user_api_key_end_user_id in litellm_params (should take precedence over metadata)
+        # Test with user_api_key_end_user_id in hangarllm_params (should take precedence over metadata)
         (
             {
                 "user_api_key_end_user_id": "user_from_params",
@@ -10198,29 +10198,29 @@ def test_get_end_user_id_for_cost_tracking_prometheus_only(
             },
             "user_from_params",
         ),
-        # Test with empty metadata but valid litellm_metadata
+        # Test with empty metadata but valid hangarllm_metadata
         (
             {
                 "metadata": {},
-                "litellm_metadata": {"user_api_key_end_user_id": "user_from_litellm_metadata"},
+                "hangarllm_metadata": {"user_api_key_end_user_id": "user_from_hangarllm_metadata"},
             },
-            "user_from_litellm_metadata",
+            "user_from_hangarllm_metadata",
         ),
         # Test with no metadata fields
         ({}, None),
     ],
 )
-def test_get_end_user_id_for_cost_tracking_metadata_handling(litellm_params, expected_end_user_id):
+def test_get_end_user_id_for_cost_tracking_metadata_handling(hangarllm_params, expected_end_user_id):
     """
-    Test that get_end_user_id_for_cost_tracking correctly handles both metadata and litellm_metadata
-    fields using the get_litellm_metadata_from_kwargs helper function.
+    Test that get_end_user_id_for_cost_tracking correctly handles both metadata and hangarllm_metadata
+    fields using the get_hangarllm_metadata_from_kwargs helper function.
     """
-    from litellm.utils import get_end_user_id_for_cost_tracking
+    from hangarllm.utils import get_end_user_id_for_cost_tracking
 
     # Ensure cost tracking is enabled for this test
-    litellm.disable_end_user_cost_tracking = False
+    hangarllm.disable_end_user_cost_tracking = False
 
-    result = get_end_user_id_for_cost_tracking(litellm_params=litellm_params)
+    result = get_end_user_id_for_cost_tracking(hangarllm_params=hangarllm_params)
     assert result == expected_end_user_id
 
 
@@ -10229,12 +10229,12 @@ def test_is_prompt_caching_enabled_error_handling():
     Assert that `is_prompt_caching_valid_prompt` safely handles errors in `token_counter`.
     """
     with patch(
-        "litellm.utils.token_counter",
+        "hangarllm.utils.token_counter",
         side_effect=Exception(
             "Mocked error, This should not raise an error. Instead is_prompt_caching_valid_prompt should return False."
         ),
     ):
-        result = litellm.utils.is_prompt_caching_valid_prompt(
+        result = hangarllm.utils.is_prompt_caching_valid_prompt(
             messages=[{"role": "user", "content": "test"}],
             tools=None,
             custom_llm_provider="anthropic",
@@ -10250,13 +10250,13 @@ def test_token_counter_with_image_url_with_detail_high():
 
     PROD TEST this is importat - Can impact latency very badly
     """
-    from litellm.constants import DEFAULT_IMAGE_TOKEN_COUNT
-    from litellm._logging import verbose_logger
+    from hangarllm.constants import DEFAULT_IMAGE_TOKEN_COUNT
+    from hangarllm._logging import verbose_logger
     import logging
 
     verbose_logger.setLevel(logging.DEBUG)
 
-    _tokens = litellm.utils.token_counter(
+    _tokens = hangarllm.utils.token_counter(
         messages=[
             {
                 "role": "user",
@@ -10279,7 +10279,7 @@ def test_token_counter_with_image_url_with_detail_high():
 
 
 def test_logprobs_type():
-    from litellm.types.utils import Logprobs
+    from hangarllm.types.utils import Logprobs
 
     logprobs = {
         "text_offset": None,
@@ -10296,8 +10296,8 @@ def test_logprobs_type():
 
 @respx.mock
 def test_get_valid_models_openai_proxy(monkeypatch: pytest.MonkeyPatch, reset_mock_cache: None) -> None:
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-9876")
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://gateway-env.example.test/")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "sk-9876")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://gateway-env.example.test/")
     monkeypatch.delenv("FIREWORKS_AI_ACCOUNT_ID", None)
     monkeypatch.delenv("FIREWORKS_AI_API_KEY", None)
 
@@ -10316,15 +10316,15 @@ def test_get_valid_models_openai_proxy(monkeypatch: pytest.MonkeyPatch, reset_mo
         },
     )
 
-    valid_models: Final = litellm.get_valid_models(check_provider_endpoint=True)
+    valid_models: Final = hangarllm.get_valid_models(check_provider_endpoint=True)
 
-    assert "litellm_proxy/gpt-5.5" in valid_models
+    assert "hangarllm_proxy/gpt-5.5" in valid_models
     assert route.call_count == 1
     assert route.calls.last.request.headers["Authorization"] == "Bearer sk-9876"
 
 
 def test_pick_cheapest_chat_model_from_llm_provider():
-    from litellm.litellm_core_utils.llm_request_utils import (
+    from hangarllm.hangarllm_core_utils.llm_request_utils import (
         pick_cheapest_chat_models_from_llm_provider,
     )
 
@@ -10335,7 +10335,7 @@ def test_pick_cheapest_chat_model_from_llm_provider():
 
 @pytest.mark.parametrize("num_retries", [0, 1, 5])
 def test_get_num_retries(num_retries):
-    from litellm.utils import _get_wrapper_num_retries
+    from hangarllm.utils import _get_wrapper_num_retries
 
     assert _get_wrapper_num_retries(kwargs={"num_retries": num_retries}, exception=Exception("test")) == (
         num_retries,
@@ -10347,23 +10347,23 @@ def test_get_num_retries(num_retries):
 
 def test_add_custom_logger_callback_to_specific_event_e2e(monkeypatch):
 
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
 
-    litellm.success_callback = ["humanloop"]
+    hangarllm.success_callback = ["humanloop"]
 
-    curr_len_success_callback = len(litellm.success_callback)
-    curr_len_failure_callback = len(litellm.failure_callback)
+    curr_len_success_callback = len(hangarllm.success_callback)
+    curr_len_failure_callback = len(hangarllm.failure_callback)
 
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "Hello, world!"}],
         mock_response="Testing langfuse",
     )
 
-    assert len(litellm.success_callback) == curr_len_success_callback
-    assert len(litellm.failure_callback) == curr_len_failure_callback
+    assert len(hangarllm.success_callback) == curr_len_success_callback
+    assert len(hangarllm.failure_callback) == curr_len_failure_callback
 
 
 def test_custom_logger_exists_in_callbacks_individual_functions(monkeypatch):
@@ -10371,8 +10371,8 @@ def test_custom_logger_exists_in_callbacks_individual_functions(monkeypatch):
     Test _custom_logger_class_exists_in_success_callbacks and _custom_logger_class_exists_in_failure_callbacks helper functions
     Tests if logger is found in different callback lists
     """
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.utils import (
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.utils import (
         _custom_logger_class_exists_in_failure_callbacks,
         _custom_logger_class_exists_in_success_callbacks,
     )
@@ -10393,7 +10393,7 @@ def test_custom_logger_exists_in_callbacks_individual_functions(monkeypatch):
         "success_callback",
         "failure_callback",
     ]:
-        monkeypatch.setattr(litellm, list_name, [])
+        monkeypatch.setattr(hangarllm, list_name, [])
 
     mock_logger = MockCustomLogger()
 
@@ -10402,37 +10402,37 @@ def test_custom_logger_exists_in_callbacks_individual_functions(monkeypatch):
     assert _custom_logger_class_exists_in_failure_callbacks(mock_logger) == False
 
     # Test 2: Logger exists in success_callback
-    litellm.success_callback.append(mock_logger)
+    hangarllm.success_callback.append(mock_logger)
     assert _custom_logger_class_exists_in_success_callbacks(mock_logger) == True
     assert _custom_logger_class_exists_in_failure_callbacks(mock_logger) == False
 
     # Reset callbacks
-    litellm.success_callback = []
+    hangarllm.success_callback = []
 
     # Test 3: Logger exists in _async_success_callback
-    litellm._async_success_callback.append(mock_logger)
+    hangarllm._async_success_callback.append(mock_logger)
     assert _custom_logger_class_exists_in_success_callbacks(mock_logger) == True
     assert _custom_logger_class_exists_in_failure_callbacks(mock_logger) == False
 
     # Reset callbacks
-    litellm._async_success_callback = []
+    hangarllm._async_success_callback = []
 
     # Test 4: Logger exists in failure_callback
-    litellm.failure_callback.append(mock_logger)
+    hangarllm.failure_callback.append(mock_logger)
     assert _custom_logger_class_exists_in_success_callbacks(mock_logger) == False
     assert _custom_logger_class_exists_in_failure_callbacks(mock_logger) == True
 
     # Reset callbacks
-    litellm.failure_callback = []
+    hangarllm.failure_callback = []
 
     # Test 5: Logger exists in _async_failure_callback
-    litellm._async_failure_callback.append(mock_logger)
+    hangarllm._async_failure_callback.append(mock_logger)
     assert _custom_logger_class_exists_in_success_callbacks(mock_logger) == False
     assert _custom_logger_class_exists_in_failure_callbacks(mock_logger) == True
 
     # Test 6: Logger exists in both success and failure callbacks
-    litellm.success_callback.append(mock_logger)
-    litellm.failure_callback.append(mock_logger)
+    hangarllm.success_callback.append(mock_logger)
+    hangarllm.failure_callback.append(mock_logger)
     assert _custom_logger_class_exists_in_success_callbacks(mock_logger) == True
     assert _custom_logger_class_exists_in_failure_callbacks(mock_logger) == True
 
@@ -10443,36 +10443,36 @@ def test_custom_logger_exists_in_callbacks_individual_functions(monkeypatch):
 
 
 def test_add_custom_logger_callback_to_specific_event_e2e_failure(monkeypatch):
-    from litellm.integrations.openmeter import OpenMeterLogger
+    from hangarllm.integrations.openmeter import OpenMeterLogger
 
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     monkeypatch.setenv("OPENMETER_API_KEY", "wedlwe")
     monkeypatch.setenv("OPENMETER_API_URL", "https://openmeter.dev")
 
-    litellm.failure_callback = ["openmeter"]
+    hangarllm.failure_callback = ["openmeter"]
 
-    curr_len_success_callback = len(litellm.success_callback)
-    curr_len_failure_callback = len(litellm.failure_callback)
+    curr_len_success_callback = len(hangarllm.success_callback)
+    curr_len_failure_callback = len(hangarllm.failure_callback)
 
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "Hello, world!"}],
         mock_response="Testing langfuse",
     )
 
-    assert len(litellm.success_callback) == curr_len_success_callback
-    assert len(litellm.failure_callback) == curr_len_failure_callback
+    assert len(hangarllm.success_callback) == curr_len_success_callback
+    assert len(hangarllm.failure_callback) == curr_len_failure_callback
 
-    assert any(isinstance(callback, OpenMeterLogger) for callback in litellm.failure_callback)
+    assert any(isinstance(callback, OpenMeterLogger) for callback in hangarllm.failure_callback)
 
 
 @pytest.mark.asyncio
 async def test_wrapper_kwargs_passthrough():
-    from litellm.utils import client
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObject,
+    from hangarllm.utils import client
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import (
+        Logging as HangarLLMLoggingObject,
     )
 
     mock_original = AsyncMock()
@@ -10487,16 +10487,16 @@ async def test_wrapper_kwargs_passthrough():
 
     mock_original.assert_called_once()
 
-    litellm_logging_obj: LiteLLMLoggingObject = mock_original.call_args.kwargs.get("litellm_logging_obj")
-    assert litellm_logging_obj is not None
+    hangarllm_logging_obj: HangarLLMLoggingObject = mock_original.call_args.kwargs.get("hangarllm_logging_obj")
+    assert hangarllm_logging_obj is not None
 
-    print(f"litellm_logging_obj.model_call_details: {litellm_logging_obj.model_call_details}")
+    print(f"hangarllm_logging_obj.model_call_details: {hangarllm_logging_obj.model_call_details}")
 
-    assert litellm_logging_obj.model_call_details["litellm_params"]["base_model"] == "gpt-5-mini"
+    assert hangarllm_logging_obj.model_call_details["hangarllm_params"]["base_model"] == "gpt-5-mini"
 
 
 def test_dict_to_response_format_helper():
-    from litellm.llms.base_llm.base_utils import _dict_to_response_format_helper
+    from hangarllm.llms.base_llm.base_utils import _dict_to_response_format_helper
 
     args = {
         "response_format": {
@@ -10546,7 +10546,7 @@ def test_dict_to_response_format_helper():
 
 
 def test_validate_user_messages_invalid_content_type():
-    from litellm.utils import validate_chat_completion_user_messages
+    from hangarllm.utils import validate_chat_completion_user_messages
 
     messages = [{"content": [{"type": "invalid_type", "text": "Hello"}]}]
 
@@ -10610,7 +10610,7 @@ def test_validate_user_messages_invalid_content_type():
 def test_get_applied_guardrails(test_case):
 
     # Setup
-    litellm.callbacks = test_case["callbacks"]
+    hangarllm.callbacks = test_case["callbacks"]
 
     # Execute
     result = get_applied_guardrails(test_case["kwargs"])
@@ -10642,16 +10642,16 @@ def test_get_applied_guardrails(test_case):
     ],
 )
 def test_should_use_cohere_v1_client(endpoint, params, expected_bool):
-    assert litellm.utils.should_use_cohere_v1_client(endpoint, params) == expected_bool
+    assert hangarllm.utils.should_use_cohere_v1_client(endpoint, params) == expected_bool
 
 
 def test_add_openai_metadata():
-    from litellm.utils import add_openai_metadata
+    from hangarllm.utils import add_openai_metadata
 
     metadata = {
         "user_api_key_end_user_id": "123",
         "hidden_params": {"api_key": "123"},
-        "litellm_parent_otel_span": MagicMock(),
+        "hangarllm_parent_otel_span": MagicMock(),
         "none-val": None,
         "int-val": 1,
         "dict-val": {"a": 1, "b": 2},
@@ -10665,7 +10665,7 @@ def test_add_openai_metadata():
 
 
 def test_message_object():
-    from litellm.types.utils import Message
+    from hangarllm.types.utils import Message
 
     message = Message(content="Hello, world!", role="user")
     assert message.content == "Hello, world!"
@@ -10676,7 +10676,7 @@ def test_message_object():
 
 
 def test_delta_object():
-    from litellm.types.utils import Delta
+    from hangarllm.types.utils import Delta
 
     delta = Delta(content="Hello, world!", role="user")
     assert delta.content == "Hello, world!"
@@ -10693,7 +10693,7 @@ def test_delta_object():
     ],
 )
 def test_claude_sonnet_4_5_supports_pdf_input(model, expected_bool):
-    from litellm.utils import supports_pdf_input
+    from hangarllm.utils import supports_pdf_input
 
     assert supports_pdf_input(model) == expected_bool
 
@@ -10702,7 +10702,7 @@ def test_get_valid_models_from_provider():
     """
     Test that get_valid_models returns the correct models for a given provider
     """
-    from litellm.utils import get_valid_models
+    from hangarllm.utils import get_valid_models
 
     valid_models = get_valid_models(custom_llm_provider="openai")
     assert len(valid_models) > 0
@@ -10835,7 +10835,7 @@ def test_function_to_dict_parses_numpy_docstring_schema() -> None:
         """
         return f"Weather for {location} in {unit}"
 
-    schema: Final = litellm.utils.function_to_dict(get_current_weather)
+    schema: Final = hangarllm.utils.function_to_dict(get_current_weather)
 
     assert schema["name"] == "get_current_weather"
     assert schema["description"] == "Get the current weather in a given location"
@@ -10855,7 +10855,7 @@ def test_duration_in_seconds_one_month_uses_the_fixed_calendar_interval(
     fixed_start: Final = datetime(2025, 2, 15, 12, 0, 0, 123456)
     fixed_timestamp: Final = fixed_start.timestamp()
     monkeypatch.setattr(
-        "litellm.litellm_core_utils.duration_parser.time_module.time",
+        "hangarllm.hangarllm_core_utils.duration_parser.time_module.time",
         lambda: fixed_timestamp,
     )
 
@@ -10926,9 +10926,9 @@ def test_get_valid_models_discovers_fireworks_models_from_http(
 def test_get_valid_models_returns_static_fireworks_models_without_endpoint_check(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "check_provider_endpoint", False)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", False)
     monkeypatch.setenv("FIREWORKS_AI_API_KEY", "fireworks-test-key")
-    expected_models: Final = litellm.models_by_provider["fireworks_ai"]
+    expected_models: Final = hangarllm.models_by_provider["fireworks_ai"]
 
     actual_models: Final = get_valid_models(
         check_provider_endpoint=False,
@@ -10941,7 +10941,7 @@ def test_get_valid_models_returns_static_fireworks_models_without_endpoint_check
     assert expected_models <= set(env_inferred_models)
 
 
-def test_get_valid_models_uses_the_litellm_params_anthropic_api_key() -> None:
+def test_get_valid_models_uses_the_hangarllm_params_anthropic_api_key() -> None:
     model_id: Final = "claude-test-model"
     models_url: Final = "https://api.anthropic.com/v1/models"
     response_body: Final = {
@@ -10970,12 +10970,12 @@ def test_get_valid_models_uses_the_litellm_params_anthropic_api_key() -> None:
         bad_key_models: Final = get_valid_models(
             check_provider_endpoint=True,
             custom_llm_provider="anthropic",
-            litellm_params=LiteLLM_Params(model="anthropic/*", api_key="bad-test-key"),
+            hangarllm_params=HangarLLM_Params(model="anthropic/*", api_key="bad-test-key"),
         )
         good_key_models: Final = get_valid_models(
             check_provider_endpoint=True,
             custom_llm_provider="anthropic",
-            litellm_params=LiteLLM_Params(model="anthropic/*", api_key="good-test-key"),
+            hangarllm_params=HangarLLM_Params(model="anthropic/*", api_key="good-test-key"),
         )
 
         assert bad_key_models == []
@@ -10990,21 +10990,21 @@ def test_get_valid_models_uses_the_litellm_params_anthropic_api_key() -> None:
 def test_add_custom_logger_to_success_callback_registers_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm_logging, "_in_memory_loggers", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm_logging, "_in_memory_loggers", [])
 
     add_custom_logger_callback_to_specific_event("langfuse", "success")
 
-    assert len(litellm.success_callback) == 1
-    assert isinstance(litellm.success_callback[0], LangfusePromptManagement)
-    assert len(litellm._async_success_callback) == 1
-    assert isinstance(litellm._async_success_callback[0], LangfusePromptManagement)
-    assert litellm.failure_callback == []
-    assert litellm._async_failure_callback == []
+    assert len(hangarllm.success_callback) == 1
+    assert isinstance(hangarllm.success_callback[0], LangfusePromptManagement)
+    assert len(hangarllm._async_success_callback) == 1
+    assert isinstance(hangarllm._async_success_callback[0], LangfusePromptManagement)
+    assert hangarllm.failure_callback == []
+    assert hangarllm._async_failure_callback == []
 
 
 @pytest.mark.parametrize(
@@ -11021,23 +11021,23 @@ def test_add_custom_logger_callback_does_not_duplicate_existing_success_logger(
     logger: Final = HumanloopLogger()
     async_success_callbacks: Final = [logger] if "_async_success_callback" in registered_lists else []
     success_callbacks: Final = [logger] if "success_callback" in registered_lists else []
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", async_success_callbacks)
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", success_callbacks)
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm_logging, "_in_memory_loggers", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", async_success_callbacks)
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", success_callbacks)
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm_logging, "_in_memory_loggers", [])
 
     add_custom_logger_callback_to_specific_event("humanloop", "success")
 
-    assert sum(type(callback) is HumanloopLogger for callback in litellm.success_callback) == int(
+    assert sum(type(callback) is HumanloopLogger for callback in hangarllm.success_callback) == int(
         "success_callback" in registered_lists
     )
-    assert sum(type(callback) is HumanloopLogger for callback in litellm._async_success_callback) == int(
+    assert sum(type(callback) is HumanloopLogger for callback in hangarllm._async_success_callback) == int(
         "_async_success_callback" in registered_lists
     )
-    assert litellm.failure_callback == []
-    assert litellm._async_failure_callback == []
+    assert hangarllm.failure_callback == []
+    assert hangarllm._async_failure_callback == []
 
 
 @pytest.mark.parametrize(
@@ -11054,24 +11054,24 @@ async def test_acompletion_does_not_duplicate_a_logger_already_in_success_callba
     expected_async_success_callback_count: int,
 ) -> None:
     logger: Final = HumanloopLogger()
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [logger])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_input_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [logger])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_input_callback", [])
     monkeypatch.setattr(
-        litellm, "_async_success_callback", [logger] if "_async_success_callback" in registered_lists else []
+        hangarllm, "_async_success_callback", [logger] if "_async_success_callback" in registered_lists else []
     )
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-5-mini",
         messages=[{"role": "user", "content": "callback registration"}],
         mock_response="ok",
     )
 
-    assert litellm.success_callback == [logger]
-    assert litellm._async_success_callback == [logger] * expected_async_success_callback_count
+    assert hangarllm.success_callback == [logger]
+    assert hangarllm._async_success_callback == [logger] * expected_async_success_callback_count
 
 
 @pytest.mark.asyncio
@@ -11079,28 +11079,28 @@ async def test_custom_logger_in_global_callbacks_registers_once_across_completio
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     logger: Final = HumanloopLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
-    monkeypatch.setattr(litellm, "input_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_input_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [logger])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_input_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
 
     for _ in range(11):
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="gpt-5-mini",
             messages=[{"role": "user", "content": "callback registration"}],
             mock_response="ok",
         )
 
-    assert litellm.callbacks == [logger]
-    assert litellm.input_callback == [logger]
-    assert litellm.success_callback == [logger]
-    assert litellm.failure_callback == [logger]
-    assert litellm._async_input_callback == []
-    assert litellm._async_success_callback == [logger]
-    assert litellm._async_failure_callback == [logger]
+    assert hangarllm.callbacks == [logger]
+    assert hangarllm.input_callback == [logger]
+    assert hangarllm.success_callback == [logger]
+    assert hangarllm.failure_callback == [logger]
+    assert hangarllm._async_input_callback == []
+    assert hangarllm._async_success_callback == [logger]
+    assert hangarllm._async_failure_callback == [logger]
 
 
 def test_get_provider_audio_transcription_config_resolves_for_every_provider() -> None:
@@ -11115,7 +11115,7 @@ def test_get_provider_audio_transcription_config_resolves_for_every_provider() -
     }
 
     assert unexpected == {}
-    assert isinstance(configs[LlmProviders.OPENAI], litellm.OpenAIWhisperAudioTranscriptionConfig)
+    assert isinstance(configs[LlmProviders.OPENAI], hangarllm.OpenAIWhisperAudioTranscriptionConfig)
 
 
 @pytest.mark.parametrize(
@@ -11129,7 +11129,7 @@ def test_get_provider_audio_transcription_config_resolves_for_every_provider() -
     ],
 )
 def test_openai_sdk_transcription_params_pass_through_to_other_providers(custom_llm_provider: str, model: str) -> None:
-    hints: Final = {"stream": True, "languages": ["en"], "keywords": ["LiteLLM"]}
+    hints: Final = {"stream": True, "languages": ["en"], "keywords": ["HangarLLM"]}
 
     params: Final = get_optional_params_transcription(model=model, custom_llm_provider=custom_llm_provider, **hints)
 
@@ -11146,14 +11146,14 @@ def test_drop_params_keeps_openai_sdk_transcription_params_out_of_a_deepgram_req
         )
     )
 
-    litellm.transcription(
+    hangarllm.transcription(
         model="deepgram/nova-3",
         file=("sample.wav", b"audio"),
         api_key="dg-test",
         punctuate=True,
         stream=True,
         languages=["en"],
-        keywords=["LiteLLM"],
+        keywords=["HangarLLM"],
         drop_params=True,
     )
 
@@ -11180,7 +11180,7 @@ def test_openai_transcription_defaults_verbose_json_only_for_whisper_models(
     assert config is not None
 
     request: Final = config.transform_audio_transcription_request(
-        model=model, audio_file=b"audio", optional_params=dict(optional_params), litellm_params={}
+        model=model, audio_file=b"audio", optional_params=dict(optional_params), hangarllm_params={}
     )
 
     assert isinstance(request.data, dict)
@@ -11191,11 +11191,11 @@ def test_get_valid_models_from_provider_cache_invalidation(monkeypatch):
     """
     Test that get_valid_models returns the correct models for a given provider
     """
-    from litellm.utils import _model_cache
+    from hangarllm.utils import _model_cache
 
     monkeypatch.setenv("OPENAI_API_KEY", "123")
 
-    _model_cache.set_cached_model_info("openai", litellm_params=None, available_models=["gpt-5-mini"])
+    _model_cache.set_cached_model_info("openai", hangarllm_params=None, available_models=["gpt-5-mini"])
     monkeypatch.delenv("OPENAI_API_KEY")
 
     assert _model_cache.get_cached_model_info("openai") is None
@@ -11210,7 +11210,7 @@ def test_delta_tool_calls_sequential_indices():
     defaulting all tool calls to index=0.
     """
     import json
-    from litellm.types.utils import Delta
+    from hangarllm.types.utils import Delta
 
     tool_calls_without_indices = [
         {
@@ -11244,42 +11244,42 @@ def test_completion_with_no_model():
     Ensure error is raised when no model is provided
     """
     with pytest.raises(TypeError):
-        response = litellm.completion(messages=[{"role": "user", "content": "Hello, how are you?"}])
+        response = hangarllm.completion(messages=[{"role": "user", "content": "Hello, how are you?"}])
 
 
 def test_get_base_model_from_metadata():
     """
-    Test _get_base_model_from_metadata function with both metadata and litellm_metadata.
+    Test _get_base_model_from_metadata function with both metadata and hangarllm_metadata.
     This ensures cost tracking works for both Chat Completions API and Responses API.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/16772
+    Related issue: upstream issue 16772
     """
-    from litellm.utils import get_base_model_from_metadata
+    from hangarllm.utils import get_base_model_from_metadata
 
-    model_call_details_with_metadata = {"litellm_params": {"metadata": {"model_info": {"base_model": "azure/gpt-5.5"}}}}
+    model_call_details_with_metadata = {"hangarllm_params": {"metadata": {"model_info": {"base_model": "azure/gpt-5.5"}}}}
     result = get_base_model_from_metadata(model_call_details_with_metadata)
     assert result == "azure/gpt-5.5", f"Expected 'azure/gpt-5.5', got {result}"
 
-    model_call_details_with_litellm_metadata = {
-        "litellm_params": {"litellm_metadata": {"model_info": {"base_model": "azure/gpt-5-mini"}}}
+    model_call_details_with_hangarllm_metadata = {
+        "hangarllm_params": {"hangarllm_metadata": {"model_info": {"base_model": "azure/gpt-5-mini"}}}
     }
-    result = get_base_model_from_metadata(model_call_details_with_litellm_metadata)
+    result = get_base_model_from_metadata(model_call_details_with_hangarllm_metadata)
     assert result == "azure/gpt-5-mini", f"Expected 'azure/gpt-5-mini', got {result}"
 
-    model_call_details_with_direct_base_model = {"litellm_params": {"base_model": "azure/gpt-5-mini"}}
+    model_call_details_with_direct_base_model = {"hangarllm_params": {"base_model": "azure/gpt-5-mini"}}
     result = get_base_model_from_metadata(model_call_details_with_direct_base_model)
     assert result == "azure/gpt-5-mini", f"Expected 'azure/gpt-5-mini', got {result}"
 
     model_call_details_with_both = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {"model_info": {"base_model": "azure/gpt-4-from-metadata"}},
-            "litellm_metadata": {"model_info": {"base_model": "azure/gpt-4-from-litellm-metadata"}},
+            "hangarllm_metadata": {"model_info": {"base_model": "azure/gpt-4-from-hangarllm-metadata"}},
         }
     }
     result = get_base_model_from_metadata(model_call_details_with_both)
     assert result == "azure/gpt-4-from-metadata", f"Expected metadata to take precedence, got {result}"
 
-    model_call_details_without_base_model = {"litellm_params": {"metadata": {}}}
+    model_call_details_without_base_model = {"hangarllm_params": {"metadata": {}}}
     result = get_base_model_from_metadata(model_call_details_without_base_model)
     assert result is None, f"Expected None when no base_model present, got {result}"
 
@@ -11293,7 +11293,7 @@ def _pre_call_rule_for_unit_test(text: str) -> bool:
 
 def test_pre_call_rule():
     try:
-        litellm.pre_call_rules = [my_pre_call_rule]
+        hangarllm.pre_call_rules = [my_pre_call_rule]
         ### completion
         response = completion(
             model="gpt-3.5-turbo",
@@ -11314,7 +11314,7 @@ def test_pre_call_rule():
             pass
 
     asyncio.run(test_async_response())
-    litellm.pre_call_rules = []
+    hangarllm.pre_call_rules = []
 
 
 def my_pre_call_rule(input: str):
@@ -11328,7 +11328,7 @@ def my_pre_call_rule(input: str):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("sync_mode", [True, False])
 async def test_completion_with_retry_policy(sync_mode):
-    from litellm.types.router import RetryPolicy
+    from hangarllm.types.router import RetryPolicy
 
     retry_number = 1
     retry_policy = RetryPolicy(
@@ -11339,7 +11339,7 @@ async def test_completion_with_retry_policy(sync_mode):
 
     target_function = "completion_with_retries"
 
-    with patch.object(litellm, target_function) as mock_completion_with_retries:
+    with patch.object(hangarllm, target_function) as mock_completion_with_retries:
         data = {
             "model": "azure/gpt-3.5-turbo",
             "messages": [{"gm": "vibe", "role": "user"}],
@@ -11366,7 +11366,7 @@ async def test_responses_retry_on_auth_error(sync_mode, respx_mock: respx.MockRo
     Test that responses API actually retries when encountering authentication errors.
     This validates that the @client decorator properly handles responses/aresponses retries.
     """
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(
             401,
@@ -11382,7 +11382,7 @@ async def test_responses_retry_on_auth_error(sync_mode, respx_mock: respx.MockRo
     num_retries = 2
 
     if sync_mode:
-        with patch.object(litellm, "responses_with_retries") as mock_retry:
+        with patch.object(hangarllm, "responses_with_retries") as mock_retry:
             mock_retry.return_value = None
             try:
                 responses(
@@ -11397,7 +11397,7 @@ async def test_responses_retry_on_auth_error(sync_mode, respx_mock: respx.MockRo
             assert mock_retry.called
             assert mock_retry.call_args.kwargs.get("num_retries") == num_retries
     else:
-        with patch.object(litellm, "aresponses_with_retries") as mock_retry:
+        with patch.object(hangarllm, "aresponses_with_retries") as mock_retry:
             mock_retry.return_value = None
             try:
                 await aresponses(
@@ -11415,7 +11415,7 @@ async def test_responses_retry_on_auth_error(sync_mode, respx_mock: respx.MockRo
 
 @respx.mock
 def test_pre_call_rules_see_messages_passed_positionally(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "pre_call_rules", [lambda text: "forbidden" not in text])
+    monkeypatch.setattr(hangarllm, "pre_call_rules", [lambda text: "forbidden" not in text])
     route: Final = respx.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             200,
@@ -11430,9 +11430,9 @@ def test_pre_call_rules_see_messages_passed_positionally(monkeypatch: pytest.Mon
         )
     )
 
-    with pytest.raises(litellm.APIResponseValidationError, match="failed post-call-rule check"):
-        litellm.completion("gpt-4o-mini", [{"role": "user", "content": "say something forbidden"}], api_key="sk-test")
-    allowed: Final = litellm.completion("gpt-4o-mini", [{"role": "user", "content": "say hi"}], api_key="sk-test")
+    with pytest.raises(hangarllm.APIResponseValidationError, match="failed post-call-rule check"):
+        hangarllm.completion("gpt-4o-mini", [{"role": "user", "content": "say something forbidden"}], api_key="sk-test")
+    allowed: Final = hangarllm.completion("gpt-4o-mini", [{"role": "user", "content": "say hi"}], api_key="sk-test")
 
     assert route.call_count == 1
     assert json.loads(route.calls[0].request.content)["messages"] == [{"role": "user", "content": "say hi"}]
@@ -11440,27 +11440,27 @@ def test_pre_call_rules_see_messages_passed_positionally(monkeypatch: pytest.Mon
 
 
 def test_vertex_llama3_model_info_resolves_without_the_meta_prefix():
-    llama3_models: Final = sorted(litellm.vertex_llama3_models)
+    llama3_models: Final = sorted(hangarllm.vertex_llama3_models)
     assert llama3_models != []
 
     for model in llama3_models:
         short_name = model.removeprefix("meta/")
         assert short_name != model
-        prefixed_info = litellm.get_model_info(model=model, custom_llm_provider="vertex_ai")
-        assert litellm.get_model_info(model=short_name, custom_llm_provider="vertex_ai") == prefixed_info, model
+        prefixed_info = hangarllm.get_model_info(model=model, custom_llm_provider="vertex_ai")
+        assert hangarllm.get_model_info(model=short_name, custom_llm_provider="vertex_ai") == prefixed_info, model
         assert prefixed_info["key"] == f"vertex_ai/{model}", model
 
 
 def test_the_catalog_with_register_model_entries_lists_each_model_once_and_leaves_router_registrations_out() -> None:
-    from litellm.utils import catalog_with_runtime_registrations
+    from hangarllm.utils import catalog_with_runtime_registrations
 
     catalog: Final = catalog_with_runtime_registrations()
     catalog_size: Final = len(catalog)
     catalogued_model: Final = next(iter(catalog))
     catalogued_entry: Final = dict(catalog[catalogued_model])
-    litellm.register_model({catalogued_model: {"supports_prompt_cache_breakpoint": True}})
-    litellm.register_model({"qa-registered-only-model": {"litellm_provider": "openai", "mode": "chat"}})
-    litellm.register_model({"qa-router-deployment-id": {"mode": "chat"}}, persist_across_reloads=False)
+    hangarllm.register_model({catalogued_model: {"supports_prompt_cache_breakpoint": True}})
+    hangarllm.register_model({"qa-registered-only-model": {"hangarllm_provider": "openai", "mode": "chat"}})
+    hangarllm.register_model({"qa-router-deployment-id": {"mode": "chat"}}, persist_across_reloads=False)
 
     merged: Final = catalog_with_runtime_registrations()
     listed: Final = list(merged)
@@ -11475,14 +11475,14 @@ def test_the_catalog_with_register_model_entries_lists_each_model_once_and_leave
     "key", ("openai.test-converse", "bedrock/openai.test-converse", "bedrock/converse/openai.test-converse")
 )
 def test_runtime_model_cost_registrations_resolve_bedrock_routing(monkeypatch: pytest.MonkeyPatch, key: str) -> None:
-    from litellm import utils as model_utils
-    from litellm.litellm_core_utils.get_model_cost_map import AliasedCostEntry
+    from hangarllm import utils as model_utils
+    from hangarllm.hangarllm_core_utils.get_model_cost_map import AliasedCostEntry
 
     rates: Final = {"input_cost_per_token": 0.001, "output_cost_per_token": 0.002}
     alias: Final = "openai.test-converse-alias"
-    entry: Final = AliasedCostEntry({"litellm_provider": "bedrock_converse", "mode": "chat"}, (key, alias))
-    monkeypatch.setattr(litellm, "model_cost", {**litellm.model_cost, key: entry, alias: entry})
-    litellm.register_model({key: rates}, persist_across_reloads=False)
+    entry: Final = AliasedCostEntry({"hangarllm_provider": "bedrock_converse", "mode": "chat"}, (key, alias))
+    monkeypatch.setattr(hangarllm, "model_cost", {**hangarllm.model_cost, key: entry, alias: entry})
+    hangarllm.register_model({key: rates}, persist_across_reloads=False)
 
     registrations: Final = dict(
         model_utils.runtime_model_cost_registrations("bedrock/converse/openai.test-converse", "bedrock")
@@ -11495,7 +11495,7 @@ def test_runtime_model_cost_registrations_resolve_bedrock_routing(monkeypatch: p
 def test_get_optional_params_keeps_a_tool_config_cache_point_out_of_the_openai_extra_body():
     """LIT-9880: the hook hands a tool_config point on for the provider step, and OpenAI has no
     step that consumes it, so it must not ride along in extra_body and 400 at OpenAI."""
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = hangarllm.utils.get_optional_params(
         model="gpt-4.1",
         custom_llm_provider="openai",
         tools=[{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
@@ -11532,7 +11532,7 @@ def test_declared_mid_conversation_system_support_prefers_the_deployment_over_th
         else {"id": "deployment-1", "supports_mid_conversation_system": deployment_declared}
     )
     assert (
-        litellm.utils.declared_mid_conversation_system_support(
+        hangarllm.utils.declared_mid_conversation_system_support(
             "mid-conversation-probe", "hosted_vllm", deployment_model_info
         )
         is expected
@@ -11542,18 +11542,18 @@ def test_declared_mid_conversation_system_support_prefers_the_deployment_over_th
 def test_declared_mid_conversation_system_support_is_none_when_the_model_lookup_raises(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost, "hosted_vllm/unreadable-probe", "not a model info entry")
-    litellm.get_model_info.cache_clear()
-    assert litellm.utils.declared_mid_conversation_system_support("unreadable-probe", "hosted_vllm", None) is None
+    monkeypatch.setitem(hangarllm.model_cost, "hosted_vllm/unreadable-probe", "not a model info entry")
+    hangarllm.get_model_info.cache_clear()
+    assert hangarllm.utils.declared_mid_conversation_system_support("unreadable-probe", "hosted_vllm", None) is None
 
 
-def test_get_optional_params_forwards_a_tool_config_cache_point_to_a_downstream_litellm_proxy():
-    """A litellm_proxy deployment calls the downstream proxy through the OpenAI SDK, and that proxy
+def test_get_optional_params_forwards_a_tool_config_cache_point_to_a_downstream_hangarllm_proxy():
+    """A hangarllm_proxy deployment calls the downstream proxy through the OpenAI SDK, and that proxy
     applies cache_control_injection_points itself, so the point must ride along in extra_body."""
     point: Final = {"location": "tool_config", "control": {"type": "ephemeral"}}
-    optional_params: Final[dict[str, object]] = litellm.utils.get_optional_params(
+    optional_params: Final[dict[str, object]] = hangarllm.utils.get_optional_params(
         model="claude-sonnet-4-5",
-        custom_llm_provider="litellm_proxy",
+        custom_llm_provider="hangarllm_proxy",
         tools=[{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
         cache_control_injection_points=[point],
         extra_body={"kept": True},
@@ -11569,26 +11569,26 @@ def test_get_optional_params_forwards_a_tool_config_cache_point_to_a_downstream_
 def test_custom_provider_named_like_a_built_in_warns_once(
     provider: str, expected_warnings: int, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": provider, "custom_handler": litellm.CustomLLM()}])
-    monkeypatch.setattr(litellm, "provider_list", list(litellm.provider_list))
-    monkeypatch.setattr(litellm, "_custom_providers", [])
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": provider, "custom_handler": hangarllm.CustomLLM()}])
+    monkeypatch.setattr(hangarllm, "provider_list", list(hangarllm.provider_list))
+    monkeypatch.setattr(hangarllm, "_custom_providers", [])
 
     with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
-        litellm.utils.custom_llm_setup()
-        litellm.utils.custom_llm_setup()
+        hangarllm.utils.custom_llm_setup()
+        hangarllm.utils.custom_llm_setup()
 
     warnings: Final = [r for r in caplog.records if f"provider '{provider}'" in r.getMessage()]
     assert len(warnings) == expected_warnings
-    assert provider in litellm._custom_providers
+    assert provider in hangarllm._custom_providers
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("deferred", (False, True))
 async def test_success_enqueue_is_tracked_without_starting_callbacks_synchronously(deferred: bool) -> None:
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-    from litellm.responses.streaming_iterator import drain_logging_tasks
-    from litellm.utils import _schedule_async_success_logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.responses.streaming_iterator import drain_logging_tasks
+    from hangarllm.utils import _schedule_async_success_logging
 
     now: Final = datetime(2026, 1, 1, tzinfo=timezone.utc)
     logging_obj: Final = Logging(
@@ -11597,7 +11597,7 @@ async def test_success_enqueue_is_tracked_without_starting_callbacks_synchronous
         stream=False,
         call_type="acompletion",
         start_time=now,
-        litellm_call_id="shutdown-enqueue",
+        hangarllm_call_id="shutdown-enqueue",
         function_id="shutdown-enqueue",
     )
     logging_obj.defer_async_logging = deferred
@@ -11614,8 +11614,8 @@ async def test_success_enqueue_is_tracked_without_starting_callbacks_synchronous
 
 
 def test_get_response_string_joins_the_text_parts_of_a_completed_responses_event() -> None:
-    from litellm.types.llms.openai import ResponseCompletedEvent
-    from litellm.utils import get_response_string
+    from hangarllm.types.llms.openai import ResponseCompletedEvent
+    from hangarllm.utils import get_response_string
 
     response: Final = ResponsesAPIResponse(
         id="resp_1",
@@ -11657,7 +11657,7 @@ class _RecordingPreCallDeploymentHook(CustomLogger):
 @pytest.mark.asyncio
 async def test_pre_call_deployment_hook_hands_responses_compact_its_call_type(monkeypatch: pytest.MonkeyPatch) -> None:
     hook: Final = _RecordingPreCallDeploymentHook()
-    monkeypatch.setattr(litellm, "callbacks", [hook])
+    monkeypatch.setattr(hangarllm, "callbacks", [hook])
 
     await async_pre_call_deployment_hook({"model": "gpt-5.4-mini"}, "acompact_responses")
 

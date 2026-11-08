@@ -52,7 +52,7 @@ def test_role_reference_from_db_and_yaml_reaches_real_sts_http_and_bedrock(gatew
         }
         alias: Final = "integration-role-yaml-" + uuid.uuid4().hex
         configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        configuration["model_list"] = [{"model_name": alias, "litellm_params": parameters, "model_info": {"id": alias}}]
+        configuration["model_list"] = [{"model_name": alias, "hangarllm_params": parameters, "model_info": {"id": alias}}]
         path: Final = tmp_path / "roles.yaml"
         path.write_text(yaml.safe_dump(configuration))
         empty: Final = tmp_path / "empty-aws-config"
@@ -66,7 +66,7 @@ def test_role_reference_from_db_and_yaml_reaches_real_sts_http_and_bedrock(gatew
             "AWS_EC2_METADATA_DISABLED": "true",
             "AWS_ENDPOINT_URL_STS": authority.url,
             "AWS_DEFAULT_REGION": "us-east-1",
-            "LITELLM_RUST": "false",
+            "HANGARLLM_RUST": "false",
         }
         with (
             owned_proxy(
@@ -159,7 +159,7 @@ def test_repeat_requests_under_one_session_name_assume_role_once_per_session_nam
             "AWS_EC2_METADATA_DISABLED": "true",
             "AWS_ENDPOINT_URL_STS": authority.url,
             "AWS_DEFAULT_REGION": "us-east-1",
-            "LITELLM_RUST": "false",
+            "HANGARLLM_RUST": "false",
         }
         with (
             owned_proxy(

@@ -91,7 +91,7 @@ from proxy_client import Caller, ProxyClient
 
 MODEL_ACCESS_DENIED_MARKER = "key_model_access_denied"
 ROUTE_NOT_ALLOWED_MARKER = "not allowed to call this route"
-DASHBOARD_SESSION_TEAM_ID = "litellm-dashboard"
+DASHBOARD_SESSION_TEAM_ID = "hangarllm-dashboard"
 _TEAM_READY_ATTEMPTS = 15
 _TEAM_READY_SLEEP_SECONDS = 0.4
 _KEY_WRITE_ATTEMPTS = 5
@@ -191,7 +191,7 @@ class ManagementClient:
                 params=AuditLogParams(
                     object_id=token_hash,
                     action="deleted",
-                    table_name="LiteLLM_VerificationToken",
+                    table_name="HangarLLM_VerificationToken",
                     page_size=100,
                 ),
                 response_type=AuditLogPage,
@@ -234,7 +234,7 @@ class ManagementClient:
             )
         )
 
-    @step("Run Test Connection on {body.litellm_params.model} in {body.mode} mode with /health/test_connection")
+    @step("Run Test Connection on {body.hangarllm_params.model} in {body.mode} mode with /health/test_connection")
     def connection_test(self, body: ConnectionTestBody) -> Result[ConnectionTestResponse]:
         """POST /health/test_connection, the call behind the Admin UI's Test
         Connection button, probing the live provider with the supplied params."""

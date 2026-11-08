@@ -12,11 +12,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm.proxy._types import (
-    LiteLLM_OrganizationMembershipTable,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+from hangarllm.proxy._types import (
+    HangarLLM_OrganizationMembershipTable,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
+    HangarllmUserRoles,
     Member,
     UserAPIKeyAuth,
 )
@@ -29,8 +29,8 @@ _NOW = datetime.now(timezone.utc)
 # ---------------------------------------------------------------------------
 
 
-def _make_team(team_id="team-1", organization_id="org-1") -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable(
+def _make_team(team_id="team-1", organization_id="org-1") -> HangarLLM_TeamTable:
+    return HangarLLM_TeamTable(
         team_id=team_id,
         team_alias="Test Team",
         organization_id=organization_id,
@@ -41,12 +41,12 @@ def _make_team(team_id="team-1", organization_id="org-1") -> LiteLLM_TeamTable:
     )
 
 
-def _make_user_key(user_id="org-admin-user", role=LitellmUserRoles.INTERNAL_USER.value) -> UserAPIKeyAuth:
+def _make_user_key(user_id="org-admin-user", role=HangarllmUserRoles.INTERNAL_USER.value) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(user_id=user_id, user_role=role)
 
 
 def _make_membership(user_id, org_id, role="org_admin"):
-    return LiteLLM_OrganizationMembershipTable(
+    return HangarLLM_OrganizationMembershipTable(
         user_id=user_id,
         organization_id=org_id,
         user_role=role,
@@ -55,8 +55,8 @@ def _make_membership(user_id, org_id, role="org_admin"):
     )
 
 
-def _make_caller_user(user_id="org-admin-user", org_id="org-1", org_role="org_admin") -> LiteLLM_UserTable:
-    return LiteLLM_UserTable(
+def _make_caller_user(user_id="org-admin-user", org_id="org-1", org_role="org_admin") -> HangarLLM_UserTable:
+    return HangarLLM_UserTable(
         user_id=user_id,
         organization_memberships=[_make_membership(user_id, org_id, org_role)],
     )
@@ -66,13 +66,13 @@ def _patch_org_admin_deps(get_user_return):
     """Context manager that patches the lazy imports inside PrismaOrgRoles.is_org_admin."""
     return (
         patch(
-            "litellm.proxy.auth.auth_checks.get_user_object",
+            "hangarllm.proxy.auth.auth_checks.get_user_object",
             new_callable=AsyncMock,
             return_value=get_user_return,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock(), create=True),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock(), create=True),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock(), create=True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock(), create=True),
+        patch("hangarllm.proxy.proxy_server.proxy_logging_obj", MagicMock(), create=True),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", MagicMock(), create=True),
     )
 
 
@@ -86,17 +86,17 @@ class TestValidateMembership:
 
     @pytest.mark.asyncio
     async def test_proxy_admin_allowed(self):
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             validate_membership,
         )
 
         team = _make_team()
-        key = _make_user_key(user_id="admin", role=LitellmUserRoles.PROXY_ADMIN.value)
+        key = _make_user_key(user_id="admin", role=HangarllmUserRoles.PROXY_ADMIN.value)
         await validate_membership(user_api_key_dict=key, team_table=team)
 
     @pytest.mark.asyncio
     async def test_direct_team_member_allowed(self):
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             validate_membership,
         )
 
@@ -106,7 +106,7 @@ class TestValidateMembership:
 
     @pytest.mark.asyncio
     async def test_org_admin_for_team_org_allowed(self):
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             validate_membership,
         )
 
@@ -121,7 +121,7 @@ class TestValidateMembership:
     @pytest.mark.asyncio
     async def test_non_member_non_org_admin_rejected(self):
         from fastapi import HTTPException
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             validate_membership,
         )
 
@@ -137,12 +137,12 @@ class TestValidateMembership:
 
     @pytest.mark.asyncio
     async def test_team_key_matches_team_allowed(self):
-        from litellm.proxy.management_endpoints.team_endpoints import (
+        from hangarllm.proxy.management_endpoints.team_endpoints import (
             validate_membership,
         )
 
         team = _make_team(team_id="team-1")
-        key = UserAPIKeyAuth(team_id="team-1", user_role=LitellmUserRoles.INTERNAL_USER.value)
+        key = UserAPIKeyAuth(team_id="team-1", user_role=HangarllmUserRoles.INTERNAL_USER.value)
         await validate_membership(user_api_key_dict=key, team_table=team)
 
 
@@ -158,9 +158,9 @@ class TestUserIsOrgAdminRouteCheck:
     """
 
     def test_no_candidate_org_ids_returns_false(self):
-        from litellm.proxy.auth.auth_checks_organization import user_is_org_admin
+        from hangarllm.proxy.auth.auth_checks_organization import user_is_org_admin
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="org-admin-user",
             organization_memberships=[_make_membership("org-admin-user", "org-1")],
         )
@@ -168,9 +168,9 @@ class TestUserIsOrgAdminRouteCheck:
         assert result is False, "Must NOT grant blanket access when no org in request"
 
     def test_matching_org_id_returns_true(self):
-        from litellm.proxy.auth.auth_checks_organization import user_is_org_admin
+        from hangarllm.proxy.auth.auth_checks_organization import user_is_org_admin
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="org-admin-user",
             organization_memberships=[_make_membership("org-admin-user", "org-1")],
         )
@@ -178,9 +178,9 @@ class TestUserIsOrgAdminRouteCheck:
         assert result is True
 
     def test_non_matching_org_id_returns_false(self):
-        from litellm.proxy.auth.auth_checks_organization import user_is_org_admin
+        from hangarllm.proxy.auth.auth_checks_organization import user_is_org_admin
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="org-admin-user",
             organization_memberships=[_make_membership("org-admin-user", "org-1")],
         )
@@ -188,9 +188,9 @@ class TestUserIsOrgAdminRouteCheck:
         assert result is False
 
     def test_organizations_list_field(self):
-        from litellm.proxy.auth.auth_checks_organization import user_is_org_admin
+        from hangarllm.proxy.auth.auth_checks_organization import user_is_org_admin
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="org-admin-user",
             organization_memberships=[_make_membership("org-admin-user", "org-1")],
         )
@@ -198,13 +198,13 @@ class TestUserIsOrgAdminRouteCheck:
         assert result is True
 
     def test_none_user_object_returns_false(self):
-        from litellm.proxy.auth.auth_checks_organization import user_is_org_admin
+        from hangarllm.proxy.auth.auth_checks_organization import user_is_org_admin
 
         result = user_is_org_admin(request_data={}, user_object=None)
         assert result is False
 
     def test_user_list_in_self_managed_routes(self):
         """Verify /user/list is in self_managed_routes so org admins can reach it."""
-        from litellm.proxy._types import LiteLLMRoutes
+        from hangarllm.proxy._types import HangarLLMRoutes
 
-        assert "/user/list" in LiteLLMRoutes.self_managed_routes.value
+        assert "/user/list" in HangarLLMRoutes.self_managed_routes.value

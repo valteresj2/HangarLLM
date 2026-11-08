@@ -197,8 +197,8 @@ class Observation:
         """Each first-attempt request with its value of one latency metric. `gateway_added_seconds` is the
         seconds the gateway added (total time minus the mock's own delay for a non-streamed request, time to the
         first token minus the mock's delay for a stream), `time_to_first_token_seconds` is the client's wait for
-        the first token with the mock delay included, and the two `litellm_*` metrics are the gateway's own
-        `x-litellm-overhead-duration-ms` and `x-litellm-response-duration-ms` headers in seconds."""
+        the first token with the mock delay included, and the two `hangarllm_*` metrics are the gateway's own
+        `x-hangarllm-overhead-duration-ms` and `x-hangarllm-response-duration-ms` headers in seconds."""
         if metric == "gateway_added_seconds":
             non_stream: Final = [(record, record.total_s - delay) for record, delay in self._clean(stream=False)]
             stream: Final = [
@@ -209,11 +209,11 @@ class Observation:
             return non_stream + stream
         if metric == "time_to_first_token_seconds":
             return [(r, r.first_token_s) for r, _ in self._clean(stream=True) if r.first_token_s is not None]
-        if metric == "litellm_overhead_seconds":
+        if metric == "hangarllm_overhead_seconds":
             return [
-                (r, r.litellm_overhead_ms / 1000) for r in self._first_attempts() if r.litellm_overhead_ms is not None
+                (r, r.hangarllm_overhead_ms / 1000) for r in self._first_attempts() if r.hangarllm_overhead_ms is not None
             ]
-        return [(r, r.litellm_response_ms / 1000) for r in self._first_attempts() if r.litellm_response_ms is not None]
+        return [(r, r.hangarllm_response_ms / 1000) for r in self._first_attempts() if r.hangarllm_response_ms is not None]
 
     def _first_attempts(self) -> list[WireRecord]:
         return [record for record, _ in self._clean(stream=False)] + [record for record, _ in self._clean(stream=True)]
@@ -221,11 +221,11 @@ class Observation:
     def gateway_added_seconds(self) -> list[float]:
         return [value for _, value in self.latency_pairs("gateway_added_seconds")]
 
-    def litellm_overhead_seconds(self) -> list[float]:
-        return [value for _, value in self.latency_pairs("litellm_overhead_seconds")]
+    def hangarllm_overhead_seconds(self) -> list[float]:
+        return [value for _, value in self.latency_pairs("hangarllm_overhead_seconds")]
 
-    def litellm_response_seconds(self) -> list[float]:
-        return [value for _, value in self.latency_pairs("litellm_response_seconds")]
+    def hangarllm_response_seconds(self) -> list[float]:
+        return [value for _, value in self.latency_pairs("hangarllm_response_seconds")]
 
     def time_to_first_token_seconds(self) -> list[float]:
         return [value for _, value in self.latency_pairs("time_to_first_token_seconds")]
@@ -315,7 +315,7 @@ def _text_sha1(text: str, *, intervened: bool) -> str:
 
 
 LatencyMetric = Literal[
-    "gateway_added_seconds", "time_to_first_token_seconds", "litellm_overhead_seconds", "litellm_response_seconds"
+    "gateway_added_seconds", "time_to_first_token_seconds", "hangarllm_overhead_seconds", "hangarllm_response_seconds"
 ]
 TOP_CONTRIBUTORS: Final = 5
 
@@ -424,8 +424,8 @@ def breakdown(
     if metric in (
         "gateway_added_seconds",
         "time_to_first_token_seconds",
-        "litellm_overhead_seconds",
-        "litellm_response_seconds",
+        "hangarllm_overhead_seconds",
+        "hangarllm_response_seconds",
     ):
         return _latency_breakdown(metric, 50 if percentile_rank is None else percentile_rank, observation)
     if metric.startswith("postgres_") and metric != "postgres_peak_connections":
@@ -446,8 +446,8 @@ def observe(
     per_request: dict[str, list[float]] = {
         "gateway_added_seconds": observation.gateway_added_seconds(),
         "time_to_first_token_seconds": observation.time_to_first_token_seconds(),
-        "litellm_overhead_seconds": observation.litellm_overhead_seconds(),
-        "litellm_response_seconds": observation.litellm_response_seconds(),
+        "hangarllm_overhead_seconds": observation.hangarllm_overhead_seconds(),
+        "hangarllm_response_seconds": observation.hangarllm_response_seconds(),
     }
     if metric in per_request:
         return percentile(per_request[metric], 50 if percentile_rank is None else percentile_rank)
@@ -531,10 +531,10 @@ REPORTED: Final[tuple[tuple[Metric, int | None], ...]] = (
     ("unexpected_status_count", None),
     ("gateway_added_seconds", 50),
     ("gateway_added_seconds", 99),
-    ("litellm_overhead_seconds", 50),
-    ("litellm_overhead_seconds", 99),
-    ("litellm_response_seconds", 50),
-    ("litellm_response_seconds", 99),
+    ("hangarllm_overhead_seconds", 50),
+    ("hangarllm_overhead_seconds", 99),
+    ("hangarllm_response_seconds", 50),
+    ("hangarllm_response_seconds", 99),
     ("prometheus_redis_latency_mean_seconds", None),
     ("postgres_active_sessions", None),
     ("postgres_slowest_statement_seconds", None),

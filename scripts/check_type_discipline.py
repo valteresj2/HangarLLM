@@ -50,9 +50,9 @@ LIT010  Variable assignment without a `Final` declaration. Every local and modul
         assignments inside a `for`/`while` body (pyright forbids Final in a loop;
         this exemption applies everywhere, including under `global`), valueless
         declarations (`x: int` binds nothing), dunder names, `_`, class bodies,
-        `TypeAlias` declarations, and module-level names in `litellm/__init__.py`:
+        `TypeAlias` declarations, and module-level names in `hangarllm/__init__.py`:
         that namespace is the SDK's runtime-settable config surface (users follow
-        the documented `litellm.api_key = ...` pattern and the proxy rebinds these
+        the documented `hangarllm.api_key = ...` pattern and the proxy rebinds these
         via setattr), and the package ships py.typed, so a Final there turns every
         documented downstream assignment into a mypy error. Suppress a deliberately
         rebindable name with `# rebind-ok: <reason>` on each offending line.
@@ -96,8 +96,8 @@ LIT015  Pydantic model class that is not frozen. Set `frozen=True` in
         `model_config`, an inner `class Config`, or the class keywords. Classes
         inherit the frozen setting from in-module model bases, unless their own
         configuration overrides it. Detection is name-based: `BaseModel`,
-        `pydantic.BaseModel`, `LiteLLMBaseModel`, `BaseLiteLLMOpenAIResponseObject`,
-        `LiteLLMPydanticObjectBase`, `OpenAIObject`, `RootModel`, and `BaseSettings` identify
+        `pydantic.BaseModel`, `HangarLLMBaseModel`, `BaseHangarLLMOpenAIResponseObject`,
+        `HangarLLMPydanticObjectBase`, `OpenAIObject`, `RootModel`, and `BaseSettings` identify
         models, while `TypedDict` classes are exempt. Replace in-place field writes
         with `model_copy(update=...)`. Suppress with `# frozen-ok: <reason>` on the
         `class` line.
@@ -107,7 +107,7 @@ LIT000  Setup failure: a target file could not be read, or contains a syntax err
 
 Usage
 -----
-    python check_type_discipline.py litellm/ tests/
+    python check_type_discipline.py hangarllm/ tests/
 
 Exit code 1 if any violation is found. Stdlib only.
 """
@@ -164,9 +164,9 @@ TYPEDDICT_BASE = "TypedDict"
 PYDANTIC_BASES: Final = frozenset(
     (
         "BaseModel",
-        "LiteLLMBaseModel",
-        "BaseLiteLLMOpenAIResponseObject",
-        "LiteLLMPydanticObjectBase",
+        "HangarLLMBaseModel",
+        "BaseHangarLLMOpenAIResponseObject",
+        "HangarLLMPydanticObjectBase",
         "OpenAIObject",
         "RootModel",
         "BaseSettings",
@@ -458,7 +458,7 @@ def iter_guard_violations(path: Path, tree: ast.AST) -> Iterator[Violation]:
 # --------------------------------------------------------------------------- #
 
 CONSTANT_DECLARATIONS = frozenset(("Final", "TypeAlias"))
-CONFIG_SURFACE_PARTS = ("litellm", "__init__.py")
+CONFIG_SURFACE_PARTS = ("hangarllm", "__init__.py")
 SELF_PARAMS = frozenset(("self", "cls"))
 NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
 ASSIGN_FORMS = frozenset(("assign", "annassign", "aug"))
@@ -631,7 +631,7 @@ def _first_binding_index(bindings: Sequence[Binding]) -> Mapping[str, int]:
 
 
 def _is_config_surface(path: Path) -> bool:
-    """The SDK's runtime-settable config module: `litellm.<name> = ...` is the
+    """The SDK's runtime-settable config module: `hangarllm.<name> = ...` is the
     documented way to configure the library and the proxy rebinds these names via
     setattr, so with py.typed shipped a Final here breaks downstream mypy runs."""
     return path.parts[-2:] == CONFIG_SURFACE_PARTS

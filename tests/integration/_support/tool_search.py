@@ -335,6 +335,6 @@ def tool_result(marker: str, name: str = WEATHER) -> dict[str, JsonValue]:
 
 def spend_rows_of(model: str, response_id: str) -> list[dict[str, JsonValue]]:
     rows: Final = read_rows(
-        'SELECT request_id, status, cache_hit FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model,)
+        'SELECT request_id, status, cache_hit FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model,)
     )
     return [row for row in rows if rv.same_response(string_value(row["request_id"]), response_id)]

@@ -24,7 +24,7 @@ from lifecycle import ResourceManager
 from management_client import ManagementClient
 from models import (
     CLEAR, ChatResponse, KeyDeleteBody, KeyGenerateBody, KeyInfo, KeyUpdateBody,
-    LiteLLMParamsBody, OrgNewBody, TeamNewBody,
+    HangarLLMParamsBody, OrgNewBody, TeamNewBody,
 )
 from pydantic import BaseModel, RootModel
 
@@ -178,7 +178,7 @@ class TestKeyManagementRoutes:
         resources: Final = project_resources
         name: Final = f"e2e-detach-{unique_marker()}"
         model_id: Final = client.proxy.create_model(
-            name, LiteLLMParamsBody(model=SYNTHETIC_BACKEND, api_key="synthetic", mock_response="orbit")
+            name, HangarLLMParamsBody(model=SYNTHETIC_BACKEND, api_key="synthetic", mock_response="orbit")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         org_id: Final = client.create_org(OrgNewBody(organization_alias=name, models=[name]))

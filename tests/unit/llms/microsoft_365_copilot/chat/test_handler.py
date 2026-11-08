@@ -8,15 +8,15 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.microsoft_365_copilot.chat.handler import acompletion, completion
-from litellm.llms.microsoft_365_copilot.common_utils import Microsoft365CopilotError
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.proxy.litellm_pre_call_utils import SecretFields
-from litellm.types.utils import ModelResponse
-from litellm.utils import token_counter
+import hangarllm
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.microsoft_365_copilot.chat.handler import acompletion, completion
+from hangarllm.llms.microsoft_365_copilot.common_utils import Microsoft365CopilotError
+from hangarllm.types.llms.openai import AllMessageValues
+from hangarllm.types.proxy.hangarllm_pre_call_utils import SecretFields
+from hangarllm.types.utils import ModelResponse
+from hangarllm.utils import token_counter
 from tests.unit.llms.bedrock.slow_upstream import (
     STREAM_TIMEOUT_SECONDS,
     UPSTREAM_FIRST_BYTE_SECONDS,
@@ -146,7 +146,7 @@ def test_sync_jwt_bearer_obo_uses_exact_exchange_and_sends_graph_token() -> None
         model=_MODEL,
         messages=_messages(),
         api_key=None,
-        litellm_params=params,
+        hangarllm_params=params,
         optional_params={},
         secret_fields=_secret_fields(assertion),
         client=client,
@@ -195,7 +195,7 @@ async def test_async_jwt_bearer_obo_uses_exact_exchange_and_sends_graph_token() 
             model=_MODEL,
             messages=_messages(),
             api_key=None,
-            litellm_params=params,
+            hangarllm_params=params,
             optional_params={},
             secret_fields=_secret_fields(assertion),
             client=client,
@@ -233,7 +233,7 @@ def test_token_exchange_cache_hits_and_keys_by_subject_token_and_client_secret()
             model=_MODEL,
             messages=_messages(),
             api_key=None,
-            litellm_params=_token_exchange_params(exchange_name, client_id, secret),
+            hangarllm_params=_token_exchange_params(exchange_name, client_id, secret),
             optional_params={},
             secret_fields=_secret_fields(assertion),
             client=client,
@@ -254,7 +254,7 @@ def test_direct_delegated_graph_token_skips_token_exchange() -> None:
         model=_MODEL,
         messages=_messages(),
         api_key="delegated-graph-token-9306",
-        litellm_params={},
+        hangarllm_params={},
         optional_params={},
         client=client,
     )
@@ -271,7 +271,7 @@ def test_token_exchange_credentials_take_precedence_over_direct_api_key() -> Non
     assertion: Final = "header-priority.payload-priority.signature-priority"
     client, requests = _sync_client()
     messages: Final = _messages()
-    litellm_params: Final = _token_exchange_params(
+    hangarllm_params: Final = _token_exchange_params(
         "priority-9306",
         "client-priority-9306",
         "secret-priority-9306",
@@ -279,7 +279,7 @@ def test_token_exchange_credentials_take_precedence_over_direct_api_key() -> Non
     optional_params: Final = {"time_zone": "UTC"}
     secret_fields: Final = _secret_fields(assertion)
     original_messages: Final = deepcopy(messages)
-    original_litellm_params: Final = dict(litellm_params)
+    original_hangarllm_params: Final = dict(hangarllm_params)
     original_optional_params: Final = dict(optional_params)
     original_headers: Final = dict(cast(Mapping[str, str], secret_fields["raw_headers"]))
 
@@ -287,7 +287,7 @@ def test_token_exchange_credentials_take_precedence_over_direct_api_key() -> Non
         model=_MODEL,
         messages=messages,
         api_key="direct-token-must-not-win-9306",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         optional_params=optional_params,
         secret_fields=secret_fields,
         client=client,
@@ -298,7 +298,7 @@ def test_token_exchange_credentials_take_precedence_over_direct_api_key() -> Non
     assert len(graph_requests) == 2
     assert all(request.headers["Authorization"] == "Bearer graph-access-token" for request in graph_requests)
     assert messages == original_messages
-    assert litellm_params == original_litellm_params
+    assert hangarllm_params == original_hangarllm_params
     assert optional_params == original_optional_params
     assert secret_fields["raw_headers"] == original_headers
 
@@ -311,7 +311,7 @@ def test_partial_token_exchange_configuration_fails_without_http_calls() -> None
             model=_MODEL,
             messages=_messages(),
             api_key="direct-token-must-not-fallback-9306",
-            litellm_params={
+            hangarllm_params={
                 "token_exchange_endpoint": "https://identity.example.com/partial-9306/token",
                 "client_id": "client-partial-9306",
             },
@@ -324,7 +324,7 @@ def test_partial_token_exchange_configuration_fails_without_http_calls() -> None
 
 
 def test_api_base_override_clears_exchange_config_and_fails_closed_without_token_post() -> None:
-    from litellm.litellm_core_utils.clientside_credential_handler import get_dynamic_litellm_params
+    from hangarllm.hangarllm_core_utils.clientside_credential_handler import get_dynamic_hangarllm_params
 
     assertion: Final = "header-base-override.payload-base-override.signature-base-override"
     oauth_fields: Final = (
@@ -333,8 +333,8 @@ def test_api_base_override_clears_exchange_config_and_fails_closed_without_token
         "token_exchange_profile",
         "token_exchange_scope",
     )
-    litellm_params: Final = get_dynamic_litellm_params(
-        litellm_params={
+    hangarllm_params: Final = get_dynamic_hangarllm_params(
+        hangarllm_params={
             "model": _MODEL,
             "api_base": "https://graph.microsoft.com/beta",
             **_token_exchange_params(
@@ -346,10 +346,10 @@ def test_api_base_override_clears_exchange_config_and_fails_closed_without_token
         },
         request_kwargs={"api_base": "https://caller-controlled.example"},
     )
-    assert litellm_params["api_base"] == "https://caller-controlled.example"
-    assert all(field not in litellm_params for field in oauth_fields)
-    assert "client_id" not in litellm_params
-    assert "client_secret" not in litellm_params
+    assert hangarllm_params["api_base"] == "https://caller-controlled.example"
+    assert all(field not in hangarllm_params for field in oauth_fields)
+    assert "client_id" not in hangarllm_params
+    assert "client_secret" not in hangarllm_params
 
     client, requests = _sync_client()
     with pytest.raises(Microsoft365CopilotError) as error:
@@ -357,7 +357,7 @@ def test_api_base_override_clears_exchange_config_and_fails_closed_without_token
             model=_MODEL,
             messages=_messages(),
             api_key=None,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             optional_params={},
             secret_fields=_secret_fields(assertion),
             client=client,
@@ -369,7 +369,7 @@ def test_api_base_override_clears_exchange_config_and_fails_closed_without_token
 
 def test_unknown_token_exchange_profile_fails_without_http_calls() -> None:
     client, requests = _sync_client()
-    litellm_params: Final = {
+    hangarllm_params: Final = {
         **_token_exchange_params("unknown-profile-9306", "client-unknown-profile-9306", "secret-unknown-profile-9306"),
         "token_exchange_profile": "unknown",
     }
@@ -379,7 +379,7 @@ def test_unknown_token_exchange_profile_fails_without_http_calls() -> None:
             model=_MODEL,
             messages=_messages(),
             api_key=None,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             optional_params={},
             secret_fields=_secret_fields("header.unknown.profile"),
             client=client,
@@ -398,7 +398,7 @@ def test_missing_auth_configuration_fails_without_http_calls() -> None:
             model=_MODEL,
             messages=_messages(),
             api_key=None,
-            litellm_params={},
+            hangarllm_params={},
             optional_params={},
             client=client,
         )
@@ -422,7 +422,7 @@ def test_token_exchange_requires_a_caller_bearer_token(secret_fields: SecretFiel
             model=_MODEL,
             messages=_messages(),
             api_key="direct-token-must-not-fallback-9306",
-            litellm_params=_token_exchange_params(
+            hangarllm_params=_token_exchange_params(
                 "no-assertion-9306",
                 "client-no-assertion-9306",
                 "secret-no-assertion-9306",
@@ -456,7 +456,7 @@ def test_token_exchange_invalid_grant_maps_to_401_without_leaking_credentials() 
             model=_MODEL,
             messages=_messages(),
             api_key=None,
-            litellm_params=_token_exchange_params(
+            hangarllm_params=_token_exchange_params(
                 "invalid-grant-9306",
                 "client-invalid-grant-9306",
                 client_secret,
@@ -488,7 +488,7 @@ def test_graph_403_extracts_last_reply_from_stringified_conversation() -> None:
             model=_MODEL,
             messages=_messages(),
             api_key="delegated-graph-token-403",
-            litellm_params={},
+            hangarllm_params={},
             optional_params={},
             client=client,
         )
@@ -513,7 +513,7 @@ def test_graph_error_redacts_caller_token_client_secret_and_access_token() -> No
             model=_MODEL,
             messages=_messages(),
             api_key=None,
-            litellm_params=_token_exchange_params(
+            hangarllm_params=_token_exchange_params(
                 "redaction-9306",
                 "client-redaction-9306",
                 client_secret,
@@ -531,7 +531,7 @@ def test_graph_error_redacts_caller_token_client_secret_and_access_token() -> No
 def test_streaming_wraps_full_reply_as_fake_stream() -> None:
     client, _ = _sync_client()
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=_MODEL,
         messages=_messages(),
         api_key="delegated-stream-token-9306",
@@ -565,7 +565,7 @@ def test_streaming_is_bounded_by_the_request_timeout_not_the_stream_timeout() ->
             return slow_chat(request)
         return httpx.Response(status_code=201, json={"id": "conversation/42", "state": "active"}, request=request)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=_MODEL,
         messages=_messages(),
         api_key="delegated-stream-token-9306",
@@ -584,7 +584,7 @@ async def test_async_streaming_wraps_full_reply_as_fake_stream() -> None:
     client, _ = _async_client()
 
     async with client.client:
-        response: Final = await litellm.acompletion(
+        response: Final = await hangarllm.acompletion(
             model=_MODEL,
             messages=_messages(),
             api_key="delegated-async-stream-token-9306",
@@ -610,7 +610,7 @@ async def test_async_streaming_wraps_full_reply_as_fake_stream() -> None:
     assert usage_chunk.usage.total_tokens == (usage_chunk.usage.prompt_tokens + usage_chunk.usage.completion_tokens)
 
 
-def test_litellm_completion_forwards_token_exchange_settings() -> None:
+def test_hangarllm_completion_forwards_token_exchange_settings() -> None:
     assertion: Final = "header-dispatch-9306.payload-dispatch-9306.signature-dispatch-9306"
     client, requests = _sync_client()
     messages: Final[list[AllMessageValues]] = cast(
@@ -629,7 +629,7 @@ def test_litellm_completion_forwards_token_exchange_settings() -> None:
     headers: Final[dict[str, str]] = {"X-Caller-Header": "unchanged"}
     original_headers: Final = dict(headers)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=_MODEL,
         messages=messages,
         api_key="direct-dispatch-token-must-not-win-9306",
@@ -671,10 +671,10 @@ def test_litellm_completion_forwards_token_exchange_settings() -> None:
     assert headers == original_headers
 
 
-def test_litellm_completion_accepts_max_tokens_without_sending_it_to_graph() -> None:
+def test_hangarllm_completion_accepts_max_tokens_without_sending_it_to_graph() -> None:
     client, requests = _sync_client()
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=_MODEL,
         messages=_messages(),
         api_key="delegated-max-token",
@@ -691,11 +691,11 @@ def test_litellm_completion_accepts_max_tokens_without_sending_it_to_graph() -> 
     }
 
 
-def test_litellm_completion_still_rejects_temperature() -> None:
+def test_hangarllm_completion_still_rejects_temperature() -> None:
     client, _ = _sync_client()
 
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.completion(
             model=_MODEL,
             messages=_messages(),
             api_key="delegated-temperature",

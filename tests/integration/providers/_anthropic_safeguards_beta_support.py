@@ -69,7 +69,7 @@ BASH_TOOL: Final[Mapping[str, JsonValue]] = MappingProxyType(
 WEB_SEARCH_TOOL: Final[Mapping[str, JsonValue]] = MappingProxyType(
     {"type": "web_search_20250305", "name": "web_search", "max_uses": 1}
 )
-RUST_ROUTE_HEADER: Final = "x-litellm-rust"
+RUST_ROUTE_HEADER: Final = "x-hangarllm-rust"
 _MARKER: Final = re.compile(rb"marker-[0-9a-f]{32}")
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _STARTED_WORKER: Final = "Started server process ["
@@ -250,7 +250,7 @@ def owned_config(directory: Path, gateway: Gateway, api_base: str) -> Path:
         "model_list": [
             {
                 "model_name": ANTHROPIC_DEPLOYMENT,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"anthropic/{BACKEND}",
                     "api_base": api_base,
                     "api_key": ANTHROPIC_KEY,
@@ -258,7 +258,7 @@ def owned_config(directory: Path, gateway: Gateway, api_base: str) -> Path:
             },
             {
                 "model_name": VERTEX_DEPLOYMENT,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"vertex_ai/{BACKEND}",
                     "api_base": api_base,
                     "vertex_project": PROJECT,
@@ -268,7 +268,7 @@ def owned_config(directory: Path, gateway: Gateway, api_base: str) -> Path:
             },
             {
                 "model_name": DEEPSEEK_DEPLOYMENT,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "deepseek/deepseek-chat",
                     "api_base": api_base,
                     "api_key": DEEPSEEK_KEY,

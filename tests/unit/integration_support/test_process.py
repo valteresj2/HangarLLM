@@ -22,7 +22,7 @@ import pytest
 import yaml
 from pydantic import TypeAdapter
 
-from litellm.proxy.types_utils.utils import get_instance_fn
+from hangarllm.proxy.types_utils.utils import get_instance_fn
 from tests.integration._support.client import Gateway, eventually
 from tests.integration._support.process import (
     OWNED_STATE_VARIABLE,
@@ -104,7 +104,7 @@ def test_worker_configuration_preserves_explicit_pool_limits(
     source: Final = tmp_path / "source.yaml"
     original: Final = {
         "general_settings": {"database_connection_pool_limit": limit, "database_connection_timeout": 3},
-        "model_list": [{"model_name": "synthetic", "litellm_params": {"model": "openai/synthetic"}}],
+        "model_list": [{"model_name": "synthetic", "hangarllm_params": {"model": "openai/synthetic"}}],
     }
     source.write_text(yaml.safe_dump(original))
     configured: Final = worker_configuration(source, tmp_path / "worker")
@@ -373,15 +373,15 @@ def test_owned_writer_keeps_only_a_reader_paired_with_its_database(
 def test_owned_runtime_configuration_preserves_custom_worker_startup_hooks(
     process_module: ModuleType, monkeypatch: pytest.MonkeyPatch, explicit: bool, remove: bool
 ) -> None:
-    monkeypatch.setenv("LITELLM_WORKER_STARTUP_HOOKS", "ambient:configure")
+    monkeypatch.setenv("HANGARLLM_WORKER_STARTUP_HOOKS", "ambient:configure")
     with httpx.Client(base_url="http://127.0.0.1:1", trust_env=False) as client:
         environment: Final = process_module._proxy_environment(
             Gateway(client, "owned-test-key", "http://127.0.0.1:1"),
-            {"LITELLM_WORKER_STARTUP_HOOKS": "custom:configure"} if explicit else {},
-            ("LITELLM_WORKER_STARTUP_HOOKS",) if remove else (),
+            {"HANGARLLM_WORKER_STARTUP_HOOKS": "custom:configure"} if explicit else {},
+            ("HANGARLLM_WORKER_STARTUP_HOOKS",) if remove else (),
         )
     expected: Final = "custom:configure" if explicit else ("" if remove else "ambient:configure")
-    assert environment["LITELLM_WORKER_STARTUP_HOOKS"] == ",".join(
+    assert environment["HANGARLLM_WORKER_STARTUP_HOOKS"] == ",".join(
         hook
         for hook in (
             "integration._support.runtime:configure_executor",

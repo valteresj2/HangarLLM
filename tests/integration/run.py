@@ -124,8 +124,8 @@ def main() -> int:
         **_without_provider_api_keys(os.environ),
         "PYTHONPATH": os.pathsep.join((str(root), str(root / "tests"), str(root / "tests/e2e"))),
         "INTEGRATION_RESULTS_DIR": str(output),
-        "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-        "LITELLM_MODE": "PRODUCTION",
+        "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
+        "HANGARLLM_MODE": "PRODUCTION",
         "PYTHON_DOTENV_DISABLED": "1",
         **worker_settings(options.group, options.workers),
     }

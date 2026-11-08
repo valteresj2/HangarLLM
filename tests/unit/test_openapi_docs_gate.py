@@ -63,9 +63,9 @@ def test_count_by_rule_sums_findings_per_code() -> None:
 
 def test_introduced_keeps_only_routes_registered_on_added_lines() -> None:
     diff: Final = (
-        "diff --git a/litellm/proxy/x.py b/litellm/proxy/x.py\n"
-        "--- a/litellm/proxy/x.py\n"
-        "+++ b/litellm/proxy/x.py\n"
+        "diff --git a/hangarllm/proxy/x.py b/hangarllm/proxy/x.py\n"
+        "--- a/hangarllm/proxy/x.py\n"
+        "+++ b/hangarllm/proxy/x.py\n"
         "@@ -0,0 +3,2 @@\n"
         '+@router.post("/v1/new")\n'
         "+async def new(request: Request): ...\n"

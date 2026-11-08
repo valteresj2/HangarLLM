@@ -7,12 +7,12 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import INITIAL_RETRY_DELAY, JITTER, MAX_RETRY_DELAY
-from litellm.exceptions import GuardrailRaisedException
-from litellm.litellm_core_utils.agentic_followup_failure import is_agentic_followup_failure
-from litellm.types.router import RetryPolicy
-from litellm.types.utils import Usage
+import hangarllm
+from hangarllm.constants import INITIAL_RETRY_DELAY, JITTER, MAX_RETRY_DELAY
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.hangarllm_core_utils.agentic_followup_failure import is_agentic_followup_failure
+from hangarllm.types.router import RetryPolicy
+from hangarllm.types.utils import Usage
 from tests.unit.test_router.core.retries_health_helpers import (
     ErrorBuilder,
     MakeCore,
@@ -50,7 +50,7 @@ from tests.unit.test_router.core.streaming_helpers import request_logging
 
 def group(
     *ids: str, **params: object
-) -> list[dict[str, object]]:  # kwargs-ok: litellm_params  # mutable-ok: a model_list
+) -> list[dict[str, object]]:  # kwargs-ok: hangarllm_params  # mutable-ok: a model_list
     return [deployment("g", deployment_id, **params) for deployment_id in ids]
 
 
@@ -90,7 +90,7 @@ async def test_retry_decision_per_error_class_and_group_size(
 
 
 @pytest.mark.asyncio
-async def test_an_error_without_a_litellm_type_is_retried_but_not_stamped(
+async def test_an_error_without_a_hangarllm_type_is_retried_but_not_stamped(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
     core: Final = make_core(model_list=group("a"), num_retries=2)
@@ -101,7 +101,7 @@ async def test_an_error_without_a_litellm_type_is_retried_but_not_stamped(
     assert isinstance(error, ValueError)
     assert getattr(error, "num_retries", None) is None
     assert getattr(error, "max_retries", None) is None
-    assert "LiteLLM Retried" not in str(error)
+    assert "HangarLLM Retried" not in str(error)
 
 
 @pytest.mark.asyncio
@@ -114,7 +114,7 @@ async def test_a_403_retry_moves_to_a_deployment_that_has_not_refused_yet(
     error: Final = await attempt(core)
 
     called: Final = host.deployments_called("acompletion")
-    assert isinstance(error, litellm.PermissionDeniedError)
+    assert isinstance(error, hangarllm.PermissionDeniedError)
     assert len(called) == 5
     assert sorted(called[:3]) == ["a", "b", "c"]
     assert cooled_down(core, ["a", "b", "c"]) == {}
@@ -129,7 +129,7 @@ async def test_a_401_on_each_deployment_cools_each_down_and_stops_when_none_is_l
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.AuthenticationError)
+    assert isinstance(error, hangarllm.AuthenticationError)
     assert sorted(host.deployments_called("acompletion")) == ["a", "b", "c"]
     assert set(cooled_down(core, ["a", "b", "c"])) == {"a", "b", "c"}
 
@@ -141,7 +141,7 @@ async def test_a_non_retryable_error_mid_loop_stops_the_retries(make_core: MakeC
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     assert len(host.calls_to("acompletion")) == 2
     assert getattr(error, "num_retries", None) is None
 
@@ -155,7 +155,7 @@ async def test_a_retry_policy_keeps_retrying_through_a_later_non_retryable_error
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     assert len(host.calls_to("acompletion")) == 4
     assert getattr(error, "num_retries", None) == 3
 
@@ -179,7 +179,7 @@ async def test_a_failed_agentic_followup_is_raised_without_retrying(make_core: M
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert len(host.calls_to("acompletion")) == 1
     assert host.sleeps == []
 
@@ -210,7 +210,7 @@ async def test_a_retry_carries_the_superseded_attempt_usage(make_core: MakeCore,
     core: Final = make_core(model_list=group("a", "b"), num_retries=1)
     host.answer("*", failed_after_usage, None)
 
-    await attempt(core, litellm_logging_obj=logging_obj)
+    await attempt(core, hangarllm_logging_obj=logging_obj)
 
     assert logging_obj.model_call_details["failed_attempts_usage"] == ((usage, 0.0),)
 
@@ -268,7 +268,7 @@ async def test_retry_policy_retries_a_401_or_404_into_the_cooled_lone_deployment
 
     error: Final = await attempt(core)
 
-    assert isinstance(error, litellm.RouterRateLimitError)
+    assert isinstance(error, hangarllm.RouterRateLimitError)
     assert "All deployments for selected model are in cooldown" in str(error)
     assert len(host.calls_to("acompletion")) == 1
 
@@ -416,7 +416,7 @@ async def test_mock_rate_limit_error_raises_without_calling_the_deployment(
 
     error: Final = await attempt(core, mock_testing_rate_limit_error=True)
 
-    assert isinstance(error, litellm.RateLimitError)
+    assert isinstance(error, hangarllm.RateLimitError)
     assert "This is a mock exception for model=g, to trigger a rate limit error." in str(error)
     assert host.calls == []
 
@@ -432,8 +432,8 @@ async def test_mock_rate_limit_error_is_retried_and_the_retry_reaches_the_deploy
     assert not isinstance(response, Exception)
     assert host.deployments_called("acompletion") == ["a"]
     assert "mock_testing_rate_limit_error" not in host.calls[0].kwargs
-    assert headers_of(response)["x-litellm-attempted-retries"] == 1
-    assert headers_of(response)["x-litellm-max-retries"] == 2
+    assert headers_of(response)["x-hangarllm-attempted-retries"] == 1
+    assert headers_of(response)["x-hangarllm-max-retries"] == 2
 
 
 @pytest.mark.asyncio
@@ -444,7 +444,7 @@ async def test_mock_rate_limit_error_carries_a_lone_deployments_num_retries(
 
     response: Final = await attempt(core, mock_testing_rate_limit_error=True)
 
-    assert headers_of(response)["x-litellm-max-retries"] == 1
+    assert headers_of(response)["x-hangarllm-max-retries"] == 1
 
 
 @pytest.mark.parametrize("value", [False, None])
@@ -515,7 +515,7 @@ async def test_retry_after_header_on_any_error_type_sets_the_sleep(make_core: Ma
     core: Final = make_core(model_list=group("a"), num_retries=1)
     host.answer(
         "openai/a",
-        lambda **_: litellm.InternalServerError(
+        lambda **_: hangarllm.InternalServerError(
             message="boom",
             llm_provider="openai",
             model="gpt-4o",
@@ -529,10 +529,10 @@ async def test_retry_after_header_on_any_error_type_sets_the_sleep(make_core: Ma
 
 
 @pytest.mark.asyncio
-async def test_litellm_response_headers_on_the_error_set_the_sleep(make_core: MakeCore, host: ScriptedHost) -> None:
+async def test_hangarllm_response_headers_on_the_error_set_the_sleep(make_core: MakeCore, host: ScriptedHost) -> None:
     def failure(**_: object) -> Exception:
         error: Final = server_error()
-        error.litellm_response_headers = {"retry-after": "6"}  # pyright: ignore[reportAttributeAccessIssue]  # what provider handlers attach
+        error.hangarllm_response_headers = {"retry-after": "6"}  # pyright: ignore[reportAttributeAccessIssue]  # what provider handlers attach
         return error
 
     core: Final = make_core(model_list=group("a"), num_retries=1)
@@ -583,7 +583,7 @@ async def test_each_attempt_carries_its_retry_count_and_the_failures_before_it(
     called: Final = host.deployments_called("acompletion")
     assert [entry["deployment_id"] for entry in trail] == called[:2]
     assert [entry["model"] for entry in trail] == [f"openai/{d}" for d in called[:2]]
-    assert all(entry["exception_string"] == "litellm.InternalServerError: boom" for entry in trail)
+    assert all(entry["exception_string"] == "hangarllm.InternalServerError: boom" for entry in trail)
 
 
 @pytest.mark.asyncio
@@ -597,7 +597,7 @@ async def test_max_retries_on_the_request_follows_the_deployment_num_retries(
     response: Final = await attempt(core)
 
     assert [s["max_retries"] for s in recorder.snapshots] == [3, 1]
-    assert headers_of(response)["x-litellm-max-retries"] == 1
+    assert headers_of(response)["x-hangarllm-max-retries"] == 1
 
 
 @pytest.mark.asyncio
@@ -636,7 +636,7 @@ async def test_sync_completion_retries_like_the_async_one(make_core: MakeCore, h
 
     error: Final = attempt_sync(core)
 
-    assert isinstance(error, litellm.InternalServerError)
+    assert isinstance(error, hangarllm.InternalServerError)
     assert host.deployments_called("completion") == ["a", "a", "a"]
     assert len(host.sleeps) == 3
     assert getattr(error, "num_retries", None) == 2
@@ -651,8 +651,8 @@ async def test_sync_completion_success_after_a_retry_reports_retry_headers(
 
     response: Final = attempt_sync(core)
 
-    assert headers_of(response)["x-litellm-attempted-retries"] == 1
-    assert headers_of(response)["x-litellm-max-retries"] == 2
+    assert headers_of(response)["x-hangarllm-attempted-retries"] == 1
+    assert headers_of(response)["x-hangarllm-max-retries"] == 2
 
 
 @pytest.mark.parametrize("op", ["aembedding", "embedding"])
@@ -666,7 +666,7 @@ async def test_embeddings_retry_with_the_router_num_retries(make_core: MakeCore,
             return await core.aembedding(model="g", input=["x"])  # pyright: ignore[reportAttributeAccessIssue]  # every core serves aembedding
         return core.embedding(model="g", input=["x"])  # pyright: ignore[reportAttributeAccessIssue]  # every core serves embedding
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await embed()
 
     assert host.deployments_called(op) == ["a", "a", "a"]
@@ -679,5 +679,5 @@ async def test_embedding_success_after_a_retry_reports_retry_headers(make_core: 
 
     response: Final = await core.aembedding(model="g", input=["x"])  # pyright: ignore[reportAttributeAccessIssue]  # every core serves aembedding
 
-    assert headers_of(response)["x-litellm-attempted-retries"] == 1
-    assert headers_of(response)["x-litellm-max-retries"] == 2
+    assert headers_of(response)["x-hangarllm-attempted-retries"] == 1
+    assert headers_of(response)["x-hangarllm-max-retries"] == 2

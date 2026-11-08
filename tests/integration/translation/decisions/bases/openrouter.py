@@ -6,8 +6,8 @@ from integration.translation.case import TranslationTestCase
 """
 TYPESAFE_JEV_1_13_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/decisions",
-    litellm_request={
+    hangarllm_endpoint="/v1/decisions",
+    hangarllm_request={
         "model": "openrouter/typesafe/jev-1.13",
         "input": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": [
@@ -67,7 +67,7 @@ TYPESAFE_JEV_1_13_TEST_CASE: Final = TranslationTestCase(
         "id": "gen-dec-1791323839-GA15kY0nt34oiJ7srfki",
         "provider": "TypeSafe",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "typesafe/jev-1.13-20260917",
         "answers": [
             {"type": "predicate", "name": "defect", "probability": 0.81},
@@ -100,8 +100,8 @@ TYPESAFE_JEV_1_13_TEST_CASE: Final = TranslationTestCase(
 )
 TYPESAFE_JEV_1_13_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
     scenario="systemone",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "openrouter/typesafe/jev-1.13",
         "state": "Ticket (billing): The export job hangs at 99% and never finishes",
         "questions": {
@@ -152,7 +152,7 @@ TYPESAFE_JEV_1_13_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
         "id": "gen-dec-1791323839-GA15kY0nt34oiJ7srfki",
         "provider": "TypeSafe",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "typesafe/jev-1.13-20260917",
         "answers": {
             "defect": {"type": "noul", "noul": 0.81},

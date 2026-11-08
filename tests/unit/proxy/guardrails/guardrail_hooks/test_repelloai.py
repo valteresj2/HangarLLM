@@ -7,18 +7,18 @@ from fastapi import HTTPException
 from httpx import ConnectError, Request, Response
 
 
-import litellm
-from litellm import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.repelloai.repelloai import (
+import hangarllm
+from hangarllm import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.repelloai.repelloai import (
     DEFAULT_REPELLOAI_API_BASE,
     RepelloAIGuardrail,
     RepelloAIGuardrailMissingSecrets,
     verbose_proxy_logger,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.utils import (
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.llms.openai import ResponsesAPIResponse
+from hangarllm.types.utils import (
     Choices,
     Message,
     ModelResponse,
@@ -118,7 +118,7 @@ class TestRepelloAIInitialization:
 
     @pytest.mark.asyncio
     async def test_provider_specific_params_include_api_key(self):
-        from litellm.proxy.guardrails.guardrail_endpoints import (
+        from hangarllm.proxy.guardrails.guardrail_endpoints import (
             get_provider_specific_params,
         )
 
@@ -131,14 +131,14 @@ class TestRepelloAIInitialization:
         assert "asset_id" in repelloai_params
         assert "unreachable_fallback" in repelloai_params
 
-    def test_asset_id_optional_on_shared_litellm_params(self):
+    def test_asset_id_optional_on_shared_hangarllm_params(self):
         """asset_id is enforced at runtime (test_missing_asset_id_raises), not as a
-        hard-required Pydantic field. LitellmParams inherits the RepelloAI config
+        hard-required Pydantic field. HangarllmParams inherits the RepelloAI config
         model, so a required asset_id would leak onto every other guardrail's
-        litellm_params validation and break them."""
-        from litellm.types.guardrails import LitellmParams
+        hangarllm_params validation and break them."""
+        from hangarllm.types.guardrails import HangarllmParams
 
-        LitellmParams(guardrail="presidio", mode="pre_call")
+        HangarllmParams(guardrail="presidio", mode="pre_call")
 
     def test_defaults(self):
         guardrail = _guardrail()
@@ -147,13 +147,13 @@ class TestRepelloAIInitialization:
 
     def test_init_guardrails_v2_wiring(self, monkeypatch: pytest.MonkeyPatch):
         """The guardrail registers and constructs via the config.yaml path."""
-        monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+        monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
         monkeypatch.setenv("REPELLOAI_API_KEY", "test-key")
         init_guardrails_v2(
             all_guardrails=[
                 {
                     "guardrail_name": "repelloai-argus-input",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "repelloai",
                         "mode": "pre_call",
                         "asset_id": "asset-123",
@@ -1077,7 +1077,7 @@ class TestRepelloAILoggingStatus:
 class TestRepelloAIStreaming:
     @staticmethod
     def _stream(*contents):
-        from litellm.types.utils import Delta, StreamingChoices
+        from hangarllm.types.utils import Delta, StreamingChoices
 
         async def _gen():
             for content in contents:
@@ -1108,7 +1108,7 @@ class TestRepelloAIStreaming:
 
     @pytest.mark.asyncio
     async def test_streaming_blocked_raises(self, monkeypatch):
-        from litellm.proxy.proxy_server import StreamingCallbackError
+        from hangarllm.proxy.proxy_server import StreamingCallbackError
 
         guardrail = _guardrail(event_hook="post_call")
         data = {"messages": [{"role": "user", "content": "q"}]}

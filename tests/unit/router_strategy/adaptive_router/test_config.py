@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from litellm.types.router import (
+from hangarllm.types.router import (
     AdaptiveRouterConfig,
     AdaptiveRouterPreferences,
     AdaptiveRouterWeights,  # noqa: F401  # imported per spec, exercised transitively

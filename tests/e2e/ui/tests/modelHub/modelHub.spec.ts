@@ -109,7 +109,7 @@ test.describe("Public model hub (/ui/model_hub_table)", () => {
         details.getByRole("heading", { name: skillName, exact: true }),
       ).toBeVisible();
       await expect(
-        details.getByText(`/plugin install ${skillName}@litellm`, {
+        details.getByText(`/plugin install ${skillName}@hangarllm`, {
           exact: true,
         }),
       ).toBeVisible();

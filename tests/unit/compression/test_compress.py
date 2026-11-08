@@ -1,5 +1,5 @@
 """
-Unit tests for litellm.compression.compress helpers.
+Unit tests for hangarllm.compression.compress helpers.
 
 get_protected_indices is the shared policy for which messages a compressor may
 never rewrite. It is consumed by compress() and by the Headroom guardrail, so
@@ -13,8 +13,8 @@ import httpx
 import pytest
 import respx
 
-from litellm.compression.compress import compress, get_protected_indices
-from litellm.types.utils import CallTypes
+from hangarllm.compression.compress import compress, get_protected_indices
+from hangarllm.types.utils import CallTypes
 
 
 def test_protects_system_last_user_and_last_assistant():
@@ -274,7 +274,7 @@ def test_embedding_scorer(respx_mock: respx.MockRouter) -> None:
         {
             "role": "user",
             "content": (
-                "[Compressed: message_1 — 1 lines, text. Use litellm_content_retrieve tool to get full content.]"
+                "[Compressed: message_1 — 1 lines, text. Use hangarllm_content_retrieve tool to get full content.]"
             ),
         },
         {"role": "user", "content": "Fix auth"},

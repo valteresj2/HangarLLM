@@ -22,9 +22,9 @@ class MissingEndpointDefinitionError(Exception):
 
 def get_repo_root() -> Path:
     """Get the repository root directory."""
-    # Check if litellm directory exists in current working directory
+    # Check if hangarllm directory exists in current working directory
     cwd = Path.cwd()
-    if (cwd / "litellm").exists() and (cwd / "litellm").is_dir():
+    if (cwd / "hangarllm").exists() and (cwd / "hangarllm").is_dir():
         # We're already at the repo root
         return cwd
 

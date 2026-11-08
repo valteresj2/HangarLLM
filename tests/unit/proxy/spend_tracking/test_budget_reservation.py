@@ -6,24 +6,24 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.caching import DualCache
-from litellm.models.budget import LiteLLM_BudgetTable
-from litellm.proxy import proxy_server
-from litellm.proxy._types import (
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+import hangarllm
+from hangarllm.caching import DualCache
+from hangarllm.models.budget import HangarLLM_BudgetTable
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import (
+    HangarLLM_OrganizationTable,
+    HangarLLM_ProjectTableCachedObj,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     project_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.spend_tracking.budget_reservation import (
+from hangarllm.proxy.spend_tracking.budget_reservation import (
     _get_team_member_budget_counter,
     estimate_request_max_cost,
     get_budget_window_start,
@@ -31,11 +31,11 @@ from litellm.proxy.spend_tracking.budget_reservation import (
     count_request_input_tokens,
     reserve_budget_for_request,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
-from litellm.redis.stores.connection import connect
-from litellm.redis.stores.spend_counters import SpendCounterStore
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router import Router
+from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
+from hangarllm.redis.stores.connection import connect
+from hangarllm.redis.stores.spend_counters import SpendCounterStore
 
 TOKEN_COUNTING_ROUTES: Final = (
     "/responses/input_tokens",
@@ -87,7 +87,7 @@ async def test_non_exempt_llm_route_still_reserves_budget():
 @pytest.mark.asyncio
 async def test_reservation_carries_the_admission_input_token_count():
     reservation: Final = await _reserve("/v1/responses")
-    expected: Final = litellm.token_counter(model="gpt-4o", text="hello")
+    expected: Final = hangarllm.token_counter(model="gpt-4o", text="hello")
 
     assert reservation is not None
     assert expected > 0
@@ -182,7 +182,7 @@ def test_bedrock_converse_body_reserves_the_prompt_not_the_context_window():
 def _tiered_deployment(input_cost_per_token: float) -> Deployment:
     return Deployment(
         model_name="tiered-group",
-        litellm_params=LiteLLM_Params(model="dashscope/qwen3-max", api_key="sk-fake"),
+        hangarllm_params=HangarLLM_Params(model="dashscope/qwen3-max", api_key="sk-fake"),
         model_info=ModelInfo(
             id="tiered-deployment",
             max_output_tokens=1000,
@@ -239,12 +239,12 @@ async def test_team_member_reservation_counter_honours_temp_budget_increase(
     cache: Final = UserApiKeyCache()
     await cache.async_set_cache(
         key=team_membership_reservation_cache_key(user_id=user_id, team_id=team_id),
-        value=LiteLLM_TeamMembership(
+        value=HangarLLM_TeamMembership(
             user_id=user_id,
             team_id=team_id,
             spend=0.5,
             budget_id="budget-temp",
-            litellm_budget_table=LiteLLM_BudgetTable(
+            hangarllm_budget_table=HangarLLM_BudgetTable(
                 max_budget=2.0,
                 temp_budget_increase=1.0,
                 temp_budget_expiry=datetime.now(timezone.utc) + expiry_offset,
@@ -254,8 +254,8 @@ async def test_team_member_reservation_counter_honours_temp_budget_increase(
 
     counter: Final = await _get_team_member_budget_counter(
         valid_token=UserAPIKeyAuth(token="hashed", user_id=user_id, team_id=team_id),
-        team_object=LiteLLM_TeamTable(team_id=team_id),
-        user_object=LiteLLM_UserTable(user_id=user_id),
+        team_object=HangarLLM_TeamTable(team_id=team_id),
+        user_object=HangarLLM_UserTable(user_id=user_id),
         user_api_key_cache=cache,
     )
 
@@ -281,16 +281,16 @@ async def test_team_member_reservation_counter_adds_temp_increase_to_live_team_d
     cache: Final = UserApiKeyCache()
     await cache.async_set_cache(
         key="team_member_default_budget:default-bare",
-        value=LiteLLM_BudgetTable(budget_id="default-bare", max_budget=default_cap),
+        value=HangarLLM_BudgetTable(budget_id="default-bare", max_budget=default_cap),
     )
     await cache.async_set_cache(
         key=team_membership_reservation_cache_key(user_id=user_id, team_id=team_id),
-        value=LiteLLM_TeamMembership(
+        value=HangarLLM_TeamMembership(
             user_id=user_id,
             team_id=team_id,
             spend=0.5,
             budget_id="budget-bare",
-            litellm_budget_table=LiteLLM_BudgetTable(
+            hangarllm_budget_table=HangarLLM_BudgetTable(
                 max_budget=None,
                 temp_budget_increase=1.0,
                 temp_budget_expiry=datetime.now(timezone.utc) + expiry_offset,
@@ -300,8 +300,8 @@ async def test_team_member_reservation_counter_adds_temp_increase_to_live_team_d
 
     counter: Final = await _get_team_member_budget_counter(
         valid_token=UserAPIKeyAuth(token="hashed", user_id=user_id, team_id=team_id),
-        team_object=LiteLLM_TeamTable(team_id=team_id, metadata={"team_member_budget_id": "default-bare"}),
-        user_object=LiteLLM_UserTable(user_id=user_id),
+        team_object=HangarLLM_TeamTable(team_id=team_id, metadata={"team_member_budget_id": "default-bare"}),
+        user_object=HangarLLM_UserTable(user_id=user_id),
         user_api_key_cache=cache,
     )
 
@@ -356,23 +356,23 @@ async def test_reservation_holds_cost_against_cached_org_and_project_budgets(spe
     cache: Final = UserApiKeyCache()
     await cache.async_set_cache(
         key="org_id:org-budgeted:with_budget",
-        value=LiteLLM_OrganizationTable(
+        value=HangarLLM_OrganizationTable(
             organization_id="org-budgeted",
             budget_id="org-budget",
             spend=1.5,
             models=[],
             created_by="admin",
             updated_by="admin",
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=10.0),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=10.0),
         ),
-        model_type=LiteLLM_OrganizationTable,
+        model_type=HangarLLM_OrganizationTable,
     )
     await cache.async_set_cache(
         key=project_cache_key("project-budgeted"),
-        value=LiteLLM_ProjectTableCachedObj(
-            project_id="project-budgeted", spend=2.5, litellm_budget_table=LiteLLM_BudgetTable(max_budget=20.0)
+        value=HangarLLM_ProjectTableCachedObj(
+            project_id="project-budgeted", spend=2.5, hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=20.0)
         ),
-        model_type=LiteLLM_ProjectTableCachedObj,
+        model_type=HangarLLM_ProjectTableCachedObj,
     )
 
     reservation: Final = await reserve_budget_for_request(
@@ -433,12 +433,12 @@ def test_budget_window_start_reads_json_encoded_windows(window: str, expected: d
 
 @pytest.mark.asyncio
 async def test_reservation_counts_a_pdf_with_the_deployment_behind_a_gpt_named_group() -> None:
-    from litellm.proxy.spend_tracking.input_tokens import count_input_tokens_for_model
+    from hangarllm.proxy.spend_tracking.input_tokens import count_input_tokens_for_model
     from tests.unit.proxy.spend_tracking.test_input_tokens import _one_page_pdf_message
 
     request_body: Final = {"model": "gpt-4o", "messages": _one_page_pdf_message()}
     router: Final = Router(
-        model_list=[{"model_name": "gpt-4o", "litellm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "x"}}]
+        model_list=[{"model_name": "gpt-4o", "hangarllm_params": {"model": "anthropic/claude-haiku-5-5", "api_key": "x"}}]
     )
 
     counts: Final = await count_request_input_tokens(
@@ -455,7 +455,7 @@ _MULTILINGUAL_MESSAGES: Final = [{"role": "user", "content": "日本語のテキ
 def _router_with_groups(*groups: tuple[str, str]) -> Router:
     return Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": model, "api_key": "sk-test"}} for name, model in groups
+            {"model_name": name, "hangarllm_params": {"model": model, "api_key": "sk-test"}} for name, model in groups
         ]
     )
 
@@ -480,7 +480,7 @@ async def _reserved_input_tokens(router: Router, model: str, route: str, message
 
 @pytest.mark.asyncio
 async def test_an_openai_chat_request_reserves_what_openai_chat_bills_on_top_of_each_pdf_files_pages() -> None:
-    from litellm.constants import OPENAI_CHAT_PDF_FILE_TOKENS
+    from hangarllm.constants import OPENAI_CHAT_PDF_FILE_TOKENS
     from tests.unit.proxy.spend_tracking.test_input_tokens import _one_page_pdf_message
 
     router: Final = _router_with_groups(("on-openai", "openai/gpt-5.6-sol"), ("on-azure", "azure/gpt-5.6-sol"))
@@ -511,7 +511,7 @@ async def test_alias_group_of_an_openai_model_reserves_on_that_models_token_coun
 async def test_model_group_alias_of_an_openai_group_reserves_on_that_groups_token_count():
     router: Final = Router(
         model_list=[
-            {"model_name": "gpt-6.1-sol", "litellm_params": {"model": "openai/gpt-6.1-sol", "api_key": "sk-test"}}
+            {"model_name": "gpt-6.1-sol", "hangarllm_params": {"model": "openai/gpt-6.1-sol", "api_key": "sk-test"}}
         ],
         model_group_alias={"prod": "gpt-6.1-sol"},
     )
@@ -527,14 +527,14 @@ async def test_model_group_alias_of_a_group_no_openai_model_serves_reserves_on_t
         model_list=[
             {
                 "model_name": "claude-sonnet-5-5",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "sk-test"},
             }
         ],
         model_group_alias={"claude-alias": "claude-sonnet-5-5"},
     )
 
     assert await _input_tokens(router, "claude-alias") == {
-        "claude-alias": litellm.token_counter(model="claude-alias", messages=_MULTILINGUAL_MESSAGES)
+        "claude-alias": hangarllm.token_counter(model="claude-alias", messages=_MULTILINGUAL_MESSAGES)
     }
 
 
@@ -545,14 +545,14 @@ async def test_release_named_group_or_alias_no_openai_model_serves_reserves_on_a
 ) -> None:
     router: Final = Router(
         model_list=[
-            {"model_name": group, "litellm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "sk-test"}}
+            {"model_name": group, "hangarllm_params": {"model": "anthropic/claude-sonnet-5-5", "api_key": "sk-test"}}
             for group in ("claude-sonnet-5-5", "gpt-6-claude")
         ],
         model_group_alias={"o4-alias": "claude-sonnet-5-5"},
     )
 
     assert await _input_tokens(router, name) == {
-        name: litellm.token_counter(model="my-model", messages=_MULTILINGUAL_MESSAGES)
+        name: hangarllm.token_counter(model="my-model", messages=_MULTILINGUAL_MESSAGES)
     }
 
 
@@ -570,8 +570,8 @@ async def test_group_mixing_in_a_non_openai_model_reserves_on_its_name_as_writte
     reserved: Final = (await _input_tokens(router, group))[group]
 
     assert reserved == max(
-        litellm.token_counter(model=counted_as, messages=_MULTILINGUAL_MESSAGES),
-        litellm.token_counter(model="openai/gpt-6.1-sol", messages=_MULTILINGUAL_MESSAGES),
+        hangarllm.token_counter(model=counted_as, messages=_MULTILINGUAL_MESSAGES),
+        hangarllm.token_counter(model="openai/gpt-6.1-sol", messages=_MULTILINGUAL_MESSAGES),
     )
 
 
@@ -583,17 +583,17 @@ async def test_group_reserves_on_its_current_deployments_after_another_vendors_d
     router.add_deployment(
         Deployment(
             model_name="prod",
-            litellm_params=LiteLLM_Params(model="anthropic/claude-sonnet-5-5", api_key="sk-test"),
+            hangarllm_params=HangarLLM_Params(model="anthropic/claude-sonnet-5-5", api_key="sk-test"),
         )
     )
 
-    by_own_name: Final = litellm.token_counter(model="prod", messages=_MULTILINGUAL_MESSAGES)
+    by_own_name: Final = hangarllm.token_counter(model="prod", messages=_MULTILINGUAL_MESSAGES)
     assert openai_only != by_own_name
     assert (await _input_tokens(router, "prod"))["prod"] == by_own_name
 
 
 @pytest.mark.parametrize("window", [{}, {"budget_duration": "1d"}, {"reset_at": "2026-11-03T00:00:00Z"}])
 def test_fixed_budget_window_requires_duration_and_reset_boundary(window: object) -> None:
-    from litellm.proxy.spend_tracking.budget_reservation import fixed_budget_window
+    from hangarllm.proxy.spend_tracking.budget_reservation import fixed_budget_window
 
     assert fixed_budget_window(window) is None

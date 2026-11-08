@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy import proxy_server
+from hangarllm.proxy import proxy_server
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
@@ -49,7 +49,7 @@ def patched_moderation(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _add_data)
 
     async def _fake_llm_call():
         return dict(HAPPY_RESPONSE)
@@ -77,7 +77,7 @@ def moderation_pipeline_raises(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_hangarllm_data_to_request", _add_data)
 
     async def _raise(*args, **kwargs):
         raise ValueError("boom")

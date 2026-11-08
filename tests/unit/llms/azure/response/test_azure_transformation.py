@@ -10,30 +10,30 @@ import respx
 from openai.types.responses import ResponseReasoningItem
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
-from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
-from litellm.llms.azure.responses.o_series_transformation import (
+import hangarllm
+from hangarllm.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
+from hangarllm.hangarllm_core_utils.get_model_cost_map import get_model_cost_map
+from hangarllm.llms.azure.responses.o_series_transformation import (
     AzureOpenAIOSeriesResponsesAPIConfig,
 )
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.azure_ai.responses.transformation import AzureAIAgentResponsesAPIConfig, AzureAIResponsesAPIConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from hangarllm.llms.azure_ai.responses.transformation import AzureAIAgentResponsesAPIConfig, AzureAIResponsesAPIConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 from tests.unit.proxy.conftest import httpx_transport
 
 
 @pytest.mark.serial
-def test_validate_environment_api_key_within_litellm_params():
+def test_validate_environment_api_key_within_hangarllm_params():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
-    litellm_params = GenericLiteLLMParams(api_key="test-api-key")
+    hangarllm_params = GenericHangarLLMParams(api_key="test-api-key")
 
     result = azure_openai_responses_apiconfig.validate_environment(
-        headers={}, model="", litellm_params=litellm_params
+        headers={}, model="", hangarllm_params=hangarllm_params
     )
 
     expected = {"api-key": "test-api-key"}
@@ -42,13 +42,13 @@ def test_validate_environment_api_key_within_litellm_params():
 
 
 @pytest.mark.serial
-def test_validate_environment_api_key_within_litellm():
+def test_validate_environment_api_key_within_hangarllm():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
 
-    with patch("litellm.api_key", "test-api-key"):
-        litellm_params = GenericLiteLLMParams()
+    with patch("hangarllm.api_key", "test-api-key"):
+        hangarllm_params = GenericHangarLLMParams()
         result = azure_openai_responses_apiconfig.validate_environment(
-            headers={}, model="", litellm_params=litellm_params
+            headers={}, model="", hangarllm_params=hangarllm_params
         )
 
         expected = {"api-key": "test-api-key"}
@@ -57,13 +57,13 @@ def test_validate_environment_api_key_within_litellm():
 
 
 @pytest.mark.serial
-def test_validate_environment_azure_key_within_litellm():
+def test_validate_environment_azure_key_within_hangarllm():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
 
-    with patch("litellm.azure_key", "test-azure-key"):
-        litellm_params = GenericLiteLLMParams()
+    with patch("hangarllm.azure_key", "test-azure-key"):
+        hangarllm_params = GenericHangarLLMParams()
         result = azure_openai_responses_apiconfig.validate_environment(
-            headers={}, model="", litellm_params=litellm_params
+            headers={}, model="", hangarllm_params=hangarllm_params
         )
 
         expected = {"api-key": "test-azure-key"}
@@ -75,10 +75,10 @@ def test_validate_environment_azure_key_within_litellm():
 def test_validate_environment_azure_key_within_headers():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
     headers = {"api-key": "test-api-key-from-headers"}
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
 
     result = azure_openai_responses_apiconfig.validate_environment(
-        headers=headers, model="", litellm_params=litellm_params
+        headers=headers, model="", hangarllm_params=hangarllm_params
     )
 
     expected = {"api-key": "test-api-key-from-headers"}
@@ -92,14 +92,14 @@ def test_get_complete_url():
     Test the get_complete_url function
     """
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
-    api_base = "https://litellm8397336933.openai.azure.com"
-    litellm_params = {"api_version": "2024-05-01-preview"}
+    api_base = "https://hangarllm8397336933.openai.azure.com"
+    hangarllm_params = {"api_version": "2024-05-01-preview"}
 
     result = azure_openai_responses_apiconfig.get_complete_url(
-        api_base=api_base, litellm_params=litellm_params
+        api_base=api_base, hangarllm_params=hangarllm_params
     )
 
-    expected = "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
+    expected = "https://hangarllm8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
 
     assert result == expected
 
@@ -138,14 +138,14 @@ def test_get_complete_url():
 )
 def test_explicit_v1_api_base_preserves_the_gateway_prefix_and_query(base_path: str, expected_path: str) -> None:
     result: Final = AzureOpenAIResponsesAPIConfig().get_complete_url(
-        api_base=f"https://gateway.example.com{base_path}", litellm_params={"api_version": "v1"}
+        api_base=f"https://gateway.example.com{base_path}", hangarllm_params={"api_version": "v1"}
     )
 
     assert result == f"https://gateway.example.com{expected_path}"
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected_version"),
+    ("hangarllm_params", "expected_version"),
     [
         ({}, AZURE_DEFAULT_RESPONSES_API_VERSION),
         ({"api_version": "v1"}, "v1"),
@@ -157,11 +157,11 @@ def test_explicit_v1_api_base_preserves_the_gateway_prefix_and_query(base_path: 
     ],
 )
 def test_explicit_v1_api_base_keeps_responses_api_version_selection(
-    litellm_params: dict[str, str], expected_version: str
+    hangarllm_params: dict[str, str], expected_version: str
 ) -> None:
     result: Final = AzureOpenAIResponsesAPIConfig().get_complete_url(
         api_base="https://gateway.example.com/foundry/openai/openai/v1",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
 
     assert result == f"https://gateway.example.com/foundry/openai/openai/v1/responses?api-version={expected_version}"
@@ -192,14 +192,14 @@ def test_compact_reaches_the_v1_route_and_drops_only_a_dated_api_version(
     api_base: str, api_version: str, expected_url: str
 ) -> None:
     config: Final = AzureOpenAIResponsesAPIConfig()
-    responses_url: Final = config.get_complete_url(api_base=api_base, litellm_params={"api_version": api_version})
+    responses_url: Final = config.get_complete_url(api_base=api_base, hangarllm_params={"api_version": api_version})
 
     url, _ = config.transform_compact_response_api_request(
         model="gpt-5.4-mini",
         input="hi",
         response_api_optional_request_params={},
         api_base=responses_url,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -209,20 +209,20 @@ def test_compact_reaches_the_v1_route_and_drops_only_a_dated_api_version(
 def test_response_id_path_requests_encode_response_id():
     config = AzureOpenAIResponsesAPIConfig()
     api_base = (
-        "https://litellm8397336933.openai.azure.com/openai/responses"
+        "https://hangarllm8397336933.openai.azure.com/openai/responses"
         "?api-version=2024-05-01-preview"
     )
 
     url, params = config.transform_cancel_response_api_request(
         response_id="../../responses/other?x=1#frag",
         api_base=api_base,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
     assert (
         url
-        == "https://litellm8397336933.openai.azure.com/openai/responses/..%2F..%2Fresponses%2Fother%3Fx%3D1%23frag/cancel?api-version=2024-05-01-preview"
+        == "https://hangarllm8397336933.openai.azure.com/openai/responses/..%2F..%2Fresponses%2Fother%3Fx%3D1%23frag/cancel?api-version=2024-05-01-preview"
     )
     assert params == {}
 
@@ -334,25 +334,25 @@ def test_o_series_model_detection():
 @pytest.mark.serial
 def test_provider_config_manager_o_series_selection():
     """Test that ProviderConfigManager returns the correct config for O-series vs regular models."""
-    import litellm
-    from litellm.utils import ProviderConfigManager
+    import hangarllm
+    from hangarllm.utils import ProviderConfigManager
 
     # Test O-series model selection
     o_series_config = ProviderConfigManager.get_provider_responses_api_config(
-        provider=litellm.LlmProviders.AZURE, model="o_series/gpt-o1"
+        provider=hangarllm.LlmProviders.AZURE, model="o_series/gpt-o1"
     )
     assert isinstance(o_series_config, AzureOpenAIOSeriesResponsesAPIConfig)
 
     # Test regular model selection
     regular_config = ProviderConfigManager.get_provider_responses_api_config(
-        provider=litellm.LlmProviders.AZURE, model="gpt-4o"
+        provider=hangarllm.LlmProviders.AZURE, model="gpt-4o"
     )
     assert isinstance(regular_config, AzureOpenAIResponsesAPIConfig)
     assert not isinstance(regular_config, AzureOpenAIOSeriesResponsesAPIConfig)
 
     # Test with no model specified (should default to regular)
     default_config = ProviderConfigManager.get_provider_responses_api_config(
-        provider=litellm.LlmProviders.AZURE, model=None
+        provider=hangarllm.LlmProviders.AZURE, model=None
     )
     assert isinstance(default_config, AzureOpenAIResponsesAPIConfig)
     assert not isinstance(default_config, AzureOpenAIOSeriesResponsesAPIConfig)
@@ -369,72 +369,72 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_get_complete_url_with_version_types(self):
         """Test Azure get_complete_url with different API version types"""
-        base_url = "https://litellm8397336933.openai.azure.com"
+        base_url = "https://hangarllm8397336933.openai.azure.com"
 
         # Test with preview version - should use openai/v1/responses
         result_preview = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "preview"},
+            hangarllm_params={"api_version": "preview"},
         )
         assert (
             result_preview
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
+            == "https://hangarllm8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
         )
 
         # Test with latest version - should use openai/v1/responses
         result_latest = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "latest"},
+            hangarllm_params={"api_version": "latest"},
         )
         assert (
             result_latest
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
+            == "https://hangarllm8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
         )
 
         result_dated_preview = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "2025-04-01-preview"},
+            hangarllm_params={"api_version": "2025-04-01-preview"},
         )
         assert (
             result_dated_preview
-            == "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
+            == "https://hangarllm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
         )
 
     @pytest.mark.parametrize("api_version", ["2024-10-21", "2024-06-01", "2025-01-01"])
     def test_dated_ga_api_version_routes_responses_like_an_unset_one(self, api_version: str):
-        base_url: Final = "https://litellm8397336933.openai.azure.com"
+        base_url: Final = "https://hangarllm8397336933.openai.azure.com"
 
-        dated: Final = self.config.get_complete_url(api_base=base_url, litellm_params={"api_version": api_version})
-        unset: Final = self.config.get_complete_url(api_base=base_url, litellm_params={})
+        dated: Final = self.config.get_complete_url(api_base=base_url, hangarllm_params={"api_version": api_version})
+        unset: Final = self.config.get_complete_url(api_base=base_url, hangarllm_params={})
 
         assert dated == unset
         assert httpx.URL(dated).params["api-version"] == AZURE_DEFAULT_RESPONSES_API_VERSION
 
     def test_azure_get_complete_url_with_default_api_version(self):
         """Test Azure get_complete_url uses default API version when none is provided"""
-        from litellm.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
+        from hangarllm.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
 
-        base_url = "https://litellm8397336933.openai.azure.com"
+        base_url = "https://hangarllm8397336933.openai.azure.com"
 
         # Test with no api_version provided - should use default
         result_no_version = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={},
+            hangarllm_params={},
         )
-        expected_url = f"https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version={AZURE_DEFAULT_RESPONSES_API_VERSION}"
+        expected_url = f"https://hangarllm8397336933.openai.azure.com/openai/v1/responses?api-version={AZURE_DEFAULT_RESPONSES_API_VERSION}"
         assert result_no_version == expected_url
 
-        # Test with empty litellm_params - should use default
+        # Test with empty hangarllm_params - should use default
         result_empty_params = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={},
+            hangarllm_params={},
         )
         assert result_empty_params == expected_url
 
         # Test with None api_version - should use default
         result_none_version = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": None},
+            hangarllm_params={"api_version": None},
         )
         assert result_none_version == expected_url
 
@@ -449,34 +449,34 @@ class TestAzureResponsesAPIConfig:
     def test_responses_api_version_wins_over_api_version(
         self, api_version: str | None, responses_api_version: str, expected_path: str
     ):
-        base_url: Final = "https://litellm8397336933.openai.azure.com"
+        base_url: Final = "https://hangarllm8397336933.openai.azure.com"
 
         url: Final = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": api_version, "responses_api_version": responses_api_version},
+            hangarllm_params={"api_version": api_version, "responses_api_version": responses_api_version},
         )
 
         assert url == f"{base_url}{expected_path}"
 
     @pytest.mark.parametrize("responses_api_version", [None, "v1"])
     def test_api_version_in_api_base_query_wins_over_a_dated_ga_api_version(self, responses_api_version: str | None):
-        api_base: Final = "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
+        api_base: Final = "https://hangarllm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
 
         url: Final = self.config.get_complete_url(
             api_base=api_base,
-            litellm_params={"api_version": "2024-10-21", "responses_api_version": responses_api_version},
+            hangarllm_params={"api_version": "2024-10-21", "responses_api_version": responses_api_version},
         )
 
         assert url == api_base
 
     def test_api_version_in_env_api_base_query_wins_over_a_dated_ga_api_version(self, monkeypatch: pytest.MonkeyPatch):
         env_api_base: Final = (
-            "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
+            "https://hangarllm8397336933.openai.azure.com/openai/responses?api-version=2025-04-01-preview"
         )
-        monkeypatch.setattr(litellm, "api_base", None)
+        monkeypatch.setattr(hangarllm, "api_base", None)
         monkeypatch.setenv("AZURE_API_BASE", env_api_base)
 
-        url: Final = self.config.get_complete_url(api_base=None, litellm_params={"api_version": "2024-10-21"})
+        url: Final = self.config.get_complete_url(api_base=None, hangarllm_params={"api_version": "2024-10-21"})
 
         assert url == env_api_base
 
@@ -487,28 +487,28 @@ class TestAzureResponsesAPIConfig:
             ("https://apim.example.com/openai/team-a", "/openai/team-a/openai/v1/responses"),
         ],
     )
-    @pytest.mark.parametrize("litellm_params", [{"api_version": "2024-10-21"}, {"responses_api_version": "v1"}])
+    @pytest.mark.parametrize("hangarllm_params", [{"api_version": "2024-10-21"}, {"responses_api_version": "v1"}])
     def test_v1_route_only_rewrites_the_responses_route_segment_of_a_gateway_api_base(
-        self, api_base: str, expected_path: str, litellm_params: dict[str, str]
+        self, api_base: str, expected_path: str, hangarllm_params: dict[str, str]
     ):
-        url: Final = httpx.URL(self.config.get_complete_url(api_base=api_base, litellm_params=litellm_params))
+        url: Final = httpx.URL(self.config.get_complete_url(api_base=api_base, hangarllm_params=hangarllm_params))
 
         assert url.host == "apim.example.com"
         assert url.path == expected_path
 
     def test_azure_cancel_response_api_request(self):
         """Test Azure cancel response API request transformation"""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         response_id = "resp_test123"
         api_base = "https://test.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
-        litellm_params = GenericLiteLLMParams(api_version="2024-05-01-preview")
+        hangarllm_params = GenericHangarLLMParams(api_version="2024-05-01-preview")
         headers = {"Authorization": "Bearer test-key"}
 
         url, data = self.config.transform_cancel_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -517,14 +517,14 @@ class TestAzureResponsesAPIConfig:
         assert data == {}
 
     def test_azure_list_input_items_request_url_path_before_query(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         api_base = "https://test.openai.azure.com/openai/responses?api-version=2025-03-01-preview"
 
         url, params = self.config.transform_list_input_items_request(
             response_id="resp_test123",
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(api_version="2025-03-01-preview"),
+            hangarllm_params=GenericHangarLLMParams(api_version="2025-03-01-preview"),
             headers={},
         )
 
@@ -538,7 +538,7 @@ class TestAzureResponsesAPIConfig:
         """Test Azure cancel response API response transformation"""
         from unittest.mock import Mock
 
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         # Mock response
         mock_response = Mock()
@@ -569,7 +569,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_nested_to_flat(self):
         """Test that nested tools are flattened correctly"""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         # Setup
         nested_tools = [
@@ -584,14 +584,14 @@ class TestAzureResponsesAPIConfig:
         ]
 
         response_api_params = {"tools": nested_tools}
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
@@ -608,7 +608,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_already_flat(self):
         """Test that already flat tools are passed through unchanged"""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         # Setup
         flat_tools = [
@@ -622,14 +622,14 @@ class TestAzureResponsesAPIConfig:
 
         # Make a copy to check it doesn't change
         response_api_params = {"tools": list(flat_tools)}
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
@@ -638,7 +638,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_preserves_original(self):
         """Test that the original tool dictionary is not mutated"""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         # Setup
         original_tool = {
@@ -648,14 +648,14 @@ class TestAzureResponsesAPIConfig:
         original_tool_copy = deepcopy(original_tool)
 
         response_api_params = {"tools": [original_tool]}
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
@@ -663,7 +663,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_mixed_tools(self):
         """Test mixed nested and flat tools"""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         # Setup
         nested_tool = {
@@ -673,14 +673,14 @@ class TestAzureResponsesAPIConfig:
         flat_tool = {"type": "function", "name": "flat", "parameters": {}}
 
         response_api_params = {"tools": [nested_tool, flat_tool]}
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
@@ -696,18 +696,18 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_no_tools(self):
         """Test handling when no tools are present"""
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         # Setup
         response_api_params = {}
-        litellm_params = GenericLiteLLMParams()
+        hangarllm_params = GenericHangarLLMParams()
 
         # Execute - should not crash
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
@@ -749,7 +749,7 @@ class TestAzureResponsesAPIConfig:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [self._anyof_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -764,7 +764,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [self._anyof_tool()]},
-            litellm_params=GenericLiteLLMParams(model_info={"base_model": "azure/gpt-4o"}),
+            hangarllm_params=GenericHangarLLMParams(model_info={"base_model": "azure/gpt-4o"}),
             headers={},
         )
 
@@ -777,7 +777,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
+            hangarllm_params=GenericHangarLLMParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
             headers={},
         )
 
@@ -799,7 +799,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
+            hangarllm_params=GenericHangarLLMParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
             headers={},
         )
 
@@ -816,7 +816,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -827,9 +827,9 @@ class TestAzureResponsesAPIConfig:
 @pytest.fixture()
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin the bundled cost map: the published map lags a key added in this repo."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=litellm.model_cost_map_url))
-    litellm.add_known_models(model_cost_map=litellm.model_cost)
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", get_model_cost_map(url=hangarllm.model_cost_map_url))
+    hangarllm.add_known_models(model_cost_map=hangarllm.model_cost)
 
 
 def test_azure_responses_reasoning_effort_none_unlocks_temperature_off_the_azure_row(
@@ -839,7 +839,7 @@ def test_azure_responses_reasoning_effort_none_unlocks_temperature_off_the_azure
     twin: with OpenAI's gpt-6-sol row turned off for none, azure/gpt-6-sol's row still lets none
     through and, only then, a non-default temperature."""
     monkeypatch.setitem(
-        litellm.model_cost, "gpt-6-sol", {**litellm.model_cost["gpt-6-sol"], "supports_none_reasoning_effort": False}
+        hangarllm.model_cost, "gpt-6-sol", {**hangarllm.model_cost["gpt-6-sol"], "supports_none_reasoning_effort": False}
     )
     params = AzureOpenAIResponsesAPIConfig().map_openai_params(
         response_api_optional_params=ResponsesAPIOptionalRequestParams(
@@ -854,7 +854,7 @@ def test_azure_responses_reasoning_effort_none_unlocks_temperature_off_the_azure
 
 
 def test_azure_responses_gpt6_astra_rejects_temperature_while_reasoning(local_model_cost_map: None):
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         AzureOpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params=ResponsesAPIOptionalRequestParams(
                 temperature=0.2,
@@ -873,7 +873,7 @@ def test_azure_responses_gpt6_effort_levels_follow_the_azure_row(local_model_cos
     for gpt-6.1-sol) are dropped or refused here while the max it honors goes through whatever the
     route-blind flag says."""
     forwarded = (
-        level == "max" or litellm.model_cost[f"azure/{model}"].get(f"supports_{level}_reasoning_effort") is not False
+        level == "max" or hangarllm.model_cost[f"azure/{model}"].get(f"supports_{level}_reasoning_effort") is not False
     )
     dropped = AzureOpenAIResponsesAPIConfig().map_openai_params(
         response_api_optional_params=ResponsesAPIOptionalRequestParams(reasoning={"effort": level}),
@@ -889,7 +889,7 @@ def test_azure_responses_gpt6_effort_levels_follow_the_azure_row(local_model_cos
         )
         assert kept["reasoning"] == {"effort": level}
     else:
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(hangarllm.UnsupportedParamsError):
             AzureOpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params=ResponsesAPIOptionalRequestParams(reasoning={"effort": level}),
                 model=model,
@@ -903,7 +903,7 @@ def test_azure_gpt6_astra_keeps_max_on_this_route_whatever_its_row_says(local_mo
     through /v1/responses with 200, the effort echoed back and reasoning tokens billed, on
     2026-10-01, while chat refuses the same level, as OpenAI's chat does. The row keeps max off for
     the adapter and the picker, and this gate still forwards it even under drop_params."""
-    assert litellm.model_cost["azure/gpt-6-astra"]["supports_max_reasoning_effort"] is False
+    assert hangarllm.model_cost["azure/gpt-6-astra"]["supports_max_reasoning_effort"] is False
     kept = AzureOpenAIResponsesAPIConfig().map_openai_params(
         response_api_optional_params=ResponsesAPIOptionalRequestParams(reasoning={"effort": "max"}),
         model="gpt-6-astra",
@@ -916,14 +916,14 @@ def test_azure_gpt6_astra_keeps_max_on_this_route_whatever_its_row_says(local_mo
 def test_azure_responses_effort_gate_fires_when_azure_ai_prefix_survives_provider_remap(
     local_model_cost_map: None, level: str
 ):
-    """litellm.responses(model="azure_ai/gpt-6.1-sol", api_base=<Foundry host>) is re-routed to the
+    """hangarllm.responses(model="azure_ai/gpt-6.1-sol", api_base=<Foundry host>) is re-routed to the
     azure provider with the prefix intact, so this config sees the prefixed name. The gate used to
     skip every prefixed name as another provider's pass-through, and a live Foundry gpt-6.1-sol
     answered the forwarded none and minimal with 400 on 2026-10-02 even under drop_params. The
     prefixed name reads the azure_ai/ row and drops or refuses exactly what that row turns off."""
     forwarded = (
         level == "max"
-        or litellm.model_cost["azure_ai/gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is not False
+        or hangarllm.model_cost["azure_ai/gpt-6.1-sol"].get(f"supports_{level}_reasoning_effort") is not False
     )
     dropped = AzureOpenAIResponsesAPIConfig().map_openai_params(
         response_api_optional_params=ResponsesAPIOptionalRequestParams(
@@ -935,7 +935,7 @@ def test_azure_responses_effort_gate_fires_when_azure_ai_prefix_survives_provide
     assert ("reasoning" in dropped) is forwarded
     if forwarded:
         return
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         AzureOpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params=ResponsesAPIOptionalRequestParams(
                 max_output_tokens=60, reasoning={"effort": level}
@@ -952,14 +952,14 @@ def test_azure_responses_prefixed_name_reads_the_foundry_row_not_the_azure_twin(
     proving it reads azure_ai/gpt-6-sol cannot pass by reading azure/gpt-6-sol, which the bare
     deployment name keeps reading."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure_ai/gpt-6-sol",
-        {**litellm.model_cost["azure_ai/gpt-6-sol"], "supports_low_reasoning_effort": False},
+        {**hangarllm.model_cost["azure_ai/gpt-6-sol"], "supports_low_reasoning_effort": False},
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "azure/gpt-6-sol",
-        {**litellm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": True},
+        {**hangarllm.model_cost["azure/gpt-6-sol"], "supports_low_reasoning_effort": True},
     )
     prefixed = AzureOpenAIResponsesAPIConfig().map_openai_params(
         response_api_optional_params=ResponsesAPIOptionalRequestParams(reasoning={"effort": "low"}),
@@ -1012,11 +1012,11 @@ _AZURE_RESOURCE: Final = "https://example-resource.openai.azure.com"
 
 
 def _unset_api_version_responses_url() -> httpx.URL:
-    return httpx.URL(AzureOpenAIResponsesAPIConfig().get_complete_url(api_base=_AZURE_RESOURCE, litellm_params={}))
+    return httpx.URL(AzureOpenAIResponsesAPIConfig().get_complete_url(api_base=_AZURE_RESOURCE, hangarllm_params={}))
 
 
 def _azure_responses_create(api_version: str) -> str | None:
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="azure/gpt-5.4-nano",
         input="hi",
         api_base=_AZURE_RESOURCE,
@@ -1027,7 +1027,7 @@ def _azure_responses_create(api_version: str) -> str | None:
 
 
 def _azure_chat_bridged_to_responses(api_version: str) -> str | None:
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure/responses/gpt-5.4-nano",
         messages=[{"role": "user", "content": "hi"}],
         api_base=_AZURE_RESOURCE,
@@ -1079,7 +1079,7 @@ def gateway_responses(respx_mock: respx.MockRouter, stream: bool) -> respx.Route
 
 @pytest.mark.parametrize("stream", [False, True])
 def test_explicit_v1_base_sends_responses_to_the_gateway(gateway_responses: respx.Route, stream: bool) -> None:
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="azure/gpt-6.1-sol",
         input="hi",
         api_base="https://gateway.example.com/foundry/openai/openai/v1",
@@ -1099,7 +1099,7 @@ def test_explicit_v1_base_sends_responses_to_the_gateway(gateway_responses: resp
 
 @pytest.mark.parametrize("stream", [False, True])
 def test_explicit_v1_base_sends_bridged_chat_to_the_gateway(gateway_responses: respx.Route, stream: bool) -> None:
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure/responses/gpt-6.1-sol",
         messages=[{"role": "user", "content": "hi"}],
         api_base="https://gateway.example.com/foundry/openai/openai/v1",
@@ -1123,7 +1123,7 @@ def test_explicit_v1_base_sends_bridged_chat_to_the_gateway(gateway_responses: r
 async def test_explicit_v1_base_sends_async_responses_to_the_gateway(
     gateway_responses: respx.Route, stream: bool
 ) -> None:
-    response: Final = await litellm.aresponses(
+    response: Final = await hangarllm.aresponses(
         model="azure/gpt-6.1-sol",
         input="hi",
         api_base="https://gateway.example.com/foundry/openai/openai/v1",
@@ -1147,7 +1147,7 @@ async def test_explicit_v1_base_sends_async_responses_to_the_gateway(
 async def test_explicit_v1_base_sends_async_bridged_chat_to_the_gateway(
     gateway_responses: respx.Route, stream: bool
 ) -> None:
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="azure/responses/gpt-6.1-sol",
         messages=[{"role": "user", "content": "hi"}],
         api_base="https://gateway.example.com/foundry/openai/openai/v1",
@@ -1183,13 +1183,13 @@ def _call_lifecycle(operation: str) -> object:
     }
     match operation:
         case "get":
-            return litellm.get_responses(**kwargs)
+            return hangarllm.get_responses(**kwargs)
         case "delete":
-            return litellm.delete_responses(**kwargs)
+            return hangarllm.delete_responses(**kwargs)
         case "cancel":
-            return litellm.cancel_responses(**kwargs)
+            return hangarllm.cancel_responses(**kwargs)
         case _:
-            return litellm.list_input_items(**kwargs)
+            return hangarllm.list_input_items(**kwargs)
 
 
 @pytest.mark.parametrize(
@@ -1229,7 +1229,7 @@ def test_chat_completion_keeps_the_dated_ga_api_version(respx_mock: respx.MockRo
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure/gpt-5.4-nano",
         messages=[{"role": "user", "content": "hi"}],
         api_base=_AZURE_RESOURCE,
@@ -1249,7 +1249,7 @@ def test_responses_api_version_routes_a_dated_chat_deployment_to_its_own_respons
         "https://example-resource.openai.azure.com/openai/responses", params={"api-version": "2025-04-01-preview"}
     ).mock(return_value=httpx.Response(200, json=_COMPLETED_RESPONSE))
 
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="azure/gpt-5.4-nano",
         input="hi",
         api_base="https://example-resource.openai.azure.com",
@@ -1274,7 +1274,7 @@ def test_responses_api_version_reaches_the_url_when_chat_completion_bridges_to_r
         "https://example-resource.openai.azure.com/openai/v1/responses", params={"api-version": "v1"}
     ).mock(return_value=httpx.Response(200, json=_COMPLETED_RESPONSE))
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="azure/responses/gpt-5.4-nano",
         messages=[{"role": "user", "content": "hi"}],
         api_base="https://example-resource.openai.azure.com",
@@ -1294,7 +1294,7 @@ def test_azure_responses_sends_the_deployment_name_when_azure_ai_prefix_survives
         model="azure_ai/gpt-5.4-nano",
         input="hi",
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert request["model"] == "gpt-5.4-nano"
@@ -1386,11 +1386,11 @@ async def test_azure_responses_api_status_error():
         )
         return response
 
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
     from unittest.mock import patch
 
     with patch.object(AsyncHTTPHandler, "post", new=mock_post):
-        response = await litellm.aresponses(
+        response = await hangarllm.aresponses(
             model="azure/computer-use-preview",
             truncation="auto",
             api_version="preview",
@@ -1441,7 +1441,7 @@ async def test_azure_responses_api_headers_with_llm_provider_prefix():
     Test that Azure-specific headers like 'x-request-id' and 'apim-request-id'
     are properly forwarded with 'llm_provider-' prefix in response._hidden_params["headers"].
 
-    Issue: https://github.com/BerriAI/litellm/issues/16538
+    Issue: upstream issue 16538
 
     The fix ensures that processed headers (with llm_provider- prefix) are stored
     in response._hidden_params["headers"] instead of additional_headers, making them
@@ -1489,7 +1489,7 @@ async def test_azure_responses_api_headers_with_llm_provider_prefix():
         return response
 
     with patch.object(AsyncHTTPHandler, "post", new=mock_post):
-        response = await litellm.aresponses(
+        response = await hangarllm.aresponses(
             model="azure/gpt-5-codex",
             api_version="2025-03-01-preview",
             api_base="https://test.openai.azure.com",
@@ -1604,7 +1604,7 @@ def test_azure_reasoning_replay_removes_output_content_only_under_drop_params_wi
         model=model,
         input=history,
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -1638,7 +1638,7 @@ def test_openai_replay_without_drop_params_keeps_reasoning_content_and_message_s
         model="gpt-6.1-sol",
         input=history,
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1660,7 +1660,7 @@ def test_azure_family_forwards_input_items_that_are_not_objects_for_the_provider
         model="gpt-6.1-sol",
         input=["Continue.", saved_reasoning, ["nested"]],
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -1760,7 +1760,7 @@ async def test_azure_responses_replays_reasoning_history_without_fields_azure_re
         "include": ["reasoning.encrypted_content"],
         "drop_params": True,
     }
-    response: Final = await litellm.aresponses(**request_params) if async_call else litellm.responses(**request_params)
+    response: Final = await hangarllm.aresponses(**request_params) if async_call else hangarllm.responses(**request_params)
     deltas: Final = (
         (
             [event.delta async for event in response if event.type == "response.output_text.delta"]
@@ -1808,7 +1808,7 @@ def test_azure_reasoning_replay_drops_status_always_and_content_under_drop_param
         model="gpt-6.1-sol",
         input=history,
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 

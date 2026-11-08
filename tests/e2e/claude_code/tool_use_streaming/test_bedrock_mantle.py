@@ -1,7 +1,7 @@
 """tool_use_streaming x AWS Bedrock Mantle (GPT-5.6).
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Anthropic Messages
+mode against a running HangarLLM proxy that routes Anthropic Messages
 requests to OpenAI's GPT-5.6 family (Sol, Terra, Luna) on AWS
 Bedrock's Mantle endpoint, ask the model to invoke a built-in tool
 (`Bash`), and assert that the upstream (a) emitted a `tool_use`
@@ -9,7 +9,7 @@ content block and (b) streamed the tool input incrementally as
 `input_json_delta` events.
 
 Mantle streams OpenAI Responses API `function_call_arguments.delta`
-events over SigV4-signed SSE; LiteLLM must re-emit them as Anthropic
+events over SigV4-signed SSE; HangarLLM must re-emit them as Anthropic
 `input_json_delta` deltas rather than buffering the full input into
 one complete block.
 

@@ -7,10 +7,10 @@ institutional identifiers are detected/masked and that clean prompts pass throug
 
 import pytest
 
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+from hangarllm.proxy.guardrails.guardrail_hooks.hangarllm_content_filter.content_filter import (
     ContentFilterGuardrail,
 )
-from litellm.types.guardrails import ContentFilterAction, ContentFilterPattern
+from hangarllm.types.guardrails import ContentFilterAction, ContentFilterPattern
 
 
 class TestUofTPolicyE2E:

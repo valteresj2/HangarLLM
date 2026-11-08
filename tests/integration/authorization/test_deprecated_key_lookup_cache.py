@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import (
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import (
     PrismaClient,
     ProxyLogging,
     _deprecated_key_cache,
@@ -23,13 +23,13 @@ async def test_deprecated_key_grace_period_cache_hit_path() -> None:
 
     await client.connect()
     try:
-        await client.db.litellm_verificationtoken.create(
+        await client.db.hangarllm_verificationtoken.create(
             data={
                 "token": active_token_hash,
                 "models": [],
             }
         )
-        await client.db.litellm_deprecatedverificationtoken.create(
+        await client.db.hangarllm_deprecatedverificationtoken.create(
             data={
                 "token": old_token_hash,
                 "active_token_id": active_token_hash,
@@ -40,7 +40,7 @@ async def test_deprecated_key_grace_period_cache_hit_path() -> None:
         first: Final = await _lookup_deprecated_key(db=client.db, hashed_token=old_token_hash)
         assert first == active_token_hash
 
-        await client.db.litellm_deprecatedverificationtoken.delete_many(where={"token": old_token_hash})
+        await client.db.hangarllm_deprecatedverificationtoken.delete_many(where={"token": old_token_hash})
 
         second: Final = await _lookup_deprecated_key(db=client.db, hashed_token=old_token_hash)
         third: Final = await _lookup_deprecated_key(db=client.db, hashed_token=old_token_hash)
@@ -52,7 +52,7 @@ async def test_deprecated_key_grace_period_cache_hit_path() -> None:
         assert isinstance(cached, tuple)
         assert len(cached) == 3
     finally:
-        await client.db.litellm_deprecatedverificationtoken.delete_many(where={"token": old_token_hash})
-        await client.db.litellm_verificationtoken.delete_many(where={"token": active_token_hash})
+        await client.db.hangarllm_deprecatedverificationtoken.delete_many(where={"token": old_token_hash})
+        await client.db.hangarllm_verificationtoken.delete_many(where={"token": active_token_hash})
         _deprecated_key_cache.clear()
         await client.disconnect()

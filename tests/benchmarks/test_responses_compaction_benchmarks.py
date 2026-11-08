@@ -4,7 +4,7 @@ from typing import Final
 
 import pytest
 
-from litellm.responses.litellm_completion_transformation.compaction_items import (
+from hangarllm.responses.hangarllm_completion_transformation.compaction_items import (
     with_answered_turns_after_newest_compaction,
 )
 

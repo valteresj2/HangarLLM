@@ -5,17 +5,17 @@ Test Vertex AI files integration with main files API
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import litellm
-from litellm.types.llms.openai import HttpxBinaryResponseContent
+import hangarllm
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent
 
 
 class TestVertexAIFilesIntegration:
-    """Test integration of Vertex AI files with main litellm API"""
+    """Test integration of Vertex AI files with main hangarllm API"""
 
 
 
 
-    def test_litellm_file_content_vertex_ai_error_cases(self):
+    def test_hangarllm_file_content_vertex_ai_error_cases(self):
         """Test error handling in vertex_ai file_content"""
         # Test missing file_id - the VertexAI provider config's
         # transform_file_content_request should handle empty file_id.
@@ -23,11 +23,11 @@ class TestVertexAIFilesIntegration:
         # ProviderConfigManager to return None so it falls through to the
         # old vertex_ai code path that validates file_id.
         with patch(
-            "litellm.files.main.ProviderConfigManager.get_provider_files_config",
+            "hangarllm.files.main.ProviderConfigManager.get_provider_files_config",
             return_value=None,
         ):
             with pytest.raises(ValueError, match="file_id is required"):
-                litellm.file_content(
+                hangarllm.file_content(
                     file_id="",  # Empty file_id should cause error
                     custom_llm_provider="vertex_ai",
                     vertex_project="test-project",
@@ -39,7 +39,7 @@ class TestVertexAIFilesIntegration:
 
         # Test that calling with unsupported provider raises appropriate error
         with pytest.raises(Exception, match="unsupported_provider' is not a valid LlmProviders") as exc_info:
-            litellm.file_content(
+            hangarllm.file_content(
                 file_id="test-file-id",
                 custom_llm_provider="unsupported_provider",  # This should fail
             )
@@ -67,13 +67,13 @@ class TestVertexAIFilesIntegration:
 
         # Mock the base_llm_http_handler.retrieve_file_content
         with patch(
-            "litellm.files.main.base_llm_http_handler.retrieve_file_content",
+            "hangarllm.files.main.base_llm_http_handler.retrieve_file_content",
             new_callable=MagicMock,
         ) as mock_retrieve:
             mock_retrieve.return_value = mock_result
 
             # Call with custom timeout and max_retries
-            result = await litellm.afile_content(
+            result = await hangarllm.afile_content(
                 file_id=file_id,
                 custom_llm_provider="vertex_ai",
                 vertex_project="test-project",

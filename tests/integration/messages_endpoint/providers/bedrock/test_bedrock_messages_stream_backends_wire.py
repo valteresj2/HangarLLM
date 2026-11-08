@@ -12,9 +12,9 @@ from integration._support.client import Gateway
 from integration._support.upstream import _aws_event_frame
 from integration._support.wire import Reply, Request, wire_server
 
-_PROMPT: Final = "Respond with exactly the following text and nothing else:\nHello from LiteLLM!"
+_PROMPT: Final = "Respond with exactly the following text and nothing else:\nHello from HangarLLM!"
 _HEAD: Final = "Hello from "
-_TAIL: Final = "LiteLLM!"
+_TAIL: Final = "HangarLLM!"
 _TOKEN: Final = "synthetic-bedrock-bearer"
 
 
@@ -102,7 +102,7 @@ def test_messages_stream_from_each_bedrock_api_reaches_the_anthropic_sdk(
         sent: Final = provider.drain()
 
     assert deltas == (_HEAD, _TAIL)
-    assert [(block.type, block.text) for block in final.content] == [("text", "Hello from LiteLLM!")]
+    assert [(block.type, block.text) for block in final.content] == [("text", "Hello from HangarLLM!")]
     assert final.stop_reason == "end_turn"
     assert [(request.method, unquote(request.target)) for request in sent] == [("POST", target)]
     assert sent[0].headers["authorization"] == f"Bearer {_TOKEN}"

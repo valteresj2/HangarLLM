@@ -5,10 +5,10 @@ import { Role, users } from "../../fixtures/users";
 /**
  * Regression: clearing the Input / Output / Cache Read / Cache Write Cost
  * fields on a deployment with a user-set pricing override must actually remove
- * the override from both `litellm_params` and `model_info`.
+ * the override from both `hangarllm_params` and `model_info`.
  *
  * Pre-fix, the UI sent the old pricing back on every save (the spread of
- * `values.litellm_params` re-injected it), and the backend's `exclude_none=True`
+ * `values.hangarllm_params` re-injected it), and the backend's `exclude_none=True`
  * stripped any null that did make it through. End-result: the dashboard
  * displayed "Saved" but the override remained in the DB. The cache fields had
  * the same bug in a parallel code path and are covered here too.
@@ -33,7 +33,7 @@ test.describe("Clear custom pricing on a deployment", () => {
       headers: { Authorization: `Bearer ${masterKey}` },
       data: {
         model_name: modelName,
-        litellm_params: {
+        hangarllm_params: {
           model: "openai/gpt-4o",
           api_key: "sk-e2e-not-used",
           input_cost_per_token: SEED_INPUT_PER_TOKEN,
@@ -101,14 +101,14 @@ test.describe("Clear custom pricing on a deployment", () => {
     await page.getByRole("button", { name: "Save Changes" }).click();
     const patchReq = await patchPromise;
     const patchBody = JSON.parse(patchReq.postData() ?? "{}");
-    expect(patchBody.litellm_params.input_cost_per_token, "UI sends explicit null for cleared input cost").toBeNull();
-    expect(patchBody.litellm_params.output_cost_per_token, "UI sends explicit null for cleared output cost").toBeNull();
+    expect(patchBody.hangarllm_params.input_cost_per_token, "UI sends explicit null for cleared input cost").toBeNull();
+    expect(patchBody.hangarllm_params.output_cost_per_token, "UI sends explicit null for cleared output cost").toBeNull();
     expect(
-      patchBody.litellm_params.cache_read_input_token_cost,
+      patchBody.hangarllm_params.cache_read_input_token_cost,
       "UI sends explicit null for cleared cache_read cost",
     ).toBeNull();
     expect(
-      patchBody.litellm_params.cache_creation_input_token_cost,
+      patchBody.hangarllm_params.cache_creation_input_token_cost,
       "UI sends explicit null for cleared cache_write cost",
     ).toBeNull();
 
@@ -128,17 +128,17 @@ test.describe("Clear custom pricing on a deployment", () => {
     const row = (infoBody.data ?? infoBody).find?.((m: any) => m?.model_info?.id === createdModelId);
     expect(row, "model info row").toBeTruthy();
 
-    expect("input_cost_per_token" in row.litellm_params, "litellm_params.input_cost_per_token key removed").toBe(false);
-    expect("output_cost_per_token" in row.litellm_params, "litellm_params.output_cost_per_token key removed").toBe(
+    expect("input_cost_per_token" in row.hangarllm_params, "hangarllm_params.input_cost_per_token key removed").toBe(false);
+    expect("output_cost_per_token" in row.hangarllm_params, "hangarllm_params.output_cost_per_token key removed").toBe(
       false,
     );
     expect(
-      "cache_read_input_token_cost" in row.litellm_params,
-      "litellm_params.cache_read_input_token_cost key removed",
+      "cache_read_input_token_cost" in row.hangarllm_params,
+      "hangarllm_params.cache_read_input_token_cost key removed",
     ).toBe(false);
     expect(
-      "cache_creation_input_token_cost" in row.litellm_params,
-      "litellm_params.cache_creation_input_token_cost key removed",
+      "cache_creation_input_token_cost" in row.hangarllm_params,
+      "hangarllm_params.cache_creation_input_token_cost key removed",
     ).toBe(false);
     expect(
       row.model_info.input_cost_per_token,

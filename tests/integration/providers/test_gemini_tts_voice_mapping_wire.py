@@ -116,7 +116,7 @@ async def _async_error_text(response: httpx.Response) -> str:
 
 def _httpx_chat(gateway: Gateway, model: str, voice: JsonValue, text: str, *, stream: bool) -> Answer:
     response: Final = gateway.request("POST", "/v1/chat/completions", chat_body(model, voice, text, stream=stream))
-    call_id: Final = response.headers.get("x-litellm-call-id", "")
+    call_id: Final = response.headers.get("x-hangarllm-call-id", "")
     if response.status_code != 200:
         return _failed(response.status_code, response.text)
     if stream:
@@ -141,7 +141,7 @@ def _sdk_chat(gateway: Gateway, model: str, voice: str, text: str, *, stream: bo
             )
             chunks: Final = list(raw.parse())
             content: Final = "".join(chunk.choices[0].delta.content or "" for chunk in chunks if chunk.choices)
-            return Answer(200, "", "", None, content, raw.headers.get("x-litellm-call-id", ""))
+            return Answer(200, "", "", None, content, raw.headers.get("x-hangarllm-call-id", ""))
         completed: Final = client.chat.completions.with_raw_response.create(
             model=model, messages=messages, modalities=["audio"], audio={"voice": voice, "format": "pcm16"}
         )
@@ -154,7 +154,7 @@ def _sdk_chat(gateway: Gateway, model: str, voice: str, text: str, *, stream: bo
             completion.id,
             audio,
             message.content or "",
-            completed.headers.get("x-litellm-call-id", ""),
+            completed.headers.get("x-hangarllm-call-id", ""),
         )
     except openai.APIStatusError as error:
         return _failed(error.status_code, _error_text(error.response))
@@ -174,7 +174,7 @@ async def _async_sdk_chat(gateway: Gateway, model: str, voice: str, text: str, *
             )
             chunks: Final = [chunk async for chunk in raw.parse()]
             content: Final = "".join(chunk.choices[0].delta.content or "" for chunk in chunks if chunk.choices)
-            return Answer(200, "", "", None, content, raw.headers.get("x-litellm-call-id", ""))
+            return Answer(200, "", "", None, content, raw.headers.get("x-hangarllm-call-id", ""))
         completed: Final = await client.chat.completions.with_raw_response.create(
             model=model, messages=messages, modalities=["audio"], audio={"voice": voice, "format": "pcm16"}
         )
@@ -187,7 +187,7 @@ async def _async_sdk_chat(gateway: Gateway, model: str, voice: str, text: str, *
             completion.id,
             audio,
             message.content or "",
-            completed.headers.get("x-litellm-call-id", ""),
+            completed.headers.get("x-hangarllm-call-id", ""),
         )
     except openai.APIStatusError as error:
         return _failed(error.status_code, await _async_error_text(error.response))
@@ -358,14 +358,14 @@ def _messages_bridge(gateway: Gateway, model: str, text: str, *, stream: bool) -
                 for event in raw.parse()
                 if event.type == "content_block_delta" and event.delta.type == "text_delta"
             )
-            return Answer(200, "", "", None, collected, raw.headers.get("x-litellm-call-id", ""))
+            return Answer(200, "", "", None, collected, raw.headers.get("x-hangarllm-call-id", ""))
         completed: Final = client.messages.with_raw_response.create(
             model=model, max_tokens=64, messages=[{"role": "user", "content": text}]
         )
         message: Final = completed.parse()
         content: Final = "".join(block.text for block in message.content if block.type == "text")
         return Answer(
-            200, message.model_dump_json(), message.id, None, content, completed.headers.get("x-litellm-call-id", "")
+            200, message.model_dump_json(), message.id, None, content, completed.headers.get("x-hangarllm-call-id", "")
         )
     except anthropic.APIStatusError as error:
         return _failed(error.status_code, _error_text(error.response))
@@ -379,7 +379,7 @@ def _responses_bridge(gateway: Gateway, model: str, text: str, *, stream: bool) 
             events: Final = list(raw.parse())
             collected: Final = "".join(event.delta for event in events if event.type == "response.output_text.delta")
             assert events[-1].type == "response.completed", [event.type for event in events]
-            return Answer(200, "", "", None, collected, raw.headers.get("x-litellm-call-id", ""))
+            return Answer(200, "", "", None, collected, raw.headers.get("x-hangarllm-call-id", ""))
         completed: Final = client.responses.with_raw_response.create(model=model, input=text)
         response: Final = completed.parse()
         return Answer(
@@ -388,7 +388,7 @@ def _responses_bridge(gateway: Gateway, model: str, text: str, *, stream: bool) 
             response.id,
             None,
             response.output_text,
-            completed.headers.get("x-litellm-call-id", ""),
+            completed.headers.get("x-hangarllm-call-id", ""),
         )
     except openai.APIStatusError as error:
         return _failed(error.status_code, _error_text(error.response))
@@ -407,7 +407,7 @@ def _completions_bridge(gateway: Gateway, model: str, text: str, *, stream: bool
         string_value(body["id"]),
         None,
         string_value(object_value(choices[0])["text"]),
-        response.headers.get("x-litellm-call-id", ""),
+        response.headers.get("x-hangarllm-call-id", ""),
     )
 
 
@@ -473,8 +473,8 @@ def _decoded_file_id(file_id: str) -> tuple[str, str]:
     assert file_id.startswith("file-"), file_id
     encoded: Final = file_id[len("file-") :]
     decoded: Final = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)).decode()
-    assert decoded.startswith("litellm:"), decoded
-    raw, model = decoded[len("litellm:") :].rsplit(";model,", 1)
+    assert decoded.startswith("hangarllm:"), decoded
+    raw, model = decoded[len("hangarllm:") :].rsplit(";model,", 1)
     return raw, model
 
 
@@ -545,7 +545,7 @@ async def _fire(
             if not tolerate_transport_errors:
                 raise
             return Fired(provider, stream, voice, text, 0, repr(error), "")
-        call_id: Final = response.headers.get("x-litellm-call-id", "")
+        call_id: Final = response.headers.get("x-hangarllm-call-id", "")
         if response.status_code != 200:
             return Fired(provider, stream, voice, text, response.status_code, response.text, call_id)
         content: Final = (

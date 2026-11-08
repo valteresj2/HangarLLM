@@ -109,7 +109,7 @@ def _sail_model(scenario: Scenario, wire: Wire) -> str:
 def _assert_spend_row(gateway: Gateway, response_id: str, expected_cost: float) -> None:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend, custom_llm_provider, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+            'SELECT spend, custom_llm_provider, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
             "WHERE request_id = %s",
             (response_id,),
         ),
@@ -142,7 +142,7 @@ def _chat_through_sail(gateway: Gateway, extra: dict[str, JsonValue]) -> Served:
     assert [(request.method, request.target) for request in received] == [("POST", "/chat/completions")]
     return Served(
         upstream_body=_upstream_body(received[0]),
-        header_cost=float(response.headers["x-litellm-response-cost"]),
+        header_cost=float(response.headers["x-hangarllm-response-cost"]),
         response_id=string_value(object_value(response.json())["id"]),
     )
 
@@ -201,7 +201,7 @@ def test_responses_caller_completion_window_reaches_sail_and_is_billed_at_that_w
         "input": "Reply with one word.",
         "metadata": {"completion_window": "balanced"},
     }, received[0].body
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(BALANCED_COST, rel=1e-6), response.text
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(BALANCED_COST, rel=1e-6), response.text
     _assert_spend_row(gateway, string_value(object_value(response.json())["id"]), BALANCED_COST)
 
 

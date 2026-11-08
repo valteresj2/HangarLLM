@@ -11,9 +11,9 @@ import io
 import json
 import pytest
 
-from litellm.llms.custom_httpx.llm_http_handler import AsyncHTTPHandler
-from litellm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
-from litellm.types.llms.openai import CreateFileRequest
+from hangarllm.llms.custom_httpx.llm_http_handler import AsyncHTTPHandler
+from hangarllm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
+from hangarllm.types.llms.openai import CreateFileRequest
 
 
 class TestVertexAIBinaryFileUpload:
@@ -52,7 +52,7 @@ class TestVertexAIBinaryFileUpload:
             model="vertex_ai/gemini-flash",
             create_file_data=create_file_data,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify the transformation returns bytes (not string)
@@ -87,7 +87,7 @@ class TestVertexAIBinaryFileUpload:
             model="vertex_ai/gemini-flash",
             create_file_data=create_file_data,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify bytes are preserved
@@ -120,7 +120,7 @@ class TestVertexAIBinaryFileUpload:
             model="vertex_ai/gemini-flash",
             create_file_data=create_file_data,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(transformed_request, dict) and "streaming_media_upload" in transformed_request, (
@@ -150,7 +150,7 @@ class TestVertexAIBinaryFileUpload:
             model="vertex_ai/gemini-flash",
             create_file_data=binary_request,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert isinstance(result1, bytes)
 
@@ -168,7 +168,7 @@ class TestVertexAIBinaryFileUpload:
             model="vertex_ai/gemini-flash",
             create_file_data=jsonl_request,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert isinstance(result2, dict) and "streaming_media_upload" in result2
 
@@ -186,6 +186,6 @@ class TestVertexAIBinaryFileUpload:
             model="vertex_ai/gemini-flash",
             create_file_data=binary_request2,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert isinstance(result3, bytes)

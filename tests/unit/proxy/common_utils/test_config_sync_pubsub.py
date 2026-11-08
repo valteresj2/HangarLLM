@@ -8,8 +8,8 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 from redis.asyncio import Redis
 
-import litellm
-from litellm.proxy.common_utils.config_sync_pubsub import (
+import hangarllm
+from hangarllm.proxy.common_utils.config_sync_pubsub import (
     CONFIG_SYNC_CHANNEL,
     CONFIG_SYNC_JITTER_MAX_SECONDS,
     CONFIG_SYNC_MIN_RESYNC_INTERVAL_SECONDS,
@@ -34,21 +34,21 @@ _EXPECTED_WRITE_ACTION_NAMES = (
 
 _EXPECTED_CONFIG_SYNCED_TABLE_NAMES = frozenset(
     {
-        "litellm_agentstable",
-        "litellm_cacheconfig",
-        "litellm_configoverrides",
-        "litellm_credentialstable",
-        "litellm_guardrailstable",
-        "litellm_managedvectorstoreindextable",
-        "litellm_managedvectorstorestable",
-        "litellm_mcpservertable",
-        "litellm_policyattachmenttable",
-        "litellm_policytable",
-        "litellm_prompttable",
-        "litellm_proxymodeltable",
-        "litellm_searchtoolstable",
-        "litellm_ssoconfig",
-        "litellm_uisettings",
+        "hangarllm_agentstable",
+        "hangarllm_cacheconfig",
+        "hangarllm_configoverrides",
+        "hangarllm_credentialstable",
+        "hangarllm_guardrailstable",
+        "hangarllm_managedvectorstoreindextable",
+        "hangarllm_managedvectorstorestable",
+        "hangarllm_mcpservertable",
+        "hangarllm_policyattachmenttable",
+        "hangarllm_policytable",
+        "hangarllm_prompttable",
+        "hangarllm_proxymodeltable",
+        "hangarllm_searchtoolstable",
+        "hangarllm_ssoconfig",
+        "hangarllm_uisettings",
     }
 )
 
@@ -56,7 +56,7 @@ _EXPECTED_RESYNC_APPLIED_CONFIG_PARAM_NAMES = frozenset(
     {
         "anthropic_beta_headers_reload_config",
         "general_settings",
-        "litellm_settings",
+        "hangarllm_settings",
         "model_cost_map_reload_config",
         "router_settings",
     }
@@ -183,11 +183,11 @@ class _VirtualTimePubSub(_QueuePubSub):
 
 
 def _change(*model_ids: str) -> str:
-    return json.dumps({"object_type": "litellm_proxymodeltable", "model_ids": list(model_ids)})
+    return json.dumps({"object_type": "hangarllm_proxymodeltable", "model_ids": list(model_ids)})
 
 
 def _redis_delivery(message: str) -> dict:
-    return {"type": "message", "pattern": None, "channel": b"litellm_proxy.config_change", "data": message.encode()}
+    return {"type": "message", "pattern": None, "channel": b"hangarllm_proxy.config_change", "data": message.encode()}
 
 
 class _ScriptedPubSubRedisClient(Redis):
@@ -225,47 +225,47 @@ def _recording_callback(
 
 
 async def test_publish_noops_when_redis_cache_is_none() -> None:
-    await publish_config_change(redis_cache=None, object_type="litellm_proxymodeltable")
+    await publish_config_change(redis_cache=None, object_type="hangarllm_proxymodeltable")
 
 
 async def test_publish_sends_object_type_json_on_channel() -> None:
     client = _RecordingRedisClient()
     cache = _FakeRedisCache(client)
 
-    await publish_config_change(redis_cache=cache, object_type="litellm_proxymodeltable")
+    await publish_config_change(redis_cache=cache, object_type="hangarllm_proxymodeltable")
 
     assert len(client.published) == 1
     channel, message = client.published[0]
-    assert channel == "litellm_proxy.config_change"
-    assert json.loads(message) == {"object_type": "litellm_proxymodeltable", "model_ids": []}
+    assert channel == "hangarllm_proxy.config_change"
+    assert json.loads(message) == {"object_type": "hangarllm_proxymodeltable", "model_ids": []}
 
 
 async def test_publish_carries_the_written_model_ids() -> None:
     client = _RecordingRedisClient()
     cache = _FakeRedisCache(client)
 
-    await publish_config_change(redis_cache=cache, object_type="litellm_proxymodeltable", model_ids=("m-1", "m-2"))
+    await publish_config_change(redis_cache=cache, object_type="hangarllm_proxymodeltable", model_ids=("m-1", "m-2"))
 
-    assert json.loads(client.published[0][1]) == {"object_type": "litellm_proxymodeltable", "model_ids": ["m-1", "m-2"]}
+    assert json.loads(client.published[0][1]) == {"object_type": "hangarllm_proxymodeltable", "model_ids": ["m-1", "m-2"]}
 
 
 async def test_publish_uses_namespaced_channel() -> None:
     client = _RecordingRedisClient()
     cache = _FakeRedisCache(client, namespace="prod-eu")
 
-    await publish_config_change(redis_cache=cache, object_type="litellm_credentialstable")
+    await publish_config_change(redis_cache=cache, object_type="hangarllm_credentialstable")
 
-    assert client.published[0][0] == "prod-eu:litellm_proxy.config_change"
+    assert client.published[0][0] == "prod-eu:hangarllm_proxy.config_change"
 
 
 async def test_publish_swallows_redis_publish_errors() -> None:
     cache = _FakeRedisCache(_FailingPublishRedisClient())
 
-    await publish_config_change(redis_cache=cache, object_type="litellm_proxymodeltable")
+    await publish_config_change(redis_cache=cache, object_type="hangarllm_proxymodeltable")
 
 
 async def test_publish_swallows_client_init_errors() -> None:
-    await publish_config_change(redis_cache=_ExplodingRedisCache(), object_type="litellm_proxymodeltable")
+    await publish_config_change(redis_cache=_ExplodingRedisCache(), object_type="hangarllm_proxymodeltable")
 
 
 async def test_publish_reaches_cluster_derived_pubsub_clients() -> None:
@@ -274,10 +274,10 @@ async def test_publish_reaches_cluster_derived_pubsub_clients() -> None:
     client = _ScriptedPubSubClient(pubsubs=[])
     cache = _FakeRedisCache(client)
 
-    await publish_config_change(redis_cache=cache, object_type="litellm_proxymodeltable")
+    await publish_config_change(redis_cache=cache, object_type="hangarllm_proxymodeltable")
 
     assert client.published == [
-        (CONFIG_SYNC_CHANNEL, json.dumps({"object_type": "litellm_proxymodeltable", "model_ids": []}))
+        (CONFIG_SYNC_CHANNEL, json.dumps({"object_type": "hangarllm_proxymodeltable", "model_ids": []}))
     ]
 
 
@@ -297,7 +297,7 @@ async def test_subscriber_runs_injected_callbacks_in_order_on_message() -> None:
     )
 
     subscriber.start()
-    pubsub.queue.put_nowait(json.dumps({"object_type": "litellm_proxymodeltable"}))
+    pubsub.queue.put_nowait(json.dumps({"object_type": "hangarllm_proxymodeltable"}))
     await asyncio.wait_for(fired.wait(), timeout=5)
     await subscriber.stop()
 
@@ -307,7 +307,7 @@ async def test_subscriber_runs_injected_callbacks_in_order_on_message() -> None:
 
 
 async def test_burst_within_debounce_window_coalesces_into_one_resync() -> None:
-    burst = [json.dumps({"object_type": "litellm_proxymodeltable"}) for _ in range(5)]
+    burst = [json.dumps({"object_type": "hangarllm_proxymodeltable"}) for _ in range(5)]
     pubsub = _QueuePubSub(initial_messages=burst)
     cache = _FakeRedisCache(_ScriptedPubSubRedisClient([pubsub]))
     resyncs: List[str] = []
@@ -341,11 +341,11 @@ async def test_subscriber_subscribes_on_namespaced_channel_and_resyncs() -> None
     )
 
     subscriber.start()
-    pubsub.queue.put_nowait(json.dumps({"object_type": "litellm_proxymodeltable"}))
+    pubsub.queue.put_nowait(json.dumps({"object_type": "hangarllm_proxymodeltable"}))
     await asyncio.wait_for(fired.wait(), timeout=5)
     await subscriber.stop()
 
-    assert pubsub.subscribed_channels == ["prod-eu:litellm_proxy.config_change"]
+    assert pubsub.subscribed_channels == ["prod-eu:hangarllm_proxy.config_change"]
     assert resyncs == ["resync"]
 
 
@@ -471,8 +471,8 @@ async def test_messages_without_usable_model_ids_only_schedule_the_full_resync()
         clock,
         deliveries=[
             (1000.0, "change"),
-            (1004.0, json.dumps({"object_type": "litellm_proxymodeltable"})),
-            (1005.0, json.dumps({"object_type": "litellm_proxymodeltable", "model_ids": "m-1"})),
+            (1004.0, json.dumps({"object_type": "hangarllm_proxymodeltable"})),
+            (1005.0, json.dumps({"object_type": "hangarllm_proxymodeltable", "model_ids": "m-1"})),
             (1006.0, {"type": "message", "pattern": None, "channel": b"c", "data": 7}),
             (1007.0, None),
         ],
@@ -519,8 +519,8 @@ async def test_subscriber_without_an_apply_callback_only_resyncs() -> None:
 async def test_peer_holds_every_published_row_before_its_next_full_resync() -> None:
     publisher = _RecordingRedisClient()
     cache = _FakeRedisCache(publisher)
-    await publish_config_change(redis_cache=cache, object_type="litellm_proxymodeltable", model_ids=("m-order-1",))
-    await publish_config_change(redis_cache=cache, object_type="litellm_proxymodeltable", model_ids=("m-order-2",))
+    await publish_config_change(redis_cache=cache, object_type="hangarllm_proxymodeltable", model_ids=("m-order-1",))
+    await publish_config_change(redis_cache=cache, object_type="hangarllm_proxymodeltable", model_ids=("m-order-2",))
     on_the_wire = [_redis_delivery(message) for _, message in publisher.published]
     clock = _FakeClock()
     pubsub = _VirtualTimePubSub(clock, deliveries=[(1000.0, on_the_wire[0]), (1007.0, on_the_wire[1])])
@@ -669,7 +669,7 @@ async def test_second_start_does_not_open_a_second_subscription() -> None:
 
 async def test_redis_error_leads_to_backoff_and_resubscribe() -> None:
     broken = _BrokenPubSub()
-    healthy = _QueuePubSub(initial_messages=[json.dumps({"object_type": "litellm_credentialstable"})])
+    healthy = _QueuePubSub(initial_messages=[json.dumps({"object_type": "hangarllm_credentialstable"})])
     cache = _FakeRedisCache(_ScriptedPubSubRedisClient([broken, healthy]))
     resyncs: List[str] = []
     fired = asyncio.Event()
@@ -776,7 +776,7 @@ async def test_stop_before_start_is_a_noop() -> None:
 async def test_subscriber_subscribes_on_cluster_derived_pubsub_client() -> None:
     """LIT-8543: the subscriber used to disable itself on cluster caches; now it
     subscribes on the node-level client init_pubsub_client returns."""
-    pubsub = _QueuePubSub(initial_messages=[json.dumps({"object_type": "litellm_proxymodeltable"})])
+    pubsub = _QueuePubSub(initial_messages=[json.dumps({"object_type": "hangarllm_proxymodeltable"})])
     cache = _FakeRedisCache(_ScriptedPubSubClient(pubsubs=[pubsub]))
     resyncs: List[str] = []
     fired = asyncio.Event()
@@ -856,7 +856,7 @@ class _ModelRowTableActions:
 def test_wrapper_passes_through_unsynced_tables() -> None:
     actions = object()
 
-    wrapped = wrap_table_actions_for_config_sync(actions=actions, table_name="litellm_spendlogs")
+    wrapped = wrap_table_actions_for_config_sync(actions=actions, table_name="hangarllm_spendlogs")
 
     assert wrapped is actions
 
@@ -865,21 +865,21 @@ async def test_wrapper_publishes_table_name_after_write() -> None:
     calls: List[Tuple[str, str]] = []
     wrapped = wrap_table_actions_for_config_sync(
         actions=_FakeTableActions(calls),
-        table_name="litellm_proxymodeltable",
+        table_name="hangarllm_proxymodeltable",
         publish=_recording_publish(calls),
     )
 
     result = await wrapped.create(data={"model_name": "gpt-5.2"})
 
     assert result == {"id": "m-1"}
-    assert calls == [("write", "create"), ("publish", "litellm_proxymodeltable")]
+    assert calls == [("write", "create"), ("publish", "hangarllm_proxymodeltable")]
 
 
 async def test_wrapper_does_not_publish_on_reads() -> None:
     calls: List[Tuple[str, str]] = []
     wrapped = wrap_table_actions_for_config_sync(
         actions=_FakeTableActions(calls),
-        table_name="litellm_proxymodeltable",
+        table_name="hangarllm_proxymodeltable",
         publish=_recording_publish(calls),
     )
 
@@ -900,7 +900,7 @@ def test_config_synced_table_membership_is_pinned() -> None:
 def test_tool_telemetry_table_writes_pass_through_unwrapped() -> None:
     actions = object()
 
-    wrapped = wrap_table_actions_for_config_sync(actions=actions, table_name="litellm_tooltable")
+    wrapped = wrap_table_actions_for_config_sync(actions=actions, table_name="hangarllm_tooltable")
 
     assert wrapped is actions
 
@@ -911,7 +911,7 @@ async def test_wrapper_publishes_for_every_write_action(action_name: str) -> Non
     publish_calls: List[Tuple[str, str]] = []
     wrapped = wrap_table_actions_for_config_sync(
         actions=_AllWritesTableActions(write_calls),
-        table_name="litellm_guardrailstable",
+        table_name="hangarllm_guardrailstable",
         publish=_recording_publish(publish_calls),
     )
 
@@ -919,7 +919,7 @@ async def test_wrapper_publishes_for_every_write_action(action_name: str) -> Non
 
     assert result == action_name
     assert write_calls == [action_name]
-    assert publish_calls == [("publish", "litellm_guardrailstable")]
+    assert publish_calls == [("publish", "hangarllm_guardrailstable")]
 
 
 @pytest.mark.parametrize(
@@ -940,36 +940,36 @@ async def test_wrapper_publishes_the_written_model_id_for_row_writes(
     publish_calls: List[Tuple[str, Tuple[str, ...]]] = []
     wrapped = wrap_table_actions_for_config_sync(
         actions=_ModelRowTableActions(),
-        table_name="litellm_proxymodeltable",
+        table_name="hangarllm_proxymodeltable",
         publish=_recording_publish_with_ids(publish_calls),
     )
 
     await getattr(wrapped, action_name)(data={})
 
-    assert publish_calls == [("litellm_proxymodeltable", expected_ids)]
+    assert publish_calls == [("hangarllm_proxymodeltable", expected_ids)]
 
 
 async def test_wrapper_publishes_no_model_ids_for_other_tables() -> None:
     publish_calls: List[Tuple[str, Tuple[str, ...]]] = []
     wrapped = wrap_table_actions_for_config_sync(
         actions=_ModelRowTableActions(),
-        table_name="litellm_guardrailstable",
+        table_name="hangarllm_guardrailstable",
         publish=_recording_publish_with_ids(publish_calls),
     )
 
     await wrapped.create(data={})
 
-    assert publish_calls == [("litellm_guardrailstable", ())]
+    assert publish_calls == [("hangarllm_guardrailstable", ())]
 
 
 async def test_model_repository_write_publishes_via_live_coordination_cache() -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import _set_redis_usage_cache
-    from litellm.repositories.model_repository import ModelRepository
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import _set_redis_usage_cache
+    from hangarllm.repositories.model_repository import ModelRepository
 
     client = _RecordingRedisClient()
     prisma_client = MagicMock()
-    prisma_client.db.litellm_proxymodeltable.update = AsyncMock(return_value={"model_id": "m-1"})
+    prisma_client.db.hangarllm_proxymodeltable.update = AsyncMock(return_value={"model_id": "m-1"})
     repository = ModelRepository(prisma_client)
     table = repository.table
     assert isinstance(table, _PublishOnWriteActions)
@@ -981,23 +981,23 @@ async def test_model_repository_write_publishes_via_live_coordination_cache() ->
     finally:
         _set_redis_usage_cache(previous_cache)
 
-    prisma_client.db.litellm_proxymodeltable.update.assert_awaited_once_with(
+    prisma_client.db.hangarllm_proxymodeltable.update.assert_awaited_once_with(
         where={"model_id": "m-1"}, data={"model_name": "gpt-5.2"}
     )
     assert len(client.published) == 1
     channel, message = client.published[0]
     assert channel == CONFIG_SYNC_CHANNEL
-    assert json.loads(message) == {"object_type": "litellm_proxymodeltable", "model_ids": ["m-1"]}
+    assert json.loads(message) == {"object_type": "hangarllm_proxymodeltable", "model_ids": ["m-1"]}
 
 
 async def test_ui_settings_write_publishes_via_live_coordination_cache() -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import _set_redis_usage_cache
-    from litellm.repositories.table_repositories import UISettingsRepository
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import _set_redis_usage_cache
+    from hangarllm.repositories.table_repositories import UISettingsRepository
 
     client = _RecordingRedisClient()
     prisma_client = MagicMock()
-    prisma_client.db.litellm_uisettings.upsert = AsyncMock(return_value={"id": "ui_settings"})
+    prisma_client.db.hangarllm_uisettings.upsert = AsyncMock(return_value={"id": "ui_settings"})
     table = UISettingsRepository(prisma_client).table
     assert isinstance(table, _PublishOnWriteActions)
 
@@ -1014,13 +1014,13 @@ async def test_ui_settings_write_publishes_via_live_coordination_cache() -> None
     assert len(client.published) == 1
     channel, message = client.published[0]
     assert channel == CONFIG_SYNC_CHANNEL
-    assert json.loads(message) == {"object_type": "litellm_uisettings", "model_ids": []}
+    assert json.loads(message) == {"object_type": "hangarllm_uisettings", "model_ids": []}
 
 
 async def _publish_calls_for_invalidated_param(param_name: str) -> List[Tuple[str, str]]:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import _set_redis_usage_cache
-    from litellm.proxy.utils import invalidate_config_param
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import _set_redis_usage_cache
+    from hangarllm.proxy.utils import invalidate_config_param
 
     client = _RecordingRedisClient()
     previous_cache = proxy_server.redis_usage_cache
@@ -1054,9 +1054,9 @@ def test_resync_applied_config_param_membership_is_pinned() -> None:
 
 
 async def test_evict_config_param_does_not_publish() -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import _set_redis_usage_cache
-    from litellm.proxy.utils import evict_config_param
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import _set_redis_usage_cache
+    from hangarllm.proxy.utils import evict_config_param
 
     client = _RecordingRedisClient()
     previous_cache = proxy_server.redis_usage_cache
@@ -1076,61 +1076,61 @@ def _reload_config_prisma_client() -> MagicMock:
     config_record.last_run_at = None
     prisma_client = MagicMock()
     prisma_client.get_generic_data = AsyncMock(return_value=config_record)
-    prisma_client.db.litellm_config.find_unique = AsyncMock(return_value=config_record)
-    prisma_client.db.litellm_config.upsert = AsyncMock(return_value=config_record)
-    prisma_client.db.litellm_config.update_many = AsyncMock(return_value=1)
+    prisma_client.db.hangarllm_config.find_unique = AsyncMock(return_value=config_record)
+    prisma_client.db.hangarllm_config.upsert = AsyncMock(return_value=config_record)
+    prisma_client.db.hangarllm_config.update_many = AsyncMock(return_value=1)
     return prisma_client
 
 
 async def test_model_cost_map_reload_does_not_publish_config_change() -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import ProxyConfig, _set_redis_usage_cache
-    from litellm.proxy.utils import litellm_config_cache
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import ProxyConfig, _set_redis_usage_cache
+    from hangarllm.proxy.utils import hangarllm_config_cache
+    from hangarllm.utils import _invalidate_model_cost_lowercase_map
 
-    litellm_config_cache.flush_cache()
+    hangarllm_config_cache.flush_cache()
     prisma_client = _reload_config_prisma_client()
     client = _RecordingRedisClient()
     previous_cache = proxy_server.redis_usage_cache
-    original_model_cost = litellm.model_cost.copy()
+    original_model_cost = hangarllm.model_cost.copy()
     _set_redis_usage_cache(_FakeRedisCache(client))
     try:
-        from litellm.litellm_core_utils.get_model_cost_map import ModelCostMapReloaded
+        from hangarllm.hangarllm_core_utils.get_model_cost_map import ModelCostMapReloaded
 
         with patch(
-            "litellm.litellm_core_utils.get_model_cost_map.refetch_model_cost_map",
+            "hangarllm.hangarllm_core_utils.get_model_cost_map.refetch_model_cost_map",
             new=AsyncMock(
                 return_value=ModelCostMapReloaded(model_cost_map={"gpt-5.2": {"input_cost_per_token": 0.001}})
             ),
         ):
             await ProxyConfig()._check_and_reload_model_cost_map(prisma_client=prisma_client)
     finally:
-        litellm.model_cost = original_model_cost
+        hangarllm.model_cost = original_model_cost
         _invalidate_model_cost_lowercase_map()
         _set_redis_usage_cache(previous_cache)
 
-    prisma_client.db.litellm_config.update_many.assert_awaited_once()
+    prisma_client.db.hangarllm_config.update_many.assert_awaited_once()
     assert client.published == []
 
 
 async def test_anthropic_beta_headers_reload_does_not_publish_config_change() -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import ProxyConfig, _set_redis_usage_cache
-    from litellm.proxy.utils import litellm_config_cache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import ProxyConfig, _set_redis_usage_cache
+    from hangarllm.proxy.utils import hangarllm_config_cache
 
-    litellm_config_cache.flush_cache()
+    hangarllm_config_cache.flush_cache()
     prisma_client = _reload_config_prisma_client()
     client = _RecordingRedisClient()
     previous_cache = proxy_server.redis_usage_cache
     _set_redis_usage_cache(_FakeRedisCache(client))
     try:
-        with patch("litellm.anthropic_beta_headers_manager.reload_beta_headers_config") as mock_reload:
+        with patch("hangarllm.anthropic_beta_headers_manager.reload_beta_headers_config") as mock_reload:
             mock_reload.return_value = {}
             await ProxyConfig()._check_and_reload_anthropic_beta_headers(prisma_client=prisma_client)
     finally:
         _set_redis_usage_cache(previous_cache)
 
-    prisma_client.db.litellm_config.upsert.assert_awaited_once()
+    prisma_client.db.hangarllm_config.upsert.assert_awaited_once()
     assert client.published == []
 
 
@@ -1140,7 +1140,7 @@ class _StopFailingSubscriber(ConfigSyncSubscriber):
 
 
 async def test_proxy_config_subscriber_resyncs_deployments_only() -> None:
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     cache = _FakeRedisCache(_ScriptedPubSubRedisClient([_QueuePubSub()]))
     config = ProxyConfig()
@@ -1175,12 +1175,12 @@ async def test_proxy_config_subscriber_resyncs_deployments_only() -> None:
 async def test_proxy_config_subscriber_applies_published_model_ids_from_the_db(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     rows = [MagicMock()]
     prisma_client = MagicMock()
-    prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=rows)
+    prisma_client.db.hangarllm_proxymodeltable.find_many = AsyncMock(return_value=rows)
     router = MagicMock()
     router.registry.return_value.deployments.return_value = ["deployment"]
     installed: List[object] = []
@@ -1205,7 +1205,7 @@ async def test_proxy_config_subscriber_applies_published_model_ids_from_the_db(
     await apply(("m-1", "m-2"))
     await config.stop_config_sync_subscriber()
 
-    prisma_client.db.litellm_proxymodeltable.find_many.assert_awaited_once_with(
+    prisma_client.db.hangarllm_proxymodeltable.find_many.assert_awaited_once_with(
         where={"model_id": {"in": ["m-1", "m-2"]}}
     )
     assert installed == [rows]
@@ -1213,7 +1213,7 @@ async def test_proxy_config_subscriber_applies_published_model_ids_from_the_db(
 
 
 async def test_proxy_config_does_not_start_subscriber_without_coordination_redis() -> None:
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     config = ProxyConfig()
 
@@ -1227,7 +1227,7 @@ async def test_proxy_config_does_not_start_subscriber_without_coordination_redis
 
 
 async def test_proxy_config_keeps_the_first_subscriber_on_repeat_start() -> None:
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     cache = _FakeRedisCache(_ScriptedPubSubRedisClient([_QueuePubSub()]))
     config = ProxyConfig()
@@ -1243,7 +1243,7 @@ async def test_proxy_config_keeps_the_first_subscriber_on_repeat_start() -> None
 
 
 async def test_proxy_config_shutdown_survives_a_failing_subscriber_stop() -> None:
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     config = ProxyConfig()
     config.config_sync_subscriber = _StopFailingSubscriber(

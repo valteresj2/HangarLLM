@@ -5,8 +5,8 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
 
 _CHAT_COMPLETION: Final = {
     "id": "chatcmpl_reka",
@@ -25,13 +25,13 @@ _CHAT_COMPLETION: Final = {
 
 
 def test_reka_is_a_registered_provider():
-    assert litellm.LlmProviders.REKA.value == "reka"
-    assert "reka" in litellm.provider_list
-    assert "reka" in litellm.constants.openai_compatible_providers
+    assert hangarllm.LlmProviders.REKA.value == "reka"
+    assert "reka" in hangarllm.provider_list
+    assert "reka" in hangarllm.constants.openai_compatible_providers
 
 
 def test_reka_provider_resolution(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("REKA_API_KEY", "reka-test-key")
 
@@ -49,7 +49,7 @@ def test_reka_provider_resolution(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_reka_provider_keeps_explicit_credentials(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("REKA_API_KEY", "reka-env-key")
     monkeypatch.setenv("REKA_API_BASE", "https://reka.env.example/v1")
@@ -67,7 +67,7 @@ def test_reka_provider_keeps_explicit_credentials(monkeypatch: pytest.MonkeyPatc
 
 
 def test_reka_api_base_env_overrides_default(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("REKA_API_KEY", "reka-env-key")
     monkeypatch.setenv("REKA_API_BASE", "https://reka.env.example/v1")
@@ -84,7 +84,7 @@ def test_reka_api_base_env_overrides_default(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_reka_api_base_autodetects_provider(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("REKA_API_KEY", "reka-env-key")
 
@@ -102,9 +102,9 @@ def test_reka_api_base_autodetects_provider(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_reka_is_available_in_add_model_form():
-    fields_path = Path(litellm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
+    fields_path = Path(hangarllm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
     providers = json.loads(fields_path.read_text())
-    reka = next(provider for provider in providers if provider["litellm_provider"] == "reka")
+    reka = next(provider for provider in providers if provider["hangarllm_provider"] == "reka")
 
     assert reka["provider"] == "REKA"
     assert reka["provider_display_name"] == "Reka"
@@ -118,7 +118,7 @@ def test_reka_is_available_in_add_model_form():
 def test_reka_chat_completion_request():
     with respx.mock() as upstream:
         route: Final = upstream.post("https://api.reka.ai/v1/chat/completions").respond(200, json=_CHAT_COMPLETION)
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="reka/reka-flash",
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="reka-test-key",
@@ -137,7 +137,7 @@ def test_reka_chat_completion_request():
 def test_reka_responses_request_is_bridged_to_chat_completions():
     with respx.mock() as upstream:
         route: Final = upstream.post("https://api.reka.ai/v1/chat/completions").respond(200, json=_CHAT_COMPLETION)
-        response: Final = litellm.responses(
+        response: Final = hangarllm.responses(
             model="reka/reka-flash",
             input="Say hello",
             api_key="reka-test-key",
@@ -154,11 +154,11 @@ def test_reka_responses_request_is_bridged_to_chat_completions():
 
 @pytest.mark.asyncio
 async def test_reka_anthropic_messages_request_is_bridged_to_chat_completions(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock() as upstream:
         route: Final = upstream.post("https://api.reka.ai/v1/chat/completions").respond(200, json=_CHAT_COMPLETION)
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model="reka/reka-flash",
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,

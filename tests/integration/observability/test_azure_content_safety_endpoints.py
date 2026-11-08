@@ -106,7 +106,7 @@ def azure_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Gatewa
         config["guardrails"] = [
             {
                 "guardrail_name": "azure-shield-" + uuid.uuid4().hex,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "azure/prompt_shield",
                     "mode": "pre_call",
                     "default_on": True,
@@ -139,7 +139,7 @@ def _scanned_prompts(azure: Wire) -> tuple[JsonValue, ...]:
 
 def _guardrail_entry(model: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda values: len(values) == 1,
         seconds=70,
     )

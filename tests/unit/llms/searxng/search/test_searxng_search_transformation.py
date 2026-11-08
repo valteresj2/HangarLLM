@@ -12,8 +12,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.searxng.search.transformation import SearXNGSearchConfig
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.searxng.search.transformation import SearXNGSearchConfig
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -155,7 +155,7 @@ class TestSearXNGSearchURLConstruction:
         """Test URL construction falls back to SEARXNG_API_BASE env var."""
         data = {"_searxng_params": {"q": "test", "format": "json"}}
         with patch(
-            "litellm.llms.searxng.search.transformation.get_secret_str",
+            "hangarllm.llms.searxng.search.transformation.get_secret_str",
             return_value="https://env-searxng.example.com",
         ):
             url = self.config.get_complete_url(
@@ -169,7 +169,7 @@ class TestSearXNGSearchURLConstruction:
     def test_url_missing_api_base_raises(self):
         """Test that missing api_base and env var raises ValueError."""
         with patch(
-            "litellm.llms.searxng.search.transformation.get_secret_str",
+            "hangarllm.llms.searxng.search.transformation.get_secret_str",
             return_value=None,
         ):
             with pytest.raises(ValueError, match="SEARXNG_API_BASE is not set"):
@@ -296,7 +296,7 @@ class TestSearXNGSearchHeaders:
     def test_headers_without_api_key(self):
         """Test that headers are set correctly without an API key."""
         with patch(
-            "litellm.llms.searxng.search.transformation.get_secret_str",
+            "hangarllm.llms.searxng.search.transformation.get_secret_str",
             return_value=None,
         ):
             headers = self.config.validate_environment(headers={})
@@ -332,12 +332,12 @@ def _transform(payload: object) -> SearchResponse:
 def test_searxng_results_keep_provider_order_and_ignore_engine_metadata():
     response = _transform(
         {
-            "query": "litellm",
+            "query": "hangarllm",
             "number_of_results": 0,
             "results": [
                 {
-                    "url": "https://example.com/litellm",
-                    "title": "LiteLLM",
+                    "url": "https://example.com/hangarllm",
+                    "title": "HangarLLM",
                     "content": "Call every LLM API",
                     "publishedDate": "2025-01-15T00:00:00",
                     "pubdate": "2025-01-10",
@@ -357,8 +357,8 @@ def test_searxng_results_keep_provider_order_and_ignore_engine_metadata():
     assert response.object == "search"
     assert response.results == [
         SearchResult(
-            title="LiteLLM",
-            url="https://example.com/litellm",
+            title="HangarLLM",
+            url="https://example.com/hangarllm",
             snippet="Call every LLM API",
             date="2025-01-15T00:00:00",
         ),

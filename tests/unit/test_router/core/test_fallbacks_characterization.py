@@ -6,7 +6,7 @@ default fallbacks and wildcard lookup. Complements ``test_fallbacks.py``.
 
 import pytest
 
-import litellm
+import hangarllm
 from tests.unit.test_router.core.fallbacks_helpers import (
     TIERED_A,
     MakeCore,
@@ -109,7 +109,7 @@ async def test_a_plain_request_list_is_walked_in_order(make_core: MakeCore, host
     response = await complete(core, fallbacks=["b", "c"])
 
     assert host.deployments_called("acompletion") == ["a", "b", "c"]
-    assert headers(response)["x-litellm-model-group"] == "c"
+    assert headers(response)["x-hangarllm-model-group"] == "c"
 
 
 @pytest.mark.asyncio
@@ -176,7 +176,7 @@ async def test_a_dict_target_naming_the_failed_group_with_params_retries_that_gr
         ("a", None),
         ("a", 0),
     ]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
 
 
 @pytest.mark.asyncio
@@ -191,7 +191,7 @@ async def test_a_dict_target_with_its_own_api_key_runs_on_a_client_credential_de
     primary, fallback = host.calls_to("acompletion")
     assert (fallback.model, fallback.kwargs["api_key"]) == ("openai/b", "sk-other")
     assert fallback.deployment_id not in {None, "b"}
-    assert headers(response)["x-litellm-model-group"] == "b"
+    assert headers(response)["x-hangarllm-model-group"] == "b"
     assert primary.deployment_id == "a"
 
 
@@ -203,12 +203,12 @@ async def test_a_dict_target_carrying_an_oidc_api_key_is_refused_and_the_primary
     show_router_debug(host)
     host.answer("openai/a", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core, fallbacks=[{"model": "b", "api_key": "oidc/google/x"}])
 
     assert host.deployments_called("acompletion") == ["a"]
     assert str(raised.value) == (
-        "litellm.RateLimitError: slow down\n\nLiteLLM: model group 'a' failed with the error above. "
+        "hangarllm.RateLimitError: slow down\n\nHangarLLM: model group 'a' failed with the error above. "
         "Fallback to {'model': 'b', 'api_key': 'oidc*********'} also failed: Rejected Request: api_key holds an "
         "oidc/ secret reference, which only a deployment or credential a proxy admin configures can carry."
     )
@@ -226,7 +226,7 @@ async def test_a_mixed_list_of_names_and_keyed_entries_is_resolved_as_a_chain_ma
     core = build(make_core)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core, fallbacks=fallbacks)
 
     assert host.deployments_called("acompletion") == expected
@@ -264,7 +264,7 @@ async def test_disable_fallbacks_also_stops_the_order_tier_walk(make_core: MakeC
     core = build(make_core, model_list=TIERED_A)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core, disable_fallbacks=True)
 
     assert host.deployments_called("acompletion") == ["a1"]
@@ -287,7 +287,7 @@ async def test_a_request_max_fallbacks_overrides_the_routers(make_core: MakeCore
     core = build(make_core, fallbacks=[{"a": ["b"]}, {"b": ["c"]}])
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core, max_fallbacks=1)
 
     assert host.deployments_called("acompletion") == ["a", "b"]
@@ -298,7 +298,7 @@ async def test_max_fallbacks_zero_also_stops_the_order_tier_walk(make_core: Make
     core = build(make_core, model_list=TIERED_A, max_fallbacks=0)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a1"]
@@ -311,7 +311,7 @@ async def test_max_fallbacks_one_still_tries_every_target_of_the_first_level(
     core = build(make_core, fallbacks=[{"a": ["b", "c"]}, {"b": ["c"]}], max_fallbacks=1)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a", "b", "c"]
@@ -322,11 +322,11 @@ async def test_a_fallback_group_spends_its_own_retries(make_core: MakeCore, host
     core = build(make_core, fallbacks=[{"a": ["b"]}], num_retries=1)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError) as raised:
+    with pytest.raises(hangarllm.RateLimitError) as raised:
         await complete(core)
 
     assert host.deployments_called("acompletion") == ["a", "a", "b", "b"]
-    assert str(raised.value) == "litellm.RateLimitError: slow down LiteLLM Retried: 1 times, LiteLLM Max Retries: 1"
+    assert str(raised.value) == "hangarllm.RateLimitError: slow down HangarLLM Retried: 1 times, HangarLLM Max Retries: 1"
 
 
 @pytest.mark.asyncio
@@ -339,9 +339,9 @@ async def test_a_fallback_hop_resumes_the_original_groups_chain(make_core: MakeC
 
     assert host.deployments_called("acompletion") == ["a", "b", "c"]
     # c answered inside b's hop (b resumed a's chain), so b's error is listed before a's.
-    assert headers(response)["x-litellm-fallback-errors"] == (
-        '[{"message": "litellm.RateLimitError: slow down", "type": "throttling_error", "param": null, "code": "429"}, '
-        '{"message": "litellm.RateLimitError: slow down", "type": "throttling_error", "param": null, "code": "429"}]'
+    assert headers(response)["x-hangarllm-fallback-errors"] == (
+        '[{"message": "hangarllm.RateLimitError: slow down", "type": "throttling_error", "param": null, "code": "429"}, '
+        '{"message": "hangarllm.RateLimitError: slow down", "type": "throttling_error", "param": null, "code": "429"}]'
     )
 
 
@@ -364,7 +364,7 @@ async def test_order_tiers_run_before_a_plain_list_or_the_default_chain(
     response = await complete(core, **arguments.get("request", {}))
 
     assert host.deployments_called("acompletion") == ["a1", "a2", "c"]
-    assert headers(response)["x-litellm-model-group"] == "c"
+    assert headers(response)["x-hangarllm-model-group"] == "c"
 
 
 # --- default fallbacks ---------------------------------------------------------------------------
@@ -400,8 +400,8 @@ async def test_an_unknown_group_is_served_by_the_first_default_fallback_without_
     response = await complete(core, model="unknown")
 
     assert host.deployments_called("acompletion") == ["b"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 0
-    assert headers(response)["x-litellm-model-group"] == "unknown"
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 0
+    assert headers(response)["x-hangarllm-model-group"] == "unknown"
     assert host.calls_to("acompletion")[0].model_group == "unknown"
 
 
@@ -414,8 +414,8 @@ async def test_an_unknown_group_with_its_own_chain_falls_back_through_it(
     response = await complete(core, model="unknown")
 
     assert host.deployments_called("acompletion") == ["b"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
-    assert headers(response)["x-litellm-model-group"] == "b"
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-model-group"] == "b"
 
 
 @pytest.mark.asyncio
@@ -458,7 +458,7 @@ async def test_a_wildcard_routed_request_uses_the_chain_keyed_by_the_bare_model_
 
     assert host.deployments_called("acompletion") == ["w", "b"]
     assert [c.model for c in host.calls_to("acompletion")] == ["openai/gpt-x", "openai/b"]
-    assert headers(response)["x-litellm-model-group"] == "b"
+    assert headers(response)["x-hangarllm-model-group"] == "b"
 
 
 @pytest.mark.asyncio
@@ -468,7 +468,7 @@ async def test_a_chain_keyed_by_the_wildcard_pattern_does_not_match_a_routed_req
     core = build(make_core, model_list=WILDCARD, fallbacks=[{"openai/*": ["b"]}])
     host.answer("openai/gpt-x", rate_limit())
 
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(hangarllm.RateLimitError):
         await complete(core, model="openai/gpt-x")
 
     assert host.deployments_called("acompletion") == ["w"]
@@ -495,8 +495,8 @@ async def test_a_mock_testing_flag_skips_the_primary_and_walks_the_matching_chai
     response = await complete(core, **{flag: True})
 
     assert host.deployments_called("acompletion") == [expected]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
-    assert headers(response)["x-litellm-attempted-retries"] == 0
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-attempted-retries"] == 0
     assert host.sleeps == []
 
 
@@ -506,19 +506,19 @@ async def test_a_mock_testing_flag_skips_the_primary_and_walks_the_matching_chai
     [
         (
             "mock_testing_fallbacks",
-            litellm.InternalServerError,
-            "litellm.InternalServerError: This is a mock exception for model=a, to trigger a fallback. Fallbacks=None",
+            hangarllm.InternalServerError,
+            "hangarllm.InternalServerError: This is a mock exception for model=a, to trigger a fallback. Fallbacks=None",
         ),
         (
             "mock_testing_context_fallbacks",
-            litellm.ContextWindowExceededError,
-            "litellm.ContextWindowExceededError: litellm.BadRequestError: This is a mock exception for model=a, "
+            hangarllm.ContextWindowExceededError,
+            "hangarllm.ContextWindowExceededError: hangarllm.BadRequestError: This is a mock exception for model=a, "
             "to trigger a fallback.                     Context_Window_Fallbacks=None",
         ),
         (
             "mock_testing_content_policy_fallbacks",
-            litellm.ContentPolicyViolationError,
-            "litellm.BadRequestError: litellm.ContentPolicyViolationError: This is a mock exception for model=a, "
+            hangarllm.ContentPolicyViolationError,
+            "hangarllm.BadRequestError: hangarllm.ContentPolicyViolationError: This is a mock exception for model=a, "
             "to trigger a fallback.                     Context_Policy_Fallbacks=None",
         ),
     ],
@@ -544,13 +544,13 @@ async def test_the_mock_error_names_the_configured_chain_and_the_fallback_outcom
     show_router_debug(host)
     host.answer("*", rate_limit())
 
-    with pytest.raises(litellm.InternalServerError) as raised:
+    with pytest.raises(hangarllm.InternalServerError) as raised:
         await complete(core, mock_testing_fallbacks=True)
 
     assert str(raised.value) == (
-        "litellm.InternalServerError: This is a mock exception for model=a, to trigger a fallback. "
-        "Fallbacks=[{'a': ['b']}]\n\nLiteLLM: model group 'a' failed with the error above. "
-        "Fallback to b also failed: litellm.RateLimitError: slow down"
+        "hangarllm.InternalServerError: This is a mock exception for model=a, to trigger a fallback. "
+        "Fallbacks=[{'a': ['b']}]\n\nHangarLLM: model group 'a' failed with the error above. "
+        "Fallback to b also failed: hangarllm.RateLimitError: slow down"
     )
 
 
@@ -581,4 +581,4 @@ def test_sync_completion_honours_the_mock_testing_flag(make_core: MakeCore, host
     response = complete_sync(core, mock_testing_fallbacks=True)
 
     assert host.deployments_called("completion") == ["b"]
-    assert headers(response)["x-litellm-attempted-fallbacks"] == 1
+    assert headers(response)["x-hangarllm-attempted-fallbacks"] == 1

@@ -6,16 +6,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.a2a.discovery import (
+import hangarllm
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.a2a.discovery import (
     AGENT_CARD_WELL_KNOWN_PATHS,
     AgentCardDiscoveryError,
     DiscoveryMode,
     fetch_well_known_card,
 )
-from litellm.proxy.a2a.endpoints import router as a2a_router
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.a2a.endpoints import router as a2a_router
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +25,7 @@ def _disable_url_validation_for_mocks(monkeypatch):
     otherwise resolve those hostnames and either fail DNS or block on the
     SSRF guard. Disabling validation here lets the unit tests focus on
     fallback / parsing logic; SSRF behavior is covered in its own test."""
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ async def test_fetch_uses_first_path_that_returns_200():
     fake_client.get = AsyncMock(return_value=_mock_response(200, body=body))
 
     with patch(
-        "litellm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
+        "hangarllm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
     ):
         card = await fetch_well_known_card("https://upstream.example")
 
@@ -73,7 +73,7 @@ async def test_fetch_falls_back_to_later_paths_on_404():
     )
 
     with patch(
-        "litellm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
+        "hangarllm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
     ):
         card = await fetch_well_known_card("https://upstream.example")
 
@@ -89,7 +89,7 @@ async def test_fetch_raises_when_all_paths_fail():
     )
 
     with patch(
-        "litellm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
+        "hangarllm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
     ):
         with pytest.raises(AgentCardDiscoveryError):
             await fetch_well_known_card("https://upstream.example")
@@ -107,7 +107,7 @@ async def test_fetch_skips_path_that_returns_non_json_body():
     )
 
     with patch(
-        "litellm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
+        "hangarllm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
     ):
         card = await fetch_well_known_card("https://upstream.example")
 
@@ -126,7 +126,7 @@ async def test_fetch_skips_path_that_returns_non_object_json():
     )
 
     with patch(
-        "litellm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
+        "hangarllm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
     ):
         card = await fetch_well_known_card("https://upstream.example")
 
@@ -152,7 +152,7 @@ async def test_langgraph_mode_appends_assistant_id_query_param():
     fake_client.get = AsyncMock(return_value=_mock_response(200, body=body))
 
     with patch(
-        "litellm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
+        "hangarllm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
     ):
         card = await fetch_well_known_card(
             "http://localhost:2024",
@@ -191,7 +191,7 @@ async def test_langgraph_mode_falls_back_to_older_well_known_paths():
     )
 
     with patch(
-        "litellm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
+        "hangarllm.proxy.a2a.discovery.get_async_httpx_client", return_value=fake_client
     ):
         card = await fetch_well_known_card(
             "http://localhost:2024",
@@ -210,7 +210,7 @@ async def test_langgraph_mode_falls_back_to_older_well_known_paths():
 # ---------------------------------------------------------------------------
 
 
-def _client_for_role(role: LitellmUserRoles) -> TestClient:
+def _client_for_role(role: HangarllmUserRoles) -> TestClient:
     app = FastAPI()
     app.include_router(a2a_router)
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
@@ -220,9 +220,9 @@ def _client_for_role(role: LitellmUserRoles) -> TestClient:
 
 
 def test_discover_admin_returns_raw_card():
-    client = _client_for_role(LitellmUserRoles.PROXY_ADMIN)
+    client = _client_for_role(HangarllmUserRoles.PROXY_ADMIN)
     with patch(
-        "litellm.proxy.a2a.endpoints.fetch_well_known_card",
+        "hangarllm.proxy.a2a.endpoints.fetch_well_known_card",
         new=AsyncMock(return_value={"name": "Upstream"}),
     ):
         resp = client.post("/v1/a2a/discover", json={"url": "https://upstream.example"})
@@ -234,15 +234,15 @@ def test_discover_admin_returns_raw_card():
 
 
 def test_discover_non_admin_forbidden():
-    client = _client_for_role(LitellmUserRoles.INTERNAL_USER)
+    client = _client_for_role(HangarllmUserRoles.INTERNAL_USER)
     resp = client.post("/v1/a2a/discover", json={"url": "https://upstream.example"})
     assert resp.status_code == 403
 
 
 def test_discover_returns_400_when_upstream_unreachable():
-    client = _client_for_role(LitellmUserRoles.PROXY_ADMIN)
+    client = _client_for_role(HangarllmUserRoles.PROXY_ADMIN)
     with patch(
-        "litellm.proxy.a2a.endpoints.fetch_well_known_card",
+        "hangarllm.proxy.a2a.endpoints.fetch_well_known_card",
         new=AsyncMock(side_effect=AgentCardDiscoveryError("no luck")),
     ):
         resp = client.post("/v1/a2a/discover", json={"url": "https://upstream.example"})
@@ -253,9 +253,9 @@ def test_discover_returns_400_when_upstream_unreachable():
 
 def test_discover_forwards_mode_and_params_to_fetcher():
     """The endpoint must hand discovery_mode + params to fetch_well_known_card."""
-    client = _client_for_role(LitellmUserRoles.PROXY_ADMIN)
+    client = _client_for_role(HangarllmUserRoles.PROXY_ADMIN)
     fetch_stub = AsyncMock(return_value={"name": "support-agent"})
-    with patch("litellm.proxy.a2a.endpoints.fetch_well_known_card", new=fetch_stub):
+    with patch("hangarllm.proxy.a2a.endpoints.fetch_well_known_card", new=fetch_stub):
         resp = client.post(
             "/v1/a2a/discover",
             json={
@@ -275,7 +275,7 @@ def test_discover_forwards_mode_and_params_to_fetcher():
 
 def test_discover_rejects_unknown_mode():
     """Pydantic should 422 on an enum value we don't recognize."""
-    client = _client_for_role(LitellmUserRoles.PROXY_ADMIN)
+    client = _client_for_role(HangarllmUserRoles.PROXY_ADMIN)
     resp = client.post(
         "/v1/a2a/discover",
         json={"url": "http://localhost:2024", "discovery_mode": "bogus"},

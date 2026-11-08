@@ -20,7 +20,7 @@ from integration._support.responses_vendor import answer, error, newest_marker, 
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
 Endpoint = Literal["chat", "responses", "messages"]
 
@@ -31,7 +31,7 @@ JSON: Final = TypeAdapter(dict[str, JsonValue])
 ITEMS: Final = TypeAdapter(list[dict[str, JsonValue]])
 
 
-SIGNING_KEY: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+SIGNING_KEY: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 
 
 TOKEN: Final = "synthetic-mantle-bearer"
@@ -461,7 +461,7 @@ def unwrapped(identity: str) -> str | None:
         decoded: Final = base64.b64decode(identity.removeprefix("resp_"), validate=True).decode()
     except (binascii.Error, UnicodeDecodeError):
         return None
-    return decoded.rsplit("response_id:", 1)[1] if decoded.startswith("litellm:") else None
+    return decoded.rsplit("response_id:", 1)[1] if decoded.startswith("hangarllm:") else None
 
 
 def upstream_id_of(identity: str) -> str:
@@ -521,7 +521,7 @@ def messages_stream_fields(payloads: Sequence[Mapping[str, JsonValue]]) -> tuple
 def parse_outcome(
     endpoint: Endpoint, *, stream: bool, status: int, headers: Mapping[str, str], lines: tuple[str, ...]
 ) -> Outcome:
-    call_id: Final = headers.get("x-litellm-call-id", "")
+    call_id: Final = headers.get("x-hangarllm-call-id", "")
     raw: Final = "\n".join(lines)
     if status != 200:
         return Outcome(status, call_id, "", "", {}, headers, raw)
@@ -599,7 +599,7 @@ def send_raw(gateway: Gateway, endpoint: Endpoint, content: str, *, key: str | N
 
 def matching_rows(name: str, markers: frozenset[str]) -> tuple[dict[str, JsonValue], ...]:
     rows: Final = read_rows(
-        'SELECT request_id, status, spend, prompt_tokens, completion_tokens, cache_hit FROM "LiteLLM_SpendLogs" '
+        'SELECT request_id, status, spend, prompt_tokens, completion_tokens, cache_hit FROM "HangarLLM_SpendLogs" '
         "WHERE model_group = %s",
         (name,),
     )
@@ -621,7 +621,7 @@ def success_row(name: str, *needles: str) -> dict[str, JsonValue]:
 def failure_row(call_id: str) -> dict[str, JsonValue]:
     assert call_id, "No call id to look the failure row up by"
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (call_id,)),
         lambda found: len(found) >= 1,
         seconds=90,
     )
@@ -733,7 +733,7 @@ def marked_cell(gateway: Gateway, endpoint: Endpoint, *, stream: bool) -> None:
         assert_priced_row(row, GPT)
         assert row_key(str(row["request_id"])) == outcome.response_id, (row, outcome.response_id)
         if not stream:
-            assert math.isclose(float(outcome.headers["x-litellm-response-cost"]), expected_spend(GPT), rel_tol=1e-9), (
+            assert math.isclose(float(outcome.headers["x-hangarllm-response-cost"]), expected_spend(GPT), rel_tol=1e-9), (
                 outcome.headers
             )
 

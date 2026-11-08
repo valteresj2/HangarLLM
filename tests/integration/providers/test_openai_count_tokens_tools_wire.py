@@ -62,7 +62,7 @@ _RESPONSES_REPLY: Final[Mapping[str, JsonValue]] = {
     ],
     "usage": {"input_tokens": 10, "output_tokens": 1, "total_tokens": 11},
 }
-_WRAPPED_REASONING: Final = "litellm_enc:bW9kZWxfaWQ6ZGVwbG95bWVudC0x;gAAAAoriginal"
+_WRAPPED_REASONING: Final = "hangarllm_enc:bW9kZWxfaWQ6ZGVwbG95bWVudC0x;gAAAAoriginal"
 _ANSWER_SCHEMA: Final[dict[str, JsonValue]] = {"type": "object", "properties": {"answer": {"type": "string"}}}
 _ANTHROPIC_BODIES: Final[Mapping[str, Mapping[str, JsonValue]]] = {
     "structured-output": {
@@ -75,7 +75,7 @@ _ANTHROPIC_BODIES: Final[Mapping[str, Mapping[str, JsonValue]]] = {
             {
                 "role": "assistant",
                 "content": [
-                    {"type": "redacted_thinking", "data": f"litellm_encrypted_reasoning:{_WRAPPED_REASONING}"},
+                    {"type": "redacted_thinking", "data": f"hangarllm_encrypted_reasoning:{_WRAPPED_REASONING}"},
                     {"type": "text", "text": "OK"},
                 ],
             },
@@ -110,7 +110,7 @@ _ANTHROPIC_BODIES: Final[Mapping[str, Mapping[str, JsonValue]]] = {
     },
     "replayed-web-search": {
         "messages": [
-            {"role": "user", "content": "What is the newest LiteLLM release?"},
+            {"role": "user", "content": "What is the newest HangarLLM release?"},
             {
                 "role": "assistant",
                 "content": [
@@ -118,7 +118,7 @@ _ANTHROPIC_BODIES: Final[Mapping[str, Mapping[str, JsonValue]]] = {
                         "type": "server_tool_use",
                         "id": "srvtoolu_01",
                         "name": "web_search",
-                        "input": {"query": "newest LiteLLM release"},
+                        "input": {"query": "newest HangarLLM release"},
                     },
                     {
                         "type": "web_search_tool_result",
@@ -126,10 +126,10 @@ _ANTHROPIC_BODIES: Final[Mapping[str, Mapping[str, JsonValue]]] = {
                         "content": [
                             {
                                 "type": "web_search_result",
-                                "url": "https://docs.litellm.ai/release_notes",
+                                "url": "https://github.com/valteresj2/HangarLLM#readme",
                                 "title": "Release notes",
                                 "encrypted_content": "",
-                                "snippet": "LiteLLM ships a weekly release candidate and a stable line.",
+                                "snippet": "HangarLLM ships a weekly release candidate and a stable line.",
                             }
                         ],
                     },

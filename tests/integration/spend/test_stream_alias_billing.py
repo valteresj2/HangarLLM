@@ -98,11 +98,11 @@ def _anthropic_reply(request: Request) -> Reply:
 def _deployment(
     scenario: Scenario,
     model_name: str,
-    litellm_params: dict[str, JsonValue],
+    hangarllm_params: dict[str, JsonValue],
     model_info: dict[str, JsonValue] | None = None,
 ) -> str:
     created: Final = scenario.gateway.post(
-        "/model/new", {"model_name": model_name, "litellm_params": litellm_params, "model_info": model_info or {}}
+        "/model/new", {"model_name": model_name, "hangarllm_params": hangarllm_params, "model_info": model_info or {}}
     )
     identity: Final = string_value(object_value(created["model_info"])["id"])
     scenario.cleanups.callback(scenario.delete_model, identity)
@@ -131,7 +131,7 @@ def _streamed_spend(gateway: Gateway, scenario: Scenario, model: str, content: s
     assert chunks and {chunk["model"] for chunk in chunks} == {model}, response.text
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT spend, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+            'SELECT spend, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
             (sha256(key.encode()).hexdigest(),),
         ),
         lambda values: len(values) == 1,
@@ -167,20 +167,20 @@ _BACKENDS: Final = (
 )
 
 
-@pytest.mark.parametrize("litellm_params", _BACKENDS)
+@pytest.mark.parametrize("hangarllm_params", _BACKENDS)
 @pytest.mark.timeout(180)
 def test_streamed_alias_matching_a_capability_rule_bills_the_deployment_price(
-    gateway: Gateway, litellm_params: Callable[[str], dict[str, JsonValue]]
+    gateway: Gateway, hangarllm_params: Callable[[str], dict[str, JsonValue]]
 ) -> None:
     with wire_server(_anthropic_reply) as wire, gateway.scenario() as scenario:
         content: Final = f"alias billing {uuid4().hex}"
         plain_alias: Final = f"integration-{uuid4().hex}"
         rule_alias: Final = f"claude-opus-4.8-{uuid4().int % 10**8:08d}"
         exact_row: Final = _streamed_spend(
-            gateway, scenario, _deployment(scenario, plain_alias, litellm_params(wire.url)), content
+            gateway, scenario, _deployment(scenario, plain_alias, hangarllm_params(wire.url)), content
         )
         alias_row: Final = _streamed_spend(
-            gateway, scenario, _deployment(scenario, rule_alias, litellm_params(wire.url)), content
+            gateway, scenario, _deployment(scenario, rule_alias, hangarllm_params(wire.url)), content
         )
 
         for model_name, row in ((plain_alias, exact_row), (rule_alias, alias_row)):
@@ -200,7 +200,7 @@ def otel_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[Gatew
     directory: Final = tmp_path_factory.mktemp("stream-alias-otel")
     with owned_sinks(directory / "sinks") as sinks, gateway_from_environment() as base:
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"] = {**config["litellm_settings"], "callbacks": ["otel"]}
+        config["hangarllm_settings"] = {**config["hangarllm_settings"], "callbacks": ["otel"]}
         config["callback_settings"] = {
             "otel": {"exporter": "http/json", "endpoint": sinks.operator, "use_simple_processor": True}
         }
@@ -217,19 +217,19 @@ def _logged_response_models(sink: str, call_ids: Mapping[str, str]) -> dict[str,
         label: span["attributes"]["gen_ai.response.model"]
         for span in spans
         for label, call_id in call_ids.items()
-        if span["attributes"].get("litellm.call_id") == call_id and "gen_ai.response.model" in span["attributes"]
+        if span["attributes"].get("hangarllm.call_id") == call_id and "gen_ai.response.model" in span["attributes"]
     }
 
 
-@pytest.mark.parametrize("litellm_params", _BACKENDS)
+@pytest.mark.parametrize("hangarllm_params", _BACKENDS)
 @pytest.mark.timeout(240)
 def test_logged_response_model_is_the_client_alias_whether_or_not_the_request_streams(
-    otel_proxy: tuple[Gateway, str], litellm_params: Callable[[str], dict[str, JsonValue]]
+    otel_proxy: tuple[Gateway, str], hangarllm_params: Callable[[str], dict[str, JsonValue]]
 ) -> None:
     candidate, sink = otel_proxy
     with wire_server(_anthropic_reply) as wire, candidate.scenario() as scenario:
         alias: Final = f"claude-opus-4.8-{uuid4().int % 10**8:08d}"
-        key: Final = scenario.key(models=[_deployment(scenario, alias, litellm_params(wire.url))])
+        key: Final = scenario.key(models=[_deployment(scenario, alias, hangarllm_params(wire.url))])
         call_ids: Final[dict[str, str]] = {}
         for label, stream_fields in (
             ("non-streamed", {}),
@@ -243,7 +243,7 @@ def test_logged_response_model_is_the_client_alias_whether_or_not_the_request_st
                 key=key,
             )
             assert response.status_code == 200, response.text
-            call_ids[label] = response.headers["x-litellm-call-id"]
+            call_ids[label] = response.headers["x-hangarllm-call-id"]
         logged: Final = eventually(
             lambda: _logged_response_models(sink, call_ids),
             lambda found: len(found) == 2,

@@ -1,16 +1,16 @@
-"""Tests for litellm/llms/a2a/chat/guardrail_translation/handler.py."""
+"""Tests for hangarllm/llms/a2a/chat/guardrail_translation/handler.py."""
 
 import json
 from typing import Final, Literal
 
 import pytest
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.a2a.chat.guardrail_translation.handler import A2AGuardrailHandler
-from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
-from litellm.types.agents import LiteLLMSendMessageResponse
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.a2a.chat.guardrail_translation.handler import A2AGuardrailHandler
+from hangarllm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+from hangarllm.types.agents import HangarLLMSendMessageResponse
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
 
 def _text_event(text: str) -> str:
@@ -83,7 +83,7 @@ class TestA2AGuardrailHandlerOutputResponse:
         assert response["result"]["parts"][0]["text"] == "SSN [SSN]"
 
     async def test_pydantic_response_text_reaches_the_guardrail(self):
-        response: Final = LiteLLMSendMessageResponse(id="req-1", result=json.loads(json.dumps(SSN_REPLY)))
+        response: Final = HangarLLMSendMessageResponse(id="req-1", result=json.loads(json.dumps(SSN_REPLY)))
 
         with pytest.raises(ValueError, match=r"blocked \['SSN 123-45-6789'\]"):
             await A2AGuardrailHandler().process_output_response(response, _BlockingGuardrail(guardrail_name="block"))

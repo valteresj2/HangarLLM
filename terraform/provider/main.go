@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/BerriAI/terraform-provider-litellm/litellm"
+	"github.com/BerriAI/terraform-provider-hangarllm/hangarllm"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
@@ -9,6 +9,6 @@ import (
 // using the Terraform plugin SDK.
 func main() {
 	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: litellm.Provider,
+		ProviderFunc: hangarllm.Provider,
 	})
 }

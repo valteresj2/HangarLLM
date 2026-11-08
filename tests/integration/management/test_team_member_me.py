@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import Actor
 
@@ -67,7 +67,7 @@ async def test_team_member_me_team_key_without_user_id_is_400(
     """A key with no associated user_id (a team / service-account key) cannot
     resolve 'me' — the caller has no identity to look up — so it is 400."""
     cleartext = "sk-" + uuid.uuid4().hex
-    await db.db.litellm_verificationtoken.create(
+    await db.db.hangarllm_verificationtoken.create(
         data={
             "token": hash_token(cleartext),
             "key_name": f"{resources.prefix}-teamkey",

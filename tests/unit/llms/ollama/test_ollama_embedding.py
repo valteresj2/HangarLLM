@@ -9,13 +9,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.ollama.completion.handler import (
+import hangarllm
+from hangarllm.llms.ollama.completion.handler import (
     _process_ollama_embedding_response,
     ollama_aembeddings,
     ollama_embeddings,
 )
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.types.utils import EmbeddingResponse
 
 
 @pytest.fixture
@@ -40,8 +40,8 @@ def mock_encoding():
 
 def test_ollama_embeddings(mock_response_data, mock_embedding_response, mock_encoding):
     with (
-        patch("litellm.module_level_client.post") as mock_post,
-        patch("litellm.OllamaConfig.get_config", return_value={"truncate": 512}),
+        patch("hangarllm.module_level_client.post") as mock_post,
+        patch("hangarllm.OllamaConfig.get_config", return_value={"truncate": 512}),
     ):
 
         mock_response = MagicMock()
@@ -73,9 +73,9 @@ async def test_ollama_aembeddings(
     mock_response.json = MagicMock(return_value=mock_response_data)
     with (
         patch(
-            "litellm.module_level_aclient.post", return_value=mock_response
+            "hangarllm.module_level_aclient.post", return_value=mock_response
         ) as mock_post,
-        patch("litellm.OllamaConfig.get_config", return_value={"truncate": 512}),
+        patch("hangarllm.OllamaConfig.get_config", return_value={"truncate": 512}),
     ):
 
         response = await ollama_aembeddings(
@@ -101,8 +101,8 @@ def test_prompt_eval_fallback_when_missing(mock_embedding_response, mock_encodin
     }
 
     with (
-        patch("litellm.module_level_client.post") as mock_post,
-        patch("litellm.OllamaConfig.get_config", return_value={}),
+        patch("hangarllm.module_level_client.post") as mock_post,
+        patch("hangarllm.OllamaConfig.get_config", return_value={}),
     ):
 
         mock_response = MagicMock()
@@ -179,9 +179,9 @@ async def test_ollama_embeddings_ignore_a_trailing_slash_on_api_base(
     )
 
     response: Final = (
-        await litellm.aembedding(model="ollama/all-minilm", api_base=api_base, input=["hello", "world"])
+        await hangarllm.aembedding(model="ollama/all-minilm", api_base=api_base, input=["hello", "world"])
         if asynchronous
-        else litellm.embedding(model="ollama/all-minilm", api_base=api_base, input=["hello", "world"])
+        else hangarllm.embedding(model="ollama/all-minilm", api_base=api_base, input=["hello", "world"])
     )
 
     assert route.call_count == 1
@@ -220,7 +220,7 @@ async def test_sdk_embedding_forwards_resolved_auth_and_merged_headers(
     else:
         monkeypatch.setenv("OLLAMA_API_KEY", env_key)
     response: Final = (
-        await litellm.aembedding(
+        await hangarllm.aembedding(
             model="ollama/nomic-embed-text",
             input="hello",
             api_base="http://ollama.test",
@@ -229,7 +229,7 @@ async def test_sdk_embedding_forwards_resolved_auth_and_merged_headers(
             extra_headers={"X-Extra": "extra", "X-Shared": "override"},
         )
         if asynchronous
-        else litellm.embedding(
+        else hangarllm.embedding(
             model="ollama/nomic-embed-text",
             input="hello",
             api_base="http://ollama.test",
@@ -260,11 +260,11 @@ async def test_sdk_embedding_applies_timeout_to_http_request(
     embedding_route: respx.Route, asynchronous: bool, timeout: float | httpx.Timeout
 ) -> None:
     response: Final = (
-        await litellm.aembedding(
+        await hangarllm.aembedding(
             model="ollama/nomic-embed-text", input=["hello"], api_base="http://ollama.test", timeout=timeout
         )
         if asynchronous
-        else litellm.embedding(
+        else hangarllm.embedding(
             model="ollama/nomic-embed-text", input=["hello"], api_base="http://ollama.test", timeout=timeout
         )
     )
@@ -298,7 +298,7 @@ async def test_handler_embedding_preserves_caller_headers_and_client_timeout(
 ) -> None:
     caller_headers: Final = MappingProxyType(dict(headers))
     expected_timeout: Final = (
-        litellm.module_level_aclient.client.timeout if asynchronous else litellm.module_level_client.client.timeout
+        hangarllm.module_level_aclient.client.timeout if asynchronous else hangarllm.module_level_client.client.timeout
     )
     response: Final = (
         await ollama_aembeddings(
@@ -341,10 +341,10 @@ async def test_handler_embedding_preserves_caller_headers_and_client_timeout(
 @pytest.mark.parametrize("asynchronous", [False, True])
 async def test_sdk_embedding_rejects_non_string_batch(embedding_route: respx.Route, asynchronous: bool) -> None:
     if asynchronous:
-        with pytest.raises(litellm.BadRequestError, match="Invalid input for ollama embeddings"):
-            await litellm.aembedding(model="ollama/nomic-embed-text", input=[123], api_base="http://ollama.test")
+        with pytest.raises(hangarllm.BadRequestError, match="Invalid input for ollama embeddings"):
+            await hangarllm.aembedding(model="ollama/nomic-embed-text", input=[123], api_base="http://ollama.test")
     else:
-        with pytest.raises(litellm.BadRequestError, match="Invalid input for ollama embeddings"):
-            litellm.embedding(model="ollama/nomic-embed-text", input=[123], api_base="http://ollama.test")
+        with pytest.raises(hangarllm.BadRequestError, match="Invalid input for ollama embeddings"):
+            hangarllm.embedding(model="ollama/nomic-embed-text", input=[123], api_base="http://ollama.test")
 
     assert not embedding_route.called

@@ -165,13 +165,13 @@ def _deployments(provider_url: str) -> list[JsonValue]:
     return [
         {
             "model_name": _SONNET,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "global.anthropic.claude-sonnet-5-5",
                 "custom_llm_provider": "bedrock",
                 **shared,
             },
         },
-        {"model_name": _OPUS, "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5", **shared}},
+        {"model_name": _OPUS, "hangarllm_params": {"model": "bedrock/eu.anthropic.claude-opus-5", **shared}},
     ]
 
 
@@ -188,7 +188,7 @@ def _config(directory: Path, provider_url: str, headroom_url: str) -> Path:
         **stock,
         "model_list": _deployments(provider_url),
         "router_settings": {**object_value(stock["router_settings"]), "num_retries": 0},
-        "guardrails": [{"guardrail_name": _GUARDRAIL, "litellm_params": guardrail}],
+        "guardrails": [{"guardrail_name": _GUARDRAIL, "hangarllm_params": guardrail}],
     }
     path: Final = directory / "long-tool-names.yaml"
     path.write_text(yaml.safe_dump(config))
@@ -301,7 +301,7 @@ def test_guarded_messages_keep_long_tool_names_the_caller_sent(
     sent: Final = rig.provider.drain()
     compressed: Final = None if rig.compressor is None else rig.compressor.drain()
 
-    assert _GUARDRAIL in response.headers.get("x-litellm-applied-guardrails", ""), dict(response.headers)
+    assert _GUARDRAIL in response.headers.get("x-hangarllm-applied-guardrails", ""), dict(response.headers)
     assert compressed is None or len(compressed) == 1, compressed
     assert response.status_code == 200, response.text
     assert len(sent) == 1, sent

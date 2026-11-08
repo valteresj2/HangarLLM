@@ -116,7 +116,7 @@ def _assert_upstream_call(call: Mapping[str, object], name: str, arguments: Mapp
 
 
 def _open_aliases() -> frozenset[str]:
-    rows: Final = read_rows('SELECT alias FROM "LiteLLM_MCPServerTable" WHERE allow_all_keys', ())
+    rows: Final = read_rows('SELECT alias FROM "HangarLLM_MCPServerTable" WHERE allow_all_keys', ())
     return frozenset(str(row["alias"]) for row in rows)
 
 
@@ -571,8 +571,8 @@ def test_pinned_revision_pairs_list_and_call_through_gateway(
 
     from mcp.types import CallToolRequestParams
 
-    from litellm.mcp_client.client import MCPClient
-    from litellm.types.mcp import MCPTransport
+    from hangarllm.mcp_client.client import MCPClient
+    from hangarllm.types.mcp import MCPTransport
 
     with peer_of(peer_kind) as peer, gateway.scenario() as scenario:
         alias: Final = "versions" + uuid.uuid4().hex[:8]
@@ -616,8 +616,8 @@ def test_legacy_gateway_calls_modern_upstream_without_initialize(
 
     from mcp.types import CallToolRequestParams
 
-    from litellm.mcp_client.client import MCPClient
-    from litellm.types.mcp import MCPTransport
+    from hangarllm.mcp_client.client import MCPClient
+    from hangarllm.types.mcp import MCPTransport
 
     with peer_of(peer_kind) as peer, gateway.scenario() as scenario:
         alias: Final = "modern" + uuid.uuid4().hex[:8]
@@ -783,8 +783,8 @@ def test_sdk_progress_and_cancellation_reach_upstream_without_losing_session(
                     else [
                         {
                             "guardrail_name": "progress-policy",
-                            "litellm_params": {
-                                "guardrail": "litellm_content_filter",
+                            "hangarllm_params": {
+                                "guardrail": "hangarllm_content_filter",
                                 "mode": "post_mcp_call",
                                 "default_on": True,
                                 "blocked_words": [{"keyword": "halfway", "action": guardrail_action}],
@@ -807,8 +807,8 @@ def test_sdk_progress_and_cancellation_reach_upstream_without_losing_session(
             "PYTHONPATH": os.pathsep.join((str(source), str(source / "tests"))),
             "STORE_MODEL_IN_DB": "False",
             "DISABLE_SCHEMA_UPDATE": "true",
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-            "LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true",
+            "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
+            "HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY": "true",
         }
         seed: Final = Gateway(client, "sk-progress-cancellation-test", upstream_url)
         with owned_proxy(
@@ -867,8 +867,8 @@ def test_configured_sse_limit_rejects_large_results_and_allows_the_next_call(tmp
             {
                 "STORE_MODEL_IN_DB": "False",
                 "DISABLE_SCHEMA_UPDATE": "true",
-                "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-                "LITELLM_MCP_MAX_SSE_EVENT_SIZE_BYTES": str(limit),
+                "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
+                "HANGARLLM_MCP_MAX_SSE_EVENT_SIZE_BYTES": str(limit),
             },
             config=config,
             database_setup=(),

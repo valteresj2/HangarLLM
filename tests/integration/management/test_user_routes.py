@@ -14,7 +14,7 @@ def test_concurrent_user_creation_persists_models_and_aliases(gateway: Gateway) 
             users: Final = list(pool.map(lambda _: scenario.user(models=[model], aliases={alias: model}), range(10)))
         assert len(set(users)) == 10
         rows: Final = [
-            read_rows('SELECT models FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,)) for user in users
+            read_rows('SELECT models FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,)) for user in users
         ]
         assert rows == [[{"models": [model]}]] * len(users)
 

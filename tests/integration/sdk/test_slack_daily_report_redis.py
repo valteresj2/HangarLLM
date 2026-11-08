@@ -6,12 +6,12 @@ from typing import Final
 
 import pytest
 from integration._support.wire import Reply, Request, Wire, wire_server
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.proxy._types import AlertType
-from litellm.types.integrations.slack_alerting import SlackAlertingCacheKeys
+from hangarllm import Router
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from hangarllm.proxy._types import AlertType
+from hangarllm.types.integrations.slack_alerting import SlackAlertingCacheKeys
 from redis import Redis
 
 REPORT_SENT_KEY: Final = SlackAlertingCacheKeys.report_sent_key.value
@@ -47,7 +47,7 @@ def _router(deployment_id: str) -> Router:
         model_list=[
             {
                 "model_name": "daily-report",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": API_BASE,
                     "api_key": "synthetic-daily-report-key",

@@ -6,7 +6,7 @@ import pytest
 from anthropic.types import Message, MessageParam
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
 
@@ -24,7 +24,7 @@ MODEL_SWITCH_BETA: Final = (
 def _register_model(proxy: ProxyClient, resources: ResourceManager) -> tuple[str, str]:
     model_id: Final = proxy.create_model(
         MODEL_NAME,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=BEDROCK_MODEL,
             aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
             aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

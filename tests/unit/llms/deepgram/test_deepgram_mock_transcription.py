@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.types.utils import TranscriptionResponse
+import hangarllm
+from hangarllm.types.utils import TranscriptionResponse
 
 
 @pytest.fixture
@@ -161,11 +161,11 @@ class TestDeepgramMockTranscription:
         mock_response.headers = {"Content-Type": "application/json"}
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
 
-            response: TranscriptionResponse = litellm.transcription(
+            response: TranscriptionResponse = hangarllm.transcription(
                 model="deepgram/nova-2",
                 file=test_audio_bytes,
                 api_key="test-api-key",
@@ -213,11 +213,11 @@ class TestDeepgramMockTranscription:
         mock_response.headers = {"Content-Type": "application/json"}
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
 
-            response: TranscriptionResponse = litellm.transcription(
+            response: TranscriptionResponse = hangarllm.transcription(
                 model="deepgram/nova-2",
                 file=test_audio_bytes,
                 api_key="test-api-key",
@@ -249,11 +249,11 @@ class TestDeepgramMockTranscription:
         mock_response.headers = {"Content-Type": "application/json"}
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
 
-            response: TranscriptionResponse = litellm.transcription(
+            response: TranscriptionResponse = hangarllm.transcription(
                 model="deepgram/nova-2",
                 file=test_audio_file,
                 api_key="test-api-key",
@@ -327,10 +327,10 @@ class TestDeepgramMockTranscription:
         mock_response.headers = {"Content-Type": "application/json"}
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ):
-            response: TranscriptionResponse = litellm.transcription(
+            response: TranscriptionResponse = hangarllm.transcription(
                 model="deepgram/nova-2",
                 file=test_audio_bytes,
                 api_key="test-api-key",
@@ -377,10 +377,10 @@ class TestDeepgramMockTranscription:
         mock_response.headers = {"Content-Type": "application/json"}
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ):
-            response: TranscriptionResponse = litellm.transcription(
+            response: TranscriptionResponse = hangarllm.transcription(
                 model="deepgram/nova-2",
                 file=test_audio_bytes,
                 api_key="test-api-key",
@@ -428,10 +428,10 @@ class TestDeepgramMockTranscription:
         mock_response.headers = {"Content-Type": "application/json"}
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ):
-            response: TranscriptionResponse = litellm.transcription(
+            response: TranscriptionResponse = hangarllm.transcription(
                 model="deepgram/nova-2",
                 file=test_audio_bytes,
                 api_key="test-api-key",

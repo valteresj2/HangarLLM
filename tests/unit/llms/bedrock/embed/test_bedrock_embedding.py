@@ -9,11 +9,11 @@ import pytest
 import httpx
 import respx
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import TwelveLabsMarengoEmbeddingConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.llms.bedrock.embed.twelvelabs_marengo_transformation import TwelveLabsMarengoEmbeddingConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 # Mock responses for different embedding models
@@ -29,7 +29,7 @@ twelvelabs_embedding_response = {
 }
 
 # Test data
-test_input = "Hello world from litellm"
+test_input = "Hello world from hangarllm"
 test_image_base64 = "data:image/png,test_image_base64_data"
 
 
@@ -82,9 +82,9 @@ def test_bedrock_embedding_with_api_key_bearer_token(model, input_type, embed_re
         if "twelvelabs.marengo-embed" in model:
             kwargs["input_type"] = input_type
 
-        response = litellm.embedding(**kwargs)
+        response = hangarllm.embedding(**kwargs)
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         assert isinstance(response.data[0]["embedding"], list)
         assert len(response.data[0]["embedding"]) == 3  # Based on mock response
 
@@ -117,7 +117,7 @@ def test_bedrock_embedding_with_env_variable_bearer_token(
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input=test_input,
             client=client,
@@ -125,7 +125,7 @@ def test_bedrock_embedding_with_env_variable_bearer_token(
             aws_bedrock_runtime_endpoint="https://bedrock-runtime.us-west-2.amazonaws.com",
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         headers = mock_post.call_args.kwargs.get("headers", {})
         assert "Authorization" in headers
         assert headers["Authorization"] == f"Bearer {test_api_key}"
@@ -139,8 +139,8 @@ def test_bedrock_embedding_with_env_variable_bearer_token(
 async def test_bedrock_titan_embedding_cache_hit_avoids_a_second_request(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, model: str, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache())
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "cache", Cache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route = respx_mock.post(f"https://bedrock-runtime.us-east-1.amazonaws.com/model/{model}/invoke").mock(
         return_value=httpx.Response(200, json=titan_embedding_response)
     )
@@ -154,11 +154,11 @@ async def test_bedrock_titan_embedding_cache_hit_avoids_a_second_request(
     }
 
     if sync_mode:
-        response_1 = litellm.embedding(**request)
-        response_2 = litellm.embedding(**request)
+        response_1 = hangarllm.embedding(**request)
+        response_2 = hangarllm.embedding(**request)
     else:
-        response_1 = await litellm.aembedding(**request)
-        response_2 = await litellm.aembedding(**request)
+        response_1 = await hangarllm.aembedding(**request)
+        response_2 = await hangarllm.aembedding(**request)
 
     assert json.loads(route.calls.last.request.read()) == {"inputText": test_input}
     assert response_1.data[0]["embedding"] == [0.1, 0.2, 0.3]
@@ -178,7 +178,7 @@ def test_bedrock_cohere_embedding_returns_the_scripted_vector(respx_mock: respx.
         )
     )
 
-    response = litellm.embedding(
+    response = hangarllm.embedding(
         model="bedrock/cohere.embed-multilingual-v3",
         input=["hello"],
         api_key="test-bearer-token",
@@ -213,7 +213,7 @@ async def test_bedrock_embedding_calls_the_model_id_region_with_the_bare_model_i
     sync_mode: bool,
 ) -> None:
     monkeypatch.setenv("AWS_REGION_NAME", "us-east-1")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route = respx_mock.post(f"{GOVCLOUD_WEST_RUNTIME}/model/{model_id}/invoke").mock(
         return_value=httpx.Response(200, json=embed_response)
     )
@@ -223,7 +223,7 @@ async def test_bedrock_embedding_calls_the_model_id_region_with_the_bare_model_i
         "api_key": "test-bearer-token",
     }
 
-    response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+    response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert route.call_count == 1
     assert response.data[0]["embedding"] == [0.1, 0.2, 0.3]
@@ -237,10 +237,10 @@ def test_bedrock_embedding_prices_a_region_prefixed_model_from_its_region_row(
         return_value=httpx.Response(200, json=titan_embedding_response)
     )
 
-    response: Final = litellm.embedding(model=model, input=[test_input], api_key="test-bearer-token")
+    response: Final = hangarllm.embedding(model=model, input=[test_input], api_key="test-bearer-token")
 
     assert response._hidden_params["response_cost"] == pytest.approx(
-        response.usage.prompt_tokens * litellm.model_cost[model]["input_cost_per_token"]
+        response.usage.prompt_tokens * hangarllm.model_cost[model]["input_cost_per_token"]
     )
 
 
@@ -251,7 +251,7 @@ def test_bedrock_embedding_explicit_aws_region_name_wins_over_the_model_id_regio
         "https://bedrock-runtime.us-gov-east-1.amazonaws.com/model/amazon.titan-embed-text-v2:0/invoke"
     ).mock(return_value=httpx.Response(200, json=titan_embedding_response))
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="bedrock/us-gov-west-1/amazon.titan-embed-text-v2:0",
         input=[test_input],
         api_key="test-bearer-token",
@@ -261,7 +261,7 @@ def test_bedrock_embedding_explicit_aws_region_name_wins_over_the_model_id_regio
     assert route.call_count == 1
     assert response._hidden_params["response_cost"] == pytest.approx(
         response.usage.prompt_tokens
-        * litellm.model_cost["bedrock/us-gov-east-1/amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
+        * hangarllm.model_cost["bedrock/us-gov-east-1/amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
     )
 
 
@@ -274,7 +274,7 @@ def test_bedrock_embedding_model_id_arn_region_wins_over_the_model_path_region_a
         return_value=httpx.Response(200, json=titan_embedding_response)
     )
 
-    litellm.embedding(
+    hangarllm.embedding(
         model="bedrock/us-east-1/amazon.titan-embed-text-v2:0",
         input=[test_input],
         api_key="test-bearer-token",
@@ -293,7 +293,7 @@ def test_bedrock_embedding_plain_model_id_calls_the_env_region_like_chat(
         return_value=httpx.Response(200, json=cohere_embedding_response)
     )
 
-    litellm.embedding(
+    hangarllm.embedding(
         model="bedrock/us-east-1/cohere.embed-english-v3",
         input=[test_input],
         api_key="test-bearer-token",
@@ -310,8 +310,8 @@ def test_bedrock_embedding_rejects_an_empty_aws_region_name_instead_of_using_the
         return_value=httpx.Response(200, json=titan_embedding_response)
     )
 
-    with pytest.raises(litellm.APIConnectionError, match="Invalid AWS region format"):
-        litellm.embedding(
+    with pytest.raises(hangarllm.APIConnectionError, match="Invalid AWS region format"):
+        hangarllm.embedding(
             model="bedrock/us-gov-west-1/amazon.titan-embed-text-v2:0",
             input=[test_input],
             api_key="test-bearer-token",
@@ -339,12 +339,12 @@ def test_bedrock_embedding_region_path_variants_call_the_path_region_with_the_ba
         return_value=httpx.Response(200, json=titan_embedding_response)
     )
 
-    response: Final = litellm.embedding(model=model, input=[test_input], api_key="test-bearer-token", **extra_params)
+    response: Final = hangarllm.embedding(model=model, input=[test_input], api_key="test-bearer-token", **extra_params)
 
     assert route.call_count == 1
     assert response._hidden_params["response_cost"] == pytest.approx(
         response.usage.prompt_tokens
-        * litellm.model_cost["bedrock/us-gov-west-1/amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
+        * hangarllm.model_cost["bedrock/us-gov-west-1/amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
     )
 
 
@@ -355,7 +355,7 @@ def test_bedrock_embedding_explicit_region_outside_the_known_list_returns_the_ve
         "https://bedrock-runtime.zz-unlisted-1.amazonaws.com/model/amazon.titan-embed-text-v2:0/invoke"
     ).mock(return_value=httpx.Response(200, json=titan_embedding_response))
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="bedrock/us-east-1/amazon.titan-embed-text-v2:0",
         input=[test_input],
         api_key="test-bearer-token",
@@ -365,7 +365,7 @@ def test_bedrock_embedding_explicit_region_outside_the_known_list_returns_the_ve
     assert route.call_count == 1
     assert response.data[0]["embedding"] == [0.1, 0.2, 0.3]
     assert response._hidden_params["response_cost"] == pytest.approx(
-        response.usage.prompt_tokens * litellm.model_cost["amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
+        response.usage.prompt_tokens * hangarllm.model_cost["amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
     )
 
 
@@ -375,7 +375,7 @@ async def test_bedrock_embedding_without_a_region_path_bills_the_row_of_the_regi
     monkeypatch: pytest.MonkeyPatch,
     sync_mode: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route = respx_mock.post(f"{GOVCLOUD_WEST_RUNTIME}/model/amazon.titan-embed-text-v2:0/invoke").mock(
         return_value=httpx.Response(200, json=titan_embedding_response)
     )
@@ -386,13 +386,13 @@ async def test_bedrock_embedding_without_a_region_path_bills_the_row_of_the_regi
         "aws_region_name": "us-gov-west-1",
     }
 
-    response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+    response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert route.call_count == 1
     assert response.model == "amazon.titan-embed-text-v2:0"
     assert response._hidden_params["response_cost"] == pytest.approx(
         response.usage.prompt_tokens
-        * litellm.model_cost["bedrock/us-gov-west-1/amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
+        * hangarllm.model_cost["bedrock/us-gov-west-1/amazon.titan-embed-text-v2:0"]["input_cost_per_token"]
     )
 
 
@@ -402,15 +402,15 @@ def test_bedrock_cohere_embedding_bills_the_row_of_the_region_it_calls(
 ) -> None:
     regional_key: Final = "bedrock/us-gov-west-1/cohere.embed-english-v3"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         regional_key,
-        {**litellm.model_cost["cohere.embed-english-v3"], "input_cost_per_token": 7e-07},
+        {**hangarllm.model_cost["cohere.embed-english-v3"], "input_cost_per_token": 7e-07},
     )
     respx_mock.post(f"{GOVCLOUD_WEST_RUNTIME}/model/cohere.embed-english-v3/invoke").mock(
         return_value=httpx.Response(200, json=cohere_embedding_response)
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="bedrock/cohere.embed-english-v3",
         input=[test_input],
         api_key="test-bearer-token",
@@ -418,7 +418,7 @@ def test_bedrock_cohere_embedding_bills_the_row_of_the_region_it_calls(
     )
 
     assert response._hidden_params["response_cost"] == pytest.approx(
-        response.usage.prompt_tokens * litellm.model_cost[regional_key]["input_cost_per_token"]
+        response.usage.prompt_tokens * hangarllm.model_cost[regional_key]["input_cost_per_token"]
     )
 
 
@@ -432,7 +432,7 @@ def test_bedrock_embedding_with_a_govcloud_arn_model_id_bills_at_the_arn_region_
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="bedrock/amazon.nova-2-multimodal-embeddings-v1:0",
         input=[test_input],
         api_key="test-bearer-token",
@@ -442,7 +442,7 @@ def test_bedrock_embedding_with_a_govcloud_arn_model_id_bills_at_the_arn_region_
     assert route.call_count == 1
     assert response._hidden_params["response_cost"] == pytest.approx(
         response.usage.prompt_tokens
-        * litellm.model_cost["bedrock/us-gov-west-1/amazon.nova-2-multimodal-embeddings-v1:0"]["input_cost_per_token"]
+        * hangarllm.model_cost["bedrock/us-gov-west-1/amazon.nova-2-multimodal-embeddings-v1:0"]["input_cost_per_token"]
     )
 
 
@@ -463,7 +463,7 @@ def test_bedrock_async_invoke_embedding_with_a_region_path_posts_the_bare_id_to_
         )
     )
 
-    litellm.embedding(
+    hangarllm.embedding(
         model=model,
         input=[test_input],
         api_key="test-bearer-token",
@@ -488,7 +488,7 @@ async def test_async_bedrock_embedding_with_bearer_token():
         mock_response.json = Mock(return_value=titan_embedding_response)
         mock_post.return_value = mock_response
 
-        response = await litellm.aembedding(
+        response = await hangarllm.aembedding(
             model=model,
             input=test_input,
             client=client,
@@ -497,7 +497,7 @@ async def test_async_bedrock_embedding_with_bearer_token():
             api_key=test_api_key,
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
 
         headers = mock_post.call_args.kwargs.get("headers", {})
         assert "Authorization" in headers
@@ -509,19 +509,19 @@ def test_bedrock_embedding_with_sigv4():
     model = "bedrock/amazon.titan-embed-text-v1"
 
     with patch(
-        "litellm.llms.bedrock.embed.embedding.BedrockEmbedding.embeddings"
+        "hangarllm.llms.bedrock.embed.embedding.BedrockEmbedding.embeddings"
     ) as mock_bedrock_embed:
-        mock_embedding_response = litellm.EmbeddingResponse()
+        mock_embedding_response = hangarllm.EmbeddingResponse()
         mock_embedding_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
         mock_bedrock_embed.return_value = mock_embedding_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input=test_input,
             aws_region_name="us-west-2",
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         mock_bedrock_embed.assert_called_once()
 
 
@@ -541,7 +541,7 @@ def test_bedrock_titan_v2_encoding_format_float():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input=test_input,
             encoding_format="float",  # This should work but currently throws UnsupportedParamsError
@@ -551,7 +551,7 @@ def test_bedrock_titan_v2_encoding_format_float():
             api_key=test_api_key,
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         assert isinstance(response.data[0]["embedding"], list)
         assert len(response.data[0]["embedding"]) == 3
 
@@ -583,7 +583,7 @@ def test_bedrock_titan_v2_encoding_format_base64():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input=test_input,
             encoding_format="base64",  # This should map to embeddingTypes: ["binary"]
@@ -593,7 +593,7 @@ def test_bedrock_titan_v2_encoding_format_base64():
             api_key=test_api_key,
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
 
         # Verify that the request contains embeddingTypes: ["binary"] for base64 encoding
         request_body = json.loads(mock_post.call_args.kwargs.get("data", "{}"))
@@ -618,8 +618,8 @@ def test_twelvelabs_input_type_parameter_mapping():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        # Test with input_type parameter (new LiteLLM parameter)
-        response = litellm.embedding(
+        # Test with input_type parameter (new HangarLLM parameter)
+        response = hangarllm.embedding(
             model=model,
             input=test_input,
             client=client,
@@ -629,7 +629,7 @@ def test_twelvelabs_input_type_parameter_mapping():
             input_type="text",  # New parameter that should map to inputType
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         assert isinstance(response.data[0]["embedding"], list)
         assert len(response.data[0]["embedding"]) == 3
 
@@ -658,7 +658,7 @@ def test_twelvelabs_input_type_parameter_mapping_async_invoke():
         mock_post.return_value = mock_response
 
         # Test with input_type parameter for async invoke
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input=test_input,
             client=client,
@@ -669,7 +669,7 @@ def test_twelvelabs_input_type_parameter_mapping_async_invoke():
             input_type="text",  # New parameter that should map to inputType
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         assert hasattr(response, "_hidden_params")
         assert response._hidden_params is not None
         assert hasattr(response._hidden_params, "_invocation_arn")
@@ -701,7 +701,7 @@ def test_twelvelabs_missing_input_type_error():
         mock_post.return_value = mock_response
 
         # Test that missing input_type defaults to "text" for TwelveLabs
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=twelvelabs_model,
             input=test_input,
             client=client,
@@ -712,7 +712,7 @@ def test_twelvelabs_missing_input_type_error():
         )
 
         # Verify the response is successful
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
 
         # Verify that the request contains inputType: "text" by default
         request_body = json.loads(mock_post.call_args.kwargs.get("data", "{}"))
@@ -731,7 +731,7 @@ def test_twelvelabs_missing_input_type_error():
         mock_post.return_value = mock_response
 
         # Test that missing input_type does NOT throw an error for Amazon Titan
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=titan_model,
             input=test_input,
             client=client,
@@ -742,7 +742,7 @@ def test_twelvelabs_missing_input_type_error():
         )
 
         # Should succeed without input_type
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
 
 
 @pytest.mark.parametrize(
@@ -760,7 +760,7 @@ def test_bedrock_embedding_header_forwarding(model, embed_response):
     This test verifies the fix for the issue where headers configured via
     forward_client_headers_to_llm_api were not being passed to Bedrock embedding provider.
 
-    Relevant Issue: https://github.com/BerriAI/litellm/pull/16042
+    Relevant Issue: upstream issue 16042
     """
     client = HTTPHandler()
     test_api_key = "test-bearer-token-12345"
@@ -783,7 +783,7 @@ def test_bedrock_embedding_header_forwarding(model, embed_response):
         try:
             # Call embedding with custom headers via kwargs
             # This simulates what the proxy does when forward_client_headers_to_llm_api is set
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model=model,
                 input=test_input,
                 client=client,
@@ -793,7 +793,7 @@ def test_bedrock_embedding_header_forwarding(model, embed_response):
                 api_key=test_api_key,
             )
 
-            assert isinstance(response, litellm.EmbeddingResponse)
+            assert isinstance(response, hangarllm.EmbeddingResponse)
 
             # Verify that the request was made
             assert mock_post.called, "HTTP client post should be called"
@@ -850,7 +850,7 @@ def test_bedrock_embedding_extra_headers_and_headers_merge():
         mock_post.return_value = mock_response
 
         try:
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model=model,
                 input=test_input,
                 client=client,
@@ -861,7 +861,7 @@ def test_bedrock_embedding_extra_headers_and_headers_merge():
                 api_key=test_api_key,
             )
 
-            assert isinstance(response, litellm.EmbeddingResponse)
+            assert isinstance(response, hangarllm.EmbeddingResponse)
 
             call_kwargs = mock_post.call_args.kwargs
             headers = call_kwargs.get("headers", {})
@@ -916,7 +916,7 @@ def test_bedrock_cohere_v4_embedding_response_parsing():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input=["test input"],
             client=client,
@@ -925,7 +925,7 @@ def test_bedrock_cohere_v4_embedding_response_parsing():
             api_key=test_api_key,
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
 
         # Verify we get two embedding objects back (one for float, one for int8)
         assert len(response.data) == 2
@@ -985,7 +985,7 @@ def test_bedrock_embedding_custom_headers_with_iam_role_and_custom_api_base():
         mock_post.return_value = mock_response
 
         try:
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="bedrock/amazon.titan-embed-text-v1",
                 input=test_input,
                 client=client,
@@ -997,7 +997,7 @@ def test_bedrock_embedding_custom_headers_with_iam_role_and_custom_api_base():
                 aws_region_name="us-east-1",
             )
 
-            assert isinstance(response, litellm.EmbeddingResponse)
+            assert isinstance(response, hangarllm.EmbeddingResponse)
 
             # Verify that the request was made
             assert mock_post.called, "HTTP client post should be called"
@@ -1101,7 +1101,7 @@ async def test_bedrock_embedding_custom_headers_with_iam_role_and_custom_api_bas
         mock_post.return_value = mock_response
 
         try:
-            response = await litellm.aembedding(
+            response = await hangarllm.aembedding(
                 model="bedrock/amazon.titan-embed-text-v1",
                 input=test_input,
                 client=client,
@@ -1113,7 +1113,7 @@ async def test_bedrock_embedding_custom_headers_with_iam_role_and_custom_api_bas
                 aws_region_name="us-west-2",
             )
 
-            assert isinstance(response, litellm.EmbeddingResponse)
+            assert isinstance(response, hangarllm.EmbeddingResponse)
 
             # Verify that the request was made
             assert mock_post.called, "HTTP client post should be called"
@@ -1180,7 +1180,7 @@ async def test_bedrock_embedding_custom_headers_with_iam_role_and_custom_api_bas
 
 def test_titan_multimodal_embedding_image_cost_tracking():
     """Test that Titan multimodal embedding with image input populates image_count in Usage."""
-    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
+    from hangarllm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
         AmazonTitanMultimodalEmbeddingG1Config,
     )
 
@@ -1210,7 +1210,7 @@ def test_titan_multimodal_embedding_image_cost_tracking():
 
 def test_titan_multimodal_embedding_text_no_image_count():
     """Test that Titan multimodal embedding with text-only input does not set image_count."""
-    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
+    from hangarllm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
         AmazonTitanMultimodalEmbeddingG1Config,
     )
 
@@ -1239,7 +1239,7 @@ def test_titan_multimodal_embedding_text_no_image_count():
 
 def test_titan_multimodal_embedding_backward_compat_no_batch_data():
     """Test that Titan transformer works without batch_data (backward compatibility)."""
-    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
+    from hangarllm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
         AmazonTitanMultimodalEmbeddingG1Config,
     )
 
@@ -1281,7 +1281,7 @@ def test_titan_image_embedding_cost_uses_per_image_rate():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="bedrock/amazon.titan-embed-image-v1",
             input=["data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=="],
             client=client,
@@ -1290,7 +1290,7 @@ def test_titan_image_embedding_cost_uses_per_image_rate():
             aws_region_name="us-east-1",
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
         assert response.usage is not None
         assert response.usage.prompt_tokens_details is not None
         assert response.usage.prompt_tokens_details.image_count == 1
@@ -1325,7 +1325,7 @@ def test_bedrock_cohere_embedding_types_wrapped_as_list(
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input=test_input,
             encoding_format=encoding_format,
@@ -1335,7 +1335,7 @@ def test_bedrock_cohere_embedding_types_wrapped_as_list(
             api_key="test-bearer-token-12345",
         )
 
-        assert isinstance(response, litellm.EmbeddingResponse)
+        assert isinstance(response, hangarllm.EmbeddingResponse)
 
         request_body = json.loads(mock_post.call_args.kwargs.get("data", "{}"))
         assert "embedding_types" in request_body
@@ -1350,13 +1350,13 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
     import boto3
     from botocore.exceptions import ClientError
 
-    from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+    from hangarllm.llms.bedrock.embed.embedding import BedrockEmbedding
 
     monkeypatch.delenv("AWS_EXTERNAL_ID", raising=False)
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-embed":
@@ -1377,8 +1377,8 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
         "aws_access_key_id": "AKIAEMBEDCALLERKEY",
         "aws_secret_access_key": "pod-caller-secret",
         "aws_region_name": "us-east-1",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-embed-role",
-        "aws_session_name": "litellm-embed-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-embed-role",
+        "aws_session_name": "hangarllm-embed-session",
         "aws_external_id": "external-id-embed",
     }
 
@@ -1405,7 +1405,7 @@ def test_embedding_session_tags_sign_the_request_and_stay_out_of_the_body(monkey
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -1430,15 +1430,15 @@ def test_embedding_session_tags_sign_the_request_and_stay_out_of_the_body(monkey
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="bedrock/amazon.titan-embed-text-v1",
             input=test_input,
             client=client,
             aws_region_name="us-east-1",
             aws_access_key_id="AKIAEMBEDCALLERKEY",
             aws_secret_access_key="pod-caller-secret",
-            aws_role_name="arn:aws:iam::999999999999:role/litellm-embed-role",
-            aws_session_name="litellm-embed-session",
+            aws_role_name="arn:aws:iam::999999999999:role/hangarllm-embed-role",
+            aws_session_name="hangarllm-embed-session",
             aws_session_tags=tags,
         )
 
@@ -1462,12 +1462,12 @@ def test_bedrock_embedding_bearer_token_never_runs_the_sigv4_credential_chain(mo
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="bedrock/amazon.titan-embed-text-v1",
             input=test_input,
             client=client,
             aws_region_name="us-west-2",
-            aws_profile_name="litellm-no-such-aws-profile",
+            aws_profile_name="hangarllm-no-such-aws-profile",
         )
 
     assert response.data[0]["embedding"] == titan_embedding_response["embedding"]
@@ -1563,7 +1563,7 @@ def test_marengo_3_embedding_sends_the_nested_payload_and_parses_512_dims(
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=model,
             input="a duck on water",
             client=client,
@@ -1591,7 +1591,7 @@ def test_marengo_3_image_embedding_sends_the_media_under_the_image_key():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="bedrock/us.twelvelabs.marengo-embed-3-0-v1:0",
             input=MARENGO_3_DUCK,
             client=client,
@@ -1620,7 +1620,7 @@ def test_marengo_2_7_embedding_keeps_the_flat_payload():
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="bedrock/us.twelvelabs.marengo-embed-2-7-v1:0",
             input="a duck on water",
             client=client,
@@ -1681,8 +1681,8 @@ def test_marengo_response_items_without_an_embedding_are_skipped():
 
 
 def test_marengo_3_text_image_without_media_source_is_a_bad_request():
-    with pytest.raises(litellm.BadRequestError, match=r"text_image.*media_source"):
-        litellm.embedding(
+    with pytest.raises(hangarllm.BadRequestError, match=r"text_image.*media_source"):
+        hangarllm.embedding(
             model="bedrock/us.twelvelabs.marengo-embed-3-0-v1:0",
             input="a duck on water",
             aws_region_name="us-east-1",
@@ -1697,7 +1697,7 @@ def test_marengo_3_text_image_without_media_source_is_a_bad_request():
 async def test_marengo_text_embedding_calls_bedrock_and_parses_vector(
     respx_mock: respx.Router, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post(
         "https://bedrock-runtime.us-west-2.amazonaws.com/model/us.twelvelabs.marengo-embed-2-7-v1%3A0/invoke"
     ).mock(
@@ -1715,21 +1715,21 @@ async def test_marengo_text_embedding_calls_bedrock_and_parses_vector(
 
     embedding_kwargs: Final = {
         "model": "bedrock/us.twelvelabs.marengo-embed-2-7-v1:0",
-        "input": ["Hello world from LiteLLM with TwelveLabs Marengo!"],
+        "input": ["Hello world from HangarLLM with TwelveLabs Marengo!"],
         "aws_access_key_id": "AKIAEMBEDDINGKEY",
         "aws_secret_access_key": "embedding-secret",
         "aws_region_name": "us-west-2",
         "timeout": 7.0,
     }
     response: Final = (
-        litellm.embedding(**embedding_kwargs) if sync_mode else await litellm.aembedding(**embedding_kwargs)
+        hangarllm.embedding(**embedding_kwargs) if sync_mode else await hangarllm.aembedding(**embedding_kwargs)
     )
 
     assert route.calls[0].request.url.path == "/model/us.twelvelabs.marengo-embed-2-7-v1:0/invoke"
     assert route.calls[0].request.extensions["timeout"] == {"connect": 7.0, "read": 7.0, "write": 7.0, "pool": 7.0}
     assert json.loads(route.calls[0].request.content) == {
         "inputType": "text",
-        "inputText": "Hello world from LiteLLM with TwelveLabs Marengo!",
+        "inputText": "Hello world from HangarLLM with TwelveLabs Marengo!",
         "textTruncate": "end",
     }
     assert response.data[0]["embedding"] == [0.2, 0.4, 0.6]
@@ -1760,7 +1760,7 @@ def test_marengo_text_embedding_resolves_region_from_env(
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="bedrock/us.twelvelabs.marengo-embed-2-7-v1:0",
         input=["Hello world"],
         aws_access_key_id="AKIAEMBEDDINGKEY",
@@ -1789,7 +1789,7 @@ def test_marengo_image_embedding_sends_media_source_and_parses_vector(respx_mock
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="bedrock/us.twelvelabs.marengo-embed-2-7-v1:0",
         input=["data:image/png;base64,ZHVjaw=="],
         input_type="image",
@@ -1846,7 +1846,7 @@ def test_marengo_image_embedding_sends_media_source_and_parses_vector(respx_mock
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_bedrock_embedding_models(model, input_type, embed_response):
     """Test embedding functionality for all Bedrock models with different input types"""
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     client = HTTPHandler()
 
     with patch.object(client, "post") as mock_post:
@@ -1859,11 +1859,11 @@ def test_bedrock_embedding_models(model, input_type, embed_response):
 
         # Prepare input based on type
         input_data = (
-            img_base_64 if input_type == "image" else "Hello world from litellm"
+            img_base_64 if input_type == "image" else "Hello world from hangarllm"
         )
 
         try:
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model=model,
                 input=input_data,
                 client=client,
@@ -1872,7 +1872,7 @@ def test_bedrock_embedding_models(model, input_type, embed_response):
             )
 
             # Verify response structure
-            assert isinstance(response, litellm.EmbeddingResponse)
+            assert isinstance(response, hangarllm.EmbeddingResponse)
             print(response.data)
             assert isinstance(response.data[0]["embedding"], list)
             assert len(response.data[0]["embedding"]) == 3  # Based on mock response
@@ -1900,19 +1900,19 @@ def test_e2e_bedrock_async_invoke_embedding_twelvelabs_marengo():
     print("Testing async invoke embedding...")
     original_region_name = os.environ.get("AWS_REGION_NAME")
     os.environ["AWS_REGION_NAME"] = "us-east-1"
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     # Mock the HTTP call to return async invoke response
     with patch(
-        "litellm.llms.bedrock.embed.embedding.BedrockEmbedding._make_sync_call"
+        "hangarllm.llms.bedrock.embed.embedding.BedrockEmbedding._make_sync_call"
     ) as mock_call:
         mock_call.return_value = {
             "invocationArn": "arn:aws:bedrock:us-east-1:123456789012:async-invoke/test-job-123"
         }
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model="bedrock/async_invoke/us.twelvelabs.marengo-embed-2-7-v1:0",
-            input=["Hello world from LiteLLM async invoke!"],
+            input=["Hello world from HangarLLM async invoke!"],
             aws_region_name="us-east-1",
             inputType="text",
             output_s3_uri="s3://test-bucket/async-invoke-output/",
@@ -1920,7 +1920,7 @@ def test_e2e_bedrock_async_invoke_embedding_twelvelabs_marengo():
 
         # Validate response structure
         assert isinstance(
-            response, litellm.EmbeddingResponse
+            response, hangarllm.EmbeddingResponse
         ), "Response should be EmbeddingResponse type"
         assert hasattr(
             response, "_hidden_params"
@@ -1964,19 +1964,19 @@ async def test_e2e_bedrock_async_invoke_embedding_async_twelvelabs_marengo():
     print("Testing async invoke embedding with async calls...")
     original_region_name = os.environ.get("AWS_REGION_NAME")
     os.environ["AWS_REGION_NAME"] = "us-east-1"
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     # Mock the async HTTP call to return async invoke response
     with patch(
-        "litellm.llms.bedrock.embed.embedding.BedrockEmbedding._make_async_call"
+        "hangarllm.llms.bedrock.embed.embedding.BedrockEmbedding._make_async_call"
     ) as mock_call:
         mock_call.return_value = {
             "invocationArn": "arn:aws:bedrock:us-east-1:123456789012:async-invoke/test-async-job-456"
         }
 
-        response = await litellm.aembedding(
+        response = await hangarllm.aembedding(
             model="bedrock/async_invoke/us.twelvelabs.marengo-embed-2-7-v1:0",
-            input=["Hello world from LiteLLM async invoke async!"],
+            input=["Hello world from HangarLLM async invoke async!"],
             aws_region_name="us-east-1",
             inputType="text",
             output_s3_uri="s3://test-bucket/async-invoke-output/",
@@ -1984,7 +1984,7 @@ async def test_e2e_bedrock_async_invoke_embedding_async_twelvelabs_marengo():
 
         # Validate response structure
         assert isinstance(
-            response, litellm.EmbeddingResponse
+            response, hangarllm.EmbeddingResponse
         ), "Response should be EmbeddingResponse type"
         assert hasattr(
             response, "_hidden_params"
@@ -2015,7 +2015,7 @@ def test_bedrock_embedding_uses_correct_region_when_specified():
     Test that when aws_region_name is explicitly passed, it's used correctly
     even if AWS_REGION_NAME env var is set to a different region.
 
-    relevant issue: https://github.com/BerriAI/litellm/issues/16517
+    relevant issue: upstream issue 16517
     """
     # Save original env var
     original_region_name = os.environ.get("AWS_REGION_NAME")
@@ -2034,7 +2034,7 @@ def test_bedrock_embedding_uses_correct_region_when_specified():
             mock_post.return_value = mock_response
 
             # Call with explicit region
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="bedrock/amazon.titan-embed-image-v1",
                 input=["test input"],
                 client=client,
@@ -2069,7 +2069,7 @@ def test_bedrock_embedding_region_bug_reproduction():
     """
     Reproduces the bug where aws_region_name is ignored when passed explicitly.
 
-    relevant issue: https://github.com/BerriAI/litellm/issues/16517
+    relevant issue: upstream issue 16517
     """
     # Save original env var
     original_region_name = os.environ.get("AWS_REGION_NAME")
@@ -2088,7 +2088,7 @@ def test_bedrock_embedding_region_bug_reproduction():
             mock_post.return_value = mock_response
 
             # Call with explicit region (as in the bug report)
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="bedrock/amazon.titan-embed-image-v1",
                 input=["test input"],
                 client=client,

@@ -4,7 +4,7 @@ Registers an OpenAI deployment at runtime and drives the Responses API through
 the gateway with the real OpenAI SDK, the client customers actually use
 (LIT-4577), asserting output text came back. Malformed bodies the SDK refuses
 to build stay on the shared transport. Migrated from
-litellm-regression-tests/tests/test_inference_endpoints.py.
+hangarllm-regression-tests/tests/test_inference_endpoints.py.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from e2e_config import PROVIDER_EDGE_ADVERTISE_HOST, PROVIDER_EDGE_BIND_HOST, un
 from e2e_http import assert_client_error
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, LiteLLMParamsBody
+from models import ChatBody, ChatMessage, HangarLLMParamsBody
 from openai.types.responses import (
     FunctionShellToolParam,
     FunctionToolParam,
@@ -103,20 +103,20 @@ class ResponseUsageCost(BaseModel):
     cost: float | None = None
 
 
-def _openai_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=OPENAI_MINI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+def _openai_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=OPENAI_MINI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
 
 
-def _openai_responses_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=OPENAI_RESPONSES_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+def _openai_responses_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=OPENAI_RESPONSES_BACKEND, api_key="os.environ/OPENAI_API_KEY")
 
 
-def _anthropic_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=ANTHROPIC_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY")
+def _anthropic_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=ANTHROPIC_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY")
 
 
-def _bedrock_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _bedrock_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=BEDROCK_CONVERSE_BACKEND,
         aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -124,20 +124,20 @@ def _bedrock_params() -> LiteLLMParamsBody:
     )
 
 
-def _vertex_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _vertex_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=VERTEX_BACKEND,
         vertex_project="os.environ/VERTEXAI_PROJECT",
         vertex_location="us-central1",
     )
 
 
-def _gemini_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=GEMINI_BACKEND, api_key="os.environ/GEMINI_API_KEY")
+def _gemini_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=GEMINI_BACKEND, api_key="os.environ/GEMINI_API_KEY")
 
 
 def _register(
-    proxy: ProxyClient, resources: ResourceManager, params: LiteLLMParamsBody, prefix: str = "e2e-responses"
+    proxy: ProxyClient, resources: ResourceManager, params: HangarLLMParamsBody, prefix: str = "e2e-responses"
 ) -> str:
     model = f"{prefix}-{unique_marker()}"
     model_id = proxy.create_model(model, params)
@@ -403,7 +403,7 @@ class TestResponses:
         )
         response = raw.parse()
         assert response.output_text.strip(), f"/responses returned no output text: {response.output!r}"
-        assert raw.headers.get("x-litellm-call-id") and response.id, (
+        assert raw.headers.get("x-hangarllm-call-id") and response.id, (
             f"missing response identifiers: id={response.id!r}, headers={dict(raw.headers)}"
         )
 
@@ -458,7 +458,7 @@ class TestResponses:
         model = _register(
             proxy,
             resources,
-            LiteLLMParamsBody(model=OPENAI_VISION_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model=OPENAI_VISION_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
         )
         client = sdk.openai(resources.key())
 
@@ -1016,7 +1016,7 @@ class TestResponses:
         model: Final = f"e2e-responses-{unique_marker()}"
         model_id: Final = proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=BEDROCK_CONVERSE_BACKEND,
                 api_base=edge.edge.api_base(BEDROCK_EDGE_MOUNT),
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
@@ -1174,7 +1174,7 @@ class TestResponsesOpenAIHostedFeatures:
         model = _register(
             proxy,
             resources,
-            LiteLLMParamsBody(model=REASONING_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model=REASONING_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
             prefix="e2e-responses-reasoning",
         )
         client = sdk.openai(resources.key())
@@ -1237,7 +1237,7 @@ class TestResponsesOpenAIHostedFeatures:
         model = _register(
             proxy,
             resources,
-            LiteLLMParamsBody(model=SHELL_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model=SHELL_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
             prefix="e2e-responses-shell",
         )
         client = sdk.openai(resources.key())

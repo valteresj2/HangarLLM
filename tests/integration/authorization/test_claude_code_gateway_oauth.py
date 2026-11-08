@@ -90,7 +90,7 @@ def _identity_provider(request: Request) -> Reply:
         callback: Final = query["redirect_uri"][0]
         assert urlsplit(callback).path == "/sso/callback", query
         state: Final = query["state"][0]
-        assert state.startswith("litellm-session-token:"), query
+        assert state.startswith("hangarllm-session-token:"), query
         location: Final = f"{callback}?{urlencode({'code': _AUTHORIZATION_CODE, 'state': state})}"
         return Reply(status=302, headers={"location": location})
 
@@ -142,7 +142,7 @@ def identity_provider() -> Iterator[Wire]:
 
 @pytest.fixture(scope="module")
 def enabled_gateway(identity_provider: Wire, tmp_path_factory: pytest.TempPathFactory) -> Iterator[Gateway]:
-    assert os.environ.get("LITELLM_LICENSE"), "LITELLM_LICENSE is required for the generic SSO integration test"
+    assert os.environ.get("HANGARLLM_LICENSE"), "HANGARLLM_LICENSE is required for the generic SSO integration test"
     with gateway_from_environment() as base_gateway:
         directory: Final = tmp_path_factory.mktemp("claude-code-gateway-oauth")
         config: Final = _owned_config(directory / "gateway-oauth.yaml")
@@ -215,7 +215,7 @@ def test_device_authorization_polls_complete_sso_and_mints_a_model_restricted_be
             verification_parts: Final = urlsplit(authorization.verification_uri)
             assert verification_parts.path == "/sso/key/generate", authorization.verification_uri
             verification_query: Final = parse_qs(verification_parts.query)
-            assert verification_query == {"source": ["litellm-cli"], "key": [login_id]}, authorization.verification_uri
+            assert verification_query == {"source": ["hangarllm-cli"], "key": [login_id]}, authorization.verification_uri
 
             pending: Final = enabled_gateway.client.post(
                 "/claude_code_gateway/oauth/token",
@@ -246,10 +246,10 @@ def test_device_authorization_polls_complete_sso_and_mints_a_model_restricted_be
                 follow_redirects=False,
             )
             assert verification_response.status_code == 303, verification_response.text
-            assert "litellm_oauth_state" in verification_response.headers.get("set-cookie", ""), (
+            assert "hangarllm_oauth_state" in verification_response.headers.get("set-cookie", ""), (
                 verification_response.headers,
             )
-            browser_state: Final = enabled_gateway.client.cookies.get("litellm_oauth_state")
+            browser_state: Final = enabled_gateway.client.cookies.get("hangarllm_oauth_state")
             assert browser_state, verification_response.headers
 
             identity_provider_response: Final = enabled_gateway.client.get(
@@ -481,7 +481,7 @@ def test_device_authorization_polls_complete_sso_and_mints_a_model_restricted_be
                         f"The requested model '{model_b}' is not available for this API key, or the model name is "
                         "invalid. Check the models available to you and try again."
                     ),
-                    "litellm_error_type": "team_model_access_denied",
+                    "hangarllm_error_type": "team_model_access_denied",
                 },
             }, model_b_response.text
             assert upstream.drain() == ()
@@ -500,7 +500,7 @@ def test_device_authorization_polls_complete_sso_and_mints_a_model_restricted_be
 
             spend_rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT request_id, "user", team_id, model_group, call_type FROM "LiteLLM_SpendLogs" '
+                    'SELECT request_id, "user", team_id, model_group, call_type FROM "HangarLLM_SpendLogs" '
                     "WHERE team_id=%s AND status='success' ORDER BY \"startTime\"",
                     (team_id,),
                 ),
@@ -652,7 +652,7 @@ def test_gateway_login_lists_and_defaults_to_the_first_team_on_the_user_record_a
                 "/team/member_add", {"team_id": team_id, "member": {"role": "user", "user_id": user_id}}
             )
         enabled_gateway.post("/team/update", {"team_id": first_team, "metadata": {"updated_by_run": run_id}})
-        assert enabled_gateway.rows('SELECT teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,)) == [
+        assert enabled_gateway.rows('SELECT teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,)) == [
             {"teams": [first_team, second_team]}
         ]
 

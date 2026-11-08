@@ -3,13 +3,13 @@ Tests for the Prometheus rate-limit labels added on top of PR #27687.
 
 Covers two follow-up gaps to the unified rate-limit error work:
 
-1. ``litellm_proxy_failed_requests_metric`` now carries
+1. ``hangarllm_proxy_failed_requests_metric`` now carries
    ``rate_limit_category`` and ``rate_limit_type`` labels populated from
-   :class:`litellm.RateLimitError` (vendor + ``ProxyRateLimitError``
+   :class:`hangarllm.RateLimitError` (vendor + ``ProxyRateLimitError``
    subclass). Closes the Prometheus side of LIT-2718.
 2. ``_get_exception_class_name`` keeps emitting the literal string
    ``"HTTPException"`` for ``ProxyRateLimitError`` so existing dashboards
-   that key off ``exception_class="HTTPException"`` for litellm-internal
+   that key off ``exception_class="HTTPException"`` for hangarllm-internal
    429s don't silently break when the new class lands.
 """
 
@@ -17,18 +17,18 @@ from collections.abc import Mapping
 from typing import Final, get_args
 from unittest.mock import MagicMock, patch
 
-import litellm
+import hangarllm
 import pytest
 
-from litellm.exceptions import (
+from hangarllm.exceptions import (
     RateLimitError,
     RateLimitErrorCategory,
     RateLimitType,
 )
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.types.integrations.prometheus import (
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from hangarllm.types.integrations.prometheus import (
     DEFINED_PROMETHEUS_METRICS,
     PrometheusMetricLabels,
     UserAPIKeyLabelNames,
@@ -47,13 +47,13 @@ def test_should_register_rate_limit_label_names_on_enum():
 
 
 def test_should_include_rate_limit_labels_on_failed_requests_metric():
-    import litellm
+    import hangarllm
 
-    original = litellm.prometheus_emit_rate_limit_labels
+    original = hangarllm.prometheus_emit_rate_limit_labels
     try:
-        litellm.prometheus_emit_rate_limit_labels = True
+        hangarllm.prometheus_emit_rate_limit_labels = True
         labels = PrometheusMetricLabels.get_labels(
-            "litellm_proxy_failed_requests_metric"
+            "hangarllm_proxy_failed_requests_metric"
         )
         assert "rate_limit_category" in labels
         assert "rate_limit_type" in labels
@@ -61,17 +61,17 @@ def test_should_include_rate_limit_labels_on_failed_requests_metric():
         assert "exception_class" in labels
         assert "exception_status" in labels
     finally:
-        litellm.prometheus_emit_rate_limit_labels = original
+        hangarllm.prometheus_emit_rate_limit_labels = original
 
 
 def test_should_omit_rate_limit_labels_by_default_for_back_compat():
     """Default-off preserves the metric's historical label set so existing
-    dashboards / recording rules keyed on `litellm_proxy_failed_requests_metric`
+    dashboards / recording rules keyed on `hangarllm_proxy_failed_requests_metric`
     keep matching after upgrade."""
-    import litellm
+    import hangarllm
 
-    assert litellm.prometheus_emit_rate_limit_labels is False
-    labels = PrometheusMetricLabels.get_labels("litellm_proxy_failed_requests_metric")
+    assert hangarllm.prometheus_emit_rate_limit_labels is False
+    labels = PrometheusMetricLabels.get_labels("hangarllm_proxy_failed_requests_metric")
     assert "rate_limit_category" not in labels
     assert "rate_limit_type" not in labels
     # Pre-PR labels must still be present.
@@ -81,10 +81,10 @@ def test_should_omit_rate_limit_labels_by_default_for_back_compat():
 
 def test_should_accept_rate_limit_fields_on_user_api_key_label_values():
     enum_values = UserAPIKeyLabelValues(
-        rate_limit_category="litellm_rate_limit",
+        rate_limit_category="hangarllm_rate_limit",
         rate_limit_type="requests",
     )
-    assert enum_values.rate_limit_category == "litellm_rate_limit"
+    assert enum_values.rate_limit_category == "hangarllm_rate_limit"
     assert enum_values.rate_limit_type == "requests"
 
 
@@ -100,14 +100,14 @@ def test_should_extract_vendor_category_for_vanilla_rate_limit_error():
     assert rate_limit_type is None
 
 
-def test_should_extract_litellm_category_and_type_for_proxy_rate_limit_error():
+def test_should_extract_hangarllm_category_and_type_for_proxy_rate_limit_error():
     err = ProxyRateLimitError(
         detail={"error": "tpm exceeded"},
-        category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+        category=RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
         rate_limit_type=RateLimitType.TOKENS,
     )
     category, rate_limit_type = PrometheusLogger._extract_rate_limit_labels(err)
-    assert category == "litellm_rate_limit"
+    assert category == "hangarllm_rate_limit"
     assert rate_limit_type == "tokens"
 
 
@@ -124,15 +124,15 @@ def test_should_return_none_for_none_exception():
 
 def test_should_extract_budget_dimension_for_budget_exceeded_error():
     # Virtual-key / team / org / end-user budget caps raise
-    # `litellm.BudgetExceededError` (a bare Exception subclass), which sets
+    # `hangarllm.BudgetExceededError` (a bare Exception subclass), which sets
     # the same `.category` / `.rate_limit_type` attributes as the unified
     # RateLimitError path so Prometheus can split budget 429s from other
     # 429s without the customer parsing free-text error messages.
-    import litellm
+    import hangarllm
 
-    err = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+    err = hangarllm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
     category, rate_limit_type = PrometheusLogger._extract_rate_limit_labels(err)
-    assert category == "litellm_rate_limit"
+    assert category == "hangarllm_rate_limit"
     assert rate_limit_type == "budget"
 
 
@@ -140,39 +140,39 @@ def test_should_extract_budget_dimension_for_budget_exceeded_error():
     "category_enum,rate_limit_enum,expected_category,expected_type",
     [
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
             RateLimitType.REQUESTS,
-            "litellm_rate_limit",
+            "hangarllm_rate_limit",
             "requests",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
             RateLimitType.TOKENS,
-            "litellm_rate_limit",
+            "hangarllm_rate_limit",
             "tokens",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
             RateLimitType.CONCURRENT_REQUESTS,
-            "litellm_rate_limit",
+            "hangarllm_rate_limit",
             "concurrent_requests",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
             RateLimitType.BUDGET,
-            "litellm_rate_limit",
+            "hangarllm_rate_limit",
             "budget",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
             RateLimitType.MAX_ITERATIONS,
-            "litellm_rate_limit",
+            "hangarllm_rate_limit",
             "max_iterations",
         ),
         (
-            RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT,
+            RateLimitErrorCategory.HANGARLLM_BATCH_RATE_LIMIT,
             RateLimitType.REQUESTS,
-            "litellm_batch_rate_limit",
+            "hangarllm_batch_rate_limit",
             "requests",
         ),
     ],
@@ -198,7 +198,7 @@ def test_should_emit_legacy_http_exception_label_for_proxy_rate_limit_error():
     ``ProxyRateLimitError`` multi-inherits from ``HTTPException`` +
     ``RateLimitError``. The ``exception_class`` label MUST keep emitting
     "HTTPException" for back-compat with existing dashboards (see Slack
-    thread + PR #27687 review). Distinguishing vendor vs. litellm 429s
+    thread + PR #27687 review). Distinguishing vendor vs. hangarllm 429s
     is now the job of the new ``rate_limit_category`` label.
     """
     err = ProxyRateLimitError(detail={"error": "boom"})
@@ -231,25 +231,25 @@ async def test_should_populate_rate_limit_labels_for_proxy_rate_limit_error_on_f
     ``exception_class="HTTPException"`` for back-compat.
     """
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "hangarllm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-        logger.litellm_proxy_failed_requests_metric = MagicMock()
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.hangarllm_proxy_failed_requests_metric = MagicMock()
+        logger.hangarllm_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=PrometheusMetricLabels.get_labels(
-                "litellm_proxy_failed_requests_metric"
+                "hangarllm_proxy_failed_requests_metric"
             )
         )
 
     err = ProxyRateLimitError(
         detail={"error": "rpm exceeded"},
-        category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+        category=RateLimitErrorCategory.HANGARLLM_RATE_LIMIT,
         rate_limit_type=RateLimitType.REQUESTS,
     )
 
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "hangarllm.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
         await logger.async_post_call_failure_hook(
@@ -260,7 +260,7 @@ async def test_should_populate_rate_limit_labels_for_proxy_rate_limit_error_on_f
 
     enum_values = mock_label_factory.call_args_list[0].kwargs["enum_values"]
     assert isinstance(enum_values, UserAPIKeyLabelValues)
-    assert enum_values.rate_limit_category == "litellm_rate_limit"
+    assert enum_values.rate_limit_category == "hangarllm_rate_limit"
     assert enum_values.rate_limit_type == "requests"
     # Back-compat: exception_class on a ProxyRateLimitError stays "HTTPException".
     assert enum_values.exception_class == "HTTPException"
@@ -270,21 +270,21 @@ async def test_should_populate_rate_limit_labels_for_proxy_rate_limit_error_on_f
 @pytest.mark.asyncio
 async def test_should_populate_rate_limit_labels_for_vendor_rate_limit_error_on_failure_hook():
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "hangarllm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-        logger.litellm_proxy_failed_requests_metric = MagicMock()
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.hangarllm_proxy_failed_requests_metric = MagicMock()
+        logger.hangarllm_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=PrometheusMetricLabels.get_labels(
-                "litellm_proxy_failed_requests_metric"
+                "hangarllm_proxy_failed_requests_metric"
             )
         )
 
     err = RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o")
 
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "hangarllm.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
         await logger.async_post_call_failure_hook(
@@ -305,19 +305,19 @@ async def test_should_populate_rate_limit_labels_for_vendor_rate_limit_error_on_
 @pytest.mark.asyncio
 async def test_should_leave_rate_limit_labels_blank_for_non_rate_limit_failure():
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "hangarllm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-        logger.litellm_proxy_failed_requests_metric = MagicMock()
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.hangarllm_proxy_failed_requests_metric = MagicMock()
+        logger.hangarllm_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=PrometheusMetricLabels.get_labels(
-                "litellm_proxy_failed_requests_metric"
+                "hangarllm_proxy_failed_requests_metric"
             )
         )
 
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "hangarllm.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
         await logger.async_post_call_failure_hook(
@@ -334,18 +334,18 @@ async def test_should_leave_rate_limit_labels_blank_for_non_rate_limit_failure()
 
 def _logger_with_mock_virtual_key_gauges() -> PrometheusLogger:
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "hangarllm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-    logger.litellm_remaining_api_key_requests_for_model = MagicMock()
-    logger.litellm_remaining_api_key_tokens_for_model = MagicMock()
+    logger.hangarllm_remaining_api_key_requests_for_model = MagicMock()
+    logger.hangarllm_remaining_api_key_tokens_for_model = MagicMock()
     logger.get_labels_for_metric = MagicMock(return_value=[])
     return logger
 
 
 def _kwargs_with_v3_rate_limit_headers(additional_headers: dict) -> dict:
     return {
-        "litellm_params": {"metadata": {"model_group": "gpt-4o-mini"}},
+        "hangarllm_params": {"metadata": {"model_group": "gpt-4o-mini"}},
         "standard_logging_object": {
             "metadata": {},
             "hidden_params": {"additional_headers": additional_headers},
@@ -358,7 +358,7 @@ def _set_virtual_key_metrics(logger: PrometheusLogger, kwargs: dict) -> None:
         user_api_key="test-hash",
         user_api_key_alias="test-alias",
         kwargs=kwargs,
-        metadata=kwargs["litellm_params"]["metadata"],
+        metadata=kwargs["hangarllm_params"]["metadata"],
         model_id="model-123",
     )
 
@@ -369,7 +369,7 @@ def test_should_read_v3_remaining_headers_when_metadata_keys_absent():
     per-(key, model) values into
     ``standard_logging_object.hidden_params.additional_headers`` as
     ``x-ratelimit-model_per_key-remaining-{requests,tokens}`` and never sets
-    the legacy ``litellm-key-remaining-*`` metadata keys, so the gauges were
+    the legacy ``hangarllm-key-remaining-*`` metadata keys, so the gauges were
     pinned to ``sys.maxsize``.
     """
     logger = _logger_with_mock_virtual_key_gauges()
@@ -384,10 +384,10 @@ def test_should_read_v3_remaining_headers_when_metadata_keys_absent():
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         42
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         900
     )
 
@@ -400,19 +400,19 @@ def test_should_prefer_legacy_metadata_keys_over_v3_headers():
             "x-ratelimit-model_per_key-remaining-tokens": 900,
         }
     )
-    kwargs["litellm_params"]["metadata"].update(
+    kwargs["hangarllm_params"]["metadata"].update(
         {
-            "litellm-key-remaining-requests-gpt-4o-mini": 3,
-            "litellm-key-remaining-tokens-gpt-4o-mini": 200,
+            "hangarllm-key-remaining-requests-gpt-4o-mini": 3,
+            "hangarllm-key-remaining-tokens-gpt-4o-mini": 200,
         }
     )
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         3
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         200
     )
 
@@ -428,10 +428,10 @@ def test_should_treat_zero_v3_remaining_as_zero():
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         0
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         0
     )
 
@@ -441,16 +441,16 @@ def test_should_keep_maxsize_sentinel_when_no_rate_limit_source_present():
 
     logger = _logger_with_mock_virtual_key_gauges()
     kwargs = {
-        "litellm_params": {"metadata": {"model_group": "gpt-4o-mini"}},
+        "hangarllm_params": {"metadata": {"model_group": "gpt-4o-mini"}},
         "standard_logging_object": {"metadata": {}, "hidden_params": {}},
     }
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
 
@@ -469,21 +469,21 @@ def test_should_ignore_non_int_v3_header_values(bad_value):
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.hangarllm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
 
 
 RATE_LIMIT_METRICS = (
-    "litellm_api_key_rate_limit_allowed_metric",
-    "litellm_api_key_rate_limit_used_metric",
-    "litellm_team_rate_limit_allowed_metric",
-    "litellm_team_rate_limit_used_metric",
-    "litellm_project_model_rate_limit_allowed_metric",
-    "litellm_project_model_rate_limit_used_metric",
+    "hangarllm_api_key_rate_limit_allowed_metric",
+    "hangarllm_api_key_rate_limit_used_metric",
+    "hangarllm_team_rate_limit_allowed_metric",
+    "hangarllm_team_rate_limit_used_metric",
+    "hangarllm_project_model_rate_limit_allowed_metric",
+    "hangarllm_project_model_rate_limit_used_metric",
 )
 
 
@@ -511,7 +511,7 @@ def _collected_samples(metric_name: str) -> dict[tuple[tuple[str, str], ...], fl
 def _success_kwargs_with_rate_limit_headers(additional_headers: Mapping[str, object] | None) -> dict[str, object]:
     return {
         "model": "claude-haiku-4-5",
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "standard_logging_object": {
             "id": "t",
             "call_type": "completion",
@@ -550,7 +550,7 @@ def _success_kwargs_with_rate_limit_headers(additional_headers: Mapping[str, obj
                 "usage_object": None,
             },
             "hidden_params": {
-                "litellm_overhead_time_ms": None,
+                "hangarllm_overhead_time_ms": None,
                 "additional_headers": additional_headers,
             },
         },
@@ -614,19 +614,19 @@ async def test_should_emit_key_and_team_rate_limit_allowed_and_used_from_v3_head
             ("team_alias", "team-alias"),
         )
 
-        assert _collected_samples("litellm_api_key_rate_limit_allowed_metric") == {
+        assert _collected_samples("hangarllm_api_key_rate_limit_allowed_metric") == {
             key_requests: 10,
             key_tokens: 20000,
         }
-        assert _collected_samples("litellm_api_key_rate_limit_used_metric") == {
+        assert _collected_samples("hangarllm_api_key_rate_limit_used_metric") == {
             key_requests: 3,
             key_tokens: 53,
         }
-        assert _collected_samples("litellm_team_rate_limit_allowed_metric") == {
+        assert _collected_samples("hangarllm_team_rate_limit_allowed_metric") == {
             team_requests: 50,
             team_tokens: 40000,
         }
-        assert _collected_samples("litellm_team_rate_limit_used_metric") == {
+        assert _collected_samples("hangarllm_team_rate_limit_used_metric") == {
             team_requests: 3,
             team_tokens: 40,
         }
@@ -676,22 +676,22 @@ async def test_should_emit_project_model_rate_limit_allowed_and_used_from_v3_hea
             ("requested_model", "anthropic-haiku-4-5"),
         )
 
-        assert _collected_samples("litellm_project_model_rate_limit_allowed_metric") == {
+        assert _collected_samples("hangarllm_project_model_rate_limit_allowed_metric") == {
             project_requests: 100,
             project_tokens: 10000,
             project_input_tokens: 2000,
             project_output_tokens: 3000,
         }
-        assert _collected_samples("litellm_project_model_rate_limit_used_metric") == {
+        assert _collected_samples("hangarllm_project_model_rate_limit_used_metric") == {
             project_requests: 1,
             project_tokens: 50,
             project_input_tokens: 100,
             project_output_tokens: 250,
         }
-        assert _collected_samples("litellm_api_key_rate_limit_allowed_metric") == {}
-        assert _collected_samples("litellm_api_key_rate_limit_used_metric") == {}
-        assert _collected_samples("litellm_team_rate_limit_allowed_metric") == {}
-        assert _collected_samples("litellm_team_rate_limit_used_metric") == {}
+        assert _collected_samples("hangarllm_api_key_rate_limit_allowed_metric") == {}
+        assert _collected_samples("hangarllm_api_key_rate_limit_used_metric") == {}
+        assert _collected_samples("hangarllm_team_rate_limit_allowed_metric") == {}
+        assert _collected_samples("hangarllm_team_rate_limit_used_metric") == {}
     finally:
         _clear_prometheus_registry()
 
@@ -717,10 +717,10 @@ async def test_should_emit_only_the_dimensions_the_limiter_enforced():
             ("hashed_api_key", "key-hash"),
             ("rate_limit_type", "requests"),
         )
-        assert _collected_samples("litellm_api_key_rate_limit_allowed_metric") == {key_requests: 10}
-        assert _collected_samples("litellm_api_key_rate_limit_used_metric") == {key_requests: 0}
-        assert _collected_samples("litellm_team_rate_limit_allowed_metric") == {}
-        assert _collected_samples("litellm_team_rate_limit_used_metric") == {}
+        assert _collected_samples("hangarllm_api_key_rate_limit_allowed_metric") == {key_requests: 10}
+        assert _collected_samples("hangarllm_api_key_rate_limit_used_metric") == {key_requests: 0}
+        assert _collected_samples("hangarllm_team_rate_limit_allowed_metric") == {}
+        assert _collected_samples("hangarllm_team_rate_limit_used_metric") == {}
     finally:
         _clear_prometheus_registry()
 
@@ -762,10 +762,10 @@ async def test_should_drop_key_and_team_series_once_the_limiter_stops_reporting_
             ("team", "team-id"),
             ("team_alias", "team-alias"),
         )
-        assert _collected_samples("litellm_api_key_rate_limit_allowed_metric") == {}
-        assert _collected_samples("litellm_api_key_rate_limit_used_metric") == {}
-        assert _collected_samples("litellm_team_rate_limit_allowed_metric") == {team_requests: 50}
-        assert _collected_samples("litellm_team_rate_limit_used_metric") == {team_requests: 4}
+        assert _collected_samples("hangarllm_api_key_rate_limit_allowed_metric") == {}
+        assert _collected_samples("hangarllm_api_key_rate_limit_used_metric") == {}
+        assert _collected_samples("hangarllm_team_rate_limit_allowed_metric") == {team_requests: 50}
+        assert _collected_samples("hangarllm_team_rate_limit_used_metric") == {team_requests: 4}
     finally:
         _clear_prometheus_registry()
 
@@ -802,10 +802,10 @@ async def test_should_drop_project_model_series_once_the_limiter_stops_reporting
             ("rate_limit_type", "requests"),
             ("requested_model", "anthropic-haiku-4-5"),
         )
-        assert _collected_samples("litellm_project_model_rate_limit_allowed_metric") == {
+        assert _collected_samples("hangarllm_project_model_rate_limit_allowed_metric") == {
             project_requests: 100,
         }
-        assert _collected_samples("litellm_project_model_rate_limit_used_metric") == {
+        assert _collected_samples("hangarllm_project_model_rate_limit_used_metric") == {
             project_requests: 4,
         }
     finally:
@@ -814,8 +814,8 @@ async def test_should_drop_project_model_series_once_the_limiter_stops_reporting
 
 @pytest.mark.asyncio
 async def test_project_model_rate_limit_allowed_uses_same_custom_project_alias_label_as_requests() -> None:
-    original_custom_labels: Final = litellm.custom_prometheus_metadata_labels
-    litellm.custom_prometheus_metadata_labels = ["metadata.user_api_key_project_alias"]
+    original_custom_labels: Final = hangarllm.custom_prometheus_metadata_labels
+    hangarllm.custom_prometheus_metadata_labels = ["metadata.user_api_key_project_alias"]
     _clear_prometheus_registry()
     try:
         logger: Final = PrometheusLogger()
@@ -827,8 +827,8 @@ async def test_project_model_rate_limit_allowed_uses_same_custom_project_alias_l
             logger=logger,
         )
 
-        allowed_samples: Final = _collected_samples("litellm_project_model_rate_limit_allowed_metric")
-        request_samples: Final = _collected_samples("litellm_proxy_total_requests_metric_total")
+        allowed_samples: Final = _collected_samples("hangarllm_project_model_rate_limit_allowed_metric")
+        request_samples: Final = _collected_samples("hangarllm_proxy_total_requests_metric_total")
         assert len(allowed_samples) == 1
         assert len(request_samples) == 1
         allowed_labels: Final = dict(next(iter(allowed_samples)))
@@ -839,7 +839,7 @@ async def test_project_model_rate_limit_allowed_uses_same_custom_project_alias_l
             == request_labels["metadata_user_api_key_project_alias"]
         )
     finally:
-        litellm.custom_prometheus_metadata_labels = original_custom_labels
+        hangarllm.custom_prometheus_metadata_labels = original_custom_labels
         _clear_prometheus_registry()
 
 
@@ -847,7 +847,7 @@ async def test_project_model_rate_limit_allowed_uses_same_custom_project_alias_l
 async def test_project_alias_custom_label_keeps_project_gauges_and_total_requests_recording(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "custom_prometheus_metadata_labels", ["project_alias"])
+    monkeypatch.setattr(hangarllm, "custom_prometheus_metadata_labels", ["project_alias"])
     _clear_prometheus_registry()
     try:
         await _run_success_event(
@@ -863,9 +863,9 @@ async def test_project_alias_custom_label_keeps_project_gauges_and_total_request
             ("rate_limit_type", "requests"),
             ("requested_model", "anthropic-haiku-4-5"),
         )
-        assert _collected_samples("litellm_project_model_rate_limit_allowed_metric") == {project_requests: 100}
-        assert _collected_samples("litellm_project_model_rate_limit_used_metric") == {project_requests: 1}
-        request_samples: Final = _collected_samples("litellm_proxy_total_requests_metric_total")
+        assert _collected_samples("hangarllm_project_model_rate_limit_allowed_metric") == {project_requests: 100}
+        assert _collected_samples("hangarllm_project_model_rate_limit_used_metric") == {project_requests: 1}
+        request_samples: Final = _collected_samples("hangarllm_proxy_total_requests_metric_total")
         assert [dict(labels)["project_alias"] for labels in request_samples] == ["project-alias"], request_samples
     finally:
         _clear_prometheus_registry()
@@ -875,7 +875,7 @@ def test_custom_metadata_labels_sharing_a_built_in_label_name_are_declared_once_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm, "custom_prometheus_metadata_labels", ["metadata.department", "team", "project_alias", "requested_model"]
+        hangarllm, "custom_prometheus_metadata_labels", ["metadata.department", "team", "project_alias", "requested_model"]
     )
     declared: Final = {
         name: PrometheusMetricLabels.get_labels(name)

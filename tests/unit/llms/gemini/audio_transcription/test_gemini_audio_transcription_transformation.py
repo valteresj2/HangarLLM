@@ -6,13 +6,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.gemini.audio_transcription.transformation import (
+import hangarllm
+from hangarllm.llms.gemini.audio_transcription.transformation import (
     GeminiAudioTranscriptionConfig,
 )
-from litellm.llms.gemini.common_utils import GeminiError
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.gemini.common_utils import GeminiError
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 AUDIO_BYTES = b"RIFF....WAVEfmt fake-wav-bytes"
 
@@ -81,7 +81,7 @@ class TestValidateEnvironment:
             model="gemini-3.5-transcribe",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="test-key",
         )
         assert headers["x-goog-api-key"] == "test-key"
@@ -97,7 +97,7 @@ class TestValidateEnvironment:
                 model="gemini-3.5-transcribe",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
         assert excinfo.value.status_code == 401
 
@@ -109,7 +109,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="gemini-3.5-transcribe",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "https://generativelanguage.googleapis.com/v1beta/interactions"
 
@@ -119,7 +119,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="gemini-3.5-transcribe",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == "http://localhost:8080/v1beta/interactions"
 
@@ -130,7 +130,7 @@ class TestTransformRequest:
             model="gemini/gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert request_data.files is None
         assert json.loads(json.dumps(request_data.data)) == {
@@ -149,7 +149,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"language": "en"},
-            litellm_params={},
+            hangarllm_params={},
         )
         transcription_config = request_data.data["generation_config"]["transcription_config"]
         assert json.loads(json.dumps(transcription_config)) == {"language_codes": ["en-US"]}
@@ -159,7 +159,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"timestamp_granularities": ["word"]},
-            litellm_params={},
+            hangarllm_params={},
         )
         transcription_config = request_data.data["generation_config"]["transcription_config"]
         assert json.loads(json.dumps(transcription_config)) == {
@@ -176,7 +176,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"response_format": response_format},
-            litellm_params={},
+            hangarllm_params={},
         )
         transcription_config = request_data.data["generation_config"]["transcription_config"]
         assert json.loads(json.dumps(transcription_config)) == {
@@ -193,7 +193,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"response_format": response_format},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "generation_config" not in request_data.data
 
@@ -202,7 +202,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"response_format": {"type": "json_object"}},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "generation_config" not in request_data.data
 
@@ -211,7 +211,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"timestamp_granularities": ["segment"]},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert "generation_config" not in request_data.data
 
@@ -270,12 +270,12 @@ class TestTransformResponse:
 class TestNonCompletedInteractionThroughRouter:
     @pytest.fixture
     def router(self, monkeypatch):
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        return litellm.Router(
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        return hangarllm.Router(
             model_list=[
                 {
                     "model_name": "transcribe",
-                    "litellm_params": {"model": "gemini/gemini-3.5-transcribe", "api_key": "test-gemini-key"},
+                    "hangarllm_params": {"model": "gemini/gemini-3.5-transcribe", "api_key": "test-gemini-key"},
                 }
             ],
             num_retries=2,
@@ -307,7 +307,7 @@ class TestNonCompletedInteractionThroughRouter:
         route = respx.post("https://generativelanguage.googleapis.com/v1beta/interactions").mock(
             return_value=httpx.Response(200, json=self._interaction(status))
         )
-        with pytest.raises(litellm.APIConnectionError) as excinfo:
+        with pytest.raises(hangarllm.APIConnectionError) as excinfo:
             await router.atranscription(model="transcribe", file=("call.wav", AUDIO_BYTES, "audio/wav"))
         assert route.call_count == 3
         assert f"status={status}" in str(excinfo.value)
@@ -321,7 +321,7 @@ class TestNonCompletedInteractionThroughRouter:
         respx.post("https://generativelanguage.googleapis.com/v1beta/interactions").mock(
             return_value=httpx.Response(200, json=payload)
         )
-        with pytest.raises(litellm.APIConnectionError) as excinfo:
+        with pytest.raises(hangarllm.APIConnectionError) as excinfo:
             await router.atranscription(model="transcribe", file=("call.wav", AUDIO_BYTES, "audio/wav"))
         assert "sensitive transcript text" not in "".join(traceback.format_exception(excinfo.value))
 
@@ -330,8 +330,8 @@ class TestSubtitleSynthesisThroughHandler:
     def _transform(self, config, response_format):
         from unittest.mock import Mock
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-        from litellm.types.utils import TranscriptionResponse
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.types.utils import TranscriptionResponse
 
         return BaseLLMHTTPHandler()._transform_audio_transcription_response(
             provider_config=config,
@@ -377,5 +377,5 @@ class TestSubtitleSynthesisThroughHandler:
 class TestCostRegression:
     @pytest.fixture
     def local_cost_map(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+        monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))

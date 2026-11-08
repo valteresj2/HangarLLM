@@ -39,7 +39,7 @@ from lint_base_counts import (
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 STRICT_CONFIG: Final = REPO_ROOT / "ruff-strict.toml"
 BASE_CONFIG: Final = REPO_ROOT / "ruff.toml"
-TARGET: Final = "litellm"
+TARGET: Final = "hangarllm"
 
 _HUNK: Final = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 

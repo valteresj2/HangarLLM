@@ -17,8 +17,8 @@ import psycopg
 import pytest
 from pydantic import TypeAdapter
 
-WRITER_ROLE: Final = "litellm_writer"
-READER_ROLE: Final = "litellm_reader"
+WRITER_ROLE: Final = "hangarllm_writer"
+READER_ROLE: Final = "hangarllm_reader"
 ROLES: Final = (READER_ROLE, WRITER_ROLE)
 DATABASE_NAME: Final = "circle_test"
 WORKER_DATABASE_PREFIX: Final = "integration_worker"

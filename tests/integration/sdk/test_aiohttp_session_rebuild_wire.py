@@ -40,7 +40,7 @@ REBUILT_SESSION_EXCHANGE: Final = textwrap.dedent(
     """
     import asyncio, json, sys
     from aiohttp import ClientSession
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     async def main(base_url: str, idle_seconds: float) -> None:
         shared = ClientSession()
@@ -61,8 +61,8 @@ EVICTED_CLIENTS_EXCHANGE: Final = textwrap.dedent(
     """
     import asyncio, gc, json, sys
     import psutil
-    import litellm
-    from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
+    import hangarllm
+    from hangarllm.llms.custom_httpx.aiohttp_transport import HangarLLMAiohttpTransport
 
     unclosed = []
 
@@ -71,7 +71,7 @@ EVICTED_CLIENTS_EXCHANGE: Final = textwrap.dedent(
         return sum(1 for c in connections if c.status == "ESTABLISHED" and c.raddr and c.raddr.port == port)
 
     async def one_call(base_url: str, index: int) -> None:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="openai/gpt-5.4-nano",
             api_key=f"sk-distinct-{index}",
             api_base=base_url,
@@ -80,11 +80,11 @@ EVICTED_CLIENTS_EXCHANGE: Final = textwrap.dedent(
 
     async def main(base_url: str, port: int, evicted: int) -> None:
         asyncio.get_running_loop().set_exception_handler(lambda loop, ctx: unclosed.append(ctx["message"]))
-        cache = litellm.in_memory_llm_clients_cache
+        cache = hangarllm.in_memory_llm_clients_cache
         for index in range(cache.max_size_in_memory + evicted):
             await one_call(base_url, index)
         gc.collect()
-        await asyncio.gather(*LiteLLMAiohttpTransport._background_close_tasks)
+        await asyncio.gather(*HangarLLMAiohttpTransport._background_close_tasks)
         await asyncio.sleep(0)
         print(json.dumps({
             "cache_size": cache.max_size_in_memory,

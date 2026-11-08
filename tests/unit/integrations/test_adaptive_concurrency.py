@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.integrations.adaptive_concurrency import AdaptiveConcurrencyLimiter, PutSample
+from hangarllm.integrations.adaptive_concurrency import AdaptiveConcurrencyLimiter, PutSample
 
 _real_sleep: Final = asyncio.sleep
 

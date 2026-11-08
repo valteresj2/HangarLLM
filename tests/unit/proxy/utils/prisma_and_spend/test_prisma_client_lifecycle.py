@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy.utils import _SHUTDOWN_RECONNECT_WAIT_SECONDS, PrismaClient
+from hangarllm.proxy.utils import _SHUTDOWN_RECONNECT_WAIT_SECONDS, PrismaClient
 
 
 @pytest.mark.asyncio
@@ -299,7 +299,7 @@ def test_writer_db_returns_db_when_no_routing(prisma_client: PrismaClient) -> No
 
 
 def test_writer_db_unwraps_routing_wrapper(prisma_client: PrismaClient) -> None:
-    from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+    from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
     inner_writer = MagicMock(name="WriterInsideRouter")
 
@@ -396,7 +396,7 @@ async def test_view_setup_waits_for_the_spend_logs_table_before_creating_views(p
     assert actual == {
         "outcome": "ready",
         "calls": ["probe", "probe", "probe", "row_count", "views"],
-        "probe_args": (_PROBE_SQL, '"LiteLLM_SpendLogs"'),
+        "probe_args": (_PROBE_SQL, '"HangarLLM_SpendLogs"'),
     }
 
 
@@ -404,13 +404,13 @@ async def test_view_setup_waits_for_the_spend_logs_table_before_creating_views(p
 async def test_view_setup_probe_resolves_through_the_connection_search_path(
     prisma_client: PrismaClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DATABASE_SCHEMA", "litellm_tenant")
+    monkeypatch.setenv("DATABASE_SCHEMA", "hangarllm_tenant")
     probe = AsyncMock(return_value=_present())
     _wire_view_setup(prisma_client, probe)
 
     await prisma_client._run_view_setup(poll_interval_seconds=0.001, deadline_seconds=5)
 
-    assert probe.await_args.args == (_PROBE_SQL, '"LiteLLM_SpendLogs"')
+    assert probe.await_args.args == (_PROBE_SQL, '"HangarLLM_SpendLogs"')
 
 
 @pytest.mark.asyncio
@@ -491,14 +491,14 @@ async def test_run_view_setup_logs_an_error_naming_the_table_on_timeout(
 ) -> None:
     _wire_view_setup(prisma_client, AsyncMock(return_value=_absent()))
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         outcome = await prisma_client._run_view_setup(poll_interval_seconds=0.001, deadline_seconds=0.01)
 
     errors = [record.getMessage() for record in caplog.records if record.levelno == logging.ERROR]
     actual = {
         "outcome": outcome,
         "error_count": len(errors),
-        "names_table": '"LiteLLM_SpendLogs"' in errors[0],
+        "names_table": '"HangarLLM_SpendLogs"' in errors[0],
         "tells_operator_to_migrate": "migrations" in errors[0] and "restart" in errors[0],
     }
     assert actual == {
@@ -516,7 +516,7 @@ async def test_run_view_setup_reports_the_last_error_when_views_keep_failing_on_
     _wire_view_setup(prisma_client, AsyncMock(return_value=_present()))
     prisma_client.check_view_exists.side_effect = RuntimeError("permission denied for schema public")
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         outcome = await prisma_client._run_view_setup(poll_interval_seconds=0.001, deadline_seconds=0.01)
 
     errors = [record.getMessage() for record in caplog.records if record.levelno == logging.ERROR]
@@ -542,7 +542,7 @@ async def test_run_view_setup_stays_quiet_when_views_are_ready(
 ) -> None:
     _wire_view_setup(prisma_client, AsyncMock(return_value=_present()))
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         outcome = await prisma_client._run_view_setup(poll_interval_seconds=0.001, deadline_seconds=0.01)
 
     actual = {
@@ -607,7 +607,7 @@ async def test_aclose_disconnects_and_logs_when_stopping_background_tasks_fails(
     prisma.stop_background_tasks = AsyncMock(side_effect=RuntimeError("watchdog failed"))
     prisma.disconnect = AsyncMock()
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         await PrismaClient.aclose(prisma)
 
     prisma.disconnect.assert_awaited_once()
@@ -620,7 +620,7 @@ async def test_aclose_returns_and_logs_when_disconnect_fails(caplog: pytest.LogC
     prisma.stop_background_tasks = AsyncMock()
     prisma.disconnect = AsyncMock(side_effect=RuntimeError("engine hung"))
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         await PrismaClient.aclose(prisma)
 
     prisma.stop_background_tasks.assert_awaited_once()

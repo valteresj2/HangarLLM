@@ -38,12 +38,12 @@ def output(*command: str) -> str:
 
 def record_image() -> None:
     source: Final = output("git", "rev-parse", "HEAD")
-    image: Final = output("docker", "image", "inspect", "litellm-docker-database:ci", "--format", "{{.Id}}")
+    image: Final = output("docker", "image", "inspect", "hangarllm-docker-database:ci", "--format", "{{.Id}}")
     revision: Final = output(
         "docker",
         "image",
         "inspect",
-        "litellm-docker-database:ci",
+        "hangarllm-docker-database:ci",
         "--format",
         '{{index .Config.Labels "org.opencontainers.image.revision"}}',
     )
@@ -66,7 +66,7 @@ def main() -> int:
     metadata: Final = json.loads(Path("migration-image.json").read_text())
     assert metadata["source_sha"] == output("git", "rev-parse", "HEAD"), "Image and test source revisions differ"
     assert metadata["image_id"] == output(
-        "docker", "image", "inspect", os.environ["LITELLM_MIGRATION_TEST_IMAGE"], "--format", "{{.Id}}"
+        "docker", "image", "inspect", os.environ["HANGARLLM_MIGRATION_TEST_IMAGE"], "--format", "{{.Id}}"
     ), "Loaded image differs from the build output"
     assert metadata["candidate_image"] == os.environ.get("MIGRATION_CANDIDATE_IMAGE", ""), "Wrong release candidate"
     destination: Final = Path(os.environ["MIGRATION_TEST_OUTPUT"])
@@ -95,7 +95,7 @@ def main() -> int:
             {
                 **metadata,
                 "suite": suite,
-                "baseline_image": os.environ.get("LITELLM_MIGRATION_BASELINE_IMAGE", ""),
+                "baseline_image": os.environ.get("HANGARLLM_MIGRATION_BASELINE_IMAGE", ""),
                 "expected_cases": expected,
                 "passed": passed,
                 "pytest_exit_code": result.returncode,

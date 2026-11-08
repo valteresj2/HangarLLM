@@ -1,6 +1,6 @@
 """tool_use x AWS Bedrock Mantle (GPT-5.6).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that
+Drive the real `claude` CLI against a running HangarLLM proxy that
 routes Anthropic Messages requests to OpenAI's GPT-5.6 family (Sol,
 Terra, Luna) on AWS Bedrock's Mantle endpoint, ask the model to invoke
 a built-in tool (`Bash`), and assert that a `tool_use` content block
@@ -8,7 +8,7 @@ came back over the wire.
 
 Mantle speaks the OpenAI Responses API, whose tool declarations and
 `function_call` outputs differ from both Anthropic Messages and
-chat completions; LiteLLM's `bedrock_mantle/openai.gpt-*` route
+chat completions; HangarLLM's `bedrock_mantle/openai.gpt-*` route
 translates Anthropic `tools` into Responses tool declarations and maps
 the emitted function calls back to `tool_use` blocks.
 
@@ -84,7 +84,7 @@ def _has_tool_use_event(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_tool_use_bedrock_mantle(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     tool call was emitted on the wire by each GPT-5.6 tier."""
     skip_unless_mantle_cells_enabled()
     proxy = require_proxy(compat_result)

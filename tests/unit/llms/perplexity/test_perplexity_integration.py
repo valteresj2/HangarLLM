@@ -2,7 +2,7 @@
 Integration tests for Perplexity cost calculation and transformation.
 
 Tests the end-to-end functionality of Perplexity cost calculation
-including integration with the main LiteLLM cost calculator.
+including integration with the main HangarLLM cost calculator.
 """
 
 import json
@@ -12,12 +12,12 @@ import os
 import pytest
 
 # Add the project root to Python path
-import litellm
-from litellm import ModelResponse
-from litellm.cost_calculator import cost_per_token
-from litellm.llms.perplexity.chat.transformation import PerplexityChatConfig
-from litellm.types.utils import PromptTokensDetailsWrapper, Usage
-from litellm.utils import get_model_info
+import hangarllm
+from hangarllm import ModelResponse
+from hangarllm.cost_calculator import cost_per_token
+from hangarllm.llms.perplexity.chat.transformation import PerplexityChatConfig
+from hangarllm.types.utils import PromptTokensDetailsWrapper, Usage
+from hangarllm.utils import get_model_info
 
 
 class TestPerplexityIntegration:
@@ -27,16 +27,16 @@ class TestPerplexityIntegration:
     def setup_model_cost_map(self):
         """Set up the model cost map for testing."""
         # Ensure we use local model cost map for consistent testing
-        os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+        os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
 
         # Load the model cost map
         try:
             with open("model_prices_and_context_window.json", "r") as f:
                 model_cost_map = json.load(f)
-            litellm.model_cost = model_cost_map
+            hangarllm.model_cost = model_cost_map
         except FileNotFoundError:
             # Fallback to ensure we have the Perplexity model configuration
-            litellm.model_cost = {
+            hangarllm.model_cost = {
                 "perplexity/sonar-deep-research": {
                     "max_tokens": 128000,
                     "max_input_tokens": 128000,
@@ -49,7 +49,7 @@ class TestPerplexityIntegration:
                         "search_context_size_medium": 0.005,
                         "search_context_size_high": 0.005,
                     },
-                    "litellm_provider": "perplexity",
+                    "hangarllm_provider": "perplexity",
                     "mode": "chat",
                     "supports_reasoning": True,
                     "supports_web_search": True,

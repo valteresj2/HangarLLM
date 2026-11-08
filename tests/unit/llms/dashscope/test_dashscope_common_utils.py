@@ -6,7 +6,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.dashscope.common_utils import (
+from hangarllm.llms.dashscope.common_utils import (
     DASHSCOPE_DEFAULT_ORIGIN,
     resolve_dashscope_anthropic_api_base,
     resolve_dashscope_endpoints,

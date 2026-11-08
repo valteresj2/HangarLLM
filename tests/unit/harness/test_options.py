@@ -5,7 +5,7 @@ from typing import Final, get_args
 
 import pytest
 
-from litellm.harness.options import HarnessOptions
+from hangarllm.harness.options import HarnessOptions
 
 
 @pytest.mark.parametrize("options_type", get_args(HarnessOptions), ids=lambda t: t.__name__)

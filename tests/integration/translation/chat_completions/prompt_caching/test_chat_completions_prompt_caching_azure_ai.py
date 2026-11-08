@@ -62,8 +62,8 @@ CLAUDE_HAIKU_5_5_CACHE_HIT_TEST_CASE: Final = replace(
             "inference_geo": "global",
         },
     },
-    expected_litellm_response={
-        **CLAUDE_HAIKU_5_5_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_HAIKU_5_5_TEST_CASE.expected_hangarllm_response,
         "choices": [
             {
                 "finish_reason": "tool_calls",
@@ -158,8 +158,8 @@ CLAUDE_FABLE_5_1_CACHE_HIT_TEST_CASE: Final = replace(
             "inference_geo": "not_available",
         },
     },
-    expected_litellm_response={
-        **CLAUDE_FABLE_5_1_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_FABLE_5_1_TEST_CASE.expected_hangarllm_response,
         "choices": [
             {
                 "finish_reason": "tool_calls",

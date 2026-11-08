@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm._internal_context import current_service_target
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
 
 def _admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(user_id="admin-user", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(user_id="admin-user", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 def _request() -> MagicMock:
@@ -24,8 +24,8 @@ def _request() -> MagicMock:
 @pytest.mark.asyncio
 async def test_start_rejects_non_admin(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
-    from litellm.proxy import proxy_server
-    from litellm.proxy.moyai_endpoints import MoyaiConnectStartRequest, moyai_connect_start
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.moyai_endpoints import MoyaiConnectStartRequest, moyai_connect_start
 
     monkeypatch.setattr(proxy_server, "master_key", "sk-master")
     actor = UserAPIKeyAuth(user_id="member", user_role="internal_user")
@@ -42,8 +42,8 @@ async def test_start_rejects_non_admin(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_start_requires_master_key(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
-    from litellm.proxy import proxy_server
-    from litellm.proxy.moyai_endpoints import MoyaiConnectStartRequest, moyai_connect_start
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.moyai_endpoints import MoyaiConnectStartRequest, moyai_connect_start
 
     monkeypatch.setattr(proxy_server, "master_key", None)
 
@@ -54,13 +54,13 @@ async def test_start_requires_master_key(monkeypatch: pytest.MonkeyPatch) -> Non
             _admin(),
         )
     assert exc.value.status_code == 400
-    assert "LITELLM_MASTER_KEY" in exc.value.detail
+    assert "HANGARLLM_MASTER_KEY" in exc.value.detail
 
 
 @pytest.mark.asyncio
 async def test_start_returns_connect_url_with_all_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.moyai_endpoints import MoyaiConnectStartRequest, moyai_connect_start
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.moyai_endpoints import MoyaiConnectStartRequest, moyai_connect_start
     from urllib.parse import parse_qs, urlparse
 
     monkeypatch.setattr(proxy_server, "master_key", "sk-master")
@@ -72,7 +72,7 @@ async def test_start_returns_connect_url_with_all_params(monkeypatch: pytest.Mon
     )
 
     parsed = urlparse(response.connect_url)
-    assert f"{parsed.scheme}://{parsed.netloc}{parsed.path}" == "https://moyai.example.com/connect/litellm"
+    assert f"{parsed.scheme}://{parsed.netloc}{parsed.path}" == "https://moyai.example.com/connect/hangarllm"
     params = parse_qs(parsed.query)
     assert params["gateway_url"] == ["http://localhost:4000"]
     assert params["return_to"] == ["http://localhost:3000/ui/moyai"]
@@ -80,7 +80,7 @@ async def test_start_returns_connect_url_with_all_params(monkeypatch: pytest.Mon
 
 
 async def _exchange_env(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     cache: dict = {}
 
@@ -98,8 +98,8 @@ async def _exchange_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(proxy_server, "user_api_key_cache", user_api_key_cache)
 
     prisma = MagicMock()
-    prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=SimpleNamespace(ui_settings={}))
-    prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    prisma.db.hangarllm_uisettings.find_unique = AsyncMock(return_value=SimpleNamespace(ui_settings={}))
+    prisma.db.hangarllm_verificationtoken.find_many = AsyncMock(return_value=[])
 
     claimed_nonces: set = set()
 
@@ -113,15 +113,15 @@ async def _exchange_env(monkeypatch: pytest.MonkeyPatch):
 
     nonce_create = AsyncMock(side_effect=_config_create)
     config_table = SimpleNamespace(create=nonce_create)
-    prisma.db.litellm_config = config_table
-    prisma.writer_db.litellm_config = config_table
+    prisma.db.hangarllm_config = config_table
+    prisma.writer_db.hangarllm_config = config_table
 
     persisted: dict = {}
 
     async def _upsert(where, data):
         persisted.update(json.loads(data["update"]["ui_settings"]))
 
-    prisma.db.litellm_uisettings.upsert = AsyncMock(side_effect=_upsert)
+    prisma.db.hangarllm_uisettings.upsert = AsyncMock(side_effect=_upsert)
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
 
     mint_calls: list = []
@@ -131,21 +131,21 @@ async def _exchange_env(monkeypatch: pytest.MonkeyPatch):
         return {"token": "sk-new-virtual-key"}
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+        "hangarllm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
         AsyncMock(side_effect=_mint),
     )
     return persisted, mint_calls, nonce_create
 
 
 async def _exchange_call(code: str, moyai_url: str):
-    from litellm.proxy.moyai_endpoints import MoyaiConnectExchangeRequest, moyai_connect_exchange
+    from hangarllm.proxy.moyai_endpoints import MoyaiConnectExchangeRequest, moyai_connect_exchange
 
     return await moyai_connect_exchange(_request(), MoyaiConnectExchangeRequest(code=code, moyai_url=moyai_url))
 
 
 @pytest.mark.asyncio
 async def test_exchange_happy_path_mints_key_and_saves_setting(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.moyai_endpoints import _sign_connect_code
+    from hangarllm.proxy.moyai_endpoints import _sign_connect_code
 
     persisted, mint_calls, _ = await _exchange_env(monkeypatch)
     code = _sign_connect_code("sk-master", "https://moyai.example.com", "admin-user")
@@ -169,8 +169,8 @@ async def test_exchange_happy_path_mints_key_and_saves_setting(monkeypatch: pyte
 @pytest.mark.asyncio
 async def test_exchange_without_database_fails_before_nonce(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
-    from litellm.proxy import proxy_server
-    from litellm.proxy.moyai_endpoints import _sign_connect_code
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.moyai_endpoints import _sign_connect_code
 
     _, _, nonce_create = await _exchange_env(monkeypatch)
     monkeypatch.setattr(proxy_server, "prisma_client", None)
@@ -186,7 +186,7 @@ async def test_exchange_without_database_fails_before_nonce(monkeypatch: pytest.
 @pytest.mark.asyncio
 async def test_exchange_rejects_tampered_signature(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
-    from litellm.proxy.moyai_endpoints import _b64url, _b64url_decode, _sign_connect_code
+    from hangarllm.proxy.moyai_endpoints import _b64url, _b64url_decode, _sign_connect_code
 
     await _exchange_env(monkeypatch)
     code = _sign_connect_code("sk-master", "https://moyai.example.com", "admin-user")
@@ -205,7 +205,7 @@ async def test_exchange_rejects_expired_code(monkeypatch: pytest.MonkeyPatch) ->
     import hashlib
     import hmac as hmac_mod
     from fastapi import HTTPException
-    from litellm.proxy.moyai_endpoints import _b64url, _master_key_hmac_key
+    from hangarllm.proxy.moyai_endpoints import _b64url, _master_key_hmac_key
 
     await _exchange_env(monkeypatch)
     payload = json.dumps(
@@ -229,7 +229,7 @@ async def test_exchange_rejects_expired_code(monkeypatch: pytest.MonkeyPatch) ->
 @pytest.mark.asyncio
 async def test_exchange_rejects_origin_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
-    from litellm.proxy.moyai_endpoints import _sign_connect_code
+    from hangarllm.proxy.moyai_endpoints import _sign_connect_code
 
     await _exchange_env(monkeypatch)
     code = _sign_connect_code("sk-master", "https://moyai.example.com", "admin-user")
@@ -242,7 +242,7 @@ async def test_exchange_rejects_origin_mismatch(monkeypatch: pytest.MonkeyPatch)
 @pytest.mark.asyncio
 async def test_exchange_rejects_replayed_nonce(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
-    from litellm.proxy.moyai_endpoints import _sign_connect_code
+    from hangarllm.proxy.moyai_endpoints import _sign_connect_code
 
     _, mint_calls, _ = await _exchange_env(monkeypatch)
     code = _sign_connect_code("sk-master", "https://moyai.example.com", "admin-user")
@@ -259,7 +259,7 @@ async def test_exchange_concurrent_replay_claims_nonce_once(monkeypatch: pytest.
     import asyncio
 
     from fastapi import HTTPException
-    from litellm.proxy.moyai_endpoints import _sign_connect_code
+    from hangarllm.proxy.moyai_endpoints import _sign_connect_code
 
     _, mint_calls, _ = await _exchange_env(monkeypatch)
     code = _sign_connect_code("sk-master", "https://moyai.example.com", "admin-user")
@@ -289,17 +289,17 @@ def _target_recording_cache(cache: DualCache) -> SimpleNamespace:
 async def test_persist_moyai_url_writes_ui_settings_cache_under_config_params_target(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.moyai_endpoints import _persist_moyai_url
-    from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import UI_SETTINGS_CACHE_KEY
-    from litellm.proxy.utils import CONFIG_PARAMS_TARGET
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.moyai_endpoints import _persist_moyai_url
+    from hangarllm.proxy.ui_crud_endpoints.proxy_setting_endpoints import UI_SETTINGS_CACHE_KEY
+    from hangarllm.proxy.utils import CONFIG_PARAMS_TARGET
 
     cache: Final = DualCache()
     monkeypatch.setattr(proxy_server, "user_api_key_cache", _target_recording_cache(cache))
 
     prisma: Final = MagicMock()
-    prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-    prisma.db.litellm_uisettings.upsert = AsyncMock()
+    prisma.db.hangarllm_uisettings.find_unique = AsyncMock(return_value=None)
+    prisma.db.hangarllm_uisettings.upsert = AsyncMock()
 
     await _persist_moyai_url(prisma, "https://moyai.example.com")
 
@@ -311,9 +311,9 @@ async def test_persist_moyai_url_writes_ui_settings_cache_under_config_params_ta
 @pytest.mark.asyncio
 async def test_exchange_replay_survives_fresh_worker_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi import HTTPException
-    from litellm.caching.caching import DualCache
-    from litellm.proxy import proxy_server
-    from litellm.proxy.moyai_endpoints import _sign_connect_code
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.moyai_endpoints import _sign_connect_code
 
     _, mint_calls, _ = await _exchange_env(monkeypatch)
     code = _sign_connect_code("sk-master", "https://moyai.example.com", "admin-user")

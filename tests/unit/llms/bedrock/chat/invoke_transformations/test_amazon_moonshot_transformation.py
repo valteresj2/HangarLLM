@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.bedrock.common_utils import get_bedrock_chat_config
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+import hangarllm
+from hangarllm.llms.bedrock.common_utils import get_bedrock_chat_config
+from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
     AmazonMoonshotConfig,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 import os
 
 AWS_AUTH_PARAMS = {
@@ -36,8 +36,8 @@ def test_transform_request_never_resolves_aws_credentials():
     transformed = config.transform_request(
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "Hello"}],
-        optional_params={"aws_profile_name": "litellm-profile-that-does-not-exist", "max_tokens": 16},
-        litellm_params={},
+        optional_params={"aws_profile_name": "hangarllm-profile-that-does-not-exist", "max_tokens": 16},
+        hangarllm_params={},
         headers={},
     )
 
@@ -54,7 +54,7 @@ def test_transform_request_keeps_aws_params_out_of_the_body(aws_param: str):
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={aws_param: AWS_AUTH_PARAMS[aws_param]},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -70,7 +70,7 @@ def test_transform_request_leaves_the_caller_aws_params_in_place_for_signing():
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -114,14 +114,14 @@ class TestBedrockMoonshotInvoke:
         extra_kwargs: Optional[dict] = None,
         response_content: str = "Hi!",
     ) -> "tuple[Mock, object]":
-        """Run a sync litellm.completion() with HTTPHandler.post patched to
+        """Run a sync hangarllm.completion() with HTTPHandler.post patched to
         return a canned moonshot response. Returns (mock_post, response)."""
         client = HTTPHandler()
         mock_resp = self._make_moonshot_response(content=response_content)
         with patch.object(
             client, "post", new=Mock(return_value=mock_resp)
         ) as mock_post:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/invoke/moonshot.kimi-k2-thinking",
                 messages=messages,
                 aws_access_key_id="fake",
@@ -134,7 +134,7 @@ class TestBedrockMoonshotInvoke:
 
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_developer_role_translation(self):
-        """Verify LiteLLM maps the ``developer`` role to ``system`` on the
+        """Verify HangarLLM maps the ``developer`` role to ``system`` on the
         outgoing Bedrock invoke request, without hitting the network."""
         mock_post, response = self._invoke_with_mocked_post(
             messages=[
@@ -181,7 +181,7 @@ class TestBedrockMoonshotInvoke:
     def test_pydantic_model_input(self):
         """Verify a completion call with a pydantic ``Message`` as input does
         not raise and produces a parseable response."""
-        from litellm import Message
+        from hangarllm import Message
 
         mock_post, response = self._invoke_with_mocked_post(
             messages=[Message(content="Hello, how are you?", role="user")],
@@ -241,7 +241,7 @@ class TestBedrockMoonshotInvoke:
         not exercised here — moonshot streaming delegates to the OpenAI
         parser and is covered by the OpenAI test suite.
         """
-        from litellm.utils import CustomStreamWrapper
+        from hangarllm.utils import CustomStreamWrapper
 
         captured: dict = {}
 
@@ -252,11 +252,11 @@ class TestBedrockMoonshotInvoke:
             return iter([]), httpx.Headers()
 
         with patch(
-            "litellm.llms.bedrock.chat.invoke_transformations."
+            "hangarllm.llms.bedrock.chat.invoke_transformations."
             "base_invoke_transformation.make_sync_call",
             new=fake_make_sync_call,
         ):
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/invoke/moonshot.kimi-k2-thinking",
                 messages=[
                     {
@@ -280,15 +280,15 @@ class TestBedrockMoonshotInvoke:
 
     @pytest.mark.usefixtures("fake_provider_credentials")
     async def test_completion_cost(self):
-        """Verify LiteLLM computes a positive cost from a mocked Bedrock
+        """Verify HangarLLM computes a positive cost from a mocked Bedrock
         Moonshot response, using the local model cost map."""
-        os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-        litellm.model_cost = litellm.get_model_cost_map(url="")
+        os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
         mock_response = self._make_moonshot_response()
         client = AsyncHTTPHandler()
         with patch.object(client, "post", new=AsyncMock(return_value=mock_response)):
-            response = await litellm.acompletion(
+            response = await hangarllm.acompletion(
                 model="bedrock/invoke/moonshot.kimi-k2-thinking",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 aws_access_key_id="fake",
@@ -347,7 +347,7 @@ class TestBedrockMoonshotBasic:
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_transform_request_strips_model_prefix(self):
         """Test that model ID prefixes are correctly stripped in transform_request."""
-        from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
             AmazonMoonshotConfig,
         )
 
@@ -360,7 +360,7 @@ class TestBedrockMoonshotBasic:
             model="bedrock/invoke/moonshot.kimi-k2-thinking",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -373,7 +373,7 @@ class TestBedrockMoonshotReasoningContent:
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_reasoning_content_extraction(self):
         """Test that reasoning content is extracted from <reasoning> tags."""
-        from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
             AmazonMoonshotConfig,
         )
 
@@ -418,7 +418,7 @@ class TestBedrockMoonshotToolCalling:
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_tool_call_request_format(self):
         """Test that tool call requests are formatted correctly."""
-        from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
             AmazonMoonshotConfig,
         )
 
@@ -447,7 +447,7 @@ class TestBedrockMoonshotToolCalling:
             model="bedrock/invoke/moonshot.kimi-k2-thinking",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -493,7 +493,7 @@ class TestBedrockMoonshotTransformations:
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_transform_request_basic(self):
         """Test basic request transformation."""
-        from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
             AmazonMoonshotConfig,
         )
 
@@ -510,7 +510,7 @@ class TestBedrockMoonshotTransformations:
             model="bedrock/invoke/moonshot.kimi-k2-thinking",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -528,7 +528,7 @@ class TestBedrockMoonshotTransformations:
     @pytest.mark.usefixtures("fake_provider_credentials")
     def test_transform_request_with_system_message(self):
         """Test request transformation with system message."""
-        from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+        from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
             AmazonMoonshotConfig,
         )
 
@@ -543,7 +543,7 @@ class TestBedrockMoonshotTransformations:
             model="moonshot.kimi-k2-thinking",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 

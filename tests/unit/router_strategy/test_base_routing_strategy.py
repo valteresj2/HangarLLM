@@ -12,11 +12,11 @@ from unittest.mock import MagicMock, patch
 from fakeredis import TcpFakeServer
 
 
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError, RedisPipelineIncrementOperation
-from litellm.router_strategy.base_routing_strategy import BaseRoutingStrategy
+from hangarllm.caching.caching import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.caching.redis_cache import RedisCircuitBreakerOpenError, RedisPipelineIncrementOperation
+from hangarllm.router_strategy.base_routing_strategy import BaseRoutingStrategy
 
 
 @pytest.fixture
@@ -96,7 +96,7 @@ async def test_push_in_memory_increments_to_redis(base_strategy, mock_dual_cache
 
 @pytest.mark.asyncio
 async def test_sync_in_memory_spend_with_redis(base_strategy, mock_dual_cache):
-    from litellm.types.caching import RedisPipelineIncrementOperation
+    from hangarllm.types.caching import RedisPipelineIncrementOperation
 
     # Setup test data
     base_strategy.in_memory_keys_to_update = {"key1"}

@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
-from litellm.types.utils import ImageObject, ImageResponse
+import hangarllm
+from hangarllm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
+from hangarllm.types.utils import ImageObject, ImageResponse
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -62,7 +62,7 @@ def test_gemini_image_generation_usage_metadata(model_name: str):
         },
     }
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
         # Mock successful HTTP response
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = mock_response_data
@@ -71,7 +71,7 @@ def test_gemini_image_generation_usage_metadata(model_name: str):
         mock_post.return_value = mock_http_response
 
         # Call image_generation
-        response = litellm.image_generation(
+        response = hangarllm.image_generation(
             model=model_name,
             prompt="A cute baby sea otter eating a cute baby spinach with cute starry cereals dressing",
             api_key="test_api_key",
@@ -147,7 +147,7 @@ def test_gemini_image_generation_without_usage_metadata():
         ]
     }
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
         # Mock successful HTTP response
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = mock_response_data
@@ -156,7 +156,7 @@ def test_gemini_image_generation_without_usage_metadata():
         mock_post.return_value = mock_http_response
 
         # Call image_generation
-        response = litellm.image_generation(
+        response = hangarllm.image_generation(
             model="gemini/gemini-3-pro-image-preview",
             prompt="Test prompt",
             api_key="test_api_key",
@@ -182,7 +182,7 @@ def test_gemini_imagen_models_no_usage_extraction():
     # Mock response data for Imagen models (different format)
     mock_response_data = {"predictions": [{"bytesBase64Encoded": "test_base64_image_data"}]}
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.llm_http_handler.HTTPHandler.post") as mock_post:
         # Mock successful HTTP response
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = mock_response_data
@@ -191,7 +191,7 @@ def test_gemini_imagen_models_no_usage_extraction():
         mock_post.return_value = mock_http_response
 
         # Call image_generation with an Imagen model
-        response = litellm.image_generation(
+        response = hangarllm.image_generation(
             model="gemini/imagen-3.0-generate-001",
             prompt="Test prompt",
             api_key="test_api_key",
@@ -211,11 +211,11 @@ def test_gemini_image_generation_accumulates_multiple_image_prompt_token_details
     Regression test: promptTokensDetails can include multiple IMAGE entries.
     These must be accumulated instead of overwritten.
     """
-    previous_local_model_cost_map = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    previous_model_cost = litellm.model_cost
+    previous_local_model_cost_map = os.environ.get("HANGARLLM_LOCAL_MODEL_COST_MAP")
+    previous_model_cost = hangarllm.model_cost
     try:
-        os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-        litellm.model_cost = litellm.get_model_cost_map(url="")
+        os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+        hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
 
         model = "gemini/gemini-3-pro-image"
         config = GoogleImageGenConfig()
@@ -237,13 +237,13 @@ def test_gemini_image_generation_accumulates_multiple_image_prompt_token_details
             usage=parsed_usage,
         )
 
-        observed_cost = litellm.completion_cost(
+        observed_cost = hangarllm.completion_cost(
             completion_response=image_response,
             model=model,
             custom_llm_provider="gemini",
         )
 
-        model_info = litellm.get_model_info(model=model, custom_llm_provider="gemini")
+        model_info = hangarllm.get_model_info(model=model, custom_llm_provider="gemini")
         expected_image_tokens = 190
         expected_total_prompt_tokens = 200
         expected_prompt_cost = expected_total_prompt_tokens * model_info["input_cost_per_token"]
@@ -253,10 +253,10 @@ def test_gemini_image_generation_accumulates_multiple_image_prompt_token_details
         assert observed_cost == pytest.approx(expected_prompt_cost, rel=1e-12)
     finally:
         if previous_local_model_cost_map is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
         else:
-            os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = previous_local_model_cost_map
-        litellm.model_cost = previous_model_cost
+            os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = previous_local_model_cost_map
+        hangarllm.model_cost = previous_model_cost
 
 
 @pytest.fixture(autouse=True)
@@ -278,7 +278,7 @@ def event_loop():
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown(event_loop):
-    import litellm
+    import hangarllm
 
     original_state = {}
     for attr in (
@@ -288,21 +288,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -311,15 +311,15 @@ def setup_and_teardown(event_loop):
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }

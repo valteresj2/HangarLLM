@@ -3,7 +3,7 @@ id with a team service-account key.
 
 The Azure container endpoints were first verified on one shape: a single Azure
 deployment whose credentials came from ``AZURE_API_BASE`` in the proxy env,
-containers created explicitly with LiteLLM-managed ids, and the master key as
+containers created explicitly with HangarLLM-managed ids, and the master key as
 the caller. The customer differs on all three axes at once, and this cell pins
 that shape:
 
@@ -17,7 +17,7 @@ that shape:
   ``code_interpreter`` tool, and every container call afterwards names it by
   Azure's own ``cntr_<hex>`` id with only ``custom_llm_provider=azure`` beside
   it, the way a client that stores provider ids does (the routing envelope
-  LiteLLM wraps around the id in the responses output is peeled off first);
+  HangarLLM wraps around the id in the responses output is peeled off first);
 - every LLM-side call is made with a service-account key of a team whose
   member is a plain ``internal_user``; a service-account key belongs to the
   team, not to a user, and the master key only does the setup.
@@ -53,7 +53,7 @@ from e2e_http import unwrap
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
 from management.management_client import ManagementClient, build_client
-from models import KeyGenerateBody, KeyGenerateResponse, LiteLLMParamsBody, TeamNewBody, UserNewBody
+from models import KeyGenerateBody, KeyGenerateResponse, HangarLLMParamsBody, TeamNewBody, UserNewBody
 from openai import OpenAI
 from openai.types.responses import Response, ResponseCodeInterpreterToolCall, ResponseCompletedEvent
 from openai.types.responses.tool_param import CodeInterpreter
@@ -78,8 +78,8 @@ def _azure_credentials() -> tuple[str, str]:
     return api_base, api_key
 
 
-def _azure_params(api_base: str, api_key: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=AZURE_BACKEND, api_base=api_base, api_key=api_key, api_version=AZURE_API_VERSION)
+def _azure_params(api_base: str, api_key: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=AZURE_BACKEND, api_base=api_base, api_key=api_key, api_version=AZURE_API_VERSION)
 
 
 def _register_two_azure_deployments(proxy: ProxyClient, resources: ResourceManager, marker: str) -> str:
@@ -152,7 +152,7 @@ def _routing_envelope(container_id: str) -> str | None:
         envelope: Final = base64.b64decode(container_id.removeprefix("cntr_"), validate=True).decode()
     except (binascii.Error, UnicodeDecodeError):
         return None
-    return envelope if envelope.startswith("litellm:") else None
+    return envelope if envelope.startswith("hangarllm:") else None
 
 
 def _native_container_id(container_id: str) -> str:

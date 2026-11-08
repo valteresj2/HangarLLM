@@ -35,7 +35,7 @@ from integration.translation.templates.vertex_ai import (
 CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_1_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-fable-5-1@default"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-fable-5-1@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-fable-5-1@default:rawPredict",
     expected_provider_headers={
         "content-type": "application/json",
@@ -75,7 +75,7 @@ CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-fable-5-1@default",
         "choices": [
@@ -125,8 +125,8 @@ CLAUDE_FABLE_5_1_AGENT_TEST_CASE: Final = replace(
 CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_1_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_request, CLAUDE_FABLE_5_1_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_request, CLAUDE_FABLE_5_1_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-fable-5-1@default:rawPredict",
     expected_provider_request={
@@ -198,7 +198,7 @@ CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-fable-5-1@default",
         "choices": [
@@ -237,9 +237,9 @@ CLAUDE_FABLE_5_1_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_FABLE_5_1_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_FABLE_5_1_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -338,10 +338,10 @@ CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_vrtx_01Fb8AC6UB4uVzYa1b3zemi6", "toolu_vrtx_01JYVwxmecP9JbZ1kUktCC85"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -360,8 +360,8 @@ CLAUDE_FABLE_5_1_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_FABLE_5_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_FABLE_5_TEST_CASE.litellm_request, CLAUDE_FABLE_5_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_FABLE_5_TEST_CASE.hangarllm_request, CLAUDE_FABLE_5_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-fable-5@default:rawPredict",
     expected_provider_request={
@@ -433,7 +433,7 @@ CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-fable-5@default",
         "choices": [
@@ -472,9 +472,9 @@ CLAUDE_FABLE_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_FABLE_5_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_FABLE_5_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_FABLE_5_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_FABLE_5_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -573,10 +573,10 @@ CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_vrtx_01V4czREisiGafV3679XxFXp", "toolu_vrtx_01453AfT3eHq6RMWZyQrb4KX"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -595,7 +595,7 @@ CLAUDE_FABLE_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_4_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-haiku-4-5@20251001"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-haiku-4-5@20251001"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-haiku-4-5@20251001:rawPredict",
     expected_provider_headers={
         "content-type": "application/json",
@@ -643,7 +643,7 @@ CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 51},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-haiku-4-5@20251001",
         "choices": [
@@ -725,8 +725,8 @@ CLAUDE_HAIKU_4_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_HAIKU_4_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_request, CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-haiku-4-5@20251001:rawPredict",
     expected_provider_request={
@@ -825,7 +825,7 @@ CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 203},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-haiku-4-5@20251001",
         "choices": [
@@ -944,9 +944,9 @@ CLAUDE_HAIKU_4_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_HAIKU_4_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1085,7 +1085,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_vrtx_015N8ohQNJaWXj7Uifk3jR3V", "toolu_vrtx_01XkT66qy9agHfZJKbt7ACxA"),
         reasoning_content=(
             "The user wants me to:\n"
@@ -1106,7 +1106,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             },
         ),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1237,
         "completion_tokens": 150,
         "total_tokens": 1387,
@@ -1125,7 +1125,7 @@ CLAUDE_HAIKU_4_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-opus-5-5@default"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-opus-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-opus-5-5@default:rawPredict",
     expected_provider_headers={
         "content-type": "application/json",
@@ -1165,7 +1165,7 @@ CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-opus-5-5@default",
         "choices": [
@@ -1215,8 +1215,8 @@ CLAUDE_OPUS_5_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_request, CLAUDE_OPUS_5_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_OPUS_5_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-opus-5-5@default:rawPredict",
     expected_provider_request={
@@ -1295,7 +1295,7 @@ CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 62},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-opus-5-5@default",
         "choices": [
@@ -1363,9 +1363,9 @@ CLAUDE_OPUS_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_OPUS_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_OPUS_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1464,10 +1464,10 @@ CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_vrtx_01LefrYS5RoUrFshmxExy7Hj", "toolu_vrtx_01KRry1KaahxK2NvecpzvsdN"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -1486,8 +1486,8 @@ CLAUDE_OPUS_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_OPUS_5_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_OPUS_5_TEST_CASE.litellm_request, CLAUDE_OPUS_5_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_OPUS_5_TEST_CASE.hangarllm_request, CLAUDE_OPUS_5_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-opus-5@default:rawPredict",
     expected_provider_request={
@@ -1562,7 +1562,7 @@ CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-opus-5@default",
         "choices": [
@@ -1604,9 +1604,9 @@ CLAUDE_OPUS_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_OPUS_5_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_OPUS_5_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_OPUS_5_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_OPUS_5_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -1705,10 +1705,10 @@ CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_vrtx_01U7KysFJdXDySG6SViytraf", "toolu_vrtx_01Tph9GZmNEQ49UUuE6tQKLt"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1180,
         "completion_tokens": 105,
         "total_tokens": 1285,
@@ -1727,7 +1727,7 @@ CLAUDE_OPUS_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
 CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_5_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-sonnet-5-5@default"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/claude-sonnet-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-sonnet-5-5@default:rawPredict",
     expected_provider_headers={
         "authorization": "Bearer scripted-token",
@@ -1769,7 +1769,7 @@ CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-sonnet-5-5@default",
         "choices": [
@@ -1819,8 +1819,8 @@ CLAUDE_SONNET_5_5_AGENT_TEST_CASE: Final = replace(
 CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_5_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_request, CLAUDE_SONNET_5_5_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_request, CLAUDE_SONNET_5_5_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-sonnet-5-5@default:rawPredict",
     expected_provider_request={
@@ -1894,7 +1894,7 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "vertex_ai/claude-sonnet-5-5@default",
         "choices": [
@@ -1931,9 +1931,9 @@ CLAUDE_SONNET_5_5_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 CLAUDE_SONNET_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **CLAUDE_SONNET_5_5_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **CLAUDE_SONNET_5_5_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2104,10 +2104,10 @@ CLAUDE_SONNET_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCas
         ),
         SSEFrame(data={"type": "message_stop"}, event="message_stop"),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("toolu_vrtx_01EJMuteinVLQX3UQ8bxJEps", "toolu_vrtx_015Mb3cdfYTHCA9QowGSX2RP")
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 1184,
         "completion_tokens": 105,
         "total_tokens": 1289,
@@ -2126,7 +2126,7 @@ CLAUDE_SONNET_5_5_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCas
 GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE: Final = replace(
     GEMINI_3_1_PRO_PREVIEW_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/gemini-3.1-pro-preview"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/gemini-3.1-pro-preview"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.1-pro-preview:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={**VERTEX_AI_AGENT_REQUEST},
@@ -2198,7 +2198,7 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE: Final = replace(
         "createTime": "2026-10-16T14:10:08.649083Z",
         "responseId": "QDDSavvOJ6-q_9MP5byA4Qo",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "QDDSavvOJ6-q_9MP5byA4Qo",
         "model": "vertex_ai/gemini-3.1-pro-preview",
@@ -2303,9 +2303,9 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE: Final = replace(
 GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.litellm_request,
-        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.expected_litellm_response,
+    hangarllm_request=followup_request(
+        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.hangarllm_request,
+        GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.expected_hangarllm_response,
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.1-pro-preview:generateContent",
     expected_provider_request={
@@ -2445,7 +2445,7 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         "createTime": "2026-10-16T14:11:28.565345Z",
         "responseId": "kDDSauHAIq6d4_UPv9qnMQ",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "kDDSauHAIq6d4_UPv9qnMQ",
         "model": "vertex_ai/gemini-3.1-pro-preview",
@@ -2505,9 +2505,9 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GEMINI_3_1_PRO_PREVIEW_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GEMINI_3_1_PRO_PREVIEW_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2582,7 +2582,7 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTe
             }
         ),
     ),
-    expected_litellm_message={
+    expected_hangarllm_message={
         "role": "assistant",
         "content": None,
         "tool_calls": [
@@ -2601,7 +2601,7 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTe
         "thinking_blocks": [],
         "reasoning_items": [],
     },
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 404,
         "completion_tokens": 69,
         "total_tokens": 473,
@@ -2614,7 +2614,7 @@ GEMINI_3_1_PRO_PREVIEW_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTe
 GEMINI_3_8_FLASH_AGENT_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/gemini-3.8-flash"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/gemini-3.8-flash"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.8-flash:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={**VERTEX_AI_AGENT_REQUEST},
@@ -2657,7 +2657,7 @@ GEMINI_3_8_FLASH_AGENT_TEST_CASE: Final = replace(
         "createTime": "2026-10-16T14:10:02.505616Z",
         "responseId": "OjDSapDuHpCG9LsPreTxQA",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "OjDSapDuHpCG9LsPreTxQA",
         "model": "vertex_ai/gemini-3.8-flash",
@@ -2708,8 +2708,8 @@ GEMINI_3_8_FLASH_AGENT_TEST_CASE: Final = replace(
 GEMINI_3_8_FLASH_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GEMINI_3_8_FLASH_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GEMINI_3_8_FLASH_AGENT_TEST_CASE.litellm_request, GEMINI_3_8_FLASH_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GEMINI_3_8_FLASH_AGENT_TEST_CASE.hangarllm_request, GEMINI_3_8_FLASH_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.8-flash:generateContent",
     expected_provider_request={
@@ -2808,7 +2808,7 @@ GEMINI_3_8_FLASH_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         "createTime": "2026-10-16T14:11:25.313560Z",
         "responseId": "jTDSatiRE9ap4_UPuPC7wQo",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "jTDSatiRE9ap4_UPuPC7wQo",
         "model": "vertex_ai/gemini-3.8-flash",
@@ -2845,9 +2845,9 @@ GEMINI_3_8_FLASH_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GEMINI_3_8_FLASH_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GEMINI_3_8_FLASH_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GEMINI_3_8_FLASH_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GEMINI_3_8_FLASH_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GEMINI_3_8_FLASH_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -2921,8 +2921,8 @@ GEMINI_3_8_FLASH_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
             }
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(("call_302633__thought__synthetic-signature", "call_302642")),
-    expected_litellm_usage={
+    expected_hangarllm_message=coding_agent_stream_message(("call_302633__thought__synthetic-signature", "call_302642")),
+    expected_hangarllm_usage={
         "prompt_tokens": 404,
         "completion_tokens": 41,
         "total_tokens": 445,
@@ -2935,7 +2935,7 @@ GEMINI_3_8_FLASH_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase
 GEMINI_4_ARGON_AGENT_TEST_CASE: Final = replace(
     GEMINI_4_ARGON_TEST_CASE,
     scenario="agent_tools",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/gemini-4-argon"},
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "vertex_ai/gemini-4-argon"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-4-argon:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={**VERTEX_AI_AGENT_REQUEST},
@@ -2981,7 +2981,7 @@ GEMINI_4_ARGON_AGENT_TEST_CASE: Final = replace(
         "createTime": "2026-10-15T03:38:40.834141Z",
         "responseId": "wErQat30Mp-hpucPhIzf2AM",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "wErQat30Mp-hpucPhIzf2AM",
         "model": "vertex_ai/gemini-4-argon",
@@ -3033,8 +3033,8 @@ GEMINI_4_ARGON_AGENT_TEST_CASE: Final = replace(
 GEMINI_4_ARGON_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
     GEMINI_4_ARGON_AGENT_TEST_CASE,
     scenario="agent_followup",
-    litellm_request=followup_request(
-        GEMINI_4_ARGON_AGENT_TEST_CASE.litellm_request, GEMINI_4_ARGON_AGENT_TEST_CASE.expected_litellm_response
+    hangarllm_request=followup_request(
+        GEMINI_4_ARGON_AGENT_TEST_CASE.hangarllm_request, GEMINI_4_ARGON_AGENT_TEST_CASE.expected_hangarllm_response
     ),
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-4-argon:generateContent",
     expected_provider_request={
@@ -3137,7 +3137,7 @@ GEMINI_4_ARGON_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
         "createTime": "2026-10-15T03:38:45.481873Z",
         "responseId": "xUrQatG0HcubpucPg4md8Ag",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "xUrQatG0HcubpucPg4md8Ag",
         "model": "vertex_ai/gemini-4-argon",
@@ -3176,9 +3176,9 @@ GEMINI_4_ARGON_AGENT_FOLLOWUP_TEST_CASE: Final = replace(
 
 GEMINI_4_ARGON_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
     scenario="agent_streaming",
-    litellm_endpoint=GEMINI_4_ARGON_AGENT_TEST_CASE.litellm_endpoint,
-    litellm_request={
-        **GEMINI_4_ARGON_AGENT_TEST_CASE.litellm_request,
+    hangarllm_endpoint=GEMINI_4_ARGON_AGENT_TEST_CASE.hangarllm_endpoint,
+    hangarllm_request={
+        **GEMINI_4_ARGON_AGENT_TEST_CASE.hangarllm_request,
         "stream": True,
         "stream_options": {"include_usage": True},
     },
@@ -3252,10 +3252,10 @@ GEMINI_4_ARGON_AGENT_STREAMING_TEST_CASE: Final = StreamingTranslationTestCase(
             }
         ),
     ),
-    expected_litellm_message=coding_agent_stream_message(
+    expected_hangarllm_message=coding_agent_stream_message(
         ("call_337037__thought__synthetic-signature", "call_337046"),
     ),
-    expected_litellm_usage={
+    expected_hangarllm_usage={
         "prompt_tokens": 582,
         "completion_tokens": 48,
         "total_tokens": 630,

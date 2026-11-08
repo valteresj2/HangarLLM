@@ -2,9 +2,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.fal_ai.image_generation.transformation import FalAIImageGenerationConfig
-from litellm.types.utils import ImageObject, ImageResponse
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.fal_ai.image_generation.transformation import FalAIImageGenerationConfig
+from hangarllm.types.utils import ImageObject, ImageResponse
 
 
 def _transform(payload: object, model_response: ImageResponse | None = None) -> ImageResponse:
@@ -15,7 +15,7 @@ def _transform(payload: object, model_response: ImageResponse | None = None) -> 
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -89,7 +89,7 @@ def test_transform_image_generation_response_reports_a_body_that_is_not_json_as_
             logging_obj=None,
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 

@@ -1,25 +1,25 @@
 ---
-page_title: "litellm_unified_access_group Resource - terraform-provider-litellm"
+page_title: "hangarllm_unified_access_group Resource - terraform-provider-hangarllm"
 subcategory: ""
 description: |-
-  Manages a LiteLLM unified access group.
+  Manages a HangarLLM unified access group.
 ---
 
-# litellm_unified_access_group (Resource)
+# hangarllm_unified_access_group (Resource)
 
-Manages a LiteLLM unified access group. Unified access groups grant access to models, MCP servers, and agents in one bundle, and can be assigned to teams and keys.
+Manages a HangarLLM unified access group. Unified access groups grant access to models, MCP servers, and agents in one bundle, and can be assigned to teams and keys.
 
 ## Example Usage
 
 ```terraform
-resource "litellm_unified_access_group" "engineering" {
+resource "hangarllm_unified_access_group" "engineering" {
   access_group_name = "engineering-access"
   description       = "Models and tools for the engineering org"
 
   access_model_names    = ["gpt-4", "claude-3-sonnet"]
-  access_mcp_server_ids = [litellm_mcp_server.github.id]
+  access_mcp_server_ids = [hangarllm_mcp_server.github.id]
 
-  assigned_team_ids = [litellm_team.engineering.id]
+  assigned_team_ids = [hangarllm_team.engineering.id]
 }
 ```
 
@@ -60,5 +60,5 @@ In addition to the arguments above, the following attributes are exported:
 Unified access groups can be imported using the access group ID:
 
 ```shell
-terraform import litellm_unified_access_group.engineering <access-group-id>
+terraform import hangarllm_unified_access_group.engineering <access-group-id>
 ```

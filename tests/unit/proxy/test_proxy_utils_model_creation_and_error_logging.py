@@ -10,34 +10,34 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.exceptions import InternalServerError
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.bug_report import ISSUE_URL_BASE
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
-from litellm.proxy.utils import (
+from hangarllm.caching.caching import DualCache
+from hangarllm.exceptions import InternalServerError
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.bug_report import ISSUE_URL_BASE
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
+from hangarllm.proxy.utils import (
     PrismaClient,
     ProxyLogging,
     _failure_fields_to_lift,
     handle_exception_on_proxy,
 )
-from litellm.router_utils.fallback_event_handlers import carry_superseded_attempt_usage
-from litellm.types.guardrails import GuardrailEventHooks
+from hangarllm.router_utils.fallback_event_handlers import carry_superseded_attempt_usage
+from hangarllm.types.guardrails import GuardrailEventHooks
 
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
-from litellm.proxy.utils import get_custom_url, join_paths
+from hangarllm.proxy.utils import get_custom_url, join_paths
 
 
 def test_get_custom_url(monkeypatch):
-    monkeypatch.setenv("SERVER_ROOT_PATH", "/litellm")
+    monkeypatch.setenv("SERVER_ROOT_PATH", "/hangarllm")
     custom_url = get_custom_url(request_base_url="http://0.0.0.0:4000", route="ui/")
-    assert custom_url == "http://0.0.0.0:4000/litellm/ui/"
+    assert custom_url == "http://0.0.0.0:4000/hangarllm/ui/"
 
 
 def test_proxy_only_error_true_for_llm_route():
@@ -89,19 +89,19 @@ def test_proxy_only_error_false_for_other_error_type():
 async def test_proxy_only_error_log_marks_no_upstream_llm_call():
     """A proxy-gate error (auth/rate-limit) synthesizes a ``Logging`` object and
     fires ``pre_call`` so the failure is logged — but it must tag the object with
-    ``LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL`` so tracing callbacks don't fabricate
+    ``HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL`` so tracing callbacks don't fabricate
     an LLM-call span for a request that never reached a provider (root cause of the
     misplaced gen-AI span on auth failure)."""
-    from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.constants import HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     captured = {}
 
     def fake_pre_call(self, *args, **kwargs):
-        captured["flag"] = self.model_call_details.get(LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL)
+        captured["flag"] = self.model_call_details.get(HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL)
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     orig_pre_call = Logging.pre_call
     orig_async_failure = Logging.async_failure_handler
@@ -129,15 +129,15 @@ async def test_proxy_only_error_log_marks_no_upstream_llm_call():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "hangarllm_metadata"])
 async def test_proxy_only_error_log_drops_caller_guardrail_information_without_logging_object(
     metadata_field: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [])
     guardrail_info: Final = [
         {
             "guardrail_name": "caller-guardrail",
@@ -158,16 +158,16 @@ async def test_proxy_only_error_log_drops_caller_guardrail_information_without_l
         original_exception=HTTPException(status_code=400, detail="blocked"),
     )
 
-    details: Final = request_data["litellm_logging_obj"].model_call_details
+    details: Final = request_data["hangarllm_logging_obj"].model_call_details
     assert details["standard_logging_object"] is not None
-    assert details["litellm_params"][metadata_field]["tags"] == ["t"]
-    assert "standard_logging_guardrail_information" not in details["litellm_params"][metadata_field]
+    assert details["hangarllm_params"][metadata_field]["tags"] == ["t"]
+    assert "standard_logging_guardrail_information" not in details["hangarllm_params"][metadata_field]
     assert "guardrail_cost" not in str(details["standard_logging_object"])
-    assert "litellm_metadata" not in details["optional_params"]
+    assert "hangarllm_metadata" not in details["optional_params"]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "hangarllm_metadata"])
 async def test_proxy_only_error_log_keeps_tags_and_drops_caller_logging_fields(
     metadata_field: str,
 ) -> None:
@@ -193,17 +193,17 @@ async def test_proxy_only_error_log_keeps_tags_and_drops_caller_logging_fields(
         original_exception=Exception("bad key"),
     )
 
-    details: Final = request_data["litellm_logging_obj"].model_call_details
+    details: Final = request_data["hangarllm_logging_obj"].model_call_details
     assert "caller" not in str(details["standard_callback_dynamic_params"])
     assert "langsmith_base_url" not in details
-    assert "caller" not in str(details["litellm_params"])
-    assert details["litellm_params"][metadata_field]["tags"] == ["t"]
-    assert details["litellm_params"]["metadata"]["user_api_key_team_id"] == "team-a"
-    assert details["litellm_params"][metadata_field]["user_api_key_team_id"] == "team-a"
+    assert "caller" not in str(details["hangarllm_params"])
+    assert details["hangarllm_params"][metadata_field]["tags"] == ["t"]
+    assert details["hangarllm_params"]["metadata"]["user_api_key_team_id"] == "team-a"
+    assert details["hangarllm_params"][metadata_field]["user_api_key_team_id"] == "team-a"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "hangarllm_metadata"])
 async def test_proxy_only_error_log_drops_malformed_metadata_tags(metadata_field: str) -> None:
     guardrail_info: Final = [{"guardrail_name": "g", "guardrail_status": "guardrail_intervened"}]
     request_data: Final[dict[str, object]] = {
@@ -219,32 +219,32 @@ async def test_proxy_only_error_log_drops_malformed_metadata_tags(metadata_field
         original_exception=Exception("bad key"),
     )
 
-    details: Final = request_data["litellm_logging_obj"].model_call_details
+    details: Final = request_data["hangarllm_logging_obj"].model_call_details
     assert details["standard_logging_object"] is not None
-    assert "tags" not in details["litellm_params"][metadata_field]
-    assert "standard_logging_guardrail_information" not in details["litellm_params"][metadata_field]
+    assert "tags" not in details["hangarllm_params"][metadata_field]
+    assert "standard_logging_guardrail_information" not in details["hangarllm_params"][metadata_field]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "hangarllm_metadata"])
 async def test_proxy_only_error_log_builds_payload_when_logging_object_has_malformed_tags(
     metadata_field: str,
 ) -> None:
     request_data: Final[dict[str, object]] = {
         "model": "gpt-4o",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_call_id": "malformed-tags-call",
+        "hangarllm_call_id": "malformed-tags-call",
         metadata_field: {"tags": 123},
     }
-    logging_obj, _ = litellm.utils.function_setup(
+    logging_obj, _ = hangarllm.utils.function_setup(
         original_function="acompletion",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=real_datetime.datetime.now(),
         **request_data,
     )
 
     await ProxyLogging(user_api_key_cache=DualCache())._handle_logging_proxy_only_error(
-        request_data={**request_data, "litellm_logging_obj": logging_obj},
+        request_data={**request_data, "hangarllm_logging_obj": logging_obj},
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-blocked", team_id="team-a", request_route="/v1/chat/completions"),
         route="/v1/chat/completions",
         original_exception=HTTPException(status_code=400, detail="Content blocked"),
@@ -258,24 +258,24 @@ async def test_proxy_only_error_log_builds_payload_when_logging_object_has_malfo
 
 
 @pytest.mark.asyncio
-async def test_proxy_only_error_log_keeps_the_request_litellm_call_id(monkeypatch: pytest.MonkeyPatch):
-    """LIT-7836: a route that already stamped the caller's litellm_call_id must
+async def test_proxy_only_error_log_keeps_the_request_hangarllm_call_id(monkeypatch: pytest.MonkeyPatch):
+    """LIT-7836: a route that already stamped the caller's hangarllm_call_id must
     keep it when the failure is a proxy-only error, so the spend-log row and the
     error line share one id instead of a fresh uuid minted here."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     call_id: Final = "caller-supplied-7836"
     captured: dict[str, object] = {}
 
     def fake_pre_call(self, *args, **kwargs):
-        captured["litellm_call_id"] = self.litellm_call_id
+        captured["hangarllm_call_id"] = self.hangarllm_call_id
 
     async def _noop_async_failure(self, *args, **kwargs):
         return None
 
     monkeypatch.setattr(Logging, "pre_call", fake_pre_call)
     monkeypatch.setattr(Logging, "async_failure_handler", _noop_async_failure)
-    request_data: Final[dict[str, object]] = {"model": "gpt-4o", "input": "hi", "litellm_call_id": call_id}
+    request_data: Final[dict[str, object]] = {"model": "gpt-4o", "input": "hi", "hangarllm_call_id": call_id}
 
     await ProxyLogging(user_api_key_cache=DualCache())._handle_logging_proxy_only_error(
         request_data=request_data,
@@ -284,26 +284,26 @@ async def test_proxy_only_error_log_keeps_the_request_litellm_call_id(monkeypatc
         original_exception=Exception("bad key"),
     )
 
-    assert request_data["litellm_call_id"] == call_id
-    assert captured["litellm_call_id"] == call_id
+    assert request_data["hangarllm_call_id"] == call_id
+    assert captured["hangarllm_call_id"] == call_id
 
 
 def test_get_model_group_info_order():
-    from litellm import Router
-    from litellm.proxy.proxy_server import get_model_group_info
+    from hangarllm import Router
+    from hangarllm.proxy.proxy_server import get_model_group_info
 
     router = Router(
         model_list=[
             {
                 "model_name": "openai/tts-1",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/tts-1",
                     "api_key": "sk-9876",
                 },
             },
             {
                 "model_name": "openai/gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-3.5-turbo",
                     "api_key": "sk-9876",
                 },
@@ -368,11 +368,11 @@ def _patch_today(monkeypatch, year, month, day):
         def today(cls):
             return real_datetime.date(year, month, day)
 
-    monkeypatch.setattr("litellm.proxy.utils.date", PatchedDate)
+    monkeypatch.setattr("hangarllm.proxy.utils.date", PatchedDate)
 
 
 def test_get_projected_spend_over_limit_day_one(monkeypatch):
-    from litellm.proxy.utils import get_projected_spend_over_limit
+    from hangarllm.proxy.utils import get_projected_spend_over_limit
 
     _patch_today(monkeypatch, 2026, 1, 1)
     result = get_projected_spend_over_limit(100.0, 1.0)
@@ -384,7 +384,7 @@ def test_get_projected_spend_over_limit_day_one(monkeypatch):
 
 
 def test_get_projected_spend_over_limit_december(monkeypatch):
-    from litellm.proxy.utils import get_projected_spend_over_limit
+    from hangarllm.proxy.utils import get_projected_spend_over_limit
 
     _patch_today(monkeypatch, 2026, 12, 15)
     result = get_projected_spend_over_limit(100.0, 1.0)
@@ -396,7 +396,7 @@ def test_get_projected_spend_over_limit_december(monkeypatch):
 
 
 def test_get_projected_spend_over_limit_includes_current_spend(monkeypatch):
-    from litellm.proxy.utils import get_projected_spend_over_limit
+    from hangarllm.proxy.utils import get_projected_spend_over_limit
 
     _patch_today(monkeypatch, 2026, 4, 11)
     result = get_projected_spend_over_limit(100.0, 200.0)
@@ -415,7 +415,7 @@ def test_get_projected_spend_over_limit_includes_current_spend(monkeypatch):
 
 def test_enrich_http_exception_with_guardrail_context_dict_detail():
     """L2: dict-detail HTTPException is enriched with guardrail_name and mode."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from hangarllm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "bedrock-pii-guard"
@@ -428,7 +428,7 @@ def test_enrich_http_exception_with_guardrail_context_dict_detail():
 
 
 def test_enrich_http_exception_string_detail_preserves_body_and_identifies_guardrail():
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from hangarllm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "x"
@@ -442,7 +442,7 @@ def test_enrich_http_exception_string_detail_preserves_body_and_identifies_guard
 
 def test_enrich_http_exception_setdefault_does_not_overwrite():
     """L2: a guardrail that already populates guardrail_name explicitly wins."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from hangarllm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "inferred-name"
@@ -458,7 +458,7 @@ def test_enrich_http_exception_setdefault_does_not_overwrite():
 
 def test_enrich_http_exception_non_http_exception_noop():
     """L2: non-HTTPException is left alone and the helper does not raise."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from hangarllm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "x"
@@ -471,7 +471,7 @@ def test_enrich_http_exception_non_http_exception_noop():
 
 def test_enrich_http_exception_callback_without_guardrail_name_noop():
     """L2: callback without guardrail_name attribute leaves detail alone."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from hangarllm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         pass
@@ -493,7 +493,7 @@ class TestPostCallFailureHookLiftsFirstApiCallStartTime:
     async def _run(self, request_data):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []  # skip alerting branch
@@ -511,13 +511,13 @@ class TestPostCallFailureHookLiftsFirstApiCallStartTime:
         logging_obj.model_call_details = {"first_api_call_start_time": handoff}
         user_meta = {}
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
             "metadata": user_meta,
         }
         await self._run(request_data)
 
         assert request_data["first_api_call_start_time"] == handoff
-        assert "litellm_logging_obj" not in request_data
+        assert "hangarllm_logging_obj" not in request_data
         # user metadata is never touched
         assert user_meta == {}
         assert "first_api_call_start_time" not in request_data["metadata"]
@@ -532,10 +532,10 @@ class TestPostCallFailureHookLiftsFirstApiCallStartTime:
     async def test_logging_obj_without_anchor_is_noop(self):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
-        request_data = {"litellm_logging_obj": logging_obj}
+        request_data = {"hangarllm_logging_obj": logging_obj}
         await self._run(request_data)
         assert "first_api_call_start_time" not in request_data
-        assert "litellm_logging_obj" not in request_data
+        assert "hangarllm_logging_obj" not in request_data
 
 
 class TestPostCallFailureHookDoesNotInventAProviderHandoff:
@@ -549,8 +549,8 @@ class TestPostCallFailureHookDoesNotInventAProviderHandoff:
         from datetime import datetime
         from unittest.mock import AsyncMock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
 
         logging_obj = Logging(
             model="gpt-4.1",
@@ -558,10 +558,10 @@ class TestPostCallFailureHookDoesNotInventAProviderHandoff:
             stream=False,
             call_type="acompletion",
             start_time=datetime.now(),
-            litellm_call_id="pre-handoff-auth-failure",
+            hangarllm_call_id="pre-handoff-auth-failure",
             function_id="pre-handoff",
         )
-        request_data: Final[dict[str, object]] = {"litellm_logging_obj": logging_obj, "model": "gpt-4.1", "metadata": {}}
+        request_data: Final[dict[str, object]] = {"hangarllm_logging_obj": logging_obj, "model": "gpt-4.1", "metadata": {}}
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
         with (
@@ -590,7 +590,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
     async def _run(self, request_data):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -603,7 +603,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
 
     @pytest.mark.asyncio
     async def test_lifts_recovered_usage_and_cost(self):
-        from litellm.types.utils import Usage
+        from hangarllm.types.utils import Usage
 
         recovered_usage = Usage(prompt_tokens=30, completion_tokens=1, total_tokens=31)
         logging_obj = MagicMock()
@@ -611,22 +611,22 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
             "combined_usage_object": recovered_usage,
             "response_cost": 3.5e-05,
         }
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"hangarllm_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
 
         assert request_data["combined_usage_object"] is recovered_usage
         assert request_data["response_cost"] == 3.5e-05
-        assert "litellm_logging_obj" not in request_data
+        assert "hangarllm_logging_obj" not in request_data
 
     @pytest.mark.asyncio
     async def test_recovered_usage_without_cost_clobbers_client_cost_with_zero(self):
-        from litellm.types.utils import Usage
+        from hangarllm.types.utils import Usage
 
         recovered_usage = Usage(prompt_tokens=30, completion_tokens=1, total_tokens=31)
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"combined_usage_object": recovered_usage}
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
             "response_cost": 999.0,
             "metadata": {},
         }
@@ -639,7 +639,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
     async def test_no_recovered_usage_is_noop(self):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"hangarllm_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
         assert "combined_usage_object" not in request_data
         assert "response_cost" not in request_data
@@ -647,7 +647,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
 
 class TestPostCallFailureHookLiftsStandardLoggingObject:
     """Failure callbacks read standard_logging_object from request_data, but
-    post_call_failure_hook pops litellm_logging_obj before they run. The hook
+    post_call_failure_hook pops hangarllm_logging_obj before they run. The hook
     must lift the logging obj's standard_logging_object onto request_data so
     failed-request spend logs keep deployment attribution (LIT-5795).
     """
@@ -655,7 +655,7 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
     async def _run(self, request_data):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -671,10 +671,10 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
         sl_object = {"model_id": "mid-123", "model_group": "group-x"}
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"standard_logging_object": sl_object}
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"hangarllm_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
         assert request_data["standard_logging_object"] is sl_object
-        assert "litellm_logging_obj" not in request_data
+        assert "hangarllm_logging_obj" not in request_data
 
     @pytest.mark.asyncio
     async def test_logging_obj_value_overwrites_preexisting_key(self):
@@ -682,7 +682,7 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"standard_logging_object": authoritative}
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
             "standard_logging_object": {"model_id": "client-injected"},
             "metadata": {},
         }
@@ -699,7 +699,7 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
         request_data_with_obj = {
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
             "standard_logging_object": spoofed,
             "metadata": {},
         }
@@ -713,8 +713,8 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
 
         from fastapi import HTTPException
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         logging_obj = Logging(
             model="claude-haiku-4-5",
@@ -722,11 +722,11 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
             stream=False,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
         )
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
             "standard_logging_object": {"model_id": "client-injected"},
             "metadata": {},
         }
@@ -745,14 +745,14 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
     async def test_no_standard_logging_object_is_noop(self):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"hangarllm_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
         assert "standard_logging_object" not in request_data
 
 
 class TestPostCallFailureHookLiftsCallTypeAndStartTime:
     """A guardrail-blocked MCP tool call fails before any LLM call. The failure
-    spend row is built from request_data after ``litellm_logging_obj`` is popped,
+    spend row is built from request_data after ``hangarllm_logging_obj`` is popped,
     so ``call_type`` and the request ``start_time`` must be lifted off the logging
     object first, or the Logs page shows the row as an LLM call with a blank call
     type and a 0s duration (LIT-7453).
@@ -764,9 +764,9 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
         from types import SimpleNamespace
         from unittest.mock import AsyncMock
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
         request_start = real_datetime.datetime.now() - real_datetime.timedelta(seconds=2)
         logging_obj = Logging(
@@ -775,27 +775,27 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
             stream=False,
             call_type="call_mcp_tool",
             start_time=request_start,
-            litellm_call_id="call-1",
+            hangarllm_call_id="call-1",
             function_id="fn-1",
         )
         logging_obj.update_environment_variables(
             model="MCP: deepwiki-ask_question",
             user="",
             optional_params={},
-            litellm_params={"metadata": {"user_api_key_hash": "hashed"}},
+            hangarllm_params={"metadata": {"user_api_key_hash": "hashed"}},
         )
         blocked = Exception("Content blocked: keyword 'confidential' detected")
         logging_obj.failure_handler(blocked, traceback.format_exc(), request_start, real_datetime.datetime.now())
         request_data = {
             "name": "deepwiki-ask_question",
             "arguments": {"question": "confidential"},
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
         }
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
         spend_writer = SimpleNamespace(update_database=AsyncMock())
-        original_callbacks = list(litellm.callbacks)
-        litellm.callbacks = [ProxyDBLogger(spend_writer=lambda: spend_writer)]
+        original_callbacks = list(hangarllm.callbacks)
+        hangarllm.callbacks = [ProxyDBLogger(spend_writer=lambda: spend_writer)]
         try:
             with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
                 await proxy_logging_obj.post_call_failure_hook(
@@ -804,7 +804,7 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
                     user_api_key_dict=UserAPIKeyAuth(api_key="sk-test"),
                 )
         finally:
-            litellm.callbacks = original_callbacks
+            hangarllm.callbacks = original_callbacks
             ProxyLogging._callback_capabilities_cache.clear()
 
         db_call = spend_writer.update_database.call_args.kwargs
@@ -824,10 +824,10 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
     ):
         from types import SimpleNamespace
 
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
-        rejected: Final = litellm.BadRequestError(
+        rejected: Final = hangarllm.BadRequestError(
             message="Voice name nonexistent is not supported", model="gemini-tts", llm_provider="gemini"
         )
         request_data: Final = {
@@ -839,7 +839,7 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
         proxy_logging_obj: Final = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
         spend_writer: Final = SimpleNamespace(update_database=AsyncMock())
-        monkeypatch.setattr(litellm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
+        monkeypatch.setattr(hangarllm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
         try:
             with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
                 await proxy_logging_obj.post_call_failure_hook(
@@ -866,8 +866,8 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
     ):
         from types import SimpleNamespace
 
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
         request_data: Final = {
             "model": "MCP: list_tools",
@@ -877,7 +877,7 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
         proxy_logging_obj: Final = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
         spend_writer: Final = SimpleNamespace(update_database=AsyncMock())
-        monkeypatch.setattr(litellm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
+        monkeypatch.setattr(hangarllm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
         try:
             with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
                 await proxy_logging_obj.post_call_failure_hook(
@@ -904,13 +904,13 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
     ):
         from types import SimpleNamespace
 
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
         proxy_logging_obj: Final = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
         spend_writer: Final = SimpleNamespace(update_database=AsyncMock())
-        monkeypatch.setattr(litellm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
+        monkeypatch.setattr(hangarllm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
         try:
             with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
                 await proxy_logging_obj.post_call_failure_hook(
@@ -950,13 +950,13 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
 
         from fastapi import HTTPException
 
-        from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+        from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
         proxy_logging_obj: Final = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
         spend_writer: Final = SimpleNamespace(update_database=AsyncMock())
-        monkeypatch.setattr(litellm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
+        monkeypatch.setattr(hangarllm, "callbacks", [ProxyDBLogger(spend_writer=lambda: spend_writer)])
         try:
             with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
                 await proxy_logging_obj.post_call_failure_hook(
@@ -993,7 +993,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     ):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -1010,8 +1010,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
             try:
                 raise cause
             except Exception as inner:
-                raise litellm.Timeout("Request timed out.", model=model, llm_provider="openai") from inner
-        except litellm.Timeout as timed_out:
+                raise hangarllm.Timeout("Request timed out.", model=model, llm_provider="openai") from inner
+        except hangarllm.Timeout as timed_out:
             return timed_out
 
     def _logging_obj(self, model_call_details):
@@ -1031,7 +1031,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         async def prompt_tokens(request_input):
             request_data = {
-                "litellm_logging_obj": self._logging_obj(
+                "hangarllm_logging_obj": self._logging_obj(
                     {
                         "first_api_call_start_time": datetime.now(),
                         "model": FAILURE_USAGE_MODEL,
@@ -1055,10 +1055,10 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_timed_out_request_estimates_input_tokens_priced_at_input_rate(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from hangarllm.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -1078,7 +1078,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
         assert estimated.prompt_tokens > 0
         assert estimated.completion_tokens == 0
         assert estimated.total_tokens == estimated.prompt_tokens
-        expected_input_cost, _ = litellm.cost_per_token(model="gpt-3.5-turbo", prompt_tokens=estimated.prompt_tokens)
+        expected_input_cost, _ = hangarllm.cost_per_token(model="gpt-3.5-turbo", prompt_tokens=estimated.prompt_tokens)
         assert expected_input_cost > 0
         assert request_data["response_cost"] == pytest.approx(expected_input_cost)
 
@@ -1088,17 +1088,17 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         from fastapi import HTTPException
 
-        from litellm.constants import LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED, LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
-        from litellm.types.utils import Usage
+        from hangarllm.constants import HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED, HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL
+        from hangarllm.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": "count these input tokens please"}],
                     "call_type": "acompletion",
-                    LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL: True,
+                    HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL: True,
                 }
             ),
             "metadata": {},
@@ -1106,28 +1106,28 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
         await self._run(
             request_data,
             original_exception=HTTPException(
-                status_code=LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
+                status_code=HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
             ),
         )
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected_input_cost, _ = litellm.cost_per_token(model="gpt-3.5-turbo", prompt_tokens=estimated.prompt_tokens)
+        expected_input_cost, _ = hangarllm.cost_per_token(model="gpt-3.5-turbo", prompt_tokens=estimated.prompt_tokens)
         assert expected_input_cost > 0
         assert request_data["response_cost"] == pytest.approx(expected_input_cost)
 
     @pytest.mark.asyncio
     async def test_upstream_499_error_is_a_plain_failure_not_a_priced_disconnect(self):
-        """A provider answering HTTP 499 surfaces as litellm.APIError with status_code 499. Only the
+        """A provider answering HTTP 499 surfaces as hangarllm.APIError with status_code 499. Only the
         proxy's own disconnect HTTPException means the caller hung up mid-generation, so the upstream
         error keeps the estimated usage at zero cost like any other post-dispatch provider error."""
         from datetime import datetime
 
-        from litellm.constants import LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED
-        from litellm.types.utils import Usage
+        from hangarllm.constants import HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED
+        from hangarllm.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime(2026, 1, 1, 12, 0, 0),
                     "model": "gpt-3.5-turbo",
@@ -1139,8 +1139,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
         }
         await self._run(
             request_data,
-            original_exception=litellm.APIError(
-                status_code=LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED,
+            original_exception=hangarllm.APIError(
+                status_code=HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED,
                 message="client closed request",
                 llm_provider="openai",
                 model="gpt-3.5-turbo",
@@ -1161,8 +1161,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         from fastapi import HTTPException
 
-        from litellm.constants import LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED
-        from litellm.litellm_core_utils.litellm_logging import Logging
+        from hangarllm.constants import HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
         logging_obj = Logging(
             model="gpt-3.5-turbo",
@@ -1170,7 +1170,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
             stream=False,
             call_type="acompletion",
             start_time=datetime(2026, 1, 1, 12, 0, 0),
-            litellm_call_id="completed-before-disconnect",
+            hangarllm_call_id="completed-before-disconnect",
             function_id="fn",
         )
         logging_obj.model_call_details.update(
@@ -1183,11 +1183,11 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
         )
         assert logging_obj.claim_async_success_log()
         logging_obj.mark_async_success_log_enqueued()
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"hangarllm_logging_obj": logging_obj, "metadata": {}}
         await self._run(
             request_data,
             original_exception=HTTPException(
-                status_code=LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
+                status_code=HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
             ),
         )
 
@@ -1202,8 +1202,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         from fastapi import HTTPException
 
-        from litellm.constants import LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED
-        from litellm.litellm_core_utils.litellm_logging import Logging
+        from hangarllm.constants import HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
         logging_obj = Logging(
             model="gpt-3.5-turbo",
@@ -1211,7 +1211,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
             stream=False,
             call_type="acompletion",
             start_time=datetime(2026, 1, 1, 12, 0, 0),
-            litellm_call_id="deferred-success-never-flushed",
+            hangarllm_call_id="deferred-success-never-flushed",
             function_id="fn",
         )
         logging_obj.model_call_details.update(
@@ -1225,11 +1225,11 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
         logging_obj.defer_async_logging = True
         assert logging_obj.claim_async_success_log()
         logging_obj.enqueue_deferred_logging = lambda: None
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"hangarllm_logging_obj": logging_obj, "metadata": {}}
         await self._run(
             request_data,
             original_exception=HTTPException(
-                status_code=LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
+                status_code=HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
             ),
         )
 
@@ -1244,9 +1244,9 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         from fastapi import HTTPException
 
-        from litellm.constants import LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.constants import HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         logging_obj = Logging(
             model="gpt-3.5-turbo",
@@ -1254,11 +1254,11 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
             stream=False,
             call_type="acompletion",
             start_time=datetime.now(),
-            litellm_call_id="lit145-pre-handoff",
+            hangarllm_call_id="lit145-pre-handoff",
             function_id="lit145",
         )
         assert logging_obj.model_call_details.get("first_api_call_start_time") is None
-        request_data = {"litellm_logging_obj": logging_obj, "model": "gpt-3.5-turbo", "metadata": {}}
+        request_data = {"hangarllm_logging_obj": logging_obj, "model": "gpt-3.5-turbo", "metadata": {}}
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -1269,7 +1269,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
             await proxy_logging_obj.post_call_failure_hook(
                 request_data=request_data,
                 original_exception=HTTPException(
-                    status_code=LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
+                    status_code=HANGARLLM_HTTP_STATUS_CLIENT_DISCONNECTED, detail="Client disconnected the request"
                 ),
                 user_api_key_dict=UserAPIKeyAuth(request_route="/v1/chat/completions"),
             )
@@ -1282,10 +1282,10 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_connect_timeout_never_reached_the_provider_stays_zero_cost(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from hangarllm.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -1306,10 +1306,10 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_dispatched_non_timeout_failure_estimates_input_tokens_with_zero_cost(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from hangarllm.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -1330,7 +1330,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     @pytest.mark.asyncio
     async def test_failure_before_dispatch_stays_zero(self):
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": "never dispatched"}],
@@ -1347,15 +1347,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_proxy_only_error_never_dispatched_stays_zero(self):
         from datetime import datetime
 
-        from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
+        from hangarllm.constants import HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "no-such-model",
                     "messages": [{"role": "user", "content": "hi"}],
-                    LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL: True,
+                    HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL: True,
                 }
             ),
             "metadata": {},
@@ -1369,11 +1369,11 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_recovered_partial_usage_wins_over_estimate(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from hangarllm.types.utils import Usage
 
         recovered_usage = Usage(prompt_tokens=30, completion_tokens=7, total_tokens=37)
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -1394,10 +1394,10 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_dispatched_failure_with_text_completion_prompt(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from hangarllm.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -1418,7 +1418,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
         from datetime import datetime
 
         return {
-            "litellm_logging_obj": self._logging_obj(
+            "hangarllm_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -1432,8 +1432,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
     @pytest.mark.asyncio
     async def test_image_message_estimated_without_fetching_image(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import hangarllm as hangarllm_module
+        from hangarllm.types.utils import Usage
 
         messages = [
             {
@@ -1452,7 +1452,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = hangarllm_module.token_counter(
             model="gpt-3.5-turbo", messages=messages, use_default_image_token_count=True
         )
         assert estimated.prompt_tokens == expected
@@ -1460,8 +1460,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
     @pytest.mark.asyncio
     async def test_embedding_string_list_input_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import hangarllm as hangarllm_module
+        from hangarllm.types.utils import Usage
 
         embedding_input = ["first embedding text", "second embedding text"]
         request_data = self._dispatched_request_data(embedding_input, {}, call_type="aembedding")
@@ -1469,7 +1469,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(model="gpt-3.5-turbo", text="".join(embedding_input))
+        expected = hangarllm_module.token_counter(model="gpt-3.5-turbo", text="".join(embedding_input))
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
@@ -1482,8 +1482,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
     @pytest.mark.asyncio
     async def test_anthropic_system_prompt_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import hangarllm as hangarllm_module
+        from hangarllm.types.utils import Usage
 
         system_prompt = "You are a verbose historian who narrates every fact in exhaustive detail."
         messages = [{"role": "user", "content": "write a short essay"}]
@@ -1492,15 +1492,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = hangarllm_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
+        ) + hangarllm_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_anthropic_system_text_blocks_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import hangarllm as hangarllm_module
+        from hangarllm.types.utils import Usage
 
         system_blocks = [
             {"type": "text", "text": "part one of the system prompt. "},
@@ -1512,17 +1512,17 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = hangarllm_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(
+        ) + hangarllm_module.token_counter(
             model="gpt-3.5-turbo", text="part one of the system prompt. part two of the system prompt."
         )
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_responses_instructions_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import hangarllm as hangarllm_module
+        from hangarllm.types.utils import Usage
 
         instructions = "Answer every question as a meticulous archivist."
         request_data = self._dispatched_request_data("summarize the archive", {"instructions": instructions})
@@ -1530,15 +1530,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = hangarllm_module.token_counter(
             model="gpt-3.5-turbo", text="summarize the archive"
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=instructions)
+        ) + hangarllm_module.token_counter(model="gpt-3.5-turbo", text=instructions)
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_request_body_system_counted_when_optional_params_empty(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import hangarllm as hangarllm_module
+        from hangarllm.types.utils import Usage
 
         system_prompt = "You are a meticulous cartographer who labels every landmark."
         messages = [{"role": "user", "content": "draw me a map"}]
@@ -1550,15 +1550,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = hangarllm_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
+        ) + hangarllm_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_optional_params_system_wins_over_request_body_system(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import hangarllm as hangarllm_module
+        from hangarllm.types.utils import Usage
 
         dispatched_system = "short dispatched system prompt"
         messages = [{"role": "user", "content": "hello"}]
@@ -1570,18 +1570,18 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = hangarllm_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=dispatched_system)
+        ) + hangarllm_module.token_counter(model="gpt-3.5-turbo", text=dispatched_system)
         assert estimated.prompt_tokens == expected
 
 
 from typing import cast
 
-import litellm
-from litellm.proxy.utils import create_model_info_response
-from litellm.types.router import DeploymentModelListingInfo
-from litellm.types.utils import ModelInfo, ModelResponse, Usage
+import hangarllm
+from hangarllm.proxy.utils import create_model_info_response
+from hangarllm.types.router import DeploymentModelListingInfo
+from hangarllm.types.utils import ModelInfo, ModelResponse, Usage
 
 
 def _fake_model_info(**fields: object) -> ModelInfo:
@@ -1640,15 +1640,15 @@ def test_create_model_info_response_uses_deployment_limits_when_not_in_cost_map(
 
 
 def test_create_model_info_response_uses_deployment_mode_for_auto_router():
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude-sonnet",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
             },
             {
                 "model_name": "claude-auto",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "tiers": {
@@ -1746,13 +1746,13 @@ def test_create_model_info_response_resolves_alias_once_per_listing():
 
 
 def test_create_model_info_response_survives_malformed_configured_limits():
-    from litellm import Router
+    from hangarllm import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "bad-limit-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "hangarllm_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": "128,000"},
             }
         ]
@@ -1797,18 +1797,18 @@ def test_create_model_info_response_keeps_valid_cost_map_limit_beside_malformed_
 
 
 def test_create_model_info_response_survives_malformed_limits_registered_by_router():
-    """A deployment's model_info is registered into litellm.model_cost verbatim, so a
+    """A deployment's model_info is registered into hangarllm.model_cost verbatim, so a
     malformed configured limit reaches the listing through the real cost-map lookup and
     not just the router index. Guarding only the index path still 500s the whole listing."""
-    from litellm import Router
+    from hangarllm import Router
 
-    saved_model_cost = dict(litellm.model_cost)
+    saved_model_cost = dict(hangarllm.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "openai/some-unmapped-model",
-                    "litellm_params": {"model": "openai/some-unmapped-model"},
+                    "hangarllm_params": {"model": "openai/some-unmapped-model"},
                     "model_info": {"max_input_tokens": "128,000"},
                 }
             ]
@@ -1820,8 +1820,8 @@ def test_create_model_info_response_survives_malformed_limits_registered_by_rout
             llm_router=router,
         )
     finally:
-        litellm.model_cost.clear()
-        litellm.model_cost.update(saved_model_cost)
+        hangarllm.model_cost.clear()
+        hangarllm.model_cost.update(saved_model_cost)
 
     assert response["id"] == "openai/some-unmapped-model"
     assert "max_input_tokens" not in response
@@ -1924,14 +1924,14 @@ def test_create_model_info_response_omits_non_string_mode():
 
 class TestPostCallFailureHookLLMExceptionAlerting:
     """The llm_exceptions alert is for infra / LLM-API failures, not user
-    errors (https://github.com/BerriAI/litellm/issues/3395). Already-normalized
+    errors (upstream issue 3395). Already-normalized
     client errors must be excluded so a guardrail content-policy block never
     pages on-call. 5xx proxy errors still alert."""
 
     async def _alerted(self, exc: Exception) -> AsyncMock:
         import asyncio
 
-        from litellm.proxy._types import AlertType, UserAPIKeyAuth
+        from hangarllm.proxy._types import AlertType, UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = [AlertType.llm_exceptions]
@@ -1950,7 +1950,7 @@ class TestPostCallFailureHookLLMExceptionAlerting:
 
     @pytest.mark.asyncio
     async def test_proxy_exception_does_not_alert(self):
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         exc = ProxyException(
             message="content blocked",
@@ -1986,7 +1986,7 @@ class TestPostCallFailureHookLLMExceptionAlerting:
 
     @pytest.mark.asyncio
     async def test_proxy_exception_5xx_alerts(self):
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         alerting_handler = await self._alerted(
             ProxyException(
@@ -2008,16 +2008,16 @@ class TestPostCallFailureHookLLMExceptionAlerting:
     async def test_budget_exceeded_alerts_only_for_server_status(
         self, status_code: int, should_alert: bool, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "budget_exceeded_status_code", status_code)
-        exc: Final = litellm.BudgetExceededError(current_cost=1.0, max_budget=0.5)
+        monkeypatch.setattr(hangarllm, "budget_exceeded_status_code", status_code)
+        exc: Final = hangarllm.BudgetExceededError(current_cost=1.0, max_budget=0.5)
         assert (await self._alerted(exc)).called is should_alert
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "exc",
         (
-            litellm.AuthenticationError(message="invalid provider key", model="test-model", llm_provider="openai"),
-            litellm.RateLimitError(message="provider quota exceeded", model="test-model", llm_provider="openai"),
+            hangarllm.AuthenticationError(message="invalid provider key", model="test-model", llm_provider="openai"),
+            hangarllm.RateLimitError(message="provider quota exceeded", model="test-model", llm_provider="openai"),
         ),
     )
     async def test_provider_client_status_still_alerts(self, exc: Exception) -> None:
@@ -2034,7 +2034,7 @@ class TestPostCallFailureHookProxyExceptionLogging:
     async def _logged(self, exc, *, request_route) -> bool:
         from unittest.mock import AsyncMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -2055,7 +2055,7 @@ class TestPostCallFailureHookProxyExceptionLogging:
         return handle_mock.await_count > 0
 
     def _block(self):
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         return ProxyException(
             message="content blocked",
@@ -2077,19 +2077,19 @@ class TestPostCallFailureHookProxyExceptionLogging:
 
 class TestShouldUseSmtpSsl:
     def test_port_465_uses_ssl(self, monkeypatch):
-        from litellm.proxy.utils import _should_use_smtp_ssl
+        from hangarllm.proxy.utils import _should_use_smtp_ssl
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         assert _should_use_smtp_ssl(smtp_port=465) is True
 
     def test_smtp_use_ssl_env_var_forces_ssl_on_any_port(self, monkeypatch):
-        from litellm.proxy.utils import _should_use_smtp_ssl
+        from hangarllm.proxy.utils import _should_use_smtp_ssl
 
         monkeypatch.setenv("SMTP_USE_SSL", "True")
         assert _should_use_smtp_ssl(smtp_port=2465) is True
 
     def test_port_587_uses_plain_smtp(self, monkeypatch):
-        from litellm.proxy.utils import _should_use_smtp_ssl
+        from hangarllm.proxy.utils import _should_use_smtp_ssl
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         assert _should_use_smtp_ssl(smtp_port=587) is False
@@ -2099,7 +2099,7 @@ class TestCreateSmtpConnection:
     def test_port_465_creates_smtp_ssl_with_verified_context(self, monkeypatch):
         import ssl
 
-        from litellm.proxy.utils import _create_smtp_connection
+        from hangarllm.proxy.utils import _create_smtp_connection
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         with (
@@ -2120,7 +2120,7 @@ class TestCreateSmtpConnection:
         assert context.check_hostname is True
 
     def test_port_587_creates_plain_smtp(self, monkeypatch):
-        from litellm.proxy.utils import _create_smtp_connection
+        from hangarllm.proxy.utils import _create_smtp_connection
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         with (
@@ -2139,7 +2139,7 @@ class TestSendEmailStartTls:
     async def test_starttls_uses_verified_context(self, monkeypatch):
         import ssl
 
-        from litellm.proxy.utils import send_email
+        from hangarllm.proxy.utils import send_email
 
         monkeypatch.setenv("SMTP_HOST", "mail.example.com")
         monkeypatch.setenv("SMTP_PORT", "587")
@@ -2148,7 +2148,7 @@ class TestSendEmailStartTls:
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
 
         mock_server = MagicMock(spec=smtplib.SMTP)
-        with patch("litellm.proxy.utils._create_smtp_connection") as mock_create_connection:
+        with patch("hangarllm.proxy.utils._create_smtp_connection") as mock_create_connection:
             mock_create_connection.return_value.__enter__.return_value = mock_server
             await send_email(
                 receiver_email="receiver@example.com",
@@ -2204,13 +2204,13 @@ class _NativeMCPGuardrail(CustomGuardrail):
 def restore_callbacks():
     """Restore the process-wide callback state post_mcp_call_hook reads.
 
-    ProxyLogging caches callback capabilities keyed on id()s of litellm.callbacks,
+    ProxyLogging caches callback capabilities keyed on id()s of hangarllm.callbacks,
     so a restored-but-different list can collide with a stale entry after GC and
     leak a has_guardrail verdict into unrelated tests in the same worker.
     """
-    original = list(litellm.callbacks)
+    original = list(hangarllm.callbacks)
     yield
-    litellm.callbacks = original
+    hangarllm.callbacks = original
     ProxyLogging._callback_capabilities_cache.clear()
 
 
@@ -2220,7 +2220,7 @@ async def test_post_mcp_call_hook_masks_tool_result(restore_callbacks):
     from mcp.types import CallToolResult, TextContent
 
     guardrail = _RecordingMCPGuardrail(event_hook=GuardrailEventHooks.post_mcp_call)
-    litellm.callbacks = [guardrail]
+    hangarllm.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -2241,7 +2241,7 @@ async def test_post_mcp_call_hook_skips_guardrail_configured_for_other_hooks(res
     from mcp.types import CallToolResult, TextContent
 
     guardrail = _RecordingMCPGuardrail(event_hook=GuardrailEventHooks.post_call)
-    litellm.callbacks = [guardrail]
+    hangarllm.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -2262,7 +2262,7 @@ async def test_post_mcp_call_hook_skips_guardrail_without_apply_guardrail(restor
     from mcp.types import CallToolResult, TextContent
 
     guardrail = _NativeMCPGuardrail()
-    litellm.callbacks = [guardrail]
+    hangarllm.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -2281,13 +2281,13 @@ async def test_post_mcp_call_hook_propagates_guardrail_block(restore_callbacks):
     """A guardrail rejecting the tool result must raise out of the hook."""
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.exceptions import BlockedPiiEntityError
+    from hangarllm.exceptions import BlockedPiiEntityError
 
     guardrail = _RecordingMCPGuardrail(
         event_hook=GuardrailEventHooks.post_mcp_call,
         raises=BlockedPiiEntityError(entity_type="EMAIL_ADDRESS", guardrail_name="mcp-output-guardrail"),
     )
-    litellm.callbacks = [guardrail]
+    hangarllm.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -2311,7 +2311,7 @@ async def test_prisma_health_check_failure_names_itself_at_operator_visible_leve
     from functools import partial
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from hangarllm.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.db.query_raw = AsyncMock(side_effect=Exception("connection refused"))
@@ -2320,7 +2320,7 @@ async def test_prisma_health_check_failure_names_itself_at_operator_visible_leve
     client._run_health_probe = partial(PrismaClient._run_health_probe, client)
     client._report_health_check_failure = AsyncMock()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         with pytest.raises(Exception, match="connection refused"):
             await PrismaClient.health_check(client)
 
@@ -2337,14 +2337,14 @@ async def test_prisma_connect_failure_is_reported_at_operator_visible_level(capl
     import logging
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from hangarllm.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.db.is_connected = MagicMock(return_value=False)
     client.db.connect = AsyncMock(side_effect=Exception("could not reach database"))
     client.proxy_logging_obj.failure_handler = AsyncMock()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         with pytest.raises(Exception, match="could not reach database"):
             await PrismaClient.connect(client)
 
@@ -2361,22 +2361,22 @@ async def test_prisma_health_check_failure_redacts_database_credentials(caplog):
     from functools import partial
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from hangarllm.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.db.query_raw = AsyncMock(
-        side_effect=Exception("could not connect to postgresql://admin:hunter2@db.internal:5432/litellm")
+        side_effect=Exception("could not connect to postgresql://admin:hunter2@db.internal:5432/hangarllm")
     )
     client.proxy_logging_obj.failure_handler = AsyncMock()
     client._probe_target_wrapper = MagicMock(return_value=client.db)
     client._run_health_probe = partial(PrismaClient._run_health_probe, client)
     client._report_health_check_failure = AsyncMock()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         with pytest.raises(Exception, match="could not connect to"):
             await PrismaClient.health_check(client)
 
-    emitted = [record.getMessage() for record in caplog.records if record.name == "LiteLLM Proxy"]
+    emitted = [record.getMessage() for record in caplog.records if record.name == "HangarLLM Proxy"]
 
     assert emitted
     assert all("hunter2" not in message for message in emitted)
@@ -2390,17 +2390,17 @@ async def test_update_data_key_branch_stamps_settings_updated_at():
     from datetime import datetime, timezone
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from hangarllm.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.jsonify_object = MagicMock(side_effect=lambda data: dict(data))
-    client.db.litellm_verificationtoken.update = AsyncMock(return_value=None)
+    client.db.hangarllm_verificationtoken.update = AsyncMock(return_value=None)
 
     before = datetime.now(timezone.utc)
     await PrismaClient.update_data(client, token="sk-test-key", data={"models": ["gpt-4"]})
     after = datetime.now(timezone.utc)
 
-    sent = client.db.litellm_verificationtoken.update.call_args.kwargs["data"]
+    sent = client.db.hangarllm_verificationtoken.update.call_args.kwargs["data"]
     assert sent["models"] == ["gpt-4"]
     assert before <= sent["settings_updated_at"] <= after
 
@@ -2421,7 +2421,7 @@ async def test_post_mcp_call_hook_skips_opted_out_guardrail(restore_callbacks):
             return await super().apply_guardrail(inputs, request_data, input_type, **kwargs)
 
     guardrail = _OptedOutMCPGuardrail(event_hook=GuardrailEventHooks.post_mcp_call)
-    litellm.callbacks = [guardrail]
+    hangarllm.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -2456,13 +2456,13 @@ class _LoggingObj:
     ],
 )
 def test_a_system_prompt_reads_the_same_whatever_shape_it_arrived_in(system_input, expected):
-    from litellm.proxy.utils import _system_prompt_text
+    from hangarllm.proxy.utils import _system_prompt_text
 
     assert _system_prompt_text(system_input) == expected
 
 
 def test_a_system_prompt_is_counted_on_top_of_the_request():
-    from litellm.proxy.utils import count_request_input_tokens
+    from hangarllm.proxy.utils import count_request_input_tokens
 
     without = count_request_input_tokens(FAILURE_USAGE_MODEL, "hello world", None)
     with_system = count_request_input_tokens(FAILURE_USAGE_MODEL, "hello world", "be brief")
@@ -2472,14 +2472,14 @@ def test_a_system_prompt_is_counted_on_top_of_the_request():
 
 
 def test_a_request_with_nothing_in_it_counts_zero():
-    from litellm.proxy.utils import count_request_input_tokens
+    from hangarllm.proxy.utils import count_request_input_tokens
 
     assert count_request_input_tokens(FAILURE_USAGE_MODEL, [], None) == 0
     assert count_request_input_tokens(FAILURE_USAGE_MODEL, None, None) == 0
 
 
 def test_a_failed_dispatch_is_estimated_as_input_only():
-    from litellm.proxy.utils import count_request_input_tokens, _estimate_dispatched_failure_usage
+    from hangarllm.proxy.utils import count_request_input_tokens, _estimate_dispatched_failure_usage
 
     usage = _estimate_dispatched_failure_usage(FAILURE_USAGE_MODEL, ONE_USER_MESSAGE, None)
 
@@ -2495,12 +2495,12 @@ def test_a_failed_dispatch_is_estimated_as_input_only():
 def test_a_failed_dispatch_to_a_custom_named_deployment_is_counted_with_its_base_model_only_when_it_is_openai(
     base_model: str, counted_as: str
 ):
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.utils import _estimated_prompt_usage, count_request_input_tokens
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.utils import _estimated_prompt_usage, count_request_input_tokens
 
     messages: Final = [{"role": "user", "content": "日本語のテキストとहिन्दी पाठ और русский текст. " * 20}]
     logging_obj = _dispatched_failure_logging_obj(
-        "my-gpt-6", get_litellm_params(metadata={"model_info": {"base_model": base_model}})
+        "my-gpt-6", get_hangarllm_params(metadata={"model_info": {"base_model": base_model}})
     )
     logging_obj.model_call_details["messages"] = messages
 
@@ -2515,14 +2515,14 @@ def test_a_failed_dispatch_to_a_custom_named_deployment_is_counted_with_its_base
 
 @pytest.mark.parametrize("request_input", [[], object()])
 def test_nothing_is_estimated_when_there_is_nothing_to_count(request_input):
-    from litellm.proxy.utils import _estimate_dispatched_failure_usage
+    from hangarllm.proxy.utils import _estimate_dispatched_failure_usage
 
     assert _estimate_dispatched_failure_usage(FAILURE_USAGE_MODEL, request_input, None) is None
 
 
 def test_usage_the_stream_already_recovered_beats_an_estimate():
-    from litellm.proxy.utils import _failure_usage_to_lift
-    from litellm.types.utils import Usage
+    from hangarllm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.types.utils import Usage
 
     recovered = Usage(prompt_tokens=5, completion_tokens=7, total_tokens=12)
 
@@ -2536,8 +2536,8 @@ def test_usage_the_stream_already_recovered_beats_an_estimate():
 
 
 def test_a_failed_request_counts_its_instructions_even_after_logging_redacted_them():
-    from litellm.constants import REDACTED_BY_LITELLM
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.constants import REDACTED_BY_HANGARLLM
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     instructions: Final = "Review every changed line and explain each risk you find. " * 40
     call: Final[dict[str, object]] = {
@@ -2557,11 +2557,11 @@ def test_a_failed_request_counts_its_instructions_even_after_logging_redacted_th
         assert isinstance(usage, Usage)
         return usage.prompt_tokens
 
-    assert estimated_prompt_tokens(REDACTED_BY_LITELLM) == estimated_prompt_tokens(instructions)
+    assert estimated_prompt_tokens(REDACTED_BY_HANGARLLM) == estimated_prompt_tokens(instructions)
 
 
 def test_a_timed_out_request_on_an_unmapped_model_keeps_its_row_at_zero_cost():
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     lifted = _failure_usage_to_lift(
         model_call_details={
@@ -2585,12 +2585,12 @@ def test_a_timed_out_request_is_priced_at_the_rate_the_router_registered_for_the
     """Router._create_deployment registers a deployment's own ``input_cost_per_token`` under its
     ``model_info.id``; the failure row prices with that entry through the same
     ``deployment_pricing_model_info`` the success path uses."""
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "dep-lit145",
-        {"litellm_provider": "openai", "mode": "chat", "input_cost_per_token": 0.25, "output_cost_per_token": 1.0},
+        {"hangarllm_provider": "openai", "mode": "chat", "input_cost_per_token": 0.25, "output_cost_per_token": 1.0},
     )
 
     lifted = _failure_usage_to_lift(
@@ -2616,13 +2616,13 @@ def test_a_timed_out_request_is_priced_at_the_deployments_long_context_tier(monk
     """A deployment that declares ``input_cost_per_token_above_200k_tokens`` next to its standard rate
     bills a 250k-token prompt at the tier on the success path; the failure row must not flatten it to
     the standard rate."""
-    from litellm.proxy.utils import _estimated_input_cost
+    from hangarllm.proxy.utils import _estimated_input_cost
 
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "dep-lit-f9-tiered",
         {
-            "litellm_provider": "openai",
+            "hangarllm_provider": "openai",
             "mode": "chat",
             "input_cost_per_token": 1e-7,
             "input_cost_per_token_above_200k_tokens": 5e-7,
@@ -2644,19 +2644,19 @@ def test_every_earlier_timed_out_attempt_is_billed_at_its_own_deployment_rate(mo
     """The router leaves one RetryAttemptRecord per failed attempt in metadata.previous_models, the
     final attempt included; the earlier Timeout ones are billed (each at the deployment that served
     it), a 429 attempt is not, and the final attempt is left to the failure row itself."""
-    from litellm.proxy.utils import _billed_earlier_attempts
+    from hangarllm.proxy.utils import _billed_earlier_attempts
 
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "dep-lit145-b",
-        {"litellm_provider": "openai", "mode": "chat", "input_cost_per_token": 0.25, "output_cost_per_token": 1.0},
+        {"hangarllm_provider": "openai", "mode": "chat", "input_cost_per_token": 0.25, "output_cost_per_token": 1.0},
     )
-    usage = litellm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
-    public_rate, _ = litellm.cost_per_token(model=FAILURE_USAGE_MODEL, prompt_tokens=24)
+    usage = hangarllm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
+    public_rate, _ = hangarllm.cost_per_token(model=FAILURE_USAGE_MODEL, prompt_tokens=24)
 
     attempts = _billed_earlier_attempts(
         model_call_details={"model": FAILURE_USAGE_MODEL, "custom_llm_provider": "openai"},
-        litellm_params={
+        hangarllm_params={
             "metadata": {
                 "attempted_retries": 3,
                 "previous_models": (
@@ -2683,7 +2683,7 @@ def test_an_earlier_attempt_on_another_model_is_priced_at_that_models_rate_not_t
     """After a fallback hop the final attempt runs on another model group, so the records of the group
     that timed out first name their own deployment model (and its ``base_model`` when the deployment
     name is not in the cost map). Each is billed at that model's input rate, not at the final model's."""
-    from litellm.proxy.utils import _billed_earlier_attempts
+    from hangarllm.proxy.utils import _billed_earlier_attempts
 
     for pricing_model, provider, input_rate in (
         ("lit145-final-model", "openai", 0.5),
@@ -2691,15 +2691,15 @@ def test_an_earlier_attempt_on_another_model_is_priced_at_that_models_rate_not_t
         ("azure/lit145-first-model", "azure", 0.02),
     ):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             pricing_model,
-            {"litellm_provider": provider, "mode": "chat", "input_cost_per_token": input_rate, "output_cost_per_token": 1.0},
+            {"hangarllm_provider": provider, "mode": "chat", "input_cost_per_token": input_rate, "output_cost_per_token": 1.0},
         )
-    usage = litellm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
+    usage = hangarllm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
 
     attempts = _billed_earlier_attempts(
         model_call_details={"model": "openai/lit145-final-model", "custom_llm_provider": "openai"},
-        litellm_params={
+        hangarllm_params={
             "metadata": {
                 "attempted_retries": 1,
                 "model_info": {"id": "dep-lit145-final"},
@@ -2751,12 +2751,12 @@ def test_earlier_attempts_are_priced_from_the_prompt_estimate_not_the_final_stre
     """A final attempt whose stream broke mid-flight lifts its recovered usage (prompt plus the chunks
     delivered); the earlier timed-out attempts never produced output, so they are priced from the
     input-only estimate and not from that recovered usage."""
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.utils import _estimated_prompt_usage, _failure_fields_to_lift
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.utils import _estimated_prompt_usage, _failure_fields_to_lift
 
     logging_obj = _dispatched_failure_logging_obj(
         FAILURE_USAGE_MODEL,
-        get_litellm_params(
+        get_hangarllm_params(
             metadata={
                 "attempted_retries": 1,
                 "model_info": {"id": "dep-lit145-final"},
@@ -2766,11 +2766,11 @@ def test_earlier_attempts_are_priced_from_the_prompt_estimate_not_the_final_stre
             }
         ),
     )
-    recovered = litellm.Usage(prompt_tokens=500, completion_tokens=40, total_tokens=540)
+    recovered = hangarllm.Usage(prompt_tokens=500, completion_tokens=40, total_tokens=540)
     logging_obj.model_call_details["combined_usage_object"] = recovered
     logging_obj.model_call_details["response_cost"] = 0.01
 
-    lifted = _failure_fields_to_lift({"litellm_logging_obj": logging_obj}, provider_billed=True)
+    lifted = _failure_fields_to_lift({"hangarllm_logging_obj": logging_obj}, provider_billed=True)
 
     estimate = _estimated_prompt_usage(logging_obj.model_call_details, {}, None)
     assert lifted["combined_usage_object"] is recovered
@@ -2783,12 +2783,12 @@ def test_earlier_attempts_are_priced_from_the_prompt_estimate_not_the_final_stre
 def test_attempts_already_summed_into_the_final_row_are_not_lifted_again():
     """``Logging.carry_failed_attempt_usage`` moves a cut stream's usage into ``failed_attempts_usage``
     and the final row already bills every entry of it, so no earlier attempt gets a row of its own."""
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     logging_obj = _dispatched_failure_logging_obj(
         FAILURE_USAGE_MODEL,
-        get_litellm_params(
+        get_hangarllm_params(
             metadata={
                 "attempted_retries": 1,
                 "model_info": {"id": "dep-lit145-final"},
@@ -2799,14 +2799,14 @@ def test_attempts_already_summed_into_the_final_row_are_not_lifted_again():
         ),
     )
     logging_obj.model_call_details["failed_attempts_usage"] = (
-        (litellm.Usage(prompt_tokens=24, completion_tokens=3, total_tokens=27), 0.001),
+        (hangarllm.Usage(prompt_tokens=24, completion_tokens=3, total_tokens=27), 0.001),
     )
 
-    lifted = _failure_fields_to_lift({"litellm_logging_obj": logging_obj}, provider_billed=True)
+    lifted = _failure_fields_to_lift({"hangarllm_logging_obj": logging_obj}, provider_billed=True)
 
     current_only_logging_obj: Final = _dispatched_failure_logging_obj(
         FAILURE_USAGE_MODEL,
-        get_litellm_params(
+        get_hangarllm_params(
             metadata={
                 "attempted_retries": 1,
                 "model_info": {"id": "dep-lit145-final"},
@@ -2817,7 +2817,7 @@ def test_attempts_already_summed_into_the_final_row_are_not_lifted_again():
         ),
     )
     current_only: Final = _failure_fields_to_lift(
-        {"litellm_logging_obj": current_only_logging_obj}, provider_billed=True
+        {"hangarllm_logging_obj": current_only_logging_obj}, provider_billed=True
     )
     current_only_usage: Final = current_only["combined_usage_object"]
 
@@ -2834,7 +2834,7 @@ def test_carry_superseded_attempt_usage_without_stashed_usage_preserves_failure_
         stream=False,
         call_type="acompletion",
         start_time=request_start,
-        litellm_call_id="call-lit145-no-stashed-usage",
+        hangarllm_call_id="call-lit145-no-stashed-usage",
         function_id="fn-lit145-no-stashed-usage",
     )
     logging_obj.pre_call(input=ONE_USER_MESSAGE, api_key="sk-test", model=FAILURE_USAGE_MODEL)
@@ -2845,8 +2845,8 @@ def test_carry_superseded_attempt_usage_without_stashed_usage_preserves_failure_
         try:
             raise httpx.ReadTimeout("no bytes in time")
         except httpx.ReadTimeout as cause:
-            raise litellm.Timeout("Request timed out.", model=FAILURE_USAGE_MODEL, llm_provider="openai") from cause
-    except litellm.Timeout as timeout:
+            raise hangarllm.Timeout("Request timed out.", model=FAILURE_USAGE_MODEL, llm_provider="openai") from cause
+    except hangarllm.Timeout as timeout:
         logging_obj.failure_handler(
             timeout,
             traceback.format_exc(),
@@ -2855,7 +2855,7 @@ def test_carry_superseded_attempt_usage_without_stashed_usage_preserves_failure_
         )
 
     assert "combined_usage_object" not in logging_obj.model_call_details
-    request_data: Final = {"litellm_logging_obj": logging_obj}
+    request_data: Final = {"hangarllm_logging_obj": logging_obj}
     before: Final = _failure_fields_to_lift(request_data, provider_billed=True)
 
     carry_superseded_attempt_usage(request_data)
@@ -2872,11 +2872,11 @@ def test_carry_superseded_attempt_usage_without_stashed_usage_preserves_failure_
 
 @pytest.mark.asyncio
 async def test_dropped_stream_failure_attribution_reaches_terminal_spend_row() -> None:
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
+    from hangarllm.exceptions import MidStreamFallbackError
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
 
     request_start: Final = real_datetime.datetime(2026, 1, 1)
     model: Final = "deployment-model"
@@ -2886,14 +2886,14 @@ async def test_dropped_stream_failure_attribution_reaches_terminal_spend_row() -
         stream=True,
         call_type="acompletion",
         start_time=request_start,
-        litellm_call_id="call-lit145-attribution",
+        hangarllm_call_id="call-lit145-attribution",
         function_id="fn-lit145-attribution",
     )
     logging_obj.update_environment_variables(
         model=model,
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-id"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-id"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -2923,12 +2923,12 @@ async def test_dropped_stream_failure_attribution_reaches_terminal_spend_row() -
         wrapper._log_stream_failure_and_raise(exception)
     await wrapper.wait_for_failure_logging(timeout=10)
 
-    request_data: Final = {"litellm_logging_obj": logging_obj}
+    request_data: Final = {"hangarllm_logging_obj": logging_obj}
     lifted: Final = _failure_fields_to_lift(request_data, provider_billed=True)
     terminal_kwargs: Final = {
         key: value
         for key, value in {**request_data, **lifted}.items()
-        if key != "litellm_logging_obj"
+        if key != "hangarllm_logging_obj"
     }
     row: Final = get_logging_payload(
         kwargs=terminal_kwargs,
@@ -2961,7 +2961,7 @@ class _ReplaceSharedFailurePayload(CustomLogger):
     ) -> None:
         from pydantic import TypeAdapter
 
-        from litellm.types.utils import StandardLoggingPayload
+        from hangarllm.types.utils import StandardLoggingPayload
 
         payload: Final = TypeAdapter(StandardLoggingPayload).validate_python(kwargs["standard_logging_object"])
         self.started.set()
@@ -3002,7 +3002,7 @@ class _OrderedAttemptFailureRecorder(CustomLogger):
     ) -> None:
         from pydantic import TypeAdapter
 
-        from litellm.types.utils import StandardLoggingPayload
+        from hangarllm.types.utils import StandardLoggingPayload
 
         payload: Final = TypeAdapter(StandardLoggingPayload).validate_python(kwargs["standard_logging_object"])
         if payload["model_id"] == "deployment-a":
@@ -3035,9 +3035,9 @@ class _PausedBaselineFailureRecorder(CustomLogger):
 
 @pytest.mark.asyncio
 async def test_latest_dropped_attempt_publishes_its_payload_after_earlier_dispatch_finishes() -> None:
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.types.utils import Usage
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.types.utils import Usage
 
     request_start: Final = real_datetime.datetime(2026, 1, 1)
     marker_a: Final = request_start
@@ -3049,7 +3049,7 @@ async def test_latest_dropped_attempt_publishes_its_payload_after_earlier_dispat
         stream=True,
         call_type="acompletion",
         start_time=request_start,
-        litellm_call_id="call-lit145-attempt-order",
+        hangarllm_call_id="call-lit145-attempt-order",
         function_id="fn-lit145-attempt-order",
         dynamic_async_failure_callbacks=[recorder],
     )
@@ -3057,7 +3057,7 @@ async def test_latest_dropped_attempt_publishes_its_payload_after_earlier_dispat
         model="deployment-model-a",
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-a"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-a"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -3078,7 +3078,7 @@ async def test_latest_dropped_attempt_publishes_its_payload_after_earlier_dispat
         model="deployment-model-b",
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-b"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-b"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -3098,12 +3098,12 @@ async def test_latest_dropped_attempt_publishes_its_payload_after_earlier_dispat
     recorder.release_attempt_b.set()
     await attempt_b
 
-    request_data: Final = {"litellm_logging_obj": logging_obj}
+    request_data: Final = {"hangarllm_logging_obj": logging_obj}
     lifted: Final = _failure_fields_to_lift(request_data, provider_billed=True)
     terminal_kwargs: Final = {
         key: value
         for key, value in {**request_data, **lifted}.items()
-        if key != "litellm_logging_obj"
+        if key != "hangarllm_logging_obj"
     }
     row: Final = get_logging_payload(
         kwargs=terminal_kwargs,
@@ -3119,9 +3119,9 @@ async def test_latest_dropped_attempt_publishes_its_payload_after_earlier_dispat
 
 @pytest.mark.asyncio
 async def test_dropped_attempt_attribution_is_published_while_failure_callback_is_paused() -> None:
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.types.utils import Usage
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.types.utils import Usage
 
     request_start: Final = real_datetime.datetime(2026, 1, 1)
     marker_a: Final = request_start
@@ -3133,7 +3133,7 @@ async def test_dropped_attempt_attribution_is_published_while_failure_callback_i
         stream=True,
         call_type="acompletion",
         start_time=request_start,
-        litellm_call_id="call-lit145-attempt-paused",
+        hangarllm_call_id="call-lit145-attempt-paused",
         function_id="fn-lit145-attempt-paused",
         dynamic_async_failure_callbacks=[recorder],
     )
@@ -3141,7 +3141,7 @@ async def test_dropped_attempt_attribution_is_published_while_failure_callback_i
         model="deployment-model-a",
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-a"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-a"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -3155,12 +3155,12 @@ async def test_dropped_attempt_attribution_is_published_while_failure_callback_i
     attempt: Final = asyncio.create_task(logging_obj.dispatch_attempt_failure_handlers(failure, ""))
     await asyncio.wait_for(recorder.attempt_a_started.wait(), timeout=10)
 
-    request_data: Final = {"litellm_logging_obj": logging_obj}
+    request_data: Final = {"hangarllm_logging_obj": logging_obj}
     lifted: Final = _failure_fields_to_lift(request_data, provider_billed=True)
     terminal_kwargs: Final = {
         key: value
         for key, value in {**request_data, **lifted}.items()
-        if key != "litellm_logging_obj"
+        if key != "hangarllm_logging_obj"
     }
     row: Final = get_logging_payload(
         kwargs=terminal_kwargs,
@@ -3186,11 +3186,11 @@ async def test_failed_attempt_publishes_baseline_reason_after_invalidation(
 ) -> None:
     from pydantic import TypeAdapter
 
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.hooks.autorouter_baseline_cache import AutoRouterBaselineCache, CapturedBaselineObservation
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.router import Router
-    from litellm.types.utils import CallTypes, StandardLoggingPayload, Usage
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.hooks.autorouter_baseline_cache import AutoRouterBaselineCache, CapturedBaselineObservation
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.router import Router
+    from hangarllm.types.utils import CallTypes, StandardLoggingPayload, Usage
     from tests.unit.proxy.hooks.test_autorouter_baseline_cache import _MODELS, _kwargs
 
     request_start: Final = real_datetime.datetime(2026, 1, 1)
@@ -3209,7 +3209,7 @@ async def test_failed_attempt_publishes_baseline_reason_after_invalidation(
         stream=True,
         call_type=CallTypes.anthropic_messages.value,
         start_time=request_start,
-        litellm_call_id="call-lit145-baseline-failure",
+        hangarllm_call_id="call-lit145-baseline-failure",
         function_id="fn-lit145-baseline-failure",
         dynamic_async_failure_callbacks=[recorder],
     )
@@ -3217,7 +3217,7 @@ async def test_failed_attempt_publishes_baseline_reason_after_invalidation(
         model=model,
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-a"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-a"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -3234,12 +3234,12 @@ async def test_failed_attempt_publishes_baseline_reason_after_invalidation(
     attempt: Final = asyncio.create_task(logging_obj.dispatch_attempt_failure_handlers(failure, ""))
     try:
         await asyncio.wait_for(recorder.started.wait(), timeout=10)
-        request_data: Final = {"litellm_logging_obj": logging_obj}
+        request_data: Final = {"hangarllm_logging_obj": logging_obj}
         lifted: Final = _failure_fields_to_lift(request_data, provider_billed=True)
         terminal_kwargs: Final = {
             key: value
             for key, value in {**request_data, **lifted}.items()
-            if key != "litellm_logging_obj"
+            if key != "hangarllm_logging_obj"
         }
         row: Final = get_logging_payload(
             kwargs=terminal_kwargs,
@@ -3272,9 +3272,9 @@ async def test_failed_attempt_publishes_baseline_reason_after_invalidation(
 
 @pytest.mark.asyncio
 async def test_queued_stale_attempt_dispatch_does_not_publish_over_current_attempt() -> None:
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.types.utils import Usage
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.types.utils import Usage
 
     request_start: Final = real_datetime.datetime(2026, 1, 1)
     marker_a: Final = request_start
@@ -3286,7 +3286,7 @@ async def test_queued_stale_attempt_dispatch_does_not_publish_over_current_attem
         stream=True,
         call_type="acompletion",
         start_time=request_start,
-        litellm_call_id="call-lit145-stale-attempt",
+        hangarllm_call_id="call-lit145-stale-attempt",
         function_id="fn-lit145-stale-attempt",
         dynamic_async_failure_callbacks=[recorder],
     )
@@ -3294,7 +3294,7 @@ async def test_queued_stale_attempt_dispatch_does_not_publish_over_current_attem
         model="deployment-model-a",
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-a"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-a"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -3312,7 +3312,7 @@ async def test_queued_stale_attempt_dispatch_does_not_publish_over_current_attem
         model="deployment-model-b",
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-b"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-b"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -3332,12 +3332,12 @@ async def test_queued_stale_attempt_dispatch_does_not_publish_over_current_attem
             asyncio.gather(recorder.attempt_a_started.wait(), recorder.attempt_b_started.wait()),
             timeout=10,
         )
-        request_data: Final = {"litellm_logging_obj": logging_obj}
+        request_data: Final = {"hangarllm_logging_obj": logging_obj}
         lifted: Final = _failure_fields_to_lift(request_data, provider_billed=True)
         terminal_kwargs: Final = {
             key: value
             for key, value in {**request_data, **lifted}.items()
-            if key != "litellm_logging_obj"
+            if key != "hangarllm_logging_obj"
         }
         row: Final = get_logging_payload(
             kwargs=terminal_kwargs,
@@ -3358,11 +3358,11 @@ async def test_queued_stale_attempt_dispatch_does_not_publish_over_current_attem
 @pytest.mark.asyncio
 @pytest.mark.parametrize("queued_start", [False, True], ids=["running-start", "queued-start"])
 async def test_dropped_stream_failure_does_not_overwrite_newer_terminal_payload(queued_start: bool) -> None:
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-    from litellm.types.utils import Delta, ModelResponseStream, StandardLoggingPayload, StreamingChoices, Usage
+    from hangarllm.exceptions import MidStreamFallbackError
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.types.utils import Delta, ModelResponseStream, StandardLoggingPayload, StreamingChoices, Usage
     from pydantic import TypeAdapter
 
     request_start: Final = real_datetime.datetime(2026, 1, 1)
@@ -3374,7 +3374,7 @@ async def test_dropped_stream_failure_does_not_overwrite_newer_terminal_payload(
         stream=True,
         call_type="acompletion",
         start_time=request_start,
-        litellm_call_id="call-lit145-identity",
+        hangarllm_call_id="call-lit145-identity",
         function_id="fn-lit145-identity",
         dynamic_async_failure_callbacks=[recorder],
     )
@@ -3388,7 +3388,7 @@ async def test_dropped_stream_failure_does_not_overwrite_newer_terminal_payload(
         model=model,
         user="",
         optional_params={},
-        litellm_params=get_litellm_params(metadata={"model_info": {"id": "deployment-id"}}),
+        hangarllm_params=get_hangarllm_params(metadata={"model_info": {"id": "deployment-id"}}),
     )
     logging_obj.model_call_details = {
         **logging_obj.model_call_details,
@@ -3399,12 +3399,12 @@ async def test_dropped_stream_failure_does_not_overwrite_newer_terminal_payload(
     }
 
     def assert_newer_payload_attribution() -> None:
-        request_data: Final = {"litellm_logging_obj": logging_obj}
+        request_data: Final = {"hangarllm_logging_obj": logging_obj}
         lifted: Final = _failure_fields_to_lift(request_data, provider_billed=True)
         terminal_kwargs: Final = {
             key: value
             for key, value in {**request_data, **lifted}.items()
-            if key != "litellm_logging_obj"
+            if key != "hangarllm_logging_obj"
         }
         row: Final = get_logging_payload(
             kwargs=terminal_kwargs,
@@ -3484,13 +3484,13 @@ def test_a_timed_out_attempt_from_the_group_a_fallback_left_is_still_billed():
     re-logs the attempt that exhausted the previous group, so the final attempt (dep-b, retry 1) must be
     told from the previous group's attempt with the same count (dep-a, retry 1), and the re-logged
     record must bill once."""
-    from litellm.proxy.utils import _billed_earlier_attempts
+    from hangarllm.proxy.utils import _billed_earlier_attempts
 
-    usage = litellm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
+    usage = hangarllm.Usage(prompt_tokens=24, completion_tokens=0, total_tokens=24)
 
     attempts = _billed_earlier_attempts(
         model_call_details={"model": FAILURE_USAGE_MODEL, "custom_llm_provider": "openai"},
-        litellm_params={
+        hangarllm_params={
             "metadata": {
                 "attempted_retries": 1,
                 "model_info": {"id": "dep-lit145-b"},
@@ -3516,11 +3516,11 @@ def test_a_timed_out_attempt_from_the_group_a_fallback_left_is_still_billed():
     assert all(a.response_cost > 0 for a in attempts)
 
 
-def _dispatched_failure_logging_obj(model: str, litellm_params: dict) -> object:
-    """A Logging object as the failure hook sees it: litellm_params in the real get_litellm_params()
-    shape (every key present, ``litellm_metadata`` None on chat completions) and a first-handoff
+def _dispatched_failure_logging_obj(model: str, hangarllm_params: dict) -> object:
+    """A Logging object as the failure hook sees it: hangarllm_params in the real get_hangarllm_params()
+    shape (every key present, ``hangarllm_metadata`` None on chat completions) and a first-handoff
     instant, so the lift treats the request as dispatched."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logging_obj = Logging(
         model=model,
@@ -3528,34 +3528,34 @@ def _dispatched_failure_logging_obj(model: str, litellm_params: dict) -> object:
         stream=False,
         call_type="acompletion",
         start_time=real_datetime.datetime.now(),
-        litellm_call_id="call-lit145",
+        hangarllm_call_id="call-lit145",
         function_id="fn-lit145",
     )
-    logging_obj.update_environment_variables(model=model, user="", optional_params={}, litellm_params=litellm_params)
+    logging_obj.update_environment_variables(model=model, user="", optional_params={}, hangarllm_params=hangarllm_params)
     logging_obj.model_call_details["first_api_call_start_time"] = real_datetime.datetime.now()
     logging_obj.model_call_details["messages"] = ONE_USER_MESSAGE
     logging_obj.model_call_details["call_type"] = "acompletion"
     return logging_obj
 
 
-def test_the_deployment_rate_is_found_on_the_logging_objects_real_litellm_params(monkeypatch):
-    """``get_litellm_params()`` always carries a ``litellm_metadata`` key (None on chat
+def test_the_deployment_rate_is_found_on_the_logging_objects_real_hangarllm_params(monkeypatch):
+    """``get_hangarllm_params()`` always carries a ``hangarllm_metadata`` key (None on chat
     completions) next to the router-stamped ``metadata.model_info.id``; the failure row must
     still price at the deployment's own rate, like ``Logging.get_router_model_id`` on the
     success path."""
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "dep-lit145-real-shape",
-        {"litellm_provider": "openai", "mode": "chat", "input_cost_per_token": 0.25, "output_cost_per_token": 0.25},
+        {"hangarllm_provider": "openai", "mode": "chat", "input_cost_per_token": 0.25, "output_cost_per_token": 0.25},
     )
-    litellm_params = get_litellm_params(metadata={"model_info": {"id": "dep-lit145-real-shape"}})
-    assert "litellm_metadata" in litellm_params and litellm_params["litellm_metadata"] is None
-    logging_obj = _dispatched_failure_logging_obj(FAILURE_USAGE_MODEL, litellm_params)
+    hangarllm_params = get_hangarllm_params(metadata={"model_info": {"id": "dep-lit145-real-shape"}})
+    assert "hangarllm_metadata" in hangarllm_params and hangarllm_params["hangarllm_metadata"] is None
+    logging_obj = _dispatched_failure_logging_obj(FAILURE_USAGE_MODEL, hangarllm_params)
 
-    lifted = _failure_fields_to_lift({"litellm_logging_obj": logging_obj}, provider_billed=True)
+    lifted = _failure_fields_to_lift({"hangarllm_logging_obj": logging_obj}, provider_billed=True)
 
     assert lifted["response_cost"] == pytest.approx(lifted["combined_usage_object"].prompt_tokens * 0.25)
 
@@ -3563,18 +3563,18 @@ def test_the_deployment_rate_is_found_on_the_logging_objects_real_litellm_params
 def test_an_azure_deployment_is_priced_at_its_base_model_like_the_success_path():
     """An Azure deployment name is not in the cost map; the success path prices it through
     ``model_info.base_model`` (``get_base_model_from_metadata``) and so must the failure row."""
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     logging_obj = _dispatched_failure_logging_obj(
         "azure/lit145-not-in-cost-map",
-        get_litellm_params(metadata={"model_info": {"base_model": "azure/gpt-4.1"}}),
+        get_hangarllm_params(metadata={"model_info": {"base_model": "azure/gpt-4.1"}}),
     )
     logging_obj.model_call_details["custom_llm_provider"] = "azure"
 
-    lifted = _failure_fields_to_lift({"litellm_logging_obj": logging_obj}, provider_billed=True)
+    lifted = _failure_fields_to_lift({"hangarllm_logging_obj": logging_obj}, provider_billed=True)
 
-    expected_cost, _ = litellm.cost_per_token(
+    expected_cost, _ = hangarllm.cost_per_token(
         model="azure/gpt-4.1", prompt_tokens=lifted["combined_usage_object"].prompt_tokens
     )
     assert expected_cost > 0
@@ -3585,19 +3585,19 @@ def test_an_unmapped_base_model_falls_back_to_the_deployment_model_like_the_succ
     """``completion_cost`` tries ``base_model`` first and then the deployment model, so a
     ``model_info.base_model`` the cost map does not know still prices a success row at the
     deployment model's rate. The failure row must land on the same number instead of $0."""
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     logging_obj = _dispatched_failure_logging_obj(
         FAILURE_USAGE_MODEL,
-        get_litellm_params(metadata={"model_info": {"base_model": "not-in-the-cost-map"}}),
+        get_hangarllm_params(metadata={"model_info": {"base_model": "not-in-the-cost-map"}}),
     )
     logging_obj.model_call_details["custom_llm_provider"] = "openai"
 
-    lifted = _failure_fields_to_lift({"litellm_logging_obj": logging_obj}, provider_billed=True)
+    lifted = _failure_fields_to_lift({"hangarllm_logging_obj": logging_obj}, provider_billed=True)
 
     prompt_tokens = lifted["combined_usage_object"].prompt_tokens
-    success_cost = litellm.completion_cost(
+    success_cost = hangarllm.completion_cost(
         completion_response=ModelResponse(
             model=FAILURE_USAGE_MODEL, usage=Usage(prompt_tokens=prompt_tokens, completion_tokens=0)
         ),
@@ -3609,18 +3609,18 @@ def test_an_unmapped_base_model_falls_back_to_the_deployment_model_like_the_succ
     assert lifted["response_cost"] == pytest.approx(success_cost)
 
 
-def test_a_litellm_params_key_in_the_request_body_cannot_zero_the_timeout_price():
+def test_a_hangarllm_params_key_in_the_request_body_cannot_zero_the_timeout_price():
     """``model_call_details`` is flattened with the request's optional_params, so a body key
-    named ``litellm_params`` can land there; the deployment rate must come from the logging
-    object's own ``litellm_params`` instead."""
-    from litellm.proxy.utils import _failure_usage_to_lift
+    named ``hangarllm_params`` can land there; the deployment rate must come from the logging
+    object's own ``hangarllm_params`` instead."""
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     lifted = _failure_usage_to_lift(
         model_call_details={
             "call_type": "acompletion",
             "model": FAILURE_USAGE_MODEL,
             "messages": ONE_USER_MESSAGE,
-            "litellm_params": {"input_cost_per_token": 0},
+            "hangarllm_params": {"input_cost_per_token": 0},
         },
         request_body={},
         dispatched=True,
@@ -3630,13 +3630,13 @@ def test_a_litellm_params_key_in_the_request_body_cannot_zero_the_timeout_price(
 
     assert lifted is not None
     usage, response_cost = lifted
-    expected_cost, _ = litellm.cost_per_token(model=FAILURE_USAGE_MODEL, prompt_tokens=usage.prompt_tokens)
+    expected_cost, _ = hangarllm.cost_per_token(model=FAILURE_USAGE_MODEL, prompt_tokens=usage.prompt_tokens)
     assert response_cost == pytest.approx(expected_cost)
     assert response_cost > 0
 
 
 def test_a_request_that_timed_out_at_a_provider_bills_its_input_at_the_input_rate():
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     lifted = _failure_usage_to_lift(
         model_call_details={
@@ -3653,7 +3653,7 @@ def test_a_request_that_timed_out_at_a_provider_bills_its_input_at_the_input_rat
     usage, response_cost = lifted
     assert usage.prompt_tokens > 0
     assert usage.completion_tokens == 0
-    expected_input_cost, _ = litellm.cost_per_token(model=FAILURE_USAGE_MODEL, prompt_tokens=usage.prompt_tokens)
+    expected_input_cost, _ = hangarllm.cost_per_token(model=FAILURE_USAGE_MODEL, prompt_tokens=usage.prompt_tokens)
     assert expected_input_cost > 0
     assert response_cost == pytest.approx(expected_input_cost)
 
@@ -3672,7 +3672,7 @@ TURN_AFTER_COMPACTION = {"role": "user", "content": "what is the cat's name?"}
 
 
 def _failed_call_prompt_tokens(call_type, dispatched_call_type, request_input):
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     lifted = _failure_usage_to_lift(
         model_call_details={"call_type": call_type, "model": FAILURE_USAGE_MODEL, "messages": request_input},
@@ -3704,13 +3704,13 @@ def test_a_failed_call_off_the_responses_route_counts_the_history_before_a_compa
 
 
 def test_an_earlier_timed_out_responses_attempt_counts_its_input_from_the_newest_compaction_item():
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.hangarllm_core_utils.get_hangarllm_params import get_hangarllm_params
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     def earlier_attempt_prompt_tokens(request_input):
         logging_obj = _dispatched_failure_logging_obj(
             FAILURE_USAGE_MODEL,
-            get_litellm_params(
+            get_hangarllm_params(
                 metadata={
                     "attempted_retries": 1,
                     "model_info": {"id": "dep-compaction-final"},
@@ -3723,7 +3723,7 @@ def test_an_earlier_timed_out_responses_attempt_counts_its_input_from_the_newest
         logging_obj.model_call_details["call_type"] = "aresponses"
         logging_obj.model_call_details["messages"] = request_input
         lifted = _failure_fields_to_lift(
-            {"litellm_logging_obj": logging_obj}, provider_billed=True, dispatched_call_type="aresponses"
+            {"hangarllm_logging_obj": logging_obj}, provider_billed=True, dispatched_call_type="aresponses"
         )
         (earlier_attempt,) = lifted["billed_failed_attempts"]
         return earlier_attempt.usage.prompt_tokens
@@ -3745,8 +3745,8 @@ def test_an_earlier_timed_out_responses_attempt_counts_its_input_from_the_newest
 def test_a_retry_failure_bills_input_only_for_dispatched_attempts(
     current_attempt_api_call_start_time: float | None,
 ) -> None:
-    from litellm.proxy.utils import _estimate_dispatched_failure_usage, _failure_fields_to_lift
-    from litellm.types.utils import Usage
+    from hangarllm.proxy.utils import _estimate_dispatched_failure_usage, _failure_fields_to_lift
+    from hangarllm.types.utils import Usage
 
     prior_usage: Final = Usage(prompt_tokens=4, completion_tokens=2, total_tokens=6)
     estimated_retry_usage: Final = _estimate_dispatched_failure_usage(FAILURE_USAGE_MODEL, ONE_USER_MESSAGE, None)
@@ -3754,7 +3754,7 @@ def test_a_retry_failure_bills_input_only_for_dispatched_attempts(
 
     lifted: Final = _failure_fields_to_lift(
         {
-            "litellm_logging_obj": _LoggingObj(
+            "hangarllm_logging_obj": _LoggingObj(
                 {
                     "first_api_call_start_time": 1700000000.0,
                     "current_attempt_api_call_start_time": current_attempt_api_call_start_time,
@@ -3780,10 +3780,10 @@ def test_a_retry_failure_bills_input_only_for_dispatched_attempts(
 
 @pytest.mark.asyncio
 async def test_an_agentic_follow_up_failure_row_bills_each_served_first_call_without_an_estimate() -> None:
-    import litellm
-    from litellm.litellm_core_utils.chat_completion_agentic_loop import bill_first_round_on_failure
-    from litellm.proxy.utils import _failure_fields_to_lift
-    from litellm.types.utils import ModelResponse, Usage
+    import hangarllm
+    from hangarllm.hangarllm_core_utils.chat_completion_agentic_loop import bill_first_round_on_failure
+    from hangarllm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.types.utils import ModelResponse, Usage
 
     logging_obj: Final = Logging(
         model=FAILURE_USAGE_MODEL,
@@ -3791,19 +3791,19 @@ async def test_an_agentic_follow_up_failure_row_bills_each_served_first_call_wit
         stream=False,
         call_type="acompletion",
         start_time=real_datetime.datetime.now(),
-        litellm_call_id="call-agentic-follow-up",
+        hangarllm_call_id="call-agentic-follow-up",
         function_id="fn-agentic-follow-up",
     )
     logging_obj.update_environment_variables(
-        model=FAILURE_USAGE_MODEL, user="", optional_params={}, litellm_params={"custom_llm_provider": "openai"}
+        model=FAILURE_USAGE_MODEL, user="", optional_params={}, hangarllm_params={"custom_llm_provider": "openai"}
     )
 
     async def failing_follow_up() -> ModelResponse:
-        raise litellm.RateLimitError(message="rate limited", llm_provider="openai", model=FAILURE_USAGE_MODEL)
+        raise hangarllm.RateLimitError(message="rate limited", llm_provider="openai", model=FAILURE_USAGE_MODEL)
 
     async def serve_first_call_then_fail_its_follow_up(usage: Usage) -> float:
         logging_obj.pre_call(input=ONE_USER_MESSAGE, api_key="sk-test")
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await bill_first_round_on_failure(
                 failing_follow_up(),
                 logging_obj=logging_obj,
@@ -3820,7 +3820,7 @@ async def test_an_agentic_follow_up_failure_row_bills_each_served_first_call_wit
         Usage(prompt_tokens=31, completion_tokens=5, total_tokens=36)
     )
 
-    lifted: Final = _failure_fields_to_lift({"litellm_logging_obj": logging_obj})
+    lifted: Final = _failure_fields_to_lift({"hangarllm_logging_obj": logging_obj})
 
     usage: Final = lifted["combined_usage_object"]
     assert (usage.prompt_tokens, usage.completion_tokens) == (559 + 31, 113 + 5)
@@ -3834,7 +3834,7 @@ async def test_an_agentic_follow_up_failure_row_bills_each_served_first_call_wit
         ({"call_type": "acompletion", "model": FAILURE_USAGE_MODEL, "messages": ONE_USER_MESSAGE}, False),
         (
             {
-                "litellm_no_upstream_llm_call": True,
+                "hangarllm_no_upstream_llm_call": True,
                 "call_type": "acompletion",
                 "model": FAILURE_USAGE_MODEL,
                 "messages": ONE_USER_MESSAGE,
@@ -3846,19 +3846,19 @@ async def test_an_agentic_follow_up_failure_row_bills_each_served_first_call_wit
     ids=["never dispatched", "no upstream call", "call type has no input to price"],
 )
 def test_a_failure_that_cost_the_provider_nothing_lifts_nothing(model_call_details, dispatched):
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     assert _failure_usage_to_lift(model_call_details=model_call_details, request_body={}, dispatched=dispatched) is None
 
 
 def test_the_no_upstream_call_key_the_module_uses_is_the_one_asserted_above():
-    from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
+    from hangarllm.constants import HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL
 
-    assert LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL == "litellm_no_upstream_llm_call"
+    assert HANGARLLM_LOGGING_NO_UPSTREAM_LLM_CALL == "hangarllm_no_upstream_llm_call"
 
 
 def test_the_dispatched_system_prompt_wins_over_the_one_in_the_request_body():
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from hangarllm.proxy.utils import _failure_usage_to_lift
 
     def lift(model_call_details, request_body):
         lifted = _failure_usage_to_lift(
@@ -3883,18 +3883,18 @@ def test_the_dispatched_system_prompt_wins_over_the_one_in_the_request_body():
 
 
 def test_a_failure_with_no_logging_object_lifts_nothing():
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     assert dict(_failure_fields_to_lift({})) == {}
-    assert dict(_failure_fields_to_lift({"litellm_logging_obj": _LoggingObj({})})) == {}
+    assert dict(_failure_fields_to_lift({"hangarllm_logging_obj": _LoggingObj({})})) == {}
 
 
 def test_a_dispatched_failure_lifts_the_fields_the_spend_log_needs():
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from hangarllm.proxy.utils import _failure_fields_to_lift
 
     lifted = _failure_fields_to_lift(
         {
-            "litellm_logging_obj": _LoggingObj(
+            "hangarllm_logging_obj": _LoggingObj(
                 {
                     "start_time": 1699999999.0,
                     "first_api_call_start_time": 1700000000.0,
@@ -3928,7 +3928,7 @@ async def test_a_dispatched_failure_is_counted_off_the_event_loop():
     from unittest.mock import AsyncMock, patch
 
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -3936,7 +3936,7 @@ async def test_a_dispatched_failure_is_counted_off_the_event_loop():
 
     warm_tokenizer("claude-fable-5")
     request_data = {
-        "litellm_logging_obj": _LoggingObj(
+        "hangarllm_logging_obj": _LoggingObj(
             {
                 "first_api_call_start_time": 1700000000.0,
                 "call_type": "acompletion",
@@ -3967,11 +3967,11 @@ async def test_proxy_only_error_expected_4xx_skips_traceback_for_both_handlers(m
     either the async or the threaded sync failure handler."""
     import asyncio
 
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
-    monkeypatch.setattr(litellm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     captured = {}
     sync_ran = asyncio.Event()
@@ -4016,14 +4016,14 @@ async def test_proxy_only_error_5xx_keeps_traceback_and_runs_sync_callbacks(monk
     sync-only failure callback still gets its threaded handler."""
     import asyncio
 
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     def _custom_sync_callback(kwargs, completion_response, start_time, end_time):
         pass
 
-    monkeypatch.setattr(litellm, "failure_callback", [_custom_sync_callback])
+    monkeypatch.setattr(hangarllm, "failure_callback", [_custom_sync_callback])
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     captured = {}
     sync_ran = asyncio.Event()
@@ -4063,15 +4063,15 @@ async def test_proxy_only_error_5xx_keeps_traceback_and_runs_sync_callbacks(monk
 def test_create_model_info_response_resolves_mode_through_deployment_model():
     """`mode` is derived from the same lookup, so an aliased embedding deployment
     currently reports no mode at all; it must report `embedding`."""
-    from litellm import Router
+    from hangarllm import Router
 
-    saved_model_cost = dict(litellm.model_cost)
+    saved_model_cost = dict(hangarllm.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "my-embeddings",
-                    "litellm_params": {"model": "openai/text-embedding-3-small"},
+                    "hangarllm_params": {"model": "openai/text-embedding-3-small"},
                 }
             ]
         )
@@ -4080,8 +4080,8 @@ def test_create_model_info_response_resolves_mode_through_deployment_model():
             model_id="my-embeddings", provider="openai", llm_router=router
         )
     finally:
-        litellm.model_cost.clear()
-        litellm.model_cost.update(saved_model_cost)
+        hangarllm.model_cost.clear()
+        hangarllm.model_cost.update(saved_model_cost)
 
     assert response["mode"] == "embedding"
 
@@ -4096,13 +4096,13 @@ def test_create_model_info_response_resolves_mode_through_deployment_model():
 def test_create_model_info_response_resolves_model_group_alias_to_target(model_group_alias, local_model_cost_map):
     """A `model_group_alias` row must report the metadata of the group it points at,
     not the cost-map generalization or nothing that the alias name resolves to."""
-    from litellm import Router
+    from hangarllm import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "my-embeddings",
-                "litellm_params": {"model": "openai/text-embedding-3-small"},
+                "hangarllm_params": {"model": "openai/text-embedding-3-small"},
             }
         ],
         model_group_alias=model_group_alias,
@@ -4131,7 +4131,7 @@ def test_create_model_info_response_resolves_model_group_alias_to_target(model_g
     ],
 )
 def test_convert_mcp_to_llm_format_carries_key_and_team_guardrails(key_metadata, team_metadata, expected_to_run):
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
 
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     guardrail = CustomGuardrail(guardrail_name="key-scoped-guardrail", event_hook="pre_mcp_call", default_on=False)
@@ -4145,7 +4145,7 @@ def test_convert_mcp_to_llm_format_carries_key_and_team_guardrails(key_metadata,
     request_obj = proxy_logging._create_mcp_request_object_from_kwargs(kwargs)
 
     with patch(  # test-quality-ok: the key-guardrail premium gate reads this proxy_server module global and has no injection seam
-        "litellm.proxy.proxy_server.premium_user", True
+        "hangarllm.proxy.proxy_server.premium_user", True
     ):
         synthetic = proxy_logging._convert_mcp_to_llm_format(request_obj, kwargs)
 
@@ -4190,7 +4190,7 @@ async def test_post_call_failure_hook_redacts_traceback_before_callbacks(monkeyp
     assert provider_key in upstream_traceback
 
     recorder = _TracebackRecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     proxy_logging_obj.alert_types = []
     with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
@@ -4212,11 +4212,11 @@ class TestPrismaClientTokenAuthBehindThePool:
     writer wrapper must not run its own refresh loop. The reader is not pooled
     and keeps refreshing its own token."""
 
-    UPSTREAM: Final = "postgresql://litellm:TOKEN@db.internal:5432/litellm"
-    READER: Final = "postgresql://litellm:TOKEN@reader.internal:5432/litellm"
+    UPSTREAM: Final = "postgresql://hangarllm:TOKEN@db.internal:5432/hangarllm"
+    READER: Final = "postgresql://hangarllm:TOKEN@reader.internal:5432/hangarllm"
 
     def _client(self, monkeypatch: pytest.MonkeyPatch, pooled: bool) -> PrismaClient:
-        from litellm.proxy.db.pgbouncer import PGBOUNCER_POOLED_ENV_VAR
+        from hangarllm.proxy.db.pgbouncer import PGBOUNCER_POOLED_ENV_VAR
 
         monkeypatch.delenv("AZURE_POSTGRESQL_AUTH", raising=False)
         monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
@@ -4235,7 +4235,7 @@ class TestPrismaClientTokenAuthBehindThePool:
     def test_a_pooled_writer_leaves_token_refresh_to_the_pooler_while_the_reader_keeps_its_own(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+        from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
         client = self._client(monkeypatch, pooled=True)
         assert isinstance(client.db, RoutingPrismaWrapper)
@@ -4244,7 +4244,7 @@ class TestPrismaClientTokenAuthBehindThePool:
         assert client.token_auth is not None
 
     def test_an_unpooled_writer_still_refreshes_its_own_token(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+        from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
         client = self._client(monkeypatch, pooled=False)
         assert isinstance(client.db, RoutingPrismaWrapper)
@@ -4252,10 +4252,10 @@ class TestPrismaClientTokenAuthBehindThePool:
         assert client.db.reader.iam_token_db_auth is True
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "hangarllm_metadata"])
 def test_mcp_conversion_preserves_request_policy_and_isolates_guardrail_data(bucket):
     from copy import deepcopy
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
 
     parent = {
         "model": "parent-model",
@@ -4289,7 +4289,7 @@ def test_mcp_conversion_preserves_request_policy_and_isolates_guardrail_data(buc
 
 @pytest.mark.parametrize("opt_out", [False, True])
 def test_mcp_conversion_honors_only_authenticated_global_guardrail_opt_outs(opt_out):
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
 
     auth = UserAPIKeyAuth(metadata={"opted_out_global_guardrails": ["global-rule"] if opt_out else []})
     context = MCPRequestContext.resolve(kwargs={"metadata": {
@@ -4307,9 +4307,9 @@ def test_mcp_conversion_honors_only_authenticated_global_guardrail_opt_outs(opt_
 
 @pytest.mark.parametrize("model, expected", [("parent-model", True), ("unmatched-model", False)])
 def test_mcp_auth_policy_uses_original_request_model(monkeypatch, model, expected):
-    from litellm.responses.mcp.request_context import MCPRequestContext
-    from litellm.proxy.policy_engine import policy_registry
-    from litellm.types.proxy.policy_engine import Policy, PolicyCondition, PolicyGuardrails
+    from hangarllm.responses.mcp.request_context import MCPRequestContext
+    from hangarllm.proxy.policy_engine import policy_registry
+    from hangarllm.types.proxy.policy_engine import Policy, PolicyCondition, PolicyGuardrails
 
     registry = policy_registry.PolicyRegistry()
     registry._policies = {"model-policy": Policy(
@@ -4317,7 +4317,7 @@ def test_mcp_auth_policy_uses_original_request_model(monkeypatch, model, expecte
     )}
     registry._initialized = True
     monkeypatch.setattr(policy_registry, "_policy_registry", registry)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     kwargs = {
         "name": "execute", "arguments": {},
@@ -4330,7 +4330,7 @@ def test_mcp_auth_policy_uses_original_request_model(monkeypatch, model, expecte
 
 
 def test_handle_exception_on_proxy_logs_bug_report_only_for_unmapped_500(caplog):
-    with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
+    with caplog.at_level("ERROR", logger="HangarLLM Proxy"):
         provider_result = handle_exception_on_proxy(
             InternalServerError(message="upstream 500", llm_provider="openai", model="gpt-4")
         )
@@ -4343,16 +4343,16 @@ def test_handle_exception_on_proxy_logs_bug_report_only_for_unmapped_500(caplog)
 
 
 def test_is_client_error_exception_budget_exceeded_is_client_error() -> None:
-    from litellm.exceptions import BudgetExceededError
-    from litellm.proxy.utils import _is_client_error_exception
+    from hangarllm.exceptions import BudgetExceededError
+    from hangarllm.proxy.utils import _is_client_error_exception
 
     exc: Final = BudgetExceededError(current_cost=100.56, max_budget=100.0)
     assert _is_client_error_exception(exc) is True
 
 
 def test_is_client_error_exception_budget_exceeded_5xx_is_not_client_error() -> None:
-    from litellm.exceptions import BudgetExceededError
-    from litellm.proxy.utils import _is_client_error_exception
+    from hangarllm.exceptions import BudgetExceededError
+    from hangarllm.proxy.utils import _is_client_error_exception
 
     exc: Final = BudgetExceededError(current_cost=100.56, max_budget=100.0)
     exc.status_code = 500
@@ -4360,8 +4360,8 @@ def test_is_client_error_exception_budget_exceeded_5xx_is_not_client_error() -> 
 
 
 def test_is_client_error_exception_existing_behaviour_unchanged() -> None:
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.utils import _is_client_error_exception
+    from hangarllm.proxy._types import ProxyException
+    from hangarllm.proxy.utils import _is_client_error_exception
 
     assert _is_client_error_exception(HTTPException(status_code=400, detail="x")) is True
     assert _is_client_error_exception(HTTPException(status_code=500, detail="x")) is False

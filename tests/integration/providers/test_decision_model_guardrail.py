@@ -73,7 +73,7 @@ def _upstream(probability: float) -> RoutedResponse:
 def _guardrail_entry(name: str, decision_model: str, mode: str = "pre_call") -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "decision_model",
             "mode": mode,
             "decision_model": decision_model,
@@ -244,7 +244,7 @@ def test_team_decision_model_follows_the_authenticated_caller_on_every_endpoint(
         forged: Final[dict[str, JsonValue]] = {"user_api_key_team_id": owner, "user_api_key_auth": {"team_id": owner}}
         body: Final[dict[str, JsonValue]] = {
             **_guarded_body(path, chat, guardrail),
-            **({"metadata": forged, "litellm_metadata": forged} if caller == "other-team-forging-owner" else {}),
+            **({"metadata": forged, "hangarllm_metadata": forged} if caller == "other-team-forging-owner" else {}),
         }
         with httpx.Client(timeout=10, trust_env=False) as client:
             client.delete(f"{gateway.upstream_url}/__observations").raise_for_status()
@@ -273,7 +273,7 @@ def _add_model_named(
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": model,
                 "api_base": handle.api_base(),
                 "api_key": handle.scenario_id,
@@ -371,7 +371,7 @@ def _team_decision_deployment(
 ) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {"model": model, "api_base": handle.api_base(), "api_key": handle.scenario_id},
+        "hangarllm_params": {"model": model, "api_base": handle.api_base(), "api_key": handle.scenario_id},
         "model_info": {"team_id": team, "team_public_model_name": public_name, **model_info},
     }
 
@@ -415,7 +415,7 @@ def test_owner_decision_call_skips_a_team_deployment_too_small_for_the_input(gat
         guardrail: Final = f"dm-sized-guard-{uuid.uuid4().hex}"
         chat_deployment: Final[dict[str, JsonValue]] = {
             "model_name": chat,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_base": f"{big.api_base()}/v1",
                 "api_key": big.scenario_id,
@@ -462,7 +462,7 @@ def test_team_model_under_a_public_decision_model_name_keeps_the_public_decision
         guardrail: Final = f"dm-public-guard-{uuid.uuid4().hex}"
         chat_deployment: Final[dict[str, JsonValue]] = {
             "model_name": chat,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_base": f"{public.api_base()}/v1",
                 "api_key": public.scenario_id,
@@ -523,27 +523,27 @@ def test_standalone_guardrail_ignores_a_forged_team(gateway: Gateway, route: str
 
 
 def _spend_teams_by_request(request_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT team_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (request_id,))
+    return read_rows('SELECT team_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s', (request_id,))
 
 
 def _spend_teams_by_model_group(model_group: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT team_id FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model_group,))
+    return read_rows('SELECT team_id FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model_group,))
 
 
 def _charged_teams_by_model_group(model_group: str) -> list[dict[str, JsonValue]]:
     return read_rows(
         """SELECT team_id, metadata->>'user_api_key_team_alias' AS team_alias
-        FROM "LiteLLM_SpendLogs" WHERE model_group = %s""",
+        FROM "HangarLLM_SpendLogs" WHERE model_group = %s""",
         (model_group,),
     )
 
 
 def _team_alias(team: str) -> JsonValue:
-    return read_rows('SELECT team_alias FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,))[0]["team_alias"]
+    return read_rows('SELECT team_alias FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,))[0]["team_alias"]
 
 
 def _spend_requests_by_team(team: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE team_id = %s', (team,))
+    return read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE team_id = %s', (team,))
 
 
 def _guarded_hello(gateway: Gateway, scenario: Scenario, team_owns_guard_model: bool) -> tuple[str, str, str]:

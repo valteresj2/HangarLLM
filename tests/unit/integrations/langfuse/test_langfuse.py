@@ -13,20 +13,20 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.integrations.langfuse.langfuse import LangFuseLogger
-from litellm.integrations.langfuse.langfuse_prompt_management import langfuse_client_init
-from litellm.integrations.langfuse.langfuse_sdk import (
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.integrations.langfuse.langfuse import LangFuseLogger
+from hangarllm.integrations.langfuse.langfuse_prompt_management import langfuse_client_init
+from hangarllm.integrations.langfuse.langfuse_sdk import (
     flush_langfuse_tracing,
     resolve_observation_id,
     resolve_trace_id,
 )
-from litellm.litellm_core_utils import litellm_logging
-from litellm.litellm_core_utils.litellm_logging import DynamicLoggingCache as LegacyDynamicLoggingCache
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.litellm_core_utils.thread_pool_executor import MAX_THREADS, executor
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.hangarllm_core_utils import hangarllm_logging
+from hangarllm.hangarllm_core_utils.hangarllm_logging import DynamicLoggingCache as LegacyDynamicLoggingCache
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.hangarllm_core_utils.thread_pool_executor import MAX_THREADS, executor
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 _EXPORT_URL: Final = "https://langfuse.unit/api/public/otel/v1/traces"
 _VOLATILE_ATTRIBUTES: Final = frozenset(
@@ -35,8 +35,8 @@ _VOLATILE_ATTRIBUTES: Final = frozenset(
         "langfuse.observation.metadata.applied_guardrails",
         "langfuse.observation.metadata.cache_hit",
         "langfuse.observation.metadata.hidden_params",
-        "langfuse.observation.metadata.litellm_call_id",
-        "langfuse.observation.metadata.litellm_response_cost",
+        "langfuse.observation.metadata.hangarllm_call_id",
+        "langfuse.observation.metadata.hangarllm_response_cost",
         "langfuse.observation.metadata.requester_metadata",
         "langfuse.observation.metadata.response_id",
         "langfuse.observation.metadata.usage_object",
@@ -140,27 +140,27 @@ async def _flush_langfuse() -> None:
 def langfuse_export(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ) -> Iterator[tuple[respx.Route, str]]:
-    trace_id: Final = f"litellm-migration-{uuid4()}"
+    trace_id: Final = f"hangarllm-migration-{uuid4()}"
     route: Final = respx_mock.post(_EXPORT_URL).respond(status_code=200)
     monkeypatch.setenv("LANGFUSE_HOST", "https://langfuse.unit")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", f"{trace_id}-public")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", f"{trace_id}-secret")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
     http_client: Final = httpx.Client(transport=httpx.MockTransport(respx_mock.handler))
     client_cache.set_cache(
         key="httpx_client",
         value=HTTPHandler(client=http_client),
-        litellm_owned_client=False,
+        hangarllm_owned_client=False,
     )
-    monkeypatch.setattr(litellm, "success_callback", ["langfuse"])
-    monkeypatch.setattr(litellm_logging, "langFuseLogger", None)
-    monkeypatch.setattr(litellm_logging, "in_memory_dynamic_logger_cache", LegacyDynamicLoggingCache())
-    monkeypatch.setattr(litellm_logging, "_in_memory_loggers", [])
+    monkeypatch.setattr(hangarllm, "success_callback", ["langfuse"])
+    monkeypatch.setattr(hangarllm_logging, "langFuseLogger", None)
+    monkeypatch.setattr(hangarllm_logging, "in_memory_dynamic_logger_cache", LegacyDynamicLoggingCache())
+    monkeypatch.setattr(hangarllm_logging, "_in_memory_loggers", [])
     langfuse_client_init.cache_clear()
     yield route, trace_id
-    logger: Final = litellm_logging.in_memory_dynamic_logger_cache.get_cache(
+    logger: Final = hangarllm_logging.in_memory_dynamic_logger_cache.get_cache(
         credentials={}, service_name="langfuse"
     )
     if isinstance(logger, LangFuseLogger):
@@ -172,7 +172,7 @@ def langfuse_export(
 @pytest.mark.asyncio
 async def test_langfuse_logging_completion(langfuse_export: tuple[respx.Route, str]) -> None:
     route, trace_id = langfuse_export
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response="Hello! How can I assist you today?",
@@ -186,7 +186,7 @@ async def test_langfuse_logging_completion(langfuse_export: tuple[respx.Route, s
 @pytest.mark.asyncio
 async def test_langfuse_logging_completion_with_tags(langfuse_export: tuple[respx.Route, str]) -> None:
     route, trace_id = langfuse_export
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response="Hello! How can I assist you today?",
@@ -200,7 +200,7 @@ async def test_langfuse_logging_completion_with_tags(langfuse_export: tuple[resp
 @pytest.mark.asyncio
 async def test_langfuse_logging_completion_with_tags_stream(langfuse_export: tuple[respx.Route, str]) -> None:
     route, trace_id = langfuse_export
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response="Hello! How can I assist you today?",
@@ -219,7 +219,7 @@ async def test_langfuse_generation_id_metadata_names_the_exported_observation(
     langfuse_export: tuple[respx.Route, str],
 ) -> None:
     route, trace_id = langfuse_export
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response="Hello! How can I assist you today?",
@@ -236,7 +236,7 @@ async def test_langfuse_logging_completion_with_langfuse_metadata(
     langfuse_export: tuple[respx.Route, str],
 ) -> None:
     route, trace_id = langfuse_export
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response="Hello! How can I assist you today?",
@@ -271,7 +271,7 @@ async def test_langfuse_logging_with_non_serializable_metadata(
         settings: dict[str, object]
 
     route, trace_id = langfuse_export
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response="Hello! How can I assist you today?",
@@ -316,7 +316,7 @@ async def test_langfuse_logging_with_various_metadata_types(
     langfuse_export: tuple[respx.Route, str], metadata: dict[str, object], fixture_name: str
 ) -> None:
     route, trace_id = langfuse_export
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response="Hello! How can I assist you today?",
@@ -332,14 +332,14 @@ async def test_langfuse_logging_completion_with_malformed_llm_response(
     langfuse_export: tuple[respx.Route, str],
 ) -> None:
     route, trace_id = langfuse_export
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         choices=[],
-        usage=litellm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
+        usage=hangarllm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
         model="gpt-3.5-turbo",
         object="chat.completion",
         created=1723081200,
     ).model_dump()
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response=response,
@@ -355,14 +355,14 @@ async def test_langfuse_logging_completion_with_bedrock_llm_response(
     langfuse_export: tuple[respx.Route, str],
 ) -> None:
     route, trace_id = langfuse_export
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         choices=[],
-        usage=litellm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
+        usage=hangarllm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         object="chat.completion",
         created=1723081200,
     ).model_dump()
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response=response,
@@ -381,14 +381,14 @@ async def test_langfuse_logging_completion_with_vertex_llm_response(
     langfuse_export: tuple[respx.Route, str],
 ) -> None:
     route, trace_id = langfuse_export
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         choices=[],
-        usage=litellm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
+        usage=hangarllm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
         model="vertex/gemini-3-flash-preview",
         object="chat.completion",
         created=1723081200,
     ).model_dump()
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="vertex_ai/gemini-3-flash-preview",
         messages=[{"role": "user", "content": "Hello!"}],
         mock_response=response,
@@ -418,9 +418,9 @@ async def test_langfuse_logging_vllm_embedding(
             },
         )
     )
-    await litellm.aembedding(
+    await hangarllm.aembedding(
         model="hosted_vllm/BAAI/bge-small-en-v1.5",
-        input=["Hello from litellm!"],
+        input=["Hello from hangarllm!"],
         api_base="http://my-fake-vllm.com/v1",
         metadata={"trace_id": trace_id},
     )
@@ -436,11 +436,11 @@ async def test_langfuse_logging_vllm_embedding(
 @pytest.mark.asyncio
 async def test_langfuse_logging_with_router(langfuse_export: tuple[respx.Route, str]) -> None:
     route, trace_id = langfuse_export
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "mock_response": "Hello! How can I assist you today?",
                     "api_key": "test_api_key",
@@ -451,9 +451,9 @@ async def test_langfuse_logging_with_router(langfuse_export: tuple[respx.Route, 
     await router.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}],
-        mock_response=litellm.ModelResponse(
+        mock_response=hangarllm.ModelResponse(
             choices=[],
-            usage=litellm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
+            usage=hangarllm.Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
             model="gpt-3.5-turbo",
             object="chat.completion",
             created=1723081200,
@@ -468,10 +468,10 @@ async def test_langfuse_logging_with_router(langfuse_export: tuple[respx.Route, 
 @pytest.mark.asyncio
 async def test_langfuse_e2e_sync(langfuse_export: tuple[respx.Route, str]) -> None:
     route, trace_id = langfuse_export
-    litellm.completion(
+    hangarllm.completion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "sync callback route"}],
-        mock_response="Hello from litellm",
+        mock_response="Hello from hangarllm",
         metadata={"trace_id": trace_id},
     )
     await _flush_langfuse()

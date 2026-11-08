@@ -6,7 +6,7 @@ from typing import Final
 import pytest
 from pydantic import PydanticSchemaGenerationError, TypeAdapter
 
-from litellm.proxy.common_utils.openapi_schema_compat import get_openapi_schema_with_compat
+from hangarllm.proxy.common_utils.openapi_schema_compat import get_openapi_schema_with_compat
 
 UNBLOCK_TIMEOUT_SECONDS: Final = 5
 

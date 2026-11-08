@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-from litellm.proxy.mcp_server.ui_session_utils import (
+from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
+from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, UserAPIKeyAuth
+from hangarllm.proxy.mcp_server.ui_session_utils import (
     build_effective_auth_contexts,
     clone_user_api_key_auth_with_team,
     granted_toolset_ids,
@@ -38,11 +38,11 @@ async def test_resolve_ui_session_team_ids_returns_unique_ids(monkeypatch):
     )
 
     monkeypatch.setattr(
-        "litellm.proxy.auth.auth_checks.get_user_object",
+        "hangarllm.proxy.auth.auth_checks.get_user_object",
         AsyncMock(return_value=fake_user),
     )
 
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "prisma_client", object())
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", None)
@@ -68,7 +68,7 @@ async def test_build_effective_auth_contexts_returns_cloned_contexts(monkeypatch
 
     mock_resolve = AsyncMock(return_value=["team-one", "team-two"])
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
+        "hangarllm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
         mock_resolve,
     )
 
@@ -87,7 +87,7 @@ async def test_build_effective_auth_contexts_returns_original_when_no_resolution
 
     mock_resolve = AsyncMock(return_value=[])
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
+        "hangarllm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
         mock_resolve,
     )
 
@@ -114,7 +114,7 @@ async def test_build_effective_auth_contexts_handles_unpicklable_parent_span(
 
     mock_resolve = AsyncMock(return_value=["team-span"])
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
+        "hangarllm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
         mock_resolve,
     )
 
@@ -133,12 +133,12 @@ async def test_build_effective_auth_contexts_appends_admitted_user_context(monke
     admitted_auth = UserAPIKeyAuth(user_id="user-42")
 
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
+        "hangarllm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
         AsyncMock(return_value=["team-one"]),
     )
     reload_mock = AsyncMock(return_value=admitted_auth)
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+        "hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
         reload_mock,
     )
 
@@ -154,7 +154,7 @@ async def test_build_effective_auth_contexts_never_widens_caller_passed_keys(mon
     normal_user = UserAPIKeyAuth(team_id="regular-team", user_id="user-1")
     reload_mock = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+        "hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
         reload_mock,
     )
 
@@ -169,11 +169,11 @@ async def test_build_effective_auth_contexts_survives_admitted_reload_failure(mo
     user_auth = UserAPIKeyAuth(team_id=UI_SESSION_TOKEN_TEAM_ID, user_id="user-9")
 
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
+        "hangarllm.proxy.mcp_server.ui_session_utils.resolve_ui_session_team_ids",
         AsyncMock(return_value=["team-a"]),
     )
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+        "hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
         AsyncMock(side_effect=HTTPException(status_code=503, detail="db down")),
     )
 
@@ -186,13 +186,13 @@ async def test_build_effective_auth_contexts_survives_admitted_reload_failure(mo
 async def test_acting_user_auth_returns_admitted_subject_for_non_admin_sessions(monkeypatch):
     """LIT-4861: acting-as-user MCP routes must resolve a non-admin dashboard session as the
     admitted subject so tool ceilings, reachability, and limits bind exactly as on /mcp."""
-    from litellm.proxy.mcp_server.ui_session_utils import acting_user_auth
+    from hangarllm.proxy.mcp_server.ui_session_utils import acting_user_auth
 
     user_auth = UserAPIKeyAuth(team_id=UI_SESSION_TOKEN_TEAM_ID, user_id="user-42", user_role="internal_user")
     admitted_auth = UserAPIKeyAuth(user_id="user-42")
     reload_mock = AsyncMock(return_value=admitted_auth)
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+        "hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
         reload_mock,
     )
 
@@ -204,11 +204,11 @@ async def test_acting_user_auth_returns_admitted_subject_for_non_admin_sessions(
 
 @pytest.mark.asyncio
 async def test_acting_user_auth_keeps_admin_sessions_and_passed_keys_unchanged(monkeypatch):
-    from litellm.proxy.mcp_server.ui_session_utils import acting_user_auth
+    from hangarllm.proxy.mcp_server.ui_session_utils import acting_user_auth
 
     reload_mock = AsyncMock()
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+        "hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
         reload_mock,
     )
 
@@ -223,11 +223,11 @@ async def test_acting_user_auth_keeps_admin_sessions_and_passed_keys_unchanged(m
 
 @pytest.mark.asyncio
 async def test_acting_user_auth_falls_back_to_session_auth_on_reload_failure(monkeypatch):
-    from litellm.proxy.mcp_server.ui_session_utils import acting_user_auth
+    from hangarllm.proxy.mcp_server.ui_session_utils import acting_user_auth
 
     user_auth = UserAPIKeyAuth(team_id=UI_SESSION_TOKEN_TEAM_ID, user_id="user-9", user_role="internal_user")
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+        "hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
         AsyncMock(side_effect=HTTPException(status_code=503, detail="db down")),
     )
 
@@ -239,7 +239,7 @@ async def test_admitted_user_context_carries_the_request_span(monkeypatch):
     """Swapping the principal must not drop the request: the admitted subject is rebuilt from the
     user row and carries no span of its own, so every consumer would otherwise lose trace linkage
     for the resolution and logging it drives."""
-    from litellm.proxy.mcp_server.ui_session_utils import acting_user_auth
+    from hangarllm.proxy.mcp_server.ui_session_utils import acting_user_auth
 
     class DummySpan:
         def __init__(self) -> None:
@@ -253,7 +253,7 @@ async def test_admitted_user_context_carries_the_request_span(monkeypatch):
         parent_otel_span=parent_span,
     )
     monkeypatch.setattr(
-        "litellm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+        "hangarllm.proxy.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
         AsyncMock(return_value=UserAPIKeyAuth(user_id="user-42")),
     )
 
@@ -261,8 +261,8 @@ async def test_admitted_user_context_carries_the_request_span(monkeypatch):
     assert (await build_effective_auth_contexts(user_auth))[-1].parent_otel_span is parent_span
 
 
-def _toolset_permission(*toolset_ids: str) -> LiteLLM_ObjectPermissionTable:
-    return LiteLLM_ObjectPermissionTable(
+def _toolset_permission(*toolset_ids: str) -> HangarLLM_ObjectPermissionTable:
+    return HangarLLM_ObjectPermissionTable(
         object_permission_id=f"op-{'-'.join(toolset_ids)}", mcp_toolsets=list(toolset_ids)
     )
 
@@ -281,7 +281,7 @@ async def test_granted_toolset_ids_unions_own_and_team_grants_over_every_effecti
         assert auth is session
         return [team_a, team_b, admitted]
 
-    async def team_permission(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+    async def team_permission(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
         return team_grants.get(auth.team_id or "")
 
     granted = await granted_toolset_ids(session, effective_contexts, team_permission)
@@ -296,7 +296,7 @@ async def test_granted_toolset_ids_is_empty_when_neither_key_nor_team_grants_a_t
     async def effective_contexts(auth: UserAPIKeyAuth) -> list[UserAPIKeyAuth]:
         return [auth]
 
-    async def no_team_permission(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+    async def no_team_permission(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
         return None
 
     assert await granted_toolset_ids(key, effective_contexts, no_team_permission) == frozenset()
@@ -306,7 +306,7 @@ async def _same_context(auth: UserAPIKeyAuth) -> list[UserAPIKeyAuth]:
     return [auth]
 
 
-async def _team_grants_ts_team(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+async def _team_grants_ts_team(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
     return _toolset_permission("ts-team")
 
 
@@ -314,10 +314,10 @@ async def _team_grants_ts_team(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermission
 @pytest.mark.parametrize(
     "own",
     [
-        LiteLLM_ObjectPermissionTable(object_permission_id="op", mcp_toolsets=["ts-own"]),
-        LiteLLM_ObjectPermissionTable(object_permission_id="op", mcp_servers=["srv-own"]),
-        LiteLLM_ObjectPermissionTable(object_permission_id="op", mcp_tool_permissions={"srv-own": ["add"]}),
-        LiteLLM_ObjectPermissionTable(object_permission_id="op", mcp_access_groups=["group-own"]),
+        HangarLLM_ObjectPermissionTable(object_permission_id="op", mcp_toolsets=["ts-own"]),
+        HangarLLM_ObjectPermissionTable(object_permission_id="op", mcp_servers=["srv-own"]),
+        HangarLLM_ObjectPermissionTable(object_permission_id="op", mcp_tool_permissions={"srv-own": ["add"]}),
+        HangarLLM_ObjectPermissionTable(object_permission_id="op", mcp_access_groups=["group-own"]),
     ],
 )
 async def test_a_key_declaring_its_own_mcp_grant_does_not_inherit_the_team_toolsets(own):
@@ -351,7 +351,7 @@ async def test_toolset_grant_contexts_of_a_virtual_key_is_the_key_alone():
     assert await toolset_grant_contexts(key, admitted_context=never, admitted_sources=never) == (key,)
 
 
-def _admitted(user_id: str, own: LiteLLM_ObjectPermissionTable | None = None) -> UserAPIKeyAuth:
+def _admitted(user_id: str, own: HangarLLM_ObjectPermissionTable | None = None) -> UserAPIKeyAuth:
     subject = UserAPIKeyAuth(user_id=user_id, object_permission=own)
     subject.mcp_admitted_user_subject = True
     return subject
@@ -398,7 +398,7 @@ async def test_a_source_declaring_its_own_mcp_grant_never_reads_its_team():
     key = UserAPIKeyAuth(api_key="sk-test", team_id="team-a", object_permission=_toolset_permission("ts-own"))
     team_reads: list[str | None] = []  # mutable-ok: records the lookups the code under test performs
 
-    async def team_permission(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+    async def team_permission(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
         team_reads.append(auth.team_id)
         return _toolset_permission("ts-team")
 
@@ -408,7 +408,7 @@ async def test_a_source_declaring_its_own_mcp_grant_never_reads_its_team():
     assert team_reads == []
 
 
-async def _team_a_unreadable(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+async def _team_a_unreadable(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
     if auth.team_id == "team-a":
         raise RuntimeError("team row unreadable")
     return _toolset_permission("ts-b")
@@ -435,11 +435,11 @@ async def test_a_key_whose_only_grant_source_is_an_unreadable_team_is_granted_no
     assert await granted_toolset_ids(key, _same_context, _team_a_unreadable, require_key_access=False) == frozenset()
 
 
-async def _hydrates_op_key_to_srv_own(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+async def _hydrates_op_key_to_srv_own(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
     if auth.object_permission is not None:
         return auth.object_permission
     if auth.object_permission_id == "op-key":
-        return LiteLLM_ObjectPermissionTable(object_permission_id="op-key", mcp_servers=["srv-own"])
+        return HangarLLM_ObjectPermissionTable(object_permission_id="op-key", mcp_servers=["srv-own"])
     return None
 
 
@@ -461,11 +461,11 @@ async def test_a_key_cached_with_its_own_grant_unhydrated_is_scoped_to_that_gran
     assert granted == frozenset()
 
 
-async def _own_row_unreadable(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+async def _own_row_unreadable(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
     raise RuntimeError("object permission row unreadable")
 
 
-async def _own_row_gone(auth: UserAPIKeyAuth) -> LiteLLM_ObjectPermissionTable | None:
+async def _own_row_gone(auth: UserAPIKeyAuth) -> HangarLLM_ObjectPermissionTable | None:
     return None
 
 

@@ -171,7 +171,7 @@ def router_default_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[G
                 "model_list": [
                     {
                         "model_name": "followup-image",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-image-1",
                             "api_base": image_handle.api_base(),
                             "api_key": image_identity,
@@ -179,7 +179,7 @@ def router_default_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[G
                     },
                     {
                         "model_name": "followup-text",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-3.5-turbo-instruct",
                             "api_base": text_handle.api_base(),
                             "api_key": text_identity,
@@ -187,7 +187,7 @@ def router_default_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[G
                     },
                     {
                         "model_name": "followup-speech",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini-tts",
                             "api_base": speech_handle.api_base(),
                             "api_key": speech_identity,
@@ -195,14 +195,14 @@ def router_default_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[G
                     },
                     {
                         "model_name": "followup-message",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "anthropic/claude-haiku-4-5",
                             "api_base": message_handle.api_base(),
                             "api_key": message_identity,
                         },
                     },
                 ],
-                "router_settings": {"default_litellm_params": _ROUTER_DEFAULTS},
+                "router_settings": {"default_hangarllm_params": _ROUTER_DEFAULTS},
                 "general_settings": {"allow_client_side_credentials": True},
             },
         )
@@ -287,7 +287,7 @@ def _registered_store(gateway: Gateway, scenario: Scenario, identity: str, handl
         {
             "vector_store_id": store,
             "custom_llm_provider": "openai",
-            "litellm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity},
+            "hangarllm_params": {"model": model, "api_base": handle.api_base(), "api_key": identity},
         },
     )
     scenario.cleanups.callback(gateway.post, "/vector_store/delete", {"vector_store_id": store})

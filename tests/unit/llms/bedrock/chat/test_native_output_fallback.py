@@ -5,13 +5,13 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.bedrock.chat.native_output_fallback import NativeOutputAttemptResult, call_with_native_output_fallback
-from litellm.llms.bedrock.common_utils import BedrockError, NativeOutputFallback
-from litellm.types.utils import ModelResponse
+from hangarllm.llms.bedrock.chat.native_output_fallback import NativeOutputAttemptResult, call_with_native_output_fallback
+from hangarllm.llms.bedrock.common_utils import BedrockError, NativeOutputFallback
+from hangarllm.types.utils import ModelResponse
 
 _MODEL: Final = "us.anthropic.claude-opus-4-8"
 _FALLBACK: Final = NativeOutputFallback(
-    optional_params={"tools": "json_tool_call"}, litellm_params={"model_info": {"opted_out": True}}
+    optional_params={"tools": "json_tool_call"}, hangarllm_params={"model_info": {"opted_out": True}}
 )
 _NATIVE_RETRY_WITH_STRICT_TOOLS: Final = NativeOutputFallback(
     optional_params={
@@ -20,7 +20,7 @@ _NATIVE_RETRY_WITH_STRICT_TOOLS: Final = NativeOutputFallback(
             {"function": {"name": "custom", "strict": True}},
         )
     },
-    litellm_params={
+    hangarllm_params={
         "model_info": {
             "supports_native_structured_output": False,
             "supports_bedrock_native_structured_output": False,
@@ -29,7 +29,7 @@ _NATIVE_RETRY_WITH_STRICT_TOOLS: Final = NativeOutputFallback(
 )
 _COMPOSED_FALLBACK: Final = NativeOutputFallback(
     optional_params={"tools": [{"function": {"name": "json_schema"}}, {"function": {"name": "custom"}}]},
-    litellm_params=_NATIVE_RETRY_WITH_STRICT_TOOLS.litellm_params,
+    hangarllm_params=_NATIVE_RETRY_WITH_STRICT_TOOLS.hangarllm_params,
 )
 _REJECTION: Final = BedrockError(
     status_code=400,
@@ -163,13 +163,13 @@ _INVOKE_PERMISSION_DENIAL: Final = BedrockError(
     'bedrock:InvokeModel because no identity-based policy allows the bedrock:InvokeModel action"}',
 )
 _BUFFERED_NATIVE_STREAM: Final = NativeOutputFallback(
-    optional_params={"outputConfig": "native", "fake_stream": True}, litellm_params={}
+    optional_params={"outputConfig": "native", "fake_stream": True}, hangarllm_params={}
 )
 
 
 def _buffered(fallback: NativeOutputFallback) -> NativeOutputFallback:
     return NativeOutputFallback(
-        optional_params={**fallback.optional_params, "fake_stream": True}, litellm_params=fallback.litellm_params
+        optional_params={**fallback.optional_params, "fake_stream": True}, hangarllm_params=fallback.hangarllm_params
     )
 
 
@@ -192,7 +192,7 @@ def test_a_denied_native_stream_is_sent_again_once_as_a_buffered_native_request(
 ) -> None:
     bedrock: Final = ScriptedBedrock(errors=(_STREAM_PERMISSION_DENIAL, None), asynchronous=asynchronous)
 
-    with caplog.at_level("WARNING", logger="LiteLLM"):
+    with caplog.at_level("WARNING", logger="HangarLLM"):
         response: Final = _call_with_buffered_stream_fallback(bedrock, _FALLBACK, _BUFFERED_NATIVE_STREAM)
 
     assert isinstance(response, ModelResponse) and response.id == "answer-2"
@@ -247,7 +247,7 @@ def test_strict_tools_bedrock_rejects_after_a_buffered_native_retry_are_dropped_
     [
         (
             _STREAM_PERMISSION_DENIAL,
-            NativeOutputFallback(optional_params={"outputConfig": "native"}, litellm_params={}),
+            NativeOutputFallback(optional_params={"outputConfig": "native"}, hangarllm_params={}),
         ),
         (_INVOKE_PERMISSION_DENIAL, _BUFFERED_NATIVE_STREAM),
     ],
@@ -275,14 +275,14 @@ def test_a_rejection_logs_the_retry_and_advises_opting_out_only_when_native_outp
 ) -> None:
     bedrock: Final = ScriptedBedrock(errors=(error, None), asynchronous=False)
 
-    with caplog.at_level("WARNING", logger="LiteLLM"):
+    with caplog.at_level("WARNING", logger="HangarLLM"):
         _call(bedrock, _FALLBACK)
 
     assert _MODEL in caplog.text
     assert ("supports_bedrock_native_structured_output: false" in caplog.text) is advises_opting_out
 
 
-_STRICT_FALLBACK: Final = NativeOutputFallback(optional_params={"tools": "without_strict"}, litellm_params={})
+_STRICT_FALLBACK: Final = NativeOutputFallback(optional_params={"tools": "without_strict"}, hangarllm_params={})
 # Bedrock's 400s for strict tools, seen live on us.anthropic.claude-sonnet-4-6 from 2026-10-20 to 2026-10-28 and quoted
 # in issue #34388, each answered 200 once the request dropped strict
 _STRICT_TOOLS_REJECTIONS: Final = tuple(

@@ -16,16 +16,16 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router import Router
-from litellm.types.llms.anthropic import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router import Router
+from hangarllm.types.llms.anthropic import (
     AnthropicMessagesTextParam,
     AnthropicMessagesTool,
     AnthropicMessagesUserMessageParam,
     AnthropicToolSearchToolRegex,
 )
-from litellm.types.utils import StandardLoggingPayload
+from hangarllm.types.utils import StandardLoggingPayload
 
 _ALIAS: Final = "claude-special-alias"
 _ANTHROPIC_MODEL: Final = "claude-haiku-4-5-20251001"
@@ -123,7 +123,7 @@ def _unique_messages() -> list[AnthropicMessagesUserMessageParam]:
 
 def _router(model_name: str, model: str, **router_kwargs: object) -> Router:
     return Router(
-        model_list=[{"model_name": model_name, "litellm_params": {"model": model, "api_key": "fake-key"}}],
+        model_list=[{"model_name": model_name, "hangarllm_params": {"model": model, "api_key": "fake-key"}}],
         **router_kwargs,
     )
 
@@ -217,7 +217,7 @@ def _assert_anthropic_message(response: object, model: str) -> None:
 
 @pytest.fixture(autouse=True)
 def _httpx_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
 
 @pytest.mark.asyncio
@@ -271,9 +271,9 @@ async def test_router_aanthropic_messages_falls_back_to_bedrock_after_anthropic_
         model_list=[
             {
                 "model_name": "anthropic/claude-opus-4-7",
-                "litellm_params": {"model": "anthropic/claude-opus-4-7", "api_key": "bad-key"},
+                "hangarllm_params": {"model": "anthropic/claude-opus-4-7", "api_key": "bad-key"},
             },
-            {"model_name": f"bedrock/{_BEDROCK_SONNET}", "litellm_params": {"model": f"bedrock/{_BEDROCK_SONNET}"}},
+            {"model_name": f"bedrock/{_BEDROCK_SONNET}", "hangarllm_params": {"model": f"bedrock/{_BEDROCK_SONNET}"}},
         ],
         fallbacks=[{"anthropic/claude-opus-4-7": [f"bedrock/{_BEDROCK_SONNET}"]}],
     )
@@ -304,8 +304,8 @@ async def test_router_aanthropic_messages_bedrock_converse_and_invoke(respx_mock
     invoke_model: Final = f"bedrock/{_BEDROCK_SONNET}"
     router: Final = Router(
         model_list=[
-            {"model_name": converse_model, "litellm_params": {"model": converse_model}},
-            {"model_name": invoke_model, "litellm_params": {"model": invoke_model}},
+            {"model_name": converse_model, "hangarllm_params": {"model": converse_model}},
+            {"model_name": invoke_model, "hangarllm_params": {"model": invoke_model}},
         ]
     )
     converse_response: Final = await router.aanthropic_messages(
@@ -330,7 +330,7 @@ def test_sync_openai_bridge_anthropic_messages_returns_content_blocks(respx_mock
     route: Final = respx_mock.post(url__regex=_OPENAI_RESPONSES_URL).mock(
         return_value=httpx.Response(200, json=_OPENAI_BODY)
     )
-    response: Final = litellm.anthropic.messages.create(
+    response: Final = hangarllm.anthropic.messages.create(
         messages=[{"role": "user", "content": _PROMPT}],
         model=_OPENAI_MODEL,
         max_tokens=100,
@@ -362,7 +362,7 @@ async def test_acreate_non_streaming_returns_dict_content_blocks(
 ):
     _set_fake_aws_env(monkeypatch)
     route: Final = respx_mock.post(url__regex=url).mock(return_value=httpx.Response(200, json=body))
-    response: Final = await litellm.anthropic.messages.acreate(
+    response: Final = await hangarllm.anthropic.messages.acreate(
         messages=[{"role": "user", "content": _PROMPT}],
         model=model,
         max_tokens=100,
@@ -376,7 +376,7 @@ async def test_acreate_non_streaming_returns_dict_content_blocks(
 async def test_router_aanthropic_messages_non_streaming_logs_usage_model_and_cost(respx_mock, monkeypatch):
     messages: Final = _unique_messages()
     recorder: Final = _RecordingLogger(messages)
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post(url__regex=_ANTHROPIC_URL).mock(return_value=httpx.Response(200, json=_anthropic_body()))
     response: Final = await _router(_ALIAS, _ANTHROPIC_MODEL).aanthropic_messages(
         messages=messages, model=_ALIAS, max_tokens=100
@@ -422,7 +422,7 @@ async def test_router_aanthropic_messages_streaming_logs_usage_model_and_cost(
     _set_fake_aws_env(monkeypatch)
     messages: Final = _unique_messages()
     recorder: Final = _RecordingLogger(messages)
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post(url__regex=url).mock(
         return_value=httpx.Response(200, content=body, headers={"content-type": content_type})
     )
@@ -457,7 +457,7 @@ def _priced_router(**pricing: float) -> Router:
         model_list=[
             {
                 "model_name": _ALIAS,
-                "litellm_params": {"model": _ANTHROPIC_MODEL, "api_key": "fake-key", **pricing},
+                "hangarllm_params": {"model": _ANTHROPIC_MODEL, "api_key": "fake-key", **pricing},
             }
         ]
     )
@@ -472,16 +472,16 @@ def _anthropic_sse_event(event: Mapping[str, object]) -> bytes:
 
 
 async def _route_like_the_proxy(router: Router, **request: object) -> object:
-    logging_obj, routed_request = litellm.utils.function_setup(
+    logging_obj, routed_request = hangarllm.utils.function_setup(
         original_function="aanthropic_messages",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=hangarllm.utils.Rules(),
         start_time=datetime.now(),
-        litellm_call_id=str(uuid.uuid4()),
+        hangarllm_call_id=str(uuid.uuid4()),
         model=_ALIAS,
         max_tokens=100,
         **request,
     )
-    return await router.aanthropic_messages(**routed_request, litellm_logging_obj=logging_obj)
+    return await router.aanthropic_messages(**routed_request, hangarllm_logging_obj=logging_obj)
 
 
 async def _sse_pausing_after_the_first_event() -> AsyncIterator[bytes]:
@@ -504,7 +504,7 @@ async def test_router_aanthropic_messages_bills_a_per_second_deployment_for_the_
 ):
     messages: Final = _unique_messages()
     recorder: Final = _RecordingLogger(messages)
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
 
     async def slow_upstream(request: httpx.Request) -> httpx.Response:
         await asyncio.sleep(_UPSTREAM_PAUSE_SECONDS)
@@ -527,7 +527,7 @@ async def test_router_aanthropic_messages_bills_a_per_second_deployment_for_the_
 async def test_router_aanthropic_messages_bills_a_per_second_deployment_for_the_whole_stream(respx_mock, monkeypatch):
     messages: Final = _unique_messages()
     recorder: Final = _RecordingLogger(messages)
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post(url__regex=_ANTHROPIC_URL).mock(
         side_effect=lambda request: httpx.Response(
             200, headers={"content-type": "text/event-stream"}, content=_sse_pausing_after_the_first_event()
@@ -560,7 +560,7 @@ async def test_router_aanthropic_messages_bills_a_short_call_on_a_long_context_r
 ):
     messages: Final = _unique_messages()
     recorder: Final = _RecordingLogger(messages)
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     respx_mock.post(url__regex=_ANTHROPIC_URL).mock(
         side_effect=lambda request: httpx.Response(200, json=_anthropic_body())
     )
@@ -602,7 +602,7 @@ async def test_bedrock_converse_system_prompt_caching_returns_cache_tokens(respx
             },
         )
     )
-    response: Final = await litellm.anthropic.messages.acreate(
+    response: Final = await hangarllm.anthropic.messages.acreate(
         model=f"bedrock/converse/{_BEDROCK_SONNET}",
         messages=[{"role": "user", "content": "What are the key terms?"}],
         system=_cached_system(),
@@ -632,7 +632,7 @@ async def test_bedrock_invoke_system_prompt_caching_returns_cache_tokens(respx_m
             },
         )
     )
-    response: Final = await litellm.anthropic.messages.acreate(
+    response: Final = await hangarllm.anthropic.messages.acreate(
         model=f"bedrock/invoke/{_BEDROCK_SONNET}",
         messages=[{"role": "user", "content": "What are the key terms?"}],
         system=_cached_system(),
@@ -664,7 +664,7 @@ async def test_bedrock_streaming_message_start_carries_cache_usage_fields(
     route: Final = respx_mock.post(url__regex=url).mock(
         return_value=httpx.Response(200, content=body, headers={"content-type": "application/vnd.amazon.eventstream"})
     )
-    stream: Final = await litellm.anthropic.messages.acreate(
+    stream: Final = await hangarllm.anthropic.messages.acreate(
         model=model,
         messages=[
             {
@@ -734,7 +734,7 @@ async def test_tool_search_forwards_deferred_tools_and_beta_header(
             },
         )
     )
-    response: Final = await litellm.anthropic.messages.acreate(
+    response: Final = await hangarllm.anthropic.messages.acreate(
         model="anthropic/claude-sonnet-4-5-20250929",
         messages=[{"role": "user", "content": prompt}],
         tools=[dict(tool) for tool in _tool_search_tools()],
@@ -760,7 +760,7 @@ async def _native_output_config_sent(
     )
     deployment: Final = {
         "model_name": _ALIAS,
-        "litellm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "fake-key"},
+        "hangarllm_params": {"model": "anthropic/claude-sonnet-4-6", "api_key": "fake-key"},
         **({"model_info": model_info} if model_info is not None else {}),
     }
     await Router(model_list=[deployment]).aanthropic_messages(
@@ -803,7 +803,7 @@ async def _native_opus_body_sent(
     )
     deployment: Final = {
         "model_name": _ALIAS,
-        "litellm_params": {"model": "anthropic/claude-opus-5-5", "api_key": "fake-key"},
+        "hangarllm_params": {"model": "anthropic/claude-opus-5-5", "api_key": "fake-key"},
         **({"model_info": model_info} if model_info is not None else {}),
     }
     await Router(model_list=[deployment]).aanthropic_messages(
@@ -899,10 +899,10 @@ async def test_native_messages_drop_params_drops_a_non_numeric_thinking_budget_o
     model_info: Mapping[str, object] | None,
     drop_globally: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", drop_globally)
+    monkeypatch.setattr(hangarllm, "drop_params", drop_globally)
     request_drop: Final = {} if drop_globally else {"drop_params": True}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         dropped: Final = await _native_opus_body_sent(
             respx_mock, model_info, thinking={"type": "enabled", "budget_tokens": "lots"}, **request_drop
         )
@@ -939,12 +939,12 @@ def _mixed_openai_azure_router() -> Router:
         model_list=[
             {
                 "model_name": _MIXED_GROUP,
-                "litellm_params": {"model": "openai/gpt-5.6", "api_key": "fake-key"},
+                "hangarllm_params": {"model": "openai/gpt-5.6", "api_key": "fake-key"},
                 "model_info": {"id": _MIXED_DEPLOYMENT_IDS[0]},
             },
             {
                 "model_name": _MIXED_GROUP,
-                "litellm_params": {"model": "azure/gpt-5.6", "api_key": "fake-key", "api_base": _MIXED_AZURE_API_BASE},
+                "hangarllm_params": {"model": "azure/gpt-5.6", "api_key": "fake-key", "api_base": _MIXED_AZURE_API_BASE},
                 "model_info": {"id": _MIXED_DEPLOYMENT_IDS[1]},
             },
         ],
@@ -952,8 +952,8 @@ def _mixed_openai_azure_router() -> Router:
     )
 
 
-async def _null_tool_result_text_rejection(router: Router, deployment_id: str) -> litellm.BadRequestError:
-    with pytest.raises(litellm.BadRequestError) as rejected:
+async def _null_tool_result_text_rejection(router: Router, deployment_id: str) -> hangarllm.BadRequestError:
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
         await router.aanthropic_messages(
             model=deployment_id,
             max_tokens=64,
@@ -999,7 +999,7 @@ async def test_mixed_openai_azure_group_answers_the_same_400_for_a_null_tool_res
         (400, "azure"),
     ]
     assert {rejection.message.partition("\n\n")[0] for rejection in rejections} == {
-        "litellm.BadRequestError: tool_result toolu_build content.1.text: Input should be a valid string"
+        "hangarllm.BadRequestError: tool_result toolu_build content.1.text: Input should be a valid string"
     }
     assert openai_route.call_count == 0
     assert azure_route.call_count == 0

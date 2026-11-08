@@ -4,7 +4,7 @@ from typing import Final, LiteralString
 
 from integration._support.database import write_rows
 
-CLEAR_QUERY: Final[LiteralString] = 'DELETE FROM "LiteLLM_ToolTable" WHERE tool_name = %s'
+CLEAR_QUERY: Final[LiteralString] = 'DELETE FROM "HangarLLM_ToolTable" WHERE tool_name = %s'
 
 
 def clear(tool_names: tuple[str, ...]) -> None:

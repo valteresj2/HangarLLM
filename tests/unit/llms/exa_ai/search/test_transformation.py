@@ -7,9 +7,9 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.exa_ai.search.transformation import ExaAISearchConfig
+import hangarllm
+from hangarllm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from hangarllm.llms.exa_ai.search.transformation import ExaAISearchConfig
 
 EXA_SEARCH_URL: Final = "https://api.exa.ai/search"
 
@@ -62,7 +62,7 @@ def test_search_maps_exa_results_to_search_response(respx_mock: respx.MockRouter
         }
     )
 
-    response: Final = litellm.search(query="artificial intelligence recent news", search_provider="exa_ai")
+    response: Final = hangarllm.search(query="artificial intelligence recent news", search_provider="exa_ai")
 
     assert response.object == "search"
     assert isinstance(response.results, list)
@@ -81,7 +81,7 @@ def test_search_sends_max_results_as_num_results(respx_mock: respx.MockRouter) -
         json={"results": [{"title": "ML", "url": "https://example.com/ml", "text": "Machine learning."}]}
     )
 
-    response: Final = litellm.search(query="machine learning", search_provider="exa_ai", max_results=5)
+    response: Final = hangarllm.search(query="machine learning", search_provider="exa_ai", max_results=5)
 
     assert json.loads(route.calls.last.request.content) == {
         "query": "machine learning",

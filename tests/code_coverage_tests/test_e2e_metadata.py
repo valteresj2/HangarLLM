@@ -205,14 +205,14 @@ class TestSubjectProperties:
         assert subject_properties(collected_item(request, test.__name__)) == ()
 
 
-class TestProviderMirrorsLitellm:
-    """`Provider` copies `LlmProviders` values so collecting tests/e2e never needs litellm; skips where it is absent."""
+class TestProviderMirrorsHangarllm:
+    """`Provider` copies `LlmProviders` values so collecting tests/e2e never needs hangarllm; skips where it is absent."""
 
-    def test_every_provider_value_is_a_real_litellm_provider(self) -> None:
+    def test_every_provider_value_is_a_real_hangarllm_provider(self) -> None:
         try:
-            from litellm.types.utils import LlmProviders
+            from hangarllm.types.utils import LlmProviders
         except ImportError:  # pragma: no cover - the runner image's shape
-            pytest.skip("litellm is not importable here, which is the property under test")
+            pytest.skip("hangarllm is not importable here, which is the property under test")
         known = {str(member.value) for member in LlmProviders}
         unknown = sorted(member.value for member in Provider if member.value not in known)
         assert not unknown, f"not LlmProviders values: {unknown}"
@@ -683,7 +683,7 @@ class TestSecretMasking:
         environ: Final = {
             "OPENAI_API_KEY": "sk-proj-0123456789",
             "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG",
-            "LITELLM_MASTER_KEY": "sk-test",
+            "HANGARLLM_MASTER_KEY": "sk-test",
             "GOOGLE_APPLICATION_CREDENTIALS": "/secrets/vertex.json",
             "KEYCLOAK_URL": "http://localhost:8080",
             "E2E_MODEL": "claude-haiku-4-5",

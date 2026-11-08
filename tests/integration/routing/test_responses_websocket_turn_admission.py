@@ -54,11 +54,11 @@ TURN_SPEND: Final = USAGE["input_tokens"] * INPUT_RATE + USAGE["output_tokens"] 
 TURN_TOKENS: Final = USAGE["total_tokens"]
 MANAGED_PROVIDER: Final = "mistral"
 SPEND_ROWS_FOR_KEY: Final = (
-    'SELECT request_id, spend, status, model_group, metadata, request_tags FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+    'SELECT request_id, spend, status, model_group, metadata, request_tags FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 )
 TURN_CHECK_FAULT: Final = "turn_check_fault"
 FAULTING_TURN_CHECK: Final = f"""
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class FaultingTurnCheck(CustomLogger):
@@ -103,8 +103,8 @@ def _config(directory: Path, router_settings: Mapping[str, JsonValue], callbacks
         yaml.safe_dump(
             {
                 **base,
-                "litellm_settings": {
-                    **object_value(base["litellm_settings"]),
+                "hangarllm_settings": {
+                    **object_value(base["hangarllm_settings"]),
                     **({"callbacks": list(callbacks)} if callbacks else {}),
                 },
                 "router_settings": {
@@ -239,12 +239,12 @@ def _deployment_spend(deployment: Deployment) -> float:
 
 
 def _configured(gateway: Gateway, deployment: Deployment, section: str) -> dict[str, JsonValue]:
-    entries: Final = list_value(gateway.get("/model/info", {"litellm_model_id": deployment.identity})["data"])
+    entries: Final = list_value(gateway.get("/model/info", {"hangarllm_model_id": deployment.identity})["data"])
     return object_value(object_value(entries[0])[section])
 
 
 def _configured_tpm(gateway: Gateway, deployment: Deployment) -> JsonValue:
-    return _configured(gateway, deployment, "litellm_params").get("tpm")
+    return _configured(gateway, deployment, "hangarllm_params").get("tpm")
 
 
 def _tokens_counted(identity: str, minute: str) -> int:
@@ -295,7 +295,7 @@ def test_a_turn_past_the_deployment_budget_is_refused_on_the_open_socket_and_log
         tag: Final = f"ws-turn-{uuid.uuid4().hex}"
 
         async def session() -> tuple[tuple[dict[str, JsonValue], ...], ...]:
-            async with _socket(limited, key, deployment.name, {"x-litellm-tags": tag}) as connection:
+            async with _socket(limited, key, deployment.name, {"x-hangarllm-tags": tag}) as connection:
                 first: Final = await _say(connection, deployment.name)
                 await _until(lambda: _deployment_spend(deployment), lambda spent: spent > TURN_SPEND / 2)
                 return (first, await _say(connection, deployment.name), await _say(connection, deployment.name))
@@ -451,7 +451,7 @@ def test_a_socket_the_router_refuses_to_open_gets_the_status_and_message_http_re
             model_info={"enable_tag_filtering": True},
         )
         key: Final = scenario.key(models=[name])
-        foreign: Final = {"x-litellm-tags": f"foreign-{uuid.uuid4().hex}"}
+        foreign: Final = {"x-hangarllm-tags": f"foreign-{uuid.uuid4().hex}"}
         http: Final = limited.request(
             "POST", "/v1/responses", {"model": name, "input": "tag routing"}, key=key, headers=foreign
         )
@@ -516,7 +516,7 @@ def test_a_tpm_limit_lowered_while_the_socket_is_open_applies_to_its_next_turn(
 
         def lower_tpm() -> None:
             limited.request(
-                "PATCH", f"/model/{deployment.identity}/update", {"litellm_params": {"tpm": TURN_TOKENS - 2}}
+                "PATCH", f"/model/{deployment.identity}/update", {"hangarllm_params": {"tpm": TURN_TOKENS - 2}}
             ).raise_for_status()
             eventually(lambda: _configured_tpm(limited, deployment), lambda tpm: tpm == TURN_TOKENS - 2, seconds=15)
 
@@ -741,7 +741,7 @@ def test_websocket_turn_tokens_count_toward_the_tag_tpm_so_its_next_http_call_is
     limited.post("/tag/new", {"name": tag, "tpm_limit": SOCKET_TPM_LIMIT})
     try:
         refused: Final = _two_heavy_turns_then_chat(
-            limited, cert, lambda _: f"{{tag:{tag}}}:tokens", {"x-litellm-tags": tag}
+            limited, cert, lambda _: f"{{tag:{tag}}}:tokens", {"x-hangarllm-tags": tag}
         )
     finally:
         limited.post("/tag/delete", {"name": tag})
@@ -786,7 +786,7 @@ def test_managed_socket_turns_count_toward_the_sockets_tag_tpm_like_the_key_tpm(
             key: Final = scenario.key(models=[deployment.name], tpm_limit=1_000_000)
 
             async def session() -> tuple[tuple[dict[str, JsonValue], ...], ...]:
-                async with _socket(limited, key, deployment.name, {"x-litellm-tags": tag}) as connection:
+                async with _socket(limited, key, deployment.name, {"x-hangarllm-tags": tag}) as connection:
                     return (await _say(connection, deployment.name), await _say(connection, deployment.name))
 
             turns: Final = asyncio.run(session())

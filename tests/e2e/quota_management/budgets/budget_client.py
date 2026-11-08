@@ -126,7 +126,7 @@ class TeamMembershipRow(BaseModel):
     user_id: str | None = None
     budget_reset_at: str | None = Field(
         default=None,
-        validation_alias=AliasPath("litellm_budget_table", "budget_reset_at"),
+        validation_alias=AliasPath("hangarllm_budget_table", "budget_reset_at"),
     )
 
 

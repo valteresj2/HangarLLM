@@ -73,7 +73,7 @@ def _upstream(_request: Request) -> Reply:
 def _guardrail(name: str, wire: Wire, num_retries: int | None) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "pre_call",
             "default_on": False,
@@ -112,7 +112,7 @@ def rig(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) -> I
                     "model_list": [
                         {
                             "model_name": MODEL,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": UPSTREAM_MODEL,
                                 "api_base": f"{upstream.url}/v1",
                                 "api_key": "synthetic-openai-key",

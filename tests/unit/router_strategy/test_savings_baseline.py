@@ -1,8 +1,8 @@
 import pytest
 
-from litellm.router import Router
-from litellm.router_api import RoutingContext
-from litellm.router_strategy.savings_baseline import (
+from hangarllm.router import Router
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_strategy.savings_baseline import (
     Baseline,
     canonical_model,
     _models_in,
@@ -15,10 +15,10 @@ from litellm.router_strategy.savings_baseline import (
 def parent() -> RoutingContext:
     return Router(
         model_list=[
-            {"model_name": "cheap", "litellm_params": {"model": "anthropic/claude-haiku-4-5"}},
-            {"model_name": "top", "litellm_params": {"model": "anthropic/claude-opus-5"}},
-            {"model_name": "pool", "litellm_params": {"model": "anthropic/claude-haiku-4-5"}},
-            {"model_name": "pool", "litellm_params": {"model": "anthropic/claude-opus-5"}},
+            {"model_name": "cheap", "hangarllm_params": {"model": "anthropic/claude-haiku-4-5"}},
+            {"model_name": "top", "hangarllm_params": {"model": "anthropic/claude-opus-5"}},
+            {"model_name": "pool", "hangarllm_params": {"model": "anthropic/claude-haiku-4-5"}},
+            {"model_name": "pool", "hangarllm_params": {"model": "anthropic/claude-opus-5"}},
         ]
     )._core_ctx
 
@@ -48,7 +48,7 @@ class TestCanonicalModel:
         """Resolving github_copilot or chatgpt runs their OAuth device flow, so the baseline must
         qualify these by string alone. A raising sentinel cannot prove the lookup was skipped,
         because canonical_model swallows resolver errors into None."""
-        import litellm
+        import hangarllm
 
         lookups: list = []
 
@@ -56,7 +56,7 @@ class TestCanonicalModel:
             lookups.append((args, kwargs))
             raise RuntimeError("provider resolution must not run for an authenticating provider")
 
-        monkeypatch.setattr(litellm, "get_llm_provider", _record)
+        monkeypatch.setattr(hangarllm, "get_llm_provider", _record)
 
         assert canonical_model(model, provider) == expected
         assert lookups == []
@@ -118,7 +118,7 @@ class TestResolveBaseline:
 
 
 class TestDeploymentsPricedByBaseModel:
-    """`litellm_params.model` is not always a model.
+    """`hangarllm_params.model` is not always a model.
 
     On Azure it is the deployment name, which is absent from the cost map, so pricing it
     directly drops the candidate. If that candidate was the priciest, the baseline quietly
@@ -136,33 +136,33 @@ class TestDeploymentsPricedByBaseModel:
         router = self._router(
             {
                 "model_name": "big",
-                "litellm_params": {"model": "azure/my-gpt5-deployment"},
+                "hangarllm_params": {"model": "azure/my-gpt5-deployment"},
                 "model_info": {"base_model": "azure/gpt-4.1"},
             },
         )
         assert [c.model for c in _models_in(router, "big")] == ["azure/gpt-4.1"]
 
-    def test_litellm_params_base_model_is_the_other_accepted_spelling(self):
+    def test_hangarllm_params_base_model_is_the_other_accepted_spelling(self):
         router = self._router(
             {
                 "model_name": "big",
-                "litellm_params": {"model": "azure/my-gpt5-deployment", "base_model": "azure/gpt-4.1"},
+                "hangarllm_params": {"model": "azure/my-gpt5-deployment", "base_model": "azure/gpt-4.1"},
             },
         )
         assert [c.model for c in _models_in(router, "big")] == ["azure/gpt-4.1"]
 
     def test_a_deployment_without_a_base_model_still_prices_by_its_model(self):
-        router = self._router({"model_name": "big", "litellm_params": {"model": "anthropic/claude-opus-5"}})
+        router = self._router({"model_name": "big", "hangarllm_params": {"model": "anthropic/claude-opus-5"}})
         assert [c.model for c in _models_in(router, "big")] == ["anthropic/claude-opus-5"]
 
     def test_an_azure_deployment_can_win_the_priciest_candidate(self):
         """Without the base_model hop the Azure candidate never prices, so the cheaper
         model wins by default and the reported saving shrinks."""
         router = self._router(
-            {"model_name": "cheap", "litellm_params": {"model": "anthropic/claude-haiku-4-5"}},
+            {"model_name": "cheap", "hangarllm_params": {"model": "anthropic/claude-haiku-4-5"}},
             {
                 "model_name": "big",
-                "litellm_params": {"model": "azure/my-gpt5-deployment"},
+                "hangarllm_params": {"model": "azure/my-gpt5-deployment"},
                 "model_info": {"base_model": "azure/gpt-4.1"},
             },
         )
@@ -173,7 +173,7 @@ class TestDeploymentsPricedByBaseModel:
         router = self._router(
             {
                 "model_name": "big",
-                "litellm_params": {"model": "azure/my-gpt5-deployment"},
+                "hangarllm_params": {"model": "azure/my-gpt5-deployment"},
                 "model_info": {"base_model": "azure/gpt-4.1"},
             },
         )
@@ -189,8 +189,8 @@ class TestDeploymentPricingOverrides:
         then prices it at a rate nobody pays."""
         router = Router(
             model_list=[
-                {"model_name": "cheap", "litellm_params": {"model": "anthropic/claude-haiku-4-5"}},
-                {"model_name": "top", "litellm_params": {"model": "anthropic/claude-opus-5"}},
+                {"model_name": "cheap", "hangarllm_params": {"model": "anthropic/claude-haiku-4-5"}},
+                {"model_name": "top", "hangarllm_params": {"model": "anthropic/claude-opus-5"}},
             ]
         )
         assert resolve_baseline(router._core_ctx, ["cheap", "top"]).model == "anthropic/claude-opus-5"
@@ -199,13 +199,13 @@ class TestDeploymentPricingOverrides:
             model_list=[
                 {
                     "model_name": "cheap",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-haiku-4-5",
                         "input_cost_per_token": 0.001,
                         "output_cost_per_token": 0.002,
                     },
                 },
-                {"model_name": "top", "litellm_params": {"model": "anthropic/claude-opus-5"}},
+                {"model_name": "top", "hangarllm_params": {"model": "anthropic/claude-opus-5"}},
             ]
         )
         assert resolve_baseline(overridden._core_ctx, ["cheap", "top"]).model == "anthropic/claude-haiku-4-5"

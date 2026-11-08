@@ -27,7 +27,7 @@ PLACE_TOOL_USE: Final = {
 CLAUDE_OPUS_4_8_JSON_SCHEMA_TEST_CASE: Final = replace(
     CLAUDE_OPUS_4_8_TEST_CASE,
     scenario="json_schema",
-    litellm_request={
+    hangarllm_request={
         "model": "anthropic/claude-opus-4-8",
         "max_tokens": 128,
         "messages": [{"role": "user", "content": PLACE_PROMPT}],
@@ -64,7 +64,7 @@ CLAUDE_OPUS_4_8_JSON_SCHEMA_TEST_CASE: Final = replace(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "object": "chat.completion",

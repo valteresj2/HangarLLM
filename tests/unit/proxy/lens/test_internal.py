@@ -6,9 +6,9 @@ import jwt
 import pytest
 from fastapi import FastAPI, Header, HTTPException
 
-from litellm.integrations.clickhouse.context import is_lens_analysis
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import initialize_standard_callback_dynamic_params
-from litellm.proxy.lens.internal import LensInternalMiddleware, verified
+from hangarllm.integrations.clickhouse.context import is_lens_analysis
+from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import initialize_standard_callback_dynamic_params
+from hangarllm.proxy.lens.internal import LensInternalMiddleware, verified
 
 SECRET: Final = "gateway-internal-identity-fixture-key-32"
 NOW: Final = 1_800_000_000
@@ -16,8 +16,8 @@ NOW: Final = 1_800_000_000
 
 def claims(**changes: object) -> Mapping[str, object]:
     return {
-        "iss": "litellm-lens",
-        "aud": "litellm",
+        "iss": "hangarllm-lens",
+        "aud": "hangarllm",
         "sub": "lens-internal",
         "purpose": "analysis",
         "iat": NOW,

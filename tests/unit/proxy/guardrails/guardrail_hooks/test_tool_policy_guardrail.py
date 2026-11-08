@@ -11,11 +11,11 @@ import pytest
 from fastapi import HTTPException
 
 
-from litellm.proxy.db import tool_registry_writer
-from litellm.proxy.guardrails.guardrail_hooks.tool_policy.tool_policy_guardrail import (
+from hangarllm.proxy.db import tool_registry_writer
+from hangarllm.proxy.guardrails.guardrail_hooks.tool_policy.tool_policy_guardrail import (
     ToolPolicyGuardrail,
 )
-from litellm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.guardrails import GuardrailEventHooks
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def _registry_mock(policy_map: dict):
 async def test_untrusted_tools_pass_through(guardrail):
     policy_map = {"search": "untrusted", "read_file": "trusted"}
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=_registry_mock(policy_map),
     ):
         inputs: Any = _tool_request_inputs(["search", "read_file"])
@@ -96,7 +96,7 @@ async def test_untrusted_tools_pass_through(guardrail):
 async def test_blocked_tool_in_request_raises_http_exception(guardrail):
     policy_map = {"dangerous_tool": "blocked"}
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=_registry_mock(policy_map),
     ):
         inputs: Any = _tool_request_inputs(["dangerous_tool"])
@@ -112,7 +112,7 @@ async def test_blocked_tool_in_request_raises_http_exception(guardrail):
 async def test_blocked_tool_in_response_raises_http_exception(guardrail):
     policy_map = {"exfil_tool": "blocked"}
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=_registry_mock(policy_map),
     ):
         inputs: Any = _tool_response_inputs(["exfil_tool"])
@@ -128,7 +128,7 @@ async def test_blocked_tool_in_response_raises_http_exception(guardrail):
 async def test_mixed_blocked_and_allowed_raises_for_blocked(guardrail):
     policy_map = {"safe_tool": "trusted", "bad_tool": "blocked"}
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=_registry_mock(policy_map),
     ):
         inputs: Any = _tool_request_inputs(["safe_tool", "bad_tool"])
@@ -145,7 +145,7 @@ async def test_mixed_blocked_and_allowed_raises_for_blocked(guardrail):
 async def test_tool_not_in_db_passes_through(guardrail):
     """When registry returns no policy (or empty), tools are not blocked."""
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=_registry_mock({}),
     ):
         inputs: Any = _tool_request_inputs(["unknown_tool"])
@@ -161,7 +161,7 @@ async def test_registry_not_initialized_passes_through(guardrail):
     reg = MagicMock()
     reg.is_initialized.return_value = False
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=reg,
     ):
         inputs: Any = _tool_request_inputs(["any_tool"])
@@ -177,7 +177,7 @@ async def test_response_tool_calls_as_objects(guardrail):
     """tool_calls that are objects (not dicts) with .function.name should work."""
     policy_map = {"obj_tool": "blocked"}
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=_registry_mock(policy_map),
     ):
         fn = MagicMock()
@@ -214,7 +214,7 @@ async def test_blocked_tool_loaded_by_a_replayed_tool_search_raises_next_to_allo
         ],
     }
     with patch(
-        "litellm.proxy.db.tool_registry_writer.get_tool_policy_registry",
+        "hangarllm.proxy.db.tool_registry_writer.get_tool_policy_registry",
         return_value=_registry_mock({"get_weather": "untrusted", "run_shell": "blocked"}),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -229,13 +229,13 @@ async def test_blocked_tool_loaded_by_a_replayed_tool_search_raises_next_to_allo
 
 async def _install_tool_policies(monkeypatch: pytest.MonkeyPatch, input_policies: Mapping[str, str]) -> None:
     prisma_client = MagicMock()
-    prisma_client.db.litellm_tooltable.find_many = AsyncMock(
+    prisma_client.db.hangarllm_tooltable.find_many = AsyncMock(
         return_value=[
             SimpleNamespace(tool_name=name, input_policy=policy, output_policy="untrusted")
             for name, policy in input_policies.items()
         ]
     )
-    prisma_client.db.litellm_objectpermissiontable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_objectpermissiontable.find_many = AsyncMock(return_value=[])
     registry = tool_registry_writer.ToolPolicyRegistry()
     await registry.sync_tool_policy_from_db(prisma_client)
     monkeypatch.setattr(tool_registry_writer, "_tool_policy_registry", registry)

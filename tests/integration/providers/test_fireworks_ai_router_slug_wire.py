@@ -30,7 +30,7 @@ def _pick_routed_model() -> str:
         key
         for key, entry in catalog.items()
         if "/" not in key
-        and entry.get("litellm_provider") == "anthropic"
+        and entry.get("hangarllm_provider") == "anthropic"
         and _positive_rate(entry, "input_cost_per_token")
         and _positive_rate(entry, "output_cost_per_token")
         and f"fireworks_ai/{key}" not in catalog
@@ -217,9 +217,9 @@ def test_fireworks_firerouter_claude_leg_is_charged_at_the_routed_models_own_rat
             _ROUTED_MODEL, "output_cost_per_token"
         )
         assert expected_cost > 0
-        assert float(response.headers["x-litellm-response-cost"]) == _approx(expected_cost)
+        assert float(response.headers["x-hangarllm-response-cost"]) == _approx(expected_cost)
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
             lambda values: len(values) == 1,
             seconds=70,
         )
@@ -261,10 +261,10 @@ def test_fireworks_router_forwards_tool_choice_and_reasoning_and_bills_the_serve
             _SERVED_OPEN_MODEL_KEY, "output_cost_per_token"
         )
         assert expected_cost > 0
-        assert float(response.headers["x-litellm-response-cost"]) == _approx(expected_cost)
+        assert float(response.headers["x-hangarllm-response-cost"]) == _approx(expected_cost)
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", "/chat/completions")]
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
             lambda values: len(values) == 1,
             seconds=70,
         )

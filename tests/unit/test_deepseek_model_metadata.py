@@ -12,8 +12,8 @@ field set to ``True``.
 import json
 import os
 
-import litellm
-from litellm.utils import (
+import hangarllm
+from hangarllm.utils import (
     supports_factory,
 )
 
@@ -25,7 +25,7 @@ from litellm.utils import (
 def _load_backup_json() -> dict:
     """Load the backup JSON directly from disk."""
     backup_path = os.path.join(
-        os.path.dirname(litellm.__file__),
+        os.path.dirname(hangarllm.__file__),
         "model_prices_and_context_window_backup.json",
     )
     with open(backup_path, encoding="utf-8") as f:
@@ -67,17 +67,17 @@ class TestSupportsResponseSchemaDeepSeek:
 class TestBareModelFallback:
     """When a provider-prefixed entry is missing a capability flag, the
     ``_supports_factory`` fallback should consult the bare model-name
-    entry in ``litellm.model_cost``."""
+    entry in ``hangarllm.model_cost``."""
 
     def test_fallback_uses_bare_entry(self):
         """Temporarily remove ``supports_response_schema`` from the prefixed
         entry and verify the fallback still returns True."""
         key = "deepseek/deepseek-chat"
-        original = litellm.model_cost.get(key, {}).get("supports_response_schema")
+        original = hangarllm.model_cost.get(key, {}).get("supports_response_schema")
         try:
             # Simulate the pre-fix state: field missing from prefixed entry
-            if key in litellm.model_cost:
-                litellm.model_cost[key].pop("supports_response_schema", None)
+            if key in hangarllm.model_cost:
+                hangarllm.model_cost[key].pop("supports_response_schema", None)
             result = supports_factory(
                 model="deepseek-chat",
                 custom_llm_provider="deepseek",
@@ -86,8 +86,8 @@ class TestBareModelFallback:
             assert result is True
         finally:
             # Restore
-            if key in litellm.model_cost and original is not None:
-                litellm.model_cost[key]["supports_response_schema"] = original
+            if key in hangarllm.model_cost and original is not None:
+                hangarllm.model_cost[key]["supports_response_schema"] = original
 
     def test_no_fallback_when_explicitly_false(self):
         """If the prefixed entry explicitly sets a capability to ``False``,
@@ -96,10 +96,10 @@ class TestBareModelFallback:
         # After the data fix, deepseek/deepseek-reasoner has
         # supports_function_calling=false (matching the bare entry).
         # Explicitly set it to False to test the guard.
-        original = litellm.model_cost.get(key, {}).get("supports_function_calling")
+        original = hangarllm.model_cost.get(key, {}).get("supports_function_calling")
         try:
-            if key in litellm.model_cost:
-                litellm.model_cost[key]["supports_function_calling"] = False
+            if key in hangarllm.model_cost:
+                hangarllm.model_cost[key]["supports_function_calling"] = False
             result = supports_factory(
                 model="deepseek-reasoner",
                 custom_llm_provider="deepseek",
@@ -107,5 +107,5 @@ class TestBareModelFallback:
             )
             assert result is False
         finally:
-            if key in litellm.model_cost and original is not None:
-                litellm.model_cost[key]["supports_function_calling"] = original
+            if key in hangarllm.model_cost and original is not None:
+                hangarllm.model_cost[key]["supports_function_calling"] = original

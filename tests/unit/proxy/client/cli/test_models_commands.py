@@ -12,8 +12,8 @@ from click.testing import CliRunner
 
 
 # local imports
-from litellm.proxy.client.cli import cli
-from litellm.proxy.client.cli.commands.models import (
+from hangarllm.proxy.client.cli import cli
+from hangarllm.proxy.client.cli.commands.models import (
     format_cost_per_1k_tokens,
     format_iso_datetime_str,
     format_timestamp,
@@ -23,7 +23,7 @@ from litellm.proxy.client.cli.commands.models import (
 @pytest.fixture
 def mock_client():
     """Fixture to create a mock client with common setup"""
-    with patch("litellm.proxy.client.cli.commands.models.Client") as MockClient:
+    with patch("hangarllm.proxy.client.cli.commands.models.Client") as MockClient:
         yield MockClient
 
 
@@ -39,8 +39,8 @@ def mock_env():
     with patch.dict(
         os.environ,
         {
-            "LITELLM_PROXY_URL": "http://localhost:4000",
-            "LITELLM_PROXY_API_KEY": "sk-test",
+            "HANGARLLM_PROXY_URL": "http://localhost:4000",
+            "HANGARLLM_PROXY_API_KEY": "sk-test",
         },
     ):
         yield
@@ -74,7 +74,7 @@ def mock_models_info(mock_client):
     mock_client.return_value.models.info.return_value = [
         {
             "model_name": "gpt-4",
-            "litellm_params": {"model": "gpt-4", "litellm_credential_name": "openai-1"},
+            "hangarllm_params": {"model": "gpt-4", "hangarllm_credential_name": "openai-1"},
             "model_info": {
                 "id": "model-123",
                 "created_at": "2025-04-29T21:31:43.843000+00:00",
@@ -254,22 +254,22 @@ def test_models_import_only_models_matching_regex(tmp_path, mock_client, cli_run
         "model_list": [
             {
                 "model_name": "gpt-4-model",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {"id": "id-1"},
             },
             {
                 "model_name": "gpt-3.5-model",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {"id": "id-2"},
             },
             {
                 "model_name": "llama2-model",
-                "litellm_params": {"model": "llama2"},
+                "hangarllm_params": {"model": "llama2"},
                 "model_info": {"id": "id-3"},
             },
             {
                 "model_name": "other-model",
-                "litellm_params": {"model": "other"},
+                "hangarllm_params": {"model": "other"},
                 "model_info": {"id": "id-4"},
             },
         ]
@@ -283,7 +283,7 @@ def test_models_import_only_models_matching_regex(tmp_path, mock_client, cli_run
     # Patch client.models.new to track calls
     mock_new = mock_client.return_value.models.new
 
-    # Only match models containing 'gpt' in their litellm_params.model
+    # Only match models containing 'gpt' in their hangarllm_params.model
     result = cli_runner.invoke(
         cli, ["models", "import", str(yaml_file), "--only-models-matching-regex", "gpt"]
     )
@@ -309,7 +309,7 @@ def test_models_import_only_access_groups_matching_regex(
         "model_list": [
             {
                 "model_name": "gpt-4-model",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {
                     "id": "id-1",
                     "access_groups": ["beta-models", "prod-models"],
@@ -317,22 +317,22 @@ def test_models_import_only_access_groups_matching_regex(
             },
             {
                 "model_name": "gpt-3.5-model",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "hangarllm_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {"id": "id-2", "access_groups": ["alpha-models"]},
             },
             {
                 "model_name": "llama2-model",
-                "litellm_params": {"model": "llama2"},
+                "hangarllm_params": {"model": "llama2"},
                 "model_info": {"id": "id-3", "access_groups": ["beta-models"]},
             },
             {
                 "model_name": "other-model",
-                "litellm_params": {"model": "other"},
+                "hangarllm_params": {"model": "other"},
                 "model_info": {"id": "id-4", "access_groups": ["other-group"]},
             },
             {
                 "model_name": "no-access-group-model",
-                "litellm_params": {"model": "no-access"},
+                "hangarllm_params": {"model": "no-access"},
                 "model_info": {"id": "id-5"},
             },
         ]

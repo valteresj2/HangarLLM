@@ -31,13 +31,13 @@ _RACE_PREFIX: Final = "route-race-"
 _ROUTES_AFTER_ADMIN_REMOVAL: Final = ["llm_api_routes"]
 _POLICY_SOURCE: Final = f'''import json
 
-from litellm.proxy import proxy_server
+from hangarllm.proxy import proxy_server
 
 
 async def route_policy(request):
     alias = request.request.key_alias or ""
     if request.operation == "update" and alias.startswith("{_RACE_PREFIX}"):
-        await proxy_server.prisma_client.db.litellm_verificationtoken.update(
+        await proxy_server.prisma_client.db.hangarllm_verificationtoken.update(
             where={{"token": request.existing_key.token}},
             data={{"allowed_routes": {_ROUTES_AFTER_ADMIN_REMOVAL!r}}},
         )
@@ -54,8 +54,8 @@ def _config_with_default_routes(
     raw: Final = JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))
     configured: Final[dict[str, JsonValue]] = {
         **raw,
-        "litellm_settings": {
-            **object_value(raw.get("litellm_settings") or {}),
+        "hangarllm_settings": {
+            **object_value(raw.get("hangarllm_settings") or {}),
             "default_key_generate_params": {"allowed_routes": default_routes},
         },
         "general_settings": {**object_value(raw.get("general_settings") or {}), **general_settings},
@@ -89,7 +89,7 @@ def _hash(key: str) -> str:
 
 
 def _stored_routes(gateway: Gateway, key: str) -> JsonValue:
-    rows: Final = gateway.rows('SELECT allowed_routes FROM "LiteLLM_VerificationToken" WHERE token = %s', (_hash(key),))
+    rows: Final = gateway.rows('SELECT allowed_routes FROM "HangarLLM_VerificationToken" WHERE token = %s', (_hash(key),))
     assert len(rows) == 1, rows
     return rows[0]["allowed_routes"]
 
@@ -154,7 +154,7 @@ def test_default_routes_open_own_spend_report_and_nothing_wider(defaults: Gatewa
         defaults.chat(model, key=token, text=f"default routes {uuid.uuid4().hex}")
         logged: Final = eventually(
             lambda: defaults.rows(
-                """SELECT to_char("startTime", 'YYYY-MM-DD') AS day FROM "LiteLLM_SpendLogs" WHERE api_key = %s""",
+                """SELECT to_char("startTime", 'YYYY-MM-DD') AS day FROM "HangarLLM_SpendLogs" WHERE api_key = %s""",
                 (_hash(token),),
             ),
             lambda rows: len(rows) == 1,
@@ -187,7 +187,7 @@ def test_internal_user_own_key_routes(defaults: Gateway, body: dict[str, JsonVal
         token: Final = _created_key(scenario, JSON_OBJECT.validate_json(created.content))
 
         assert defaults.rows(
-            'SELECT user_id, allowed_routes FROM "LiteLLM_VerificationToken" WHERE token = %s', (_hash(token),)
+            'SELECT user_id, allowed_routes FROM "HangarLLM_VerificationToken" WHERE token = %s', (_hash(token),)
         ) == [{"user_id": user, "allowed_routes": list(DEFAULT_ROUTES)}]
 
 
@@ -201,7 +201,7 @@ def test_service_account_skips_default_and_its_team_key_gets_it(defaults: Gatewa
         team_key: Final = _created_key(scenario, defaults.post("/key/generate", {"team_id": team}, key=account))
 
         assert defaults.rows(
-            'SELECT user_id, team_id, allowed_routes FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT user_id, team_id, allowed_routes FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (_hash(team_key),),
         ) == [{"user_id": None, "team_id": team, "allowed_routes": list(DEFAULT_ROUTES)}]
 
@@ -247,7 +247,7 @@ def _owner_key_with_admin_set_routes(gateway: Gateway, scenario: Scenario) -> tu
 
 def _stored_alias_and_routes(gateway: Gateway, key: str) -> tuple[JsonValue, list[str]]:
     rows: Final = gateway.rows(
-        'SELECT key_alias, allowed_routes FROM "LiteLLM_VerificationToken" WHERE token = %s', (_hash(key),)
+        'SELECT key_alias, allowed_routes FROM "HangarLLM_VerificationToken" WHERE token = %s', (_hash(key),)
     )
     assert len(rows) == 1, rows
     return rows[0]["key_alias"], [str(route) for route in list_value(rows[0]["allowed_routes"])]

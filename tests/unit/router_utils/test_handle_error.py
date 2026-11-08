@@ -4,8 +4,8 @@ from typing import List
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import litellm
-from litellm.router_api import RouterSettings, RoutingObservers
+import hangarllm
+from hangarllm.router_api import RouterSettings, RoutingObservers
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -32,7 +32,7 @@ async def test_send_llm_exception_alert_success():
     error_traceback = 'Traceback (most recent call last):\n  File "test.py", line 10, in <module>\n    raise Exception("Test exception")\nException: Test exception'
 
     # Call the function
-    from litellm.router_utils.handle_error import send_llm_exception_alert
+    from hangarllm.router_utils.handle_error import send_llm_exception_alert
 
     await send_llm_exception_alert(ctx, request_kwargs, error_traceback, mock_exception)
 
@@ -62,7 +62,7 @@ async def test_send_llm_exception_alert_no_logger():
     error_traceback = 'Traceback (most recent call last):\n  File "test.py", line 10, in <module>\n    raise Exception("Test exception")\nException: Test exception'
 
     # Call the function
-    from litellm.router_utils.handle_error import send_llm_exception_alert
+    from hangarllm.router_utils.handle_error import send_llm_exception_alert
 
     await send_llm_exception_alert(ctx, request_kwargs, error_traceback, mock_exception)
 
@@ -91,7 +91,7 @@ async def test_send_llm_exception_alert_when_proxy_server_request_in_kwargs():
     error_traceback = 'Traceback (most recent call last):\n  File "test.py", line 10, in <module>\n    raise Exception("Test exception")\nException: Test exception'
 
     # Call the function
-    from litellm.router_utils.handle_error import send_llm_exception_alert
+    from hangarllm.router_utils.handle_error import send_llm_exception_alert
 
     await send_llm_exception_alert(ctx, request_kwargs, error_traceback, mock_exception)
 
@@ -108,8 +108,8 @@ async def test_async_raise_no_deployment_exception():
     """
     from unittest.mock import patch
 
-    from litellm.router_utils.handle_error import async_raise_no_deployment_exception
-    from litellm.types.router import RouterRateLimitError
+    from hangarllm.router_utils.handle_error import async_raise_no_deployment_exception
+    from hangarllm.types.router import RouterRateLimitError
 
     # A routing context: the group's deployment ids, their cooldown store and the router settings
     ctx = MagicMock()
@@ -126,7 +126,7 @@ async def test_async_raise_no_deployment_exception():
     ]
 
     with patch(
-        "litellm.router_utils.handle_error.async_get_cooldown_deployments_with_debug_info",
+        "hangarllm.router_utils.handle_error.async_get_cooldown_deployments_with_debug_info",
         return_value=mock_cooldown_list,
     ):
         # Call the function
@@ -166,8 +166,8 @@ async def test_async_raise_no_deployment_exception_empty_cooldown_list():
     """
     from unittest.mock import patch
 
-    from litellm.router_utils.handle_error import async_raise_no_deployment_exception
-    from litellm.types.router import RouterRateLimitError
+    from hangarllm.router_utils.handle_error import async_raise_no_deployment_exception
+    from hangarllm.types.router import RouterRateLimitError
 
     # A routing context: the group's deployment ids, their cooldown store and the router settings
     ctx = MagicMock()
@@ -179,7 +179,7 @@ async def test_async_raise_no_deployment_exception_empty_cooldown_list():
     mock_cooldown_list: List = []
 
     with patch(
-        "litellm.router_utils.handle_error.async_get_cooldown_deployments_with_debug_info",
+        "hangarllm.router_utils.handle_error.async_get_cooldown_deployments_with_debug_info",
         return_value=mock_cooldown_list,
     ):
         # Call the function
@@ -211,8 +211,8 @@ async def test_async_raise_no_deployment_exception_none_cooldown_list():
     """
     from unittest.mock import patch
 
-    from litellm.router_utils.handle_error import async_raise_no_deployment_exception
-    from litellm.types.router import RouterRateLimitError
+    from hangarllm.router_utils.handle_error import async_raise_no_deployment_exception
+    from hangarllm.types.router import RouterRateLimitError
 
     # A routing context: the group's deployment ids, their cooldown store and the router settings
     ctx = MagicMock()
@@ -224,7 +224,7 @@ async def test_async_raise_no_deployment_exception_none_cooldown_list():
     mock_cooldown_list = None
 
     with patch(
-        "litellm.router_utils.handle_error.async_get_cooldown_deployments_with_debug_info",
+        "hangarllm.router_utils.handle_error.async_get_cooldown_deployments_with_debug_info",
         return_value=mock_cooldown_list,
     ):
         # After the defensive fix, this should handle None gracefully and return empty list
@@ -257,15 +257,15 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+            importlib.reload(hangarllm.proxy.proxy_server)
     except Exception:
         pass
     loop = asyncio.get_event_loop_policy().new_event_loop()
@@ -277,6 +277,6 @@ def setup_and_teardown():
 
 @pytest.mark.asyncio
 async def test_send_llm_exception_alert_without_a_router_does_nothing():
-    from litellm.router_utils.handle_error import send_llm_exception_alert
+    from hangarllm.router_utils.handle_error import send_llm_exception_alert
 
     assert await send_llm_exception_alert(None, {"model": "gpt-5-mini"}, "traceback", Exception("boom")) is None

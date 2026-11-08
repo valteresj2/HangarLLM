@@ -18,10 +18,10 @@ UNCHANGED_BY_ALIAS_UPDATE_SKIP: Final = frozenset(
         "model_spend",
         "model_max_budget",
         "model_id",
-        "litellm_organization_table",
+        "hangarllm_organization_table",
         "object_permission_id",
         "object_permission",
-        "litellm_model_table",
+        "hangarllm_model_table",
         "policies",
         "allow_team_guardrail_config",
         "projects",
@@ -51,7 +51,7 @@ def _delete_users_if_present(gateway: Gateway, user_ids: list[str]) -> None:
     present: Final = [
         user_id
         for user_id in user_ids
-        if read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,))
+        if read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,))
     ]
     if present:
         response: Final = gateway.request("POST", "/user/delete", {"user_ids": list[JsonValue](present)})

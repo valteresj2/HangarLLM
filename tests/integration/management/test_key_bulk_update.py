@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from litellm.proxy.utils import hash_token
+from hangarllm.proxy.utils import hash_token
 
 from tests.integration._support.actors import Actor
 from tests.integration._support.actors import create_scratch_key
@@ -58,7 +58,7 @@ async def test_key_bulk_update_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_verificationtoken.find_unique(where={"token": hashed})
+    row = await db.db.hangarllm_verificationtoken.find_unique(where={"token": hashed})
     assert row is not None
     if expected_status == 200:
         body = resp.json()
@@ -117,7 +117,7 @@ async def test_key_bulk_update_per_key_failure_is_isolated(
     assert len(body["successful_updates"]) == 1
     assert len(body["failed_updates"]) == 1
 
-    row = await db.db.litellm_verificationtoken.find_unique(
+    row = await db.db.hangarllm_verificationtoken.find_unique(
         where={"token": hash_token(valid)}
     )
     assert row is not None and row.max_budget == _MARKER_BUDGET

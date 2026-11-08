@@ -6,8 +6,8 @@ from typing import Final
 from prisma import Prisma
 from prisma.types import DatasourceOverride
 
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
 
 @asynccontextmanager

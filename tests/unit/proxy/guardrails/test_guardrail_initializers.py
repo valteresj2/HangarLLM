@@ -1,12 +1,12 @@
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.tool_permission import ToolPermissionGuardrail
-from litellm.proxy.guardrails.guardrail_initializers import initialize_tool_permission
-from litellm.types.guardrails import LitellmParams
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.tool_permission import ToolPermissionGuardrail
+from hangarllm.proxy.guardrails.guardrail_initializers import initialize_tool_permission
+from hangarllm.types.guardrails import HangarllmParams
 
 _RULES = [
     {"id": "allow_bash", "tool_name": "^Bash$", "decision": "allow"},
@@ -19,10 +19,10 @@ def _tool(name: str) -> dict[str, object]:
 
 
 def _initialize(**tool_permission_params: object) -> ToolPermissionGuardrail:
-    litellm_params = LitellmParams(
+    hangarllm_params = HangarllmParams(
         guardrail="tool_permission", mode="pre_call", default_on=True, **tool_permission_params
     )
-    return initialize_tool_permission(litellm_params, {"guardrail_name": "tool-guard"})
+    return initialize_tool_permission(hangarllm_params, {"guardrail_name": "tool-guard"})
 
 
 async def _pre_call(guardrail: ToolPermissionGuardrail, tool_names: list[str]) -> dict:
@@ -45,7 +45,7 @@ async def test_initialize_tool_permission_rewrite_mode_strips_only_the_tool_a_co
     data = await _pre_call(guardrail, ["Bash", "Read", "Grep"])
 
     assert data["tools"] == [_tool("Bash"), _tool("Grep")]
-    assert litellm.callbacks == [guardrail]
+    assert hangarllm.callbacks == [guardrail]
 
 
 @pytest.mark.asyncio

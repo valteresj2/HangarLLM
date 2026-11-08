@@ -4,7 +4,7 @@ import { Page } from "../../fixtures/pages";
 import { navigateToPage } from "../../helpers/navigation";
 import { captureRequestBody } from "../../helpers/roundTrip";
 
-const master = process.env.LITELLM_MASTER_KEY ?? "sk-integration-master";
+const master = process.env.HANGARLLM_MASTER_KEY ?? "sk-integration-master";
 const headers = { Authorization: `Bearer ${master}` };
 const upstream = (process.env.INTEGRATION_UPSTREAM_URL ?? "http://127.0.0.1:8190").replace(/\/+$/, "");
 const CORALBRICKS_MODEL = "deepseek-v4.1-flash-fast";
@@ -14,7 +14,7 @@ const UPSTREAM_COMPLETION_TOKENS = 20;
 
 type DeploymentRow = {
   model_name: string;
-  litellm_params?: { model?: string; custom_llm_provider?: string };
+  hangarllm_params?: { model?: string; custom_llm_provider?: string };
   model_info?: { id?: string };
 };
 
@@ -93,7 +93,7 @@ test("the Add Model form offers CoralBricks and the deployment it creates serves
     await loginAsAdmin(page);
     await navigateToPage(page, Page.Models);
     const catalogLoaded = page.waitForResponse(
-      (response) => response.url().includes("/public/litellm_model_cost_map?catalog_only=true") && response.ok(),
+      (response) => response.url().includes("/public/hangarllm_model_cost_map?catalog_only=true") && response.ok(),
     );
     await page.getByRole("tab", { name: "Add Model" }).click();
     const catalog = (await (await catalogLoaded).json()) as Record<string, CatalogRow>;
@@ -117,12 +117,12 @@ test("the Add Model form offers CoralBricks and the deployment it creates serves
       await page.getByTestId("add-model-btn").click();
     });
     expect(created.model_name, "the public name typed into the mapping row").toBe(alias);
-    expect(created.litellm_params?.model, "the custom model name typed into the form").toBe(CORALBRICKS_MODEL);
-    expect(created.litellm_params?.custom_llm_provider, "the provider the picker maps CoralBricks to").toBe(
+    expect(created.hangarllm_params?.model, "the custom model name typed into the form").toBe(CORALBRICKS_MODEL);
+    expect(created.hangarllm_params?.custom_llm_provider, "the provider the picker maps CoralBricks to").toBe(
       "coralbricks",
     );
-    expect(created.litellm_params?.api_base).toBe(`${upstream}/v1`);
-    expect(created.litellm_params?.api_key).toBe(UI_KEY);
+    expect(created.hangarllm_params?.api_base).toBe(`${upstream}/v1`);
+    expect(created.hangarllm_params?.api_key).toBe(UI_KEY);
     await expect(page.getByText("created successfully")).toBeVisible({ timeout: 15_000 });
 
     let served = { status: 0, body: "" };
@@ -139,7 +139,7 @@ test("the Add Model form offers CoralBricks and the deployment it creates serves
     expect(requestId, served.body).toBeTruthy();
 
     await expect
-      .poll(async () => (await deploymentNamed(request, alias))?.litellm_params?.custom_llm_provider, {
+      .poll(async () => (await deploymentNamed(request, alias))?.hangarllm_params?.custom_llm_provider, {
         message: `no worker listed ${alias}`,
         timeout: 60_000,
       })
@@ -161,7 +161,7 @@ test("the Add Model form offers CoralBricks and the deployment it creates serves
       )
       .toBe(requestId);
     expect(row?.custom_llm_provider, JSON.stringify(row)).toBe("coralbricks");
-    expect(row?.model, JSON.stringify(row)).toBe(created.litellm_params.model);
+    expect(row?.model, JSON.stringify(row)).toBe(created.hangarllm_params.model);
     expect(row?.model_group, JSON.stringify(row)).toBe(alias);
     expect(row?.prompt_tokens, JSON.stringify(row)).toBe(UPSTREAM_PROMPT_TOKENS);
     expect(row?.completion_tokens, JSON.stringify(row)).toBe(UPSTREAM_COMPLETION_TOKENS);

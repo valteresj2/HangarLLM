@@ -51,7 +51,7 @@ def test_xecguard_post_call_scan_reaches_vendor_and_call_succeeds(gateway: Gatew
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "xecguard",
                     "mode": "post_call",
                     "default_on": True,

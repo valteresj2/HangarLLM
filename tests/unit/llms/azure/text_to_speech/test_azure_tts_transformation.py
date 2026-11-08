@@ -6,9 +6,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.azure.text_to_speech.transformation import AzureAVATextToSpeechConfig
-from litellm.types.llms.openai import HttpxBinaryResponseContent
+import hangarllm
+from hangarllm.llms.azure.text_to_speech.transformation import AzureAVATextToSpeechConfig
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent
 from tests.unit.proxy.conftest import httpx_transport
 
 
@@ -121,7 +121,7 @@ def test_get_complete_url_cognitive_services(
     api_base = "https://eastus.api.cognitive.microsoft.com"
 
     url = azure_tts_config.get_complete_url(
-        model="azure-tts", api_base=api_base, litellm_params={}
+        model="azure-tts", api_base=api_base, hangarllm_params={}
     )
 
     assert url == "https://eastus.tts.speech.microsoft.com/cognitiveservices/v1"
@@ -134,7 +134,7 @@ def test_get_complete_url_tts_endpoint(azure_tts_config: AzureAVATextToSpeechCon
     api_base = "https://westus.tts.speech.microsoft.com"
 
     url = azure_tts_config.get_complete_url(
-        model="azure-tts", api_base=api_base, litellm_params={}
+        model="azure-tts", api_base=api_base, hangarllm_params={}
     )
 
     assert url == "https://westus.tts.speech.microsoft.com/cognitiveservices/v1"
@@ -149,7 +149,7 @@ def test_get_complete_url_tts_endpoint_with_path(
     api_base = "https://westus.tts.speech.microsoft.com/cognitiveservices/v1"
 
     url = azure_tts_config.get_complete_url(
-        model="azure-tts", api_base=api_base, litellm_params={}
+        model="azure-tts", api_base=api_base, hangarllm_params={}
     )
 
     assert url == "https://westus.tts.speech.microsoft.com/cognitiveservices/v1"
@@ -162,7 +162,7 @@ def test_get_complete_url_custom_endpoint(azure_tts_config: AzureAVATextToSpeech
     api_base = "https://custom.domain.com"
 
     url = azure_tts_config.get_complete_url(
-        model="azure-tts", api_base=api_base, litellm_params={}
+        model="azure-tts", api_base=api_base, hangarllm_params={}
     )
 
     assert url == "https://custom.domain.com/cognitiveservices/v1"
@@ -176,7 +176,7 @@ def test_get_complete_url_missing_api_base(
     """
     with pytest.raises(ValueError, match="api_base is required"):
         azure_tts_config.get_complete_url(
-            model="azure-tts", api_base=None, litellm_params={}
+            model="azure-tts", api_base=None, hangarllm_params={}
         )
 
 
@@ -192,7 +192,7 @@ def test_transform_text_to_speech_request_basic(
         input="Hello world",
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -215,7 +215,7 @@ def test_transform_text_to_speech_request_with_rate(
         input="Test message",
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural", "rate": "+50%"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -235,7 +235,7 @@ def test_transform_text_to_speech_request_xml_escaping(
         input=input_text,
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -260,7 +260,7 @@ def test_transform_text_to_speech_request_headers(
             "voice": "en-US-AriaNeural",
             "output_format": "audio-16khz-32kbitrate-mono-mp3",
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -290,7 +290,7 @@ def test_transform_text_to_speech_response(
     )
 
     # Should return HttpxBinaryResponseContent wrapper
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from hangarllm.types.llms.openai import HttpxBinaryResponseContent
 
     assert isinstance(result, HttpxBinaryResponseContent)
 
@@ -447,7 +447,7 @@ def test_transform_text_to_speech_request_with_style(
         input="Hello world",
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural", "style": "cheerful"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -481,7 +481,7 @@ def test_transform_text_to_speech_request_with_style_degree_role(
             "styledegree": "2",
             "role": "SeniorFemale",
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -509,7 +509,7 @@ def test_transform_text_to_speech_request_without_style(
         input="Hello world",
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -539,7 +539,7 @@ def test_transform_text_to_speech_request_with_lang(
         input="Hola mundo",
         voice="en-US-AvaMultilingualNeural",
         optional_params={"voice": "en-US-AvaMultilingualNeural", "lang": "es-ES"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -564,7 +564,7 @@ def test_transform_text_to_speech_request_without_lang(
         input="Hello world",
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -595,7 +595,7 @@ def test_transform_text_to_speech_request_with_raw_ssml(
         input=raw_ssml,
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -633,7 +633,7 @@ def test_transform_text_to_speech_request_with_raw_ssml_header(
             "voice": "en-US-AriaNeural",
             "output_format": "audio-16khz-32kbitrate-mono-mp3",
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -668,7 +668,7 @@ def test_transform_text_to_speech_request_ssml_with_mstts_namespace(
         input=raw_ssml,
         voice="en-US-AriaNeural",
         optional_params={"voice": "en-US-AriaNeural"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -682,10 +682,10 @@ def test_transform_text_to_speech_request_ssml_with_mstts_namespace(
     assert "rate='+20%'" in ssml
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
-def test_litellm_speech_with_ssml_passthrough(mock_post):
+@patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
+def test_hangarllm_speech_with_ssml_passthrough(mock_post):
     """
-    Test that litellm.speech passes SSML through to Azure AVA without transformation
+    Test that hangarllm.speech passes SSML through to Azure AVA without transformation
     """
     raw_ssml = """<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
     <voice name='en-US-JennyNeural'>
@@ -701,7 +701,7 @@ def test_litellm_speech_with_ssml_passthrough(mock_post):
     mock_response.headers = {"content-type": "audio/mpeg"}
     mock_post.return_value = mock_response
 
-    litellm.speech(
+    hangarllm.speech(
         model="azure/speech/tts",
         input=raw_ssml,
         voice="en-US-AriaNeural",
@@ -736,7 +736,7 @@ async def test_azure_ava_tts_async(respx_mock: respx.MockRouter) -> None:
         headers={"content-type": "audio/mpeg"},
     )
 
-    response: Final = await litellm.aspeech(
+    response: Final = await hangarllm.aspeech(
         model="azure/speech/tts",
         voice="alloy",
         input="Hello, this is a test of Azure text to speech",

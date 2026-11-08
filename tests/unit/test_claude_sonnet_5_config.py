@@ -5,7 +5,7 @@ Sonnet 5 ships with the gen-5 adaptive-thinking profile (adaptive thinking
 always on, no extended thinking, ``effort`` defaults to ``high``), so it must
 mirror the sampling-param and prefill restrictions that Fable 5 / Opus 4.8 carry
 rather than the older Sonnet 4.6 behavior. The cost-map entries are also what
-populate ``litellm.anthropic_models`` at import, which is what lets a bare
+populate ``hangarllm.anthropic_models`` at import, which is what lets a bare
 ``claude-sonnet-5`` name resolve to the ``anthropic`` provider (and match an
 ``anthropic/*`` wildcard deployment).
 
@@ -19,8 +19,8 @@ import os
 
 import pytest
 
-from litellm.constants import BEDROCK_CONVERSE_MODELS
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.constants import BEDROCK_CONVERSE_MODELS
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
 
 REPO_ROOT = os.path.join(os.path.dirname(__file__), "../..")
 
@@ -79,7 +79,7 @@ def test_sonnet_5_5_present_in_bundled_backup(model_name):
 def test_sonnet_5_5_thinking_profile(local_model_cost_map, model, provider):
     """Sonnet 5.5 has thinking always on with the adaptive thinking surface, and
     no forced tool use, same as Opus 5.5."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
 
     assert AnthropicModelInfo.is_adaptive_thinking_model(model, provider) is True
     assert AnthropicModelInfo._is_always_on_thinking_model(model, provider) is True

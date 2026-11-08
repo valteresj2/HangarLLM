@@ -7,8 +7,8 @@ from typing import Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[4]
 SOURCE_FILES: Final = (
-    REPO_ROOT / "litellm/proxy/management_endpoints/key_management_endpoints.py",
-    REPO_ROOT / "litellm/proxy/management_endpoints/team_endpoints.py",
+    REPO_ROOT / "hangarllm/proxy/management_endpoints/key_management_endpoints.py",
+    REPO_ROOT / "hangarllm/proxy/management_endpoints/team_endpoints.py",
 )
 TEST_DIRS: Final = (
     REPO_ROOT / "tests/integration/management",

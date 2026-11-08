@@ -9,13 +9,13 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
-from litellm.llms.ovhcloud.utils import OVHCloudException
-from litellm.utils import get_optional_params
+from hangarllm.llms.ovhcloud.utils import OVHCloudException
+from hangarllm.utils import get_optional_params
 
 
-from litellm.llms.ovhcloud.chat.transformation import (
+from hangarllm.llms.ovhcloud.chat.transformation import (
     OVHCloudChatCompletionStreamingHandler,
     OVHCloudChatConfig,
 )
@@ -92,7 +92,7 @@ class TestOVHCloudConfig:
             model,
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -107,7 +107,7 @@ class TestOVHCloudConfig:
             model,
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={"extra_body": {"custom_param": "custom_value"}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -161,7 +161,7 @@ class TestOVHCloudConfig:
         """
         OVHCloud AI Endpoints are OpenAI-compatible; tools/tool_choice must pass
         through for any model. The server is responsible for rejecting unsupported
-        tool calls — LiteLLM must not strip them based on a stale static catalog.
+        tool calls — HangarLLM must not strip them based on a stale static catalog.
         """
 
         params = get_optional_params(
@@ -280,7 +280,7 @@ def test_custom_api_base_uses_chat_completions_endpoint(respx_mock: respx.MockRo
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="ovhcloud/gpt-oss-120b",
         messages=request_messages,
         api_key="offline",

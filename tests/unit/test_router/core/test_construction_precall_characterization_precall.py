@@ -16,9 +16,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.router_core import RouterCore
-from litellm.types.router import RouterRateLimitError
+import hangarllm
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import RouterRateLimitError
 from tests.unit.test_router.core.construction_precall_helpers import CallbackHost, restoring_model_cost, windowed
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment, rust_core
 
@@ -46,12 +46,12 @@ NO_JSON_MODE_MODEL: Final = "openai/gpt-3.5-turbo-16k"
 UNMAPPED_MODEL: Final = "openai/a-model-the-catalog-does-not-map"
 JSON_MODE_MODEL: Final = "openai/gpt-4o"
 CONTEXT_WINDOW_PREFIX: Final = (
-    "litellm.ContextWindowExceededError: litellm.BadRequestError: litellm._pre_call_checks: Context Window exceeded "
+    "hangarllm.ContextWindowExceededError: hangarllm.BadRequestError: hangarllm._pre_call_checks: Context Window exceeded "
     "for given call. No models have context window large enough for this call.\n"
 )
 UNSUPPORTED_MESSAGE: Final = (
-    "litellm.UnsupportedParamsError: no deployment of model=g supports ['response_format']. To drop these, set "
-    "`litellm.drop_params=True` or for proxy `litellm_settings: drop_params: true`, or send "
+    "hangarllm.UnsupportedParamsError: no deployment of model=g supports ['response_format']. To drop these, set "
+    "`hangarllm.drop_params=True` or for proxy `hangarllm_settings: drop_params: true`, or send "
     "allowed_openai_params=['response_format'] to pass them through"
 )
 
@@ -171,7 +171,7 @@ async def test_select_without_messages_or_input_runs_no_context_window_check(mak
 @pytest.mark.asyncio
 async def test_when_no_context_window_fits_select_raises_context_window_exceeded(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[windowed("g", "small", 5)], enable_pre_call_checks=True)
-    with pytest.raises(litellm.ContextWindowExceededError) as error:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as error:
         await core.select("g", messages=LONG)
     message: Final = str(error.value)
     assert message.startswith(CONTEXT_WINDOW_PREFIX)
@@ -187,7 +187,7 @@ async def test_when_no_context_window_fits_async_completion_raises_without_calli
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
     core: Final = make_core(model_list=[windowed("g", "small", 5)], enable_pre_call_checks=True)
-    with pytest.raises(litellm.ContextWindowExceededError, match="Context Window exceeded for given call"):
+    with pytest.raises(hangarllm.ContextWindowExceededError, match="Context Window exceeded for given call"):
         await core.acompletion(model="g", messages=LONG)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls == []
     assert host.sleeps == []
@@ -197,7 +197,7 @@ def test_when_no_context_window_fits_sync_completion_raises_without_calling_the_
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
     core: Final = make_core(model_list=[windowed("g", "small", 5)], enable_pre_call_checks=True)
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         core.completion(model="g", messages=LONG)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls == []
 
@@ -206,7 +206,7 @@ def test_when_no_context_window_fits_sync_completion_raises_without_calling_the_
 async def test_the_context_window_error_lists_each_deployment_back_to_back(make_core: MakeCore) -> None:
     """Oddity: the per-deployment entries are concatenated with no separator between them."""
     core: Final = make_core(model_list=[windowed("g", "one", 5), windowed("g", "two", 6)], enable_pre_call_checks=True)
-    with pytest.raises(litellm.ContextWindowExceededError) as error:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as error:
         await core.select("g", messages=LONG)
     assert re.fullmatch(
         r"Model=openai/cw-one-[0-9a-f]{8}, Max Input Tokens=5, Got=(\d+)Model=openai/cw-two-[0-9a-f]{8}, Max Input Tokens=6, Got=\1",
@@ -217,7 +217,7 @@ async def test_the_context_window_error_lists_each_deployment_back_to_back(make_
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("where", "expected"),
-    [("model_info", "azure/gpt-4-mi-base"), ("litellm_params", "azure/gpt-4-lp-base")],
+    [("model_info", "azure/gpt-4-mi-base"), ("hangarllm_params", "azure/gpt-4-lp-base")],
 )
 async def test_the_context_window_error_names_a_deployment_by_its_base_model(
     make_core: MakeCore, where: str, expected: str
@@ -226,7 +226,7 @@ async def test_the_context_window_error_names_a_deployment_by_its_base_model(
         {"model_info": {"base_model": expected}} if where == "model_info" else {"base_model": expected}
     )
     core: Final = make_core(model_list=[windowed("g", f"base-{where}", 5, **extra)], enable_pre_call_checks=True)
-    with pytest.raises(litellm.ContextWindowExceededError) as error:
+    with pytest.raises(hangarllm.ContextWindowExceededError) as error:
         await core.select("g", messages=LONG)
     assert f"Model={expected}, Max Input Tokens=5, Got=" in str(error.value)
 
@@ -293,7 +293,7 @@ async def test_an_embedding_input_over_the_smaller_window_in_bytes_but_not_in_to
     make_core: MakeCore,
 ) -> None:
     short_words: Final = "word " * 8
-    assert litellm.token_counter(model=OPENAI_EMBEDDER, text=short_words) <= 10 < len(short_words.encode())
+    assert hangarllm.token_counter(model=OPENAI_EMBEDDER, text=short_words) <= 10 < len(short_words.encode())
     assert await _picked(_small_and_big_openai_embedders(make_core, small=10), input=["hi", short_words]) == {
         "small",
         "big",
@@ -305,21 +305,21 @@ async def test_an_embedding_input_that_fits_the_window_in_characters_but_not_in_
     make_core: MakeCore,
 ) -> None:
     dense: Final = "\ua66e" * 40
-    assert len(dense) <= 50 < litellm.token_counter(model=OPENAI_EMBEDDER, text=dense)
+    assert len(dense) <= 50 < hangarllm.token_counter(model=OPENAI_EMBEDDER, text=dense)
     assert await _picked(_small_and_big_openai_embedders(make_core, small=50), times=10, input=["hi", dense]) == {"big"}
 
 
 @pytest.mark.asyncio
 async def test_an_embedding_batch_is_never_refused_on_the_default_tokenizers_count(make_core: MakeCore) -> None:
     dense: Final = "\ua66e" * 40
-    assert litellm.token_counter(text=dense) > 50
+    assert hangarllm.token_counter(text=dense) > 50
     assert await _picked(_small_and_big(make_core, small=50), input=["hi", dense]) == {"small", "big"}
 
 
 @pytest.mark.asyncio
 async def test_an_embedding_input_with_a_lone_surrogate_is_counted(make_core: MakeCore) -> None:
     unpaired: Final = "\ud800" + "word " * 20
-    assert litellm.token_counter(model=OPENAI_EMBEDDER, text=unpaired) > 10
+    assert hangarllm.token_counter(model=OPENAI_EMBEDDER, text=unpaired) > 10
     assert await _picked(_small_and_big_openai_embedders(make_core, small=10), times=10, input=["hi", unpaired]) == {
         "big"
     }
@@ -333,7 +333,7 @@ async def test_an_embedding_image_counts_as_text_on_a_text_only_backend(make_cor
         ],
         enable_pre_call_checks=True,
     )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await _picked(core, times=1, input=EMBEDDING_IMAGE)
 
 
@@ -377,7 +377,7 @@ async def test_a_deployment_context_window_is_written_into_the_process_cost_map(
         model_list=[deployment("g", "declares-nothing", model=UNMAPPED_MODEL)],
         enable_pre_call_checks=True,
     )
-    with pytest.raises(litellm.ContextWindowExceededError, match="Max Input Tokens=5"):
+    with pytest.raises(hangarllm.ContextWindowExceededError, match="Max Input Tokens=5"):
         await other.select("g", messages=SHORT)
     other.retire()
 
@@ -512,7 +512,7 @@ async def test_when_no_deployment_supports_the_param_select_raises_unsupported_p
 ) -> None:
     host.set_dynamic(drop_params=False)
     core: Final = make_core(model_list=[deployment("g", "old", model=NO_JSON_MODE_MODEL)], enable_pre_call_checks=True)
-    with pytest.raises(litellm.UnsupportedParamsError) as error:
+    with pytest.raises(hangarllm.UnsupportedParamsError) as error:
         await core.select("g", dict(JSON_MODE), messages=SHORT)
     assert str(error.value) == UNSUPPORTED_MESSAGE
     assert error.value.status_code == 400
@@ -526,7 +526,7 @@ async def test_when_no_deployment_supports_the_param_async_completion_raises_wit
     core: Final = make_core(
         model_list=[deployment("g", "old", model=NO_JSON_MODE_MODEL)], enable_pre_call_checks=True, num_retries=2
     )
-    with pytest.raises(litellm.UnsupportedParamsError, match="allowed_openai_params"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="allowed_openai_params"):
         await core.acompletion(model="g", messages=SHORT, **JSON_MODE)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls == []
     assert host.sleeps == []
@@ -537,7 +537,7 @@ def test_when_no_deployment_supports_the_param_sync_completion_raises_without_ca
 ) -> None:
     host.set_dynamic(drop_params=False)
     core: Final = make_core(model_list=[deployment("g", "old", model=NO_JSON_MODE_MODEL)], enable_pre_call_checks=True)
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         core.completion(model="g", messages=SHORT, **JSON_MODE)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls == []
 
@@ -593,7 +593,7 @@ async def test_a_request_drop_params_false_overrides_the_deployment_drop_params(
     core: Final = make_core(
         model_list=[deployment("g", "old", model=NO_JSON_MODE_MODEL, drop_params=True)], enable_pre_call_checks=True
     )
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         await core.select("g", {**JSON_MODE, "drop_params": False}, messages=SHORT)
 
 
@@ -604,7 +604,7 @@ async def test_a_context_window_error_wins_over_an_unsupported_param(make_core: 
         model_list=[deployment("g", "small-no-json", model=NO_JSON_MODE_MODEL, model_info={"max_input_tokens": 5})],
         enable_pre_call_checks=True,
     )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await core.select("g", dict(JSON_MODE), messages=LONG)
     core.retire()
 

@@ -23,20 +23,20 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.trace import Link, SpanContext, Status, StatusCode
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.otel import GenAIOperation
-from litellm.integrations.otel import logger as otel_logger
-from litellm.integrations.otel.emitter import SpanEmitter
-from litellm.integrations.otel.logger import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.otel import GenAIOperation
+from hangarllm.integrations.otel import logger as otel_logger
+from hangarllm.integrations.otel.emitter import SpanEmitter
+from hangarllm.integrations.otel.logger import (
     OpenTelemetryV2,
     build_otel_v2_logger,
     fan_out_provider,
     publish_global_otel_v2_provider,
 )
-from litellm.integrations.otel.mappers import resolve_mappers
-from litellm.integrations.otel.mappers.langfuse import LANGFUSE_REQUEST_METADATA_ATTRIBUTES, LangfuseMapper
-from litellm.integrations.otel.model.config import (
+from hangarllm.integrations.otel.mappers import resolve_mappers
+from hangarllm.integrations.otel.mappers.langfuse import LANGFUSE_REQUEST_METADATA_ATTRIBUTES, LangfuseMapper
+from hangarllm.integrations.otel.model.config import (
     CaptureMessageContent,
     ExporterOwner,
     ExporterSpec,
@@ -44,8 +44,8 @@ from litellm.integrations.otel.model.config import (
     is_otel_v2_enabled,
     parse_excluded_services,
 )
-from litellm.integrations.otel.model.destination import OtelDestination
-from litellm.integrations.otel.model.payloads import (
+from hangarllm.integrations.otel.model.destination import OtelDestination
+from hangarllm.integrations.otel.model.payloads import (
     LLMCallSpanData,
     LLMRequestParams,
     LLMUsage,
@@ -54,15 +54,15 @@ from litellm.integrations.otel.model.payloads import (
     ServerInfo,
     ToolDefinition,
 )
-from litellm.integrations.otel.model.spans import SpanRole
-from litellm.integrations.otel.model.trace_controls import TraceControls
-from litellm.integrations.otel.plumbing import providers as otel_providers
-from litellm.integrations.otel.plumbing.context import (
+from hangarllm.integrations.otel.model.spans import SpanRole
+from hangarllm.integrations.otel.model.trace_controls import TraceControls
+from hangarllm.integrations.otel.plumbing import providers as otel_providers
+from hangarllm.integrations.otel.plumbing.context import (
     destination_backends,
     request_destinations,
     set_request_destinations,
 )
-from litellm.integrations.otel.plumbing.providers import (
+from hangarllm.integrations.otel.plumbing.providers import (
     TenantFanOutSpanProcessor,
     _OverriddenBackendFilter,
     _sink_key,
@@ -72,19 +72,19 @@ from litellm.integrations.otel.plumbing.providers import (
     operator_sink_scopes,
     register_exporter_factory,
 )
-from litellm.integrations.otel.plumbing.routing import TenantTracerCache, get_tracer
-from litellm.integrations.otel.presets.arize import arize_preset
-from litellm.integrations.otel.presets.destinations import (
+from hangarllm.integrations.otel.plumbing.routing import TenantTracerCache, get_tracer
+from hangarllm.integrations.otel.presets.arize import arize_preset
+from hangarllm.integrations.otel.presets.destinations import (
     destination_capable_backends,
     destination_for,
 )
-from litellm.integrations.otel.presets.langfuse import langfuse_preset
-from litellm.proxy._types import AddTeamCallback, TeamCallbackMetadata, UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import (
+from hangarllm.integrations.otel.presets.langfuse import langfuse_preset
+from hangarllm.proxy._types import AddTeamCallback, TeamCallbackMetadata, UserAPIKeyAuth
+from hangarllm.proxy.hangarllm_pre_call_utils import (
     convert_key_logging_metadata_to_callback,
     resolve_tenant_otel_destinations,
 )
-from litellm.types.utils import StandardCallbackDynamicParams
+from hangarllm.types.utils import StandardCallbackDynamicParams
 
 LANGFUSE_DEST = OtelDestination(
     endpoint="http://tenant.local/api/public/otel",
@@ -99,7 +99,7 @@ def allow_test_hosts(monkeypatch):
     these fixtures name so the resolution tests stay about resolution;
     ``TestTenantHostSsrfGuard`` covers the guard itself."""
     monkeypatch.setattr(
-        litellm, "provider_url_destination_allowed_hosts", ["team.local", "key.local", "x"], raising=False
+        hangarllm, "provider_url_destination_allowed_hosts", ["team.local", "key.local", "x"], raising=False
     )
 
 
@@ -122,7 +122,7 @@ def in_fresh_context(fn, *args):
 
 
 def emit(provider: TracerProvider, name: str = "chat gpt-4") -> None:
-    with get_tracer(provider, "litellm").start_as_current_span(name):
+    with get_tracer(provider, "hangarllm").start_as_current_span(name):
         pass
 
 
@@ -190,11 +190,11 @@ class TestRoutingMode:
 
     @staticmethod
     def _additive(monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "additive", raising=False)
+        monkeypatch.setattr(hangarllm, "otel_tenant_destination_mode", "additive", raising=False)
 
     @staticmethod
     def _tree(provider):
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         with tracer.start_as_current_span("POST /v1/chat/completions"):
             with tracer.start_as_current_span("auth /v1/chat/completions"):
                 pass
@@ -345,8 +345,8 @@ class TestRoutingMode:
         assert len(global_exporter.get_finished_spans()) == (3 if additive else 0)
 
     def test_the_env_var_turns_additive_on_without_a_config_file(self, monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", None, raising=False)
-        monkeypatch.setenv("LITELLM_OTEL_TENANT_DESTINATION_MODE", "Additive")
+        monkeypatch.setattr(hangarllm, "otel_tenant_destination_mode", None, raising=False)
+        monkeypatch.setenv("HANGARLLM_OTEL_TENANT_DESTINATION_MODE", "Additive")
         global_exporter, dest_exporter = InMemorySpanExporter(), InMemorySpanExporter()
         provider = wired_provider(dest_exporter, global_exporter)
 
@@ -356,7 +356,7 @@ class TestRoutingMode:
         assert len(dest_exporter.get_finished_spans()) == 3
 
     def test_an_unrecognized_mode_stays_on_override(self, monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "both", raising=False)
+        monkeypatch.setattr(hangarllm, "otel_tenant_destination_mode", "both", raising=False)
         global_exporter, dest_exporter = InMemorySpanExporter(), InMemorySpanExporter()
         provider = wired_provider(dest_exporter, global_exporter)
 
@@ -436,7 +436,7 @@ class TestRoutingMode:
         """Under additive the fan-out skips a destination the operator already writes
         to. An exporter the provider never built writes nothing, so skipping it would
         cost the team every span."""
-        monkeypatch.setenv("LITELLM_OTEL_TENANT_DESTINATION_MODE", "additive")
+        monkeypatch.setenv("HANGARLLM_OTEL_TENANT_DESTINATION_MODE", "additive")
         gated_endpoint = "http://gated.local/v1/traces"
         destination = OtelDestination(endpoint=gated_endpoint, callback_name="newrelic")
         config = OpenTelemetryV2Config(
@@ -465,7 +465,7 @@ class TestRoutingMode:
         monkeypatch.setenv("LANGFUSE_HOST", "https://lf.internal")
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-op")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-op")
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["lf.internal"], raising=False)
+        monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", ["lf.internal"], raising=False)
         operator = operator_sink_scopes(langfuse_preset())
 
         def sink(public_key, secret_key):
@@ -522,7 +522,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -556,7 +556,7 @@ class TestFanOut:
                 excluded_db_systems=frozenset({"redis", "postgresql"}),
             )
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -599,7 +599,7 @@ class TestFanOut:
                 processor_factory=lambda destination: SimpleSpanProcessor(exporters[destination.endpoint])
             )
         )
-        tracer: Final = get_tracer(provider, "litellm")
+        tracer: Final = get_tracer(provider, "hangarllm")
 
         def run():
             set_request_destinations(
@@ -646,7 +646,7 @@ class TestFanOut:
                 excluded_db_systems=frozenset({"redis", "postgresql"}),
             )
         )
-        tracer: Final = get_tracer(provider, "litellm")
+        tracer: Final = get_tracer(provider, "hangarllm")
 
         def run():
             set_request_destinations(
@@ -741,7 +741,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         unreachable = "Can't reach database server at db.internal.example:15400"
 
         def run():
@@ -754,11 +754,11 @@ class TestFanOut:
                         "db.operation.name": "get_data",
                         "server.address": "db.internal.example",
                         "server.port": 15400,
-                        "db.namespace": "litellm",
+                        "db.namespace": "hangarllm",
                         "error.type": "PrismaError",
                         "error.message": unreachable,
                         "error": unreachable,
-                        "litellm.provider.error.stack_trace": f"Traceback: {unreachable}",
+                        "hangarllm.provider.error.stack_trace": f"Traceback: {unreachable}",
                     }
                 )
                 db_span.add_event("exception", {"exception.message": unreachable})
@@ -788,7 +788,7 @@ class TestFanOut:
         operator_db = operator["postgres get_data"]
         assert operator_db.attributes["server.address"] == "db.internal.example"
         assert operator_db.attributes["server.port"] == 15400
-        assert operator_db.attributes["db.namespace"] == "litellm"
+        assert operator_db.attributes["db.namespace"] == "hangarllm"
         assert operator_db.attributes["error.message"] == unreachable
         assert operator_db.attributes["error"] == unreachable
         assert operator_db.status.description == unreachable
@@ -802,7 +802,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         unreachable = "Cannot connect to host guardrail.internal.example:9000"
         verdict = '{"action": "block", "categories": ["pii"]}'
 
@@ -812,17 +812,17 @@ class TestFanOut:
                 with tracer.start_as_current_span("execute_guardrail pii") as down:
                     down.set_attributes(
                         {
-                            "litellm.guardrail.name": "pii",
-                            "litellm.guardrail.status": failure_status,
-                            "litellm.guardrail.response": unreachable,
+                            "hangarllm.guardrail.name": "pii",
+                            "hangarllm.guardrail.status": failure_status,
+                            "hangarllm.guardrail.response": unreachable,
                         }
                     )
                 with tracer.start_as_current_span("execute_guardrail toxicity") as up:
                     up.set_attributes(
                         {
-                            "litellm.guardrail.name": "toxicity",
-                            "litellm.guardrail.status": "guardrail_intervened",
-                            "litellm.guardrail.response": verdict,
+                            "hangarllm.guardrail.name": "toxicity",
+                            "hangarllm.guardrail.status": "guardrail_intervened",
+                            "hangarllm.guardrail.response": verdict,
                         }
                     )
 
@@ -831,12 +831,12 @@ class TestFanOut:
         tenant = {s.name: s for s in dest_exporter.get_finished_spans()}
         operator = {s.name: s for s in operator_exporter.get_finished_spans()}
         assert dict(tenant["execute_guardrail pii"].attributes) == {
-            "litellm.guardrail.name": "pii",
-            "litellm.guardrail.status": failure_status,
+            "hangarllm.guardrail.name": "pii",
+            "hangarllm.guardrail.status": failure_status,
         }
         assert "guardrail.internal.example" not in tenant["execute_guardrail pii"].to_json()
-        assert tenant["execute_guardrail toxicity"].attributes["litellm.guardrail.response"] == verdict
-        assert operator["execute_guardrail pii"].attributes["litellm.guardrail.response"] == unreachable
+        assert tenant["execute_guardrail toxicity"].attributes["hangarllm.guardrail.response"] == verdict
+        assert operator["execute_guardrail pii"].attributes["hangarllm.guardrail.response"] == unreachable
 
     def test_the_callers_key_in_the_query_string_does_not_ride_along_to_the_tenant(self):
         """A Google AI Studio style request authenticates with ``?key=<virtual key>``,
@@ -849,7 +849,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         path = "/v1beta/models/gemini-2.5-flash:generateContent"
         query = "key=sk-another-members-virtual-key&alt=sse"
 
@@ -906,7 +906,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         bearer = "Bearer sk-another-members-virtual-key"
 
         def run():
@@ -917,7 +917,7 @@ class TestFanOut:
                         "http.request.method": "POST",
                         "http.route": "/v1/chat/completions",
                         "http.request.header.authorization": (bearer,),
-                        "http.request.header.x_litellm_api_key": (bearer,),
+                        "http.request.header.x_hangarllm_api_key": (bearer,),
                         "http.response.header.set_cookie": ("session=abc",),
                     }
                 )
@@ -947,9 +947,9 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         unreachable = "Authentication Error, Can't reach database server at db.internal.example:15400"
-        install = "/srv/litellm/.venv/lib/python3.13/site-packages/opentelemetry/trace/__init__.py"
+        install = "/srv/hangarllm/.venv/lib/python3.13/site-packages/opentelemetry/trace/__init__.py"
         provider_error = "AnthropicException - invalid x-api-key"
 
         def fail(span, message: str) -> None:
@@ -957,8 +957,8 @@ class TestFanOut:
                 {
                     "error.type": "ProxyException",
                     "error.message": message,
-                    "litellm.provider.error.code": "500",
-                    "litellm.provider.error.stack_trace": f"Traceback\n  File {install}\n{message}",
+                    "hangarllm.provider.error.code": "500",
+                    "hangarllm.provider.error.stack_trace": f"Traceback\n  File {install}\n{message}",
                 }
             )
             span.add_event(
@@ -984,7 +984,7 @@ class TestFanOut:
         assert set(tenant) == {"POST /v1/chat/completions", "auth /v1/chat/completions", "chat claude-haiku"}
         for name in ("POST /v1/chat/completions", "auth /v1/chat/completions"):
             proxy_span = tenant[name]
-            assert dict(proxy_span.attributes) == {"error.type": "ProxyException", "litellm.provider.error.code": "500"}
+            assert dict(proxy_span.attributes) == {"error.type": "ProxyException", "hangarllm.provider.error.code": "500"}
             assert list(proxy_span.events) == []
             assert proxy_span.status.status_code is StatusCode.ERROR
             assert proxy_span.status.description is None
@@ -992,7 +992,7 @@ class TestFanOut:
             assert install not in proxy_span.to_json()
         llm_span = tenant["chat claude-haiku"]
         assert llm_span.attributes["error.message"] == provider_error, "the tenant's own call keeps its error text"
-        assert "litellm.provider.error.stack_trace" not in llm_span.attributes
+        assert "hangarllm.provider.error.stack_trace" not in llm_span.attributes
         assert llm_span.status.description == provider_error
         assert [dict(event.attributes) for event in llm_span.events] == [
             {"exception.type": "ProxyException", "exception.message": provider_error}
@@ -1000,7 +1000,7 @@ class TestFanOut:
         assert install not in llm_span.to_json()
         for name, message in (("auth /v1/chat/completions", unreachable), ("chat claude-haiku", provider_error)):
             assert operator[name].attributes["error.message"] == message
-            assert install in operator[name].attributes["litellm.provider.error.stack_trace"]
+            assert install in operator[name].attributes["hangarllm.provider.error.stack_trace"]
             assert operator[name].events[0].attributes["exception.stacktrace"] == install
             assert operator[name].status.description == message
 
@@ -1010,7 +1010,7 @@ class TestFanOut:
         afresh per span, so no attribute the operator did not configure appears."""
         dest = InMemorySpanExporter()
         provider = TracerProvider(
-            resource=Resource({"service.name": "litellm-proxy", "deployment.environment.name": "prod"})
+            resource=Resource({"service.name": "hangarllm-proxy", "deployment.environment.name": "prod"})
         )
         provider.add_span_processor(TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest)))
 
@@ -1219,7 +1219,7 @@ class TestTenantSampling:
 
     @staticmethod
     def _tree(provider, *, failed=False):
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         with tracer.start_as_current_span("POST /v1/chat/completions"):
             with tracer.start_as_current_span("auth /v1/chat/completions"):
                 pass
@@ -1300,7 +1300,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions"):
                 call = tracer.start_span("chat gpt-4")
             assert dest_exporter.get_finished_spans() == (), "undecided while the model call is open"
@@ -1320,7 +1320,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions"):
                 for index in range(otel_providers._MAX_PENDING_SPANS_PER_TREE - 1):
                     with tracer.start_as_current_span(f"chat {index}"):
@@ -1341,10 +1341,10 @@ class TestTenantSampling:
         destinations = (arize_destination(arize_success_sampling_rate="0.5"),)
 
         def late_tree(provider):
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions") as root:
                 root_context = trace_api.set_span_in_context(root)
-            with tracer.start_as_current_span("postgres INSERT LiteLLM_SpendLogs", context=root_context):
+            with tracer.start_as_current_span("postgres INSERT HangarLLM_SpendLogs", context=root_context):
                 pass
 
         for provider in (kept, dropped):
@@ -1357,7 +1357,7 @@ class TestTenantSampling:
 
         assert {s.name for s in kept_exporter.get_finished_spans()} == {
             "POST /v1/chat/completions",
-            "postgres INSERT LiteLLM_SpendLogs",
+            "postgres INSERT HangarLLM_SpendLogs",
         }
         assert dropped_exporter.get_finished_spans() == ()
 
@@ -1370,18 +1370,18 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions") as root:
                 root.set_status(Status(StatusCode.ERROR, "upstream 500"))
                 root_context: Final = trace_api.set_span_in_context(root)
-            with tracer.start_as_current_span("postgres INSERT LiteLLM_SpendLogs", context=root_context):
+            with tracer.start_as_current_span("postgres INSERT HangarLLM_SpendLogs", context=root_context):
                 pass
 
         in_fresh_context(run)
 
         assert {s.name for s in dest_exporter.get_finished_spans()} == {
             "POST /v1/chat/completions",
-            "postgres INSERT LiteLLM_SpendLogs",
+            "postgres INSERT HangarLLM_SpendLogs",
         }
 
     def test_a_failed_call_after_a_dropped_call_of_its_trace_still_answers_to_the_error_rate(self):
@@ -1423,10 +1423,10 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions") as root:
                 root_context: Final = trace_api.set_span_in_context(root)
-            with tracer.start_as_current_span("postgres INSERT LiteLLM_SpendLogs", context=root_context) as write:
+            with tracer.start_as_current_span("postgres INSERT HangarLLM_SpendLogs", context=root_context) as write:
                 write.set_status(Status(StatusCode.ERROR, "connection reset"))
 
         in_fresh_context(run)
@@ -1442,10 +1442,10 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions"):
                 with tracer.start_as_current_span("auth /v1/chat/completions"):
-                    with tracer.start_as_current_span("postgres SELECT LiteLLM_VerificationToken") as lookup:
+                    with tracer.start_as_current_span("postgres SELECT HangarLLM_VerificationToken") as lookup:
                         lookup.set_status(Status(StatusCode.ERROR, "connection reset"))
                 with tracer.start_as_current_span("chat gpt-4"):
                     pass
@@ -1454,7 +1454,7 @@ class TestTenantSampling:
 
         assert {s.name for s in dest_exporter.get_finished_spans()} == {
             *self.NAMES,
-            "postgres SELECT LiteLLM_VerificationToken",
+            "postgres SELECT HangarLLM_VerificationToken",
         }
 
     def test_a_span_two_levels_down_that_outlives_many_other_spans_still_closes_its_request(self):
@@ -1467,12 +1467,12 @@ class TestTenantSampling:
 
         def other_request():
             set_request_destinations(())
-            with get_tracer(provider, "litellm").start_as_current_span("POST /v1/chat/completions"):
+            with get_tracer(provider, "hangarllm").start_as_current_span("POST /v1/chat/completions"):
                 pass
 
         def run():
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions") as root:
                 with tracer.start_as_current_span("route gpt-4"):
                     with tracer.start_as_current_span("chat classifier"):
@@ -1502,7 +1502,7 @@ class TestTenantSampling:
 
         def open_other_request():
             set_request_destinations(())
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             root: Final = tracer.start_span("POST /v1/chat/completions")
             parent: Final = trace_api.set_span_in_context(root)
             return (
@@ -1512,7 +1512,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions"):
                 with tracer.start_as_current_span("route gpt-4"):
                     with tracer.start_as_current_span("chat classifier") as classifier:
@@ -1542,7 +1542,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations((arize_destination(arize_success_sampling_rate="1.0"),))
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions"):
                 with tracer.start_as_current_span("chat gpt-4"):
                     pass
@@ -1571,12 +1571,12 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions") as root:
                 with tracer.start_as_current_span("route gpt-4") as route:
                     route_context: Final = trace_api.set_span_in_context(route)
                 root.set_status(Status(StatusCode.ERROR, "upstream 500"))
-            with tracer.start_as_current_span("postgres INSERT LiteLLM_SpendLogs", context=route_context):
+            with tracer.start_as_current_span("postgres INSERT HangarLLM_SpendLogs", context=route_context):
                 pass
 
         in_fresh_context(run)
@@ -1584,7 +1584,7 @@ class TestTenantSampling:
         assert {s.name for s in dest_exporter.get_finished_spans()} == {
             "POST /v1/chat/completions",
             "route gpt-4",
-            "postgres INSERT LiteLLM_SpendLogs",
+            "postgres INSERT HangarLLM_SpendLogs",
         }
 
     def test_concurrent_calls_of_one_trace_each_answer_to_their_own_outcome(self):
@@ -1599,7 +1599,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             caller: Final = trace_api.set_span_in_context(trace_api.NonRecordingSpan(remote))
             with tracer.start_as_current_span("POST failed", context=caller) as failed:
                 with tracer.start_as_current_span("POST succeeded", context=caller):
@@ -1621,20 +1621,20 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions") as root:
                 root_context = trace_api.set_span_in_context(root)
             for index in range(otel_providers._MAX_REMEMBERED_VERDICTS):
                 with tracer.start_as_current_span(f"POST {index}", context=trace_api.Context()):
                     pass
-            with tracer.start_as_current_span("postgres INSERT LiteLLM_SpendLogs", context=root_context):
+            with tracer.start_as_current_span("postgres INSERT HangarLLM_SpendLogs", context=root_context):
                 pass
 
         in_fresh_context(run)
 
         names = [s.name for s in dest_exporter.get_finished_spans()]
         assert names[0] == "POST /v1/chat/completions"
-        assert names[-1] == "postgres INSERT LiteLLM_SpendLogs", "exported as it ended, not held for a root"
+        assert names[-1] == "postgres INSERT HangarLLM_SpendLogs", "exported as it ended, not held for a root"
 
     def test_a_callers_traceparent_decides_by_its_trace_id_and_still_closes_the_tree(self):
         """A request continuing a caller's trace is decided on that trace id, and the server
@@ -1645,7 +1645,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             for trace_id in (DROPPED_AT_HALF, KEPT_AT_HALF):
                 remote = trace_api.SpanContext(
                     trace_id=trace_id, span_id=1, is_remote=True, trace_flags=trace_api.TraceFlags(0x01)
@@ -1668,7 +1668,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions"):
                 for index in range(otel_providers._MAX_PENDING_SPANS_PER_TREE):
                     with tracer.start_as_current_span(f"chat {index}"):
@@ -1684,7 +1684,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             for index in range(otel_providers._MAX_PENDING_TREES + 1):
                 root = tracer.start_span(f"POST {index}", context=trace_api.Context())
                 tracer.start_span(f"chat {index}", context=trace_api.set_span_in_context(root)).end()
@@ -1706,7 +1706,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations(destinations)
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             root = tracer.start_span("POST /v1/chat/completions", context=trace_api.Context())
             tracer.start_span("auth /v1/chat/completions", context=trace_api.set_span_in_context(root)).end()
             for index in range(otel_providers._MAX_OPEN_REQUESTS):
@@ -1731,7 +1731,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations((arize_destination(arize_success_sampling_rate="1.0"),))
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             with tracer.start_as_current_span("POST /v1/chat/completions"):
                 with tracer.start_as_current_span("chat gpt-4"):
                     pass
@@ -1762,7 +1762,7 @@ class TestTenantSampling:
 
         def run():
             set_request_destinations((arize_destination(arize_success_sampling_rate="1.0"),))
-            tracer = get_tracer(provider, "litellm")
+            tracer = get_tracer(provider, "hangarllm")
             root = tracer.start_span("POST /v1/chat/completions", context=trace_api.Context())
             tracer.start_span("chat gpt-4", context=trace_api.set_span_in_context(root)).end()
             late_root = tracer.start_span("POST /v1/embeddings", context=trace_api.Context())
@@ -1821,7 +1821,7 @@ class TestTenantSampling:
 
         def run(provider: TracerProvider):
             set_request_destinations(destinations)
-            tracer: Final = get_tracer(provider, "litellm")
+            tracer: Final = get_tracer(provider, "hangarllm")
             for trace_id in trace_ids:
                 with tracer.start_as_current_span("POST /v1/chat/completions", context=caller_context(trace_id)):
                     with tracer.start_as_current_span("chat gpt-4") as span:
@@ -1841,7 +1841,7 @@ class TestTenantSampling:
     def test_in_additive_mode_the_operators_own_copy_is_not_sampled(self, monkeypatch):
         """The rates are the team's setting for the team's space; the operator's backbone keeps
         every span."""
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "additive", raising=False)
+        monkeypatch.setattr(hangarllm, "otel_tenant_destination_mode", "additive", raising=False)
         global_exporter, dest_exporter = InMemorySpanExporter(), InMemorySpanExporter()
         provider = self._fan_out(dest_exporter, global_exporter=global_exporter)
 
@@ -1902,7 +1902,7 @@ class TestTenantSampling:
     def test_a_team_entry_with_rates_is_sampled_from_auth_to_the_fan_out(self, monkeypatch):
         """The whole path the ticket names: the team's callback vars resolve at auth, and the
         fan-out honours them."""
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -1970,7 +1970,7 @@ class TestProviderWiring:
         """A preset builds its config env-only, so the fan-out must read
         ``callback_settings.otel.excluded_services`` itself rather than the
         published logger's config, or the env value would win."""
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
+        monkeypatch.setattr(hangarllm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
         preset = OpenTelemetryV2(
             config=OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory")], excluded_services=["redis"]),
             callback_name="langfuse_otel",
@@ -1987,15 +1987,15 @@ class TestProviderWiring:
             config=OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory")]),
             callback_name="langfuse_otel",
         )
-        monkeypatch.setenv("LITELLM_OTEL_LEGACY_COMPAT", "not-a-bool")
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
+        monkeypatch.setenv("HANGARLLM_OTEL_LEGACY_COMPAT", "not-a-bool")
+        monkeypatch.setattr(hangarllm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
 
         publish_global_otel_v2_provider([], lambda _p: None, registered=preset)
 
         assert self._fan_out_of(preset)._excluded_db_systems == frozenset({"postgresql"})
 
     def test_excluded_services_fall_back_to_the_published_logger_config_without_callback_settings(self, monkeypatch):
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"exporter": "in_memory"}}, raising=False)
+        monkeypatch.setattr(hangarllm, "callback_settings", {"otel": {"exporter": "in_memory"}}, raising=False)
         preset = OpenTelemetryV2(
             config=OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory")], excluded_services=["redis"]),
             callback_name="langfuse_otel",
@@ -2009,7 +2009,7 @@ class TestProviderWiring:
         "otel", [None, True, "on", "", []], ids=["null", "true", "on", "empty_string", "empty_list"]
     )
     def test_a_non_mapping_otel_block_falls_back_to_the_published_logger_config(self, monkeypatch, otel):
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": otel}, raising=False)
+        monkeypatch.setattr(hangarllm, "callback_settings", {"otel": otel}, raising=False)
         preset = OpenTelemetryV2(
             config=OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory")], excluded_services=["redis"]),
             callback_name="langfuse_otel",
@@ -2023,15 +2023,15 @@ class TestProviderWiring:
         """``callbacks: [langfuse_otel, otel]`` keeps one v2 logger, exactly as
         before ``excluded_services`` existed, and the exclusion still comes from
         ``callback_settings.otel`` rather than the preset's env-only config."""
-        from litellm.litellm_core_utils import litellm_logging as logging_module
+        from hangarllm.hangarllm_core_utils import hangarllm_logging as logging_module
 
         logging_module._in_memory_loggers.clear()
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
-        monkeypatch.setenv("LITELLM_OTEL_EXCLUDED_SERVICES", "redis")
+        monkeypatch.setenv("HANGARLLM_OTEL_EXCLUDED_SERVICES", "redis")
         is_otel_v2_enabled.cache_clear()
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
+        monkeypatch.setattr(hangarllm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
         try:
 
             def init(name: str) -> CustomLogger | None:
@@ -2057,7 +2057,7 @@ class TestProviderWiring:
 
     @pytest.mark.parametrize("canonical", ["langfuse_otel", "arize"])
     def test_publishing_tells_the_fan_out_about_every_v2_loggers_account(self, monkeypatch, canonical):
-        monkeypatch.setenv("LITELLM_OTEL_TENANT_DESTINATION_MODE", "additive")
+        monkeypatch.setenv("HANGARLLM_OTEL_TENANT_DESTINATION_MODE", "additive")
         shared = InMemorySpanExporter()
         monkeypatch.setattr(otel_providers, "_destination_processor", lambda _d: SimpleSpanProcessor(shared))
         accounts = {
@@ -2118,7 +2118,7 @@ class TestProviderWiring:
         auto-instrumentation or a legacy logger claimed it before the proxy published,
         the OTel global carries no fan-out, so reading it there would refuse every
         destination the published provider delivers."""
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         logger = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -2136,8 +2136,8 @@ class TestProviderWiring:
         ``_in_memory_loggers``. Reading the registered slot finds no v2 logger there and
         the OTel global belongs to v1, so both detours refuse every destination the
         published provider delivers."""
-        from litellm.integrations.opentelemetry import OpenTelemetry
-        from litellm.proxy import proxy_server
+        from hangarllm.integrations.opentelemetry import OpenTelemetry
+        from hangarllm.proxy import proxy_server
 
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         v2 = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -2148,7 +2148,7 @@ class TestProviderWiring:
         assert deliverable_destinations((LANGFUSE_DEST,), fan_out_provider()) == (LANGFUSE_DEST,)
 
     def test_without_a_publish_anchoring_attaches_fan_out_to_registered_v2_logger(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         logger = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -2162,7 +2162,7 @@ class TestProviderWiring:
         attached twice delivers every tenant span twice."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import attach_tenant_fan_out
+        from hangarllm.integrations.otel.plumbing.providers import attach_tenant_fan_out
 
         class SlowAttachProvider(TracerProvider):
             def add_span_processor(self, span_processor):
@@ -2189,7 +2189,7 @@ class TestProviderWiring:
     def test_without_a_publish_anchoring_falls_back_to_the_otel_global(self, monkeypatch):
         from opentelemetry import trace
 
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "open_telemetry_logger", None)
 
@@ -2198,10 +2198,10 @@ class TestProviderWiring:
     def test_auth_seeds_the_request_with_destinations_the_registered_logger_can_deliver(
         self, monkeypatch, allow_test_hosts
     ):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.auth.user_api_key_auth import _seed_request_destinations
+        from hangarllm.proxy import proxy_server
+        from hangarllm.proxy.auth.user_api_key_auth import _seed_request_destinations
 
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         logger = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -2238,8 +2238,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.LANGFUSE_OTEL)]
         )
-        cache = TenantTracerCache(config, "langfuse_otel", "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, "langfuse_otel", "hangarllm")
+        default = get_tracer(TracerProvider(), "hangarllm")
         params = {"langfuse_public_key": "pk", "langfuse_secret_key": "sk"}
 
         assert cache.route_for(default, params).detached is True
@@ -2259,8 +2259,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.LANGFUSE_OTEL)]
         )
-        cache = TenantTracerCache(config, "langfuse_otel", "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, "langfuse_otel", "hangarllm")
+        default = get_tracer(TracerProvider(), "hangarllm")
         auth_metadata = {"otel_service_name": "team-checkout"}
 
         assert cache.route_for(default, None, auth_metadata).detached is False
@@ -2282,8 +2282,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.ARIZE_AX)]
         )
-        cache = TenantTracerCache(config, callback_name, "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, callback_name, "hangarllm")
+        default = get_tracer(TracerProvider(), "hangarllm")
         auth_metadata = {"otel_service_name": "team-checkout"}
 
         relabelled = cache.route_for(default, None, auth_metadata)
@@ -2314,8 +2314,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=owner)]
         )
-        cache = TenantTracerCache(config, owner.value, "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, owner.value, "hangarllm")
+        default = get_tracer(TracerProvider(), "hangarllm")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -2330,7 +2330,7 @@ class TestRouting:
 @pytest.mark.usefixtures("allow_test_hosts")
 class TestDestinationResolution:
     def test_a_langfuse_key_pair_and_host_become_a_destination(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -2356,7 +2356,7 @@ class TestDestinationResolution:
     def test_a_keys_service_name_outranks_its_teams_on_the_destination(self, monkeypatch):
         """The key/team ``otel_service_name`` used to reach the backend through
         per-request tracer routing, which an overridden backend skips."""
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             metadata={"otel_service_name": "key-svc"},
@@ -2381,7 +2381,7 @@ class TestDestinationResolution:
         assert dict(destinations[0].resource_attributes) == {"service.name": "key-svc"}
 
     def test_a_team_that_named_no_service_name_gets_no_resource_override(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -2405,7 +2405,7 @@ class TestDestinationResolution:
         assert dict(destinations[0].resource_attributes) == {}
 
     def test_the_key_wins_over_the_team_for_the_same_backend(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
 
         def entry(host: str) -> Mapping[str, object]:
@@ -2427,7 +2427,7 @@ class TestDestinationResolution:
         assert [d.endpoint for d in resolve_tenant_otel_destinations(auth)] == ["http://key.local/api/public/otel"]
 
     def test_nothing_resolves_while_otel_v2_is_off(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -2451,7 +2451,7 @@ class TestDestinationResolution:
         assert destination_for("arize_phoenix", {"arize_api_key": "k"}) is None
 
     def test_the_destination_header_string_survives_the_exporter_round_trip(self):
-        from litellm.integrations.otel.plumbing.providers import parse_headers
+        from hangarllm.integrations.otel.plumbing.providers import parse_headers
 
         destination = destination_for(
             "langfuse_otel",
@@ -2497,7 +2497,7 @@ TRACE_CONTROLS = MappingProxyType(
 
 
 def request_tree(provider: TracerProvider) -> None:
-    tracer = get_tracer(provider, "litellm")
+    tracer = get_tracer(provider, "hangarllm")
     with tracer.start_as_current_span("POST /v1/chat/completions"):
         with tracer.start_as_current_span("auth /v1/chat/completions"):
             with tracer.start_as_current_span("postgres SELECT") as db:
@@ -2505,7 +2505,7 @@ def request_tree(provider: TracerProvider) -> None:
             with tracer.start_as_current_span("redis GET") as cache:
                 cache.set_attribute("db.system", "redis")
         with tracer.start_as_current_span("execute_guardrail pii") as guard:
-            guard.set_attributes({"litellm.guardrail.name": "pii", "litellm.guardrail.status": "success"})
+            guard.set_attributes({"hangarllm.guardrail.name": "pii", "hangarllm.guardrail.status": "success"})
         with tracer.start_as_current_span("tools/call get_weather") as tool:
             tool.set_attributes({"gen_ai.operation.name": "execute_tool", "mcp.method.name": "tools/call"})
         with tracer.start_as_current_span("chat gpt-4") as llm:
@@ -2523,7 +2523,7 @@ def names(exporter: InMemorySpanExporter) -> frozenset[str]:
 class TestSpanScope:
     @staticmethod
     def _additive(monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "additive", raising=False)
+        monkeypatch.setattr(hangarllm, "otel_tenant_destination_mode", "additive", raising=False)
 
     @staticmethod
     def _run(provider, destinations):
@@ -2827,12 +2827,12 @@ class TestSpanScope:
         assert names(exporters[ExporterOwner.LANGFUSE_OTEL]) == REQUEST_TREE
 
     def test_the_env_var_sets_the_operator_scope(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
+        monkeypatch.setenv("HANGARLLM_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
 
         assert OpenTelemetryV2Config().langfuse_span_scope == "llm_only"
 
     def test_the_env_var_narrows_the_exporter_the_langfuse_preset_builds(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
+        monkeypatch.setenv("HANGARLLM_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
         exporters = {}
@@ -2856,7 +2856,7 @@ class TestSpanScope:
     def test_the_env_var_is_read_case_and_whitespace_insensitively(self, monkeypatch, spelling):
         """A misspelt env var would otherwise fail validation inside the logger builder,
         which swallows the error and leaves the proxy up with OTel v2 silently off."""
-        monkeypatch.setenv("LITELLM_OTEL_LANGFUSE_SPAN_SCOPE", spelling)
+        monkeypatch.setenv("HANGARLLM_OTEL_LANGFUSE_SPAN_SCOPE", spelling)
 
         assert OpenTelemetryV2Config().langfuse_span_scope == "llm_only"
 
@@ -2870,9 +2870,9 @@ class TestSpanScope:
             langfuse_span_scope="llm_only",
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.LANGFUSE_OTEL)],
         )
-        cache = TenantTracerCache(config, "langfuse_otel", "litellm")
+        cache = TenantTracerCache(config, "langfuse_otel", "hangarllm")
         route = cache.route_for(
-            get_tracer(TracerProvider(), "litellm"), {"langfuse_public_key": "pk", "langfuse_secret_key": "sk"}
+            get_tracer(TracerProvider(), "hangarllm"), {"langfuse_public_key": "pk", "langfuse_secret_key": "sk"}
         )
         assert route.provider is not None
 
@@ -2882,7 +2882,7 @@ class TestSpanScope:
         assert names(tenant) == REQUEST_TREE
 
     def test_a_team_callback_var_becomes_the_destinations_scope(self, monkeypatch, allow_test_hosts):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -2966,11 +2966,11 @@ def _closed_chat_call_kwargs() -> dict[str, object]:
         "response": {"id": "resp_1", "model": "gpt-4o", "choices": [{"finish_reason": "stop"}]},
         "metadata": {"team_id": "t1", "user_api_key_hash": "hsh"},
         "status": "success",
-        "litellm_call_id": "call_dup_1",
+        "hangarllm_call_id": "call_dup_1",
     }
     return {
         "standard_logging_object": payload,
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
         "api_call_start_time": datetime(2026, 5, 26, 12, 0, 0, tzinfo=timezone.utc),
     }
 
@@ -2998,10 +2998,10 @@ class TestPresetDegradation:
             langfuse_preset()
 
     def test_a_credential_less_proxy_builds_the_gated_logger_beside_a_v2_carrier(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         carrier = build_otel_v2_logger(OpenTelemetryV2Config(exporter="in_memory"))
 
         def run():
@@ -3019,10 +3019,10 @@ class TestPresetDegradation:
         """Nothing can use a credential-less langfuse here, so the operator has to get
         the same story as before v2: the legacy integration, not a global provider
         that exports nowhere."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "langfuse_otel", [])
@@ -3031,11 +3031,11 @@ class TestPresetDegradation:
         assert logger is None
 
     def test_a_valid_newrelic_base_exporter_survives_without_a_license_key(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         monkeypatch.delenv("NEW_RELIC_LICENSE_KEY", raising=False)
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.local:4318")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "newrelic", [])
@@ -3048,12 +3048,12 @@ class TestPresetDegradation:
         ]
 
     def test_a_credentialless_newrelic_without_a_base_exporter_falls_back(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         monkeypatch.delenv("NEW_RELIC_LICENSE_KEY", raising=False)
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "newrelic", [])
@@ -3065,13 +3065,13 @@ class TestPresetDegradation:
         """``OTEL_EXPORTER=console`` reads exactly like the placeholder ``_normalize``
         folds in, but the operator asked for it, so a credential-less New Relic keeps
         the V2 logger and its spans reach stdout instead of the legacy path."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         monkeypatch.delenv("NEW_RELIC_LICENSE_KEY", raising=False)
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv("OTEL_EXPORTER", "console")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "newrelic", [])
@@ -3082,11 +3082,11 @@ class TestPresetDegradation:
         assert not logger.config.exporters[0].requires_headers
 
     def test_a_destination_for_one_backend_does_not_degrade_another(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
         monkeypatch.delenv("WANDB_API_KEY", raising=False)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -3101,10 +3101,10 @@ class TestPresetDegradation:
     def test_the_exporter_less_logger_is_not_reused_by_a_request_without_destinations(self, monkeypatch):
         """Reusing it would let one team's destination decide how every later request
         without one is logged, long after the degrade was justified."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         loggers = [build_otel_v2_logger(OpenTelemetryV2Config(exporter="in_memory"))]
 
         def with_destination():
@@ -3120,11 +3120,11 @@ class TestPresetDegradation:
         assert plain is None
 
     def test_a_credentialed_logger_is_still_reused_across_requests(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-1")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-1")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         loggers = []
 
         is_otel_v2_enabled.cache_clear()
@@ -3137,11 +3137,11 @@ class TestPresetDegradation:
 
     @staticmethod
     def _degraded_langfuse_beside(loggers, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.local:4318")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -3168,10 +3168,10 @@ class TestPresetDegradation:
         """Only a V2 logger publishes the provider the fan-out rides on, so a legacy
         callback beside this one leaves the destination just as unreachable as no
         callback at all, and the operator keeps the pre-V2 story."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -3189,14 +3189,14 @@ class TestPresetDegradation:
         registered logger already exports every call there, so a copy of ``chat`` riding the
         preset's base exporters lands in the operator's sink a second time. A key's ``logging``
         entry reaches this builder as a plain dynamic callback too, with no destination anchored."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         for name in ("ARIZE_SPACE_KEY", "ARIZE_ENDPOINT", "ARIZE_HTTP_ENDPOINT", "ARIZE_PROJECT_NAME"):
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv("ARIZE_SPACE_ID", "space-operator")
         monkeypatch.setenv("ARIZE_API_KEY", "ak-operator")
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.local:4318")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         operator_exporter = InMemorySpanExporter()
         operator_cfg = OpenTelemetryV2Config(exporter="in_memory")
         operator = build_otel_v2_logger(
@@ -3238,10 +3238,10 @@ class TestPresetDegradation:
     def test_a_preset_that_owns_no_exporter_keeps_the_collector_it_was_built_on(self, monkeypatch):
         """Langtrace is a mapper over the operator's own OTLP collector and contributes no exporter
         of its own, so filtering to owned exporters would register it with nowhere to deliver."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.local:4318")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         operator_cfg = OpenTelemetryV2Config(exporter="in_memory")
         operator = build_otel_v2_logger(
             operator_cfg,
@@ -3368,7 +3368,7 @@ class TestArizeTenantOnly:
         }, "the operator's space, with no stdout copy the operator never asked for"
 
     def test_a_credential_less_arize_still_delivers_a_team_destination(self, monkeypatch):
-        from litellm.integrations.otel.plumbing.providers import attach_tenant_fan_out
+        from hangarllm.integrations.otel.plumbing.providers import attach_tenant_fan_out
 
         credential_less_arize(monkeypatch)
         capture = self._capture_exporters(monkeypatch)
@@ -3386,10 +3386,10 @@ class TestArizeTenantOnly:
         assert capture.received() == {ARIZE_DEST.header_string(): ("chat gpt-4",)}
 
     def test_a_credential_less_proxy_builds_the_gated_arize_logger_beside_a_v2_carrier(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_arize(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         carrier = build_otel_v2_logger(OpenTelemetryV2Config(exporter="in_memory"))
 
         def run():
@@ -3404,10 +3404,10 @@ class TestArizeTenantOnly:
         assert all(spec.requires_headers and not spec.headers for spec in logger.config.exporters)
 
     def test_a_credential_less_arize_stays_on_v2_at_startup_instead_of_the_keyless_legacy_logger(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_arize(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         capture = self._capture_exporters(monkeypatch)
 
         is_otel_v2_enabled.cache_clear()
@@ -3422,10 +3422,10 @@ class TestArizeTenantOnly:
     def test_the_startup_logger_is_reused_by_later_requests_without_a_destination(self, monkeypatch):
         """Every master-key request re-initialises the callback; building a fresh
         provider each time would grow ``_in_memory_loggers`` for the life of the proxy."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from hangarllm.hangarllm_core_utils.hangarllm_logging import _maybe_construct_otel_v2
 
         credential_less_arize(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         loggers = []
 
         is_otel_v2_enabled.cache_clear()
@@ -3453,7 +3453,7 @@ class TestLangfuseDestinationFields:
         config: Final = OpenTelemetryV2Config()
         provider: Final = build_tracer_provider(config, tenant_overrides=True, console_default=True)
         attach_tenant_fan_out(provider, config)
-        emitter: Final = SpanEmitter(get_tracer(provider, "litellm"), config)
+        emitter: Final = SpanEmitter(get_tracer(provider, "hangarllm"), config)
         call: Final = replace(
             _MODEL_CALL_WITHOUT_CONTENT,
             trace=TraceControls(user_id="user-42", session_id="sess-1", tags=("agent:orders",)),
@@ -3493,7 +3493,7 @@ class TestLangfuseDestinationFields:
             monkeypatch.setitem(otel_providers._EXPORTER_FACTORIES, kind, capture.build)  # pyright: ignore[reportPrivateUsage]  # the factory table is the seam for capturing each exporter
         provider: Final = build_tracer_provider(config, tenant_overrides=True, console_default=True)
         attach_tenant_fan_out(provider, config)
-        emitter: Final = SpanEmitter(get_tracer(provider, "litellm"), config)
+        emitter: Final = SpanEmitter(get_tracer(provider, "hangarllm"), config)
         call: Final = replace(
             _MODEL_CALL_WITH_CONTENT if with_content else _MODEL_CALL_WITHOUT_CONTENT,
             trace=TraceControls(user_id="user-42", session_id="sess-1", tags=("agent:orders",)),
@@ -3644,7 +3644,7 @@ class TestLangfuseDestinationFields:
         config: Final = OpenTelemetryV2Config()
         provider: Final = build_tracer_provider(config, tenant_overrides=True, console_default=True)
         attach_tenant_fan_out(provider, config)
-        emitter: Final = SpanEmitter(get_tracer(provider, "litellm"), config)
+        emitter: Final = SpanEmitter(get_tracer(provider, "hangarllm"), config)
         destination: Final = destination_for(
             "langfuse_otel", {"langfuse_public_key": "pk", "langfuse_secret_key": "sk", "langfuse_environment": "prod"}
         )
@@ -3670,7 +3670,7 @@ class TestLangfuseDestinationFields:
         exporter: Final = InMemorySpanExporter()
         provider: Final = TracerProvider(span_limits=SpanLimits(max_span_attributes=limit))
         provider.add_span_processor(SimpleSpanProcessor(exporter))
-        emitter: Final = SpanEmitter(get_tracer(provider, "litellm"), OpenTelemetryV2Config())
+        emitter: Final = SpanEmitter(get_tracer(provider, "hangarllm"), OpenTelemetryV2Config())
 
         def run() -> None:
             set_request_destinations(destinations)
@@ -3825,7 +3825,7 @@ class TestArizeOtlpProtocol:
         )
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-        from litellm.integrations.otel.plumbing.providers import _destination_processor
+        from hangarllm.integrations.otel.plumbing.providers import _destination_processor
 
         destination = self._arize(
             monkeypatch,
@@ -3846,7 +3846,7 @@ class TestArizeOtlpProtocol:
         )
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-        from litellm.integrations.otel.plumbing.providers import _destination_processor
+        from hangarllm.integrations.otel.plumbing.providers import _destination_processor
 
         destination = self._arize(
             monkeypatch,
@@ -3861,7 +3861,7 @@ class TestArizeOtlpProtocol:
             processor.shutdown()
 
     def test_a_team_metadata_protocol_reaches_the_destination(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         monkeypatch.setenv("ARIZE_ENDPOINT", "https://arize.internal.example/v1")
         monkeypatch.delenv("ARIZE_HTTP_ENDPOINT", raising=False)
         is_otel_v2_enabled.cache_clear()
@@ -3938,13 +3938,13 @@ class TestCallbackTypeFilter:
 
     @pytest.mark.parametrize("callback_type", ["success", "success_and_failure", None])
     def test_an_entry_that_wants_success_traces_gets_the_whole_trace(self, monkeypatch, callback_type):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
 
         assert resolve_tenant_otel_destinations(self._auth(callback_type)) != ()
 
     def test_a_failure_only_entry_does_not_take_over_the_trace(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
 
         assert resolve_tenant_otel_destinations(self._auth("failure")) == ()
@@ -3956,9 +3956,9 @@ class TestTenantConfigAgreement:
 
     @pytest.fixture(autouse=True)
     def _v2_on(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         monkeypatch.setattr(
-            litellm, "provider_url_destination_allowed_hosts", ["team.local", "key.local"], raising=False
+            hangarllm, "provider_url_destination_allowed_hosts", ["team.local", "key.local"], raising=False
         )
         is_otel_v2_enabled.cache_clear()
         yield
@@ -4017,17 +4017,17 @@ class TestTenantConfigAgreement:
 
     @pytest.fixture
     def premium(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "premium_user", True)
-        monkeypatch.setattr(litellm, "allow_dynamic_callback_disabling", True)
+        monkeypatch.setattr(hangarllm, "allow_dynamic_callback_disabling", True)
 
     @pytest.mark.usefixtures("premium")
     def test_a_backend_the_key_disabled_resolves_to_no_destination(self):
-        """Dispatch skips a callback named in the key's ``litellm_disabled_callbacks``,
+        """Dispatch skips a callback named in the key's ``hangarllm_disabled_callbacks``,
         so the fan-out must not deliver to it either."""
         auth = UserAPIKeyAuth(
-            metadata={"litellm_disabled_callbacks": ["Langfuse_OTEL"]},
+            metadata={"hangarllm_disabled_callbacks": ["Langfuse_OTEL"]},
             team_metadata={"logging": [self._entry("http://team.local")]},
         )
 
@@ -4046,24 +4046,24 @@ class TestTenantConfigAgreement:
         """Same precedence as dispatch: a header that names other backends re-enables
         the one the key stored."""
         auth = UserAPIKeyAuth(
-            metadata={"litellm_disabled_callbacks": ["langfuse_otel"]},
+            metadata={"hangarllm_disabled_callbacks": ["langfuse_otel"]},
             team_metadata={"logging": [self._entry("http://team.local")]},
         )
 
-        destinations = resolve_tenant_otel_destinations(auth, {"x-litellm-disable-callbacks": header})
+        destinations = resolve_tenant_otel_destinations(auth, {"x-hangarllm-disable-callbacks": header})
 
         assert bool(destinations) is resolved
 
     def test_a_non_premium_proxy_ignores_the_disabled_list_like_dispatch_does(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from hangarllm.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "premium_user", False)
         auth = UserAPIKeyAuth(
-            metadata={"litellm_disabled_callbacks": ["langfuse_otel"]},
+            metadata={"hangarllm_disabled_callbacks": ["langfuse_otel"]},
             team_metadata={"logging": [self._entry("http://team.local")]},
         )
 
-        assert resolve_tenant_otel_destinations(auth, {"x-litellm-disable-callbacks": "langfuse_otel"}) != ()
+        assert resolve_tenant_otel_destinations(auth, {"x-hangarllm-disable-callbacks": "langfuse_otel"}) != ()
 
 
 class TestEvictionSafety:
@@ -4105,7 +4105,7 @@ class TestEvictionSafety:
     def test_a_processor_still_exporting_a_span_is_not_closed_under_it(self):
         """``on_end`` holds a processor across the export, so closing an evicted one
         there drops the span it is holding."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         held = fan_out._acquire(self._dest(0))
@@ -4124,7 +4124,7 @@ class TestEvictionSafety:
     def test_a_recently_used_destination_is_not_the_one_evicted(self):
         """Without the refresh the cache sheds by insertion order, so the busiest
         destination is the one whose exporter is rebuilt on every overflow."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         for index in range(_MAX_CACHED_DESTINATION_PROCESSORS):
@@ -4137,7 +4137,7 @@ class TestEvictionSafety:
         assert built[0].shutdown_calls == 0, "the destination used most recently was the one shed"
 
     def test_an_idle_evicted_processor_is_closed_off_the_export_path(self):
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         for index in range(_MAX_CACHED_DESTINATION_PROCESSORS + 1):
@@ -4152,7 +4152,7 @@ class TestEvictionSafety:
         """``shutdown`` flushes over the network and is reached from ``on_end``, so
         closing a shed processor inline lets one unreachable tenant collector stall
         every other tenant's spans."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -4183,7 +4183,7 @@ class TestEvictionSafety:
         collector."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -4217,7 +4217,7 @@ class TestEvictionSafety:
         and one more thread, per request for as long as the outage lasts."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -4259,7 +4259,7 @@ class TestEvictionSafety:
         the span outright."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -4279,7 +4279,7 @@ class TestEvictionSafety:
         )
         provider = TracerProvider()
         provider.add_span_processor(fan_out)
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "hangarllm")
         anchored = self._dest(0)
         try:
             for index in range(1, _MAX_CACHED_DESTINATION_PROCESSORS + 1):
@@ -4312,7 +4312,7 @@ class TestEvictionSafety:
         """
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -4339,7 +4339,7 @@ class TestEvictionSafety:
         next span rebuilds it in turn. With more destinations in flight than the cache
         holds, each span would then cost one more processor, one more batch thread and
         one more close queued behind a collector that never answers."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built, anchored, release = self._saturated_by_anchoring(pending_drains=4, extra=8)
         try:
@@ -4360,7 +4360,7 @@ class TestEvictionSafety:
     def test_the_cache_returns_to_its_cap_once_the_drain_has_room(self):
         """Holding above the cap is for the outage only: with the drain caught up, the
         entries kept for the destinations in flight are the ones to shed."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built, anchored, release = self._saturated_by_anchoring(pending_drains=4, extra=8)
         for destination in anchored:
@@ -4389,7 +4389,7 @@ class TestEvictionSafety:
         the drain, or concurrent churn can outrun the pending-drain limit."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import (
+        from hangarllm.integrations.otel.plumbing.providers import (
             _MAX_CACHED_DESTINATION_PROCESSORS,
             _DrainPool,
         )
@@ -4441,7 +4441,7 @@ class TestEvictionSafety:
         import threading
 
         self._fan_out()
-        workers = [t for t in threading.enumerate() if t.name.startswith("litellm-otel-destination-drain")]
+        workers = [t for t in threading.enumerate() if t.name.startswith("hangarllm-otel-destination-drain")]
 
         assert workers, "no drain worker was started"
         assert all(t.daemon for t in workers), "a non-daemon drain worker blocks interpreter exit"
@@ -4452,7 +4452,7 @@ class TestEvictionSafety:
         workers blocked on a queue nothing will ever feed again."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import (
+        from hangarllm.integrations.otel.plumbing.providers import (
             _DRAIN_WORKERS,
             _MAX_CACHED_DESTINATION_PROCESSORS,
         )
@@ -4483,7 +4483,7 @@ class TestEvictionSafety:
     def _drain_workers():
         import threading
 
-        return len([t for t in threading.enumerate() if t.name.startswith("litellm-otel-destination-drain")])
+        return len([t for t in threading.enumerate() if t.name.startswith("hangarllm-otel-destination-drain")])
 
     def test_shutdown_does_not_close_a_processor_under_an_in_flight_export(self):
         """``on_end`` runs on whichever thread ends a span, so it reaches the fan-out
@@ -4529,7 +4529,7 @@ class TestEvictionSafety:
     def test_shutdown_retires_the_drain_workers(self):
         """A proxy that rebuilds its telemetry builds another fan-out, so workers that
         outlive the one that started them are two more threads per reload."""
-        from litellm.integrations.otel.plumbing.providers import _DRAIN_WORKERS
+        from hangarllm.integrations.otel.plumbing.providers import _DRAIN_WORKERS
 
         before = self._drain_workers()
         fan_out, _ = self._fan_out()
@@ -4708,7 +4708,7 @@ class TestEvictionSafety:
         import queue
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _DrainPool
+        from hangarllm.integrations.otel.plumbing.providers import _DrainPool
 
         at_the_put, close_returned = threading.Event(), threading.Event()
 
@@ -4737,7 +4737,7 @@ class TestEvictionSafety:
     def test_a_retired_processor_is_still_closed_after_shutdown(self):
         """Eviction and shutdown can both land while a span is being forwarded, and the
         evicted processor still has to be closed once that export returns."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from hangarllm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         held = fan_out._acquire(self._dest(0))
@@ -4759,7 +4759,7 @@ class TestCredentialGatedExporters:
         """``base.Preset`` advertises ``config_overrides`` layering, and the gated spec
         is itself a console exporter with no endpoint."""
         credential_less_proxy(monkeypatch)
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from hangarllm.integrations.otel.presets.utils import credential_gated_exporters
 
         once = credential_gated_exporters((), ExporterOwner.LANGFUSE_OTEL)
         twice = credential_gated_exporters(once, ExporterOwner.WEAVE_OTEL)
@@ -4767,7 +4767,7 @@ class TestCredentialGatedExporters:
         assert [spec.owner for spec in twice] == [ExporterOwner.LANGFUSE_OTEL, ExporterOwner.WEAVE_OTEL]
 
     def test_an_exporter_the_operator_configured_survives(self):
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from hangarllm.integrations.otel.presets.utils import credential_gated_exporters
 
         operator_console = ExporterSpec(kind="console", use_simple_processor=True)
 
@@ -4778,7 +4778,7 @@ class TestCredentialGatedExporters:
     def test_an_otlp_exporter_on_its_default_endpoint_survives(self):
         """``OTEL_EXPORTER=otlp_http`` with no endpoint is a real collector on the SDK's
         default port, not the placeholder, so the transport is what tells them apart."""
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from hangarllm.integrations.otel.presets.utils import credential_gated_exporters
 
         operator_otlp = ExporterSpec(kind="otlp_http", endpoint=None, headers=None)
 
@@ -4789,7 +4789,7 @@ class TestCredentialGatedExporters:
     def test_an_in_memory_exporter_the_operator_asked_for_survives(self):
         """``OTEL_EXPORTER=in_memory`` stores spans, so it is a destination the operator
         chose, not the placeholder that stands in for choosing nothing."""
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from hangarllm.integrations.otel.presets.utils import credential_gated_exporters
 
         operator_memory = ExporterSpec(kind="in_memory", endpoint=None, headers=None)
 
@@ -4798,7 +4798,7 @@ class TestCredentialGatedExporters:
         assert kept[0] == operator_memory
 
     def test_the_synthesized_stdout_placeholder_is_dropped(self, monkeypatch):
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from hangarllm.integrations.otel.presets.utils import credential_gated_exporters
 
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
@@ -4811,7 +4811,7 @@ class TestCredentialGatedExporters:
     def test_a_console_exporter_the_operator_named_survives(self, monkeypatch):
         """Same kind, endpoint and headers as the placeholder; only the fact that the
         operator set ``OTEL_EXPORTER`` tells them apart."""
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from hangarllm.integrations.otel.presets.utils import credential_gated_exporters
 
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
@@ -4851,8 +4851,8 @@ class TestConsolePlaceholder:
     @staticmethod
     def _isolated_proxy_registration(monkeypatch: pytest.MonkeyPatch) -> None:
         for name in ("service_callback", "input_callback", "_async_success_callback", "_async_failure_callback"):
-            monkeypatch.setattr(litellm, name, [])
-        monkeypatch.setattr("litellm.proxy.proxy_server.open_telemetry_logger", None)
+            monkeypatch.setattr(hangarllm, name, [])
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.open_telemetry_logger", None)
 
     def test_a_credentialed_langfuse_exports_to_langfuse_alone(
         self, monkeypatch: pytest.MonkeyPatch, capture: "_ExporterCapture"
@@ -4876,11 +4876,11 @@ class TestConsolePlaceholder:
     @pytest.fixture
     def otel_callback(self, monkeypatch: pytest.MonkeyPatch, capture: "_ExporterCapture") -> OpenTelemetryV2:
         """The plain ``otel`` callback with nothing else configured, built the way the proxy builds it."""
-        from litellm.litellm_core_utils import litellm_logging as logging_module
+        from hangarllm.hangarllm_core_utils import hangarllm_logging as logging_module
 
         self._no_otel_env(monkeypatch)
         self._isolated_proxy_registration(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         monkeypatch.setattr(logging_module, "_in_memory_loggers", [])
         is_otel_v2_enabled.cache_clear()
         built: Final = logging_module.build_custom_logger_compatible_class(
@@ -4900,7 +4900,7 @@ class TestConsolePlaceholder:
         """A key or team ``otel_service_name`` moves the call onto a second provider built for that name."""
         kwargs: Final = {
             **_closed_chat_call_kwargs(),
-            "litellm_params": {"metadata": {"user_api_key_auth_metadata": {"otel_service_name": "payments-gateway"}}},
+            "hangarllm_params": {"metadata": {"user_api_key_auth_metadata": {"otel_service_name": "payments-gateway"}}},
         }
 
         otel_callback.log_pre_api_call(model="gpt-4o", messages=[], kwargs=kwargs)
@@ -4922,7 +4922,7 @@ class TestConsolePlaceholder:
     ) -> None:
         """The proxy publishes a generic logger even when no callback built one, which is
         what key-only and team-only destinations run under."""
-        from litellm.integrations.otel.logger import select_global_otel_v2_logger
+        from hangarllm.integrations.otel.logger import select_global_otel_v2_logger
 
         self._no_otel_env(monkeypatch)
         self._isolated_proxy_registration(monkeypatch)
@@ -4938,9 +4938,9 @@ class TestTenantHostSsrfGuard:
 
     @pytest.fixture(autouse=True)
     def _guard_on(self, monkeypatch):
-        from litellm.integrations.otel.presets.destinations import _warn_host_not_allowlisted
+        from hangarllm.integrations.otel.presets.destinations import _warn_host_not_allowlisted
 
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", [], raising=False)
+        monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", [], raising=False)
         _warn_host_not_allowlisted.cache_clear()
         yield
         _warn_host_not_allowlisted.cache_clear()
@@ -4966,16 +4966,16 @@ class TestTenantHostSsrfGuard:
     def test_userinfo_naming_an_allowlisted_host_does_not_smuggle_a_second_one(self, monkeypatch):
         """``https://allowed@10.0.0.5`` reads as the allowlisted host to the eye and
         posts to 10.0.0.5 on the wire."""
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
+        monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
 
         assert destination_for("langfuse_otel", self._langfuse("https://collector.example.com@10.0.0.5")) is None
 
     def test_a_malformed_host_does_not_take_the_other_backends_with_it(self, monkeypatch):
         """``urlparse(...).port`` raises a bare ValueError, which would escape
         ``destination_for`` and kill the whole resolution."""
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         monkeypatch.setenv("NEW_RELIC_OTEL_ENDPOINT", "https://otlp.nr-data.net")
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
+        monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             token="hashed",
@@ -4990,7 +4990,7 @@ class TestTenantHostSsrfGuard:
         assert [d.callback_name for d in resolve_tenant_otel_destinations(auth)] == ["newrelic"]
 
     def test_the_operator_can_allowlist_its_teams_internal_langfuse(self, monkeypatch):
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["127.0.0.1:9111"], raising=False)
+        monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", ["127.0.0.1:9111"], raising=False)
 
         destination = destination_for("langfuse_otel", self._langfuse("http://127.0.0.1:9111"))
 
@@ -5008,14 +5008,14 @@ class TestTenantHostSsrfGuard:
     def test_an_allowlisted_host_is_taken_without_resolving_it(self, monkeypatch):
         """The check runs on the asyncio auth path, so it must not block on a name the
         caller chose. ``.invalid`` never resolves, and it is still accepted."""
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["lf.invalid"], raising=False)
+        monkeypatch.setattr(hangarllm, "provider_url_destination_allowed_hosts", ["lf.invalid"], raising=False)
 
         destination = destination_for("langfuse_otel", self._langfuse("https://lf.invalid"))
 
         assert destination.endpoint == "https://lf.invalid/api/public/otel"
 
     def test_a_rejected_host_is_warned_about_once(self, caplog):
-        with caplog.at_level("WARNING", logger="LiteLLM"):
+        with caplog.at_level("WARNING", logger="HangarLLM"):
             for _ in range(3):
                 destination_for("langfuse_otel", self._langfuse("http://10.0.0.5:3000"))
 
@@ -5100,7 +5100,7 @@ def recorded(attributes: Mapping[str, object]) -> dict[str, object]:
 
 
 def model_call_tree(provider: TracerProvider, attributes: Mapping[str, object]) -> None:
-    tracer: Final = get_tracer(provider, "litellm")
+    tracer: Final = get_tracer(provider, "hangarllm")
     with tracer.start_as_current_span("POST /v1/chat/completions"):
         with tracer.start_as_current_span("chat gpt-4o") as llm:
             llm.set_attributes(attributes)
@@ -5290,7 +5290,7 @@ class TestCaptureMessageContent:
     ) -> None:
         """The fan-out skips a destination the operator already writes to, so the operator's
         copy is the one that account receives and must not bypass the team's restriction."""
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "additive", raising=False)
+        monkeypatch.setattr(hangarllm, "otel_tenant_destination_mode", "additive", raising=False)
         shared: Final = InMemorySpanExporter()
         provider: Final = TracerProvider()
         provider.add_span_processor(
@@ -5325,7 +5325,7 @@ class TestCaptureMessageContent:
     def test_an_operator_collector_on_the_teams_account_does_not_bypass_no_content(
         self, monkeypatch: pytest.MonkeyPatch, mode: str
     ) -> None:
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", mode, raising=False)
+        monkeypatch.setattr(hangarllm, "otel_tenant_destination_mode", mode, raising=False)
         shared: Final = InMemorySpanExporter()
         kind: Final = f"lit8244_collector_{mode}"
         register_exporter_factory(kind, lambda _spec: shared)
@@ -5382,10 +5382,10 @@ class TestCaptureMessageContent:
                 ExporterSpec(kind=kind),
             ],
         )
-        cache: Final = TenantTracerCache(config, "langfuse_otel", "litellm")
+        cache: Final = TenantTracerCache(config, "langfuse_otel", "hangarllm")
 
         route: Final = cache.route_for(
-            get_tracer(TracerProvider(), "litellm"),
+            get_tracer(TracerProvider(), "hangarllm"),
             {"langfuse_public_key": "pk-team", "langfuse_secret_key": "sk-team"},
         )
         with route.tracer.start_as_current_span("chat gpt-4o") as llm:
@@ -5479,7 +5479,7 @@ class TestCaptureMessageContent:
     def test_the_setting_rides_the_teams_destination_and_omission_stays_omitted(
         self, monkeypatch: pytest.MonkeyPatch, setting: str | None
     ) -> None:
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         callback_vars: Final = {
             "langfuse_public_key": "pk-team",
@@ -5518,7 +5518,7 @@ class TestCaptureMessageContent:
     def test_excluded_services_stays_on_its_destination_and_normalizes_aliases(
         self, monkeypatch: pytest.MonkeyPatch, setting: str | None, expected: frozenset[str] | None
     ) -> None:
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         callback_vars: Final = {
             "langfuse_public_key": "pk-team",
@@ -5546,7 +5546,7 @@ class TestCaptureMessageContent:
 
     @pytest.mark.usefixtures("allow_test_hosts")
     def test_key_excluded_services_is_parsed_onto_its_destination(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth: Final = UserAPIKeyAuth(
             metadata={
@@ -5588,7 +5588,7 @@ class TestCaptureMessageContent:
     def test_a_stored_event_mode_is_skipped_like_any_invalid_entry(
         self, monkeypatch: pytest.MonkeyPatch, setting: str
     ) -> None:
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth: Final = UserAPIKeyAuth(
             team_metadata={
@@ -5721,7 +5721,7 @@ class TestArizeProjectRouting:
         return {s.resource.attributes["model_id"] for s in spans}
 
     def test_a_team_export_names_a_project_even_when_the_operator_set_none(self):
-        assert self._forwarded_projects() == {"litellm"}
+        assert self._forwarded_projects() == {"hangarllm"}
 
     def test_a_project_the_operators_own_resource_names_is_kept_for_the_team(self):
         assert self._forwarded_projects(Resource({"model_id": "chosen"})) == {"chosen"}
@@ -5739,7 +5739,7 @@ class TestArizeProjectRouting:
         assert dict(destination.resource_attributes) == {"service.name": "team-checkout", "model_id": "gateway-prod"}
 
     def test_the_operators_exporter_names_a_project_even_without_arize_project_name(self):
-        assert arize_preset().resource_attributes["model_id"] == "litellm"
+        assert arize_preset().resource_attributes["model_id"] == "hangarllm"
 
     def test_the_operators_exporter_keeps_the_project_its_config_overrides_name(self):
         chosen = OpenTelemetryV2Config(resource_attributes={"model_id": "chosen"})
@@ -5774,7 +5774,7 @@ class TestLangfuseRequestMetadataStaysWithLangfuse:
     def _emit(
         provider: TracerProvider,
         destinations: tuple[OtelDestination, ...] = (),
-        tracer_name: str = "litellm",
+        tracer_name: str = "hangarllm",
         overflow: bool = False,
     ) -> None:
         def run() -> None:

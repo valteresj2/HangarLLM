@@ -8,26 +8,26 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     convert_to_gemini_tool_call_result,
 )
-from litellm.llms.vertex_ai.gemini.transformation import (
+from hangarllm.llms.vertex_ai.gemini.transformation import (
     _extract_max_media_resolution_from_messages,
     _get_highest_media_resolution,
     check_if_part_exists_in_parts,
     gemini_convert_messages_with_history,
     transform_request_body,
 )
-from litellm.responses.litellm_completion_transformation.transformation import LiteLLMCompletionResponsesConfig
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage
-from litellm.types.llms.vertex_ai import BlobType, ContentType, PartType
-from litellm.types.utils import Message
+from hangarllm.responses.hangarllm_completion_transformation.transformation import HangarLLMCompletionResponsesConfig
+from hangarllm.types.llms.openai import AllMessageValues, ChatCompletionToolMessage
+from hangarllm.types.llms.vertex_ai import BlobType, ContentType, PartType
+from hangarllm.types.utils import Message
 
 
 def _responses_tool_media_history(content: Mapping[str, object]) -> list[AllMessageValues]:
     output: Final = (
-        LiteLLMCompletionResponsesConfig._transform_responses_api_tool_call_output_to_chat_completion_message(
+        HangarLLMCompletionResponsesConfig._transform_responses_api_tool_call_output_to_chat_completion_message(
             {
                 "call_id": "call_media",
                 "output": [{"type": "input_text", "text": '{"ok":true}'}, content],
@@ -61,7 +61,7 @@ def test_responses_media_reaches_each_gemini_role(role: str) -> None:
         if role == "tool"
         else [{"role": role, "content": parts}]
     )
-    messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(input_items, {})
+    messages: Final = HangarLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(input_items, {})
     result: Final = gemini_convert_messages_with_history(
         messages, model="gemini-3.8-flash", custom_llm_provider="gemini"
     )
@@ -145,7 +145,7 @@ def test_tool_uri_policy_follows_provider_and_model_placement(
         {"type": "input_file", "file_url": uri, "video_metadata": {"fps": 2}, **({"format": mime} if mime else {})}
     )
     if error:
-        with pytest.raises(litellm.BadRequestError, match=error):
+        with pytest.raises(hangarllm.BadRequestError, match=error):
             gemini_convert_messages_with_history(messages, model=model, custom_llm_provider=provider)
         return
     result: Final = gemini_convert_messages_with_history(messages, model=model, custom_llm_provider=provider)
@@ -247,7 +247,7 @@ def test_check_if_part_exists_in_parts_camel_case_snake_case():
 
 def test_cached_content_respects_modify_params_for_cache_incompatible_fields():
     """Regression: cachedContent drops system/tools/toolConfig only when modify_params=True."""
-    import litellm
+    import hangarllm
 
     cache_name = "projects/p/locations/us-central1/cachedContents/abc123"
     messages = [
@@ -265,16 +265,16 @@ def test_cached_content_respects_modify_params_for_cache_incompatible_fields():
         "tool_choice": {"functionCallingConfig": {"mode": "AUTO"}},
     }
 
-    original_modify_params = litellm.modify_params
+    original_modify_params = hangarllm.modify_params
     try:
         # With modify_params=False (default), keep fields even with cachedContent.
-        litellm.modify_params = False
+        hangarllm.modify_params = False
         result = transform_request_body(
             messages=list(messages),
             model="gemini-2.5-pro",
             optional_params=dict(optional_params),
             custom_llm_provider="vertex_ai",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=cache_name,
         )
         assert result.get("cachedContent") == cache_name
@@ -284,13 +284,13 @@ def test_cached_content_respects_modify_params_for_cache_incompatible_fields():
         assert "contents" in result
 
         # With modify_params=True, drop cache-incompatible fields.
-        litellm.modify_params = True
+        hangarllm.modify_params = True
         result_modify_true = transform_request_body(
             messages=list(messages),
             model="gemini-2.5-pro",
             optional_params=dict(optional_params),
             custom_llm_provider="vertex_ai",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=cache_name,
         )
         assert result_modify_true.get("cachedContent") == cache_name
@@ -305,14 +305,14 @@ def test_cached_content_respects_modify_params_for_cache_incompatible_fields():
             model="gemini-2.5-pro",
             optional_params=dict(optional_params),
             custom_llm_provider="vertex_ai",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
         assert "system_instruction" in result_no_cache
         assert "tools" in result_no_cache
         assert "toolConfig" in result_no_cache
     finally:
-        litellm.modify_params = original_modify_params
+        hangarllm.modify_params = original_modify_params
 
 
 # Tests for issue #14556: Labels field provider-aware filtering
@@ -320,14 +320,14 @@ def test_google_genai_excludes_labels():
     """Test that Google GenAI/AI Studio endpoints exclude labels when custom_llm_provider='gemini'"""
     messages = [{"role": "user", "content": "test"}]
     optional_params = {"labels": {"project": "test", "team": "ai"}}
-    litellm_params = {}
+    hangarllm_params = {}
 
     result = transform_request_body(
         messages=messages,
         model="gemini-2.5-pro",
         optional_params=optional_params,
         custom_llm_provider="gemini",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         cached_content=None,
     )
 
@@ -340,14 +340,14 @@ def test_vertex_ai_includes_labels():
     """Test that Vertex AI endpoints include labels when custom_llm_provider='vertex_ai'"""
     messages = [{"role": "user", "content": "test"}]
     optional_params = {"labels": {"project": "test", "team": "ai"}}
-    litellm_params = {}
+    hangarllm_params = {}
 
     result = transform_request_body(
         messages=messages,
         model="gemini-2.5-pro",
         optional_params=optional_params,
         custom_llm_provider="vertex_ai",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         cached_content=None,
     )
 
@@ -360,14 +360,14 @@ def test_service_tier_forwarded_to_vertex_ai():
     """Test that service_tier in optional_params is mapped to serviceTier in request body."""
     messages = [{"role": "user", "content": "test"}]
     optional_params = {"service_tier": "flex"}
-    litellm_params = {}
+    hangarllm_params = {}
 
     result = transform_request_body(
         messages=messages,
         model="gemini-2.5-pro",
         optional_params=optional_params,
         custom_llm_provider="vertex_ai",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         cached_content=None,
     )
 
@@ -377,7 +377,7 @@ def test_service_tier_forwarded_to_vertex_ai():
 
 def test_extra_body_cache_not_forwarded_to_vertex_ai():
     """
-    'cache' inside extra_body is a LiteLLM-internal proxy caching control.
+    'cache' inside extra_body is a HangarLLM-internal proxy caching control.
     It must NOT be forwarded to the Vertex AI request body.
 
     Regression test for: "Invalid JSON payload received. Unknown name \"cache\": Cannot find field."
@@ -386,18 +386,18 @@ def test_extra_body_cache_not_forwarded_to_vertex_ai():
     messages = [{"role": "user", "content": "test"}]
     optional_params = {
         "extra_body": {
-            "cache": {"use-cache": True, "ttl": 86400},  # LiteLLM-internal
+            "cache": {"use-cache": True, "ttl": 86400},  # HangarLLM-internal
             "some_vertex_param": "value",  # legitimate provider extra
         },
     }
-    litellm_params = {}
+    hangarllm_params = {}
 
     result = transform_request_body(
         messages=messages,
         model="gemini-2.5-pro",
         optional_params=optional_params,
         custom_llm_provider="vertex_ai",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         cached_content=None,
     )
 
@@ -417,9 +417,9 @@ def test_extra_body_cache_not_forwarded_to_vertex_ai():
 
 def test_extra_body_tags_not_forwarded_to_vertex_ai():
     """
-    'tags' inside extra_body is a LiteLLM-internal param for logging/tracking.
+    'tags' inside extra_body is a HangarLLM-internal param for logging/tracking.
     It must NOT be forwarded to the Vertex AI request body.
-    Documented in litellm_proxy.md: "Send tags by including them in the extra_body parameter"
+    Documented in hangarllm_proxy.md: "Send tags by including them in the extra_body parameter"
     """
     messages = [{"role": "user", "content": "test"}]
     optional_params = {
@@ -428,14 +428,14 @@ def test_extra_body_tags_not_forwarded_to_vertex_ai():
             "custom_param": "allowed",
         },
     }
-    litellm_params = {}
+    hangarllm_params = {}
 
     result = transform_request_body(
         messages=messages,
         model="gemini-2.5-pro",
         optional_params=optional_params,
         custom_llm_provider="vertex_ai",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         cached_content=None,
     )
 
@@ -462,7 +462,7 @@ def test_extra_body_google_maps_rewrites_json_response_format():
         model="gemini-2.5-pro",
         optional_params=optional_params,
         custom_llm_provider="vertex_ai",
-        litellm_params={},
+        hangarllm_params={},
         cached_content=None,
     )
 
@@ -500,7 +500,7 @@ def test_extra_body_generation_config_cannot_restore_google_maps_json_mime_type(
         model="gemini-2.5-pro",
         optional_params=optional_params,
         custom_llm_provider="vertex_ai",
-        litellm_params={},
+        hangarllm_params={},
         cached_content=None,
     )
 
@@ -522,7 +522,7 @@ def test_metadata_to_labels_vertex_only():
     """Test that metadata->labels conversion only happens for Vertex AI"""
     messages = [{"role": "user", "content": "test"}]
     optional_params = {}
-    litellm_params = {"metadata": {"requester_metadata": {"user": "john_doe", "project": "test-project"}}}
+    hangarllm_params = {"metadata": {"requester_metadata": {"user": "john_doe", "project": "test-project"}}}
 
     # Google GenAI/AI Studio should not include labels from metadata
     result = transform_request_body(
@@ -530,7 +530,7 @@ def test_metadata_to_labels_vertex_only():
         model="gemini-2.5-pro",
         optional_params=optional_params.copy(),
         custom_llm_provider="gemini",
-        litellm_params=litellm_params.copy(),
+        hangarllm_params=hangarllm_params.copy(),
         cached_content=None,
     )
     assert "labels" not in result
@@ -541,7 +541,7 @@ def test_metadata_to_labels_vertex_only():
         model="gemini-2.5-pro",
         optional_params=optional_params.copy(),
         custom_llm_provider="vertex_ai",
-        litellm_params=litellm_params.copy(),
+        hangarllm_params=hangarllm_params.copy(),
         cached_content=None,
     )
     assert "labels" in result
@@ -569,7 +569,7 @@ def test_transform_request_body_wraps_tool_result_with_json_schema_ref():
     as references to named parts in function_response.parts and rejects the request.
     The shared request-body transformation must deliver schema-bearing tool output
     opaquely instead of structurally.
-    Fixes: https://github.com/BerriAI/litellm/issues/38223
+    Fixes: upstream issue 38223
     """
     schema_json = (
         '{"$defs":{"humanScalar":{"type":"string"}},'
@@ -597,7 +597,7 @@ def test_transform_request_body_wraps_tool_result_with_json_schema_ref():
         model="gemini-2.0-flash",
         optional_params={},
         custom_llm_provider="vertex_ai",
-        litellm_params={},
+        hangarllm_params={},
         cached_content=None,
     )
 
@@ -611,10 +611,10 @@ def test_transform_request_body_wraps_tool_result_with_json_schema_ref():
 
 def test_thought_signature_extraction_from_response():
     """Test that thought signatures are extracted from Gemini response parts and stored in provider_specific_fields"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from hangarllm.types.llms.vertex_ai import HttpxPartType
 
     # Test case: Single function call with thought signature
     test_signature = "Co4CAdHtim/rWgXbz2Ghp4tShzLeMASrPw6JJyYIC3cbVyZnKzU3uv8/wVzyS2sKRPL2m8QQHHXbNQhEEz500G7n/4ZMmksdTtfQcJMoT76S1DGwhnAiLwTgWCNXs3lEb4M19EVYoWFxhrH5Lr9YMIquoU9U4paydGwvZyIyigamIg4B6WnxrRsf0KZV12gJed0DZuKczvOFtHz3zUnmZRlOiTzd5gBVyQM+5jv1VI8m4WUKd6cN/5a5ZvaA0ggiO6kdVhlpIVs7GczSEVJD8KH4u02X7VSnb7CvykqDntZzV0y8rZFBEFGKrChmeHlWXP4D1IB3F9KQyhuLgWImMzg4BajKVxxMU737JGnNISy5"
@@ -644,10 +644,10 @@ def test_thought_signature_extraction_from_response():
 
 def test_thought_signature_parallel_function_calls():
     """Test that only the first function call in parallel calls has thought signature"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from hangarllm.types.llms.vertex_ai import HttpxPartType
 
     test_signature = "Co4CAdHtim/rWgXbz2Ghp4tShzLeMASrPw6JJyYIC3cbVyZnKzU3uv8/wVzyS2sKRPL2m8QQHHXbNQhEEz500G7n/4ZMmksdTtfQcJMoT76S1DGwhnAiLwTgWCNXs3lEb4M19EVYoWFxhrH5Lr9YMIquoU9U4paydGwvZyIyigamIg4B6WnxrRsf0KZV12gJed0DZuKczvOFtHz3zUnmZRlOiTzd5gBVyQM+5jv1VI8m4WUKd6cN/5a5ZvaA0ggiO6kdVhlpIVs7GczSEVJD8KH4u02X7VSnb7CvykqDntZzV0y8rZFBEFGKrChmeHlWXP4D1IB3F9KQyhuLgWImMzg4BajKVxxMU737JGnNISy5"
 
@@ -688,7 +688,7 @@ def test_thought_signature_parallel_function_calls():
 
 def test_thought_signature_preservation_in_conversion():
     """Test that thought signatures are preserved when converting assistant messages back to Gemini format"""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -739,7 +739,7 @@ def test_thought_signature_preservation_in_conversion():
 
 def test_thought_signature_sequential_function_calls():
     """Test that each sequential function call preserves its own thought signature"""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -799,10 +799,10 @@ def test_thought_signature_sequential_function_calls():
 
 def test_thought_signature_with_function_call_mode():
     """Test thought signature extraction in function_call mode (is_function_call=True)"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from hangarllm.types.llms.vertex_ai import HttpxPartType
 
     test_signature = "Co4CAdHtim/rWgXbz2Ghp4tShzLeMASrPw6JJyYIC3cbVyZnKzU3uv8/wVzyS2sKRPL2m8QQHHXbNQhEEz500G7n/4ZMmksdTtfQcJMoT76S1DGwhnAiLwTgWCNXs3lEb4M19EVYoWFxhrH5Lr9YMIquoU9U4paydGwvZyIyigamIg4B6WnxrRsf0KZV12gJed0DZuKczvOFtHz3zUnmZRlOiTzd5gBVyQM+5jv1VI8m4WUKd6cN/5a5ZvaA0ggiO6kdVhlpIVs7GczSEVJD8KH4u02X7VSnb7CvykqDntZzV0y8rZFBEFGKrChmeHlWXP4D1IB3F9KQyhuLgWImMzg4BajKVxxMU737JGnNISy5"
 
@@ -835,7 +835,7 @@ def test_dummy_signature_added_for_gemini_3_conversation_history():
     """Test that dummy signatures are added when transferring conversation history from older models (like gemini-2.5-flash) to gemini-3."""
     import base64
 
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -876,7 +876,7 @@ def test_dummy_signature_added_for_gemini_3_conversation_history():
 
 def test_dummy_signature_not_added_for_gemini_2_5():
     """Test that dummy signatures are NOT added when target model is not gemini-3."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -911,7 +911,7 @@ def test_dummy_signature_not_added_for_gemini_2_5():
 
 def test_dummy_signature_not_added_when_signature_exists():
     """Test that dummy signatures are NOT added when a real signature already exists."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -953,7 +953,7 @@ def test_dummy_signature_with_function_call_mode():
     """Test that dummy signatures are added for function_call mode when converting to gemini-3."""
     import base64
 
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1006,12 +1006,12 @@ def _parallel_tool_calls(*signatures):
 
 
 def _parallel_tool_calls_signed_via_id(*signatures):
-    """Parallel tool calls in the shape LiteLLM actually hands back to clients.
+    """Parallel tool calls in the shape HangarLLM actually hands back to clients.
 
     The signature rides in the tool call id behind __thought__, which is what an
     OpenAI-format client echoes back on the next turn.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         encode_tool_call_id_with_signature,
     )
 
@@ -1035,7 +1035,7 @@ PLACEHOLDER_SIGNATURE = base64.b64encode(b"skip_thought_signature_validator").de
 def test_dummy_signature_only_on_first_parallel_tool_call():
     """Google documents the placeholder as a last resort that degrades quality, so an unsigned
     parallel turn replayed to gemini-3 gets a budget of exactly one."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1057,7 +1057,7 @@ def test_dummy_signature_only_on_first_parallel_tool_call():
 def test_real_signature_on_first_parallel_tool_call_leaves_siblings_empty():
     """Gemini signs only the first of N parallel function calls, so a faithful replay has
     nothing to attach to the siblings."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1079,7 +1079,7 @@ def test_real_signature_on_first_parallel_tool_call_leaves_siblings_empty():
 def test_real_signature_on_later_parallel_tool_call_is_preserved():
     """Clients may reorder or drop calls, so a signature that lands on a non-first call is
     still the model's own and must survive the round trip."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1099,7 +1099,7 @@ def test_real_signature_on_later_parallel_tool_call_is_preserved():
 
 def test_no_signatures_on_parallel_tool_calls_for_gemini_2_5():
     """Non-gemini-3 models never get a placeholder signature, on any call."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1118,7 +1118,7 @@ def test_no_signatures_on_parallel_tool_calls_for_gemini_2_5():
 
 def test_signature_embedded_in_tool_call_id_only_on_first_parallel_call():
     """The production shape: the signature arrives inside the first call's id, siblings have bare ids."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1141,7 +1141,7 @@ def test_signature_embedded_in_tool_call_id_only_on_first_parallel_call():
 
 def test_tool_level_provider_specific_fields_signature_leaves_siblings_empty():
     """A signature on the tool call itself, rather than on its function, behaves the same way."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1163,7 +1163,7 @@ def test_tool_level_provider_specific_fields_signature_leaves_siblings_empty():
 def test_placeholder_lands_on_first_emitted_part_not_first_tool_call_entry():
     """A non-function entry (e.g. an OpenAI custom tool call) emits no part, so it must not
     consume the one placeholder slot and leave the real first function call bare."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1183,7 +1183,7 @@ def test_placeholder_lands_on_first_emitted_part_not_first_tool_call_entry():
 
 def test_no_placeholder_when_model_is_unknown():
     """Without a model there is nothing to prove the target needs a placeholder, so none is added."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1201,7 +1201,7 @@ def test_no_placeholder_when_model_is_unknown():
 
 def test_real_signature_forwarded_to_gemini_2_5_without_placeholder_siblings():
     """Older models still receive a real signature that a client replays, and still get no placeholder."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1221,7 +1221,7 @@ def test_real_signature_forwarded_to_gemini_2_5_without_placeholder_siblings():
 
 def test_parallel_tool_call_history_replayed_through_full_message_conversion():
     """End to end through the message-history converter, the path a real /chat/completions replay takes."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -1255,7 +1255,7 @@ def test_natively_signed_parallel_turn_never_carries_a_placeholder(model):
     """
     import json
 
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -1299,7 +1299,7 @@ def test_natively_signed_parallel_turn_never_carries_a_placeholder(model):
 def test_placeholder_scoped_to_first_call_across_gemini_3_variants(model):
     """The gemini-3 gate is a substring match, so every family member and prefix form has to
     land on the same one-placeholder budget rather than only the versions we happened to try."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_invoke,
     )
 
@@ -1321,7 +1321,7 @@ def test_placeholder_scoped_to_first_call_across_gemini_3_variants(model):
 def test_signed_text_part_survives_alongside_unsigned_parallel_tool_calls():
     """Text-part and function-call signatures are collected by separate code paths, so scoping the
     placeholder must not disturb a real signature that arrived on the text part."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -1491,7 +1491,7 @@ class TestMediaResolution:
             model="gemini-2.5-flash",
             optional_params={},
             custom_llm_provider="gemini",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -1522,7 +1522,7 @@ class TestMediaResolution:
             model="gemini-2.5-flash",
             optional_params={},
             custom_llm_provider="gemini",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -1553,7 +1553,7 @@ class TestMediaResolution:
             model="gemini-3-pro-preview",
             optional_params={},
             custom_llm_provider="gemini",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -1582,7 +1582,7 @@ class TestMediaResolution:
             model="gemini-2.5-flash",
             optional_params={},
             custom_llm_provider="gemini",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -1658,7 +1658,7 @@ class TestMediaResolution:
             model="gemini-1.5-pro",
             optional_params={},
             custom_llm_provider="gemini",
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )
 
@@ -1861,7 +1861,7 @@ def test_gemini_history_places_tool_media_for_model(
             model=model,
             custom_llm_provider=provider,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             cached_content=None,
         )["contents"]
     )
@@ -1944,7 +1944,7 @@ def test_file_data_field_order():
     """
     import json
 
-    from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
+    from hangarllm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
     # Test with HTTPS URL and explicit format (audio file)
     file_url = "https://generativelanguage.googleapis.com/v1beta/files/test123"
@@ -1981,7 +1981,7 @@ def test_file_data_field_order():
 def test_file_data_field_order_gcs_urls():
     """Test that GCS URLs also maintain correct field order."""
 
-    from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
+    from hangarllm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
     # Test with GCS URL
     gcs_url = "gs://bucket/audio.mp3"
@@ -2014,9 +2014,9 @@ def test_gemini_files_api_uri_without_format():
     MIME type via HTTP.  Instead it should pass the URI through as file_data
     and let the Gemini API resolve the type from its stored metadata.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/24907
+    Related issue: upstream issue 24907
     """
-    from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
+    from hangarllm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
     file_url = "https://generativelanguage.googleapis.com/v1beta/files/37eh7rsw1vfe"
 
@@ -2036,9 +2036,9 @@ def test_gemini_files_api_uri_with_format():
     """
     Test that Gemini Files API URIs correctly forward an explicit format.
 
-    Related issue: https://github.com/BerriAI/litellm/issues/24907
+    Related issue: upstream issue 24907
     """
-    from litellm.llms.vertex_ai.gemini.transformation import _process_gemini_media
+    from hangarllm.llms.vertex_ai.gemini.transformation import _process_gemini_media
 
     file_url = "https://generativelanguage.googleapis.com/v1beta/files/n1vhxa28lyaw"
 
@@ -2065,7 +2065,7 @@ def test_extract_file_data_with_path_object():
     import tempfile
     from pathlib import Path
 
-    from litellm.litellm_core_utils.prompt_templates.file_id_utils import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.file_id_utils import (
         extract_file_data,
     )
 
@@ -2104,7 +2104,7 @@ def test_extract_file_data_with_pathlib_path():
     import tempfile
     from pathlib import Path
 
-    from litellm.litellm_core_utils.prompt_templates.file_id_utils import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.file_id_utils import (
         extract_file_data,
     )
 
@@ -2128,7 +2128,7 @@ def test_extract_file_data_with_pathlib_path():
 
 def test_extract_file_data_with_tuple_format():
     """Test that tuple format (with explicit content_type) still works correctly."""
-    from litellm.litellm_core_utils.prompt_templates.file_id_utils import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.file_id_utils import (
         extract_file_data,
     )
 
@@ -2151,7 +2151,7 @@ def test_extract_file_data_fallback_to_octet_stream():
     import tempfile
     from pathlib import Path
 
-    from litellm.litellm_core_utils.prompt_templates.file_id_utils import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.file_id_utils import (
         extract_file_data,
     )
 
@@ -2319,11 +2319,11 @@ def test_assistant_message_with_images_field():
     messages = [
         {
             "role": "user",
-            "content": "Generate an image of a banana wearing a costume that says LiteLLM",
+            "content": "Generate an image of a banana wearing a costume that says HangarLLM",
         },
         {
             "role": "assistant",
-            "content": "Here's your banana in a LiteLLM costume!",
+            "content": "Here's your banana in a HangarLLM costume!",
             "images": [
                 {
                     "image_url": {"url": image_data_uri, "detail": "auto"},
@@ -2345,7 +2345,7 @@ def test_assistant_message_with_images_field():
     assert len(contents[0]["parts"]) == 1
     assert (
         contents[0]["parts"][0]["text"]
-        == "Generate an image of a banana wearing a costume that says LiteLLM"
+        == "Generate an image of a banana wearing a costume that says HangarLLM"
     )
 
     # Verify assistant message
@@ -2365,7 +2365,7 @@ def test_assistant_message_with_images_field():
 
     # Verify text part
     assert text_part is not None, "Missing text part in assistant message"
-    assert text_part["text"] == "Here's your banana in a LiteLLM costume!"
+    assert text_part["text"] == "Here's your banana in a HangarLLM costume!"
 
     # Verify inline_data part (image)
     assert inline_data_part is not None, "Missing inline_data part in assistant message"
@@ -2430,7 +2430,7 @@ def test_assistant_message_with_images_using_message_object():
     test_image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
     image_data_uri = f"data:image/png;base64,{test_image_base64}"
 
-    # Create messages using Message object (as returned by LiteLLM)
+    # Create messages using Message object (as returned by HangarLLM)
     user_message = {"role": "user", "content": "Generate an image"}
 
     assistant_message = Message(
@@ -2511,11 +2511,11 @@ def test_function_response_has_user_role():
     Test that function response ContentType blocks include role="user".
 
     Gemini API only accepts two roles: "user" and "model". Function responses
-    must be sent with role="user". Previously, LiteLLM omitted the role field
+    must be sent with role="user". Previously, HangarLLM omitted the role field
     entirely, causing 400 errors from the Gemini API.
 
-    Fixes: https://github.com/BerriAI/litellm/issues/22003
-    Fixes: https://github.com/BerriAI/litellm/issues/20690
+    Fixes: upstream issue 22003
+    Fixes: upstream issue 20690
     """
     messages = [
         {"role": "user", "content": "What is the weather in Berlin?"},
@@ -2561,7 +2561,7 @@ def test_multi_turn_function_calling_roles():
     Simulates: user asks → model calls tool → tool responds → model answers → user asks again.
     Every content block must have an explicit role of "user" or "model".
 
-    Fixes: https://github.com/BerriAI/litellm/issues/22003
+    Fixes: upstream issue 22003
     """
     messages = [
         {"role": "user", "content": "What is the weather in Berlin?"},
@@ -2631,10 +2631,10 @@ def test_multi_turn_function_calling_roles():
 
 def test_gemini_thought_signature_preservation_real_response():
     """Test that thought signatures are preserved on the text part if originally there, without dropping or duplicating (real response case)."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2700,7 +2700,7 @@ def test_gemini_thought_signature_preservation_real_response():
 
 def test_gemini_thought_signature_deduplication_assumed_response():
     """Test that thought signatures are deduplicated and not attached to the text part if already present in the tool call (assumed response case)."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -2735,7 +2735,7 @@ def test_gemini_thought_signature_deduplication_assumed_response():
 
 def test_gemini_thought_signature_pure_text():
     """Test that thought signatures are preserved on the text part for responses with no tool calls."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -2760,7 +2760,7 @@ def test_gemini_thought_signature_pure_text():
 
 def test_gemini_thought_signature_pure_tool_call():
     """Test that thought signatures are preserved on the tool call for responses with no intermediate text."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -2793,7 +2793,7 @@ def test_gemini_thought_signature_pure_tool_call():
 
 def test_gemini_distinct_text_and_tool_signatures_are_both_preserved():
     """A text-part signature that differs from the tool-call signature must stay on the text part."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -2822,10 +2822,10 @@ def test_gemini_distinct_text_and_tool_signatures_are_both_preserved():
 def test_gemini_25_text_signature_survives_replay_to_gemini_3():
     """gemini-2.5 history (signed text, unsigned tool call) replayed to gemini-3 keeps the real
     text signature; the dummy signature synthesized for the unsigned tool call must not suppress it."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         get_dummy_thought_signature,
     )
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -2853,10 +2853,10 @@ def test_gemini_25_text_signature_survives_replay_to_gemini_3():
 def test_gemini_function_call_signature_round_trip_no_duplicate():
     """End to end: a gemini-3-style response (unsigned text + signed functionCall) parsed and
     re-serialized sends the signature exactly once, on the function-call part."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2894,7 +2894,7 @@ def test_gemini_function_call_signature_round_trip_no_duplicate():
 
 def test_gemini_server_side_tool_signature_not_duplicated_on_text():
     """A signature already re-injected on a server-side toolCall part is not attached to the text part again."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from hangarllm.llms.vertex_ai.gemini.transformation import (
         gemini_convert_messages_with_history,
     )
 
@@ -2929,7 +2929,7 @@ WHITE_PNG: Final = (Path(__file__).parents[4] / "white_100x100.png").read_bytes(
 @respx.mock
 @pytest.mark.parametrize("content_type,nested", [("input_image", True), ("image_url", False), ("input_file", True), ("file", True)])
 def test_convert_tool_response_with_url_image(content_type: str, nested: bool) -> None:
-    from litellm.llms.vertex_ai.gemini.transformation import _openai_messages_may_need_sync_media_fetch
+    from hangarllm.llms.vertex_ai.gemini.transformation import _openai_messages_may_need_sync_media_fetch
 
     image_url: Final = "https://8.8.8.8/gemini-tool-response.png"
     respx.get(image_url).mock(return_value=httpx.Response(200, content=WHITE_PNG, headers={"content-type": "image/png"}))
@@ -2973,15 +2973,15 @@ def _assistant_with_image(url: str) -> Message:
 @pytest.mark.parametrize(
     ("message", "needs_fetch"),
     [
-        (_assistant_with_image("gs://litellm-test-bucket/cat"), True),
-        (_assistant_with_image("gs://litellm-test-bucket/cat.png"), False),
-        ("gs://litellm-test-bucket/cat", False),
+        (_assistant_with_image("gs://hangarllm-test-bucket/cat"), True),
+        (_assistant_with_image("gs://hangarllm-test-bucket/cat.png"), False),
+        ("gs://hangarllm-test-bucket/cat", False),
     ],
 )
 def test_sync_media_fetch_check_reads_pydantic_messages_and_skips_other_objects(
     message: object, needs_fetch: bool
 ) -> None:
-    from litellm.llms.vertex_ai.gemini.transformation import _openai_messages_may_need_sync_media_fetch
+    from hangarllm.llms.vertex_ai.gemini.transformation import _openai_messages_may_need_sync_media_fetch
 
     assert _openai_messages_may_need_sync_media_fetch([message]) is needs_fetch
 
@@ -3013,8 +3013,8 @@ def test_thinking_block_signature_is_not_forwarded_to_gemini() -> None:
 
 
 def test_anthropic_messages_history_replays_to_gemini_without_claude_signature() -> None:
-    from litellm.litellm_core_utils.prompt_templates.factory import get_dummy_thought_signature
-    from litellm.llms.anthropic.messages.adapters.transformation import LiteLLMAnthropicMessagesAdapter
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import get_dummy_thought_signature
+    from hangarllm.llms.anthropic.messages.adapters.transformation import HangarLLMAnthropicMessagesAdapter
 
     thinking: Final = "I should look the weather up before answering."
     anthropic_messages: Final = [
@@ -3030,7 +3030,7 @@ def test_anthropic_messages_history_replays_to_gemini_without_claude_signature()
         {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01A", "content": "Sunny, 22C"}]},
     ]
 
-    chat_messages: Final = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    chat_messages: Final = HangarLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=anthropic_messages
     )
     parts: Final = _parts_of(gemini_convert_messages_with_history(messages=chat_messages, model="gemini-3.8-flash"))

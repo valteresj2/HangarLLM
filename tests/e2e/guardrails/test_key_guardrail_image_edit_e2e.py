@@ -9,7 +9,7 @@ from e2e_http import Success, UnknownApiError
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from guardrails_client import GuardrailsClient, poll_until_blocked
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 
 pytestmark = pytest.mark.e2e
 
@@ -30,7 +30,7 @@ def _create_image_model(client: GuardrailsClient, resources: ResourceManager) ->
     model_name = f"e2e-guard-image-edit-{unique_marker()}"
     model_id = client.proxy.create_model(
         model_name,
-        LiteLLMParamsBody(model=IMAGE_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+        HangarLLMParamsBody(model=IMAGE_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
         provider_live=True,
     )
     resources.defer(lambda: client.proxy.delete_model(model_id))
@@ -39,7 +39,7 @@ def _create_image_model(client: GuardrailsClient, resources: ResourceManager) ->
 
 class TestKeyAttachedGuardrailOnImageEdits:
     @pytest.mark.covers(
-        "guardrail.litellm_content_filter.pre_call.blocks_image_edit",
+        "guardrail.hangarllm_content_filter.pre_call.blocks_image_edit",
         exercised_on=["images_edits"],
     )
     @meta(

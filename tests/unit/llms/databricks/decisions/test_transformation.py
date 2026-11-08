@@ -3,8 +3,8 @@ from typing import Final
 import pytest
 import responses
 
-from litellm.llms.databricks.decisions.transformation import DatabricksDecisionsConfig
-from litellm.types.decisions import (
+from hangarllm.llms.databricks.decisions.transformation import DatabricksDecisionsConfig
+from hangarllm.types.decisions import (
     DecisionsIRPredicateAnswer,
     DecisionsIRPredicateQuestion,
     DecisionsIRRequest,

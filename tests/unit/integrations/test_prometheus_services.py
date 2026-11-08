@@ -4,20 +4,20 @@ import time
 from typing import Final, cast
 from unittest.mock import AsyncMock, patch
 
-import litellm
+import hangarllm
 import pytest
 import redis.exceptions
 from fastapi.testclient import TestClient
 
-from litellm._service_logger import ServiceLogging
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.integrations.prometheus_services import (
+from hangarllm._service_logger import ServiceLogging
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.caching.redis_cache import RedisCache
+from hangarllm.integrations.prometheus_services import (
     PrometheusServicesLogger,
     ServiceMetrics,
     ServiceTypes,
 )
-from litellm.types.services import ServiceLoggerPayload
+from hangarllm.types.services import ServiceLoggerPayload
 
 
 
@@ -28,13 +28,13 @@ def test_is_metric_registered_does_not_use_registry_collect():
     registry = CollectorRegistry()
     for i in range(80):
         Counter(
-            f"litellm_service_{i}_total_requests",
+            f"hangarllm_service_{i}_total_requests",
             "Total requests",
             labelnames=["service"],
             registry=registry,
         )
         Histogram(
-            f"litellm_service_{i}_latency",
+            f"hangarllm_service_{i}_latency",
             "Latency",
             labelnames=["service"],
             registry=registry,
@@ -55,8 +55,8 @@ def test_is_metric_registered_does_not_use_registry_collect():
     n_calls = 30 * 2
     start = time.perf_counter()
     for _ in range(30):
-        pl.is_metric_registered("litellm_service_0_latency")
-        pl.is_metric_registered("litellm_service_79_total_requests")
+        pl.is_metric_registered("hangarllm_service_0_latency")
+        pl.is_metric_registered("hangarllm_service_79_total_requests")
     elapsed_s = time.perf_counter() - start
     elapsed_ms = elapsed_s * 1000
     per_call_us = (elapsed_s / n_calls) * 1_000_000 if n_calls else 0
@@ -86,7 +86,7 @@ def test_create_gauge_new():
     gauge = pl.create_gauge(service="test_service", type_of_request="size")
 
     assert gauge is not None
-    assert pl._get_metric("litellm_test_service_size") is gauge
+    assert pl._get_metric("hangarllm_test_service_size") is gauge
 
 
 def test_update_gauge():
@@ -111,7 +111,7 @@ def test_update_gauge():
 
 def test_services_logger_default_latency_buckets():
     """PrometheusServicesLogger uses the new reduced default latency buckets."""
-    from litellm.types.integrations.prometheus import LATENCY_BUCKETS
+    from hangarllm.types.integrations.prometheus import LATENCY_BUCKETS
 
     pl = PrometheusServicesLogger()
     assert pl.latency_buckets == LATENCY_BUCKETS
@@ -122,22 +122,22 @@ def test_services_logger_default_latency_buckets():
 
 def test_services_logger_custom_latency_buckets():
     """prometheus_latency_buckets setting is respected by PrometheusServicesLogger."""
-    import litellm
+    import hangarllm
     from prometheus_client import REGISTRY
 
     custom_buckets = [0.1, 0.5, 1.0, 5.0, 10.0]
-    original = litellm.prometheus_latency_buckets
+    original = hangarllm.prometheus_latency_buckets
     for collector in list(REGISTRY._collector_to_names.keys()):
         try:
             REGISTRY.unregister(collector)
         except Exception:
             pass
     try:
-        litellm.prometheus_latency_buckets = custom_buckets
+        hangarllm.prometheus_latency_buckets = custom_buckets
         pl = PrometheusServicesLogger()
         assert pl.latency_buckets == tuple(custom_buckets)
     finally:
-        litellm.prometheus_latency_buckets = original
+        hangarllm.prometheus_latency_buckets = original
         for collector in list(REGISTRY._collector_to_names.keys()):
             try:
                 REGISTRY.unregister(collector)
@@ -149,7 +149,7 @@ def test_anthropic_wif_services_are_wired_into_the_registry():
     """Reverting the ANTHROPIC_WIF/ANTHROPIC_WIF_CACHE ServiceTypes members or their
     DEFAULT_SERVICE_CONFIGS entries must fail here: the exchange service gets counters plus a
     latency histogram, while the cache-hit service is counter-only so a hit can never fake a latency."""
-    from litellm.types.services import DEFAULT_SERVICE_CONFIGS
+    from hangarllm.types.services import DEFAULT_SERVICE_CONFIGS
 
     assert ServiceTypes.ANTHROPIC_WIF.value == "anthropic_wif"
     assert ServiceTypes.ANTHROPIC_WIF_CACHE.value == "anthropic_wif_cache"
@@ -159,14 +159,14 @@ def test_anthropic_wif_services_are_wired_into_the_registry():
     pl = PrometheusServicesLogger()
     wif_names = {obj._name for obj in pl.payload_to_prometheus_map["anthropic_wif"]}
     assert wif_names == {
-        "litellm_anthropic_wif_latency",
-        "litellm_anthropic_wif_failed_requests",
-        "litellm_anthropic_wif_total_requests",
+        "hangarllm_anthropic_wif_latency",
+        "hangarllm_anthropic_wif_failed_requests",
+        "hangarllm_anthropic_wif_total_requests",
     }
     cache_names = {obj._name for obj in pl.payload_to_prometheus_map["anthropic_wif_cache"]}
     assert cache_names == {
-        "litellm_anthropic_wif_cache_failed_requests",
-        "litellm_anthropic_wif_cache_total_requests",
+        "hangarllm_anthropic_wif_cache_failed_requests",
+        "hangarllm_anthropic_wif_cache_total_requests",
     }
 
 
@@ -185,7 +185,7 @@ async def test_service_logger_db_monitoring():
     """
     Test prometheus monitoring for database operations
     """
-    litellm.service_callback = ["prometheus_system"]
+    hangarllm.service_callback = ["prometheus_system"]
     sl = ServiceLogging()
 
     # Create spy on prometheus logger's async_service_success_hook
@@ -218,7 +218,7 @@ async def test_service_logger_db_monitoring_failure():
     """
     Test prometheus monitoring for failed database operations
     """
-    litellm.service_callback = ["prometheus_system"]
+    hangarllm.service_callback = ["prometheus_system"]
     sl = ServiceLogging()
 
     # Create spy on prometheus logger's async_service_failure_hook
@@ -256,9 +256,9 @@ class _RefusingRedis:
 
 @pytest.mark.asyncio
 async def test_completion_with_caching_bad_call(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(hangarllm, "service_callback", ["prometheus_system"])
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
     service_logger: Final = ServiceLogging(mock_testing=True)
     service_logger.prometheusServicesLogger.mock_testing = True
     cache: Final = RedisCache(host="redis.invalid", port=6379, service_logger_obj=service_logger)
@@ -286,7 +286,7 @@ def test_get_metric_existing():
     )
 
     # Test retrieving existing metric
-    retrieved_metric = pl._get_metric("litellm_test_service_test_type_of_request")
+    retrieved_metric = pl._get_metric("hangarllm_test_service_test_type_of_request")
     assert retrieved_metric is hist
     assert retrieved_metric is not None
 
@@ -310,7 +310,7 @@ def test_create_histogram_new():
     )
 
     assert hist is not None
-    assert pl._get_metric("litellm_test_service_test_type_of_request") is hist
+    assert pl._get_metric("hangarllm_test_service_test_type_of_request") is hist
 
 
 def test_create_histogram_existing():
@@ -328,7 +328,7 @@ def test_create_histogram_existing():
     )
 
     assert hist2 is hist1  # same object
-    assert pl._get_metric("litellm_test_service_test_type_of_request") is hist1
+    assert pl._get_metric("hangarllm_test_service_test_type_of_request") is hist1
 
 
 def test_create_counter_new():
@@ -341,7 +341,7 @@ def test_create_counter_new():
     )
 
     assert counter is not None
-    assert pl._get_metric("litellm_test_service_test_type_of_request") is counter
+    assert pl._get_metric("hangarllm_test_service_test_type_of_request") is counter
 
 
 def test_create_counter_existing():
@@ -359,4 +359,4 @@ def test_create_counter_existing():
     )
 
     assert counter2 is counter1
-    assert pl._get_metric("litellm_test_service_test_type_of_request") is counter1
+    assert pl._get_metric("hangarllm_test_service_test_type_of_request") is counter1

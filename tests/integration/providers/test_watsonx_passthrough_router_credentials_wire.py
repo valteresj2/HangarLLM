@@ -30,7 +30,7 @@ def _config(directory: Path, api_base: str) -> Path:
         "model_list": [
             {
                 "model_name": "granite",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "watsonx/ibm/granite-3-8b-instruct",
                     "api_key": _DEPLOYMENT_KEY,
                     "api_base": api_base,

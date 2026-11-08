@@ -5,15 +5,15 @@ from collections.abc import Iterator
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.litellm_core_utils import ptu_pricing
-from litellm.secret_managers.main import get_secret_bool
-from litellm.proxy.spend_tracking.ptu_feature_flag import (
+import hangarllm
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.hangarllm_core_utils import ptu_pricing
+from hangarllm.secret_managers.main import get_secret_bool
+from hangarllm.proxy.spend_tracking.ptu_feature_flag import (
     PTU_COST_ATTRIBUTION_ENV_VAR,
     is_ptu_cost_attribution_enabled,
 )
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 
 class _SecretManagerHolding(CustomSecretManager):
@@ -44,9 +44,9 @@ class _SecretManagerHolding(CustomSecretManager):
 def secret_manager(monkeypatch: pytest.MonkeyPatch) -> Iterator[_SecretManagerHolding]:
     manager = _SecretManagerHolding({PTU_COST_ATTRIBUTION_ENV_VAR: "true"})
     monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
-    monkeypatch.setattr(litellm, "secret_manager_client", manager)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", manager)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
     ptu_pricing._enabled_in_secret_manager.cache_clear()
     yield manager
     ptu_pricing._enabled_in_secret_manager.cache_clear()

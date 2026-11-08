@@ -14,8 +14,8 @@ from .database import Database, Databases
 
 @pytest.fixture(scope="session")
 def migration_image(tmp_path_factory: pytest.TempPathFactory) -> str:
-    configured: Final = os.environ.get("LITELLM_MIGRATION_TEST_IMAGE")
-    assert configured, "LITELLM_MIGRATION_TEST_IMAGE must name the built candidate image"
+    configured: Final = os.environ.get("HANGARLLM_MIGRATION_TEST_IMAGE")
+    assert configured, "HANGARLLM_MIGRATION_TEST_IMAGE must name the built candidate image"
     image: Final = docker("image", "inspect", configured, "--format", "{{.Id}}")
     assert image.startswith("sha256:"), "Unable to identify the candidate image"
     output: Final = Path(os.environ.get("MIGRATION_TEST_OUTPUT", str(tmp_path_factory.getbasetemp())))
@@ -64,8 +64,8 @@ def containers(migration_image: str, tmp_path: Path, request: SubRequest) -> Con
 
 @pytest.fixture(scope="session")
 def baseline_image(tmp_path_factory: pytest.TempPathFactory) -> str:
-    configured: Final = os.environ.get("LITELLM_MIGRATION_BASELINE_IMAGE")
-    assert configured, "LITELLM_MIGRATION_BASELINE_IMAGE must name the released image the upgrade starts from"
+    configured: Final = os.environ.get("HANGARLLM_MIGRATION_BASELINE_IMAGE")
+    assert configured, "HANGARLLM_MIGRATION_BASELINE_IMAGE must name the released image the upgrade starts from"
     image: Final = docker("image", "inspect", configured, "--format", "{{.Id}}")
     assert image.startswith("sha256:"), "Unable to identify the baseline image"
     output: Final = Path(os.environ.get("MIGRATION_TEST_OUTPUT", str(tmp_path_factory.getbasetemp())))

@@ -2,7 +2,7 @@
 Tests for SecurityHeadersMiddleware.
 
 Verifies anti-framing / content-type headers are present on every response and
-that HSTS is opt-in via LITELLM_ENABLE_HSTS.
+that HSTS is opt-in via HANGARLLM_ENABLE_HSTS.
 """
 
 from starlette.applications import Starlette
@@ -11,7 +11,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from litellm.proxy.middleware.security_headers_middleware import (
+from hangarllm.proxy.middleware.security_headers_middleware import (
     SecurityHeadersMiddleware,
 )
 
@@ -40,13 +40,13 @@ def test_static_security_headers_present():
 
 
 def test_hsts_absent_by_default(monkeypatch):
-    monkeypatch.delenv("LITELLM_ENABLE_HSTS", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_HSTS", raising=False)
     resp = _make_client(_ok).get("/")
     assert "strict-transport-security" not in resp.headers
 
 
 def test_hsts_present_when_enabled(monkeypatch):
-    monkeypatch.setenv("LITELLM_ENABLE_HSTS", "true")
+    monkeypatch.setenv("HANGARLLM_ENABLE_HSTS", "true")
     resp = _make_client(_ok).get("/")
     assert resp.headers["strict-transport-security"] == (
         "max-age=31536000; includeSubDomains"
@@ -54,7 +54,7 @@ def test_hsts_present_when_enabled(monkeypatch):
 
 
 def test_hsts_not_enabled_by_arbitrary_value(monkeypatch):
-    monkeypatch.setenv("LITELLM_ENABLE_HSTS", "1")
+    monkeypatch.setenv("HANGARLLM_ENABLE_HSTS", "1")
     resp = _make_client(_ok).get("/")
     assert "strict-transport-security" not in resp.headers
 

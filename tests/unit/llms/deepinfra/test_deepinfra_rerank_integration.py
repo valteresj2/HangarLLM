@@ -9,12 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
+import hangarllm
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
-@patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post")
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_deepinfra_rerank_with_queries_param(
     mock_sync_post, mock_async_post, sync_mode
 ):
@@ -37,7 +37,7 @@ def test_deepinfra_rerank_with_queries_param(
         mock_response.text = json.dumps(mock_response_data)
         mock_sync_post.return_value = mock_response
 
-        response = litellm.rerank(
+        response = hangarllm.rerank(
             model="deepinfra/Qwen/Qwen3-Reranker-4B",
             query="hello",
             documents=["hello", "world", "test"],
@@ -61,7 +61,7 @@ def test_deepinfra_rerank_with_queries_param(
         mock_async_post.return_value = mock_response
 
         response = asyncio.run(
-            litellm.arerank(
+            hangarllm.arerank(
                 model="deepinfra/Qwen/Qwen3-Reranker-4B",
                 query="hello",
                 documents=["hello", "world", "test"],
@@ -81,7 +81,7 @@ def test_deepinfra_rerank_with_queries_param(
     assert len(response.results) == 3
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_deepinfra_rerank_with_env_vars(mock_post, monkeypatch):
     """Test DeepInfra rerank with environment variable configuration."""
     monkeypatch.setenv("DEEPINFRA_API_KEY", "env_test_key")
@@ -103,7 +103,7 @@ def test_deepinfra_rerank_with_env_vars(mock_post, monkeypatch):
     mock_response.text = json.dumps(mock_response_data)
     mock_post.return_value = mock_response
 
-    response = litellm.rerank(
+    response = hangarllm.rerank(
         model="deepinfra/Qwen/Qwen3-Reranker-0.6B",
         query="hello",
         documents=["hello", "world"],
@@ -119,7 +119,7 @@ def test_deepinfra_rerank_with_env_vars(mock_post, monkeypatch):
     assert response.results is not None
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_deepinfra_rerank_defaults_api_base_when_missing(mock_post, monkeypatch):
     """With no api_base anywhere, the call still goes out against DeepInfra's own base."""
     monkeypatch.delenv("DEEPINFRA_API_BASE", raising=False)
@@ -130,7 +130,7 @@ def test_deepinfra_rerank_defaults_api_base_when_missing(mock_post, monkeypatch)
     mock_response.headers = {"content-type": "application/json"}
     mock_post.return_value = mock_response
 
-    response = litellm.rerank(
+    response = hangarllm.rerank(
         model="deepinfra/Qwen/Qwen3-Reranker-0.6B",
         query="hello",
         documents=["hello", "world"],
@@ -153,7 +153,7 @@ def test_deepinfra_rerank_models():
     ]
 
     for model in models:
-        resolved_model, provider, _, api_base = litellm.get_llm_provider(model=model)
+        resolved_model, provider, _, api_base = hangarllm.get_llm_provider(model=model)
         assert provider == "deepinfra"
         assert resolved_model == model.removeprefix("deepinfra/")
         assert api_base == "https://api.deepinfra.com/v1/openai"

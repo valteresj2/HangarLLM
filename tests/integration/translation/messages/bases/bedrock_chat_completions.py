@@ -4,8 +4,8 @@ from integration.translation.case import TranslationTestCase
 
 GROK_4_7_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/messages",
-    litellm_request={
+    hangarllm_endpoint="/v1/messages",
+    hangarllm_request={
         "model": "bedrock/global.xai.grok-4.7",
         "max_tokens": 1024,
         "system": "You are a terse assistant.",
@@ -49,7 +49,7 @@ GROK_4_7_TEST_CASE: Final = TranslationTestCase(
         },
         "system_fingerprint": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "chatcmpl-3xfhgmhrhhwplbepas3pjzbgjcccj4hx5tzplx7fw35giw3efznq",
         "type": "message",
         "role": "assistant",

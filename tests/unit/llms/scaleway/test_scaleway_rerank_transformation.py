@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 SCALEWAY_RERANK_BODY = {
     "id": "rerank-a89e6d7b8b97492ea81569c65fbfff49",
@@ -34,7 +34,7 @@ def test_scaleway_rerank_posts_to_the_documented_endpoint(respx_mock: respx.Mock
     route = respx_mock.post("https://api.scaleway.ai/v1/rerank")
     route.return_value = httpx.Response(200, json=SCALEWAY_RERANK_BODY)
 
-    response = litellm.rerank(
+    response = hangarllm.rerank(
         model="scaleway/qwen3-embedding-8b",
         query="What is the biggest area of water on earth ?",
         documents=DOCUMENTS,
@@ -62,7 +62,7 @@ def test_scaleway_rerank_reads_the_key_from_scw_secret_key(respx_mock: respx.Moc
     route = respx_mock.post("https://api.scaleway.ai/v1/rerank")
     route.return_value = httpx.Response(200, json=SCALEWAY_RERANK_BODY)
 
-    litellm.rerank(model="scaleway/qwen3-embedding-8b", query="q", documents=DOCUMENTS)
+    hangarllm.rerank(model="scaleway/qwen3-embedding-8b", query="q", documents=DOCUMENTS)
 
     assert route.calls[0].request.headers["authorization"] == "Bearer env-scw-key"
 
@@ -71,7 +71,7 @@ def test_scaleway_rerank_honors_api_base(respx_mock: respx.MockRouter):
     route = respx_mock.post("https://scw.example/v1/rerank")
     route.return_value = httpx.Response(200, json=SCALEWAY_RERANK_BODY)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="scaleway/qwen3-embedding-8b",
         query="q",
         documents=DOCUMENTS,
@@ -87,7 +87,7 @@ def test_scaleway_rerank_does_not_send_return_documents(respx_mock: respx.MockRo
     route = respx_mock.post("https://api.scaleway.ai/v1/rerank")
     route.return_value = httpx.Response(200, json=SCALEWAY_RERANK_BODY)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="scaleway/qwen3-embedding-8b",
         query="q",
         documents=DOCUMENTS,
@@ -101,15 +101,15 @@ def test_scaleway_rerank_does_not_send_return_documents(respx_mock: respx.MockRo
 def test_scaleway_rerank_without_a_key_names_the_env_var(monkeypatch):
     monkeypatch.delenv("SCW_SECRET_KEY", raising=False)
 
-    with pytest.raises(litellm.APIConnectionError, match="SCW_SECRET_KEY"):
-        litellm.rerank(model="scaleway/qwen3-embedding-8b", query="q", documents=DOCUMENTS)
+    with pytest.raises(hangarllm.APIConnectionError, match="SCW_SECRET_KEY"):
+        hangarllm.rerank(model="scaleway/qwen3-embedding-8b", query="q", documents=DOCUMENTS)
 
 
 def test_scaleway_rerank_caller_headers_cannot_replace_the_provider_key(respx_mock: respx.MockRouter):
     route = respx_mock.post("https://api.scaleway.ai/v1/rerank")
     route.return_value = httpx.Response(200, json=SCALEWAY_RERANK_BODY)
 
-    litellm.rerank(
+    hangarllm.rerank(
         model="scaleway/qwen3-embedding-8b",
         query="q",
         documents=DOCUMENTS,
@@ -127,7 +127,7 @@ async def test_scaleway_arerank_posts_to_the_documented_endpoint():
     client = MagicMock(spec=AsyncHTTPHandler)
     client.post = AsyncMock(return_value=httpx.Response(200, json=SCALEWAY_RERANK_BODY))
 
-    response = await litellm.arerank(
+    response = await hangarllm.arerank(
         model="scaleway/qwen3-embedding-8b", query="q", documents=DOCUMENTS, api_key="scw-key", client=client
     )
 

@@ -2,7 +2,7 @@ suite: test collector sidecar
 templates:
   - deployment.yaml
   - hpa.yaml
-  - configmap-litellm.yaml
+  - configmap-hangarllm.yaml
 tests:
   - it: should run the proxy alone with no collector env by default
     template: deployment.yaml
@@ -13,7 +13,7 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ENABLED
+            name: HANGARLLM_COLLECTOR_ENABLED
             value: "true"
       - notContains:
           path: spec.template.spec.volumes
@@ -40,13 +40,13 @@ tests:
           count: 2
       - equal:
           path: spec.template.spec.containers[1].name
-          value: litellm-collector
+          value: hangarllm-collector
       - equal:
           path: spec.template.spec.containers[1].image
           value: ghcr.io/hangarllm/hangarllm:test
       - equal:
           path: spec.template.spec.containers[1].command
-          value: [python, -m, litellm.proxy.collector]
+          value: [python, -m, hangarllm.proxy.collector]
       - equal:
           path: spec.template.spec.containers[1].resources.requests.cpu
           value: 500m
@@ -56,43 +56,43 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ENABLED
+            name: HANGARLLM_COLLECTOR_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ADDRESS
-            value: unix:///var/run/litellm/collector.sock
+            name: HANGARLLM_COLLECTOR_ADDRESS
+            value: unix:///var/run/hangarllm/collector.sock
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_BUFFER_SIZE
+            name: HANGARLLM_COLLECTOR_BUFFER_SIZE
             value: "1000"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ON_UNAVAILABLE
+            name: HANGARLLM_COLLECTOR_ON_UNAVAILABLE
             value: fallback
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_JOB_ROLE
+            name: HANGARLLM_JOB_ROLE
             value: collector
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_JOB_ROLE
+            name: HANGARLLM_JOB_ROLE
             value: collector
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_COLLECTOR_ADDRESS
-            value: unix:///var/run/litellm/collector.sock
+            name: HANGARLLM_COLLECTOR_ADDRESS
+            value: unix:///var/run/hangarllm/collector.sock
       - contains:
           path: spec.template.spec.containers[1].env
           content:
             name: CONFIG_FILE_PATH
-            value: /etc/litellm/config.yaml
+            value: /etc/hangarllm/config.yaml
       - contains:
           path: spec.template.spec.containers[1].env
           content:
@@ -104,33 +104,33 @@ tests:
             name: DATABASE_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: RELEASE-NAME-litellm-dbcredentials
+                name: RELEASE-NAME-hangarllm-dbcredentials
                 key: password
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_ENABLED
+            name: HANGARLLM_PGBOUNCER_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS
+            name: HANGARLLM_PGBOUNCER_MAX_DB_CONNECTIONS
             value: "20"
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
             name: collector-socket
-            mountPath: /var/run/litellm
+            mountPath: /var/run/hangarllm
       - contains:
           path: spec.template.spec.containers[1].volumeMounts
           content:
             name: collector-socket
-            mountPath: /var/run/litellm
+            mountPath: /var/run/hangarllm
       - contains:
           path: spec.template.spec.containers[1].volumeMounts
           content:
-            name: litellm-config
-            mountPath: /etc/litellm/config.yaml
+            name: hangarllm-config
+            mountPath: /etc/hangarllm/config.yaml
             subPath: config.yaml
       - contains:
           path: spec.template.spec.volumes
@@ -156,7 +156,7 @@ tests:
           path: spec.template.spec.containers[1].env
           content:
             name: CONFIG_FILE_PATH
-            value: /etc/litellm/config.yaml
+            value: /etc/hangarllm/config.yaml
       - contains:
           path: spec.template.spec.containers[1].env
           content:
@@ -165,17 +165,17 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ADDRESS
+            name: HANGARLLM_COLLECTOR_ADDRESS
             value: tcp://127.0.0.1:4100
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_ON_UNAVAILABLE
+            name: HANGARLLM_COLLECTOR_ON_UNAVAILABLE
             value: drop
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_COLLECTOR_BUFFER_SIZE
+            name: HANGARLLM_COLLECTOR_BUFFER_SIZE
             value: "50"
       - notContains:
           path: spec.template.spec.volumes
@@ -201,7 +201,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_BILLING_METRICS_ENDPOINT
+            name: HANGARLLM_BILLING_METRICS_ENDPOINT
             value: https://metering.example.com
       - notContains:
           path: spec.template.spec.containers[1].env
@@ -211,12 +211,12 @@ tests:
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_BILLING_METRICS_ENDPOINT
+            name: HANGARLLM_BILLING_METRICS_ENDPOINT
           any: true
       - notContains:
           path: spec.template.spec.containers[1].env
           content:
-            name: LITELLM_BILLING_METRICS_CLIENT_SECRET
+            name: HANGARLLM_BILLING_METRICS_CLIENT_SECRET
           any: true
 
   - it: should give the sidecar the same scratch mounts as the proxy on a read-only root
@@ -259,7 +259,7 @@ tests:
     asserts:
       - equal: { path: "spec.metrics[0].type", value: ContainerResource }
       - equal: { path: "spec.metrics[0].containerResource.name", value: cpu }
-      - equal: { path: "spec.metrics[0].containerResource.container", value: litellm }
+      - equal: { path: "spec.metrics[0].containerResource.container", value: hangarllm }
       - equal: { path: "spec.metrics[0].containerResource.target.averageUtilization", value: 60 }
       - isNull: { path: "spec.metrics[0].resource" }
 

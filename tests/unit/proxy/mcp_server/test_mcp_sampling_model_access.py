@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy.mcp_server.sampling_handler import (
+from hangarllm.proxy.mcp_server.sampling_handler import (
     _check_model_access,
 )
 
@@ -61,7 +61,7 @@ class TestCheckModelAccess:
         auth = _make_user_api_key_auth(models=["gpt-4o", "gpt-3.5-turbo"])
 
         with patch(
-            "litellm.proxy.auth.auth_checks.can_key_call_model",
+            "hangarllm.proxy.auth.auth_checks.can_key_call_model",
             new_callable=AsyncMock,
             return_value=True,
         ) as mock_check:
@@ -73,12 +73,12 @@ class TestCheckModelAccess:
     @pytest.mark.asyncio
     async def test_should_deny_model_when_key_lacks_access(self):
         """Key without model access should be denied with ErrorData."""
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         auth = _make_user_api_key_auth(models=["gpt-3.5-turbo"])
 
         with patch(
-            "litellm.proxy.auth.auth_checks.can_key_call_model",
+            "hangarllm.proxy.auth.auth_checks.can_key_call_model",
             new_callable=AsyncMock,
             side_effect=ProxyException(
                 message="key not allowed to access model",
@@ -101,7 +101,7 @@ class TestCheckModelAccess:
         auth = _make_user_api_key_auth(models=["*"])
 
         with patch(
-            "litellm.proxy.auth.auth_checks.can_key_call_model",
+            "hangarllm.proxy.auth.auth_checks.can_key_call_model",
             new_callable=AsyncMock,
             return_value=True,
         ):
@@ -115,13 +115,13 @@ class TestCheckModelAccess:
     async def test_should_deny_expensive_model_requested_by_malicious_server(self):
         """Simulates the attack: malicious MCP server hints at an expensive model
         the caller's key is restricted from using."""
-        from litellm.proxy._types import ProxyException
+        from hangarllm.proxy._types import ProxyException
 
         # Key only has access to cheap models
         auth = _make_user_api_key_auth(models=["gpt-3.5-turbo"])
 
         with patch(
-            "litellm.proxy.auth.auth_checks.can_key_call_model",
+            "hangarllm.proxy.auth.auth_checks.can_key_call_model",
             new_callable=AsyncMock,
             side_effect=ProxyException(
                 message="key not allowed to access model. This key can only access models=['gpt-3.5-turbo']. Tried to access claude-3-opus-20240229",
@@ -140,12 +140,12 @@ class TestCheckModelAccess:
 
     @pytest.mark.asyncio
     async def test_should_log_internal_denial_reason_and_hide_allowlist_from_client(self, caplog):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.model_access_denied import model_access_denied_client_message
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.auth.model_access_denied import model_access_denied_client_message
 
         auth = UserAPIKeyAuth(api_key="sk-test-key", models=["gpt-3.5-turbo"])
 
-        with caplog.at_level("WARNING", logger="LiteLLM"):
+        with caplog.at_level("WARNING", logger="HangarLLM"):
             result = await _check_model_access("gpt-4o\r\nforged", user_api_key_auth=auth)
 
         assert result is not None
@@ -161,7 +161,7 @@ class TestCheckModelAccess:
         sufficient — the empty placeholder is truthy but has no api_key, no
         token, and an empty models list.  can_key_call_model() would treat
         that as all-model access, letting an OAuth-only user trigger sampling
-        calls on any proxy model without a LiteLLM key or budget."""
+        calls on any proxy model without a HangarLLM key or budget."""
         # Simulate the empty placeholder from process_mcp_request()
         auth = _make_user_api_key_auth(
             models=[],
@@ -175,7 +175,7 @@ class TestCheckModelAccess:
         # Must be denied — not passed through to can_key_call_model
         assert result is not None
         assert result.code == -1
-        assert "sampling requires a valid LiteLLM" in result.message
+        assert "sampling requires a valid HangarLLM" in result.message
 
     @pytest.mark.asyncio
     async def test_should_allow_proxy_admin_even_without_api_key(self):
@@ -189,7 +189,7 @@ class TestCheckModelAccess:
         )
 
         with patch(
-            "litellm.proxy.auth.auth_checks.can_key_call_model",
+            "hangarllm.proxy.auth.auth_checks.can_key_call_model",
             new_callable=AsyncMock,
             return_value=True,
         ):
@@ -208,7 +208,7 @@ class TestSamplingAuthAndBudgetGating:
     @pytest.mark.asyncio
     async def test_should_deny_when_no_auth_context(self):
         """Sampling must reject calls with no user_api_key_auth."""
-        from litellm.proxy.mcp_server.sampling_handler import (
+        from hangarllm.proxy.mcp_server.sampling_handler import (
             handle_sampling_create_message,
         )
 
@@ -237,7 +237,7 @@ class TestSamplingAuthAndBudgetGating:
     @pytest.mark.asyncio
     async def test_should_run_budget_checks(self):
         """Sampling must call _run_budget_checks after model access check."""
-        from litellm.proxy.mcp_server.sampling_handler import (
+        from hangarllm.proxy.mcp_server.sampling_handler import (
             handle_sampling_create_message,
         )
 
@@ -255,25 +255,25 @@ class TestSamplingAuthAndBudgetGating:
 
         with (
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._check_model_access",
+                "hangarllm.proxy.mcp_server.sampling_handler._check_model_access",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._run_budget_checks",
+                "hangarllm.proxy.mcp_server.sampling_handler._run_budget_checks",
                 new_callable=AsyncMock,
                 return_value=None,
             ) as mock_budget,
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
+                "hangarllm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
                 return_value="gpt-4o",
             ),
             patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "hangarllm.proxy.proxy_server.llm_router",
                 new=None,
             ),
             patch(
-                "litellm.acompletion",
+                "hangarllm.acompletion",
                 new_callable=AsyncMock,
                 return_value=MagicMock(
                     choices=[
@@ -300,7 +300,7 @@ class TestSamplingAuthAndBudgetGating:
         """When _run_budget_checks returns ErrorData, sampling must return it."""
         from mcp.types import ErrorData
 
-        from litellm.proxy.mcp_server.sampling_handler import (
+        from hangarllm.proxy.mcp_server.sampling_handler import (
             handle_sampling_create_message,
         )
 
@@ -320,17 +320,17 @@ class TestSamplingAuthAndBudgetGating:
 
         with (
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._check_model_access",
+                "hangarllm.proxy.mcp_server.sampling_handler._check_model_access",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._run_budget_checks",
+                "hangarllm.proxy.mcp_server.sampling_handler._run_budget_checks",
                 new_callable=AsyncMock,
                 return_value=budget_error,
             ),
             patch(
-                "litellm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
+                "hangarllm.proxy.mcp_server.sampling_handler._resolve_model_from_preferences",
                 return_value="gpt-4o",
             ),
         ):

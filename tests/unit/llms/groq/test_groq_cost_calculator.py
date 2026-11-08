@@ -1,11 +1,11 @@
 import pytest
 
-from litellm.llms.groq.cost_calculator import cost_per_web_search_request
-from litellm.types.utils import ModelInfo, ServerToolUse, Usage
+from hangarllm.llms.groq.cost_calculator import cost_per_web_search_request
+from hangarllm.types.utils import ModelInfo, ServerToolUse, Usage
 
 PRICED_MODEL_INFO = ModelInfo(
     key="groq/openai/gpt-oss-20b",
-    litellm_provider="groq",
+    hangarllm_provider="groq",
     mode="chat",
     search_context_cost_per_query={
         "search_context_size_low": 0.005,
@@ -41,7 +41,7 @@ def test_missing_usage_signal_costs_nothing():
 
 
 def test_missing_pricing_costs_nothing():
-    unpriced = ModelInfo(key="groq/openai/gpt-oss-20b", litellm_provider="groq", mode="chat")
+    unpriced = ModelInfo(key="groq/openai/gpt-oss-20b", hangarllm_provider="groq", mode="chat")
     cost = cost_per_web_search_request(usage=_usage_with_actions(3), model_info=unpriced)
     assert cost == 0.0
 

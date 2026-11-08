@@ -53,7 +53,7 @@ def test_failing_stream_logging_callback_does_not_leak_max_parallel_requests_slo
         config["guardrails"] = [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "presidio",
                     "mode": "logging_only",
                     "default_on": True,

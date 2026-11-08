@@ -5,13 +5,13 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.databricks.cost_calculator import cost_per_token
-from litellm.types.utils import ModelInfo, Usage
+import hangarllm
+from hangarllm.llms.databricks.cost_calculator import cost_per_token
+from hangarllm.types.utils import ModelInfo, Usage
 
 REPO_ROOT: Final = Path(__file__).parents[4]
 MAIN_PRICES: Final = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PRICES: Final = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PRICES: Final = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 NEW_MODELS: Final = (
     "databricks/databricks-claude-opus-4-7",
     "databricks/databricks-claude-opus-4-8",
@@ -115,7 +115,7 @@ CACHE_FIELDS: Final = ("cache_creation_input_token_cost", "cache_read_input_toke
 
 
 def _model_info(model: str) -> ModelInfo:
-    return litellm.get_model_info(model=model, custom_llm_provider="databricks")
+    return hangarllm.get_model_info(model=model, custom_llm_provider="databricks")
 
 
 def _dollars_per_token(dbu_per_million: str) -> float:
@@ -177,7 +177,7 @@ def test_new_models_carry_cache_pricing(local_model_cost_map: None, model: str) 
 def test_every_priced_databricks_model_declares_cache_rates(local_model_cost_map: None) -> None:
     undeclared: Final = [
         model
-        for model, info in litellm.model_cost.items()
+        for model, info in hangarllm.model_cost.items()
         if model.startswith("databricks/")
         and info.get("input_cost_per_token") is not None
         and any(info.get(field) is None for field in CACHE_FIELDS)
@@ -209,7 +209,7 @@ def test_every_model_without_published_cache_dbu_bills_cache_writes_at_its_own_i
 ) -> None:
     without_published_rates: Final = [
         model
-        for model, info in litellm.model_cost.items()
+        for model, info in hangarllm.model_cost.items()
         if model.startswith("databricks/")
         and info.get("input_cost_per_token")
         and model not in PUBLISHED_DBU_PER_MILLION
@@ -238,10 +238,10 @@ def test_cost_per_token_bills_the_served_priority_tier(
         "output_cost_per_token": 0.002,
         "input_cost_per_token_priority": 0.01,
         "output_cost_per_token_priority": 0.02,
-        "litellm_provider": "databricks",
+        "hangarllm_provider": "databricks",
         "mode": "chat",
     }
-    monkeypatch.setitem(litellm.model_cost, "databricks/dbrx-tiered-test", rates)
+    monkeypatch.setitem(hangarllm.model_cost, "databricks/dbrx-tiered-test", rates)
     usage: Final = Usage(prompt_tokens=30, completion_tokens=40, total_tokens=70)
 
     prompt_cost, completion_cost = cost_per_token(

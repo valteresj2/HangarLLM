@@ -31,12 +31,12 @@ _DETAILED_USAGE: Final = {
 }
 _REPLY_TEXT: Final = "iterator reply"
 _SPEND_SELECT: Final = (
-    'SELECT request_id, prompt_tokens, completion_tokens, spend, status FROM "LiteLLM_SpendLogs" WHERE api_key=%s'
+    'SELECT request_id, prompt_tokens, completion_tokens, spend, status FROM "HangarLLM_SpendLogs" WHERE api_key=%s'
 )
 _CACHE_SELECT: Final = (
-    'SELECT cache_hit, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
+    'SELECT cache_hit, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
 )
-_BURST_SELECT: Final = "SELECT api_key, prompt_tokens, completion_tokens FROM \"LiteLLM_SpendLogs\" WHERE api_key = ANY(string_to_array(%s, ','))"
+_BURST_SELECT: Final = "SELECT api_key, prompt_tokens, completion_tokens FROM \"HangarLLM_SpendLogs\" WHERE api_key = ANY(string_to_array(%s, ','))"
 
 
 def _vertex(model: str, location: str) -> Callable[[Gateway, Scenario, Wire], str]:

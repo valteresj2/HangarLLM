@@ -32,15 +32,15 @@ URL = NewType("URL", str)
 
 class Headers(BaseModel):
     """Base for header models. Subclasses may alias to hyphenated header names
-    (e.g. ``x-litellm-api-key``); serialization uses by_alias."""
+    (e.g. ``x-hangarllm-api-key``); serialization uses by_alias."""
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class AuthHeaders(Headers):
-    # litellm accepts either; set whichever the call needs, leave the other None.
+    # hangarllm accepts either; set whichever the call needs, leave the other None.
     authorization: str | None = Field(default=None, repr=False)
-    x_litellm_api_key: str | None = Field(default=None, alias="x-litellm-api-key", repr=False)
+    x_hangarllm_api_key: str | None = Field(default=None, alias="x-hangarllm-api-key", repr=False)
 
 
 class AnthropicHeaders(AuthHeaders):
@@ -50,7 +50,7 @@ class AnthropicHeaders(AuthHeaders):
     on its own internal calls."""
 
     anthropic_version: str = Field(default="2023-06-01", alias="anthropic-version")
-    x_litellm_session_id: str | None = Field(default=None, serialization_alias="x-litellm-session-id")
+    x_hangarllm_session_id: str | None = Field(default=None, serialization_alias="x-hangarllm-session-id")
 
 
 class PartialBody(BaseModel):
@@ -91,7 +91,7 @@ class NetworkError(BaseModel):
 
 class UnauthorizedError(BaseModel):
     kind: Literal["unauthorized"] = "unauthorized"
-    # litellm 401s for key auth, model access, and tag routing alike, so keep the body to tell them apart.
+    # hangarllm 401s for key auth, model access, and tag routing alike, so keep the body to tell them apart.
     body: str = ""
 
 
@@ -146,7 +146,7 @@ class ExternalWrite(BaseModel):
 
 class StreamingResponse(BaseModel):
     """Raw outcome for calls whose body is provider-native or streamed: status, the
-    x-litellm-call-id header, the x-litellm-response-cost header (StandardLogging
+    x-hangarllm-call-id header, the x-hangarllm-response-cost header (StandardLogging
     response_cost), the content-type (which tells streaming `text/event-stream` from
     non-streaming `application/json`), the response headers (lowercased names, e.g.
     the x-ratelimit-* pacing headers and retry-after on a 429), and the body.
@@ -154,8 +154,8 @@ class StreamingResponse(BaseModel):
     and streaming, where one validated JSON model does not fit."""
 
     status_code: int
-    call_id: str | None = None  # x-litellm-call-id header
-    response_cost: float | None = None  # x-litellm-response-cost header
+    call_id: str | None = None  # x-hangarllm-call-id header
+    response_cost: float | None = None  # x-hangarllm-response-cost header
     content_type: str | None = None
     headers: dict[str, str] = {}
     body: str
@@ -326,7 +326,7 @@ def request_with_retry[T: RetryableResponse](
     it too). 500/502/503/504 stay first-class failures: at this layer a 5xx
     from the proxy is indistinguishable from one it relayed, and retrying them
     could mask an intermittently failing proxy. Widen the set only for a
-    status litellm provably never originates, with an observed flake in hand.
+    status hangarllm provably never originates, with an observed flake in hand.
 
     Also deliberately NOT retried: 429, because this suite asserts the proxy's
     own rate-limit and budget 429s; network errors and timeouts, because a
@@ -347,7 +347,7 @@ def request_with_retry[T: RetryableResponse](
     return issue()
 
 
-PROVIDER_RATE_LIMIT_MARKER: Final = "litellm.RateLimitError"
+PROVIDER_RATE_LIMIT_MARKER: Final = "hangarllm.RateLimitError"
 PROVIDER_RATE_LIMIT_ATTEMPTS: Final = 4
 PROVIDER_RATE_LIMIT_BACKOFF_SECONDS: Final = 5.0
 
@@ -709,7 +709,7 @@ def probe(url: URL, *, headers: BaseModel, params: BaseModel, timeout: float = 3
 
 
 def _parse_response_cost(resp: SseResponse) -> float | None:
-    raw = _hdr(resp, "x-litellm-response-cost")
+    raw = _hdr(resp, "x-hangarllm-response-cost")
     if raw is None or raw == "":
         return None
     try:
@@ -734,7 +734,7 @@ def _is_stream_error_line(line: bytes) -> bool:
 def streaming_outcome(
     resp: SseResponse, stream: bool, *, sent_at: float, clock: Callable[[], float] = time.monotonic
 ) -> StreamingResponse:
-    call_id: Final = _hdr(resp, "x-litellm-call-id")
+    call_id: Final = _hdr(resp, "x-hangarllm-call-id")
     response_cost: Final = _parse_response_cost(resp)
     content_type: Final = _hdr(resp, "content-type")
     headers: Final = {name.lower(): value for name, value in resp.headers.items()}
@@ -783,7 +783,7 @@ def send(
     timeout: float = 60.0,
 ) -> StreamingResponse:
     """Raw POST returning the unparsed HTTP outcome: status, full body, and the
-    x-litellm-call-id header. For native/passthrough bodies and for calls judged by
+    x-hangarllm-call-id header. For native/passthrough bodies and for calls judged by
     status rather than a typed JSON model (e.g. a budget block is a non-2xx). With
     ``stream=True`` the SSE body is consumed and its events counted instead."""
     sent_at: Final = time.monotonic()
@@ -834,7 +834,7 @@ def abandon(
 
 def stream(url: URL, *, headers: BaseModel, json: BaseModel, timeout: float = 60.0) -> StreamingResponse:
     """Streaming (SSE) call: consumes the stream counting events, and captures the
-    x-litellm-call-id + content-type headers. Body is elided."""
+    x-hangarllm-call-id + content-type headers. Body is elided."""
     return send(url, headers=headers, json=json, stream=True, timeout=timeout)
 
 
@@ -896,7 +896,7 @@ def stream_binary(
         return BinaryStream(status_code=-1, error_body=str(exc)[:300])
     with resp:
         content_type = _hdr(resp, "content-type")
-        call_id = _hdr(resp, "x-litellm-call-id")
+        call_id = _hdr(resp, "x-hangarllm-call-id")
         transfer_encoding = _hdr(resp, "transfer-encoding")
         content_length = _hdr(resp, "content-length")
         if not (200 <= resp.status_code < 300):
@@ -923,14 +923,14 @@ def stream_binary(
 
 def download(url: URL, *, headers: BaseModel, timeout: float = 60.0) -> StreamingResponse:
     """Raw GET for file content (/v1/files/{id}/content): provider-native bytes, no
-    schema. Returns the decoded body and the x-litellm-call-id header."""
+    schema. Returns the decoded body and the x-hangarllm-call-id header."""
     try:
         resp = requests.get(str(url), headers=_headers(headers), timeout=timeout)
     except requests.RequestException as exc:
         return StreamingResponse(status_code=-1, body=str(exc))
     return StreamingResponse(
         status_code=resp.status_code,
-        call_id=_hdr(resp, "x-litellm-call-id"),
+        call_id=_hdr(resp, "x-hangarllm-call-id"),
         content_type=_hdr(resp, "content-type"),
         body=resp.text,
     )
@@ -1065,7 +1065,7 @@ def open_stream(url: URL, *, headers: BaseModel, json: BaseModel, timeout: float
     """POST a streaming request and return the moment its response head arrives,
     leaving the body unread behind ``StreamHead.steps``. For a test that must keep
     one request in flight while it sends others: the head carries the routing
-    headers (x-litellm-model-id), and draining ``steps`` ends the request."""
+    headers (x-hangarllm-model-id), and draining ``steps`` ends the request."""
     return forward_stream(
         "POST",
         str(url),

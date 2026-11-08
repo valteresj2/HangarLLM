@@ -1,12 +1,12 @@
 """
-Tests for litellm.llms.gigachat.chat.streaming
+Tests for hangarllm.llms.gigachat.chat.streaming
 """
 
 import json
 from collections.abc import AsyncIterator
 from typing import Final
 
-from litellm.llms.gigachat.chat.streaming import GigaChatModelResponseIterator
+from hangarllm.llms.gigachat.chat.streaming import GigaChatModelResponseIterator
 
 
 def _parse(chunk: dict) -> dict:

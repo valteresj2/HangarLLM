@@ -9,11 +9,11 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 from typing import Dict, Any
 
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
     VertexPassthroughLoggingHandler,
 )
-from litellm.types.utils import SpecialEnums
-from litellm.types.llms.openai import BatchJobStatus
+from hangarllm.types.utils import SpecialEnums
+from hangarllm.types.llms.openai import BatchJobStatus
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 
@@ -27,7 +27,7 @@ class TestVertexAIBatchPassthroughHandler:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "name": "projects/test-project/locations/us-central1/batchPredictionJobs/123456789",
-            "displayName": "litellm-vertex-batch-test",
+            "displayName": "hangarllm-vertex-batch-test",
             "model": "projects/test-project/locations/us-central1/publishers/google/models/gemini-1.5-flash",
             "createTime": "2024-01-01T00:00:00Z",
             "state": "JOB_STATE_PENDING",
@@ -46,7 +46,7 @@ class TestVertexAIBatchPassthroughHandler:
     def mock_logging_obj(self):
         """Mock logging object"""
         mock = Mock()
-        mock.litellm_call_id = "test-call-id-123"
+        mock.hangarllm_call_id = "test-call-id-123"
         mock.model_call_details = {}
         mock.optional_params = {}
         return mock
@@ -63,16 +63,16 @@ class TestVertexAIBatchPassthroughHandler:
     ):
         """Test successful batch job creation and tracking"""
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
+            "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
         ) as mock_logger:
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.get_actual_model_id_from_router"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.get_actual_model_id_from_router"
             ) as mock_get_model_id:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler._store_batch_managed_object"
+                    "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler._store_batch_managed_object"
                 ) as mock_store:
                     with patch(
-                        "litellm.llms.vertex_ai.batches.transformation.VertexAIBatchTransformation"
+                        "hangarllm.llms.vertex_ai.batches.transformation.VertexAIBatchTransformation"
                     ) as mock_transformation:
 
                         # Setup mocks
@@ -122,7 +122,7 @@ class TestVertexAIBatchPassthroughHandler:
         mock_httpx_response.json.return_value = {"error": "Invalid request"}
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
+            "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
         ) as mock_logger:
             # Test the handler with failed response
             result = VertexPassthroughLoggingHandler.batch_prediction_jobs_handler(
@@ -146,10 +146,10 @@ class TestVertexAIBatchPassthroughHandler:
     def test_get_actual_model_id_from_router_with_router(self):
         """Test getting model ID when router is available"""
         with patch(
-            "litellm.proxy.proxy_server.llm_router", new=route_entry_points_to_stubs(MagicMock())
+            "hangarllm.proxy.proxy_server.llm_router", new=route_entry_points_to_stubs(MagicMock())
         ) as mock_router:
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.extract_model_name_from_vertex_path"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.extract_model_name_from_vertex_path"
             ) as mock_extract:
 
                 # Setup mocks
@@ -169,9 +169,9 @@ class TestVertexAIBatchPassthroughHandler:
 
     def test_get_actual_model_id_from_router_without_router(self):
         """Test getting model ID when router is not available"""
-        with patch("litellm.proxy.proxy_server.llm_router", None):
+        with patch("hangarllm.proxy.proxy_server.llm_router", None):
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.extract_model_name_from_vertex_path"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.extract_model_name_from_vertex_path"
             ) as mock_extract:
 
                 # Setup mocks
@@ -188,10 +188,10 @@ class TestVertexAIBatchPassthroughHandler:
     def test_get_actual_model_id_from_router_model_not_found(self):
         """Test getting model ID when model is not found in router"""
         with patch(
-            "litellm.proxy.proxy_server.llm_router", new=route_entry_points_to_stubs(MagicMock())
+            "hangarllm.proxy.proxy_server.llm_router", new=route_entry_points_to_stubs(MagicMock())
         ) as mock_router:
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.extract_model_name_from_vertex_path"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.extract_model_name_from_vertex_path"
             ) as mock_extract:
 
                 # Setup mocks - router returns empty list
@@ -213,7 +213,7 @@ class TestVertexAIBatchPassthroughHandler:
 
         # Generate the expected unified ID
         unified_id_string = (
-            SpecialEnums.LITELLM_MANAGED_BATCH_COMPLETE_STR.value.format(
+            SpecialEnums.HANGARLLM_MANAGED_BATCH_COMPLETE_STR.value.format(
                 model_id, batch_id
             )
         )
@@ -235,10 +235,10 @@ class TestVertexAIBatchPassthroughHandler:
     ):
         """Test storing batch managed object for cost tracking"""
         with patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "hangarllm.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging_obj:
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
             ) as mock_logger:
 
                 # Setup mock proxy logging obj
@@ -273,7 +273,7 @@ class TestVertexAIBatchPassthroughHandler:
         [
             (
                 {
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "metadata": {
                             "user_api_key_user_id": "real-user-123",
                             "user_api_key_team_id": "team-456",
@@ -295,13 +295,13 @@ class TestVertexAIBatchPassthroughHandler:
         expected_team_id,
     ):
         """The fabricated UserAPIKeyAuth must inherit user_id/team_id from the
-        request's litellm_params.metadata, not the (always-empty) top-level
+        request's hangarllm_params.metadata, not the (always-empty) top-level
         kwargs lookup. Falls back to "default-user" only when metadata is
         absent."""
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
             ),
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
@@ -322,9 +322,9 @@ class TestVertexAIBatchPassthroughHandler:
 
     def _store_with_metadata(self, mock_logging_obj, mock_managed_files_hook, metadata):
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("hangarllm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
             ),
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
@@ -334,7 +334,7 @@ class TestVertexAIBatchPassthroughHandler:
                 model_object_id="b1",
                 logging_obj=mock_logging_obj,
                 is_batch_create=True,
-                litellm_params={"metadata": metadata},
+                hangarllm_params={"metadata": metadata},
             )
         mock_managed_files_hook.store_unified_object_id.assert_called_once()
         return mock_managed_files_hook.store_unified_object_id.call_args[1]
@@ -375,7 +375,7 @@ class TestVertexAIBatchPassthroughHandler:
     @pytest.mark.parametrize(
         "metadata, expected",
         [
-            # a request that sent its own tags (x-litellm-tags header or body metadata)
+            # a request that sent its own tags (x-hangarllm-tags header or body metadata)
             ({"tags": ["req:a", "req:b"]}, ("req:a", "req:b")),
             # request tags win over the key's own tags
             (
@@ -427,16 +427,16 @@ class TestVertexAIBatchPassthroughHandler:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler._store_batch_managed_object"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler._store_batch_managed_object"
             ) as mock_store,
             patch(
-                "litellm.llms.vertex_ai.batches.transformation.VertexAIBatchTransformation"
+                "hangarllm.llms.vertex_ai.batches.transformation.VertexAIBatchTransformation"
             ) as mock_transformation,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.get_actual_model_id_from_router",
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.get_actual_model_id_from_router",
                 return_value="gemini-2.5-flash",
             ),
         ):
@@ -468,7 +468,7 @@ class TestVertexAIBatchPassthroughHandler:
 
     def test_batch_response_transformation(self):
         """Test transformation of Vertex AI batch responses to OpenAI format"""
-        from litellm.llms.vertex_ai.batches.transformation import (
+        from hangarllm.llms.vertex_ai.batches.transformation import (
             VertexAIBatchTransformation,
         )
 
@@ -495,7 +495,7 @@ class TestVertexAIBatchPassthroughHandler:
 
     def test_batch_id_extraction(self):
         """Test extraction of batch ID from Vertex AI response"""
-        from litellm.llms.vertex_ai.batches.transformation import (
+        from hangarllm.llms.vertex_ai.batches.transformation import (
             VertexAIBatchTransformation,
         )
 
@@ -515,7 +515,7 @@ class TestVertexAIBatchPassthroughHandler:
 
     def test_model_name_extraction_from_vertex_path(self):
         """Test extraction of model name from Vertex AI path"""
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -548,19 +548,19 @@ class TestVertexAIBatchPassthroughHandler:
     ):
         """Test the complete batch completion workflow"""
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
+            "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.verbose_proxy_logger"
         ) as mock_logger:
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.get_actual_model_id_from_router"
+                "hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler.VertexPassthroughLoggingHandler.get_actual_model_id_from_router"
             ) as mock_get_model_id:
                 with patch(
-                    "litellm.proxy.proxy_server.proxy_logging_obj"
+                    "hangarllm.proxy.proxy_server.proxy_logging_obj"
                 ) as mock_proxy_logging_obj:
                     mock_proxy_logging_obj.get_proxy_hook.return_value = (
                         mock_managed_files_hook
                     )
                 with patch(
-                    "litellm.llms.vertex_ai.batches.transformation.VertexAIBatchTransformation"
+                    "hangarllm.llms.vertex_ai.batches.transformation.VertexAIBatchTransformation"
                 ) as mock_transformation:
 
                     # Setup mocks
@@ -616,7 +616,7 @@ class TestVertexAIBatchCostCalculation:
 
     def test_should_return_zeros_for_empty_response_list(self):
         """Empty input → zero cost and zero usage."""
-        from litellm.batches.batch_utils import calculate_vertex_ai_batch_cost_and_usage
+        from hangarllm.batches.batch_utils import calculate_vertex_ai_batch_cost_and_usage
 
         result = calculate_vertex_ai_batch_cost_and_usage(
             [], model_name="gemini-2.0-flash-001"
@@ -629,7 +629,7 @@ class TestVertexAIBatchCostCalculation:
 
     def test_should_handle_missing_usage_metadata_gracefully(self):
         """Response without usageMetadata → 0 tokens, 0 cost for that line."""
-        from litellm.batches.batch_utils import calculate_vertex_ai_batch_cost_and_usage
+        from hangarllm.batches.batch_utils import calculate_vertex_ai_batch_cost_and_usage
 
         responses = [
             {"response": {"candidates": [{"content": {"parts": [{"text": "hi"}]}}]}},

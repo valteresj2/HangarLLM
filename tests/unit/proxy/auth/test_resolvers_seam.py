@@ -4,11 +4,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import Request
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_method import AuthMethod
-from litellm.proxy.auth.resolvers.models import PrincipalType
-from litellm.proxy.auth.roles import Role
-from litellm.proxy.auth.user_api_key_auth import _resolve_request_principal
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.auth.auth_method import AuthMethod
+from hangarllm.proxy.auth.resolvers.models import PrincipalType
+from hangarllm.proxy.auth.roles import Role
+from hangarllm.proxy.auth.user_api_key_auth import _resolve_request_principal
 
 
 def _request(

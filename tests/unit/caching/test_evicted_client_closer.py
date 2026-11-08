@@ -4,7 +4,7 @@ Tests for EvictedClientCloser.
 An evicted client must stay open long enough for a request that already holds it
 to finish, and must then actually be closed, otherwise its connection pool is
 retained until a generational collection runs. A client the caller supplied is
-never closed, because litellm does not own its lifecycle.
+never closed, because hangarllm does not own its lifecycle.
 """
 
 import asyncio
@@ -17,8 +17,8 @@ import httpx
 import pytest
 from redis.asyncio import ConnectionPool, Redis
 
-from litellm.caching.evicted_client_closer import EvictedClientCloser
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 from tests.unit.caching._event_loop_reuse import runs_until_a_loop_address_repeats
 
 
@@ -420,7 +420,7 @@ async def test_a_client_evicted_on_a_collected_loop_is_dropped():
 async def test_a_client_serving_a_request_is_not_closed_when_its_grace_window_ends():
     """The grace window on its own cannot promise that a request has finished.
 
-    ``litellm.request_timeout`` defaults to 6000 seconds and a streaming response
+    ``hangarllm.request_timeout`` defaults to 6000 seconds and a streaming response
     is bounded only by how long the upstream keeps sending, so a client past its
     deadline is closed only once its own pool reports nothing in flight.
     """

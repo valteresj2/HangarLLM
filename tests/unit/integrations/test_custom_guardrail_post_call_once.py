@@ -14,18 +14,18 @@ from fastapi.responses import StreamingResponse
 from mcp.types import Tool as MCPTool
 from pydantic import BaseModel, TypeAdapter
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import ProxyLogging
-from litellm.responses.mcp.litellm_proxy_mcp_handler import LiteLLM_Proxy_MCP_Handler
-from litellm.router import Router
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import CallTypes, Choices, GenericGuardrailAPIInputs, LLMResponseTypes, Message, ModelResponse
+import hangarllm
+from hangarllm.caching.caching import Cache
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.llms.base_llm.ocr.transformation import OCRResponse
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.responses.mcp.hangarllm_proxy_mcp_handler import HangarLLM_Proxy_MCP_Handler
+from hangarllm.router import Router
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import CallTypes, Choices, GenericGuardrailAPIInputs, LLMResponseTypes, Message, ModelResponse
 
 pytestmark = pytest.mark.respx(assert_all_called=False)
 
@@ -223,7 +223,7 @@ def _known_gap(action_item: str) -> pytest.MarkDecorator:
 def _deployment(model_name: str, guardrails: tuple[str, ...], api_base: str) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o",
             "api_key": "sk-test",
             "api_base": api_base,
@@ -260,8 +260,8 @@ async def _drain(stream: AsyncIterable[object]) -> str:
 
 @pytest.fixture(autouse=True)
 def provider(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> Iterator[respx.MockRouter]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     ProxyLogging._callback_capabilities_cache.clear()  # pyright: ignore[reportPrivateUsage]  # keyed on id(), which a collected guardrail from an earlier test can reuse
     for endpoint in ("chat/completions", "responses"):
         respx_mock.post(f"{_FAILING_API_BASE}/{endpoint}").mock(
@@ -270,7 +270,7 @@ def provider(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> I
     respx_mock.post(f"{_OPENAI_API_BASE}/chat/completions").mock(side_effect=_json_or_sse(_CHAT_REPLY, _CHAT_SSE))
     respx_mock.post(f"{_OPENAI_API_BASE}/responses").mock(side_effect=_json_or_sse(_RESPONSES_REPLY, _RESPONSES_SSE))
     yield respx_mock
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @dataclass(frozen=True, slots=True)
@@ -332,7 +332,7 @@ _ROUTE_BODIES: Final[Mapping[Route, Mapping[str, object]]] = MappingProxyType(
 
 
 async def _proxy_reply(case: ProxyCase) -> str:
-    from litellm.proxy.proxy_server import ProxyConfig, select_data_generator
+    from hangarllm.proxy.proxy_server import ProxyConfig, select_data_generator
 
     path: Final = _ROUTE_PATHS[case.route]
     router: Final = _router(case.primary, case.fallback, case.cached)
@@ -370,7 +370,7 @@ async def test_a_proxy_request_checks_each_distinct_response_once(
 ) -> None:
     guardrail: Final = _guardrail_g(case.style, default_on=case.default_on)
     rewriter: Final = RewritingGuardrail(guardrail_name="rewriter", event_hook=GuardrailEventHooks.post_call)
-    monkeypatch.setattr(litellm, "callbacks", [rewriter, guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [rewriter, guardrail])
 
     reply: Final = await _proxy_reply(case)
 
@@ -383,8 +383,8 @@ async def test_a_cache_hit_is_checked_like_a_fresh_response(
     monkeypatch: pytest.MonkeyPatch, provider: respx.MockRouter, route: Route
 ) -> None:
     guardrail: Final = _guardrail_g()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "cache", Cache(type="local"))
 
     case: Final = ProxyCase(route=route, cached=True)
     replies: Final = (await _proxy_reply(case), await _proxy_reply(case))
@@ -396,7 +396,7 @@ async def test_a_cache_hit_is_checked_like_a_fresh_response(
 
 async def test_a_blocking_verdict_blocks_the_proxy_response_after_one_check(monkeypatch: pytest.MonkeyPatch) -> None:
     guardrail: Final = _guardrail_g(BlockingG)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     with pytest.raises(HTTPException, check=lambda e: e.detail == "blocked by G"):
         await _proxy_reply(ProxyCase())
@@ -427,7 +427,7 @@ async def _sdk_reply(case: SdkCase) -> str:
     response: Final = await (
         _router(("G",)).acompletion(model="gpt", messages=messages, stream=case.stream)
         if case.caller == "sdk-router"
-        else litellm.acompletion(
+        else hangarllm.acompletion(
             model="openai/gpt-4o", api_key="sk-test", guardrails=["G"], messages=messages, stream=case.stream
         )
     )
@@ -439,7 +439,7 @@ async def _sdk_reply(case: SdkCase) -> str:
 @pytest.mark.parametrize("case", SDK_CASES)
 async def test_an_sdk_call_checks_its_response_once(monkeypatch: pytest.MonkeyPatch, case: SdkCase) -> None:
     guardrail: Final = _guardrail_g(case.style)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     reply: Final = await _sdk_reply(case)
 
@@ -451,7 +451,7 @@ async def test_mcp_auto_execute_checks_the_tool_call_round_before_running_its_to
     monkeypatch: pytest.MonkeyPatch, provider: respx.MockRouter
 ) -> None:
     monkeypatch.setattr(
-        litellm, "callbacks", [ToolCallBlockingGuardrail(guardrail_name="G", event_hook=GuardrailEventHooks.post_call)]
+        hangarllm, "callbacks", [ToolCallBlockingGuardrail(guardrail_name="G", event_hook=GuardrailEventHooks.post_call)]
     )
     provider.post(f"{_MCP_API_BASE}/responses").mock(
         side_effect=[httpx.Response(200, json=_TOOL_CALL_ROUND), httpx.Response(200, json=_RESPONSES_REPLY)]
@@ -464,22 +464,22 @@ async def test_mcp_auto_execute_checks_the_tool_call_round_before_running_its_to
 
     with (
         patch.object(
-            LiteLLM_Proxy_MCP_Handler,
+            HangarLLM_Proxy_MCP_Handler,
             "process_mcp_tools_without_openai_transform",
             AsyncMock(return_value=([echo_tool], {"echo": "demo"})),
         ),
-        patch.object(LiteLLM_Proxy_MCP_Handler, "execute_tool_calls", run_tools),
+        patch.object(HangarLLM_Proxy_MCP_Handler, "execute_tool_calls", run_tools),
         pytest.raises(HTTPException, check=lambda e: e.detail == "tool calls are not allowed"),
     ):
-        await litellm.aresponses(
+        await hangarllm.aresponses(
             model="openai/gpt-4o",
             input="Call echo with PING",
-            tools=[{"type": "mcp", "server_url": "litellm_proxy/mcp/demo", "require_approval": "never"}],
+            tools=[{"type": "mcp", "server_url": "hangarllm_proxy/mcp/demo", "require_approval": "never"}],
             api_key="sk-test",
             api_base=_MCP_API_BASE,
             guardrails=["G"],
             proxy_server_request={"url": "http://localhost:4000/v1/responses", "method": "POST"},
-            litellm_metadata={"user_api_key_request_route": "/v1/responses"},
+            hangarllm_metadata={"user_api_key_request_route": "/v1/responses"},
         )
 
     run_tools.assert_not_awaited()
@@ -513,7 +513,7 @@ async def test_each_proxy_post_call_loop_skips_only_output_the_deployment_checke
     checks: tuple[str, ...],
 ) -> None:
     guardrail: Final = _guardrail_g(run_in_parallel=parallel)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     data: Final = {
         "model": "gpt",
         "proxy_server_request": {"url": "http://localhost:4000/v1/chat/completions"},
@@ -548,7 +548,7 @@ async def test_an_ocr_response_is_skipped_only_when_its_pages_were_checked(
     monkeypatch: pytest.MonkeyPatch, proxy_sees: str, checks: tuple[str, ...]
 ) -> None:
     guardrail: Final = _guardrail_g()
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     data: Final = {
         "model": "ocr",
         "document": {"type": "document_url", "document_url": "https://example.com/doc.pdf"},

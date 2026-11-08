@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
-from litellm.proxy.proxy_server import chat_completion, completion, embeddings
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.proxy_server import chat_completion, completion, embeddings
+from hangarllm.proxy._types import UserAPIKeyAuth
 from fastapi import Request, Response
 
 
@@ -10,7 +10,7 @@ async def test_chat_completion_metadata_population():
     # Setup
     request = MagicMock(spec=Request)
     # Mock _read_request_body to return a dict
-    with patch("litellm.proxy.proxy_server.read_request_body", new_callable=AsyncMock) as mock_read_body:
+    with patch("hangarllm.proxy.proxy_server.read_request_body", new_callable=AsyncMock) as mock_read_body:
         mock_read_body.return_value = {"model": "gpt-3.5-turbo", "messages": []}
 
         user_api_key_dict = UserAPIKeyAuth(user_id="test_user_id", team_id="test_team_id", org_id="test_org_id")
@@ -18,7 +18,7 @@ async def test_chat_completion_metadata_population():
         fastapi_response = MagicMock(spec=Response)
 
         # Mock ProxyBaseLLMRequestProcessing
-        with patch("litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing") as MockProcessor:
+        with patch("hangarllm.proxy.proxy_server.ProxyBaseLLMRequestProcessing") as MockProcessor:
             mock_instance = MockProcessor.return_value
             mock_instance.base_process_llm_request = AsyncMock(return_value={"choices": []})
 
@@ -49,9 +49,9 @@ async def test_embedding_metadata_population():
     from UserAPIKeyAuth.
     """
     # Setup
-    with patch("litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing.base_process_llm_request"):
+    with patch("hangarllm.proxy.proxy_server.ProxyBaseLLMRequestProcessing.base_process_llm_request"):
         with patch(
-            "litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing.__init__",
+            "hangarllm.proxy.proxy_server.ProxyBaseLLMRequestProcessing.__init__",
             return_value=None,
         ) as mock_base_process_init:
             # Create a mock UserAPIKeyAuth object
@@ -65,7 +65,7 @@ async def test_embedding_metadata_population():
             mock_request.json = AsyncMock(return_value={"model": "gpt-3.5-turbo", "input": "hello"})
             # Mock _read_request_body to return our data
             with patch(
-                "litellm.proxy.proxy_server.read_request_body",
+                "hangarllm.proxy.proxy_server.read_request_body",
                 new=AsyncMock(return_value={"model": "gpt-3.5-turbo", "input": "hello"}),
             ):
                 # Call the endpoint function directly
@@ -94,7 +94,7 @@ async def test_completion_metadata_population():
     # Setup
     request = MagicMock(spec=Request)
     # Mock _read_request_body to return a dict
-    with patch("litellm.proxy.proxy_server.read_request_body", new_callable=AsyncMock) as mock_read_body:
+    with patch("hangarllm.proxy.proxy_server.read_request_body", new_callable=AsyncMock) as mock_read_body:
         mock_read_body.return_value = {
             "model": "gpt-3.5-turbo-instruct",
             "prompt": "test",
@@ -105,7 +105,7 @@ async def test_completion_metadata_population():
         fastapi_response = MagicMock(spec=Response)
 
         # Mock ProxyBaseLLMRequestProcessing
-        with patch("litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing") as MockProcessor:
+        with patch("hangarllm.proxy.proxy_server.ProxyBaseLLMRequestProcessing") as MockProcessor:
             mock_instance = MockProcessor.return_value
             mock_instance.base_process_llm_request = AsyncMock(return_value={"choices": []})
 

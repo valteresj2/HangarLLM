@@ -14,17 +14,17 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.passthrough.transformation import PassthroughStreamCollector
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.passthrough.transformation import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.base_llm.passthrough.transformation import PassthroughStreamCollector
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.llms.bedrock.passthrough.transformation import (
     BedrockPassthroughConfig,
     is_bedrock_streaming_endpoint,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.utils import ModelResponse
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.types.utils import ModelResponse
 
 CONVERSE_MODEL = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 CONVERSE_STREAM_ENDPOINT = f"/model/{CONVERSE_MODEL}/converse-stream"
@@ -40,11 +40,11 @@ async def test_bedrock_passthrough_router_replaces_alias_in_endpoint() -> None:
         requests.append(request)
         return httpx.Response(200, json={"generation": "ok", "stop_reason": "stop"}, request=request)
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "special-bedrock-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"bedrock/{deployment_model}",
                     "aws_access_key_id": "AKIAROUTERKEY",
                     "aws_secret_access_key": "router-secret",
@@ -108,7 +108,7 @@ def test_bedrock_passthrough_get_complete_url_default_endpoint():
             model="anthropic.claude-3-sonnet",
             endpoint="/model/anthropic.claude-3-sonnet/invoke",
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify get_runtime_endpoint was called with correct parameters
@@ -142,7 +142,7 @@ def test_bedrock_passthrough_get_complete_url_custom_endpoint_no_path():
             model="anthropic.claude-3-sonnet",
             endpoint="/model/anthropic.claude-3-sonnet/invoke",
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         # Verify get_runtime_endpoint was called with the api_base
@@ -179,7 +179,7 @@ def test_bedrock_passthrough_get_complete_url_custom_endpoint_with_path():
             model="anthropic.claude-3-sonnet",
             endpoint="/model/anthropic.claude-3-sonnet/invoke",
             request_query_params=None,
-            litellm_params={"aws_bedrock_runtime_endpoint": "http://proxy.com/bedrockproxy"},
+            hangarllm_params={"aws_bedrock_runtime_endpoint": "http://proxy.com/bedrockproxy"},
         )
 
         # Verify get_runtime_endpoint was called with correct parameters
@@ -293,7 +293,7 @@ def test_bedrock_passthrough_with_application_inference_profile():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id, "aws_region_name": "eu-west-1"},
+            hangarllm_params={"model_id": model_id, "aws_region_name": "eu-west-1"},
         )
 
         # Verify that the URL contains the encoded model_id (ARN) instead of the model name
@@ -334,7 +334,7 @@ def test_bedrock_passthrough_with_inference_profile_converse_endpoint():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            hangarllm_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -372,7 +372,7 @@ def test_bedrock_passthrough_without_model_id_backward_compatibility():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={},  # No model_id provided
+            hangarllm_params={},  # No model_id provided
         )
 
         # Verify that the URL contains the model name (not replaced)
@@ -391,7 +391,7 @@ def test_bedrock_passthrough_region_extraction_from_inference_profile_arn():
     model_id = "arn:aws:bedrock:us-west-2:123456789:application-inference-profile/test123"
     endpoint = f"model/{model}/invoke"
 
-    # Don't provide aws_region_name in litellm_params to test ARN extraction
+    # Don't provide aws_region_name in hangarllm_params to test ARN extraction
     with patch.object(
         config,
         "get_runtime_endpoint",
@@ -406,7 +406,7 @@ def test_bedrock_passthrough_region_extraction_from_inference_profile_arn():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},  # Region should be extracted from ARN
+            hangarllm_params={"model_id": model_id},  # Region should be extracted from ARN
         )
 
         # Verify that the region from ARN is used in the base URL
@@ -449,7 +449,7 @@ def test_bedrock_passthrough_model_id_arn_encoding():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            hangarllm_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -499,7 +499,7 @@ def test_bedrock_passthrough_model_id_arn_encoding_invoke_endpoint():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            hangarllm_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -541,7 +541,7 @@ def test_bedrock_passthrough_model_id_without_arn():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            hangarllm_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -604,11 +604,11 @@ def _stream_logging_obj(endpoint: str, dynamic_async_success_callbacks: list[Cus
         stream=True,
         call_type="pass_through_endpoint",
         start_time=datetime(2025, 1, 1),
-        litellm_call_id="call-1",
+        hangarllm_call_id="call-1",
         function_id="fn-1",
         dynamic_async_success_callbacks=dynamic_async_success_callbacks,
     )
-    logging_obj.update_environment_variables(litellm_params={}, optional_params={})
+    logging_obj.update_environment_variables(hangarllm_params={}, optional_params={})
     logging_obj.model_call_details["custom_llm_provider"] = "bedrock"
     logging_obj.model_call_details["endpoint"] = endpoint
     return logging_obj
@@ -685,7 +685,7 @@ def test_converse_stream_collector_keeps_usage_without_retaining_the_stream():
     assert response.choices[0].finish_reason == "stop"
     assert (response.usage.prompt_tokens, response.usage.completion_tokens) == (25, _LARGE_TOKENS)
     assert (
-        litellm.completion_cost(
+        hangarllm.completion_cost(
             model=f"bedrock/{CONVERSE_MODEL}",
             completion_response=response,
         )
@@ -726,7 +726,7 @@ def test_converse_stream_cut_before_usage_estimates_prompt_tokens_from_the_reque
         {"role": "user", "content": '{"query": "harbor log"}'},
         {"role": "user", "content": 'calm water\n{"wind": "steady"}'},
     ]
-    assert response.usage.prompt_tokens == litellm.token_counter(model=logging_obj.model, messages=expected_messages)
+    assert response.usage.prompt_tokens == hangarllm.token_counter(model=logging_obj.model, messages=expected_messages)
     assert response.usage.prompt_tokens > 0
 
     for request_without_turns in ("not a Converse request", {"prompt": "a model-native invoke body"}):
@@ -885,7 +885,7 @@ def test_invoke_stream_collector_keeps_usage_without_retaining_the_stream():
     assert response.choices[0].finish_reason == "stop"
     assert (response.usage.prompt_tokens, response.usage.completion_tokens) == (25, _LARGE_TOKENS)
     assert (
-        litellm.completion_cost(
+        hangarllm.completion_cost(
             model=f"bedrock/{CONVERSE_MODEL}",
             completion_response=response,
         )
@@ -935,11 +935,11 @@ async def _sent_passthrough_request(
         requests.append(request)
         return httpx.Response(200, json={"ok": True}, request=request)
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-pt",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_access_key_id": "AKIAROUTERKEY",
                     "aws_secret_access_key": "router-secret",
@@ -955,7 +955,7 @@ async def _sent_passthrough_request(
         endpoint=f"/model/bedrock-pt/{action}",
         data=body,
         client=AsyncHTTPHandler(transport=httpx.MockTransport(respond)),
-        litellm_metadata=identity,
+        hangarllm_metadata=identity,
         **kwargs,
     )
     return requests[0]
@@ -973,7 +973,7 @@ def _signed_header_names(request: httpx.Request) -> frozenset[str]:
 async def test_converse_passthrough_signs_proxy_identity_into_request_metadata(
     action: str, query_params: dict[str, str] | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
     caller_body: Final = {**CONVERSE_BODY, "requestMetadata": {"user_api_key_team_alias": "forged", "ticket": "T-42"}}
 
     request: Final = await _sent_passthrough_request(
@@ -993,7 +993,7 @@ async def test_converse_passthrough_signs_proxy_identity_into_request_metadata(
 async def test_invoke_passthrough_sends_proxy_identity_as_a_signed_header(
     action: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
 
     request: Final = await _sent_passthrough_request(
         action,
@@ -1012,7 +1012,7 @@ async def test_invoke_passthrough_sends_proxy_identity_as_a_signed_header(
 async def test_invoke_passthrough_keeps_caller_body_request_metadata_in_the_body(
     action: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
     caller_body: Final = {**INVOKE_BODY, "requestMetadata": {"user_api_key_team_alias": "forged", "ticket": "T-42"}}
 
     request: Final = await _sent_passthrough_request(
@@ -1034,7 +1034,7 @@ async def test_invoke_passthrough_keeps_caller_body_request_metadata_in_the_body
 async def test_passthrough_requests_are_untouched_when_forwarding_is_off(
     setting: list[str] | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", setting)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", setting)
     caller_body: Final = {**CONVERSE_BODY, "requestMetadata": {"user_api_key_team_alias": "forged"}}
 
     converse: Final = await _sent_passthrough_request("converse", caller_body, PROXY_IDENTITY)
@@ -1049,7 +1049,7 @@ async def test_passthrough_requests_are_untouched_when_forwarding_is_off(
 async def test_passthrough_drops_reserved_caller_keys_when_nothing_resolves(
     action: str, body: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
     caller_body: Final = {**body, "requestMetadata": {"user_api_key_team_alias": "forged"}}
 
     request: Final = await _sent_passthrough_request(action, caller_body, {})
@@ -1075,7 +1075,7 @@ MALFORMED_REQUEST_METADATA: Final = (
 async def test_malformed_converse_request_metadata_is_rejected_with_the_error_type_bedrock_returns(
     action: str, caller_metadata: object, violation: str, converse_error_type: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
 
     with pytest.raises(BedrockError, match=violation) as rejected:
         await _sent_passthrough_request(action, {**CONVERSE_BODY, "requestMetadata": caller_metadata}, PROXY_IDENTITY)
@@ -1090,7 +1090,7 @@ async def test_malformed_converse_request_metadata_is_rejected_with_the_error_ty
 async def test_malformed_invoke_request_metadata_is_rejected_as_a_bedrock_validation_error(
     action: str, caller_metadata: object, violation: str, converse_error_type: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
 
     with pytest.raises(BedrockError, match=violation) as rejected:
         await _sent_passthrough_request(action, {**INVOKE_BODY, "requestMetadata": caller_metadata}, PROXY_IDENTITY)
@@ -1104,7 +1104,7 @@ async def test_malformed_invoke_request_metadata_is_rejected_as_a_bedrock_valida
 async def test_invoke_null_request_metadata_is_rejected_like_bedrock_does(
     action: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
 
     with pytest.raises(BedrockError, match="must be a dictionary") as rejected:
         await _sent_passthrough_request(action, {**INVOKE_BODY, "requestMetadata": None}, PROXY_IDENTITY)
@@ -1118,7 +1118,7 @@ async def test_invoke_null_request_metadata_is_rejected_like_bedrock_does(
 async def test_converse_null_request_metadata_is_treated_as_absent_like_bedrock_does(
     action: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
 
     request: Final = await _sent_passthrough_request(action, {**CONVERSE_BODY, "requestMetadata": None}, PROXY_IDENTITY)
 
@@ -1130,7 +1130,7 @@ async def test_converse_null_request_metadata_is_treated_as_absent_like_bedrock_
 async def test_invoke_metadata_too_long_for_the_header_sends_the_leading_pairs_that_fit(
     action: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
     long_pairs: Final = {f"{index:02d}".ljust(256, "k"): "\n" * 256 for index in range(12)}
     resolved: Final = tuple(
         {"user_api_key_alias": "prod-key", "user_api_key_team_alias": "platform", **long_pairs}.items()
@@ -1157,8 +1157,8 @@ async def test_invoke_metadata_too_long_for_the_header_sends_the_leading_pairs_t
 async def test_malformed_caller_request_metadata_is_dropped_when_params_are_dropped(
     action: str, body: dict[str, object], drop_globally: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
-    monkeypatch.setattr(litellm, "drop_params", drop_globally)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "drop_params", drop_globally)
     caller_body: Final = {**body, "requestMetadata": {"user_api_key_team_alias": "forged", "bad!": "x"}}
 
     dropped: Final = await _sent_passthrough_request(
@@ -1185,8 +1185,8 @@ async def test_passthrough_body_is_sent_as_is_when_params_are_dropped_and_forwar
     drop_globally: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
-    monkeypatch.setattr(litellm, "drop_params", drop_globally)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "drop_params", drop_globally)
     caller_body: Final = {**body, "requestMetadata": caller_metadata}
 
     sent: Final = await _sent_passthrough_request(
@@ -1239,7 +1239,7 @@ def _invoke_guardrail_headers(request: httpx.Request) -> dict[str, str]:
 async def test_converse_passthrough_sends_the_deployment_guardrail_in_the_body(
     action: str, sent_guardrail: Mapping[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
 
     request: Final = await _sent_passthrough_request(
         action, CONVERSE_BODY, {}, deployment_params={"guardrailConfig": DEPLOYMENT_GUARDRAIL}
@@ -1254,7 +1254,7 @@ async def test_converse_passthrough_sends_the_deployment_guardrail_in_the_body(
 async def test_invoke_passthrough_sends_the_deployment_guardrail_as_signed_headers(
     action: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", REQUEST_METADATA_FIELDS)
 
     request: Final = await _sent_passthrough_request(
         action, INVOKE_BODY, PROXY_IDENTITY, deployment_params={"guardrailConfig": DEPLOYMENT_GUARDRAIL}
@@ -1274,7 +1274,7 @@ async def test_invoke_passthrough_sends_the_deployment_guardrail_as_signed_heade
 async def test_deployment_guardrail_replaces_the_caller_converse_guardrail(
     action: str, caller_guardrail: Mapping[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
 
     request: Final = await _sent_passthrough_request(
         action,
@@ -1294,7 +1294,7 @@ async def test_deployment_guardrail_replaces_the_caller_converse_guardrail(
 async def test_deployment_guardrail_replaces_every_invoke_guardrail_header_the_caller_sent(
     action: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
 
     request: Final = await _sent_passthrough_request(
         action,
@@ -1312,7 +1312,7 @@ async def test_deployment_guardrail_replaces_every_invoke_guardrail_header_the_c
 async def test_passthrough_without_a_deployment_guardrail_sends_the_caller_guardrail_as_is(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
     caller_body: Final = {**CONVERSE_BODY, "guardrailConfig": CALLER_GUARDRAIL}
 
     converse: Final = await _sent_passthrough_request("converse", caller_body, {})
@@ -1334,7 +1334,7 @@ async def test_passthrough_without_a_deployment_guardrail_sends_the_caller_guard
 async def test_invoke_passthrough_refuses_a_deployment_guardrail_it_cannot_send(
     action: str, guardrail_config: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
 
     with pytest.raises(BedrockError, match="guardrailConfig") as rejected:
         await _sent_passthrough_request(
@@ -1348,7 +1348,7 @@ async def test_invoke_passthrough_refuses_a_deployment_guardrail_it_cannot_send(
 async def test_converse_passthrough_forwards_a_non_object_deployment_guardrail_unchanged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
 
     request: Final = await _sent_passthrough_request(
         "converse", CONVERSE_BODY, {}, deployment_params={"guardrailConfig": "deployment-guardrail"}
@@ -1359,7 +1359,7 @@ async def test_converse_passthrough_forwards_a_non_object_deployment_guardrail_u
 
 @pytest.mark.asyncio
 async def test_passthrough_leaves_actions_without_a_guardrail_field_as_sent(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "bedrock_request_metadata_fields", None)
+    monkeypatch.setattr(hangarllm, "bedrock_request_metadata_fields", None)
     count_tokens_body: Final = {"input": {"converse": CONVERSE_BODY}}
 
     request: Final = await _sent_passthrough_request(

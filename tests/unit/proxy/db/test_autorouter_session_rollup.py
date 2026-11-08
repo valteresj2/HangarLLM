@@ -16,7 +16,7 @@ import httpx
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.proxy.db.autorouter_session_rollup import (
+from hangarllm.proxy.db.autorouter_session_rollup import (
     UPSERT_AUTOROUTER_SESSION_SQL,
     UPSERT_AUTOROUTER_USER_SESSION_SQL,
     AutoRouterTurnTransaction,
@@ -470,7 +470,7 @@ class TestEnqueueSeam:
     async def test_update_database_seam_enqueues_only_auto_routed_success(
         self, classifier_cost: float | None, estimate: dict[str, object] | None, covered: int, saved: float,
     ) -> None:
-        from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+        from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
 
         writer: Final = DBSpendUpdateWriter()
         fake_prisma: Final = SimpleNamespace(
@@ -502,7 +502,7 @@ class TestEnqueueSeam:
 def test_every_drain_trigger_reads_the_one_queue_census_owner():
     import inspect
 
-    from litellm.proxy import utils as proxy_utils
+    from hangarllm.proxy import utils as proxy_utils
 
     owner_source = inspect.getsource(proxy_utils._total_queued_spend_transactions)
     for queue in (
@@ -527,8 +527,8 @@ def test_internal_call_origin_never_reaches_the_rollup():
 @pytest.mark.parametrize(
     ("statement", "span_name"),
     (
-        (UPSERT_AUTOROUTER_SESSION_SQL, "postgres.upsert LiteLLM_AutoRouterSession"),
-        (UPSERT_AUTOROUTER_USER_SESSION_SQL, "postgres.upsert LiteLLM_AutoRouterUserSession"),
+        (UPSERT_AUTOROUTER_SESSION_SQL, "postgres.upsert HangarLLM_AutoRouterSession"),
+        (UPSERT_AUTOROUTER_USER_SESSION_SQL, "postgres.upsert HangarLLM_AutoRouterUserSession"),
     ),
 )
 async def test_the_turn_upsert_span_names_the_session_table_its_statement_writes(

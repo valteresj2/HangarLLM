@@ -1,6 +1,6 @@
 """prompt_caching_1h x Anthropic.
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 to Anthropic, opt into the 1-hour cache TTL via `ENABLE_PROMPT_CACHING_1H`,
 and assert that the upstream's usage block reports either
 `cache_creation_input_tokens` or `cache_read_input_tokens` > 0 — i.e.
@@ -76,7 +76,7 @@ def _cache_tokens(usage: Optional[Mapping[str, Any]]) -> int:
     )
 )
 def test_prompt_caching_1h_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy with the 1h
+    """Drive the `claude` CLI against the HangarLLM proxy with the 1h
     TTL opt-in env var set, and assert the upstream usage block
     surfaces a non-zero cache token count."""
     base_url, api_key = require_proxy(compat_result)

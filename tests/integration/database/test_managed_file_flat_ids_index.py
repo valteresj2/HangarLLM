@@ -19,9 +19,9 @@ from psycopg import sql
 from pydantic import JsonValue, TypeAdapter
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
-PRISMA_DIR: Final = REPO_ROOT / "litellm-proxy-extras" / "litellm_proxy_extras"
+PRISMA_DIR: Final = REPO_ROOT / "hangarllm-proxy-extras" / "hangarllm_proxy_extras"
 GIN_MIGRATION: Final = "20261003000000_add_managed_file_flat_ids_gin_index"
-INDEX_NAME: Final = "LiteLLM_ManagedFileTable_flat_model_file_ids_idx"
+INDEX_NAME: Final = "HangarLLM_ManagedFileTable_flat_model_file_ids_idx"
 SHIPPED_MIGRATIONS: Final = tuple(sorted(path.name for path in (PRISMA_DIR / "migrations").iterdir() if path.is_dir()))
 INDEX_ROW: Final = (
     "SELECT i.indexdef, x.indisvalid FROM pg_indexes i "
@@ -43,7 +43,7 @@ def _assert_valid_gin_index(rows: list[dict[str, JsonValue]]) -> None:
     assert len(rows) == 1, rows
     definition: Final = string_value(rows[0]["indexdef"])
     assert "USING gin" in definition, definition
-    assert '"LiteLLM_ManagedFileTable"' in definition, definition
+    assert '"HangarLLM_ManagedFileTable"' in definition, definition
     assert "flat_model_file_ids" in definition, definition
     assert rows[0]["indisvalid"] is True, rows
 
@@ -57,7 +57,7 @@ def _leg_python_path() -> str:
     return os.pathsep.join(
         (
             str(REPO_ROOT),
-            str(REPO_ROOT / "litellm-proxy-extras"),
+            str(REPO_ROOT / "hangarllm-proxy-extras"),
             str(REPO_ROOT / "enterprise"),
             os.environ.get("PYTHONPATH", ""),
         )
@@ -83,7 +83,7 @@ def _deploy_schema_before(database_url: str, directory: Path, migration: str) ->
 
 def _run_migration_entrypoint(database_url: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "litellm.proxy.prisma_migration"],
+        [sys.executable, "-m", "hangarllm.proxy.prisma_migration"],
         capture_output=True,
         text=True,
         timeout=600,
@@ -175,7 +175,7 @@ def test_migration_entrypoint_adds_the_gin_index_and_the_upgraded_proxy_maps_man
                 "/model/new",
                 {
                     "model_name": model,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "upgraded-provider-key",
                         "api_base": wire.url + "/v1",
@@ -191,7 +191,7 @@ def test_migration_entrypoint_adds_the_gin_index_and_the_upgraded_proxy_maps_man
             assert uploaded.status_code == 200, uploaded.text
             managed: Final = string_value(JSON_OBJECT.validate_json(uploaded.content)["id"])
             assert read_rows(
-                'SELECT flat_model_file_ids FROM "LiteLLM_ManagedFileTable" WHERE unified_file_id = %s',
+                'SELECT flat_model_file_ids FROM "HangarLLM_ManagedFileTable" WHERE unified_file_id = %s',
                 (managed,),
                 database_url=database_url,
             ) == [{"flat_model_file_ids": [provider_file_id]}]

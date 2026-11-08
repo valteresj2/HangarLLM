@@ -30,7 +30,7 @@ _MATRIX = [
 
 
 async def _seed_budget(db, budget_id: str, max_budget: float) -> str:
-    await db.db.litellm_budgettable.create(
+    await db.db.hangarllm_budgettable.create(
         data={
             "budget_id": budget_id,
             "max_budget": max_budget,
@@ -54,7 +54,7 @@ async def _seed_team_with_default_budget(db, actors, shape: str, team_id: str, r
         await create_scratch_team(db, team_id, organization_id=actors.org_b_id)
     else:
         pytest.fail(f"unknown shape={shape}")
-    await db.db.litellm_teamtable.update(
+    await db.db.hangarllm_teamtable.update(
         where={"team_id": team_id},
         data={"metadata": Json({"team_member_budget_id": default_budget_id})},
     )
@@ -63,19 +63,19 @@ async def _seed_team_with_default_budget(db, actors, shape: str, team_id: str, r
 
 async def _seed_custom_member(db, team_id: str, member_id: str, resources) -> str:
     custom_budget_id = await _seed_budget(db, resources.tag("custom-budget"), _CUSTOM_MAX_BUDGET)
-    await db.db.litellm_teammembership.create(
+    await db.db.hangarllm_teammembership.create(
         data={
             "user_id": member_id,
             "team_id": team_id,
             "spend": _SEED_SPEND,
-            "litellm_budget_table": {"connect": {"budget_id": custom_budget_id}},
+            "hangarllm_budget_table": {"connect": {"budget_id": custom_budget_id}},
         }
     )
     return custom_budget_id
 
 
 async def _membership(db, team_id: str, member_id: str):
-    row = await db.db.litellm_teammembership.find_unique(
+    row = await db.db.hangarllm_teammembership.find_unique(
         where={"user_id_team_id": {"user_id": member_id, "team_id": team_id}}
     )
     assert row is not None
@@ -130,7 +130,7 @@ async def test_team_member_reset_budget_leaves_shared_default_row_untouched(gate
     )
     assert resp.status_code == 200, resp.text
 
-    default_row = await db.db.litellm_budgettable.find_unique(where={"budget_id": default_budget_id})
+    default_row = await db.db.hangarllm_budgettable.find_unique(where={"budget_id": default_budget_id})
     assert default_row is not None and default_row.max_budget == _TEAM_DEFAULT_MAX_BUDGET
 
     info = await gateway_client.get(
@@ -140,7 +140,7 @@ async def test_team_member_reset_budget_leaves_shared_default_row_untouched(gate
     assert info.status_code == 200, info.text
     memberships = {tm["user_id"]: tm for tm in info.json()["team_memberships"]}
     assert memberships[member_id]["budget_source"] == "team_default"
-    assert memberships[member_id]["litellm_budget_table"]["max_budget"] == _TEAM_DEFAULT_MAX_BUDGET
+    assert memberships[member_id]["hangarllm_budget_table"]["max_budget"] == _TEAM_DEFAULT_MAX_BUDGET
 
 
 async def test_team_member_reset_budget_without_team_default_detaches_member(gateway_client, db, resources, actors):

@@ -24,17 +24,17 @@ TQ002   Mock-echo: a test that patches something and whose every assertion only
         code calls, so it survives any refactor that keeps the call and breaks the
         behavior. Assert what the caller observes -- the returned value, the
         rebuilt response, the raised exception -- and fake at the HTTP boundary
-        (respx / MockTransport) rather than patching litellm internals.
+        (respx / MockTransport) rather than patching hangarllm internals.
         A test with no assertions at all is TQ001, never TQ002.
 TQ003   `sys.path.insert(...)` inside the test tree. pytest's rootdir handling and
-        the installed package already make `litellm` importable, so these are
+        the installed package already make `hangarllm` importable, so these are
         no-ops carried by copy-paste; the ones that are not no-ops make the test's
         imports depend on the working directory it happens to run from.
 TQ004   Raw `os.environ[...] = ...` assignment. The write outlives the test and
         leaks into whatever runs next in the same process, which is how a suite
         acquires an ordering dependency. Use `monkeypatch.setenv`, which is undone
         at teardown.
-TQ005   `litellm.<attr> = ...` module-global mutation. The SDK's module globals are
+TQ005   `hangarllm.<attr> = ...` module-global mutation. The SDK's module globals are
         process-wide, so this is the same leak as TQ004 one level up, and it is
         what the 491-line save/restore conftest exists to paper over. Inject the
         dependency or use a fixture that restores it.
@@ -59,10 +59,10 @@ TQ007   A module global that a conftest saves before every test and restores aft
 TQ009   A child interpreter spawned as `subprocess.run([sys.executable, ...])` without
         `-I`/`-P` as its first flag. Without isolation the child's sys.path leads with
         the working directory, so a source checkout shadows the installed package and
-        the child tests a different `litellm` than the parent imported -- TQ003 is the
+        the child tests a different `hangarllm` than the parent imported -- TQ003 is the
         same working-directory hazard seen from the child's side. Use
-        tests.test_litellm_rust.support.child_interpreter.run_child_interpreter, which
-        also asserts the child resolved the same `litellm.__file__` as the parent.
+        tests.test_hangarllm_rust.support.child_interpreter.run_child_interpreter, which
+        also asserts the child resolved the same `hangarllm.__file__` as the parent.
 TQ010   An integration test that signals a process itself, outside the harness in
         tests/integration/_support: `os.kill`, `os.killpg`, a SIGKILL / SIGSTOP / SIGCONT
         constant handed to any call, or a zero-argument `.kill()` / `.terminate()` /
@@ -173,7 +173,7 @@ ENVIRON_READERS: Final = frozenset(("os.environ.get", "environ.get", "os.getenv"
 ENVIRON_MAPPINGS: Final = frozenset(("os.environ", "environ"))
 SKIP_CALLS: Final = frozenset(("pytest.skip", "skip"))
 CONFTEST_NAME: Final = "conftest.py"
-SDK_MODULE: Final = "litellm"
+SDK_MODULE: Final = "hangarllm"
 
 SUBPROCESS_SPAWNS: Final = frozenset(("run", "Popen", "check_output", "check_call", "call"))
 INTERPRETER_ISOLATION_FLAGS: Final = frozenset(("-I", "-P"))
@@ -473,7 +473,7 @@ def iter_sys_path_violations(path: Path, tree: ast.Module) -> Iterator[Violation
                 node.lineno,
                 "TQ003",
                 "sys.path.insert in a test; pytest's rootdir and the installed package already "
-                f"make litellm importable (suppress: `# {SUPPRESSION_TOKEN}: <reason>`)",
+                f"make hangarllm importable (suppress: `# {SUPPRESSION_TOKEN}: <reason>`)",
             )
 
 
@@ -504,12 +504,12 @@ def iter_environ_violations(path: Path, tree: ast.Module) -> Iterator[Violation]
                 )
 
 
-def _litellm_attribute_targets(target: ast.expr) -> Iterator[ast.Attribute]:
+def _hangarllm_attribute_targets(target: ast.expr) -> Iterator[ast.Attribute]:
     if isinstance(target, ast.Tuple):
         for element in target.elts:
-            yield from _litellm_attribute_targets(element)
+            yield from _hangarllm_attribute_targets(element)
         return
-    if isinstance(target, ast.Attribute) and _dotted_name(target.value) == "litellm":
+    if isinstance(target, ast.Attribute) and _dotted_name(target.value) == "hangarllm":
         yield target
 
 
@@ -521,12 +521,12 @@ def iter_global_mutation_violations(path: Path, tree: ast.Module) -> Iterator[Vi
             else ()
         )
         for target in targets:
-            for attribute in _litellm_attribute_targets(target):
+            for attribute in _hangarllm_attribute_targets(target):
                 yield Violation(
                     path,
                     attribute.lineno,
                     "TQ005",
-                    f"litellm.{attribute.attr} is a process-wide global; writing it here is what the "
+                    f"hangarllm.{attribute.attr} is a process-wide global; writing it here is what the "
                     "save/restore conftest exists to undo, so inject the dependency or use a fixture "
                     f"(suppress: `# {SUPPRESSION_TOKEN}: <reason>`)",
                 )
@@ -643,7 +643,7 @@ def _subscript_targets(node: ast.AST) -> Iterator[ast.Subscript]:
 
 
 def _saves_sdk_attribute_by_key(node: ast.AST) -> Iterator[ast.Subscript]:
-    """Every `<dict>["name"] = <something read off litellm>`, whatever the dict is called.
+    """Every `<dict>["name"] = <something read off hangarllm>`, whatever the dict is called.
 
     Matching on the shape rather than on a list of blessed dict names is what reaches
     the conftest that builds its snapshot inside a helper and calls the dict `state`.
@@ -656,7 +656,7 @@ def _saves_sdk_attribute_by_key(node: ast.AST) -> Iterator[ast.Subscript]:
 def _saves_sdk_attributes_in_loop(node: ast.For) -> bool:
     """A save loop reads the SDK and stores under the loop variable, in either order.
 
-    The read is often bound to a local first (`val = getattr(litellm, attr)`) and only
+    The read is often bound to a local first (`val = getattr(hangarllm, attr)`) and only
     then stored, so the read and the store are separate statements and cannot be
     required of the same assignment.
     """
@@ -731,7 +731,7 @@ def iter_child_interpreter_violations(path: Path, tree: ast.Module) -> Iterator[
             "TQ009",
             "child interpreter spawned without -I/-P; the working directory lands on sys.path "
             "and a source checkout can shadow the installed package, use "
-            "tests.test_litellm_rust.support.child_interpreter.run_child_interpreter or pass -I "
+            "tests.test_hangarllm_rust.support.child_interpreter.run_child_interpreter or pass -I "
             f"(suppress: `# {SUPPRESSION_TOKEN}: <reason>`)",
         )
 
@@ -939,7 +939,7 @@ def iter_conftest_inventory_violations(path: Path, tree: ast.Module) -> Iterator
             path,
             line,
             "TQ007",
-            f"`litellm.{name}` is saved and restored around every test in this tree; the list is an "
+            f"`hangarllm.{name}` is saved and restored around every test in this tree; the list is an "
             "inventory of known leaks and may only shrink, so give the consumers an injection seam "
             f"instead of adding to it (suppress: `# {SUPPRESSION_TOKEN}: <reason>`)",
         )

@@ -18,7 +18,7 @@ def _key_rows(digest: str) -> list[dict[str, JsonValue]]:
         'agent_id, project_id, permissions, max_parallel_requests, metadata, blocked, tpm_limit, rpm_limit, '
         'tpd_limit, max_budget, budget_duration, allowed_cache_controls, allowed_routes, key_type, policies, '
         'access_group_ids, model_spend, model_max_budget, budget_fallbacks, budget_id, organization_id, '
-        'object_permission_id, budget_limits FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        'object_permission_id, budget_limits FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (digest,),
     )
 
@@ -61,7 +61,7 @@ def test_generated_partial_updates_preserve_persisted_and_effective_state(gatewa
         @invariant()
         def persisted_state_and_serving_match(self) -> None:
             rows: Final = read_rows(
-                'SELECT models, key_alias, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+                'SELECT models, key_alias, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
                 (sha256(self.key.encode()).hexdigest(),),
             )
             assert rows == [self.expected]
@@ -114,13 +114,13 @@ def test_zero_false_and_empty_values_are_not_treated_as_omission(gateway: Gatewa
         gateway.post("/key/update", {"key": key, "blocked": False})
         assert object_value(gateway.chat(models[0], key=key)["usage"])["total_tokens"] == 40
         rows: Final = read_rows(
-            'SELECT blocked, models, metadata, max_budget FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT blocked, models, metadata, max_budget FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         )
         assert rows == [{"blocked": False, "models": [], "metadata": {}, "max_budget": 1.0}]
         gateway.post("/key/update", {"key": key, "max_budget": 0})
         assert read_rows(
-            'SELECT max_budget FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT max_budget FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         ) == [{"max_budget": 0.0}]
         zero_after_update: Final = gateway.request(
@@ -131,7 +131,7 @@ def test_zero_false_and_empty_values_are_not_treated_as_omission(gateway: Gatewa
         assert zero_after_update.json()["error"]["type"] == "budget_exceeded"
         gateway.post("/key/update", {"key": key, "max_budget": None})
         assert read_rows(
-            'SELECT max_budget FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT max_budget FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         ) == [{"max_budget": None}]
         assert object_value(gateway.chat(models[0], key=key)["usage"])["total_tokens"] == 40
@@ -152,7 +152,7 @@ def test_project_omission_clear_and_invalid_update_have_distinct_effects(gateway
 
         def saved() -> list[dict[str, object]]:
             return read_rows(
-                'SELECT key_alias, project_id, team_id, models, max_budget FROM "LiteLLM_VerificationToken" '
+                'SELECT key_alias, project_id, team_id, models, max_budget FROM "HangarLLM_VerificationToken" '
                 'WHERE token = %s', (digest,),
             )
 
@@ -199,7 +199,7 @@ def test_denied_key_update_preserves_saved_grants_and_serving(gateway: Gateway) 
         )
         assert denied.status_code == 403, denied.text
         assert read_rows(
-            'SELECT user_id, models, key_alias, max_budget FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT user_id, models, key_alias, max_budget FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         ) == [{"user_id": owner, "models": [model], "key_alias": "unchanged", "max_budget": 2.0}]
         assert object_value(gateway.chat(model, key=key)["usage"])["total_tokens"] == 40

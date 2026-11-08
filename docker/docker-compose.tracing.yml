@@ -1,21 +1,21 @@
-name: litellm-tracing
+name: hangarllm-tracing
 
 services:
-  litellm:
+  hangarllm:
     build:
       context: ..
       target: runtime
       args:
-        LITELLM_RELEASE_TAG: ${LITELLM_RELEASE_TAG:-}
+        HANGARLLM_RELEASE_TAG: ${HANGARLLM_RELEASE_TAG:-}
     command: ["--config", "/app/tracing-config.yaml", "--port", "4000"]
     environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY}
-      LITELLM_SALT_KEY: sk-local-tracing-salt-key
-      DATABASE_URL: postgresql://litellm:litellm@db:5432/litellm
+      HANGARLLM_MASTER_KEY: ${HANGARLLM_MASTER_KEY:?set HANGARLLM_MASTER_KEY}
+      HANGARLLM_SALT_KEY: sk-local-tracing-salt-key
+      DATABASE_URL: postgresql://hangarllm:hangarllm@db:5432/hangarllm
       STORE_MODEL_IN_DB: "True"
-      LITELLM_LENS_URL: ${LITELLM_LENS_URL:?set the Lens URL reachable from the gateway container}
-      LITELLM_LENS_PUBLIC_URL: ${LITELLM_LENS_PUBLIC_URL:?set the Lens URL reachable from your browser and agents}
-      LITELLM_LENS_SERVICE_TOKEN: ${LITELLM_LENS_SERVICE_TOKEN:?set LITELLM_LENS_SERVICE_TOKEN}
+      HANGARLLM_LENS_URL: ${HANGARLLM_LENS_URL:?set the Lens URL reachable from the gateway container}
+      HANGARLLM_LENS_PUBLIC_URL: ${HANGARLLM_LENS_PUBLIC_URL:?set the Lens URL reachable from your browser and agents}
+      HANGARLLM_LENS_SERVICE_TOKEN: ${HANGARLLM_LENS_SERVICE_TOKEN:?set HANGARLLM_LENS_SERVICE_TOKEN}
       LENS_GATEWAY_SECRET: ${LENS_GATEWAY_SECRET:?set the same signing secret on Lens and the gateway}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
@@ -29,15 +29,15 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_DB: litellm
-      POSTGRES_USER: litellm
-      POSTGRES_PASSWORD: litellm
+      POSTGRES_DB: hangarllm
+      POSTGRES_USER: hangarllm
+      POSTGRES_PASSWORD: hangarllm
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:15432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+      test: ["CMD-SHELL", "pg_isready -U hangarllm -d hangarllm"]
       interval: 5s
       timeout: 5s
       retries: 10

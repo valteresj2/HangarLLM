@@ -5,12 +5,12 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_mistral_transformation import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_mistral_transformation import (
     AmazonMistralConfig,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 
 
 def test_mistral_get_outputText():
@@ -51,7 +51,7 @@ def test_mistral_invoke_outputs_become_message_content(respx_mock: respx.Router)
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/mistral.mistral-7b-instruct-v0:2",
         messages=[{"role": "user", "content": "Write a short poem about the sky"}],
         max_tokens=10,
@@ -87,7 +87,7 @@ def test_mixtral_invoke_system_prompt_variants_render_into_the_prompt(
         "https://bedrock-runtime.us-west-2.amazonaws.com/model/mistral.mixtral-8x7b-instruct-v0%3A1/invoke"
     ).mock(return_value=httpx.Response(200, json={"outputs": [{"text": "Hi there", "stop_reason": "stop"}]}))
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/mistral.mixtral-8x7b-instruct-v0:1",
         messages=[
             {"role": "system", "content": system},

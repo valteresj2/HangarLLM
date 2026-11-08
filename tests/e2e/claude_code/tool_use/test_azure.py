@@ -1,12 +1,12 @@
 """tool_use x Azure (Microsoft Foundry).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to Anthropic's models hosted in Microsoft Foundry on
 Azure, ask Claude to invoke a built-in tool (`Bash`), and assert that
 the upstream returned a `tool_use` content block.
 
 Foundry's Anthropic deployments support function/tool calling
-identically to anthropic.com; LiteLLM's `azure_ai/claude-*` route
+identically to anthropic.com; HangarLLM's `azure_ai/claude-*` route
 inherits the full Anthropic tool-use transformation.
 
 The (feature, provider) for this cell is inferred from the file path by
@@ -78,7 +78,7 @@ def _has_tool_use_event(events: Sequence[Mapping[str, Any]]) -> bool:
     )
 )
 def test_tool_use_azure(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert a
+    """Drive the `claude` CLI against the HangarLLM proxy and assert a
     tool call was emitted on the wire."""
     base_url, api_key = require_proxy(compat_result)
 

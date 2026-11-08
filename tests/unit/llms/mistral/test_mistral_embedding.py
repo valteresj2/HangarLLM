@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 import respx
 
-import litellm
+import hangarllm
 
 
 def test_mistral_embedding_uses_mistral_embeddings_endpoint(respx_mock: respx.MockRouter) -> None:
@@ -21,7 +21,7 @@ def test_mistral_embedding_uses_mistral_embeddings_endpoint(respx_mock: respx.Mo
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model="mistral/mistral-embed",
         input=["hello"],
         api_key="test-mistral-key",

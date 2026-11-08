@@ -13,11 +13,11 @@ import httpx
 import pytest
 
 from fastapi.exceptions import HTTPException
-from litellm.proxy.guardrails.guardrail_hooks.xecguard.xecguard import (
+from hangarllm.proxy.guardrails.guardrail_hooks.xecguard.xecguard import (
     XecGuardGuardrail,
     XecGuardMissingCredentials,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.xecguard import (
+from hangarllm.types.proxy.guardrails.guardrail_hooks.xecguard import (
     XecGuardConfigModel,
 )
 
@@ -202,7 +202,7 @@ class TestXecGuardConfiguration:
         assert guardrail.policy_names == policies
 
     def test_supported_event_hooks_contains_all_four(self):
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         guardrail = XecGuardGuardrail(api_key="xgs_default")
         hooks = guardrail.supported_event_hooks
@@ -213,7 +213,7 @@ class TestXecGuardConfiguration:
         assert GuardrailEventHooks.logging_only in hooks
 
     def test_supported_event_hooks_override_preserved(self):
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         guardrail = XecGuardGuardrail(
             api_key="xgs_default",
@@ -760,7 +760,7 @@ class TestXecGuardGrounding:
         assert sent_docs == [{"document_id": "good", "context": "good context"}]
 
     @pytest.mark.asyncio
-    async def test_grounding_metadata_falls_back_to_litellm_metadata(
+    async def test_grounding_metadata_falls_back_to_hangarllm_metadata(
         self, xecguard_guardrail
     ):
         request_data = {
@@ -769,7 +769,7 @@ class TestXecGuardGrounding:
                 {"role": "user", "content": "q"},
             ],
             "response": _build_model_response("a"),
-            "litellm_metadata": {
+            "hangarllm_metadata": {
                 "xecguard_grounding_documents": [{"document_id": "d", "context": "c"}]
             },
         }
@@ -789,7 +789,7 @@ class TestXecGuardGrounding:
 
     @pytest.mark.asyncio
     async def test_grounding_metadata_missing_returns_empty(self, xecguard_guardrail):
-        """No ``metadata`` and no ``litellm_metadata`` keys at all means
+        """No ``metadata`` and no ``hangarllm_metadata`` keys at all means
         the fallback chain yields None (not a dict) and grounding skips.
         """
         request_data = {
@@ -1380,7 +1380,7 @@ class TestXecGuardRequestPayload:
         default set (System Prompt Enforcement + Harmful Content
         Protection) so the request is always acceptable to the server.
         """
-        from litellm.proxy.guardrails.guardrail_hooks.xecguard.xecguard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.xecguard.xecguard import (
             _DEFAULT_POLICIES,
         )
 
@@ -1910,7 +1910,7 @@ class TestXecGuardConfigModel:
         """The UI renders policy_names as a multiselect dropdown. Guard
         against accidental removal of the json_schema_extra metadata and
         verify the six default policies are offered."""
-        from litellm.types.proxy.guardrails.guardrail_hooks.xecguard import (
+        from hangarllm.types.proxy.guardrails.guardrail_hooks.xecguard import (
             XECGUARD_DEFAULT_POLICY_OPTIONS,
         )
 
@@ -1938,14 +1938,14 @@ class TestXecGuardConfigModel:
 
 class TestXecGuardInitializer:
     def test_initializer_registry_has_entry(self):
-        from litellm.proxy.guardrails.guardrail_hooks.xecguard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.xecguard import (
             guardrail_initializer_registry,
         )
 
         assert "xecguard" in guardrail_initializer_registry
 
     def test_class_registry_has_entry(self):
-        from litellm.proxy.guardrails.guardrail_hooks.xecguard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.xecguard import (
             guardrail_class_registry,
         )
 
@@ -1953,17 +1953,17 @@ class TestXecGuardInitializer:
         assert guardrail_class_registry["xecguard"] is XecGuardGuardrail
 
     def test_enum_value_exists(self):
-        from litellm.types.guardrails import SupportedGuardrailIntegrations
+        from hangarllm.types.guardrails import SupportedGuardrailIntegrations
 
         assert SupportedGuardrailIntegrations.XECGUARD.value == "xecguard"
 
     def test_initializer_creates_instance(self):
-        from litellm.proxy.guardrails.guardrail_hooks.xecguard import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.xecguard import (
             initialize_guardrail,
         )
-        from litellm.types.guardrails import LitellmParams
+        from hangarllm.types.guardrails import HangarllmParams
 
-        params = LitellmParams(
+        params = HangarllmParams(
             guardrail="xecguard",
             mode="pre_call",
             api_key="xgs_init",
@@ -1971,7 +1971,7 @@ class TestXecGuardInitializer:
             default_on=False,
         )
         guardrail = {"guardrail_name": "xg-test"}
-        cb = initialize_guardrail(litellm_params=params, guardrail=guardrail)
+        cb = initialize_guardrail(hangarllm_params=params, guardrail=guardrail)
         assert isinstance(cb, XecGuardGuardrail)
         assert cb.api_key == "xgs_init"
         assert cb.guardrail_name == "xg-test"

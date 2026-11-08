@@ -5,11 +5,11 @@ from typing import Final
 
 import pytest
 
-import litellm
+import hangarllm
 
 REPO_ROOT: Final = Path(__file__).parents[2]
 MAIN_PATH: Final = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PATH: Final = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PATH: Final = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 FLASH_TTS_KEYS: Final = ("gemini-2.5-flash-preview-tts", "gemini/gemini-2.5-flash-preview-tts")
 PRO_TTS_KEYS: Final = ("gemini-2.5-pro-preview-tts", "gemini/gemini-2.5-pro-preview-tts")
@@ -72,11 +72,11 @@ def _load(path: Path) -> dict[str, dict[str, object]]:
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.mark.parametrize("model", ALL_KEYS)

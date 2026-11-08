@@ -14,13 +14,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.vertex_ai.gemini.transformation import (
+from hangarllm.llms.vertex_ai.gemini.transformation import (
     gemini_convert_messages_with_history,
 )
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm.types.llms.vertex_ai import HttpxPartType
+from hangarllm.types.llms.vertex_ai import HttpxPartType
 
 # --- Response extraction tests ---
 

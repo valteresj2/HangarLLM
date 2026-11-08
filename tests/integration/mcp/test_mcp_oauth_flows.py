@@ -59,7 +59,7 @@ def _response_object(response: httpx.Response) -> dict[str, object]:
 
 
 def _open_aliases() -> frozenset[str]:
-    rows: Final = read_rows('SELECT alias FROM "LiteLLM_MCPServerTable" WHERE allow_all_keys', ())
+    rows: Final = read_rows('SELECT alias FROM "HangarLLM_MCPServerTable" WHERE allow_all_keys', ())
     return frozenset(str(row["alias"]) for row in rows)
 
 
@@ -110,7 +110,7 @@ def _register_oauth(scenario, peer: McpPeer, auth: AuthorizationServer, alias: s
 
 def _plaintext_credential_rows(identity: str, secret: str) -> list[dict[str, object]]:
     return read_rows(
-        'SELECT server_id FROM "LiteLLM_MCPServerTable" WHERE server_id = %s AND credentials::text LIKE %s',
+        'SELECT server_id FROM "HangarLLM_MCPServerTable" WHERE server_id = %s AND credentials::text LIKE %s',
         (identity, f"%{secret}%"),
     )
 
@@ -193,7 +193,7 @@ def test_token_exchange_swaps_the_callers_subject_token_and_never_forwards_it(ga
         auth.drain()
         response: Final = gateway.client.post(
             "/mcp-rest/tools/call",
-            headers={"x-litellm-api-key": key, "Authorization": f"Bearer {subject}"},
+            headers={"x-hangarllm-api-key": key, "Authorization": f"Bearer {subject}"},
             json={"name": f"{alias}-add", "arguments": ADD, "server_id": identity},
         )
         assert response.status_code == 200, response.text
@@ -227,7 +227,7 @@ def test_token_exchange_without_a_subject_token_is_rejected_before_any_upstream_
         _assert_subject_token_challenge(cold, alias)
         warmed: Final = gateway.client.post(
             "/mcp-rest/tools/call",
-            headers={"x-litellm-api-key": key, "Authorization": "Bearer subject-" + uuid.uuid4().hex},
+            headers={"x-hangarllm-api-key": key, "Authorization": "Bearer subject-" + uuid.uuid4().hex},
             json={"name": f"{alias}-add", "arguments": ADD, "server_id": identity},
         )
         assert warmed.status_code == 200, warmed.text
@@ -239,7 +239,7 @@ def test_token_exchange_without_a_subject_token_is_rejected_before_any_upstream_
         _assert_subject_token_challenge(warm, alias)
         as_subject: Final = gateway.client.post(
             "/mcp-rest/tools/call",
-            headers={"x-litellm-api-key": key, "Authorization": f"Bearer {key}"},
+            headers={"x-hangarllm-api-key": key, "Authorization": f"Bearer {key}"},
             json={"name": f"{alias}-add", "arguments": ADD, "server_id": identity},
         )
         assert tool_calls(peer.drain()) == ()
@@ -271,7 +271,7 @@ def test_jwt_mapped_to_a_virtual_key_is_exchanged_for_tools_list_and_call(gatewa
         "mapped_obo.yaml",
         {
             "enable_jwt_auth": True,
-            "litellm_jwtauth": {"user_id_jwt_field": "sub", "virtual_key_claim_field": "sub"},
+            "hangarllm_jwtauth": {"user_id_jwt_field": "sub", "virtual_key_claim_field": "sub"},
         },
     )
     with (
@@ -357,7 +357,7 @@ def test_jwt_mapped_to_a_virtual_key_is_exchanged_for_tools_list_and_call(gatewa
         auth.drain()
         for headers in (
             {"Authorization": f"Bearer {key}"},
-            {"Authorization": f"Bearer {key}", "x-litellm-api-key": key},
+            {"Authorization": f"Bearer {key}", "x-hangarllm-api-key": key},
         ):
             rejected: Final = candidate.client.post(
                 "/mcp-rest/tools/call",
@@ -413,7 +413,7 @@ def _authorize_through_gateway(
             "code_challenge_method": "S256",
             "scope": scope,
         },
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
     )
     assert started.status_code in (302, 307), started.text
     upstream: Final = started.headers["location"]
@@ -426,7 +426,7 @@ def _authorize_through_gateway(
     callback: Final = consent.headers["location"]
     assert callback.startswith(_base(gateway)), callback
     returned: Final = gateway.client.get(
-        callback.removeprefix(_base(gateway)), headers={"x-litellm-api-key": key}, cookies=started.cookies
+        callback.removeprefix(_base(gateway)), headers={"x-hangarllm-api-key": key}, cookies=started.cookies
     )
     assert returned.status_code == 302, returned.text
     final: Final = parse_qs(urlsplit(returned.headers["location"]).query)
@@ -439,7 +439,7 @@ def _authorize_through_gateway(
 def _redeem(gateway: Gateway, alias: str, key: str, client_id: str, code: str, pkce: _Pkce) -> httpx.Response:
     return gateway.client.post(
         f"/{alias}/token",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         data={
             "grant_type": "authorization_code",
             "code": code,
@@ -542,7 +542,7 @@ def test_upstream_token_requests_carry_the_gateway_callback_and_server_credentia
 
         redeemed: Final = gateway.client.post(
             f"/{alias}/token",
-            headers={"x-litellm-api-key": owner},
+            headers={"x-hangarllm-api-key": owner},
             data={
                 "grant_type": "authorization_code",
                 "code": code,
@@ -563,7 +563,7 @@ def test_upstream_token_requests_carry_the_gateway_callback_and_server_credentia
         upstream_refresh_token: Final = str(issued["refresh_token"])
         refreshed: Final = gateway.client.post(
             f"/{alias}/token",
-            headers={"x-litellm-api-key": owner},
+            headers={"x-hangarllm-api-key": owner},
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": upstream_refresh_token,
@@ -589,7 +589,7 @@ def test_upstream_token_requests_carry_the_gateway_callback_and_server_credentia
 
         root_redeemed: Final = gateway.client.post(
             "/token",
-            headers={"x-litellm-api-key": owner},
+            headers={"x-hangarllm-api-key": owner},
             data={
                 "grant_type": "authorization_code",
                 "code": root_code,
@@ -613,7 +613,7 @@ def test_upstream_token_requests_carry_the_gateway_callback_and_server_credentia
         root_refresh_token: Final = str(root_issued["refresh_token"])
         root_refreshed: Final = gateway.client.post(
             "/token",
-            headers={"x-litellm-api-key": owner},
+            headers={"x-hangarllm-api-key": owner},
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": root_refresh_token,
@@ -685,14 +685,14 @@ def test_per_user_authorization_code_with_pkce_binds_the_token_to_the_authorizin
         assert tool_calls(peer.drain()) == ()
         refreshed: Final = gateway.client.post(
             f"/{alias}/token",
-            headers={"x-litellm-api-key": owner},
+            headers={"x-hangarllm-api-key": owner},
             data={"grant_type": "refresh_token", "refresh_token": issued["refresh_token"], "client_id": client_id},
         )
         assert refreshed.status_code == 200, refreshed.text
         assert refreshed.json()["access_token"] != issued["access_token"]
         assert (
             read_rows(
-                'SELECT 1 FROM "LiteLLM_MCPServerTable" WHERE server_id = %s AND credentials::text LIKE %s',
+                'SELECT 1 FROM "HangarLLM_MCPServerTable" WHERE server_id = %s AND credentials::text LIKE %s',
                 (identity, "%ac-secret%"),
             )
             == []
@@ -727,7 +727,7 @@ def test_per_user_authorization_code_token_is_read_back_from_the_database_by_a_f
         assert redeemed.status_code == 200, redeemed.text
         token: Final = _issued_token(redeemed.json())
         stored: Final = read_rows(
-            'SELECT credential_b64 FROM "LiteLLM_MCPUserCredentials" WHERE user_id = %s AND server_id = %s',
+            'SELECT credential_b64 FROM "HangarLLM_MCPUserCredentials" WHERE user_id = %s AND server_id = %s',
             (owner_id, identity),
         )
         assert len(stored) == 1, stored
@@ -736,7 +736,7 @@ def test_per_user_authorization_code_token_is_read_back_from_the_database_by_a_f
         config: Final = tmp_path / "no_redis.yaml"
         config.write_text(
             "general_settings:\n"
-            "  master_key: os.environ/LITELLM_MASTER_KEY\n"
+            "  master_key: os.environ/HANGARLLM_MASTER_KEY\n"
             "  database_url: os.environ/DATABASE_URL\n"
             "  store_model_in_db: true\n"
         )
@@ -758,7 +758,7 @@ def test_authorization_request_without_pkce_is_refused_before_reaching_the_autho
         refused: Final = gateway.client.get(
             f"/{alias}/authorize",
             params={"client_id": "c", "redirect_uri": CLIENT_REDIRECT, "response_type": "code", "state": "s"},
-            headers={"x-litellm-api-key": key},
+            headers={"x-hangarllm-api-key": key},
         )
         assert refused.status_code == 400, refused.text
         assert "PKCE" in refused.text
@@ -1191,7 +1191,7 @@ def test_lite_logout_revokes_the_cli_refresh_token_sent_the_way_the_cli_sends_it
         model: Final = scenario.model()
         team_id: Final = scenario.team()
         member: Final = scenario.member(team_id)
-        discovered: Final = gateway.client.get("/.well-known/litellm-cli-auth")
+        discovered: Final = gateway.client.get("/.well-known/hangarllm-cli-auth")
         assert discovered.status_code == 200, discovered.text
         contract: Final = _response_object(discovered)
         base: Final = _base(gateway)
@@ -1204,7 +1204,7 @@ def test_lite_logout_revokes_the_cli_refresh_token_sent_the_way_the_cli_sends_it
         registered: Final = gateway.client.post(
             str(contract["registration_endpoint"]),
             json={
-                "client_name": "LiteLLM CLI",
+                "client_name": "HangarLLM CLI",
                 "redirect_uris": [CLIENT_REDIRECT],
                 "grant_types": ["authorization_code", "refresh_token"],
                 "response_types": ["code"],
@@ -1450,7 +1450,7 @@ _GUARDRAIL_CODE: Final = (
 _ECHO_GUARDRAIL_YAML: Final = (
     "guardrails:\n"
     "  - guardrail_name: catalog-echo\n"
-    "    litellm_params:\n"
+    "    hangarllm_params:\n"
     "      guardrail: custom_code\n"
     "      mode: pre_mcp_call\n"
     "      default_on: true\n"
@@ -1542,7 +1542,7 @@ def _idp_proxy_config(directory: Path, team_id_jwt_field: str | None = None) -> 
         "mcp_idp.yaml",
         {
             "enable_jwt_auth": True,
-            "litellm_jwtauth": {
+            "hangarllm_jwtauth": {
                 "user_id_jwt_field": "sub",
                 "user_id_upsert": True,
                 **({} if team_id_jwt_field is None else {"team_id_jwt_field": team_id_jwt_field}),
@@ -1578,8 +1578,8 @@ def _registered_dcr_client(gateway: Gateway) -> str:
 
 @contextmanager
 def _idp_gateway(directory: Path, team_id_jwt_field: str | None, workers: int) -> Iterator[_IdpRig]:
-    assert os.environ.get("LITELLM_LICENSE"), (
-        "enable_jwt_auth is enterprise-only: these tests need LITELLM_LICENSE (CI forwards it); "
+    assert os.environ.get("HANGARLLM_LICENSE"), (
+        "enable_jwt_auth is enterprise-only: these tests need HANGARLLM_LICENSE (CI forwards it); "
         "without it /token answers 400 'JWT auth is an enterprise only feature; no license is set' "
         "and the failure reads as a regression instead of a missing license"
     )
@@ -1789,7 +1789,7 @@ def test_idp_subject_token_exchange_mints_a_credential_for_the_mapped_user_and_r
         spend: Final = eventually(
             lambda: read_rows(
                 "SELECT request_id, metadata->>'user_api_key_user_id' AS user_api_key_user_id "
-                'FROM "LiteLLM_SpendLogs" WHERE request_id IN (%s, %s) ORDER BY request_id',
+                'FROM "HangarLLM_SpendLogs" WHERE request_id IN (%s, %s) ORDER BY request_id',
                 request_ids,
             ),
             lambda rows: len(rows) == 2,
@@ -1800,14 +1800,14 @@ def test_idp_subject_token_exchange_mints_a_credential_for_the_mapped_user_and_r
             {"request_id": request_ids[1], "user_api_key_user_id": subject},
         ], spend
     user: Final = eventually(
-        lambda: read_rows('SELECT user_id, user_role, teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,)),
+        lambda: read_rows('SELECT user_id, user_role, teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,)),
         lambda rows: len(rows) == 1,
         seconds=70,
     )
     assert user == [{"user_id": subject, "user_role": None, "teams": []}], user
     access_token_hash: Final = hashlib.sha256(access_token.encode()).hexdigest()
     verification_tokens: Final = read_rows(
-        'SELECT token, user_id FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        'SELECT token, user_id FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (access_token_hash,),
     )
     assert verification_tokens == [], verification_tokens
@@ -1870,7 +1870,7 @@ def test_idp_subject_token_exchange_binds_the_team_claim_and_refuses_a_signed_su
             lambda: read_rows(
                 "SELECT team_id, metadata->>'user_api_key_user_id' AS user_api_key_user_id, "
                 "metadata->>'user_api_key_team_id' AS user_api_key_team_id "
-                'FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                'FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                 (request_id,),
             ),
             lambda rows: len(rows) == 1,
@@ -1895,8 +1895,8 @@ def test_idp_jwks_server_error_answers_temporarily_unavailable(tmp_path: Path) -
         "BUG: an IdP JWKS answering HTTP 503 makes the gateway /token token-exchange answer 400 invalid_request "
         "(subject_token rejected) instead of 503 temporarily_unavailable"
     )
-    assert os.environ.get("LITELLM_LICENSE"), (
-        "enable_jwt_auth is enterprise-only: these tests need LITELLM_LICENSE (CI forwards it); "
+    assert os.environ.get("HANGARLLM_LICENSE"), (
+        "enable_jwt_auth is enterprise-only: these tests need HANGARLLM_LICENSE (CI forwards it); "
         "without it /token answers 400 'JWT auth is an enterprise only feature; no license is set' "
         "and the failure reads as a regression instead of a missing license"
     )
@@ -2319,7 +2319,7 @@ def test_managed_step_up_advertises_sdk_compatible_metadata_and_bound_permission
             requested_resource=_base(gateway) + path, configured_resource=metadata.json()["resource"]
         )
         encoded_scope: Final = challenge.split('scope="', 1)[1].split('"', 1)[0]
-        assert encoded_scope == f"litellm:mcp_scope:{identity.encode().hex()}:{b'tools.write'.hex()}"
+        assert encoded_scope == f"hangarllm:mcp_scope:{identity.encode().hex()}:{b'tools.write'.hex()}"
         assert tool_calls(peer.drain()) == (), "denied operation executed upstream"
         attempts: Final = tuple(
             request

@@ -2,8 +2,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.fal_ai.image_generation.bria_transformation import FalAIBriaConfig
-from litellm.types.utils import ImageObject, ImageResponse
+from hangarllm.llms.fal_ai.image_generation.bria_transformation import FalAIBriaConfig
+from hangarllm.types.utils import ImageObject, ImageResponse
 
 
 def _transform(payload: object, model_response: ImageResponse | None = None) -> ImageResponse:
@@ -14,7 +14,7 @@ def _transform(payload: object, model_response: ImageResponse | None = None) -> 
         logging_obj=None,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

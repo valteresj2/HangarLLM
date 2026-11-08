@@ -50,7 +50,7 @@ OUTAGE_BURST: Final = 20
 INPUT_TOKENS: Final = 7
 OUTPUT_TOKENS: Final = 5
 CONVERGENCE_SECONDS: Final = 30
-SPEND_SQL: Final = 'SELECT call_type, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+SPEND_SQL: Final = 'SELECT call_type, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,7 +151,7 @@ def _deployment(
     gateway: Gateway, scenario: Scenario, project: str, *, location: str | None, api_base: str | None
 ) -> str:
     name: Final = f"vertex-live-{uuid.uuid4().hex[:12]}"
-    litellm_params: Final[dict[str, JsonValue]] = {
+    hangarllm_params: Final[dict[str, JsonValue]] = {
         "model": f"vertex_ai/{LIVE_MODEL}",
         "vertex_project": project,
         "vertex_credentials": _credentials(_upstream_url(gateway)),
@@ -159,7 +159,7 @@ def _deployment(
         **({} if api_base is None else {"api_base": api_base}),
     }
     created: Final = gateway.post(
-        "/model/new", {"model_name": name, "litellm_params": litellm_params, "model_info": {"mode": "realtime"}}
+        "/model/new", {"model_name": name, "hangarllm_params": hangarllm_params, "model_info": {"mode": "realtime"}}
     )
     scenario.cleanups.callback(scenario.delete_model, string_value(object_value(created["model_info"])["id"]))
     return name

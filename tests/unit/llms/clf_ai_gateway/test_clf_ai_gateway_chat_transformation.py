@@ -5,14 +5,14 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
-from litellm.llms.clf_ai_gateway.chat.transformation import ClfAiGatewayConfig
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.hangarllm_core_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
+from hangarllm.llms.clf_ai_gateway.chat.transformation import ClfAiGatewayConfig
 
 DEFAULT_API_BASE: Final = "https://api.clfaigateway.dev/v1"
 CHAT_URL: Final = f"{DEFAULT_API_BASE}/chat/completions"
-REPO_ROOT: Final = Path(litellm.__file__).parent.parent
+REPO_ROOT: Final = Path(hangarllm.__file__).parent.parent
 
 
 def _chat_response(usage: dict[str, object]) -> dict[str, object]:
@@ -28,7 +28,7 @@ def _chat_response(usage: dict[str, object]) -> dict[str, object]:
 
 def _clf_rows(path: Path) -> dict[str, dict[str, object]]:
     rows: Final = json.loads(path.read_text(encoding="utf-8"))
-    return {key: value for key, value in rows.items() if value.get("litellm_provider") == "clf_ai_gateway"}
+    return {key: value for key, value in rows.items() if value.get("hangarllm_provider") == "clf_ai_gateway"}
 
 
 def test_resolves_environment_and_explicit_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,7 +72,7 @@ def test_chat_forwards_reasoning_effort_and_bills_cached_tokens(local_model_cost
                 }
             ),
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="clf_ai_gateway/glm-5.3",
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "Say hello"}],
@@ -84,13 +84,13 @@ def test_chat_forwards_reasoning_effort_and_bills_cached_tokens(local_model_cost
     assert body["model"] == "glm-5.3"
     assert body["reasoning_effort"] == "low"
     assert response.choices[0].message.content == "hello"
-    rates: Final = litellm.model_cost["clf_ai_gateway/glm-5.3"]
+    rates: Final = hangarllm.model_cost["clf_ai_gateway/glm-5.3"]
     expected: Final = (
         20 * rates["input_cost_per_token"]
         + 80 * rates["cache_read_input_token_cost"]
         + 5 * rates["output_cost_per_token"]
     )
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(expected)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(
@@ -103,8 +103,8 @@ def test_chat_forwards_reasoning_effort_and_bills_cached_tokens(local_model_cost
 def test_legacy_fields_the_gateway_rejects_are_refused_or_dropped(
     local_model_cost_map: None, param: str, value: object
 ) -> None:
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.completion(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.completion(
             model="clf_ai_gateway/glm-5.3",
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "hi"}],
@@ -115,7 +115,7 @@ def test_legacy_fields_the_gateway_rejects_are_refused_or_dropped(
         route: Final = upstream.post(CHAT_URL).respond(
             200, json=_chat_response({"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
         )
-        litellm.completion(
+        hangarllm.completion(
             model="clf_ai_gateway/glm-5.3",
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "hi"}],
@@ -141,7 +141,7 @@ def test_params_the_gateway_accepts_are_forwarded_without_drop_params(
         route: Final = upstream.post(CHAT_URL).respond(
             200, json=_chat_response({"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
         )
-        litellm.completion(
+        hangarllm.completion(
             model="clf_ai_gateway/glm-5.3",
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "hi"}],
@@ -165,12 +165,12 @@ def test_params_the_gateway_accepts_are_forwarded_without_drop_params(
 def test_drop_params_drops_a_reasoning_effort_level_the_model_does_not_declare(
     local_model_cost_map: None, effort: str | dict[str, str], drop_params: bool, forwarded: str | None
 ) -> None:
-    assert "high" not in litellm.model_cost["clf_ai_gateway/qwen3.8-27b"]["reasoning_effort_levels"]
+    assert "high" not in hangarllm.model_cost["clf_ai_gateway/qwen3.8-27b"]["reasoning_effort_levels"]
     with respx.mock() as upstream:
         route: Final = upstream.post(CHAT_URL).respond(
             200, json=_chat_response({"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
         )
-        litellm.completion(
+        hangarllm.completion(
             model="clf_ai_gateway/qwen3.8-27b",
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "hi"}],
@@ -185,14 +185,14 @@ def test_a_reasoning_effort_dict_without_a_level_is_refused_unless_dropped(local
         route: Final = upstream.post(CHAT_URL).respond(
             200, json=_chat_response({"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
         )
-        with pytest.raises(litellm.UnsupportedParamsError):
-            litellm.completion(
+        with pytest.raises(hangarllm.UnsupportedParamsError):
+            hangarllm.completion(
                 model="clf_ai_gateway/glm-5.3",
                 api_key="fake-test-key",
                 messages=[{"role": "user", "content": "hi"}],
                 reasoning_effort={"summary": "auto"},
             )
-        litellm.completion(
+        hangarllm.completion(
             model="clf_ai_gateway/glm-5.3",
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "hi"}],
@@ -207,7 +207,7 @@ def test_reasoning_effort_is_advertised_only_for_reasoning_models(local_model_co
     config: Final = ClfAiGatewayConfig()
     assert "reasoning_effort" in config.get_supported_openai_params(model="glm-5.3")
     assert "reasoning_effort" not in config.get_supported_openai_params(model="not-in-the-cost-map")
-    assert litellm.get_supported_openai_params(
+    assert hangarllm.get_supported_openai_params(
         model="glm-5.3", custom_llm_provider="clf_ai_gateway"
     ) == config.get_supported_openai_params(model="glm-5.3")
 
@@ -215,7 +215,7 @@ def test_reasoning_effort_is_advertised_only_for_reasoning_models(local_model_co
 def test_cost_map_rows_match_the_backup_and_resolve_their_effort_levels() -> None:
     rows: Final = _clf_rows(REPO_ROOT / "model_prices_and_context_window.json")
     assert rows
-    assert rows == _clf_rows(REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json")
+    assert rows == _clf_rows(REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json")
     for key, row in rows.items():
         assert row["input_cost_per_token"] > 0, key
         assert row["output_cost_per_token"] > 0, key
@@ -227,24 +227,24 @@ def test_cost_map_rows_match_the_backup_and_resolve_their_effort_levels() -> Non
 
 def test_validate_environment_reports_the_env_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CLF_AI_GATEWAY_API_KEY", raising=False)
-    missing: Final = litellm.validate_environment(model="clf_ai_gateway/glm-5.3")
+    missing: Final = hangarllm.validate_environment(model="clf_ai_gateway/glm-5.3")
     assert missing["keys_in_environment"] is False
     assert missing["missing_keys"] == ["CLF_AI_GATEWAY_API_KEY"]
 
     monkeypatch.setenv("CLF_AI_GATEWAY_API_KEY", "fake-environment-key")
-    present: Final = litellm.validate_environment(model="clf_ai_gateway/glm-5.3")
+    present: Final = hangarllm.validate_environment(model="clf_ai_gateway/glm-5.3")
     assert present == {"keys_in_environment": True, "missing_keys": []}
 
 
 def test_add_model_form_entry_points_at_a_mapped_model_and_the_default_base(local_model_cost_map: None) -> None:
-    fields_path: Final = Path(litellm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
+    fields_path: Final = Path(hangarllm.__file__).parent / "proxy" / "public_endpoints" / "provider_create_fields.json"
     entries: Final = [
         entry
         for entry in json.loads(fields_path.read_text(encoding="utf-8"))
-        if entry["litellm_provider"] == "clf_ai_gateway"
+        if entry["hangarllm_provider"] == "clf_ai_gateway"
     ]
     assert len(entries) == 1
-    assert entries[0]["default_model_placeholder"] in litellm.model_cost
+    assert entries[0]["default_model_placeholder"] in hangarllm.model_cost
     fields: Final = {field["key"]: field for field in entries[0]["credential_fields"]}
     assert fields["api_key"]["required"] is True
     assert fields["api_base"]["required"] is False

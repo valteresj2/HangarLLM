@@ -44,7 +44,7 @@ from tests.integration.cost_calculation.cost_tracking_case import StoredResponse
 pytestmark: Final = [pytest.mark.timeout(480), pytest.mark.shares_worker_state]
 
 _STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
-_MARKER_HEADER: Final = "x-litellm-spend-logs-metadata"
+_MARKER_HEADER: Final = "x-hangarllm-spend-logs-metadata"
 _KINDS: Final[dict[str, tuple[str, bool, str, str, StoredResponse]]] = {
     "chat": ("chat", False, "chaos-chat", "openai/gpt-4o-mini", json_response(CHAT)),
     "chatstream": ("chat", True, "chaos-chat-stream", "openai/gpt-4o-mini", sse_response(CHAT_FRAMES)),
@@ -109,7 +109,7 @@ def chaos(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Chaos]:
             *(
                 {
                     "model_name": _KINDS[kind][2],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": _KINDS[kind][3],
                         "api_base": f"{slot.url}/{identity}",
                         "api_key": identity,
@@ -119,7 +119,7 @@ def chaos(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Chaos]:
             ),
             {
                 "model_name": "chaos-stable",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": stable_handle.api_base(),
                     "api_key": stable_identity,
@@ -190,7 +190,7 @@ def _upstream_hits(slot: UpstreamSlot, markers: frozenset[str]) -> Mapping[str, 
 def _spend_markers(key: str, markers: frozenset[str]) -> Mapping[str, tuple[str, ...]]:
     rows: Final = read_rows(
         "SELECT status, metadata->'spend_logs_metadata'->>'marker' AS marker "
-        'FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+        'FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
         (sha256(key.encode()).hexdigest(),),
     )
     return {

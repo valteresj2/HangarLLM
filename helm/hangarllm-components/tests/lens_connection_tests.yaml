@@ -19,12 +19,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_URL
+            name: HANGARLLM_LENS_URL
             value: http://lens.lens.svc:4318
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_PUBLIC_URL
+            name: HANGARLLM_LENS_PUBLIC_URL
             value: https://lens.example.com/lens-ingest
       - contains:
           path: spec.template.spec.containers[0].env
@@ -37,7 +37,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_SERVICE_TOKEN
+            name: HANGARLLM_LENS_SERVICE_TOKEN
             valueFrom:
               secretKeyRef:
                 name: lens-service
@@ -55,12 +55,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_URL
+            name: HANGARLLM_LENS_URL
             value: http://lens.lens.svc:4318
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_PUBLIC_URL
+            name: HANGARLLM_LENS_PUBLIC_URL
             value: https://lens.example.com/lens-ingest
       - contains:
           path: spec.template.spec.containers[0].env
@@ -73,7 +73,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LITELLM_LENS_SERVICE_TOKEN
+            name: HANGARLLM_LENS_SERVICE_TOKEN
             valueFrom:
               secretKeyRef:
                 name: lens-service
@@ -127,7 +127,7 @@ tests:
     template: ingress.yaml
     set:
       ingress.enabled: true
-      ingress.host: litellm.example.com
+      ingress.host: hangarllm.example.com
       lens.enabled: true
       lens.url: http://lens.lens.svc:4318
       lens.publicUrl: https://lens.example.com/lens-ingest
@@ -150,7 +150,7 @@ tests:
     template: ingress.yaml
     set:
       ingress.enabled: true
-      ingress.host: litellm.example.com
+      ingress.host: hangarllm.example.com
       lens.enabled: true
       lens.url: http://lens.lens.svc:4318
       lens.publicUrl: https://lens.example.com/lens-ingest

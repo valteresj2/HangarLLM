@@ -12,8 +12,8 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from litellm.proxy.middleware import gzip_middleware
-from litellm.proxy.middleware.gzip_middleware import (
+from hangarllm.proxy.middleware import gzip_middleware
+from hangarllm.proxy.middleware.gzip_middleware import (
     DASHBOARD_GZIP_PATHS,
     MINIMUM_SIZE_BYTES,
     GZipBufferedResponseMiddleware,
@@ -321,7 +321,7 @@ async def test_non_dashboard_requests_pass_through_without_changing_headers(path
 
 
 def test_proxy_app_does_not_compress_openapi() -> None:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     client: Final = TestClient(app)
     gzip_accepted: Final = client.get("/openapi.json", headers={"accept-encoding": "gzip"})

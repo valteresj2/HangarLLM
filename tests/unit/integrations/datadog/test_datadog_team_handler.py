@@ -11,17 +11,17 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.integrations.datadog.datadog import DataDogLogger
-from litellm.integrations.datadog.datadog_team_handler import (
+from hangarllm.integrations.datadog.datadog import DataDogLogger
+from hangarllm.integrations.datadog.datadog_team_handler import (
     DataDogHandler,
 )
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
     TRUSTED_CALLBACK_VARS_FIELD,
 )
-from litellm.litellm_core_utils.specialty_caches.dynamic_logging_cache import (
+from hangarllm.hangarllm_core_utils.specialty_caches.dynamic_logging_cache import (
     DynamicLoggingCache,
 )
-from litellm.types.utils import StandardCallbackDynamicParams
+from hangarllm.types.utils import StandardCallbackDynamicParams
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ class TestDataDogLoggerCredentialKwargs:
         """Logger should raise if no credentials are available."""
         monkeypatch.delenv("DD_API_KEY", raising=False)
         monkeypatch.delenv("DD_SITE", raising=False)
-        monkeypatch.delenv("LITELLM_DD_AGENT_HOST", raising=False)
+        monkeypatch.delenv("HANGARLLM_DD_AGENT_HOST", raising=False)
 
         with pytest.raises(Exception, match="DD_API_KEY"):
             with patch("asyncio.create_task"):
@@ -223,7 +223,7 @@ class TestDataDogHandler:
 
     def test_team_callback_params_are_blocked_for_requests(self):
         """DD params should be blocked from request-level metadata (security)."""
-        from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+        from hangarllm.hangarllm_core_utils.initialize_dynamic_callback_params import (
             _request_blocked_callback_params,
         )
 
@@ -265,7 +265,7 @@ class TestStandardCallbackDynamicParamsIncludesDatadog:
 
 
 def _build_logging_obj(kwargs: dict, *, with_datadog_callback: bool = True):
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     with patch("asyncio.create_task"):
         return Logging(
@@ -274,7 +274,7 @@ def _build_logging_obj(kwargs: dict, *, with_datadog_callback: bool = True):
             stream=False,
             call_type="completion",
             start_time="2026-01-01",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-func",
             dynamic_success_callbacks=["datadog"] if with_datadog_callback else None,
             kwargs=kwargs,
@@ -300,7 +300,7 @@ class TestTeamCallbackFlowPassesDDCredentials:
             {
                 TRUSTED_CALLBACK_VARS_FIELD: trusted_vars,
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             }
         )
 
@@ -317,7 +317,7 @@ class TestTeamCallbackFlowPassesDDCredentials:
                 "dd_site": "attacker.example.com",
                 "dd_agent_host": "attacker.example.com",
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             }
         )
 
@@ -333,7 +333,7 @@ class TestTeamCallbackFlowPassesDDCredentials:
             {
                 TRUSTED_CALLBACK_VARS_FIELD: {"dd_api_key": "team-dd-key-123", "dd_site": "us5.datadoghq.com"},
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             },
             with_datadog_callback=False,
         )
@@ -347,7 +347,7 @@ class TestTeamCallbackFlowPassesDDCredentials:
                 TRUSTED_CALLBACK_VARS_FIELD: {"dd_api_key": "team-dd-key-123"},
                 "dd_site": "attacker.example.com",
                 "model": "gpt-4",
-                "litellm_params": {"metadata": {}},
+                "hangarllm_params": {"metadata": {}},
             }
         )
 

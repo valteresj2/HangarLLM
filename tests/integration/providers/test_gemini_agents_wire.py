@@ -48,14 +48,14 @@ def test_agents_rejects_api_base_without_caller_key(
                         "name": _AGENT_NAME,
                         "base_agent": "waverunner",
                         "instructions": "make slides",
-                        "litellm_params_template": {"api_base": wire.url},
+                        "hangarllm_params_template": {"api_base": wire.url},
                     },
                     key=virtual_key,
                 )
             else:
                 response = owned.gateway.request(
                     method,
-                    f"{path}?litellm_params_template={_template({'api_base': wire.url})}",
+                    f"{path}?hangarllm_params_template={_template({'api_base': wire.url})}",
                     key=virtual_key,
                 )
             if caller == "admin":
@@ -90,7 +90,7 @@ def test_agents_forwards_caller_supplied_key_to_chosen_api_base(gateway: Gateway
                     "name": _AGENT_NAME,
                     "base_agent": "waverunner",
                     "instructions": "make slides",
-                    "litellm_params_template": {"api_base": wire.url, "api_key": "synthetic-caller-key"},
+                    "hangarllm_params_template": {"api_base": wire.url, "api_key": "synthetic-caller-key"},
                 },
             )
             assert response.status_code == 200, response.text

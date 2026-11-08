@@ -16,10 +16,10 @@ from openai.types.image import Image
 from pydantic import JsonValue, TypeAdapter
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.types.utils import CallTypes, StandardLoggingPayload
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.types.utils import CallTypes, StandardLoggingPayload
 import os
 
 
@@ -70,9 +70,9 @@ async def test_image_generation_honors_sdk_retry_budget(
     requests: Final[SimpleQueue[httpx.Request]] = SimpleQueue()
     transport: Final = _image_retry_transport(requests, outcome)
     if retries == "global":
-        monkeypatch.setattr(litellm, "max_retries", 0, raising=False)
+        monkeypatch.setattr(hangarllm, "max_retries", 0, raising=False)
     retry_params: Final[ImageRetryParameters] = {} if isinstance(retries, str) else {"max_retries": retries}
-    error: Final = litellm.Timeout if outcome == "timeout" else litellm.ServiceUnavailableError
+    error: Final = hangarllm.Timeout if outcome == "timeout" else hangarllm.ServiceUnavailableError
     if is_async:
         async with AsyncOpenAI(
             api_key="synthetic-image-key",
@@ -81,7 +81,7 @@ async def test_image_generation_honors_sdk_retry_budget(
             http_client=httpx.AsyncClient(transport=transport),
         ) as client:
             with pytest.raises(error):
-                await litellm.aimage_generation(
+                await hangarllm.aimage_generation(
                     model="openai/gpt-image-1-mini",
                     prompt="a red circle",
                     api_key="synthetic-image-key",
@@ -97,7 +97,7 @@ async def test_image_generation_honors_sdk_retry_budget(
             http_client=httpx.Client(transport=transport),
         ) as client:
             with pytest.raises(error):
-                litellm.image_generation(
+                hangarllm.image_generation(
                     model="openai/gpt-image-1-mini",
                     prompt="a red circle",
                     api_key="synthetic-image-key",
@@ -111,7 +111,7 @@ async def test_image_generation_honors_sdk_retry_budget(
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("image_retry_delays")
 @pytest.mark.parametrize("is_async", (False, True), ids=("sync", "async"))
-@pytest.mark.parametrize("provider", ("litellm_proxy", "hosted_vllm"))
+@pytest.mark.parametrize("provider", ("hangarllm_proxy", "hosted_vllm"))
 async def test_compatible_image_generation_honors_zero_retries(provider: str, is_async: bool) -> None:
     requests: Final[SimpleQueue[httpx.Request]] = SimpleQueue()
     transport: Final = _image_retry_transport(requests, "503")
@@ -121,8 +121,8 @@ async def test_compatible_image_generation_honors_zero_retries(provider: str, is
             base_url="https://image.test/v1",
             http_client=httpx.AsyncClient(transport=transport),
         ) as client:
-            with pytest.raises(litellm.ServiceUnavailableError):
-                await litellm.aimage_generation(
+            with pytest.raises(hangarllm.ServiceUnavailableError):
+                await hangarllm.aimage_generation(
                     model=f"{provider}/gpt-image-1-mini",
                     prompt="a red circle",
                     api_key="synthetic-image-key",
@@ -136,8 +136,8 @@ async def test_compatible_image_generation_honors_zero_retries(provider: str, is
             base_url="https://image.test/v1",
             http_client=httpx.Client(transport=transport),
         ) as client:
-            with pytest.raises(litellm.ServiceUnavailableError):
-                litellm.image_generation(
+            with pytest.raises(hangarllm.ServiceUnavailableError):
+                hangarllm.image_generation(
                     model=f"{provider}/gpt-image-1-mini",
                     prompt="a red circle",
                     api_key="synthetic-image-key",
@@ -160,8 +160,8 @@ async def test_image_generation_rejects_non_integer_retries_before_sending(is_as
             base_url="https://image.test/v1",
             http_client=httpx.AsyncClient(transport=transport),
         ) as client:
-            with pytest.raises(litellm.BadRequestError) as raised:
-                await litellm.aimage_generation(
+            with pytest.raises(hangarllm.BadRequestError) as raised:
+                await hangarllm.aimage_generation(
                     model="openai/gpt-image-1-mini",
                     prompt="a red circle",
                     api_key="synthetic-image-key",
@@ -175,8 +175,8 @@ async def test_image_generation_rejects_non_integer_retries_before_sending(is_as
             base_url="https://image.test/v1",
             http_client=httpx.Client(transport=transport),
         ) as client:
-            with pytest.raises(litellm.BadRequestError) as raised:
-                litellm.image_generation(
+            with pytest.raises(hangarllm.BadRequestError) as raised:
+                hangarllm.image_generation(
                     model="openai/gpt-image-1-mini",
                     prompt="a red circle",
                     api_key="synthetic-image-key",
@@ -200,7 +200,7 @@ async def test_image_generation_returns_success_without_forwarding_retry_control
             base_url="https://image.test/v1",
             http_client=httpx.AsyncClient(transport=transport),
         ) as client:
-            async_response: Final = await litellm.aimage_generation(
+            async_response: Final = await hangarllm.aimage_generation(
                 model="openai/gpt-image-1-mini",
                 prompt="a red circle",
                 api_key="synthetic-image-key",
@@ -216,7 +216,7 @@ async def test_image_generation_returns_success_without_forwarding_retry_control
             base_url="https://image.test/v1",
             http_client=httpx.Client(transport=transport),
         ) as client:
-            sync_response: Final = litellm.image_generation(
+            sync_response: Final = hangarllm.image_generation(
                 model="openai/gpt-image-1-mini",
                 prompt="a red circle",
                 api_key="synthetic-image-key",
@@ -237,17 +237,17 @@ def test_image_generation_keeps_an_internal_prefixed_kwarg_out_of_the_provider_r
         return_value=httpx.Response(status_code=200, json={"created": 1712697600, "data": [{"b64_json": "aW1n"}]})
     )
 
-    litellm.image_generation(
+    hangarllm.image_generation(
         model="openai/gpt-image-1",
         prompt="a red circle",
         api_base=api_base,
         api_key="fake_openai_api_key",
-        _litellm_undeclared_sentinel="internal",
+        _hangarllm_undeclared_sentinel="internal",
     )
 
     assert mock_route.called
     sent: Final = json.loads(respx_mock.calls[0].request.content)
-    assert "_litellm_undeclared_sentinel" not in sent, sent
+    assert "_hangarllm_undeclared_sentinel" not in sent, sent
     assert sent["prompt"] == "a red circle"
 
 
@@ -260,7 +260,7 @@ async def test_aimage_generation_routes_a_bare_model_name_to_its_explicit_provid
         return_value=httpx.Response(status_code=200, json={"created": 1712697600, "data": [{"b64_json": "aW1n"}]})
     )
 
-    response: Final = await litellm.aimage_generation(
+    response: Final = await hangarllm.aimage_generation(
         model="Qwen-Image",
         prompt="a red circle",
         custom_llm_provider="openai",
@@ -280,8 +280,8 @@ async def test_aimage_generation_routes_a_bare_model_name_to_its_explicit_provid
 async def test_aimage_generation_answers_a_non_string_provider_hint_with_a_bad_request(
     hint: str, respx_mock: respx.MockRouter
 ) -> None:
-    with pytest.raises(litellm.BadRequestError) as raised:
-        await litellm.aimage_generation(
+    with pytest.raises(hangarllm.BadRequestError) as raised:
+        await hangarllm.aimage_generation(
             model="Qwen-Image", prompt="a red circle", api_key="fake_openai_api_key", **{hint: 123}
         )
 
@@ -299,7 +299,7 @@ async def test_aimage_generation_ignores_a_non_string_base_url_like_the_sync_pat
         return_value=httpx.Response(status_code=200, json={"created": 1712697600, "data": [{"b64_json": "aW1n"}]})
     )
 
-    response: Final = await litellm.aimage_generation(
+    response: Final = await hangarllm.aimage_generation(
         model="gpt-image-2.5-sunburst",
         prompt="a red circle",
         api_base=api_base,
@@ -323,10 +323,10 @@ def test_image_edit_prices_a_vertex_deployment_at_its_configured_location(
         )
     )
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "vertex_ai/gemini-fake-regional-edit-model",
         {
-            "litellm_provider": "vertex_ai-language-models",
+            "hangarllm_provider": "vertex_ai-language-models",
             "mode": "image_generation",
             "output_cost_per_image": 0.04,
             "regional_endpoint_uplift_multiplier": 1.1,
@@ -340,16 +340,16 @@ def test_image_edit_prices_a_vertex_deployment_at_its_configured_location(
             stream=False,
             call_type=CallTypes.image_edit.value,
             start_time=datetime.now(),
-            litellm_call_id=f"vertex-edit-{location}",
+            hangarllm_call_id=f"vertex-edit-{location}",
             function_id="f",
         )
-        response: Final = litellm.image_edit(
+        response: Final = hangarllm.image_edit(
             model="vertex_ai/gemini-fake-regional-edit-model",
             image=b"\x89PNG\r\n\x1a\nfakepng",
             prompt="make the circle blue",
             api_base=api_base,
             vertex_location=location,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
         return logging_obj.response_cost_calculator(result=response)
 
@@ -362,7 +362,7 @@ def test_image_edit_accepts_a_string_additional_drop_params(respx_mock: respx.Mo
         return_value=httpx.Response(status_code=200, json={"created": 1792551838, "data": [{"b64_json": "aW1n"}]})
     )
 
-    response: Final = litellm.image_edit(
+    response: Final = hangarllm.image_edit(
         model="openai/gpt-image-2.5-sunburst",
         image=b"\x89PNG\r\n\x1a\nfakepng",
         prompt="make the circle blue",
@@ -408,27 +408,27 @@ class TestAimlImageGeneration:
 
         with (
             patch(
-                "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+                "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
                 new_callable=AsyncMock,
             ) as mock_async_post,
             patch(
-                "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+                "hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post",
             ) as mock_sync_post,
         ):
             mock_async_post.return_value = mock_response
             mock_sync_post.return_value = mock_response
 
             try:
-                litellm.turn_on_debug()
+                hangarllm.turn_on_debug()
                 custom_logger = TestCustomLogger()
-                litellm.logging_callback_manager._reset_all_callbacks()
-                litellm.callbacks = [custom_logger]
+                hangarllm.logging_callback_manager._reset_all_callbacks()
+                hangarllm.callbacks = [custom_logger]
                 base_image_generation_call_args = (
                     self.get_base_image_generation_call_args()
                 )
-                litellm.set_verbose = True
+                hangarllm.set_verbose = True
                 # Pass dummy api_key so validate_environment passes; HTTP is mocked
-                response = await litellm.aimage_generation(
+                response = await hangarllm.aimage_generation(
                     **base_image_generation_call_args,
                     prompt="A image of a otter",
                     api_key="test-key-mocked-no-credits-needed",
@@ -466,11 +466,11 @@ class TestAimlImageGeneration:
                     assert isinstance(d, Image)
                     print("data in response.data", d)
                     assert d.b64_json is not None or d.url is not None
-            except litellm.RateLimitError as e:
+            except hangarllm.RateLimitError as e:
                 pass
-            except litellm.ContentPolicyViolationError:
+            except hangarllm.ContentPolicyViolationError:
                 pass  # Azure randomly raises these errors - skip when they occur
-            except litellm.InternalServerError:
+            except hangarllm.InternalServerError:
                 pass
             except Exception as e:
                 if "Your task failed as a result of our safety system." in str(e):
@@ -518,13 +518,13 @@ async def test_aiml_image_generation_with_dynamic_api_key():
         return mock_response
 
     # Mock the HTTP client that actually makes the request (sync version for image generation)
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.side_effect = capture_post_call
 
         # Test with dynamic api_key
         test_api_key = "test-dynamic-api-key-12345"
 
-        response = await litellm.aimage_generation(
+        response = await hangarllm.aimage_generation(
             prompt="A cute baby sea otter",
             model="aiml/flux-pro/v1.1",
             api_key=test_api_key,  # This should be used instead of env vars
@@ -577,10 +577,10 @@ async def test_aiml_openai_gpt_image_2_request_uses_openai_param_shape():
         mock_response.text = _json.dumps(mock_aiml_response)
         return mock_response
 
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.side_effect = capture_post_call
 
-        await litellm.aimage_generation(
+        await hangarllm.aimage_generation(
             prompt="A T-Rex relaxing on a beach",
             model="aiml/openai/gpt-image-2",
             api_key="test-key-mocked-no-credits-needed",
@@ -609,7 +609,7 @@ async def test_aiml_openai_gpt_image_2_request_uses_openai_param_shape():
 @pytest.mark.asyncio
 async def test_azure_image_generation_request_body():
     """Azure deployment URL selects the model; JSON body omits ``model`` (#26316)."""
-    from litellm import aimage_generation
+    from hangarllm import aimage_generation
 
     test_dir = os.path.dirname(__file__)
     expected_path = os.path.join(test_dir, "request_payloads", "azure_gpt_image_1.json")
@@ -617,12 +617,12 @@ async def test_azure_image_generation_request_body():
         expected_body = json.load(f)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.side_effect = Exception("test")
 
-        with pytest.raises(litellm.APIConnectionError):
+        with pytest.raises(hangarllm.APIConnectionError):
             await aimage_generation(
                 model="azure/gpt-image-1",
                 prompt="test prompt",
@@ -659,7 +659,7 @@ async def test_chatgpt_images_forward_client_login_and_workspace(
         if transport == "scoped"
         else {"api_key": token, "extra_headers": {"cHaTgPt-AcCoUnT-Id": "selected-workspace"}}
         if transport == "api_key"
-        else {transport: {**headers, "cookie": "fake-cookie", "x-litellm-api-key": "fake-gateway-key"}}
+        else {transport: {**headers, "cookie": "fake-cookie", "x-hangarllm-api-key": "fake-gateway-key"}}
     )
     route: Final = respx_mock.post("https://chatgpt.com/backend-api/codex/images/generations").mock(
         return_value=httpx.Response(200, json={"created": 1700000000, "data": [{"b64_json": "aW1n"}]})
@@ -679,22 +679,22 @@ async def test_chatgpt_images_forward_client_login_and_workspace(
         ),
         **credentials,
     }
-    response: Final = await litellm.aimage_generation(**params) if asynchronous else litellm.image_generation(**params)
+    response: Final = await hangarllm.aimage_generation(**params) if asynchronous else hangarllm.image_generation(**params)
     assert response.data[0].b64_json == "aW1n"
     request: Final = route.calls.last.request
     assert request.headers["authorization"] == f"Bearer {token}"
     assert request.headers["chatgpt-account-id"] == "selected-workspace"
     assert request.headers.get_list("content-type") == ["application/json"]
     assert "cookie" not in request.headers
-    assert "x-litellm-api-key" not in request.headers
+    assert "x-hangarllm-api-key" not in request.headers
     assert json.loads(request.content) == {"model": "gpt-image-2", "prompt": "A blue circle"}
 
 
 def test_image_generation_without_a_model_or_provider_fails_before_calling_any_provider(
     respx_mock: respx.MockRouter,
 ) -> None:
-    with pytest.raises(litellm.BadRequestError, match="model is required"):
-        litellm.image_generation(prompt="a red circle", api_key="fake_openai_api_key")
+    with pytest.raises(hangarllm.BadRequestError, match="model is required"):
+        hangarllm.image_generation(prompt="a red circle", api_key="fake_openai_api_key")
 
     assert not respx_mock.calls
 
@@ -704,7 +704,7 @@ def test_topaz_image_variation_works_without_a_model(respx_mock: respx.MockRoute
         return_value=httpx.Response(200, content=b"enhanced-image", headers={"content-type": "image/png"})
     )
 
-    response: Final = litellm.image_variation(image=b"source-image", custom_llm_provider="topaz", api_key="fake-key")
+    response: Final = hangarllm.image_variation(image=b"source-image", custom_llm_provider="topaz", api_key="fake-key")
 
     assert route.call_count == 1
     assert response.data is not None

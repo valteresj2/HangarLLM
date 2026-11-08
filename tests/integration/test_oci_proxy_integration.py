@@ -1,7 +1,7 @@
 """
 OCI GenAI — end-to-end **proxy** integration tests.
 
-Spins up the LiteLLM proxy (`litellm --config oci_proxy_test_config.yaml`) as a
+Spins up the HangarLLM proxy (`hangarllm --config oci_proxy_test_config.yaml`) as a
 subprocess, then sends OpenAI-shaped HTTP requests at it for the OCI models
 declared in the test config:
 
@@ -65,7 +65,7 @@ def _wait_for_health(base_url: str, proc: subprocess.Popen, deadline: float) -> 
         if proc.poll() is not None:
             output = proc.stdout.read() if proc.stdout else ""
             raise RuntimeError(
-                f"litellm proxy exited early with code {proc.returncode}\n--- proxy output ---\n{output}"
+                f"hangarllm proxy exited early with code {proc.returncode}\n--- proxy output ---\n{output}"
             )
         try:
             r = httpx.get(f"{base_url}/health/liveliness", timeout=2.0)
@@ -75,12 +75,12 @@ def _wait_for_health(base_url: str, proc: subprocess.Popen, deadline: float) -> 
             pass
         time.sleep(0.5)
     raise RuntimeError(
-        f"litellm proxy did not become ready within {STARTUP_TIMEOUT_S}s"
+        f"hangarllm proxy did not become ready within {STARTUP_TIMEOUT_S}s"
     )
 
 
 def _oci_env_from_profile() -> dict[str, str]:
-    """Translate the active OCI profile into the OCI_* env vars the litellm
+    """Translate the active OCI profile into the OCI_* env vars the hangarllm
     OCI provider expects. Only API-key profiles are supported; session-token
     profiles would need an in-process signer and so are skipped here.
     """
@@ -90,7 +90,7 @@ def _oci_env_from_profile() -> dict[str, str]:
     if "security_token_file" in cfg:
         pytest.skip(
             f"OCI profile {profile!r} uses session-token auth; "
-            "litellm's OCI provider needs an API-key profile for env-driven config"
+            "hangarllm's OCI provider needs an API-key profile for env-driven config"
         )
     region = os.environ.get("OCI_REGION") or cfg.get("region") or "us-chicago-1"
     return {
@@ -104,10 +104,10 @@ def _oci_env_from_profile() -> dict[str, str]:
 
 
 def _serve(config_path: str) -> Iterator[str]:
-    """Boot the litellm proxy with the given config and yield its base URL."""
+    """Boot the hangarllm proxy with the given config and yield its base URL."""
     env = os.environ.copy()
     env.update(_oci_env_from_profile())
-    env["LITELLM_MASTER_KEY"] = MASTER_KEY
+    env["HANGARLLM_MASTER_KEY"] = MASTER_KEY
     # Avoid pulling in DB-backed features for this lightweight smoke run.
     env.pop("DATABASE_URL", None)
     env["STORE_MODEL_IN_DB"] = "False"
@@ -115,11 +115,11 @@ def _serve(config_path: str) -> Iterator[str]:
     port = allocate_port()
     base_url = f"http://127.0.0.1:{port}"
 
-    # Prefer the `litellm` console script that lives next to the active
+    # Prefer the `hangarllm` console script that lives next to the active
     # Python so we inherit the test virtualenv. Fall back to PATH.
-    cli = Path(sys.executable).parent / "litellm"
+    cli = Path(sys.executable).parent / "hangarllm"
     if not cli.exists():
-        cli = "litellm"
+        cli = "hangarllm"
 
     proc = subprocess.Popen(
         [
@@ -158,7 +158,7 @@ def proxy_url_no_drop_params(tmp_path_factory) -> Iterator[str]:
     cfg.write_text(
         "model_list:\n"
         "  - model_name: oci-cohere-command\n"
-        "    litellm_params:\n"
+        "    hangarllm_params:\n"
         "      model: oci/cohere.command-latest\n"
         "general_settings:\n"
         f"  master_key: {MASTER_KEY}\n"
@@ -255,7 +255,7 @@ def test_embedding_via_proxy(proxy_url: str) -> None:
     r = httpx.post(
         f"{proxy_url}/v1/embeddings",
         headers=_auth_headers(),
-        json={"model": "oci-embed", "input": ["hello from the litellm proxy"]},
+        json={"model": "oci-embed", "input": ["hello from the hangarllm proxy"]},
         timeout=REQUEST_TIMEOUT_S,
     )
     assert r.status_code == 200, f"embed -> {r.status_code}: {r.text}"

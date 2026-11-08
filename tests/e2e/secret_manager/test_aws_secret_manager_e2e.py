@@ -7,8 +7,8 @@ from e2e_config import SECRET_MANAGER_OPT_IN_ENV
 from e2e_metadata import Domain, Subject, meta
 from pydantic import TypeAdapter
 
-from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
-from litellm.secret_managers.main import get_secret
+from hangarllm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+from hangarllm.secret_managers.main import get_secret
 
 pytestmark = [
     pytest.mark.e2e,
@@ -29,6 +29,6 @@ class TestAwsSecretManager:
     def test_aws_secret_manager(self) -> None:
         AWSSecretsManagerV2.load_aws_secret_manager(use_aws_secret_manager=True)
         secret_value: Final = _STRING_MAP.validate_json(
-            _SECRET_STRING.validate_python(get_secret("litellm_master_key"))
+            _SECRET_STRING.validate_python(get_secret("hangarllm_master_key"))
         )
-        assert hashlib.sha256(secret_value["litellm_master_key"].encode()).hexdigest() == _AWS_FIXTURE_MASTER_KEY_SHA256
+        assert hashlib.sha256(secret_value["hangarllm_master_key"].encode()).hexdigest() == _AWS_FIXTURE_MASTER_KEY_SHA256

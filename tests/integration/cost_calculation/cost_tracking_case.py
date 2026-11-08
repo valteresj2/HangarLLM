@@ -38,7 +38,7 @@ class TieredPrice(BaseModel):
 class CostMapEntry(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    litellm_provider: str
+    hangarllm_provider: str
     mode: str
     max_tokens: int | None = None
     max_input_tokens: int | None = None
@@ -353,8 +353,8 @@ class CostTrackingTestCase(BaseModel):
         return COST_MAP[self.model]
 
     @property
-    def litellm_model(self) -> str:
-        provider: Final = self.rates.litellm_provider
+    def hangarllm_model(self) -> str:
+        provider: Final = self.rates.hangarllm_provider
         prefix: Final = (
             "openai"
             if provider == "openai"
@@ -376,8 +376,8 @@ class CostTrackingTestCase(BaseModel):
         return f"{prefix}/{self.model}"
 
     @property
-    def litellm_params(self) -> Mapping[str, str]:
-        return _LITELLM_PARAMS[self.rates.litellm_provider]
+    def hangarllm_params(self) -> Mapping[str, str]:
+        return _HANGARLLM_PARAMS[self.rates.hangarllm_provider]
 
     @property
     def api_key(self) -> str:
@@ -402,7 +402,7 @@ class CostTrackingTestCase(BaseModel):
     def reports_provider_cost(self) -> bool:
         if not isinstance(self.response, JsonResponse):
             return False
-        if "x-litellm-response-cost" in self.response.headers:
+        if "x-hangarllm-response-cost" in self.response.headers:
             return True
         usage: Final = self.response.body.get("usage")
         return isinstance(usage, dict) and isinstance(usage.get("cost"), (int, float))
@@ -494,7 +494,7 @@ class BatchCostCase(BaseModel):
     name: str
     covers: str
     model: str
-    litellm_model: str
+    hangarllm_model: str
     output_lines: tuple[BatchOutputLine, ...]
     expected: ExactExpected
 
@@ -569,7 +569,7 @@ class RealtimeCostCase(BaseModel):
     name: str
     covers: str
     model: str
-    litellm_model: str
+    hangarllm_model: str
     turns: tuple[RealtimeTurn, ...] = Field(min_length=0)
     session_model: str | None = None
     expected: ExactExpected
@@ -607,7 +607,7 @@ _PROVIDER_PREFIXES: Final[Mapping[str, str]] = MappingProxyType(
         "cohere_chat": "cohere_chat",
     }
 )
-_LITELLM_PARAMS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
+_HANGARLLM_PARAMS: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
     {
         "anthropic": MappingProxyType({}),
         "bedrock": MappingProxyType(

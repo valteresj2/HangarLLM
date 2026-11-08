@@ -282,7 +282,7 @@ def test_a_key_scoped_to_a_wildcard_route_gets_an_id_without_a_served_group_and_
         "/model/new",
         {
             "model_name": f"{prefix}/*",
-            "litellm_params": {"model": "dashscope/*", "api_base": rig.a.url, "api_key": API_KEY},
+            "hangarllm_params": {"model": "dashscope/*", "api_base": rig.a.url, "api_key": API_KEY},
             "model_info": {},
         },
     )
@@ -372,7 +372,7 @@ def test_an_openai_video_created_through_a_narrow_wildcard_polls_through_the_wil
         "/model/new",
         {
             "model_name": f"{prefix}-*",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{prefix}-*",
                 "api_base": f"{rig.first.url}/v1",
                 "api_key": _OPENAI_KEY,

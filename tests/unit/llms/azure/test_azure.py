@@ -1,4 +1,4 @@
-"""Tests for litellm/llms/azure/azure.py AzureChatCompletion handler behaviour."""
+"""Tests for hangarllm/llms/azure/azure.py AzureChatCompletion handler behaviour."""
 
 import asyncio
 import json
@@ -14,11 +14,11 @@ import respx
 from httpx import Client, Headers
 from openai import AsyncAzureOpenAI, AzureOpenAI
 
-import litellm
-from litellm import completion
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.azure.azure import AzureChatCompletion
-from litellm.llms.azure.common_utils import process_azure_headers
+import hangarllm
+from hangarllm import completion
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.azure.azure import AzureChatCompletion
+from hangarllm.llms.azure.common_utils import process_azure_headers
 
 
 class _FakeRawResponse:
@@ -40,13 +40,13 @@ def test_sync_streaming_stamps_response_headers_on_the_logging_obj() -> None:
     client = AzureOpenAI(api_key="fake", api_version="2024-02-01", azure_endpoint="https://fake.openai.azure.com")
     client.chat.completions.with_raw_response = _FakeRawCompletions()
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="azure/gpt-4o-spill-test",
         messages=[{"role": "user", "content": "Hi"}],
         stream=True,
         call_type="completion",
         start_time=time.time(),
-        litellm_call_id="spill-sync-1",
+        hangarllm_call_id="spill-sync-1",
         function_id="f",
     )
 
@@ -81,7 +81,7 @@ async def test_acompletion_propagates_cancelled_error() -> None:
     client.chat.completions.with_raw_response = _CancelledRawCompletions()
 
     with pytest.raises(asyncio.CancelledError):
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="azure/fake-deployment",
             messages=[{"role": "user", "content": "hi"}],
             client=client,
@@ -188,16 +188,16 @@ def test_process_azure_headers_with_dict_input():
     ],
 )
 def test_azure_extra_headers(input, call_type, header_value):
-    from litellm import embedding, image_generation
+    from hangarllm import embedding, image_generation
 
     # Clear the LLM clients cache to ensure the new http_client is used
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     http_client = Client()
 
     messages = [{"role": "user", "content": "Hello world"}]
     with patch.object(http_client, "send", new=MagicMock()) as mock_client:
-        litellm.client_session = http_client
+        hangarllm.client_session = http_client
         try:
             if call_type == "completion":
                 func = completion
@@ -253,7 +253,7 @@ def test_azure_extra_headers(input, call_type, header_value):
     ],
 )
 def test_process_azure_endpoint_url(api_base, model, expected_endpoint):
-    from litellm.llms.azure.azure import AzureChatCompletion
+    from hangarllm.llms.azure.azure import AzureChatCompletion
 
     azure_chat_completion = AzureChatCompletion()
     input_args = {
@@ -274,7 +274,7 @@ def test_process_azure_endpoint_url(api_base, model, expected_endpoint):
 @patch("azure.identity.UsernamePasswordCredential")
 @patch("azure.identity.get_bearer_token_provider")
 def test_get_azure_ad_token_from_username_password(mock_get_bearer_token_provider, mock_credential):
-    from litellm.llms.azure.common_utils import (
+    from hangarllm.llms.azure.common_utils import (
         get_azure_ad_token_from_username_password,
     )
 
@@ -337,10 +337,10 @@ def test_azure_openai_gpt_4o_naming(monkeypatch):
     ],
 )
 def test_azure_gpt_4o_with_tool_call_and_response_format(api_version):
-    from litellm import completion
+    from hangarllm import completion
     from typing import Optional
     from pydantic import BaseModel
-    import litellm
+    import hangarllm
 
 
     client = AzureOpenAI(
@@ -382,10 +382,10 @@ def test_azure_gpt_4o_with_tool_call_and_response_format(api_version):
 
     with patch.object(client, "post") as mock_post:
         mock_post.return_value.headers = {}
-        mock_post.return_value.parse.return_value = litellm.ModelResponse(
+        mock_post.return_value.parse.return_value = hangarllm.ModelResponse(
             choices=[{"message": {"role": "assistant", "content": InvestigationOutput().model_dump_json()}}]
         )
-        response = litellm.completion(
+        response = hangarllm.completion(
             model="azure/gpt-4.1-mini",
             messages=[
                 {
@@ -419,7 +419,7 @@ def test_map_openai_params():
     """
     Ensure response_format does not override tools
     """
-    from litellm.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
+    from hangarllm.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
 
     azure_openai_config = AzureOpenAIConfig()
     tools = [
@@ -514,16 +514,16 @@ def test_map_openai_params():
 @pytest.mark.parametrize("max_retries", [0, 4])
 @pytest.mark.parametrize("stream", [True, False])
 @patch(
-    "litellm.main.azure_chat_completions.make_sync_azure_openai_chat_completion_request"
+    "hangarllm.main.azure_chat_completions.make_sync_azure_openai_chat_completion_request"
 )
 def test_azure_max_retries_0(
     mock_make_sync_azure_openai_chat_completion_request, max_retries, stream
 ):
-    import litellm
-    from litellm import completion
+    import hangarllm
+    from hangarllm import completion
 
     # Clear the LLM clients cache to ensure max_retries is set correctly
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     try:
         completion(
@@ -547,16 +547,16 @@ def test_azure_max_retries_0(
 @pytest.mark.usefixtures("fake_provider_credentials")
 @pytest.mark.parametrize("max_retries", [0, 4])
 @pytest.mark.parametrize("stream", [True, False])
-@patch("litellm.main.azure_chat_completions.make_azure_openai_chat_completion_request")
+@patch("hangarllm.main.azure_chat_completions.make_azure_openai_chat_completion_request")
 @pytest.mark.asyncio
 async def test_async_azure_max_retries_0(
     make_azure_openai_chat_completion_request, max_retries, stream
 ):
-    import litellm
-    from litellm import acompletion
+    import hangarllm
+    from hangarllm import acompletion
 
     # Clear the LLM clients cache to ensure max_retries is set correctly
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     try:
         await acompletion(
@@ -578,12 +578,12 @@ async def test_async_azure_max_retries_0(
 
 
 def test_azure_openai_responses_bridge():
-    from litellm import completion
-    import litellm
+    from hangarllm import completion
+    import hangarllm
 
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
-    with patch.object(litellm, "responses") as mock_responses:
+    with patch.object(hangarllm, "responses") as mock_responses:
         try:
             response = completion(
                 model="azure/responses/test-azure-computer-use-preview",
@@ -607,9 +607,9 @@ def test_azure_with_content_safety_error():
     """
     Verify user can access innererror from the Azure OpenAI exception
     """
-    from litellm import completion
-    from litellm.exceptions import ContentPolicyViolationError
-    from litellm.litellm_core_utils.exception_mapping_utils import exception_type
+    from hangarllm import completion
+    from hangarllm.exceptions import ContentPolicyViolationError
+    from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
     from unittest.mock import MagicMock
 
     mock_exception = Exception(
@@ -694,7 +694,7 @@ def test_azure_chat_stream_preserves_text_and_special_characters():
         )
     )
 
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="azure/gpt-4.1-mini",
         messages=[{"role": "user", "content": "Respond with the <xml> tag only"}],
         api_base="https://azure-stream.openai.azure.com",
@@ -760,7 +760,7 @@ def test_azure_chat_stream_reassembles_tool_call_arguments():
         )
     )
     messages: Final = [{"role": "user", "content": "What is the weather in Boston?"}]
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model="azure/gpt-4.1-mini",
         messages=messages,
         tools=[
@@ -784,7 +784,7 @@ def test_azure_chat_stream_reassembles_tool_call_arguments():
         stream=True,
     )
     chunks: Final = list(stream)
-    response: Final = litellm.stream_chunk_builder(chunks, messages=messages)
+    response: Final = hangarllm.stream_chunk_builder(chunks, messages=messages)
     tool_call: Final = response.choices[0].message.tool_calls[0]
 
     assert route.call_count == 1

@@ -1,16 +1,16 @@
-# litellm_project (Data Source)
+# hangarllm_project (Data Source)
 
-Retrieves information about an existing LiteLLM project, including its budget settings
+Retrieves information about an existing HangarLLM project, including its budget settings
 
 ## Example Usage
 
 ```hcl
-data "litellm_project" "ml_experiments" {
+data "hangarllm_project" "ml_experiments" {
   project_id = "4a422a4c-e246-4d02-a1eb-13e835cd0725"
 }
 
 output "project_spend" {
-  value = data.litellm_project.ml_experiments.spend
+  value = data.hangarllm_project.ml_experiments.spend
 }
 ```
 

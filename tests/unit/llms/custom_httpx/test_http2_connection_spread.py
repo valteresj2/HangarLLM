@@ -6,8 +6,8 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.caching.evicted_client_closer import EvictedClientCloser
-from litellm.llms.custom_httpx.http2_connection_spread import (
+from hangarllm.caching.evicted_client_closer import EvictedClientCloser
+from hangarllm.llms.custom_httpx.http2_connection_spread import (
     HTTP2_STREAMS_PER_CONNECTION,
     AsyncHTTP2ConnectionSpread,
 )

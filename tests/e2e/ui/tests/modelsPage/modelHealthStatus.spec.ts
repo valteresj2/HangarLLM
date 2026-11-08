@@ -124,7 +124,7 @@ async function withDeployment(
     headers: { Authorization: `Bearer ${masterKey()}` },
     data: {
       model_name: name,
-      litellm_params: {
+      hangarllm_params: {
         model: `openai/${name}`,
         api_base: apiBase,
         api_key: "fake-key",

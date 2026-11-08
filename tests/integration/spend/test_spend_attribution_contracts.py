@@ -28,7 +28,7 @@ def test_spend_log_of_an_org_team_key_records_org_and_team(gateway: Gateway) -> 
         request_id: Final = string_value(gateway.chat(model, key=key)["id"])
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT team_id, metadata::text AS metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                'SELECT team_id, metadata::text AS metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                 (request_id,),
             ),
             lambda found: len(found) == 1,
@@ -75,7 +75,7 @@ def test_team_member_budget_blocks_the_member_after_spend_lands(gateway: Gateway
             membership: Final = _membership(gateway, user, team)
             scenario.cleanups.callback(scenario.delete_budget, string_value(membership["budget_id"]))
             scenario.cleanups.push(member_cleanups.pop_all())
-        assert object_value(membership["litellm_budget_table"])["max_budget"] == MEMBER_BUDGET
+        assert object_value(membership["hangarllm_budget_table"])["max_budget"] == MEMBER_BUDGET
         assert (
             gateway.request(
                 "POST",
@@ -87,7 +87,7 @@ def test_team_member_budget_blocks_the_member_after_spend_lands(gateway: Gateway
         )
         eventually(
             lambda: read_rows(
-                'SELECT spend FROM "LiteLLM_TeamMembership" WHERE user_id = %s AND team_id = %s', (user, team)
+                'SELECT spend FROM "HangarLLM_TeamMembership" WHERE user_id = %s AND team_id = %s', (user, team)
             ),
             lambda rows: len(rows) == 1 and isinstance(spend := rows[0]["spend"], float) and spend >= MEMBER_BUDGET,
             seconds=SPEND_LANDING_SECONDS,

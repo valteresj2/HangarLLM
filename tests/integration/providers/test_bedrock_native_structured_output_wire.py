@@ -1204,7 +1204,7 @@ def test_a_request_retried_without_native_output_lands_one_success_spend_row(gat
         sent: Final = tuple(_JSON.validate_json(call.body) for call in wire.drain())
         assert len(sent) == (1 if _native_schema(sent[0], invoke) is None else 2), sent
         rows: Final = held(
-            lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+            lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
             lambda found: len(found) == 1,
             holding=2,
             seconds=70,

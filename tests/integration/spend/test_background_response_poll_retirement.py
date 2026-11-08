@@ -15,9 +15,9 @@ from integration._support.upstream import ScenarioHandle, delete_scenario, regis
 from integration.cost_calculation.cost_tracking_case import JsonResponse, RoutedResponse
 from pydantic import JsonValue
 
-from litellm.constants import MAX_OBJECTS_PER_POLL_CYCLE
-from litellm.proxy.spend_tracking.spend_tracking_utils import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+from hangarllm.constants import MAX_OBJECTS_PER_POLL_CYCLE
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX
+from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
 INPUT_COST_PER_TOKEN: Final = 0.001
 OUTPUT_COST_PER_TOKEN: Final = 0.002
@@ -112,7 +112,7 @@ def _register_deployment(
         "/model/new",
         {
             "model_name": f"bg-{sha256(scenario_id.encode()).hexdigest()[:12]}",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-scripted-provider",
                 "api_base": handle.api_base(),
@@ -132,7 +132,7 @@ def _deployment_on(scenario: Scenario, scenario_id: str, routes: RoutedResponse)
 
 def _forget_row(unified_id: str, database_url: str | None = None) -> None:
     write_rows(
-        'DELETE FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+        'DELETE FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
         (unified_id,),
         database_url=database_url,
     )
@@ -150,7 +150,7 @@ def _submit_background_response(scenario: Scenario, key: str, model: str, databa
 
 def _row_status(unified_id: str, database_url: str | None = None) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT status FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+        'SELECT status FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
         (unified_id,),
         database_url=database_url,
     )
@@ -241,7 +241,7 @@ def test_a_provider_error_other_than_404_keeps_the_row_queued_for_retry(gateway:
 
 def _poll_spend_rows(unified_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT call_type, status, prompt_tokens, completion_tokens, spend FROM "LiteLLM_SpendLogs" '
+        'SELECT call_type, status, prompt_tokens, completion_tokens, spend FROM "HangarLLM_SpendLogs" '
         "WHERE request_id = %s AND metadata->>'internal_call_origin' = %s",
         (f"{unified_id}{BACKGROUND_RESPONSE_COST_REQUEST_ID_SUFFIX}", BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN),
     )
@@ -266,7 +266,7 @@ def test_a_completed_response_is_marked_completed_and_its_poll_is_billed(gateway
 def _insert_unreadable_row(scenario: Scenario) -> str:
     unified_id: Final = f"resp_unreadable-{uuid.uuid4().hex[:12]}"
     write_rows(
-        'INSERT INTO "LiteLLM_ManagedObjectTable" '
+        'INSERT INTO "HangarLLM_ManagedObjectTable" '
         '("id", "unified_object_id", "model_object_id", "file_object", "file_purpose", "status", "created_at", "updated_at") '
         "VALUES (%s, %s, %s, '[]'::jsonb, 'response', 'queued', NOW() - INTERVAL '1 hour', NOW())",
         (str(uuid.uuid4()), unified_id, unified_id),

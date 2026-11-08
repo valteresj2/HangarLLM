@@ -15,7 +15,7 @@ import pytest
 import requests
 from click.testing import CliRunner
 
-from litellm.proxy.client.cli.commands.agents import (
+from hangarllm.proxy.client.cli.commands.agents import (
     AgentRunError,
     ModelSyncArgs,
     ModelSyncSkipped,
@@ -33,17 +33,17 @@ from litellm.proxy.client.cli.commands.agents import (
     verify_proxy_key,
     verify_subscription_key,
 )
-from litellm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
-from litellm.proxy.client.cli.commands.config import save_config
-from litellm.proxy.client.cli.main import cli as lite
+from hangarllm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
+from hangarllm.proxy.client.cli.commands.config import save_config
+from hangarllm.proxy.client.cli.main import cli as lite
 
 if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
 
-AGENTS_MODULE = "litellm.proxy.client.cli.commands.agents"
-CLAUDE_SETTINGS_MODULE = "litellm.proxy.client.cli.commands.claude_settings"
+AGENTS_MODULE = "hangarllm.proxy.client.cli.commands.agents"
+CLAUDE_SETTINGS_MODULE = "hangarllm.proxy.client.cli.commands.claude_settings"
 
 
 def _agent_command(name):
@@ -269,8 +269,8 @@ class TestAgentProfile:
         assert agent_profile("codex") == ("Codex", frozenset({"openai"}))
         assert agent_profile("opencode") == ("OpenCode", frozenset({"openai"}))
 
-    def test_pi_is_litellm(self):
-        assert agent_profile("pi") == ("pi", frozenset({"litellm"}))
+    def test_pi_is_hangarllm(self):
+        assert agent_profile("pi") == ("pi", frozenset({"hangarllm"}))
 
     def test_unknown_command_gets_both_profiles(self):
         name, profiles = agent_profile("mytool")
@@ -319,7 +319,7 @@ class TestBuildAgentEnv:
         env = build_agent_env({}, "http://localhost:4000/", "sk-key", frozenset({"openai"}))
         assert env["OPENAI_BASE_URL"] == "http://localhost:4000/v1"
         assert env["OPENAI_API_KEY"] == "sk-key"
-        assert "LITELLM_PROXY_API_KEY" not in env
+        assert "HANGARLLM_PROXY_API_KEY" not in env
         assert "ANTHROPIC_BASE_URL" not in env
         assert "ENABLE_TOOL_SEARCH" not in env
         assert "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY" not in env
@@ -332,9 +332,9 @@ class TestBuildAgentEnv:
         assert env["OPENAI_API_KEY"] == "sk-key"
         assert env["ENABLE_TOOL_SEARCH"] == "true"
 
-    def test_litellm_profile_exports_only_the_proxy_key(self):
-        env = build_agent_env({}, "http://localhost:4000/", "sk-key", frozenset({"litellm"}))
-        assert env["LITELLM_PROXY_API_KEY"] == "sk-key"
+    def test_hangarllm_profile_exports_only_the_proxy_key(self):
+        env = build_agent_env({}, "http://localhost:4000/", "sk-key", frozenset({"hangarllm"}))
+        assert env["HANGARLLM_PROXY_API_KEY"] == "sk-key"
         assert "ANTHROPIC_BASE_URL" not in env
         assert "OPENAI_BASE_URL" not in env
         assert "OPENAI_API_KEY" not in env
@@ -348,7 +348,7 @@ class TestBuildAgentEnv:
     def test_subscription_sends_the_key_in_a_header_and_sets_no_credential(self):
         env = build_agent_env({}, "http://localhost:4000/", "sk-key", frozenset({"anthropic"}), subscription=True)
         assert env["ANTHROPIC_BASE_URL"] == "http://localhost:4000"
-        assert env["ANTHROPIC_CUSTOM_HEADERS"] == "x-litellm-api-key: Bearer sk-key"
+        assert env["ANTHROPIC_CUSTOM_HEADERS"] == "x-hangarllm-api-key: Bearer sk-key"
         assert "ANTHROPIC_AUTH_TOKEN" not in env
         assert "ANTHROPIC_API_KEY" not in env
 
@@ -370,23 +370,23 @@ class TestBuildAgentEnv:
         assert env["ANTHROPIC_CUSTOM_HEADERS"].splitlines() == [
             "x-team: blue",
             "x-trace: 1",
-            "x-litellm-api-key: Bearer sk-key",
+            "x-hangarllm-api-key: Bearer sk-key",
         ]
 
-    def test_subscription_replaces_a_stale_litellm_key_header_whatever_its_case(self):
+    def test_subscription_replaces_a_stale_hangarllm_key_header_whatever_its_case(self):
         env = build_agent_env(
-            {"ANTHROPIC_CUSTOM_HEADERS": "X-LiteLLM-Api-Key: Bearer old\nx-team: blue"},
+            {"ANTHROPIC_CUSTOM_HEADERS": "X-HangarLLM-Api-Key: Bearer old\nx-team: blue"},
             "http://localhost:4000",
             "sk-new",
             frozenset({"anthropic"}),
             subscription=True,
         )
-        assert env["ANTHROPIC_CUSTOM_HEADERS"].splitlines() == ["x-team: blue", "x-litellm-api-key: Bearer sk-new"]
+        assert env["ANTHROPIC_CUSTOM_HEADERS"].splitlines() == ["x-team: blue", "x-hangarllm-api-key: Bearer sk-new"]
 
     def test_subscription_routes_openai_agents_without_offering_the_key_as_an_openai_credential(self):
         env = build_agent_env({}, "http://localhost:4000/", "sk-key", frozenset({"openai"}), subscription=True)
         assert "OPENAI_BASE_URL" not in env
-        assert env["LITELLM_PROXY_API_KEY"] == "sk-key"
+        assert env["HANGARLLM_PROXY_API_KEY"] == "sk-key"
         assert "OPENAI_API_KEY" not in env
         assert "ANTHROPIC_CUSTOM_HEADERS" not in env
 
@@ -395,7 +395,7 @@ class TestBuildAgentEnv:
         env = build_agent_env(base, "http://localhost:4000", "sk-key", frozenset({"openai"}), subscription=True)
         assert env["OPENAI_API_KEY"] == "sk-users-openai"
         assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
-        assert env["LITELLM_PROXY_API_KEY"] == "sk-key"
+        assert env["HANGARLLM_PROXY_API_KEY"] == "sk-key"
         assert base == {"OPENAI_API_KEY": "sk-users-openai", "OPENAI_BASE_URL": "https://api.openai.com/v1"}
 
     def test_default_mode_does_not_touch_custom_headers(self):
@@ -416,13 +416,13 @@ class TestAgentLaunchArgs:
     def test_codex_points_provider_at_proxy_over_http(self):
         args = agent_launch_args("codex", "http://localhost:4000/")
         joined = " ".join(args)
-        assert 'model_provider="litellm"' in args
-        assert 'model_providers.litellm.base_url="http://localhost:4000/v1"' in args
-        assert 'model_providers.litellm.env_key="OPENAI_API_KEY"' in args
-        assert 'model_providers.litellm.wire_api="responses"' in args
-        assert "model_providers.litellm.supports_websockets=false" in args
-        assert "model_providers.litellm.requires_openai_auth=false" in args
-        assert "model_providers.litellm.http_headers={}" in args
+        assert 'model_provider="hangarllm"' in args
+        assert 'model_providers.hangarllm.base_url="http://localhost:4000/v1"' in args
+        assert 'model_providers.hangarllm.env_key="OPENAI_API_KEY"' in args
+        assert 'model_providers.hangarllm.wire_api="responses"' in args
+        assert "model_providers.hangarllm.supports_websockets=false" in args
+        assert "model_providers.hangarllm.requires_openai_auth=false" in args
+        assert "model_providers.hangarllm.http_headers={}" in args
         assert joined.count("-c") == 8
 
     def test_codex_uses_basename(self):
@@ -432,10 +432,10 @@ class TestAgentLaunchArgs:
 
     def test_codex_default_provider_reads_the_key_from_openai_api_key(self):
         assert _codex_config(agent_launch_args("codex", "http://localhost:4000/")) == {
-            "model_provider": "litellm",
+            "model_provider": "hangarllm",
             "model_providers": {
-                "litellm": {
-                    "name": "LiteLLM proxy",
+                "hangarllm": {
+                    "name": "HangarLLM proxy",
                     "base_url": "http://localhost:4000/v1",
                     "wire_api": "responses",
                     "supports_websockets": False,
@@ -446,19 +446,19 @@ class TestAgentLaunchArgs:
             },
         }
 
-    def test_codex_subscription_provider_keeps_the_chatgpt_login_and_sends_the_key_in_the_litellm_header(self):
+    def test_codex_subscription_provider_keeps_the_chatgpt_login_and_sends_the_key_in_the_hangarllm_header(self):
         assert _codex_config(
             agent_launch_args("/usr/local/bin/codex", "http://localhost:4000/", subscription=True)
         ) == {
             "model_provider": "lite_subscription",
             "model_providers": {
                 "lite_subscription": {
-                    "name": "LiteLLM proxy",
+                    "name": "HangarLLM proxy",
                     "base_url": "http://localhost:4000/v1",
                     "wire_api": "responses",
                     "supports_websockets": False,
                     "requires_openai_auth": True,
-                    "env_http_headers": {"x-litellm-api-key": "LITELLM_PROXY_API_KEY"},
+                    "env_http_headers": {"x-hangarllm-api-key": "HANGARLLM_PROXY_API_KEY"},
                     "http_headers": {},
                 }
             },
@@ -466,11 +466,11 @@ class TestAgentLaunchArgs:
 
     def test_codex_subscription_leaves_the_cookbook_provider_table_out_of_the_launch(self):
         user_config = """
-model_provider = "litellm_subscription"
+model_provider = "hangarllm_subscription"
 
-[model_providers.litellm_subscription]
-name = "LiteLLM subscription"
-base_url = "https://litellm.example.com/v1"
+[model_providers.hangarllm_subscription]
+name = "HangarLLM subscription"
+base_url = "https://hangarllm.example.com/v1"
 wire_api = "responses"
 requires_openai_auth = true
 env_key = "OPENAI_API_KEY"
@@ -483,8 +483,8 @@ http_headers = { "x-team" = "qa" }
         assert "env_key" not in launched
         assert launched["requires_openai_auth"] is True
         assert launched["base_url"] == "http://localhost:4000/v1"
-        assert config["model_providers"]["litellm_subscription"] == tomllib.loads(user_config)["model_providers"][
-            "litellm_subscription"
+        assert config["model_providers"]["hangarllm_subscription"] == tomllib.loads(user_config)["model_providers"][
+            "hangarllm_subscription"
         ]
 
     @pytest.mark.parametrize("agent", ["claude", "opencode", "pi", "mytool"])
@@ -539,11 +539,11 @@ class TestVerifyProxyKey:
             captured["headers"] = headers
             return _FakeResponse(200)
 
-        verify_proxy_key("http://localhost:4000", "sk-key", get=fake_get, key_header="x-litellm-api-key")
+        verify_proxy_key("http://localhost:4000", "sk-key", get=fake_get, key_header="x-hangarllm-api-key")
 
-        assert captured["headers"] == {"x-litellm-api-key": "Bearer sk-key"}
+        assert captured["headers"] == {"x-hangarllm-api-key": "Bearer sk-key"}
 
-    def test_subscription_probe_sends_the_key_only_in_the_litellm_header(self):
+    def test_subscription_probe_sends_the_key_only_in_the_hangarllm_header(self):
         captured = {}
 
         def fake_get(url, headers, timeout):
@@ -552,7 +552,7 @@ class TestVerifyProxyKey:
 
         verify_subscription_key("http://localhost:4000", "sk-key", get=fake_get)
 
-        assert captured["headers"] == {"x-litellm-api-key": "Bearer sk-key"}
+        assert captured["headers"] == {"x-hangarllm-api-key": "Bearer sk-key"}
 
     def test_subscription_probe_reports_a_rejected_key(self):
         with pytest.raises(AgentRunError, match="rejected your key"):
@@ -569,7 +569,7 @@ class TestOpencodeModelSync:
         env = opencode_model_sync_env(base_env or {}, base_url, "sk-key", get=_routed_get(captured, listing, groups))
         return captured, env
 
-    def test_declares_proxy_as_litellm_provider_with_listed_models(self):
+    def test_declares_proxy_as_hangarllm_provider_with_listed_models(self):
         listing = self._listing(
             {"id": "gpt-5.5", "object": "model", "created": 1, "owned_by": "openai", "mode": "chat"},
             {"id": "claude-opus-4-7", "object": "model", "created": 1, "owned_by": "openai"},
@@ -579,9 +579,9 @@ class TestOpencodeModelSync:
         assert captured["urls"] == ["http://localhost:4000/v1/models", "http://localhost:4000/model_group/info"]
         assert captured["headers"] == {"Authorization": "Bearer sk-key"}
         config = json.loads(env["OPENCODE_CONFIG_CONTENT"])
-        provider = config["provider"]["litellm"]
+        provider = config["provider"]["hangarllm"]
         assert provider["npm"] == "@ai-sdk/openai-compatible"
-        assert provider["name"] == "LiteLLM"
+        assert provider["name"] == "HangarLLM"
         assert provider["options"] == {
             "baseURL": "http://localhost:4000/v1",
             "apiKey": "{env:OPENAI_API_KEY}",
@@ -605,7 +605,7 @@ class TestOpencodeModelSync:
             {"id": "half", "object": "model", "created": 1, "owned_by": "openai", "max_input_tokens": 8192},
         )
         _, env = self._sync(listing)
-        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"]
+        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["hangarllm"]["models"]
         assert models["gpt-5.5"]["limit"] == {"context": 400000, "output": 128000}
         assert "limit" not in models["half"]
 
@@ -649,7 +649,7 @@ class TestOpencodeModelSync:
             }
         )
         _, env = self._sync(listing, groups=({"model_group": "m", "supported_reasoning_efforts": efforts},))
-        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"]
+        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["hangarllm"]["models"]
         assert models == {"m": {"name": "m", "limit": {"context": 9, "output": 3}, **reasoning}}
 
     def test_an_unavailable_model_group_info_keeps_the_listing_only_config(self):
@@ -657,7 +657,7 @@ class TestOpencodeModelSync:
         _, failed = self._sync(listing, groups=500)
         _, unknown = self._sync(listing, groups=({"model_group": "m", "supported_reasoning_efforts": None},))
         assert failed == unknown
-        assert json.loads(failed["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"] == {"m": {"name": "m"}}
+        assert json.loads(failed["OPENCODE_CONFIG_CONTENT"])["provider"]["hangarllm"]["models"] == {"m": {"name": "m"}}
 
     def test_non_chat_models_are_left_out(self):
         listing = self._listing(
@@ -667,7 +667,7 @@ class TestOpencodeModelSync:
             {"id": "img", "object": "model", "created": 1, "owned_by": "openai", "mode": "image_generation"},
         )
         _, env = self._sync(listing)
-        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"]
+        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["hangarllm"]["models"]
         assert set(models) == {"chat", "resp"}
 
     def test_existing_config_content_is_left_alone(self):
@@ -729,7 +729,7 @@ class TestOpencodeModelSync:
             False,
             get=lambda *a, **k: _FakeResponse(200, listing),
         )
-        assert "m" in json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"]
+        assert "m" in json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["hangarllm"]["models"]
 
     def test_default_http_client_is_requests_get(self):
         assert _default_of(agent_model_sync_env, "get") is requests.get
@@ -776,8 +776,8 @@ class TestCodexModelSync:
         ]
         assert captured["headers"] == {"Authorization": "Bearer sk-key"}
         path = self._catalog_path(result)
-        assert path == str(tmp_path / "codex" / "litellm-models.json")
-        text = (tmp_path / "codex" / "litellm-models.json").read_text()
+        assert path == str(tmp_path / "codex" / "hangarllm-models.json")
+        text = (tmp_path / "codex" / "hangarllm-models.json").read_text()
         assert "sk-key" not in text
         catalog = json.loads(text)
         assert [m["slug"] for m in catalog["models"]] == ["gpt-5.5", "claude-opus-4-7"]
@@ -785,7 +785,7 @@ class TestCodexModelSync:
         assert [m["priority"] for m in catalog["models"]] == [0, 1]
 
     def _entries(self, codex_home):
-        return {m["slug"]: m for m in json.loads((codex_home / "litellm-models.json").read_text())["models"]}
+        return {m["slug"]: m for m in json.loads((codex_home / "hangarllm-models.json").read_text())["models"]}
 
     def test_known_model_keeps_the_installed_codex_entry(self, tmp_path):
         self._sync(self._listing(self._row("gpt-5.5", mode="chat")), tmp_path)
@@ -814,16 +814,16 @@ class TestCodexModelSync:
     @pytest.mark.parametrize(
         "deployment",
         [
-            {"model_name": "api-terra", "litellm_params": {"model": "openai/gpt-5.6-terra"}},
-            {"model_name": "api-terra", "litellm_params": {"model": "gpt-5.6-terra"}, "model_info": None},
+            {"model_name": "api-terra", "hangarllm_params": {"model": "openai/gpt-5.6-terra"}},
+            {"model_name": "api-terra", "hangarllm_params": {"model": "gpt-5.6-terra"}, "model_info": None},
             {
                 "model_name": "api-terra",
-                "litellm_params": {"model": "openai/gpt-5.6-terra"},
+                "hangarllm_params": {"model": "openai/gpt-5.6-terra"},
                 "model_info": {"id": "d1", "team_public_model_name": ""},
             },
             {
                 "model_name": "model_name_team-1_d1",
-                "litellm_params": {"model": "openai/gpt-5.6-terra", "api_base": "https://api.openai.com/v1"},
+                "hangarllm_params": {"model": "openai/gpt-5.6-terra", "api_base": "https://api.openai.com/v1"},
                 "model_info": {"id": "d1", "team_public_model_name": "api-terra"},
             },
         ],
@@ -850,7 +850,7 @@ class TestCodexModelSync:
 
     def test_alias_gets_no_upgrade_nudge_away_from_its_own_name(self, tmp_path):
         listing = self._listing(self._row("gpt-5.6-terra"), self._row("api-54"))
-        deployment = {"model_name": "api-54", "litellm_params": {"model": "openai/gpt-5.4"}}
+        deployment = {"model_name": "api-54", "hangarllm_params": {"model": "openai/gpt-5.4"}}
         self._sync(listing, tmp_path, model_info=_FakeResponse(200, {"data": [deployment]}))
 
         entry = self._entries(tmp_path)["api-54"]
@@ -871,7 +871,7 @@ class TestCodexModelSync:
         deployments = [
             {
                 "model_name": "api-terra",
-                "litellm_params": {"model": "openai/gpt-5.6-terra", **({"reasoning_effort": p} if p else {})},
+                "hangarllm_params": {"model": "openai/gpt-5.6-terra", **({"reasoning_effort": p} if p else {})},
             }
             for p in pins
         ]
@@ -886,36 +886,36 @@ class TestCodexModelSync:
         "deployments",
         [
             [
-                {"model_name": "api-terra", "litellm_params": {"model": "openai/gpt-5.6-terra"}},
-                {"model_name": "api-terra", "litellm_params": {"model": "gpt-5.6-terra"}},
+                {"model_name": "api-terra", "hangarllm_params": {"model": "openai/gpt-5.6-terra"}},
+                {"model_name": "api-terra", "hangarllm_params": {"model": "gpt-5.6-terra"}},
             ],
             [
                 {
                     "model_name": "api-terra",
-                    "litellm_params": {"model": "gpt-5.6-terra", "custom_llm_provider": "openai"},
+                    "hangarllm_params": {"model": "gpt-5.6-terra", "custom_llm_provider": "openai"},
                 }
             ],
             [
                 {
                     "model_name": "api-terra",
-                    "litellm_params": {"model": "openai/gpt-5.5"},
+                    "hangarllm_params": {"model": "openai/gpt-5.5"},
                     "model_info": {"id": "paused", "blocked": True},
                 },
-                {"model_name": "api-terra", "litellm_params": {"model": "openai/gpt-5.6-terra"}},
+                {"model_name": "api-terra", "hangarllm_params": {"model": "openai/gpt-5.6-terra"}},
             ],
             [
                 {
                     "model_name": "api-terra",
-                    "litellm_params": {"model": "openai/gpt-5.6-terra", "api_base": "https://eu.api.openai.com/v1"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6-terra", "api_base": "https://eu.api.openai.com/v1"},
                 }
             ],
             [
                 {
                     "model_name": "api-terra",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5.6-terra",
                         "api_base": "https://api.openai.com/v1",
-                        "litellm_credential_name": "openai-key",
+                        "hangarllm_credential_name": "openai-key",
                     },
                 }
             ],
@@ -939,35 +939,35 @@ class TestCodexModelSync:
         "deployments",
         [
             [
-                {"model_name": "api-terra", "litellm_params": {"model": "openai/gpt-5.5"}},
+                {"model_name": "api-terra", "hangarllm_params": {"model": "openai/gpt-5.5"}},
                 {
                     "model_name": "model_name_team-1_d1",
-                    "litellm_params": {"model": "openai/gpt-5.6-terra"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6-terra"},
                     "model_info": {"id": "d1", "team_public_model_name": "api-terra"},
                 },
             ],
             [
-                {"model_name": "api-terra", "litellm_params": {"model": "openai/gpt-5.6-terra"}},
-                {"model_name": "api-terra", "litellm_params": {"model": "anthropic/claude-opus-4-7"}},
+                {"model_name": "api-terra", "hangarllm_params": {"model": "openai/gpt-5.6-terra"}},
+                {"model_name": "api-terra", "hangarllm_params": {"model": "anthropic/claude-opus-4-7"}},
             ],
-            [{"model_name": "api-terra", "litellm_params": {"model": "azure/gpt-5.6-terra"}}],
-            [{"model_name": "api-terra", "litellm_params": {"model": "gpt-5.6-terra", "custom_llm_provider": "azure"}}],
+            [{"model_name": "api-terra", "hangarllm_params": {"model": "azure/gpt-5.6-terra"}}],
+            [{"model_name": "api-terra", "hangarllm_params": {"model": "gpt-5.6-terra", "custom_llm_provider": "azure"}}],
             [
                 {
                     "model_name": "api-terra",
-                    "litellm_params": {"model": "openai/gpt-5.6-terra", "api_base": "http://vllm.example.invalid/v1"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6-terra", "api_base": "http://vllm.example.invalid/v1"},
                 }
             ],
             [
                 {
                     "model_name": "api-terra",
-                    "litellm_params": {"model": "gpt-5.6-terra", "api_base": "https://api.openai.com.example.invalid"},
+                    "hangarllm_params": {"model": "gpt-5.6-terra", "api_base": "https://api.openai.com.example.invalid"},
                 }
             ],
             [
                 {
                     "model_name": "api-terra",
-                    "litellm_params": {"model": "openai/gpt-5.6-terra", "litellm_credential_name": "gateway"},
+                    "hangarllm_params": {"model": "openai/gpt-5.6-terra", "hangarllm_credential_name": "gateway"},
                 }
             ],
         ],
@@ -992,16 +992,16 @@ class TestCodexModelSync:
         "model_info",
         [
             requests.ConnectionError("refused"),
-            _FakeResponse(500, {"data": [{"model_name": "api-terra", "litellm_params": {"model": "gpt-5.6-terra"}}]}),
+            _FakeResponse(500, {"data": [{"model_name": "api-terra", "hangarllm_params": {"model": "gpt-5.6-terra"}}]}),
             _FakeResponse(200, {"data": "nope"}),
             _FakeResponse(200, {"data": [{"model_name": "api-terra"}]}),
         ],
-        ids=["unreachable", "http_500", "unexpected_body", "deployment_without_litellm_params"],
+        ids=["unreachable", "http_500", "unexpected_body", "deployment_without_hangarllm_params"],
     )
     def test_unavailable_model_info_keeps_the_alias_on_the_fallback_entry(self, tmp_path, model_info):
         _, result = self._sync(self._listing(self._row("api-terra")), tmp_path, model_info=model_info)
 
-        catalog = tmp_path / "litellm-models.json"
+        catalog = tmp_path / "hangarllm-models.json"
         assert result == ModelSyncArgs(("-c", f"model_catalog_json={json.dumps(str(catalog))}"))
         entry = self._entries(tmp_path)["api-terra"]
         assert entry["slug"] == "api-terra"
@@ -1020,18 +1020,18 @@ class TestCodexModelSync:
         _, result = self._sync(self._listing(self._row("gpt-5.5")), tmp_path, run=locale_bound_run)
 
         assert isinstance(result, ModelSyncArgs)
-        written = json.loads((tmp_path / "litellm-models.json").read_text(encoding="utf-8"))["models"]
+        written = json.loads((tmp_path / "hangarllm-models.json").read_text(encoding="utf-8"))["models"]
         assert [m["description"] for m in written] == [description]
 
     def test_unparseable_stock_catalog_is_reported(self, tmp_path):
         _, result = self._sync(self._listing(self._row("m")), tmp_path, run=_FakeRun(stock="not json"))
         assert isinstance(result, ModelSyncSkipped)
         assert result.reason.startswith("`codex debug models` printed no model catalog: ")
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "hangarllm-models.json").exists()
 
     def test_unknown_model_gets_the_fields_codex_requires(self, tmp_path):
         _, result = self._sync(self._listing(self._row("m")), tmp_path)
-        entry = json.loads((tmp_path / "litellm-models.json").read_text())["models"][0]
+        entry = json.loads((tmp_path / "hangarllm-models.json").read_text())["models"][0]
 
         assert entry["visibility"] == "list"
         assert entry["supported_in_api"] is True
@@ -1114,26 +1114,26 @@ class TestCodexModelSync:
             self._row("img", mode="image_generation"),
         )
         self._sync(listing, tmp_path)
-        slugs = {m["slug"] for m in json.loads((tmp_path / "litellm-models.json").read_text())["models"]}
+        slugs = {m["slug"] for m in json.loads((tmp_path / "hangarllm-models.json").read_text())["models"]}
         assert slugs == {"chat", "resp"}
 
     def test_listing_without_chat_models_is_skipped_and_writes_nothing(self, tmp_path):
         _, result = self._sync(self._listing(self._row("embed", mode="embedding")), tmp_path)
         assert isinstance(result, ModelSyncSkipped)
         assert "no chat models" in result.reason
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "hangarllm-models.json").exists()
 
     def test_catalog_is_rewritten_on_every_launch(self, tmp_path):
         self._sync(self._listing(self._row("old")), tmp_path)
         self._sync(self._listing(self._row("new")), tmp_path)
-        slugs = [m["slug"] for m in json.loads((tmp_path / "litellm-models.json").read_text())["models"]]
+        slugs = [m["slug"] for m in json.loads((tmp_path / "hangarllm-models.json").read_text())["models"]]
         assert slugs == ["new"]
 
     def test_catalog_is_replaced_whole_and_leaves_no_temp_files(self, tmp_path):
         self._sync(self._listing(*(self._row(f"m{i}") for i in range(50))), tmp_path)
         self._sync(self._listing(self._row("new")), tmp_path)
-        assert [p.name for p in tmp_path.iterdir()] == ["litellm-models.json"]
-        assert json.loads((tmp_path / "litellm-models.json").read_text())["models"][0]["slug"] == "new"
+        assert [p.name for p in tmp_path.iterdir()] == ["hangarllm-models.json"]
+        assert json.loads((tmp_path / "hangarllm-models.json").read_text())["models"][0]["slug"] == "new"
 
     def test_defaults_to_dot_codex_in_home(self, tmp_path):
         result = codex_model_sync_args(
@@ -1144,7 +1144,7 @@ class TestCodexModelSync:
             run=_FakeRun(),
             home=lambda: tmp_path,
         )
-        assert self._catalog_path(result) == str(tmp_path / ".codex" / "litellm-models.json")
+        assert self._catalog_path(result) == str(tmp_path / ".codex" / "hangarllm-models.json")
 
     def test_default_home_is_the_users(self):
         assert _default_of(codex_model_sync_args, "home") == Path.home
@@ -1159,7 +1159,7 @@ class TestCodexModelSync:
         )
         assert isinstance(result, ModelSyncSkipped)
         assert "could not read" in result.reason
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "hangarllm-models.json").exists()
 
     def test_unwritable_catalog_path_is_reported_not_raised(self, tmp_path):
         blocker = tmp_path / "file"
@@ -1169,11 +1169,11 @@ class TestCodexModelSync:
         assert "could not write" in result.reason
 
     def test_failed_replace_is_reported_and_leaves_no_temp_file(self, tmp_path):
-        (tmp_path / "litellm-models.json").mkdir()
+        (tmp_path / "hangarllm-models.json").mkdir()
         _, result = self._sync(self._listing(self._row("m")), tmp_path)
         assert isinstance(result, ModelSyncSkipped)
         assert "could not write" in result.reason
-        assert [p.name for p in tmp_path.iterdir()] == ["litellm-models.json"]
+        assert [p.name for p in tmp_path.iterdir()] == ["hangarllm-models.json"]
 
     def test_unreachable_proxy_is_reported_not_raised(self, tmp_path):
         def boom(*a, **k):
@@ -1182,7 +1182,7 @@ class TestCodexModelSync:
         result = codex_model_sync_args({"CODEX_HOME": str(tmp_path)}, "http://localhost:4000", "sk-key", get=boom)
         assert isinstance(result, ModelSyncSkipped)
         assert "refused" in result.reason
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "hangarllm-models.json").exists()
 
     @pytest.mark.parametrize(
         ("response", "reason"),
@@ -1207,7 +1207,7 @@ class TestCodexModelSync:
             get=lambda *a, **k: _FakeResponse(200, self._listing(self._row("m"))),
             run=run,
         )
-        assert self._catalog_path(result) == str(tmp_path / "litellm-models.json")
+        assert self._catalog_path(result) == str(tmp_path / "hangarllm-models.json")
         assert len(run.calls) == 3
         assert all(binary in command for command, _ in run.calls)
 
@@ -1245,17 +1245,17 @@ class TestCodexModelSync:
 
     def test_codex_rejecting_the_catalog_skips_the_sync_and_keeps_the_file(self, tmp_path):
         stderr = (
-            "Error: failed to parse model_catalog_json path `/home/me/.codex/litellm-models.json` as JSON: "
+            "Error: failed to parse model_catalog_json path `/home/me/.codex/hangarllm-models.json` as JSON: "
             "missing field `supports_parallel_tool_calls` at line 1 column 21648\n"
         )
         _, result = self._sync(self._listing(self._row("m")), tmp_path, run=_FakeRun(1, stderr))
         assert isinstance(result, ModelSyncSkipped)
         assert result.reason == (
             "`codex debug models` exited 1: Error: failed to parse model_catalog_json path "
-            "`/home/me/.codex/litellm-models.json` as JSON: missing field `supports_parallel_tool_calls` "
+            "`/home/me/.codex/hangarllm-models.json` as JSON: missing field `supports_parallel_tool_calls` "
             "at line 1 column 21648"
         )
-        assert (tmp_path / "litellm-models.json").exists()
+        assert (tmp_path / "hangarllm-models.json").exists()
 
     def test_codex_without_debug_models_skips_the_sync(self, tmp_path):
         stderr = "error: unrecognized subcommand 'models'\n\nUsage: codex debug [OPTIONS] <COMMAND>\n"
@@ -1264,7 +1264,7 @@ class TestCodexModelSync:
         assert isinstance(result, ModelSyncSkipped)
         assert result.reason == "`codex debug models` exited 2: error: unrecognized subcommand 'models'"
         assert len(run.calls) == 1
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "hangarllm-models.json").exists()
 
     def test_codex_failing_silently_is_reported(self, tmp_path):
         _, result = self._sync(self._listing(self._row("m")), tmp_path, run=_FakeRun(1))
@@ -1344,7 +1344,7 @@ class TestRunAgent:
         assert args[-2:] == ("exec", "hi")
         assert args[args.index('model_catalog_json="/tmp/c.json"') - 1] == "-c"
         assert (
-            args.index('model_provider="litellm"') < args.index('model_catalog_json="/tmp/c.json"') < args.index("exec")
+            args.index('model_provider="hangarllm"') < args.index('model_catalog_json="/tmp/c.json"') < args.index("exec")
         )
         assert calls["env"]["OPENAI_API_KEY"] == "sk-key"
         assert "model_catalog_json" not in json.dumps(calls["env"])
@@ -1373,7 +1373,7 @@ class TestRunAgent:
         def fake_sync(command, base_env, base_url, api_key, skip_verify):
             order.append("sync")
             calls["args"] = (command, dict(base_env), base_url, api_key, skip_verify)
-            return {"OPENCODE_CONFIG_CONTENT": '{"provider":{"litellm":{}}}'}
+            return {"OPENCODE_CONFIG_CONTENT": '{"provider":{"hangarllm":{}}}'}
 
         run_agent(
             "http://localhost:4000",
@@ -1396,7 +1396,7 @@ class TestRunAgent:
 
     def test_unreachable_proxy_is_not_asked_for_models(self):
         def failing_verify(*a):
-            raise AgentRunError("Could not reach the LiteLLM proxy")
+            raise AgentRunError("Could not reach the HangarLLM proxy")
 
         def boom(*a):
             raise AssertionError("a failed key check must not be followed by a model fetch")
@@ -1435,7 +1435,7 @@ class TestRunAgent:
         )
         assert calls["skip_verify"] is True
         assert "OPENCODE_CONFIG_CONTENT" not in calls["env"]
-        assert warnings == ["litellm: not syncing OpenCode models from the proxy: offline"]
+        assert warnings == ["hangarllm: not syncing OpenCode models from the proxy: offline"]
 
     def test_skipped_sync_still_launches_with_plain_openai_env(self):
         calls = {}
@@ -1529,10 +1529,10 @@ class TestRunAgent:
         args = calls["args"]
         assert args[0] == "codex"
         assert args[-2:] == ("exec", "do a thing")
-        assert 'model_provider="litellm"' in args
-        assert 'model_providers.litellm.base_url="http://localhost:4000/v1"' in args
+        assert 'model_provider="hangarllm"' in args
+        assert 'model_providers.hangarllm.base_url="http://localhost:4000/v1"' in args
         # overrides must precede the codex subcommand so codex parses them
-        assert args.index('model_provider="litellm"') < args.index("exec")
+        assert args.index('model_provider="hangarllm"') < args.index("exec")
 
     def test_pi_preparer_runs_after_verify_and_before_launch(self):
         order = []
@@ -1570,10 +1570,10 @@ class TestRunAgent:
             which=lambda name: "/usr/local/bin/pi",
             verify=lambda *a: None,
             launcher=lambda p, a, e: calls.update(args=tuple(a), env=dict(e)),
-            preparers={"pi": lambda *a: ["--model", "litellm/m-1"]},
+            preparers={"pi": lambda *a: ["--model", "hangarllm/m-1"]},
         )
-        assert calls["args"] == ("pi", "--model", "litellm/m-1", "-p", "hello")
-        assert calls["env"]["LITELLM_PROXY_API_KEY"] == "sk-key"
+        assert calls["args"] == ("pi", "--model", "hangarllm/m-1", "-p", "hello")
+        assert calls["env"]["HANGARLLM_PROXY_API_KEY"] == "sk-key"
         assert "OPENAI_API_KEY" not in calls["env"]
         assert "ANTHROPIC_BASE_URL" not in calls["env"]
 
@@ -1597,7 +1597,7 @@ class TestRunAgent:
         assert launched == []
 
     def test_prepare_pi_syncs_models_json_and_pins_first_model(self, tmp_path):
-        from litellm.proxy.client.cli.commands.agents import prepare_pi
+        from hangarllm.proxy.client.cli.commands.agents import prepare_pi
 
         def fake_get(url, headers, timeout):
             if url.endswith("/model_group/info"):
@@ -1614,18 +1614,18 @@ class TestRunAgent:
             get=fake_get,
         )
 
-        assert pin == ("--model", "litellm/m-first")
+        assert pin == ("--model", "hangarllm/m-first")
         import json
 
         written = json.loads((tmp_path / "models.json").read_text())
-        assert written["providers"]["litellm"]["apiKey"] == "$LITELLM_PROXY_API_KEY"
-        assert written["providers"]["litellm"]["models"] == [
+        assert written["providers"]["hangarllm"]["apiKey"] == "$HANGARLLM_PROXY_API_KEY"
+        assert written["providers"]["hangarllm"]["models"] == [
             {"id": "m-first", "contextWindow": 131072, "maxTokens": 8192},
             {"id": "m-second"},
         ]
 
     def test_prepare_pi_surfaces_fetch_failure_as_agent_error(self, tmp_path):
-        from litellm.proxy.client.cli.commands.agents import prepare_pi
+        from hangarllm.proxy.client.cli.commands.agents import prepare_pi
 
         with pytest.raises(AgentRunError, match="HTTP 500"):
             prepare_pi(
@@ -1752,7 +1752,7 @@ class TestRunAgent:
             read_settings=lambda path: {},
         )
         assert probed == [("header", ("http://localhost:4000", "sk-key"))]
-        assert launched["env"]["ANTHROPIC_CUSTOM_HEADERS"] == "x-litellm-api-key: Bearer sk-key"
+        assert launched["env"]["ANTHROPIC_CUSTOM_HEADERS"] == "x-hangarllm-api-key: Bearer sk-key"
         assert "ANTHROPIC_AUTH_TOKEN" not in launched["env"]
 
     def test_subscription_launch_blanks_the_credentials_claude_code_would_load_from_settings_json(self, tmp_path):
@@ -1774,7 +1774,7 @@ class TestRunAgent:
             "env": {
                 "ANTHROPIC_AUTH_TOKEN": "",
                 "ANTHROPIC_API_KEY": "",
-                "ANTHROPIC_CUSTOM_HEADERS": "x-litellm-api-key: Bearer sk-key",
+                "ANTHROPIC_CUSTOM_HEADERS": "x-hangarllm-api-key: Bearer sk-key",
             }
         }
         assert launched["args"][3:] == ("--resume",)
@@ -1784,8 +1784,8 @@ class TestRunAgent:
     ):
         config_dir = tmp_path / "cfg"
         config_dir.mkdir()
-        stale = config_dir / "litellm-subscription-overlay.json"
-        stale.write_text('{"env": {"ANTHROPIC_CUSTOM_HEADERS": "x-litellm-api-key: Bearer old-key"}}')
+        stale = config_dir / "hangarllm-subscription-overlay.json"
+        stale.write_text('{"env": {"ANTHROPIC_CUSTOM_HEADERS": "x-hangarllm-api-key: Bearer old-key"}}')
         stale.chmod(0o644)
         launched = {}
         for _ in range(2):
@@ -1802,8 +1802,8 @@ class TestRunAgent:
             )
         assert "sk-key" not in " ".join(launched["args"])
         assert Path(launched["args"][2]) == stale
-        assert sorted(path.name for path in config_dir.iterdir()) == ["litellm-subscription-overlay.json"]
-        assert json.loads(stale.read_text())["env"]["ANTHROPIC_CUSTOM_HEADERS"] == "x-litellm-api-key: Bearer sk-key"
+        assert sorted(path.name for path in config_dir.iterdir()) == ["hangarllm-subscription-overlay.json"]
+        assert json.loads(stale.read_text())["env"]["ANTHROPIC_CUSTOM_HEADERS"] == "x-hangarllm-api-key: Bearer sk-key"
         if os.name == "posix":
             assert stat.S_IMODE(stale.stat().st_mode) == 0o600
 
@@ -1885,7 +1885,7 @@ class TestRunAgent:
                 "ANTHROPIC_AUTH_TOKEN": "",
                 "FOO": "bar",
                 "ANTHROPIC_API_KEY": "",
-                "ANTHROPIC_CUSTOM_HEADERS": "x-litellm-api-key: Bearer sk-key",
+                "ANTHROPIC_CUSTOM_HEADERS": "x-hangarllm-api-key: Bearer sk-key",
             },
         }
         assert launched["args"][3:] == ["--resume", "-p", "hi"]
@@ -1910,7 +1910,7 @@ class TestRunAgent:
             "env": {
                 "ANTHROPIC_API_KEY": "",
                 "ANTHROPIC_AUTH_TOKEN": "",
-                "ANTHROPIC_CUSTOM_HEADERS": "x-litellm-api-key: Bearer sk-key",
+                "ANTHROPIC_CUSTOM_HEADERS": "x-hangarllm-api-key: Bearer sk-key",
             },
         }
         assert launched["args"][3:] == []
@@ -1918,17 +1918,17 @@ class TestRunAgent:
     @pytest.mark.parametrize(
         ("flag_headers", "local_headers", "project_headers", "user_headers", "expected"),
         [
-            ("X-Flag: f", "X-Local: l", "X-Proj: p", "X-User: u", "X-Flag: f\nx-litellm-api-key: Bearer sk-key"),
-            (None, "X-Local: l", "X-Proj: p", "X-User: u", "X-Local: l\nx-litellm-api-key: Bearer sk-key"),
+            ("X-Flag: f", "X-Local: l", "X-Proj: p", "X-User: u", "X-Flag: f\nx-hangarllm-api-key: Bearer sk-key"),
+            (None, "X-Local: l", "X-Proj: p", "X-User: u", "X-Local: l\nx-hangarllm-api-key: Bearer sk-key"),
             (
                 None,
                 None,
-                "X-Proj: p\nx-litellm-api-key: Bearer stale",
+                "X-Proj: p\nx-hangarllm-api-key: Bearer stale",
                 "X-User: u",
-                "X-Proj: p\nx-litellm-api-key: Bearer sk-key",
+                "X-Proj: p\nx-hangarllm-api-key: Bearer sk-key",
             ),
-            (None, None, None, "X-User: u", "X-User: u\nx-litellm-api-key: Bearer sk-key"),
-            (None, None, None, None, "X-Proc: h\nx-litellm-api-key: Bearer sk-key"),
+            (None, None, None, "X-User: u", "X-User: u\nx-hangarllm-api-key: Bearer sk-key"),
+            (None, None, None, None, "X-Proc: h\nx-hangarllm-api-key: Bearer sk-key"),
         ],
     )
     def test_subscription_overlay_keeps_the_custom_headers_claude_code_would_apply_and_adds_the_key(
@@ -1958,7 +1958,7 @@ class TestRunAgent:
             project_dir=tmp_path / "repo",
         )
         assert _overlay(launched["args"])["env"]["ANTHROPIC_CUSTOM_HEADERS"] == expected
-        assert launched["env"]["ANTHROPIC_CUSTOM_HEADERS"] == "X-Proc: h\nx-litellm-api-key: Bearer sk-key"
+        assert launched["env"]["ANTHROPIC_CUSTOM_HEADERS"] == "X-Proc: h\nx-hangarllm-api-key: Bearer sk-key"
 
     def test_subscription_launch_strips_every_settings_flag_and_merges_the_last_one_claude_code_would_keep(
         self, tmp_path
@@ -1988,7 +1988,7 @@ class TestRunAgent:
             "env": {
                 "ANTHROPIC_AUTH_TOKEN": "",
                 "ANTHROPIC_API_KEY": "",
-                "ANTHROPIC_CUSTOM_HEADERS": "x-litellm-api-key: Bearer sk-key",
+                "ANTHROPIC_CUSTOM_HEADERS": "x-hangarllm-api-key: Bearer sk-key",
             },
         }
         assert launched["args"][3:] == ["--resume"]
@@ -2049,7 +2049,7 @@ class TestRunAgent:
         assert launched["args"][-3:] == ("exec", "--settings", "kept")
         assert _codex_config(launched["args"][1:-3])["model_provider"] == "lite_subscription"
         assert "OPENAI_BASE_URL" not in launched["env"]
-        assert launched["env"]["LITELLM_PROXY_API_KEY"] == "sk-key"
+        assert launched["env"]["HANGARLLM_PROXY_API_KEY"] == "sk-key"
         assert "OPENAI_API_KEY" not in launched["env"]
 
     @pytest.mark.parametrize(
@@ -2392,7 +2392,7 @@ class TestHandOff:
         shim = _WINDOWS_CLAUDE_CMD.replace("claude", "codex")
         assert command.startswith(f'{_CMD_PREFIX}""{shim}" ')
         assert command.endswith('"exec" "do a thing""')
-        assert '"model_provider=""litellm"""' in command
+        assert '"model_provider=""hangarllm"""' in command
         assert env["OPENAI_API_KEY"] == "sk-key"
 
 
@@ -2586,7 +2586,7 @@ class TestAgentCommands:
                 obj={"base_url": "http://localhost:4000", "api_key": None},
             )
         assert result.exit_code != 0
-        assert "LITELLM_PROXY_API_KEY" in result.output
+        assert "HANGARLLM_PROXY_API_KEY" in result.output
         mock_run.assert_not_called()
 
     def test_interactive_without_key_logs_in_then_launches(self, secret_vault_factory):
@@ -2639,7 +2639,7 @@ class TestAgentCommands:
         assert "could not reach proxy" in result.output
 
     def test_interactive_session_reattaches_terminal_before_handoff(self):
-        from litellm.proxy.client.cli.commands.agents import (
+        from hangarllm.proxy.client.cli.commands.agents import (
             _restore_controlling_terminal,
         )
 
@@ -2679,19 +2679,19 @@ class TestAgentCommands:
 
 class TestPrepareCodex:
     def test_registers_the_installed_script_as_a_session_scoped_stop_hook(self):
-        from litellm.proxy.client.cli.commands.agents import prepare_codex
+        from hangarllm.proxy.client.cli.commands.agents import prepare_codex
 
         args = prepare_codex(
-            "http://localhost:4000", "sk-key", {}, install=lambda: "/py /home/me/.litellm/statusline.py"
+            "http://localhost:4000", "sk-key", {}, install=lambda: "/py /home/me/.hangarllm/statusline.py"
         )
         assert args == (
             "-c",
-            'hooks.Stop=[{hooks=[{type="command",command="/py /home/me/.litellm/statusline.py"}]}]',
+            'hooks.Stop=[{hooks=[{type="command",command="/py /home/me/.hangarllm/statusline.py"}]}]',
         )
 
     def test_a_failed_install_is_an_agent_error_not_a_crash(self):
-        from litellm.proxy.client.cli.commands.agents import AgentRunError, prepare_codex
-        from litellm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
+        from hangarllm.proxy.client.cli.commands.agents import AgentRunError, prepare_codex
+        from hangarllm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
 
         def boom():
             raise ClaudeSettingsError("disk full")
@@ -2700,7 +2700,7 @@ class TestPrepareCodex:
             prepare_codex("http://localhost:4000", "sk-key", {}, install=boom)
 
     def test_a_config_that_already_declares_hooks_keeps_them_and_skips_ours(self, tmp_path):
-        from litellm.proxy.client.cli.commands.agents import prepare_codex
+        from hangarllm.proxy.client.cli.commands.agents import prepare_codex
 
         warnings = []
         env = {"CODEX_HOME": str(tmp_path)}
@@ -2723,7 +2723,7 @@ class TestPrepareCodex:
     def test_a_config_that_cannot_be_read_or_decoded_still_lets_codex_launch(self, tmp_path):
         # A UTF-16 config.toml (a Windows Notepad save) is Codex's problem to report at launch, not a reason
         # for the hook pre-check to abort `lite codex` with a traceback before Codex ever starts.
-        from litellm.proxy.client.cli.commands.agents import codex_declares_stop_hooks, prepare_codex
+        from hangarllm.proxy.client.cli.commands.agents import codex_declares_stop_hooks, prepare_codex
 
         config = tmp_path / "config.toml"
         config.write_bytes('[[hooks.Stop]]\nhooks = [{ type = "command", command = "mine" }]\n'.encode("utf-16"))
@@ -2733,6 +2733,6 @@ class TestPrepareCodex:
         assert args[0] == "-c" and "hooks.Stop=" in args[1]
 
     def test_codex_is_wired_through_the_preparer_registry(self):
-        from litellm.proxy.client.cli.commands.agents import _PREPARERS, prepare_codex
+        from hangarllm.proxy.client.cli.commands.agents import _PREPARERS, prepare_codex
 
         assert _PREPARERS["codex"] is prepare_codex

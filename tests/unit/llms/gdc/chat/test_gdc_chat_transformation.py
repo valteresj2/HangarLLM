@@ -4,8 +4,8 @@ import pytest
 
 # Adds the parent directory to the system path
 
-import litellm
-from litellm.llms.gdc.chat.transformation import GDCGeminiConfig
+import hangarllm
+from hangarllm.llms.gdc.chat.transformation import GDCGeminiConfig
 
 TEST_API_KEY = '{"type": "gdch_service_account", "project_id": "test-project"}'
 TEST_MODEL = "gdc/gemini-2.5-flash"
@@ -25,7 +25,7 @@ class TestGDCGeminiConfig:
                 "vertex_project": TEST_PROJECT,
                 "vertex_location": TEST_LOCATION,
             },
-            litellm_params={},
+            hangarllm_params={},
         )
         assert (
             url
@@ -39,7 +39,7 @@ class TestGDCGeminiConfig:
             api_key=None,
             model=TEST_MODEL,
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": TEST_PROJECT,
                 "vertex_location": TEST_LOCATION,
             },
@@ -54,7 +54,7 @@ class TestGDCGeminiConfig:
             api_key=None,
             model=TEST_MODEL,
             optional_params={"vertex_project": TEST_PROJECT},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == preformed
 
@@ -69,7 +69,7 @@ class TestGDCGeminiConfig:
                     "vertex_project": TEST_PROJECT,
                     "vertex_location": TEST_LOCATION,
                 },
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_get_complete_url_missing_project(self):
@@ -80,7 +80,7 @@ class TestGDCGeminiConfig:
                 api_key=None,
                 model=TEST_MODEL,
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_get_complete_url_missing_location(self):
@@ -91,7 +91,7 @@ class TestGDCGeminiConfig:
                 api_key=None,
                 model=TEST_MODEL,
                 optional_params={"vertex_project": TEST_PROJECT},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     def test_get_complete_url_accepts_vertex_ai_aliases(self):
@@ -101,7 +101,7 @@ class TestGDCGeminiConfig:
             api_key=None,
             model=TEST_MODEL,
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_ai_project": TEST_PROJECT,
                 "vertex_ai_location": TEST_LOCATION,
             },
@@ -111,7 +111,7 @@ class TestGDCGeminiConfig:
             == f"{TEST_API_BASE}/v1/projects/{TEST_PROJECT}/locations/{TEST_LOCATION}/chat/completions"
         )
 
-    def test_get_complete_url_preformed_base_is_authoritative_over_litellm_params(self):
+    def test_get_complete_url_preformed_base_is_authoritative_over_hangarllm_params(self):
         config = GDCGeminiConfig()
         preformed = f"{TEST_API_BASE}/v1/projects/pinned-project/locations/pinned-loc/chat/completions"
         url = config.get_complete_url(
@@ -119,7 +119,7 @@ class TestGDCGeminiConfig:
             api_key=None,
             model=TEST_MODEL,
             optional_params={"vertex_project": "attacker-optional", "vertex_location": "attacker-loc"},
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "attacker-project",
                 "vertex_location": "attacker-loc",
             },
@@ -134,7 +134,7 @@ class TestGDCGeminiConfig:
             api_key=None,
             model=TEST_MODEL,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == preformed
 
@@ -148,7 +148,7 @@ class TestGDCGeminiConfig:
                 "vertex_project": "caller-project",
                 "vertex_location": "caller-location",
             },
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "deployment-project",
                 "vertex_location": "deployment-location",
             },
@@ -178,7 +178,7 @@ class TestGDCGeminiConfig:
                 "vertex_project": TEST_PROJECT,
                 "vertex_location": TEST_LOCATION,
             },
-            litellm_params={},
+            hangarllm_params={},
             api_key=TEST_API_KEY,
             api_base=TEST_API_BASE,
         )
@@ -205,7 +205,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={},
-                litellm_params={"vertex_project": TEST_PROJECT},
+                hangarllm_params={"vertex_project": TEST_PROJECT},
                 api_key=TEST_API_KEY,
                 api_base="https://gdc-endpoint.com/",
             )
@@ -226,7 +226,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={},
-                litellm_params={
+                hangarllm_params={
                     "vertex_project": "deployment-project",
                     "vertex_location": "deployment-loc",
                 },
@@ -237,8 +237,8 @@ class TestGDCGeminiConfig:
         mock_creds.with_gdch_audience.assert_called_once_with(TEST_API_BASE)
 
     def test_validate_environment_missing_api_base(self, monkeypatch):
-        monkeypatch.setattr(litellm, "api_base", None, raising=False)
-        monkeypatch.setattr(litellm, "gdc_api_base", None, raising=False)
+        monkeypatch.setattr(hangarllm, "api_base", None, raising=False)
+        monkeypatch.setattr(hangarllm, "gdc_api_base", None, raising=False)
         config = GDCGeminiConfig()
         with pytest.raises(Exception, match="api_base/host is required for GDC Gemini"):
             config.validate_environment(
@@ -246,7 +246,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={},
-                litellm_params={"vertex_project": TEST_PROJECT},
+                hangarllm_params={"vertex_project": TEST_PROJECT},
                 api_key=TEST_API_KEY,
                 api_base=None,
             )
@@ -259,7 +259,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={},
-                litellm_params={"vertex_project": TEST_PROJECT},
+                hangarllm_params={"vertex_project": TEST_PROJECT},
                 api_key=None,
                 api_base=TEST_API_BASE,
             )
@@ -272,7 +272,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=TEST_API_KEY,
                 api_base=TEST_API_BASE,
             )
@@ -284,7 +284,7 @@ class TestGDCGeminiConfig:
             model=TEST_MODEL,
             messages=[],
             optional_params={},
-            litellm_params={"vertex_project": TEST_PROJECT},
+            hangarllm_params={"vertex_project": TEST_PROJECT},
             api_key="ya29.raw-access-token",
             api_base=TEST_API_BASE,
         )
@@ -305,7 +305,7 @@ class TestGDCGeminiConfig:
                     model=TEST_MODEL,
                     messages=[],
                     optional_params={},
-                    litellm_params={"vertex_project": TEST_PROJECT},
+                    hangarllm_params={"vertex_project": TEST_PROJECT},
                     api_key=TEST_API_KEY,
                     api_base=TEST_API_BASE,
                 )
@@ -324,7 +324,7 @@ class TestGDCGeminiConfig:
                     model=TEST_MODEL,
                     messages=[],
                     optional_params={},
-                    litellm_params={"vertex_project": TEST_PROJECT},
+                    hangarllm_params={"vertex_project": TEST_PROJECT},
                     api_key=TEST_API_KEY,
                     api_base=TEST_API_BASE,
                 )
@@ -345,7 +345,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={},
-                litellm_params={
+                hangarllm_params={
                     "vertex_project": TEST_PROJECT,
                     "gdc_token_caching": "false",
                 },
@@ -370,7 +370,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={},
-                litellm_params={
+                hangarllm_params={
                     "vertex_project": TEST_PROJECT,
                     "gdc_token_caching": True,
                 },
@@ -391,7 +391,7 @@ class TestGDCGeminiConfig:
             model=TEST_MODEL,
             messages=[],
             optional_params={},
-            litellm_params={"vertex_project": TEST_PROJECT},
+            hangarllm_params={"vertex_project": TEST_PROJECT},
             api_key="raw-token",
             api_base=TEST_API_BASE,
         )
@@ -415,7 +415,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={"vertex_project": "attacker-proj"},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=TEST_API_KEY,
                 api_base=preformed,
             )
@@ -433,7 +433,7 @@ class TestGDCGeminiConfig:
                 api_key=None,
                 model=TEST_MODEL,
                 optional_params={"vertex_project": bad, "vertex_location": TEST_LOCATION},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     @pytest.mark.parametrize("bad", ["../../evil", "l/chat/completions", "l?x", ".."])
@@ -445,7 +445,7 @@ class TestGDCGeminiConfig:
                 api_key=None,
                 model=TEST_MODEL,
                 optional_params={"vertex_project": TEST_PROJECT, "vertex_location": bad},
-                litellm_params={},
+                hangarllm_params={},
             )
 
     @pytest.mark.parametrize("good", ["test-project", "us-central1", "123456", "proj_1", "MyProj-2"])
@@ -456,7 +456,7 @@ class TestGDCGeminiConfig:
             api_key=None,
             model=TEST_MODEL,
             optional_params={"vertex_project": good, "vertex_location": good},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert url == f"{TEST_API_BASE}/v1/projects/{good}/locations/{good}/chat/completions"
 
@@ -468,7 +468,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={"vertex_project": "p/../admin"},
-                litellm_params={},
+                hangarllm_params={},
                 api_key="raw-token",
                 api_base=TEST_API_BASE,
             )
@@ -487,7 +487,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={"vertex_project": "attacker-proj"},
-                litellm_params={},
+                hangarllm_params={},
                 api_key=TEST_API_KEY,
                 api_base=preformed,
             )
@@ -507,7 +507,7 @@ class TestGDCGeminiConfig:
                 model=TEST_MODEL,
                 messages=[],
                 optional_params={"vertex_project": "attacker-proj"},
-                litellm_params={"vertex_project": "override-proj"},
+                hangarllm_params={"vertex_project": "override-proj"},
                 api_key=TEST_API_KEY,
                 api_base=preformed,
             )
@@ -522,7 +522,7 @@ class TestGDCGeminiConfig:
                 "vertex_project": TEST_PROJECT,
                 "vertex_location": TEST_LOCATION,
             },
-            litellm_params={"ssl_verify": True},
+            hangarllm_params={"ssl_verify": True},
             headers={},
         )
         assert data["model"] == "gemini-2.5-flash"
@@ -579,7 +579,7 @@ class TestGDCGeminiConfig:
                     model=TEST_MODEL,
                     messages=[],
                     optional_params={},
-                    litellm_params={"vertex_project": TEST_PROJECT},
+                    hangarllm_params={"vertex_project": TEST_PROJECT},
                     api_key=malicious,
                     api_base=TEST_API_BASE,
                 )
@@ -600,7 +600,7 @@ class TestGDCGeminiConfig:
             model=TEST_MODEL,
             messages=[],
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": TEST_PROJECT,
                 "vertex_location": TEST_LOCATION,
             },
@@ -684,18 +684,18 @@ class TestGDCGeminiConfig:
 
 
 class TestCompleteGDC:
-    @patch("litellm.main.base_llm_http_handler.completion")
+    @patch("hangarllm.main.base_llm_http_handler.completion")
     def test_complete_gdc_resolves_key_and_base(self, mock_completion, monkeypatch):
-        from litellm.main import gdc_transformation
+        from hangarllm.main import gdc_transformation
 
         mock_completion.return_value = MagicMock()
-        monkeypatch.setattr(litellm, "gdc_key", "resolved-key", raising=False)
+        monkeypatch.setattr(hangarllm, "gdc_key", "resolved-key", raising=False)
         monkeypatch.setattr(
-            litellm, "gdc_api_base", "https://resolved-base.com", raising=False
+            hangarllm, "gdc_api_base", "https://resolved-base.com", raising=False
         )
-        monkeypatch.setattr(litellm, "api_base", None, raising=False)
+        monkeypatch.setattr(hangarllm, "api_base", None, raising=False)
 
-        litellm.completion(
+        hangarllm.completion(
             model="gdc/gemini-2.5-flash",
             messages=[{"role": "user", "content": "hi"}],
             vertex_project=TEST_PROJECT,
@@ -709,20 +709,20 @@ class TestCompleteGDC:
         assert kwargs["api_base"] == "https://resolved-base.com"
         assert kwargs["provider_config"] is gdc_transformation
 
-    @patch("litellm.main.base_llm_http_handler.completion")
+    @patch("hangarllm.main.base_llm_http_handler.completion")
     def test_complete_gdc_prefers_gdc_api_base_over_global(
         self, mock_completion, monkeypatch
     ):
         mock_completion.return_value = MagicMock()
-        monkeypatch.setattr(litellm, "gdc_key", "resolved-key", raising=False)
+        monkeypatch.setattr(hangarllm, "gdc_key", "resolved-key", raising=False)
         monkeypatch.setattr(
-            litellm, "gdc_api_base", "https://gdc-specific.com", raising=False
+            hangarllm, "gdc_api_base", "https://gdc-specific.com", raising=False
         )
         monkeypatch.setattr(
-            litellm, "api_base", "https://other-provider.com", raising=False
+            hangarllm, "api_base", "https://other-provider.com", raising=False
         )
 
-        litellm.completion(
+        hangarllm.completion(
             model="gdc/gemini-2.5-flash",
             messages=[{"role": "user", "content": "hi"}],
             vertex_project=TEST_PROJECT,

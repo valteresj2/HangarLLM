@@ -8,7 +8,7 @@ import httpx
 import pytest
 from prometheus_client import REGISTRY
 
-from litellm.tracing.exporter import MAX_BUFFER_EVENTS, MAX_EVENT_BYTES, ExportFailure, LensExporter, encode_record
+from hangarllm.tracing.exporter import MAX_BUFFER_EVENTS, MAX_EVENT_BYTES, ExportFailure, LensExporter, encode_record
 
 
 @pytest.mark.asyncio
@@ -237,7 +237,7 @@ async def test_cancelled_inflight_export_drops_the_batch_and_pending_records() -
 
 @pytest.mark.asyncio
 async def test_byte_budget_rejects_large_queue_and_shutdown_without_start_discards_it() -> None:
-    from litellm.tracing.exporter import MAX_BUFFER_BYTES
+    from hangarllm.tracing.exporter import MAX_BUFFER_BYTES
 
     async with httpx.AsyncClient(base_url="http://lens") as client:
         exporter: Final = LensExporter(client)
@@ -253,7 +253,7 @@ async def test_byte_budget_rejects_large_queue_and_shutdown_without_start_discar
 
 @pytest.mark.asyncio
 async def test_batches_stay_bounded_without_losing_or_reordering_records() -> None:
-    from litellm.tracing.exporter import MAX_BATCH_BYTES
+    from hangarllm.tracing.exporter import MAX_BATCH_BYTES
 
     bodies: Final = asyncio.Queue[bytes]()
 
@@ -326,8 +326,8 @@ async def test_written_and_dropped_rows_are_exported_as_prometheus_counters() ->
     def answer(request: httpx.Request) -> httpx.Response:
         return httpx.Response(next(statuses))
 
-    written_before: Final = _counter_value("litellm_lens_export_rows_written_total")
-    dropped_before: Final = _counter_value("litellm_lens_export_rows_dropped_total")
+    written_before: Final = _counter_value("hangarllm_lens_export_rows_written_total")
+    dropped_before: Final = _counter_value("hangarllm_lens_export_rows_dropped_total")
     async with httpx.AsyncClient(base_url="http://lens", transport=httpx.MockTransport(answer)) as client:
         exporter: Final = LensExporter(client)
         exporter.start()
@@ -338,8 +338,8 @@ async def test_written_and_dropped_rows_are_exported_as_prometheus_counters() ->
             await _drained(exporter)
         await exporter.aclose()
     assert (exporter.rows_written, exporter.rows_dropped) == (1, 1)
-    assert _counter_value("litellm_lens_export_rows_written_total") - written_before == exporter.rows_written
-    assert _counter_value("litellm_lens_export_rows_dropped_total") - dropped_before == exporter.rows_dropped
+    assert _counter_value("hangarllm_lens_export_rows_written_total") - written_before == exporter.rows_written
+    assert _counter_value("hangarllm_lens_export_rows_dropped_total") - dropped_before == exporter.rows_dropped
 
 
 @pytest.mark.asyncio
@@ -347,7 +347,7 @@ async def test_a_rejecting_store_is_logged_as_an_error_naming_lens(caplog: pytes
     def reject(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500)
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.ERROR, logger="HangarLLM Proxy"):
         async with httpx.AsyncClient(base_url="http://lens", transport=httpx.MockTransport(reject)) as client:
             exporter: Final = LensExporter(client)
             assert exporter.enqueue(b"{}")

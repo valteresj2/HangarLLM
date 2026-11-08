@@ -98,7 +98,7 @@ def create_bodies(requests: tuple[Request, ...]) -> tuple[dict[str, JsonValue], 
 
 
 def decoded(video_id: str) -> Mapping[str, str | None]:
-    from litellm.types.videos.utils import decode_video_id_with_provider
+    from hangarllm.types.videos.utils import decode_video_id_with_provider
 
     return {
         name: value if isinstance(value, str) else None
@@ -114,21 +114,21 @@ def task_of(video_id: str) -> str:
 
 def forged_id(provider: str, model: str, task_id: str, served: str | None) -> str:
     served_part: Final = f";served_model:{served}" if served else ""
-    plain: Final = f"litellm:custom_llm_provider:{provider};model_id:{model};video_id:{task_id}{served_part}"
+    plain: Final = f"hangarllm:custom_llm_provider:{provider};model_id:{model};video_id:{task_id}{served_part}"
     return f"video_{base64.b64encode(plain.encode()).decode()}"
 
 
 def rate(provider: str, tier_field: str, model: str = MODEL) -> float:
-    import litellm
+    import hangarllm
 
-    value: Final = litellm.model_cost[f"{provider}/{model}"][tier_field]
+    value: Final = hangarllm.model_cost[f"{provider}/{model}"][tier_field]
     assert isinstance(value, float), (provider, model, tier_field, value)
     return value
 
 
 def key_spend(key: str) -> float:
     rows: Final = read_rows(
-        'SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = %s', (sha256(key.encode()).hexdigest(),)
+        'SELECT spend FROM "HangarLLM_VerificationToken" WHERE token = %s', (sha256(key.encode()).hexdigest(),)
     )
     assert len(rows) == 1, rows
     return float(str(rows[0]["spend"]))
@@ -146,7 +146,7 @@ def spend_stays(key: str, expected: float) -> float:
 def spend_rows(key: str) -> tuple[Mapping[str, JsonValue], ...]:
     return tuple(
         read_rows(
-            'SELECT request_id, call_type, spend, model_group, status FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+            'SELECT request_id, call_type, spend, model_group, status FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
             (sha256(key.encode()).hexdigest(),),
         )
     )

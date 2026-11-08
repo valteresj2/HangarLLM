@@ -24,7 +24,7 @@ class TestPresetCacheKeyFix:
         TypeError: _set_preset_cache_key_in_kwargs() got multiple values
         for keyword argument 'preset_cache_key'
         """
-        from litellm.caching.caching import Cache
+        from hangarllm.caching.caching import Cache
 
         cache = Cache()
 
@@ -34,7 +34,7 @@ class TestPresetCacheKeyFix:
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
             "preset_cache_key": "existing_key_12345",  # This caused the bug
-            "litellm_params": {},
+            "hangarllm_params": {},
         }
 
         # This should NOT raise TypeError
@@ -49,38 +49,38 @@ class TestPresetCacheKeyFix:
 
     def test_get_cache_key_without_preset_cache_key(self):
         """Test normal case without preset_cache_key in kwargs still works."""
-        from litellm.caching.caching import Cache
+        from hangarllm.caching.caching import Cache
 
         cache = Cache()
 
         kwargs_normal = {
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
-            "litellm_params": {},
+            "hangarllm_params": {},
         }
 
         result = cache.get_cache_key(**kwargs_normal)
         assert result is not None
         assert isinstance(result, str)
 
-    def test_preset_cache_key_is_set_in_litellm_params(self):
-        """Verify that preset_cache_key is correctly set in litellm_params."""
-        from litellm.caching.caching import Cache
+    def test_preset_cache_key_is_set_in_hangarllm_params(self):
+        """Verify that preset_cache_key is correctly set in hangarllm_params."""
+        from hangarllm.caching.caching import Cache
 
         cache = Cache()
 
-        litellm_params = {}
+        hangarllm_params = {}
         kwargs = {
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
-            "litellm_params": litellm_params,
+            "hangarllm_params": hangarllm_params,
         }
 
         result = cache.get_cache_key(**kwargs)
 
-        # The method should set preset_cache_key in litellm_params
-        assert "preset_cache_key" in litellm_params
-        assert litellm_params["preset_cache_key"] == result
+        # The method should set preset_cache_key in hangarllm_params
+        assert "preset_cache_key" in hangarllm_params
+        assert hangarllm_params["preset_cache_key"] == result
 
 
 if __name__ == "__main__":

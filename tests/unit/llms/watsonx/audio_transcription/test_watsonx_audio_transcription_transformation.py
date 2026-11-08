@@ -11,10 +11,10 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.watsonx.audio_transcription.transformation import (
+from hangarllm.llms.watsonx.audio_transcription.transformation import (
     IBMWatsonXAudioTranscriptionConfig,
 )
-from litellm.types.utils import TranscriptionResponse
+from hangarllm.types.utils import TranscriptionResponse
 
 
 class TestWatsonXAudioTranscription:

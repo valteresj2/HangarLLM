@@ -1,15 +1,15 @@
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/HANGARLLM_MASTER_KEY
 
-litellm_settings:
+hangarllm_settings:
   drop_params: true
 
 model_list:
   - model_name: openai-gpt-4o-mini
-    litellm_params:
+    hangarllm_params:
       model: gpt-4o-mini
   - model_name: anthropic-claude-haiku-4-5
-    litellm_params:
+    hangarllm_params:
       model: anthropic/claude-haiku-4-5
 
 mcp_servers:

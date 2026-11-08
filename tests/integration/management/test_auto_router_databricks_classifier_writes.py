@@ -15,7 +15,7 @@ from integration._support.openai_wire import answering_model_discovery, chat_rep
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue
 
-from litellm.router_strategy.complexity_router.config import DEFAULT_JEV_INSTRUCTIONS
+from hangarllm.router_strategy.complexity_router.config import DEFAULT_JEV_INSTRUCTIONS
 
 _MODEL: Final = "ai_decide"
 _ROUTE: Final = "/api/2.0/ai-functions/ai-decide"
@@ -61,7 +61,7 @@ _TIER_CRITERIA: Final[dict[str, JsonValue]] = {
 }
 _ROWS_QUERY: Final = (
     "SELECT request_id, status, metadata->>'internal_call_origin' AS origin "
-    'FROM "LiteLLM_SpendLogs" WHERE model_group = %s'
+    'FROM "HangarLLM_SpendLogs" WHERE model_group = %s'
 )
 
 
@@ -131,7 +131,7 @@ def _create_router(scenario: Scenario, config: Mapping[str, JsonValue]) -> tuple
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": "auto_router/complexity_router", "complexity_router_config": dict(config)},
+            "hangarllm_params": {"model": "auto_router/complexity_router", "complexity_router_config": dict(config)},
             "model_info": {},
         },
     )
@@ -141,10 +141,10 @@ def _create_router(scenario: Scenario, config: Mapping[str, JsonValue]) -> tuple
 
 
 def _stored_classifier(gateway: Gateway, identity: str) -> dict[str, JsonValue]:
-    stored: Final = gateway.request("GET", "/model/info", params={"litellm_model_id": identity})
+    stored: Final = gateway.request("GET", "/model/info", params={"hangarllm_model_id": identity})
     assert stored.status_code == 200, stored.text
     (entry,) = stored.json()["data"]
-    router_config: Final = object_value(object_value(object_value(entry)["litellm_params"])["complexity_router_config"])
+    router_config: Final = object_value(object_value(object_value(entry)["hangarllm_params"])["complexity_router_config"])
     return object_value(router_config["opensource_classifier_config"])
 
 
@@ -312,14 +312,14 @@ def test_model_new_refuses_a_databricks_classifier_without_a_model_and_stores_no
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": "auto_router/complexity_router", "complexity_router_config": config},
+            "hangarllm_params": {"model": "auto_router/complexity_router", "complexity_router_config": config},
             "model_info": {},
         },
     )
     assert response.status_code == 400, response.text
     error: Final = object_value(object_value(response.json())["error"])
     assert _MODEL_REQUIRED in string_value(error["message"]), error
-    assert (error["type"], error["param"]) == ("validation_error", "litellm_params.model"), error
+    assert (error["type"], error["param"]) == ("validation_error", "hangarllm_params.model"), error
     listed: Final = gateway.get("/model/info")["data"]
     assert isinstance(listed, list)
     assert [entry for entry in map(object_value, listed) if entry["model_name"] == name] == []
@@ -342,7 +342,7 @@ def test_model_update_refuses_dropping_the_model_and_keeps_the_stored_classifier
         response: Final = gateway.request(
             "PATCH",
             f"/model/{identity}/update",
-            {"litellm_params": {"model": "auto_router/complexity_router", "complexity_router_config": dropped}},
+            {"hangarllm_params": {"model": "auto_router/complexity_router", "complexity_router_config": dropped}},
         )
         assert response.status_code == 400, response.text
         assert _MODEL_REQUIRED in string_value(object_value(object_value(response.json())["error"])["message"]), (
@@ -352,7 +352,7 @@ def test_model_update_refuses_dropping_the_model_and_keeps_the_stored_classifier
         chat: Final = gateway.request("POST", "/v1/chat/completions", _chat_body(name))
         assert chat.status_code == 200, chat.text
         assert chat.json()["choices"][0]["message"]["content"] == "complex answer", chat.text
-        assert chat.headers["x-litellm-complexity-router-cause"] == "jev_classifier", dict(chat.headers)
+        assert chat.headers["x-hangarllm-complexity-router-cause"] == "jev_classifier", dict(chat.headers)
         assert _judge_targets(judge) == (_ROUTE,)
 
 
@@ -389,7 +389,7 @@ async def test_moving_the_workspace_under_a_burst_moves_the_classifier_and_logs_
                 patched: Final = gateway.request(
                     "PATCH",
                     f"/model/{identity}/update",
-                    {"litellm_params": {"model": "auto_router/complexity_router", "complexity_router_config": moved}},
+                    {"hangarllm_params": {"model": "auto_router/complexity_router", "complexity_router_config": moved}},
                 )
                 assert patched.status_code == 200, patched.text
             finally:

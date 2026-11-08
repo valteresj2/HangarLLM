@@ -13,9 +13,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.llms.openai_like.dynamic_config import create_config_class
+import hangarllm
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+from hangarllm.llms.openai_like.dynamic_config import create_config_class
 
 
 PUBLICAI_COMPLETION_RESPONSE: Final = {
@@ -72,7 +72,7 @@ class TestPublicAIConfig:
             model="swiss-ai-apertus",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base=None,
         )
@@ -80,7 +80,7 @@ class TestPublicAIConfig:
         assert result["Authorization"] == f"Bearer {api_key}"
         assert result["Content-Type"] == "application/json"
 
-    @patch("litellm.utils.supports_function_calling", return_value=True)
+    @patch("hangarllm.utils.supports_function_calling", return_value=True)
     def test_get_supported_openai_params(self, mock_supports_fc, config):
         """
         Test that get_supported_openai_params returns correct params.
@@ -99,7 +99,7 @@ class TestPublicAIConfig:
         # Note: JSON-based configs inherit from OpenAIGPTConfig which includes functions
         # This is expected behavior for JSON-based providers
 
-    @patch("litellm.utils.supports_function_calling", return_value=True)
+    @patch("hangarllm.utils.supports_function_calling", return_value=True)
     def test_map_openai_params_includes_functions(self, mock_supports_fc, config):
         """
         Test that functions parameter is mapped (JSON-based configs don't exclude functions).
@@ -150,7 +150,7 @@ class TestPublicAIConfig:
             api_key="fake-key",
             model="swiss-ai-apertus",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -165,7 +165,7 @@ class TestPublicAIConfig:
             api_key="fake-key",
             model="swiss-ai-apertus",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -177,7 +177,7 @@ def test_publicai_content_list_conversion_reaches_provider_as_text(respx_mock: r
     route: Final = respx_mock.post("https://api.publicai.co/v1/chat/completions")
     route.return_value = httpx.Response(200, json=PUBLICAI_COMPLETION_RESPONSE)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="publicai/swiss-ai/apertus-8b-instruct",
         messages=[{"role": "user", "content": [{"type": "text", "text": "Say hello"}]}],
         max_tokens=10,
@@ -200,7 +200,7 @@ def test_publicai_parameter_mapping_reaches_provider_as_max_tokens(respx_mock: r
     route: Final = respx_mock.post("https://api.publicai.co/v1/chat/completions")
     route.return_value = httpx.Response(200, json=PUBLICAI_COMPLETION_RESPONSE)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="publicai/swiss-ai/apertus-8b-instruct",
         messages=[{"role": "user", "content": "Hi"}],
         max_completion_tokens=5,
@@ -222,7 +222,7 @@ def test_publicai_completion_basic_uses_provider_request(respx_mock: respx.MockR
     route.return_value = httpx.Response(200, json=PUBLICAI_COMPLETION_RESPONSE)
     messages: Final = [{"role": "user", "content": "Say hello"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="publicai/swiss-ai/apertus-8b-instruct",
         messages=messages,
         max_tokens=10,
@@ -248,7 +248,7 @@ def test_publicai_completion_with_streaming_uses_provider_request(respx_mock: re
     messages: Final = [{"role": "user", "content": "Say hello"}]
 
     chunks: Final = tuple(
-        litellm.completion(
+        hangarllm.completion(
             model="publicai/swiss-ai/apertus-8b-instruct",
             messages=messages,
             max_tokens=10,

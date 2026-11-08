@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.integrations.focus.destinations.base import FocusTimeWindow
-from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import MavvrikFocusLogger
+from hangarllm.integrations.focus.destinations.base import FocusTimeWindow
+from hangarllm.integrations.mavvrik_focus.mavvrik_focus_logger import MavvrikFocusLogger
 
 
 class _Frame:

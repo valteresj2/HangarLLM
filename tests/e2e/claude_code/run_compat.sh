@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the Claude Code compat matrix end-to-end against a live LiteLLM
+# Run the Claude Code compat matrix end-to-end against a live HangarLLM
 # proxy, with per-provider rate limits applied via the cross-process
 # token bucket in `tests/e2e/cli_harness/rate_limiter.py`.
 #
@@ -12,19 +12,19 @@
 #   5. Repeat until the highest no-429 rate is found.
 #
 # Required env (proxy connection), same names as the rest of tests/e2e:
-#   LITELLM_PROXY_URL        e.g. http://localhost:4000
-#   LITELLM_MASTER_KEY       e.g. sk-<your-master-key>
+#   HANGARLLM_PROXY_URL        e.g. http://localhost:4000
+#   HANGARLLM_MASTER_KEY       e.g. sk-<your-master-key>
 #
 # Optional env (rate limits, all default to 5 req/s; 0 disables a column):
-#   LITELLM_COMPAT_RATE_ANTHROPIC
-#   LITELLM_COMPAT_RATE_AZURE
-#   LITELLM_COMPAT_RATE_VERTEX_AI
-#   LITELLM_COMPAT_RATE_BEDROCK_CONVERSE
-#   LITELLM_COMPAT_RATE_BEDROCK_INVOKE
-#   LITELLM_COMPAT_RATE_OPENAI
-#   LITELLM_COMPAT_RATE_AZURE_OPENAI
-#   LITELLM_COMPAT_RATE_BEDROCK_MANTLE
-#   LITELLM_COMPAT_RATE_BURST            override per-bucket burst
+#   HANGARLLM_COMPAT_RATE_ANTHROPIC
+#   HANGARLLM_COMPAT_RATE_AZURE
+#   HANGARLLM_COMPAT_RATE_VERTEX_AI
+#   HANGARLLM_COMPAT_RATE_BEDROCK_CONVERSE
+#   HANGARLLM_COMPAT_RATE_BEDROCK_INVOKE
+#   HANGARLLM_COMPAT_RATE_OPENAI
+#   HANGARLLM_COMPAT_RATE_AZURE_OPENAI
+#   HANGARLLM_COMPAT_RATE_BEDROCK_MANTLE
+#   HANGARLLM_COMPAT_RATE_BURST            override per-bucket burst
 #
 # Optional env (GPT-5.6 columns):
 #   COMPAT_MANTLE_CELLS=1                 opt the Bedrock Mantle GPT-5.6
@@ -40,15 +40,15 @@
 
 set -euo pipefail
 
-if [[ -z "${LITELLM_PROXY_URL:-}" || -z "${LITELLM_MASTER_KEY:-}" ]]; then
-    echo "error: LITELLM_PROXY_URL and LITELLM_MASTER_KEY must be set" >&2
+if [[ -z "${HANGARLLM_PROXY_URL:-}" || -z "${HANGARLLM_MASTER_KEY:-}" ]]; then
+    echo "error: HANGARLLM_PROXY_URL and HANGARLLM_MASTER_KEY must be set" >&2
     exit 64
 fi
 
 # Reset the cross-process rate-limiter state from any prior run. Stale
 # token-bucket files would let a previous run's accumulated budget bleed
 # into the new one, which subtly biases the binary search.
-state_dir="${LITELLM_COMPAT_RATE_STATE_DIR:-${TMPDIR:-/tmp}/litellm-claude-compat-ratelimit}"
+state_dir="${HANGARLLM_COMPAT_RATE_STATE_DIR:-${TMPDIR:-/tmp}/hangarllm-claude-compat-ratelimit}"
 if [[ -d "$state_dir" ]]; then
     rm -rf "$state_dir"
 fi
@@ -66,10 +66,10 @@ summary_path="${COMPAT_RATE_LIMIT_SUMMARY_PATH:-compat-rate-limit-summary.json}"
 
 echo "[run_compat] rates:"
 for provider in ANTHROPIC AZURE VERTEX_AI BEDROCK_CONVERSE BEDROCK_INVOKE OPENAI AZURE_OPENAI BEDROCK_MANTLE; do
-    var="LITELLM_COMPAT_RATE_${provider}"
+    var="HANGARLLM_COMPAT_RATE_${provider}"
     echo "  ${provider}=${!var:-default(5/s)}"
 done
-echo "  BURST=${LITELLM_COMPAT_RATE_BURST:-default(=rate)}"
+echo "  BURST=${HANGARLLM_COMPAT_RATE_BURST:-default(=rate)}"
 echo "[run_compat] xdist workers: ${workers}"
 echo "[run_compat] results:  ${results_path}"
 echo "[run_compat] summary:  ${summary_path}"

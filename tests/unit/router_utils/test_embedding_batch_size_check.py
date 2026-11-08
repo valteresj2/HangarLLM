@@ -10,15 +10,15 @@ import pytest
 import respx
 from prometheus_client import REGISTRY
 
-import litellm
-from litellm import Router
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
-from litellm.constants import PROXY_REJECTED_BEFORE_ROUTING_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.types.router import RouterRateLimitError
-from litellm.router_utils.embedding_batch_size_check import (
+import hangarllm
+from hangarllm import Router
+from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
+from hangarllm.constants import PROXY_REJECTED_BEFORE_ROUTING_KEY
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.prometheus import PrometheusLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+from hangarllm.types.router import RouterRateLimitError
+from hangarllm.router_utils.embedding_batch_size_check import (
     count_embedding_inputs,
     deployments_admitting_embedding_batch,
     deployments_when_none_admits_embedding_batch,
@@ -48,7 +48,7 @@ def _deployment(
 ) -> dict[str, object]:
     return {
         "model_info": {"id": deployment_id, **_model_info(limit)},
-        "litellm_params": {} if extra_body is None else {"extra_body": extra_body},
+        "hangarllm_params": {} if extra_body is None else {"extra_body": extra_body},
     }
 
 
@@ -71,9 +71,9 @@ def _batch_error(
     input_value: object,
     limit: int | None,
     request_kwargs: dict[str, object] | None = None,
-) -> litellm.BadRequestError | None:
+) -> hangarllm.BadRequestError | None:
     return embedding_batch_too_large_error(
-        deployment={"model_info": _model_info(limit), "litellm_params": {"custom_llm_provider": _PROVIDER}},
+        deployment={"model_info": _model_info(limit), "hangarllm_params": {"custom_llm_provider": _PROVIDER}},
         input=input_value,
         request_kwargs=request_kwargs or {},
         model=_MODEL,
@@ -86,20 +86,20 @@ def _embedding_router(
     api_base: str,
     max_embedding_batch_size: int | None,
     deployment_id: str,
-    litellm_params_extra: dict[str, object] | None = None,
+    hangarllm_params_extra: dict[str, object] | None = None,
 ) -> Router:
-    litellm_params: dict[str, object] = {
+    hangarllm_params: dict[str, object] = {
         "model": provider_model,
         "api_key": "sk-fake",
         "api_base": api_base,
     }
-    if litellm_params_extra:
-        litellm_params.update(litellm_params_extra)
+    if hangarllm_params_extra:
+        hangarllm_params.update(hangarllm_params_extra)
     return Router(
         model_list=[
             {
                 "model_name": "embed",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "model_info": {"id": deployment_id, **_model_info(max_embedding_batch_size)},
             }
         ],
@@ -264,7 +264,7 @@ class TestDeploymentsAdmittingEmbeddingBatch:
 
     def test_paused_cooling_deployment_does_not_hold_the_batch(self) -> None:
         capped: Final = _deployment(2, deployment_id="capped")
-        paused: Final = {"model_info": {"id": "cooling", "blocked": True}, "litellm_params": {}}
+        paused: Final = {"model_info": {"id": "cooling", "blocked": True}, "hangarllm_params": {}}
         assert _admitted([capped], ["a", "b", "c"], cooling=(paused,), routable_cooling_ids=frozenset({"cooling"})) == [
             capped
         ]
@@ -306,7 +306,7 @@ def test_rejects_inputs_above_limit(
     message_match: str | None,
 ) -> None:
     error: Final = _batch_error(input_value, limit)
-    assert isinstance(error, litellm.BadRequestError)
+    assert isinstance(error, hangarllm.BadRequestError)
     assert error.status_code == 400
     if message_match is not None:
         assert message_match in error.message
@@ -323,7 +323,7 @@ def test_extra_body_override_counts_when_top_level_input_is_not_a_list(top_level
 class TestRouterEmbeddingBatchLimit:
     @pytest.fixture(autouse=True)
     def _disable_aiohttp(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     @pytest.mark.parametrize("sync", [False, True], ids=["async", "sync"])
     @pytest.mark.asyncio
@@ -339,7 +339,7 @@ class TestRouterEmbeddingBatchLimit:
 
         with respx.mock(assert_all_called=False) as respx_mock:
             route: Final = respx_mock.post(embeddings_url).mock(return_value=empty_ok)
-            with pytest.raises(litellm.BadRequestError, match="max_embedding_batch_size=2"):
+            with pytest.raises(hangarllm.BadRequestError, match="max_embedding_batch_size=2"):
                 await _call_embedding(
                     router,
                     sync=sync,
@@ -355,24 +355,24 @@ class TestRouterEmbeddingBatchLimit:
 
         class FailureRecorder(CustomLogger):
             def log_failure_event(self, kwargs, response_obj, start_time, end_time):
-                failures.append((kwargs["exception"], kwargs["litellm_params"].get(PROXY_REJECTED_BEFORE_ROUTING_KEY)))
+                failures.append((kwargs["exception"], kwargs["hangarllm_params"].get(PROXY_REJECTED_BEFORE_ROUTING_KEY)))
 
             async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
-                failures.append((kwargs["exception"], kwargs["litellm_params"].get(PROXY_REJECTED_BEFORE_ROUTING_KEY)))
+                failures.append((kwargs["exception"], kwargs["hangarllm_params"].get(PROXY_REJECTED_BEFORE_ROUTING_KEY)))
 
         recorder: Final = FailureRecorder()
-        logging_obj: Final = LitellmLogging(
+        logging_obj: Final = HangarllmLogging(
             model="embed",
             messages=[],
             stream=False,
             call_type="embedding" if sync else "aembedding",
             start_time=_LOGGING_START,
-            litellm_call_id="embed-batch-rejected",
+            hangarllm_call_id="embed-batch-rejected",
             function_id="embed-batch-rejected",
             dynamic_failure_callbacks=[recorder] if sync else None,
             dynamic_async_failure_callbacks=None if sync else [recorder],
         )
-        logging_obj.model_call_details["litellm_params"] = {"metadata": {}, "proxy_server_request": {}}
+        logging_obj.model_call_details["hangarllm_params"] = {"metadata": {}, "proxy_server_request": {}}
         router: Final = _embedding_router(
             provider_model="openai/text-embedding-3-small",
             api_base=_OPENAI_EMBED_BASE,
@@ -384,13 +384,13 @@ class TestRouterEmbeddingBatchLimit:
             route: Final = respx_mock.post(f"{_OPENAI_EMBED_BASE}/embeddings").mock(
                 return_value=httpx.Response(200, json={"object": "list", "data": [], "model": "x", "usage": {}})
             )
-            with pytest.raises(litellm.BadRequestError, match="3 inputs") as excinfo:
+            with pytest.raises(hangarllm.BadRequestError, match="3 inputs") as excinfo:
                 await _call_embedding(
                     router,
                     sync=sync,
                     model="embed",
                     input=["one", "two", "three"],
-                    litellm_logging_obj=logging_obj,
+                    hangarllm_logging_obj=logging_obj,
                 )
             assert route.call_count == 0
         assert failures == [(excinfo.value, True)]
@@ -413,18 +413,18 @@ class TestRouterEmbeddingBatchLimit:
             legacy_callback_ran.set()
 
         both_hooks: Final = BothHooks()
-        logging_obj: Final = LitellmLogging(
+        logging_obj: Final = HangarllmLogging(
             model="embed",
             messages=[],
             stream=False,
             call_type="aembedding",
             start_time=_LOGGING_START,
-            litellm_call_id="embed-batch-logged-once",
+            hangarllm_call_id="embed-batch-logged-once",
             function_id="embed-batch-logged-once",
             dynamic_failure_callbacks=[legacy_failure_callback, both_hooks],
             dynamic_async_failure_callbacks=[both_hooks],
         )
-        logging_obj.model_call_details["litellm_params"] = {"metadata": {}, "proxy_server_request": {}}
+        logging_obj.model_call_details["hangarllm_params"] = {"metadata": {}, "proxy_server_request": {}}
         router: Final = _embedding_router(
             provider_model="openai/text-embedding-3-small",
             api_base=_OPENAI_EMBED_BASE,
@@ -432,8 +432,8 @@ class TestRouterEmbeddingBatchLimit:
             deployment_id="embed-batch-capped",
         )
 
-        with pytest.raises(litellm.BadRequestError, match="3 inputs"):
-            await router.aembedding(model="embed", input=["one", "two", "three"], litellm_logging_obj=logging_obj)
+        with pytest.raises(hangarllm.BadRequestError, match="3 inputs"):
+            await router.aembedding(model="embed", input=["one", "two", "three"], hangarllm_logging_obj=logging_obj)
 
         assert legacy_callback_ran.wait(timeout=5)
         assert legacy_callback_threads == [threading.get_ident()]
@@ -442,34 +442,34 @@ class TestRouterEmbeddingBatchLimit:
     @pytest.mark.parametrize("sync", [False, True], ids=["async", "sync"])
     @pytest.mark.asyncio
     async def test_fallback_after_a_rejection_logs_its_provider_call_as_reached(self, sync: bool) -> None:
-        litellm_params: Final[dict[str, object]] = {"model": "openai/text-embedding-3-small", "api_key": "sk-fake"}
+        hangarllm_params: Final[dict[str, object]] = {"model": "openai/text-embedding-3-small", "api_key": "sk-fake"}
         router: Final = Router(
             model_list=[
                 {
                     "model_name": "embed-capped",
-                    "litellm_params": {**litellm_params, "api_base": _OPENAI_EMBED_BASE},
+                    "hangarllm_params": {**hangarllm_params, "api_base": _OPENAI_EMBED_BASE},
                     "model_info": {"id": "capped-box", "max_embedding_batch_size": 2},
                 },
                 {
                     "model_name": "embed-fallback",
-                    "litellm_params": {**litellm_params, "api_base": _VLLM_EMBED_BASE},
+                    "hangarllm_params": {**hangarllm_params, "api_base": _VLLM_EMBED_BASE},
                     "model_info": {"id": "fallback-box"},
                 },
             ],
             fallbacks=[{"embed-capped": ["embed-fallback"]}],
             num_retries=0,
         )
-        logging_obj: Final = LitellmLogging(
+        logging_obj: Final = HangarllmLogging(
             model="embed-capped",
             messages=[],
             stream=False,
             call_type="embedding" if sync else "aembedding",
             start_time=_LOGGING_START,
-            litellm_call_id="embed-batch-fallback",
+            hangarllm_call_id="embed-batch-fallback",
             function_id="embed-batch-fallback",
         )
         logging_obj.update_environment_variables(
-            litellm_params={"metadata": {}, "proxy_server_request": {}}, optional_params={}
+            hangarllm_params={"metadata": {}, "proxy_server_request": {}}, optional_params={}
         )
 
         with respx.mock(assert_all_called=False) as respx_mock:
@@ -484,10 +484,10 @@ class TestRouterEmbeddingBatchLimit:
                 sync=sync,
                 model="embed-capped",
                 input=["one", "two", "three"],
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
             )
             assert (capped_route.call_count, fallback_route.call_count) == (0, 1)
-        assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in logging_obj.model_call_details["litellm_params"]
+        assert PROXY_REJECTED_BEFORE_ROUTING_KEY not in logging_obj.model_call_details["hangarllm_params"]
 
     @pytest.fixture
     def _isolated_prometheus_registry(self) -> Iterator[None]:
@@ -504,17 +504,17 @@ class TestRouterEmbeddingBatchLimit:
     async def test_oversized_batch_rejection_leaves_the_deployment_healthy_in_prometheus(self) -> None:
         prometheus: Final = PrometheusLogger()
         metadata: Final[dict[str, object]] = {}
-        logging_obj: Final = LitellmLogging(
+        logging_obj: Final = HangarllmLogging(
             model="embed",
             messages=[],
             stream=False,
             call_type="aembedding",
             start_time=_LOGGING_START,
-            litellm_call_id="embed-batch-prometheus",
+            hangarllm_call_id="embed-batch-prometheus",
             function_id="embed-batch-prometheus",
             dynamic_async_failure_callbacks=[prometheus],
         )
-        logging_obj.model_call_details["litellm_params"] = {"metadata": metadata, "proxy_server_request": {}}
+        logging_obj.model_call_details["hangarllm_params"] = {"metadata": metadata, "proxy_server_request": {}}
         router: Final = _embedding_router(
             provider_model="openai/text-embedding-3-small",
             api_base=_OPENAI_EMBED_BASE,
@@ -526,11 +526,11 @@ class TestRouterEmbeddingBatchLimit:
             respx_mock.post(f"{_OPENAI_EMBED_BASE}/embeddings").mock(
                 return_value=httpx.Response(200, json={"object": "list", "data": [], "model": "x", "usage": {}})
             )
-            with pytest.raises(litellm.BadRequestError, match="3 inputs"):
+            with pytest.raises(hangarllm.BadRequestError, match="3 inputs"):
                 await router.aembedding(
-                    model="embed", input=["one", "two", "three"], metadata=metadata, litellm_logging_obj=logging_obj
+                    model="embed", input=["one", "two", "three"], metadata=metadata, hangarllm_logging_obj=logging_obj
                 )
-        assert prometheus.litellm_deployment_state._metrics == {}
+        assert prometheus.hangarllm_deployment_state._metrics == {}
 
     @pytest.mark.parametrize("sync", [False, True], ids=["async", "sync"])
     @pytest.mark.asyncio
@@ -556,7 +556,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _VLLM_EMBED_BASE,
@@ -566,7 +566,7 @@ class TestRouterEmbeddingBatchLimit:
                 },
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _UNCAPPED_EMBED_BASE,
@@ -595,7 +595,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/text-embedding-3-small",
                         "api_key": "sk-fake",
                         "api_base": _OPENAI_EMBED_BASE,
@@ -605,7 +605,7 @@ class TestRouterEmbeddingBatchLimit:
                 },
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/text-embedding-3-small",
                         "api_key": "sk-fake",
                         "api_base": _UNCAPPED_EMBED_BASE,
@@ -632,7 +632,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _VLLM_EMBED_BASE,
@@ -641,7 +641,7 @@ class TestRouterEmbeddingBatchLimit:
                 },
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _UNCAPPED_EMBED_BASE,
@@ -659,7 +659,7 @@ class TestRouterEmbeddingBatchLimit:
             uncapped_route: Final = respx_mock.post(f"{_UNCAPPED_EMBED_BASE}/embeddings").mock(
                 return_value=httpx.Response(429, json={"error": {"message": "rate limited"}})
             )
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await _call_embedding(router, sync=sync, model="embed", input=["a", "b", "c"])
             with pytest.raises(RouterRateLimitError):
                 await _call_embedding(router, sync=sync, model="embed", input=["a", "b", "c"])
@@ -675,14 +675,14 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _VLLM_EMBED_BASE,
                     },
                     "model_info": {"id": "vllm-embed-capped", "max_embedding_batch_size": 2},
                 },
-                {"model_name": "embed", "litellm_params": uncapped_params, "model_info": {"id": "vllm-embed-uncapped"}},
+                {"model_name": "embed", "hangarllm_params": uncapped_params, "model_info": {"id": "vllm-embed-uncapped"}},
             ],
             num_retries=0,
         )
@@ -694,16 +694,16 @@ class TestRouterEmbeddingBatchLimit:
             uncapped_route: Final = respx_mock.post(f"{_UNCAPPED_EMBED_BASE}/embeddings").mock(
                 return_value=httpx.Response(429, json={"error": {"message": "rate limited"}})
             )
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await _call_embedding(router, sync=sync, model="embed", input=["a", "b", "c"])
             router.upsert_deployment(
                 Deployment(
                     model_name="embed",
-                    litellm_params=LiteLLM_Params(**uncapped_params),
+                    hangarllm_params=HangarLLM_Params(**uncapped_params),
                     model_info=ModelInfo(id="vllm-embed-uncapped", blocked=True),
                 )
             )
-            with pytest.raises(litellm.BadRequestError, match="max_embedding_batch_size=2"):
+            with pytest.raises(hangarllm.BadRequestError, match="max_embedding_batch_size=2"):
                 await _call_embedding(router, sync=sync, model="embed", input=["a", "b", "c"])
             assert (capped_route.call_count, uncapped_route.call_count) == (0, 1)
 
@@ -721,7 +721,7 @@ class TestRouterEmbeddingBatchLimit:
 
         with respx.mock(assert_all_called=False) as respx_mock:
             route: Final = respx_mock.post(embeddings_url).mock(return_value=_vllm_embedding_response(3))
-            with pytest.raises(litellm.BadRequestError, match="3 inputs"):
+            with pytest.raises(hangarllm.BadRequestError, match="3 inputs"):
                 await _call_embedding(
                     router,
                     sync=sync,
@@ -737,7 +737,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _VLLM_EMBED_BASE,
@@ -755,7 +755,7 @@ class TestRouterEmbeddingBatchLimit:
 
         with respx.mock(assert_all_called=False) as respx_mock:
             route: Final = respx_mock.post(embeddings_url).mock(return_value=_vllm_embedding_response(3))
-            with pytest.raises(litellm.BadRequestError, match="3 inputs"):
+            with pytest.raises(hangarllm.BadRequestError, match="3 inputs"):
                 await router.aembedding(model="embed", input="ok")
             assert route.call_count == 0
 
@@ -787,7 +787,7 @@ class TestRouterEmbeddingBatchLimit:
 
         with respx.mock(assert_all_called=False) as respx_mock:
             route: Final = respx_mock.post(embeddings_url).mock(return_value=_vllm_embedding_response(3))
-            with pytest.raises(litellm.BadRequestError, match="3 inputs"):
+            with pytest.raises(hangarllm.BadRequestError, match="3 inputs"):
                 await _call_embedding(
                     router,
                     sync=False,
@@ -808,7 +808,7 @@ class TestRouterEmbeddingBatchLimit:
             api_base="",
             max_embedding_batch_size=2,
             deployment_id="bedrock-titan-embed-batch-capped",
-            litellm_params_extra={
+            hangarllm_params_extra={
                 "aws_access_key_id": "AKIAFAKE",
                 "aws_secret_access_key": "fake-secret",
                 "aws_region_name": "us-east-1",
@@ -816,7 +816,7 @@ class TestRouterEmbeddingBatchLimit:
             },
         )
 
-        with pytest.raises(litellm.BadRequestError, match="3 inputs"):
+        with pytest.raises(hangarllm.BadRequestError, match="3 inputs"):
             await _call_embedding(
                 router,
                 sync=sync,
@@ -836,14 +836,14 @@ class TestRouterEmbeddingBatchLimit:
             api_base=_OPENAI_EMBED_BASE,
             max_embedding_batch_size=2,
             deployment_id="embed-batch-capped-explicit-provider",
-            litellm_params_extra={"custom_llm_provider": "openai"},
+            hangarllm_params_extra={"custom_llm_provider": "openai"},
         )
         embeddings_url: Final = f"{_OPENAI_EMBED_BASE}/embeddings"
         empty_ok: Final = httpx.Response(200, json={"object": "list", "data": [], "model": "x", "usage": {}})
 
         with respx.mock(assert_all_called=False) as respx_mock:
             route: Final = respx_mock.post(embeddings_url).mock(return_value=empty_ok)
-            with pytest.raises(litellm.BadRequestError, match="max_embedding_batch_size=2"):
+            with pytest.raises(hangarllm.BadRequestError, match="max_embedding_batch_size=2"):
                 await _call_embedding(
                     router,
                     sync=sync,
@@ -858,7 +858,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _VLLM_EMBED_BASE,
@@ -868,7 +868,7 @@ class TestRouterEmbeddingBatchLimit:
                 },
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _UNCAPPED_EMBED_BASE,
@@ -888,7 +888,7 @@ class TestRouterEmbeddingBatchLimit:
             uncapped_route: Final = respx_mock.post(f"{_UNCAPPED_EMBED_BASE}/embeddings").mock(
                 return_value=_vllm_embedding_response(3)
             )
-            with pytest.raises(litellm.BadRequestError, match="max_embedding_batch_size=2"):
+            with pytest.raises(hangarllm.BadRequestError, match="max_embedding_batch_size=2"):
                 await router.aembedding(model="embed", input=["a", "b", "c"], metadata={"tags": ["team-a"]})
             assert (capped_route.call_count, uncapped_route.call_count) == (0, 0)
 
@@ -898,7 +898,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _VLLM_EMBED_BASE,
@@ -908,7 +908,7 @@ class TestRouterEmbeddingBatchLimit:
                 },
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _UNCAPPED_EMBED_BASE,
@@ -928,9 +928,9 @@ class TestRouterEmbeddingBatchLimit:
             uncapped_route: Final = respx_mock.post(f"{_UNCAPPED_EMBED_BASE}/embeddings").mock(
                 return_value=httpx.Response(429, json={"error": {"message": "rate limited"}})
             )
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await router.aembedding(model="embed", input=["a", "b", "c"], metadata={"tags": ["team-b"]})
-            with pytest.raises(litellm.BadRequestError, match="max_embedding_batch_size=2"):
+            with pytest.raises(hangarllm.BadRequestError, match="max_embedding_batch_size=2"):
                 await router.aembedding(model="embed", input=["a", "b", "c"], metadata={"tags": ["team-a"]})
             assert (capped_route.call_count, uncapped_route.call_count) == (0, 1)
 
@@ -943,7 +943,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _VLLM_EMBED_BASE,
@@ -953,7 +953,7 @@ class TestRouterEmbeddingBatchLimit:
                 },
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _UNCAPPED_EMBED_BASE,
@@ -973,11 +973,11 @@ class TestRouterEmbeddingBatchLimit:
             uncapped_route: Final = respx_mock.post(f"{_UNCAPPED_EMBED_BASE}/embeddings").mock(
                 return_value=httpx.Response(429, json={"error": {"message": "rate limited"}})
             )
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await _call_embedding(
                     router, sync=sync, model="embed", input=["a", "b", "c"], allowed_model_region="us"
                 )
-            with pytest.raises(litellm.BadRequestError, match="max_embedding_batch_size=2"):
+            with pytest.raises(hangarllm.BadRequestError, match="max_embedding_batch_size=2"):
                 await _call_embedding(
                     router, sync=sync, model="embed", input=["a", "b", "c"], allowed_model_region="eu"
                 )
@@ -990,7 +990,7 @@ class TestRouterEmbeddingBatchLimit:
             model_list=[
                 {
                     "model_name": "embed",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/text-embedding-3-small",
                         "api_key": "sk-fake",
                         "api_base": _OPENAI_EMBED_BASE,
@@ -1000,7 +1000,7 @@ class TestRouterEmbeddingBatchLimit:
                 },
                 {
                     "model_name": "embed-fallback",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "hosted_vllm/bge-m3",
                         "api_key": "sk-fake",
                         "api_base": _UNCAPPED_EMBED_BASE,

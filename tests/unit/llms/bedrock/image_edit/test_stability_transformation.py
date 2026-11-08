@@ -5,10 +5,10 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.image_edit.stability_transformation import BedrockStabilityImageEditConfig
-from litellm.types.utils import ImageResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.bedrock.common_utils import BedrockError
+from hangarllm.llms.bedrock.image_edit.stability_transformation import BedrockStabilityImageEditConfig
+from hangarllm.types.utils import ImageResponse
 from tests.unit.conftest import in_operator_error
 
 INPAINT_MODEL: Final = "stability.stable-image-inpaint-v1:0"
@@ -20,7 +20,7 @@ def test_transform_image_edit_request_returns_the_json_body_and_no_files():
         prompt="add a red hat",
         image=b"\x89PNG-bytes",
         image_edit_optional_request_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -37,7 +37,7 @@ def _edit_response(body: object) -> ImageResponse:
             stream=False,
             call_type="image_edit",
             start_time=datetime(2026, 1, 1),
-            litellm_call_id="stability-edit-call",
+            hangarllm_call_id="stability-edit-call",
             function_id="stability-edit-function",
         ),
     )

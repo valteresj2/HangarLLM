@@ -60,7 +60,7 @@ const test = base.extend<{ decisionsModel: string }>({
       headers: adminHeaders(),
       data: {
         model_name: name,
-        litellm_params: {
+        hangarllm_params: {
           model: "typesafe/jev-latest",
           api_base: MOCK_LLM_BASE,
           api_key: "fake-key",

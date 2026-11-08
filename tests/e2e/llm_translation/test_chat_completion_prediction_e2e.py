@@ -6,7 +6,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
 
@@ -32,7 +32,7 @@ class TestOpenAIPrediction:
         model = f"e2e-openai-prediction-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(model=OPENAI_PREDICTION_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+            HangarLLMParamsBody(model=OPENAI_PREDICTION_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         client = sdk.openai(resources.key())

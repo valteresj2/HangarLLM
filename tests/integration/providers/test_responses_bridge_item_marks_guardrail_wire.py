@@ -90,7 +90,7 @@ def _guardrail_peer(request: Request) -> Reply:
 def _guardrail(mode: str, api_base: str) -> dict[str, JsonValue]:
     return {
         "guardrail_name": f"bridge-mark-{mode}",
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "pre_call",
             "default_on": False,

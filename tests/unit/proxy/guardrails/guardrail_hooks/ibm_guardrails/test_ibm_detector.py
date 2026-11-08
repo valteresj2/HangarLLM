@@ -3,9 +3,9 @@ import json
 import pytest
 import respx
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.ibm_guardrails.ibm_detector import IBMGuardrailDetector
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.ibm_guardrails.ibm_detector import IBMGuardrailDetector
 
 pytestmark = pytest.mark.usefixtures("httpx_transport")
 

@@ -156,7 +156,7 @@ def outcome_text(slot: str, marker: Canary, outcome: str) -> str:
 def spend_request_id(marker: Canary) -> str:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE proxy_server_request::text LIKE %s',
             (f"%{marker.core}%",),
         ),
         lambda found: len(found) >= 1,

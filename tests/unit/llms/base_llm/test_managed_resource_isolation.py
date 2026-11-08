@@ -4,12 +4,12 @@ Tests for managed-resource tenant isolation helpers.
 
 import pytest
 
-from litellm.llms.base_llm.managed_resources.isolation import (
+from hangarllm.llms.base_llm.managed_resources.isolation import (
     build_owner_filter,
     can_access_resource,
     resolve_resource_owner_id,
 )
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
 
 # ---------------------------------------------------------------------------
@@ -19,7 +19,7 @@ from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
 
 @pytest.mark.parametrize(
     "role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY],
 )
 def test_owner_filter_admin_unscoped(role):
     assert build_owner_filter(UserAPIKeyAuth(user_role=role)) == {}
@@ -62,7 +62,7 @@ def test_owner_filter_no_identity_returns_none():
 
 @pytest.mark.parametrize(
     "role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY],
 )
 @pytest.mark.parametrize(
     "created_by,resource_team_id",

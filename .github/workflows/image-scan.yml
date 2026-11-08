@@ -4,8 +4,8 @@ on:
   pull_request:
     branches:
       - main
-      - litellm_oss_branch
-      - "litellm_**"
+      - hangarllm_oss_branch
+      - "hangarllm_**"
     paths:
       - Dockerfile
       - docker/Dockerfile.non_root
@@ -16,22 +16,22 @@ on:
       - gateway/launch.py
       - gateway/main.py
       - gateway/routes/allowlist.py
-      - litellm_cli/**
+      - hangarllm_cli/**
       - backend/Dockerfile
       - backend/main.py
-      - litellm-rust/**
-      - litellm/proxy/lens/**
+      - hangarllm-rust/**
+      - hangarllm/proxy/lens/**
       - docker/component_entrypoint.sh
       - docker/entrypoint.sh
-      - litellm/proxy/prisma_migration.py
-      - litellm/proxy/admin_mcp.py
-      - litellm/proxy/proxy_server.py
+      - hangarllm/proxy/prisma_migration.py
+      - hangarllm/proxy/admin_mcp.py
+      - hangarllm/proxy/proxy_server.py
       - backend/routes/allowlist.py
       - pyproject.toml
-      - litellm-proxy-extras/**
+      - hangarllm-proxy-extras/**
       - tests/integration/database/image/**
       - uv.lock
-      - ui/litellm-dashboard/package-lock.json
+      - ui/hangarllm-dashboard/package-lock.json
       - ui/Dockerfile
       - ui/nginx.conf
       - .github/workflows/image-scan.yml
@@ -73,10 +73,10 @@ jobs:
       # Dockerfiles share the same wolfi base and apk set, so OS-layer coverage
       # is the same; matrix-scan if those variants ever diverge.
       - name: Build runtime image
-        run: docker build -f docker/Dockerfile.non_root -t litellm-image-scan:${{ github.sha }} .
+        run: docker build -f docker/Dockerfile.non_root -t hangarllm-image-scan:${{ github.sha }} .
 
       - name: Tag the cached builder for Admin MCP schema setup
-        run: docker build --target builder -f docker/Dockerfile.non_root -t litellm-admin-mcp-schema:${{ github.sha }} .
+        run: docker build --target builder -f docker/Dockerfile.non_root -t hangarllm-admin-mcp-schema:${{ github.sha }} .
 
       # The prisma bake must migrate a fresh DB with no egress as an arbitrary
       # non-root uid (OpenShift restricted-v2 / air-gapped / readOnlyRootFilesystem).
@@ -90,8 +90,8 @@ jobs:
 
       - name: Verify offline migration as a non-root uid
         env:
-          LITELLM_IMAGE: litellm-image-scan:${{ github.sha }}
-          LITELLM_ADMIN_MCP_SCHEMA_IMAGE: litellm-admin-mcp-schema:${{ github.sha }}
+          HANGARLLM_IMAGE: hangarllm-image-scan:${{ github.sha }}
+          HANGARLLM_ADMIN_MCP_SCHEMA_IMAGE: hangarllm-admin-mcp-schema:${{ github.sha }}
         run: |
           python -m pip install "pytest==9.0.3"
           python -m pytest --noconftest tests/integration/database/image/test_offline_image_migration.py tests/integration/database/image/test_image_bedrock_realtime_extra.py tests/integration/database/image/test_image_admin_mcp.py -v
@@ -106,7 +106,7 @@ jobs:
         env:
           GRYPE_MATCH_PYTHON_USING_CPES: "true"
         run: |
-          "$RUNNER_TEMP/grype" litellm-image-scan:${{ github.sha }} \
+          "$RUNNER_TEMP/grype" hangarllm-image-scan:${{ github.sha }} \
             --config .grype.yaml \
             --only-fixed \
             --fail-on high \
@@ -131,10 +131,10 @@ jobs:
           persist-credentials: false
 
       - name: Build runtime image
-        run: docker build --build-arg LITELLM_RELEASE_TAG=v0.0.0-lens-ci -f "${{ matrix.dockerfile }}" -t litellm-runtime-scan:${{ github.sha }} .
+        run: docker build --build-arg HANGARLLM_RELEASE_TAG=v0.0.0-lens-ci -f "${{ matrix.dockerfile }}" -t hangarllm-runtime-scan:${{ github.sha }} .
 
       - name: Tag the cached builder for Admin MCP schema setup
-        run: docker build --target builder -f "${{ matrix.dockerfile }}" -t litellm-admin-mcp-schema:${{ github.sha }} .
+        run: docker build --target builder -f "${{ matrix.dockerfile }}" -t hangarllm-admin-mcp-schema:${{ github.sha }} .
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -143,8 +143,8 @@ jobs:
 
       - name: Verify offline migration as a non-root uid
         env:
-          LITELLM_IMAGE: litellm-runtime-scan:${{ github.sha }}
-          LITELLM_ADMIN_MCP_SCHEMA_IMAGE: litellm-admin-mcp-schema:${{ github.sha }}
+          HANGARLLM_IMAGE: hangarllm-runtime-scan:${{ github.sha }}
+          HANGARLLM_ADMIN_MCP_SCHEMA_IMAGE: hangarllm-admin-mcp-schema:${{ github.sha }}
         run: |
           python -m pip install "pytest==9.0.3"
           python -m pytest --noconftest tests/integration/database/image/test_offline_image_migration.py tests/integration/database/image/test_image_bedrock_realtime_extra.py tests/integration/database/image/test_image_admin_mcp.py -v
@@ -165,7 +165,7 @@ jobs:
           persist-credentials: false
 
       - name: Build migrations image
-        run: docker build -f migrations/Dockerfile -t litellm-migrations-scan:${{ github.sha }} .
+        run: docker build -f migrations/Dockerfile -t hangarllm-migrations-scan:${{ github.sha }} .
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -174,9 +174,9 @@ jobs:
 
       - name: Verify offline migration as a non-root uid
         env:
-          LITELLM_IMAGE: litellm-migrations-scan:${{ github.sha }}
-          LITELLM_MIGRATION_INTERPRETER: python3
-          LITELLM_MIGRATION_SCRIPT: /app/run.py
+          HANGARLLM_IMAGE: hangarllm-migrations-scan:${{ github.sha }}
+          HANGARLLM_MIGRATION_INTERPRETER: python3
+          HANGARLLM_MIGRATION_SCRIPT: /app/run.py
         run: |
           python -m pip install "pytest==9.0.3"
           python -m pytest --noconftest tests/integration/database/image/test_offline_image_migration.py -v
@@ -196,7 +196,7 @@ jobs:
           persist-credentials: false
 
       - name: Build gateway image
-        run: docker build -f gateway/Dockerfile -t litellm-gateway-scan:${{ github.sha }} .
+        run: docker build -f gateway/Dockerfile -t hangarllm-gateway-scan:${{ github.sha }} .
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -205,9 +205,9 @@ jobs:
 
       - name: Verify the gateway serves offline as a non-root uid
         env:
-          LITELLM_IMAGE: litellm-gateway-scan:${{ github.sha }}
-          LITELLM_COMPONENT_PORT: "4000"
-          LITELLM_IMAGE_COMPONENT: gateway
+          HANGARLLM_IMAGE: hangarllm-gateway-scan:${{ github.sha }}
+          HANGARLLM_COMPONENT_PORT: "4000"
+          HANGARLLM_IMAGE_COMPONENT: gateway
         run: |
           python -m pip install "pytest==9.0.3"
           python -m pytest --noconftest tests/integration/database/image/test_component_image_serves_offline.py tests/integration/database/image/test_image_bedrock_realtime_extra.py tests/integration/database/image/test_image_admin_mcp.py -v
@@ -227,7 +227,7 @@ jobs:
           persist-credentials: false
 
       - name: Build UI image
-        run: docker build -f ui/Dockerfile -t litellm-ui-scan:${{ github.sha }} .
+        run: docker build -f ui/Dockerfile -t hangarllm-ui-scan:${{ github.sha }} .
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -236,7 +236,7 @@ jobs:
 
       - name: Verify the UI serves offline as an arbitrary uid with a read-only root fs
         env:
-          LITELLM_IMAGE: litellm-ui-scan:${{ github.sha }}
+          HANGARLLM_IMAGE: hangarllm-ui-scan:${{ github.sha }}
         run: |
           python -m pip install "pytest==9.0.3"
           python -m pytest --noconftest tests/integration/database/image/test_ui_image_serves_offline.py -v
@@ -256,10 +256,10 @@ jobs:
           persist-credentials: false
 
       - name: Build backend image
-        run: docker build -f backend/Dockerfile -t litellm-backend-scan:${{ github.sha }} .
+        run: docker build -f backend/Dockerfile -t hangarllm-backend-scan:${{ github.sha }} .
 
       - name: Tag the cached builder for Admin MCP schema setup
-        run: docker build --target builder -f backend/Dockerfile -t litellm-admin-mcp-schema:${{ github.sha }} .
+        run: docker build --target builder -f backend/Dockerfile -t hangarllm-admin-mcp-schema:${{ github.sha }} .
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -268,10 +268,10 @@ jobs:
 
       - name: Verify the backend serves offline as a non-root uid
         env:
-          LITELLM_IMAGE: litellm-backend-scan:${{ github.sha }}
-          LITELLM_ADMIN_MCP_SCHEMA_IMAGE: litellm-admin-mcp-schema:${{ github.sha }}
-          LITELLM_COMPONENT_PORT: "4001"
-          LITELLM_IMAGE_COMPONENT: backend
+          HANGARLLM_IMAGE: hangarllm-backend-scan:${{ github.sha }}
+          HANGARLLM_ADMIN_MCP_SCHEMA_IMAGE: hangarllm-admin-mcp-schema:${{ github.sha }}
+          HANGARLLM_COMPONENT_PORT: "4001"
+          HANGARLLM_IMAGE_COMPONENT: backend
         run: |
           python -m pip install "pytest==9.0.3"
           python -m pytest --noconftest tests/integration/database/image/test_component_image_serves_offline.py tests/integration/database/image/test_image_admin_mcp.py -v

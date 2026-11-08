@@ -38,8 +38,8 @@ def test_sigv4_verifier_matches_published_put_and_rejects_corruption() -> None:
 
 @pytest.mark.covers("other.provider_wire.s3.sync_async_reserved_keys_are_signed_and_accepted")
 async def test_s3_sync_and_async_uploads_pass_independent_wire_verification(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.integrations.s3_v2 import S3Logger
-    from litellm.types.integrations.s3_v2 import s3BatchLoggingElement
+    from hangarllm.integrations.s3_v2 import S3Logger
+    from hangarllm.types.integrations.s3_v2 import s3BatchLoggingElement
 
     monkeypatch.setattr("botocore.auth.get_current_datetime", lambda: datetime(2026, 9, 14))
     payload: Final = {"id": "synthetic-event", "content": "synthetic snow 雪"}

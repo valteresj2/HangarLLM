@@ -61,7 +61,7 @@ def _config(directory: Path, upstream: Wire) -> Path:
         [
             {
                 "model_name": group,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": OPENAI_MODEL,
                     "api_base": upstream.url + "/v1",
                     "api_key": "synthetic-openai-key",
@@ -71,7 +71,7 @@ def _config(directory: Path, upstream: Wire) -> Path:
             }
             for group in GROUPS
         ],
-        litellm_settings={"cache": False},
+        hangarllm_settings={"cache": False},
         router_settings={"optional_pre_call_checks": ["enforce_model_rate_limits"], "num_retries": 0},
     )
 

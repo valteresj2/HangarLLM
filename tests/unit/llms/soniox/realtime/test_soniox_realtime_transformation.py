@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.soniox.common_utils import SonioxException
-from litellm.llms.soniox.realtime.transformation import (
+from hangarllm.llms.soniox.common_utils import SonioxException
+from hangarllm.llms.soniox.realtime.transformation import (
     DEFAULT_SONIOX_REALTIME_URL,
     SESSION_STARTED_FRAME,
     SonioxEventTransformer,
@@ -16,10 +16,10 @@ from litellm.llms.soniox.realtime.transformation import (
     SonioxRealtimeConfig,
     SonioxRealtimeOptions,
 )
-from litellm.types.llms.openai import OpenAIRealtimeEvents
-from litellm.types.realtime import RealtimeResponseTransformInput
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.llms.openai import OpenAIRealtimeEvents
+from hangarllm.types.realtime import RealtimeResponseTransformInput
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 MODEL: Final = "stt-rt-v5"
 EMPTY_TRANSFORM_INPUT: Final[RealtimeResponseTransformInput] = {
@@ -612,12 +612,12 @@ def test_provider_config_manager_passes_only_soniox_options_from_deployment_para
     config = ProviderConfigManager.get_provider_realtime_config(
         MODEL,
         LlmProviders.SONIOX,
-        litellm_params={
+        hangarllm_params={
             "api_key": "secret",
             "model": "soniox/stt-rt-v5",
             "audio_format": "mulaw",
             "language_hints": ["pl"],
-            "context": {"terms": ["LiteLLM"]},
+            "context": {"terms": ["HangarLLM"]},
             "max_endpoint_delay_ms": 800,
         },
     )
@@ -630,7 +630,7 @@ def test_provider_config_manager_passes_only_soniox_options_from_deployment_para
         "num_channels": 1,
         "enable_endpoint_detection": True,
         "language_hints": ["pl"],
-        "context": {"terms": ["LiteLLM"]},
+        "context": {"terms": ["HangarLLM"]},
         "max_endpoint_delay_ms": 800,
     }
 

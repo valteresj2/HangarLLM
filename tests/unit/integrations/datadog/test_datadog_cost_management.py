@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import Request, Response
 
-from litellm.integrations.datadog.datadog_cost_management import (
+from hangarllm.integrations.datadog.datadog_cost_management import (
     DatadogCostManagementLogger,
 )
-from litellm.types.utils import StandardLoggingPayload
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 @pytest.fixture

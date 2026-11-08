@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm._service_logger import ServiceTypes
-from litellm.proxy import proxy_server
-from litellm.proxy.mcp_server.oauth_issuer_stamp_backfill import (
+from hangarllm._service_logger import ServiceTypes
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy.mcp_server.oauth_issuer_stamp_backfill import (
     backfill_discovery_stamped_issuers,
 )
 from tests.unit.proxy.db.fake_prisma_engine import engine_call
@@ -33,9 +33,9 @@ def _row(**overrides):
 
 def _prisma(rows):
     prisma_client = MagicMock()
-    prisma_client.db.litellm_mcpservertable.find_many = AsyncMock(return_value=rows)
-    prisma_client.db.litellm_config.find_unique = AsyncMock(return_value=None)
-    prisma_client.db.litellm_mcpservertable.update = AsyncMock()
+    prisma_client.db.hangarllm_mcpservertable.find_many = AsyncMock(return_value=rows)
+    prisma_client.db.hangarllm_config.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.hangarllm_mcpservertable.update = AsyncMock()
     return prisma_client
 
 
@@ -49,12 +49,12 @@ async def test_clears_the_stamp_and_records_its_own_actor():
 
     assert await backfill_discovery_stamped_issuers(prisma_client) == 1
 
-    call = prisma_client.db.litellm_mcpservertable.update.call_args
+    call = prisma_client.db.hangarllm_mcpservertable.update.call_args
     assert call.kwargs["where"] == {"server_id": "srv-1"}
     assert call.kwargs["data"]["issuer"] is None
     assert call.kwargs["data"]["updated_by"] == "mcp_oauth_issuer_stamp_backfill"
 
-    where = prisma_client.db.litellm_mcpservertable.find_many.call_args.kwargs["where"]
+    where = prisma_client.db.hangarllm_mcpservertable.find_many.call_args.kwargs["where"]
     assert where["updated_by"] == "mcp_oauth_discovery"
 
 
@@ -89,7 +89,7 @@ async def test_leaves_rows_alone_that_do_not_carry_the_defect_signature(override
     prisma_client = _prisma([_row(**overrides)])
 
     assert await backfill_discovery_stamped_issuers(prisma_client) == 0, reason
-    prisma_client.db.litellm_mcpservertable.update.assert_not_awaited()
+    prisma_client.db.hangarllm_mcpservertable.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -118,7 +118,7 @@ async def test_query_is_scoped_to_auth_types_where_an_issuer_anchors():
 
     await backfill_discovery_stamped_issuers(prisma_client)
 
-    where = prisma_client.db.litellm_mcpservertable.find_many.call_args.kwargs["where"]
+    where = prisma_client.db.hangarllm_mcpservertable.find_many.call_args.kwargs["where"]
     assert set(where["auth_type"]["in"]) == {"oauth2", "true_passthrough", "oauth_delegate"}
 
 
@@ -127,18 +127,18 @@ async def test_a_failed_row_does_not_abort_the_rest():
     """Per-row best effort: one write failure must not leave later rows unhealed, and the next boot
     retries the failed one since its updated_by is unchanged."""
     prisma_client = _prisma([_row(server_id="bad"), _row(server_id="good")])
-    prisma_client.db.litellm_mcpservertable.update = AsyncMock(
+    prisma_client.db.hangarllm_mcpservertable.update = AsyncMock(
         side_effect=[Exception("write failed"), MagicMock()]
     )
 
     assert await backfill_discovery_stamped_issuers(prisma_client) == 1
-    assert prisma_client.db.litellm_mcpservertable.update.await_count == 2
+    assert prisma_client.db.hangarllm_mcpservertable.update.await_count == 2
 
 
 @pytest.mark.asyncio
 async def test_each_healed_row_emits_a_postgres_update_event_for_the_mcp_server_table(monkeypatch):
     prisma_client = _prisma([_row(server_id="a"), _row(server_id="b")])
-    prisma_client.db.litellm_mcpservertable.update = engine_call()
+    prisma_client.db.hangarllm_mcpservertable.update = engine_call()
     success: Final = AsyncMock()
     service_logging: Final = MagicMock(async_service_success_hook=success, async_service_failure_hook=AsyncMock())
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", MagicMock(service_logging_obj=service_logging))
@@ -151,5 +151,5 @@ async def test_each_healed_row_emits_a_postgres_update_event_for_the_mcp_server_
     assert (event["service"], event["call_type"], event["event_metadata"]) == (
         ServiceTypes.DB,
         "backfill_mcp_oauth_issuer",
-        {"table_name": "LiteLLM_MCPServerTable"},
+        {"table_name": "HangarLLM_MCPServerTable"},
     )

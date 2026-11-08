@@ -16,8 +16,8 @@ CLAUDE_HAIKU_5_5_RESPONSES_THINKING_SIGNATURE: Final = "CAQS0gYKEggSEAIYAjgBQgh0
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "vertex_ai/claude-haiku-4-5@20251001",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -55,8 +55,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens": 5,
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -110,8 +110,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "vertex_ai/claude-sonnet-4-6@default",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -149,8 +149,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
             "output_tokens": 5,
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -204,8 +204,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "vertex_ai/claude-sonnet-5@default",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -244,8 +244,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -299,8 +299,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "vertex_ai/claude-opus-4-8@default",
         "max_output_tokens": 64,
         "instructions": "You are a terse assistant.",
@@ -339,8 +339,8 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 0},
         },
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -394,8 +394,8 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_3_5_FLASH_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={
         "model": "vertex_ai/gemini-3.5-flash",
         "max_output_tokens": 1024,
         "instructions": "You are a terse assistant.",
@@ -432,8 +432,8 @@ GEMINI_3_5_FLASH_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-05T22:54:50.809002Z",
         "responseId": "uirEaqqwMc-U9LsPjJTYuQU",
     },
-    expected_litellm_status_code=200,
-    expected_litellm_response={
+    expected_hangarllm_status_code=200,
+    expected_hangarllm_response={
         "id": ANY,
         "created_at": ANY,
         "error": None,
@@ -617,8 +617,8 @@ GEMINI_4_ARGON_RESPONSES_THOUGHT_SIGNATURE_0: Final = (
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-sonnet-5-5@default"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-sonnet-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-sonnet-5-5@default:rawPredict",
     expected_provider_headers={
         "authorization": "Bearer scripted-token",
@@ -684,7 +684,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 218},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "vertex_ai/claude-sonnet-5-5@default",
         "output": [
@@ -793,8 +793,8 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-haiku-5-5@default"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-haiku-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-haiku-5-5@default:rawPredict",
     expected_provider_headers={
         "authorization": "Bearer scripted-token",
@@ -851,7 +851,7 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 126},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "vertex_ai/claude-haiku-5-5@default",
         "output": [
@@ -947,8 +947,8 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-opus-5-5@default"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-opus-5-5@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-opus-5-5@default:rawPredict",
     expected_provider_headers={
         "authorization": "Bearer scripted-token",
@@ -1007,7 +1007,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 126},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "vertex_ai/claude-opus-5-5@default",
         "output": [
@@ -1103,8 +1103,8 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-fable-5-1@default"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "vertex_ai/claude-fable-5-1@default"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/anthropic/models/claude-fable-5-1@default:rawPredict",
     expected_provider_headers={
         "authorization": "Bearer scripted-token",
@@ -1169,7 +1169,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
             "output_tokens_details": {"thinking_tokens": 265},
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "vertex_ai/claude-fable-5-1@default",
         "output": [
@@ -1275,8 +1275,8 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "vertex_ai/gemini-3.8-flash"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "vertex_ai/gemini-3.8-flash"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.8-flash:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={
@@ -1354,7 +1354,7 @@ GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-15T01:14:17.560771Z",
         "responseId": "6SjQaoOdIvCfq8YP89zFuQk",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "vertex_ai/gemini-3.8-flash",
         "output": [
@@ -1492,8 +1492,8 @@ GEMINI_3_8_FLASH_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "vertex_ai/gemini-3.1-pro-preview"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "vertex_ai/gemini-3.1-pro-preview"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-3.1-pro-preview:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={
@@ -1569,7 +1569,7 @@ GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-15T01:14:11.647331Z",
         "responseId": "4yjQaqPBJ72apucPwee_YQ",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "vertex_ai/gemini-3.1-pro-preview",
         "output": [
@@ -1690,8 +1690,8 @@ GEMINI_3_1_PRO_PREVIEW_TEST_CASE: Final = TranslationTestCase(
 
 GEMINI_4_ARGON_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/responses",
-    litellm_request={**RESPONSES_REQUEST, "model": "vertex_ai/gemini-4-argon"},
+    hangarllm_endpoint="/v1/responses",
+    hangarllm_request={**RESPONSES_REQUEST, "model": "vertex_ai/gemini-4-argon"},
     expected_provider_endpoint="/v1/projects/synthetic-vertex-project/locations/global/publishers/google/models/gemini-4-argon:generateContent",
     expected_provider_headers={"content-type": "application/json", "authorization": "Bearer scripted-token"},
     expected_provider_request={
@@ -1760,7 +1760,7 @@ GEMINI_4_ARGON_TEST_CASE: Final = TranslationTestCase(
         "createTime": "2026-10-15T01:14:21.864566Z",
         "responseId": "7SjQarbiNNqX9LsPrO6x6QE",
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **RESPONSES_RESPONSE,
         "model": "vertex_ai/gemini-4-argon",
         "output": [

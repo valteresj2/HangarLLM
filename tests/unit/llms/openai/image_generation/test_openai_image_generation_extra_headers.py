@@ -1,8 +1,8 @@
 """
 Unit tests for extra_headers propagation in OpenAI image generation.
 
-Verifies that extra_headers passed to litellm.image_generation() /
-litellm.aimage_generation() are forwarded to the OpenAI API client as
+Verifies that extra_headers passed to hangarllm.image_generation() /
+hangarllm.aimage_generation() are forwarded to the OpenAI API client as
 extra_headers in the images.generate() call.
 """
 
@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 
 
-from litellm.llms.openai.openai import OpenAIChatCompletion
-from litellm.types.utils import ImageResponse
+from hangarllm.llms.openai.openai import OpenAIChatCompletion
+from hangarllm.types.utils import ImageResponse
 
 
 def _raw_image_response(mock_image_data):
@@ -242,12 +242,12 @@ class TestImageGenerationExtraHeaders:
 
 
 class TestImageGenerationEntryPointHeaders:
-    """Test that litellm.image_generation() passes headers through to the OpenAI provider."""
+    """Test that hangarllm.image_generation() passes headers through to the OpenAI provider."""
 
     @pytest.mark.asyncio
     async def test_extra_headers_reach_openai_provider(self):
-        """End-to-end: extra_headers from litellm.aimage_generation() reach OpenAI images.generate()."""
-        import litellm
+        """End-to-end: extra_headers from hangarllm.aimage_generation() reach OpenAI images.generate()."""
+        import hangarllm
 
         mock_image_data = MagicMock()
         mock_image_data.model_dump.return_value = {
@@ -264,7 +264,7 @@ class TestImageGenerationEntryPointHeaders:
 
         test_headers = {"cf-aig-authorization": "Bearer my-secret"}
 
-        await litellm.aimage_generation(
+        await hangarllm.aimage_generation(
             model="gpt-image-2.5-sunburst",
             prompt="A white cat",
             extra_headers=test_headers,

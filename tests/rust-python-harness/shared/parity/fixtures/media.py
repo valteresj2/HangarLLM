@@ -200,7 +200,7 @@ def structured_pdf_bytes() -> bytes:
     output: Final = BytesIO()
     pdf: Final = canvas.Canvas(output, pagesize=letter, pageCompression=0, invariant=1)
     pdf.setTitle("Quarterly Operations Report")
-    pdf.setAuthor("LiteLLM parity fixture generator")
+    pdf.setAuthor("HangarLLM parity fixture generator")
     pdf.setSubject("Semantic document coverage for tables, figures, annotations, and metadata")
     pdf.setKeywords("document, invoice, table, figure, annotation")
     pages: Final = (

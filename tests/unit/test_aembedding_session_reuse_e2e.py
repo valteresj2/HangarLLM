@@ -1,39 +1,39 @@
 """
 Regression test for commit 819a6b5f18
 
-Ensures shared_session is in all_litellm_params to prevent
+Ensures shared_session is in all_hangarllm_params to prevent
 "Object of type ClientSession is not JSON serializable" errors.
 """
 
 import inspect
 
 
-from litellm.types.utils import all_litellm_params
+from hangarllm.types.utils import all_hangarllm_params
 
 
-def test_shared_session_in_all_litellm_params():
+def test_shared_session_in_all_hangarllm_params():
     """
-    CRITICAL: shared_session must be in all_litellm_params.
+    CRITICAL: shared_session must be in all_hangarllm_params.
 
     If missing, it gets passed to provider APIs causing JSON serialization errors.
     Regression test for commit 819a6b5f18.
     """
-    assert "shared_session" in all_litellm_params
+    assert "shared_session" in all_hangarllm_params
 
 
 def test_openai_embedding_passes_shared_session():
     """
     Verify shared_session flows through the complete call chain.
 
-    Full chain: litellm.embedding() -> OpenAI.embedding() -> _get_openai_client()
+    Full chain: hangarllm.embedding() -> OpenAI.embedding() -> _get_openai_client()
                 -> AsyncHTTPHandler -> create_async_transport() -> create_aiohttp_transport()
     """
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.llms.openai.openai import OpenAIChatCompletion
+    import hangarllm
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.openai.openai import OpenAIChatCompletion
 
-    # Step 1: litellm.embedding() extracts and passes shared_session
-    main_source = inspect.getsource(litellm.embedding)
+    # Step 1: hangarllm.embedding() extracts and passes shared_session
+    main_source = inspect.getsource(hangarllm.embedding)
     assert "shared_session" in main_source
 
     # Step 2: OpenAI handlers pass it forward

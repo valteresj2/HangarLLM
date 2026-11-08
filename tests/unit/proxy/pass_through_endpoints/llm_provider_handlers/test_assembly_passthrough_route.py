@@ -10,11 +10,11 @@ import respx
 from fastapi import Request, Response
 from starlette.types import Message
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import assemblyai_proxy_route
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import assemblyai_proxy_route
+from hangarllm.types.utils import StandardLoggingPayload
 
 _KEY: Final = "synthetic-assemblyai-key"
 _UPSTREAM: Final = "https://api.assemblyai.com/v2/transcript"
@@ -68,8 +68,8 @@ def _request(method: str, path: str, body: bytes = b"") -> Request:
 def _install_recorder(monkeypatch: pytest.MonkeyPatch, transcript_id: str) -> _SuccessRecorder:
     recorder: Final = _SuccessRecorder(transcript_id, asyncio.get_running_loop())
     monkeypatch.setenv("ASSEMBLYAI_API_KEY", _KEY)
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
     return recorder
 
 
@@ -96,7 +96,7 @@ async def test_assemblyai_transcribe_create_poll_delete(
     delete_route: Final = respx_mock.delete(f"{_UPSTREAM}/tr_1").mock(
         return_value=httpx.Response(200, json={"id": "tr_1", "status": "deleted"})
     )
-    admin: Final = UserAPIKeyAuth(api_key="sk-master", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin: Final = UserAPIKeyAuth(api_key="sk-master", user_role=HangarllmUserRoles.PROXY_ADMIN)
     create_body: Final = {"audio_url": _AUDIO_URL, "speech_models": ["universal-2"]}
 
     create: Final = await assemblyai_proxy_route(
@@ -151,7 +151,7 @@ async def test_assemblyai_transcribe_with_non_admin_key_logs_key_identity(
         token="hashed-non-admin-key",
         user_id="non-admin-user",
         team_id="non-admin-team",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     response: Final = await assemblyai_proxy_route(

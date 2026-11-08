@@ -1,5 +1,5 @@
-ARG LITELLM_BUILD_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
-ARG LITELLM_RUNTIME_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
+ARG HANGARLLM_BUILD_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
+ARG HANGARLLM_RUNTIME_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.11.7@sha256:240fb85ab0f263ef12f492d8476aa3a2e4e1e333f7d67fbdd923d00a506a516a
 
 FROM $UV_IMAGE AS uvbin
@@ -10,11 +10,11 @@ FROM $UV_IMAGE AS uvbin
 # `proxy-runtime` (otel, sentry, ddtrace, pypdf, google-genai, anthropic-vertex,
 # ...) and `semantic-router` extras that the gateway/backend pull in — the
 # migration engine doesn't need them. We DO install `--extra proxy` so the
-# DB-URL helper from `litellm.proxy.auth.rds_iam_token` is importable, which
+# DB-URL helper from `hangarllm.proxy.auth.rds_iam_token` is importable, which
 # is how the gateway and backend assemble `DATABASE_URL` at pod startup when
 # `IAM_TOKEN_DB_AUTH=true` (see backend/main.py:17, gateway/main.py:22). And
 # `--extra extra_proxy` provides the `prisma` CLI + the secret-manager
-# backends `litellm.secret_managers.main` lazily imports.
+# backends `hangarllm.secret_managers.main` lazily imports.
 #
 # `prisma generate` runs once at BUILD time to (a) install the Node-based
 # Prisma CLI into the binary cache and (b) download the migration / query
@@ -25,7 +25,7 @@ FROM $UV_IMAGE AS uvbin
 # old migration job did, on every pod start, which is the wasteful behaviour
 # the componentization is fixing.
 # Copies only the native build's inputs, so the fat-LTO compile stays cached across Python-only changes
-FROM $LITELLM_BUILD_IMAGE AS rust-native
+FROM $HANGARLLM_BUILD_IMAGE AS rust-native
 
 WORKDIR /app
 USER root
@@ -42,16 +42,16 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 COPY pyproject.toml README.md rust-toolchain.toml ./
 COPY .cargo ./.cargo
-COPY litellm-rust ./litellm-rust
+COPY hangarllm-rust ./hangarllm-rust
 COPY model_prices_and_context_window.json ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    mkdir -p litellm/rust_bridge /wheels && \
-    touch litellm/__init__.py litellm/rust_bridge/__init__.py && \
+    mkdir -p hangarllm/rust_bridge /wheels && \
+    touch hangarllm/__init__.py hangarllm/rust_bridge/__init__.py && \
     uvx --python python3.13 --from maturin==1.15.0 --with puccinialin==0.1.14 \
         python -c "import maturin; maturin.build_wheel('/wheels')"
 
-FROM $LITELLM_BUILD_IMAGE AS builder
+FROM $HANGARLLM_BUILD_IMAGE AS builder
 
 WORKDIR /app
 USER root
@@ -79,7 +79,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=enterprise/pyproject.toml,target=enterprise/pyproject.toml \
-    --mount=type=bind,source=litellm-proxy-extras/pyproject.toml,target=litellm-proxy-extras/pyproject.toml \
+    --mount=type=bind,source=hangarllm-proxy-extras/pyproject.toml,target=hangarllm-proxy-extras/pyproject.toml \
     uv sync --frozen --no-install-project --no-install-workspace --no-default-groups --no-editable \
         --extra proxy \
         --extra extra_proxy \
@@ -95,9 +95,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
         --python python3.13
 
 RUN --mount=type=bind,from=rust-native,source=/wheels,target=/wheels \
-    uv pip install --python /app/.venv/bin/python --no-deps /wheels/litellm-*.whl
+    uv pip install --python /app/.venv/bin/python --no-deps /wheels/hangarllm-*.whl
 
-RUN cp "$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"/litellm/rust_bridge/_native*.so litellm/rust_bridge/
+RUN cp "$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"/hangarllm/rust_bridge/_native*.so hangarllm/rust_bridge/
 
 COPY migrations/run.py /app/run.py
 
@@ -114,7 +114,7 @@ RUN HOME=/opt/prisma XDG_CACHE_HOME=/opt/prisma/.cache PRISMA_BINARY_CACHE_DIR=/
     prisma generate --schema=./schema.prisma
 
 # ---------- Runtime ----------
-FROM $LITELLM_RUNTIME_IMAGE AS runtime
+FROM $HANGARLLM_RUNTIME_IMAGE AS runtime
 
 USER root
 
@@ -139,7 +139,7 @@ ENV HOME=/home/nonroot \
     PRISMA_OFFLINE_MODE=true
 
 COPY --from=builder --chown=nonroot:nonroot /app/.venv /app/.venv
-COPY --from=builder --chown=nonroot:nonroot /app/litellm /app/litellm
+COPY --from=builder --chown=nonroot:nonroot /app/hangarllm /app/hangarllm
 COPY --from=builder --chown=nonroot:nonroot /app/run.py /app/run.py
 COPY --from=builder /opt/prisma /opt/prisma
 

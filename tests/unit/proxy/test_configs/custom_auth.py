@@ -1,4 +1,4 @@
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy._types import UserAPIKeyAuth
 from fastapi import Request
 from dotenv import load_dotenv
 import os

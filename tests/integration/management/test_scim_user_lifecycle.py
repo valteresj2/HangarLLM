@@ -107,10 +107,10 @@ def _scim_request(
 
 
 def _delete_user_if_present(gateway: Gateway, user_id: str) -> None:
-    if read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,)):
+    if read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,)):
         deleted: Final = gateway.request("POST", "/user/delete", {"user_ids": [user_id]})
         assert deleted.status_code == 200 and deleted.json() == 1, deleted.text
-    assert read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,)) == []
+    assert read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,)) == []
 
 
 def _team_members(gateway: Gateway, team_id: str) -> list[dict[str, JsonValue]]:
@@ -128,10 +128,10 @@ def _has_team_member(gateway: Gateway, team_id: str, user_id: str) -> bool:
 
 def _delete_key_if_present(gateway: Gateway, key: str) -> None:
     digest: Final = sha256(key.encode()).hexdigest()
-    if read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s', (digest,)):
+    if read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s', (digest,)):
         deleted: Final = gateway.request("POST", "/key/delete", {"keys": [key]})
         assert deleted.status_code == 200, deleted.text
-    assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE token = %s', (digest,)) == []
+    assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE token = %s', (digest,)) == []
 
 
 def _key_with_cleanup(scenario: Scenario, **fields: JsonValue) -> str:
@@ -213,7 +213,7 @@ def test_okta_create_provisions_the_user_into_its_group_and_rejects_a_duplicate(
         readback_user: Final = ScimUserResponse.model_validate(readback_response.json())
         metadata_rows: Final = read_rows(
             'SELECT created_at::text AS created_at, updated_at::text AS updated_at '
-            'FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user_name,),
         )
         assert len(metadata_rows) == 1, (metadata_rows, readback_response.text)
@@ -247,7 +247,7 @@ def test_okta_create_provisions_the_user_into_its_group_and_rejects_a_duplicate(
         ), readback_response.text
 
         user_rows: Final = read_rows(
-            'SELECT user_id, user_email, user_role, teams, metadata FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT user_id, user_email, user_role, teams, metadata FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user_name,),
         )
         assert len(user_rows) == 1, user_rows
@@ -271,7 +271,7 @@ def test_okta_create_provisions_the_user_into_its_group_and_rejects_a_duplicate(
             "detail": {"error": f"User already exists with username: {user_name}"}
         }, duplicate.text
         assert read_rows(
-            'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user_name,),
         ) == [{"user_id": user_name}]
 
@@ -295,7 +295,7 @@ def test_scim_create_adopts_an_existing_user_by_email_and_keeps_its_key_and_team
         _assert_serving(gateway, model, key)
         team_before: Final = _team_members(gateway, team)
         user_before: Final = read_rows(
-            'SELECT user_id, user_email, user_role, teams FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT user_id, user_email, user_role, teams FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (existing_user,),
         )
         idp_user_name: Final = f"idp-login-{suffix}"
@@ -319,17 +319,17 @@ def test_scim_create_adopts_an_existing_user_by_email_and_keeps_its_key_and_team
         assert readback_user.groups == [
             ScimGroupRef(value=team, display=team_alias, type="direct")
         ], readback.text
-        assert len(read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_email = %s', (user_email,))) == 1
+        assert len(read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_email = %s', (user_email,))) == 1
         assert (
             read_rows(
-                'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id = %s',
+                'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id = %s',
                 (idp_user_name,),
             )
             == []
         )
         assert (
             read_rows(
-                'SELECT user_id, user_email, user_role, teams FROM "LiteLLM_UserTable" WHERE user_id = %s',
+                'SELECT user_id, user_email, user_role, teams FROM "HangarLLM_UserTable" WHERE user_id = %s',
                 (existing_user,),
             )
             == user_before
@@ -377,7 +377,7 @@ def test_profile_put_without_groups_keeps_memberships_and_a_new_groups_list_move
         without_groups: Final = _scim_request(gateway, "PUT", f"/scim/v2/Users/{user_name}", profile)
         assert without_groups.status_code == 200, without_groups.text
         assert read_rows(
-            'SELECT sso_user_id FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT sso_user_id FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user_name,),
         ) == [{"sso_user_id": external_id}], without_groups.text
         assert object_value(gateway.get("/user/info", {"user_id": user_name})["user_info"])["sso_user_id"] == (
@@ -493,7 +493,7 @@ def test_scim_create_persists_external_id_as_the_sso_user_id(gateway: Gateway) -
         readback_user: Final = ScimUserResponse.model_validate(readback.json())
         assert readback_user.externalId == external_id, readback.text
         assert read_rows(
-            'SELECT sso_user_id FROM "LiteLLM_UserTable" WHERE user_id = %s',
+            'SELECT sso_user_id FROM "HangarLLM_UserTable" WHERE user_id = %s',
             (user_name,),
         ) == [{"sso_user_id": external_id}], created.text
         assert object_value(gateway.get("/user/info", {"user_id": user_name})["user_info"])["sso_user_id"] == (

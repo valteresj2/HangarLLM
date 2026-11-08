@@ -6,7 +6,7 @@ Tests the model-based routing ID encoding/decoding used by the batch
 and file proxy endpoints.
 """
 
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from hangarllm.proxy.openai_files_endpoints.common_utils import (
     decode_model_from_file_id,
     encode_file_id_with_model,
     get_original_file_id,
@@ -77,7 +77,7 @@ class TestRoundTrip:
     def test_roundtrip_openai_file_id(self):
         """Encode then decode an OpenAI file ID — model and original ID should be recovered."""
         original = "file-abc123"
-        model = "gpt-4o-litellm"
+        model = "gpt-4o-hangarllm"
         encoded = encode_file_id_with_model(original, model)
 
         assert decode_model_from_file_id(encoded) == model
@@ -104,7 +104,7 @@ class TestRoundTrip:
 
     def test_roundtrip_vertex_gcs_uri_file_id(self):
         """Encode then decode a Vertex AI GCS URI (output file)."""
-        original = "gs://vertex-bucket/litellm-files/output.jsonl"
+        original = "gs://vertex-bucket/hangarllm-files/output.jsonl"
         model = "gemini-2.5-pro"
         encoded = encode_file_id_with_model(original, model)
 

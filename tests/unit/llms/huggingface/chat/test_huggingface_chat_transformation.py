@@ -7,10 +7,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.huggingface.common_utils import _fetch_inference_provider_mapping
-from litellm.utils import _HUGGINGFACE_TOKENIZER_LOAD_OUTCOMES
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.huggingface.common_utils import _fetch_inference_provider_mapping
+from hangarllm.utils import _HUGGINGFACE_TOKENIZER_LOAD_OUTCOMES
 
 HUGGINGFACE_MODEL: Final = "meta-llama/Meta-Llama-3-8B-Instruct"
 HUGGINGFACE_ROUTER_MODEL: Final = "meta-llama/Meta-Llama-3-8B-Instruct-Turbo"
@@ -113,7 +113,7 @@ PROVIDER_MAPPING_RESPONSE = {
 @pytest.fixture
 def mock_provider_mapping() -> Iterator[MagicMock]:
     with patch(
-        "litellm.llms.huggingface.chat.transformation.fetch_inference_provider_mapping"
+        "hangarllm.llms.huggingface.chat.transformation.fetch_inference_provider_mapping"
     ) as mock:
         mock.return_value = PROVIDER_MAPPING_RESPONSE
         yield mock
@@ -122,7 +122,7 @@ def mock_provider_mapping() -> Iterator[MagicMock]:
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_build_chat_completion_url_function():
     """Test the _build_chat_completion_url helper function"""
-    from litellm.llms.huggingface.chat.transformation import (
+    from hangarllm.llms.huggingface.chat.transformation import (
         _build_chat_completion_url,
     )
 
@@ -175,7 +175,7 @@ def test_build_chat_completion_url_function():
 )
 def test_get_complete_url(model, expected_url):
     """Test that the complete URL is constructed correctly for different providers"""
-    from litellm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
+    from hangarllm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
 
     config = HuggingFaceChatConfig()
     url = config.get_complete_url(
@@ -184,7 +184,7 @@ def test_get_complete_url(model, expected_url):
         optional_params={},
         stream=False,
         api_key="test_api_key",
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == expected_url
 
@@ -225,7 +225,7 @@ def test_get_complete_url(model, expected_url):
     ],
 )
 def test_get_complete_url_inference_endpoints(api_base, model, expected_url):
-    from litellm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
+    from hangarllm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
 
     config = HuggingFaceChatConfig()
     url = config.get_complete_url(
@@ -234,7 +234,7 @@ def test_get_complete_url_inference_endpoints(api_base, model, expected_url):
         optional_params={},
         stream=False,
         api_key="test_api_key",
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == expected_url
 
@@ -254,7 +254,7 @@ def test_get_complete_url_inference_endpoints(api_base, model, expected_url):
     ],
 )
 def test_transform_request(model, expected_model):
-    from litellm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
+    from hangarllm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
 
     config = HuggingFaceChatConfig()
     messages = [{"role": "user", "content": "Hello"}]
@@ -263,7 +263,7 @@ def test_transform_request(model, expected_model):
         model=model,
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -274,7 +274,7 @@ def test_transform_request(model, expected_model):
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_validate_environment():
     """Test that the environment is validated correctly"""
-    from litellm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
+    from hangarllm.llms.huggingface.chat.transformation import HuggingFaceChatConfig
 
     config = HuggingFaceChatConfig()
 
@@ -284,7 +284,7 @@ def test_validate_environment():
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
         api_key="test_api_key",
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert headers["Authorization"] == "Bearer test_api_key"
@@ -298,7 +298,7 @@ def test_completion_non_streaming_uses_resolved_provider_model(respx_mock: respx
     route.return_value = httpx.Response(200, json=HUGGINGFACE_COMPLETION_RESPONSE)
     messages: Final = [{"role": "user", "content": "This is a dummy message"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="huggingface/together/meta-llama/Meta-Llama-3-8B-Instruct",
         messages=messages,
         api_key="test-api-key",
@@ -329,7 +329,7 @@ def test_completion_streaming_uses_resolved_provider_model(respx_mock: respx.Moc
     messages: Final = [{"role": "user", "content": "This is a dummy message"}]
 
     chunks: Final = tuple(
-        litellm.completion(
+        hangarllm.completion(
             model="huggingface/together/meta-llama/Meta-Llama-3-8B-Instruct",
             messages=messages,
             stream=True,
@@ -358,7 +358,7 @@ async def test_async_completion_non_streaming_uses_resolved_provider_model(
     client: Final = AsyncHTTPHandler(transport=RespxAsyncTransport(respx_mock))
     messages: Final = [{"role": "user", "content": "This is a dummy message"}]
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="huggingface/together/meta-llama/Meta-Llama-3-8B-Instruct",
         messages=messages,
         api_key="test-api-key",
@@ -390,7 +390,7 @@ async def test_async_completion_streaming_uses_resolved_provider_model(
     client: Final = AsyncHTTPHandler(transport=RespxAsyncTransport(respx_mock))
     messages: Final = [{"role": "user", "content": "This is a dummy message"}]
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="huggingface/together/meta-llama/Meta-Llama-3-8B-Instruct",
         messages=messages,
         stream=True,
@@ -415,7 +415,7 @@ def test_completion_with_api_base_uses_endpoint_url(respx_mock: respx.MockRouter
     route.return_value = httpx.Response(200, json=HUGGINGFACE_COMPLETION_RESPONSE)
     messages: Final = [{"role": "user", "content": "This is a test message"}]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="huggingface/tgi",
         messages=messages,
         api_base="https://custom.huggingface.test",
@@ -437,7 +437,7 @@ async def test_async_completion_with_api_base_uses_endpoint_url(
     client: Final = AsyncHTTPHandler(transport=RespxAsyncTransport(respx_mock))
     messages: Final = [{"role": "user", "content": "This is a test message"}]
 
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="huggingface/tgi",
         messages=messages,
         api_base="https://custom.huggingface.test",
@@ -461,7 +461,7 @@ def test_completion_streaming_with_api_base_uses_endpoint_url(respx_mock: respx.
     messages: Final = [{"role": "user", "content": "This is a test message"}]
 
     chunks: Final = tuple(
-        litellm.completion(
+        hangarllm.completion(
             model="huggingface/tgi",
             messages=messages,
             api_base="https://custom.huggingface.test",
@@ -513,7 +513,7 @@ def test_tool_call_without_arguments_is_preserved(respx_mock: respx.MockRouter) 
         }
     ]
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="huggingface/together/meta-llama/Meta-Llama-3-8B-Instruct",
         messages=messages,
         tools=tools,

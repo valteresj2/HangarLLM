@@ -105,31 +105,31 @@ def _holders(scenario: Scenario, old: str) -> tuple[_Holder, ...]:
     user: Final = scenario.user(user_role="internal_user", models=[old])
     key: Final = scenario.key(models=[old])
     return (
-        _Holder("key", "LiteLLM_VerificationToken", "key_alias", "", key),
-        _Holder("team", "LiteLLM_TeamTable", "team_id", team, scenario.key(team_id=team)),
+        _Holder("key", "HangarLLM_VerificationToken", "key_alias", "", key),
+        _Holder("team", "HangarLLM_TeamTable", "team_id", team, scenario.key(team_id=team)),
         _Holder(
             "organization",
-            "LiteLLM_OrganizationTable",
+            "HangarLLM_OrganizationTable",
             "organization_id",
             organization,
             scenario.key(team_id=org_team, organization_id=organization),
         ),
         _Holder(
             "project",
-            "LiteLLM_ProjectTable",
+            "HangarLLM_ProjectTable",
             "project_id",
             project,
             scenario.key(team_id=project_team, project_id=project),
             listing_is_scoped=False,
         ),
-        _Holder("user", "LiteLLM_UserTable", "user_id", user, scenario.key(user_id=user), listing_is_scoped=False),
+        _Holder("user", "HangarLLM_UserTable", "user_id", user, scenario.key(user_id=user), listing_is_scoped=False),
     )
 
 
 def _allowlist(holder: _Holder) -> list[dict[str, object]]:
     if holder.kind == "key":
         return read_rows(
-            "SELECT models FROM \"LiteLLM_VerificationToken\" WHERE token = encode(sha256(%s::bytea), 'hex')",
+            "SELECT models FROM \"HangarLLM_VerificationToken\" WHERE token = encode(sha256(%s::bytea), 'hex')",
             (holder.key,),
         )
     return read_rows(
@@ -266,11 +266,11 @@ def test_renamed_model_is_reachable_by_its_new_name_through_every_allowlist_that
                 else gateway.request(
                     "POST",
                     "/model/update",
-                    {"model_name": new, "model_info": {"id": model_id}, "litellm_params": {}},
+                    {"model_name": new, "model_info": {"id": model_id}, "hangarllm_params": {}},
                 )
             )
             assert renamed.status_code == 200, renamed.text
-            assert read_rows('SELECT model_name FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (model_id,)) == [
+            assert read_rows('SELECT model_name FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (model_id,)) == [
                 {"model_name": new}
             ]
 

@@ -13,10 +13,10 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import BadRequestError, UnsupportedParamsError
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.minimax.videos.transformation import (
+import hangarllm
+from hangarllm.exceptions import BadRequestError, UnsupportedParamsError
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.minimax.videos.transformation import (
     MINIMAX_VIDEO_DEFAULT_RESOLUTION,
     MinimaxVideoConfig,
     MinimaxVideoError,
@@ -24,13 +24,13 @@ from litellm.llms.minimax.videos.transformation import (
     _TaskError,
     _video_url_from_task,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams
-from litellm.types.videos.utils import (
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.videos.main import VideoCreateOptionalRequestParams
+from hangarllm.types.videos.utils import (
     decode_video_id_with_provider,
     encode_video_id_with_provider,
 )
-from litellm.videos.main import avideo_content, avideo_generation, avideo_status
+from hangarllm.videos.main import avideo_content, avideo_generation, avideo_status
 
 PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -58,7 +58,7 @@ class TestMinimaxVideoCreateRequest:
             prompt="A cinematic shot of a lighthouse at dusk",
             api_base=API_BASE,
             video_create_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -76,7 +76,7 @@ class TestMinimaxVideoCreateRequest:
             prompt="prompt",
             api_base=API_BASE,
             video_create_optional_request_params={"resolution": "480P", "duration": 9, "ratio": "9:16"},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -173,7 +173,7 @@ class TestMinimaxVideoCreateRequest:
                 prompt="p",
                 api_base=API_BASE,
                 video_create_optional_request_params={"duration": duration},
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -213,7 +213,7 @@ class TestMinimaxVideoCreateRequest:
             prompt="Pull focus to the people in the background",
             api_base=API_BASE,
             video_create_optional_request_params={"input_reference": io.BytesIO(PNG_BYTES)},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -239,7 +239,7 @@ class TestMinimaxVideoCreateRequest:
             prompt="Pull focus to the people in the background",
             api_base=API_BASE,
             video_create_optional_request_params={"input_reference": file_tuple},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -259,7 +259,7 @@ class TestMinimaxVideoCreateRequest:
                 "content": media,
                 "input_reference": "https://cdn.example.com/frame.png",
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -275,7 +275,7 @@ class TestMinimaxVideoCreateRequest:
             prompt="Add more steam to the ramen bowl",
             api_base=API_BASE,
             video_create_optional_request_params={"input_reference": "https://cdn.example.com/frame.png"},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -297,7 +297,7 @@ class TestMinimaxVideoCreateRequest:
             prompt="Character speaking",
             api_base=API_BASE,
             video_create_optional_request_params={"content": media},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -323,7 +323,7 @@ class TestMinimaxVideoCreateRequest:
                 prompt="a calm lake",
                 api_base=API_BASE,
                 video_create_optional_request_params={"content": content},
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -339,7 +339,7 @@ class TestMinimaxVideoCreateRequest:
                 prompt="a calm lake",
                 api_base=API_BASE,
                 video_create_optional_request_params={"content": [{"type": "text", "text": "unscanned text"}]},
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -364,14 +364,14 @@ class TestMinimaxVideoCreateRequest:
         (Anthropic Messages) alongside the /v2 video API, and users also
         configure the bare host."""
         config = MinimaxVideoConfig()
-        api_base = config.get_complete_url(model="MiniMax-H3", api_base=configured_api_base, litellm_params={})
+        api_base = config.get_complete_url(model="MiniMax-H3", api_base=configured_api_base, hangarllm_params={})
 
         _, _, url = config.transform_video_create_request(
             model="MiniMax-H3",
             prompt="p",
             api_base=api_base,
             video_create_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -391,17 +391,17 @@ class TestMinimaxVideoCreateRequest:
         the request to a different path than the operator configured."""
         config = MinimaxVideoConfig()
 
-        assert config.get_complete_url(model="MiniMax-H3", api_base=configured_api_base, litellm_params={}) == expected
+        assert config.get_complete_url(model="MiniMax-H3", api_base=configured_api_base, hangarllm_params={}) == expected
 
     def test_get_complete_url_defaults_to_international_host(self):
-        assert MinimaxVideoConfig().get_complete_url(model="MiniMax-H3", api_base=None, litellm_params={}) == (
+        assert MinimaxVideoConfig().get_complete_url(model="MiniMax-H3", api_base=None, hangarllm_params={}) == (
             "https://api.minimax.io"
         )
 
 
 class TestMinimaxVideoCreateResponse:
     def test_task_id_is_encoded_with_provider_and_model(self):
-        """The create response only carries task_id; litellm must wrap it so
+        """The create response only carries task_id; hangarllm must wrap it so
         later status/content/remix calls can route back to minimax."""
         video_obj = MinimaxVideoConfig().transform_video_create_response(
             model="MiniMax-H3",
@@ -541,7 +541,7 @@ class TestMinimaxVideoStatus:
         url, data = MinimaxVideoConfig().transform_video_status_retrieve_request(
             video_id=encoded_video_id,
             api_base=API_BASE,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -553,7 +553,7 @@ class TestMinimaxVideoStatus:
         url, data = MinimaxVideoConfig().transform_video_content_request(
             video_id=encoded_video_id,
             api_base=API_BASE,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -573,7 +573,7 @@ class TestMinimaxVideoStatus:
     def test_not_ready_message_survives_the_handler_error_path(self):
         """The video handlers rebuild provider errors from response.text, so
         the message must ride on the response or it reaches the caller empty."""
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         with pytest.raises(MinimaxVideoError) as pending:
             _video_url_from_task(_MiniMaxTask(id="t1", status="queued"))
@@ -634,11 +634,11 @@ class TestMinimaxVideoStatus:
 
 class TestMinimaxVideoContentDownload:
     """The download URL comes out of MiniMax's response, so it is fetched
-    through safe_get like any other URL litellm did not choose itself."""
+    through safe_get like any other URL hangarllm did not choose itself."""
 
     @pytest.mark.parametrize("url", ["http://169.254.169.254/latest/meta-data/", "http://127.0.0.1:8080/x.mp4"])
     def test_sync_download_refuses_internal_addresses(self, url):
-        from litellm.litellm_core_utils.url_utils import SSRFError
+        from hangarllm.hangarllm_core_utils.url_utils import SSRFError
 
         with pytest.raises(SSRFError):
             MinimaxVideoConfig().transform_video_content_response(
@@ -648,7 +648,7 @@ class TestMinimaxVideoContentDownload:
 
     @pytest.mark.asyncio
     async def test_async_download_refuses_internal_addresses(self):
-        from litellm.litellm_core_utils.url_utils import SSRFError
+        from hangarllm.hangarllm_core_utils.url_utils import SSRFError
 
         with pytest.raises(SSRFError):
             await MinimaxVideoConfig().async_transform_video_content_response(
@@ -659,11 +659,11 @@ class TestMinimaxVideoContentDownload:
             )
 
     def test_sync_download_returns_the_bytes_from_the_task_url(self, monkeypatch):
-        from litellm.llms.minimax.videos import transformation
+        from hangarllm.llms.minimax.videos import transformation
 
         client = Mock()
         client.get.return_value = Mock(content=b"mp4-bytes", raise_for_status=Mock())
-        monkeypatch.setattr(litellm, "user_url_validation", False)
+        monkeypatch.setattr(hangarllm, "user_url_validation", False)
         monkeypatch.setattr(transformation, "_get_httpx_client", lambda *args, **kwargs: client)
 
         content = MinimaxVideoConfig().transform_video_content_response(
@@ -678,7 +678,7 @@ class TestMinimaxVideoContentDownload:
 
     @pytest.mark.asyncio
     async def test_async_download_returns_the_bytes_from_the_task_url(self, monkeypatch):
-        from litellm.llms.minimax.videos import transformation
+        from hangarllm.llms.minimax.videos import transformation
 
         response = Mock(content=b"mp4-bytes", raise_for_status=Mock())
 
@@ -687,7 +687,7 @@ class TestMinimaxVideoContentDownload:
 
         client = Mock()
         client.get = get
-        monkeypatch.setattr(litellm, "user_url_validation", False)
+        monkeypatch.setattr(hangarllm, "user_url_validation", False)
         monkeypatch.setattr(transformation, "get_async_httpx_client", lambda **kwargs: client)
 
         content = await MinimaxVideoConfig().async_transform_video_content_response(
@@ -723,7 +723,7 @@ class TestMinimaxVideoContentDownload:
             handler: Final = AsyncHTTPHandler()
             await handler.close()
             handler.client = http_client
-            with pytest.raises(litellm.BadRequestError, match="still processing") as raised:
+            with pytest.raises(hangarllm.BadRequestError, match="still processing") as raised:
                 await avideo_content(video_id=encoded, api_key="sk-test", api_base=API_BASE, client=handler)
 
         assert raised.value.status_code == 400
@@ -747,7 +747,7 @@ class TestMinimaxVideoContentDownload:
             handler: Final = AsyncHTTPHandler()
             await handler.close()
             handler.client = http_client
-            with pytest.raises(litellm.BadRequestError, match="record not found") as raised:
+            with pytest.raises(hangarllm.BadRequestError, match="record not found") as raised:
                 await avideo_status(video_id=encoded, api_key="sk-test", api_base=API_BASE, client=handler)
 
         assert raised.value.status_code == 400
@@ -783,7 +783,7 @@ class TestMinimaxVideoContentDownload:
             handler: Final = AsyncHTTPHandler()
             await handler.close()
             handler.client = http_client
-            with pytest.raises(litellm.BadRequestError, match="thumbnail") as raised:
+            with pytest.raises(hangarllm.BadRequestError, match="thumbnail") as raised:
                 await avideo_content(
                     video_id=encoded, variant="thumbnail", api_key="sk-test", api_base=API_BASE, client=handler
                 )
@@ -796,7 +796,7 @@ class TestMinimaxVideoList:
     def test_request_maps_limit_and_extra_query(self):
         url, params = MinimaxVideoConfig().transform_video_list_request(
             api_base=API_BASE,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
             limit=4,
             extra_query={"filter.status": "succeeded", "page_num": 2},
@@ -809,7 +809,7 @@ class TestMinimaxVideoList:
         with pytest.raises(UnsupportedParamsError, match="page_num") as raised:
             MinimaxVideoConfig().transform_video_list_request(
                 api_base=API_BASE,
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
                 after="video_abc",
             )
@@ -820,7 +820,7 @@ class TestMinimaxVideoList:
         with pytest.raises(UnsupportedParamsError, match="newest first") as raised:
             MinimaxVideoConfig().transform_video_list_request(
                 api_base=API_BASE,
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
                 order="asc",
             )
@@ -830,7 +830,7 @@ class TestMinimaxVideoList:
     def test_descending_order_is_what_minimax_already_returns(self):
         _, params = MinimaxVideoConfig().transform_video_list_request(
             api_base=API_BASE,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
             order="desc",
         )
@@ -875,7 +875,7 @@ class TestMinimaxVideoList:
                     "total": 2,
                 }
             ),
-            logging_obj=Mock(litellm_params={"litellm_metadata": {"model_group": "minimax-video"}}),
+            logging_obj=Mock(hangarllm_params={"hangarllm_metadata": {"model_group": "minimax-video"}}),
             custom_llm_provider="minimax",
         )
 
@@ -894,8 +894,8 @@ class TestMinimaxVideoRemix:
         monkeypatch.setenv("MINIMAX_API_KEY", "test-key")
         encoded_video_id: Final = encode_video_id_with_provider("424010985738629", "minimax", "MiniMax-H3")
 
-        with pytest.raises(litellm.BadRequestError, match="remix is not supported by MiniMax") as raised:
-            await litellm.avideo_remix(
+        with pytest.raises(hangarllm.BadRequestError, match="remix is not supported by MiniMax") as raised:
+            await hangarllm.avideo_remix(
                 video_id=encoded_video_id,
                 prompt="a different ending",
                 custom_llm_provider="minimax",
@@ -919,7 +919,7 @@ class TestMinimaxVideoDelete:
         url, data = MinimaxVideoConfig().transform_video_delete_request(
             video_id=encoded_video_id,
             api_base=API_BASE,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -935,69 +935,69 @@ class TestMinimaxVideoDelete:
 
 
 class TestMinimaxVideoEnvironment:
-    def test_explicit_api_key_wins_over_litellm_params(self):
+    def test_explicit_api_key_wins_over_hangarllm_params(self):
         headers = MinimaxVideoConfig().validate_environment(
             headers={},
             model="MiniMax-H3",
             api_key="explicit-key",
-            litellm_params=GenericLiteLLMParams(api_key="deployment-key"),
+            hangarllm_params=GenericHangarLLMParams(api_key="deployment-key"),
         )
 
         assert headers["Authorization"] == "Bearer explicit-key"
         assert headers["Content-Type"] == "application/json"
 
-    def test_litellm_params_key_used_when_no_explicit_key(self):
+    def test_hangarllm_params_key_used_when_no_explicit_key(self):
         headers = MinimaxVideoConfig().validate_environment(
             headers={},
             model="MiniMax-H3",
-            litellm_params=GenericLiteLLMParams(api_key="deployment-key"),
+            hangarllm_params=GenericHangarLLMParams(api_key="deployment-key"),
         )
 
         assert headers["Authorization"] == "Bearer deployment-key"
 
     def test_missing_api_key_raises(self, monkeypatch):
         monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
-        monkeypatch.setattr("litellm.api_key", None)
+        monkeypatch.setattr("hangarllm.api_key", None)
 
         with pytest.raises(ValueError, match="MINIMAX_API_KEY"):
             MinimaxVideoConfig().validate_environment(
                 headers={},
                 model="MiniMax-H3",
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
             )
 
     def test_env_var_api_key_used(self, monkeypatch):
         monkeypatch.setenv("MINIMAX_API_KEY", "env-key")
-        monkeypatch.setattr("litellm.api_key", None)
+        monkeypatch.setattr("hangarllm.api_key", None)
 
         headers = MinimaxVideoConfig().validate_environment(
             headers={},
             model="MiniMax-H3",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
         )
 
         assert headers["Authorization"] == "Bearer env-key"
 
-    def test_minimax_env_key_wins_over_the_global_litellm_key(self, monkeypatch):
+    def test_minimax_env_key_wins_over_the_global_hangarllm_key(self, monkeypatch):
         monkeypatch.setenv("MINIMAX_API_KEY", "env-key")
-        monkeypatch.setattr("litellm.api_key", "global-key")
+        monkeypatch.setattr("hangarllm.api_key", "global-key")
 
         headers = MinimaxVideoConfig().validate_environment(
             headers={},
             model="MiniMax-H3",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
         )
 
         assert headers["Authorization"] == "Bearer env-key"
 
-    def test_global_litellm_key_is_the_last_fallback(self, monkeypatch):
+    def test_global_hangarllm_key_is_the_last_fallback(self, monkeypatch):
         monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
-        monkeypatch.setattr("litellm.api_key", "global-key")
+        monkeypatch.setattr("hangarllm.api_key", "global-key")
 
         headers = MinimaxVideoConfig().validate_environment(
             headers={},
             model="MiniMax-H3",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
         )
 
         assert headers["Authorization"] == "Bearer global-key"
@@ -1113,7 +1113,7 @@ class TestMinimaxVideoEndToEndRequest:
             handler: Final = AsyncHTTPHandler()
             await handler.close()
             handler.client = http_client
-            with pytest.raises(litellm.BadRequestError, match="seed") as raised:
+            with pytest.raises(hangarllm.BadRequestError, match="seed") as raised:
                 await avideo_generation(
                     model="minimax/MiniMax-H3", prompt="p", seed=7, api_key="sk-test", api_base=API_BASE, client=handler
                 )
@@ -1131,8 +1131,8 @@ class TestMinimaxVideoPricing:
     def test_every_supported_tier_bills_its_own_rate(self, model, resolutions):
         """A tier with no rate of its own falls back to the base rate, so a 2K
         video would silently bill at the 768P price."""
-        from litellm import get_model_info
-        from litellm.llms.openai.cost_calculation import video_generation_cost
+        from hangarllm import get_model_info
+        from hangarllm.llms.openai.cost_calculation import video_generation_cost
 
         info = get_model_info(model=model, custom_llm_provider="minimax")
 
@@ -1160,7 +1160,7 @@ class TestMinimaxVideoPricing:
             handler: Final = AsyncHTTPHandler()
             await handler.close()
             handler.client = http_client
-            with pytest.raises(litellm.BadRequestError, match="480") as raised:
+            with pytest.raises(hangarllm.BadRequestError, match="480") as raised:
                 await avideo_generation(
                     model="minimax/MiniMax-H3",
                     prompt="p",
@@ -1205,7 +1205,7 @@ class TestMinimaxVideoPricing:
         assert body["resolution"] == resolution
 
     def test_higher_resolution_never_bills_less(self):
-        from litellm import get_model_info
+        from hangarllm import get_model_info
 
         h3 = get_model_info(model="MiniMax-H3", custom_llm_provider="minimax")
         h3_max = get_model_info(model="MiniMax-H3-Max", custom_llm_provider="minimax")
@@ -1218,7 +1218,7 @@ class TestMinimaxVideoPricing:
 class TestMinimaxVideoInputBilling:
     @staticmethod
     def _create_cost(model: str, image_count: int, router_model_id: str | None = None) -> float:
-        import litellm
+        import hangarllm
 
         content = [{"type": "text", "text": "p"}] + [
             {"type": "image_url", "image_url": {"url": f"https://x/{i}.png"}, "role": "reference_image"}
@@ -1231,7 +1231,7 @@ class TestMinimaxVideoInputBilling:
             custom_llm_provider="minimax",
             request_data={"model": model, "content": content, "duration": 5, "resolution": "768P"},
         )
-        return litellm.completion_cost(
+        return hangarllm.completion_cost(
             completion_response=video_obj,
             model=f"minimax/{model}",
             call_type="create_video",
@@ -1244,15 +1244,15 @@ class TestMinimaxVideoInputBilling:
     def test_custom_deployment_pricing_bills_images_like_the_cost_map(self, model, monkeypatch):
         """Regression: a deployment with its own prices billed only output seconds,
         dropping the per-image charge even when it set input_cost_per_image."""
-        from litellm import get_model_info
+        from hangarllm import get_model_info
 
         info = get_model_info(model=model, custom_llm_provider="minimax")
         deployment_id = f"deployment-{model}"
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             deployment_id,
             {
-                "litellm_provider": "minimax",
+                "hangarllm_provider": "minimax",
                 "mode": "video_generation",
                 "output_cost_per_second": info["output_cost_per_second_768p"],
                 "input_cost_per_image": info["input_cost_per_image"],
@@ -1267,15 +1267,15 @@ class TestMinimaxVideoInputBilling:
 
     @pytest.mark.parametrize("model", ["MiniMax-H3", "MiniMax-H3-Max"])
     def test_a_deployment_pricing_only_seconds_bills_images_at_the_cost_map_rate(self, model, monkeypatch):
-        from litellm import get_model_info
+        from hangarllm import get_model_info
 
         info = get_model_info(model=model, custom_llm_provider="minimax")
         deployment_id = f"seconds-only-{model}"
         seconds_rate = info["output_cost_per_second_768p"] * 2
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             deployment_id,
-            {"litellm_provider": "minimax", "mode": "video_generation", "output_cost_per_second": seconds_rate},
+            {"hangarllm_provider": "minimax", "mode": "video_generation", "output_cost_per_second": seconds_rate},
         )
         extra_images = 2
         image_count = info["provider_specific_entry"]["minimax_free_input_images"] + extra_images
@@ -1288,7 +1288,7 @@ class TestMinimaxVideoInputBilling:
     def test_images_beyond_the_free_allowance_are_billed_per_image(self, model):
         """MiniMax charges for input images past a per-model free allowance;
         billing only output seconds under-recorded those requests."""
-        from litellm import get_model_info
+        from hangarllm import get_model_info
 
         info = get_model_info(model=model, custom_llm_provider="minimax")
         free_images = info["provider_specific_entry"]["minimax_free_input_images"]
@@ -1307,14 +1307,14 @@ class TestMinimaxVideoInputBilling:
     )
     def test_reference_video_is_rejected_because_its_length_cannot_be_billed(self, content):
         """MiniMax bills reference-video seconds, which are only reported after
-        the create call that litellm bills."""
+        the create call that hangarllm bills."""
         with pytest.raises(UnsupportedParamsError, match="Reference video") as raised:
             MinimaxVideoConfig().transform_video_create_request(
                 model="MiniMax-H3",
                 prompt="p",
                 api_base=API_BASE,
                 video_create_optional_request_params={"content": content},
-                litellm_params=GenericLiteLLMParams(),
+                hangarllm_params=GenericHangarLLMParams(),
                 headers={},
             )
 
@@ -1335,7 +1335,7 @@ def test_openrouter_video_images_become_provider_content(role: str) -> None:
     mapped: Final = config.map_openai_params(params, "MiniMax-H3", False)
     body, _, _ = config.transform_video_create_request(
         model="MiniMax-H3", prompt="a cat", api_base=API_BASE,
-        video_create_optional_request_params=mapped, litellm_params=GenericLiteLLMParams(), headers={},
+        video_create_optional_request_params=mapped, hangarllm_params=GenericHangarLLMParams(), headers={},
     )
     assert body["content"] == [
         {"type": "text", "text": "a cat"},

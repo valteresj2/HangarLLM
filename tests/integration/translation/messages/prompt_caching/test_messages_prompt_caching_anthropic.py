@@ -68,8 +68,8 @@ CLAUDE_SONNET_5_5_CACHE_HIT_TEST_CASE: Final = replace(
         **CLAUDE_SONNET_5_5_TEST_CASE.mock_provider_response,
         **CLAUDE_SONNET_5_5_CACHE_HIT_RESPONSE_FIELDS,
     },
-    expected_litellm_response={
-        **CLAUDE_SONNET_5_5_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_SONNET_5_5_TEST_CASE.expected_hangarllm_response,
         **CLAUDE_SONNET_5_5_CACHE_HIT_RESPONSE_FIELDS,
     },
 )

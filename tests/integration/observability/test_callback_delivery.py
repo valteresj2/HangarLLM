@@ -13,7 +13,7 @@ from integration._support.database import read_rows
 from integration._support.process import graceful_stop_seconds, owned_proxy
 from integration._support.wire import Reply, Request, wire_server
 
-from litellm.types.videos.utils import decode_video_id_with_provider
+from hangarllm.types.videos.utils import decode_video_id_with_provider
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -67,7 +67,7 @@ def test_concurrent_success_and_failure_join_callbacks_and_rows_without_credenti
 
     with wire_server(upstream) as provider, wire_server(sink) as endpoint:
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"].update({"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
+        config["hangarllm_settings"].update({"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
         path: Final = tmp_path / "callbacks.yaml"
         path.write_text(yaml.safe_dump(config))
         with (
@@ -126,7 +126,7 @@ def test_concurrent_success_and_failure_join_callbacks_and_rows_without_credenti
             }
             for tag, response in zip(tags, responses, strict=True):
                 event: Final = next(event for event in events if tag in event["request_tags"])
-                assert event["litellm_call_id"] == response.headers["x-litellm-call-id"]
+                assert event["hangarllm_call_id"] == response.headers["x-hangarllm-call-id"]
                 assert event["status"] == ("failure" if tag.endswith("failure") else "success")
                 if response.status_code == 200:
                     assert response.json()["id"] == event["id"] == tag
@@ -139,7 +139,7 @@ def test_concurrent_success_and_failure_join_callbacks_and_rows_without_credenti
                 rows: Final = eventually(
                     lambda identity=event["id"]: read_rows(
                         "SELECT request_id, spend, prompt_tokens, completion_tokens, request_tags "
-                        'FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                        'FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                         (identity,),
                     ),
                     lambda values: len(values) == 1,
@@ -226,7 +226,7 @@ def test_streamed_responses_success_callback_carries_provider_apim_request_id(ga
 
     with wire_server(upstream) as provider, wire_server(sink) as endpoint:
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"].update({"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
+        config["hangarllm_settings"].update({"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
         path: Final = tmp_path / "callbacks.yaml"
         path.write_text(yaml.safe_dump(config))
         with (
@@ -301,7 +301,7 @@ def test_non_stream_openai_like_success_callback_carries_provider_headers(gatewa
 
     with wire_server(upstream) as provider, wire_server(sink) as endpoint:
         config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        config["litellm_settings"].update({"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
+        config["hangarllm_settings"].update({"callbacks": ["generic_api"], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
         path: Final = tmp_path / "callbacks.yaml"
         path.write_text(yaml.safe_dump(config))
         with (
@@ -344,7 +344,7 @@ def test_non_stream_openai_like_success_callback_carries_provider_headers(gatewa
 
             events: Final = eventually(delivered, lambda values: len(values) == 1, seconds=10)
             assert (events[0]["status"], events[0]["call_type"]) == ("success", "acompletion")
-            assert events[0]["litellm_call_id"] == response.headers["x-litellm-call-id"]
+            assert events[0]["hangarllm_call_id"] == response.headers["x-hangarllm-call-id"]
             additional_headers: Final = events[0]["hidden_params"]["additional_headers"] or {}
             assert {
                 name: additional_headers.get(name)
@@ -355,7 +355,7 @@ def test_non_stream_openai_like_success_callback_carries_provider_headers(gatewa
 
 
 _RAISING_HOOK: Final = """
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class RaisingHook(CustomLogger):
@@ -499,7 +499,7 @@ def test_response_survives_raising_success_deployment_hook(gateway: Gateway, tmp
 
     (tmp_path / "raising_hook.py").write_text(_RAISING_HOOK)
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-    config["litellm_settings"].update({"callbacks": ["raising_hook.instance"]})
+    config["hangarllm_settings"].update({"callbacks": ["raising_hook.instance"]})
     path: Final = tmp_path / "hook.yaml"
     path.write_text(yaml.safe_dump(config))
     with (

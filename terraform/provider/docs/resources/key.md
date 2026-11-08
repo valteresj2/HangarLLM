@@ -1,11 +1,11 @@
-# litellm_key Resource
+# hangarllm_key Resource
 
-Manages a LiteLLM API key.
+Manages a HangarLLM API key.
 
 ## Example Usage
 
 ```hcl
-resource "litellm_key" "example" {
+resource "hangarllm_key" "example" {
   models               = ["gpt-3.5-turbo", "gpt-4"]
   max_budget           = 100.0
   user_id              = "user123"
@@ -56,9 +56,9 @@ The following arguments are supported:
 
 * `max_budget` - (Optional) Maximum budget for this key. This sets an upper limit on the total spend allowed for this key.
 
-* `user_id` - (Optional) User ID associated with this key. This links the key to a specific user in the LiteLLM system.
+* `user_id` - (Optional) User ID associated with this key. This links the key to a specific user in the HangarLLM system.
 
-* `team_id` - (Optional) Team ID associated with this key. This links the key to a specific team in the LiteLLM system.
+* `team_id` - (Optional) Team ID associated with this key. This links the key to a specific team in the HangarLLM system.
 
 * `max_parallel_requests` - (Optional) Maximum number of parallel requests allowed for this key. This helps in controlling concurrent usage.
 
@@ -96,7 +96,7 @@ The following arguments are supported:
 
 * `tags` - (Optional) List of tags associated with this key. This can be used for organization and filtering of keys.
 
-* `budget_id` - (Optional) ID of a shared budget (created via `litellm_budget`) to attach to this key.
+* `budget_id` - (Optional) ID of a shared budget (created via `hangarllm_budget`) to attach to this key.
 
 * `enforced_params` - (Optional) List of request parameters that callers must supply when using this key (for example `user`).
 
@@ -130,10 +130,10 @@ Recent updates have improved how the Key resource manages its state. The provide
 
 ## Import
 
-LiteLLM keys can be imported using the `id`, e.g.,
+HangarLLM keys can be imported using the `id`, e.g.,
 
 ```
-$ terraform import litellm_key.example 12345
+$ terraform import hangarllm_key.example 12345
 ```
 
 This allows you to import existing keys into your Terraform state, enabling management of keys that were created outside of Terraform.

@@ -14,22 +14,22 @@ from typing import Any, Final, Generic, TypeVar
 import pytest
 from redis.exceptions import NoScriptError
 
-from litellm._internal_context import current_service_target, service_target
-from litellm._service_logger import ServiceLogging
-from litellm.caching.redis_batch import (
+from hangarllm._internal_context import current_service_target, service_target
+from hangarllm._service_logger import ServiceLogging
+from hangarllm.caching.redis_batch import (
     MIXED_PIPELINE_TARGET,
     RedisBatch,
     active_request_redis_batch,
     request_redis_batch_scope,
 )
-from litellm.caching.redis_cache import (
+from hangarllm.caching.redis_cache import (
     RedisCache,
     RedisHealth,
     _get_call_stack_info,  # pyright: ignore[reportPrivateUsage]  # the chain the service hook reports
 )
-from litellm.caching.redis_cluster_cache import RedisClusterCache
-from litellm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
-from litellm.rust_bridge._native import NativeRedisBreaker
+from hangarllm.caching.redis_cluster_cache import RedisClusterCache
+from hangarllm.redis.store_settings import RedisBreakerSettings, RedisStoreSettings
+from hangarllm.rust_bridge._native import NativeRedisBreaker
 
 SCRIPT = "return redis.call('GET', KEYS[1])"
 _Answer = TypeVar("_Answer")

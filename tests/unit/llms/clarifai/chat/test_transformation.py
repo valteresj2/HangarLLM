@@ -4,9 +4,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.clarifai.chat.transformation import ClarifaiConfig
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.types.utils import ModelResponse
+from hangarllm.llms.clarifai.chat.transformation import ClarifaiConfig
+from hangarllm.llms.openai.common_utils import OpenAIError
+from hangarllm.types.utils import ModelResponse
 
 
 def _transform(raw_response: httpx.Response) -> ModelResponse:
@@ -18,7 +18,7 @@ def _transform(raw_response: httpx.Response) -> ModelResponse:
         request_data={},
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

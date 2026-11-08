@@ -2,9 +2,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "litellm.gateway.fullname" . }}
+  name: {{ include "hangarllm.gateway.fullname" . }}
   labels:
-    {{- include "litellm.commonLabels" . | nindent 4 }}
+    {{- include "hangarllm.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 spec:
   {{- if and (not .Values.gateway.hpa.enabled) (not (kindIs "invalid" .Values.gateway.replicaCount)) }}
@@ -16,7 +16,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "litellm.gateway.selectorLabels" . | nindent 6 }}
+      {{- include "hangarllm.gateway.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -27,12 +27,12 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "litellm.gateway.selectorLabels" . | nindent 8 }}
+        {{- include "hangarllm.gateway.selectorLabels" . | nindent 8 }}
         {{- with .Values.gateway.podLabels }}
-        {{- include "litellm.podLabels" (dict "podLabels" . "componentName" "gateway") | nindent 8 }}
+        {{- include "hangarllm.podLabels" (dict "podLabels" . "componentName" "gateway") | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "litellm.gateway.serviceAccountName" . }}
+      serviceAccountName: {{ include "hangarllm.gateway.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.gateway.automount }}
       {{- with .Values.gateway.podSecurityContext }}
       securityContext:
@@ -55,12 +55,12 @@ spec:
               containerPort: 4000
               protocol: TCP
           env:
-            {{- include "litellm.lensConnectionEnv" . | nindent 12 }}
+            {{- include "hangarllm.lensConnectionEnv" . | nindent 12 }}
             {{- if .Values.ui.publicUrl }}
-            - name: LITELLM_CORS_ORIGINS
-              value: {{ include "litellm.ui.publicOrigin" . | quote }}
+            - name: HANGARLLM_CORS_ORIGINS
+              value: {{ include "hangarllm.ui.publicOrigin" . | quote }}
             {{- end }}
-            {{- include "litellm.serverEnv" (dict "root" $ "component" .Values.gateway) | nindent 12 }}
+            {{- include "hangarllm.serverEnv" (dict "root" $ "component" .Values.gateway) | nindent 12 }}
             {{- if .Values.gateway.config.create }}
             - name: CONFIG_FILE_PATH
               value: /app/config/config.yaml
@@ -70,23 +70,23 @@ spec:
               value: {{ .Values.gateway.numWorkers | quote }}
             {{- end }}
             {{- if .Values.database.connectionPool.enabled }}
-            {{- include "litellm.connectionPoolEnv" $ | nindent 12 }}
+            {{- include "hangarllm.connectionPoolEnv" $ | nindent 12 }}
             {{- end }}
             {{- if .Values.billingMetrics.enabled }}
-            {{- include "litellm.billingMetricsEnv" . | nindent 12 }}
+            {{- include "hangarllm.billingMetricsEnv" . | nindent 12 }}
             {{- end }}
             {{- if .Values.gateway.metricsServer.enabled }}
             {{- if eq (int .Values.gateway.metricsServer.port) 4000 }}
             {{- fail "gateway.metricsServer.port must differ from the gateway port 4000" }}
             {{- end }}
             - name: PROMETHEUS_MULTIPROC_DIR
-              value: {{ include "litellm.gateway.prometheusMultiprocDir" . }}
+              value: {{ include "hangarllm.gateway.prometheusMultiprocDir" . }}
             {{- end }}
             {{- if .Values.gateway.collector.enabled }}
-            {{- include "litellm.gateway.collectorEnv" . | nindent 12 }}
+            {{- include "hangarllm.gateway.collectorEnv" . | nindent 12 }}
             {{- end }}
-          {{- include "litellm.envFrom" .Values.gateway | nindent 10 }}
-          {{- if or .Values.gateway.config.create .Values.gateway.volumeMounts .Values.gateway.metricsServer.enabled (include "litellm.gateway.collectorSocketDir" .) }}
+          {{- include "hangarllm.envFrom" .Values.gateway | nindent 10 }}
+          {{- if or .Values.gateway.config.create .Values.gateway.volumeMounts .Values.gateway.metricsServer.enabled (include "hangarllm.gateway.collectorSocketDir" .) }}
           volumeMounts:
             {{- if .Values.gateway.config.create }}
             - name: gateway-config
@@ -95,11 +95,11 @@ spec:
             {{- end }}
             {{- if .Values.gateway.metricsServer.enabled }}
             - name: prometheus-multiproc
-              mountPath: {{ include "litellm.gateway.prometheusMultiprocDir" . }}
+              mountPath: {{ include "hangarllm.gateway.prometheusMultiprocDir" . }}
             {{- end }}
-            {{- if include "litellm.gateway.collectorSocketDir" . }}
+            {{- if include "hangarllm.gateway.collectorSocketDir" . }}
             - name: collector-socket
-              mountPath: {{ include "litellm.gateway.collectorSocketDir" . }}
+              mountPath: {{ include "hangarllm.gateway.collectorSocketDir" . }}
             {{- end }}
             {{- with .Values.gateway.volumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -134,19 +134,19 @@ spec:
           command:
             - python
             - -m
-            - litellm.proxy.prometheus_metrics_server
+            - hangarllm.proxy.prometheus_metrics_server
             - --port
             - {{ .Values.gateway.metricsServer.port | quote }}
           env:
             - name: PROMETHEUS_MULTIPROC_DIR
-              value: {{ include "litellm.gateway.prometheusMultiprocDir" . }}
+              value: {{ include "hangarllm.gateway.prometheusMultiprocDir" . }}
           ports:
             - name: metrics
               containerPort: {{ .Values.gateway.metricsServer.port }}
               protocol: TCP
           volumeMounts:
             - name: prometheus-multiproc
-              mountPath: {{ include "litellm.gateway.prometheusMultiprocDir" . }}
+              mountPath: {{ include "hangarllm.gateway.prometheusMultiprocDir" . }}
           readinessProbe:
             tcpSocket: { port: metrics }
             periodSeconds: 10
@@ -168,30 +168,30 @@ spec:
           command:
             - python
             - -m
-            - litellm.proxy.collector
+            - hangarllm.proxy.collector
           env:
-            {{- include "litellm.serverEnv" (dict "root" $ "component" .Values.gateway) | nindent 12 }}
+            {{- include "hangarllm.serverEnv" (dict "root" $ "component" .Values.gateway) | nindent 12 }}
             {{- if .Values.gateway.config.create }}
             - name: CONFIG_FILE_PATH
               value: /app/config/config.yaml
             {{- end }}
             {{- if .Values.database.connectionPool.enabled }}
-            {{- include "litellm.connectionPoolEnv" $ | nindent 12 }}
+            {{- include "hangarllm.connectionPoolEnv" $ | nindent 12 }}
             {{- end }}
-            {{- include "litellm.gateway.collectorEnv" . | nindent 12 }}
-            - name: LITELLM_JOB_ROLE
+            {{- include "hangarllm.gateway.collectorEnv" . | nindent 12 }}
+            - name: HANGARLLM_JOB_ROLE
               value: collector
-          {{- include "litellm.envFrom" .Values.gateway | nindent 10 }}
-          {{- if or .Values.gateway.config.create .Values.gateway.volumeMounts (include "litellm.gateway.collectorSocketDir" .) }}
+          {{- include "hangarllm.envFrom" .Values.gateway | nindent 10 }}
+          {{- if or .Values.gateway.config.create .Values.gateway.volumeMounts (include "hangarllm.gateway.collectorSocketDir" .) }}
           volumeMounts:
             {{- if .Values.gateway.config.create }}
             - name: gateway-config
               mountPath: /app/config/config.yaml
               subPath: config.yaml
             {{- end }}
-            {{- if include "litellm.gateway.collectorSocketDir" . }}
+            {{- if include "hangarllm.gateway.collectorSocketDir" . }}
             - name: collector-socket
-              mountPath: {{ include "litellm.gateway.collectorSocketDir" . }}
+              mountPath: {{ include "hangarllm.gateway.collectorSocketDir" . }}
             {{- end }}
             {{- with .Values.gateway.volumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -203,18 +203,18 @@ spec:
       {{- with .Values.gateway.extraContainers }}
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- if or .Values.gateway.config.create .Values.gateway.volumes .Values.gateway.metricsServer.enabled (include "litellm.gateway.collectorSocketDir" .) }}
+      {{- if or .Values.gateway.config.create .Values.gateway.volumes .Values.gateway.metricsServer.enabled (include "hangarllm.gateway.collectorSocketDir" .) }}
       volumes:
         {{- if .Values.gateway.config.create }}
         - name: gateway-config
           configMap:
-            name: {{ include "litellm.gateway.fullname" . }}-config
+            name: {{ include "hangarllm.gateway.fullname" . }}-config
         {{- end }}
         {{- if .Values.gateway.metricsServer.enabled }}
         - name: prometheus-multiproc
           emptyDir: {}
         {{- end }}
-        {{- if include "litellm.gateway.collectorSocketDir" . }}
+        {{- if include "hangarllm.gateway.collectorSocketDir" . }}
         - name: collector-socket
           emptyDir:
             sizeLimit: 1Mi

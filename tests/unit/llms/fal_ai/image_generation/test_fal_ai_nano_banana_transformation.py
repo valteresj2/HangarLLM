@@ -3,19 +3,19 @@ import os
 import pytest
 
 
-os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
 
-import litellm
+import hangarllm
 
-litellm.model_cost = litellm.get_model_cost_map(url="")
-from litellm.llms.fal_ai.cost_calculator import cost_calculator
-from litellm.llms.fal_ai.image_generation import (
+hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+from hangarllm.llms.fal_ai.cost_calculator import cost_calculator
+from hangarllm.llms.fal_ai.image_generation import (
     FalAIImagen4Config,
     FalAINanoBananaConfig,
     get_fal_ai_image_generation_config,
 )
-from litellm.types.utils import ImageObject, ImageResponse
-from litellm.utils import get_optional_params_image_gen
+from hangarllm.types.utils import ImageObject, ImageResponse
+from hangarllm.utils import get_optional_params_image_gen
 
 
 @pytest.mark.parametrize(
@@ -56,7 +56,7 @@ def test_get_complete_url_derives_endpoint_from_model(model, expected_url):
         api_key="test-key",
         model=model,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == expected_url
 
@@ -67,7 +67,7 @@ def test_get_complete_url_respects_api_base_override():
         api_key="test-key",
         model="fal-ai/nano-banana",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://proxy.internal/fal-ai/nano-banana"
 
@@ -138,7 +138,7 @@ def test_transform_request_includes_prompt_and_mapped_params():
         model="fal-ai/nano-banana",
         prompt="a cat",
         optional_params={"num_images": 2, "aspect_ratio": "16:9"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request == {
@@ -162,7 +162,7 @@ def test_resolution_extra_param_is_forwarded_to_fal(model):
         model=model,
         prompt="a cat",
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request == {"prompt": "a cat", "num_images": 1, "aspect_ratio": "1:1", "resolution": "4K"}

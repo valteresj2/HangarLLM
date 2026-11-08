@@ -3,7 +3,7 @@ Synthetic traffic generator for the adaptive_router demo dashboard.
 
 What it does:
   - Sends labeled multi-turn chat requests to the proxy's adaptive router.
-  - For each turn, peeks at the `x-litellm-adaptive-router-model` response
+  - For each turn, peeks at the `x-hangarllm-adaptive-router-model` response
     header to learn which underlying model was picked.
   - Draws a Bernoulli outcome from a hard-coded ORACLE table that says
     "model M succeeds at request type T with probability p".
@@ -23,7 +23,7 @@ Why this shape:
 Run:
   uv run python scripts/adaptive_router_demo/traffic.py \\
       --proxy-url http://localhost:4000 \\
-      --api-key   "$LITELLM_MASTER_KEY" \\
+      --api-key   "$HANGARLLM_MASTER_KEY" \\
       --router    smart-cheap-router \\
       --rounds    100 \\
       --rate      0.5
@@ -115,7 +115,7 @@ async def _send(
     body = {
         "model": router,
         "messages": messages,
-        "metadata": {"litellm_session_id": session_id},
+        "metadata": {"hangarllm_session_id": session_id},
         "mock_response": mock_response,
     }
     try:
@@ -129,7 +129,7 @@ async def _send(
     except Exception as e:  # noqa: BLE001
         print(f"  request failed: {e}", file=sys.stderr)
         return False, ""
-    chosen = r.headers.get("x-litellm-adaptive-router-model", "")
+    chosen = r.headers.get("x-hangarllm-adaptive-router-model", "")
     return True, chosen
 
 

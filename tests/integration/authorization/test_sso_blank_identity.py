@@ -35,10 +35,10 @@ pytestmark: Final = [pytest.mark.timeout(300), pytest.mark.shares_worker_state]
 CLIENT_ID: Final = "integration-entra-client"
 CLIENT_SECRET: Final = "integration-entra-secret"
 TENANT: Final = "integration-entra-tenant"
-CLI_SOURCE: Final = "litellm-cli"
-POLL_SECRET_HEADER: Final = "x-litellm-cli-poll-secret"
-CLI_LOGIN_PAGE_TITLE: Final = "<title>LiteLLM CLI Login</title>"
-CLI_SUCCESS_PAGE_TITLE: Final = "<title>CLI Authentication Successful - LiteLLM</title>"
+CLI_SOURCE: Final = "hangarllm-cli"
+POLL_SECRET_HEADER: Final = "x-hangarllm-cli-poll-secret"
+CLI_LOGIN_PAGE_TITLE: Final = "<title>HangarLLM CLI Login</title>"
+CLI_SUCCESS_PAGE_TITLE: Final = "<title>CLI Authentication Successful - HangarLLM</title>"
 REFUSED: Final = "SSO login failed: this sign-in did not resolve to a user id"
 GRAPH_REFUSED: Final = "SSO login failed: Microsoft Graph returned an error instead of the user profile"
 LOOKUP_FAILED: Final = "Failed to retrieve user information from SSO"
@@ -145,9 +145,9 @@ def _entra_environment(graph_url: str) -> Mapping[str, str]:
     }
 
 
-SAML_SP_ENTITY: Final = "litellm-integration-sp"
+SAML_SP_ENTITY: Final = "hangarllm-integration-sp"
 SAML_IDP_ENTITY: Final = "https://idp.integration.invalid/metadata"
-SAML_STATE_COOKIE: Final = "litellm_saml_authn"
+SAML_STATE_COOKIE: Final = "hangarllm_saml_authn"
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,29 +368,29 @@ def gateway_module() -> Iterator[Gateway]:
 
 
 def _blank_accounts() -> tuple[str, ...]:
-    rows: Final = read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id ~ %s', (BLANK,))
+    rows: Final = read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id ~ %s', (BLANK,))
     return tuple(repr(row["user_id"]) for row in rows)
 
 
 def _drop_blank_accounts() -> None:
-    write_rows('DELETE FROM "LiteLLM_VerificationToken" WHERE user_id ~ %s', (BLANK,))
-    write_rows('DELETE FROM "LiteLLM_UserTable" WHERE user_id ~ %s', (BLANK,))
+    write_rows('DELETE FROM "HangarLLM_VerificationToken" WHERE user_id ~ %s', (BLANK,))
+    write_rows('DELETE FROM "HangarLLM_UserTable" WHERE user_id ~ %s', (BLANK,))
 
 
 def _forget_sign_in(scenario: Scenario, email: str) -> None:
     """Delete the account a sign-in creates for ``email``, and its session keys, whether or not the test passes."""
-    scenario.cleanups.callback(write_rows, 'DELETE FROM "LiteLLM_UserTable" WHERE user_email = %s', (email,))
+    scenario.cleanups.callback(write_rows, 'DELETE FROM "HangarLLM_UserTable" WHERE user_email = %s', (email,))
     scenario.cleanups.callback(
         write_rows,
-        'DELETE FROM "LiteLLM_VerificationToken" WHERE user_id IN '
-        '(SELECT user_id FROM "LiteLLM_UserTable" WHERE user_email = %s)',
+        'DELETE FROM "HangarLLM_VerificationToken" WHERE user_id IN '
+        '(SELECT user_id FROM "HangarLLM_UserTable" WHERE user_email = %s)',
         (email,),
     )
 
 
 def _seed_account(user_id: str, email: str) -> None:
     write_rows(
-        'INSERT INTO "LiteLLM_UserTable" (user_id, user_email, user_role, spend, models) '
+        'INSERT INTO "HangarLLM_UserTable" (user_id, user_email, user_role, spend, models) '
         "VALUES (%s, %s, 'internal_user', 0, '{}')",
         (user_id, email),
     )
@@ -562,7 +562,7 @@ def test_dashboard_sign_in_with_a_valid_profile_sees_only_its_own_keys(
         assert session is not None and session["user_id"] == subject, session
         visible: Final = _visible_tokens(proxy, str(session["key"]))
         assert victim_token not in visible, visible
-        rows: Final = read_rows('SELECT user_email FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,))
+        rows: Final = read_rows('SELECT user_email FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,))
         assert [row["user_email"] for row in rows] == [email], rows
 
 
@@ -610,7 +610,7 @@ def test_dashboard_sign_in_that_resolves_to_a_blank_account_row_is_refused(
             proxy, callback, victim_token
         )
     assert JSON_OBJECT.validate_json(callback.content)["detail"] == REFUSED, callback.text
-    tokens: Final = read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE user_id ~ %s', (BLANK,))
+    tokens: Final = read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE user_id ~ %s', (BLANK,))
     assert tokens == [], tokens
 
 
@@ -701,7 +701,7 @@ def test_sign_in_creates_an_account_when_the_custom_mapping_leaves_the_user_id_u
         callback: Final = _dashboard_sign_in(proxy, graph, graph.profile(_profile(str(uuid.uuid4()), email)))
         session: Final = _session(callback)
         assert callback.status_code == 303 and session is not None, f"{callback.status_code} {callback.text}"
-        created: Final = read_rows('SELECT user_id FROM "LiteLLM_UserTable" WHERE user_email = %s', (email,))
+        created: Final = read_rows('SELECT user_id FROM "HangarLLM_UserTable" WHERE user_email = %s', (email,))
         assert [row["user_id"] for row in created] == [session["user_id"]], created
         assert str(session["user_id"]).strip(), session
 
@@ -779,7 +779,7 @@ def test_concurrent_failed_profile_lookups_mint_no_session(entra: OwnedProxy, gr
     assert [(callback.status_code, _session(callback)) for callback in callbacks] == [(401, None)] * len(hints), [
         f"{callback.status_code} {callback.text[:120]}" for callback in callbacks
     ]
-    tokens: Final = read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE user_id ~ %s', (BLANK,))
+    tokens: Final = read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE user_id ~ %s', (BLANK,))
     assert tokens == [], f"{len(tokens)} blank-identity session keys were minted"
     assert _blank_accounts() == (), _blank_accounts()
 

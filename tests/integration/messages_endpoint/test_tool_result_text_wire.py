@@ -463,7 +463,7 @@ def _guardrail(gateway: Gateway, scenario: Scenario, wire: Wire, mode: str) -> s
         "api_base": f"{wire.url}/{mode}",
         "api_key": "synthetic-guardrail-key",
     }
-    created: Final = gateway.post("/guardrails", {"guardrail": {"guardrail_name": name, "litellm_params": params}})
+    created: Final = gateway.post("/guardrails", {"guardrail": {"guardrail_name": name, "hangarllm_params": params}})
     scenario.cleanups.callback(_delete_guardrail, gateway, string_value(created["guardrail_id"]))
     return name
 

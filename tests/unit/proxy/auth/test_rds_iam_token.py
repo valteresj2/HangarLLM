@@ -9,7 +9,7 @@ from botocore.awsrequest import AWSPreparedRequest, AWSResponse
 from botocore.exceptions import ClientError
 from urllib3.response import HTTPResponse
 
-from litellm.proxy.auth.rds_iam_token import generate_iam_auth_token, init_rds_client
+from hangarllm.proxy.auth.rds_iam_token import generate_iam_auth_token, init_rds_client
 
 
 @pytest.mark.parametrize(
@@ -48,7 +48,7 @@ def test_generate_iam_auth_token_signs_for_the_database_hostname_region(
         generate_iam_auth_token(
             db_host=db_host,
             db_port="5432",
-            db_user="litellm",
+            db_user="hangarllm",
             client=client,
         )
     )
@@ -58,8 +58,8 @@ def test_generate_iam_auth_token_signs_for_the_database_hostname_region(
     assert credential.split("/")[2] == expected_region
 
 
-POD_ROLE: Final = "arn:aws:iam::111111111111:role/litellm-pod-irsa"
-DB_ROLE: Final = "arn:aws:iam::222222222222:role/litellm-db-connect"
+POD_ROLE: Final = "arn:aws:iam::111111111111:role/hangarllm-pod-irsa"
+DB_ROLE: Final = "arn:aws:iam::222222222222:role/hangarllm-db-connect"
 
 
 def _creds(tag: str) -> dict[str, dict[str, str]]:
@@ -124,7 +124,7 @@ def _init(
     monkeypatch.setattr(boto3, "client", client)
     init_rds_client(
         aws_role_name=DB_ROLE,
-        aws_session_name="litellm",
+        aws_session_name="hangarllm",
         aws_web_identity_token=token_file,
         aws_region_name="us-east-1",
     )
@@ -145,7 +145,7 @@ def test_init_rds_client_chains_through_the_irsa_role_when_the_db_role_only_trus
     ]
     assert calls[-2:] == [
         ("web_identity", POD_ROLE, "eyJ.oidc.token"),
-        ("assume_role", DB_ROLE, "ASIAlitellm-pod-irsa"),
+        ("assume_role", DB_ROLE, "ASIAhangarllm-pod-irsa"),
     ]
 
 
@@ -156,9 +156,9 @@ def test_init_rds_client_keeps_the_direct_web_identity_exchange_when_the_db_role
 
     assert rds_clients == [
         {
-            "aws_access_key_id": "ASIAlitellm-db-connect",
-            "aws_secret_access_key": "secret-litellm-db-connect",
-            "aws_session_token": "token-litellm-db-connect",
+            "aws_access_key_id": "ASIAhangarllm-db-connect",
+            "aws_secret_access_key": "secret-hangarllm-db-connect",
+            "aws_session_token": "token-hangarllm-db-connect",
         }
     ]
     assert calls == [("web_identity", DB_ROLE, "eyJ.oidc.token")]
@@ -215,13 +215,13 @@ def test_environment_credentials_retain_session_token_when_signing(
         return AWSResponse(request.url, 200, {}, HTTPResponse(body=BytesIO(payload), preload_content=False))
 
     session.events.register("before-send.sts.AssumeRole", assume_role_response)
-    token: Final = generate_iam_auth_token("db.example.com", "5432", "litellm")
+    token: Final = generate_iam_auth_token("db.example.com", "5432", "hangarllm")
     query: Final = parse_qs(urlsplit(unquote(token)).query)
     expected_token: Final = "assumed/session+token==" if assume_role else session_token
 
     assert query.get("X-Amz-Security-Token") == ([expected_token] if expected_token is not None else None)
     assert query["X-Amz-Credential"][0].split("/")[0] == ("ASIAASSUMED" if assume_role else "AKIDEXAMPLE")
-    assert query["DBUser"] == ["litellm"]
+    assert query["DBUser"] == ["hangarllm"]
 
 
 @pytest.mark.parametrize("explicit_credentials", [False, True])
@@ -238,7 +238,7 @@ def test_explicit_credentials_take_precedence_over_the_default_chain(
         aws_secret_access_key="explicit-secret" if explicit_credentials else None,
         aws_session_token="explicit-token" if explicit_credentials else None,
     )
-    token: Final = generate_iam_auth_token("db.example.com", "5432", "litellm", client=client)
+    token: Final = generate_iam_auth_token("db.example.com", "5432", "hangarllm", client=client)
     query: Final = parse_qs(urlsplit(unquote(token)).query)
 
     assert query["X-Amz-Security-Token"] == (["explicit-token"] if explicit_credentials else ["default-token"])

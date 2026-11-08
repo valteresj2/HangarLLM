@@ -1,9 +1,9 @@
 """
-Tests for litellm/vector_stores/main.py.
+Tests for hangarllm/vector_stores/main.py.
 
 Pins the router threading contract for vector store search: the router is an
 explicit named parameter that reaches the HTTP handler wrapped in the embedding
-executor, and it must never leak into litellm_params/kwargs where logging would
+executor, and it must never leak into hangarllm_params/kwargs where logging would
 model_dump() it (the #19550 serialization trap).
 """
 
@@ -15,13 +15,13 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-import litellm.vector_stores.main as vector_stores_main
-from litellm.llms.base_llm.vector_store.transformation import (
+import hangarllm
+import hangarllm.vector_stores.main as vector_stores_main
+from hangarllm.llms.base_llm.vector_store.transformation import (
     RouterVectorStoreEmbeddingExecutor,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.vector_stores.main import acreate, aretrieve, aupdate, retrieve, search
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.vector_stores.main import acreate, aretrieve, aupdate, retrieve, search
 
 MOCK_SEARCH_RESPONSE = {
     "object": "vector_store.search_results.page",
@@ -39,7 +39,7 @@ def test_search_wraps_router_into_the_handler_embedding_executor(query: str | li
 
     with (
         patch(  # test-quality-ok: stubs provider config resolution; the seam under test is the executor threading
-            "litellm.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
+            "hangarllm.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=MagicMock(),
         ),
         patch.object(  # test-quality-ok: the handler call is the observable boundary for the executor contract
@@ -53,8 +53,8 @@ def test_search_wraps_router_into_the_handler_embedding_executor(query: str | li
             query=query,
             custom_llm_provider="s3_vectors",
             router=mock_router,
-            litellm_logging_obj=logger,
-            litellm_metadata={"user_api_key_team_id": "team-a"},
+            hangarllm_logging_obj=logger,
+            hangarllm_metadata={"user_api_key_team_id": "team-a"},
         )
 
     assert response == MOCK_SEARCH_RESPONSE
@@ -67,18 +67,18 @@ def test_search_wraps_router_into_the_handler_embedding_executor(query: str | li
     assert dict(executor.metadata) == {"user_api_key_team_id": "team-a"}
 
 
-def test_search_router_not_in_litellm_params():
-    """Regression (#19550 class): the router must stay out of GenericLiteLLMParams,
+def test_search_router_not_in_hangarllm_params():
+    """Regression (#19550 class): the router must stay out of GenericHangarLLMParams,
     otherwise pre-call logging model_dump()s it and breaks serialization."""
     mock_router = MagicMock()
     logger = MagicMock()
 
     with (
-        patch(  # test-quality-ok: stubs provider config resolution; the seam under test is litellm_params contents
-            "litellm.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
+        patch(  # test-quality-ok: stubs provider config resolution; the seam under test is hangarllm_params contents
+            "hangarllm.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=MagicMock(),
         ),
-        patch.object(  # test-quality-ok: the handler call is where a leaked router in litellm_params would surface
+        patch.object(  # test-quality-ok: the handler call is where a leaked router in hangarllm_params would surface
             vector_stores_main.base_llm_http_handler,
             "vector_store_search_handler",
             return_value=MOCK_SEARCH_RESPONSE,
@@ -89,12 +89,12 @@ def test_search_router_not_in_litellm_params():
             query="q",
             custom_llm_provider="s3_vectors",
             router=mock_router,
-            litellm_logging_obj=logger,
+            hangarllm_logging_obj=logger,
         )
 
-    litellm_params = mock_handler.call_args.kwargs["litellm_params"]
-    assert "router" not in litellm_params.model_dump(exclude_none=True)
-    assert getattr(litellm_params, "router", None) is None
+    hangarllm_params = mock_handler.call_args.kwargs["hangarllm_params"]
+    assert "router" not in hangarllm_params.model_dump(exclude_none=True)
+    assert getattr(hangarllm_params, "router", None) is None
 
 
 def test_search_forwards_top_level_user_context_to_bedrock_retrieve():
@@ -112,7 +112,7 @@ def test_search_forwards_top_level_user_context_to_bedrock_retrieve():
         aws_secret_access_key="test-secret-key",
         userContext={"userId": "alice@example.com"},
         client=client,
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
     )
 
     posted = json.loads(client.post.call_args.kwargs["data"])
@@ -128,7 +128,7 @@ PROXY_STAMPED_METADATA: Final = {
     "requester_ip_address": "127.0.0.1",
     "user_agent": "curl/8.7.1",
     "endpoint": "http://localhost:4000/v1/vector_stores",
-    "litellm_api_version": "1.0.0",
+    "hangarllm_api_version": "1.0.0",
     "deployment": "openai/gpt-5",
     "deployment_model_name": "gpt-5",
     "api_base": "https://api.openai.com/v1",
@@ -138,7 +138,7 @@ PROXY_STAMPED_METADATA: Final = {
     "billing_agent_id": "agent-4",
     "agent_execution_mode": "autonomous",
     "verified_human_user_id": "user-1",
-    "litellm_caller_session_id": "session-1",
+    "hangarllm_caller_session_id": "session-1",
     "user_api_keyboard": "qwerty",
     1: "a",
 }
@@ -238,7 +238,7 @@ async def _retrieve_missing_openai_vector_store(is_async: bool) -> object:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False])
 async def test_retrieving_a_missing_openai_vector_store_raises_not_found(is_async: bool):
-    with pytest.raises(litellm.NotFoundError) as caught:
+    with pytest.raises(hangarllm.NotFoundError) as caught:
         await _retrieve_missing_openai_vector_store(is_async)
 
     assert caught.value.status_code == 404

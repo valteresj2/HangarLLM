@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.proxy.utils import (
+from hangarllm.proxy.utils import (
     get_docs_url,
     get_openapi_url,
     get_redoc_url,
@@ -181,15 +181,15 @@ def test_join_paths_invalid_input_raises():
 
 def test_get_proxy_base_url_returns_env_when_set(monkeypatch):
     _clear_url_env(monkeypatch)
-    monkeypatch.setenv("PROXY_BASE_URL", "https://litellm.test")
+    monkeypatch.setenv("PROXY_BASE_URL", "https://hangarllm.test")
     summary = {
         "result": get_proxy_base_url(),
-        "env": "https://litellm.test",
+        "env": "https://hangarllm.test",
         "is_set": True,
     }
     assert summary == {
-        "result": "https://litellm.test",
-        "env": "https://litellm.test",
+        "result": "https://hangarllm.test",
+        "env": "https://hangarllm.test",
         "is_set": True,
     }
 
@@ -335,7 +335,7 @@ def test_get_custom_url_uses_per_request_prefix_when_middleware_ran(monkeypatch)
     _clear_url_env(monkeypatch)
     monkeypatch.setenv("SERVER_ROOT_PATH", "/legacy")
 
-    from litellm.proxy.middleware.per_request_root_path_middleware import (
+    from hangarllm.proxy.middleware.per_request_root_path_middleware import (
         _request_root_path_var,
     )
 
@@ -361,7 +361,7 @@ def test_get_custom_url_no_double_prefix_when_both_env_vars_configured(monkeypat
     monkeypatch.setenv("SERVER_ROOT_PATH", "/legacy")
     monkeypatch.setenv("SERVER_ROOT_PATHS", "/tenant-a")
 
-    from litellm.proxy.middleware.per_request_root_path_middleware import (
+    from hangarllm.proxy.middleware.per_request_root_path_middleware import (
         _request_root_path_var,
     )
 

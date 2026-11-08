@@ -13,8 +13,8 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.openai_like.chat.handler import make_call, make_sync_call
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.openai_like.chat.handler import make_call, make_sync_call
 
 _UNICODE_TEXTS: Final = (
     "The symbol µ represents micro",

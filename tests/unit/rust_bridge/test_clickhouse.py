@@ -2,8 +2,8 @@ from typing import Final
 
 import pytest
 
-from litellm.constants import DEFAULT_AGENT_TRACING_RETENTION_DAYS, DEFAULT_CLICKHOUSE_DATABASE
-from litellm.rust_bridge.clickhouse import spend_storage_config
+from hangarllm.constants import DEFAULT_AGENT_TRACING_RETENTION_DAYS, DEFAULT_CLICKHOUSE_DATABASE
+from hangarllm.rust_bridge.clickhouse import spend_storage_config
 
 
 def test_spend_storage_preserves_environment_settings_and_hides_credentials() -> None:
@@ -38,4 +38,4 @@ def test_spend_storage_rejects_invalid_retention(retention: str) -> None:
 
 def test_spend_storage_requires_clickhouse_without_lens_configuration() -> None:
     with pytest.raises(ValueError, match="CLICKHOUSE_URL is required"):
-        spend_storage_config({"LITELLM_LENS_URL": "http://lens"})
+        spend_storage_config({"HANGARLLM_LENS_URL": "http://lens"})

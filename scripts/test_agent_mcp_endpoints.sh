@@ -4,21 +4,21 @@
 # Requires: proxy running, valid admin API key, curl, jq.
 #
 # Usage:
-#   export LITELLM_PROXY_BASE_URL="http://localhost:4000"  # optional, default below
-#   export LITELLM_API_KEY="sk-..."                        # required
+#   export HANGARLLM_PROXY_BASE_URL="http://localhost:4000"  # optional, default below
+#   export HANGARLLM_API_KEY="sk-..."                        # required
 #   ./scripts/test_agent_mcp_endpoints.sh
 #
 set -euo pipefail
 
-BASE_URL="${LITELLM_PROXY_BASE_URL:-http://localhost:4000}"
-API_KEY="${LITELLM_API_KEY:-}"
+BASE_URL="${HANGARLLM_PROXY_BASE_URL:-http://localhost:4000}"
+API_KEY="${HANGARLLM_API_KEY:-}"
 
 if ! command -v jq &>/dev/null; then
   echo "Error: jq is required. Install with: brew install jq (macOS) or apt install jq (Linux)"
   exit 1
 fi
 if [[ -z "$API_KEY" ]]; then
-  echo "Error: LITELLM_API_KEY is not set. Export it or pass via env."
+  echo "Error: HANGARLLM_API_KEY is not set. Export it or pass via env."
   exit 1
 fi
 

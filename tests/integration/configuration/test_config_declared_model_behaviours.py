@@ -28,7 +28,7 @@ def _config(directory: Path) -> Path:
         *(
             {
                 "model_name": _TAGGED_GROUP,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fixture",
                     "api_base": f"{PROVIDER_URL}/v1",
@@ -40,7 +40,7 @@ def _config(directory: Path) -> Path:
         ),
         {
             "model_name": _VISION_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/llava-hf",
                 "api_key": "sk-fixture",
                 "api_base": "http://127.0.0.1:9/v1",
@@ -102,7 +102,7 @@ def test_an_untagged_request_is_served_by_a_group_whose_deployments_are_all_tagg
         {"model": _TAGGED_GROUP, "messages": [{"role": "user", "content": f"untagged {uuid.uuid4().hex}"}]},
     )
     assert response.status_code == 200, response.text
-    assert response.headers["x-litellm-model-id"] in _TAGGED_IDS, dict(response.headers)
+    assert response.headers["x-hangarllm-model-id"] in _TAGGED_IDS, dict(response.headers)
     message: Final = object_value(object_value(JSON_OBJECT.validate_json(response.content)["choices"][0])["message"])
     assert message["content"] == "tagged"
     assert [request.target for request in provider.received()] == ["/v1/chat/completions"]

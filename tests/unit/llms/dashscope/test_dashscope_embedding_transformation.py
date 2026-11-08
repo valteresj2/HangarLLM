@@ -10,12 +10,12 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.dashscope.common_utils import DashScopeError
-from litellm.llms.dashscope.embed.transformation import (
+from hangarllm.llms.dashscope.common_utils import DashScopeError
+from hangarllm.llms.dashscope.embed.transformation import (
     DEFAULT_API_BASE,
     DashScopeEmbeddingConfig,
 )
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.types.utils import EmbeddingResponse
 from tests.unit.conftest import in_operator_error
 
 WORKSPACE: Final = "https://llm-abc123.cn-beijing.maas.aliyuncs.com"
@@ -35,7 +35,7 @@ def test_get_complete_url_derives_the_compatible_base_from_any_standard_base():
             api_key="sk-test",
             model="text-embedding-v4",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == f"{WORKSPACE}/compatible-mode/v1/embeddings"
@@ -47,7 +47,7 @@ def test_get_complete_url_keeps_unrecognized_hosts():
         api_key="sk-test",
         model="text-embedding-v4",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://gateway.example.com/v1/embeddings"
@@ -60,7 +60,7 @@ def test_validate_environment_and_url():
         model="text-embedding-v4",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
     )
     assert headers["Authorization"] == "Bearer sk-test"
@@ -70,7 +70,7 @@ def test_validate_environment_and_url():
         api_key="sk-test",
         model="text-embedding-v4",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == f"{DEFAULT_API_BASE}/embeddings"
 
@@ -115,7 +115,7 @@ def test_transform_embedding_response_success():
         api_key="sk-x",
         request_data={"input": ["a"]},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert result.model == "text-embedding-v4"
     assert len(result.data) == 1
@@ -168,7 +168,7 @@ def test_transform_embedding_response_error():
             api_key="sk-bad",
             request_data={"input": ["a"]},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
     assert exc.value.status_code == 401
     assert "Incorrect API key" in exc.value.message
@@ -189,5 +189,5 @@ def test_transform_embedding_response_rejects_a_scalar_body():
             api_key="sk-test",
             request_data={"input": ["a"]},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )

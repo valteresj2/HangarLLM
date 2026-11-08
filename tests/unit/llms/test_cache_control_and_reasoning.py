@@ -11,9 +11,9 @@ This test file verifies the fixes for Issue #19923:
 import pytest
 
 
-from litellm.llms.minimax.chat.transformation import MinimaxChatConfig
-from litellm.llms.openrouter.chat.transformation import OpenrouterConfig
-from litellm.llms.zai.chat.transformation import ZAIChatConfig
+from hangarllm.llms.minimax.chat.transformation import MinimaxChatConfig
+from hangarllm.llms.openrouter.chat.transformation import OpenrouterConfig
+from hangarllm.llms.zai.chat.transformation import ZAIChatConfig
 
 
 def test_minimax_preserves_cache_control_in_messages():
@@ -216,7 +216,7 @@ def test_openrouter_minimax_transform_moves_cache_control_to_content():
         model="openrouter/minimax/minimax-m2",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -245,7 +245,7 @@ def test_openrouter_glm_transform_moves_cache_control_to_content():
         model="openrouter/z-ai/glm-4.6",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

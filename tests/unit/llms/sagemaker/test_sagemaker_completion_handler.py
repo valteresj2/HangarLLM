@@ -16,20 +16,20 @@ from typing import AsyncIterator, Final, Iterator
 from unittest.mock import MagicMock
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
 
-from litellm.llms.sagemaker.common_utils import SagemakerError
-from litellm.llms.sagemaker.completion.handler import SagemakerLLM
+from hangarllm.llms.sagemaker.common_utils import SagemakerError
+from hangarllm.llms.sagemaker.completion.handler import SagemakerLLM
 
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def _encode_header(name: str, value: str) -> bytes:
@@ -196,7 +196,7 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-sm-completion":
@@ -217,8 +217,8 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
         "aws_access_key_id": "AKIASMCOMPCALLERKEY",
         "aws_secret_access_key": "pod-caller-secret",
         "aws_region_name": "us-east-1",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-sm-completion-role",
-        "aws_session_name": "litellm-sm-completion-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-sm-completion-role",
+        "aws_session_name": "hangarllm-sm-completion-session",
         "aws_external_id": "external-id-sm-completion",
     }
 
@@ -245,7 +245,7 @@ def test_load_credentials_assumes_role_with_session_tags(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -266,8 +266,8 @@ def test_load_credentials_assumes_role_with_session_tags(monkeypatch):
         "aws_access_key_id": "AKIASMCOMPCALLERKEY",
         "aws_secret_access_key": "pod-caller-secret",
         "aws_region_name": "us-east-1",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-sm-completion-role",
-        "aws_session_name": "litellm-sm-completion-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-sm-completion-role",
+        "aws_session_name": "hangarllm-sm-completion-session",
         "aws_session_tags": tags,
     }
 
@@ -284,7 +284,7 @@ def test_missing_botocore_keeps_dependency_identity():
 
     import pytest
 
-    from litellm.llms.sagemaker.completion.handler import SagemakerLLM
+    from hangarllm.llms.sagemaker.completion.handler import SagemakerLLM
 
     with patch.dict("sys.modules", {"botocore": None}):
         with pytest.raises(ModuleNotFoundError, match="pip install boto3") as caught:
@@ -295,11 +295,11 @@ def test_missing_botocore_keeps_dependency_identity():
 def test_installed_botocore_signs_the_completion_request():
     from botocore.credentials import Credentials
 
-    from litellm.llms.sagemaker.completion.handler import SagemakerLLM
+    from hangarllm.llms.sagemaker.completion.handler import SagemakerLLM
 
     request = SagemakerLLM()._prepare_request(
         credentials=Credentials("test-key", "test-secret"), model="test-endpoint", data={"inputs": "ping"},
-        messages=[], litellm_params={}, optional_params={}, aws_region_name="us-west-2",
+        messages=[], hangarllm_params={}, optional_params={}, aws_region_name="us-west-2",
     )
     assert request.body == b'{"inputs": "ping"}'
     assert "/us-west-2/sagemaker/aws4_request" in request.headers["Authorization"]
@@ -321,7 +321,7 @@ async def test_acompletion_sagemaker_non_stream(
     route: Final = respx_mock.post(url).mock(
         return_value=httpx.Response(200, json={"generated_text": "SageMaker reply"})
     )
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
         messages=[{"role": "user", "content": "hi"}],
         temperature=0.2,
@@ -354,7 +354,7 @@ def test_completion_sagemaker_non_stream(
     route: Final = respx_mock.post(url).mock(
         return_value=httpx.Response(200, json={"generated_text": "SageMaker reply"})
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
         messages=[{"role": "user", "content": "hi"}],
         temperature=0.2,
@@ -379,7 +379,7 @@ def test_completion_sagemaker_sends_the_inference_component_only_as_a_header(res
     route: Final = respx_mock.post(url).mock(
         return_value=httpx.Response(200, json={"generated_text": "SageMaker reply"})
     )
-    litellm.completion(
+    hangarllm.completion(
         model="sagemaker/my-endpoint",
         messages=[{"role": "user", "content": "hi"}],
         temperature=0.2,
@@ -403,7 +403,7 @@ def test_completion_sagemaker_non_stream_with_aws_params(respx_mock: respx.MockR
     route: Final = respx_mock.post(url).mock(
         return_value=httpx.Response(200, json={"generated_text": "SageMaker reply"})
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
         messages=[{"role": "user", "content": "hi"}],
         temperature=0.2,
@@ -430,7 +430,7 @@ def test_completion_sagemaker_prompt_template_non_stream(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "known_tokenizer_config", {})
+    monkeypatch.setattr(hangarllm, "known_tokenizer_config", {})
     tokenizer_route: Final = respx_mock.get(
         "https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct/raw/main/tokenizer_config.json"
     ).mock(
@@ -453,7 +453,7 @@ def test_completion_sagemaker_prompt_template_non_stream(
     route: Final = respx_mock.post(url).mock(
         return_value=httpx.Response(200, json={"generated_text": "SageMaker reply"})
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="sagemaker/deepseek_coder_6.7_instruct",
         messages=[{"role": "user", "content": "hi"}],
         temperature=0.2,
@@ -497,7 +497,7 @@ def test_sagemaker_region_resolution(
     route: Final = respx_mock.post(url).mock(
         return_value=httpx.Response(200, json={"generated_text": "SageMaker reply"})
     )
-    litellm.completion(
+    hangarllm.completion(
         model="sagemaker/mock-endpoint",
         messages=[{"role": "user", "content": "Hello, world!"}],
         num_retries=0,
@@ -525,7 +525,7 @@ async def test_completion_sagemaker(
     )
     rate: Final = 0.000420
     response: Final = (
-        litellm.completion(
+        hangarllm.completion(
             model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
             messages=[{"role": "user", "content": "hi"}],
             temperature=0.2,
@@ -535,7 +535,7 @@ async def test_completion_sagemaker(
             num_retries=0,
         )
         if sync_mode
-        else await litellm.acompletion(
+        else await hangarllm.acompletion(
             model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
             messages=[{"role": "user", "content": "hi"}],
             temperature=0.2,
@@ -549,7 +549,7 @@ async def test_completion_sagemaker(
 
     assert route.called
     assert response.choices[0].message.content == "SageMaker reply"
-    assert litellm.completion_cost(completion_response=response, custom_cost_per_second=rate) == pytest.approx(rate)
+    assert hangarllm.completion_cost(completion_response=response, custom_cost_per_second=rate) == pytest.approx(rate)
 
 
 @pytest.mark.asyncio
@@ -568,7 +568,7 @@ async def test_completion_sagemaker_stream(
         return_value=httpx.Response(200, content=_token_frame("hello") + _token_frame(" world"))
     )
     stream: Final = (
-        litellm.completion(
+        hangarllm.completion(
             model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
             messages=[{"role": "user", "content": "hi - what is ur name"}],
             stream=True,
@@ -579,7 +579,7 @@ async def test_completion_sagemaker_stream(
             num_retries=0,
         )
         if sync_mode
-        else await litellm.acompletion(
+        else await hangarllm.acompletion(
             model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
             messages=[{"role": "user", "content": "hi - what is ur name"}],
             stream=True,
@@ -621,14 +621,14 @@ async def test_completion_sagemaker_streaming_bad_request(
         )
     )
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.completion(
             model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             aws_region_name="us-east-1",
             num_retries=0,
-        ) if sync_mode else await litellm.acompletion(
+        ) if sync_mode else await hangarllm.acompletion(
             model="sagemaker/jumpstart-dft-hf-textgeneration1-mp-20240815-185614",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,

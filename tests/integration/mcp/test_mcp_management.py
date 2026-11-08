@@ -24,8 +24,8 @@ from integration._support.mcp import (
 from integration._support.process import owned_proxy
 from pydantic import BaseModel, JsonValue
 
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
@@ -33,12 +33,12 @@ ADD: Final = {"a": 4, "b": 5}
 
 
 def _dashboard_ui_session_token(user_id: str) -> str:
-    user: Final = LiteLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
+    user: Final = HangarLLM_UserTable(user_id=user_id, user_role="internal_user", models=[])
     return ExperimentalUIJWTToken.get_experimental_ui_login_jwt_auth_token(user)
 
 
 def _servers(gateway: Gateway, key: str | None = None) -> dict[str, dict[str, object]]:
-    response: Final = gateway.client.get("/v1/mcp/server", headers={"x-litellm-api-key": key or gateway.key})
+    response: Final = gateway.client.get("/v1/mcp/server", headers={"x-hangarllm-api-key": key or gateway.key})
     assert response.status_code == 200, response.text
     return {server["server_id"]: server for server in response.json()}
 
@@ -48,7 +48,7 @@ def test_non_admin_key_cannot_create_edit_or_delete_servers(gateway: Gateway) ->
         alias: Final = "mgmt" + uuid.uuid4().hex[:8]
         identity: Final = register_mcp(scenario, peer, alias)
         plain: Final = scenario.key(object_permission={"mcp_servers": [identity]})
-        headers: Final = {"x-litellm-api-key": plain}
+        headers: Final = {"x-hangarllm-api-key": plain}
         created: Final = gateway.client.post(
             "/v1/mcp/server",
             json={"server_name": alias + "x", "alias": alias + "x", **peer.registration()},
@@ -80,11 +80,11 @@ def test_secrets_never_appear_in_server_listing_or_detail(gateway: Gateway) -> N
         )
         viewer: Final = scenario.key(object_permission={"mcp_servers": [identity]})
         for key in (gateway.key, viewer):
-            listing: Final = gateway.client.get("/v1/mcp/server", headers={"x-litellm-api-key": key})
-            detail: Final = gateway.client.get(f"/v1/mcp/server/{identity}", headers={"x-litellm-api-key": key})
+            listing: Final = gateway.client.get("/v1/mcp/server", headers={"x-hangarllm-api-key": key})
+            detail: Final = gateway.client.get(f"/v1/mcp/server/{identity}", headers={"x-hangarllm-api-key": key})
             assert listing.status_code == 200 and detail.status_code == 200, (listing.text, detail.text)
             assert secret not in listing.text + detail.text, key == gateway.key
-        viewed: Final = gateway.client.get("/v1/mcp/server", headers={"x-litellm-api-key": viewer})
+        viewed: Final = gateway.client.get("/v1/mcp/server", headers={"x-hangarllm-api-key": viewer})
         assert header_secret not in viewed.text, viewed.text
         peer.drain()
         assert (
@@ -123,7 +123,7 @@ def test_delete_removes_listing_calls_and_database_row(gateway: Gateway) -> None
         delete_mcp(gateway, identity)
         assert identity not in _servers(gateway)
         listing: Final = gateway.client.get(
-            "/mcp-rest/tools/list", headers={"x-litellm-api-key": key}, params={"server_id": identity}
+            "/mcp-rest/tools/list", headers={"x-hangarllm-api-key": key}, params={"server_id": identity}
         )
         assert listing.status_code >= 400 or listing.json() == [], listing.text
         peer.drain()
@@ -271,14 +271,14 @@ def test_access_group_membership_follows_edits(gateway: Gateway) -> None:
         alias: Final = "mgmt" + uuid.uuid4().hex[:8]
         identity: Final = register_mcp(scenario, peer, alias, mcp_access_groups=[group])
         key: Final = scenario.key(object_permission={"mcp_access_groups": [group]})
-        groups: Final = gateway.client.get("/v1/mcp/access_groups", headers={"x-litellm-api-key": gateway.key})
+        groups: Final = gateway.client.get("/v1/mcp/access_groups", headers={"x-hangarllm-api-key": gateway.key})
         assert groups.status_code == 200 and group in groups.text, groups.text
         assert "add" in tool_names(gateway, key, identity)
         removed: Final = gateway.request("PUT", "/v1/mcp/server", {"server_id": identity, "mcp_access_groups": []})
         assert removed.status_code == 202, removed.text
         eventually(
             lambda: gateway.client.get(
-                "/mcp-rest/tools/list", headers={"x-litellm-api-key": key}, params={"server_id": identity}
+                "/mcp-rest/tools/list", headers={"x-hangarllm-api-key": key}, params={"server_id": identity}
             ),
             lambda value: value.status_code >= 400 or value.json() == [],
         )
@@ -304,7 +304,7 @@ def test_peer_worker_observes_create_edit_and_delete_without_restart(gateway: Ga
         identity: Final = register_mcp(scenario, first, alias)
         key: Final = scenario.key(object_permission={"mcp_servers": [identity]})
         listing: Final = peer.client.get(
-            "/mcp-rest/tools/list", headers={"x-litellm-api-key": key}, params={"server_id": identity}
+            "/mcp-rest/tools/list", headers={"x-hangarllm-api-key": key}, params={"server_id": identity}
         )
         assert listing.status_code == 200 and listing.json() != [], listing.text
         names: Final = tool_names(peer, key, identity)
@@ -318,7 +318,7 @@ def test_peer_worker_observes_create_edit_and_delete_without_restart(gateway: Ga
         assert len(tool_calls(second.drain())) == 1
         delete_mcp(gateway, identity)
         deleted: Final = peer.client.get(
-            "/mcp-rest/tools/list", headers={"x-litellm-api-key": key}, params={"server_id": identity}
+            "/mcp-rest/tools/list", headers={"x-hangarllm-api-key": key}, params={"server_id": identity}
         )
         assert deleted.status_code in (403, 404) or (deleted.status_code == 200 and deleted.json() == []), deleted.text
         assert call_tool(peer, key, identity, names["add"], ADD).status_code in (403, 404)
@@ -374,7 +374,7 @@ def test_ui_session_lists_and_fetches_team_granted_config_server(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-integration-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-integration-salt")
     with mcp_peer() as peer, gateway.scenario() as scenario:
         alias: Final = "lit3974_config_" + uuid.uuid4().hex[:8]
         server_id: Final = "lit3974-" + uuid.uuid4().hex[:12]
@@ -443,7 +443,7 @@ def test_protocol_transport_updates_validate_effective_configuration(gateway: Ga
         assert changed.status_code == 202, changed.text
         assert changed.json()["mcp_info"]["protocol_version"] == "2026-07-28"
         snapshot: Final = read_rows(
-            'SELECT transport, mcp_info, updated_at::text FROM "LiteLLM_MCPServerTable" WHERE server_id=%s', (identity,)
+            'SELECT transport, mcp_info, updated_at::text FROM "HangarLLM_MCPServerTable" WHERE server_id=%s', (identity,)
         )
         peer.drain()
         rejected: Final = gateway.request(
@@ -453,7 +453,7 @@ def test_protocol_transport_updates_validate_effective_configuration(gateway: Ga
         assert "Modern MCP requires HTTP or stdio" in rejected.text
         assert (
             read_rows(
-                'SELECT transport, mcp_info, updated_at::text FROM "LiteLLM_MCPServerTable" WHERE server_id=%s',
+                'SELECT transport, mcp_info, updated_at::text FROM "HangarLLM_MCPServerTable" WHERE server_id=%s',
                 (identity,),
             )
             == snapshot
@@ -467,7 +467,7 @@ def test_protocol_transport_updates_validate_effective_configuration(gateway: Ga
         )
         assert legacy.status_code == 202, legacy.text
         legacy_snapshot: Final = read_rows(
-            'SELECT transport, mcp_info, updated_at::text FROM "LiteLLM_MCPServerTable" WHERE server_id=%s', (identity,)
+            'SELECT transport, mcp_info, updated_at::text FROM "HangarLLM_MCPServerTable" WHERE server_id=%s', (identity,)
         )
         rejected_protocol: Final = gateway.request(
             "PUT", "/v1/mcp/server", {"server_id": identity, "mcp_info": {"protocol_version": "2026-07-28"}}
@@ -475,7 +475,7 @@ def test_protocol_transport_updates_validate_effective_configuration(gateway: Ga
         assert rejected_protocol.status_code == 400, rejected_protocol.text
         assert (
             read_rows(
-                'SELECT transport, mcp_info, updated_at::text FROM "LiteLLM_MCPServerTable" WHERE server_id=%s',
+                'SELECT transport, mcp_info, updated_at::text FROM "HangarLLM_MCPServerTable" WHERE server_id=%s',
                 (identity,),
             )
             == legacy_snapshot
@@ -510,7 +510,7 @@ def test_concurrent_protocol_transport_edits_cannot_save_incompatible_configurat
             # Hold the row so both workers read the old configuration before either can write.
             with psycopg.connect(os.environ["DATABASE_URL"]) as blocker:
                 blocker.execute(
-                    'SELECT server_id FROM "LiteLLM_MCPServerTable" WHERE server_id=%s FOR UPDATE', (identity,)
+                    'SELECT server_id FROM "HangarLLM_MCPServerTable" WHERE server_id=%s FOR UPDATE', (identity,)
                 )
                 protocol = pool.submit(
                     gateway.request,
@@ -535,7 +535,7 @@ def test_concurrent_protocol_transport_edits_cannot_save_incompatible_configurat
                 eventually(
                     lambda: read_rows(
                         "SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE %s",
-                        ("%LiteLLM_MCPServerTable%",),
+                        ("%HangarLLM_MCPServerTable%",),
                     ),
                     lambda rows: len(rows) >= 2,
                     seconds=3,
@@ -543,7 +543,7 @@ def test_concurrent_protocol_transport_edits_cannot_save_incompatible_configurat
             responses: Final = [protocol.result(), transport.result()]
         assert sorted(response.status_code for response in responses) == [202, 400], [r.text for r in responses]
         saved: Final = read_rows(
-            'SELECT transport, mcp_info FROM "LiteLLM_MCPServerTable" WHERE server_id=%s', (identity,)
+            'SELECT transport, mcp_info FROM "HangarLLM_MCPServerTable" WHERE server_id=%s', (identity,)
         )[0]
         assert saved["transport"] == "http" or saved["mcp_info"] != {"protocol_version": "2026-07-28"}
         repaired: Final = gateway.request(
@@ -587,13 +587,13 @@ class ToolListing(BaseModel):
 
 def _submission_row(identity: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT approval_status, submitted_by, review_notes FROM "LiteLLM_MCPServerTable" WHERE server_id = %s',
+        'SELECT approval_status, submitted_by, review_notes FROM "HangarLLM_MCPServerTable" WHERE server_id = %s',
         (identity,),
     )
 
 
 def _submission(gateway: Gateway, identity: str) -> Submission:
-    response: Final = gateway.client.get("/v1/mcp/server/submissions", headers={"x-litellm-api-key": gateway.key})
+    response: Final = gateway.client.get("/v1/mcp/server/submissions", headers={"x-hangarllm-api-key": gateway.key})
     assert response.status_code == 200, response.text
     matches: Final = [
         item for item in Submissions.model_validate_json(response.content).items if item.server_id == identity
@@ -605,7 +605,7 @@ def _submission(gateway: Gateway, identity: str) -> Submission:
 def _served(gateway: Gateway, key: str, identity: str) -> bool:
     response: Final = gateway.client.post(
         "/mcp-rest/tools/call",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         json={"server_id": identity, "name": "add", "arguments": ADD},
     )
     return response.status_code == 200 and JSON_OBJECT.validate_json(response.content)["content"] == [
@@ -616,7 +616,7 @@ def _served(gateway: Gateway, key: str, identity: str) -> bool:
 def _not_found(gateway: Gateway, key: str, identity: str) -> bool:
     response: Final = gateway.client.post(
         "/mcp-rest/tools/call",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         json={"server_id": identity, "name": "add", "arguments": ADD},
     )
     return response.status_code == 404 and JSON_OBJECT.validate_json(response.content) == {
@@ -627,7 +627,7 @@ def _not_found(gateway: Gateway, key: str, identity: str) -> bool:
 def _refusal(gateway: Gateway, key: str, identity: str) -> tuple[int, dict[str, JsonValue]]:
     response: Final = gateway.client.post(
         "/mcp-rest/tools/call",
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
         json={"server_id": identity, "name": "add", "arguments": ADD},
     )
     return response.status_code, JSON_OBJECT.validate_json(response.content)
@@ -652,7 +652,7 @@ def test_team_submission_is_inert_until_approved_serves_both_workers_and_stops_a
         outsider: Final = scenario.key(team_id=scenario.team())
         registered: Final = gateway.client.post(
             "/v1/mcp/server/register",
-            headers={"x-litellm-api-key": member},
+            headers={"x-hangarllm-api-key": member},
             json={"server_name": alias, "alias": alias, **upstream.registration()},
         )
         assert registered.status_code == 201, registered.text
@@ -667,7 +667,7 @@ def test_team_submission_is_inert_until_approved_serves_both_workers_and_stops_a
         throwaway_alias: Final = "reload" + uuid.uuid4().hex[:8]
         throwaway_registered: Final = gateway.client.post(
             "/v1/mcp/server/register",
-            headers={"x-litellm-api-key": member},
+            headers={"x-hangarllm-api-key": member},
             json={"server_name": throwaway_alias, "alias": throwaway_alias, **throwaway_upstream.registration()},
         )
         assert throwaway_registered.status_code == 201, throwaway_registered.text
@@ -697,7 +697,7 @@ def test_team_submission_is_inert_until_approved_serves_both_workers_and_stops_a
             {"detail": {"error": "server_not_found", "message": f"MCP server '{identity}' was not found"}},
         )
         for worker, key in itertools.product((gateway, peer), (member, outsider)):
-            pending_list = worker.client.get("/mcp-rest/tools/list", headers={"x-litellm-api-key": key})
+            pending_list = worker.client.get("/mcp-rest/tools/list", headers={"x-hangarllm-api-key": key})
             assert pending_list.status_code == 200, pending_list.text
             listed = ToolListing.model_validate_json(pending_list.content).tools
             assert [tool.name for tool in listed if tool.mcp_info.server_id == identity] == [], pending_list.text

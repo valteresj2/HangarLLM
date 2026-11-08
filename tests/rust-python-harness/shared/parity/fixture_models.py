@@ -49,7 +49,7 @@ InputT = TypeVar("InputT", bound=SdkInputBase)
 
 
 class ParityCase(FixtureModel, Generic[InputT]):
-    litellm_input: InputT
+    hangarllm_input: InputT
     provider_responses: tuple[RecordedResponse, ...]
 
     @model_validator(mode="before")

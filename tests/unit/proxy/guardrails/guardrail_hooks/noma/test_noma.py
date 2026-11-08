@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.presidio import OPTIONAL_PresidioPIIMasking
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.presidio import OPTIONAL_PresidioPIIMasking
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import StandardLoggingPayload
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -33,7 +33,7 @@ async def test_standard_logging_payload_includes_guardrail_information():
     Test that the standard logging payload includes the guardrail information when a guardrail is applied
     """
     test_custom_logger = CustomLoggerForTesting()
-    litellm.callbacks = [test_custom_logger]
+    hangarllm.callbacks = [test_custom_logger]
     presidio_guard = OPTIONAL_PresidioPIIMasking(
         guardrail_name="presidio_guard",
         event_hook=GuardrailEventHooks.pre_call,
@@ -132,8 +132,8 @@ async def test_standard_logging_payload_includes_guardrail_information():
             call_type="acompletion",
         )
 
-    # 2. call litellm.acompletion
-    response = await litellm.acompletion(**request_data)
+    # 2. call hangarllm.acompletion
+    response = await hangarllm.acompletion(**request_data)
 
     # 3. assert that the standard logging payload includes the guardrail information
     await asyncio.sleep(1)
@@ -185,16 +185,16 @@ async def test_bedrock_guardrail_status_blocked():
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
         BedrockGuardrail,
     )
 
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
 
     # Setup custom logger to capture standard logging payload
     test_custom_logger = CustomLoggerForTesting()
-    litellm.callbacks = [test_custom_logger]
+    hangarllm.callbacks = [test_custom_logger]
 
     # Create Bedrock guardrail with mock AWS credentials
     bedrock_guard = BedrockGuardrail(
@@ -236,9 +236,9 @@ async def test_bedrock_guardrail_status_blocked():
                 # Expected exception when guardrail blocks content
                 pass
 
-        # Call litellm.acompletion to trigger logging callbacks
+        # Call hangarllm.acompletion to trigger logging callbacks
         # This populates the standard_logging_payload in our custom logger
-        response = await litellm.acompletion(**request_data)
+        response = await hangarllm.acompletion(**request_data)
         await asyncio.sleep(1)
 
     # Verify the standard logging payload was captured
@@ -272,18 +272,18 @@ async def test_bedrock_guardrail_status_success():
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
         BedrockGuardrail,
     )
 
     # Reset callbacks completely to avoid event loop conflicts
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     await asyncio.sleep(0.1)  # Let previous callbacks finish
 
     # Setup custom logger to capture standard logging payload
     test_custom_logger = CustomLoggerForTesting()
-    litellm.callbacks = [test_custom_logger]
+    hangarllm.callbacks = [test_custom_logger]
 
     # Create Bedrock guardrail
     bedrock_guard = BedrockGuardrail(
@@ -321,8 +321,8 @@ async def test_bedrock_guardrail_status_success():
                 call_type="completion",
             )
 
-        # Call litellm.acompletion to trigger logging
-        response = await litellm.acompletion(**request_data)
+        # Call hangarllm.acompletion to trigger logging
+        response = await hangarllm.acompletion(**request_data)
         await asyncio.sleep(1)
 
     # Check standard logging payload status fields
@@ -355,18 +355,18 @@ async def test_bedrock_guardrail_status_failure():
 
     import httpx
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
         BedrockGuardrail,
     )
 
     # Reset callbacks completely to avoid event loop conflicts
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     await asyncio.sleep(0.1)
 
     # Setup custom logger to capture standard logging payload
     test_custom_logger = CustomLoggerForTesting()
-    litellm.callbacks = [test_custom_logger]
+    hangarllm.callbacks = [test_custom_logger]
 
     # Create Bedrock guardrail
     bedrock_guard = BedrockGuardrail(
@@ -406,8 +406,8 @@ async def test_bedrock_guardrail_status_failure():
                 # Expected exception when endpoint is down
                 pass
 
-        # Call litellm.acompletion to trigger logging
-        response = await litellm.acompletion(**request_data)
+        # Call hangarllm.acompletion to trigger logging
+        response = await hangarllm.acompletion(**request_data)
         await asyncio.sleep(1)
 
     # Check standard logging payload status fields
@@ -438,16 +438,16 @@ async def test_noma_guardrail_status_blocked():
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.noma.noma import NomaGuardrail
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.noma.noma import NomaGuardrail
 
     # Reset callbacks completely to avoid event loop conflicts
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     await asyncio.sleep(0.1)  # Let previous callbacks finish
 
     # Setup custom logger to capture standard logging payload
     test_custom_logger = CustomLoggerForTesting()
-    litellm.callbacks = [test_custom_logger]
+    hangarllm.callbacks = [test_custom_logger]
 
     # Create Noma guardrail
     noma_guard = NomaGuardrail(
@@ -487,8 +487,8 @@ async def test_noma_guardrail_status_blocked():
             except Exception:
                 pass
 
-        # Call litellm.acompletion to trigger logging
-        response = await litellm.acompletion(**request_data)
+        # Call hangarllm.acompletion to trigger logging
+        response = await hangarllm.acompletion(**request_data)
         await asyncio.sleep(1)
 
     # Check standard logging payload status fields
@@ -519,16 +519,16 @@ async def test_noma_guardrail_status_success():
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.noma.noma import NomaGuardrail
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.guardrails.guardrail_hooks.noma.noma import NomaGuardrail
 
     # Reset callbacks completely to avoid event loop conflicts
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     await asyncio.sleep(0.1)  # Let previous callbacks finish
 
     # Setup custom logger to capture standard logging payload
     test_custom_logger = CustomLoggerForTesting()
-    litellm.callbacks = [test_custom_logger]
+    hangarllm.callbacks = [test_custom_logger]
 
     # Create Noma guardrail
     noma_guard = NomaGuardrail(
@@ -564,8 +564,8 @@ async def test_noma_guardrail_status_success():
                 call_type="completion",
             )
 
-        # Call litellm.acompletion to trigger logging
-        response = await litellm.acompletion(**request_data)
+        # Call hangarllm.acompletion to trigger logging
+        response = await hangarllm.acompletion(**request_data)
         await asyncio.sleep(1)
 
     # Check standard logging payload status fields
@@ -596,7 +596,7 @@ def test_guardrail_status_fields_computation():
     - guardrail_status="guardrail_failed_to_respond" -> status_fields.guardrail_status="guardrail_failed_to_respond"
     - no guardrail -> status_fields.guardrail_status="not_run"
     """
-    from litellm.litellm_core_utils.litellm_logging import _get_status_fields
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import _get_status_fields
 
     # Test guardrail_intervened status (content was blocked by guardrail)
     # guardrail_information is now a list
@@ -718,7 +718,7 @@ def test_guardrail_status_fields_severity_across_entries(status, guardrail_infor
     "guardrail_intervened" entry: the aggregate takes the most severe status,
     regardless of entry order.
     """
-    from litellm.litellm_core_utils.litellm_logging import _get_status_fields
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import _get_status_fields
 
     fields = _get_status_fields(status=status, guardrail_information=guardrail_information, error_str=None)
     assert fields.get("guardrail_status") == expected_guardrail_status
@@ -732,11 +732,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Saves and restores litellm callback/global state so tests don't leak
+    Saves and restores hangarllm callback/global state so tests don't leak
     side effects. Works safely under pytest-xdist parallel execution.
     """
     original_state = {}
@@ -747,43 +747,43 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("set_verbose", "cache", "num_retries"):
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in ("success_callback", "failure_callback", "_async_success_callback", "_async_failure_callback"):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield

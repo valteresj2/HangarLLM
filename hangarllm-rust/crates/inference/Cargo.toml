@@ -1,0 +1,36 @@
+[package]
+name = "hangarllm-inference"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hangarllm-cache.workspace = true
+hangarllm-cache-response.workspace = true
+hangarllm-framer.workspace = true
+tokio-util = { version = "0.7", features = ["codec"] }
+hangarllm-secrets.workspace = true
+hangarllm-core-utils.workspace = true
+hangarllm-host.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+hangarllm-auth = { workspace = true, features = ["aws", "azure", "gcp"] }
+hangarllm-http.workspace = true
+hangarllm-llms.workspace = true
+hangarllm-tracing.workspace = true
+tracing.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+tokio = { workspace = true, features = ["sync"] }
+thiserror.workspace = true
+time.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+hangarllm-error.workspace = true
+hangarllm-cache-memory.workspace = true
+hangarllm-http = { workspace = true, features = ["test-support"] }
+hangarllm-llms = { workspace = true, features = ["test-support"] }
+rstest.workspace = true

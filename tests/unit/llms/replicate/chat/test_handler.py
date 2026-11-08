@@ -3,11 +3,11 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.replicate.chat.handler import handle_prediction_response_streaming
-from litellm.llms.replicate.common_utils import ReplicateError
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.replicate.chat.handler import handle_prediction_response_streaming
+from hangarllm.llms.replicate.common_utils import ReplicateError
 
 POLL_URL = "https://api.replicate.com/v1/predictions/test-prediction"
 CREATE_URL = "https://api.replicate.com/v1/models/meta/meta-llama-3-8b-instruct/predictions"
@@ -16,7 +16,7 @@ MANY_TOKENS = [f"token-{index} " for index in range(500)]
 
 @pytest.fixture(autouse=True)
 def _poll_without_waiting(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr("litellm.llms.replicate.chat.handler.REPLICATE_POLLING_DELAY_SECONDS", 0)
+    monkeypatch.setattr("hangarllm.llms.replicate.chat.handler.REPLICATE_POLLING_DELAY_SECONDS", 0)
 
 
 def _poll(*bodies: object) -> list[dict[str, object]]:
@@ -173,7 +173,7 @@ def _stream_completion(*poll_bodies: object) -> list[str | None]:
     with respx.mock:
         respx.post(CREATE_URL).mock(return_value=httpx.Response(201, json={"urls": {"get": POLL_URL}}))
         respx.get(POLL_URL).mock(side_effect=[httpx.Response(200, json=body) for body in poll_bodies])
-        stream = litellm.completion(
+        stream = hangarllm.completion(
             model="replicate/meta/meta-llama-3-8b-instruct",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -191,7 +191,7 @@ def test_streaming_completion_emits_each_polled_delta_as_content():
 
 
 def test_streaming_completion_maps_a_non_text_output_to_unprocessable_entity():
-    with pytest.raises(litellm.UnprocessableEntityError) as exc_info:
+    with pytest.raises(hangarllm.UnprocessableEntityError) as exc_info:
         _stream_completion({"status": "succeeded", "output": ["a", 1]})
 
     assert "Unable to parse response. Got=['a', 1]" in str(exc_info.value)
@@ -202,5 +202,5 @@ def test_streaming_completion_maps_a_non_object_poll_body_to_an_api_error_whatev
     with pytest.raises(MidStreamFallbackError) as exc_info:
         _stream_completion(body)
 
-    assert type(exc_info.value.original_exception) is litellm.APIError
+    assert type(exc_info.value.original_exception) is hangarllm.APIError
     assert exc_info.value.original_exception.status_code == 500

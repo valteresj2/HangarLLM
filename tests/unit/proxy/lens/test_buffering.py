@@ -9,14 +9,14 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Response
 from starlette.requests import ClientDisconnect, Request
 from starlette.types import Message
 
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.common_utils.http_parsing_utils import read_request_body
-from litellm.proxy.lens.adapter import Connection, Identity, forward, router
-from litellm.proxy.lens.buffering import FORWARD_BUFFER_BUDGET, BodyReservation, BufferBudget, LensRoute
-from litellm.tracing.remote import MAX_RESPONSE_BYTES, LensConnection
+from hangarllm.proxy._types import HangarllmUserRoles
+from hangarllm.proxy.common_utils.http_parsing_utils import read_request_body
+from hangarllm.proxy.lens.adapter import Connection, Identity, forward, router
+from hangarllm.proxy.lens.buffering import FORWARD_BUFFER_BUDGET, BodyReservation, BufferBudget, LensRoute
+from hangarllm.tracing.remote import MAX_RESPONSE_BYTES, LensConnection
 
 IDENTITY: Final = Identity(
-    user_role=LitellmUserRoles.PROXY_ADMIN,
+    user_role=HangarllmUserRoles.PROXY_ADMIN,
     user_id="admin",
     team_id=None,
     org_id=None,

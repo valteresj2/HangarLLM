@@ -31,19 +31,19 @@ from psycopg.rows import dict_row
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import (
+from hangarllm.proxy._types import (
     DeleteTeamRequest,
-    LitellmUserRoles,
+    HangarllmUserRoles,
     Member,
     TeamMemberAddRequest,
     UserAPIKeyAuth,
 )
-from litellm.caching.caching import DualCache
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
-_DELETE_SEEDED = 'DELETE FROM "LiteLLM_TeamMembership" WHERE team_id = $1'
-_DELETE_USER = 'DELETE FROM "LiteLLM_UserTable" WHERE user_id = $1'
-_DELETE_TEAM = 'DELETE FROM "LiteLLM_TeamTable" WHERE team_id = $1'
+_DELETE_SEEDED = 'DELETE FROM "HangarLLM_TeamMembership" WHERE team_id = $1'
+_DELETE_USER = 'DELETE FROM "HangarLLM_UserTable" WHERE user_id = $1'
+_DELETE_TEAM = 'DELETE FROM "HangarLLM_TeamTable" WHERE team_id = $1'
 _LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtext($1)) IS NULL AS locked"
 _HELD_LOCK_KEY_SQL = (
     "SELECT classid::bigint AS classid, objid::bigint AS objid FROM pg_locks "
@@ -128,7 +128,7 @@ async def _real_prisma_client():
 
 
 def _admin_auth():
-    return UserAPIKeyAuth(user_id="lit5544-admin", api_key="sk-lit5544", user_role=LitellmUserRoles.PROXY_ADMIN.value)
+    return UserAPIKeyAuth(user_id="lit5544-admin", api_key="sk-lit5544", user_role=HangarllmUserRoles.PROXY_ADMIN.value)
 
 
 @pytest.mark.asyncio
@@ -139,14 +139,14 @@ async def test_member_add_blocked_by_delete_writes_no_dangling_reference():
     the row gone and raise, without ever calling the write that appends the user/membership
     references, which is the only way this leaves zero trace after the delete wins.
     """
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.team_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.management_endpoints.team_endpoints import (
         _add_team_members_to_team,
     )
 
     team_id, user_id = _race_ids()
     async with _clean_db(team_id, user_id) as db:
-        await db.litellm_teamtable.create(data={"team_id": team_id, "team_alias": team_id, "members_with_roles": "[]"})
+        await db.hangarllm_teamtable.create(data={"team_id": team_id, "team_alias": team_id, "members_with_roles": "[]"})
 
         async with _real_prisma_client() as prisma_client:
             from prisma import Prisma
@@ -161,10 +161,10 @@ async def test_member_add_blocked_by_delete_writes_no_dangling_reference():
                         member=Member(user_id=user_id, role="user"),
                         max_budget_in_team=5.0,
                     ),
-                    complete_team_data=LiteLLM_TeamTable(team_id=team_id, members_with_roles=[]),
+                    complete_team_data=HangarLLM_TeamTable(team_id=team_id, members_with_roles=[]),
                     prisma_client=prisma_client,
                     user_api_key_dict=_admin_auth(),
-                    litellm_proxy_admin_name="lit5544-admin",
+                    hangarllm_proxy_admin_name="lit5544-admin",
                 )
 
             try:
@@ -181,10 +181,10 @@ async def test_member_add_blocked_by_delete_writes_no_dangling_reference():
             finally:
                 await blocker.disconnect()
 
-        user_row = await db.litellm_usertable.find_unique(where={"user_id": user_id})
+        user_row = await db.hangarllm_usertable.find_unique(where={"user_id": user_id})
         assert user_row is None, "member_add must not have written a user row for a team that was gone under its lock"
 
-        membership_row = await db.litellm_teammembership.find_first(where={"team_id": team_id, "user_id": user_id})
+        membership_row = await db.hangarllm_teammembership.find_first(where={"team_id": team_id, "user_id": user_id})
         assert membership_row is None
 
 
@@ -197,9 +197,9 @@ async def test_member_delete_blocked_by_member_add_removes_from_the_fresh_roster
     snapshot it validated against before the lock, and its write would overwrite the
     member_add's addition right back out even though member_add's request already succeeded.
     """
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import TeamMemberDeleteRequest
-    from litellm.proxy.management_endpoints.team_endpoints import team_member_delete
+    import hangarllm.proxy.proxy_server as proxy_server_module
+    from hangarllm.proxy._types import TeamMemberDeleteRequest
+    from hangarllm.proxy.management_endpoints.team_endpoints import team_member_delete
 
     team_id, user_id = _race_ids()
     other_user = f"{user_id}-other"
@@ -210,7 +210,7 @@ async def test_member_delete_blocked_by_member_add_removes_from_the_fresh_roster
     )
 
     async with _clean_db(team_id, user_id) as db:
-        await db.litellm_teamtable.create(
+        await db.hangarllm_teamtable.create(
             data={"team_id": team_id, "team_alias": team_id, "members_with_roles": seeded_roster}
         )
 
@@ -236,7 +236,7 @@ async def test_member_delete_blocked_by_member_add_removes_from_the_fresh_roster
                         task = asyncio.create_task(run_delete())
                         await _await_lock_contention(lock_key, task, "member_delete")
 
-                        await held.litellm_teamtable.update(
+                        await held.hangarllm_teamtable.update(
                             where={"team_id": team_id},
                             data={"members_with_roles": winning_add_roster},
                         )
@@ -247,7 +247,7 @@ async def test_member_delete_blocked_by_member_add_removes_from_the_fresh_roster
             finally:
                 proxy_server_module.prisma_client = original_prisma_client
 
-        team_row = await db.litellm_teamtable.find_unique(where={"team_id": team_id})
+        team_row = await db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
         raw_roster = team_row.members_with_roles
         parsed_roster = json.loads(raw_roster) if isinstance(raw_roster, str) else raw_roster
         remaining_ids = {m["user_id"] for m in parsed_roster}
@@ -265,30 +265,30 @@ async def test_delete_blocked_by_member_add_sweeps_the_fresh_reference():
     actually is, not a stale snapshot, and reap that reference rather than leaving it
     stranded on a team id the delete is about to remove.
     """
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.team_endpoints import delete_team
+    import hangarllm.proxy.proxy_server as proxy_server_module
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.management_endpoints.team_endpoints import delete_team
 
     team_id, user_id = _race_ids()
     async with _clean_db(team_id, user_id) as db:
-        await db.litellm_teamtable.create(data={"team_id": team_id, "team_alias": team_id, "members_with_roles": "[]"})
+        await db.hangarllm_teamtable.create(data={"team_id": team_id, "team_alias": team_id, "members_with_roles": "[]"})
 
         async with _real_prisma_client() as prisma_client:
             proxy_logging_obj = prisma_client.proxy_logging_obj
             original_prisma_client = proxy_server_module.prisma_client
-            original_admin_name = proxy_server_module.litellm_proxy_admin_name
+            original_admin_name = proxy_server_module.hangarllm_proxy_admin_name
             original_proxy_logging_obj = proxy_server_module.proxy_logging_obj
             original_cache = proxy_server_module.user_api_key_cache
             original_router = proxy_server_module.llm_router
             proxy_server_module.prisma_client = prisma_client
-            proxy_server_module.litellm_proxy_admin_name = "lit5544-admin"
+            proxy_server_module.hangarllm_proxy_admin_name = "lit5544-admin"
             proxy_server_module.proxy_logging_obj = proxy_logging_obj
             proxy_server_module.user_api_key_cache = original_cache or proxy_logging_obj.internal_usage_cache
             proxy_server_module.llm_router = None
 
             async def restore():
                 proxy_server_module.prisma_client = original_prisma_client
-                proxy_server_module.litellm_proxy_admin_name = original_admin_name
+                proxy_server_module.hangarllm_proxy_admin_name = original_admin_name
                 proxy_server_module.proxy_logging_obj = original_proxy_logging_obj
                 proxy_server_module.user_api_key_cache = original_cache
                 proxy_server_module.llm_router = original_router
@@ -304,7 +304,7 @@ async def test_delete_blocked_by_member_add_sweeps_the_fresh_reference():
                         data=DeleteTeamRequest(team_ids=[team_id]),
                         http_request=MagicMock(),
                         user_api_key_dict=_admin_auth(),
-                        litellm_changed_by="lit5544-admin",
+                        hangarllm_changed_by="lit5544-admin",
                     )
 
                 try:
@@ -313,15 +313,15 @@ async def test_delete_blocked_by_member_add_sweeps_the_fresh_reference():
                         task = asyncio.create_task(run_delete())
                         await _await_lock_contention(lock_key, task, "delete_team")
 
-                        await held.litellm_usertable.upsert(
+                        await held.hangarllm_usertable.upsert(
                             where={"user_id": user_id},
                             data={
                                 "create": {"user_id": user_id, "teams": [team_id]},
                                 "update": {"teams": {"push": [team_id]}},
                             },
                         )
-                        await held.litellm_teammembership.create(data={"team_id": team_id, "user_id": user_id})
-                        await held.litellm_teamtable.update(
+                        await held.hangarllm_teammembership.create(data={"team_id": team_id, "user_id": user_id})
+                        await held.hangarllm_teamtable.update(
                             where={"team_id": team_id},
                             data={"members_with_roles": '[{"user_id": "%s", "role": "user"}]' % user_id},
                         )
@@ -332,13 +332,13 @@ async def test_delete_blocked_by_member_add_sweeps_the_fresh_reference():
             finally:
                 await restore()
 
-        team_row = await db.litellm_teamtable.find_unique(where={"team_id": team_id})
+        team_row = await db.hangarllm_teamtable.find_unique(where={"team_id": team_id})
         assert team_row is None
 
-        user_row = await db.litellm_usertable.find_unique(where={"user_id": user_id})
+        user_row = await db.hangarllm_usertable.find_unique(where={"user_id": user_id})
         assert user_row is not None and team_id not in user_row.teams, (
             "delete_team's locked sweep must reap the reference member_add wrote just before losing the lock"
         )
 
-        membership_row = await db.litellm_teammembership.find_first(where={"team_id": team_id, "user_id": user_id})
+        membership_row = await db.hangarllm_teammembership.find_first(where={"team_id": team_id, "user_id": user_id})
         assert membership_row is None

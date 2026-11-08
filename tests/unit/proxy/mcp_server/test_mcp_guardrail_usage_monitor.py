@@ -8,8 +8,8 @@ bucket, where ``get_standard_logging_object_payload`` never sees it, so the
 Guardrails Monitor reported zero evaluations and zero blocks for MCP traffic.
 
 ``pre_call_tool_check`` and ``_create_during_hook_task`` now take the request's
-``litellm_logging_obj`` and bridge those records onto it. These tests pin both the
-seeding (which unified guardrails consume off ``data["litellm_logging_obj"]``) and
+``hangarllm_logging_obj`` and bridge those records onto it. These tests pin both the
+seeding (which unified guardrails consume off ``data["hangarllm_logging_obj"]``) and
 the bridge (which native guardrails depend on), including on the block path.
 """
 
@@ -20,25 +20,25 @@ from unittest import mock
 
 import pytest
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.mcp_server import mcp_server_manager as MOD
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.proxy.mcp_server import mcp_server_manager as MOD
 
 
 class _FakeLoggingObj:
-    """Minimal stand-in for ``LiteLLMLoggingObj``.
+    """Minimal stand-in for ``HangarLLMLoggingObj``.
 
     ``_sync_guardrail_info_to_logging_obj`` reads exactly these two attributes,
-    and the spend-log payload is built from ``litellm_params["metadata"]``, so a
+    and the spend-log payload is built from ``hangarllm_params["metadata"]``, so a
     real ``Logging`` instance would add setup cost without adding coverage.
     """
 
     def __init__(self) -> None:
-        self.litellm_params: dict[str, Any] = {"metadata": {}}
-        self.model_call_details: dict[str, Any] = {"litellm_params": self.litellm_params}
+        self.hangarllm_params: dict[str, Any] = {"metadata": {}}
+        self.model_call_details: dict[str, Any] = {"hangarllm_params": self.hangarllm_params}
 
     @property
     def recorded_guardrails(self) -> list:
-        return self.litellm_params["metadata"].get("standard_logging_guardrail_information", [])
+        return self.hangarllm_params["metadata"].get("standard_logging_guardrail_information", [])
 
 
 def _bare_manager() -> MOD.MCPServerManager:
@@ -117,13 +117,13 @@ async def _run_pre_call(mgr, plo, logging_obj) -> dict:
         proxy_logging_obj=plo,
         server=mock.MagicMock(pinned_tools=None),
         raw_headers={},
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
 
 @pytest.mark.asyncio
 async def test_pre_call_seeds_request_logging_obj_for_unified_guardrails():
-    """Unified guardrails read ``data["litellm_logging_obj"]`` and pass it into
+    """Unified guardrails read ``data["hangarllm_logging_obj"]`` and pass it into
     ``apply_guardrail``, whose ``@log_guardrail_information`` wrapper bridges the
     evaluation onto that logger itself. Drop the seed and that path records
     nothing."""
@@ -131,7 +131,7 @@ async def test_pre_call_seeds_request_logging_obj_for_unified_guardrails():
     logging_obj = _FakeLoggingObj()
     await _run_pre_call(_bare_manager(), _fake_proxy_logging(capture), logging_obj)
 
-    assert capture["data"]["litellm_logging_obj"] is logging_obj
+    assert capture["data"]["hangarllm_logging_obj"] is logging_obj
 
 
 @pytest.mark.asyncio
@@ -196,7 +196,7 @@ async def test_pre_call_without_logging_obj_is_unchanged():
     )
 
     assert result == {}
-    assert capture["data"]["litellm_logging_obj"] is None
+    assert capture["data"]["hangarllm_logging_obj"] is None
 
 
 @pytest.mark.asyncio
@@ -215,10 +215,10 @@ async def test_during_hook_seeds_and_bridges_onto_request_logger():
         user_api_key_auth=None,
         proxy_logging_obj=plo,
         start_time=datetime.datetime(2026, 7, 14),
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
 
-    assert capture["data"]["litellm_logging_obj"] is logging_obj
+    assert capture["data"]["hangarllm_logging_obj"] is logging_obj
     assert logging_obj.recorded_guardrails == [{"guardrail_name": "test-guardrail", "guardrail_status": "success"}]
 
 
@@ -237,7 +237,7 @@ async def test_during_hook_bridges_even_when_hook_raises():
         user_api_key_auth=None,
         proxy_logging_obj=plo,
         start_time=datetime.datetime(2026, 7, 14),
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     with pytest.raises(GuardrailRaisedException):
         await task
@@ -279,11 +279,11 @@ async def test_call_tool_threads_logging_obj_into_both_hooks():
     seen: dict = {}
 
     async def _fake_pre_call_tool_check(**kwargs):
-        seen["pre_call"] = kwargs.get("litellm_logging_obj")
+        seen["pre_call"] = kwargs.get("hangarllm_logging_obj")
         return {}
 
     def _fake_during_hook_task(**kwargs):
-        seen["during_call"] = kwargs.get("litellm_logging_obj")
+        seen["during_call"] = kwargs.get("hangarllm_logging_obj")
         return asyncio.get_running_loop().create_future()
 
     mgr.pre_call_tool_check = _fake_pre_call_tool_check
@@ -298,7 +298,7 @@ async def test_call_tool_threads_logging_obj_into_both_hooks():
             name="t",
             arguments={},
             proxy_logging_obj=mock.MagicMock(),
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
 
     assert seen == {"pre_call": logging_obj, "during_call": logging_obj}

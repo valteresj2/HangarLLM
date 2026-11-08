@@ -1,10 +1,10 @@
 """Entrypoint for the migrations Job container.
 
-Runs `prisma migrate deploy` against the LiteLLM writer database using the
-recovery logic in `litellm_proxy_extras.ProxyExtrasDBManager.setup_database`
+Runs `prisma migrate deploy` against the HangarLLM writer database using the
+recovery logic in `hangarllm_proxy_extras.ProxyExtrasDBManager.setup_database`
 (P3005 baseline + P3009/P3018 idempotent-error handling, retries, etc.), then
 builds the request-log indexes the migrations leave out
-(`litellm_proxy_extras.request_log_indexes`), waiting for them. The job exits
+(`hangarllm_proxy_extras.request_log_indexes`), waiting for them. The job exits
 non-zero when an index could not be built so that it is rerun. A serving proxy
 that runs the migrations itself builds the same indexes in the background once
 it serves.
@@ -20,7 +20,7 @@ Env vars:
                                 (legacy diff-and-force recovery). Defaults
                                 to "true": the v2 resolver avoids the schema
                                 thrashing seen during rolling deploys when
-                                two LiteLLM versions contend for the same DB.
+                                two HangarLLM versions contend for the same DB.
   USE_PRISMA_DB_PUSH            "true" → use `prisma db push` instead of
                                 `migrate deploy`. Default false.
 """
@@ -28,10 +28,10 @@ Env vars:
 import os
 import sys
 
-from litellm_proxy_extras._logging import logger
-from litellm_proxy_extras.utils import ProxyExtrasDBManager, str_to_bool
+from hangarllm_proxy_extras._logging import logger
+from hangarllm_proxy_extras.utils import ProxyExtrasDBManager, str_to_bool
 
-from litellm.proxy.db.db_url_settings import DatabaseURLSettings
+from hangarllm.proxy.db.db_url_settings import DatabaseURLSettings
 
 
 def main() -> int:

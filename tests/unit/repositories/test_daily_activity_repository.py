@@ -6,9 +6,9 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from litellm import constants
-from litellm.repositories.daily_activity_repository import DailyActivityRepository
-from litellm.repositories.daily_activity_sql import (
+from hangarllm import constants
+from hangarllm.repositories.daily_activity_repository import DailyActivityRepository
+from hangarllm.repositories.daily_activity_sql import (
     ExportCursor,
     build_cache_leakage_keys_sql,
     build_entity_rollup_sql,
@@ -18,7 +18,7 @@ from litellm.repositories.daily_activity_sql import (
     build_model_top_keys_sql,
     build_user_page_sql,
 )
-from litellm.types.repositories.daily_activity import (
+from hangarllm.types.repositories.daily_activity import (
     DailyActivityScope,
     DailyActivityTable,
     ExportType,
@@ -178,15 +178,15 @@ class _FakeDatabase:
     def __init__(self, responses: Sequence[Sequence[Mapping[str, object]] | None] = ()) -> None:
         self.responses = tuple(responses)
         self.query_calls: list[tuple[str, tuple[object, ...]]] = []
-        self.litellm_usertable = _FakeTable()
-        self.litellm_verificationtoken = _FakeTable()
-        self.litellm_deletedverificationtoken = _FakeTable()
-        self.litellm_dailyuserspend = _FakeTable()
-        self.litellm_dailyteamspend = _FakeTable()
-        self.litellm_dailytagspend = _FakeTable()
-        self.litellm_dailyorganizationspend = _FakeTable()
-        self.litellm_dailyenduserspend = _FakeTable()
-        self.litellm_dailyagentspend = _FakeTable()
+        self.hangarllm_usertable = _FakeTable()
+        self.hangarllm_verificationtoken = _FakeTable()
+        self.hangarllm_deletedverificationtoken = _FakeTable()
+        self.hangarllm_dailyuserspend = _FakeTable()
+        self.hangarllm_dailyteamspend = _FakeTable()
+        self.hangarllm_dailytagspend = _FakeTable()
+        self.hangarllm_dailyorganizationspend = _FakeTable()
+        self.hangarllm_dailyenduserspend = _FakeTable()
+        self.hangarllm_dailyagentspend = _FakeTable()
 
     async def query_raw(self, query: str, *params: object) -> Sequence[Mapping[str, object]] | None:
         self.query_calls.append((query, params))
@@ -403,7 +403,7 @@ class _FakeUserRow:
 @pytest.mark.asyncio
 async def test_user_metadata_resolves_email_and_alias_in_one_lookup() -> None:
     database: Final = _FakeDatabase()
-    database.litellm_usertable = _FakeTable(
+    database.hangarllm_usertable = _FakeTable(
         (
             _FakeUserRow(user_id="user-a", user_email="a@example.test", user_alias="alias-a"),
             _FakeUserRow(user_id="user-b", user_email=None, user_alias=None),
@@ -417,9 +417,9 @@ async def test_user_metadata_resolves_email_and_alias_in_one_lookup() -> None:
         "user-a": UserMetadataRow(user_email="a@example.test", user_alias="alias-a"),
         "user-b": UserMetadataRow(user_email=None, user_alias=None),
     }
-    assert len(database.litellm_usertable.find_many_calls) == 1
+    assert len(database.hangarllm_usertable.find_many_calls) == 1
     assert await repository.user_metadata(frozenset()) == {}
-    assert len(database.litellm_usertable.find_many_calls) == 1
+    assert len(database.hangarllm_usertable.find_many_calls) == 1
 
 
 @pytest.mark.asyncio
@@ -500,8 +500,8 @@ async def test_key_metadata_prefers_active_rows_and_recovers_all_requested_keys(
         user_id=None,
         metadata={"tags": [1]},
     )
-    database.litellm_verificationtoken = _FakeTable((active, malformed_non_list, malformed_list))
-    database.litellm_deletedverificationtoken = _FakeTable((deleted_active_duplicate, deleted_older, deleted_newer))
+    database.hangarllm_verificationtoken = _FakeTable((active, malformed_non_list, malformed_list))
+    database.hangarllm_deletedverificationtoken = _FakeTable((deleted_active_duplicate, deleted_older, deleted_newer))
     proxy_reads: Final = _ProxyReads()
     repository, _ = _repository(database, proxy_reads)
     window: Final = (datetime(2026, 1, 1), datetime(2026, 2, 1))
@@ -523,8 +523,8 @@ async def test_key_metadata_prefers_active_rows_and_recovers_all_requested_keys(
     assert result["deleted"].tags == ("archived",)
     assert result["malformed-non-list"].tags == ()
     assert result["malformed-list"].tags == ()
-    assert len(database.litellm_deletedverificationtoken.find_many_calls) == 1
-    assert set(database.litellm_deletedverificationtoken.find_many_calls[0]["token"]["in"]) == {
+    assert len(database.hangarllm_deletedverificationtoken.find_many_calls) == 1
+    assert set(database.hangarllm_deletedverificationtoken.find_many_calls[0]["token"]["in"]) == {
         "deleted",
         "unresolved",
     }
@@ -547,8 +547,8 @@ async def test_key_metadata_continues_with_active_rows_when_deleted_lookup_fails
         user_id=None,
         metadata={"tags": []},
     )
-    database.litellm_verificationtoken = _FakeTable((active,))
-    database.litellm_deletedverificationtoken = _FailingTable("deleted token query failed")
+    database.hangarllm_verificationtoken = _FakeTable((active,))
+    database.hangarllm_deletedverificationtoken = _FailingTable("deleted token query failed")
     repository, proxy_reads = _repository(database)
 
     result = await repository.key_metadata(frozenset(("active", "deleted")), None)
@@ -564,20 +564,20 @@ async def test_key_metadata_empty_set_does_not_query_tables() -> None:
     repository, proxy_reads = _repository(database)
 
     assert await repository.key_metadata(frozenset(), None) == {}
-    assert database.litellm_verificationtoken.find_many_calls == []
+    assert database.hangarllm_verificationtoken.find_many_calls == []
     assert proxy_reads.recovery_calls == []
 
 
 @pytest.mark.asyncio
 async def test_key_metadata_propagates_active_token_lookup_failures() -> None:
     database = _FakeDatabase()
-    database.litellm_verificationtoken = _FailingTable("active token query failed")
+    database.hangarllm_verificationtoken = _FailingTable("active token query failed")
     repository, _ = _repository(database)
 
     with pytest.raises(RuntimeError, match="active token query failed"):
         await repository.key_metadata(frozenset(("active",)), None)
 
-    assert database.litellm_deletedverificationtoken.find_many_calls == []
+    assert database.hangarllm_deletedverificationtoken.find_many_calls == []
 
 
 @pytest.mark.asyncio
@@ -645,12 +645,12 @@ async def test_daily_rows_selects_the_table_and_applies_filters_and_pagination(
         "api_key": {"in": ["key-1"]},
     }
     tables: Final = {
-        DailyActivityTable.USER: database.litellm_dailyuserspend,
-        DailyActivityTable.TEAM: database.litellm_dailyteamspend,
-        DailyActivityTable.TAG: database.litellm_dailytagspend,
-        DailyActivityTable.ORGANIZATION: database.litellm_dailyorganizationspend,
-        DailyActivityTable.CUSTOMER: database.litellm_dailyenduserspend,
-        DailyActivityTable.AGENT: database.litellm_dailyagentspend,
+        DailyActivityTable.USER: database.hangarllm_dailyuserspend,
+        DailyActivityTable.TEAM: database.hangarllm_dailyteamspend,
+        DailyActivityTable.TAG: database.hangarllm_dailytagspend,
+        DailyActivityTable.ORGANIZATION: database.hangarllm_dailyorganizationspend,
+        DailyActivityTable.CUSTOMER: database.hangarllm_dailyenduserspend,
+        DailyActivityTable.AGENT: database.hangarllm_dailyagentspend,
     }
     selected_table: Final = tables[table]
 
@@ -666,16 +666,16 @@ async def test_daily_rows_selects_the_table_and_applies_filters_and_pagination(
 async def test_daily_rows_exclusion_without_entity_filter_keeps_null_entity_rows() -> None:
     database = _FakeDatabase()
     repository, _ = _repository(database)
-    scope = _scope(table=DailyActivityTable.TEAM, entity_ids=None, exclude_entity_ids=("litellm-dashboard",))
+    scope = _scope(table=DailyActivityTable.TEAM, entity_ids=None, exclude_entity_ids=("hangarllm-dashboard",))
 
     await repository.daily_rows(scope, page=1, page_size=10)
 
     expected_where: Final = {
         "date": {"gte": "2026-01-01", "lte": "2026-01-31"},
-        "OR": [{"team_id": None}, {"team_id": {"not": {"in": ["litellm-dashboard"]}}}],
+        "OR": [{"team_id": None}, {"team_id": {"not": {"in": ["hangarllm-dashboard"]}}}],
     }
-    assert database.litellm_dailyteamspend.count_calls == [expected_where]
-    assert database.litellm_dailyteamspend.find_many_calls == [expected_where]
+    assert database.hangarllm_dailyteamspend.count_calls == [expected_where]
+    assert database.hangarllm_dailyteamspend.find_many_calls == [expected_where]
 
 
 @pytest.mark.asyncio

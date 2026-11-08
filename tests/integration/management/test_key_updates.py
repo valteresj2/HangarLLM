@@ -23,7 +23,7 @@ def test_update_preserves_independent_fields_and_serving(gateway: Gateway) -> No
         replacement: Final = scenario.model()
         gateway.post("/key/update", {"key": key, "models": [replacement]})
         saved: Final = read_rows(
-            'SELECT key_alias, models, metadata FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT key_alias, models, metadata FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (sha256(key.encode()).hexdigest(),),
         )
         assert len(saved) == 1

@@ -45,7 +45,7 @@ async def _seed_target(db, actors, shape: str, team_id: str, member_id: str) -> 
         await create_scratch_team(db, team_id, organization_id=actors.org_b_id)
     else:  # pragma: no cover - guard
         pytest.fail(f"unknown shape={shape}")
-    await db.db.litellm_teammembership.create(
+    await db.db.hangarllm_teammembership.create(
         data={"user_id": member_id, "team_id": team_id, "spend": _SEED_SPEND}
     )
 
@@ -77,7 +77,7 @@ async def test_team_member_reset_spend_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value} {shape}: {resp.status_code} {resp.text}"
 
-    row = await db.db.litellm_teammembership.find_unique(
+    row = await db.db.hangarllm_teammembership.find_unique(
         where={"user_id_team_id": {"user_id": member_id, "team_id": resources.prefix}}
     )
     assert row is not None
@@ -99,7 +99,7 @@ async def test_team_member_reset_spend_missing_team_is_404(gateway_client, actor
 async def test_team_member_reset_spend_missing_membership_is_404(
     gateway_client, db, resources, actors
 ):
-    """A well-formed team but a user_id with no LiteLLM_TeamMembership row is 404."""
+    """A well-formed team but a user_id with no HangarLLM_TeamMembership row is 404."""
     await create_scratch_team(db, resources.prefix, organization_id=actors.org_a_id)
     resp = await gateway_client.post(
         f"/team/{resources.prefix}/member/{uuid.uuid4().hex}/reset_spend",
@@ -114,7 +114,7 @@ async def test_team_member_reset_spend_above_current_spend_is_400(
 ):
     member_id = resources.tag("member")
     await create_scratch_team(db, resources.prefix, organization_id=actors.org_a_id)
-    await db.db.litellm_teammembership.create(
+    await db.db.hangarllm_teammembership.create(
         data={"user_id": member_id, "team_id": resources.prefix, "spend": 1.0}
     )
     resp = await gateway_client.post(
@@ -128,7 +128,7 @@ async def test_team_member_reset_spend_above_current_spend_is_400(
 async def test_team_member_reset_spend_team_admin_cannot_reset_own_spend(
     gateway_client, db, resources, actors
 ):
-    """A team admin targeting their own LiteLLM_TeamMembership row is 403: unchecked, an
+    """A team admin targeting their own HangarLLM_TeamMembership row is 403: unchecked, an
     admin could repeatedly zero their own spend right before it crosses their per-member
     cap, consuming the shared team budget without the configured limit ever binding."""
     team_admin = actors.keys[Actor.TEAM_ADMIN]
@@ -139,7 +139,7 @@ async def test_team_member_reset_spend_team_admin_cannot_reset_own_spend(
         admin_user_ids=[team_admin.user_id],
     )
     write_rows(
-        'UPDATE "LiteLLM_TeamMembership" SET spend = %s WHERE user_id = %s AND team_id = %s',
+        'UPDATE "HangarLLM_TeamMembership" SET spend = %s WHERE user_id = %s AND team_id = %s',
         (str(_SEED_SPEND), team_admin.user_id, resources.prefix),
     )
     resp = await gateway_client.post(
@@ -148,7 +148,7 @@ async def test_team_member_reset_spend_team_admin_cannot_reset_own_spend(
         json={"reset_to": 0.0},
     )
     assert resp.status_code == 403, resp.text
-    row = await db.db.litellm_teammembership.find_unique(
+    row = await db.db.hangarllm_teammembership.find_unique(
         where={"user_id_team_id": {"user_id": team_admin.user_id, "team_id": resources.prefix}}
     )
     assert row is not None and row.spend == _SEED_SPEND, "denied but spend reset"

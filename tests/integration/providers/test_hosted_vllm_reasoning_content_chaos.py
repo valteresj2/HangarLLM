@@ -220,7 +220,7 @@ def _assert_no_bleed(received: tuple[Request, ...], markers: frozenset[str]) -> 
 
 def _spend_statuses(model: str, expected: int) -> list[JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=60,
     )
@@ -323,7 +323,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": _CONFIG_MODEL,
-            "litellm_params": {"model": f"hosted_vllm/{_BACKEND}", "api_base": wire.url + "/v1", "api_key": _API_KEY},
+            "hangarllm_params": {"model": f"hosted_vllm/{_BACKEND}", "api_base": wire.url + "/v1", "api_key": _API_KEY},
         }
     ]
     path: Final = tmp_path / "hosted-vllm-reasoning-chaos.yaml"

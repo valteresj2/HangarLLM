@@ -122,7 +122,7 @@ class TestPrismaFilters:
 
     def test_an_in_list_is_pointed_at_the_chunking_helper(self, tmp_path):
         (finding,) = _check(tmp_path, 'where = {"user_id": {"in": user_ids}}\n')
-        assert "litellm.repositories.chunked_in" in finding.message
+        assert "hangarllm.repositories.chunked_in" in finding.message
 
     def test_a_not_in_list_is_pointed_at_an_array_parameter_since_it_cannot_be_chunked(self, tmp_path):
         (finding,) = _check(tmp_path, 'where = {"user_id": {"not_in": user_ids}}\n')
@@ -253,12 +253,12 @@ class TestMarkers:
 
 class TestDriver:
     def test_the_chunking_helper_is_exempt(self):
-        helper = checker.REPO_ROOT / "litellm" / "repositories" / "chunked_in.py"
+        helper = checker.REPO_ROOT / "hangarllm" / "repositories" / "chunked_in.py"
         assert "prisma" in tuple(finding.kind for finding in checker.check_file(helper))
         assert checker.scan(checker.collect_paths([str(helper)])) == ()
 
     def test_a_copy_of_the_helper_elsewhere_is_not_exempt(self, tmp_path):
-        helper = checker.REPO_ROOT / "litellm" / "repositories" / "chunked_in.py"
+        helper = checker.REPO_ROOT / "hangarllm" / "repositories" / "chunked_in.py"
         copy = tmp_path / "chunked_in.py"
         copy.write_text(helper.read_text(encoding="utf-8"), encoding="utf-8")
         assert "prisma" in tuple(finding.kind for finding in checker.scan([copy]))
@@ -397,7 +397,7 @@ class TestBaseline:
     def test_update_baseline_drops_fixed_entries_and_keeps_unscanned_ones(self, tmp_path):
         target = self._write(tmp_path, 'def f():\n    return {"user_id": {"in": user_ids}}\n')
         baseline = tmp_path / "baseline.txt"
-        elsewhere = "litellm/elsewhere.py g prisma team_id.in 0"
+        elsewhere = "hangarllm/elsewhere.py g prisma team_id.in 0"
         fixed = f"{target.resolve().as_posix()} gone prisma team_id.in 0"
         baseline.write_text(f"{elsewhere}\n{fixed}\n", encoding="utf-8")
         assert self._run(str(target), "--baseline", str(baseline), "--update-baseline") == 0
@@ -409,7 +409,7 @@ class TestBaseline:
     def test_entries_for_files_outside_the_scan_are_not_stale(self, tmp_path):
         target = self._write(tmp_path, "x = 1\n")
         baseline = tmp_path / "baseline.txt"
-        baseline.write_text("litellm/elsewhere.py g prisma team_id.in 0\n", encoding="utf-8")
+        baseline.write_text("hangarllm/elsewhere.py g prisma team_id.in 0\n", encoding="utf-8")
         assert self._run(str(target), "--baseline", str(baseline)) == 0
 
     def test_an_entry_for_a_deleted_file_under_a_scanned_directory_is_stale(self, tmp_path):

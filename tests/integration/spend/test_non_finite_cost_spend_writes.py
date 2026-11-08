@@ -23,9 +23,9 @@ OVERFLOWING_INPUT_RATE: Final = 1e308
 POISONED_UPSTREAM: Final = "poisoned-upstream"
 CONTROL_UPSTREAM: Final = "control-upstream"
 DAILY_TOTALS: Final = "SELECT model_group, SUM(spend)::float8 AS spend, SUM(api_requests)::int8 AS api_requests"
-DAILY_USER_QUERY: Final = f'{DAILY_TOTALS} FROM "LiteLLM_DailyUserSpend" WHERE api_key=%s GROUP BY model_group'
-DAILY_TEAM_QUERY: Final = f'{DAILY_TOTALS} FROM "LiteLLM_DailyTeamSpend" WHERE api_key=%s GROUP BY model_group'
-DAILY_TAG_QUERY: Final = f'{DAILY_TOTALS} FROM "LiteLLM_DailyTagSpend" WHERE api_key=%s AND tag=%s GROUP BY model_group'
+DAILY_USER_QUERY: Final = f'{DAILY_TOTALS} FROM "HangarLLM_DailyUserSpend" WHERE api_key=%s GROUP BY model_group'
+DAILY_TEAM_QUERY: Final = f'{DAILY_TOTALS} FROM "HangarLLM_DailyTeamSpend" WHERE api_key=%s GROUP BY model_group'
+DAILY_TAG_QUERY: Final = f'{DAILY_TOTALS} FROM "HangarLLM_DailyTagSpend" WHERE api_key=%s AND tag=%s GROUP BY model_group'
 
 Poison = Literal["reported_nan_cost", "overflowing_price"]
 
@@ -59,7 +59,7 @@ def _stream(upstream_model: str, reported_cost: float | None) -> tuple[bytes, ..
 def _deployment(alias: str, upstream_model: str, wire_url: str, input_rate: float) -> dict[str, JsonValue]:
     return {
         "model_name": alias,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": f"openai/{upstream_model}",
             "api_base": f"{wire_url}/v1",
             "api_key": "integration-provider-key",
@@ -76,7 +76,7 @@ def _proxy_config(directory: Path, deployments: tuple[dict[str, JsonValue], ...]
             {
                 "model_list": list(deployments),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_spend_logs": False,
                     "proxy_batch_write_at": 1,
@@ -146,7 +146,7 @@ def test_a_non_finite_cost_never_blocks_the_next_requests_spend_rows(
 
             expected: Final = {poisoned_alias: pytest.approx(poisoned_spend), control_alias: pytest.approx(TOKEN_PRICE)}
             spend_logs: Final = _both_requests_rows(
-                'SELECT model_group, spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (digest,)
+                'SELECT model_group, spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (digest,)
             )
             assert _by_model_group(spend_logs) == expected, spend_logs
             daily_rows: Final = (
@@ -158,7 +158,7 @@ def test_a_non_finite_cost_never_blocks_the_next_requests_spend_rows(
             assert [{row["api_requests"] for row in rows} for rows in daily_rows] == [{1}] * 3, daily_rows
             key_total: Final = poisoned_spend + TOKEN_PRICE
             key_spend: Final = eventually(
-                lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+                lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
                 lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) == pytest.approx(key_total),
                 seconds=70,
                 return_last_on_timeout=True,

@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.azure.realtime.http_transformation import AzureRealtimeHTTPConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.openai.realtime.http_transformation import OpenAIRealtimeHTTPConfig
-from litellm.types.realtime import RealtimeTranscriptionSessionRequest
+import hangarllm
+from hangarllm.llms.azure.realtime.http_transformation import AzureRealtimeHTTPConfig
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.llms.openai.realtime.http_transformation import OpenAIRealtimeHTTPConfig
+from hangarllm.types.realtime import RealtimeTranscriptionSessionRequest
 
 
 def test_openai_transcription_session_url():
@@ -52,14 +52,14 @@ def test_azure_transcription_session_url_uses_deployment_and_api_version(api_bas
 @pytest.mark.parametrize("api_version", [None, "v1", "latest", "preview"])
 @pytest.mark.parametrize("model", ["gpt-realtime-2.1", "gpt-realtime-2", "gpt-realtime-2-2026-05-06"])
 def test_azure_ga_realtime_http_urls(api_version, model: str, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     cfg = AzureRealtimeHTTPConfig()
     base = "https://my.openai.azure.com"
 
     assert cfg.get_complete_url(base, model, api_version) == (f"{base}/openai/v1/realtime/client_secrets")
     assert cfg.get_realtime_calls_url(base, model, api_version) == (f"{base}/openai/v1/realtime/calls")
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def test_request_resolves_model_returns_none_when_both_absent():
@@ -81,7 +81,7 @@ def test_request_resolves_model_from_input_audio_transcription():
 
 
 def test_request_passthrough_excludes_routing_hint():
-    """Unknown fields pass through; the litellm-only `model` hint is not forwarded."""
+    """Unknown fields pass through; the hangarllm-only `model` hint is not forwarded."""
     req = RealtimeTranscriptionSessionRequest(
         model="openai/gpt-realtime-whisper",
         input_audio_format="pcm16",
@@ -157,7 +157,7 @@ async def test_azure_client_secret_routes_on_a_provider_qualified_session_model(
     mock_client = MagicMock(spec=AsyncHTTPHandler)
     mock_client.post = AsyncMock(return_value=mock_response)
 
-    result = await litellm.acreate_realtime_client_secret(
+    result = await hangarllm.acreate_realtime_client_secret(
         session={"type": "realtime", "model": "azure/gpt-realtime-2.1"},
         api_base="https://my.openai.azure.com",
         api_key="azure-test-key",
@@ -175,10 +175,10 @@ async def test_azure_client_secret_routes_on_a_provider_qualified_session_model(
 @pytest.mark.asyncio
 async def test_sdk_fn_routes_openai_transcription_session(monkeypatch):
     """
-    litellm.acreate_realtime_transcription_session resolves the OpenAI provider
+    hangarllm.acreate_realtime_transcription_session resolves the OpenAI provider
     from the transcription model and POSTs to the OpenAI transcription_sessions URL.
     """
-    import litellm
+    import hangarllm
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-unit-test")
 
@@ -186,7 +186,7 @@ async def test_sdk_fn_routes_openai_transcription_session(monkeypatch):
     mock_client = MagicMock(spec=AsyncHTTPHandler)
     mock_client.post = AsyncMock(return_value=mock_response)
 
-    result = await litellm.acreate_realtime_transcription_session(
+    result = await hangarllm.acreate_realtime_transcription_session(
         model="openai/gpt-realtime-whisper",
         transcription_session={
             "input_audio_format": "pcm16",
@@ -198,13 +198,13 @@ async def test_sdk_fn_routes_openai_transcription_session(monkeypatch):
     assert result is mock_response
     _, kwargs = mock_client.post.call_args
     assert kwargs["url"].endswith("/v1/realtime/transcription_sessions")
-    # The litellm-only routing hint must not be forwarded upstream.
+    # The hangarllm-only routing hint must not be forwarded upstream.
     assert "model" not in kwargs["json"]
     assert kwargs["json"]["input_audio_transcription"] == {"model": "gpt-realtime-whisper"}
 
 
 def test_append_query_params_skips_existing_keys():
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     url = "wss://example.com/v1/realtime?model=gpt-4o"
     result = BaseLLMHTTPHandler._append_query_params(url, {"model": "ignored", "intent": "transcription"})
@@ -213,7 +213,7 @@ def test_append_query_params_skips_existing_keys():
 
 
 def test_append_query_params_no_params_returns_unchanged():
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     url = "wss://example.com/v1/realtime?model=gpt-4o"
     assert BaseLLMHTTPHandler._append_query_params(url, None) == url
@@ -221,7 +221,7 @@ def test_append_query_params_no_params_returns_unchanged():
 
 
 def test_append_query_params_encodes_special_chars():
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     url = "wss://example.com/v1/realtime"
     result = BaseLLMHTTPHandler._append_query_params(url, {"intent": "a&b=c"})
@@ -231,7 +231,7 @@ def test_append_query_params_encodes_special_chars():
 
 def test_azure_construct_url_encodes_model_and_api_version():
     """model and api-version must be URL-encoded to prevent query-string injection."""
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     h = AzureOpenAIRealtime()
     url = h.construct_url(

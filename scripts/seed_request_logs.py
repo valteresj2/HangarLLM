@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 from scripts.seed_tracing_fixtures import JSON_OBJECT, spend_fixtures
 
 if TYPE_CHECKING:
-    from prisma.types import LiteLLM_SpendLogsCreateWithoutRelationsInput
+    from prisma.types import HangarLLM_SpendLogsCreateWithoutRelationsInput
 
 REQUEST_ID_PREFIX: Final = "seed-logs-"
 SESSION_ID_PREFIX: Final = "seed-logs-session-"
@@ -292,10 +292,10 @@ def metadata(log: SeededLog, template: dict[str, JsonValue]) -> dict[str, JsonVa
             "output_cost": log.completion_tokens * 0.000008,
             "total_cost": log.spend,
         },
-        "litellm_overhead_time_ms": 12.5,
+        "hangarllm_overhead_time_ms": 12.5,
         "attempted_retries": 0,
         "max_retries": 2,
-        "hidden_params": {"litellm_overhead_time_ms": 12.5, "response_cost": log.spend},
+        "hidden_params": {"hangarllm_overhead_time_ms": 12.5, "response_cost": log.spend},
         "fixture_capture": None,
         "seed_label": log.label,
     }
@@ -304,15 +304,15 @@ def metadata(log: SeededLog, template: dict[str, JsonValue]) -> dict[str, JsonVa
     return seeded
 
 
-def postgres_row(log: SeededLog, template: dict[str, JsonValue], now: datetime) -> LiteLLM_SpendLogsCreateWithoutRelationsInput:
+def postgres_row(log: SeededLog, template: dict[str, JsonValue], now: datetime) -> HangarLLM_SpendLogsCreateWithoutRelationsInput:
     from prisma import Json
-    from prisma.types import LiteLLM_SpendLogsCreateWithoutRelationsInput
+    from prisma.types import HangarLLM_SpendLogsCreateWithoutRelationsInput
 
     end: Final = now - timedelta(minutes=log.offset_minutes)
     start: Final = end - timedelta(milliseconds=log.duration_ms)
-    return LiteLLM_SpendLogsCreateWithoutRelationsInput(
+    return HangarLLM_SpendLogsCreateWithoutRelationsInput(
         request_id=log.request_id,
-        litellm_call_id=log.request_id,
+        hangarllm_call_id=log.request_id,
         call_type=log.call_type,
         api_key=str(template.get("user_api_key", "seed-logs-key")),
         user="seed-logs-user",
@@ -341,16 +341,16 @@ def postgres_row(log: SeededLog, template: dict[str, JsonValue], now: datetime) 
     )
 
 
-COPY_SQL: Final = """INSERT INTO "LiteLLM_SpendLogs"
+COPY_SQL: Final = """INSERT INTO "HangarLLM_SpendLogs"
 SELECT (jsonb_populate_record(s, jsonb_build_object(
     'request_id', s.request_id || '-copy-' || c.n,
-    'litellm_call_id', s.request_id || '-copy-' || c.n,
+    'hangarllm_call_id', s.request_id || '-copy-' || c.n,
     'session_id', NULL,
     'startTime', s."startTime" - make_interval(secs => c.n * $3::bigint / 1000.0),
     'endTime', s."endTime" - make_interval(secs => c.n * $3::bigint / 1000.0),
     'completionStartTime', s."completionStartTime" - make_interval(secs => c.n * $3::bigint / 1000.0)
 ))).*
-FROM "LiteLLM_SpendLogs" AS s CROSS JOIN generate_series(1, $2::int) AS c(n)
+FROM "HangarLLM_SpendLogs" AS s CROSS JOIN generate_series(1, $2::int) AS c(n)
 WHERE s.request_id = $1"""
 
 
@@ -406,13 +406,13 @@ async def seed(profile: Profile = "default", timeout_seconds: float = 120) -> in
     async with (
         httpx.AsyncClient(
             base_url=proxy_url,
-            headers={"Authorization": f"Bearer {os.environ['LITELLM_MASTER_KEY']}"},
+            headers={"Authorization": f"Bearer {os.environ['HANGARLLM_MASTER_KEY']}"},
             timeout=timeout_seconds,
         ) as client,
         Prisma(http={"timeout": httpx.Timeout(600)}) as database,
     ):
-        await database.litellm_spendlogs.delete_many(where={"request_id": {"startswith": REQUEST_ID_PREFIX}})
-        await database.litellm_spendlogs.create_many(data=[postgres_row(log, template, now) for log in logs])
+        await database.hangarllm_spendlogs.delete_many(where={"request_id": {"startswith": REQUEST_ID_PREFIX}})
+        await database.hangarllm_spendlogs.create_many(data=[postgres_row(log, template, now) for log in logs])
         if profile == "large":
             step_ms: Final = WINDOW_HOURS * 60 * 60 * 1000 // LARGE_COPIES
             await database.execute_raw(COPY_SQL, f"{REQUEST_ID_PREFIX}baseline-small", LARGE_COPIES, step_ms)

@@ -18,11 +18,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.config_resolvers.settings_rules import JsonValue
-from litellm.proxy.config_resolvers.settings_store import SettingsStore
+import hangarllm
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles
+from hangarllm.proxy.config_resolvers.settings_rules import JsonValue
+from hangarllm.proxy.config_resolvers.settings_store import SettingsStore
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -148,9 +148,9 @@ def test_model_metrics_exceptions_no_prisma(client, auth_as, no_prisma):
 
 def test_model_settings_happy(client, auth_as, monkeypatch):
     """Pins ``GET /model/settings`` (happy)."""
-    monkeypatch.setattr(litellm, "provider_list", ["openai"])
+    monkeypatch.setattr(hangarllm, "provider_list", ["openai"])
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "get_provider_fields",
         lambda custom_llm_provider: [],
     )
@@ -194,7 +194,7 @@ def _alerting_client(
     pc = MagicMock()
     row = MagicMock()
     row.param_value = db_row
-    pc.db.litellm_config.find_first = AsyncMock(return_value=row)
+    pc.db.hangarllm_config.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(proxy_server, "prisma_client", pc)
 
     logging_obj = MagicMock()
@@ -226,7 +226,7 @@ def test_alerting_settings_reports_sources(
         live_args={"daily_report_frequency": 3},
     )
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/alerting/settings")
 
     assert response.status_code == 200
@@ -257,7 +257,7 @@ def test_alerting_settings_reports_db_source_when_the_file_omits_alerting_args(
         live_args={"outage_alert_ttl": 4242},
     )
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/alerting/settings")
 
     assert response.status_code == 200
@@ -275,14 +275,14 @@ def test_alerting_settings_reports_config_source_when_db_disagrees(
     auth_as: Callable[..., AbstractContextManager[None]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.config_resolvers import SettingsStore
+    from hangarllm.proxy.config_resolvers import SettingsStore
 
     db_alerting_args = {"daily_report_frequency": 7}
 
     pc = MagicMock()
     row = MagicMock()
     row.param_value = {"alerting_args": db_alerting_args}
-    pc.db.litellm_config.find_first = AsyncMock(return_value=row)
+    pc.db.hangarllm_config.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(proxy_server, "prisma_client", pc)
 
     logging_obj = MagicMock()
@@ -297,7 +297,7 @@ def test_alerting_settings_reports_config_source_when_db_disagrees(
     monkeypatch.setattr(proxy_server.proxy_config, "settings", store)
     monkeypatch.setattr(proxy_server, "general_settings", store)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/alerting/settings")
 
     assert response.status_code == 200
@@ -314,12 +314,12 @@ def test_alerting_settings_handles_empty_db_args(
     monkeypatch: pytest.MonkeyPatch,
     db_alerting_args: JsonValue,
 ) -> None:
-    from litellm.proxy.config_resolvers import SettingsStore
+    from hangarllm.proxy.config_resolvers import SettingsStore
 
     pc = MagicMock()
     row = MagicMock()
     row.param_value = {"alerting_args": db_alerting_args}
-    pc.db.litellm_config.find_first = AsyncMock(return_value=row)
+    pc.db.hangarllm_config.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(proxy_server, "prisma_client", pc)
 
     logging_obj = MagicMock()
@@ -333,7 +333,7 @@ def test_alerting_settings_handles_empty_db_args(
     monkeypatch.setattr(proxy_server.proxy_config, "settings", store)
     monkeypatch.setattr(proxy_server, "general_settings", store)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/alerting/settings")
 
     assert response.status_code == 200
@@ -357,7 +357,7 @@ def test_nested_setting_source_without_a_config_or_db_value(field_default: JsonV
 
 def test_alerting_settings_no_db_error(client, auth_as, no_prisma):
     """Pins ``GET /alerting/settings`` (error: db not connected)."""
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/alerting/settings")
     assert response.status_code == 400
     assert "error" in response.text or "detail" in response.text
@@ -366,7 +366,7 @@ def test_alerting_settings_no_db_error(client, auth_as, no_prisma):
 def test_alerting_settings_non_admin_error(client, auth_as, monkeypatch):
     """Pins ``GET /alerting/settings`` (error: non-admin forbidden)."""
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(HangarllmUserRoles.INTERNAL_USER):
         response = client.get("/alerting/settings")
     assert response.status_code == 400
     assert "internal_user" in response.text.lower() or "error" in response.text
@@ -375,7 +375,7 @@ def test_alerting_settings_non_admin_error(client, auth_as, monkeypatch):
 def test_alerting_settings_happy(client, auth_as, monkeypatch):
     """Pins ``GET /alerting/settings`` (happy: returns list of ConfigList entries)."""
     pc = MagicMock()
-    pc.db.litellm_config.find_first = AsyncMock(return_value=None)
+    pc.db.hangarllm_config.find_first = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "prisma_client", pc)
 
     logging_obj = MagicMock()
@@ -385,7 +385,7 @@ def test_alerting_settings_happy(client, auth_as, monkeypatch):
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", logging_obj)
     monkeypatch.setattr(proxy_server, "general_settings", {})
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(HangarllmUserRoles.PROXY_ADMIN):
         response = client.get("/alerting/settings")
     assert response.status_code == 200
     body = response.json()

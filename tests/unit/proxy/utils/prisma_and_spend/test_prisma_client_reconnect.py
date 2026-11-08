@@ -33,8 +33,8 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-from litellm.proxy.utils import PrismaClient, _StaleReadEngine
+from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from hangarllm.proxy.utils import PrismaClient, _StaleReadEngine
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,7 @@ async def test_run_reconnect_cycle_direct_path_skips_recreate_when_probe_healthy
     """Direct path probes the writer first: if SELECT 1 succeeds the
     connection is healthy (e.g. an IAM token refresh just replaced the
     engine) and recreating — killing the fresh engine — must be skipped.
-    Part of the fix for https://github.com/BerriAI/litellm/issues/29176."""
+    Part of the fix for upstream issue 29176"""
     monkeypatch.setenv("DATABASE_URL", "postgres://x:y@h:5432/db")
     prisma_client._engine_confirmed_dead = False
     prisma_client._engine_pid = 0
@@ -146,7 +146,7 @@ async def test_run_reconnect_cycle_force_recreate_skips_probe_and_recreates(
     """A healthy writer must not veto the recreate when the caller already
     knows the session state is poisoned (stale prepared statements after a
     schema change). Regression for
-    https://github.com/BerriAI/litellm/issues/36418."""
+    upstream issue 36418"""
     monkeypatch.setenv("DATABASE_URL", "postgres://x:y@h:5432/db")
     prisma_client._engine_confirmed_dead = False
     prisma_client._engine_pid = 0
@@ -169,7 +169,7 @@ async def test_run_reconnect_cycle_force_recreate_skips_probe_and_recreates(
 async def test_attempt_db_reconnect_forwards_force_recreate_to_cycle(
     prisma_client: PrismaClient,
 ) -> None:
-    """Regression for https://github.com/BerriAI/litellm/issues/36418: the flag
+    """Regression for upstream issue 36418 the flag
     has to survive both hops (attempt_db_reconnect -> inside-lock -> cycle),
     otherwise the cached-plan caller silently gets a probe-gated reconnect."""
     prisma_client._db_last_reconnect_attempt_ts = 0.0
@@ -607,7 +607,7 @@ async def test_recreate_read_only_writer_retries_after_backoff_elapses(
 async def test_iam_refresh_racing_reconnect_recreates_engine_only_once(
     prisma_client: PrismaClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Integration repro for https://github.com/BerriAI/litellm/issues/29176.
+    """Integration repro for upstream issue 29176
 
     An IAM token refresh (PrismaWrapper._safe_refresh_token) is mid-recreate
     when an in-flight transport error triggers attempt_db_reconnect. The
@@ -620,7 +620,7 @@ async def test_iam_refresh_racing_reconnect_recreates_engine_only_once(
 
     import prisma as prisma_pkg
 
-    from litellm.proxy.db.prisma_client import PrismaWrapper
+    from hangarllm.proxy.db.prisma_client import PrismaWrapper
 
     def token_db_url(created: datetime) -> str:
         token = f"host/?X-Amz-Date={created.strftime('%Y%m%dT%H%M%SZ')}&X-Amz-Expires=900&X-Amz-Signature=abc"
@@ -749,7 +749,7 @@ async def test_attempt_db_reconnect_bypasses_cooldown_for_still_live_stale_engin
     to leave auth failing until the cooldown elapsed. While the engine the
     caller's failure came from is still the live one, the cooldown must not
     gate the recreate. Regression for
-    https://github.com/BerriAI/litellm/issues/36418."""
+    upstream issue 36418"""
     prisma_client.db.engine_generation = 7
     prisma_client._db_last_reconnect_attempt_ts = time.time()
     prisma_client._run_reconnect_cycle = AsyncMock()
@@ -822,7 +822,7 @@ async def test_attempt_db_reconnect_reads_generation_from_the_reader_that_served
     stale prepared statements are on the READER. A writer reconnect that moved
     the writer generation must not re-arm the cooldown while the reader the
     query actually failed on is still the live, poisoned one. Regression for
-    https://github.com/BerriAI/litellm/issues/36418."""
+    upstream issue 36418"""
     _routing_client(prisma_client, reader_generation=7, writer_generation=99)
     prisma_client._db_last_reconnect_attempt_ts = time.time()
     prisma_client._run_reconnect_cycle = AsyncMock()

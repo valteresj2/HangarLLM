@@ -10,12 +10,12 @@ import pytest
 import respx
 from pydantic import JsonValue
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.anthropic.count_tokens import handler as count_handler
-from litellm.llms.anthropic.messages.native.transformation import DEFAULT_ANTHROPIC_API_VERSION, AnthropicMessagesConfig
-from litellm.llms.anthropic.prompt_cache_prediction import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.anthropic.count_tokens import handler as count_handler
+from hangarllm.llms.anthropic.messages.native.transformation import DEFAULT_ANTHROPIC_API_VERSION, AnthropicMessagesConfig
+from hangarllm.llms.anthropic.prompt_cache_prediction import (
     CountedPromptCachePlan,
     NativePredictionTarget,
     PromptCachePlan,
@@ -32,14 +32,14 @@ from litellm.llms.anthropic.prompt_cache_prediction import (
     resolve_prediction_target,
     supported_prediction_headers,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.models.credentials import CredentialItem
-from litellm.proxy import proxy_server
-from litellm.proxy.hooks.prompt_cache_prediction import PromptCacheObserver
-from litellm.proxy.management_endpoints.prompt_cache_prediction import predict_arm
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.router import Deployment, GenericLiteLLMParams, LiteLLM_Params, ModelInfo
-from litellm.types.utils import CacheCreationTokenDetails, ModelResponse, PromptTokensDetailsWrapper, Usage
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.models.credentials import CredentialItem
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy.hooks.prompt_cache_prediction import PromptCacheObserver
+from hangarllm.proxy.management_endpoints.prompt_cache_prediction import predict_arm
+from hangarllm.proxy.utils import InternalUsageCache
+from hangarllm.types.router import Deployment, GenericHangarLLMParams, HangarLLM_Params, ModelInfo
+from hangarllm.types.utils import CacheCreationTokenDetails, ModelResponse, PromptTokensDetailsWrapper, Usage
 
 _MODEL: Final = "claude-sonnet-5"
 _KEY: Final = "test-provider-key"
@@ -163,18 +163,18 @@ async def test_environment_credential_matches_native_count_and_observed_scope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("LIT7658_PROVIDER_KEY", _KEY)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     params: Final = {
         "model": f"anthropic/{_MODEL}",
         "api_key": "os.environ/LIT7658_PROVIDER_KEY",
         "api_base": "https://api.anthropic.com",
     }
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "test-native",
-                "litellm_params": dict(params),
+                "hangarllm_params": dict(params),
                 "model_info": {"id": _DEPLOYMENT},
             }
         ]
@@ -191,7 +191,7 @@ async def test_environment_credential_matches_native_count_and_observed_scope(
                         model_id=_DEPLOYMENT,
                         model_name="test-native",
                         model_info={},
-                        litellm_params=dict(params),
+                        hangarllm_params=dict(params),
                     )
                 ]
             )
@@ -199,7 +199,7 @@ async def test_environment_credential_matches_native_count_and_observed_scope(
         )
     deployment: Final = router.get_deployment(_DEPLOYMENT)
     assert deployment is not None
-    target: Final = resolve_prediction_target(deployment.litellm_params)
+    target: Final = resolve_prediction_target(deployment.hangarllm_params)
     assert isinstance(target, NativePredictionTarget)
     body: Final = _body()
     with respx.mock() as upstream:
@@ -253,7 +253,7 @@ async def test_named_credential_is_explicitly_unsupported_before_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -265,10 +265,10 @@ async def test_named_credential_is_explicitly_unsupported_before_count(
     )
     deployment: Final = Deployment(
         model_name="test-native",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model=f"anthropic/{_MODEL}",
             api_key=inline_key,
-            litellm_credential_name="test-named",
+            hangarllm_credential_name="test-named",
         ),
         model_info=ModelInfo(id=_DEPLOYMENT),
     )
@@ -478,10 +478,10 @@ async def test_cache_plan_count_conserves_total_and_rejects_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "declared-cache-model",
         {
-            "litellm_provider": "anthropic",
+            "hangarllm_provider": "anthropic",
             "mode": "chat",
             "supports_thinking_cache_preservation": True,
         },
@@ -521,9 +521,9 @@ async def test_native_count_preserves_settings_and_requires_every_prefix(
     rejects_prefix: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
-    params: Final = LiteLLM_Params(
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
+    params: Final = HangarLLM_Params(
         model=f"anthropic/{_MODEL}",
         api_key=_KEY,
         api_base="https://gateway.example/v1/messages",
@@ -602,7 +602,7 @@ async def test_native_count_preserves_settings_and_requires_every_prefix(
 def test_native_baseline_body_drops_a_non_numeric_budget_without_logging_a_drop(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     request: Final = {
         "model": "claude-opus-5",
         "max_tokens": 64,
@@ -610,7 +610,7 @@ def test_native_baseline_body_drops_a_non_numeric_budget_without_logging_a_drop(
         "thinking": {"type": "enabled", "budget_tokens": "high"},
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         body: Final = prepare_native_baseline_body(request, "anthropic/claude-opus-5")
 
     assert body is not None
@@ -629,7 +629,7 @@ def test_native_baseline_body_drops_a_non_string_reasoning_effort_without_loggin
         "reasoning_effort": 5,
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         body: Final = prepare_native_baseline_body(request, "anthropic/claude-opus-5")
 
     assert body is not None
@@ -640,7 +640,7 @@ def test_native_baseline_body_drops_a_non_string_reasoning_effort_without_loggin
 def test_native_baseline_body_matches_the_sent_body_when_drop_params_meets_an_auto_added_beta(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(hangarllm, "drop_params", True)
     thinking: Final = {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "error"}}
     messages: Final = [{"role": "user", "content": "Say hi in French"}]
     predicted: Final = prepare_native_baseline_body(
@@ -652,14 +652,14 @@ def test_native_baseline_body_matches_the_sent_body_when_drop_params_meets_an_au
         model="claude-opus-4-8",
         messages=[dict(message) for message in messages],
         optional_params={"max_tokens": 64, "thinking": dict(thinking)},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-ant-test",
     )
     sent: Final = config.transform_anthropic_messages_request(
         model="claude-opus-4-8",
         messages=[dict(message) for message in messages],
         anthropic_messages_optional_request_params={"max_tokens": 64, "thinking": dict(thinking)},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers=headers,
     )
     assert predicted is not None

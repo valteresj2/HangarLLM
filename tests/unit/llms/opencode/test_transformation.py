@@ -2,9 +2,9 @@ from typing import Final
 
 import pytest
 
-from litellm.constants import SESSION_ID_GENERATED_METADATA_KEY
-from litellm.litellm_core_utils.provider_affinity import add_provider_affinity_header
-from litellm.litellm_core_utils.get_llm_provider_logic import get_provider_affinity_header
+from hangarllm.constants import SESSION_ID_GENERATED_METADATA_KEY
+from hangarllm.hangarllm_core_utils.provider_affinity import add_provider_affinity_header
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_provider_affinity_header
 
 
 @pytest.mark.parametrize(
@@ -49,7 +49,7 @@ def test_other_destinations_do_not_receive_an_automatic_session_header(api_base:
     assert (
         add_provider_affinity_header(
             headers,
-            {"litellm_session_id": "conversation-123"},
+            {"hangarllm_session_id": "conversation-123"},
             get_provider_affinity_header(api_base),
         )
         == headers
@@ -60,11 +60,11 @@ def test_other_destinations_do_not_receive_an_automatic_session_header(api_base:
     "params",
     [
         {},
-        {"litellm_trace_id": "request-123"},
+        {"hangarllm_trace_id": "request-123"},
         {"metadata": {"trace_id": "request-123"}},
         {
-            "litellm_session_id": "request-123",
-            "litellm_metadata": {"session_id": "request-123", SESSION_ID_GENERATED_METADATA_KEY: True},
+            "hangarllm_session_id": "request-123",
+            "hangarllm_metadata": {"session_id": "request-123", SESSION_ID_GENERATED_METADATA_KEY: True},
         },
     ],
 )
@@ -80,11 +80,11 @@ def test_opencode_does_not_invent_a_conversation_id(params: dict[str, object]) -
 def test_opencode_preserves_explicit_header_and_affinity_configuration() -> None:
     assert add_provider_affinity_header(
         {"X-OpenCode-Session": "explicit"},
-        {"litellm_session_id": "conversation-123"},
+        {"hangarllm_session_id": "conversation-123"},
         get_provider_affinity_header("https://opencode.ai/zen/go/v1"),
     ) == {"X-OpenCode-Session": "explicit"}
     assert add_provider_affinity_header(
         {},
-        {"litellm_session_id": "conversation-123", "provider_affinity_header": "x-custom-session"},
+        {"hangarllm_session_id": "conversation-123", "provider_affinity_header": "x-custom-session"},
         get_provider_affinity_header("https://opencode.ai/zen/go/v1"),
     ) == {"x-custom-session": "conversation-123"}

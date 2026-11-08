@@ -10,13 +10,13 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.utils import trim_messages
+import hangarllm
+from hangarllm.utils import trim_messages
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
 
-from litellm.llms.openai_like.dynamic_config import create_config_class
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+from hangarllm.llms.openai_like.dynamic_config import create_config_class
+from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
 ABLITERATION_BASE_URL = "https://api.abliteration.ai/v1"
 
@@ -50,7 +50,7 @@ def test_abliteration_complete_url_appends_endpoint():
         api_key="test-key",
         model="abliteration/abliterated-model",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url == f"{ABLITERATION_BASE_URL}/chat/completions"
@@ -76,7 +76,7 @@ def test_abliteration_chat_forwards_reasoning_and_accounts_for_cache(local_model
                 },
             },
         )
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="abliteration/abliterated-model-large-v2",
             api_key="fake-test-key",
             messages=[{"role": "user", "content": "Say hello"}],
@@ -88,22 +88,22 @@ def test_abliteration_chat_forwards_reasoning_and_accounts_for_cache(local_model
     assert body["model"] == "abliterated-model-large-v2"
     assert body["reasoning_effort"] == "low"
     assert response.choices[0].message.content == "hello"
-    rates: Final = litellm.model_cost["abliteration/abliterated-model-large-v2"]
+    rates: Final = hangarllm.model_cost["abliteration/abliterated-model-large-v2"]
     expected: Final = (
         20 * rates["input_cost_per_token"]
         + 80 * rates["cache_read_input_token_cost"]
         + 5 * rates["output_cost_per_token"]
     )
-    assert litellm.completion_cost(completion_response=response) == pytest.approx(expected)
+    assert hangarllm.completion_cost(completion_response=response) == pytest.approx(expected)
 
 
 def test_large_v2_model_group_does_not_offer_disabled_reasoning(local_model_cost_map: None) -> None:
     """Large v2 cannot disable reasoning per https://docs.abliteration.ai/capabilities/thinking (2026-10-26)."""
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "large-v2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "abliteration/abliterated-model-large-v2",
                     "api_key": "fake-test-key",
                 },
@@ -118,7 +118,7 @@ def test_large_v2_model_group_does_not_offer_disabled_reasoning(local_model_cost
 
 
 def test_abliteration_models_trim_to_their_input_budget(local_model_cost_map: None) -> None:
-    model_names: Final = tuple(model for model in litellm.model_cost if model.startswith("abliteration/"))
+    model_names: Final = tuple(model for model in hangarllm.model_cost if model.startswith("abliteration/"))
     assert model_names
     messages: Final = [{"role": "user", "content": "hello " * 500}]
     budget: Final = 100
@@ -126,7 +126,7 @@ def test_abliteration_models_trim_to_their_input_budget(local_model_cost_map: No
         trimmed: Final = trim_messages(
             messages,
             model=model,
-            trim_ratio=budget / litellm.model_cost[model]["max_input_tokens"],
+            trim_ratio=budget / hangarllm.model_cost[model]["max_input_tokens"],
         )
-        assert litellm.token_counter(model=model, messages=messages) > budget
-        assert litellm.token_counter(model=model, messages=trimmed) <= budget
+        assert hangarllm.token_counter(model=model, messages=messages) > budget
+        assert hangarllm.token_counter(model=model, messages=trimmed) <= budget

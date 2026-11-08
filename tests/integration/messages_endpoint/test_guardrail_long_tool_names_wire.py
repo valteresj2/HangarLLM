@@ -14,7 +14,7 @@ from integration._support.ports import allocate_port
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.llms.anthropic.messages.adapters.transformation import truncate_tool_name
+from hangarllm.llms.anthropic.messages.adapters.transformation import truncate_tool_name
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _JSON_OBJECTS: Final = TypeAdapter(list[dict[str, JsonValue]])
@@ -235,7 +235,7 @@ def _guardrail(gateway: Gateway, scenario: Scenario, api_base: str, mode: str, *
         "api_key": "synthetic-guardrail-key",
         **extra,
     }
-    created: Final = gateway.post("/guardrails", {"guardrail": {"guardrail_name": name, "litellm_params": params}})
+    created: Final = gateway.post("/guardrails", {"guardrail": {"guardrail_name": name, "hangarllm_params": params}})
     scenario.cleanups.callback(_delete_guardrail, gateway, string_value(created["guardrail_id"]))
     return name
 

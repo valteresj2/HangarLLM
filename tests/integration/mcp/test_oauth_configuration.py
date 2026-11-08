@@ -46,7 +46,7 @@ def _start_callback_flow(
             "code_challenge": "A" * 43,
             "code_challenge_method": "S256",
         },
-        headers={"x-litellm-api-key": key},
+        headers={"x-hangarllm-api-key": key},
     )
     assert started.status_code in (302, 307), started.text
     location: Final = urlsplit(started.headers["location"])
@@ -303,7 +303,7 @@ def test_partial_discovery_and_unrelated_edit_keep_actual_authorization_destinat
 
     with (
         wire_server(discovery) as wire,
-        owned_proxy(gateway, tmp_path, {"LITELLM_MCP_OAUTH_DISCOVERY_ON_STARTUP": "true"}) as candidate,
+        owned_proxy(gateway, tmp_path, {"HANGARLLM_MCP_OAUTH_DISCOVERY_ON_STARTUP": "true"}) as candidate,
         candidate.scenario() as scenario,
     ):
         gateway = candidate
@@ -328,7 +328,7 @@ def test_partial_discovery_and_unrelated_edit_keep_actual_authorization_destinat
         assert eventually(observed, bool, seconds=10)
         for generation in range(2):
             rows: Final = read_rows(
-                'SELECT authorization_url FROM "LiteLLM_MCPServerTable" WHERE server_id=%s', (identity,)
+                'SELECT authorization_url FROM "HangarLLM_MCPServerTable" WHERE server_id=%s', (identity,)
             )
             assert rows == [{"authorization_url": endpoint}]
             response: Final = gateway.request(

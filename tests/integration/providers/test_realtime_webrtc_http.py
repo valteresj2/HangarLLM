@@ -96,7 +96,7 @@ def _deployment_named_like_its_model(scenario: Scenario, gateway: Gateway, wire:
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{name}",
                 "api_key": DEPLOYMENT_KEY,
                 "api_base": f"{wire.url}{scenario_path}/v1",

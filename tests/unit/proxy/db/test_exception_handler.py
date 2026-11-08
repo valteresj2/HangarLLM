@@ -20,9 +20,9 @@ from prisma.errors import (
     UniqueViolationError,
 )
 
-import litellm
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler, db_write_never_sent
+import hangarllm
+from hangarllm.proxy._types import ProxyErrorTypes, ProxyException
+from hangarllm.proxy.db.exception_handler import PrismaDBExceptionHandler, db_write_never_sent
 
 
 # Test is_database_connection_error method
@@ -242,7 +242,7 @@ def test_is_database_service_unavailable_error_excludes_non_infra(error):
 
 
 def _wrapped_like_get_user_object(original):
-    """Reproduce get_user_object's exception contract (litellm/proxy/auth/auth_checks.py): it catches
+    """Reproduce get_user_object's exception contract (hangarllm/proxy/auth/auth_checks.py): it catches
     every DB failure in a broad ``except`` and re-raises a bare ``ValueError``, so the original error
     survives only as ``__context__``. Building it by raising inside an ``except`` sets ``__context__``
     exactly as production does."""
@@ -358,7 +358,7 @@ def test_is_database_service_unavailable_error_asyncpg(monkeypatch):
 
 # Test should_allow_request_on_db_unavailable method
 @patch(
-    "litellm.proxy.proxy_server.general_settings",
+    "hangarllm.proxy.proxy_server.general_settings",
     {"allow_requests_on_db_unavailable": True},
 )
 def test_should_allow_request_on_db_unavailable_true():
@@ -366,7 +366,7 @@ def test_should_allow_request_on_db_unavailable_true():
 
 
 @patch(
-    "litellm.proxy.proxy_server.general_settings",
+    "hangarllm.proxy.proxy_server.general_settings",
     {"allow_requests_on_db_unavailable": False},
 )
 def test_should_allow_request_on_db_unavailable_false():
@@ -374,7 +374,7 @@ def test_should_allow_request_on_db_unavailable_false():
 
 
 @patch(
-    "litellm.proxy.proxy_server.general_settings",
+    "hangarllm.proxy.proxy_server.general_settings",
     {"allow_requests_on_db_unavailable": True},
 )
 def test_handle_db_exception_with_connection_error():
@@ -387,7 +387,7 @@ def test_handle_db_exception_with_connection_error():
 
 
 @patch(
-    "litellm.proxy.proxy_server.general_settings",
+    "hangarllm.proxy.proxy_server.general_settings",
     {"allow_requests_on_db_unavailable": False},
 )
 def test_handle_db_exception_raises_error():
@@ -403,11 +403,11 @@ def test_handle_db_exception_with_non_db_error():
     """
     Test that non-DB errors are always raised regardless of allow_requests_on_db_unavailable setting
     """
-    regular_error = litellm.BudgetExceededError(
+    regular_error = hangarllm.BudgetExceededError(
         current_cost=10,
         max_budget=10,
     )
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         PrismaDBExceptionHandler.handle_db_exception(regular_error)
 
 
@@ -563,7 +563,7 @@ def test_engine_connection_error_is_the_transient_prisma_type():
 
 
 @patch(
-    "litellm.proxy.proxy_server.general_settings",
+    "hangarllm.proxy.proxy_server.general_settings",
     {"allow_requests_on_db_unavailable": True},
 )
 def test_handle_db_exception_surfaces_a_permanent_fault_even_when_degraded_mode_is_enabled():
@@ -730,7 +730,7 @@ def test_db_lookup_deadline_is_a_connection_and_unavailability_error_but_never_a
     DB outage for ``allow_requests_on_db_unavailable``, but it must not be read
     as a broken transport: that would send every parked request into
     ``attempt_db_reconnect`` and turn a slow database into a reconnect storm."""
-    from litellm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
+    from hangarllm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
 
     deadline: Final = DBLookupDeadlineExceeded("key", 10.0)
 
@@ -765,21 +765,21 @@ _TOO_MANY_CLIENTS: Final = "Error in connector: Error querying the database: FAT
         DataError(
             data={
                 "user_facing_error": {
-                    "message": 'Error occurred during query execution: ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "53300", message: "too many connections for role \\"litellm\\"", severity: "FATAL" }) })'
+                    "message": 'Error occurred during query execution: ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "53300", message: "too many connections for role \\"hangarllm\\"", severity: "FATAL" }) })'
                 }
             }
         ),
         DataError(
             data={
                 "user_facing_error": {
-                    "message": 'Error in connector: Error querying the database: FATAL: too many connections for role "litellm"'
+                    "message": 'Error in connector: Error querying the database: FATAL: too many connections for role "hangarllm"'
                 }
             }
         ),
         DataError(
             data={
                 "user_facing_error": {
-                    "message": 'Error in connector: Error querying the database: FATAL: too many connections for database "litellm"'
+                    "message": 'Error in connector: Error querying the database: FATAL: too many connections for database "hangarllm"'
                 }
             }
         ),

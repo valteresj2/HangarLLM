@@ -17,7 +17,7 @@ from models import (
     ChatTool,
     ChatToolFunction,
     ChatToolResultTurn,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     TextContentPart,
     ToolCall,
     ToolCallFunction,
@@ -32,7 +32,7 @@ VERTEX_MODEL: Final[str] = "vertex_ai/claude-sonnet-5"
 VERTEX_LOCATION: Final[str] = "global"
 
 
-def _deployment_params(*, backend: Backend, inject_cache_control: bool) -> LiteLLMParamsBody:
+def _deployment_params(*, backend: Backend, inject_cache_control: bool) -> HangarLLMParamsBody:
     cache_control_injection_points: Final = (
         [
             CacheControlInjectionPoint(location="message", role="system"),
@@ -43,14 +43,14 @@ def _deployment_params(*, backend: Backend, inject_cache_control: bool) -> LiteL
     )
     match backend:
         case "azure_foundry":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=AZURE_MODEL,
                 api_base="os.environ/AZURE_AI_API_BASE",
                 api_key="os.environ/AZURE_AI_API_KEY",
                 cache_control_injection_points=cache_control_injection_points,
             )
         case "vertex":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=VERTEX_MODEL,
                 vertex_project="os.environ/VERTEXAI_PROJECT",
                 vertex_location=VERTEX_LOCATION,

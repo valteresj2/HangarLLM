@@ -5,26 +5,26 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.litellm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
-from litellm.llms.azure.azure import AzureChatCompletion
-from litellm.llms.azure.image_generation import get_azure_image_generation_config
-from litellm.llms.azure.image_generation.http_utils import azure_deployment_image_generation_json_body
-from litellm.llms.azure_ai.image_generation.flux_transformation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_model_cost_map import GetModelCostMap
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
+from hangarllm.llms.azure.azure import AzureChatCompletion
+from hangarllm.llms.azure.image_generation import get_azure_image_generation_config
+from hangarllm.llms.azure.image_generation.http_utils import azure_deployment_image_generation_json_body
+from hangarllm.llms.azure_ai.image_generation.flux_transformation import (
     AzureFoundryFluxImageGenerationConfig,
 )
-from litellm.types.utils import ImageObject, ImageResponse
-from litellm.utils import _invalidate_model_cost_lowercase_map, get_optional_params_image_gen
+from hangarllm.types.utils import ImageObject, ImageResponse
+from hangarllm.utils import _invalidate_model_cost_lowercase_map, get_optional_params_image_gen
 
 
 @pytest.fixture(autouse=True)
 def use_local_model_cost_map(monkeypatch):
-    monkeypatch.setattr(litellm, "model_cost", GetModelCostMap.load_local_model_cost_map())
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setattr(hangarllm, "model_cost", GetModelCostMap.load_local_model_cost_map())
+    hangarllm.get_model_info.cache_clear()
     _invalidate_model_cost_lowercase_map()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     _invalidate_model_cost_lowercase_map()
 
 
@@ -87,7 +87,7 @@ def test_flux2_flex_maps_openai_and_provider_parameters():
 
 
 def test_flux2_flex_rejects_invalid_size_as_bad_request():
-    with pytest.raises(litellm.BadRequestError, match="Expected 'WxH'") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="Expected 'WxH'") as raised:
         get_optional_params_image_gen(
             model="FLUX.2-flex",
             custom_llm_provider="azure_ai",
@@ -117,11 +117,11 @@ def test_flux2_accepts_and_drops_openai_only_image_parameters(model: str):
 
 
 def test_flux2_flex_model_info():
-    model_info = litellm.get_model_info(
+    model_info = hangarllm.get_model_info(
         model="FLUX.2-flex",
         custom_llm_provider="azure_ai",
     )
-    catalog_info = litellm.model_cost["azure_ai/FLUX.2-flex"]
+    catalog_info = hangarllm.model_cost["azure_ai/FLUX.2-flex"]
 
     assert model_info["mode"] == "image_generation"
     assert model_info["max_input_tokens"] == 32000
@@ -180,11 +180,11 @@ def test_flux2_cost_uses_mapped_dimensions_after_response_transformation(dimensi
         logging_obj=MagicMock(),
         request_data={"prompt": "A red fox", **params},
         optional_params=params,
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
-    assert litellm.completion_cost(
+    assert hangarllm.completion_cost(
         model="azure_ai/FLUX.2-flex",
         completion_response=response,
         optional_params=params,
@@ -195,7 +195,7 @@ def test_flux2_cost_uses_mapped_dimensions_after_response_transformation(dimensi
 def test_flux2_flex_cost_accepts_lowercase_model_spelling():
     response: Final = ImageResponse(data=[ImageObject(b64_json="aW1n"), ImageObject(b64_json="aW1n")])
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         model="azure_ai/flux.2-flex",
         completion_response=response,
         optional_params={"width": 1536, "height": 1024, "num_images": 2},
@@ -247,7 +247,7 @@ def test_flux2_response_preserves_mapped_dimensions():
         logging_obj=MagicMock(),
         request_data={"prompt": "A landscape"},
         optional_params=params,
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
     assert response.size == "2048x1024"

@@ -12,9 +12,9 @@ import pytest
 from fastapi import HTTPException, Request, Response
 
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+import hangarllm
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     watsonx_proxy_route,
 )
 
@@ -51,11 +51,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -85,7 +85,7 @@ class TestWatsonxProxyRoute:
             assert call_args["custom_llm_provider"] == "watsonx"
             assert (
                 call_args["query_params"]["version"]
-                == litellm.WATSONX_DEFAULT_API_VERSION
+                == hangarllm.WATSONX_DEFAULT_API_VERSION
             )
 
             # Verify endpoint function was called
@@ -122,11 +122,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -170,11 +170,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -221,15 +221,15 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_form_data",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_form_data",
                 return_value=mock_form_data,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -260,7 +260,7 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=None,
             ),
         ):
@@ -302,11 +302,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -324,7 +324,7 @@ class TestWatsonxProxyRoute:
             assert "version" in call_args["query_params"]
             assert (
                 call_args["query_params"]["version"]
-                == litellm.WATSONX_DEFAULT_API_VERSION
+                == hangarllm.WATSONX_DEFAULT_API_VERSION
             )
 
     @pytest.mark.asyncio
@@ -355,11 +355,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -414,11 +414,11 @@ class TestWatsonxProxyRoute:
 
             with (
                 patch(
-                    "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                    "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                     return_value=mock_provider_config,
                 ),
                 patch(
-                    "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                    "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                     return_value=mock_endpoint_func,
                 ) as mock_create_route,
             ):
@@ -455,7 +455,7 @@ _WATSONX_ENV = (
 def _watsonx_deployment(api_key: str, api_base: str, use_in_pass_through: bool) -> dict:
     return {
         "model_name": "granite",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "watsonx/ibm/granite-3-8b-instruct",
             "api_key": api_key,
             "api_base": api_base,
@@ -481,26 +481,26 @@ def _iam_response(token: str) -> MagicMock:
 
 
 async def _route_target_and_iam_apikey(
-    monkeypatch, llm_router: litellm.Router, env: dict[str, str]
+    monkeypatch, llm_router: hangarllm.Router, env: dict[str, str]
 ) -> tuple[str, str, str]:
-    from litellm.llms.watsonx.common_utils import iam_token_cache
-    from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import PassthroughEndpointRouter
+    from hangarllm.llms.watsonx.common_utils import iam_token_cache
+    from hangarllm.proxy.pass_through_endpoints.passthrough_endpoint_router import PassthroughEndpointRouter
 
     for name in _WATSONX_ENV:
         monkeypatch.delenv(name, raising=False)
     for name, value in env.items():
         monkeypatch.setenv(name, value)
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(hangarllm, "credential_list", [])
     iam_token_cache.flush_cache()
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+        "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
         PassthroughEndpointRouter(llm_router_getter=lambda: llm_router),
     )
     endpoint_func = AsyncMock(return_value={"results": []})
     with (
-        patch.object(litellm.module_level_client, "post", return_value=_iam_response("iam-token-1")) as iam_post,
+        patch.object(hangarllm.module_level_client, "post", return_value=_iam_response("iam-token-1")) as iam_post,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             return_value=endpoint_func,
         ) as create_route,
     ):
@@ -520,7 +520,7 @@ async def _route_target_and_iam_apikey(
 
 @pytest.mark.asyncio
 async def test_watsonx_route_uses_the_use_in_pass_through_deployment_key_and_base(monkeypatch):
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[_watsonx_deployment("wx-deployment-key", "https://eu-de.ml.cloud.ibm.com", use_in_pass_through=True)]
     )
 
@@ -533,7 +533,7 @@ async def test_watsonx_route_uses_the_use_in_pass_through_deployment_key_and_bas
 
 @pytest.mark.asyncio
 async def test_watsonx_route_falls_back_to_env_when_no_deployment_is_flagged(monkeypatch):
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[_watsonx_deployment("wx-deployment-key", "https://eu-de.ml.cloud.ibm.com", use_in_pass_through=False)]
     )
 

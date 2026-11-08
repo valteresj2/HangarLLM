@@ -22,7 +22,7 @@ from models import (
     ChatTool,
     ChatToolFunction,
     ChatToolResultTurn,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     OutMessage,
     ThinkingBlock,
     ThinkingParam,
@@ -42,7 +42,7 @@ BACKEND: Final = "bedrock/converse/us.anthropic.claude-sonnet-4-6"
 INVOKE_BACKEND: Final = "bedrock/invoke/us.anthropic.claude-sonnet-4-6"
 ANTHROPIC_BACKEND: Final = "anthropic/claude-sonnet-4-6"
 OPENAI_BACKEND: Final = "openai/gpt-5.6"
-ENCRYPTED_REASONING_PREFIX: Final = "litellm_encrypted_reasoning:"
+ENCRYPTED_REASONING_PREFIX: Final = "hangarllm_encrypted_reasoning:"
 REDACTED_THINKING_TRIGGER: Final = (
     "ANTHROPIC_MAGIC_STRING_TRIGGER_REDACTED_THINKING_46C9A13E193C177646C7398A98432ECCCE4C1253D5E2D82641AC0E52CC2876CB"
 )
@@ -202,7 +202,7 @@ def _edges(resources: ResourceManager) -> _Edges:
     )
 
 
-def _create(proxy: ProxyClient, resources: ResourceManager, params: LiteLLMParamsBody) -> str:
+def _create(proxy: ProxyClient, resources: ResourceManager, params: HangarLLMParamsBody) -> str:
     model: Final = f"e2e-redacted-thinking-{unique_marker()}"
     model_id: Final = proxy.create_model(model, params)
     resources.defer(lambda: proxy.delete_model(model_id))
@@ -214,12 +214,12 @@ def _deploy(proxy: ProxyClient, resources: ResourceManager, edges: _Edges, route
         return _create(
             proxy,
             resources,
-            LiteLLMParamsBody(model=route.backend, api_base=edges.anthropic, api_key="os.environ/ANTHROPIC_API_KEY"),
+            HangarLLMParamsBody(model=route.backend, api_base=edges.anthropic, api_key="os.environ/ANTHROPIC_API_KEY"),
         )
     return _create(
         proxy,
         resources,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=route.backend,
             api_base=edges.bedrock,
             aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
@@ -451,10 +451,10 @@ class TestBedrockConverseRedactedThinkingReplay:
         self, proxy: ProxyClient, resources: ResourceManager
     ) -> None:
         """/v1/messages to an OpenAI model hands back its encrypted reasoning as thinking blocks carrying a
-        LiteLLM blob only OpenAI can read. Claude rejects that blob, so replaying the turn to Claude leaves it out"""
+        HangarLLM blob only OpenAI can read. Claude rejects that blob, so replaying the turn to Claude leaves it out"""
         edges: Final = _edges(resources)
         gpt: Final = _create(
-            proxy, resources, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            proxy, resources, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         claude: Final = _deploy(proxy, resources, edges, CONVERSE)
         key: Final = resources.key()

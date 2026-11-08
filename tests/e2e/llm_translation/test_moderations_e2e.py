@@ -16,7 +16,7 @@ from e2e_config import unique_marker
 from e2e_http import assert_client_error
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from openai.types import Moderation
 from proxy_client import ProxyClient
 from pydantic import BaseModel, TypeAdapter
@@ -38,7 +38,7 @@ def _register_moderation_model(proxy: ProxyClient, resources: ResourceManager) -
     model = f"e2e-moderation-{unique_marker()}"
     model_id = proxy.create_model(
         model,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=OPENAI_MODERATION_BACKEND, api_key="os.environ/OPENAI_API_KEY"
         ),
     )

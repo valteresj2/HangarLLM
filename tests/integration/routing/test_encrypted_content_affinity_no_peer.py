@@ -89,7 +89,7 @@ def _assert_no_encrypted_reasoning_reached_upstream(gateway: Gateway, group: str
     items: Final = body.get("input")
     assert isinstance(items, list), f"upstream request carried no input list: {body}"
     assert not any(
-        isinstance(item, dict) and ("encrypted_content" in item or "litellm_enc" in json.dumps(item)) for item in items
+        isinstance(item, dict) and ("encrypted_content" in item or "hangarllm_enc" in json.dumps(item)) for item in items
     ), f"undecryptable reasoning reached the sibling: {body}"
 
 
@@ -120,7 +120,7 @@ def _multi_region_group(scenario: Scenario) -> tuple[str, tuple[str, ...]]:
                     "/model/new",
                     {
                         "model_name": group,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": PROVIDER_MODEL,
                             "api_key": PROVIDER_KEY,
                             "api_base": handle.api_base(),
@@ -154,7 +154,7 @@ def _turn_one(gateway: Gateway, group: str, deployment_ids: tuple[str, ...]) -> 
     # stale body carrying another run's encoded model_id would replay instead
     response: Final = _responses_turn(gateway, group, f"hello affinity {uuid.uuid4().hex}")
     assert response.status_code == 200, response.text
-    origin: Final = str(response.headers["x-litellm-model-id"])
+    origin: Final = str(response.headers["x-hangarllm-model-id"])
     assert origin in deployment_ids, f"turn one served by unknown deployment {origin}: {response.text}"
     output: Final = object_value(response.json()).get("output")
     assert isinstance(output, list), f"turn one returned no output items: {response.text}"
@@ -207,8 +207,8 @@ def test_replayed_encrypted_content_serves_from_sibling_when_origin_blocked(gate
         response: Final = _replay(gateway, group, items)
         assert response.status_code == 200, response.text
         siblings: Final = tuple(model_id for model_id in deployment_ids if model_id != origin)
-        assert response.headers.get("x-litellm-model-id") in siblings, (
-            f"turn two served by {response.headers.get('x-litellm-model-id')}, "
+        assert response.headers.get("x-hangarllm-model-id") in siblings, (
+            f"turn two served by {response.headers.get('x-hangarllm-model-id')}, "
             f"expected a sibling of blocked origin {origin}: {response.text}"
         )
         _assert_no_encrypted_reasoning_reached_upstream(gateway, group)
@@ -233,8 +233,8 @@ def test_replayed_encrypted_content_serves_from_sibling_when_origin_deleted(gate
         response: Final = _replay(gateway, group, items)
         assert response.status_code == 200, response.text
         siblings: Final = tuple(model_id for model_id in deployment_ids if model_id != origin)
-        assert response.headers.get("x-litellm-model-id") in siblings, (
-            f"turn two served by {response.headers.get('x-litellm-model-id')}, "
+        assert response.headers.get("x-hangarllm-model-id") in siblings, (
+            f"turn two served by {response.headers.get('x-hangarllm-model-id')}, "
             f"expected a sibling of deleted origin {origin}: {response.text}"
         )
         _assert_no_encrypted_reasoning_reached_upstream(gateway, group)

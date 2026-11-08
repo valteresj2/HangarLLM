@@ -5,17 +5,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
-from prisma.models import LiteLLM_VerifiedSubject
+from prisma.models import HangarLLM_VerifiedSubject
 
-from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore, resolve_managed_agent
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.repositories.table_repositories import (
+from hangarllm.proxy.agent_endpoints.identity_store import AgentIdentityStore, resolve_managed_agent
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.repositories.table_repositories import (
     AgentIdentityRepository,
     AgentsRepository,
     VerifiedSubjectRepository,
 )
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import (
+from hangarllm.types.agents import AgentResponse
+from hangarllm.types.proxy.agent_identity import (
     AgentIdentityBinding,
     AgentIdentityFailure,
     ManagedAgentContext,
@@ -56,7 +56,7 @@ def stored_agent(**overrides: object) -> AgentResponse:
 
 def setup_store(
     agent: AgentResponse | None = stored_agent(),
-    human: LiteLLM_VerifiedSubject | None = None,
+    human: HangarLLM_VerifiedSubject | None = None,
     cache: UserApiKeyCache | None = None,
 ) -> tuple[AgentIdentityStore, AsyncMock, AsyncMock, AsyncMock]:
     agents: Final = AsyncMock()
@@ -68,9 +68,9 @@ def setup_store(
     humans.find_unique.return_value = human
     db: Final = SimpleNamespace(
         db=SimpleNamespace(
-            litellm_agentstable=agents,
-            litellm_agentidentity=identities,
-            litellm_verifiedsubject=humans,
+            hangarllm_agentstable=agents,
+            hangarllm_agentidentity=identities,
+            hangarllm_verifiedsubject=humans,
         )
     )
     return (
@@ -164,7 +164,7 @@ async def test_unclassified_delegated_subject_cannot_authenticate_as_a_user() ->
 
 @pytest.mark.asyncio
 async def test_delegated_subject_uses_canonical_sso_user_not_email_claim() -> None:
-    human: Final = LiteLLM_VerifiedSubject(
+    human: Final = HangarLLM_VerifiedSubject(
         kind="human",
         subject_id="subject-one",
         issuer=ISSUER,
@@ -245,14 +245,14 @@ async def test_bound_agents_and_policy_failures_are_never_served_from_the_miss_c
 
 @pytest.mark.asyncio
 async def test_retired_client_cannot_fall_back_to_ordinary_user_authentication() -> None:
-    from prisma.models import LiteLLM_RetiredAgentIdentity
+    from prisma.models import HangarLLM_RetiredAgentIdentity
 
-    from litellm.repositories.table_repositories import RetiredAgentIdentityRepository
+    from hangarllm.repositories.table_repositories import RetiredAgentIdentityRepository
 
     identities: Final = AsyncMock()
     identities.find_unique.return_value = None
     retired: Final = AsyncMock()
-    retired.find_unique.return_value = LiteLLM_RetiredAgentIdentity(
+    retired.find_unique.return_value = HangarLLM_RetiredAgentIdentity(
         binding_id="retired",
         agent_id="agent-one",
         provider="microsoft_entra",
@@ -262,10 +262,10 @@ async def test_retired_client_cannot_fall_back_to_ordinary_user_authentication()
     )
     db: Final = SimpleNamespace(
         db=SimpleNamespace(
-            litellm_agentidentity=identities,
-            litellm_retiredagentidentity=retired,
-            litellm_agentstable=AsyncMock(),
-            litellm_verifiedsubject=AsyncMock(),
+            hangarllm_agentidentity=identities,
+            hangarllm_retiredagentidentity=retired,
+            hangarllm_agentstable=AsyncMock(),
+            hangarllm_verifiedsubject=AsyncMock(),
         )
     )
     store: Final = AgentIdentityStore(
@@ -305,9 +305,9 @@ async def test_authentication_evidence_write_failure_is_not_success() -> None:
 async def test_retired_binding_denies_and_history_outage_cannot_become_legacy_fallback(unavailable: bool) -> None:
 
     database: Final = MagicMock()
-    database.writer_db.litellm_agentidentity.find_unique = AsyncMock(return_value=None)
-    database.writer_db.litellm_verifiedsubject.find_unique = AsyncMock(return_value=None)
-    database.writer_db.litellm_retiredagentidentity.find_unique = AsyncMock(
+    database.writer_db.hangarllm_agentidentity.find_unique = AsyncMock(return_value=None)
+    database.writer_db.hangarllm_verifiedsubject.find_unique = AsyncMock(return_value=None)
+    database.writer_db.hangarllm_retiredagentidentity.find_unique = AsyncMock(
         return_value={"client_id": CLIENT}, side_effect=RuntimeError("unavailable") if unavailable else None
     )
     result: Final = await AgentIdentityStore.from_client(database).resolve_verified_claims(CLAIMS)
@@ -326,11 +326,11 @@ async def test_new_binding_is_enforced_after_another_worker_commits_it() -> None
     retired.find_unique.return_value = None
     db: Final = SimpleNamespace(
         writer_db=SimpleNamespace(
-            litellm_agentstable=agents,
-            litellm_agentidentity=identities,
-            litellm_verifiedsubject=humans,
-            litellm_retiredagentidentity=retired,
-            litellm_retiredagent=retired,
+            hangarllm_agentstable=agents,
+            hangarllm_agentidentity=identities,
+            hangarllm_verifiedsubject=humans,
+            hangarllm_retiredagentidentity=retired,
+            hangarllm_retiredagent=retired,
         )
     )
     worker: Final = AgentIdentityStore.from_client(db, cache=UserApiKeyCache())
@@ -355,7 +355,7 @@ async def test_non_string_subject_does_not_query_directory_ownership() -> None:
 @pytest.mark.parametrize("configured", [False, True])
 async def test_missing_or_unavailable_retirement_history_fails_closed(configured: bool) -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_retiredagent.find_unique = AsyncMock(side_effect=RuntimeError("history unavailable"))
+    database.writer_db.hangarllm_retiredagent.find_unique = AsyncMock(side_effect=RuntimeError("history unavailable"))
     store: Final = AgentIdentityStore.from_client(database) if configured else setup_store()[0]
     result: Final = await store.retired_agent("deleted-agent")
     assert isinstance(result, AgentIdentityFailure)
@@ -366,7 +366,7 @@ async def test_missing_or_unavailable_retirement_history_fails_closed(configured
 @pytest.mark.parametrize("owner", ["canonical-user", "another-user"])
 async def test_interactive_enrollment_preserves_existing_subject_ownership(owner: str) -> None:
     store, _, _, humans = setup_store()
-    humans.upsert.return_value = LiteLLM_VerifiedSubject(
+    humans.upsert.return_value = HangarLLM_VerifiedSubject(
         subject_id="subject-one",
         issuer=ISSUER,
         tenant_id=TENANT,
@@ -415,11 +415,11 @@ async def test_matching_revision_records_successful_authentication() -> None:
 @pytest.mark.parametrize("outage", [False, True])
 async def test_resolver_maps_denials_and_outages_to_public_errors(outage: bool) -> None:
     database: Final = MagicMock()
-    database.writer_db.litellm_agentidentity.find_unique = AsyncMock(
+    database.writer_db.hangarllm_agentidentity.find_unique = AsyncMock(
         return_value=BINDING, side_effect=ConnectionError("unavailable") if outage else None
     )
-    database.writer_db.litellm_verifiedsubject.find_unique = AsyncMock(return_value=None)
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=stored_agent(enabled=False))
+    database.writer_db.hangarllm_verifiedsubject.find_unique = AsyncMock(return_value=None)
+    database.writer_db.hangarllm_agentstable.find_unique = AsyncMock(return_value=stored_agent(enabled=False))
     with pytest.raises(HTTPException) as exc:
         await resolve_managed_agent(CLAIMS, database)
     assert exc.value.status_code == (503 if outage else 403)

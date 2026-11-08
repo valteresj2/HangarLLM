@@ -4,7 +4,7 @@ import os
 
 def find_set_verbose_assignments(file_path):
     """
-    Finds all assignments of litellm.set_verbose = True in a given Python file.
+    Finds all assignments of hangarllm.set_verbose = True in a given Python file.
     Returns a list of tuples (line_number, assignment_text).
     """
     try:
@@ -20,13 +20,13 @@ def find_set_verbose_assignments(file_path):
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
-            # Check if this is an assignment to litellm.set_verbose
+            # Check if this is an assignment to hangarllm.set_verbose
             for target in node.targets:
                 if isinstance(target, ast.Attribute):
-                    # Check if it's litellm.set_verbose
+                    # Check if it's hangarllm.set_verbose
                     if (
                         isinstance(target.value, ast.Name)
-                        and target.value.id == "litellm"
+                        and target.value.id == "hangarllm"
                         and target.attr == "set_verbose"
                     ):
 
@@ -57,16 +57,16 @@ def find_set_verbose_assignments(file_path):
     return assignments
 
 
-def scan_litellm_files(base_dir):
+def scan_hangarllm_files(base_dir):
     """
-    Scans all Python files in the litellm directory for set_verbose assignments.
+    Scans all Python files in the hangarllm directory for set_verbose assignments.
     Returns a dictionary mapping file paths to lists of assignments.
     """
     violations = {}
-    litellm_dirs = ["litellm", "enterprise"]
+    hangarllm_dirs = ["hangarllm", "enterprise"]
 
-    for litellm_dir in litellm_dirs:
-        dir_path = os.path.join(base_dir, litellm_dir)
+    for hangarllm_dir in hangarllm_dirs:
+        dir_path = os.path.join(base_dir, hangarllm_dir)
         if not os.path.exists(dir_path):
             print(f"Warning: Directory {dir_path} does not exist.")
             continue
@@ -87,11 +87,11 @@ def scan_litellm_files(base_dir):
 
 def test_no_hardcoded_set_verbose():
     """
-    Pytest-compatible test function that ensures no hardcoded litellm.set_verbose = True assignments exist.
+    Pytest-compatible test function that ensures no hardcoded hangarllm.set_verbose = True assignments exist.
     """
     base_dir = "./"  # Adjust path as needed for your setup
 
-    violations = scan_litellm_files(base_dir)
+    violations = scan_hangarllm_files(base_dir)
 
     if violations:
         violation_details = []
@@ -102,9 +102,9 @@ def test_no_hardcoded_set_verbose():
                 total_violations += 1
 
         error_msg = (
-            f"Found {total_violations} prohibited litellm.set_verbose = True assignments:\n"
+            f"Found {total_violations} prohibited hangarllm.set_verbose = True assignments:\n"
             + "\n".join(violation_details)
-            + "\n\nREASON: litellm.set_verbose = True should not be hardcoded in production code. "
+            + "\n\nREASON: hangarllm.set_verbose = True should not be hardcoded in production code. "
             "Instead, use environment variables or configuration files to control verbosity."
         )
 
@@ -113,15 +113,15 @@ def test_no_hardcoded_set_verbose():
 
 def main():
     """
-    Main function that scans for litellm.set_verbose = True assignments and fails if any are found.
+    Main function that scans for hangarllm.set_verbose = True assignments and fails if any are found.
     """
     base_dir = "./"  # Adjust path as needed for your setup
 
-    print("Scanning for litellm.set_verbose = True assignments...")
-    violations = scan_litellm_files(base_dir)
+    print("Scanning for hangarllm.set_verbose = True assignments...")
+    violations = scan_hangarllm_files(base_dir)
 
     if violations:
-        print("\n❌ FOUND PROHIBITED litellm.set_verbose = True ASSIGNMENTS:")
+        print("\n❌ FOUND PROHIBITED hangarllm.set_verbose = True ASSIGNMENTS:")
         print("=" * 60)
 
         total_violations = 0
@@ -133,24 +133,24 @@ def main():
 
         print(f"\n📊 Total violations found: {total_violations}")
         print(
-            "\n🚫 REASON: litellm.set_verbose = True should not be hardcoded in production code."
+            "\n🚫 REASON: hangarllm.set_verbose = True should not be hardcoded in production code."
         )
         print(
             "   Instead, use environment variables or configuration files to control verbosity."
         )
         print("   Example alternatives:")
-        print("   - Use LITELLM_LOG=DEBUG environment variable")
+        print("   - Use HANGARLLM_LOG=DEBUG environment variable")
         print(
-            "   - Use litellm.set_verbose = os.getenv('LITELLM_VERBOSE', 'false').lower() == 'true'"
+            "   - Use hangarllm.set_verbose = os.getenv('HANGARLLM_VERBOSE', 'false').lower() == 'true'"
         )
         print("   - Use configuration-based verbosity settings")
 
         raise Exception(
-            f"Found {total_violations} prohibited litellm.set_verbose = True assignments. "
+            f"Found {total_violations} prohibited hangarllm.set_verbose = True assignments. "
             "Remove these hardcoded verbosity settings and use configuration-based approaches instead."
         )
     else:
-        print("✅ No prohibited litellm.set_verbose = True assignments found.")
+        print("✅ No prohibited hangarllm.set_verbose = True assignments found.")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/interactions/agents/http_handler.py
+Unit tests for hangarllm/interactions/agents/http_handler.py
 
 These tests exercise both the sync and async branches of every CRUD method
 on AgentsHTTPHandler using stub httpx clients, plus the _is_async dispatch
@@ -14,21 +14,21 @@ import httpx
 import pytest
 
 
-from litellm.interactions.agents.http_handler import (
+from hangarllm.interactions.agents.http_handler import (
     AgentsHTTPHandler,
     agents_http_handler,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.gemini.agents.transformation import GeminiAgentsConfig
-from litellm.llms.gemini.common_utils import GeminiError
-from litellm.types.agents import (
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.gemini.agents.transformation import GeminiAgentsConfig
+from hangarllm.llms.gemini.common_utils import GeminiError
+from hangarllm.types.agents import (
     AgentCreateRequest,
     AgentCreateResponse,
     AgentDeleteResult,
     AgentListResponse,
     AgentVersionsResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 # ---------------------------------------------------------------------------
@@ -77,8 +77,8 @@ def config() -> GeminiAgentsConfig:
 
 
 @pytest.fixture
-def litellm_params() -> GenericLiteLLMParams:
-    return GenericLiteLLMParams(api_key="AIza-test")
+def hangarllm_params() -> GenericHangarLLMParams:
+    return GenericHangarLLMParams(api_key="AIza-test")
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ def test_module_singleton_is_agents_http_handler_instance():
 
 
 class TestCreateAgent:
-    def test_sync_returns_parsed_create_response(self, handler, config, litellm_params):
+    def test_sync_returns_parsed_create_response(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         client.post.return_value = _make_response(
             200, json_data={"id": "agent-x", "base_agent": "gemini-2.5-flash"}
@@ -106,7 +106,7 @@ class TestCreateAgent:
         result = handler.create_agent(
             agents_api_config=config,
             create_request=AgentCreateRequest(id="agent-x"),
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=logging_obj,
             extra_headers={"X-Test": "1"},
             extra_body={"foo": "bar"},
@@ -124,14 +124,14 @@ class TestCreateAgent:
         logging_obj.post_call.assert_called_once()
 
     def test_sync_dispatches_to_async_when_is_async(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_sync_client()
 
         result = handler.create_agent(
             agents_api_config=config,
             create_request=AgentCreateRequest(id="agent-x"),
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
             _is_async=True,
@@ -142,7 +142,7 @@ class TestCreateAgent:
         assert asyncio.iscoroutine(result)
         result.close()
 
-    def test_sync_maps_http_error_via_config(self, handler, config, litellm_params):
+    def test_sync_maps_http_error_via_config(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         bad = _make_response(404, text="not found")
         client.post.side_effect = httpx.HTTPStatusError(
@@ -153,14 +153,14 @@ class TestCreateAgent:
             handler.create_agent(
                 agents_api_config=config,
                 create_request=AgentCreateRequest(id="agent-x"),
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
 
     @pytest.mark.asyncio
     async def test_async_returns_parsed_create_response(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_async_client()
         client.post.return_value = _make_response(
@@ -170,7 +170,7 @@ class TestCreateAgent:
         result = await handler.async_create_agent(
             agents_api_config=config,
             create_request=AgentCreateRequest(id="agent-y"),
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             extra_body={"baz": "qux"},
             client=client,
@@ -182,7 +182,7 @@ class TestCreateAgent:
 
     @pytest.mark.asyncio
     async def test_async_maps_http_error_via_config(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_async_client()
         bad = _make_response(500, text="server error")
@@ -194,7 +194,7 @@ class TestCreateAgent:
             await handler.async_create_agent(
                 agents_api_config=config,
                 create_request=AgentCreateRequest(id="agent-y"),
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
@@ -206,7 +206,7 @@ class TestCreateAgent:
 
 
 class TestListAgents:
-    def test_sync_returns_list_response(self, handler, config, litellm_params):
+    def test_sync_returns_list_response(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         client.get.return_value = _make_response(
             200,
@@ -218,7 +218,7 @@ class TestListAgents:
 
         result = handler.list_agents(
             agents_api_config=config,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -229,13 +229,13 @@ class TestListAgents:
         client.get.assert_called_once()
 
     def test_sync_dispatches_to_async_when_is_async(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_sync_client()
 
         result = handler.list_agents(
             agents_api_config=config,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
             _is_async=True,
@@ -246,7 +246,7 @@ class TestListAgents:
         assert asyncio.iscoroutine(result)
         result.close()
 
-    def test_sync_maps_http_error_via_config(self, handler, config, litellm_params):
+    def test_sync_maps_http_error_via_config(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         bad = _make_response(403, text="forbidden")
         client.get.side_effect = httpx.HTTPStatusError(
@@ -256,13 +256,13 @@ class TestListAgents:
         with pytest.raises(GeminiError):
             handler.list_agents(
                 agents_api_config=config,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
 
     @pytest.mark.asyncio
-    async def test_async_returns_list_response(self, handler, config, litellm_params):
+    async def test_async_returns_list_response(self, handler, config, hangarllm_params):
         client = _make_async_client()
         client.get.return_value = _make_response(
             200, json_data={"agents": [{"id": "a-1"}]}
@@ -270,7 +270,7 @@ class TestListAgents:
 
         result = await handler.async_list_agents(
             agents_api_config=config,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -281,7 +281,7 @@ class TestListAgents:
 
     @pytest.mark.asyncio
     async def test_async_maps_http_error_via_config(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_async_client()
         bad = _make_response(429, text="rate limited")
@@ -292,7 +292,7 @@ class TestListAgents:
         with pytest.raises(GeminiError):
             await handler.async_list_agents(
                 agents_api_config=config,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
@@ -304,14 +304,14 @@ class TestListAgents:
 
 
 class TestGetAgent:
-    def test_sync_returns_get_response(self, handler, config, litellm_params):
+    def test_sync_returns_get_response(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         client.get.return_value = _make_response(200, json_data={"id": "agent-x"})
 
         result = handler.get_agent(
             agents_api_config=config,
             name="agent-x",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -322,12 +322,12 @@ class TestGetAgent:
         assert kwargs["url"].endswith("/v1beta/agents/agent-x")
 
     def test_sync_dispatches_to_async_when_is_async(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         result = handler.get_agent(
             agents_api_config=config,
             name="agent-x",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=_make_sync_client(),
             _is_async=True,
@@ -337,7 +337,7 @@ class TestGetAgent:
         assert asyncio.iscoroutine(result)
         result.close()
 
-    def test_sync_maps_http_error_via_config(self, handler, config, litellm_params):
+    def test_sync_maps_http_error_via_config(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         bad = _make_response(404, text="not found")
         client.get.side_effect = httpx.HTTPStatusError(
@@ -348,20 +348,20 @@ class TestGetAgent:
             handler.get_agent(
                 agents_api_config=config,
                 name="agent-x",
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
 
     @pytest.mark.asyncio
-    async def test_async_returns_get_response(self, handler, config, litellm_params):
+    async def test_async_returns_get_response(self, handler, config, hangarllm_params):
         client = _make_async_client()
         client.get.return_value = _make_response(200, json_data={"id": "agent-y"})
 
         result = await handler.async_get_agent(
             agents_api_config=config,
             name="agent-y",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -371,7 +371,7 @@ class TestGetAgent:
 
     @pytest.mark.asyncio
     async def test_async_maps_http_error_via_config(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_async_client()
         bad = _make_response(404, text="not found")
@@ -383,7 +383,7 @@ class TestGetAgent:
             await handler.async_get_agent(
                 agents_api_config=config,
                 name="agent-x",
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
@@ -395,14 +395,14 @@ class TestGetAgent:
 
 
 class TestDeleteAgent:
-    def test_sync_returns_delete_result(self, handler, config, litellm_params):
+    def test_sync_returns_delete_result(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         client.delete.return_value = _make_response(200, json_data={})
 
         result = handler.delete_agent(
             agents_api_config=config,
             name="agent-x",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -414,12 +414,12 @@ class TestDeleteAgent:
         assert kwargs["url"].endswith("/v1beta/agents/agent-x")
 
     def test_sync_dispatches_to_async_when_is_async(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         result = handler.delete_agent(
             agents_api_config=config,
             name="agent-x",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=_make_sync_client(),
             _is_async=True,
@@ -429,7 +429,7 @@ class TestDeleteAgent:
         assert asyncio.iscoroutine(result)
         result.close()
 
-    def test_sync_maps_http_error_via_config(self, handler, config, litellm_params):
+    def test_sync_maps_http_error_via_config(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         bad = _make_response(403, text="forbidden")
         client.delete.side_effect = httpx.HTTPStatusError(
@@ -440,20 +440,20 @@ class TestDeleteAgent:
             handler.delete_agent(
                 agents_api_config=config,
                 name="agent-x",
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
 
     @pytest.mark.asyncio
-    async def test_async_returns_delete_result(self, handler, config, litellm_params):
+    async def test_async_returns_delete_result(self, handler, config, hangarllm_params):
         client = _make_async_client()
         client.delete.return_value = _make_response(200, json_data={})
 
         result = await handler.async_delete_agent(
             agents_api_config=config,
             name="agent-y",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -464,7 +464,7 @@ class TestDeleteAgent:
 
     @pytest.mark.asyncio
     async def test_async_maps_http_error_via_config(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_async_client()
         bad = _make_response(500, text="server error")
@@ -476,7 +476,7 @@ class TestDeleteAgent:
             await handler.async_delete_agent(
                 agents_api_config=config,
                 name="agent-x",
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
@@ -488,7 +488,7 @@ class TestDeleteAgent:
 
 
 class TestListAgentVersions:
-    def test_sync_returns_versions_response(self, handler, config, litellm_params):
+    def test_sync_returns_versions_response(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         client.get.return_value = _make_response(
             200,
@@ -503,7 +503,7 @@ class TestListAgentVersions:
         result = handler.list_agent_versions(
             agents_api_config=config,
             name="agent-x",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -515,12 +515,12 @@ class TestListAgentVersions:
         assert kwargs["url"].endswith("/v1beta/agents/agent-x/versions")
 
     def test_sync_dispatches_to_async_when_is_async(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         result = handler.list_agent_versions(
             agents_api_config=config,
             name="agent-x",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=_make_sync_client(),
             _is_async=True,
@@ -530,7 +530,7 @@ class TestListAgentVersions:
         assert asyncio.iscoroutine(result)
         result.close()
 
-    def test_sync_maps_http_error_via_config(self, handler, config, litellm_params):
+    def test_sync_maps_http_error_via_config(self, handler, config, hangarllm_params):
         client = _make_sync_client()
         bad = _make_response(404, text="not found")
         client.get.side_effect = httpx.HTTPStatusError(
@@ -541,14 +541,14 @@ class TestListAgentVersions:
             handler.list_agent_versions(
                 agents_api_config=config,
                 name="agent-x",
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )
 
     @pytest.mark.asyncio
     async def test_async_returns_versions_response(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_async_client()
         client.get.return_value = _make_response(200, json_data={"agentVersions": []})
@@ -556,7 +556,7 @@ class TestListAgentVersions:
         result = await handler.async_list_agent_versions(
             agents_api_config=config,
             name="agent-y",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             logging_obj=_make_logging_obj(),
             client=client,
         )
@@ -566,7 +566,7 @@ class TestListAgentVersions:
 
     @pytest.mark.asyncio
     async def test_async_maps_http_error_via_config(
-        self, handler, config, litellm_params
+        self, handler, config, hangarllm_params
     ):
         client = _make_async_client()
         bad = _make_response(500, text="server error")
@@ -578,7 +578,7 @@ class TestListAgentVersions:
             await handler.async_list_agent_versions(
                 agents_api_config=config,
                 name="agent-x",
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 logging_obj=_make_logging_obj(),
                 client=client,
             )

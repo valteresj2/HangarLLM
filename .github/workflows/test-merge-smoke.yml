@@ -2,7 +2,7 @@ name: smoke
 
 on:
   pull_request:
-    branches: [main, litellm_internal_staging, litellm_oss_staging, "litellm_**"]
+    branches: [main, hangarllm_internal_staging, hangarllm_oss_staging, "hangarllm_**"]
   workflow_dispatch:
 
 permissions:
@@ -35,7 +35,7 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     env:
-      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      HANGARLLM_LOCAL_MODEL_COST_MAP: "True"
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
@@ -62,7 +62,7 @@ jobs:
           cat > "${RUNNER_TEMP}/in-netns" <<'WRAP'
           #!/usr/bin/env bash
           set -euo pipefail
-          exec sudo --preserve-env=LITELLM_LOCAL_MODEL_COST_MAP ip netns exec smoke setpriv --reuid "$(id -u)" --regid "$(id -g)" --init-groups -- env HOME="${HOME}" PATH="${PATH}" "$@"
+          exec sudo --preserve-env=HANGARLLM_LOCAL_MODEL_COST_MAP ip netns exec smoke setpriv --reuid "$(id -u)" --regid "$(id -g)" --init-groups -- env HOME="${HOME}" PATH="${PATH}" "$@"
           WRAP
           chmod +x "${RUNNER_TEMP}/in-netns"
           echo "IN_NETNS=${RUNNER_TEMP}/in-netns" >> "${GITHUB_ENV}"
@@ -106,7 +106,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     env:
-      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      HANGARLLM_LOCAL_MODEL_COST_MAP: "True"
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
@@ -127,14 +127,14 @@ jobs:
         run: .github/scripts/uv_sync_with_retries.sh --frozen --all-groups --all-extras --python ${{ matrix.python-version }}
 
       - name: Import the SDK, the proxy server and the enterprise package
-        run: .venv/bin/python -c "import litellm, litellm.proxy.proxy_server, litellm_enterprise"
+        run: .venv/bin/python -c "import hangarllm, hangarllm.proxy.proxy_server, hangarllm_enterprise"
 
   windows-sdk:
     name: windows-sdk
     runs-on: windows-2025
     timeout-minutes: 30
     env:
-      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      HANGARLLM_LOCAL_MODEL_COST_MAP: "True"
     defaults:
       run:
         shell: bash
@@ -201,7 +201,7 @@ jobs:
         run: .github/scripts/uv_sync_with_retries.sh --frozen --no-install-workspace --extra proxy --group dev --python 3.12
 
       - name: Build the image from the published package
-        run: docker build -t litellm-build-from-pip:smoke -f docker/build_from_pip/Dockerfile.build_from_pip .
+        run: docker build -t hangarllm-build-from-pip:smoke -f docker/build_from_pip/Dockerfile.build_from_pip .
 
       - name: Start the fake OpenAI endpoint
         run: |
@@ -217,23 +217,23 @@ jobs:
         run: |
           key="sk-$(openssl rand -hex 16)"
           echo "::add-mask::${key}"
-          echo "LITELLM_MASTER_KEY=${key}" >> "${GITHUB_ENV}"
+          echo "HANGARLLM_MASTER_KEY=${key}" >> "${GITHUB_ENV}"
 
       - name: Start the proxy container
         run: |
           docker run -d \
             -p 4000:4000 \
             -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/circle_test \
-            -e LITELLM_MASTER_KEY \
+            -e HANGARLLM_MASTER_KEY \
             -e FAKE_OPENAI_API_BASE=http://host.docker.internal:8190 \
             -e OTEL_EXPORTER=in_memory \
             -e USE_DDTRACE=True \
             -e GCS_FLUSH_INTERVAL=1 \
-            -e LITELLM_LOG=ERROR \
+            -e HANGARLLM_LOG=ERROR \
             --add-host host.docker.internal:host-gateway \
-            --name litellm-build-from-pip \
-            -v "${GITHUB_WORKSPACE}/docker/build_from_pip/litellm_config.yaml:/app/config.yaml" \
-            litellm-build-from-pip:smoke \
+            --name hangarllm-build-from-pip \
+            -v "${GITHUB_WORKSPACE}/docker/build_from_pip/hangarllm_config.yaml:/app/config.yaml" \
+            hangarllm-build-from-pip:smoke \
             --config /app/config.yaml \
             --port 4000
           for _ in $(seq 1 150); do
@@ -255,7 +255,7 @@ jobs:
           liveness_status="$(curl -sS --fail-with-body --output /dev/null --write-out '%{http_code}' "${base_url}/health/liveness")"
           [[ "${liveness_status}" == "200" ]]
           completion_response="$(curl -sS --fail-with-body --write-out $'\n%{http_code}' \
-            --header "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
+            --header "Authorization: Bearer ${HANGARLLM_MASTER_KEY}" \
             --header 'Content-Type: application/json' \
             --data '{"model":"gpt-4","messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"Hello!"}]}' \
             "${base_url}/chat/completions")"
@@ -270,7 +270,7 @@ jobs:
 
       - name: Show the proxy logs
         if: always()
-        run: docker logs litellm-build-from-pip || true
+        run: docker logs hangarllm-build-from-pip || true
 
   smoke-passed:
     name: smoke passed

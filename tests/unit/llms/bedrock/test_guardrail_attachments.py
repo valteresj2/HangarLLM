@@ -2,8 +2,8 @@ import base64
 
 import pytest
 
-from litellm.llms.bedrock.guardrail_attachments import find_request_attachments
-from litellm.types.utils import CallTypes
+from hangarllm.llms.bedrock.guardrail_attachments import find_request_attachments
+from hangarllm.types.utils import CallTypes
 
 PNG_B64 = base64.b64encode(b"\x89PNG\r\n\x1a\nfake-png").decode()
 JPEG_B64 = base64.b64encode(b"\xff\xd8\xfffake-jpeg").decode()

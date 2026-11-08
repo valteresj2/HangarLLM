@@ -11,16 +11,16 @@ from unittest.mock import patch
 import pytest
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-import litellm.proxy.common_utils.auth_cache_invalidation_pubsub as pubsub_module
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.proxy._types import LiteLLM_TeamTable, LitellmUserRoles, Member, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import jwt_key_mapping_cache_key
-from litellm.proxy.common_utils.user_api_key_cache import (
+import hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub as pubsub_module
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarllmUserRoles, Member, UserAPIKeyAuth
+from hangarllm.proxy.auth.auth_checks import jwt_key_mapping_cache_key
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     team_membership_auth_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.management_helpers.team_roster_sync import (
+from hangarllm.proxy.management_helpers.team_roster_sync import (
     MembersMissing,
     RosterDelta,
     RosterPlan,
@@ -31,7 +31,7 @@ from litellm.proxy.management_helpers.team_roster_sync import (
 )
 from tests.unit.redis.stores.auth_cache_double import FakeAuthCache, shared_cache
 
-ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin")
+ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-admin")
 TEAM: Final = "t1"
 READS: Final = ("query_raw", "teamtable.find_unique", "usertable.find_many", "budgettable.find_unique")
 _STRINGS: Final = TypeAdapter(list[str])
@@ -141,17 +141,17 @@ class _UserTable:
 
 
 class _TeamTable:
-    def __init__(self, ledger: _Ledger, teams: Sequence[LiteLLM_TeamTable], deleted_before_update: bool) -> None:
+    def __init__(self, ledger: _Ledger, teams: Sequence[HangarLLM_TeamTable], deleted_before_update: bool) -> None:
         """``deleted_before_update`` stands for a team delete that commits after the roster read, before its write."""
         self.ledger = ledger
-        self.rows: dict[str, LiteLLM_TeamTable] = {t.team_id: t for t in teams}
+        self.rows: dict[str, HangarLLM_TeamTable] = {t.team_id: t for t in teams}
         self.deleted_before_update = deleted_before_update
 
-    async def find_unique(self, where: Mapping[str, str]) -> LiteLLM_TeamTable | None:
+    async def find_unique(self, where: Mapping[str, str]) -> HangarLLM_TeamTable | None:
         self.ledger.statements.append("teamtable.find_unique")
         return self.rows.get(where["team_id"])
 
-    async def update(self, where: Mapping[str, str], data: Mapping[str, str]) -> LiteLLM_TeamTable | None:
+    async def update(self, where: Mapping[str, str], data: Mapping[str, str]) -> HangarLLM_TeamTable | None:
         self.ledger.statements.append("teamtable.update")
         if self.deleted_before_update:
             return None
@@ -168,32 +168,32 @@ class _Db:
         self,
         ledger: _Ledger,
         users: Sequence[_UserRow],
-        teams: Sequence[LiteLLM_TeamTable],
+        teams: Sequence[HangarLLM_TeamTable],
         memberships: Sequence[tuple[str, str]],
         tokens: Sequence[Mapping[str, object]],
         budgets: Sequence[Mapping[str, object]],
         jwt_mappings: Sequence[Mapping[str, object]],
         team_deleted_before_update: bool = False,
     ) -> None:
-        self.litellm_usertable = _UserTable(ledger, users)
-        self.litellm_teamtable = _TeamTable(ledger, teams, team_deleted_before_update)
-        self.litellm_teammembership = _Rows(
+        self.hangarllm_usertable = _UserTable(ledger, users)
+        self.hangarllm_teamtable = _TeamTable(ledger, teams, team_deleted_before_update)
+        self.hangarllm_teammembership = _Rows(
             "teammembership", ledger, [{"team_id": t, "user_id": u, "budget_id": None} for t, u in memberships]
         )
-        self.litellm_verificationtoken = _Rows("verificationtoken", ledger, tokens)
-        self.litellm_deletedverificationtoken = _Rows("deletedverificationtoken", ledger)
-        self.litellm_budgettable = _Rows("budgettable", ledger, budgets)
-        self.litellm_jwtkeymapping = _Rows("jwtkeymapping", ledger, jwt_mappings)
+        self.hangarllm_verificationtoken = _Rows("verificationtoken", ledger, tokens)
+        self.hangarllm_deletedverificationtoken = _Rows("deletedverificationtoken", ledger)
+        self.hangarllm_budgettable = _Rows("budgettable", ledger, budgets)
+        self.hangarllm_jwtkeymapping = _Rows("jwtkeymapping", ledger, jwt_mappings)
 
 
 class _Tx:
     def __init__(self, db: _Db, ledger: _Ledger) -> None:
-        self.litellm_usertable = db.litellm_usertable
-        self.litellm_teamtable = db.litellm_teamtable
-        self.litellm_teammembership = db.litellm_teammembership
-        self.litellm_verificationtoken = db.litellm_verificationtoken
-        self.litellm_deletedverificationtoken = db.litellm_deletedverificationtoken
-        self.litellm_budgettable = db.litellm_budgettable
+        self.hangarllm_usertable = db.hangarllm_usertable
+        self.hangarllm_teamtable = db.hangarllm_teamtable
+        self.hangarllm_teammembership = db.hangarllm_teammembership
+        self.hangarllm_verificationtoken = db.hangarllm_verificationtoken
+        self.hangarllm_deletedverificationtoken = db.hangarllm_deletedverificationtoken
+        self.hangarllm_budgettable = db.hangarllm_budgettable
         self.ledger = ledger
 
     async def query_raw(self, sql: str, *args: object) -> list[dict[str, object]]:
@@ -204,13 +204,13 @@ class _Tx:
         assert 'ORDER BY user_id COLLATE "C" FOR UPDATE' in sql
         user_ids = _STRINGS.validate_python(args[0])
         self.ledger.locked_users.append(user_ids)
-        return [{"user_id": user_id} for user_id in user_ids if user_id in self.litellm_usertable.rows]
+        return [{"user_id": user_id} for user_id in user_ids if user_id in self.hangarllm_usertable.rows]
 
     async def execute_raw(self, sql: str, *args: object) -> int:
         self.ledger.statements.append("execute_raw")
         assert "array_remove(teams, $1)" in sql
         user_ids = _STRINGS.validate_python(args[1])
-        self.litellm_usertable.detach(str(args[0]), user_ids)
+        self.hangarllm_usertable.detach(str(args[0]), user_ids)
         return len(user_ids)
 
 
@@ -218,13 +218,13 @@ class _FakePrisma:
     def __init__(
         self,
         users: Sequence[_UserRow] = (),
-        teams: Sequence[LiteLLM_TeamTable] = (),
+        teams: Sequence[HangarLLM_TeamTable] = (),
         memberships: Sequence[tuple[str, str]] = (),
         tokens: Sequence[Mapping[str, object]] = (),
         budgets: Sequence[Mapping[str, object]] = (),
         jwt_mappings: Sequence[Mapping[str, object]] = (),
         fail_commit: bool = False,
-        replica_teams: Sequence[LiteLLM_TeamTable] | None = None,
+        replica_teams: Sequence[HangarLLM_TeamTable] | None = None,
         team_deleted_before_update: bool = False,
     ) -> None:
         """``db`` is the routed client, which a read replica may serve; ``writer_db`` is the writer."""
@@ -261,8 +261,8 @@ def _team(
     *members: Member,
     default_team_member_models: list[str] | None = None,
     metadata: dict[str, object] | None = None,
-) -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable(
+) -> HangarLLM_TeamTable:
+    return HangarLLM_TeamTable(
         team_id=TEAM,
         members_with_roles=list(members),
         default_team_member_models=default_team_member_models,
@@ -275,23 +275,23 @@ def _user(user_id: str, *teams: str) -> _UserRow:
 
 
 def _roster(prisma: _FakePrisma) -> list[tuple[str | None, str]]:
-    return [(m.user_id, m.role) for m in prisma.writer_db.litellm_teamtable.rows[TEAM].members_with_roles]
+    return [(m.user_id, m.role) for m in prisma.writer_db.hangarllm_teamtable.rows[TEAM].members_with_roles]
 
 
 def _memberships(prisma: _FakePrisma) -> list[tuple[object, object]]:
-    return sorted((r["team_id"], r["user_id"]) for r in prisma.writer_db.litellm_teammembership.rows)
+    return sorted((r["team_id"], r["user_id"]) for r in prisma.writer_db.hangarllm_teammembership.rows)
 
 
 def _membership_budget(prisma: _FakePrisma, user_id: str) -> object:
-    return next(r["budget_id"] for r in prisma.writer_db.litellm_teammembership.rows if r["user_id"] == user_id)
+    return next(r["budget_id"] for r in prisma.writer_db.hangarllm_teammembership.rows if r["user_id"] == user_id)
 
 
 def _teams_of(prisma: _FakePrisma, user_id: str) -> list[str]:
-    return prisma.writer_db.litellm_usertable.rows[user_id].teams
+    return prisma.writer_db.hangarllm_usertable.rows[user_id].teams
 
 
 def _tokens(prisma: _FakePrisma) -> set[object]:
-    return {r["token"] for r in prisma.writer_db.litellm_verificationtoken.rows}
+    return {r["token"] for r in prisma.writer_db.hangarllm_verificationtoken.rows}
 
 
 def _writes(prisma: _FakePrisma) -> list[str]:
@@ -311,7 +311,7 @@ async def _sync(prisma: _FakePrisma, plan: RosterPlan, cache: UserApiKeyCache | 
         team_id=TEAM,
         plan=plan,
         user_api_key_dict=ADMIN,
-        litellm_proxy_admin_name="default_user_id",
+        hangarllm_proxy_admin_name="default_user_id",
         user_api_key_cache=cache or UserApiKeyCache(),
         proxy_logging_obj=None,
     )
@@ -330,7 +330,7 @@ async def test_target_adds_the_missing_members_and_removes_the_extra_ones():
 
     assert isinstance(outcome, RosterSync)
     assert (outcome.added, outcome.removed) == (frozenset({"carol"}), frozenset({"bob"}))
-    written = prisma.writer_db.litellm_teamtable.rows[TEAM]
+    written = prisma.writer_db.hangarllm_teamtable.rows[TEAM]
     assert written.updated_at is not None and outcome.team.updated_at == written.updated_at
     assert [(m.user_id, m.user_email, m.role) for m in outcome.team.members_with_roles] == [
         ("alice", "alice@example.com", "admin"),
@@ -454,7 +454,7 @@ async def test_a_team_deleted_before_the_roster_write_answers_team_gone_and_roll
     assert _memberships(prisma) == [(TEAM, "alice")]
     assert (_teams_of(prisma, "alice"), _teams_of(prisma, "bob")) == ([TEAM], [])
     assert _tokens(prisma) == {"k-alice"}
-    assert prisma.writer_db.litellm_deletedverificationtoken.rows == []
+    assert prisma.writer_db.hangarllm_deletedverificationtoken.rows == []
     assert cache.get_cache("k-alice") is not None and cache.get_cache("alice") is not None
 
 
@@ -485,7 +485,7 @@ async def test_added_members_each_get_a_budget_when_the_team_scopes_member_model
 
     await _sync(prisma, RosterDelta(add=frozenset({"carol", "dave"}), remove=frozenset()))
 
-    budgets = prisma.writer_db.litellm_budgettable.rows
+    budgets = prisma.writer_db.hangarllm_budgettable.rows
     assert [(b["allowed_models"], b["created_by"], b["updated_by"]) for b in budgets] == [
         (("gpt-x",), "admin", "admin")
     ] * 2
@@ -514,7 +514,7 @@ async def test_added_members_link_the_team_member_budget_when_the_team_names_one
     await _sync(prisma, RosterDelta(add=frozenset({"carol"}), remove=frozenset()))
 
     assert _membership_budget(prisma, "carol") == expected_budget_id
-    assert len(prisma.writer_db.litellm_budgettable.rows) == len(budgets)
+    assert len(prisma.writer_db.hangarllm_budgettable.rows) == len(budgets)
 
 
 @pytest.mark.asyncio
@@ -537,7 +537,7 @@ async def test_removed_members_lose_their_team_keys_and_every_cache_entry_for_th
 
     assert isinstance(outcome, RosterSync) and outcome.removed == frozenset({"bob"})
     assert _tokens(prisma) == {"k-bob-personal", "k-alice"}
-    assert [(r["token"], r["deleted_by"]) for r in prisma.writer_db.litellm_deletedverificationtoken.rows] == [
+    assert [(r["token"], r["deleted_by"]) for r in prisma.writer_db.hangarllm_deletedverificationtoken.rows] == [
         ("k-bob", "admin")
     ]
     assert _teams_of(prisma, "bob") == ["t2"]
@@ -613,7 +613,7 @@ async def test_removing_hundreds_of_members_at_once_broadcasts_every_key_and_mem
     )
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         outcome = await _sync(prisma, RosterTarget(member_ids=frozenset()))
@@ -677,7 +677,7 @@ async def test_removing_members_clears_this_worker_before_waiting_on_a_wedged_re
     )
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         sync = asyncio.create_task(_sync(prisma, RosterTarget(member_ids=frozenset()), cache))
@@ -723,7 +723,7 @@ async def test_removing_members_clears_the_redis_copies_before_waiting_on_a_wedg
     )
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         sync = asyncio.create_task(_sync(prisma, RosterTarget(member_ids=frozenset()), cache))
@@ -809,7 +809,7 @@ async def test_removing_hundreds_of_members_through_a_slow_redis_broadcasts_ever
     prisma, evicted = _removal_of(removed)
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_PubSubRedisCache(client),
     ):
         outcome = await _sync(prisma, RosterTarget(member_ids=frozenset()))
@@ -832,7 +832,7 @@ async def test_the_redis_round_trips_do_not_grow_with_the_member_count(monkeypat
         client = _SlowPublishRedisClient()
 
         with patch(
-            "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+            "hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
             return_value=_PubSubRedisCache(client),
         ):
             outcome = await _sync(prisma, RosterTarget(member_ids=frozenset()), cache)
@@ -861,7 +861,7 @@ async def test_a_failed_commit_leaves_every_table_and_cache_entry_as_it_was():
     assert _memberships(prisma) == [(TEAM, "alice"), (TEAM, "bob")]
     assert (_teams_of(prisma, "bob"), _teams_of(prisma, "carol")) == ([TEAM], [])
     assert _tokens(prisma) == {"k-bob"}
-    assert prisma.writer_db.litellm_deletedverificationtoken.rows == []
+    assert prisma.writer_db.hangarllm_deletedverificationtoken.rows == []
     assert cache.get_cache("k-bob") is not None and cache.get_cache("carol") is not None
 
 

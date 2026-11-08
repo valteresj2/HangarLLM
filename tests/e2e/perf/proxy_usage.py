@@ -1,7 +1,7 @@
 """Resident memory and CPU of the proxy process tree, sampled on a background thread.
 
 The proxy under load runs several worker processes, and `/metrics` cannot report their
-memory: litellm sets PROMETHEUS_MULTIPROC_DIR when num_workers > 1, and the multiprocess
+memory: hangarllm sets PROMETHEUS_MULTIPROC_DIR when num_workers > 1, and the multiprocess
 collector drops the process collector's `process_resident_memory_bytes` /
 `process_cpu_seconds_total` entirely. So the test measures the tree itself through psutil,
 which needs the proxy to run on the same host as the test.

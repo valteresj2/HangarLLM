@@ -85,7 +85,7 @@ def run_python_tests(
     spec: BackendSpec,
     pytest_args: Sequence[str] = (),
 ) -> PythonReport:
-    with tempfile.TemporaryDirectory(prefix="litellm-unit-tests-") as directory:
+    with tempfile.TemporaryDirectory(prefix="hangarllm-unit-tests-") as directory:
         output: Final = Path(directory) / "report.json"
         command: Final = (
             sys.executable,
@@ -202,7 +202,7 @@ def collect_python_tests(selectors: Sequence[str], repo_root: Path) -> frozenset
         selectors,
         repo_root,
         "python",
-        BackendSpec(environment_variable="LITELLM_RUST"),
+        BackendSpec(environment_variable="HANGARLLM_RUST"),
         ("--collect-only", "-p", "no:cacheprovider"),
     )
     if report.exit_code or report.problems:

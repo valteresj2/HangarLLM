@@ -29,22 +29,22 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
-import litellm
-import litellm.proxy.proxy_server as ps
-from litellm._internal_context import current_service_target
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import GLOBAL_PROXY_SPEND_CACHE_KEY
-from litellm.models.end_user import LiteLLM_EndUserTable
-from litellm.models.tag import LiteLLM_TagTable
-from litellm.models.team import LiteLLM_TeamTable, LiteLLM_TeamTableCachedObj
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_local
-from litellm.proxy.common_utils.cache_pydantic_utils import CacheCodec
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, end_user_cache_key, tag_cache_key
-from litellm.proxy.management_endpoints.team_endpoints import refresh_cached_team
+import hangarllm
+import hangarllm.proxy.proxy_server as ps
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.constants import GLOBAL_PROXY_SPEND_CACHE_KEY
+from hangarllm.models.end_user import HangarLLM_EndUserTable
+from hangarllm.models.tag import HangarLLM_TagTable
+from hangarllm.models.team import HangarLLM_TeamTable, HangarLLM_TeamTableCachedObj
+from hangarllm.models.user import HangarLLM_UserTable
+from hangarllm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_local
+from hangarllm.proxy.common_utils.cache_pydantic_utils import CacheCodec
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, end_user_cache_key, tag_cache_key
+from hangarllm.proxy.management_endpoints.team_endpoints import refresh_cached_team
 
 from .conftest import normalize
-from litellm.rust_bridge._native import NativeRedisStoreError
+from hangarllm.rust_bridge._native import NativeRedisStoreError
 from tests.unit.redis.stores.auth_cache_double import FakeAuthCache, shared_cache
 from tests.unit.redis.stores.spend_counters_double import FakeSpendCounters
 
@@ -203,7 +203,7 @@ async def test_get_current_spend_floors_end_user_tag_against_fallback(monkeypatc
 
 def _make_prisma_with_end_user_row(spend: float | None):
     prisma: Final = MagicMock()
-    prisma.db.litellm_endusertable.find_unique = AsyncMock(
+    prisma.db.hangarllm_endusertable.find_unique = AsyncMock(
         return_value=None if spend is None else MagicMock(spend=spend)
     )
     return prisma
@@ -211,7 +211,7 @@ def _make_prisma_with_end_user_row(spend: float | None):
 
 @pytest.mark.asyncio
 async def test_get_current_spend_end_user_floor_admits_after_a_reset_on_a_stale_worker(monkeypatch):
-    """The reset job zeroes LiteLLM_EndUserTable.spend and the shared counter, but it
+    """The reset job zeroes HangarLLM_EndUserTable.spend and the shared counter, but it
     evicts the cached end-user object only on the worker that ran the reset. Every
     other worker still passes the pre-reset spend as fallback_spend, and that stale
     copy must not out-vote the reset row."""
@@ -227,7 +227,7 @@ async def test_get_current_spend_end_user_floor_admits_after_a_reset_on_a_stale_
     )
 
     assert result == 0.0
-    prisma.db.litellm_endusertable.find_unique.assert_awaited_once_with(where={"user_id": "customer-42"})
+    prisma.db.hangarllm_endusertable.find_unique.assert_awaited_once_with(where={"user_id": "customer-42"})
     assert [command for command in spend.commands if command.startswith("SETMAX")] == []
 
 
@@ -295,8 +295,8 @@ async def test_get_current_spend_floors_window_against_spend_logs(monkeypatch):
 
 def _make_window_spend_prisma(row=None, spend_logs_total=0.0):
     prisma = MagicMock()
-    prisma.db.litellm_budgetwindowspend.find_unique = AsyncMock(return_value=row)
-    prisma.db.litellm_spendlogs.group_by = AsyncMock(
+    prisma.db.hangarllm_budgetwindowspend.find_unique = AsyncMock(return_value=row)
+    prisma.db.hangarllm_spendlogs.group_by = AsyncMock(
         return_value=[{"api_key": "tok", "_sum": {"spend": spend_logs_total}}]
     )
     return prisma
@@ -329,7 +329,7 @@ async def test_get_current_spend_floors_window_against_maintained_row(monkeypatc
     )
 
     assert result == 15.0
-    fake_prisma.db.litellm_spendlogs.group_by.assert_not_awaited()
+    fake_prisma.db.hangarllm_spendlogs.group_by.assert_not_awaited()
     assert spend.redis == {counter_key: 15.0}
     assert spend.commands[-1] == f"SETMAX {counter_key} 15.0"
 
@@ -360,7 +360,7 @@ async def test_get_current_spend_floors_window_against_logs_when_row_stale(monke
     )
 
     assert result == 15.0
-    fake_prisma.db.litellm_spendlogs.group_by.assert_awaited_once()
+    fake_prisma.db.hangarllm_spendlogs.group_by.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -555,7 +555,7 @@ async def test_increment_spend_counters_skips_reserved_counter_keys(monkeypatch)
     """Counters already reserved by a budget reservation are skipped, every
     other scope is still incremented exactly once, and the reservation is
     finalized after the gathered work completes."""
-    import litellm.proxy.spend_tracking.budget_reservation as br
+    import hangarllm.proxy.spend_tracking.budget_reservation as br
 
     reserved = {"spend:key:hashed-tok", "spend:org:org1"}
     monkeypatch.setattr(br, "get_reserved_counter_keys", MagicMock(return_value=set(reserved)))
@@ -777,7 +777,7 @@ async def test_reconcile_budget_reservation_for_counter_update_failure_invalidat
     """Reservation reconcile raising must invalidate reserved counters, swallow
     the exception, and return an empty set so the caller falls back to the
     direct spend-counter increment instead of skipping it."""
-    import litellm.proxy.spend_tracking.budget_reservation as br
+    import hangarllm.proxy.spend_tracking.budget_reservation as br
 
     monkeypatch.setattr(
         br,
@@ -808,7 +808,7 @@ async def test_reconcile_budget_reservation_for_counter_update_finalized_reserva
     """A reservation already finalized before the counter update (the pre-persist
     reconcile failed and dropped its counters) must not shield its keys from the
     direct increment, or the settled cost is never added back after the drop."""
-    import litellm.proxy.spend_tracking.budget_reservation as br
+    import hangarllm.proxy.spend_tracking.budget_reservation as br
 
     fake_reconcile = AsyncMock()
     monkeypatch.setattr(br, "reconcile_budget_reservation", fake_reconcile)
@@ -1350,14 +1350,14 @@ async def _update_team_spend(team_id: str, response_cost: float) -> None:
 @pytest.mark.asyncio
 async def test_update_cache_adds_spend_to_the_cached_team_only(monkeypatch: pytest.MonkeyPatch) -> None:
     cache: Final = UserApiKeyCache()
-    cache.set_cache(key="team_id:warm", value=LiteLLM_TeamTableCachedObj(team_id="warm", spend=5.0, blocked=True))
+    cache.set_cache(key="team_id:warm", value=HangarLLM_TeamTableCachedObj(team_id="warm", spend=5.0, blocked=True))
     monkeypatch.setattr(ps, "user_api_key_cache", cache)
 
     await _update_team_spend(team_id="warm", response_cost=2.5)
     await _update_team_spend(team_id="cold", response_cost=2.5)
     await _drain_spend_cache_writes()
 
-    warm: Final = cache.get_cache(key="team_id:warm", model_type=LiteLLM_TeamTableCachedObj)
+    warm: Final = cache.get_cache(key="team_id:warm", model_type=HangarLLM_TeamTableCachedObj)
     assert warm is not None
     assert (warm.spend, warm.blocked) == (7.5, True)
     assert cache.get_cache(key="team_id:cold") is None
@@ -1365,7 +1365,7 @@ async def test_update_cache_adds_spend_to_the_cached_team_only(monkeypatch: pyte
 
 async def _block_on_this_worker(cache: UserApiKeyCache, team_id: str) -> None:
     await refresh_cached_team(
-        team_row=LiteLLM_TeamTable(team_id=team_id, blocked=True),
+        team_row=HangarLLM_TeamTable(team_id=team_id, blocked=True),
         user_api_key_cache=cache,
         proxy_logging_obj=ps.proxy_logging_obj,
     )
@@ -1387,18 +1387,18 @@ async def test_update_cache_never_restores_a_team_a_management_write_replaced(
 ) -> None:
     team_id: Final = "kill-switch"
     cache: Final = UserApiKeyCache()
-    cache.set_cache(key=f"team_id:{team_id}", value=LiteLLM_TeamTableCachedObj(team_id=team_id, blocked=False))
+    cache.set_cache(key=f"team_id:{team_id}", value=HangarLLM_TeamTableCachedObj(team_id=team_id, blocked=False))
     monkeypatch.setattr(ps, "user_api_key_cache", cache)
 
     await _update_team_spend(team_id=team_id, response_cost=1.0)
     await management_write(cache, team_id)
     await _drain_spend_cache_writes()
 
-    seen_by_auth: Final = cache.get_cache(key=f"team_id:{team_id}", model_type=LiteLLM_TeamTableCachedObj)
+    seen_by_auth: Final = cache.get_cache(key=f"team_id:{team_id}", model_type=HangarLLM_TeamTableCachedObj)
     assert (seen_by_auth.blocked if seen_by_auth is not None else None) == expected_blocked
 
 
-_CachedSpendObject = LiteLLM_UserTable | LiteLLM_EndUserTable | LiteLLM_TeamTableCachedObj | LiteLLM_TagTable
+_CachedSpendObject = HangarLLM_UserTable | HangarLLM_EndUserTable | HangarLLM_TeamTableCachedObj | HangarLLM_TagTable
 
 
 def _cached_spend_object(
@@ -1406,15 +1406,15 @@ def _cached_spend_object(
 ) -> tuple[str, _CachedSpendObject]:
     match kind:
         case "user":
-            return "race-user", LiteLLM_UserTable(user_id="race-user", models=models)
+            return "race-user", HangarLLM_UserTable(user_id="race-user", models=models)
         case "end_user":
-            return end_user_cache_key("race-end-user"), LiteLLM_EndUserTable(
+            return end_user_cache_key("race-end-user"), HangarLLM_EndUserTable(
                 user_id="race-end-user", blocked=False, models=models
             )
         case "team":
-            return "team_id:race-team", LiteLLM_TeamTableCachedObj(team_id="race-team", models=models)
+            return "team_id:race-team", HangarLLM_TeamTableCachedObj(team_id="race-team", models=models)
         case "tag":
-            return tag_cache_key("race-tag"), LiteLLM_TagTable(tag_name="race-tag", models=models)
+            return tag_cache_key("race-tag"), HangarLLM_TagTable(tag_name="race-tag", models=models)
 
 
 class _RunsOnKeyRead(InMemoryCache):
@@ -1433,7 +1433,7 @@ def _cache_that_runs_on_key_read(on_read: Callable[[], Awaitable[None]]) -> User
 
 @pytest.fixture
 def proxy_max_budget(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "max_budget", 100.0)
+    monkeypatch.setattr(hangarllm, "max_budget", 100.0)
 
 
 @pytest.mark.asyncio
@@ -1485,7 +1485,7 @@ async def test_update_cache_adds_spend_to_the_global_proxy_spend_for_every_reque
     cache: Final = UserApiKeyCache()
     cache.set_cache(key=GLOBAL_PROXY_SPEND_CACHE_KEY, value=10.0)
     if user == "cached_on_this_worker":
-        cache.set_cache(key="spender", value=LiteLLM_UserTable(user_id="spender", spend=1.0))
+        cache.set_cache(key="spender", value=HangarLLM_UserTable(user_id="spender", spend=1.0))
 
     await ps.update_cache(
         token=None,
@@ -1660,10 +1660,10 @@ async def test_update_cache_still_adds_spend_to_the_others_when_one_cached_objec
     cache: Final = _UnwritableKeyUserApiKeyCache(unwritable_key="broken-user")
     cache.in_memory_cache.set_cache(
         key="broken-user",
-        value=CacheCodec.serialize(LiteLLM_UserTable(user_id="broken-user", spend=1.0), model_type=LiteLLM_UserTable),
+        value=CacheCodec.serialize(HangarLLM_UserTable(user_id="broken-user", spend=1.0), model_type=HangarLLM_UserTable),
     )
     cache.set_cache(key=GLOBAL_PROXY_SPEND_CACHE_KEY, value=10.0)
-    cache.set_cache(key="team_id:still-billed", value=LiteLLM_TeamTableCachedObj(team_id="still-billed", spend=1.0))
+    cache.set_cache(key="team_id:still-billed", value=HangarLLM_TeamTableCachedObj(team_id="still-billed", spend=1.0))
 
     await ps.update_cache(
         token=None,
@@ -1676,7 +1676,7 @@ async def test_update_cache_still_adds_spend_to_the_others_when_one_cached_objec
     )
     await _drain_spend_cache_writes()
 
-    team: Final = cache.get_cache(key="team_id:still-billed", model_type=LiteLLM_TeamTableCachedObj)
+    team: Final = cache.get_cache(key="team_id:still-billed", model_type=HangarLLM_TeamTableCachedObj)
     assert (team.spend if team is not None else None, cache.get_cache(key=GLOBAL_PROXY_SPEND_CACHE_KEY)) == (
         1.25,
         10.25,

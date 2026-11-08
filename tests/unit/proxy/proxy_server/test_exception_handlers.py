@@ -24,8 +24,8 @@ from starlette.testclient import WebSocketDenialResponse
 from starlette.types import Message
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.proxy_server import (
+from hangarllm.proxy._types import ProxyException
+from hangarllm.proxy.proxy_server import (
     _close_dangling_otel_server_span,
     openai_exception_handler,
     otel_request_validation_exception_handler,
@@ -115,35 +115,35 @@ def _call_id_exception(headers):
 
 @pytest.mark.asyncio
 async def test_openai_exception_handler_copies_the_call_id_into_the_error_when_opted_in(monkeypatch):
-    """With include_call_id_in_error_body on, error.litellm_call_id is byte-identical to the
-    x-litellm-call-id header, so a pasted str(e) names the request to look up."""
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
-    exc = _call_id_exception({"x-litellm-call-id": "call-8302"})
+    """With include_call_id_in_error_body on, error.hangarllm_call_id is byte-identical to the
+    x-hangarllm-call-id header, so a pasted str(e) names the request to look up."""
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
+    exc = _call_id_exception({"x-hangarllm-call-id": "call-8302"})
 
     response = await openai_exception_handler(request=_make_request(), exc=exc)
     body = json.loads(response.body)
 
-    assert response.headers["x-litellm-call-id"] == "call-8302"
+    assert response.headers["x-hangarllm-call-id"] == "call-8302"
     assert body == {
         "error": {
             "message": "bad input",
             "type": "invalid_request_error",
             "param": "model",
             "code": "400",
-            "litellm_call_id": "call-8302",
+            "hangarllm_call_id": "call-8302",
         }
     }
 
 
 @pytest.mark.asyncio
 async def test_openai_exception_handler_leaves_the_error_alone_when_opted_out(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    exc = _call_id_exception({"x-litellm-call-id": "call-8302"})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
+    exc = _call_id_exception({"x-hangarllm-call-id": "call-8302"})
 
     response = await openai_exception_handler(request=_make_request(), exc=exc)
     body = json.loads(response.body)
 
-    assert response.headers["x-litellm-call-id"] == "call-8302"
+    assert response.headers["x-hangarllm-call-id"] == "call-8302"
     assert body == {
         "error": {
             "message": "bad input",
@@ -158,14 +158,14 @@ async def test_openai_exception_handler_leaves_the_error_alone_when_opted_out(mo
 async def test_openai_exception_handler_never_fabricates_a_call_id(monkeypatch):
     """An error raised before a call id exists (auth failures, say) carries no header,
     and the body must not invent one."""
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
     exc = _call_id_exception({})
 
     response = await openai_exception_handler(request=_make_request(), exc=exc)
     body = json.loads(response.body)
 
-    assert "x-litellm-call-id" not in response.headers
-    assert "litellm_call_id" not in body["error"]
+    assert "x-hangarllm-call-id" not in response.headers
+    assert "hangarllm_call_id" not in body["error"]
 
 
 def _model_access_denied_exception() -> ProxyException:
@@ -204,7 +204,7 @@ async def test_openai_exception_handler_answers_the_anthropic_envelope_on_the_me
         "error": {
             "type": "permission_error",
             "message": "Team not allowed to access model. Tried to access gpt-5.6",
-            "litellm_error_type": "team_model_access_denied",
+            "hangarllm_error_type": "team_model_access_denied",
         },
     }
 
@@ -249,7 +249,7 @@ async def test_openai_exception_handler_keeps_the_status_of_a_budget_failure_on_
     assert body["type"] == "error"
     assert body["error"]["type"] == "invalid_request_error"
     assert body["error"]["message"] == "Budget exceeded"
-    assert body["error"]["litellm_error_type"] == "budget_exceeded"
+    assert body["error"]["hangarllm_error_type"] == "budget_exceeded"
     assert "param" not in body["error"] and "code" not in body["error"]
 
 
@@ -304,26 +304,26 @@ async def test_openai_exception_handler_keeps_the_openai_envelope_on_other_anthr
 async def test_openai_exception_handler_messages_route_copies_the_call_id_when_opted_in(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
     exc: Final = ProxyException(
         message="denied",
         type="team_model_access_denied",
         param="model",
         code=403,
-        headers={"x-litellm-call-id": "call-8302"},
+        headers={"x-hangarllm-call-id": "call-8302"},
         provider_specific_fields={"guardrail": "keyword-block"},
     )
 
     response: Final = await openai_exception_handler(request=_make_request(path="/v1/messages"), exc=exc)
     body: Final = json.loads(response.body)
 
-    assert response.headers["x-litellm-call-id"] == "call-8302"
+    assert response.headers["x-hangarllm-call-id"] == "call-8302"
     assert body["error"] == {
         "type": "permission_error",
         "message": "denied",
         "provider_specific_fields": {"guardrail": "keyword-block"},
-        "litellm_error_type": "team_model_access_denied",
-        "litellm_call_id": "call-8302",
+        "hangarllm_error_type": "team_model_access_denied",
+        "hangarllm_call_id": "call-8302",
     }
 
 
@@ -332,8 +332,8 @@ async def test_openai_exception_handler_messages_route_copies_the_call_id_when_o
 async def test_a_messages_request_with_no_key_answers_the_anthropic_authentication_error(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "test-master-key")
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "test-master-key")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     response: Final = client.post(path, json={"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]})
     body: Final = response.json()
@@ -352,7 +352,7 @@ async def test_a_messages_request_with_no_key_answers_the_anthropic_authenticati
 def test_close_dangling_otel_server_span_records_status_and_ends(monkeypatch):
     """Happy path: with a logger and an active span, the handler sets the
     response status, marks ERROR (>=400), ends the span, and clears state."""
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -380,8 +380,8 @@ def test_close_dangling_otel_server_span_v2_stamps_error_without_ending(monkeypa
     the handler must only stamp error.* on it (via record_error_attributes_on_span)
     and must NOT set status, end the span, or clear request state — otherwise the
     instrumentor's http.* attributes and span close are lost."""
-    import litellm.integrations.otel.model.config as otel_config
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.integrations.otel.model.config as otel_config
+    import hangarllm.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -401,8 +401,8 @@ def test_close_dangling_otel_server_span_v2_stamps_error_without_ending(monkeypa
 
 def test_close_dangling_otel_server_span_v2_success_does_not_stamp(monkeypatch):
     """Under v2 a sub-400 status must not stamp an error onto the SERVER span."""
-    import litellm.integrations.otel.model.config as otel_config
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.integrations.otel.model.config as otel_config
+    import hangarllm.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -427,7 +427,7 @@ def test_close_dangling_otel_server_span_missing_span_is_noop_error():
 
 def test_close_dangling_otel_server_span_logger_raises_state_cleared_error(monkeypatch):
     """Logger raising is caught; state.parent_otel_span is cleared regardless."""
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -499,7 +499,7 @@ async def test_otel_request_validation_exception_handler_hands_the_span_only_the
     """The OTEL SERVER span's error message is ``str(exc)``, which FastAPI builds from
     every error dict ``input`` included, so the span gets the same public-only errors
     the caller does, and keeps the traceback the original carried."""
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     fake_logger = MagicMock()
     monkeypatch.setattr(ps, "open_telemetry_logger", fake_logger, raising=False)
@@ -570,7 +570,7 @@ async def test_otel_request_validation_exception_handler_answers_a_bad_control_p
 
     assert response.status_code == 422
     assert response.media_type == "application/problem+json"
-    assert body["type"] == "urn:litellm:error:invalid-request-body"
+    assert body["type"] == "urn:hangarllm:error:invalid-request-body"
     assert body["status"] == 422
     assert "users.0.user_emial: Extra inputs are not permitted" in body["detail"]
 
@@ -689,7 +689,7 @@ async def test_otlp_auth_errors_hide_internal_details(
 ) -> None:
     from google.rpc.status_pb2 import Status
 
-    from litellm.proxy.proxy_server import otlp_http_exception_handler
+    from hangarllm.proxy.proxy_server import otlp_http_exception_handler
 
     request: Final = Request({
         "type": "http", "method": "POST", "path": root_path + "/v1/traces", "root_path": root_path,

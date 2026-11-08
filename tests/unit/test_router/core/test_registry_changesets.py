@@ -8,10 +8,10 @@ from collections.abc import Callable, Mapping
 
 import pytest
 
-import litellm
-from litellm.router_api import ApplyResult, ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import Deployment
+import hangarllm
+from hangarllm.router_api import ApplyResult, ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import Deployment
 from tests.unit.test_router.core.scripted_host import (
     ScriptedHost,
     context_window,
@@ -37,7 +37,7 @@ def _ids(deployments: object) -> list[str]:  # mutable-ok: a fresh list
     return [entry["model_info"]["id"] for entry in deployments]  # pyright: ignore[reportGeneralTypeIssues, reportIndexIssue]  # deployment dicts
 
 
-def _deployment(model_name: str, deployment_id: str, **params: object) -> Deployment:  # kwargs-ok: litellm_params
+def _deployment(model_name: str, deployment_id: str, **params: object) -> Deployment:  # kwargs-ok: hangarllm_params
     return Deployment(**deployment(model_name, deployment_id, **params))  # pyright: ignore[reportArgumentType]  # a model_list entry
 
 
@@ -51,7 +51,7 @@ def test_registry_finds_each_configured_deployment_by_id(make_core: MakeCore, de
     found = registry.deployment(deployment_id)
 
     assert found is not None
-    assert (found.model_name, found.model_info.id, found.litellm_params.model) == (
+    assert (found.model_name, found.model_info.id, found.hangarllm_params.model) == (
         group,
         deployment_id,
         f"openai/{deployment_id}",
@@ -194,7 +194,7 @@ async def test_a_changed_upsert_is_what_the_registry_returns_afterwards(make_cor
 
     changed = core.registry().deployment("a")
     assert changed is not None
-    assert changed.litellm_params.api_base == "https://changed.example"
+    assert changed.hangarllm_params.api_base == "https://changed.example"
 
 
 @pytest.mark.parametrize(
@@ -305,12 +305,12 @@ async def test_num_retries_from_a_changeset_governs_the_next_failing_call(
 ) -> None:
     core = make_core(model_list=[deployment("gpt", "a")], num_retries=2)
     host.answer("openai/a", _fresh(server_error))
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
     host.calls.clear()
 
     core.apply(changeset(num_retries=num_retries))
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
 
     assert host.deployments_called("acompletion") == ["a"] * (num_retries + 1)
@@ -324,7 +324,7 @@ async def test_fallbacks_from_a_changeset_are_used_by_the_next_call(
 ) -> None:
     core = make_core(model_list=[deployment("gpt", "a"), deployment("backup", "f")], num_retries=0)
     host.answer("openai/a", _fresh(server_error))
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(hangarllm.InternalServerError):
         await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
     host.calls.clear()
 
@@ -332,7 +332,7 @@ async def test_fallbacks_from_a_changeset_are_used_by_the_next_call(
     response = await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
 
     assert host.deployments_called("acompletion") == ["a", "f"]
-    assert response._hidden_params["additional_headers"]["x-litellm-attempted-fallbacks"] == 1
+    assert response._hidden_params["additional_headers"]["x-hangarllm-attempted-fallbacks"] == 1
     assert core.settings().fallbacks == [{"gpt": ["backup"]}]
 
 
@@ -343,7 +343,7 @@ async def test_context_window_fallbacks_from_a_changeset_are_used_by_the_next_ca
 ) -> None:
     core = make_core(model_list=[deployment("gpt", "a"), deployment("long", "l")], num_retries=0)
     host.answer("openai/a", _fresh(context_window))
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
     host.calls.clear()
 
@@ -351,7 +351,7 @@ async def test_context_window_fallbacks_from_a_changeset_are_used_by_the_next_ca
     response = await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
 
     assert host.deployments_called("acompletion") == ["a", "l"]
-    assert response._hidden_params["additional_headers"]["x-litellm-model-group"] == "long"
+    assert response._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "long"
     assert core.settings().context_window_fallbacks == [{"gpt": ["long"]}]
 
 
@@ -411,7 +411,7 @@ async def test_a_deployment_cooled_down_under_applied_allowed_fails_is_not_picke
     host.answer("*", _fresh(server_error))
 
     for _ in range(2):
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(hangarllm.InternalServerError):
             await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
 
     assert sorted(host.deployments_called("acompletion")) == ["a", "b"]
@@ -451,12 +451,12 @@ async def test_routing_strategy_from_settings_is_reported_and_still_routes(
 
 
 @pytest.mark.asyncio
-async def test_default_litellm_params_from_a_changeset_are_sent_on_the_next_call(
+async def test_default_hangarllm_params_from_a_changeset_are_sent_on_the_next_call(
     make_core: MakeCore, host: ScriptedHost
 ) -> None:
-    core = make_core(model_list=[deployment("gpt", "a")], default_litellm_params={"temperature": 0.2})
+    core = make_core(model_list=[deployment("gpt", "a")], default_hangarllm_params={"temperature": 0.2})
 
-    core.apply(ChangeSet(assign={"default_litellm_params": {"temperature": 0.7}}))
+    core.apply(ChangeSet(assign={"default_hangarllm_params": {"temperature": 0.7}}))
     await core.acompletion(model="gpt", messages=MESSAGES)  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
 
     assert [call.kwargs.get("temperature") for call in host.calls_to("acompletion")] == [0.7]
@@ -616,7 +616,7 @@ async def test_mutating_the_model_list_after_construction_changes_nothing(
 
     model_list.append(deployment("gpt", "late"))
     model_list[2]["model_name"] = "gpt"
-    model_list[0]["litellm_params"]["model"] = "openai/elsewhere"  # pyright: ignore[reportIndexIssue]  # a model_list entry
+    model_list[0]["hangarllm_params"]["model"] = "openai/elsewhere"  # pyright: ignore[reportIndexIssue]  # a model_list entry
     model_list[0]["model_info"]["id"] = "renamed"  # pyright: ignore[reportIndexIssue]  # a model_list entry
     await core.aembedding(model="emb", input=["x"])  # pyright: ignore[reportAttributeAccessIssue]  # an endpoint method
 

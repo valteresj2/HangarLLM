@@ -13,8 +13,8 @@ import pytest
 import redis
 from tests.integration._support.process import stop_child
 
-from litellm._redis import _get_redis_env_kwarg_mapping, get_redis_client
-from litellm._redis_credential_provider import _token_cache
+from hangarllm._redis import _get_redis_env_kwarg_mapping, get_redis_client
+from hangarllm._redis_credential_provider import _token_cache
 
 
 class _RedisLogReader:

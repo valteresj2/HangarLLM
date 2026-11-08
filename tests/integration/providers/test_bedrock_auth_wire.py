@@ -33,7 +33,7 @@ def bearer_peer(request: Request) -> Reply:
     assert body["messages"] == [{"role": "user", "content": [{"text": "synthetic bearer request"}]}]
     assert body["system"] == [{"text": "synthetic system"}]
     assert body["inferenceConfig"]["maxTokens"] == 16
-    assert not {"timeout", "stream_chunk_size", "litellm_params", "litellm_metadata", "api_key"}.intersection(body)
+    assert not {"timeout", "stream_chunk_size", "hangarllm_params", "hangarllm_metadata", "api_key"}.intersection(body)
     return Reply(body=RESPONSE)
 
 
@@ -41,7 +41,7 @@ def bearer_peer(request: Request) -> Reply:
 async def test_bearer_only_sdk_sync_async_requests_do_not_require_aws_credentials(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import litellm
+    import hangarllm
 
     empty: Final = tmp_path / "empty-aws-config"
     empty.write_text("")
@@ -51,13 +51,13 @@ async def test_bearer_only_sdk_sync_async_requests_do_not_require_aws_credential
         "AWS_CONFIG_FILE": str(empty),
         "AWS_SHARED_CREDENTIALS_FILE": str(empty),
         "AWS_EC2_METADATA_DISABLED": "true",
-        "LITELLM_RUST": "false",
+        "HANGARLLM_RUST": "false",
     }.items():
         monkeypatch.setenv(name, value)
     with wire_server(bearer_peer) as wire:
-        with pytest.raises(litellm.APIConnectionError, match=r"config profile .* could not be found"):
+        with pytest.raises(hangarllm.APIConnectionError, match=r"config profile .* could not be found"):
             await asyncio.to_thread(
-                litellm.completion,
+                hangarllm.completion,
                 model=MODEL,
                 aws_profile_name="integration-profile-must-not-be-read",
                 aws_region_name="us-east-1",
@@ -86,9 +86,9 @@ async def test_bearer_only_sdk_sync_async_requests_do_not_require_aws_credential
             }
             for asynchronous in (False, True):
                 result: Final = (
-                    await litellm.acompletion(**parameters)
+                    await hangarllm.acompletion(**parameters)
                     if asynchronous
-                    else await asyncio.to_thread(litellm.completion, **parameters)
+                    else await asyncio.to_thread(hangarllm.completion, **parameters)
                 )
                 assert result.choices[0].message.content == "bedrock wire control"
                 assert result.choices[0].finish_reason == "stop"
@@ -112,7 +112,7 @@ def test_bearer_environment_reference_loads_from_db_and_yaml_and_survives_reload
         }
         alias: Final = f"integration-yaml-{uuid.uuid4().hex}"
         configuration: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
-        configuration["model_list"] = [{"model_name": alias, "litellm_params": parameters, "model_info": {"id": alias}}]
+        configuration["model_list"] = [{"model_name": alias, "hangarllm_params": parameters, "model_info": {"id": alias}}]
         path: Final = tmp_path / "bedrock.yaml"
         path.write_text(yaml.safe_dump(configuration))
         overrides: Final = {
@@ -120,7 +120,7 @@ def test_bearer_environment_reference_loads_from_db_and_yaml_and_survives_reload
             "AWS_CONFIG_FILE": str(empty),
             "AWS_SHARED_CREDENTIALS_FILE": str(empty),
             "AWS_EC2_METADATA_DISABLED": "true",
-            "LITELLM_RUST": "false",
+            "HANGARLLM_RUST": "false",
         }
         with (
             owned_proxy(
@@ -208,7 +208,7 @@ def test_client_anthropic_oauth_authorization_header_does_not_replace_bedrock_si
                 "messages": [{"role": "user", "content": "synthetic oauth isolation request"}],
                 "max_tokens": 16,
             },
-            headers={"Authorization": CLIENT_OAUTH_TOKEN, "x-litellm-api-key": f"Bearer {gateway.key}"},
+            headers={"Authorization": CLIENT_OAUTH_TOKEN, "x-hangarllm-api-key": f"Bearer {gateway.key}"},
         )
         assert response.status_code == 200, response.text
         assert response.json()["content"] == [{"type": "text", "text": "bedrock invoke wire control"}], response.text

@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS "HangarLLM_Engine" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "version" INTEGER NOT NULL DEFAULT 0,
+    "data" JSONB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS "HangarLLM_EngineWorker" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "token_hash" TEXT NOT NULL UNIQUE,
+    "data" JSONB NOT NULL
+);

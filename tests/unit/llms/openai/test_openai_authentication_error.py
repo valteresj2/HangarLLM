@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import hangarllm
 
 
 def test_openai_401_maps_to_authentication_error(respx_mock: respx.MockRouter) -> None:
@@ -22,8 +22,8 @@ def test_openai_401_maps_to_authentication_error(respx_mock: respx.MockRouter) -
         )
     )
 
-    with pytest.raises(litellm.AuthenticationError) as error:
-        litellm.completion(
+    with pytest.raises(hangarllm.AuthenticationError) as error:
+        hangarllm.completion(
             model="openai/migration-auth-error-model",
             messages=[{"role": "user", "content": "hello"}],
             api_key="invalid-test-key",
@@ -31,15 +31,15 @@ def test_openai_401_maps_to_authentication_error(respx_mock: respx.MockRouter) -
         )
 
     assert error.value.status_code == 401
-    assert str(error.value).startswith("litellm.AuthenticationError: AuthenticationError: OpenAIException - ")
+    assert str(error.value).startswith("hangarllm.AuthenticationError: AuthenticationError: OpenAIException - ")
     assert "Incorrect API key provided" in str(error.value)
     assert route.calls.last.request.headers["Authorization"] == "Bearer invalid-test-key"
 
 
 async def _complete(sync_mode: bool, request: dict[str, object]) -> object:
     if sync_mode:
-        return litellm.completion(**request)
-    return await litellm.acompletion(**request)
+        return hangarllm.completion(**request)
+    return await hangarllm.acompletion(**request)
 
 
 @pytest.mark.parametrize("stream", [True, False])
@@ -47,7 +47,7 @@ async def _complete(sync_mode: bool, request: dict[str, object]) -> object:
 async def test_openai_invalid_role_error_preserves_provider_fields(
     sync_mode: bool, stream: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=httpx.Response(
             400,
@@ -69,10 +69,10 @@ async def test_openai_invalid_role_error_preserves_provider_fields(
         "stream": stream,
     }
 
-    with pytest.raises(litellm.BadRequestError) as error:
+    with pytest.raises(hangarllm.BadRequestError) as error:
         await _complete(sync_mode, request)
 
-    assert str(error.value).startswith("litellm.BadRequestError: OpenAIException - Invalid value")
+    assert str(error.value).startswith("hangarllm.BadRequestError: OpenAIException - Invalid value")
     assert error.value.code == "invalid_value"
     assert error.value.param == "messages[0].role"
     assert error.value.type == "invalid_request_error"

@@ -2,11 +2,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy._types import LiteLLM_TeamTable, LiteLLM_UserTable, Member
-from litellm.proxy.management_endpoints.scim.scim_transformations import (
+from hangarllm.proxy._types import HangarLLM_TeamTable, HangarLLM_UserTable, Member
+from hangarllm.proxy.management_endpoints.scim.scim_transformations import (
     ScimTransformations,
 )
-from litellm.types.proxy.management_endpoints.scim_v2 import (
+from hangarllm.types.proxy.management_endpoints.scim_v2 import (
     SCIM_ENTERPRISE_USER_SCHEMA,
     SCIMEnterpriseUser,
     SCIMMultiValuedAttribute,
@@ -18,7 +18,7 @@ from litellm.types.proxy.management_endpoints.scim_v2 import (
 # Mock data
 @pytest.fixture
 def mock_user():
-    return LiteLLM_UserTable(
+    return HangarLLM_UserTable(
         user_id="user-123",
         user_email="test@example.com",
         user_alias="Test User",
@@ -31,7 +31,7 @@ def mock_user():
 
 @pytest.fixture
 def mock_user_with_scim_metadata():
-    return LiteLLM_UserTable(
+    return HangarLLM_UserTable(
         user_id="user-456",
         user_email="test2@example.com",
         user_alias="Test User 2",
@@ -44,7 +44,7 @@ def mock_user_with_scim_metadata():
 
 @pytest.fixture
 def mock_user_minimal():
-    return LiteLLM_UserTable(
+    return HangarLLM_UserTable(
         user_id="user-789",
         user_email=None,
         user_alias=None,
@@ -57,7 +57,7 @@ def mock_user_minimal():
 
 @pytest.fixture
 def mock_team():
-    return LiteLLM_TeamTable(
+    return HangarLLM_TeamTable(
         team_id="team-1",
         team_alias="Test Team",
         members_with_roles=[
@@ -71,7 +71,7 @@ def mock_team():
 
 @pytest.fixture
 def mock_team_minimal():
-    return LiteLLM_TeamTable(
+    return HangarLLM_TeamTable(
         team_id="team-2",
         team_alias="Test Team 2",
         members_with_roles=[Member(user_id="user-789", user_email=None, role="user")],
@@ -87,24 +87,24 @@ def mock_prisma_client():
     mock_client.db = mock_db
 
     mock_find_unique = AsyncMock()
-    mock_db.litellm_teamtable.find_unique = mock_find_unique
+    mock_db.hangarllm_teamtable.find_unique = mock_find_unique
 
     return mock_client, mock_find_unique
 
 
 class TestScimTransformations:
     @pytest.mark.asyncio
-    async def test_transform_litellm_user_to_scim_user(self, mock_user, mock_prisma_client):
+    async def test_transform_hangarllm_user_to_scim_user(self, mock_user, mock_prisma_client):
         mock_client, mock_find_unique = mock_prisma_client
 
         # Mock the team lookup
-        team1 = LiteLLM_TeamTable(team_id="team-1", team_alias="Team One", members_with_roles=[])
-        team2 = LiteLLM_TeamTable(team_id="team-2", team_alias="Team Two", members_with_roles=[])
+        team1 = HangarLLM_TeamTable(team_id="team-1", team_alias="Team One", members_with_roles=[])
+        team2 = HangarLLM_TeamTable(team_id="team-2", team_alias="Team Two", members_with_roles=[])
 
         mock_find_unique.side_effect = [team1, team2]
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(mock_user)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(mock_user)
 
             assert scim_user.id == mock_user.user_id
             assert scim_user.userName == mock_user.user_email
@@ -124,11 +124,11 @@ class TestScimTransformations:
         mock_client, mock_find_unique = mock_prisma_client
 
         # Mock the team lookup
-        team1 = LiteLLM_TeamTable(team_id="team-1", team_alias="Team One", members_with_roles=[])
+        team1 = HangarLLM_TeamTable(team_id="team-1", team_alias="Team One", members_with_roles=[])
         mock_find_unique.return_value = team1
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(mock_user_with_scim_metadata)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(mock_user_with_scim_metadata)
 
             assert scim_user.name.givenName == "Test"
             assert scim_user.name.familyName == "User"
@@ -138,7 +138,7 @@ class TestScimTransformations:
         mock_client, mock_find_unique = mock_prisma_client
         mock_find_unique.return_value = None
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="user-ent",
             user_email="ent@example.com",
             user_alias=None,
@@ -148,8 +148,8 @@ class TestScimTransformations:
             metadata={"scim_enterprise": {"costCenter": "CC-42", "department": "Platform"}},
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(user)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(user)
 
             assert scim_user.enterprise_user is not None
             assert scim_user.enterprise_user.costCenter == "CC-42"
@@ -161,7 +161,7 @@ class TestScimTransformations:
         mock_client, mock_find_unique = mock_prisma_client
         mock_find_unique.return_value = None
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="user-entitled",
             user_email="entitled@example.com",
             user_alias=None,
@@ -174,8 +174,8 @@ class TestScimTransformations:
             },
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(user)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(user)
 
             assert scim_user.entitlements is not None
             assert scim_user.entitlements[0].value == "jira-software"
@@ -191,7 +191,7 @@ class TestScimTransformations:
         mock_client, mock_find_unique = mock_prisma_client
         mock_find_unique.return_value = None
 
-        user = LiteLLM_UserTable(
+        user = HangarLLM_UserTable(
             user_id="user-corrupt",
             user_email="corrupt@example.com",
             user_alias=None,
@@ -205,8 +205,8 @@ class TestScimTransformations:
             },
         )
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(user)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(user)
 
             assert scim_user.id == "user-corrupt"
             assert scim_user.entitlements is None
@@ -217,12 +217,12 @@ class TestScimTransformations:
     @pytest.mark.asyncio
     async def test_transform_user_without_enterprise_metadata_omits_schema(self, mock_user, mock_prisma_client):
         mock_client, mock_find_unique = mock_prisma_client
-        team1 = LiteLLM_TeamTable(team_id="team-1", team_alias="Team One", members_with_roles=[])
-        team2 = LiteLLM_TeamTable(team_id="team-2", team_alias="Team Two", members_with_roles=[])
+        team1 = HangarLLM_TeamTable(team_id="team-1", team_alias="Team One", members_with_roles=[])
+        team2 = HangarLLM_TeamTable(team_id="team-2", team_alias="Team Two", members_with_roles=[])
         mock_find_unique.side_effect = [team1, team2]
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(mock_user)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(mock_user)
 
             assert scim_user.enterprise_user is None
             assert SCIM_ENTERPRISE_USER_SCHEMA not in scim_user.schemas
@@ -272,11 +272,11 @@ class TestScimTransformations:
         assert dumped_attrs["roles"][0]["value"] == "engineering-admin"
 
     @pytest.mark.asyncio
-    async def test_transform_litellm_team_to_scim_group(self, mock_team, mock_prisma_client):
+    async def test_transform_hangarllm_team_to_scim_group(self, mock_team, mock_prisma_client):
         mock_client, _ = mock_prisma_client
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_group = await ScimTransformations.transform_litellm_team_to_scim_group(mock_team)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_group = await ScimTransformations.transform_hangarllm_team_to_scim_group(mock_team)
 
             assert scim_group.id == mock_team.team_id
             assert scim_group.displayName == mock_team.team_alias
@@ -288,12 +288,12 @@ class TestScimTransformations:
 
     @pytest.mark.asyncio
     async def test_transform_team_marks_members_as_users(self, mock_team, mock_prisma_client):
-        """A LiteLLM team only holds users, and stating the member type keeps the
+        """A HangarLLM team only holds users, and stating the member type keeps the
         response from emitting a null ``type`` now that SCIMMember carries one."""
         mock_client, _ = mock_prisma_client
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_group = await ScimTransformations.transform_litellm_team_to_scim_group(mock_team)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_group = await ScimTransformations.transform_hangarllm_team_to_scim_group(mock_team)
 
         assert [member.type for member in scim_group.members] == ["User", "User"]
 
@@ -349,7 +349,7 @@ class TestScimTransformations:
         """
         mock_client, mock_find_unique = mock_prisma_client
 
-        user_with_uuid_email = LiteLLM_UserTable(
+        user_with_uuid_email = HangarLLM_UserTable(
             user_id="21df4e37-2f38-4f2e-a21b-c33cb939ff5b",
             user_email="21df4e37-2f38-4f2e-a21b-c33cb939ff5b",  # UUID as email (bug scenario)
             user_alias=None,
@@ -361,8 +361,8 @@ class TestScimTransformations:
 
         mock_find_unique.return_value = None
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(user_with_uuid_email)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(user_with_uuid_email)
 
             assert scim_user.id == user_with_uuid_email.user_id
             assert scim_user.emails is None or len(scim_user.emails) == 0
@@ -375,7 +375,7 @@ class TestScimTransformations:
         """
         mock_client, mock_find_unique = mock_prisma_client
 
-        user_with_none_email = LiteLLM_UserTable(
+        user_with_none_email = HangarLLM_UserTable(
             user_id="user-from-group",
             user_email=None,
             user_alias=None,
@@ -387,8 +387,8 @@ class TestScimTransformations:
 
         mock_find_unique.return_value = None
 
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_client):
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(user_with_none_email)
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_client):
+            scim_user = await ScimTransformations.transform_hangarllm_user_to_scim_user(user_with_none_email)
 
             assert scim_user.id == user_with_none_email.user_id
             assert scim_user.emails is None or len(scim_user.emails) == 0

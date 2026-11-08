@@ -2,8 +2,8 @@
 import pytest
 
 
-import litellm
-from litellm.llms.meta_llama.chat.transformation import LlamaAPIConfig
+import hangarllm
+from hangarllm.llms.meta_llama.chat.transformation import LlamaAPIConfig
 
 
 def test_map_openai_params():
@@ -49,7 +49,7 @@ def test_llama_api_streaming_no_307_error():
     follow_redirects setting on that SDK's underlying httpx client is what
     actually prevents 307 redirect errors for LLaMA API streaming.
     """
-    from litellm.llms.openai.common_utils import BaseOpenAILLM
+    from hangarllm.llms.openai.common_utils import BaseOpenAILLM
 
     # Verify the async httpx client has follow_redirects enabled
     async_client = BaseOpenAILLM.get_async_http_client()

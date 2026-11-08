@@ -41,7 +41,7 @@ def _reply(request: Request) -> Reply:
 def _deployment(model_id: str, wire: Wire, **params: JsonValue) -> dict[str, JsonValue]:
     return {
         "model_name": GROUP,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": OPENAI_MODEL,
             "api_base": wire.url + "/v1",
             "api_key": "synthetic-openai-key",
@@ -55,7 +55,7 @@ def _config(directory: Path, limited: Wire, unlimited: Wire) -> Path:
     return owned_config(
         directory,
         [_deployment(LIMITED_ID, limited, rpd=RPD, order=1), _deployment(UNLIMITED_ID, unlimited, order=2)],
-        litellm_settings={"cache": False},
+        hangarllm_settings={"cache": False},
         router_settings={"optional_pre_call_checks": ["enforce_model_rate_limits"], "num_retries": 1},
     )
 
@@ -90,7 +90,7 @@ def test_requests_past_the_deployment_rpd_are_served_by_the_other_deployment_in_
     assert [response.status_code for response in responses] == [200] * (RPD + EXTRA_REQUESTS), [
         response.text for response in responses
     ]
-    assert [response.headers["x-litellm-model-id"] for response in responses] == [LIMITED_ID] * RPD + [
+    assert [response.headers["x-hangarllm-model-id"] for response in responses] == [LIMITED_ID] * RPD + [
         UNLIMITED_ID
     ] * EXTRA_REQUESTS
     assert (_forwarded(rig.limited), _forwarded(rig.unlimited)) == (RPD, EXTRA_REQUESTS)

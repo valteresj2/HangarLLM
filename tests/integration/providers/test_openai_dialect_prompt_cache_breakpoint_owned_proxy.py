@@ -253,19 +253,19 @@ def test_e6_every_worker_of_a_two_worker_proxy_marks_the_mantle_request(rig: _Ri
         )
 
 
-def _mantle_config(wire: Wire, directory: Path, **litellm_params: JsonValue) -> Path:
+def _mantle_config(wire: Wire, directory: Path, **hangarllm_params: JsonValue) -> Path:
     return owned_config(
         directory,
         [
             {
                 "model_name": _MANTLE_NAME,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": GPT,
                     "api_base": wire.url,
                     "api_key": TOKEN,
                     "aws_region_name": "us-east-1",
                     "cache_control_injection_points": SYSTEM_POINT,
-                    **litellm_params,
+                    **hangarllm_params,
                 },
             }
         ],
@@ -331,7 +331,7 @@ async def test_f2_a_worker_killed_mid_burst_leaves_the_survivor_marking_requests
 
 
 def _model_id(name: str) -> str:
-    (row,) = read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_name=%s', (name,))
+    (row,) = read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_name=%s', (name,))
     return str(row["model_id"])
 
 
@@ -353,7 +353,7 @@ async def test_f3_a_graceful_restart_mid_burst_drains_the_held_requests_and_keep
                 "/model/new",
                 {
                     "model_name": stored,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": GPT,
                         "api_base": wire.url,
                         "api_key": TOKEN,

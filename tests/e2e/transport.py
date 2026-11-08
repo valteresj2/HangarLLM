@@ -346,7 +346,7 @@ class SplitTransport:
     """A Transport that dispatches each call by path to one of two backends: the
     management/admin control plane or the LLM data plane.
 
-    Litellm can run as a split control-plane/data-plane deployment where the two
+    Hangarllm can run as a split control-plane/data-plane deployment where the two
     surfaces live on different services. Clients here stay plane-agnostic — they
     keep calling ``transport.post("/budget/new", ...)`` or
     ``transport.send("/chat/completions", ...)`` — and routing happens in one place

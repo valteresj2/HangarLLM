@@ -2,11 +2,11 @@ import asyncio
 
 import pytest
 
-from litellm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
     InvalidatableOAuthTokenStore,
     OAuthToken,
 )
-from litellm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import (
     LazyPerUserOAuthTokenStore,
     ServerLookup,
 )
@@ -30,21 +30,21 @@ class _RecordingStore:
 def credential_database(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     prisma = MagicMock()
-    table = prisma.db.litellm_mcpusercredentials
+    table = prisma.db.hangarllm_mcpusercredentials
     table.upsert = AsyncMock()
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "credential-persistence-test-salt")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "credential-persistence-test-salt")
     return table
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("scopes, expected", [(None, None), ((), []), (("read",), ["read"])])
 async def test_credential_persistence_preserves_known_and_unknown_scopes(credential_database, scopes, expected):
-    from litellm.proxy.mcp_server.db import decode_oauth_payload
-    from litellm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import _persist_credential
+    from hangarllm.proxy.mcp_server.db import decode_oauth_payload
+    from hangarllm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import _persist_credential
 
     await _persist_credential("alice", "srv", "access", "refresh", 60, scopes)
     row = credential_database.upsert.call_args.kwargs["data"]["create"]
@@ -61,10 +61,10 @@ async def test_credential_persistence_preserves_known_and_unknown_scopes(credent
 async def test_native_refresh_persists_actual_grant_through_storage_adapter(
     credential_database, prior_scopes, response_scope, expected,
 ):
-    from litellm.proxy.mcp_server.db import decode_oauth_payload
-    from litellm.proxy.mcp_server.outbound_credentials.authz_code_refresher import AuthorizationCodeRefresher
-    from litellm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import _persist_credential
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy.mcp_server.db import decode_oauth_payload
+    from hangarllm.proxy.mcp_server.outbound_credentials.authz_code_refresher import AuthorizationCodeRefresher
+    from hangarllm.proxy.mcp_server.outbound_credentials.per_user_oauth_store import _persist_credential
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv", name="srv", transport="http", auth_type="oauth2",
@@ -307,8 +307,8 @@ async def test_lazy_store_invalidate_works_after_redis_chain_is_built() -> None:
 
 @pytest.mark.asyncio
 async def test_enforcement_invalidates_cached_legacy_credentials_before_use():
-    from litellm.types.mcp import MCPAuth, MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
+    from hangarllm.types.mcp import MCPAuth, MCPTransport
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
 
     server = MCPServer(
         server_id="srv",
@@ -337,9 +337,9 @@ async def test_enforcement_invalidates_cached_legacy_credentials_before_use():
 async def test_enforced_cache_hit_avoids_credential_read_and_rejects_changed_policy(monkeypatch):
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.oauth_identity_binding import current_binding_proof
-    from litellm.proxy.mcp_server.outbound_credentials import per_user_oauth_store as module
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy.mcp_server.oauth_identity_binding import current_binding_proof
+    from hangarllm.proxy.mcp_server.outbound_credentials import per_user_oauth_store as module
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv",
@@ -373,8 +373,8 @@ async def test_enforced_cache_hit_avoids_credential_read_and_rejects_changed_pol
 async def test_expired_unverified_credential_never_reaches_refresh(monkeypatch):
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.mcp_server.outbound_credentials import per_user_oauth_store as module
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from hangarllm.proxy.mcp_server.outbound_credentials import per_user_oauth_store as module
+    from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv",

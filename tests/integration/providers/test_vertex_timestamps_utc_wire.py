@@ -26,7 +26,7 @@ LOCATION: Final = "us-central1"
 BUCKET: Final = "scripted-utc-bucket"
 GCS_AUTHORITY: Final = "storage.googleapis.com:443"
 JOBS_PATH: Final = f"projects/{PROJECT}/locations/{LOCATION}/batchPredictionJobs"
-OUTPUT_PREFIX: Final = f"gs://{BUCKET}/litellm-vertex-files/publishers/google/models/gemini-2.5-flash"
+OUTPUT_PREFIX: Final = f"gs://{BUCKET}/hangarllm-vertex-files/publishers/google/models/gemini-2.5-flash"
 VEO_MODEL: Final = "veo-3.1-generate-001"
 VEO_OPERATION: Final = f"projects/{PROJECT}/locations/{LOCATION}/publishers/google/models/{VEO_MODEL}/operations/op-1"
 
@@ -68,7 +68,7 @@ def _batch_job(job_id: str, state: str, output_directory: str | None) -> bytes:
     return json.dumps(
         {
             "name": f"{JOBS_PATH}/{job_id}",
-            "displayName": "litellm-vertex-batch-scripted",
+            "displayName": "hangarllm-vertex-batch-scripted",
             "model": "publishers/google/models/gemini-2.5-flash",
             "state": state,
             "outputInfo": {"gcsOutputDirectory": output_directory} if output_directory else None,
@@ -188,7 +188,7 @@ def _config_allowing(directory: Path, api: Wire) -> Path:
     shipped: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     configuration: Final = {
         **shipped,
-        "litellm_settings": {**shipped["litellm_settings"], "user_url_allowed_hosts": [urlsplit(api.url).netloc]},
+        "hangarllm_settings": {**shipped["hangarllm_settings"], "user_url_allowed_hosts": [urlsplit(api.url).netloc]},
     }
     path: Final = directory / "vertex-utc.yaml"
     path.write_text(yaml.safe_dump(configuration))

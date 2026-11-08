@@ -71,7 +71,7 @@ test("the Tool Policies page names the user behind the key that discovered a too
     modelId = (
       await post(request, "/model/new", {
         model_name: model,
-        litellm_params: {
+        hangarllm_params: {
           model: `openai/${model}`,
           api_key: "sk-upstream",
           api_base: `${upstream}/v1`,

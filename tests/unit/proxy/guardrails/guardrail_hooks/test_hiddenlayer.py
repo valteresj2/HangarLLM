@@ -13,16 +13,16 @@ import respx
 from fastapi import HTTPException
 from httpx import HTTPStatusError, Request, Response
 
-import litellm
-from litellm import ModelResponse
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
+import hangarllm
+from hangarllm import ModelResponse
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
     HiddenlayerGuardrail,
     HiddenlayerGuardrailV2,
     _get_jwt,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.utils import (
+from hangarllm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from hangarllm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     GenericGuardrailAPIInputs,
@@ -32,7 +32,7 @@ from litellm.types.utils import (
 
 def test_hiddenlayer_config_saas(monkeypatch: pytest.MonkeyPatch):
     """Test Hiddenlayer SaaS configuration with init_guardrails_v2."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
 
     # Set environment variables for testing
     monkeypatch.setenv("HIDDENLAYER_API_BASE", "https://my.hiddenlayer")
@@ -41,7 +41,7 @@ def test_hiddenlayer_config_saas(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "hiddenlayer-guardrails",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "hiddenlayer",
                     "mode": "pre_call",
                     "default_on": True,
@@ -114,12 +114,12 @@ class TestHiddenlayerGuardrail:
         }
 
         # Create logging object
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -179,12 +179,12 @@ class TestHiddenlayerGuardrail:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            hangarllm_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -252,12 +252,12 @@ class TestHiddenlayerGuardrail:
         mock_api_response.raise_for_status = MagicMock()
 
         # Create logging object
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            hangarllm_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -318,12 +318,12 @@ class TestHiddenlayerGuardrail:
 
         request_data = mock_model_response
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            hangarllm_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -366,12 +366,12 @@ class TestHiddenlayerGuardrail:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            hangarllm_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -427,7 +427,7 @@ class TestHiddenlayerGuardrail:
                 json={"metadata": metadata, "input": messages},
                 headers={
                     "Content-Type": "application/json",
-                    "hl-runtime-edge-provider": "litellm",
+                    "hl-runtime-edge-provider": "hangarllm",
                     "hl-runtime-edge-provider-version": "1",
                 },
                 timeout=None,
@@ -464,12 +464,12 @@ class TestHiddenlayerGuardrail:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": multimodal_content}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -524,12 +524,12 @@ class TestHiddenlayerGuardrail:
 
         request_data = {"proxy_server_request": {"headers": {}}}
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-4o-mini",
             messages=[],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -574,7 +574,7 @@ class TestHiddenlayerGuardrail:
 
 def test_hiddenlayer_config_v2(monkeypatch: pytest.MonkeyPatch):
     """Test HiddenLayer V2 configuration with init_guardrails_v2."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(hangarllm, "guardrail_name_config_map", {})
 
     monkeypatch.setenv("HIDDENLAYER_API_BASE", "https://my.hiddenlayer")
 
@@ -582,7 +582,7 @@ def test_hiddenlayer_config_v2(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "hiddenlayer-guardrails-v2",
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "hiddenlayer",
                     "mode": "pre_call",
                     "default_on": True,
@@ -653,12 +653,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -720,12 +720,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -769,12 +769,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -832,12 +832,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -890,12 +890,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What's the weather?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -987,12 +987,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": multimodal_content}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -1056,12 +1056,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = HangarLLMLoggingObj(
             model="gpt-4o-mini",
             messages=[],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            hangarllm_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -1142,7 +1142,7 @@ def test_get_jwt_gives_up_at_the_timeout_instead_of_blocking_the_event_loop(hang
     assert time.monotonic() - started < 10
 
     with patch(
-        "litellm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer._get_jwt",
+        "hangarllm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer._get_jwt",
         return_value="tok",
     ) as get_jwt:
         guardrail = HiddenlayerGuardrail(

@@ -39,11 +39,11 @@ _GEMINI_USAGE: Final = {
 }
 _ZERO_USAGE: Final = {"promptTokenCount": 0, "candidatesTokenCount": 0, "totalTokenCount": 0}
 _BURST_SELECT: Final = (
-    'SELECT api_key, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs"'
+    'SELECT api_key, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs"'
     " WHERE api_key = ANY(string_to_array(%s, ','))"
 )
 _CACHE_SELECT: Final = (
-    'SELECT cache_hit, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
+    'SELECT cache_hit, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" WHERE api_key=%s ORDER BY "startTime"'
 )
 _CALLER_OPTIONS: Final = {
     "caller_sends_none": None,
@@ -122,7 +122,7 @@ def _owned_config(path: Path, gateway: Gateway, wire: Wire, general: Mapping[str
                 "model_list": [
                     {
                         "model_name": _ADAPTER_MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-5.4-mini",
                             "api_base": wire.url,
                             "api_key": "synthetic-provider-key",
@@ -130,7 +130,7 @@ def _owned_config(path: Path, gateway: Gateway, wire: Wire, general: Mapping[str
                     },
                     {
                         "model_name": _NATIVE_MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "vertex_ai/gemini-2.5-flash",
                             "api_base": wire.url,
                             "vertex_project": _PROJECT,

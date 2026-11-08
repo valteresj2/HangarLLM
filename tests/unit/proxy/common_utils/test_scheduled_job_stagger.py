@@ -11,9 +11,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from litellm.constants import PTU_ROLLUP_JOB_ID, PTU_ROLLUP_LOCK_TTL_SECONDS
-from litellm.proxy._types import ScheduledJobStaggerSettings
-from litellm.proxy.common_utils.scheduled_job_stagger import (
+from hangarllm.constants import PTU_ROLLUP_JOB_ID, PTU_ROLLUP_LOCK_TTL_SECONDS
+from hangarllm.proxy._types import ScheduledJobStaggerSettings
+from hangarllm.proxy.common_utils.scheduled_job_stagger import (
     apply_scheduled_job_stagger,
     attach_job_timing_logger,
     offset_seconds,
@@ -192,7 +192,7 @@ async def test_applying_after_the_scheduler_started_is_refused_loudly(caplog):
     scheduler.start(paused=True)
     try:
         before = {job.id: job.next_run_time for job in scheduler.get_jobs()}
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
             applied = _stagger(scheduler)
         after = {job.id: job.next_run_time for job in scheduler.get_jobs()}
     finally:
@@ -216,7 +216,7 @@ async def test_a_leader_elected_cron_is_never_spread_past_its_dedupe_window():
 
 async def test_an_explicit_offset_past_the_dedupe_window_is_clamped_and_warned(caplog):
     scheduler = _with_jobs(_scheduler())
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         applied = _stagger(scheduler, offsets={PTU_ROLLUP_JOB_ID: 100_000})
 
     assert applied[PTU_ROLLUP_JOB_ID] == PTU_ROLLUP_LOCK_TTL_SECONDS - 1
@@ -283,15 +283,15 @@ def test_a_config_shaped_block_parses_whole():
 
 
 def test_identity_prefers_pod_name_and_separates_workers_on_one_host(monkeypatch):
-    monkeypatch.setenv("POD_NAME", "litellm-abc")
-    monkeypatch.setenv("HOSTNAME", "litellm-abc")
+    monkeypatch.setenv("POD_NAME", "hangarllm-abc")
+    monkeypatch.setenv("HOSTNAME", "hangarllm-abc")
     identity = resolve_stagger_identity(None)
 
-    assert identity.startswith("litellm-abc:")
-    assert identity == f"litellm-abc:{os.getpid()}"
+    assert identity.startswith("hangarllm-abc:")
+    assert identity == f"hangarllm-abc:{os.getpid()}"
 
     monkeypatch.delenv("POD_NAME")
-    assert resolve_stagger_identity(None).startswith("litellm-abc:")
+    assert resolve_stagger_identity(None).startswith("hangarllm-abc:")
     assert resolve_stagger_identity("explicit").startswith("explicit:")
 
 
@@ -301,7 +301,7 @@ def test_job_timing_is_logged_with_scheduled_and_actual_start(caplog):
     scheduled = datetime.now(timezone.utc) - timedelta(seconds=2)
     listener = next(iter(scheduler._listeners))[0]
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM Proxy"):
         listener(SimpleNamespace(job_id="update_spend_job", scheduled_run_times=[scheduled]))
 
     message = caplog.text

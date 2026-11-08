@@ -35,8 +35,8 @@ class ForwardProxy:
 def refusing_forward_proxy(port: int = 0) -> Generator[ForwardProxy, None, None]:
     """Owned HTTP forward proxy: records the host each CONNECT asks for and refuses the tunnel with 403.
 
-    A litellm proxy booted with ``HTTPS_PROXY`` pointed here makes the host it dials for a provider
-    observable without a byte leaving the box; the caller sees litellm's own connection error.
+    A hangarllm proxy booted with ``HTTPS_PROXY`` pointed here makes the host it dials for a provider
+    observable without a byte leaving the box; the caller sees hangarllm's own connection error.
     """
     received: Final[SimpleQueue[Tunnel]] = SimpleQueue()
 

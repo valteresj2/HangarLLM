@@ -10,9 +10,9 @@ import pytest
 from integration._support.tls import server_context, write_self_signed_cert
 from integration._support.wire import Reply, Request, wire_server
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.realtime_api import main as realtime_main
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.realtime_api import main as realtime_main
 
 UPSTREAM_PATHS: Final = MappingProxyType(
     {
@@ -31,7 +31,7 @@ def _logging(route: str) -> Logging:
         stream=False,
         call_type="acreate_realtime_client_secret",
         start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        litellm_call_id=f"test-realtime-{route}",
+        hangarllm_call_id=f"test-realtime-{route}",
         function_id=f"test-realtime-{route}",
     )
 
@@ -44,7 +44,7 @@ def _route_call(route: str, api_base: str) -> Awaitable[httpx.Response]:
                 custom_llm_provider="openai",
                 api_key="sk-test",
                 api_base=api_base,
-                litellm_logging_obj=_logging(route),
+                hangarllm_logging_obj=_logging(route),
             )
         case "translation_client_secrets":
             return realtime_main.acreate_realtime_translation_client_secret.__wrapped__(
@@ -52,7 +52,7 @@ def _route_call(route: str, api_base: str) -> Awaitable[httpx.Response]:
                 custom_llm_provider="openai",
                 api_key="sk-test",
                 api_base=api_base,
-                litellm_logging_obj=_logging(route),
+                hangarllm_logging_obj=_logging(route),
             )
         case "calls":
             return realtime_main.arealtime_calls.__wrapped__(
@@ -61,7 +61,7 @@ def _route_call(route: str, api_base: str) -> Awaitable[httpx.Response]:
                 model="gpt-realtime",
                 custom_llm_provider="openai",
                 api_base=api_base,
-                litellm_logging_obj=_logging(route),
+                hangarllm_logging_obj=_logging(route),
             )
         case _:
             return realtime_main.arealtime_translation_calls.__wrapped__(
@@ -70,7 +70,7 @@ def _route_call(route: str, api_base: str) -> Awaitable[httpx.Response]:
                 model="gpt-realtime-translate",
                 custom_llm_provider="openai",
                 api_base=api_base,
-                litellm_logging_obj=_logging(route),
+                hangarllm_logging_obj=_logging(route),
             )
 
 
@@ -80,11 +80,11 @@ def _ephemeral_key(_: Request) -> Reply:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("route", tuple(UPSTREAM_PATHS))
-async def test_openai_realtime_http_routes_trust_the_ca_bundle_set_in_litellm_ssl_verify(
+async def test_openai_realtime_http_routes_trust_the_ca_bundle_set_in_hangarllm_ssl_verify(
     route: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     certificate, key = write_self_signed_cert(tmp_path)
-    monkeypatch.setattr(litellm, "ssl_verify", str(certificate))
+    monkeypatch.setattr(hangarllm, "ssl_verify", str(certificate))
 
     with wire_server(_ephemeral_key, tls=server_context(certificate, key)) as upstream:
         response: Final = await _route_call(route, upstream.url)

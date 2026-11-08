@@ -4,7 +4,7 @@ on transport error reconnect once and retry once" helper.
 
 Covers the regression in issue #25143 where read paths (e.g.
 `PrismaClient.get_generic_data`) lost their reconnect-and-retry-once branch in
-LiteLLM 1.83.x and started emitting `db_exceptions` alerts on transient
+HangarLLM 1.83.x and started emitting `db_exceptions` alerts on transient
 `httpx.ReadError` flaps that used to self-heal in 1.82.6.
 """
 
@@ -15,7 +15,7 @@ import pytest
 from prisma.errors import ClientNotConnectedError, UniqueViolationError
 
 
-from litellm.proxy.db.exception_handler import call_with_db_reconnect_retry
+from hangarllm.proxy.db.exception_handler import call_with_db_reconnect_retry
 
 
 def _make_client(

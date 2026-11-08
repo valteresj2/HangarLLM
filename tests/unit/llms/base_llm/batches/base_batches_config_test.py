@@ -2,12 +2,12 @@
 Reusable contract test suite for BaseBatchesConfig implementations.
 
 Any provider whose batch transformation subclasses
-`litellm.llms.base_llm.batches.transformation.BaseBatchesConfig` gets a shared
+`hangarllm.llms.base_llm.batches.transformation.BaseBatchesConfig` gets a shared
 consistency net by subclassing `BatchesConfigContractTests` in its own
 `test_transformation.py` (as a `Test*`-named class) and overriding the hooks
 below. pytest then runs every contract test against that provider, guaranteeing
 all provider batch transformations honour the same BaseBatchesConfig contract -
-e.g. every `transform_retrieve_batch_response` returns a real `LiteLLMBatch`
+e.g. every `transform_retrieve_batch_response` returns a real `HangarLLMBatch`
 with `object == "batch"`, a valid status, and an int `created_at`.
 
 This module is intentionally NOT named `test_*`: it holds no standalone tests
@@ -25,7 +25,7 @@ import httpx
 import pytest
 
 
-from litellm.types.utils import LiteLLMBatch, LlmProviders
+from hangarllm.types.utils import HangarLLMBatch, LlmProviders
 
 # The OpenAI BatchJobStatus literal set - every provider must map into this.
 VALID_BATCH_STATUSES = {
@@ -105,19 +105,19 @@ class BatchesConfigContractTests:
                     "completion_window": "24h",
                 },
                 optional_params={},
-                litellm_params={},
+                hangarllm_params={},
             )
 
-    def test_contract__retrieve_response_is_valid_litellm_batch(self):
+    def test_contract__retrieve_response_is_valid_hangarllm_batch(self):
         if not self.supports_retrieve_response:
             pytest.skip("provider handles retrieve outside the transformation layer")
         out = self.make_config().transform_retrieve_batch_response(
             model=None,
             raw_response=make_raw_response(self.sample_retrieve_response_body()),
             logging_obj=MagicMock(),
-            litellm_params={},
+            hangarllm_params={},
         )
-        assert isinstance(out, LiteLLMBatch)
+        assert isinstance(out, HangarLLMBatch)
         assert out.object == "batch"
         assert out.status in VALID_BATCH_STATUSES
         assert isinstance(out.created_at, int)

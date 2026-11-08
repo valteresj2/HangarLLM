@@ -11,11 +11,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.router_core import RouterCore
-from litellm.types.utils import EmbeddingResponse, ModelResponse, ModelResponseStream
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.router_core import RouterCore
+from hangarllm.types.utils import EmbeddingResponse, ModelResponse, ModelResponseStream
 from tests.unit.test_router.core.scripted_host import (
     ScriptedHost,
     bad_request,
@@ -54,7 +54,7 @@ ENDPOINTS: Final[dict[str, tuple[str, EndpointCall]]] = {
     "call-completion": ("completion", lambda core: core.call("completion", {"model": "g", "messages": MESSAGES})),
 }
 SYNC_ENDPOINTS: Final = frozenset({"completion", "embedding", "image_generation"})
-LITELLM_METADATA_ENDPOINTS: Final = frozenset({"aresponses", "aanthropic_messages", "anthropic_messages"})
+HANGARLLM_METADATA_ENDPOINTS: Final = frozenset({"aresponses", "aanthropic_messages", "anthropic_messages"})
 EMBEDDING_ENDPOINTS: Final = frozenset({"aembedding", "embedding"})
 
 
@@ -66,19 +66,19 @@ async def _invoke(core: RouterCore, endpoint: str) -> object:
 
 
 def _one_group(
-    make_core: MakeCore, **litellm_params: object
-) -> RouterCore:  # kwargs-ok: the deployment's litellm_params
-    return make_core(model_list=[deployment("g", "d1", **litellm_params)])
+    make_core: MakeCore, **hangarllm_params: object
+) -> RouterCore:  # kwargs-ok: the deployment's hangarllm_params
+    return make_core(model_list=[deployment("g", "d1", **hangarllm_params)])
 
 
 def _metadata(kwargs: Mapping[str, object], endpoint: str) -> Mapping[str, object]:
-    bucket: Final = kwargs["litellm_metadata" if endpoint in LITELLM_METADATA_ENDPOINTS else "metadata"]
+    bucket: Final = kwargs["hangarllm_metadata" if endpoint in HANGARLLM_METADATA_ENDPOINTS else "metadata"]
     assert isinstance(bucket, Mapping)
     return bucket
 
 
 @pytest.mark.parametrize("endpoint", sorted(ENDPOINTS))
-async def test_each_endpoint_sends_the_deployment_litellm_params_to_the_host(
+async def test_each_endpoint_sends_the_deployment_hangarllm_params_to_the_host(
     make_core: MakeCore, host: ScriptedHost, endpoint: str
 ):
     core: Final = _one_group(make_core, api_base="https://d1.example", temperature=0.3, seed=7)
@@ -123,7 +123,7 @@ async def test_each_endpoint_returns_the_host_response_object_with_routing_hidde
     response: Final = await _invoke(core, endpoint)
     assert response is answer
     assert response._hidden_params["model_id"] == "d1"
-    assert response._hidden_params["additional_headers"]["x-litellm-model-group"] == "g"
+    assert response._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "g"
 
 
 @pytest.mark.parametrize("endpoint", sorted(SYNC_ENDPOINTS | {"call-completion"}))
@@ -153,7 +153,7 @@ async def test_router_only_include_fallback_errors_is_not_sent_to_the_host(
 
 
 @pytest.mark.parametrize("router_only_param", ["rpm", "tpm", "max_parallel_requests"])
-async def test_deployment_limit_params_are_forwarded_with_the_rest_of_litellm_params(
+async def test_deployment_limit_params_are_forwarded_with_the_rest_of_hangarllm_params(
     make_core: MakeCore, host: ScriptedHost, router_only_param: str
 ):
     core: Final = _one_group(make_core, **{router_only_param: 50})
@@ -172,14 +172,14 @@ async def test_request_metadata_reaches_the_host_beside_the_routing_metadata(
     assert (metadata["trace"], metadata["model_group"]) == ("t-1", "g")
 
 
-async def test_aresponses_sends_request_metadata_as_metadata_and_routing_metadata_as_litellm_metadata(
+async def test_aresponses_sends_request_metadata_as_metadata_and_routing_metadata_as_hangarllm_metadata(
     make_core: MakeCore, host: ScriptedHost
 ):
     core: Final = _one_group(make_core)
     await core.aresponses(model="g", input="hi", metadata={"trace": "t-1"})
     sent: Final = host.calls[0].kwargs
     assert sent["metadata"] == {"trace": "t-1"}
-    assert sent["litellm_metadata"]["model_group"] == "g"  # pyright: ignore[reportIndexIssue]  # untyped kwargs
+    assert sent["hangarllm_metadata"]["model_group"] == "g"  # pyright: ignore[reportIndexIssue]  # untyped kwargs
 
 
 @pytest.mark.parametrize(
@@ -247,11 +247,11 @@ async def test_streaming_acompletion_sends_deployment_or_request_stream_timeout(
         ({"user": "u2"}, ("u2", 0.9)),
     ],
 )
-async def test_default_litellm_params_fill_what_the_request_leaves_unset(
+async def test_default_hangarllm_params_fill_what_the_request_leaves_unset(
     make_core: MakeCore, host: ScriptedHost, request_params: dict[str, object], expected: tuple[str, float]
 ):
     core: Final = make_core(
-        model_list=[deployment("g", "d1")], default_litellm_params={"user": "u1", "temperature": 0.9}
+        model_list=[deployment("g", "d1")], default_hangarllm_params={"user": "u1", "temperature": 0.9}
     )
     await core.acompletion(model="g", messages=MESSAGES, **request_params)
     sent: Final = host.calls[0].kwargs
@@ -312,7 +312,7 @@ async def test_sync_completion_counts_its_tokens_and_request_in_group_usage(make
 
 
 class DeferredLoggingHost(ScriptedHost):
-    """``ScriptedHost`` that, like litellm, runs async success callbacks after the endpoint returns."""
+    """``ScriptedHost`` that, like hangarllm, runs async success callbacks after the endpoint returns."""
 
     __slots__ = ("pending",)
 
@@ -338,7 +338,7 @@ class DeferredLoggingHost(ScriptedHost):
 
 
 class TestUsageWhenTheHostLogsAfterTheResponse:
-    """litellm runs async success callbacks after the endpoint has returned; this host does the same."""
+    """hangarllm runs async success callbacks after the endpoint has returned; this host does the same."""
 
     @pytest.fixture
     def host(self) -> DeferredLoggingHost:
@@ -364,7 +364,7 @@ async def test_a_successful_call_uses_up_the_deployment_rpm_for_the_next_selecti
 ):
     core: Final = make_core(model_list=[deployment("g", "d1", rpm=1)], routing_strategy="usage-based-routing-v2")
     await core.acompletion(model="g", messages=MESSAGES)
-    with pytest.raises(litellm.RateLimitError, match="No deployments available"):
+    with pytest.raises(hangarllm.RateLimitError, match="No deployments available"):
         await core.acompletion(model="g", messages=MESSAGES)
     assert host.deployments_called() == ["d1"]
 
@@ -373,7 +373,7 @@ async def test_host_error_reaches_the_caller_as_raised(make_core: MakeCore, host
     error: Final = bad_request(message="scripted bad input")
     host.answer("openai/d1", error)
     core: Final = _one_group(make_core)
-    with pytest.raises(litellm.BadRequestError, match="scripted bad input"):
+    with pytest.raises(hangarllm.BadRequestError, match="scripted bad input"):
         await core.acompletion(model="g", messages=MESSAGES)
     assert host.deployments_called("acompletion")[0] == "d1"
 
@@ -383,7 +383,7 @@ async def test_unknown_model_group_raises_without_calling_the_host(
     make_core: MakeCore, host: ScriptedHost, endpoint: str
 ):
     core: Final = _one_group(make_core)
-    with pytest.raises(litellm.BadRequestError, match="model=missing"):
+    with pytest.raises(hangarllm.BadRequestError, match="model=missing"):
         await core.call(endpoint, {"model": "missing", "messages": MESSAGES})
     assert host.calls == []
 
@@ -420,16 +420,16 @@ def _scripted_stream(*texts: str) -> Callable[..., CustomStreamWrapper]:
             # A stream that ends without a finish reason fails since #47665.
             yield ModelResponseStream(choices=[{"index": 0, "delta": {}, "finish_reason": "stop"}])
 
-        logging_obj: Final = LiteLLMLogging(
+        logging_obj: Final = HangarLLMLogging(
             model="d1",
             messages=MESSAGES,
             stream=True,
             call_type="acompletion",
             start_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-            litellm_call_id="stream-test",
+            hangarllm_call_id="stream-test",
             function_id="stream-test",
         )
-        logging_obj.update_environment_variables(model="d1", user=None, optional_params={}, litellm_params={})
+        logging_obj.update_environment_variables(model="d1", user=None, optional_params={}, hangarllm_params={})
         return CustomStreamWrapper(
             completion_stream=chunks(), model="d1", custom_llm_provider="openai", logging_obj=logging_obj
         )
@@ -446,5 +446,5 @@ async def test_streaming_acompletion_yields_the_host_stream_chunks_with_routing_
     texts: Final = [chunk.choices[0].delta.content async for chunk in stream]  # pyright: ignore[reportUnknownMemberType]  # stream chunks are untyped
     assert "".join(text for text in texts if text) == "hello"
     assert stream._hidden_params["model_id"] == "d1"
-    assert stream._hidden_params["additional_headers"]["x-litellm-model-group"] == "g"
+    assert stream._hidden_params["additional_headers"]["x-hangarllm-model-group"] == "g"
     assert (host.calls[0].op, host.calls[0].kwargs["stream"]) == ("acompletion", True)

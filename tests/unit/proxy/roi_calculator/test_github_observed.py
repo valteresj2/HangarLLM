@@ -8,9 +8,9 @@ import httpx
 import pytest
 from pydantic import BaseModel, SecretStr
 
-from litellm.proxy.roi_calculator.github import SourceError
-from litellm.proxy.roi_calculator.github_observed import GitHubObserved
-from litellm.types.roi_calculator import ROISettings
+from hangarllm.proxy.roi_calculator.github import SourceError
+from hangarllm.proxy.roi_calculator.github_observed import GitHubObserved
+from hangarllm.types.roi_calculator import ROISettings
 
 
 class _Variables(BaseModel):

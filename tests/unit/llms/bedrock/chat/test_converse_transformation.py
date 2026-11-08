@@ -12,27 +12,27 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm import ModelResponse, Router, completion
-from litellm.constants import RESPONSE_FORMAT_UNFORCED_TOOL_DESCRIPTION
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import hangarllm
+from hangarllm._logging import verbose_logger
+from hangarllm import ModelResponse, Router, completion
+from hangarllm.constants import RESPONSE_FORMAT_UNFORCED_TOOL_DESCRIPTION
+from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
     _bedrock_converse_messages_pt,
     _bedrock_tools_pt,
 )
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import CONVERTED_SYSTEM_NOTE
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.anthropic.chat.transformation import (
+from hangarllm.hangarllm_core_utils.prompt_templates.mid_conversation_system import CONVERTED_SYSTEM_NOTE
+from hangarllm.hangarllm_core_utils.streaming_handler import CustomStreamWrapper
+from hangarllm.llms.anthropic.chat.transformation import (
     NATIVE_OUTPUT_MAX_GRAMMAR_BRANCHES,
     NATIVE_OUTPUT_MAX_OPTIONAL_PARAMETERS,
     NATIVE_OUTPUT_MAX_UNION_PARAMETERS,
 )
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-from litellm.llms.bedrock.common_utils import BEDROCK_NATIVE_OUTPUT_MAX_PROPERTIES
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.bedrock import ContentBlock, ConverseTokenUsageBlock, RequestObject
-from litellm.types.llms.openai import AllMessageValues
+from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from hangarllm.llms.bedrock.common_utils import BEDROCK_NATIVE_OUTPUT_MAX_PROPERTIES
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.llms.bedrock import ContentBlock, ConverseTokenUsageBlock, RequestObject
+from hangarllm.types.llms.openai import AllMessageValues
 from tests.unit.conftest import NativeStructuredOutputKey
 
 
@@ -126,8 +126,8 @@ def test_transform_usage_without_cache_details_stays_none():
 def test_bedrock_converse_1h_cache_write_billed_at_1h_rate(monkeypatch):
     """Regression for issue #36760: without the cacheDetails split, the whole
     write is billed at the (cheaper) 5m rate."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     usage = ConverseTokenUsageBlock(
         **{
             "inputTokens": 16,
@@ -140,8 +140,8 @@ def test_bedrock_converse_1h_cache_write_billed_at_1h_rate(monkeypatch):
     )
     openai_usage = AmazonConverseConfig().transform_usage(usage)
     model = "bedrock/converse/global.anthropic.claude-opus-4-8"
-    prompt_cost, completion_cost = litellm.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
-    model_info = litellm.get_model_info(model=model)
+    prompt_cost, completion_cost = hangarllm.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
+    model_info = hangarllm.get_model_info(model=model)
     expected_prompt_cost = (
         16 * model_info["input_cost_per_token"] + 11632 * model_info["cache_creation_input_token_cost_above_1hr"]
     )
@@ -210,8 +210,8 @@ def test_transform_usage_reads_invoke_model_count_suffixed_cache_keys(
 def test_bedrock_invoke_nova_cache_read_billed_at_discounted_rate(monkeypatch):
     """Nova cache reads are billed at the entry's discounted cache read rate; without a
     ``cache_read_input_token_cost`` entry the cached tokens were billed at nothing."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
     usage = ConverseTokenUsageBlock(
         **{
             "inputTokens": 5,
@@ -223,8 +223,8 @@ def test_bedrock_invoke_nova_cache_read_billed_at_discounted_rate(monkeypatch):
     )
     openai_usage = AmazonConverseConfig().transform_usage(usage)
     model = "bedrock/invoke/us.amazon.nova-pro-v1:0"
-    prompt_cost, completion_cost = litellm.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
-    model_info = litellm.get_model_info(model=model)
+    prompt_cost, completion_cost = hangarllm.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
+    model_info = hangarllm.get_model_info(model=model)
     assert 0 < model_info["cache_read_input_token_cost"] < model_info["input_cost_per_token"]
     assert prompt_cost == pytest.approx(
         5 * model_info["input_cost_per_token"] + 12262 * model_info["cache_read_input_token_cost"]
@@ -355,7 +355,7 @@ def test_bedrock_system_prompt_variants_keep_continue_message(
             {"role": "assistant", "content": "hey, how's it going?"},
         ],
         optional_params={"maxTokens": 100, "temperature": 0.3},
-        litellm_params={"user_continue_message": {"role": "user", "content": "Be a good bot!"}},
+        hangarllm_params={"user_continue_message": {"role": "user", "content": "Be a good bot!"}},
         headers={},
     )
 
@@ -382,7 +382,7 @@ def test_bedrock_json_schema_description_is_sent_in_request(respx_mock: respx.Ro
             },
         )
     )
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/us.amazon.nova-pro-v1:0",
         messages=[{"role": "user", "content": "What is the meaning of this poem?"}],
         response_format={
@@ -419,7 +419,7 @@ def test_bedrock_empty_text_block_is_removed_from_converse_request() -> None:
             }
         ],
         optional_params={"maxTokens": 10},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -442,7 +442,7 @@ async def test_bedrock_max_completion_tokens_become_converse_max_tokens() -> Non
             request=request,
         )
 
-    await litellm.acompletion(
+    await hangarllm.acompletion(
         model="bedrock/converse/mistral.mistral-large-2407-v1:0",
         messages=[{"role": "user", "content": "Hello!"}],
         max_completion_tokens=10,
@@ -473,7 +473,7 @@ def test_bedrock_nova_top_k_aliases_are_forwarded(parameter: str, respx_mock: re
             },
         )
     )
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/us.amazon.nova-pro-v1:0",
         messages=[{"role": "user", "content": "Hello, world!"}],
         aws_access_key_id="AKIANOVATOPKKEY",
@@ -518,7 +518,7 @@ def test_bedrock_model_id_arn_sets_converse_url_and_region(
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "What's AWS?"}],
         model_id=model_id,
@@ -555,12 +555,12 @@ def test_bedrock_application_profile_model_and_model_id_use_same_route(respx_moc
         "aws_secret_access_key": "profile-secret",
         "client": HTTPHandler(),
     }
-    litellm.completion(
+    hangarllm.completion(
         model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         model_id=application_profile_arn,
         **model_args,
     )
-    litellm.completion(model=f"bedrock/converse/{application_profile_arn}", **model_args)
+    hangarllm.completion(model=f"bedrock/converse/{application_profile_arn}", **model_args)
 
     assert route.call_count == 2
 
@@ -573,7 +573,7 @@ _PROFILE_ARN_CONVERSE_URL: Final = (
 
 
 def _routed_profile_request_body(
-    respx_mock: respx.Router, litellm_params: dict, model_info: dict, **completion_kwargs: object
+    respx_mock: respx.Router, hangarllm_params: dict, model_info: dict, **completion_kwargs: object
 ) -> dict:
     route: Final = respx_mock.post(_PROFILE_ARN_CONVERSE_URL).mock(
         return_value=httpx.Response(
@@ -585,16 +585,16 @@ def _routed_profile_request_body(
             },
         )
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "claude",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"bedrock/{_PROFILE_ARN}",
                     "aws_access_key_id": "AKIAPROFILEKEY",
                     "aws_secret_access_key": "profile-secret",
                     "aws_region_name": "us-east-1",
-                    **litellm_params,
+                    **hangarllm_params,
                 },
                 "model_info": model_info,
             }
@@ -611,28 +611,28 @@ def _routed_profile_request_body(
 
 
 def _routed_profile_request_fields(
-    respx_mock: respx.Router, litellm_params: dict, model_info: dict, thinking: dict
+    respx_mock: respx.Router, hangarllm_params: dict, model_info: dict, thinking: dict
 ) -> dict:
-    return _routed_profile_request_body(respx_mock, litellm_params, model_info, thinking=thinking).get(
+    return _routed_profile_request_body(respx_mock, hangarllm_params, model_info, thinking=thinking).get(
         "additionalModelRequestFields", {}
     )
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "model_info"),
+    ("hangarllm_params", "model_info"),
     [
         ({}, {"base_model": "us.anthropic.claude-opus-4-8"}),
         ({"base_model": "bedrock/us.anthropic.claude-opus-4-8"}, {}),
     ],
-    ids=["model_info", "litellm_params"],
+    ids=["model_info", "hangarllm_params"],
 )
 @pytest.mark.respx(assert_all_called=True)
 def test_application_profile_arn_keeps_adaptive_thinking_when_base_model_is_adaptive(
-    litellm_params: dict, model_info: dict, respx_mock: respx.Router, local_model_cost_map: None
+    hangarllm_params: dict, model_info: dict, respx_mock: respx.Router, local_model_cost_map: None
 ) -> None:
     thinking: Final = {"type": "adaptive", "display": "summarized"}
 
-    fields: Final = _routed_profile_request_fields(respx_mock, litellm_params, model_info, thinking)
+    fields: Final = _routed_profile_request_fields(respx_mock, hangarllm_params, model_info, thinking)
 
     assert fields["thinking"] == thinking
 
@@ -731,7 +731,7 @@ def test_bedrock_cross_region_inference_profile_keeps_prefix_in_converse_url(res
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/us.meta.llama3-3-70b-instruct-v1:0",
         messages=[{"role": "user", "content": "route to the cross-region model"}],
         aws_access_key_id="AKIACROSSREGIONKEY",
@@ -756,7 +756,7 @@ def test_bedrock_converse_like_proxy_uses_bearer_api_key(respx_mock: respx.Route
             },
         )
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/converse_like/us.amazon.nova-pro-v1:0",
         messages=[{"role": "user", "content": "Tell me a joke"}],
         api_key="Token",
@@ -788,7 +788,7 @@ def test_transform_thinking_blocks_unwraps_redacted_content_to_claude_native_dat
 
 
 def test_apply_tool_call_transformation_if_needed():
-    from litellm.types.utils import Message
+    from hangarllm.types.utils import Message
 
     config = AmazonConverseConfig()
     tool_calls = [
@@ -816,7 +816,7 @@ def test_apply_tool_call_transformation_if_needed():
 
 
 def test_transform_tool_call_with_cache_control():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     config = AmazonConverseConfig()
 
@@ -848,7 +848,7 @@ def test_transform_tool_call_with_cache_control():
         model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -975,11 +975,11 @@ def test_openai_gpt5_converse_rejects_effort_level_disabled_in_model_map(
     model: str, local_model_cost_map: None, caplog: pytest.LogCaptureFixture
 ) -> None:
     config = AmazonConverseConfig()
-    assert litellm.utils.is_explicitly_disabled_factory(
+    assert hangarllm.utils.is_explicitly_disabled_factory(
         model=model, custom_llm_provider="bedrock_converse", key="supports_minimal_reasoning_effort"
     )
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="minimal"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="minimal"):
         config.map_openai_params(
             non_default_params={"reasoning_effort": "minimal"},
             optional_params={},
@@ -987,7 +987,7 @@ def test_openai_gpt5_converse_rejects_effort_level_disabled_in_model_map(
             drop_params=False,
         )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         optional_params: Final = config.map_openai_params(
             non_default_params={"reasoning_effort": "minimal"},
             optional_params={},
@@ -1109,7 +1109,7 @@ def test_output_config_effort_forwarded_into_additional_request_fields(model):
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": "high"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1155,19 +1155,19 @@ _LOOKAROUND_FREE_PROPERTIES: Final = {
 }
 
 
-def _converse_tools(model, tools, litellm_params=None):
+def _converse_tools(model, tools, hangarllm_params=None):
     request = AmazonConverseConfig()._transform_request(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tools": copy.deepcopy(tools)},
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
         headers={},
     )
     return request["toolConfig"]["tools"]
 
 
-def _tool_schema_properties(model, tool, litellm_params=None):
-    return _converse_tools(model, [tool], litellm_params)[0]["toolSpec"]["inputSchema"]["json"]["properties"]
+def _tool_schema_properties(model, tool, hangarllm_params=None):
+    return _converse_tools(model, [tool], hangarllm_params)[0]["toolSpec"]["inputSchema"]["json"]["properties"]
 
 
 @pytest.mark.parametrize(
@@ -1226,7 +1226,7 @@ def test_transform_request_drops_lookaround_regex_when_the_deployment_model_info
 
 
 @pytest.mark.parametrize(
-    ("model", "litellm_params"),
+    ("model", "hangarllm_params"),
     [
         ("us.newvendor.model-1", None),
         ("converse/us.newvendor.model-1", None),
@@ -1234,10 +1234,10 @@ def test_transform_request_drops_lookaround_regex_when_the_deployment_model_info
         ("us.newvendor.model-1", {"base_model": "bedrock/converse/us.newvendor.model-1"}),
     ],
 )
-def test_transform_request_drops_lookaround_regex_for_a_model_the_cost_map_does_not_list(model, litellm_params):
-    assert "us.newvendor.model-1" not in litellm.model_cost
+def test_transform_request_drops_lookaround_regex_for_a_model_the_cost_map_does_not_list(model, hangarllm_params):
+    assert "us.newvendor.model-1" not in hangarllm.model_cost
 
-    properties: Final = _tool_schema_properties(model, _ARTIFACT_DATA_ANTHROPIC_TOOL, litellm_params)
+    properties: Final = _tool_schema_properties(model, _ARTIFACT_DATA_ANTHROPIC_TOOL, hangarllm_params)
 
     assert properties == _LOOKAROUND_FREE_PROPERTIES
 
@@ -1252,8 +1252,8 @@ def test_transform_request_drops_lookaround_regex_for_a_model_the_cost_map_does_
         "apac.newvendor.listed-1",
     ],
 )
-def test_transform_request_keeps_lookaround_regex_for_an_unlisted_model_litellm_still_recognizes(model, monkeypatch):
-    monkeypatch.setitem(litellm.model_cost, "us.newvendor.listed-1", {"litellm_provider": "bedrock_converse"})
+def test_transform_request_keeps_lookaround_regex_for_an_unlisted_model_hangarllm_still_recognizes(model, monkeypatch):
+    monkeypatch.setitem(hangarllm.model_cost, "us.newvendor.listed-1", {"hangarllm_provider": "bedrock_converse"})
 
     properties = _tool_schema_properties(model, _ARTIFACT_DATA_ANTHROPIC_TOOL)
 
@@ -1294,7 +1294,7 @@ def test_a_router_deployment_of_a_model_the_cost_map_does_not_list_drops_lookaro
         model_list=[
             {
                 "model_name": "unlisted",
-                "litellm_params": {
+                "hangarllm_params": {
                     **deployment_params,
                     "aws_access_key_id": "fake-access-key",
                     "aws_secret_access_key": "fake-secret-key",
@@ -1340,7 +1340,7 @@ _APPLICATION_PROFILE_ARN: Final = "arn:aws:bedrock:us-west-2:123456789012:applic
 @pytest.mark.asyncio
 @pytest.mark.parametrize("use_async", [False, True])
 @pytest.mark.parametrize(
-    "model, optional_params, litellm_params, replays_redacted",
+    "model, optional_params, hangarllm_params, replays_redacted",
     [
         ("us.anthropic.claude-sonnet-4-6", {}, {}, True),
         ("arn:aws:bedrock:us-west-2:123456789012:inference-profile/us.anthropic.claude-sonnet-4-6", {}, {}, True),
@@ -1358,7 +1358,7 @@ async def test_transform_request_replays_redacted_thinking_only_to_claude(
     use_async: bool,
     model: str,
     optional_params: dict[str, str],
-    litellm_params: dict[str, str],
+    hangarllm_params: dict[str, str],
     replays_redacted: bool,
 ):
     """A model id that names its model decides on its own. An application inference profile ARN hides its model,
@@ -1378,7 +1378,7 @@ async def test_transform_request_replays_redacted_thinking_only_to_claude(
     ]
     config: Final = AmazonConverseConfig()
     kwargs: Final = dict(
-        model=model, messages=messages, optional_params=dict(optional_params), litellm_params=dict(litellm_params)
+        model=model, messages=messages, optional_params=dict(optional_params), hangarllm_params=dict(hangarllm_params)
     )
 
     request: Final = (
@@ -1434,7 +1434,7 @@ def test_thinking_request_adds_output_tokens_details_response_path():
             "thinking": {"type": "adaptive", "display": "summarized"},
             "output_config": {"effort": "high"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1457,7 +1457,7 @@ def test_request_without_thinking_asks_for_thinking_tokens_only_when_the_model_t
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"maxTokens": 256},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1560,7 +1560,7 @@ def test_output_config_effort_forwarded_for_application_inference_profile_arn():
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": "max"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1588,7 +1588,7 @@ def test_output_config_format_translated_to_native_output_config_converse():
                 "format": {"type": "json_schema", "schema": schema},
             },
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1620,7 +1620,7 @@ def test_output_config_format_dropped_on_unsupported_converse_model_warns(caplog
                     "format": {"type": "json_schema", "schema": schema},
                 },
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -1646,7 +1646,7 @@ def test_output_config_normalized_marker_does_not_leak_into_optional_params():
         model="bedrock/converse/us.anthropic.claude-opus-4-6-v1",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1673,7 +1673,7 @@ def test_output_config_effort_normalized_for_bedrock_converse_opus(model, expect
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": "xhigh"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1689,7 +1689,7 @@ def test_reasoning_effort_garbage_raises_bad_request_converse(effort):
     """Unmapped reasoning_effort on Bedrock Converse Anthropic raises BadRequestError."""
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(hangarllm.exceptions.BadRequestError):
         config.map_openai_params(
             non_default_params={"reasoning_effort": effort},
             optional_params={},
@@ -1719,7 +1719,7 @@ def test_output_config_effort_max_passes_through_on_sonnet_46_variants(model):
             "maxTokens": 256,
             "output_config": {"effort": "max"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -1774,8 +1774,8 @@ def test_bedrock_deepseek_v3_advertises_reasoning_effort(model):
 def test_bedrock_deepseek_thinking_raises_without_drop_params(model):
     """Passing `thinking` to Bedrock DeepSeek must fail client-side with a clear
     UnsupportedParamsError instead of leaking through to Bedrock."""
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.utils.get_optional_params(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.utils.get_optional_params(
             model=model,
             custom_llm_provider="bedrock",
             thinking={"type": "enabled", "budget_tokens": 1024},
@@ -1783,8 +1783,8 @@ def test_bedrock_deepseek_thinking_raises_without_drop_params(model):
 
 
 def test_bedrock_deepseek_r1_reasoning_effort_raises_without_drop_params():
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.utils.get_optional_params(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.utils.get_optional_params(
             model="us.deepseek.r1-v1:0",
             custom_llm_provider="bedrock",
             reasoning_effort="high",
@@ -1795,7 +1795,7 @@ def test_bedrock_deepseek_r1_reasoning_effort_raises_without_drop_params():
 def test_bedrock_deepseek_thinking_dropped_does_not_leak_into_request(model):
     """With drop_params, `thinking` is dropped rather than forwarded into
     additionalModelRequestFields for Bedrock DeepSeek."""
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = hangarllm.utils.get_optional_params(
         model=model,
         custom_llm_provider="bedrock",
         thinking={"type": "enabled", "budget_tokens": 1024},
@@ -1808,7 +1808,7 @@ def test_bedrock_deepseek_thinking_dropped_does_not_leak_into_request(model):
         model=f"bedrock/converse/{model}",
         messages=[{"role": "user", "content": "Say hi in one word."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert "thinking" not in (request.get("additionalModelRequestFields") or {})
@@ -1836,7 +1836,7 @@ def test_bedrock_deepseek_r1_reasoning_params_not_forwarded_by_map(param):
         model=model,
         messages=[{"role": "user", "content": "Say hi in one word."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request.get("additionalModelRequestFields") is None
@@ -1859,7 +1859,7 @@ def test_bedrock_deepseek_v3_reasoning_effort_forwarded_raw():
         model=model,
         messages=[{"role": "user", "content": "Say hi in one word."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert request["additionalModelRequestFields"] == {"reasoning_effort": "high"}
@@ -1928,10 +1928,10 @@ def test_get_supported_openai_params_bedrock_converse():
     Test that all documented bedrock converse models have the same set of supported openai params when using
     `bedrock/converse/` or `bedrock/` prefix.
 
-    Note: This test is critical for routing, if we ever remove `litellm.BEDROCK_CONVERSE_MODELS`,
+    Note: This test is critical for routing, if we ever remove `hangarllm.BEDROCK_CONVERSE_MODELS`,
     please update this test to read `bedrock_converse` models from the model cost map.
     """
-    for model in litellm.BEDROCK_CONVERSE_MODELS:
+    for model in hangarllm.BEDROCK_CONVERSE_MODELS:
         print(f"Testing model: {model}")
         config = AmazonConverseConfig()
         supported_params_without_prefix = config.get_supported_openai_params(model=model)
@@ -1980,12 +1980,12 @@ def test_tool_config_cachepoint_is_credited_only_where_it_is_placed(tools, model
         system_content_blocks=[],
         optional_params=optional_params,
         messages=[{"role": "user", "content": "hi"}],
-        litellm_params={"metadata": bucket, "litellm_metadata": None, "model_info": {"id": "dep-bedrock"}},
+        hangarllm_params={"metadata": bucket, "hangarllm_metadata": None, "model_info": {"id": "dep-bedrock"}},
     )
 
     placed = "cachePoint" in json.dumps(data.get("toolConfig", {}))
     assert placed is (expected_marker is not None)
-    assert bucket.get("litellm_gateway_injected_cache") == expected_marker
+    assert bucket.get("hangarllm_gateway_injected_cache") == expected_marker
 
 
 def test_transform_request_helper_includes_anthropic_beta_and_tools():
@@ -2072,10 +2072,10 @@ def test_client_metadata_stripped_from_converse_request(model):
 
 
 def test_parallel_tool_calls_config_kept_for_sonnet_5(monkeypatch):
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("HANGARLLM_LOCAL_MODEL_COST_MAP")
+    old_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
         optional_params = config.map_openai_params(
@@ -2097,11 +2097,11 @@ def test_parallel_tool_calls_config_kept_for_sonnet_5(monkeypatch):
             "disable_parallel_tool_use": True,
         }
     finally:
-        litellm.model_cost = old_cost
+        hangarllm.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_parallel_tool_calls_config_dropped_for_ttl_only_model(
@@ -2109,7 +2109,7 @@ def test_parallel_tool_calls_config_dropped_for_ttl_only_model(
 ):
     model = "anthropic.claude-fable-5"
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         model,
         {"cache_creation_input_token_cost_above_1hr": 2e-05},
     )
@@ -2134,8 +2134,8 @@ def test_parallel_tool_calls_config_dropped_for_ttl_only_model(
 def test_transform_response_with_computer_use_tool():
     """Test response transformation with computer use tool call."""
 
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a computer-use tool call
     response_json = {
@@ -2224,8 +2224,8 @@ def test_transform_response_with_computer_use_tool():
 def test_transform_response_with_bash_tool():
     """Test response transformation with bash tool call."""
 
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a bash tool call
     response_json = {
@@ -2303,8 +2303,8 @@ def test_transform_response_with_bash_tool():
 
 def test_transform_response_with_structured_response_being_called():
     """Test response transformation with structured response."""
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a bash tool call
     response_json = {
@@ -2423,8 +2423,8 @@ def test_transform_response_with_structured_response_being_called():
 
 def test_transform_response_with_structured_response_calling_tool():
     """Test response transformation with structured response."""
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a bash tool call
     response_json = {
@@ -2555,11 +2555,11 @@ def _mock_converse_response() -> MagicMock:
 
 
 async def _acompletion_captured_request_body(tools: list, messages: list) -> dict:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     client = AsyncHTTPHandler()
     with patch.object(client, "post", return_value=_mock_converse_response()) as mock_post:
-        response = await litellm.acompletion(
+        response = await hangarllm.acompletion(
             model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             tools=tools,
@@ -2663,7 +2663,7 @@ async def test_transformation_directly():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2767,7 +2767,7 @@ def test_transform_request_with_multiple_tools():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2827,7 +2827,7 @@ def test_transform_request_with_computer_tool_only():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2863,7 +2863,7 @@ def test_transform_request_with_bash_tool_only():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2899,7 +2899,7 @@ def test_transform_request_with_text_editor_tool():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -2949,7 +2949,7 @@ def test_transform_request_with_function_tool():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -3029,7 +3029,7 @@ def test_map_openai_params_with_response_format():
 @pytest.mark.asyncio
 async def test_assistant_message_cache_control():
     """Test that assistant messages with cache_control generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3082,7 +3082,7 @@ async def test_assistant_message_cache_control():
 @pytest.mark.asyncio
 async def test_assistant_message_list_content_cache_control():
     """Test assistant messages with list content and cache_control."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3126,7 +3126,7 @@ async def test_assistant_message_list_content_cache_control():
 @pytest.mark.asyncio
 async def test_tool_message_cache_control():
     """Test that tool messages with cache_control generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3190,7 +3190,7 @@ async def test_tool_message_cache_control():
 @pytest.mark.asyncio
 async def test_tool_message_string_content_cache_control():
     """Test tool messages with string content and message-level cache_control."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3246,7 +3246,7 @@ async def test_tool_message_string_content_cache_control():
 @pytest.mark.asyncio
 async def test_tool_message_search_results_maps_to_bedrock_search_result_block():
     """OpenAI tool message search_results should map to Bedrock searchResult blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3270,13 +3270,13 @@ async def test_tool_message_search_results_maps_to_bedrock_search_result_block()
         {
             "role": "tool",
             "tool_call_id": "tooluse_a4rBqeZNRTKj2lTskvaO4H",
-            "content": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM",
+            "content": "Apptio is a company that makes calls to Bedrock using passthrough APIs via HangarLLM",
             "search_results": [
                 {
                     "source": "Great Source of Information About Apptio",
                     "title": "12adbd74-46bd-4a88-88b2-0048755f6eb5",
                     "content": [
-                        {"text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM"}
+                        {"text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via HangarLLM"}
                     ],
                     "citations": {"enabled": True},
                 }
@@ -3307,7 +3307,7 @@ async def test_tool_message_search_results_maps_to_bedrock_search_result_block()
 @pytest.mark.asyncio
 async def test_tool_message_empty_search_results_falls_back_to_content():
     """Empty search_results must not skip normal tool content processing."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3353,8 +3353,8 @@ async def test_tool_message_empty_search_results_falls_back_to_content():
 
 
 def test_transform_response_omits_annotations_when_citations_not_stitched():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -3423,11 +3423,11 @@ def test_transform_response_omits_annotations_when_citations_not_stitched():
 
 
 def test_extract_search_results_text_counts_hidden_tool_payload():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import (
         convert_content_list_to_str,
         extract_search_results_text,
     )
-    from litellm.litellm_core_utils.token_counter import token_counter
+    from hangarllm.hangarllm_core_utils.token_counter import token_counter
 
     hidden = "x" * 500
     message = {
@@ -3476,7 +3476,7 @@ def test_extract_search_results_text_counts_hidden_tool_payload():
 @pytest.mark.asyncio
 async def test_assistant_tool_calls_cache_control():
     """Test that assistant tool_calls with cache_control generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3528,7 +3528,7 @@ async def test_assistant_tool_calls_cache_control():
 @pytest.mark.asyncio
 async def test_multiple_tool_calls_with_mixed_cache_control():
     """Test multiple tool calls where only some have cache_control."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3589,7 +3589,7 @@ async def test_multiple_tool_calls_with_mixed_cache_control():
 @pytest.mark.asyncio
 async def test_no_cache_control_no_cache_point():
     """Test that messages without cache_control don't generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -3636,7 +3636,7 @@ async def test_no_cache_control_no_cache_point():
 
 def test_guarded_text_wraps_in_guardrail_converse_content():
     """Test that guarded_text content type gets wrapped in guardContent blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3707,7 +3707,7 @@ def test_guarded_text_with_system_messages():
         model="us.amazon.nova-pro-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -3739,7 +3739,7 @@ def test_guarded_text_with_system_messages():
 
 def test_guarded_text_with_mixed_content_types():
     """Test guarded_text with mixed content types including images."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3789,7 +3789,7 @@ def test_guarded_text_with_mixed_content_types():
 @pytest.mark.asyncio
 async def test_async_guarded_text():
     """Test async version of guarded_text processing."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
     )
 
@@ -3828,7 +3828,7 @@ async def test_async_guarded_text():
 
 def test_guarded_text_with_tool_calls():
     """Test guarded_text with tool calls in the conversation."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3912,7 +3912,7 @@ def test_guarded_text_guardrail_config_preserved():
         model="us.amazon.nova-pro-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4078,7 +4078,7 @@ def test_auto_convert_in_full_transformation():
         model="anthropic.claude-3-sonnet-20240229-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4253,7 +4253,7 @@ def test_request_metadata_transformation():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": request_metadata},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4279,7 +4279,7 @@ def test_request_metadata_validation():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": valid_metadata},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4291,7 +4291,7 @@ def test_request_metadata_validation():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": too_many_items},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     e = exc_info.value
@@ -4313,7 +4313,7 @@ def test_request_metadata_key_constraints():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": invalid_metadata},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -4325,7 +4325,7 @@ def test_request_metadata_key_constraints():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": invalid_metadata},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -4345,7 +4345,7 @@ def test_request_metadata_value_constraints():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": invalid_metadata},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -4357,19 +4357,19 @@ def test_request_metadata_value_constraints():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": valid_metadata},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
 
 @pytest.mark.parametrize("metadata", [{"ticket": "a\u00a0b"}, {"a\u2003b": "ticket"}])
 def test_request_metadata_rejects_whitespace_outside_ascii(metadata):
-    with pytest.raises(litellm.exceptions.BadRequestError, match=r"must be [01]-256 characters of"):
+    with pytest.raises(hangarllm.exceptions.BadRequestError, match=r"must be [01]-256 characters of"):
         AmazonConverseConfig()._transform_request(
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "Hello!"}],
             optional_params={"requestMetadata": metadata},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -4392,7 +4392,7 @@ def test_request_metadata_character_pattern():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": valid_metadata},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4432,7 +4432,7 @@ def test_request_metadata_with_other_params():
             "max_tokens": 100,
             "temperature": 0.7,
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4457,7 +4457,7 @@ def test_request_metadata_empty():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": {}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4476,7 +4476,7 @@ def test_request_metadata_not_provided():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4490,9 +4490,9 @@ def test_empty_assistant_message_handling():
     empty or whitespace-only content with a placeholder to prevent AWS Bedrock
     Converse API 400 Bad Request errors.
     """
-    # Import the litellm module that factory.py uses to ensure we patch the correct reference
-    import litellm.litellm_core_utils.prompt_templates.factory as factory_module
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    # Import the hangarllm module that factory.py uses to ensure we patch the correct reference
+    import hangarllm.hangarllm_core_utils.prompt_templates.factory as factory_module
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -4503,9 +4503,9 @@ def test_empty_assistant_message_handling():
         {"role": "user", "content": "How are you?"},
     ]
 
-    # Use patch to ensure we modify the litellm reference that factory.py actually uses
+    # Use patch to ensure we modify the hangarllm reference that factory.py actually uses
     # This avoids issues with module reloading during parallel test execution
-    with patch.object(factory_module.litellm, "modify_params", True):
+    with patch.object(factory_module.hangarllm, "modify_params", True):
         result = _bedrock_converse_messages_pt(
             messages=messages,
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -4583,8 +4583,8 @@ def test_empty_assistant_message_handling():
 
 def test_bedrock_converse_trailing_prefix_assistant_skips_user_continue():
     """Assistant prefill (prefix: true) must not inject a dummy user 'Please continue.' turn."""
-    import litellm.litellm_core_utils.prompt_templates.factory as factory_module
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    import hangarllm.hangarllm_core_utils.prompt_templates.factory as factory_module
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -4597,7 +4597,7 @@ def test_bedrock_converse_trailing_prefix_assistant_skips_user_continue():
         },
     ]
 
-    with patch.object(factory_module.litellm, "modify_params", True):
+    with patch.object(factory_module.hangarllm, "modify_params", True):
         result = _bedrock_converse_messages_pt(
             messages=list(messages),
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -4612,8 +4612,8 @@ def test_bedrock_converse_trailing_prefix_assistant_skips_user_continue():
 
 def test_bedrock_converse_leading_prefix_assistant_skips_user_continue():
     """Leading assistant with prefix: true should not prepend dummy user."""
-    import litellm.litellm_core_utils.prompt_templates.factory as factory_module
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    import hangarllm.hangarllm_core_utils.prompt_templates.factory as factory_module
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -4622,7 +4622,7 @@ def test_bedrock_converse_leading_prefix_assistant_skips_user_continue():
         {"role": "user", "content": "Go on"},
     ]
 
-    with patch.object(factory_module.litellm, "modify_params", True):
+    with patch.object(factory_module.hangarllm, "modify_params", True):
         result = _bedrock_converse_messages_pt(
             messages=list(messages),
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -4717,7 +4717,7 @@ def test_thinking_with_max_completion_tokens():
     assert result["thinking"]["budget_tokens"] == 5000
 
     # Test case 3: Neither max_tokens nor max_completion_tokens specified - should set maxTokens automatically
-    from litellm.constants import DEFAULT_MAX_TOKENS
+    from hangarllm.constants import DEFAULT_MAX_TOKENS
 
     non_default_params_without_max = {
         "thinking": {"type": "enabled", "budget_tokens": 5000},
@@ -4756,7 +4756,7 @@ def test_anthropic_messages_converse_thinking_budget_is_preserved_in_request_bod
         model=model,
         messages=[{"role": "user", "content": "What is 2+2?"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -4774,17 +4774,17 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
     This prevents the Anthropic/Bedrock error:
     "Expected thinking or redacted_thinking, but found tool_use"
 
-    Related issue: https://github.com/BerriAI/litellm/issues/14194
+    Related issue: upstream issue 14194
     """
-    from litellm.utils import last_assistant_with_tool_calls_has_no_thinking_blocks
+    from hangarllm.utils import last_assistant_with_tool_calls_has_no_thinking_blocks
 
     # Save original modify_params setting
-    original_modify_params = litellm.modify_params
+    original_modify_params = hangarllm.modify_params
 
     try:
         # Test case 1: thinking should be dropped when modify_params=True
         # and assistant message has tool_calls but no thinking_blocks
-        litellm.modify_params = True
+        hangarllm.modify_params = True
 
         messages_without_thinking_blocks = [
             {"role": "user", "content": "Search for weather"},
@@ -4816,7 +4816,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
             and messages_without_thinking_blocks is not None
             and last_assistant_with_tool_calls_has_no_thinking_blocks(messages_without_thinking_blocks)
         ):
-            if litellm.modify_params:
+            if hangarllm.modify_params:
                 optional_params.pop("thinking", None)
 
         assert "thinking" not in optional_params, (
@@ -4854,7 +4854,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
             and messages_with_thinking_blocks is not None
             and last_assistant_with_tool_calls_has_no_thinking_blocks(messages_with_thinking_blocks)
         ):
-            if litellm.modify_params:
+            if hangarllm.modify_params:
                 optional_params_with_thinking.pop("thinking", None)
 
         assert "thinking" in optional_params_with_thinking, (
@@ -4862,7 +4862,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
         )
 
         # Test case 3: thinking should NOT be dropped when modify_params=False
-        litellm.modify_params = False
+        hangarllm.modify_params = False
 
         optional_params_no_modify = {"thinking": {"type": "enabled", "budget_tokens": 1000}}
 
@@ -4872,14 +4872,14 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
             and messages_without_thinking_blocks is not None
             and last_assistant_with_tool_calls_has_no_thinking_blocks(messages_without_thinking_blocks)
         ):
-            if litellm.modify_params:
+            if hangarllm.modify_params:
                 optional_params_no_modify.pop("thinking", None)
 
         assert "thinking" in optional_params_no_modify, "thinking param should NOT be dropped when modify_params=False"
 
     finally:
         # Restore original modify_params setting
-        litellm.modify_params = original_modify_params
+        hangarllm.modify_params = original_modify_params
 
 
 def test_create_output_config_for_response_format():
@@ -4919,10 +4919,10 @@ def test_create_output_config_for_response_format():
 
 def test_translate_response_format_native_output_config(monkeypatch):
     """For supported models, _translate_response_format_param should produce outputConfig."""
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("HANGARLLM_LOCAL_MODEL_COST_MAP")
+    old_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
 
@@ -4967,11 +4967,11 @@ def test_translate_response_format_native_output_config(monkeypatch):
         assert parsed_schema == expected_schema
         assert result["outputConfig"]["textFormat"]["structure"]["jsonSchema"]["name"] == "WeatherResult"
     finally:
-        litellm.model_cost = old_cost
+        hangarllm.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", old_env)
 
 
 CAPITAL_JSON_SCHEMA: Final = {
@@ -5009,7 +5009,7 @@ def _converse_request_for_json_schema(
         model=model,
         messages=[{"role": "user", "content": "Name the capital of France."}],
         optional_params=optional_params,
-        litellm_params={} if model_info is None else {"model_info": model_info},
+        hangarllm_params={} if model_info is None else {"model_info": model_info},
         headers={},
     )
     return optional_params, request
@@ -5099,7 +5099,7 @@ def test_json_tool_is_forced_only_when_the_model_will_not_think(
         model=model,
         messages=[{"role": "user", "content": "Name the capital of France."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5133,7 +5133,7 @@ def test_unforced_json_tool_keeps_the_schema_description_on_a_non_claude_model(s
         model=model,
         messages=[{"role": "user", "content": "Name the capital of France."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5208,10 +5208,10 @@ def test_a_model_that_cannot_force_the_json_tool_gets_native_output_without_thin
     tool_choice: Mapping[str, object] | None,
 ) -> None:
     model: Final = "us.anthropic.claude-haiku-5-5"
-    monkeypatch.setitem(litellm.model_cost[model], "supports_forced_tool_use", forced_tool_use)
+    monkeypatch.setitem(hangarllm.model_cost[model], "supports_forced_tool_use", forced_tool_use)
     set_native_structured_output(model, "bedrock" if map_flag else None)
     if map_flag is None:
-        monkeypatch.delitem(litellm.model_cost[model], "supports_bedrock_native_structured_output")
+        monkeypatch.delitem(hangarllm.model_cost[model], "supports_bedrock_native_structured_output")
 
     _, request = _converse_request_for_json_schema(model, False, thinking_params, model_info=model_info)
 
@@ -5347,7 +5347,7 @@ def test_streamed_json_schema_on_a_model_that_cannot_force_a_tool_still_calls_co
 ) -> None:
     respond: Final = MagicMock(wraps=_converse_capital_answer)
 
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         model=f"bedrock/{model}",
         messages=[{"role": "user", "content": "Name the capital of France."}],
         response_format=CAPITAL_RESPONSE_FORMAT,
@@ -5382,7 +5382,7 @@ def test_adaptive_thinking_is_kept_next_to_json_schema_on_a_native_output_profil
         model=model,
         messages=[{"role": "user", "content": "Name the capital of France."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5429,7 +5429,7 @@ def _sends_native_output(body: Mapping[str, object], route: str) -> bool:
 @pytest.mark.parametrize("route", ["converse", "invoke"])
 def test_a_deployment_native_output_opt_in_stays_on_that_deployment(set_native_structured_output, route):
     set_native_structured_output("us.anthropic.claude-opus-4-8", None)
-    litellm_params: Final = {
+    hangarllm_params: Final = {
         "model": f"bedrock/{route}/us.anthropic.claude-opus-4-8",
         "aws_access_key_id": "fake-access-key",
         "aws_secret_access_key": "fake-secret-key",
@@ -5439,10 +5439,10 @@ def test_a_deployment_native_output_opt_in_stays_on_that_deployment(set_native_s
         model_list=[
             {
                 "model_name": "opted-in",
-                "litellm_params": litellm_params,
+                "hangarllm_params": hangarllm_params,
                 "model_info": {"supports_bedrock_native_structured_output": True},
             },
-            {"model_name": "sibling", "litellm_params": litellm_params},
+            {"model_name": "sibling", "hangarllm_params": hangarllm_params},
         ]
     )
 
@@ -5489,7 +5489,7 @@ LOOKAROUND_PATTERN_SCHEMA: Final = {
 }
 UNKNOWN_FORMAT_SCHEMA: Final = {
     "type": "object",
-    "properties": {"blob": {"type": "string", "format": "x-litellm-unlisted-format"}},
+    "properties": {"blob": {"type": "string", "format": "x-hangarllm-unlisted-format"}},
     "required": ["blob"],
 }
 ROOT_REF_SCHEMA: Final = {
@@ -5522,7 +5522,7 @@ def _converse_request_for_schema(model: str, schema: Mapping[str, object]) -> Re
         model=model,
         messages=[{"role": "user", "content": "Fill in a plausible example."}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5747,7 +5747,7 @@ def test_recursive_output_config_format_follows_the_profile_native_key(
         model=model,
         messages=[{"role": "user", "content": "Fill in a plausible example."}],
         optional_params={"output_config": {"format": {"type": "json_schema", "schema": RECURSIVE_TREE_SCHEMA}}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5755,8 +5755,8 @@ def test_recursive_output_config_format_follows_the_profile_native_key(
 
 
 def test_sonnet_4_6_json_schema_still_uses_native_output_config(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
     optional_params, request = _converse_request_for_json_schema(model="us.anthropic.claude-sonnet-4-6", stream=True)
 
@@ -5798,10 +5798,10 @@ def test_translate_response_format_fallback_tool_call():
 
 def test_native_structured_output_no_fake_stream(monkeypatch):
     """When using native structured outputs with streaming, fake_stream should NOT be set."""
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("HANGARLLM_LOCAL_MODEL_COST_MAP")
+    old_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
 
@@ -5839,16 +5839,16 @@ def test_native_structured_output_no_fake_stream(monkeypatch):
             "additionalProperties": False,
         }
     finally:
-        litellm.model_cost = old_cost
+        hangarllm.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_transform_request_with_output_config():
     """Test that outputConfig flows through _transform_request_helper into the final request."""
-    from litellm.types.llms.bedrock import (
+    from hangarllm.types.llms.bedrock import (
         JsonSchemaDefinition,
         OutputConfigBlock,
         OutputFormat,
@@ -5879,7 +5879,7 @@ def test_transform_request_with_output_config():
         model="anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5902,7 +5902,7 @@ def test_transform_request_strips_anthropic_output_config():
             "maxTokens": 64,
             "output_config": {"effort": "low"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -5916,8 +5916,8 @@ def test_converse_drop_params_strips_output_config_for_pre_4_5_anthropic():
     config = AmazonConverseConfig()
     messages = [{"role": "user", "content": "hi"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         result = config._transform_request(
             model="bedrock/converse/anthropic.claude-3-haiku-20240307-v1:0",
@@ -5926,11 +5926,11 @@ def test_converse_drop_params_strips_output_config_for_pre_4_5_anthropic():
                 "maxTokens": 256,
                 "output_config": {"effort": "low"},
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     additional = result.get("additionalModelRequestFields", {})
     assert "output_config" not in additional
@@ -5941,8 +5941,8 @@ def test_converse_drop_params_keeps_output_config_for_supporting_anthropic():
     config = AmazonConverseConfig()
     messages = [{"role": "user", "content": "hi"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = hangarllm.drop_params
+    hangarllm.drop_params = True
     try:
         result = config._transform_request(
             model="bedrock/converse/us.anthropic.claude-opus-4-7",
@@ -5952,11 +5952,11 @@ def test_converse_drop_params_keeps_output_config_for_supporting_anthropic():
                 "thinking": {"type": "adaptive"},
                 "output_config": {"effort": "high"},
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        hangarllm.drop_params = original
 
     additional = result.get("additionalModelRequestFields", {})
     assert additional.get("output_config") == {"effort": "high"}
@@ -6130,10 +6130,10 @@ def test_json_object_no_schema_skips_tool_injection(monkeypatch):
     a tool with an empty schema (properties: {}). The model follows the schema
     and returns {} instead of the requested JSON. Skipping tool injection lets
     the model respond naturally with the JSON the caller asked for."""
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("HANGARLLM_LOCAL_MODEL_COST_MAP")
+    old_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
         optional_params: dict = {}
@@ -6153,11 +6153,11 @@ def test_json_object_no_schema_skips_tool_injection(monkeypatch):
         assert "tool_choice" not in result
         assert result["json_mode"] is True
     finally:
-        litellm.model_cost = old_cost
+        hangarllm.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_output_config_applies_additional_properties():
@@ -6218,7 +6218,7 @@ def test_parallel_tool_calls_newer_model_adds_disable_flag():
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -6233,11 +6233,11 @@ def test_parallel_tool_calls_flag_decoupled_from_ttl_pricing(monkeypatch):
     The disable_parallel_tool_use gate must read supports_parallel_tool_use_config,
     not the 1h-TTL pricing field: a model carrying only the former still gets the flag.
     """
-    from litellm.llms.bedrock.common_utils import supports_bedrock_prompt_cache_ttl
+    from hangarllm.llms.bedrock.common_utils import supports_bedrock_prompt_cache_ttl
 
     config = AmazonConverseConfig()
     model = "anthropic.claude-parallel-tool-use-only"
-    monkeypatch.setitem(litellm.model_cost, model, {"supports_parallel_tool_use_config": True})
+    monkeypatch.setitem(hangarllm.model_cost, model, {"supports_parallel_tool_use_config": True})
     assert supports_bedrock_prompt_cache_ttl(model) is False
     messages = [{"role": "user", "content": "What's the weather in SF and NYC?"}]
 
@@ -6252,7 +6252,7 @@ def test_parallel_tool_calls_flag_decoupled_from_ttl_pricing(monkeypatch):
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -6276,7 +6276,7 @@ def test_parallel_tool_calls_older_model_drops_disable_flag():
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -6305,7 +6305,7 @@ def test_parallel_tool_calls_emits_typed_auto_tool_choice(parallel_tool_calls, e
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -6339,7 +6339,7 @@ def test_parallel_tool_calls_with_explicit_tool_choice_omits_conflicting_type(to
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -6362,7 +6362,7 @@ def test_tool_choice_type_kept_when_no_tool_config_choice_conflicts():
         model=model,
         messages=[{"role": "user", "content": "What's the weather in SF and NYC?"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -6446,10 +6446,10 @@ def test_transform_response_with_both_json_tool_call_and_real_tool():
     """
     When Bedrock returns BOTH json_tool_call AND a real tool (get_weather),
     only the real tool should remain in tool_calls. The json_tool_call should be filtered out.
-    Fixes https://github.com/BerriAI/litellm/issues/18381
+    Fixes upstream issue 18381
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 200},
@@ -6539,8 +6539,8 @@ def test_transform_response_does_not_mutate_optional_params():
     Verify that optional_params still contains json_mode after _transform_response.
     Previously, .pop() was used which mutated the caller's dict.
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 50},
@@ -6607,8 +6607,8 @@ def test_streaming_filters_json_tool_call_with_real_tools():
     Verify json_tool_call chunks are converted to text content while real tool
     chunks pass through normally.
     """
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
-    from litellm.types.llms.bedrock import (
+    from hangarllm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from hangarllm.types.llms.bedrock import (
         ContentBlockDeltaEvent,
         ContentBlockStartEvent,
     )
@@ -6665,8 +6665,8 @@ def test_streaming_without_json_mode_passes_all_tools():
     Verify backward compatibility: when json_mode=False, all tools
     (including json_tool_call if present) pass through unchanged.
     """
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
-    from litellm.types.llms.bedrock import (
+    from hangarllm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from hangarllm.types.llms.bedrock import (
         ContentBlockDeltaEvent,
         ContentBlockStartEvent,
     )
@@ -6724,7 +6724,7 @@ def test_cache_control_injection_tool_config():
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
     )
     tool_config = result["toolConfig"]
     tools = tool_config["tools"]
@@ -6749,7 +6749,7 @@ def test_cache_control_injection_tool_config_no_tools():
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
     )
     assert "toolConfig" not in result
 
@@ -6783,7 +6783,7 @@ def test_cache_control_injection_tool_config_not_added_without_injection_point()
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
     )
     tools = result["toolConfig"]["tools"]
     # No cachePoint should be appended
@@ -6798,14 +6798,14 @@ def test_cache_control_injection_tool_config_honors_ttl_for_supported_model(monk
     {"type": "default"} cachePoint with no ttl.
 
     Forces the bundled local cost map so `supports_bedrock_prompt_cache_ttl` (which
-    reads `cache_creation_input_token_cost_above_1hr` from litellm.model_cost)
+    reads `cache_creation_input_token_cost_above_1hr` from hangarllm.model_cost)
     sees this branch's pricing data rather than the network-fetched `main`
     copy, which lacks it until merge.
     """
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("HANGARLLM_LOCAL_MODEL_COST_MAP")
+    old_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
         messages = [
@@ -6834,16 +6834,16 @@ def test_cache_control_injection_tool_config_honors_ttl_for_supported_model(monk
             model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
         )
         tools = result["toolConfig"]["tools"]
         assert tools[-1] == {"cachePoint": {"type": "default", "ttl": "1h"}}
     finally:
-        litellm.model_cost = old_cost
+        hangarllm.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_cache_control_injection_tool_config_honors_ttl_for_regional_model_lacking_own_pricing(monkeypatch):
@@ -6853,18 +6853,18 @@ def test_cache_control_injection_tool_config_honors_ttl_for_regional_model_lacki
     must not shadow the base model entry that carries it; the requested ttl
     survives through the base-model fallback.
     """
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    cost_map = dict(litellm.get_model_cost_map(url=""))
+    old_env = os.environ.get("HANGARLLM_LOCAL_MODEL_COST_MAP")
+    old_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    cost_map = dict(hangarllm.get_model_cost_map(url=""))
     cost_map["jp.anthropic.claude-opus-4-7"] = {
         k: v
         for k, v in cost_map["jp.anthropic.claude-opus-4-7"].items()
         if k != "cache_creation_input_token_cost_above_1hr"
     }
-    litellm.model_cost = cost_map
+    hangarllm.model_cost = cost_map
     try:
-        assert "cache_creation_input_token_cost_above_1hr" in litellm.model_cost["anthropic.claude-opus-4-7"]
+        assert "cache_creation_input_token_cost_above_1hr" in hangarllm.model_cost["anthropic.claude-opus-4-7"]
         config = AmazonConverseConfig()
         messages = [
             {"role": "user", "content": "What is the weather?"},
@@ -6892,16 +6892,16 @@ def test_cache_control_injection_tool_config_honors_ttl_for_regional_model_lacki
             model="jp.anthropic.claude-opus-4-7",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            hangarllm_params={},
         )
         tools = result["toolConfig"]["tools"]
         assert tools[-1] == {"cachePoint": {"type": "default", "ttl": "1h"}}
     finally:
-        litellm.model_cost = old_cost
+        hangarllm.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("HANGARLLM_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_cache_control_injection_tool_config_drops_ttl_for_unsupported_model():
@@ -6937,7 +6937,7 @@ def test_cache_control_injection_tool_config_drops_ttl_for_unsupported_model():
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
     )
     tools = result["toolConfig"]["tools"]
     assert tools[-1] == {"cachePoint": {"type": "default"}}
@@ -6974,8 +6974,8 @@ def test_cache_points_emitted_only_for_models_that_support_prompt_caching(model,
     the capability must not receive them on system, message, or tool blocks. Unmapped ids
     (application inference profile ARNs, models newer than the map) keep emitting so
     existing caching setups never silently degrade."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
     body = AmazonConverseConfig()._transform_request(
         model=model,
@@ -6992,7 +6992,7 @@ def test_cache_points_emitted_only_for_models_that_support_prompt_caching(model,
                 }
             ]
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -7008,8 +7008,8 @@ def test_tool_config_cachepoint_not_placed_or_credited_for_model_without_prompt_
     """The tool_config injection point must stand down with the rest of the cachePoint
     emission when the model cannot cache, and spend attribution must not credit the
     gateway for a breakpoint that was never placed."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
 
     bucket: dict = {"user_api_key": "sk-test"}
     data = AmazonConverseConfig()._transform_request_helper(
@@ -7033,11 +7033,11 @@ def test_tool_config_cachepoint_not_placed_or_credited_for_model_without_prompt_
             "cache_control_injection_points": [{"location": "tool_config"}],
         },
         messages=[{"role": "user", "content": "hi"}],
-        litellm_params={"metadata": bucket, "litellm_metadata": None, "model_info": {"id": "dep-bedrock"}},
+        hangarllm_params={"metadata": bucket, "hangarllm_metadata": None, "model_info": {"id": "dep-bedrock"}},
     )
 
     assert "cachePoint" not in json.dumps(data.get("toolConfig", {}))
-    assert "litellm_gateway_injected_cache" not in bucket
+    assert "hangarllm_gateway_injected_cache" not in bucket
 
 
 def test_transform_response_finish_reason_stop_when_json_mode_filters_all_tools():
@@ -7049,8 +7049,8 @@ def test_transform_response_finish_reason_stop_when_json_mode_filters_all_tools(
     After filtering, the response is plain JSON content and should not look
     like a pending tool invocation to callers.
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -7145,8 +7145,8 @@ def test_transform_response_json_mode_truncated_tool_call_keeps_length_finish_re
     downgraded to "stop" — otherwise truncated structured output looks
     completed.
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -7200,8 +7200,8 @@ def test_transform_response_json_mode_truncated_tool_call_keeps_length_finish_re
 
 
 def test_transform_response_citations_content_maps_to_annotations():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -7213,7 +7213,7 @@ def test_transform_response_citations_content_maps_to_annotations():
                         "citationsContent": {
                             "content": [
                                 {
-                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM"
+                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via HangarLLM"
                                 }
                             ],
                             "citations": [
@@ -7284,8 +7284,8 @@ def test_transform_response_citations_content_maps_to_annotations():
 
 
 def test_transform_response_citation_null_source_title_become_empty_strings():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -7356,8 +7356,8 @@ def test_transform_response_citation_null_source_title_become_empty_strings():
 
 
 def test_transform_response_citations_offset_tracks_text_only_blocks():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     leading_text = "First sentence without a citation. "
     cited_text = "Apptio is a company that makes calls to Bedrock"
@@ -7438,8 +7438,8 @@ def test_transform_response_citations_offset_tracks_text_only_blocks():
 
 
 def test_transform_response_stitches_citations_for_whitespace_punctuation_text():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -7451,7 +7451,7 @@ def test_transform_response_stitches_citations_for_whitespace_punctuation_text()
                         "citationsContent": {
                             "content": [
                                 {
-                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM"
+                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via HangarLLM"
                                 }
                             ],
                             "citations": [
@@ -7521,7 +7521,7 @@ def test_bedrock_tool_message_openai_file_pdf_becomes_document():
     inside a tool message content list should translate to a Bedrock
     toolResult.content[].document block.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -7564,7 +7564,7 @@ def test_bedrock_tool_message_image_url_pdf_data_uri_becomes_document():
     BedrockImageProcessor correctly returns a {"document": ...} block, but the
     tool-result wrapper only appended the "image" case, silently dropping documents.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -7607,7 +7607,7 @@ def test_bedrock_tool_message_file_id_http_url_becomes_document():
     """
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockImageProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -7662,8 +7662,8 @@ def test_bedrock_tool_message_file_without_data_or_id_raises():
     tool-result path must match — silently dropping the block makes the model
     see an empty tool result and obscures the caller bug.
     """
-    import litellm
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    import hangarllm
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -7682,7 +7682,7 @@ def test_bedrock_tool_message_file_without_data_or_id_raises():
         },
     ]
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         _bedrock_converse_messages_pt(messages=messages, model="", llm_provider="")
 
 
@@ -7692,7 +7692,7 @@ def test_bedrock_tool_message_image_url_png_still_becomes_image():
     to a Bedrock image block (not document). Locks in existing behavior after
     the document-passthrough fix.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -7726,7 +7726,7 @@ def test_bedrock_tool_message_image_url_png_still_becomes_image():
 
 
 def _png_tool_messages(text: str | None = None) -> list[AllMessageValues]:
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ChatCompletionImageObject,
         ChatCompletionImageUrlObject,
         ChatCompletionTextObject,
@@ -7746,7 +7746,7 @@ def _png_tool_messages(text: str | None = None) -> list[AllMessageValues]:
 
 
 def _gpt_tool_turn(text: str | None) -> list[ContentBlock]:
-    from litellm.types.llms.openai import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+    from hangarllm.types.llms.openai import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 
     fetch_tool: Final = ChatCompletionToolParam(
         type="function",
@@ -7760,7 +7760,7 @@ def _gpt_tool_turn(text: str | None) -> list[ContentBlock]:
         model="bedrock/global.openai.gpt-6.1-sol",
         messages=_png_tool_messages(text),
         optional_params={"tools": [fetch_tool]},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     messages: Final = body["messages"]
@@ -7786,7 +7786,7 @@ def test_openai_gpt_tool_result_image_sits_beside_the_tool_result():
 
 
 def test_openai_gpt_image_only_tool_result_keeps_a_text_block():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_PLACEHOLDER
+    from hangarllm.hangarllm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_PLACEHOLDER
 
     turn: Final = _gpt_tool_turn(None)
     tool_index: Final = next(i for i, block in enumerate(turn) if "toolResult" in block)
@@ -7799,7 +7799,7 @@ def test_openai_gpt_image_only_tool_result_keeps_a_text_block():
 
 
 def test_transform_response_does_not_leak_body_on_parse_failure():
-    from litellm.llms.bedrock.common_utils import BedrockError
+    from hangarllm.llms.bedrock.common_utils import BedrockError
 
     leaky_body = {"output": {"message": {"content": [{"text": "secret content"}]}}}
 
@@ -7814,7 +7814,7 @@ def test_transform_response_does_not_leak_body_on_parse_failure():
             return json.dumps(leaky_body)
 
     with patch(
-        "litellm.llms.bedrock.chat.converse_transformation.ConverseResponseBlock",
+        "hangarllm.llms.bedrock.chat.converse_transformation.ConverseResponseBlock",
         side_effect=KeyError("missing required field"),
     ):
         with pytest.raises(BedrockError) as exc_info:
@@ -7854,10 +7854,10 @@ def test_converse_drops_sampling_params_for_models_that_removed_them():
 
 
 def test_converse_sampling_params_raise_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         config.map_openai_params(
             non_default_params={"temperature": 0.5},
             optional_params={},
@@ -7890,7 +7890,7 @@ def test_converse_top_k_dropped_for_models_that_removed_it():
         model="us.anthropic.claude-fable-5",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"top_k": 40},
-        litellm_params={"drop_params": True},
+        hangarllm_params={"drop_params": True},
         headers={},
     )
 
@@ -7898,15 +7898,15 @@ def test_converse_top_k_dropped_for_models_that_removed_it():
 
 
 def test_converse_top_k_raises_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         config._transform_request(
             model="us.anthropic.claude-fable-5",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={"top_k": 40},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -7918,7 +7918,7 @@ def test_converse_top_k_forwarded_on_models_that_accept_it():
         model="us.anthropic.claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"top_k": 40},
-        litellm_params={"drop_params": True},
+        hangarllm_params={"drop_params": True},
         headers={},
     )
 
@@ -7929,15 +7929,15 @@ def test_converse_top_k_zero_raises_without_drop_params(monkeypatch):
     """``top_k=0`` must hit the same gating as any other value; previously the
     truthiness check let it silently disappear on models that removed sampling
     params, diverging from the Anthropic boundary that treats ``0`` as present."""
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         config._transform_request(
             model="us.anthropic.claude-fable-5",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={"top_k": 0},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -7949,7 +7949,7 @@ def test_converse_top_k_zero_forwarded_on_models_that_accept_it():
         model="us.anthropic.claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"top_k": 0},
-        litellm_params={"drop_params": True},
+        hangarllm_params={"drop_params": True},
         headers={},
     )
 
@@ -7962,7 +7962,7 @@ async def test_grounding_source_and_query_rendered_as_text():
     generate path (the model needs to see the RAG context + question). The bedrock
     converse dispatch silently drops unrecognised content types, so these would
     otherwise vanish from the prompt."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -8159,14 +8159,14 @@ def test_transform_request_no_tools_with_tool_history_succeeds_24158(monkeypatch
     """#24158: a compaction-style call (tool blocks in history, no tools=) must
     not raise and must send no toolConfig or structured tool blocks, on
     default settings."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8180,14 +8180,14 @@ def test_transform_request_tool_unsupported_model_no_toolconfig_27138(monkeypatc
     """#27138: a tool-incapable model with tool blocks in history and no tools=
     must not get a toolConfig/toolUse/toolResult injected (which Bedrock would
     400 on), even with modify_params on."""
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
         model="meta.llama3-2-3b-instruct-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8199,14 +8199,14 @@ def test_transform_request_empty_tools_with_tool_history(monkeypatch, tools_valu
     """tools=[] / tools=None must be neutralized like no tools at all; a
     key-presence gate would skip them and emit toolUse/toolResult with no
     toolConfig."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={"tools": tools_value},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8216,7 +8216,7 @@ def test_transform_request_empty_tools_with_tool_history(monkeypatch, tools_valu
 def test_transform_request_tool_result_only_history(monkeypatch):
     """A role:"tool"-only history (no assistant tool_calls) currently emits a
     lone toolResult with no toolConfig; it must be neutralized."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
@@ -8226,7 +8226,7 @@ def test_transform_request_tool_result_only_history(monkeypatch):
             {"role": "tool", "tool_call_id": "call_xyz", "content": "lookup result"},
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8239,7 +8239,7 @@ def test_transform_request_neutralized_tool_output_is_guarded(monkeypatch):
     trailing user turn must be emitted as guardContent, not plain text, so
     untrusted tool output does not bypass the guardrail (neutralize must run
     before guarded-text conversion)."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
@@ -8260,7 +8260,7 @@ def test_transform_request_neutralized_tool_output_is_guarded(monkeypatch):
             {"role": "tool", "tool_call_id": "c1", "content": "secret tool output"},
         ],
         optional_params={"guardrailConfig": {"guardrailIdentifier": "gid", "guardrailVersion": "1"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8277,7 +8277,7 @@ def test_transform_request_neutralized_tool_output_guarded_mid_history(monkeypat
     user turn, so neutralize itself must guard untrusted tool output regardless
     of position, else an attacker controlling the tool response bypasses the
     guardrail (bot review)."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
@@ -8300,7 +8300,7 @@ def test_transform_request_neutralized_tool_output_guarded_mid_history(monkeypat
             {"role": "user", "content": "thanks"},
         ],
         optional_params={"guardrailConfig": {"guardrailIdentifier": "gid", "guardrailVersion": "1"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8317,14 +8317,14 @@ def test_transform_request_neutralized_tool_output_guarded_mid_history(monkeypat
 @pytest.mark.asyncio
 async def test_async_transform_request_no_tools_with_tool_history(monkeypatch):
     """Async is a separate request assembler; it must neutralize identically."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = await config._async_transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8335,7 +8335,7 @@ async def test_async_transform_request_no_tools_with_tool_history(monkeypatch):
 def test_transform_request_with_tools_still_builds_toolconfig(monkeypatch):
     """Guard: when a non-empty tools= IS provided, tool blocks are legitimate and
     a toolConfig must still be produced (neutralization must not regress this)."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
@@ -8353,7 +8353,7 @@ def test_transform_request_with_tools_still_builds_toolconfig(monkeypatch):
                 }
             ]
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8363,16 +8363,16 @@ def test_transform_request_with_tools_still_builds_toolconfig(monkeypatch):
 def test_transform_request_flag_off_restores_raise(monkeypatch):
     """Opt-out: with bedrock_neutralize_orphaned_tool_blocks=False and
     modify_params=False, the legacy UnsupportedParamsError contract is restored."""
-    monkeypatch.setattr(litellm, "bedrock_neutralize_orphaned_tool_blocks", False)
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "bedrock_neutralize_orphaned_tool_blocks", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="without `tools="):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="without `tools="):
         config._transform_request(
             model="us.anthropic.claude-opus-4-5-20251101-v1:0",
             messages=_orphaned_tool_history_messages(),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -8380,15 +8380,15 @@ def test_transform_request_flag_off_restores_raise(monkeypatch):
 def test_transform_request_flag_off_with_modify_params_restores_dummy_tool(monkeypatch):
     """Opt-out: with the flag off and modify_params=True, the legacy dummy-tool
     injection is restored (a toolConfig is produced, not neutralized text)."""
-    monkeypatch.setattr(litellm, "bedrock_neutralize_orphaned_tool_blocks", False)
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(hangarllm, "bedrock_neutralize_orphaned_tool_blocks", False)
+    monkeypatch.setattr(hangarllm, "modify_params", True)
     config = AmazonConverseConfig()
 
     result = config._transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8398,15 +8398,15 @@ def test_transform_request_flag_off_with_modify_params_restores_dummy_tool(monke
 
 def test_transform_request_flag_on_is_default(monkeypatch):
     """Default-on: without touching the flag, neutralization is the behavior."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(hangarllm, "modify_params", False)
     config = AmazonConverseConfig()
 
-    assert litellm.bedrock_neutralize_orphaned_tool_blocks is True
+    assert hangarllm.bedrock_neutralize_orphaned_tool_blocks is True
     result = config._transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8461,7 +8461,7 @@ async def test_message_level_cache_control_honors_ttl_for_supported_model(
     system-message path. Regression test for the gap left by the system-only
     fix: the message paths called `_get_cache_point_block` without `model` (or
     hardcoded `{"type": "default"}`), silently downgrading 1h to 5m."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -8489,7 +8489,7 @@ async def test_message_level_cache_control_honors_ttl_for_supported_model(
 def test_message_level_cache_control_drops_ttl_for_unsupported_model(ttl_target):
     """Models outside the extended-caching allow-list must keep emitting the
     plain `{"type": "default"}` cachePoint (Bedrock rejects `ttl` for them)."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -8580,7 +8580,7 @@ def test_legacy_thinking_translated_to_adaptive_on_adaptive_only_converse(model,
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8633,7 +8633,7 @@ def test_adaptive_thinking_dropped_when_max_tokens_too_small_converse():
     """When max_tokens can't fit even the minimum thinking budget, the raw
     adaptive block must be dropped entirely rather than translated, so the
     Bedrock Converse request still succeeds."""
-    from litellm.constants import ANTHROPIC_MIN_THINKING_BUDGET_TOKENS
+    from hangarllm.constants import ANTHROPIC_MIN_THINKING_BUDGET_TOKENS
 
     config = AmazonConverseConfig()
 
@@ -8762,7 +8762,7 @@ def test_usage_from_batch_output_inflates_input_by_cache_counts():
 
 def test_streaming_usage_chunk_is_transformed():
     """The streaming decoder's usage event feeds the same public transform."""
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from hangarllm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
 
     decoder = AWSEventStreamDecoder(model="us.amazon.nova-lite-v1:0")
     chunk = decoder.converse_chunk_parser({"usage": {"inputTokens": 11, "outputTokens": 4, "totalTokens": 15}})
@@ -8797,7 +8797,7 @@ def test_disabled_thinking_omitted_for_always_on_models_converse(local_model_cos
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"maxTokens": 64, "thinking": {"type": "disabled"}},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -8829,10 +8829,10 @@ def test_forced_tool_choice_downgraded_to_auto_on_fable_5_1_converse(local_model
     ["required", {"type": "function", "function": {"name": "get_weather"}}],
 )
 def test_forced_tool_choice_raises_clean_error_on_fable_5_1_converse(local_model_cost_map, tool_choice, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="forced tool use"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="forced tool use"):
         config.map_tool_choice_values(model="anthropic.claude-fable-5-1", tool_choice=tool_choice, drop_params=False)
 
 
@@ -8882,7 +8882,7 @@ def test_response_format_avoids_native_and_forced_tool_choice_on_fable_5_1_conve
 
 
 def test_forced_tool_choice_forwarded_on_converse_models_that_support_it(local_model_cost_map, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AmazonConverseConfig()
 
     result = config.map_tool_choice_values(model="anthropic.claude-fable-5", tool_choice="required", drop_params=False)
@@ -8920,7 +8920,7 @@ def test_transform_response_honors_json_mode_kwarg_when_optional_params_lack_it(
         request_data={},
         messages=[],
         optional_params={"tools": [{"type": "function", "function": {"name": "json_tool_call", "parameters": {}}}]},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         json_mode=True,
     )
@@ -9029,7 +9029,7 @@ def test_eager_input_streaming_beta_never_written_back_into_client_header_list()
 
 
 def test_eager_input_streaming_non_boolean_is_a_bad_request():
-    with pytest.raises(litellm.BadRequestError, match="eager_input_streaming must be a boolean"):
+    with pytest.raises(hangarllm.BadRequestError, match="eager_input_streaming must be a boolean"):
         _converse_request(
             "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             [_eager_openai_tool(eager_input_streaming="true")],
@@ -9075,7 +9075,7 @@ def test_mid_conversation_system_after_multiple_tool_results():
 
 def test_mid_conversation_system_reorders_around_a_pydantic_assistant_tool_call():
     config = AmazonConverseConfig()
-    assistant = litellm.Message(
+    assistant = hangarllm.Message(
         role="assistant",
         content="calling tools",
         tool_calls=[{"id": "call_a", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
@@ -9283,7 +9283,7 @@ def test_flagged_model_replays_a_byte_identical_prefix_around_a_mid_conversation
             model="bedrock/us.anthropic.claude-fable-5-1",
             messages=copy.deepcopy(turn),
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
@@ -9297,7 +9297,7 @@ def test_flagged_model_replays_a_byte_identical_prefix_around_a_mid_conversation
 
 @pytest.mark.parametrize("model", ("anthropic.claude-opus-4-7", "us.anthropic.claude-opus-4-7"))
 def test_converse_accepts_anthropic_default_temperature(model: str) -> None:
-    result: Final = litellm.utils.get_optional_params(
+    result: Final = hangarllm.utils.get_optional_params(
         model=model,
         custom_llm_provider="bedrock",
         temperature=1,
@@ -9346,13 +9346,13 @@ def test_map_openai_params_drops_temperature_and_top_p_when_drop_params_true():
 
 
 def test_map_openai_params_raises_unsupported_params_when_drop_params_false(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     config = AmazonConverseConfig()
     for model in [
         "bedrock/converse/global.openai.gpt-5.6-luna",
         "openai.gpt-5.6-luna",
     ]:
-        with pytest.raises(litellm.utils.UnsupportedParamsError) as exc_info:
+        with pytest.raises(hangarllm.utils.UnsupportedParamsError) as exc_info:
             config.map_openai_params(
                 non_default_params={"temperature": 1.0},
                 optional_params={},
@@ -9376,7 +9376,7 @@ def test_map_openai_params_retains_sampling_params_for_supported_models():
 
 def test_supports_sampling_params_prefixed_and_anthropic_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "global.custom-test-reasoning-model",
         {"supports_sampling_params": False},
     )
@@ -9387,7 +9387,7 @@ def test_supports_sampling_params_prefixed_and_anthropic_fallback(monkeypatch: p
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_bedrock_tools_pt_valid_names():
     """
-    # related issue: https://github.com/BerriAI/litellm/issues/5007
+    # related issue: upstream issue 5007
     # Bedrock tool names must satisfy regular expression pattern: [a-zA-Z][a-zA-Z0-9_]* ensure this is true
 
     """
@@ -9432,7 +9432,7 @@ def test_bedrock_tools_pt_valid_names():
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_bedrock_tools_pt_invalid_names():
     """
-    # related issue: https://github.com/BerriAI/litellm/issues/5007
+    # related issue: upstream issue 5007
     # Bedrock tool names must satisfy regular expression pattern: [a-zA-Z][a-zA-Z0-9_]* ensure this is true
 
     """
@@ -9540,11 +9540,11 @@ def test_bedrock_converse_tools_pt_converts_custom_schema_type_to_object():
     assert j1["type"] == "object"
     assert j1["properties"]["nested_obj"]["type"] == "object"
 
-    assert result[2]["toolSpec"]["name"] == "litellm_unnamed_tool_2"
+    assert result[2]["toolSpec"]["name"] == "hangarllm_unnamed_tool_2"
 
 
 def test_bedrock_tools_transformation_valid_params():
-    from litellm.types.llms.bedrock import ToolJsonSchemaBlock
+    from hangarllm.types.llms.bedrock import ToolJsonSchemaBlock
 
     tools = [
         {
@@ -9607,10 +9607,10 @@ def _invalid_model_identifier_reply(sent: list[httpx.Request]):
     ],
 )
 def test_not_found_error(model, path, monkeypatch):
-    monkeypatch.setitem(litellm.model_cost, "newvendor.listed-v1:0", {"litellm_provider": "bedrock", "mode": "chat"})
+    monkeypatch.setitem(hangarllm.model_cost, "newvendor.listed-v1:0", {"hangarllm_provider": "bedrock", "mode": "chat"})
     sent: Final[list[httpx.Request]] = []
 
-    with pytest.raises(litellm.NotFoundError) as exc_info:
+    with pytest.raises(hangarllm.NotFoundError) as exc_info:
         completion(
             model=model,
             messages=[{"role": "user", "content": "What is the meaning of life"}],
@@ -9634,7 +9634,7 @@ def test_not_found_error(model, path, monkeypatch):
 def test_a_model_id_that_is_empty_or_a_path_fails_locally_without_calling_aws(model):
     sent: Final[list[httpx.Request]] = []
 
-    with pytest.raises(litellm.NotFoundError):
+    with pytest.raises(hangarllm.NotFoundError):
         completion(
             model=model,
             messages=[{"role": "user", "content": "What is the meaning of life"}],
@@ -9656,10 +9656,10 @@ def test_a_model_id_that_is_empty_or_a_path_fails_locally_without_calling_aws(mo
         ("bedrock/anthropic.claude-typo-v1:0", b"/model/anthropic.claude-typo-v1:0/invoke"),
     ],
 )
-def test_invalid_model_identifier_stays_a_bad_request_for_a_model_litellm_recognizes(model, path):
+def test_invalid_model_identifier_stays_a_bad_request_for_a_model_hangarllm_recognizes(model, path):
     sent: Final[list[httpx.Request]] = []
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
         completion(
             model=model,
             messages=[{"role": "user", "content": "What is the meaning of life"}],
@@ -9709,7 +9709,7 @@ def _converse_tool_call_reply(sent: list[httpx.Request]):
 
 @pytest.mark.parametrize("model", ["bedrock/us.newvendor.model-1", "bedrock/us-east-1/us.newvendor.model-1"])
 def test_model_missing_from_cost_map_sends_tools_to_converse(model):
-    assert "us.newvendor.model-1" not in litellm.model_cost
+    assert "us.newvendor.model-1" not in hangarllm.model_cost
     sent: Final[list[httpx.Request]] = []
 
     response: Final = completion(
@@ -9732,7 +9732,7 @@ def test_model_missing_from_cost_map_sends_tools_to_converse(model):
 
 def test_a_price_only_row_for_an_unlisted_model_still_sends_tools_to_converse(monkeypatch):
     monkeypatch.setitem(
-        litellm.model_cost, "us.newvendor.priced-1", {"input_cost_per_token": 1e-6, "output_cost_per_token": 2e-6}
+        hangarllm.model_cost, "us.newvendor.priced-1", {"input_cost_per_token": 1e-6, "output_cost_per_token": 2e-6}
     )
     sent: Final[list[httpx.Request]] = []
 
@@ -9785,11 +9785,11 @@ def test_unknown_model_gets_reasoning_effort_as_sent():
 
 def test_mapped_model_without_function_calling_still_rejects_tools():
     model: Final = "bedrock/converse/meta.llama3-8b-instruct-v1:0"
-    assert "meta.llama3-8b-instruct-v1:0" in litellm.model_cost
-    assert not litellm.supports_function_calling(model=model)
+    assert "meta.llama3-8b-instruct-v1:0" in hangarllm.model_cost
+    assert not hangarllm.supports_function_calling(model=model)
     sent: Final[list[httpx.Request]] = []
 
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         completion(
             model=model,
             messages=[{"role": "user", "content": "What is the weather in Paris?"}],
@@ -9813,7 +9813,7 @@ def test_mapped_model_without_function_calling_still_rejects_tools():
     ],
 )
 def test_bedrock_get_base_model(model, expected_base_model):
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
     assert BedrockModelInfo.get_base_model(model) == expected_base_model
 
@@ -9821,7 +9821,7 @@ def test_bedrock_get_base_model(model, expected_base_model):
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_bedrock_converse_translation_tool_message():
 
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     messages = [
         {
@@ -9864,7 +9864,7 @@ def test_bedrock_converse_translation_tool_message():
 
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_bedrock_completion_test_2():
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     data = {
         "model": "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0",
         "messages": [
@@ -10089,13 +10089,13 @@ def test_bedrock_completion_test_2():
         ],
     }
 
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     request = AmazonConverseConfig()._transform_request(
         model=data["model"],
         messages=data["messages"],
         optional_params={"tools": data["tools"]},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     """
@@ -10112,10 +10112,10 @@ def test_bedrock_completion_test_3():
     """
     Check if content in tool result is formatted correctly
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
-    from litellm.types.utils import ChatCompletionMessageToolCall, Function, Message
+    from hangarllm.types.utils import ChatCompletionMessageToolCall, Function, Message
 
     messages = [
         {
@@ -10161,8 +10161,8 @@ def test_bedrock_completion_test_3():
 
 
 def test_bedrock_context_window_error():
-    with pytest.raises(litellm.ContextWindowExceededError) as e:
-        litellm.completion(
+    with pytest.raises(hangarllm.ContextWindowExceededError) as e:
+        hangarllm.completion(
             model="bedrock/claude-3-5-sonnet-20240620",
             messages=[{"role": "user", "content": "Hello, world!"}],
             mock_response=Exception("prompt is too long"),
@@ -10170,7 +10170,7 @@ def test_bedrock_context_window_error():
 
 
 def test_bedrock_base_model_helper():
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
     model = "us.amazon.nova-pro-v1:0"
     base_model = BedrockModelInfo.get_base_model(model)
@@ -10201,7 +10201,7 @@ def test_bedrock_base_model_helper():
 )
 def test_bedrock_route_detection(model, expected_route):
     """Test all scenarios for BedrockModelInfo.get_bedrock_route"""
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
     route = BedrockModelInfo.get_bedrock_route(model)
     assert route == expected_route, f"Expected route '{expected_route}' for model '{model}', but got '{route}'"
@@ -10248,13 +10248,13 @@ def test_bedrock_route_detection(model, expected_route):
 def test_bedrock_prompt_caching_message(messages, expected_cache_control):
     import json
 
-    import litellm
+    import hangarllm
 
-    transformed_messages = litellm.AmazonConverseConfig()._transform_request(
+    transformed_messages = hangarllm.AmazonConverseConfig()._transform_request(
         model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     if expected_cache_control:
         assert "cachePoint" in json.dumps(transformed_messages)
@@ -10263,7 +10263,7 @@ def test_bedrock_prompt_caching_message(messages, expected_cache_control):
 
 
 def test_converse_carries_prompt_cache_breakpoint_to_cache_point():
-    request: Final = litellm.AmazonConverseConfig()._transform_request(
+    request: Final = hangarllm.AmazonConverseConfig()._transform_request(
         model="anthropic.claude-sonnet-5-5",
         messages=[
             {
@@ -10278,7 +10278,7 @@ def test_converse_carries_prompt_cache_breakpoint_to_cache_point():
             },
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert request["system"] == [{"text": "You are terse."}, {"cachePoint": {"type": "default"}}]
@@ -10298,15 +10298,15 @@ def test_converse_keeps_the_first_and_last_prompt_cache_breakpoints_within_the_c
         }
     ]
 
-    def transform(litellm_params: dict) -> dict:
-        return litellm.AmazonConverseConfig()._transform_request(
+    def transform(hangarllm_params: dict) -> dict:
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model="anthropic.claude-sonnet-5-5",
             messages=copy.deepcopy(messages),
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="at most 4 cache breakpoints"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="at most 4 cache breakpoints"):
         transform({})
 
     cache_point: Final = {"cachePoint": {"type": "default"}}
@@ -10356,15 +10356,15 @@ def test_converse_reserves_the_tool_cache_point_within_the_cap(tool_cache_params
         }
     ]
 
-    def transform(litellm_params: dict) -> dict:
-        return litellm.AmazonConverseConfig()._transform_request(
+    def transform(hangarllm_params: dict) -> dict:
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model="anthropic.claude-sonnet-5-5",
             messages=copy.deepcopy(messages),
             optional_params=copy.deepcopy(tool_cache_params),
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="this request has 5"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="this request has 5"):
         transform({})
 
     request: Final = transform({"drop_params": True})
@@ -10398,11 +10398,11 @@ def test_converse_reserves_the_tool_cache_point_within_the_cap(tool_cache_params
     ],
     ids=["tool_search_tool", "built_in_tool", "tool_config_point_with_no_tool_sent"],
 )
-@pytest.mark.parametrize("litellm_params", [{}, {"drop_params": True}], ids=["strict", "drop_params"])
+@pytest.mark.parametrize("hangarllm_params", [{}, {"drop_params": True}], ids=["strict", "drop_params"])
 def test_converse_leaves_the_cap_to_markers_when_a_marked_tool_is_not_sent(
-    unsent_tool_params: dict[str, object], litellm_params: dict[str, object]
+    unsent_tool_params: dict[str, object], hangarllm_params: dict[str, object]
 ):
-    request: Final = litellm.AmazonConverseConfig()._transform_request(
+    request: Final = hangarllm.AmazonConverseConfig()._transform_request(
         model="anthropic.claude-sonnet-5-5",
         messages=[
             {
@@ -10414,7 +10414,7 @@ def test_converse_leaves_the_cap_to_markers_when_a_marked_tool_is_not_sent(
             }
         ],
         optional_params=copy.deepcopy(unsent_tool_params),
-        litellm_params=dict(litellm_params),
+        hangarllm_params=dict(hangarllm_params),
     )
 
     cache_point: Final = {"cachePoint": {"type": "default"}}
@@ -10457,14 +10457,14 @@ def _marked_tool_result_parts() -> list[dict[str, object]]:
 
 
 def test_converse_counts_one_cache_point_for_a_tool_result_with_several_marks():
-    request: Final = litellm.AmazonConverseConfig()._transform_request(
+    request: Final = hangarllm.AmazonConverseConfig()._transform_request(
         model="anthropic.claude-sonnet-5-5",
         messages=[
             {"role": "user", "content": _marked_text_parts(3)},
             *_converse_tool_turn(*_marked_tool_result_parts()),
         ],
         optional_params={"tools": [_CONVERSE_CAP_TOOL]},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert len(_collect_cache_points(request["messages"])) == 4
@@ -10476,15 +10476,15 @@ def test_converse_drops_marks_until_a_merged_tool_result_fits_the_cap():
         *_converse_tool_turn(*_marked_tool_result_parts()),
     ]
 
-    def transform(litellm_params: dict) -> dict:
-        return litellm.AmazonConverseConfig()._transform_request(
+    def transform(hangarllm_params: dict) -> dict:
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model="anthropic.claude-sonnet-5-5",
             messages=copy.deepcopy(messages),
             optional_params={"tools": [_CONVERSE_CAP_TOOL]},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="this request has 5"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="this request has 5"):
         transform({})
 
     request: Final = transform({"drop_params": True})
@@ -10511,15 +10511,15 @@ def test_converse_drops_prompt_cache_breakpoint_from_a_nova_tool_result():
         *_converse_tool_turn(*_marked_tool_result_parts()),
     ]
 
-    def transform(litellm_params: dict) -> dict:
-        return litellm.AmazonConverseConfig()._transform_request(
+    def transform(hangarllm_params: dict) -> dict:
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model="us.amazon.nova-lite-v1:0",
             messages=copy.deepcopy(messages),
             optional_params={"tools": [_CONVERSE_CAP_TOOL]},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
-    with pytest.raises(litellm.UnsupportedParamsError, match="tool result"):
+    with pytest.raises(hangarllm.UnsupportedParamsError, match="tool result"):
         transform({})
 
     request: Final = transform({"drop_params": True})
@@ -10528,7 +10528,7 @@ def test_converse_drops_prompt_cache_breakpoint_from_a_nova_tool_result():
 
 
 def test_converse_translates_prompt_cache_breakpoint_on_an_unmapped_arn_only_when_flagged(local_model_cost_map):
-    from litellm import Router
+    from hangarllm import Router
 
     flagged_arn: Final = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/claude-flagged"
     unflagged_arn: Final = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/mistral"
@@ -10536,18 +10536,18 @@ def test_converse_translates_prompt_cache_breakpoint_on_an_unmapped_arn_only_whe
         model_list=[
             {
                 "model_name": "claude-profile",
-                "litellm_params": {"model": f"bedrock/{flagged_arn}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/{flagged_arn}", "aws_region_name": "us-east-1"},
                 "model_info": {"supports_prompt_cache_breakpoint": True},
             },
             {
                 "model_name": "mistral-profile",
-                "litellm_params": {"model": f"bedrock/{unflagged_arn}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/{unflagged_arn}", "aws_region_name": "us-east-1"},
             },
         ]
     )
 
     def user_content(model: str, ttl: dict) -> list:
-        return litellm.AmazonConverseConfig()._transform_request(
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model=model,
             messages=[
                 {
@@ -10558,7 +10558,7 @@ def test_converse_translates_prompt_cache_breakpoint_on_an_unmapped_arn_only_whe
                 }
             ],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )["messages"][0]["content"]
 
     assert user_content(flagged_arn, {}) == [{"text": "Hello"}, {"cachePoint": {"type": "default"}}]
@@ -10567,7 +10567,7 @@ def test_converse_translates_prompt_cache_breakpoint_on_an_unmapped_arn_only_whe
 
 
 def test_converse_prompt_cache_breakpoint_follows_the_arn_flag_over_its_base_model(local_model_cost_map):
-    from litellm import Router
+    from hangarllm import Router
 
     opted_in_arn: Final = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/claude-next"
     opted_out_arn: Final = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/claude-opted-out"
@@ -10575,19 +10575,19 @@ def test_converse_prompt_cache_breakpoint_follows_the_arn_flag_over_its_base_mod
         model_list=[
             {
                 "model_name": "opted-in",
-                "litellm_params": {"model": f"bedrock/{opted_in_arn}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/{opted_in_arn}", "aws_region_name": "us-east-1"},
                 "model_info": {"supports_prompt_cache_breakpoint": True},
             },
             {
                 "model_name": "opted-out",
-                "litellm_params": {"model": f"bedrock/{opted_out_arn}", "aws_region_name": "us-east-1"},
+                "hangarllm_params": {"model": f"bedrock/{opted_out_arn}", "aws_region_name": "us-east-1"},
                 "model_info": {"supports_prompt_cache_breakpoint": False},
             },
         ]
     )
 
     def user_content(model: str, base_model: str, ttl: dict) -> list:
-        return litellm.AmazonConverseConfig()._transform_request(
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model=model,
             messages=[
                 {
@@ -10598,7 +10598,7 @@ def test_converse_prompt_cache_breakpoint_follows_the_arn_flag_over_its_base_mod
                 }
             ],
             optional_params={},
-            litellm_params={"base_model": base_model},
+            hangarllm_params={"base_model": base_model},
         )["messages"][0]["content"]
 
     assert user_content(opted_in_arn, "anthropic.claude-unmapped-v1:0", {}) == [
@@ -10609,16 +10609,16 @@ def test_converse_prompt_cache_breakpoint_follows_the_arn_flag_over_its_base_mod
 
 
 def test_converse_translates_prompt_cache_breakpoint_only_for_families_that_take_cache_points(local_model_cost_map):
-    litellm.register_model(
-        {"zai.glm-next-v1:0": {"litellm_provider": "bedrock_converse", "mode": "chat", "supports_prompt_caching": True}}
+    hangarllm.register_model(
+        {"zai.glm-next-v1:0": {"hangarllm_provider": "bedrock_converse", "mode": "chat", "supports_prompt_caching": True}}
     )
 
     def user_content(model: str, mark: dict) -> list:
-        return litellm.AmazonConverseConfig()._transform_request(
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model=model,
             messages=[{"role": "user", "content": [{"type": "text", "text": "Hello", **mark}]}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )["messages"][0]["content"]
 
     marker: Final = {"prompt_cache_breakpoint": {"mode": "explicit"}}
@@ -10634,7 +10634,7 @@ def test_converse_prompt_cache_breakpoint_on_guarded_user_text_keeps_its_cache_p
     guardrail: Final = {"guardrailConfig": {"guardrailIdentifier": "gr-1", "guardrailVersion": "DRAFT"}}
 
     def request(system_marks: int) -> dict:
-        return litellm.AmazonConverseConfig()._transform_request(
+        return hangarllm.AmazonConverseConfig()._transform_request(
             model="anthropic.claude-sonnet-5-5",
             messages=[
                 *(
@@ -10650,17 +10650,17 @@ def test_converse_prompt_cache_breakpoint_on_guarded_user_text_keeps_its_cache_p
                 },
             ],
             optional_params=dict(guardrail),
-            litellm_params={},
+            hangarllm_params={},
         )
 
     assert request(0)["messages"][0]["content"] == [
         {"guardContent": {"text": {"text": "Hello"}}},
         {"cachePoint": {"type": "default"}},
     ]
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(hangarllm.UnsupportedParamsError):
         request(4)
 
-    client_marked: Final = litellm.AmazonConverseConfig()._transform_request(
+    client_marked: Final = hangarllm.AmazonConverseConfig()._transform_request(
         model="anthropic.claude-sonnet-5-5",
         messages=[
             *(
@@ -10673,27 +10673,27 @@ def test_converse_prompt_cache_breakpoint_on_guarded_user_text_keeps_its_cache_p
             {"role": "user", "content": [{"type": "text", "text": "Hello", "cache_control": {"type": "ephemeral"}}]},
         ],
         optional_params=dict(guardrail),
-        litellm_params={},
+        hangarllm_params={},
     )
     assert sum("cachePoint" in block for block in client_marked["system"]) == 4
     assert client_marked["messages"][0]["content"] == [{"guardContent": {"text": {"text": "Hello"}}}]
 
 
 def test_converse_guarded_user_text_keeps_no_cache_point_on_a_model_not_known_to_take_one(local_model_cost_map):
-    request: Final = litellm.AmazonConverseConfig()._transform_request(
+    request: Final = hangarllm.AmazonConverseConfig()._transform_request(
         model="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/unmapped1",
         messages=[
             {"role": "user", "content": [{"type": "text", "text": "Hello", "cache_control": {"type": "ephemeral"}}]}
         ],
         optional_params={"guardrailConfig": {"guardrailIdentifier": "gr-1", "guardrailVersion": "DRAFT"}},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert request["messages"][0]["content"] == [{"guardContent": {"text": {"text": "Hello"}}}]
 
 
-def _converse_request_with_30m_breakpoint(model: str, litellm_params: dict) -> dict:
-    return litellm.AmazonConverseConfig()._transform_request(
+def _converse_request_with_30m_breakpoint(model: str, hangarllm_params: dict) -> dict:
+    return hangarllm.AmazonConverseConfig()._transform_request(
         model=model,
         messages=[
             {
@@ -10704,14 +10704,14 @@ def _converse_request_with_30m_breakpoint(model: str, litellm_params: dict) -> d
             }
         ],
         optional_params={},
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
 
 
 def test_converse_rejects_30m_breakpoint_ttl_only_where_a_cache_point_is_written():
     claude: Final = "anthropic.claude-sonnet-5-5"
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="drop_params"):
         _converse_request_with_30m_breakpoint(claude, {})
 
     assert _converse_request_with_30m_breakpoint(claude, {"drop_params": True})["messages"] == [
@@ -10735,7 +10735,7 @@ def test_converse_rejects_30m_breakpoint_ttl_only_where_a_cache_point_is_written
     ],
 )
 def test_bedrock_supports_tool_call(model, expected_supports_tool_call):
-    supported_openai_params = litellm.AmazonConverseConfig().get_supported_openai_params(model=model)
+    supported_openai_params = hangarllm.AmazonConverseConfig().get_supported_openai_params(model=model)
     if expected_supports_tool_call:
         assert "tools" in supported_openai_params
     else:
@@ -10767,7 +10767,7 @@ def test_bedrock_empty_content_handling(messages, continue_message_index):
     Test that empty content in messages is handled correctly with default messages
     """
     # Test with default behavior (modify_params=True)
-    litellm.modify_params = True
+    hangarllm.modify_params = True
     formatted_messages = _bedrock_converse_messages_pt(
         messages=messages,
         model="anthropic.claude-3-sonnet-20240229-v1:0",
@@ -10818,7 +10818,7 @@ def test_bedrock_no_default_message():
         {"role": "assistant", "content": "Valid response"},
     ]
 
-    litellm.modify_params = False
+    hangarllm.modify_params = False
     formatted_messages = _bedrock_converse_messages_pt(
         messages=messages,
         model="anthropic.claude-3-sonnet-20240229-v1:0",
@@ -10832,7 +10832,7 @@ def test_bedrock_no_default_message():
 
 
 def test_bedrock_process_empty_text_blocks():
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from hangarllm.hangarllm_core_utils.prompt_templates.factory import (
         process_empty_text_blocks,
     )
 
@@ -10845,7 +10845,7 @@ def test_bedrock_process_empty_text_blocks():
 
 
 def test_bedrock_image_embedding_transformation():
-    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
+    from hangarllm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
         AmazonTitanMultimodalEmbeddingG1Config,
     )
 
@@ -10879,7 +10879,7 @@ def test_bedrock_error_handling_streaming(exception_type, expected_status_code):
     true code. Regression for #24608."""
     from unittest.mock import Mock
 
-    from litellm.llms.bedrock.chat.invoke_handler import (
+    from hangarllm.llms.bedrock.chat.invoke_handler import (
         AWSEventStreamDecoder,
         BedrockError,
     )
@@ -10913,8 +10913,8 @@ def test_bedrock_error_handling_streaming(exception_type, expected_status_code):
     ],
 )
 def test_handle_top_k_value_helper(model, expected_output):
-    assert litellm.AmazonConverseConfig()._handle_top_k_value(model, {"topK": 3}) == expected_output
-    assert litellm.AmazonConverseConfig()._handle_top_k_value(model, {"top_k": 3}) == expected_output
+    assert hangarllm.AmazonConverseConfig()._handle_top_k_value(model, {"topK": 3}) == expected_output
+    assert hangarllm.AmazonConverseConfig()._handle_top_k_value(model, {"top_k": 3}) == expected_output
 
 
 @pytest.mark.usefixtures("fake_provider_credentials")
@@ -10957,7 +10957,7 @@ def test_bedrock_top_k_param(model, expected_params):
         mock_response.json = lambda: json.loads(mock_response.text)
         mock_post.return_value = mock_response
 
-        litellm.completion(
+        hangarllm.completion(
             model=model,
             messages=[{"role": "user", "content": "Hello, world!"}],
             top_k=2,
@@ -10976,27 +10976,27 @@ def test_bedrock_top_k_param(model, expected_params):
 
 def test_bedrock_invoke_provider():
     assert (
-        litellm.AmazonInvokeConfig().get_bedrock_invoke_provider(
+        hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider(
             "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0"
         )
         == "anthropic"
     )
     assert (
-        litellm.AmazonInvokeConfig().get_bedrock_invoke_provider("bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0")
+        hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider("bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0")
         == "anthropic"
     )
     assert (
-        litellm.AmazonInvokeConfig().get_bedrock_invoke_provider(
+        hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider(
             "bedrock/llama/arn:aws:bedrock:us-east-1:086734376398:imported-model/r4c4kewx2s0n"
         )
         == "llama"
     )
-    assert litellm.AmazonInvokeConfig().get_bedrock_invoke_provider("us.amazon.nova-pro-v1:0") == "nova"
-    assert litellm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-pro-v1:0") == "nova"
-    assert litellm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-lite-v1:0") == "nova"
-    assert litellm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-micro-v1:0") == "nova"
-    assert litellm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-premier-v1:0") == "nova"
-    assert litellm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-2-lite-v1:0") == "nova"
+    assert hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider("us.amazon.nova-pro-v1:0") == "nova"
+    assert hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-pro-v1:0") == "nova"
+    assert hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-lite-v1:0") == "nova"
+    assert hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-micro-v1:0") == "nova"
+    assert hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-premier-v1:0") == "nova"
+    assert hangarllm.AmazonInvokeConfig().get_bedrock_invoke_provider("amazon.nova-2-lite-v1:0") == "nova"
 
 
 @pytest.mark.usefixtures("fake_provider_credentials")
@@ -11005,8 +11005,8 @@ def test_bedrock_meta_llama_function_calling():
     Tests that:
     - meta llama models support function calling
     """
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from hangarllm.types.utils import CallTypes
+    from hangarllm.utils import return_raw_request
 
     tools = [
         {
@@ -11120,7 +11120,7 @@ def test_bedrock_openai_model_id_extraction():
 
 
 def test_bedrock_openai_response_parsing():
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
         AmazonBedrockOpenAIConfig,
     )
 
@@ -11152,7 +11152,7 @@ def test_bedrock_openai_response_parsing():
         request_data={},
         messages=[{"role": "user", "content": "What is the capital of France?"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -11167,7 +11167,7 @@ def test_bedrock_openai_request_transformation():
     """
     Test that the request is correctly transformed for OpenAI models.
     """
-    from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
         AmazonInvokeConfig,
     )
 
@@ -11186,7 +11186,7 @@ def test_bedrock_openai_request_transformation():
         "stream": False,
     }
 
-    litellm_params = {}
+    hangarllm_params = {}
     headers = {}
 
     with patch.object(config, "get_bedrock_invoke_provider", return_value="openai"):
@@ -11194,7 +11194,7 @@ def test_bedrock_openai_request_transformation():
             model=model,
             messages=messages,
             optional_params=optional_params.copy(),
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -11213,7 +11213,7 @@ def test_bedrock_openai_parameter_filtering():
     """
     Test that only supported OpenAI parameters are included in the request.
     """
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
         AmazonBedrockOpenAIConfig,
     )
 
@@ -11236,7 +11236,7 @@ def test_bedrock_openai_route_detection():
     """
     Test that the OpenAI route is correctly detected.
     """
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
     test_cases = [
         ("openai/arn:aws:bedrock:us-east-1:123:imported-model/test", "openai"),
@@ -11253,7 +11253,7 @@ def test_bedrock_openai_explicit_route_check():
     """
     Test the explicit OpenAI route checker helper method.
     """
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    from hangarllm.llms.bedrock.common_utils import BedrockModelInfo
 
     assert BedrockModelInfo._explicit_openai_route("openai/arn:aws:bedrock:us-east-1:123:imported-model/test") is True
     assert (
@@ -11271,7 +11271,7 @@ def test_bedrock_openai_config_initialization():
     """
     Test that AmazonBedrockOpenAIConfig can be properly initialized.
     """
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
         AmazonBedrockOpenAIConfig,
     )
 
@@ -11286,10 +11286,10 @@ def test_bedrock_openai_config_initialization():
 
 
 def test_bedrock_openai_error_handling():
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
+    from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
         AmazonBedrockOpenAIConfig,
     )
-    from litellm.llms.bedrock.common_utils import BedrockError
+    from hangarllm.llms.bedrock.common_utils import BedrockError
 
     error = AmazonBedrockOpenAIConfig().get_error_class(
         error_message="ValidationException: bad request",
@@ -11309,7 +11309,7 @@ def test_bedrock_nova_web_search_options_ignored_for_non_nova():
     Nova grounding is only supported on Nova models. For other models,
     the parameter should be silently ignored.
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from hangarllm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     config = AmazonConverseConfig()
 
@@ -11353,7 +11353,7 @@ def test_bedrock_nova_model_selects_converse_route(model: str, respx_mock: respx
             },
         )
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=model,
         messages=[{"role": "user", "content": "select Converse"}],
         aws_access_key_id="AKIANOVAROUTEKEY",
@@ -11367,24 +11367,24 @@ def test_bedrock_nova_model_selects_converse_route(model: str, respx_mock: respx
 
 
 def test_cross_region_bedrock_model_cost_falls_back_to_base_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    model_cost_map: Final = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    model_cost_map: Final = hangarllm.get_model_cost_map(url="")
+    hangarllm.get_model_info.cache_clear()
     region_model: Final = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {model_name: value for model_name, value in model_cost_map.items() if model_name != region_model},
     )
     model: Final = f"bedrock/{region_model}"
-    info: Final = litellm.get_model_info(model=model)
-    cost: Final = litellm.completion_cost(model=model, prompt="synthetic prompt", completion="synthetic completion")
-    base_cost: Final = litellm.completion_cost(
+    info: Final = hangarllm.get_model_info(model=model)
+    cost: Final = hangarllm.completion_cost(model=model, prompt="synthetic prompt", completion="synthetic completion")
+    base_cost: Final = hangarllm.completion_cost(
         model="bedrock/anthropic.claude-haiku-4-5-20251001-v1:0",
         prompt="synthetic prompt",
         completion="synthetic completion",
     )
-    base_info: Final = litellm.get_model_info(model="bedrock/anthropic.claude-haiku-4-5-20251001-v1:0")
+    base_info: Final = hangarllm.get_model_info(model="bedrock/anthropic.claude-haiku-4-5-20251001-v1:0")
 
     assert info["input_cost_per_token"] == base_info["input_cost_per_token"]
     assert cost == pytest.approx(base_cost)
@@ -11404,7 +11404,7 @@ def test_bedrock_nova_grounding_and_function_tool_share_request() -> None:
         model=model,
         messages=[{"role": "user", "content": "Search and use the artifact tool"}],
         optional_params=mapped_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -11447,9 +11447,9 @@ async def test_bedrock_nova_grounding_request_transformation(async_mode: bool) -
     }
     transport: Final = httpx.MockTransport(respond)
     response: Final = (
-        await litellm.acompletion(**request_args, client=AsyncHTTPHandler(transport=transport))
+        await hangarllm.acompletion(**request_args, client=AsyncHTTPHandler(transport=transport))
         if async_mode
-        else litellm.completion(**request_args, client=HTTPHandler(client=httpx.Client(transport=transport)))
+        else hangarllm.completion(**request_args, client=HTTPHandler(client=httpx.Client(transport=transport)))
     )
     request: Final = requests[0]
     request_body: Final = json.loads(request.content)
@@ -11472,7 +11472,7 @@ def test_bedrock_converse_drops_empty_stop_sequence(respx_mock: respx.Router) ->
             },
         )
     )
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=[{"role": "user", "content": "Continue"}],
         stop="",
@@ -11505,7 +11505,7 @@ def test_bedrock_image_url_sync_client_fetches_and_inlines_image(respx_mock: res
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="bedrock/amazon.nova-pro-v1:0",
         messages=[
             {
@@ -11537,14 +11537,14 @@ async def _transform_converse_request(sync_mode: bool, messages: list[AllMessage
             model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
     return await config._async_transform_request(
         model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -11634,8 +11634,8 @@ def _openai_tool_search_with_deferred_functions() -> list[dict[str, object]]:
 def test_map_openai_params_answers_400_for_the_openai_tool_search_tool_without_drop_params(
     monkeypatch, model, names_invoke_route
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         AmazonConverseConfig().map_openai_params(
             non_default_params={"tools": _openai_tool_search_with_deferred_functions()},
             optional_params={},
@@ -11649,7 +11649,7 @@ def test_map_openai_params_answers_400_for_the_openai_tool_search_tool_without_d
 
 
 def test_map_openai_params_drops_the_openai_tool_search_tool_and_every_deferral_under_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     mapped: Final = AmazonConverseConfig().map_openai_params(
         non_default_params={"tools": _openai_tool_search_with_deferred_functions()},
         optional_params={},
@@ -11727,14 +11727,14 @@ def test_uses_opt_in_native_output_reads_the_base_model_of_an_application_infere
 ):
     set_native_structured_output("us.anthropic.claude-opus-4-8", "bedrock")
     profile: Final = "arn:aws:bedrock:us-east-1:000000000000:application-inference-profile/profile-id"
-    litellm_params: Final = {"base_model": "bedrock/us.anthropic.claude-opus-4-8"}
+    hangarllm_params: Final = {"base_model": "bedrock/us.anthropic.claude-opus-4-8"}
     optional_params: Final = _converse_params(
         "us.anthropic.claude-opus-4-8",
         None,
         {"response_format": CAPITAL_RESPONSE_FORMAT, "thinking": ADAPTIVE_THINKING},
     )
 
-    assert AmazonConverseConfig().uses_opt_in_native_output(profile, optional_params, litellm_params)
+    assert AmazonConverseConfig().uses_opt_in_native_output(profile, optional_params, hangarllm_params)
 
 
 _CALLER_OUTPUT_CONFIG_WITH_A_SCHEMA_OBJECT: Final = {
@@ -11755,7 +11755,7 @@ def test_a_malformed_caller_output_config_gets_bedrocks_own_400(
         return_value=httpx.Response(400, json={"message": _BEDROCK_SCHEMA_TYPE_ERROR})
     )
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_TYPE_ERROR)):
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_TYPE_ERROR)):
         completion(
             model=f"bedrock/converse/{model}",
             messages=[{"role": "user", "content": "What is the capital of France?"}],
@@ -11789,18 +11789,18 @@ _BEDROCK_SCHEMA_REFUSAL: Final = "output_config.format.schema: pattern is too co
         ({"outputConfig": _CALLER_OUTPUT_CONFIG}, 1),
         ({"outputConfig": _CALLER_OUTPUT_CONFIG, "thinking": ADAPTIVE_THINKING}, 1),
     ],
-    ids=["litellm_native_output", "caller_output_config", "caller_output_config_thinking"],
+    ids=["hangarllm_native_output", "caller_output_config", "caller_output_config_thinking"],
 )
 @pytest.mark.respx(assert_all_called=True)
 def test_a_refused_native_schema_is_sent_again_only_when_the_retry_drops_native_output(
     caller_params: dict, expected_calls: int, respx_mock: respx.Router, local_model_cost_map: None, monkeypatch
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost["us.anthropic.claude-opus-4-8"], "supports_native_structured_output", False)
+    monkeypatch.setitem(hangarllm.model_cost["us.anthropic.claude-opus-4-8"], "supports_native_structured_output", False)
     route: Final = respx_mock.post(url__regex=r"/converse$").mock(
         return_value=httpx.Response(400, json={"message": _BEDROCK_SCHEMA_REFUSAL})
     )
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_REFUSAL)):
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_REFUSAL)):
         completion(
             model=f"bedrock/converse/{_OPUS}",
             messages=[{"role": "user", "content": "What is the capital of France?"}],
@@ -11827,7 +11827,7 @@ def test_a_default_native_schema_rejection_retries_with_the_json_tool(
         return_value=httpx.Response(400, json={"message": _BEDROCK_SCHEMA_REFUSAL})
     )
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_REFUSAL)):
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_REFUSAL)):
         completion(
             model=f"bedrock/converse/{model}",
             messages=[{"role": "user", "content": "What is the capital of France?"}],
@@ -11855,7 +11855,7 @@ def test_an_unforceable_tool_native_schema_rejection_retries_with_the_json_tool(
         return_value=httpx.Response(400, json={"message": _BEDROCK_SCHEMA_REFUSAL})
     )
 
-    with pytest.raises(litellm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_REFUSAL)):
+    with pytest.raises(hangarllm.BadRequestError, match=re.escape(_BEDROCK_SCHEMA_REFUSAL)):
         completion(
             model="bedrock/converse/anthropic.claude-fable-5-1",
             messages=[{"role": "user", "content": "What is the capital of France?"}],
@@ -11910,7 +11910,7 @@ def test_a_deployment_with_a_batch_control_plane_endpoint_keeps_it_out_of_chat_r
         url__regex=r"^https://bedrock-runtime\.us-east-1\.amazonaws\.com/model/.+/(converse|invoke)$"
     ).mock(side_effect=_bedrock_chat_answer)
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model=f"{route_prefix}us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         aws_access_key_id="AKIACONTROLPLANE",
@@ -11954,18 +11954,18 @@ def _converse_request_for_tools(
     "model", ["us.openai.gpt-oss-120b-1:0", "us.anthropic.claude-haiku-5-5", "us.amazon.nova-2-lite-v1:0"]
 )
 def test_a_hosted_mcp_tool_answers_400_on_converse_without_drop_params(monkeypatch, model):
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError) as raised:
+    monkeypatch.setattr(hangarllm, "drop_params", False)
+    with pytest.raises(hangarllm.utils.UnsupportedParamsError) as raised:
         _converse_request_for_tools(model, {"tools": [_WEATHER_FUNCTION_TOOL, _HOSTED_MCP_TOOL]}, drop_params=False)
     assert raised.value.status_code == 400
     assert model in str(raised.value)
     assert "`deepwiki`" in str(raised.value)
-    assert 'server_url: "litellm_proxy/mcp/<server name>"' in str(raised.value)
+    assert 'server_url: "hangarllm_proxy/mcp/<server name>"' in str(raised.value)
     assert "drop_params: true" in str(raised.value)
 
 
 def test_converse_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_function_tool(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     model: Final = "us.openai.gpt-oss-120b-1:0"
     with caplog.at_level("WARNING"):
         request: Final = _converse_request_for_tools(
@@ -11979,7 +11979,7 @@ def test_converse_drops_a_hosted_mcp_tool_under_drop_params_and_keeps_the_functi
 
 
 def test_converse_sends_no_tools_when_drop_params_drops_every_hosted_mcp_tool(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     request: Final = _converse_request_for_tools(
         "us.openai.gpt-oss-120b-1:0", {"tools": [_HOSTED_MCP_TOOL], "tool_choice": "auto"}, drop_params=True
     )
@@ -12063,7 +12063,7 @@ def _converse_bound_thinking_request(
 def test_converse_keeps_beta_gated_thinking_fields_the_bedrock_converse_row_carries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
     fields: Final = _converse_bound_thinking_request(
         {"anthropic-beta": "thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18"}
     )
@@ -12077,7 +12077,7 @@ def test_converse_keeps_beta_gated_thinking_fields_the_bedrock_converse_row_carr
 def test_converse_adds_the_thinking_betas_so_gated_thinking_fields_are_kept(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
     fields: Final = _converse_bound_thinking_request(None)
     assert fields["thinking"] == {
         "type": "adaptive",
@@ -12093,7 +12093,7 @@ def test_converse_adds_the_thinking_betas_so_gated_thinking_fields_are_kept(
 def test_converse_keeps_the_callers_body_betas_next_to_the_added_thinking_betas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
     fields: Final = _converse_bound_thinking_request(None, body_betas=("context-1m-2025-08-07",))
     assert sorted(fields["anthropic_beta"]) == [
         "context-1m-2025-08-07",
@@ -12103,8 +12103,8 @@ def test_converse_keeps_the_callers_body_betas_next_to_the_added_thinking_betas(
 
 
 def test_converse_sends_beta_gated_thinking_fields_as_is_without_drop_params(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     fields: Final = _converse_bound_thinking_request(None, drop_params=False)
     assert fields["thinking"] == {
         "type": "adaptive",
@@ -12116,7 +12116,7 @@ def test_converse_sends_beta_gated_thinking_fields_as_is_without_drop_params(mon
 def test_converse_keeps_beta_gated_thinking_fields_the_body_anthropic_beta_carries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
     fields: Final = _converse_bound_thinking_request(
         None, body_betas=("thinking-binding-controls-2026-08-01", "thinking-display-updates-2026-08-18")
     )
@@ -12143,7 +12143,7 @@ def test_converse_drops_body_betas_the_bedrock_converse_row_rejects_when_adding_
 def test_converse_sends_only_the_header_betas_when_header_and_body_both_carry_betas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "true")
     fields: Final = _converse_bound_thinking_request(
         {"anthropic-beta": "context-1m-2025-08-07"}, body_betas=("not-a-real-beta-2099",)
     )
@@ -12186,7 +12186,7 @@ def test_converse_claude_request_over_the_cache_control_cap_drops_the_oldest_hin
     monkeypatch: pytest.MonkeyPatch,
     local_model_cost_map: None,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     messages: Final = _five_cache_hint_conversation()
     messages_before: Final = copy.deepcopy(messages)
 
@@ -12194,7 +12194,7 @@ def test_converse_claude_request_over_the_cache_control_cap_drops_the_oldest_hin
         model="anthropic.claude-haiku-5-5",
         messages=messages,
         optional_params={},
-        litellm_params={"drop_params": drop_params},
+        hangarllm_params={"drop_params": drop_params},
         headers={},
     )
 
@@ -12206,7 +12206,7 @@ def test_converse_claude_request_over_the_cache_control_cap_drops_the_oldest_hin
 def test_converse_claude_tool_message_with_several_marked_blocks_counts_as_one_cache_point_against_the_cap(
     monkeypatch: pytest.MonkeyPatch, local_model_cost_map: None
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     messages: Final = [
         {
             "role": "user",
@@ -12238,7 +12238,7 @@ def test_converse_claude_tool_message_with_several_marked_blocks_counts_as_one_c
         optional_params={
             "tools": [{"type": "function", "function": {"name": "lookup", "parameters": {"type": "object"}}}]
         },
-        litellm_params={"drop_params": True},
+        hangarllm_params={"drop_params": True},
         headers={},
     )
 

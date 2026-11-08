@@ -1,14 +1,14 @@
-# litellm_budgets Data Source
+# hangarllm_budgets Data Source
 
-Retrieves all budgets configured on the LiteLLM proxy
+Retrieves all budgets configured on the HangarLLM proxy
 
 ## Example Usage
 
 ```hcl
-data "litellm_budgets" "all" {}
+data "hangarllm_budgets" "all" {}
 
 output "budget_ids" {
-  value = data.litellm_budgets.all.ids
+  value = data.hangarllm_budgets.all.ids
 }
 ```
 

@@ -14,7 +14,7 @@ import httpx
 import psutil
 import pytest
 
-from litellm.proxy.dev_reload import multi_worker_reload_supported, stop_pool_when_reloader_exits
+from hangarllm.proxy.dev_reload import multi_worker_reload_supported, stop_pool_when_reloader_exits
 from tests.integration._support.client import eventually
 from tests.integration._support.ports import allocate_port
 from tests.integration._support.process import group_members, kill_stray_process, signal_group, stop_processes
@@ -55,7 +55,7 @@ POOL_RUNNER: Final = """import sys
 
 sys.path.insert(0, sys.argv[1])
 
-from litellm.proxy.dev_reload import run_multi_worker_reload
+from hangarllm.proxy.dev_reload import run_multi_worker_reload
 
 run_multi_worker_reload(
     {

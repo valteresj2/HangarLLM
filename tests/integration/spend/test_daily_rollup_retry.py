@@ -34,7 +34,7 @@ def _install_daily_user_rollup_fault(user_id: str) -> str:
                 "END $fault$"
             ).format(function, sql.Literal(f"{suffix}_attempts")),
             sql.SQL(
-                'CREATE TRIGGER {} BEFORE INSERT ON "LiteLLM_DailyUserSpend" '
+                'CREATE TRIGGER {} BEFORE INSERT ON "HangarLLM_DailyUserSpend" '
                 "FOR EACH ROW WHEN (NEW.user_id = {}) EXECUTE FUNCTION {}()"
             ).format(sql.Identifier(suffix), sql.Literal(user_id), function),
         )
@@ -45,7 +45,7 @@ def _install_daily_user_rollup_fault(user_id: str) -> str:
 def _lift_daily_user_rollup_fault(suffix: str) -> None:
     _execute(
         (
-            sql.SQL('DROP TRIGGER IF EXISTS {} ON "LiteLLM_DailyUserSpend"').format(sql.Identifier(suffix)),
+            sql.SQL('DROP TRIGGER IF EXISTS {} ON "HangarLLM_DailyUserSpend"').format(sql.Identifier(suffix)),
             sql.SQL("DROP FUNCTION IF EXISTS {}()").format(sql.Identifier(suffix)),
             sql.SQL("DROP SEQUENCE IF EXISTS {}").format(sql.Identifier(f"{suffix}_attempts")),
         )
@@ -105,11 +105,11 @@ def test_failed_daily_user_rollup_commit_is_retried_so_spend_report_and_daily_ac
             key=key,
         )
         assert response.status_code == 200, response.text
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(20 * 0.001 + 20 * 0.002)
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(20 * 0.001 + 20 * 0.002)
         body: Final = response.json()
         spend_rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, DATE("startTime")::text AS day, model FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT spend, DATE("startTime")::text AS day, model FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (body["id"],),
             ),
             lambda values: len(values) == 1,

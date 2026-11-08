@@ -12,7 +12,7 @@ from integration._support.process import DB_PUSH, LEGACY_MIGRATE_DEPLOY, MIGRATE
 pytestmark: Final = pytest.mark.timeout(300)
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
-MIGRATIONS_DIR: Final = REPO_ROOT / "litellm-proxy-extras" / "litellm_proxy_extras" / "migrations"
+MIGRATIONS_DIR: Final = REPO_ROOT / "hangarllm-proxy-extras" / "hangarllm_proxy_extras" / "migrations"
 SHIPPED_MIGRATIONS: Final = frozenset(path.name for path in MIGRATIONS_DIR.iterdir() if path.is_dir())
 CANNED_REPLY: Final = "Hello! This is a mock response from the fake OpenAI endpoint."
 PROVIDER_KEY: Final = "integration-provider-key"
@@ -43,7 +43,7 @@ def _serves_a_completion_through_a_stored_key(proxy: Gateway, database_url: str)
         "/model/new",
         {
             "model_name": model,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": PROVIDER_KEY,
                 "api_base": f"{proxy.upstream_url}/v1",
@@ -65,12 +65,12 @@ def _serves_a_completion_through_a_stored_key(proxy: Gateway, database_url: str)
         (request["path"], request["authorization"], object_value(request["body"])["model"]) for request in forwarded
     ] == [("/v1/chat/completions", f"Bearer {PROVIDER_KEY}", "gpt-4o-mini")]
     assert read_rows(
-        'SELECT models FROM "LiteLLM_VerificationToken" WHERE %s = ANY(models)',
+        'SELECT models FROM "HangarLLM_VerificationToken" WHERE %s = ANY(models)',
         (model,),
         database_url=database_url,
     ) == [{"models": [model]}]
     assert read_rows(
-        'SELECT model_name FROM "LiteLLM_ProxyModelTable" WHERE model_name = %s',
+        'SELECT model_name FROM "HangarLLM_ProxyModelTable" WHERE model_name = %s',
         (model,),
         database_url=database_url,
     ) == [{"model_name": model}]

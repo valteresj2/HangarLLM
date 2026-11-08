@@ -143,15 +143,15 @@ def rig(session_gateway: Gateway, tmp_path_factory: pytest.TempPathFactory) -> I
             **base_config,
             "model_list": [
                 *base_config.get("model_list", []),
-                {"model_name": strict_model, "litellm_params": deployment},
-                {"model_name": dropping_model, "litellm_params": {**deployment, "drop_params": True}},
+                {"model_name": strict_model, "hangarllm_params": deployment},
+                {"model_name": dropping_model, "hangarllm_params": {**deployment, "drop_params": True}},
                 {
                     "model_name": chat_model,
-                    "litellm_params": {**deployment, "model": f"bedrock/converse/{_MODEL_ID}", "drop_params": True},
+                    "hangarllm_params": {**deployment, "model": f"bedrock/converse/{_MODEL_ID}", "drop_params": True},
                 },
             ],
-            "litellm_settings": {
-                **base_config.get("litellm_settings", {}),
+            "hangarllm_settings": {
+                **base_config.get("hangarllm_settings", {}),
                 "drop_params": False,
                 "bedrock_request_metadata_fields": [
                     "user_api_key_alias",

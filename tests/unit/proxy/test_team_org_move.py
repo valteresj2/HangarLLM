@@ -10,26 +10,26 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy._types import (
-    LiteLLM_OrganizationTableWithMembers,
-    LiteLLM_OrganizationMembershipTable,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+from hangarllm.proxy._types import (
+    HangarLLM_OrganizationTableWithMembers,
+    HangarLLM_OrganizationMembershipTable,
+    HangarLLM_TeamTable,
+    HangarllmUserRoles,
     Member,
     OrgMember,
     SpecialProxyStrings,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from hangarllm.proxy.management_endpoints.team_endpoints import (
     _auto_add_team_members_to_organization,
     validate_team_org_change,
 )
-from litellm.router import Router
+from hangarllm.router import Router
 
 
 def _make_org(organization_id="org-1", members=None, models=None):
     from datetime import datetime
 
-    return LiteLLM_OrganizationTableWithMembers(
+    return HangarLLM_OrganizationTableWithMembers(
         organization_id=organization_id,
         organization_alias="test-org",
         budget_id="budget-test",
@@ -40,7 +40,7 @@ def _make_org(organization_id="org-1", members=None, models=None):
         updated_by="default_user_id",
         members=members or [],
         teams=[],
-        litellm_budget_table=None,
+        hangarllm_budget_table=None,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -51,7 +51,7 @@ def _make_team(team_id="team-1", member_ids=None, organization_id=None):
         Member(user_id=uid, role="user") for uid in (member_ids or [])
     ]
     members.append(Member(user_id=SpecialProxyStrings.default_user_id.value, role="admin"))
-    return LiteLLM_TeamTable(
+    return HangarLLM_TeamTable(
         team_id=team_id,
         team_alias="test-team",
         organization_id=organization_id,
@@ -68,10 +68,10 @@ def _make_team(team_id="team-1", member_ids=None, organization_id=None):
 def _make_org_membership(user_id):
     from datetime import datetime
 
-    return LiteLLM_OrganizationMembershipTable(
+    return HangarLLM_OrganizationMembershipTable(
         user_id=user_id,
         organization_id="org-1",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         spend=0.0,
         budget_id=None,
         created_at=datetime.now(),
@@ -148,7 +148,7 @@ class TestAutoAddTeamMembersToOrg:
         org = _make_org(members=[])
 
         mock_add = AsyncMock()
-        import litellm.proxy.management_endpoints.team_endpoints as te
+        import hangarllm.proxy.management_endpoints.team_endpoints as te
         original = te.add_member_to_organization
         te.add_member_to_organization = mock_add
 
@@ -173,7 +173,7 @@ class TestAutoAddTeamMembersToOrg:
         org = _make_org(members=[_make_org_membership("u1")])
 
         mock_add = AsyncMock()
-        import litellm.proxy.management_endpoints.team_endpoints as te
+        import hangarllm.proxy.management_endpoints.team_endpoints as te
         original = te.add_member_to_organization
         te.add_member_to_organization = mock_add
 
@@ -196,7 +196,7 @@ class TestAutoAddTeamMembersToOrg:
         org = _make_org(members=[])
 
         mock_add = AsyncMock()
-        import litellm.proxy.management_endpoints.team_endpoints as te
+        import hangarllm.proxy.management_endpoints.team_endpoints as te
         original = te.add_member_to_organization
         te.add_member_to_organization = mock_add
 
@@ -218,7 +218,7 @@ class TestAutoAddTeamMembersToOrg:
         org = _make_org(members=[])
 
         mock_add = AsyncMock(side_effect=Exception("duplicate key"))
-        import litellm.proxy.management_endpoints.team_endpoints as te
+        import hangarllm.proxy.management_endpoints.team_endpoints as te
         original = te.add_member_to_organization
         te.add_member_to_organization = mock_add
 

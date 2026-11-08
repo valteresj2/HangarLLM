@@ -22,7 +22,7 @@ from e2e_config import provider_edge_base, unique_marker
 from e2e_http import assert_client_error
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients, response_header
 
@@ -38,7 +38,7 @@ VERTEX_TEXT_EMBEDDING: Final = "vertex_ai/text-embedding-005"
 VERTEX_MULTIMODAL_EMBEDDING: Final = "vertex_ai/multimodalembedding@001"
 TOKENS_TEXT: Final = "The quick brown fox jumps over the lazy dog"
 # tiktoken 0.12.0 cl100k_base encoding of TOKENS_TEXT (checked 2026-10-02), the vocabulary behind the proxy's
-# litellm.decode(model="gpt-3.5-turbo") token-array decode
+# hangarllm.decode(model="gpt-3.5-turbo") token-array decode
 TOKENS: Final = (791, 4062, 14198, 39935, 35308, 927, 279, 16053, 5679)
 
 
@@ -76,8 +76,8 @@ def _cosine(left: list[float], right: list[float]) -> float:
     return dot / norms
 
 
-def _titan_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _titan_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=BEDROCK_TITAN_EMBEDDING,
         aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -85,16 +85,16 @@ def _titan_params() -> LiteLLMParamsBody:
     )
 
 
-def _vertex_params(model: str) -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(model=model, vertex_project="os.environ/VERTEXAI_PROJECT", vertex_location="us-central1")
+def _vertex_params(model: str) -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(model=model, vertex_project="os.environ/VERTEXAI_PROJECT", vertex_location="us-central1")
 
 
-def _openai_embeddings_params() -> LiteLLMParamsBody:
+def _openai_embeddings_params() -> HangarLLMParamsBody:
     """The OpenAI embeddings deployment, wired through the record/replay edge when a
     fixture mode is active and straight at OpenAI otherwise (LIT-5974). Bedrock and
     Vertex stay live: SigV4 signs the Host header, and neither has an edge mount."""
     base = provider_edge_base("openai")
-    return LiteLLMParamsBody(
+    return HangarLLMParamsBody(
         model=OPENAI_EMBEDDING,
         api_key="os.environ/OPENAI_API_KEY",
         api_base=None if base is None else f"{base}/v1",
@@ -102,7 +102,7 @@ def _openai_embeddings_params() -> LiteLLMParamsBody:
 
 
 def _register(
-    proxy: ProxyClient, resources: ResourceManager, prefix: str, params: LiteLLMParamsBody
+    proxy: ProxyClient, resources: ResourceManager, prefix: str, params: HangarLLMParamsBody
 ) -> tuple[str, str]:
     model = f"{prefix}-{unique_marker()}"
     model_id = proxy.create_model(model, params)
@@ -115,7 +115,7 @@ def _assert_embedding_vector(
     resources: ResourceManager,
     sdk: SdkClients,
     prefix: str,
-    params: LiteLLMParamsBody,
+    params: HangarLLMParamsBody,
 ) -> None:
     model, key = _register(proxy, resources, prefix, params)
     client = sdk.openai(key)
@@ -181,7 +181,7 @@ class TestEmbeddingsEndpoint:
             resources,
             sdk,
             "e2e-embeddings-cohere",
-            LiteLLMParamsBody(model=COHERE_EMBEDDING, api_key="os.environ/COHERE_API_KEY"),
+            HangarLLMParamsBody(model=COHERE_EMBEDDING, api_key="os.environ/COHERE_API_KEY"),
         )
 
     @pytest.mark.covers("llm.embeddings.cohere.vision.nonstream.works")
@@ -213,7 +213,7 @@ class TestEmbeddingsEndpoint:
         model: Final = f"e2e-cohere-image-{unique_marker()}"
         model_id: Final = proxy.create_model(
             model,
-            LiteLLMParamsBody(model=COHERE_IMAGE_EMBEDDING, api_key="os.environ/COHERE_API_KEY"),
+            HangarLLMParamsBody(model=COHERE_IMAGE_EMBEDDING, api_key="os.environ/COHERE_API_KEY"),
         )
         resources.defer(lambda: proxy.delete_model(model_id))
         key: Final = resources.key()
@@ -244,7 +244,7 @@ class TestEmbeddingsEndpoint:
             resources,
             sdk,
             "e2e-embeddings-vertex",
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=VERTEX_TEXT_EMBEDDING,
                 vertex_project="os.environ/VERTEXAI_PROJECT",
                 vertex_location="us-central1",
@@ -268,7 +268,7 @@ class TestEmbeddingsEndpoint:
             resources,
             sdk,
             "e2e-embeddings-mistral",
-            LiteLLMParamsBody(model=MISTRAL_EMBEDDING, api_key="os.environ/MISTRAL_API_KEY"),
+            HangarLLMParamsBody(model=MISTRAL_EMBEDDING, api_key="os.environ/MISTRAL_API_KEY"),
         )
 
     @pytest.mark.covers("llm.embeddings.vertex.basic.nonstream.works")
@@ -316,7 +316,7 @@ class TestEmbeddingsEndpoint:
         )
         embeddings = raw.parse()
         assert len(embeddings.data[0].embedding) == 128, f"dimensions=128 was not honored: {embeddings!r}"
-        cost = response_header(raw.headers, "x-litellm-response-cost")
+        cost = response_header(raw.headers, "x-hangarllm-response-cost")
         assert cost is not None and float(cost) > 0, f"multimodal embedding was not costed: {cost!r}"
 
     @meta(

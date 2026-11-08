@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Benchmark LiteLLM proxy /v1/chat/completions overhead and streaming TTFT.
+"""Benchmark HangarLLM proxy /v1/chat/completions overhead and streaming TTFT.
 
-The script can run a local OpenAI-compatible mock provider plus a LiteLLM proxy
+The script can run a local OpenAI-compatible mock provider plus a HangarLLM proxy
 from any checkout. That makes it useful for comparing tags/commits without
 depending on real provider latency.
 
@@ -11,7 +11,7 @@ Example:
 
 Compare another checkout:
     uv run python scripts/benchmark_chat_completions_perf.py \
-        --label v1.83.14-stable --litellm-dir /tmp/litellm-v1.83.14-stable
+        --label v1.83.14-stable --hangarllm-dir /tmp/hangarllm-v1.83.14-stable
 """
 
 from __future__ import annotations
@@ -199,11 +199,11 @@ def format_optional_ms(value: Optional[float]) -> str:
     return "n/a" if value is None else f"{value:.2f}"
 
 
-def get_git_revision(litellm_dir: Path) -> str:
+def get_git_revision(hangarllm_dir: Path) -> str:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=litellm_dir,
+            cwd=hangarllm_dir,
             check=True,
             capture_output=True,
             text=True,
@@ -217,7 +217,7 @@ def write_proxy_config(config_path: Path, provider_base_url: str, api_key: str) 
     config_path.write_text(
         f"""model_list:
   - model_name: {DEFAULT_MODEL}
-    litellm_params:
+    hangarllm_params:
       model: openai/{DEFAULT_MODEL}
       api_key: fake-provider-key
       api_base: {provider_base_url}/v1
@@ -225,7 +225,7 @@ def write_proxy_config(config_path: Path, provider_base_url: str, api_key: str) 
 general_settings:
   master_key: {api_key}
 
-litellm_settings:
+hangarllm_settings:
   drop_params: true
 """,
         encoding="utf-8",
@@ -249,7 +249,7 @@ async def wait_for_proxy(base_url: str, timeout_s: float) -> None:
 
 
 def start_proxy_process(
-    litellm_dir: Path,
+    hangarllm_dir: Path,
     proxy_command: str,
     config_path: Path,
     port: int,
@@ -263,13 +263,13 @@ def start_proxy_process(
     ]
     env = {
         **os.environ,
-        "LITELLM_TELEMETRY": "False",
+        "HANGARLLM_TELEMETRY": "False",
         "PYTHONUNBUFFERED": "1",
     }
     log_file = log_path.open("w", encoding="utf-8")
     return subprocess.Popen(
         command,
-        cwd=litellm_dir,
+        cwd=hangarllm_dir,
         env=env,
         stdout=log_file,
         stderr=subprocess.STDOUT,
@@ -291,7 +291,7 @@ def stop_proxy_process(process: subprocess.Popen) -> None:
 
 
 def extract_overhead_header(headers: aiohttp.typedefs.LooseHeaders) -> Optional[float]:
-    raw_value = headers.get("x-litellm-overhead-duration-ms")  # type: ignore[union-attr]
+    raw_value = headers.get("x-hangarllm-overhead-duration-ms")  # type: ignore[union-attr]
     if raw_value is None:
         return None
     try:
@@ -597,7 +597,7 @@ def print_summary(
     print(f"Client-observed overhead p50: {client_overhead_p50:.2f} ms")
     print(f"Client-observed overhead p95: {client_overhead_p95:.2f} ms")
     print(
-        "x-litellm-overhead-duration-ms p50: "
+        "x-hangarllm-overhead-duration-ms p50: "
         f"{format_optional_ms(proxy.overhead_header_p50_ms)} ms"
     )
     print(f"Streaming TTFT p50: {stream.p50_ms:.2f} ms")
@@ -632,20 +632,20 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="current", help="Label for this run")
     parser.add_argument(
-        "--litellm-dir",
+        "--hangarllm-dir",
         default=str(Path.cwd()),
-        help="Checkout directory used to start the LiteLLM proxy",
+        help="Checkout directory used to start the HangarLLM proxy",
     )
     parser.add_argument(
         "--proxy-command",
-        default="uv run litellm",
-        help="Command used to start the proxy inside --litellm-dir",
+        default="uv run hangarllm",
+        help="Command used to start the proxy inside --hangarllm-dir",
     )
     parser.add_argument("--proxy-host", default="127.0.0.1")
     parser.add_argument("--proxy-port", type=int, default=4000)
     parser.add_argument("--provider-host", default="127.0.0.1")
     parser.add_argument("--provider-port", type=int, default=8099)
-    parser.add_argument("--api-key", default=os.environ.get("LITELLM_MASTER_KEY"))
+    parser.add_argument("--api-key", default=os.environ.get("HANGARLLM_MASTER_KEY"))
     parser.add_argument("--requests", type=int, default=500)
     parser.add_argument("--concurrency", type=int, default=100)
     parser.add_argument("--stream-requests", type=int, default=200)
@@ -695,7 +695,7 @@ def parse_args() -> argparse.Namespace:
 async def async_main() -> None:
     args = parse_args()
     if args.no_start_proxy and not args.api_key:
-        raise ValueError("Set LITELLM_MASTER_KEY or pass --api-key when using --no-start-proxy")
+        raise ValueError("Set HANGARLLM_MASTER_KEY or pass --api-key when using --no-start-proxy")
     api_key: Final = args.api_key or (
         "sk-"
         + subprocess.run(
@@ -705,8 +705,8 @@ async def async_main() -> None:
             text=True,
         ).stdout.strip()
     )
-    litellm_dir = Path(args.litellm_dir).resolve()
-    revision = get_git_revision(litellm_dir)
+    hangarllm_dir = Path(args.hangarllm_dir).resolve()
+    revision = get_git_revision(hangarllm_dir)
     proxy_base_url = f"http://{args.proxy_host}:{args.proxy_port}"
     proxy_url = f"{proxy_base_url}/v1/chat/completions"
     headers = {
@@ -726,7 +726,7 @@ async def async_main() -> None:
 
     provider: Optional[MockOpenAIProvider] = None
     proxy_process: Optional[subprocess.Popen] = None
-    with tempfile.TemporaryDirectory(prefix="litellm-perf-") as tmp_dir_name:
+    with tempfile.TemporaryDirectory(prefix="hangarllm-perf-") as tmp_dir_name:
         tmp_dir = Path(tmp_dir_name)
         proxy_log_path = tmp_dir / "proxy.log"
         if args.provider_url:
@@ -747,7 +747,7 @@ async def async_main() -> None:
         try:
             if not args.no_start_proxy:
                 proxy_process = start_proxy_process(
-                    litellm_dir=litellm_dir,
+                    hangarllm_dir=hangarllm_dir,
                     proxy_command=args.proxy_command,
                     config_path=config_path,
                     port=args.proxy_port,

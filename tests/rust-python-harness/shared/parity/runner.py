@@ -24,7 +24,7 @@ from .models import (
 from .recorded_http import RecordedResponse
 from .replay import ReplayServer, replay_server
 
-WORKER_RESULT_PREFIX: Final = "LITELLM_PARITY_RESULT "
+WORKER_RESULT_PREFIX: Final = "HANGARLLM_PARITY_RESULT "
 WORKER_RESULT_ADAPTER: Final[TypeAdapter[WorkerResult]] = TypeAdapter(WorkerResult)
 PROJECT_ROOT: Final = Path(__file__).resolve().parents[4]
 
@@ -58,7 +58,7 @@ class SubprocessWorker:
         env: Final = {
             **os.environ,
             **dict(variant.environment),
-            "LITELLM_USER_AGENT": runner.baseline_user_agent,
+            "HANGARLLM_USER_AGENT": runner.baseline_user_agent,
             "PYTHONPATH": os.pathsep.join(path for path in (project_root, existing_pythonpath) if path),
         }
         self.mode: Final = variant.name

@@ -15,7 +15,7 @@ def _reply(_request: Request) -> Reply:
     return chat_reply("chatcmpl-effort-none", _DEPLOYMENT, "answered without reasoning", stream=False)
 
 
-def test_reasoning_effort_none_is_rejected_by_litellm_before_reaching_azure(gateway: Gateway) -> None:
+def test_reasoning_effort_none_is_rejected_by_hangarllm_before_reaching_azure(gateway: Gateway) -> None:
     with wire_server(_reply) as wire, gateway.scenario() as scenario:
         model: Final = scenario.model(
             model=f"azure/{_DEPLOYMENT}",

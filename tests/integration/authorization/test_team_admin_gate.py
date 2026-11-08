@@ -169,7 +169,7 @@ def _spend_rows(gateway: Gateway, team_id: str, since: datetime, until: datetime
 def _team_model_body(s: TeamScenario, name: str, api_base: str | None = None) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o-mini",
             "api_key": "integration-provider-key",
             "api_base": api_base or f"{s.gateway.upstream_url}/v1",
@@ -191,7 +191,7 @@ def _callback_body(name: str) -> dict[str, JsonValue]:
 
 
 def _delete_model_if_present(gateway: Gateway, model_id: str) -> None:
-    if read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (model_id,)):
+    if read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (model_id,)):
         gateway.post("/model/delete", {"id": model_id})
 
 
@@ -319,7 +319,7 @@ ROUTES: Final[tuple[Route, ...]] = (
           lambda s: Call("POST", "/model/new", _team_model_body(s, f"matrix-{uuid.uuid4().hex}")),
           team_admin=200, others=403, cleanup=_delete_model),
     Route("model_update_team",
-          lambda s: Call("POST", "/model/update", {"model_info": {"id": s.model(), "team_id": s.team_id}, "litellm_params": {"rpm": 10}}),
+          lambda s: Call("POST", "/model/update", {"model_info": {"id": s.model(), "team_id": s.team_id}, "hangarllm_params": {"rpm": 10}}),
           team_admin=200, others=403),
     Route("model_delete_team",
           lambda s: Call("POST", "/model/delete", {"id": s.model()}),
@@ -462,7 +462,7 @@ def test_status_code(shared: TeamScenario, org_team: TeamScenario, route: Route,
             f"{caller} {call.method} {call.path}: {response.status_code} {response.text}"
         )
         if route.name in _BUDGET_ROUTES:
-            assert read_rows('SELECT max_budget FROM "LiteLLM_TeamTable" WHERE team_id = %s', (s.team_id,)) == [
+            assert read_rows('SELECT max_budget FROM "HangarLLM_TeamTable" WHERE team_id = %s', (s.team_id,)) == [
                 {"max_budget": _BUDGET_ROUTES[route.name] if response.status_code == 200 else _BUDGET_BEFORE}
             ]
         if response.status_code == 200 and route.cleanup is not None:
@@ -484,7 +484,7 @@ def test_member_key_created_by_a_team_admin_reaches_llm_routes_only(shared: Team
         own_key: Final = scenario.key(user_id=member, team_id=s.team_id)
 
         assert read_rows(
-            'SELECT user_id, team_id, allowed_routes FROM "LiteLLM_VerificationToken" WHERE token = %s',
+            'SELECT user_id, team_id, allowed_routes FROM "HangarLLM_VerificationToken" WHERE token = %s',
             (string_value(created["token"]),),
         ) == [{"user_id": member, "team_id": s.team_id, "allowed_routes": ["llm_api_routes"]}]
         s.gateway.chat(s.model(), key=token)
@@ -516,7 +516,7 @@ def _team_model(s: TeamScenario, api_base: str | None = None) -> tuple[str, str]
 
 
 def _blocked(model_id: str) -> list[dict[str, object]]:
-    return read_rows('SELECT blocked FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (model_id,))
+    return read_rows('SELECT blocked FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (model_id,))
 
 
 def _serve(s: TeamScenario, name: str, key: str) -> httpx.Response:
@@ -627,7 +627,7 @@ _MODEL_BLOCKED_REFUSED: Final[tuple[int, JsonValue]] = (
     403,
     {
         "error": {
-            "message": "litellm.PermissionDeniedError: Model is blocked",
+            "message": "hangarllm.PermissionDeniedError: Model is blocked",
             "type": "permission_error",
             "param": None,
             "code": "403",
@@ -709,7 +709,7 @@ def _model_creation_disabled_for_internal_users(gateway: Gateway) -> Iterator[No
 
 def _model_rows(name: str) -> list[dict[str, object]]:
     return read_rows(
-        'SELECT model_id FROM "LiteLLM_ProxyModelTable" '
+        'SELECT model_id FROM "HangarLLM_ProxyModelTable" '
         "WHERE model_name = %s OR model_info->>'team_public_model_name' = %s",
         (name, name),
     )
@@ -771,7 +771,7 @@ def test_internal_user_model_creation_prohibition_refuses_team_admin_but_not_pro
 
 def _credential_row(name: str) -> list[dict[str, object]]:
     return read_rows(
-        'SELECT credential_name, credential_values, credential_info, updated_at::text AS updated_at FROM "LiteLLM_CredentialsTable" '
+        'SELECT credential_name, credential_values, credential_info, updated_at::text AS updated_at FROM "HangarLLM_CredentialsTable" '
         "WHERE credential_name = %s",
         (name,),
     )
@@ -798,10 +798,10 @@ def test_only_proxy_admin_reads_or_changes_credentials(
             "/model/new",
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{s.gateway.upstream_url}/v1",
-                    "litellm_credential_name": name,
+                    "hangarllm_credential_name": name,
                 },
             },
         )
@@ -853,7 +853,7 @@ def test_non_team_admin_patching_the_blocked_flag_gets_the_blocked_flag_refusal(
 ) -> None:
     pytest.skip(
         'BUG: PATCH /model/{id}/update {"blocked": ...} by a non-team-admin returns the auto-router refusal '
-        "instead of the blocked-flag refusal (https://github.com/BerriAI/litellm/issues/44792)"
+        "instead of the blocked-flag refusal (upstream issue 44792)"
     )
     with gateway_from_environment() as gateway, gateway.scenario() as scenario:
         s: Final = _admin_only_team(request, fixture, scenario)

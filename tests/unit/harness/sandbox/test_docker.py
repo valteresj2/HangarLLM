@@ -6,10 +6,10 @@ from typing import Optional
 
 import pytest
 
-from litellm import sandbox
-from litellm.harness.errors import SandboxError
-from litellm.harness.sandbox import DockerSandbox, Sandbox
-from litellm.harness.sandbox.docker import parse_sha256sum
+from hangarllm import sandbox
+from hangarllm.harness.errors import SandboxError
+from hangarllm.harness.sandbox import DockerSandbox, Sandbox
+from hangarllm.harness.sandbox.docker import parse_sha256sum
 
 DOCKER_IMAGE = "alpine:3.20"
 CID = "cid123"

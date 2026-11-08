@@ -27,7 +27,7 @@ const verdict = (overrides: Partial<Verdict> = {}): Verdict => ({
   ...overrides,
 });
 
-const config: FlagConfig = { repo: "BerriAI/litellm", issueNumber: 35, dryRun: false };
+const config: FlagConfig = { repo: "valteresj2/HangarLLM", issueNumber: 35, dryRun: false };
 
 describe("parseVerdict", () => {
   test("accepts the schema's shape, with a null duplicate_of", () => {
@@ -122,13 +122,13 @@ describe("flagIssue", () => {
           writes.push(`${method} ${path} ${JSON.stringify(body)}`);
           return {} as T;
         }
-        if (path.startsWith("/repos/BerriAI/litellm/issues/35/comments")) {
+        if (path.startsWith("/repos/valteresj2/HangarLLM/issues/35/comments")) {
           return comments as T;
         }
-        if (path === "/repos/BerriAI/litellm/issues/35") {
+        if (path === "/repos/valteresj2/HangarLLM/issues/35") {
           return reporter as T;
         }
-        if (path === `/repos/BerriAI/litellm/issues/${prior.number}`) {
+        if (path === `/repos/valteresj2/HangarLLM/issues/${prior.number}`) {
           return prior as T;
         }
         throw new Error(`unexpected GET ${path}`);
@@ -142,11 +142,11 @@ describe("flagIssue", () => {
     const result = await flagIssue(api, config, verdict());
     expect(result.kind).toBe("flagged");
     expect(writes.map((write) => write.split(" ").slice(0, 2).join(" "))).toEqual([
-      "POST /repos/BerriAI/litellm/issues/35/labels",
-      "POST /repos/BerriAI/litellm/issues/35/comments",
+      "POST /repos/valteresj2/HangarLLM/issues/35/labels",
+      "POST /repos/valteresj2/HangarLLM/issues/35/comments",
     ]);
     expect(writes[0]).toContain('{"labels":["potential-duplicate"]}');
-    expect(writes[1]).toContain("<!-- litellm:potential-duplicate candidates=10, -->");
+    expect(writes[1]).toContain("<!-- hangarllm:potential-duplicate candidates=10, -->");
   });
 
   test("a dry run renders the comment and writes nothing", async () => {
@@ -172,7 +172,7 @@ describe("flagIssue", () => {
   test("an issue that already carries a notice is not flagged twice", async () => {
     const existing: Comment = {
       id: 1,
-      body: "<!-- litellm:potential-duplicate candidates=10, -->\n**Possible duplicate of #10**",
+      body: "<!-- hangarllm:potential-duplicate candidates=10, -->\n**Possible duplicate of #10**",
       created_at: "2026-09-10T00:00:00Z",
       user: { type: "Bot", login: "github-actions[bot]" },
     };
@@ -182,25 +182,25 @@ describe("flagIssue", () => {
   });
 
   test("a failed comment leaves no marker, so the rerun finishes the job", async () => {
-    const commentsPath = "/repos/BerriAI/litellm/issues/35/comments";
+    const commentsPath = "/repos/valteresj2/HangarLLM/issues/35/comments";
     const first = fakeApi(undefined, [], [commentsPath]);
     await expect(flagIssue(first.api, config, verdict())).rejects.toThrow("failed: 502");
-    expect(first.writes).toEqual(['POST /repos/BerriAI/litellm/issues/35/labels {"labels":["potential-duplicate"]}']);
+    expect(first.writes).toEqual(['POST /repos/valteresj2/HangarLLM/issues/35/labels {"labels":["potential-duplicate"]}']);
 
     const rerun = fakeApi();
     expect((await flagIssue(rerun.api, config, verdict())).kind).toBe("flagged");
     expect(rerun.writes.map((write) => write.split(" ")[1])).toEqual([
-      "/repos/BerriAI/litellm/issues/35/labels",
+      "/repos/valteresj2/HangarLLM/issues/35/labels",
       commentsPath,
     ]);
   });
 });
 
 describe("readConfig", () => {
-  const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "BerriAI/litellm", ISSUE_NUMBER: "35" };
+  const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "valteresj2/HangarLLM", ISSUE_NUMBER: "35" };
 
   test("defaults to a real run", () => {
-    expect(readConfig(env)).toEqual({ token: "t", repo: "BerriAI/litellm", issueNumber: 35, dryRun: false });
+    expect(readConfig(env)).toEqual({ token: "t", repo: "valteresj2/HangarLLM", issueNumber: 35, dryRun: false });
   });
 
   test("honors DRY_RUN", () => {

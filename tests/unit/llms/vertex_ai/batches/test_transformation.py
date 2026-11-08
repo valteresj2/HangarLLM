@@ -1,10 +1,10 @@
 """
 Unit tests for ``VertexAIBatchTransformation``
-(litellm/llms/vertex_ai/batches/transformation.py).
+(hangarllm/llms/vertex_ai/batches/transformation.py).
 
 This module is pure transformation logic: it maps OpenAI-shaped batch requests
 into Vertex AI ``VertexAIBatchPredictionJob`` payloads, and maps Vertex AI batch
-responses back into ``LiteLLMBatch`` / OpenAI list shapes. Unlike anthropic /
+responses back into ``HangarLLMBatch`` / OpenAI list shapes. Unlike anthropic /
 bedrock, this class does NOT subclass ``BaseBatchesConfig`` - it's a standalone
 set of classmethods with a Vertex-specific shape, so these tests are fully
 standalone and assert exact values rather than "ran without error".
@@ -19,35 +19,35 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.llms.vertex_ai.batches.transformation import (  # noqa: E402
+from hangarllm.llms.vertex_ai.batches.transformation import (  # noqa: E402
     VertexAIBatchTransformation,
     is_vertex_anthropic_batch_model,
     native_vertex_batch_row_stats,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError  # noqa: E402
-from litellm.types.utils import LiteLLMBatch  # noqa: E402
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError  # noqa: E402
+from hangarllm.types.utils import HangarLLMBatch  # noqa: E402
 
 T = VertexAIBatchTransformation
 
 INPUT_FILE = (
-    "gs://litellm-testing-bucket/litellm-vertex-files/publishers/google/"
+    "gs://hangarllm-testing-bucket/hangarllm-vertex-files/publishers/google/"
     "models/gemini-1.5-flash-001/e9412502-2c91-42a6-8e61-f5c294cc0fc8"
 )
 
 ENDPOINT_ID = "7768560373388541952"
 ENDPOINT_INPUT_FILE = (
-    f"gs://litellm-testing-bucket/litellm-vertex-files/endpoints/{ENDPOINT_ID}/e9412502-2c91-42a6-8e61-f5c294cc0fc8"
+    f"gs://hangarllm-testing-bucket/hangarllm-vertex-files/endpoints/{ENDPOINT_ID}/e9412502-2c91-42a6-8e61-f5c294cc0fc8"
 )
 
 
 def test_transform_openai_request_builds_full_vertex_job():
     with patch(
-        "litellm.llms.vertex_ai.batches.transformation.uuid.uuid4",
+        "hangarllm.llms.vertex_ai.batches.transformation.uuid.uuid4",
         return_value="fixed-uuid",
     ):
         job = T.transform_openai_batch_request_to_vertex_ai_batch_request({"input_file_id": INPUT_FILE})
 
-    assert job["displayName"] == "litellm-vertex-batch-fixed-uuid"
+    assert job["displayName"] == "hangarllm-vertex-batch-fixed-uuid"
     assert job["model"] == "publishers/google/models/gemini-1.5-flash-001"
 
     assert job["inputConfig"]["instancesFormat"] == "jsonl"
@@ -57,7 +57,7 @@ def test_transform_openai_request_builds_full_vertex_job():
     # gcs uri prefix == file path with the filename stripped
     assert (
         job["outputConfig"]["gcsDestination"]["outputUriPrefix"]
-        == "gs://litellm-testing-bucket/litellm-vertex-files/publishers/google/"
+        == "gs://hangarllm-testing-bucket/hangarllm-vertex-files/publishers/google/"
         "models/gemini-1.5-flash-001"
     )
 
@@ -138,7 +138,7 @@ def test_transform_vertex_response_full_mapping():
     }
     batch = T.transform_vertex_ai_batch_response_to_openai_batch_response(response)
 
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, HangarLLMBatch)
     assert batch.id == "3814889423749775360"
     assert batch.completion_window == "24h"
     assert batch.created_at == 1733349192
@@ -248,7 +248,7 @@ def test_get_input_file_id_empty_uris():
 # _get_output_file_id_from_vertex_ai_batch_response: None until Vertex reports outputInfo
 # =========================================================================== #
 
-SHARED_OUTPUT_PREFIX: Final = "gs://bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-flash"
+SHARED_OUTPUT_PREFIX: Final = "gs://bucket/hangarllm-vertex-files/publishers/google/models/gemini-2.5-flash"
 SUCCEEDED_OUTPUT_DIRECTORY: Final = f"{SHARED_OUTPUT_PREFIX}/prediction-model-2026-09-24T19:41:00.000000Z"
 
 
@@ -348,14 +348,14 @@ def test_get_output_file_id_output_info_ignores_output_uri_prefix():
 
 def test_get_gcs_uri_prefix_root():
     assert (
-        T._get_gcs_uri_prefix_from_file("gs://litellm-testing-bucket/vtx_batch.jsonl") == "gs://litellm-testing-bucket"
+        T._get_gcs_uri_prefix_from_file("gs://hangarllm-testing-bucket/vtx_batch.jsonl") == "gs://hangarllm-testing-bucket"
     )
 
 
 def test_get_gcs_uri_prefix_nested():
     assert (
-        T._get_gcs_uri_prefix_from_file("gs://litellm-testing-bucket/batches/vtx_batch.jsonl")
-        == "gs://litellm-testing-bucket/batches"
+        T._get_gcs_uri_prefix_from_file("gs://hangarllm-testing-bucket/batches/vtx_batch.jsonl")
+        == "gs://hangarllm-testing-bucket/batches"
     )
 
 
@@ -387,15 +387,15 @@ def test_get_model_from_gcs_file_fine_tuned_endpoint():
 
 def test_get_model_from_gcs_file_publisher_path_wins_over_endpoints_prefix():
     """A bucket prefix containing endpoints/<digits> must not override the publisher model path
-    LiteLLM appended after it."""
-    uri = "gs://bucket/team-endpoints/999/litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/uuid"
+    HangarLLM appended after it."""
+    uri = "gs://bucket/team-endpoints/999/hangarllm-vertex-files/publishers/google/models/gemini-1.5-flash-001/uuid"
     assert T._get_model_from_gcs_file(uri) == "publishers/google/models/gemini-1.5-flash-001"
 
 
 def test_get_model_from_gcs_file_last_endpoints_segment_wins():
     """With no publisher path, the endpoint id closest to the file (last occurrence) is the one
-    LiteLLM stored; an earlier prefix segment must not shadow it."""
-    uri = f"gs://bucket/endpoints/999/litellm-vertex-files/endpoints/{ENDPOINT_ID}/uuid"
+    HangarLLM stored; an earlier prefix segment must not shadow it."""
+    uri = f"gs://bucket/endpoints/999/hangarllm-vertex-files/endpoints/{ENDPOINT_ID}/uuid"
     assert T._get_model_from_gcs_file(uri) == f"endpoints/{ENDPOINT_ID}"
 
 
@@ -482,7 +482,7 @@ def test_list_response_none_jobs_treated_as_empty():
 
 
 PASSTHROUGH_INPUT_FILE = (
-    "gs://litellm-testing-bucket/litellm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/uuid-1"
+    "gs://hangarllm-testing-bucket/hangarllm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/uuid-1"
 )
 
 
@@ -493,12 +493,12 @@ def test_get_model_from_passthrough_gcs_file():
 def test_get_gcs_uri_prefix_keeps_passthrough_segment_so_output_lands_beside_input():
     assert (
         T._get_gcs_uri_prefix_from_file(PASSTHROUGH_INPUT_FILE)
-        == "gs://litellm-testing-bucket/litellm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash"
+        == "gs://hangarllm-testing-bucket/hangarllm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash"
     )
 
 
 CLAUDE_INPUT_FILE = (
-    "gs://litellm-testing-bucket/litellm-vertex-files/publishers/anthropic/models/claude-sonnet-4-6/uuid-1"
+    "gs://hangarllm-testing-bucket/hangarllm-vertex-files/publishers/anthropic/models/claude-sonnet-4-6/uuid-1"
 )
 
 

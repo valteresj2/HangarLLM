@@ -1,5 +1,5 @@
 """
-Behavior tests for the LiteLLM_AutoRouterSession conditional upsert and the benchmarks
+Behavior tests for the HangarLLM_AutoRouterSession conditional upsert and the benchmarks
 aggregate, against a real Postgres. The classification lives in SQL, so these tests are
 the ones that exercise it; the builder and flush contracts are unit-tested in
 tests/unit/proxy/db/test_autorouter_session_rollup.py.
@@ -23,7 +23,7 @@ from prisma import Prisma
 from prisma.errors import RawQueryError
 from typing_extensions import ReadOnly
 
-from litellm.proxy.db.autorouter_session_rollup import (
+from hangarllm.proxy.db.autorouter_session_rollup import (
     AUTOROUTER_BENCHMARKS_SQL,
     UPSERT_AUTOROUTER_SESSION_SQL,
     UPSERT_AUTOROUTER_USER_SESSION_SQL,
@@ -31,7 +31,7 @@ from litellm.proxy.db.autorouter_session_rollup import (
     flush_autorouter_turn_transactions,
     write_autorouter_turn,
 )
-from litellm.proxy.db.db_transaction_queue.spend_log_cleanup import SpendLogCleanup
+from hangarllm.proxy.db.db_transaction_queue.spend_log_cleanup import SpendLogCleanup
 from tests.integration._support.prisma_clients import connected_prisma
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -69,9 +69,9 @@ async def cleanup_rows(db: Prisma) -> AsyncIterator[None]:
     token: Final[Token[ScopedIdentity | None]] = IDENTITY.set(identity)
     yield
     key_pattern: Final = f"k-{identity.namespace}-%"
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterDailySpend" WHERE api_key LIKE $1', key_pattern)
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterUserSession" WHERE api_key LIKE $1', key_pattern)
-    await db.execute_raw('DELETE FROM "LiteLLM_AutoRouterSession" WHERE api_key LIKE $1', key_pattern)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterDailySpend" WHERE api_key LIKE $1', key_pattern)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterUserSession" WHERE api_key LIKE $1', key_pattern)
+    await db.execute_raw('DELETE FROM "HangarLLM_AutoRouterSession" WHERE api_key LIKE $1', key_pattern)
     IDENTITY.reset(token)
 
 
@@ -148,7 +148,7 @@ async def _days(db, key: str | None = None, user_id: str | None = None, router: 
 
 async def _row(db, key: str, session_id: str = "s1", router: str = "auto-1") -> dict:
     rows = await db.query_raw(
-        'SELECT * FROM "LiteLLM_AutoRouterSession" WHERE api_key = $1 AND session_id = $2 AND router_name = $3',
+        'SELECT * FROM "HangarLLM_AutoRouterSession" WHERE api_key = $1 AND session_id = $2 AND router_name = $3',
         key,
         session_id,
         router,
@@ -259,7 +259,7 @@ async def test_concurrent_writers_compose_without_losing_turns(db):
 
 async def _legacy_turn(db, key: str, at: datetime, session_id: str = "s1", router: str = "auto-1") -> None:
     await db.execute_raw(
-        """INSERT INTO "LiteLLM_AutoRouterSession" AS t (
+        """INSERT INTO "HangarLLM_AutoRouterSession" AS t (
             api_key, session_id, router_name, router_type, first_turn_at, last_turn_at, last_model, turns, spend, saved_spend
         ) VALUES ($1, $2, $3, 'complexity', $4::timestamp, $4::timestamp, 'A', 1, 0.01, 0.02)
         ON CONFLICT (api_key, session_id, router_name) DO UPDATE SET
@@ -465,7 +465,7 @@ async def test_a_failed_user_projection_rolls_back_the_keys_increment(db: Prisma
         await _turn(db, key, "B", T0 + timedelta(seconds=1), user_id=user_id)
 
     assert await _row(db, key) == before
-    assert await db.query_raw('SELECT user_id FROM "LiteLLM_AutoRouterUserSession" WHERE user_id = $1', user_id) == []
+    assert await db.query_raw('SELECT user_id FROM "HangarLLM_AutoRouterUserSession" WHERE user_id = $1', user_id) == []
     assert [day["turns"] for day in await _days(db, key)] == [1]
 
     first_user: Final = f"u-{_new_identity()}"
@@ -503,7 +503,7 @@ async def test_a_failed_user_projection_rolls_back_the_keys_increment(db: Prisma
     key_row: Final = await _row(db, key)
     assert (key_row["turns"], key_row["last_model"], key_row["unordered_turns"]) == (2, "A", 0)
     assert key_row["spend"] == pytest.approx(0.02)
-    user_rows: Final = await db.query_raw('SELECT * FROM "LiteLLM_AutoRouterUserSession" WHERE api_key = $1', key)
+    user_rows: Final = await db.query_raw('SELECT * FROM "HangarLLM_AutoRouterUserSession" WHERE api_key = $1', key)
     by_user: Final = {row["user_id"]: row for row in user_rows}
     assert set(by_user) == {first_user, second_user}
     for user, count, model in ((first_user, 3, "B"), (second_user, 2, "C")):
@@ -512,7 +512,7 @@ async def test_a_failed_user_projection_rolls_back_the_keys_increment(db: Prisma
         assert row["spend"] == pytest.approx(count * 0.01)
         assert row["saved_spend"] == pytest.approx(count * 0.02)
     days: Final = await db.query_raw(
-        'SELECT user_id, turns, saved_spend FROM "LiteLLM_AutoRouterDailySpend" WHERE api_key = $1', key
+        'SELECT user_id, turns, saved_spend FROM "HangarLLM_AutoRouterDailySpend" WHERE api_key = $1', key
     )
     assert {day["user_id"]: (day["turns"], day["saved_spend"]) for day in days} == {
         "": (1, pytest.approx(0.02)),
@@ -534,7 +534,7 @@ async def test_user_session_cleanup_keeps_another_users_recent_keyless_session(d
     )
 
     assert await db.query_raw(
-        'SELECT user_id, turns FROM "LiteLLM_AutoRouterUserSession" WHERE router_name = $1', router
+        'SELECT user_id, turns FROM "HangarLLM_AutoRouterUserSession" WHERE router_name = $1', router
     ) == [{"user_id": recent_user, "turns": 1}]
 
 
@@ -697,7 +697,7 @@ async def test_a_cross_midnight_session_splits_its_money_by_request_day(db):
 
     assert (await _row(db, key, router=router))["saved_spend"] == 21.0
     days = await db.query_raw(
-        'SELECT date, turns, saved_spend FROM "LiteLLM_AutoRouterDailySpend" WHERE api_key = $1 ORDER BY date', key
+        'SELECT date, turns, saved_spend FROM "HangarLLM_AutoRouterDailySpend" WHERE api_key = $1 ORDER BY date', key
     )
     assert [(d["date"], d["turns"], d["saved_spend"]) for d in days] == [
         ("2026-09-01", 1, 7.0),
@@ -769,7 +769,7 @@ async def test_a_sessionless_turn_writes_its_router_day_row_and_no_session_row(d
     assert (day["turns"], day["spend"], day["saved_spend"], day["classifier_cost"]) == (2, 2.0, 4.0, 0.2)
     assert day["day_total_tokens"] == 20
     assert (day["sessions"], day["session_turns"]) == (0, 0)
-    for table in ("LiteLLM_AutoRouterSession", "LiteLLM_AutoRouterUserSession"):
+    for table in ("HangarLLM_AutoRouterSession", "HangarLLM_AutoRouterUserSession"):
         assert await db.query_raw(f'SELECT 1 FROM "{table}" WHERE router_name = $1', router) == []
 
 
@@ -779,7 +779,7 @@ async def test_daily_token_coverage_stays_unknown_with_old_writers(db: Prisma, h
     router: Final = f"auto-{_new_identity()}"
     if historical:
         await db.execute_raw(
-            'INSERT INTO "LiteLLM_AutoRouterDailySpend" '
+            'INSERT INTO "HangarLLM_AutoRouterDailySpend" '
             '(date, api_key, user_id, router_name, router_type, turns, spend) '
             "VALUES ($1, $2, 'u1', $3, 'complexity', 1, 1)",
             T0.date().isoformat(), key, router,
@@ -787,7 +787,7 @@ async def test_daily_token_coverage_stays_unknown_with_old_writers(db: Prisma, h
     await _turn(db, key, "A", T0, router=router, tokens=123, spend=1.0, user_id="u1")
     if not historical:
         await db.execute_raw(
-            'UPDATE "LiteLLM_AutoRouterDailySpend" SET turns = turns + 1, spend = spend + 1 '
+            'UPDATE "HangarLLM_AutoRouterDailySpend" SET turns = turns + 1, spend = spend + 1 '
             'WHERE api_key = $1 AND router_name = $2', key, router,
         )
     for user_id in (None, "u1"):
@@ -810,7 +810,7 @@ async def test_missing_usage_never_completes_daily_token_coverage(db: Prisma, mi
 
 
 async def test_router_day_money_reconciles_with_the_overall_daily_total_including_sessionless_requests(db):
-    from litellm.proxy.db.daily_spend_bulk_upsert import DAILY_SPEND_TABLES, build_bulk_upsert, merge_by_conflict_key
+    from hangarllm.proxy.db.daily_spend_bulk_upsert import DAILY_SPEND_TABLES, build_bulk_upsert, merge_by_conflict_key
 
     key = f"k-{_new_identity()}"
     router = f"auto-{_new_identity()}"
@@ -864,7 +864,7 @@ async def test_router_day_money_reconciles_with_the_overall_daily_total_includin
     await db.execute_raw(statement, *values)
 
     (overall,) = await db.query_raw(
-        'SELECT SUM(autorouter_savings_spend)::float8 AS saved FROM "LiteLLM_DailyUserSpend" WHERE date = $1 AND api_key = $2',
+        'SELECT SUM(autorouter_savings_spend)::float8 AS saved FROM "HangarLLM_DailyUserSpend" WHERE date = $1 AND api_key = $2',
         T0.date().isoformat(),
         key,
     )

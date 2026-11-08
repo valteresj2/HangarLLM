@@ -10,22 +10,22 @@ import pytest
 import respx
 from pydantic import JsonValue
 
-import litellm
-from litellm import anthropic_beta_headers_manager
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.anthropic.messages.native.transformation import (
+import hangarllm
+from hangarllm import anthropic_beta_headers_manager
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.anthropic.messages.native.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.anthropic.wif import get_anthropic_wif_token
-from litellm.llms.deepseek.messages.transformation import DeepSeekAnthropicMessagesConfig
-from litellm.llms.minimax.messages.transformation import MinimaxMessagesConfig
-from litellm.llms.openai_like.messages.transformation import OpenAILikeAnthropicMessagesConfig
-from litellm.llms.tencent.messages.transformation import TencentAnthropicMessagesConfig
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation import (
+from hangarllm.llms.anthropic.wif import get_anthropic_wif_token
+from hangarllm.llms.deepseek.messages.transformation import DeepSeekAnthropicMessagesConfig
+from hangarllm.llms.minimax.messages.transformation import MinimaxMessagesConfig
+from hangarllm.llms.openai_like.messages.transformation import OpenAILikeAnthropicMessagesConfig
+from hangarllm.llms.tencent.messages.transformation import TencentAnthropicMessagesConfig
+from hangarllm.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation import (
     VertexAIPartnerModelsAnthropicMessagesConfig,
 )
-from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES, AnthropicFinishReason
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES, AnthropicFinishReason
+from hangarllm.types.router import GenericHangarLLMParams
 from tests.unit.llms.anthropic.test_anthropic_wif import (
     ScriptedPoster,
     make_engine,
@@ -73,7 +73,7 @@ def test_native_response_defaults_stop_sequence_without_changing_other_fields(
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         function_id="test-function",
     )
     response: Final = config.transform_anthropic_messages_response(
@@ -115,7 +115,7 @@ def test_messages_request_hoists_wrapped_defer_loading_and_drops_custom_only_und
         model="claude-haiku-5-5",
         messages=[{"role": "user", "content": "Hi"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -157,7 +157,7 @@ def test_messages_request_never_defers_tools_off_claude(
         model=model,
         messages=[{"role": "user", "content": "Hi"}],
         anthropic_messages_optional_request_params={"max_tokens": 50, "tools": [wrapped_tool]},
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -189,15 +189,15 @@ def test_minimax_validate_environment_never_attaches_anthropic_wif_credential(
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
     token_file = write_token_file(tmp_path, "jwt-assertion-value")
-    litellm_params = {"anthropic_identity_token_file": str(token_file)}
+    hangarllm_params = {"anthropic_identity_token_file": str(token_file)}
 
-    with pytest.raises(litellm.AuthenticationError, match="Missing Anthropic API Key"):
+    with pytest.raises(hangarllm.AuthenticationError, match="Missing Anthropic API Key"):
         MinimaxMessagesConfig().validate_anthropic_messages_environment(
             headers={},
             model="MiniMax-M2.1",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_key=None,
             api_base="https://api.minimax.io/anthropic",
         )
@@ -212,16 +212,16 @@ def test_tencent_validate_environment_never_attaches_anthropic_wif_credential(
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     monkeypatch.delenv("TENCENT_API_KEY", raising=False)
     token_file = write_token_file(tmp_path, "jwt-assertion-value")
-    litellm_params = {"anthropic_identity_token_file": str(token_file)}
+    hangarllm_params = {"anthropic_identity_token_file": str(token_file)}
 
-    monkeypatch.setattr(litellm, "api_key", None)
-    with pytest.raises(litellm.AuthenticationError, match="Missing Anthropic API Key"):
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    with pytest.raises(hangarllm.AuthenticationError, match="Missing Anthropic API Key"):
         TencentAnthropicMessagesConfig().validate_anthropic_messages_environment(
             headers={},
             model="deepseek-v4-pro",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             api_key=None,
             api_base="https://tokenhub-intl.tencentcloudmaas.com",
         )
@@ -232,19 +232,19 @@ def test_wif_token_exchange_reaches_only_anthropic_not_minimax_or_tencent(
 ) -> None:
     """get_anthropic_wif_token's engine parameter is the only DI seam in the WIF minting chain;
     validate_anthropic_messages_environment always uses the module's default engine, so this
-    drives that seam directly with the exact litellm_params AnthropicModelInfo.get_auth_header
+    drives that seam directly with the exact hangarllm_params AnthropicModelInfo.get_auth_header
     would receive from each config, proving MiniMax/Tencent never reach the token endpoint even
     when a mint would otherwise succeed."""
     monkeypatch.setenv("ANTHROPIC_FEDERATION_RULE_ID", "fdrl_prod")
     monkeypatch.setenv("ANTHROPIC_ORGANIZATION_ID", "org-prod-uuid")
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     token_file = write_token_file(tmp_path, "jwt-assertion-value")
-    litellm_params = {"anthropic_identity_token_file": str(token_file)}
+    hangarllm_params = {"anthropic_identity_token_file": str(token_file)}
     poster = ScriptedPoster([token_response("sk-ant-oat01-canary")])
     engine = make_engine(poster)
 
     minted: Final = get_anthropic_wif_token(
-        litellm_params,
+        hangarllm_params,
         "https://api.anthropic.com",
         "claude-sonnet-4-5",
         engine,
@@ -265,8 +265,8 @@ AUTO_MODE_SAFEGUARDS: Final = [
 
 
 def _classifier_configs() -> tuple[AnthropicMessagesConfig, ...]:
-    from litellm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
-    from litellm.llms.databricks.messages.transformation import DatabricksAnthropicMessagesConfig
+    from hangarllm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
+    from hangarllm.llms.databricks.messages.transformation import DatabricksAnthropicMessagesConfig
 
     return (AnthropicMessagesConfig(), AzureAnthropicMessagesConfig(), DatabricksAnthropicMessagesConfig())
 
@@ -278,8 +278,8 @@ class _BetaMapRejectsTheClassifierConfig(AnthropicMessagesConfig):
 
 
 def _no_classifier_configs() -> tuple[AnthropicMessagesConfig, ...]:
-    from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-    from litellm.llms.openai_like.messages.transformation import JSONProviderAnthropicMessagesConfig
+    from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
+    from hangarllm.llms.openai_like.messages.transformation import JSONProviderAnthropicMessagesConfig
 
     sail: Final = JSONProviderRegistry.get("sail")
     assert sail is not None
@@ -287,9 +287,9 @@ def _no_classifier_configs() -> tuple[AnthropicMessagesConfig, ...]:
 
 
 def _configs_that_forward_safeguards_as_sent() -> tuple[AnthropicMessagesConfig, ...]:
-    from litellm.llms.deepseek.messages.transformation import DeepSeekAnthropicMessagesConfig
-    from litellm.llms.github_copilot.messages.transformation import GithubCopilotAnthropicMessagesConfig
-    from litellm.llms.openai_like.messages.transformation import OpenAILikeAnthropicMessagesConfig
+    from hangarllm.llms.deepseek.messages.transformation import DeepSeekAnthropicMessagesConfig
+    from hangarllm.llms.github_copilot.messages.transformation import GithubCopilotAnthropicMessagesConfig
+    from hangarllm.llms.openai_like.messages.transformation import OpenAILikeAnthropicMessagesConfig
 
     return (
         DeepSeekAnthropicMessagesConfig(),
@@ -299,12 +299,12 @@ def _configs_that_forward_safeguards_as_sent() -> tuple[AnthropicMessagesConfig,
     )
 
 
-def _safeguards_request(config: AnthropicMessagesConfig, litellm_params: GenericLiteLLMParams | None = None) -> dict:
+def _safeguards_request(config: AnthropicMessagesConfig, hangarllm_params: GenericHangarLLMParams | None = None) -> dict:
     return config.transform_anthropic_messages_request(
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "Use the Bash tool to run: echo hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 64, "safeguards": list(AUTO_MODE_SAFEGUARDS)},
-        litellm_params=litellm_params or GenericLiteLLMParams(),
+        hangarllm_params=hangarllm_params or GenericHangarLLMParams(),
         headers={},
     )
 
@@ -374,7 +374,7 @@ def test_context_management_the_list_form_cannot_map_is_dropped_only_under_drop_
         model="claude-haiku-5-5",
         messages=[{"role": "user", "content": "Hi"}],
         anthropic_messages_optional_request_params={"max_tokens": 50, "context_management": context_management},
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -410,29 +410,29 @@ _CLASSIFIER_SETTINGS: Final = {"safeguards_classifier_model": "classifier"}
 
 @pytest.mark.parametrize("config", _no_classifier_configs(), ids=type)
 @pytest.mark.parametrize(
-    ("litellm_params", "global_drop_params", "general_settings", "forwarded"),
+    ("hangarllm_params", "global_drop_params", "general_settings", "forwarded"),
     (
-        pytest.param(GenericLiteLLMParams(), False, {}, AUTO_MODE_SAFEGUARDS, id="as_sent"),
-        pytest.param(GenericLiteLLMParams(drop_params=True), False, {}, None, id="deployment_drop_params"),
-        pytest.param(GenericLiteLLMParams(), True, {}, None, id="global_drop_params"),
-        pytest.param(GenericLiteLLMParams(), False, _CLASSIFIER_SETTINGS, None, id="proxy_classifier"),
+        pytest.param(GenericHangarLLMParams(), False, {}, AUTO_MODE_SAFEGUARDS, id="as_sent"),
+        pytest.param(GenericHangarLLMParams(drop_params=True), False, {}, None, id="deployment_drop_params"),
+        pytest.param(GenericHangarLLMParams(), True, {}, None, id="global_drop_params"),
+        pytest.param(GenericHangarLLMParams(), False, _CLASSIFIER_SETTINGS, None, id="proxy_classifier"),
     ),
 )
 def test_a_route_without_the_classifier_drops_safeguards_only_under_drop_params_or_the_proxy_classifier(
     config: AnthropicMessagesConfig,
-    litellm_params: GenericLiteLLMParams,
+    hangarllm_params: GenericHangarLLMParams,
     global_drop_params: bool,
     general_settings: Mapping[str, str],
     forwarded: list[dict] | None,
     monkeypatch: pytest.MonkeyPatch,
     local_beta_headers_config: None,
 ) -> None:
-    """A platform without the classifier answers 400 to `safeguards`, which is how litellm treats any
+    """A platform without the classifier answers 400 to `safeguards`, which is how hangarllm treats any
     unsupported param: dropped under drop_params, forwarded as sent without it. The proxy's own
     classifier answers in the platform's place, so the field is dropped then too."""
-    monkeypatch.setattr(litellm, "drop_params", global_drop_params)
-    with patch("litellm.proxy.proxy_server.general_settings", general_settings):
-        request: Final = _safeguards_request(config, litellm_params)
+    monkeypatch.setattr(hangarllm, "drop_params", global_drop_params)
+    with patch("hangarllm.proxy.proxy_server.general_settings", general_settings):
+        request: Final = _safeguards_request(config, hangarllm_params)
     assert request.get("safeguards") == forwarded
 
 
@@ -453,9 +453,9 @@ async def test_a_json_provider_gets_safeguards_and_the_beta_together_unless_drop
 
     import httpx
 
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
-    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake platform records what litellm sent
+    received: Final[list[httpx.Request]] = []  # mutable-ok: the fake platform records what hangarllm sent
 
     def platform_answers(request: httpx.Request) -> httpx.Response:
         received.append(request)
@@ -477,7 +477,7 @@ async def test_a_json_provider_gets_safeguards_and_the_beta_together_unless_drop
 
     upstream: Final = AsyncHTTPHandler(transport=httpx.MockTransport(platform_answers))
     try:
-        response = await litellm.anthropic.messages.acreate(
+        response = await hangarllm.anthropic.messages.acreate(
             max_tokens=64,
             messages=[{"role": "user", "content": "Use the Bash tool to run: echo hello"}],
             model="sail/claude-sonnet-4-6",
@@ -532,7 +532,7 @@ def test_drop_params_drops_a_non_string_tool_result_text_on_the_native_request(
         model="claude-sonnet-4-5",
         messages=messages,
         anthropic_messages_optional_request_params={"max_tokens": 64},
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers={},
     )
 
@@ -555,7 +555,7 @@ def test_drop_params_forwards_a_non_object_message_item_as_sent_on_the_native_re
         model="claude-sonnet-4-5",
         messages=[{"role": "user", "content": "What is the weather?"}, 7, tool_result_turn],
         anthropic_messages_optional_request_params={"max_tokens": 64},
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={},
     )
 
@@ -582,7 +582,7 @@ def test_native_response_keeps_input_transformations() -> None:
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         function_id="test-function",
     )
 
@@ -623,7 +623,7 @@ def _bound_adaptive_request(headers: dict[str, str], drop_params: bool | None = 
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(drop_params=drop_params),
+        hangarllm_params=GenericHangarLLMParams(drop_params=drop_params),
         headers=headers,
     )
     assert thinking == {
@@ -646,7 +646,7 @@ def test_messages_request_keeps_beta_gated_thinking_fields_when_the_final_header
 def test_messages_request_drops_beta_gated_thinking_fields_the_final_header_does_not_carry(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         request: Final = _bound_adaptive_request({"anthropic-beta": "thinking-binding-controls-2026-08-01"})
     assert request["thinking"] == {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "error"}}
     assert any("thinking.display=updates" in record.getMessage() for record in caplog.records)
@@ -655,7 +655,7 @@ def test_messages_request_drops_beta_gated_thinking_fields_the_final_header_does
 def test_messages_request_sends_beta_gated_thinking_fields_as_is_without_drop_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(hangarllm, "drop_params", False)
     request: Final = _bound_adaptive_request({}, drop_params=None)
     assert request["thinking"] == {
         "type": "adaptive",
@@ -670,7 +670,7 @@ def test_messages_request_drops_clear_at_from_a_mid_conversation_system_turn_wit
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "hi"}, system_turn, {"role": "user", "content": "go"}],
         anthropic_messages_optional_request_params={"max_tokens": 64},
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={"anthropic-beta": "mid-conversation-system-2026-07-01"},
     )
     assert request["messages"][1] == {"role": "system", "content": "be terse"}
@@ -690,7 +690,7 @@ def test_a_provider_without_a_beta_headers_row_forwards_beta_gated_fields_under_
             {"role": "system", "content": "Answer in French", "output_config": {"effort": "low"}},
         ],
         anthropic_messages_optional_request_params={"max_tokens": 64, "thinking": dict(thinking)},
-        litellm_params=GenericLiteLLMParams(drop_params=True),
+        hangarllm_params=GenericHangarLLMParams(drop_params=True),
         headers={},
     )
     assert request["thinking"] == thinking
@@ -700,11 +700,11 @@ def test_a_provider_without_a_beta_headers_row_forwards_beta_gated_fields_under_
 def test_a_first_party_messages_request_never_fetches_the_remote_beta_headers_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
 
     with respx.mock(assert_all_called=False) as router:
-        remote_config: Final = router.get(litellm.anthropic_beta_headers_url).mock(
+        remote_config: Final = router.get(hangarllm.anthropic_beta_headers_url).mock(
             return_value=httpx.Response(200, json={})
         )
         request: Final = AnthropicMessagesConfig().transform_anthropic_messages_request(
@@ -715,7 +715,7 @@ def test_a_first_party_messages_request_never_fetches_the_remote_beta_headers_co
                 {"role": "user", "content": "go"},
             ],
             anthropic_messages_optional_request_params={"max_tokens": 64},
-            litellm_params=GenericLiteLLMParams(drop_params=True),
+            hangarllm_params=GenericHangarLLMParams(drop_params=True),
             headers={},
         )
 

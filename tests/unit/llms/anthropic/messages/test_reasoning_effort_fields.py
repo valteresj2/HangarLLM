@@ -13,14 +13,14 @@ from typing import Any, Dict
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.reasoning_effort_capability import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.reasoning_effort_capability import (
     resolve_supported_reasoning_efforts,
 )
-from litellm.llms.anthropic.messages.utils import (
+from hangarllm.llms.anthropic.messages.utils import (
     normalize_reasoning_effort_value,
 )
-from litellm.utils import get_model_info
+from hangarllm.utils import get_model_info
 
 
 def _load_model_registry() -> Dict[str, Any]:
@@ -54,7 +54,7 @@ class TestModelRegistryReasoningEffortFields:
 
     Claude models intentionally OMIT ``supports_minimal_reasoning_effort``:
     ``minimal`` is not a real Anthropic effort level (the API accepts only
-    low/medium/high/xhigh/max), so LiteLLM degrades ``minimal`` to ``low``
+    low/medium/high/xhigh/max), so HangarLLM degrades ``minimal`` to ``low``
     regardless of the flag. These tests guard against the flag being
     re-added to the Claude fleet."""
 
@@ -156,11 +156,11 @@ class TestAdapterAdaptiveThinking:
 
     def test_messages_adapter_adaptive_returns_medium_default(self):
         """Adaptive thinking returns 'medium' as default reasoning_effort."""
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
 
-        adapter = LiteLLMAnthropicMessagesAdapter()
+        adapter = HangarLLMAnthropicMessagesAdapter()
         result = adapter.translate_anthropic_thinking_to_reasoning_effort(
             {"type": "adaptive"},
             model="openai/gpt-6.1-sol",
@@ -169,12 +169,12 @@ class TestAdapterAdaptiveThinking:
 
     def test_messages_adapter_adaptive_overridden_by_output_config(self):
         """For adaptive thinking, output_config.effort overrides reasoning_effort."""
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
-        from litellm.types.llms.anthropic import AnthropicMessagesRequest
+        from hangarllm.types.llms.anthropic import AnthropicMessagesRequest
 
-        adapter = LiteLLMAnthropicMessagesAdapter()
+        adapter = HangarLLMAnthropicMessagesAdapter()
         request = AnthropicMessagesRequest(
             model="test-model",
             messages=[{"role": "user", "content": "hello"}],
@@ -192,11 +192,11 @@ class TestAdapterAdaptiveThinking:
 
     def test_responses_adapter_adaptive_with_output_config(self):
         """Responses adapter: adaptive thinking + output_config.effort."""
-        from litellm.llms.anthropic.messages.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        from hangarllm.llms.anthropic.messages.responses_adapters.transformation import (
+            HangarLLMAnthropicToResponsesAPIAdapter,
         )
 
-        result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
+        result = HangarLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
             thinking={"type": "adaptive"},
             output_config={"effort": "xhigh"},
             model="openai/gpt-6.1-sol",
@@ -206,11 +206,11 @@ class TestAdapterAdaptiveThinking:
 
     def test_responses_adapter_adaptive_default_medium(self):
         """Responses adapter: adaptive thinking without output_config defaults to medium."""
-        from litellm.llms.anthropic.messages.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        from hangarllm.llms.anthropic.messages.responses_adapters.transformation import (
+            HangarLLMAnthropicToResponsesAPIAdapter,
         )
 
-        result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
+        result = HangarLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
             thinking={"type": "adaptive"},
             model="openai/gpt-6.1-sol",
         )
@@ -281,18 +281,18 @@ def declared_effort_entry(local_model_cost_map, request):
     disjoint and empty declarations can be exercised without waiting for a real model to ship one.
     An operator writing this key on a config.yaml model_info block produces exactly these shapes."""
     key = f"synthetic/{request.node.name}"
-    litellm.model_cost[key] = {
-        "litellm_provider": "synthetic",
+    hangarllm.model_cost[key] = {
+        "hangarllm_provider": "synthetic",
         "mode": "chat",
         "supports_reasoning": True,
         "reasoning_effort_levels": list(request.param),
     }
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
     try:
         yield key.removeprefix("synthetic/")
     finally:
-        litellm.model_cost.pop(key, None)
-        litellm.get_model_info.cache_clear()
+        hangarllm.model_cost.pop(key, None)
+        hangarllm.get_model_info.cache_clear()
 
 
 class TestADeclarationDisjointFromTheChain:

@@ -1,4 +1,4 @@
-"""Smoke-check that a base ``pip install litellm`` (no extras) is importable and usable.
+"""Smoke-check that a base ``pip install hangarllm`` (no extras) is importable and usable.
 
 Run against a virtualenv that has the built wheel installed with no extras, using
 that venv's own interpreter and nothing else. Deliberately stdlib-only: pytest would
@@ -19,7 +19,7 @@ from itertools import chain
 from typing import Final
 
 EXTRAS_ONLY_MODULES = ("fastapi", "uvicorn", "keyring", "mcp", "mcp_types", "httpx2", "httpcore2")
-SDK_DISTRIBUTIONS: Final = frozenset({"litellm", "litellm-core"})
+SDK_DISTRIBUTIONS: Final = frozenset({"hangarllm", "hangarllm-core"})
 REQUIREMENT_NAME: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 EXTRA_MARKER: Final = re.compile(r";.*\bextra\s*==")
 
@@ -72,31 +72,31 @@ def check_import() -> str:
     from importlib.metadata import distributions as installed_distributions
     from importlib.metadata import version
 
-    import litellm
-    from litellm.llms.brave.search.transformation import BraveSearchConfig
+    import hangarllm
+    from hangarllm.llms.brave.search.transformation import BraveSearchConfig
 
     _require(callable(BraveSearchConfig), "Brave search configuration unavailable")
-    _require(bool(litellm.__file__), "litellm has no __file__")
-    from litellm._version import version as sdk_version
+    _require(bool(hangarllm.__file__), "hangarllm has no __file__")
+    from hangarllm._version import version as sdk_version
 
     distributions = tuple(
         distribution.metadata["Name"]
         for distribution in installed_distributions()
-        if distribution.metadata["Name"] in ("litellm", "litellm-core")
+        if distribution.metadata["Name"] in ("hangarllm", "hangarllm-core")
     )
     _require(len(distributions) == 1, f"expected one SDK distribution, found {distributions}")
     distribution = distributions[0]
     _require(sdk_version == version(distribution), "SDK version does not match installed metadata")
-    _require("litellm.proxy.proxy_cli" not in sys.modules, "SDK import loaded the proxy CLI")
+    _require("hangarllm.proxy.proxy_cli" not in sys.modules, "SDK import loaded the proxy CLI")
     return f"imported {distribution} {sdk_version}"
 
 
 def check_native_extension() -> str:
-    import litellm
-    from litellm.rust_bridge import _native
+    import hangarllm
+    from hangarllm.rust_bridge import _native
 
     native_path: Final = Path(_native.__file__).resolve()
-    package_path: Final = Path(litellm.__file__).resolve().parent
+    package_path: Final = Path(hangarllm.__file__).resolve().parent
     _require(native_path.parent == package_path / "rust_bridge", "native extension is outside the SDK package")
     _require(any(str(native_path).endswith(suffix) for suffix in EXTENSION_SUFFIXES), "native module is not compiled")
     _require(_native.trace_encode_error("ping") == b"\x12\x04ping", "native OTLP error encoding failed")
@@ -104,9 +104,9 @@ def check_native_extension() -> str:
 
 
 def check_completion() -> str:
-    import litellm
+    import hangarllm
 
-    response = litellm.completion(
+    response = hangarllm.completion(
         model="gpt-4o",
         messages=[{"role": "user", "content": "ping"}],
         mock_response="pong",
@@ -117,9 +117,9 @@ def check_completion() -> str:
 
 
 def check_completion_with_function_tool() -> str:
-    import litellm
+    import hangarllm
 
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="gpt-4o",
         messages=[{"role": "user", "content": "ping"}],
         tools=[
@@ -141,19 +141,19 @@ def check_completion_with_function_tool() -> str:
 
 def check_mcp_install_guidance() -> str:
     try:
-        import litellm.mcp_client
+        import hangarllm.mcp_client
     except ImportError as error:
-        _require("pip install 'litellm[mcp]'" in str(error), f"missing MCP installation guidance: {error}")
+        _require("pip install 'hangarllm[mcp]'" in str(error), f"missing MCP installation guidance: {error}")
         _require(isinstance(error.__cause__, ModuleNotFoundError), "original missing-dependency cause was lost")
         _require(error.__cause__.name == "mcp", f"unexpected missing dependency: {error.__cause__}")
-        return "optional MCP client explains how to install litellm[mcp]"
+        return "optional MCP client explains how to install hangarllm[mcp]"
     raise AssertionError("MCP client imported without the MCP extra")
 
 
 def check_embedding() -> str:
-    import litellm
+    import hangarllm
 
-    response = litellm.embedding(
+    response = hangarllm.embedding(
         model="text-embedding-3-small",
         input=["ping"],
         mock_response=[[0.1, 0.2]],
@@ -163,14 +163,14 @@ def check_embedding() -> str:
 
 
 def check_bundled_model_metadata() -> str:
-    import litellm
+    import hangarllm
 
-    max_input_tokens = litellm.get_model_info("gpt-4o")["max_input_tokens"]
+    max_input_tokens = hangarllm.get_model_info("gpt-4o")["max_input_tokens"]
     _require(
         isinstance(max_input_tokens, int) and max_input_tokens > 0,
         f"get_model_info returned max_input_tokens={max_input_tokens!r}",
     )
-    prompt_cost, completion_cost = litellm.cost_per_token(model="gpt-4o", prompt_tokens=1000, completion_tokens=1000)
+    prompt_cost, completion_cost = hangarllm.cost_per_token(model="gpt-4o", prompt_tokens=1000, completion_tokens=1000)
     _require(
         prompt_cost > 0 and completion_cost > 0,
         f"cost_per_token returned ({prompt_cost}, {completion_cost})",
@@ -179,20 +179,20 @@ def check_bundled_model_metadata() -> str:
 
 
 def check_token_counter() -> str:
-    import litellm
+    import hangarllm
 
-    count = litellm.token_counter(model="gpt-4o", text="hello world")
+    count = hangarllm.token_counter(model="gpt-4o", text="hello world")
     _require(count > 0, f"token_counter returned {count!r}")
     return f"token_counter returned {count}"
 
 
 def check_tokenizer_dependencies() -> str:
-    import litellm
-    from litellm.litellm_core_utils.tokenizer import HuggingFace, HuggingFaceTokenizer, Tokenizer
-    from litellm.rust_bridge import tokenizer
-    from litellm.utils import claude_json_str
+    import hangarllm
+    from hangarllm.hangarllm_core_utils.tokenizer import HuggingFace, HuggingFaceTokenizer, Tokenizer
+    from hangarllm.rust_bridge import tokenizer
+    from hangarllm.utils import claude_json_str
 
-    _require(isinstance(litellm.encoding, Tokenizer), "runtime alias rejects the default encoding")
+    _require(isinstance(hangarllm.encoding, Tokenizer), "runtime alias rejects the default encoding")
     native = tokenizer.native_anthropic()
     if native is not None:
         _require(bool(native.encode("hello")), "native tokenizer returned no tokens")
@@ -215,7 +215,7 @@ def check_bedrock_credential_resolution() -> str:
     import os
     from unittest import mock
 
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     if importlib.util.find_spec("boto3") is None:
         try:
@@ -243,7 +243,7 @@ def check_bedrock_credential_resolution() -> str:
 
 CHECKS: tuple[tuple[str, Callable[[], str]], ...] = (
     ("environment is base-only", check_environment_is_base_only),
-    ("import litellm", check_import),
+    ("import hangarllm", check_import),
     ("native extension", check_native_extension),
     ("optional MCP installation guidance", check_mcp_install_guidance),
     ("chat completion", check_completion),
@@ -279,7 +279,7 @@ def main() -> int:
         passed, detail = _run(check)
         if not passed:
             print(f"FAIL  {label}:\n{detail}")
-            print(f"A base `pip install litellm` is broken at: {label}")
+            print(f"A base `pip install hangarllm` is broken at: {label}")
             print("Something needed at import or call time is missing from [project].dependencies")
             print("in pyproject.toml. Declaring it only in an extra is what causes this.")
             return 1

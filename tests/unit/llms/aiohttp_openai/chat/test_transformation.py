@@ -5,8 +5,8 @@ import pytest
 from aiohttp import ClientResponse
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.llms.aiohttp_openai.chat.transformation import AiohttpOpenAIChatConfig
-from litellm.types.utils import ModelResponse
+from hangarllm.llms.aiohttp_openai.chat.transformation import AiohttpOpenAIChatConfig
+from hangarllm.types.utils import ModelResponse
 
 
 async def _transform(body: object, *, requested_tier: str | None = None) -> ModelResponse:
@@ -20,7 +20,7 @@ async def _transform(body: object, *, requested_tier: str | None = None) -> Mode
         request_data={},
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"service_tier": requested_tier} if requested_tier is not None else {},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 

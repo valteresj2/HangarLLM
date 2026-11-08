@@ -1,4 +1,4 @@
-"""Failure shapes around ``litellm_params.a2a_protocol_version``: the hint naming the setting, values the proxy
+"""Failure shapes around ``hangarllm_params.a2a_protocol_version``: the hint naming the setting, values the proxy
 must ignore, and agent failures that must reach the caller unchanged while the proxy keeps serving."""
 
 from __future__ import annotations
@@ -117,7 +117,7 @@ def test_pinned_agent_upstream_failures_reach_caller_without_hint(
             assert str(fields["post_status"]) in message, response.text
         assert [item["method"] for item in posts(agent.wire)] == ["message/send"]  # type: ignore[arg-type]
         failure: Final = eventually(
-            lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE model=%s', ("a2a_agent/" + agent.marker,)),
+            lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE model=%s', ("a2a_agent/" + agent.marker,)),
             lambda rows: len(rows) == 1,
             seconds=70,
         )

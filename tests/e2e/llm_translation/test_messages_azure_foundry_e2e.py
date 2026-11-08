@@ -16,7 +16,7 @@ from anthropic.types import RawMessageStreamEvent, ToolParam
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import NO_PROXY_CACHE, SdkClients
 from structured_output import SENTIMENT_OUTPUT_FORMAT, SENTIMENT_PROMPT, assert_sentiment_json
@@ -47,7 +47,7 @@ class TestAzureFoundryMessages:
         model = f"e2e-azure-foundry-messages-{unique_marker()}"
         model_id = proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=AZURE_FOUNDRY_MODEL,
                 api_base="os.environ/AZURE_AI_API_BASE",
                 api_key="os.environ/AZURE_AI_API_KEY",

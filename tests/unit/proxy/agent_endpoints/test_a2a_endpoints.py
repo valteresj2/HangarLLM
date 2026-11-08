@@ -1,7 +1,7 @@
 """
 Mock tests for A2A endpoints.
 
-Tests that invoke_agent_a2a properly integrates with add_litellm_data_to_request.
+Tests that invoke_agent_a2a properly integrates with add_hangarllm_data_to_request.
 """
 
 import asyncio
@@ -24,12 +24,12 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-from litellm.types.agents import AgentCaller, AgentResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, UserAPIKeyAuth
+from hangarllm.types.agents import AgentCaller, AgentResponse
 
-AddLiteLLMData = Callable[..., Awaitable[dict[str, object]]]
+AddHangarLLMData = Callable[..., Awaitable[dict[str, object]]]
 
 
 class _SSELineStream(httpx.AsyncByteStream):
@@ -55,18 +55,18 @@ class CapturedAgentCall:
 
 
 @pytest.mark.asyncio
-async def test_invoke_agent_a2a_adds_litellm_data():
+async def test_invoke_agent_a2a_adds_hangarllm_data():
     """
-    Test that invoke_agent_a2a calls add_litellm_data_to_request
+    Test that invoke_agent_a2a calls add_hangarllm_data_to_request
     and the resulting data includes proxy_server_request.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
-    # Track the data passed to add_litellm_data_to_request
+    # Track the data passed to add_hangarllm_data_to_request
     captured_data = {}
 
-    async def mock_add_litellm_data(data, **kwargs):
-        # Simulate what add_litellm_data_to_request does
+    async def mock_add_hangarllm_data(data, **kwargs):
+        # Simulate what add_hangarllm_data_to_request does
         data["proxy_server_request"] = {
             "url": "http://localhost:4000/a2a/test-agent",
             "method": "POST",
@@ -91,7 +91,7 @@ async def test_invoke_agent_a2a_adds_litellm_data():
         "url": "http://backend-agent:10001",
         "name": "Test Agent",
     }
-    mock_agent.litellm_params = None
+    mock_agent.hangarllm_params = None
 
     # Mock request
     mock_request = MagicMock()
@@ -118,7 +118,7 @@ async def test_invoke_agent_a2a_adds_litellm_data():
     )
 
     # Try to use real a2a.types if available, otherwise create realistic mocks
-    # This test focuses on LiteLLM integration, not A2A protocol correctness,
+    # This test focuses on HangarLLM integration, not A2A protocol correctness,
     # but we want mocks that behave like the real types to catch usage issues
     try:
         from a2a.types import (
@@ -163,36 +163,36 @@ async def test_invoke_agent_a2a_adds_litellm_data():
     mock_a2a_types.SendStreamingMessageRequest = SendStreamingMessageRequest
 
     # Patch at the source modules
-    # Note: add_litellm_data_to_request is called from common_request_processing,
-    # so we need to patch it there, not at litellm_pre_call_utils
+    # Note: add_hangarllm_data_to_request is called from common_request_processing,
+    # so we need to patch it there, not at hangarllm_pre_call_utils
     with (
         patch(
-            "litellm.proxy.agent_endpoints.a2a_endpoints._get_agent",
+            "hangarllm.proxy.agent_endpoints.a2a_endpoints._get_agent",
             return_value=mock_agent,
         ),
         patch(
-            "litellm.proxy.common_request_processing.add_litellm_data_to_request",
-            side_effect=mock_add_litellm_data,
+            "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
+            side_effect=mock_add_hangarllm_data,
         ) as mock_add_data,
         patch(
-            "litellm.a2a_protocol.create_a2a_client",
+            "hangarllm.a2a_protocol.create_a2a_client",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.a2a_protocol.asend_message",
+            "hangarllm.a2a_protocol.asend_message",
             new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_send_message,
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {},
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_config",
+            "hangarllm.proxy.proxy_server.proxy_config",
             MagicMock(),
         ),
         patch(
-            "litellm.proxy.proxy_server.version",
+            "hangarllm.proxy.proxy_server.version",
             "1.0.0",
         ),
         patch.dict(
@@ -200,11 +200,11 @@ async def test_invoke_agent_a2a_adds_litellm_data():
             {"a2a": MagicMock(), "a2a.types": mock_a2a_types},
         ),
         patch(
-            "litellm.a2a_protocol.main.A2A_SDK_AVAILABLE",
+            "hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE",
             True,
         ),
     ):
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         mock_fastapi_response = MagicMock()
 
@@ -215,7 +215,7 @@ async def test_invoke_agent_a2a_adds_litellm_data():
             user_api_key_dict=mock_user_api_key_dict,
         )
 
-        # Verify add_litellm_data_to_request was called
+        # Verify add_hangarllm_data_to_request was called
         mock_add_data.assert_called_once()
 
         # Verify model and custom_llm_provider were set
@@ -236,11 +236,11 @@ async def test_invoke_agent_a2a_handles_none_agent_card_params():
     through the A2A endpoint by mistake) must not raise ``AttributeError`` on
     ``agent_card_params.get(...)`` — they should return a JSON-RPC error.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     mock_agent = MagicMock()
     mock_agent.agent_card_params = None
-    mock_agent.litellm_params = None
+    mock_agent.hangarllm_params = None
 
     mock_request = MagicMock()
     mock_request.json = AsyncMock(
@@ -266,16 +266,16 @@ async def test_invoke_agent_a2a_handles_none_agent_card_params():
 
     with (
         patch(
-            "litellm.proxy.agent_endpoints.a2a_endpoints._get_agent",
+            "hangarllm.proxy.agent_endpoints.a2a_endpoints._get_agent",
             return_value=mock_agent,
         ),
         patch(
-            "litellm.a2a_protocol.main.A2A_SDK_AVAILABLE",
+            "hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE",
             True,
         ),
         patch.dict(sys.modules, {"a2a": MagicMock(), "a2a.types": MagicMock()}),
     ):
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         mock_fastapi_response = MagicMock()
 
@@ -297,16 +297,16 @@ async def test_invoke_agent_a2a_handles_none_agent_card_params():
 @pytest.mark.asyncio
 async def test_invoke_agent_a2a_injects_authenticated_key_hash_for_bridge():
     """Completion-bridge agents must receive the authenticated key hash in
-    litellm_params so provider configs (e.g. LangFlow) can scope provider-side
+    hangarllm_params so provider configs (e.g. LangFlow) can scope provider-side
     session memory per key. Regression for cross-key A2A session bleed."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    from hangarllm.a2a_protocol.hangarllm_completion_bridge.handler import (
         A2A_USER_API_KEY_HASH_PARAM,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     captured = {}
 
-    async def mock_add_litellm_data(data, **kwargs):
+    async def mock_add_hangarllm_data(data, **kwargs):
         data["proxy_server_request"] = {
             "url": "http://localhost:4000/a2a/lf-agent",
             "method": "POST",
@@ -327,7 +327,7 @@ async def test_invoke_agent_a2a_injects_authenticated_key_hash_for_bridge():
     mock_agent.agent_name = "lf-agent"
     # No URL: the bridge derives the endpoint from the LangFlow agent config.
     mock_agent.agent_card_params = {"name": "LF Agent"}
-    mock_agent.litellm_params = {
+    mock_agent.hangarllm_params = {
         "custom_llm_provider": "langflow",
         "model": "langflow/flow-1",
     }
@@ -360,28 +360,28 @@ async def test_invoke_agent_a2a_injects_authenticated_key_hash_for_bridge():
 
     with (
         patch(
-            "litellm.proxy.agent_endpoints.a2a_endpoints._get_agent",
+            "hangarllm.proxy.agent_endpoints.a2a_endpoints._get_agent",
             return_value=mock_agent,
         ),
         patch(
-            "litellm.proxy.common_request_processing.add_litellm_data_to_request",
-            side_effect=mock_add_litellm_data,
+            "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
+            side_effect=mock_add_hangarllm_data,
         ),
         patch(
-            "litellm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
+            "hangarllm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "litellm.a2a_protocol.asend_message",
+            "hangarllm.a2a_protocol.asend_message",
             new=AsyncMock(side_effect=capture_asend_message),
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "1.0.0"),
-        patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.version", "1.0.0"),
+        patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True),
         patch.dict(sys.modules, {"a2a": MagicMock(), "a2a.types": MagicMock()}),
     ):
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         await invoke_agent_a2a(
             agent_id="lf-agent",
@@ -390,7 +390,7 @@ async def test_invoke_agent_a2a_injects_authenticated_key_hash_for_bridge():
             user_api_key_dict=mock_user_api_key_dict,
         )
 
-    assert captured.get("litellm_params", {}).get(A2A_USER_API_KEY_HASH_PARAM) == mock_user_api_key_dict.api_key, (
+    assert captured.get("hangarllm_params", {}).get(A2A_USER_API_KEY_HASH_PARAM) == mock_user_api_key_dict.api_key, (
         "authenticated key hash was not forwarded to the completion bridge"
     )
 
@@ -400,7 +400,7 @@ def _make_agent_mock(url: str = "http://backend-agent:10001") -> MagicMock:
     agent.agent_id = "test-agent"
     agent.agent_name = "test-agent"
     agent.agent_card_params = {"url": url, "name": "Test Agent"}
-    agent.litellm_params = {}
+    agent.hangarllm_params = {}
     agent.static_headers = None
     agent.extra_headers = None
     return agent
@@ -421,24 +421,24 @@ def _make_request_mock(method: str, params: Mapping[str, object], request_id: ob
 
 
 def _base_patches(
-    agent: MagicMock, add_litellm_data: AddLiteLLMData | None = None
+    agent: MagicMock, add_hangarllm_data: AddHangarLLMData | None = None
 ) -> list[AbstractContextManager[object]]:
     return [
         patch(
-            "litellm.proxy.agent_endpoints.a2a_endpoints._get_agent",
+            "hangarllm.proxy.agent_endpoints.a2a_endpoints._get_agent",
             return_value=agent,
         ),
         patch(
-            "litellm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
+            "hangarllm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
             new=AsyncMock(return_value=True),
         ),
         patch(
-            "litellm.proxy.common_request_processing.add_litellm_data_to_request",
-            new=AsyncMock(side_effect=add_litellm_data or _add_proxy_data),
+            "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
+            new=AsyncMock(side_effect=add_hangarllm_data or _add_proxy_data),
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "1.0.0"),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.version", "1.0.0"),
     ]
 
 
@@ -453,15 +453,15 @@ async def test_invoke_agent_a2a_passes_billed_auth_to_common_processing(
     requires_fresh_policy: bool,
     strict: bool,
 ) -> None:
-    import litellm
+    import hangarllm
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable, LiteLLM_TeamTable, LiteLLM_UserTable
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.litellm_pre_call_utils import add_guardrails_from_auth_metadata
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, HangarLLM_TeamTable, HangarLLM_UserTable
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.agent_registry import AgentRegistry
+    from hangarllm.proxy.auth import auth_checks
+    from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from hangarllm.proxy.hangarllm_pre_call_utils import add_guardrails_from_auth_metadata
 
     agent: Final = _make_agent_mock()
     agent.identity_managed = identity_managed
@@ -487,13 +487,13 @@ async def test_invoke_agent_a2a_passes_billed_auth_to_common_processing(
 
     common_processing: Final = AsyncMock(side_effect=_common_processing)
 
-    async def _get_team_object(team_id: str, **_: object) -> LiteLLM_TeamTable:
-        team: Final = LiteLLM_TeamTable(
+    async def _get_team_object(team_id: str, **_: object) -> HangarLLM_TeamTable:
+        team: Final = HangarLLM_TeamTable(
             team_id=team_id,
             object_permission_id=f"perm-{team_id}",
             organization_id=f"org-{team_id}",
             metadata={"guardrails": ["team-guardrail"]} if team_id == "team-b" else None,
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id=f"perm-{team_id}",
                 agents=["test-agent"] if team_id == "team-b" else [],
                 agent_access_groups=["billing-group"] if team_id == "team-b" else [],
@@ -502,12 +502,12 @@ async def test_invoke_agent_a2a_passes_billed_auth_to_common_processing(
         return team
 
     database: Final = MagicMock()
-    database.db.litellm_agentstable.find_many = AsyncMock(return_value=[])
-    database.writer_db.litellm_agentstable.find_many = AsyncMock(return_value=[])
+    database.db.hangarllm_agentstable.find_many = AsyncMock(return_value=[])
+    database.writer_db.hangarllm_agentstable.find_many = AsyncMock(return_value=[])
     team_loader: Final = AsyncMock(side_effect=_get_team_object)
 
-    monkeypatch.setattr(litellm, "personal_key_model_access_from_teams", True)
-    monkeypatch.setattr("litellm.proxy.utils.premium_user_check", MagicMock())
+    monkeypatch.setattr(hangarllm, "personal_key_model_access_from_teams", True)
+    monkeypatch.setattr("hangarllm.proxy.utils.premium_user_check", MagicMock())
     monkeypatch.setattr(proxy_server, "prisma_client", database)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", MagicMock())
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", MagicMock())
@@ -515,7 +515,7 @@ async def test_invoke_agent_a2a_passes_billed_auth_to_common_processing(
     monkeypatch.setattr(
         auth_checks,
         "get_user_object",
-        AsyncMock(return_value=LiteLLM_UserTable(user_id="alice", teams=["team-a", "team-b"])),
+        AsyncMock(return_value=HangarLLM_UserTable(user_id="alice", teams=["team-a", "team-b"])),
     )
     monkeypatch.setattr(auth_checks, "get_team_object", team_loader)
     monkeypatch.setattr(auth_checks, "get_org_object", AsyncMock(return_value=None))
@@ -531,9 +531,9 @@ async def test_invoke_agent_a2a_passes_billed_auth_to_common_processing(
                 new=common_processing,
             )
         )
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", False))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", False))
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response: Final = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -553,11 +553,11 @@ async def test_invoke_agent_a2a_passes_billed_auth_to_common_processing(
     assert len(team_loader.await_args_list) == 2
     assert all(call.kwargs["check_db_only"] is strict for call in team_loader.await_args_list)
     if strict:
-        database.writer_db.litellm_agentstable.find_many.assert_awaited_once()
-        database.db.litellm_agentstable.find_many.assert_not_awaited()
+        database.writer_db.hangarllm_agentstable.find_many.assert_awaited_once()
+        database.db.hangarllm_agentstable.find_many.assert_not_awaited()
     else:
-        database.db.litellm_agentstable.find_many.assert_awaited_once()
-        database.writer_db.litellm_agentstable.find_many.assert_not_awaited()
+        database.db.hangarllm_agentstable.find_many.assert_awaited_once()
+        database.writer_db.hangarllm_agentstable.find_many.assert_not_awaited()
 
 
 async def _add_proxy_data(data: dict[str, object], **kwargs: object) -> dict[str, object]:
@@ -581,7 +581,7 @@ async def _invoke_message_method(
     method: str,
     mock_request: MagicMock,
     user_api_key_dict: UserAPIKeyAuth,
-    add_litellm_data: AddLiteLLMData | None = None,
+    add_hangarllm_data: AddHangarLLMData | None = None,
     agent: MagicMock | None = None,
 ) -> CapturedAgentCall:
     from fastapi.responses import JSONResponse
@@ -613,18 +613,18 @@ async def _invoke_message_method(
     downstream: Final = AsyncMock(side_effect=fake_asend_message if is_send else fake_stream_message)
 
     with ExitStack() as stack:
-        for p in _base_patches(agent or _make_agent_mock(), add_litellm_data):
+        for p in _base_patches(agent or _make_agent_mock(), add_hangarllm_data):
             stack.enter_context(p)
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
         if is_send:
             stack.enter_context(patch.dict(sys.modules, {"a2a": MagicMock(), "a2a.types": mock_a2a_types}))
-            stack.enter_context(patch("litellm.a2a_protocol.asend_message", new=downstream))
+            stack.enter_context(patch("hangarllm.a2a_protocol.asend_message", new=downstream))
         else:
             stack.enter_context(
-                patch("litellm.proxy.agent_endpoints.a2a_endpoints._handle_stream_message", new=downstream)
+                patch("hangarllm.proxy.agent_endpoints.a2a_endpoints._handle_stream_message", new=downstream)
             )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         await invoke_agent_a2a(
             agent_id="test-agent",
@@ -662,8 +662,8 @@ async def test_message_methods_forward_caller_identity_headers(method: str):
     captured = await _invoke_message_method(method, mock_request, user_api_key_dict)
 
     forwarded_headers = captured.agent_extra_headers or {}
-    assert forwarded_headers.get("X-LiteLLM-User-Id") == "user-abc"
-    assert forwarded_headers.get("X-LiteLLM-Team-Id") == "team-xyz"
+    assert forwarded_headers.get("X-HangarLLM-User-Id") == "user-abc"
+    assert forwarded_headers.get("X-HangarLLM-Team-Id") == "team-xyz"
 
 
 @pytest.mark.asyncio
@@ -678,7 +678,7 @@ async def test_agent_calling_another_agent_forwards_the_human_who_invoked_it(met
     captured = await _invoke_message_method(method, mock_request, agent_key)
 
     forwarded_headers = captured.agent_extra_headers or {}
-    assert (forwarded_headers.get("X-LiteLLM-User-Id"), forwarded_headers.get("X-LiteLLM-Team-Id")) == (
+    assert (forwarded_headers.get("X-HangarLLM-User-Id"), forwarded_headers.get("X-HangarLLM-Team-Id")) == (
         "alice",
         "callers",
     )
@@ -688,9 +688,9 @@ async def test_agent_calling_another_agent_forwards_the_human_who_invoked_it(met
 @pytest.mark.parametrize("method", ["message/send", "message/stream"])
 async def test_message_methods_send_the_entra_bearer_for_azure_agents(method: str):
     """A Microsoft Foundry agent accepts only an Entra ID bearer, so an agent registered with
-    Entra credentials in litellm_params must reach the backend with that bearer on every call."""
+    Entra credentials in hangarllm_params must reach the backend with that bearer on every call."""
     agent = _make_agent_mock()
-    agent.litellm_params = {"azure_ad_token": "entra-token"}
+    agent.hangarllm_params = {"azure_ad_token": "entra-token"}
     mock_request = _make_request_mock(method, _HELLO_MESSAGE_PARAMS)
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="u1", team_id="t1")
 
@@ -714,9 +714,9 @@ async def test_message_methods_leave_agents_without_entra_params_unauthenticated
 @pytest.mark.parametrize("method", ["message/send", "message/stream"])
 async def test_message_methods_leave_entra_fields_to_the_model_provider_for_bridge_agents(method: str):
     """A completion-bridge agent's tenant_id/client_id/client_secret belong to the model provider it
-    calls through litellm, so the proxy must not mint a Foundry bearer for them."""
+    calls through hangarllm, so the proxy must not mint a Foundry bearer for them."""
     agent = _make_agent_mock()
-    agent.litellm_params = {
+    agent.hangarllm_params = {
         "custom_llm_provider": "azure_ai",
         "model": "azure_ai/foundry-model",
         "tenant_id": "tenant",
@@ -735,9 +735,9 @@ async def test_message_methods_leave_entra_fields_to_the_model_provider_for_brid
 async def test_message_send_reports_an_unresolvable_entra_credential_as_internal_error(monkeypatch):
     """An agent whose Entra credential points at an unset environment variable must fail the call
     with the JSON-RPC internal error naming the credential fields, never reach the backend unauthenticated."""
-    monkeypatch.delenv("LITELLM_TEST_UNSET_FOUNDRY_TOKEN", raising=False)
+    monkeypatch.delenv("HANGARLLM_TEST_UNSET_FOUNDRY_TOKEN", raising=False)
     agent = _make_agent_mock()
-    agent.litellm_params = {"azure_ad_token": "os.environ/LITELLM_TEST_UNSET_FOUNDRY_TOKEN"}
+    agent.hangarllm_params = {"azure_ad_token": "os.environ/HANGARLLM_TEST_UNSET_FOUNDRY_TOKEN"}
     mock_request = _make_request_mock("message/send", _HELLO_MESSAGE_PARAMS)
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="u1", team_id="t1")
 
@@ -753,16 +753,16 @@ async def test_message_send_reports_an_unresolvable_entra_credential_as_internal
             stack.enter_context(p)
         stack.enter_context(
             patch(  # test-quality-ok: same proxy_logging_obj injection the sibling failure-hook tests use; the request must fail before any backend call is made
-                "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+                "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: the observation point proving the backend is never called; the sibling send tests use the same seam
-                "litellm.a2a_protocol.asend_message", new=downstream
+                "hangarllm.a2a_protocol.asend_message", new=downstream
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -783,18 +783,18 @@ async def test_message_send_reports_an_unresolvable_entra_credential_as_internal
 async def test_message_methods_caller_identity_headers_cannot_be_spoofed(method: str):
     mock_request = _make_request_mock(method, _HELLO_MESSAGE_PARAMS)
     mock_request.headers = {
-        "x-a2a-test-agent-x-litellm-user-id": "attacker-user",
-        "x-a2a-test-agent-x-litellm-team-id": "attacker-team",
+        "x-a2a-test-agent-x-hangarllm-user-id": "attacker-user",
+        "x-a2a-test-agent-x-hangarllm-team-id": "attacker-team",
     }
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="real-user", team_id="real-team")
 
     captured = await _invoke_message_method(method, mock_request, user_api_key_dict)
 
     forwarded_headers = captured.agent_extra_headers or {}
-    assert forwarded_headers.get("X-LiteLLM-User-Id") == "real-user", (
+    assert forwarded_headers.get("X-HangarLLM-User-Id") == "real-user", (
         "authenticated user id must not be overridden by forwarded client headers"
     )
-    assert forwarded_headers.get("X-LiteLLM-Team-Id") == "real-team", (
+    assert forwarded_headers.get("X-HangarLLM-Team-Id") == "real-team", (
         "authenticated team id must not be overridden by forwarded client headers"
     )
 
@@ -802,29 +802,29 @@ async def test_message_methods_caller_identity_headers_cannot_be_spoofed(method:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["message/send", "message/stream"])
 async def test_message_methods_forward_key_bound_identity_not_pre_call_rewrite(method: str):
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
 
     mock_request = _make_request_mock(method, _HELLO_MESSAGE_PARAMS)
     mock_request.headers = {"X-OpenWebUI-User-Id": "header-mapped-user"}
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="key-user", team_id="key-team")
     general_settings: Final = {
-        "user_header_mappings": [{"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"}]
+        "user_header_mappings": [{"header_name": "X-OpenWebUI-User-Id", "hangarllm_user_role": "internal_user"}]
     }
 
     async def apply_user_header_mapping(data: dict[str, object], **kwargs: object) -> dict[str, object]:
-        LiteLLMProxyRequestSetup.add_internal_user_from_user_mapping(
+        HangarLLMProxyRequestSetup.add_internal_user_from_user_mapping(
             general_settings, user_api_key_dict, dict(mock_request.headers)
         )
         return await _add_proxy_data(data, **kwargs)
 
     captured = await _invoke_message_method(
-        method, mock_request, user_api_key_dict, add_litellm_data=apply_user_header_mapping
+        method, mock_request, user_api_key_dict, add_hangarllm_data=apply_user_header_mapping
     )
 
     assert user_api_key_dict.user_id == "header-mapped-user", "precondition: pre-call rewrite ran"
     forwarded_headers = captured.agent_extra_headers or {}
-    assert forwarded_headers.get("X-LiteLLM-User-Id") == "key-user"
-    assert forwarded_headers.get("X-LiteLLM-Team-Id") == "key-team"
+    assert forwarded_headers.get("X-HangarLLM-User-Id") == "key-user"
+    assert forwarded_headers.get("X-HangarLLM-Team-Id") == "key-team"
 
 
 @pytest.mark.asyncio
@@ -844,7 +844,7 @@ async def test_message_methods_forward_key_bound_identity_not_pre_call_rewrite(m
     ],
 )
 async def test_task_methods_forward_jsonrpc(method: str, params: dict):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_response = {
         "jsonrpc": "2.0",
@@ -870,18 +870,18 @@ async def test_task_methods_forward_jsonrpc(method: str, params: dict):
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
         stack.enter_context(
             patch(
-                "litellm.proxy.agent_endpoints.a2a_endpoints.validate_url",
+                "hangarllm.proxy.agent_endpoints.a2a_endpoints.validate_url",
                 return_value=("https://webhook.example.com", "webhook.example.com"),
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -904,10 +904,10 @@ async def test_task_methods_forward_jsonrpc(method: str, params: dict):
 async def test_task_methods_forward_the_entra_bearer_for_azure_agents():
     """tasks/get on a Foundry agent polls the task the agent created, so the forwarded call needs
     the same Entra bearer as message/send."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
-    agent.litellm_params = {"azure_ad_token": "entra-token"}
+    agent.hangarllm_params = {"azure_ad_token": "entra-token"}
     mock_request = _make_request_mock("tasks/get", {"id": "task-1"})
 
     mock_http_response = MagicMock()
@@ -924,11 +924,11 @@ async def test_task_methods_forward_the_entra_bearer_for_azure_agents():
             stack.enter_context(p)
         stack.enter_context(
             patch(  # test-quality-ok: the task route builds its own httpx client; the sibling task tests capture the post through the same seam
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=mock_handler
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=mock_handler
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         await invoke_agent_a2a(
             agent_id="test-agent",
@@ -943,8 +943,8 @@ async def test_task_methods_forward_the_entra_bearer_for_azure_agents():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["tasks/get", "tasks/resubscribe"])
-async def test_task_methods_extract_litellm_params_before_forwarding(method: str):
-    from litellm.proxy._types import UserAPIKeyAuth
+async def test_task_methods_extract_hangarllm_params_before_forwarding(method: str):
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     params = {
@@ -984,18 +984,18 @@ async def test_task_methods_extract_litellm_params_before_forwarding(method: str
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.proxy.common_request_processing.add_litellm_data_to_request",
+                "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
                 new=AsyncMock(side_effect=capture_proxy_data),
             )
         )
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1018,7 +1018,7 @@ async def test_task_methods_extract_litellm_params_before_forwarding(method: str
 
 @pytest.mark.asyncio
 async def test_subscribe_to_task_returns_sse_stream():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock("SubscribeToTask", {"id": "task-1"})
@@ -1045,12 +1045,12 @@ async def test_subscribe_to_task_returns_sse_stream():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1072,8 +1072,8 @@ async def test_subscribe_to_task_returns_sse_stream():
 async def test_subscribe_to_task_calls_pre_call_hook():
     """tasks/resubscribe must run pre_call_hook so guardrails configured on
     the agent are enforced before streaming begins."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.utils import ProxyLogging
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock("tasks/resubscribe", {"id": "task-1"})
@@ -1107,18 +1107,18 @@ async def test_subscribe_to_task_calls_pre_call_hook():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
         stack.enter_context(
             patch(
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 mock_proxy_logging,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1143,9 +1143,9 @@ async def test_subscribe_to_task_runs_post_call_streaming_guardrail():
     streaming hook so output guardrails configured on the agent inspect the
     streamed task content. Regression: the SSE path previously returned the raw
     upstream stream and bypassed guardrails entirely."""
-    import litellm
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import UserAPIKeyAuth
+    import hangarllm
+    from hangarllm.integrations.custom_guardrail import CustomGuardrail
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     inspected: list = []
 
@@ -1178,13 +1178,13 @@ async def test_subscribe_to_task_runs_post_call_streaming_guardrail():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
-        stack.enter_context(patch.object(litellm, "callbacks", [guardrail]))
+        stack.enter_context(patch.object(hangarllm, "callbacks", [guardrail]))
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1204,7 +1204,7 @@ async def test_subscribe_to_task_runs_post_call_streaming_guardrail():
 
 @pytest.mark.asyncio
 async def test_task_method_failure_hook_uses_enriched_request_data():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock("tasks/get", {"id": "task-1"})
@@ -1235,24 +1235,24 @@ async def test_task_method_failure_hook_uses_enriched_request_data():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.proxy.common_request_processing.add_litellm_data_to_request",
+                "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
                 new=AsyncMock(side_effect=add_proxy_data_copy),
             )
         )
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
         stack.enter_context(
             patch(
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "hangarllm.proxy.proxy_server.proxy_logging_obj",
                 mock_proxy_logging,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1264,7 +1264,7 @@ async def test_task_method_failure_hook_uses_enriched_request_data():
     body = json.loads(response.body.decode())
     assert body["error"]["code"] == -32603
     failure_data = mock_proxy_logging.post_call_failure_hook.await_args.kwargs["request_data"]
-    assert failure_data.get("litellm_call_id")
+    assert failure_data.get("hangarllm_call_id")
     assert failure_data.get("agent_id") == "test-agent"
 
 
@@ -1286,10 +1286,10 @@ class _JsonRpcErrorBody(BaseModel):
 
 
 async def _send_message_to_entra_agent(
-    litellm_params: Mapping[str, str], *patches: AbstractContextManager[object]
+    hangarllm_params: Mapping[str, str], *patches: AbstractContextManager[object]
 ) -> tuple[int, _JsonRpcError]:
     agent = _make_agent_mock()
-    agent.litellm_params = dict(litellm_params)
+    agent.hangarllm_params = dict(hangarllm_params)
     mock_request = _make_request_mock(
         "message/send",
         {"message": {"role": "user", "parts": [{"kind": "text", "text": "Hello"}], "messageId": "msg-1"}},
@@ -1305,11 +1305,11 @@ async def _send_message_to_entra_agent(
             stack.enter_context(p)
         stack.enter_context(
             patch(  # test-quality-ok: same proxy_logging_obj injection the sibling failure-hook tests use
-                "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+                "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1334,7 +1334,7 @@ async def test_entra_rejecting_the_agent_credential_returns_401_with_only_the_aa
     status_code, error = await _send_message_to_entra_agent(
         {"tenant_id": "tenant", "client_id": _ENTRA_APP_CLIENT_ID, "client_secret": "wrong-secret"},
         patch(  # test-quality-ok: stands in for the Entra token endpoint answering a wrong secret, the shape azure-identity raises
-            "litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id", return_value=rejected_token
+            "hangarllm.llms.azure.common_utils.get_azure_ad_token_from_entra_id", return_value=rejected_token
         ),
     )
 
@@ -1345,7 +1345,7 @@ async def test_entra_rejecting_the_agent_credential_returns_401_with_only_the_aa
 
 @pytest.mark.asyncio
 async def test_entra_rejecting_the_agent_oidc_token_returns_401_with_only_the_aadsts_reason(monkeypatch, respx_mock):
-    monkeypatch.setenv("LITELLM_QA_FEDERATED_TOKEN", "federated-token")
+    monkeypatch.setenv("HANGARLLM_QA_FEDERATED_TOKEN", "federated-token")
     monkeypatch.delenv("AZURE_AUTHORITY_HOST", raising=False)
     respx_mock.post("https://login.microsoftonline.com/qa-tenant/oauth2/v2.0/token").mock(
         return_value=httpx.Response(
@@ -1362,7 +1362,7 @@ async def test_entra_rejecting_the_agent_oidc_token_returns_401_with_only_the_aa
         {
             "tenant_id": "qa-tenant",
             "client_id": _ENTRA_APP_CLIENT_ID,
-            "azure_ad_token": "oidc/env/LITELLM_QA_FEDERATED_TOKEN",
+            "azure_ad_token": "oidc/env/HANGARLLM_QA_FEDERATED_TOKEN",
         }
     )
 
@@ -1378,7 +1378,7 @@ async def test_upstream_authentication_error_without_an_entra_rejection_stays_an
     agent = _make_agent_mock()
     mock_handler = MagicMock()
     mock_handler.post = AsyncMock(
-        side_effect=litellm.AuthenticationError(
+        side_effect=hangarllm.AuthenticationError(
             message="Incorrect API key provided.", llm_provider="openai", model="gpt-4.1"
         )
     )
@@ -1393,16 +1393,16 @@ async def test_upstream_authentication_error_without_an_entra_rejection_stays_an
             stack.enter_context(p)
         stack.enter_context(
             patch(  # test-quality-ok: stands in for the upstream agent rejecting the provider key it was sent
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=mock_handler
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client", return_value=mock_handler
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: same proxy_logging_obj injection the sibling failure-hook tests use
-                "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+                "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1417,10 +1417,10 @@ async def test_upstream_authentication_error_without_an_entra_rejection_stays_an
 
 @pytest.mark.asyncio
 async def test_agentcore_invalid_context_id_returns_jsonrpc_invalid_params_400():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
-    agent.litellm_params = {
+    agent.hangarllm_params = {
         "custom_llm_provider": "bedrock",
         "model": "bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/demo",
         "api_key": "test-jwt-token",
@@ -1449,11 +1449,11 @@ async def test_agentcore_invalid_context_id_returns_jsonrpc_invalid_params_400()
             stack.enter_context(p)
         stack.enter_context(
             patch(  # test-quality-ok: same proxy_logging_obj injection the sibling failure-hook test uses; no HTTP call is made because the request is rejected before signing
-                "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+                "hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1473,7 +1473,7 @@ async def test_agentcore_invalid_context_id_returns_jsonrpc_invalid_params_400()
 
 @pytest.mark.asyncio
 async def test_get_extended_agent_card_rewrites_url():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock("GetExtendedAgentCard", {})
@@ -1501,12 +1501,12 @@ async def test_get_extended_agent_card_rewrites_url():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1523,9 +1523,9 @@ async def test_get_extended_agent_card_rewrites_url():
 @pytest.mark.asyncio
 async def test_get_agent_card_uses_proxy_base_url_when_set(monkeypatch):
     """Regression: discovery must expose the public proxy URL, not the internal one."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
-    monkeypatch.setenv("PROXY_BASE_URL", "https://litellm.example.com")
+    monkeypatch.setenv("PROXY_BASE_URL", "https://hangarllm.example.com")
     agent = _make_agent_mock()
     agent.agent_card_params["protocolVersion"] = "1.0"
     agent.agent_card_params["supportedInterfaces"] = [
@@ -1536,14 +1536,14 @@ async def test_get_agent_card_uses_proxy_base_url_when_set(monkeypatch):
         }
     ]
     mock_request = MagicMock()
-    mock_request.base_url = "http://litellm-internal:4000/"
+    mock_request.base_url = "http://hangarllm-internal:4000/"
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="u1", team_id="t1")
 
     with ExitStack() as stack:
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import get_agent_card
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import get_agent_card
 
         response = await get_agent_card(
             agent_id="test-agent",
@@ -1552,13 +1552,13 @@ async def test_get_agent_card_uses_proxy_base_url_when_set(monkeypatch):
         )
 
     body = json.loads(response.body.decode())
-    assert body["url"] == "https://litellm.example.com/a2a/test-agent"
-    assert body["supportedInterfaces"][0]["url"] == "https://litellm.example.com/a2a/test-agent"
+    assert body["url"] == "https://hangarllm.example.com/a2a/test-agent"
+    assert body["supportedInterfaces"][0]["url"] == "https://hangarllm.example.com/a2a/test-agent"
 
 
 @pytest.mark.asyncio
 async def test_get_agent_card_normalizes_0_3_discovery_card():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     agent.agent_card_params["protocolVersion"] = "0.3"
@@ -1577,7 +1577,7 @@ async def test_get_agent_card_normalizes_0_3_discovery_card():
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import get_agent_card
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import get_agent_card
 
         response = await get_agent_card(
             agent_id="test-agent",
@@ -1594,7 +1594,7 @@ async def test_get_agent_card_normalizes_0_3_discovery_card():
 @pytest.mark.asyncio
 async def test_get_agent_card_0_3_card_with_a2a_version_1_0_header():
     """Regression: 0.3 card normalized to 1.0 must not KeyError on debug log."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     agent.agent_card_params = {
@@ -1616,7 +1616,7 @@ async def test_get_agent_card_0_3_card_with_a2a_version_1_0_header():
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import get_agent_card
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import get_agent_card
 
         response = await get_agent_card(
             agent_id="test-agent",
@@ -1632,12 +1632,12 @@ async def test_get_agent_card_0_3_card_with_a2a_version_1_0_header():
 @pytest.mark.asyncio
 async def test_get_extended_agent_card_uses_proxy_base_url_when_set(monkeypatch):
     """Regression: proxied extended cards must rewrite url to the public proxy base."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
-    monkeypatch.setenv("PROXY_BASE_URL", "https://litellm.example.com")
+    monkeypatch.setenv("PROXY_BASE_URL", "https://hangarllm.example.com")
     agent = _make_agent_mock()
     mock_request = _make_request_mock("GetExtendedAgentCard", {})
-    mock_request.base_url = "http://litellm-internal:4000/"
+    mock_request.base_url = "http://hangarllm-internal:4000/"
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="u1", team_id="t1")
 
     upstream_card = {
@@ -1661,12 +1661,12 @@ async def test_get_extended_agent_card_uses_proxy_base_url_when_set(monkeypatch)
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1676,18 +1676,18 @@ async def test_get_extended_agent_card_uses_proxy_base_url_when_set(monkeypatch)
         )
 
     body = json.loads(response.body.decode())
-    assert body["result"]["url"] == "https://litellm.example.com/a2a/test-agent"
+    assert body["result"]["url"] == "https://hangarllm.example.com/a2a/test-agent"
 
 
 def test_build_merged_agent_card_uses_proxy_base_url_for_supported_interfaces(
     monkeypatch,
 ):
     """Regression: agent create/update must front supportedInterfaces with the public base."""
-    from litellm.proxy.agent_endpoints.endpoints import _build_merged_agent_card
+    from hangarllm.proxy.agent_endpoints.endpoints import _build_merged_agent_card
 
-    monkeypatch.setenv("PROXY_BASE_URL", "https://litellm.example.com")
+    monkeypatch.setenv("PROXY_BASE_URL", "https://hangarllm.example.com")
     mock_request = MagicMock()
-    mock_request.base_url = "http://litellm-internal:4000/"
+    mock_request.base_url = "http://hangarllm-internal:4000/"
 
     merged = _build_merged_agent_card(
         {"name": "My Agent", "url": "http://upstream:8080"},
@@ -1695,12 +1695,12 @@ def test_build_merged_agent_card_uses_proxy_base_url_for_supported_interfaces(
         http_request=mock_request,
     )
 
-    assert merged["supportedInterfaces"][0]["url"] == ("https://litellm.example.com/a2a/jenkins_agent")
+    assert merged["supportedInterfaces"][0]["url"] == ("https://hangarllm.example.com/a2a/jenkins_agent")
 
 
 @pytest.mark.asyncio
 async def test_unknown_method_returns_jsonrpc_error():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock("SomeUnknownMethod", {})
@@ -1710,7 +1710,7 @@ async def test_unknown_method_returns_jsonrpc_error():
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1740,7 +1740,7 @@ async def test_unknown_method_returns_jsonrpc_error():
     ],
 )
 async def test_pascal_method_names_normalize_to_wire_format(pascal_method: str, expected_wire_method: str):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock(pascal_method, {"id": "task-1"})
@@ -1767,12 +1767,12 @@ async def test_pascal_method_names_normalize_to_wire_format(pascal_method: str, 
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -1819,7 +1819,7 @@ async def test_pascal_method_names_normalize_to_wire_format(pascal_method: str, 
     ],
 )
 def test_build_message_send_params_accepts_wire_and_a2a_10(params):
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _build_message_send_params
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _build_message_send_params
 
     result = _build_message_send_params(params)
     assert result.message.role.value == "user"
@@ -1827,7 +1827,7 @@ def test_build_message_send_params_accepts_wire_and_a2a_10(params):
 
 
 def test_build_message_send_params_proto_fallback_ignores_unknown_fields():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _build_message_send_params
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _build_message_send_params
 
     result = _build_message_send_params(
         {
@@ -1885,18 +1885,18 @@ class _StreamedSpendRecorder(CustomLogger):
 @pytest.mark.skipif(importlib.util.find_spec("a2a") is None, reason="needs the optional a2a-sdk")
 @pytest.mark.asyncio
 async def test_handle_stream_message_bills_a_bridge_agent_under_its_name(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
     recorder: Final = _StreamedSpendRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
 
     response: Final = await _handle_stream_message(
         api_base=None,
         request_id="req-1",
         params=dict(_HELLO_MESSAGE_PARAMS),
-        litellm_params={
+        hangarllm_params={
             "custom_llm_provider": "langgraph",
             "model": "agent",
             "mock_response": "pong",
@@ -1915,7 +1915,7 @@ async def test_handle_stream_message_bills_a_bridge_agent_under_its_name(monkeyp
 
 @pytest.mark.asyncio
 async def test_handle_stream_message_rejects_invalid_params_with_32602():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
     response = await _handle_stream_message(
         api_base="http://upstream.local",
@@ -1937,7 +1937,7 @@ async def test_handle_stream_message_frames_events_as_sse():
     """message/stream must return text/event-stream with each JSON-RPC object
     framed as ``data: <json>\\n\\n``. Regression for #35027: NDJSON framing
     breaks the official a2a-sdk client, which requires SSE."""
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
     events = [
         {
@@ -1957,10 +1957,10 @@ async def test_handle_stream_message_frames_events_as_sse():
             yield event
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
         stack.enter_context(
             patch(
-                "litellm.a2a_protocol.asend_message_streaming",
+                "hangarllm.a2a_protocol.asend_message_streaming",
                 new=fake_stream,
             )
         )
@@ -1991,9 +1991,9 @@ async def test_handle_stream_message_frames_events_as_sse():
 async def test_handle_stream_message_sdk_unavailable_frames_error_as_sse():
     """When the a2a package is unavailable the -32603 error must still be
     emitted as a single SSE event so the a2a-sdk client can parse it."""
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
-    with patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", False):
+    with patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", False):
         response = await _handle_stream_message(
             api_base="http://upstream.local",
             request_id="req-1",
@@ -2015,10 +2015,10 @@ async def test_handle_stream_message_proxy_hook_path_frames_events_as_sse():
     """When proxy hooks are wired the events are routed through
     async_streaming_data_generator; that path must also frame each JSON-RPC
     object as ``data: <json>\\n\\n`` (regression for #35027)."""
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.utils import ProxyLogging
 
     events = [
         {"jsonrpc": "2.0", "id": "req-1", "result": {"kind": "task", "id": "t-1"}},
@@ -2036,8 +2036,8 @@ async def test_handle_stream_message_proxy_hook_path_frames_events_as_sse():
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _handle_stream_message(
             api_base="http://upstream.local",
@@ -2070,7 +2070,7 @@ async def test_handle_stream_message_frames_preserialized_jsonrpc_error_once():
     guardrail may yield when it terminates an A2A stream mid-flight) must be
     framed as one SSE event carrying that object, not JSON-encoded a second time
     into a bare string."""
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
     error_event = {
         "jsonrpc": "2.0",
@@ -2082,8 +2082,8 @@ async def test_handle_stream_message_frames_preserialized_jsonrpc_error_once():
         yield json.dumps(error_event) + "\n"
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _handle_stream_message(
             api_base="http://upstream.local",
@@ -2108,18 +2108,18 @@ async def test_handle_stream_message_frames_preserialized_jsonrpc_error_once():
 async def test_handle_stream_message_proxy_hook_path_frames_errors_as_sse():
     """A failure while the hooked generator is streaming must reach the client as
     a ``data:``-framed JSON-RPC error, not as a bare NDJSON line."""
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.utils import ProxyLogging
 
     async def fake_stream(**kwargs):
         yield {"jsonrpc": "2.0", "id": "req-1", "result": {"kind": "task", "id": "t-1"}}
         raise ValueError("upstream died")
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _handle_stream_message(
             api_base="http://upstream.local",
@@ -2150,17 +2150,17 @@ async def test_handle_stream_message_proxy_hook_path_frames_errors_as_sse():
 async def test_handle_stream_message_frames_upstream_call_failure_as_sse_error():
     """A failure raised before any event is streamed (with proxy hooks wired) is
     still delivered as a ``data:``-framed JSON-RPC error."""
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.utils import ProxyLogging
 
     def fake_stream(**kwargs):
         raise ValueError("could not reach agent")
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _handle_stream_message(
             api_base="http://upstream.local",
@@ -2190,14 +2190,14 @@ async def test_handle_stream_message_frames_upstream_call_failure_as_sse_error()
 async def test_handle_stream_message_forwards_unparseable_chunk_as_sse_event():
     """A chunk that is not JSON at all still leaves as one well-formed SSE event
     instead of raising and killing the stream."""
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
     async def fake_stream(**kwargs):
         yield "not json at all"
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _handle_stream_message(
             api_base="http://upstream.local",
@@ -2220,15 +2220,15 @@ async def test_handle_stream_message_forwards_unparseable_chunk_as_sse_event():
 async def test_handle_stream_message_frames_mid_stream_failure_as_sse_error():
     """An upstream failure after the response started is reported as a
     ``data:``-framed JSON-RPC error object, so an SSE client sees the failure."""
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
     async def fake_stream(**kwargs):
         yield {"jsonrpc": "2.0", "id": "req-1", "result": {"kind": "task", "id": "t-1"}}
         raise RuntimeError("upstream died")
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _handle_stream_message(
             api_base="http://upstream.local",
@@ -2253,7 +2253,7 @@ async def test_handle_stream_message_frames_mid_stream_failure_as_sse_error():
 
 @pytest.mark.asyncio
 async def test_send_message_pascal_case_routes_to_asend_message():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     params = {
@@ -2288,15 +2288,15 @@ async def test_send_message_pascal_case_routes_to_asend_message():
     with ExitStack() as stack:
         for p in _base_patches(agent):
             stack.enter_context(p)
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
         stack.enter_context(
             patch(
-                "litellm.a2a_protocol.asend_message",
+                "hangarllm.a2a_protocol.asend_message",
                 new=AsyncMock(side_effect=capture_asend_message),
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -2314,7 +2314,7 @@ async def test_send_message_pascal_case_routes_to_asend_message():
 
 
 def test_normalize_response_wraps_flat_message_result_for_1_0():
-    from litellm.proxy.a2a.version_convert import normalize_jsonrpc_response
+    from hangarllm.proxy.a2a.version_convert import normalize_jsonrpc_response
 
     wire_response = {
         "jsonrpc": "2.0",
@@ -2336,7 +2336,7 @@ def test_normalize_response_wraps_flat_message_result_for_1_0():
 
 
 def test_normalize_response_keeps_wire_format_for_0_3():
-    from litellm.proxy.a2a.version_convert import normalize_jsonrpc_response
+    from hangarllm.proxy.a2a.version_convert import normalize_jsonrpc_response
 
     wire_response = {
         "jsonrpc": "2.0",
@@ -2356,7 +2356,7 @@ def test_normalize_response_keeps_wire_format_for_0_3():
 async def test_task_method_upstream_jsonrpc_error_on_http_4xx_is_relayed():
     """When upstream returns HTTP 4xx with a JSON-RPC error body, the error body
     must be relayed to the client unchanged, not replaced with a generic string."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock("tasks/get", {"id": "nonexistent"})
@@ -2382,12 +2382,12 @@ async def test_task_method_upstream_jsonrpc_error_on_http_4xx_is_relayed():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -2405,7 +2405,7 @@ async def test_task_method_upstream_jsonrpc_error_on_http_4xx_is_relayed():
 async def test_subscribe_to_task_upstream_error_yields_jsonrpc_error_event():
     """When upstream returns a non-2xx response for tasks/resubscribe, the SSE
     stream must yield a JSON-RPC error event instead of silently breaking."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock("tasks/resubscribe", {"id": "task-1"})
@@ -2432,12 +2432,12 @@ async def test_subscribe_to_task_upstream_error_yields_jsonrpc_error_event():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -2474,10 +2474,10 @@ async def test_forward_jsonrpc_sse_fallback_error_uses_jsonrpc_error_code():
     mock_handler.client = mock_async_client
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=mock_handler,
     ):
-        from litellm.proxy.agent_endpoints.a2a_endpoints import _forward_jsonrpc_sse
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import _forward_jsonrpc_sse
 
         response = await _forward_jsonrpc_sse(
             agent_url="http://backend-agent:10001",
@@ -2496,9 +2496,9 @@ async def test_forward_jsonrpc_sse_fallback_error_uses_jsonrpc_error_code():
 
 @pytest.mark.asyncio
 async def test_task_methods_forward_caller_identity_headers():
-    """Task operations must forward X-LiteLLM-User-Id and X-LiteLLM-Team-Id so the
+    """Task operations must forward X-HangarLLM-User-Id and X-HangarLLM-Team-Id so the
     upstream agent can scope resources to the authenticated caller."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_response = {
         "jsonrpc": "2.0",
@@ -2521,12 +2521,12 @@ async def test_task_methods_forward_caller_identity_headers():
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         await invoke_agent_a2a(
             agent_id="test-agent",
@@ -2536,14 +2536,14 @@ async def test_task_methods_forward_caller_identity_headers():
         )
 
     posted_headers = mock_handler.post.call_args.kwargs.get("headers") or {}
-    assert posted_headers.get("X-LiteLLM-User-Id") == "user-abc"
-    assert posted_headers.get("X-LiteLLM-Team-Id") == "team-xyz"
+    assert posted_headers.get("X-HangarLLM-User-Id") == "user-abc"
+    assert posted_headers.get("X-HangarLLM-Team-Id") == "team-xyz"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["tasks/get", "tasks/resubscribe"])
 async def test_task_methods_forward_trace_header(method: str):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock(method, {"id": "task-1"})
@@ -2551,7 +2551,7 @@ async def test_task_methods_forward_trace_header(method: str):
 
     async def add_proxy_data_with_trace(data, **kwargs):
         data = await _add_proxy_data(data, **kwargs)
-        data["litellm_trace_id"] = "trace-123"
+        data["hangarllm_trace_id"] = "trace-123"
         return data
 
     upstream_response = {
@@ -2579,18 +2579,18 @@ async def test_task_methods_forward_trace_header(method: str):
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.proxy.common_request_processing.add_litellm_data_to_request",
+                "hangarllm.proxy.common_request_processing.add_hangarllm_data_to_request",
                 new=AsyncMock(side_effect=add_proxy_data_with_trace),
             )
         )
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         response = await invoke_agent_a2a(
             agent_id="test-agent",
@@ -2606,7 +2606,7 @@ async def test_task_methods_forward_trace_header(method: str):
         forwarded_headers = mock_async_client.build_request.call_args.kwargs["headers"]
     else:
         forwarded_headers = mock_handler.post.call_args.kwargs["headers"]
-    assert forwarded_headers.get("X-LiteLLM-Trace-Id") == "trace-123"
+    assert forwarded_headers.get("X-HangarLLM-Trace-Id") == "trace-123"
 
 
 @pytest.mark.asyncio
@@ -2614,7 +2614,7 @@ async def test_push_notification_config_set_rejects_http_url():
     """tasks/pushNotificationConfig/set must reject non-HTTPS callback URLs to prevent SSRF."""
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock(
@@ -2627,7 +2627,7 @@ async def test_push_notification_config_set_rejects_http_url():
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         with pytest.raises(HTTPException) as exc_info:
             await invoke_agent_a2a(
@@ -2646,7 +2646,7 @@ async def test_push_notification_config_set_rejects_private_ip():
     """tasks/pushNotificationConfig/set must reject callback URLs pointing to private IP ranges."""
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock(
@@ -2659,7 +2659,7 @@ async def test_push_notification_config_set_rejects_private_ip():
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         with pytest.raises(HTTPException) as exc_info:
             await invoke_agent_a2a(
@@ -2681,7 +2681,7 @@ async def test_push_notification_config_set_validates_nested_url_when_top_level_
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock(
@@ -2698,7 +2698,7 @@ async def test_push_notification_config_set_validates_nested_url_when_top_level_
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         with pytest.raises(HTTPException) as exc_info:
             await invoke_agent_a2a(
@@ -2715,12 +2715,12 @@ async def test_push_notification_config_set_validates_nested_url_when_top_level_
 def test_push_notification_config_set_rejects_private_dns_resolution():
     from fastapi import HTTPException
 
-    from litellm.proxy.agent_endpoints.a2a_endpoints import (
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import (
         _validate_push_notification_url,
     )
 
     with patch(
-        "litellm.litellm_core_utils.url_utils.socket.getaddrinfo",
+        "hangarllm.hangarllm_core_utils.url_utils.socket.getaddrinfo",
         return_value=[
             (
                 socket.AF_INET,
@@ -2742,7 +2742,7 @@ def test_push_notification_config_set_rejects_private_dns_resolution():
 async def test_push_notification_config_set_rejects_null_push_config():
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     agent = _make_agent_mock()
     mock_request = _make_request_mock(
@@ -2755,7 +2755,7 @@ async def test_push_notification_config_set_rejects_null_push_config():
         for p in _base_patches(agent):
             stack.enter_context(p)
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         with pytest.raises(HTTPException) as exc_info:
             await invoke_agent_a2a(
@@ -2771,10 +2771,10 @@ async def test_push_notification_config_set_rejects_null_push_config():
 
 @pytest.mark.asyncio
 async def test_caller_identity_headers_cannot_be_spoofed_via_forwarded_headers():
-    """A client must not be able to override X-LiteLLM-User-Id / X-LiteLLM-Team-Id
-    by including x-a2a-<agent>-x-litellm-user-id in their request headers.
+    """A client must not be able to override X-HangarLLM-User-Id / X-HangarLLM-Team-Id
+    by including x-a2a-<agent>-x-hangarllm-user-id in their request headers.
     The authenticated identity must always win."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     upstream_response = {
         "jsonrpc": "2.0",
@@ -2784,8 +2784,8 @@ async def test_caller_identity_headers_cannot_be_spoofed_via_forwarded_headers()
     agent = _make_agent_mock()
     mock_request = _make_request_mock("tasks/get", {"id": "task-1"})
     mock_request.headers = {
-        "x-a2a-test-agent-x-litellm-user-id": "attacker-user",
-        "x-a2a-test-agent-x-litellm-team-id": "attacker-team",
+        "x-a2a-test-agent-x-hangarllm-user-id": "attacker-user",
+        "x-a2a-test-agent-x-hangarllm-team-id": "attacker-team",
     }
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="real-user", team_id="real-team")
 
@@ -2801,12 +2801,12 @@ async def test_caller_identity_headers_cannot_be_spoofed_via_forwarded_headers()
             stack.enter_context(p)
         stack.enter_context(
             patch(
-                "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+                "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
                 return_value=mock_handler,
             )
         )
 
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         await invoke_agent_a2a(
             agent_id="test-agent",
@@ -2816,10 +2816,10 @@ async def test_caller_identity_headers_cannot_be_spoofed_via_forwarded_headers()
         )
 
     posted_headers = mock_handler.post.call_args.kwargs.get("headers") or {}
-    assert posted_headers.get("X-LiteLLM-User-Id") == "real-user", (
+    assert posted_headers.get("X-HangarLLM-User-Id") == "real-user", (
         "authenticated user id must not be overridden by forwarded client headers"
     )
-    assert posted_headers.get("X-LiteLLM-Team-Id") == "real-team", (
+    assert posted_headers.get("X-HangarLLM-Team-Id") == "real-team", (
         "authenticated team id must not be overridden by forwarded client headers"
     )
 
@@ -2837,7 +2837,7 @@ def _request_with_a2a_header(value):
 
 
 def test_served_version_config_governs_over_header():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _served_version
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _served_version
 
     # A 0.3-configured agent serves 0.3 even when the client asks for 1.0.
     agent = _agent("0.3")
@@ -2849,7 +2849,7 @@ def test_served_version_config_governs_over_header():
 
 
 def test_served_version_falls_back_to_header_when_unconfigured():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _served_version
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _served_version
 
     assert _served_version(_agent(None), _request_with_a2a_header("1.0")) == "1.0"
     assert _served_version(_agent(None), _request_with_a2a_header(None)) == "0.3"
@@ -2866,7 +2866,7 @@ def _sse_agent_handler(upstream_response: httpx.Response) -> MagicMock:
 
 
 async def _resubscribe_response():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _forward_jsonrpc_sse
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _forward_jsonrpc_sse
 
     return await _forward_jsonrpc_sse(
         agent_url="http://backend-agent:10001",
@@ -2885,16 +2885,16 @@ async def test_forward_jsonrpc_sse_pings_while_the_upstream_agent_is_still_silen
     connection."""
     import asyncio
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 0.05)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 0.05)
 
     slow_upstream = _sse_upstream_response(
         'data: {"jsonrpc": "2.0", "id": "req-1", "result": {"kind": "task"}}', first_line_delay=0.3
     )
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=_sse_agent_handler(slow_upstream),
     ):
         response = await _resubscribe_response()
@@ -2913,12 +2913,12 @@ async def test_forward_jsonrpc_sse_is_untouched_while_keepalives_are_unconfigure
     monkeypatch,
 ):
     """Off until an operator sets an interval, so the default stream is unchanged."""
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", None)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", None)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=_sse_agent_handler(
             _sse_upstream_response('data: {"jsonrpc": "2.0", "id": "req-1", "result": {"kind": "task"}}')
         ),
@@ -2935,7 +2935,7 @@ async def test_forward_jsonrpc_sse_is_untouched_while_keepalives_are_unconfigure
 async def test_forward_jsonrpc_sse_keeps_unicode_line_separators_inside_an_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", None)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", None)
     separated_text: Final = "before\u2028between\u2029after"
     event: Final = {
         "jsonrpc": "2.0",
@@ -2944,7 +2944,7 @@ async def test_forward_jsonrpc_sse_keeps_unicode_line_separators_inside_an_event
     }
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.get_async_httpx_client",
+        "hangarllm.llms.custom_httpx.http_handler.get_async_httpx_client",
         return_value=_sse_agent_handler(_sse_upstream_response(f"data: {json.dumps(event, ensure_ascii=False)}")),
     ):
         response: Final = await _resubscribe_response()
@@ -2956,7 +2956,7 @@ async def test_forward_jsonrpc_sse_keeps_unicode_line_separators_inside_an_event
 
 
 async def _stream_message_response():
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _handle_stream_message
 
     return await _handle_stream_message(
         api_base="http://upstream.local",
@@ -2980,17 +2980,17 @@ async def test_handle_stream_message_pings_while_the_upstream_agent_is_still_sil
     time-to-first-token."""
     import asyncio
 
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", 0.05)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", 0.05)
 
     async def fake_stream(**kwargs):
         await asyncio.sleep(0.3)
         yield {"jsonrpc": "2.0", "id": "req-1", "result": {"kind": "task", "id": "t-1"}}
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _stream_message_response()
         assert response.headers["x-accel-buffering"] == "no"
@@ -3006,16 +3006,16 @@ async def test_handle_stream_message_is_untouched_while_keepalives_are_unconfigu
     monkeypatch,
 ):
     """Off until an operator sets an interval, so the default stream is unchanged."""
-    import litellm
+    import hangarllm
 
-    monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", None)
+    monkeypatch.setattr(hangarllm, "sse_keepalive_ping_interval_seconds", None)
 
     async def fake_stream(**kwargs):
         yield {"jsonrpc": "2.0", "id": "req-1", "result": {"kind": "task", "id": "t-1"}}
 
     with ExitStack() as stack:
-        stack.enter_context(patch("litellm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
-        stack.enter_context(patch("litellm.a2a_protocol.asend_message_streaming", new=fake_stream))
+        stack.enter_context(patch("hangarllm.a2a_protocol.main.A2A_SDK_AVAILABLE", True))
+        stack.enter_context(patch("hangarllm.a2a_protocol.asend_message_streaming", new=fake_stream))
 
         response = await _stream_message_response()
         assert "x-accel-buffering" not in response.headers
@@ -3028,7 +3028,7 @@ async def test_handle_stream_message_is_untouched_while_keepalives_are_unconfigu
 def test_forwarding_headers_minted_bearer_replaces_a_forwarded_authorization_of_any_case():
     """A client header the admin chose to forward keeps the casing the config named it with, so a forwarded
     `authorization` must not travel next to the minted `Authorization` as a second header line."""
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _forwarding_headers
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _forwarding_headers
 
     merged = _forwarding_headers(
         caller_identity={},
@@ -3072,9 +3072,9 @@ async def test_failed_upstream_stream_relays_its_body_only_when_that_is_a_json_o
     upstream_body: bytes,
     relayed_event: Mapping[str, object],
 ):
-    from litellm.proxy.agent_endpoints.a2a_endpoints import _a2a_sse_event_source
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import _a2a_sse_event_source
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = respx_mock.post("http://backend-agent:10001").mock(
         return_value=httpx.Response(404, content=upstream_body)
     )
@@ -3127,7 +3127,7 @@ class _RejectionRecorder(CustomLogger):
 _SPOOFED_BODY_FIELDS: Final = MappingProxyType(
     {
         "agent_id": "spoof",
-        "litellm_call_id": "spoofed-call-id",
+        "hangarllm_call_id": "spoofed-call-id",
         "metadata": {"agent_id": "spoof", "user_api_key_alias": "spoof", "user_api_key_team_id": "spoof"},
     }
 )
@@ -3141,7 +3141,7 @@ def _rejection_request(path_agent_id: str, request_id: object) -> MagicMock:
             "jsonrpc": "2.0",
             "id": request_id,
             "method": "SendMessage",
-            "params": {**_HELLO_MESSAGE_PARAMS, "litellm_call_id": "spoofed-param-call-id"},
+            "params": {**_HELLO_MESSAGE_PARAMS, "hangarllm_call_id": "spoofed-param-call-id"},
             **_SPOOFED_BODY_FIELDS,
         }
     )
@@ -3155,9 +3155,9 @@ async def _invoke_rejected(
     proxy_logging_obj: object,
     request_id: object = "rej-1",
 ) -> tuple[int, object]:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.agent_endpoints import agent_registry
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
     path_agent_id: Final = "denied-agent" if registered else "no-such-agent"
     registry: Final = agent_registry.AgentRegistry()
@@ -3177,7 +3177,7 @@ async def _invoke_rejected(
         key_alias="caller-alias",
         user_id="caller-user",
         team_id="caller-team",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="caller-grants", agents=["other-agent"]),
+        object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="caller-grants", agents=["other-agent"]),
         request_route=f"/a2a/{path_agent_id}",
     )
     with respx.mock as upstream:
@@ -3220,12 +3220,12 @@ _EXPECTED_REJECTIONS: Final = (
 async def test_rejected_agent_call_is_logged_once_as_the_caller_without_dispatch(
     monkeypatch: pytest.MonkeyPatch, registered: bool, status: int, body: object, target: str, model: str
 ) -> None:
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy.utils import ProxyLogging
 
     recorder: Final = _RejectionRecorder()
     for name in ("callbacks", "failure_callback", "_async_failure_callback"):
-        monkeypatch.setattr(litellm, name, [recorder])
+        monkeypatch.setattr(hangarllm, name, [recorder])
 
     got_status, got_body = await _invoke_rejected(
         monkeypatch, registered=registered, proxy_logging_obj=ProxyLogging(user_api_key_cache=DualCache())
@@ -3295,8 +3295,8 @@ async def test_unknown_agent_rejection_echoes_the_jsonrpc_id(
 def _a2a_app_refusing_with(refusal: Exception) -> TestClient:
     from fastapi import FastAPI
 
-    from litellm.proxy.agent_endpoints.a2a_endpoints import router
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.agent_endpoints.a2a_endpoints import router
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     def refuse() -> UserAPIKeyAuth:
         raise refusal
@@ -3309,7 +3309,7 @@ def _a2a_app_refusing_with(refusal: Exception) -> TestClient:
 
 @pytest.mark.parametrize("path", ["/a2a/agent-1", "/a2a/agent-1/message/send", "/v1/a2a/agent-1/message/send"])
 def test_a2a_auth_refusals_answer_as_jsonrpc_errors_with_the_callers_id(path: str):
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     client: Final = _a2a_app_refusing_with(
         ProxyException(message="Budget has been exceeded!", type="budget_exceeded", param=None, code=422)

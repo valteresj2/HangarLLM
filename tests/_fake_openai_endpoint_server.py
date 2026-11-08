@@ -1,6 +1,6 @@
 """Canned OpenAI-shaped mock server for the CI proxy E2Es.
 
-Several CI jobs run the litellm proxy (often in its own Docker container) against
+Several CI jobs run the hangarllm proxy (often in its own Docker container) against
 a model whose ``api_base`` is a fake OpenAI endpoint that returns canned
 responses, so the run costs nothing and does not depend on a real provider. That
 endpoint used to be a single shared deployment; when it went down every one of

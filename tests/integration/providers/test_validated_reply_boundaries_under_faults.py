@@ -62,7 +62,7 @@ _IMAGE_USAGE: Final[dict[str, JsonValue]] = {
 }
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _STARTED_WORKER: Final = re.compile(r"Started server process \[(\d+)\]")
-_PACKAGED_PRICES: Final = Path(__file__).resolve().parents[3] / "litellm" / "model_prices_and_context_window_backup.json"
+_PACKAGED_PRICES: Final = Path(__file__).resolve().parents[3] / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 
 def _chat_reply(model: str, usage: dict[str, JsonValue]) -> Reply:
@@ -262,7 +262,7 @@ def _check_overloaded(response: httpx.Response) -> None:
     error: Final = _error(response)
     assert error["type"] == "internal_server_error" and error["code"] == "503", response.text
     assert str(error["message"]).startswith(
-        "litellm.ServiceUnavailableError: ServiceUnavailableError: XaiException - "
+        "hangarllm.ServiceUnavailableError: ServiceUnavailableError: XaiException - "
     ), response.text
 
 
@@ -276,7 +276,7 @@ def _check_rejected_image_config(response: httpx.Response) -> None:
     error: Final = _error(response)
     assert error["type"] == "invalid_request_error" and error["code"] == "400", response.text
     assert str(error["message"]).startswith(
-        "litellm.UnsupportedParamsError: `imageConfig` must be valid JSON when provided as a string."
+        "hangarllm.UnsupportedParamsError: `imageConfig` must be valid JSON when provided as a string."
     ), response.text
 
 
@@ -292,7 +292,7 @@ def _check_priced(response: httpx.Response) -> None:
     input_rate: Final = packaged["input_cost_per_token"]
     output_rate: Final = packaged["output_cost_per_token"]
     assert isinstance(input_rate, float) and isinstance(output_rate, float), packaged
-    assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(
+    assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(
         _PROMPT_TOKENS * input_rate + _COMPLETION_TOKENS * output_rate, rel=1e-9
     )
 
@@ -330,15 +330,15 @@ def _faults_config(wire: Wire, directory: Path) -> Path:
     config["model_list"] = [
         {
             "model_name": _XAI_MODEL,
-            "litellm_params": {"model": f"xai/{_XAI_BACKEND}", "api_base": f"{wire.url}/xai/v1", "api_key": _API_KEY},
+            "hangarllm_params": {"model": f"xai/{_XAI_BACKEND}", "api_base": f"{wire.url}/xai/v1", "api_key": _API_KEY},
         },
         {
             "model_name": _GEMINI_MODEL,
-            "litellm_params": {"model": f"gemini/{_GEMINI_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
+            "hangarllm_params": {"model": f"gemini/{_GEMINI_BACKEND}", "api_base": wire.url, "api_key": _API_KEY},
         },
         {
             "model_name": _BEDROCK_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"bedrock/invoke/{_BEDROCK_BACKEND}",
                 "api_key": _API_KEY,
                 "aws_region_name": "us-east-1",
@@ -348,7 +348,7 @@ def _faults_config(wire: Wire, directory: Path) -> Path:
         },
         {
             "model_name": _OPENAI_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{_OPENAI_BACKEND}",
                 "api_base": f"{wire.url}/openai/v1",
                 "api_key": _API_KEY,

@@ -63,8 +63,8 @@ def test_responses_with_gateway_mcp_and_caller_function_tool_hands_both_to_model
                 "tools": [
                     {
                         "type": "mcp",
-                        "server_url": "litellm_proxy",
-                        "server_label": "litellm",
+                        "server_url": "hangarllm_proxy",
+                        "server_label": "hangarllm",
                         "require_approval": "never",
                     },
                     _FUNCTION_TOOL,

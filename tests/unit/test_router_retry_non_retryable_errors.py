@@ -7,7 +7,7 @@ Verifies that:
 2. original_exception is updated to the latest error, not stuck on the first.
 3. Retryable errors (e.g., 429 RateLimitError) still retry normally.
 
-Regression tests for https://github.com/BerriAI/litellm/issues/21343
+Regression tests for upstream issue 21343
 """
 
 from collections.abc import Iterator
@@ -16,16 +16,16 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 
 @pytest.fixture(autouse=True)
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 def _error(status: int, message: str, code: str | None = None) -> httpx.Response:
@@ -46,7 +46,7 @@ def _create_router(num_retries=2):
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4",
                     "api_key": f"fake-key-{i}",
                     "api_base": "https://api.openai.com/v1",
@@ -82,7 +82,7 @@ async def test_non_retryable_error_in_retry_loop_raises_immediately():
         _rate_limit(3),
     ]
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(hangarllm.ContextWindowExceededError):
         await _call(router, replies)
 
 
@@ -94,7 +94,7 @@ async def test_bad_request_error_in_retry_loop_raises_immediately():
     """
     router = _create_router(num_retries=2)
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         await _call(router, [_rate_limit(1), _error(400, "Invalid request"), _rate_limit(3)])
 
 
@@ -106,7 +106,7 @@ async def test_original_exception_updated_to_latest_error():
     """
     router = _create_router(num_retries=2)
 
-    with pytest.raises(litellm.RateLimitError) as exc_info:
+    with pytest.raises(hangarllm.RateLimitError) as exc_info:
         await _call(router, [_rate_limit(i) for i in range(1, 6)])
     # Should be the LAST error, not the first
     assert "Rate limit attempt 3" in str(exc_info.value)
@@ -123,7 +123,7 @@ async def test_retryable_errors_still_retry_normally():
 
     with respx.mock() as mock_router:
         route = mock_router.post("https://api.openai.com/v1/chat/completions").mock(side_effect=replies)
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(hangarllm.RateLimitError):
             await router.acompletion(model="test-model", messages=[{"role": "user", "content": "test"}])
 
     # Initial call + 3 retries = 4 total calls
@@ -140,7 +140,7 @@ async def test_not_found_error_in_retry_loop_raises_immediately():
 
     with respx.mock() as mock_router:
         route = mock_router.post("https://api.openai.com/v1/chat/completions").mock(side_effect=replies)
-        with pytest.raises(litellm.NotFoundError):
+        with pytest.raises(hangarllm.NotFoundError):
             await router.acompletion(model="test-model", messages=[{"role": "user", "content": "test"}])
 
     # Only 2 calls: initial + first retry that hits non-retryable

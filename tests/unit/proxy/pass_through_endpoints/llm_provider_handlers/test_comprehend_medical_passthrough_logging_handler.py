@@ -5,10 +5,10 @@ import httpx
 import pytest
 
 
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.comprehend_medical_passthrough_logging_handler import (
+from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.comprehend_medical_passthrough_logging_handler import (
     ComprehendMedicalPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from hangarllm.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
 
@@ -24,7 +24,7 @@ def _make_response(operation: str) -> httpx.Response:
 
 def _make_logging_obj() -> MagicMock:
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "test-call-id"
+    logging_obj.hangarllm_call_id = "test-call-id"
     logging_obj.model_call_details = {}
     return logging_obj
 

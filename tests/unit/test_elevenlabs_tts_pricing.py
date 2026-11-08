@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-import litellm
+import hangarllm
 
 REPO_ROOT = Path(__file__).parents[2]
 PRICES = {
@@ -25,25 +25,25 @@ PRICES = {
 @pytest.fixture(autouse=True)
 def local_model_cost_map(monkeypatch):
     """Never depend on the published cost map having these rows yet."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.mark.parametrize("model, per_character", PRICES.items())
 def test_metadata_and_backup(model, per_character):
     main = json.loads((REPO_ROOT / "model_prices_and_context_window.json").read_text())
-    backup = json.loads((REPO_ROOT / "litellm/model_prices_and_context_window_backup.json").read_text())
+    backup = json.loads((REPO_ROOT / "hangarllm/model_prices_and_context_window_backup.json").read_text())
     assert main[model] == backup[model]
-    info = litellm.get_model_info(model)
-    assert info["litellm_provider"] == "elevenlabs"
+    info = hangarllm.get_model_info(model)
+    assert info["hangarllm_provider"] == "elevenlabs"
     assert info["mode"] == "audio_speech"
     assert info["input_cost_per_character"] == per_character
 
 
 @pytest.mark.parametrize("model, per_character", PRICES.items())
 def test_speech_cost_is_charged_per_character(model, per_character):
-    cost = litellm.completion_cost(model=model, call_type="speech", prompt="x" * 1000)
+    cost = hangarllm.completion_cost(model=model, call_type="speech", prompt="x" * 1000)
     assert cost == pytest.approx(per_character * 1000)

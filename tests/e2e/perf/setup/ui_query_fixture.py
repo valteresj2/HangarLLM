@@ -33,14 +33,14 @@ class TableVolume(BaseModel):
 
 
 QUERIED_TABLES: Final = (
-    "LiteLLM_SpendLogs",
-    "LiteLLM_DailyUserSpend",
-    "LiteLLM_DailyTeamSpend",
-    "LiteLLM_DailyTagSpend",
-    "LiteLLM_VerificationToken",
-    "LiteLLM_TeamTable",
-    "LiteLLM_UserTable",
-    "LiteLLM_ProxyModelTable",
+    "HangarLLM_SpendLogs",
+    "HangarLLM_DailyUserSpend",
+    "HangarLLM_DailyTeamSpend",
+    "HangarLLM_DailyTagSpend",
+    "HangarLLM_VerificationToken",
+    "HangarLLM_TeamTable",
+    "HangarLLM_UserTable",
+    "HangarLLM_ProxyModelTable",
 )
 _VOLUME_SQL: Final = """
     SELECT c.relname, GREATEST(c.reltuples, 0)::bigint, pg_total_relation_size(c.oid)
@@ -53,22 +53,22 @@ SEEDED_TEAMS: Final = 100
 SEEDED_USERS: Final = 2000
 SEEDED_KEYS: Final = 5000
 SEEDED_MODELS: Final = 200
-DAILY_TABLES: Final = ("LiteLLM_DailyUserSpend", "LiteLLM_DailyTeamSpend")
+DAILY_TABLES: Final = ("HangarLLM_DailyUserSpend", "HangarLLM_DailyTeamSpend")
 _SEED_SQL: Final = (
     """
-    INSERT INTO "LiteLLM_TeamTable" (team_id, team_alias, members_with_roles, metadata, model_spend, model_max_budget)
+    INSERT INTO "HangarLLM_TeamTable" (team_id, team_alias, members_with_roles, metadata, model_spend, model_max_budget)
     SELECT 'perf-team-' || n, 'perf-team-' || n, '[]', '{}', '{}', '{}' FROM generate_series(0, %(teams)s - 1) AS n
     ON CONFLICT (team_id) DO NOTHING
     """,
     """
-    INSERT INTO "LiteLLM_UserTable" (user_id, user_alias, user_email, user_role, team_id, metadata, model_spend, model_max_budget)
+    INSERT INTO "HangarLLM_UserTable" (user_id, user_alias, user_email, user_role, team_id, metadata, model_spend, model_max_budget)
     SELECT 'perf-user-' || n, 'perf-user-' || n, 'perf-user-' || n || '@example.com', 'internal_user',
         'perf-team-' || (n %% %(teams)s), '{}', '{}', '{}'
     FROM generate_series(0, %(users)s - 1) AS n
     ON CONFLICT (user_id) DO NOTHING
     """,
     """
-    INSERT INTO "LiteLLM_VerificationToken" (token, key_name, key_alias, team_id, user_id, aliases, config, permissions,
+    INSERT INTO "HangarLLM_VerificationToken" (token, key_name, key_alias, team_id, user_id, aliases, config, permissions,
         metadata, model_spend, model_max_budget, created_at, updated_at)
     SELECT md5('perf-key:' || n) || md5('perf-key-tail:' || n), 'sk-...perf' || n, 'perf-key-' || n,
         'perf-team-' || (n %% %(teams)s), 'perf-user-' || (n %% %(users)s), '{}', '{}', '{}', '{}', '{}', '{}',
@@ -77,7 +77,7 @@ _SEED_SQL: Final = (
     ON CONFLICT (token) DO NOTHING
     """,
     """
-    INSERT INTO "LiteLLM_ProxyModelTable" (model_id, model_name, litellm_params, model_info, created_by, updated_by)
+    INSERT INTO "HangarLLM_ProxyModelTable" (model_id, model_name, hangarllm_params, model_info, created_by, updated_by)
     SELECT 'perf-model-' || n, 'perf-chat-' || (n %% 20),
         jsonb_build_object('model', 'openai/perf-chat', 'api_key', 'perf-seed',
             'api_base', 'os.environ/E2E_PERF_MOCK_OPENAI_URL'),
@@ -100,14 +100,14 @@ def volume_properties(volumes: Iterable[TableVolume]) -> tuple[tuple[str, int], 
 
 def table_volumes(connection: psycopg.Connection, spend_log_rows: int) -> tuple[TableVolume, ...]:
     """Planner row estimates and on-disk size (indexes included) of the queried tables. The restore's
-    `LiteLLM_SpendLogs` count comes from the seed checkpoint, exact where the estimate can be stale."""
+    `HangarLLM_SpendLogs` count comes from the seed checkpoint, exact where the estimate can be stale."""
     adapter: Final = TypeAdapter(tuple[str, int, int])
     found: Final = tuple(
         adapter.validate_python(row)
         for row in connection.execute(_VOLUME_SQL, {"tables": list(QUERIED_TABLES)}).fetchall()
     )
     return tuple(
-        TableVolume(table=table, rows=spend_log_rows if table == "LiteLLM_SpendLogs" else rows, bytes=size)
+        TableVolume(table=table, rows=spend_log_rows if table == "HangarLLM_SpendLogs" else rows, bytes=size)
         for table, rows, size in sorted(found)
     )
 
@@ -117,7 +117,7 @@ def prepare_fixture() -> UiFixture:
     _finish_upgrade()
     with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=10) as connection:
         _ = connection.execute("SET statement_timeout='30s'")
-        row: Final = connection.execute("SELECT spec->>'anchor', rows FROM litellm_perf_seed.checkpoint").fetchone()
+        row: Final = connection.execute("SELECT spec->>'anchor', rows FROM hangarllm_perf_seed.checkpoint").fetchone()
         assert row is not None and TypeAdapter(int).validate_python(row[1]) > 0, "Missing completed seed rows"
         seed_ui_tables(connection, anchor=TypeAdapter(datetime).validate_python(row[0]))
         fixture: Final = UiFixture(
@@ -162,7 +162,7 @@ def _count(row: tuple[object, ...] | None) -> int:
 def _released_schema(connection: psycopg.Connection) -> bool:
     """A released tag's migrations image upgrades the restore (schema and request-log indexes) before the
     stack starts, so there is no upgrade worker state to wait on."""
-    row: Final = connection.execute("""SELECT to_regclass('public."_LiteLLMPerfUpgrade"') IS NULL""").fetchone()
+    row: Final = connection.execute("""SELECT to_regclass('public."_HangarLLMPerfUpgrade"') IS NULL""").fetchone()
     return row is None or TypeAdapter(bool).validate_python(row[0])
 
 

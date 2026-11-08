@@ -78,7 +78,7 @@ def _grayswan_config(
         "guardrails": [
             {
                 "guardrail_name": identity,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "grayswan",
                     "mode": mode,
                     "default_on": default_on,
@@ -163,9 +163,9 @@ def _normalized_generic_body(body: dict[str, JsonValue]) -> dict[str, JsonValue]
     )
     return {
         **body,
-        "litellm_call_id": "<call-id>",
-        "litellm_trace_id": "<trace-id>",
-        "litellm_version": "<version>",
+        "hangarllm_call_id": "<call-id>",
+        "hangarllm_trace_id": "<trace-id>",
+        "hangarllm_version": "<version>",
         "request_headers": normalized_headers,
     }
 
@@ -1116,7 +1116,7 @@ def test_post_call_generic_guardrail_inputs_unchanged(gateway: Gateway, tmp_path
     response_text: Final = "family control"
 
     def generic_policy(request: Request) -> Reply:
-        assert request.target == "/beta/litellm_basic_guardrail_api", request.target
+        assert request.target == "/beta/hangarllm_basic_guardrail_api", request.target
         return Reply(body=json.dumps({"action": "NONE"}).encode())
 
     with (
@@ -1126,7 +1126,7 @@ def test_post_call_generic_guardrail_inputs_unchanged(gateway: Gateway, tmp_path
     ):
         generic_entry: Final = {
             "guardrail_name": generic_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "generic_guardrail_api",
                 "mode": "post_call",
                 "default_on": True,
@@ -1155,7 +1155,7 @@ def test_post_call_generic_guardrail_inputs_unchanged(gateway: Gateway, tmp_path
                 lambda: tuple(
                     _JSON_OBJECT.validate_json(request.body)
                     for request in policy.drain()
-                    if request.target == "/beta/litellm_basic_guardrail_api"
+                    if request.target == "/beta/hangarllm_basic_guardrail_api"
                 ),
                 lambda bodies: len(bodies) >= 1,
                 seconds=30,
@@ -1165,12 +1165,12 @@ def test_post_call_generic_guardrail_inputs_unchanged(gateway: Gateway, tmp_path
                 "additional_provider_specific_params": {},
                 "images": None,
                 "input_type": "response",
-                "litellm_call_id": "<call-id>",
-                "litellm_trace_id": "<trace-id>",
-                "litellm_version": "<version>",
+                "hangarllm_call_id": "<call-id>",
+                "hangarllm_trace_id": "<trace-id>",
+                "hangarllm_version": "<version>",
                 "model": "gpt-4o-mini",
                 "request_data": {
-                    "user_api_key_hash": "litellm_proxy_master_key",
+                    "user_api_key_hash": "hangarllm_proxy_master_key",
                     "user_api_key_user_id": "default_user_id",
                 },
                 "request_headers": {

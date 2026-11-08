@@ -8,14 +8,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.integrations.focus.destinations.base import FocusTimeWindow
-from litellm.integrations.focus.destinations.ternary_destination import (
+from hangarllm.integrations.focus.destinations.base import FocusTimeWindow
+from hangarllm.integrations.focus.destinations.ternary_destination import (
     TERNARY_UPLOAD_TIMEOUT_SECONDS,
     FocusTernaryDestination,
     _NoRedirectHTTPHandler,
 )
 
-MOCK_TARGET = "litellm.integrations.focus.destinations.ternary_destination._NoRedirectHTTPHandler"
+MOCK_TARGET = "hangarllm.integrations.focus.destinations.ternary_destination._NoRedirectHTTPHandler"
 
 
 def _window(freq: str = "daily", hour: int = 5) -> FocusTimeWindow:
@@ -37,7 +37,7 @@ def _config(**overrides: Any) -> dict[str, Any]:
 _SIGNED_URL = "https://storage.googleapis.com/ter-ecs-t-us/days/cloud-1/2024-01-02.csv?X-Goog-Signature=abc"
 _SIGNED_HEADERS = {
     "Content-Type": "text/csv",
-    "x-goog-meta-ecs-provider": "litellm",
+    "x-goog-meta-ecs-provider": "hangarllm",
     "x-goog-meta-ecs-connection-id": "conn-1234",
     "x-goog-content-length-range": "0,1073741824",
 }
@@ -242,7 +242,7 @@ def test_should_accept_https_or_loopback_base_url(url):
 
 
 def test_generic_focus_factory_does_not_build_a_ternary_destination():
-    from litellm.integrations.focus.destinations.factory import FocusDestinationFactory
+    from hangarllm.integrations.focus.destinations.factory import FocusDestinationFactory
 
     with pytest.raises(NotImplementedError, match="'ternary' not supported"):
         FocusDestinationFactory.create(
@@ -256,7 +256,7 @@ def test_ternary_logger_resolves_its_destination_from_env(monkeypatch):
     monkeypatch.setenv("TERNARY_API_KEY", "envk")
     monkeypatch.setenv("TERNARY_CONNECTION_ID", "envc")
     monkeypatch.setenv("TERNARY_BASE_URL", "https://ternary.test")
-    from litellm.integrations.ternary.ternary_logger import TernaryLogger
+    from hangarllm.integrations.ternary.ternary_logger import TernaryLogger
 
     dest = TernaryLogger()._ensure_engine().destination
     assert isinstance(dest, FocusTernaryDestination)
@@ -268,7 +268,7 @@ def test_ternary_logger_requires_each_env_var(monkeypatch, missing):
     for var in ("TERNARY_API_KEY", "TERNARY_CONNECTION_ID", "TERNARY_BASE_URL"):
         monkeypatch.setenv(var, "https://ternary.test" if var == "TERNARY_BASE_URL" else "x")
     monkeypatch.delenv(missing, raising=False)
-    from litellm.integrations.ternary.ternary_logger import TernaryLogger
+    from hangarllm.integrations.ternary.ternary_logger import TernaryLogger
 
     with pytest.raises(ValueError, match=missing):
         TernaryLogger()._ensure_engine()

@@ -7,9 +7,9 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.huggingface.embedding.handler import HuggingFaceEmbedding
-from litellm.types.utils import EmbeddingResponse
+import hangarllm
+from hangarllm.llms.huggingface.embedding.handler import HuggingFaceEmbedding
+from hangarllm.types.utils import EmbeddingResponse
 from tests.unit.conftest import in_operator_error
 
 MOCK_EMBEDDING_RESPONSE = [[0.1, 0.2, 0.3, 0.4, 0.5]]
@@ -18,7 +18,7 @@ MOCK_EMBEDDING_RESPONSE = [[0.1, 0.2, 0.3, 0.4, 0.5]]
 @pytest.fixture
 def mock_embedding_http_handler():
     """Fixture to mock the HTTP handler for embedding tests"""
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
         mock_response.status_code = 200
@@ -41,7 +41,7 @@ def mock_hf_config_fetch():
 def mock_embedding_async_http_handler():
     """Fixture to mock the async HTTP handler for embedding tests"""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_response = MagicMock()
@@ -56,7 +56,7 @@ def mock_embedding_async_http_handler():
 class TestHuggingFaceEmbedding:
     @pytest.fixture(autouse=True)
     def setup(self, mock_embedding_http_handler, mock_embedding_async_http_handler, mock_hf_config_fetch):
-        self.mock_get_task_patcher = patch("litellm.llms.huggingface.embedding.handler.get_hf_task_embedding_for_model")
+        self.mock_get_task_patcher = patch("hangarllm.llms.huggingface.embedding.handler.get_hf_task_embedding_for_model")
         self.mock_get_task = self.mock_get_task_patcher.start()
 
         def mock_get_task_side_effect(model, task_type, api_base, timeout=None):
@@ -69,7 +69,7 @@ class TestHuggingFaceEmbedding:
         self.model = "huggingface/BAAI/bge-m3"
         self.mock_http = mock_embedding_http_handler
         self.mock_async_http = mock_embedding_async_http_handler
-        litellm.set_verbose = False
+        hangarllm.set_verbose = False
 
         yield
 
@@ -78,7 +78,7 @@ class TestHuggingFaceEmbedding:
     def test_input_type_preserved_in_optional_params(self):
         input_text = ["hello world"]
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=self.model,
             input=input_text,
             input_type="embed",
@@ -100,7 +100,7 @@ class TestHuggingFaceEmbedding:
     def test_embedding_allows_special_token_looking_input(self):
         input_text = ["hello <|fim_prefix|> world"]
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=self.model,
             input=input_text,
             input_type="embed",
@@ -117,7 +117,7 @@ class TestHuggingFaceEmbedding:
     def test_model_name_with_https_substring_uses_api_base(self):
         api_base = "https://legit.example/embed"
 
-        litellm.embedding(
+        hangarllm.embedding(
             model="huggingface/my-https-endpoint",
             input=["hello world"],
             input_type="embed",
@@ -142,7 +142,7 @@ class TestHuggingFaceEmbedding:
             "This is sentence two",
         ]
 
-        response = litellm.embedding(
+        response = hangarllm.embedding(
             model=self.model,
             input=input_text,
             # Use the model's natural task type (sentence-similarity)
@@ -159,7 +159,7 @@ class TestHuggingFaceEmbedding:
         assert request_data["inputs"]["sentences"] == input_text[1:]
 
     def test_hf_sentence_similarity_transform_keeps_provider_options(self):
-        from litellm.llms.huggingface.embedding.handler import HuggingFaceEmbedding
+        from hangarllm.llms.huggingface.embedding.handler import HuggingFaceEmbedding
 
         request_data: Final = HuggingFaceEmbedding()._transform_input(
             input=["source sentence", "candidate sentence"],
@@ -179,7 +179,7 @@ class TestHuggingFaceEmbedding:
 async def test_hf_embedding_sentence_sim_sends_one_similarity_request(
     sync_mode: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("HUGGINGFACE_API_KEY", "hf-test-token")
     with respx.mock(assert_all_called=False) as hf:
         hf.get(url__regex=r"https://huggingface\.co/api/models/.*").respond(
@@ -191,13 +191,13 @@ async def test_hf_embedding_sentence_sim_sends_one_similarity_request(
         ).respond(json=[0.7708950042724609])
         request: Final = {
             "model": "huggingface/sentence-transformers/TaylorAI/bge-micro-v2",
-            "input": ["good morning from litellm", "this is another item"],
+            "input": ["good morning from hangarllm", "this is another item"],
         }
-        response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+        response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert inference.call_count == 1
     assert json.loads(inference.calls.last.request.content) == {
-        "inputs": {"source_sentence": "good morning from litellm", "sentences": ["this is another item"]}
+        "inputs": {"source_sentence": "good morning from hangarllm", "sentences": ["this is another item"]}
     }
     assert inference.calls.last.request.headers["Authorization"] == "Bearer hf-test-token"
     assert response.data == [{"object": "embedding", "index": 0, "embedding": 0.7708950042724609}]
@@ -212,7 +212,7 @@ HF_EMBED_URL: Final = "https://router.huggingface.co/hf-inference/pipeline/featu
 async def test_huggingface_embedding_sends_the_caller_timeout(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.get(url__regex=r"https://huggingface\.co/.*/config\.json").respond(json={"max_position_embeddings": 512})
     lookup: Final = respx_mock.get(HF_MODEL_LOOKUP_URL).mock(
         return_value=httpx.Response(200, json={"pipeline_tag": "feature-extraction"})
@@ -225,7 +225,7 @@ async def test_huggingface_embedding_sends_the_caller_timeout(
         "timeout": 45,
     }
 
-    response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+    response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert all(call.request.extensions["timeout"]["read"] == 45 for call in lookup.calls)
     assert lookup.called
@@ -234,7 +234,7 @@ async def test_huggingface_embedding_sends_the_caller_timeout(
 
 
 async def _embedding(sync_mode: bool, **kwargs: object) -> object:
-    return litellm.embedding(**kwargs) if sync_mode else await litellm.aembedding(**kwargs)
+    return hangarllm.embedding(**kwargs) if sync_mode else await hangarllm.aembedding(**kwargs)
 
 
 @pytest.mark.respx(assert_all_called=False)
@@ -242,14 +242,14 @@ async def _embedding(sync_mode: bool, **kwargs: object) -> object:
 async def test_huggingface_embedding_raises_the_error_the_endpoint_returns(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx_mock.get(url__regex=r"https://huggingface\.co/.*/config\.json").respond(json={"max_position_embeddings": 512})
     respx_mock.get(HF_MODEL_LOOKUP_URL).respond(json={"pipeline_tag": "feature-extraction"})
     route: Final = respx_mock.post(HF_EMBED_URL).respond(json={"error": "Model BAAI/bge-m3 is currently loading"})
     request: Final = {"model": "huggingface/BAAI/bge-m3", "input": ["hello"], "api_key": "hf_test"}
 
     with pytest.raises(
-        litellm.APIError, match="HuggingfaceException - Model BAAI/bge-m3 is currently loading"
+        hangarllm.APIError, match="HuggingfaceException - Model BAAI/bge-m3 is currently loading"
     ) as exc_info:
         await _embedding(sync_mode, **request)
 

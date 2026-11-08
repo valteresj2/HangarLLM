@@ -5,7 +5,7 @@ Each case asserts the feature took effect, not just a 200.
 service_tier is an OpenAI concept. The proxy forwards it and the provider echoes
 the tier back on the response, so sending a non-default tier ("priority") and
 reading it back off ``service_tier`` proves the param was honored end to end;
-litellm's own default injection (and service_tier="auto") both report "default",
+hangarllm's own default injection (and service_tier="auto") both report "default",
 so a "priority" echo can only come from the request being forwarded. "flex" is
 avoided here because it is capacity-constrained and returns a transient 429 when
 flex resources are unavailable. Bedrock and Vertex do not accept service_tier, so
@@ -32,7 +32,7 @@ from e2e_config import PROVIDER_EDGE_ADVERTISE_HOST, PROVIDER_EDGE_BIND_HOST, un
 from e2e_http import unwrap
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, LiteLLMParamsBody
+from models import ChatBody, ChatMessage, HangarLLMParamsBody
 from passthrough_client import PassthroughClient
 from provider_edge import LiveEdge, start_provider_edge
 from proxy_client import ProxyClient
@@ -64,7 +64,7 @@ class TestServiceTier:
         model = f"e2e-service-tier-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY"
             ),
         )
@@ -176,7 +176,7 @@ class TestPromptCacheRetention:
         api_base: Final = _openai_edge_api_base(resources, capture, reachable_from_proxy=True)
         model: Final = f"e2e-cache-retention-{unique_marker()}"
         model_id: Final = proxy.create_model(
-            model, LiteLLMParamsBody(model=backend, api_key="os.environ/OPENAI_API_KEY", api_base=api_base)
+            model, HangarLLMParamsBody(model=backend, api_key="os.environ/OPENAI_API_KEY", api_base=api_base)
         )
         resources.defer(lambda: proxy.delete_model(model_id))
 
@@ -199,12 +199,12 @@ class TestPromptCacheRetention:
     def test_sdk_completion_forwards_prompt_cache_retention_to_openai(
         self, resources: ResourceManager, backend: str, openai_path: str
     ) -> None:
-        import litellm
+        import hangarllm
 
         capture: Final = _OpenAIBodyCapture(openai_path)
         api_base: Final = _openai_edge_api_base(resources, capture, reachable_from_proxy=False)
 
-        litellm.completion(
+        hangarllm.completion(
             model=backend,
             messages=[{"role": "user", "content": "reply with one word"}],
             api_base=api_base,
@@ -219,15 +219,15 @@ class TestPromptCacheRetention:
     def test_router_completion_forwards_prompt_cache_retention_to_openai(
         self, resources: ResourceManager, backend: str, openai_path: str
     ) -> None:
-        import litellm
+        import hangarllm
 
         capture: Final = _OpenAIBodyCapture(openai_path)
         api_base: Final = _openai_edge_api_base(resources, capture, reachable_from_proxy=False)
-        router: Final = litellm.Router(
-            model_list=[{"model_name": "cache-retention", "litellm_params": {"model": backend, "api_base": api_base}}]
+        router: Final = hangarllm.Router(
+            model_list=[{"model_name": "cache-retention", "hangarllm_params": {"model": backend, "api_base": api_base}}]
         )
 
-        router.completion(  # pyright: ignore[reportUnknownMemberType]  # Router.completion forwards an untyped **kwargs to litellm.completion
+        router.completion(  # pyright: ignore[reportUnknownMemberType]  # Router.completion forwards an untyped **kwargs to hangarllm.completion
             model="cache-retention",
             messages=[{"role": "user", "content": "reply with one word"}],
             prompt_cache_retention=PROMPT_CACHE_RETENTION,

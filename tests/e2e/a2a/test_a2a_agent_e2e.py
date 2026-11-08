@@ -1,7 +1,7 @@
 """A2A agents end to end, against a live proxy.
 
 An admin registers an agent whose card pins an A2A protocol version and whose
-litellm_params route it through the completion bridge; a caller then discovers the
+hangarllm_params route it through the completion bridge; a caller then discovers the
 proxy-owned card and drives it over A2A JSON-RPC. These tests assert the recorded
 state (the agent persists, a spend row lands) and the enforced behavior (the served
 card points back at the proxy, message/send returns a real completion in the pinned
@@ -33,10 +33,10 @@ from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 
 BRIDGE_MODEL: Final = "claude-haiku-4-5"
 
-# No api_key: litellm resolves ANTHROPIC_API_KEY from the proxy's own environment
+# No api_key: hangarllm resolves ANTHROPIC_API_KEY from the proxy's own environment
 # for this provider, which is what the agent-owner flow relies on. Pinning
 # "os.environ/ANTHROPIC_API_KEY" here (#34512) was worse than redundant. The a2a
-# bridge forwards litellm_params to acompletion() without expanding "os.environ/"
+# bridge forwards hangarllm_params to acompletion() without expanding "os.environ/"
 # indirection, so that literal string was sent upstream as x-api-key and every
 # message/send failed with `AnthropicException - invalid x-api-key`. Omitting the
 # key lets the normal provider resolution apply. Verified against a live proxy:
@@ -56,11 +56,11 @@ def _register(client: A2AClient, resources: ResourceManager, protocol_version: s
         agent_card_params=AgentCardParams(
             protocol_version=protocol_version,
             name=f"E2E A2A {marker}",
-            description="e2e agent backed by the litellm completion bridge",
+            description="e2e agent backed by the hangarllm completion bridge",
             version="1.0.0",
             skills=[A2ASkill(id="chat", name="Chat", description="general chat", tags=["chat"])],
         ),
-        litellm_params=BRIDGE,
+        hangarllm_params=BRIDGE,
     )
     agent = unwrap(client.register_agent(body))
     resources.defer(lambda: client.delete_agent(agent.agent_id))
@@ -78,7 +78,7 @@ def _register_rejection(client: A2AClient, protocol_version: str) -> Result[Agen
             version="1.0.0",
             skills=[A2ASkill(id="chat", name="Chat", description="c", tags=["chat"])],
         ),
-        litellm_params=BRIDGE,
+        hangarllm_params=BRIDGE,
     )
     return client.register_agent(body)
 

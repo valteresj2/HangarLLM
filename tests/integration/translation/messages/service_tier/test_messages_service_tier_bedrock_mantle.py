@@ -11,14 +11,14 @@ from integration.translation.runner import assert_translation
 CLAUDE_SONNET_5_SERVICE_TIER_TEST_CASE: Final = replace(
     CLAUDE_SONNET_5_TEST_CASE,
     scenario="service_tier",
-    litellm_request={**CLAUDE_SONNET_5_TEST_CASE.litellm_request, "service_tier": "standard_only"},
+    hangarllm_request={**CLAUDE_SONNET_5_TEST_CASE.hangarllm_request, "service_tier": "standard_only"},
     expected_provider_request={**CLAUDE_SONNET_5_TEST_CASE.expected_provider_request, "service_tier": "standard_only"},
     mock_provider_response={
         **CLAUDE_SONNET_5_TEST_CASE.mock_provider_response,
         "id": "msg_bdrk_6oqdfuf56lp47vwldyos5f7l4lyyot337z2cv3h3lbaj3a3ei7vq",
     },
-    expected_litellm_response={
-        **CLAUDE_SONNET_5_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_SONNET_5_TEST_CASE.expected_hangarllm_response,
         "id": "msg_bdrk_6oqdfuf56lp47vwldyos5f7l4lyyot337z2cv3h3lbaj3a3ei7vq",
     },
 )

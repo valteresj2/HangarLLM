@@ -26,7 +26,7 @@ TARGET: Final = f"/models/{BACKEND}:batchEmbedContents"
 END_OFFSETS: Final = {"fast": "3s", "slow": "5s", "malformed": "3s", "dropped": "9s"}
 PLAN: Final = tuple(enumerate(("fast",) * 16 + ("slow",) * 8 + ("malformed",) * 8 + ("dropped",) * 8))
 BURST: Final = 24
-SPEND_SQL: Final = 'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+SPEND_SQL: Final = 'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +96,7 @@ def spend_row_counts(call_ids: tuple[str, ...]) -> tuple[int, ...]:
 
 def attempt(gateway: Gateway, model: str, index: int, kind: str) -> Attempt:
     response: Final = gateway.request("POST", "/v1/embeddings", body(model, kind, index))
-    return Attempt(kind, index, response.status_code, response.headers.get("x-litellm-call-id", ""))
+    return Attempt(kind, index, response.status_code, response.headers.get("x-hangarllm-call-id", ""))
 
 
 def of_kind(attempts: tuple[Attempt, ...], *kinds: str) -> tuple[Attempt, ...]:
@@ -145,7 +145,7 @@ def write_config(directory: Path, url: str, name: str) -> Path:
                 "model_list": [
                     {
                         "model_name": name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"gemini/{BACKEND}",
                             "api_key": "scripted-gemini-key",
                             "api_base": url,
@@ -153,7 +153,7 @@ def write_config(directory: Path, url: str, name: str) -> Path:
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
             }
@@ -178,7 +178,7 @@ def outcome(candidate: Gateway, model: str, index: int) -> str:
     except httpx.TransportError as error:
         return f"transport:{type(error).__name__}"
     assert response.status_code == 200, response.text
-    return f"ok:{response.headers['x-litellm-call-id']}"
+    return f"ok:{response.headers['x-hangarllm-call-id']}"
 
 
 @pytest.mark.timeout(300)

@@ -175,7 +175,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "otel_v2: needs a proxy running with LITELLM_OTEL_V2=true; deselected unless E2E_OTEL_V2 is set",
+        "otel_v2: needs a proxy running with HANGARLLM_OTEL_V2=true; deselected unless E2E_OTEL_V2 is set",
     )
     config.addinivalue_line(
         "markers",
@@ -254,7 +254,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         items[:] = [item for item in items if not _needs_unset_opt_in(item)]
     for item in items:
         attach_result_properties(item)
-    if os.environ.get("LITELLM_MIGRATION_TESTS") != "1":
+    if os.environ.get("HANGARLLM_MIGRATION_TESTS") != "1":
         deselected = [item for item in items if item.get_closest_marker("migration_startup") is not None]
         items[:] = [item for item in items if item.get_closest_marker("migration_startup") is None]
         if deselected:

@@ -7,26 +7,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.exceptions import GuardrailRaisedException
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.wingback import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.exceptions import GuardrailRaisedException
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.wingback import (
     guardrail_class_registry,
     guardrail_initializer_registry,
     initialize_guardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.wingback.wingback import (
+from hangarllm.proxy.guardrails.guardrail_hooks.wingback.wingback import (
     DEFAULT_WINGBACK_API_BASE,
     WingbackGuardrail,
 )
-from litellm.types.guardrails import SupportedGuardrailIntegrations
-from litellm.types.proxy.guardrails.guardrail_hooks.wingback import (
+from hangarllm.types.guardrails import SupportedGuardrailIntegrations
+from hangarllm.types.proxy.guardrails.guardrail_hooks.wingback import (
     WingbackGuardrailConfigModel,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.utils import Choices, GenericGuardrailAPIInputs, Message, ModelResponse
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.utils import Choices, GenericGuardrailAPIInputs, Message, ModelResponse
 
 
 def test_wingback_guard_registry():
@@ -41,21 +41,21 @@ def test_wingback_config_model_defaults():
 
 
 def test_initialize_guardrail_passes_extra_headers():
-    litellm_params = MagicMock()
-    litellm_params.api_base = "http://localhost:8101"
-    litellm_params.api_key = "wbk_eg_test"
-    litellm_params.wingback_app_id = None
-    litellm_params.additional_provider_specific_params = None
-    litellm_params.unreachable_fallback = "fail_closed"
-    litellm_params.fail_on_error = True
-    litellm_params.mode = "pre_call"
-    litellm_params.default_on = True
-    litellm_params.extra_headers = ["x-request-id"]
-    litellm_params.timeout = 12.5
+    hangarllm_params = MagicMock()
+    hangarllm_params.api_base = "http://localhost:8101"
+    hangarllm_params.api_key = "wbk_eg_test"
+    hangarllm_params.wingback_app_id = None
+    hangarllm_params.additional_provider_specific_params = None
+    hangarllm_params.unreachable_fallback = "fail_closed"
+    hangarllm_params.fail_on_error = True
+    hangarllm_params.mode = "pre_call"
+    hangarllm_params.default_on = True
+    hangarllm_params.extra_headers = ["x-request-id"]
+    hangarllm_params.timeout = 12.5
 
-    with patch("litellm.logging_callback_manager.add_litellm_callback"):
+    with patch("hangarllm.logging_callback_manager.add_hangarllm_callback"):
         instance = initialize_guardrail(
-            litellm_params,
+            hangarllm_params,
             {"guardrail_name": "wingback-runtime-security"},
         )
 
@@ -83,7 +83,7 @@ class TestWingbackGuardrail:
             default_on=True,
         )
 
-        assert guardrail.api_base == f"{DEFAULT_WINGBACK_API_BASE}/beta/litellm_basic_guardrail_api"
+        assert guardrail.api_base == f"{DEFAULT_WINGBACK_API_BASE}/beta/hangarllm_basic_guardrail_api"
         assert guardrail.headers["x-api-key"] == "wbk_eg_test_key"
         assert guardrail.unreachable_fallback == "fail_closed"
 
@@ -91,15 +91,15 @@ class TestWingbackGuardrail:
         guardrail = WingbackGuardrail(
             api_base="http://localhost:8101",
             api_key="wbk_eg_custom",
-            wingback_app_id="local-litellm",
+            wingback_app_id="local-hangarllm",
             guardrail_name="wingback-runtime-security",
             event_hook="post_call",
             default_on=False,
             unreachable_fallback="fail_closed",
         )
 
-        assert guardrail.api_base == "http://localhost:8101/beta/litellm_basic_guardrail_api"
-        assert guardrail.additional_provider_specific_params["wingback_app_id"] == "local-litellm"
+        assert guardrail.api_base == "http://localhost:8101/beta/hangarllm_basic_guardrail_api"
+        assert guardrail.additional_provider_specific_params["wingback_app_id"] == "local-hangarllm"
         assert guardrail.unreachable_fallback == "fail_closed"
 
     def test_get_config_model(self):
@@ -144,14 +144,14 @@ class TestWingbackGuardrail:
 
         assert result["texts"] == ["Hello"]
         mock_post.assert_awaited_once()
-        assert mock_post.await_args.kwargs["url"] == "http://localhost:8101/beta/litellm_basic_guardrail_api"
+        assert mock_post.await_args.kwargs["url"] == "http://localhost:8101/beta/hangarllm_basic_guardrail_api"
 
     @pytest.mark.asyncio
     async def test_apply_guardrail_blocks_request(self):
         guardrail = WingbackGuardrail(
             api_base="http://localhost:8101",
             api_key="wbk_eg_test",
-            wingback_app_id="prod-litellm",
+            wingback_app_id="prod-hangarllm",
             guardrail_name="wingback-runtime-security",
             event_hook="pre_call",
             default_on=True,
@@ -211,7 +211,7 @@ def registered(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) 
         default_on=True,
     )
     guardrail.async_handler = AsyncHTTPHandler(transport=httpx.MockTransport(vendor.respond))
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
     yield vendor
 
 
@@ -258,7 +258,7 @@ async def test_proxy_pre_call_hook_records_one_guardrail_entry_per_check(registe
         user_api_key_dict=UserAPIKeyAuth(), data=data, call_type="completion"
     )
 
-    entries: Final = data["litellm_metadata"]["standard_logging_guardrail_information"]
+    entries: Final = data["hangarllm_metadata"]["standard_logging_guardrail_information"]
     assert [(entry["guardrail_name"], entry["guardrail_status"]) for entry in entries] == [
         ("wingback-runtime-security", "success")
     ]

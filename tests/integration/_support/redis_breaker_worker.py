@@ -17,7 +17,7 @@ from pydantic import TypeAdapter
 
 Scenario: TypeAlias = Literal["callbacks_before_cache", "callbacks_after_cache", "no_callbacks"]
 
-STATE_GAUGE: Final = "litellm_redis_circuit_breaker_state"
+STATE_GAUGE: Final = "hangarllm_redis_circuit_breaker_state"
 WORKER_TIMEOUT_SECONDS: Final = 120
 
 
@@ -61,15 +61,15 @@ def _series(families: Iterator[object]) -> Iterator[tuple[tuple[tuple[str, str],
 
 
 def main(scenario: str, api_base: str, redis_host: str, redis_port: str) -> None:
-    import litellm
-    from litellm.caching.caching import Cache
+    import hangarllm
+    from hangarllm.caching.caching import Cache
 
     if scenario == "callbacks_before_cache":
-        litellm.service_callback = ["prometheus_system"]  # test-quality-ok: this worker process exits right after the report
-    litellm.cache = Cache(type="redis", host=redis_host, port=redis_port)  # test-quality-ok: throwaway worker process
+        hangarllm.service_callback = ["prometheus_system"]  # test-quality-ok: this worker process exits right after the report
+    hangarllm.cache = Cache(type="redis", host=redis_host, port=redis_port)  # test-quality-ok: throwaway worker process
     if scenario == "callbacks_after_cache":
-        litellm.service_callback = ["prometheus_system"]  # test-quality-ok: throwaway worker process
-    response: Final = litellm.completion(
+        hangarllm.service_callback = ["prometheus_system"]  # test-quality-ok: throwaway worker process
+    response: Final = hangarllm.completion(
         model="openai/gpt-5.6",
         api_base=api_base,
         api_key="synthetic-breaker-worker-key",

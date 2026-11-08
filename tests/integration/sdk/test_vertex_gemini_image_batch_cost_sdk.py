@@ -192,11 +192,11 @@ _SDK_SCRIPT: Final = textwrap.dedent(
     import asyncio, json, os
     from typing import Final
 
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.litellm_core_utils.hidden_params import get_hidden_params
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-    from litellm.types.utils import ModelInfo
+    import hangarllm
+    from hangarllm.integrations.custom_logger import CustomLogger
+    from hangarllm.hangarllm_core_utils.hidden_params import get_hidden_params
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.types.utils import ModelInfo
 
     model: Final = "gemini-nano-banana-2.1"
 
@@ -234,23 +234,23 @@ _SDK_SCRIPT: Final = textwrap.dedent(
         )
         if has_explicit_image_batch_rate_override:
             pricing: Final[ModelInfo] = {
-                **litellm.model_cost["vertex_ai/gemini-nano-banana-2.1"],
+                **hangarllm.model_cost["vertex_ai/gemini-nano-banana-2.1"],
                 "output_cost_per_image_token_batches": 2e-5,
             }
-            litellm.register_model({f"vertex_ai/{model}": pricing}, persist_across_reloads=False)
-        litellm.user_url_validation = False
-        litellm.disable_vertex_batch_output_transformation = os.environ["TRANSFORM_OUTPUT"] != "1"
-        info: Final = litellm.get_model_info(model=model, custom_llm_provider="vertex_ai")
+            hangarllm.register_model({f"vertex_ai/{model}": pricing}, persist_across_reloads=False)
+        hangarllm.user_url_validation = False
+        hangarllm.disable_vertex_batch_output_transformation = os.environ["TRANSFORM_OUTPUT"] != "1"
+        info: Final = hangarllm.get_model_info(model=model, custom_llm_provider="vertex_ai")
         assert info["key"] == f"vertex_ai/{model}", info
-        assert info["litellm_provider"] == "vertex_ai-language-models", info
+        assert info["hangarllm_provider"] == "vertex_ai-language-models", info
         print(
             "REGISTRY:"
-            + json.dumps({"key": info["key"], "provider": info["litellm_provider"]}),
+            + json.dumps({"key": info["key"], "provider": info["hangarllm_provider"]}),
             flush=True,
         )
         logger: Final = CaptureLogger()
-        litellm.logging_callback_manager.add_litellm_async_success_callback(logger)
-        await litellm.aretrieve_batch(
+        hangarllm.logging_callback_manager.add_hangarllm_async_success_callback(logger)
+        await hangarllm.aretrieve_batch(
             "scripted-batch",
             custom_llm_provider="vertex_ai",
             model=model,
@@ -324,7 +324,7 @@ def _api_reply(request: Request) -> Reply:
                     "state": "JOB_STATE_SUCCEEDED",
                     "outputInfo": {
                         "gcsOutputDirectory": (
-                            "gs://scripted-bucket/litellm-vertex-files/"
+                            "gs://scripted-bucket/hangarllm-vertex-files/"
                             "publishers/google/models/gemini-nano-banana-2.1/scripted-prefix"
                         )
                     },
@@ -370,7 +370,7 @@ def _subprocess_environment(
             "1" if scenario.use_explicit_image_batch_rate_override else "0"
         ),
         "TRANSFORM_OUTPUT": "1" if transform_output else "0",
-        "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+        "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
         "PYTHONPATH": python_path,
     }
 

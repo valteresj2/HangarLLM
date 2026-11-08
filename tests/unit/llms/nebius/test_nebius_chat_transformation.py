@@ -9,9 +9,9 @@ Nebius AI Studio is an OpenAI-compatible provider with minor customizations.
 
 import pytest
 
-import litellm
-from litellm import completion
-from litellm.llms.nebius.chat.transformation import NebiusConfig
+import hangarllm
+from hangarllm import completion
+from hangarllm.llms.nebius.chat.transformation import NebiusConfig
 
 
 class TestNebiusConfig:
@@ -29,7 +29,7 @@ class TestNebiusConfig:
             model="nebius/Qwen/Qwen3-4B",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base=None,  # Not providing api_base
         )
@@ -49,7 +49,7 @@ class TestNebiusConfig:
         This test mocks the actual HTTP request to test the integration properly.
         """
 
-        litellm.disable_aiohttp_transport = (
+        hangarllm.disable_aiohttp_transport = (
             True  # since this uses respx, we need to set use_aiohttp_transport to False
         )
 
@@ -71,7 +71,7 @@ class TestNebiusConfig:
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": '```python\nprint("Hey from LiteLLM!")\n```\n\nThis simple Python code prints a greeting message from LiteLLM.',
+                            "content": '```python\nprint("Hey from HangarLLM!")\n```\n\nThis simple Python code prints a greeting message from HangarLLM.',
                         },
                         "finish_reason": "stop",
                     }
@@ -85,11 +85,11 @@ class TestNebiusConfig:
             status_code=200,
         )
 
-        # Make the actual API call through LiteLLM
+        # Make the actual API call through HangarLLM
         response = completion(
             model=model,
             messages=[
-                {"role": "user", "content": "write code for saying hey from LiteLLM"}
+                {"role": "user", "content": "write code for saying hey from HangarLLM"}
             ],
             api_key=api_key,
             api_base=api_base,
@@ -105,4 +105,4 @@ class TestNebiusConfig:
 
         # Check for specific content in the response
         assert "```python" in response.choices[0].message.content
-        assert "Hey from LiteLLM" in response.choices[0].message.content
+        assert "Hey from HangarLLM" in response.choices[0].message.content

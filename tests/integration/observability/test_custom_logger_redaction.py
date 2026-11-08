@@ -16,9 +16,9 @@ from integration._support.redaction_probe import RedactionProbe, SyncRedactionPr
 from integration._support.wire import Reply, Request, Wire, wire_server
 from redis import Redis
 
-import litellm
-from litellm.constants import REDACTED_BY_LITELLM
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import hangarllm
+from hangarllm.constants import REDACTED_BY_HANGARLLM
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 INPUT: Final = "private-input-redaction-canary"
 REASONING: Final = "private-reasoning-redaction-canary"
@@ -27,7 +27,7 @@ SIGNATURE: Final = "opaque-thought-signature-canary"
 INSTRUCTIONS: Final = "Reply in French. redaction-instructions-canary"
 BRIDGED: Final = "bridged-redaction-canary"
 USAGE_DEPLOYMENT: Final = f"redaction-usage-{uuid.uuid4().hex}"
-REDACT: Final = {"x-litellm-enable-message-redaction": "true"}
+REDACT: Final = {"x-hangarllm-enable-message-redaction": "true"}
 pytestmark: Final = [pytest.mark.timeout(240), pytest.mark.shares_worker_state]
 
 
@@ -164,7 +164,7 @@ def redaction_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[
                     "model_list": [
                         {
                             "model_name": name,
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": model,
                                 "api_base": provider.url if model.startswith("anthropic/") else provider.url + "/v1",
                                 "api_key": "synthetic-provider-key",
@@ -181,7 +181,7 @@ def redaction_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[
                     + [
                         {
                             "model_name": "redaction-usage",
-                            "litellm_params": {
+                            "hangarllm_params": {
                                 "model": "anthropic/claude-sonnet-5-5",
                                 "api_base": provider.url,
                                 "api_key": "synthetic-provider-key",
@@ -191,7 +191,7 @@ def redaction_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[
                             "model_info": {"id": USAGE_DEPLOYMENT},
                         }
                     ],
-                    "litellm_settings": {
+                    "hangarllm_settings": {
                         "callbacks": ["integration._support.redaction_probe.probe"],
                         "enable_redis_auth_cache": True,
                         "cache": True,
@@ -202,7 +202,7 @@ def redaction_proxy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[
                         },
                     },
                     "general_settings": {
-                        "master_key": "os.environ/LITELLM_MASTER_KEY",
+                        "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                         "database_url": "os.environ/DATABASE_URL",
                         "disable_model_info_refresh": True,
                         "store_prompts_in_spend_logs": True,
@@ -232,7 +232,7 @@ def test_custom_logger_redacts_nested_input_and_provider_reasoning(
             "stream": stream,
             "cache": {"no-cache": True},
         },
-        headers={"x-litellm-enable-message-redaction": "true"} if redact else {},
+        headers={"x-hangarllm-enable-message-redaction": "true"} if redact else {},
     )
     assert response.status_code == 200, response.text
     first: Final = (
@@ -269,7 +269,7 @@ def test_custom_logger_redacts_prompt_and_embedding_input(
         "POST",
         route,
         {"model": model, field: INPUT, "cache": {"no-cache": True}},
-        headers={"x-litellm-enable-message-redaction": "true"} if redact else {},
+        headers={"x-hangarllm-enable-message-redaction": "true"} if redact else {},
     )
     assert response.status_code == 200, response.text
     if field == "input":
@@ -299,7 +299,7 @@ def test_native_messages_and_responses_logging_redaction(
         "POST",
         "/v1/messages" if native_messages else "/v1/responses",
         {**body, "cache": {"no-cache": True}},
-        headers={"x-litellm-enable-message-redaction": "true"} if redact else {},
+        headers={"x-hangarllm-enable-message-redaction": "true"} if redact else {},
     )
     assert response.status_code == 200, response.text
     if native_messages:
@@ -333,7 +333,7 @@ def test_concurrent_redacted_and_unredacted_callbacks_remain_isolated(
                 "user": users[index],
                 "cache": {"no-cache": True},
             },
-            headers={"x-litellm-enable-message-redaction": "true"} if index % 2 else {},
+            headers={"x-hangarllm-enable-message-redaction": "true"} if index % 2 else {},
         )
 
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -389,7 +389,7 @@ def test_redacted_responses_follow_up_replays_neither_instructions_nor_the_senti
     )
     assert first.status_code == 200, first.text
     eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE end_user = %s', (end_user,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE end_user = %s', (end_user,)),
         lambda rows: len(rows) == 1,
         seconds=70,
     )
@@ -412,7 +412,7 @@ def test_redacted_responses_follow_up_replays_neither_instructions_nor_the_senti
     assert len(sent) == 1, sent
     assert len(sent[0]["messages"]) == 3, sent[0]
     system: Final = json.dumps(sent[0].get("system"))
-    assert INSTRUCTIONS not in system and REDACTED_BY_LITELLM not in system, sent[0]
+    assert INSTRUCTIONS not in system and REDACTED_BY_HANGARLLM not in system, sent[0]
 
 
 def test_redacted_router_usage_is_counted_once(redaction_proxy: tuple[Gateway, Wire, Wire]) -> None:
@@ -468,9 +468,9 @@ async def test_sdk_success_callback_redaction_over_http(
             "success_callback": [callback],
         }
         response: Final = (
-            await litellm.acompletion(**parameters)
+            await hangarllm.acompletion(**parameters)
             if asynchronous
-            else await asyncio.to_thread(litellm.completion, **parameters)
+            else await asyncio.to_thread(hangarllm.completion, **parameters)
         )
         assert response.choices[0].message.content == OUTPUT
         assert REASONING in json.dumps(response.choices[0].message.provider_specific_fields)

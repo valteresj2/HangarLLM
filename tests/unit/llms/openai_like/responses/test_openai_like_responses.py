@@ -17,7 +17,7 @@ class TestSimpleProviderConfigSupportedEndpoints:
 
     def test_default_supported_endpoints(self):
         """supported_endpoints defaults to [] (chat always enabled, nothing else)"""
-        from litellm.llms.openai_like.json_loader import SimpleProviderConfig
+        from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
 
         config = SimpleProviderConfig(
             "test", {"base_url": "https://example.com", "api_key_env": "TEST_KEY"}
@@ -26,7 +26,7 @@ class TestSimpleProviderConfigSupportedEndpoints:
 
     def test_custom_supported_endpoints(self):
         """supported_endpoints can be set explicitly"""
-        from litellm.llms.openai_like.json_loader import SimpleProviderConfig
+        from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
 
         config = SimpleProviderConfig(
             "test",
@@ -41,7 +41,7 @@ class TestSimpleProviderConfigSupportedEndpoints:
 
     def test_responses_only_endpoint(self):
         """A provider can support only responses"""
-        from litellm.llms.openai_like.json_loader import SimpleProviderConfig
+        from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
 
         config = SimpleProviderConfig(
             "test",
@@ -60,7 +60,7 @@ class TestJSONProviderRegistryResponsesAPI:
 
     def test_nonexistent_provider(self):
         """Non-existent provider returns False"""
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from hangarllm.llms.openai_like.json_loader import JSONProviderRegistry
 
         assert (
             JSONProviderRegistry.supports_responses_api("nonexistent_provider_xyz")
@@ -72,7 +72,7 @@ class TestCreateResponsesConfigClass:
     """Test dynamic responses config class generation."""
 
     def _make_test_provider(self):
-        from litellm.llms.openai_like.json_loader import SimpleProviderConfig
+        from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
 
         return SimpleProviderConfig(
             "test_resp",
@@ -86,7 +86,7 @@ class TestCreateResponsesConfigClass:
 
     def test_generated_class_custom_llm_provider(self):
         """Generated class returns the provider slug"""
-        from litellm.llms.openai_like.dynamic_config import (
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
 
@@ -97,7 +97,7 @@ class TestCreateResponsesConfigClass:
 
     def test_generated_class_get_complete_url(self):
         """Generated class builds correct responses URL"""
-        from litellm.llms.openai_like.dynamic_config import (
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
 
@@ -105,12 +105,12 @@ class TestCreateResponsesConfigClass:
         config_cls = create_responses_config_class(provider)
         config = config_cls()
 
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, hangarllm_params={})
         assert url == "https://api.testresp.com/v1/responses"
 
     def test_generated_class_get_complete_url_with_override(self):
         """api_base override takes precedence"""
-        from litellm.llms.openai_like.dynamic_config import (
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
 
@@ -119,13 +119,13 @@ class TestCreateResponsesConfigClass:
         config = config_cls()
 
         url = config.get_complete_url(
-            api_base="https://custom.api.com/v1", litellm_params={}
+            api_base="https://custom.api.com/v1", hangarllm_params={}
         )
         assert url == "https://custom.api.com/v1/responses"
 
     def test_generated_class_get_complete_url_strips_trailing_slash(self):
         """Trailing slashes are stripped from base URL"""
-        from litellm.llms.openai_like.dynamic_config import (
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
 
@@ -134,13 +134,13 @@ class TestCreateResponsesConfigClass:
         config = config_cls()
 
         url = config.get_complete_url(
-            api_base="https://custom.api.com/v1/", litellm_params={}
+            api_base="https://custom.api.com/v1/", hangarllm_params={}
         )
         assert url == "https://custom.api.com/v1/responses"
 
     def test_generated_class_validate_environment(self):
         """validate_environment sets Authorization header from env"""
-        from litellm.llms.openai_like.dynamic_config import (
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
 
@@ -149,37 +149,37 @@ class TestCreateResponsesConfigClass:
         config = config_cls()
 
         with patch(
-            "litellm.llms.openai_like.dynamic_config.get_secret_str",
+            "hangarllm.llms.openai_like.dynamic_config.get_secret_str",
             return_value="sk-test-key-123",
         ):
             headers = config.validate_environment(
-                headers={}, model="test-model", litellm_params=None
+                headers={}, model="test-model", hangarllm_params=None
             )
         assert headers["Authorization"] == "Bearer sk-test-key-123"
 
-    def test_generated_class_validate_environment_litellm_params_override(self):
-        """api_key from litellm_params takes precedence over env"""
-        from litellm.llms.openai_like.dynamic_config import (
+    def test_generated_class_validate_environment_hangarllm_params_override(self):
+        """api_key from hangarllm_params takes precedence over env"""
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
-        from litellm.types.router import GenericLiteLLMParams
+        from hangarllm.types.router import GenericHangarLLMParams
 
         provider = self._make_test_provider()
         config_cls = create_responses_config_class(provider)
         config = config_cls()
 
-        litellm_params = GenericLiteLLMParams(api_key="sk-override-key")
+        hangarllm_params = GenericHangarLLMParams(api_key="sk-override-key")
         headers = config.validate_environment(
-            headers={}, model="test-model", litellm_params=litellm_params
+            headers={}, model="test-model", hangarllm_params=hangarllm_params
         )
         assert headers["Authorization"] == "Bearer sk-override-key"
 
     def test_generated_class_inherits_openai_responses_methods(self):
         """Generated class inherits OpenAI Responses API transformation methods"""
-        from litellm.llms.openai.responses.transformation import (
+        from hangarllm.llms.openai.responses.transformation import (
             OpenAIResponsesAPIConfig,
         )
-        from litellm.llms.openai_like.dynamic_config import (
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
 
@@ -199,7 +199,7 @@ class TestCreateResponsesConfigClass:
 
     def test_generated_class_get_complete_url_uses_api_base_env(self):
         """get_complete_url falls back to api_base_env when api_base is None"""
-        from litellm.llms.openai_like.dynamic_config import (
+        from hangarllm.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
 
@@ -208,10 +208,10 @@ class TestCreateResponsesConfigClass:
         config = config_cls()
 
         with patch(
-            "litellm.llms.openai_like.dynamic_config.get_secret_str",
+            "hangarllm.llms.openai_like.dynamic_config.get_secret_str",
             return_value="https://env-override.example.com/v1",
         ):
-            url = config.get_complete_url(api_base=None, litellm_params={})
+            url = config.get_complete_url(api_base=None, hangarllm_params={})
         assert url == "https://env-override.example.com/v1/responses"
 
 
@@ -220,11 +220,11 @@ class TestProviderConfigManagerResponsesAPI:
 
     def test_json_provider_with_responses_returns_config(self):
         """A JSON provider with /v1/responses returns a responses config"""
-        from litellm.llms.openai_like.json_loader import (
+        from hangarllm.llms.openai_like.json_loader import (
             JSONProviderRegistry,
             SimpleProviderConfig,
         )
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.utils import ProviderConfigManager
 
         test_config = SimpleProviderConfig(
             "test_pcm_resp",
@@ -247,7 +247,7 @@ class TestProviderConfigManagerResponsesAPI:
 
     def test_json_provider_without_responses_returns_none(self):
         """A JSON provider without /v1/responses returns None"""
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.utils import ProviderConfigManager
 
         # publicai only supports chat completions
         config = ProviderConfigManager.get_provider_responses_api_config(
@@ -258,7 +258,7 @@ class TestProviderConfigManagerResponsesAPI:
 
     def test_unknown_provider_returns_none(self):
         """A completely unknown provider returns None"""
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_responses_api_config(
             provider="totally_unknown_provider_xyz",
@@ -268,8 +268,8 @@ class TestProviderConfigManagerResponsesAPI:
 
     def test_standard_providers_still_work(self):
         """Existing enum-based providers still resolve correctly"""
-        from litellm.types.utils import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.types.utils import LlmProviders
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_responses_api_config(
             provider=LlmProviders.OPENAI,
@@ -279,7 +279,7 @@ class TestProviderConfigManagerResponsesAPI:
 
     def test_standard_provider_as_string_still_works(self):
         """Passing 'openai' as a string also works"""
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_responses_api_config(
             provider="openai",
@@ -289,14 +289,14 @@ class TestProviderConfigManagerResponsesAPI:
 
     def test_python_class_takes_priority_over_json(self):
         """If a provider has both a Python class and JSON config, Python wins"""
-        from litellm.llms.openai_like.json_loader import (
+        from hangarllm.llms.openai_like.json_loader import (
             JSONProviderRegistry,
             SimpleProviderConfig,
         )
-        from litellm.llms.perplexity.responses.transformation import (
+        from hangarllm.llms.perplexity.responses.transformation import (
             PerplexityResponsesConfig,
         )
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.utils import ProviderConfigManager
 
         # Inject perplexity into JSON registry with responses support
         test_config = SimpleProviderConfig(

@@ -198,7 +198,7 @@ def _assert_schemas_by_marker(received: tuple[Request, ...], calls: tuple[_Call,
 
 def _spend_statuses(model: str, expected: int) -> list[JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=60,
     )
@@ -258,18 +258,18 @@ def _fleet_config(wire: Wire, tmp_path: Path) -> tuple[Path, _Fleet]:
     params: Final[dict[str, JsonValue]] = {"api_base": wire.url, **_AWS}
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     config["model_list"] = [
-        {"model_name": fleet.kimi_bare, "litellm_params": {"model": f"bedrock/{_KIMI}", **params}},
+        {"model_name": fleet.kimi_bare, "hangarllm_params": {"model": f"bedrock/{_KIMI}", **params}},
         {
             "model_name": fleet.kimi_flagged_true,
-            "litellm_params": {"model": f"bedrock/{_KIMI}", **params},
+            "hangarllm_params": {"model": f"bedrock/{_KIMI}", **params},
             "model_info": {"supports_regex_lookaround": True},
         },
         {
             "model_name": fleet.nova_off,
-            "litellm_params": {"model": f"bedrock/converse/{_NOVA}", **params},
+            "hangarllm_params": {"model": f"bedrock/converse/{_NOVA}", **params},
             "model_info": {"supports_regex_lookaround": False},
         },
-        {"model_name": fleet.nova_bare, "litellm_params": {"model": f"bedrock/converse/{_NOVA}", **params}},
+        {"model_name": fleet.nova_bare, "hangarllm_params": {"model": f"bedrock/converse/{_NOVA}", **params}},
     ]
     path: Final = tmp_path / "bedrock-lookaround-chaos.yaml"
     path.write_text(yaml.safe_dump(config))

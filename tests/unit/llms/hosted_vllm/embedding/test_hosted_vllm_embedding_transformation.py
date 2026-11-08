@@ -14,12 +14,12 @@ import pytest
 import respx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.hosted_vllm.embedding.transformation import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.hosted_vllm.embedding.transformation import (
     HostedVLLMEmbeddingConfig,
 )
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.types.utils import EmbeddingResponse
 
 _API_BASE: Final = "https://vllm.example.com/v1"
 _API_URL: Final = f"{_API_BASE}/embeddings"
@@ -34,9 +34,9 @@ def _request_json(request: httpx.Request) -> dict[str, object]:
 
 async def _embed(sync_mode: bool, router: respx.MockRouter, embedding_input: str | list[str]) -> EmbeddingResponse:
     if sync_mode:
-        return litellm.embedding(model=_MODEL, input=embedding_input, api_base=_API_BASE)
+        return hangarllm.embedding(model=_MODEL, input=embedding_input, api_base=_API_BASE)
     client: Final = AsyncHTTPHandler(transport=httpx.MockTransport(router.async_handler))
-    return await litellm.aembedding(model=_MODEL, input=embedding_input, api_base=_API_BASE, client=client)
+    return await hangarllm.aembedding(model=_MODEL, input=embedding_input, api_base=_API_BASE, client=client)
 
 
 class TestHostedVLLMEmbeddingTransformation:
@@ -211,7 +211,7 @@ class TestHostedVLLMEmbeddingTransformation:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://test-vllm.example.com/v1/embeddings"
@@ -225,7 +225,7 @@ class TestHostedVLLMEmbeddingTransformation:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == "https://test-vllm.example.com/embeddings"
@@ -239,7 +239,7 @@ class TestHostedVLLMEmbeddingTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="test-api-key",
         )
 
@@ -255,7 +255,7 @@ class TestHostedVLLMEmbeddingTransformation:
         Patches HTTPHandler.post at the class level so the mock is used when
         base_llm_http_handler calls sync_httpx_client.post() with the passed client.
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
 
@@ -282,7 +282,7 @@ class TestHostedVLLMEmbeddingTransformation:
             mock_response.text = json.dumps(mock_response.json.return_value)
             mock_post.return_value = mock_response
 
-            litellm.embedding(
+            hangarllm.embedding(
                 model=self.model,
                 input=["Hello world"],
                 api_base="https://test-vllm.example.com/v1",
@@ -310,7 +310,7 @@ class TestHostedVLLMEmbeddingTransformation:
         ],
     )
     def test_provider_params_are_sent_at_the_top_level_of_the_request(self, provider_params: dict[str, object]) -> None:
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
 
@@ -327,7 +327,7 @@ class TestHostedVLLMEmbeddingTransformation:
             mock_response.text = json.dumps(mock_response.json.return_value)
             mock_post.return_value = mock_response
 
-            litellm.embedding(
+            hangarllm.embedding(
                 model="hosted_vllm/nvidia/nv-embedqa-e5-v5",
                 input=["Hello world"],
                 api_base="https://integrate.api.nvidia.com/v1",
@@ -413,7 +413,7 @@ def test_hosted_vllm_embedding_sends_api_key_as_bearer_token(respx_mock: respx.M
         )
     )
 
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model=_MODEL,
         input="authenticated input",
         api_base=_API_BASE,
@@ -441,7 +441,7 @@ def test_hosted_vllm_embedding_repeats_identical_input_and_result(respx_mock: re
     input_text: Final = "repeated embedding input"
 
     responses: Final = tuple(
-        litellm.embedding(model=_MODEL, input=input_text, api_base=_API_BASE) for _ in range(2)
+        hangarllm.embedding(model=_MODEL, input=input_text, api_base=_API_BASE) for _ in range(2)
     )
 
     assert tuple(_request_json(call.request) for call in route.calls) == (
@@ -468,7 +468,7 @@ def test_hosted_vllm_embedding_posts_to_the_env_api_base(
         }
     )
 
-    response: Final = litellm.embedding(model="hosted_vllm/jina-embeddings-v3", input=["Hello world"])
+    response: Final = hangarllm.embedding(model="hosted_vllm/jina-embeddings-v3", input=["Hello world"])
 
     assert route.call_count == 1
     assert json.loads(route.calls.last.request.content) == {"model": "jina-embeddings-v3", "input": ["Hello world"]}

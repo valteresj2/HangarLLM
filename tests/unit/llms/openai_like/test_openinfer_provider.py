@@ -5,15 +5,15 @@ from typing import Final
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.proxy.auth.model_checks import get_provider_models
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.proxy.auth.model_checks import get_provider_models
 
 _REPO_ROOT: Final = Path(__file__).resolve().parents[4]
 _PRIMARY_PRICES: Final = json.loads((_REPO_ROOT / "model_prices_and_context_window.json").read_text())
-_BACKUP_PRICES: Final = json.loads((_REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json").read_text())
+_BACKUP_PRICES: Final = json.loads((_REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json").read_text())
 _CATALOG_MODELS: Final = tuple(
-    key for key, row in _PRIMARY_PRICES.items() if isinstance(row, dict) and row.get("litellm_provider") == "openinfer"
+    key for key, row in _PRIMARY_PRICES.items() if isinstance(row, dict) and row.get("hangarllm_provider") == "openinfer"
 )
 _REASONING_MODELS: Final = tuple(key for key in _CATALOG_MODELS if _PRIMARY_PRICES[key].get("supports_reasoning"))
 _CHAT_URL: Final = "https://api.openinfer.ai/v1/chat/completions"
@@ -39,7 +39,7 @@ _CHAT_RESPONSE: Final = {
 def _sent_chat_request(model: str, **params: object) -> tuple[str, str, dict[str, object]]:
     with respx.mock() as upstream:
         route: Final = upstream.post(_CHAT_URL).respond(200, json=_CHAT_RESPONSE)
-        litellm.completion(
+        hangarllm.completion(
             model=f"openinfer/{model}",
             messages=[{"role": "user", "content": "Say hello"}],
             api_key="sk-test",
@@ -50,7 +50,7 @@ def _sent_chat_request(model: str, **params: object) -> tuple[str, str, dict[str
 
 
 def test_provider_prefixed_model_routes_to_openinfer():
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     model, provider, api_key, api_base = get_llm_provider(
         model="openinfer/@oi/Qwen3.5-27B",
@@ -66,7 +66,7 @@ def test_provider_prefixed_model_routes_to_openinfer():
 
 
 def test_api_key_and_base_resolved_from_env(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("OPENINFER_API_KEY", "sk-env-key")
     monkeypatch.setenv("OPENINFER_API_BASE", "https://proxy.internal/v1")
@@ -84,7 +84,7 @@ def test_api_key_and_base_resolved_from_env(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_url_autodetection_from_api_base(monkeypatch: pytest.MonkeyPatch):
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
 
     monkeypatch.setenv("OPENINFER_API_KEY", "sk-env-key")
 
@@ -114,8 +114,8 @@ def test_tools_reach_openinfer_for_a_model_without_a_cost_map_row():
 
 
 def _register_openinfer_row(model: str, **capabilities: bool) -> None:
-    litellm.register_model(
-        {f"openinfer/{model}": {"litellm_provider": "openinfer", "mode": "chat", **capabilities}},
+    hangarllm.register_model(
+        {f"openinfer/{model}": {"hangarllm_provider": "openinfer", "mode": "chat", **capabilities}},
         persist_across_reloads=False,
         add_to_provider_model_sets=False,
     )
@@ -126,8 +126,8 @@ def test_model_info_keeps_a_row_that_turns_tools_off():
     model: Final = "@oi/row-without-tools"
     _register_openinfer_row(model, supports_function_calling=False)
 
-    assert litellm.get_model_info(model, custom_llm_provider="openinfer")["supports_function_calling"] is False
-    assert litellm.supports_function_calling(model, custom_llm_provider="openinfer") is False
+    assert hangarllm.get_model_info(model, custom_llm_provider="openinfer")["supports_function_calling"] is False
+    assert hangarllm.supports_function_calling(model, custom_llm_provider="openinfer") is False
 
 
 @pytest.mark.usefixtures("local_model_cost_map")
@@ -135,8 +135,8 @@ def test_model_info_fills_tool_support_from_the_openinfer_default():
     model: Final = "@oi/row-silent-on-tools"
     _register_openinfer_row(model)
 
-    assert litellm.get_model_info(model, custom_llm_provider="openinfer")["supports_function_calling"] is True
-    assert litellm.supports_function_calling(model, custom_llm_provider="openinfer") is True
+    assert hangarllm.get_model_info(model, custom_llm_provider="openinfer")["supports_function_calling"] is True
+    assert hangarllm.supports_function_calling(model, custom_llm_provider="openinfer") is True
 
 
 def test_max_tokens_and_max_completion_tokens_both_reach_openinfer():
@@ -175,7 +175,7 @@ def test_responses_request_goes_to_openinfer_natively():
                 "usage": {"input_tokens": 4, "output_tokens": 3, "total_tokens": 7},
             },
         )
-        response: Final = litellm.responses(model="openinfer/@oi/Qwen3.5-27B", input="Say hello", api_key="sk-test")
+        response: Final = hangarllm.responses(model="openinfer/@oi/Qwen3.5-27B", input="Say hello", api_key="sk-test")
 
     request: Final = route.calls.last.request
     body: Final = json.loads(request.content)
@@ -187,8 +187,8 @@ def test_responses_request_goes_to_openinfer_natively():
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_request_goes_to_openinfer_natively(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", LLMClientCache())
     with respx.mock() as upstream:
         route: Final = upstream.post("https://api.openinfer.ai/v1/messages").respond(
             200,
@@ -203,7 +203,7 @@ async def test_anthropic_messages_request_goes_to_openinfer_natively(monkeypatch
                 "usage": {"input_tokens": 4, "output_tokens": 3},
             },
         )
-        response: Final = await litellm.anthropic.messages.acreate(
+        response: Final = await hangarllm.anthropic.messages.acreate(
             model="openinfer/@oi/Qwen3.5-27B",
             messages=[{"role": "user", "content": "Say hello"}],
             max_tokens=32,
@@ -235,12 +235,12 @@ def test_catalog_row_matches_its_backup_and_fits_its_context(model: str):
 
 @pytest.mark.parametrize("model", _CATALOG_MODELS)
 def test_chat_response_is_priced_at_its_catalog_row(model: str):
-    row: Final = litellm.model_cost[model]
-    response: Final = litellm.ModelResponse(
+    row: Final = hangarllm.model_cost[model]
+    response: Final = hangarllm.ModelResponse(
         model=model.removeprefix("openinfer/"),
-        usage=litellm.Usage(prompt_tokens=1000, completion_tokens=200, total_tokens=1200),
+        usage=hangarllm.Usage(prompt_tokens=1000, completion_tokens=200, total_tokens=1200),
     )
 
-    cost: Final = litellm.completion_cost(completion_response=response, model=model)
+    cost: Final = hangarllm.completion_cost(completion_response=response, model=model)
 
     assert cost == pytest.approx(1000 * row["input_cost_per_token"] + 200 * row["output_cost_per_token"])

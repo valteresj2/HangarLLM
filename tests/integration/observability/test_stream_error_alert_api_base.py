@@ -380,7 +380,7 @@ def test_responses_websocket_turn_failure_alert_names_the_deployment(alerting: A
         assert_names_deployment(alert_naming(alerting.alerts, marker), peer.url, model, backend, caller)
         (row,) = eventually(
             lambda: read_rows(
-                'SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+                'SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
                 (hashlib.sha256(caller.key.encode()).hexdigest(),),
             ),
             lambda rows: len(rows) >= 1,

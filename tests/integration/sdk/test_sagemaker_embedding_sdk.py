@@ -14,7 +14,7 @@ from integration._support.sagemaker_embedding import (
     SERVED_MODEL,
     endpoint,
     invocations_target,
-    litellm_params,
+    hangarllm_params,
     openai_route,
     plain_route,
     respond,
@@ -22,7 +22,7 @@ from integration._support.sagemaker_embedding import (
 from integration._support.wire import Request, Wire, wire_server
 from pydantic import JsonValue
 
-import litellm
+import hangarllm
 
 _AWS: Final[dict[str, str]] = {
     "aws_access_key_id": ACCESS_KEY,
@@ -68,13 +68,13 @@ def _assert_component_request(request: Request, scenario: str, body: dict[str, J
     assert JSON_OBJECT.validate_json(request.body) == body, request.body
 
 
-def _vectors(response: litellm.EmbeddingResponse) -> list[JsonValue]:
+def _vectors(response: hangarllm.EmbeddingResponse) -> list[JsonValue]:
     return [row["embedding"] for row in response.data]
 
 
 def test_embedding_signs_model_id_as_the_inference_component_and_reads_the_served_model(wire: Wire) -> None:
     text: Final = _text()
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model=openai_route("openai"), input=[text], model_id=COMPONENT, extra_body={"model": SERVED_MODEL}, **_AWS
     )
     assert response.model == SERVED_MODEL, response
@@ -85,7 +85,7 @@ def test_embedding_signs_model_id_as_the_inference_component_and_reads_the_serve
 
 async def test_aembedding_signs_model_id_as_the_inference_component_and_reads_the_served_model(wire: Wire) -> None:
     texts: Final = [_text(), _text()]
-    response: Final = await litellm.aembedding(
+    response: Final = await hangarllm.aembedding(
         model=openai_route("openai"), input=texts, model_id=COMPONENT, extra_body={"model": SERVED_MODEL}, **_AWS
     )
     assert response.model == SERVED_MODEL, response
@@ -95,7 +95,7 @@ async def test_aembedding_signs_model_id_as_the_inference_component_and_reads_th
 
 def test_embedding_names_the_endpoint_when_the_container_reports_no_model(wire: Wire) -> None:
     text: Final = _text()
-    response: Final = litellm.embedding(model=openai_route("nomodel"), input=[text], model_id=COMPONENT, **_AWS)
+    response: Final = hangarllm.embedding(model=openai_route("nomodel"), input=[text], model_id=COMPONENT, **_AWS)
     assert response.model == endpoint("nomodel"), response
     assert _vectors(response) == [[0.25, -0.5, 1.0]], response
     _assert_component_request(_only_request(wire), "nomodel", {"input": [text]})
@@ -103,7 +103,7 @@ def test_embedding_names_the_endpoint_when_the_container_reports_no_model(wire: 
 
 def test_plain_route_keeps_the_hf_body_and_signs_the_component_header(wire: Wire) -> None:
     text: Final = _text()
-    response: Final = litellm.embedding(model=plain_route("hf"), input=[text], model_id=COMPONENT, **_AWS)
+    response: Final = hangarllm.embedding(model=plain_route("hf"), input=[text], model_id=COMPONENT, **_AWS)
     assert response.model == endpoint("hf"), response
     assert _vectors(response) == [[0.25, -0.5, 1.0]], response
     assert response.usage.prompt_tokens == 3, response.usage
@@ -112,7 +112,7 @@ def test_plain_route_keeps_the_hf_body_and_signs_the_component_header(wire: Wire
 
 def test_plain_route_without_model_id_sends_no_component_header(wire: Wire) -> None:
     text: Final = _text()
-    response: Final = litellm.embedding(model=plain_route("hf"), input=[text], **_AWS)
+    response: Final = hangarllm.embedding(model=plain_route("hf"), input=[text], **_AWS)
     assert _vectors(response) == [[0.25, -0.5, 1.0]], response
     request: Final = _only_request(wire)
     assert (request.method, request.target) == ("POST", invocations_target(endpoint("hf"))), request
@@ -123,7 +123,7 @@ def test_plain_route_without_model_id_sends_no_component_header(wire: Wire) -> N
 
 def test_explicit_provider_spelling_signs_model_id_as_the_inference_component(wire: Wire) -> None:
     text: Final = _text()
-    response: Final = litellm.embedding(
+    response: Final = hangarllm.embedding(
         model=f"openai/{endpoint('openai')}",
         custom_llm_provider="sagemaker",
         input=[text],
@@ -138,11 +138,11 @@ def test_explicit_provider_spelling_signs_model_id_as_the_inference_component(wi
 
 async def test_router_aembedding_forwards_the_deployment_model_id_as_the_component(wire: Wire) -> None:
     text: Final = _text()
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "sm-openai-router",
-                "litellm_params": litellm_params(
+                "hangarllm_params": hangarllm_params(
                     openai_route("openai"), model_id=COMPONENT, extra_body={"model": SERVED_MODEL}
                 ),
             }
@@ -156,16 +156,16 @@ async def test_router_aembedding_forwards_the_deployment_model_id_as_the_compone
 
 
 def test_embedding_rejects_a_non_string_model_id_before_calling_aws(wire: Wire) -> None:
-    with pytest.raises(litellm.BadRequestError) as caught:
-        litellm.embedding(model=openai_route("openai"), input=[_text()], model_id=[COMPONENT], **_AWS)
+    with pytest.raises(hangarllm.BadRequestError) as caught:
+        hangarllm.embedding(model=openai_route("openai"), input=[_text()], model_id=[COMPONENT], **_AWS)
     assert caught.value.status_code == 400, caught.value
     assert NON_STRING_MODEL_ID in str(caught.value), caught.value
     assert wire.drain() == (), "AWS was called with a list-valued model_id"
 
 
 def test_embedding_surfaces_the_container_model_error_with_its_status(wire: Wire) -> None:
-    with pytest.raises(litellm.BadRequestError) as caught:
-        litellm.embedding(model=openai_route("err424"), input=[_text()], model_id=COMPONENT, **_AWS)
+    with pytest.raises(hangarllm.BadRequestError) as caught:
+        hangarllm.embedding(model=openai_route("err424"), input=[_text()], model_id=COMPONENT, **_AWS)
     assert caught.value.status_code == 424, caught.value
     assert "unexpected field inputs" in str(caught.value), caught.value
     assert _only_request(wire).headers[COMPONENT_HEADER] == COMPONENT

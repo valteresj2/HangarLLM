@@ -14,8 +14,8 @@ import httpx
 import openai
 import pytest
 
-import litellm
-from litellm import (
+import hangarllm
+from hangarllm import (
     ChatCompletionUsageBlock,
     CustomLLM,
     GenericStreamingChunk,
@@ -25,9 +25,9 @@ from litellm import (
     get_llm_provider,
     image_generation,
 )
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.utils import (
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.types.utils import (
     Delta,
     EmbeddingResponse,
     ImageObject,
@@ -35,7 +35,7 @@ from litellm.types.utils import (
     ModelResponseStream,
     StreamingChoices,
 )
-from litellm.utils import ModelResponseIterator, _invalidate_model_cost_lowercase_map
+from hangarllm.utils import ModelResponseIterator, _invalidate_model_cost_lowercase_map
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -107,13 +107,13 @@ class MyCustomLLM(CustomLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        hangarllm_params=None,
         logger_fn=None,
         headers={},
         timeout: Optional[Union[float, openai.Timeout]] = None,
-        client: Optional[litellm.HTTPHandler] = None,
+        client: Optional[hangarllm.HTTPHandler] = None,
     ) -> ModelResponse:
-        return litellm.completion(
+        return hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello world"}],
             mock_response="Hi!",
@@ -132,13 +132,13 @@ class MyCustomLLM(CustomLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        hangarllm_params=None,
         logger_fn=None,
         headers={},
         timeout: Optional[Union[float, openai.Timeout]] = None,
-        client: Optional[litellm.AsyncHTTPHandler] = None,
-    ) -> litellm.ModelResponse:
-        return litellm.completion(
+        client: Optional[hangarllm.AsyncHTTPHandler] = None,
+    ) -> hangarllm.ModelResponse:
+        return hangarllm.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello world"}],
             mock_response="Hi!",
@@ -157,11 +157,11 @@ class MyCustomLLM(CustomLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        hangarllm_params=None,
         logger_fn=None,
         headers={},
         timeout: Optional[Union[float, openai.Timeout]] = None,
-        client: Optional[litellm.HTTPHandler] = None,
+        client: Optional[hangarllm.HTTPHandler] = None,
     ) -> Iterator[GenericStreamingChunk]:
         generic_streaming_chunk: GenericStreamingChunk = {
             "finish_reason": "stop",
@@ -191,11 +191,11 @@ class MyCustomLLM(CustomLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        hangarllm_params=None,
         logger_fn=None,
         headers={},
         timeout: Optional[Union[float, openai.Timeout]] = None,
-        client: Optional[litellm.AsyncHTTPHandler] = None,
+        client: Optional[hangarllm.AsyncHTTPHandler] = None,
     ) -> AsyncIterator[GenericStreamingChunk]:  # type: ignore
         generic_streaming_chunk: GenericStreamingChunk = {
             "finish_reason": "stop",
@@ -255,7 +255,7 @@ class MyCustomLLM(CustomLLM):
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
-        litellm_params=None,
+        hangarllm_params=None,
     ) -> EmbeddingResponse:
         model_response.model = model
 
@@ -281,7 +281,7 @@ class MyCustomLLM(CustomLLM):
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
-        litellm_params=None,
+        hangarllm_params=None,
     ) -> EmbeddingResponse:
         model_response.model = model
 
@@ -337,10 +337,10 @@ class MyCustomLLM(CustomLLM):
 
 def test_get_llm_provider():
     """"""
-    from litellm.utils import custom_llm_setup
+    from hangarllm.utils import custom_llm_setup
 
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
 
     custom_llm_setup()
 
@@ -351,7 +351,7 @@ def test_get_llm_provider():
 
 def test_simple_completion():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
     resp = completion(
         model="custom_llm/my-fake-model",
         messages=[{"role": "user", "content": "Hello world!"}],
@@ -363,7 +363,7 @@ def test_simple_completion():
 @pytest.mark.asyncio
 async def test_simple_acompletion():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
     resp = await acompletion(
         model="custom_llm/my-fake-model",
         messages=[{"role": "user", "content": "Hello world!"}],
@@ -374,7 +374,7 @@ async def test_simple_acompletion():
 
 def test_simple_completion_streaming():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
     resp = completion(
         model="custom_llm/my-fake-model",
         messages=[{"role": "user", "content": "Hello world!"}],
@@ -391,8 +391,8 @@ def test_simple_completion_streaming():
 @pytest.mark.asyncio
 async def test_simple_completion_async_streaming():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
-    resp = await litellm.acompletion(
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    resp = await hangarllm.acompletion(
         model="custom_llm/my-fake-model",
         messages=[{"role": "user", "content": "Hello world!"}],
         stream=True,
@@ -408,7 +408,7 @@ async def test_simple_completion_async_streaming():
 
 def test_simple_image_generation():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
     resp = image_generation(
         model="custom_llm/my-fake-model",
         prompt="Hello world",
@@ -420,8 +420,8 @@ def test_simple_image_generation():
 @pytest.mark.asyncio
 async def test_simple_image_generation_async():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
-    resp = await litellm.aimage_generation(
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    resp = await hangarllm.aimage_generation(
         model="custom_llm/my-fake-model",
         prompt="Hello world",
     )
@@ -432,11 +432,11 @@ async def test_simple_image_generation_async():
 @pytest.mark.asyncio
 async def test_image_generation_async_additional_params():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
 
     with patch.object(my_custom_llm, "aimage_generation", new=AsyncMock()) as mock_client:
         try:
-            resp = await litellm.aimage_generation(
+            resp = await hangarllm.aimage_generation(
                 model="custom_llm/my-fake-model",
                 prompt="Hello world",
                 api_key="my-api-key",
@@ -458,8 +458,8 @@ async def test_image_generation_async_additional_params():
 def test_simple_image_edit():
     """Test sync image_edit with custom handler"""
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
-    resp = litellm.image_edit(
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    resp = hangarllm.image_edit(
         model="custom_llm/my-fake-model",
         image=b"fake_image_bytes",
         prompt="Edit this image",
@@ -473,8 +473,8 @@ def test_simple_image_edit():
 async def test_simple_image_edit_async():
     """Test async image_edit with custom handler"""
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
-    resp = await litellm.aimage_edit(
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    resp = await hangarllm.aimage_edit(
         model="custom_llm/my-fake-model",
         image=b"fake_image_bytes",
         prompt="Edit this image",
@@ -488,7 +488,7 @@ async def test_simple_image_edit_async():
 async def test_image_edit_async_additional_params():
     """Test that additional params are passed to custom handler"""
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
 
     with patch.object(
         my_custom_llm,
@@ -500,7 +500,7 @@ async def test_image_edit_async_additional_params():
             )
         ),
     ) as mock_client:
-        resp = await litellm.aimage_edit(
+        resp = await hangarllm.aimage_edit(
             model="custom_llm/my-fake-model",
             image=b"fake_image_bytes",
             prompt="Edit this image",
@@ -543,8 +543,8 @@ def test_get_supported_openai_params():
                 "logit_bias",
             ]
 
-        def completion(self, *args, **kwargs) -> litellm.ModelResponse:
-            return litellm.completion(
+        def completion(self, *args, **kwargs) -> hangarllm.ModelResponse:
+            return hangarllm.completion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "Hello world"}],
                 mock_response="Hi!",
@@ -552,7 +552,7 @@ def test_get_supported_openai_params():
 
     my_custom_llm = MyCustomLLM()
 
-    litellm.custom_provider_map = [  # 👈 KEY STEP - REGISTER HANDLER
+    hangarllm.custom_provider_map = [  # 👈 KEY STEP - REGISTER HANDLER
         {"provider": "my-custom-llm", "custom_handler": my_custom_llm}
     ]
 
@@ -564,7 +564,7 @@ def test_get_supported_openai_params():
     assert resp.choices[0].message.content == "Hi!"
 
     # Get supported openai params
-    from litellm import get_supported_openai_params
+    from hangarllm import get_supported_openai_params
 
     response = get_supported_openai_params(model="my-custom-llm/my-fake-model")
     assert response is not None
@@ -572,10 +572,10 @@ def test_get_supported_openai_params():
 
 def test_simple_embedding():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
-    resp = litellm.embedding(
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    resp = hangarllm.embedding(
         model="custom_llm/my-fake-model",
-        input=["good morning from litellm", "good night from litellm"],
+        input=["good morning from hangarllm", "good night from hangarllm"],
     )
 
     assert resp.data[1] == {
@@ -588,10 +588,10 @@ def test_simple_embedding():
 @pytest.mark.asyncio
 async def test_simple_aembedding():
     my_custom_llm = MyCustomLLM()
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
-    resp = await litellm.aembedding(
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    resp = await hangarllm.aembedding(
         model="custom_llm/my-fake-model",
-        input=["good morning from litellm", "good night from litellm"],
+        input=["good morning from hangarllm", "good night from hangarllm"],
     )
 
     assert resp.data[1] == {
@@ -638,7 +638,7 @@ class ModelResponseStreamLLM(MyCustomLLM):
 @pytest.mark.parametrize("finish_reason", ["stop", "tool_calls", "length", "content_filter"])
 def test_custom_llm_streaming_model_response_stream(finish_reason):
     my_custom_llm = ModelResponseStreamLLM(finish_reason=finish_reason)
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
     resp = completion(
         model="custom_llm/my-fake-model",
         messages=[{"role": "user", "content": "Hello world!"}],
@@ -657,8 +657,8 @@ def test_custom_llm_streaming_model_response_stream(finish_reason):
 @pytest.mark.parametrize("finish_reason", ["stop", "tool_calls", "length", "content_filter"])
 async def test_custom_llm_astreaming_model_response_stream(finish_reason):
     my_custom_llm = ModelResponseStreamLLM(finish_reason=finish_reason)
-    litellm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
-    resp = await litellm.acompletion(
+    hangarllm.custom_provider_map = [{"provider": "custom_llm", "custom_handler": my_custom_llm}]
+    resp = await hangarllm.acompletion(
         model="custom_llm/my-fake-model",
         messages=[{"role": "user", "content": "Hello world!"}],
         stream=True,
@@ -680,11 +680,11 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm globals to their true defaults before each test and
+    Resets hangarllm globals to their true defaults before each test and
     restores them afterward, so tests don't leak side effects.
     Works safely under pytest-xdist parallel execution.
     """
@@ -696,18 +696,18 @@ def isolate_litellm_state():
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in ("pre_call_rules", "post_call_rules"):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr in (
         "callbacks",
         "success_callback",
@@ -717,60 +717,60 @@ def isolate_litellm_state():
         "pre_call_rules",
         "post_call_rules",
     ):
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, [])
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, [])
     for attr, default_val in _SCALAR_DEFAULTS.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, default_val)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, default_val)
     yield
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     _invalidate_model_cost_lowercase_map()
 
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "num_retries_per_request": getattr(litellm, "num_retries_per_request", None),
-    "request_timeout": getattr(litellm, "request_timeout", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "default_fallbacks": getattr(litellm, "default_fallbacks", None),
-    "enable_azure_ad_token_refresh": getattr(litellm, "enable_azure_ad_token_refresh", None),
-    "tag_budget_config": getattr(litellm, "tag_budget_config", None),
-    "model_cost": getattr(litellm, "model_cost", None),
-    "token_counter": getattr(litellm, "token_counter", None),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "num_retries_per_request": getattr(hangarllm, "num_retries_per_request", None),
+    "request_timeout": getattr(hangarllm, "request_timeout", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "default_fallbacks": getattr(hangarllm, "default_fallbacks", None),
+    "enable_azure_ad_token_refresh": getattr(hangarllm, "enable_azure_ad_token_refresh", None),
+    "tag_budget_config": getattr(hangarllm, "tag_budget_config", None),
+    "model_cost": getattr(hangarllm, "model_cost", None),
+    "token_counter": getattr(hangarllm, "token_counter", None),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
 }
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            print(f"Error reloading hangarllm.proxy.proxy_server: {e}")
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield

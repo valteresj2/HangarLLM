@@ -11,12 +11,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
 
 def _make_internal_user(user_id: str = "user-1") -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=HangarllmUserRoles.INTERNAL_USER.value,
         user_id=user_id,
     )
 
@@ -36,12 +36,12 @@ _ENABLED_GS: dict = {}
 
 @pytest.mark.asyncio
 async def test_list_vector_stores_blocked_when_disabled():
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         list_vector_stores,
     )
 
     user = _make_internal_user()
-    with patch.dict("litellm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
+    with patch.dict("hangarllm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
         with pytest.raises(HTTPException) as exc_info:
             await list_vector_stores(user_api_key_dict=user)
     assert exc_info.value.status_code == 403
@@ -50,21 +50,21 @@ async def test_list_vector_stores_blocked_when_disabled():
 @pytest.mark.asyncio
 async def test_list_vector_stores_allowed_when_not_disabled():
     """list_vector_stores should not raise 403 when vector stores are not disabled."""
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         list_vector_stores,
     )
 
-    import litellm
+    import hangarllm
 
     user = _make_internal_user()
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedvectorstorestable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_managedvectorstorestable.find_many = AsyncMock(return_value=[])
 
-    with patch.dict("litellm.proxy.proxy_server.general_settings", _ENABLED_GS, clear=True):
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
-            with patch.object(litellm, "vector_store_registry", None):
+    with patch.dict("hangarllm.proxy.proxy_server.general_settings", _ENABLED_GS, clear=True):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
+            with patch.object(hangarllm, "vector_store_registry", None):
                 with patch(
-                    "litellm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
+                    "hangarllm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
                     new=AsyncMock(return_value=[]),
                 ):
                     # Must not raise any HTTPException — if mocking is incomplete the
@@ -79,15 +79,15 @@ async def test_list_vector_stores_allowed_when_not_disabled():
 
 @pytest.mark.asyncio
 async def test_new_vector_store_blocked_when_disabled():
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         new_vector_store,
     )
-    from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
+    from hangarllm.types.vector_stores import HangarLLM_ManagedVectorStore
 
     user = _make_internal_user()
-    vs = LiteLLM_ManagedVectorStore(vector_store_id="vs-1", custom_llm_provider="openai")  # type: ignore[call-arg]
+    vs = HangarLLM_ManagedVectorStore(vector_store_id="vs-1", custom_llm_provider="openai")  # type: ignore[call-arg]
 
-    with patch.dict("litellm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
+    with patch.dict("hangarllm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
         with pytest.raises(HTTPException) as exc_info:
             await new_vector_store(vector_store=vs, user_api_key_dict=user)
     assert exc_info.value.status_code == 403
@@ -101,25 +101,25 @@ async def test_new_vector_store_blocked_when_disabled():
 @pytest.mark.asyncio
 async def test_list_vector_stores_admin_not_blocked():
     """Proxy admin should never be blocked, even when vector stores are disabled."""
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         list_vector_stores,
     )
 
-    import litellm
+    import hangarllm
 
     admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
         user_id="admin-1",
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedvectorstorestable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_managedvectorstorestable.find_many = AsyncMock(return_value=[])
 
-    with patch.dict("litellm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
-            with patch.object(litellm, "vector_store_registry", None):
+    with patch.dict("hangarllm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
+            with patch.object(hangarllm, "vector_store_registry", None):
                 with patch(
-                    "litellm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
+                    "hangarllm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
                     new=AsyncMock(return_value=[]),
                 ):
                     # Must not raise any HTTPException — admin is always allowed.
@@ -129,7 +129,7 @@ async def test_list_vector_stores_admin_not_blocked():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("page_size", [0, -5])
 async def test_list_vector_stores_rejects_non_positive_page_size_with_400(page_size):
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         list_vector_stores,
     )
 
@@ -143,25 +143,25 @@ async def test_list_vector_stores_rejects_non_positive_page_size_with_400(page_s
 @pytest.mark.asyncio
 @pytest.mark.parametrize("page", [0, -1])
 async def test_list_vector_stores_accepts_non_positive_page_like_base(page):
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from hangarllm.proxy.vector_store_endpoints.management_endpoints import (
         list_vector_stores,
     )
 
-    import litellm
+    import hangarllm
 
     admin: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=HangarllmUserRoles.PROXY_ADMIN.value,
         user_id="admin-1",
     )
 
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_managedvectorstorestable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.hangarllm_managedvectorstorestable.find_many = AsyncMock(return_value=[])
 
-    with patch.dict("litellm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
-            with patch.object(litellm, "vector_store_registry", None):
+    with patch.dict("hangarllm.proxy.proxy_server.general_settings", _DISABLED_GS, clear=True):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
+            with patch.object(hangarllm, "vector_store_registry", None):
                 with patch(
-                    "litellm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
+                    "hangarllm.proxy.vector_store_endpoints.management_endpoints.VectorStoreRegistry.get_vector_stores_from_db",
                     new=AsyncMock(return_value=[]),
                 ):
                     response: Final = await list_vector_stores(user_api_key_dict=admin, page=page, page_size=10)

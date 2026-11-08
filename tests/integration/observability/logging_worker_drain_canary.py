@@ -2,7 +2,7 @@ import asyncio
 import queue
 from typing import Final
 
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 RUNS: Final[queue.SimpleQueue[tuple[asyncio.AbstractEventLoop, asyncio.AbstractEventLoop]]] = queue.SimpleQueue()
 

@@ -27,7 +27,7 @@ def test_config_yaml_guardrail_is_served_by_usage_detail_and_overview(gateway: G
     config["guardrails"] = [
         {
             "guardrail_name": guardrail_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "tool_permission",
                 "mode": "post_call",
                 "default_on": False,

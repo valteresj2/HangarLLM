@@ -37,20 +37,20 @@
 	"forwardPorts": [4000],
 	
 	"containerEnv": {
-		"LITELLM_LOG": "DEBUG"
+		"HANGARLLM_LOG": "DEBUG"
 	},
 
 	// Use 'portsAttributes' to set default properties for specific forwarded ports. 
 	// More info: https://containers.dev/implementors/json_reference/#port-attributes
 	"portsAttributes": {
 		"4000": {
-			"label": "LiteLLM Server",
+			"label": "HangarLLM Server",
 			"onAutoForward": "notify"
 		}
 	},
 
 	// More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "litellm",
+	// "remoteUser": "hangarllm",
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "bash ./.devcontainer/post-create.sh"

@@ -29,7 +29,7 @@ from models import (
     ChatMessage,
     ChatResponse,
     DeploymentExtraBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModelInfoBody,
     ModelNewBody,
     ReliabilityChatBody,
@@ -83,7 +83,7 @@ def create_bad_base_deployment(proxy: ProxyClient, name: str) -> str:
     """Register a deployment pointing at an unreachable base, so every call to it
     fails with a real connection error the fallback can reroute around."""
     return proxy.create_model(
-        name, LiteLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, api_base="http://127.0.0.1:9/v1")
+        name, HangarLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, api_base="http://127.0.0.1:9/v1")
     )
 
 
@@ -91,7 +91,7 @@ def create_bad_base_deployment(proxy: ProxyClient, name: str) -> str:
 def create_never_benched_refusing_deployment(proxy: ProxyClient, name: str) -> str:
     return proxy.create_model(
         name,
-        LiteLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, api_base="http://127.0.0.1:9/v1", cooldown_time=0),
+        HangarLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, api_base="http://127.0.0.1:9/v1", cooldown_time=0),
     )
 
 
@@ -99,7 +99,7 @@ def create_never_benched_refusing_deployment(proxy: ProxyClient, name: str) -> s
 def create_timeout_deployment(proxy: ProxyClient, name: str) -> str:
     """Register a deployment with a 1ms deadline the real backend always exceeds."""
     return proxy.create_model(
-        name, LiteLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, timeout=0.001), provider_live=True
+        name, HangarLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, timeout=0.001), provider_live=True
     )
 
 
@@ -107,18 +107,18 @@ def create_timeout_deployment(proxy: ProxyClient, name: str) -> str:
 def create_small_context_deployment(proxy: ProxyClient, name: str) -> str:
     """Register a deployment with a smaller context window than the backup, so an
     oversized prompt earns a real context-window refusal from the provider."""
-    return proxy.create_model(name, LiteLLMParamsBody(model=SMALL_CONTEXT_MODEL, api_key=REAL_KEY))
+    return proxy.create_model(name, HangarLLMParamsBody(model=SMALL_CONTEXT_MODEL, api_key=REAL_KEY))
 
 
 @step(f"Add a deployment named {{name}} that calls {AZURE_MODEL} behind Azure's content filter")
 def create_content_filtered_deployment(proxy: ProxyClient, name: str) -> str:
     """Register the Azure OpenAI deployment whose content filter refuses
     CONTENT_POLICY_PROMPT with a real policy-violation 400 (the one live trigger
-    litellm maps to ContentPolicyViolationError), with the client's own retries
+    hangarllm maps to ContentPolicyViolationError), with the client's own retries
     off so the refusal reaches the router at once."""
     return proxy.create_model(
         name,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=AZURE_MODEL,
             api_key=AZURE_KEY,
             api_base=AZURE_BASE,
@@ -138,7 +138,7 @@ def create_azure_benched_on_first_failure_deployment(proxy: ProxyClient, name: s
     return proxy.register_model(
         ModelNewBody(
             model_name=name,
-            litellm_params=LiteLLMParamsBody(
+            hangarllm_params=HangarLLMParamsBody(
                 model=AZURE_MODEL,
                 api_key=AZURE_KEY,
                 api_base=AZURE_BASE,
@@ -155,11 +155,11 @@ def create_azure_benched_on_first_failure_deployment(proxy: ProxyClient, name: s
 @step(f"Add a deployment named {{name}} that calls {CACHING_MODEL} with prompt caching")
 def create_caching_deployment(proxy: ProxyClient, name: str) -> str:
     """Register the Anthropic deployment whose prompt cache the affinity check pins to."""
-    return proxy.create_model(name, LiteLLMParamsBody(model=CACHING_MODEL, api_key=CACHING_KEY, weight=1))
+    return proxy.create_model(name, HangarLLMParamsBody(model=CACHING_MODEL, api_key=CACHING_KEY, weight=1))
 
 
 def _register_benched_on_first_failure(
-    proxy: ProxyClient, name: str, litellm_params: LiteLLMParamsBody, allowed_fails: str, *, provider_live: bool = False
+    proxy: ProxyClient, name: str, hangarllm_params: HangarLLMParamsBody, allowed_fails: str, *, provider_live: bool = False
 ) -> str:
     """The always-picked half of a failing pair: all of the group's shuffle weight,
     and a cooldown policy that benches it on its first failure of the given class,
@@ -167,7 +167,7 @@ def _register_benched_on_first_failure(
     return proxy.register_model(
         ModelNewBody(
             model_name=name,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             model_info=ModelInfoBody(allowed_fails_policy={allowed_fails: 0}),
         ),
         provider_live=provider_live,
@@ -180,7 +180,7 @@ def create_always_timing_out_deployment(proxy: ProxyClient, name: str, cooldown_
     return _register_benched_on_first_failure(
         proxy,
         name,
-        LiteLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, timeout=0.001, weight=1, cooldown_time=cooldown_time),
+        HangarLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, timeout=0.001, weight=1, cooldown_time=cooldown_time),
         "TimeoutErrorAllowedFails",
         provider_live=True,
     )
@@ -192,19 +192,19 @@ def create_always_unauthorized_deployment(proxy: ProxyClient, name: str, cooldow
     return _register_benched_on_first_failure(
         proxy,
         name,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=REAL_MODEL, api_key="sk-not-a-real-key", max_retries=0, weight=1, cooldown_time=cooldown_time
         ),
         "AuthenticationErrorAllowedFails",
     )
 
 
-def _nested_proxy_params(upstream_group: str, upstream_key: str, cooldown_time: float | None) -> LiteLLMParamsBody:
+def _nested_proxy_params(upstream_group: str, upstream_key: str, cooldown_time: float | None) -> HangarLLMParamsBody:
     """A deployment whose upstream is this same proxy serving `upstream_group` with
     `upstream_key`: whatever that group answers (a 500 from an unreachable base, a
     429 from a key out of rpm) arrives as a real provider status, with the inner
     proxy's and the client's own retries off so it arrives at once."""
-    return LiteLLMParamsBody(
+    return HangarLLMParamsBody(
         model=f"openai/{upstream_group}",
         api_key=upstream_key,
         api_base=f"{PROXY_BASE_URL}/v1",
@@ -267,7 +267,7 @@ def create_always_picked_small_context_deployment(proxy: ProxyClient, name: str)
     return proxy.register_model(
         ModelNewBody(
             model_name=name,
-            litellm_params=LiteLLMParamsBody(model=SMALL_CONTEXT_MODEL, api_key=REAL_KEY, weight=1),
+            hangarllm_params=HangarLLMParamsBody(model=SMALL_CONTEXT_MODEL, api_key=REAL_KEY, weight=1),
             model_info=ModelInfoBody(),
         )
     )
@@ -277,7 +277,7 @@ def create_always_picked_small_context_deployment(proxy: ProxyClient, name: str)
 def create_canned_deployment(proxy: ProxyClient, name: str) -> str:
     """A deployment that answers from a canned reply, so a call to it goes through the
     router's deployment pick like any other but never reaches a provider."""
-    return proxy.create_model(name, LiteLLMParamsBody(model=REAL_MODEL, mock_response="ok"))
+    return proxy.create_model(name, HangarLLMParamsBody(model=REAL_MODEL, mock_response="ok"))
 
 
 @step(f"Add a zero-weight backup deployment named {{name}} that calls {REAL_MODEL}")
@@ -289,7 +289,7 @@ def create_zero_weight_backup_deployment(proxy: ProxyClient, name: str) -> str:
     return proxy.register_model(
         ModelNewBody(
             model_name=name,
-            litellm_params=LiteLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, weight=0),
+            hangarllm_params=HangarLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, weight=0),
             model_info=ModelInfoBody(),
         )
     )
@@ -372,7 +372,7 @@ def open_chat_stream(
 
 def model_id_of(resp: StreamingResponse) -> str | None:
     """The deployment the proxy served this response from, as it reports it."""
-    return resp.headers.get("x-litellm-model-id")
+    return resp.headers.get("x-hangarllm-model-id")
 
 
 class _AzurePromptFilterResult(BaseModel):

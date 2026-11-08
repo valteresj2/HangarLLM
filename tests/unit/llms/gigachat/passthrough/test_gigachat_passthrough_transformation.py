@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.gigachat.passthrough.transformation import GigaChatPassthroughConfig
-from litellm.types.utils import EmbeddingResponse, ModelResponse
+from hangarllm.llms.gigachat.passthrough.transformation import GigaChatPassthroughConfig
+from hangarllm.types.utils import EmbeddingResponse, ModelResponse
 
 
 def _gigachat_chat_completion_body():
@@ -103,7 +103,7 @@ class TestGigaChatPassthroughConfig:
             model="GigaChat",
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(complete_url, httpx.URL)
@@ -122,7 +122,7 @@ class TestGigaChatPassthroughConfig:
             model="GigaChat",
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert str(complete_url) == "https://custom.gigachat.ru/api/v1/chat/completions"
@@ -139,13 +139,13 @@ class TestGigaChatPassthroughConfig:
             model="GigaChat",
             endpoint="chat/completions",
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert str(complete_url) == "https://custom.gigachat.ru/api/v1/chat/completions"
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_secret_str"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str"
     )
     def test_get_complete_url_with_env_api_base(self, mock_get_secret):
         """Test URL construction with api_base from environment."""
@@ -159,7 +159,7 @@ class TestGigaChatPassthroughConfig:
             model="GigaChat",
             endpoint="embeddings",
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(complete_url, httpx.URL)
@@ -167,8 +167,8 @@ class TestGigaChatPassthroughConfig:
         assert base_target_url == env_api_base
         mock_get_secret.assert_called_once_with("GIGACHAT_API_BASE")
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_secret_str"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str"
     )
     def test_get_complete_url_fallback_to_default(self, mock_get_secret):
         """Test URL construction falls back to default GIGACHAT_BASE_URL."""
@@ -181,7 +181,7 @@ class TestGigaChatPassthroughConfig:
             model="GigaChat",
             endpoint="models",
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert isinstance(complete_url, httpx.URL)
@@ -192,11 +192,11 @@ class TestGigaChatPassthroughConfig:
         """Test that exception is raised when no api_base can be resolved."""
         config = GigaChatPassthroughConfig()
         with patch(
-            "litellm.llms.gigachat.passthrough.transformation.get_secret_str",  # test-quality-ok: patching litellm internal for unit test isolation
+            "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str",  # test-quality-ok: patching hangarllm internal for unit test isolation
             return_value=None,
         ):
             with patch(
-                "litellm.llms.gigachat.passthrough.transformation.GIGACHAT_BASE_URL",  # test-quality-ok: patching litellm internal for unit test isolation
+                "hangarllm.llms.gigachat.passthrough.transformation.GIGACHAT_BASE_URL",  # test-quality-ok: patching hangarllm internal for unit test isolation
                 None,
             ):
                 with pytest.raises(Exception, match="GigaChat api base not found"):
@@ -206,11 +206,11 @@ class TestGigaChatPassthroughConfig:
                         model="GigaChat",
                         endpoint="chat/completions",
                         request_query_params=None,
-                        litellm_params={},
+                        hangarllm_params={},
                     )
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_access_token"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_access_token"
     )
     def test_validate_environment(self, mock_get_access_token):
         """Test headers are set correctly with OAuth token."""
@@ -222,7 +222,7 @@ class TestGigaChatPassthroughConfig:
             model="GigaChat",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key="test-credentials",
             api_base="https://custom.gigachat.ru",
         )
@@ -232,7 +232,7 @@ class TestGigaChatPassthroughConfig:
         assert headers["Accept"] == "application/json"
         mock_get_access_token.assert_called_once_with(
             credentials="test-credentials",
-            litellm_params={},
+            hangarllm_params={},
         )
 
     def test_logging_non_streaming_response_chat_completions(self):
@@ -305,7 +305,7 @@ class TestGigaChatPassthroughConfig:
 
         result = config.handle_logging_collected_chunks(
             all_chunks=chunks,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             model="gigachat/GigaChat",
             custom_llm_provider="gigachat",
             endpoint="chat/completions",
@@ -326,7 +326,7 @@ class TestGigaChatPassthroughConfig:
 
         result = config.handle_logging_collected_chunks(
             all_chunks=chunks,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             model="gigachat/GigaChat",
             custom_llm_provider="gigachat",
             endpoint="chat/completions",
@@ -349,7 +349,7 @@ class TestGigaChatPassthroughConfig:
 
         result = config.handle_logging_collected_chunks(
             all_chunks=chunks,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             model="gigachat/GigaChat",
             custom_llm_provider="gigachat",
             endpoint="chat/completions",
@@ -385,7 +385,7 @@ class TestGigaChatPassthroughConfig:
 
         result = config.handle_logging_collected_chunks(
             all_chunks=chunks,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             model="gigachat/GigaChat",
             custom_llm_provider="gigachat",
             endpoint="chat/completions",
@@ -401,7 +401,7 @@ class TestGigaChatPassthroughConfig:
 
         result = config.handle_logging_collected_chunks(
             all_chunks=[],
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             model="gigachat/GigaChat",
             custom_llm_provider="gigachat",
             endpoint="chat/completions",
@@ -422,7 +422,7 @@ class TestGigaChatPassthroughConfig:
 
         result = config.handle_logging_collected_chunks(
             all_chunks=chunks,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             model="gigachat/GigaChat",
             custom_llm_provider="gigachat",
             endpoint="chat/completions",
@@ -431,8 +431,8 @@ class TestGigaChatPassthroughConfig:
         assert isinstance(result, ModelResponse)
         assert result.choices[0].message.content == "valid"
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_secret_str"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str"
     )
     def test_get_api_base_with_explicit_value(self, mock_get_secret):
         """Test get_api_base returns explicit value when provided."""
@@ -441,8 +441,8 @@ class TestGigaChatPassthroughConfig:
         assert result == explicit_base
         mock_get_secret.assert_not_called()
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_secret_str"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str"
     )
     def test_get_api_base_from_environment(self, mock_get_secret):
         """Test get_api_base retrieves from environment when not provided."""
@@ -452,8 +452,8 @@ class TestGigaChatPassthroughConfig:
         assert result == env_base
         mock_get_secret.assert_called_once_with("GIGACHAT_API_BASE")
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_secret_str"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str"
     )
     def test_get_api_base_fallback_to_default(self, mock_get_secret):
         """Test get_api_base falls back to GIGACHAT_BASE_URL."""
@@ -461,8 +461,8 @@ class TestGigaChatPassthroughConfig:
         result = GigaChatPassthroughConfig.get_api_base(api_base=None)
         assert result == "https://gigachat.devices.sberbank.ru/api/v1"
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_secret_str"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str"
     )
     def test_get_api_key_with_explicit_value(self, mock_get_secret):
         """Test get_api_key returns explicit value when provided."""
@@ -471,8 +471,8 @@ class TestGigaChatPassthroughConfig:
         assert result == explicit_key
         mock_get_secret.assert_not_called()
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.passthrough.transformation.get_secret_str"
+    @patch(  # test-quality-ok: patching hangarllm internal for unit test isolation
+        "hangarllm.llms.gigachat.passthrough.transformation.get_secret_str"
     )
     def test_get_api_key_from_environment(self, mock_get_secret):
         """Test get_api_key retrieves from environment when not provided."""
@@ -500,7 +500,7 @@ class TestGigaChatPassthroughConfig:
         logging_obj = MagicMock()
 
         with patch(
-            "litellm.utils.ProviderConfigManager.get_provider_chat_config",  # test-quality-ok: patching litellm internal for unit test isolation
+            "hangarllm.utils.ProviderConfigManager.get_provider_chat_config",  # test-quality-ok: patching hangarllm internal for unit test isolation
             return_value=None,
         ):
             with pytest.raises(ValueError, match="No provider config found for model"):
@@ -522,7 +522,7 @@ class TestGigaChatPassthroughConfig:
         logging_obj = MagicMock()
 
         with patch(
-            "litellm.utils.ProviderConfigManager.get_provider_embedding_config",  # test-quality-ok: patching litellm internal for unit test isolation
+            "hangarllm.utils.ProviderConfigManager.get_provider_embedding_config",  # test-quality-ok: patching hangarllm internal for unit test isolation
             return_value=None,
         ):
             with pytest.raises(ValueError, match="No provider config found for model"):
@@ -547,7 +547,7 @@ class TestGigaChatPassthroughConfig:
         config = GigaChatPassthroughConfig()
         logging_obj = MagicMock()
 
-        from litellm.types.utils import ModelResponseStream
+        from hangarllm.types.utils import ModelResponseStream
 
         stream_chunk = ModelResponseStream(
             choices=[
@@ -565,12 +565,12 @@ class TestGigaChatPassthroughConfig:
         ]
 
         with patch(
-            "litellm.llms.gigachat.passthrough.transformation.GigaChatModelResponseIterator.chunk_parser",  # test-quality-ok: patching litellm internal for unit test isolation
+            "hangarllm.llms.gigachat.passthrough.transformation.GigaChatModelResponseIterator.chunk_parser",  # test-quality-ok: patching hangarllm internal for unit test isolation
             return_value=stream_chunk,
         ):
             result = config.handle_logging_collected_chunks(
                 all_chunks=chunks,
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
                 model="gigachat/GigaChat",
                 custom_llm_provider="gigachat",
                 endpoint="chat/completions",
@@ -590,12 +590,12 @@ class TestGigaChatPassthroughConfig:
         ]
 
         with patch(
-            "litellm.llms.gigachat.passthrough.transformation.GigaChatModelResponseIterator.chunk_parser",  # test-quality-ok: patching litellm internal for unit test isolation
+            "hangarllm.llms.gigachat.passthrough.transformation.GigaChatModelResponseIterator.chunk_parser",  # test-quality-ok: patching hangarllm internal for unit test isolation
             return_value=12345,  # not dict and not ModelResponseStream
         ):
             result = config.handle_logging_collected_chunks(
                 all_chunks=chunks,
-                litellm_logging_obj=logging_obj,
+                hangarllm_logging_obj=logging_obj,
                 model="gigachat/GigaChat",
                 custom_llm_provider="gigachat",
                 endpoint="chat/completions",
@@ -614,7 +614,7 @@ class TestGigaChatPassthroughConfig:
 
         result = config.handle_logging_collected_chunks(
             all_chunks=chunks,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             model="gigachat/GigaChat",
             custom_llm_provider="gigachat",
             endpoint="chat/completions",

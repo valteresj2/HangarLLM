@@ -29,7 +29,7 @@ from pydantic import JsonValue
 VOLATILE_HEADER_NAMES: Final[frozenset[str]] = frozenset(
     {
         "authorization",
-        "x-litellm-api-key",
+        "x-hangarllm-api-key",
         "x-api-key",
         "x-goog-api-key",
         "x-request-id",

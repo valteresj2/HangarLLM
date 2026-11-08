@@ -5,8 +5,8 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
-from litellm.litellm_core_utils.ptu_shares import (
+from hangarllm.llms.azure.ptu_capacity import AZURE_PTU_CAPACITY
+from hangarllm.hangarllm_core_utils.ptu_shares import (
     filter_ptu_shared_deployments,
     model_group_deployments,
     model_group_ptu_capacity,
@@ -29,7 +29,7 @@ def _shared(
 ) -> dict:
     return {
         "model_name": "gpt-4.1-ptu",
-        "litellm_params": {"model": model},
+        "hangarllm_params": {"model": model},
         "model_info": {
             "id": deployment_id,
             "ptu_count": ptu_count or (sum(shares.values()) if isinstance(shares, dict) else 50),
@@ -43,7 +43,7 @@ def _shared(
 def _single_team(model: str = "azure/gpt-4.1") -> dict:
     return {
         "model_name": "gpt-4.1-ptu",
-        "litellm_params": {"model": model},
+        "hangarllm_params": {"model": model},
         "model_info": {
             "id": "single",
             "team_id": "team-a",
@@ -54,7 +54,7 @@ def _single_team(model: str = "azure/gpt-4.1") -> dict:
     }
 
 
-_OPEN: Final = {"model_name": "gpt-4.1-ptu", "litellm_params": {"model": "azure/gpt-4.1"}, "model_info": {"id": "open"}}
+_OPEN: Final = {"model_name": "gpt-4.1-ptu", "hangarllm_params": {"model": "azure/gpt-4.1"}, "model_info": {"id": "open"}}
 
 
 def _no_wildcard_route(_: str) -> tuple[()]:
@@ -97,7 +97,7 @@ def test_only_a_share_holders_request_keeps_its_team_for_the_retry_lookup():
     """A team owning a deployment through ``team_id`` keeps the router's unscoped retry lookup."""
     share_teams: Final = ptu_share_teams([_shared(shares={"team-b": 50}), _single_team()])
     holder: Final = {"metadata": {"user_api_key_team_id": "team-b"}}
-    messages_holder: Final = {"litellm_metadata": {"user_api_key_team_id": "team-b"}}
+    messages_holder: Final = {"hangarllm_metadata": {"user_api_key_team_id": "team-b"}}
     assert share_holder_request_kwargs(holder, share_teams) is holder
     assert share_holder_request_kwargs(messages_holder, share_teams) is messages_holder
     assert share_holder_request_kwargs({"metadata": {"user_api_key_team_id": "team-a"}}, share_teams) is None
@@ -106,7 +106,7 @@ def test_only_a_share_holders_request_keeps_its_team_for_the_retry_lookup():
 
 _TERMLESS_SHARED: Final = {
     "model_name": "gpt-4.1-ptu",
-    "litellm_params": {"model": "azure/gpt-4.1"},
+    "hangarllm_params": {"model": "azure/gpt-4.1"},
     "model_info": {"id": "shared", "ptu_shares": _SHARES},
 }
 
@@ -166,10 +166,10 @@ def test_a_group_is_served_by_name_or_by_a_team_scoped_deployments_public_name()
     the name callers use in ``team_public_model_name``."""
     team_scoped: Final = {
         "model_name": "gpt-4.1-ptu-3f9c1b",
-        "litellm_params": {"model": "azure/gpt-4.1"},
+        "hangarllm_params": {"model": "azure/gpt-4.1"},
         "model_info": {"id": "team-scoped", "team_id": "team-a", "team_public_model_name": "gpt-4.1-ptu"},
     }
-    other: Final = {"model_name": "other", "litellm_params": {"model": "azure/gpt-4o"}, "model_info": {"id": "other"}}
+    other: Final = {"model_name": "other", "hangarllm_params": {"model": "azure/gpt-4o"}, "model_info": {"id": "other"}}
     deployments: Final = [team_scoped, _OPEN, other]
     served: Final = model_group_deployments(deployments, "gpt-4.1-ptu")
     assert [d["model_info"]["id"] for d in served] == ["team-scoped", "open"]
@@ -186,7 +186,7 @@ def test_no_share_or_no_sizing_row_sets_no_ceiling():
 def test_naming_a_shared_deployment_by_id_or_provider_model_draws_on_its_groups_ceiling():
     """The router serves a deployment id or a provider model string when no group has that
     name, so those names share the group's ceiling instead of bypassing it."""
-    payg: Final = {"model_name": "gpt-4.1-payg", "litellm_params": {"model": "azure/gpt-4.1"}, "model_info": {"id": "payg"}}
+    payg: Final = {"model_name": "gpt-4.1-payg", "hangarllm_params": {"model": "azure/gpt-4.1"}, "model_info": {"id": "payg"}}
     deployments: Final = [payg, _shared(), _OPEN]
     by_group: Final = _unaliased_ceiling(deployments, "team-a", "gpt-4.1-ptu")
     assert by_group is not None
@@ -201,7 +201,7 @@ def test_a_group_name_wins_over_a_deployment_id_it_collides_with():
     """The router routes a name that is both a group and a deployment id to the group."""
     colliding: Final = {
         "model_name": "shared",
-        "litellm_params": {"model": "azure/gpt-4o"},
+        "hangarllm_params": {"model": "azure/gpt-4o"},
         "model_info": {"id": "colliding"},
     }
     assert _unaliased_ceiling([_shared(), colliding], "team-a", "shared") is None
@@ -210,7 +210,7 @@ def test_a_group_name_wins_over_a_deployment_id_it_collides_with():
 def test_a_team_scoped_deployment_named_by_id_draws_on_its_public_groups_ceiling():
     team_scoped: Final = {
         "model_name": "gpt-4.1-ptu-3f9c1b",
-        "litellm_params": {"model": "azure/gpt-4.1"},
+        "hangarllm_params": {"model": "azure/gpt-4.1"},
         "model_info": {**_shared()["model_info"], "id": "team-scoped", "team_public_model_name": "gpt-4.1-ptu"},
     }
     ceiling: Final = _unaliased_ceiling([team_scoped], "team-a", "team-scoped")
@@ -276,7 +276,7 @@ def test_a_reserved_deployment_without_a_sizing_row_is_warned_about_by_name():
 def test_a_sized_reservation_and_an_unreserved_deployment_raise_no_warning():
     assert ptu_capacity_warning("gpt-4.1-ptu", _shared()) is None
     assert ptu_capacity_warning("gpt-4.1-ptu", _single_team()) is None
-    unsized_open: Final = {**_OPEN, "litellm_params": {"model": "azure/my-ptu-deployment"}}
+    unsized_open: Final = {**_OPEN, "hangarllm_params": {"model": "azure/my-ptu-deployment"}}
     assert ptu_capacity_warning("gpt-4.1-ptu", unsized_open) is None
 
 
@@ -294,7 +294,7 @@ def test_an_unsized_single_team_reservation_on_another_provider_is_not_warned_ab
 def test_a_bare_model_name_counts_as_azure_through_custom_llm_provider():
     deployment: Final = {
         **_single_team(model="my-ptu-deployment"),
-        "litellm_params": {"model": "my-ptu-deployment", "custom_llm_provider": "azure"},
+        "hangarllm_params": {"model": "my-ptu-deployment", "custom_llm_provider": "azure"},
     }
     warning: Final = ptu_capacity_warning("gpt-4.1-ptu", deployment)
     assert warning is not None

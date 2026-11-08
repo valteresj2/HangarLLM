@@ -532,7 +532,7 @@ def test_without_redis_the_reset_comes_from_the_worker_memory(rig: BudgetRig, tm
             rig.gateway,
             tmp_path,
             {},
-            config=config_with(tmp_path, "no_redis_config.yaml", litellm_settings={}),
+            config=config_with(tmp_path, "no_redis_config.yaml", hangarllm_settings={}),
             remove_environment=("REDIS_HOST", "REDIS_PORT"),
         ) as owned,
     ):
@@ -579,7 +579,7 @@ def test_a_cached_chat_reply_keeps_the_window_start_and_reset(rig: BudgetRig) ->
                 extra_headers=spend_marker(second_marker),
             )
         assert second.parse().id == first.id, second.parse()
-        assert "x-litellm-cache-key" in second.headers, dict(second.headers)
+        assert "x-hangarllm-cache-key" in second.headers, dict(second.headers)
         assert upstream_hits(upstream_requests(rig.gateway.upstream_url), content) == 1
         assert float(str(landed_once(key, second_marker)["spend"])) == 0.0
         assert_cache_hit_kept_the_window(rig, key, key_window(key, rig.chat, "1d"), started_at)
@@ -595,7 +595,7 @@ async def streamed_chat(candidate: Gateway, model: str, key: str, content: str, 
         )
         chunks: Final = tuple([chunk async for chunk in raw.parse()])
     text: Final = "".join(chunk.choices[0].delta.content or "" for chunk in chunks if chunk.choices)
-    return chunks[0].id, text, "x-litellm-cache-key" in raw.headers
+    return chunks[0].id, text, "x-hangarllm-cache-key" in raw.headers
 
 
 async def test_a_cached_streamed_chat_reply_keeps_the_window_start_and_reset(rig: BudgetRig) -> None:
@@ -643,7 +643,7 @@ def reported_resets(rig: BudgetRig, key: str) -> tuple[tuple[int, JsonValue], ..
 
 def store_budget(key: str, model_max_budget: Mapping[str, JsonValue]) -> None:
     write_rows(
-        'UPDATE "LiteLLM_VerificationToken" SET model_max_budget = %s::jsonb WHERE token = %s',
+        'UPDATE "HangarLLM_VerificationToken" SET model_max_budget = %s::jsonb WHERE token = %s',
         (json.dumps(model_max_budget), hashed(key)),
     )
 
@@ -927,7 +927,7 @@ def router_config(directory: Path, upstream_url: str, period: str) -> Path:
         model_list=[
             {
                 "model_name": ROUTER_MODEL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": f"{upstream_url}/v1",
                     "api_key": "integration-provider-key",
@@ -939,7 +939,7 @@ def router_config(directory: Path, upstream_url: str, period: str) -> Path:
             }
         ],
         router_settings={"disable_cooldowns": True, "provider_budget_config": {"openai": limits}},
-        litellm_settings={"tag_budget_config": {ROUTER_TAG: limits}},
+        hangarllm_settings={"tag_budget_config": {ROUTER_TAG: limits}},
         general_settings={
             **object_value(
                 JSON_OBJECT.validate_python(yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text()))[

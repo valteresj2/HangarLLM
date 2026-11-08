@@ -11,12 +11,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.anthropic.messages.native.fake_stream_iterator import (
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from hangarllm.llms.anthropic.messages.native.fake_stream_iterator import (
     FakeAnthropicMessagesStreamIterator,
 )
-from litellm.types.integrations.custom_logger import AgenticLoopPlan
+from hangarllm.types.integrations.custom_logger import AgenticLoopPlan
 
 
 def _anthropic_response() -> dict:

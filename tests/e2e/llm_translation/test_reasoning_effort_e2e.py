@@ -7,7 +7,7 @@ import pytest
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import SdkClients
 
@@ -55,25 +55,25 @@ CHAT_ROUTES: Final = (
 MESSAGE_MODEL: Final = BEDROCK_INVOKE_MODEL
 
 
-def _deployment_params(route_name: str, model: str) -> LiteLLMParamsBody:
+def _deployment_params(route_name: str, model: str) -> HangarLLMParamsBody:
     match route_name:
         case "anthropic_direct":
-            return LiteLLMParamsBody(model=model, api_key="os.environ/ANTHROPIC_API_KEY")
+            return HangarLLMParamsBody(model=model, api_key="os.environ/ANTHROPIC_API_KEY")
         case "azure_ai":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=model,
                 api_base="os.environ/AZURE_AI_API_BASE",
                 api_key="os.environ/AZURE_AI_API_KEY",
             )
         case "vertex_ai":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=model,
                 vertex_project="os.environ/VERTEXAI_PROJECT",
                 vertex_location="os.environ/VERTEXAI_LOCATION",
                 vertex_credentials="os.environ/VERTEXAI_CREDENTIALS",
             )
         case "bedrock_converse" | "bedrock_invoke_chat" | "bedrock_invoke_messages":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=model,
                 aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
                 aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",

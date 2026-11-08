@@ -6,18 +6,18 @@ from io import BytesIO
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.url_utils import SSRFError
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.hosted_vllm.videos import get_hosted_vllm_video_config
-from litellm.llms.hosted_vllm.videos.transformation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.url_utils import SSRFError
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.hosted_vllm.videos import get_hosted_vllm_video_config
+from hangarllm.llms.hosted_vllm.videos.transformation import (
     HostedVLLMVideoConfig,
     _serialize_form_value,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.types.videos.main import VideoObject
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.types.videos.main import VideoObject
+from hangarllm.utils import ProviderConfigManager
 
 
 def test_provider_config_registration():
@@ -35,15 +35,15 @@ def test_get_complete_url_appends_videos():
     config = HostedVLLMVideoConfig()
 
     assert (
-        config.get_complete_url(model="MiniMax-H3", api_base="http://localhost:8091", litellm_params={})
+        config.get_complete_url(model="MiniMax-H3", api_base="http://localhost:8091", hangarllm_params={})
         == "http://localhost:8091/v1/videos"
     )
     assert (
-        config.get_complete_url(model="MiniMax-H3", api_base="http://localhost:8091/v1", litellm_params={})
+        config.get_complete_url(model="MiniMax-H3", api_base="http://localhost:8091/v1", hangarllm_params={})
         == "http://localhost:8091/v1/videos"
     )
     assert (
-        config.get_complete_url(model="MiniMax-H3", api_base="http://localhost:8091/v1/", litellm_params={})
+        config.get_complete_url(model="MiniMax-H3", api_base="http://localhost:8091/v1/", hangarllm_params={})
         == "http://localhost:8091/v1/videos"
     )
 
@@ -52,7 +52,7 @@ def test_get_complete_url_requires_api_base():
     config = HostedVLLMVideoConfig()
 
     with pytest.raises(ValueError, match="api_base not set"):
-        config.get_complete_url(model="MiniMax-H3", api_base=None, litellm_params={})
+        config.get_complete_url(model="MiniMax-H3", api_base=None, hangarllm_params={})
 
 
 def test_validate_environment_defaults_to_fake_api_key():
@@ -61,7 +61,7 @@ def test_validate_environment_defaults_to_fake_api_key():
     headers = config.validate_environment(
         headers={},
         model="MiniMax-H3",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
     )
 
     assert headers.get("Authorization") == "Bearer fake-api-key"
@@ -73,7 +73,7 @@ def test_validate_environment_uses_provided_api_key():
     headers = config.validate_environment(
         headers={"X-Test": "1"},
         model="MiniMax-H3",
-        litellm_params=GenericLiteLLMParams(api_key="my-custom-key"),
+        hangarllm_params=GenericHangarLLMParams(api_key="my-custom-key"),
     )
 
     assert headers.get("Authorization") == "Bearer my-custom-key"
@@ -100,7 +100,7 @@ def test_transform_video_create_request_uses_multipart_form_fields():
             "extra_params": extra_params,
             "extra_headers": {"X-Ignored": "yes"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -127,7 +127,7 @@ def test_transform_video_create_request_keeps_openai_size_and_seconds():
         prompt="a mountain lake at sunrise",
         api_base="http://localhost:8091/v1/videos",
         video_create_optional_request_params={"seconds": "8", "size": "1280x720"},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -146,7 +146,7 @@ def test_transform_video_create_request_attaches_input_reference_file():
         prompt="animate this image",
         api_base="http://localhost:8091/v1/videos",
         video_create_optional_request_params={"input_reference": reference, "width": 832},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -218,7 +218,7 @@ def test_video_generation_posts_multipart_not_json():
             },
         )
 
-    response = litellm.video_generation(
+    response = hangarllm.video_generation(
         model="hosted_vllm/MiniMax-H3",
         prompt="three cats march into a bedroom playing tiny brass instruments",
         api_base="http://localhost:8091",
@@ -257,7 +257,7 @@ def test_http_image_reference_is_forwarded_not_downloaded():
         video_create_optional_request_params={
             "image_reference": {"image_url": "http://1.1.1.1/face.png"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -274,7 +274,7 @@ def test_data_url_image_reference_is_forwarded():
         prompt="a person singing",
         api_base="http://localhost:8091/v1/videos",
         video_create_optional_request_params={"image_reference": {"image_url": data_url}},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -292,7 +292,7 @@ def test_metadata_url_in_image_reference_is_rejected():
             video_create_optional_request_params={
                 "image_reference": {"image_url": "http://169.254.169.254/latest/meta-data/"},
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -307,6 +307,6 @@ def test_file_scheme_media_reference_is_rejected():
             video_create_optional_request_params={
                 "video_reference": {"video_url": "file:///etc/passwd"},
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )

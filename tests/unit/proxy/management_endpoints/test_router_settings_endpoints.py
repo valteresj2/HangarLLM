@@ -10,18 +10,18 @@ from typing import Any, Final
 import pytest
 from fastapi.testclient import TestClient
 
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.config_resolvers import SettingsStore
-from litellm.proxy.management_endpoints.router_settings_endpoints import (
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.config_resolvers import SettingsStore
+from hangarllm.proxy.management_endpoints.router_settings_endpoints import (
     RouterFieldsResponse,
     RouterSettingsResponse,
     get_router_fields,
     get_router_settings,
 )
-from litellm.proxy.proxy_server import app
-from litellm.router import Router
-from litellm.types.router import RoutingGroup
+from hangarllm.proxy.proxy_server import app
+from hangarllm.router import Router
+from hangarllm.types.router import RoutingGroup
 
 client = TestClient(app)
 
@@ -108,7 +108,7 @@ class TestRouterSettingsEndpoints:
         monkeypatch.setattr(proxy_server, "llm_router", None)
 
         admin_user = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-x"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-x"
         )
         response = await get_router_settings(user_api_key_dict=admin_user)
 
@@ -132,7 +132,7 @@ class TestRouterSettingsEndpoints:
             model_list=[
                 {
                     "model_name": "latency-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o",
                         "api_key": "sk-x",
                     },
@@ -149,7 +149,7 @@ class TestRouterSettingsEndpoints:
         )
 
         admin_user = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-x"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-x"
         )
         response = await get_router_settings(user_api_key_dict=admin_user)
 
@@ -172,7 +172,7 @@ class TestRouterSettingsEndpoints:
             _StubProxyConfig(SettingsStore("router_settings"), {}),
         )
         admin_user: Final = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-test"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-test"
         )
 
         response: Final[RouterFieldsResponse | RouterSettingsResponse] = (
@@ -205,7 +205,7 @@ class TestRouterSettingsEndpoints:
             model_list=[
                 {
                     "model_name": model,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-5.4-nano",
                         "api_key": "sk-test",
                     },
@@ -235,7 +235,7 @@ class TestRouterSettingsEndpoints:
             proxy_server, "proxy_config", _StubProxyConfig(store, config)
         )
         admin_user: Final = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-test"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="sk-test"
         )
 
         response: Final[RouterSettingsResponse] = await get_router_settings(

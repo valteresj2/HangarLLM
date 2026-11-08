@@ -5,7 +5,7 @@ The count-tokens handler receives the auth header that ``AnthropicModelInfo.get_
 resolved, so a static key, an OAuth token (sk-ant-oat*), ``ANTHROPIC_AUTH_TOKEN`` and a minted
 workload-identity token all reach Anthropic exactly the way chat on the same deployment does.
 
-Regression tests for https://github.com/BerriAI/litellm/issues/22040 and for the
+Regression tests for upstream issue 22040 and for the
 ``ANTHROPIC_AUTH_TOKEN`` gap where count-tokens skipped minting but forwarded no credential.
 """
 
@@ -19,25 +19,25 @@ import respx
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../..")))
 
-import litellm
-from litellm.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-from litellm.llms.anthropic.count_tokens.token_counter import AnthropicTokenCounter
-from litellm.llms.anthropic.count_tokens.transformation import (
+import hangarllm
+from hangarllm.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
+from hangarllm.llms.anthropic.common_utils import AnthropicModelInfo
+from hangarllm.llms.anthropic.count_tokens.token_counter import AnthropicTokenCounter
+from hangarllm.llms.anthropic.count_tokens.transformation import (
     AnthropicCountTokensConfig,
 )
-from litellm.llms.azure_ai.anthropic.count_tokens.token_counter import (
+from hangarllm.llms.azure_ai.anthropic.count_tokens.token_counter import (
     AzureAIAnthropicTokenCounter,
 )
-from litellm.types.llms.anthropic import ANTHROPIC_OAUTH_BETA_HEADER
-from litellm.types.utils import TokenCountResponse
+from hangarllm.types.llms.anthropic import ANTHROPIC_OAUTH_BETA_HEADER
+from hangarllm.types.utils import TokenCountResponse
 
 # Fake tokens for testing (not real secrets)
 FAKE_OAUTH_TOKEN = "sk-ant-oat01-fake-token-for-testing-123456789abcdef"
 FAKE_REGULAR_KEY = "sk-ant-api03-regular-key-for-testing-123456789"
 
 FEDERATED_DEPLOYMENT = {
-    "litellm_params": {
+    "hangarllm_params": {
         "model": "anthropic/claude-sonnet-4-5",
         "anthropic_federation_rule_id": "fdrl_x",
         "anthropic_organization_id": "org-x",
@@ -53,8 +53,8 @@ def count_tokens_headers_for(api_key: str) -> dict[str, str]:
 
 @pytest.fixture
 def httpx_transport_clients(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    client_cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    client_cache = getattr(hangarllm, "in_memory_llm_clients_cache", None)
     if client_cache is not None:
         client_cache.flush_cache()
     yield
@@ -119,7 +119,7 @@ class TestCountTokensUsesWorkloadIdentity:
 
     @pytest.mark.asyncio
     async def test_a_federated_deployment_mints_and_counts(self, monkeypatch):
-        from litellm.llms.anthropic.count_tokens import token_counter as token_counter_module
+        from hangarllm.llms.anthropic.count_tokens import token_counter as token_counter_module
 
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
@@ -128,7 +128,7 @@ class TestCountTokensUsesWorkloadIdentity:
         async def fake_mint(_params, _api_base, _model):
             return minted
 
-        monkeypatch.setattr("litellm.llms.anthropic.common_utils.aget_anthropic_wif_token", fake_mint)
+        monkeypatch.setattr("hangarllm.llms.anthropic.common_utils.aget_anthropic_wif_token", fake_mint)
 
         seen: dict[str, object] = {}
 
@@ -164,7 +164,7 @@ class TestCountTokensUsesWorkloadIdentity:
     ):
         """With only ``ANTHROPIC_AUTH_TOKEN`` set, chat on a federated deployment authenticates with
         that token, so count-tokens must send the same Bearer instead of silently returning None."""
-        from litellm.llms.anthropic.count_tokens import token_counter as token_counter_module
+        from hangarllm.llms.anthropic.count_tokens import token_counter as token_counter_module
 
         for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"):
             monkeypatch.delenv(name, raising=False)
@@ -173,7 +173,7 @@ class TestCountTokensUsesWorkloadIdentity:
         async def fake_mint(_params, _api_base, _model):
             raise AssertionError("an auth-token deployment must never mint a federated token")
 
-        monkeypatch.setattr("litellm.llms.anthropic.common_utils.aget_anthropic_wif_token", fake_mint)
+        monkeypatch.setattr("hangarllm.llms.anthropic.common_utils.aget_anthropic_wif_token", fake_mint)
 
         with respx.mock(assert_all_called=True) as router:
             route = router.post("https://api.anthropic.com/v1/messages/count_tokens").mock(
@@ -203,7 +203,7 @@ class TestCountTokensUsesWorkloadIdentity:
     ):
         for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"):
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setattr(litellm, "anthropic_key", FAKE_REGULAR_KEY)
+        monkeypatch.setattr(hangarllm, "anthropic_key", FAKE_REGULAR_KEY)
 
         with respx.mock(assert_all_called=True) as router:
             route = router.post("https://api.anthropic.com/v1/messages/count_tokens").mock(
@@ -213,7 +213,7 @@ class TestCountTokensUsesWorkloadIdentity:
                 model_to_use="claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "hi"}],
                 contents=None,
-                deployment={"litellm_params": {"model": "anthropic/claude-sonnet-4-5"}},
+                deployment={"hangarllm_params": {"model": "anthropic/claude-sonnet-4-5"}},
                 request_model="claude-sonnet-4-5",
             )
 
@@ -239,8 +239,8 @@ class TestCountTokensUsesWorkloadIdentity:
     ) -> None:
         for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"):
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setattr(litellm, "anthropic_key", None)
-        monkeypatch.setattr(litellm, "api_key", None)
+        monkeypatch.setattr(hangarllm, "anthropic_key", None)
+        monkeypatch.setattr(hangarllm, "api_key", None)
 
         with respx.mock(assert_all_called=True) as router:
             route = router.post("https://api.anthropic.com/v1/messages/count_tokens").mock(
@@ -250,7 +250,7 @@ class TestCountTokensUsesWorkloadIdentity:
                 model_to_use="claude-sonnet-4-5",
                 messages=[{"role": "user", "content": "hi"}],
                 contents=None,
-                deployment={"litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": deployment_key}},
+                deployment={"hangarllm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": deployment_key}},
                 request_model="claude-sonnet-4-5",
             )
 
@@ -262,26 +262,26 @@ class TestCountTokensUsesWorkloadIdentity:
 
     @pytest.mark.asyncio
     async def test_a_failed_mint_degrades_like_an_anthropic_error(self, monkeypatch):
-        from litellm.llms.anthropic.count_tokens import token_counter as token_counter_module
+        from hangarllm.llms.anthropic.count_tokens import token_counter as token_counter_module
 
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 
         async def failing_mint(_params, _api_base, model):
-            raise litellm.AuthenticationError(
+            raise hangarllm.AuthenticationError(
                 message="federation_rule_id is not a well-formed fdrl_ tagged ID",
                 llm_provider="anthropic",
                 model=model,
             )
 
-        monkeypatch.setattr("litellm.llms.anthropic.common_utils.aget_anthropic_wif_token", failing_mint)
+        monkeypatch.setattr("hangarllm.llms.anthropic.common_utils.aget_anthropic_wif_token", failing_mint)
 
         result = await token_counter_module.AnthropicTokenCounter().count_tokens(
             model_to_use="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "anthropic/claude-sonnet-4-5",
                     "anthropic_federation_rule_id": "not-a-rule",
                     "anthropic_organization_id": "org-x",
@@ -298,7 +298,7 @@ class TestCountTokensUsesWorkloadIdentity:
 
     @pytest.mark.asyncio
     async def test_a_vault_backed_static_key_never_mints(self, monkeypatch):
-        from litellm.llms.anthropic.count_tokens import token_counter as token_counter_module
+        from hangarllm.llms.anthropic.count_tokens import token_counter as token_counter_module
 
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
@@ -307,12 +307,12 @@ class TestCountTokensUsesWorkloadIdentity:
         def vault_only(secret_name, default_value=None):
             return vault_key if secret_name == "ANTHROPIC_API_KEY" else None
 
-        monkeypatch.setattr("litellm.secret_managers.main.get_secret_str", vault_only, raising=False)
+        monkeypatch.setattr("hangarllm.secret_managers.main.get_secret_str", vault_only, raising=False)
 
         async def fake_mint(_params, _api_base, _model):
             raise AssertionError("a static key must never mint a federated token")
 
-        monkeypatch.setattr("litellm.llms.anthropic.common_utils.aget_anthropic_wif_token", fake_mint)
+        monkeypatch.setattr("hangarllm.llms.anthropic.common_utils.aget_anthropic_wif_token", fake_mint)
 
         seen: dict[str, object] = {}
 
@@ -377,7 +377,7 @@ async def test_count_token_counters_return_typed_success_and_error_responses(
             model_to_use="claude-test",
             messages=[{"role": "user", "content": "hi"}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-ant-api03-test-key", "api_base": api_base}},
+            deployment={"hangarllm_params": {"api_key": "sk-ant-api03-test-key", "api_base": api_base}},
             request_model="claude-test",
         )
         requests: Final = tuple(router.calls)

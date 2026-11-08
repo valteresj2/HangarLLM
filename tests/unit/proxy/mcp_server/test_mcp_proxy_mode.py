@@ -11,20 +11,20 @@ from mcp.types import CallToolResult, TextContent
 from mcp.types import Tool as MCPTool
 from pydantic import AnyUrl
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-from litellm.proxy.mcp_server import operations as mcp_operations
-from litellm.proxy.mcp_server import server
-from litellm.proxy.mcp_server.mcp_context import _mcp_proxy_mode
-from litellm.proxy.mcp_server.mcp_server_manager import ListedToolsCaller
-from litellm.proxy.mcp_server.tool_search import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, UserAPIKeyAuth
+from hangarllm.proxy.mcp_server import operations as mcp_operations
+from hangarllm.proxy.mcp_server import server
+from hangarllm.proxy.mcp_server.mcp_context import _mcp_proxy_mode
+from hangarllm.proxy.mcp_server.mcp_server_manager import ListedToolsCaller
+from hangarllm.proxy.mcp_server.tool_search import (
     handle_mcp_proxy_tool,
     mcp_proxy_tool_id,
     with_mcp_proxy_identity,
 )
-from litellm.types.mcp import MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from hangarllm.types.mcp import MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPServer
 
 AUTH = UserAPIKeyAuth(api_key="key")
 
@@ -111,10 +111,10 @@ class FailureRecorder(CustomLogger):
 @pytest.mark.usefixtures("proxy_mode")
 async def test_proxy_scope_exception_emits_failure_log(monkeypatch: pytest.MonkeyPatch) -> None:
     recorder = FailureRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     auth = UserAPIKeyAuth(
         api_key="scope-denial-key-hash",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="denied", mcp_servers=["no-mcp-servers"]),
+        object_permission=HangarLLM_ObjectPermissionTable(object_permission_id="denied", mcp_servers=["no-mcp-servers"]),
     )
     arguments = {"tool_id": "denied-scope", "arguments": {}}
 
@@ -126,7 +126,7 @@ async def test_proxy_scope_exception_emits_failure_log(monkeypatch: pytest.Monke
             client_ip=None,
             mcp_servers=["ungranted"],
             mcp_proxy_mode=True,
-            raw_headers={"authorization": "Bearer raw-scope-secret", "x-litellm-call-id": "scope-denial"},
+            raw_headers={"authorization": "Bearer raw-scope-secret", "x-hangarllm-call-id": "scope-denial"},
         )
 
     assert denied.value.status_code == 403
@@ -228,7 +228,7 @@ async def test_proxy_schema_and_call_resolve_tool_id_without_waiting_on_unrelate
         patch.object(manager, "_call_regular_mcp_tool", call_regular_mcp_tool),
     ):
         try:
-            caplog.set_level(logging.ERROR, logger="LiteLLM")
+            caplog.set_level(logging.ERROR, logger="HangarLLM")
             result = await asyncio.wait_for(
                 handle_mcp_proxy_tool(
                     name=meta_tool,

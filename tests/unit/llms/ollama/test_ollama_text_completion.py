@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 import respx
 
-from litellm import text_completion
+from hangarllm import text_completion
 
 
 @respx.mock

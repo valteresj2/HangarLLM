@@ -13,7 +13,7 @@ from pydantic import TypeAdapter
 
 Schema = Mapping[str, Mapping[str, str]]
 MODELS: Final = re.compile(r"^[ \t]*model\s+(\w+)\s*\{(.*?)^[ \t]*\}", re.MULTILINE | re.DOTALL)
-DROPPED_UNUSED_MODELS: Final = frozenset({"LiteLLM_AccountingDelivery", "LiteLLM_AccountingEvent"})
+DROPPED_UNUSED_MODELS: Final = frozenset({"HangarLLM_AccountingDelivery", "HangarLLM_AccountingEvent"})
 
 
 def parse_model_fields(schema: str) -> Schema:

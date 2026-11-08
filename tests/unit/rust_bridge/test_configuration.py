@@ -9,7 +9,7 @@ from typing import Final
 
 import pytest
 
-from litellm.rust_bridge import configuration
+from hangarllm.rust_bridge import configuration
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +17,7 @@ def _isolated_configuration(  # pyright: ignore[reportUnusedFunction]  # pytest 
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[None]:
     configuration.reset_rust_configuration()
-    monkeypatch.delenv("LITELLM_RUST", raising=False)
+    monkeypatch.delenv("HANGARLLM_RUST", raising=False)
     yield
     configuration.reset_rust_configuration()
 
@@ -72,7 +72,7 @@ def test_opt_out_route_configuration(
     monkeypatch: pytest.MonkeyPatch, process: bool | None, environment: str | None
 ) -> None:
     if environment is not None:
-        monkeypatch.setenv("LITELLM_RUST", environment)
+        monkeypatch.setenv("HANGARLLM_RUST", environment)
     if process is not None:
         configuration.rust(process)
 
@@ -94,7 +94,7 @@ def test_opt_out_route_configuration(
 def test_environment_wins_over_process_override(
     monkeypatch: pytest.MonkeyPatch, environment: str, process: bool, expected: bool
 ) -> None:
-    monkeypatch.setenv("LITELLM_RUST", environment)
+    monkeypatch.setenv("HANGARLLM_RUST", environment)
     configuration.rust(process)
 
     assert configuration.rust_enabled() is expected
@@ -108,7 +108,7 @@ def test_process_override_applies_when_environment_is_unset() -> None:
 
 @pytest.mark.parametrize("value", ("", " ", "sometimes", "2"))
 def test_invalid_environment_value_is_ignored(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
-    monkeypatch.setenv("LITELLM_RUST", value)
+    monkeypatch.setenv("HANGARLLM_RUST", value)
 
     assert configuration.rust_enabled() is False
     assert configuration.decision(Rollout.RUST_OPT_OUT) is Decision.RUST_WITH_FALLBACK
@@ -127,12 +127,12 @@ def test_process_override_and_reset_apply_to_existing_threads() -> None:
 
 @pytest.mark.parametrize(("value", "expected"), (("1", "True"), ("0", "False")))
 def test_environment_controls_startup(value: str, expected: str) -> None:
-    environment: Final = {**os.environ, "LITELLM_RUST": value}
+    environment: Final = {**os.environ, "HANGARLLM_RUST": value}
     result: Final = subprocess.run(
         (
             sys.executable,
             "-c",
-            "from litellm.rust_bridge.configuration import rust_enabled; print(rust_enabled())",
+            "from hangarllm.rust_bridge.configuration import rust_enabled; print(rust_enabled())",
         ),
         check=True,
         capture_output=True,

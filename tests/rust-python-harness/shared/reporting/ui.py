@@ -7,7 +7,7 @@ from textwrap import indent
 from types import TracebackType
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import handler as litellm_log_handler
+from hangarllm._logging import handler as hangarllm_log_handler
 
 from .models import HarnessRun, RunStatus, Strategy
 from .rendering import ReportSection
@@ -22,18 +22,18 @@ class HarnessOutputFilter(logging.Filter):
             "OCR cost:",
             "LoggingWorker: event loop changed;",
         )
-        return not (record.name == "LiteLLM" and record.getMessage().startswith(noisy_prefixes))
+        return not (record.name == "HangarLLM" and record.getMessage().startswith(noisy_prefixes))
 
 
 _HARNESS_OUTPUT_FILTER: Final = HarnessOutputFilter()
 
 
 def _start_output_filtering() -> None:
-    litellm_log_handler.addFilter(_HARNESS_OUTPUT_FILTER)
+    hangarllm_log_handler.addFilter(_HARNESS_OUTPUT_FILTER)
 
 
 def _stop_output_filtering() -> None:
-    litellm_log_handler.removeFilter(_HARNESS_OUTPUT_FILTER)
+    hangarllm_log_handler.removeFilter(_HARNESS_OUTPUT_FILTER)
 
 
 def _format_duration(seconds: float) -> str:

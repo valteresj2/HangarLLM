@@ -13,7 +13,7 @@ COST_PER_REQUEST: Final = 20 * 0.001 + 20 * 0.002
 def _logged(key: str, requests: int) -> list[dict[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT model, to_char("startTime", \'YYYY-MM-DD\') AS day FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+            'SELECT model, to_char("startTime", \'YYYY-MM-DD\') AS day FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
             (sha256(key.encode()).hexdigest(),),
         ),
         lambda rows: len(rows) == requests,

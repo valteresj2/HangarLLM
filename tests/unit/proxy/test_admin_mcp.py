@@ -11,20 +11,20 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from starlette.testclient import TestClient
 
-from litellm.constants import STANDARD_CUSTOMER_ID_HEADERS
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LiteLLM_UserTable, LitellmUserRoles, ProxyException, SpecialHeaders, UserAPIKeyAuth
-from litellm.proxy.admin_mcp import admin_mcp_lifespan, get_admin_mcp_permissions
-from litellm.proxy.auth.user_api_key_auth import get_api_key, get_api_key_from_custom_header, user_api_key_auth
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.management_endpoints import internal_user_endpoints, team_callback_endpoints
-from litellm.proxy.middleware.admission_control_middleware import (
+from hangarllm.constants import STANDARD_CUSTOMER_ID_HEADERS
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarLLM_UserTable, HangarllmUserRoles, ProxyException, SpecialHeaders, UserAPIKeyAuth
+from hangarllm.proxy.admin_mcp import admin_mcp_lifespan, get_admin_mcp_permissions
+from hangarllm.proxy.auth.user_api_key_auth import get_api_key, get_api_key_from_custom_header, user_api_key_auth
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.management_endpoints import internal_user_endpoints, team_callback_endpoints
+from hangarllm.proxy.middleware.admission_control_middleware import (
     AdmissionControlMiddleware,
     AdmissionControlSettings,
     AdmissionControlState,
     AdmissionControlStats,
 )
-from litellm.proxy.middleware.per_request_root_path_middleware import PerRequestRootPathMiddleware
+from hangarllm.proxy.middleware.per_request_root_path_middleware import PerRequestRootPathMiddleware
 
 
 class KeyRequest(BaseModel):
@@ -33,7 +33,7 @@ class KeyRequest(BaseModel):
 
 def _native_credential(request: Request) -> str:
     key, _ = get_api_key(
-        custom_litellm_key_header=request.headers.get("x-litellm-api-key"),
+        custom_hangarllm_key_header=request.headers.get("x-hangarllm-api-key"),
         api_key=request.headers.get("authorization", ""),
         azure_api_key_header=request.headers.get("api-key"),
         anthropic_api_key_header=request.headers.get("x-api-key"),
@@ -41,7 +41,7 @@ def _native_credential(request: Request) -> str:
         azure_apim_header=request.headers.get("ocp-apim-subscription-key"),
         pass_through_endpoints=None, route=request.url.path, request=request,
     )
-    configured: Final = proxy_server.general_settings.get("litellm_key_header_name")
+    configured: Final = proxy_server.general_settings.get("hangarllm_key_header_name")
     return get_api_key_from_custom_header(request, configured) if configured is not None else key
 
 
@@ -49,11 +49,11 @@ def _native_credential(request: Request) -> str:
 def management_app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     monkeypatch.setattr(proxy_server, "premium_user", True)
     monkeypatch.setattr(proxy_server, "general_settings", {})
-    monkeypatch.setenv("LITELLM_ENABLE_ADMIN_MCP", "true")
-    monkeypatch.setenv("LITELLM_ADMIN_TOOLS", "list_keys")
+    monkeypatch.setenv("HANGARLLM_ENABLE_ADMIN_MCP", "true")
+    monkeypatch.setenv("HANGARLLM_ADMIN_TOOLS", "list_keys")
     for name in (
-        "PROXY_BASE_URL", "LITELLM_MCP_PUBLIC_URL", "LITELLM_ADMIN_READ_ONLY",
-        "LITELLM_ADMIN_RESPONSE_VIEW", "LITELLM_ADMIN_SCHEMA_MODE",
+        "PROXY_BASE_URL", "HANGARLLM_MCP_PUBLIC_URL", "HANGARLLM_ADMIN_READ_ONLY",
+        "HANGARLLM_ADMIN_RESPONSE_VIEW", "HANGARLLM_ADMIN_SCHEMA_MODE",
     ):
         monkeypatch.delenv(name, raising=False)
     app: Final = FastAPI(lifespan=admin_mcp_lifespan)
@@ -67,8 +67,8 @@ def management_app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
         if credential not in {"admin-a", "admin-b", "admin-b-limited", "member", "viewer"}:
             raise HTTPException(status_code=401)
         user_id: Final = "admin-b" if credential == "admin-b-limited" else credential
-        role: Final = {"member": LitellmUserRoles.INTERNAL_USER, "viewer": LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY}.get(
-            user_id, LitellmUserRoles.PROXY_ADMIN
+        role: Final = {"member": HangarllmUserRoles.INTERNAL_USER, "viewer": HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY}.get(
+            user_id, HangarllmUserRoles.PROXY_ADMIN
         )
         auth: Final = UserAPIKeyAuth(
             user_id=user_id, user_role=role,
@@ -98,12 +98,12 @@ def management_app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
             "scheme": request.url.scheme,
             "forwarded_for": request.headers.get("x-forwarded-for"),
             "cookie": request.headers.get("cookie"),
-            "caller_is_changed_by": request.headers.get("litellm-changed-by")
+            "caller_is_changed_by": request.headers.get("hangarllm-changed-by")
             == credential,
-            "policy_team": request.headers.get("x-litellm-team-id"),
+            "policy_team": request.headers.get("x-hangarllm-team-id"),
             "alternate_credentials_absent": not any(
                 name in request.headers
-                for name in SpecialHeaders.litellm_credential_header_names() - {"authorization"}
+                for name in SpecialHeaders.hangarllm_credential_header_names() - {"authorization"}
             ),
         }
 
@@ -130,11 +130,11 @@ def management_app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
 @pytest.mark.parametrize("enabled", [None, "false", "0", "off", "No"])
 def test_disabled_preserves_existing_admin_namespace(monkeypatch: pytest.MonkeyPatch, enabled: str | None) -> None:
     monkeypatch.setattr(proxy_server, "premium_user", False)
-    monkeypatch.setitem(sys.modules, "litellm_admin_mcp.config", None)
+    monkeypatch.setitem(sys.modules, "hangarllm_admin_mcp.config", None)
     if enabled is None:
-        monkeypatch.delenv("LITELLM_ENABLE_ADMIN_MCP", raising=False)
+        monkeypatch.delenv("HANGARLLM_ENABLE_ADMIN_MCP", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_ENABLE_ADMIN_MCP", enabled)
+        monkeypatch.setenv("HANGARLLM_ENABLE_ADMIN_MCP", enabled)
     app: Final = FastAPI(lifespan=admin_mcp_lifespan)
 
     @app.post("/{server_name}/mcp")
@@ -149,8 +149,8 @@ def test_disabled_preserves_existing_admin_namespace(monkeypatch: pytest.MonkeyP
 
 def test_enabled_without_connector_explains_installation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(proxy_server, "premium_user", True)
-    monkeypatch.setenv("LITELLM_ENABLE_ADMIN_MCP", "true")
-    monkeypatch.setitem(sys.modules, "litellm_admin_mcp.config", None)
+    monkeypatch.setenv("HANGARLLM_ENABLE_ADMIN_MCP", "true")
+    monkeypatch.setitem(sys.modules, "hangarllm_admin_mcp.config", None)
     with pytest.raises(RuntimeError, match="admin-mcp dependency group"):
         with TestClient(FastAPI(lifespan=admin_mcp_lifespan)):
             pytest.fail("Enabling the connector without its dependency must fail startup")
@@ -161,13 +161,13 @@ def test_unlicensed_opt_in_fails_before_loading_connector(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, enabled: str
 ) -> None:
     monkeypatch.setattr(proxy_server, "premium_user", False)
-    monkeypatch.setenv("LITELLM_ENABLE_ADMIN_MCP", enabled)
-    monkeypatch.setitem(sys.modules, "litellm_admin_mcp.config", None)
+    monkeypatch.setenv("HANGARLLM_ENABLE_ADMIN_MCP", enabled)
+    monkeypatch.setitem(sys.modules, "hangarllm_admin_mcp.config", None)
     with pytest.raises(HTTPException) as exc:
         with TestClient(management_app):
             pytest.fail("An unlicensed deployment must not serve the hosted admin connector")
     assert exc.value.status_code == 403
-    assert "LITELLM_LICENSE" in str(exc.value.detail)
+    assert "HANGARLLM_LICENSE" in str(exc.value.detail)
     assert all(route.name != "admin_mcp" for route in management_app.routes)
 
 
@@ -175,7 +175,7 @@ def test_unlicensed_opt_in_fails_before_loading_connector(
 def test_losing_enterprise_status_blocks_admin_tool_calls(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_ADMIN_TOOLS", "create_key")
+    monkeypatch.setenv("HANGARLLM_ADMIN_TOOLS", "create_key")
     headers: Final = {"Authorization": "Bearer admin-a", "Accept": "application/json, text/event-stream"}
     payload: Final = {
         "jsonrpc": "2.0",
@@ -190,13 +190,13 @@ def test_losing_enterprise_status_blocks_admin_tool_calls(
         monkeypatch.setattr(proxy_server, "premium_user", False)
         denied: Final = client.post("/admin/mcp", headers=headers, json=payload)
     assert denied.status_code == 403, denied.text
-    assert "LITELLM_LICENSE" in denied.text
+    assert "HANGARLLM_LICENSE" in denied.text
     assert management_app.state.created_aliases == ["licensed-write"]
 
 
 def test_invalid_flag_fails_startup(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_ENABLE_ADMIN_MCP", "treu")
-    with pytest.raises(ValueError, match="LITELLM_ENABLE_ADMIN_MCP"):
+    monkeypatch.setenv("HANGARLLM_ENABLE_ADMIN_MCP", "treu")
+    with pytest.raises(ValueError, match="HANGARLLM_ENABLE_ADMIN_MCP"):
         with TestClient(FastAPI(lifespan=admin_mcp_lifespan)):
             pytest.fail("Invalid flag must fail startup")
 
@@ -211,7 +211,7 @@ def test_admin_endpoint_rejects_unauthorized_callers(
 ) -> None:
     headers: Final = {
         **({"Authorization": authorization} if authorization else {}),
-        "x-litellm-api-key": "Bearer admin-a",
+        "x-hangarllm-api-key": "Bearer admin-a",
     }
     with TestClient(management_app, base_url="http://localhost:4000") as client:
         response: Final = client.post("/admin/mcp", headers=headers, json={})
@@ -246,8 +246,8 @@ async def test_concurrent_calls_preserve_identity_network_context_and_strip_cook
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, root_path: str, prefix_mode: str
 ) -> None:
     monkeypatch.setenv("PROXY_BASE_URL", "https://gateway.example.com" + root_path)
-    monkeypatch.setenv("LITELLM_BASE_URL", "https://must-not-call.example.com")
-    monkeypatch.setenv("LITELLM_API_KEY", "must-not-use-shared-credential")
+    monkeypatch.setenv("HANGARLLM_BASE_URL", "https://must-not-call.example.com")
+    monkeypatch.setenv("HANGARLLM_API_KEY", "must-not-use-shared-credential")
     if prefix_mode == "scalar":
         management_app.root_path = root_path
     elif prefix_mode == "multiple":
@@ -267,14 +267,14 @@ async def test_concurrent_calls_preserve_identity_network_context_and_strip_cook
                 headers={
                     **{
                         name: "Bearer member"
-                        for name in SpecialHeaders.litellm_credential_header_names() - {"authorization"}
+                        for name in SpecialHeaders.hangarllm_credential_header_names() - {"authorization"}
                     },
                     "Authorization": "Bearer " + credential,
                     "Accept": "application/json, text/event-stream",
                     "X-Forwarded-For": "203.0.113.8",
                     "Cookie": "session=must-not-forward",
-                    "litellm-changed-by": "forged-actor",
-                    "x-litellm-team-id": "policy-team",
+                    "hangarllm-changed-by": "forged-actor",
+                    "x-hangarllm-team-id": "policy-team",
                 },
                 json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "list_keys"}},
             )
@@ -298,13 +298,13 @@ async def test_concurrent_calls_preserve_identity_network_context_and_strip_cook
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
-@pytest.mark.parametrize("header_name", ["X-Custom-Key", "Authorization", "x-litellm-api-key"])
+@pytest.mark.parametrize("header_name", ["X-Custom-Key", "Authorization", "x-hangarllm-api-key"])
 @pytest.mark.parametrize("caller_value", [None, "Bearer member"])
 def test_configured_key_header_uses_mcp_bearer_after_settings_change(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, header_name: str, caller_value: str | None
 ) -> None:
     with TestClient(management_app, base_url="http://localhost:4000") as client:
-        monkeypatch.setitem(proxy_server.general_settings, "litellm_key_header_name", header_name)
+        monkeypatch.setitem(proxy_server.general_settings, "hangarllm_key_header_name", header_name)
         response: Final = client.post(
             "/admin/mcp",
             headers={
@@ -319,39 +319,39 @@ def test_configured_key_header_uses_mcp_bearer_after_settings_change(
 
 
 @pytest.mark.parametrize("header_name", [
-    "", "bad name", "x-ключ", 7, "Cookie", "litellm-changed-by",
-    "Content-Type", "Host", "X-Forwarded-For", "x-litellm-team-id",
+    "", "bad name", "x-ключ", 7, "Cookie", "hangarllm-changed-by",
+    "Content-Type", "Host", "X-Forwarded-For", "x-hangarllm-team-id",
     *STANDARD_CUSTOMER_ID_HEADERS,
 ])
 def test_configured_key_header_rejects_invalid_or_reserved_names(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, header_name: object
 ) -> None:
-    monkeypatch.setitem(proxy_server.general_settings, "litellm_key_header_name", header_name)
-    with pytest.raises(ValueError, match="litellm_key_header_name"):
+    monkeypatch.setitem(proxy_server.general_settings, "hangarllm_key_header_name", header_name)
+    with pytest.raises(ValueError, match="hangarllm_key_header_name"):
         with TestClient(management_app):
             pytest.fail("An ambiguous or malformed credential header must fail startup")
 
 
 @pytest.mark.parametrize("policy", [
     {"user_header_name": "X-Custom-Key"},
-    {"user_header_mappings": {"header_name": "X-Custom-Key", "litellm_user_role": "customer"}},
-    {"user_header_mappings": [{"header_name": "X-Custom-Key", "litellm_user_role": "internal_user"}]},
+    {"user_header_mappings": {"header_name": "X-Custom-Key", "hangarllm_user_role": "customer"}},
+    {"user_header_mappings": [{"header_name": "X-Custom-Key", "hangarllm_user_role": "internal_user"}]},
     {"enable_oauth2_proxy_auth": True, "oauth2_config_mappings": {"user_id": "X-Custom-Key"}},
     {"mcp_client_id_header": "X-Custom-Key"},
 ])
 def test_configured_key_header_cannot_replace_configured_identity(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, policy: dict[str, object]
 ) -> None:
-    monkeypatch.setattr(proxy_server, "general_settings", {**policy, "litellm_key_header_name": "x-custom-key"})
-    with pytest.raises(ValueError, match="litellm_key_header_name"):
+    monkeypatch.setattr(proxy_server, "general_settings", {**policy, "hangarllm_key_header_name": "x-custom-key"})
+    with pytest.raises(ValueError, match="hangarllm_key_header_name"):
         with TestClient(management_app):
             pytest.fail("A credential header must not replace a configured identity header")
 
 
 @pytest.mark.parametrize("policy", [
     {"user_header_name": "x-api-key"},
-    {"user_header_mappings": {"header_name": "Cookie", "litellm_user_role": "customer"}},
-    {"enable_oauth2_proxy_auth": True, "oauth2_config_mappings": {"user_id": "x-litellm-api-key"}},
+    {"user_header_mappings": {"header_name": "Cookie", "hangarllm_user_role": "customer"}},
+    {"enable_oauth2_proxy_auth": True, "oauth2_config_mappings": {"user_id": "x-hangarllm-api-key"}},
 ])
 def test_policy_headers_cannot_share_overwritten_slots_without_a_custom_key(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, policy: dict[str, object]
@@ -365,7 +365,7 @@ def test_policy_headers_cannot_share_overwritten_slots_without_a_custom_key(
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
 def test_compact_results_bind_to_bearer_despite_conflicting_alternate_keys(management_app: FastAPI) -> None:
     headers: Final = {
-        "Authorization": "Bearer admin-a", "x-litellm-api-key": "Bearer admin-b",
+        "Authorization": "Bearer admin-a", "x-hangarllm-api-key": "Bearer admin-b",
         "Accept": "application/json, text/event-stream",
     }
     with TestClient(management_app, base_url="http://localhost:4000") as client:
@@ -381,7 +381,7 @@ def test_compact_results_bind_to_bearer_despite_conflicting_alternate_keys(manag
             "name": "read_admin_result", "arguments": {"result_id": result_id, "view": "full"},
         }}
         replayed: Final = client.post(
-            "/admin/mcp", headers={**headers, "x-litellm-api-key": "Bearer admin-b-limited"}, json=read_payload,
+            "/admin/mcp", headers={**headers, "x-hangarllm-api-key": "Bearer admin-b-limited"}, json=read_payload,
         )
         other_bearer: Final = client.post(
             "/admin/mcp", headers={**headers, "Authorization": "Bearer admin-b"}, json=read_payload,
@@ -404,7 +404,7 @@ def test_compact_results_bind_to_bearer_despite_conflicting_alternate_keys(manag
 def test_invalid_public_origin_fails_startup(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, public_url: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_MCP_PUBLIC_URL", public_url)
+    monkeypatch.setenv("HANGARLLM_MCP_PUBLIC_URL", public_url)
     with pytest.raises(ValueError, match="HTTPS gateway origin"):
         with TestClient(management_app):
             pytest.fail("An invalid trusted public origin must fail startup")
@@ -428,8 +428,8 @@ def test_public_host_and_origin_are_checked(management_app: FastAPI, monkeypatch
 def test_writes_respect_read_only_and_are_never_retried(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch, read_only: bool, alias: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_ADMIN_TOOLS", "list_keys,create_key")
-    monkeypatch.setenv("LITELLM_ADMIN_READ_ONLY", str(read_only).lower())
+    monkeypatch.setenv("HANGARLLM_ADMIN_TOOLS", "list_keys,create_key")
+    monkeypatch.setenv("HANGARLLM_ADMIN_READ_ONLY", str(read_only).lower())
     with TestClient(management_app, base_url="http://localhost:4000") as client:
         response: Final = client.post(
             "/admin/mcp",
@@ -495,7 +495,7 @@ def test_nested_management_calls_share_one_admission_slot(management_app: FastAP
 def test_oversized_mcp_body_is_rejected_before_a_write(
     management_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_ADMIN_TOOLS", "create_key")
+    monkeypatch.setenv("HANGARLLM_ADMIN_TOOLS", "create_key")
     with TestClient(management_app, base_url="http://localhost:4000") as client:
         response: Final = client.post(
             "/admin/mcp",
@@ -521,7 +521,7 @@ async def test_oauth2_proxy_auth_preserves_native_identity_and_peer_trust(
     peer: str, mapped_user: str, bearer: str, status: int,
 ) -> None:
     users: Final = {
-        user_id: LiteLLM_UserTable(user_id=user_id, user_role=role, teams=[])
+        user_id: HangarLLM_UserTable(user_id=user_id, user_role=role, teams=[])
         for user_id, role in (("admin-a", "proxy_admin"), ("member", "internal_user"))
     }
 
@@ -530,15 +530,15 @@ async def test_oauth2_proxy_auth_preserves_native_identity_and_peer_trust(
             return []
 
     class DatabaseTables:
-        litellm_teamtable: Final = EmptyTable()
-        litellm_teammembership: Final = EmptyTable()
+        hangarllm_teamtable: Final = EmptyTable()
+        hangarllm_teammembership: Final = EmptyTable()
 
     class UserInfoDatabase:
         db: Final = DatabaseTables()
 
         async def get_data(
             self, *, user_id: str | None = None, table_name: str | None = None, **_: object
-        ) -> LiteLLM_UserTable | list[object] | None:
+        ) -> HangarLLM_UserTable | list[object] | None:
             return users.get(user_id) if user_id is not None and table_name is None else []
 
     cache: Final = UserApiKeyCache()
@@ -585,7 +585,7 @@ def user_info_http_app(monkeypatch: pytest.MonkeyPatch, grant: str) -> FastAPI:
             return ({"teams": None, "keys": None},)
 
     monkeypatch.setattr(proxy_server, "prisma_client", SimpleNamespace(db=EmptyDatabase()))
-    auth: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", grant])
+    auth: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", grant])
     app: Final = FastAPI()
     app.include_router(internal_user_endpoints.router)
     app.include_router(team_callback_endpoints.router)
@@ -616,7 +616,7 @@ def test_admin_mcp_uses_credential_routes_without_removing_full_access(
 ) -> None:
     auth: Final = UserAPIKeyAuth(
         user_id="admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         allowed_routes=routes,
         is_session_token=session,
     )
@@ -641,7 +641,7 @@ def test_admin_mcp_checks_the_concrete_resource_even_when_the_tool_is_visible(
 ) -> None:
     auth: Final = UserAPIKeyAuth(
         user_id="admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         allowed_routes=["/user/info", grant],
         metadata={"is_session_token": True, "user_role": "proxy_admin"},
     )
@@ -691,7 +691,7 @@ async def test_user_info_decodes_mcp_path_after_query_parsing(
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
 @pytest.mark.parametrize("grant", ["/te?m/*", "/[t]eam/*", "/te*m/*"])
 def test_admin_mcp_does_not_invent_glob_permissions(grant: str, permissions_request: Request) -> None:
-    auth: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", grant])
+    auth: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", grant])
     permissions: Final = get_admin_mcp_permissions(
         auth, permissions_request, "get_team_callbacks", "/team/team-a/callback"
     )
@@ -706,7 +706,7 @@ def test_admin_mcp_discovery_respects_disabled_management_routes(
     monkeypatch.setattr(proxy_server, "premium_user", True)
     monkeypatch.setenv("DISABLE_ADMIN_ENDPOINTS", "true")
     auth: Final = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", "/key/key-a/reset_spend"]
+        user_role=HangarllmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", "/key/key-a/reset_spend"]
     )
     permissions: Final = get_admin_mcp_permissions(
         auth, permissions_request, "reset_key_spend", "/key/key-a/reset_spend"
@@ -717,7 +717,7 @@ def test_admin_mcp_discovery_respects_disabled_management_routes(
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="Admin MCP requires Python 3.12+")
 def test_admin_mcp_preserves_http_prefix_grants(permissions_request: Request) -> None:
-    auth: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", "/key/list"])
+    auth: Final = UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, allowed_routes=["/user/info", "/key/list"])
     own: Final = get_admin_mcp_permissions(auth, permissions_request, "reset_key_spend", "/key/list/reset_spend")
     other: Final = get_admin_mcp_permissions(auth, permissions_request, "reset_key_spend", "/key/other/reset_spend")
     assert "reset_key_spend" in own.tools
@@ -729,8 +729,8 @@ def test_admin_mcp_preserves_http_prefix_grants(permissions_request: Request) ->
 async def test_user_info_explains_missing_admin_mcp_dependency(
     permissions_request: Request, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setitem(sys.modules, "litellm_admin_mcp.catalog", None)
-    auth: Final = UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    monkeypatch.setitem(sys.modules, "hangarllm_admin_mcp.catalog", None)
+    auth: Final = UserAPIKeyAuth(user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN)
     with pytest.raises(ProxyException, match="admin-mcp dependency group") as exc:
         await internal_user_endpoints.user_info(
             request=permissions_request,

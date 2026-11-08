@@ -18,7 +18,7 @@ request with a live database connection, is what catches the whole class:
 a boot as the default uid, or one that reaches the internet, passes even when
 the bake is unusable everywhere it actually ships.
 
-Gated on LITELLM_IMAGE (the tag of the image to exercise) so it is skipped in
+Gated on HANGARLLM_IMAGE (the tag of the image to exercise) so it is skipped in
 the normal unit-test run and exercised only where an image has been built (the
 image-scan workflow). Requires a working docker CLI.
 """
@@ -34,15 +34,15 @@ import pytest
 
 from tests._master_key import MASTER_KEY
 
-IMAGE = os.getenv("LITELLM_IMAGE")
-POSTGRES_IMAGE = os.getenv("LITELLM_TEST_POSTGRES_IMAGE", "postgres:16-alpine")
-CURL_IMAGE = os.getenv("LITELLM_TEST_CURL_IMAGE", "curlimages/curl:8.11.1")
-COMPONENT_PORT = os.getenv("LITELLM_COMPONENT_PORT", "4000")
+IMAGE = os.getenv("HANGARLLM_IMAGE")
+POSTGRES_IMAGE = os.getenv("HANGARLLM_TEST_POSTGRES_IMAGE", "postgres:16-alpine")
+CURL_IMAGE = os.getenv("HANGARLLM_TEST_CURL_IMAGE", "curlimages/curl:8.11.1")
+COMPONENT_PORT = os.getenv("HANGARLLM_COMPONENT_PORT", "4000")
 NON_ROOT_UID = "12345:0"
-STARTUP_TIMEOUT_SECONDS = int(os.getenv("LITELLM_COMPONENT_STARTUP_TIMEOUT", "180"))
+STARTUP_TIMEOUT_SECONDS = int(os.getenv("HANGARLLM_COMPONENT_STARTUP_TIMEOUT", "180"))
 
 pytestmark = [
-    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set LITELLM_IMAGE)"),
+    pytest.mark.skipif(IMAGE is None, reason="requires a built image (set HANGARLLM_IMAGE)"),
     pytest.mark.skipif(shutil.which("docker") is None, reason="requires the docker CLI"),
 ]
 
@@ -65,7 +65,7 @@ def offline_stack():
 
     The container runs with DISABLE_SCHEMA_UPDATE, since applying the schema is
     the migration job's responsibility in this topology and needs the Prisma CLI
-    these images deliberately omit, and with LITELLM_LOCAL_MODEL_COST_MAP, or the
+    these images deliberately omit, and with HANGARLLM_LOCAL_MODEL_COST_MAP, or the
     proxy spends the whole startup budget timing out on a cost-map fetch over the
     network it does not have.
 
@@ -82,7 +82,7 @@ def offline_stack():
     try:
         _docker(
             "run", "-d", "--name", pg, "--network", network,
-            "-e", "POSTGRES_PASSWORD=pw", "-e", "POSTGRES_DB=litellm",
+            "-e", "POSTGRES_PASSWORD=pw", "-e", "POSTGRES_DB=hangarllm",
             POSTGRES_IMAGE,
         )
         _wait_until_postgres_ready(pg)
@@ -90,10 +90,10 @@ def offline_stack():
         _docker(
             "run", "-d", "--name", component, "--network", network,
             "--user", NON_ROOT_UID,
-            "-e", f"DATABASE_URL=postgresql://postgres:pw@{pg}:5432/litellm",
-            "-e", f"LITELLM_MASTER_KEY={MASTER_KEY}",
+            "-e", f"DATABASE_URL=postgresql://postgres:pw@{pg}:5432/hangarllm",
+            "-e", f"HANGARLLM_MASTER_KEY={MASTER_KEY}",
             "-e", "DISABLE_SCHEMA_UPDATE=true",
-            "-e", "LITELLM_LOCAL_MODEL_COST_MAP=True",
+            "-e", "HANGARLLM_LOCAL_MODEL_COST_MAP=True",
             IMAGE,
         )
         yield network, component
@@ -114,7 +114,7 @@ def _wait_until_postgres_ready(pg: str, attempts: int = 60) -> None:
             logs = _docker("logs", pg, check=False)
             pytest.fail(f"postgres container is not running:\n{logs.stdout}\n{logs.stderr}")
         ready = _docker(
-            "exec", pg, "pg_isready", "-U", "postgres", "-d", "litellm", check=False
+            "exec", pg, "pg_isready", "-U", "postgres", "-d", "hangarllm", check=False
         )
         if ready.returncode == 0:
             return

@@ -10,8 +10,8 @@ from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
 
 
 class HeaderInjectorLogger(CustomLogger):
@@ -41,9 +41,9 @@ async def test_response_headers_hook_returns_headers():
     """Test that the hook returns headers from a single callback."""
     injector = HeaderInjectorLogger(headers={"x-custom-id": "abc123"})
 
-    with patch("litellm.callbacks", [injector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [injector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -62,9 +62,9 @@ async def test_response_headers_hook_returns_none():
     """Test that returning None results in empty headers dict."""
     injector = HeaderInjectorLogger(headers=None)
 
-    with patch("litellm.callbacks", [injector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [injector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -84,9 +84,9 @@ async def test_response_headers_hook_multiple_callbacks_merge():
     injector1 = HeaderInjectorLogger(headers={"x-header-a": "value-a"})
     injector2 = HeaderInjectorLogger(headers={"x-header-b": "value-b"})
 
-    with patch("litellm.callbacks", [injector1, injector2]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [injector1, injector2]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -107,9 +107,9 @@ async def test_response_headers_hook_later_callback_overrides():
     injector1 = HeaderInjectorLogger(headers={"x-request-id": "first"})
     injector2 = HeaderInjectorLogger(headers={"x-request-id": "second"})
 
-    with patch("litellm.callbacks", [injector1, injector2]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [injector1, injector2]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -128,9 +128,9 @@ async def test_response_headers_hook_receives_response_on_success():
     injector = HeaderInjectorLogger(headers={"x-ok": "1"})
     mock_response = {"id": "resp-success", "choices": []}
 
-    with patch("litellm.callbacks", [injector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [injector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -148,9 +148,9 @@ async def test_response_headers_hook_receives_none_response_on_failure():
     """Test that the hook receives None response for failure cases."""
     injector = HeaderInjectorLogger(headers={"x-error-id": "err-1"})
 
-    with patch("litellm.callbacks", [injector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [injector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -166,9 +166,9 @@ async def test_response_headers_hook_receives_none_response_on_failure():
 @pytest.mark.asyncio
 async def test_response_headers_hook_no_callbacks():
     """Test that no callbacks results in empty headers."""
-    with patch("litellm.callbacks", []):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", []):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -193,11 +193,11 @@ async def test_default_hook_returns_none():
     assert result is None
 
 
-# --- Tests for litellm_call_info parameter ---
+# --- Tests for hangarllm_call_info parameter ---
 
 
 class CallInfoInspectorLogger(CustomLogger):
-    """Logger that captures litellm_call_info for inspection."""
+    """Logger that captures hangarllm_call_info for inspection."""
 
     def __init__(self):
         self.called = False
@@ -209,16 +209,16 @@ class CallInfoInspectorLogger(CustomLogger):
         user_api_key_dict: UserAPIKeyAuth,
         response: Any,
         request_headers: Optional[Dict[str, str]] = None,
-        litellm_call_info: Optional[Dict[str, Any]] = None,
+        hangarllm_call_info: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, str]]:
         self.called = True
-        self.received_call_info = litellm_call_info
+        self.received_call_info = hangarllm_call_info
         return None
 
 
 @pytest.mark.asyncio
-async def test_litellm_call_info_from_hidden_params():
-    """Test that litellm_call_info is built from response._hidden_params."""
+async def test_hangarllm_call_info_from_hidden_params():
+    """Test that hangarllm_call_info is built from response._hidden_params."""
     inspector = CallInfoInspectorLogger()
 
     class MockResponse:
@@ -228,9 +228,9 @@ async def test_litellm_call_info_from_hidden_params():
             "model_id": "model-abc",
         }
 
-    with patch("litellm.callbacks", [inspector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [inspector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -252,8 +252,8 @@ async def test_litellm_call_info_from_hidden_params():
 
 
 @pytest.mark.asyncio
-async def test_litellm_call_info_from_litellm_metadata():
-    """Test that litellm_call_info finds model_info under litellm_metadata (responses API path)."""
+async def test_hangarllm_call_info_from_hangarllm_metadata():
+    """Test that hangarllm_call_info finds model_info under hangarllm_metadata (responses API path)."""
     inspector = CallInfoInspectorLogger()
 
     class MockResponse:
@@ -263,16 +263,16 @@ async def test_litellm_call_info_from_litellm_metadata():
             "model_id": "deploy-xyz",
         }
 
-    with patch("litellm.callbacks", [inspector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [inspector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
         await proxy_logging.post_call_response_headers_hook(
             data={
                 "model": "gpt-4",
-                "litellm_metadata": {"model_info": {"id": "deploy-xyz"}},
+                "hangarllm_metadata": {"model_info": {"id": "deploy-xyz"}},
             },
             user_api_key_dict=UserAPIKeyAuth(api_key="test-key"),
             response=MockResponse(),
@@ -283,13 +283,13 @@ async def test_litellm_call_info_from_litellm_metadata():
 
 
 @pytest.mark.asyncio
-async def test_litellm_call_info_with_none_response():
-    """Test that litellm_call_info handles None response (failure path)."""
+async def test_hangarllm_call_info_with_none_response():
+    """Test that hangarllm_call_info handles None response (failure path)."""
     inspector = CallInfoInspectorLogger()
 
-    with patch("litellm.callbacks", [inspector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [inspector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -306,9 +306,9 @@ async def test_litellm_call_info_with_none_response():
 
 
 @pytest.mark.asyncio
-async def test_litellm_call_info_backwards_compatible():
-    """Test that existing callbacks without litellm_call_info parameter still work."""
-    # HeaderInjectorLogger doesn't accept litellm_call_info — must not crash
+async def test_hangarllm_call_info_backwards_compatible():
+    """Test that existing callbacks without hangarllm_call_info parameter still work."""
+    # HeaderInjectorLogger doesn't accept hangarllm_call_info — must not crash
     injector = HeaderInjectorLogger(headers={"x-test": "1"})
 
     class MockResponse:
@@ -318,9 +318,9 @@ async def test_litellm_call_info_backwards_compatible():
             "model_id": "m1",
         }
 
-    with patch("litellm.callbacks", [injector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [injector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -338,8 +338,8 @@ async def test_litellm_call_info_backwards_compatible():
 
 
 @pytest.mark.asyncio
-async def test_litellm_call_info_fallback_to_response_attribute():
-    """Test that _build_litellm_call_info falls back to response.custom_llm_provider
+async def test_hangarllm_call_info_fallback_to_response_attribute():
+    """Test that _build_hangarllm_call_info falls back to response.custom_llm_provider
     when _hidden_params doesn't contain it (streaming response types)."""
     inspector = CallInfoInspectorLogger()
 
@@ -353,9 +353,9 @@ async def test_litellm_call_info_fallback_to_response_attribute():
             "api_base": "https://bedrock.us-east-1.amazonaws.com",
         }
 
-    with patch("litellm.callbacks", [inspector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [inspector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -379,20 +379,20 @@ async def test_litellm_call_info_fallback_to_response_attribute():
 
 
 @pytest.mark.asyncio
-async def test_litellm_call_info_fallback_no_hidden_params():
-    """Test that _build_litellm_call_info works when response has no _hidden_params
-    at all (LiteLLMCompletionStreamingIterator case)."""
+async def test_hangarllm_call_info_fallback_no_hidden_params():
+    """Test that _build_hangarllm_call_info works when response has no _hidden_params
+    at all (HangarLLMCompletionStreamingIterator case)."""
     inspector = CallInfoInspectorLogger()
 
     class MockIteratorResponse:
-        """Mimics LiteLLMCompletionStreamingIterator: custom_llm_provider as attribute,
+        """Mimics HangarLLMCompletionStreamingIterator: custom_llm_provider as attribute,
         no _hidden_params attribute at all."""
 
         custom_llm_provider = "vertex_ai"
 
-    with patch("litellm.callbacks", [inspector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [inspector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -410,7 +410,7 @@ async def test_litellm_call_info_fallback_no_hidden_params():
 
 
 @pytest.mark.asyncio
-async def test_litellm_call_info_hidden_params_takes_priority():
+async def test_hangarllm_call_info_hidden_params_takes_priority():
     """Test that _hidden_params.custom_llm_provider takes priority over
     the response attribute when both are present."""
     inspector = CallInfoInspectorLogger()
@@ -423,9 +423,9 @@ async def test_litellm_call_info_hidden_params_takes_priority():
             "model_id": "m1",
         }
 
-    with patch("litellm.callbacks", [inspector]):
-        from litellm.proxy.utils import ProxyLogging
-        from litellm.caching.caching import DualCache
+    with patch("hangarllm.callbacks", [inspector]):
+        from hangarllm.proxy.utils import ProxyLogging
+        from hangarllm.caching.caching import DualCache
 
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 

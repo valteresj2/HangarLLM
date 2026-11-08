@@ -1,10 +1,10 @@
 import pytest
 
-from litellm.llms.anthropic.common_utils import AnthropicError
-from litellm.llms.openai_like.messages.transformation import (
+from hangarllm.llms.anthropic.common_utils import AnthropicError
+from hangarllm.llms.openai_like.messages.transformation import (
     OpenAILikeAnthropicMessagesConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def test_get_complete_url_handles_api_base_variants(config, api_base, expected):
         api_key="sk-test",
         model="some-model",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == expected
 
@@ -41,7 +41,7 @@ def test_get_complete_url_requires_api_base(config):
             api_key="sk-test",
             model="some-model",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -71,7 +71,7 @@ def test_request_stays_in_anthropic_shape(config):
         model="some-model",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -100,7 +100,7 @@ def test_request_requires_max_tokens(config):
             model="some-model",
             messages=[{"role": "user", "content": "hi"}],
             anthropic_messages_optional_request_params={"system": "s"},
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -111,7 +111,7 @@ def test_validate_environment_sets_bearer_and_anthropic_defaults(config):
         model="some-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -131,7 +131,7 @@ def test_validate_environment_does_not_overwrite_caller_headers(config):
         model="some-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -149,7 +149,7 @@ def test_validate_environment_preserves_standard_cased_caller_headers(config):
         model="some-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -166,7 +166,7 @@ def test_validate_environment_honors_x_api_key_when_present(config):
         model="some-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -182,7 +182,7 @@ def test_validate_environment_injects_anthropic_beta_for_context_management(conf
         optional_params={
             "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
         },
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -195,7 +195,7 @@ def test_validate_environment_injects_anthropic_beta_for_fast_mode(config):
         model="some-model",
         messages=[],
         optional_params={"speed": "fast"},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -208,7 +208,7 @@ def test_validate_environment_merges_existing_anthropic_beta(config):
         model="some-model",
         messages=[],
         optional_params={"speed": "fast"},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -234,7 +234,7 @@ def test_request_strips_advisor_blocks_when_advisor_tool_absent(config):
         model="some-model",
         messages=messages,
         anthropic_messages_optional_request_params={"max_tokens": 64},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -257,7 +257,7 @@ def test_request_maps_reasoning_effort_to_thinking(config):
             "max_tokens": 8192,
             "reasoning_effort": "medium",
         },
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -268,21 +268,21 @@ def test_request_maps_reasoning_effort_to_thinking(config):
 
 
 def test_passthrough_disables_anthropic_beta_filtering(config):
-    from litellm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
+    from hangarllm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
 
     assert config.should_filter_anthropic_beta_headers() is False
     assert AzureAnthropicMessagesConfig().should_filter_anthropic_beta_headers() is True
 
 
 def test_anthropic_beta_survives_provider_filter_on_passthrough_path(config):
-    from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+    from hangarllm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
 
     headers, _ = config.validate_anthropic_messages_environment(
         headers={"Anthropic-Beta": "caller-flag"},
         model="some-model",
         messages=[],
         optional_params={"speed": "fast"},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )
@@ -305,8 +305,8 @@ def test_json_provider_messages_config_probes_capabilities_under_provider_slug()
     ``self.custom_llm_provider``. The JSON-provider config knows its slug, so it
     must expose it; the generic OpenAI-like config has no class-level namespace
     and keeps the inherited ``anthropic`` default."""
-    from litellm.llms.openai_like.json_loader import SimpleProviderConfig
-    from litellm.llms.openai_like.messages.transformation import (
+    from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
+    from hangarllm.llms.openai_like.messages.transformation import (
         JSONProviderAnthropicMessagesConfig,
     )
 
@@ -361,7 +361,7 @@ def test_request_strips_cache_control_ttl_everywhere(config):
         model="some-model",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -384,7 +384,7 @@ def test_request_defaults_missing_cache_control_type_and_drops_non_dict(config):
             }
         ],
         anthropic_messages_optional_request_params={"max_tokens": 64},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -396,7 +396,7 @@ def test_request_defaults_missing_cache_control_type_and_drops_non_dict(config):
 def test_native_anthropic_config_keeps_cache_control_ttl():
     """Anthropic itself accepts ttl, so the normalization must stay scoped to
     the OpenAI-like passthrough and never reach the native Anthropic path."""
-    from litellm.llms.anthropic.messages.native.transformation import (
+    from hangarllm.llms.anthropic.messages.native.transformation import (
         AnthropicMessagesConfig,
     )
 
@@ -405,7 +405,7 @@ def test_native_anthropic_config_keeps_cache_control_ttl():
         model="claude-sonnet-4-20250514",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -424,15 +424,15 @@ def test_deployment_opt_in_keeps_cache_control_ttl():
             }
         ],
         anthropic_messages_optional_request_params={"max_tokens": 16},
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
     assert payload["messages"][0]["content"][0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
 
 
 def test_json_provider_constraint_opts_into_cache_control_ttl():
-    from litellm.llms.openai_like.json_loader import SimpleProviderConfig
-    from litellm.llms.openai_like.messages.transformation import (
+    from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
+    from hangarllm.llms.openai_like.messages.transformation import (
         JSONProviderAnthropicMessagesConfig,
     )
 
@@ -448,7 +448,7 @@ def test_json_provider_constraint_opts_into_cache_control_ttl():
             model="some-model",
             messages=messages,
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -503,7 +503,7 @@ def test_request_strips_ttl_only_where_the_messages_api_defines_cache_control(co
         model="some-model",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 
@@ -534,7 +534,7 @@ def test_safeguards_reach_an_openai_like_host_with_only_the_client_betas(
         model="some-model",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"safeguards": ({"type": "dangerous_tool_use"},)},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
         api_base="https://host/v1",
     )

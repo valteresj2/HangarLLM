@@ -1,6 +1,6 @@
-"""Dump the LiteLLM proxy's OpenAPI schema to the path given as the only argument.
+"""Dump the HangarLLM proxy's OpenAPI schema to the path given as the only argument.
 
-Run from the litellm repo root with the proxy dependencies installed:
+Run from the hangarllm repo root with the proxy dependencies installed:
 
     python terraform/provider/tools/dump_openapi.py openapi.json
 """
@@ -8,7 +8,7 @@ Run from the litellm repo root with the proxy dependencies installed:
 import json
 import sys
 
-from litellm.proxy.proxy_server import app
+from hangarllm.proxy.proxy_server import app
 
 
 def main(out_path: str) -> None:

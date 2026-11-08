@@ -13,18 +13,18 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import acompletion, aembedding, completion, embedding
-import litellm.caching.redis_cache as redis_cache_module
-from litellm._internal_context import current_service_target
-from litellm.caching.caching import Cache, CacheMode, response_cache_phase
-from litellm.caching.caching_handler import _PENDING_CACHE_WRITES
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache, RedisTimeoutLogThrottle
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.caching import EMBEDDING_CACHE_FORMAT_VERSION, LiteLLMCacheType, SemanticCacheScope
-from litellm.types.utils import Embedding, EmbeddingResponse, Usage
+import hangarllm
+from hangarllm import acompletion, aembedding, completion, embedding
+import hangarllm.caching.redis_cache as redis_cache_module
+from hangarllm._internal_context import current_service_target
+from hangarllm.caching.caching import Cache, CacheMode, response_cache_phase
+from hangarllm.caching.caching_handler import _PENDING_CACHE_WRITES
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.caching.in_memory_cache import InMemoryCache
+from hangarllm.caching.redis_cache import RedisCache, RedisTimeoutLogThrottle
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.caching import EMBEDDING_CACHE_FORMAT_VERSION, HangarLLMCacheType, SemanticCacheScope
+from hangarllm.types.utils import Embedding, EmbeddingResponse, Usage
 
 _CACHING_TEST_MESSAGES: Final = [{"role": "user", "content": "who is ishaan 5222"}]
 
@@ -32,8 +32,8 @@ messages = [{"role": "user", "content": "who is ishaan 5222"}]
 
 
 @pytest.fixture
-def preserve_litellm_set_verbose(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "set_verbose", litellm.set_verbose)
+def preserve_hangarllm_set_verbose(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hangarllm, "set_verbose", hangarllm.set_verbose)
 
 
 @pytest.fixture
@@ -44,10 +44,10 @@ def redis_client_without_network(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_cache_key_debug_log_does_not_include_prompt_material(caplog):
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     prompt_marker = "secret prompt material "
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         cache_key = cache.get_cache_key(
             model="gpt-4.1-mini",
             messages=[
@@ -98,11 +98,11 @@ def test_add_cache_timeout_only_joins_redis_throttle_for_redis_backends(backend,
     assert throttle.admit() == 0
     monkeypatch.setattr(redis_cache_module, "redis_timeout_log_throttle", throttle)
 
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     backend.set_cache.side_effect = TimeoutError("lit7520 backend timed out")
     cache.cache = backend
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         cache.add_cache("result", model="gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}])
 
     records = [r for r in caplog.records if "lit7520 backend timed out" in r.getMessage()]
@@ -118,13 +118,13 @@ def _embedding_response(prompt_tokens, num_items):
 
 
 def test_get_per_item_prompt_tokens_single_item_returns_full_value():
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     result = _embedding_response(prompt_tokens=0, num_items=1)
     assert cache._get_per_item_prompt_tokens(result, 0) == 0
 
 
 def test_get_per_item_prompt_tokens_distributes_with_remainder():
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     result = _embedding_response(prompt_tokens=10, num_items=3)
     per_item = [cache._get_per_item_prompt_tokens(result, i) for i in range(3)]
     assert sum(per_item) == 10  # 4 + 3 + 3
@@ -133,7 +133,7 @@ def test_get_per_item_prompt_tokens_distributes_with_remainder():
 
 def _semantic_cache(**cache_kwargs):
     return Cache(
-        type=LiteLLMCacheType.VALKEY_SEMANTIC,
+        type=HangarLLMCacheType.VALKEY_SEMANTIC,
         host="localhost",
         port="6379",
         similarity_threshold=0.8,
@@ -143,7 +143,7 @@ def _semantic_cache(**cache_kwargs):
 
 @pytest.mark.parametrize(
     "cache_type",
-    [LiteLLMCacheType.REDIS_SEMANTIC, LiteLLMCacheType.VALKEY_SEMANTIC],
+    [HangarLLMCacheType.REDIS_SEMANTIC, HangarLLMCacheType.VALKEY_SEMANTIC],
 )
 def test_semantic_cache_embedding_max_input_tokens_reaches_backend(cache_type):
     cache = Cache(
@@ -202,13 +202,13 @@ def _end_user_keys(cache, metadata_field, *end_user_ids):
     ]
 
 
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "hangarllm_metadata"])
 def test_semantic_cache_key_shares_bucket_across_end_users_by_default(metadata_field):
     key_alice, key_bob = _end_user_keys(_semantic_cache(), metadata_field, "alice", "bob")
     assert key_alice == key_bob
 
 
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "hangarllm_metadata"])
 def test_semantic_cache_key_isolates_end_users_under_end_user_scope(metadata_field):
     cache = _semantic_cache(semantic_cache_scope="end_user")
     key_alice, key_bob = _end_user_keys(cache, metadata_field, "alice", "bob")
@@ -236,18 +236,18 @@ def test_semantic_cache_key_end_user_scope_without_end_user_falls_back_to_key_sc
     assert key_scope_only != key_alice
 
 
-def test_semantic_cache_key_reads_tenant_identity_from_litellm_metadata():
+def test_semantic_cache_key_reads_tenant_identity_from_hangarllm_metadata():
     cache = _semantic_cache()
     messages = [{"role": "user", "content": "What color is the sky?"}]
-    key_a = cache.get_cache_key(model="gpt-4o-mini", messages=messages, litellm_metadata={"user_api_key": "hash-A"})
-    key_b = cache.get_cache_key(model="gpt-4o-mini", messages=messages, litellm_metadata={"user_api_key": "hash-B"})
-    key_a_in_litellm_params = cache.get_cache_key(
+    key_a = cache.get_cache_key(model="gpt-4o-mini", messages=messages, hangarllm_metadata={"user_api_key": "hash-A"})
+    key_b = cache.get_cache_key(model="gpt-4o-mini", messages=messages, hangarllm_metadata={"user_api_key": "hash-B"})
+    key_a_in_hangarllm_params = cache.get_cache_key(
         model="gpt-4o-mini",
         messages=messages,
-        litellm_params={"litellm_metadata": {"user_api_key": "hash-A"}},
+        hangarllm_params={"hangarllm_metadata": {"user_api_key": "hash-A"}},
     )
     assert key_a != key_b
-    assert key_a == key_a_in_litellm_params
+    assert key_a == key_a_in_hangarllm_params
 
 
 def test_cache_rejects_unsupported_type() -> None:
@@ -256,7 +256,7 @@ def test_cache_rejects_unsupported_type() -> None:
         ValueError, match=re.escape("Unsupported cache type 'not-a-cache'. Supported types: ")
     ) as raised:
         Cache(**cache_params)
-    assert str(raised.value).split("Supported types: ")[1].split(", ") == [member.value for member in LiteLLMCacheType]
+    assert str(raised.value).split("Supported types: ")[1].split(", ") == [member.value for member in HangarLLMCacheType]
 
 
 class _PingableInMemoryCache(InMemoryCache):
@@ -300,7 +300,7 @@ def test_semantic_cache_key_still_separates_models_and_params():
 
 
 def test_exact_cache_key_still_includes_prompt():
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     key_a = cache.get_cache_key(model="gpt-4o-mini", messages=[{"role": "user", "content": "a"}])
     key_b = cache.get_cache_key(model="gpt-4o-mini", messages=[{"role": "user", "content": "b"}])
     assert key_a != key_b
@@ -317,7 +317,7 @@ def test_exact_cache_key_still_includes_prompt():
 def test_exact_cache_key_includes_anthropic_messages_params(anthropic_param):
     """Anthropic /v1/messages params with no OpenAI equivalent must still key the
     cache; without them two requests that differ only by system prompt collide."""
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     messages = [{"role": "user", "content": "which greek letter?"}]
     baseline = cache.get_cache_key(model="claude-sonnet-4-5", messages=messages)
     assert baseline != cache.get_cache_key(model="claude-sonnet-4-5", messages=messages, **anthropic_param)
@@ -336,7 +336,7 @@ def test_exact_cache_key_includes_anthropic_messages_params(anthropic_param):
 def test_exact_cache_key_includes_the_reasoning_summary_alias(summary_ask: dict[str, object]) -> None:
     """The AI SDK summary alias decides whether thought summaries come back, wherever the request
     carries it, so a reply cached without it must not answer a request that asks for one."""
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
     messages: Final = [{"role": "user", "content": "how much is the ball?"}]
     no_ask: Final = cache.get_cache_key(model="gemini/gemini-3.8-flash", messages=messages, reasoning_effort="medium")
     ask: Final = cache.get_cache_key(
@@ -358,8 +358,8 @@ def test_exact_cache_key_includes_the_reasoning_summary_alias(summary_ask: dict[
 async def test_embedding_cache_skips_write_when_one_input_yields_many_embeddings(monkeypatch):
     """A cross-encoder behind /embeddings returns one score per document for a single
     input string; caching data[0] per input would make the second call return 1 score."""
-    import litellm
-    from litellm import CustomLLM
+    import hangarllm
+    from hangarllm import CustomLLM
 
     class ScoreEveryDocument(CustomLLM):
         provider_calls: int = 0
@@ -372,15 +372,15 @@ async def test_embedding_cache_skips_write_when_one_input_yields_many_embeddings
             )
 
     scorer = ScoreEveryDocument()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "score-every-doc", "custom_handler": scorer}])
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "score-every-doc"])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers, "score-every-doc"])
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "score-every-doc", "custom_handler": scorer}])
+    monkeypatch.setattr(hangarllm, "provider_list", [*hangarllm.provider_list, "score-every-doc"])
+    monkeypatch.setattr(hangarllm, "_custom_providers", [*hangarllm._custom_providers, "score-every-doc"])
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
 
     batch = '{"query": "q", "documents": ["a", "b", "c", "d", "e"]}'
-    first = await litellm.aembedding(model="score-every-doc/m", input=[batch])
+    first = await hangarllm.aembedding(model="score-every-doc/m", input=[batch])
     await asyncio.gather(*_PENDING_CACHE_WRITES)
-    second = await litellm.aembedding(model="score-every-doc/m", input=[batch])
+    second = await hangarllm.aembedding(model="score-every-doc/m", input=[batch])
 
     assert scorer.provider_calls == 2
     assert [len(first.data), len(second.data)] == [5, 5]
@@ -388,8 +388,8 @@ async def test_embedding_cache_skips_write_when_one_input_yields_many_embeddings
 
 @pytest.mark.asyncio
 async def test_embedding_cache_refetches_entries_written_without_format_version(monkeypatch):
-    import litellm
-    from litellm import CustomLLM
+    import hangarllm
+    from hangarllm import CustomLLM
 
     class EmbedLength(CustomLLM):
         provider_calls: int = 0
@@ -405,14 +405,14 @@ async def test_embedding_cache_refetches_entries_written_without_format_version(
             )
 
     embedder = EmbedLength()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "embed-length", "custom_handler": embedder}])
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "embed-length"])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers, "embed-length"])
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "embed-length", "custom_handler": embedder}])
+    monkeypatch.setattr(hangarllm, "provider_list", [*hangarllm.provider_list, "embed-length"])
+    monkeypatch.setattr(hangarllm, "_custom_providers", [*hangarllm._custom_providers, "embed-length"])
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
 
-    await litellm.aembedding(model="embed-length/m", input=["abcd"])
+    await hangarllm.aembedding(model="embed-length/m", input=["abcd"])
     await asyncio.gather(*_PENDING_CACHE_WRITES)
-    store = litellm.cache.cache.cache_dict
+    store = hangarllm.cache.cache.cache_dict
     stored = [entry["response"] for entry in store.values()]
     assert [entry["format_version"] for entry in stored] == [EMBEDDING_CACHE_FORMAT_VERSION], stored
     legacy_store = {
@@ -426,9 +426,9 @@ async def test_embedding_cache_refetches_entries_written_without_format_version(
         }
         for key, entry in store.items()
     }
-    monkeypatch.setattr(litellm.cache.cache, "cache_dict", legacy_store)
+    monkeypatch.setattr(hangarllm.cache.cache, "cache_dict", legacy_store)
 
-    refetched = await litellm.aembedding(model="embed-length/m", input=["abcd"])
+    refetched = await hangarllm.aembedding(model="embed-length/m", input=["abcd"])
 
     assert embedder.provider_calls == 2, "an entry written without format_version must be a cache miss"
     assert [item["embedding"] for item in refetched.data] == [[4.0]]
@@ -436,8 +436,8 @@ async def test_embedding_cache_refetches_entries_written_without_format_version(
 
 @pytest.mark.asyncio
 async def test_embedding_cache_serves_base64_string_embeddings_on_repeat(monkeypatch):
-    import litellm
-    from litellm import CustomLLM
+    import hangarllm
+    from hangarllm import CustomLLM
 
     class Base64Embedder(CustomLLM):
         provider_calls: int = 0
@@ -452,33 +452,33 @@ async def test_embedding_cache_serves_base64_string_embeddings_on_repeat(monkeyp
             )
 
     embedder = Base64Embedder()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "embed-b64", "custom_handler": embedder}])
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "embed-b64"])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers, "embed-b64"])
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "custom_provider_map", [{"provider": "embed-b64", "custom_handler": embedder}])
+    monkeypatch.setattr(hangarllm, "provider_list", [*hangarllm.provider_list, "embed-b64"])
+    monkeypatch.setattr(hangarllm, "_custom_providers", [*hangarllm._custom_providers, "embed-b64"])
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
 
-    first = await litellm.aembedding(model="embed-b64/m", input=["abcd"])
+    first = await hangarllm.aembedding(model="embed-b64/m", input=["abcd"])
     await asyncio.gather(*_PENDING_CACHE_WRITES)
-    second = await litellm.aembedding(model="embed-b64/m", input=["abcd"])
+    second = await hangarllm.aembedding(model="embed-b64/m", input=["abcd"])
 
     assert embedder.provider_calls == 1, "a string embedding written to the cache must be served on repeat"
     assert [item["embedding"] for item in second.data] == [item["embedding"] for item in first.data] == ["AACAPwAAAEA="]
 
 
-def test_provider_specific_cache_key_ignores_litellm_owned_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "enable_caching_on_provider_specific_optional_params", True)
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+def test_provider_specific_cache_key_ignores_hangarllm_owned_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hangarllm, "enable_caching_on_provider_specific_optional_params", True)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
     request: Final = {"model": "gpt-4.1-mini", "messages": [{"role": "user", "content": "hi"}], "top_k": 5}
 
     base_key: Final = cache.get_cache_key(**request)
 
-    assert cache.get_cache_key(**request, _litellm_control={"stream_chunk_size": 64}) == base_key
-    assert cache.get_cache_key(**request, litellm_trace_id="trace-1") == base_key
+    assert cache.get_cache_key(**request, _hangarllm_control={"stream_chunk_size": 64}) == base_key
+    assert cache.get_cache_key(**request, hangarllm_trace_id="trace-1") == base_key
     assert cache.get_cache_key(**{**request, "top_k": 6}) != base_key
 
 
 def test_cache_key_tells_apart_requests_that_differ_only_in_continuation_token() -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
     request: Final = {
         "model": "gemini/gemini-4-argon",
         "messages": [{"role": "user", "content": "hi"}],
@@ -496,7 +496,7 @@ def test_cache_key_tells_apart_requests_that_differ_only_in_continuation_token()
 
 
 def test_cache_key_tells_apart_requests_that_ask_for_token_ids() -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
     request: Final = {"model": "hosted_vllm/qwen3", "messages": [{"role": "user", "content": "count"}]}
 
     plain_key: Final = cache.get_cache_key(**request)
@@ -507,7 +507,7 @@ def test_cache_key_tells_apart_requests_that_ask_for_token_ids() -> None:
 
 
 def test_cache_key_tells_apart_requests_that_ask_for_token_ids_through_extra_body() -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
     request: Final = {"model": "hosted_vllm/qwen3", "messages": [{"role": "user", "content": "count"}]}
 
     plain_key: Final = cache.get_cache_key(**request)
@@ -520,7 +520,7 @@ def test_cache_key_tells_apart_requests_that_ask_for_token_ids_through_extra_bod
 
 
 def test_cache_key_tells_apart_requests_that_differ_only_in_tool_call_id_shape() -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
     request: Final = {
         "model": "gemini/gemini-3.5-flash",
         "messages": [{"role": "user", "content": "What is the weather in Paris?"}],
@@ -562,10 +562,10 @@ class PhaseRecordingCache(InMemoryCache):
 def v2_span_exporter(monkeypatch):
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-    from litellm.integrations.otel import OpenTelemetryV2Config
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.plumbing import providers
-    from litellm.proxy import proxy_server
+    from hangarllm.integrations.otel import OpenTelemetryV2Config
+    from hangarllm.integrations.otel.logger import OpenTelemetryV2
+    from hangarllm.integrations.otel.plumbing import providers
+    from hangarllm.proxy import proxy_server
 
     config = OpenTelemetryV2Config(exporter="in_memory")
     exporter = InMemorySpanExporter()
@@ -582,7 +582,7 @@ async def test_facade_lookup_and_store_run_inside_the_response_cache_phases(v2_s
     """The native bridge calls ``Cache.async_get_cache`` / ``async_add_cache`` straight, never through
     ``caching_handler``, so the ``cache.get llm_response`` / ``cache.set llm_response`` phase and the
     ``llm_response`` target come from the facade: the store runs under them too, and a hit reads back."""
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     backend = PhaseRecordingCache()
     assert await cache.async_get_cache(dynamic_cache_object=backend, **_REQUEST) is None
     await cache.async_add_cache({"id": "resp-1"}, dynamic_cache_object=backend, **_REQUEST)
@@ -601,7 +601,7 @@ async def test_facade_lookup_and_store_run_inside_the_response_cache_phases(v2_s
 
 
 def test_sync_facade_lookup_and_store_run_inside_the_response_cache_phases(v2_span_exporter):
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     backend = PhaseRecordingCache()
     assert cache.get_cache(dynamic_cache_object=backend, **_REQUEST) is None
     cache.add_cache({"id": "resp-1"}, **_REQUEST)
@@ -615,7 +615,7 @@ def test_sync_facade_lookup_and_store_run_inside_the_response_cache_phases(v2_sp
 @pytest.mark.asyncio
 async def test_a_lookup_already_inside_the_phase_does_not_open_a_second_one(v2_span_exporter):
     """``caching_handler`` opens the phase around the facade call; the facade joins it."""
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=HangarLLMCacheType.LOCAL)
     backend = PhaseRecordingCache()
     with response_cache_phase("get"):
         await cache.async_get_cache(dynamic_cache_object=backend, **_REQUEST)
@@ -624,11 +624,11 @@ async def test_a_lookup_already_inside_the_phase_does_not_open_a_second_one(v2_s
 
 
 def test_cache_override():
-    # test if we can override the cache, when `caching=False` but litellm.cache = Cache() is set
+    # test if we can override the cache, when `caching=False` but hangarllm.cache = Cache() is set
     # in this case it should not return cached responses
-    litellm.cache = Cache()
+    hangarllm.cache = Cache()
     print("Testing cache override")
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
 
     # test embedding
     response1 = embedding(
@@ -651,8 +651,8 @@ def test_cache_override():
 
 def test_caching_v2():  # test in memory cache
     try:
-        litellm.set_verbose = True
-        litellm.cache = Cache()
+        hangarllm.set_verbose = True
+        hangarllm.cache = Cache()
         response1 = completion(
             model="gpt-3.5-turbo",
             messages=messages,
@@ -662,9 +662,9 @@ def test_caching_v2():  # test in memory cache
         response2 = completion(model="gpt-3.5-turbo", messages=messages, caching=True)
         print(f"response1: {response1}")
         print(f"response2: {response2}")
-        litellm.cache = None  # disable cache
-        litellm.success_callback = []
-        litellm._async_success_callback = []
+        hangarllm.cache = None  # disable cache
+        hangarllm.success_callback = []
+        hangarllm._async_success_callback = []
         if response2["choices"][0]["message"]["content"] != response1["choices"][0]["message"]["content"]:
             print(f"response1: {response1}")
             print(f"response2: {response2}")
@@ -676,8 +676,8 @@ def test_caching_v2():  # test in memory cache
 
 def test_caching_with_ttl():
     try:
-        litellm.set_verbose = True
-        litellm.cache = Cache()
+        hangarllm.set_verbose = True
+        hangarllm.cache = Cache()
         response1 = completion(
             model="gpt-3.5-turbo",
             messages=messages,
@@ -693,9 +693,9 @@ def test_caching_with_ttl():
         )
         print(f"response1: {response1}")
         print(f"response2: {response2}")
-        litellm.cache = None  # disable cache
-        litellm.success_callback = []
-        litellm._async_success_callback = []
+        hangarllm.cache = None  # disable cache
+        hangarllm.success_callback = []
+        hangarllm._async_success_callback = []
         assert response2["choices"][0]["message"]["content"] != response1["choices"][0]["message"]["content"]
     except Exception as e:
         print(f"error occurred: {traceback.format_exc()}")
@@ -704,8 +704,8 @@ def test_caching_with_ttl():
 
 def test_caching_with_default_ttl():
     try:
-        litellm.set_verbose = True
-        litellm.cache = Cache(ttl=0)
+        hangarllm.set_verbose = True
+        hangarllm.cache = Cache(ttl=0)
         response1 = completion(
             model="gpt-3.5-turbo",
             messages=messages,
@@ -720,9 +720,9 @@ def test_caching_with_default_ttl():
         )
         print(f"response1: {response1}")
         print(f"response2: {response2}")
-        litellm.cache = None  # disable cache
-        litellm.success_callback = []
-        litellm._async_success_callback = []
+        hangarllm.cache = None  # disable cache
+        hangarllm.success_callback = []
+        hangarllm._async_success_callback = []
         assert response2["id"] != response1["id"]
     except Exception as e:
         print(f"error occurred: {traceback.format_exc()}")
@@ -730,10 +730,10 @@ def test_caching_with_default_ttl():
 
 
 def test_caching_with_models_v2():
-    messages = [{"role": "user", "content": "who is ishaan CTO of litellm from litellm 2023"}]
-    litellm.cache = Cache()
+    messages = [{"role": "user", "content": "who is ishaan CTO of hangarllm from hangarllm 2023"}]
+    hangarllm.cache = Cache()
     print("test2 for caching")
-    litellm.set_verbose = True
+    hangarllm.set_verbose = True
     response1 = completion(
         model="gpt-3.5-turbo",
         messages=messages,
@@ -750,9 +750,9 @@ def test_caching_with_models_v2():
     print(f"response1: {response1}")
     print(f"response2: {response2}")
     print(f"response3: {response3}")
-    litellm.cache = None
-    litellm.success_callback = []
-    litellm._async_success_callback = []
+    hangarllm.cache = None
+    hangarllm.success_callback = []
+    hangarllm._async_success_callback = []
     if response3["choices"][0]["message"]["content"] == response2["choices"][0]["message"]["content"]:
         # if models are different, it should not return cached response
         print(f"response2: {response2}")
@@ -770,8 +770,8 @@ async def test_dual_cache_caching_batch_get_cache():
     - check redis cache called for initial batch get cache
     - check redis cache not called for consecutive batch get cache with same keys
     """
-    from litellm.caching.dual_cache import DualCache
-    from litellm.caching.redis_cache import RedisCache
+    from hangarllm.caching.dual_cache import DualCache
+    from hangarllm.caching.redis_cache import RedisCache
 
     dc = DualCache(redis_cache=MagicMock(spec=RedisCache))
 
@@ -790,7 +790,7 @@ async def test_dual_cache_caching_batch_get_cache():
 
 
 def test_get_cache_key():
-    from litellm.caching.caching import Cache
+    from hangarllm.caching.caching import Cache
 
     try:
         print("Testing get_cache_key")
@@ -802,8 +802,8 @@ def test_get_cache_key():
                 "max_tokens": 40,
                 "temperature": 0.2,
                 "stream": True,
-                "litellm_call_id": "ffe75e7e-8a07-431f-9a74-71a5b9f35f0b",
-                "litellm_logging_obj": {},
+                "hangarllm_call_id": "ffe75e7e-8a07-431f-9a74-71a5b9f35f0b",
+                "hangarllm_logging_obj": {},
             }
         )
         cache_key_2 = cache_instance.get_cache_key(
@@ -813,8 +813,8 @@ def test_get_cache_key():
                 "max_tokens": 40,
                 "temperature": 0.2,
                 "stream": True,
-                "litellm_call_id": "ffe75e7e-8a07-431f-9a74-71a5b9f35f0b",
-                "litellm_logging_obj": {},
+                "hangarllm_call_id": "ffe75e7e-8a07-431f-9a74-71a5b9f35f0b",
+                "hangarllm_logging_obj": {},
             }
         )
         cache_key_str = "model: gpt-3.5-turbomessages: [{'role': 'user', 'content': 'write a one sentence poem about: 7510'}]max_tokens: 40temperature: 0.2stream: True"
@@ -895,8 +895,8 @@ def test_get_cache_key():
                     "base_model": "text-embedding-ada-002",
                     "id": "20b2b515-f151-4dd5-a74f-2231e2f54e29",
                 },
-                "litellm_call_id": "2642e009-b3cd-443d-b5dd-bb7d56123b0e",
-                "litellm_logging_obj": "<litellm.utils.Logging object at 0x12f1bddb0>",
+                "hangarllm_call_id": "2642e009-b3cd-443d-b5dd-bb7d56123b0e",
+                "hangarllm_logging_obj": "<hangarllm.utils.Logging object at 0x12f1bddb0>",
             }
         )
 
@@ -922,19 +922,19 @@ def test_redis_caching_multiple_namespaces():
     """
     from unittest.mock import MagicMock, patch
 
-    import litellm
-    from litellm import completion
-    from litellm._uuid import uuid
-    from litellm.caching import Cache
+    import hangarllm
+    from hangarllm import completion
+    from hangarllm._uuid import uuid
+    from hangarllm.caching import Cache
 
     # Use a fixed uuid to ensure consistent cache keys
     test_uuid = "12345678-1234-1234-1234-123456789abc"
-    messages = [{"role": "user", "content": f"what is litellm? {test_uuid}"}]
+    messages = [{"role": "user", "content": f"what is hangarllm? {test_uuid}"}]
 
     # Mock the Redis client creation from the _redis module
     with (
-        patch("litellm._redis.get_redis_client") as mock_get_redis_client,
-        patch("litellm._redis.get_redis_connection_pool") as mock_get_redis_connection_pool,
+        patch("hangarllm._redis.get_redis_client") as mock_get_redis_client,
+        patch("hangarllm._redis.get_redis_connection_pool") as mock_get_redis_connection_pool,
     ):
         # Create a mock Redis client that simulates real Redis behavior
         mock_redis_client = MagicMock()
@@ -974,7 +974,7 @@ def test_redis_caching_multiple_namespaces():
         mock_redis_client.info = mock_redis_info
 
         # Initialize the cache
-        litellm.cache = Cache(type="redis")
+        hangarllm.cache = Cache(type="redis")
 
         namespace_1 = "org-id1"
         namespace_2 = "org-id2"
@@ -1067,7 +1067,7 @@ _FILE_BLOCK_ITEM: Final = {"type": "file", "file": {"file_data": "data:video/mp4
     ],
 )
 def test_should_use_cache_stops_past_the_default_max_messages(kwargs: dict[str, object], expected: bool) -> None:
-    assert Cache(type=LiteLLMCacheType.LOCAL).should_use_cache(**kwargs) is expected
+    assert Cache(type=HangarLLMCacheType.LOCAL).should_use_cache(**kwargs) is expected
 
 
 def test_responses_sdk_items_count_toward_max_messages() -> None:
@@ -1075,19 +1075,19 @@ def test_responses_sdk_items_count_toward_max_messages() -> None:
 
     call: Final = ResponseFunctionToolCall(type="function_call", call_id="c1", name="ls", arguments="{}")
 
-    assert Cache(type=LiteLLMCacheType.LOCAL).should_use_cache(input=[_TOOL_TURN_ITEM, call, call, call, call]) is False
+    assert Cache(type=HangarLLMCacheType.LOCAL).should_use_cache(input=[_TOOL_TURN_ITEM, call, call, call, call]) is False
 
 
 def test_max_messages_is_configurable_and_none_disables_it() -> None:
     three: Final = [_TOOL_TURN_ITEM] * 3
 
-    assert Cache(type=LiteLLMCacheType.LOCAL, max_messages=2).should_use_cache(messages=three) is False
-    assert Cache(type=LiteLLMCacheType.LOCAL, max_messages=3).should_use_cache(messages=three) is True
-    assert Cache(type=LiteLLMCacheType.LOCAL, max_messages=None).should_use_cache(messages=three * 50) is True
+    assert Cache(type=HangarLLMCacheType.LOCAL, max_messages=2).should_use_cache(messages=three) is False
+    assert Cache(type=HangarLLMCacheType.LOCAL, max_messages=3).should_use_cache(messages=three) is True
+    assert Cache(type=HangarLLMCacheType.LOCAL, max_messages=None).should_use_cache(messages=three * 50) is True
 
 
 def test_max_messages_beats_an_explicit_use_cache_opt_in() -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL, mode=CacheMode.default_off)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL, mode=CacheMode.default_off)
 
     assert cache.should_use_cache(messages=[_TOOL_TURN_ITEM] * 4, cache={"use-cache": True}) is True
     assert cache.should_use_cache(messages=[_TOOL_TURN_ITEM] * 5, cache={"use-cache": True}) is False
@@ -1096,16 +1096,16 @@ def test_max_messages_beats_an_explicit_use_cache_opt_in() -> None:
 def test_completion_past_max_messages_is_neither_served_from_nor_written_to_the_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     tag: Final = uuid.uuid4().hex
     four: Final = [{"role": "user", "content": f"{tag} turn {index}"} for index in range(4)]
     five: Final = [*four, {"role": "user", "content": f"{tag} turn 4"}]
 
     def answer(messages: list[dict[str, str]], mock_response: str) -> str:
-        response: Final = litellm.completion(model="gpt-4o-mini", messages=messages, mock_response=mock_response)
-        assert isinstance(response, litellm.ModelResponse), response
+        response: Final = hangarllm.completion(model="gpt-4o-mini", messages=messages, mock_response=mock_response)
+        assert isinstance(response, hangarllm.ModelResponse), response
         choice: Final = response.choices[0]
-        assert isinstance(choice, litellm.Choices), choice
+        assert isinstance(choice, hangarllm.Choices), choice
         return str(choice.message.content)
 
     assert answer(four, "four first") == "four first"
@@ -1118,37 +1118,37 @@ def test_completion_past_max_messages_is_neither_served_from_nor_written_to_the_
 def test_enable_cache_serves_a_repeated_bedrock_titan_embedding_from_the_local_cache(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], fake_provider_credentials: None
 ) -> None:
-    monkeypatch.setattr(litellm, "cache", None)
-    monkeypatch.setattr(litellm, "set_verbose", True)
-    monkeypatch.setattr(litellm, "input_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
+    monkeypatch.setattr(hangarllm, "cache", None)
+    monkeypatch.setattr(hangarllm, "set_verbose", True)
+    monkeypatch.setattr(hangarllm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
     route: Final = respx.post(
         "https://bedrock-runtime.us-west-2.amazonaws.com/model/amazon.titan-embed-text-v2:0/invoke"
     ).mock(return_value=httpx.Response(200, json={"embedding": [0.25, -0.5, 0.75], "inputTextTokenCount": 6}))
     request: Final = {
         "model": "bedrock/amazon.titan-embed-text-v2:0",
-        "input": "good morning from litellm, attempting to embed data",
+        "input": "good morning from hangarllm, attempting to embed data",
         "aws_region_name": "us-west-2",
     }
 
-    litellm.enable_cache()
-    enabled_cache: Final = litellm.cache
-    monkeypatch.setattr(litellm, "input_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    litellm.enable_cache()
+    hangarllm.enable_cache()
+    enabled_cache: Final = hangarllm.cache
+    monkeypatch.setattr(hangarllm, "input_callback", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    hangarllm.enable_cache()
 
     first: Final = embedding(**request)
     second: Final = embedding(**request)
 
     assert isinstance(enabled_cache, Cache)
-    assert enabled_cache.type == LiteLLMCacheType.LOCAL
-    assert litellm.cache is enabled_cache
-    assert litellm.input_callback == ["cache"]
-    assert litellm.success_callback == ["cache"]
-    assert litellm._async_success_callback == ["cache"]
-    assert "LiteLLM: Enabling Cache" in capsys.readouterr().out
+    assert enabled_cache.type == HangarLLMCacheType.LOCAL
+    assert hangarllm.cache is enabled_cache
+    assert hangarllm.input_callback == ["cache"]
+    assert hangarllm.success_callback == ["cache"]
+    assert hangarllm._async_success_callback == ["cache"]
+    assert "HangarLLM: Enabling Cache" in capsys.readouterr().out
     assert route.call_count == 1
     assert first.data[0]["embedding"] == [0.25, -0.5, 0.75]
     assert second.data[0]["embedding"] == [0.25, -0.5, 0.75]
@@ -1156,32 +1156,32 @@ def test_enable_cache_serves_a_repeated_bedrock_titan_embedding_from_the_local_c
 
 
 def test_basic_caching_import() -> None:
-    from litellm.caching import Cache as PublicCache
+    from hangarllm.caching import Cache as PublicCache
 
     assert PublicCache is Cache
-    cache: Final = PublicCache(type=LiteLLMCacheType.LOCAL)
-    assert cache.type == LiteLLMCacheType.LOCAL
+    cache: Final = PublicCache(type=HangarLLMCacheType.LOCAL)
+    assert cache.type == HangarLLMCacheType.LOCAL
 
 
 def test_cache_context_managers(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
-    monkeypatch.setattr(litellm, "input_callback", list(litellm.input_callback))
-    monkeypatch.setattr(litellm, "success_callback", list(litellm.success_callback))
-    monkeypatch.setattr(litellm, "_async_success_callback", list(litellm._async_success_callback))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "input_callback", list(hangarllm.input_callback))
+    monkeypatch.setattr(hangarllm, "success_callback", list(hangarllm.success_callback))
+    monkeypatch.setattr(hangarllm, "_async_success_callback", list(hangarllm._async_success_callback))
 
-    litellm.disable_cache()
-    assert litellm.cache is None
-    assert "cache" not in litellm.success_callback
-    assert "cache" not in litellm._async_success_callback
+    hangarllm.disable_cache()
+    assert hangarllm.cache is None
+    assert "cache" not in hangarllm.success_callback
+    assert "cache" not in hangarllm._async_success_callback
 
-    litellm.enable_cache(type=LiteLLMCacheType.LOCAL)
-    assert litellm.cache is not None
-    assert litellm.cache.type == LiteLLMCacheType.LOCAL
+    hangarllm.enable_cache(type=HangarLLMCacheType.LOCAL)
+    assert hangarllm.cache is not None
+    assert hangarllm.cache.type == HangarLLMCacheType.LOCAL
 
 
 @pytest.mark.asyncio
 async def test_cache_default_off_acompletion(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL, mode=CacheMode.default_off))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL, mode=CacheMode.default_off))
     request: Final = {
         "model": "gpt-4o-mini",
         "messages": [{"role": "user", "content": f"cache mode {uuid.uuid4().hex}"}],
@@ -1198,7 +1198,7 @@ async def test_cache_default_off_acompletion(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_caching_kwargs_input(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     request: Final = {
         "model": "gpt-4o-mini",
         "messages": [{"role": "user", "content": f"kwargs input {uuid.uuid4().hex}"}],
@@ -1212,7 +1212,7 @@ def test_caching_kwargs_input(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_caching_reasoning_args_hit(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     request: Final = {
         "model": "anthropic/claude-sonnet-4-6",
         "messages": [{"role": "user", "content": f"reasoning hit {uuid.uuid4().hex}"}],
@@ -1227,7 +1227,7 @@ def test_caching_reasoning_args_hit(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_caching_reasoning_args_miss(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     messages: Final = [{"role": "user", "content": f"reasoning miss {uuid.uuid4().hex}"}]
 
     first: Final = completion(
@@ -1248,7 +1248,7 @@ def test_caching_reasoning_args_miss(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_caching_thinking_args_hit(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     request: Final = {
         "model": "anthropic/claude-sonnet-4-5-20250929",
         "messages": [{"role": "user", "content": f"thinking hit {uuid.uuid4().hex}"}],
@@ -1263,7 +1263,7 @@ def test_caching_thinking_args_hit(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_caching_thinking_args_miss(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     messages: Final = [{"role": "user", "content": f"thinking miss {uuid.uuid4().hex}"}]
 
     first: Final = completion(
@@ -1284,7 +1284,7 @@ def test_caching_thinking_args_miss(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_caching_with_reasoning_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     request: Final = {
         "model": "anthropic/claude-sonnet-4-5-20250929",
         "messages": [{"role": "user", "content": f"reasoning content {uuid.uuid4().hex}"}],
@@ -1298,7 +1298,7 @@ def test_caching_with_reasoning_content(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_custom_redis_cache_params(redis_client_without_network: None) -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.REDIS, host="127.0.0.1", port="6379", db=4)
+    cache: Final = Cache(type=HangarLLMCacheType.REDIS, host="127.0.0.1", port="6379", db=4)
 
     assert cache.cache.redis_client.connection_pool.connection_kwargs["db"] == 4
 
@@ -1306,13 +1306,13 @@ def test_custom_redis_cache_params(redis_client_without_network: None) -> None:
 def test_redis_cache_ignores_a_leftover_disk_cache_dir(
     redis_client_without_network: None, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
-        Cache(type=LiteLLMCacheType.REDIS, host="127.0.0.1", port="6379")
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
+        Cache(type=HangarLLMCacheType.REDIS, host="127.0.0.1", port="6379")
     assert "disk_cache_dir" not in caplog.text
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         cache: Final = Cache(
-            type=LiteLLMCacheType.REDIS, host="127.0.0.1", port="6379", disk_cache_dir="/tmp/litellm-cache"
+            type=HangarLLMCacheType.REDIS, host="127.0.0.1", port="6379", disk_cache_dir="/tmp/hangarllm-cache"
         )
 
     assert isinstance(cache.cache, RedisCache)
@@ -1320,8 +1320,8 @@ def test_redis_cache_ignores_a_leftover_disk_cache_dir(
 
 
 def test_custom_redis_cache_with_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
-    monkeypatch.setattr(litellm, "cache", cache)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
+    monkeypatch.setattr(hangarllm, "cache", cache)
     request: Final = {
         "model": "gpt-4o-mini",
         "messages": [{"role": "user", "content": f"custom key {uuid.uuid4().hex}"}],
@@ -1357,7 +1357,7 @@ async def test_dual_cache_async_batch_get_cache_returns_memory_values() -> None:
 
 
 def test_embedding_caching(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     inputs: Final = [f"embedding {uuid.uuid4().hex}"]
 
     first: Final = embedding(model="text-embedding-3-small", input=inputs, caching=True, mock_response="0.1,0.2")
@@ -1367,7 +1367,7 @@ def test_embedding_caching(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_embedding_caching_azure(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     request: Final = {
         "model": "azure/text-embedding-3-small",
         "input": [f"azure embedding {uuid.uuid4().hex}"],
@@ -1385,7 +1385,7 @@ def test_embedding_caching_azure(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.asyncio
 async def test_embedding_caching_individual_items(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     item: Final = f"individual embedding {uuid.uuid4().hex}"
 
     first: Final = await aembedding(model="text-embedding-3-small", input=item, caching=True, mock_response="0.1,0.2")
@@ -1397,7 +1397,7 @@ async def test_embedding_caching_individual_items(monkeypatch: pytest.MonkeyPatc
 
 @pytest.mark.asyncio
 async def test_embedding_caching_azure_individual_items(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     shared: Final = f"shared azure embedding {uuid.uuid4().hex}"
 
     await aembedding(
@@ -1424,7 +1424,7 @@ async def test_embedding_caching_azure_individual_items(monkeypatch: pytest.Monk
 
 @pytest.mark.asyncio
 async def test_embedding_caching_azure_individual_items_reordered(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     first_item: Final = f"first reordered embedding {uuid.uuid4().hex}"
     second_item: Final = f"second reordered embedding {uuid.uuid4().hex}"
     first: Final = await aembedding(
@@ -1464,7 +1464,7 @@ async def test_embedding_caching_azure_individual_items_reordered(monkeypatch: p
 
 @pytest.mark.asyncio
 async def test_embedding_caching_individual_items_and_then_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     first_item: Final = f"first embedding {uuid.uuid4().hex}"
     second_item: Final = f"second embedding {uuid.uuid4().hex}"
 
@@ -1488,7 +1488,7 @@ async def test_embedding_caching_individual_items_and_then_list(monkeypatch: pyt
 
 @pytest.mark.asyncio
 async def test_caching_with_cache_controls(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(hangarllm, "cache", Cache(type=HangarLLMCacheType.LOCAL))
     sync_no_ttl_messages: Final = [{"role": "user", "content": f"sync controls {uuid.uuid4().hex}"}]
     sync_no_ttl_first: Final = completion(
         model="gpt-4o-mini", messages=sync_no_ttl_messages, cache={"ttl": 0}, mock_response="first"
@@ -1533,9 +1533,9 @@ async def test_embedding_caching_redis_ttl(monkeypatch: pytest.MonkeyPatch, redi
     mock_pipeline.__aenter__.return_value.set = mock_set
     monkeypatch.setattr("redis.asyncio.Redis.pipeline", lambda *args, **kwargs: mock_pipeline)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "cache",
-        Cache(type=LiteLLMCacheType.REDIS, host="unused", port="6379", default_in_redis_ttl=2),
+        Cache(type=HangarLLMCacheType.REDIS, host="unused", port="6379", default_in_redis_ttl=2),
     )
 
     await aembedding(
@@ -1555,9 +1555,9 @@ async def test_embedding_caching_redis_ttl(monkeypatch: pytest.MonkeyPatch, redi
 async def test_logging_turn_off_message_logging_streaming(
     sync_mode: bool, monkeypatch: pytest.MonkeyPatch, drained_logging_worker: None
 ) -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
-    monkeypatch.setattr(litellm, "cache", cache)
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
+    monkeypatch.setattr(hangarllm, "cache", cache)
+    monkeypatch.setattr(hangarllm, "turn_off_message_logging", True)
     messages: Final = [{"role": "user", "content": f"stream {uuid.uuid4().hex}"}]
     if sync_mode:
         stream: Final = completion(
@@ -1584,14 +1584,14 @@ async def test_logging_turn_off_message_logging_streaming(
 
 
 def test_redis_caching_default_ttl(monkeypatch: pytest.MonkeyPatch, redis_client_without_network: None) -> None:
-    monkeypatch.setattr(litellm, "default_redis_ttl", 120)
+    monkeypatch.setattr(hangarllm, "default_redis_ttl", 120)
     cache: Final = RedisCache(host="127.0.0.1", port="6379")
 
     assert cache.default_ttl == 120
 
 
 def test_redis_caching_llm_caching_ttl(monkeypatch: pytest.MonkeyPatch, redis_client_without_network: None) -> None:
-    monkeypatch.setattr(litellm, "default_redis_ttl", 120)
+    monkeypatch.setattr(hangarllm, "default_redis_ttl", 120)
     cache: Final = RedisCache(host="127.0.0.1", port="6379")
     set_cache: Final = MagicMock()
     monkeypatch.setattr(cache.redis_client, "set", set_cache)
@@ -1603,7 +1603,7 @@ def test_redis_caching_llm_caching_ttl(monkeypatch: pytest.MonkeyPatch, redis_cl
 
 @pytest.mark.asyncio
 async def test_redis_caching_ttl_pipeline(monkeypatch: pytest.MonkeyPatch, redis_client_without_network: None) -> None:
-    monkeypatch.setattr(litellm, "default_redis_ttl", 120)
+    monkeypatch.setattr(hangarllm, "default_redis_ttl", 120)
     cache: Final = RedisCache(host="127.0.0.1", port="6379")
     pipeline: Final = AsyncMock()
     set_pipeline: Final = MagicMock()
@@ -1623,7 +1623,7 @@ async def test_redis_caching_ttl_pipeline(monkeypatch: pytest.MonkeyPatch, redis
 
 @pytest.mark.asyncio
 async def test_redis_caching_ttl_sadd(monkeypatch: pytest.MonkeyPatch, redis_client_without_network: None) -> None:
-    monkeypatch.setattr(litellm, "default_redis_ttl", 120)
+    monkeypatch.setattr(hangarllm, "default_redis_ttl", 120)
     cache: Final = RedisCache(host="127.0.0.1", port="6379")
     redis_client: Final = AsyncMock()
 
@@ -1638,7 +1638,7 @@ async def test_redis_caching_ttl_sadd(monkeypatch: pytest.MonkeyPatch, redis_cli
 
 
 def test_cache_key_separates_model_ids_unless_a_model_group_owns_the_key() -> None:
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+    cache: Final = Cache(type=HangarLLMCacheType.LOCAL)
     variants: Final[tuple[dict[str, object], ...]] = (
         {"model_id": "component-a"},
         {"model_id": "component-b"},

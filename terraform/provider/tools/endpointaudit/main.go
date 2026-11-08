@@ -341,7 +341,7 @@ func run(providerDir, specPath, coverageAllowlistPath string) error {
 }
 
 func main() {
-	providerDir := flag.String("provider-dir", "./litellm", "directory containing the provider Go source")
+	providerDir := flag.String("provider-dir", "./hangarllm", "directory containing the provider Go source")
 	specPath := flag.String("spec", "", "path to the proxy OpenAPI schema JSON")
 	coverageAllowlist := flag.String("coverage-allowlist", "", "path to the coverage allowlist; when set, also fail on management endpoints with no provider coverage")
 	flag.Parse()

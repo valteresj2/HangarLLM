@@ -8,9 +8,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.snowflake.embedding.transformation import SnowflakeEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+import hangarllm
+from hangarllm.llms.snowflake.embedding.transformation import SnowflakeEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 model_name = "snowflake-arctic-embed"
 
@@ -28,11 +28,11 @@ embed_response = {
 }
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_snowflake_jwt_account_id(mock_post):
     mock_post().json.return_value = copy.deepcopy(embed_response)
 
-    response = litellm.embedding(
+    response = hangarllm.embedding(
         f"snowflake/{model_name}",
         input=["document"],
         api_key="00000",
@@ -55,11 +55,11 @@ def test_snowflake_jwt_account_id(mock_post):
     assert post_kwargs["url"].endswith("cortex/inference:embed")
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_snowflake_pat_key_account_id(mock_post):
     mock_post().json.return_value = copy.deepcopy(embed_response)
 
-    response = litellm.embedding(
+    response = hangarllm.embedding(
         f"snowflake/{model_name}",
         input=["document"],
         api_key="pat/xxxxx",
@@ -80,14 +80,14 @@ def test_snowflake_pat_key_account_id(mock_post):
     assert "AAAA-BBBB" in post_kwargs["url"]
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("hangarllm.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_snowflake_env(mock_post):
     mock_post().json.return_value = copy.deepcopy(embed_response)
 
     os.environ["SNOWFLAKE_ACCOUNT_ID"] = "AAAA-BBBB"
     os.environ["SNOWFLAKE_JWT"] = "00000"
 
-    response = litellm.embedding(f"snowflake/{model_name}", input=["document"])
+    response = hangarllm.embedding(f"snowflake/{model_name}", input=["document"])
 
     assert len(response.data) == 1
     assert response.data[0]["embedding"] == [0.1, 0.2, 0.3]
@@ -111,7 +111,7 @@ def _transform(raw_response: httpx.Response) -> EmbeddingResponse:
         api_key="test-key",
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 

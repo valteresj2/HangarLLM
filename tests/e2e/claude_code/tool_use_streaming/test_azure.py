@@ -1,7 +1,7 @@
 """tool_use_streaming x Microsoft Foundry (Azure).
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode against a running LiteLLM proxy that routes Claude requests to
+mode against a running HangarLLM proxy that routes Claude requests to
 Microsoft Foundry's Anthropic deployments on Azure, ask Claude to
 invoke a built-in tool (`Bash`), and assert that the upstream (a)
 emitted a `tool_use` content block and (b) actually streamed events

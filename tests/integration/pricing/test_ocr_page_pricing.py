@@ -49,10 +49,10 @@ def test_ocr_annotation_pages_are_billed_at_annotation_cost_per_page(gateway: Ga
             "doc_size_bytes": 4096,
         }, response.text
         expected: Final = 3 * 0.002 + 2 * 0.01
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(expected), response.text
-        request_id: Final = string_value(response.headers["x-litellm-call-id"])
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(expected), response.text
+        request_id: Final = string_value(response.headers["x-hangarllm-call-id"])
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
             lambda values: len(values) == 1,
             seconds=70,
         )

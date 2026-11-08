@@ -126,26 +126,26 @@ def _respond(request: Request, file_id: str, job_id: str) -> Reply:
     )
 
 
-def _config(wire: Wire, litellm_settings: dict[str, JsonValue]) -> dict[str, JsonValue]:
+def _config(wire: Wire, hangarllm_settings: dict[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         "model_list": [
             {
                 "model_name": MANAGED_MODEL,
-                "litellm_params": {"model": "openai/gpt-4.1", "api_key": DEPLOYMENT_KEY, "api_base": f"{wire.url}/v1"},
+                "hangarllm_params": {"model": "openai/gpt-4.1", "api_key": DEPLOYMENT_KEY, "api_base": f"{wire.url}/v1"},
                 "model_info": {"supported_endpoints": ["/chat/completions", "/fine_tuning"]},
             }
         ],
         "finetune_settings": [
             {"custom_llm_provider": "openai", "api_key": "sk-fine-tuning-raw-provider", "api_base": f"{wire.url}/v1"}
         ],
-        "litellm_settings": litellm_settings,
-        "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
+        "hangarllm_settings": hangarllm_settings,
+        "general_settings": {"master_key": "os.environ/HANGARLLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
     }
 
 
 def _unified_job_id(model_id: str, job_id: str) -> str:
     return (
-        base64.urlsafe_b64encode(f"litellm_proxy;model_id:{model_id};generic_response_id:{job_id}".encode())
+        base64.urlsafe_b64encode(f"hangarllm_proxy;model_id:{model_id};generic_response_id:{job_id}".encode())
         .decode()
         .rstrip("=")
     )
@@ -187,13 +187,13 @@ class Rig:
 
 
 @contextmanager
-def _rig(directory: Path, litellm_settings: dict[str, JsonValue]) -> Iterator[Rig]:
+def _rig(directory: Path, hangarllm_settings: dict[str, JsonValue]) -> Iterator[Rig]:
     build: Final = uuid.uuid4().hex
     file_id: Final = f"file-managed-{build}"
     job_id: Final = f"ftjob-managed-{build}"
     with gateway_from_environment() as shared, wire_server(_responder(file_id, job_id)) as wire:
         config: Final = directory / "config.yaml"
-        config.write_text(yaml.safe_dump(_config(wire, litellm_settings)))
+        config.write_text(yaml.safe_dump(_config(wire, hangarllm_settings)))
         with owned_proxy(shared, directory, {}, config=config) as proxy, proxy.scenario() as scenario:
             eventually(
                 lambda: _targets(wire.drain()), lambda seen: seen == [("GET", "/v1/models", f"Bearer {DEPLOYMENT_KEY}")]
@@ -253,7 +253,7 @@ def default_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
 def test_managed_file_and_job_rows_record_the_owner(fixture: str, request: pytest.FixtureRequest) -> None:
     built: Final[Rig] = request.getfixturevalue(fixture)
     file_rows: Final = read_rows(
-        'SELECT model_mappings, flat_model_file_ids, created_by, team_id FROM "LiteLLM_ManagedFileTable" WHERE unified_file_id = %s',
+        'SELECT model_mappings, flat_model_file_ids, created_by, team_id FROM "HangarLLM_ManagedFileTable" WHERE unified_file_id = %s',
         (built.managed_file,),
     )
     assert file_rows == [
@@ -266,7 +266,7 @@ def test_managed_file_and_job_rows_record_the_owner(fixture: str, request: pytes
     ], file_rows
     job_rows: Final = eventually(
         lambda: read_rows(
-            'SELECT unified_object_id, model_object_id, file_purpose, created_by, team_id FROM "LiteLLM_ManagedObjectTable" WHERE unified_object_id = %s',
+            'SELECT unified_object_id, model_object_id, file_purpose, created_by, team_id FROM "HangarLLM_ManagedObjectTable" WHERE unified_object_id = %s',
             (built.managed_job,),
         ),
         lambda rows: len(rows) == 1,
@@ -363,8 +363,8 @@ def test_raw_provider_ids_are_refused_when_managed_files_are_required(
     reached: Final = _targets(rig.wire.drain())
     assert response.status_code == 400, response.text
     assert ProxyError.model_validate_json(response.text).error["message"] == (
-        f"Raw provider {kind} ids cannot be used when require_managed_files is enabled in litellm_settings. "
-        f"Use the LiteLLM managed {kind} id returned when the {kind} was created."
+        f"Raw provider {kind} ids cannot be used when require_managed_files is enabled in hangarllm_settings. "
+        f"Use the HangarLLM managed {kind} id returned when the {kind} was created."
     ), response.text
     assert reached == []
 
@@ -380,8 +380,8 @@ def test_raw_validation_file_is_refused_when_managed_files_are_required(rig: Rig
     reached: Final = _targets(rig.wire.drain())
     assert response.status_code == 400, response.text
     assert ProxyError.model_validate_json(response.text).error["message"] == (
-        "Raw provider file ids cannot be used when require_managed_files is enabled in litellm_settings. "
-        "Use the LiteLLM managed file id returned when the file was created."
+        "Raw provider file ids cannot be used when require_managed_files is enabled in hangarllm_settings. "
+        "Use the HangarLLM managed file id returned when the file was created."
     ), response.text
     assert reached == []
 

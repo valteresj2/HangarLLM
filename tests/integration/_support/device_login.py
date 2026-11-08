@@ -34,15 +34,15 @@ _OPENAI_AUTH_CLAIM: Final = "https://api.openai.com/auth"
 
 CHATGPT_REFUSAL: Final = (
     "ChatGPT device-code login needs a human and cannot run inside a running event loop "
-    "or a worker thread (for example the LiteLLM proxy). Log in once outside the proxy with "
-    '`python -c "from litellm.llms.chatgpt.authenticator import Authenticator; '
+    "or a worker thread (for example the HangarLLM proxy). Log in once outside the proxy with "
+    '`python -c "from hangarllm.llms.chatgpt.authenticator import Authenticator; '
     'Authenticator().get_access_token()"` and mount the resulting auth.json into the proxy, '
     "or set CHATGPT_TOKEN_DIR to a directory that already holds it."
 )
 COPILOT_REFUSAL: Final = (
     "GitHub Copilot device-code login needs a human and cannot run inside a running event loop "
-    "or a worker thread (for example the LiteLLM proxy). Log in once outside the proxy with "
-    '`python -c "from litellm.llms.github_copilot.authenticator import Authenticator; '
+    "or a worker thread (for example the HangarLLM proxy). Log in once outside the proxy with "
+    '`python -c "from hangarllm.llms.github_copilot.authenticator import Authenticator; '
     'Authenticator().get_access_token()"` and mount the resulting access-token file into '
     "the proxy, or set GITHUB_COPILOT_TOKEN_DIR to a directory that already holds it."
 )

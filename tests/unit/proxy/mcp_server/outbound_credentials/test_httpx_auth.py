@@ -6,7 +6,7 @@ pin the header emission the api_key family and passthrough depend on.
 
 import httpx2
 
-from litellm.proxy.mcp_server.outbound_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials import (
     NoOpAuth,
     StaticHeaderAuth,
 )

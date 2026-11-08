@@ -9,11 +9,11 @@ from typing import Final
 
 import pytest
 
-from litellm.types.llms.openai import AllMessageValues
+from hangarllm.types.llms.openai import AllMessageValues
 
-import litellm
-from litellm import completion
-from litellm.llms.dashscope.chat.transformation import DashScopeChatConfig
+import hangarllm
+from hangarllm import completion
+from hangarllm.llms.dashscope.chat.transformation import DashScopeChatConfig
 
 WORKSPACE: Final = "https://llm-abc123.cn-beijing.maas.aliyuncs.com"
 
@@ -32,7 +32,7 @@ def test_get_complete_url_derives_the_compatible_base_from_any_standard_base():
             api_key="sk-test",
             model="qwen3.7-plus",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert url == f"{WORKSPACE}/compatible-mode/v1/chat/completions"
@@ -44,7 +44,7 @@ def test_get_complete_url_keeps_unrecognized_hosts():
         api_key="sk-test",
         model="qwen3.7-plus",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert url == "https://gateway.example.com/v1/chat/completions"
@@ -65,7 +65,7 @@ class TestDashScopeConfig:
             model="qwen-turbo",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=api_key,
             api_base=None,  # Not providing api_base
         )
@@ -85,7 +85,7 @@ class TestDashScopeConfig:
         This test mocks the actual HTTP request to test the integration properly.
         """
 
-        litellm.disable_aiohttp_transport = (
+        hangarllm.disable_aiohttp_transport = (
             True  # since this uses respx, we need to set use_aiohttp_transport to False
         )
 
@@ -107,7 +107,7 @@ class TestDashScopeConfig:
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": '```python\nprint("Hey from LiteLLM!")\n```\n\nThis simple Python code prints a greeting message from LiteLLM.',
+                            "content": '```python\nprint("Hey from HangarLLM!")\n```\n\nThis simple Python code prints a greeting message from HangarLLM.',
                         },
                         "finish_reason": "stop",
                     }
@@ -121,11 +121,11 @@ class TestDashScopeConfig:
             status_code=200,
         )
 
-        # Make the actual API call through LiteLLM
+        # Make the actual API call through HangarLLM
         response = completion(
             model=model,
             messages=[
-                {"role": "user", "content": "write code for saying hey from LiteLLM"}
+                {"role": "user", "content": "write code for saying hey from HangarLLM"}
             ],
             api_key=api_key,
             api_base=api_base,
@@ -141,7 +141,7 @@ class TestDashScopeConfig:
 
         # Check for specific content in the response
         assert "```python" in response.choices[0].message.content
-        assert "Hey from LiteLLM" in response.choices[0].message.content
+        assert "Hey from HangarLLM" in response.choices[0].message.content
 
     def test_dashscope_no_longer_transforms_content_list(self):
         """
@@ -204,7 +204,7 @@ class TestDashScopeConfig:
             model="qwen3.7-plus"
         )
 
-        optional_params = litellm.get_optional_params(
+        optional_params = hangarllm.get_optional_params(
             model="qwen3.7-plus",
             custom_llm_provider="dashscope",
             reasoning_effort=reasoning_effort,
@@ -246,7 +246,7 @@ class TestDashScopeConfig:
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str) -> None:
     assert (
         DashScopeChatConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="qwen-plus", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="qwen-plus", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/dashscope/compatible-mode/v1/chat/completions"
     )

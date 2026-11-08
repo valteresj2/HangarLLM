@@ -56,7 +56,7 @@ def test_guardrail_apply_decorator():
     # Path to the guardrail hooks directory
     guardrail_hooks_dir = (
         Path(__file__).parent.parent.parent
-        / "litellm"
+        / "hangarllm"
         / "proxy"
         / "guardrails"
         / "guardrail_hooks"
@@ -115,7 +115,7 @@ def test_guardrail_apply_decorator():
 
         print("\nTo fix, add the decorator:")
         print(
-            "  from litellm.integrations.custom_guardrail import log_guardrail_information"
+            "  from hangarllm.integrations.custom_guardrail import log_guardrail_information"
         )
         print("  ")
         print("  @log_guardrail_information")

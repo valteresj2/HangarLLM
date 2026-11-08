@@ -33,7 +33,7 @@ _CONVERGE: Final = 30.0
 _NO_SETTINGS: Final[Mapping[str, JsonValue]] = MappingProxyType({})
 _ROWS: Final = (
     'SELECT request_id, call_type, status, model, agent_id, spend, api_key, "user", team_id, metadata '
-    'FROM "LiteLLM_SpendLogs" WHERE api_key = %s'
+    'FROM "HangarLLM_SpendLogs" WHERE api_key = %s'
 )
 _ONE_FAILURE: Final = ("async_failure", "post_call_failure")
 _STREAM_METHODS: Final = frozenset({"message/stream", "SendStreamingMessage"})
@@ -44,7 +44,7 @@ class _Event(BaseModel):
 
     hook: str
     call_type: str | None = None
-    litellm_call_id: str | None = None
+    hangarllm_call_id: str | None = None
     model: str | None = None
     status: str | None = None
     key_alias: str | None = None
@@ -190,8 +190,8 @@ def _config(directory: Path, callbacks: tuple[str, ...], general: Mapping[str, J
     config: Final = {
         **base,
         "general_settings": {**object_value(base["general_settings"]), **general},
-        "litellm_settings": {
-            **object_value(base["litellm_settings"]),
+        "hangarllm_settings": {
+            **object_value(base["hangarllm_settings"]),
             "callbacks": [_PROBE + "probe", *(_PROBE + name for name in callbacks)],
         },
     }
@@ -237,7 +237,7 @@ def _owned_rig(
             bridge=agent(
                 "bridge",
                 "0.3",
-                litellm_params={
+                hangarllm_params={
                     "custom_llm_provider": "openai",
                     "model": "openai/gpt-5.4-mini",
                     "api_base": upstream.url + "/v1",
@@ -541,13 +541,13 @@ def test_client_supplied_attribution_cannot_rewrite_a_denial_failure_row(rig: _R
                 "user_api_key_team_id": "spoof",
                 "tags": ["x"],
             },
-            "litellm_call_id": success_request,
+            "hangarllm_call_id": success_request,
         }
         body: Final = {
             "jsonrpc": "2.0",
             "id": request_id,
             "method": "SendMessage",
-            "params": {**_params("SendMessage", uuid.uuid4().hex, "1.0"), "litellm_call_id": "spoof2"},
+            "params": {**_params("SendMessage", uuid.uuid4().hex, "1.0"), "hangarllm_call_id": "spoof2"},
             **spoof,
         }
         response: Final = rig.proxy.client.post(

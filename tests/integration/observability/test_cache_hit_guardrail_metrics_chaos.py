@@ -128,7 +128,7 @@ def _fire(rig: Rig, bodies: tuple[tuple[str, dict], ...]) -> tuple[tuple[int, st
         path, body = item
         try:
             response: Final = rig.candidate.request("POST", path, body)
-            return response.status_code, response.headers.get("x-litellm-call-id")
+            return response.status_code, response.headers.get("x-hangarllm-call-id")
         except httpx.HTTPError:
             return -1, None
 
@@ -185,7 +185,7 @@ def test_stalled_guardrail_sink_recovers_and_counts(gateway: Gateway, tmp_path: 
             eventually(lambda: rig.policy.received.qsize() >= 5, bool, seconds=30)
             release.set()
             outcomes: Final = tuple(
-                (future.result().status_code, future.result().headers.get("x-litellm-call-id")) for future in futures
+                (future.result().status_code, future.result().headers.get("x-hangarllm-call-id")) for future in futures
             )
         assert all(status >= 400 for status, _ in outcomes), outcomes
         blocked: Final = sum(1 for status, _ in outcomes if status == 400)
@@ -284,7 +284,7 @@ def test_proxy_restart_mid_burst_keeps_counting(gateway: Gateway, tmp_path: Path
                 "/model/new",
                 {
                     "model_name": model,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_base": provider.url + "/v1",
                         "api_key": "synthetic-provider-key",

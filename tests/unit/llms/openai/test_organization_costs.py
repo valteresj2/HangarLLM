@@ -5,8 +5,8 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.constants import OPENAI_ORGANIZATION_COSTS_URL
-from litellm.llms.openai.organization_costs import OpenAICostsRequestFailed, fetch_openai_daily_costs
+from hangarllm.constants import OPENAI_ORGANIZATION_COSTS_URL
+from hangarllm.llms.openai.organization_costs import OpenAICostsRequestFailed, fetch_openai_daily_costs
 
 _ADMIN_KEY: Final = "sk-admin-test"
 

@@ -25,7 +25,7 @@ Two facts about the recorded bill that the assertions here encode, because the
 two surfaces disagree on purpose. On the spend row, `input_cost` is gross: it
 already contains the cache-read and cache-creation costs, so the row's total is
 input + output + tool-usage and the fresh-token cost is input minus the two cache
-components. In the response headers, `x-litellm-response-cost-input` is net of
+components. In the response headers, `x-hangarllm-response-cost-input` is net of
 cache, which is what makes the component headers sum to the total.
 """
 
@@ -38,7 +38,7 @@ from e2e_config import unique_marker
 from e2e_http import Success
 from e2e_metadata import step
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody, SpendLogsParams
+from models import HangarLLMParamsBody, SpendLogsParams
 from proxy_client import ProxyClient
 
 
@@ -192,17 +192,17 @@ def poll_cost_row_where(
     return None
 
 
-@step("Add a deployment with custom rates that calls {litellm_params.model}")
+@step("Add a deployment with custom rates that calls {hangarllm_params.model}")
 def register_priced_model(
     proxy: ProxyClient,
     resources: ResourceManager,
     name_prefix: str,
-    litellm_params: LiteLLMParamsBody,
+    hangarllm_params: HangarLLMParamsBody,
 ) -> str:
     """Register a deployment with explicit custom rates (deleted on teardown) and
     return its unique model name."""
     model_name = f"{name_prefix}-{unique_marker()}"
-    model_id = proxy.create_model(model_name, litellm_params)
+    model_id = proxy.create_model(model_name, hangarllm_params)
     resources.defer(lambda: proxy.delete_model(model_id))
     return model_name
 

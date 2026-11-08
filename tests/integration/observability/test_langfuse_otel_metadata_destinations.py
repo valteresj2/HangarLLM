@@ -22,7 +22,7 @@ from integration._support.wire import Reply, wire_server
 
 
 def _scalar_requester_metadata_request(route: str, model: str, marker: str) -> dict[str, object]:
-    caller: Final = {"litellm_metadata": {"requester_metadata": 1}}
+    caller: Final = {"hangarllm_metadata": {"requester_metadata": 1}}
     if route == "/v1/messages":
         return {"model": model, "max_tokens": 16, "messages": [{"role": "user", "content": marker}], **caller}
     return {"model": model, "input": marker, **caller}
@@ -209,7 +209,7 @@ def test_otel_v2_langfuse_identity_sheds_before_any_message_attribute(gateway: G
 _APP_SPAN_HOOK: Final = """
 from opentelemetry import trace
 
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class AppSpanHook(CustomLogger):

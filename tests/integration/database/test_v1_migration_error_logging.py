@@ -19,8 +19,8 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 import psycopg
 import pytest
-from litellm_proxy_extras.migration_lock import migration_lock
-from litellm_proxy_extras.utils import ProxyExtrasDBManager
+from hangarllm_proxy_extras.migration_lock import migration_lock
+from hangarllm_proxy_extras.utils import ProxyExtrasDBManager
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
@@ -29,7 +29,7 @@ from tests.integration._support.ports import allocate_port
 from tests.integration._support.process import stop_process_group
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
-MIGRATIONS_DIR: Final = REPO_ROOT / "litellm-proxy-extras" / "litellm_proxy_extras" / "migrations"
+MIGRATIONS_DIR: Final = REPO_ROOT / "hangarllm-proxy-extras" / "hangarllm_proxy_extras" / "migrations"
 MIGRATION_NAME: Final = "20260921190000_agent_identity"
 pytestmark: Final = pytest.mark.timeout(300)
 PASSWORD: Final = "wr ong'pw9"
@@ -127,7 +127,7 @@ def _migration_environment(database_url: str | None, extra_env: Mapping[str, str
     return {
         **inherited_environment,
         **database_environment,
-        "LITELLM_LOG": "ERROR",
+        "HANGARLLM_LOG": "ERROR",
         **extra_env,
     }
 
@@ -140,14 +140,14 @@ def _migration_invocation(
 ) -> tuple[tuple[str, ...], dict[str, str]]:
     config_path: Final = tmp_path / "config.yaml"
     config_path.write_text(
-        "model_list:\n  - model_name: integration-fake\n    litellm_params:\n      model: openai/integration-fake\n"
+        "model_list:\n  - model_name: integration-fake\n    hangarllm_params:\n      model: openai/integration-fake\n"
     )
     resolver_flag: Final = "--use_legacy_migration_resolver" if resolver == "legacy" else "--use_v2_migration_resolver"
     command: Final = (
         sys.executable,
         "-I",
         "-m",
-        "litellm.proxy.proxy_cli",
+        "hangarllm.proxy.proxy_cli",
         "--config",
         str(config_path),
         resolver_flag,
@@ -236,16 +236,16 @@ def _duplicate_migrations(database_url: str) -> tuple[tuple[str, int], ...]:
 def _retry_p3018_migration(database_url: str) -> None:
     agent_ids: Final = (uuid.uuid4().hex, uuid.uuid4().hex)
     with psycopg.connect(database_url) as connection:
-        connection.execute('DROP INDEX "LiteLLM_AgentIdentity_provider_tenant_id_client_id_key"')
+        connection.execute('DROP INDEX "HangarLLM_AgentIdentity_provider_tenant_id_client_id_key"')
         for agent_id in agent_ids:
             connection.execute(
-                'INSERT INTO "LiteLLM_AgentsTable" '
+                'INSERT INTO "HangarLLM_AgentsTable" '
                 '("agent_id", "agent_name", "agent_card_params", "created_by", "updated_by") '
                 "VALUES (%s, %s, %s, %s, %s)",
                 (agent_id, f"audit-agent-{agent_id}", Jsonb({}), "integration", "integration"),
             )
             connection.execute(
-                'INSERT INTO "LiteLLM_AgentIdentity" '
+                'INSERT INTO "HangarLLM_AgentIdentity" '
                 '("agent_id", "provider", "issuer", "tenant_id", "client_id", "revision") '
                 "VALUES (%s, %s, %s, %s, %s, %s)",
                 (agent_id, "entra", f"https://audit.invalid/{agent_id}", "tenant-1", "client-1", uuid.uuid4().hex),
@@ -433,7 +433,7 @@ def test_unreachable_database_keeps_password_masked_when_shape_redaction_is_disa
         completed: Final = run_v1_migrations(
             unreachable_url,
             tmp_path,
-            {"LITELLM_DISABLE_REDACT_SECRETS": "true"},
+            {"HANGARLLM_DISABLE_REDACT_SECRETS": "true"},
             request.node.name,
         )
         output: Final = completed.output
@@ -499,7 +499,7 @@ def test_migration_job_entrypoint_emits_four_p1001_errors_without_password_fragm
 ) -> None:
     with owned_database(PASSWORD) as database_url:
         unreachable_url: Final = _unreachable_database_url(database_url)
-        command: Final = (sys.executable, "-I", "-m", "litellm.proxy.prisma_migration")
+        command: Final = (sys.executable, "-I", "-m", "hangarllm.proxy.prisma_migration")
         environment: Final = _migration_environment(
             unreachable_url,
             {"USE_V2_MIGRATION_RESOLVER": "false"},
@@ -543,7 +543,7 @@ def test_v2_migration_lock_unreachable_database_names_p1001_and_redacts_password
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
         port: Final = int(listener.getsockname()[1])
-    database_url: Final = f"postgresql://u:{PASSWORD}@127.0.0.1:{port}/litellm"
+    database_url: Final = f"postgresql://u:{PASSWORD}@127.0.0.1:{port}/hangarllm"
     monkeypatch.setenv("DATABASE_URL", database_url)
     lock_url: Final = ProxyExtrasDBManager._strip_prisma_query_params(database_url)
     prefix: Final = "Lost or could not establish v2 migration coordination with the database: "

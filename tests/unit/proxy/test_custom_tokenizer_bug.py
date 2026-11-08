@@ -14,12 +14,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-import litellm.proxy.proxy_server
-import litellm.utils
-from litellm import Router
-from litellm.proxy._types import ProxyException, TokenCountRequest
-from litellm.proxy.proxy_server import token_counter
+import hangarllm
+import hangarllm.proxy.proxy_server
+import hangarllm.utils
+from hangarllm import Router
+from hangarllm.proxy._types import ProxyException, TokenCountRequest
+from hangarllm.proxy.proxy_server import token_counter
 
 
 def _fake_hf_tokenizer(num_tokens: int) -> MagicMock:
@@ -40,7 +40,7 @@ async def test_custom_tokenizer_from_model_info_is_used(monkeypatch):
         model_list=[
             {
                 "model_name": "my-embedding-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/self-hosted-embedder",
                     "api_base": "http://localhost:8080/v1",
                 },
@@ -55,9 +55,9 @@ async def test_custom_tokenizer_from_model_info_is_used(monkeypatch):
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", llm_router)
 
-    with patch.object(litellm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
+    with patch.object(hangarllm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
         mock_tokenizer_cls.from_pretrained.return_value = _fake_hf_tokenizer(7)
 
         response = await token_counter(
@@ -84,14 +84,14 @@ async def test_model_without_custom_tokenizer_uses_default(monkeypatch):
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "hangarllm_params": {"model": "gpt-4"},
                 "model_info": {},
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", llm_router)
 
-    with patch.object(litellm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
+    with patch.object(hangarllm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
         response = await token_counter(
             request=TokenCountRequest(
                 model="gpt-4",
@@ -111,7 +111,7 @@ def _vertex_glm_router_with_its_own_tokenizer() -> Router:
         model_list=[
             {
                 "model_name": "vertex-glm",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "vertex_ai/zai-org/glm-5.2-maas",
                     "vertex_project": "test-project",
                     "vertex_location": "global",
@@ -128,9 +128,9 @@ def _vertex_glm_router_with_its_own_tokenizer() -> Router:
 async def test_custom_tokenizer_counts_a_vertex_partner_model_without_a_count_route(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", _vertex_glm_router_with_its_own_tokenizer())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", _vertex_glm_router_with_its_own_tokenizer())
 
-    with patch.object(litellm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
+    with patch.object(hangarllm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
         mock_tokenizer_cls.from_pretrained.return_value = _fake_hf_tokenizer(9)
 
         response: Final = await token_counter(
@@ -148,7 +148,7 @@ async def test_custom_tokenizer_counts_a_vertex_partner_model_without_a_count_ro
 async def test_contents_only_count_of_a_vertex_partner_model_without_a_count_route_answers_400(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", _vertex_glm_router_with_its_own_tokenizer())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "llm_router", _vertex_glm_router_with_its_own_tokenizer())
 
     with pytest.raises(ProxyException) as raised:
         await token_counter(
@@ -159,4 +159,4 @@ async def test_contents_only_count_of_a_vertex_partner_model_without_a_count_rou
         )
 
     assert raised.value.code == "400"
-    assert raised.value.message == "LiteLLM does not support counting tokens for Vertex AI model zai-org/glm-5.2-maas."
+    assert raised.value.message == "HangarLLM does not support counting tokens for Vertex AI model zai-org/glm-5.2-maas."

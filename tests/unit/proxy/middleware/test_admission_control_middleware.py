@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from litellm.proxy.middleware.admission_control_middleware import (
+from hangarllm.proxy.middleware.admission_control_middleware import (
     ADMISSION_LEASE_SCOPE_KEY,
     AdmissionControlMetrics,
     AdmissionControlMiddleware,
@@ -350,9 +350,9 @@ def test_create_prometheus_admission_metrics_registers_named_metrics() -> None:
         metrics.admitted_gauge.inc()
         metrics.queued_gauge.inc()
         metrics.rejected_counter.labels(reason="queue_full").inc()
-        assert REGISTRY.get_sample_value("litellm_admission_admitted_requests") == 1.0
-        assert REGISTRY.get_sample_value("litellm_admission_queued_requests") == 1.0
-    assert REGISTRY.get_sample_value("litellm_admission_rejected_requests_total", {"reason": "queue_full"}) is not None
+        assert REGISTRY.get_sample_value("hangarllm_admission_admitted_requests") == 1.0
+        assert REGISTRY.get_sample_value("hangarllm_admission_queued_requests") == 1.0
+    assert REGISTRY.get_sample_value("hangarllm_admission_rejected_requests_total", {"reason": "queue_full"}) is not None
     assert create_prometheus_admission_metrics() is None
 
 
@@ -418,7 +418,7 @@ async def test_outer_wrapper_retains_route_metadata_after_admission(
     monkeypatch: pytest.MonkeyPatch,
     failure: type[BaseException] | None,
 ) -> None:
-    monkeypatch.delenv("LITELLM_ENABLE_ADMIN_MCP", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENABLE_ADMIN_MCP", raising=False)
     app: Final = FastAPI()
 
     @app.get("/items/{item_id}")

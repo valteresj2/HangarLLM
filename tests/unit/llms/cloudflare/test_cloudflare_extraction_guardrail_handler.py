@@ -2,12 +2,12 @@ from typing import Final, Literal
 
 import pytest
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms import get_guardrail_translation_mapping
-from litellm.llms.cloudflare.extraction.guardrail_translation.handler import ExtractionHandler
-from litellm.types.extraction import ExtractionResponse
-from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms import get_guardrail_translation_mapping
+from hangarllm.llms.cloudflare.extraction.guardrail_translation.handler import ExtractionHandler
+from hangarllm.types.extraction import ExtractionResponse
+from hangarllm.types.utils import CallTypes, GenericGuardrailAPIInputs
 
 
 class _TaggingGuardrail(CustomGuardrail):
@@ -21,7 +21,7 @@ class _TaggingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         texts: Final = tuple(inputs.get("texts", []))
         self.seen = (input_type, texts)
@@ -40,7 +40,7 @@ class _MaskingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         return GenericGuardrailAPIInputs(
             texts=[text.replace(self.secret, self.mask) for text in inputs.get("texts", [])]

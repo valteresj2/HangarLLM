@@ -9,10 +9,10 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
+import hangarllm
 
-from litellm.llms.watsonx.embed.transformation import IBMWatsonXEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from hangarllm.llms.watsonx.embed.transformation import IBMWatsonXEmbeddingConfig
+from hangarllm.types.utils import EmbeddingResponse
 
 
 class TestIBMWatsonXEmbeddingConfig:
@@ -63,7 +63,7 @@ def _transform(payload: object) -> EmbeddingResponse:
         api_key="test-key",
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
 
@@ -143,7 +143,7 @@ def test_transform_embedding_response_shape_errors_do_not_echo_the_payload(paylo
 async def test_watsonx_embedding_sends_the_bearer_token_to_the_regional_endpoint(
     sync_mode: bool, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("WATSONX_API_KEY", "mock-api-key")
     monkeypatch.setenv("WATSONX_TOKEN", "mock-watsonx-token")
     monkeypatch.setenv("WATSONX_API_BASE", "https://us-south.ml.cloud.ibm.com")
@@ -156,12 +156,12 @@ async def test_watsonx_embedding_sends_the_bearer_token_to_the_regional_endpoint
             "input_token_count": 8,
         }
     )
-    request: Final = {"model": "watsonx/ibm/slate-30m-english-rtrvr", "input": ["good morning from litellm"]}
+    request: Final = {"model": "watsonx/ibm/slate-30m-english-rtrvr", "input": ["good morning from hangarllm"]}
 
-    response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+    response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert route.call_count == 1
     assert route.calls.last.request.headers["Authorization"] == "Bearer mock-watsonx-token"
-    assert json.loads(route.calls.last.request.content)["inputs"] == ["good morning from litellm"]
+    assert json.loads(route.calls.last.request.content)["inputs"] == ["good morning from hangarllm"]
     assert response.data == [{"object": "embedding", "index": 0, "embedding": [0.0, 1.0]}]
     assert (response.usage.prompt_tokens, response.usage.total_tokens) == (8, 8)

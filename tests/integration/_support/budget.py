@@ -11,7 +11,7 @@ IMPORT_SECONDS_VARIABLE: Final = "INTEGRATION_IMPORT_SECONDS"
 READINESS_OVERRIDE_VARIABLE: Final = "INTEGRATION_PROXY_READY_SECONDS"
 READINESS_IMPORTS: Final = 12
 CALL_IMPORTS: Final = 6
-PROXY_IMPORT: Final = "import litellm.proxy.proxy_server"
+PROXY_IMPORT: Final = "import hangarllm.proxy.proxy_server"
 
 
 def measure_import_seconds(root: Path, environment: dict[str, str]) -> float:

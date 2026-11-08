@@ -74,7 +74,7 @@ def _write_config(path: Path, provider_url: str, strategy: str, model: str, depl
                 "model_list": [
                     {
                         "model_name": _MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": model,
                             "api_base": provider_url + "/v1",
                             "api_key": "synthetic-provider-key",
@@ -82,12 +82,12 @@ def _write_config(path: Path, provider_url: str, strategy: str, model: str, depl
                         "model_info": {"id": deployment_id},
                     }
                 ],
-                "litellm_settings": {
+                "hangarllm_settings": {
                     "success_callback": [f"{_PROBES}.sync_success_function"],
                     "failure_callback": [f"{_PROBES}.sync_failure_function"],
                 },
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "disable_model_info_refresh": True,
                 },
@@ -161,7 +161,7 @@ def _post(rig: _Rig, path: str, body: dict[str, object], call_id: str) -> httpx.
     return rig.proxy.client.post(
         path,
         json={"model": _MODEL, **body},
-        headers={"Authorization": f"Bearer {rig.proxy.key}", "x-litellm-call-id": call_id},
+        headers={"Authorization": f"Bearer {rig.proxy.key}", "x-hangarllm-call-id": call_id},
         timeout=120,
     )
 

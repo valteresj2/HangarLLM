@@ -6,8 +6,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.proxy.common_utils.semantic_text_index import EmbeddingFailed, SemanticTextIndex, Vector
+import hangarllm
+from hangarllm.proxy.common_utils.semantic_text_index import EmbeddingFailed, SemanticTextIndex, Vector
 
 QUERY: Final = "weather query"
 TEXTS: Final = (
@@ -29,7 +29,7 @@ class ContextWindowEmbedder:
     async def __call__(self, texts: Sequence[str]) -> Sequence[Vector]:
         self.calls.append(tuple(texts))
         if any("OVERSIZED" in text for text in texts):
-            raise litellm.ContextWindowExceededError(
+            raise hangarllm.ContextWindowExceededError(
                 message="input is too long", model="text-embedding-3-large", llm_provider="openai"
             )
         return tuple(self.vector for _ in texts)
@@ -41,7 +41,7 @@ class RateLimitedEmbedder:
 
     async def __call__(self, texts: Sequence[str]) -> Sequence[Vector]:
         self.calls.append(tuple(texts))
-        raise litellm.RateLimitError(message="rate limited", model="text-embedding-3-large", llm_provider="openai")
+        raise hangarllm.RateLimitError(message="rate limited", model="text-embedding-3-large", llm_provider="openai")
 
 
 class RateLimitedAfterSplitEmbedder:
@@ -52,11 +52,11 @@ class RateLimitedAfterSplitEmbedder:
     async def __call__(self, texts: Sequence[str]) -> Sequence[Vector]:
         self.calls.append(tuple(texts))
         if any("OVERSIZED" in text for text in texts):
-            raise litellm.ContextWindowExceededError(
+            raise hangarllm.ContextWindowExceededError(
                 message="input is too long", model="text-embedding-3-large", llm_provider="openai"
             )
         if self.rate_limited and any("RATE LIMITED" in text for text in texts):
-            raise litellm.RateLimitError(message="rate limited", model="text-embedding-3-large", llm_provider="openai")
+            raise hangarllm.RateLimitError(message="rate limited", model="text-embedding-3-large", llm_provider="openai")
         return tuple((1.0, 1.0) for _ in texts)
 
 
@@ -71,7 +71,7 @@ class ConcurrencyTrackingEmbedder:
         await asyncio.sleep(0)
         self.in_flight -= 1
         if any("OVERSIZED" in text for text in texts):
-            raise litellm.ContextWindowExceededError(
+            raise hangarllm.ContextWindowExceededError(
                 message="input is too long", model="text-embedding-3-large", llm_provider="openai"
             )
         return tuple((1.0, 1.0) for _ in texts)

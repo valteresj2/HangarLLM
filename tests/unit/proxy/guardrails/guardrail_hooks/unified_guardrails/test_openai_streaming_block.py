@@ -14,15 +14,15 @@ from typing import Any, AsyncGenerator, Dict, Literal, Optional, Tuple, Union
 
 import pytest
 
-from litellm.integrations.custom_guardrail import (
+from hangarllm.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
     UnifiedLLMGuardrails,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     Delta,
     GenericGuardrailAPIInputs,
     ModelResponseStream,

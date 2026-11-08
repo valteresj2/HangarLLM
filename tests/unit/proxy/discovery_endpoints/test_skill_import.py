@@ -11,12 +11,12 @@ from typing import Final, NoReturn
 import httpx
 import pytest
 
-from litellm.proxy.discovery_endpoints.agent_skills_archive import (
+from hangarllm.proxy.discovery_endpoints.agent_skills_archive import (
     MAX_ARCHIVE_ENTRIES,
     MAX_ARCHIVE_UNPACKED_BYTES,
     MAX_SKILL_MANIFEST_BYTES,
 )
-from litellm.proxy.discovery_endpoints.skill_import import (
+from hangarllm.proxy.discovery_endpoints.skill_import import (
     MAX_IMPORT_BYTES,
     GitHubSkillSource,
     SkillImportError,

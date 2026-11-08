@@ -17,33 +17,33 @@ from openai import AsyncOpenAI
 from websockets.exceptions import ConnectionClosed, ConnectionClosedError
 from websockets.frames import Close
 
-import litellm
-from litellm.constants import REALTIME_SESSION_FAILURE_LOGGED_KEY
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.realtime_streaming import TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE, RealTimeStreaming
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.openai.workload_identity import _workload_identity_auth
-from litellm.models.credentials import CredentialItem
-from litellm.proxy.common_utils.callback_utils import initialize_callbacks_on_proxy
-from litellm.proxy.litellm_pre_call_utils import _apply_resolved_guardrails_to_metadata
-from litellm.realtime_api import main as realtime_main
-from litellm.realtime_api.main import with_resolved_session_model
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.policy_engine import Policy, PolicyCondition, PolicyMatchContext
-from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
-from litellm.types.realtime import RealtimeQueryParams
+import hangarllm
+from hangarllm.constants import REALTIME_SESSION_FAILURE_LOGGED_KEY
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.hangarllm_core_utils.realtime_streaming import TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE, RealTimeStreaming
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.openai.workload_identity import _workload_identity_auth
+from hangarllm.models.credentials import CredentialItem
+from hangarllm.proxy.common_utils.callback_utils import initialize_callbacks_on_proxy
+from hangarllm.proxy.hangarllm_pre_call_utils import _apply_resolved_guardrails_to_metadata
+from hangarllm.realtime_api import main as realtime_main
+from hangarllm.realtime_api.main import with_resolved_session_model
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.proxy.policy_engine import Policy, PolicyCondition, PolicyMatchContext
+from hangarllm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
+from hangarllm.types.realtime import RealtimeQueryParams
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 class FakeLogging:
@@ -117,7 +117,7 @@ def _run_client_secret(session, model, monkeypatch):
         realtime_main.acreate_realtime_client_secret.__wrapped__(
             model=model,
             session=session,
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
         )
     )
     return captured
@@ -141,7 +141,7 @@ async def _hanging_resolver(credentials, project_id, custom_llm_provider) -> tup
 
 
 async def _thread_offloaded_hanging_resolver(credentials, project_id, custom_llm_provider) -> tuple[str, str]:
-    from litellm.litellm_core_utils.asyncify import asyncify
+    from hangarllm.hangarllm_core_utils.asyncify import asyncify
 
     await asyncify(time.sleep)(30)
     return "", ""
@@ -196,7 +196,7 @@ async def test_vertex_credential_resolution_bounds_a_thread_offloaded_refresh():
 
 @pytest.mark.asyncio
 async def test_meta_realtime_dispatches_to_base_handler_with_meta_config(monkeypatch: pytest.MonkeyPatch):
-    from litellm.llms.meta.realtime.transformation import MetaRealtimeConfig
+    from hangarllm.llms.meta.realtime.transformation import MetaRealtimeConfig
 
     captured: dict[str, object] = {}
 
@@ -212,7 +212,7 @@ async def test_meta_realtime_dispatches_to_base_handler_with_meta_config(monkeyp
     await realtime_main._arealtime.__wrapped__(
         model="meta/muse-voice-transcribe-1.0",
         websocket=MagicMock(),
-        litellm_logging_obj=FakeLogging(),
+        hangarllm_logging_obj=FakeLogging(),
         query_params={"model": "meta/muse-voice-transcribe-1.0", "intent": "transcription"},
     )
 
@@ -242,7 +242,7 @@ async def test_arealtime_vertex_branch_resolves_credentials_under_a_bound(monkey
         await realtime_main._arealtime.__wrapped__(
             model="gemini-live-2.5-flash",
             websocket=MagicMock(),
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             vertex_credentials="fake-credentials",
             vertex_project="fake-project",
             vertex_location="us-central1",
@@ -292,7 +292,7 @@ async def test_arealtime_live_session_dispatches_to_openai_live_handler(monkeypa
     await realtime_main._arealtime.__wrapped__(
         model="live-alias",
         websocket=websocket,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         live_session_start=start_frame,
     )
 
@@ -342,18 +342,18 @@ async def test_arealtime_live_session_rejects_matching_guardrail_before_dispatch
 
     monkeypatch.setattr(realtime_main, "get_llm_provider", mock_get_llm_provider)
     monkeypatch.setattr(realtime_main, "openai_live_sessions", live_handler)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     with pytest.raises(ValueError, match="Guardrails are not supported on OpenAI Live sessions"):
         await realtime_main._arealtime.__wrapped__(
             model="live-alias",
             websocket=MagicMock(),
-            litellm_logging_obj=FakeLogging(),
-            litellm_metadata={"session_id": "live-session"},
+            hangarllm_logging_obj=FakeLogging(),
+            hangarllm_metadata={"session_id": "live-session"},
             live_session_start={"type": "session.start", "session": {"model": "live-alias"}},
         )
 
-    assert guardrail.request_data == {"litellm_metadata": {"session_id": "live-session"}, "stream": True}
+    assert guardrail.request_data == {"hangarllm_metadata": {"session_id": "live-session"}, "stream": True}
     assert live_handler.called is False
 
 
@@ -386,14 +386,14 @@ async def test_arealtime_live_session_rejects_streaming_only_pre_call_guardrail(
 
     monkeypatch.setattr(realtime_main, "get_llm_provider", mock_get_llm_provider)
     monkeypatch.setattr(realtime_main, "openai_live_sessions", live_handler)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
 
     with pytest.raises(ValueError, match="Guardrails are not supported on OpenAI Live sessions"):
         await realtime_main._arealtime.__wrapped__(
             model="live-alias",
             websocket=MagicMock(),
-            litellm_logging_obj=FakeLogging(),
-            litellm_metadata={"session_id": "live-session"},
+            hangarllm_logging_obj=FakeLogging(),
+            hangarllm_metadata={"session_id": "live-session"},
             live_session_start={"type": "session.start", "session": {"model": "live-alias"}},
         )
 
@@ -421,7 +421,7 @@ async def test_arealtime_key_metadata_cannot_opt_out_of_a_default_on_realtime_gu
     live_handler: Final = FakeLiveHandler()
     monkeypatch.setattr(realtime_main, "openai_live_sessions", live_handler)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [
             CustomGuardrail(
@@ -438,7 +438,7 @@ async def test_arealtime_key_metadata_cannot_opt_out_of_a_default_on_realtime_gu
             websocket=MagicMock(),
             api_key="fake-key",
             api_base="https://live-gateway.example/v1",
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             metadata=key_metadata,
             live_session_start={"type": "session.start", "session": {"model": "gpt-live-1"}},
         )
@@ -462,7 +462,7 @@ async def test_arealtime_live_session_rejects_non_openai_provider(monkeypatch: p
         await realtime_main._arealtime.__wrapped__(
             model="anthropic/claude-live",
             websocket=MagicMock(),
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             live_session_start={"type": "session.start", "session": {"model": "claude-live"}},
         )
 
@@ -491,7 +491,7 @@ async def test_arealtime_without_live_start_preserves_openai_realtime_dispatch(
     await realtime_main._arealtime.__wrapped__(
         model="gpt-realtime",
         websocket=MagicMock(),
-        litellm_logging_obj=FakeLogging(),
+        hangarllm_logging_obj=FakeLogging(),
     )
 
     assert captured.values is not None
@@ -563,11 +563,11 @@ _OPENAI_SESSION_CREATED_EVENT: Final = (
 
 
 def _register_as_realtime_deployment(model: str, *supported_endpoints: str) -> None:
-    litellm.Router(
+    hangarllm.Router(
         model_list=[
             {
                 "model_name": "realtime-deployment",
-                "litellm_params": {"model": f"openai/{model}", "api_key": "sk-real"},
+                "hangarllm_params": {"model": f"openai/{model}", "api_key": "sk-real"},
                 "model_info": {
                     "mode": "realtime",
                     **({"supported_endpoints": list(supported_endpoints)} if supported_endpoints else {}),
@@ -603,7 +603,7 @@ class _CapturingConnect:
 @pytest.mark.asyncio
 async def test_azure_health_check_resolves_stored_credentials(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -624,7 +624,7 @@ async def test_azure_health_check_resolves_stored_credentials(monkeypatch):
             custom_llm_provider="azure",
             api_key=None,
             realtime_protocol="beta",
-            model_params={"model": "azure/gpt-realtime", "litellm_credential_name": "azure-rt"},
+            model_params={"model": "azure/gpt-realtime", "hangarllm_credential_name": "azure-rt"},
         )
     assert connect.kwargs["additional_headers"] == {"api-key": "sk-from-credential"}
     assert connect.url is not None
@@ -644,7 +644,7 @@ async def test_bearer_health_check_sends_stored_credential_as_bearer_token(
     monkeypatch, custom_llm_provider: str, model: str, expected_url: str
 ):
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -660,7 +660,7 @@ async def test_bearer_health_check_sends_stored_credential_as_bearer_token(
             model=model,
             custom_llm_provider=custom_llm_provider,
             api_key=None,
-            model_params={"model": f"{custom_llm_provider}/{model}", "litellm_credential_name": "voice-key"},
+            model_params={"model": f"{custom_llm_provider}/{model}", "hangarllm_credential_name": "voice-key"},
         )
     assert connect.kwargs["additional_headers"] == {"Authorization": "Bearer sk-from-credential"}
     assert connect.url == expected_url
@@ -670,11 +670,11 @@ async def test_bearer_health_check_sends_stored_credential_as_bearer_token(
 async def test_bearer_health_check_sends_the_secret_behind_an_oidc_credential(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     token: Final = tmp_path / "token"
     token.write_text("sk-from-token-file")
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "credential_list",
         [
             CredentialItem(
@@ -688,7 +688,7 @@ async def test_bearer_health_check_sends_the_secret_behind_an_oidc_credential(
             model="gpt-realtime",
             custom_llm_provider="openai",
             api_key=None,
-            model_params={"model": "openai/gpt-realtime", "litellm_credential_name": "voice-sa"},
+            model_params={"model": "openai/gpt-realtime", "hangarllm_credential_name": "voice-sa"},
         )
     assert connect.kwargs["additional_headers"] == {"Authorization": "Bearer sk-from-token-file"}
 
@@ -719,8 +719,8 @@ async def test_azure_health_check_stays_on_ga_when_deployment_registration_overw
     azure/gpt-realtime-whisper, so mode alone misreads the model as speech-capable
     and the probe regresses to the beta path. supported_endpoints survives that
     registration and must keep the probe on the GA transcription path."""
-    polluted = {**litellm.model_cost["azure/gpt-realtime-whisper"], "mode": "realtime"}
-    monkeypatch.setitem(litellm.model_cost, "azure/gpt-realtime-whisper", polluted)
+    polluted = {**hangarllm.model_cost["azure/gpt-realtime-whisper"], "mode": "realtime"}
+    monkeypatch.setitem(hangarllm.model_cost, "azure/gpt-realtime-whisper", polluted)
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -745,7 +745,7 @@ def test_transcription_only_detection_rejects_speech_model(local_model_cost_map)
 
 @pytest.mark.asyncio
 async def test_azure_health_check_probes_the_ga_upstream_for_an_unconfigured_speech_model(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -766,7 +766,7 @@ _AZURE_BETA_HEALTH_URL: Final = (
 
 @pytest.mark.asyncio
 async def test_azure_health_check_honors_deployment_realtime_protocol(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -782,7 +782,7 @@ async def test_azure_health_check_honors_deployment_realtime_protocol(monkeypatc
 
 @pytest.mark.asyncio
 async def test_azure_health_check_honors_env_realtime_protocol(monkeypatch):
-    monkeypatch.setenv("LITELLM_AZURE_REALTIME_PROTOCOL", "beta")
+    monkeypatch.setenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", "beta")
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -799,10 +799,10 @@ async def test_azure_health_check_honors_env_realtime_protocol(monkeypatch):
 @pytest.mark.parametrize(
     ("first_event", "expected_exception", "expected_status", "expected_message"),
     [
-        (_OPENAI_INVALID_API_KEY_EVENT, litellm.AuthenticationError, 401, "Incorrect API key provided"),
-        (_OPENAI_SERVER_ERROR_EVENT, litellm.InternalServerError, 500, "The server had an error"),
-        (_OPENAI_RATE_LIMIT_EVENT, litellm.RateLimitError, 429, "Rate limit reached"),
-        (_OPENAI_INSUFFICIENT_QUOTA_EVENT, litellm.RateLimitError, 429, "You exceeded your current quota"),
+        (_OPENAI_INVALID_API_KEY_EVENT, hangarllm.AuthenticationError, 401, "Incorrect API key provided"),
+        (_OPENAI_SERVER_ERROR_EVENT, hangarllm.InternalServerError, 500, "The server had an error"),
+        (_OPENAI_RATE_LIMIT_EVENT, hangarllm.RateLimitError, 429, "Rate limit reached"),
+        (_OPENAI_INSUFFICIENT_QUOTA_EVENT, hangarllm.RateLimitError, 429, "You exceeded your current quota"),
     ],
 )
 async def test_openai_health_check_reports_the_first_error_event_as_unhealthy(
@@ -821,7 +821,7 @@ async def test_openai_health_check_reports_the_first_error_event_as_unhealthy(
 @pytest.mark.asyncio
 async def test_openai_health_check_without_an_api_key_sends_no_auth_header_and_fails_authentication():
     connect: Final = _CapturingConnect(_ScriptedConnection(_OPENAI_MISSING_AUTH_EVENT))
-    with patch("websockets.connect", connect), pytest.raises(litellm.AuthenticationError) as raised:
+    with patch("websockets.connect", connect), pytest.raises(hangarllm.AuthenticationError) as raised:
         await realtime_main.realtime_health_check(model="gpt-realtime", custom_llm_provider="openai", api_key=None)
     assert connect.kwargs["additional_headers"] == {}
     assert raised.value.status_code == 401
@@ -866,13 +866,13 @@ async def test_openai_health_check_is_healthy_for_a_live_deployment_that_lists_t
         (
             "gpt-5.5",
             _OPENAI_CHAT_MODEL_ON_REALTIME_EVENT,
-            litellm.BadRequestError,
+            hangarllm.BadRequestError,
             'Model "gpt-5.5" is not supported in realtime mode',
         ),
         (
             "gpt-realtime-2.1x",
             _OPENAI_MODEL_NOT_FOUND_EVENT,
-            litellm.NotFoundError,
+            hangarllm.NotFoundError,
             "The model gpt-realtime-2.1x does not exist",
         ),
     ],
@@ -895,7 +895,7 @@ async def test_openai_health_check_is_unhealthy_for_a_model_name_every_session_w
 async def test_openai_health_check_through_a_compatible_gateway_is_healthy_when_it_sends_no_first_event(
     monkeypatch: pytest.MonkeyPatch, deployment_api_base: str | None, global_api_base: str | None
 ):
-    monkeypatch.setattr(litellm, "api_base", global_api_base)
+    monkeypatch.setattr(hangarllm, "api_base", global_api_base)
     connect: Final = _CapturingConnect(_SilentConnection())
     with patch("websockets.connect", connect):
         assert await asyncio.wait_for(
@@ -915,7 +915,7 @@ async def test_openai_health_check_through_a_compatible_gateway_is_healthy_when_
 @pytest.mark.parametrize(
     ("connection", "expected_exception"),
     [
-        (_ScriptedConnection(_OPENAI_INVALID_API_KEY_EVENT), litellm.AuthenticationError),
+        (_ScriptedConnection(_OPENAI_INVALID_API_KEY_EVENT), hangarllm.AuthenticationError),
         (_ConnectionClosedBeforeAnyEvent(), ConnectionClosedError),
     ],
 )
@@ -990,7 +990,7 @@ async def test_arealtime_azure_ai_on_a_foundry_host_connects_to_the_azure_openai
             websocket=MagicMock(),
             api_base="https://my-project.services.ai.azure.com",
             api_key="fake-key",
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
         )
     assert connect.url == "wss://my-project.services.ai.azure.com/openai/v1/realtime?model=gpt-realtime-mini"
 
@@ -1006,7 +1006,7 @@ async def test_arealtime_routes_a_bare_model_name_to_its_explicit_provider():
             api_base="https://realtime-gateway.example/v1",
             api_key="fake-key",
             query_params={"model": "my-realtime"},
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
         )
     assert connect.url == "wss://realtime-gateway.example/v1/realtime?model=my-realtime"
 
@@ -1037,7 +1037,7 @@ async def test_realtime_http_routes_send_a_bare_model_name_to_its_explicit_provi
         custom_llm_provider="openai",
         api_base="https://realtime-gateway.example/v1",
         api_key="fake-key",
-        litellm_logging_obj=FakeLogging(),
+        hangarllm_logging_obj=FakeLogging(),
         client=AsyncHTTPHandler(transport=httpx.MockTransport(gateway)),
         **route_kwargs,
     )
@@ -1064,7 +1064,7 @@ async def test_transcription_session_sends_the_deployment_model_upstream_in_ever
         },
         api_base="https://realtime-gateway.example/v1",
         api_key="fake-key",
-        litellm_logging_obj=FakeLogging(),
+        hangarllm_logging_obj=FakeLogging(),
         client=AsyncHTTPHandler(transport=httpx.MockTransport(gateway)),
     )
     assert gateway.body == {
@@ -1087,7 +1087,7 @@ def _create_realtime_session_with_an_explicit_null(route: str, client: AsyncHTTP
             custom_llm_provider="openai",
             api_base="https://realtime-gateway.example/v1",
             api_key="fake-key",
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             client=client,
         )
     if route == "translation_client_secrets":
@@ -1097,7 +1097,7 @@ def _create_realtime_session_with_an_explicit_null(route: str, client: AsyncHTTP
             custom_llm_provider="openai",
             api_base="https://realtime-gateway.example/v1",
             api_key="fake-key",
-            litellm_logging_obj=_realtime_http_logging(route),
+            hangarllm_logging_obj=_realtime_http_logging(route),
             client=client,
         )
     return realtime_main.acreate_realtime_transcription_session.__wrapped__(
@@ -1105,7 +1105,7 @@ def _create_realtime_session_with_an_explicit_null(route: str, client: AsyncHTTP
         transcription_session={"include": None, "audio": {"input": {"turn_detection": None}}},
         api_base="https://realtime-gateway.example/v1",
         api_key="fake-key",
-        litellm_logging_obj=FakeLogging(),
+        hangarllm_logging_obj=FakeLogging(),
         client=client,
     )
 
@@ -1143,7 +1143,7 @@ async def test_transcription_client_secret_sends_the_deployment_model_as_the_ses
         session={"type": "transcription", "model": "openai/gpt-live-transcribe"},
         api_key="sk-test",
         api_base="https://upstream.example",
-        litellm_logging_obj=_realtime_http_logging("client_secrets"),
+        hangarllm_logging_obj=_realtime_http_logging("client_secrets"),
         client=AsyncHTTPHandler(transport=httpx.MockTransport(gateway)),
     )
 
@@ -1179,7 +1179,7 @@ _GA_DEFAULT_SESSIONS: Final = (
 def test_azure_realtime_protocol_defaults_to_ga_when_none_is_configured(
     local_model_cost_map, model: str, realtime_mode: str, query_params: RealtimeQueryParams | None
 ) -> None:
-    from litellm.llms.azure.realtime.handler import azure_realtime_protocol_for_client
+    from hangarllm.llms.azure.realtime.handler import azure_realtime_protocol_for_client
 
     protocol: Final = azure_realtime_protocol_for_client(
         None, model=model, realtime_mode=realtime_mode, query_params=query_params, websocket=_BETA_CLIENT
@@ -1192,7 +1192,7 @@ def test_azure_realtime_protocol_defaults_to_ga_when_none_is_configured(
 def test_azure_realtime_protocol_configured_by_the_operator_wins(
     local_model_cost_map, model: str, realtime_mode: str, query_params: RealtimeQueryParams | None
 ) -> None:
-    from litellm.llms.azure.realtime.handler import azure_realtime_protocol_for_client
+    from hangarllm.llms.azure.realtime.handler import azure_realtime_protocol_for_client
 
     protocol: Final = azure_realtime_protocol_for_client(
         "beta", model=model, realtime_mode=realtime_mode, query_params=query_params, websocket=_GA_CLIENT
@@ -1209,7 +1209,7 @@ async def _azure_backend_url_dialed_for(websocket: _ClientWebSocketWithHeaders, 
             websocket=websocket,
             api_base="https://my-endpoint.openai.azure.com",
             api_key="fake-key",
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             **kwargs,
         )
     return connect.url
@@ -1217,7 +1217,7 @@ async def _azure_backend_url_dialed_for(websocket: _ClientWebSocketWithHeaders, 
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_ga_client_without_beta_header_dials_the_ga_upstream(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
     assert (
         await _azure_backend_url_dialed_for(_GA_CLIENT)
         == "wss://my-endpoint.openai.azure.com/openai/v1/realtime?model=my-realtime-deployment"
@@ -1226,7 +1226,7 @@ async def test_arealtime_azure_ga_client_without_beta_header_dials_the_ga_upstre
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_beta_header_client_keeps_the_beta_upstream(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
     assert await _azure_backend_url_dialed_for(_BETA_CLIENT) == (
         "wss://my-endpoint.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=my-realtime-deployment"
     )
@@ -1234,7 +1234,7 @@ async def test_arealtime_azure_beta_header_client_keeps_the_beta_upstream(monkey
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_explicit_beta_protocol_wins_over_a_ga_client(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
     assert await _azure_backend_url_dialed_for(_GA_CLIENT, realtime_protocol="beta") == (
         "wss://my-endpoint.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=my-realtime-deployment"
     )
@@ -1242,7 +1242,7 @@ async def test_arealtime_azure_explicit_beta_protocol_wins_over_a_ga_client(monk
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_env_beta_protocol_wins_over_a_ga_client(monkeypatch):
-    monkeypatch.setenv("LITELLM_AZURE_REALTIME_PROTOCOL", "beta")
+    monkeypatch.setenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", "beta")
     assert await _azure_backend_url_dialed_for(_GA_CLIENT) == (
         "wss://my-endpoint.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=my-realtime-deployment"
     )
@@ -1293,7 +1293,7 @@ def _realtime_websocket_logging(*failure_callbacks: CustomLogger) -> Logging:
         stream=False,
         call_type="_arealtime",
         start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        litellm_call_id="test-realtime-websocket",
+        hangarllm_call_id="test-realtime-websocket",
         function_id="test-realtime-websocket",
         dynamic_async_failure_callbacks=list(failure_callbacks),
     )
@@ -1323,7 +1323,7 @@ async def _azure_session_created_seen_by_a_beta_client(
             websocket=client,
             api_base="https://my-endpoint.openai.azure.com",
             api_key="fake-key",
-            litellm_logging_obj=_realtime_websocket_logging(),
+            hangarllm_logging_obj=_realtime_websocket_logging(),
             **session_kwargs,
         )
     return connect.url, json.loads(client.sent[0])
@@ -1343,7 +1343,7 @@ async def _azure_session_created_seen_by_a_beta_client(
 async def test_arealtime_azure_beta_client_on_a_ga_session_it_did_not_need_bridging_for_keeps_ga_session_events(
     monkeypatch: pytest.MonkeyPatch, session_kwargs: Mapping[str, object], expected_url: str
 ) -> None:
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
 
     assert await _azure_session_created_seen_by_a_beta_client(session_kwargs) == (expected_url, _GA_SESSION_CREATED)
 
@@ -1360,9 +1360,9 @@ async def test_arealtime_azure_bridges_a_beta_client_to_ga_when_the_operator_pin
     monkeypatch: pytest.MonkeyPatch, env_protocol: str | None, session_kwargs: Mapping[str, object]
 ) -> None:
     if env_protocol is None:
-        monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+        monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_AZURE_REALTIME_PROTOCOL", env_protocol)
+        monkeypatch.setenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", env_protocol)
 
     assert await _azure_session_created_seen_by_a_beta_client(session_kwargs) == (
         "wss://my-endpoint.openai.azure.com/openai/v1/realtime?model=my-realtime-deployment",
@@ -1381,7 +1381,7 @@ async def test_arealtime_azure_bridges_a_beta_client_to_ga_when_the_operator_pin
 async def test_arealtime_azure_bridges_a_beta_client_to_ga_when_the_deployment_base_model_is_ga_only(
     local_model_cost_map, monkeypatch: pytest.MonkeyPatch, base_model_kwargs: Mapping[str, object]
 ) -> None:
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
 
     assert await _azure_session_created_seen_by_a_beta_client(base_model_kwargs) == (
         "wss://my-endpoint.openai.azure.com/openai/v1/realtime?model=my-realtime-deployment",
@@ -1401,12 +1401,12 @@ _ROUTER_REQUEST_SHAPES: Final = (
 )
 
 
-def _router_with_an_azure_deployment_aliasing(deployment_model: str, base_model: str) -> litellm.Router:
-    return litellm.Router(
+def _router_with_an_azure_deployment_aliasing(deployment_model: str, base_model: str) -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "team-alias",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": deployment_model,
                     "api_base": "https://my-endpoint.openai.azure.com",
                     "api_key": "fake-key",
@@ -1422,7 +1422,7 @@ def _router_with_an_azure_deployment_aliasing(deployment_model: str, base_model:
 async def test_router_realtime_bridges_a_beta_client_to_ga_when_model_info_base_model_is_ga_only(
     local_model_cost_map, monkeypatch: pytest.MonkeyPatch, request_kwargs: Mapping[str, object]
 ) -> None:
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("HANGARLLM_AZURE_REALTIME_PROTOCOL", raising=False)
     router: Final = _router_with_an_azure_deployment_aliasing(
         "azure/my-realtime-deployment", "azure/gpt-realtime-2.1-mini"
     )
@@ -1439,8 +1439,8 @@ async def test_router_realtime_bridges_a_beta_client_to_ga_when_model_info_base_
 
 
 async def _vertex_provider_config_for(monkeypatch, model: str, vertex_location: str | None):
-    from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
-    from litellm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
+    from hangarllm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
+    from hangarllm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
 
     captured: dict[str, object] = {}
 
@@ -1456,12 +1456,12 @@ async def _vertex_provider_config_for(monkeypatch, model: str, vertex_location: 
     monkeypatch.setattr(realtime_main, "get_llm_provider", mock_get_llm_provider)
     monkeypatch.setattr(realtime_main, "vertex_access_token_resolver", mock_token_resolver)
     monkeypatch.setattr(realtime_main.base_llm_http_handler, "async_realtime", mock_async_realtime)
-    monkeypatch.setattr(litellm, "vertex_location", None)
+    monkeypatch.setattr(hangarllm, "vertex_location", None)
     monkeypatch.delenv("VERTEXAI_LOCATION", raising=False)
     await realtime_main._arealtime.__wrapped__(
         model=model,
         websocket=MagicMock(),
-        litellm_logging_obj=FakeLogging(),
+        hangarllm_logging_obj=FakeLogging(),
         query_params={"model": model, "intent": "transcription"},
         vertex_credentials="fake-credentials",
         vertex_project="proj-1",
@@ -1474,7 +1474,7 @@ async def _vertex_provider_config_for(monkeypatch, model: str, vertex_location: 
 
 @pytest.mark.asyncio
 async def test_arealtime_routes_chirp_models_to_the_speech_to_text_backend(monkeypatch):
-    from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
+    from hangarllm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
 
     provider_config, model = await _vertex_provider_config_for(monkeypatch, "vertex_ai/chirp_3", None)
     assert isinstance(provider_config, VertexChirpRealtimeConfig)
@@ -1491,7 +1491,7 @@ async def test_arealtime_routes_chirp_models_to_the_configured_speech_region(mon
 
 @pytest.mark.asyncio
 async def test_arealtime_keeps_gemini_live_on_the_vertex_realtime_websocket(monkeypatch):
-    from litellm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
+    from hangarllm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
 
     provider_config, model = await _vertex_provider_config_for(monkeypatch, "vertex_ai/gemini-live-2.5-flash", None)
     assert isinstance(provider_config, VertexAIRealtimeConfig)
@@ -1521,7 +1521,7 @@ async def test_arealtime_openai_forwards_the_intent_query_param_to_the_upstream_
             websocket=_ClosableGaClientWebSocket(),
             api_key="fake-key",
             query_params={"model": "openai/gpt-realtime", "intent": "chat"},
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
         )
     assert connect.url == "wss://api.openai.com/v1/realtime?model=gpt-realtime&intent=chat"
 
@@ -1543,7 +1543,7 @@ async def test_arealtime_openai_connects_to_api_base_rather_than_the_callers_cli
             api_base="https://configured-gateway.example/",
             client=AsyncOpenAI(api_key="caller-key", base_url="https://caller-client.example/v1"),
             query_params=query_params,
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
         )
 
     expected_query: Final = "model=gateway-realtime&intent=transcription" if intent else "model=gateway-realtime"
@@ -1596,7 +1596,7 @@ async def test_arealtime_drops_model_from_the_upstream_url_only_for_transcriptio
             websocket=_ClosableGaClientWebSocket(),
             api_base=api_base,
             api_key="fake-key",
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             query_params=client_query_params,
         )
     assert connect.url == expected_backend_url
@@ -1699,7 +1699,7 @@ async def test_voice_transcript_blocked_by_guardrail():
     from websockets.exceptions import ConnectionClosed
 
     guardrail = _make_guardrail(GuardrailEventHooks.realtime_input_transcription)
-    litellm.callbacks = [guardrail]
+    hangarllm.callbacks = [guardrail]
 
     client_events: list[dict] = []
 
@@ -1749,7 +1749,7 @@ async def test_voice_transcript_blocked_by_guardrail():
         # (assertion #1) is the primary signal that the blocked content was handled.
 
     finally:
-        litellm.callbacks = []
+        hangarllm.callbacks = []
 
 
 @pytest.fixture
@@ -1766,7 +1766,7 @@ def federated_deployment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dic
     ):
         monkeypatch.delenv(name, raising=False)
     for attribute in ("api_key", "openai_key", "api_base"):
-        monkeypatch.setattr(litellm, attribute, None)
+        monkeypatch.setattr(hangarllm, attribute, None)
     _workload_identity_auth.cache_clear()
     return {
         "openai_identity_provider_id": "idp_realtime",
@@ -1819,7 +1819,7 @@ async def test_openai_websocket_sessions_send_the_federated_bearer_for_a_keyless
             model="gpt-realtime",
             custom_llm_provider="openai",
             websocket=MagicMock(close=AsyncMock()),
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             live_session_start=live_session_start,
             **federated_deployment,
         )
@@ -1853,13 +1853,13 @@ async def test_openai_realtime_http_routes_send_the_federated_bearer_for_a_keyle
     await route.__wrapped__(
         model=model,
         custom_llm_provider="openai",
-        litellm_logging_obj=Logging(
+        hangarllm_logging_obj=Logging(
             model=model,
             messages=[],
             stream=False,
             call_type="acreate_realtime_client_secret",
             start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            litellm_call_id="test-federated-realtime",
+            hangarllm_call_id="test-federated-realtime",
             function_id="test-federated-realtime",
         ),
         client=AsyncHTTPHandler(transport=httpx.MockTransport(gateway)),
@@ -1890,13 +1890,13 @@ async def test_translation_http_routes_preserve_explicit_azure_provider(flow: st
         "api_base": "https://azure-deployment.example/openai/v1/",
         "api_key": "test-key",
         "client": AsyncHTTPHandler(transport=httpx.MockTransport(send_response)),
-        "litellm_logging_obj": Logging(
+        "hangarllm_logging_obj": Logging(
             model="translation-deployment",
             messages=[],
             stream=False,
             call_type="acreate_realtime_translation_client_secret",
             start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            litellm_call_id="test-translation-routing",
+            hangarllm_call_id="test-translation-routing",
             function_id="test-translation-routing",
         ),
     }
@@ -1944,7 +1944,7 @@ def _realtime_http_route_call(
             api_key="sk-test",
             api_base=api_base,
             client=client,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
     if route == "translation_client_secrets":
         return realtime_main.acreate_realtime_translation_client_secret.__wrapped__(
@@ -1953,7 +1953,7 @@ def _realtime_http_route_call(
             api_key="sk-test",
             api_base=api_base,
             client=client,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
             metadata=metadata,
         )
     if route == "calls":
@@ -1964,7 +1964,7 @@ def _realtime_http_route_call(
             custom_llm_provider=custom_llm_provider,
             api_base=api_base,
             client=client,
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
     return realtime_main.arealtime_translation_calls.__wrapped__(
         openai_ephemeral_key="ek_test",
@@ -1973,7 +1973,7 @@ def _realtime_http_route_call(
         custom_llm_provider=custom_llm_provider,
         api_base=api_base,
         client=client,
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         metadata=metadata,
     )
 
@@ -1985,7 +1985,7 @@ def _realtime_http_logging(route: str) -> Logging:
         stream=False,
         call_type="acreate_realtime_client_secret",
         start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        litellm_call_id=f"test-realtime-{route}",
+        hangarllm_call_id=f"test-realtime-{route}",
         function_id=f"test-realtime-{route}",
     )
 
@@ -2048,7 +2048,7 @@ async def test_client_secret_keeps_the_realtime_session_model_when_input_transcr
         custom_llm_provider="openai",
         api_key="sk-test",
         api_base="https://upstream.example",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         client=AsyncHTTPHandler(transport=httpx.MockTransport(gateway)),
     )
 
@@ -2070,7 +2070,7 @@ async def test_client_secret_session_model_wins_over_a_provider_qualified_top_le
         session={"type": "realtime", "model": "gpt-realtime-2.1-mini"},
         api_key="sk-test",
         api_base="https://upstream.example",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         client=AsyncHTTPHandler(transport=httpx.MockTransport(gateway)),
     )
 
@@ -2104,7 +2104,7 @@ def _block_every_request_with_a_guardrail(
     monkeypatch: pytest.MonkeyPatch, event_hook: GuardrailEventHooks = GuardrailEventHooks.pre_call
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [CustomGuardrail(guardrail_name="translation-blocker", event_hook=event_hook, default_on=True)],
     )
@@ -2121,7 +2121,7 @@ async def test_translation_http_routes_refuse_a_guarded_request_before_any_upstr
     _block_every_request_with_a_guardrail(monkeypatch, event_hook)
     upstream: Final = _UpstreamThatMustNotBeCalled()
 
-    with pytest.raises(litellm.BadRequestError, match=TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE) as raised:
+    with pytest.raises(hangarllm.BadRequestError, match=TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE) as raised:
         await _realtime_http_route_call(
             route,
             _realtime_http_logging(route),
@@ -2178,7 +2178,7 @@ async def test_translation_http_routes_refuse_a_provider_other_than_openai_and_a
 ) -> None:
     upstream: Final = _UpstreamThatMustNotBeCalled()
 
-    with pytest.raises(litellm.BadRequestError, match="supports only the azure, openai providers, got xai") as raised:
+    with pytest.raises(hangarllm.BadRequestError, match="supports only the azure, openai providers, got xai") as raised:
         await _realtime_http_route_call(
             route,
             _realtime_http_logging(route),
@@ -2207,7 +2207,7 @@ async def test_translation_websocket_closes_1008_for_a_guarded_request_before_th
             websocket=websocket,
             api_key="fake-key",
             realtime_mode="translation",
-            litellm_logging_obj=_realtime_websocket_logging(),
+            hangarllm_logging_obj=_realtime_websocket_logging(),
         )
 
     assert connect.url is None
@@ -2235,7 +2235,7 @@ async def test_translation_websocket_opens_for_a_key_opted_out_of_the_default_on
             websocket=websocket,
             api_key="fake-key",
             realtime_mode="translation",
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
             metadata=key_metadata,
         )
 
@@ -2266,11 +2266,11 @@ async def test_translation_websocket_refusal_logs_the_session_as_a_failure(monke
             websocket=_RecordingClientWebSocket(),
             api_key="fake-key",
             realtime_mode="translation",
-            litellm_logging_obj=logging_obj,
+            hangarllm_logging_obj=logging_obj,
         )
 
     assert [(type(failure), getattr(failure, "status_code", None)) for failure in recorder.failures] == [
-        (litellm.BadRequestError, 400)
+        (hangarllm.BadRequestError, 400)
     ]
     assert TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE in str(recorder.failures[0])
     assert logging_obj.model_call_details[REALTIME_SESSION_FAILURE_LOGGED_KEY] is True
@@ -2285,7 +2285,7 @@ async def test_translation_websocket_opens_under_a_native_pre_call_guardrail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "callbacks",
         [
             _NativeLifecycleGuardrail(
@@ -2302,7 +2302,7 @@ async def test_translation_websocket_opens_under_a_native_pre_call_guardrail(
             websocket=websocket,
             api_key="fake-key",
             realtime_mode="translation",
-            litellm_logging_obj=FakeLogging(),
+            hangarllm_logging_obj=FakeLogging(),
         )
 
     assert connect.url == "wss://api.openai.com/v1/realtime/translations?model=gpt-realtime-translate"
@@ -2324,9 +2324,9 @@ async def test_translation_lets_only_an_opted_out_key_past_a_legacy_string_callb
     blocked: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "callbacks", [])
     initialize_callbacks_on_proxy(
-        value=["lakera_prompt_injection"], premium_user=False, config_file_path="", litellm_settings={}
+        value=["lakera_prompt_injection"], premium_user=False, config_file_path="", hangarllm_settings={}
     )
     if route == "websocket":
         websocket: Final = _RecordingClientWebSocket()
@@ -2337,7 +2337,7 @@ async def test_translation_lets_only_an_opted_out_key_past_a_legacy_string_callb
                 websocket=websocket,
                 api_key="fake-key",
                 realtime_mode="translation",
-                litellm_logging_obj=_realtime_websocket_logging(),
+                hangarllm_logging_obj=_realtime_websocket_logging(),
                 metadata=key_metadata,
             )
         if blocked:
@@ -2358,7 +2358,7 @@ async def test_translation_lets_only_an_opted_out_key_past_a_legacy_string_callb
         metadata=key_metadata,
     )
     if blocked:
-        with pytest.raises(litellm.BadRequestError, match=TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE):
+        with pytest.raises(hangarllm.BadRequestError, match=TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE):
             await call
         assert gateway.url is None
     else:
@@ -2377,7 +2377,7 @@ async def test_translation_websocket_closes_1008_for_a_provider_other_than_opena
             websocket=websocket,
             api_key="fake-key",
             realtime_mode="translation",
-            litellm_logging_obj=_realtime_websocket_logging(),
+            hangarllm_logging_obj=_realtime_websocket_logging(),
         )
 
     assert connect.url is None
@@ -2390,7 +2390,7 @@ async def test_translation_websocket_closes_1008_for_a_provider_other_than_opena
 @pytest.mark.asyncio
 @pytest.mark.parametrize("route", ("translation_client_secrets", "translation_calls", "websocket"))
 @pytest.mark.parametrize("mode", ("pre_call", "post_call"))
-@pytest.mark.parametrize("metadata_bucket", ("metadata", "litellm_metadata"))
+@pytest.mark.parametrize("metadata_bucket", ("metadata", "hangarllm_metadata"))
 @pytest.mark.parametrize("selected,condition_matches", ((True, True), (True, False), (False, True)))
 async def test_translation_rejects_only_applicable_policy_pipelines(
     route: str,
@@ -2400,8 +2400,8 @@ async def test_translation_rejects_only_applicable_policy_pipelines(
     condition_matches: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    request_data: Final[dict[str, object]] = {"metadata": {}, "litellm_metadata": {}}
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    request_data: Final[dict[str, object]] = {"metadata": {}, "hangarllm_metadata": {}}
     _apply_resolved_guardrails_to_metadata(
         data=request_data,
         metadata_variable_name=metadata_bucket,
@@ -2414,7 +2414,7 @@ async def test_translation_rejects_only_applicable_policy_pipelines(
             )
         },
     )
-    metadata: Final = realtime_main._build_litellm_metadata(request_data)
+    metadata: Final = realtime_main._build_hangarllm_metadata(request_data)
     blocked: Final = selected and condition_matches
     if route == "websocket":
         websocket: Final = _RecordingClientWebSocket()
@@ -2425,8 +2425,8 @@ async def test_translation_rejects_only_applicable_policy_pipelines(
                 websocket=websocket,
                 api_key="fake-key",
                 realtime_mode="translation",
-                litellm_logging_obj=_realtime_websocket_logging(),
-                litellm_metadata=metadata,
+                hangarllm_logging_obj=_realtime_websocket_logging(),
+                hangarllm_metadata=metadata,
             )
         if blocked:
             assert connect.url is None
@@ -2445,7 +2445,7 @@ async def test_translation_rejects_only_applicable_policy_pipelines(
         metadata=metadata,
     )
     if blocked:
-        with pytest.raises(litellm.BadRequestError, match=TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE) as raised:
+        with pytest.raises(hangarllm.BadRequestError, match=TRANSLATION_GUARDRAILS_UNSUPPORTED_MESSAGE) as raised:
             await call
         assert raised.value.status_code == 400
         assert upstream.called is False
@@ -2457,7 +2457,7 @@ async def test_translation_rejects_only_applicable_policy_pipelines(
 
 @pytest.mark.asyncio
 async def test_arealtime_routes_soniox_with_the_deployment_options(monkeypatch):
-    from litellm.llms.soniox.realtime.transformation import SonioxRealtimeConfig
+    from hangarllm.llms.soniox.realtime.transformation import SonioxRealtimeConfig
 
     captured: dict[str, object] = {}
 
@@ -2468,7 +2468,7 @@ async def test_arealtime_routes_soniox_with_the_deployment_options(monkeypatch):
     await realtime_main._arealtime.__wrapped__(
         model="soniox/stt-rt-v5",
         websocket=MagicMock(),
-        litellm_logging_obj=FakeLogging(),
+        hangarllm_logging_obj=FakeLogging(),
         query_params={"model": "soniox/stt-rt-v5", "intent": "transcription"},
         api_key="deployment-key",
         language_hints=["de"],
@@ -2524,7 +2524,7 @@ async def test_soniox_realtime_health_check_starts_and_ends_a_stream_on_the_depl
 
 @pytest.mark.asyncio
 async def test_soniox_realtime_health_check_fails_when_soniox_refuses_the_stream():
-    from litellm.llms.soniox.common_utils import SonioxException
+    from hangarllm.llms.soniox.common_utils import SonioxException
 
     server, _ = await _serve_soniox(json.dumps({"error_code": 401, "error_message": "Invalid API key."}))
     port = next(iter(server.sockets)).getsockname()[1]
@@ -2539,7 +2539,7 @@ async def test_soniox_realtime_health_check_fails_when_soniox_refuses_the_stream
 
 @pytest.mark.asyncio
 async def test_soniox_realtime_health_check_fails_when_soniox_closes_without_finishing_the_stream():
-    from litellm.llms.soniox.common_utils import SonioxException
+    from hangarllm.llms.soniox.common_utils import SonioxException
 
     server, _ = await _serve_soniox(None)
     port = next(iter(server.sockets)).getsockname()[1]

@@ -36,7 +36,7 @@ from models import (
     ChatToolFunction,
     ImageContentPart,
     ImageUrl,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     TextContentPart,
     ThinkingParam,
 )
@@ -91,7 +91,7 @@ VERTEX_PARTNER_BACKENDS: Final = (
     ),
 )
 PDF_DOCUMENT_URL: Final = (
-    "https://cdn.jsdelivr.net/gh/BerriAI/litellm"
+    "https://cdn.jsdelivr.net/gh/valteresj2/HangarLLM"
     "@d769e81c90d453240c61fc572cdb27fae06a89d0"
     "/tests/llm_translation/fixtures/dummy.pdf"
 )
@@ -181,8 +181,8 @@ def _assert_streamed_completion(result: StreamingResponse) -> None:
     )
 
 
-def _bedrock_params() -> LiteLLMParamsBody:
-    return LiteLLMParamsBody(
+def _bedrock_params() -> HangarLLMParamsBody:
+    return HangarLLMParamsBody(
         model=BEDROCK_CONVERSE_BACKEND,
         aws_access_key_id="os.environ/AWS_ACCESS_KEY_ID",
         aws_secret_access_key="os.environ/AWS_SECRET_ACCESS_KEY",
@@ -352,7 +352,7 @@ class TestCohereChat:
         model = f"e2e-cohere-chat-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=COHERE_BACKEND, api_key=cohere_key),
+            HangarLLMParamsBody(model=COHERE_BACKEND, api_key=cohere_key),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -404,7 +404,7 @@ class TestGeminiChatCompletions:
         model = f"e2e-gemini-chat-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=GEMINI_BACKEND, api_key="os.environ/GEMINI_API_KEY"),
+            HangarLLMParamsBody(model=GEMINI_BACKEND, api_key="os.environ/GEMINI_API_KEY"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -446,7 +446,7 @@ class TestVertexChatCompletions:
         model = f"{prefix}-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=VERTEX_BACKEND,
                 vertex_project="os.environ/VERTEXAI_PROJECT",
                 vertex_location="us-central1",
@@ -600,7 +600,7 @@ class TestAzureOpenAIChatCompletions:
         model = f"{prefix}-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=AZURE_OPENAI_BACKEND,
                 api_base="os.environ/AZURE_API_BASE",
                 api_key="os.environ/AZURE_API_KEY",
@@ -708,7 +708,7 @@ class TestAzureFoundryChatCompletions:
         model = f"e2e-azure-foundry-chat-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=AZURE_FOUNDRY_BACKEND,
                 api_base="os.environ/AZURE_AI_API_BASE",
                 api_key="os.environ/AZURE_AI_API_KEY",
@@ -767,7 +767,7 @@ class TestHostedVllmChat:
         model = f"e2e-vllm-chat-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=f"hosted_vllm/{backend}",
                 api_base=api_base,
             ),
@@ -821,7 +821,7 @@ class TestOpenAIChatCompletions:
     ) -> None:
         model = f"e2e-openai-chat-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            model, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -857,7 +857,7 @@ class TestOpenAIChatCompletions:
     ) -> None:
         model = f"e2e-openai-cost-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            model, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -900,7 +900,7 @@ class TestOpenAIChatCompletions:
     ) -> None:
         model = f"e2e-openai-tool-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            model, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -941,7 +941,7 @@ class TestOpenAIChatCompletions:
     ) -> None:
         model = f"e2e-openai-schema-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            model, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -984,7 +984,7 @@ class TestOpenAIChatCompletions:
     ) -> None:
         model = f"e2e-openai-reasoning-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            model, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -1002,7 +1002,7 @@ class TestOpenAIChatCompletions:
                         # a reporting bug. Verified against the live model:
                         # low + "60 miles in 1.5 hours" -> reasoning_tokens=0,
                         # high + the prompt below       -> reasoning_tokens=90.
-                        # What is under test is that litellm surfaces the field, so the
+                        # What is under test is that hangarllm surfaces the field, so the
                         # request has to be one where the field is populated.
                         ChatMessage(
                             role="user",
@@ -1044,7 +1044,7 @@ class TestOpenAIChatCompletions:
     ) -> None:
         model = f"e2e-openai-vision-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=OPENAI_VISION_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            model, HangarLLMParamsBody(model=OPENAI_VISION_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -1071,7 +1071,7 @@ class TestOpenAIChatCompletions:
     ) -> None:
         model = f"e2e-openai-tool-stream-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
+            model, HangarLLMParamsBody(model=OPENAI_BACKEND, api_key="os.environ/OPENAI_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         key = resources.key()
@@ -1338,7 +1338,7 @@ class TestVertexPartnerChatCompletions:
         model = f"e2e-vertex-partner-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(
+            HangarLLMParamsBody(
                 model=backend, vertex_project="os.environ/VERTEXAI_PROJECT", vertex_location="us-central1"
             ),
         )
@@ -1380,7 +1380,7 @@ class TestAnthropicChatCompletions:
     def _register(self, client: PassthroughClient, resources: ResourceManager, prefix: str) -> str:
         model = f"{prefix}-{unique_marker()}"
         model_id = client.proxy.create_model(
-            model, LiteLLMParamsBody(model=ANTHROPIC_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY")
+            model, HangarLLMParamsBody(model=ANTHROPIC_BACKEND, api_key="os.environ/ANTHROPIC_API_KEY")
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
         return model

@@ -5,9 +5,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.opensandbox.sandbox.transformation import OpenSandboxSandboxConfig
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.opensandbox.sandbox.transformation import OpenSandboxSandboxConfig
 
 API_BASE = "https://sandbox.test/v1"
 PENDING = {"id": "osb_1", "status": {"state": "Pending"}}
@@ -138,7 +138,7 @@ async def test_public_acreate_sandbox_raises_the_validation_error_for_a_create_r
     client, requested = _sandbox_api([RUNNING])
 
     with pytest.raises(ValidationError):
-        await litellm.acreate_sandbox(provider="opensandbox", api_key="osb_key", api_base=API_BASE, client=client)
+        await hangarllm.acreate_sandbox(provider="opensandbox", api_key="osb_key", api_base=API_BASE, client=client)
 
     assert requested == ["POST /v1/sandboxes"]
 

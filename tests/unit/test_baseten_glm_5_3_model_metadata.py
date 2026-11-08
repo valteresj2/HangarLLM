@@ -3,11 +3,11 @@ from pathlib import Path
 
 import pytest
 
-import litellm
+import hangarllm
 
 REPO_ROOT = Path(__file__).parents[2]
 MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PATH = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PATH = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 
 MODEL = "baseten/zai-org/GLM-5.3"
 
@@ -25,11 +25,11 @@ def _load(path):
 def local_model_cost_map(monkeypatch):
     """Force get_model_info to resolve against the in-repo cost map instead of the
     remote one fetched at import time, which still carries the pre-merge registry."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 def test_backup_matches_main():
@@ -49,11 +49,11 @@ def test_backup_matches_main():
 
 def test_entry_advertises_only_what_the_baseten_path_accepts(local_model_cost_map):
     """The Baseten path rejects unsupported request parameters."""
-    supported = litellm.get_supported_openai_params(model="zai-org/GLM-5.3", custom_llm_provider="baseten")
+    supported = hangarllm.get_supported_openai_params(model="zai-org/GLM-5.3", custom_llm_provider="baseten")
     assert supported is not None
 
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.utils.get_optional_params(
+    with pytest.raises(hangarllm.UnsupportedParamsError):
+        hangarllm.utils.get_optional_params(
             model="zai-org/GLM-5.3",
             custom_llm_provider="baseten",
             parallel_tool_calls=True,

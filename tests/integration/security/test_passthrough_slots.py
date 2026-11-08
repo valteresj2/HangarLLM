@@ -27,12 +27,12 @@ from pathlib import Path
 from typing import Final, Literal
 
 import httpx
-import litellm
+import hangarllm
 import pytest
 from fastapi import Request as FastAPIRequest, Response
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.hangar.guardrails.secret_detection import _ENTERPRISE_SecretDetection
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangar.guardrails.secret_detection import _ENTERPRISE_SecretDetection
 from starlette.datastructures import URL
 from integration._support.client import Scenario, eventually
 from integration._support.database import read_rows
@@ -160,7 +160,7 @@ def rigged(tmp_path: Path) -> Iterator[Upstreamed]:
             config["vector_store_registry"] = [
                 {
                     "vector_store_name": VECTOR_STORE_ID,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "vector_store_id": VECTOR_STORE_ID,
                         "custom_llm_provider": "openai",
                         "api_key": canaries["H2"].value,
@@ -171,7 +171,7 @@ def rigged(tmp_path: Path) -> Iterator[Upstreamed]:
             config["search_tools"] = [
                 {
                     "search_tool_name": SEARCH_TOOL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "search_provider": "perplexity",
                         "api_key": canaries["H2S"].value,
                         "api_base": wire.url,
@@ -276,7 +276,7 @@ class _SecretDetectionRecorder(CustomLogger):
 
 @pytest.mark.asyncio
 async def test_secret_detection_redacts_the_logged_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     def upstream(request: Request) -> Reply:
         assert request.target.endswith("/chat/completions")
@@ -304,7 +304,7 @@ async def test_secret_detection_redacts_the_logged_request(monkeypatch: pytest.M
         )
 
     recorder: Final = _SecretDetectionRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [_ENTERPRISE_SecretDetection(), recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [_ENTERPRISE_SecretDetection(), recorder])
     prompt: Final = "Hello here is my OPENAI_API_KEY = sk-98765"
 
     with wire_server(upstream) as wire:
@@ -312,7 +312,7 @@ async def test_secret_detection_redacts_the_logged_request(monkeypatch: pytest.M
             model_list=[
                 {
                     "model_name": "fake-model",
-                    "litellm_params": {"model": "openai/fake", "api_base": wire.url, "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/fake", "api_base": wire.url, "api_key": "sk-fake"},
                 }
             ]
         )
@@ -334,8 +334,8 @@ async def test_secret_detection_redacts_the_logged_request(monkeypatch: pytest.M
             ).encode()
 
         request.body = return_body
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.proxy_server import chat_completion
+        from hangarllm.proxy._types import UserAPIKeyAuth
+        from hangarllm.proxy.proxy_server import chat_completion
 
         await chat_completion(
             request=request,
@@ -355,7 +355,7 @@ async def test_secret_detection_redacts_the_logged_request(monkeypatch: pytest.M
 def _spend_row(marker: Canary, since: datetime) -> str:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE "startTime" >= %s AND proxy_server_request::text LIKE %s',
+            'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE "startTime" >= %s AND proxy_server_request::text LIKE %s',
             (since.astimezone(UTC).replace(tzinfo=None) - SLACK, f"%{marker.core}%"),
         ),
         lambda found: len(found) == 1,
@@ -411,7 +411,7 @@ def test_upstream_credential_reaches_only_its_upstream(
         assert_marker_seen(
             report,
             {
-                "S1": "LiteLLM_SpendLogs.proxy_server_request",
+                "S1": "HangarLLM_SpendLogs.proxy_server_request",
                 "S2": f"GET /spend/logs/ui/{request_id} as admin -> 200",
                 **({"S3": "response[0] POST"} if outcome == "success" else {}),
                 **({"S4": f"{GENERIC_SINK}["} if delivers_to_sink else {}),

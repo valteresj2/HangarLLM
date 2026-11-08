@@ -3,10 +3,10 @@ from typing import Dict
 
 import pytest
 
-from litellm import image_edit
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.openai.image_edit.transformation import OpenAIImageEditConfig
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm import image_edit
+from hangarllm.images.utils import ImageEditRequestUtils
+from hangarllm.llms.openai.image_edit.transformation import OpenAIImageEditConfig
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 @pytest.fixture
@@ -20,7 +20,7 @@ def test_transform_image_edit_request_basic(image_edit_config: OpenAIImageEditCo
     prompt = "Make the background blue"
     image = b"fake_image_data"
     image_edit_optional_request_params = {}
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
     headers = {}
 
     data, files = image_edit_config.transform_image_edit_request(
@@ -28,7 +28,7 @@ def test_transform_image_edit_request_basic(image_edit_config: OpenAIImageEditCo
         prompt=prompt,
         image=image,
         image_edit_optional_request_params=image_edit_optional_request_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers=headers,
     )
 
@@ -55,7 +55,7 @@ def test_transform_image_edit_request_with_mask(
     image = b"fake_image_data"
     mask = b"fake_mask_data"
     image_edit_optional_request_params = {"mask": mask, "size": "1024x1024"}
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
     headers = {}
 
     data, files = image_edit_config.transform_image_edit_request(
@@ -63,7 +63,7 @@ def test_transform_image_edit_request_with_mask(
         prompt=prompt,
         image=image,
         image_edit_optional_request_params=image_edit_optional_request_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers=headers,
     )
 
@@ -110,7 +110,7 @@ def test_transform_image_edit_request_with_buffered_reader(
         # Open the file as BufferedReader
         with open(temp_file_path, "rb") as image_buffer:
             image_edit_optional_request_params = {}
-            litellm_params = GenericLiteLLMParams()
+            hangarllm_params = GenericHangarLLMParams()
             headers = {}
 
             data, files = image_edit_config.transform_image_edit_request(
@@ -118,7 +118,7 @@ def test_transform_image_edit_request_with_buffered_reader(
                 prompt=prompt,
                 image=image_buffer,
                 image_edit_optional_request_params=image_edit_optional_request_params,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 headers=headers,
             )
 
@@ -153,7 +153,7 @@ def test_transform_image_edit_request_with_optional_params(
         "n": 2,
         "user": "test_user",
     }
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
     headers = {}
 
     data, files = image_edit_config.transform_image_edit_request(
@@ -161,7 +161,7 @@ def test_transform_image_edit_request_with_optional_params(
         prompt=prompt,
         image=image,
         image_edit_optional_request_params=image_edit_optional_request_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers=headers,
     )
 
@@ -192,7 +192,7 @@ def test_transform_image_edit_request_with_multiple_images(
     image3 = b"fake_image_data_3"
     images = [image1, image2, image3]
     image_edit_optional_request_params = {"size": "1024x1024", "n": 1}
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
     headers = {}
 
     data, files = image_edit_config.transform_image_edit_request(
@@ -200,7 +200,7 @@ def test_transform_image_edit_request_with_multiple_images(
         prompt=prompt,
         image=images,
         image_edit_optional_request_params=image_edit_optional_request_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers=headers,
     )
 
@@ -241,7 +241,7 @@ def test_transform_image_edit_request_with_mask_list(
     mask1 = b"fake_mask_data_1"
     mask2 = b"fake_mask_data_2"
     image_edit_optional_request_params = {"mask": [mask1, mask2]}
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
     headers = {}
 
     data, files = image_edit_config.transform_image_edit_request(
@@ -249,7 +249,7 @@ def test_transform_image_edit_request_with_mask_list(
         prompt=prompt,
         image=image,
         image_edit_optional_request_params=image_edit_optional_request_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers=headers,
     )
 
@@ -274,7 +274,7 @@ def test_transform_image_edit_request_with_input_fidelity(
     prompt = "Make the background blue"
     image = b"fake_image_data"
     image_edit_optional_request_params = {"input_fidelity": "high"}
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
     headers = {}
 
     data, files = image_edit_config.transform_image_edit_request(
@@ -282,7 +282,7 @@ def test_transform_image_edit_request_with_input_fidelity(
         prompt=prompt,
         image=image,
         image_edit_optional_request_params=image_edit_optional_request_params,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers=headers,
     )
 

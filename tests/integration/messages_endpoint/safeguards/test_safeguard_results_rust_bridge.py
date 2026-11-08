@@ -29,7 +29,7 @@ pytestmark = pytest.mark.timeout(2 * graceful_stop_seconds() + 240)
 
 
 def rust_environment(wire_url: str) -> Mapping[str, str]:
-    return {"LITELLM_RUST": "1"}
+    return {"HANGARLLM_RUST": "1"}
 
 
 def test_rust_opt_in_keeps_the_verdict_on_native_messages(tmp_path: Path) -> None:

@@ -27,36 +27,36 @@ import respx
 from pydantic import JsonValue
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.airia.airia import AiriaGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.akto.akto import AktoGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.conduct import conduct as conduct_module
-from litellm.proxy.guardrails.guardrail_hooks.crowdstrike_aidr.crowdstrike_aidr import CrowdStrikeAIDRHandler
-from litellm.proxy.guardrails.guardrail_hooks.headroom.headroom import HeadroomGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.integrations.custom_guardrail import CustomGuardrail
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.airia.airia import AiriaGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.akto.akto import AktoGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.conduct import conduct as conduct_module
+from hangarllm.proxy.guardrails.guardrail_hooks.crowdstrike_aidr.crowdstrike_aidr import CrowdStrikeAIDRHandler
+from hangarllm.proxy.guardrails.guardrail_hooks.headroom.headroom import HeadroomGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
     HiddenlayerGuardrail,
     HiddenlayerGuardrailV2,
 )
-from litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import LLMAsAJudgeGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.openai.moderations import OpenAIModerationGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.panw_prisma_airs.panw_prisma_airs import PanwPrismaAirsHandler
-from litellm.proxy.guardrails.guardrail_hooks.prompt_security.prompt_security import PromptSecurityGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.promptguard.promptguard import PromptGuardGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.qualifire.qualifire import QualifireGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.singulr.singulr import SingulrGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.noma import NomaV2Guardrail
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from hangarllm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import LLMAsAJudgeGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.openai.moderations import OpenAIModerationGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.panw_prisma_airs.panw_prisma_airs import PanwPrismaAirsHandler
+from hangarllm.proxy.guardrails.guardrail_hooks.prompt_security.prompt_security import PromptSecurityGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.promptguard.promptguard import PromptGuardGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.qualifire.qualifire import QualifireGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.singulr.singulr import SingulrGuardrail
+from hangarllm.proxy.guardrails.guardrail_hooks.noma import NomaV2Guardrail
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import GenericGuardrailAPIInputs
 
-from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
-from litellm.llms.bedrock.passthrough.guardrail_translation.handler import (
+from hangarllm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+from hangarllm.llms.bedrock.passthrough.guardrail_translation.handler import (
     BedrockPassthroughGuardrailHandler,
     _extract_converse_texts,
     _is_converse_endpoint,
@@ -377,7 +377,7 @@ class TestWriteBackTexts:
 
         warnings = []
         monkeypatch.setattr(
-            "litellm.llms.bedrock.passthrough.guardrail_translation.handler.verbose_proxy_logger.warning",
+            "hangarllm.llms.bedrock.passthrough.guardrail_translation.handler.verbose_proxy_logger.warning",
             lambda *args, **kwargs: warnings.append(args),
         )
 
@@ -698,7 +698,7 @@ class TestBedrockPassthroughGuardrailHandlerOutput:
 
         warnings = []
         monkeypatch.setattr(
-            "litellm.llms.bedrock.passthrough.guardrail_translation.handler.verbose_proxy_logger.warning",
+            "hangarllm.llms.bedrock.passthrough.guardrail_translation.handler.verbose_proxy_logger.warning",
             lambda *args, **kwargs: warnings.append(args),
         )
 
@@ -879,7 +879,7 @@ class _CardMaskingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         texts = inputs.get("texts", [])
         self.received_texts.append(list(texts))
@@ -892,14 +892,14 @@ async def _run_post_call_guardrail_on_stream(
     monkeypatch: pytest.MonkeyPatch,
     endpoint: str = "model/claude/converse-stream",
 ) -> bytes:
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
-    logging_obj = LiteLLMLoggingObj(
+    monkeypatch.setattr(hangarllm, "callbacks", [guardrail])
+    logging_obj = HangarLLMLoggingObj(
         model="claude",
         messages=[],
         stream=True,
         call_type="allm_passthrough_route",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         function_id="test-function",
     )
     return await BedrockPassthroughGuardrailHandler.de_anonymize_event_stream(
@@ -910,7 +910,7 @@ async def _run_post_call_guardrail_on_stream(
             "model": "claude",
             "custom_llm_provider": "bedrock",
             "endpoint": endpoint,
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
         },
     )
 
@@ -1401,7 +1401,7 @@ class _ScriptedGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> Mapping[str, object]:
         self.received = (*self.received, copy.deepcopy(inputs))
         self.request_data = (*self.request_data, request_data)
@@ -1457,11 +1457,11 @@ async def _sent_to_bedrock(data: dict) -> dict:
         )
         return httpx.Response(200, json=reply, request=request)
 
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_access_key_id": "AKIATESTKEY",
                     "aws_secret_access_key": "test-secret",
@@ -2262,14 +2262,14 @@ class _ConductPluginGuard(CustomGuardrail):
 
 
 def _conduct_with_its_plugin() -> CustomGuardrail:
-    plugin = types.ModuleType("conduct_litellm_guard.guardrail")
+    plugin = types.ModuleType("conduct_hangarllm_guard.guardrail")
     plugin.__dict__.update(ConductGuard=_ConductPluginGuard, ConductGuardBlocked=RuntimeError)
     spec = importlib.util.spec_from_file_location("conduct_with_its_plugin", conduct_module.__file__)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     with patch.dict(
         sys.modules,
-        {"conduct_litellm_guard": types.ModuleType("conduct_litellm_guard"), "conduct_litellm_guard.guardrail": plugin},
+        {"conduct_hangarllm_guard": types.ModuleType("conduct_hangarllm_guard"), "conduct_hangarllm_guard.guardrail": plugin},
     ):
         spec.loader.exec_module(module)
     guardrail = vars(module)["ConductGuardrail"](guardrail_name="conduct")
@@ -2564,14 +2564,14 @@ async def _relay_through_post_call_guardrail(
     endpoint: str = _CONVERSE_STREAM,
 ) -> bytes:
     layers = [(guardrail, holds_until_moderated), *([outer] if outer is not None else [])]
-    monkeypatch.setattr(litellm, "callbacks", [layer for layer, _ in layers])
-    logging_obj = LiteLLMLoggingObj(
+    monkeypatch.setattr(hangarllm, "callbacks", [layer for layer, _ in layers])
+    logging_obj = HangarLLMLoggingObj(
         model="claude",
         messages=[],
         stream=True,
         call_type="allm_passthrough_route",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         function_id="test-function",
     )
     relayed = ProxyLogging(user_api_key_cache=DualCache()).async_post_call_event_stream_iterator_hook(
@@ -2581,7 +2581,7 @@ async def _relay_through_post_call_guardrail(
             "model": "claude",
             "custom_llm_provider": "bedrock",
             "endpoint": endpoint,
-            "litellm_logging_obj": logging_obj,
+            "hangarllm_logging_obj": logging_obj,
         },
         guardrails=layers,
     )
@@ -2616,7 +2616,7 @@ class _RaisingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         if any(self.on_text in text for text in inputs.get("texts", [])):
             raise self.raised
@@ -2633,7 +2633,7 @@ class _RecordingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         self.received_texts.append(list(inputs.get("texts", [])))
         return inputs
@@ -2649,7 +2649,7 @@ class _RequestMarksRecordingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         self.received_marks.append((request_data.get("stream"), request_data.get("response")))
         return inputs
@@ -2673,8 +2673,8 @@ _NOMA_API_BASE = "https://noma.example.test"
 
 
 def _noma_guardrail(monkeypatch: pytest.MonkeyPatch) -> NomaV2Guardrail:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", None)
     return NomaV2Guardrail(
         api_key="test-key",
         api_base=_NOMA_API_BASE,
@@ -2904,7 +2904,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_a_held_guardrail_still_masks_after_a_sampled_guardrail_ends_the_stream_with_its_message(
         self, monkeypatch, filler_frames: int
     ):
-        from litellm.exceptions import ModifyResponseException
+        from hangarllm.exceptions import ModifyResponseException
 
         sampled = _RaisingGuardrail(
             ModifyResponseException(message="Sorry, I can't share that.", model="claude", request_data={}),
@@ -2934,7 +2934,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_noma_scans_carry_stream_and_only_the_last_one_the_finished_answer(
         self, monkeypatch, respx_mock: respx.MockRouter
     ):
-        route = respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        route = respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
 
         await _relay_through_post_call_guardrail(_two_scan_stream(), _noma_guardrail(monkeypatch), monkeypatch)
 
@@ -2947,7 +2947,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_noma_gets_the_finished_answer_when_the_last_sampled_scan_already_covered_it(
         self, monkeypatch, respx_mock: respx.MockRouter
     ):
-        route = respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        route = respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
         later = _RequestMarksRecordingGuardrail()
         stream = (
             _build_event_stream_frame("messageStart", {"role": "assistant"}),
@@ -2975,7 +2975,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_noma_gets_the_finished_answer_with_its_reasoning_and_tool_calls_as_converse_blocks(
         self, monkeypatch, respx_mock: respx.MockRouter
     ):
-        route = respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        route = respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
         stream = (
             _build_event_stream_frame("messageStart", {"role": "assistant"}),
             _build_event_stream_frame(
@@ -3034,7 +3034,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_noma_gets_a_tool_input_that_is_not_json_as_streamed(
         self, monkeypatch, respx_mock: respx.MockRouter, tool_input: str
     ):
-        route = respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        route = respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
 
         relayed = await _relay_through_post_call_guardrail(
             _tool_call_stream(tool_input), _noma_guardrail(monkeypatch), monkeypatch
@@ -3049,7 +3049,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_noma_alone_gets_one_ended_scan_of_a_reply_that_only_calls_a_tool_without_input(
         self, monkeypatch, respx_mock: respx.MockRouter, held: bool
     ):
-        route = respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        route = respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
         later = _RecordingGuardrail()
 
         relayed = await _relay_through_post_call_guardrail(
@@ -3079,7 +3079,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_noma_gets_no_scan_of_a_reply_with_no_text_and_no_tool_call(
         self, monkeypatch, respx_mock: respx.MockRouter
     ):
-        route = respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        route = respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
         stream = (
             _build_event_stream_frame("messageStart", {"role": "assistant"}),
             _build_event_stream_frame("messageStop", {"stopReason": "end_turn"}),
@@ -3094,7 +3094,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_noma_gets_no_scan_of_a_tool_call_without_input_before_the_reply_ends(
         self, monkeypatch, respx_mock: respx.MockRouter
     ):
-        route = respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        route = respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
         frames = [
             frame
             async for frame in BedrockPassthroughGuardrailHandler.event_stream_items(
@@ -3114,7 +3114,7 @@ class TestConverseStreamGuardrailRelay:
     async def test_guardrails_scanning_after_noma_see_the_request_without_its_stream_marks(
         self, monkeypatch, respx_mock: respx.MockRouter
     ):
-        respx_mock.post(f"{_NOMA_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+        respx_mock.post(f"{_NOMA_API_BASE}/hangarllm/guardrail").respond(json={"action": "NONE"})
         later = _RequestMarksRecordingGuardrail()
 
         await _relay_through_post_call_guardrail(
@@ -3140,7 +3140,7 @@ class TestConverseStreamGuardrailRelay:
 
     @pytest.mark.asyncio
     async def test_guardrail_message_ends_the_message_after_closing_the_open_block(self, monkeypatch):
-        from litellm.exceptions import ModifyResponseException
+        from hangarllm.exceptions import ModifyResponseException
 
         guardrail = _RaisingGuardrail(
             ModifyResponseException(message="Sorry, I can't share that.", model="claude", request_data={}),
@@ -3168,7 +3168,7 @@ class TestConverseStreamGuardrailRelay:
 
     @pytest.mark.asyncio
     async def test_guardrail_message_on_a_held_stream_is_a_whole_message(self, monkeypatch):
-        from litellm.exceptions import ModifyResponseException
+        from hangarllm.exceptions import ModifyResponseException
 
         guardrail = _RaisingGuardrail(
             ModifyResponseException(
@@ -3372,7 +3372,7 @@ class _RequestDataRecordingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         response = request_data.get("response")
         self.scans.append(
@@ -3395,7 +3395,7 @@ class _ToolInputRecordingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: HangarLLMLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         self.tool_arguments.append([call.function.arguments for call in inputs.get("tool_calls") or []])
         return inputs
@@ -3676,7 +3676,7 @@ class TestInvokeStreamGuardrailRelay:
     async def test_guardrail_message_ends_the_message_after_closing_the_open_block(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        from litellm.exceptions import ModifyResponseException
+        from hangarllm.exceptions import ModifyResponseException
 
         guardrail = _RaisingGuardrail(
             ModifyResponseException(message="Sorry, I can't share that.", model="claude", request_data={}),
@@ -3706,7 +3706,7 @@ class TestInvokeStreamGuardrailRelay:
 
     @pytest.mark.asyncio
     async def test_guardrail_message_on_a_held_stream_is_a_whole_message(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.exceptions import ModifyResponseException
+        from hangarllm.exceptions import ModifyResponseException
 
         guardrail = _RaisingGuardrail(
             ModifyResponseException(
@@ -3866,7 +3866,7 @@ def _anthropic_invoke_data(
         "endpoint": f"model/anthropic.claude-sonnet/{action}",
         "custom_llm_provider": "bedrock",
         "model": "anthropic.claude-sonnet",
-        "litellm_call_id": "call-1",
+        "hangarllm_call_id": "call-1",
         "data": {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 512,
@@ -3960,7 +3960,7 @@ async def test_anthropic_invoke_guardrail_gets_roles_tools_and_the_body_at_the_t
     request_data: Final = guardrail.request_data[-1]
     assert request_data["messages"] is data["data"]["messages"]
     assert request_data["endpoint"] == data["endpoint"]
-    assert request_data["litellm_call_id"] == data["litellm_call_id"]
+    assert request_data["hangarllm_call_id"] == data["hangarllm_call_id"]
     assert "data" not in request_data
 
 

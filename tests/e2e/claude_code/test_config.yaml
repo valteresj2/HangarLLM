@@ -26,17 +26,17 @@
 model_list:
   # ---- Anthropic ----
   - model_name: claude-haiku-4-5
-    litellm_params:
+    hangarllm_params:
       model: anthropic/claude-haiku-4-5
       api_key: os.environ/ANTHROPIC_API_KEY
   - model_name: claude-sonnet-4-5
-    litellm_params:
+    hangarllm_params:
       model: anthropic/claude-sonnet-4-5
       api_key: os.environ/ANTHROPIC_API_KEY
       extra_headers:
         anthropic-beta: "context-1m-2025-08-07"
   - model_name: claude-opus-4-7
-    litellm_params:
+    hangarllm_params:
       model: anthropic/claude-opus-4-7
       api_key: os.environ/ANTHROPIC_API_KEY
       extra_headers:
@@ -44,17 +44,17 @@ model_list:
 
   # ---- Bedrock (InvokeModel) ----
   - model_name: claude-haiku-4-5-bedrock-invoke
-    litellm_params:
+    hangarllm_params:
       model: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0
       aws_region_name: us-east-1
   - model_name: claude-sonnet-4-5-bedrock-invoke
-    litellm_params:
+    hangarllm_params:
       model: bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0
       aws_region_name: us-east-1
       extra_headers:
         anthropic-beta: "context-1m-2025-08-07"
   - model_name: claude-opus-4-7-bedrock-invoke
-    litellm_params:
+    hangarllm_params:
       model: bedrock/us.anthropic.claude-opus-4-7
       aws_region_name: us-east-1
       extra_headers:
@@ -62,17 +62,17 @@ model_list:
 
   # ---- Bedrock (Converse) ----
   - model_name: claude-haiku-4-5-bedrock-converse
-    litellm_params:
+    hangarllm_params:
       model: bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0
       aws_region_name: us-east-1
   - model_name: claude-sonnet-4-5-bedrock-converse
-    litellm_params:
+    hangarllm_params:
       model: bedrock/converse/us.anthropic.claude-sonnet-4-5-20250929-v1:0
       aws_region_name: us-east-1
       extra_headers:
         anthropic-beta: "context-1m-2025-08-07"
   - model_name: claude-opus-4-7-bedrock-converse
-    litellm_params:
+    hangarllm_params:
       model: bedrock/converse/us.anthropic.claude-opus-4-7
       aws_region_name: us-east-1
       extra_headers:
@@ -87,13 +87,13 @@ model_list:
   # (not the `vertex_ai_*` aliases); the chat translation path accepts
   # both.
   - model_name: claude-haiku-4-5-vertex
-    litellm_params:
+    hangarllm_params:
       model: vertex_ai/claude-haiku-4-5
       vertex_project: os.environ/VERTEXAI_PROJECT
       vertex_location: global
       use_in_pass_through: true
   - model_name: claude-sonnet-4-5-vertex
-    litellm_params:
+    hangarllm_params:
       model: vertex_ai/claude-sonnet-4-5
       vertex_project: os.environ/VERTEXAI_PROJECT
       vertex_location: global
@@ -101,7 +101,7 @@ model_list:
       extra_headers:
         anthropic-beta: "context-1m-2025-08-07"
   - model_name: claude-opus-4-7-vertex
-    litellm_params:
+    hangarllm_params:
       model: vertex_ai/claude-opus-4-7
       vertex_project: os.environ/VERTEXAI_PROJECT
       vertex_location: global
@@ -111,19 +111,19 @@ model_list:
 
   # ---- Microsoft Foundry (Anthropic deployments on Azure) ----
   - model_name: claude-haiku-4-5-azure
-    litellm_params:
+    hangarllm_params:
       model: azure_ai/claude-haiku-4-5
       api_base: os.environ/AZURE_AI_API_BASE
       api_key: os.environ/AZURE_AI_API_KEY
   - model_name: claude-sonnet-4-5-azure
-    litellm_params:
+    hangarllm_params:
       model: azure_ai/claude-sonnet-4-5
       api_base: os.environ/AZURE_AI_API_BASE
       api_key: os.environ/AZURE_AI_API_KEY
       extra_headers:
         anthropic-beta: "context-1m-2025-08-07"
   - model_name: claude-opus-4-7-azure
-    litellm_params:
+    hangarllm_params:
       model: azure_ai/claude-opus-4-7
       api_base: os.environ/AZURE_AI_API_BASE
       api_key: os.environ/AZURE_AI_API_KEY
@@ -132,31 +132,31 @@ model_list:
 
   # ---- OpenAI (GPT-5.6) ----
   - model_name: gpt-5-6-sol-openai
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-5.6-sol
       api_key: os.environ/OPENAI_API_KEY
   - model_name: gpt-5-6-terra-openai
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-5.6-terra
       api_key: os.environ/OPENAI_API_KEY
   - model_name: gpt-5-6-luna-openai
-    litellm_params:
+    hangarllm_params:
       model: openai/gpt-5.6-luna
       api_key: os.environ/OPENAI_API_KEY
 
   # ---- Azure OpenAI (GPT-5.6) ----
   - model_name: gpt-5-6-sol-azure-openai
-    litellm_params:
+    hangarllm_params:
       model: azure/gpt-5.6-sol
       api_base: os.environ/AZURE_API_BASE
       api_key: os.environ/AZURE_API_KEY
   - model_name: gpt-5-6-terra-azure-openai
-    litellm_params:
+    hangarllm_params:
       model: azure/gpt-5.6-terra
       api_base: os.environ/AZURE_API_BASE
       api_key: os.environ/AZURE_API_KEY
   - model_name: gpt-5-6-luna-azure-openai
-    litellm_params:
+    hangarllm_params:
       model: azure/gpt-5.6-luna
       api_base: os.environ/AZURE_API_BASE
       api_key: os.environ/AZURE_API_KEY
@@ -166,15 +166,15 @@ model_list:
   # Terra and Luna additionally have us-west-2. One region keeps the
   # column comparable across tiers.
   - model_name: gpt-5-6-sol-bedrock-mantle
-    litellm_params:
+    hangarllm_params:
       model: bedrock_mantle/openai.gpt-5.6-sol
       aws_region_name: us-east-1
   - model_name: gpt-5-6-terra-bedrock-mantle
-    litellm_params:
+    hangarllm_params:
       model: bedrock_mantle/openai.gpt-5.6-terra
       aws_region_name: us-east-1
   - model_name: gpt-5-6-luna-bedrock-mantle
-    litellm_params:
+    hangarllm_params:
       model: bedrock_mantle/openai.gpt-5.6-luna
       aws_region_name: us-east-1
 
@@ -184,6 +184,6 @@ general_settings:
   # test matches what real customers send.
   forward_client_headers_to_llm_api: true
 
-litellm_settings:
+hangarllm_settings:
   drop_params: true
   modify_params: true

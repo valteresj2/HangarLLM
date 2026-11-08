@@ -29,7 +29,7 @@ services:
       context: .
       target: runtime
       args:
-        # ui-prebuilt reuses the committed bundle in litellm/proxy/_experimental/out;
+        # ui-prebuilt reuses the committed bundle in hangarllm/proxy/_experimental/out;
         # set HANGARLLM_UI_STAGE=ui-builder to compile the dashboard inside the image.
         UI_STAGE: ${HANGARLLM_UI_STAGE:-ui-prebuilt}
     image: ghcr.io/hangarllm/hangarllm:local
@@ -156,4 +156,4 @@ volumes:
   caddy_data:
   caddy_config:
   postgres_data:
-    name: hangarllm_postgres_data
+    name: hangarllm_db

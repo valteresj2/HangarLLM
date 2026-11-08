@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.deps.database import get_database
-from litellm.proxy.deps.repositories import get_user_banner_repository
-from litellm.proxy.proxy_server import app
-from litellm.proxy.ui_crud_endpoints.user_banner_dependencies import get_user_banner_audit
-from litellm.repositories.database import Database
-from litellm.repositories.user_banner_repository import UserBannerRepository
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.deps.database import get_database
+from hangarllm.proxy.deps.repositories import get_user_banner_repository
+from hangarllm.proxy.proxy_server import app
+from hangarllm.proxy.ui_crud_endpoints.user_banner_dependencies import get_user_banner_audit
+from hangarllm.repositories.database import Database
+from hangarllm.repositories.user_banner_repository import UserBannerRepository
 from tests._master_key import MASTER_KEY
 from tests._support.native_database import native_database
 
@@ -32,7 +32,7 @@ DISABLED_BANNER = {"enabled": False, "message": "", "severity": "info", "revisio
 NATIVE: Final = native_database()
 
 
-def _auth_override(role: LitellmUserRoles):
+def _auth_override(role: HangarllmUserRoles):
     async def override() -> UserAPIKeyAuth:
         return UserAPIKeyAuth(api_key="sk-test", user_id="test-user", user_role=role)
 
@@ -41,14 +41,14 @@ def _auth_override(role: LitellmUserRoles):
 
 @pytest.fixture
 def admin_auth():
-    app.dependency_overrides[user_api_key_auth] = _auth_override(LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = _auth_override(HangarllmUserRoles.PROXY_ADMIN)
     yield
     app.dependency_overrides.pop(user_api_key_auth, None)
 
 
 @pytest.fixture
 def internal_user_auth():
-    app.dependency_overrides[user_api_key_auth] = _auth_override(LitellmUserRoles.INTERNAL_USER)
+    app.dependency_overrides[user_api_key_auth] = _auth_override(HangarllmUserRoles.INTERNAL_USER)
     yield
     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -62,8 +62,8 @@ def mock_audit_log(monkeypatch):
 
 def _mock_prisma(monkeypatch, record=None):
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=record)
-    mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
+    mock_prisma.db.hangarllm_uisettings.find_unique = AsyncMock(return_value=record)
+    mock_prisma.db.hangarllm_uisettings.upsert = AsyncMock()
     monkeypatch.setitem(app.dependency_overrides, get_database, lambda: Database(prisma=mock_prisma, native=NATIVE))
     return mock_prisma
 
@@ -71,7 +71,7 @@ def _mock_prisma(monkeypatch, record=None):
 class TestGetUserBanner:
     def test_requires_auth(self, monkeypatch):
         _mock_prisma(monkeypatch)
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", MASTER_KEY)
+        monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", MASTER_KEY)
         response = client.get("/get/user_banner")
         assert response.status_code in (401, 403)
 
@@ -122,7 +122,7 @@ class TestUpdateUserBanner:
         async def audit(before, after, user):
             events.append("audited")
 
-        prisma.db.litellm_uisettings.upsert.side_effect = save
+        prisma.db.hangarllm_uisettings.upsert.side_effect = save
         mock_audit_log.side_effect = audit
         response = client.patch("/update/user_banner", json=PUBLISH_BODY)
         assert response.status_code == 200
@@ -131,8 +131,8 @@ class TestUpdateUserBanner:
     @pytest.mark.parametrize(
         ("role", "status", "detail"),
         [
-            (LitellmUserRoles.INTERNAL_USER, 403, "Only proxy admins can update the user banner."),
-            (LitellmUserRoles.PROXY_ADMIN, 500, "Database not connected. Please connect a database."),
+            (HangarllmUserRoles.INTERNAL_USER, 403, "Only proxy admins can update the user banner."),
+            (HangarllmUserRoles.PROXY_ADMIN, 500, "Database not connected. Please connect a database."),
         ],
     )
     def test_no_database_preserves_authorization_precedence(self, monkeypatch, role, status, detail):
@@ -144,7 +144,7 @@ class TestUpdateUserBanner:
 
     def test_failed_write_does_not_schedule_success_audit(self, admin_auth, monkeypatch, mock_audit_log):
         prisma = _mock_prisma(monkeypatch)
-        prisma.db.litellm_uisettings.upsert.side_effect = RuntimeError("storage unavailable")
+        prisma.db.hangarllm_uisettings.upsert.side_effect = RuntimeError("storage unavailable")
         with pytest.raises(RuntimeError, match="storage unavailable"):
             client.patch("/update/user_banner", json=PUBLISH_BODY)
         mock_audit_log.assert_not_called()
@@ -158,7 +158,7 @@ class TestUpdateUserBanner:
         assert after.model_dump() == response.json()["banner"]
         assert user.user_id == "test-user"
         assert (
-            json.loads(prisma.db.litellm_uisettings.upsert.await_args.kwargs["data"]["create"]["ui_settings"])
+            json.loads(prisma.db.hangarllm_uisettings.upsert.await_args.kwargs["data"]["create"]["ui_settings"])
             == after.model_dump()
         )
 
@@ -166,7 +166,7 @@ class TestUpdateUserBanner:
         mock_prisma = _mock_prisma(monkeypatch)
         response = client.patch("/update/user_banner", json=PUBLISH_BODY)
         assert response.status_code == 403
-        mock_prisma.db.litellm_uisettings.upsert.assert_not_awaited()
+        mock_prisma.db.hangarllm_uisettings.upsert.assert_not_awaited()
 
     @pytest.mark.parametrize("override_repository", [False, True])
     def test_persists_and_round_trips(self, admin_auth, monkeypatch, mock_audit_log, override_repository: bool):
@@ -182,13 +182,13 @@ class TestUpdateUserBanner:
         assert {k: saved[k] for k in PUBLISH_BODY} == PUBLISH_BODY
         assert saved["revision"] != ""
 
-        upsert_kwargs = mock_prisma.db.litellm_uisettings.upsert.await_args.kwargs
+        upsert_kwargs = mock_prisma.db.hangarllm_uisettings.upsert.await_args.kwargs
         assert upsert_kwargs["where"] == {"id": "user_banner"}
         persisted_payload = upsert_kwargs["data"]["create"]["ui_settings"]
         assert json.loads(persisted_payload) == saved
         assert json.loads(upsert_kwargs["data"]["update"]["ui_settings"]) == saved
 
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(
+        mock_prisma.db.hangarllm_uisettings.find_unique = AsyncMock(
             return_value=SimpleNamespace(ui_settings=persisted_payload)
         )
         read_back = client.get("/get/user_banner")
@@ -239,4 +239,4 @@ class TestUpdateUserBanner:
         mock_prisma = _mock_prisma(monkeypatch)
         response = client.patch("/update/user_banner", json=payload)
         assert response.status_code == 422
-        mock_prisma.db.litellm_uisettings.upsert.assert_not_awaited()
+        mock_prisma.db.hangarllm_uisettings.upsert.assert_not_awaited()

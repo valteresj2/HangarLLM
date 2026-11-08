@@ -8,7 +8,7 @@ from e2e_config import unique_marker
 from e2e_http import unwrap
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from pydantic import BaseModel, ConfigDict, JsonValue
 
@@ -74,7 +74,7 @@ def _gemini_model(proxy: ProxyClient, resources: ResourceManager) -> str:
     model_name: Final = f"e2e-gemini-interactions-{unique_marker()}"
     model_id: Final = proxy.create_model(
         model_name,
-        LiteLLMParamsBody(model=GEMINI_BACKEND, api_key="os.environ/GEMINI_API_KEY"),
+        HangarLLMParamsBody(model=GEMINI_BACKEND, api_key="os.environ/GEMINI_API_KEY"),
         provider_live=True,
     )
     resources.defer(lambda: proxy.delete_model(model_id))

@@ -420,7 +420,7 @@ _RoutedCase: TypeAlias = Literal[
     "fallback-deployment-drops",
     "fallback-router-default-drops",
     "fallback-request-drops",
-    "alias-to-a-litellm-model-drops",
+    "alias-to-a-hangarllm-model-drops",
     "completion-model-drops",
 ]
 _DROPS_CONTEXT_MANAGEMENT: Final[Mapping[str, JsonValue]] = MappingProxyType(
@@ -438,7 +438,7 @@ class _RoutedProxy:
 def _scripted_gemini(model_name: str, model: str, api_base: str, options: Mapping[str, JsonValue]) -> JsonValue:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "api_base": api_base, "api_key": "scripted-gemini-key", **options},
+        "hangarllm_params": {"model": model, "api_base": api_base, "api_key": "scripted-gemini-key", **options},
     }
 
 
@@ -452,7 +452,7 @@ def _default_fallback_settings(
         ],
         "router_settings": {
             "default_fallbacks": [f"{prefix}-fallback"],
-            **({"default_litellm_params": dict(router_defaults)} if router_defaults else {}),
+            **({"default_hangarllm_params": dict(router_defaults)} if router_defaults else {}),
         },
     }
 
@@ -463,7 +463,7 @@ def _routed_proxy(case: _RoutedCase, prefix: str, api_base: str) -> _RoutedProxy
             return _RoutedProxy(
                 {
                     "model_list": [_scripted_gemini(prefix, f"gemini/{_MODEL}", api_base, {})],
-                    "router_settings": {"default_litellm_params": dict(_DROPS_CONTEXT_MANAGEMENT)},
+                    "router_settings": {"default_hangarllm_params": dict(_DROPS_CONTEXT_MANAGEMENT)},
                 },
                 prefix,
                 {},
@@ -480,7 +480,7 @@ def _routed_proxy(case: _RoutedCase, prefix: str, api_base: str) -> _RoutedProxy
             return _RoutedProxy(
                 _default_fallback_settings(prefix, api_base, {}, {}), f"{prefix}-unrouted", _DROPS_CONTEXT_MANAGEMENT
             )
-        case "alias-to-a-litellm-model-drops":
+        case "alias-to-a-hangarllm-model-drops":
             return _RoutedProxy(
                 {
                     "model_list": [_scripted_gemini(prefix, f"gemini/{_MODEL}", api_base, _DROPS_CONTEXT_MANAGEMENT)],
@@ -526,12 +526,12 @@ def test_count_tokens_follows_the_opt_out_of_the_deployment_proxy_settings_send_
 def _named_deployment(
     scenario: Scenario,
     model_name: str,
-    litellm_params: Mapping[str, JsonValue],
+    hangarllm_params: Mapping[str, JsonValue],
     model_info: Mapping[str, JsonValue],
 ) -> str:
     created: Final = scenario.gateway.post(
         "/model/new",
-        {"model_name": model_name, "litellm_params": dict(litellm_params), "model_info": dict(model_info)},
+        {"model_name": model_name, "hangarllm_params": dict(hangarllm_params), "model_info": dict(model_info)},
     )
     identity: Final = string_value(object_value(created["model_info"])["id"])
     scenario.cleanups.callback(scenario.delete_model, identity)
@@ -575,7 +575,7 @@ def test_count_tokens_reads_the_opt_out_of_a_deployment_id_beside_a_wildcard_rou
     ),
     ids=("deployment-drops", "sibling-deployment-drops", "wildcard-route-matches-first"),
 )
-def test_count_tokens_reads_the_opt_out_of_the_deployment_its_litellm_model_name_routes_to(
+def test_count_tokens_reads_the_opt_out_of_the_deployment_its_hangarllm_model_name_routes_to(
     gateway: Gateway, requested: str, wildcards: tuple[str, ...], files_kept: tuple[bool, ...]
 ) -> None:
     peer: Final = _GeminiPeer()

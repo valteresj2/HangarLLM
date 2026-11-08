@@ -93,7 +93,7 @@ def _deployment(name: str, wire: Wire, sku: _Sku) -> dict[str, JsonValue]:
     team: Final[dict[str, JsonValue]] = {} if sku.team_id is None else {"team_id": sku.team_id}
     return {
         "model_name": name,
-        "litellm_params": {**endpoint, "api_key": sku.key, **weight},
+        "hangarllm_params": {**endpoint, "api_key": sku.key, **weight},
         "model_info": {"mode": sku.mode, **endpoints, **team},
     }
 
@@ -168,7 +168,7 @@ def _deployment_ids_on_a_worker(gateway: Gateway, name: str) -> tuple[str, froze
 
 
 def _wait_until_every_worker_serves(gateway: Gateway, name: str, identities: frozenset[str]) -> None:
-    from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+    from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
     def answers() -> tuple[tuple[str, frozenset[str]], ...]:
         with ThreadPoolExecutor(max_workers=8) as pool:
@@ -352,7 +352,7 @@ def team_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_TeamRig]:
         config: Final = owned_config(
             directory,
             [_deployment(_TEAM_GROUP, wire, chat), _deployment(_TEAM_GROUP, wire, batch)],
-            litellm_settings={"public_model_groups": [_TEAM_GROUP]},
+            hangarllm_settings={"public_model_groups": [_TEAM_GROUP]},
             router_settings={"routing_strategy": "usage-based-routing"},
         )
         with owned_proxy_process(gateway, directory, {}, config=config) as owned, owned.gateway.scenario() as scenario:

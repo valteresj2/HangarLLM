@@ -1,21 +1,21 @@
 ---
-page_title: "litellm_access_groups Data Source - terraform-provider-litellm"
+page_title: "hangarllm_access_groups Data Source - terraform-provider-hangarllm"
 subcategory: ""
 description: |-
-  Retrieves all LiteLLM model access groups.
+  Retrieves all HangarLLM model access groups.
 ---
 
-# litellm_access_groups (Data Source)
+# hangarllm_access_groups (Data Source)
 
-Retrieves all LiteLLM model access groups configured on the proxy.
+Retrieves all HangarLLM model access groups configured on the proxy.
 
 ## Example Usage
 
 ```terraform
-data "litellm_access_groups" "all" {}
+data "hangarllm_access_groups" "all" {}
 
 output "access_group_names" {
-  value = data.litellm_access_groups.all.ids
+  value = data.hangarllm_access_groups.all.ids
 }
 ```
 

@@ -73,7 +73,7 @@ def _openai_reply(_request: Request) -> Reply:
 def _guardrail(name: str, api_base: str, **params: JsonValue) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "pre_call",
             "default_on": False,

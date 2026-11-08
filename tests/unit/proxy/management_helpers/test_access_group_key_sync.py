@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.db.prisma_client import PrismaWrapper
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-from litellm.proxy.management_helpers.access_group_key_sync import (
+from hangarllm.proxy.db.prisma_client import PrismaWrapper
+from hangarllm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from hangarllm.proxy.management_helpers.access_group_key_sync import (
     sync_key_access_group_membership,
     sync_key_regeneration_access_group_membership,
 )
@@ -36,7 +36,7 @@ async def test_regeneration_repoint_update_runs_on_the_writer():
     )
 
     writer_inner.query_raw.assert_awaited_once()
-    assert writer_inner.query_raw.await_args.args[0].startswith('UPDATE "LiteLLM_AccessGroupTable"')
+    assert writer_inner.query_raw.await_args.args[0].startswith('UPDATE "HangarLLM_AccessGroupTable"')
     reader_inner.query_raw.assert_not_awaited()
 
 
@@ -53,7 +53,7 @@ async def test_regeneration_repoint_update_stays_on_the_writer_while_writer_flag
     )
 
     writer_inner.query_raw.assert_awaited_once()
-    assert writer_inner.query_raw.await_args.args[0].startswith('UPDATE "LiteLLM_AccessGroupTable"')
+    assert writer_inner.query_raw.await_args.args[0].startswith('UPDATE "HangarLLM_AccessGroupTable"')
     assert writer_inner.query_raw.await_args.args[1:] == ("old-token", "new-token")
     reader_inner.query_raw.assert_not_awaited()
 
@@ -86,6 +86,6 @@ async def test_membership_attach_and_detach_updates_run_on_the_writer():
 
     assert writer_inner.query_raw.await_count == 2
     assert all(
-        call.args[0].startswith('UPDATE "LiteLLM_AccessGroupTable"') for call in writer_inner.query_raw.await_args_list
+        call.args[0].startswith('UPDATE "HangarLLM_AccessGroupTable"') for call in writer_inner.query_raw.await_args_list
     )
     reader_inner.query_raw.assert_not_awaited()

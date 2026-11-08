@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 import respx
 
-from litellm import text_completion
+from hangarllm import text_completion
 
 FIREWORKS_COMPLETIONS_URL: Final = "https://api.fireworks.ai/inference/v1/completions"
 FIREWORKS_MODEL: Final = "accounts/fireworks/models/llama-v3p1-8b-instruct"

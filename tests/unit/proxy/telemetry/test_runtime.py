@@ -5,11 +5,11 @@ import httpx
 import pytest
 from pydantic import HttpUrl
 
-from litellm.proxy.telemetry.attempt_logger import TelemetryAttemptLogger
-from litellm.proxy.telemetry.runtime import TelemetryRuntime, deployment_hasher
-from litellm.proxy.telemetry.settings import TelemetryDestination, TelemetrySettings
-from litellm.telemetry.consent import ConsentGatedSink, TelemetryConsent
-from litellm.telemetry.records import AttemptRecord, InstanceInfo, RequestRecord, TelemetryGroup, UIEvent
+from hangarllm.proxy.telemetry.attempt_logger import TelemetryAttemptLogger
+from hangarllm.proxy.telemetry.runtime import TelemetryRuntime, deployment_hasher
+from hangarllm.proxy.telemetry.settings import TelemetryDestination, TelemetrySettings
+from hangarllm.telemetry.consent import ConsentGatedSink, TelemetryConsent
+from hangarllm.telemetry.records import AttemptRecord, InstanceInfo, RequestRecord, TelemetryGroup, UIEvent
 from tests.unit.proxy.telemetry.fake_database import SettingsDatabase
 
 _ENDPOINT: Final = HttpUrl("http://telemetry.invalid/v1/reports")
@@ -26,7 +26,7 @@ _SUCCESS: Final = TelemetryConsent(frozenset({TelemetryGroup.HEARTBEAT, Telemetr
 async def _started(settings: TelemetrySettings, db: SettingsDatabase | None) -> TelemetryRuntime:
     runtime: Final = TelemetryRuntime()
     await runtime.start(
-        litellm_version="1.0.0", settings=settings, db=lambda: db, register=lambda _logger: None, http_client=_offline
+        hangarllm_version="1.0.0", settings=settings, db=lambda: db, register=lambda _logger: None, http_client=_offline
     )
     return runtime
 
@@ -47,7 +47,7 @@ async def test_without_a_database_telemetry_needs_valid_pinned_groups_an_endpoin
     registered: Final[list[TelemetryAttemptLogger]] = []  # mutable-ok: captures the register callback
     runtime: Final = TelemetryRuntime()
     await runtime.start(
-        litellm_version="1.0.0", settings=settings, db=lambda: None, register=registered.append, http_client=_offline
+        hangarllm_version="1.0.0", settings=settings, db=lambda: None, register=registered.append, http_client=_offline
     )
     assert runtime.sink is None
     assert registered == []
@@ -63,7 +63,7 @@ async def test_a_veto_never_opens_the_database() -> None:
 
     runtime: Final = TelemetryRuntime()
     await runtime.start(
-        litellm_version="1.0.0", settings=TelemetrySettings(disabled=True), db=_db, register=lambda _logger: None
+        hangarllm_version="1.0.0", settings=TelemetrySettings(disabled=True), db=_db, register=lambda _logger: None
     )
     assert (runtime.sink, runtime.store, opened) == (None, None, [])
 
@@ -73,7 +73,7 @@ async def test_pinned_groups_register_the_attempt_logger_and_stop_cleanly() -> N
     registered: Final[list[TelemetryAttemptLogger]] = []  # mutable-ok: captures the register callback
     runtime: Final = TelemetryRuntime()
     await runtime.start(
-        litellm_version="1.0.0",
+        hangarllm_version="1.0.0",
         settings=TelemetrySettings(groups="HEARTBEAT", endpoint=_ENDPOINT, destination=TelemetryDestination.HTTP),
         db=lambda: None,
         register=registered.append,
@@ -115,7 +115,7 @@ async def test_a_proxy_that_never_opts_in_registers_no_logger_and_writes_nothing
     registered: Final[list[TelemetryAttemptLogger]] = []  # mutable-ok: captures the register callback
     runtime: Final = TelemetryRuntime()
     await runtime.start(
-        litellm_version="1.0.0",
+        hangarllm_version="1.0.0",
         settings=TelemetrySettings(),
         db=lambda: db,
         register=registered.append,
@@ -233,7 +233,7 @@ class _HeldFlushSink:
 async def test_stop_during_an_export_lets_that_export_finish() -> None:
     runtime: Final = TelemetryRuntime()
     await runtime.start(
-        litellm_version="1.0.0",
+        hangarllm_version="1.0.0",
         settings=TelemetrySettings(groups="heartbeat", endpoint=_ENDPOINT, destination=TelemetryDestination.HTTP),
         flush_interval_s=0.001,
         db=lambda: None,
@@ -254,7 +254,7 @@ async def test_settle_timeout_reads_the_configured_value_after_start_and_the_def
     runtime: Final = TelemetryRuntime()
     assert runtime.settings.settle_timeout_seconds == 2.0
     await runtime.start(
-        litellm_version="1.0.0",
+        hangarllm_version="1.0.0",
         settings=TelemetrySettings(groups="heartbeat", endpoint=_ENDPOINT, settle_timeout_seconds=7.5),
         db=lambda: None,
         register=lambda _logger: None,

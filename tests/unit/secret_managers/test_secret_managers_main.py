@@ -14,17 +14,17 @@ from unittest.mock import Mock, patch
 import pytest
 import respx
 
-import litellm
-from litellm._logging import redact_internal_details_from_client_message
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.secret_managers.main import (
+import hangarllm
+from hangarllm._logging import redact_internal_details_from_client_message
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.secret_managers.main import (
     _cached_azure_oidc_token_provider,
     get_secret,
     normalize_nonempty_secret_str,
     resolve_local_oidc_reference,
     secret_manager_would_be_consulted,
 )
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 # Set up logging for debugging
 logging.basicConfig(level=logging.DEBUG)
@@ -77,13 +77,13 @@ def test_oidc_google_success():
     mock_oidc_cache = Mock()
     mock_oidc_cache.get_cache.return_value = None
 
-    with patch("litellm.secret_managers.main.oidc_cache", mock_oidc_cache):
+    with patch("hangarllm.secret_managers.main.oidc_cache", mock_oidc_cache):
         with patch(
-            "litellm.secret_managers.main._get_oidc_http_handler",
+            "hangarllm.secret_managers.main._get_oidc_http_handler",
             mock_get_http_handler,
         ):
             with patch(
-                "litellm.secret_managers.main.HTTPHandler",
+                "hangarllm.secret_managers.main.HTTPHandler",
                 side_effect=lambda timeout=None: mock_handler,
             ):
                 result = get_secret(secret_name)
@@ -102,13 +102,13 @@ def test_oidc_google_cached():
     mock_oidc_cache = Mock()
     mock_oidc_cache.get_cache.return_value = "cached_token"
 
-    with patch("litellm.secret_managers.main.oidc_cache", mock_oidc_cache):
+    with patch("hangarllm.secret_managers.main.oidc_cache", mock_oidc_cache):
         with patch(
-            "litellm.secret_managers.main._get_oidc_http_handler",
+            "hangarllm.secret_managers.main._get_oidc_http_handler",
             mock_get_http_handler,
         ):
             with patch(
-                "litellm.secret_managers.main.HTTPHandler",
+                "hangarllm.secret_managers.main.HTTPHandler",
                 Mock(side_effect=AssertionError("HTTPHandler should not be used")),
             ):
                 result = get_secret(secret_name)
@@ -134,9 +134,9 @@ def test_oidc_google_cache_ttl_capped_by_token_exp():
     mock_oidc_cache = Mock()
     mock_oidc_cache.get_cache.return_value = None
 
-    with patch("litellm.secret_managers.main.oidc_cache", mock_oidc_cache):
+    with patch("hangarllm.secret_managers.main.oidc_cache", mock_oidc_cache):
         with patch(
-            "litellm.secret_managers.main._get_oidc_http_handler",
+            "hangarllm.secret_managers.main._get_oidc_http_handler",
             mock_get_http_handler,
         ):
             result = get_secret(secret_name)
@@ -157,9 +157,9 @@ def test_oidc_google_expired_token_not_cached():
     mock_oidc_cache = Mock()
     mock_oidc_cache.get_cache.return_value = None
 
-    with patch("litellm.secret_managers.main.oidc_cache", mock_oidc_cache):
+    with patch("hangarllm.secret_managers.main.oidc_cache", mock_oidc_cache):
         with patch(
-            "litellm.secret_managers.main._get_oidc_http_handler",
+            "hangarllm.secret_managers.main._get_oidc_http_handler",
             mock_get_http_handler,
         ):
             result = get_secret(secret_name)
@@ -178,9 +178,9 @@ def test_oidc_google_long_lived_token_still_capped_at_default_ttl():
     mock_oidc_cache = Mock()
     mock_oidc_cache.get_cache.return_value = None
 
-    with patch("litellm.secret_managers.main.oidc_cache", mock_oidc_cache):
+    with patch("hangarllm.secret_managers.main.oidc_cache", mock_oidc_cache):
         with patch(
-            "litellm.secret_managers.main._get_oidc_http_handler",
+            "hangarllm.secret_managers.main._get_oidc_http_handler",
             mock_get_http_handler,
         ):
             result = get_secret(secret_name)
@@ -199,9 +199,9 @@ def test_oidc_google_non_jwt_token_keeps_default_ttl():
     mock_oidc_cache = Mock()
     mock_oidc_cache.get_cache.return_value = None
 
-    with patch("litellm.secret_managers.main.oidc_cache", mock_oidc_cache):
+    with patch("hangarllm.secret_managers.main.oidc_cache", mock_oidc_cache):
         with patch(
-            "litellm.secret_managers.main._get_oidc_http_handler",
+            "hangarllm.secret_managers.main._get_oidc_http_handler",
             mock_get_http_handler,
         ):
             result = get_secret(secret_name)
@@ -221,13 +221,13 @@ def test_oidc_google_failure():
     mock_oidc_cache = Mock()
     mock_oidc_cache.get_cache.return_value = None
 
-    with patch("litellm.secret_managers.main.oidc_cache", mock_oidc_cache):
+    with patch("hangarllm.secret_managers.main.oidc_cache", mock_oidc_cache):
         with patch(
-            "litellm.secret_managers.main._get_oidc_http_handler",
+            "hangarllm.secret_managers.main._get_oidc_http_handler",
             mock_get_http_handler,
         ):
             with patch(
-                "litellm.secret_managers.main.HTTPHandler",
+                "hangarllm.secret_managers.main.HTTPHandler",
                 side_effect=lambda timeout=None: mock_handler,
             ):
                 with pytest.raises(ValueError, match="Google OIDC provider failed"):
@@ -293,8 +293,8 @@ def test_oidc_circleci_failure(monkeypatch):
         get_secret(secret_name)
 
 
-@patch("litellm.secret_managers.main.oidc_cache")
-@patch("litellm.secret_managers.main._get_oidc_http_handler")
+@patch("hangarllm.secret_managers.main.oidc_cache")
+@patch("hangarllm.secret_managers.main._get_oidc_http_handler")
 def test_oidc_github_success(mock_get_http_handler, mock_oidc_cache, mock_env):
     mock_env["ACTIONS_ID_TOKEN_REQUEST_URL"] = "https://github.com/token"
     mock_env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = "github_token"
@@ -335,7 +335,7 @@ def test_oidc_azure_file_success(mock_env, tmp_path):
     assert result == "azure_token"
 
 
-@patch("litellm.secret_managers.main.get_azure_ad_token_provider")
+@patch("hangarllm.secret_managers.main.get_azure_ad_token_provider")
 def test_oidc_azure_ad_token_success(mock_get_azure_ad_token_provider, monkeypatch):
     # Force-unset so we always hit the Azure AD token provider path (CI may set AZURE_FEDERATED_TOKEN_FILE)
     monkeypatch.delenv("AZURE_FEDERATED_TOKEN_FILE", raising=False)
@@ -379,7 +379,7 @@ def test_concurrent_azure_oidc_reads_build_one_token_provider(monkeypatch: pytes
 
     _cached_azure_oidc_token_provider.cache_clear()
     with (
-        patch("litellm.secret_managers.main.get_azure_ad_token_provider", side_effect=held_build),
+        patch("hangarllm.secret_managers.main.get_azure_ad_token_provider", side_effect=held_build),
         ThreadPoolExecutor(max_workers=callers) as pool,
     ):
         calls: Final = tuple(pool.submit(read) for _ in range(callers))
@@ -396,7 +396,7 @@ def test_concurrent_azure_oidc_reads_build_one_token_provider(monkeypatch: pytes
 def test_oidc_file_success(tmp_path, monkeypatch):
     token_file = tmp_path / "token.txt"
     token_file.write_text("file_token")
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
 
     secret_name = f"oidc/file/{token_file}"
     result = get_secret(secret_name)
@@ -408,7 +408,7 @@ def test_oidc_file_reads_a_token_under_a_directory_named_oidc(tmp_path, monkeypa
     token_dir: Final = tmp_path / "oidc"
     token_dir.mkdir()
     (token_dir / "token").write_text("nested_token")
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
 
     assert get_secret(f"oidc/file/{token_dir}/token") == "nested_token"
 
@@ -419,14 +419,14 @@ def test_oidc_file_rejects_path_outside_allowlist(tmp_path, monkeypatch):
     # Allowlist a different directory.
     allowed_dir = tmp_path / "allowed"
     allowed_dir.mkdir()
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(allowed_dir))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(allowed_dir))
 
     with pytest.raises(ValueError, match="outside the allowed credential directories"):
         get_secret(f"oidc/file/{outside_file}")
 
 
 def test_oidc_file_rejects_relative_path_with_a_hint_client_redaction_leaves_whole(tmp_path, monkeypatch):
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
     with pytest.raises(ValueError, match="must be absolute") as excinfo:
         get_secret("oidc/file/relative/path/token")
     hint: Final = str(excinfo.value)
@@ -510,10 +510,10 @@ def test_secret_manager_would_be_consulted_matches_get_secret(
     lookup that never happened.
     """
     asked = []
-    monkeypatch.setattr(litellm, "secret_manager_client", _SpySecretManager(asked))
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", _SpySecretManager(asked))
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "_key_management_settings",
         KeyManagementSettings(access_mode=access_mode, hosted_keys=hosted_keys),
     )
@@ -529,7 +529,7 @@ def test_secret_manager_would_be_consulted_matches_get_secret(
 
 
 def test_secret_manager_would_be_consulted_is_false_without_a_client(monkeypatch):
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
 
     assert secret_manager_would_be_consulted("os.environ/ANY_NAME") is False
 
@@ -558,9 +558,9 @@ class _FixedValueSecretManager(CustomSecretManager):
     ],
 )
 def test_get_secret_turns_only_boolean_literals_from_the_secret_manager_into_bools(monkeypatch, stored, expected):
-    monkeypatch.setattr(litellm, "secret_manager_client", _FixedValueSecretManager(stored))
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", _FixedValueSecretManager(stored))
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
     monkeypatch.delenv("STORED_FLAG", raising=False)
 
     secret = get_secret("os.environ/STORED_FLAG")
@@ -574,7 +574,7 @@ def test_an_unresolvable_reference_cannot_forge_a_server_log_line(
 ) -> None:
     monkeypatch.delenv("LIT_UNSET_SA_TOKEN", raising=False)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM"):
         resolve_local_oidc_reference("oidc/env/LIT_UNSET_SA_TOKEN\nFORGED ENTRY")
 
     assert "LIT_UNSET_SA_TOKEN" in caplog.text

@@ -9,7 +9,7 @@ Two failures the fix closes:
    explicitly setting ``auth: true`` shipped an unauthenticated
    forwarder.
 2. Setting ``auth: true`` was rejected at startup unless the operator
-   had a LiteLLM Enterprise license, leaving OSS deployments with no
+   had a HangarLLM Enterprise license, leaving OSS deployments with no
    safe configuration.
 
 The fix flips the default to ``True`` (safe-by-default) and removes
@@ -29,14 +29,14 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 
-from litellm.proxy._types import PassThroughGenericEndpoint, ProxyException
-from litellm.proxy.auth.user_api_key_auth import (
+from hangarllm.proxy._types import PassThroughGenericEndpoint, ProxyException
+from hangarllm.proxy.auth.user_api_key_auth import (
     check_api_key_for_custom_headers_or_pass_through_endpoints,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import (
     _register_pass_through_endpoint,
 )
-from litellm.proxy.proxy_server import openai_exception_handler
+from hangarllm.proxy.proxy_server import openai_exception_handler
 
 
 def test_passthrough_auth_defaults_to_true():
@@ -65,7 +65,7 @@ def test_passthrough_auth_can_still_be_explicitly_disabled():
 async def test_register_passthrough_with_auth_true_works_for_oss(monkeypatch: pytest.MonkeyPatch) -> None:
     app: Final = FastAPI(exception_handlers={ProxyException: openai_exception_handler})
     visited: Final[set[str]] = set()
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-passthrough-test")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-passthrough-test")
 
     endpoint: Final = PassThroughGenericEndpoint(
         path="/forwarder",
@@ -120,7 +120,7 @@ async def test_runtime_check_treats_missing_auth_key_as_authenticated():
 async def test_runtime_check_explicit_auth_false_still_skips_validation():
     # Operators who explicitly set ``auth: False`` get the legacy
     # behaviour — an empty UserAPIKeyAuth, no key required.
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     request = MagicMock()
     request.headers = {}
@@ -142,8 +142,8 @@ async def test_runtime_check_explicit_auth_false_still_skips_validation():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("route", ["/eu_jev/v1/systemone", "/eu_jev/v1/systemone/extra", "/eu_jev/v1/systemone2"])
-async def test_no_eu_jev_route_reads_the_litellm_user_api_key_header(route: str) -> None:
-    request: Final = Request({"type": "http", "headers": [(b"litellm_user_api_key", b"sk-from-header")]})
+async def test_no_eu_jev_route_reads_the_hangarllm_user_api_key_header(route: str) -> None:
+    request: Final = Request({"type": "http", "headers": [(b"hangarllm_user_api_key", b"sk-from-header")]})
 
     result: Final = await check_api_key_for_custom_headers_or_pass_through_endpoints(
         request=request, route=route, pass_through_endpoints=None, api_key="sk-from-bearer"

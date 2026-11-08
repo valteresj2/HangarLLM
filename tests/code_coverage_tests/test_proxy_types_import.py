@@ -22,9 +22,9 @@ repo_root = sys.argv[1]
 
 class ImportTracer(importlib.abc.MetaPathFinder):
     def find_spec(self, name, path, target=None):
-        if {block_enterprise!r} and name.startswith("litellm_enterprise"):
-            raise ImportError("blocked litellm_enterprise imports")
-        if name == "litellm.proxy._types":
+        if {block_enterprise!r} and name.startswith("hangarllm_enterprise"):
+            raise ImportError("blocked hangarllm_enterprise imports")
+        if name == "hangarllm.proxy._types":
             repository_frames = [
                 frame for frame in traceback.extract_stack()
                 if repo_root in frame.filename
@@ -39,11 +39,11 @@ class ImportTracer(importlib.abc.MetaPathFinder):
         return None
 
 sys.meta_path.insert(0, ImportTracer())
-import litellm
-if not pathlib.Path(litellm.__file__).resolve().is_relative_to(pathlib.Path(repo_root)):
-    raise SystemExit(f"imported litellm from {{litellm.__file__}}, expected under {{repo_root}}")
-print("litellm.__file__:", litellm.__file__)
-print("_types loaded:", "litellm.proxy._types" in sys.modules)
+import hangarllm
+if not pathlib.Path(hangarllm.__file__).resolve().is_relative_to(pathlib.Path(repo_root)):
+    raise SystemExit(f"imported hangarllm from {{hangarllm.__file__}}, expected under {{repo_root}}")
+print("hangarllm.__file__:", hangarllm.__file__)
+print("_types loaded:", "hangarllm.proxy._types" in sys.modules)
     """
     return subprocess.run(
         [sys.executable, "-I", "-c", program, str(repo_root.resolve())],
@@ -58,17 +58,17 @@ def _run_proxy_types_attribute_access(repo_root: Path) -> subprocess.CompletedPr
     program: Final = """
 import pathlib
 import sys
-import litellm
+import hangarllm
 
 repo_root = sys.argv[1]
-if not pathlib.Path(litellm.__file__).resolve().is_relative_to(pathlib.Path(repo_root)):
-    raise SystemExit(f"imported litellm from {litellm.__file__}, expected under {repo_root}")
+if not pathlib.Path(hangarllm.__file__).resolve().is_relative_to(pathlib.Path(repo_root)):
+    raise SystemExit(f"imported hangarllm from {hangarllm.__file__}, expected under {repo_root}")
 
-assert "litellm.proxy._types" not in sys.modules
+assert "hangarllm.proxy._types" not in sys.modules
 print("_types loaded before attribute access: False")
-user_api_key_auth = litellm.proxy._types.UserAPIKeyAuth
-assert "litellm.proxy._types" in sys.modules
-proxy_types = sys.modules["litellm.proxy._types"]
+user_api_key_auth = hangarllm.proxy._types.UserAPIKeyAuth
+assert "hangarllm.proxy._types" in sys.modules
+proxy_types = sys.modules["hangarllm.proxy._types"]
 assert user_api_key_auth is proxy_types.UserAPIKeyAuth
 print("_types loaded after attribute access: True")
 print("UserAPIKeyAuth identity: True")
@@ -83,7 +83,7 @@ print("UserAPIKeyAuth identity: True")
 
 
 @pytest.mark.parametrize("block_enterprise", (False, True))
-def test_import_litellm_does_not_load_proxy_types(block_enterprise: bool) -> None:
+def test_import_hangarllm_does_not_load_proxy_types(block_enterprise: bool) -> None:
     result: Final = _run_import_check(block_enterprise, _REPO_ROOT)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "_types loaded: False" in result.stdout, result.stdout + result.stderr

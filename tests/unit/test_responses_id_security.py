@@ -13,17 +13,17 @@ import pytest
 from fastapi import HTTPException
 from pydantic import TypeAdapter
 
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.hooks.responses_id_security import (
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.hooks.responses_id_security import (
     ResponsesIDSecurity,
     _streams_response_ids,
 )
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import (
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.llms.openai import (
     GenericEvent,
     ResponseAPIUsage,
     ResponseCompletedEvent,
@@ -31,8 +31,8 @@ from litellm.types.llms.openai import (
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.responses.main import DeleteResponseResult
-from litellm.types.utils import (
+from hangarllm.types.responses.main import DeleteResponseResult
+from hangarllm.types.utils import (
     ADDRESSED_COMPARISON_RESPONSE_ID_FIELD,
     CallTypesLiteral,
     Choices,
@@ -72,7 +72,7 @@ class TestIsEncryptedResponseId:
     def test_is_encrypted_response_id_valid(self, responses_id_security):
         """Test that a properly encrypted response ID is identified correctly"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import hangarllm.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = (
@@ -87,7 +87,7 @@ class TestIsEncryptedResponseId:
     def test_is_encrypted_response_id_invalid(self, responses_id_security):
         """Test that an unencrypted response ID returns False"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import hangarllm.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = None
@@ -103,7 +103,7 @@ class TestDecryptResponseId:
     def test_decrypt_response_id_valid(self, responses_id_security):
         """Test decrypting a valid encrypted response ID"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import hangarllm.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = f"{SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value}response_id:resp_original_123;user_id:user-456;team_id:team-789"
@@ -117,7 +117,7 @@ class TestDecryptResponseId:
     def test_decrypt_response_id_no_encryption(self, responses_id_security):
         """Test decrypting a non-encrypted response ID"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import hangarllm.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = None
@@ -144,7 +144,7 @@ class TestCheckUserAccessToResponseId:
 
     def test_check_user_access_different_user_raises_exception(self, responses_id_security, mock_user_api_key_dict):
         """Test that different user is denied access to response ID"""
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id="different-user-456",
@@ -157,7 +157,7 @@ class TestCheckUserAccessToResponseId:
 
     def test_check_user_access_different_team_raises_exception(self, responses_id_security, mock_user_api_key_dict):
         """Test that different team is denied access to response ID"""
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id=None,
@@ -176,7 +176,7 @@ class TestCheckUserAccessToResponseId:
         mock_auth_team_a.team_id = "team-a"
         mock_auth_team_a.user_role = None
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id=None,
@@ -195,7 +195,7 @@ class TestCheckUserAccessToResponseId:
         mock_auth_team_a.team_id = "team-a"
         mock_auth_team_a.user_role = None
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("hangarllm.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id="user-from-team-b",
@@ -225,13 +225,13 @@ class TestCheckUserAccessToResponseId:
 
     def test_check_user_access_admin_can_access_any_response(self, responses_id_security):
         """Test that proxy admin can access any response ID"""
-        from litellm.proxy._types import LitellmUserRoles
+        from hangarllm.proxy._types import HangarllmUserRoles
 
         # Create a mock admin user
         mock_admin_auth = MagicMock()
         mock_admin_auth.user_id = "admin-user"
         mock_admin_auth.team_id = "admin-team"
-        mock_admin_auth.user_role = LitellmUserRoles.PROXY_ADMIN.value
+        mock_admin_auth.user_role = HangarllmUserRoles.PROXY_ADMIN.value
 
         # Admin should be able to access response from different team and different user
         result = responses_id_security.check_user_access_to_response_id(
@@ -245,7 +245,7 @@ class TestCheckUserAccessToResponseId:
     def test_check_user_access_security_disabled(self, responses_id_security, mock_user_api_key_dict):
         """Test that when security is disabled, any user can access any response"""
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"disable_responses_id_security": True},
         ):
             # User from team A should be able to access response from team B when security is disabled
@@ -320,7 +320,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("hangarllm.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -349,7 +349,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", "user-from-team-b", "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("hangarllm.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -405,7 +405,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("hangarllm.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -434,7 +434,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("hangarllm.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -483,7 +483,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("hangarllm.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -560,7 +560,7 @@ class TestAsyncPostCallStreamingIteratorHook:
         )
 
     async def _drain_streamed_id(self, responses_id_security, route, monkeypatch):
-        monkeypatch.setenv("LITELLM_SALT_KEY", "sk-test-salt-key-abcdefghij")
+        monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-test-salt-key-abcdefghij")
         event = self._completed_event("resp_rawprovider123")
 
         mock_auth = MagicMock()
@@ -665,7 +665,7 @@ class TestStreamedGenericEventIdEncryption:
         ] + [event.id for event in events if isinstance(getattr(event, "id", None), str)]
 
     async def _drain(self, responses_id_security, monkeypatch):
-        monkeypatch.setenv("LITELLM_SALT_KEY", "sk-test-salt-key-abcdefghij")
+        monkeypatch.setenv("HANGARLLM_SALT_KEY", "sk-test-salt-key-abcdefghij")
 
         mock_auth = MagicMock()
         mock_auth.user_id = "user-a"
@@ -766,7 +766,7 @@ _ADDRESSED_ID_FIELD_BY_CALL_TYPE = {
 @pytest.fixture
 def salt_key_env(monkeypatch):
     """Give the encrypt/decrypt helpers a real salt key so ids round-trip for real."""
-    monkeypatch.setenv("LITELLM_SALT_KEY", _UNIT_TEST_SALT_KEY)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", _UNIT_TEST_SALT_KEY)
     return _UNIT_TEST_SALT_KEY
 
 
@@ -781,7 +781,7 @@ def _hook(
 
 
 def _auth(
-    user_id: str = "owner-user", team_id: str = "owner-team", user_role: LitellmUserRoles | None = None
+    user_id: str = "owner-user", team_id: str = "owner-team", user_role: HangarllmUserRoles | None = None
 ) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(user_id=user_id, team_id=team_id, user_role=user_role)
 
@@ -946,7 +946,7 @@ async def test_raw_comparison_id_is_rejected_by_default(salt_key_env: str, neste
         ({"allow_unmanaged_response_ids": True}, _UNIT_TEST_SALT_KEY, None),
         ({"disable_responses_id_security": True}, _UNIT_TEST_SALT_KEY, None),
         ({}, None, None),
-        ({}, _UNIT_TEST_SALT_KEY, LitellmUserRoles.PROXY_ADMIN),
+        ({}, _UNIT_TEST_SALT_KEY, HangarllmUserRoles.PROXY_ADMIN),
     ],
 )
 async def test_raw_comparison_id_follows_previous_response_id_escape_hatches(
@@ -954,7 +954,7 @@ async def test_raw_comparison_id_follows_previous_response_id_escape_hatches(
     nested: bool,
     general_settings: dict[str, bool],
     signing_key: str | None,
-    user_role: LitellmUserRoles | None,
+    user_role: HangarllmUserRoles | None,
 ) -> None:
     hook: Final = _hook(general_settings=general_settings, signing_key=signing_key)
     result: Final = TypeAdapter(dict[str, object]).validate_python(
@@ -1188,7 +1188,7 @@ class TestUnmanagedResponseIdEscapeHatches:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("call_type", sorted(_ADDRESSED_ID_FIELD_BY_CALL_TYPE))
     async def test_proxy_without_a_signing_key_forwards_the_id_untouched(self, mock_cache, monkeypatch, call_type):
-        monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+        monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
         field = _ADDRESSED_ID_FIELD_BY_CALL_TYPE[call_type]
         data = {field: _FABRICATED_UNMANAGED_ID}
 
@@ -1203,12 +1203,12 @@ class TestUnmanagedResponseIdEscapeHatches:
 
     @pytest.mark.asyncio
     async def test_proxy_admin_may_address_an_unmanaged_id(self, mock_cache, salt_key_env):
-        from litellm.proxy._types import LitellmUserRoles
+        from hangarllm.proxy._types import HangarllmUserRoles
 
         data = {"response_id": _FABRICATED_UNMANAGED_ID}
 
         result = await _hook().async_pre_call_hook(
-            user_api_key_dict=_auth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=_auth(user_role=HangarllmUserRoles.PROXY_ADMIN),
             cache=mock_cache,
             data=data,
             call_type="aget_responses",
@@ -1226,7 +1226,7 @@ class TestClientSuppliedRetainedIdCannotBypassAuthorization:
         field = _ADDRESSED_ID_FIELD_BY_CALL_TYPE[call_type]
         data = {
             field: _FABRICATED_UNMANAGED_ID,
-            "_litellm_addressed_response_id": _FABRICATED_UNMANAGED_ID,
+            "_hangarllm_addressed_response_id": _FABRICATED_UNMANAGED_ID,
         }
 
         with pytest.raises(HTTPException) as exc_info:
@@ -1243,7 +1243,7 @@ class TestClientSuppliedRetainedIdCannotBypassAuthorization:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("forged", [{"nested": "value"}, ["list"], 42, "", None])
     async def test_non_string_retained_id_falls_back_to_the_addressed_field(self, mock_cache, salt_key_env, forged):
-        data = {"response_id": _FABRICATED_UNMANAGED_ID, "_litellm_addressed_response_id": forged}
+        data = {"response_id": _FABRICATED_UNMANAGED_ID, "_hangarllm_addressed_response_id": forged}
 
         with pytest.raises(HTTPException) as exc_info:
             await _hook().async_pre_call_hook(
@@ -1261,7 +1261,7 @@ class TestClientSuppliedRetainedIdCannotBypassAuthorization:
         stranger = _auth(user_id="stranger-user", team_id="stranger-team")
         stranger_id = _issue_managed_id(hook, stranger, provider_response_id="resp_strangerownprovideridcccccccc")
         victim_provider_id = "resp_victimprovideriddddddddddddddddddddd"
-        data = {"response_id": victim_provider_id, "_litellm_addressed_response_id": stranger_id}
+        data = {"response_id": victim_provider_id, "_hangarllm_addressed_response_id": stranger_id}
 
         result = await hook.async_pre_call_hook(
             user_api_key_dict=stranger,
@@ -1275,9 +1275,9 @@ class TestClientSuppliedRetainedIdCannotBypassAuthorization:
 
 
 def _admin():
-    from litellm.proxy._types import LitellmUserRoles
+    from hangarllm.proxy._types import HangarllmUserRoles
 
-    return _auth(user_id="admin-user", team_id="admin-team", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return _auth(user_id="admin-user", team_id="admin-team", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 def _provider_answer(response_id: str) -> ResponsesAPIResponse:
@@ -1365,7 +1365,7 @@ class TestReadsAnswerWithTheIdTheClientHolds:
         assert hook._decrypt_response_id(result.id) == (_FABRICATED_UNMANAGED_ID, "admin-user", "admin-team")
 
 
-_LOGGED_MANAGED_ID = "resp_managedidlitellmbuiltbeforethehookran"
+_LOGGED_MANAGED_ID = "resp_managedidhangarllmbuiltbeforethehookran"
 
 
 def _streamed_response(response_id):
@@ -1431,18 +1431,18 @@ async def _stream_logged_mid_stream(
 ) -> tuple[str, _SpendRowRecorder]:
     streaming_caller = caller if caller is not None else _auth()
     recorder = _SpendRowRecorder()
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="gpt-5.1",
         messages=[],
         stream=True,
         call_type="aresponses",
         start_time=datetime.datetime.now(),
-        litellm_call_id="streamed-responses-call",
+        hangarllm_call_id="streamed-responses-call",
         function_id="streamed-responses-fn",
         dynamic_async_success_callbacks=[recorder],
     )
     logging_obj.update_environment_variables(
-        model="gpt-5.1", user="", optional_params={}, litellm_params={"api_base": ""}
+        model="gpt-5.1", user="", optional_params={}, hangarllm_params={"api_base": ""}
     )
     upstream = _upstream_frames()
 
@@ -1453,7 +1453,7 @@ async def _stream_logged_mid_stream(
     client_stream = hook.async_post_call_streaming_iterator_hook(
         user_api_key_dict=streaming_caller.model_copy(update={"request_route": route}),
         response=frames(),
-        request_data={**(request_data or {}), "litellm_logging_obj": logging_obj},
+        request_data={**(request_data or {}), "hangarllm_logging_obj": logging_obj},
     )
     first_frame = await anext(client_stream)
     now = datetime.datetime.now()
@@ -1574,18 +1574,18 @@ async def _read_logged_by_callbacks(
 ) -> tuple[str, _SpendRowRecorder]:
     recorder = _SpendRowRecorder()
     now = datetime.datetime.now()
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = HangarLLMLoggingObj(
         model="gpt-5.1",
         messages=[],
         stream=False,
         call_type=call_type,
         start_time=now,
-        litellm_call_id=f"{call_type}-call",
+        hangarllm_call_id=f"{call_type}-call",
         function_id=f"{call_type}-fn",
         dynamic_async_success_callbacks=[recorder],
     )
     logging_obj.update_environment_variables(
-        model="gpt-5.1", user="", optional_params={}, litellm_params={"api_base": ""}
+        model="gpt-5.1", user="", optional_params={}, hangarllm_params={"api_base": ""}
     )
     data = await hook.async_pre_call_hook(
         user_api_key_dict=caller, cache=cache, data={"response_id": issued_id}, call_type=call_type

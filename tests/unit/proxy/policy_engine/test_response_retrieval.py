@@ -3,12 +3,12 @@ from collections.abc import Iterator, Mapping
 
 import pytest
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.proxy.policy_engine.response_retrieval import attach_post_call_pipelines_to_retrieval
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.router import Deployment, LiteLLM_Params
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.policy_engine.attachment_registry import get_attachment_registry
+from hangarllm.proxy.policy_engine.policy_registry import get_policy_registry
+from hangarllm.proxy.policy_engine.response_retrieval import attach_post_call_pipelines_to_retrieval
+from hangarllm.responses.utils import ResponsesAPIRequestUtils
+from hangarllm.types.router import Deployment, HangarLLM_Params
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 GOVERNED_MODEL_GROUP = "gpt-5.4-mini"
@@ -31,7 +31,7 @@ class FakeRouter:
 def _deployment(model_group: str, model_id: str) -> Deployment:
     return Deployment(
         model_name=model_group,
-        litellm_params=LiteLLM_Params(model=f"openai/{model_group}"),
+        hangarllm_params=HangarLLM_Params(model=f"openai/{model_group}"),
         model_info={"id": model_id},
     )
 
@@ -88,11 +88,11 @@ def policy_engine() -> Iterator[None]:
 
 
 def _retrieval_data(model_id: str) -> dict[str, object]:
-    return {"response_id": _encoded_response_id(model_id), "litellm_metadata": {}}
+    return {"response_id": _encoded_response_id(model_id), "hangarllm_metadata": {}}
 
 
 def _attached_pipelines(data: Mapping[str, object]) -> tuple[tuple[str, str], ...]:
-    bucket = data["litellm_metadata"]
+    bucket = data["hangarllm_metadata"]
     assert isinstance(bucket, dict)
     return tuple(
         (policy_name, ",".join(step.guardrail for step in pipeline.steps))
@@ -106,12 +106,12 @@ def test_attaches_model_scoped_post_call_pipeline_to_retrieval(policy_engine: No
     attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=_router())
 
     assert _attached_pipelines(data) == (("response-governance", "output-word-filter"),)
-    assert data["litellm_metadata"]["_pipeline_managed_guardrails"] == frozenset({"output-word-filter"})
-    assert data["litellm_metadata"]["applied_policies"] == ["response-governance"]
-    assert data["litellm_metadata"]["applied_guardrails"] == ["output-word-filter"]
-    assert data["litellm_metadata"]["policy_sources"] == {"response-governance": "model:gpt-5.4-mini"}
+    assert data["hangarllm_metadata"]["_pipeline_managed_guardrails"] == frozenset({"output-word-filter"})
+    assert data["hangarllm_metadata"]["applied_policies"] == ["response-governance"]
+    assert data["hangarllm_metadata"]["applied_guardrails"] == ["output-word-filter"]
+    assert data["hangarllm_metadata"]["policy_sources"] == {"response-governance": "model:gpt-5.4-mini"}
     assert "model" not in data
-    assert "guardrails" not in data["litellm_metadata"]
+    assert "guardrails" not in data["hangarllm_metadata"]
 
 
 def test_key_and_team_context_also_governs_retrieval(policy_engine: None) -> None:
@@ -135,13 +135,13 @@ def test_tag_attached_policy_is_not_re_matched_when_the_retrieval_carries_no_tag
 def test_tag_attached_policy_governs_a_retrieval_whose_metadata_carries_the_tag(policy_engine: None) -> None:
     data: dict[str, object] = {
         "response_id": _encoded_response_id(UNGOVERNED_MODEL_ID),
-        "litellm_metadata": {"tags": ["governed"]},
+        "hangarllm_metadata": {"tags": ["governed"]},
     }
 
     attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=_router())
 
     assert _attached_pipelines(data) == (("tag-governance", "tag-word-filter"),)
-    assert data["litellm_metadata"]["policy_sources"] == {"tag-governance": "tag:governed"}
+    assert data["hangarllm_metadata"]["policy_sources"] == {"tag-governance": "tag:governed"}
 
 
 def test_retrieval_of_an_ungoverned_model_attaches_nothing(policy_engine: None) -> None:
@@ -160,7 +160,7 @@ def test_already_attached_policy_is_not_attached_twice(policy_engine: None) -> N
     attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=router)
 
     assert _attached_pipelines(data) == (("response-governance", "output-word-filter"),)
-    assert data["litellm_metadata"]["applied_policies"] == ["response-governance"]
+    assert data["hangarllm_metadata"]["applied_policies"] == ["response-governance"]
 
 
 def _hidden_submit_model_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
@@ -176,7 +176,7 @@ def test_wildcard_deployment_attaches_nothing_for_the_submitted_model_and_warns(
 ) -> None:
     data = _retrieval_data(WILDCARD_MODEL_ID)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=_router())
 
     assert data == _retrieval_data(WILDCARD_MODEL_ID)
@@ -192,7 +192,7 @@ def test_aliased_model_group_still_attaches_its_own_policies_and_warns(
     data = _retrieval_data(GOVERNED_MODEL_ID)
     router = _router({"gpt-mini": GOVERNED_MODEL_GROUP, "gpt-hidden": {"model": GOVERNED_MODEL_GROUP, "hidden": True}})
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=router)
 
     assert _attached_pipelines(data) == (("response-governance", "output-word-filter"),)
@@ -205,7 +205,7 @@ def test_aliased_model_group_still_attaches_its_own_policies_and_warns(
 def test_plain_model_group_retrieval_does_not_warn_about_the_submitted_model(
     policy_engine: None, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         attach_post_call_pipelines_to_retrieval(
             data=_retrieval_data(GOVERNED_MODEL_ID),
             user_api_key_dict=UserAPIKeyAuth(),
@@ -235,19 +235,19 @@ def _ungoverned_retrieval_warnings(caplog: pytest.LogCaptureFixture) -> list[str
 def test_unresolvable_response_id_attaches_nothing_and_warns(
     policy_engine: None, caplog: pytest.LogCaptureFixture, response_id: str, reason: str
 ) -> None:
-    data = {"response_id": response_id, "litellm_metadata": {}}
+    data = {"response_id": response_id, "hangarllm_metadata": {}}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=_router())
 
-    assert data == {"response_id": response_id, "litellm_metadata": {}}
+    assert data == {"response_id": response_id, "hangarllm_metadata": {}}
     assert [message.endswith(f"({reason})") for message in _ungoverned_retrieval_warnings(caplog)] == [True]
 
 
 def test_without_a_router_attaches_nothing_and_warns(policy_engine: None, caplog: pytest.LogCaptureFixture) -> None:
     data = _retrieval_data(GOVERNED_MODEL_ID)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=None)
 
     assert data == _retrieval_data(GOVERNED_MODEL_ID)
@@ -258,7 +258,7 @@ def test_without_policy_engine_attaches_nothing_quietly(caplog: pytest.LogCaptur
     get_policy_registry().clear()
     data = _retrieval_data(GOVERNED_MODEL_ID)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="HangarLLM Proxy"):
         attach_post_call_pipelines_to_retrieval(data=data, user_api_key_dict=UserAPIKeyAuth(), llm_router=None)
 
     assert data == _retrieval_data(GOVERNED_MODEL_ID)

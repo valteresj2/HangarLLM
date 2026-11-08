@@ -102,7 +102,7 @@ def _sent_messages(body: dict[str, JsonValue]) -> list[dict[str, JsonValue]]:
 
 def _spend_status(identity: str) -> JsonValue:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
         lambda found: len(found) == 1,
         seconds=70,
     )

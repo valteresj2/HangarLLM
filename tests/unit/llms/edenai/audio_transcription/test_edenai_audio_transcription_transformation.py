@@ -4,12 +4,12 @@ reports the real per-request cost at the top level of the JSON body."""
 import httpx
 import pytest
 
-import litellm
-from litellm.cost_calculator import get_response_cost_from_hidden_params
-from litellm.llms.edenai.audio_transcription.transformation import EdenAIAudioTranscriptionConfig
-from litellm.llms.edenai.common_utils import EdenAIException
-from litellm.types.utils import LlmProviders, TranscriptionResponse
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.cost_calculator import get_response_cost_from_hidden_params
+from hangarllm.llms.edenai.audio_transcription.transformation import EdenAIAudioTranscriptionConfig
+from hangarllm.llms.edenai.common_utils import EdenAIException
+from hangarllm.types.utils import LlmProviders, TranscriptionResponse
+from hangarllm.utils import ProviderConfigManager
 
 EDEN_BASE = "https://api.edenai.run/v3"
 EDEN_TRANSCRIPTIONS_URL = f"{EDEN_BASE}/audio/transcriptions"
@@ -51,27 +51,27 @@ class TestRegistration:
 class TestRequestTransformation:
     def test_sends_the_file_as_multipart_without_forcing_verbose_json(self):
         request = EdenAIAudioTranscriptionConfig().transform_audio_transcription_request(
-            model=SELLER_MODEL, audio_file=AUDIO_FILE, optional_params={"language": "en"}, litellm_params={}
+            model=SELLER_MODEL, audio_file=AUDIO_FILE, optional_params={"language": "en"}, hangarllm_params={}
         )
 
         assert request.data == {"model": SELLER_MODEL, "language": "en"}
         assert request.files == {"file": AUDIO_FILE}
 
     def test_sdk_style_extra_body_is_flattened_into_form_fields(self):
-        """LiteLLM parks `model` and any non-OpenAI kwarg under `extra_body` for the OpenAI SDK, and a
+        """HangarLLM parks `model` and any non-OpenAI kwarg under `extra_body` for the OpenAI SDK, and a
         nested dict cannot ride in a multipart form."""
         request = EdenAIAudioTranscriptionConfig().transform_audio_transcription_request(
             model=SELLER_MODEL,
             audio_file=AUDIO_FILE,
             optional_params={"language": "en", "extra_body": {"model": SELLER_MODEL, "user": "u-1"}},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert request.data == {"model": SELLER_MODEL, "language": "en", "user": "u-1"}
 
     def test_missing_key_is_an_authentication_error_before_any_request(self, no_eden_key, respx_mock):
-        with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
-            litellm.transcription(model=MODEL, file=AUDIO_FILE)
+        with pytest.raises(hangarllm.AuthenticationError, match="EDENAI_API_KEY"):
+            hangarllm.transcription(model=MODEL, file=AUDIO_FILE)
         assert not respx_mock.calls
 
 
@@ -79,7 +79,7 @@ class TestTranscription:
     def test_posts_multipart_to_eden_with_the_bearer_key_and_the_seller_model_id(self, eden_key, respx_mock):
         respx_mock.post(EDEN_TRANSCRIPTIONS_URL).mock(return_value=httpx.Response(200, json=_eden_transcription()))
 
-        response = litellm.transcription(model=MODEL, file=AUDIO_FILE, language="en", temperature=0)
+        response = hangarllm.transcription(model=MODEL, file=AUDIO_FILE, language="en", temperature=0)
 
         assert isinstance(response, TranscriptionResponse)
         assert response.text == "Hello there."
@@ -96,7 +96,7 @@ class TestTranscription:
     def test_eden_reported_cost_beats_the_price_map(self, eden_key, respx_mock):
         respx_mock.post(EDEN_TRANSCRIPTIONS_URL).mock(return_value=httpx.Response(200, json=_eden_transcription()))
 
-        response = litellm.transcription(model=MODEL, file=AUDIO_FILE)
+        response = hangarllm.transcription(model=MODEL, file=AUDIO_FILE)
 
         assert get_response_cost_from_hidden_params(response._hidden_params) == EDEN_REPORTED_COST
         assert response._hidden_params["response_cost"] == EDEN_REPORTED_COST
@@ -106,7 +106,7 @@ class TestTranscription:
             return_value=httpx.Response(200, json=_eden_transcription(cost=None))
         )
 
-        response = litellm.transcription(model=MODEL, file=AUDIO_FILE)
+        response = hangarllm.transcription(model=MODEL, file=AUDIO_FILE)
 
         assert get_response_cost_from_hidden_params(response._hidden_params) is None
         assert response.duration == 0.62
@@ -118,7 +118,7 @@ class TestTranscription:
             return_value=httpx.Response(200, text="Hello there.", headers={"content-type": "text/plain"})
         )
 
-        response = litellm.transcription(model=MODEL, file=AUDIO_FILE, response_format="text")
+        response = hangarllm.transcription(model=MODEL, file=AUDIO_FILE, response_format="text")
 
         assert response.text == "Hello there."
         assert 'name="response_format"\r\n\r\ntext' in _multipart_body(respx_mock)
@@ -127,7 +127,7 @@ class TestTranscription:
     async def test_async_call_tracks_the_same_cost(self, eden_key, httpx_transport, respx_mock):
         respx_mock.post(EDEN_TRANSCRIPTIONS_URL).mock(return_value=httpx.Response(200, json=_eden_transcription()))
 
-        response = await litellm.atranscription(model=MODEL, file=AUDIO_FILE)
+        response = await hangarllm.atranscription(model=MODEL, file=AUDIO_FILE)
 
         assert response.text == "Hello there."
         assert response._hidden_params["response_cost"] == EDEN_REPORTED_COST
@@ -135,14 +135,14 @@ class TestTranscription:
 
 class TestErrors:
     def test_sync_401_surfaces_as_an_eden_error_with_the_status_code(self, eden_key, respx_mock):
-        """`litellm.transcription` does not map provider errors onto the OpenAI exception classes the
+        """`hangarllm.transcription` does not map provider errors onto the OpenAI exception classes the
         way its async twin does, so the proxy relies on the status code the provider exception carries."""
         respx_mock.post(EDEN_TRANSCRIPTIONS_URL).mock(
             return_value=httpx.Response(401, json={"detail": "Invalid token."})
         )
 
         with pytest.raises(EdenAIException, match="Invalid token") as excinfo:
-            litellm.transcription(model=MODEL, file=AUDIO_FILE)
+            hangarllm.transcription(model=MODEL, file=AUDIO_FILE)
         assert excinfo.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -151,5 +151,5 @@ class TestErrors:
             return_value=httpx.Response(401, json={"detail": "Invalid token."})
         )
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            await litellm.atranscription(model=MODEL, file=AUDIO_FILE)
+        with pytest.raises(hangarllm.AuthenticationError, match="Invalid token"):
+            await hangarllm.atranscription(model=MODEL, file=AUDIO_FILE)

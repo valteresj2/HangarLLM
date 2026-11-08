@@ -44,15 +44,15 @@ IGNORE_FUNCTIONS = [
     "_rotate_guardrail_row",  # bounded by attempts_left.
     "_delete_nested_value_custom",  # max depth set (bounded by number of path segments).
     "_filter_exceptions_from_params",  # max depth set (default 20) to prevent infinite recursion.
-    "__getattr__",  # lazy loading pattern in litellm/__init__.py with proper caching to prevent infinite recursion.
+    "__getattr__",  # lazy loading pattern in hangarllm/__init__.py with proper caching to prevent infinite recursion.
     "_validate_inheritance_chain",  # max depth set (default 100) to prevent infinite recursion in policy inheritance validation.
     "_basic_json_schema_validate",  # max depth set.
     "extract_text_from_a2a_message",  # max depth set (default 10) to prevent infinite recursion in A2A message parsing.
     "_convert_to_json_serializable_dict",  # max depth set (default 20) and circular reference protection to prevent infinite recursion.
-    "dict",  # max depth set. _LiteLLMParamsDictView.dict() calls builtin dict(), not itself.
+    "dict",  # max depth set. _HangarLLMParamsDictView.dict() calls builtin dict(), not itself.
     "_read_image_bytes",  # max depth set.
     "get_masked_values",  # max depth set (default 20) to prevent infinite recursion while masking nested sensitive config dicts.
-    "_redact_sensitive_litellm_params",  # max depth set (default 10).
+    "_redact_sensitive_hangarllm_params",  # max depth set (default 10).
     "_redact_secret_values_in_obj",  # max depth set (default 10, _REDACT_SECRET_MAX_DEPTH); fails closed by returning "REDACTED" at the cap.
     "_resolve",  # OCI: $ref resolver bounded by `resolving_stack` cycle guard.
     "resolve_oci_schema_anyof",  # OCI: bounded by JSON-schema tree depth (no cycles possible in well-formed input).
@@ -74,7 +74,7 @@ IGNORE_FUNCTIONS = [
     "_flatten_form_field",  # bounded by the nesting depth of the already-parsed request body (a finite JSON tree, no cycles possible).
     "_flatten_form_data_field",  # bounded by the nesting depth of the already-parsed request body (a finite JSON tree, no cycles possible).
     "_json_safe",  # max depth set (_MAX_DEPTH) plus a seen-ids cycle guard for self-referential input.
-    "_redact_agent_params_tree",  # max depth set (default 10), same shape as _redact_sensitive_litellm_params.
+    "_redact_agent_params_tree",  # max depth set (default 10), same shape as _redact_sensitive_hangarllm_params.
     "_restore_redacted_nested_value",  # max depth set (default 10), mirrors _redact_agent_params_tree on the write side.
     "_unqualified",  # bounded by the qualifier depth of a static TypedDict annotation (Annotated, Required/NotRequired, ReadOnly around one type, no cycles possible).
     "_render_json",  # bounded by the nesting depth of a pydantic-validated JsonValue from the operator's config (a finite JSON tree, no cycles possible).
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     # raise exception if any recursive functions are found, except for the ignored ones
     # this is used in the CI/CD pipeline to prevent recursive functions from being merged
 
-    directory_path = "./litellm"
+    directory_path = "./hangarllm"
     recursive_functions, ignored_recursive_functions = (
         find_recursive_functions_in_directory(directory_path)
     )

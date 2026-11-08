@@ -9,10 +9,10 @@ import pytest
 import respx
 from azure.core.credentials import AccessToken
 
-import litellm
-from litellm.llms.azure import common_utils
-from litellm.llms.azure.decisions.transformation import AzureDecisionsConfig
-from litellm.types.decisions import DecisionsResponse, OpenAIDecisionResponse
+import hangarllm
+from hangarllm.llms.azure import common_utils
+from hangarllm.llms.azure.decisions.transformation import AzureDecisionsConfig
+from hangarllm.types.decisions import DecisionsResponse, OpenAIDecisionResponse
 
 _BASE: Final = "https://resource.openai.azure.com"
 _URL: Final = f"{_BASE}/openai/v1/decisions"
@@ -38,11 +38,11 @@ def clear_credentials(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "AZURE_PASSWORD",
     ):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "azure_key", None)
-    monkeypatch.setattr(litellm, "api_base", None)
-    monkeypatch.setattr(litellm, "enable_azure_ad_token_refresh", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "azure_key", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "enable_azure_ad_token_refresh", False)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     common_utils._cached_azure_ad_token_refresh_provider.cache_clear()
     yield
     common_utils._cached_azure_ad_token_refresh_provider.cache_clear()
@@ -63,13 +63,13 @@ async def call_decisions(
         params["state"] = "The export job hangs."
         params["questions"] = {"defect": {"type": "noul", "instructions": "Is this a defect?"}}
         if is_async:
-            return await litellm.asystemone(**params)
-        return litellm.systemone(**params)
+            return await hangarllm.asystemone(**params)
+        return hangarllm.systemone(**params)
     params["input"] = "The export job hangs."
     params["questions"] = [{"type": "predicate", "name": "defect", "instructions": "Is this a defect?"}]
     if is_async:
-        return await litellm.adecisions(**params)
-    return litellm.decisions(**params)
+        return await hangarllm.adecisions(**params)
+    return hangarllm.decisions(**params)
 
 
 @pytest.mark.parametrize("is_async", (False, True))
@@ -140,7 +140,7 @@ async def test_entra_rejecting_the_default_credential_answers_401_with_only_the_
     )
     monkeypatch.setattr("azure.identity.DefaultAzureCredential", Mock(return_value=credential))
 
-    with pytest.raises(litellm.AuthenticationError) as excinfo:
+    with pytest.raises(hangarllm.AuthenticationError) as excinfo:
         await call_decisions(is_async, systemone, {})
 
     assert excinfo.value.status_code == 401
@@ -224,8 +224,8 @@ def test_azure_decisions_requires_azure_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OPENAI_API_BASE", "https://unrelated.example")
-    with pytest.raises(litellm.BadRequestError, match="api_base is required"):
-        litellm.decisions(
+    with pytest.raises(hangarllm.BadRequestError, match="api_base is required"):
+        hangarllm.decisions(
             model="azure/luna-deployment",
             input="Text",
             questions=[
@@ -239,7 +239,7 @@ def test_azure_decisions_requires_azure_endpoint(
 
 
 def test_azure_decisions_does_not_echo_invalid_credentials() -> None:
-    with pytest.raises(litellm.BadRequestError) as error:
+    with pytest.raises(hangarllm.BadRequestError) as error:
         AzureDecisionsConfig().validate_environment(
             {},
             "luna-deployment",

@@ -1,17 +1,17 @@
 import pytest
 
-from litellm.constants import (
+from hangarllm.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_XHIGH_THINKING_BUDGET,
 )
-from litellm.llms.anthropic.common_utils import AnthropicError
-from litellm.llms.anthropic.messages.native.transformation import (
+from hangarllm.llms.anthropic.common_utils import AnthropicError
+from hangarllm.llms.anthropic.messages.native.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.openai_like.json_loader import SimpleProviderConfig
-from litellm.llms.openai_like.messages.transformation import (
+from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
+from hangarllm.llms.openai_like.messages.transformation import (
     JSONProviderAnthropicMessagesConfig,
 )
 
@@ -26,12 +26,12 @@ def _claude_code_payload(effort="medium", max_tokens=8192, **output_config_extra
     }
 
 
-def _transform(model, params, litellm_params=None):
+def _transform(model, params, hangarllm_params=None):
     return AnthropicMessagesConfig().transform_anthropic_messages_request(
         model=model,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=dict(params),
-        litellm_params=litellm_params or {},
+        hangarllm_params=hangarllm_params or {},
         headers={},
     )
 
@@ -145,7 +145,7 @@ def test_opus_4_5_preserves_native_effort_without_adaptive_thinking():
             "max_tokens": 8192,
             "output_config": {"effort": "high"},
         },
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -203,7 +203,7 @@ def test_thinking_dropped_when_max_tokens_too_small_for_min_budget():
 def test_unrecognized_effort_raises_clean_400():
     """An unrecognized effort value (e.g. a future Anthropic tier) must surface as a
     clean AnthropicError 400, matching _translate_reasoning_effort_to_anthropic,
-    rather than leaking litellm's internal BadRequestError."""
+    rather than leaking hangarllm's internal BadRequestError."""
     with pytest.raises(AnthropicError) as exc_info:
         _transform("claude-haiku-4-5", _claude_code_payload(effort="turbo"))
 
@@ -292,7 +292,7 @@ def test_non_adaptive_request_without_effort_is_untouched():
         model="claude-haiku-4-5",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 1024},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -328,7 +328,7 @@ def test_reasoning_effort_budget_capped_for_openai_like_messages_upstream():
         model="muse-spark-1.2",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 4000, "reasoning_effort": "xhigh"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 

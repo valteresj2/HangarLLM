@@ -8,11 +8,11 @@ import httpx
 import pytest
 from botocore.exceptions import ClientError
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.sagemaker.chat.handler import SagemakerChatHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.sagemaker.chat.handler import SagemakerChatHandler
 import logging
-from litellm._logging import verbose_logger
+from hangarllm._logging import verbose_logger
 
 
 def test_load_credentials_assumes_role_with_external_id(monkeypatch):
@@ -21,7 +21,7 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-sm-chat":
@@ -42,8 +42,8 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
         "aws_access_key_id": "AKIASMCHATCALLERKEY",
         "aws_secret_access_key": "pod-caller-secret",
         "aws_region_name": "us-east-1",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-sm-chat-role",
-        "aws_session_name": "litellm-sm-chat-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-sm-chat-role",
+        "aws_session_name": "hangarllm-sm-chat-session",
         "aws_external_id": "external-id-sm-chat",
     }
 
@@ -64,7 +64,7 @@ def test_load_credentials_assumes_role_with_session_tags(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/hangarllm-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -85,8 +85,8 @@ def test_load_credentials_assumes_role_with_session_tags(monkeypatch):
         "aws_access_key_id": "AKIASMCHATCALLERKEY",
         "aws_secret_access_key": "pod-caller-secret",
         "aws_region_name": "us-east-1",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-sm-chat-role",
-        "aws_session_name": "litellm-sm-chat-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/hangarllm-sm-chat-role",
+        "aws_session_name": "hangarllm-sm-chat-session",
         "aws_session_tags": tags,
     }
 
@@ -106,16 +106,16 @@ def test_load_credentials_assumes_role_with_session_tags(monkeypatch):
 )
 async def test_completion_sagemaker_messages_api(sync_mode):
     try:
-        litellm.set_verbose = True
+        hangarllm.set_verbose = True
         verbose_logger.setLevel(logging.DEBUG)
         print("testing sagemaker")
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
         if sync_mode is True:
             client = HTTPHandler()
             with patch.object(client, "post") as mock_post:
                 try:
-                    resp = litellm.completion(
+                    resp = hangarllm.completion(
                         model="sagemaker_chat/huggingface-pytorch-tgi-inference-2024-08-23-15-48-59-245",
                         messages=[
                             {"role": "user", "content": "hi"},
@@ -140,7 +140,7 @@ async def test_completion_sagemaker_messages_api(sync_mode):
             client = AsyncHTTPHandler()
             with patch.object(client, "post") as mock_post:
                 try:
-                    resp = await litellm.acompletion(
+                    resp = await hangarllm.acompletion(
                         model="sagemaker_chat/huggingface-pytorch-tgi-inference-2024-08-23-15-48-59-245",
                         messages=[
                             {"role": "user", "content": "hi"},

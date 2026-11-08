@@ -10,15 +10,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import Request
 
-import litellm
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+import hangarllm
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import (
+from hangarllm.proxy.auth.auth_checks import (
     common_checks,
     resolve_effective_team_member_budget,
 )
@@ -33,7 +33,7 @@ async def test_team_member_budget_check_exceeds_budget():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -41,7 +41,7 @@ async def test_team_member_budget_check_exceeds_budget():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -56,11 +56,11 @@ async def test_team_member_budget_check_exceeds_budget():
     )
 
     # Create team membership with budget exceeded
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = HangarLLM_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.0000002,  # Exceeds budget
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             max_budget=0.0000001,  # Very small budget
         ),
     )
@@ -73,15 +73,15 @@ async def test_team_member_budget_check_exceeds_budget():
     # Mock get_team_membership to return our team membership
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "hangarllm.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should raise BudgetExceededError
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
             await common_checks(
                 request_body=request_body,
                 team_object=team_object,
@@ -111,7 +111,7 @@ async def test_team_member_budget_check_within_budget():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -119,7 +119,7 @@ async def test_team_member_budget_check_within_budget():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -134,11 +134,11 @@ async def test_team_member_budget_check_within_budget():
     )
 
     # Create team membership within budget
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = HangarLLM_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.00000005,  # Within budget
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             max_budget=0.0000001,
         ),
     )
@@ -151,12 +151,12 @@ async def test_team_member_budget_check_within_budget():
     # Mock get_team_membership to return our team membership
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "hangarllm.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should not raise an exception
         result = await common_checks(
@@ -185,7 +185,7 @@ async def test_team_member_budget_check_no_budget_set():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -193,7 +193,7 @@ async def test_team_member_budget_check_no_budget_set():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -208,11 +208,11 @@ async def test_team_member_budget_check_no_budget_set():
     )
 
     # Create team membership without budget
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = HangarLLM_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.0,
-        litellm_budget_table=None,  # No budget set
+        hangarllm_budget_table=None,  # No budget set
     )
 
     mock_request = MagicMock(spec=Request)
@@ -223,12 +223,12 @@ async def test_team_member_budget_check_no_budget_set():
     # Mock get_team_membership to return our team membership
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "hangarllm.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should not raise an exception (no budget means no limit)
         result = await common_checks(
@@ -257,7 +257,7 @@ async def test_team_member_budget_check_no_team_membership():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -265,7 +265,7 @@ async def test_team_member_budget_check_no_team_membership():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -287,12 +287,12 @@ async def test_team_member_budget_check_no_team_membership():
     # Mock get_team_membership to return None (no membership)
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "hangarllm.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should not raise an exception (no membership means no budget check)
         result = await common_checks(
@@ -320,7 +320,7 @@ async def test_team_member_budget_check_blocks_regenerated_key_after_old_key_exh
         "messages": [{"role": "user", "content": "test"}],
     }
 
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -335,11 +335,11 @@ async def test_team_member_budget_check_blocks_regenerated_key_after_old_key_exh
         team_id="test-team-1",
         models=["gpt-3.5-turbo"],
     )
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = HangarLLM_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.0000002,
-        litellm_budget_table=LiteLLM_BudgetTable(
+        hangarllm_budget_table=HangarLLM_BudgetTable(
             max_budget=0.0000001,
         ),
     )
@@ -351,14 +351,14 @@ async def test_team_member_budget_check_blocks_regenerated_key_after_old_key_exh
 
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "hangarllm.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ) as mock_get_team_membership,
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
             await common_checks(
                 request_body=request_body,
                 team_object=team_object,
@@ -397,7 +397,7 @@ async def test_team_member_budget_check_personal_key_not_team():
     team_object = None
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -419,11 +419,11 @@ async def test_team_member_budget_check_personal_key_not_team():
     # get_team_membership should not be called for personal keys
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "hangarllm.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
         ) as mock_get_team_membership,
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         result = await common_checks(
             request_body=request_body,
@@ -446,22 +446,22 @@ async def test_team_member_budget_check_personal_key_not_team():
 
 def test_resolve_effective_team_member_budget_preserves_member_and_default_precedence() -> None:
     now: Final = datetime(2030, 1, 1, tzinfo=timezone.utc)
-    member_budget: Final = LiteLLM_BudgetTable(
+    member_budget: Final = HangarLLM_BudgetTable(
         max_budget=100,
         temp_budget_increase=10,
         temp_budget_expiry=datetime(2030, 1, 2, tzinfo=timezone.utc),
     )
-    expired_member_budget: Final = LiteLLM_BudgetTable(
+    expired_member_budget: Final = HangarLLM_BudgetTable(
         max_budget=100,
         temp_budget_increase=10,
         temp_budget_expiry=datetime(2029, 12, 31, tzinfo=timezone.utc),
     )
-    active_inherited_increase: Final = LiteLLM_BudgetTable(
+    active_inherited_increase: Final = HangarLLM_BudgetTable(
         max_budget=None,
         temp_budget_increase=10,
         temp_budget_expiry=datetime(2030, 1, 2, tzinfo=timezone.utc),
     )
-    expired_inherited_increase: Final = LiteLLM_BudgetTable(
+    expired_inherited_increase: Final = HangarLLM_BudgetTable(
         max_budget=None,
         temp_budget_increase=10,
         temp_budget_expiry=datetime(2029, 12, 31, tzinfo=timezone.utc),
@@ -471,19 +471,19 @@ def test_resolve_effective_team_member_budget_preserves_member_and_default_prece
     assert resolve_effective_team_member_budget(expired_member_budget, None, now) == 100
     assert resolve_effective_team_member_budget(
         active_inherited_increase,
-        LiteLLM_BudgetTable(max_budget=50),
+        HangarLLM_BudgetTable(max_budget=50),
         now,
     ) == 60
     assert resolve_effective_team_member_budget(
         expired_inherited_increase,
-        LiteLLM_BudgetTable(max_budget=50),
+        HangarLLM_BudgetTable(max_budget=50),
         now,
     ) == 50
     assert resolve_effective_team_member_budget(
-        LiteLLM_BudgetTable(max_budget=0),
-        LiteLLM_BudgetTable(max_budget=50),
+        HangarLLM_BudgetTable(max_budget=0),
+        HangarLLM_BudgetTable(max_budget=50),
         now,
     ) == 0
-    assert resolve_effective_team_member_budget(None, LiteLLM_BudgetTable(max_budget=50), now) == 50
-    assert resolve_effective_team_member_budget(None, LiteLLM_BudgetTable(max_budget=0), now) is None
+    assert resolve_effective_team_member_budget(None, HangarLLM_BudgetTable(max_budget=50), now) == 50
+    assert resolve_effective_team_member_budget(None, HangarLLM_BudgetTable(max_budget=0), now) is None
     assert resolve_effective_team_member_budget(None, None, now) is None

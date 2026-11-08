@@ -18,8 +18,8 @@ from integration.translation.templates.anthropic import (
 
 CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "anthropic/claude-haiku-4-5",
         "max_tokens": 64,
         "messages": [
@@ -62,7 +62,7 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "anthropic/claude-haiku-4-5",
@@ -101,8 +101,8 @@ CLAUDE_HAIKU_4_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "anthropic/claude-sonnet-4-6",
         "max_tokens": 64,
         "messages": [
@@ -145,7 +145,7 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "anthropic/claude-sonnet-4-6",
@@ -185,8 +185,8 @@ CLAUDE_SONNET_4_6_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_FABLE_5_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-fable-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-fable-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -231,7 +231,7 @@ CLAUDE_FABLE_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-fable-5",
         "choices": [
@@ -285,8 +285,8 @@ CLAUDE_FABLE_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_5_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-opus-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "anthropic/claude-opus-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "content-type": "application/json",
@@ -331,7 +331,7 @@ CLAUDE_OPUS_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "model": "anthropic/claude-opus-5",
         "choices": [
@@ -384,8 +384,8 @@ CLAUDE_OPUS_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "anthropic/claude-sonnet-5",
         "max_tokens": 64,
         "messages": [
@@ -429,7 +429,7 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "anthropic/claude-sonnet-5",
@@ -468,8 +468,8 @@ CLAUDE_SONNET_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "anthropic/claude-opus-4-8",
         "max_tokens": 64,
         "messages": [
@@ -513,7 +513,7 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
         },
         "diagnostics": None,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": ANY,
         "created": ANY,
         "model": "anthropic/claude-opus-4-8",
@@ -552,8 +552,8 @@ CLAUDE_OPUS_4_8_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-sonnet-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-sonnet-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -566,7 +566,7 @@ CLAUDE_SONNET_5_5_TEST_CASE: Final = TranslationTestCase(
         "model": "claude-sonnet-5-5",
         "usage": {**object_value(ANTHROPIC_MESSAGES_RESPONSE["usage"]), "speed": "standard"},
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "anthropic/claude-sonnet-5-5",
         "usage": {**object_value(CHAT_COMPLETIONS_RESPONSE["usage"]), "speed": "standard"},
@@ -593,8 +593,8 @@ CLAUDE_HAIKU_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-haiku-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-haiku-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -641,7 +641,7 @@ CLAUDE_HAIKU_5_5_TEST_CASE: Final = TranslationTestCase(
             "speed": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "anthropic/claude-haiku-5-5",
         "choices": [
@@ -736,8 +736,8 @@ CLAUDE_OPUS_5_5_THINKING_SIGNATURE_0: Final = (
 
 CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-opus-5-5"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-opus-5-5"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -782,7 +782,7 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
             "speed": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "anthropic/claude-opus-5-5",
         "choices": [
@@ -857,8 +857,8 @@ CLAUDE_OPUS_5_5_TEST_CASE: Final = TranslationTestCase(
 
 CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-fable-5-1"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "anthropic/claude-fable-5-1"},
     expected_provider_endpoint="/v1/messages",
     expected_provider_headers={
         "x-api-key": "synthetic-anthropic-key",
@@ -896,7 +896,7 @@ CLAUDE_FABLE_5_1_TEST_CASE: Final = TranslationTestCase(
             "speed": "standard",
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "model": "anthropic/claude-fable-5-1",
         "choices": [

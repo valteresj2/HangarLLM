@@ -16,16 +16,16 @@ from typing import Final, cast
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import thread_pool_executor as thread_pool_executor_module
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.responses import streaming_iterator as responses_streaming_iterator_module
-from litellm.responses.streaming_iterator import ResponsesAPIStreamingIterator
-from litellm.types.llms.openai import ResponsesAPIResponse, ResponsesAPIStreamingResponse
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm.exceptions import MidStreamFallbackError
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils import thread_pool_executor as thread_pool_executor_module
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
+from hangarllm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from hangarllm.responses import streaming_iterator as responses_streaming_iterator_module
+from hangarllm.responses.streaming_iterator import ResponsesAPIStreamingIterator
+from hangarllm.types.llms.openai import ResponsesAPIResponse, ResponsesAPIStreamingResponse
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 class RecordingCustomLogger(CustomLogger):
@@ -62,19 +62,19 @@ class RecordingExecutor:
 @pytest.fixture(autouse=True)
 def _isolate_callbacks():
     saved = (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        hangarllm.callbacks,
+        hangarllm.success_callback,
+        hangarllm._async_success_callback,
+        hangarllm.failure_callback,
+        hangarllm._async_failure_callback,
     )
     yield
     (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        hangarllm.callbacks,
+        hangarllm.success_callback,
+        hangarllm._async_success_callback,
+        hangarllm.failure_callback,
+        hangarllm._async_failure_callback,
     ) = saved
 
 
@@ -86,21 +86,21 @@ def recording_executor(monkeypatch):
     return recording
 
 
-def _make_logging_obj() -> LitellmLogging:
-    logging_obj = LitellmLogging(
+def _make_logging_obj() -> HangarllmLogging:
+    logging_obj = HangarllmLogging(
         model="gpt-5.4-nano",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="aresponses",
         start_time=time.time(),
-        litellm_call_id="lit-4210-test",
+        hangarllm_call_id="lit-4210-test",
         function_id="lit-4210-test",
     )
-    logging_obj.model_call_details["litellm_params"] = {"aresponses": True}
+    logging_obj.model_call_details["hangarllm_params"] = {"aresponses": True}
     return logging_obj
 
 
-def _make_iterator(logging_obj: LitellmLogging) -> ResponsesAPIStreamingIterator:
+def _make_iterator(logging_obj: HangarllmLogging) -> ResponsesAPIStreamingIterator:
     iterator = ResponsesAPIStreamingIterator(
         response=httpx.Response(200),
         model="gpt-5.4-nano",
@@ -134,8 +134,8 @@ async def _await_tasks_spawned_since(existing: set["asyncio.Task[object]"]) -> N
 @pytest.mark.asyncio
 async def test_custom_logger_only_never_submits_sync_success_handler(recording_executor):
     recorder = RecordingCustomLogger()
-    litellm.success_callback = [recorder]
-    litellm._async_success_callback = [recorder]
+    hangarllm.success_callback = [recorder]
+    hangarllm._async_success_callback = [recorder]
 
     logging_obj = _make_logging_obj()
     iterator = _make_iterator(logging_obj)
@@ -156,8 +156,8 @@ async def test_sync_callbacks_run_only_after_async_handler_completes(recording_e
     def sync_callback(kwargs, response_obj, start_time, end_time):
         sync_events.append(time.monotonic())
 
-    litellm.success_callback = [recorder, sync_callback]
-    litellm._async_success_callback = [recorder]
+    hangarllm.success_callback = [recorder, sync_callback]
+    hangarllm._async_success_callback = [recorder]
 
     logging_obj = _make_logging_obj()
     iterator = _make_iterator(logging_obj)
@@ -281,15 +281,15 @@ async def _failure_payload_after_mid_stream_timeout(
 ) -> tuple[FailureRecorder, StandardLoggingPayload]:
     upstream_response: Final = upstream or _UpstreamThatTimesOutAfterThreeDeltas()
     recorder = FailureRecorder()
-    monkeypatch.setattr(litellm, "failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     logging_obj = _make_logging_obj()
     logging_obj.update_environment_variables(
         model="gpt-5.4-nano",
         optional_params={"stream": True},
-        litellm_params={"custom_llm_provider": "openai", "aresponses": True},
+        hangarllm_params={"custom_llm_provider": "openai", "aresponses": True},
     )
     iterator = ResponsesAPIStreamingIterator(
         response=cast(httpx.Response, upstream_response),
@@ -302,7 +302,7 @@ async def _failure_payload_after_mid_stream_timeout(
     )
     received = _ChunkRecorder()
 
-    with pytest.raises(litellm.Timeout, match="Timeout on reading data from socket"):
+    with pytest.raises(hangarllm.Timeout, match="Timeout on reading data from socket"):
         await received.drain(iterator)
     assert [getattr(chunk, "delta", None) for chunk in received.chunks] == list(upstream_response.deltas)
 
@@ -318,10 +318,10 @@ async def test_mid_stream_read_timeout_logs_failure_with_partial_usage_and_no_su
     recorder, payload = await _failure_payload_after_mid_stream_timeout(monkeypatch, _SEA_PROMPT)
 
     assert payload["status"] == "failure"
-    assert payload["prompt_tokens"] == litellm.token_counter(
+    assert payload["prompt_tokens"] == hangarllm.token_counter(
         model="gpt-5.4-nano", messages=[{"role": "user", "content": _SEA_PROMPT}]
     )
-    assert payload["completion_tokens"] == litellm.token_counter(
+    assert payload["completion_tokens"] == hangarllm.token_counter(
         model="gpt-5.4-nano", text="".join(_SEA_DELTAS), count_response_tokens=True
     )
     assert payload["response_cost"] > 0
@@ -338,7 +338,7 @@ async def test_mid_stream_read_timeout_bills_the_tool_call_arguments_already_str
     _, payload = await _failure_payload_after_mid_stream_timeout(monkeypatch, _SEA_PROMPT, upstream)
 
     assert payload["status"] == "failure"
-    assert payload["completion_tokens"] == litellm.token_counter(
+    assert payload["completion_tokens"] == hangarllm.token_counter(
         model="gpt-5.4-nano", text="".join(_TOOL_ARGUMENT_DELTAS), count_response_tokens=True
     )
     assert payload["response_cost"] > 0
@@ -375,7 +375,7 @@ async def test_mid_stream_failure_usage_estimate_never_fetches_image_dimensions(
     _, payload = await _failure_payload_after_mid_stream_timeout(monkeypatch, _UNREACHABLE_IMAGE_INPUT)
 
     assert payload["status"] == "failure"
-    assert payload["prompt_tokens"] == litellm.token_counter(
+    assert payload["prompt_tokens"] == hangarllm.token_counter(
         model="gpt-5.4-nano",
         messages=[
             {
@@ -394,13 +394,13 @@ async def test_mid_stream_failure_usage_estimate_never_fetches_image_dimensions(
 @pytest.mark.asyncio
 async def test_mid_stream_failure_keeps_the_usage_the_provider_reported(monkeypatch: pytest.MonkeyPatch) -> None:
     recorder = FailureRecorder()
-    monkeypatch.setattr(litellm, "failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [recorder])
     logging_obj = _make_logging_obj()
     logging_obj.update_environment_variables(
         model="gpt-5.4-nano",
         optional_params={"stream": True},
-        litellm_params={"custom_llm_provider": "openai", "aresponses": True},
+        hangarllm_params={"custom_llm_provider": "openai", "aresponses": True},
     )
     iterator = ResponsesAPIStreamingIterator(
         response=cast(httpx.Response, _UpstreamThatFailsWithUsageAfterThreeDeltas()),
@@ -462,7 +462,7 @@ def _completed_after(text: str) -> Mapping[str, object]:
 
 
 def _live_iterator(
-    logging_obj: LitellmLogging, upstream: object = None, background: bool = False
+    logging_obj: HangarllmLogging, upstream: object = None, background: bool = False
 ) -> ResponsesAPIStreamingIterator:
     return ResponsesAPIStreamingIterator(
         response=cast(httpx.Response, upstream or httpx.Response(200)),
@@ -502,15 +502,15 @@ async def test_timeout_after_completed_response_ends_the_stream_and_bills_it_onc
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorder: Final = FailureRecorder()
-    monkeypatch.setattr(litellm, "failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
     logging_obj: Final = _make_logging_obj()
     logging_obj.update_environment_variables(
         model="gpt-5.4-nano",
         optional_params={"stream": True},
-        litellm_params={"custom_llm_provider": "openai", "aresponses": True},
+        hangarllm_params={"custom_llm_provider": "openai", "aresponses": True},
     )
     iterator: Final = _live_iterator(logging_obj, upstream=_UpstreamThatCompletesThenTimesOut())
 
@@ -549,19 +549,19 @@ async def _mid_stream_failure_payload(
     monkeypatch: pytest.MonkeyPatch, requested_tier: str | None, **created_fields: object
 ) -> StandardLoggingPayload:
     recorder: Final = FailureRecorder()
-    monkeypatch.setattr(litellm, "failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "failure_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_failure_callback", [recorder])
     logging_obj: Final = _make_logging_obj()
     logging_obj.update_environment_variables(
         model="gpt-5.4-nano",
         optional_params={"stream": True}
         if requested_tier is None
         else {"stream": True, "service_tier": requested_tier},
-        litellm_params={"custom_llm_provider": "openai", "aresponses": True},
+        hangarllm_params={"custom_llm_provider": "openai", "aresponses": True},
     )
     iterator: Final = _live_iterator(logging_obj, upstream=_UpstreamThatTimesOutAfterCreated(**created_fields))
 
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         await _ChunkRecorder().drain(iterator)
     await iterator._await_pending_logging()
 
@@ -603,10 +603,10 @@ def test_partial_response_on_disconnect_bills_the_relayed_text_at_the_served_ser
     assert partial.status == "incomplete"
     assert getattr(partial, "service_tier") == "priority"
     assert partial.output[0].content[0].text == "Once upon a time a fox slept."
-    assert partial.usage.output_tokens == litellm.token_counter(
+    assert partial.usage.output_tokens == hangarllm.token_counter(
         model="gpt-5.4-nano", text="Once upon a time a fox slept."
     )
-    assert partial.usage.input_tokens == litellm.token_counter(
+    assert partial.usage.input_tokens == hangarllm.token_counter(
         model="gpt-5.4-nano", messages=[{"role": "user", "content": "tell me a story"}]
     )
     assert partial.usage.total_tokens == partial.usage.input_tokens + partial.usage.output_tokens
@@ -652,7 +652,7 @@ async def test_partial_response_on_disconnect_is_none_when_there_is_nothing_to_b
 async def test_partial_response_on_disconnect_is_none_once_the_failure_log_billed_the_relayed_text():
     iterator: Final = _live_iterator(_make_logging_obj(), upstream=_UpstreamThatTimesOutAfterRelayingText())
 
-    with pytest.raises(litellm.Timeout):
+    with pytest.raises(hangarllm.Timeout):
         await _ChunkRecorder().drain(iterator)
 
     assert iterator.partial_response_on_disconnect() is None

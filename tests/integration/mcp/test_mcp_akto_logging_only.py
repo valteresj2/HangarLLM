@@ -24,8 +24,8 @@ pytestmark: Final = pytest.mark.shares_worker_state
 
 AKTO_KEY: Final = "synthetic-akto-mcp-log-key"
 BLOCK_MARK: Final = "SYNTHETIC-AKTO-BLOCK"
-RESPONSE_CHECK: Final = {"akto_connector": "litellm", "response_guardrails": "true", "ingest_data": "true"}
-MCP_SPEND_ROWS: Final = 'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
+RESPONSE_CHECK: Final = {"akto_connector": "hangarllm", "response_guardrails": "true", "ingest_data": "true"}
+MCP_SPEND_ROWS: Final = 'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE api_key = %s AND call_type = %s'
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +60,7 @@ def _config(akto_url: str, root: Path) -> Path:
     config["guardrails"] = [
         {
             "guardrail_name": "akto-mcp-log",
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "akto",
                 "mode": "logging_only",
                 "default_on": True,

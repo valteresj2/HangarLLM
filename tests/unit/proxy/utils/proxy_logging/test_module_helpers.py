@@ -1,7 +1,7 @@
 """Pin behavior of top-of-file and bottom-of-region helpers.
 
 Covers ``print_verbose``, ``_get_email_logger_class``,
-``_accepts_litellm_call_info``, ``enrich_http_exception_with_guardrail_context``,
+``_accepts_hangarllm_call_info``, ``enrich_http_exception_with_guardrail_context``,
 ``on_backoff``, ``jsonify_object``, ``_lookup_deprecated_key``.
 """
 
@@ -13,13 +13,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy import utils as utils_mod
-from litellm.proxy.guardrails.exception_utils import (
+import hangarllm
+from hangarllm.proxy import utils as utils_mod
+from hangarllm.proxy.guardrails.exception_utils import (
     enrich_http_exception_with_guardrail_context,
 )
-from litellm.proxy.utils import (
-    _accepts_litellm_call_info,
+from hangarllm.proxy.utils import (
+    _accepts_hangarllm_call_info,
     _get_email_logger_class,
     _lookup_deprecated_key,
     jsonify_object,
@@ -34,11 +34,11 @@ from litellm.proxy.utils import (
 
 
 def test_print_verbose_when_set_verbose_true_prints_redacted(monkeypatch, capsys):
-    monkeypatch.setattr(litellm, "set_verbose", True)
+    monkeypatch.setattr(hangarllm, "set_verbose", True)
     print_verbose("hello world")
     captured = capsys.readouterr()
     snapshot = {
-        "out_has_prefix": "LiteLLM Proxy:" in captured.out,
+        "out_has_prefix": "HangarLLM Proxy:" in captured.out,
         "out_has_payload": "hello world" in captured.out,
         "no_stderr": captured.err == "",
     }
@@ -46,14 +46,14 @@ def test_print_verbose_when_set_verbose_true_prints_redacted(monkeypatch, capsys
 
 
 def test_print_verbose_when_set_verbose_false_no_stdout(monkeypatch, capsys):
-    monkeypatch.setattr(litellm, "set_verbose", False)
+    monkeypatch.setattr(hangarllm, "set_verbose", False)
     print_verbose("quiet")
     captured = capsys.readouterr()
     assert captured.out == ""
 
 
 def test_print_verbose_handles_unprintable_object_raises(monkeypatch):
-    monkeypatch.setattr(litellm, "set_verbose", True)
+    monkeypatch.setattr(hangarllm, "set_verbose", True)
 
     class Bomb:
         def __str__(self):
@@ -115,12 +115,12 @@ def test_get_email_logger_class_error_when_no_enterprise_module(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# _accepts_litellm_call_info
+# _accepts_hangarllm_call_info
 # ---------------------------------------------------------------------------
 
 
 class _CbAcceptsInfo:
-    async def async_post_call_response_headers_hook(self, *, litellm_call_info=None):
+    async def async_post_call_response_headers_hook(self, *, hangarllm_call_info=None):
         return None
 
 
@@ -129,12 +129,12 @@ class _CbRejectsInfo:
         return None
 
 
-def test_accepts_litellm_call_info_matrix(monkeypatch):
+def test_accepts_hangarllm_call_info_matrix(monkeypatch):
     monkeypatch.setattr(utils_mod, "_CALLBACK_ACCEPTS_CALL_INFO", {})
     cache = {id(_CbAcceptsInfo): True}
     monkeypatch.setattr(utils_mod, "_CALLBACK_ACCEPTS_CALL_INFO", cache)
     snapshot = {
-        "cache_hit_returns_true": _accepts_litellm_call_info(_CbAcceptsInfo()),
+        "cache_hit_returns_true": _accepts_hangarllm_call_info(_CbAcceptsInfo()),
         "cache_size_after_hit": len(cache),
         "cache_keyed_by_type_id": id(_CbAcceptsInfo) in cache,
     }
@@ -145,11 +145,11 @@ def test_accepts_litellm_call_info_matrix(monkeypatch):
     }
 
 
-def test_accepts_litellm_call_info_signature_inspection(monkeypatch):
+def test_accepts_hangarllm_call_info_signature_inspection(monkeypatch):
     monkeypatch.setattr(utils_mod, "_CALLBACK_ACCEPTS_CALL_INFO", {})
     snapshot = {
-        "accepts_param_true": _accepts_litellm_call_info(_CbAcceptsInfo()),
-        "rejects_param_false": _accepts_litellm_call_info(_CbRejectsInfo()),
+        "accepts_param_true": _accepts_hangarllm_call_info(_CbAcceptsInfo()),
+        "rejects_param_false": _accepts_hangarllm_call_info(_CbRejectsInfo()),
         "cache_populated": len(utils_mod._CALLBACK_ACCEPTS_CALL_INFO) == 2,
     }
     assert snapshot == {
@@ -159,14 +159,14 @@ def test_accepts_litellm_call_info_signature_inspection(monkeypatch):
     }
 
 
-def test_accepts_litellm_call_info_error_on_callback_without_hook_raises(monkeypatch):
+def test_accepts_hangarllm_call_info_error_on_callback_without_hook_raises(monkeypatch):
     monkeypatch.setattr(utils_mod, "_CALLBACK_ACCEPTS_CALL_INFO", {})
 
     class _Bad:
         pass
 
     with pytest.raises(AttributeError):
-        _accepts_litellm_call_info(_Bad())  # type: ignore[arg-type]
+        _accepts_hangarllm_call_info(_Bad())  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +291,7 @@ def test_jsonify_object_non_dict_input_raises():
 
 @pytest.mark.asyncio
 async def test_lookup_deprecated_key_returns_active_token_id_and_caches(monkeypatch):
-    from litellm.caching.dual_cache import LimitedSizeOrderedDict
+    from hangarllm.caching.dual_cache import LimitedSizeOrderedDict
 
     fresh = LimitedSizeOrderedDict(max_size=1000)
     monkeypatch.setattr(utils_mod, "_deprecated_key_cache", fresh)
@@ -302,7 +302,7 @@ async def test_lookup_deprecated_key_returns_active_token_id_and_caches(monkeypa
     deprecated_row.revoke_at = future
 
     db = MagicMock()
-    db.litellm_deprecatedverificationtoken.find_first = AsyncMock(return_value=deprecated_row)
+    db.hangarllm_deprecatedverificationtoken.find_first = AsyncMock(return_value=deprecated_row)
 
     result = await _lookup_deprecated_key(db=db, hashed_token="hash-abc")
     cached_value = fresh.get("hash-abc")
@@ -320,28 +320,28 @@ async def test_lookup_deprecated_key_returns_active_token_id_and_caches(monkeypa
 
 @pytest.mark.asyncio
 async def test_lookup_deprecated_key_returns_none_when_not_found(monkeypatch):
-    from litellm.caching.dual_cache import LimitedSizeOrderedDict
+    from hangarllm.caching.dual_cache import LimitedSizeOrderedDict
 
     monkeypatch.setattr(utils_mod, "_deprecated_key_cache", LimitedSizeOrderedDict(max_size=10))
     db = MagicMock()
-    db.litellm_deprecatedverificationtoken.find_first = AsyncMock(return_value=None)
+    db.hangarllm_deprecatedverificationtoken.find_first = AsyncMock(return_value=None)
     assert await _lookup_deprecated_key(db=db, hashed_token="missing") is None
 
 
 @pytest.mark.asyncio
 async def test_lookup_deprecated_key_db_error_returns_none(monkeypatch):
-    from litellm.caching.dual_cache import LimitedSizeOrderedDict
+    from hangarllm.caching.dual_cache import LimitedSizeOrderedDict
 
     monkeypatch.setattr(utils_mod, "_deprecated_key_cache", LimitedSizeOrderedDict(max_size=10))
     db = MagicMock()
-    db.litellm_deprecatedverificationtoken.find_first = AsyncMock(side_effect=RuntimeError("db down"))
+    db.hangarllm_deprecatedverificationtoken.find_first = AsyncMock(side_effect=RuntimeError("db down"))
     result = await _lookup_deprecated_key(db=db, hashed_token="x")
     assert result is None
 
 
 @pytest.mark.asyncio
 async def test_lookup_deprecated_key_uses_cache_within_ttl(monkeypatch):
-    from litellm.caching.dual_cache import LimitedSizeOrderedDict
+    from hangarllm.caching.dual_cache import LimitedSizeOrderedDict
 
     cache = LimitedSizeOrderedDict(max_size=10)
     now_ts = datetime.now(timezone.utc).timestamp()
@@ -349,7 +349,7 @@ async def test_lookup_deprecated_key_uses_cache_within_ttl(monkeypatch):
     monkeypatch.setattr(utils_mod, "_deprecated_key_cache", cache)
 
     db = MagicMock()
-    db.litellm_deprecatedverificationtoken.find_first = AsyncMock(return_value=None)
+    db.hangarllm_deprecatedverificationtoken.find_first = AsyncMock(return_value=None)
     result = await _lookup_deprecated_key(db=db, hashed_token="hashY")
     assert result == "active-from-cache"
-    db.litellm_deprecatedverificationtoken.find_first.assert_not_called()
+    db.hangarllm_deprecatedverificationtoken.find_first.assert_not_called()

@@ -9,11 +9,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from litellm.proxy._types import LiteLLM_MCPServerTable
+from hangarllm.proxy._types import HangarLLM_MCPServerTable
 
 # Add the path to find the modules
-from litellm.proxy.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.types.mcp import MCPAuth
+from hangarllm.proxy.mcp_server.mcp_server_manager import MCPServerManager
+from hangarllm.types.mcp import MCPAuth
 
 
 class TestMCPCustomFields:
@@ -68,7 +68,7 @@ class TestMCPCustomFields:
         manager = config_only_mcp_manager_factory()
 
         # Mock database record with custom fields
-        mock_server = LiteLLM_MCPServerTable(
+        mock_server = HangarLLM_MCPServerTable(
             server_id="test-server-id",
             server_name="Test Server",
             alias=None,

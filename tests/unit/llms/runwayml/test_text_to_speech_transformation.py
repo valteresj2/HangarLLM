@@ -9,18 +9,18 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.runwayml.text_to_speech.transformation import (
+import hangarllm
+from hangarllm.llms.runwayml.text_to_speech.transformation import (
     RunwayMLTextToSpeechConfig,
 )
 
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,7 @@ async def test_async_speech_polls_the_runwayml_task_with_the_caller_key_and_retu
         return_value=httpx.Response(200, content=b"ID3runway-audio")
     )
 
-    speech: Final = await litellm.aspeech(
+    speech: Final = await hangarllm.aspeech(
         model="runwayml/eleven_multilingual_v2", input="Hello.", voice="alloy", api_key="rw-key"
     )
 

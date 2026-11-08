@@ -5,11 +5,11 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.guardrails.anthropic_sse import (
+from hangarllm.proxy.guardrails.anthropic_sse import (
     anthropic_sse_chunks_from_response,
     assemble_anthropic_sse_stream,
 )
-from litellm.types.utils import Choices, ModelResponse
+from hangarllm.types.utils import Choices, ModelResponse
 
 
 def _frame(event: str, data: dict[str, object]) -> bytes:

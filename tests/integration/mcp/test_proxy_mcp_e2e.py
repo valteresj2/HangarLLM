@@ -28,15 +28,15 @@ from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.types import CallToolResult
 from starlette.requests import Request
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, ProxyException, UserAPIKeyAuth
-from litellm.proxy.mcp_server.tool_search import handle_mcp_proxy_tool
-from litellm.proxy.proxy_server import (
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.proxy._types import HangarLLM_ObjectPermissionTable, ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.mcp_server.tool_search import handle_mcp_proxy_tool
+from hangarllm.proxy.proxy_server import (
     app as proxy_app,
 )
-from litellm.proxy.proxy_server import (
+from hangarllm.proxy.proxy_server import (
     cleanup_router_config_variables,
     initialize,
 )
@@ -60,7 +60,7 @@ PROXY_AUTHORIZATION_HEADER = f"Bearer {MASTER_KEY}"
 
 @pytest.fixture(autouse=True)
 def setup_and_teardown() -> typing.Iterator[None]:
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     loop: Final = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
     yield
@@ -86,7 +86,7 @@ async def drain_logging_worker() -> typing.AsyncIterator[None]:
 async def test_schema_validation_stops_expensive_work_and_recovers(cancel: bool, concurrency: int) -> None:
     import psutil
 
-    from litellm.proxy.mcp_server.tool_search import (
+    from hangarllm.proxy.mcp_server.tool_search import (
         _VALIDATION_TIMEOUT_SECONDS,
         _tool_argument_validation_error,
     )
@@ -235,10 +235,10 @@ def _clear_proxy_database_env() -> typing.Iterator[None]:
     mp = pytest.MonkeyPatch()
     mp.delenv("DATABASE_URL", raising=False)
     # The FastAPI lifespan event (proxy_startup_event) re-reads master_key from
-    # the LITELLM_MASTER_KEY env var, overriding whatever initialize() set from
+    # the HANGARLLM_MASTER_KEY env var, overriding whatever initialize() set from
     # the config file. We must set it here so the lifespan doesn't reset it to None.
-    mp.setenv("LITELLM_MASTER_KEY", MASTER_KEY)
-    mp.setenv("LITELLM_ENABLE_MCP_STDIO", "true")
+    mp.setenv("HANGARLLM_MASTER_KEY", MASTER_KEY)
+    mp.setenv("HANGARLLM_ENABLE_MCP_STDIO", "true")
     try:
         yield
     finally:
@@ -246,8 +246,8 @@ def _clear_proxy_database_env() -> typing.Iterator[None]:
 
 
 async def _initialize_proxy(config_path: str) -> None:
-    from litellm.proxy.mcp_server.catalog import CatalogSnapshots
-    from litellm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager
+    from hangarllm.proxy.mcp_server.catalog import CatalogSnapshots
+    from hangarllm.proxy.mcp_server.mcp_server_manager import global_mcp_server_manager
 
     cleanup_router_config_variables()
     global_mcp_server_manager.catalog = CatalogSnapshots(global_mcp_server_manager)
@@ -307,7 +307,7 @@ def _start_proxy_server(
         failure: Final[Future[BaseException | None]] = Future()
 
         async def _serve() -> None:
-            from litellm.proxy.mcp_server import server as mcp_server
+            from hangarllm.proxy.mcp_server import server as mcp_server
 
             await _initialize_proxy(config_path)
             async with proxy_app.router.lifespan_context(proxy_app), mcp_server.lifespan(proxy_app):
@@ -359,7 +359,7 @@ def test_proxy_startup_failure_closes_acquired_resources(tmp_path: Path) -> None
             "_check_failed_startup(sys.argv[1])",
             str(config),
         ),
-        env={**os.environ, "LITELLM_MODE": "PRODUCTION", "PYTHON_DOTENV_DISABLED": "1"},
+        env={**os.environ, "HANGARLLM_MODE": "PRODUCTION", "PYTHON_DOTENV_DISABLED": "1"},
         capture_output=True,
         text=True,
         timeout=30,
@@ -426,7 +426,7 @@ def _proxy_server(
     config["mcp_servers"]["math_streamable_http"]["url"] = f"{math_streamable_http_server}/mcp"
     config["mcp_servers"]["math_restricted"]["url"] = f"{math_restricted_server}/mcp"
     config["general_settings"]["custom_auth"] = f"{__name__}.authorize_proxy_key"
-    config["litellm_settings"]["callbacks"] = [f"{__name__}.proxy_call_recorder"]
+    config["hangarllm_settings"]["callbacks"] = [f"{__name__}.proxy_call_recorder"]
     config["mcp_servers"]["math_restricted"]["mcp_info"] = {"mcp_server_cost_info": {"default_cost_per_query": 0.25}}
     config_path.write_text(yaml.safe_dump(config))
 
@@ -467,7 +467,7 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 async def main():
     async with streamablehttp_client(
         sys.argv[1] + "/mcp",
-        headers={"Authorization": "Bearer " + os.environ["LITELLM_MASTER_KEY"]},
+        headers={"Authorization": "Bearer " + os.environ["HANGARLLM_MASTER_KEY"]},
     ) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -614,7 +614,7 @@ class TestProxyMcpSimpleConnections:
 
 class TestProxyMcpStatelessBehavior:
     """
-    Verify that the LiteLLM MCP proxy operates in stateless mode.
+    Verify that the HangarLLM MCP proxy operates in stateless mode.
 
     When StreamableHTTPSessionManager is configured with stateless=True,
     independent clients must be able to connect, list tools, and call tools
@@ -624,7 +624,7 @@ class TestProxyMcpStatelessBehavior:
     expects clients to supply an mcp-session-id header obtained from a
     prior handshake — breaking clients that don't manage session IDs.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/20242
+    Regression test for upstream issue 20242
     """
 
     @pytest.mark.asyncio
@@ -787,13 +787,13 @@ class TestProxyMcpSchemaDiscoveryMode:
 
 async def authorize_proxy_key(request: Request, api_key: str) -> UserAPIKeyAuth:
     permissions = {
-        "sk-schema": LiteLLM_ObjectPermissionTable(object_permission_id="schema", mcp_servers=["schema"]),
-        MASTER_KEY: LiteLLM_ObjectPermissionTable(object_permission_id="open", mcp_servers=["math_stdio"]),
-        "sk-restricted": LiteLLM_ObjectPermissionTable(
+        "sk-schema": HangarLLM_ObjectPermissionTable(object_permission_id="schema", mcp_servers=["schema"]),
+        MASTER_KEY: HangarLLM_ObjectPermissionTable(object_permission_id="open", mcp_servers=["math_stdio"]),
+        "sk-restricted": HangarLLM_ObjectPermissionTable(
             object_permission_id="restricted", mcp_servers=["math_restricted"]
         ),
-        "sk-none": LiteLLM_ObjectPermissionTable(object_permission_id="none", mcp_servers=["no-mcp-servers"]),
-        "sk-add-only": LiteLLM_ObjectPermissionTable(
+        "sk-none": HangarLLM_ObjectPermissionTable(object_permission_id="none", mcp_servers=["no-mcp-servers"]),
+        "sk-add-only": HangarLLM_ObjectPermissionTable(
             object_permission_id="add-only", mcp_servers=["math_stdio"], mcp_tool_permissions={"math_stdio": ["add"]}
         ),
     }
@@ -1023,7 +1023,7 @@ class TestProxyMcpAuthorizationScope:
             "sk-none",
             "tools/call",
             {"name": "call_tool", "arguments": {"tool_id": "denied-scope", "arguments": {}}},
-            **{"x-mcp-servers": "math_restricted", "x-litellm-call-id": "proxy-scope-denial"},
+            **{"x-mcp-servers": "math_restricted", "x-hangarllm-call-id": "proxy-scope-denial"},
         )
         assert response.status_code == 200, response.text
         result = _rpc_result(response)
@@ -1047,7 +1047,7 @@ class TestProxyMcpAuthorizationScope:
     ) -> None:
         async def check() -> None:
             auth = UserAPIKeyAuth(
-                object_permission=LiteLLM_ObjectPermissionTable(
+                object_permission=HangarLLM_ObjectPermissionTable(
                     object_permission_id="validation", mcp_servers=["math_stdio"]
                 )
             )

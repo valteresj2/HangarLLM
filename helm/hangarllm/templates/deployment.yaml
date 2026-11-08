@@ -3,9 +3,9 @@ kind: Deployment
 metadata:
   annotations:
   {{- toYaml .Values.deploymentAnnotations | nindent 4 }}
-  name: {{ include "litellm.fullname" . }}
+  name: {{ include "hangarllm.fullname" . }}
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
     {{- if .Values.deploymentLabels }}
     {{- toYaml .Values.deploymentLabels | nindent 4 }}
     {{- end }}
@@ -19,7 +19,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "litellm.selectorLabels" . | nindent 6 }}
+      {{- include "hangarllm.selectorLabels" . | nindent 6 }}
   {{- if .Values.deploymentMinReadySeconds }}
   minReadySeconds: {{ .Values.deploymentMinReadySeconds }}
   {{- end }}
@@ -27,13 +27,13 @@ spec:
     metadata:
       annotations:
         {{- if .Values.proxyConfigMap.create }}
-        checksum/config: {{ include (print $.Template.BasePath "/configmap-litellm.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-hangarllm.yaml") . | sha256sum }}
         {{- end }}
         {{- with .Values.podAnnotations }}
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "litellm.labels" . | nindent 8 }}
+        {{- include "hangarllm.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -42,7 +42,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "litellm.serviceAccountName" . }}
+      serviceAccountName: {{ include "hangarllm.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- with .Values.extraInitContainers }}
@@ -50,17 +50,17 @@ spec:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ include "litellm.name" . }}
+        - name: {{ include "hangarllm.name" . }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            {{- include "litellm.lensConnectionEnv" . | nindent 12 }}
-            {{- include "litellm.proxyEnv" . | nindent 12 }}
-            {{- include "litellm.proxyMetricsEnv" . | nindent 12 }}
+            {{- include "hangarllm.lensConnectionEnv" . | nindent 12 }}
+            {{- include "hangarllm.proxyEnv" . | nindent 12 }}
+            {{- include "hangarllm.proxyMetricsEnv" . | nindent 12 }}
             {{- if .Values.collector.enabled }}
-            {{- include "litellm.collectorEnv" . | nindent 12 }}
+            {{- include "hangarllm.collectorEnv" . | nindent 12 }}
             {{- end }}
           envFrom:
           {{- range .Values.environmentSecrets }}
@@ -79,7 +79,7 @@ spec:
           {{- else }}
           args:
             - --config
-            - /etc/litellm/config.yaml
+            - /etc/hangarllm/config.yaml
             {{ if .Values.numWorkers }}
             - --num_workers
             - {{ .Values.numWorkers | quote }}
@@ -124,8 +124,8 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: litellm-config
-              mountPath: /etc/litellm/config.yaml
+            - name: hangarllm-config
+              mountPath: /etc/hangarllm/config.yaml
               subPath: config.yaml
           {{ if .Values.securityContext.readOnlyRootFilesystem }}
             - name: tmp
@@ -135,9 +135,9 @@ spec:
             - name: npm
               mountPath: /.npm
           {{- end }}
-          {{- if include "litellm.collector.socketDir" . }}
+          {{- if include "hangarllm.collector.socketDir" . }}
             - name: collector-socket
-              mountPath: {{ include "litellm.collector.socketDir" . }}
+              mountPath: {{ include "hangarllm.collector.socketDir" . }}
           {{- end }}
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -147,20 +147,20 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
       {{- if .Values.collector.enabled }}
-        - name: {{ include "litellm.name" . }}-collector
+        - name: {{ include "hangarllm.name" . }}-collector
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: {{ toYaml .Values.collector.command | nindent 12 }}
           env:
-            {{- include "litellm.proxyEnv" . | nindent 12 }}
-            {{- include "litellm.collectorEnv" . | nindent 12 }}
-            - name: LITELLM_JOB_ROLE
+            {{- include "hangarllm.proxyEnv" . | nindent 12 }}
+            {{- include "hangarllm.collectorEnv" . | nindent 12 }}
+            - name: HANGARLLM_JOB_ROLE
               value: collector
             {{- if not (hasKey (default dict .Values.envVars) "CONFIG_FILE_PATH") }}
             - name: CONFIG_FILE_PATH
-              value: /etc/litellm/config.yaml
+              value: /etc/hangarllm/config.yaml
             {{- end }}
           envFrom:
           {{- range .Values.environmentSecrets }}
@@ -174,12 +174,12 @@ spec:
           resources:
             {{- toYaml .Values.collector.resources | nindent 12 }}
           volumeMounts:
-            - name: litellm-config
-              mountPath: /etc/litellm/config.yaml
+            - name: hangarllm-config
+              mountPath: /etc/hangarllm/config.yaml
               subPath: config.yaml
-          {{- if include "litellm.collector.socketDir" . }}
+          {{- if include "hangarllm.collector.socketDir" . }}
             - name: collector-socket
-              mountPath: {{ include "litellm.collector.socketDir" . }}
+              mountPath: {{ include "hangarllm.collector.socketDir" . }}
           {{- end }}
           {{ if .Values.securityContext.readOnlyRootFilesystem }}
             - name: tmp
@@ -208,17 +208,17 @@ spec:
           emptyDir:
             sizeLimit: 500Mi
         {{- end }}
-        - name: litellm-config
+        - name: hangarllm-config
           configMap:
             {{- if .Values.proxyConfigMap.create }}
-            name: {{ include "litellm.fullname" . }}-config
+            name: {{ include "hangarllm.fullname" . }}-config
             {{- else }}
             name: {{ .Values.proxyConfigMap.name }}
             {{- end }}
             items:
               - key: {{ .Values.proxyConfigMap.key | default "config.yaml" }}
                 path: "config.yaml"
-        {{- if include "litellm.collector.socketDir" . }}
+        {{- if include "hangarllm.collector.socketDir" . }}
         - name: collector-socket
           emptyDir:
             sizeLimit: 1Mi

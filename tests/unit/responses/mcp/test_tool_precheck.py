@@ -11,14 +11,14 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.responses.mcp.tool_precheck import may_name_litellm_mcp_gateway
+import hangarllm
+from hangarllm.responses.mcp.tool_precheck import may_name_hangarllm_mcp_gateway
 
-GATEWAY_REGISTRY_MODULE: Final = "litellm.proxy.mcp_server.mcp_server_manager"
+GATEWAY_REGISTRY_MODULE: Final = "hangarllm.proxy.mcp_server.mcp_server_manager"
 GATEWAY_HANDLER_MODULES: Final = (
-    "litellm.responses.mcp.litellm_proxy_mcp_handler",
-    "litellm.responses.mcp.chat_completions_handler",
-    "litellm.llms.anthropic.messages.native.mcp_handler",
+    "hangarllm.responses.mcp.hangarllm_proxy_mcp_handler",
+    "hangarllm.responses.mcp.chat_completions_handler",
+    "hangarllm.llms.anthropic.messages.native.mcp_handler",
 )
 
 FUNCTION_TOOL: Final = {
@@ -46,8 +46,8 @@ ANTHROPIC_MESSAGE_PAYLOAD: Final = {
     "stop_sequence": None,
     "usage": {"input_tokens": 1, "output_tokens": 1},
 }
-GATEWAY_MCP_TOOL: Final = {"type": "mcp", "server_label": "litellm", "server_url": "litellm_proxy"}
-GATEWAY_SERVER_MCP_TOOL: Final = {"type": "mcp", "server_label": "x", "server_url": "litellm_proxy/mcp/github"}
+GATEWAY_MCP_TOOL: Final = {"type": "mcp", "server_label": "hangarllm", "server_url": "hangarllm_proxy"}
+GATEWAY_SERVER_MCP_TOOL: Final = {"type": "mcp", "server_label": "x", "server_url": "hangarllm_proxy/mcp/github"}
 GATEWAY_PATH_MCP_TOOL: Final = {"type": "mcp", "server_label": "x", "server_url": "https://gw.example.com/mcp/github"}
 REMOTE_MCP_TOOL: Final = {
     "type": "mcp",
@@ -127,7 +127,7 @@ class _ToolList(list[Mapping[str, object]]):
 )
 @pytest.mark.usefixtures("gateway_handler_unavailable")
 def test_completion_without_a_gateway_tool_does_not_import_the_gateway_handler(tools: Iterable[Mapping[str, object]]):
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         tools=tools,
@@ -140,7 +140,7 @@ def test_completion_without_a_gateway_tool_does_not_import_the_gateway_handler(t
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("gateway_handler_unavailable")
 async def test_acompletion_with_function_tool_does_not_import_the_gateway_handler():
-    response: Final = await litellm.acompletion(
+    response: Final = await hangarllm.acompletion(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         tools=[FUNCTION_TOOL],
@@ -153,12 +153,12 @@ async def test_acompletion_with_function_tool_does_not_import_the_gateway_handle
 @pytest.mark.parametrize(
     "tool",
     [GATEWAY_MCP_TOOL, GATEWAY_SERVER_MCP_TOOL, GATEWAY_PATH_MCP_TOOL],
-    ids=["litellm-proxy", "litellm-proxy-server", "gateway-path-url"],
+    ids=["hangarllm-proxy", "hangarllm-proxy-server", "gateway-path-url"],
 )
 @pytest.mark.usefixtures("gateway_handler_unavailable")
 def test_completion_with_gateway_mcp_tool_still_reaches_the_handler(tool: Mapping[str, object]):
-    with pytest.raises(ModuleNotFoundError, match=r"litellm_proxy_mcp_handler|chat_completions_handler"):
-        litellm.completion(
+    with pytest.raises(ModuleNotFoundError, match=r"hangarllm_proxy_mcp_handler|chat_completions_handler"):
+        hangarllm.completion(
             model="openai/gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
             tools=[tool],
@@ -179,7 +179,7 @@ def test_responses_without_a_gateway_tool_does_not_import_the_gateway_handler(
         return_value=httpx.Response(200, json=RESPONSES_PAYLOAD)
     )
 
-    response: Final = litellm.responses(model="openai/gpt-4o-mini", input="hi", tools=tools, api_key="sk-test")
+    response: Final = hangarllm.responses(model="openai/gpt-4o-mini", input="hi", tools=tools, api_key="sk-test")
 
     assert upstream.called
     assert response.output[0].content[0].text == "Done."
@@ -187,8 +187,8 @@ def test_responses_without_a_gateway_tool_does_not_import_the_gateway_handler(
 
 @pytest.mark.usefixtures("gateway_handler_unavailable")
 def test_responses_with_gateway_mcp_tool_still_reaches_the_handler():
-    with pytest.raises(litellm.APIConnectionError, match=r"litellm_proxy_mcp_handler"):
-        litellm.responses(model="openai/gpt-4o-mini", input="hi", tools=[GATEWAY_MCP_TOOL], api_key="sk-test")
+    with pytest.raises(hangarllm.APIConnectionError, match=r"hangarllm_proxy_mcp_handler"):
+        hangarllm.responses(model="openai/gpt-4o-mini", input="hi", tools=[GATEWAY_MCP_TOOL], api_key="sk-test")
 
 
 @pytest.mark.asyncio
@@ -196,12 +196,12 @@ def test_responses_with_gateway_mcp_tool_still_reaches_the_handler():
 async def test_anthropic_messages_with_function_tool_does_not_import_the_gateway_handler(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     upstream: Final = respx_mock.post("https://api.anthropic.com/v1/messages").mock(
         return_value=httpx.Response(200, json=ANTHROPIC_MESSAGE_PAYLOAD)
     )
 
-    response: Final = await litellm.anthropic_interface.messages.acreate(
+    response: Final = await hangarllm.anthropic_interface.messages.acreate(
         model="anthropic/claude-sonnet-5-5",
         messages=[{"role": "user", "content": "hi"}],
         max_tokens=16,
@@ -225,7 +225,7 @@ async def test_anthropic_messages_with_function_tool_does_not_import_the_gateway
         ([REMOTE_MCP_TOOL], False),
         ([{"type": "mcp", "server_label": "x"}], False),
         ([{"type": "mcp", "server_label": "x", "server_url": None}], False),
-        ([{"server_url": "litellm_proxy"}], False),
+        ([{"server_url": "hangarllm_proxy"}], False),
         ([FUNCTION_TOOL, GATEWAY_MCP_TOOL], True),
         ([GATEWAY_SERVER_MCP_TOOL], True),
         ([GATEWAY_PATH_MCP_TOOL], True),
@@ -248,8 +248,8 @@ async def test_anthropic_messages_with_function_tool_does_not_import_the_gateway
         "gateway-path-after-remote-mcp",
     ],
 )
-def test_may_name_litellm_mcp_gateway_matches_only_gateway_mcp_tools(tools: list[object] | None, expected: bool):
-    assert may_name_litellm_mcp_gateway(tools) is expected
+def test_may_name_hangarllm_mcp_gateway_matches_only_gateway_mcp_tools(tools: list[object] | None, expected: bool):
+    assert may_name_hangarllm_mcp_gateway(tools) is expected
 
 
 @pytest.mark.parametrize(
@@ -260,11 +260,11 @@ def test_may_name_litellm_mcp_gateway_matches_only_gateway_mcp_tools(tools: list
         ([GATEWAY_MCP_TOOL], True),
         ([GATEWAY_SERVER_MCP_TOOL, GATEWAY_PATH_MCP_TOOL], True),
     ],
-    ids=["gateway-path-url", "gateway-path-among-functions", "litellm-proxy", "litellm-proxy-server-and-path-url"],
+    ids=["gateway-path-url", "gateway-path-among-functions", "hangarllm-proxy", "hangarllm-proxy-server-and-path-url"],
 )
 @pytest.mark.usefixtures("gateway_registry_unavailable")
 def test_proxy_path_url_names_the_gateway_only_when_its_registry_loads(tools: list[object], expected: bool):
-    assert may_name_litellm_mcp_gateway(tools) is expected
+    assert may_name_hangarllm_mcp_gateway(tools) is expected
 
 
 @pytest.mark.usefixtures("gateway_registry_unavailable")
@@ -275,7 +275,7 @@ def test_responses_sends_a_proxy_path_mcp_url_to_the_provider_without_the_gatewa
         return_value=httpx.Response(200, json=RESPONSES_PAYLOAD)
     )
 
-    response: Final = litellm.responses(
+    response: Final = hangarllm.responses(
         model="openai/gpt-4o-mini", input="hi", tools=[GATEWAY_PATH_MCP_TOOL], api_key="sk-test"
     )
 
@@ -285,7 +285,7 @@ def test_responses_sends_a_proxy_path_mcp_url_to_the_provider_without_the_gatewa
 
 @pytest.mark.usefixtures("gateway_registry_unavailable")
 def test_completion_sends_a_proxy_path_mcp_url_to_the_provider_without_the_gateway_registry():
-    response: Final = litellm.completion(
+    response: Final = hangarllm.completion(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         tools=[GATEWAY_PATH_MCP_TOOL],
@@ -314,5 +314,5 @@ class _ToolTuple(tuple[Mapping[str, object], ...]):
 def test_precheck_reads_every_iterable_shape_without_the_gateway_handler(
     make_tools: Callable[[list[Mapping[str, object]]], Iterable[Mapping[str, object]]],
 ):
-    assert may_name_litellm_mcp_gateway(make_tools([FUNCTION_TOOL, REMOTE_MCP_TOOL])) is False
-    assert may_name_litellm_mcp_gateway(make_tools([FUNCTION_TOOL, GATEWAY_MCP_TOOL])) is True
+    assert may_name_hangarllm_mcp_gateway(make_tools([FUNCTION_TOOL, REMOTE_MCP_TOOL])) is False
+    assert may_name_hangarllm_mcp_gateway(make_tools([FUNCTION_TOOL, GATEWAY_MCP_TOOL])) is True

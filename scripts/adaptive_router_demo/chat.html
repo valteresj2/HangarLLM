@@ -366,7 +366,7 @@
 
 <div class="connect">
   <label>Proxy URL <input id="proxy-url" type="text" value="http://localhost:4000" /></label>
-  <label>API Key <input id="api-key" type="password" placeholder="LITELLM_MASTER_KEY" /></label>
+  <label>API Key <input id="api-key" type="password" placeholder="HANGARLLM_MASTER_KEY" /></label>
   <label>Router
     <input id="router" type="text" value="smart-cheap-router" style="width:160px" />
   </label>
@@ -623,7 +623,7 @@ async function sendMessage(text) {
       model: STATE.router,
       messages: STATE.messages,
       stream: true,
-      metadata: { litellm_session_id: STATE.sessionId },
+      metadata: { hangarllm_session_id: STATE.sessionId },
     };
 
     const resp = await fetch(`${STATE.proxyUrl}/v1/chat/completions`, {
@@ -645,8 +645,8 @@ async function sendMessage(text) {
     }
 
     // Read model from response header (requires proxy to expose via CORS).
-    const chosenModel = resp.headers.get("x-litellm-adaptive-router-model");
-    const reqType     = resp.headers.get("x-litellm-request-type");
+    const chosenModel = resp.headers.get("x-hangarllm-adaptive-router-model");
+    const reqType     = resp.headers.get("x-hangarllm-request-type");
     STATE.lastModel   = chosenModel || "check dashboard";
     STATE.lastReqType = reqType     || "—";
 

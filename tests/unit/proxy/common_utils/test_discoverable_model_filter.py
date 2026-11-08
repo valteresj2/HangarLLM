@@ -6,9 +6,9 @@ hidden from listings for callers without the admin view while it still routes.
 
 import pytest
 
-from litellm import Router
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.common_utils.discoverable_model_filter import (
+from hangarllm import Router
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.common_utils.discoverable_model_filter import (
     discoverable_rows,
     undiscoverable_model_names,
 )
@@ -17,7 +17,7 @@ from litellm.proxy.common_utils.discoverable_model_filter import (
 def _deployment(model_name: str, model: str = "openai/gpt-4o", **model_info):
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "api_key": "sk-fake"},
+        "hangarllm_params": {"model": model, "api_key": "sk-fake"},
         "model_info": {"id": f"{model_name}-id", **model_info},
     }
 
@@ -27,10 +27,10 @@ def _router(*deployments, **router_kwargs) -> Router:
 
 
 def _non_admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_role=LitellmUserRoles.INTERNAL_USER)
+    return UserAPIKeyAuth(api_key="sk-test", user_role=HangarllmUserRoles.INTERNAL_USER)
 
 
-def _admin(role: LitellmUserRoles = LitellmUserRoles.PROXY_ADMIN) -> UserAPIKeyAuth:
+def _admin(role: HangarllmUserRoles = HangarllmUserRoles.PROXY_ADMIN) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(api_key="sk-test", user_role=role)
 
 
@@ -48,7 +48,7 @@ def test_missing_flag_and_explicit_true_are_discoverable():
     assert undiscoverable_model_names(["gpt-4", "public-eval"], router, _non_admin(), None) == frozenset()
 
 
-@pytest.mark.parametrize("role", [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY])
+@pytest.mark.parametrize("role", [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY])
 def test_admin_view_sees_flagged_models(role):
     router = _router(_deployment("internal-evaluator", discoverable=False))
 
@@ -60,7 +60,7 @@ def test_group_with_one_discoverable_deployment_stays_listed():
         _deployment("shared", discoverable=False),
         {
             "model_name": "shared",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"},
             "model_info": {"id": "shared-public"},
         },
     )
@@ -103,7 +103,7 @@ def test_flagged_team_model_is_undiscoverable_for_its_team_member():
         ),
     )
     member = UserAPIKeyAuth(
-        api_key="sk-test", user_role=LitellmUserRoles.INTERNAL_USER, team_id="team1", team_models=["team-gpt"]
+        api_key="sk-test", user_role=HangarllmUserRoles.INTERNAL_USER, team_id="team1", team_models=["team-gpt"]
     )
 
     assert undiscoverable_model_names(["gpt-4", "team-gpt"], router, member, "team1") == {"team-gpt"}

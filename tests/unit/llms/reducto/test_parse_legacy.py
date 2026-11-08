@@ -1,21 +1,21 @@
 import pytest
 
-import litellm
-from tests.test_litellm_rust.support.recording_server import RecordingServer, ResponseSpec
+import hangarllm
+from tests.test_hangarllm_rust.support.recording_server import RecordingServer, ResponseSpec
 
 pytestmark = pytest.mark.requires_rust_extension
 
 
 @pytest.fixture()
 def disable_aiohttp_transport():
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
-    litellm.disable_aiohttp_transport = True
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    original_disable_aiohttp = hangarllm.disable_aiohttp_transport
+    hangarllm.disable_aiohttp_transport = True
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     try:
         yield
     finally:
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        hangarllm.disable_aiohttp_transport = original_disable_aiohttp
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
@@ -43,7 +43,7 @@ async def test_parse_legacy_wraps_enhance_under_options(disable_aiohttp_transpor
         )
     )
 
-    response = await litellm.aocr(
+    response = await hangarllm.aocr(
         model="reducto/parse-legacy",
         document={
             "type": "file",

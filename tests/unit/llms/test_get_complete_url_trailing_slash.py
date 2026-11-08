@@ -12,15 +12,15 @@ from urllib.parse import urlsplit, urlunsplit
 import pytest
 from _pytest.mark.structures import ParameterSet
 
-import litellm
-from litellm.llms.elevenlabs.text_to_speech.transformation import ElevenLabsTextToSpeechConfig
-from litellm.llms.meta.realtime.transformation import MUSE_MODEL
-from litellm.llms.openai_like.dynamic_config import create_config_class, create_responses_config_class
-from litellm.llms.openai_like.json_loader import SimpleProviderConfig
+import hangarllm
+from hangarllm.llms.elevenlabs.text_to_speech.transformation import ElevenLabsTextToSpeechConfig
+from hangarllm.llms.meta.realtime.transformation import MUSE_MODEL
+from hangarllm.llms.openai_like.dynamic_config import create_config_class, create_responses_config_class
+from hangarllm.llms.openai_like.json_loader import SimpleProviderConfig
 
 API_BASE_WITH_TRAILING_SLASH: Final = "https://gw.example.com/p/"
 API_BASE_WITHOUT_TRAILING_SLASH: Final = API_BASE_WITH_TRAILING_SLASH.rstrip("/")
-LLMS_ROOT: Final = Path(litellm.__file__).parent / "llms"
+LLMS_ROOT: Final = Path(hangarllm.__file__).parent / "llms"
 PACKAGE_ROOT: Final = LLMS_ROOT.parent.parent
 
 ARGUMENTS_BY_NAME: Final[Mapping[str, object]] = MappingProxyType(
@@ -28,7 +28,7 @@ ARGUMENTS_BY_NAME: Final[Mapping[str, object]] = MappingProxyType(
         "api_key": "sk-test",
         "model": "test-model",
         "optional_params": {},
-        "litellm_params": {"api_key": "sk-test", "vertex_project": "project", "vertex_location": "us-central1"},
+        "hangarllm_params": {"api_key": "sk-test", "vertex_project": "project", "vertex_location": "us-central1"},
         "stream": False,
         "endpoint": "v1/messages",
         "request_query_params": None,
@@ -63,7 +63,7 @@ INPUTS_BY_BUILDER: Final[Mapping[str, BuilderInputs]] = MappingProxyType(
     {
         "anthropic.skills.transformation.AnthropicSkillsConfig": BuilderInputs(call={"endpoint": "skills"}),
         "azure_ai.image_edit.transformation.AzureFoundryFluxImageEditConfig": BuilderInputs(
-            call={"litellm_params": {"api_version": "2025-04-01-preview"}}
+            call={"hangarllm_params": {"api_version": "2025-04-01-preview"}}
         ),
         "bedrock.chat.agentcore.transformation.AmazonAgentCoreConfig": BuilderInputs(
             call={"model": "agentcore/arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/test-runtime"},
@@ -79,7 +79,7 @@ INPUTS_BY_BUILDER: Final[Mapping[str, BuilderInputs]] = MappingProxyType(
             call={"model": "flux-pro-1.1"}
         ),
         "elevenlabs.text_to_speech.transformation.ElevenLabsTextToSpeechConfig": BuilderInputs(
-            call={"litellm_params": {ElevenLabsTextToSpeechConfig.ELEVENLABS_VOICE_ID_KEY: "voice-id"}}
+            call={"hangarllm_params": {ElevenLabsTextToSpeechConfig.ELEVENLABS_VOICE_ID_KEY: "voice-id"}}
         ),
         "meta.realtime.transformation.MetaRealtimeConfig": BuilderInputs(call={"model": MUSE_MODEL}),
         "openai.evals.transformation.OpenAIEvalsConfig": BuilderInputs(call={"endpoint": "evals"}),
@@ -87,7 +87,7 @@ INPUTS_BY_BUILDER: Final[Mapping[str, BuilderInputs]] = MappingProxyType(
             constructor={"provider": SAMPLE_JSON_PROVIDER}
         ),
         "predibase.chat.transformation.PredibaseConfig": BuilderInputs(
-            call={"litellm_params": {"predibase_tenant_id": "tenant"}}
+            call={"hangarllm_params": {"predibase_tenant_id": "tenant"}}
         ),
         "ragflow.chat.transformation.RAGFlowConfig": BuilderInputs(call={"model": "ragflow/chat/chat-id/model"}),
         "scaledown.chat.transformation.ScaleDownChatConfig": BuilderInputs(call={"model": "classify"}),
@@ -173,7 +173,7 @@ HOST_NAMED_LIKE_A_STRIPPED_SUFFIX_IS_NOT_KEPT: Final[Mapping[str, str]] = Mappin
 
 
 def _builder_id(cls: type) -> str:
-    return f"{cls.__module__.removeprefix('litellm.llms.')}.{cls.__qualname__}"
+    return f"{cls.__module__.removeprefix('hangarllm.llms.')}.{cls.__qualname__}"
 
 
 def _module_name(path: Path) -> str:

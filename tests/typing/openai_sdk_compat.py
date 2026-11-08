@@ -7,8 +7,8 @@ from openai import Timeout as SDKTimeout
 from openai._types import Response as SDKResponse
 from typing_extensions import assert_type
 
-import litellm
-from litellm.exceptions import (
+import hangarllm
+from hangarllm.exceptions import (
     APIConnectionError,
     APIResponseValidationError,
     BadGatewayError,
@@ -17,9 +17,9 @@ from litellm.exceptions import (
     RateLimitError,
     Timeout,
 )
-from litellm.litellm_core_utils.completion_timeout import CompletionTimeout
-from litellm.types.llms.openai import HttpxBinaryResponseContent
-from litellm.types.router import GenericLiteLLMParams, LiteLLMParamsTypedDict
+from hangarllm.hangarllm_core_utils.completion_timeout import CompletionTimeout
+from hangarllm.types.llms.openai import HttpxBinaryResponseContent
+from hangarllm.types.router import GenericHangarLLMParams, HangarLLMParamsTypedDict
 
 
 def consume_binary_response(response: HttpxBinaryResponseContent) -> httpx.Response:
@@ -58,9 +58,9 @@ def configured_clients(
     async_client: httpx.AsyncClient | DefaultAsyncHttpxClient,
     timeout: httpx.Timeout | SDKTimeout,
 ) -> None:
-    litellm.client_session = sync_client  # test-quality-ok: [TQ005] Type-check-only fixture; never executed
-    litellm.aclient_session = async_client  # test-quality-ok: [TQ005] Type-check-only fixture; never executed
+    hangarllm.client_session = sync_client  # test-quality-ok: [TQ005] Type-check-only fixture; never executed
+    hangarllm.aclient_session = async_client  # test-quality-ok: [TQ005] Type-check-only fixture; never executed
     assert_type(CompletionTimeout.normalize(timeout), httpx.Timeout)
-    params: Final[LiteLLMParamsTypedDict] = {"timeout": 1.0}
+    params: Final[HangarLLMParamsTypedDict] = {"timeout": 1.0}
     params["timeout"] = timeout
-    GenericLiteLLMParams(timeout=timeout)
+    GenericHangarLLMParams(timeout=timeout)

@@ -32,10 +32,10 @@ Default mount:
 npm run e2e:migration
 ```
 
-Non-root mount (build and boot the proxy with the same root path, e.g. `/litellm`):
+Non-root mount (build and boot the proxy with the same root path, e.g. `/hangarllm`):
 
 ```
-SERVER_ROOT_PATH=/litellm npm run e2e:migration:root
+SERVER_ROOT_PATH=/hangarllm npm run e2e:migration:root
 ```
 
 `globalSetup` logs in once per role; the admin storage state is reused for these

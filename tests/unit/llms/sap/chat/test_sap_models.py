@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.sap.chat.models import (
+from hangarllm.llms.sap.chat.models import (
     SAPAssistantMessage,
     SAPMessage,
     SAPToolChatMessage,
@@ -85,7 +85,7 @@ class TestSAPUserMessage:
         assert isinstance(msg.content, TextContent)
 
     def test_image_content_accepted(self):
-        from litellm.llms.sap.chat.models import ImageContent
+        from hangarllm.llms.sap.chat.models import ImageContent
 
         msg = SAPUserMessage.model_validate({
             "content": {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}}

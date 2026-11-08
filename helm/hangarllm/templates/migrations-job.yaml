@@ -1,11 +1,11 @@
 {{- if .Values.migrationJob.enabled }}
-# This job runs the Prisma migrations for the LiteLLM DB.
+# This job runs the Prisma migrations for the HangarLLM DB.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "litellm.fullname" . }}-migrations
+  name: {{ include "hangarllm.fullname" . }}-migrations
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
     {{- with .Values.migrationJob.jobLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -27,7 +27,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "litellm.labels" . | nindent 8 }}
+        {{- include "hangarllm.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -43,7 +43,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "litellm.migrationServiceAccountName" . }}
+      serviceAccountName: {{ include "hangarllm.migrationServiceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- with .Values.migrationJob.extraInitContainers }}
@@ -59,7 +59,7 @@ spec:
           {{- if .Values.migrationJob.command }}
           command: {{ toYaml .Values.migrationJob.command | nindent 12 }}
           {{- else }}
-          command: ["python", "litellm/proxy/prisma_migration.py"]
+          command: ["python", "hangarllm/proxy/prisma_migration.py"]
           {{- end }}
           {{- if .Values.migrationJob.args }}
           args: {{ toYaml .Values.migrationJob.args | nindent 12 }}
@@ -68,9 +68,9 @@ spec:
           {{- end }}
           workingDir: "/app"
           env:
-            {{- include "litellm.validateDbTokenAuth" . -}}
+            {{- include "hangarllm.validateDbTokenAuth" . -}}
             {{- if .Values.db.useExisting }}
-            {{- include "litellm.existingDbEnv" . | nindent 12 }}
+            {{- include "hangarllm.existingDbEnv" . | nindent 12 }}
             {{- else if .Values.db.deployStandalone }}
             - name: DATABASE_URL
               value: postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql/{{ .Values.postgresql.auth.database }}

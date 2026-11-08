@@ -9,13 +9,13 @@ from typing import Final
 import pytest
 from pydantic import ConfigDict, create_model
 
-from litellm.types.llms.base import LiteLLMBaseModel
+from hangarllm.types.llms.base import HangarLLMBaseModel
 
 _PROBE: Final = """
-from litellm.types.llms.base import LiteLLMBaseModel
+from hangarllm.types.llms.base import HangarLLMBaseModel
 
 
-class Probe(LiteLLMBaseModel):
+class Probe(HangarLLMBaseModel):
     value: int
 
 
@@ -42,26 +42,26 @@ def _probe_with(defer_pydantic_build: str | None) -> str:
 
 
 @pytest.mark.parametrize("defer_pydantic_build", [None, "true", "1", "on"])
-def test_litellm_models_defer_schema_build_until_first_use(defer_pydantic_build: str | None) -> None:
+def test_hangarllm_models_defer_schema_build_until_first_use(defer_pydantic_build: str | None) -> None:
     assert _probe_with(defer_pydantic_build) == "False 1 True"
 
 
 @pytest.mark.parametrize("defer_pydantic_build", ["false", "0", "off"])
-def test_litellm_models_build_schema_at_class_creation_when_defer_is_disabled(defer_pydantic_build: str) -> None:
+def test_hangarllm_models_build_schema_at_class_creation_when_defer_is_disabled(defer_pydantic_build: str) -> None:
     assert _probe_with(defer_pydantic_build) == "True 1 True"
 
 
 _NESTED_PROBE: Final = """
 from pydantic import BaseModel
 
-from litellm.types.llms.base import LiteLLMBaseModel
+from hangarllm.types.llms.base import HangarLLMBaseModel
 
 
-class Inner(LiteLLMBaseModel):
+class Inner(HangarLLMBaseModel):
     value: int
 
 
-class Parent(LiteLLMBaseModel):
+class Parent(HangarLLMBaseModel):
     inner: Inner
 
 
@@ -80,7 +80,7 @@ def test_deferred_instances_created_without_their_own_init_still_serialize_as_an
 
 
 def test_deferred_first_use_build_leaves_caller_locals_snapshot_untouched() -> None:
-    class DeferredProbe(LiteLLMBaseModel):
+    class DeferredProbe(HangarLLMBaseModel):
         model_config = ConfigDict(defer_build=True)
         value: int
 
@@ -101,30 +101,30 @@ _RACE_VALIDATIONS_PER_THREAD: Final = 5
 _RACE_FIELD_COUNT: Final = 20
 
 
-class _Deferred(LiteLLMBaseModel):
+class _Deferred(HangarLLMBaseModel):
     model_config = ConfigDict(defer_build=True)
 
 
-def _fresh_deferred_subclass(round_id: int) -> tuple[type[LiteLLMBaseModel], type[LiteLLMBaseModel]]:
+def _fresh_deferred_subclass(round_id: int) -> tuple[type[HangarLLMBaseModel], type[HangarLLMBaseModel]]:
     fields: Final = {f"field_{index}": (str | int | None, None) for index in range(_RACE_FIELD_COUNT)}
     parent: Final = create_model(f"Parent{round_id}", __base__=_Deferred, **fields)
     child: Final = create_model(f"Child{round_id}", __base__=parent, extra_flag=(bool | None, False))
     return parent, child
 
 
-def _first_use_outcome(child: type[LiteLLMBaseModel]) -> str:
+def _first_use_outcome(child: type[HangarLLMBaseModel]) -> str:
     try:
         return type(child.model_validate({"field_0": "x"})).__name__
     except AttributeError as error:
         return f"{type(error).__name__}: {error}"
 
 
-def _validate_after_barrier(child: type[LiteLLMBaseModel], gate: threading.Barrier) -> tuple[str, ...]:
+def _validate_after_barrier(child: type[HangarLLMBaseModel], gate: threading.Barrier) -> tuple[str, ...]:
     gate.wait()
     return tuple(_first_use_outcome(child) for _ in range(_RACE_VALIDATIONS_PER_THREAD))
 
 
-def _concurrent_first_use_outcomes(child: type[LiteLLMBaseModel]) -> frozenset[str]:
+def _concurrent_first_use_outcomes(child: type[HangarLLMBaseModel]) -> frozenset[str]:
     gate: Final = threading.Barrier(_RACE_THREADS)
     with ThreadPoolExecutor(max_workers=_RACE_THREADS) as executor:
         per_thread: Final = tuple(executor.map(lambda _: _validate_after_barrier(child, gate), range(_RACE_THREADS)))

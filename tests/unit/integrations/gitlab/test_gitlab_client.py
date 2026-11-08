@@ -4,7 +4,7 @@ import json
 import pytest
 
 
-from litellm.integrations.gitlab.gitlab_client import GitLabClient
+from hangarllm.integrations.gitlab.gitlab_client import GitLabClient
 
 
 # -----------------------------

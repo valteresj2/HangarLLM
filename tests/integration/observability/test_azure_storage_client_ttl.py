@@ -34,7 +34,7 @@ def _chat_completion(candidate: Gateway, model: str, key: str, marker: str) -> t
         key=key,
     )
     assert response.status_code == 200, response.text
-    return str(response.json()["id"]), response.headers.get("x-litellm-call-id")
+    return str(response.json()["id"]), response.headers.get("x-hangarllm-call-id")
 
 
 def _marker_of(request: Request) -> str | None:
@@ -62,7 +62,7 @@ def upstream_rejecting_fail_markers(status: int) -> Callable[[Request], Reply]:
 
 def _spend_row_visible(response_id: str) -> None:
     eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (response_id,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (response_id,)),
         lambda rows: len(rows) == 1,
         seconds=60,
     )

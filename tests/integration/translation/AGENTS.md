@@ -24,7 +24,7 @@ from integration.translation.messages.bases.anthropic import CLAUDE_SONNET_4_6_T
 CLAUDE_SONNET_4_6_THINKING_BUDGET_TEST_CASE: Final = replace(
     CLAUDE_SONNET_4_6_TEST_CASE,
     scenario="thinking_budget",
-    litellm_request={**CLAUDE_SONNET_4_6_TEST_CASE.litellm_request, "max_tokens": 2048, "thinking": ...},
+    hangarllm_request={**CLAUDE_SONNET_4_6_TEST_CASE.hangarllm_request, "max_tokens": 2048, "thinking": ...},
     ...
 )
 ```

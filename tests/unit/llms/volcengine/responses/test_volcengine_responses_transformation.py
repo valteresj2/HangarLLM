@@ -9,15 +9,15 @@ import pytest
 from pydantic import BaseModel, Field
 
 
-import litellm
-from litellm.llms.volcengine.responses.transformation import (
+import hangarllm
+from hangarllm.llms.volcengine.responses.transformation import (
     VolcEngineResponsesAPIConfig,
 )
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
-from litellm.types.responses.main import DeleteResponseResult
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
+from hangarllm.types.responses.main import DeleteResponseResult
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 
 class TestVolcengineResponsesAPITransformation:
@@ -68,7 +68,7 @@ class TestVolcengineResponsesAPITransformation:
                 "metadata": {"k": "v"},
                 "extra_body": {"unsupported_custom_param": 1, "temperature": 0.3},
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -83,13 +83,13 @@ class TestVolcengineResponsesAPITransformation:
         """Ensure Volcengine endpoint construction handles different bases."""
         config = VolcEngineResponsesAPIConfig()
 
-        default_url = config.get_complete_url(api_base=None, litellm_params={})
+        default_url = config.get_complete_url(api_base=None, hangarllm_params={})
         assert default_url == "https://ark.cn-beijing.volces.com/api/v3/responses"
 
-        api_base_with_api = config.get_complete_url(api_base="https://custom.volc.com/api/v3", litellm_params={})
+        api_base_with_api = config.get_complete_url(api_base="https://custom.volc.com/api/v3", hangarllm_params={})
         assert api_base_with_api == "https://custom.volc.com/api/v3/responses"
 
-        api_base_full = config.get_complete_url(api_base="https://custom.volc.com/api/v3/responses", litellm_params={})
+        api_base_full = config.get_complete_url(api_base="https://custom.volc.com/api/v3/responses", hangarllm_params={})
         assert api_base_full == "https://custom.volc.com/api/v3/responses"
 
     def test_response_id_path_requests_encode_response_id(self):
@@ -99,7 +99,7 @@ class TestVolcengineResponsesAPITransformation:
         url, params = config.transform_cancel_response_api_request(
             response_id="../../responses/other?x=1#frag",
             api_base="https://custom.volc.com/api/v3/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -107,21 +107,21 @@ class TestVolcengineResponsesAPITransformation:
         assert params == {}
 
     @pytest.mark.parametrize(
-        "litellm_params, expected_key",
+        "hangarllm_params, expected_key",
         [
             ({"api_key": "dict-key"}, "dict-key"),
-            (GenericLiteLLMParams(api_key="attr-key"), "attr-key"),
+            (GenericHangarLLMParams(api_key="attr-key"), "attr-key"),
         ],
     )
-    def test_validate_environment_uses_api_key(self, monkeypatch, litellm_params, expected_key):
+    def test_validate_environment_uses_api_key(self, monkeypatch, hangarllm_params, expected_key):
         """validate_environment should pull api key from params/env and attach headers."""
         config = VolcEngineResponsesAPIConfig()
 
-        monkeypatch.setattr(litellm, "api_key", None)
+        monkeypatch.setattr(hangarllm, "api_key", None)
         monkeypatch.delenv("ARK_API_KEY", raising=False)
         monkeypatch.delenv("VOLCENGINE_API_KEY", raising=False)
 
-        headers = config.validate_environment(headers={}, model="volcengine/demo-model", litellm_params=litellm_params)
+        headers = config.validate_environment(headers={}, model="volcengine/demo-model", hangarllm_params=hangarllm_params)
 
         assert headers.get("Authorization") == f"Bearer {expected_key}"
         assert headers.get("Content-Type") == "application/json"
@@ -130,12 +130,12 @@ class TestVolcengineResponsesAPITransformation:
         """validate_environment should error when no key is available."""
         config = VolcEngineResponsesAPIConfig()
 
-        monkeypatch.setattr(litellm, "api_key", None)
+        monkeypatch.setattr(hangarllm, "api_key", None)
         monkeypatch.delenv("ARK_API_KEY", raising=False)
         monkeypatch.delenv("VOLCENGINE_API_KEY", raising=False)
 
         with pytest.raises(ValueError, match='Volcengine API key is required\\. Set ARK_API_KEY /'):
-            config.validate_environment(headers={}, model="volcengine/demo", litellm_params={})
+            config.validate_environment(headers={}, model="volcengine/demo", hangarllm_params={})
 
     def test_valid_thinking_caching_and_expire_at_pass(self):
         """Documented params should pass through without validation errors."""
@@ -150,7 +150,7 @@ class TestVolcengineResponsesAPITransformation:
                 "expire_at": 1234567890,
                 "temperature": 0.5,
             },
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -197,7 +197,7 @@ class TestVolcengineResponsesAPITransformation:
         error = config.get_error_class("bad request", 400, headers={"x": "y"})
 
         # Use class name comparison instead of isinstance to avoid issues with
-        # module reloading during parallel test execution (conftest reloads litellm)
+        # module reloading during parallel test execution (conftest reloads hangarllm)
         assert type(error).__name__ == "VolcEngineError", f"Expected VolcEngineError, got {type(error).__name__}"
         assert error.status_code == 400
         assert error.message == "bad request"
@@ -297,7 +297,7 @@ class TestVolcengineResponsesAPITransformation:
         url, data = config.transform_delete_response_api_request(
             response_id="resp_123",
             api_base="https://custom.volc.com/api/v3/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -310,7 +310,7 @@ class TestVolcengineResponsesAPITransformation:
         url, data = config.transform_get_response_api_request(
             response_id="resp 123",
             api_base="https://custom.volc.com/api/v3/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
         )
 
@@ -370,7 +370,7 @@ class TestVolcengineResponsesAPITransformation:
         url, params = config.transform_list_input_items_request(
             response_id="resp_123",
             api_base="https://custom.volc.com/api/v3/responses",
-            litellm_params=GenericLiteLLMParams(),
+            hangarllm_params=GenericHangarLLMParams(),
             headers={},
             after="item_a",
             before="item_b",

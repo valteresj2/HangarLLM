@@ -6,14 +6,14 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.llm_cost_calc.utils import (
     calculate_prompt_caching_savings,
     generic_cost_per_token,
     get_token_type_cost_breakdown,
 )
-from litellm.llms.fireworks_ai.cost_calculator import cost_per_token
-from litellm.types.utils import (
+from hangarllm.llms.fireworks_ai.cost_calculator import cost_per_token
+from hangarllm.types.utils import (
     CompletionTokensDetailsWrapper,
     OffPeakPricing,
     PromptTokensDetailsWrapper,
@@ -22,17 +22,17 @@ from litellm.types.utils import (
 
 MODEL = "accounts/fireworks/models/glm-5p2"
 INPUT_COST = 1.4e-06
-CACHE_READ_COST = litellm.get_model_info(model=MODEL, custom_llm_provider="fireworks_ai")["cache_read_input_token_cost"]
+CACHE_READ_COST = hangarllm.get_model_info(model=MODEL, custom_llm_provider="fireworks_ai")["cache_read_input_token_cost"]
 OUTPUT_COST = 4.4e-06
 
 
 @pytest.fixture(autouse=True)
 def restore_model_cost() -> Generator[None, None, None]:
-    original: Final = litellm.model_cost
-    litellm.get_model_info.cache_clear()
+    original: Final = hangarllm.model_cost
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.model_cost = original
-    litellm.get_model_info.cache_clear()
+    hangarllm.model_cost = original
+    hangarllm.get_model_info.cache_clear()
 
 
 def _usage(prompt_tokens: int, cached_tokens: int, completion_tokens: int) -> Usage:
@@ -68,10 +68,10 @@ def _register_off_peak_model(
     cache_read_cost: float | None = STANDARD_CACHE_READ_COST,
     model: str = OFF_PEAK_MODEL,
 ) -> None:
-    litellm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns litellm.model_cost to the original object after each test
-        **litellm.model_cost,
+    hangarllm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns hangarllm.model_cost to the original object after each test
+        **hangarllm.model_cost,
         f"fireworks_ai/{model}": {
-            "litellm_provider": "fireworks_ai",
+            "hangarllm_provider": "fireworks_ai",
             "mode": "chat",
             "input_cost_per_token": STANDARD_INPUT_COST,
             "output_cost_per_token": STANDARD_OUTPUT_COST,
@@ -162,10 +162,10 @@ def test_an_entry_without_a_cache_read_rate_bills_cached_tokens_at_the_documente
     """Fireworks documents a default 50% cached-token discount for serverless models:
     https://docs.fireworks.ai/guides/prompt-caching, accessed 2026-09-19."""
     model = "accounts/fireworks/models/default-cache-read-test"
-    litellm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns litellm.model_cost to the original object after each test
-        **litellm.model_cost,
+    hangarllm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns hangarllm.model_cost to the original object after each test
+        **hangarllm.model_cost,
         f"fireworks_ai/{model}": {
-            "litellm_provider": "fireworks_ai",
+            "hangarllm_provider": "fireworks_ai",
             "mode": "chat",
             "input_cost_per_token": INPUT_COST,
             "output_cost_per_token": OUTPUT_COST,
@@ -182,10 +182,10 @@ def test_an_entry_without_a_cache_read_rate_bills_cached_tokens_at_the_documente
 
 def test_fireworks_cache_read_rates_match_breakdown_and_caching_savings():
     model = "accounts/fireworks/models/breakdown-cache-read-test"
-    litellm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns litellm.model_cost to the original object after each test, so replacing the map for this entry leaks nothing
-        **litellm.model_cost,
+    hangarllm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns hangarllm.model_cost to the original object after each test, so replacing the map for this entry leaks nothing
+        **hangarllm.model_cost,
         f"fireworks_ai/{model}": {
-            "litellm_provider": "fireworks_ai",
+            "hangarllm_provider": "fireworks_ai",
             "mode": "chat",
             "input_cost_per_token": INPUT_COST,
             "output_cost_per_token": OUTPUT_COST,
@@ -200,7 +200,7 @@ def test_fireworks_cache_read_rates_match_breakdown_and_caching_savings():
     )
     prompt_cost, _ = cost_per_token(model=model, usage=usage)
     savings = calculate_prompt_caching_savings(
-        model_info=litellm.get_model_info(model=model, custom_llm_provider="fireworks_ai"),
+        model_info=hangarllm.get_model_info(model=model, custom_llm_provider="fireworks_ai"),
         usage=usage,
         custom_llm_provider="fireworks_ai",
     )
@@ -215,10 +215,10 @@ def test_fireworks_cache_read_rates_match_breakdown_and_caching_savings():
 
 def test_generic_cost_per_token_applies_fireworks_cache_read_default_with_or_without_model_info():
     model = "accounts/fireworks/models/generic-cache-read-test"
-    litellm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns litellm.model_cost to the original object after each test
-        **litellm.model_cost,
+    hangarllm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns hangarllm.model_cost to the original object after each test
+        **hangarllm.model_cost,
         f"fireworks_ai/{model}": {
-            "litellm_provider": "fireworks_ai",
+            "hangarllm_provider": "fireworks_ai",
             "mode": "chat",
             "input_cost_per_token": INPUT_COST,
             "output_cost_per_token": OUTPUT_COST,
@@ -236,7 +236,7 @@ def test_generic_cost_per_token_applies_fireworks_cache_read_default_with_or_wit
         model=model,
         usage=usage,
         custom_llm_provider="fireworks_ai",
-        model_info=litellm.get_model_info(model=model, custom_llm_provider="fireworks_ai"),
+        model_info=hangarllm.get_model_info(model=model, custom_llm_provider="fireworks_ai"),
     )
 
     assert math.isclose(implicit_model_info_cost, expected_prompt_cost, rel_tol=1e-10)
@@ -268,10 +268,10 @@ COMPONENT_AUDIO_OUT_COST = 6e-06
 
 
 def test_cache_write_reasoning_and_audio_tokens_are_billed_at_their_component_rates():
-    litellm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns litellm.model_cost to the original object after each test, so replacing the map for this entry leaks nothing
-        **litellm.model_cost,
+    hangarllm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns hangarllm.model_cost to the original object after each test, so replacing the map for this entry leaks nothing
+        **hangarllm.model_cost,
         f"fireworks_ai/{COMPONENT_MODEL}": {
-            "litellm_provider": "fireworks_ai",
+            "hangarllm_provider": "fireworks_ai",
             "mode": "chat",
             "input_cost_per_token": COMPONENT_INPUT_COST,
             "output_cost_per_token": COMPONENT_OUTPUT_COST,
@@ -313,10 +313,10 @@ def test_cache_write_reasoning_and_audio_tokens_are_billed_at_their_component_ra
 
 
 def test_an_entry_without_an_input_rate_gets_no_cache_read_fallback():
-    litellm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns litellm.model_cost to the original object after each test, so replacing the map for this entry leaks nothing
-        **litellm.model_cost,  # pyright: ignore[reportUnknownMemberType]  # the SDK types model_cost as dict[Unknown, Unknown]
+    hangarllm.model_cost = {  # test-quality-ok: the restore_model_cost fixture returns hangarllm.model_cost to the original object after each test, so replacing the map for this entry leaks nothing
+        **hangarllm.model_cost,  # pyright: ignore[reportUnknownMemberType]  # the SDK types model_cost as dict[Unknown, Unknown]
         "fireworks_ai/accounts/fireworks/models/no-input-rate-test": {
-            "litellm_provider": "fireworks_ai",
+            "hangarllm_provider": "fireworks_ai",
             "mode": "chat",
             "output_cost_per_token": 2e-06,
         },
@@ -331,18 +331,18 @@ def test_an_entry_without_an_input_rate_gets_no_cache_read_fallback():
 
 ROUTED_MODEL: Final = next(
     key
-    for key, info in litellm.model_cost.items()
+    for key, info in hangarllm.model_cost.items()
     if "/" not in key
-    and info.get("litellm_provider") == "anthropic"
+    and info.get("hangarllm_provider") == "anthropic"
     and (info.get("input_cost_per_token") or 0) > 0
     and (info.get("output_cost_per_token") or 0) > 0
-    and f"fireworks_ai/{key}" not in litellm.model_cost
+    and f"fireworks_ai/{key}" not in hangarllm.model_cost
 )
 
 
 @pytest.mark.parametrize("model", [ROUTED_MODEL, f"fireworks_ai/{ROUTED_MODEL}"])
 def test_a_model_routed_to_another_provider_is_billed_at_that_models_own_rates(model: str):
-    own_rates: Final = litellm.get_model_info(model=ROUTED_MODEL, custom_llm_provider="anthropic")
+    own_rates: Final = hangarllm.get_model_info(model=ROUTED_MODEL, custom_llm_provider="anthropic")
     usage: Final = _usage(prompt_tokens=23, cached_tokens=0, completion_tokens=41)
 
     prompt_cost, completion_cost = cost_per_token(model=model, usage=usage)
@@ -378,8 +378,8 @@ def test_a_routed_xai_model_keeps_xais_inclusive_token_threshold():
     candidate: Final = next(
         (
             (key, field)
-            for key, info in litellm.model_cost.items()
-            if info.get("litellm_provider") == "xai" and f"fireworks_ai/{key}" not in litellm.model_cost
+            for key, info in hangarllm.model_cost.items()
+            if info.get("hangarllm_provider") == "xai" and f"fireworks_ai/{key}" not in hangarllm.model_cost
             for field in info
             if _TIERED_INPUT_PATTERN.match(field)
         ),

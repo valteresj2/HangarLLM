@@ -4,7 +4,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.guardrails.guardrail_hooks.akto.akto_attachments import (
+from hangarllm.proxy.guardrails.guardrail_hooks.akto.akto_attachments import (
     Attachment,
     RequestAttachments,
     request_attachments,
@@ -153,7 +153,7 @@ def test_both_sources_of_a_responses_api_image_are_checked():
         {"type": "image_url", "url": {"url": "https://example.com/a.png"}},
     ],
 )
-def test_every_image_shape_litellm_forwards_is_checked(block):
+def test_every_image_shape_hangarllm_forwards_is_checked(block):
     found = request_attachments({"input": [{"type": "function_call_output", "output": [block]}]})
 
     assert (found.attachments, found.malformed_count) == (

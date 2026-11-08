@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-      - "litellm_**"
+      - "hangarllm_**"
       - "rc/**"
       - "stable/**"
       - "lts/**"
@@ -45,7 +45,7 @@ jobs:
         id: rust-bridge-key
         if: steps.changes.outputs.decision != 'skip'
         env:
-          RUST_BRIDGE_CACHE_KEY: ${{ runner.os }}-rust-bridge-editable-${{ hashFiles('litellm-rust/Cargo.lock', 'litellm-rust/Cargo.toml', 'litellm-rust/crates/**', 'model_prices_and_context_window.json', 'pyproject.toml', 'packaging/litellm-proxy/pyproject.toml') }}
+          RUST_BRIDGE_CACHE_KEY: ${{ runner.os }}-rust-bridge-editable-${{ hashFiles('hangarllm-rust/Cargo.lock', 'hangarllm-rust/Cargo.toml', 'hangarllm-rust/crates/**', 'model_prices_and_context_window.json', 'pyproject.toml', 'packaging/hangarllm-proxy/pyproject.toml') }}
         run: echo "key=$RUST_BRIDGE_CACHE_KEY" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
@@ -88,24 +88,24 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
           SCCACHE_GHA_ENABLED: "true"
-          SCCACHE_GHA_VERSION: litellm-ci-v1
+          SCCACHE_GHA_VERSION: hangarllm-ci-v1
           SCCACHE_GHA_RW_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
           CARGO_INCREMENTAL: "0"
         run: |
           mkdir -p rust-bridge-dist
           uv run --no-project --with maturin==1.15.0 python -c 'import maturin; maturin.build_editable("rust-bridge-dist")'
-          strip --strip-debug litellm/rust_bridge/_native.abi3.so
-          mkdir -p rust-bridge-dist/litellm/rust_bridge
-          cp litellm/rust_bridge/_native.abi3.so rust-bridge-dist/litellm/rust_bridge/_native.abi3.so
+          strip --strip-debug hangarllm/rust_bridge/_native.abi3.so
+          mkdir -p rust-bridge-dist/hangarllm/rust_bridge
+          cp hangarllm/rust_bridge/_native.abi3.so rust-bridge-dist/hangarllm/rust_bridge/_native.abi3.so
 
       - name: Build the gateway wheel once for test shards
         if: steps.changes.outputs.decision != 'skip' && steps.rust-bridge-cache.outputs.cache-hit != 'true'
         timeout-minutes: 15
-        working-directory: packaging/litellm-proxy
+        working-directory: packaging/hangarllm-proxy
         env:
           RUSTC_WRAPPER: sccache
           SCCACHE_GHA_ENABLED: "true"
-          SCCACHE_GHA_VERSION: litellm-ci-v1
+          SCCACHE_GHA_VERSION: hangarllm-ci-v1
           SCCACHE_GHA_RW_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
           CARGO_INCREMENTAL: "0"
         run: uv run --no-project --with maturin==1.15.0 maturin build --profile dev --strip --out ../../rust-bridge-dist
@@ -157,7 +157,7 @@ jobs:
       pull-requests: read
     env:
       UV_PYTHON: ${{ matrix.python-version }}
-      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      HANGARLLM_LOCAL_MODEL_COST_MAP: "True"
     strategy:
       fail-fast: false
       matrix:
@@ -168,7 +168,7 @@ jobs:
               tests/unit/batch_completion
               tests/unit/decisions
               tests/unit/extraction
-              tests/unit/litellm_core_utils
+              tests/unit/hangarllm_core_utils
               tests/unit/systemone
             python-version: "3.12"
             workers: 4
@@ -324,7 +324,7 @@ jobs:
               tests/unit/llms/laya
               tests/unit/llms/lemonade
               tests/unit/llms/linkup
-              tests/unit/llms/litellm_proxy
+              tests/unit/llms/hangarllm_proxy
               tests/unit/llms/llamafile
               tests/unit/llms/lm_studio
               tests/unit/llms/manus
@@ -475,13 +475,13 @@ jobs:
 
           - shard: rust-bridge-harness
             test-path: >-
-              tests/test_litellm_rust/test_dispatch.py
-              tests/test_litellm_rust/test_public_entries.py
-              tests/test_litellm_rust/chat_completions/test_dispatch.py
-              tests/test_litellm_rust/embeddings/test_dispatch.py
-              tests/test_litellm_rust/messages/test_dispatch.py
-              tests/test_litellm_rust/ocr/test_dispatch.py
-              tests/test_litellm_rust/responses/test_dispatch.py
+              tests/test_hangarllm_rust/test_dispatch.py
+              tests/test_hangarllm_rust/test_public_entries.py
+              tests/test_hangarllm_rust/chat_completions/test_dispatch.py
+              tests/test_hangarllm_rust/embeddings/test_dispatch.py
+              tests/test_hangarllm_rust/messages/test_dispatch.py
+              tests/test_hangarllm_rust/ocr/test_dispatch.py
+              tests/test_hangarllm_rust/responses/test_dispatch.py
               tests/unit/compression
               tests/unit/harness
               tests/unit/rust_bridge
@@ -710,7 +710,7 @@ jobs:
 
           - shard: proxy-extras
             test-path: >-
-              tests/unit/litellm_proxy_extras
+              tests/unit/hangarllm_proxy_extras
               tests/unit/db_scripts
             python-version: "3.12"
             workers: 2
@@ -747,7 +747,7 @@ jobs:
 
           - shard: responses-caching-types
             test-path: |-
-              tests/unit/responses/litellm_completion_transformation
+              tests/unit/responses/hangarllm_completion_transformation
               tests/unit/responses/test_additional_tools.py
               tests/unit/responses/test_custom_tool_call.py
               tests/unit/responses/test_metadata_codex_callback.py
@@ -1033,14 +1033,14 @@ jobs:
         env:
           RUST_BRIDGE_ARTIFACT: ${{ needs.rust-bridge.outputs.artifact }}
         run: |
-          diff -u model_prices_and_context_window.json litellm/model_prices_and_context_window_backup.json
+          diff -u model_prices_and_context_window.json hangarllm/model_prices_and_context_window_backup.json
           if [ -z "$RUST_BRIDGE_ARTIFACT" ]; then
             .github/scripts/uv_sync_with_retries.sh --frozen --group ci --group proxy-dev --extra google --extra proxy --extra semantic-router --extra switchyard --extra saml --extra extra_proxy --extra proxy-runtime --extra utils
           else
-            .github/scripts/uv_sync_with_retries.sh --frozen --group ci --group proxy-dev --extra google --extra proxy --extra semantic-router --extra switchyard --extra saml --extra extra_proxy --extra proxy-runtime --extra utils --no-install-project --no-install-package litellm-proxy
+            .github/scripts/uv_sync_with_retries.sh --frozen --group ci --group proxy-dev --extra google --extra proxy --extra semantic-router --extra switchyard --extra saml --extra extra_proxy --extra proxy-runtime --extra utils --no-install-project --no-install-package hangarllm-proxy
             uv pip install --no-deps --python .venv/bin/python rust-bridge-dist/*.whl
-            cp rust-bridge-dist/litellm/rust_bridge/_native.abi3.so litellm/rust_bridge/_native.abi3.so
-            uv run --no-sync python -c "import importlib.metadata; import litellm.rust_bridge._native; print(importlib.metadata.version('litellm'))"
+            cp rust-bridge-dist/hangarllm/rust_bridge/_native.abi3.so hangarllm/rust_bridge/_native.abi3.so
+            uv run --no-sync python -c "import importlib.metadata; import hangarllm.rust_bridge._native; print(importlib.metadata.version('hangarllm'))"
           fi
           uv run --no-sync python -c 'import os, sys; print(sys.version); assert f"{sys.version_info.major}.{sys.version_info.minor}" == os.environ["UV_PYTHON"]'
 
@@ -1068,7 +1068,7 @@ jobs:
         if: steps.changes.outputs.decision != 'skip'
         timeout-minutes: 3
         run: |
-          uv run --no-sync prisma generate --schema litellm/proxy/schema.prisma
+          uv run --no-sync prisma generate --schema hangarllm/proxy/schema.prisma
 
       - name: Run tests
         id: tests
@@ -1122,7 +1122,7 @@ jobs:
             --timeout="${TEST_TIMEOUT_SECONDS}" \
             --rerun-except "from pytest-timeout" \
             --durations=20 \
-            --cov=./litellm --cov=./enterprise/litellm_enterprise \
+            --cov=./hangarllm --cov=./enterprise/hangarllm_enterprise \
             --cov-report=xml:coverage.xml \
             --cov-config=pyproject.toml
           status=$?
@@ -1152,7 +1152,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: ui/litellm-dashboard
+        working-directory: ui/hangarllm-dashboard
 
     steps:
       - name: Checkout repository
@@ -1171,9 +1171,9 @@ jobs:
         if: steps.changes.outputs.decision != 'skip'
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version-file: ui/litellm-dashboard/.nvmrc
+          node-version-file: ui/hangarllm-dashboard/.nvmrc
           cache: "npm"
-          cache-dependency-path: ui/litellm-dashboard/package-lock.json
+          cache-dependency-path: ui/hangarllm-dashboard/package-lock.json
 
       - name: Install dependencies
         if: steps.changes.outputs.decision != 'skip'
@@ -1245,11 +1245,11 @@ jobs:
         id: changes
         uses: ./.github/actions/detect-changes
 
-      - name: Checkout litellm-docs into docs/my-website (for documentation_tests)
+      - name: Checkout hangarllm-docs into docs/my-website (for documentation_tests)
         if: steps.changes.outputs.decision != 'skip'
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
-          repository: BerriAI/litellm-docs
+          repository: valteresj2/HangarLLM-docs
           path: docs/my-website
           persist-credentials: false
 
@@ -1303,7 +1303,7 @@ jobs:
       - name: Generate Prisma client
         if: steps.changes.outputs.decision != 'skip'
         run: |
-          uv run --no-sync prisma generate --schema litellm/proxy/schema.prisma
+          uv run --no-sync prisma generate --schema hangarllm/proxy/schema.prisma
 
       - name: Run documentation validation tests
         if: steps.changes.outputs.decision != 'skip'
@@ -1368,7 +1368,7 @@ jobs:
       matrix:
         openai-version: ["2.20.0", "3.0.0", "3.25.0"]
     env:
-      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      HANGARLLM_LOCAL_MODEL_COST_MAP: "True"
       PYTHONPATH: ${{ github.workspace }}
       UV_PYTHON: "3.10"
       OPENAI_VERSION: ${{ matrix.openai-version }}
@@ -1405,7 +1405,7 @@ jobs:
         if: steps.changes.outputs.decision != 'skip'
         run: |
           .github/scripts/uv_sync_with_retries.sh --frozen --group dev --group proxy-dev --extra proxy --no-install-workspace
-          cp rust-bridge-dist/litellm/rust_bridge/_native.* litellm/rust_bridge/
+          cp rust-bridge-dist/hangarllm/rust_bridge/_native.* hangarllm/rust_bridge/
           uv pip install "openai==${OPENAI_VERSION:?}" --exclude-newer-package openai=2026-10-07T00:00:00Z
           uv run --no-sync python -c 'import os, openai; assert openai.__version__ == os.environ["OPENAI_VERSION"], openai.__version__'
 
@@ -1449,7 +1449,7 @@ jobs:
         redis-py: ["5.3.1", "6.4.0", "7.4.1", "8.0.1"]
     env:
       UV_PYTHON: "3.12"
-      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      HANGARLLM_LOCAL_MODEL_COST_MAP: "True"
       REDIS_PY_VERSION: ${{ matrix.redis-py }}
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
@@ -1499,9 +1499,9 @@ jobs:
           if [ -z "$RUST_BRIDGE_ARTIFACT" ]; then
             .github/scripts/uv_sync_with_retries.sh --frozen --group ci --group proxy-dev --extra google --extra proxy --extra semantic-router --extra switchyard --extra saml --extra extra_proxy --extra proxy-runtime --extra utils
           else
-            .github/scripts/uv_sync_with_retries.sh --frozen --group ci --group proxy-dev --extra google --extra proxy --extra semantic-router --extra switchyard --extra saml --extra extra_proxy --extra proxy-runtime --extra utils --no-install-project --no-install-package litellm-proxy
+            .github/scripts/uv_sync_with_retries.sh --frozen --group ci --group proxy-dev --extra google --extra proxy --extra semantic-router --extra switchyard --extra saml --extra extra_proxy --extra proxy-runtime --extra utils --no-install-project --no-install-package hangarllm-proxy
             uv pip install --no-deps --python .venv/bin/python rust-bridge-dist/*.whl
-            cp rust-bridge-dist/litellm/rust_bridge/_native.abi3.so litellm/rust_bridge/_native.abi3.so
+            cp rust-bridge-dist/hangarllm/rust_bridge/_native.abi3.so hangarllm/rust_bridge/_native.abi3.so
           fi
           uv pip install --python .venv/bin/python "redis==${REDIS_PY_VERSION:?}"
           uv run --no-sync python -c 'import os, redis; assert redis.__version__ == os.environ["REDIS_PY_VERSION"], redis.__version__'
@@ -1529,7 +1529,7 @@ jobs:
             tests/unit/caching/test_redis_cluster_cache.py \
             tests/unit/caching/test_evicted_client_closer.py \
             --tb=short -vv -rs -p no:rerunfailures -p no:pytest-retry --timeout=120 --durations=20 \
-            --cov=./litellm --cov-report=xml:coverage.xml
+            --cov=./hangarllm --cov-report=xml:coverage.xml
 
       - name: Upload redis-py ${{ matrix.redis-py }} coverage to Codecov
         if: always() && steps.changes.outputs.decision != 'skip' && matrix.redis-py == '5.3.1'

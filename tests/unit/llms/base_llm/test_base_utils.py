@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.llms.base_llm.base_utils import (
+from hangarllm.llms.base_llm.base_utils import (
     hoist_developer_messages_into_leading_system_message,
     merge_system_message_runs,
 )

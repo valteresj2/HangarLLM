@@ -66,11 +66,11 @@ def proxy_config(directory: Path, *, probe: bool) -> Path:
     stock: Final = rv.JSON_OBJECT.validate_python(
         yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     )
-    litellm_settings: Final = rv.JSON_OBJECT.validate_python(stock["litellm_settings"])
+    hangarllm_settings: Final = rv.JSON_OBJECT.validate_python(stock["hangarllm_settings"])
     router_settings: Final = rv.JSON_OBJECT.validate_python(stock.get("router_settings") or {})
     config: Final[Mapping[str, JsonValue]] = {
         **stock,
-        "litellm_settings": {**litellm_settings, "callbacks": [PROBE_CALLBACK]} if probe else litellm_settings,
+        "hangarllm_settings": {**hangarllm_settings, "callbacks": [PROBE_CALLBACK]} if probe else hangarllm_settings,
         "router_settings": {**router_settings, "num_retries": 0},
     }
     path: Final = directory / "chatgpt-codex-rig.yaml"

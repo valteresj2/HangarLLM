@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.llms.gemini.image_edit.transformation import GeminiImageEditConfig
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import StandardLoggingPayloadSetup
+from hangarllm.llms.gemini.image_edit.transformation import GeminiImageEditConfig
 
 
 class TestGeminiImageEditTransformation:
@@ -85,7 +85,7 @@ class TestGeminiImageEditTransformation:
             "imageConfig": "{bad",
         }
 
-        with pytest.raises(litellm.UnsupportedParamsError) as exc_info:
+        with pytest.raises(hangarllm.UnsupportedParamsError) as exc_info:
             self.config.map_openai_params(
                 image_edit_optional_params=optional_params,  # type: ignore[arg-type]
                 model="gemini-3-pro-image-preview",
@@ -107,7 +107,7 @@ class TestGeminiImageEditTransformation:
             prompt=self.prompt,
             image=[image],  # Gemini pipeline passes list of images
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            hangarllm_params=MagicMock(),
             headers={},
         )
 
@@ -136,7 +136,7 @@ class TestGeminiImageEditTransformation:
             prompt=self.prompt,
             image=[image],
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            hangarllm_params=MagicMock(),
             headers={},
         )
 
@@ -153,7 +153,7 @@ class TestGeminiImageEditTransformation:
             prompt=self.prompt,
             image=[image_one, image_two],
             image_edit_optional_request_params={},
-            litellm_params=MagicMock(),
+            hangarllm_params=MagicMock(),
             headers={},
         )
 
@@ -270,7 +270,7 @@ class TestGeminiImageEditTransformation:
                 prompt=self.prompt,
                 image=[],
                 image_edit_optional_request_params=optional_params,
-                litellm_params=MagicMock(),
+                hangarllm_params=MagicMock(),
                 headers={},
             )
 

@@ -10,7 +10,7 @@ from integration._support.client import Gateway
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
+import hangarllm
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _PROMPT: Final = "a transparent lighthouse at dawn"
@@ -26,7 +26,7 @@ async def test_proxy_image_retry_attempts_are_owned_only_by_router(
     sdk_retries: int,
     outcome: Literal["503", "timeout", "success"],
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     release: Final = threading.Event()
 
@@ -45,18 +45,18 @@ async def test_proxy_image_retry_attempts_are_owned_only_by_router(
             )
         return Reply(body=b'{"created":1700000000,"data":[{"b64_json":"aW1n"}]}')
 
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "num_retries", None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "callbacks", [])
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "failure_callback", [])
+    monkeypatch.setattr(hangarllm, "num_retries", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     with wire_server(respond) as wire:
-        router: Final = litellm.Router(
+        router: Final = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "image-retries",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-image-1-mini",
                         "api_base": f"{wire.url}/v1",
                         "api_key": "synthetic-image-key",
@@ -83,7 +83,7 @@ async def test_proxy_image_retry_attempts_are_owned_only_by_router(
         finally:
             release.set()
             router.discard()
-            litellm.in_memory_llm_clients_cache.flush_cache()
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
         requests: Final = wire.drain()
     status: Final = {"503": 503, "timeout": 408, "success": 200}[outcome]
     attempts: Final = 1 if outcome == "success" else router_retries + 1

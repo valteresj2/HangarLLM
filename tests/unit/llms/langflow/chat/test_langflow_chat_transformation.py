@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.langflow.chat.transformation import LangFlowConfig, LangFlowError
-from litellm.types.utils import LlmProviders, ModelResponse
-from litellm.utils import ProviderConfigManager
+from hangarllm.llms.langflow.chat.transformation import LangFlowConfig, LangFlowError
+from hangarllm.types.utils import LlmProviders, ModelResponse
+from hangarllm.utils import ProviderConfigManager
 
 
 def test_flow_id_cannot_be_overridden_via_optional_params():
@@ -15,7 +15,7 @@ def test_flow_id_cannot_be_overridden_via_optional_params():
         api_key=None,
         model="langflow/authorized-flow",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url.endswith("/api/v1/run/authorized-flow")
@@ -26,7 +26,7 @@ def test_flow_id_cannot_be_overridden_via_optional_params():
             api_key=None,
             model="langflow/authorized-flow",
             optional_params={"flow_id": "malicious-flow"},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -38,7 +38,7 @@ def test_langflow_config_get_complete_url():
         api_key=None,
         model="langflow/my-flow-id",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url == "http://localhost:7860/api/v1/run/my-flow-id"
@@ -52,7 +52,7 @@ def test_langflow_config_get_complete_url_requires_api_base():
             api_key=None,
             model="langflow/my-flow-id",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -64,7 +64,7 @@ def test_langflow_config_flow_id_is_path_segment_encoded():
         api_key=None,
         model="langflow/../../secret?x=1",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url == "http://localhost:7860/api/v1/run/..%2F..%2Fsecret%3Fx%3D1"
@@ -81,7 +81,7 @@ def test_langflow_config_rejects_empty_flow_id(model):
             api_key=None,
             model=model,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             stream=False,
         )
 
@@ -93,7 +93,7 @@ def test_langflow_config_strips_flow_id_whitespace():
         api_key=None,
         model="langflow/  my-flow-id  ",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         stream=False,
     )
     assert url == "http://localhost:7860/api/v1/run/my-flow-id"
@@ -105,7 +105,7 @@ def test_langflow_config_transform_request_includes_session_id():
         model="langflow/my-flow-id",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"session_id": "sess-abc"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -126,7 +126,7 @@ def test_langflow_config_transform_request_uses_last_user_message():
             {"role": "user", "content": [{"type": "text", "text": "second"}]},
         ],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -140,7 +140,7 @@ def test_langflow_config_transform_request_falls_back_to_last_message():
         model="langflow/my-flow-id",
         messages=[{"role": "assistant", "content": "only assistant"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -153,7 +153,7 @@ def test_langflow_config_transform_request_empty_messages():
         model="langflow/my-flow-id",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -167,7 +167,7 @@ def test_langflow_config_rejects_tweaks_from_request_params():
             model="langflow/my-flow-id",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"tweaks": {"HttpComponent": {"url": "http://attacker"}}},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
 
@@ -205,7 +205,7 @@ def test_langflow_config_validate_environment_sets_api_key_header():
         model="langflow/my-flow-id",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="secret",
     )
     assert headers["Content-Type"] == "application/json"
@@ -215,8 +215,8 @@ def test_langflow_config_validate_environment_sets_api_key_header():
 def test_langflow_extra_body_cannot_inject_tweaks_into_run_payload():
     import json
 
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    import hangarllm
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     posted_bodies = []
 
@@ -232,8 +232,8 @@ def test_langflow_extra_body_cannot_inject_tweaks_into_run_payload():
         return resp
 
     with patch.object(HTTPHandler, "post", side_effect=fake_post):
-        with pytest.raises(litellm.BadRequestError):
-            litellm.completion(
+        with pytest.raises(hangarllm.BadRequestError):
+            hangarllm.completion(
                 model="langflow/my-flow",
                 messages=[{"role": "user", "content": "hello"}],
                 api_base="http://example.com",
@@ -314,7 +314,7 @@ def test_langflow_transform_response_builds_model_response_with_usage():
         request_data={},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -338,7 +338,7 @@ def test_langflow_transform_response_raises_on_unparseable_body():
             request_data={},
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -356,7 +356,7 @@ def test_langflow_transform_response_raises_on_non_json_body():
             request_data={},
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 

@@ -225,7 +225,7 @@ class Rig:
         key: Final = self.keys[guardrail]
 
         def authenticate(request: object, **_: object) -> None:
-            getattr(request, "headers")["x-litellm-api-key"] = key
+            getattr(request, "headers")["x-hangarllm-api-key"] = key
 
         client.meta.events.register("before-send.bedrock-runtime.*", authenticate)
         try:
@@ -256,7 +256,7 @@ class StreamOutcome:
 def _guardrail(name: str, sink: Wire, **settings: JsonValue) -> dict[str, JsonValue]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "post_call",
             "default_on": False,
@@ -307,7 +307,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 _guardrail(SAMPLED, sink),
                 {
                     "guardrail_name": REPLACING,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "bedrock",
                         "mode": "post_call",
                         "default_on": False,
@@ -330,7 +330,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 ),
                 {
                     "guardrail_name": NOMA,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "noma_v2",
                         "mode": "post_call",
                         "default_on": False,
@@ -340,7 +340,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 },
                 {
                     "guardrail_name": ALICE,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "alice",
                         "mode": "post_call",
                         "default_on": False,
@@ -351,7 +351,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 _guardrail(OUTAGE, sink),
                 {
                     "guardrail_name": RELEASE_ON_SCAN,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "bedrock",
                         "mode": "post_call",
                         "default_on": False,
@@ -366,7 +366,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
                 },
                 {
                     "guardrail_name": CODE,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "guardrail": "custom_code",
                         "mode": "post_call",
                         "default_on": False,
@@ -383,7 +383,7 @@ def rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Rig]:
             config["model_list"] = [
                 {
                     "model_name": ROUTER_MODEL,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": f"bedrock/{MODEL_ID}",
                         "api_base": upstream.url,
                         "aws_access_key_id": "AKIASYNTHETICRELAY",
@@ -449,21 +449,21 @@ def _stream_with_call_id(rig: Rig, guardrail: str, marker: str) -> tuple[int, st
             response.status_code,
             response.headers.get("content-type", ""),
             response.read(),
-            response.headers.get("x-litellm-call-id", ""),
+            response.headers.get("x-hangarllm-call-id", ""),
         )
 
 
 def _spend_rows(call_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT status, api_base, prompt_tokens FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s OR request_id=%s '
-        "OR metadata->>'litellm_call_id'=%s ORDER BY status",
+        'SELECT status, api_base, prompt_tokens FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s OR request_id=%s '
+        "OR metadata->>'hangarllm_call_id'=%s ORDER BY status",
         (call_id, call_id, call_id),
     )
 
 
 def _spend_rows_for_key_alias(alias: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        "SELECT status, prompt_tokens FROM \"LiteLLM_SpendLogs\" WHERE metadata->>'user_api_key_alias'=%s",
+        "SELECT status, prompt_tokens FROM \"HangarLLM_SpendLogs\" WHERE metadata->>'user_api_key_alias'=%s",
         (alias,),
     )
 
@@ -538,7 +538,7 @@ def test_block_raised_mid_stream_logs_the_relayed_spend_and_the_failure(rig: Rig
     assert frames[0].kind == "messageStart", frames
     assert frames[-1].message_type == "exception" and frames[-1].kind == "validationException", frames
     assert CODE_BLOCK_REASON in str(frames[-1].payload["message"]), frames
-    assert call_id, "the relayed stream carries no x-litellm-call-id"
+    assert call_id, "the relayed stream carries no x-hangarllm-call-id"
     rows: Final = eventually(lambda: _spend_rows(call_id), lambda rows: len(rows) >= 2, seconds=70)
     assert [row["status"] for row in rows] == ["failure", "success"], rows
     assert rows[1]["api_base"], rows
@@ -806,13 +806,13 @@ def test_client_disconnect_logs_prompt_tokens_the_upstream_never_reported(rig: R
         timeout=case_timeout_seconds(),
     ) as response:
         assert response.status_code == 200
-        call_id: Final = response.headers.get("x-litellm-call-id", "")
+        call_id: Final = response.headers.get("x-hangarllm-call-id", "")
         received: Final = bytearray()
         for chunk in response.iter_raw():
             received.extend(chunk)
             if len(received) >= len(b"".join(frames[:3])):
                 break
-    assert call_id, "the relayed stream carries no x-litellm-call-id"
+    assert call_id, "the relayed stream carries no x-hangarllm-call-id"
     rows: Final = eventually(lambda: _spend_rows(call_id), lambda rows: len(rows) >= 1, seconds=70)
     assert [row["status"] for row in rows] == ["success"], rows
     assert isinstance(rows[0]["prompt_tokens"], int) and rows[0]["prompt_tokens"] > 0, rows

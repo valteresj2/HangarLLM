@@ -14,9 +14,9 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from litellm.litellm_core_utils.private_json import commit_staged_json, write_private_bytes
-from litellm.proxy.client.cli.commands.autoroute.process import AUTOROUTE_DIR
-from litellm.proxy.client.cli.commands.claude_settings import (
+from hangarllm.hangarllm_core_utils.private_json import commit_staged_json, write_private_bytes
+from hangarllm.proxy.client.cli.commands.autoroute.process import AUTOROUTE_DIR
+from hangarllm.proxy.client.cli.commands.claude_settings import (
     ANTHROPIC_DEFAULT_MODEL_ENV_KEYS,
     AUTOROUTE_BACKUP_PATH,
     BACKUP_PATH,
@@ -47,8 +47,8 @@ def _owners(*backup_paths):
     return tuple(SettingsFileOwner(path, "lite up", "lite down") for path in backup_paths)
 
 
-CLAUDE_SETTINGS_MODULE = "litellm.proxy.client.cli.commands.claude_settings"
-AUTH_MODULE = "litellm.proxy.client.cli.commands.auth"
+CLAUDE_SETTINGS_MODULE = "hangarllm.proxy.client.cli.commands.claude_settings"
+AUTH_MODULE = "hangarllm.proxy.client.cli.commands.auth"
 @pytest.fixture
 def paths(tmp_path):
     return tmp_path / "claude" / "settings.json", tmp_path / "backup.json"
@@ -256,7 +256,7 @@ class TestConfigureStatePath:
     @pytest.fixture
     def default_paths(self, tmp_path):
         default_settings = tmp_path / "home" / ".claude" / "settings.json"
-        default_state = tmp_path / "home" / ".litellm" / "claude_configure_state.json"
+        default_state = tmp_path / "home" / ".hangarllm" / "claude_configure_state.json"
         with (
             patch(f"{CLAUDE_SETTINGS_MODULE}.CLAUDE_SETTINGS_PATH", default_settings),
             patch(f"{CLAUDE_SETTINGS_MODULE}.CONFIGURE_STATE_PATH", default_state),
@@ -753,7 +753,7 @@ def _lookup(settings, path):
 class TestStatusLine:
     """Every configure registers the status line, and only while the slot is empty or already ours."""
 
-    COMMAND = "/opt/lite/bin/python /Users/me/.litellm/statusline.py"
+    COMMAND = "/opt/lite/bin/python /Users/me/.hangarllm/statusline.py"
 
     def test_an_empty_slot_gets_our_status_line(self):
         assert with_status_line({}, self.COMMAND)["statusLine"] == {"type": "command", "command": self.COMMAND}
@@ -763,7 +763,7 @@ class TestStatusLine:
         assert with_status_line({"statusLine": theirs}, self.COMMAND)["statusLine"] == theirs
 
     def test_ours_under_an_older_interpreter_is_refreshed(self):
-        stale = {"type": "command", "command": "/old/python /Users/me/.litellm/statusline.py"}
+        stale = {"type": "command", "command": "/old/python /Users/me/.hangarllm/statusline.py"}
         assert with_status_line({"statusLine": stale}, self.COMMAND)["statusLine"]["command"] == self.COMMAND
 
     def test_the_merge_carries_it(self):
@@ -771,7 +771,7 @@ class TestStatusLine:
         assert merged["statusLine"] == {"type": "command", "command": self.COMMAND}
 
     def test_the_installed_script_is_the_bundled_one_and_the_command_runs_this_interpreter(self, tmp_path):
-        from litellm.proxy.client.cli.commands import statusline_script
+        from hangarllm.proxy.client.cli.commands import statusline_script
 
         script = tmp_path / "lite" / "statusline.py"
         command = install_statusline_script(script)
@@ -818,13 +818,13 @@ class TestStatusLine:
 
         assert script.read_bytes() == installed
         assert script.stat().st_mtime_ns == modified
-        assert f"Keeping the status line from LiteLLM {installed_version}" in capsys.readouterr().err
+        assert f"Keeping the status line from HangarLLM {installed_version}" in capsys.readouterr().err
 
     @pytest.mark.parametrize(
-        "old_header", (b"", b"# litellm-statusline-version: invalid\n", b"# litellm-statusline-version: \xff\n")
+        "old_header", (b"", b"# hangarllm-statusline-version: invalid\n", b"# hangarllm-statusline-version: \xff\n")
     )
     def test_a_legacy_or_damaged_version_marker_is_repaired(self, tmp_path: Path, old_header: bytes) -> None:
-        from litellm.proxy.client.cli.commands import statusline_script
+        from hangarllm.proxy.client.cli.commands import statusline_script
 
         script: Final = tmp_path / "statusline.py"
         script.write_bytes(old_header + b"print('old footer')\n")
@@ -832,27 +832,27 @@ class TestStatusLine:
         install_statusline_script(script, package_version="2.1.0")
 
         assert script.read_bytes() == (
-            b"# litellm-statusline-version: 2.1.0\n" + Path(statusline_script.__file__).read_bytes()
+            b"# hangarllm-statusline-version: 2.1.0\n" + Path(statusline_script.__file__).read_bytes()
         )
 
     @pytest.mark.parametrize("next_version", ("2.1.0", "2.2.0"))
     def test_an_equal_or_newer_cli_refreshes_the_footer(self, tmp_path: Path, next_version: str) -> None:
-        from litellm.proxy.client.cli.commands import statusline_script
+        from hangarllm.proxy.client.cli.commands import statusline_script
 
         script: Final = tmp_path / "statusline.py"
-        script.write_bytes(b"# litellm-statusline-version: 2.1.0\nprint('old footer')\n")
+        script.write_bytes(b"# hangarllm-statusline-version: 2.1.0\nprint('old footer')\n")
 
         install_statusline_script(script, package_version=next_version)
 
         assert script.read_bytes() == (
-            f"# litellm-statusline-version: {next_version}\n".encode() + Path(statusline_script.__file__).read_bytes()
+            f"# hangarllm-statusline-version: {next_version}\n".encode() + Path(statusline_script.__file__).read_bytes()
         )
 
     def test_configure_keeps_a_newer_footer_while_updating_settings(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         script: Final = tmp_path / "statusline.py"
-        script.write_bytes(b"# litellm-statusline-version: 999999.0.0\nprint('newer footer')\n")
+        script.write_bytes(b"# hangarllm-statusline-version: 999999.0.0\nprint('newer footer')\n")
         installed: Final = script.read_bytes()
         rig: Final = _Rig(tmp_path, {"theme": "dark"})
 
@@ -864,11 +864,11 @@ class TestStatusLine:
         assert "Keeping the status line" in capsys.readouterr().err
 
     @pytest.mark.parametrize("package_version", ("unknown", "", "invalid-version"))
-    @pytest.mark.parametrize("existing", (None, b"print('legacy footer')\n", b"# litellm-statusline-version: invalid\n"))
+    @pytest.mark.parametrize("existing", (None, b"print('legacy footer')\n", b"# hangarllm-statusline-version: invalid\n"))
     def test_an_unknown_cli_version_can_install_and_refresh_an_unversioned_footer(
         self, tmp_path: Path, package_version: str, existing: bytes | None
     ) -> None:
-        from litellm.proxy.client.cli.commands import statusline_script
+        from hangarllm.proxy.client.cli.commands import statusline_script
 
         script: Final = tmp_path / "statusline.py"
         if existing is not None:
@@ -886,13 +886,13 @@ class TestStatusLine:
 
         assert install_statusline_script(script, package_version="unknown") == command
         assert script.read_bytes() == installed
-        assert "Keeping the status line from LiteLLM 2.1.0" in capsys.readouterr().err
+        assert "Keeping the status line from HangarLLM 2.1.0" in capsys.readouterr().err
 
     @pytest.mark.parametrize(("first_version", "second_version"), (("2.0", "3.0"), ("3.0", "2.0")))
     def test_overlapping_installs_keep_the_newest_footer(
         self, tmp_path: Path, first_version: str, second_version: str
     ) -> None:
-        from litellm.proxy.client.cli.commands import statusline_script
+        from hangarllm.proxy.client.cli.commands import statusline_script
 
         script: Final = tmp_path / "statusline.py"
         first_writing: Final = Event()
@@ -921,7 +921,7 @@ class TestStatusLine:
             assert first.result(timeout=5) == statusline_command(script)
             assert second.result(timeout=5) == statusline_command(script)
 
-        assert script.read_bytes() == b"# litellm-statusline-version: 3.0\n" + Path(statusline_script.__file__).read_bytes()
+        assert script.read_bytes() == b"# hangarllm-statusline-version: 3.0\n" + Path(statusline_script.__file__).read_bytes()
 
     def test_a_failed_install_keeps_the_footer_and_releases_the_lock(self, tmp_path: Path) -> None:
         script: Final = tmp_path / "statusline.py"
@@ -935,7 +935,7 @@ class TestStatusLine:
             install_statusline_script(script, package_version="3.0", write=failed_write)
         assert script.read_bytes() == installed
         assert install_statusline_script(script, package_version="3.0") == statusline_command(script)
-        assert script.read_bytes().startswith(b"# litellm-statusline-version: 3.0\n")
+        assert script.read_bytes().startswith(b"# hangarllm-statusline-version: 3.0\n")
 
     def test_configure_installs_it_and_unconfigure_removes_only_ours(self, tmp_path):
         rig = _Rig(tmp_path, {"theme": "dark"})

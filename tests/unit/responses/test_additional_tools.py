@@ -3,7 +3,7 @@ from typing import Final
 import pytest
 from pydantic import JsonValue
 
-from litellm.responses.additional_tools import hoist_additional_tools, with_additional_tools_hoisted
+from hangarllm.responses.additional_tools import hoist_additional_tools, with_additional_tools_hoisted
 
 _EXEC_TOOL = {
     "type": "custom",

@@ -84,7 +84,7 @@ test.describe("Internal User", () => {
     }
   });
 
-  test("Virtual Keys page does not surface litellm-dashboard team keys", async ({ page }) => {
+  test("Virtual Keys page does not surface hangarllm-dashboard team keys", async ({ page }) => {
     await navigateToPage(page, Page.ApiKeys);
 
     // Anchor on the user's own seeded key so the absence check below cannot
@@ -93,8 +93,8 @@ test.describe("Internal User", () => {
       timeout: 10_000,
     });
 
-    // The litellm-dashboard team is the proxy's internal bookkeeping team —
+    // The hangarllm-dashboard team is the proxy's internal bookkeeping team —
     // its keys must never leak into an internal user's Virtual Keys table.
-    await expect(page.getByRole("row").filter({ hasText: "litellm-dashboard" })).toHaveCount(0);
+    await expect(page.getByRole("row").filter({ hasText: "hangarllm-dashboard" })).toHaveCount(0);
   });
 });

@@ -73,7 +73,7 @@ def test_one_hour_pin_lands_in_the_redis_of_every_attach_path(gateway: Gateway, 
         config: Final = pin_config(
             tmp_path,
             [anthropic_deployment(_GROUP, _LEFT, left.url), anthropic_deployment(_GROUP, _RIGHT, right.url)],
-            litellm_settings=_NO_RESPONSE_CACHE,
+            hangarllm_settings=_NO_RESPONSE_CACHE,
             router_settings=settings.get("router_settings", {}),
             general_settings=settings.get("general_settings", {}),
         )
@@ -140,7 +140,7 @@ def test_in_memory_pins_keep_the_latest_lifetime_when_the_slots_fill(gateway: Ga
                 anthropic_deployment(_GROUP, _LEFT, left.url, order=1),
                 anthropic_deployment(_GROUP, _RIGHT, right.url, order=2),
             ],
-            litellm_settings=_NO_RESPONSE_CACHE,
+            hangarllm_settings=_NO_RESPONSE_CACHE,
             router_settings={"redis_host": cache.host, "redis_port": cache.port},
             general_settings={"disable_spend_logs": True},
         )

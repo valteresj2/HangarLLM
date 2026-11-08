@@ -33,7 +33,7 @@ def _sample(candidate: Gateway) -> tuple[Counter[str], int]:
     response: Final = candidate.request("GET", "/active/callbacks")
     assert response.status_code == 200, response.text
     body: Final = object_value(response.json())
-    callbacks: Final = body["all_litellm_callbacks"]
+    callbacks: Final = body["all_hangarllm_callbacks"]
     alerting: Final = body["num_alerting"]
     assert isinstance(callbacks, list) and isinstance(alerting, int), body
     return Counter(_callback_type(str(callback)) for callback in callbacks), alerting
@@ -83,7 +83,7 @@ def _config(directory: Path, upstream_url: str, model: str, extra: dict[str, Jso
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_base": f"{upstream_url}/v1",
                             "api_key": "integration-provider-key",
@@ -92,7 +92,7 @@ def _config(directory: Path, upstream_url: str, model: str, extra: dict[str, Jso
                 ],
                 "router_settings": extra.get("router_settings", {}),
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     **(general_settings if isinstance(general_settings, dict) else {}),
                 },

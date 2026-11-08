@@ -236,7 +236,7 @@ def test_databricks_stream_final_usage_chunk_reaches_client_and_spend_log(gatewa
         assert [(request.method, request.target) for request in wire.drain()] == [("POST", "/chat/completions")]
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT prompt_tokens, completion_tokens, total_tokens FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                'SELECT prompt_tokens, completion_tokens, total_tokens FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                 (identity,),
             ),
             lambda values: len(values) == 1,
@@ -1486,7 +1486,7 @@ def test_databricks_openai_sdk_sync_one_block_reaches_upstream_as_string_and_log
     assert (completion.id, completion.choices[0].message.content) == (identity, "ok")
     assert [_sent_messages(request) for request in received] == [[{"role": "user", "content": "Reply in JSON"}]]
     rows: Final = eventually(
-        lambda: read_rows('SELECT status, call_type FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (identity,)),
+        lambda: read_rows('SELECT status, call_type FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (identity,)),
         lambda values: len(values) == 1,
         seconds=70,
     )

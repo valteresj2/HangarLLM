@@ -11,11 +11,11 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.exceptions import EndpointNotSupportedByModelError
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import CustomRoutingStrategyBase, RouterRateLimitError
+import hangarllm
+from hangarllm.exceptions import EndpointNotSupportedByModelError
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import CustomRoutingStrategyBase, RouterRateLimitError
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment
 from tests.unit.test_router.core.selection_helpers import MESSAGES, MakeCore, ids_of, picked_ids
 
@@ -301,7 +301,7 @@ async def test_a_name_no_pattern_matches_is_tried_under_its_provider(make_core: 
     listed: Final = await core.select("gpt-4o", {"user": "u"}, kind="healthy")  # pyright: ignore[reportCallIssue, reportArgumentType]  # PythonCore's select takes keyword options
     assert ids_of(listed) == ["w0"]
     assert isinstance(listed, list)
-    assert listed[0]["litellm_params"]["model"] == "openai/gpt-4o"
+    assert listed[0]["hangarllm_params"]["model"] == "openai/gpt-4o"
 
 
 @pytest.mark.asyncio
@@ -364,9 +364,9 @@ def test_the_wildcard_route_lookup_leaves_the_cache_flags_to_the_catalog(make_co
 # --- N12: specific_deployment ---------------------------------------------------------------------
 
 
-def test_only_true_names_a_litellm_model(make_core: MakeCore) -> None:
+def test_only_true_names_a_hangarllm_model(make_core: MakeCore) -> None:
     core: Final = make_core(model_list=[deployment("gpt-4o", "d1")], num_retries=0)
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         core.get_available_deployment(  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # the sync pick
             model="gpt-4o ", specific_deployment="yes", request_kwargs={"input": "hi"}
         )
@@ -379,7 +379,7 @@ COMPLEXITY_GROUP: Final = [
     deployment("g2", "b-2", model="openai/gpt-4o-mini", use_in_pass_through=True),
     {
         "model_name": "smart",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {"tiers": {"SIMPLE": "g2", "REASONING": "g1"}},
             "complexity_router_default_model": "g2",
@@ -395,7 +395,7 @@ async def test_a_listed_pass_through_pick_names_the_group_the_alias_resolved_to(
         num_retries=0,
         model_group_alias={"alias-b": "team-gpt"},
     )
-    with pytest.raises(litellm.BadRequestError, match="Model team-gpt has no deployment"):
+    with pytest.raises(hangarllm.BadRequestError, match="Model team-gpt has no deployment"):
         await core.select("alias-b", {}, kind="pass_through")  # pyright: ignore[reportCallIssue]  # PythonCore's select takes keyword options
 
 
@@ -417,9 +417,9 @@ ENCRYPTED_INPUT: Final = [
     {
         "type": "reasoning",
         "summary": [{"type": "summary_text", "text": "thought"}],
-        "encrypted_content": "litellm_enc:bW9kZWxfaWQ6bTktMg==;gAAAAABenc",
+        "encrypted_content": "hangarllm_enc:bW9kZWxfaWQ6bTktMg==;gAAAAABenc",
     },
-    {"type": "reasoning", "encrypted_content": "litellm_enc:bW9kZWxfaWQ6bTktMQ==;gAAAAABenc", "summary": []},
+    {"type": "reasoning", "encrypted_content": "hangarllm_enc:bW9kZWxfaWQ6bTktMQ==;gAAAAABenc", "summary": []},
 ]
 
 

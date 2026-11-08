@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.custom_httpx.sse_lines import iter_sse_lines
+from hangarllm.llms.custom_httpx.sse_lines import iter_sse_lines
 
 EVENT: Final = 'data: {"choices":[{"delta":{"content":"hello world"}}]}'
 

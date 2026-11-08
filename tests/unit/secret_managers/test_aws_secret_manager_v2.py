@@ -10,10 +10,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import respx
 
-import litellm
-from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
-from litellm.types.secret_managers.main import KeyManagementSettings
-from litellm._uuid import uuid
+import hangarllm
+from hangarllm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+from hangarllm.types.secret_managers.main import KeyManagementSettings
+from hangarllm._uuid import uuid
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 _STATIC_CREDENTIALS = {"aws_access_key_id": "test-key", "aws_secret_access_key": "test-secret"}
@@ -24,19 +24,19 @@ async def _create_secret_body_for_settings(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter, settings: KeyManagementSettings
 ) -> dict[str, object]:
     """Boot the manager from settings the way the proxy does and return the CreateSecret body it posts to AWS."""
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", None)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", None)
     monkeypatch.setenv("AWS_REGION_NAME", "us-east-1")
     AWSSecretsManagerV2.load_aws_secret_manager(use_aws_secret_manager=True, key_management_settings=settings)
-    manager = litellm.secret_manager_client
+    manager = hangarllm.secret_manager_client
     assert isinstance(manager, AWSSecretsManagerV2)
 
     route = respx_mock.post("https://secretsmanager.us-east-1.amazonaws.com/").respond(
-        json={"ARN": "arn", "Name": "litellm/test-key"}
+        json={"ARN": "arn", "Name": "hangarllm/test-key"}
     )
     await manager.async_write_secret(
-        secret_name="litellm/test-key",
+        secret_name="hangarllm/test-key",
         secret_value="sk-test-value",
         optional_params=dict(_STATIC_CREDENTIALS),
     )
@@ -56,7 +56,7 @@ async def test_create_secret_uses_customer_managed_kms_key_from_settings(
         KeyManagementSettings(store_virtual_keys=True, aws_region_name="us-east-1", kms_key_id=_CMK_ARN),
     )
     assert body["KmsKeyId"] == _CMK_ARN
-    assert body["Name"] == "litellm/test-key"
+    assert body["Name"] == "hangarllm/test-key"
     assert body["SecretString"] == "sk-test-value"
 
 
@@ -68,18 +68,18 @@ async def test_create_secret_omits_kms_key_id_when_not_configured(
         monkeypatch, respx_mock, KeyManagementSettings(store_virtual_keys=True, aws_region_name="us-east-1")
     )
     assert "KmsKeyId" not in body
-    assert body["Name"] == "litellm/test-key"
+    assert body["Name"] == "hangarllm/test-key"
 
 
 @pytest.mark.asyncio
 async def test_write_and_read_json_secret():
     """Test writing and reading a JSON structured secret (mocked)"""
-    test_secret_name = "litellm_test_abc12345_json"
+    test_secret_name = "hangarllm_test_abc12345_json"
     test_secret_value = {
         "api_key": "test_key",
         "model": "gpt-4",
         "temperature": 0.7,
-        "metadata": {"team": "ml", "project": "litellm"},
+        "metadata": {"team": "ml", "project": "hangarllm"},
     }
     json_secret_value = json.dumps(test_secret_value)
 
@@ -118,7 +118,7 @@ async def test_write_and_read_json_secret():
                 response = await secret_manager.async_write_secret(
                     secret_name=test_secret_name,
                     secret_value=json_secret_value,
-                    description="LiteLLM JSON Test Secret",
+                    description="HangarLLM JSON Test Secret",
                 )
 
                 assert response is not None
@@ -210,9 +210,9 @@ def _vcr_outcome_gate(request, vcr):
 @pytest.fixture(scope="function")
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads hangarllm before every function. To speed up testing by removing callbacks being chained.
     """
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
     yield
@@ -239,7 +239,7 @@ def skip_on_throttling(func):
 
 def check_aws_credentials():
     """Helper function to check if AWS credentials are set"""
-    if os.getenv("LITELLM_RUN_LIVE_AWS_SECRET_MANAGER_TESTS") != "1":
+    if os.getenv("HANGARLLM_RUN_LIVE_AWS_SECRET_MANAGER_TESTS") != "1":
         pytest.skip("Live AWS Secrets Manager E2E tests are opt-in")
     if os.getenv("CASSETTE_REDIS_URL"):
         pytest.skip("Live AWS Secrets Manager E2E tests cannot run under VCR replay")
@@ -257,7 +257,7 @@ async def test_write_and_read_simple_secret():
     check_aws_credentials()
 
     secret_manager = AWSSecretsManagerV2()
-    test_secret_name = f"litellm_test_{uuid.uuid4().hex[:8]}"
+    test_secret_name = f"hangarllm_test_{uuid.uuid4().hex[:8]}"
     test_secret_value = "test_value_123"
 
     try:
@@ -265,7 +265,7 @@ async def test_write_and_read_simple_secret():
         write_response = await secret_manager.async_write_secret(
             secret_name=test_secret_name,
             secret_value=test_secret_value,
-            description="LiteLLM Test Secret",
+            description="HangarLLM Test Secret",
         )
 
         print("Write Response:", write_response)
@@ -295,12 +295,12 @@ async def test_write_and_read_json_secret_aws_secret():
     check_aws_credentials()
 
     secret_manager = AWSSecretsManagerV2()
-    test_secret_name = f"litellm_test_{uuid.uuid4().hex[:8]}_json"
+    test_secret_name = f"hangarllm_test_{uuid.uuid4().hex[:8]}_json"
     test_secret_value = {
         "api_key": "test_key",
         "model": "gpt-4",
         "temperature": 0.7,
-        "metadata": {"team": "ml", "project": "litellm"},
+        "metadata": {"team": "ml", "project": "hangarllm"},
     }
 
     try:
@@ -308,7 +308,7 @@ async def test_write_and_read_json_secret_aws_secret():
         write_response = await secret_manager.async_write_secret(
             secret_name=test_secret_name,
             secret_value=json.dumps(test_secret_value),
-            description="LiteLLM JSON Test Secret",
+            description="HangarLLM JSON Test Secret",
         )
 
         print("Write Response:", write_response)
@@ -336,7 +336,7 @@ async def test_read_nonexistent_secret():
     check_aws_credentials()
 
     secret_manager = AWSSecretsManagerV2()
-    nonexistent_secret = f"litellm_nonexistent_{uuid.uuid4().hex}"
+    nonexistent_secret = f"hangarllm_nonexistent_{uuid.uuid4().hex}"
 
     response = await secret_manager.async_read_secret(secret_name=nonexistent_secret)
 
@@ -350,7 +350,7 @@ async def test_primary_secret_functionality():
     check_aws_credentials()
 
     secret_manager = AWSSecretsManagerV2()
-    primary_secret_name = f"litellm_test_primary_{uuid.uuid4().hex[:8]}"
+    primary_secret_name = f"hangarllm_test_primary_{uuid.uuid4().hex[:8]}"
 
     # Create a primary secret with multiple key-value pairs
     primary_secret_value = {
@@ -365,7 +365,7 @@ async def test_primary_secret_functionality():
         write_response = await secret_manager.async_write_secret(
             secret_name=primary_secret_name,
             secret_value=json.dumps(primary_secret_value),
-            description="LiteLLM Test Primary Secret",
+            description="HangarLLM Test Primary Secret",
         )
 
         print("Primary Secret Write Response:", write_response)
@@ -403,10 +403,10 @@ async def test_write_secret_with_description_and_tags():
     check_aws_credentials()
 
     secret_manager = AWSSecretsManagerV2()
-    test_secret_name = f"litellm_test_{uuid.uuid4().hex[:8]}_tags"
+    test_secret_name = f"hangarllm_test_{uuid.uuid4().hex[:8]}_tags"
     test_secret_value = "test_value_with_tags"
 
-    test_description = "LiteLLM Secret with Description and Tags"
+    test_description = "HangarLLM Secret with Description and Tags"
     test_tags = {
         "Environment": "Test",
         "Owner": "IntelligenceLayer",
@@ -556,7 +556,7 @@ def test_secret_manager_with_aws_profile():
     """
     settings = KeyManagementSettings(
         aws_region_name="us-east-1",
-        aws_profile_name="litellm-dev",
+        aws_profile_name="hangarllm-dev",
     )
 
     secret_manager = AWSSecretsManagerV2(
@@ -589,16 +589,16 @@ def test_load_aws_secret_manager_with_settings(monkeypatch: pytest.MonkeyPatch):
         )
 
         # Verify the client was created
-        assert litellm.secret_manager_client is not None
-        assert isinstance(litellm.secret_manager_client, AWSSecretsManagerV2)
+        assert hangarllm.secret_manager_client is not None
+        assert isinstance(hangarllm.secret_manager_client, AWSSecretsManagerV2)
 
         # Verify settings were passed through
-        assert litellm.secret_manager_client.aws_role_name == settings.aws_role_name
-        assert litellm.secret_manager_client.aws_region_name == settings.aws_region_name
-        assert litellm.secret_manager_client.aws_session_name == settings.aws_session_name
+        assert hangarllm.secret_manager_client.aws_role_name == settings.aws_role_name
+        assert hangarllm.secret_manager_client.aws_region_name == settings.aws_region_name
+        assert hangarllm.secret_manager_client.aws_session_name == settings.aws_session_name
     finally:
         # Cleanup
-        litellm.secret_manager_client = None
+        hangarllm.secret_manager_client = None
 
 @pytest.mark.usefixtures("_vcr_outcome_gate", "setup_and_teardown")
 @pytest.mark.asyncio
@@ -612,7 +612,7 @@ async def test_end_to_end_iam_role_secret_write():
     - TEST_IAM_ROLE_ARN environment variable with ARN of a role that can be assumed
     - Proper AWS credentials configured (via instance profile, IAM role, or environment)
     """
-    if os.getenv("LITELLM_RUN_LIVE_AWS_SECRET_MANAGER_TESTS") != "1":
+    if os.getenv("HANGARLLM_RUN_LIVE_AWS_SECRET_MANAGER_TESTS") != "1":
         pytest.skip("Live AWS Secrets Manager E2E tests are opt-in")
     if os.getenv("CASSETTE_REDIS_URL"):
         pytest.skip("Live AWS Secrets Manager E2E tests cannot run under VCR replay")
@@ -637,7 +637,7 @@ async def test_end_to_end_iam_role_secret_write():
         aws_session_name=settings.aws_session_name,
     )
 
-    test_secret_name = f"litellm_test_iam_{uuid.uuid4().hex[:8]}"
+    test_secret_name = f"hangarllm_test_iam_{uuid.uuid4().hex[:8]}"
     test_secret_value = "test_value_iam_role"
 
     try:
@@ -671,7 +671,7 @@ def test_missing_botocore_keeps_dependency_identity():
 
     import pytest
 
-    from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+    from hangarllm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
 
     with patch.dict("sys.modules", {"botocore": None}):
         with pytest.raises(ModuleNotFoundError, match="pip install boto3") as caught:

@@ -11,9 +11,9 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.vertex_ai.text_to_speech.text_to_speech_handler import VertexTextToSpeechAPI
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.vertex_ai.text_to_speech.text_to_speech_handler import VertexTextToSpeechAPI
 
 SYNTHESIZE_URL: Final = "https://texttospeech.googleapis.com/v1/text:synthesize"
 AUDIO: Final = b"hello audio"
@@ -29,7 +29,7 @@ class _StaticGoogleCredentials(google.auth.credentials.Credentials):
 @pytest.fixture
 def synthesize_endpoint(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch) -> respx.Route:
     monkeypatch.setattr(google.auth, "default", lambda scopes: (_StaticGoogleCredentials(), "test-project"))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     return respx_mock.post(SYNTHESIZE_URL)
 
 
@@ -42,7 +42,7 @@ async def _synthesized_audio(run_async: bool, endpoint: respx.Route, payload: ob
             stream=False,
             call_type="speech",
             start_time=datetime(2026, 1, 1),
-            litellm_call_id="speech-call",
+            hangarllm_call_id="speech-call",
             function_id="speech-function",
         ),
         vertex_project="test-project",

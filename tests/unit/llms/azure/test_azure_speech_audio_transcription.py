@@ -5,23 +5,23 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.azure.audio_transcription.transformation import (
+import hangarllm
+from hangarllm.llms.azure.audio_transcription.transformation import (
     AzureSpeechAudioTranscriptionConfig,
     AzureSpeechAudioTranscriptionException,
 )
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from hangarllm.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.types.utils import TranscriptionResponse
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.utils import TranscriptionResponse
+from hangarllm.utils import ProviderConfigManager
 
 
 def test_azure_speech_audio_transcription_config_installed():
     config = ProviderConfigManager.get_provider_audio_transcription_config(
         model="speech/azure-stt",
-        provider=litellm.LlmProviders.AZURE,
+        provider=hangarllm.LlmProviders.AZURE,
     )
 
     assert isinstance(config, BaseAudioTranscriptionConfig)
@@ -36,7 +36,7 @@ def test_azure_speech_audio_transcription_builds_stt_url_from_cognitive_endpoint
         api_key="test-key",
         model="speech/azure-stt",
         optional_params={"language": "fr-FR", "response_format": "verbose_json"},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert (
@@ -53,7 +53,7 @@ def test_azure_speech_audio_transcription_accepts_stt_endpoint_base():
         api_key="test-key",
         model="speech/azure-stt",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert (
@@ -66,7 +66,7 @@ def test_azure_speech_audio_transcription_uses_dedicated_api_base_env(monkeypatc
     config = AzureSpeechAudioTranscriptionConfig()
 
     monkeypatch.setattr(
-        "litellm.llms.azure.audio_transcription.transformation.get_secret_str",
+        "hangarllm.llms.azure.audio_transcription.transformation.get_secret_str",
         lambda key: (
             "https://centralus.api.cognitive.microsoft.com"
             if key == "AZURE_SPEECH_API_BASE"
@@ -79,7 +79,7 @@ def test_azure_speech_audio_transcription_uses_dedicated_api_base_env(monkeypatc
         api_key="test-key",
         model="speech/azure-stt",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert (
@@ -100,7 +100,7 @@ def test_azure_speech_audio_transcription_rejects_azure_openai_endpoint():
             api_key="test-key",
             model="speech/azure-stt",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -112,7 +112,7 @@ def test_azure_speech_audio_transcription_validate_environment():
         model="speech/azure-stt",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
     )
 
@@ -125,7 +125,7 @@ def test_azure_speech_audio_transcription_uses_dedicated_api_key_env(monkeypatch
     config = AzureSpeechAudioTranscriptionConfig()
 
     monkeypatch.setattr(
-        "litellm.llms.azure.audio_transcription.transformation.get_secret_str",
+        "hangarllm.llms.azure.audio_transcription.transformation.get_secret_str",
         lambda key: "speech-key" if key == "AZURE_SPEECH_API_KEY" else None,
     )
 
@@ -134,7 +134,7 @@ def test_azure_speech_audio_transcription_uses_dedicated_api_key_env(monkeypatch
         model="speech/azure-stt",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key=None,
     )
 
@@ -149,7 +149,7 @@ def test_azure_speech_audio_transcription_request_transform():
         model="speech/azure-stt",
         audio_file=audio,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert isinstance(request_data, AudioTranscriptionRequestData)
@@ -205,12 +205,12 @@ def test_azure_speech_transcription_routes_through_provider_config(monkeypatch):
     audio_handler = MagicMock(return_value=expected)
 
     monkeypatch.setattr(
-        litellm.main.base_llm_http_handler,
+        hangarllm.main.base_llm_http_handler,
         "audio_transcriptions",
         audio_handler,
     )
 
-    response = litellm.transcription(
+    response = hangarllm.transcription(
         model="azure/speech/azure-stt",
         file=io.BytesIO(b"RIFF....WAVE"),
         api_base="https://eastus.api.cognitive.microsoft.com",

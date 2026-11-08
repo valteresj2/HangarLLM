@@ -16,9 +16,9 @@ import pytest
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.llms.base_llm.ocr.transformation import OCRResponse
 
 pytestmark = pytest.mark.asyncio
 
@@ -54,7 +54,7 @@ class _OCRClient(Protocol):
     async def aocr(self, *, model: str, document: Document, **kwargs: object) -> OCRResponse: ...
 
 
-_OCR_CLIENT: Final = cast(_OCRClient, litellm)
+_OCR_CLIENT: Final = cast(_OCRClient, hangarllm)
 
 
 def _json_reply(body: Mapping[str, object]) -> Reply:
@@ -130,7 +130,7 @@ class RecordingLogger(CustomLogger):
 @pytest.fixture
 def logger(monkeypatch: pytest.MonkeyPatch) -> RecordingLogger:
     recorder: Final = RecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     return recorder
 
 
@@ -386,7 +386,7 @@ async def test_ocr_sends_the_bound_credential_and_document_then_logs_the_billed_
     tmp_path: Path,
 ) -> None:
     with wire_server(_respond) as wire:
-        monkeypatch.setattr(litellm, "user_url_allowed_hosts", [wire.url.removeprefix("http://")])
+        monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", [wire.url.removeprefix("http://")])
         credentials: Final = case.bind_credentials(monkeypatch, wire.url)
         document: Final = case.document.build(wire.url, tmp_path)
         response: Final = await case.run(document, credentials)

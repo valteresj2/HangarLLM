@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.integrations.email_alerting import get_all_team_member_emails
-from litellm.proxy import proxy_server
+from hangarllm.integrations.email_alerting import get_all_team_member_emails
+from hangarllm.proxy import proxy_server
 
 
 @pytest.mark.asyncio
@@ -20,7 +20,7 @@ async def test_team_member_emails_are_the_set_emails_of_the_members_with_a_user_
     )
     prisma_client: Final = SimpleNamespace(
         db=SimpleNamespace(
-            litellm_teamtable=SimpleNamespace(find_unique=AsyncMock(return_value=team)),
+            hangarllm_teamtable=SimpleNamespace(find_unique=AsyncMock(return_value=team)),
             query_raw=query_raw,
         )
     )

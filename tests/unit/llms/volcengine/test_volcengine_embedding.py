@@ -5,16 +5,16 @@ import pytest
 
 # Add parent directory to path for imports
 
-import litellm
-from litellm.types.utils import EmbeddingResponse
-from litellm.llms.volcengine.embedding.transformation import VolcEngineEmbeddingConfig
+import hangarllm
+from hangarllm.types.utils import EmbeddingResponse
+from hangarllm.llms.volcengine.embedding.transformation import VolcEngineEmbeddingConfig
 
 
 class TestVolcEngineEmbedding:
-    """Test Volcengine embedding integration following LiteLLM patterns"""
+    """Test Volcengine embedding integration following HangarLLM patterns"""
 
-    def get_custom_llm_provider(self) -> litellm.LlmProviders:
-        return litellm.LlmProviders.VOLCENGINE
+    def get_custom_llm_provider(self) -> hangarllm.LlmProviders:
+        return hangarllm.LlmProviders.VOLCENGINE
 
     def get_base_embedding_call_args(self) -> dict:
         return {
@@ -29,8 +29,8 @@ class TestVolcEngineEmbedding:
 
         # Mock the embedding functions to avoid actual API calls
         with (
-            patch("litellm.embedding") as mock_embedding,
-            patch("litellm.aembedding") as mock_aembedding,
+            patch("hangarllm.embedding") as mock_embedding,
+            patch("hangarllm.aembedding") as mock_aembedding,
         ):
             # Create realistic Volcengine response
             mock_response = MagicMock()
@@ -58,7 +58,7 @@ class TestVolcEngineEmbedding:
 
             # Test sync mode
             if sync_mode is True:
-                response = litellm.embedding(
+                response = hangarllm.embedding(
                     **embedding_call_args,
                     input=["hello", "world"],
                 )
@@ -72,7 +72,7 @@ class TestVolcEngineEmbedding:
 
             # Test async mode
             else:
-                response = await litellm.aembedding(
+                response = await hangarllm.aembedding(
                     **embedding_call_args,
                     input=["hello", "world"],
                 )
@@ -95,7 +95,7 @@ def test_volcengine_embedding_with_encoding_formats():
     ]
 
     for params in test_cases:
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             # Create mock response based on encoding format
             mock_response = MagicMock()
             mock_response.model = "doubao-embedding-text-240715"
@@ -125,7 +125,7 @@ def test_volcengine_embedding_with_encoding_formats():
             mock_embedding.return_value = mock_response
 
             # Test the call
-            litellm.embedding(
+            hangarllm.embedding(
                 model="volcengine/doubao-embedding-text-240715",
                 input=["test text"],
                 **params,
@@ -144,7 +144,7 @@ def test_volcengine_embedding_with_encoding_formats():
 def test_volcengine_embedding_with_user_parameter():
     """Test Volcengine embedding with user parameter for tracking"""
 
-    with patch("litellm.embedding") as mock_embedding:
+    with patch("hangarllm.embedding") as mock_embedding:
         mock_response = MagicMock()
         mock_response.model = "doubao-embedding-text-240715"
         mock_response.object = "list"
@@ -156,7 +156,7 @@ def test_volcengine_embedding_with_user_parameter():
         mock_embedding.return_value = mock_response
 
         # Test with user parameter
-        litellm.embedding(
+        hangarllm.embedding(
             model="volcengine/doubao-embedding-text-240715",
             input=["user tracking test"],
             user="test-user-12345",
@@ -183,7 +183,7 @@ def test_volcengine_embedding_error_scenarios():
     ]
 
     for scenario in error_scenarios:
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             # Configure mock to raise appropriate errors
             if "invalid-model" in scenario.get("model", ""):
                 mock_embedding.side_effect = Exception("Model not found")
@@ -196,7 +196,7 @@ def test_volcengine_embedding_error_scenarios():
             }
 
             with pytest.raises(Exception, match=f"(?i){scenario['expected_error_pattern']}") as exc_info:
-                litellm.embedding(input=["test"], **test_params)
+                hangarllm.embedding(input=["test"], **test_params)
 
             # Verify error message contains expected pattern
             assert (
@@ -225,7 +225,7 @@ def test_volcengine_embedding_with_multiple_inputs():
     ]
 
     for test_input in test_inputs:
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("hangarllm.embedding") as mock_embedding:
             # Create proportional mock response
             mock_response = MagicMock()
             mock_response.model = "doubao-embedding-text-240715"
@@ -245,7 +245,7 @@ def test_volcengine_embedding_with_multiple_inputs():
             mock_embedding.return_value = mock_response
 
             # Test the call
-            response = litellm.embedding(
+            response = hangarllm.embedding(
                 model="volcengine/doubao-embedding-text-240715", input=test_input
             )
 
@@ -272,7 +272,7 @@ if __name__ == "__main__":
 def test_get_complete_url_ignores_a_trailing_slash_on_api_base(api_base: str) -> None:
     assert (
         VolcEngineEmbeddingConfig().get_complete_url(
-            api_base=api_base, api_key=None, model="doubao-embedding", optional_params={}, litellm_params={}
+            api_base=api_base, api_key=None, model="doubao-embedding", optional_params={}, hangarllm_params={}
         )
         == "https://gateway.example.com/ark/api/v3/embeddings"
     )

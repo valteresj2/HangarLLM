@@ -112,7 +112,7 @@ def test_gemini_image_edit_rejects_an_image_config_string_that_is_not_json(
         assert isinstance(error, dict), response.text
         assert error["type"] == "invalid_request_error" and error["code"] == "400", response.text
         assert str(error["message"]).startswith(
-            "litellm.UnsupportedParamsError: `imageConfig` must be valid JSON when provided as a string."
+            "hangarllm.UnsupportedParamsError: `imageConfig` must be valid JSON when provided as a string."
         ), response.text
         assert wire.drain() == (), "a rejected imageConfig must not reach the provider"
 

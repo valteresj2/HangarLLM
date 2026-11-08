@@ -81,11 +81,11 @@ def test_find_canary_fails_loudly_past_its_decode_budget() -> None:
 
 def test_rig_with_an_overridden_master_key_resolves_the_config_deployment(tmp_path: Path) -> None:
     master_key: Final = f"sk-canary-override-{uuid.uuid4().hex}"
-    with canary_rig(tmp_path, environment={"LITELLM_MASTER_KEY": master_key}) as overridden:
+    with canary_rig(tmp_path, environment={"HANGARLLM_MASTER_KEY": master_key}) as overridden:
         assert overridden.proxy.key == master_key
         assert overridden.model_id
         assert overridden.proxy.request("GET", "/model/info").status_code == 200
-        assert overridden.proxy.request("GET", "/public/litellm_blog_posts").status_code == 200
+        assert overridden.proxy.request("GET", "/public/hangarllm_blog_posts").status_code == 200
         assert overridden.egress() == ()
 
 
@@ -208,7 +208,7 @@ def test_every_sweep_finds_the_stored_prompt_marker(rig: Rig, request: pytest.Fi
         assert_marker_seen(
             report,
             {
-                "S1": "LiteLLM_SpendLogs.proxy_server_request",
+                "S1": "HangarLLM_SpendLogs.proxy_server_request",
                 "S2": f"GET /spend/logs/ui/{request_id} as admin -> 200",
                 "S3": "response[0] POST /v1/chat/completions -> 200 body",
                 "S4": f"{GENERIC_SINK}[",

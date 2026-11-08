@@ -11,10 +11,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.router import Router
+import hangarllm
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.router import Router
 
 
 class _RecordingLogger(CustomLogger):
@@ -57,18 +57,18 @@ class _RecordingLogger(CustomLogger):
 
     def judge_flags(self) -> dict[str, object]:
         return {
-            call["litellm_params"]["metadata"]["judge_of"]: call["standard_logging_object"]["metadata"].get(
+            call["hangarllm_params"]["metadata"]["judge_of"]: call["standard_logging_object"]["metadata"].get(
                 "is_silent_experiment"
             )
             for call in self.success_kwargs
-            if "judge_of" in call["litellm_params"]["metadata"]
+            if "judge_of" in call["hangarllm_params"]["metadata"]
         }
 
     def shadow_successes(self) -> list[dict[str, object]]:
         return [
             call
             for call in self.success_kwargs
-            if call.get("litellm_params", {}).get("metadata", {}).get("is_silent_experiment") is True
+            if call.get("hangarllm_params", {}).get("metadata", {}).get("is_silent_experiment") is True
         ]
 
 
@@ -92,10 +92,10 @@ async def _settle_shared_logging_worker() -> None:
 
 class _JudgingLogger(_RecordingLogger):
     async def _judge(self, kwargs: Mapping[str, object]) -> None:
-        metadata: Final = kwargs["litellm_params"]["metadata"]
+        metadata: Final = kwargs["hangarllm_params"]["metadata"]
         if "judge_of" in metadata:
             return
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="openai/gpt-5.4-nano",
             api_key="fake-key",
             messages=[{"role": "user", "content": "score it"}],
@@ -129,12 +129,12 @@ def _installed(logger: _RecordingLogger) -> Generator[_RecordingLogger]:
         settle_loop.run_until_complete(_settle_shared_logging_worker())
     finally:
         settle_loop.close()
-    original_callbacks: Final = litellm.callbacks
-    litellm.callbacks = [logger]
+    original_callbacks: Final = hangarllm.callbacks
+    hangarllm.callbacks = [logger]
     try:
         yield logger
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
 
 @pytest.fixture
@@ -181,15 +181,15 @@ def _streaming_model_list(silent_model: object) -> list[dict[str, object]]:
     return [
         {
             "model_name": "primary-model",
-            "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "silent_model": silent_model},
+            "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "silent_model": silent_model},
         },
         {
             "model_name": "shadow-a",
-            "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-key", "silent_model": "shadow-b"},
+            "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-key", "silent_model": "shadow-b"},
         },
         {
             "model_name": "shadow-b",
-            "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
+            "hangarllm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
         },
     ]
 
@@ -214,7 +214,7 @@ async def test_streaming_shadow_is_streamed_and_drained_async(recording_logger):
     shadow = shadow_successes[0]
     assert shadow["stream"] is True
     assert shadow["stream_options"] == {"include_usage": True}
-    assert shadow["litellm_params"]["metadata"]["model_group"] == "shadow-a"
+    assert shadow["hangarllm_params"]["metadata"]["model_group"] == "shadow-a"
     assert shadow["async_complete_streaming_response"] is not None
 
 
@@ -234,7 +234,7 @@ def test_streaming_shadow_is_streamed_and_drained_sync(recording_logger):
     shadow_successes = recording_logger.shadow_successes()
     assert len(shadow_successes) == 1
     assert shadow_successes[0]["stream"] is True
-    assert shadow_successes[0]["litellm_params"]["metadata"]["model_group"] == "shadow-a"
+    assert shadow_successes[0]["hangarllm_params"]["metadata"]["model_group"] == "shadow-a"
     assert shadow_successes[0]["async_complete_streaming_response"] is not None
 
 
@@ -254,16 +254,16 @@ async def test_multiple_shadow_targets_fan_out_async(recording_logger):
     await _wait_for_all_successes(recording_logger, expected=3)
 
     shadow_successes = recording_logger.shadow_successes()
-    model_groups = sorted(call["litellm_params"]["metadata"]["model_group"] for call in shadow_successes)
+    model_groups = sorted(call["hangarllm_params"]["metadata"]["model_group"] for call in shadow_successes)
     assert model_groups == ["shadow-a", "shadow-b"]
-    shadow_metadatas = [call["litellm_params"]["metadata"] for call in shadow_successes]
+    shadow_metadatas = [call["hangarllm_params"]["metadata"] for call in shadow_successes]
     assert shadow_metadatas[0] is not shadow_metadatas[1]
     assert all(call["stream"] is True for call in shadow_successes)
     assert "is_silent_experiment" not in metadata
     assert metadata.get("model_group") != "shadow-a"
     primary_successes = [call for call in recording_logger.success_kwargs if call not in shadow_successes]
     assert len(primary_successes) == 1
-    assert primary_successes[0]["litellm_params"]["metadata"]["model_group"] == "primary-model"
+    assert primary_successes[0]["hangarllm_params"]["metadata"]["model_group"] == "primary-model"
 
 
 @pytest.mark.asyncio
@@ -318,7 +318,7 @@ async def test_a_failed_mirrored_call_reaches_failure_callbacks_marked_as_mirror
         model_list=[
             {
                 "model_name": "primary-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-mini",
                     "api_key": "fake-key",
                     "silent_model": "shadow-a",
@@ -327,10 +327,10 @@ async def test_a_failed_mirrored_call_reaches_failure_callbacks_marked_as_mirror
             },
             {
                 "model_name": "shadow-a",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-nano",
                     "api_key": "fake-key",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "hangarllm.InternalServerError",
                 },
             },
         ]
@@ -351,11 +351,11 @@ _SPEND_ROW_TIME: Final = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.
 
 
 def _spend_row_is_silent_experiment(call: Mapping[str, object]) -> object:
-    from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
     row: Final = get_logging_payload(
         kwargs=dict(call),
-        response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-test", choices=[]),
         start_time=_SPEND_ROW_TIME,
         end_time=_SPEND_ROW_TIME,
     )
@@ -363,7 +363,7 @@ def _spend_row_is_silent_experiment(call: Mapping[str, object]) -> object:
 
 
 def _through_the_spend_collector(call: Mapping[str, object]) -> Mapping[str, object]:
-    from litellm.proxy.spend_tracking.spend_event import (
+    from hangarllm.proxy.spend_tracking.spend_event import (
         SpendEvent,
         build_spend_event,
         decode_spend_event,
@@ -372,7 +372,7 @@ def _through_the_spend_collector(call: Mapping[str, object]) -> Mapping[str, obj
 
     line: Final = build_spend_event(
         call,
-        litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+        hangarllm.ModelResponse(id="chatcmpl-test", choices=[]),
         _SPEND_ROW_TIME,
         _SPEND_ROW_TIME,
         store_bodies=False,
@@ -388,7 +388,7 @@ def _through_the_spend_collector(call: Mapping[str, object]) -> Mapping[str, obj
     "spend_kwargs",
     [pytest.param(lambda call: call, id="in_process"), pytest.param(_through_the_spend_collector, id="collector")],
 )
-async def test_spend_rows_mark_only_the_mirrored_calls_when_the_caller_sends_litellm_metadata(
+async def test_spend_rows_mark_only_the_mirrored_calls_when_the_caller_sends_hangarllm_metadata(
     recording_logger: _RecordingLogger,
     spend_kwargs: Callable[[Mapping[str, object]], Mapping[str, object]],
 ) -> None:
@@ -397,7 +397,7 @@ async def test_spend_rows_mark_only_the_mirrored_calls_when_the_caller_sends_lit
         model="primary-model",
         messages=[{"role": "user", "content": "hi"}],
         mock_response="pong",
-        litellm_metadata={"user_api_key": "test-key"},
+        hangarllm_metadata={"user_api_key": "test-key"},
     )
     await _wait_for_all_successes(recording_logger, expected=3)
 
@@ -416,11 +416,11 @@ async def test_router_counts_a_mirrored_call_once_against_its_target_rate_limits
         model_list=[
             {
                 "model_name": "primary-model",
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "silent_model": "shadow-b"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "silent_model": "shadow-b"},
             },
             {
                 "model_name": "shadow-b",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-key", "rpm": 100, "tpm": 100000},
+                "hangarllm_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-key", "rpm": 100, "tpm": 100000},
             },
         ]
     )
@@ -437,7 +437,7 @@ async def test_router_counts_a_mirrored_call_once_against_its_target_rate_limits
     ("bucket", "planted"),
     [
         ("metadata", {"is_silent_experiment": True}),
-        ("litellm_metadata", {"is_silent_experiment": True}),
+        ("hangarllm_metadata", {"is_silent_experiment": True}),
     ],
 )
 async def test_a_caller_sent_silent_experiment_flag_does_not_mark_a_real_call_as_mirrored(
@@ -469,7 +469,7 @@ def test_multiple_shadow_targets_fan_out_sync(recording_logger):
     _wait_for_shadow_successes_sync(recording_logger, expected=2)
 
     shadow_successes = recording_logger.shadow_successes()
-    model_groups = sorted(call["litellm_params"]["metadata"]["model_group"] for call in shadow_successes)
+    model_groups = sorted(call["hangarllm_params"]["metadata"]["model_group"] for call in shadow_successes)
     assert model_groups == ["shadow-a", "shadow-b"]
     assert all(call["stream"] is False for call in shadow_successes)
 
@@ -478,7 +478,7 @@ def _tagged_primary_model_list() -> list[dict[str, object]]:
     return [
         {
             "model_name": "primary-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-5.4-mini",
                 "api_key": "fake-key",
                 "silent_model": "shadow-b",
@@ -487,7 +487,7 @@ def _tagged_primary_model_list() -> list[dict[str, object]]:
         },
         {
             "model_name": "shadow-b",
-            "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
+            "hangarllm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
         },
     ]
 
@@ -506,7 +506,7 @@ async def test_async_shadow_does_not_inherit_primary_deployment_tags(recording_l
 
     shadow_successes = recording_logger.shadow_successes()
     assert len(shadow_successes) == 1
-    assert "primary-only" not in shadow_successes[0]["litellm_params"]["metadata"].get("tags", [])
+    assert "primary-only" not in shadow_successes[0]["hangarllm_params"]["metadata"].get("tags", [])
 
 
 @pytest.mark.asyncio
@@ -520,7 +520,7 @@ async def test_shadow_of_a_shadow_is_not_launched(recording_logger):
     assert response.choices[0].message.content == "pong"
     await _wait_for_shadow_successes(recording_logger, expected=2, timeout=1.0)
 
-    model_groups = [call["litellm_params"]["metadata"]["model_group"] for call in recording_logger.shadow_successes()]
+    model_groups = [call["hangarllm_params"]["metadata"]["model_group"] for call in recording_logger.shadow_successes()]
     assert model_groups == ["shadow-a"]
 
 
@@ -533,7 +533,7 @@ async def test_router_silent_experiment_acompletion():
     model_list = [
         {
             "model_name": "primary-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-3.5-turbo",
                 "api_key": "fake-key",
                 "silent_model": "silent-model",
@@ -541,7 +541,7 @@ async def test_router_silent_experiment_acompletion():
         },
         {
             "model_name": "silent-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4",
                 "api_key": "fake-key",
             },
@@ -551,11 +551,11 @@ async def test_router_silent_experiment_acompletion():
     router = Router(model_list=model_list)
 
     # Use AsyncMock for async function mocking
-    mock_response = litellm.ModelResponse(choices=[{"message": {"content": "hello"}}])
+    mock_response = hangarllm.ModelResponse(choices=[{"message": {"content": "hello"}}])
     mock_acompletion = AsyncMock(return_value=mock_response)
 
-    # Patch at the litellm.router module level where it's imported and used
-    with patch.object(litellm, "acompletion", mock_acompletion):
+    # Patch at the hangarllm.router module level where it's imported and used
+    with patch.object(hangarllm, "acompletion", mock_acompletion):
         response = await router.acompletion(
             model="primary-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -572,7 +572,7 @@ async def test_router_silent_experiment_acompletion():
         # Check call arguments
         call_args_list = mock_acompletion.call_args_list
 
-        # Verify no silent_model in any call to litellm.acompletion
+        # Verify no silent_model in any call to hangarllm.acompletion
         for call in call_args_list:
             args, kwargs = call
             assert "silent_model" not in kwargs
@@ -605,7 +605,7 @@ def test_router_silent_experiment_completion():
     model_list = [
         {
             "model_name": "primary-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-3.5-turbo",
                 "api_key": "fake-key",
                 "silent_model": "silent-model",
@@ -613,7 +613,7 @@ def test_router_silent_experiment_completion():
         },
         {
             "model_name": "silent-model",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4",
                 "api_key": "fake-key",
             },
@@ -622,8 +622,8 @@ def test_router_silent_experiment_completion():
 
     router = Router(model_list=model_list)
 
-    # Mock litellm.acompletion
-    mock_response = litellm.ModelResponse(choices=[{"message": {"content": "hello"}}])
+    # Mock hangarllm.acompletion
+    mock_response = hangarllm.ModelResponse(choices=[{"message": {"content": "hello"}}])
 
     # We need an async mock for acompletion
     async def mock_acompletion(*args, **kwargs):
@@ -632,10 +632,10 @@ def test_router_silent_experiment_completion():
     mock_acompletion_mock = AsyncMock(side_effect=mock_acompletion)
     mock_completion_mock = MagicMock(return_value=mock_response)
 
-    # Patch at the litellm module level
+    # Patch at the hangarllm module level
     with (
-        patch.object(litellm, "acompletion", mock_acompletion_mock),
-        patch.object(litellm, "completion", mock_completion_mock),
+        patch.object(hangarllm, "acompletion", mock_acompletion_mock),
+        patch.object(hangarllm, "completion", mock_completion_mock),
     ):
         response = router.completion(
             model="primary-model",
@@ -690,7 +690,7 @@ def _embedding_router_with_silent_model() -> Router:
         model_list=[
             {
                 "model_name": "embed-primary",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/embed-model",
                     "api_base": _EMBEDDING_API_BASE,
                     "api_key": "fake-key",
@@ -717,7 +717,7 @@ def test_embedding_with_silent_model_sends_provider_body_without_it(respx_mock: 
 async def test_aembedding_with_silent_model_sends_provider_body_without_it(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = _strict_embedding_route(respx_mock)
 
     response: Final = await _embedding_router_with_silent_model().aembedding(
@@ -734,7 +734,7 @@ def _judged_router(shadow_outcome: str) -> Router:
         model_list=[
             {
                 "model_name": "primary-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-mini",
                     "api_key": "fake-key",
                     "silent_model": "shadow-a",
@@ -743,7 +743,7 @@ def _judged_router(shadow_outcome: str) -> Router:
             },
             {
                 "model_name": "shadow-a",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-5.4-nano",
                     "api_key": "fake-key",
                     "mock_response": shadow_outcome,
@@ -754,7 +754,7 @@ def _judged_router(shadow_outcome: str) -> Router:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("shadow_outcome", ["pong", "litellm.InternalServerError"])
+@pytest.mark.parametrize("shadow_outcome", ["pong", "hangarllm.InternalServerError"])
 async def test_calls_a_callback_starts_while_logging_a_mirrored_call_are_not_marked_as_mirrored(
     judging_logger: _JudgingLogger, shadow_outcome: str
 ) -> None:
@@ -768,12 +768,12 @@ async def test_calls_a_callback_starts_while_logging_a_mirrored_call_are_not_mar
 def _start_judge_call(
     kwargs: Mapping[str, object], completion_response: object, start_time: object, end_time: object
 ) -> None:
-    litellm.completion(
+    hangarllm.completion(
         model="openai/gpt-5.4-nano",
         api_key="fake-key",
         messages=[{"role": "user", "content": "score it"}],
         mock_response="ok",
-        metadata={"judge_of": kwargs["litellm_params"]["metadata"]["model_group"]},
+        metadata={"judge_of": kwargs["hangarllm_params"]["metadata"]["model_group"]},
     )
 
 
@@ -781,8 +781,8 @@ def _start_judge_call(
 async def test_calls_a_failure_function_callback_starts_for_a_mirrored_call_are_not_marked_as_mirrored(
     sync_and_async_recording_logger: _SyncAndAsyncRecordingLogger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "failure_callback", [_start_judge_call])
-    router: Final = _judged_router("litellm.InternalServerError")
+    monkeypatch.setattr(hangarllm, "failure_callback", [_start_judge_call])
+    router: Final = _judged_router("hangarllm.InternalServerError")
     await router.acompletion(model="primary-model", messages=[{"role": "user", "content": "hi"}])
     await _wait_for_judges(sync_and_async_recording_logger, {"shadow-a"})
 

@@ -16,10 +16,10 @@ from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue
 
-import litellm
-from litellm import Router
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.utils import ImageResponse, ModelResponse, TextCompletionResponse
+import hangarllm
+from hangarllm import Router
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.types.utils import ImageResponse, ModelResponse, TextCompletionResponse
 
 _R: Final = TypeVar("_R")
 
@@ -97,7 +97,7 @@ def _drain(seen: SimpleQueue[str]) -> tuple[str, ...]:
 
 def _content(response: ModelResponse) -> str | None:
     choice: Final = response.choices[0]
-    return choice.message.content if isinstance(choice, litellm.Choices) else None
+    return choice.message.content if isinstance(choice, hangarllm.Choices) else None
 
 
 @pytest.fixture
@@ -108,8 +108,8 @@ def sync_session(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[httpx.Client
         seen.put(str(request.url))
 
     with httpx.Client(event_hooks={"request": [record]}) as client:
-        monkeypatch.setattr(litellm, "client_session", client)
-        monkeypatch.setattr(litellm, "aclient_session", None)
+        monkeypatch.setattr(hangarllm, "client_session", client)
+        monkeypatch.setattr(hangarllm, "aclient_session", None)
         yield client, seen
 
 
@@ -123,8 +123,8 @@ def _run_with_async_session(
 
     async def run() -> _R:
         async with httpx.AsyncClient(event_hooks={"request": [record]}) as client:
-            monkeypatch.setattr(litellm, "client_session", None)
-            monkeypatch.setattr(litellm, "aclient_session", client)
+            monkeypatch.setattr(hangarllm, "client_session", None)
+            monkeypatch.setattr(hangarllm, "aclient_session", client)
             return await call()
 
     result: Final = asyncio.run(run())
@@ -136,7 +136,7 @@ def _deployment(timeout: httpx.Timeout | openai.Timeout, api_base: str, deployme
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": api_base,
                     "api_key": _PROVIDER_KEY,
@@ -155,7 +155,7 @@ def test_f01_async_image_variation_with_only_a_sync_session_set_builds_its_own_a
 ) -> None:
     with wire_server(_peer("/images/variations", {"created": 1, "data": [{"url": _IMAGE_URL}]})) as wire:
         response: Final = asyncio.run(
-            litellm.aimage_variation(
+            hangarllm.aimage_variation(
                 image=("probe.png", _PNG, "image/png"),
                 model="dall-e-2",
                 custom_llm_provider="openai",
@@ -178,7 +178,7 @@ def test_f02_async_azure_cloudflare_gateway_call_with_only_a_sync_session_set_bu
 ) -> None:
     with wire_server(_peer(f"{_GATEWAY_PATH}/{_DEPLOYMENT}/chat/completions", _chat_completion())) as wire:
         response: Final = asyncio.run(
-            litellm.acompletion(
+            hangarllm.acompletion(
                 model=f"azure/{_DEPLOYMENT}",
                 messages=[{"role": "user", "content": "via the gateway"}],
                 api_base=f"{wire.url}{_GATEWAY_PATH}",
@@ -199,7 +199,7 @@ def test_f03_async_text_completion_uses_the_callers_async_session(monkeypatch: p
     with wire_server(_peer("/completions", _text_completion())) as wire:
         response, seen = _run_with_async_session(
             monkeypatch,
-            lambda: litellm.atext_completion(
+            lambda: hangarllm.atext_completion(
                 model="gpt-3.5-turbo-instruct",
                 prompt="complete this",
                 custom_llm_provider="openai",
@@ -218,7 +218,7 @@ def test_f04_sync_text_completion_uses_the_callers_sync_session(
     sync_session: tuple[httpx.Client, SimpleQueue[str]],
 ) -> None:
     with wire_server(_peer("/completions", _text_completion())) as wire:
-        response: Final = litellm.text_completion(
+        response: Final = hangarllm.text_completion(
             model="gpt-3.5-turbo-instruct",
             prompt="complete this",
             custom_llm_provider="openai",
@@ -239,7 +239,7 @@ def test_f05_sync_moderation_reaches_the_peer_and_returns_its_verdict() -> None:
         "results": [{"flagged": True, "categories": {"harassment": True}, "category_scores": {"harassment": 0.91}}],
     }
     with wire_server(_peer("/moderations", verdict)) as wire:
-        response: Final = litellm.moderation(
+        response: Final = hangarllm.moderation(
             input="moderate this",
             model="omni-moderation-latest",
             api_key=_PROVIDER_KEY,
@@ -255,7 +255,7 @@ def test_f06_sync_completion_accepts_a_structured_timeout(
     timeout_type: type[httpx.Timeout] | type[openai.Timeout],
 ) -> None:
     with wire_server(_peer("/chat/completions", _chat_completion())) as wire:
-        response: Final = litellm.completion(
+        response: Final = hangarllm.completion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "with a structured timeout"}],
             custom_llm_provider="openai",
@@ -275,7 +275,7 @@ def test_f07_async_azure_cloudflare_gateway_call_uses_the_callers_async_session(
     with wire_server(_peer(f"{_GATEWAY_PATH}/{_DEPLOYMENT}/chat/completions", _chat_completion())) as wire:
         response, seen = _run_with_async_session(
             monkeypatch,
-            lambda: litellm.acompletion(
+            lambda: hangarllm.acompletion(
                 model=f"azure/{_DEPLOYMENT}",
                 messages=[{"role": "user", "content": "via the gateway"}],
                 api_base=f"{wire.url}{_GATEWAY_PATH}",
@@ -294,7 +294,7 @@ def test_f08_sync_image_variation_uses_the_callers_sync_session(
     sync_session: tuple[httpx.Client, SimpleQueue[str]],
 ) -> None:
     with wire_server(_peer("/images/variations", {"created": 1, "data": [{"url": _IMAGE_URL}]})) as wire:
-        response: Final = litellm.image_variation(
+        response: Final = hangarllm.image_variation(
             image=("probe.png", _PNG, "image/png"),
             model="dall-e-2",
             custom_llm_provider="openai",
@@ -322,7 +322,7 @@ def test_f09_router_deployment_keeps_a_structured_timeout_as_httpx_and_serves(
         assert _only_request(wire).method == "POST"
         deployment: Final = router.get_deployment("deployment-f09")
         assert deployment is not None
-        stored: Final = deployment.litellm_params.timeout
+        stored: Final = deployment.hangarllm_params.timeout
         assert isinstance(stored, httpx.Timeout), type(stored)
         assert (stored.read, stored.connect) == (5.0, 2.0), stored
 
@@ -331,7 +331,7 @@ def test_f10_router_deployment_structured_read_timeout_fires_once_as_a_408() -> 
     gate: Final = threading.Event()
     with wire_server(_held_peer(gate)) as wire:
         router: Final = _deployment(httpx.Timeout(0.5, connect=2.0), wire.url, "deployment-f10")
-        with pytest.raises(litellm.Timeout) as raised:
+        with pytest.raises(hangarllm.Timeout) as raised:
             router.completion(model="gpt-4o-mini", messages=[{"role": "user", "content": "held upstream"}])
         gate.set()
         assert raised.value.status_code == 408, raised.value
@@ -390,9 +390,9 @@ _SPEECH_ROUTES: Final[Mapping[str, tuple[Mapping[str, str], str, Reply]]] = {
         _SPEECH_AUDIO_REPLY,
     ),
 }
-_PAYMENT_REQUIRED_MODELS: Final[Mapping[str, type[litellm.BadRequestError]]] = {
-    "openai/gpt-4o-mini": litellm.BadRequestError,
-    "anthropic/claude-sonnet-4-5": litellm.PaymentRequiredError,
+_PAYMENT_REQUIRED_MODELS: Final[Mapping[str, type[hangarllm.BadRequestError]]] = {
+    "openai/gpt-4o-mini": hangarllm.BadRequestError,
+    "anthropic/claude-sonnet-4-5": hangarllm.PaymentRequiredError,
 }
 
 
@@ -421,7 +421,7 @@ def _payment_required_peer(request: Request) -> Reply:
 def test_f11_sync_speech_accepts_an_sdk_timeout_on_every_provider_branch(provider: str) -> None:
     route, expected_path, reply = _SPEECH_ROUTES[provider]
     with wire_server(_speech_peer(expected_path, reply)) as wire:
-        response: Final = litellm.speech(
+        response: Final = hangarllm.speech(
             input="speak this",
             api_base=wire.url,
             timeout=openai.Timeout(5.0, connect=2.0),
@@ -433,7 +433,7 @@ def test_f11_sync_speech_accepts_an_sdk_timeout_on_every_provider_branch(provide
 
 def test_f13_sync_vertex_speech_accepts_an_sdk_timeout() -> None:
     with wire_server(_vertex_speech_peer) as wire:
-        response: Final = litellm.speech(
+        response: Final = hangarllm.speech(
             model="vertex_ai/chirp",
             voice="alloy",
             input="speak this",
@@ -458,7 +458,7 @@ def _runwayml_rejecting_peer(request: Request) -> Reply:
 def test_f14_sync_runwayml_speech_sends_its_task_with_an_sdk_timeout() -> None:
     with wire_server(_runwayml_rejecting_peer) as wire:
         with pytest.raises(BaseLLMException) as raised:
-            litellm.speech(
+            hangarllm.speech(
                 model="runwayml/eleven_multilingual_v2",
                 voice="Maya",
                 input="speak this",
@@ -475,7 +475,7 @@ def test_f14_sync_runwayml_speech_sends_its_task_with_an_sdk_timeout() -> None:
 def test_f12_sync_completion_maps_an_upstream_402_with_its_message(model: str) -> None:
     with wire_server(_payment_required_peer) as wire:
         with pytest.raises(_PAYMENT_REQUIRED_MODELS[model]) as raised:
-            litellm.completion(
+            hangarllm.completion(
                 model=model,
                 messages=[{"role": "user", "content": "out of credit"}],
                 api_base=wire.url,

@@ -248,13 +248,13 @@ def collect_python_function_tests(
         raise ValueError("Python function discovery needs at least one function")
     if not selectors:
         raise ValueError("Python function discovery needs at least one test selector")
-    with tempfile.TemporaryDirectory(prefix="litellm-function-tests-") as directory:
+    with tempfile.TemporaryDirectory(prefix="hangarllm-function-tests-") as directory:
         temporary: Final = Path(directory)
         config_path: Final = temporary / "config.json"
         output_path: Final = temporary / "report.json"
         config: Final = _WorkerConfig(
             functions=selected_functions,
-            source_root=source_root or repo_root / "litellm",
+            source_root=source_root or repo_root / "hangarllm",
             output=output_path,
             pytest_args=tuple(
                 (
@@ -272,7 +272,7 @@ def collect_python_function_tests(
             dict.fromkeys(
                 (
                     str(repo_root),
-                    str(source_root or repo_root / "litellm"),
+                    str(source_root or repo_root / "hangarllm"),
                     *(
                         str(path.parent if path.suffix == ".py" else path)
                         for selector in selectors

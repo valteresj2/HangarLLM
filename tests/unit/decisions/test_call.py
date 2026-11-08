@@ -6,10 +6,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.decisions.main import _prepare_decisions_call
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.systemone.main import _prepare_systemone_call
+import hangarllm
+from hangarllm.decisions.main import _prepare_decisions_call
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.systemone.main import _prepare_systemone_call
 
 QUESTION_TEXT: Final = "Is this about a billing problem?"
 CONNECTION: Final = {
@@ -30,7 +30,7 @@ def _logging_obj(call_type: str) -> Logging:
         stream=False,
         call_type=call_type,
         start_time=datetime.now(timezone.utc),
-        litellm_call_id="lit-9659",
+        hangarllm_call_id="lit-9659",
         function_id="lit-9659",
     )
 
@@ -52,7 +52,7 @@ def test_systemone_logs_every_request_field_the_caller_sent():
         assets=None,
         audio=None,
         videos=None,
-        kwargs={"litellm_logging_obj": logging_obj},
+        kwargs={"hangarllm_logging_obj": logging_obj},
     )
 
     logged: Final = _logged_request(logging_obj)
@@ -70,7 +70,7 @@ def test_decisions_logs_every_request_field_the_caller_sent():
         questions=[{"type": "predicate", "instructions": QUESTION_TEXT}],
         audio=None,
         videos=None,
-        kwargs={"litellm_logging_obj": logging_obj},
+        kwargs={"hangarllm_logging_obj": logging_obj},
     )
 
     logged: Final = _logged_request(logging_obj)
@@ -82,7 +82,7 @@ def test_decisions_logs_every_request_field_the_caller_sent():
 def test_request_is_logged_even_when_it_is_rejected_before_the_provider_call():
     logging_obj: Final = _logging_obj("asystemone")
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         _prepare_systemone_call(
             **CONNECTION,
             state={"message": "My card was charged twice."},
@@ -91,7 +91,7 @@ def test_request_is_logged_even_when_it_is_rejected_before_the_provider_call():
             assets=None,
             audio=None,
             videos=None,
-            kwargs={"litellm_logging_obj": logging_obj, "input": "sent to the wrong function"},
+            kwargs={"hangarllm_logging_obj": logging_obj, "input": "sent to the wrong function"},
         )
 
     logged: Final = _logged_request(logging_obj)
@@ -101,14 +101,14 @@ def test_request_is_logged_even_when_it_is_rejected_before_the_provider_call():
 def test_decisions_request_is_logged_even_when_its_questions_fail_validation():
     logging_obj: Final = _logging_obj("adecisions")
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         _prepare_decisions_call(
             **CONNECTION,
             decision_input="My card was charged twice.",
             questions=[{"type": "not-a-question-type", "instructions": QUESTION_TEXT}],
             audio=None,
             videos=None,
-            kwargs={"litellm_logging_obj": logging_obj},
+            kwargs={"hangarllm_logging_obj": logging_obj},
         )
 
     logged: Final = _logged_request(logging_obj)
@@ -119,14 +119,14 @@ def test_non_utf8_bytes_in_the_request_are_logged_and_rejected_with_a_400():
     logging_obj: Final = _logging_obj("adecisions")
     raw_input: Final = b"\xff\xfe not utf-8"
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         _prepare_decisions_call(
             **CONNECTION,
             decision_input=raw_input,
             questions=[{"type": "predicate", "instructions": QUESTION_TEXT}],
             audio=None,
             videos=None,
-            kwargs={"litellm_logging_obj": logging_obj},
+            kwargs={"hangarllm_logging_obj": logging_obj},
         )
 
     logged: Final = _logged_request(logging_obj)

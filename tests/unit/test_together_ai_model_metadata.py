@@ -83,7 +83,7 @@ def _successor(info: dict[str, object]) -> str | None:
 
 
 def test_together_backup_cost_map_in_sync(cost_map: CostMap):
-    with open(REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json") as f:
+    with open(REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json") as f:
         backup = COST_MAP_ADAPTER.validate_python(json.load(f))
     together_main = {k: v for k, v in cost_map.items() if k.startswith("together_ai/")}
     together_backup = {k: v for k, v in backup.items() if k.startswith("together_ai/")}

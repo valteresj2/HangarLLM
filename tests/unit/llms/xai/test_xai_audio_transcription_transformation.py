@@ -3,17 +3,17 @@ import traceback
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.base_llm.audio_transcription.transformation import (
+import hangarllm
+from hangarllm.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.xai.audio_transcription.transformation import (
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.xai.audio_transcription.transformation import (
     XAIAudioTranscriptionConfig,
     XAIAudioTranscriptionError,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 CONFIG = XAIAudioTranscriptionConfig()
 
@@ -27,9 +27,9 @@ def test_transform_request_serializes_provider_params():
         optional_params={
             "language": "en",
             "diarize": True,
-            "keyterm": ["LiteLLM", "Grok"],
+            "keyterm": ["HangarLLM", "Grok"],
         },
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert isinstance(result, AudioTranscriptionRequestData)
@@ -37,7 +37,7 @@ def test_transform_request_serializes_provider_params():
     assert data["model"] == "grok-voice-transcribe-2.0"
     assert data["language"] == "en"
     assert data["diarize"] == "true"
-    assert data["keyterm"] == ["LiteLLM", "Grok"]
+    assert data["keyterm"] == ["HangarLLM", "Grok"]
     filename, content, content_type = result.files["file"]
     assert content == WAV_BYTES
     assert isinstance(filename, str)
@@ -52,7 +52,7 @@ def test_transform_request_flattens_extra_body():
             "language": "en",
             "extra_body": {"diarize": False, "channels": 2},
         },
-        litellm_params={},
+        hangarllm_params={},
     )
     assert result.data["diarize"] == "false"
     assert result.data["channels"] == "2"
@@ -74,7 +74,7 @@ def test_get_complete_url(api_base, expected):
         api_key=None,
         model="grok-voice-transcribe-2.0",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == expected
 
@@ -85,7 +85,7 @@ def test_validate_environment_sets_bearer_header():
         model="grok-voice-transcribe-2.0",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="sk-test",
     )
     assert headers["Authorization"] == "Bearer sk-test"
@@ -94,14 +94,14 @@ def test_validate_environment_sets_bearer_header():
 
 def test_validate_environment_requires_key(monkeypatch):
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "xai_key", None)
+    monkeypatch.setattr(hangarllm, "xai_key", None)
     with pytest.raises(ValueError, match="xAI API key is required"):
         CONFIG.validate_environment(
             headers={},
             model="grok-voice-transcribe-2.0",
             messages=[],
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             api_key=None,
         )
 
@@ -167,7 +167,7 @@ def test_transform_response_keeps_a_malformed_body_out_of_the_error(content):
 
 def test_transcription_routes_to_xai_stt(monkeypatch):
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "xai_key", None)
+    monkeypatch.setattr(hangarllm, "xai_key", None)
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -179,12 +179,12 @@ def test_transcription_routes_to_xai_stt(monkeypatch):
         )
 
     http_handler = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler)))
-    response = litellm.transcription(
+    response = hangarllm.transcription(
         model="xai/grok-voice-transcribe-2.0",
         file=("sample.wav", WAV_BYTES, "audio/wav"),
         api_key="sk-test",
         diarize=True,
-        keyterm=["LiteLLM"],
+        keyterm=["HangarLLM"],
         client=http_handler,
     )
 
@@ -194,7 +194,7 @@ def test_transcription_routes_to_xai_stt(monkeypatch):
     body = request.content.decode("utf-8", errors="replace")
     assert 'name="model"' in body and "grok-voice-transcribe-2.0" in body
     assert 'name="diarize"' in body and "true" in body
-    assert 'name="keyterm"' in body and "LiteLLM" in body
+    assert 'name="keyterm"' in body and "HangarLLM" in body
     assert 'name="file"' in body
     assert response.text == "transcribed text"
 

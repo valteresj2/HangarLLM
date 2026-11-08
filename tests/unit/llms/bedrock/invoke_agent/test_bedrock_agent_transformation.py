@@ -1,13 +1,13 @@
-import asyncio, base64, importlib, litellm, litellm.types
+import asyncio, base64, importlib, hangarllm, hangarllm.types
 from unittest.mock import patch
 
 import pytest
 
 
-from litellm.llms.bedrock.chat.invoke_agent.transformation import (
+from hangarllm.llms.bedrock.chat.invoke_agent.transformation import (
     AmazonInvokeAgentConfig,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -87,7 +87,7 @@ class TestAmazonInvokeAgentConfig:
                 config._get_agent_id_and_alias_id(invalid_model)
 
     @patch(
-        "litellm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
+        "hangarllm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
     )
     def test_transform_request(self, mock_convert, config, sample_messages):
         """Test transform_request method"""
@@ -95,10 +95,10 @@ class TestAmazonInvokeAgentConfig:
 
         model = "agent/TEST123/ALIAS456"
         optional_params = {}
-        litellm_params = {}
+        hangarllm_params = {}
         headers = {}
 
-        result = config.transform_request(model, sample_messages, optional_params, litellm_params, headers)
+        result = config.transform_request(model, sample_messages, optional_params, hangarllm_params, headers)
 
         expected = {
             "inputText": "What is the weather like?",
@@ -230,7 +230,7 @@ class TestAmazonInvokeAgentConfig:
         assert result.usage.total_tokens == 30
 
     @patch(
-        "litellm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
+        "hangarllm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
     )
     @patch.object(AmazonInvokeAgentConfig, "get_runtime_endpoint")
     @patch.object(AmazonInvokeAgentConfig, "_get_aws_region_name")
@@ -246,10 +246,10 @@ class TestAmazonInvokeAgentConfig:
         api_key = None
         model = "agent/L1RT58GYRW/MFPSBCXYTW"
         optional_params = {}
-        litellm_params = {}
+        hangarllm_params = {}
 
         result = config.get_complete_url(
-            api_base, api_key, model, optional_params, litellm_params
+            api_base, api_key, model, optional_params, hangarllm_params
         )
 
         assert (
@@ -258,7 +258,7 @@ class TestAmazonInvokeAgentConfig:
         )
 
     @patch(
-        "litellm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
+        "hangarllm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
     )
     @patch.object(AmazonInvokeAgentConfig, "get_runtime_endpoint")
     @patch.object(AmazonInvokeAgentConfig, "_get_aws_region_name")
@@ -277,7 +277,7 @@ class TestAmazonInvokeAgentConfig:
             api_key=None,
             model="agent/L1RT58GYRW/MFPSBCXYTW",
             optional_params={"sessionID": "../../sessions/other?x=1#frag"},
-            litellm_params={},
+            hangarllm_params={},
         )
 
         assert "sessions/..%2F..%2Fsessions%2Fother%3Fx%3D1%23frag/text" in result
@@ -308,21 +308,21 @@ def setup_and_teardown(event_loop):
         "_async_success_callback",
         "_async_failure_callback",
     ):
-        if hasattr(litellm, attr):
-            val = getattr(litellm, attr)
+        if hasattr(hangarllm, attr):
+            val = getattr(hangarllm, attr)
             original_state[attr] = val.copy() if val else []
     for attr in _SCALAR_DEFAULTS:
-        if hasattr(litellm, attr):
-            original_state[attr] = getattr(litellm, attr)
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        if hasattr(hangarllm, attr):
+            original_state[attr] = getattr(hangarllm, attr)
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     asyncio.run(GLOBAL_LOGGING_WORKER.clear_queue())
-    importlib.reload(litellm)
+    importlib.reload(hangarllm)
     asyncio.set_event_loop(event_loop)
     yield
     for attr, original_value in original_state.items():
-        if hasattr(litellm, attr):
-            setattr(litellm, attr, original_value)
+        if hasattr(hangarllm, attr):
+            setattr(hangarllm, attr, original_value)
     pending = asyncio.all_tasks(event_loop)
     for task in pending:
         task.cancel()
@@ -330,17 +330,17 @@ def setup_and_teardown(event_loop):
         event_loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
 
 _SCALAR_DEFAULTS = {
-    "num_retries": getattr(litellm, "num_retries", None),
-    "set_verbose": getattr(litellm, "set_verbose", False),
-    "cache": getattr(litellm, "cache", None),
-    "allowed_fails": getattr(litellm, "allowed_fails", 3),
-    "disable_aiohttp_transport": getattr(litellm, "disable_aiohttp_transport", False),
-    "force_ipv4": getattr(litellm, "force_ipv4", False),
-    "drop_params": getattr(litellm, "drop_params", None),
-    "modify_params": getattr(litellm, "modify_params", False),
-    "api_base": getattr(litellm, "api_base", None),
-    "api_key": getattr(litellm, "api_key", None),
-    "cohere_key": getattr(litellm, "cohere_key", None),
+    "num_retries": getattr(hangarllm, "num_retries", None),
+    "set_verbose": getattr(hangarllm, "set_verbose", False),
+    "cache": getattr(hangarllm, "cache", None),
+    "allowed_fails": getattr(hangarllm, "allowed_fails", 3),
+    "disable_aiohttp_transport": getattr(hangarllm, "disable_aiohttp_transport", False),
+    "force_ipv4": getattr(hangarllm, "force_ipv4", False),
+    "drop_params": getattr(hangarllm, "drop_params", None),
+    "modify_params": getattr(hangarllm, "modify_params", False),
+    "api_base": getattr(hangarllm, "api_base", None),
+    "api_key": getattr(hangarllm, "api_key", None),
+    "cohere_key": getattr(hangarllm, "cohere_key", None),
 }
 
 @pytest.fixture
@@ -351,21 +351,21 @@ def _pr4_bedrock_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("_pr4_bedrock_env", "_vcr_outcome_gate", "setup_and_teardown")
 def test_bedrock_agents_with_custom_params():
-    litellm.turn_on_debug()
+    hangarllm.turn_on_debug()
     from unittest.mock import MagicMock
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
 
     with patch.object(client, "post", return_value=MagicMock()) as mock_post:
         try:
-            response = litellm.completion(
+            response = hangarllm.completion(
                 model="bedrock/agent/L1RT58GYRW/MFPSBCXYTW",
                 messages=[
                     {
                         "role": "user",
-                        "content": "Hi who is ishaan cto of litellm, tell me 10 things about him",
+                        "content": "Hi who is ishaan cto of hangarllm, tell me 10 things about him",
                     }
                 ],
                 invocationId="my-test-invocation-id",

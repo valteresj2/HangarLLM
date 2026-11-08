@@ -1,4 +1,4 @@
-"""Per-agent ``litellm_params.a2a_protocol_version`` pins the A2A transport the proxy speaks to the agent.
+"""Per-agent ``hangarllm_params.a2a_protocol_version`` pins the A2A transport the proxy speaks to the agent.
 
 langgraph-api 0.15 serves cards declaring ``JSONRPC``/``1.0`` while answering in the 0.3 ``kind`` dialect, so
 a2a-sdk picks its strict v1 transport and rejects every reply. Pinning "0.3" routes the SDK onto its v0.3
@@ -29,7 +29,7 @@ from integration.compatibility._a2a_peers import (
 )
 from pydantic import JsonValue
 
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
 PROXY_WORKERS: Final = int(os.environ.get("INTEGRATION_PROXY_WORKERS", "1"))
 WORKER_SYNC_SECONDS: Final = 0.0 if PROXY_WORKERS == 1 else PROXY_CONFIG_RELOAD_INTERVAL_SECONDS + 5.0
@@ -236,9 +236,9 @@ def test_override_added_and_removed_by_patch_takes_effect_on_both_workers(gatewa
             return response.status_code
 
         def settle(params: dict[str, JsonValue], expected: int) -> None:
-            patched: Final = gateway.request("PATCH", f"/v1/agents/{identity}", {"litellm_params": params})
+            patched: Final = gateway.request("PATCH", f"/v1/agents/{identity}", {"hangarllm_params": params})
             assert patched.status_code == 200, patched.text
-            assert patched.json()["litellm_params"].get("a2a_protocol_version") == params.get("a2a_protocol_version")
+            assert patched.json()["hangarllm_params"].get("a2a_protocol_version") == params.get("a2a_protocol_version")
             written_at: Final = time.monotonic()
             counter = iter(range(10_000))
             eventually(
@@ -274,10 +274,10 @@ def test_repeated_pinned_sends_log_one_row_each(gateway: Gateway) -> None:
 def test_registered_agent_persists_protocol_version(gateway: Gateway) -> None:
     with peer("lgstored", "langgraph") as agent, gateway.scenario() as scenario:
         identity: Final = register(gateway, scenario.cleanups.callback, agent.marker, agent.url, PINNED)
-        assert gateway.get(f"/v1/agents/{identity}")["litellm_params"]["a2a_protocol_version"] == "0.3"  # type: ignore[index]
-        rows: Final = read_rows('SELECT litellm_params FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (identity,))
+        assert gateway.get(f"/v1/agents/{identity}")["hangarllm_params"]["a2a_protocol_version"] == "0.3"  # type: ignore[index]
+        rows: Final = read_rows('SELECT hangarllm_params FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (identity,))
         assert len(rows) == 1, rows
-        stored: Final = rows[0]["litellm_params"]
+        stored: Final = rows[0]["hangarllm_params"]
         stored_params: Final = json.loads(stored) if isinstance(stored, str) else stored
         assert stored_params["a2a_protocol_version"] == "0.3", rows  # type: ignore[index]
         _send_ok(gateway, identity, agent.marker)

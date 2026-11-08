@@ -2,9 +2,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.proxy._types import SpecialHeaders
-from litellm.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
+import hangarllm
+from hangarllm.proxy._types import SpecialHeaders
+from hangarllm.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
 
 
 # Fake auth functions to simulate valid and invalid auth behavior.
@@ -66,9 +66,9 @@ def test_valid_auth_metrics_after_body_consumed(app_with_middleware, monkeypatch
     """
     Auth that reads the request body must not cause /metrics to hang on success.
     """
-    litellm.require_auth_for_metrics_endpoint = True
+    hangarllm.require_auth_for_metrics_endpoint = True
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         fake_valid_auth_reads_body,
     )
 
@@ -89,10 +89,10 @@ def test_valid_auth_metrics(app_with_middleware, monkeypatch):
     Test that a request to /metrics (and /metrics/) with valid auth headers passes.
     """
     # Enable auth on metrics endpoints.
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
     # Patch the auth function to simulate a valid authentication.
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         fake_valid_auth,
     )
 
@@ -114,10 +114,10 @@ def test_invalid_auth_metrics(app_with_middleware, monkeypatch):
     """
     Test that a request to /metrics with invalid auth headers fails with a 401.
     """
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
     # Patch the auth function to simulate a failed authentication.
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         fake_invalid_auth,
     )
 
@@ -135,9 +135,9 @@ def test_invalid_auth_metrics_includes_optout_hint(app_with_middleware, monkeypa
     behavior, otherwise a Prometheus scraper that worked pre-upgrade just sees
     "Malformed API Key" with no actionable migration path.
     """
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         fake_invalid_auth,
     )
 
@@ -156,9 +156,9 @@ def test_metrics_auth_uses_real_auth_when_route_is_public(
     Regression: /metrics is statically public, but require_auth_for_metrics_endpoint
     must still force the real auth path.
     """
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-master")
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.master_key", "sk-master")
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", {})
 
     client = TestClient(app_with_middleware)
 
@@ -173,7 +173,7 @@ def test_metrics_auth_is_required_by_default(app_with_middleware, monkeypatch):
     Metrics should require auth unless explicitly configured as public.
     """
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         fake_invalid_auth,
     )
 
@@ -190,14 +190,14 @@ def test_no_auth_metrics_when_disabled(app_with_middleware, monkeypatch):
     Test that when require_auth_for_metrics_endpoint is False, requests to /metrics
     bypass the auth check.
     """
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", False)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", False)
 
     # To ensure auth is not run, patch the auth function with one that will raise if called.
     def should_not_be_called(*args, **kwargs):
         raise Exception("Auth should not be called")
 
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         should_not_be_called,
     )
 
@@ -211,7 +211,7 @@ def test_non_metrics_requests_pass_through(app_with_middleware, monkeypatch):
     """
     Test that non-metrics endpoints pass through the middleware unaffected.
     """
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
 
     client = TestClient(app_with_middleware)
 
@@ -229,13 +229,13 @@ def test_non_metrics_requests_dont_trigger_auth(app_with_middleware, monkeypatch
     Test that non-metrics requests never trigger auth, even when auth is enabled
     and the auth function would reject the request.
     """
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
 
     def should_not_be_called(*args, **kwargs):
         raise Exception("Auth should not be called for non-metrics requests")
 
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         should_not_be_called,
     )
 
@@ -251,13 +251,13 @@ def test_non_metrics_requests_dont_trigger_auth(app_with_middleware, monkeypatch
 
 
 def test_gateway_telemetry_path_is_not_treated_as_the_metrics_endpoint(app_with_middleware, monkeypatch):
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
 
     def should_not_be_called(*args, **kwargs):
         raise Exception("Auth should not be called for the gateway telemetry route")
 
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         should_not_be_called,
     )
 
@@ -270,13 +270,13 @@ def test_gateway_telemetry_path_is_not_treated_as_the_metrics_endpoint(app_with_
 
 @pytest.mark.parametrize("path", ["/metrics", "/metrics/", "/metrics/detail"])
 def test_metrics_paths_still_require_auth(app_with_middleware, monkeypatch, path):
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
 
     async def reject(*args, **kwargs):
         raise Exception("Invalid API key")
 
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         reject,
     )
 
@@ -287,24 +287,24 @@ def test_metrics_paths_still_require_auth(app_with_middleware, monkeypatch, path
 
 
 def test_metrics_under_a_root_path_still_requires_auth(monkeypatch):
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(hangarllm, "require_auth_for_metrics_endpoint", True)
 
     async def reject(*args, **kwargs):
         raise Exception("Invalid API key")
 
     monkeypatch.setattr(
-        "litellm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
+        "hangarllm.proxy.middleware.prometheus_auth_middleware.user_api_key_auth",
         reject,
     )
 
-    app = FastAPI(root_path="/litellm")
+    app = FastAPI(root_path="/hangarllm")
     app.add_middleware(PrometheusAuthMiddleware)
 
     @app.get("/metrics")
     async def metrics():
         return {"msg": "metrics OK"}
 
-    client = TestClient(app, root_path="/litellm")
+    client = TestClient(app, root_path="/hangarllm")
 
     response = client.get("/metrics")
     assert response.status_code == 401, response.text

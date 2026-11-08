@@ -16,7 +16,7 @@ from jwt.algorithms import RSAAlgorithm
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
-AUDIENCE: Final = "litellm-integration"
+AUDIENCE: Final = "hangarllm-integration"
 KEY_ID: Final = "integration-signing-key"
 CLIENT_CLAIM: Final = "client_id"
 
@@ -29,7 +29,7 @@ def _proxy_config(directory: Path, model: str, upstream_url: str) -> Path:
                 "model_list": [
                     {
                         "model_name": model,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/" + model,
                             "api_base": upstream_url + "/v1",
                             "api_key": "sk-upstream",
@@ -37,13 +37,13 @@ def _proxy_config(directory: Path, model: str, upstream_url: str) -> Path:
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                     "store_model_in_db": True,
                     "proxy_batch_write_at": 1,
                     "proxy_batch_polling_interval": 1,
                     "enable_jwt_auth": True,
-                    "litellm_jwtauth": {
+                    "hangarllm_jwtauth": {
                         "user_id_jwt_field": "sub",
                         "user_email_jwt_field": "email",
                         "virtual_key_claim_field": CLIENT_CLAIM,
@@ -88,7 +88,7 @@ def test_jwt_mapped_key_request_backfills_null_user_email_from_token_claims(gate
                 "/jwt/key/mapping/new", {"jwt_claim_name": CLIENT_CLAIM, "jwt_claim_value": client_id, "key": key}
             )
             scenario.cleanups.callback(candidate.post, "/jwt/key/mapping/delete", {"id": mapping["id"]})
-            assert read_rows('SELECT user_email FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,)) == [
+            assert read_rows('SELECT user_email FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,)) == [
                 {"user_email": None}
             ]
             email: Final = f"{user}@integration.example"
@@ -100,12 +100,12 @@ def test_jwt_mapped_key_request_backfills_null_user_email_from_token_claims(gate
                 key=token,
             )
             assert response.status_code == 200, response.text
-            assert read_rows('SELECT user_email FROM "LiteLLM_UserTable" WHERE user_id = %s', (user,)) == [
+            assert read_rows('SELECT user_email FROM "HangarLLM_UserTable" WHERE user_id = %s', (user,)) == [
                 {"user_email": email}
             ]
             spend_rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT api_key, "user" FROM "LiteLLM_SpendLogs" WHERE request_id = %s',
+                    'SELECT api_key, "user" FROM "HangarLLM_SpendLogs" WHERE request_id = %s',
                     (str(response.json()["id"]),),
                 ),
                 lambda rows: len(rows) == 1,

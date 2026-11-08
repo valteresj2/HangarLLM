@@ -1,5 +1,5 @@
 """
-Routing-contract tests for litellm/proxy/video_endpoints/endpoints.py
+Routing-contract tests for hangarllm/proxy/video_endpoints/endpoints.py
 
 Unlike the batches layer, every video endpoint funnels into a single downstream
 seam - ProxyBaseLLMRequestProcessing.base_process_llm_request - so there is no
@@ -36,14 +36,14 @@ import orjson
 import pytest
 
 
-import litellm.proxy.proxy_server as proxy_server
-import litellm.proxy.video_endpoints.endpoints as endpoints
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.videos.main import VideoObject
-from litellm.types.videos.utils import (
+import hangarllm.proxy.proxy_server as proxy_server
+import hangarllm.proxy.video_endpoints.endpoints as endpoints
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router import Router
+from hangarllm.types.videos.main import VideoObject
+from hangarllm.types.videos.utils import (
     decode_video_id_with_provider,
     encode_character_id_with_provider,
     encode_video_id_with_provider,
@@ -468,7 +468,7 @@ async def test_status_and_content__hand_the_served_member_to_the_request_process
     the only one holding it. The processor pins the member once key and team aliases have been applied."""
     router = Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "dashscope/wan3.0-video", "api_key": "k"}}
+            {"model_name": name, "hangarllm_params": {"model": "dashscope/wan3.0-video", "api_key": "k"}}
             for name in ("wan3-a", "wan3-b")
         ],
         routing_groups=[{"group_name": "wan3", "models": ["wan3-a", "wan3-b"], "routing_strategy": "simple-shuffle"}],
@@ -492,7 +492,7 @@ async def test_status_and_content__shared_provider_model_routes_to_the_creating_
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
+                "hangarllm_params": {"model": "azure/sora-2", "api_base": f"https://{name}.example.com", "api_key": name},
                 "model_info": {"id": f"dep-{name}"},
             }
             for name in ("sora-team", "sora-shared")
@@ -852,7 +852,7 @@ async def test_get_character__plain_id_defaults_openai_no_encode(harness):
 @pytest.mark.asyncio
 async def test_get_character__model_served_only_by_a_provider_wildcard_routes_through_it(harness: Harness) -> None:
     router: Final = Router(
-        model_list=[{"model_name": "openai/*", "litellm_params": {"model": "openai/*", "api_key": "key-w"}}]
+        model_list=[{"model_name": "openai/*", "hangarllm_params": {"model": "openai/*", "api_key": "key-w"}}]
     )
     harness.base_process.return_value = {"id": "char_raw4"}
     character_id: Final = encode_character_id_with_provider("char_orig", "openai", "sora-2")

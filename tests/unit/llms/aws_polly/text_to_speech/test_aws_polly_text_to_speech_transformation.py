@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
+import hangarllm
 
 
 @pytest.mark.asyncio
@@ -23,10 +23,10 @@ async def test_azure_ava_tts_with_custom_voice():
     mock_httpx_response.status_code = 200
     mock_httpx_response.headers = {"content-type": "audio/mpeg"}
 
-    with patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
         mock_post.return_value = mock_httpx_response
 
-        response = await litellm.aspeech(
+        response = await hangarllm.aspeech(
             model="azure/speech/azure-tts",
             voice="en-US-AndrewNeural",
             input="Hello, this is a test",
@@ -63,10 +63,10 @@ async def test_azure_ava_tts_fable_voice_mapping():
     mock_httpx_response.status_code = 200
     mock_httpx_response.headers = {"content-type": "audio/mpeg"}
 
-    with patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
         mock_post.return_value = mock_httpx_response
 
-        response = await litellm.aspeech(
+        response = await hangarllm.aspeech(
             model="azure/speech/azure-tts",
             voice="fable",
             input="Testing voice mapping",
@@ -108,11 +108,11 @@ async def test_aws_polly_tts_with_native_voice():
     mock_httpx_response.headers = {"content-type": "audio/mpeg"}
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post"
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post"
     ) as mock_post:
         mock_post.return_value = mock_httpx_response
 
-        response = await litellm.aspeech(
+        response = await hangarllm.aspeech(
             model="aws_polly/neural",
             voice="Joanna",
             input="Hello, this is a test of AWS Polly",
@@ -152,10 +152,10 @@ async def test_aws_polly_tts_sends_engine_from_model(engine: str) -> None:
     mock_httpx_response.status_code = 200
     mock_httpx_response.headers = {"content-type": "audio/mpeg"}
 
-    with patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
+    with patch("hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
         mock_post.return_value = mock_httpx_response
 
-        await litellm.aspeech(
+        await hangarllm.aspeech(
             model=f"aws_polly/{engine}",
             voice="Joanna",
             input="Hello",
@@ -185,11 +185,11 @@ async def test_aws_polly_tts_with_openai_voice_mapping():
     mock_httpx_response.headers = {"content-type": "audio/mpeg"}
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post"
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post"
     ) as mock_post:
         mock_post.return_value = mock_httpx_response
 
-        response = await litellm.aspeech(
+        response = await hangarllm.aspeech(
             model="aws_polly/neural",
             voice="alloy",
             input="Testing OpenAI voice mapping",
@@ -231,11 +231,11 @@ async def test_aws_polly_tts_with_ssml():
     ssml_input = '<speak>Hello, <break time="500ms"/> this is SSML.</speak>'
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post"
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post"
     ) as mock_post:
         mock_post.return_value = mock_httpx_response
 
-        response = await litellm.aspeech(
+        response = await hangarllm.aspeech(
             model="aws_polly/neural",
             voice="Joanna",
             input=ssml_input,

@@ -7,13 +7,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.vertex_ai.audio_transcription.transformation import (
+import hangarllm
+from hangarllm.llms.vertex_ai.audio_transcription.transformation import (
     VertexAIAudioTranscriptionConfig,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager, get_optional_params_transcription
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager, get_optional_params_transcription
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="chirp_3",
             optional_params={},
-            litellm_params={"vertex_project": "test-project", "vertex_location": "eu"},
+            hangarllm_params={"vertex_project": "test-project", "vertex_location": "eu"},
         )
         assert url == "https://eu-speech.googleapis.com/v2/projects/test-project/locations/eu/recognizers/_:recognize"
 
@@ -38,7 +38,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="chirp_3",
             optional_params={},
-            litellm_params={"vertex_project": "test-project", "vertex_location": "global"},
+            hangarllm_params={"vertex_project": "test-project", "vertex_location": "global"},
         )
         assert url == "https://speech.googleapis.com/v2/projects/test-project/locations/global/recognizers/_:recognize"
 
@@ -57,7 +57,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="chirp_3",
             optional_params={},
-            litellm_params={"vertex_project": "test-project", "vertex_location": location},
+            hangarllm_params={"vertex_project": "test-project", "vertex_location": location},
         )
         netloc = urlparse(url).netloc
         assert netloc == expected_netloc
@@ -87,7 +87,7 @@ class TestGetCompleteUrl:
                 api_key=None,
                 model="chirp_3",
                 optional_params={},
-                litellm_params={"vertex_project": "test-project", "vertex_location": malicious_location},
+                hangarllm_params={"vertex_project": "test-project", "vertex_location": malicious_location},
             )
 
     @pytest.mark.parametrize(
@@ -108,7 +108,7 @@ class TestGetCompleteUrl:
                 api_key=None,
                 model="chirp_3",
                 optional_params={},
-                litellm_params={"vertex_project": malicious_project, "vertex_location": "us"},
+                hangarllm_params={"vertex_project": malicious_project, "vertex_location": "us"},
             )
 
 
@@ -119,7 +119,7 @@ class TestTransformRequest:
             model="chirp_3",
             audio_file=audio_bytes,
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert request_data.files is None
         assert request_data.data == {
@@ -147,7 +147,7 @@ class TestTransformRequest:
             model="chirp_3",
             audio_file=b"fake-audio-bytes",
             optional_params={"language": language} if language is not None else {},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert request_data.data["config"]["languageCodes"] == expected_language_codes
 
@@ -156,7 +156,7 @@ class TestTransformRequest:
             model="vertex_ai/chirp_3",
             audio_file=b"fake-audio-bytes",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         assert request_data.data["config"]["model"] == "chirp_3"
 
@@ -165,7 +165,7 @@ class TestTransformRequest:
             model="chirp_3",
             audio_file=b"fake-audio-bytes",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
         )
         json.dumps(request_data.data)
 
@@ -243,7 +243,7 @@ class TestValidateEnvironment:
             model="chirp_3",
             messages=[],
             optional_params={},
-            litellm_params={"vertex_project": "resolved-project"},
+            hangarllm_params={"vertex_project": "resolved-project"},
         )
         assert headers["Authorization"] == "Bearer fake-token"
         assert headers["x-goog-user-project"] == "resolved-project"
@@ -269,7 +269,7 @@ class TestProviderRouting:
         assert optional_params["response_format"] == "json"
 
     def test_get_optional_params_transcription_rejects_unsupported_param(self):
-        with pytest.raises(litellm.utils.UnsupportedParamsError):
+        with pytest.raises(hangarllm.utils.UnsupportedParamsError):
             get_optional_params_transcription(
                 model="chirp_3",
                 custom_llm_provider="vertex_ai",
@@ -287,7 +287,7 @@ class TestProviderRouting:
 
     @pytest.mark.parametrize("response_format", ["verbose_json", "srt", "vtt"])
     def test_unsupported_response_format_raises(self, response_format):
-        with pytest.raises(litellm.utils.UnsupportedParamsError, match="response_format"):
+        with pytest.raises(hangarllm.utils.UnsupportedParamsError, match="response_format"):
             get_optional_params_transcription(
                 model="chirp_3",
                 custom_llm_provider="vertex_ai",

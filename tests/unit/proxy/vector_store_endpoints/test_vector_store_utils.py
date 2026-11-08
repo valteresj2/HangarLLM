@@ -2,19 +2,19 @@ import json
 
 import pytest
 
-import litellm
-from litellm.proxy.vector_store_endpoints.utils import get_litellm_managed_vector_store
-from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+import hangarllm
+from hangarllm.proxy.vector_store_endpoints.utils import get_hangarllm_managed_vector_store
+from hangarllm.vector_stores.vector_store_registry import VectorStoreRegistry
 
 
-def _registered_store(litellm_params: object) -> dict[str, object]:
+def _registered_store(hangarllm_params: object) -> dict[str, object]:
     return {
         "vector_store_id": "vs_1",
         "custom_llm_provider": "bedrock",
         "vector_store_name": "kb",
         "vector_store_metadata": '{"source": "db"}',
         "team_id": None,
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
     }
 
 
@@ -46,13 +46,13 @@ async def test_registry_store_with_json_object_string_params_resolves_to_decoded
     monkeypatch: pytest.MonkeyPatch, stored_params: str, expected_params: dict[str, object]
 ):
     store = _registered_store(stored_params)
-    monkeypatch.setattr(litellm, "vector_store_registry", VectorStoreRegistry([store]))
+    monkeypatch.setattr(hangarllm, "vector_store_registry", VectorStoreRegistry([store]))
 
-    resolved = await get_litellm_managed_vector_store("vs_1")
+    resolved = await get_hangarllm_managed_vector_store("vs_1")
 
-    assert resolved == {**store, "litellm_params": expected_params}
-    assert json.dumps(resolved["litellm_params"]) == json.dumps(expected_params)
-    assert store["litellm_params"] == stored_params
+    assert resolved == {**store, "hangarllm_params": expected_params}
+    assert json.dumps(resolved["hangarllm_params"]) == json.dumps(expected_params)
+    assert store["hangarllm_params"] == stored_params
 
 
 @pytest.mark.parametrize(
@@ -73,12 +73,12 @@ async def test_registry_store_with_non_object_or_invalid_json_string_params_reso
     monkeypatch: pytest.MonkeyPatch, stored_params: str
 ):
     store = _registered_store(stored_params)
-    monkeypatch.setattr(litellm, "vector_store_registry", VectorStoreRegistry([store]))
+    monkeypatch.setattr(hangarllm, "vector_store_registry", VectorStoreRegistry([store]))
 
-    resolved = await get_litellm_managed_vector_store("vs_1")
+    resolved = await get_hangarllm_managed_vector_store("vs_1")
 
-    assert resolved == {**store, "litellm_params": {}}
-    assert store["litellm_params"] == stored_params
+    assert resolved == {**store, "hangarllm_params": {}}
+    assert store["hangarllm_params"] == stored_params
 
 
 @pytest.mark.parametrize("stored_params", [{"api_base": "https://example.com"}, {}, None])
@@ -86,9 +86,9 @@ async def test_registry_store_with_non_string_params_is_returned_as_is(
     monkeypatch: pytest.MonkeyPatch, stored_params: object
 ):
     store = _registered_store(stored_params)
-    monkeypatch.setattr(litellm, "vector_store_registry", VectorStoreRegistry([store]))
+    monkeypatch.setattr(hangarllm, "vector_store_registry", VectorStoreRegistry([store]))
 
-    resolved = await get_litellm_managed_vector_store("vs_1")
+    resolved = await get_hangarllm_managed_vector_store("vs_1")
 
     assert resolved is store
-    assert resolved["litellm_params"] is stored_params
+    assert resolved["hangarllm_params"] is stored_params

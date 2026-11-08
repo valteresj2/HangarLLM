@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 import os
 
 ## VARIABLES
-DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/litellm"
+DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/hangarllm"
 CSV_FILE_PATH = "./path_to_csv.csv"
 
 os.environ["DATABASE_URL"] = DATABASE_URL
@@ -145,7 +145,7 @@ async def migrate_verification_tokens():
                     }
 
                     # Check if token already exists
-                    existing_token = await prisma.litellm_verificationtoken.find_unique(
+                    existing_token = await prisma.hangarllm_verificationtoken.find_unique(
                         where={"token": verification_token_data["token"]}
                     )
 
@@ -156,7 +156,7 @@ async def migrate_verification_tokens():
                         continue
 
                     # Insert the record
-                    await prisma.litellm_verificationtoken.create(
+                    await prisma.hangarllm_verificationtoken.create(
                         data=verification_token_data
                     )
 

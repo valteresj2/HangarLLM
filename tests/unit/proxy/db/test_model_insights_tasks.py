@@ -1,5 +1,5 @@
-from litellm.proxy.db.model_insights_tasks import load_model_insight_tasks
-from litellm.proxy.db.model_usage_rollup import model_usage_task_type
+from hangarllm.proxy.db.model_insights_tasks import load_model_insight_tasks
+from hangarllm.proxy.db.model_usage_rollup import model_usage_task_type
 
 
 def test_every_task_has_a_label_and_a_category() -> None:

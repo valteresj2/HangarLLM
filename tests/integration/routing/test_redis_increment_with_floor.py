@@ -5,7 +5,7 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.redis_cache import RedisCache
+from hangarllm.caching.redis_cache import RedisCache
 
 TTL: Final = 600
 

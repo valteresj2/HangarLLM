@@ -4,13 +4,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-# Ensure the project root is on the import path so `litellm` can be imported when
+# Ensure the project root is on the import path so `hangarllm` can be imported when
 # tests are executed from any working directory.
 
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_qwen2_transformation import (
+from hangarllm.llms.bedrock.chat.invoke_transformations.amazon_qwen2_transformation import (
     AmazonQwen2Config,
 )
-from litellm.types.utils import ModelResponse
+from hangarllm.types.utils import ModelResponse
 
 
 def _transform(body: object) -> ModelResponse:
@@ -22,7 +22,7 @@ def _transform(body: object) -> ModelResponse:
         request_data={},
         messages=[{"role": "user", "content": "Hello!"}],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
         api_key="test-key",
     )
@@ -105,7 +105,7 @@ def test_qwen2_transform_request():
         model="qwen2/test-model",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -144,7 +144,7 @@ def test_qwen2_transform_response_with_text_field():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -186,7 +186,7 @@ def test_qwen2_transform_response_with_generation_field():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -224,7 +224,7 @@ def test_qwen2_transform_response_prefers_generation_over_text():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -255,7 +255,7 @@ def test_qwen2_transform_response_without_usage():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -349,8 +349,8 @@ def test_qwen2_transform_response_falls_back_to_text_when_generation_is_empty_or
 
 def test_qwen2_provider_detection():
     """Test that Qwen2 provider is correctly detected from model names"""
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from hangarllm.types.utils import LlmProviders
+    from hangarllm.utils import ProviderConfigManager
 
     # Test with qwen2/ prefix
     config = ProviderConfigManager.get_provider_chat_config(
@@ -364,7 +364,7 @@ def test_qwen2_provider_detection():
 
 def test_qwen2_model_id_extraction_with_arn():
     """Test that model ID is correctly extracted from bedrock/qwen2/arn... paths"""
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     # Test case: bedrock/qwen2/arn:aws:bedrock:us-east-1:123456789012:imported-model/test-qwen2
     # The qwen2/ prefix should be stripped, leaving only the ARN for encoding
@@ -383,7 +383,7 @@ def test_qwen2_model_id_extraction_with_arn():
 
 def test_qwen2_model_id_extraction_without_qwen2_prefix():
     """Test that model ID extraction doesn't strip qwen2/ when provider is not qwen2"""
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     # Test case: just a model name without qwen2/ prefix
     model = "arn:aws:bedrock:us-east-1:123456789012:imported-model/test-qwen2"
@@ -399,7 +399,7 @@ def test_qwen2_model_id_extraction_without_qwen2_prefix():
 
 def test_qwen2_get_bedrock_model_id_with_various_formats():
     """Test get_bedrock_model_id with various Qwen2 model path formats"""
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     test_cases = [
         {

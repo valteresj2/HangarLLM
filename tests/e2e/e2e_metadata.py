@@ -84,7 +84,7 @@ class Route(str, Enum):
 
 
 class Provider(str, Enum):
-    """Mirrors litellm's `LlmProviders` without importing litellm; `TestProviderMirrorsLitellm` catches drift"""
+    """Mirrors hangarllm's `LlmProviders` without importing hangarllm; `TestProviderMirrorsHangarllm` catches drift"""
 
     OPENAI = "openai"
     OPENAI_LIKE = "openai_like"
@@ -118,7 +118,7 @@ class Provider(str, Enum):
     DEEPGRAM = "deepgram"
     ELEVENLABS = "elevenlabs"
     ASSEMBLYAI = "assemblyai"
-    LITELLM_PROXY = "litellm_proxy"
+    HANGARLLM_PROXY = "hangarllm_proxy"
     BEDROCK_MANTLE = "bedrock_mantle"
     AWS_POLLY = "aws_polly"
     SAIL = "sail"
@@ -331,7 +331,7 @@ def _placeholders(label: str) -> frozenset[str]:
 
 
 def _resolved(field: str, arguments: Mapping[str, object]) -> object:
-    """`body.litellm_params.model` is the `body` argument's `litellm_params.model`."""
+    """`body.hangarllm_params.model` is the `body` argument's `hangarllm_params.model`."""
     root, *attributes = field.split(".")
     return reduce(lambda value, attribute: cast("object", getattr(value, attribute)), attributes, arguments[root])
 

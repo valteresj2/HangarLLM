@@ -17,7 +17,7 @@ import inspect
 import pytest
 
 
-import litellm
+import hangarllm
 
 
 # ============================================================================
@@ -55,7 +55,7 @@ def is_parameter_active_in_source(source_code: str, search_pattern: str) -> bool
 
 def test_acompletion_accepts_shared_session():
     """Verify acompletion() has a shared_session parameter"""
-    sig = inspect.signature(litellm.acompletion)
+    sig = inspect.signature(hangarllm.acompletion)
 
     assert (
         "shared_session" in sig.parameters
@@ -67,7 +67,7 @@ def test_acompletion_accepts_shared_session():
 
 def test_completion_accepts_shared_session():
     """Verify completion() has a shared_session parameter"""
-    sig = inspect.signature(litellm.completion)
+    sig = inspect.signature(hangarllm.completion)
 
     assert (
         "shared_session" in sig.parameters
@@ -86,7 +86,7 @@ def test_acompletion_passes_session_to_completion():
     Verify that acompletion() includes shared_session in the kwargs
     it passes to completion()
     """
-    source = inspect.getsource(litellm.acompletion)
+    source = inspect.getsource(hangarllm.acompletion)
 
     # Check for both possible quote styles
     found = is_parameter_active_in_source(
@@ -105,7 +105,7 @@ def test_acompletion_passes_session_to_completion():
 
 def test_handler_completion_accepts_shared_session():
     """Verify BaseLLMHTTPHandler.completion() accepts shared_session"""
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     sig = inspect.signature(BaseLLMHTTPHandler.completion)
 
@@ -116,7 +116,7 @@ def test_handler_completion_accepts_shared_session():
 
 def test_handler_async_completion_accepts_shared_session():
     """Verify BaseLLMHTTPHandler.async_completion() accepts shared_session"""
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     sig = inspect.signature(BaseLLMHTTPHandler.async_completion)
 
@@ -139,7 +139,7 @@ def test_handler_passes_session_to_async_completion():
 
     If this test fails, session reuse is BROKEN.
     """
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from hangarllm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     source = inspect.getsource(BaseLLMHTTPHandler.completion)
 

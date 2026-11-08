@@ -319,7 +319,7 @@ def _assert_answered(served: _Streamed) -> None:
 
 def _failure_rows(model: str, expected: int) -> list[dict[str, JsonValue]]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s', (model,)),
+        lambda: read_rows('SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s', (model,)),
         lambda found: len(found) >= expected,
         seconds=60,
     )
@@ -347,7 +347,7 @@ def _model_identity(gateway: Gateway, model: str) -> str:
 def _model_timeout(gateway: Gateway, model: str) -> JsonValue:
     entries: Final = _MODELS.validate_python(gateway.get("/model/info")["data"])
     (entry,) = tuple(item for item in entries if item["model_name"] == model)
-    return object_value(entry["litellm_params"]).get("timeout")
+    return object_value(entry["hangarllm_params"]).get("timeout")
 
 
 def test_h1_chat_stream_through_the_openai_sdk_fails_at_the_deployment_timeout(gateway: Gateway) -> None:
@@ -477,7 +477,7 @@ def test_f5_a_faked_stream_slower_than_both_limits_times_out_at_the_deployment_t
         model: Final = _faked(scenario, wire, timeout=_BOTH_LIMITS_TIMEOUT_SECONDS, stream_timeout=_TIMEOUT_SECONDS)
         served: Final = _streamed(gateway, "chat", _body("chat", model))
         _assert_timed_out(served.status, served.text, _BOTH_LIMITS_TIMEOUT_SECONDS)
-        assert served.headers.get("x-litellm-timeout") == f"{_BOTH_LIMITS_TIMEOUT_SECONDS:.1f}", served.headers
+        assert served.headers.get("x-hangarllm-timeout") == f"{_BOTH_LIMITS_TIMEOUT_SECONDS:.1f}", served.headers
         _received(wire, 1)
         _failure_rows(model, 1)
 
@@ -550,7 +550,7 @@ def test_c8_the_bedrock_passthrough_stream_already_retries_at_the_deployment_tim
             )
         assert response.status_code >= 400, response.text
         assert "Timeout" in response.text, response.text
-        assert response.headers["x-litellm-timeout"] == f"{_TIMEOUT_SECONDS:.1f}", response.headers
+        assert response.headers["x-hangarllm-timeout"] == f"{_TIMEOUT_SECONDS:.1f}", response.headers
         _assert_no_answer(response.text)
         _received(wire, 3)
 
@@ -572,9 +572,9 @@ def test_c10_a_deployment_without_any_timeout_keeps_waiting_on_a_stalled_stream(
 _SOURCES: Final = (
     pytest.param({"timeout": _TIMEOUT_SECONDS}, {}, id="p1-body-timeout"),
     pytest.param({"request_timeout": _TIMEOUT_SECONDS}, {}, id="p2-body-request-timeout"),
-    pytest.param({}, {"x-litellm-timeout": str(_TIMEOUT_SECONDS)}, id="p3-header-timeout"),
+    pytest.param({}, {"x-hangarllm-timeout": str(_TIMEOUT_SECONDS)}, id="p3-header-timeout"),
     pytest.param({"stream_timeout": _TIMEOUT_SECONDS}, {}, id="p4-body-stream-timeout"),
-    pytest.param({}, {"x-litellm-stream-timeout": str(_TIMEOUT_SECONDS)}, id="p5-header-stream-timeout"),
+    pytest.param({}, {"x-hangarllm-stream-timeout": str(_TIMEOUT_SECONDS)}, id="p5-header-stream-timeout"),
 )
 
 
@@ -613,7 +613,7 @@ def test_r2_a_stream_timeout_falls_back_to_the_next_deployment(gateway: Gateway)
             _assert_answered(_streamed_on(same_worker, gateway, "chat", _body("chat", fast)))
             served: Final = _streamed_on(same_worker, gateway, "chat", _body("chat", slow, fallbacks=[fast]))
         _assert_answered(served)
-        assert served.headers.get("x-litellm-attempted-fallbacks") == "1", served.headers
+        assert served.headers.get("x-hangarllm-attempted-fallbacks") == "1", served.headers
         _received(stalled, 1)
         _received(prompt, 2)
 
@@ -708,7 +708,7 @@ def test_e2_a_timeout_updated_while_traffic_flows_applies_to_the_next_stream(gat
             "/model/update",
             {
                 "model_name": model,
-                "litellm_params": {"timeout": 3},
+                "hangarllm_params": {"timeout": 3},
                 "model_info": {"id": _model_identity(gateway, model)},
             },
         )

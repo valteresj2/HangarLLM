@@ -25,7 +25,7 @@ from complexity_router_client import ComplexityRouterClient
 from e2e_config import unique_marker
 from e2e_metadata import Capability, Domain, Mode, Provider, Subject, meta
 from lifecycle import ResourceManager
-from models import ChatMessage, LiteLLMParamsBody, ModelInfoBody, ModelNewBody
+from models import ChatMessage, HangarLLMParamsBody, ModelInfoBody, ModelNewBody
 from reliability_support import (
     CACHING_MODEL,
     REAL_KEY,
@@ -81,7 +81,7 @@ class TestReliabilityPromptCachingAffinity:
         heavyweight = client.proxy.register_model(
             ModelNewBody(
                 model_name=group,
-                litellm_params=LiteLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, weight=20),
+                hangarllm_params=HangarLLMParamsBody(model=REAL_MODEL, api_key=REAL_KEY, weight=20),
                 model_info=ModelInfoBody(),
             )
         )

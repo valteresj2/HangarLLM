@@ -1,12 +1,12 @@
 import * as vscode from "vscode";
 import { createGatewayClient } from "./gateway";
-import { LiteLLMChatProvider } from "./provider";
+import { HangarLLMChatProvider } from "./provider";
 
-export const VENDOR = "litellm";
-export const REFRESH_COMMAND = "litellm.refreshModels";
+export const VENDOR = "hangarllm";
+export const REFRESH_COMMAND = "hangarllm.refreshModels";
 
 export function activate(context: vscode.ExtensionContext): void {
-  const provider = new LiteLLMChatProvider(createGatewayClient());
+  const provider = new HangarLLMChatProvider(createGatewayClient());
   context.subscriptions.push(
     provider,
     vscode.lm.registerLanguageModelChatProvider(VENDOR, provider),

@@ -79,9 +79,9 @@ async def test_team_bulk_member_delete_authz_matrix(
     assert resp.status_code == expected_status, f"{actor.value} {shape}: {resp.status_code} {resp.text}"
     if expected_status == 403:
         assert resp.headers["content-type"] == "application/problem+json"
-        assert resp.json()["type"] == "urn:litellm:error:forbidden"
+        assert resp.json()["type"] == "urn:hangarllm:error:forbidden"
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None
     assert keep in _member_ids(row), "unrelated member removed"
     if expected_status == 200:
@@ -111,7 +111,7 @@ async def test_team_bulk_member_delete_reports_each_row_in_order(gateway_client,
     ]
     assert body["data"][0]["error"] == "User not found in team"
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and set(_member_ids(row)) == {keep, "default_user_id"}
 
 
@@ -121,7 +121,7 @@ async def test_team_bulk_member_delete_by_id_removes_a_legacy_email_only_roster_
     email = f"{resources.prefix}@example.com"
     victim = await create_scratch_user(db, resources.prefix, suffix="victim", user_email=email)
     keep = resources.tag("keep")
-    await db.db.litellm_teamtable.create(
+    await db.db.hangarllm_teamtable.create(
         data={
             "team_id": resources.prefix,
             "team_alias": resources.prefix,
@@ -129,7 +129,7 @@ async def test_team_bulk_member_delete_by_id_removes_a_legacy_email_only_roster_
             "members_with_roles": Json([{"user_email": email, "role": "user"}, {"user_id": keep, "role": "user"}]),
         }
     )
-    await db.db.litellm_usertable.update(where={"user_id": victim}, data={"teams": [resources.prefix]})
+    await db.db.hangarllm_usertable.update(where={"user_id": victim}, data={"teams": [resources.prefix]})
 
     resp = await gateway_client.post(
         f"/management/v1/teams/{resources.prefix}/members/bulk_delete",
@@ -139,9 +139,9 @@ async def test_team_bulk_member_delete_by_id_removes_a_legacy_email_only_roster_
     assert resp.status_code == 200, resp.text
     assert [(r["user_id"], r["success"]) for r in resp.json()["data"]] == [(victim, True)]
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and [(m["user_id"], m.get("user_email")) for m in row.members_with_roles] == [(keep, None)]
-    user = await db.db.litellm_usertable.find_unique(where={"user_id": victim})
+    user = await db.db.hangarllm_usertable.find_unique(where={"user_id": victim})
     assert user is not None and user.teams == []
 
 
@@ -156,13 +156,13 @@ async def test_team_bulk_member_delete_row_naming_both_identifiers_is_422(gatewa
     )
     assert resp.status_code == 422, resp.text
     assert resp.headers["content-type"] == "application/problem+json"
-    assert resp.json()["type"] == "urn:litellm:error:invalid-request-body"
+    assert resp.json()["type"] == "urn:hangarllm:error:invalid-request-body"
     assert (
         resp.json()["detail"]
         == "members.0: Value error, Each member must be identified by exactly one of user_id or user_email"
     )
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and victim in _member_ids(row)
 
 
@@ -179,7 +179,7 @@ async def test_team_bulk_member_delete_unknown_query_param_is_400(gateway_client
     assert resp.headers["content-type"] == "application/problem+json"
     assert "dry_run" in resp.json()["detail"]
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and victim in _member_ids(row)
 
 
@@ -195,7 +195,7 @@ async def test_team_bulk_member_delete_unknown_body_field_is_422(gateway_client,
     assert resp.status_code == 422, resp.text
     assert "team_id" in resp.json()["detail"]
 
-    row = await db.db.litellm_teamtable.find_unique(where={"team_id": resources.prefix})
+    row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": resources.prefix})
     assert row is not None and victim in _member_ids(row)
 
 
@@ -207,4 +207,4 @@ async def test_team_bulk_member_delete_unknown_team_is_404_problem(gateway_clien
     )
     assert resp.status_code == 404, resp.text
     assert resp.headers["content-type"] == "application/problem+json"
-    assert resp.json()["type"] == "urn:litellm:error:team-not-found"
+    assert resp.json()["type"] == "urn:hangarllm:error:team-not-found"

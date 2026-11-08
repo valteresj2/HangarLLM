@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "litellm.fullname" . }}
+  name: {{ include "hangarllm.fullname" . }}
   labels:
-    {{- include "litellm.labels" . | nindent 4 }}
+    {{- include "hangarllm.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "litellm.fullname" . }}
+    name: {{ include "hangarllm.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   {{- if .Values.autoscaling.behavior }}
@@ -22,7 +22,7 @@ spec:
     - type: ContainerResource
       containerResource:
         name: cpu
-        container: {{ include "litellm.name" . }}
+        container: {{ include "hangarllm.name" . }}
         target:
           type: Utilization
           averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
@@ -47,7 +47,7 @@ spec:
     - type: Pods
       pods:
         metric:
-          name: litellm_requests_per_second
+          name: hangarllm_requests_per_second
         target:
           type: AverageValue
           averageValue: {{ toJson . | trimAll "\"" | quote }}
@@ -56,7 +56,7 @@ spec:
     - type: Pods
       pods:
         metric:
-          name: litellm_tokens_per_second
+          name: hangarllm_tokens_per_second
         target:
           type: AverageValue
           averageValue: {{ toJson . | trimAll "\"" | quote }}

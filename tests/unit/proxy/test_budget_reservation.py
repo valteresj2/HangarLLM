@@ -10,35 +10,35 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
-from litellm.llms.anthropic.messages.native.agentic_streaming_iterator import (
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.types.caching import RedisPipelineIncrementOperation
+from hangarllm.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
+from hangarllm.llms.anthropic.messages.native.agentic_streaming_iterator import (
     AgenticAnthropicStreamingIterator,
 )
-from litellm.llms.anthropic.messages.native.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.native.streaming_iterator import (
     AnthropicMessagesStreamingResponse,
 )
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_EndUserTable,
-    Litellm_EntityType,
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TagTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+from hangarllm.proxy._types import (
+    HangarLLM_BudgetTable,
+    HangarLLM_EndUserTable,
+    Hangarllm_EntityType,
+    HangarLLM_OrganizationTable,
+    HangarLLM_ProjectTableCachedObj,
+    HangarLLM_TagTable,
+    HangarLLM_TeamMembership,
+    HangarLLM_TeamTable,
+    HangarLLM_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.reset_budget_job import _model_access_group_counter_key
-from litellm.proxy.common_utils.user_api_key_cache import (
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.common_utils.reset_budget_job import _model_access_group_counter_key
+from hangarllm.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     model_access_group_cache_key,
 )
-from litellm.proxy.spend_tracking.budget_reservation import (
+from hangarllm.proxy.spend_tracking.budget_reservation import (
     _get_model_access_group_budget_counters,
     estimate_request_max_cost,
     get_budget_window_start,
@@ -47,20 +47,20 @@ from litellm.proxy.spend_tracking.budget_reservation import (
     release_budget_reservation_on_cancel,
     reserve_budget_for_request,
 )
-from litellm.proxy.spend_tracking.input_tokens import (
+from hangarllm.proxy.spend_tracking.input_tokens import (
     TOKENIZE_OFF_EVENT_LOOP_MIN_CHARS,
     _approximate_input_size,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.proxy.model_access_group_budget import ModelAccessGroupBudget
-from litellm.redis.stores.spend_counters import model_access_group_counter
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.router import Router
+from hangarllm.types.proxy.model_access_group_budget import ModelAccessGroupBudget
+from hangarllm.redis.stores.spend_counters import model_access_group_counter
 from tests.unit.redis.stores.spend_counters_double import FakeSpendCounters, unavailable
 
 
 @pytest.fixture()
 def spend_counter_state():
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     original_counter_store = ps.spend_counter_store
     original_key_cache = ps.user_api_key_cache
@@ -90,7 +90,7 @@ def _request_body() -> dict:
 
 async def _reserve(valid_token, cost, key_cache, proxy_logging_obj):
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=cost,
     ):
         return await reserve_budget_for_request(
@@ -112,7 +112,7 @@ async def test_reservation_still_protects_under_budget_throttled_key(
 ):
     """An opted-in key that is still under budget keeps its reservation counter,
     so concurrent requests can't collectively overshoot max_budget."""
-    monkeypatch.setattr(litellm, "budget_exceeded_throttle_percentage", 0.1)
+    monkeypatch.setattr(hangarllm, "budget_exceeded_throttle_percentage", 0.1)
     counter_cache, key_cache = spend_counter_state
     proxy_logging_obj = ProxyLogging(user_api_key_cache=key_cache)
     valid_token = UserAPIKeyAuth(
@@ -132,7 +132,7 @@ async def test_reservation_still_protects_under_budget_throttled_key(
 async def test_reservation_does_not_block_over_budget_throttled_key(spend_counter_state, monkeypatch):
     """Once an opted-in key is over budget the reservation path must not raise;
     the rate limiter throttles it instead."""
-    monkeypatch.setattr(litellm, "budget_exceeded_throttle_percentage", 0.1)
+    monkeypatch.setattr(hangarllm, "budget_exceeded_throttle_percentage", 0.1)
     counter_cache, key_cache = spend_counter_state
     proxy_logging_obj = ProxyLogging(user_api_key_cache=key_cache)
     valid_token = UserAPIKeyAuth(
@@ -157,7 +157,7 @@ async def test_reservation_does_not_block_over_budget_throttled_key(spend_counte
 
 @pytest.mark.asyncio
 async def test_reservation_blocks_over_budget_non_throttled_key(spend_counter_state, monkeypatch):
-    monkeypatch.setattr(litellm, "budget_exceeded_throttle_percentage", 0.1)
+    monkeypatch.setattr(hangarllm, "budget_exceeded_throttle_percentage", 0.1)
     counter_cache, key_cache = spend_counter_state
     proxy_logging_obj = ProxyLogging(user_api_key_cache=key_cache)
     valid_token = UserAPIKeyAuth(
@@ -169,7 +169,7 @@ async def test_reservation_blocks_over_budget_non_throttled_key(spend_counter_st
     await _reserve(valid_token, 0.6, key_cache, proxy_logging_obj)
     await _reserve(valid_token, 0.6, key_cache, proxy_logging_obj)  # counter -> 1.0
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await _reserve(valid_token, 0.6, key_cache, proxy_logging_obj)
     assert exc_info.value.entity_type == "key"
     assert exc_info.value.entity_id == "key-no-optin-over"
@@ -177,7 +177,7 @@ async def test_reservation_blocks_over_budget_non_throttled_key(spend_counter_st
 
 @pytest.mark.asyncio
 async def test_over_budget_window_counter_tags_clean_entity_id():
-    from litellm.proxy.spend_tracking.budget_reservation import (
+    from hangarllm.proxy.spend_tracking.budget_reservation import (
         _apply_over_budget_reservation_policy,
         _BudgetCounter,
     )
@@ -191,7 +191,7 @@ async def test_over_budget_window_counter_tags_clean_entity_id():
         spend_log_entity_id="test-token",
     )
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await _apply_over_budget_reservation_policy(
             counter=counter,
             valid_token=None,
@@ -233,7 +233,7 @@ async def test_should_shrink_second_key_reservation_to_remaining_budget(
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.6,
     ):
         reservation = await reserve_budget_for_request(
@@ -265,7 +265,7 @@ async def test_should_shrink_second_key_reservation_to_remaining_budget(
         assert second_reservation["reserved_cost"] == pytest.approx(0.4)
         assert counter_cache.get_local("spend:key:key-budget-race") == pytest.approx(1.0)
 
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await reserve_budget_for_request(
                 request_body=_request_body(),
                 route="/chat/completions",
@@ -295,15 +295,15 @@ async def test_should_shrink_second_end_user_reservation_to_remaining_budget(
         token="key-budget-end-user",
         end_user_id="end-user-budget-race",
     )
-    end_user_object = LiteLLM_EndUserTable(
+    end_user_object = HangarLLM_EndUserTable(
         user_id="end-user-budget-race",
         blocked=False,
         spend=0.0,
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+        hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=1.0),
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.6,
     ):
         reservation = await reserve_budget_for_request(
@@ -337,7 +337,7 @@ async def test_should_shrink_second_end_user_reservation_to_remaining_budget(
         assert second_reservation["reserved_cost"] == pytest.approx(0.4)
         assert counter_cache.get_local("spend:end_user:end-user-budget-race") == pytest.approx(1.0)
 
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await reserve_budget_for_request(
                 request_body=_request_body(),
                 route="/chat/completions",
@@ -356,7 +356,7 @@ async def test_should_shrink_second_end_user_reservation_to_remaining_budget(
     await release_budget_reservation(second_reservation)
     assert counter_cache.get_local("spend:end_user:end-user-budget-race") == pytest.approx(0.6)
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token=None,
@@ -383,25 +383,25 @@ async def test_should_shrink_second_tag_reservation_to_remaining_budget(
     }
     await key_cache.async_set_cache(
         key="tag:tag-budget-race",
-        value=LiteLLM_TagTable(
+        value=HangarLLM_TagTable(
             tag_name="tag-budget-race",
             spend=0.0,
             budget_id="tag-budget-id",
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=1.0),
         ).model_dump(),
     )
     await key_cache.async_set_cache(
         key="tag:tag-without-budget",
-        value=LiteLLM_TagTable(
+        value=HangarLLM_TagTable(
             tag_name="tag-without-budget",
             spend=0.0,
         ).model_dump(),
     )
     prisma_client = MagicMock()
-    prisma_client.db.litellm_tagtable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.hangarllm_tagtable.find_many = AsyncMock(return_value=[])
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.6,
     ):
         reservation = await reserve_budget_for_request(
@@ -443,7 +443,7 @@ async def test_should_shrink_second_tag_reservation_to_remaining_budget(
         assert second_reservation["reserved_cost"] == pytest.approx(0.4)
         assert counter_cache.get_local("spend:tag:tag-budget-race") == pytest.approx(1.0)
 
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await reserve_budget_for_request(
                 request_body=request_body,
                 route="/chat/completions",
@@ -461,7 +461,7 @@ async def test_should_shrink_second_tag_reservation_to_remaining_budget(
     await release_budget_reservation(second_reservation)
     assert counter_cache.get_local("spend:tag:tag-budget-race") == pytest.approx(0.6)
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token=None,
@@ -482,29 +482,29 @@ async def test_should_seed_and_update_end_user_and_tag_counters_without_reservat
     counter_cache, key_cache = spend_counter_state
     await key_cache.async_set_cache(
         key="end_user_id:customer-1",
-        value=LiteLLM_EndUserTable(
+        value=HangarLLM_EndUserTable(
             user_id="customer-1",
             blocked=False,
             spend=4.0,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=10.0),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=10.0),
         ).model_dump(),
     )
     await key_cache.async_set_cache(
         key="tag:paid-tag",
-        value=LiteLLM_TagTable(
+        value=HangarLLM_TagTable(
             tag_name="paid-tag",
             spend=7.0,
         ).model_dump(),
     )
     await key_cache.async_set_cache(
         key="tag:other-tag",
-        value=LiteLLM_TagTable(
+        value=HangarLLM_TagTable(
             tag_name="other-tag",
             spend=2.0,
         ).model_dump(),
     )
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token=None,
@@ -532,27 +532,27 @@ async def test_should_reserve_team_member_and_org_budget_counters(spend_counter_
         team_id="team-budget-shared",
         org_id="org-budget-shared",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-budget-shared",
         spend=0.0,
         max_budget=1.0,
     )
-    user_object = LiteLLM_UserTable(
+    user_object = HangarLLM_UserTable(
         user_id="user-budget-shared",
         spend=0.0,
     )
     await key_cache.async_set_cache(
         key="team_membership:user-budget-shared:team-budget-shared",
-        value=LiteLLM_TeamMembership(
+        value=HangarLLM_TeamMembership(
             user_id="user-budget-shared",
             team_id="team-budget-shared",
             spend=0.1,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=1.0),
         ).model_dump(),
     )
     await key_cache.async_set_cache(
         key="org_id:org-budget-shared:with_budget",
-        value=LiteLLM_OrganizationTable(
+        value=HangarLLM_OrganizationTable(
             organization_id="org-budget-shared",
             organization_alias="shared-org",
             budget_id="org-budget-id",
@@ -560,12 +560,12 @@ async def test_should_reserve_team_member_and_org_budget_counters(spend_counter_
             models=[],
             created_by="test",
             updated_by="test",
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=1.0),
         ).model_dump(),
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.3,
     ):
         reservation = await reserve_budget_for_request(
@@ -605,21 +605,21 @@ async def _seed_project_scoped_budgets(
 ) -> None:
     await key_cache.async_set_cache(
         key="team_membership:user-proj:team-proj",
-        value=LiteLLM_TeamMembership(
+        value=HangarLLM_TeamMembership(
             user_id="user-proj",
             team_id="team-proj",
             spend=team_member_spend,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=team_member_max_budget),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=team_member_max_budget),
         ).model_dump(),
     )
     await key_cache.async_set_cache(
         key="project_id:proj-1",
-        value=LiteLLM_ProjectTableCachedObj(
+        value=HangarLLM_ProjectTableCachedObj(
             project_id="proj-1",
             team_id="team-proj",
             budget_id="project-budget-id",
             spend=project_spend,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=project_max_budget),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=project_max_budget),
         ).model_dump(),
     )
 
@@ -644,8 +644,8 @@ async def test_should_reserve_project_and_team_member_counters_for_project_scope
         route="/chat/completions",
         llm_router=None,
         valid_token=_project_scoped_token(),
-        team_object=LiteLLM_TeamTable(team_id="team-proj", spend=0.0, max_budget=None),
-        user_object=LiteLLM_UserTable(user_id="user-proj", spend=0.0),
+        team_object=HangarLLM_TeamTable(team_id="team-proj", spend=0.0, max_budget=None),
+        user_object=HangarLLM_UserTable(user_id="user-proj", spend=0.0),
         prisma_client=None,
         user_api_key_cache=key_cache,
         proxy_logging_obj=proxy_logging_obj,
@@ -655,7 +655,7 @@ async def test_should_reserve_project_and_team_member_counters_for_project_scope
     assert counter_cache.get_local("spend:team_member:user-proj:team-proj") == pytest.approx(0.1 + estimated)
     assert counter_cache.get_local("spend:project:proj-1") == pytest.approx(0.2 + estimated)
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token="key-project-scoped",
@@ -682,14 +682,14 @@ async def test_exhausted_team_member_budget_still_blocks_project_scoped_key(spen
         project_max_budget=100.0,
     )
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await reserve_budget_for_request(
             request_body=_request_body(),
             route="/chat/completions",
             llm_router=None,
             valid_token=_project_scoped_token(),
-            team_object=LiteLLM_TeamTable(team_id="team-proj", spend=0.0, max_budget=None),
-            user_object=LiteLLM_UserTable(user_id="user-proj", spend=0.0),
+            team_object=HangarLLM_TeamTable(team_id="team-proj", spend=0.0, max_budget=None),
+            user_object=HangarLLM_UserTable(user_id="user-proj", spend=0.0),
             prisma_client=None,
             user_api_key_cache=key_cache,
             proxy_logging_obj=proxy_logging_obj,
@@ -711,21 +711,21 @@ async def test_exhausted_project_budget_blocks_project_scoped_key(spend_counter_
         project_max_budget=5.0,
     )
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
         await reserve_budget_for_request(
             request_body=_request_body(),
             route="/chat/completions",
             llm_router=None,
             valid_token=_project_scoped_token(),
-            team_object=LiteLLM_TeamTable(team_id="team-proj", spend=0.0, max_budget=None),
-            user_object=LiteLLM_UserTable(user_id="user-proj", spend=0.0),
+            team_object=HangarLLM_TeamTable(team_id="team-proj", spend=0.0, max_budget=None),
+            user_object=HangarLLM_UserTable(user_id="user-proj", spend=0.0),
             prisma_client=None,
             user_api_key_cache=key_cache,
             proxy_logging_obj=proxy_logging_obj,
         )
 
     assert "Project=proj-1" in str(exc_info.value)
-    assert exc_info.value.entity_type == Litellm_EntityType.PROJECT.value
+    assert exc_info.value.entity_type == Hangarllm_EntityType.PROJECT.value
     assert counter_cache.get_local("spend:team_member:user-proj:team-proj") in (
         None,
         pytest.approx(0.0),
@@ -748,11 +748,11 @@ async def test_should_not_reserve_user_budget_counter_for_team_key(spend_counter
         user_id="user-on-team",
         team_id="team-no-budget",
     )
-    team_object = LiteLLM_TeamTable(team_id="team-no-budget", spend=0.0, max_budget=None)
-    user_object = LiteLLM_UserTable(user_id="user-on-team", spend=0.0, max_budget=5.0)
+    team_object = HangarLLM_TeamTable(team_id="team-no-budget", spend=0.0, max_budget=None)
+    user_object = HangarLLM_UserTable(user_id="user-on-team", spend=0.0, max_budget=5.0)
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.3,
     ):
         reservation = await reserve_budget_for_request(
@@ -788,11 +788,11 @@ async def test_should_reserve_user_budget_counter_for_team_key_when_flag_enabled
         user_id="user-on-team-flagged",
         team_id="team-no-budget",
     )
-    team_object = LiteLLM_TeamTable(team_id="team-no-budget", spend=0.0, max_budget=None)
-    user_object = LiteLLM_UserTable(user_id="user-on-team-flagged", spend=0.0, max_budget=5.0)
+    team_object = HangarLLM_TeamTable(team_id="team-no-budget", spend=0.0, max_budget=None)
+    user_object = HangarLLM_UserTable(user_id="user-on-team-flagged", spend=0.0, max_budget=5.0)
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.3,
     ):
         reservation = await reserve_budget_for_request(
@@ -818,7 +818,7 @@ async def test_should_seed_org_counter_from_with_budget_cache(spend_counter_stat
     counter_cache, key_cache = spend_counter_state
     await key_cache.async_set_cache(
         key="org_id:org-counter-with-budget:with_budget",
-        value=LiteLLM_OrganizationTable(
+        value=HangarLLM_OrganizationTable(
             organization_id="org-counter-with-budget",
             organization_alias="shared-org",
             budget_id="org-budget-id",
@@ -826,11 +826,11 @@ async def test_should_seed_org_counter_from_with_budget_cache(spend_counter_stat
             models=[],
             created_by="test",
             updated_by="test",
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=10.0),
+            hangarllm_budget_table=HangarLLM_BudgetTable(max_budget=10.0),
         ).model_dump(),
     )
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token=None,
@@ -848,7 +848,7 @@ async def test_should_seed_org_counter_from_plain_org_cache(spend_counter_state)
     counter_cache, key_cache = spend_counter_state
     await key_cache.async_set_cache(
         key="org_id:org-counter-plain",
-        value=LiteLLM_OrganizationTable(
+        value=HangarLLM_OrganizationTable(
             organization_id="org-counter-plain",
             organization_alias="shared-org",
             budget_id="org-budget-id",
@@ -859,7 +859,7 @@ async def test_should_seed_org_counter_from_plain_org_cache(spend_counter_state)
         ).model_dump(),
     )
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token=None,
@@ -886,7 +886,7 @@ async def test_should_cap_known_estimate_to_remaining_budget(
     counter_cache.set_local("spend:key:key-budget-known-estimate-cap", 0.9)
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.6,
     ):
         reservation = await reserve_budget_for_request(
@@ -927,10 +927,10 @@ async def test_fail_closed_rejects_known_estimate_exceeding_remaining_budget(
     counter_cache.set_local("spend:key:key-budget-known-estimate-fail-closed", 0.9)
 
     with patch(  # test-quality-ok: reserve_budget_for_request takes no estimator, so pinning the estimate needs this attribute
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.6,
     ):
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
             await reserve_budget_for_request(
                 request_body=_request_body(),
                 route="/chat/completions",
@@ -966,7 +966,7 @@ async def test_fail_closed_tolerates_float_noise_when_estimate_exactly_fits(
     counter_cache.set_local("spend:key:key-budget-fail-closed-float-noise", 0.1)
 
     with patch(  # test-quality-ok: reserve_budget_for_request takes no estimator, so pinning the estimate needs this attribute
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.2,
     ):
         reservation = await reserve_budget_for_request(
@@ -996,7 +996,7 @@ async def test_should_clamp_reservation_to_default_when_output_cap_missing(
     max_output_tokens. Reservation must be a bounded per-request amount
     (mirroring parallel_request_limiter_v3's DEFAULT_MAX_TOKENS_ESTIMATE),
     not the entire remaining headroom."""
-    from litellm.proxy.spend_tracking.budget_reservation import (
+    from hangarllm.proxy.spend_tracking.budget_reservation import (
         DEFAULT_MAX_OUTPUT_TOKENS_FALLBACK,
     )
 
@@ -1018,7 +1018,7 @@ async def test_should_clamp_reservation_to_default_when_output_cap_missing(
     expected_cost = DEFAULT_MAX_OUTPUT_TOKENS_FALLBACK * output_cost_per_token
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "input_cost_per_token": 0.0,
             "output_cost_per_token": output_cost_per_token,
@@ -1057,7 +1057,7 @@ async def test_should_reserve_tiered_pricing_cost(spend_counter_state):
         model_list=[
             {
                 "model_name": "dashscope/qwen3-max",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "dashscope/qwen3-max",
                     "api_key": "sk-fake",
                 },
@@ -1113,7 +1113,7 @@ async def test_should_reserve_tiered_pricing_cost(spend_counter_state):
 
     assert reservation is not None
     assert reservation["reserved_cost"] == pytest.approx(estimated_cost)
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(hangarllm.BudgetExceededError):
         await reserve_budget_for_request(
             request_body=request_body,
             route="/chat/completions",
@@ -1145,15 +1145,15 @@ def test_tiered_reservation_is_all_or_nothing_with_output_tier_from_input_length
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+            "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
             return_value={"tiered_pricing": tiered_pricing, "max_output_tokens": 200000},
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
             return_value=input_tokens,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
             return_value=output_tokens,
         ),
     ):
@@ -1190,15 +1190,15 @@ def test_tiered_reservation_uses_higher_reasoning_output_rate():
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+            "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
             return_value={"tiered_pricing": tiered_pricing, "max_output_tokens": 200000},
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
             return_value=input_tokens,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
             return_value=output_tokens,
         ),
     ):
@@ -1224,7 +1224,7 @@ def test_flat_reservation_uses_higher_reasoning_output_rate():
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+            "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
             return_value={
                 "input_cost_per_token": 1e-06,
                 "output_cost_per_token": 1.2e-06,
@@ -1233,11 +1233,11 @@ def test_flat_reservation_uses_higher_reasoning_output_rate():
             },
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
             return_value=input_tokens,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
             return_value=output_tokens,
         ),
     ):
@@ -1265,19 +1265,19 @@ def test_reservation_uses_most_expensive_deployment_in_group():
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+            "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
             return_value={"max_output_tokens": 200000},
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._get_deployment_tiered_pricing_tables",
+            "hangarllm.proxy.spend_tracking.budget_reservation._get_deployment_tiered_pricing_tables",
             return_value=[cheap, expensive],
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_input_tokens",
             return_value=input_tokens,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
+            "hangarllm.proxy.spend_tracking.budget_reservation._estimate_output_tokens",
             return_value=output_tokens,
         ),
     ):
@@ -1322,7 +1322,7 @@ async def test_should_clamp_reservation_to_model_ceiling_when_caller_overrequest
     expected_cost = model_ceiling * output_cost_per_token
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "input_cost_per_token": 0.0,
             "output_cost_per_token": output_cost_per_token,
@@ -1367,7 +1367,7 @@ async def test_should_reserve_image_generation_cost_per_image(
     request_body = {"model": "dall-e-3", "prompt": "a cat", "n": 3}
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "mode": "image_generation",
             "input_cost_per_image": 0.04,
@@ -1405,7 +1405,7 @@ async def test_should_reject_concurrent_image_request_against_depleted_budget(
         spend=0.0,
         team_id="team-image-deplete",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-image-deplete",
         max_budget=0.04,
         spend=0.0,
@@ -1418,7 +1418,7 @@ async def test_should_reject_concurrent_image_request_against_depleted_budget(
     request_body = {"model": "dall-e-3", "prompt": "a cat"}
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "mode": "image_generation",
             "input_cost_per_image": 0.04,
@@ -1437,7 +1437,7 @@ async def test_should_reject_concurrent_image_request_against_depleted_budget(
         )
         assert first is not None
 
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await reserve_budget_for_request(
                 request_body=request_body,
                 route="/v1/images/generations",
@@ -1472,7 +1472,7 @@ async def test_should_skip_reservation_for_per_pixel_image_model(
     request_body = {"model": "dall-e-2", "prompt": "a cat", "size": "256x256"}
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "mode": "image_generation",
             "input_cost_per_pixel": 2.4414e-07,
@@ -1525,7 +1525,7 @@ async def test_should_use_token_pricing_for_chat_model_with_image_cost_field(
     expected_cost = 1000 * output_cost_per_token  # token-priced path, not 1 × $0.00012
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "mode": "chat",
             "input_cost_per_token": 2e-6,
@@ -1575,7 +1575,7 @@ async def test_should_reserve_image_edit_cost_per_image(
     request_body = {"model": "stability/inpaint", "prompt": "a cat", "n": 2}
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "mode": "image_edit",
             "output_cost_per_image": 0.05,
@@ -1628,7 +1628,7 @@ async def test_should_skip_budget_window_with_unparseable_duration(
     counter_cache.set_local("spend:key:key-budget-malformed-window", 0.9)
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.2,
     ):
         reservation = await reserve_budget_for_request(
@@ -1669,7 +1669,7 @@ async def test_should_skip_window_reservation_when_db_baseline_unavailable(
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.5,
     ):
         reservation = await reserve_budget_for_request(
@@ -1708,11 +1708,11 @@ async def test_should_skip_reservation_when_counter_increment_fails(
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
             return_value=0.5,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.verbose_proxy_logger.warning"
+            "hangarllm.proxy.spend_tracking.budget_reservation.verbose_proxy_logger.warning"
         ) as mock_warning,
     ):
         reservation = await reserve_budget_for_request(
@@ -1753,7 +1753,7 @@ async def test_should_raise_503_when_counter_increment_fails_and_fail_closed(
     monkeypatch.setattr(counter_cache, "increment_local", fail_increment_local)
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.5,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -1795,7 +1795,7 @@ async def test_fail_closed_releases_earlier_counters_before_503(
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.5,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -1831,15 +1831,15 @@ async def test_should_skip_reservation_when_counter_initialization_fails(
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
             return_value=0.5,
         ),
         patch(
-            "litellm.proxy.proxy_server.ensure_spend_counter_initialized",
+            "hangarllm.proxy.proxy_server.ensure_spend_counter_initialized",
             side_effect=RuntimeError("redis unavailable"),
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.verbose_proxy_logger.warning"
+            "hangarllm.proxy.spend_tracking.budget_reservation.verbose_proxy_logger.warning"
         ) as mock_warning,
     ):
         reservation = await reserve_budget_for_request(
@@ -1878,15 +1878,15 @@ async def test_should_release_tracked_entry_when_reservation_fails_after_increme
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
             return_value=0.5,
         ),
         patch(
-            "litellm.proxy.proxy_server.run_spend_counter_pipeline",
+            "hangarllm.proxy.proxy_server.run_spend_counter_pipeline",
             side_effect=fail_after_increment,
         ),
         patch(
-            "litellm.proxy.proxy_server.invalidate_spend_counter",
+            "hangarllm.proxy.proxy_server.invalidate_spend_counter",
             side_effect=RuntimeError("invalidate unavailable"),
         ),
     ):
@@ -1919,7 +1919,7 @@ async def test_should_reconcile_reserved_counter_to_actual_spend(
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.6,
     ):
         reservation = await reserve_budget_for_request(
@@ -1934,7 +1934,7 @@ async def test_should_reconcile_reserved_counter_to_actual_spend(
             proxy_logging_obj=proxy_logging_obj,
         )
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token="key-budget-reconcile",
@@ -1959,7 +1959,7 @@ async def test_should_release_reservation_on_failure(spend_counter_state):
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.4,
     ):
         reservation = await reserve_budget_for_request(
@@ -1993,14 +1993,14 @@ async def test_should_retry_partial_release_without_double_decrement(
         max_budget=1.0,
         team_id="team-budget-partial-release",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-budget-partial-release",
         spend=0.0,
         max_budget=1.0,
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.4,
     ):
         reservation = await reserve_budget_for_request(
@@ -2052,7 +2052,7 @@ async def test_should_preserve_budget_error_and_continue_partial_cleanup(
         max_budget=1.0,
         team_id="team-budget-cleanup-failure",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-budget-cleanup-failure",
         spend=0.3,
         max_budget=0.3,
@@ -2076,14 +2076,14 @@ async def test_should_preserve_budget_error_and_continue_partial_cleanup(
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
             return_value=0.4,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.verbose_proxy_logger.exception"
+            "hangarllm.proxy.spend_tracking.budget_reservation.verbose_proxy_logger.exception"
         ) as mock_log_exception,
     ):
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(hangarllm.BudgetExceededError):
             await reserve_budget_for_request(
                 request_body=_request_body(),
                 route="/chat/completions",
@@ -2135,7 +2135,7 @@ async def test_release_underflow_counter_reseeds_from_db(spend_counter_state):
     """When the release delta would drive the counter negative (counter was
     reset/reseeded mid-flight), reseed from the authoritative DB rather than
     deleting and failing open."""
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     counter_cache, _ = spend_counter_state
     counter_cache.increment_local("spend:key:key-budget-underflow-release", 0.1)
@@ -2222,7 +2222,7 @@ class _ExpiringSpendCounters(FakeSpendCounters):
 
 
 def _install(counters: FakeSpendCounters) -> FakeSpendCounters:
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     ps.spend_counter_store = counters.store()
     return counters
@@ -2307,7 +2307,7 @@ class _TeamMembershipFloorDb:
         self.spend = spend
 
     def __getattr__(self, table_name: str) -> SimpleNamespace:
-        row = SimpleNamespace(spend=self.spend) if table_name == "litellm_teammembership" else None
+        row = SimpleNamespace(spend=self.spend) if table_name == "hangarllm_teammembership" else None
         return SimpleNamespace(find_unique=AsyncMock(return_value=row))
 
 
@@ -2318,7 +2318,7 @@ async def test_reconcile_after_redis_counter_expiry_keeps_request_cost_enforced(
     """Redis key expired mid-stream while the pod's in-memory copy still holds the
     reserved value: reconcile must reseed from the DB floor plus the settled cost
     instead of applying ``actual - reserved`` to the empty key."""
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     counter_key = "spend:team_member:user-expiry:team-expiry"
     redis_cache = _install(_ExpiringSpendCounters())
@@ -2363,8 +2363,8 @@ async def test_reconcile_before_db_update_does_not_double_count_when_flush_lands
     the row before increment_spend_counters runs its second reconcile, the
     applied_adjustment early-return must keep the counter from adding the cost
     a second time."""
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
+    import hangarllm.proxy.proxy_server as ps
+    from hangarllm.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
 
     counter_cache, _ = spend_counter_state
     counter_key = "spend:team_member:user-flush:team-flush"
@@ -2410,8 +2410,8 @@ async def test_reconcile_before_db_update_does_not_double_count_when_flush_lands
 async def test_reserved_counter_deleted_during_spend_write_is_reseeded_instead_of_going_negative(
     spend_counter_state,
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
+    import hangarllm.proxy.proxy_server as ps
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
 
     counter_cache, _ = spend_counter_state
     counter_key = "spend:key:key-deleted-mid-write"
@@ -2498,14 +2498,14 @@ async def test_should_reserve_all_budgeted_counters(spend_counter_state):
         max_budget=1.0,
         team_id="team-budget-all",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-budget-all",
         spend=0.0,
         max_budget=1.0,
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.3,
     ):
         reservation = await reserve_budget_for_request(
@@ -2546,7 +2546,7 @@ async def test_should_not_block_concurrent_team_request_when_first_request_lacks
         spend=0.0,
         team_id="team-integration-tests",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-integration-tests",
         max_budget=2000.0,
         spend=0.144,
@@ -2563,7 +2563,7 @@ async def test_should_not_block_concurrent_team_request_when_first_request_lacks
     # reservation per request, leaving ~5000 admittable concurrent requests
     # against a $2000 team budget.
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
+        "hangarllm.proxy.spend_tracking.budget_reservation._get_model_cost_info",
         return_value={
             "input_cost_per_token": 5e-6,
             "output_cost_per_token": 2.5e-5,
@@ -2623,11 +2623,11 @@ async def test_release_budget_reservation_on_cancel_gives_back_counter(
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
             return_value=3.0,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_input_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_input_cost",
             return_value=0.5,
         ),
     ):
@@ -2669,7 +2669,7 @@ async def test_release_budget_reservation_on_cancel_noop_when_finalized(
     )
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=3.0,
     ):
         reservation = await reserve_budget_for_request(
@@ -2696,11 +2696,11 @@ async def _reserve_for_stream(counter_cache, key_cache, proxy_logging_obj, token
     valid_token = UserAPIKeyAuth(token=token, spend=0.0, max_budget=10.0)
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
             return_value=2.0,
         ),
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.estimate_request_input_cost",
+            "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_input_cost",
             return_value=0.5,
         ),
     ):
@@ -2864,7 +2864,7 @@ async def test_streaming_cancel_while_holding_back_provider_output_keeps_reserva
         model_list=[
             {
                 "model_name": "claude-haiku-4-5",
-                "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-test"},
             }
         ]
     )
@@ -2872,7 +2872,7 @@ async def test_streaming_cancel_while_holding_back_provider_output_keeps_reserva
         completion_stream=held_back, hidden_params={"additional_headers": {}}
     )
     monkeypatch.setattr(  # test-quality-ok: the provider call the router streams from
-        litellm, "anthropic_messages", AsyncMock(return_value=provider_response)
+        hangarllm, "anthropic_messages", AsyncMock(return_value=provider_response)
     )
     response = await router.aanthropic_messages(
         model="claude-haiku-4-5",
@@ -2925,7 +2925,7 @@ async def test_release_budget_reservation_on_cancel_swallows_release_errors():
         "input_cost": 0.5,
     }
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
+        "hangarllm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
         new=AsyncMock(side_effect=RuntimeError("redis down")),
     ):
         # must return without raising
@@ -2963,7 +2963,7 @@ async def test_streaming_cancel_in_slow_path_before_yield_refunds(spend_counter_
 
     received = []
     # include_cost_in_streaming_usage forces fast_path off, so the hook above runs
-    with patch.object(litellm, "include_cost_in_streaming_usage", True, create=True):
+    with patch.object(hangarllm, "include_cost_in_streaming_usage", True, create=True):
         async def _drain():
             async for chunk in generator:
                 received.append(chunk)
@@ -3036,7 +3036,7 @@ async def test_streaming_slow_path_processes_and_yields_chunk(spend_counter_stat
     received = []
     # include_cost_in_streaming_usage forces the slow path so the per-chunk hook,
     # content accumulation, and cost-injection branch all run to a successful yield
-    with patch.object(litellm, "include_cost_in_streaming_usage", True, create=True):
+    with patch.object(hangarllm, "include_cost_in_streaming_usage", True, create=True):
         async for chunk in generator:
             received.append(chunk)
 
@@ -3049,7 +3049,7 @@ def _tiered_router() -> Router:
         model_list=[
             {
                 "model_name": "dashscope/qwen3-max",
-                "litellm_params": {"model": "dashscope/qwen3-max", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "dashscope/qwen3-max", "api_key": "sk-fake"},
                 "model_info": {
                     "max_input_tokens": 258048,
                     "max_output_tokens": 65536,
@@ -3091,14 +3091,14 @@ async def test_reservation_tokenizes_the_prompt_once(spend_counter_state):
         token="key-tokenize-once", spend=0.0, max_budget=100.0
     )
     request_body = _body_with_content_size("dashscope/qwen3-max", 600)
-    real_token_counter = litellm.token_counter
+    real_token_counter = hangarllm.token_counter
     calls = []
 
     def counting_token_counter(**kwargs):
         calls.append(kwargs)
         return real_token_counter(**kwargs)
 
-    with patch.object(litellm, "token_counter", counting_token_counter):
+    with patch.object(hangarllm, "token_counter", counting_token_counter):
         reservation = await reserve_budget_for_request(
             request_body=request_body,
             route="/chat/completions",
@@ -3133,7 +3133,7 @@ async def test_large_prompt_is_tokenized_off_the_event_loop(spend_counter_state)
         threads.append(threading.current_thread())
         return 1000
 
-    with patch.object(litellm, "token_counter", recording_token_counter):
+    with patch.object(hangarllm, "token_counter", recording_token_counter):
         reservation = await reserve_budget_for_request(
             request_body=request_body,
             route="/chat/completions",
@@ -3207,7 +3207,7 @@ async def test_large_tool_schema_is_tokenized_off_the_event_loop(spend_counter_s
         threads.append(threading.current_thread())
         return 1000
 
-    with patch.object(litellm, "token_counter", recording_token_counter):
+    with patch.object(hangarllm, "token_counter", recording_token_counter):
         reservation = await reserve_budget_for_request(
             request_body=body,
             route="/chat/completions",
@@ -3249,7 +3249,7 @@ async def test_large_tool_choice_is_tokenized_off_the_event_loop(spend_counter_s
         threads.append(threading.current_thread())
         return 1000
 
-    with patch.object(litellm, "token_counter", recording_token_counter):
+    with patch.object(hangarllm, "token_counter", recording_token_counter):
         reservation = await reserve_budget_for_request(
             request_body=body,
             route="/chat/completions",
@@ -3279,7 +3279,7 @@ async def test_small_prompt_is_tokenized_inline(spend_counter_state):
         threads.append(threading.current_thread())
         return 10
 
-    with patch.object(litellm, "token_counter", recording_token_counter):
+    with patch.object(hangarllm, "token_counter", recording_token_counter):
         reservation = await reserve_budget_for_request(
             request_body=_request_body(),
             route="/chat/completions",
@@ -3297,20 +3297,20 @@ async def test_small_prompt_is_tokenized_inline(spend_counter_state):
 
 
 class _ModelAccessGroupBudgetPrisma:
-    """Serves ``LiteLLM_ModelAccessGroupBudgetTable`` rows, recording what reached the database."""
+    """Serves ``HangarLLM_ModelAccessGroupBudgetTable`` rows, recording what reached the database."""
 
     def __init__(self, **max_budget_by_group) -> None:
         self.rows = {
             group: SimpleNamespace(
                 access_group_name=group,
                 spend=7.0,
-                litellm_budget_table=None if max_budget is None else SimpleNamespace(max_budget=max_budget),
+                hangarllm_budget_table=None if max_budget is None else SimpleNamespace(max_budget=max_budget),
             )
             for group, max_budget in max_budget_by_group.items()
         }
         self.batches = []
         self.db = SimpleNamespace(
-            litellm_modelaccessgroupbudgettable=SimpleNamespace(find_many=self._find_many)
+            hangarllm_modelaccessgroupbudgettable=SimpleNamespace(find_many=self._find_many)
         )
 
     async def _find_many(self, **kwargs):
@@ -3373,10 +3373,10 @@ async def test_model_access_group_counter_blocks_a_request_over_the_group_budget
     valid_token = UserAPIKeyAuth(api_key="hashed", token="tok", matched_model_access_groups=["premium"])
 
     with patch(  # test-quality-ok: reserve_budget_for_request takes no estimator, so pinning the estimate needs this attribute
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=0.5,
     ):
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(hangarllm.BudgetExceededError) as exc_info:
             await reserve_budget_for_request(
                 request_body=_request_body(),
                 route="/chat/completions",
@@ -3390,7 +3390,7 @@ async def test_model_access_group_counter_blocks_a_request_over_the_group_budget
             )
 
     assert exc_info.value.entity_id == "premium"
-    assert exc_info.value.entity_type == Litellm_EntityType.MODEL_ACCESS_GROUP.value
+    assert exc_info.value.entity_type == Hangarllm_EntityType.MODEL_ACCESS_GROUP.value
 
 
 async def _cache_model_access_group_budget(key_cache, group, spend, max_budget=None):
@@ -3404,7 +3404,7 @@ async def _cache_model_access_group_budget(key_cache, group, spend, max_budget=N
 async def _reserve_for_model_access_groups(key_cache, groups, estimate):
     """Reserve against the given groups, whose rows are already cached, so nothing hits the DB."""
     with patch(  # test-quality-ok: reserve_budget_for_request takes no estimator, so pinning the estimate needs this attribute
-        "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+        "hangarllm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
         return_value=estimate,
     ):
         return await reserve_budget_for_request(
@@ -3432,7 +3432,7 @@ async def test_model_access_group_counter_accumulates_across_calls_without_a_res
     counter_cache, key_cache = spend_counter_state
     await _cache_model_access_group_budget(key_cache, "premium", spend=1.0, max_budget=25.0)
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     counter_key = model_access_group_counter("premium")
 
@@ -3458,7 +3458,7 @@ async def test_reserved_model_access_group_is_not_charged_twice(spend_counter_st
     counter_key = model_access_group_counter("premium")
     assert counter_cache.get_local(counter_key) == pytest.approx(1.6)
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token=None,
@@ -3488,7 +3488,7 @@ async def test_unreserved_model_access_group_is_charged_alongside_a_reserved_one
     reservation = await _reserve_for_model_access_groups(key_cache, ["premium", "starter"], estimate=0.6)
     assert [entry["entity_id"] for entry in reservation["entries"]] == ["premium"]
 
-    from litellm.proxy.proxy_server import increment_spend_counters
+    from hangarllm.proxy.proxy_server import increment_spend_counters
 
     await increment_spend_counters(
         token=None,

@@ -1,16 +1,16 @@
 import pytest
 
-import litellm
-from litellm.interactions.utils import get_provider_interactions_api_config
-from litellm.llms.gemini.interactions.transformation import (
+import hangarllm
+from hangarllm.interactions.utils import get_provider_interactions_api_config
+from hangarllm.llms.gemini.interactions.transformation import (
     GoogleAIStudioInteractionsConfig,
 )
-from litellm.llms.vertex_ai.interactions.transformation import (
+from hangarllm.llms.vertex_ai.interactions.transformation import (
     VertexAIInteractionsConfig,
 )
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from hangarllm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import LlmProviders
 
 GLOBAL_BASE = "https://aiplatform.googleapis.com/v1beta1/projects/test-proj/locations/global/interactions"
 
@@ -40,8 +40,8 @@ def config(minter):
 
 
 @pytest.fixture
-def litellm_params():
-    return GenericLiteLLMParams(vertex_project="test-proj", vertex_credentials="creds.json")
+def hangarllm_params():
+    return GenericHangarLLMParams(vertex_project="test-proj", vertex_credentials="creds.json")
 
 
 class TestRegistration:
@@ -57,18 +57,18 @@ class TestRegistration:
         assert not isinstance(gemini_config, VertexAIInteractionsConfig)
 
     def test_lazy_import_resolves(self):
-        assert litellm.VertexAIInteractionsConfig is VertexAIInteractionsConfig
+        assert hangarllm.VertexAIInteractionsConfig is VertexAIInteractionsConfig
 
     def test_custom_llm_provider_is_vertex_ai(self, config):
         assert config.custom_llm_provider == LlmProviders.VERTEX_AI
 
 
 class TestValidateEnvironment:
-    def test_sets_bearer_auth_without_gemini_headers(self, config, minter, litellm_params):
+    def test_sets_bearer_auth_without_gemini_headers(self, config, minter, hangarllm_params):
         headers = config.validate_environment(
             headers={},
             model="gemini-omni-flash-preview",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert headers["Authorization"] == "Bearer test-token"
@@ -77,31 +77,31 @@ class TestValidateEnvironment:
         assert "Api-Revision" not in headers
         assert minter.calls == [("creds.json", "test-proj")]
 
-    def test_caller_authorization_wins(self, config, litellm_params):
+    def test_caller_authorization_wins(self, config, hangarllm_params):
         headers = config.validate_environment(
             headers={"Authorization": "Bearer caller-token"},
             model="gemini-omni-flash-preview",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert headers["Authorization"] == "Bearer caller-token"
 
 
 class TestGetCompleteUrl:
-    def test_defaults_to_global_v1beta1(self, config, litellm_params):
+    def test_defaults_to_global_v1beta1(self, config, hangarllm_params):
         url = config.get_complete_url(
             api_base=None,
             model="gemini-omni-flash-preview",
-            litellm_params=dict(litellm_params),
+            hangarllm_params=dict(hangarllm_params),
         )
 
         assert url == GLOBAL_BASE
 
-    def test_stream_appends_alt_sse(self, config, litellm_params):
+    def test_stream_appends_alt_sse(self, config, hangarllm_params):
         url = config.get_complete_url(
             api_base=None,
             model="gemini-omni-flash-preview",
-            litellm_params=dict(litellm_params),
+            hangarllm_params=dict(hangarllm_params),
             stream=True,
         )
 
@@ -111,7 +111,7 @@ class TestGetCompleteUrl:
         url = config.get_complete_url(
             api_base=None,
             model="gemini-omni-flash-preview",
-            litellm_params={"vertex_project": "test-proj", "vertex_location": "us"},
+            hangarllm_params={"vertex_project": "test-proj", "vertex_location": "us"},
         )
 
         assert url == "https://aiplatform.us.rep.googleapis.com/v1beta1/projects/test-proj/locations/us/interactions"
@@ -120,7 +120,7 @@ class TestGetCompleteUrl:
         url = config.get_complete_url(
             api_base=None,
             model="gemini-omni-flash-preview",
-            litellm_params={"vertex_project": "test-proj", "vertex_location": "us-central1"},
+            hangarllm_params={"vertex_project": "test-proj", "vertex_location": "us-central1"},
         )
 
         assert url == (
@@ -134,28 +134,28 @@ class TestGetCompleteUrl:
         url = config.get_complete_url(
             api_base=None,
             model="gemini-omni-flash-preview",
-            litellm_params={"vertex_project": "test-proj"},
+            hangarllm_params={"vertex_project": "test-proj"},
         )
 
         assert url == GLOBAL_BASE
 
-    def test_api_base_override(self, config, litellm_params):
+    def test_api_base_override(self, config, hangarllm_params):
         url = config.get_complete_url(
             api_base="https://proxy.example.test",
             model="gemini-omni-flash-preview",
-            litellm_params=dict(litellm_params),
+            hangarllm_params=dict(hangarllm_params),
         )
 
         assert url == "https://proxy.example.test/v1beta1/projects/test-proj/locations/global/interactions"
 
     def test_project_resolved_from_credentials_when_not_passed(self, config, monkeypatch):
         monkeypatch.delenv("VERTEXAI_PROJECT", raising=False)
-        monkeypatch.setattr(litellm, "vertex_project", None)
+        monkeypatch.setattr(hangarllm, "vertex_project", None)
 
         url = config.get_complete_url(
             api_base=None,
             model="gemini-omni-flash-preview",
-            litellm_params={"vertex_credentials": "creds.json"},
+            hangarllm_params={"vertex_credentials": "creds.json"},
         )
 
         assert url == "https://aiplatform.googleapis.com/v1beta1/projects/creds-proj/locations/global/interactions"
@@ -165,12 +165,12 @@ class TestGetCompleteUrl:
             config.get_complete_url(
                 api_base=None,
                 model="gemini-omni-flash-preview",
-                litellm_params={"vertex_project": "test-proj", "vertex_location": "evil.com#"},
+                hangarllm_params={"vertex_project": "test-proj", "vertex_location": "evil.com#"},
             )
 
     def test_missing_project_rejected(self, monkeypatch):
         monkeypatch.delenv("VERTEXAI_PROJECT", raising=False)
-        monkeypatch.setattr(litellm, "vertex_project", None)
+        monkeypatch.setattr(hangarllm, "vertex_project", None)
 
         def unresolved_minter(
             credentials: VERTEX_CREDENTIALS_TYPES | None,
@@ -182,48 +182,48 @@ class TestGetCompleteUrl:
             VertexAIInteractionsConfig(mint_access_token=unresolved_minter).get_complete_url(
                 api_base=None,
                 model="gemini-omni-flash-preview",
-                litellm_params={},
+                hangarllm_params={},
             )
 
 
 class TestInteractionByIdRequests:
-    def test_get_url(self, config, litellm_params):
+    def test_get_url(self, config, hangarllm_params):
         url, request_body = config.transform_get_interaction_request(
             interaction_id="abc123",
             api_base="",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
         assert url == f"{GLOBAL_BASE}/abc123"
         assert request_body == {}
 
-    def test_get_url_encodes_interaction_id(self, config, litellm_params):
+    def test_get_url_encodes_interaction_id(self, config, hangarllm_params):
         url, _ = config.transform_get_interaction_request(
             interaction_id="id/with space",
             api_base="",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
         assert url == f"{GLOBAL_BASE}/id%2Fwith%20space"
 
-    def test_delete_url(self, config, litellm_params):
+    def test_delete_url(self, config, hangarllm_params):
         url, request_body = config.transform_delete_interaction_request(
             interaction_id="abc123",
             api_base="",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 
         assert url == f"{GLOBAL_BASE}/abc123"
         assert request_body == {}
 
-    def test_cancel_url(self, config, litellm_params):
+    def test_cancel_url(self, config, hangarllm_params):
         url, request_body = config.transform_cancel_interaction_request(
             interaction_id="abc123",
             api_base="",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers={},
         )
 

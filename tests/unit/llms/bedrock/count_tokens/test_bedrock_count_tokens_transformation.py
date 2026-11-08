@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from litellm.llms.bedrock.count_tokens.transformation import (
+from hangarllm.llms.bedrock.count_tokens.transformation import (
     DEFAULT_ANTHROPIC_INVOKE_MODEL_MAX_TOKENS,
     BedrockCountTokensConfig,
 )

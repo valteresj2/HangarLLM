@@ -34,8 +34,8 @@ def test_internal_request_state_does_not_reach_provider(gateway: Gateway) -> Non
         assert body["temperature"] == 0.4
         assert body["max_tokens"] == 20
         assert observed["authorization"] == "Bearer integration-provider-key"
-        assert "litellm_metadata" not in body
-        assert "litellm_params" not in body
+        assert "hangarllm_metadata" not in body
+        assert "hangarllm_params" not in body
         assert "timeout" not in body
         assert "tpm" not in body
 
@@ -49,9 +49,9 @@ def test_upstream_rejects_corruption_and_accepts_supported_metadata(gateway: Gat
             object_value(object_value(missing.json())["error"])["message"] == "model and nonempty messages are required"
         )
         body: Final = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "strict control"}]}
-        leaked: Final = upstream.post("/v1/chat/completions", json={**body, "litellm_metadata": {"hidden": "value"}})
+        leaked: Final = upstream.post("/v1/chat/completions", json={**body, "hangarllm_metadata": {"hidden": "value"}})
         assert leaked.status_code == 400
-        assert "litellm_metadata" in str(object_value(object_value(leaked.json())["error"])["message"])
+        assert "hangarllm_metadata" in str(object_value(object_value(leaked.json())["error"])["message"])
         valid: Final = upstream.post("/v1/chat/completions", json={**body, "metadata": {"purpose": "synthetic"}})
         assert valid.status_code == 200, valid.text
         assert object_value(object_value(valid.json())["usage"])["total_tokens"] == 40

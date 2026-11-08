@@ -24,9 +24,9 @@ SDK_CALLS: Final = """
 import asyncio
 import sys
 
-import litellm
+import hangarllm
 
-litellm.callbacks = ["langfuse_otel"]
+hangarllm.callbacks = ["langfuse_otel"]
 api_base, marker = sys.argv[1], sys.argv[2]
 
 
@@ -41,13 +41,13 @@ def request(call):
 
 
 async def async_calls():
-    await litellm.acompletion(**request("async"))
-    async for _ in await litellm.acompletion(**request("async_stream")):
+    await hangarllm.acompletion(**request("async"))
+    async for _ in await hangarllm.acompletion(**request("async_stream")):
         pass
 
 
-litellm.completion(**request("sync"))
-for _ in litellm.completion(**request("sync_stream")):
+hangarllm.completion(**request("sync"))
+for _ in hangarllm.completion(**request("sync_stream")):
     pass
 asyncio.run(async_calls())
 print("calls done", flush=True)
@@ -62,12 +62,12 @@ import sys
 import threading
 import time
 
-import litellm
+import hangarllm
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-litellm.callbacks = ["langfuse_otel"]
+hangarllm.callbacks = ["langfuse_otel"]
 api_base, marker, sink, writes_onto_app_span = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1"
 app = TracerProvider()
 app.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(endpoint=sink + "/api/public/otel/v1/traces")))
@@ -95,16 +95,16 @@ def close_trace(root, call):
     root.end()
 
 
-def litellm_wrote_onto(root):
+def hangarllm_wrote_onto(root):
     return not writes_onto_app_span or "langfuse.observation.type" in root.attributes
 
 
 def ambient_sync():
     with tracer.start_as_current_span("checkout", end_on_exit=False) as root:
         name_trace(root, "ambient_sync")
-        litellm.completion(**request("ambient_sync"))
+        hangarllm.completion(**request("ambient_sync"))
         deadline = time.monotonic() + 30
-        while not litellm_wrote_onto(root) and time.monotonic() < deadline:
+        while not hangarllm_wrote_onto(root) and time.monotonic() < deadline:
             threading.Event().wait(0.05)
         close_trace(root, "ambient_sync")
 
@@ -112,9 +112,9 @@ def ambient_sync():
 async def ambient_async():
     with tracer.start_as_current_span("checkout", end_on_exit=False) as root:
         name_trace(root, "ambient_async")
-        await litellm.acompletion(**request("ambient_async"))
+        await hangarllm.acompletion(**request("ambient_async"))
         deadline = time.monotonic() + 30
-        while not litellm_wrote_onto(root) and time.monotonic() < deadline:
+        while not hangarllm_wrote_onto(root) and time.monotonic() < deadline:
             await asyncio.sleep(0.05)
         close_trace(root, "ambient_async")
 
@@ -122,14 +122,14 @@ async def ambient_async():
 def caller_span_sync():
     root = tracer.start_span("checkout")
     name_trace(root, "caller_span_sync")
-    litellm.completion(**request("caller_span_sync", metadata={"litellm_parent_otel_span": root}))
+    hangarllm.completion(**request("caller_span_sync", metadata={"hangarllm_parent_otel_span": root}))
     close_trace(root, "caller_span_sync")
 
 
 async def caller_span_async():
     root = tracer.start_span("checkout")
     name_trace(root, "caller_span_async")
-    await litellm.acompletion(**request("caller_span_async", metadata={"litellm_parent_otel_span": root}))
+    await hangarllm.acompletion(**request("caller_span_async", metadata={"hangarllm_parent_otel_span": root}))
     close_trace(root, "caller_span_async")
 
 
@@ -287,7 +287,7 @@ def test_sdk_sync_and_async_calls_derive_trace_name_and_io_from_their_call_type(
     assert {call: len(records) for call, records in spans.items()} == dict.fromkeys(CALLS, 1), output
     for call, call_type in CALLS.items():
         attributes = spans[call][0]
-        assert attributes["langfuse.trace.name"] == f"litellm-{call_type}", (call, attributes)
+        assert attributes["langfuse.trace.name"] == f"hangarllm-{call_type}", (call, attributes)
         assert attributes["langfuse.trace.input"] == attributes["langfuse.observation.input"], (call, attributes)
         assert attributes["langfuse.trace.output"] == attributes["langfuse.observation.output"], (call, attributes)
         assert json.loads(attributes["langfuse.trace.output"]) == {"role": "assistant", "content": "ok"}, call
@@ -296,10 +296,10 @@ def test_sdk_sync_and_async_calls_derive_trace_name_and_io_from_their_call_type(
 @pytest.mark.parametrize(
     ("environment", "writes_onto_app_span", "calls"),
     [
-        pytest.param({}, True, APP_CALLS, id="litellm_writes_onto_the_app_span"),
-        pytest.param({"USE_OTEL_LITELLM_REQUEST_SPAN": "true"}, False, APP_CALLS, id="litellm_request_child_span"),
+        pytest.param({}, True, APP_CALLS, id="hangarllm_writes_onto_the_app_span"),
+        pytest.param({"USE_OTEL_HANGARLLM_REQUEST_SPAN": "true"}, False, APP_CALLS, id="hangarllm_request_child_span"),
         pytest.param(
-            {"LITELLM_OTEL_V2": "1", "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "span_only"},
+            {"HANGARLLM_OTEL_V2": "1", "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "span_only"},
             False,
             ("ambient_async",),
             id="otel_v2_llm_call_child_span",

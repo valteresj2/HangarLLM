@@ -37,7 +37,7 @@ from e2e_metadata import Capability as MetaCapability
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta, step
 from lifecycle import ResourceManager
 from llm_translation.sdk_clients import NO_PROXY_CACHE, SdkClients, response_header
-from models import CredentialCreateBody, LiteLLMParamsBody
+from models import CredentialCreateBody, HangarLLMParamsBody
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionChunk,
@@ -92,7 +92,7 @@ WEATHER_TOOL_SCHEMA: Final[Mapping[str, object]] = MappingProxyType(
 
 @dataclass(frozen=True, slots=True)
 class Deployment:
-    """One deployment target: the litellm backend string plus how to wire it."""
+    """One deployment target: the hangarllm backend string plus how to wire it."""
 
     route: Literal["openai", "anthropic"]
     label: str
@@ -216,15 +216,15 @@ class Deployments:
         return self.aliases[(cell.deployment.label, cell.auth)]
 
 
-def _litellm_params(deployment: Deployment, auth: AuthMethod, credential_name: str) -> LiteLLMParamsBody:
+def _hangarllm_params(deployment: Deployment, auth: AuthMethod, credential_name: str) -> HangarLLMParamsBody:
     match auth:
         case "env_ref":
-            return LiteLLMParamsBody(
+            return HangarLLMParamsBody(
                 model=deployment.backend, api_key=f"os.environ/{deployment.api_key_env}", api_base=deployment.api_base()
             )
         case "stored_credential":
-            return LiteLLMParamsBody(
-                model=deployment.backend, litellm_credential_name=credential_name, api_base=deployment.api_base()
+            return HangarLLMParamsBody(
+                model=deployment.backend, hangarllm_credential_name=credential_name, api_base=deployment.api_base()
             )
 
 
@@ -237,7 +237,7 @@ def _register(proxy: ProxyClient, resources: ResourceManager, deployment: Deploy
         )
         resources.defer(lambda: proxy.delete_credential(credential_name))
     alias: Final = f"e2e-matrix-{deployment.label}-{auth}-{marker}"
-    model_id: Final = proxy.create_model(alias, _litellm_params(deployment, auth, credential_name))
+    model_id: Final = proxy.create_model(alias, _hangarllm_params(deployment, auth, credential_name))
     resources.defer(lambda: proxy.delete_model(model_id))
     return alias
 
@@ -388,8 +388,8 @@ class ChatCompletionsSurface:
             usage=None
             if completion.usage is None
             else _usage(completion.usage.prompt_tokens, completion.usage.completion_tokens),
-            call_id_header=response_header(raw.headers, "x-litellm-call-id"),
-            cost_header=response_header(raw.headers, "x-litellm-response-cost"),
+            call_id_header=response_header(raw.headers, "x-hangarllm-call-id"),
+            cost_header=response_header(raw.headers, "x-hangarllm-response-cost"),
         )
 
     @step(
@@ -463,8 +463,8 @@ class MessagesSurface:
                 if isinstance(block, ToolUseBlock)
             ),
             usage=_usage(message.usage.input_tokens, message.usage.output_tokens),
-            call_id_header=response_header(raw.headers, "x-litellm-call-id"),
-            cost_header=response_header(raw.headers, "x-litellm-response-cost"),
+            call_id_header=response_header(raw.headers, "x-hangarllm-call-id"),
+            cost_header=response_header(raw.headers, "x-hangarllm-response-cost"),
         )
 
     @step(
@@ -544,8 +544,8 @@ class ResponsesSurface:
                 if isinstance(item, ResponseFunctionToolCall)
             ),
             usage=None if response.usage is None else _usage(response.usage.input_tokens, response.usage.output_tokens),
-            call_id_header=response_header(raw.headers, "x-litellm-call-id"),
-            cost_header=response_header(raw.headers, "x-litellm-response-cost"),
+            call_id_header=response_header(raw.headers, "x-hangarllm-call-id"),
+            cost_header=response_header(raw.headers, "x-hangarllm-response-cost"),
         )
 
     @step(

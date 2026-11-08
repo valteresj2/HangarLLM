@@ -171,7 +171,7 @@ class SpendLogs:
 
     def rows_for(self, model: str) -> list[dict[str, JsonValue]]:
         cursor: Final = self.connection.execute(
-            'SELECT litellm_call_id, request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group = %s', (model,)
+            'SELECT hangarllm_call_id, request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group = %s', (model,)
         )
         return ROWS.validate_python(cursor.fetchall())
 
@@ -180,10 +180,10 @@ class SpendLogs:
     ) -> dict[str, JsonValue]:
         rows: Final = eventually(
             lambda: self.rows_for(model),
-            lambda found: any(row["litellm_call_id"] == call_id for row in found),
+            lambda found: any(row["hangarllm_call_id"] == call_id for row in found),
             seconds=seconds,
         )
-        matching: Final = tuple(row for row in rows if row["litellm_call_id"] == call_id)
+        matching: Final = tuple(row for row in rows if row["hangarllm_call_id"] == call_id)
         assert len(matching) == 1, rows
         (row,) = matching
         assert row["status"] == status, row

@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/llms/base_llm/batches/transformation.py
+Unit tests for hangarllm/llms/base_llm/batches/transformation.py
 
 BaseBatchesConfig is the abstract base class that every provider-specific
 batches config subclasses. It is almost entirely interface (abstractmethods +
@@ -22,8 +22,8 @@ filter to all single-underscore names) makes a test fail.
 import pytest
 
 
-from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
-from litellm.types.utils import LlmProviders
+from hangarllm.llms.base_llm.batches.transformation import BaseBatchesConfig
+from hangarllm.types.utils import LlmProviders
 
 
 # --------------------------------------------------------------------------- #
@@ -50,34 +50,34 @@ class _ConcreteBatchesConfig(BaseBatchesConfig):
         model,
         messages,
         optional_params,
-        litellm_params,
+        hangarllm_params,
         api_key=None,
         api_base=None,
     ) -> dict:
         return headers
 
     def get_complete_batch_url(
-        self, api_base, api_key, model, optional_params, litellm_params, data
+        self, api_base, api_key, model, optional_params, hangarllm_params, data
     ) -> str:
         return "https://example.com/batch"
 
     def transform_create_batch_request(
-        self, model, create_batch_data, optional_params, litellm_params
+        self, model, create_batch_data, optional_params, hangarllm_params
     ):
         return {"created": True}
 
     def transform_create_batch_response(
-        self, model, raw_response, logging_obj, litellm_params
+        self, model, raw_response, logging_obj, hangarllm_params
     ):
         return raw_response
 
     def transform_retrieve_batch_request(
-        self, batch_id, optional_params, litellm_params
+        self, batch_id, optional_params, hangarllm_params
     ):
         return {"batch_id": batch_id}
 
     def transform_retrieve_batch_response(
-        self, model, raw_response, logging_obj, litellm_params
+        self, model, raw_response, logging_obj, hangarllm_params
     ):
         return raw_response
 

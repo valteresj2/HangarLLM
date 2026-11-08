@@ -91,8 +91,8 @@ def embeddings(response: httpx.Response) -> list[JsonValue]:
     return [item["embedding"] for item in data]
 
 
-def gemini_model(scenario: Scenario, url: str, **litellm_params: JsonValue) -> str:
-    return scenario.model(model=f"gemini/{BACKEND}", api_key="scripted-gemini-key", api_base=url, **litellm_params)
+def gemini_model(scenario: Scenario, url: str, **hangarllm_params: JsonValue) -> str:
+    return scenario.model(model=f"gemini/{BACKEND}", api_key="scripted-gemini-key", api_base=url, **hangarllm_params)
 
 
 def embed(gateway: Gateway, model: str, elements: JsonValue, **extra: JsonValue) -> httpx.Response:
@@ -111,16 +111,16 @@ def write_config(directory: Path, url: str, name: str) -> Path:
                 "model_list": [
                     {
                         "model_name": name,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"gemini/{BACKEND}",
                             "api_key": "scripted-gemini-key",
                             "api_base": url,
                         },
                     }
                 ],
-                "litellm_settings": {"drop_params": True},
+                "hangarllm_settings": {"drop_params": True},
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
             }

@@ -72,7 +72,7 @@ def test_cell_claimed_only_by_a_skipped_test_is_uncovered() -> None:
     assert report.skipped_markers == ("llm.b",)
     assert "only by skipped tests" in render(report)
     assert '"skipped_markers": [\n    "llm.b"\n  ]' in render_json(report)
-    assert "litellm_e2e_coverage_skipped_markers 1" in render_prometheus(report)
+    assert "hangarllm_e2e_coverage_skipped_markers 1" in render_prometheus(report)
 
 
 def test_skipped_marker_outside_the_registry_is_still_an_orphan() -> None:
@@ -167,10 +167,10 @@ def test_prometheus_render_exposes_module_coverage_timeseries() -> None:
 
     metrics = render_prometheus(report)
 
-    assert 'litellm_e2e_coverage_cells{module="Core LLMs",state="covered"} 1' in metrics
-    assert 'litellm_e2e_coverage_percent{module="Core LLMs"} 100.000000' in metrics
-    assert 'litellm_e2e_coverage_percent{module="Non-Core LLMs"} 0.000000' in metrics
-    assert "litellm_e2e_coverage_orphan_markers 0" in metrics
+    assert 'hangarllm_e2e_coverage_cells{module="Core LLMs",state="covered"} 1' in metrics
+    assert 'hangarllm_e2e_coverage_percent{module="Core LLMs"} 100.000000' in metrics
+    assert 'hangarllm_e2e_coverage_percent{module="Non-Core LLMs"} 0.000000' in metrics
+    assert "hangarllm_e2e_coverage_orphan_markers 0" in metrics
 
 
 def test_loki_render_exposes_exact_stdout_lines_for_loki() -> None:

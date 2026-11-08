@@ -4,7 +4,7 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Final
 
-from models import LiteLLMParamsBody, ModelMode
+from models import HangarLLMParamsBody, ModelMode
 
 LIVE_PROVIDER_REQUIRED: Final[ContextVar[bool]] = ContextVar("live_provider_required", default=False)
 
@@ -35,14 +35,14 @@ def bedrock_region(declared: str | None) -> str:
     return declared
 
 
-def bedrock_mount(params: LiteLLMParamsBody) -> str | None:
+def bedrock_mount(params: HangarLLMParamsBody) -> str | None:
     """The edge mount a Bedrock deployment belongs to, or None.
 
     The allowlist mirrors the runner role's IAM policy, which names its models
     one by one. A model outside it would be re-signed with an identity that
     cannot invoke it and come back 403 from Bedrock, so an unlisted model keeps
     its direct path and loses only caching. Adding a model is a policy edit in
-    litellm-ops and a line here."""
+    hangarllm-ops and a line here."""
     route: Final = params.model.partition("/")[2]
     model: Final = route.partition("/")[2] or route
     if model not in BEDROCK_EDGE_MODELS:
@@ -51,8 +51,8 @@ def bedrock_mount(params: LiteLLMParamsBody) -> str | None:
 
 
 def route_bedrock(
-    params: LiteLLMParamsBody, base_for: Callable[[str], str | None], mode: ModelMode | None,
-) -> LiteLLMParamsBody:
+    params: HangarLLMParamsBody, base_for: Callable[[str], str | None], mode: ModelMode | None,
+) -> HangarLLMParamsBody:
     """Deployments that carry their own AWS identity stay off the edge. The edge
     re-signs with the run pod's role, so routing an `aws_role_name` deployment
     would quietly replace the very assume-role chain that test exists to prove."""
@@ -70,11 +70,11 @@ def route_bedrock(
 
 
 def route_cache_model(
-    params: LiteLLMParamsBody, base_for: Callable[[str], str | None], *, enabled: bool, mode: ModelMode | None = None,
-) -> LiteLLMParamsBody:
+    params: HangarLLMParamsBody, base_for: Callable[[str], str | None], *, enabled: bool, mode: ModelMode | None = None,
+) -> HangarLLMParamsBody:
     if not enabled or LIVE_PROVIDER_REQUIRED.get() or params.mock_response is not None:
         return params
-    if params.litellm_credential_name is not None:
+    if params.hangarllm_credential_name is not None:
         return params
     provider: Final = params.model.partition("/")[0]
     if provider == "bedrock":

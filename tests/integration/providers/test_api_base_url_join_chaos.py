@@ -41,7 +41,7 @@ def _deploy(scenario: Scenario, model: str, api_base: str) -> str:
 def _spend_api_bases(identities: tuple[str, ...]) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            "SELECT request_id, api_base FROM \"LiteLLM_SpendLogs\" WHERE request_id = ANY(string_to_array(%s, ','))",
+            "SELECT request_id, api_base FROM \"HangarLLM_SpendLogs\" WHERE request_id = ANY(string_to_array(%s, ','))",
             (",".join(identities),),
         ),
         lambda found: len(found) == len(identities),

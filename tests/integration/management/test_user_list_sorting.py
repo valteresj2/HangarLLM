@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 from tests.integration._support.client import Gateway, Scenario
 from tests.integration._support.database import write_rows
 
@@ -26,22 +26,22 @@ def test_user_list_sorts_all_pages(field: str, direction: str, gateway: Gateway,
     )
     for user_id, value in zip(ids, (20, 3, 3, 100, 0), strict=True):
         write_rows(
-            'UPDATE "LiteLLM_UserTable" SET sso_user_id = %s, '
+            'UPDATE "HangarLLM_UserTable" SET sso_user_id = %s, '
             "updated_at = timestamp '2030-01-01' + %s::int * interval '1 day' WHERE user_id = %s",
             (f"{prefix}-{value:03}", str(value), user_id),
         ) if value != 3 or user_id == ids[1] else write_rows(
-            "UPDATE \"LiteLLM_UserTable\" SET sso_user_id = %s, updated_at = timestamp '2030-01-04' WHERE user_id = %s",
+            "UPDATE \"HangarLLM_UserTable\" SET sso_user_id = %s, updated_at = timestamp '2030-01-04' WHERE user_id = %s",
             (f"{prefix}-004", user_id),
         )
         for index in range(value if value < 4 else 1):
             scenario.key(user_id=user_id, key_alias=f"{user_id}-key-{index}")
     write_rows(
-        'UPDATE "LiteLLM_UserTable" SET max_budget = NULL, updated_at = NULL, sso_user_id = NULL WHERE user_id = %s',
+        'UPDATE "HangarLLM_UserTable" SET max_budget = NULL, updated_at = NULL, sso_user_id = NULL WHERE user_id = %s',
         (ids[-1],),
     )
     scenario.key(user_id=ids[-1])
     write_rows(
-        'UPDATE "LiteLLM_VerificationToken" SET team_id = %s WHERE user_id = %s', (UI_SESSION_TOKEN_TEAM_ID, ids[-1])
+        'UPDATE "HangarLLM_VerificationToken" SET team_id = %s WHERE user_id = %s', (UI_SESSION_TOKEN_TEAM_ID, ids[-1])
     )
     values: Final = (
         (0, 1, 1, 0, 0)
@@ -117,19 +117,19 @@ def test_computed_user_sorts_preserve_org_admin_scope(
     try:
         for org in orgs:
             write_rows(
-                'INSERT INTO "LiteLLM_OrganizationTable" '
+                'INSERT INTO "HangarLLM_OrganizationTable" '
                 "(organization_id, organization_alias, budget_id, created_by, updated_by, updated_at) "
                 "VALUES (%s, %s, %s, 'sorting-test', 'sorting-test', NOW())",
                 (org, org, budget),
             )
         write_rows(
-            'INSERT INTO "LiteLLM_OrganizationMembership" (user_id, organization_id, user_role) '
+            'INSERT INTO "HangarLLM_OrganizationMembership" (user_id, organization_id, user_role) '
             "VALUES (%s, %s, 'org_admin')",
             (owner, orgs[0]),
         )
         for index, member in enumerate(members):
             write_rows(
-                'INSERT INTO "LiteLLM_OrganizationMembership" (user_id, organization_id, user_role) '
+                'INSERT INTO "HangarLLM_OrganizationMembership" (user_id, organization_id, user_role) '
                 "VALUES (%s, %s, 'internal_user')",
                 (member, orgs[0] if index < 3 else orgs[1]),
             )
@@ -175,5 +175,5 @@ def test_computed_user_sorts_preserve_org_admin_scope(
         assert denied.status_code == 403, denied.text
     finally:
         for org in orgs:
-            write_rows('DELETE FROM "LiteLLM_OrganizationMembership" WHERE organization_id = %s', (org,))
-            write_rows('DELETE FROM "LiteLLM_OrganizationTable" WHERE organization_id = %s', (org,))
+            write_rows('DELETE FROM "HangarLLM_OrganizationMembership" WHERE organization_id = %s', (org,))
+            write_rows('DELETE FROM "HangarLLM_OrganizationTable" WHERE organization_id = %s', (org,))

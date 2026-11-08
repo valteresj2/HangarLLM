@@ -106,7 +106,7 @@ def _completion(response: httpx.Response, marker: str) -> str:
     assert pcb.answers(string_value(body["id"]), marker), body
     (choice,) = rv.ITEMS.validate_python(body["choices"])
     assert rv.JSON_OBJECT.validate_python(choice["message"])["content"] == rv.answer(marker), body
-    return response.headers["x-litellm-call-id"]
+    return response.headers["x-hangarllm-call-id"]
 
 
 def _wire_request(bridge: _Bridge, marker: str, *, model: str = "gpt-6.1-sol", stream: bool = False) -> Request:
@@ -165,7 +165,7 @@ def test_openai_sdk_stream_shapes_the_audio_part_by_mode(bridge: _Bridge, mode: 
     assert streamed == rv.answer(marker), chunks
     content: Final = _user_content_on_wire(bridge, marker, stream=True)
     assert content == _expected(mode, marker, _audio_on_wire(dict(pcb.AUDIO_PAYLOAD))), content
-    bridge.spend.landed(bridge.model(mode), raw.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.model(mode), raw.headers["x-hangarllm-call-id"], marker)
 
 
 @pytest.mark.parametrize("mode", _MODES)
@@ -190,7 +190,7 @@ async def test_async_openai_sdk_shapes_the_audio_part_by_mode(bridge: _Bridge, m
     assert completion.choices[0].message.content == rv.answer(marker), completion
     content: Final = _user_content_on_wire(bridge, marker)
     assert content == _expected(mode, marker, _audio_on_wire(dict(pcb.AUDIO_PAYLOAD))), content
-    bridge.spend.landed(bridge.model(mode), raw.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.model(mode), raw.headers["x-hangarllm-call-id"], marker)
 
 
 def test_audio_capable_model_keeps_the_audio_part_under_drop_params(bridge: _Bridge) -> None:
@@ -201,7 +201,7 @@ def test_audio_capable_model_keeps_the_audio_part_under_drop_params(bridge: _Bri
     bridge.spend.landed(bridge.capable_on, call_id, marker)
 
 
-def test_base_model_in_litellm_params_keeps_the_audio_part_under_drop_params(bridge: _Bridge) -> None:
+def test_base_model_in_hangarllm_params_keeps_the_audio_part_under_drop_params(bridge: _Bridge) -> None:
     marker: Final = uuid.uuid4().hex
     call_id: Final = _completion(_chat(bridge, bridge.base_model_param_on, [_user(marker, pcb.audio())]), marker)
     assert _user_content_on_wire(bridge, marker) == [_text(marker), _audio_on_wire(dict(pcb.AUDIO_PAYLOAD))]
@@ -280,7 +280,7 @@ def test_anthropic_sdk_request_carries_no_audio_part_into_the_bridge(bridge: _Br
     (content,) = raw.parse().content
     assert content.type == "text" and content.text == rv.answer(marker), content
     assert _user_content_on_wire(bridge, marker) == [_text(marker)]
-    bridge.spend.landed(bridge.on, raw.headers["x-litellm-call-id"], None)
+    bridge.spend.landed(bridge.on, raw.headers["x-hangarllm-call-id"], None)
 
 
 def test_native_responses_audio_part_never_enters_the_bridge(bridge: _Bridge) -> None:
@@ -300,7 +300,7 @@ def test_native_responses_audio_part_never_enters_the_bridge(bridge: _Bridge) ->
     assert pcb.answers(string_value(body["id"]), marker), body
     assert rv.answer(marker) in response.text, response.text
     assert _user_content_on_wire(bridge, marker) == [_text(marker), audio]
-    bridge.spend.landed(bridge.on, response.headers["x-litellm-call-id"], marker)
+    bridge.spend.landed(bridge.on, response.headers["x-hangarllm-call-id"], marker)
 
 
 @pytest.mark.parametrize("value", _HOSTILE_VALUES, ids=_HOSTILE_IDS)
@@ -427,7 +427,7 @@ async def _send(client: httpx.AsyncClient, bridge: _Bridge, model: str, call: _C
         "POST", "/v1/chat/completions", json=body, headers={"Authorization": f"Bearer {bridge.gateway.key}"}
     ) as response:
         raw: Final = await response.aread()
-    return _Served(call, response.status_code, raw.decode(), response.headers["x-litellm-call-id"])
+    return _Served(call, response.status_code, raw.decode(), response.headers["x-hangarllm-call-id"])
 
 
 async def _burst(bridge: _Bridge, calls: Sequence[_Call], model_for: Mapping[Mode, str]) -> tuple[_Served, ...]:
@@ -464,10 +464,10 @@ def _posts_by_marker(bridge: _Bridge, calls: Sequence[_Call]) -> Mapping[str, Re
 def _landed_once(bridge: _Bridge, model: str, served: Sequence[_Served], *, status: str = "success") -> None:
     rows: Final = eventually(
         lambda: bridge.spend.rows_for(model),
-        lambda found: {string_value(row["litellm_call_id"]) for row in found} >= {item.call_id for item in served},
+        lambda found: {string_value(row["hangarllm_call_id"]) for row in found} >= {item.call_id for item in served},
         seconds=70,
     )
-    by_call: Final = {string_value(row["litellm_call_id"]): row for row in rows}
+    by_call: Final = {string_value(row["hangarllm_call_id"]): row for row in rows}
     assert len(by_call) == len(rows), rows
     for item in served:
         assert by_call[item.call_id]["status"] == status, (item.call_id, by_call[item.call_id])

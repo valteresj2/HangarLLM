@@ -16,12 +16,12 @@ import pytest
 from azure.core.credentials import AccessToken, AccessTokenInfo, TokenRequestOptions
 from azure.core.exceptions import ClientAuthenticationError
 
-from litellm.secret_managers.get_azure_ad_token_provider import (
+from hangarllm.secret_managers.get_azure_ad_token_provider import (
     get_azure_ad_token_provider,
     infer_credential_type_from_environment,
     single_flight_bearer_token_provider,
 )
-from litellm.types.secret_managers.get_azure_ad_token_provider import (
+from hangarllm.types.secret_managers.get_azure_ad_token_provider import (
     AzureCredentialType,
 )
 

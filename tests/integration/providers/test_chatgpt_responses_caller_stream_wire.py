@@ -109,7 +109,7 @@ def _only_forwarded(rig: _Rig, marker: str, *, stream: bool = True) -> Mapping[s
 def _spend_rows(model: str, expected: int) -> Sequence[Mapping[str, JsonValue]]:
     return eventually(
         lambda: read_rows(
-            'SELECT request_id, litellm_call_id, status, cache_hit, spend FROM "LiteLLM_SpendLogs" WHERE model_group = %s',
+            'SELECT request_id, hangarllm_call_id, status, cache_hit, spend FROM "HangarLLM_SpendLogs" WHERE model_group = %s',
             (model,),
         ),
         lambda rows: len(rows) >= expected,
@@ -126,7 +126,7 @@ def _landed(model: str, response_id: str, *, expected: int = 1) -> Sequence[Mapp
 
 def _landed_by_call_id(model: str, call_id: str) -> None:
     rows: Final = _spend_rows(model, 1)
-    (row,) = [row for row in rows if row["litellm_call_id"] == call_id]
+    (row,) = [row for row in rows if row["hangarllm_call_id"] == call_id]
     assert row["status"] == "success", rows
 
 
@@ -295,7 +295,7 @@ def test_anthropic_sdk_message_stream_still_streams(rig: _Rig, model: str) -> No
         message: Final = stream.get_final_message()
     assert text == rv.answer(marker), message
     _only_forwarded(rig, marker)
-    _landed_by_call_id(model, stream.response.headers["x-litellm-call-id"])
+    _landed_by_call_id(model, stream.response.headers["x-hangarllm-call-id"])
 
 
 def test_identical_request_is_served_from_the_response_cache_as_json(rig: _Rig, model: str) -> None:
@@ -303,11 +303,11 @@ def test_identical_request_is_served_from_the_response_cache_as_json(rig: _Rig, 
     body: Final = _responses_body(model, marker, cache_bust=False)
     first: Final = _post(rig, "/v1/responses", body)
     identity: Final = _assert_json_answer(first, marker)
-    assert "x-litellm-cache-key" not in first.headers, first.headers
+    assert "x-hangarllm-cache-key" not in first.headers, first.headers
     _only_forwarded(rig, marker)
     _landed(model, identity)
     second: Final = eventually(
-        lambda: _post(rig, "/v1/responses", body), lambda found: "x-litellm-cache-key" in found.headers, seconds=20
+        lambda: _post(rig, "/v1/responses", body), lambda found: "x-hangarllm-cache-key" in found.headers, seconds=20
     )
     assert rv.same_response(_assert_json_answer(second, marker), identity), second.text
     assert rig.wire.drain() == (), "the cached answer reached the vendor"

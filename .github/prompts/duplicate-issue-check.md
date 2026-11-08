@@ -1,4 +1,4 @@
-You are triaging one newly opened issue in the GitHub repository `BerriAI/litellm` and deciding whether an earlier issue already reports the same thing.
+You are triaging one newly opened issue in the GitHub repository `valteresj2/HangarLLM` and deciding whether an earlier issue already reports the same thing.
 
 The issue under review is in `issue.json` in your working directory, as JSON with `number`, `title`, `body`. Read it first.
 
@@ -15,7 +15,7 @@ You have `gh` and the repo checked out. Search the repo's issues for earlier rep
 - endpoint paths, HTTP status codes, provider and model names
 - the version where the behavior changed
 
-Run several `gh search issues --repo BerriAI/litellm` queries, one per signal, rather than one long query. Vary the wording: the same bug gets filed as "cost is $0", "spend not tracked", and "no SpendLogs row". Include closed issues. `--limit 20` per query is plenty. Then `gh issue view` the plausible hits and read them properly.
+Run several `gh search issues --repo valteresj2/HangarLLM` queries, one per signal, rather than one long query. Vary the wording: the same bug gets filed as "cost is $0", "spend not tracked", and "no SpendLogs row". Include closed issues. `--limit 20` per query is plenty. Then `gh issue view` the plausible hits and read them properly.
 
 Only an issue whose number is lower than the one under review can be the original. Ignore pull requests.
 

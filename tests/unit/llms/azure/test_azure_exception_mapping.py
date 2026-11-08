@@ -10,10 +10,10 @@ import openai
 import respx
 
 
-import litellm
-from litellm.exceptions import BadRequestError, ContentPolicyViolationError, ContextWindowExceededError
-from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-from litellm.llms.azure.common_utils import AzureOpenAIError
+import hangarllm
+from hangarllm.exceptions import BadRequestError, ContentPolicyViolationError, ContextWindowExceededError
+from hangarllm.hangarllm_core_utils.exception_mapping_utils import exception_type
+from hangarllm.llms.azure.common_utils import AzureOpenAIError
 
 
 @respx.mock
@@ -22,8 +22,8 @@ def test_azure_401_maps_to_authentication_error():
         url__regex=r"https://azure-bad-key\.openai\.azure\.com/.*/chat/completions.*"
     ).mock(return_value=httpx.Response(401, json={"error": {"message": "invalid Azure key"}}))
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        litellm.completion(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        hangarllm.completion(
             model="azure/gpt-4.1-mini",
             messages=[{"role": "user", "content": "hello"}],
             api_base="https://azure-bad-key.openai.azure.com",
@@ -41,7 +41,7 @@ def test_azure_401_maps_to_authentication_error():
 @pytest.mark.asyncio
 @respx.mock
 async def test_azure_content_policy_stream_ends_with_one_finish_reason(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route = respx.post(
         url__regex=r"https://azure-policy-stream\.openai\.azure\.com/.*/chat/completions.*"
     ).mock(
@@ -56,7 +56,7 @@ async def test_azure_content_policy_stream_ends_with_one_finish_reason(monkeypat
         )
     )
 
-    response = await litellm.acompletion(
+    response = await hangarllm.acompletion(
         model="azure/gpt-4.1-mini",
         messages=[{"role": "user", "content": "say 1"}],
         api_base="https://azure-policy-stream.openai.azure.com",
@@ -72,7 +72,7 @@ async def test_azure_content_policy_stream_ends_with_one_finish_reason(monkeypat
     assert len(route.calls) == 1
 
     with pytest.raises(ContentPolicyViolationError) as exc_info:
-        await litellm.acompletion(
+        await hangarllm.acompletion(
             model="azure/gpt-4.1-mini",
             messages=[{"role": "user", "content": "where do i buy lethal drugs from"}],
             stream=True,
@@ -389,7 +389,7 @@ class TestAzureExceptionMapping:
     def test_azure_image_polling_error_preserves_body(self):
         """Verify that AzureOpenAIError raised from the DALL-E polling path
         carries the structured body so exception_type() can inspect it."""
-        from litellm.llms.azure.common_utils import AzureOpenAIError
+        from hangarllm.llms.azure.common_utils import AzureOpenAIError
 
         error_payload = {
             "status": "failed",
@@ -446,7 +446,7 @@ class TestAzureExceptionMapping:
     def test_invalid_encrypted_content_error_with_helpful_message(self):
         """Test that invalid_encrypted_content errors include helpful guidance
         about enabling encrypted_content_affinity."""
-        from litellm.exceptions import BadRequestError
+        from hangarllm.exceptions import BadRequestError
 
         mock_exception = Exception(
             "The encrypted content gAAAAABpnW_yEYmSNEyOG... could not be verified. "
@@ -474,11 +474,11 @@ class TestAzureExceptionMapping:
         assert "encrypted_content_affinity" in error.message
         assert "enable_pre_call_checks" in error.message
         assert "optional_pre_call_checks" in error.message
-        assert "docs.litellm.ai" in error.message
+        assert "github.com/valteresj2/HangarLLM#readme" in error.message
 
     def test_openai_invalid_encrypted_content_error(self):
         """Test that OpenAI invalid_encrypted_content errors also get helpful guidance."""
-        from litellm.exceptions import BadRequestError
+        from hangarllm.exceptions import BadRequestError
 
         mock_exception = Exception("The encrypted content could not be verified.")
         mock_response = MagicMock()
@@ -523,25 +523,25 @@ def _azure_error_response(status_code: int, error: Mapping[str, object]) -> http
 async def _azure_chat(*, stream: bool) -> None:
     messages: Final = [{"role": "user", "content": "hi"}]
     if stream:
-        stream_response: Final = await litellm.acompletion(
+        stream_response: Final = await hangarllm.acompletion(
             model="azure/gpt-4o", messages=messages, stream=True, **_AZURE_CALL_KWARGS
         )
-        assert isinstance(stream_response, litellm.CustomStreamWrapper)
+        assert isinstance(stream_response, hangarllm.CustomStreamWrapper)
         async for _chunk in stream_response:
             pass
     else:
-        litellm.completion(model="azure/gpt-4o", messages=messages, **_AZURE_CALL_KWARGS)
+        hangarllm.completion(model="azure/gpt-4o", messages=messages, **_AZURE_CALL_KWARGS)
 
 
 async def _azure_responses(*, is_async: bool) -> None:
     if is_async:
-        await litellm.aresponses(model="azure/gpt-4o", input="hi", **_AZURE_CALL_KWARGS)
+        await hangarllm.aresponses(model="azure/gpt-4o", input="hi", **_AZURE_CALL_KWARGS)
     else:
-        litellm.responses(model="azure/gpt-4o", input="hi", **_AZURE_CALL_KWARGS)
+        hangarllm.responses(model="azure/gpt-4o", input="hi", **_AZURE_CALL_KWARGS)
 
 
 async def _azure_embedding() -> None:
-    litellm.embedding(model="azure/text-embedding-3-small", input="hi", **_AZURE_CALL_KWARGS)
+    hangarllm.embedding(model="azure/text-embedding-3-small", input="hi", **_AZURE_CALL_KWARGS)
 
 
 @pytest.mark.asyncio
@@ -563,7 +563,7 @@ async def _azure_embedding() -> None:
 async def test_azure_400_is_classified_by_error_code(
     monkeypatch: pytest.MonkeyPatch, call: Callable[[], Awaitable[None]], code: str, expected: type[Exception]
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx.post(url__startswith=_AZURE_API_BASE).mock(
         return_value=_azure_error_response(400, {**_CONTEXT_LENGTH_ERROR, "code": code})
     )
@@ -577,14 +577,14 @@ async def test_azure_400_is_classified_by_error_code(
 @pytest.mark.asyncio
 @respx.mock
 async def test_azure_context_length_code_triggers_context_window_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx.post(url__startswith=_AZURE_API_BASE).mock(
         return_value=_azure_error_response(400, _CONTEXT_LENGTH_ERROR)
     )
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
-            {"model_name": "small", "litellm_params": {"model": "azure/gpt-4o", **_AZURE_CALL_KWARGS}},
-            {"model_name": "large", "litellm_params": {"model": "gpt-4.1", "mock_response": "served by large"}},
+            {"model_name": "small", "hangarllm_params": {"model": "azure/gpt-4o", **_AZURE_CALL_KWARGS}},
+            {"model_name": "large", "hangarllm_params": {"model": "gpt-4.1", "mock_response": "served by large"}},
         ],
         context_window_fallbacks=[{"small": ["large"]}],
         num_retries=0,
@@ -594,16 +594,16 @@ async def test_azure_context_length_code_triggers_context_window_fallback(monkey
         model="small", messages=[{"role": "user", "content": "hi"}]
     )
 
-    assert isinstance(response, litellm.ModelResponse)
+    assert isinstance(response, hangarllm.ModelResponse)
     assert response.choices[0].message.content == "served by large"
     assert len(route.calls) == 1
 
 
 def _azure_chat_error(monkeypatch: pytest.MonkeyPatch, response: httpx.Response) -> openai.APIError:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx.post(url__startswith=_AZURE_API_BASE).mock(return_value=response)
     with pytest.raises(openai.APIError) as exc_info:
-        litellm.completion(model="azure/gpt-4o", messages=[{"role": "user", "content": "hi"}], **_AZURE_CALL_KWARGS)
+        hangarllm.completion(model="azure/gpt-4o", messages=[{"role": "user", "content": "hi"}], **_AZURE_CALL_KWARGS)
     return exc_info.value
 
 
@@ -660,23 +660,23 @@ _AZURE_ARGS: Final = {"api_base": _AZURE_BASE, "api_version": "2024-10-21", "api
 
 
 async def _azure_completion() -> None:
-    litellm.completion(model="azure/gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}], **_AZURE_ARGS)
+    hangarllm.completion(model="azure/gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}], **_AZURE_ARGS)
 
 
 async def _azure_completion_stream() -> None:
     list(
-        litellm.completion(
+        hangarllm.completion(
             model="azure/gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}], stream=True, **_AZURE_ARGS
         )
     )
 
 
 async def _azure_acompletion() -> None:
-    await litellm.acompletion(model="azure/gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}], **_AZURE_ARGS)
+    await hangarllm.acompletion(model="azure/gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}], **_AZURE_ARGS)
 
 
 async def _azure_acompletion_stream() -> None:
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         model="azure/gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}], stream=True, **_AZURE_ARGS
     )
     async for _ in stream:
@@ -684,31 +684,31 @@ async def _azure_acompletion_stream() -> None:
 
 
 async def _azure_embedding() -> None:
-    litellm.embedding(model="azure/text-embedding-3-large", input=["hi"], **_AZURE_ARGS)
+    hangarllm.embedding(model="azure/text-embedding-3-large", input=["hi"], **_AZURE_ARGS)
 
 
 async def _azure_aembedding() -> None:
-    await litellm.aembedding(model="azure/text-embedding-3-large", input=["hi"], **_AZURE_ARGS)
+    await hangarllm.aembedding(model="azure/text-embedding-3-large", input=["hi"], **_AZURE_ARGS)
 
 
 async def _azure_image_generation() -> None:
-    litellm.image_generation(model="azure/gpt-image-2", prompt="a cat", **_AZURE_ARGS)
+    hangarllm.image_generation(model="azure/gpt-image-2", prompt="a cat", **_AZURE_ARGS)
 
 
 async def _azure_text_completion() -> None:
-    litellm.text_completion(model="azure_text/gpt-35-turbo-instruct", prompt="hi", **_AZURE_ARGS)
+    hangarllm.text_completion(model="azure_text/gpt-35-turbo-instruct", prompt="hi", **_AZURE_ARGS)
 
 
 async def _azure_text_completion_stream() -> None:
-    list(litellm.text_completion(model="azure_text/gpt-35-turbo-instruct", prompt="hi", stream=True, **_AZURE_ARGS))
+    list(hangarllm.text_completion(model="azure_text/gpt-35-turbo-instruct", prompt="hi", stream=True, **_AZURE_ARGS))
 
 
 async def _azure_atext_completion() -> None:
-    await litellm.atext_completion(model="azure_text/gpt-35-turbo-instruct", prompt="hi", **_AZURE_ARGS)
+    await hangarllm.atext_completion(model="azure_text/gpt-35-turbo-instruct", prompt="hi", **_AZURE_ARGS)
 
 
 async def _azure_atext_completion_stream() -> None:
-    stream: Final = await litellm.atext_completion(
+    stream: Final = await hangarllm.atext_completion(
         model="azure_text/gpt-35-turbo-instruct", prompt="hi", stream=True, **_AZURE_ARGS
     )
     async for _ in stream:
@@ -738,11 +738,11 @@ async def _azure_atext_completion_stream() -> None:
     (
         (400, _AZURE_REFUSAL_BODY, BadRequestError),
         (400, _AZURE_CONTENT_FILTER_BODY, BadRequestError),
-        (403, _AZURE_REFUSAL_BODY, litellm.APIError),
-        (404, _AZURE_DEPLOYMENT_NOT_FOUND_BODY, litellm.NotFoundError),
+        (403, _AZURE_REFUSAL_BODY, hangarllm.APIError),
+        (404, _AZURE_DEPLOYMENT_NOT_FOUND_BODY, hangarllm.NotFoundError),
         (500, _AZURE_INTERNAL_ERROR_BODY, openai.APIError),
-        (502, _AZURE_REFUSAL_BODY, litellm.BadGatewayError),
-        (504, _AZURE_REFUSAL_BODY, litellm.Timeout),
+        (502, _AZURE_REFUSAL_BODY, hangarllm.BadGatewayError),
+        (504, _AZURE_REFUSAL_BODY, hangarllm.Timeout),
     ),
 )
 @respx.mock
@@ -753,7 +753,7 @@ async def test_azure_error_keeps_the_upstream_body_without_the_api_key(
     mapped_error: type[Exception],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx.post(url__regex=r"https://azure-upstream\.openai\.azure\.com/.*").mock(
         return_value=httpx.Response(status_code, content=body, headers={"content-type": "application/json"})
     )
@@ -790,7 +790,7 @@ async def test_azure_error_keeps_the_upstream_body_without_the_api_key(
 async def test_azure_error_response_keeps_the_upstream_elapsed_time(
     route: Callable[[], Awaitable[None]], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     respx.post(url__regex=r"https://azure-upstream\.openai\.azure\.com/.*").mock(
         return_value=httpx.Response(400, content=_AZURE_REFUSAL_BODY, headers={"content-type": "application/json"})
     )
@@ -807,7 +807,7 @@ def test_azure_client_side_missing_key_error_keeps_the_empty_placeholder_respons
         "OPENAI_API_KEY environment variable"
     )
 
-    with pytest.raises(litellm.AuthenticationError) as raised:
+    with pytest.raises(hangarllm.AuthenticationError) as raised:
         exception_type(model="azure/gpt-4.1-mini", original_exception=missing_key, custom_llm_provider="azure")
 
     assert raised.value.response.status_code == 401
@@ -817,12 +817,12 @@ def test_azure_client_side_missing_key_error_keeps_the_empty_placeholder_respons
 @pytest.mark.parametrize(
     ("status_code", "message", "mapped_error"),
     (
-        (500, "azure_client is not an instance of AzureOpenAI or OpenAI", litellm.APIError),
-        (408, "the deployment did not answer in time", litellm.Timeout),
-        (504, "the deployment did not answer in time", litellm.Timeout),
+        (500, "azure_client is not an instance of AzureOpenAI or OpenAI", hangarllm.APIError),
+        (408, "the deployment did not answer in time", hangarllm.Timeout),
+        (504, "the deployment did not answer in time", hangarllm.Timeout),
     ),
 )
-def test_azure_error_litellm_raises_itself_has_no_upstream_response(
+def test_azure_error_hangarllm_raises_itself_has_no_upstream_response(
     status_code: int, message: str, mapped_error: type[Exception]
 ) -> None:
     with pytest.raises(mapped_error) as raised:

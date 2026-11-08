@@ -7,11 +7,11 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.wire import Reply, Request, Wire, wire_server
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
 
 _MODEL: Final = "gpt-5.6"
 _API_KEY: Final = "synthetic-sync-fallback-key"
@@ -65,7 +65,7 @@ def _router(wire: Wire, deployments: tuple[str, ...], **settings: object) -> Rou
         model_list=[
             {
                 "model_name": name,
-                "litellm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/{name}", "api_key": _API_KEY},
+                "hangarllm_params": {"model": f"openai/{_MODEL}", "api_base": f"{wire.url}/{name}", "api_key": _API_KEY},
             }
             for name in deployments
         ],
@@ -105,7 +105,7 @@ def _text_of(chunk: object) -> str:
 
 def _attempted_fallbacks(stream: object) -> object:
     hidden: Final = getattr(stream, "_hidden_params", None) or {}
-    return (hidden.get("additional_headers") or {}).get("x-litellm-attempted-fallbacks")
+    return (hidden.get("additional_headers") or {}).get("x-hangarllm-attempted-fallbacks")
 
 
 def _stream_sync(router: Router, **request: object) -> _Streamed:
@@ -137,7 +137,7 @@ _PRIMARY_TO_BACKUP: Final = [{"primary": ["backup"]}]
 @pytest.mark.parametrize("client", _CLIENTS)
 def test_primary_dies_before_content(client: str, monkeypatch: pytest.MonkeyPatch) -> None:
     recorder: Final = _FallbackRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(hangarllm, "callbacks", [recorder])
     with wire_server(_peer(_PRIMARY_DIES)) as wire:
         router: Final = _router(wire, ("primary", "backup"), fallbacks=_PRIMARY_TO_BACKUP)
         streamed: Final = _stream(client, router)
@@ -163,7 +163,7 @@ def test_walks_every_configured_fallback(client: str) -> None:
 def test_every_target_dies(client: str) -> None:
     with wire_server(_peer({"primary": _DIES_BEFORE_CONTENT, "backup": _DIES_BEFORE_CONTENT})) as wire:
         router: Final = _router(wire, ("primary", "backup"), fallbacks=_PRIMARY_TO_BACKUP)
-        with pytest.raises(litellm.APIConnectionError, match="overloaded"):
+        with pytest.raises(hangarllm.APIConnectionError, match="overloaded"):
             _stream(client, router)
         assert _deployments_hit(wire) == ("primary", "backup")
 
@@ -172,7 +172,7 @@ def test_every_target_dies(client: str) -> None:
 def test_fallbacks_disabled(client: str) -> None:
     with wire_server(_peer(_PRIMARY_DIES)) as wire:
         router: Final = _router(wire, ("primary", "backup"), fallbacks=_PRIMARY_TO_BACKUP)
-        with pytest.raises(litellm.APIConnectionError, match="overloaded"):
+        with pytest.raises(hangarllm.APIConnectionError, match="overloaded"):
             _stream(client, router, disable_fallbacks=True)
         assert _deployments_hit(wire) == ("primary",)
 
@@ -181,7 +181,7 @@ def test_fallbacks_disabled(client: str) -> None:
 def test_dies_after_first_chunk(client: str) -> None:
     with wire_server(_peer({"primary": _dies_after("partial "), "backup": _serves("never asked")})) as wire:
         router: Final = _router(wire, ("primary", "backup"), fallbacks=_PRIMARY_TO_BACKUP)
-        with pytest.raises(litellm.APIConnectionError, match="overloaded"):
+        with pytest.raises(hangarllm.APIConnectionError, match="overloaded"):
             _stream(client, router)
         assert _deployments_hit(wire) == ("primary",)
 
@@ -215,7 +215,7 @@ def test_per_request_fallback_list(client: str) -> None:
 def test_per_request_fallbacks_none_turns_the_router_list_off(client: str) -> None:
     with wire_server(_peer(_PRIMARY_DIES)) as wire:
         router: Final = _router(wire, ("primary", "backup"), fallbacks=_PRIMARY_TO_BACKUP)
-        with pytest.raises(litellm.APIConnectionError, match="overloaded"):
+        with pytest.raises(hangarllm.APIConnectionError, match="overloaded"):
             _stream(client, router, fallbacks=None)
         assert _deployments_hit(wire) == ("primary",)
 

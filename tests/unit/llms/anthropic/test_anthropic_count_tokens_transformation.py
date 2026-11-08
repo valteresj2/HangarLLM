@@ -12,23 +12,23 @@ import pytest
 import respx
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.anthropic.count_tokens.handler import AnthropicCountTokensHandler
-from litellm.llms.anthropic.count_tokens.token_counter import AnthropicTokenCounter
-from litellm.llms.anthropic.count_tokens.transformation import (
+import hangarllm
+from hangarllm.llms.anthropic.chat.transformation import AnthropicConfig
+from hangarllm.llms.anthropic.count_tokens.handler import AnthropicCountTokensHandler
+from hangarllm.llms.anthropic.count_tokens.token_counter import AnthropicTokenCounter
+from hangarllm.llms.anthropic.count_tokens.transformation import (
     AnthropicCountTokensConfig,
 )
-from litellm.llms.azure_ai.anthropic.count_tokens.handler import (
+from hangarllm.llms.azure_ai.anthropic.count_tokens.handler import (
     AzureAIAnthropicCountTokensHandler,
 )
-from litellm.llms.azure_ai.anthropic.count_tokens.token_counter import AzureAIAnthropicTokenCounter
-from litellm.llms.azure_ai.anthropic.count_tokens.transformation import (
+from hangarllm.llms.azure_ai.anthropic.count_tokens.token_counter import AzureAIAnthropicTokenCounter
+from hangarllm.llms.azure_ai.anthropic.count_tokens.transformation import (
     AzureAIAnthropicCountTokensConfig,
 )
-from litellm.types.utils import CountContextManagement, TokenCountMessagesFormat, TokenCountResponse
-from litellm.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
-from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
+from hangarllm.types.utils import CountContextManagement, TokenCountMessagesFormat, TokenCountResponse
+from hangarllm.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
+from hangarllm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
 
 COMPACTION_BETA = ANTHROPIC_BETA_HEADER_VALUES.COMPACT_2026_09_04.value
 COMPACTED_HISTORY = [
@@ -319,8 +319,8 @@ def test_endpoint_prefers_deployment_api_base_over_env_base(monkeypatch):
 
 @pytest.fixture
 def httpx_transport_clients(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    client_cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    client_cache = getattr(hangarllm, "in_memory_llm_clients_cache", None)
     if client_cache is not None:
         client_cache.flush_cache()
     yield
@@ -570,7 +570,7 @@ async def _counted_body(
             model_to_use="claude-opus-5-5",
             messages=messages,
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-ant-api03-test-key", "api_base": "https://gateway.example"}},
+            deployment={"hangarllm_params": {"api_key": "sk-ant-api03-test-key", "api_base": "https://gateway.example"}},
             request_model="claude-opus-5-5",
             tools=tools,
             messages_format=messages_format,
@@ -860,7 +860,7 @@ async def test_counter_sends_the_tools_chat_inference_makes_from_tool_search_and
         model="claude-opus-5-5",
         messages=deepcopy(messages),
         optional_params=config.map_openai_params({"tools": deepcopy(tools)}, {}, "claude-opus-5-5", drop_params=False),
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -903,7 +903,7 @@ async def test_counter_sends_the_structured_output_tool_choice_and_thinking_chat
         optional_params=config.map_openai_params(
             {**chat_params, "tools": [tool]}, {}, "claude-opus-5-5", drop_params=False
         ),
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
 
@@ -992,7 +992,7 @@ async def test_counter_forwards_context_management_with_the_beta_inference_sends
             model_to_use="claude-opus-5-5",
             messages=[{"role": "assistant", "content": [{"type": "compaction", "content": "Recipe app summary."}]}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-ant-api03-test-key", "api_base": "https://gateway.example"}},
+            deployment={"hangarllm_params": {"api_key": "sk-ant-api03-test-key", "api_base": "https://gateway.example"}},
             context_management=CountContextManagement(spec=context_management, drop_invalid_edits=False),
         )
 
@@ -1017,7 +1017,7 @@ async def test_counter_leaves_out_context_management_without_edits(context_manag
             model_to_use="claude-opus-5-5",
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
-            deployment={"litellm_params": {"api_key": "sk-ant-api03-test-key", "api_base": "https://gateway.example"}},
+            deployment={"hangarllm_params": {"api_key": "sk-ant-api03-test-key", "api_base": "https://gateway.example"}},
             context_management=CountContextManagement(spec=context_management, drop_invalid_edits=False),
         )
 

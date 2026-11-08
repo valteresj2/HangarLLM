@@ -4,7 +4,7 @@ Shared fixtures for the LIT-3193 OTEL HTTP-attribute matrix.
 The matrix needs every error response — across unified inference, passthrough,
 and admin endpoints — to carry ``http.response.status_code``, ``url.path``,
 ``http.route``, and a non-zero duration on the SERVER (root) span. These
-fixtures hook a real ``OpenTelemetry`` callback into ``litellm.callbacks`` so
+fixtures hook a real ``OpenTelemetry`` callback into ``hangarllm.callbacks`` so
 the tests drive the actual handler / wrapper code under test, not the OTEL
 emitter in isolation.
 
@@ -23,8 +23,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 )
 
 
-import litellm
-from litellm.integrations.opentelemetry import OpenTelemetry
+import hangarllm
+from hangarllm.integrations.opentelemetry import OpenTelemetry
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ def server_span_factory(otel_with_exporter):
     otel, _exporter = otel_with_exporter
 
     def _make(url_path: str, http_route: Optional[str] = None):
-        span = otel.create_litellm_proxy_request_started_span(
+        span = otel.create_hangarllm_proxy_request_started_span(
             start_time=datetime.now(), headers={}
         )
         otel.set_proxy_request_route_attributes(
@@ -80,10 +80,10 @@ def user_api_key_dict_factory():
 def register_otel_callback(otel_with_exporter, monkeypatch):
     """Make ProxyLogging.post_call_failure_hook iterate our OTEL instance."""
     otel, _ = otel_with_exporter
-    saved = list(litellm.callbacks)
-    monkeypatch.setattr(litellm, "callbacks", [otel])
+    saved = list(hangarllm.callbacks)
+    monkeypatch.setattr(hangarllm, "callbacks", [otel])
     yield otel
-    litellm.callbacks = saved
+    hangarllm.callbacks = saved
 
 
 # Helpers (assertions, exception factories) live in ``_helpers.py`` — pytest

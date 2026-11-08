@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-from litellm.caching.valkey_semantic_cache import ValkeySemanticCache
+from hangarllm.caching.valkey_semantic_cache import ValkeySemanticCache
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 
@@ -124,12 +124,12 @@ def test_init_rejects_cluster_startup_nodes():
 
 
 def test_cache_dispatch_rejects_cluster_for_valkey_semantic():
-    from litellm.caching.caching import Cache
-    from litellm.types.caching import LiteLLMCacheType
+    from hangarllm.caching.caching import Cache
+    from hangarllm.types.caching import HangarLLMCacheType
 
     with pytest.raises(ValueError, match="cluster-mode-enabled"):
         Cache(
-            type=LiteLLMCacheType.VALKEY_SEMANTIC,
+            type=HangarLLMCacheType.VALKEY_SEMANTIC,
             host="valkey-host",
             port="6379",
             similarity_threshold=0.8,
@@ -403,7 +403,7 @@ def test_ensure_index_reraises_unexpected_error():
 
 
 _FT_INFO_ATTRS_DIM_1536 = [
-    [b"identifier", b"litellm_cache_key", b"type", b"TAG"],
+    [b"identifier", b"hangarllm_cache_key", b"type", b"TAG"],
     [
         b"identifier",
         b"embedding",
@@ -480,11 +480,11 @@ def test_init_uses_both_injected_clients_without_connection_info(monkeypatch):
 
 
 def test_cache_dispatches_valkey_semantic_type():
-    from litellm.caching.caching import Cache
-    from litellm.types.caching import LiteLLMCacheType
+    from hangarllm.caching.caching import Cache
+    from hangarllm.types.caching import HangarLLMCacheType
 
     cache = Cache(
-        type=LiteLLMCacheType.VALKEY_SEMANTIC,
+        type=HangarLLMCacheType.VALKEY_SEMANTIC,
         host="valkey-host",
         port="6380",
         similarity_threshold=0.8,
@@ -513,7 +513,7 @@ async def test_index_info_uses_valkey_ft_info():
 def test_importing_caching_does_not_require_redis():
     # redis is an optional dependency (extra_proxy), so the base SDK can be
     # installed without it. Selecting valkey-semantic needs redis, but merely
-    # importing litellm.caching.caching must not, or `import litellm` breaks for
+    # importing hangarllm.caching.caching must not, or `import hangarllm` breaks for
     # every base-SDK user. This runs in a subprocess with redis blocked so the
     # check is not polluted by redis already being imported in this session.
     code = textwrap.dedent("""
@@ -521,9 +521,9 @@ def test_importing_caching_does_not_require_redis():
         for name in ("redis", "redis.asyncio", "redis.commands",
                      "redis.commands.search"):
             sys.modules[name] = None
-        import litellm.caching.caching  # must not import redis at module top
-        from litellm.types.caching import LiteLLMCacheType
-        assert LiteLLMCacheType.VALKEY_SEMANTIC == "valkey-semantic"
+        import hangarllm.caching.caching  # must not import redis at module top
+        from hangarllm.types.caching import HangarLLMCacheType
+        assert HangarLLMCacheType.VALKEY_SEMANTIC == "valkey-semantic"
         print("ok")
         """)
     result = subprocess.run(

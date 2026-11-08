@@ -55,7 +55,7 @@ class _AnthropicErrorDetail(BaseModel):
 
     type: str
     message: str
-    litellm_error_type: str
+    hangarllm_error_type: str
 
 
 class _AnthropicErrorResponse(BaseModel):
@@ -69,7 +69,7 @@ GENERIC_ERROR: Final = _ProxyError(message=GENERIC_MESSAGE, type="token_not_foun
 MESSAGES_PATH: Final = "/v1/messages"
 ANTHROPIC_ENVELOPE_PATHS: Final = frozenset({MESSAGES_PATH, "/anthropic/v1/messages"})
 ANTHROPIC_GENERIC_ERROR: Final = _AnthropicErrorDetail(
-    type="authentication_error", message=GENERIC_MESSAGE, litellm_error_type=GENERIC_ERROR.type
+    type="authentication_error", message=GENERIC_MESSAGE, hangarllm_error_type=GENERIC_ERROR.type
 )
 
 
@@ -276,7 +276,7 @@ def test_an_unknown_key_failure_row_keeps_its_hash_and_records_the_generic_messa
     key: Final = _unknown_key()
     _assert_generic_refusal(_send(gateway, ROUTES["chat"], key), key)
     rows: Final = eventually(
-        lambda: read_rows('SELECT status, metadata FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (_digest(key),)),
+        lambda: read_rows('SELECT status, metadata FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (_digest(key),)),
         lambda found: len(found) == 1,
         seconds=15,
     )
@@ -303,7 +303,7 @@ def test_requests_without_an_sk_key_keep_their_own_401(gateway: Gateway, peer: G
         message="Authentication Error, No api key passed in.", type="auth_error", param=None, code="401"
     )
     assert _control_error(client.get("/v1/models", headers={"Authorization": "Bearer not-a-real-key"})) == _ProxyError(
-        message="LiteLLM Virtual Key expected. Received=not-****-key, expected to start with 'sk-'.",
+        message="HangarLLM Virtual Key expected. Received=not-****-key, expected to start with 'sk-'.",
         type="auth_error",
         param=None,
         code="401",
@@ -328,7 +328,7 @@ def test_an_expired_key_keeps_its_own_401_on_both_proxies(gateway: Gateway, peer
     with gateway.scenario() as scenario:
         key: Final = scenario.key(models=[MODEL])
         write_rows(
-            "UPDATE \"LiteLLM_VerificationToken\" SET expires = now() - interval '1 hour' WHERE token=%s",
+            "UPDATE \"HangarLLM_VerificationToken\" SET expires = now() - interval '1 hour' WHERE token=%s",
             (_digest(key),),
         )
         errors: Final = tuple(

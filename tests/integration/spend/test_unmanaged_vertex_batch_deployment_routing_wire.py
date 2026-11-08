@@ -36,7 +36,7 @@ def _deployment(team: str) -> str:
 
 
 def _input_file(team: str) -> str:
-    return f"gs://scripted-bucket-{team}/litellm-vertex-files/publishers/google/models/{BASE_MODEL}/{uuid4().hex}/input.jsonl"
+    return f"gs://scripted-bucket-{team}/hangarllm-vertex-files/publishers/google/models/{BASE_MODEL}/{uuid4().hex}/input.jsonl"
 
 
 def _job_number(team: str) -> str:
@@ -82,7 +82,7 @@ def _vertex_peer(jobs: dict[str, tuple[str, str]]) -> Callable[[Request], Reply]
 def _job(project: str, location: str, job: str, input_uri: str, state: str) -> dict[str, JsonValue]:
     return {
         "name": f"projects/{project}/locations/{location}/batchPredictionJobs/{job}",
-        "displayName": "litellm-vertex-batch-scripted",
+        "displayName": "hangarllm-vertex-batch-scripted",
         "model": f"publishers/google/models/{BASE_MODEL}",
         "inputConfig": {"gcsSource": {"uris": [input_uri]}, "instancesFormat": "jsonl"},
         "outputConfig": {"predictionsFormat": "jsonl", "gcsDestination": {"outputUriPrefix": input_uri.rsplit("/", 1)[0]}},
@@ -101,7 +101,7 @@ def _owned_config(path: Path, gateway: Gateway, wire_url: str) -> Path:
                 "model_list": [
                     {
                         "model_name": _deployment(team),
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"vertex_ai/{BASE_MODEL}",
                             "api_base": wire_url,
                             "vertex_project": _project(team),
@@ -116,8 +116,8 @@ def _owned_config(path: Path, gateway: Gateway, wire_url: str) -> Path:
                     **object_value(config.get("general_settings") or {}),
                     "track_unmanaged_batch_cost": True,
                 },
-                "litellm_settings": {
-                    **object_value(config.get("litellm_settings") or {}),
+                "hangarllm_settings": {
+                    **object_value(config.get("hangarllm_settings") or {}),
                     "enable_loadbalancing_on_batch_endpoints": True,
                     "user_url_allowed_hosts": ["127.0.0.1"],
                 },

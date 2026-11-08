@@ -2,7 +2,7 @@ from typing import Any, Dict, Tuple
 
 import pytest
 
-from litellm.proxy.client.cli.commands.autoroute.config import (
+from hangarllm.proxy.client.cli.commands.autoroute.config import (
     DEFAULT_KEYWORD_TIER_RULES,
     AutorouteConfig,
     ConfigGenerationError,
@@ -93,14 +93,14 @@ class TestBuildGeneratedModelList:
         names = {m["model_name"] for m in proxy_entries}
         assert names == {"gpt-4o-mini", "gpt-4o", "o1"}
         for entry in proxy_entries:
-            assert entry["litellm_params"]["model"] == f"litellm_proxy/{entry['model_name']}"
-            assert entry["litellm_params"]["api_base"] == config.base_url
-            assert entry["litellm_params"]["api_key"] == config.api_key
+            assert entry["hangarllm_params"]["model"] == f"hangarllm_proxy/{entry['model_name']}"
+            assert entry["hangarllm_params"]["api_base"] == config.base_url
+            assert entry["hangarllm_params"]["api_key"] == config.api_key
 
     def test_no_wildcard_deployment_is_generated(self):
         # A bare "*" model_name looks like the obvious catch-all, but Router's auto-router
         # registry is keyed by the literal requested model string with no wildcard resolution
-        # (litellm/router.py:10711-10717), so a "*" entry here would silently never match real
+        # (hangarllm/router.py:10711-10717), so a "*" entry here would silently never match real
         # traffic. Regression guard: don't reintroduce it.
         config = _base_config()
         model_list = build_generated_model_list(config)
@@ -109,7 +109,7 @@ class TestBuildGeneratedModelList:
     def test_complexity_router_config_reflects_llm_classifier(self):
         config = _base_config(classifier=LLMClassifier(model="gpt-4o", timeout_ms=1234))
         autorouter = next(m for m in build_generated_model_list(config) if m["model_name"] == "autorouter")
-        router_config = autorouter["litellm_params"]["complexity_router_config"]
+        router_config = autorouter["hangarllm_params"]["complexity_router_config"]
         assert router_config["classifier_type"] == "llm"
         assert router_config["classifier_llm_config"] == {"model": "gpt-4o", "timeout_ms": 1234}
         assert "semantic_keyword_matching" not in router_config
@@ -120,7 +120,7 @@ class TestBuildGeneratedModelList:
             semantic_matching=SemanticMatching(embedding_model="text-embedding-3-small", match_threshold=0.7)
         )
         autorouter = next(m for m in build_generated_model_list(config) if m["model_name"] == "autorouter")
-        router_config = autorouter["litellm_params"]["complexity_router_config"]
+        router_config = autorouter["hangarllm_params"]["complexity_router_config"]
         assert router_config["semantic_keyword_matching"] is True
         assert router_config["embedding_model"] == "text-embedding-3-small"
         assert router_config["match_threshold"] == 0.7
@@ -130,7 +130,7 @@ class TestBuildGeneratedModelList:
     def test_semantic_matching_defaults_emit_builtin_keyword_rules(self):
         config = _base_config(semantic_matching=SemanticMatching(embedding_model="text-embedding-3-small"))
         autorouter = next(m for m in build_generated_model_list(config) if m["model_name"] == "autorouter")
-        router_config = autorouter["litellm_params"]["complexity_router_config"]
+        router_config = autorouter["hangarllm_params"]["complexity_router_config"]
         assert router_config["keyword_tier_rules"] == [
             {"keywords": list(rule.keywords), "tier": rule.tier} for rule in DEFAULT_KEYWORD_TIER_RULES
         ]
@@ -146,7 +146,7 @@ class TestBuildGeneratedModelList:
             )
         )
         autorouter = next(m for m in build_generated_model_list(config) if m["model_name"] == "autorouter")
-        router_config = autorouter["litellm_params"]["complexity_router_config"]
+        router_config = autorouter["hangarllm_params"]["complexity_router_config"]
         assert router_config["keyword_tier_rules"] == [
             {"keywords": ["yo", "sup"], "tier": "SIMPLE"},
             {"keywords": ["architect", "design a system"], "tier": "COMPLEX"},
@@ -155,19 +155,19 @@ class TestBuildGeneratedModelList:
     def test_complexity_router_config_reflects_adaptive(self):
         config = _base_config(adaptive=True)
         autorouter = next(m for m in build_generated_model_list(config) if m["model_name"] == "autorouter")
-        assert autorouter["litellm_params"]["complexity_router_config"]["adaptive"] is True
+        assert autorouter["hangarllm_params"]["complexity_router_config"]["adaptive"] is True
 
     def test_default_classifier_and_semantic_matching_add_no_extra_keys(self):
         config = _base_config(classifier=HeuristicClassifier(), semantic_matching=NoSemanticMatching())
         autorouter = next(m for m in build_generated_model_list(config) if m["model_name"] == "autorouter")
-        router_config = autorouter["litellm_params"]["complexity_router_config"]
+        router_config = autorouter["hangarllm_params"]["complexity_router_config"]
         assert set(router_config.keys()) == {"tiers", "default_model", "return_raw_model_name"}
 
     def test_the_generated_router_reports_the_tier_model_it_routed_to(self):
         # The status line reads the routed model from the response body, which the proxy restamps to the
         # requested alias unless the deployment opts out; "autorouter" on every line would tell nothing.
         autorouter = next(m for m in build_generated_model_list(_base_config()) if m["model_name"] == "autorouter")
-        assert autorouter["litellm_params"]["complexity_router_config"]["return_raw_model_name"] is True
+        assert autorouter["hangarllm_params"]["complexity_router_config"]["return_raw_model_name"] is True
 
 
 class TestBuildGeneratedProxyConfig:

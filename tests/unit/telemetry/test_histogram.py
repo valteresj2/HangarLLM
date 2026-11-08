@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.telemetry.histogram import Histogram
+from hangarllm.telemetry.histogram import Histogram
 
 _BOUNDS: Final = (10.0, 100.0)
 

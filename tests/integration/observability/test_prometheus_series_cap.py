@@ -265,7 +265,7 @@ class TestCapped:
         """E1: /config/update refuses the YAML-owned cap, so a fourth key still lands on `other`."""
         response: Final = capped.gateway.client.post(
             "/config/update",
-            json={"litellm_settings": {"prometheus_metrics_max_series_per_metric": 50}},
+            json={"hangarllm_settings": {"prometheus_metrics_max_series_per_metric": 50}},
             headers={"Authorization": f"Bearer {capped.gateway.key}"},
         )
         assert response.status_code == 400, response.text
@@ -411,7 +411,7 @@ def _fallback_deployments(provider_url: str) -> tuple[dict[str, JsonValue], ...]
     return tuple(
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/gpt-{name}",
                 "api_base": provider_url + "/v1",
                 "api_key": "synthetic-provider-key",

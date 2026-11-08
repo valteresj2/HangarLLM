@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.llms.custom_httpx.http_handler import get_shared_realtime_ssl_context
+from hangarllm.llms.custom_httpx.http_handler import get_shared_realtime_ssl_context
 
 
 
@@ -16,10 +16,10 @@ async def test_async_realtime_uses_max_size_parameter():
     Test that Azure's async_realtime method uses the REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
     constant for the max_size parameter to handle large base64 audio payloads.
 
-    This verifies the fix for: https://github.com/BerriAI/litellm/issues/15747
+    This verifies the fix for: upstream issue 15747
     """
-    from litellm.constants import REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.constants import REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     api_base = "https://my-endpoint.openai.azure.com"
@@ -47,7 +47,7 @@ async def test_async_realtime_uses_max_size_parameter():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.azure.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.azure.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
 
@@ -85,7 +85,7 @@ async def test_construct_url_default_beta_protocol():
     Test that _construct_url uses /openai/realtime (beta) by default.
     This maintains backwards compatibility.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -106,7 +106,7 @@ async def test_construct_url_beta_protocol_explicit():
     """
     Test that realtime_protocol='beta' explicitly uses /openai/realtime.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -126,7 +126,7 @@ async def test_construct_url_ga_protocol():
     Test that realtime_protocol='GA' uses /openai/v1/realtime (GA path).
     GA path uses ?model= instead of ?api-version=&deployment= format.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -153,7 +153,7 @@ async def test_construct_url_forwards_transcription_intent_ga():
     must forward that query param so gpt-realtime-whisper opens a transcription
     session instead of a normal realtime session.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -176,7 +176,7 @@ async def test_construct_url_forwards_transcription_intent_ga_without_model_quer
     intent=transcription and send the transcription model in session.update.
     Preserve that query shape instead of forcing model= into the upstream URL.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -195,7 +195,7 @@ async def test_construct_url_forwards_transcription_intent_ga_without_model_quer
 
 @pytest.mark.asyncio
 async def test_construct_url_forwards_transcription_intent_beta():
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -213,7 +213,7 @@ async def test_construct_url_forwards_transcription_intent_beta():
 @pytest.mark.asyncio
 async def test_construct_url_encodes_intent_value():
     """A crafted intent value must be URL-encoded, not injected as raw query params."""
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -230,7 +230,7 @@ async def test_construct_url_encodes_intent_value():
 @pytest.mark.asyncio
 async def test_construct_url_no_intent_when_absent():
     """No intent param leaks into the URL when not provided."""
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -248,7 +248,7 @@ async def test_construct_url_v1_protocol():
     """
     Test that realtime_protocol='v1' also uses /openai/v1/realtime.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -263,7 +263,7 @@ async def test_construct_url_v1_protocol():
 
 
 def test_construct_url_translation_protocol():
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     url = AzureOpenAIRealtime()._construct_url(
         api_base="https://my-endpoint.openai.azure.com",
@@ -283,7 +283,7 @@ async def test_construct_url_case_insensitive_protocol(protocol):
     """
     Test that realtime_protocol matching is case-insensitive.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     url = handler.construct_url(
@@ -304,7 +304,7 @@ async def test_async_realtime_uses_ga_protocol_end_to_end():
     Test that realtime_protocol='GA' flows through async_realtime to construct the correct URL.
     This is the end-to-end test ensuring the parameter is properly used.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     api_base = "https://my-endpoint.openai.azure.com"
@@ -331,7 +331,7 @@ async def test_async_realtime_uses_ga_protocol_end_to_end():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.azure.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.azure.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
 
@@ -370,7 +370,7 @@ async def test_async_realtime_ga_without_api_version():
     Test that GA/v1 protocol works without api_version (which is not needed for the GA path).
     Fixes #22127: api_version check was unconditional, blocking GA path.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     api_base = "https://my-endpoint.openai.azure.com"
@@ -396,7 +396,7 @@ async def test_async_realtime_ga_without_api_version():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.azure.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.azure.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
 
@@ -426,7 +426,7 @@ async def test_async_realtime_beta_without_api_version_raises():
     """
     Test that beta protocol still requires api_version.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     dummy_websocket = AsyncMock()
@@ -450,7 +450,7 @@ async def test_arealtime_transcription_intent_defaults_to_ga(monkeypatch):
     Azure gpt-realtime-whisper transcription connects on the GA /openai/v1/realtime
     path. If the DB model lacks realtime_protocol, infer GA from intent=transcription.
     """
-    from litellm.realtime_api import main as realtime_main
+    from hangarllm.realtime_api import main as realtime_main
 
     mock_async_realtime = AsyncMock()
     monkeypatch.setattr(
@@ -475,7 +475,7 @@ async def test_arealtime_transcription_intent_defaults_to_ga(monkeypatch):
         api_key="test-key",
         api_version="2025-04-01-preview",
         query_params={"intent": "transcription"},
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
     )
 
     called_kwargs = mock_async_realtime.call_args.kwargs
@@ -489,7 +489,7 @@ async def test_async_realtime_default_maintains_backwards_compatibility():
     Test that not passing realtime_protocol maintains the original beta behavior.
     This ensures backwards compatibility for existing deployments.
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     api_base = "https://my-endpoint.openai.azure.com"
@@ -516,7 +516,7 @@ async def test_async_realtime_default_maintains_backwards_compatibility():
             "websockets.connect", return_value=DummyAsyncContextManager(mock_backend_ws)
         ) as mock_ws_connect,
         patch(
-            "litellm.llms.azure.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.azure.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
 
@@ -561,9 +561,9 @@ async def test_async_realtime_uses_bearer_token_when_no_api_key():
     Entra ID-only Azure realtime deployments have no static api-key, so the handshake must
     authenticate with `Authorization: Bearer <azure_ad_token>` and must not send `api-key`.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+    Regression test for upstream issue 34654
     """
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     handler = AzureOpenAIRealtime()
     mock_backend_ws = AsyncMock()
@@ -574,7 +574,7 @@ async def test_async_realtime_uses_bearer_token_when_no_api_key():
             return_value=_DummyAsyncContextManager(mock_backend_ws),
         ) as mock_ws_connect,
         patch(  # test-quality-ok: handler owns the streaming loop, only the handshake headers are under test
-            "litellm.llms.azure.realtime.handler.RealTimeStreaming"
+            "hangarllm.llms.azure.realtime.handler.RealTimeStreaming"
         ) as mock_realtime_streaming,
     ):
         mock_realtime_streaming.return_value.bidirectional_forward = AsyncMock()
@@ -594,7 +594,7 @@ async def test_async_realtime_uses_bearer_token_when_no_api_key():
 
 
 def test_get_auth_headers_prefers_api_key_and_never_sends_both():
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     assert AzureOpenAIRealtime.get_auth_headers(api_key="test-key", azure_ad_token="my-entra-token") == {
         "api-key": "test-key"
@@ -602,7 +602,7 @@ def test_get_auth_headers_prefers_api_key_and_never_sends_both():
 
 
 def test_get_auth_headers_without_credentials_raises():
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     with pytest.raises(ValueError, match="Missing Azure credentials"):
         AzureOpenAIRealtime.get_auth_headers(api_key=None, azure_ad_token=None)
@@ -614,9 +614,9 @@ async def test_arealtime_resolves_azure_ad_token_when_no_api_key(monkeypatch):
     `_arealtime` must resolve an Azure AD token (managed identity, service principal, etc.)
     and forward it to the handler when the deployment has no api_key.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+    Regression test for upstream issue 34654
     """
-    from litellm.realtime_api import main as realtime_main
+    from hangarllm.realtime_api import main as realtime_main
 
     mock_async_realtime = AsyncMock()
     monkeypatch.setattr(realtime_main, "azure_realtime", MagicMock(async_realtime=mock_async_realtime))
@@ -634,8 +634,8 @@ async def test_arealtime_resolves_azure_ad_token_when_no_api_key(monkeypatch):
 
     captured_params = {}
 
-    def fake_get_azure_ad_token(litellm_params):
-        captured_params["tenant_id"] = litellm_params.get("tenant_id")
+    def fake_get_azure_ad_token(hangarllm_params):
+        captured_params["tenant_id"] = hangarllm_params.get("tenant_id")
         return "my-entra-token"
 
     monkeypatch.setattr(realtime_main, "get_azure_ad_token", fake_get_azure_ad_token)
@@ -644,7 +644,7 @@ async def test_arealtime_resolves_azure_ad_token_when_no_api_key(monkeypatch):
         model="azure/gpt-realtime-whisper",
         websocket=MagicMock(),
         api_version="2024-10-01-preview",
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         tenant_id="my-tenant",
         client_id="my-client",
         client_secret="my-secret",
@@ -656,7 +656,7 @@ async def test_arealtime_resolves_azure_ad_token_when_no_api_key(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_arealtime_does_not_resolve_azure_ad_token_when_api_key_present(monkeypatch):
-    from litellm.realtime_api import main as realtime_main
+    from hangarllm.realtime_api import main as realtime_main
 
     mock_async_realtime = AsyncMock()
     monkeypatch.setattr(realtime_main, "azure_realtime", MagicMock(async_realtime=mock_async_realtime))
@@ -671,7 +671,7 @@ async def test_arealtime_does_not_resolve_azure_ad_token_when_api_key_present(mo
         ),
     )
 
-    def fail_get_azure_ad_token(litellm_params):
+    def fail_get_azure_ad_token(hangarllm_params):
         raise AssertionError("should not resolve an AD token when an api_key is configured")
 
     monkeypatch.setattr(realtime_main, "get_azure_ad_token", fail_get_azure_ad_token)
@@ -681,7 +681,7 @@ async def test_arealtime_does_not_resolve_azure_ad_token_when_api_key_present(mo
         websocket=MagicMock(),
         api_key="test-key",
         api_version="2024-10-01-preview",
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
     )
 
     assert mock_async_realtime.call_args.kwargs["azure_ad_token"] is None
@@ -692,16 +692,16 @@ async def test_realtime_health_check_uses_bearer_token_when_no_api_key(monkeypat
     """
     An Entra ID-only realtime deployment must also pass its realtime health check.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+    Regression test for upstream issue 34654
     """
-    from litellm.realtime_api import main as realtime_main
+    from hangarllm.realtime_api import main as realtime_main
 
     connect_calls = []
 
     monkeypatch.setattr(
         realtime_main,
         "get_azure_ad_token",
-        lambda litellm_params: "my-entra-token",
+        lambda hangarllm_params: "my-entra-token",
     )
 
     def fake_connect(url, **kwargs):
@@ -730,9 +730,9 @@ async def test_arealtime_forwards_deployment_azure_ad_token(monkeypatch, no_ambi
     The router binds a deployment's `azure_ad_token` to `_arealtime`'s named parameter rather than
     **kwargs, so it must still reach the handler.
 
-    Regression test for https://github.com/BerriAI/litellm/issues/34654
+    Regression test for upstream issue 34654
     """
-    from litellm.realtime_api import main as realtime_main
+    from hangarllm.realtime_api import main as realtime_main
 
     mock_async_realtime = AsyncMock()
     monkeypatch.setattr(realtime_main, "azure_realtime", MagicMock(async_realtime=mock_async_realtime))
@@ -747,14 +747,14 @@ async def test_arealtime_forwards_deployment_azure_ad_token(monkeypatch, no_ambi
         ),
     )
     monkeypatch.delenv("AZURE_API_KEY", raising=False)
-    monkeypatch.setattr(realtime_main.litellm, "api_key", None)
+    monkeypatch.setattr(realtime_main.hangarllm, "api_key", None)
 
     await realtime_main._arealtime(
         model="azure/gpt-realtime-whisper",
         websocket=MagicMock(),
         api_version="2024-10-01-preview",
         azure_ad_token="deployment-entra-token",
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
     )
 
     assert mock_async_realtime.call_args.kwargs["azure_ad_token"] == "deployment-entra-token"
@@ -762,7 +762,7 @@ async def test_arealtime_forwards_deployment_azure_ad_token(monkeypatch, no_ambi
 
 @pytest.mark.parametrize("protocol", [None, "GA"])
 def test_construct_url_with_a_trailing_slash_api_base_matches_the_url_without_it(protocol):
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from hangarllm.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     def url_for(api_base: str) -> str:
         return AzureOpenAIRealtime().construct_url(
@@ -788,7 +788,7 @@ class _ClientWebSocketWithHeaders:
 def test_a_deployment_pinned_to_ga_bridges_only_a_beta_client(
     pinned_protocol: str, client_headers: tuple[tuple[bytes, bytes], ...], bridges_beta_client_to_ga: bool
 ) -> None:
-    from litellm.llms.azure.realtime.handler import AzureRealtimeProtocol, azure_realtime_protocol_for_client
+    from hangarllm.llms.azure.realtime.handler import AzureRealtimeProtocol, azure_realtime_protocol_for_client
 
     protocol: Final = azure_realtime_protocol_for_client(
         pinned_protocol,

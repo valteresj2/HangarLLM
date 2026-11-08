@@ -50,7 +50,7 @@ def test_config_deployment_api_key_reaches_only_the_provider(
             "Positive control: the provider double never received the B1 canary"
         )
         request_id: Final = (
-            string_value(response.json()["id"]) if outcome == "success" else response.headers["x-litellm-call-id"]
+            string_value(response.json()["id"]) if outcome == "success" else response.headers["x-hangarllm-call-id"]
         )
         settle(rig, request_id, marker)
 
@@ -74,7 +74,7 @@ def test_config_deployment_api_key_reaches_only_the_provider(
         assert_marker_seen(
             report,
             {
-                "S1": "LiteLLM_SpendLogs.proxy_server_request",
+                "S1": "HangarLLM_SpendLogs.proxy_server_request",
                 "S2": f"GET /spend/logs/ui/{request_id} as admin -> 200",
                 "S4": f"{GENERIC_SINK}[",
             },

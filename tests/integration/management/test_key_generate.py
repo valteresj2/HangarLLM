@@ -59,7 +59,7 @@ async def test_key_generate_authz_matrix(
         resp.status_code == expected_status
     ), f"{actor.value} {body!r} → {resp.status_code}: {resp.text}"
 
-    rows = await db.db.litellm_verificationtoken.find_many(
+    rows = await db.db.hangarllm_verificationtoken.find_many(
         where={"key_alias": resources.prefix}
     )
     if expected_status == 200:

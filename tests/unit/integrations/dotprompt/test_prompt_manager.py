@@ -12,10 +12,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 import httpx
 
-import litellm
-from litellm.integrations.dotprompt.dotprompt_manager import DotpromptManager
-from litellm.integrations.dotprompt.prompt_manager import PromptManager, PromptTemplate
-from litellm.types.prompts.init_prompts import PromptLiteLLMParams, PromptSpec
+import hangarllm
+from hangarllm.integrations.dotprompt.dotprompt_manager import DotpromptManager
+from hangarllm.integrations.dotprompt.prompt_manager import PromptManager, PromptTemplate
+from hangarllm.types.prompts.init_prompts import PromptHangarLLMParams, PromptSpec
 
 
 def test_prompt_manager_initialization():
@@ -555,10 +555,10 @@ Original prompt content: {{variable}}"""
 
 def test_prompt_main():
     """
-    Integration test placeholder for litellm completion integration.
-    This would be implemented once the PromptManager is integrated with litellm.
+    Integration test placeholder for hangarllm completion integration.
+    This would be implemented once the PromptManager is integrated with hangarllm.
     """
-    # TODO: Implement once PromptManager is integrated with litellm completion
+    # TODO: Implement once PromptManager is integrated with hangarllm completion
     pass
 
 
@@ -568,7 +568,7 @@ async def test_dotprompt_with_prompt_version():
     Test that dotprompt can load and use specific prompt versions.
     Versions are stored as separate files with .v{version}.prompt naming convention.
     """
-    from litellm.integrations.dotprompt.prompt_manager import PromptManager
+    from hangarllm.integrations.dotprompt.prompt_manager import PromptManager
 
     prompt_dir = Path(__file__).parent
     prompt_manager = PromptManager(prompt_directory=str(prompt_dir))
@@ -640,7 +640,7 @@ def test_get_prompt_falls_back_to_base_id_for_versioned_id():
 
 
 def test_should_run_prompt_management_accepts_versioned_id():
-    from litellm.integrations.dotprompt import DotpromptManager
+    from hangarllm.integrations.dotprompt import DotpromptManager
 
     dotprompt_manager = DotpromptManager(
         prompt_data={"content": "Hi", "metadata": {}},
@@ -653,24 +653,24 @@ def test_should_run_prompt_management_accepts_versioned_id():
 
 
 def test_prompt_initializer_registers_flat_db_prompt_under_base_id():
-    from litellm.integrations.dotprompt import DotpromptManager, prompt_initializer
-    from litellm.types.prompts.init_prompts import (
+    from hangarllm.integrations.dotprompt import DotpromptManager, prompt_initializer
+    from hangarllm.types.prompts.init_prompts import (
         PromptInfo,
-        PromptLiteLLMParams,
+        PromptHangarLLMParams,
         PromptSpec,
     )
 
-    litellm_params = PromptLiteLLMParams(
+    hangarllm_params = PromptHangarLLMParams(
         prompt_integration="dotprompt",
         prompt_data={"content": "AHOY {{name}}", "metadata": {"model": "gpt-4o-mini"}},
     )
     prompt_spec = PromptSpec(
         prompt_id="agent-prompt.v1",
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         prompt_info=PromptInfo(prompt_type="db"),
     )
 
-    dotprompt_manager = prompt_initializer(litellm_params, prompt_spec)
+    dotprompt_manager = prompt_initializer(hangarllm_params, prompt_spec)
 
     assert isinstance(dotprompt_manager, DotpromptManager)
     template = dotprompt_manager.prompt_manager.get_prompt("agent-prompt")
@@ -681,18 +681,18 @@ def test_prompt_initializer_registers_flat_db_prompt_under_base_id():
 def test_prompt_initializer_accepts_params_without_dotprompt_content():
     from types import SimpleNamespace
 
-    from litellm.integrations.dotprompt import prompt_initializer
-    from litellm.types.prompts.init_prompts import PromptLiteLLMParams, PromptSpec
+    from hangarllm.integrations.dotprompt import prompt_initializer
+    from hangarllm.types.prompts.init_prompts import PromptHangarLLMParams, PromptSpec
 
-    litellm_params: Final = SimpleNamespace(
+    hangarllm_params: Final = SimpleNamespace(
         prompt_data={"content": "AHOY {{name}}", "metadata": {"model": "gpt-4o-mini"}},
     )
     prompt_spec: Final = PromptSpec(
         prompt_id="agent-prompt",
-        litellm_params=PromptLiteLLMParams(prompt_integration="dotprompt"),
+        hangarllm_params=PromptHangarLLMParams(prompt_integration="dotprompt"),
     )
 
-    dotprompt_manager: Final = prompt_initializer(litellm_params, prompt_spec)
+    dotprompt_manager: Final = prompt_initializer(hangarllm_params, prompt_spec)
 
     template: Final = dotprompt_manager.prompt_manager.get_prompt("agent-prompt")
     assert template is not None
@@ -706,7 +706,7 @@ def _swap_prompt_manager_and_spec(ignore_prompt_manager_model: bool) -> tuple[Do
     )
     spec = PromptSpec(
         prompt_id="swap-prompt",
-        litellm_params=PromptLiteLLMParams(
+        hangarllm_params=PromptHangarLLMParams(
             prompt_id="swap-prompt",
             prompt_integration="dotprompt",
             ignore_prompt_manager_model=ignore_prompt_manager_model,
@@ -717,7 +717,7 @@ def _swap_prompt_manager_and_spec(ignore_prompt_manager_model: bool) -> tuple[Do
 
 @pytest.mark.asyncio
 async def test_async_prompt_spec_ignore_prompt_manager_model_keeps_requested_model():
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from hangarllm.types.utils import StandardCallbackDynamicParams
 
     manager, spec = _swap_prompt_manager_and_spec(ignore_prompt_manager_model=True)
     model, messages, _ = await manager.async_get_chat_completion_prompt(
@@ -727,7 +727,7 @@ async def test_async_prompt_spec_ignore_prompt_manager_model_keeps_requested_mod
         prompt_id="swap-prompt",
         prompt_variables=None,
         dynamic_callback_params=StandardCallbackDynamicParams(),
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         prompt_spec=spec,
     )
     assert model == "anthropic/claude-haiku-4-5"
@@ -737,7 +737,7 @@ async def test_async_prompt_spec_ignore_prompt_manager_model_keeps_requested_mod
 
 @pytest.mark.asyncio
 async def test_async_prompt_spec_without_ignore_flag_swaps_model():
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from hangarllm.types.utils import StandardCallbackDynamicParams
 
     manager, spec = _swap_prompt_manager_and_spec(ignore_prompt_manager_model=False)
     model, _, _ = await manager.async_get_chat_completion_prompt(
@@ -747,14 +747,14 @@ async def test_async_prompt_spec_without_ignore_flag_swaps_model():
         prompt_id="swap-prompt",
         prompt_variables=None,
         dynamic_callback_params=StandardCallbackDynamicParams(),
-        litellm_logging_obj=MagicMock(),
+        hangarllm_logging_obj=MagicMock(),
         prompt_spec=spec,
     )
     assert model == "gpt-4o-mini"
 
 
 def test_sync_prompt_spec_ignore_prompt_manager_model_keeps_requested_model():
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from hangarllm.types.utils import StandardCallbackDynamicParams
 
     manager, spec = _swap_prompt_manager_and_spec(ignore_prompt_manager_model=True)
     model, _, _ = manager.get_chat_completion_prompt(
@@ -770,7 +770,7 @@ def test_sync_prompt_spec_ignore_prompt_manager_model_keeps_requested_model():
 
 
 def test_sync_caller_ignore_flag_survives_missing_prompt_spec():
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from hangarllm.types.utils import StandardCallbackDynamicParams
 
     manager, _ = _swap_prompt_manager_and_spec(ignore_prompt_manager_model=False)
     model, _, _ = manager.get_chat_completion_prompt(

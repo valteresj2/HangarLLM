@@ -8,20 +8,20 @@ import pytest
 from google.oauth2.credentials import Credentials
 from pydantic import ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
-from litellm.llms.vertex_ai.image_generation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.llms.gemini.image_generation.transformation import GoogleImageGenConfig
+from hangarllm.llms.vertex_ai.image_generation import (
     get_vertex_ai_image_generation_config,
 )
-from litellm.llms.vertex_ai.image_generation.vertex_gemini_transformation import (
+from hangarllm.llms.vertex_ai.image_generation.vertex_gemini_transformation import (
     VertexAIGeminiImageGenerationConfig,
 )
-from litellm.llms.vertex_ai.image_generation.vertex_imagen_transformation import (
+from hangarllm.llms.vertex_ai.image_generation.vertex_imagen_transformation import (
     VertexAIImagenImageGenerationConfig,
 )
-from litellm.types.utils import ImageResponse
+from hangarllm.types.utils import ImageResponse
 
 
 @pytest.mark.parametrize("size", ("1536x1024", "1024x1536", "3072x2048", "256x256", "512x512", "4096x4096"))
@@ -213,7 +213,7 @@ class TestVertexAIGeminiImageGenerationConfig:
 
     def test_map_openai_params_image_config_non_dict_warns_and_drops(self):
         """Non-dict imageConfig is dropped with a warning, not silently discarded"""
-        with patch("litellm.llms.vertex_ai.image_generation.vertex_gemini_transformation.verbose_logger") as mock_log:
+        with patch("hangarllm.llms.vertex_ai.image_generation.vertex_gemini_transformation.verbose_logger") as mock_log:
             result = self.config.map_openai_params(
                 {"imageConfig": "bad-string-value"}, {}, "gemini-3.1-flash-image", False
             )
@@ -238,7 +238,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3.1-flash-image",
             prompt="A nano banana on a desk",
             optional_params=mapped,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"] == full_config
@@ -252,7 +252,7 @@ class TestVertexAIGeminiImageGenerationConfig:
                 "imageConfig": {"aspectRatio": "1:1", "personGeneration": "DONT_ALLOW"},
                 "aspectRatio": "16:9",  # should win
             },
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"]["aspectRatio"] == "16:9"
@@ -264,7 +264,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "contents" in request
@@ -278,7 +278,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={"aspectRatio": "16:9"},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"]["aspectRatio"] == "16:9"
@@ -289,7 +289,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3-pro-image-preview",
             prompt="A nano banana",
             optional_params={"imageSize": "4K"},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"]["imageSize"] == "4K"
@@ -305,7 +305,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3.1-flash-image-preview",
             prompt="Generate an image of the latest iPhone",
             optional_params={"tools": [{"googleSearch": {}}]},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["tools"] == [{"googleSearch": {}}]
@@ -322,7 +322,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3.1-flash-image-preview",
             prompt="Generate an image of a coffee shop nearby",
             optional_params=mapped,
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["tools"] == [{"googleMaps": {}}]
@@ -334,7 +334,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={"candidate_count": 2},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["generationConfig"]["candidateCount"] == 2
@@ -345,7 +345,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={"n": 2},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["generationConfig"]["candidateCount"] == 2
@@ -387,7 +387,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from hangarllm.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -397,7 +397,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -438,7 +438,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from hangarllm.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -448,7 +448,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -479,7 +479,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from hangarllm.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -489,7 +489,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -525,7 +525,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from hangarllm.types.utils import ImageResponse
 
         result = self.config.transform_image_generation_response(
             model="gemini-2.5-flash-image",
@@ -534,7 +534,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -577,7 +577,7 @@ class TestVertexAIImagenImageGenerationConfig:
             model="imagegeneration@006",
             prompt="A cat",
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert "instances" in request
@@ -591,19 +591,19 @@ class TestVertexAIImagenImageGenerationConfig:
             model="imagegeneration@006",
             prompt="A cat",
             optional_params={"sampleCount": 2, "aspectRatio": "16:9"},
-            litellm_params={},
+            hangarllm_params={},
             headers={},
         )
         assert request["parameters"]["sampleCount"] == 2
         assert request["parameters"]["aspectRatio"] == "16:9"
 
     def test_transform_image_generation_request_labels_from_metadata(self):
-        """Billing labels from litellm_params.metadata.requester_metadata on predict body."""
+        """Billing labels from hangarllm_params.metadata.requester_metadata on predict body."""
         request = self.config.transform_image_generation_request(
             model="imagegeneration@006",
             prompt="A cat",
             optional_params={},
-            litellm_params={"metadata": {"requester_metadata": {"team": "platform", "env": "prod"}}},
+            hangarllm_params={"metadata": {"requester_metadata": {"team": "platform", "env": "prod"}}},
             headers={},
         )
         assert request["labels"] == {"team": "platform", "env": "prod"}
@@ -616,7 +616,7 @@ class TestVertexAIImagenImageGenerationConfig:
         mock_response.json.return_value = {"predictions": [{"bytesBase64Encoded": "base64_encoded_image_data"}]}
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from hangarllm.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -626,7 +626,7 @@ class TestVertexAIImagenImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -646,7 +646,7 @@ class TestVertexAIImagenImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from hangarllm.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -656,7 +656,7 @@ class TestVertexAIImagenImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            hangarllm_params={},
             encoding=None,
         )
 
@@ -708,7 +708,7 @@ class TestVertexAIImageGenerationIntegration:
             api_key=None,
             model="gemini-2.5-flash-image",
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
             },
@@ -726,7 +726,7 @@ class TestVertexAIImageGenerationIntegration:
             api_key=None,
             model="imagegeneration@006",
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
             },
@@ -744,7 +744,7 @@ def _transform_gemini_response(payload: object) -> ImageResponse:
         stream=False,
         call_type="image_generation",
         start_time=datetime.datetime(2024, 1, 1),
-        litellm_call_id="vertex-gemini-image-response",
+        hangarllm_call_id="vertex-gemini-image-response",
         function_id="vertex-gemini-image-response",
     )
     return VertexAIGeminiImageGenerationConfig().transform_image_generation_response(
@@ -754,7 +754,7 @@ def _transform_gemini_response(payload: object) -> ImageResponse:
         logging_obj=logging_obj,
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -937,12 +937,12 @@ def _transform_imagen_response(payload: object, model_response: ImageResponse) -
             stream=False,
             call_type="image_generation",
             start_time=datetime.datetime(2026, 1, 1),
-            litellm_call_id="vertex-imagen-generation-test",
+            hangarllm_call_id="vertex-imagen-generation-test",
             function_id="vertex-imagen-generation-test",
         ),
         request_data={},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         encoding=None,
     )
 
@@ -956,7 +956,7 @@ def _imagen_rejection_text(payload: object) -> str:
 
 def _generate_imagen_image(payload: object) -> ImageResponse:
     transport = httpx.MockTransport(lambda request: _imagen_predict_response(payload))
-    return litellm.image_generation(
+    return hangarllm.image_generation(
         model="vertex_ai/imagegeneration@006",
         prompt="a cat",
         api_base="https://vertex.invalid/v1/predict",
@@ -1086,10 +1086,10 @@ def test_imagen_image_generation_returns_the_prediction_images_of_the_predict_en
 def test_imagen_image_generation_maps_a_malformed_predict_body_to_a_connection_error_without_echoing_it(
     payload: object,
 ):
-    with pytest.raises(litellm.APIConnectionError) as exc_info:
+    with pytest.raises(hangarllm.APIConnectionError) as exc_info:
         _generate_imagen_image(payload)
 
-    assert type(exc_info.value) is litellm.APIConnectionError
+    assert type(exc_info.value) is hangarllm.APIConnectionError
     assert exc_info.value.status_code == 500
     assert "vertex-secret" not in str(exc_info.value)
 
@@ -1108,7 +1108,7 @@ def test_gemini_image_generation_validation_uses_supplied_vertex_token() -> None
             model="gemini-2.5-flash-image",
             messages=[],
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
                 "vertex_credentials": credentials_json,
@@ -1138,7 +1138,7 @@ def test_imagen_image_generation_validation_uses_supplied_vertex_token() -> None
             model="imagen-3.0-generate-001",
             messages=[],
             optional_params={},
-            litellm_params={
+            hangarllm_params={
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
                 "vertex_credentials": credentials_json,

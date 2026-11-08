@@ -1,11 +1,11 @@
 import pytest
 
-import litellm
-from litellm.integrations.langfuse import langfuse_sdk
-from litellm.integrations.langfuse.langfuse import LangFuseLogger, resolve_langfuse_credentials
-from litellm.integrations.langfuse.langfuse_handler import LangFuseHandler
-from litellm.litellm_core_utils.specialty_caches.dynamic_logging_cache import DynamicLoggingCache
-from litellm.types.utils import StandardCallbackDynamicParams
+import hangarllm
+from hangarllm.integrations.langfuse import langfuse_sdk
+from hangarllm.integrations.langfuse.langfuse import LangFuseLogger, resolve_langfuse_credentials
+from hangarllm.integrations.langfuse.langfuse_handler import LangFuseHandler
+from hangarllm.hangarllm_core_utils.specialty_caches.dynamic_logging_cache import DynamicLoggingCache
+from hangarllm.types.utils import StandardCallbackDynamicParams
 
 
 def test_resolve_langfuse_credentials_does_not_use_env_for_dynamic_host(
@@ -83,7 +83,7 @@ def test_langfuse_handler_accepts_secret_key_alias(monkeypatch):
             captured["cached_logging_obj"] = logging_obj
 
     monkeypatch.setattr(
-        "litellm.integrations.langfuse.langfuse_handler.LangFuseLogger",
+        "hangarllm.integrations.langfuse.langfuse_handler.LangFuseLogger",
         FakeLangFuseLogger,
     )
 
@@ -107,14 +107,14 @@ def test_langfuse_handler_accepts_secret_key_alias(monkeypatch):
 
 
 def test_upstream_langfuse_env_only_warns_and_opens_no_second_channel(monkeypatch, caplog):
-    monkeypatch.setattr(litellm, "initialized_langfuse_clients", 0)
+    monkeypatch.setattr(hangarllm, "initialized_langfuse_clients", 0)
     monkeypatch.setattr(langfuse_sdk, "_TRACING", {})
     monkeypatch.setenv("LANGFUSE_MOCK", "true")
     monkeypatch.setenv("UPSTREAM_LANGFUSE_SECRET_KEY", "upstream-secret")
     monkeypatch.setenv("UPSTREAM_LANGFUSE_PUBLIC_KEY", "upstream-public")
     monkeypatch.setenv("UPSTREAM_LANGFUSE_HOST", "https://upstream.example")
 
-    with caplog.at_level("WARNING", logger="LiteLLM"):
+    with caplog.at_level("WARNING", logger="HangarLLM"):
         logger = LangFuseLogger(
             langfuse_public_key="public",
             langfuse_secret="secret",

@@ -14,10 +14,10 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 )
 from opentelemetry.trace import StatusCode
 
-from litellm.integrations.opentelemetry import (
+from hangarllm.integrations.opentelemetry import (
     HTTP_RESPONSE_STATUS_CODE_ATTRIBUTE,
     HTTP_ROUTE_ATTRIBUTE,
-    LITELLM_PROXY_REQUEST_SPAN_NAME,
+    HANGARLLM_PROXY_REQUEST_SPAN_NAME,
     URL_PATH_ATTRIBUTE,
 )
 
@@ -25,7 +25,7 @@ from litellm.integrations.opentelemetry import (
 def get_server_span(exporter: InMemorySpanExporter):
     """Return the (single) finished SERVER span, or None if it never ended."""
     for s in exporter.get_finished_spans():
-        if s.name == LITELLM_PROXY_REQUEST_SPAN_NAME:
+        if s.name == HANGARLLM_PROXY_REQUEST_SPAN_NAME:
             return s
     return None
 

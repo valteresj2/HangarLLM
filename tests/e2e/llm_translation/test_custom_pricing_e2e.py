@@ -30,7 +30,7 @@ from lifecycle import ResourceManager
 from models import (
     ChatBody,
     ChatMessage,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModelInfoEntry,
     SpendLogsParams,
 )
@@ -84,7 +84,7 @@ def _provision(
     model_name = f"{prefix}-{unique_marker()}"
     model_id = proxy.create_model(
         model_name,
-        LiteLLMParamsBody(
+        HangarLLMParamsBody(
             model=BACKEND_MODEL,
             api_key=GEMINI_API_KEY,
             input_cost_per_token=input_cost_per_token,
@@ -213,13 +213,13 @@ class TestCustomPricing:
         model = _provision_custom_priced(proxy, resources)
         entry = _model_info_entry(proxy.model_info(), model)
 
-        assert entry.litellm_params.input_cost_per_token == CUSTOM_INPUT_RATE, (
-            f"/model/info litellm_params input rate "
-            f"{entry.litellm_params.input_cost_per_token} != configured {CUSTOM_INPUT_RATE}"
+        assert entry.hangarllm_params.input_cost_per_token == CUSTOM_INPUT_RATE, (
+            f"/model/info hangarllm_params input rate "
+            f"{entry.hangarllm_params.input_cost_per_token} != configured {CUSTOM_INPUT_RATE}"
         )
-        assert entry.litellm_params.output_cost_per_token == CUSTOM_OUTPUT_RATE, (
-            f"/model/info litellm_params output rate "
-            f"{entry.litellm_params.output_cost_per_token} != configured {CUSTOM_OUTPUT_RATE}"
+        assert entry.hangarllm_params.output_cost_per_token == CUSTOM_OUTPUT_RATE, (
+            f"/model/info hangarllm_params output rate "
+            f"{entry.hangarllm_params.output_cost_per_token} != configured {CUSTOM_OUTPUT_RATE}"
         )
 
     @meta(

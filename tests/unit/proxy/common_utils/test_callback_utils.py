@@ -7,12 +7,12 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.constants import MAX_GUARDRAIL_SCAN_METADATA_HEADER_LENGTH
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.constants import MAX_GUARDRAIL_SCAN_METADATA_HEADER_LENGTH
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.common_utils.callback_utils import (
     _serialize_scan_metadata_header,
     add_guardrail_scan_id,
     add_policy_to_applied_policies_header,
@@ -26,8 +26,8 @@ from litellm.proxy.common_utils.callback_utils import (
     sanitize_openai_provider_metadata,
     strip_callback_config,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
+from hangarllm.proxy.utils import ProxyLogging
+from hangarllm.types.guardrails import GuardrailEventHooks
 
 
 def test_get_remaining_tokens_and_requests_from_request_data():
@@ -35,8 +35,8 @@ def test_get_remaining_tokens_and_requests_from_request_data():
     casedata = {
         "metadata": {
             "model_group": model_group,
-            f"litellm-key-remaining-requests-{model_group}": 100,
-            f"litellm-key-remaining-tokens-{model_group}": 200,
+            f"hangarllm-key-remaining-requests-{model_group}": 100,
+            f"hangarllm-key-remaining-tokens-{model_group}": 200,
         }
     }
 
@@ -44,8 +44,8 @@ def test_get_remaining_tokens_and_requests_from_request_data():
 
     expected_name = "openrouter-google-gemini-2.0-flash-001"
     assert headers == {
-        f"x-litellm-key-remaining-requests-{expected_name}": 100,
-        f"x-litellm-key-remaining-tokens-{expected_name}": 200,
+        f"x-hangarllm-key-remaining-requests-{expected_name}": 100,
+        f"x-hangarllm-key-remaining-tokens-{expected_name}": 200,
     }
 
 
@@ -54,8 +54,8 @@ def test_remaining_limit_headers_ignore_a_model_group_that_is_not_a_string(clien
     casedata: Final = {
         "metadata": {
             "model_group": client_model_group,
-            f"litellm-key-remaining-requests-{client_model_group}": 100,
-            f"litellm-key-remaining-tokens-{client_model_group}": 200,
+            f"hangarllm-key-remaining-requests-{client_model_group}": 100,
+            f"hangarllm-key-remaining-tokens-{client_model_group}": 200,
         }
     }
 
@@ -63,7 +63,7 @@ def test_remaining_limit_headers_ignore_a_model_group_that_is_not_a_string(clien
 
 
 @patch(
-    "litellm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
+    "hangarllm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
     return_value=["API_KEY", "MISSING_VAR"],
 )
 def test_process_callback_with_env_vars(mock_get_env_vars):
@@ -87,7 +87,7 @@ def test_process_callback_with_env_vars(mock_get_env_vars):
 
 
 @patch(
-    "litellm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
+    "hangarllm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
     return_value=[],
 )
 def test_process_callback_with_no_required_env_vars(mock_get_env_vars):
@@ -103,7 +103,7 @@ def test_process_callback_with_no_required_env_vars(mock_get_env_vars):
 
 
 @patch(
-    "litellm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
+    "hangarllm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
     return_value=["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"],
 )
 def test_process_callback_falls_back_to_process_env(mock_get_env_vars, monkeypatch):
@@ -132,7 +132,7 @@ def test_process_callback_falls_back_to_process_env(mock_get_env_vars, monkeypat
 
 
 @patch(
-    "litellm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
+    "hangarllm.proxy.common_utils.callback_utils.CustomLogger.get_callback_env_vars",
     return_value=["LANGFUSE_SECRET_KEY"],
 )
 def test_process_callback_reports_none_when_absent_everywhere(mock_get_env_vars, monkeypatch):
@@ -161,17 +161,17 @@ def test_normalize_callback_names_lowercases_strings():
     ]
 
 
-def test_add_policy_to_applied_policies_header_uses_litellm_metadata_bucket():
+def test_add_policy_to_applied_policies_header_uses_hangarllm_metadata_bucket():
     request_data = {
         "input_file_id": "file-abc123",
-        "litellm_metadata": {},
+        "hangarllm_metadata": {},
     }
 
     add_policy_to_applied_policies_header(
         request_data=request_data, policy_name="global-baseline"
     )
 
-    assert request_data["litellm_metadata"]["applied_policies"] == ["global-baseline"]
+    assert request_data["hangarllm_metadata"]["applied_policies"] == ["global-baseline"]
     assert "applied_policies" not in request_data.get("metadata", {})
 
 
@@ -188,10 +188,10 @@ def test_sanitize_openai_provider_metadata_strips_internal_tracking_fields():
     assert sanitized == {"customer_id": "cust-123"}
 
 
-def test_get_logging_caching_headers_merges_metadata_and_litellm_metadata():
+def test_get_logging_caching_headers_merges_metadata_and_hangarllm_metadata():
     request_data = {
         "metadata": {"customer_id": "cust-123"},
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "applied_policies": ["global-baseline"],
             "applied_guardrails": ["pii_blocker"],
             "policy_sources": {"global-baseline": "team_default"},
@@ -200,9 +200,9 @@ def test_get_logging_caching_headers_merges_metadata_and_litellm_metadata():
 
     headers = get_logging_caching_headers(request_data)
 
-    assert headers["x-litellm-applied-policies"] == "global-baseline"
-    assert headers["x-litellm-applied-guardrails"] == "pii_blocker"
-    assert headers["x-litellm-policy-sources"] == "global-baseline=team_default"
+    assert headers["x-hangarllm-applied-policies"] == "global-baseline"
+    assert headers["x-hangarllm-applied-guardrails"] == "pii_blocker"
+    assert headers["x-hangarllm-policy-sources"] == "global-baseline=team_default"
 
 
 def _record(
@@ -218,19 +218,19 @@ def _record(
 
 
 def test_add_guardrail_scan_id_dedupes_and_becomes_response_header():
-    request_data = {"litellm_metadata": {}}
+    request_data = {"hangarllm_metadata": {}}
 
     _record(request_data, "scan-1")
     _record(request_data, "scan-1")
     _record(request_data, "scan-2")
     _record(request_data, None)
 
-    assert request_data["litellm_metadata"]["guardrail_scan_ids"] == ("scan-1", "scan-2")
-    assert get_logging_caching_headers(request_data)["x-litellm-guardrail-scan-id"] == "scan-1,scan-2"
+    assert request_data["hangarllm_metadata"]["guardrail_scan_ids"] == ("scan-1", "scan-2")
+    assert get_logging_caching_headers(request_data)["x-hangarllm-guardrail-scan-id"] == "scan-1,scan-2"
 
 
 def test_scan_metadata_header_maps_each_id_to_its_guardrail_stage_and_provider():
-    request_data: Final[dict[str, object]] = {"litellm_metadata": {}}
+    request_data: Final[dict[str, object]] = {"hangarllm_metadata": {}}
 
     _record(
         request_data, "scan-1", guardrail_name="airs", provider="panw_prisma_airs", stage=GuardrailEventHooks.pre_call
@@ -248,8 +248,8 @@ def test_scan_metadata_header_maps_each_id_to_its_guardrail_stage_and_provider()
 
     headers: Final = get_logging_caching_headers(request_data)
     assert headers is not None
-    assert headers["x-litellm-guardrail-scan-id"] == "scan-1,mod-1,scan-2"
-    assert json.loads(headers["x-litellm-guardrail-scan-metadata"]) == [
+    assert headers["x-hangarllm-guardrail-scan-id"] == "scan-1,mod-1,scan-2"
+    assert json.loads(headers["x-hangarllm-guardrail-scan-metadata"]) == [
         {"guardrail": "airs", "stage": "pre_call", "provider": "panw_prisma_airs", "scan_id": "scan-1"},
         {"guardrail": "mod", "stage": "pre_call", "provider": "openai_moderation", "scan_id": "mod-1"},
         {"guardrail": "airs", "stage": "post_call", "provider": "panw_prisma_airs", "scan_id": "scan-2"},
@@ -264,23 +264,23 @@ def test_scan_metadata_keeps_same_id_reused_across_stages():
 
     headers: Final = get_logging_caching_headers(request_data)
     assert headers is not None
-    assert headers["x-litellm-guardrail-scan-id"] == "scan-1"
-    assert [entry["stage"] for entry in json.loads(headers["x-litellm-guardrail-scan-metadata"])] == [
+    assert headers["x-hangarllm-guardrail-scan-id"] == "scan-1"
+    assert [entry["stage"] for entry in json.loads(headers["x-hangarllm-guardrail-scan-metadata"])] == [
         "pre_call",
         "post_call",
     ]
 
 
 def test_scan_metadata_header_drops_trailing_entries_to_stay_within_length_limit():
-    request_data: Final[dict[str, object]] = {"litellm_metadata": {}}
+    request_data: Final[dict[str, object]] = {"hangarllm_metadata": {}}
     scan_ids: Final = tuple(f"0f9c4b7e-3d2a-4c1b-9e8f-{index:012d}" for index in range(40))
     for scan_id in scan_ids:
         _record(request_data, scan_id, stage=GuardrailEventHooks.post_call)
 
     headers: Final = get_logging_caching_headers(request_data)
     assert headers is not None
-    assert headers["x-litellm-guardrail-scan-id"] == ",".join(scan_ids)
-    header: Final = headers["x-litellm-guardrail-scan-metadata"]
+    assert headers["x-hangarllm-guardrail-scan-id"] == ",".join(scan_ids)
+    header: Final = headers["x-hangarllm-guardrail-scan-metadata"]
     assert len(header) <= MAX_GUARDRAIL_SCAN_METADATA_HEADER_LENGTH
     kept: Final = json.loads(header)
     assert 1 < len(kept) < len(scan_ids)
@@ -304,10 +304,10 @@ def test_scan_metadata_is_an_internal_metadata_key():
 
 
 def test_get_logging_caching_headers_omits_scan_headers_without_scans():
-    headers: Final = get_logging_caching_headers({"litellm_metadata": {}})
+    headers: Final = get_logging_caching_headers({"hangarllm_metadata": {}})
     assert headers is not None
-    assert "x-litellm-guardrail-scan-id" not in headers
-    assert "x-litellm-guardrail-scan-metadata" not in headers
+    assert "x-hangarllm-guardrail-scan-id" not in headers
+    assert "x-hangarllm-guardrail-scan-metadata" not in headers
 
 
 def test_initialize_callbacks_on_proxy_instantiates_compression_interception(
@@ -316,30 +316,30 @@ def test_initialize_callbacks_on_proxy_instantiates_compression_interception(
     dummy_callback = object()
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         SimpleNamespace(prisma_client=None),
     )
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.CompressionInterceptionLogger.initialize_from_proxy_config",
-        lambda litellm_settings, callback_specific_params: dummy_callback,
+        "hangarllm.integrations.compression_interception.handler.CompressionInterceptionLogger.initialize_from_proxy_config",
+        lambda hangarllm_settings, callback_specific_params: dummy_callback,
     )
 
     original_callbacks = (
-        list(litellm.callbacks) if isinstance(litellm.callbacks, list) else []
+        list(hangarllm.callbacks) if isinstance(hangarllm.callbacks, list) else []
     )
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     try:
         initialize_callbacks_on_proxy(
             value=["compression_interception"],
             premium_user=False,
             config_file_path=".",
-            litellm_settings={"compression_interception_params": {"enabled": True}},
+            hangarllm_settings={"compression_interception_params": {"enabled": True}},
             callback_specific_params={},
         )
-        assert dummy_callback in litellm.callbacks
-        assert "compression_interception" not in litellm.callbacks
+        assert dummy_callback in hangarllm.callbacks
+        assert "compression_interception" not in hangarllm.callbacks
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +368,7 @@ def _sample_metadata():
 
 
 def _set_salt_key(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
 
 
 def test_encrypt_callback_vars_round_trip(monkeypatch):
@@ -506,36 +506,36 @@ def test_initialize_callbacks_on_proxy_lakera_ignores_non_dict_callback_settings
     # `from ...lakera_ai import lakeraAI_Moderation` resolves to our stub without
     # importing the real module (which imports proxy_server symbols not present
     # under the stubbed proxy_server below).
-    fake_lakera = ModuleType("litellm.proxy.guardrails.guardrail_hooks.lakera_ai")
+    fake_lakera = ModuleType("hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai")
     fake_lakera.lakeraAI_Moderation = _DummyLakera
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.guardrails.guardrail_hooks.lakera_ai",
+        "hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai",
         fake_lakera,
     )
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         SimpleNamespace(prisma_client=None),
     )
 
     original_callbacks = (
-        list(litellm.callbacks) if isinstance(litellm.callbacks, list) else []
+        list(hangarllm.callbacks) if isinstance(hangarllm.callbacks, list) else []
     )
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     try:
         # A non-dict value must be ignored (init_params stays {}), not **-unpacked.
         initialize_callbacks_on_proxy(
             value=["lakera_prompt_injection"],
             premium_user=False,
             config_file_path=".",
-            litellm_settings={},
+            hangarllm_settings={},
             callback_specific_params={"lakera_prompt_injection": "any-string"},
         )
         assert captured["kwargs"] == {}
-        assert any(isinstance(c, _DummyLakera) for c in litellm.callbacks)
+        assert any(isinstance(c, _DummyLakera) for c in hangarllm.callbacks)
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
 
 @pytest.mark.parametrize("bad_root", [None, True])
@@ -551,30 +551,30 @@ def test_initialize_callbacks_on_proxy_non_dict_callback_specific_params_root(
     """
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         SimpleNamespace(prisma_client=None),
     )
-    from litellm.integrations.compression_interception.handler import (
+    from hangarllm.integrations.compression_interception.handler import (
         CompressionInterceptionLogger,
     )
 
     original_callbacks = (
-        list(litellm.callbacks) if isinstance(litellm.callbacks, list) else []
+        list(hangarllm.callbacks) if isinstance(hangarllm.callbacks, list) else []
     )
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     try:
         initialize_callbacks_on_proxy(
             value=["compression_interception"],
             premium_user=False,
             config_file_path=".",
-            litellm_settings={},
+            hangarllm_settings={},
             callback_specific_params=bad_root,
         )
         assert any(
-            isinstance(c, CompressionInterceptionLogger) for c in litellm.callbacks
+            isinstance(c, CompressionInterceptionLogger) for c in hangarllm.callbacks
         )
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
 
 
 def test_strip_callback_config_drops_credential_bearing_slots():
@@ -589,10 +589,10 @@ def test_strip_callback_config_drops_credential_bearing_slots():
         "logging": [
             {
                 "callback_name": "langsmith",
-                "callback_vars": {"langsmith_api_key": "litellm_enc::ciphertext"},
+                "callback_vars": {"langsmith_api_key": "hangarllm_enc::ciphertext"},
             }
         ],
-        "callback_settings": {"callback_vars": {"langfuse_secret_key": "litellm_enc::other"}},
+        "callback_settings": {"callback_vars": {"langfuse_secret_key": "hangarllm_enc::other"}},
         "secret_manager_settings": {"vault_token": "vt-secret"},
         "priority": "high",
         "guardrails": ["presidio"],
@@ -625,7 +625,7 @@ def test_strip_callback_config_passes_through_non_dicts(value):
 _PROBE_MODULE_NAME = "custom_callback_probe"
 
 _PROBE_MODULE_SOURCE = '''
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class FloorMaxTokens(CustomLogger):
@@ -654,20 +654,20 @@ def probe_config_path(tmp_path):
     branch expects, and restore every global the load + dispatch path touches.
 
     ``ProxyLogging._callback_capabilities_cache`` is keyed on the id()s of the
-    litellm.callbacks members, so an entry left behind here can be read back by an
+    hangarllm.callbacks members, so an entry left behind here can be read back by an
     unrelated test whose (len, ids) signature happens to collide.
     """
     (tmp_path / f"{_PROBE_MODULE_NAME}.py").write_text(_PROBE_MODULE_SOURCE)
 
     original_callbacks = (
-        list(litellm.callbacks) if isinstance(litellm.callbacks, list) else litellm.callbacks
+        list(hangarllm.callbacks) if isinstance(hangarllm.callbacks, list) else hangarllm.callbacks
     )
-    litellm.callbacks = []
+    hangarllm.callbacks = []
     ProxyLogging._callback_capabilities_cache.clear()
     try:
         yield str(tmp_path / "config.yaml")
     finally:
-        litellm.callbacks = original_callbacks
+        hangarllm.callbacks = original_callbacks
         ProxyLogging._callback_capabilities_cache.clear()
 
 
@@ -676,7 +676,7 @@ def _load_callbacks(value, config_file_path):
         value=value,
         premium_user=False,
         config_file_path=config_file_path,
-        litellm_settings={},
+        hangarllm_settings={},
         callback_specific_params={},
     )
 
@@ -687,7 +687,7 @@ def test_initialize_callbacks_on_proxy_rejects_class_valued_entry(probe_config_p
     silently never run the hook. Config load must fail instead."""
     entry = f"{_PROBE_MODULE_NAME}.FloorMaxTokens"
 
-    with pytest.raises(ValueError, match='litellm_settings\\.callbacks entry') as exc_info:
+    with pytest.raises(ValueError, match='hangarllm_settings\\.callbacks entry') as exc_info:
         _load_callbacks([entry], probe_config_path)
 
     message = str(exc_info.value)
@@ -695,7 +695,7 @@ def test_initialize_callbacks_on_proxy_rejects_class_valued_entry(probe_config_p
     assert "the class" in message
     assert "FloorMaxTokens" in message
     assert f"{_PROBE_MODULE_NAME}.proxy_handler_instance" in message
-    assert litellm.callbacks == []
+    assert hangarllm.callbacks == []
 
 
 @pytest.mark.parametrize(
@@ -710,19 +710,19 @@ def test_initialize_callbacks_on_proxy_rejects_non_dispatchable_values(
 ):
     entry = f"{_PROBE_MODULE_NAME}.{attribute}"
 
-    with pytest.raises(ValueError, match='litellm_settings\\.callbacks entry') as exc_info:
+    with pytest.raises(ValueError, match='hangarllm_settings\\.callbacks entry') as exc_info:
         _load_callbacks([entry], probe_config_path)
 
     message = str(exc_info.value)
     assert entry in message
     assert expected_fragment in message
-    assert litellm.callbacks == []
+    assert hangarllm.callbacks == []
 
 
 def test_initialize_callbacks_on_proxy_rejects_class_valued_non_list_value(probe_config_path):
     entry = f"{_PROBE_MODULE_NAME}.FloorMaxTokens"
 
-    with pytest.raises(ValueError, match='litellm_settings\\.callbacks entry') as exc_info:
+    with pytest.raises(ValueError, match='hangarllm_settings\\.callbacks entry') as exc_info:
         _load_callbacks(entry, probe_config_path)
 
     assert entry in str(exc_info.value)
@@ -734,8 +734,8 @@ async def test_initialize_callbacks_on_proxy_instance_entry_runs_pre_call_hook(p
     real ProxyLogging.pre_call_hook, which is where a class-valued entry goes silent."""
     _load_callbacks([f"{_PROBE_MODULE_NAME}.proxy_handler_instance"], probe_config_path)
 
-    assert len(litellm.callbacks) == 1
-    assert isinstance(litellm.callbacks[0], CustomLogger)
+    assert len(hangarllm.callbacks) == 1
+    assert isinstance(hangarllm.callbacks[0], CustomLogger)
 
     ProxyLogging._callback_capabilities_cache.clear()
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
@@ -755,23 +755,23 @@ async def test_initialize_callbacks_on_proxy_instance_entry_runs_pre_call_hook(p
 
 def test_initialize_callbacks_on_proxy_keeps_known_string_callback(probe_config_path):
     """Non-narrowing control: a known callback name never reaches get_instance_fn and
-    stays a plain string in litellm.callbacks."""
+    stays a plain string in hangarllm.callbacks."""
     _load_callbacks(["langfuse"], probe_config_path)
 
-    assert litellm.callbacks == ["langfuse"]
+    assert hangarllm.callbacks == ["langfuse"]
 
 
 def test_initialize_callbacks_on_proxy_accepts_plain_function_callback(probe_config_path):
-    """Non-narrowing control: litellm.callbacks is typed
+    """Non-narrowing control: hangarllm.callbacks is typed
     `Callable | <known name> | CustomLogger`, so a dotted path resolving to a plain
     function is a supported shape and must keep loading."""
     _load_callbacks([f"{_PROBE_MODULE_NAME}.log_event_fn"], probe_config_path)
 
-    assert [getattr(cb, "__name__", None) for cb in litellm.callbacks] == ["log_event_fn"]
+    assert [getattr(cb, "__name__", None) for cb in hangarllm.callbacks] == ["log_event_fn"]
 
 
 def test_initialize_callbacks_on_proxy_accepts_instance_non_list_value(probe_config_path):
     _load_callbacks(f"{_PROBE_MODULE_NAME}.proxy_handler_instance", probe_config_path)
 
-    assert len(litellm.callbacks) == 1
-    assert isinstance(litellm.callbacks[0], CustomLogger)
+    assert len(hangarllm.callbacks) == 1
+    assert isinstance(hangarllm.callbacks[0], CustomLogger)

@@ -1,16 +1,16 @@
-# litellm_agent Data Source
+# hangarllm_agent Data Source
 
-Retrieves information about an existing A2A agent on the LiteLLM proxy.
+Retrieves information about an existing A2A agent on the HangarLLM proxy.
 
 ## Example Usage
 
 ```hcl
-data "litellm_agent" "existing" {
+data "hangarllm_agent" "existing" {
   agent_id = "123e4567-e89b-12d3-a456-426614174000"
 }
 
 output "agent_card" {
-  value = jsondecode(data.litellm_agent.existing.agent_card_params)
+  value = jsondecode(data.hangarllm_agent.existing.agent_card_params)
 }
 ```
 
@@ -40,4 +40,4 @@ In addition to all arguments above, the following attributes are exported:
 
 ## Security Note
 
-`litellm_params` and `static_headers` are not exposed through this data source because they may hold API keys or tokens.
+`hangarllm_params` and `static_headers` are not exposed through this data source because they may hold API keys or tokens.

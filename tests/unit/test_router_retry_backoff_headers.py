@@ -9,8 +9,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
+import hangarllm
+from hangarllm import Router
 
 
 @pytest.mark.asyncio
@@ -18,13 +18,13 @@ async def test_retry_backoff_uses_current_exception_headers(monkeypatch: pytest.
     """
     Ensure retry backoff uses the current retry exception, not the initial one.
     """
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "sk-test",
                 },
@@ -52,12 +52,12 @@ async def test_retry_backoff_uses_current_exception_headers(monkeypatch: pytest.
     with respx.mock() as mock_router:
         mock_router.post("https://api.openai.com/v1/chat/completions").mock(side_effect=replies)
         with patch("asyncio.sleep", record_sleep):
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(hangarllm.RateLimitError):
                 await router.acompletion(
                     model="gpt-3.5-turbo",
                     messages=[{"role": "user", "content": "Hello"}],
                 )
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     # Router backs off once after the initial failure, then once per failed retry.
     # Each backoff honours that attempt's retry-after (plus jitter), so each sleep

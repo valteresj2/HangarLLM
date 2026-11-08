@@ -45,7 +45,7 @@ def exhausted(gateway: Gateway) -> Iterator[ExhaustedTeam]:
         first: Final = _chat(gateway, model, key)
         assert first.status_code == 200, first.text
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_TeamTable" WHERE team_id=%s', (team_id,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_TeamTable" WHERE team_id=%s', (team_id,)),
             lambda rows: len(rows) == 1 and float(str(rows[0]["spend"])) >= TEAM_BUDGET,
             seconds=70,
         )

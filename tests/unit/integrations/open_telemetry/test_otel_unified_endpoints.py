@@ -8,12 +8,12 @@ from fastapi import HTTPException
 
 from opentelemetry.trace import Status, StatusCode
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import ProxyLogging
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.proxy._types import ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from hangarllm.proxy.utils import ProxyLogging
 
 from ._helpers import (
     HttpStatusException,
@@ -141,7 +141,7 @@ def test_end_proxy_span_from_kwargs_stamps_200(
 
     otel, exporter = otel_with_exporter
     server_span = server_span_factory(path)
-    kwargs = {"litellm_params": {"metadata": {"litellm_parent_otel_span": server_span}}}
+    kwargs = {"hangarllm_params": {"metadata": {"hangarllm_parent_otel_span": server_span}}}
     otel._end_proxy_span_from_kwargs(kwargs, datetime.now())
 
     assert_server_span_attrs(

@@ -1,16 +1,16 @@
 """
-Client script to test Nova Sonic realtime API through LiteLLM proxy.
+Client script to test Nova Sonic realtime API through HangarLLM proxy.
 
-This script connects to LiteLLM proxy's realtime endpoint and enables
+This script connects to HangarLLM proxy's realtime endpoint and enables
 speech-to-speech conversation with Bedrock Nova Sonic.
 
 Prerequisites:
-- LiteLLM proxy running with Bedrock configured
+- HangarLLM proxy running with Bedrock configured
 - pyaudio installed: pip install pyaudio
 - websockets installed: pip install websockets
 
 Usage:
-    export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 32)"
+    export HANGARLLM_MASTER_KEY="sk-$(openssl rand -hex 32)"
     python nova_sonic_realtime.py
 """
 
@@ -23,7 +23,7 @@ import websockets
 from typing import Optional
 
 # Bounded queue size for audio chunks (configurable via env to avoid unbounded memory)
-AUDIO_QUEUE_MAXSIZE = int(os.getenv("LITELLM_ASYNCIO_QUEUE_MAXSIZE", 10_000))
+AUDIO_QUEUE_MAXSIZE = int(os.getenv("HANGARLLM_ASYNCIO_QUEUE_MAXSIZE", 10_000))
 
 # Audio configuration (matching Nova Sonic requirements)
 INPUT_SAMPLE_RATE = 16000  # Nova Sonic expects 16kHz input
@@ -32,13 +32,13 @@ CHANNELS = 1
 FORMAT = pyaudio.paInt16
 CHUNK_SIZE = 1024
 
-# LiteLLM proxy configuration
-LITELLM_PROXY_URL = "ws://localhost:4000/v1/realtime?model=bedrock-sonic"
-LITELLM_API_KEY = os.environ["LITELLM_MASTER_KEY"]
+# HangarLLM proxy configuration
+HANGARLLM_PROXY_URL = "ws://localhost:4000/v1/realtime?model=bedrock-sonic"
+HANGARLLM_API_KEY = os.environ["HANGARLLM_MASTER_KEY"]
 
 
 class RealtimeClient:
-    """Client for LiteLLM realtime API with audio support."""
+    """Client for HangarLLM realtime API with audio support."""
 
     def __init__(self, url: str, api_key: str):
         self.url = url
@@ -51,7 +51,7 @@ class RealtimeClient:
         self.output_stream = None
 
     async def connect(self):
-        """Connect to LiteLLM proxy realtime endpoint."""
+        """Connect to HangarLLM proxy realtime endpoint."""
         print(f"Connecting to {self.url}...")
 
         headers = {}
@@ -64,7 +64,7 @@ class RealtimeClient:
             max_size=10 * 1024 * 1024,  # 10MB max message size
         )
         self.is_active = True
-        print("✓ Connected to LiteLLM proxy")
+        print("✓ Connected to HangarLLM proxy")
 
     async def send_session_update(self):
         """Send session configuration."""
@@ -243,7 +243,7 @@ async def main():
     print("=" * 80)
     print()
 
-    client = RealtimeClient(LITELLM_PROXY_URL, LITELLM_API_KEY)
+    client = RealtimeClient(HANGARLLM_PROXY_URL, HANGARLLM_API_KEY)
 
     try:
         # Connect to server
@@ -281,7 +281,7 @@ async def main():
 
 if __name__ == "__main__":
     print("\nMake sure:")
-    print("1. LiteLLM proxy is running on port 4000")
+    print("1. HangarLLM proxy is running on port 4000")
     print("2. Bedrock is configured in proxy_server_config.yaml")
     print("3. AWS credentials are set")
     print()

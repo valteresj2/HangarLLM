@@ -1,9 +1,9 @@
-"""Required check: a pull request that touches LiteLLM_SpendLogs in schema.prisma or a migration
+"""Required check: a pull request that touches HangarLLM_SpendLogs in schema.prisma or a migration
 needs an approving review from the spend-log owner before it can merge.
 
 CODEOWNERS can only match file paths, and every schema change edits the same schema.prisma copies,
 so a path rule would put every migration on the owner. This gate reads the diff instead: a schema.prisma
-hunk counts when it adds or removes a line inside the `model LiteLLM_SpendLogs { ... }` block, a migration
+hunk counts when it adds or removes a line inside the `model HangarLLM_SpendLogs { ... }` block, a migration
 hunk counts when an added line names the table. Without such a hunk it passes at once, otherwise it passes
 only once the owner's latest review on the pull request is an approval that still covers every spend-log line
 in the head (approvals survive pushes, so a later commit may not add spend-log lines the owner never saw).
@@ -26,13 +26,13 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 WATCHED: Final = (
     "schema.prisma",
-    "litellm/proxy/schema.prisma",
-    "litellm-proxy-extras/litellm_proxy_extras/schema.prisma",
+    "hangarllm/proxy/schema.prisma",
+    "hangarllm-proxy-extras/hangarllm_proxy_extras/schema.prisma",
 )
-MIGRATIONS_PREFIX: Final = "litellm-proxy-extras/litellm_proxy_extras/migrations/"
-TABLE: Final = re.compile(r"(?<![A-Za-z0-9])LiteLLM_SpendLogs(?![A-Za-z0-9])", re.IGNORECASE)
+MIGRATIONS_PREFIX: Final = "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations/"
+TABLE: Final = re.compile(r"(?<![A-Za-z0-9])HangarLLM_SpendLogs(?![A-Za-z0-9])", re.IGNORECASE)
 DECIDING_STATES: Final = frozenset({"APPROVED", "CHANGES_REQUESTED", "DISMISSED"})
-MODEL_START: Final = re.compile(r"^model\s+LiteLLM_SpendLogs\s*\{")
+MODEL_START: Final = re.compile(r"^model\s+HangarLLM_SpendLogs\s*\{")
 HUNK: Final = re.compile(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@[^\n]*\n", re.MULTILINE)
 
 
@@ -53,7 +53,7 @@ _REVIEWS: Final = TypeAdapter(list[Review])
 
 @dataclass(frozen=True, slots=True)
 class Block:
-    """Lines of `model LiteLLM_SpendLogs { ... }` in one schema.prisma copy at the merge base and at the head."""
+    """Lines of `model HangarLLM_SpendLogs { ... }` in one schema.prisma copy at the merge base and at the head."""
 
     base: range
     head: range
@@ -70,7 +70,7 @@ def watched(path: str) -> bool:
 
 
 def model_block(schema: str) -> range:
-    """1-based line range of `model LiteLLM_SpendLogs { ... }` including both braces, empty when the schema has none."""
+    """1-based line range of `model HangarLLM_SpendLogs { ... }` including both braces, empty when the schema has none."""
     lines: Final = schema.splitlines()
     starts: Final = tuple(number for number, line in enumerate(lines, 1) if MODEL_START.match(line))
     if not starts:
@@ -200,7 +200,7 @@ def main(argv: Sequence[str]) -> int:
     hits: Final = spend_log_hits(added_diff(args.base, args.head), schema_blocks(args.base, args.head))
     if not hits:
         sys.stdout.write(
-            "No change inside model LiteLLM_SpendLogs in schema.prisma and no added migration line names it; "
+            "No change inside model HangarLLM_SpendLogs in schema.prisma and no added migration line names it; "
             "nothing to review.\n"
         )
         return 0
@@ -209,13 +209,13 @@ def main(argv: Sequence[str]) -> int:
     if approval is not None and approval_covers(
         approval, args.head, hits, lambda commit: reviewed_hits(args.base, commit)
     ):
-        sys.stdout.write(f"LiteLLM_SpendLogs change approved by {args.approver}: {', '.join(hits)}\n")
+        sys.stdout.write(f"HangarLLM_SpendLogs change approved by {args.approver}: {', '.join(hits)}\n")
         return 0
     listed: Final = "".join(f"  {hit}\n" for hit in hits)
     reason: Final = (
-        f"This pull request changes LiteLLM_SpendLogs and needs an approving review from @{args.approver}:\n"
+        f"This pull request changes HangarLLM_SpendLogs and needs an approving review from @{args.approver}:\n"
         if approval is None
-        else f"LiteLLM_SpendLogs lines changed after @{args.approver} approved {approval.commit_id}, "
+        else f"HangarLLM_SpendLogs lines changed after @{args.approver} approved {approval.commit_id}, "
         f"a new approving review is needed:\n"
     )
     sys.stdout.write(f"{reason}{listed}After approving, re-run this job.\n")

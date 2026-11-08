@@ -5,18 +5,18 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.config import (
+from hangarllm.router_strategy.adaptive_router.config import (
     ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY,
     SIGNAL_GATE_MIN_MESSAGES,
 )
-from litellm.router_strategy.adaptive_router.hooks import (
+from hangarllm.router_strategy.adaptive_router.hooks import (
     AdaptiveRouterPostCallHook,
     AdaptiveRouterResponseHeaderHook,
     _recent_tool_results,
     _resolve_session_key,
 )
-from litellm.router_strategy.adaptive_router.signals import Turn
-from litellm.types.utils import ModelResponse
+from hangarllm.router_strategy.adaptive_router.signals import Turn
+from hangarllm.types.utils import ModelResponse
 
 
 def _make_hook() -> AdaptiveRouterPostCallHook:
@@ -56,39 +56,39 @@ def _kwargs(
     messages=None,
     chosen="fast",
     extra_metadata=None,
-    extra_litellm_params=None,
+    extra_hangarllm_params=None,
 ):
     metadata = {ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY: chosen} if chosen else {}
     if extra_metadata:
         metadata.update(extra_metadata)
     lp = {"metadata": metadata}
-    if extra_litellm_params:
-        lp.update(extra_litellm_params)
+    if extra_hangarllm_params:
+        lp.update(extra_hangarllm_params)
     return {
         "model": "anthropic/claude-opus-4-7",
         "messages": messages if messages is not None else _long_messages(),
-        "litellm_params": lp,
+        "hangarllm_params": lp,
     }
 
 
 # ---- _resolve_session_key ------------------------------------------------
 
 
-def test_resolve_session_key_honors_litellm_session_id_on_litellm_params():
-    key = _resolve_session_key({"litellm_params": {"litellm_session_id": "sess-A"}})
+def test_resolve_session_key_honors_hangarllm_session_id_on_hangarllm_params():
+    key = _resolve_session_key({"hangarllm_params": {"hangarllm_session_id": "sess-A"}})
     assert key == "sess-A"
 
 
 def test_resolve_session_key_honors_metadata_session_id():
     key = _resolve_session_key(
-        {"litellm_params": {"metadata": {"session_id": "sess-B"}}}
+        {"hangarllm_params": {"metadata": {"session_id": "sess-B"}}}
     )
     assert key == "sess-B"
 
 
 def test_resolve_session_key_returns_none_when_no_messages():
-    assert _resolve_session_key({"litellm_params": {}}) is None
-    assert _resolve_session_key({"litellm_params": {}, "messages": []}) is None
+    assert _resolve_session_key({"hangarllm_params": {}}) is None
+    assert _resolve_session_key({"hangarllm_params": {}, "messages": []}) is None
 
 
 def test_resolve_session_key_derives_stable_hash_from_first_message():
@@ -113,7 +113,7 @@ def test_resolve_session_key_segments_by_identity_fields():
     k_team_a = _resolve_session_key(
         {
             "messages": msgs,
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_hash": "hash-A",
                     "user_api_key_team_id": "team-1",
@@ -124,7 +124,7 @@ def test_resolve_session_key_segments_by_identity_fields():
     k_team_b = _resolve_session_key(
         {
             "messages": msgs,
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_hash": "hash-B",
                     "user_api_key_team_id": "team-2",
@@ -160,7 +160,7 @@ async def test_hook_tracks_short_conversation_with_explicit_session_id():
     hook = _make_hook()
     kwargs = _kwargs(
         messages=[{"role": "user", "content": "hi"}],
-        extra_litellm_params={"litellm_session_id": "explicit-short"},
+        extra_hangarllm_params={"hangarllm_session_id": "explicit-short"},
     )
     await hook.async_log_success_event(
         kwargs,
@@ -214,11 +214,11 @@ async def test_hook_records_turn():
 
 @pytest.mark.asyncio
 async def test_hook_uses_explicit_session_id_when_provided():
-    """Explicit `litellm_session_id` is forwarded as the session key."""
+    """Explicit `hangarllm_session_id` is forwarded as the session key."""
     hook = _make_hook()
     kwargs = _kwargs(
         chosen="fast",
-        extra_litellm_params={"litellm_session_id": "explicit-sess"},
+        extra_hangarllm_params={"hangarllm_session_id": "explicit-sess"},
     )
     await hook.async_log_success_event(kwargs, _resp_with_content("ok"), 0.0, 1.0)
     assert hook.adaptive_router.record_turn.await_args.kwargs["session_id"] == (
@@ -376,7 +376,7 @@ async def test_hook_failure_event_uses_status_code_from_exception():
 
 @pytest.mark.asyncio
 async def test_post_call_response_headers_hook_returns_chosen_model_header():
-    """The header hook returns the `x-litellm-adaptive-router-model` header
+    """The header hook returns the `x-hangarllm-adaptive-router-model` header
     so proxy header construction picks it up (works for both streaming and
     non-streaming; `async_post_call_success_hook` is too late for streaming)."""
     headers = await AdaptiveRouterResponseHeaderHook().async_post_call_response_headers_hook(
@@ -384,13 +384,13 @@ async def test_post_call_response_headers_hook_returns_chosen_model_header():
         user_api_key_dict=MagicMock(),
         response=MagicMock(),
     )
-    assert headers == {"x-litellm-adaptive-router-model": "smart"}
+    assert headers == {"x-hangarllm-adaptive-router-model": "smart"}
 
 
 @pytest.mark.asyncio
 async def test_post_call_response_headers_hook_noop_when_metadata_missing_key():
     headers = await AdaptiveRouterResponseHeaderHook().async_post_call_response_headers_hook(
-        data={"metadata": {"litellm_session_id": "sess-A"}},
+        data={"metadata": {"hangarllm_session_id": "sess-A"}},
         user_api_key_dict=MagicMock(),
         response=MagicMock(),
     )

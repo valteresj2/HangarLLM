@@ -4,7 +4,7 @@ Test to ensure all providers in LlmProviders enum are documented in README.md
 
 import os
 import re
-from litellm.types.utils import LlmProviders
+from hangarllm.types.utils import LlmProviders
 
 # Define paths
 readme_path = "./README.md"

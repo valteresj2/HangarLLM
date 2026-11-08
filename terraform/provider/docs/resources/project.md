@@ -1,16 +1,16 @@
-# litellm_project Resource
+# hangarllm_project Resource
 
-Manages a project in LiteLLM. Projects sit between teams and keys in the hierarchy, allowing fine-grained budget and model access control within a team
+Manages a project in HangarLLM. Projects sit between teams and keys in the hierarchy, allowing fine-grained budget and model access control within a team
 
 ## Example Usage
 
 ```hcl
-resource "litellm_team" "research" {
+resource "hangarllm_team" "research" {
   team_alias = "research-team"
 }
 
-resource "litellm_project" "ml_experiments" {
-  team_id       = litellm_team.research.id
+resource "hangarllm_project" "ml_experiments" {
+  team_id       = hangarllm_team.research.id
   project_alias = "ml-experiments"
   description   = "ML experimentation project"
   models        = ["gpt-5.6", "claude-opus-5"]
@@ -55,7 +55,7 @@ The following arguments are supported:
 
 In addition to all arguments above, the following attributes are exported:
 
-* `id` - The project ID assigned by LiteLLM
+* `id` - The project ID assigned by HangarLLM
 * `spend` - Current spend for the project
 * `created_at` - Timestamp when the project was created
 * `updated_at` - Timestamp when the project was last updated
@@ -67,5 +67,5 @@ In addition to all arguments above, the following attributes are exported:
 Projects can be imported using the project ID:
 
 ```shell
-terraform import litellm_project.example 4a422a4c-e246-4d02-a1eb-13e835cd0725
+terraform import hangarllm_project.example 4a422a4c-e246-4d02-a1eb-13e835cd0725
 ```

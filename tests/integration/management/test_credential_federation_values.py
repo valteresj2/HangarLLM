@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import JsonValue
 
-from litellm.types.llms.anthropic import ANTHROPIC_OAUTH_TOKEN_PREFIX
+from hangarllm.types.llms.anthropic import ANTHROPIC_OAUTH_TOKEN_PREFIX
 from tests.integration._support.anthropic_thinking import (
     answer,
     identity,
@@ -86,7 +86,7 @@ _KEYCLOAK_SECRET_VARIABLE: Final = "INTEGRATION_WIF_KEYCLOAK_SECRET"
 _JWT_BEARER: Final = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 _MODEL: Final = "anthropic/claude-haiku-4-5"
 _CREDENTIAL_QUERY: Final = (
-    'SELECT credential_values, credential_info FROM "LiteLLM_CredentialsTable" WHERE credential_name = %s'
+    'SELECT credential_values, credential_info FROM "HangarLLM_CredentialsTable" WHERE credential_name = %s'
 )
 
 
@@ -126,7 +126,7 @@ def _shape(
                 **_ids(rule_id),
                 "anthropic_identity_source": "keycloak",
                 "anthropic_keycloak_token_url": keycloak_token_url,
-                "anthropic_keycloak_client_id": "litellm-integration",
+                "anthropic_keycloak_client_id": "hangarllm-integration",
                 "anthropic_keycloak_client_secret_ref": f"os.environ/{_KEYCLOAK_SECRET_VARIABLE}",
                 "anthropic_keycloak_auth_method": "client_secret_post",
                 "anthropic_keycloak_scope": "openid",
@@ -268,7 +268,7 @@ def _federated_deployment(gateway: Gateway, scenario: Scenario, credential: str,
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {"model": _MODEL, "api_base": api_base, "litellm_credential_name": credential},
+            "hangarllm_params": {"model": _MODEL, "api_base": api_base, "hangarllm_credential_name": credential},
             "model_info": {},
         },
     )
@@ -474,7 +474,7 @@ def test_untrusted_exchange_host_is_refused_before_any_exchange(gateway: Gateway
             port: Final = httpx.URL(wire.url).port
             assert "refused to use host '" in response.text, response.text
             assert f":{port}'" in response.text, response.text
-            assert "LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS" in response.text, response.text
+            assert "HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS" in response.text, response.text
             assert wire.drain() == ()
             assert wire.connections() == 0
 
@@ -560,8 +560,8 @@ class _Secrets:
     def overrides(self) -> Mapping[str, str]:
         return MappingProxyType(
             {
-                "LITELLM_ANTHROPIC_WIF_ALLOWED_HOSTS": "127.0.0.1",
-                "LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS": str(self.allowed_dir),
+                "HANGARLLM_ANTHROPIC_WIF_ALLOWED_HOSTS": "127.0.0.1",
+                "HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS": str(self.allowed_dir),
                 "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": "2",
                 _IDENTITY_TOKEN_VARIABLE: self.identity_token,
                 _SIGNING_KEY_VARIABLE: self.signing_key_pem,
@@ -686,7 +686,7 @@ def _assert_assertion(rig: FederationRig, source: str, assertion: str, upstream:
                 assert "authorization" not in grant.headers, grant.headers
                 assert parse_qs(grant.body.decode()) == {
                     "grant_type": ["client_credentials"],
-                    "client_id": ["litellm-integration"],
+                    "client_id": ["hangarllm-integration"],
                     "client_secret": [rig.secrets.keycloak_secret],
                     "scope": ["openid"],
                 }, grant.body
@@ -758,7 +758,7 @@ def test_token_file_outside_allowed_dirs_is_refused_before_any_exchange(
         _deployments_visible(owned.gateway, (model,))
         response: Final = _chat(owned.gateway, model, marker)
         assert response.status_code == 401, response.text
-        assert "LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS" in response.text, response.text
+        assert "HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS" in response.text, response.text
         upstream: Final = federation.peer.requests()
         assert not any(rule_id in request.body.decode() for request in upstream), upstream
         assert not any(marker in request.body.decode() for request in upstream), upstream
@@ -1111,10 +1111,10 @@ def test_connection_probe_names_the_missing_id(federation: FederationRig) -> Non
             "POST",
             "/health/test_connection",
             {
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": _MODEL,
                     "api_base": federation.peer.wire.url,
-                    "litellm_credential_name": misconfigured.credential,
+                    "hangarllm_credential_name": misconfigured.credential,
                 },
                 "mode": "chat",
             },

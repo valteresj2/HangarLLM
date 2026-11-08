@@ -7,7 +7,7 @@ from typing import Final
 from integration._support.client import Gateway
 from integration._support.wire import Reply, Request, wire_server
 
-from litellm.types.llms.anthropic_skills import Skill
+from hangarllm.types.llms.anthropic_skills import Skill
 
 _API_KEY: Final = "synthetic-anthropic-key"
 _TITLE: Final = "Synthetic Skill"
@@ -62,7 +62,7 @@ def test_anthropic_skill_create_forwards_repeated_files_as_file_parts(gateway: G
                 ("files[]", ("synthetic-skill/SKILL.md", _SKILL_MD, "text/markdown")),
                 ("files[]", ("synthetic-skill/helper.py", _HELPER, "text/x-python")),
             ],
-            headers={"Authorization": f"Bearer {gateway.key}", "x-litellm-model": model},
+            headers={"Authorization": f"Bearer {gateway.key}", "x-hangarllm-model": model},
         )
         assert response.status_code == 200, response.text
         assert Skill.model_validate_json(response.content) == Skill.model_validate(_UPSTREAM_SKILL), response.text

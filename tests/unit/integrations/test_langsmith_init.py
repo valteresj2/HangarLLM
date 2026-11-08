@@ -9,18 +9,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.langsmith import LangsmithLogger
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.integrations.langsmith import LangsmithQueueObject
+import hangarllm
+from hangarllm.integrations.langsmith import LangsmithLogger
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.types.integrations.langsmith import LangsmithQueueObject
 
 
 @pytest.fixture
 def reset_redact_flag():
     """Reset redact_user_api_key_info between tests so global state doesn't leak."""
-    original = litellm.redact_user_api_key_info
+    original = hangarllm.redact_user_api_key_info
     yield
-    litellm.redact_user_api_key_info = original
+    hangarllm.redact_user_api_key_info = original
 
 
 class TestLangsmithLoggerInit:
@@ -366,7 +366,7 @@ class TestLangsmithPrepareLogData:
         }
 
         kwargs = {
-            "litellm_params": {"metadata": {}},
+            "hangarllm_params": {"metadata": {}},
             "standard_logging_object": payload,
         }
 
@@ -393,7 +393,7 @@ class TestLangsmithPrepareLogData:
 
 
 class TestLangsmithRedactUserApiKeyInfo:
-    """Verify litellm.redact_user_api_key_info is honored for LangSmith."""
+    """Verify hangarllm.redact_user_api_key_info is honored for LangSmith."""
 
     def _logger(self):
         return LangsmithLogger(
@@ -420,7 +420,7 @@ class TestLangsmithRedactUserApiKeyInfo:
 
     def test_redact_disabled_keeps_user_api_key_fields(self, reset_redact_flag):
         """Flag off: user_api_key_* fields are preserved (no behavior change)."""
-        litellm.redact_user_api_key_info = False
+        hangarllm.redact_user_api_key_info = False
         logger = self._logger()
         metadata = self._metadata_with_user_api_key_fields()
 
@@ -434,7 +434,7 @@ class TestLangsmithRedactUserApiKeyInfo:
         self, reset_redact_flag
     ):
         """Flag on: top-level user_api_key_* keys removed; other keys preserved."""
-        litellm.redact_user_api_key_info = True
+        hangarllm.redact_user_api_key_info = True
         logger = self._logger()
         metadata = self._metadata_with_user_api_key_fields()
 
@@ -454,7 +454,7 @@ class TestLangsmithRedactUserApiKeyInfo:
 
     def test_redact_enabled_strips_nested_requester_metadata(self, reset_redact_flag):
         """Flag on: nested requester_metadata.user_api_key_* removed; session_id still lifted."""
-        litellm.redact_user_api_key_info = True
+        hangarllm.redact_user_api_key_info = True
         logger = self._logger()
         metadata = self._metadata_with_user_api_key_fields()
 
@@ -474,7 +474,7 @@ class TestLangsmithRedactUserApiKeyInfo:
         the fix `extra` was redacted and `inputs` shipped every user_api_key_*
         field verbatim.
         """
-        litellm.redact_user_api_key_info = True
+        hangarllm.redact_user_api_key_info = True
         logger = self._logger()
         metadata = self._metadata_with_user_api_key_fields()
         metadata["user_api_key_auth_metadata"] = {"priority": "high"}
@@ -499,7 +499,7 @@ class TestLangsmithRedactUserApiKeyInfo:
         }
 
         data = logger._prepare_log_data(
-            kwargs={"litellm_params": {"metadata": metadata}, "standard_logging_object": payload},
+            kwargs={"hangarllm_params": {"metadata": metadata}, "standard_logging_object": payload},
             response_obj=None,
             start_time=1.0,
             end_time=2.0,
@@ -521,7 +521,7 @@ class TestLangsmithRedactUserApiKeyInfo:
 
     def test_redact_disabled_keeps_user_api_key_info_in_inputs(self, reset_redact_flag):
         """Flag off: the identity fields stay. The flag governs them, not this fix."""
-        litellm.redact_user_api_key_info = False
+        hangarllm.redact_user_api_key_info = False
         logger = self._logger()
         metadata = self._metadata_with_user_api_key_fields()
         payload = {
@@ -540,7 +540,7 @@ class TestLangsmithRedactUserApiKeyInfo:
         }
 
         data = logger._prepare_log_data(
-            kwargs={"litellm_params": {"metadata": metadata}, "standard_logging_object": payload},
+            kwargs={"hangarllm_params": {"metadata": metadata}, "standard_logging_object": payload},
             response_obj=None,
             start_time=1.0,
             end_time=2.0,
@@ -558,7 +558,7 @@ class TestLangsmithRootRunIdConsistency:
     """Regression tests for LIT-5878 / #37269.
 
     A request that carries a session/trace header (e.g. x-claude-code-session-id)
-    fans the header value out into litellm metadata as both trace_id and
+    fans the header value out into hangarllm metadata as both trace_id and
     session_id. LangSmith then rejected the whole ingest batch twice over:
     a root run whose trace_id does not match the run id embedded in dotted_order
     (400), and a run-body session_id that does not reference an existing tracer
@@ -586,7 +586,7 @@ class TestLangsmithRootRunIdConsistency:
         )
         return logger._prepare_log_data(
             kwargs={
-                "litellm_params": {"metadata": request_metadata},
+                "hangarllm_params": {"metadata": request_metadata},
                 "standard_logging_object": payload,
             },
             response_obj=None,

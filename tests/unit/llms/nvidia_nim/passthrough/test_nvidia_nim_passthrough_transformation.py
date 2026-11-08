@@ -4,16 +4,16 @@ from types import MappingProxyType
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.nvidia_nim.passthrough.transformation import (
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.llms.nvidia_nim.passthrough.transformation import (
     NvidiaNimPassthroughConfig,
     nvidia_nim_model_group_in_path,
     nvidia_nim_model_groups,
     nvidia_nim_router_model_in_endpoint,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 NIM_BASE = "http://nim.internal:8000"
 INFER_BODY = {
@@ -28,8 +28,8 @@ INFER_BODY = {
 def clear_nvidia_nim_env(monkeypatch):
     for env_var in ("NVIDIA_NIM_API_BASE", "NVIDIA_NIM_API_KEY"):
         monkeypatch.delenv(env_var, raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
-    monkeypatch.setattr(litellm, "api_key", None)
+    monkeypatch.setattr(hangarllm, "api_base", None)
+    monkeypatch.setattr(hangarllm, "api_key", None)
 
 
 def test_provider_config_manager_resolves_nvidia_nim_passthrough_config():
@@ -41,13 +41,13 @@ def test_provider_config_manager_resolves_nvidia_nim_passthrough_config():
 
 
 @pytest.mark.parametrize(
-    "api_base, endpoint, litellm_params, expected",
+    "api_base, endpoint, hangarllm_params, expected",
     [
-        (NIM_BASE, "nim-page/v1/infer", {"litellm_metadata": {"model_group": "nim-page"}}, f"{NIM_BASE}/v1/infer"),
+        (NIM_BASE, "nim-page/v1/infer", {"hangarllm_metadata": {"model_group": "nim-page"}}, f"{NIM_BASE}/v1/infer"),
         (
             f"{NIM_BASE}/v1",
             "nim-page/v1/infer",
-            {"litellm_metadata": {"model_group": "nim-page"}},
+            {"hangarllm_metadata": {"model_group": "nim-page"}},
             f"{NIM_BASE}/v1/infer",
         ),
         (f"{NIM_BASE}/v1/", "/v1/infer", {}, f"{NIM_BASE}/v1/infer"),
@@ -58,13 +58,13 @@ def test_provider_config_manager_resolves_nvidia_nim_passthrough_config():
         (
             NIM_BASE,
             "nvidia/nemoretriever-page-elements-v2/v1/infer",
-            {"litellm_metadata": {"model_group": "nvidia"}},
+            {"hangarllm_metadata": {"model_group": "nvidia"}},
             f"{NIM_BASE}/v1/infer",
         ),
     ],
 )
 def test_relay_url_strips_the_model_group_and_never_doubles_the_api_version(
-    api_base, endpoint, litellm_params, expected
+    api_base, endpoint, hangarllm_params, expected
 ):
     url, base = NvidiaNimPassthroughConfig().get_complete_url(
         api_base=api_base,
@@ -72,7 +72,7 @@ def test_relay_url_strips_the_model_group_and_never_doubles_the_api_version(
         model="nvidia/nemoretriever-page-elements-v2",
         endpoint=endpoint,
         request_query_params=None,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
     )
 
     assert str(url) == expected
@@ -86,7 +86,7 @@ def test_query_params_are_forwarded_on_the_relay_url():
         model="nvidia/nemoretriever-page-elements-v2",
         endpoint="v1/infer",
         request_query_params={"timeout": "30"},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert str(url) == f"{NIM_BASE}/v1/infer?timeout=30"
@@ -101,7 +101,7 @@ def test_env_api_base_is_used_when_the_deployment_has_none(monkeypatch):
         model="nvidia/nemoretriever-page-elements-v2",
         endpoint="v1/infer",
         request_query_params=None,
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert str(url) == f"{NIM_BASE}/v1/infer"
@@ -115,7 +115,7 @@ def test_missing_api_base_raises_instead_of_building_a_relative_url():
             model="nvidia/nemoretriever-page-elements-v2",
             endpoint="v1/infer",
             request_query_params=None,
-            litellm_params={},
+            hangarllm_params={},
         )
 
 
@@ -127,7 +127,7 @@ def test_deployment_key_becomes_a_bearer_token_and_caller_headers_are_kept():
         model="nvidia/nemoretriever-page-elements-v2",
         messages=[],
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
         api_key="nvapi-secret",
     )
 
@@ -136,7 +136,7 @@ def test_deployment_key_becomes_a_bearer_token_and_caller_headers_are_kept():
 
 def test_self_hosted_nim_without_a_key_sends_no_authorization_header():
     headers = NvidiaNimPassthroughConfig().validate_environment(
-        headers={}, model="nvidia/x", messages=[], optional_params={}, litellm_params={}, api_key=None
+        headers={}, model="nvidia/x", messages=[], optional_params={}, hangarllm_params={}, api_key=None
     )
 
     assert "Authorization" not in headers
@@ -170,12 +170,12 @@ def test_router_model_in_endpoint_takes_the_longest_leading_model_group(endpoint
 
 
 def _deployment(model_name: str, model: str, custom_llm_provider: str | None = None):
-    litellm_params = (
+    hangarllm_params = (
         {"model": model}
         if custom_llm_provider is None
         else {"model": model, "custom_llm_provider": custom_llm_provider}
     )
-    return {"model_name": model_name, "litellm_params": litellm_params}
+    return {"model_name": model_name, "hangarllm_params": hangarllm_params}
 
 
 MIXED_DEPLOYMENTS = (
@@ -243,14 +243,14 @@ async def test_object_detection_relay_sends_the_native_body_unchanged_to_v1_infe
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(nim))
 
-    response = await litellm.allm_passthrough_route(
+    response = await hangarllm.allm_passthrough_route(
         model="nvidia_nim/nvidia/nemoretriever-page-elements-v2",
         endpoint="nim-page/v1/infer",
         method="POST",
         api_base=f"{NIM_BASE}/v1",
         api_key="nvapi-secret",
         json=dict(INFER_BODY),
-        litellm_metadata={"model_group": "nim-page"},
+        hangarllm_metadata={"model_group": "nim-page"},
         client=client,
     )
 
@@ -273,11 +273,11 @@ async def test_router_relay_reaches_v1_infer_when_the_group_name_is_a_leading_se
 
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(nim))
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "nvidia",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2",
                     "api_base": NIM_BASE,
                     "api_key": "nvapi-secret",

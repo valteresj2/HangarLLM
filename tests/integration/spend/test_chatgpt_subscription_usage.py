@@ -16,11 +16,11 @@ from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 _MODEL: Final = "chatgpt/gpt-5.5"
 _PROVIDER: Final = "chatgpt"
 _FEE_TABLE_QUERY: Final = (
-    'SELECT subscription_account_id FROM "LiteLLM_SubscriptionAccountTable" WHERE custom_llm_provider = %s'
+    'SELECT subscription_account_id FROM "HangarLLM_SubscriptionAccountTable" WHERE custom_llm_provider = %s'
     " AND account_id = %s"
 )
 _FEE_ROW_QUERY: Final = (
-    'SELECT subscription_account_id FROM "LiteLLM_SubscriptionAccountTable" WHERE subscription_account_id = %s'
+    'SELECT subscription_account_id FROM "HangarLLM_SubscriptionAccountTable" WHERE subscription_account_id = %s'
 )
 _MONTHLY_FEE: Final = 200.0
 _BILLING_PERIOD_START: Final = "2026-01-15"

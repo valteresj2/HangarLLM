@@ -16,7 +16,7 @@ MANAGEMENT_ROUTES: Final = ["/key/*", "/team/new", "/team/update", "/v1/chat/com
 
 
 def denying_guardrail(request: Request) -> Reply:
-    assert request.target == "/beta/litellm_basic_guardrail_api"
+    assert request.target == "/beta/hangarllm_basic_guardrail_api"
     return Reply(body=json.dumps({"action": "BLOCKED", "blocked_reason": "synthetic policy denial"}).encode())
 
 
@@ -25,7 +25,7 @@ def guardrail_config(policy_url: str, path: Path) -> Path:
     config["guardrails"] = [
         {
             "guardrail_name": "guardrail" + uuid.uuid4().hex,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "generic_guardrail_api",
                 "mode": "pre_call",
                 "default_on": True,
@@ -40,7 +40,7 @@ def guardrail_config(policy_url: str, path: Path) -> Path:
 
 def stored_metadata(token: str) -> dict[str, object]:
     rows: Final = read_rows(
-        'SELECT metadata FROM "LiteLLM_VerificationToken" WHERE token = %s', (sha256(token.encode()).hexdigest(),)
+        'SELECT metadata FROM "HangarLLM_VerificationToken" WHERE token = %s', (sha256(token.encode()).hexdigest(),)
     )
     assert len(rows) == 1, rows
     return rows[0]["metadata"]

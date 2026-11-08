@@ -1,4 +1,4 @@
-"""Reproduce a default-Windows ``pip install litellm`` to catch the 260-char
+"""Reproduce a default-Windows ``pip install hangarllm`` to catch the 260-char
 MAX_PATH regression that content-filter fixtures keep reintroducing
 (#21941, #22039, #29536, #43851). Run after ``uv build --wheel --out-dir dist``.
 
@@ -87,15 +87,15 @@ def main(argv):
             f"::error::installing {os.path.basename(wheel)} into a deep prefix failed"
         )
         return 1
-    if _run([python, "-I", "-c", "import litellm; import litellm.types.utils"]) != 0:
-        print("::error::litellm did not import after install (half-unpacked package)")
+    if _run([python, "-I", "-c", "import hangarllm; import hangarllm.types.utils"]) != 0:
+        print("::error::hangarllm did not import after install (half-unpacked package)")
         return 1
 
     checker = os.path.abspath(os.path.join("tests", "base_sdk_tests", "check_base_sdk_install.py"))
     for rust in ("0", "1"):
         result = subprocess.run(
             [python, "-I", checker, "--profile", "native"],
-            env={**os.environ, "LITELLM_RUST": rust, "LITELLM_LOCAL_MODEL_COST_MAP": "True"},
+            env={**os.environ, "HANGARLLM_RUST": rust, "HANGARLLM_LOCAL_MODEL_COST_MAP": "True"},
             check=False,
         )
         if result.returncode != 0:

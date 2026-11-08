@@ -33,7 +33,7 @@ def signature(
     scope: str,
     query: str = "",
 ) -> tuple[str, str]:
-    """AWS SigV4 equations, independent of botocore and LiteLLM's signer; `query` is already canonical."""
+    """AWS SigV4 equations, independent of botocore and HangarLLM's signer; `query` is already canonical."""
     canonical_headers: Final = "".join(
         name + ":" + " ".join(headers[name].split()) + "\n" for name in signed.split(";")
     )

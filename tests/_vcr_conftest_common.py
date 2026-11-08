@@ -40,9 +40,9 @@ from tests._vcr_redis_persister import (
     patch_vcrpy_aiohttp_record_path,
 )
 
-# Force litellm to use its bundled model-cost-map backup instead of fetching it
-# from raw.githubusercontent.com on import. Several VCR conftests reload litellm
-# in an autouse fixture (``importlib.reload(litellm)``); ``litellm.__init__``
+# Force hangarllm to use its bundled model-cost-map backup instead of fetching it
+# from raw.githubusercontent.com on import. Several VCR conftests reload hangarllm
+# in an autouse fixture (``importlib.reload(hangarllm)``); ``hangarllm.__init__``
 # calls ``get_model_cost_map()`` which issues a live ``httpx.get`` unless this is
 # set. While a cassette is active that fetch gets *recorded* as an extra episode
 # (it was present in ~710 of ~1900 cached cassettes). For tests that then skip,
@@ -54,7 +54,7 @@ from tests._vcr_redis_persister import (
 # the unit-test suite, which sets the same flag (see e.g.
 # tests/unit/test_cost_calculator.py). ``setdefault`` so an explicit
 # override still wins.
-os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+os.environ.setdefault("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
 
 CASSETTE_CACHE_HIGH_WATER_FRACTION = 0.85
 
@@ -63,9 +63,9 @@ SAFE_BODY_MATCHER_NAME = "safe_body"
 KEY_FINGERPRINT_MATCHER_NAME = "key_fingerprint"
 TOLERANT_QUERY_MATCHER_NAME = "tolerant_query"
 TOLERANT_PATH_MATCHER_NAME = "tolerant_path"
-KEY_FINGERPRINT_HEADER = "x-litellm-key-fp"
+KEY_FINGERPRINT_HEADER = "x-hangarllm-key-fp"
 
-VCR_DIAG_DIR_ENV = "LITELLM_VCR_DIAG_DIR"
+VCR_DIAG_DIR_ENV = "HANGARLLM_VCR_DIAG_DIR"
 VCR_DIAG_DIR_DEFAULT = "test-results/vcr-diagnostics"
 
 
@@ -382,7 +382,7 @@ def _canonical_body(request) -> tuple[bytes, str]:
 #
 # Many tests append a cache-buster to the request body so the *live* call
 # isn't served from an upstream prompt/response cache during recording:
-# ``f"...{time.time()}"``, ``f"...{uuid.uuid4()}"``. LiteLLM's own
+# ``f"...{time.time()}"``, ``f"...{uuid.uuid4()}"``. HangarLLM's own
 # observability payloads (langfuse/otel) likewise carry per-call UUIDs and
 # ISO-8601 timestamps. None of that affects what the test asserts (response
 # shape, cost, caching behaviour), but it makes the request body differ on
@@ -399,7 +399,7 @@ def _canonical_body(request) -> tuple[bytes, str]:
 # normalizations already in this module, and means the already-bloated
 # cassettes start replaying immediately without a flush + re-record.
 _VCR_UUID_RE = re.compile(rb"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-_VCR_LITELLM_BATCH_JOB_RE = re.compile(rb"litellm-batch-[0-9a-fA-F]{8}")
+_VCR_HANGARLLM_BATCH_JOB_RE = re.compile(rb"hangarllm-batch-[0-9a-fA-F]{8}")
 # ISO-8601 timestamps, e.g. ``2026-05-25T03:40:37.262045Z`` /
 # ``2026-05-25T03:40:37+00:00``.
 _VCR_ISO_TS_RE = re.compile(rb"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?")
@@ -423,7 +423,7 @@ def _normalize_volatile_tokens(body: bytes) -> bytes:
     if not body:
         return body
     body = _VCR_UUID_RE.sub(b"<vcr-uuid>", body)
-    body = _VCR_LITELLM_BATCH_JOB_RE.sub(b"litellm-batch-<vcr-id>", body)
+    body = _VCR_HANGARLLM_BATCH_JOB_RE.sub(b"hangarllm-batch-<vcr-id>", body)
     body = _VCR_ISO_TS_RE.sub(b"<vcr-iso-ts>", body)
     body = _VCR_UNIX_MS_RE.sub(b"<vcr-unix-ms>", body)
     body = _VCR_UNIX_FLOAT_RE.sub(b"<vcr-unix-float>", body)
@@ -457,9 +457,9 @@ def _is_credential_exchange_request(request) -> bool:
     return _request_host(request) in _CREDENTIAL_EXCHANGE_HOSTS
 
 
-# Observability / telemetry backends LiteLLM logs to. A telemetry export is a
+# Observability / telemetry backends HangarLLM logs to. A telemetry export is a
 # snapshot of the *whole* call — fresh span/trace UUIDs, ISO-8601 timestamps,
-# durations, token costs, the LiteLLM build SHA (``release``), and the recorded
+# durations, token costs, the HangarLLM build SHA (``release``), and the recorded
 # LLM response content — and tests often round-trip a fresh ``trace_id`` back
 # through the backend's query API to verify logging happened. None of that is
 # reproducible under deterministic replay, and none of it is what the test
@@ -570,7 +570,7 @@ def patch_vcrpy_cassette_load_guard() -> None:
     while stored episodes are being replayed into the in-memory cassette."""
     import vcr.cassette as _cassette_mod
 
-    if getattr(_cassette_mod.Cassette._load, "_litellm_load_guarded", False):
+    if getattr(_cassette_mod.Cassette._load, "_hangarllm_load_guarded", False):
         return
     _orig_load = _cassette_mod.Cassette._load
 
@@ -581,17 +581,17 @@ def patch_vcrpy_cassette_load_guard() -> None:
         finally:
             _vcr_load_guard.active = False
 
-    _guarded_load._litellm_load_guarded = True
+    _guarded_load._hangarllm_load_guarded = True
     _cassette_mod.Cassette._load = _guarded_load
 
 
 def _should_drop_telemetry_record(request) -> bool:
     """Whether to refuse to record this request into the active cassette.
 
-    Several test modules set ``litellm.success_callback = ["langfuse"]`` (and
+    Several test modules set ``hangarllm.success_callback = ["langfuse"]`` (and
     similar) at *import* time, which globally enables observability logging for
     the whole worker. Unrelated tests then emit telemetry whose async flush
-    (litellm's background logging worker) lands in a *later* test's VCR window
+    (hangarllm's background logging worker) lands in a *later* test's VCR window
     and gets saved as a spurious episode — a non-deterministic MISS:RECORDED on
     whichever test happened to be active (observed on
     ``test_lowest_latency_routing_buffer`` carrying a Langfuse batch from an
@@ -606,7 +606,7 @@ def _should_drop_telemetry_record(request) -> bool:
     interactions (see ``_vcr_load_in_progress``): dropping there would delete an
     already-recorded telemetry episode on read and force a live re-record.
 
-    The async-flush leak also rotates *within* the telemetry test set: litellm's
+    The async-flush leak also rotates *within* the telemetry test set: hangarllm's
     observability loggers flush on a background thread, so an export POST
     scheduled by one telemetry test fires mid-way through a *later*
     telemetry-named test (after that test's own ``httpx`` mock has exited) and
@@ -633,7 +633,7 @@ def _should_passthrough_credential_exchange(request) -> bool:
     """Force the Google OAuth2/STS token mint to run live, never from cassette.
 
     The mint returns a short-lived ``ya29.*`` access token. Recording it lets a
-    *stale* token replay on a later run; litellm caches it (the recorded
+    *stale* token replay on a later run; hangarllm caches it (the recorded
     ``expires_in`` keeps ``credentials.expired`` False, so it is never
     refreshed) and sends it to a live Vertex/Gemini endpoint, which rejects it
     with ``ACCESS_TOKEN_EXPIRED``. The token body carries nothing a test asserts
@@ -1027,7 +1027,7 @@ def _tolerant_query_matcher(r1, r2) -> None:
     """vcrpy's ``query`` matcher, but tolerant of telemetry round-trips.
 
     Observability backends are queried back with a freshly-generated
-    ``trace_id`` (e.g. ``GET /observations?traceId=litellm-test-<uuid>``).
+    ``trace_id`` (e.g. ``GET /observations?traceId=hangarllm-test-<uuid>``).
     Comparing the query string would miss on every run. For telemetry hosts
     we skip the query comparison entirely (the host+path matchers still gate
     the match); every other host uses vcrpy's stock query matcher unchanged.
@@ -1038,7 +1038,7 @@ def _tolerant_query_matcher(r1, r2) -> None:
 
 
 _BEDROCK_MANAGED_S3_PATH_RE = re.compile(
-    r"(?P<prefix>(?:^|/)(?:litellm-bedrock-files/[^/?#]+-|litellm-bedrock-files-[^/?#]+-))"
+    r"(?P<prefix>(?:^|/)(?:hangarllm-bedrock-files/[^/?#]+-|hangarllm-bedrock-files-[^/?#]+-))"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
     r"(?P<suffix>\.jsonl)"
 )
@@ -1069,11 +1069,11 @@ def _normalize_volatile_path(path: str) -> str:
 
 
 def _tolerant_path_matcher(r1, r2) -> None:
-    """vcrpy's ``path`` matcher, plus LiteLLM-managed Bedrock S3 upload UUIDs.
+    """vcrpy's ``path`` matcher, plus HangarLLM-managed Bedrock S3 upload UUIDs.
 
     Bedrock batch file uploads use object keys like
-    ``litellm-bedrock-files-{model}-{uuid}.jsonl`` (and older cassettes may
-    contain ``litellm-bedrock-files/{model}-{uuid}.jsonl``). The UUID is
+    ``hangarllm-bedrock-files-{model}-{uuid}.jsonl`` (and older cassettes may
+    contain ``hangarllm-bedrock-files/{model}-{uuid}.jsonl``). The UUID is
     generated client-side before the S3 PUT, so strict path matching makes
     every replay miss even when the JSONL body and all provider semantics are
     identical.
@@ -1107,7 +1107,7 @@ def vcr_config_dict() -> dict:
 
 
 def vcr_disabled() -> bool:
-    if os.environ.get("LITELLM_VCR_DISABLE") == "1":
+    if os.environ.get("HANGARLLM_VCR_DISABLE") == "1":
         return True
     return not os.environ.get("CASSETTE_REDIS_URL")
 
@@ -1403,7 +1403,7 @@ def apply_vcr_auto_marker_to_items(
 
     Skip semantics (in priority order):
 
-    1. ``vcr_disabled()`` — global env-var off-switch (``LITELLM_VCR_DISABLE=1``
+    1. ``vcr_disabled()`` — global env-var off-switch (``HANGARLLM_VCR_DISABLE=1``
        or no ``CASSETTE_REDIS_URL``).
     2. Item already carries ``@pytest.mark.vcr`` — leave it alone.
     3. Item triggers respx (per-item marker / fixture) — vcrpy and respx
@@ -1730,11 +1730,11 @@ class _LiveCallProbe:
 def vcr_outcome_logging_enabled() -> bool:
     """Verdict logging is on whenever VCR itself is active.
 
-    The old ``LITELLM_VCR_VERBOSE=1`` gate kept logs quiet by default, but
+    The old ``HANGARLLM_VCR_VERBOSE=1`` gate kept logs quiet by default, but
     that hides the very signal we need to know whether a paid test ran
     against a real provider. CI logs already drop a one-line verdict per
     test; that's what makes the cost analysis tractable. Set
-    ``LITELLM_VCR_VERBOSE=0`` if you really want the legacy quiet mode.
+    ``HANGARLLM_VCR_VERBOSE=0`` if you really want the legacy quiet mode.
     """
     if vcr_disabled():
         return False

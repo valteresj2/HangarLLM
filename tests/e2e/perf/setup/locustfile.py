@@ -324,11 +324,11 @@ class PlanUser(FastHttpUser):
                 text=text,
                 ok=ok,
                 mock_delay_s=float(delay_header) if delay_header else None,
-                call_id=_header(response, "x-litellm-call-id") if response is not None else None,
+                call_id=_header(response, "x-hangarllm-call-id") if response is not None else None,
                 error=error,
                 response_id=identifier,
-                litellm_overhead_ms=_ms_header(response, "x-litellm-overhead-duration-ms"),
-                litellm_response_ms=_ms_header(response, "x-litellm-response-duration-ms"),
+                hangarllm_overhead_ms=_ms_header(response, "x-hangarllm-overhead-duration-ms"),
+                hangarllm_response_ms=_ms_header(response, "x-hangarllm-response-duration-ms"),
             )
         )
         if _PROGRESS.drained:

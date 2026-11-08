@@ -5,9 +5,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm._logging import JsonFormatter, verbose_logger
-from litellm.litellm_core_utils.reasoning_effort_capability import (
+import hangarllm
+from hangarllm._logging import JsonFormatter, verbose_logger
+from hangarllm.hangarllm_core_utils.reasoning_effort_capability import (
     RequestedReasoningEffort,
     deployment_is_catalog_mapped,
     intersect_supported_reasoning_efforts,
@@ -16,7 +16,7 @@ from litellm.litellm_core_utils.reasoning_effort_capability import (
     resolve_supported_reasoning_efforts,
     thinking_budget_effort,
 )
-from litellm.litellm_core_utils.reasoning_effort_strength import REASONING_EFFORT_STRENGTH_ORDER
+from hangarllm.hangarllm_core_utils.reasoning_effort_strength import REASONING_EFFORT_STRENGTH_ORDER
 
 
 class TestDeploymentIsCatalogMapped:
@@ -121,7 +121,7 @@ class TestBareModelNameFallback:
         """azure/gpt-5-mini carries no effort flag while gpt-5-mini carries three, and the request
         path resolves capability flags through that same twin (#20885). Reading only the prefixed
         entry would answer unknown for a model the map fully describes."""
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model="gpt-5-mini", custom_llm_provider="azure"))
 
@@ -136,7 +136,7 @@ class TestBareModelNameFallback:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "key": "azure/gpt-5-mini",
                 "supports_xhigh_reasoning_effort": True,
             },
@@ -150,7 +150,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "key": "openai/some-reasoner",
                 "supports_max_reasoning_effort": True,
             },
@@ -164,7 +164,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "key": "azure/o3",
                 "supports_max_reasoning_effort": True,
             },
@@ -176,7 +176,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "key": "azure/gpt-5-turbo",
                 "supports_minimal_reasoning_effort": True,
             },
@@ -188,7 +188,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "key": "azure/gpt-5-turbo",
                 "supports_none_reasoning_effort": True,
             },
@@ -203,8 +203,8 @@ class TestNoneLevelPolarity:
     def test_azure_advertisement_matches_the_azure_request_gate(self, model_key):
         """AzureOpenAIGPT5Config raises UnsupportedParamsError on reasoning_effort='none' for models
         it does not flag, so advertising the level there would offer routing a 400."""
-        from litellm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
-        from litellm.utils import get_model_info_helper
+        from hangarllm.llms.azure.chat.gpt_reasoning_transformation import AzureOpenAIGPT5Config
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model=model_key.split("/", 1)[1], custom_llm_provider="azure"))
         resolved = resolve_supported_reasoning_efforts(model_info, deployment_is_mapped=True)
@@ -306,14 +306,14 @@ class TestDeclaredEffortList:
 
     def test_a_declaration_is_read_through_the_bare_twin(self, monkeypatch):
         monkeypatch.setitem(
-            litellm.model_cost,
+            hangarllm.model_cost,
             "some-declared-reasoner",
             {"supports_reasoning": True, "reasoning_effort_levels": ["low", "max"]},
         )
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "openai",
+                "hangarllm_provider": "openai",
                 "key": "openai/some-declared-reasoner",
             },
             deployment_is_mapped=True,
@@ -341,14 +341,14 @@ class TestKimiK3AdvertisesItsDocumentedLevels:
         """platform.kimi.ai documents exactly low, high and max, and these providers forward the
         level unchanged. Undeclared, each entry resolves to unknown and the dashboard falls back to
         a capability-blind list that omits max."""
-        entry = dict(litellm.model_cost[model_key], key=model_key)
+        entry = dict(hangarllm.model_cost[model_key], key=model_key)
 
         assert resolve_supported_reasoning_efforts(entry, deployment_is_mapped=True) == ("low", "high", "max")
 
     def test_the_perplexity_entry_advertises_the_wider_set_it_maps_down(self, local_model_cost_map):
         """Perplexity's Agent API takes a six-value enum and maps it down internally, so this
         deployment is legitimately wider than a passthrough. One blanket list could not say both."""
-        entry = dict(litellm.model_cost[KIMI_K3_PERPLEXITY_KEY], key=KIMI_K3_PERPLEXITY_KEY)
+        entry = dict(hangarllm.model_cost[KIMI_K3_PERPLEXITY_KEY], key=KIMI_K3_PERPLEXITY_KEY)
 
         assert resolve_supported_reasoning_efforts(entry, deployment_is_mapped=True) == (
             "minimal",
@@ -363,7 +363,7 @@ class TestKimiK3AdvertisesItsDocumentedLevels:
     def test_the_declaration_survives_model_info_hydration(self, local_model_cost_map, model, provider):
         """The hydration line is the load-bearing seam: without it the key the map carries never
         reaches the resolver and reads as absent everywhere downstream."""
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model=model, custom_llm_provider=provider))
 
@@ -374,7 +374,7 @@ class TestKimiK3AdvertisesItsDocumentedLevels:
         """kimi used to contribute unknown, which never narrows, so the group advertised whatever
         its other deployments agreed on."""
         kimi = resolve_supported_reasoning_efforts(
-            dict(litellm.model_cost["fireworks_ai/kimi-k3"], key="fireworks_ai/kimi-k3"),
+            dict(hangarllm.model_cost["fireworks_ai/kimi-k3"], key="fireworks_ai/kimi-k3"),
             deployment_is_mapped=True,
         )
 
@@ -388,7 +388,7 @@ class TestGpt6AstraAdvertisesItsDocumentedLevels:
     def test_the_entry_advertises_low_through_max_without_none(self, local_model_cost_map):
         """OpenAI documents low, medium, high, xhigh and max for gpt-6-astra. Unlike gpt-5.6-sol it
         does not take none, so a group must not offer none and must offer max."""
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model="gpt-6-astra", custom_llm_provider="openai"))
 
@@ -419,7 +419,7 @@ class TestGpt6AstraAdvertisesItsDocumentedLevels:
         row keeps max off and the advertised set stops at the level every route accepts.
         Earlier evidence (2026-09-05, commit e79f3ec5205) had none accepted on chat; the deployment
         no longer behaves that way."""
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model=model, custom_llm_provider=custom_llm_provider))
 
@@ -436,7 +436,7 @@ class TestGpt6SolAndLunaAdvertiseNoneThroughMax:
     def test_the_entry_advertises_none_through_max(self, local_model_cost_map, model):
         """OpenAI documents none, low, medium (default), high, xhigh and max for both. Unlike
         gpt-6-astra they take none."""
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         model_info = dict(get_model_info_helper(model=model, custom_llm_provider="openai"))
 
@@ -512,8 +512,8 @@ def _bare_map_model_declaring_fewer_levels() -> tuple[str, str]:
         levels: Final = entry.get("reasoning_effort_levels")
         return "/" not in key and isinstance(levels, list) and not set(REASONING_EFFORT_STRENGTH_ORDER) <= set(levels)
 
-    model, entry = next((key, entry) for key, entry in litellm.model_cost.items() if declares_fewer(key, entry))
-    return str(entry["litellm_provider"]), model
+    model, entry = next((key, entry) for key, entry in hangarllm.model_cost.items() if declares_fewer(key, entry))
+    return str(entry["hangarllm_provider"]), model
 
 
 class TestResolveDeploymentReasoningEffort:
@@ -545,10 +545,10 @@ class TestResolveDeploymentReasoningEffort:
         assert _sent("default", None) == "default"
 
     def test_the_deployment_rounding_wins_over_the_global(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(litellm, "reasoning_effort_rounding", "up")
+        monkeypatch.setattr(hangarllm, "reasoning_effort_rounding", "up")
         assert _sent("medium", {**KIMI_DEPLOYMENT, "reasoning_effort_rounding": "down"}) == "low"
 
-        monkeypatch.setattr(litellm, "reasoning_effort_rounding", "down")
+        monkeypatch.setattr(hangarllm, "reasoning_effort_rounding", "down")
         assert _sent("medium", {**KIMI_DEPLOYMENT, "reasoning_effort_rounding": "up"}) == "high"
         assert _sent("medium") == "low"
 
@@ -556,17 +556,17 @@ class TestResolveDeploymentReasoningEffort:
     def test_the_rounding_setting_ignores_case_and_surrounding_spaces(
         self, monkeypatch: pytest.MonkeyPatch, spelling: str
     ) -> None:
-        monkeypatch.setattr(litellm, "reasoning_effort_rounding", "up")
+        monkeypatch.setattr(hangarllm, "reasoning_effort_rounding", "up")
         assert _sent("medium", {**KIMI_DEPLOYMENT, "reasoning_effort_rounding": spelling}) == "low"
 
     @pytest.mark.parametrize("invalid", ["sideways", 1, None])
     def test_an_invalid_rounding_falls_back_to_the_next_setting(
         self, monkeypatch: pytest.MonkeyPatch, invalid: str | int | None
     ) -> None:
-        monkeypatch.setattr(litellm, "reasoning_effort_rounding", "down")
+        monkeypatch.setattr(hangarllm, "reasoning_effort_rounding", "down")
         assert _sent("medium", {**KIMI_DEPLOYMENT, "reasoning_effort_rounding": invalid}) == "low"
 
-        monkeypatch.setattr(litellm, "reasoning_effort_rounding", invalid)
+        monkeypatch.setattr(hangarllm, "reasoning_effort_rounding", invalid)
         assert _sent("medium", {**KIMI_DEPLOYMENT, "reasoning_effort_rounding": invalid}) == "high"
 
     def test_a_misspelled_rounding_is_reported_rather_than_silently_rounding_up(
@@ -575,7 +575,7 @@ class TestResolveDeploymentReasoningEffort:
         verbose_logger.addHandler(caplog.handler)
         verbose_logger.propagate = False
         verbose_logger.setLevel(logging.INFO)
-        monkeypatch.setattr(litellm, "reasoning_effort_rounding", None)
+        monkeypatch.setattr(hangarllm, "reasoning_effort_rounding", None)
 
         _sent("medium", {**KIMI_DEPLOYMENT, "reasoning_effort_rounding": "donw\nforged"})
 
@@ -594,7 +594,7 @@ class TestResolveDeploymentReasoningEffort:
         self, local_model_cost_map: None
     ) -> None:
         provider, model = _bare_map_model_declaring_fewer_levels()
-        echoed: Final = {"key": f"{provider}/{model}", "litellm_provider": provider}
+        echoed: Final = {"key": f"{provider}/{model}", "hangarllm_provider": provider}
 
         sent: Final = [_sent(level, echoed, model=model, provider=provider) for level in REASONING_EFFORT_STRENGTH_ORDER]
 
@@ -709,7 +709,7 @@ class TestAzureGpt6SolAndLunaAdvertiseTheOpenAiLevels:
     ):
         """The Foundry deployments of sol and luna take the same effort set OpenAI documents for
         the direct API, so the resolved levels must match the OpenAI-direct entry."""
-        from litellm.utils import get_model_info_helper
+        from hangarllm.utils import get_model_info_helper
 
         azure_info = dict(get_model_info_helper(model=model, custom_llm_provider=custom_llm_provider))
         openai_info = dict(get_model_info_helper(model=model.rsplit("/", 1)[1], custom_llm_provider="openai"))

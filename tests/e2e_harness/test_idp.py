@@ -39,19 +39,19 @@ from idp import (
 
 IDP_SCRIPT: Final = inspect.getfile(idp)
 _REALM: Final = Keycloak(
-    base_url="http://keycloak:8080", realm="litellm-e2e", admin_username="admin", admin_password="pw"
+    base_url="http://keycloak:8080", realm="hangarllm-e2e", admin_username="admin", admin_password="pw"
 )
 
 
 def test_realm_urls_match_keycloaks_own_layout() -> None:
-    assert _REALM.issuer == "http://keycloak:8080/realms/litellm-e2e"
-    assert _REALM.jwks_url == "http://keycloak:8080/realms/litellm-e2e/protocol/openid-connect/certs"
+    assert _REALM.issuer == "http://keycloak:8080/realms/hangarllm-e2e"
+    assert _REALM.jwks_url == "http://keycloak:8080/realms/hangarllm-e2e/protocol/openid-connect/certs"
     assert _REALM.token_url("master") == "http://keycloak:8080/realms/master/protocol/openid-connect/token"
 
 
 def test_created_id_is_the_last_segment_of_the_location_header() -> None:
     created: Final = ExternalWrite(
-        status_code=201, location="http://keycloak:8080/admin/realms/litellm-e2e/groups/abc-123"
+        status_code=201, location="http://keycloak:8080/admin/realms/hangarllm-e2e/groups/abc-123"
     )
     assert created_id(created, "a group") == "abc-123"
 
@@ -293,14 +293,14 @@ def test_new_users_are_born_fully_set_up() -> None:
 
 
 def test_connection_details_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(KEYCLOAK_URL_ENV, "http://keycloak.litellm.svc.cluster.local:8080/")
+    monkeypatch.setenv(KEYCLOAK_URL_ENV, "http://keycloak.hangarllm.svc.cluster.local:8080/")
     monkeypatch.setenv(KEYCLOAK_REALM_ENV, "other-realm")
     monkeypatch.setenv(KEYCLOAK_ADMIN_USER_ENV, "admin")
     monkeypatch.setenv(KEYCLOAK_ADMIN_PASSWORD_ENV, "pw")
 
     resolved: Final = keycloak_from_env()
 
-    assert resolved.issuer == "http://keycloak.litellm.svc.cluster.local:8080/realms/other-realm"
+    assert resolved.issuer == "http://keycloak.hangarllm.svc.cluster.local:8080/realms/other-realm"
     assert resolved.admin_username == "admin" and resolved.admin_password == "pw"
 
 

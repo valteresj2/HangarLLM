@@ -38,7 +38,7 @@ def test_budget_crud_roundtrip(client: BudgetClient, resources: ResourceManager)
     key = client.generate_key(budget_id=budget_id)
     resources.defer(lambda: client.delete_key(key))
     info = client.proxy.key_info(key)
-    linked = info.litellm_budget_table
+    linked = info.hangarllm_budget_table
     assert info.budget_id == budget_id or (linked is not None and linked.max_budget == 12.5), (
         f"key does not reflect attached budget: {info.budget_id}, {linked}"
     )

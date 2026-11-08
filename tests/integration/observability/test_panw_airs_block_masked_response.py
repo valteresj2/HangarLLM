@@ -141,7 +141,7 @@ def _config(tmp_path: Path, identity: str, policy_url: str, **flags: bool) -> Pa
     config["guardrails"] = [
         {
             "guardrail_name": identity,
-            "litellm_params": {
+            "hangarllm_params": {
                 "guardrail": "panw_prisma_airs",
                 "mode": "post_call",
                 "default_on": True,
@@ -193,7 +193,7 @@ def _db_guardrail(scenario: Scenario, name: str, policy_url: str, include_masked
         {
             "guardrail": {
                 "guardrail_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "guardrail": "panw_prisma_airs",
                     "mode": "post_call",
                     "api_base": policy_url,
@@ -296,7 +296,7 @@ def test_mask_response_content_still_masks_when_flag_on(gateway: Gateway, tmp_pa
 
 
 def test_db_created_guardrail_string_false_withholds_response_masked_data_on_block(gateway: Gateway) -> None:
-    """The dashboard persists some litellm_params as strings; "false" must not turn the flag on."""
+    """The dashboard persists some hangarllm_params as strings; "false" must not turn the flag on."""
     name: Final = f"panw-string-false-{uuid.uuid4().hex[:8]}"
     with wire_server(_scanner) as policy, wire_server(_provider) as upstream:
         with gateway.scenario() as scenario:

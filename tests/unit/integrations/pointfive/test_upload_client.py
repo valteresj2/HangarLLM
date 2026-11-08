@@ -4,10 +4,10 @@ from collections.abc import Sequence
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.pointfive.upload_client import PointFiveUploadClient
-from litellm.litellm_core_utils.url_utils import validate_url
-from litellm.types.integrations.pointfive import PointFiveUploadFailure
+import hangarllm
+from hangarllm.integrations.pointfive.upload_client import PointFiveUploadClient
+from hangarllm.hangarllm_core_utils.url_utils import validate_url
+from hangarllm.types.integrations.pointfive import PointFiveUploadFailure
 
 API_URL = "https://api.pointfive.co/api/v1/ingestion"
 UPLOAD_URL = "https://uploads.example.invalid/some/object.ndjson.gz?signature=sig"
@@ -130,7 +130,7 @@ async def test_presign_request_is_authenticated_and_sized():
     call = http_client.presign_calls[0]
     assert call["url"] == "https://api.pointfive.co/api/v1/ingestion/upload-url"
     assert call["headers"]["Authorization"] == "Bearer p5tu_testkey"
-    assert call["json"] == {"kind": "LITELLM", "byteCount": len(BODY)}
+    assert call["json"] == {"kind": "HANGARLLM", "byteCount": len(BODY)}
 
 
 @pytest.mark.asyncio
@@ -199,8 +199,8 @@ async def test_an_upload_url_inside_the_network_is_refused_before_any_bytes_leav
 
 @pytest.mark.asyncio
 async def test_an_operator_can_switch_destination_validation_off(monkeypatch):
-    """litellm.user_url_validation is the proxy-wide switch every SSRF guard honours."""
-    monkeypatch.setattr(litellm, "user_url_validation", False)
+    """hangarllm.user_url_validation is the proxy-wide switch every SSRF guard honours."""
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
     http_client = FakeHTTPClient(presign=[_presigned_for("http://10.0.0.7/bucket/object")])
 
     outcome = await _client(http_client, validate_upload_url=validate_url).upload(BODY)
@@ -335,7 +335,7 @@ async def test_ping_reports_a_live_shipper():
 
     assert failure is None
     assert http_client.presign_calls[0]["url"] == "https://api.pointfive.co/api/v1/ingestion/ping"
-    assert http_client.presign_calls[0]["json"] == {"kind": "LITELLM"}
+    assert http_client.presign_calls[0]["json"] == {"kind": "HANGARLLM"}
 
 
 @pytest.mark.asyncio

@@ -24,7 +24,7 @@ from integration._support.aws_control_plane import (
 )
 from integration._support.client import JSON_OBJECT, Gateway, Scenario, eventually, held, object_value, string_value
 from integration._support.process import OwnedProxy, OwnedState, owned_proxy_process
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
+from hangarllm.hangarllm_core_utils.aws_partition import get_aws_dns_suffix
 from pydantic import JsonValue
 
 HOSTED_REGIONS: Final = ("us-east-1", "us-west-2", "eu-west-1", "us-gov-west-1", "cn-north-1")
@@ -71,15 +71,15 @@ def discovery_config(parent: Gateway, directory: Path, *, check_provider_endpoin
     configuration["model_list"] = [
         {
             "model_name": CONTROL_MODEL,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "integration-provider-key",
                 "api_base": f"{parent.upstream_url}/v1",
             },
         }
     ]
-    configuration["litellm_settings"] = {
-        **configuration.get("litellm_settings", {}),
+    configuration["hangarllm_settings"] = {
+        **configuration.get("hangarllm_settings", {}),
         "check_provider_endpoint": check_provider_endpoint,
     }
     path: Final = directory / f"discovery-{'on' if check_provider_endpoint else 'off'}.yaml"
@@ -95,7 +95,7 @@ def discovery_environment(plane: ControlPlane, directory: Path) -> Mapping[str, 
         "AWS_CONFIG_FILE": str(empty),
         "AWS_SHARED_CREDENTIALS_FILE": str(empty),
         "AWS_EC2_METADATA_DISABLED": "true",
-        "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+        "HANGARLLM_LOCAL_MODEL_COST_MAP": "True",
         "PROXY_CONFIG_RELOAD_INTERVAL_SECONDS": str(RELOAD_SECONDS),
     }
 
@@ -138,14 +138,14 @@ def deployment(
     model_name: str = "bedrock/*",
     model: str = "bedrock/*",
     model_info: Mapping[str, JsonValue] | None = None,
-    litellm_params: Mapping[str, JsonValue] | None = None,
+    hangarllm_params: Mapping[str, JsonValue] | None = None,
 ) -> str:
     """A wildcard deployment posted straight to /model/new, since Scenario.model fixes a non-wildcard name."""
     created: Final = scenario.gateway.post(
         "/model/new",
         {
             "model_name": model_name,
-            "litellm_params": {"model": model, **(litellm_params or {})},
+            "hangarllm_params": {"model": model, **(hangarllm_params or {})},
             "model_info": dict(model_info) if model_info is not None else {},
         },
     )
@@ -160,7 +160,7 @@ def settled_on_every_worker(gateway: Gateway, identity: str) -> None:
     a worker without it; the by-id lookup never lists, so holding on it leaves every worker's discovery cache cold."""
 
     def present() -> bool:
-        lookup: Final = gateway.request("GET", "/model/info", params={"litellm_model_id": identity}, headers=CLOSE)
+        lookup: Final = gateway.request("GET", "/model/info", params={"hangarllm_model_id": identity}, headers=CLOSE)
         return lookup.status_code == 200
 
     held(present, lambda found: found, holding=RELOAD_SECONDS * 2, seconds=RELOAD_SECONDS * 6)
@@ -175,18 +175,18 @@ def sigv4_deployment(
     model_name: str = "bedrock/*",
     model: str = "bedrock/*",
     model_info: Mapping[str, JsonValue] | None = None,
-    litellm_params: Mapping[str, JsonValue] | None = None,
+    hangarllm_params: Mapping[str, JsonValue] | None = None,
 ) -> str:
     return deployment(
         scenario,
         model_name=model_name,
         model=model,
         model_info=model_info,
-        litellm_params={
+        hangarllm_params={
             "aws_access_key_id": key,
             "aws_secret_access_key": secret,
             "aws_region_name": region,
-            **(litellm_params or {}),
+            **(hangarllm_params or {}),
         },
     )
 

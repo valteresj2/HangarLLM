@@ -1,16 +1,16 @@
-# litellm_tag (Data Source)
+# hangarllm_tag (Data Source)
 
-Retrieves information about an existing LiteLLM tag, including its budget settings
+Retrieves information about an existing HangarLLM tag, including its budget settings
 
 ## Example Usage
 
 ```hcl
-data "litellm_tag" "production" {
+data "hangarllm_tag" "production" {
   name = "production"
 }
 
 output "production_tag_budget" {
-  value = data.litellm_tag.production.max_budget
+  value = data.hangarllm_tag.production.max_budget
 }
 ```
 

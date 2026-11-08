@@ -1,0 +1,91 @@
+[package]
+name = "hangarllm-python-bridge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[features]
+default = ["abi3", "fast", "huggingface", "tiktoken"]
+abi3 = ["pyo3/abi3-py310"]
+extension-module = ["pyo3/extension-module"]
+panic-test = []
+fast = ["hangarllm-token-counter/fast"]
+huggingface = ["hangarllm-token-counter/huggingface"]
+tiktoken = ["hangarllm-token-counter/tiktoken"]
+
+[dependencies]
+hangarllm-secret-value.workspace = true
+fancy-regex.workspace = true
+hangarllm-tracing.workspace = true
+hangarllm-spend-clickhouse.workspace = true
+hangarllm-storage-clickhouse.workspace = true
+hangarllm-host.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+hangarllm-cache.workspace = true
+hangarllm-error.workspace = true
+hangarllm-circuit-breaker.workspace = true
+hangarllm-redis-client.workspace = true
+hangarllm-redis-connect.workspace = true
+hangarllm-redis-store.workspace = true
+hangarllm-redis-resolve.workspace = true
+hangarllm-python-compat.workspace = true
+hangarllm-redis-types.workspace = true
+tracing.workspace = true
+hangarllm-cache-response.workspace = true
+serde.workspace = true
+hangarllm-auth.workspace = true
+hangarllm-auth-aws.workspace = true
+hangarllm-callbacks-legacy-python.workspace = true
+hangarllm-inference.workspace = true
+hangarllm-inference-transcription.workspace = true
+hangarllm-inference-responses.workspace = true
+hangarllm-inference-messages.workspace = true
+hangarllm-inference-chat.workspace = true
+hangarllm-inference-ocr.workspace = true
+hangarllm-core-utils.workspace = true
+hangarllm-http.workspace = true
+hangarllm-llms.workspace = true
+hangarllm-secrets = { workspace = true, features = ["aws", "azure", "google", "hashicorp", "cyberark"] }
+hangarllm-secrets-types.workspace = true
+hangarllm-llms-types.workspace = true
+hangarllm-router-types.workspace = true
+hangarllm-router-core.workspace = true
+hangarllm-host-python.workspace = true
+hangarllm-model-catalog.workspace = true
+hangarllm-token-counter = { path = "../token-counter", default-features = false }
+indexmap = "2.14.0"
+pyo3 = { workspace = true, features = ["indexmap"] }
+prost.workspace = true
+pyo3-async-runtimes.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+strum.workspace = true
+veil.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "sync"] }
+
+[dev-dependencies]
+tracing.workspace = true
+hangarllm-http = { workspace = true, features = ["test-support"] }
+hangarllm-secrets-aws.workspace = true
+serde.workspace = true
+serde_with.workspace = true
+criterion.workspace = true
+futures-util.workspace = true
+rstest.workspace = true
+sqlx = { workspace = true, features = ["migrate"] }
+tempfile.workspace = true
+tokio-tungstenite.workspace = true
+wiremock.workspace = true
+aws-sdk-secretsmanager = "1.117.0"
+
+[[bench]]
+name = "serialization"
+harness = false

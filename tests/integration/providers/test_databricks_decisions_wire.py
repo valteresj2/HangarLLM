@@ -82,7 +82,7 @@ _DATABRICKS_ERRORS: Final[tuple[tuple[str, str, int, dict[str, JsonValue]], ...]
     ),
 )
 _SPEND_QUERY: Final = (
-    'SELECT spend, status, call_type, model_group, custom_llm_provider, api_base FROM "LiteLLM_SpendLogs" '
+    'SELECT spend, status, call_type, model_group, custom_llm_provider, api_base FROM "HangarLLM_SpendLogs" '
     "WHERE request_id = %s"
 )
 _OWNED_PROXY_BUDGET: Final = int(2 * graceful_stop_seconds() + 120)
@@ -167,7 +167,7 @@ def _wildcard_deployment(scenario: Scenario, **parameters: JsonValue) -> str:
     prefix: Final = f"databricks-{uuid.uuid4().hex[:8]}"
     created: Final = scenario.gateway.post(
         "/model/new",
-        {"model_name": f"{prefix}/*", "litellm_params": {"model": "databricks/*", **parameters}, "model_info": {}},
+        {"model_name": f"{prefix}/*", "hangarllm_params": {"model": "databricks/*", **parameters}, "model_info": {}},
     )
     scenario.cleanups.callback(scenario.delete_model, string_value(object_value(created["model_info"])["id"]))
     return prefix
@@ -193,7 +193,7 @@ def _router(scenario: Scenario, classifier: Mapping[str, JsonValue]) -> str:
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": _router_config(classifier, simple, complex_),
             },
@@ -217,12 +217,12 @@ def _assert_classified_by_the_complex_tier(response: httpx.Response, router: str
     assert response.status_code == 200, response.text
     assert response.json()["choices"][0]["message"]["content"], response.text
     assert (
-        response.headers["x-litellm-model-group"],
-        response.headers["x-litellm-model-name"],
-        response.headers["x-litellm-complexity-router-tier"],
-        response.headers["x-litellm-complexity-router-cause"],
+        response.headers["x-hangarllm-model-group"],
+        response.headers["x-hangarllm-model-name"],
+        response.headers["x-hangarllm-complexity-router-tier"],
+        response.headers["x-hangarllm-complexity-router-cause"],
     ) == (router, "openai/complex-tier", "COMPLEX", "jev_classifier"), dict(response.headers)
-    assert "x-litellm-classifier-cost" not in response.headers, dict(response.headers)
+    assert "x-hangarllm-classifier-cost" not in response.headers, dict(response.headers)
 
 
 def _assert_classifier_call(
@@ -244,7 +244,7 @@ def _assert_refused_before_any_upstream_call(gateway: Gateway, model: str, messa
         assert response.status_code == 400, response.text
         assert message in response.text, response.text
         assert _upstream_calls(gateway, handle) == []
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], _number(row["spend"])) == ("failure", "asystemone", 0.0), row
 
 
@@ -298,7 +298,7 @@ def test_an_openai_format_request_at_v1_decisions_reaches_the_serving_endpoint_a
                 "total_tokens": 370,
             },
         }, response.text
-        assert response.headers["x-litellm-model-name"] == f"databricks/{_ENDPOINT}", dict(response.headers)
+        assert response.headers["x-hangarllm-model-name"] == f"databricks/{_ENDPOINT}", dict(response.headers)
         (call,) = _upstream_calls(gateway, handle)
         assert call["path"] == f"/{handle.scenario_id}/{_ENDPOINT}/invocations", call
         assert call["authorization"] == f"Bearer {_API_KEY}", call
@@ -307,7 +307,7 @@ def test_an_openai_format_request_at_v1_decisions_reaches_the_serving_endpoint_a
             "state": _OPENAI_INPUT,
             "questions": {"tier": {"type": "choice", "instructions": "Which tier?", "criteria": _TIER_CRITERIA}},
         }, call
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (
             row["status"],
             row["call_type"],
@@ -364,7 +364,7 @@ def test_an_openai_format_request_at_v1_decisions_reaches_the_ai_decide_route_wi
                 "total_tokens": 0,
             },
         }, response.text
-        assert response.headers["x-litellm-model-name"] == f"databricks/{_MODEL}", dict(response.headers)
+        assert response.headers["x-hangarllm-model-name"] == f"databricks/{_MODEL}", dict(response.headers)
         (call,) = _upstream_calls(gateway, handle)
         assert call["path"] == f"/{handle.scenario_id}{_ROUTE}", call
         assert call["authorization"] == f"Bearer {_API_KEY}", call
@@ -372,7 +372,7 @@ def test_an_openai_format_request_at_v1_decisions_reaches_the_ai_decide_route_wi
             "state": _OPENAI_INPUT,
             "questions": {"tier": {"type": "choice", "instructions": "Which tier?", "criteria": _TIER_CRITERIA}},
         }, call
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (
             row["status"],
             row["call_type"],
@@ -410,9 +410,9 @@ def test_a_wildcard_deployment_sends_each_request_to_the_named_endpoint_and_bill
         for response in responses:
             assert response.status_code == 200, response.text
             assert response.json() == _ANSWER_BODY, response.text
-            assert response.headers["x-litellm-model-group"] == model, dict(response.headers)
-            assert response.headers["x-litellm-model-name"] == f"databricks/{_ENDPOINT}", dict(response.headers)
-        call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+            assert response.headers["x-hangarllm-model-group"] == model, dict(response.headers)
+            assert response.headers["x-hangarllm-model-name"] == f"databricks/{_ENDPOINT}", dict(response.headers)
+        call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
         assert len(set(call_ids)) == 2, call_ids
         calls: Final = _upstream_calls(gateway, handle)
         assert len(calls) == 2, calls
@@ -448,9 +448,9 @@ def test_a_wildcard_deployment_sends_each_ai_decide_request_to_the_route_and_log
         for response in responses:
             assert response.status_code == 200, response.text
             assert response.json() == _SYSTEM_ONE_BODY, response.text
-            assert response.headers["x-litellm-model-group"] == model, dict(response.headers)
-            assert response.headers["x-litellm-model-name"] == f"databricks/{_MODEL}", dict(response.headers)
-        call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+            assert response.headers["x-hangarllm-model-group"] == model, dict(response.headers)
+            assert response.headers["x-hangarllm-model-name"] == f"databricks/{_MODEL}", dict(response.headers)
+        call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
         assert len(set(call_ids)) == 2, call_ids
         calls: Final = _upstream_calls(gateway, handle)
         assert len(calls) == 2, calls
@@ -500,7 +500,7 @@ def test_a_five_kilobyte_endpoint_name_reaches_the_upstream_and_its_not_found_an
         assert call["path"] == f"/{handle.scenario_id}/{name}/invocations", call["path"][:200]
         assert call["authorization"] == f"Bearer {_API_KEY}", call["authorization"]
         assert call["body"] == {"model": name, "state": _STATE, "questions": _QUESTIONS}
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], row["model_group"], _number(row["spend"])) == (
             "failure",
             "asystemone",
@@ -523,7 +523,7 @@ def test_a_databricks_error_keeps_its_status_and_message_and_bills_nothing(
         assert string_value(body["message"]) in response.text, response.text
         (call,) = _upstream_calls(gateway, handle)
         assert call["path"] == f"/{handle.scenario_id}{path}", call
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], row["model_group"], _number(row["spend"])) == (
             "failure",
             "asystemone",
@@ -570,10 +570,10 @@ def test_the_environment_key_and_base_serve_a_deployment_a_classifier_and_a_team
                 (environment_path, f"Bearer {_ENV_KEY}"),
             ]
             for response, model in zip(decided, (with_base, bare)):
-                row: Final = _spend_row(response.headers["x-litellm-call-id"])
+                row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
                 assert (row["status"], row["model_group"], _number(row["spend"])) == ("success", model, 0.0), row
             assert (
-                _spend_row(decided[1].headers["x-litellm-call-id"])["api_base"]
+                _spend_row(decided[1].headers["x-hangarllm-call-id"])["api_base"]
                 == f"{handle.api_base()}/environment-workspace{_ROUTE}"
             )
             _reset_observations(candidate)
@@ -601,7 +601,7 @@ def test_the_environment_key_and_base_serve_a_deployment_a_classifier_and_a_team
                 "/model/new",
                 {
                     "model_name": team_router,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/complexity_router",
                         "complexity_router_config": _router_config(_environment_classifier(), simple, complex_),
                     },
@@ -612,11 +612,11 @@ def test_the_environment_key_and_base_serve_a_deployment_a_classifier_and_a_team
             assert created.status_code == 200, created.text
             team_router_id: Final = string_value(object_value(object_value(created.json())["model_info"])["id"])
             scenario.cleanups.callback(scenario.delete_model, team_router_id)
-            stored: Final = candidate.request("GET", "/model/info", params={"litellm_model_id": team_router_id})
+            stored: Final = candidate.request("GET", "/model/info", params={"hangarllm_model_id": team_router_id})
             assert stored.status_code == 200, stored.text
             (entry,) = stored.json()["data"]
             stored_classifier: Final = object_value(
-                object_value(object_value(object_value(entry)["litellm_params"])["complexity_router_config"])[
+                object_value(object_value(object_value(entry)["hangarllm_params"])["complexity_router_config"])[
                     "opensource_classifier_config"
                 ]
             )
@@ -655,7 +655,7 @@ def test_the_environment_token_serves_a_deployment_and_a_classifier_when_no_envi
             assert decided.json() == _SYSTEM_ONE_BODY, decided.text
             (decision_call,) = _upstream_calls(candidate, handle)
             assert (decision_call["path"], decision_call["authorization"]) == (environment_path, f"Bearer {_ENV_TOKEN}")
-            assert _spend_row(decided.headers["x-litellm-call-id"])["status"] == "success"
+            assert _spend_row(decided.headers["x-hangarllm-call-id"])["status"] == "success"
             _reset_observations(candidate)
             router: Final = _router(scenario, _environment_classifier())
             routed: Final = _chat(candidate, router)
@@ -689,5 +689,5 @@ def test_a_megabyte_model_name_is_refused_in_linear_time_while_liveliness_stays_
         assert response.status_code == 400, response.text[:300]
         assert _MODEL_RULE in response.text, response.text[:400]
         assert _upstream_calls(gateway, handle) == []
-        row: Final = _spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _spend_row(response.headers["x-hangarllm-call-id"])
         assert (row["status"], row["call_type"], _number(row["spend"])) == ("failure", "asystemone", 0.0), row

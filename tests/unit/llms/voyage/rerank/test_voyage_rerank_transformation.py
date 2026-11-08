@@ -10,8 +10,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.voyage.rerank.transformation import VoyageRerankConfig
-from litellm.types.rerank import RerankResponse
+from hangarllm.llms.voyage.rerank.transformation import VoyageRerankConfig
+from hangarllm.types.rerank import RerankResponse
 
 
 class TestVoyageRerankTransform:
@@ -319,7 +319,7 @@ class TestVoyageRerankTransform:
 
     def test_calculate_rerank_cost(self):
         """Test cost calculation for Voyage AI rerank."""
-        from litellm.types.rerank import RerankBilledUnits
+        from hangarllm.types.rerank import RerankBilledUnits
 
         billed_units = RerankBilledUnits(total_tokens=1000)
         model_info = {"input_cost_per_token": 0.00000005}  # $0.05 per 1M tokens

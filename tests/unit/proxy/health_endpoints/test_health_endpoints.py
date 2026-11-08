@@ -19,26 +19,26 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from prisma.errors import ClientNotConnectedError, HTTPClientClosedError, PrismaError
 
-import litellm
-import litellm.proxy.health_endpoints._health_endpoints as _health_endpoints_module
-from litellm.litellm_core_utils.health_check_helpers import TEST_IMAGE_BASE64
-from litellm.models.credentials import CredentialItem
-from litellm.proxy._types import LiteLLM_UserTable, LitellmUserRoles, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.health_endpoints._health_endpoints import (
+import hangarllm
+import hangarllm.proxy.health_endpoints._health_endpoints as _health_endpoints_module
+from hangarllm.hangarllm_core_utils.health_check_helpers import TEST_IMAGE_BASE64
+from hangarllm.models.credentials import CredentialItem
+from hangarllm.proxy._types import HangarLLM_UserTable, HangarllmUserRoles, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.health_endpoints._health_endpoints import (
     _db_health_readiness_check,
     _show_no_redis_warning,
     get_callback_identifier,
     health_license_endpoint,
     health_services_endpoint,
 )
-from litellm.proxy.health_endpoints._health_endpoints import (
+from hangarllm.proxy.health_endpoints._health_endpoints import (
     test_model_connection as health_test_model_connection,
 )
-from litellm.router import Router
-from litellm.types.router import RouterModelGroupAliasItem
-from litellm.types.utils import oauth_token_exchange_litellm_params
-from litellm.types.workload_identity import (
+from hangarllm.router import Router
+from hangarllm.types.router import RouterModelGroupAliasItem
+from hangarllm.types.utils import oauth_token_exchange_hangarllm_params
+from hangarllm.types.workload_identity import (
     ANTHROPIC_WIF_KWARGS_KEYS,
     OPENAI_WIF_KWARGS_KEYS,
     WIF_SECRET_BEARING_KEYS,
@@ -63,7 +63,7 @@ async def test_db_health_cache_hit_returns_cached():
         "last_updated": datetime.now(),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -84,7 +84,7 @@ async def test_db_health_cache_expired_calls_health_check():
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -105,7 +105,7 @@ async def test_db_health_non_connected_ignores_cache_ttl():
         "last_updated": datetime.now(),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -123,7 +123,7 @@ async def test_db_health_prisma_client_none():
         "last_updated": datetime.now() - timedelta(minutes=5),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -157,7 +157,7 @@ async def test_db_health_transport_error_never_raises(transport_error):
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -191,7 +191,7 @@ async def test_db_health_transport_error_reconnect_succeeds(transport_error):
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -226,7 +226,7 @@ async def test_db_health_transport_error_reconnect_fails(transport_error):
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -249,7 +249,7 @@ async def test_db_health_non_transport_error_returns_disconnected():
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -269,7 +269,7 @@ async def test_health_services_endpoint_sqs(status, error_message):
     Verify the /health/services SQS branch returns expected status and message
     based on SQSLogger.async_health_check().
     """
-    with patch("litellm.integrations.sqs.SQSLogger") as MockSQSLogger:
+    with patch("hangarllm.integrations.sqs.SQSLogger") as MockSQSLogger:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": status, "error_message": error_message})
         MockSQSLogger.return_value = mock_instance
@@ -298,15 +298,15 @@ async def test_health_license_endpoint_with_active_license():
 
     with (
         patch(
-            "litellm.proxy.proxy_server._license_check",
+            "hangarllm.proxy.proxy_server._license_check",
             mock_license_check,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "hangarllm.proxy.proxy_server.premium_user",
             True,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user_data",
+            "hangarllm.proxy.proxy_server.premium_user_data",
             license_data,
         ),
     ):
@@ -330,15 +330,15 @@ async def test_health_license_endpoint_without_valid_license():
 
     with (
         patch(
-            "litellm.proxy.proxy_server._license_check",
+            "hangarllm.proxy.proxy_server._license_check",
             mock_license_check,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "hangarllm.proxy.proxy_server.premium_user",
             False,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user_data",
+            "hangarllm.proxy.proxy_server.premium_user_data",
             None,
         ),
     ):
@@ -372,7 +372,7 @@ async def test_test_model_connection_loads_config_from_router():
     mock_router = MagicMock()
     mock_deployment = {
         "model_name": "gpt-4o",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "azure/gpt-4o",
             "api_key": "resolved-api-key-from-env",
             "api_base": "https://resolved-endpoint.openai.azure.com/",
@@ -385,7 +385,7 @@ async def test_test_model_connection_loads_config_from_router():
     # Mock ModelManagementAuthChecks - patch at the source module since it's imported inside the function
     mock_can_user_make_model_call = AsyncMock()
 
-    # Mock litellm.ahealth_check
+    # Mock hangarllm.ahealth_check
     mock_health_check_result = {
         "status": "healthy",
         "response_time_ms": 100,
@@ -395,10 +395,10 @@ async def test_test_model_connection_loads_config_from_router():
     # Mock run_with_timeout
     mock_run_with_timeout = AsyncMock(return_value=mock_health_check_result)
 
-    # Mock _update_litellm_params_for_health_check
-    def mock_update_params(model_info, litellm_params, deployment_model: str | None = None):
+    # Mock _update_hangarllm_params_for_health_check
+    def mock_update_params(model_info, hangarllm_params, deployment_model: str | None = None):
         # Just return params with messages added
-        params = litellm_params.copy()
+        params = hangarllm_params.copy()
         params["messages"] = [{"role": "user", "content": "test"}]
         return params
 
@@ -408,35 +408,35 @@ async def test_test_model_connection_loads_config_from_router():
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "hangarllm.proxy.proxy_server.prisma_client",
             mock_prisma_client,
         ),
         patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             mock_router,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "hangarllm.proxy.proxy_server.premium_user",
             False,
         ),
         patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+            "hangarllm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
             mock_can_user_make_model_call,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check",
             mock_ahealth_check,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "hangarllm.proxy.health_endpoints._health_endpoints.run_with_timeout",
             mock_run_with_timeout,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.update_litellm_params_for_health_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.update_hangarllm_params_for_health_check",
             mock_update_params,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
+            "hangarllm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
             mock_reject_os_environ,
         ),
     ):
@@ -444,7 +444,7 @@ async def test_test_model_connection_loads_config_from_router():
         result = await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "gpt-4o"},
+            hangarllm_params={"model": "gpt-4o"},
             model_info={},
             user_api_key_dict=mock_user_api_key_dict,
         )
@@ -492,7 +492,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
     Regression test for: silent fallback to deployments[0] when
     multiple deployments share a wildcard model_name.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from hangarllm.types.router import Deployment, HangarLLM_Params
 
     mock_request = MagicMock()
     mock_user_api_key_dict = MagicMock()
@@ -503,7 +503,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
 
     deployment_a = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/*",
             "api_base": "https://deployment-A-base.invalid/v1",
             "api_key": "fake-key-A",
@@ -512,7 +512,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
     }
     deployment_b = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/*",
             "api_base": "https://deployment-B-base.invalid/v1",
             "api_key": "fake-key-B",
@@ -528,13 +528,13 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
         if model_id == "deployment-A-id":
             return Deployment(
                 model_name="openai/*",
-                litellm_params=LiteLLM_Params(**deployment_a["litellm_params"]),
+                hangarllm_params=HangarLLM_Params(**deployment_a["hangarllm_params"]),
                 model_info=deployment_a["model_info"],
             )
         if model_id == "deployment-B-id":
             return Deployment(
                 model_name="openai/*",
-                litellm_params=LiteLLM_Params(**deployment_b["litellm_params"]),
+                hangarllm_params=HangarLLM_Params(**deployment_b["hangarllm_params"]),
                 model_info=deployment_b["model_info"],
             )
         return None
@@ -547,8 +547,8 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
     mock_ahealth_check = AsyncMock(return_value=mock_health_check_result)
     mock_run_with_timeout = AsyncMock(return_value=mock_health_check_result)
 
-    def mock_update_params(model_info, litellm_params, deployment_model: str | None = None):
-        params = litellm_params.copy()
+    def mock_update_params(model_info, hangarllm_params, deployment_model: str | None = None):
+        params = hangarllm_params.copy()
         params["messages"] = [{"role": "user", "content": "test"}]
         return params
 
@@ -557,35 +557,35 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "hangarllm.proxy.proxy_server.prisma_client",
             mock_prisma_client,
         ),
         patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "hangarllm.proxy.proxy_server.llm_router",
             mock_router,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "hangarllm.proxy.proxy_server.premium_user",
             False,
         ),
         patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+            "hangarllm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
             mock_can_user_make_model_call,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check",
             mock_ahealth_check,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "hangarllm.proxy.health_endpoints._health_endpoints.run_with_timeout",
             mock_run_with_timeout,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.update_litellm_params_for_health_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.update_hangarllm_params_for_health_check",
             mock_update_params,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
+            "hangarllm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
             mock_reject_os_environ,
         ),
     ):
@@ -596,7 +596,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
         await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "openai/*"},
+            hangarllm_params={"model": "openai/*"},
             model_info={"id": "deployment-B-id"},
             user_api_key_dict=mock_user_api_key_dict,
         )
@@ -633,7 +633,7 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
 
     deployment_a = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/*",
             "api_base": "https://deployment-A-base.invalid/v1",
             "api_key": "fake-key-A",
@@ -642,7 +642,7 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
     }
     deployment_b = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/*",
             "api_base": "https://deployment-B-base.invalid/v1",
             "api_key": "fake-key-B",
@@ -658,8 +658,8 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
     mock_ahealth_check = AsyncMock(return_value=mock_health_check_result)
     mock_run_with_timeout = AsyncMock(return_value=mock_health_check_result)
 
-    def mock_update_params(model_info, litellm_params, deployment_model: str | None = None):
-        params = litellm_params.copy()
+    def mock_update_params(model_info, hangarllm_params, deployment_model: str | None = None):
+        params = hangarllm_params.copy()
         params["messages"] = [{"role": "user", "content": "test"}]
         return params
 
@@ -667,34 +667,34 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
         return None
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+            "hangarllm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
             mock_can_user_make_model_call,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check",
             mock_ahealth_check,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "hangarllm.proxy.health_endpoints._health_endpoints.run_with_timeout",
             mock_run_with_timeout,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.update_litellm_params_for_health_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.update_hangarllm_params_for_health_check",
             mock_update_params,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
+            "hangarllm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
             mock_reject_os_environ,
         ),
     ):
         await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "openai/*"},
+            hangarllm_params={"model": "openai/*"},
             model_info={},  # no id provided
             user_api_key_dict=mock_user_api_key_dict,
         )
@@ -709,7 +709,7 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
 def _test_connection_probe(
     deployment: Mapping[str, object],
 ) -> Iterator[AsyncMock]:
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from hangarllm.types.router import Deployment, HangarLLM_Params
 
     async def run_health_check(awaitable: Awaitable[object], _timeout: float) -> dict[str, str]:
         await awaitable
@@ -719,7 +719,7 @@ def _test_connection_probe(
     router.registry.return_value.deployment.side_effect = lambda model_id: (
         Deployment(
             model_name=str(deployment["model_name"]),
-            litellm_params=LiteLLM_Params(**deployment["litellm_params"]),  # pyright: ignore[reportArgumentType]  # test fixture dict
+            hangarllm_params=HangarLLM_Params(**deployment["hangarllm_params"]),  # pyright: ignore[reportArgumentType]  # test fixture dict
             model_info=deployment["model_info"],  # pyright: ignore[reportArgumentType]  # test fixture dict
         )
         if model_id == deployment["model_info"]["id"]  # pyright: ignore[reportIndexIssue]  # test fixture dict
@@ -727,16 +727,16 @@ def _test_connection_probe(
     )
     ahealth_check: Final = AsyncMock(return_value={"status": "healthy"})
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.llm_router", router),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.llm_router", router),
+        patch("hangarllm.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+            "hangarllm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
             AsyncMock(),
         ),
-        patch("litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check", ahealth_check),
+        patch("hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check", ahealth_check),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "hangarllm.proxy.health_endpoints._health_endpoints.run_with_timeout",
             AsyncMock(side_effect=run_health_check),
         ),
     ):
@@ -758,15 +758,15 @@ async def test_test_model_connection_sends_the_token_behind_an_admin_oidc_api_ke
     deployment_api_key: str,
     request_params: Mapping[str, str],
 ) -> None:
-    monkeypatch.setenv("LITELLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setenv("HANGARLLM_OIDC_ALLOWED_CREDENTIAL_DIRS", str(tmp_path))
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     token: Final = tmp_path / "token"
     token.write_text("mistral-sa-token")
     router: Final = Router(
         model_list=[
             {
                 "model_name": "devstral",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "mistral/devstral-latest",
                     "api_key": deployment_api_key.format(token=token),
                 },
@@ -777,9 +777,9 @@ async def test_test_model_connection_sends_the_token_behind_an_admin_oidc_api_ke
 
     try:
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.premium_user", False),
             respx.mock(assert_all_called=True) as upstream,
         ):
             upstream.post("https://api.mistral.ai/v1/chat/completions").respond(
@@ -798,9 +798,9 @@ async def test_test_model_connection_sends_the_token_behind_an_admin_oidc_api_ke
             result: Final = await health_test_model_connection(
                 request=MagicMock(),
                 mode="chat",
-                litellm_params={key: value.format(token=token) for key, value in request_params.items()},
+                hangarllm_params={key: value.format(token=token) for key, value in request_params.items()},
                 model_info={"id": "devstral-id"},
-                user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, token="admin-token"),
+                user_api_key_dict=UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, token="admin-token"),
             )
             sent: Final = upstream.calls.last.request.headers["Authorization"]
     finally:
@@ -813,7 +813,7 @@ async def test_test_model_connection_sends_the_token_behind_an_admin_oidc_api_ke
 MANTLE_CLAUDE_DEPLOYMENT: Final = MappingProxyType(
     {
         "model_name": "claude-haiku-4-5",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "bedrock_mantle/anthropic.claude-haiku-4-5",
             "api_key": "fake-mantle-key",
             "aws_region_name": "us-east-2",
@@ -834,7 +834,7 @@ async def test_test_model_connection_without_mode_probes_mantle_claude_over_mess
         result: Final = await health_test_model_connection(
             request=MagicMock(),
             mode=None,
-            litellm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5"},
+            hangarllm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5"},
             model_info={"id": "mantle-claude-id"},
             user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
         )
@@ -869,7 +869,7 @@ async def test_test_model_connection_stored_operator_mode_follows_the_stored_mod
         await health_test_model_connection(
             request=MagicMock(),
             mode=None,
-            litellm_params=dict(request_params),
+            hangarllm_params=dict(request_params),
             model_info={"id": "mantle-claude-id"},
             user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
         )
@@ -887,7 +887,7 @@ async def test_test_model_connection_overridden_model_probe_params_follow_the_pr
     deployment: Final = MappingProxyType(
         {
             "model_name": "anthropic-claude-haiku-4-5",
-            "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-anthropic-key"},
+            "hangarllm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-anthropic-key"},
             "model_info": {"id": "anthropic-messages-id", "mode": "anthropic_messages"},
         }
     )
@@ -895,7 +895,7 @@ async def test_test_model_connection_overridden_model_probe_params_follow_the_pr
         await health_test_model_connection(
             request=MagicMock(),
             mode=None,
-            litellm_params={"model": "mistral/mistral-embed", "api_key": "fake-mistral-key"},
+            hangarllm_params={"model": "mistral/mistral-embed", "api_key": "fake-mistral-key"},
             model_info={"id": "anthropic-messages-id"},
             user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
         )
@@ -911,7 +911,7 @@ async def test_test_model_connection_overridden_model_probe_params_follow_the_pr
         ({"model": "azure/my-audio-deployment"}, {"id": "audio-id", "base_model": "azure/gpt-audio-1.5"}),
         ({"model": "azure/my-audio-deployment", "base_model": "azure/gpt-audio-1.5"}, {"id": "audio-id"}),
     ],
-    ids=["model_info.base_model", "litellm_params.base_model"],
+    ids=["model_info.base_model", "hangarllm_params.base_model"],
 )
 @pytest.mark.parametrize(
     ("request_params", "expects_audio_probe"),
@@ -927,7 +927,7 @@ async def test_test_model_connection_stored_audio_base_model_follows_the_stored_
     deployment: Final = MappingProxyType(
         {
             "model_name": "custom-name-audio",
-            "litellm_params": {
+            "hangarllm_params": {
                 **deployment_params,
                 "api_key": "fake-azure-key",
                 "api_base": "https://x.openai.azure.com",
@@ -939,7 +939,7 @@ async def test_test_model_connection_stored_audio_base_model_follows_the_stored_
         await health_test_model_connection(
             request=MagicMock(),
             mode=None,
-            litellm_params=dict(request_params),
+            hangarllm_params=dict(request_params),
             model_info={"id": "audio-id"},
             user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
         )
@@ -957,13 +957,13 @@ async def test_test_model_connection_non_string_params_mode_is_a_bad_request(par
             await health_test_model_connection(
                 request=MagicMock(),
                 mode=None,
-                litellm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5", "mode": params_mode},
+                hangarllm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5", "mode": params_mode},
                 model_info={"id": "mantle-claude-id"},
                 user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
             )
 
     assert exc_info.value.status_code == 400
-    assert "litellm_params.mode must be a string" in exc_info.value.detail["error"]
+    assert "hangarllm_params.mode must be a string" in exc_info.value.detail["error"]
     ahealth_check.assert_not_called()
 
 
@@ -973,7 +973,7 @@ async def test_test_model_connection_string_params_mode_is_the_probe_mode():
         await health_test_model_connection(
             request=MagicMock(),
             mode=None,
-            litellm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5", "mode": "chat"},
+            hangarllm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5", "mode": "chat"},
             model_info={"id": "mantle-claude-id"},
             user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
         )
@@ -988,7 +988,7 @@ async def test_test_model_connection_request_mode_wins_over_resolved_mode():
         await health_test_model_connection(
             request=MagicMock(),
             mode="chat",
-            litellm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5"},
+            hangarllm_params={"model": "bedrock_mantle/anthropic.claude-haiku-4-5"},
             model_info={"id": "mantle-claude-id"},
             user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
         )
@@ -1002,7 +1002,7 @@ async def test_test_model_connection_decision_modes_are_forwarded(mode: str):
     deployment: Final = MappingProxyType(
         {
             "model_name": "typesafe/jev-latest",
-            "litellm_params": {"model": "typesafe/jev-latest", "api_key": "fake-typesafe-key"},
+            "hangarllm_params": {"model": "typesafe/jev-latest", "api_key": "fake-typesafe-key"},
             "model_info": {"id": "typesafe-jev-id"},
         }
     )
@@ -1010,7 +1010,7 @@ async def test_test_model_connection_decision_modes_are_forwarded(mode: str):
         result: Final = await health_test_model_connection(
             request=MagicMock(),
             mode=mode,
-            litellm_params={"model": "typesafe/jev-latest"},
+            hangarllm_params={"model": "typesafe/jev-latest"},
             model_info={"id": "typesafe-jev-id"},
             user_api_key_dict=UserAPIKeyAuth(user_id="test-user", token="test-token"),
         )
@@ -1029,11 +1029,11 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
     mock_request = MagicMock()
 
@@ -1045,14 +1045,14 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
         token="requester-token",
         user_id="team-b-admin-user",
         team_id=requester_team_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     mock_prisma_client = MagicMock()
 
     other_team_deployment = Deployment(
         model_name="team-a-model",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="openai/gpt-4o",
             api_base="https://team-a-api.invalid/v1",
             api_key="TEAM-A-API-KEY",
@@ -1067,7 +1067,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
         team_id = where["team_id"]
         if team_id == requester_team_id:
             return SimpleNamespace(
-                model_dump=lambda: LiteLLM_TeamTable(
+                model_dump=lambda: HangarLLM_TeamTable(
                     team_id=requester_team_id,
                     members_with_roles=[
                         {
@@ -1079,7 +1079,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
             )
         if team_id == deployment_owner_team_id:
             return SimpleNamespace(
-                model_dump=lambda: LiteLLM_TeamTable(
+                model_dump=lambda: HangarLLM_TeamTable(
                     team_id=deployment_owner_team_id,
                     members_with_roles=[],
                 ).model_dump()
@@ -1087,15 +1087,15 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
         return None
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
         patch.object(
             ModelManagementAuthChecks,
             "can_user_make_model_call",
             wraps=ModelManagementAuthChecks.can_user_make_model_call,
         ) as spy_auth_check,
-        patch("litellm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
+        patch("hangarllm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
     ):
         mock_team_repo_instance = MagicMock()
         mock_team_repo_instance.table.find_unique = AsyncMock(side_effect=fake_find_unique)
@@ -1105,7 +1105,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
             await health_test_model_connection(
                 request=mock_request,
                 mode="chat",
-                litellm_params={
+                hangarllm_params={
                     "model": "openai/gpt-4o",
                     "api_base": "https://swapped-base.invalid/v1",
                 },
@@ -1137,8 +1137,8 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
 
@@ -1151,14 +1151,14 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
         token="requester-token-2",
         user_id="team-b-admin-user-2",
         team_id=requester_team_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     mock_prisma_client = MagicMock()
 
     other_team_deployment_dict = {
         "model_name": "shared-model-name",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "openai/gpt-4o",
             "api_base": "https://team-a-api-2.invalid/v1",
             "api_key": "TEAM-A-API-KEY-2",
@@ -1174,7 +1174,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
 
     async def fake_find_unique(*, where):
         return SimpleNamespace(
-            model_dump=lambda: LiteLLM_TeamTable(
+            model_dump=lambda: HangarLLM_TeamTable(
                 team_id=where["team_id"],
                 members_with_roles=(
                     [{"user_id": "team-b-admin-user-2", "role": "admin"}]
@@ -1185,15 +1185,15 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
         )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
         patch.object(
             ModelManagementAuthChecks,
             "can_user_make_model_call",
             wraps=ModelManagementAuthChecks.can_user_make_model_call,
         ) as spy_auth_check,
-        patch("litellm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
+        patch("hangarllm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
     ):
         mock_team_repo_instance = MagicMock()
         mock_team_repo_instance.table.find_unique = AsyncMock(side_effect=fake_find_unique)
@@ -1203,7 +1203,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
             await health_test_model_connection(
                 request=mock_request,
                 mode="chat",
-                litellm_params={
+                hangarllm_params={
                     "model": "shared-model-name",
                     "api_base": "https://swapped-base-2.invalid/v1",
                 },
@@ -1222,11 +1222,11 @@ FEDERATED_DEPLOYMENT_TEAM_ID = "team-owning-the-federated-deployment"
 
 
 def _federated_deployment():
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
     return Deployment(
         model_name="claude-federated",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="anthropic/claude-sonnet-4-5",
             api_base="https://api.anthropic.com",
             anthropic_federation_rule_id="rule-abc",
@@ -1237,14 +1237,14 @@ def _federated_deployment():
     )
 
 
-async def _probe_federated_deployment_as_team_admin(litellm_params):
+async def _probe_federated_deployment_as_team_admin(hangarllm_params):
     """Run the Test Connection button against a federated deployment as an admin of its own team.
 
     ``allow_client_side_credentials`` is on, which is what lets a request-supplied api_base keep
     the configuration's credentials instead of dropping them, so the federation params are still
     on the deployment being probed when the request redirects it.
     """
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from hangarllm.proxy._types import HangarLLM_TeamTable
 
     mock_router = MagicMock()
     mock_router.registry.return_value.deployment.return_value = _federated_deployment()
@@ -1253,39 +1253,39 @@ async def _probe_federated_deployment_as_team_admin(litellm_params):
         if where["team_id"] != FEDERATED_DEPLOYMENT_TEAM_ID:
             return None
         return SimpleNamespace(
-            model_dump=lambda: LiteLLM_TeamTable(
+            model_dump=lambda: HangarLLM_TeamTable(
                 team_id=FEDERATED_DEPLOYMENT_TEAM_ID,
                 members_with_roles=[{"user_id": "team-admin-user", "role": "admin"}],
             ).model_dump()
         )
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(side_effect=fake_find_unique)
+    mock_prisma_client.db.hangarllm_teamtable.find_unique = AsyncMock(side_effect=fake_find_unique)
     mock_ahealth_check = AsyncMock(return_value={"status": "healthy"})
 
     with (
         patch.multiple(  # test-quality-ok: proxy module globals, no injection seam
-            "litellm.proxy.proxy_server",
+            "hangarllm.proxy.proxy_server",
             prisma_client=mock_prisma_client,
             llm_router=mock_router,
             premium_user=True,
             general_settings={"allow_client_side_credentials": True},
         ),
         patch(  # test-quality-ok: the probe params handed to the health check are the assertion
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check",
             mock_ahealth_check,
         ),
     ):
         response = await health_test_model_connection(
             request=MagicMock(),
             mode="chat",
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             model_info={"id": FEDERATED_DEPLOYMENT_ID},
             user_api_key_dict=UserAPIKeyAuth(
                 token="requester-token",
                 user_id="team-admin-user",
                 team_id=FEDERATED_DEPLOYMENT_TEAM_ID,
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=HangarllmUserRoles.INTERNAL_USER,
             ),
         )
     return response, mock_ahealth_check
@@ -1309,7 +1309,7 @@ async def test_test_connection_refuses_a_non_admin_pointing_a_federated_deployme
     """A probe carrying its own api_base sends the deployment's minted org-scoped token to a host
     the caller chose, so it is a credential change and only a proxy admin may make it. The probe
     used to authorize with nothing declared as incoming, which left this gate unreachable here."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     with pytest.raises(ProxyException) as exc_info:
         await _probe_federated_deployment_as_team_admin(
@@ -1336,20 +1336,20 @@ async def test_test_model_connection_authorizes_on_params_after_health_check_par
     """
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.types.router import Deployment
+    from hangarllm.types.router import Deployment
 
     marker = "sentinel-from-health-check-params"
     mock_can_user_make_model_call = AsyncMock(side_effect=HTTPException(status_code=403, detail="denied"))
 
     with (
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.llm_router", None
+            "hangarllm.proxy.proxy_server.llm_router", None
         ),
         patch.object(  # test-quality-ok: capturing the params handed to auth is the assertion
             ModelManagementAuthChecks,
@@ -1361,19 +1361,19 @@ async def test_test_model_connection_authorizes_on_params_after_health_check_par
         await health_test_model_connection(
             request=MagicMock(),
             mode="chat",
-            litellm_params={"model": "openai/gpt-4o"},
+            hangarllm_params={"model": "openai/gpt-4o"},
             model_info={"health_check_params": {"probe_marker": marker}},
             user_api_key_dict=UserAPIKeyAuth(
                 token="requester-token",
                 user_id="admin-user",
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=HangarllmUserRoles.PROXY_ADMIN,
             ),
         )
 
     assert mock_can_user_make_model_call.called
     passed_model_params = mock_can_user_make_model_call.call_args.kwargs["model_params"]
     assert isinstance(passed_model_params, Deployment)
-    authorized_params = passed_model_params.litellm_params.model_dump()
+    authorized_params = passed_model_params.hangarllm_params.model_dump()
     assert authorized_params.get("probe_marker") == marker
 
 
@@ -1386,11 +1386,11 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     health probe. Guards against a regression that swaps the auth `team_id`
     for something deny-all on the legit path.
     """
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from hangarllm.proxy._types import HangarLLM_TeamTable
+    from hangarllm.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
     mock_request = MagicMock()
 
@@ -1402,14 +1402,14 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
         token="owner-admin-token",
         user_id=owner_admin_user_id,
         team_id=owner_team_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
     )
 
     mock_prisma_client = MagicMock()
 
     owned_deployment = Deployment(
         model_name="owner-model",
-        litellm_params=LiteLLM_Params(
+        hangarllm_params=HangarLLM_Params(
             model="openai/gpt-4o-mini",
             api_base="https://owner-real-api.invalid/v1",
             api_key="owner-team-api-key",
@@ -1423,7 +1423,7 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     async def fake_find_unique(*, where):
         if where["team_id"] == owner_team_id:
             return SimpleNamespace(
-                model_dump=lambda: LiteLLM_TeamTable(
+                model_dump=lambda: HangarLLM_TeamTable(
                     team_id=owner_team_id,
                     members_with_roles=[{"user_id": owner_admin_user_id, "role": "admin"}],
                 ).model_dump()
@@ -1433,21 +1433,21 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     health_result = {"status": "healthy", "response_time_ms": 50}
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("hangarllm.proxy.proxy_server.llm_router", mock_router),
+        patch("hangarllm.proxy.proxy_server.premium_user", True),
         patch.object(
             ModelManagementAuthChecks,
             "can_user_make_model_call",
             wraps=ModelManagementAuthChecks.can_user_make_model_call,
         ) as spy_auth_check,
-        patch("litellm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
+        patch("hangarllm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check",
             AsyncMock(return_value=health_result),
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "hangarllm.proxy.health_endpoints._health_endpoints.run_with_timeout",
             AsyncMock(return_value=health_result),
         ),
     ):
@@ -1458,7 +1458,7 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
         result = await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "openai/gpt-4o-mini"},
+            hangarllm_params={"model": "openai/gpt-4o-mini"},
             model_info={"id": owned_deployment_id, "team_id": owner_team_id},
             user_api_key_dict=owner_admin_api_key_dict,
         )
@@ -1477,7 +1477,7 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     ],
 )
 async def test_health_services_endpoint_galileo(status, error_message):
-    with patch("litellm.integrations.galileo.GalileoObserve") as MockGalileoObserve:
+    with patch("hangarllm.integrations.galileo.GalileoObserve") as MockGalileoObserve:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": status, "error_message": error_message})
         MockGalileoObserve.return_value = mock_instance
@@ -1502,7 +1502,7 @@ async def test_health_services_endpoint_galileo(status, error_message):
     ],
 )
 async def test_health_services_endpoint_pointfive(monkeypatch, status, error_message):
-    import litellm.integrations.pointfive as pointfive_package
+    import hangarllm.integrations.pointfive as pointfive_package
 
     mock_instance = MagicMock()
     mock_instance.async_health_check = AsyncMock(return_value={"status": status, "error_message": error_message})
@@ -1528,15 +1528,15 @@ async def test_health_services_endpoint_datadog_llm_observability():
     Verify that 'datadog_llm_observability' is accepted as a valid service
     by the /health/services endpoint and does not raise a 400 error.
 
-    Regression test for: https://github.com/BerriAI/litellm/issues/XXXX
+    Regression test for: https://github.com/valteresj2/HangarLLM/issues/XXXX
     The service was missing from the allowed services validation list.
     """
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from hangarllm.proxy.health_endpoints._health_endpoints import (
         health_services_endpoint,
     )
 
     # Mock datadog_llm_observability to be in success_callback so the generic branch handles it
-    with patch("litellm.success_callback", ["datadog_llm_observability"]):
+    with patch("hangarllm.success_callback", ["datadog_llm_observability"]):
         result = await health_services_endpoint(service="datadog_llm_observability")
 
     # Should not raise HTTPException(400) and should return success
@@ -1549,29 +1549,29 @@ async def test_health_services_endpoint_datadog_llm_observability():
     "service", ["zerobus", "langsmith", "otel", "langfuse_otel", "datadog_llm_observability", "signoz"]
 )
 async def test_health_services_endpoint_tests_any_known_callback_configured_via_callbacks(service: str):
-    """A logger without its own health check, wired through litellm_settings.callbacks, gets the mock request."""
+    """A logger without its own health check, wired through hangarllm_settings.callbacks, gets the mock request."""
     acompletion: Final = AsyncMock(return_value=MagicMock())
     with (
-        patch("litellm.success_callback", []),
-        patch("litellm.callbacks", [service]),
-        patch("litellm.acompletion", acompletion),
+        patch("hangarllm.success_callback", []),
+        patch("hangarllm.callbacks", [service]),
+        patch("hangarllm.acompletion", acompletion),
     ):
         result = await health_services_endpoint(service=service)
 
     assert result == {"status": "success", "message": f"Mock LLM request made - check {service}."}
     acompletion.assert_awaited_once()
-    assert acompletion.await_args.kwargs["user"] == "litellm:/health/services"
+    assert acompletion.await_args.kwargs["user"] == "hangarllm:/health/services"
 
 
 @pytest.mark.asyncio
 async def test_health_services_endpoint_tests_logger_configured_only_via_failure_callback():
-    """litellm_settings.failure_callback: [langsmith] is configured too, so Test sends the mock request."""
+    """hangarllm_settings.failure_callback: [langsmith] is configured too, so Test sends the mock request."""
     acompletion: Final = AsyncMock(return_value=MagicMock())
     with (
-        patch("litellm.success_callback", []),
-        patch("litellm.callbacks", []),
-        patch("litellm.failure_callback", ["langsmith"]),
-        patch("litellm.acompletion", acompletion),
+        patch("hangarllm.success_callback", []),
+        patch("hangarllm.callbacks", []),
+        patch("hangarllm.failure_callback", ["langsmith"]),
+        patch("hangarllm.acompletion", acompletion),
     ):
         result = await health_services_endpoint(service="langsmith")
 
@@ -1582,14 +1582,14 @@ async def test_health_services_endpoint_tests_logger_configured_only_via_failure
 @pytest.mark.asyncio
 async def test_health_services_endpoint_matches_otel_instance_loaded_from_callbacks():
     """The proxy swaps the "otel" string for an OpenTelemetry instance without a callback_name, it still counts."""
-    from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+    from hangarllm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
 
     acompletion: Final = AsyncMock(return_value=MagicMock())
     otel_logger: Final = OpenTelemetry(config=OpenTelemetryConfig(exporter="console", skip_set_global=True))
     with (
-        patch("litellm.success_callback", []),
-        patch("litellm.callbacks", [otel_logger]),
-        patch("litellm.acompletion", acompletion),
+        patch("hangarllm.success_callback", []),
+        patch("hangarllm.callbacks", [otel_logger]),
+        patch("hangarllm.acompletion", acompletion),
     ):
         result = await health_services_endpoint(service="otel")
 
@@ -1600,13 +1600,13 @@ async def test_health_services_endpoint_matches_otel_instance_loaded_from_callba
 @pytest.mark.asyncio
 async def test_health_services_endpoint_matches_unregistered_nameless_instance_by_package():
     """compression_interception is swapped for a logger outside CustomLoggerRegistry at startup, it still counts."""
-    from litellm.integrations.compression_interception.handler import CompressionInterceptionLogger
+    from hangarllm.integrations.compression_interception.handler import CompressionInterceptionLogger
 
     acompletion: Final = AsyncMock(return_value=MagicMock())
     with (
-        patch("litellm.success_callback", []),
-        patch("litellm.callbacks", [CompressionInterceptionLogger()]),
-        patch("litellm.acompletion", acompletion),
+        patch("hangarllm.success_callback", []),
+        patch("hangarllm.callbacks", [CompressionInterceptionLogger()]),
+        patch("hangarllm.acompletion", acompletion),
     ):
         result = await health_services_endpoint(service="compression_interception")
 
@@ -1617,15 +1617,15 @@ async def test_health_services_endpoint_matches_unregistered_nameless_instance_b
 @pytest.mark.asyncio
 async def test_health_services_endpoint_otel_instance_does_not_claim_arize_dedicated_check():
     """A nameless OpenTelemetry logger shares arize's class, Test on arize must still run the Arize check."""
-    from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+    from hangarllm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
 
     acompletion: Final = AsyncMock(return_value=MagicMock())
     otel_logger: Final = OpenTelemetry(config=OpenTelemetryConfig(exporter="console", skip_set_global=True))
     with (
-        patch("litellm.success_callback", [otel_logger]),
-        patch("litellm.callbacks", [otel_logger]),
-        patch("litellm.acompletion", acompletion),
-        patch("litellm.integrations.arize.arize.ArizeLogger") as MockArizeLogger,
+        patch("hangarllm.success_callback", [otel_logger]),
+        patch("hangarllm.callbacks", [otel_logger]),
+        patch("hangarllm.acompletion", acompletion),
+        patch("hangarllm.integrations.arize.arize.ArizeLogger") as MockArizeLogger,
     ):
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": "healthy", "error_message": ""})
@@ -1642,26 +1642,26 @@ async def test_health_services_endpoint_matches_otel_v2_instance_loaded_from_cal
     """The proxy swaps "otel" for an OpenTelemetryV2 instance, which has no registry entry, it still counts."""
     from opentelemetry.sdk.trace import TracerProvider
 
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.model.config import OpenTelemetryV2Config
+    from hangarllm.integrations.otel.logger import OpenTelemetryV2
+    from hangarllm.integrations.otel.model.config import OpenTelemetryV2Config
 
     acompletion: Final = AsyncMock(return_value=MagicMock())
     with (
-        patch("litellm.success_callback", []),
-        patch("litellm.failure_callback", []),
-        patch("litellm.callbacks", []),
-        patch("litellm.service_callback", []),
-        patch("litellm.input_callback", []),
-        patch("litellm._async_success_callback", []),
-        patch("litellm._async_failure_callback", []),
-        patch("litellm.proxy.proxy_server.open_telemetry_logger", MagicMock()),
-        patch("litellm.acompletion", acompletion),
+        patch("hangarllm.success_callback", []),
+        patch("hangarllm.failure_callback", []),
+        patch("hangarllm.callbacks", []),
+        patch("hangarllm.service_callback", []),
+        patch("hangarllm.input_callback", []),
+        patch("hangarllm._async_success_callback", []),
+        patch("hangarllm._async_failure_callback", []),
+        patch("hangarllm.proxy.proxy_server.open_telemetry_logger", MagicMock()),
+        patch("hangarllm.acompletion", acompletion),
     ):
         otel_v2_logger: Final = OpenTelemetryV2(
             config=OpenTelemetryV2Config(exporter="in_memory"),
             tracer_provider=TracerProvider(),
         )
-        litellm.callbacks.append(otel_v2_logger)
+        hangarllm.callbacks.append(otel_v2_logger)
         result = await health_services_endpoint(service="otel")
 
     assert result == {"status": "success", "message": "Mock LLM request made - check otel."}
@@ -1673,28 +1673,28 @@ async def test_health_services_endpoint_rejects_otel_when_only_a_named_otel_v2_p
     """An arize-named OpenTelemetryV2 preset is not the plain otel callback, service=otel stays a 400."""
     from opentelemetry.sdk.trace import TracerProvider
 
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.model.config import OpenTelemetryV2Config
-    from litellm.proxy._types import ProxyException
+    from hangarllm.integrations.otel.logger import OpenTelemetryV2
+    from hangarllm.integrations.otel.model.config import OpenTelemetryV2Config
+    from hangarllm.proxy._types import ProxyException
 
     acompletion: Final = AsyncMock(return_value=MagicMock())
     with (
-        patch("litellm.success_callback", []),
-        patch("litellm.failure_callback", []),
-        patch("litellm.callbacks", []),
-        patch("litellm.service_callback", []),
-        patch("litellm.input_callback", []),
-        patch("litellm._async_success_callback", []),
-        patch("litellm._async_failure_callback", []),
-        patch("litellm.proxy.proxy_server.open_telemetry_logger", MagicMock()),
-        patch("litellm.acompletion", acompletion),
+        patch("hangarllm.success_callback", []),
+        patch("hangarllm.failure_callback", []),
+        patch("hangarllm.callbacks", []),
+        patch("hangarllm.service_callback", []),
+        patch("hangarllm.input_callback", []),
+        patch("hangarllm._async_success_callback", []),
+        patch("hangarllm._async_failure_callback", []),
+        patch("hangarllm.proxy.proxy_server.open_telemetry_logger", MagicMock()),
+        patch("hangarllm.acompletion", acompletion),
     ):
         arize_v2_logger: Final = OpenTelemetryV2(
             config=OpenTelemetryV2Config(exporter="in_memory"),
             callback_name="arize",
             tracer_provider=TracerProvider(),
         )
-        litellm.callbacks.append(arize_v2_logger)
+        hangarllm.callbacks.append(arize_v2_logger)
         with pytest.raises(ProxyException) as exc:
             await health_services_endpoint(service="otel")
 
@@ -1707,15 +1707,15 @@ async def test_health_services_endpoint_rejects_otel_when_only_a_named_otel_v2_p
 @pytest.mark.parametrize("service", ["sqs", "aws_sqs"])
 async def test_health_services_endpoint_keeps_dedicated_check_for_logger_configured_via_callbacks(service: str):
     """callbacks: [aws_sqs] becomes a nameless SQSLogger at startup, Test on sqs or aws_sqs still runs its check."""
-    from litellm.integrations.sqs import SQSLogger
+    from hangarllm.integrations.sqs import SQSLogger
 
     acompletion: Final = AsyncMock(return_value=MagicMock())
     configured_logger: Final = SQSLogger()
     with (
-        patch("litellm.success_callback", [configured_logger]),
-        patch("litellm.callbacks", [configured_logger]),
-        patch("litellm.acompletion", acompletion),
-        patch("litellm.integrations.sqs.SQSLogger") as MockSQSLogger,
+        patch("hangarllm.success_callback", [configured_logger]),
+        patch("hangarllm.callbacks", [configured_logger]),
+        patch("hangarllm.acompletion", acompletion),
+        patch("hangarllm.integrations.sqs.SQSLogger") as MockSQSLogger,
     ):
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": "healthy", "error_message": ""})
@@ -1730,14 +1730,14 @@ async def test_health_services_endpoint_keeps_dedicated_check_for_logger_configu
 @pytest.mark.asyncio
 async def test_health_services_endpoint_rejects_known_but_unconfigured_callback():
     """zerobus is a known logger, but with nothing configured the test is a 400, not an empty 200."""
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     with (
-        patch("litellm.success_callback", []),
-        patch("litellm.failure_callback", []),
-        patch("litellm.callbacks", []),
-        patch("litellm._async_success_callback", []),
-        patch("litellm._async_failure_callback", []),
+        patch("hangarllm.success_callback", []),
+        patch("hangarllm.failure_callback", []),
+        patch("hangarllm.callbacks", []),
+        patch("hangarllm._async_success_callback", []),
+        patch("hangarllm._async_failure_callback", []),
         pytest.raises(ProxyException) as exc,
     ):
         await health_services_endpoint(service="zerobus")
@@ -1751,7 +1751,7 @@ async def test_health_services_endpoint_rejects_unknown_service():
     """
     Verify that an unknown service name is rejected with a 400 error.
     """
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     with pytest.raises(ProxyException):
         await health_services_endpoint(service="totally_unknown_service_xyz")
@@ -1762,20 +1762,20 @@ async def test_health_services_endpoint_rejects_unknown_service():
     "role",
     [
         None,
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
-        LitellmUserRoles.TEAM,
-        LitellmUserRoles.CUSTOMER,
+        HangarllmUserRoles.INTERNAL_USER,
+        HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        HangarllmUserRoles.TEAM,
+        HangarllmUserRoles.CUSTOMER,
     ],
 )
 async def test_health_services_endpoint_newrelic_blocks_non_admin(role):
     """
-    /health/services?service=newrelic emits a real LiteLLMConnectionTest event
+    /health/services?service=newrelic emits a real HangarLLMConnectionTest event
     to the configured New Relic account. Only proxy admins (full or view-only)
     should be able to trigger it; every other caller must be rejected before
     the external event is recorded.
     """
-    from litellm.proxy._types import ProxyException
+    from hangarllm.proxy._types import ProxyException
 
     user_api_key_dict = UserAPIKeyAuth(
         token="non-admin-token",
@@ -1783,7 +1783,7 @@ async def test_health_services_endpoint_newrelic_blocks_non_admin(role):
         user_role=role,
     )
 
-    with patch("litellm.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
+    with patch("hangarllm.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": "healthy", "error_message": ""})
         MockNewRelicLogger.return_value = mock_instance
@@ -1802,7 +1802,7 @@ async def test_health_services_endpoint_newrelic_blocks_non_admin(role):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "admin_role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY],
 )
 async def test_health_services_endpoint_newrelic_allows_proxy_admin(admin_role):
     """
@@ -1814,7 +1814,7 @@ async def test_health_services_endpoint_newrelic_allows_proxy_admin(admin_role):
         user_role=admin_role,
     )
 
-    with patch("litellm.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
+    with patch("hangarllm.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": "healthy", "error_message": ""})
         MockNewRelicLogger.return_value = mock_instance
@@ -1833,10 +1833,10 @@ async def test_health_services_endpoint_newrelic_allows_proxy_admin(admin_role):
     "role",
     [
         None,
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
-        LitellmUserRoles.TEAM,
-        LitellmUserRoles.CUSTOMER,
+        HangarllmUserRoles.INTERNAL_USER,
+        HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        HangarllmUserRoles.TEAM,
+        HangarllmUserRoles.CUSTOMER,
     ],
 )
 async def test_health_services_endpoint_webhook_blocks_non_admin(role):
@@ -1851,7 +1851,7 @@ async def test_health_services_endpoint_webhook_blocks_non_admin(role):
     user_api_key_dict = UserAPIKeyAuth(token="non-admin-token", user_id="non-admin-user", user_role=role)
 
     with patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         mock_proxy_logging,
     ):
         with pytest.raises(ProxyException) as exc_info:
@@ -1864,7 +1864,7 @@ async def test_health_services_endpoint_webhook_blocks_non_admin(role):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "admin_role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY],
 )
 async def test_health_services_endpoint_webhook_allows_proxy_admin(admin_role):
     mock_proxy_logging = MagicMock()
@@ -1872,7 +1872,7 @@ async def test_health_services_endpoint_webhook_allows_proxy_admin(admin_role):
     user_api_key_dict = UserAPIKeyAuth(token="admin-token", user_id="admin-user", user_role=admin_role)
 
     with patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "hangarllm.proxy.proxy_server.proxy_logging_obj",
         mock_proxy_logging,
     ):
         await health_services_endpoint(user_api_key_dict=user_api_key_dict, service="webhook")
@@ -1955,7 +1955,7 @@ def test_health_liveness_endpoint(proxy_client):
 
 
 def test_proxy_client_serves_full_proxy_routes_after_gateway_import(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.proxy_server import app
+    from hangarllm.proxy.proxy_server import app
 
     monkeypatch.setattr(app.router, "lifespan_context", app.router.lifespan_context)
     import_module("gateway.main")
@@ -2020,17 +2020,17 @@ def test_health_readiness_details_returns_diagnostic_fields(monkeypatch):
     """
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
 
     response = client.get("/health/readiness/details")
 
     assert response.status_code == 200, response.text
     response_data = response.json()
     assert response_data["status"] == "healthy"
-    assert "litellm_version" in response_data
+    assert "hangarllm_version" in response_data
     assert "success_callbacks" in response_data
     assert "cache" in response_data
 
@@ -2050,11 +2050,11 @@ def test_health_readiness_details_reports_env_credential_login_warning(monkeypat
     """
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.general_settings", general_settings)
 
     response = client.get("/health/readiness/details")
 
@@ -2070,9 +2070,9 @@ def test_health_readiness_allows_explicit_legacy_public_details(monkeypatch):
     app.include_router(_health_endpoints_module.router)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", None)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"allow_public_health_readiness_details": True},
     )
 
@@ -2081,7 +2081,7 @@ def test_health_readiness_allows_explicit_legacy_public_details(monkeypatch):
     assert response.status_code == 200, response.text
     response_data = response.json()
     assert response_data["status"] == "healthy"
-    assert "litellm_version" in response_data
+    assert "hangarllm_version" in response_data
     assert "success_callbacks" in response_data
     assert "cache" in response_data
 
@@ -2126,7 +2126,7 @@ def test_get_callback_identifier_custom_logger_registry_and_fallback():
     - Object with callback_name that matches registry entry
     - Fallback to callback_name() helper function
     """
-    from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
+    from hangarllm.hangarllm_core_utils.custom_logger_registry import CustomLoggerRegistry
 
     # Test 1: Object registered in CustomLoggerRegistry (without callback_name attribute)
     # Mock a class that's registered in the registry
@@ -2229,13 +2229,13 @@ async def test_health_endpoint_filters_model_list_by_user_access():
     check. A key scoped to ["model-a"] should only see model-a in the result,
     not other deployments configured on the proxy.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -2243,7 +2243,7 @@ async def test_health_endpoint_filters_model_list_by_user_access():
         },
         {
             "model_name": "model-b",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-b.test",
                 "api_version": "2024-10-21",
@@ -2269,16 +2269,16 @@ async def test_health_endpoint_filters_model_list_by_user_access():
         }
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", False),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", {}),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2299,18 +2299,18 @@ async def test_health_endpoint_keeps_full_model_list_for_all_proxy_models():
     model_name, so the access filter must be skipped entirely; otherwise the
     model list filters down to nothing and /health reports 0/0 counts.
     """
-    from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import SpecialModelNames, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -2332,16 +2332,16 @@ async def test_health_endpoint_keeps_full_model_list_for_all_proxy_models():
         }
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", False),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", {}),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2365,18 +2365,18 @@ async def test_health_endpoint_resolves_all_team_models_to_team_allowlist():
     semantics as get_key_models); otherwise the filter would zero out the
     model list just like the all-proxy-models case.
     """
-    from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import SpecialModelNames, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -2400,16 +2400,16 @@ async def test_health_endpoint_resolves_all_team_models_to_team_allowlist():
         }
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", False),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", {}),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2428,12 +2428,12 @@ def _router_for(model_list: Sequence[Mapping[str, object]]) -> Router:
 _ACCESS_GROUP_MODEL_LIST = [
     {
         "model_name": "bedrock-nova",
-        "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+        "hangarllm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
         "model_info": {"id": "id-bedrock", "access_groups": ["bedrock-group"]},
     },
     {
         "model_name": "gpt-5.4-mini",
-        "litellm_params": {"model": "openai/gpt-5.4-mini"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
         "model_info": {"id": "id-openai"},
     },
 ]
@@ -2442,7 +2442,7 @@ _TEAM_MODEL_LIST = [
     _ACCESS_GROUP_MODEL_LIST[0],
     {
         "model_name": "bedrock-nova_team-b_9f2c",
-        "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+        "hangarllm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
         "model_info": {
             "id": "id-team-b",
             "team_id": "team-b",
@@ -2481,28 +2481,28 @@ def _proxy_health_globals(
 ) -> Iterator[None]:
     with (
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.llm_model_list", list(llm_model_list)
+            "hangarllm.proxy.proxy_server.llm_model_list", list(llm_model_list)
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.llm_router", llm_router
+            "hangarllm.proxy.proxy_server.llm_router", llm_router
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.prisma_client", prisma_client
+            "hangarllm.proxy.proxy_server.prisma_client", prisma_client
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.use_background_health_checks", use_background_health_checks
+            "hangarllm.proxy.proxy_server.use_background_health_checks", use_background_health_checks
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.user_model", None
+            "hangarllm.proxy.proxy_server.user_model", None
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.health_check_results", dict(health_check_results or {})
+            "hangarllm.proxy.proxy_server.health_check_results", dict(health_check_results or {})
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.health_check_details", True
+            "hangarllm.proxy.proxy_server.health_check_details", True
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.health_check_concurrency", 1
+            "hangarllm.proxy.proxy_server.health_check_concurrency", 1
         ),
     ):
         yield
@@ -2518,8 +2518,8 @@ async def test_health_endpoint_expands_access_group_on_live_path():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     captured: dict = {}
 
@@ -2530,7 +2530,7 @@ async def test_health_endpoint_expands_access_group_on_live_path():
     with (
         _proxy_health_globals(_ACCESS_GROUP_MODEL_LIST, _ACCESS_GROUP_ROUTER),
         patch(  # test-quality-ok: the model list handed to the probe is the assertion; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2553,8 +2553,8 @@ async def test_health_endpoint_expands_access_group_on_background_cache_path():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _ACCESS_GROUP_MODEL_LIST,
@@ -2583,8 +2583,8 @@ async def test_health_endpoint_treats_no_team_all_team_models_as_unrestricted():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import SpecialModelNames, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     captured: dict = {}
 
@@ -2595,7 +2595,7 @@ async def test_health_endpoint_treats_no_team_all_team_models_as_unrestricted():
     with (
         _proxy_health_globals(_ACCESS_GROUP_MODEL_LIST, None),
         patch(  # test-quality-ok: the model list handed to the probe is the assertion; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2620,8 +2620,8 @@ async def test_health_endpoint_omits_model_id_warning_when_no_deployment_matches
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _ACCESS_GROUP_MODEL_LIST,
@@ -2648,13 +2648,13 @@ async def test_health_endpoint_filters_background_cache_by_user_access():
     scope the cached result to the caller's allowed models rather than
     returning the cache verbatim.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -2662,7 +2662,7 @@ async def test_health_endpoint_filters_background_cache_by_user_access():
         },
         {
             "model_name": "model-b",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-b.test",
             },
@@ -2694,14 +2694,14 @@ async def test_health_endpoint_filters_background_cache_by_user_access():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", True),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", cached_results),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
     ):
         from fastapi import Response
 
@@ -2744,13 +2744,13 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -2774,7 +2774,7 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
     admin_key = UserAPIKeyAuth(
         api_key="hashed-admin-key",
         models=["model-a"],
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     non_admin_key = UserAPIKeyAuth(
         api_key="hashed-user-key",
@@ -2782,14 +2782,14 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
     )
 
     common_patches = [
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", True),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", cached_results),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
     ]
 
     for p in common_patches:
@@ -2830,12 +2830,12 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
 
     # Non-admin response must advertise that api_base/api_version were
     # withheld so clients that previously parsed them can detect the change.
-    notice = non_admin_response.headers.get("Litellm-Health-Field-Notice")
+    notice = non_admin_response.headers.get("Hangarllm-Health-Field-Notice")
     assert notice is not None
     withheld = notice.removesuffix(" are admin-only on this endpoint").split(", ")
     assert {"api_base", "api_version", "aws_bedrock_runtime_endpoint"} <= set(withheld)
     assert [field for field in withheld if field in non_admin_eps[0]] == []
-    assert "Litellm-Health-Field-Notice" not in admin_response.headers
+    assert "Hangarllm-Health-Field-Notice" not in admin_response.headers
 
     # Stripping must produce a copy — the shared cache must still carry the
     # routing fields so the next admin caller can read them.
@@ -2853,8 +2853,8 @@ async def test_health_endpoint_keeps_federation_identity_admin_only():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     federation_fields = {
         "anthropic_federation_rule_id": "fdrl_01H",
@@ -2863,7 +2863,7 @@ async def test_health_endpoint_keeps_federation_identity_admin_only():
         "anthropic_service_account_id": "svc_01H",
         "anthropic_identity_source": "oidc/env/OIDC_TOKEN",
         "anthropic_issuer_url": "https://issuer.internal",
-        "anthropic_keycloak_client_id": "litellm-proxy",
+        "anthropic_keycloak_client_id": "hangarllm-proxy",
         "openai_identity_provider_id": "idp_01H",
         "openai_service_account_id": "sa_01H",
         "token_exchange_audience": "https://graph.microsoft.com",
@@ -2874,7 +2874,7 @@ async def test_health_endpoint_keeps_federation_identity_admin_only():
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "anthropic/claude-sonnet-5", **federation_fields},
+            "hangarllm_params": {"model": "anthropic/claude-sonnet-5", **federation_fields},
             "model_info": {"id": "id-a"},
         },
     ]
@@ -2888,12 +2888,12 @@ async def test_health_endpoint_keeps_federation_identity_admin_only():
     admin_key = UserAPIKeyAuth(
         api_key="hashed-admin-key",
         models=["model-a"],
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
     non_admin_key = UserAPIKeyAuth(api_key="hashed-user-key", models=["model-a"])
 
     with patch.multiple(  # test-quality-ok: proxy module globals, no injection seam
-        "litellm.proxy.proxy_server",
+        "hangarllm.proxy.proxy_server",
         llm_model_list=full_model_list,
         llm_router=None,
         prisma_client=None,
@@ -2926,12 +2926,12 @@ async def test_health_endpoint_keeps_federation_identity_admin_only():
 
 @pytest.mark.parametrize(
     "server_owned_field",
-    sorted(ANTHROPIC_WIF_KWARGS_KEYS | OPENAI_WIF_KWARGS_KEYS | set(oauth_token_exchange_litellm_params)),
+    sorted(ANTHROPIC_WIF_KWARGS_KEYS | OPENAI_WIF_KWARGS_KEYS | set(oauth_token_exchange_hangarllm_params)),
 )
 def test_no_server_owned_identity_field_reaches_a_non_admin_health_entry(server_owned_field: str):
     """Every server-owned identity field is hidden from non-admin health entries."""
-    from litellm.proxy.health_check import clean_endpoint_data
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from hangarllm.proxy.health_check import clean_endpoint_data
+    from hangarllm.proxy.health_endpoints._health_endpoints import (
         _strip_admin_only_fields_from_health_result,
     )
 
@@ -2953,7 +2953,7 @@ def test_no_federation_secret_reaches_even_an_admin_health_entry(secret_field: s
     token, key, or reference it federates with, so these fields drop at the health-check layer
     ahead of any per-caller stripping. Reading the same set the drop list is built from is what
     catches a new secret-bearing field that was only ever added to the admin-gated half."""
-    from litellm.proxy.health_check import clean_endpoint_data
+    from hangarllm.proxy.health_check import clean_endpoint_data
 
     canary = f"CANARY-{secret_field}-VALUE"
     cleaned = clean_endpoint_data(
@@ -2977,13 +2977,13 @@ async def test_health_endpoint_warns_when_scoped_models_lack_model_id():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -3010,14 +3010,14 @@ async def test_health_endpoint_warns_when_scoped_models_lack_model_id():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", True),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", cached_results),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
     ):
         result = await health_endpoint(
             response=Response(),
@@ -3046,18 +3046,18 @@ async def test_health_endpoint_blocks_cross_scope_model_id_under_background_cach
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",  # caller has no access
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -3082,16 +3082,16 @@ async def test_health_endpoint_blocks_cross_scope_model_id_under_background_cach
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
         # llm_router None here means the model_id 404 lookup short-circuits;
         # we patch _llm_model_list directly instead to drive the cache path.
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", True),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", cached_results),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
     ):
         # Calling with model="model-b" rather than model_id="id-b" because
         # the model_id branch raises 404 when llm_router is None. The bug
@@ -3119,18 +3119,18 @@ async def test_health_endpoint_503_for_targeted_unhealthy_model_under_background
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",  # the unhealthy target
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",  # an unrelated healthy model
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -3148,19 +3148,19 @@ async def test_health_endpoint_503_for_targeted_unhealthy_model_under_background
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", True),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", cached_results),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
     ):
         result = await health_endpoint(
             response=response,
@@ -3186,13 +3186,13 @@ async def test_health_endpoint_returns_503_when_requested_model_has_no_healthy_e
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -3202,7 +3202,7 @@ async def test_health_endpoint_returns_503_when_requested_model_has_no_healthy_e
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     async def fake_perform(**kwargs):
@@ -3221,16 +3221,16 @@ async def test_health_endpoint_returns_503_when_requested_model_has_no_healthy_e
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", False),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", {}),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -3254,20 +3254,20 @@ async def test_health_endpoint_returns_200_when_requested_model_has_healthy_endp
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
     ]
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     async def fake_perform(**kwargs):
@@ -3282,16 +3282,16 @@ async def test_health_endpoint_returns_200_when_requested_model_has_healthy_endp
     # Default Response() exposes status_code as None; the endpoint should
     # leave it alone for the healthy path.
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", False),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", {}),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -3314,20 +3314,20 @@ async def test_health_endpoint_no_model_param_returns_200_even_when_zero_healthy
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "hangarllm_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
     ]
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
     async def fake_perform(**kwargs):
@@ -3340,16 +3340,16 @@ async def test_health_endpoint_no_model_param_returns_200_even_when_zero_healthy
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("hangarllm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("hangarllm.proxy.proxy_server.llm_router", None),
+        patch("hangarllm.proxy.proxy_server.prisma_client", None),
+        patch("hangarllm.proxy.proxy_server.use_background_health_checks", False),
+        patch("hangarllm.proxy.proxy_server.user_model", None),
+        patch("hangarllm.proxy.proxy_server.health_check_results", {}),
+        patch("hangarllm.proxy.proxy_server.health_check_details", True),
+        patch("hangarllm.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -3377,7 +3377,7 @@ async def test_health_readiness_returns_503_when_db_disconnected():
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     mock_prisma = MagicMock()
     mock_prisma.health_check = AsyncMock(side_effect=PrismaError("nope"))
@@ -3389,7 +3389,7 @@ async def test_health_readiness_returns_503_when_db_disconnected():
     }
 
     response = Response()
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await health_readiness(response=response)
 
     assert response.status_code == 503
@@ -3399,7 +3399,7 @@ async def test_health_readiness_returns_503_when_db_disconnected():
 @pytest.mark.asyncio
 async def test_health_readiness_returns_200_when_db_down_and_allow_requests_on_db_unavailable():
     """
-    Regression test for https://github.com/BerriAI/litellm/issues/34934.
+    Regression test for upstream issue 34934
 
     allow_requests_on_db_unavailable keeps the proxy serving through a DB
     outage, so the readiness probe must keep the pod in rotation (200) and
@@ -3408,7 +3408,7 @@ async def test_health_readiness_returns_200_when_db_down_and_allow_requests_on_d
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     mock_prisma = MagicMock()
     mock_prisma.health_check = AsyncMock(side_effect=PrismaError("nope"))
@@ -3422,10 +3422,10 @@ async def test_health_readiness_returns_200_when_db_down_and_allow_requests_on_d
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch.dict(  # test-quality-ok: the fail-open flag lives in the proxy-global general_settings; no injection seam
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": True},
         ),
     ):
@@ -3444,7 +3444,7 @@ async def test_health_readiness_details_returns_200_when_db_down_and_allow_reque
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from hangarllm.proxy.health_endpoints._health_endpoints import (
         _get_health_readiness_details,
     )
 
@@ -3460,10 +3460,10 @@ async def test_health_readiness_details_returns_200_when_db_down_and_allow_reque
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch.dict(  # test-quality-ok: the fail-open flag lives in the proxy-global general_settings; no injection seam
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": True},
         ),
     ):
@@ -3475,7 +3475,7 @@ async def test_health_readiness_details_returns_200_when_db_down_and_allow_reque
 
 @pytest.fixture
 def _clear_db_lookup_stall() -> Iterator[None]:
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from hangarllm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
 
     db_lookup_stall_tracker.clear()
     yield
@@ -3502,15 +3502,15 @@ async def test_health_readiness_returns_503_stalled_after_a_db_lookup_deadline_h
     that hit its deadline inside the stall window must take the pod out of rotation."""
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     _forget_db_health_cache()
     db_lookup_stall_tracker.record_hit()
 
     response = Response()
     with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-        "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+        "hangarllm.proxy.proxy_server.prisma_client", _connected_prisma()
     ):
         result = await health_readiness(response=response)
 
@@ -3522,15 +3522,15 @@ async def test_health_readiness_returns_503_stalled_after_a_db_lookup_deadline_h
 async def test_health_readiness_details_returns_503_stalled_after_a_db_lookup_deadline_hit(_clear_db_lookup_stall):
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import _get_health_readiness_details
+    from hangarllm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from hangarllm.proxy.health_endpoints._health_endpoints import _get_health_readiness_details
 
     _forget_db_health_cache()
     db_lookup_stall_tracker.record_hit()
 
     response = Response()
     with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-        "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+        "hangarllm.proxy.proxy_server.prisma_client", _connected_prisma()
     ):
         result = await _get_health_readiness_details(response=response)
 
@@ -3547,8 +3547,8 @@ async def test_health_readiness_stays_200_with_stalled_body_when_requests_are_al
     for a disconnected one."""
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     _forget_db_health_cache()
     db_lookup_stall_tracker.record_hit()
@@ -3556,10 +3556,10 @@ async def test_health_readiness_stays_200_with_stalled_body_when_requests_are_al
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+            "hangarllm.proxy.proxy_server.prisma_client", _connected_prisma()
         ),
         patch.dict(  # test-quality-ok: the fail-open flag lives in the proxy-global general_settings; no injection seam
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": True},
         ),
     ):
@@ -3578,8 +3578,8 @@ async def test_health_readiness_reports_connected_without_a_stall_inside_the_win
     answer, so a healthy pod never leaves rotation over the stall check."""
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     _forget_db_health_cache()
     if hit_recorded:
@@ -3588,10 +3588,10 @@ async def test_health_readiness_reports_connected_without_a_stall_inside_the_win
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+            "hangarllm.proxy.proxy_server.prisma_client", _connected_prisma()
         ),
         patch(  # test-quality-ok: lowers the module-level stall window to its opt-out value for the recorded-hit case
-            "litellm.proxy.health_endpoints._health_endpoints.PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS",
+            "hangarllm.proxy.health_endpoints._health_endpoints.PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS",
             0.0 if hit_recorded else 30.0,
         ),
     ):
@@ -3608,7 +3608,7 @@ async def test_db_health_readiness_check_bounds_hung_health_check():
     kubelet's timeoutSeconds; the DB round-trip is bounded and reported as
     disconnected instead.
     """
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from hangarllm.proxy.health_endpoints._health_endpoints import (
         _db_health_readiness_check,
     )
 
@@ -3625,12 +3625,12 @@ async def test_db_health_readiness_check_bounds_hung_health_check():
     }
 
     with patch(  # test-quality-ok: lowers the module-level probe timeout so the hung-call test finishes fast
-        "litellm.proxy.health_endpoints._health_endpoints.DB_READINESS_CHECK_TIMEOUT_SECONDS",
+        "hangarllm.proxy.health_endpoints._health_endpoints.DB_READINESS_CHECK_TIMEOUT_SECONDS",
         0.05,
     ):
         start = time.monotonic()
         with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ):
             result = await _db_health_readiness_check()
         elapsed = time.monotonic() - start
@@ -3646,7 +3646,7 @@ async def test_db_health_readiness_check_overall_deadline_bounds_hung_reconnect(
     including reconnect lock waits) runs under one deadline, so a reconnect
     that hangs on the lock still returns disconnected within the deadline.
     """
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from hangarllm.proxy.health_endpoints._health_endpoints import (
         _db_health_readiness_check,
     )
 
@@ -3663,12 +3663,12 @@ async def test_db_health_readiness_check_overall_deadline_bounds_hung_reconnect(
     }
 
     with patch(  # test-quality-ok: lowers the module-level probe timeout so the hung-call test finishes fast
-        "litellm.proxy.health_endpoints._health_endpoints.DB_READINESS_PROBE_DEADLINE_SECONDS",
+        "hangarllm.proxy.health_endpoints._health_endpoints.DB_READINESS_PROBE_DEADLINE_SECONDS",
         0.05,
     ):
         start = time.monotonic()
         with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "hangarllm.proxy.proxy_server.prisma_client", mock_prisma
         ):
             result = await _db_health_readiness_check()
         elapsed = time.monotonic() - start
@@ -3682,7 +3682,7 @@ async def test_health_readiness_returns_200_when_db_connected():
     """Happy path: connected DB keeps the legacy 200."""
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     mock_prisma = MagicMock()
     mock_prisma.health_check = AsyncMock()
@@ -3693,7 +3693,7 @@ async def test_health_readiness_returns_200_when_db_connected():
     }
 
     response = Response()
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
         result = await health_readiness(response=response)
 
     assert response.status_code == 200
@@ -3709,10 +3709,10 @@ async def test_health_readiness_returns_200_when_no_db_configured():
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_readiness
 
     response = Response()
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):
         result = await health_readiness(response=response)
 
     assert response.status_code == 200
@@ -3726,7 +3726,7 @@ def test_clean_endpoint_data_strips_credentials_keeps_routing_fields():
     layer based on user role, not in the cleaning helper. This guarantees
     proxy admins continue to see those fields in the /health response.
     """
-    from litellm.proxy.health_check import clean_endpoint_data
+    from hangarllm.proxy.health_check import clean_endpoint_data
 
     raw = {
         "model": "openai/gpt-4o",
@@ -3750,7 +3750,7 @@ def test_clean_endpoint_data_strips_extra_headers_and_aws_session_token():
     `extra_headers` / `headers` / `aws_session_token`. Before the fix these
     were returned in plaintext (api_key was stripped, but these were not).
     """
-    from litellm.proxy.health_check import clean_endpoint_data
+    from hangarllm.proxy.health_check import clean_endpoint_data
 
     raw = {
         "model": "openai/gpt-4o",
@@ -3799,9 +3799,9 @@ def test_clean_endpoint_data_strips_extra_headers_and_aws_session_token():
 def test_clean_endpoint_data_never_displays_credential_fields(credential_field, details):
     """
     LIT-6239 / gh-36898: /health entries, healthy and unhealthy alike, must never
-    carry credential-bearing litellm_params, with or without details.
+    carry credential-bearing hangarllm_params, with or without details.
     """
-    from litellm.proxy.health_check import clean_endpoint_data
+    from hangarllm.proxy.health_check import clean_endpoint_data
 
     canary = f"CANARY-{credential_field}-VALUE"
     cleaned = clean_endpoint_data(
@@ -3826,7 +3826,7 @@ async def _live_probed_model_ids(
 ) -> set[str]:
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     captured: dict = {}
 
@@ -3837,7 +3837,7 @@ async def _live_probed_model_ids(
     with (
         _proxy_health_globals(model_list, llm_router or _router_for(model_list), prisma_client=prisma_client),
         patch(  # test-quality-ok: the model list handed to the probe is the assertion; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -3898,7 +3898,7 @@ async def test_health_endpoint_keeps_an_unrestricted_non_admin_key_to_its_own_te
 async def test_health_endpoint_lets_a_proxy_admin_probe_every_teams_deployment():
     probed = await _live_probed_model_ids(
         _TEAM_MODEL_LIST,
-        UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=LitellmUserRoles.PROXY_ADMIN),
+        UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=HangarllmUserRoles.PROXY_ADMIN),
     )
 
     assert probed == {"id-bedrock", "id-team-b"}
@@ -3908,7 +3908,7 @@ async def test_health_endpoint_lets_a_proxy_admin_probe_every_teams_deployment()
 async def test_health_endpoint_keeps_an_unrestricted_non_admin_key_to_its_own_team_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -3946,7 +3946,7 @@ async def test_health_endpoint_shows_a_teams_own_deployment_by_its_public_name()
 async def test_health_endpoint_hides_another_teams_deployment_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -3974,14 +3974,14 @@ async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     fake_perform = AsyncMock()
 
     with (
         _proxy_health_globals(_TEAM_MODEL_LIST, _router_for(_TEAM_MODEL_LIST)),
         patch(  # test-quality-ok: the probe must never run; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             fake_perform,
         ),
         pytest.raises(HTTPException) as excinfo,
@@ -4001,7 +4001,7 @@ async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers
 async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers_scope_on_background_cache_path():
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -4026,7 +4026,7 @@ async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers
 async def test_health_endpoint_hides_team_deployments_from_a_key_with_no_team_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -4047,10 +4047,10 @@ async def test_health_endpoint_hides_team_deployments_from_a_key_with_no_team_on
 
 _TEAM_ONLY_MODEL_LIST = [_TEAM_MODEL_LIST[1]]
 _BARE_NAME_MODEL_LIST = [
-    {"model_name": "gpt-5.4-nano", "litellm_params": {"model": "gpt-5.4-nano"}, "model_info": {"id": "id-nano"}},
+    {"model_name": "gpt-5.4-nano", "hangarllm_params": {"model": "gpt-5.4-nano"}, "model_info": {"id": "id-nano"}},
     {
         "model_name": "gpt-5.4-nano_team-b_7c3d",
-        "litellm_params": {"model": "gpt-5.4-nano"},
+        "hangarllm_params": {"model": "gpt-5.4-nano"},
         "model_info": {"id": "id-nano-team-b", "team_id": "team-b", "team_public_model_name": "gpt-5.4-nano"},
     },
 ]
@@ -4085,7 +4085,7 @@ async def test_health_endpoint_probes_a_team_only_deployment_by_its_public_name_
 async def test_health_endpoint_returns_a_team_only_deployment_by_its_public_name_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_ONLY_MODEL_LIST,
@@ -4107,7 +4107,7 @@ async def test_health_endpoint_returns_a_team_only_deployment_by_its_public_name
 async def test_health_endpoint_returns_only_the_owning_teams_copy_behind_a_shared_public_name_on_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -4134,16 +4134,16 @@ async def _live_narrowed_model_ids(
 ) -> set[str]:
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     async def fake_probe(model_list, details=True, max_concurrency=None, instrumentation_context=None):
-        probed = [{"model": m["litellm_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list]
+        probed = [{"model": m["hangarllm_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list]
         return probed, [], {}
 
     with (
         _proxy_health_globals(model_list, llm_router or _router_for(model_list)),
         patch(  # test-quality-ok: the probe is the provider edge; which deployments reach it is the assertion
-            "litellm.proxy.health_check._perform_health_check", side_effect=fake_probe
+            "hangarllm.proxy.health_check._perform_health_check", side_effect=fake_probe
         ),
     ):
         result = await health_endpoint(
@@ -4153,7 +4153,7 @@ async def _live_narrowed_model_ids(
     return {ep["model_id"] for ep in result["healthy_endpoints"]}
 
 
-_ADMIN_OUTSIDE_TEAM_B = UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=LitellmUserRoles.PROXY_ADMIN)
+_ADMIN_OUTSIDE_TEAM_B = UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 @pytest.mark.asyncio
@@ -4197,7 +4197,7 @@ async def test_health_endpoint_probes_only_the_teams_copy_when_provider_model_eq
 async def test_health_endpoint_returns_only_the_teams_copy_when_provider_model_equals_public_name_on_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _BARE_NAME_MODEL_LIST,
@@ -4219,7 +4219,7 @@ async def test_health_endpoint_returns_only_the_teams_copy_when_provider_model_e
 async def test_health_endpoint_keeps_an_admin_probe_by_name_off_other_teams_public_copies_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -4250,7 +4250,7 @@ async def test_health_endpoint_probes_a_team_only_public_name_for_an_admin_on_li
 async def test_health_endpoint_returns_a_team_only_public_name_for_an_admin_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_ONLY_MODEL_LIST,
@@ -4274,7 +4274,7 @@ async def test_health_endpoint_keeps_a_team_only_public_name_off_a_team_less_key
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -4284,7 +4284,7 @@ async def test_health_endpoint_keeps_a_team_only_public_name_off_a_team_less_key
             health_check_results=_TEAM_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -4303,17 +4303,17 @@ async def test_health_endpoint_keeps_a_team_only_public_name_off_a_team_less_key
 _PROVIDER_PREFIXED_MODEL_LIST: Final = [
     {
         "model_name": "openai/gpt-5.4-nano",
-        "litellm_params": {"model": "openai/gpt-5.4-nano"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-nano"},
         "model_info": {"id": "id-prefixed-nano"},
     },
     {
         "model_name": "gpt-5.4-mini",
-        "litellm_params": {"model": "openai/gpt-5.4-mini"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
         "model_info": {"id": "id-mini"},
     },
     {
         "model_name": "claude-haiku-5-5",
-        "litellm_params": {"model": "anthropic/claude-haiku-5-5"},
+        "hangarllm_params": {"model": "anthropic/claude-haiku-5-5"},
         "model_info": {"id": "id-haiku"},
     },
 ]
@@ -4356,7 +4356,7 @@ async def test_health_endpoint_returns_the_deployments_auth_lets_the_key_request
 ):
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _PROVIDER_PREFIXED_MODEL_LIST,
@@ -4374,7 +4374,7 @@ async def test_health_endpoint_returns_the_deployments_auth_lets_the_key_request
 async def test_health_endpoint_refuses_a_deployment_the_team_allowlist_forbids(use_background_health_checks: bool):
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -4384,7 +4384,7 @@ async def test_health_endpoint_refuses_a_deployment_the_team_allowlist_forbids(u
             health_check_results=_PROVIDER_PREFIXED_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -4436,7 +4436,7 @@ async def test_health_endpoint_returns_the_deployment_an_alias_sends_the_key_to_
 ):
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _PROVIDER_PREFIXED_MODEL_LIST,
@@ -4454,7 +4454,7 @@ async def test_health_endpoint_returns_the_deployment_an_alias_sends_the_key_to_
 async def test_health_endpoint_refuses_the_deployment_a_key_alias_shadows(use_background_health_checks: bool):
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -4464,7 +4464,7 @@ async def test_health_endpoint_refuses_the_deployment_a_key_alias_shadows(use_ba
             health_check_results=_PROVIDER_PREFIXED_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -4498,20 +4498,20 @@ async def test_health_endpoint_records_an_alias_check_under_the_name_the_caller_
 ):
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     async def fake_probe(model_list, details=True, max_concurrency=None, instrumentation_context=None):
-        return [{"model": m["litellm_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list], [], {}
+        return [{"model": m["hangarllm_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list], [], {}
 
     with (
         _proxy_health_globals(
             _PROVIDER_PREFIXED_MODEL_LIST, _router_with_aliases(model_group_alias), prisma_client=MagicMock()
         ),
         patch(  # test-quality-ok: the probe is the provider edge; the endpoint has no injection seam for it
-            "litellm.proxy.health_check._perform_health_check", side_effect=fake_probe
+            "hangarllm.proxy.health_check._perform_health_check", side_effect=fake_probe
         ),
         patch(  # test-quality-ok: the history row is the assertion; the endpoint has no injection seam for its writer
-            "litellm.proxy.health_endpoints._health_endpoints._save_health_check_to_db", new_callable=AsyncMock
+            "hangarllm.proxy.health_endpoints._health_endpoints._save_health_check_to_db", new_callable=AsyncMock
         ) as save,
     ):
         result: Final = await health_endpoint(
@@ -4529,7 +4529,7 @@ async def test_health_endpoint_targets_the_deployment_an_alias_name_sends_the_ke
 ):
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _PROVIDER_PREFIXED_MODEL_LIST,
@@ -4547,7 +4547,7 @@ async def test_health_endpoint_targets_the_deployment_an_alias_name_sends_the_ke
 @pytest.mark.asyncio
 async def test_health_endpoint_never_probes_a_deployment_without_a_model_name_for_a_restricted_key():
     nameless_deployment: Final = {
-        "litellm_params": {"model": "openai/gpt-5.4-mini"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
         "model_info": {"id": "id-nameless"},
     }
 
@@ -4575,13 +4575,13 @@ async def test_health_endpoint_never_probes_the_deployment_a_keys_router_alias_s
 
 _WILDCARD_DEPLOYMENT: Final = {
     "model_name": "openai/*",
-    "litellm_params": {"model": "openai/*"},
+    "hangarllm_params": {"model": "openai/*"},
     "model_info": {"id": "id-wild"},
 }
-_CATCH_ALL_DEPLOYMENT: Final = {"model_name": "*", "litellm_params": {"model": "*"}, "model_info": {"id": "id-star"}}
+_CATCH_ALL_DEPLOYMENT: Final = {"model_name": "*", "hangarllm_params": {"model": "*"}, "model_info": {"id": "id-star"}}
 _TEAM_WILDCARD_DEPLOYMENT: Final = {
     "model_name": "openai-wild_team-a_7c1e",
-    "litellm_params": {"model": "openai/*"},
+    "hangarllm_params": {"model": "openai/*"},
     "model_info": {"id": "id-team-wild", "team_id": "team-a", "team_public_model_name": "openai/*"},
 }
 
@@ -4697,15 +4697,15 @@ async def test_health_endpoint_never_probes_the_default_fallback_for_a_granted_n
 
 
 def _personal_key_whose_owner_may_call(models: list[str]) -> UserAPIKeyAuth:
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from hangarllm.proxy.proxy_server import user_api_key_cache
 
     owner_id: Final = "health-scope-owner-" + "-".join(models)
-    user_api_key_cache.set_cache(key=owner_id, value=LiteLLM_UserTable(user_id=owner_id, models=models))
+    user_api_key_cache.set_cache(key=owner_id, value=HangarLLM_UserTable(user_id=owner_id, models=models))
     return UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_id=owner_id)
 
 
 def _managed_agent_key_granted(models: list[str]) -> UserAPIKeyAuth:
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     policy: Final = AgentResponse(
         agent_id="managed", agent_name="Managed", agent_card_params={}, object_permission={"models": models}
@@ -4734,12 +4734,12 @@ async def test_health_endpoint_probes_only_the_models_the_keys_user_or_agent_may
 async def test_health_endpoint_refuses_a_model_id_the_keys_owner_may_not_call():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(_PROVIDER_PREFIXED_MODEL_LIST, _router_for(_PROVIDER_PREFIXED_MODEL_LIST)),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -4774,10 +4774,10 @@ async def test_health_endpoint_keeps_the_wildcard_serving_a_name_the_keys_user_o
 
 @pytest.mark.asyncio
 async def test_health_endpoint_answers_an_agent_key_acting_for_an_unknown_user_the_way_chat_does():
-    from litellm.types.agents import AgentCaller
+    from hangarllm.types.agents import AgentCaller
 
     users_table: Final = MagicMock()
-    users_table.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+    users_table.db.hangarllm_usertable.find_unique = AsyncMock(return_value=None)
     agent_key: Final = UserAPIKeyAuth(api_key="hashed-test-key", models=["gpt-5.4-mini"]).model_copy(
         update={"agent_caller": AgentCaller(user_id="user-deleted-before-this-request")}
     )
@@ -4792,7 +4792,7 @@ async def test_health_endpoint_answers_an_agent_key_acting_for_an_unknown_user_t
 @pytest.mark.asyncio
 async def test_health_endpoint_lets_other_requests_run_while_it_scopes_a_large_model_list():
     model_list: Final = [
-        {"model_name": f"model-{n}", "litellm_params": {"model": f"openai/model-{n}"}, "model_info": {"id": f"id-{n}"}}
+        {"model_name": f"model-{n}", "hangarllm_params": {"model": f"openai/model-{n}"}, "model_info": {"id": f"id-{n}"}}
         for n in range(50)
     ]
     other_request_turns: Final = itertools.count()
@@ -4843,12 +4843,12 @@ async def test_health_endpoint_model_param_reaches_the_wildcard_serving_a_team_a
 ):
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     model_list: Final = [wildcard_deployment, _PROVIDER_PREFIXED_MODEL_LIST[2]]
 
     async def fake_probe(model_list, details=True, max_concurrency=None, instrumentation_context=None):
-        return [{"model": m["litellm_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list], [], {}
+        return [{"model": m["hangarllm_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list], [], {}
 
     with (
         _proxy_health_globals(
@@ -4858,7 +4858,7 @@ async def test_health_endpoint_model_param_reaches_the_wildcard_serving_a_team_a
             health_check_results=_WILDCARD_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe is the provider edge; which deployments reach it is the assertion
-            "litellm.proxy.health_check._perform_health_check", side_effect=fake_probe
+            "hangarllm.proxy.health_check._perform_health_check", side_effect=fake_probe
         ),
     ):
         result: Final = await health_endpoint(
@@ -4871,12 +4871,12 @@ async def test_health_endpoint_model_param_reaches_the_wildcard_serving_a_team_a
 _ACCESS_GROUP_SPLIT_MODEL_LIST: Final = [
     {
         "model_name": "gpt-5.4-mini",
-        "litellm_params": {"model": "openai/gpt-5.4-mini"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
         "model_info": {"id": "id-mini-premium", "access_groups": ["premium"]},
     },
     {
         "model_name": "gpt-5.4-mini",
-        "litellm_params": {"model": "openai/gpt-5.4-mini"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
         "model_info": {"id": "id-mini-standard"},
     },
 ]
@@ -4904,12 +4904,12 @@ async def test_health_endpoint_probes_every_deployment_of_a_name_the_key_also_ho
 _ACCESS_GROUP_SPLIT_WILDCARD_MODEL_LIST: Final = [
     {
         "model_name": "openai/*",
-        "litellm_params": {"model": "openai/*"},
+        "hangarllm_params": {"model": "openai/*"},
         "model_info": {"id": "id-wild-premium", "access_groups": ["premium"]},
     },
     {
         "model_name": "openai/*",
-        "litellm_params": {"model": "openai/*"},
+        "hangarllm_params": {"model": "openai/*"},
         "model_info": {"id": "id-wild-standard", "access_groups": ["standard"]},
     },
 ]
@@ -4931,7 +4931,7 @@ def _team_deployment(
 ) -> Mapping[str, object]:
     return {
         "model_name": internal_name,
-        "litellm_params": {"model": model},
+        "hangarllm_params": {"model": model},
         "model_info": {
             "id": model_id,
             "team_id": "team-a",
@@ -4978,7 +4978,7 @@ async def test_health_endpoint_probes_a_team_deployment_whose_internal_name_the_
 
 @pytest.mark.asyncio
 async def test_health_endpoint_probes_only_the_team_deployment_whose_internal_name_an_agent_holds() -> None:
-    from litellm.types.agents import AgentResponse
+    from hangarllm.types.agents import AgentResponse
 
     policy: Final = AgentResponse(
         agent_id="managed",
@@ -5014,7 +5014,7 @@ async def test_health_endpoint_rejects_an_in_scope_model_paired_with_a_foreign_m
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -5024,7 +5024,7 @@ async def test_health_endpoint_rejects_an_in_scope_model_paired_with_a_foreign_m
             health_check_results=_TEAM_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -5050,7 +5050,7 @@ async def test_health_endpoint_returns_404_for_a_model_paired_with_an_unknown_mo
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -5060,7 +5060,7 @@ async def test_health_endpoint_returns_404_for_a_model_paired_with_an_unknown_mo
             health_check_results=_TEAM_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "hangarllm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -5082,17 +5082,17 @@ def test_health_test_connection_keeps_error_and_raw_request_through_the_allowlis
     ``result.raw_request_typed_dict`` from /health/test_connection, so the
     allowlist must keep both while dropping the probe's own params.
     """
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
     with (
         patch(  # test-quality-ok: the endpoint reads the proxy-global DB client and 500s when it is None; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         respx.mock(assert_all_called=True) as respx_mock,
     ):
@@ -5103,7 +5103,7 @@ def test_health_test_connection_keeps_error_and_raw_request_through_the_allowlis
             "/health/test_connection",
             json={
                 "mode": "chat",
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test", "timeout": 7},
+                "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test", "timeout": 7},
             },
         )
 
@@ -5118,21 +5118,21 @@ def test_health_test_connection_keeps_error_and_raw_request_through_the_allowlis
 def test_health_test_connection_uses_request_headers_as_secret_fields_and_hides_them() -> None:
     app: Final = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     ahealth_check: Final = AsyncMock(return_value={"status": "healthy"})
     authorization: Final = "Bearer a.b.c"
     body_authorization: Final = "Bearer body-supplied.invalid"
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.ahealth_check", new=ahealth_check),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.ahealth_check", new=ahealth_check),
     ):
         response: Final = TestClient(app).post(
             "/health/test_connection",
             headers={"Authorization": authorization},
             json={
                 "mode": "chat",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "microsoft_365_copilot/chat",
                     "secret_fields": {"raw_headers": {"authorization": body_authorization}},
                 },
@@ -5151,13 +5151,13 @@ def test_health_test_connection_uses_request_headers_as_secret_fields_and_hides_
 
 def test_clean_endpoint_data_keeps_only_json_safe_diagnostics():
     """
-    LIT-6907: _clean_endpoint_data used to copy every litellm_param not on a
+    LIT-6907: _clean_endpoint_data used to copy every hangarllm_param not on a
     deny list, so a nested mapping keyed by a tuple reached jsonable_encoder
     and 500'd /health. Only the explicit allowlist survives now.
     """
     from fastapi.encoders import jsonable_encoder
 
-    from litellm.proxy.health_check import clean_endpoint_data
+    from hangarllm.proxy.health_check import clean_endpoint_data
 
     cleaned = clean_endpoint_data(
         {
@@ -5195,13 +5195,13 @@ async def test_health_endpoint_result_survives_non_json_safe_deployment_params()
     from fastapi import Response
     from fastapi.encoders import jsonable_encoder
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy.health_endpoints._health_endpoints import health_endpoint
 
     model_list = [
         {
             "model_name": "bedrock-nova",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "bedrock/us.amazon.nova-2-lite-v1:0",
                 "aws_region_name": "us-east-1",
                 "aws_access_key_id": "CANARY-ACCESS-KEY",
@@ -5214,12 +5214,12 @@ async def test_health_endpoint_result_survives_non_json_safe_deployment_params()
     with (
         _proxy_health_globals(model_list, None),
         patch(  # test-quality-ok: the provider probe is faked; the assertion is the response shaping after it
-            "litellm.ahealth_check", AsyncMock(return_value={"x-ratelimit-remaining-requests": 99})
+            "hangarllm.ahealth_check", AsyncMock(return_value={"x-ratelimit-remaining-requests": 99})
         ),
     ):
         result = await health_endpoint(
             response=Response(),
-            user_api_key_dict=UserAPIKeyAuth(api_key="hashed-admin-key", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(api_key="hashed-admin-key", user_role=HangarllmUserRoles.PROXY_ADMIN),
             model=None,
             model_id=None,
         )
@@ -5248,7 +5248,7 @@ class TestConfigBaseForHealthCheck:
     }
 
     def _base(self, config, request, allow_client_side_credentials=False, *, selected_by_id: bool):
-        from litellm.proxy.health_endpoints._health_endpoints import (
+        from hangarllm.proxy.health_endpoints._health_endpoints import (
             _config_base_for_health_check,
         )
 
@@ -5315,27 +5315,27 @@ class TestConfigBaseForHealthCheck:
     def test_stored_credential_reference_is_dropped_with_the_credentials(self):
         """A stored-credential name resolves to the same secrets downstream, so a
         request that redirects the destination must not keep it either."""
-        config = {**self.CONFIG, "litellm_credential_name": "OpenAI-prod"}
+        config = {**self.CONFIG, "hangarllm_credential_name": "OpenAI-prod"}
         base = self._base(config, {"api_base": "https://caller.example/v1"}, selected_by_id=False)
-        assert "litellm_credential_name" not in base
+        assert "hangarllm_credential_name" not in base
         assert "api_key" not in base
 
     def test_stored_credential_reference_kept_when_request_sets_no_connection(self):
         """The Admin UI tests a configured model by naming it plus its stored
         credential and nothing else; that keeps working."""
-        config = {**self.CONFIG, "litellm_credential_name": "OpenAI-prod"}
+        config = {**self.CONFIG, "hangarllm_credential_name": "OpenAI-prod"}
         base = self._base(
             config,
-            {"model": "openai/gpt-4o", "litellm_credential_name": "OpenAI-prod", "custom_llm_provider": "openai"},
+            {"model": "openai/gpt-4o", "hangarllm_credential_name": "OpenAI-prod", "custom_llm_provider": "openai"},
             selected_by_id=False,
         )
-        assert base["litellm_credential_name"] == "OpenAI-prod"
+        assert base["hangarllm_credential_name"] == "OpenAI-prod"
         assert base["api_key"] == "sk-configured"
 
     def test_request_naming_another_credential_does_not_inherit_config_credentials(self):
         base = self._base(
             self.CONFIG,
-            {"model": "openai/gpt-4o", "litellm_credential_name": "Another-cred"},
+            {"model": "openai/gpt-4o", "hangarllm_credential_name": "Another-cred"},
             selected_by_id=False,
         )
         assert "api_key" not in base
@@ -5346,7 +5346,7 @@ class TestConfigBaseForHealthCheck:
     def test_blank_credential_name_names_no_credential(self):
         base = self._base(
             self.CONFIG,
-            {"model": "openai/gpt-4o", "litellm_credential_name": ""},
+            {"model": "openai/gpt-4o", "hangarllm_credential_name": ""},
             selected_by_id=False,
         )
         assert base["api_key"] == "sk-configured"
@@ -5354,7 +5354,7 @@ class TestConfigBaseForHealthCheck:
     def test_opt_in_does_not_put_config_credentials_over_a_named_credential(self):
         base = self._base(
             self.CONFIG,
-            {"model": "openai/gpt-4o", "litellm_credential_name": "Another-cred"},
+            {"model": "openai/gpt-4o", "hangarllm_credential_name": "Another-cred"},
             allow_client_side_credentials=True,
             selected_by_id=False,
         )
@@ -5366,7 +5366,7 @@ class TestConfigBaseForHealthCheck:
             "token_exchange_endpoint": "https://login.example/token",
             "client_id": "configured-client-id",
             "client_secret": "configured-client-secret",
-            "litellm_credential_name": "configured-credential",
+            "hangarllm_credential_name": "configured-credential",
         }
         request: Final = {"model": "openai/gpt-4o", "api_key": "sk-request"}
         merged: Final = {**self._base(config, request, selected_by_id=False), **request}
@@ -5376,7 +5376,7 @@ class TestConfigBaseForHealthCheck:
             "token_exchange_endpoint",
             "client_id",
             "client_secret",
-            "litellm_credential_name",
+            "hangarllm_credential_name",
             "api_base",
             "vertex_credentials",
         }.isdisjoint(merged)
@@ -5389,7 +5389,7 @@ class TestConfigBaseForHealthCheck:
             "token_exchange_endpoint": "https://login.example/token",
             "client_id": "configured-client-id",
             "client_secret": "configured-client-secret",
-            "litellm_credential_name": "configured-credential",
+            "hangarllm_credential_name": "configured-credential",
         }
         request: Final = {"model": "openai/gpt-4o", "api_key": "sk-request"}
         base: Final = self._base(config, request, allow_client_side_credentials=True, selected_by_id=False)
@@ -5400,7 +5400,7 @@ class TestConfigBaseForHealthCheck:
             "token_exchange_endpoint",
             "client_id",
             "client_secret",
-            "litellm_credential_name",
+            "hangarllm_credential_name",
             "api_base",
             "vertex_credentials",
         }.isdisjoint(merged)
@@ -5434,7 +5434,7 @@ class TestTestConnectionUsesTheNamedCredential:
     REQUEST = {
         "model": "xai/grok-4",
         "custom_llm_provider": "xai",
-        "litellm_credential_name": "my-xai-cred",
+        "hangarllm_credential_name": "my-xai-cred",
     }
     COMPLETION = {
         "id": "chatcmpl-test",
@@ -5450,10 +5450,10 @@ class TestTestConnectionUsesTheNamedCredential:
         return CredentialItem(credential_name="my-xai-cred", credential_info={}, credential_values=values)
 
     @staticmethod
-    def _wildcard_deployment(**litellm_params: str) -> dict:
+    def _wildcard_deployment(**hangarllm_params: str) -> dict:
         return {
             "model_name": "xai/*",
-            "litellm_params": {"model": "xai/*", **litellm_params},
+            "hangarllm_params": {"model": "xai/*", **hangarllm_params},
             "model_info": {"id": "unrelated-wildcard-deployment"},
         }
 
@@ -5461,17 +5461,17 @@ class TestTestConnectionUsesTheNamedCredential:
         self,
         monkeypatch,
         deployment: dict,
-        request_litellm_params: dict,
+        request_hangarllm_params: dict,
         deployment_by_id: object | None = None,
         request_model_info: dict | None = None,
     ) -> httpx.Request:
         """Run /health/test_connection and hand back the upstream request it made."""
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
         app = FastAPI()
         app.include_router(_health_endpoints_module.router)
-        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
         router = MagicMock()
         router.registry.return_value.deployments.return_value = [deployment]
@@ -5479,10 +5479,10 @@ class TestTestConnectionUsesTheNamedCredential:
 
         with (
             patch(  # test-quality-ok: the endpoint reads the proxy-global DB client and 500s when it is None; it has no injection seam
-                "litellm.proxy.proxy_server.prisma_client", MagicMock()
+                "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
             ),
             patch(  # test-quality-ok: the deployment the probe is matched against is a proxy global; it has no injection seam
-                "litellm.proxy.proxy_server.llm_router", router
+                "hangarllm.proxy.proxy_server.llm_router", router
             ),
             respx.mock(assert_all_called=True) as respx_mock,
         ):
@@ -5491,7 +5491,7 @@ class TestTestConnectionUsesTheNamedCredential:
                 "/health/test_connection",
                 json={
                     "mode": "chat",
-                    "litellm_params": request_litellm_params,
+                    "hangarllm_params": request_hangarllm_params,
                     "model_info": request_model_info or {"mode": "chat"},
                 },
             )
@@ -5509,7 +5509,7 @@ class TestTestConnectionUsesTheNamedCredential:
         endpoint: Final = "https://identity.example.com/health-check/oauth2/v2.0/token"
         deployment: Final = {
             "model_name": "microsoft_365_copilot/chat",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "microsoft_365_copilot/chat",
                 "custom_llm_provider": "microsoft_365_copilot",
                 "token_exchange_endpoint": endpoint,
@@ -5522,26 +5522,26 @@ class TestTestConnectionUsesTheNamedCredential:
         }
         request_body: Final = {
             "mode": "chat",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "microsoft_365_copilot/chat",
                 "secret_fields": {"raw_headers": {"authorization": f"Bearer {body_token}"}},
             },
             "model_info": {"mode": "chat"},
         }
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
 
         app: Final = FastAPI()
         app.include_router(_health_endpoints_module.router)
-        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
         client: Final = TestClient(app)
         router: Final = MagicMock()
         router.registry.return_value.deployments.return_value = [deployment]
         router.registry.return_value.deployment.return_value = None
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
             respx.mock(assert_all_called=True) as respx_mock,
         ):
             token_route: Final = respx_mock.post(endpoint).respond(
@@ -5579,7 +5579,7 @@ class TestTestConnectionUsesTheNamedCredential:
     def test_request_api_key_does_not_inherit_microsoft_365_oauth_config(self):
         deployment: Final = {
             "model_name": "microsoft_365_copilot/chat",
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "microsoft_365_copilot/chat",
                 "custom_llm_provider": "microsoft_365_copilot",
                 "token_exchange_endpoint": "https://login.example/token",
@@ -5590,30 +5590,30 @@ class TestTestConnectionUsesTheNamedCredential:
         }
         app: Final = FastAPI()
         app.include_router(_health_endpoints_module.router)
-        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
         router: Final = MagicMock()
         router.registry.return_value.deployments.return_value = [deployment]
         ahealth_check: Final = MagicMock(return_value={"status": "healthy"})
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.premium_user", False),
             patch(
-                "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+                "hangarllm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
                 AsyncMock(),
             ),
-            patch("litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check", ahealth_check),
+            patch("hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check", ahealth_check),
             patch(
-                "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+                "hangarllm.proxy.health_endpoints._health_endpoints.run_with_timeout",
                 AsyncMock(return_value={"status": "healthy"}),
             ),
         ):
             response: Final = TestClient(app).post(
                 "/health/test_connection",
                 json={
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "microsoft_365_copilot/chat",
                         "custom_llm_provider": "microsoft_365_copilot",
                         "api_key": "dummy-static-token",
@@ -5631,14 +5631,14 @@ class TestTestConnectionUsesTheNamedCredential:
         assert "client_secret" not in model_params
 
     def test_request_api_key_keeps_saved_endpoint_when_deployment_selected_by_id(self):
-        from litellm.types.router import Deployment, LiteLLM_Params
+        from hangarllm.types.router import Deployment, HangarLLM_Params
 
         model: Final = "microsoft_365_copilot/chat"
         saved_api_base: Final = "https://configured.example/v1"
         saved_api_version: Final = "test-version"
         deployment: Final = Deployment(
             model_name=model,
-            litellm_params=LiteLLM_Params(
+            hangarllm_params=HangarLLM_Params(
                 model=model,
                 custom_llm_provider="microsoft_365_copilot",
                 api_key="saved-static-token",
@@ -5649,30 +5649,30 @@ class TestTestConnectionUsesTheNamedCredential:
         )
         app: Final = FastAPI()
         app.include_router(_health_endpoints_module.router)
-        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
 
         router: Final = MagicMock()
         router.registry.return_value.deployment.return_value = deployment
         ahealth_check: Final = MagicMock(return_value={"status": "healthy"})
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", router),
+            patch("hangarllm.proxy.proxy_server.premium_user", False),
             patch(
-                "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+                "hangarllm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
                 AsyncMock(),
             ),
-            patch("litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check", ahealth_check),
+            patch("hangarllm.proxy.health_endpoints._health_endpoints.hangarllm.ahealth_check", ahealth_check),
             patch(
-                "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+                "hangarllm.proxy.health_endpoints._health_endpoints.run_with_timeout",
                 AsyncMock(return_value={"status": "healthy"}),
             ),
         ):
             response: Final = TestClient(app).post(
                 "/health/test_connection",
                 json={
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": model,
                         "custom_llm_provider": "microsoft_365_copilot",
                         "api_key": "replacement-static-token",
@@ -5689,7 +5689,7 @@ class TestTestConnectionUsesTheNamedCredential:
         assert model_params["api_key"] == "replacement-static-token"
 
     def test_named_credentials_key_is_sent_not_the_matched_deployments_key(self, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
+        monkeypatch.setattr(hangarllm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
 
         probe = self._probe(
             monkeypatch,
@@ -5701,7 +5701,7 @@ class TestTestConnectionUsesTheNamedCredential:
 
     def test_named_credentials_api_base_is_used_not_the_matched_deployments(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "credential_list",
             [self._credential(api_key=self.CREDENTIAL_KEY, api_base="https://credential.example/v1")],
         )
@@ -5715,7 +5715,7 @@ class TestTestConnectionUsesTheNamedCredential:
         assert probe.url.host == "credential.example"
 
     def test_named_credential_without_an_api_base_leaves_the_provider_default(self, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
+        monkeypatch.setattr(hangarllm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
 
         probe = self._probe(
             monkeypatch,
@@ -5737,9 +5737,9 @@ class TestTestConnectionUsesTheNamedCredential:
 
     def test_deployment_probed_by_id_keeps_the_endpoint_it_is_configured_with(self, monkeypatch):
         """The model detail page always echoes back the credential the deployment already uses."""
-        from litellm.types.router import Deployment, LiteLLM_Params
+        from hangarllm.types.router import Deployment, HangarLLM_Params
 
-        monkeypatch.setattr(litellm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
+        monkeypatch.setattr(hangarllm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
 
         probe = self._probe(
             monkeypatch,
@@ -5747,10 +5747,10 @@ class TestTestConnectionUsesTheNamedCredential:
             self.REQUEST,
             deployment_by_id=Deployment(
                 model_name="grok-4",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     model="xai/grok-4",
                     api_base="https://configured.example/v1",
-                    litellm_credential_name="my-xai-cred",
+                    hangarllm_credential_name="my-xai-cred",
                 ),
                 model_info={"id": "configured-deployment"},
             ),
@@ -5779,65 +5779,65 @@ class TestNoRedisWarning:
 
     @pytest.mark.asyncio
     async def test_warns_when_no_redis_and_no_db_to_count_workers(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_warns_when_there_is_no_router_at_all(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", None),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", None),
+            patch("hangarllm.proxy.proxy_server.prisma_client", None),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_stays_quiet_for_a_confirmed_single_worker(self, monkeypatch):
         """One live worker needs no cross-worker coordination, so no env var is needed."""
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("live_workers", [2, 5])
     async def test_warns_when_multiple_workers_share_the_db(self, monkeypatch, live_workers):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(live_workers)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(live_workers)),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_warns_when_the_worker_census_is_empty(self, monkeypatch):
         """Zero rows means the census cannot CONFIRM a single worker, so warn."""
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(0)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(0)),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_warns_when_the_worker_census_query_fails(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "hangarllm.proxy.proxy_server.prisma_client",
                 self._prisma_with_workers(error=RuntimeError("db down")),
             ),
         ):
@@ -5845,12 +5845,12 @@ class TestNoRedisWarning:
 
     @pytest.mark.asyncio
     async def test_stays_quiet_when_a_coordination_redis_is_configured(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         prisma = self._prisma_with_workers(5)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma),
         ):
             assert await _show_no_redis_warning() is False
         prisma.db.query_raw.assert_not_called()
@@ -5864,63 +5864,63 @@ class TestNoRedisWarning:
             MagicMock(side_effect=AssertionError("env var looked up although Redis is configured")),
         )
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", coordination_redis),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(router_redis)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", coordination_redis),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(router_redis)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     async def test_stays_quiet_when_only_the_router_has_redis(self, monkeypatch):
         """router_settings.redis_host alone backs cooldowns and usage-based routing."""
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(MagicMock())),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(MagicMock())),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("value", ["true", "True"])
     async def test_env_var_suppresses_the_warning_despite_multiple_workers(self, monkeypatch, value):
-        monkeypatch.setenv("LITELLM_DISABLE_NO_REDIS_WARNING", value)
+        monkeypatch.setenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", value)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     async def test_env_var_set_false_keeps_the_warning_for_multiple_workers(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_DISABLE_NO_REDIS_WARNING", "false")
+        monkeypatch.setenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", "false")
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(2)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(2)),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_env_var_set_false_does_not_force_the_warning_for_a_single_worker(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_DISABLE_NO_REDIS_WARNING", "false")
+        monkeypatch.setenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", "false")
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("has_prisma_client", [True, False])
     async def test_readiness_details_carries_the_flag(self, monkeypatch, has_prisma_client):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("HANGARLLM_DISABLE_NO_REDIS_WARNING", raising=False)
         prisma_client = self._prisma_with_workers(2) if has_prisma_client else None
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", None),
+            patch("hangarllm.proxy.proxy_server.llm_router", self._router(None)),
             patch.object(
                 _health_endpoints_module,
                 "_db_health_readiness_check",
@@ -5931,8 +5931,8 @@ class TestNoRedisWarning:
         assert details["show_no_redis_warning"] is True
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.redis_usage_cache", MagicMock()),
+            patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client),
+            patch("hangarllm.proxy.proxy_server.redis_usage_cache", MagicMock()),
             patch.object(
                 _health_endpoints_module,
                 "_db_health_readiness_check",
@@ -5953,11 +5953,11 @@ async def test_health_services_endpoint_ms_teams_posts_adaptive_card():
 
     with (
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"alerting": ["ms_teams"]},
         ),
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj",
             mock_proxy_logging,
         ),
         patch.dict("os.environ", {"MS_TEAMS_WEBHOOK_URL": "https://teams.example/webhook"}),
@@ -5982,11 +5982,11 @@ async def test_health_services_endpoint_ms_teams_surfaces_delivery_failure():
 
     with (
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"alerting": ["ms_teams"]},
         ),
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "hangarllm.proxy.proxy_server.proxy_logging_obj",
             mock_proxy_logging,
         ),
         patch.dict("os.environ", {"MS_TEAMS_WEBHOOK_URL": "https://teams.example/webhook"}),
@@ -6000,7 +6000,7 @@ async def test_health_services_endpoint_ms_teams_surfaces_delivery_failure():
 @pytest.mark.asyncio
 async def test_health_services_endpoint_ms_teams_requires_alerting_config():
     with patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"alerting": ["slack"]},
     ):
         with pytest.raises(ProxyException):
@@ -6013,17 +6013,17 @@ def test_test_model_connection_accepts_image_edit_mode(monkeypatch):
     before image_edit was added to its mode Literal, breaking the UI Test
     Connection button for image edit deployments.
     """
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
     with (
         patch(  # test-quality-ok: the endpoint reads the proxy-global DB client and 500s when it is None; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         respx.mock(assert_all_called=True) as respx_mock,
     ):
@@ -6034,7 +6034,7 @@ def test_test_model_connection_accepts_image_edit_mode(monkeypatch):
             "/health/test_connection",
             json={
                 "mode": "image_edit",
-                "litellm_params": {"model": "openai/gpt-image-2", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-image-2", "api_key": "sk-test"},
             },
         )
 
@@ -6071,7 +6071,7 @@ _CLAIRIC_TEST_CONNECTION: Final = (
 
 
 @pytest.mark.parametrize(
-    ("mode", "litellm_params", "upstream_url", "upstream_json"),
+    ("mode", "hangarllm_params", "upstream_url", "upstream_json"),
     (
         ("decisions", *_TYPESAFE_TEST_CONNECTION),
         ("evaluation", *_TYPESAFE_TEST_CONNECTION),
@@ -6082,26 +6082,26 @@ _CLAIRIC_TEST_CONNECTION: Final = (
 def test_test_model_connection_accepts_decision_and_extraction_modes(
     monkeypatch,
     mode: Literal["evaluation", "decisions", "extraction"],
-    litellm_params: Mapping[str, str],
+    hangarllm_params: Mapping[str, str],
     upstream_url: str,
     upstream_json: Mapping[str, object],
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
     with (
         patch(  # test-quality-ok: endpoint reads the proxy-global DB client and 500s when it is None; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "hangarllm.proxy.proxy_server.prisma_client", MagicMock()
         ),
         respx.mock(assert_all_called=True) as respx_mock,
     ):
         upstream = respx_mock.post(upstream_url).respond(json=upstream_json)
-        response = client.post("/health/test_connection", json={"mode": mode, "litellm_params": litellm_params})
+        response = client.post("/health/test_connection", json={"mode": mode, "hangarllm_params": hangarllm_params})
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "success"
@@ -6109,7 +6109,7 @@ def test_test_model_connection_accepts_decision_and_extraction_modes(
 
 
 def _pointfive_admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(token="admin-token", user_id="admin-user", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(token="admin-token", user_id="admin-user", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
 
 @pytest.mark.asyncio
@@ -6120,7 +6120,7 @@ async def test_health_services_endpoint_pointfive_without_a_key_is_unhealthy_not
     That refusal is the answer the operator asked for, so it has to come back as an
     unhealthy result rather than a 500 from the endpoint.
     """
-    import litellm.integrations.pointfive as pointfive_package
+    import hangarllm.integrations.pointfive as pointfive_package
 
     def refuse(**_):
         raise ValueError("pointfive logging requires an api key. Set POINTFIVE_API_KEY")
@@ -6137,10 +6137,10 @@ async def test_health_services_endpoint_pointfive_without_a_key_is_unhealthy_not
 @pytest.mark.parametrize(
     "role",
     [
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
-        LitellmUserRoles.TEAM,
-        LitellmUserRoles.CUSTOMER,
+        HangarllmUserRoles.INTERNAL_USER,
+        HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        HangarllmUserRoles.TEAM,
+        HangarllmUserRoles.CUSTOMER,
     ],
 )
 async def test_health_services_endpoint_pointfive_blocks_non_admin(monkeypatch, role):
@@ -6150,8 +6150,8 @@ async def test_health_services_endpoint_pointfive_blocks_non_admin(monkeypatch, 
     A tenant key must not be able to keep an integration looking alive, or read back
     account-level authentication failures through it.
     """
-    import litellm.integrations.pointfive as pointfive_package
-    from litellm.proxy._types import ProxyException
+    import hangarllm.integrations.pointfive as pointfive_package
+    from hangarllm.proxy._types import ProxyException
 
     logger_class = MagicMock()
     monkeypatch.setattr(pointfive_package, "PointFiveLogger", logger_class)
@@ -6170,8 +6170,8 @@ async def test_health_services_endpoint_langfuse_missing_keys_errors(monkeypatch
     """v2 raised out of ``auth_check`` and the endpoint printed the server's answer; the v4 check
     returns the failure as a value, and the endpoint has to error with that reason rather than a
     generic credentials message that reads the same for an outage and a bad key."""
-    import litellm.integrations.langfuse.langfuse as langfuse_module
-    from litellm.integrations.langfuse.langfuse_sdk import AuthCheckFailure
+    import hangarllm.integrations.langfuse.langfuse as langfuse_module
+    from hangarllm.integrations.langfuse.langfuse_sdk import AuthCheckFailure
 
     logger_class = MagicMock()
     logger_class.return_value.api_client.auth_check.return_value = AuthCheckFailure(
@@ -6199,14 +6199,14 @@ async def test_unsaved_chatgpt_account_probe_requires_proxy_admin(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, admin: bool
 ) -> None:
     from starlette.requests import Request
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setenv("CHATGPT_AUTH_FILE", str(tmp_path / "missing-default-auth.json"))
     auth_file: Final = tmp_path / "auth.json"
     auth_file.write_text(
         json.dumps({"access_token": "token-probe", "account_id": "acct-probe", "expires_at": 4102444800})
     )
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
     monkeypatch.setattr(proxy_server, "llm_router", None)
     monkeypatch.setattr(proxy_server, "general_settings", {})
@@ -6235,10 +6235,10 @@ async def test_unsaved_chatgpt_account_probe_requires_proxy_admin(
         call: Final = health_test_model_connection(
             request=Request({"type": "http", "headers": []}),
             mode="responses",
-            litellm_params={"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(auth_file)},
+            hangarllm_params={"model": "chatgpt/gpt-6.1-sol", "chatgpt_auth_file": str(auth_file)},
             model_info={},
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN if admin else LitellmUserRoles.INTERNAL_USER, token="test-key"
+                user_role=HangarllmUserRoles.PROXY_ADMIN if admin else HangarllmUserRoles.INTERNAL_USER, token="test-key"
             ),
         )
         if admin:

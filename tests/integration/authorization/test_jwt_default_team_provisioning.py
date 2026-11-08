@@ -41,10 +41,10 @@ def test_jwt_subject_without_team_claim_is_provisioned_into_configured_default_t
         config["general_settings"] = {
             **config["general_settings"],
             "enable_jwt_auth": True,
-            "litellm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True},
+            "hangarllm_jwtauth": {"user_id_jwt_field": "sub", "user_id_upsert": True},
         }
-        config["litellm_settings"] = {
-            **config["litellm_settings"],
+        config["hangarllm_settings"] = {
+            **config["hangarllm_settings"],
             "default_internal_user_params": {
                 "user_role": "internal_user",
                 "teams": [{"team_id": team, "user_role": "user", "max_budget_in_team": TEAM_BUDGET}],
@@ -73,16 +73,16 @@ def test_jwt_subject_without_team_claim_is_provisioned_into_configured_default_t
                 "Hello! This is a mock response from the fake OpenAI endpoint."
             ), response.text
             assert read_rows(
-                'SELECT user_id, user_role, teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (subject,)
+                'SELECT user_id, user_role, teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (subject,)
             ) == [{"user_id": subject, "user_role": "internal_user", "teams": [team]}]
             memberships: Final = eventually(
                 lambda: read_rows(
-                    'SELECT m.team_id, b.max_budget FROM "LiteLLM_TeamMembership" m '
-                    'JOIN "LiteLLM_BudgetTable" b ON b.budget_id = m.budget_id WHERE m.user_id = %s',
+                    'SELECT m.team_id, b.max_budget FROM "HangarLLM_TeamMembership" m '
+                    'JOIN "HangarLLM_BudgetTable" b ON b.budget_id = m.budget_id WHERE m.user_id = %s',
                     (subject,),
                 ),
                 lambda rows: len(rows) == 1,
             )
             assert memberships == [{"team_id": team, "max_budget": TEAM_BUDGET}]
-            roster: Final = read_rows('SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team,))
+            roster: Final = read_rows('SELECT members_with_roles FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team,))
             assert {"user_id": subject, "role": "user", "user_email": None} in roster[0]["members_with_roles"], roster

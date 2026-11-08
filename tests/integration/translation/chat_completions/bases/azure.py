@@ -20,8 +20,8 @@ from pydantic import JsonValue
 
 GPT_5_4_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "azure/gpt-5.4",
         "max_tokens": 64,
         "messages": [
@@ -104,7 +104,7 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 24,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "chatcmpl-EVjW8mtOvQmVYDtEuv7KNgydJESBC",
         "created": 1791231844,
         "model": "azure/gpt-5.4",
@@ -169,8 +169,8 @@ GPT_5_4_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "azure/gpt-5.6-sol",
         "max_tokens": 64,
         "messages": [
@@ -253,7 +253,7 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 24,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "chatcmpl-EVjWAtsNezzFIBBSE6qy0TnpRv0Ll",
         "created": 1791231846,
         "model": "azure/gpt-5.6-sol",
@@ -323,8 +323,8 @@ GPT_5_6_SOL_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={
         "model": "azure/gpt-5.6-luna",
         "max_tokens": 64,
         "messages": [
@@ -407,7 +407,7 @@ GPT_5_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 24,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "id": "chatcmpl-EVjWC8K4D1wYOwETMUzs0oFLnsvKg",
         "created": 1791231848,
         "model": "azure/gpt-5.6-luna",
@@ -530,8 +530,8 @@ GPT_6_LUNA_ENCRYPTED_REASONING: Final = (
 
 GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-6-luna"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-6-luna"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_BRIDGE_REQUEST, "model": "gpt-6-luna", "stream": False},
@@ -585,7 +585,7 @@ GPT_6_LUNA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 441,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_0257792c0e8dcbb3006ad023b8112081958c7c4379959d4c6b",
         "model": "azure/gpt-6-luna",
@@ -693,13 +693,13 @@ GPT_6_1_SOL_ENCRYPTED_REASONING: Final = (
 
 GPT_6_1_SOL_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-6.1-sol"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-6.1-sol"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_BRIDGE_REQUEST, "model": "gpt-6.1-sol", "stream": False},
     mock_provider_response={**AZURE_RESPONSES_RESPONSE},
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_03952e888f4f1827006ad023aa00108190b24e51d376e9a373",
         "model": "azure/gpt-6.1-sol",
@@ -805,8 +805,8 @@ GPT_6_ASTRA_ENCRYPTED_REASONING: Final = (
 
 GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-6-astra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-6-astra"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_BRIDGE_REQUEST, "model": "gpt-6-astra", "stream": False},
@@ -860,7 +860,7 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 447,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_03d9860d694cf03b006ad023bfd5f881979bc737bdacd3fdec",
         "model": "azure/gpt-6-astra",
@@ -914,8 +914,8 @@ GPT_6_ASTRA_TEST_CASE: Final = TranslationTestCase(
 
 GPT_5_4_MINI_TEST_CASE: Final = TranslationTestCase(
     scenario="agent_tools",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CODING_AGENT_REQUEST, "model": "azure/gpt-5.4-mini"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CODING_AGENT_REQUEST, "model": "azure/gpt-5.4-mini"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-agent-key"},
     expected_provider_request={**OPENAI_RESPONSES_AGENT_REQUEST, "model": "gpt-5.4-mini"},
@@ -999,7 +999,7 @@ GPT_5_4_MINI_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 523,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CODING_AGENT_RESPONSE,
         "id": "resp_0f005e55e6e18746006ad04ac8e4548196b106305915e785b5",
         "model": "azure/gpt-5.4-mini",
@@ -1132,8 +1132,8 @@ GPT_5_6_TERRA_ENCRYPTED_REASONING: Final = (
 
 GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/chat/completions",
-    litellm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-5.6-terra"},
+    hangarllm_endpoint="/v1/chat/completions",
+    hangarllm_request={**CHAT_COMPLETIONS_REQUEST, "model": "azure/gpt-5.6-terra"},
     expected_provider_endpoint="/openai/responses?api-version=2025-04-01-preview",
     expected_provider_headers={"content-type": "application/json", "api-key": "synthetic-azure-key"},
     expected_provider_request={**AZURE_RESPONSES_BRIDGE_REQUEST, "model": "gpt-5.6-terra", "stream": False},
@@ -1187,7 +1187,7 @@ GPT_5_6_TERRA_TEST_CASE: Final = TranslationTestCase(
             "total_tokens": 422,
         },
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         **CHAT_COMPLETIONS_RESPONSE,
         "id": "resp_0146fd70db485046006ad023cbf5b48197a496e74bfbe99f66",
         "model": "azure/gpt-5.6-terra",

@@ -24,8 +24,8 @@ JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 ITEMS: Final = TypeAdapter(list[dict[str, JsonValue]])
 MINTED_ID: Final = re.compile(r"^rs_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 _INNER_ID: Final = re.compile(r"response_id:([^;]+)")
-_WRAPPER_PREFIX: Final = "litellm:custom_llm_provider:"
-_PROXY_WRAPPED_PREFIX: Final = "litellm_proxy:responses_api:response_id:"
+_WRAPPER_PREFIX: Final = "hangarllm:custom_llm_provider:"
+_PROXY_WRAPPED_PREFIX: Final = "hangarllm_proxy:responses_api:response_id:"
 
 
 def signature(marker: str) -> str:
@@ -96,9 +96,9 @@ def _decoded_wrapper(value: str) -> str | None:
 
 
 def response_identities(value: str) -> frozenset[str]:
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
-    salt: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+    salt: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
     opened: Final = decrypt_if_encrypted_with(value.removeprefix("resp_"), salt)
     sealed: Final = opened is not None and opened.startswith(_PROXY_WRAPPED_PREFIX)
     wrapped: Final = opened.removeprefix(_PROXY_WRAPPED_PREFIX).split(";", 1)[0] if sealed and opened else value

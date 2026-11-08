@@ -12,13 +12,13 @@ from fastapi import Request
 from pydantic import TypeAdapter
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-import litellm.constants as litellm_constants
-import litellm.proxy.spend_tracking.spend_tracking_utils as spend_tracking_utils
-from litellm.constants import (
+import hangarllm
+import hangarllm.constants as hangarllm_constants
+import hangarllm.proxy.spend_tracking.spend_tracking_utils as spend_tracking_utils
+from hangarllm.constants import (
     KUBERNETES_POD_ROUTING_KEY,
-    LITELLM_TRUNCATED_PAYLOAD_FIELD,
-    LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE,
+    HANGARLLM_TRUNCATED_PAYLOAD_FIELD,
+    HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE,
     LITTELM_CLI_SERVICE_ACCOUNT_NAME,
     LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
     MAX_SPEND_LOG_MODEL_NAME_LENGTH,
@@ -27,22 +27,22 @@ from litellm.constants import (
     SESSION_ID_OMITTED_METADATA_KEY,
     UNKNOWN_MODEL_SPEND_LOG_MODEL,
 )
-from litellm.constants import (
+from hangarllm.constants import (
     CALLER_SESSION_ID_METADATA_KEY,
     INTERNAL_CALL_ORIGIN_METADATA_KEY,
     MANAGED_BACKGROUND_RESPONSE_METADATA_KEY,
 )
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.ocr.transformation import OCRResponse, OCRUsageInfo
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy._types import SpendLogsMetadata, SpendLogsMetadataFields, SpendLogsPayload, UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import get_passthrough_router_request_metadata
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
-from litellm.types.passthrough_endpoints.pass_through_endpoints import PassthroughStandardLoggingPayload
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.spend_tracking.spend_tracking_utils import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import StandardLoggingPayloadSetup
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLoggingObj
+from hangarllm.llms.base_llm.ocr.transformation import OCRResponse, OCRUsageInfo
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.proxy._types import SpendLogsMetadata, SpendLogsMetadataFields, SpendLogsPayload, UserAPIKeyAuth
+from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+from hangarllm.proxy.pass_through_endpoints.llm_passthrough_endpoints import get_passthrough_router_request_metadata
+from hangarllm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import PassthroughStandardLoggingPayload
+from hangarllm.proxy.route_llm_request import ProxyModelNotFoundError
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import (
     _extract_usage_for_ocr_call,
     _get_messages_for_spend_logs_payload,
     _get_proxy_server_request_for_spend_logs_payload,
@@ -66,15 +66,15 @@ from litellm.proxy.spend_tracking.spend_tracking_utils import (
     should_store_prompts_and_responses_in_spend_logs,
     spend_log_row_with_retained_metadata,
 )
-from litellm.proxy.utils import hash_token
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from hangarllm.proxy.utils import hash_token
+from hangarllm.types.passthrough_endpoints.pass_through_endpoints import (
     SETTLES_BACKGROUND_RESPONSE_KWARG,
     BackgroundResponseSettlement,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
+from hangarllm.types.router import GenericHangarLLMParams
+from hangarllm.types.utils import (
     BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN,
-    LiteLLMBatch,
+    HangarLLMBatch,
     StandardLoggingHiddenParams,
     StandardLoggingMetadata,
     StandardLoggingModelInformation,
@@ -85,13 +85,13 @@ from litellm.types.utils import (
 )
 
 
-def _get_additional_usage_values_for_usage(usage: litellm.Usage) -> dict:
+def _get_additional_usage_values_for_usage(usage: hangarllm.Usage) -> dict:
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(
+        response_obj=hangarllm.ModelResponse(
             id="chatcmpl-test",
             choices=[],
             usage=usage,
@@ -104,7 +104,7 @@ def _get_additional_usage_values_for_usage(usage: litellm.Usage) -> dict:
 
 
 @pytest.mark.parametrize(
-    ("metadata", "litellm_metadata", "expected"),
+    ("metadata", "hangarllm_metadata", "expected"),
     [
         (
             {
@@ -168,16 +168,16 @@ def _get_additional_usage_values_for_usage(usage: litellm.Usage) -> dict:
 )
 def test_get_logging_payload_includes_kubernetes_pod_routing(
     metadata: dict[str, object],
-    litellm_metadata: dict[str, object],
+    hangarllm_metadata: dict[str, object],
     expected: dict[str, object],
 ) -> None:
     now: Final = datetime.datetime(2026, 1, 1, tzinfo=timezone.utc)
     payload: Final = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": metadata, "litellm_metadata": litellm_metadata},
+            "hangarllm_params": {"metadata": metadata, "hangarllm_metadata": hangarllm_metadata},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-test", choices=[]),
         start_time=now,
         end_time=now,
     )
@@ -188,7 +188,7 @@ def test_get_logging_payload_includes_kubernetes_pod_routing(
 
 @pytest.mark.parametrize("store_prompts,redact", [(True, False), (False, False), (True, True)])
 def test_classifier_audit_spend_storage_obeys_privacy_and_truncation(monkeypatch, store_prompts, redact):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": store_prompts})
     audit: Final = {
@@ -198,7 +198,7 @@ def test_classifier_audit_spend_storage_obeys_privacy_and_truncation(monkeypatch
     stored: Final = json.loads(
         _get_proxy_server_request_for_spend_logs_payload(
             metadata={},
-            litellm_params={"proxy_server_request": {"body": {"model": "classifier"}}},
+            hangarllm_params={"proxy_server_request": {"body": {"model": "classifier"}}},
             kwargs={
                 "standard_logging_object": audit,
                 "standard_callback_dynamic_params": {"turn_off_message_logging": redact},
@@ -210,7 +210,7 @@ def test_classifier_audit_spend_storage_obeys_privacy_and_truncation(monkeypatch
         assert "originating_request_masked" not in stored
     else:
         assert stored["classifier_input"]["messages"] == audit["classifier_input"]["messages"]
-        assert LITELLM_TRUNCATED_PAYLOAD_FIELD in json.dumps(stored["classifier_input"])
+        assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in json.dumps(stored["classifier_input"])
         assert stored["originating_request_masked"]["input"] == "source-only"
         assert stored["model"] == "classifier"
         assert audit["classifier_input"]["system"] == "rubric" * 1000
@@ -224,12 +224,12 @@ def _tenant_settings(setting: bool | str | None) -> dict[str, object]:
     return {} if setting is None else {"store_prompts_in_spend_logs": setting}
 
 
-def _spend_log_for(litellm_params: Mapping[str, object]) -> tuple[SpendLogsPayload, dict[str, object]]:
+def _spend_log_for(hangarllm_params: Mapping[str, object]) -> tuple[SpendLogsPayload, dict[str, object]]:
     now: Final = datetime.datetime(2026, 1, 1, tzinfo=timezone.utc)
     messages: Final = [{"role": "user", "content": _TENANT_PROMPT}]
     kwargs: Final[dict[str, object]] = {
         "model": "gpt-4o-mini",
-        "litellm_params": {**litellm_params, "proxy_server_request": {"body": {"messages": messages}}},
+        "hangarllm_params": {**hangarllm_params, "proxy_server_request": {"body": {"messages": messages}}},
         "standard_logging_object": {
             "call_type": "_arealtime",
             "model_map_information": None,
@@ -238,10 +238,10 @@ def _spend_log_for(litellm_params: Mapping[str, object]) -> tuple[SpendLogsPaylo
             "metadata": {},
         },
     }
-    response: Final = litellm.ModelResponse(
+    response: Final = hangarllm.ModelResponse(
         id="tenant-storage",
         choices=[{"message": {"role": "assistant", "content": _TENANT_RESPONSE}}],
-        usage=litellm.Usage(prompt_tokens=3, completion_tokens=2, total_tokens=5),
+        usage=hangarllm.Usage(prompt_tokens=3, completion_tokens=2, total_tokens=5),
     )
     return get_logging_payload(kwargs=kwargs, response_obj=response, start_time=now, end_time=now), kwargs
 
@@ -276,7 +276,7 @@ def test_tenant_prompt_storage_policy_decides_what_spend_logs_keep(
     stored: bool,
     storage_mode: str | None,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(
         proxy_server,
@@ -290,7 +290,7 @@ def test_tenant_prompt_storage_policy_decides_what_spend_logs_keep(
                 "user_api_key_metadata": _tenant_settings(key_setting),
                 "user_api_key_team_metadata": _tenant_settings(team_setting),
                 "store_prompts_in_spend_logs": True,
-                "headers": {"litellm-disable-message-redaction": "true"},
+                "headers": {"hangarllm-disable-message-redaction": "true"},
             }
         }
     )
@@ -304,13 +304,13 @@ def _passthrough_logging_params(auth: UserAPIKeyAuth, request: Request) -> Mappi
         request=request,
         user_api_key_dict=auth,
         passthrough_logging_payload=PassthroughStandardLoggingPayload(url="https://api.openai.com/v1/chat/completions"),
-        logging_obj=LiteLLMLoggingObj(
+        logging_obj=HangarLLMLoggingObj(
             model="test-model",
             messages=[],
             stream=False,
             call_type="pass_through_endpoint",
             start_time=datetime.datetime(2026, 1, 1, tzinfo=timezone.utc),
-            litellm_call_id="tenant-storage",
+            hangarllm_call_id="tenant-storage",
             function_id="tenant-storage",
         ),
         _parsed_body={
@@ -321,11 +321,11 @@ def _passthrough_logging_params(auth: UserAPIKeyAuth, request: Request) -> Mappi
             },
         },
     )
-    return TypeAdapter[Mapping[str, object]](Mapping[str, object]).validate_python(context["litellm_params"])
+    return TypeAdapter[Mapping[str, object]](Mapping[str, object]).validate_python(context["hangarllm_params"])
 
 
 def _router_passthrough_logging_params(auth: UserAPIKeyAuth, request: Request) -> Mapping[str, object]:
-    return {"litellm_metadata": dict(get_passthrough_router_request_metadata(auth, request))}
+    return {"hangarllm_metadata": dict(get_passthrough_router_request_metadata(auth, request))}
 
 
 @pytest.mark.parametrize("logging_params_for", [_passthrough_logging_params, _router_passthrough_logging_params])
@@ -340,7 +340,7 @@ def test_passthrough_spend_logs_follow_the_authenticated_tenant_storage_policy(
     team_setting: bool | None,
     stored: bool,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     monkeypatch.delenv("STORE_PROMPTS_IN_SPEND_LOGS", raising=False)
@@ -358,7 +358,7 @@ def test_passthrough_spend_logs_follow_the_authenticated_tenant_storage_policy(
 def test_tenant_prompt_restriction_redacts_ancillary_fields_without_mutating_callbacks(
     monkeypatch: pytest.MonkeyPatch, tenant_field: str
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     metadata: Final = {tenant_field: {"store_prompts_in_spend_logs": False}}
@@ -382,7 +382,7 @@ def test_tenant_prompt_restriction_redacts_ancillary_fields_without_mutating_cal
 
 
 def test_request_body_metadata_cannot_disable_spend_prompt_storage(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     assert should_store_prompts_and_responses_in_spend_logs({"store_prompts_in_spend_logs": False}) is True
@@ -390,7 +390,7 @@ def test_request_body_metadata_cannot_disable_spend_prompt_storage(monkeypatch: 
 
 def test_get_logging_payload_maps_openai_cached_tokens_to_cache_read_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -402,7 +402,7 @@ def test_get_logging_payload_maps_openai_cached_tokens_to_cache_read_input_token
     assert additional_usage_values["prompt_tokens_details"]["cached_tokens"] == 123
 
 
-_PROVIDER_READ_BATCH: Final = LiteLLMBatch.model_validate(
+_PROVIDER_READ_BATCH: Final = HangarLLMBatch.model_validate(
     {
         "id": "batch_spend_row",
         "completion_window": "24h",
@@ -429,7 +429,7 @@ _PROVIDER_READ_BATCH: Final = LiteLLMBatch.model_validate(
         _PROVIDER_READ_BATCH,
         _PROVIDER_READ_BATCH.model_copy(
             update={
-                "usage": litellm.Usage(
+                "usage": hangarllm.Usage(
                     prompt_tokens=29,
                     completion_tokens=46,
                     total_tokens=75,
@@ -440,12 +440,12 @@ _PROVIDER_READ_BATCH: Final = LiteLLMBatch.model_validate(
     ],
     ids=["provider_read", "poller_billed"],
 )
-def test_batch_spend_row_stores_the_same_usage_extras_as_a_chat_call_with_its_counts(batch: LiteLLMBatch) -> None:
+def test_batch_spend_row_stores_the_same_usage_extras_as_a_chat_call_with_its_counts(batch: HangarLLMBatch) -> None:
     payload: Final = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
             "call_type": "aretrieve_batch",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
         response_obj=batch,
         start_time=datetime.datetime.now(timezone.utc),
@@ -454,13 +454,13 @@ def test_batch_spend_row_stores_the_same_usage_extras_as_a_chat_call_with_its_co
 
     assert (payload["prompt_tokens"], payload["completion_tokens"], payload["total_tokens"]) == (29, 46, 75)
     assert json.loads(payload["metadata"])["additional_usage_values"] == _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=29, completion_tokens=46, total_tokens=75, prompt_tokens_details={"cached_tokens": 8}
         )
     )
 
 
-class _HashingCache(litellm.Cache):
+class _HashingCache(hangarllm.Cache):
     def __init__(self) -> None:
         pass
 
@@ -468,15 +468,15 @@ class _HashingCache(litellm.Cache):
         raise AssertionError("a preset cache key must be reused instead of hashing the request")
 
 
-def _cache_key_in_spend_log(monkeypatch: pytest.MonkeyPatch, cache: litellm.Cache | None, preset: str | None) -> str:
-    monkeypatch.setattr(litellm, "cache", cache)
+def _cache_key_in_spend_log(monkeypatch: pytest.MonkeyPatch, cache: hangarllm.Cache | None, preset: str | None) -> str:
+    monkeypatch.setattr(hangarllm, "cache", cache)
     payload: Final = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "x" * 10_000}],
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}, "preset_cache_key": preset},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}, "preset_cache_key": preset},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-test", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -492,7 +492,7 @@ def test_get_logging_payload_records_cache_off_without_hashing(monkeypatch):
 
 
 def test_get_logging_payload_still_hashes_when_caching_is_on_and_no_preset_key_exists(monkeypatch):
-    class _RecordingCache(litellm.Cache):
+    class _RecordingCache(hangarllm.Cache):
         def __init__(self) -> None:
             pass
 
@@ -515,9 +515,9 @@ _TRACE_ONLY_STANDARD_LOGGING: Final = cast(
 
 
 def _trace_only_session_id(omit_when_missing: bool) -> str | None:
-    """get_litellm_params copies metadata.trace_id into litellm_session_id, so every field echoes the trace id."""
+    """get_hangarllm_params copies metadata.trace_id into hangarllm_session_id, so every field echoes the trace id."""
     return _get_session_id_for_spend_log(
-        kwargs={"litellm_trace_id": "trace-abc", "litellm_session_id": "trace-abc"},
+        kwargs={"hangarllm_trace_id": "trace-abc", "hangarllm_session_id": "trace-abc"},
         metadata={"trace_id": "trace-abc"},
         standard_logging_payload=_TRACE_ONLY_STANDARD_LOGGING,
         omit_when_missing=omit_when_missing,
@@ -537,7 +537,7 @@ def test_omit_leaves_session_id_none_without_any_ids():
 
 def test_omit_records_metadata_session_id():
     session_id: Final = _get_session_id_for_spend_log(
-        kwargs={"litellm_session_id": "chain-1"},
+        kwargs={"hangarllm_session_id": "chain-1"},
         metadata={"trace_id": "chain-1", "session_id": "chain-1"},
         standard_logging_payload=_TRACE_ONLY_STANDARD_LOGGING,
         omit_when_missing=True,
@@ -557,7 +557,7 @@ def test_batch_lifecycle_rows_derive_the_same_session_from_the_batch_id():
     """The create call's request id IS the batch id and the poller's cost row appends
     _batch_cost to it, so deriving the session from the request id lands both rows in one
     trace on the logs UI even though the poller builds a fresh logging context per cycle."""
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
 
     create_session: Final = _get_batch_trace_session_id(call_type="acreate_batch", request_id="batch-uid-1")
     cost_session: Final = _get_batch_trace_session_id(call_type="aretrieve_batch", request_id="batch-uid-1_batch_cost")
@@ -565,7 +565,7 @@ def test_batch_lifecycle_rows_derive_the_same_session_from_the_batch_id():
 
 
 def test_non_batch_call_types_derive_no_batch_session():
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
 
     assert _get_batch_trace_session_id(call_type="acompletion", request_id="chatcmpl-1") is None
 
@@ -574,7 +574,7 @@ def test_batch_session_outranks_the_per_request_trace_id():
     """Each batch lifecycle call carries its own auto-generated trace id, so letting the
     trace id win would scatter the rows across sessions again."""
     session_id: Final = _get_session_id_for_spend_log(
-        kwargs={"litellm_trace_id": "trace-abc"},
+        kwargs={"hangarllm_trace_id": "trace-abc"},
         metadata={"trace_id": "trace-abc"},
         standard_logging_payload=_TRACE_ONLY_STANDARD_LOGGING,
         omit_when_missing=False,
@@ -585,14 +585,14 @@ def test_batch_session_outranks_the_per_request_trace_id():
 
 def _chat_session_id(
     monkeypatch: pytest.MonkeyPatch,
-    litellm_params: Mapping[str, object],
+    hangarllm_params: Mapping[str, object],
     correlation_in_logs: bool = True,
     batch_trace_session_id: str | None = None,
     metadata: Mapping[str, object] = MappingProxyType({}),
 ) -> str | None:
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", correlation_in_logs)
+    monkeypatch.setattr(hangarllm, "request_correlation_in_logs", correlation_in_logs)
     return _get_session_id_for_spend_log(
-        kwargs={"litellm_trace_id": "trace-abc", "litellm_params": litellm_params},
+        kwargs={"hangarllm_trace_id": "trace-abc", "hangarllm_params": hangarllm_params},
         metadata=metadata,
         standard_logging_payload=_TRACE_ONLY_STANDARD_LOGGING,
         omit_when_missing=False,
@@ -600,7 +600,7 @@ def _chat_session_id(
     )
 
 
-_CALLER_SESSION_PARAMS: Final = MappingProxyType({"litellm_session_id": "sess-1", "metadata": {"trace_id": "otel-1"}})
+_CALLER_SESSION_PARAMS: Final = MappingProxyType({"hangarllm_session_id": "sess-1", "metadata": {"trace_id": "otel-1"}})
 
 
 def test_caller_session_wins_over_the_per_request_trace_id(monkeypatch: pytest.MonkeyPatch):
@@ -620,7 +620,7 @@ def test_session_displaced_by_a_trace_header_wins_only_with_correlation_logging(
     monkeypatch: pytest.MonkeyPatch, correlation_in_logs: bool, expected_session_id: str
 ):
     header_chain: Final = {
-        "litellm_session_id": "trace-abc",
+        "hangarllm_session_id": "trace-abc",
         "metadata": {"trace_id": "trace-abc", "session_id": "trace-abc"},
     }
     session_id: Final = _chat_session_id(
@@ -633,40 +633,40 @@ def test_session_displaced_by_a_trace_header_wins_only_with_correlation_logging(
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "metadata"),
+    ("hangarllm_params", "metadata"),
     [
-        pytest.param({"litellm_session_id": "convo\x00x"}, {}, id="body-session"),
+        pytest.param({"hangarllm_session_id": "convo\x00x"}, {}, id="body-session"),
         pytest.param(
-            {"litellm_session_id": "trace-abc"},
+            {"hangarllm_session_id": "trace-abc"},
             {CALLER_SESSION_ID_METADATA_KEY: "convo\x00x"},
             id="beside-trace-header",
         ),
     ],
 )
 def test_caller_session_postgres_cannot_store_keeps_the_trace_id(
-    monkeypatch: pytest.MonkeyPatch, litellm_params: Mapping[str, object], metadata: Mapping[str, object]
+    monkeypatch: pytest.MonkeyPatch, hangarllm_params: Mapping[str, object], metadata: Mapping[str, object]
 ):
-    assert _chat_session_id(monkeypatch, litellm_params, metadata=metadata) == "trace-abc"
+    assert _chat_session_id(monkeypatch, hangarllm_params, metadata=metadata) == "trace-abc"
 
 
 @pytest.mark.parametrize(
-    "litellm_params",
+    "hangarllm_params",
     [
         pytest.param({"metadata": {}}, id="no-session"),
         pytest.param(
             {
-                "litellm_session_id": "minted-1",
+                "hangarllm_session_id": "minted-1",
                 "metadata": {"session_id": "minted-1", SESSION_ID_GENERATED_METADATA_KEY: True},
             },
             id="minted-by-generate-policy",
         ),
-        pytest.param({"litellm_session_id": "job-7", "metadata": {"trace_id": "job-7"}}, id="copied-from-trace-id"),
+        pytest.param({"hangarllm_session_id": "job-7", "metadata": {"trace_id": "job-7"}}, id="copied-from-trace-id"),
     ],
 )
 def test_session_that_is_not_a_caller_conversation_keeps_the_trace_id(
-    monkeypatch: pytest.MonkeyPatch, litellm_params: Mapping[str, object]
+    monkeypatch: pytest.MonkeyPatch, hangarllm_params: Mapping[str, object]
 ):
-    assert _chat_session_id(monkeypatch, litellm_params) == "trace-abc"
+    assert _chat_session_id(monkeypatch, hangarllm_params) == "trace-abc"
 
 
 def test_omit_policy_still_suppresses_batch_sessions():
@@ -686,9 +686,9 @@ def test_get_logging_payload_groups_batch_create_and_cost_rows_in_one_session():
             kwargs={
                 "call_type": call_type,
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             },
-            response_obj=litellm.ModelResponse(id="batch-uid-1", choices=[], usage=litellm.Usage()),
+            response_obj=hangarllm.ModelResponse(id="batch-uid-1", choices=[], usage=hangarllm.Usage()),
             start_time=datetime.datetime.now(timezone.utc),
             end_time=datetime.datetime.now(timezone.utc),
         )
@@ -713,16 +713,16 @@ def test_get_logging_payload_reads_omit_decision_stamped_on_request(
     """The pre-call stamp, not the live general_settings, decides the policy, so a config reload between
     pre-call and spend logging cannot fabricate a session for a request accepted under `omit`."""
     with patch(  # test-quality-ok: proves log time ignores proxy config; general_settings is yaml, not an HTTP boundary
-        "litellm.proxy.proxy_server.general_settings", {"missing_session_id": "generate"}
+        "hangarllm.proxy.proxy_server.general_settings", {"missing_session_id": "generate"}
     ):
         payload: SpendLogsPayload = get_logging_payload(
             kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_trace_id": "trace-abc",
-                "litellm_params": {"litellm_session_id": "trace-abc", "metadata": request_metadata},
+                "hangarllm_trace_id": "trace-abc",
+                "hangarllm_params": {"hangarllm_session_id": "trace-abc", "metadata": request_metadata},
                 "standard_logging_object": _TRACE_ONLY_STANDARD_LOGGING,
             },
-            response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+            response_obj=hangarllm.ModelResponse(id="chatcmpl-test", choices=[]),
             start_time=datetime.datetime.now(timezone.utc),
             end_time=datetime.datetime.now(timezone.utc),
         )
@@ -736,16 +736,16 @@ def test_get_logging_payload_applies_omit_to_requests_that_carry_no_stamp(policy
     `missing_session_id: omit` would fabricate a uuid session id on every passthrough spend log while its Langfuse
     trace has none, which is the divergence the policy exists to remove."""
     with patch(  # test-quality-ok: general_settings is proxy config, loaded from yaml, not an HTTP boundary
-        "litellm.proxy.proxy_server.general_settings", {} if policy is None else {"missing_session_id": policy}
+        "hangarllm.proxy.proxy_server.general_settings", {} if policy is None else {"missing_session_id": policy}
     ):
         payload: SpendLogsPayload = get_logging_payload(
             kwargs={
                 "model": "claude-opus-4",
-                "litellm_trace_id": "trace-abc",
-                "litellm_params": {"litellm_session_id": "trace-abc", "metadata": {"trace_id": "trace-abc"}},
+                "hangarllm_trace_id": "trace-abc",
+                "hangarllm_params": {"hangarllm_session_id": "trace-abc", "metadata": {"trace_id": "trace-abc"}},
                 "standard_logging_object": _TRACE_ONLY_STANDARD_LOGGING,
             },
-            response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+            response_obj=hangarllm.ModelResponse(id="chatcmpl-test", choices=[]),
             start_time=datetime.datetime.now(timezone.utc),
             end_time=datetime.datetime.now(timezone.utc),
         )
@@ -754,7 +754,7 @@ def test_get_logging_payload_applies_omit_to_requests_that_carry_no_stamp(policy
 
 def test_get_logging_payload_preserves_anthropic_cache_read_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -772,7 +772,7 @@ def test_get_logging_payload_preserves_anthropic_cache_read_input_tokens():
 )
 def test_get_logging_payload_does_not_map_missing_or_zero_cached_tokens(prompt_tokens_details):
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -785,7 +785,7 @@ def test_get_logging_payload_does_not_map_missing_or_zero_cached_tokens(prompt_t
 
 def test_get_logging_payload_maps_openai_cache_write_tokens_to_cache_creation_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=1000,
             completion_tokens=2,
             total_tokens=1002,
@@ -803,7 +803,7 @@ def test_get_logging_payload_maps_nested_cache_creation_input_tokens():
     prompt_tokens_details; SpendLogs must record it as cache_creation_input_tokens.
     """
     additional_usage_values: Final = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=2059,
             completion_tokens=31,
             total_tokens=2090,
@@ -824,7 +824,7 @@ def test_get_logging_payload_maps_nested_cache_creation_input_tokens():
 
 def test_get_logging_payload_preserves_anthropic_cache_creation_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=1000,
             completion_tokens=2,
             total_tokens=1002,
@@ -841,7 +841,7 @@ def test_get_logging_payload_preserves_anthropic_cache_creation_input_tokens():
 )
 def test_get_logging_payload_does_not_map_missing_or_zero_cache_write_tokens(prompt_tokens_details):
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        hangarllm.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -900,10 +900,10 @@ def _make_standard_logging_payload_with_usage_object(usage_object: dict) -> Stan
             cache_key=None,
             api_base="https://api.openai.com",
             response_cost="0.02",
-            litellm_overhead_time_ms=None,
+            hangarllm_overhead_time_ms=None,
             additional_headers=None,
             batch_models=None,
-            litellm_model_name=None,
+            hangarllm_model_name=None,
             usage_object=None,
         ),
     )
@@ -927,7 +927,7 @@ def test_get_logging_payload_maps_responses_api_cache_write_tokens_from_usage_ob
         kwargs={
             "model": "gpt-5.6",
             "call_type": "responses",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             "standard_logging_object": standard_logging_payload,
         },
         response_obj={
@@ -958,9 +958,9 @@ def test_large_request_no_truncation_threshold():
     Test that MAX_STRING_LENGTH_PROMPT_IN_DB constant is used for request body sanitization
     and that the new truncation logic keeps beginning (35%) and end (65%) of the string
     """
-    from litellm.constants import (
+    from hangarllm.constants import (
         MAX_STRING_LENGTH_PROMPT_IN_DB,
-        LITELLM_TRUNCATED_PAYLOAD_FIELD,
+        HANGARLLM_TRUNCATED_PAYLOAD_FIELD,
     )
 
     # Create a large string that exceeds the threshold
@@ -991,7 +991,7 @@ def test_large_request_no_truncation_threshold():
     assert truncated_content.endswith(large_content[-expected_end_chars:])
 
     # Should have truncation marker
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated_content
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in truncated_content
     assert "skipped" in truncated_content
 
 
@@ -1012,7 +1012,7 @@ def test_small_request_no_truncation():
     """
     Test that small strings are not truncated by MAX_STRING_LENGTH_PROMPT_IN_DB
     """
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a small string that's under the threshold
     small_content = "x" * (MAX_STRING_LENGTH_PROMPT_IN_DB - 100)
@@ -1038,17 +1038,17 @@ def test_configurable_string_length_env_var(monkeypatch):
 
     # Import after setting env var to ensure it picks up the new value
     import importlib
-    import litellm.constants
-    import litellm.proxy.spend_tracking.spend_tracking_utils
+    import hangarllm.constants
+    import hangarllm.proxy.spend_tracking.spend_tracking_utils
 
-    importlib.reload(litellm.constants)
-    importlib.reload(litellm.proxy.spend_tracking.spend_tracking_utils)
+    importlib.reload(hangarllm.constants)
+    importlib.reload(hangarllm.proxy.spend_tracking.spend_tracking_utils)
 
-    from litellm.constants import (
+    from hangarllm.constants import (
         MAX_STRING_LENGTH_PROMPT_IN_DB,
-        LITELLM_TRUNCATED_PAYLOAD_FIELD,
+        HANGARLLM_TRUNCATED_PAYLOAD_FIELD,
     )
-    from litellm.proxy.spend_tracking.spend_tracking_utils import (
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import (
         _sanitize_request_body_for_spend_logs_payload,
     )
 
@@ -1072,7 +1072,7 @@ def test_configurable_string_length_env_var(monkeypatch):
 
     assert truncated_content.startswith(large_content[:expected_start])
     assert truncated_content.endswith(large_content[-expected_end:])
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated_content
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in truncated_content
     assert "skipped" in truncated_content
     assert "800" in truncated_content  # Should mention skipped 800 chars
 
@@ -1081,9 +1081,9 @@ def test_truncation_preserves_beginning_and_end():
     """
     Test that truncation preserves the beginning (35%) and end (65%) of content for better debugging
     """
-    from litellm.constants import (
+    from hangarllm.constants import (
         MAX_STRING_LENGTH_PROMPT_IN_DB,
-        LITELLM_TRUNCATED_PAYLOAD_FIELD,
+        HANGARLLM_TRUNCATED_PAYLOAD_FIELD,
     )
 
     # Create content with distinct beginning, middle, and end
@@ -1113,7 +1113,7 @@ def test_truncation_preserves_beginning_and_end():
     assert truncated_content.endswith(expected_end)
 
     # Check truncation marker is present
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated_content
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in truncated_content
     assert "skipped" in truncated_content
 
     # Calculate expected skipped chars
@@ -1124,7 +1124,7 @@ def test_truncation_preserves_beginning_and_end():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_long_string():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB (2048)
     long_string = "a" * 3000  # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
@@ -1139,7 +1139,7 @@ def test_sanitize_request_body_for_spend_logs_payload_long_string():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - (start_chars + end_chars)
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({HANGARLLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["text"]) == expected_length
@@ -1150,7 +1150,7 @@ def test_sanitize_request_body_for_spend_logs_payload_long_string():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_nested_dict():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
     long_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -1165,7 +1165,7 @@ def test_sanitize_request_body_for_spend_logs_payload_nested_dict():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - total_keep
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({HANGARLLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["outer"]["inner"]["text"]) == expected_length
@@ -1173,7 +1173,7 @@ def test_sanitize_request_body_for_spend_logs_payload_nested_dict():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_nested_list():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
     long_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -1188,7 +1188,7 @@ def test_sanitize_request_body_for_spend_logs_payload_nested_list():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - total_keep
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({HANGARLLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["items"][0]["text"]) == expected_length
@@ -1209,7 +1209,7 @@ def test_sanitize_request_body_for_spend_logs_payload_empty():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_mixed_types():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
     long_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -1228,7 +1228,7 @@ def test_sanitize_request_body_for_spend_logs_payload_mixed_types():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - total_keep
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({HANGARLLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["text"]) == expected_length
@@ -1241,7 +1241,7 @@ def test_sanitize_request_body_for_spend_logs_payload_mixed_types():
 def test_sanitize_request_body_for_spend_logs_payload_uses_runtime_env_override(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     override_max = max(MAX_STRING_LENGTH_PROMPT_IN_DB + 1000, 6000)
     test_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -1264,7 +1264,7 @@ def test_sanitize_request_body_for_spend_logs_payload_circular_reference():
     assert sanitized == {"b": {"a": {}}}  # Should return empty dict for circular reference
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_vector_store_request_for_spend_logs_payload_store_prompts_true(
     mock_should_store,
 ):
@@ -1282,7 +1282,7 @@ def test_get_vector_store_request_for_spend_logs_payload_store_prompts_true(
     assert result[0]["vector_store_search_response"]["data"][0]["content"][0]["text"] == "sensitive information"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_vector_store_request_for_spend_logs_payload_store_prompts_false(
     mock_should_store,
 ):
@@ -1302,7 +1302,7 @@ def test_get_vector_store_request_for_spend_logs_payload_store_prompts_false(
     assert result[0]["vector_store_search_response"]["data"][0]["content"][0]["type"] == "text"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_vector_store_request_for_spend_logs_payload_null_input(mock_should_store):
     # When input is None
     mock_should_store.return_value = False
@@ -1310,7 +1310,7 @@ def test_get_vector_store_request_for_spend_logs_payload_null_input(mock_should_
     assert result is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_realtime_returns_messages(mock_should_store):
     """
     Test that _get_messages_for_spend_logs_payload returns messages
@@ -1337,7 +1337,7 @@ def test_get_messages_for_spend_logs_realtime_returns_messages(mock_should_store
     assert parsed[1]["content"] == "What is the weather today?"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_strips_null_bytes(mock_should_store):
     """Regression for PostgreSQL 22P05: NUL bytes must be stripped from messages."""
     mock_should_store.return_value = True
@@ -1354,7 +1354,7 @@ def test_get_messages_for_spend_logs_strips_null_bytes(mock_should_store):
     assert parsed[0]["content"] == "helloworld"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_realtime_empty_when_disabled(mock_should_store):
     """
     Test that _get_messages_for_spend_logs_payload returns '{}' for realtime calls
@@ -1372,7 +1372,7 @@ def test_get_messages_for_spend_logs_realtime_empty_when_disabled(mock_should_st
     assert result == "{}"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_non_realtime_returns_empty(mock_should_store):
     """
     Test that _get_messages_for_spend_logs_payload returns '{}' for non-realtime
@@ -1390,9 +1390,9 @@ def test_get_messages_for_spend_logs_non_realtime_returns_empty(mock_should_stor
     assert result == "{}"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_response_for_spend_logs_payload_truncates_large_base64(mock_should_store):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     large_text = "A" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -1414,12 +1414,12 @@ def test_get_response_for_spend_logs_payload_truncates_large_base64(mock_should_
     parsed = json.loads(response_json)
     truncated_value = parsed["data"][0]["b64_json"]
     assert len(truncated_value) < len(large_text)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated_value
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in truncated_value
     assert parsed["data"][0]["other_field"] == "value"
 
 
 def test_get_response_for_spend_logs_payload_keeps_a_long_compaction_summary_whole(monkeypatch: pytest.MonkeyPatch):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     monkeypatch.setenv("STORE_PROMPTS_IN_SPEND_LOGS", "true")
     filler = "detail " * (MAX_STRING_LENGTH_PROMPT_IN_DB // 7)
@@ -1446,11 +1446,11 @@ def test_get_response_for_spend_logs_payload_keeps_a_long_compaction_summary_who
 
     message = json.loads(_get_response_for_spend_logs_payload(payload))["choices"][0]["message"]
     assert message["provider_specific_fields"]["compaction_blocks"] == [{"type": "compaction", "content": summary}]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in message["content"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in message["content"]
 
 
 def test_stored_request_keeps_only_the_summary_of_a_long_claude_compaction_input_item(monkeypatch: pytest.MonkeyPatch):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     monkeypatch.setenv("STORE_PROMPTS_IN_SPEND_LOGS", "true")
     filler = "detail " * (MAX_STRING_LENGTH_PROMPT_IN_DB // 7)
@@ -1469,7 +1469,7 @@ def test_stored_request_keeps_only_the_summary_of_a_long_claude_compaction_input
 
     stored = json.loads(
         _get_proxy_server_request_for_spend_logs_payload(
-            metadata={}, litellm_params={"proxy_server_request": {"body": request_body}}
+            metadata={}, hangarllm_params={"proxy_server_request": {"body": request_body}}
         )
     )
 
@@ -1479,23 +1479,23 @@ def test_stored_request_keeps_only_the_summary_of_a_long_claude_compaction_input
         "id": "cmp_1",
         "encrypted_content": {"type": "compaction", "content": summary},
     }
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in opaque_stored["encrypted_content"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in messages_block_stored["content"][0]["content"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in message_stored["content"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in stored["metadata"]["note"]["encrypted_content"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in opaque_stored["encrypted_content"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in messages_block_stored["content"][0]["content"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in message_stored["content"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in stored["metadata"]["note"]["encrypted_content"]
 
 
 def _compaction_summary_past_the_summary_cap() -> str:
-    from litellm.constants import MAX_STRING_LENGTH_COMPACTION_SUMMARY_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_COMPACTION_SUMMARY_IN_DB
 
     filler: Final = "detail " * (MAX_STRING_LENGTH_COMPACTION_SUMMARY_IN_DB // 7)
     return f"The cat is named Biscuit. {filler}The dog is named Rex."
 
 
 def _assert_bounded_like_a_db_string(stored: str, summary: str) -> None:
-    from litellm.constants import MAX_STRING_LENGTH_COMPACTION_SUMMARY_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_COMPACTION_SUMMARY_IN_DB
 
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in stored
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in stored
     assert len(stored) < MAX_STRING_LENGTH_COMPACTION_SUMMARY_IN_DB + 500 < len(summary) + 500
     assert stored.startswith("The cat is named Biscuit.")
     assert stored.endswith("The dog is named Rex.")
@@ -1540,7 +1540,7 @@ def test_spend_row_bounds_a_compaction_summary_at_the_larger_of_the_summary_cap_
     response_message: Final = json.loads(_get_response_for_spend_logs_payload(payload))["choices"][0]["message"]
     stored_item: Final = json.loads(
         _get_proxy_server_request_for_spend_logs_payload(
-            metadata={}, litellm_params={"proxy_server_request": {"body": request_body}}
+            metadata={}, hangarllm_params={"proxy_server_request": {"body": request_body}}
         )
     )["input"][0]
 
@@ -1558,9 +1558,9 @@ def test_spend_row_bounds_a_compaction_summary_at_the_larger_of_the_summary_cap_
 def test_responses_shaped_spend_row_keeps_a_compaction_output_item_summary_bounded_like_a_chat_block(
     monkeypatch: pytest.MonkeyPatch, summary_past_the_summary_cap: bool
 ):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
-    from litellm.responses.litellm_completion_transformation.compaction_items import compaction_summary
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.responses.hangarllm_completion_transformation.compaction_items import compaction_summary
+    from hangarllm.responses.utils import ResponsesAPIRequestUtils
 
     monkeypatch.setenv("STORE_PROMPTS_IN_SPEND_LOGS", "true")
     filler: Final = "detail " * (MAX_STRING_LENGTH_PROMPT_IN_DB // 7)
@@ -1599,7 +1599,7 @@ def test_responses_shaped_spend_row_keeps_a_compaction_output_item_summary_bound
     assert stored_summary == summary
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_response_for_spend_logs_payload_strips_null_bytes(mock_should_store):
     """Regression for PostgreSQL 22P05: NUL bytes must be stripped from response."""
     mock_should_store.return_value = True
@@ -1612,11 +1612,11 @@ def test_get_response_for_spend_logs_payload_strips_null_bytes(mock_should_store
     assert json.loads(response_json)["content"] == "answerhere"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_response_for_spend_logs_payload_truncates_large_embedding(
     mock_should_store,
 ):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     embedding_values = [round(i * 0.0001, 6) for i in range(MAX_STRING_LENGTH_PROMPT_IN_DB + 500)]
@@ -1641,7 +1641,7 @@ def test_get_response_for_spend_logs_payload_truncates_large_embedding(
 
     assert isinstance(truncated_value, str)
     assert len(truncated_value) < len(large_embedding)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated_value
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in truncated_value
     assert parsed["data"][0]["other_field"] == "value"
 
 
@@ -1650,15 +1650,15 @@ def test_truncation_includes_db_safeguard_note():
     Test that truncated content includes the DB safeguard note explaining
     that full data is available in OTEL/other logging integrations.
     """
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     large_error = "Error: " + "x" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 1000)
     request_body = {"error_trace": large_error}
     sanitized = _sanitize_request_body_for_spend_logs_payload(request_body)
 
     truncated = sanitized["error_trace"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated
-    assert LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE in truncated
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in truncated
+    assert HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE in truncated
     assert "DB storage safeguard" in truncated
     assert (
         "logging callbacks" in truncated.lower()
@@ -1667,13 +1667,13 @@ def test_truncation_includes_db_safeguard_note():
     )
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_response_truncation_logs_info_message(mock_should_store):
     """
     Test that when response is truncated before DB storage, an info log is emitted
     noting that full data is available in OTEL/other integrations.
     """
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     large_text = "B" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -1682,26 +1682,26 @@ def test_response_truncation_logs_info_message(mock_should_store):
         {"response": {"data": [{"content": large_text}]}},
     )
 
-    with patch("litellm.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
+    with patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
         _get_response_for_spend_logs_payload(payload)
         mock_logger.info.assert_called_once()
         log_msg = mock_logger.info.call_args[0][0]
         assert "response was truncated" in log_msg
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_request_body_truncation_logs_info_message(mock_should_store):
     """
     Test that when request body is truncated before DB storage, an info log is emitted.
     """
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     large_prompt = "C" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
-    litellm_params = {"proxy_server_request": {"body": {"messages": [{"role": "user", "content": large_prompt}]}}}
+    hangarllm_params = {"proxy_server_request": {"body": {"messages": [{"role": "user", "content": large_prompt}]}}}
 
-    with patch("litellm.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
-        _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+    with patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
+        _get_proxy_server_request_for_spend_logs_payload(metadata={}, hangarllm_params=hangarllm_params, kwargs={})
         mock_logger.info.assert_called_once()
         log_msg = mock_logger.info.call_args[0][0]
         assert "request body was truncated" in log_msg
@@ -1824,7 +1824,7 @@ def test_get_logging_payload_replaces_rejected_or_prompt_shaped_models_with_the_
         "model": requested_model,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
     }
 
     payload: Final = get_logging_payload(
@@ -1845,7 +1845,7 @@ def test_get_logging_payload_replaces_a_non_string_model_with_the_placeholder(
         "model": requested_model,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
     }
 
     payload: Final = get_logging_payload(
@@ -1861,7 +1861,7 @@ def test_get_logging_payload_replaces_a_non_string_model_with_the_placeholder(
 @pytest.mark.parametrize(
     ("metadata", "response_obj"),
     [
-        ({"user_api_key": "sk-test"}, litellm.ModelResponse(id="chatcmpl-test", choices=[])),
+        ({"user_api_key": "sk-test"}, hangarllm.ModelResponse(id="chatcmpl-test", choices=[])),
         (
             {
                 "user_api_key": "sk-test",
@@ -1874,13 +1874,13 @@ def test_get_logging_payload_replaces_a_non_string_model_with_the_placeholder(
     ],
 )
 def test_get_logging_payload_keeps_a_whitespace_model_name_on_success_or_a_routed_failure(
-    metadata: dict[str, object], response_obj: litellm.ModelResponse | Exception
+    metadata: dict[str, object], response_obj: hangarllm.ModelResponse | Exception
 ):
     kwargs: Final = {
         "model": _RAW_MODEL_WITH_PROMPT,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": metadata},
+        "hangarllm_params": {"metadata": metadata},
     }
 
     payload: Final = get_logging_payload(
@@ -1910,14 +1910,14 @@ def test_get_logging_payload_placeholders_the_stored_request_body_model_only_whe
     expected_stored_model: str,
     redact_messages: bool,
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     kwargs: Final = {
         "model": _RAW_MODEL_WITH_PROMPT,
         "call_type": "amoderation",
         "standard_callback_dynamic_params": {"turn_off_message_logging": redact_messages},
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": metadata,
             "proxy_server_request": {
                 "url": "http://localhost:4000/v1/moderations",
@@ -1954,7 +1954,7 @@ def test_get_logging_payload_placeholders_the_metadata_copied_into_the_stored_re
     expected_stored_model_group: str,
     expected_stored_error_message: str,
 ):
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     metadata: Final = {
@@ -1973,7 +1973,7 @@ def test_get_logging_payload_placeholders_the_metadata_copied_into_the_stored_re
     kwargs: Final = {
         "model": _RAW_MODEL_WITH_PROMPT,
         "call_type": "amoderation",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": metadata,
             "proxy_server_request": {
                 "url": "http://localhost:4000/v1/moderations",
@@ -2003,21 +2003,21 @@ _COOLDOWN_ERROR_MESSAGE: Final = (
 )
 
 
-def _router_serving_the_whitespace_model_group() -> litellm.Router:
-    return litellm.Router(
+def _router_serving_the_whitespace_model_group() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": _WHITESPACE_MODEL_GROUP,
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test"},
+                "hangarllm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test"},
             }
         ],
         model_group_alias={_WHITESPACE_MODEL_GROUP_ALIAS: _WHITESPACE_MODEL_GROUP},
     )
 
 
-def _router_serving_only_a_wildcard() -> litellm.Router:
-    return litellm.Router(
-        model_list=[{"model_name": "*", "litellm_params": {"model": "openai/*", "api_key": "sk-test"}}]
+def _router_serving_only_a_wildcard() -> hangarllm.Router:
+    return hangarllm.Router(
+        model_list=[{"model_name": "*", "hangarllm_params": {"model": "openai/*", "api_key": "sk-test"}}]
     )
 
 
@@ -2056,7 +2056,7 @@ def _router_serving_only_a_wildcard() -> litellm.Router:
 )
 def test_get_logging_payload_keeps_a_configured_whitespace_model_group_that_failed_before_a_deployment_was_picked(
     requested_model: str,
-    llm_router: litellm.Router | None,
+    llm_router: hangarllm.Router | None,
     expected_model: str,
     expected_model_group: str,
     expected_error_message: str,
@@ -2065,7 +2065,7 @@ def test_get_logging_payload_keeps_a_configured_whitespace_model_group_that_fail
         "model": requested_model,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test",
                 "model_group": requested_model,
@@ -2077,7 +2077,7 @@ def test_get_logging_payload_keeps_a_configured_whitespace_model_group_that_fail
 
     payload: Final = get_logging_payload(
         kwargs=kwargs,
-        response_obj=litellm.RateLimitError(message=_COOLDOWN_ERROR_MESSAGE, model=requested_model, llm_provider=""),
+        response_obj=hangarllm.RateLimitError(message=_COOLDOWN_ERROR_MESSAGE, model=requested_model, llm_provider=""),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
         llm_router=llm_router,
@@ -2104,7 +2104,7 @@ def _openai_invalid_model_error_message(model: str) -> str:
 
 
 def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderation_rejected_by_the_provider():
-    provider_rejection: Final = litellm.BadRequestError(
+    provider_rejection: Final = hangarllm.BadRequestError(
         message=_openai_invalid_model_error_message(_RAW_MODEL_WITH_PROMPT),
         model=_RAW_MODEL_WITH_PROMPT,
         llm_provider="openai",
@@ -2113,7 +2113,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
         StandardLoggingPayloadSetup.get_error_information(
             original_exception=provider_rejection,
             traceback_str=(
-                f"Traceback (most recent call last):\n  ...\nlitellm.exceptions.BadRequestError: {provider_rejection}"
+                f"Traceback (most recent call last):\n  ...\nhangarllm.exceptions.BadRequestError: {provider_rejection}"
             ),
         ),
         original_exception=provider_rejection,
@@ -2122,7 +2122,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
         "model": _RAW_MODEL_WITH_PROMPT,
         "input": "hi",
         "call_type": "",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test",
                 "model_group": _RAW_MODEL_WITH_PROMPT,
@@ -2141,7 +2141,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
 
     persisted_error: Final = json.loads(payload["metadata"])["error_information"]
     scrubbed_message: Final = (
-        f"litellm.BadRequestError: {_openai_invalid_model_error_message(UNKNOWN_MODEL_SPEND_LOG_MODEL)}"
+        f"hangarllm.BadRequestError: {_openai_invalid_model_error_message(UNKNOWN_MODEL_SPEND_LOG_MODEL)}"
     )
     assert (payload["model"], payload["model_group"]) == (UNKNOWN_MODEL_SPEND_LOG_MODEL, "")
     assert persisted_error["error_message"] == scrubbed_message
@@ -2150,7 +2150,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
 
 
 _TRUNCATION_MARKER_TEXT: Final = (
-    f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped 10 chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    f"... ({HANGARLLM_TRUNCATED_PAYLOAD_FIELD} skipped 10 chars. {HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
 )
 
 
@@ -2188,8 +2188,8 @@ def test_scrub_raw_model_from_error_information_covers_literal_escaped_and_trunc
     assert scrubbed == {"error_message": expected, "traceback": expected, "error_class": "BadRequestError"}
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_api_key_preserved_when_standard_logging_payload_is_none():
     """
     Critical - Product incident was caused by this bug.
@@ -2214,7 +2214,7 @@ def test_get_logging_payload_api_key_preserved_when_standard_logging_payload_is_
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": test_api_key,  # This is the key that should be preserved
                 "user_api_key_user_id": "test_user",
@@ -2257,8 +2257,8 @@ def test_get_logging_payload_api_key_preserved_when_standard_logging_payload_is_
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.proxy_server.master_key", "sk-master-key")
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", "sk-master-key")
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 async def test_api_key_preserved_through_failure_hook_to_database():
     """
     CRITICAL E2E TEST: Validates the COMPLETE code path from failure hook to database.
@@ -2275,9 +2275,9 @@ async def test_api_key_preserved_through_failure_hook_to_database():
     This test validates the ENTIRE flow to ensure the bug cannot regress.
     If this test fails in CI/CD, the build MUST fail.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
-    from litellm.proxy.utils import hash_token
+    from hangarllm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy.hooks.proxy_track_cost_callback import ProxyDBLogger
+    from hangarllm.proxy.utils import hash_token
 
     # Setup
     test_api_key = "sk-test-critical-e2e-key"
@@ -2300,7 +2300,7 @@ async def test_api_key_preserved_through_failure_hook_to_database():
         project_id=None,
     ):
         """Mock update_database and capture the payload it creates"""
-        from litellm.proxy.spend_tracking.spend_tracking_utils import (
+        from hangarllm.proxy.spend_tracking.spend_tracking_utils import (
             get_logging_payload,
         )
 
@@ -2348,7 +2348,7 @@ async def test_api_key_preserved_through_failure_hook_to_database():
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "test"}],
         "invalid_param": "causes_400_error",  # BAD PARAMETER
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": hashed_key,
                 "user_api_key_user_id": "test_user",
@@ -2362,7 +2362,7 @@ async def test_api_key_preserved_through_failure_hook_to_database():
     # Execute the ACTUAL failure hook code path
     logger = ProxyDBLogger()
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj):
+    with patch("hangarllm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj):
         await logger.async_post_call_failure_hook(
             request_data=request_data,
             original_exception=exception,
@@ -2402,8 +2402,8 @@ async def test_api_key_preserved_through_failure_hook_to_database():
     assert payload.get("user") == "test_user"
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_includes_agent_id_from_kwargs():
     """
     Test that get_logging_payload extracts agent_id from kwargs and includes it in the payload.
@@ -2414,7 +2414,7 @@ def test_get_logging_payload_includes_agent_id_from_kwargs():
         "model": "a2a_agent/test-agent",
         "custom_llm_provider": "a2a_agent",
         "agent_id": test_agent_id,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -2440,38 +2440,38 @@ def test_get_logging_payload_includes_agent_id_from_kwargs():
     assert payload["agent_id"] == test_agent_id, f"Expected agent_id '{test_agent_id}', got '{payload.get('agent_id')}'"
 
 
-def test_get_logging_payload_populates_litellm_call_id_alongside_provider_request_id():
+def test_get_logging_payload_populates_hangarllm_call_id_alongside_provider_request_id():
     """
     LIT-6302: request_id stays the provider response id, so clients holding the
-    x-litellm-call-id header value could never find their row. The payload now
-    also carries litellm_call_id as its own column for lookups by either id.
+    x-hangarllm-call-id header value could never find their row. The payload now
+    also carries hangarllm_call_id as its own column for lookups by either id.
     """
     call_id = "b980eea9-5cd9-4099-93cd-8291e46c76fd"
 
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_call_id": call_id,
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_call_id": call_id,
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(
+        response_obj=hangarllm.ModelResponse(
             id="chatcmpl-provider-id",
             choices=[],
-            usage=litellm.Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+            usage=hangarllm.Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
         ),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
 
     assert payload["request_id"] == "chatcmpl-provider-id"
-    assert payload["litellm_call_id"] == call_id
+    assert payload["hangarllm_call_id"] == call_id
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_includes_overhead_in_spend_logs_metadata():
     """
-    Test that get_logging_payload extracts litellm_overhead_time_ms from hidden_params
+    Test that get_logging_payload extracts hangarllm_overhead_time_ms from hidden_params
     and stores it in spend_logs_metadata within the metadata JSON.
     """
     test_overhead_ms = 123.45
@@ -2523,17 +2523,17 @@ def test_get_logging_payload_includes_overhead_in_spend_logs_metadata():
             cache_key=None,
             api_base="https://api.openai.com",
             response_cost="0.001",
-            litellm_overhead_time_ms=test_overhead_ms,
+            hangarllm_overhead_time_ms=test_overhead_ms,
             additional_headers=None,
             batch_models=None,
-            litellm_model_name=None,
+            hangarllm_model_name=None,
             usage_object=None,
         ),
     )
 
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -2568,13 +2568,13 @@ def test_get_logging_payload_includes_overhead_in_spend_logs_metadata():
     metadata = json.loads(metadata_json)
 
     # Verify overhead is stored directly in metadata
-    assert metadata.get("litellm_overhead_time_ms") == test_overhead_ms, (
-        f"Expected overhead '{test_overhead_ms}', got '{metadata.get('litellm_overhead_time_ms')}'"
+    assert metadata.get("hangarllm_overhead_time_ms") == test_overhead_ms, (
+        f"Expected overhead '{test_overhead_ms}', got '{metadata.get('hangarllm_overhead_time_ms')}'"
     )
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_carries_upstream_provider_from_hidden_params_regression() -> None:
     standard_logging_payload: Final = _make_standard_logging_payload_with_usage_object(usage_object={})
     payload_with_provider: Final = {
@@ -2588,7 +2588,7 @@ def test_get_logging_payload_carries_upstream_provider_from_hidden_params_regres
         kwargs={
             "model": "gpt-5.6",
             "call_type": "responses",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             "standard_logging_object": payload_with_provider,
         },
         response_obj={
@@ -2606,15 +2606,15 @@ def test_get_logging_payload_carries_upstream_provider_from_hidden_params_regres
     assert json.loads(payload["metadata"]).get("upstream_provider") == "serving-site-a"
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_omits_upstream_provider_when_hidden_param_absent_guard() -> None:
     standard_logging_payload: Final = _make_standard_logging_payload_with_usage_object(usage_object={})
     payload: Final = get_logging_payload(
         kwargs={
             "model": "gpt-5.6",
             "call_type": "responses",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             "standard_logging_object": standard_logging_payload,
         },
         response_obj={
@@ -2632,13 +2632,13 @@ def test_get_logging_payload_omits_upstream_provider_when_hidden_param_absent_gu
     assert "upstream_provider" not in json.loads(payload["metadata"])
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_strips_null_bytes_from_request_tags():
     """Regression for PostgreSQL 22P05: NUL bytes must be stripped from request_tags."""
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
                 "tags": ["clean-tag", "bad\x00tag"],
@@ -2662,8 +2662,8 @@ def test_get_logging_payload_strips_null_bytes_from_request_tags():
     assert json.loads(request_tags) == ["clean-tag", "badtag"]
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_handles_missing_overhead_gracefully():
     """
     Test that get_logging_payload handles missing overhead gracefully
@@ -2716,17 +2716,17 @@ def test_get_logging_payload_handles_missing_overhead_gracefully():
             cache_key=None,
             api_base="https://api.openai.com",
             response_cost="0.001",
-            litellm_overhead_time_ms=None,  # No overhead
+            hangarllm_overhead_time_ms=None,  # No overhead
             additional_headers=None,
             batch_models=None,
-            litellm_model_name=None,
+            hangarllm_model_name=None,
             usage_object=None,
         ),
     )
 
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -2761,13 +2761,13 @@ def test_get_logging_payload_handles_missing_overhead_gracefully():
 
     metadata = json.loads(metadata_json)
 
-    # When overhead is None, litellm_overhead_time_ms should be None or not present
-    assert metadata.get("litellm_overhead_time_ms") is None, (
-        "litellm_overhead_time_ms should be None when overhead is not provided"
+    # When overhead is None, hangarllm_overhead_time_ms should be None or not present
+    assert metadata.get("hangarllm_overhead_time_ms") is None, (
+        "hangarllm_overhead_time_ms should be None when overhead is not provided"
     )
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_enabled(
     mock_should_store,
 ):
@@ -2777,7 +2777,7 @@ def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_e
     mock_should_store.return_value = True
 
     # Test request redaction
-    litellm_params = {
+    hangarllm_params = {
         "proxy_server_request": {
             "body": {
                 "messages": [{"role": "user", "content": "secret message"}],
@@ -2787,18 +2787,18 @@ def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_e
     }
     metadata = {}
     kwargs = {
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "standard_callback_dynamic_params": {
             "turn_off_message_logging": True,
         },
     }
 
     request_result = _get_proxy_server_request_for_spend_logs_payload(
-        metadata=metadata, litellm_params=litellm_params, kwargs=kwargs
+        metadata=metadata, hangarllm_params=hangarllm_params, kwargs=kwargs
     )
 
     parsed_request = json.loads(request_result)
-    assert parsed_request["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+    assert parsed_request["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
     assert parsed_request["model"] == "gpt-4"
 
     # Test response redaction - use dict response to verify redaction
@@ -2822,11 +2822,11 @@ def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_e
     # When redaction is enabled and response is a dict (not ModelResponse),
     # perform_redaction redacts content in-place within the choices structure
     parsed_response = json.loads(response_result)
-    assert parsed_response["choices"][0]["message"]["content"] == "redacted-by-litellm"
+    assert parsed_response["choices"][0]["message"]["content"] == "redacted-by-hangarllm"
     assert parsed_response["choices"][0]["message"]["role"] == "assistant"
 
 
-@patch("litellm.secret_managers.main.get_secret_bool")
+@patch("hangarllm.secret_managers.main.get_secret_bool")
 def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_string(
     mock_get_secret_bool,
 ):
@@ -2837,7 +2837,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
     # Test case-insensitive string "true" variations
     for true_value in ["true", "TRUE", "True", "TrUe"]:
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"store_prompts_in_spend_logs": true_value},
         ):
             mock_get_secret_bool.return_value = False  # Ensure env var is False
@@ -2846,7 +2846,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
 
     # Test boolean True
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"store_prompts_in_spend_logs": True},
     ):
         mock_get_secret_bool.return_value = False
@@ -2856,7 +2856,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
     # Test that non-true values fall back to environment variable
     for false_value in [False, None, "false", "FALSE", "False", "anything"]:
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"store_prompts_in_spend_logs": false_value},
         ):
             # When env var is True, should return True
@@ -2870,7 +2870,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
             assert result is False, f"Expected False (from env var) for '{false_value}', got {result}"
 
     # Test when general_settings doesn't have the key at all
-    with patch("litellm.proxy.proxy_server.general_settings", {}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {}):
         mock_get_secret_bool.return_value = True
         result = should_store_prompts_and_responses_in_spend_logs()
         assert result is True, "Expected True (from env var) when key missing, got False"
@@ -2889,7 +2889,7 @@ def test_get_spend_logs_metadata_guardrail_info_fallback_from_metadata():
     guardrail_info = [
         {
             "guardrail_name": "content_filter",
-            "guardrail_provider": "litellm",
+            "guardrail_provider": "hangarllm",
             "guardrail_mode": "pre_call",
             "guardrail_status": "guardrail_intervened",
             "guardrail_response": "Content blocked",
@@ -2909,13 +2909,13 @@ def test_get_spend_logs_metadata_guardrail_info_fallback_from_metadata():
     assert result["guardrail_information"] is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_redacts_all_prompt_carrying_fields_when_flag_false(
     mock_should_store,
 ):
     """
     match_details and classification are declared as structured metadata but
-    in-tree writers (litellm_content_filter, block_code_execution) inline
+    in-tree writers (hangarllm_content_filter, block_code_execution) inline
     raw prompt content into them, so they leak the same way
     guardrail_request/guardrail_response do. Redaction must cover all four.
     """
@@ -2945,14 +2945,14 @@ def test_sanitize_guardrail_information_redacts_all_prompt_carrying_fields_when_
     assert entry["guardrail_action"] == "NONE"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_redacts_prompt_fields_when_flag_false(
     mock_should_store,
 ):
     """
     LIT-4314 Issue A regression: with store_prompts_in_spend_logs=False,
     guardrail_request and guardrail_response must be redacted before they
-    land in LiteLLM_SpendLogs.metadata, while every other field on the
+    land in HangarLLM_SpendLogs.metadata, while every other field on the
     entry is preserved bit-for-bit.
     """
     mock_should_store.return_value = False
@@ -3009,7 +3009,7 @@ def test_sanitize_guardrail_information_redacts_prompt_fields_when_flag_false(
     }
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_preserves_guardrail_usage_when_flag_false(
     mock_should_store,
 ):
@@ -3041,7 +3041,7 @@ def test_sanitize_guardrail_information_preserves_guardrail_usage_when_flag_fals
     assert entry["guardrail_usage"] == {"topicPolicyUnits": 1, "contentPolicyUnits": 1, "wordPolicyUnits": 0}
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_passthrough_when_flag_true(
     mock_should_store,
 ):
@@ -3064,13 +3064,13 @@ def test_sanitize_guardrail_information_passthrough_when_flag_true(
     assert result == guardrail_info
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_none_passthrough(mock_should_store):
     mock_should_store.return_value = False
     assert _sanitize_guardrail_information_for_spend_logs(None) is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_normalizes_bare_dict_input(mock_should_store):
     """
     Regression: xecguard (xecguard.py:246) assigns a bare dict to
@@ -3102,7 +3102,7 @@ def test_sanitize_guardrail_information_normalizes_bare_dict_input(mock_should_s
     assert entry["start_time"] == 1.0
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_drops_non_dict_items_in_list(mock_should_store):
     """
     A stray non-dict item in the list (e.g. from a buggy caller that
@@ -3121,7 +3121,7 @@ def test_sanitize_guardrail_information_drops_non_dict_items_in_list(mock_should
     assert result == [{"guardrail_name": "x", "guardrail_response": REDACTED_BY_LITELM_STRING}]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_preserves_absent_prompt_fields(mock_should_store):
     """
     Entries that never carried guardrail_request or guardrail_response must
@@ -3148,9 +3148,9 @@ def test_sanitize_guardrail_information_preserves_absent_prompt_fields(mock_shou
     assert entry["guardrail_status"] == "success"
 
 
-@patch("litellm.proxy.proxy_server.master_key", "sk-master")
+@patch("hangarllm.proxy.proxy_server.master_key", "sk-master")
 @patch(
-    "litellm.proxy.proxy_server.general_settings",
+    "hangarllm.proxy.proxy_server.general_settings",
     {"store_prompts_in_spend_logs": False},
 )
 def test_get_logging_payload_redacts_guardrail_prompt_fields_when_flag_false():
@@ -3170,8 +3170,8 @@ def test_get_logging_payload_redacts_guardrail_prompt_fields_when_flag_false():
     ]
     kwargs = {
         "model": "gpt-4o-mini",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {
+        "hangarllm_call_id": "test-call-id",
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "test-key",
                 "standard_logging_guardrail_information": guardrail_info,
@@ -3206,7 +3206,7 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
     guardrail_info = [
         {
             "guardrail_name": "content_filter",
-            "guardrail_provider": "litellm",
+            "guardrail_provider": "hangarllm",
             "guardrail_mode": "pre_call",
             "guardrail_status": "guardrail_intervened",
             "guardrail_response": "Content blocked",
@@ -3215,8 +3215,8 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
     # Simulate request_data as it looks when a guardrail blocks before LLM call
     kwargs = {
         "model": "gpt-4",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {
+        "hangarllm_call_id": "test-call-id",
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "test-key",
                 "standard_logging_guardrail_information": guardrail_info,
@@ -3226,9 +3226,9 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
         # No "standard_logging_object" key - this is the failure case
     }
 
-    with patch("litellm.proxy.proxy_server.master_key", "sk-master"):
+    with patch("hangarllm.proxy.proxy_server.master_key", "sk-master"):
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "hangarllm.proxy.proxy_server.general_settings",
             {"store_prompts_in_spend_logs": True},
         ):
             payload = get_logging_payload(
@@ -3242,8 +3242,8 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
     assert metadata_result["guardrail_information"] == guardrail_info
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
     """
     Test that retry info (attempted_retries, max_retries) from metadata
@@ -3251,7 +3251,7 @@ def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
                 "attempted_retries": 2,
@@ -3304,10 +3304,10 @@ def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                hangarllm_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                hangarllm_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -3341,15 +3341,15 @@ def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
     assert metadata.get("max_retries") == 3, f"Expected max_retries=3, got {metadata.get('max_retries')}"
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_handles_missing_retry_info_gracefully():
     """
     Test that retry fields are None when not present in metadata (backward compatibility).
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -3400,10 +3400,10 @@ def test_get_logging_payload_handles_missing_retry_info_gracefully():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                hangarllm_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                hangarllm_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -3465,14 +3465,14 @@ def test_get_logging_payload_includes_request_duration_ms():
 
     kwargs = {
         "model": "gpt-4",
-        "litellm_params": {"api_base": "https://api.openai.com"},
+        "hangarllm_params": {"api_base": "https://api.openai.com"},
         "standard_logging_object": None,
     }
     response_obj = {"usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}
 
     with (
-        patch("litellm.proxy.proxy_server.master_key", None),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("hangarllm.proxy.proxy_server.master_key", None),
+        patch("hangarllm.proxy.proxy_server.general_settings", {}),
     ):
         payload = get_logging_payload(
             kwargs=kwargs,
@@ -3508,7 +3508,7 @@ class TestIsMasterKey:
         ``_is_master_key`` must not accept ``hash_token(master_key)`` as
         equivalent to the raw master key — only the raw value matches.
         """
-        from litellm.proxy.utils import hash_token
+        from hangarllm.proxy.utils import hash_token
 
         master = "sk-master-key-123"
         hashed = hash_token(master)
@@ -3528,7 +3528,7 @@ def test_sanitize_request_body_strips_secret_fields():
             "raw_headers": {
                 "authorization": "Bearer sk-GjX--WwRQmiX2cvASbKf5Q",
                 "content-type": "application/json",
-                "host": "litellm.example.com",
+                "host": "hangarllm.example.com",
             }
         },
     }
@@ -3539,7 +3539,7 @@ def test_sanitize_request_body_strips_secret_fields():
     assert sanitized["messages"] == [{"role": "user", "content": "hi"}]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_store: MagicMock) -> None:
     mock_should_store.return_value = True
     credentials: Final = {
@@ -3549,7 +3549,7 @@ def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_
         "aws_web_identity_token": "wit-canary",
     }
     tool_parameters: Final = {"type": "object", "properties": {"aws_secret_access_key": {"type": "string"}}}
-    litellm_params: Final = {
+    hangarllm_params: Final = {
         "proxy_server_request": {
             "body": {
                 "model": "bedrock-claude",
@@ -3563,7 +3563,7 @@ def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_
     }
 
     parsed: Final = json.loads(
-        _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+        _get_proxy_server_request_for_spend_logs_payload(metadata={}, hangarllm_params=hangarllm_params, kwargs={})
     )
 
     assert "canary" not in json.dumps(parsed)
@@ -3575,7 +3575,7 @@ def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_
     assert parsed["messages"] == [{"role": "user", "content": "hello"}]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_proxy_server_request_payload_redacts_provider_credentials(mock_should_store: MagicMock) -> None:
     mock_should_store.return_value = True
     credentials: Final = {
@@ -3593,7 +3593,7 @@ def test_proxy_server_request_payload_redacts_provider_credentials(mock_should_s
     }
     metadata: Final = {"user_api_key": "custom-auth-raw-key", "requester_ip_address": "10.0.0.1"}
     tool_parameters: Final = {"type": "object", "properties": {"client_secret": {"type": "string"}}}
-    litellm_params: Final = {
+    hangarllm_params: Final = {
         "proxy_server_request": {
             "body": {
                 "model": "azure-gpt",
@@ -3618,7 +3618,7 @@ def test_proxy_server_request_payload_redacts_provider_credentials(mock_should_s
     }
 
     parsed: Final = json.loads(
-        _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+        _get_proxy_server_request_for_spend_logs_payload(metadata={}, hangarllm_params=hangarllm_params, kwargs={})
     )
 
     assert "canary" not in json.dumps(parsed)
@@ -3802,7 +3802,7 @@ def test_sanitize_request_body_masks_credentials_beside_tool_blocks() -> None:
     }
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_proxy_server_request_payload_excludes_secret_fields(mock_should_store):
     """
     End-to-end test: when the proxy_server_request body contains
@@ -3811,7 +3811,7 @@ def test_proxy_server_request_payload_excludes_secret_fields(mock_should_store):
     """
     mock_should_store.return_value = True
 
-    litellm_params = {
+    hangarllm_params = {
         "proxy_server_request": {
             "body": {
                 "model": "gpt-4",
@@ -3819,14 +3819,14 @@ def test_proxy_server_request_payload_excludes_secret_fields(mock_should_store):
                 "secret_fields": {
                     "raw_headers": {
                         "authorization": "Bearer sk-super-secret-token",
-                        "host": "litellm.example.com",
+                        "host": "hangarllm.example.com",
                     }
                 },
             }
         }
     }
 
-    result = _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+    result = _get_proxy_server_request_for_spend_logs_payload(metadata={}, hangarllm_params=hangarllm_params, kwargs={})
     parsed = json.loads(result)
 
     assert "secret_fields" not in parsed, "secret_fields must never appear in the spend-log proxy_server_request column"
@@ -3882,7 +3882,7 @@ def test_redact_prompt_leaks_empty_string():
     assert _redact_prompt_leaks_in_error_string("") == ""
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_redacts_when_not_storing_prompts(
     mock_should_store,
 ):
@@ -3910,7 +3910,7 @@ def test_sanitize_error_information_redacts_when_not_storing_prompts(
     assert sanitized["llm_provider"] == "openai"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_skips_redaction_when_storing_prompts(
     mock_should_store,
 ):
@@ -3932,13 +3932,13 @@ def test_sanitize_error_information_skips_redaction_when_storing_prompts(
     assert REDACTED_BY_LITELM_STRING not in sanitized["error_message"]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_caps_size_regardless_of_prompt_flag(
     mock_should_store,
 ):
     # The DB-storage cap must apply even when prompt storage is enabled, so a
     # provider error that echoes a multi-MB body can't blow up a single row.
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from hangarllm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
 
@@ -3955,15 +3955,15 @@ def test_sanitize_error_information_caps_size_regardless_of_prompt_flag(
 
     assert sanitized is not None
     assert len(sanitized["error_message"]) < len(huge_error)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in sanitized["error_message"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in sanitized["traceback"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in sanitized["error_message"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in sanitized["traceback"]
 
 
 def test_sanitize_error_information_none_passthrough():
     assert sanitize_error_information_for_spend_logs(None) is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_reproduces_lit_2992(mock_should_store):
     # Mirrors the reproduced row body from LIT-2992 — a RateLimitError whose
     # message embeds 178 pydantic validation errors, each carrying a full
@@ -3979,7 +3979,7 @@ def test_sanitize_error_information_reproduces_lit_2992(mock_should_store):
             f"'input': [{{'role': 'user', 'content': '{huge_conversation_blob}'}}]}}"
         )
     error_message = (
-        "litellm.RateLimitError: RateLimitError: OpenAIException - "
+        "hangarllm.RateLimitError: RateLimitError: OpenAIException - "
         '{"error":{"message":"' + "\\n  ".join(validation_entries) + '"}}'
     )
 
@@ -4048,7 +4048,7 @@ def test_redact_prompt_leaks_handles_unterminated_value():
     assert REDACTED_BY_LITELM_STRING in redacted
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_redacts_traceback_when_not_storing_prompts(
     mock_should_store,
 ):
@@ -4080,7 +4080,7 @@ def test_sanitize_error_information_redacts_traceback_when_not_storing_prompts(
     assert "ValueError: invalid request" in sanitized["traceback"]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_skips_traceback_redaction_when_storing_prompts(
     mock_should_store,
 ):
@@ -4188,7 +4188,7 @@ def test_redact_prompt_leaks_combined_quoted_key_and_pydantic_assignment():
     assert redacted.count(REDACTED_BY_LITELM_STRING) >= 2
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_redacts_pydantic_assignment_form(
     mock_should_store,
 ):
@@ -4346,34 +4346,34 @@ def test_redact_logged_api_key_hashed_jwt_short_suffix_is_hashed():
 
 
 def test_redact_logged_api_key_master_key_alias_passes_through():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
-    result = redact_logged_api_key(LITELLM_PROXY_MASTER_KEY_ALIAS, already_redacted=True)
-    assert result == LITELLM_PROXY_MASTER_KEY_ALIAS
+    result = redact_logged_api_key(HANGARLLM_PROXY_MASTER_KEY_ALIAS, already_redacted=True)
+    assert result == HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
 
 def test_redact_logged_api_key_master_key_alias_without_provenance_is_hashed():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
-    result = redact_logged_api_key(LITELLM_PROXY_MASTER_KEY_ALIAS)
-    assert result == hash_token(LITELLM_PROXY_MASTER_KEY_ALIAS)
-    assert result != LITELLM_PROXY_MASTER_KEY_ALIAS
+    result = redact_logged_api_key(HANGARLLM_PROXY_MASTER_KEY_ALIAS)
+    assert result == hash_token(HANGARLLM_PROXY_MASTER_KEY_ALIAS)
+    assert result != HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
 
 def test_get_spend_logs_metadata_keeps_master_key_alias_readable():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
     meta = _get_spend_logs_metadata(
         {
-            "user_api_key": LITELLM_PROXY_MASTER_KEY_ALIAS,
-            "user_api_key_hash": LITELLM_PROXY_MASTER_KEY_ALIAS,
+            "user_api_key": HANGARLLM_PROXY_MASTER_KEY_ALIAS,
+            "user_api_key_hash": HANGARLLM_PROXY_MASTER_KEY_ALIAS,
         }
     )
-    assert meta["user_api_key"] == LITELLM_PROXY_MASTER_KEY_ALIAS
+    assert meta["user_api_key"] == HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
 
 def test_get_spend_logs_metadata_keeps_user_agent():
-    """`add_litellm_data_to_request` stamps the caller's User-Agent next to its IP, but
+    """`add_hangarllm_data_to_request` stamps the caller's User-Agent next to its IP, but
     the spend log metadata dropped it, so an abusive client could not be identified
     from the Logs page."""
     meta = _get_spend_logs_metadata({"requester_ip_address": "203.0.113.9", "user_agent": "abusive-client/9.9"})
@@ -4387,17 +4387,17 @@ def test_get_spend_logs_metadata_keeps_user_agent():
     (
         (None, False),
         ({}, False),
-        ({"tags": ["litellm-roi-estimator"]}, False),
-        ({"litellm_roi_estimator": None}, False),
-        ({"litellm_roi_estimator": "true"}, False),
-        ({"litellm_roi_estimator": False}, False),
-        ({"litellm_roi_estimator": True}, True),
+        ({"tags": ["hangarllm-roi-estimator"]}, False),
+        ({"hangarllm_roi_estimator": None}, False),
+        ({"hangarllm_roi_estimator": "true"}, False),
+        ({"hangarllm_roi_estimator": False}, False),
+        ({"hangarllm_roi_estimator": True}, True),
     ),
 )
 def test_new_spend_logs_always_have_an_explicit_roi_estimator_marker(
     metadata: dict[str, object] | None, expected: bool
 ) -> None:
-    assert _get_spend_logs_metadata(metadata)["litellm_roi_estimator"] is expected
+    assert _get_spend_logs_metadata(metadata)["hangarllm_roi_estimator"] is expected
 
 
 @pytest.mark.parametrize(
@@ -4424,7 +4424,7 @@ def test_get_logging_payload_records_used_client_oauth_token_for_the_selected_pr
         kwargs={
             "model": "claude-sonnet-5",
             "custom_llm_provider": custom_llm_provider,
-            "litellm_params": {"metadata": request_metadata},
+            "hangarllm_params": {"metadata": request_metadata},
         },
         response_obj={},
         start_time=datetime.datetime.now(timezone.utc),
@@ -4435,23 +4435,23 @@ def test_get_logging_payload_records_used_client_oauth_token_for_the_selected_pr
 
 
 @pytest.mark.parametrize(
-    "litellm_params, expected",
+    "hangarllm_params, expected",
     [
         (
-            {"metadata": {"used_client_oauth_token": True}, "litellm_metadata": {"user_api_key_hash": "guardrail"}},
+            {"metadata": {"used_client_oauth_token": True}, "hangarllm_metadata": {"user_api_key_hash": "guardrail"}},
             True,
         ),
         (
-            {"metadata": {"used_client_oauth_token": True}, "litellm_metadata": {"used_client_oauth_token": False}},
+            {"metadata": {"used_client_oauth_token": True}, "hangarllm_metadata": {"used_client_oauth_token": False}},
             False,
         ),
     ],
 )
 def test_get_logging_payload_reads_used_client_oauth_token_from_the_bucket_the_proxy_stamped(
-    litellm_params: dict, expected: bool
+    hangarllm_params: dict, expected: bool
 ):
     payload = get_logging_payload(
-        kwargs={"model": "claude-sonnet-5", "custom_llm_provider": "anthropic", "litellm_params": litellm_params},
+        kwargs={"model": "claude-sonnet-5", "custom_llm_provider": "anthropic", "hangarllm_params": hangarllm_params},
         response_obj={},
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
@@ -4514,14 +4514,14 @@ def test_get_logging_payload_batch_attribution_keeps_verification_token_hash():
     """
     Batch cost rebuilds metadata with the managed object's already-hashed api_key.
     That hash must land in SpendLogs.api_key unchanged so Usage/CloudZero can join
-    LiteLLM_VerificationToken for api_key_alias and user_email. Regression: without
+    HangarLLM_VerificationToken for api_key_alias and user_email. Regression: without
     user_api_key_hash provenance, v1.99+ re-hashed the token and broke the join.
     """
     token_hash = hash_token("sk-batch-creator-key")
     kwargs = {
         "model": "gpt-4o",
         "call_type": "aretrieve_batch",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": token_hash,
                 "user_api_key_hash": token_hash,
@@ -4579,12 +4579,12 @@ def test_get_logging_payload_uses_recovered_combined_usage_on_failure():
     the failure hook surfaces it as ``combined_usage_object``. The spend-log
     payload must record those token counts instead of zero.
     """
-    from litellm.types.utils import Usage
+    from hangarllm.types.utils import Usage
 
     kwargs = {
         "model": "anthropic/claude-haiku-4-5",
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test"}},
         "combined_usage_object": Usage(prompt_tokens=30, completion_tokens=1, total_tokens=31),
     }
     response_obj = Exception("MidStreamFallbackError: read timeout")
@@ -4600,9 +4600,9 @@ def test_get_logging_payload_uses_recovered_combined_usage_on_failure():
 def _fallback_after_a_failed_follow_up(
     cache_hit: bool, request_params: Mapping[str, object] = MappingProxyType({})
 ):
-    from litellm.litellm_core_utils.hidden_params import set_hidden_param
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.utils import ModelResponse, Usage
+    from hangarllm.hangarllm_core_utils.hidden_params import set_hidden_param
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.types.utils import ModelResponse, Usage
 
     now: Final = datetime.datetime.now(timezone.utc)
     logger: Final = Logging(
@@ -4611,13 +4611,13 @@ def _fallback_after_a_failed_follow_up(
         stream=False,
         call_type="acompletion",
         start_time=now,
-        litellm_call_id="caller",
+        hangarllm_call_id="caller",
         function_id="function",
     )
     logger.update_environment_variables(
         model="fallback-model",
         custom_llm_provider="openai",
-        litellm_params={"metadata": {"user_api_key": "sk-test"}},
+        hangarllm_params={"metadata": {"user_api_key": "sk-test"}},
         optional_params=dict(request_params),
     )
     fallback: Final = ModelResponse(id="fallback", usage=Usage(prompt_tokens=3, completion_tokens=1, total_tokens=4))
@@ -4679,7 +4679,7 @@ def test_get_logging_payload_failure_without_recovered_usage_is_zero():
     kwargs = {
         "model": "anthropic/claude-haiku-4-5",
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = Exception("BadRequestError")
     now = datetime.datetime.now(timezone.utc)
@@ -4689,8 +4689,8 @@ def test_get_logging_payload_failure_without_recovered_usage_is_zero():
     assert payload["total_tokens"] == 0
 
 
-def test_get_logging_payload_sets_litellm_call_id_for_correlation():
-    """LIT-3868: a successful spend log must carry the x-litellm-call-id (the
+def test_get_logging_payload_sets_hangarllm_call_id_for_correlation():
+    """LIT-3868: a successful spend log must carry the x-hangarllm-call-id (the
     trace id) in its metadata, distinct from request_id, which stays the
     provider response id. Without this there is no way to correlate a DB row
     with its trace for a successful call.
@@ -4701,8 +4701,8 @@ def test_get_logging_payload_sets_litellm_call_id_for_correlation():
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_call_id": trace_call_id,
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "hangarllm_call_id": trace_call_id,
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = {
         "id": provider_response_id,
@@ -4714,20 +4714,20 @@ def test_get_logging_payload_sets_litellm_call_id_for_correlation():
     metadata = json.loads(payload["metadata"])
 
     assert payload["request_id"] == provider_response_id
-    assert metadata["litellm_call_id"] == trace_call_id
-    assert metadata["litellm_call_id"] != payload["request_id"]
+    assert metadata["hangarllm_call_id"] == trace_call_id
+    assert metadata["hangarllm_call_id"] != payload["request_id"]
 
 
-def test_get_logging_payload_litellm_call_id_falls_back_to_litellm_params():
-    """litellm_call_id may only be present in litellm_params; it must still land
+def test_get_logging_payload_hangarllm_call_id_falls_back_to_hangarllm_params():
+    """hangarllm_call_id may only be present in hangarllm_params; it must still land
     in the spend log metadata so correlation works on that path too.
     """
     trace_call_id = "fallback-7a1c-42d9-9f0e-2b6c5d4e3f21"
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_params": {
-            "litellm_call_id": trace_call_id,
+        "hangarllm_params": {
+            "hangarllm_call_id": trace_call_id,
             "metadata": {"user_api_key": "sk-test"},
         },
     }
@@ -4739,10 +4739,10 @@ def test_get_logging_payload_litellm_call_id_falls_back_to_litellm_params():
 
     payload = get_logging_payload(kwargs=kwargs, response_obj=response_obj, start_time=now, end_time=now)
 
-    assert json.loads(payload["metadata"])["litellm_call_id"] == trace_call_id
+    assert json.loads(payload["metadata"])["hangarllm_call_id"] == trace_call_id
 
 
-def test_get_logging_payload_litellm_call_id_when_response_has_no_id():
+def test_get_logging_payload_hangarllm_call_id_when_response_has_no_id():
     """When the provider returns no id, request_id falls back to the call id, so
     request_id and the metadata call id hold the same value and correlation
     still resolves.
@@ -4751,29 +4751,29 @@ def test_get_logging_payload_litellm_call_id_when_response_has_no_id():
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_call_id": trace_call_id,
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "hangarllm_call_id": trace_call_id,
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = {"usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}}
     now = datetime.datetime.now(timezone.utc)
 
     payload = get_logging_payload(kwargs=kwargs, response_obj=response_obj, start_time=now, end_time=now)
 
-    assert json.loads(payload["metadata"])["litellm_call_id"] == trace_call_id
+    assert json.loads(payload["metadata"])["hangarllm_call_id"] == trace_call_id
     assert payload["request_id"] == trace_call_id
 
 
-def test_get_logging_payload_cache_hit_keeps_raw_litellm_call_id():
+def test_get_logging_payload_cache_hit_keeps_raw_hangarllm_call_id():
     """On a cache hit request_id is suffixed to stay unique, but the metadata
-    litellm_call_id stays the raw trace id so the row still points at its trace.
+    hangarllm_call_id stays the raw trace id so the row still points at its trace.
     """
     trace_call_id = "cache-9a1c-42d9-9f0e-2b6c5d4e3f21"
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_call_id": trace_call_id,
+        "hangarllm_call_id": trace_call_id,
         "cache_hit": True,
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = {
         "id": "chatcmpl-cache-src",
@@ -4783,21 +4783,21 @@ def test_get_logging_payload_cache_hit_keeps_raw_litellm_call_id():
 
     payload = get_logging_payload(kwargs=kwargs, response_obj=response_obj, start_time=now, end_time=now)
 
-    assert json.loads(payload["metadata"])["litellm_call_id"] == trace_call_id
+    assert json.loads(payload["metadata"])["hangarllm_call_id"] == trace_call_id
     assert "_cache_hit" in payload["request_id"]
-    assert json.loads(payload["metadata"])["litellm_call_id"] != payload["request_id"]
+    assert json.loads(payload["metadata"])["hangarllm_call_id"] != payload["request_id"]
 
 
 @pytest.mark.parametrize("cached", [True, False])
 def test_get_logging_payload_gives_a_response_served_from_the_cache_a_unique_request_id(cached: bool):
     """A parent call that returns an internal sub-call's cached response reuses the cached response's id,
     and SpendLogs skips a duplicate request_id, so the row would be dropped unless its id is made unique."""
-    from litellm.litellm_core_utils.hidden_params import set_hidden_params
+    from hangarllm.hangarllm_core_utils.hidden_params import set_hidden_params
 
-    response_obj: Final = litellm.ModelResponse(
+    response_obj: Final = hangarllm.ModelResponse(
         id="chatcmpl-cached-src",
         model="gpt-5.6",
-        usage=litellm.Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+        usage=hangarllm.Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
     )
     set_hidden_params(response_obj, {"cache_hit": True, "response_cost": 0.0} if cached else {})
     now: Final = datetime.datetime.now(timezone.utc)
@@ -4806,8 +4806,8 @@ def test_get_logging_payload_gives_a_response_served_from_the_cache_a_unique_req
         kwargs={
             "model": "openai/gpt-5.6",
             "call_type": "aresponses",
-            "litellm_call_id": "parent-call-id",
-            "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+            "hangarllm_call_id": "parent-call-id",
+            "hangarllm_params": {"metadata": {"user_api_key": "sk-test"}},
         },
         response_obj=response_obj,
         start_time=now,
@@ -4862,15 +4862,15 @@ class TestSpendLogKeyRedaction:
         assert redact_logged_api_key(bare) == redact_logged_api_key(bearer)
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_non_sk_raw_key_both_fields_hashed():
     raw = "anthropic-raw-key-xyz"
     kwargs = {
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": raw,
                 "user_api_key_user_id": "test_user",
@@ -4895,16 +4895,16 @@ def test_get_logging_payload_non_sk_raw_key_both_fields_hashed():
 
 
 def test_get_logging_payload_keeps_master_key_alias_readable():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
     kwargs = {
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
-                "user_api_key": LITELLM_PROXY_MASTER_KEY_ALIAS,
-                "user_api_key_hash": LITELLM_PROXY_MASTER_KEY_ALIAS,
+                "user_api_key": HANGARLLM_PROXY_MASTER_KEY_ALIAS,
+                "user_api_key_hash": HANGARLLM_PROXY_MASTER_KEY_ALIAS,
                 "user_api_key_user_id": "test_user",
             }
         },
@@ -4916,9 +4916,9 @@ def test_get_logging_payload_keeps_master_key_alias_readable():
         end_time=datetime.datetime.now(timezone.utc),
     )
 
-    assert payload["api_key"] == LITELLM_PROXY_MASTER_KEY_ALIAS
+    assert payload["api_key"] == HANGARLLM_PROXY_MASTER_KEY_ALIAS
     parsed_meta = json.loads(payload["metadata"])
-    assert parsed_meta["user_api_key"] == LITELLM_PROXY_MASTER_KEY_ALIAS
+    assert parsed_meta["user_api_key"] == HANGARLLM_PROXY_MASTER_KEY_ALIAS
 
 
 @pytest.mark.parametrize(
@@ -4926,7 +4926,7 @@ def test_get_logging_payload_keeps_master_key_alias_readable():
     [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME, LITTELM_CLI_SERVICE_ACCOUNT_NAME],
 )
 def test_get_logging_payload_keeps_internal_service_account_key_readable(service_account: str):
-    data = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    data = HangarLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data={"metadata": {}},
         user_api_key_dict=UserAPIKeyAuth(
             api_key=service_account,
@@ -4940,7 +4940,7 @@ def test_get_logging_payload_keeps_internal_service_account_key_readable(service
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": data["metadata"]},
+        "hangarllm_params": {"metadata": data["metadata"]},
     }
     payload = get_logging_payload(
         kwargs=kwargs,
@@ -4960,8 +4960,8 @@ def test_redact_logged_api_key_service_account_name_without_provenance_is_hashed
     assert result == hash_token(LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME)
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_hashes_bearer_prefixed_api_key():
     """Regression for LIT-4121: failed-request spend logs stored plaintext
     'Bearer sk-...' in both the api_key column and metadata.user_api_key"""
@@ -4970,7 +4970,7 @@ def test_get_logging_payload_hashes_bearer_prefixed_api_key():
     kwargs = {
         "model": "openai/gpt-4.1",
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": raw_key,
                 "user_api_key_user_id": "test_user",
@@ -5001,7 +5001,7 @@ def test_get_logging_payload_hashes_bearer_prefixed_api_key():
     )
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("hangarllm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_preserves_headroom_compression_token_stats(
     mock_should_store,
 ):
@@ -5052,19 +5052,19 @@ async def test_compression_savings_survive_to_spend_log_payload_metadata(monkeyp
     """
     End-to-end seam test for the native compression write path on
     /v1/messages: the pre-call deployment hook records savings into the call
-    kwargs' litellm_metadata, the logging object captures it via
+    kwargs' hangarllm_metadata, the logging object captures it via
     update_from_kwargs (exactly as llm_http_handler does for
     anthropic_messages), and get_logging_payload lands it in
     SpendLogsPayload.metadata JSON under ``compression_savings``.
     """
-    from litellm.integrations.compression_interception.handler import (
+    from hangarllm.integrations.compression_interception.handler import (
         CompressionInterceptionLogger,
     )
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.utils import CallTypes
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.types.utils import CallTypes
 
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "hangarllm.integrations.compression_interception.handler.compress",
         lambda **kwargs: {
             "messages": [{"role": "user", "content": "compressed"}],
             "original_tokens": 12000,
@@ -5079,8 +5079,8 @@ async def test_compression_savings_survive_to_spend_log_payload_metadata(monkeyp
         "model": "claude-sonnet-5",
         "messages": [{"role": "user", "content": "big context"}],
         "max_tokens": 512,
-        "litellm_call_id": "test-compression-call-id",
-        "litellm_metadata": {
+        "hangarllm_call_id": "test-compression-call-id",
+        "hangarllm_metadata": {
             "user_api_key": "bc46df66218d24bc910f7c95ef9d861c706d22a191f9e7378f8a51f54146474f",
             "user_api_key_user_id": "u1",
             "user_api_key_team_id": "t1",
@@ -5096,14 +5096,14 @@ async def test_compression_savings_survive_to_spend_log_payload_metadata(monkeyp
         stream=False,
         call_type="anthropic_messages",
         start_time=start_time,
-        litellm_call_id="test-compression-call-id",
+        hangarllm_call_id="test-compression-call-id",
         function_id="test",
     )
     logging_obj.update_from_kwargs(
         kwargs=hooked,
         model="claude-sonnet-5",
         optional_params={"max_tokens": 512},
-        litellm_params={
+        hangarllm_params={
             "preset_cache_key": None,
             "stream_response": {},
             "model_info": hooked.get("model_info"),
@@ -5136,9 +5136,9 @@ def test_no_routing_decision_key_defaults_to_none_in_spend_log_metadata():
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-no-routing-decision", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-no-routing-decision", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5146,26 +5146,26 @@ def test_no_routing_decision_key_defaults_to_none_in_spend_log_metadata():
     assert metadata["routing_decision"] is None
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "hangarllm_metadata"])
 def test_internal_call_origin_survives_into_spend_log_metadata(bucket):
     """The origin is only useful if it reaches the row the Logs UI reads.
 
     _get_spend_logs_metadata projects onto SpendLogsMetadata.__annotations__, so an
     undeclared key is dropped silently. Both buckets are covered because the resolver
-    returns litellm_metadata when present and metadata otherwise, and the classifier
+    returns hangarllm_metadata when present and metadata otherwise, and the classifier
     sub-call populates whichever the parent route used.
     """
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {
+            "hangarllm_params": {
                 bucket: {
                     "user_api_key": "test-key",
                     "internal_call_origin": "autorouter_classifier",
                 }
             },
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-classifier", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-classifier", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5179,9 +5179,9 @@ def test_user_traffic_carries_no_internal_call_origin():
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-user-traffic", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-user-traffic", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5195,7 +5195,7 @@ def _spend_log_for_call_type(
     background: bool | None = None,
     managed_read: bool = False,
 ) -> dict:
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from hangarllm.types.llms.openai import ResponsesAPIResponse
 
     return cast(
         dict,
@@ -5204,7 +5204,7 @@ def _spend_log_for_call_type(
                 "model": "gpt-4o",
                 "call_type": call_type,
                 "response_cost": 0.0,
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {
                         "user_api_key": "test-key",
                         "internal_call_origin": internal_call_origin,
@@ -5278,21 +5278,21 @@ def test_spend_log_for_response_creation_still_counts_tokens():
     assert payload["total_tokens"] == 6000
 
 
-REDACTED_RESPONSE_PLACEHOLDER: Final = {"text": "redacted-by-litellm"}
+REDACTED_RESPONSE_PLACEHOLDER: Final = {"text": "redacted-by-hangarllm"}
 CONSTANT_ID_FROM_HASHED_PLACEHOLDER: Final = "00fcbef15a3b0097e14b0ca016ed30a0"
 
 
 @pytest.mark.parametrize("call_type", ["aretrieve_batch", "acreate_file"])
 def test_get_spend_logs_id_stays_unique_when_the_response_is_a_redaction_placeholder(call_type):
-    """request_id is the LiteLLM_SpendLogs primary key and the flush inserts with
+    """request_id is the HangarLLM_SpendLogs primary key and the flush inserts with
     skip_duplicates, so two calls must never derive the same id from identical response
     content. Message redaction replaces every body it cannot redact with one fixed
     placeholder, which is what a batch and a file body both become, so hashing the
     response collapsed all of them onto a single id and silently dropped every row
     after the first."""
     suffix = "_batch_cost" if call_type == "aretrieve_batch" else ""
-    first = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"litellm_call_id": "call-id-1"})
-    second = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"litellm_call_id": "call-id-2"})
+    first = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"hangarllm_call_id": "call-id-1"})
+    second = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"hangarllm_call_id": "call-id-2"})
 
     assert first == f"call-id-1{suffix}"
     assert second == f"call-id-2{suffix}"
@@ -5306,7 +5306,7 @@ def test_get_spend_logs_id_prefers_the_response_id_for_batch_and_file_calls(call
     """A batch or file response that survives redaction carries its own id, so the row
     keys off that rather than the per-call id."""
     expected = "batch_abc123_batch_cost" if call_type == "aretrieve_batch" else "batch_abc123"
-    assert get_spend_logs_id(call_type, {"id": "batch_abc123"}, {"litellm_call_id": "call-id-1"}) == expected
+    assert get_spend_logs_id(call_type, {"id": "batch_abc123"}, {"hangarllm_call_id": "call-id-1"}) == expected
 
 
 @pytest.mark.parametrize("status_call_type", ["avideo_status", "video_status"])
@@ -5325,17 +5325,17 @@ def test_get_logging_payload_gives_only_a_charged_video_poll_a_row_of_its_own(st
     a row apart from the create row, which answers with the same video id and would drop it on the
     skip_duplicates insert. A poll that charges nothing keeps the bare id, so it still lands on the
     create row and adds no row of its own."""
-    from litellm.types.videos.main import VideoObject
+    from hangarllm.types.videos.main import VideoObject
 
     video = VideoObject(id="video_abc", object="video", status="completed")
     create, status = (
         get_logging_payload(
             kwargs={
                 "call_type": call_type,
-                "litellm_call_id": call_id,
+                "hangarllm_call_id": call_id,
                 "response_cost": cost,
                 "polled_video_status": "completed",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             },
             response_obj=video,
             start_time=datetime.datetime.now(timezone.utc),
@@ -5353,7 +5353,7 @@ def test_a_video_poll_that_pays_only_its_guardrail_gets_a_row_of_its_own(respons
     """A guardrail charges every poll, so a poll paying only that must neither land on the create row
     nor take the row the video's own charge goes on, either of which the skip_duplicates insert drops."""
     kwargs = {
-        "litellm_call_id": "poll-call-id",
+        "hangarllm_call_id": "poll-call-id",
         "response_cost": response_cost,
         "polled_video_status": "completed",
         "standard_logging_object": {
@@ -5371,17 +5371,17 @@ def test_a_video_poll_that_pays_only_its_guardrail_gets_a_row_of_its_own(respons
 def test_a_finished_batch_retrieve_paying_only_its_guardrail_charges_under_the_batch_row(status):
     """The retrieve that settles a batch charges its whole cost once, guardrails included, so a batch whose own
     cost is $0 must still land on the row that makes its repeat retrieves free."""
-    from litellm.types.utils import LiteLLMBatch
+    from hangarllm.types.utils import HangarLLMBatch
 
     kwargs = {
-        "litellm_call_id": "poll-call-id",
+        "hangarllm_call_id": "poll-call-id",
         "response_cost": 0.01,
         "standard_logging_object": {
             "response_cost": 0.01,
             "guardrail_information": [{"guardrail_name": "priced", "guardrail_cost": 0.01}],
         },
     }
-    polled_batch = LiteLLMBatch(
+    polled_batch = HangarLLMBatch(
         id="batch_abc",
         completion_window="24h",
         created_at=1,
@@ -5396,13 +5396,13 @@ def test_a_finished_batch_retrieve_paying_only_its_guardrail_charges_under_the_b
 
 
 def test_a_video_polled_with_or_without_its_base64_padding_charges_one_row():
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from hangarllm.types.videos.utils import encode_video_id_with_provider
 
     padded = encode_video_id_with_provider("job-1", "custom_video", "deployment-a")
     assert padded.endswith("=")
 
     def row_id(polled_id: str) -> str | None:
-        kwargs = {"response_cost": 0.42, "polled_video_status": "completed", "litellm_params": {"video_id": polled_id}}
+        kwargs = {"response_cost": 0.42, "polled_video_status": "completed", "hangarllm_params": {"video_id": polled_id}}
         return get_spend_logs_id("avideo_status", {"id": "job-1", "status": "completed"}, kwargs)
 
     assert row_id(padded.rstrip("=")) == row_id(padded) == f"{padded}_video_cost"
@@ -5417,8 +5417,8 @@ def test_get_logging_payload_gives_redacted_batch_and_file_rows_distinct_request
             kwargs={
                 "call_type": call_type,
                 "model": model,
-                "litellm_call_id": call_id,
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "hangarllm_call_id": call_id,
+                "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             },
             response_obj=dict(REDACTED_RESPONSE_PLACEHOLDER),
             start_time=datetime.datetime.now(timezone.utc),
@@ -5447,12 +5447,12 @@ def test_get_spend_logs_id_keys_off_batch_identity_when_the_body_was_redacted(ca
     first = get_spend_logs_id(
         call_type,
         dict(REDACTED_RESPONSE_PLACEHOLDER),
-        {"litellm_call_id": "call-id-1", "standard_logging_object": standard_logging_object},
+        {"hangarllm_call_id": "call-id-1", "standard_logging_object": standard_logging_object},
     )
     second = get_spend_logs_id(
         call_type,
         dict(REDACTED_RESPONSE_PLACEHOLDER),
-        {"litellm_call_id": "call-id-2", "standard_logging_object": standard_logging_object},
+        {"hangarllm_call_id": "call-id-2", "standard_logging_object": standard_logging_object},
     )
 
     expected = "batch_abc123_batch_cost" if call_type == "aretrieve_batch" else "batch_abc123"
@@ -5467,7 +5467,7 @@ def test_get_spend_logs_id_separates_distinct_batches_whose_bodies_were_both_red
         get_spend_logs_id(
             "aretrieve_batch",
             dict(REDACTED_RESPONSE_PLACEHOLDER),
-            {"litellm_call_id": f"call-id-{index}", "standard_logging_object": {"id": batch_id}},
+            {"hangarllm_call_id": f"call-id-{index}", "standard_logging_object": {"id": batch_id}},
         )
         for index, batch_id in enumerate(("batch_first", "batch_second"))
     ]
@@ -5490,8 +5490,8 @@ def test_a_background_response_billing_event_writes_a_row_apart_from_the_read_th
             kwargs={
                 "call_type": "aget_responses",
                 "model": "gpt-5.6",
-                "litellm_call_id": call_id,
-                "litellm_params": {"metadata": metadata},
+                "hangarllm_call_id": call_id,
+                "hangarllm_params": {"metadata": metadata},
             },
             response_obj=dict(response),
             start_time=datetime.datetime.now(timezone.utc),
@@ -5509,8 +5509,8 @@ def test_a_read_or_cancel_row_carries_the_id_its_callbacks_logged(call_type: str
         kwargs={
             "call_type": call_type,
             "model": "gpt-5.6",
-            "litellm_call_id": "call-read",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_call_id": "call-read",
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
         response_obj={"id": "resp_logged_by_callbacks", "object": "response", "status": "completed"},
         start_time=datetime.datetime.now(timezone.utc),
@@ -5528,8 +5528,8 @@ def test_a_request_body_cannot_move_its_spend_row_onto_a_background_settlement_i
         "model": "gpt-5.4-mini",
         "input": "hi",
         SETTLES_BACKGROUND_RESPONSE_KWARG: forged_marker,
-        "litellm_call_id": "call-failed",
-        "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+        "hangarllm_call_id": "call-failed",
+        "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
     }
     failed_at: Final = datetime.datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -5550,7 +5550,7 @@ def test_get_spend_logs_id_prefers_the_response_id_over_the_standard_logging_id(
         get_spend_logs_id(
             "acompletion",
             {"id": "chatcmpl-from-response"},
-            {"litellm_call_id": "call-id-1", "standard_logging_object": {"id": "id-from-standard-payload"}},
+            {"hangarllm_call_id": "call-id-1", "standard_logging_object": {"id": "id-from-standard-payload"}},
         )
         == "chatcmpl-from-response"
     )
@@ -5561,11 +5561,11 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
     """A streaming /v1/messages call against a non-Anthropic model is served a msg_ id the
     adapter mints itself, and it is the only request id that call ever shows the caller, so
     GET /spend/logs?request_id=msg_... has to land on the row."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.llms.anthropic.messages.responses_adapters.streaming_iterator import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.llms.anthropic.messages.responses_adapters.streaming_iterator import (
         AnthropicResponsesStreamWrapper,
     )
-    from litellm.types.llms.openai import (
+    from hangarllm.types.llms.openai import (
         ResponseAPIUsage,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -5577,7 +5577,7 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(timezone.utc),
-        litellm_call_id="6825cafe-0000-4000-8000-000000000001",
+        hangarllm_call_id="6825cafe-0000-4000-8000-000000000001",
         function_id="1234",
     )
     logging_obj.optional_params = {}
@@ -5608,7 +5608,7 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
     wrapper = AnthropicResponsesStreamWrapper(
         responses_stream=_responses_stream(),
         model="gpt-5.6",
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
     )
     sse_frames = [frame.decode() async for frame in wrapper.async_anthropic_sse_wrapper()]
 
@@ -5628,8 +5628,8 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
         kwargs={
             "call_type": "anthropic_messages",
             "model": "gpt-5.6",
-            "litellm_call_id": "6825cafe-0000-4000-8000-000000000001",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_call_id": "6825cafe-0000-4000-8000-000000000001",
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
         response_obj=logged_response,
         start_time=datetime.datetime.now(timezone.utc),
@@ -5642,8 +5642,8 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
 async def test_spend_log_request_id_is_untouched_when_no_message_id_was_streamed():
     """Only the bridged streaming adapter mints a msg_ id of its own, so every other
     /v1/messages call must keep the id its own response carried."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.llms.openai import (
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+    from hangarllm.types.llms.openai import (
         ResponseAPIUsage,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -5655,7 +5655,7 @@ async def test_spend_log_request_id_is_untouched_when_no_message_id_was_streamed
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(timezone.utc),
-        litellm_call_id="6825cafe-0000-4000-8000-000000000002",
+        hangarllm_call_id="6825cafe-0000-4000-8000-000000000002",
         function_id="1234",
     )
     logging_obj.optional_params = {}
@@ -5697,11 +5697,11 @@ def test_batch_cost_row_does_not_collide_with_the_batch_creation_row():
     batch was submitted."""
     batch_id = "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDphYmM7bGxtX2JhdGNoX2lkOnh5eg"
 
-    creation_row_id = get_spend_logs_id("acreate_batch", {"id": batch_id}, {"litellm_call_id": "call-create"})
+    creation_row_id = get_spend_logs_id("acreate_batch", {"id": batch_id}, {"hangarllm_call_id": "call-create"})
     cost_row_id = get_spend_logs_id(
         "aretrieve_batch",
         dict(REDACTED_RESPONSE_PLACEHOLDER),
-        {"litellm_call_id": "call-poller", "standard_logging_object": {"id": batch_id}},
+        {"hangarllm_call_id": "call-poller", "standard_logging_object": {"id": batch_id}},
     )
 
     assert creation_row_id == batch_id
@@ -5717,7 +5717,7 @@ def test_batch_cost_row_id_is_stable_across_repeated_accounting():
         get_spend_logs_id(
             "aretrieve_batch",
             dict(REDACTED_RESPONSE_PLACEHOLDER),
-            {"litellm_call_id": f"call-{index}", "standard_logging_object": standard_logging_object},
+            {"hangarllm_call_id": f"call-{index}", "standard_logging_object": standard_logging_object},
         )
         for index in range(2)
     ]
@@ -5748,7 +5748,7 @@ def test_get_logging_payload_failed_request_falls_back_to_standard_logging_paylo
     payload = get_logging_payload(
         kwargs={
             "model": "group-x",
-            "litellm_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
             "standard_logging_object": _make_failed_request_standard_logging_payload(),
         },
         response_obj={},
@@ -5766,7 +5766,7 @@ def test_get_logging_payload_request_kwargs_win_over_standard_logging_payload():
         kwargs={
             "model": "group-y",
             "custom_llm_provider": "anthropic",
-            "litellm_params": {
+            "hangarllm_params": {
                 "api_base": "https://kwargs.example.com",
                 "metadata": {
                     "user_api_key": "test-key",
@@ -5790,7 +5790,7 @@ def test_get_logging_payload_failed_request_without_standard_logging_payload_lea
     payload = get_logging_payload(
         kwargs={
             "model": "group-x",
-            "litellm_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
         },
         response_obj={},
         start_time=datetime.datetime.now(timezone.utc),
@@ -5802,11 +5802,11 @@ def test_get_logging_payload_failed_request_without_standard_logging_payload_lea
     assert payload["custom_llm_provider"] == ""
 
 
-def _router_rejected_failure_payload(model_group: str, llm_router: litellm.Router | None) -> SpendLogsPayload:
+def _router_rejected_failure_payload(model_group: str, llm_router: hangarllm.Router | None) -> SpendLogsPayload:
     return get_logging_payload(
         kwargs={
             "model": model_group,
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"user_api_key": "test-key", "model_group": model_group, "status": "failure"}
             },
         },
@@ -5825,7 +5825,7 @@ def _router_init_provider_stub(
     custom_llm_provider: str | None = None,
     api_base: str | None = None,
     api_key: str | None = None,
-    litellm_params: GenericLiteLLMParams | None = None,
+    hangarllm_params: GenericHangarLLMParams | None = None,
 ) -> _ProviderResolution:
     prefix, _, suffix = model.partition("/")
     return (suffix or model, custom_llm_provider or (prefix if suffix else "openai"), api_base, api_key)
@@ -5837,7 +5837,7 @@ def _oauth_tripwire(resolution_attempts: list[str]) -> Callable[..., _ProviderRe
         custom_llm_provider: str | None = None,
         api_base: str | None = None,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        hangarllm_params: GenericHangarLLMParams | None = None,
     ) -> _ProviderResolution:
         resolution_attempts.append(model)
         raise AssertionError("get_llm_provider would run the OAuth device flow")
@@ -5845,15 +5845,15 @@ def _oauth_tripwire(resolution_attempts: list[str]) -> Callable[..., _ProviderRe
     return _trip
 
 
-def _openai_and_anthropic_router() -> litellm.Router:
-    return litellm.Router(
+def _openai_and_anthropic_router() -> hangarllm.Router:
+    return hangarllm.Router(
         model_list=[
-            {"model_name": "openai-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
-            {"model_name": "openai-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b"}},
-            {"model_name": "mixed-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
+            {"model_name": "openai-group", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
+            {"model_name": "openai-group", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b"}},
+            {"model_name": "mixed-group", "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
             {
                 "model_name": "mixed-group",
-                "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-c"},
+                "hangarllm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-c"},
             },
         ]
     )
@@ -5877,7 +5877,7 @@ def test_get_logging_payload_drops_a_client_model_group_that_is_not_a_string(cli
     payload: Final = get_logging_payload(
         kwargs={
             "model": "embed-only",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"user_api_key": "test-key", "model_group": client_model_group, "status": "failure"}
             },
             "standard_logging_object": {
@@ -5899,20 +5899,20 @@ def test_get_logging_payload_router_rejected_request_without_router_leaves_provi
 
 
 @pytest.mark.parametrize(
-    "litellm_params,expected_provider",
+    "hangarllm_params,expected_provider",
     [
         ({"model": "github_copilot/gpt-4o"}, "github_copilot"),
         ({"model": "gpt-5", "custom_llm_provider": "chatgpt"}, "chatgpt"),
     ],
 )
 def test_get_logging_payload_inferred_provider_never_resolves_declared_authenticating_providers(
-    monkeypatch: pytest.MonkeyPatch, litellm_params: dict[str, str], expected_provider: str
+    monkeypatch: pytest.MonkeyPatch, hangarllm_params: dict[str, str], expected_provider: str
 ):
     resolution_attempts: list[str] = []
 
-    monkeypatch.setattr(litellm, "get_llm_provider", _router_init_provider_stub)
-    llm_router = litellm.Router(model_list=[{"model_name": "oauth-group", "litellm_params": litellm_params}])
-    monkeypatch.setattr(litellm, "get_llm_provider", _oauth_tripwire(resolution_attempts))
+    monkeypatch.setattr(hangarllm, "get_llm_provider", _router_init_provider_stub)
+    llm_router = hangarllm.Router(model_list=[{"model_name": "oauth-group", "hangarllm_params": hangarllm_params}])
+    monkeypatch.setattr(hangarllm, "get_llm_provider", _oauth_tripwire(resolution_attempts))
 
     payload = _router_rejected_failure_payload("oauth-group", llm_router)
 
@@ -5921,33 +5921,33 @@ def test_get_logging_payload_inferred_provider_never_resolves_declared_authentic
 
 
 @pytest.mark.parametrize(
-    "litellm_params",
+    "hangarllm_params",
     [
         {"model": "github_copilot/gpt-4o"},
         {"model": "gpt-5", "custom_llm_provider": "chatgpt"},
         {"model": "openai/gpt-4o-mini", "api_key": "sk-a"},
     ],
 )
-def test_get_logging_payload_inferred_provider_honours_global_litellm_proxy_override(
-    monkeypatch: pytest.MonkeyPatch, litellm_params: dict[str, str]
+def test_get_logging_payload_inferred_provider_honours_global_hangarllm_proxy_override(
+    monkeypatch: pytest.MonkeyPatch, hangarllm_params: dict[str, str]
 ):
-    monkeypatch.setattr(litellm, "get_llm_provider", _router_init_provider_stub)
-    llm_router = litellm.Router(model_list=[{"model_name": "proxied-group", "litellm_params": litellm_params}])
-    monkeypatch.setattr(litellm, "get_llm_provider", _oauth_tripwire([]))
-    monkeypatch.setattr(litellm, "use_litellm_proxy", True)
+    monkeypatch.setattr(hangarllm, "get_llm_provider", _router_init_provider_stub)
+    llm_router = hangarllm.Router(model_list=[{"model_name": "proxied-group", "hangarllm_params": hangarllm_params}])
+    monkeypatch.setattr(hangarllm, "get_llm_provider", _oauth_tripwire([]))
+    monkeypatch.setattr(hangarllm, "use_hangarllm_proxy", True)
 
     payload = _router_rejected_failure_payload("proxied-group", llm_router)
 
-    assert payload["custom_llm_provider"] == "litellm_proxy"
+    assert payload["custom_llm_provider"] == "hangarllm_proxy"
 
 
 def test_get_logging_payload_router_rejected_request_for_unresolvable_deployment_leaves_provider_empty(
     monkeypatch: pytest.MonkeyPatch,
 ):
     with monkeypatch.context() as router_init:
-        router_init.setattr(litellm, "get_llm_provider", _router_init_provider_stub)
-        llm_router = litellm.Router(
-            model_list=[{"model_name": "opaque-group", "litellm_params": {"model": "my-unprefixed-model"}}]
+        router_init.setattr(hangarllm, "get_llm_provider", _router_init_provider_stub)
+        llm_router = hangarllm.Router(
+            model_list=[{"model_name": "opaque-group", "hangarllm_params": {"model": "my-unprefixed-model"}}]
         )
 
     payload = _router_rejected_failure_payload("opaque-group", llm_router)
@@ -5957,18 +5957,18 @@ def test_get_logging_payload_router_rejected_request_for_unresolvable_deployment
 
 
 def test_get_logging_payload_inferred_provider_does_not_rewrite_spend_log_model():
-    llm_router = litellm.Router(
+    llm_router = hangarllm.Router(
         model_list=[
             {
                 "model_name": "bedrock-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
                     "aws_region_name": "us-east-1",
                 },
             },
             {
                 "model_name": "bedrock-group",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
                     "aws_region_name": "us-west-2",
                 },
@@ -5986,7 +5986,7 @@ def test_get_logging_payload_logged_provider_wins_over_model_group_provider():
     payload = get_logging_payload(
         kwargs={
             "model": "openai-group",
-            "litellm_params": {"metadata": {"user_api_key": "test-key", "model_group": "openai-group"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key", "model_group": "openai-group"}},
             "standard_logging_object": {
                 **_make_failed_request_standard_logging_payload(),
                 "model_group": "openai-group",
@@ -6004,7 +6004,7 @@ def test_get_logging_payload_logged_provider_wins_over_model_group_provider():
 
 class _ModelRouterSpendLogKwargs(TypedDict):
     model: ReadOnly[str]
-    litellm_params: ReadOnly[dict[str, dict[str, str]]]
+    hangarllm_params: ReadOnly[dict[str, dict[str, str]]]
     standard_logging_object: ReadOnly[StandardLoggingPayload]
 
 
@@ -6021,7 +6021,7 @@ def _model_router_spend_log_kwargs(slp_model: str | None) -> _ModelRouterSpendLo
     )
     return {
         "model": "azure_ai/model_router/model-router",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test-key"}},
+        "hangarllm_params": {"metadata": {"user_api_key": "sk-test-key"}},
         "standard_logging_object": standard_logging_payload,
     }
 
@@ -6046,14 +6046,14 @@ def test_get_logging_payload_falls_back_to_kwargs_model_when_slp_model_missing()
     assert payload["model"] == "azure_ai/model_router/model-router"
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("hangarllm.proxy.proxy_server.master_key", None)
+@patch("hangarllm.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_empty_key_slp_none_is_empty_string_not_none_literal():
     kwargs = {
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key_user_id": "test_user",
             }
@@ -6099,14 +6099,14 @@ def test_get_logging_payload_stores_user_email_in_spend_log_metadata(user_email,
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_user_email": user_email,
                     "user_api_key_user_id": "okta|abc123",
                 }
             },
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-user-email", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-user-email", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6149,10 +6149,10 @@ def test_autorouter_savings_flow_from_logging_payload_into_spend_log_metadata():
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             "standard_logging_object": {"autorouter_savings": 0.42, "metadata": {}, "model_map_information": None},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-ar-savings", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-ar-savings", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6160,7 +6160,7 @@ def test_autorouter_savings_flow_from_logging_payload_into_spend_log_metadata():
     assert metadata["autorouter_savings"] == 0.42
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "hangarllm_metadata"])
 def test_caller_forged_autorouter_savings_is_discarded(bucket):
     """The raw request bucket is client-writable and _get_spend_logs_metadata projects
     every SpendLogsMetadata key from it, so the logging payload's value must overwrite
@@ -6168,9 +6168,9 @@ def test_caller_forged_autorouter_savings_is_discarded(bucket):
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {bucket: {"user_api_key": "test-key", "autorouter_savings": 999.0}},
+            "hangarllm_params": {bucket: {"user_api_key": "test-key", "autorouter_savings": 999.0}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-forged-savings", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-forged-savings", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6185,7 +6185,7 @@ def test_get_logging_payload_includes_fallback_info_in_spend_logs_metadata():
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
                 "attempted_fallbacks": 2,
@@ -6238,10 +6238,10 @@ def test_get_logging_payload_includes_fallback_info_in_spend_logs_metadata():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                hangarllm_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                hangarllm_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -6283,7 +6283,7 @@ def test_get_logging_payload_handles_missing_fallback_info_gracefully():
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -6334,10 +6334,10 @@ def test_get_logging_payload_handles_missing_fallback_info_gracefully():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                hangarllm_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                hangarllm_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -6369,31 +6369,31 @@ def test_get_logging_payload_handles_missing_fallback_info_gracefully():
     assert metadata.get("original_model_group") is None, "original_model_group should be None when not provided"
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "hangarllm_metadata"])
 def test_injected_cache_breakpoints_survive_into_spend_log_metadata(bucket):
     """The injection marker only gates savings if it reaches the spend-log row.
 
     _get_spend_logs_metadata projects onto SpendLogsMetadata.__annotations__, so an
     undeclared key is dropped silently. Both buckets are covered because chat routes
-    stamp metadata while /v1/messages routes stamp litellm_metadata, and
+    stamp metadata while /v1/messages routes stamp hangarllm_metadata, and
     record_gateway_injection writes into whichever the request carries.
     """
     payload = get_logging_payload(
         kwargs={
             "model": "claude-sonnet-5",
-            "litellm_params": {
+            "hangarllm_params": {
                 bucket: {
                     "user_api_key": "test-key",
-                    "litellm_gateway_injected_cache": "dep-of-this-row",
+                    "hangarllm_gateway_injected_cache": "dep-of-this-row",
                 }
             },
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-injected", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-injected", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
     metadata = json.loads(payload["metadata"])
-    assert metadata["litellm_gateway_injected_cache"] == "dep-of-this-row"
+    assert metadata["hangarllm_gateway_injected_cache"] == "dep-of-this-row"
 
 
 def test_passthrough_caching_carries_no_injection_marker():
@@ -6402,22 +6402,22 @@ def test_passthrough_caching_carries_no_injection_marker():
     payload = get_logging_payload(
         kwargs={
             "model": "claude-sonnet-5",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-passthrough", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-passthrough", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
     metadata = json.loads(payload["metadata"])
-    assert metadata["litellm_gateway_injected_cache"] is None
+    assert metadata["hangarllm_gateway_injected_cache"] is None
 
 
 def _routed_call_kwargs(model_info: Mapping[str, object]) -> dict[str, object]:
     return {
         "model": "claude-haiku-4-5",
         "custom_llm_provider": "azure_ai",
-        "litellm_call_id": "router-corr-123",
-        "litellm_params": {
+        "hangarllm_call_id": "router-corr-123",
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "test-key",
                 "model_group": "internal-router/gpt-5.4",
@@ -6433,7 +6433,7 @@ def test_router_metadata_stamped_for_internal_router_model_deployment():
     block correlating the requested model group with the selected deployment."""
     payload = get_logging_payload(
         kwargs=_routed_call_kwargs({"id": "mi-1", "internal_router_model": True}),
-        response_obj=litellm.ModelResponse(id="chatcmpl-router-meta", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-router-meta", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6449,7 +6449,7 @@ def test_router_metadata_stamped_for_internal_router_model_deployment():
 def test_router_metadata_absent_without_internal_router_model_flag():
     payload = get_logging_payload(
         kwargs=_routed_call_kwargs({"id": "mi-1"}),
-        response_obj=litellm.ModelResponse(id="chatcmpl-unflagged", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-unflagged", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6457,7 +6457,7 @@ def test_router_metadata_absent_without_internal_router_model_flag():
     assert metadata["router_metadata"] is None
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "hangarllm_metadata"])
 def test_caller_forged_router_metadata_is_discarded(bucket):
     """The raw request bucket is client-writable and _get_spend_logs_metadata projects
     every SpendLogsMetadata key from it, so the server-derived value must overwrite
@@ -6465,14 +6465,14 @@ def test_caller_forged_router_metadata_is_discarded(bucket):
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {
+            "hangarllm_params": {
                 bucket: {
                     "user_api_key": "test-key",
                     "router_metadata": {"requested_model": "forged", "router_correlation_id": "forged-id"},
                 }
             },
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-forged-router-meta", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-forged-router-meta", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6507,7 +6507,7 @@ ANTHROPIC_MESSAGES_SSE_CHUNKS: Final = (
 
 
 def _anthropic_messages_logging_obj(*, stream: bool) -> Any:
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
 
     logging_obj = Logging(
         model="claude-haiku-4-5",
@@ -6515,7 +6515,7 @@ def _anthropic_messages_logging_obj(*, stream: bool) -> Any:
         stream=stream,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(timezone.utc),
-        litellm_call_id="6806cafe-0000-4000-8000-000000000001",
+        hangarllm_call_id="6806cafe-0000-4000-8000-000000000001",
         function_id="1234",
     )
     logging_obj.optional_params = {}
@@ -6549,8 +6549,8 @@ def test_spend_log_request_id_is_the_message_id_a_non_streaming_messages_caller_
             kwargs={
                 "call_type": "anthropic_messages",
                 "model": "claude-haiku-4-5",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000001",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "hangarllm_call_id": "6806cafe-0000-4000-8000-000000000001",
+                "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "msg_01Lit6806NonStreaming"
@@ -6560,18 +6560,18 @@ def test_spend_log_request_id_is_the_message_id_a_non_streaming_messages_caller_
 def test_spend_log_request_id_is_the_message_id_a_streaming_messages_caller_received():
     """
     The streaming leg of /v1/messages logs through the Anthropic passthrough handler, which used
-    to stamp litellm_call_id over the msg_ id carried by the message_start event.
+    to stamp hangarllm_call_id over the msg_ id carried by the message_start event.
     """
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+    from hangarllm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
     logging_obj = _anthropic_messages_logging_obj(stream=True)
     logging_obj.model_call_details["stream"] = True
 
     logged = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-        litellm_logging_obj=logging_obj,
+        hangarllm_logging_obj=logging_obj,
         passthrough_success_handler_obj=MagicMock(),
         url_route="/v1/messages",
         request_body={"model": "claude-haiku-4-5"},
@@ -6588,28 +6588,28 @@ def test_spend_log_request_id_is_the_message_id_a_streaming_messages_caller_rece
             kwargs={
                 **logged["kwargs"],
                 "call_type": "anthropic_messages",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000001",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "hangarllm_call_id": "6806cafe-0000-4000-8000-000000000001",
+                "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "msg_01Lit6806Streaming"
     )
 
 
-def test_spend_log_request_id_still_falls_back_to_litellm_call_id_without_a_provider_id():
+def test_spend_log_request_id_still_falls_back_to_hangarllm_call_id_without_a_provider_id():
     """
-    Anthropic-compatible upstreams that omit `id` must keep landing on litellm_call_id rather
+    Anthropic-compatible upstreams that omit `id` must keep landing on hangarllm_call_id rather
     than on a fresh chatcmpl- uuid nobody can look up.
     """
     logging_obj = _anthropic_messages_logging_obj(stream=True)
     logging_obj.model_call_details["stream"] = True
 
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from hangarllm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
 
     AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-        litellm_model_response=litellm.ModelResponse(id="chatcmpl-generated"),
+        hangarllm_model_response=hangarllm.ModelResponse(id="chatcmpl-generated"),
         model="claude-haiku-4-5",
         kwargs={},
         start_time=datetime.datetime.now(timezone.utc),
@@ -6625,12 +6625,12 @@ def test_spend_log_request_id_for_chat_completions_is_untouched():
     """
     assert (
         _spend_log_request_id(
-            response_obj=litellm.ModelResponse(id="chatcmpl-EJvWIw3DAhuKYuwp3jJI4Pnhp2vjv", choices=[]),
+            response_obj=hangarllm.ModelResponse(id="chatcmpl-EJvWIw3DAhuKYuwp3jJI4Pnhp2vjv", choices=[]),
             kwargs={
                 "call_type": "acompletion",
                 "model": "gpt-5.6",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000002",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "hangarllm_call_id": "6806cafe-0000-4000-8000-000000000002",
+                "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "chatcmpl-EJvWIw3DAhuKYuwp3jJI4Pnhp2vjv"
@@ -6642,7 +6642,7 @@ def test_spend_log_request_id_is_the_response_id_a_bridged_messages_caller_recei
     /v1/messages against a non-Anthropic model answers with the Responses id the caller then
     looks their row up by, so the row must not fall back to a fresh chatcmpl- uuid.
     """
-    from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+    from hangarllm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
     logging_obj = _anthropic_messages_logging_obj(stream=False)
     bridged_response = ResponsesAPIResponse(
@@ -6672,8 +6672,8 @@ def test_spend_log_request_id_is_the_response_id_a_bridged_messages_caller_recei
             kwargs={
                 "call_type": "anthropic_messages",
                 "model": "gpt-5.6",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000003",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "hangarllm_call_id": "6806cafe-0000-4000-8000-000000000003",
+                "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "resp_01Lit6806Bridged"
@@ -6686,7 +6686,7 @@ def test_failed_agent_request_keeps_registered_display_name():
         kwargs={
             "model": agent_model,
             "call_type": "asend_message",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {"model_group": agent_model, "model_info": {"id": "registered-agent"}, "status": "failure"}
             },
         },
@@ -6719,9 +6719,9 @@ def test_get_logging_payload_attributes_a_cli_session_to_its_alias(call_type: st
             "call_type": call_type,
             "model": "gpt-5.4-nano",
             "response_cost": 0.00001,
-            "litellm_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_ALIAS)},
+            "hangarllm_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_ALIAS)},
         },
-        response_obj=litellm.ModelResponse(id=f"{call_type}-1", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id=f"{call_type}-1", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6737,9 +6737,9 @@ def test_get_logging_payload_never_lands_a_raw_cli_session_token(call_type: str)
         kwargs={
             "call_type": call_type,
             "model": "gpt-5.4-nano",
-            "litellm_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_TOKEN)},
+            "hangarllm_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_TOKEN)},
         },
-        response_obj=litellm.ModelResponse(id=f"{call_type}-2", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id=f"{call_type}-2", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6768,7 +6768,7 @@ def test_azure_spillover_stamped_from_response_headers():
     }
     payload = get_logging_payload(
         kwargs=kwargs,
-        response_obj=litellm.ModelResponse(id="chatcmpl-spill-raw", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-spill-raw", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6793,7 +6793,7 @@ def test_azure_spillover_stamped_from_standard_logging_additional_headers():
     }
     payload = get_logging_payload(
         kwargs=kwargs,
-        response_obj=litellm.ModelResponse(id="chatcmpl-spill-sl", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-spill-sl", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6804,7 +6804,7 @@ def test_azure_spillover_stamped_from_standard_logging_additional_headers():
 def test_azure_spillover_absent_without_spillover_headers():
     payload = get_logging_payload(
         kwargs=_routed_call_kwargs({"id": "mi-1"}),
-        response_obj=litellm.ModelResponse(id="chatcmpl-no-spill", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-no-spill", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -6830,7 +6830,7 @@ def test_baseline_estimate_metadata_comes_from_the_logging_stamp() -> None:
 def test_untrusted_agent_label_cannot_replace_verified_billing_identity(billing_agent: str | None) -> None:
     kwargs = {
         "model": "gpt-4",
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_api_key": "test-key",
                 "agent_id": "header-selected-agent",
@@ -6914,7 +6914,7 @@ def test_spend_log_row_include_keeps_listed_and_always_kept_fields() -> None:
 def test_spend_logs_metadata_fields_rejects_ambiguous_or_lossy_config(configured: dict[str, list[str]]) -> None:
     from pydantic import ValidationError
 
-    from litellm.proxy._types import ConfigGeneralSettings
+    from hangarllm.proxy._types import ConfigGeneralSettings
 
     with pytest.raises(ValidationError):
         ConfigGeneralSettings.model_validate({"spend_logs_metadata_fields": configured})
@@ -6922,12 +6922,12 @@ def test_spend_logs_metadata_fields_rejects_ambiguous_or_lossy_config(configured
 
 def test_configured_spend_logs_metadata_fields_ignores_invalid_runtime_value() -> None:
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"spend_logs_metadata_fields": {"include": ["usage_object"], "exclude": ["status"]}},
     ):
         assert configured_spend_logs_metadata_fields() is None
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "hangarllm.proxy.proxy_server.general_settings",
         {"spend_logs_metadata_fields": {"exclude": ["model_map_information"]}},
     ):
         assert configured_spend_logs_metadata_fields() == SpendLogsMetadataFields(exclude=("model_map_information",))
@@ -6963,14 +6963,14 @@ class _LoggingMetadata(TypedDict, total=False):
     user_api_key_team_id: ReadOnly[str]
 
 
-class _LoggingLitellmParams(TypedDict, total=False):
+class _LoggingHangarllmParams(TypedDict, total=False):
     metadata: ReadOnly[_LoggingMetadata]
 
 
 class _LoggingKwargs(TypedDict):
     model: ReadOnly[str]
     call_type: ReadOnly[str]
-    litellm_params: ReadOnly[_LoggingLitellmParams]
+    hangarllm_params: ReadOnly[_LoggingHangarllmParams]
     response_cost: ReadOnly[float]
 
 
@@ -6992,7 +6992,7 @@ def _ocr_logging_kwargs(call_type: str = "ocr", metadata: _LoggingMetadata | Non
     return _LoggingKwargs(
         model="test-ocr-model",
         call_type=call_type,
-        litellm_params=_LoggingLitellmParams() if metadata is None else _LoggingLitellmParams(metadata=metadata),
+        hangarllm_params=_LoggingHangarllmParams() if metadata is None else _LoggingHangarllmParams(metadata=metadata),
         response_cost=_OCR_RESPONSE_COST,
     )
 
@@ -7125,7 +7125,7 @@ class TestGetLoggingPayloadOCR:
     def test_non_ocr_call_uses_token_based_usage(self) -> None:
         payload: Final = _ocr_payload(
             _LoggingKwargs(
-                model="gpt-5.5", call_type="completion", litellm_params=_LoggingLitellmParams(), response_cost=0.02
+                model="gpt-5.5", call_type="completion", hangarllm_params=_LoggingHangarllmParams(), response_cost=0.02
             ),
             {
                 "id": "completion-test-123",
@@ -7185,7 +7185,7 @@ def test_spend_logs_payload(model_id: str | None):
             "user": "116544810872468347480",
             "extra_body": {},
         },
-        "litellm_params": {
+        "hangarllm_params": {
             "acompletion": True,
             "api_key": "sk-test-mock-key-707",
             "force_timeout": 600,
@@ -7193,7 +7193,7 @@ def test_spend_logs_payload(model_id: str | None):
             "verbose": False,
             "custom_llm_provider": "azure",
             "api_base": "https://openai-gpt-4-test-v-1.openai.azure.com//openai/",
-            "litellm_call_id": "b9929bf6-7b80-4c8c-b486-034e6ac0c8b7",
+            "hangarllm_call_id": "b9929bf6-7b80-4c8c-b486-034e6ac0c8b7",
             "model_alias_map": {},
             "completion_call_id": None,
             "metadata": {
@@ -7201,7 +7201,7 @@ def test_spend_logs_payload(model_id: str | None):
                 "user_api_key": "sk-test-mock-api-key-123",
                 "user_api_key_alias": "custom-key-alias",
                 "user_api_end_user_max_budget": None,
-                "litellm_api_version": "0.0.0",
+                "hangarllm_api_version": "0.0.0",
                 "global_max_parallel_requests": None,
                 "user_api_key_user_id": "116544810872468347480",
                 "user_api_key_org_id": "custom-org-id",
@@ -7232,7 +7232,7 @@ def test_spend_logs_payload(model_id: str | None):
                 "error_information": None,
                 "status": "success",
                 "proxy_server_request": "{}",
-                "raw_request": "\n\nPOST Request Sent from LiteLLM:\ncurl -X POST \\\nhttps://openai-gpt-4-test-v-1.openai.azure.com//openai/ \\\n-H 'Authorization: *****' \\\n-d '{'model': 'chatgpt-v-3', 'messages': [{'role': 'system', 'content': 'you are a helpful assistant.\\n'}, {'role': 'user', 'content': 'bom dia'}], 'stream': False, 'max_tokens': 10, 'user': '116544810872468347480', 'extra_body': {}}'\n",
+                "raw_request": "\n\nPOST Request Sent from HangarLLM:\ncurl -X POST \\\nhttps://openai-gpt-4-test-v-1.openai.azure.com//openai/ \\\n-H 'Authorization: *****' \\\n-d '{'model': 'chatgpt-v-3', 'messages': [{'role': 'system', 'content': 'you are a helpful assistant.\\n'}, {'role': 'user', 'content': 'bom dia'}], 'stream': False, 'max_tokens': 10, 'user': '116544810872468347480', 'extra_body': {}}'\n",
             },
             "model_info": {
                 "id": "4bad40a1eb6bebd1682800f16f44b9f06c52a6703444c99c7f9f32e9de3693b4",
@@ -7275,7 +7275,7 @@ def test_spend_logs_payload(model_id: str | None):
         "stream": False,
         "user": "116544810872468347480",
         "call_type": "acompletion",
-        "litellm_call_id": "b9929bf6-7b80-4c8c-b486-034e6ac0c8b7",
+        "hangarllm_call_id": "b9929bf6-7b80-4c8c-b486-034e6ac0c8b7",
         "completion_start_time": datetime.datetime(2024, 6, 7, 12, 43, 30, 954146),
         "max_tokens": 10,
         "extra_body": {},
@@ -7316,20 +7316,20 @@ def test_spend_logs_payload(model_id: str | None):
             },
         },
     }
-    response_obj: Final = litellm.ModelResponse(
+    response_obj: Final = hangarllm.ModelResponse(
         id=model_id,
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 finish_reason="length",
                 index=0,
-                message=litellm.Message(content="Bom dia! Como posso ajudar você", role="assistant"),
+                message=hangarllm.Message(content="Bom dia! Como posso ajudar você", role="assistant"),
             )
         ],
         created=1717789410,
         model="gpt-35-turbo",
         object="chat.completion",
         system_fingerprint=None,
-        usage=litellm.Usage(completion_tokens=10, prompt_tokens=20, total_tokens=30),
+        usage=hangarllm.Usage(completion_tokens=10, prompt_tokens=20, total_tokens=30),
     )
 
     payload: Final[SpendLogsPayload] = get_logging_payload(
@@ -7365,14 +7365,14 @@ def test_spend_logs_payload_whisper():
         "model": "whisper-1",
         "messages": [{"role": "user", "content": "audio_file"}],
         "optional_params": {},
-        "litellm_params": {
+        "hangarllm_params": {
             "api_base": "",
             "metadata": {
                 "user_api_key": "sk-test-mock-api-key-123",
                 "user_api_key_alias": None,
                 "user_api_key_end_user_id": "test-user",
                 "user_api_end_user_max_budget": None,
-                "litellm_api_version": "1.40.19",
+                "hangarllm_api_version": "1.40.19",
                 "global_max_parallel_requests": None,
                 "user_api_key_user_id": "default_user_id",
                 "user_api_key_org_id": None,
@@ -7391,7 +7391,7 @@ def test_spend_logs_payload_whisper():
                     "content-type": "multipart/form-data; boundary=------------------------21d518e191326d20",
                 },
                 "endpoint": "http://localhost:4000/v1/audio/transcriptions",
-                "litellm_parent_otel_span": None,
+                "hangarllm_parent_otel_span": None,
                 "model_group": "whisper-1",
                 "deployment": "whisper-1",
                 "model_info": {
@@ -7405,7 +7405,7 @@ def test_spend_logs_payload_whisper():
         "stream": False,
         "user": "",
         "call_type": "atranscription",
-        "litellm_call_id": "05921cf7-33f9-421c-aad9-33310c1e2702",
+        "hangarllm_call_id": "05921cf7-33f9-421c-aad9-33310c1e2702",
         "completion_start_time": datetime.datetime(2024, 6, 26, 14, 20, 13, 653149),
         "stream_options": None,
         "input": "tmp-requestc8640aee-7d85-49c3-b3ef-bdc9255d8e37.wav",
@@ -7426,7 +7426,7 @@ def test_spend_logs_payload_whisper():
         "response_cost": 0.00023398580000000003,
     }
 
-    response: Final = litellm.utils.TranscriptionResponse(
+    response: Final = hangarllm.utils.TranscriptionResponse(
         text="Four score and seven years ago, our fathers brought forth on this continent a new nation, conceived in liberty and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure."
     )
 
@@ -7442,14 +7442,14 @@ def test_spend_logs_payload_whisper():
 
 
 def test_spend_logs_payload_with_prompts_enabled(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "store_prompts_in_spend_logs", True)
 
     kwargs: Final = {
         "model": "gpt-5-mini",
         "messages": [{"role": "user", "content": "Hello!"}],
-        "litellm_params": {
+        "hangarllm_params": {
             "proxy_server_request": {
                 "body": {
                     "model": "gpt-5.5",
@@ -7470,17 +7470,17 @@ def test_spend_logs_payload_with_prompts_enabled(monkeypatch: pytest.MonkeyPatch
             },
         },
     }
-    response_obj: Final = litellm.ModelResponse(
+    response_obj: Final = hangarllm.ModelResponse(
         id="chatcmpl-123",
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 finish_reason="stop",
                 index=0,
-                message=litellm.Message(content="Hi there!", role="assistant"),
+                message=hangarllm.Message(content="Hi there!", role="assistant"),
             )
         ],
         model="gpt-5-mini",
-        usage=litellm.Usage(completion_tokens=2, prompt_tokens=1, total_tokens=3),
+        usage=hangarllm.Usage(completion_tokens=2, prompt_tokens=1, total_tokens=3),
     )
     logged_at: Final = datetime.datetime(2026, 1, 15, 12, 0, 0)
 
@@ -7518,7 +7518,7 @@ def _user_turn(text: str) -> list[dict[str, str]]:
 
 def _stored_request_json(body: Mapping[str, object]) -> str:
     return _get_proxy_server_request_for_spend_logs_payload(
-        metadata={}, litellm_params={"proxy_server_request": {"body": body}}
+        metadata={}, hangarllm_params={"proxy_server_request": {"body": body}}
     )
 
 
@@ -7626,7 +7626,7 @@ _STATELESS_CASES: Final[tuple[tuple[dict[str, object], dict[str, object]], ...]]
 def test_latest_turn_mode_stores_only_the_model_and_the_latest_user_text_of_a_stateless_request(
     monkeypatch: pytest.MonkeyPatch, body: Mapping[str, object], expected: dict[str, object]
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", _LATEST_TURN_SETTINGS)
     assert _stored_request(body) == expected
@@ -7648,7 +7648,7 @@ _NATIVE_RESPONSES_PAYLOAD: Final = {"call_type": "aresponses", "response": {"obj
 def test_latest_turn_mode_keeps_the_whole_request_when_a_responses_call_continues_a_stored_conversation(
     monkeypatch: pytest.MonkeyPatch, body: Mapping[str, object]
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", _LATEST_TURN_SETTINGS)
     assert _stored_request_with_payload(body, _NATIVE_RESPONSES_PAYLOAD) == body
@@ -7682,7 +7682,7 @@ def test_latest_turn_mode_keeps_the_whole_request_when_a_responses_call_continue
 def test_latest_turn_mode_trims_a_request_whose_continuation_keys_are_not_on_a_responses_call(
     monkeypatch: pytest.MonkeyPatch, body: Mapping[str, object], call_type: str | None, expected: dict[str, object]
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", _LATEST_TURN_SETTINGS)
     standard_payload: Final = {"call_type": call_type, "response": {"choices": [{"message": {"content": "a"}}]}}
@@ -7700,7 +7700,7 @@ def _stored_request_with_payload(body: Mapping[str, object], standard_payload: M
     return _STORED_JSON.validate_json(
         _get_proxy_server_request_for_spend_logs_payload(
             metadata={},
-            litellm_params={"proxy_server_request": {"body": body}},
+            hangarllm_params={"proxy_server_request": {"body": body}},
             kwargs={"standard_logging_object": standard_payload},
         )
     )
@@ -7727,7 +7727,7 @@ def _stored_request_with_payload(body: Mapping[str, object], standard_payload: M
 def test_latest_turn_mode_keeps_the_whole_request_of_a_responses_turn_served_by_the_chat_bridge(
     monkeypatch: pytest.MonkeyPatch, standard_payload: Mapping[str, object], expected: dict[str, object]
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", _LATEST_TURN_SETTINGS)
     assert _stored_request_with_payload(_BRIDGED_RESPONSES_BODY, standard_payload) == expected
@@ -7736,7 +7736,7 @@ def test_latest_turn_mode_keeps_the_whole_request_of_a_responses_turn_served_by_
 def test_latest_turn_mode_stores_a_classifier_row_as_the_trimmed_originating_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     originating: Final = {
         "model": "gpt-4o-mini",
@@ -7768,7 +7768,7 @@ def test_latest_turn_mode_stores_a_classifier_row_as_the_trimmed_originating_req
 
 
 def test_latest_turn_mode_keeps_message_redaction_on_a_classifier_row(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     originating: Final = {
         "model": "gpt-4o-mini",
@@ -7788,7 +7788,7 @@ def test_latest_turn_mode_keeps_message_redaction_on_a_classifier_row(monkeypatc
     stored: Final = json.loads(
         _get_proxy_server_request_for_spend_logs_payload(
             metadata={},
-            litellm_params={"proxy_server_request": {"body": classifier_body}},
+            hangarllm_params={"proxy_server_request": {"body": classifier_body}},
             kwargs={
                 "standard_logging_object": standard_payload,
                 "standard_callback_dynamic_params": {"turn_off_message_logging": True},
@@ -7803,7 +7803,7 @@ def test_latest_turn_mode_keeps_message_redaction_on_a_classifier_row(monkeypatc
 def test_latest_turn_mode_ignores_an_originating_request_supplied_by_the_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     body: Final = {
         "model": "gpt-4o-mini",
@@ -7819,8 +7819,8 @@ def test_latest_turn_mode_ignores_an_originating_request_supplied_by_the_client(
 
 
 def test_latest_turn_mode_redacts_a_copy_of_the_vector_store_search_results(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_vector_store_request_for_spend_logs_payload
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.spend_tracking.spend_tracking_utils import _get_vector_store_request_for_spend_logs_payload
 
     shared: Final = [
         {
@@ -7839,7 +7839,7 @@ def test_latest_turn_mode_redacts_a_copy_of_the_vector_store_search_results(monk
 def test_spend_logs_prompt_storage_rejects_values_other_than_latest_turn(value: object) -> None:
     from pydantic import ValidationError
 
-    from litellm.proxy._types import ConfigGeneralSettings
+    from hangarllm.proxy._types import ConfigGeneralSettings
 
     assert ConfigGeneralSettings.model_validate({"spend_logs_prompt_storage": "latest_turn"}).spend_logs_prompt_storage
     with pytest.raises(ValidationError):
@@ -7847,19 +7847,19 @@ def test_spend_logs_prompt_storage_rejects_values_other_than_latest_turn(value: 
 
 
 def test_latest_turn_mode_keeps_the_existing_string_cap(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.delenv("MAX_STRING_LENGTH_PROMPT_IN_DB", raising=False)
     chat_body: Final = {"messages": [{"role": "user", "content": "a" * 1500 + "b" * 1500}]}
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     capped_content: Final = _FULL_CHAT_ROW.validate_json(_stored_request_json(chat_body))["messages"][0]["content"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in capped_content, capped_content
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in capped_content, capped_content
     monkeypatch.setattr(proxy_server, "general_settings", _LATEST_TURN_SETTINGS)
     assert _stored_request(chat_body) == {"messages": _user_turn(capped_content)}
 
 
 def test_latest_turn_mode_keeps_the_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     payload: Final = cast(StandardLoggingPayload, {"response": {"choices": [{"message": {"content": "answer"}}]}})
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
@@ -7870,7 +7870,7 @@ def test_latest_turn_mode_keeps_the_response(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_latest_turn_mode_keeps_prompt_text_out_of_spend_log_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     prompt: Final = "earlier turn the row must not keep"
     guardrail_information: Final = cast(
@@ -7907,7 +7907,7 @@ def test_latest_turn_mode_keeps_prompt_text_out_of_spend_log_metadata(monkeypatc
 
 
 def test_latest_turn_mode_unset_stores_the_full_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     body: Final = {"messages": [*_PRIOR_CHAT_TURNS, {"role": "user", "content": "latest"}]}
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
@@ -7938,7 +7938,7 @@ def test_requester_ip_address_logging_disabled_reads_the_setting_as_the_settings
     configured: object, disabled: bool
 ) -> None:
     with patch(  # test-quality-ok: general_settings is proxy config, loaded from yaml, not an HTTP boundary
-        "litellm.proxy.proxy_server.general_settings", {"disable_requester_ip_address_logging": configured}
+        "hangarllm.proxy.proxy_server.general_settings", {"disable_requester_ip_address_logging": configured}
     ):
         assert requester_ip_address_logging_disabled() is disabled
 
@@ -7952,7 +7952,7 @@ def _request_ip_metadata() -> dict[str, object]:
         "error_information": {
             "error_code": "403",
             "error_message": "Access forbidden: IP address 203.0.113.9 not allowed.",
-            "traceback": "HTTPException: client 2001:db8::9 via 198.51.100.7 denied at 12:30:45 (litellm_settings::modify_params, qwen2.5.1.5b)",
+            "traceback": "HTTPException: client 2001:db8::9 via 198.51.100.7 denied at 12:30:45 (hangarllm_settings::modify_params, qwen2.5.1.5b)",
         },
     }
 
@@ -7961,7 +7961,7 @@ def _request_ip_kwargs(request_metadata: dict[str, object]) -> dict[str, object]
     return {
         "model": "gpt-5-mini",
         "messages": [{"role": "user", "content": "Hello!"}],
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": request_metadata,
             "proxy_server_request": {
                 "body": {
@@ -7987,13 +7987,13 @@ def _request_ip_kwargs(request_metadata: dict[str, object]) -> dict[str, object]
             False,
             "203.0.113.9",
             "Access forbidden: IP address 203.0.113.9 not allowed.",
-            "HTTPException: client 2001:db8::9 via 198.51.100.7 denied at 12:30:45 (litellm_settings::modify_params, qwen2.5.1.5b)",
+            "HTTPException: client 2001:db8::9 via 198.51.100.7 denied at 12:30:45 (hangarllm_settings::modify_params, qwen2.5.1.5b)",
         ),
         (
             True,
             None,
             "Access forbidden: IP address REDACTED_BY_LITELM not allowed.",
-            "HTTPException: client REDACTED_BY_LITELM via REDACTED_BY_LITELM denied at 12:30:45 (litellm_settings::modify_params, qwen2.5.1.5b)",
+            "HTTPException: client REDACTED_BY_LITELM via REDACTED_BY_LITELM denied at 12:30:45 (hangarllm_settings::modify_params, qwen2.5.1.5b)",
         ),
     ],
     ids=["setting-off", "setting-on"],
@@ -8001,7 +8001,7 @@ def _request_ip_kwargs(request_metadata: dict[str, object]) -> dict[str, object]
 def test_spend_logs_payload_keeps_no_requester_ip_address_when_ip_logging_is_disabled(
     monkeypatch: pytest.MonkeyPatch, disabled: bool, recorded_ip: str | None, error_message: str, traceback: str
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "store_prompts_in_spend_logs", True)
     monkeypatch.setitem(general_settings, "disable_requester_ip_address_logging", disabled)
@@ -8010,7 +8010,7 @@ def test_spend_logs_payload_keeps_no_requester_ip_address_when_ip_logging_is_dis
 
     payload: Final[SpendLogsPayload] = get_logging_payload(
         kwargs=_request_ip_kwargs(request_metadata),
-        response_obj=litellm.ModelResponse(id="chatcmpl-ip", model="gpt-5-mini"),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-ip", model="gpt-5-mini"),
         start_time=logged_at,
         end_time=logged_at,
     )
@@ -8037,7 +8037,7 @@ def test_stored_request_without_requester_ip_address_drops_or_masks_only_ip_fiel
         "messages": [{"role": "user", "content": "203.0.113.9"}],
         "tools": [{"type": "function", "function": {"parameters": {"headers": {"x-real-ip": "keep"}}}}],
         "error_information": {"error_message": "203.0.113.9"},
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "requester_ip_address": "203.0.113.9",
             "headers": {
                 "Forwarded": "for=203.0.113.9",
@@ -8076,7 +8076,7 @@ def test_stored_request_without_requester_ip_address_drops_or_masks_only_ip_fiel
         "messages": [{"role": "user", "content": "203.0.113.9"}],
         "tools": [{"type": "function", "function": {"parameters": {"headers": {"x-real-ip": "keep"}}}}],
         "error_information": {"error_message": "203.0.113.9"},
-        "litellm_metadata": {
+        "hangarllm_metadata": {
             "requester_ip_address": None,
             "headers": {
                 "DO-Connecting-IP": "REDACTED_BY_LITELM",
@@ -8104,7 +8104,7 @@ def test_stored_request_without_requester_ip_address_drops_or_masks_only_ip_fiel
 def test_stored_request_masks_ip_addresses_in_long_error_text_and_at_its_truncation_cut(
     monkeypatch: pytest.MonkeyPatch, error_field: str
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "store_prompts_in_spend_logs", True)
     monkeypatch.setenv("MAX_STRING_LENGTH_PROMPT_IN_DB", "1000")
@@ -8114,14 +8114,14 @@ def test_stored_request_masks_ip_addresses_in_long_error_text_and_at_its_truncat
     stored: Final = json.loads(
         _get_proxy_server_request_for_spend_logs_payload(
             metadata=metadata,
-            litellm_params={"proxy_server_request": {"body": {"model": "gpt-5-mini", "metadata": metadata}}},
+            hangarllm_params={"proxy_server_request": {"body": {"model": "gpt-5-mini", "metadata": metadata}}},
             drop_requester_ip_address=True,
         )
     )
 
     stored_text: Final = stored["metadata"]["error_information"][error_field]
     kept_head_and_tail: Final = stored_text[:350] + stored_text[-650:]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in stored_text
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in stored_text
     assert kept_head_and_tail.startswith("a" * 345 + " REDA")
     assert not any(char.isdigit() for char in kept_head_and_tail)
     assert metadata["error_information"][error_field] == text
@@ -8129,7 +8129,7 @@ def test_stored_request_masks_ip_addresses_in_long_error_text_and_at_its_truncat
 
 _TRACE_ID: Final = "da39a3ee5e6b4b0d3255bfef95601890afd80709"
 _PLANTED_MARKER: Final = (
-    f"x ... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped 5 chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ... "
+    f"x ... ({HANGARLLM_TRUNCATED_PAYLOAD_FIELD} skipped 5 chars. {HANGARLLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ... "
 )
 
 
@@ -8183,7 +8183,7 @@ _PLANTED_MARKER: Final = (
 def test_stored_request_masks_the_piece_of_an_ip_address_a_header_truncation_cut_leaves(
     monkeypatch: pytest.MonkeyPatch, requester_metadata: bool, value: str, stored_head: str, stored_tail: str
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     monkeypatch.setenv("MAX_STRING_LENGTH_PROMPT_IN_DB", "1000")
@@ -8193,14 +8193,14 @@ def test_stored_request_masks_the_piece_of_an_ip_address_a_header_truncation_cut
     stored: Final = json.loads(
         _get_proxy_server_request_for_spend_logs_payload(
             metadata=metadata,
-            litellm_params={"proxy_server_request": {"body": {"model": "gpt-5-mini", "metadata": metadata}}},
+            hangarllm_params={"proxy_server_request": {"body": {"model": "gpt-5-mini", "metadata": metadata}}},
             drop_requester_ip_address=True,
         )
     )
 
     stored_metadata: Final = stored["metadata"]["requester_metadata"] if requester_metadata else stored["metadata"]
     stored_value: Final = stored_metadata["headers"]["x-edge-trace"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in stored_value
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in stored_value
     assert stored_value.startswith(stored_head + "... (")
     assert stored_value.endswith(") ..." + stored_tail)
     assert headers["x-edge-trace"] == value
@@ -8209,7 +8209,7 @@ def test_stored_request_masks_the_piece_of_an_ip_address_a_header_truncation_cut
 def test_stored_request_with_ip_logging_disabled_matches_setting_off_for_bodies_without_ip_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "store_prompts_in_spend_logs", True)
     loop: Final[dict[str, object]] = {}
@@ -8219,7 +8219,7 @@ def test_stored_request_with_ip_logging_disabled_matches_setting_off_for_bodies_
     stored: Final = [
         _get_proxy_server_request_for_spend_logs_payload(
             metadata={},
-            litellm_params={"proxy_server_request": {"body": body}},
+            hangarllm_params={"proxy_server_request": {"body": body}},
             drop_requester_ip_address=drop_requester_ip_address,
         )
         for drop_requester_ip_address in (False, True)
@@ -8233,7 +8233,7 @@ def test_stored_request_with_ip_logging_disabled_matches_setting_off_for_bodies_
 def test_failure_error_information_masks_ip_addresses_in_long_text_and_at_its_truncation_cut(
     monkeypatch: pytest.MonkeyPatch, disabled: bool
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "disable_requester_ip_address_logging", disabled)
     monkeypatch.setenv("MAX_STRING_LENGTH_PROMPT_IN_DB", "1000")
@@ -8246,7 +8246,7 @@ def test_failure_error_information_masks_ip_addresses_in_long_text_and_at_its_tr
     assert sanitized is not None
     for stored_text in (sanitized["error_message"], sanitized["traceback"]):
         kept_head_and_tail = stored_text[:350] + stored_text[-650:]
-        assert LITELLM_TRUNCATED_PAYLOAD_FIELD in stored_text
+        assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in stored_text
         assert any(char.isdigit() for char in kept_head_and_tail) is not disabled
     assert sanitized["error_code"] == "500"
 
@@ -8254,7 +8254,7 @@ def test_failure_error_information_masks_ip_addresses_in_long_text_and_at_its_tr
 def test_spend_row_sanitizes_the_session_failure_a_realtime_success_row_carries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "store_prompts_in_spend_logs", False)
     monkeypatch.setenv("MAX_STRING_LENGTH_PROMPT_IN_DB", "200")
@@ -8265,7 +8265,7 @@ def test_spend_row_sanitizes_the_session_failure_a_realtime_success_row_carries(
         kwargs={
             "model": "bedrock/amazon.nova-sonic-v1:0",
             "call_type": "_arealtime",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key": "hashed-key",
                     "status": "failure",
@@ -8286,7 +8286,7 @@ def test_spend_row_sanitizes_the_session_failure_a_realtime_success_row_carries(
     stored: Final = json.loads(row["metadata"])["error_information"]
     assert row["status"] == "failure"
     assert "private-prompt" not in stored["error_message"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in stored["error_message"]
+    assert HANGARLLM_TRUNCATED_PAYLOAD_FIELD in stored["error_message"]
     assert len(stored["error_message"]) < len(provider_error)
     assert stored["error_class"] == "BedrockError"
 
@@ -8297,7 +8297,7 @@ def test_spend_row_sanitizes_the_session_failure_a_realtime_success_row_carries(
 def test_failure_error_information_masks_every_ip_address_form_when_ip_logging_is_disabled(
     monkeypatch: pytest.MonkeyPatch, address: str
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "disable_requester_ip_address_logging", True)
 
@@ -8336,7 +8336,7 @@ def test_failure_error_information_masks_every_ip_address_form_when_ip_logging_i
 def test_failure_error_information_masks_addresses_after_labels_and_before_ports(
     monkeypatch: pytest.MonkeyPatch, text: str, stored: str
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings
+    from hangarllm.proxy.proxy_server import general_settings
 
     monkeypatch.setitem(general_settings, "disable_requester_ip_address_logging", True)
 
@@ -8350,17 +8350,17 @@ def test_failure_error_information_masks_addresses_after_labels_and_before_ports
 def test_get_logging_payload_stores_end_user_only_while_end_user_cost_tracking_is_on(
     monkeypatch: pytest.MonkeyPatch, tracking_disabled: bool | None, expected_end_user: str
 ):
-    monkeypatch.setattr(litellm, "disable_end_user_cost_tracking", tracking_disabled)
+    monkeypatch.setattr(hangarllm, "disable_end_user_cost_tracking", tracking_disabled)
     payload: Final = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "hangarllm_params": {"metadata": {"user_api_key": "test-key"}},
             "standard_logging_object": cast(
                 StandardLoggingPayload,
                 {**_TRACE_ONLY_STANDARD_LOGGING, "metadata": {"user_api_key_end_user_id": "session-abc123"}},
             ),
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[], usage=litellm.Usage()),
+        response_obj=hangarllm.ModelResponse(id="chatcmpl-test", choices=[], usage=hangarllm.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -8372,9 +8372,9 @@ def test_optional_mcp_metadata_does_not_change_legacy_spend_payload(tool_metadat
     now: Final = datetime.datetime(2026, 1, 1, tzinfo=timezone.utc)
     kwargs: Final = {
         "call_type": "call_mcp_tool",
-        "litellm_call_id": "tool-call",
-        "litellm_params": {},
-        "litellm_trace_id": "fixed-trace",
+        "hangarllm_call_id": "tool-call",
+        "hangarllm_params": {},
+        "hangarllm_trace_id": "fixed-trace",
         "response_cost": 0.5,
     }
     response: Final = {"id": "tool-call"}
@@ -8392,8 +8392,8 @@ def test_spend_payload_preserves_unknown_completion_start(completion_start: str 
     reported: Final = start + datetime.timedelta(seconds=1)
     kwargs: Final = {
         "call_type": "acompletion",
-        "litellm_call_id": "timestamp-call",
-        "litellm_params": {},
+        "hangarllm_call_id": "timestamp-call",
+        "hangarllm_params": {},
         **({} if completion_start == "absent" else {"completion_start_time": reported if completion_start else None}),
     }
     payload: Final = spend_tracking_utils.get_logging_payload(

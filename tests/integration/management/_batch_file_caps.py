@@ -178,7 +178,7 @@ def caps_config(directory: Path, provider_url: str, general_settings: Mapping[st
                 "model_list": [
                     {
                         "model_name": ROUTED_MODEL,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": "openai/gpt-4o-mini",
                             "api_key": PROVIDER_KEY,
                             "api_base": f"{provider_url}/v1",
@@ -320,7 +320,7 @@ def hashed(key: str) -> str:
 def counters(cache: Redis, setting: str, holder: str) -> tuple[Counter, ...]:
     return tuple(
         Counter(name.decode(), int(cache.get(name) or 0), cache.ttl(name))
-        for name in sorted(cache.scan_iter(match=f"*litellm:file_usage:{setting}:*{holder}*", count=1000))
+        for name in sorted(cache.scan_iter(match=f"*hangarllm:file_usage:{setting}:*{holder}*", count=1000))
     )
 
 

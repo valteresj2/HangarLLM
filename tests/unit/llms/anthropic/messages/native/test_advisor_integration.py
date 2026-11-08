@@ -70,7 +70,7 @@ async def test_full_dispatch_interceptor_fires_and_loop_completes():
     The interceptor must fire, run the loop (1 advisor call), and return a
     clean final response with no advisor tool_use blocks.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages,
     )
 
@@ -86,7 +86,7 @@ async def test_full_dispatch_interceptor_fires_and_loop_completes():
         return _text_resp("def is_prime(n): ...")  # executor: final
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_handler,
     ):
         result = await anthropic_messages(
@@ -121,10 +121,10 @@ async def test_max_uses_enforced_through_full_handler():
     AdvisorMaxIterationsError propagates out of anthropic_messages() when
     the executor keeps calling the advisor past max_uses.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages,
     )
-    from litellm.llms.anthropic.messages.native.interceptors.advisor import (
+    from hangarllm.llms.anthropic.messages.native.interceptors.advisor import (
         AdvisorMaxIterationsError,
     )
 
@@ -137,7 +137,7 @@ async def test_max_uses_enforced_through_full_handler():
         return _advisor_call_resp()
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_handler,
     ):
         with pytest.raises(AdvisorMaxIterationsError):
@@ -162,7 +162,7 @@ async def test_anthropic_provider_bypasses_interceptor():
     With custom_llm_provider='anthropic', the interceptor must NOT fire.
     The advisor_20260301 tool is forwarded as-is to the underlying handler.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages,
     )
 
@@ -170,7 +170,7 @@ async def test_anthropic_provider_bypasses_interceptor():
 
     # Patch the non-interceptor code path — anthropic_messages_handler
     with patch(
-        "litellm.llms.anthropic.messages.native.handler.anthropic_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.handler.anthropic_messages_handler",
         return_value=direct_response,
     ) as mock_native:
         result = await anthropic_messages(
@@ -209,7 +209,7 @@ async def test_named_params_forwarded_into_advisor_executor_subcall():
     them, e.g. Vertex AI rejecting ``clear_thinking_20251015`` context_management
     edits with: ``strategy requires thinking to be enabled or adaptive``.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages,
     )
 
@@ -238,7 +238,7 @@ async def test_named_params_forwarded_into_advisor_executor_subcall():
         return _text_resp("Final answer.")
 
     with patch(
-        "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+        "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
         side_effect=mock_handler,
     ):
         await anthropic_messages(
@@ -289,7 +289,7 @@ async def test_pre_request_hook_override_does_not_collide_with_explicit_kwargs()
 
     Regression for Greptile P2 on PR #27810.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages,
     )
 
@@ -318,7 +318,7 @@ async def test_pre_request_hook_override_does_not_collide_with_explicit_kwargs()
         return {
             "tools": tools,
             "stream": stream,
-            "litellm_params": {"custom_llm_provider": custom_llm_provider},
+            "hangarllm_params": {"custom_llm_provider": custom_llm_provider},
             "thinking": {"type": "enabled", "budget_tokens": 2048},
             "system": "Hook overrode the system prompt.",
             "temperature": 0.1,
@@ -326,11 +326,11 @@ async def test_pre_request_hook_override_does_not_collide_with_explicit_kwargs()
 
     with (
         patch(
-            "litellm.llms.anthropic.messages.native.handler._execute_pre_request_hooks",
+            "hangarllm.llms.anthropic.messages.native.handler._execute_pre_request_hooks",
             side_effect=fake_pre_request_hooks,
         ),
         patch(
-            "litellm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
+            "hangarllm.llms.anthropic.messages.native.interceptors.advisor._call_messages_handler",
             side_effect=mock_handler,
         ),
     ):

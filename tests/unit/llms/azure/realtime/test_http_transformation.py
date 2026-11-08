@@ -4,8 +4,8 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 _DATED_PREVIEW_API_VERSION: Final = "2025-04-01-preview"
 _API_BASES: Final = (
@@ -31,7 +31,7 @@ class _AzureThatRecordsTheRequest:
 @pytest.mark.parametrize("api_base", _API_BASES)
 async def test_azure_client_secret_targets_the_ga_v1_surface_even_with_a_dated_api_version(api_base: str) -> None:
     azure: Final = _AzureThatRecordsTheRequest()
-    await litellm.acreate_realtime_client_secret(
+    await hangarllm.acreate_realtime_client_secret(
         model="azure/gpt-realtime-deployment",
         api_base=api_base,
         api_key="azure-key",
@@ -47,7 +47,7 @@ async def test_azure_client_secret_targets_the_ga_v1_surface_even_with_a_dated_a
 @pytest.mark.parametrize("api_base", _API_BASES)
 async def test_azure_sdp_exchange_targets_the_ga_v1_surface_with_the_ephemeral_key_as_bearer(api_base: str) -> None:
     azure: Final = _AzureThatRecordsTheRequest()
-    await litellm.arealtime_calls(
+    await hangarllm.arealtime_calls(
         openai_ephemeral_key="ek_upstream",
         sdp_body=b"v=0",
         model="azure/gpt-realtime-deployment",
@@ -73,7 +73,7 @@ async def test_azure_sdp_exchange_targets_the_ga_v1_surface_with_the_ephemeral_k
 )
 async def test_azure_transcription_session_strips_only_a_trailing_openai_path(api_base: str, url: str) -> None:
     azure: Final = _AzureThatRecordsTheRequest()
-    await litellm.acreate_realtime_transcription_session(
+    await hangarllm.acreate_realtime_transcription_session(
         model="azure/gpt-realtime-whisper-deployment",
         api_base=api_base,
         api_key="azure-key",
@@ -111,7 +111,7 @@ async def test_azure_entra_fallback_never_overrides_the_callers_own_auth_header(
     monkeypatch.delenv("AZURE_API_KEY", raising=False)
     monkeypatch.setenv("AZURE_AD_TOKEN", "entra-token")
     azure: Final = _AzureThatRecordsTheRequest()
-    await litellm.acreate_realtime_client_secret(
+    await hangarllm.acreate_realtime_client_secret(
         model="azure/gpt-realtime-deployment",
         api_base="https://my.openai.azure.com",
         extra_headers=caller_headers,

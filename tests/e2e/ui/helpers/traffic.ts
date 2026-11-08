@@ -12,9 +12,9 @@ export const DEPLOYMENT_MODEL_B = "openai/fake-claude";
 export const MOCK_RESPONSE_TEXT = "This is a mock response.";
 
 export const masterKey = (): string => {
-  const key = process.env.LITELLM_MASTER_KEY;
+  const key = process.env.HANGARLLM_MASTER_KEY;
   if (!key) {
-    throw new Error("LITELLM_MASTER_KEY must be set");
+    throw new Error("HANGARLLM_MASTER_KEY must be set");
   }
   return key;
 };
@@ -30,7 +30,7 @@ interface ChatOptions {
   apiKey?: string;
   /** Sent as `user`, which lands in the spend log's end_user column. */
   endUser?: string;
-  /** Sent as `litellm_trace_id`, which lands in the spend log's session_id column. */
+  /** Sent as `hangarllm_trace_id`, which lands in the spend log's session_id column. */
   traceId?: string;
 }
 
@@ -44,7 +44,7 @@ const postChatCompletion = (request: APIRequestContext, opts: ChatOptions): Prom
       model: opts.model,
       messages: [{ role: "user", content: opts.prompt }],
       ...(opts.endUser ? { user: opts.endUser } : {}),
-      ...(opts.traceId ? { litellm_trace_id: opts.traceId } : {}),
+      ...(opts.traceId ? { hangarllm_trace_id: opts.traceId } : {}),
     },
   });
 
@@ -65,8 +65,8 @@ export interface ServedChat {
 export async function sendChatCompletionWithCallId(request: APIRequestContext, opts: ChatOptions): Promise<ServedChat> {
   const res = await postChatCompletion(request, opts);
   expect(res.ok(), `chat completion for ${opts.model} failed (${res.status()}): ${await res.text()}`).toBe(true);
-  const callId = res.headers()["x-litellm-call-id"];
-  expect(callId, "proxy did not return an x-litellm-call-id header").toBeTruthy();
+  const callId = res.headers()["x-hangarllm-call-id"];
+  expect(callId, "proxy did not return an x-hangarllm-call-id header").toBeTruthy();
   const body = await res.json();
   expect(body.choices?.[0]?.message?.content).toContain(MOCK_RESPONSE_TEXT);
   return { requestId: body.id as string, callId };

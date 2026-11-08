@@ -22,7 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 from prometheus_client import values
 
-from litellm.proxy.prometheus_metrics_server import (
+from hangarllm.proxy.prometheus_metrics_server import (
     PID_HEADER,
     MetricsServerStartupError,
     build_metrics_app,
@@ -39,8 +39,8 @@ def _write_worker_sample(pid: int, value: float) -> None:
     """Write one counter sample into PROMETHEUS_MULTIPROC_DIR the way a proxy worker would."""
     counter: Final = values.MultiProcessValue(process_identifier=lambda: pid)(
         "counter",
-        "litellm_requests_metric_total",
-        "litellm_requests_metric_total",
+        "hangarllm_requests_metric_total",
+        "hangarllm_requests_metric_total",
         ("model",),
         ("gpt-5",),
         "Total number of LLM calls",
@@ -89,7 +89,7 @@ def test_metrics_app_aggregates_multiproc_dir_and_reports_pid(tmp_path: Path, mo
     metrics: Final = client.get("/metrics")
     assert metrics.status_code == 200
     assert metrics.headers[PID_HEADER] == str(os.getpid())
-    assert 'litellm_requests_metric_total{model="gpt-5"} 5.0' in metrics.text
+    assert 'hangarllm_requests_metric_total{model="gpt-5"} 5.0' in metrics.text
 
     health: Final = client.get("/health")
     assert health.status_code == 200
@@ -98,7 +98,7 @@ def test_metrics_app_aggregates_multiproc_dir_and_reports_pid(tmp_path: Path, mo
 
     empty: Final = TestClient(build_metrics_app(str(other_dir))).get("/metrics")
     assert empty.status_code == 200
-    assert "litellm_requests_metric_total" not in empty.text
+    assert "hangarllm_requests_metric_total" not in empty.text
 
 
 @pytest.mark.parametrize(
@@ -127,7 +127,7 @@ def test_main_serves_the_app_for_the_given_dir_with_uvicorn(tmp_path: Path, monk
     metrics: Final = client.get("/metrics")
     assert metrics.status_code == 200
     assert metrics.headers[PID_HEADER] == str(os.getpid())
-    assert 'litellm_requests_metric_total{model="gpt-5"} 6.0' in client.get("/metrics").text
+    assert 'hangarllm_requests_metric_total{model="gpt-5"} 6.0' in client.get("/metrics").text
 
 
 def test_main_falls_back_to_env_multiproc_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -164,7 +164,7 @@ def test_start_metrics_server_process_returns_only_once_child_serves(tmp_path: P
         assert startup_metrics.status_code == 200
         assert startup_metrics.headers[PID_HEADER] == str(process.pid)
         metrics: Final = httpx.get(f"http://127.0.0.1:{port}/metrics", follow_redirects=True, timeout=10.0)
-        assert 'litellm_requests_metric_total{model="gpt-5"} 4.0' in metrics.text
+        assert 'hangarllm_requests_metric_total{model="gpt-5"} 4.0' in metrics.text
     finally:
         process.kill()
         process.wait(timeout=10)
@@ -221,7 +221,7 @@ def test_metrics_server_process_serves_and_exits_with_parent(tmp_path: Path, mon
     server_argv: Final = (
         sys.executable,
         "-m",
-        "litellm.proxy.prometheus_metrics_server",
+        "hangarllm.proxy.prometheus_metrics_server",
         "--host",
         "127.0.0.1",
         "--port",
@@ -249,7 +249,7 @@ def test_metrics_server_process_serves_and_exits_with_parent(tmp_path: Path, mon
         scrape: Final = httpx.get(f"http://127.0.0.1:{port}/metrics", follow_redirects=True, timeout=10.0)
         assert scrape.status_code == 200
         assert scrape.headers[PID_HEADER] == str(server_pid)
-        assert 'litellm_requests_metric_total{model="gpt-5"} 7.0' in scrape.text
+        assert 'hangarllm_requests_metric_total{model="gpt-5"} 7.0' in scrape.text
 
         parent.kill()
         parent.wait(timeout=10)

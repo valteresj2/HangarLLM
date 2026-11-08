@@ -1,5 +1,5 @@
 """
-Tests for the agent tracing endpoints (litellm/proxy/tracing_endpoints.py).
+Tests for the agent tracing endpoints (hangarllm/proxy/tracing_endpoints.py).
 """
 
 import asyncio
@@ -19,25 +19,25 @@ from httpx import Response
 from pydantic import JsonValue, TypeAdapter
 from typing_extensions import ReadOnly
 
-from litellm.constants import (
+from hangarllm.constants import (
     AGENT_TRACING_AGENT_LIST_LIMIT,
     DEFAULT_AGENT_TRACING_RETENTION_DAYS,
     TRACE_READ_RETRY_AFTER_SECONDS,
 )
-from litellm.proxy import tracing_endpoints
-from litellm.proxy._types import LitellmUserRoles, ProxyLifespanState, UserAPIKeyAuth
-from litellm.proxy.auth.authorization import OwnedRows, ReadScope
-from litellm.proxy.auth.authorization_dependencies import get_log_team_lookup
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.tracing_runtime import manage_tracing, provide_storage
-from litellm.tracing.errors import TraceChanged
-from litellm.tracing.generated.models import TraceQueryHelp
-from litellm.tracing.generated.responses import TraceSQLResponse
-from litellm.tracing.generated.types import AllQueryScope, TraceScope
-from litellm.tracing.storage import LensTraceStorage
-from litellm.tracing import TraceReceiver
-from litellm.tracing.remote import RemoteTraceStore
-from litellm.tracing.types import TraceAgent, TraceAgentList
+from hangarllm.proxy import tracing_endpoints
+from hangarllm.proxy._types import HangarllmUserRoles, ProxyLifespanState, UserAPIKeyAuth
+from hangarllm.proxy.auth.authorization import OwnedRows, ReadScope
+from hangarllm.proxy.auth.authorization_dependencies import get_log_team_lookup
+from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+from hangarllm.proxy.tracing_runtime import manage_tracing, provide_storage
+from hangarllm.tracing.errors import TraceChanged
+from hangarllm.tracing.generated.models import TraceQueryHelp
+from hangarllm.tracing.generated.responses import TraceSQLResponse
+from hangarllm.tracing.generated.types import AllQueryScope, TraceScope
+from hangarllm.tracing.storage import LensTraceStorage
+from hangarllm.tracing import TraceReceiver
+from hangarllm.tracing.remote import RemoteTraceStore
+from hangarllm.tracing.types import TraceAgent, TraceAgentList
 
 SQL_ROWS: Final[tuple[Mapping[str, JsonValue], ...]] = (
     {
@@ -80,7 +80,7 @@ TEAM_KEY = UserAPIKeyAuth(
     token="hashed-key",
     team_id="team-research",
     org_id="org-1",
-    user_role=LitellmUserRoles.INTERNAL_USER,
+    user_role=HangarllmUserRoles.INTERNAL_USER,
 )
 TRACE_RESPONSE: Final = {
     "summary": {
@@ -143,12 +143,12 @@ def _assert_validation_error(response: Response, error_type: str, location: tupl
     ("auth", "scope"),
     (
         pytest.param(
-            UserAPIKeyAuth(token="admin-key", team_id="team-a", user_role=LitellmUserRoles.PROXY_ADMIN),
+            UserAPIKeyAuth(token="admin-key", team_id="team-a", user_role=HangarllmUserRoles.PROXY_ADMIN),
             TraceScope(all_teams=1, user_id="", team_ids=()),
             id="admin",
         ),
         pytest.param(
-            UserAPIKeyAuth(token="view-key", team_id="team-a", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY),
+            UserAPIKeyAuth(token="view-key", team_id="team-a", user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY),
             TraceScope(all_teams=1, user_id="", team_ids=()),
             id="view-only-admin",
         ),
@@ -158,12 +158,12 @@ def _assert_validation_error(response: Response, error_type: str, location: tupl
             id="team-key",
         ),
         pytest.param(
-            UserAPIKeyAuth(user_id="user", token="hashed-key", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(user_id="user", token="hashed-key", user_role=HangarllmUserRoles.INTERNAL_USER),
             TraceScope(all_teams=0, user_id="user", team_ids=()),
             id="teamless-key",
         ),
         pytest.param(
-            UserAPIKeyAuth(token="hashed-key", user_role=LitellmUserRoles.INTERNAL_USER),
+            UserAPIKeyAuth(token="hashed-key", user_role=HangarllmUserRoles.INTERNAL_USER),
             None,
             id="key-without-user-can-only-write",
         ),
@@ -322,7 +322,7 @@ def test_list_trace_agents_passes_reader_scope_and_window(
 
 def test_list_trace_agents_requires_read_access(client: TestClient, receiver: MagicMock) -> None:
     client.app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        token="hashed-key", user_role=LitellmUserRoles.INTERNAL_USER
+        token="hashed-key", user_role=HangarllmUserRoles.INTERNAL_USER
     )
     response: Final = client.get("/v1/traces/agents")
     assert response.status_code == 403, response.text
@@ -341,19 +341,19 @@ def test_list_trace_agents_maps_storage_outage_to_503(client: TestClient, receiv
     ("role", "expected_scope"),
     (
         pytest.param(
-            LitellmUserRoles.PROXY_ADMIN,
+            HangarllmUserRoles.PROXY_ADMIN,
             TraceScope(all_teams=1, user_id="", team_ids=()),
             id="admin",
         ),
         pytest.param(
-            LitellmUserRoles.INTERNAL_USER,
+            HangarllmUserRoles.INTERNAL_USER,
             TraceScope(all_teams=0, user_id="agent-owner", team_ids=("managed-team",)),
             id="owner-and-permitted-teams",
         ),
     ),
 )
 async def test_agent_picker_reads_through_worker_with_authenticated_scope(
-    client: TestClient, role: LitellmUserRoles, expected_scope: TraceScope
+    client: TestClient, role: HangarllmUserRoles, expected_scope: TraceScope
 ) -> None:
     requests: Final = asyncio.Queue[httpx.Request]()
     secret: Final = "test-only-lens-service-secret-32-characters"
@@ -664,7 +664,7 @@ def test_invalid_cursor_is_a_client_error(client: TestClient, receiver: MagicMoc
 @pytest.mark.parametrize(
     "auth",
     (
-        UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER),
+        UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER),
         UserAPIKeyAuth(token="key"),
         UserAPIKeyAuth(token="key", team_id="unpermitted"),
         UserAPIKeyAuth(user_id="", token="key"),
@@ -694,18 +694,18 @@ def test_key_without_user_cannot_read_traces(client: TestClient, auth: UserAPIKe
 
 def test_disabled_receiver_precedes_read_scope_rejection(client: TestClient) -> None:
     client.app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER
+        user_role=HangarllmUserRoles.INTERNAL_USER
     )
     response: Final = client.get("/v1/traces")
     assert response.status_code == 501
     assert response.json() == {
-        "detail": "Agent tracing is not enabled. Configure the Lens service and LITELLM_LENS_URL."
+        "detail": "Agent tracing is not enabled. Configure the Lens service and HANGARLLM_LENS_URL."
     }
 
 
 def test_lifespan_receivers_are_app_local(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LENS_URL", "http://lens.test")
-    monkeypatch.setenv("LITELLM_LENS_SERVICE_TOKEN", "test-service-token-with-32-characters")
+    monkeypatch.setenv("HANGARLLM_LENS_URL", "http://lens.test")
+    monkeypatch.setenv("HANGARLLM_LENS_SERVICE_TOKEN", "test-service-token-with-32-characters")
     first_storage: Final = MagicMock(spec=LensTraceStorage)
     first_storage.get_span = AsyncMock(return_value={**SPAN_DETAIL_RESPONSE, "span_id": "first-span"})
     second_storage: Final = MagicMock(spec=LensTraceStorage)
@@ -752,7 +752,7 @@ def test_lifespan_receivers_are_app_local(monkeypatch: pytest.MonkeyPatch) -> No
     second_storage.get_span.assert_awaited_once_with("t1", "second-span", scope, "second-run")
 
 
-@pytest.mark.parametrize("auth", [TEAM_KEY, UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER)])
+@pytest.mark.parametrize("auth", [TEAM_KEY, UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER)])
 def test_query_validation_precedes_trace_access_checks(client: TestClient, auth: UserAPIKeyAuth) -> None:
     client.app.dependency_overrides[user_api_key_auth] = lambda: auth
     response: Final = client.get("/v1/traces", params={"start_ms": "invalid"})
@@ -762,7 +762,7 @@ def test_query_validation_precedes_trace_access_checks(client: TestClient, auth:
 
 @pytest.mark.parametrize("enabled", [True, False])
 def test_unconfigured_lifespan_receiver_returns_501(enabled: bool, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LITELLM_LENS_URL", raising=False)
+    monkeypatch.delenv("HANGARLLM_LENS_URL", raising=False)
     storage: Final = MagicMock(spec=LensTraceStorage)
     storage.ensure_schema = AsyncMock(side_effect=RuntimeError("storage unavailable"))
     tracing: Final = TraceReceiver(storage)
@@ -786,8 +786,8 @@ def test_unconfigured_lifespan_receiver_returns_501(enabled: bool, monkeypatch: 
 @pytest.mark.parametrize(
     ("auth", "expected_scope"),
     (
-        (UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN), {"kind": "all"}),
-        (UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY), {"kind": "all"}),
+        (UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN), {"kind": "all"}),
+        (UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY), {"kind": "all"}),
         (TEAM_KEY, {"kind": "owned", "user_id": "user", "team_ids": ()}),
         (
             UserAPIKeyAuth(user_id="user", token="project-key", team_id="team-a", project_id="project-a"),
@@ -907,7 +907,7 @@ def test_query_help_does_not_fall_back_when_reader_provisioning_fails(client: Te
 def test_queries_require_a_proxy_secret(
     client: TestClient, receiver: MagicMock, monkeypatch: pytest.MonkeyPatch, secret: str | None
 ) -> None:
-    from litellm.proxy import proxy_server
+    from hangarllm.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "master_key", secret)
     receiver.storage.query_sql = AsyncMock(return_value=SQL_RESPONSE)
@@ -926,8 +926,8 @@ def test_queries_require_a_proxy_secret(
 @pytest.mark.parametrize(
     ("auth", "teams", "expected"),
     (
-        (UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN), ("team-a",), (1, "", ())),
-        (UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY), ("team-a",), (1, "", ())),
+        (UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN), ("team-a",), (1, "", ())),
+        (UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY), ("team-a",), (1, "", ())),
         (UserAPIKeyAuth(user_id="user", token="key", team_id="unpermitted"), ("a", "b"), (0, "user", ("a", "b"))),
         (UserAPIKeyAuth(user_id="user", token="key"), (), (0, "user", ())),
         (UserAPIKeyAuth(user_id="user"), ("a",), (0, "user", ("a",))),
@@ -976,7 +976,7 @@ def test_shared_trace_permissions_reach_read_and_sql_boundaries(
     storage.query_help.assert_awaited_once_with(query_scope, "test-secret")
     assert team_lookup.await_count == (
         3
-        if auth.user_id and auth.user_role not in (LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY)
+        if auth.user_id and auth.user_role not in (HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY)
         else 0
     )
 

@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.proxy.client.cli.commands.autoroute import process as process_module
-from litellm.proxy.client.cli.commands.autoroute.process import (
+from hangarllm.proxy.client.cli.commands.autoroute import process as process_module
+from hangarllm.proxy.client.cli.commands.autoroute.process import (
     PidRecord,
     ProcessLaunchError,
     UpError,
@@ -151,15 +151,15 @@ class TestPollLiveliness:
 
 class TestMissingProxyRuntimeModules:
     def test_flags_absent_modules_only(self, monkeypatch):
-        """A thin litellm[cli] install lacks the proxy runtime; the missing ones must be reported
+        """A thin hangarllm[cli] install lacks the proxy runtime; the missing ones must be reported
         (by name, for an actionable error) while modules that are importable are not."""
         monkeypatch.setattr(
             process_module,
             "_PROXY_RUNTIME_MODULES",
-            ("os", "litellm_autoroute_definitely_absent_pkg", "socket"),
+            ("os", "hangarllm_autoroute_definitely_absent_pkg", "socket"),
         )
 
-        assert missing_proxy_runtime_modules() == ("litellm_autoroute_definitely_absent_pkg",)
+        assert missing_proxy_runtime_modules() == ("hangarllm_autoroute_definitely_absent_pkg",)
 
     def test_empty_when_all_present(self, monkeypatch):
         monkeypatch.setattr(process_module, "_PROXY_RUNTIME_MODULES", ("os", "socket"))

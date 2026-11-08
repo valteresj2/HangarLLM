@@ -3,18 +3,18 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.llms.custom_httpx.http_handler import default_user_agent
-from litellm.rust_bridge.host import settings
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+import hangarllm
+from hangarllm.caching.dual_cache import DualCache
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.llms.custom_httpx.http_handler import default_user_agent
+from hangarllm.rust_bridge.host import settings
+from hangarllm.secret_managers.main import get_secret_str
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 
-def test_url_policy_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", ["docs.internal:8443"])
+def test_url_policy_reads_the_hangarllm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hangarllm, "user_url_validation", False)
+    monkeypatch.setattr(hangarllm, "user_url_allowed_hosts", ["docs.internal:8443"])
 
     assert settings.url_policy() == settings.UrlPolicy(
         user_url_validation=False,
@@ -22,16 +22,16 @@ def test_url_policy_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -
     )
 
 
-def test_http_settings_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "ssl_verify", "/etc/ssl/corp.pem")
-    monkeypatch.setattr(litellm, "ssl_certificate", "/etc/ssl/client.pem")
-    monkeypatch.setattr(litellm, "ssl_security_level", "DEFAULT@SECLEVEL=1")
-    monkeypatch.setattr(litellm, "ssl_ecdh_curve", "X25519")
-    monkeypatch.setattr(litellm, "force_ipv4", True)
-    monkeypatch.setattr(litellm, "http2", True)
-    monkeypatch.setattr(litellm, "aiohttp_trust_env", True)
-    monkeypatch.setattr(litellm, "disable_aiohttp_trust_env", True)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+def test_http_settings_reads_the_hangarllm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hangarllm, "ssl_verify", "/etc/ssl/corp.pem")
+    monkeypatch.setattr(hangarllm, "ssl_certificate", "/etc/ssl/client.pem")
+    monkeypatch.setattr(hangarllm, "ssl_security_level", "DEFAULT@SECLEVEL=1")
+    monkeypatch.setattr(hangarllm, "ssl_ecdh_curve", "X25519")
+    monkeypatch.setattr(hangarllm, "force_ipv4", True)
+    monkeypatch.setattr(hangarllm, "http2", True)
+    monkeypatch.setattr(hangarllm, "aiohttp_trust_env", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_trust_env", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
     assert settings.http_settings() == settings.HttpSettings(
         ssl_verify="/etc/ssl/corp.pem",
@@ -47,13 +47,13 @@ def test_http_settings_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch
     )
 
 
-def test_router_tiers_read_the_env_constants_and_the_litellm_global(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm.constants
+def test_router_tiers_read_the_env_constants_and_the_hangarllm_global(monkeypatch: pytest.MonkeyPatch) -> None:
+    import hangarllm.constants
 
-    monkeypatch.setattr(litellm.constants, "DEFAULT_COOLDOWN_REDIS_READ_INTERVAL_SECONDS", 2.5)
-    monkeypatch.setattr(litellm.constants, "DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE", 42)
-    monkeypatch.setattr(litellm, "default_redis_batch_cache_expiry", 30.0)
-    monkeypatch.setattr(litellm, "default_in_memory_ttl", 7.0)
+    monkeypatch.setattr(hangarllm.constants, "DEFAULT_COOLDOWN_REDIS_READ_INTERVAL_SECONDS", 2.5)
+    monkeypatch.setattr(hangarllm.constants, "DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE", 42)
+    monkeypatch.setattr(hangarllm, "default_redis_batch_cache_expiry", 30.0)
+    monkeypatch.setattr(hangarllm, "default_in_memory_ttl", 7.0)
 
     assert settings.router_tiers() == settings.RouterTierSettings(
         cooldown_redis_read_interval=2.5,
@@ -67,21 +67,21 @@ def test_router_tiers_read_the_env_constants_and_the_litellm_global(monkeypatch:
 def test_router_tiers_backfill_with_the_ttl_a_router_dual_cache_takes(
     monkeypatch: pytest.MonkeyPatch, configured: float | None
 ) -> None:
-    monkeypatch.setattr(litellm, "default_in_memory_ttl", configured)
+    monkeypatch.setattr(hangarllm, "default_in_memory_ttl", configured)
 
     assert settings.router_tiers().default_in_memory_ttl == DualCache().default_in_memory_ttl
 
 
 def test_router_tiers_fall_back_to_dual_caches_ten_second_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "default_redis_batch_cache_expiry", None)
+    monkeypatch.setattr(hangarllm, "default_redis_batch_cache_expiry", None)
 
     assert settings.router_tiers().usage_redis_read_interval == DualCache().redis_batch_cache_expiry
 
 
 def test_http_settings_ignores_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_USER_AGENT", "operator/1")
+    monkeypatch.setenv("HANGARLLM_USER_AGENT", "operator/1")
     monkeypatch.setenv("SSL_VERIFY", "false")
-    monkeypatch.setattr(litellm, "ssl_verify", True)
+    monkeypatch.setattr(hangarllm, "ssl_verify", True)
 
     result: Final = settings.http_settings()
 
@@ -115,13 +115,13 @@ class _VaultSecrets(CustomSecretManager):
     ("access_mode", "readable"),
     [("read_only", True), ("read_and_write", True), ("write_only", False)],
 )
-def test_secret_manager_is_readable_only_when_litellm_would_read_secrets_from_it(
+def test_secret_manager_is_readable_only_when_hangarllm_would_read_secrets_from_it(
     monkeypatch: pytest.MonkeyPatch, access_mode: str, readable: bool
 ) -> None:
     monkeypatch.setenv("MISTRAL_API_KEY", "env-key")
-    monkeypatch.setattr(litellm, "secret_manager_client", _VaultSecrets({"MISTRAL_API_KEY": "vault-key"}))
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", _VaultSecrets({"MISTRAL_API_KEY": "vault-key"}))
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
 
     assert settings.secret_manager() == settings.SecretManager(readable=readable, native=readable)
     assert (get_secret_str("MISTRAL_API_KEY") == "vault-key") is readable
@@ -142,15 +142,15 @@ def test_secret_manager_is_native_only_when_a_readable_system_is_configured(
     access_mode: str,
     native: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", _VaultSecrets({}))
-    monkeypatch.setattr(litellm, "_key_management_system", system)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", _VaultSecrets({}))
+    monkeypatch.setattr(hangarllm, "_key_management_system", system)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
 
     assert settings.secret_manager() == settings.SecretManager(readable=access_mode != "write_only", native=native)
 
 
 def test_secret_manager_is_not_readable_without_a_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
 
     assert settings.secret_manager() == settings.SecretManager(readable=False, native=False)
 
@@ -163,9 +163,9 @@ def test_secret_manager_projects_custom_settings(monkeypatch: pytest.MonkeyPatch
         aws_region_name="us-east-1",
     )
     client: Final = _VaultSecrets({"MISTRAL_API_KEY": "vault-key"})
-    monkeypatch.setattr(litellm, "secret_manager_client", client)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", manager_settings)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", client)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", manager_settings)
 
     assert settings.secret_manager_binding() == settings.SecretManagerBinding(
         system="custom",
@@ -190,14 +190,14 @@ def test_secret_manager_projects_custom_settings(monkeypatch: pytest.MonkeyPatch
 
 
 def test_secret_manager_without_a_client_has_no_system(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
 
     assert settings.secret_manager_binding().system is None
 
 
 def test_secret_manager_uses_key_management_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
-    monkeypatch.setattr(litellm, "_key_management_settings", None)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", None)
 
     defaults: Final = KeyManagementSettings()
     result: Final = settings.secret_manager_binding()
@@ -224,10 +224,10 @@ def test_secret_manager_uses_key_management_defaults(monkeypatch: pytest.MonkeyP
     )
 
 
-def test_provider_defaults_read_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "vertex_project", "configured-project")
-    monkeypatch.setattr(litellm, "vertex_location", "europe-west4")
-    monkeypatch.setattr(litellm, "enable_azure_ad_token_refresh", True)
+def test_provider_defaults_read_the_hangarllm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hangarllm, "vertex_project", "configured-project")
+    monkeypatch.setattr(hangarllm, "vertex_location", "europe-west4")
+    monkeypatch.setattr(hangarllm, "enable_azure_ad_token_refresh", True)
 
     assert settings.provider_defaults() == settings.ProviderDefaults(
         vertex_project="configured-project",

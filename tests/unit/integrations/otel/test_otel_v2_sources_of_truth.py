@@ -10,9 +10,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import SESSION_ID_GENERATED_METADATA_KEY
-from litellm.integrations.otel import (
+import hangarllm
+from hangarllm.constants import SESSION_ID_GENERATED_METADATA_KEY
+from hangarllm.integrations.otel import (
     BAGGAGE_PROMOTED_KEYS,
     DB,
     HTTP,
@@ -20,7 +20,7 @@ from litellm.integrations.otel import (
     GenAI,
     GenAIOperation,
     GenAIOutputType,
-    LiteLLM,
+    HangarLLM,
     OpenTelemetryV2Config,
     Server,
     is_otel_v2_enabled,
@@ -29,26 +29,26 @@ from litellm.integrations.otel import (
     resolve_output_type,
     resolve_provider,
 )
-from litellm.integrations.otel.mappers.genai import GenAIMapper
-from litellm.integrations.otel.model import spans as spans_mod
-from litellm.integrations.otel.model.metadata import LLMCallEvent
-from litellm.integrations.otel.model.payloads import (
+from hangarllm.integrations.otel.mappers.genai import GenAIMapper
+from hangarllm.integrations.otel.model import spans as spans_mod
+from hangarllm.integrations.otel.model.metadata import LLMCallEvent
+from hangarllm.integrations.otel.model.payloads import (
     EmbeddingOutput,
     LLMCallSpanData,
     RequestIdentity,
     _upstream_address_port,
 )
-from litellm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY
-from litellm.integrations.otel.model.spans import (
+from hangarllm.integrations.otel.model.semconv import PASSTHROUGH_OPERATION_KEY
+from hangarllm.integrations.otel.model.spans import (
     SPAN_REGISTRY,
-    LiteLLMSpanKind,
+    HangarLLMSpanKind,
     SpanRole,
     child_roles,
     root_roles,
     validate_registry,
 )
-from litellm.integrations.otel.model.trace_controls import TraceControls, caller_trace_controls
-from litellm.types.responses.main import build_web_search_call
+from hangarllm.integrations.otel.model.trace_controls import TraceControls, caller_trace_controls
+from hangarllm.types.responses.main import build_web_search_call
 
 
 @pytest.fixture(autouse=True)
@@ -90,7 +90,7 @@ def _sample_payload(**overrides):
         },
         "api_base": "https://api.openai.com:443/v1",
         "status": "success",
-        "litellm_call_id": "call_1",
+        "hangarllm_call_id": "call_1",
         "end_user": "u1",
         "response_cost": 0.002,
         "hidden_params": {},
@@ -127,22 +127,22 @@ def test_registry_hierarchy_shape():
         SpanRole.MCP_TOOL_CALL,
         SpanRole.MCP_LIST_TOOLS,
     }
-    assert SPAN_REGISTRY[SpanRole.LLM_CALL].kind is LiteLLMSpanKind.CLIENT
+    assert SPAN_REGISTRY[SpanRole.LLM_CALL].kind is HangarLLMSpanKind.CLIENT
     # The proxy is an MCP client to the upstream tool server: CLIENT span. Listing
     # tools is the same client relationship, so it's a CLIENT span too.
-    assert SPAN_REGISTRY[SpanRole.MCP_TOOL_CALL].kind is LiteLLMSpanKind.CLIENT
-    assert SPAN_REGISTRY[SpanRole.MCP_LIST_TOOLS].kind is LiteLLMSpanKind.CLIENT
+    assert SPAN_REGISTRY[SpanRole.MCP_TOOL_CALL].kind is HangarLLMSpanKind.CLIENT
+    assert SPAN_REGISTRY[SpanRole.MCP_LIST_TOOLS].kind is HangarLLMSpanKind.CLIENT
     # MCP spans nest under the transport span of the request carrying that
     # message (resolved per message at emit time); a client-propagated context
     # becomes a span link to that remote context, which is not a registry role
     # (SpanSpec declares no link field at all).
     assert SPAN_REGISTRY[SpanRole.MCP_TOOL_CALL].parent is SpanRole.PROXY_REQUEST
     assert SPAN_REGISTRY[SpanRole.MCP_LIST_TOOLS].parent is SpanRole.PROXY_REQUEST
-    assert SPAN_REGISTRY[SpanRole.PROXY_REQUEST].kind is LiteLLMSpanKind.SERVER
+    assert SPAN_REGISTRY[SpanRole.PROXY_REQUEST].kind is HangarLLMSpanKind.SERVER
     assert SPAN_REGISTRY[SpanRole.GUARDRAIL].parent is SpanRole.PROXY_REQUEST
     # An outbound datastore call is a CLIENT span; an internal service is INTERNAL.
-    assert SPAN_REGISTRY[SpanRole.DB_CALL].kind is LiteLLMSpanKind.CLIENT
-    assert SPAN_REGISTRY[SpanRole.SERVICE].kind is LiteLLMSpanKind.INTERNAL
+    assert SPAN_REGISTRY[SpanRole.DB_CALL].kind is HangarLLMSpanKind.CLIENT
+    assert SPAN_REGISTRY[SpanRole.SERVICE].kind is HangarLLMSpanKind.INTERNAL
 
 
 def test_llm_call_span_name():
@@ -160,11 +160,11 @@ def _all_constants(cls):
 
 
 def test_attribute_keys_are_unique_across_namespaces():
-    from litellm.integrations.otel import MCP, Client, JsonRpc, LiteLLMError, Network
+    from hangarllm.integrations.otel import MCP, Client, JsonRpc, HangarLLMError, Network
 
     # prefixes are allowed to be substrings; exact keys must not collide.
     exact = set()
-    for cls in (GenAI, Error, LiteLLMError, Server, HTTP, DB, MCP, JsonRpc, Network, Client):
+    for cls in (GenAI, Error, HangarLLMError, Server, HTTP, DB, MCP, JsonRpc, Network, Client):
         for key in _all_constants(cls):
             assert key not in exact, f"duplicate attribute key {key}"
             exact.add(key)
@@ -176,7 +176,7 @@ def test_mcp_attribute_vocabulary_is_complete():
     Pins the vocabulary so a dropped or renamed key fails here rather than
     silently emitting a non-conformant attribute name.
     """
-    from litellm.integrations.otel import MCP, Client, JsonRpc, Network
+    from hangarllm.integrations.otel import MCP, Client, JsonRpc, Network
 
     defined = set()
     for cls in (GenAI, Error, Server, MCP, JsonRpc, Network, Client):
@@ -262,8 +262,8 @@ def test_vector_store_management_is_not_chat(call_type):
     """The store lifecycle calls are not GenAI client operations and the convention
     names nothing for them, so they take a vendor value rather than defaulting into
     the chat series."""
-    assert resolve_operation(call_type) is GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT
-    assert resolve_operation(call_type).value == "litellm.vector_store_management"
+    assert resolve_operation(call_type) is GenAIOperation.HANGARLLM_VECTOR_STORE_MANAGEMENT
+    assert resolve_operation(call_type).value == "hangarllm.vector_store_management"
 
 
 @pytest.mark.parametrize(
@@ -277,8 +277,8 @@ def test_vector_store_management_is_not_chat(call_type):
 def test_vector_store_file_management_is_not_chat(call_type):
     """The file operations are a distinct REST resource from the store lifecycle, so
     they get their own vendor value instead of sharing one bucket."""
-    assert resolve_operation(call_type) is GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT
-    assert resolve_operation(call_type).value == "litellm.vector_store_file_management"
+    assert resolve_operation(call_type) is GenAIOperation.HANGARLLM_VECTOR_STORE_FILE_MANAGEMENT
+    assert resolve_operation(call_type).value == "hangarllm.vector_store_file_management"
 
 
 @pytest.mark.parametrize(
@@ -293,8 +293,8 @@ def test_responses_management_is_not_chat(call_type):
     """Fetching, deleting or cancelling a stored response runs no inference, so it must not
     read as a chat completion: the retrieved object replays the original call's tokens and
     would inflate the chat series on every read. Regression test for LIT-5602."""
-    assert resolve_operation(call_type) is GenAIOperation.LITELLM_RESPONSES_MANAGEMENT
-    assert resolve_operation(call_type).value == "litellm.responses_management"
+    assert resolve_operation(call_type) is GenAIOperation.HANGARLLM_RESPONSES_MANAGEMENT
+    assert resolve_operation(call_type).value == "hangarllm.responses_management"
 
 
 def test_creating_a_response_is_still_chat():
@@ -307,7 +307,7 @@ _NON_CHAT_ROUTES: Final = (
     ("speech", GenAIOperation.GENERATE_CONTENT, GenAIOutputType.SPEECH),
     ("transcription", GenAIOperation.GENERATE_CONTENT, GenAIOutputType.TEXT),
     ("ocr", GenAIOperation.GENERATE_CONTENT, GenAIOutputType.TEXT),
-    ("moderation", GenAIOperation.LITELLM_MODERATION, None),
+    ("moderation", GenAIOperation.HANGARLLM_MODERATION, None),
 )
 
 
@@ -338,7 +338,7 @@ def test_non_chat_route_spans_carry_semconv_name_and_modality(call_type, operati
     """The emitted span, not just the mapping table: name is
     ``{gen_ai.operation.name} {gen_ai.request.model}``, the modality rides
     ``gen_ai.output.type``, and the route stays recoverable from
-    ``litellm.call_type`` now that several routes share one operation."""
+    ``hangarllm.call_type`` now that several routes share one operation."""
     data = LLMCallSpanData.from_standard_logging_payload(
         _sample_payload(call_type=call_type, model="some-model", custom_llm_provider="openai")
     )
@@ -348,7 +348,7 @@ def test_non_chat_route_spans_carry_semconv_name_and_modality(call_type, operati
     assert attrs[GenAI.OPERATION_NAME] == operation.value
     assert attrs[GenAI.PROVIDER_NAME] == "openai"
     assert attrs[GenAI.REQUEST_MODEL] == "some-model"
-    assert attrs[LiteLLM.CALL_TYPE] == call_type
+    assert attrs[HangarLLM.CALL_TYPE] == call_type
     assert attrs.get(GenAI.OUTPUT_TYPE) == (output_type.value if output_type else None)
 
 
@@ -371,12 +371,12 @@ def test_non_chat_route_error_span_keeps_error_attributes():
 
 
 def test_vendor_operation_values_are_namespaced():
-    """A vendor value must stay under the ``litellm.`` prefix: an unprefixed invented
+    """A vendor value must stay under the ``hangarllm.`` prefix: an unprefixed invented
     name could collide with a value the convention adds later, silently changing what
     a conformant consumer thinks it is reading."""
-    vendor = [op for op in GenAIOperation if op.name.startswith("LITELLM_")]
+    vendor = [op for op in GenAIOperation if op.name.startswith("HANGARLLM_")]
     assert vendor, "no vendor operation values defined"
-    assert all(op.value.startswith("litellm.") for op in vendor)
+    assert all(op.value.startswith("hangarllm.") for op in vendor)
 
 
 @pytest.mark.parametrize("call_type", ["send_message", "asend_message", "asend_message_streaming"])
@@ -384,7 +384,7 @@ def test_agent_message_is_an_invoke_agent_operation(call_type):
     """An agent (A2A) message send is an agent invocation, not a chat completion.
 
     The streaming spelling counts: ``_build_streaming_logging_obj`` in
-    ``litellm/a2a_protocol/main.py`` stamps ``asend_message_streaming`` on the
+    ``hangarllm/a2a_protocol/main.py`` stamps ``asend_message_streaming`` on the
     logging object the streaming iterator dispatches success handlers with, so a
     missing entry sends every streamed agent turn into the chat series. There is
     no sync spelling because A2A streaming is async-only.
@@ -397,13 +397,13 @@ def test_every_call_type_the_a2a_package_stamps_is_an_agent_operation():
     """Pins the map to the call types the A2A code actually stamps on its logging
     objects. A new spelling added there without a map entry fails here instead of
     quietly landing in the chat series, which is how the streaming one was missed."""
-    a2a_package = Path(litellm.__file__).parent / "a2a_protocol"
+    a2a_package = Path(hangarllm.__file__).parent / "a2a_protocol"
     stamped = {
         call_type
         for source in a2a_package.rglob("*.py")
         for call_type in re.findall(r'call_type="([^"]+)"', source.read_text())
     }
-    assert stamped, "no call_type literals found in litellm/a2a_protocol"
+    assert stamped, "no call_type literals found in hangarllm/a2a_protocol"
     unmapped = {
         call_type: resolve_operation(call_type).value
         for call_type in stamped
@@ -416,7 +416,7 @@ def test_unmapped_call_type_falls_back_to_chat_loudly(caplog):
     """The fallback still labels the series ``chat`` so it is never unlabelled,
     but it says so at debug: a silent default is how retrieval and agent calls
     ended up in the chat charts in the first place."""
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="HangarLLM"):
         assert resolve_operation("some_future_call_type") is GenAIOperation.CHAT
     assert any("some_future_call_type" in record.getMessage() for record in caplog.records)
 
@@ -428,7 +428,7 @@ def _mcp_payload(capture=False, **overrides):
     payload = {
         "call_type": "call_mcp_tool",
         "status": "success",
-        "litellm_call_id": "mcp_call_1",
+        "hangarllm_call_id": "mcp_call_1",
         "response_cost": 0.01,
         "metadata": {
             "user_api_key_team_id": "t1",
@@ -447,7 +447,7 @@ def _mcp_payload(capture=False, **overrides):
 
 
 def test_mcp_method_values_match_wire_format():
-    from litellm.integrations.otel import MCP, MCPMethod
+    from hangarllm.integrations.otel import MCP, MCPMethod
 
     assert MCPMethod.TOOLS_CALL.value == "tools/call"
     assert MCPMethod.TOOLS_LIST.value == "tools/list"
@@ -455,7 +455,7 @@ def test_mcp_method_values_match_wire_format():
 
 
 def test_mcp_tool_call_adapter_extracts_fields():
-    from litellm.integrations.otel import MCPToolCallSpanData
+    from hangarllm.integrations.otel import MCPToolCallSpanData
 
     data = MCPToolCallSpanData.from_standard_logging_payload(_mcp_payload())
     assert data.operation is GenAIOperation.EXECUTE_TOOL
@@ -472,7 +472,7 @@ def test_mcp_tool_call_adapter_extracts_fields():
 def test_mcp_tool_call_content_gated_off_by_default():
     # Arguments and result are sensitive tool I/O: withheld unless content capture
     # is explicitly enabled, exactly like prompt/response bodies.
-    from litellm.integrations.otel import MCPToolCallSpanData
+    from hangarllm.integrations.otel import MCPToolCallSpanData
 
     off = MCPToolCallSpanData.from_standard_logging_payload(_mcp_payload())
     assert off.arguments_json is None and off.result_json is None
@@ -483,7 +483,7 @@ def test_mcp_tool_call_content_gated_off_by_default():
 
 
 def test_mcp_tool_call_failure_path():
-    from litellm.integrations.otel import MCPToolCallSpanData
+    from hangarllm.integrations.otel import MCPToolCallSpanData
 
     data = MCPToolCallSpanData.from_standard_logging_payload(
         _mcp_payload(
@@ -497,7 +497,7 @@ def test_mcp_tool_call_failure_path():
 
 
 def test_is_mcp_tool_call_detection():
-    from litellm.integrations.otel import is_mcp_tool_call
+    from hangarllm.integrations.otel import is_mcp_tool_call
 
     assert is_mcp_tool_call(_mcp_payload()) is True
     # call_type alone is enough even before the gateway stamps its metadata.
@@ -507,8 +507,8 @@ def test_is_mcp_tool_call_detection():
 
 
 def test_mcp_tool_call_span_name():
-    from litellm.integrations.otel import MCPToolCallSpanData
-    from litellm.integrations.otel.model.spans import mcp_tool_call_span_name
+    from hangarllm.integrations.otel import MCPToolCallSpanData
+    from hangarllm.integrations.otel.model.spans import mcp_tool_call_span_name
 
     data = MCPToolCallSpanData.from_standard_logging_payload(_mcp_payload())
     assert mcp_tool_call_span_name(data) == "tools/call get_weather"
@@ -1254,9 +1254,9 @@ def test_speech_binary_response_is_logged_as_its_summary_not_dropped(http_module
     httpx: Final = pytest.importorskip(http_module)
     from openai import HttpxBinaryResponseContent as SDKBinaryResponse
 
-    from litellm.litellm_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
-    from litellm.litellm_core_utils.litellm_logging import _extract_response_obj_and_hidden_params
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from hangarllm.hangarllm_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import _extract_response_obj_and_hidden_params
+    from hangarllm.types.llms.openai import HttpxBinaryResponseContent
 
     raw: Final = httpx.Response(200, headers={"content-type": "audio/mpeg"}, content=b"\x00" * 1234)
     speech: Final = HttpxBinaryResponseContent(raw)
@@ -1275,7 +1275,7 @@ def test_speech_binary_response_is_logged_as_its_summary_not_dropped(http_module
 def test_speech_binary_response_still_streaming_reports_the_bytes_downloaded_so_far(http_module: str) -> None:
     httpx: Final = pytest.importorskip(http_module)
 
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from hangarllm.types.llms.openai import HttpxBinaryResponseContent
 
     unread: Final = httpx.Response(200, stream=httpx.ByteStream(b"\x00" * 10))
 
@@ -1287,7 +1287,7 @@ def test_speech_binary_response_still_streaming_reports_the_bytes_downloaded_so_
 
 
 def test_request_identity_prefers_canonical_team_keys():
-    from litellm.integrations.otel.model.payloads import RequestIdentity
+    from hangarllm.integrations.otel.model.payloads import RequestIdentity
 
     payload = _sample_payload(
         metadata={
@@ -1304,7 +1304,7 @@ def test_request_identity_prefers_canonical_team_keys():
 
 
 def test_request_identity_falls_back_to_legacy_team_keys():
-    from litellm.integrations.otel.model.payloads import RequestIdentity
+    from hangarllm.integrations.otel.model.payloads import RequestIdentity
 
     payload = _sample_payload(metadata={"team_id": "legacy-team", "team_alias": "legacy"})
     ident = RequestIdentity.from_payload(payload)
@@ -1317,7 +1317,7 @@ def test_request_identity_falls_back_to_legacy_team_keys():
     [
         ({"proxy_server_request": {"headers": {"langfuse_trace_name": "from-header"}}}, "from-header"),
         ({"metadata": {"trace_name": "from-body"}}, "from-body"),
-        ({"litellm_metadata": {"trace_name": "from-anthropic-body"}}, "from-anthropic-body"),
+        ({"hangarllm_metadata": {"trace_name": "from-anthropic-body"}}, "from-anthropic-body"),
         (
             {
                 "proxy_server_request": {"headers": {"langfuse_trace_name": "from-header"}},
@@ -1335,8 +1335,8 @@ def test_request_identity_falls_back_to_legacy_team_keys():
     ids=["header", "body", "anthropic-body", "header-beats-body", "blank-header-falls-through", "neither", "empty"],
 )
 def test_caller_trace_name_prefers_the_langfuse_header_over_body_metadata(request_data, expected):
-    assert caller_trace_controls({"litellm_params": request_data}).name == expected
-    assert LLMCallEvent.from_dict({"litellm_params": request_data}).trace.name == expected
+    assert caller_trace_controls({"hangarllm_params": request_data}).name == expected
+    assert LLMCallEvent.from_dict({"hangarllm_params": request_data}).trace.name == expected
 
 
 @pytest.mark.parametrize(
@@ -1356,7 +1356,7 @@ def test_caller_trace_name_prefers_the_langfuse_header_over_body_metadata(reques
             TraceControls(user_id="u-header", session_id="s-header"),
         ),
         (
-            {"litellm_metadata": {"trace_user_id": "u-anthropic", "session_id": "s-anthropic", "tags": ["x"]}},
+            {"hangarllm_metadata": {"trace_user_id": "u-anthropic", "session_id": "s-anthropic", "tags": ["x"]}},
             TraceControls(user_id="u-anthropic", session_id="s-anthropic", tags=("x",)),
         ),
         (
@@ -1389,8 +1389,8 @@ def test_caller_trace_name_prefers_the_langfuse_header_over_body_metadata(reques
     ],
 )
 def test_caller_trace_controls_carry_user_session_and_tags(request_data, expected):
-    assert caller_trace_controls({"litellm_params": request_data}) == expected
-    assert LLMCallEvent.from_dict({"litellm_params": request_data}).trace == expected
+    assert caller_trace_controls({"hangarllm_params": request_data}) == expected
+    assert LLMCallEvent.from_dict({"hangarllm_params": request_data}).trace == expected
 
 
 def test_llm_span_data_carries_the_caller_trace_controls():
@@ -1402,27 +1402,27 @@ def test_llm_span_data_carries_the_caller_trace_controls():
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected"),
+    ("hangarllm_params", "expected"),
     [
-        ({"litellm_session_id": "conv-body"}, "conv-body"),
+        ({"hangarllm_session_id": "conv-body"}, "conv-body"),
         ({"metadata": {"session_id": "conv-meta"}}, "conv-meta"),
-        ({"litellm_metadata": {"session_id": "conv-anthropic"}}, "conv-anthropic"),
+        ({"hangarllm_metadata": {"session_id": "conv-anthropic"}}, "conv-anthropic"),
         ({"proxy_server_request": {"headers": {"langfuse_session_id": "conv-header"}}}, "conv-header"),
-        ({"litellm_session_id": "conv-body", "metadata": {"session_id": "conv-meta"}}, "conv-body"),
-        ({"litellm_session_id": "", "metadata": {"session_id": ""}}, None),
-        ({"litellm_trace_id": "trace-only", "metadata": {"trace_id": "trace-only"}}, None),
+        ({"hangarllm_session_id": "conv-body", "metadata": {"session_id": "conv-meta"}}, "conv-body"),
+        ({"hangarllm_session_id": "", "metadata": {"session_id": ""}}, None),
+        ({"hangarllm_trace_id": "trace-only", "metadata": {"trace_id": "trace-only"}}, None),
         (
             {
-                "litellm_session_id": "0" * 32,
-                "litellm_trace_id": "0" * 32,
+                "hangarllm_session_id": "0" * 32,
+                "hangarllm_trace_id": "0" * 32,
                 "metadata": {"trace_id": "0" * 32},
             },
             None,
         ),
         (
             {
-                "litellm_session_id": "0" * 32,
-                "litellm_trace_id": "0" * 32,
+                "hangarllm_session_id": "0" * 32,
+                "hangarllm_trace_id": "0" * 32,
                 "metadata": {"trace_id": "0" * 32},
                 "proxy_server_request": {"headers": {"langfuse_session_id": "conv-header"}},
             },
@@ -1430,14 +1430,14 @@ def test_llm_span_data_carries_the_caller_trace_controls():
         ),
         (
             {
-                "litellm_session_id": "minted-by-proxy",
+                "hangarllm_session_id": "minted-by-proxy",
                 "metadata": {"session_id": "minted-by-proxy", SESSION_ID_GENERATED_METADATA_KEY: True},
             },
             None,
         ),
         (
             {
-                "litellm_session_id": "minted-by-proxy",
+                "hangarllm_session_id": "minted-by-proxy",
                 "metadata": {"session_id": "minted-by-proxy", SESSION_ID_GENERATED_METADATA_KEY: True},
                 "proxy_server_request": {"headers": {"langfuse_session_id": "conv-header"}},
             },
@@ -1445,24 +1445,24 @@ def test_llm_span_data_carries_the_caller_trace_controls():
         ),
         (
             {
-                "litellm_session_id": "minted-by-proxy",
+                "hangarllm_session_id": "minted-by-proxy",
                 "metadata": {"session_id": "conv-other-key"},
-                "litellm_metadata": {"session_id": "minted-by-proxy", SESSION_ID_GENERATED_METADATA_KEY: True},
+                "hangarllm_metadata": {"session_id": "minted-by-proxy", SESSION_ID_GENERATED_METADATA_KEY: True},
             },
             "conv-other-key",
         ),
         (
             {
-                "litellm_session_id": "minted-by-proxy",
+                "hangarllm_session_id": "minted-by-proxy",
                 "metadata": {"session_id": "minted-by-proxy", SESSION_ID_GENERATED_METADATA_KEY: True},
-                "litellm_metadata": {"session_id": "conv-other-key"},
+                "hangarllm_metadata": {"session_id": "conv-other-key"},
             },
             "conv-other-key",
         ),
         (
             {
-                "litellm_session_id": "conv-x-header",
-                "litellm_trace_id": "conv-x-header",
+                "hangarllm_session_id": "conv-x-header",
+                "hangarllm_trace_id": "conv-x-header",
                 "metadata": {"trace_id": "conv-x-header", "session_id": "conv-x-header"},
             },
             "conv-x-header",
@@ -1470,30 +1470,30 @@ def test_llm_span_data_carries_the_caller_trace_controls():
         ({}, None),
     ],
     ids=[
-        "litellm_session_id",
+        "hangarllm_session_id",
         "metadata",
         "anthropic-metadata",
         "langfuse-header",
-        "litellm_session_id-beats-metadata",
+        "hangarllm_session_id-beats-metadata",
         "blank-values",
         "trace-id-is-not-a-session",
         "backfilled-from-otel-trace-id-is-not-a-conversation",
         "backfilled-trace-id-does-not-shadow-the-header",
         "proxy-generated-is-not-a-conversation",
         "proxy-generated-does-not-shadow-the-header",
-        "proxy-generated-on-litellm_metadata-does-not-shadow-metadata",
-        "proxy-generated-on-metadata-does-not-shadow-litellm_metadata",
-        "x-litellm-session-id-header-sets-trace-and-session",
+        "proxy-generated-on-hangarllm_metadata-does-not-shadow-metadata",
+        "proxy-generated-on-metadata-does-not-shadow-hangarllm_metadata",
+        "x-hangarllm-session-id-header-sets-trace-and-session",
         "empty",
     ],
 )
-def test_llm_call_event_resolves_the_callers_conversation_id(litellm_params, expected):
-    kwargs: Final = {"litellm_params": litellm_params, "litellm_trace_id": "per-request-uuid"}
+def test_llm_call_event_resolves_the_callers_conversation_id(hangarllm_params, expected):
+    kwargs: Final = {"hangarllm_params": hangarllm_params, "hangarllm_trace_id": "per-request-uuid"}
     assert LLMCallEvent.from_dict(kwargs).session_id == expected
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "payload", "expected"),
+    ("hangarllm_params", "payload", "expected"),
     [
         (
             {"metadata": {"user_api_key_hash": "hsh"}},
@@ -1505,10 +1505,10 @@ def test_llm_call_event_resolves_the_callers_conversation_id(litellm_params, exp
             {"session_id": "conv-replayed", "trace_id": "0af7651916cd43dd8448eb211c80319c"},
             None,
         ),
-        ({"litellm_session_id": "conv-live"}, {"session_id": "conv-replayed"}, "conv-live"),
+        ({"hangarllm_session_id": "conv-live"}, {"session_id": "conv-replayed"}, "conv-live"),
         (
             {
-                "litellm_session_id": "minted-by-proxy",
+                "hangarllm_session_id": "minted-by-proxy",
                 "metadata": {"session_id": "minted-by-proxy", SESSION_ID_GENERATED_METADATA_KEY: True},
             },
             {"session_id": "minted-by-proxy"},
@@ -1522,13 +1522,13 @@ def test_llm_call_event_resolves_the_callers_conversation_id(litellm_params, exp
         "generated-stays-hidden",
     ],
 )
-def test_llm_call_event_never_reads_the_replayed_payloads_session_id(litellm_params, payload, expected):
-    """``/callback_logs`` rebuilds ``litellm_params`` with key metadata only, so a
+def test_llm_call_event_never_reads_the_replayed_payloads_session_id(hangarllm_params, payload, expected):
+    """``/callback_logs`` rebuilds ``hangarllm_params`` with key metadata only, so a
     ``StandardLoggingPayload`` minted under ``missing_session_id: generate`` arrives
     without its generated marker and is indistinguishable from a caller's session;
     the payload is therefore never a source for the conversation id."""
     kwargs: Final = {
-        "litellm_params": litellm_params,
+        "hangarllm_params": hangarllm_params,
         "standard_logging_object": _sample_payload(**payload),
     }
     assert LLMCallEvent.from_dict(kwargs).session_id == expected
@@ -1555,7 +1555,7 @@ def test_llm_span_carries_proxy_request_route():
     )
     attrs: Final = GenAIMapper().map(data)
 
-    assert attrs[LiteLLM.REQUEST_ROUTE] == "/v1/responses/{response_id}"
+    assert attrs[HangarLLM.REQUEST_ROUTE] == "/v1/responses/{response_id}"
 
 
 def test_llm_span_falls_back_to_the_logged_route_without_a_server_span():
@@ -1566,18 +1566,18 @@ def test_llm_span_falls_back_to_the_logged_route_without_a_server_span():
         _sample_payload(metadata={"user_api_key_request_route": "/v1/responses"})
     )
 
-    assert GenAIMapper().map(data)[LiteLLM.REQUEST_ROUTE] == "/v1/responses"
+    assert GenAIMapper().map(data)[HangarLLM.REQUEST_ROUTE] == "/v1/responses"
 
 
 def test_llm_span_omits_request_route_off_the_proxy():
     """An SDK call has no inbound route, so the key is absent rather than empty."""
     attrs: Final = GenAIMapper().map(LLMCallSpanData.from_standard_logging_payload(_sample_payload(metadata={})))
 
-    assert LiteLLM.REQUEST_ROUTE not in attrs
+    assert HangarLLM.REQUEST_ROUTE not in attrs
 
 
 def test_guardrail_span_data_block_carries_verdict_and_error():
-    from litellm.integrations.otel.model.payloads import GuardrailSpanData
+    from hangarllm.integrations.otel.model.payloads import GuardrailSpanData
 
     entry = {
         "guardrail_name": "openai-moderation",
@@ -1603,7 +1603,7 @@ def test_guardrail_span_data_block_carries_verdict_and_error():
 
 
 def test_guardrail_span_data_success_has_no_error():
-    from litellm.integrations.otel.model.payloads import GuardrailSpanData
+    from hangarllm.integrations.otel.model.payloads import GuardrailSpanData
 
     d = GuardrailSpanData.from_logging_entry(
         {
@@ -1617,7 +1617,7 @@ def test_guardrail_span_data_success_has_no_error():
 
 
 def test_request_identity_from_user_api_key_auth():
-    from litellm.integrations.otel.model.payloads import RequestIdentity
+    from hangarllm.integrations.otel.model.payloads import RequestIdentity
 
     class _Auth:
         team_id = "t9"
@@ -1646,9 +1646,9 @@ def test_request_identity_from_user_api_key_auth():
 
 def test_request_context_splits_group_from_dispatched_model():
     """On the proxy the caller asks for a model *group* that routes to a concrete
-    deployment: ``gen_ai.request.model`` is the group, ``litellm.provider.model``
+    deployment: ``gen_ai.request.model`` is the group, ``hangarllm.provider.model``
     is the dispatched (provider-prefixed) deployment model."""
-    from litellm.integrations.otel.model.metadata import RequestContext
+    from hangarllm.integrations.otel.model.metadata import RequestContext
 
     payload = _sample_payload(
         model="openai/gpt-5.4-mini",  # reconstructed dispatched name
@@ -1666,7 +1666,7 @@ def test_request_context_splits_group_from_dispatched_model():
 def test_request_context_sdk_path_has_no_group():
     """Without a model group (the SDK path) the request and provider models
     coincide on the single call model."""
-    from litellm.integrations.otel.model.metadata import RequestContext
+    from hangarllm.integrations.otel.model.metadata import RequestContext
 
     payload = _sample_payload()  # model="gpt-4o", no model_group
     ctx = RequestContext.from_standard_logging_payload(payload)
@@ -1676,14 +1676,14 @@ def test_request_context_sdk_path_has_no_group():
 
 
 def test_request_context_prefers_explicit_dispatched_model():
-    """``hidden_params.litellm_model_name`` is the authoritative dispatched model
+    """``hidden_params.hangarllm_model_name`` is the authoritative dispatched model
     when present, winning over the reconstructed top-level ``model``."""
-    from litellm.integrations.otel.model.metadata import RequestContext
+    from hangarllm.integrations.otel.model.metadata import RequestContext
 
     payload = _sample_payload(
         model="gpt-4o",
         model_group="gpt-4o",
-        hidden_params={"litellm_model_name": "azure/my-deployment"},
+        hidden_params={"hangarllm_model_name": "azure/my-deployment"},
     )
     ctx = RequestContext.from_standard_logging_payload(payload)
     assert ctx.request_model == "gpt-4o"
@@ -1704,7 +1704,7 @@ def test_content_capture_opt_in_retains_bodies():
 
 
 def test_capture_span_content_resolves_modes():
-    from litellm.integrations.otel.model.config import (
+    from hangarllm.integrations.otel.model.config import (
         CaptureMessageContent,
         OpenTelemetryV2Config,
     )
@@ -1731,7 +1731,7 @@ def test_capture_message_content_normalizer_only_touches_strings():
     import pytest
     from pydantic import ValidationError
 
-    from litellm.integrations.otel.model.config import OpenTelemetryV2Config
+    from hangarllm.integrations.otel.model.config import OpenTelemetryV2Config
 
     with pytest.raises(ValidationError):
         OpenTelemetryV2Config(capture_message_content=123)
@@ -1751,10 +1751,10 @@ def test_unknown_capture_message_content_env_is_kept_as_a_plain_string_that_capt
 
 
 def test_v2_flag_is_off_by_default(monkeypatch):
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("HANGARLLM_OTEL_V2", raising=False)
     is_otel_v2_enabled.cache_clear()
     assert is_otel_v2_enabled() is False
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("HANGARLLM_OTEL_V2", "true")
     is_otel_v2_enabled.cache_clear()
     assert is_otel_v2_enabled() is True
 
@@ -1764,7 +1764,7 @@ def test_v2_flag_resolved_once_not_per_call(monkeypatch):
     (auth, logging-callback setup). Building the pydantic-settings model on every
     call re-scanned the environment at ~28us a pop and dropped throughput, so the
     flag must be resolved once and cached rather than reconstructed per call."""
-    from litellm.integrations.otel.model import config as config_mod
+    from hangarllm.integrations.otel.model import config as config_mod
 
     constructions = 0
     real_flag = config_mod._OTelV2Flag
@@ -1792,7 +1792,7 @@ def test_config_from_env(monkeypatch):
         "OTEL_HEADERS",
         "OTEL_EXPORTER_OTLP_HEADERS",
         "OTEL_SERVICE_NAME",
-        "LITELLM_OTEL_LEGACY_COMPAT",
+        "HANGARLLM_OTEL_LEGACY_COMPAT",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -1807,7 +1807,7 @@ def test_config_from_env(monkeypatch):
 
 
 def test_config_legacy_compat_env_toggle(monkeypatch):
-    monkeypatch.setenv("LITELLM_OTEL_LEGACY_COMPAT", "false")
+    monkeypatch.setenv("HANGARLLM_OTEL_LEGACY_COMPAT", "false")
     assert OpenTelemetryV2Config.from_env().legacy_compat is False
 
 
@@ -1824,11 +1824,11 @@ def test_promoted_baggage_is_bounded_allowlist():
         metadata={"user_api_key_org_id": "org1", "secret_blob": "should-not-promote"},
     )
     promoted = promoted_baggage(identity, "gpt-4o", BAGGAGE_PROMOTED_KEYS)
-    assert promoted[LiteLLM.TEAM_ID] == "t1"
-    assert promoted[LiteLLM.TEAM_ALIAS] == "team one"
+    assert promoted[HangarLLM.TEAM_ID] == "t1"
+    assert promoted[HangarLLM.TEAM_ALIAS] == "team one"
     assert promoted[GenAI.REQUEST_MODEL] == "gpt-4o"
-    # allowlisted metadata sub-key is promoted under the litellm.metadata.* prefix
-    assert promoted[f"{LiteLLM.METADATA_PREFIX}user_api_key_org_id"] == "org1"
+    # allowlisted metadata sub-key is promoted under the hangarllm.metadata.* prefix
+    assert promoted[f"{HangarLLM.METADATA_PREFIX}user_api_key_org_id"] == "org1"
     # full metadata blob is NOT promoted
     assert all("secret_blob" not in key for key in promoted)
     # http.* is never a promoted key

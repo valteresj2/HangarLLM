@@ -14,9 +14,9 @@ import unittest
 from datetime import datetime, timedelta
 
 
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.proxy._types import AlertType
-from litellm.types.integrations.slack_alerting import AlertTypeConfig
+from hangarllm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from hangarllm.proxy._types import AlertType
+from hangarllm.types.integrations.slack_alerting import AlertTypeConfig
 
 
 class TestDigestMode(unittest.IsolatedAsyncioTestCase):

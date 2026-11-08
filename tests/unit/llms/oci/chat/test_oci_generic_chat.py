@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/llms/oci/chat/generic.py — error paths and stream handling.
+Unit tests for hangarllm/llms/oci/chat/generic.py — error paths and stream handling.
 """
 
 import pytest
@@ -7,21 +7,21 @@ from unittest.mock import MagicMock
 
 import httpx
 
-from litellm import ModelResponse
-from litellm.llms.oci.chat.generic import (
+from hangarllm import ModelResponse
+from hangarllm.llms.oci.chat.generic import (
     adapt_messages_to_generic_oci_standard,
     adapt_messages_to_generic_oci_standard_content_message,
     adapt_messages_to_generic_oci_standard_tool_call,
     handle_generic_response,
     handle_generic_stream_chunk,
 )
-from litellm.llms.oci.chat.transformation import (
+from hangarllm.llms.oci.chat.transformation import (
     OCIChatConfig,
     OCIStreamWrapper,
     OCIVendors,
     _model_uses_max_completion_tokens,
 )
-from litellm.llms.oci.common_utils import OCIError
+from hangarllm.llms.oci.common_utils import OCIError
 
 # ---------------------------------------------------------------------------
 # adapt_messages_to_generic_oci_standard_content_message — error paths
@@ -344,11 +344,11 @@ class TestOCIStreamWrapperChunkCreator:
 def _register_oci_gpt5_in_catalog():
     """Guarantee OCI GPT-5 catalog entries with supports_reasoning=True are
     present for the duration of the test, regardless of whether
-    ``litellm.model_cost`` was populated from the bundled
+    ``hangarllm.model_cost`` was populated from the bundled
     ``model_prices_and_context_window.json`` (which ships them) or from a
     remote map that may lag behind.
     """
-    import litellm
+    import hangarllm
 
     needed = {
         "oci/openai.gpt-5",
@@ -357,16 +357,16 @@ def _register_oci_gpt5_in_catalog():
     }
     added = []
     for key in needed:
-        if key not in litellm.model_cost:
-            litellm.model_cost[key] = {
-                "litellm_provider": "oci",
+        if key not in hangarllm.model_cost:
+            hangarllm.model_cost[key] = {
+                "hangarllm_provider": "oci",
                 "mode": "chat",
                 "supports_reasoning": True,
             }
             added.append(key)
     yield
     for key in added:
-        litellm.model_cost.pop(key, None)
+        hangarllm.model_cost.pop(key, None)
 
 
 class TestGpt5MaxCompletionTokens:
@@ -383,11 +383,11 @@ class TestGpt5MaxCompletionTokens:
 
     def test_helper_covers_openai_models_absent_from_catalog(self):
         """OCI keeps adding OpenAI models (gpt-4.1, gpt-5.1..5.5, o-series)
-        faster than the litellm catalog tracks them. The vendor-prefix rule
+        faster than the hangarllm catalog tracks them. The vendor-prefix rule
         must route them to maxCompletionTokens even with no catalog entry,
         since OpenAI accepts max_completion_tokens on every chat model while
         the reasoning families hard-reject max_tokens."""
-        import litellm
+        import hangarllm
 
         for name in (
             "openai.gpt-5.2",
@@ -395,7 +395,7 @@ class TestGpt5MaxCompletionTokens:
             "openai.o3",
             "oci/openai.gpt-5.1-codex",
         ):
-            assert f"oci/{name.removeprefix('oci/')}" not in litellm.model_cost
+            assert f"oci/{name.removeprefix('oci/')}" not in hangarllm.model_cost
             assert _model_uses_max_completion_tokens(name) is True
 
         assert _model_uses_max_completion_tokens("openai.gpt-oss-20b") is False
@@ -405,7 +405,7 @@ class TestGpt5MaxCompletionTokens:
         from the catalog got "maxTokens" on every request and OCI returned 400
         ("Use 'max_completion_tokens' instead") even when the caller never set
         max_tokens."""
-        from litellm.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
+        from hangarllm.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
 
         cfg = OCIChatConfig()
         out = cfg._get_optional_params(OCIVendors.GENERIC, {}, model="openai.gpt-5.2")

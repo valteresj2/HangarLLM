@@ -4,14 +4,14 @@ Tests for Manus Responses API transformation
 Tests the ManusResponsesAPIConfig class that handles Manus-specific
 transformations for the Responses API.
 
-Source: litellm/llms/manus/responses/transformation.py
+Source: hangarllm/llms/manus/responses/transformation.py
 """
 
 
 
-from litellm.llms.manus.responses.transformation import ManusResponsesAPIConfig
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
+from hangarllm.llms.manus.responses.transformation import ManusResponsesAPIConfig
+from hangarllm.types.llms.openai import ResponsesAPIOptionalRequestParams
+from hangarllm.types.router import GenericHangarLLMParams
 
 
 def test_extract_agent_profile():
@@ -40,14 +40,14 @@ def test_transform_responses_api_request_adds_manus_params():
     ]
 
     optional_params = ResponsesAPIOptionalRequestParams()
-    litellm_params = GenericLiteLLMParams()
+    hangarllm_params = GenericHangarLLMParams()
     headers = {}
 
     result = config.transform_responses_api_request(
         model="manus/manus-1.6",
         input=input_param,
         response_api_optional_request_params=dict(optional_params),
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         headers=headers,
     )
 
@@ -64,7 +64,7 @@ def test_get_response_request_encodes_response_id():
     url, params = config.transform_get_response_api_request(
         response_id="../../files?x=1#frag",
         api_base="https://api.manus.im/v1/responses",
-        litellm_params=GenericLiteLLMParams(),
+        hangarllm_params=GenericHangarLLMParams(),
         headers={},
     )
 

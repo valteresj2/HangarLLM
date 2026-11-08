@@ -25,12 +25,12 @@ from integration._support.process import graceful_stop_seconds, isolated_gateway
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
 
 pytestmark: Final = pytest.mark.shares_worker_state
 
 _API_KEY: Final = "synthetic-mantle-bearer"
-_SIGNING_KEY: Final = os.environ.get("LITELLM_SALT_KEY", "sk-integration-salt")
+_SIGNING_KEY: Final = os.environ.get("HANGARLLM_SALT_KEY", "sk-integration-salt")
 _GPT56: Final = "openai.gpt-5.6-terra"
 _GPT6: Final = "openai.gpt-6-sol"
 _GPT54: Final = "openai.gpt-5.4"
@@ -60,11 +60,11 @@ _TOOLS: Final[tuple[JsonValue, ...]] = (
         },
     },
 )
-_SPEND_BY_ID: Final = 'SELECT request_id, status, model_group, cache_hit FROM "LiteLLM_SpendLogs" WHERE request_id=%s'
+_SPEND_BY_ID: Final = 'SELECT request_id, status, model_group, cache_hit FROM "HangarLLM_SpendLogs" WHERE request_id=%s'
 _SPEND_BY_PREFIX: Final = (
-    'SELECT request_id, status, model_group, cache_hit FROM "LiteLLM_SpendLogs" WHERE starts_with(request_id, %s)'
+    'SELECT request_id, status, model_group, cache_hit FROM "HangarLLM_SpendLogs" WHERE starts_with(request_id, %s)'
 )
-_SPEND_BY_GROUP: Final = 'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE model_group=%s'
+_SPEND_BY_GROUP: Final = 'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE model_group=%s'
 
 Endpoint = Literal["chat", "messages"]
 
@@ -310,7 +310,7 @@ def _assert_logged(identity: str, model: str, status: str) -> None:
 
 
 def _assert_failure_logged(response: httpx.Response) -> None:
-    assert _spend_row(response.headers["x-litellm-call-id"])["status"] == "failure", response.text
+    assert _spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure", response.text
 
 
 def _spend_statuses(model: str, expected: int) -> list[JsonValue]:
@@ -774,7 +774,7 @@ def test_model_update_of_the_deployment_limit_stays_renamed_and_converges(gatewa
             "/model/update",
             {
                 "model_name": model,
-                "litellm_params": {"model": f"bedrock_mantle/{_GPT56}", "max_tokens": 2000},
+                "hangarllm_params": {"model": f"bedrock_mantle/{_GPT56}", "max_tokens": 2000},
                 "model_info": {"id": _deployment_id(gateway, model)},
             },
         )
@@ -921,7 +921,7 @@ def _chaos_config(wire: Wire, tmp_path: Path) -> Path:
         "model_list": [
             {
                 "model_name": _CONFIG_MODEL,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": f"bedrock_mantle/{_GPT56}",
                     "custom_llm_provider": "bedrock_mantle",
                     "api_base": wire.url + _OPENAI_BASE,

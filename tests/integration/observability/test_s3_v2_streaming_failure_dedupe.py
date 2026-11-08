@@ -104,8 +104,8 @@ def _register_models(scenario: Scenario, upstream_url: str, num_retries: int = 0
 
 
 def _request_key(payload: dict[str, JsonValue], response: httpx.Response, marker: str) -> str | None:
-    call_id: Final = response.headers.get("x-litellm-call-id")
-    if call_id is not None and call_id in {str(payload.get("id")), str(payload.get("litellm_call_id"))}:
+    call_id: Final = response.headers.get("x-hangarllm-call-id")
+    if call_id is not None and call_id in {str(payload.get("id")), str(payload.get("hangarllm_call_id"))}:
         return call_id
     if marker in json.dumps(payload):
         return marker
@@ -141,7 +141,7 @@ def _assert_one_payload(
         f"observed {len(payloads)} payloads"
     )
     assert (
-        _request_key(payloads[0], response, marker) == response.headers.get("x-litellm-call-id")
+        _request_key(payloads[0], response, marker) == response.headers.get("x-hangarllm-call-id")
         or marker in json.dumps(payloads[0])
     ), f"payload did not match request id or marker: {payloads[0]!r}"
     return payloads
@@ -296,7 +296,7 @@ def test_streaming_success_uploads_one_s3_object(
             assert len(payloads_after_window) == 1, payloads_after_window
             assert payloads[0]["status"] == "success"
             if surface == "responses":
-                assert payloads[0]["litellm_call_id"] == call_id
+                assert payloads[0]["hangarllm_call_id"] == call_id
             else:
                 assert payloads[0]["id"] == response_id
             assert matched_ids(payloads, ((response_id, call_id),)) == frozenset({str(payloads[0]["id"])})
@@ -392,7 +392,7 @@ def test_failure_burst_through_sink_outage_lands_each_request_once(
             )
             duplicate_keys: Final = tuple(key for key in set(landed_keys) if landed_keys.count(key) > 1)
             expected_keys: Final = tuple(
-                response.headers.get("x-litellm-call-id") or job[2] for response, job in zip(responses, jobs)
+                response.headers.get("x-hangarllm-call-id") or job[2] for response, job in zip(responses, jobs)
             )
             missing_keys: Final = tuple(key for key in expected_keys if key not in landed_keys)
             assert not duplicate_keys, (

@@ -7,15 +7,15 @@ from typing import Final
 import pytest
 import uvloop
 
-from litellm._logging import verbose_logger, verbose_proxy_logger, verbose_router_logger
-from litellm.proxy.collector import (
+from hangarllm._logging import verbose_logger, verbose_proxy_logger, verbose_router_logger
+from hangarllm.proxy.collector import (
     SpendEventConsumer,
     address_argument,
     apply_log_level,
     pod_pgbouncer_database_url,
 )
-from litellm.proxy.db.pgbouncer import PgBouncerError, PgBouncerSettings
-from litellm.proxy.spend_tracking.spend_event_producer import (
+from hangarllm.proxy.db.pgbouncer import PgBouncerError, PgBouncerSettings
+from hangarllm.proxy.spend_tracking.spend_event_producer import (
     AddressError,
     SpendEventProducer,
     TcpAddress,
@@ -188,19 +188,19 @@ def test_address_argument():
 
 def test_pod_pgbouncer_database_url_points_at_the_proxy_containers_pooler():
     """With pgbouncer on, the sidecar must not open its own upstream connections but share the pod's pooler."""
-    upstream: Final = "postgresql://u:p@db.internal:5432/litellm?schema=public"
+    upstream: Final = "postgresql://u:p@db.internal:5432/hangarllm?schema=public"
     environ: Final = {"DATABASE_URL": upstream}
     assert pod_pgbouncer_database_url(PgBouncerSettings(enabled=False), environ, token_auth=False) is None
     assert (
         pod_pgbouncer_database_url(PgBouncerSettings(enabled=True, port=6543), environ, token_auth=False)
-        == "postgresql://u:p@127.0.0.1:6543/litellm?schema=public&pgbouncer=true"
+        == "postgresql://u:p@127.0.0.1:6543/hangarllm?schema=public&pgbouncer=true"
     )
     assert isinstance(pod_pgbouncer_database_url(PgBouncerSettings(enabled=True), {}, token_auth=False), PgBouncerError)
 
 
 def test_pod_pgbouncer_database_url_goes_direct_under_token_auth():
     """The proxy's pgbouncer only knows the token that container minted, so the sidecar must mint its own upstream."""
-    iam_upstream: Final = "postgresql://u@db.internal:5432/litellm?schema=public"
+    iam_upstream: Final = "postgresql://u@db.internal:5432/hangarllm?schema=public"
     assert (
         pod_pgbouncer_database_url(PgBouncerSettings(enabled=True), {"DATABASE_URL": iam_upstream}, token_auth=True)
         is None
@@ -219,11 +219,11 @@ def restore_log_levels() -> Iterator[None]:
 
 @pytest.mark.usefixtures("restore_log_levels")
 @pytest.mark.parametrize(
-    ("litellm_log", "expected"),
+    ("hangarllm_log", "expected"),
     [("DEBUG", logging.DEBUG), ("info", logging.INFO), (None, logging.WARNING), ("loud", logging.WARNING)],
 )
-def test_apply_log_level_mirrors_the_proxy_env_contract(litellm_log: str | None, expected: int):
+def test_apply_log_level_mirrors_the_proxy_env_contract(hangarllm_log: str | None, expected: int):
     verbose_proxy_logger.setLevel(logging.WARNING)
-    apply_log_level(litellm_log)
+    apply_log_level(hangarllm_log)
     assert verbose_proxy_logger.isEnabledFor(expected)
     assert not verbose_proxy_logger.isEnabledFor(expected - 10)

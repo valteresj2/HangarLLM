@@ -7,16 +7,16 @@ import pytest
 from pydantic import BaseModel, ConfigDict, JsonValue
 from respx import MockRouter
 
-import litellm
-from litellm import get_llm_provider
-from litellm.constants import (
+import hangarllm
+from hangarllm import get_llm_provider
+from hangarllm.constants import (
     DEFAULT_MAX_TOKENS,
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
 )
-from litellm.main import stream_chunk_builder
-from litellm.utils import get_optional_params
+from hangarllm.main import stream_chunk_builder
+from hangarllm.utils import get_optional_params
 
 from tests.unit.llms.base_llm.chat.test_provider_chat_translation import (
     _BY_ID,
@@ -255,12 +255,12 @@ def _has_forced_tool_choice(case: _Case, body: Mapping[str, JsonValue]) -> bool:
 @pytest.mark.parametrize("case", _RESPONSE_FORMAT_CASES, ids=_case_id)
 def test_anthropic_response_format_streaming_vs_non_streaming(case: _Case, respx_mock: MockRouter) -> None:
     stream_route: Final = respx_mock.post(case["stream_url"]).mock(return_value=_stream_response(case, thinking=False))
-    chunks: Final = tuple(cast(litellm.CustomStreamWrapper, _call(case, **_JSON_SCHEMA_ARGS, stream=True)))
+    chunks: Final = tuple(cast(hangarllm.CustomStreamWrapper, _call(case, **_JSON_SCHEMA_ARGS, stream=True)))
     built: Final = stream_chunk_builder(chunks=list(chunks))
     stream_body: Final = _request_body(stream_route)
 
     non_stream_route: Final = respx_mock.post(case["url"]).mock(return_value=_non_stream_response(case))
-    non_stream: Final = cast(litellm.ModelResponse, _call(case, **_JSON_SCHEMA_ARGS))
+    non_stream: Final = cast(hangarllm.ModelResponse, _call(case, **_JSON_SCHEMA_ARGS))
     non_stream_body: Final = _request_body(non_stream_route)
 
     assert len(chunks) > 1
@@ -269,7 +269,7 @@ def test_anthropic_response_format_streaming_vs_non_streaming(case: _Case, respx
     assert built is not None
     streamed_json: Final = cast(
         Mapping[str, JsonValue],
-        json.loads(cast(str, cast(litellm.ModelResponse, built).choices[0].message.content)),
+        json.loads(cast(str, cast(hangarllm.ModelResponse, built).choices[0].message.content)),
     )
     non_stream_json: Final = cast(Mapping[str, JsonValue], json.loads(cast(str, non_stream.choices[0].message.content)))
     assert streamed_json == non_stream_json == {"agent_doing": "researching home automation"}
@@ -279,7 +279,7 @@ def test_anthropic_response_format_streaming_vs_non_streaming(case: _Case, respx
 def test_completion_thinking_with_response_format(case: _Case, respx_mock: MockRouter) -> None:
     route: Final = respx_mock.post(case["url"]).mock(return_value=_non_stream_response(case))
     response: Final = cast(
-        litellm.ModelResponse,
+        hangarllm.ModelResponse,
         _call(case, thinking=_THINKING, **_THINKING_MESSAGES, response_format=cast(JsonValue, _RFormat)),
     )
     body: Final = _request_body(route)
@@ -294,7 +294,7 @@ def test_completion_thinking_with_response_format(case: _Case, respx_mock: MockR
 def test_completion_thinking_with_max_tokens(case: _Case, respx_mock: MockRouter) -> None:
     route: Final = respx_mock.post(case["url"]).mock(return_value=_non_stream_response(case))
     response: Final = cast(
-        litellm.ModelResponse,
+        hangarllm.ModelResponse,
         _call(case, thinking=_THINKING, **_THINKING_MESSAGES, max_completion_tokens=20000),
     )
     body: Final = _request_body(route)
@@ -306,7 +306,7 @@ def test_completion_thinking_with_max_tokens(case: _Case, respx_mock: MockRouter
 @pytest.mark.parametrize("case", _THINKING_CASES, ids=_case_id)
 def test_completion_thinking_without_max_tokens(case: _Case, respx_mock: MockRouter) -> None:
     route: Final = respx_mock.post(case["url"]).mock(return_value=_non_stream_response(case))
-    response: Final = cast(litellm.ModelResponse, _call(case, thinking=_THINKING, **_THINKING_MESSAGES))
+    response: Final = cast(hangarllm.ModelResponse, _call(case, thinking=_THINKING, **_THINKING_MESSAGES))
     body: Final = _request_body(route)
     max_tokens: Final = cast(int, _max_tokens(case, body))
     assert max_tokens == _THINKING_BUDGET + DEFAULT_MAX_TOKENS
@@ -320,7 +320,7 @@ def test_anthropic_thinking_output_stream(case: _Case, respx_mock: MockRouter) -
     route: Final = respx_mock.post(case["stream_url"]).mock(return_value=_stream_response(case, thinking=True))
     chunks: Final = tuple(
         cast(
-            litellm.CustomStreamWrapper,
+            hangarllm.CustomStreamWrapper,
             _call(
                 case,
                 thinking=_THINKING,

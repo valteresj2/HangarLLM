@@ -6,15 +6,15 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.accounting.projection import project
-from litellm.accounting.snapshot import build_accounting_payload
-from litellm.constants import BILLED_RETRY_ATTEMPT_METADATA_KEY, INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.proxy._types import SpendLogsPayload
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-from litellm.proxy.proxy_server import proxy_logging_obj
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.proxy.utils import PrismaClient
-from litellm.types.utils import ModelResponse, Usage
+from hangarllm.accounting.projection import project
+from hangarllm.accounting.snapshot import build_accounting_payload
+from hangarllm.constants import BILLED_RETRY_ATTEMPT_METADATA_KEY, INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.proxy._types import SpendLogsPayload
+from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from hangarllm.proxy.proxy_server import proxy_logging_obj
+from hangarllm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from hangarllm.proxy.utils import PrismaClient
+from hangarllm.types.utils import ModelResponse, Usage
 
 _NOW: Final = datetime(2026, 11, 2, tzinfo=timezone.utc)
 _FIELDS: Final = TypeAdapter(dict[str, object])
@@ -30,8 +30,8 @@ async def test_daily_projection_matches_legacy_writer(status: str, origin: str |
             "model": "projection-test",
             "custom_llm_provider": "openai",
             "call_type": "acompletion",
-            "litellm_call_id": "projection-request",
-            "litellm_params": {"metadata": {"user_api_key": "key", "user_api_key_user_id": "user", "status": status}},
+            "hangarllm_call_id": "projection-request",
+            "hangarllm_params": {"metadata": {"user_api_key": "key", "user_api_key_user_id": "user", "status": status}},
         },
         response_obj=ModelResponse(
             id="projection-request", model="projection-test", usage=Usage(prompt_tokens=10, completion_tokens=5)
@@ -58,7 +58,7 @@ async def test_daily_projection_matches_legacy_writer(status: str, origin: str |
         router=lambda: None,
     )
     restored: Final = _FIELDS.validate_json(json.dumps(accounting, default=str))
-    stored_daily: Final = next(item for item in project(restored) if item.table == "LiteLLM_DailyUserSpend")
+    stored_daily: Final = next(item for item in project(restored) if item.table == "HangarLLM_DailyUserSpend")
     assert dict(stored_daily.increments) == {name: legacy[name] for name, _ in stored_daily.increments}
     assert dict(stored_daily.key)["date"] == legacy["date"]
     assert dict(stored_daily.key)["api_key"] == legacy["api_key"]
@@ -89,8 +89,8 @@ def test_projection_uses_frozen_savings_and_keeps_duplicate_entity_tags() -> Non
         ),
     }
     contributions: Final = project(row)
-    tags: Final = tuple(item for item in contributions if item.table == "LiteLLM_TagTable")
-    daily_tags: Final = tuple(item for item in contributions if item.table == "LiteLLM_DailyTagSpend")
+    tags: Final = tuple(item for item in contributions if item.table == "HangarLLM_TagTable")
+    daily_tags: Final = tuple(item for item in contributions if item.table == "HangarLLM_DailyTagSpend")
     assert sum(dict(item.increments)["spend"] for item in tags) == 1.0
     assert len(daily_tags) == 1
     assert {key: value for key, value in daily_tags[0].increments if key.endswith("savings_spend")} == {
@@ -128,11 +128,11 @@ def test_projection_carries_windows_and_does_not_reprice_guardrails() -> None:
         ),
     }
     contributions: Final = project(row)
-    window: Final = next(item for item in contributions if item.table == "LiteLLM_BudgetWindowSpend")
+    window: Final = next(item for item in contributions if item.table == "HangarLLM_BudgetWindowSpend")
     units: Final = {
         dict(item.key)["usage_unit"]: dict(item.increments)
         for item in contributions
-        if item.table == "LiteLLM_DailyGuardrailUsageUnits"
+        if item.table == "HangarLLM_DailyGuardrailUsageUnits"
     }
     assert dict(window.increments) == {"spend": 0.75}
     assert dict(window.values)["window_start"] == _NOW.isoformat()
@@ -144,8 +144,8 @@ def test_projection_carries_windows_and_does_not_reprice_guardrails() -> None:
 
 @pytest.mark.asyncio
 async def test_entity_projection_matches_real_request_queues(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.responses.streaming_iterator import drain_logging_tasks
+    from hangarllm.proxy import proxy_server
+    from hangarllm.responses.streaming_iterator import drain_logging_tasks
 
     client: Final = PrismaClient(database_url="postgresql://unused", proxy_logging_obj=proxy_logging_obj)
     monkeypatch.setattr(proxy_server, "prisma_client", client)
@@ -165,10 +165,10 @@ async def test_entity_projection_matches_real_request_queues(monkeypatch: pytest
             "model": "projection-test",
             "custom_llm_provider": "openai",
             "call_type": "acompletion",
-            "litellm_call_id": "entity-request",
+            "hangarllm_call_id": "entity-request",
             "agent_id": "agent",
             "user": "end-user",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key": "sk-projection",
                     "user_api_key_user_id": "user",
@@ -217,30 +217,30 @@ async def test_entity_projection_matches_real_request_queues(monkeypatch: pytest
     )
     legacy: Final = {(item["entity_type"].value, item["entity_id"]): item["response_cost"] for item in queued}
     assert legacy[("key", proxy_server.hash_token("sk-projection"))] == next(
-        dict(item.increments)["spend"] for item in projected if item.table == "LiteLLM_VerificationToken"
+        dict(item.increments)["spend"] for item in projected if item.table == "HangarLLM_VerificationToken"
     )
     for table, entity, identity in (
-        ("LiteLLM_UserTable", "user", "user"),
-        ("LiteLLM_TeamTable", "team", "team"),
-        ("LiteLLM_OrganizationTable", "organization", "org"),
-        ("LiteLLM_EndUserTable", "end_user", "end-user"),
-        ("LiteLLM_AgentsTable", "agent", "agent"),
-        ("LiteLLM_ProjectTable", "project", "project"),
+        ("HangarLLM_UserTable", "user", "user"),
+        ("HangarLLM_TeamTable", "team", "team"),
+        ("HangarLLM_OrganizationTable", "organization", "org"),
+        ("HangarLLM_EndUserTable", "end_user", "end-user"),
+        ("HangarLLM_AgentsTable", "agent", "agent"),
+        ("HangarLLM_ProjectTable", "project", "project"),
     ):
         assert legacy[(entity, identity)] == next(
             dict(item.increments)["spend"] for item in projected if item.table == table
         )
-    assert sum(dict(item.increments)["spend"] for item in projected if item.table == "LiteLLM_TagTable") == sum(
+    assert sum(dict(item.increments)["spend"] for item in projected if item.table == "HangarLLM_TagTable") == sum(
         item["response_cost"] or 0 for item in queued if item["entity_type"].value == "tag"
     )
 
     daily_queues: Final = (
-        ("LiteLLM_DailyUserSpend", writer.daily_spend_update_queue),
-        ("LiteLLM_DailyTeamSpend", writer.daily_team_spend_update_queue),
-        ("LiteLLM_DailyOrganizationSpend", writer.daily_org_spend_update_queue),
-        ("LiteLLM_DailyEndUserSpend", writer.daily_end_user_spend_update_queue),
-        ("LiteLLM_DailyAgentSpend", writer.daily_agent_spend_update_queue),
-        ("LiteLLM_DailyTagSpend", writer.daily_tag_spend_update_queue),
+        ("HangarLLM_DailyUserSpend", writer.daily_spend_update_queue),
+        ("HangarLLM_DailyTeamSpend", writer.daily_team_spend_update_queue),
+        ("HangarLLM_DailyOrganizationSpend", writer.daily_org_spend_update_queue),
+        ("HangarLLM_DailyEndUserSpend", writer.daily_end_user_spend_update_queue),
+        ("HangarLLM_DailyAgentSpend", writer.daily_agent_spend_update_queue),
+        ("HangarLLM_DailyTagSpend", writer.daily_tag_spend_update_queue),
     )
     for table, queue in daily_queues:
         transactions = await queue.flush_and_get_aggregated_daily_spend_update_transactions()
@@ -252,7 +252,7 @@ async def test_entity_projection_matches_real_request_queues(monkeypatch: pytest
         assert dict(contribution.increments) == {name: transaction[name] for name, _ in contribution.increments}
     assert len(client.model_usage_transactions) == 1
     model: Final = client.model_usage_transactions[0]
-    model_projection: Final = next(item for item in projected if item.table == "LiteLLM_DailyModelUsage")
+    model_projection: Final = next(item for item in projected if item.table == "HangarLLM_DailyModelUsage")
     assert dict(model_projection.increments) == {
         "spend": model.spend,
         "prompt_tokens": model.prompt_tokens,
@@ -266,19 +266,19 @@ async def test_entity_projection_matches_real_request_queues(monkeypatch: pytest
 @pytest.mark.parametrize("served_id", ["requested", "fallback", "missing"])
 @pytest.mark.asyncio
 async def test_projection_preserves_fallback_narrowed_model_access_groups(served_id: str) -> None:
-    from litellm import Router
-    from litellm.proxy.db.db_spend_update_writer import debitable_model_access_groups
+    from hangarllm import Router
+    from hangarllm.proxy.db.db_spend_update_writer import debitable_model_access_groups
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "first",
-                "litellm_params": {"model": "openai/projection-test", "api_key": "unused"},
+                "hangarllm_params": {"model": "openai/projection-test", "api_key": "unused"},
                 "model_info": {"id": "requested", "access_groups": ["first-group"]},
             },
             {
                 "model_name": "second",
-                "litellm_params": {"model": "openai/projection-test", "api_key": "unused"},
+                "hangarllm_params": {"model": "openai/projection-test", "api_key": "unused"},
                 "model_info": {"id": "fallback", "access_groups": ["second-group", "unattributed"]},
             },
         ]
@@ -314,7 +314,7 @@ def test_guardrail_projection_skips_unmeasured_counters() -> None:
             }
         ),
     }
-    units: Final = tuple(item for item in project(row) if item.table == "LiteLLM_DailyGuardrailUsageUnits")
+    units: Final = tuple(item for item in project(row) if item.table == "HangarLLM_DailyGuardrailUsageUnits")
     assert len(units) == 1
     assert dict(units[0].key)["usage_unit"] == "text"
     assert dict(units[0].increments) == {"units": 2, "cost": 0.0, "untracked_units": 2}
@@ -330,7 +330,7 @@ def test_lean_row_without_model_does_not_fabricate_daily_entity_usage() -> None:
             "metadata": {"accounting_entities": {"api_key": "key"}},
         }
     )
-    assert tuple(item.table for item in projected) == ("LiteLLM_VerificationToken", "LiteLLM_DailyModelUsage")
+    assert tuple(item.table for item in projected) == ("HangarLLM_VerificationToken", "HangarLLM_DailyModelUsage")
 
 
 @pytest.mark.parametrize(
@@ -354,8 +354,8 @@ def test_report_only_or_invalid_guardrail_prices_remain_untracked(cost_fields: M
         ),
     }
     contributions: Final = project(row)
-    guardrail: Final = next(item for item in contributions if item.table == "LiteLLM_DailyGuardrailUsageUnits")
-    model: Final = next(item for item in contributions if item.table == "LiteLLM_DailyModelUsage")
+    guardrail: Final = next(item for item in contributions if item.table == "HangarLLM_DailyGuardrailUsageUnits")
+    model: Final = next(item for item in contributions if item.table == "HangarLLM_DailyModelUsage")
     assert dict(guardrail.increments) == {"units": 2, "cost": 0.0, "untracked_units": 2}
     assert dict(model.key)["task_type"] == "debugging"
 
@@ -372,7 +372,7 @@ def test_daily_organization_uses_frozen_charged_identity(organization_id: str | 
         "spend": 0.25,
         "metadata": {"accounting_entities": {"organization_id": organization_id}},
     }
-    daily: Final = tuple(item for item in project(row) if item.table == "LiteLLM_DailyOrganizationSpend")
+    daily: Final = tuple(item for item in project(row) if item.table == "HangarLLM_DailyOrganizationSpend")
     if organization_id is None:
         assert daily == ()
     else:
@@ -396,9 +396,9 @@ def test_every_daily_row_uses_the_calendar_date_of_the_request(start: object) ->
         "metadata": "{}",
     }
     dates: Final = {
-        item.table: dict(item.key)["date"] for item in project(row) if item.table.startswith("LiteLLM_Daily")
+        item.table: dict(item.key)["date"] for item in project(row) if item.table.startswith("HangarLLM_Daily")
     }
-    assert {"LiteLLM_DailyUserSpend", "LiteLLM_DailyModelUsage"} <= dates.keys()
+    assert {"HangarLLM_DailyUserSpend", "HangarLLM_DailyModelUsage"} <= dates.keys()
     assert set(dates.values()) == {"2026-11-02"}
 
 
@@ -415,8 +415,8 @@ def test_unparseable_start_time_skips_only_guardrail_usage() -> None:
         }
     )
     tables: Final = {item.table for item in projected}
-    assert "LiteLLM_VerificationToken" in tables
-    assert "LiteLLM_DailyGuardrailUsageUnits" not in tables
+    assert "HangarLLM_VerificationToken" in tables
+    assert "HangarLLM_DailyGuardrailUsageUnits" not in tables
 
 
 def test_guardrail_usage_is_dated_in_utc() -> None:
@@ -427,7 +427,7 @@ def test_guardrail_usage_is_dated_in_utc() -> None:
             "metadata": {"guardrail_information": [{"guardrail_id": "guard", "guardrail_usage": {"text": 1}}]},
         }
     )
-    assert [dict(item.key)["date"] for item in projected if item.table == "LiteLLM_DailyGuardrailUsageUnits"] == [
+    assert [dict(item.key)["date"] for item in projected if item.table == "HangarLLM_DailyGuardrailUsageUnits"] == [
         "2026-11-03"
     ]
 
@@ -467,10 +467,10 @@ def test_untrusted_analytics_values_never_block_the_charge(
     contributions: Final = project(row)
     texts: Final = tuple(value for item in contributions for _, value in (*item.key, *item.values) if value)
     numbers: Final = tuple(value for item in contributions for _, value in item.increments)
-    assert {"LiteLLM_VerificationToken", "LiteLLM_TeamTable", "LiteLLM_UserTable"} <= {
+    assert {"HangarLLM_VerificationToken", "HangarLLM_TeamTable", "HangarLLM_UserTable"} <= {
         item.table for item in contributions
     }
-    assert "LiteLLM_DailyUserSpend" in {item.table for item in contributions}
+    assert "HangarLLM_DailyUserSpend" in {item.table for item in contributions}
     assert all(len(text.encode()) <= 2000 for text in texts)
     assert all(abs(number) <= 2**40 for number in numbers)
 
@@ -481,8 +481,8 @@ def test_stored_payload_keeps_guardrail_billing_but_not_guardrail_content() -> N
             "model": "projection-test",
             "custom_llm_provider": "openai",
             "call_type": "acompletion",
-            "litellm_call_id": "guardrail-request",
-            "litellm_params": {"metadata": {"user_api_key": "key", "user_api_key_user_id": "user"}},
+            "hangarllm_call_id": "guardrail-request",
+            "hangarllm_params": {"metadata": {"user_api_key": "key", "user_api_key_user_id": "user"}},
         },
         response_obj=ModelResponse(
             id="guardrail-request", model="projection-test", usage=Usage(prompt_tokens=10, completion_tokens=5)
@@ -514,23 +514,23 @@ def test_stored_payload_keeps_guardrail_billing_but_not_guardrail_content() -> N
     )
     stored: Final = json.dumps(accounting, default=str)
     restored: Final = _FIELDS.validate_json(stored)
-    usage_rows: Final = tuple(item for item in project(restored) if item.table == "LiteLLM_DailyGuardrailUsageUnits")
+    usage_rows: Final = tuple(item for item in project(restored) if item.table == "HangarLLM_DailyGuardrailUsageUnits")
     assert "4111" not in stored
     assert "\\u0000" not in stored
     assert [dict(item.increments) for item in usage_rows] == [{"units": 1, "cost": 0.25, "untracked_units": 0}]
-    daily_user: Final = next(item for item in project(restored) if item.table == "LiteLLM_DailyUserSpend")
+    daily_user: Final = next(item for item in project(restored) if item.table == "HangarLLM_DailyUserSpend")
     assert dict(daily_user.increments)["compression_saved_tokens"] == 7
 
 
 def test_caller_supplied_savings_beyond_json_range_are_clamped_and_never_drop_the_charge(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm
+    import hangarllm
 
     monkeypatch.setitem(
-        litellm.model_cost,
+        hangarllm.model_cost,
         "savings-overflow-test",
-        {"input_cost_per_token": 0.002, "output_cost_per_token": 0.004, "litellm_provider": "openai", "mode": "chat"},
+        {"input_cost_per_token": 0.002, "output_cost_per_token": 0.004, "hangarllm_provider": "openai", "mode": "chat"},
     )
     payload: Final[SpendLogsPayload] = {
         **get_logging_payload(
@@ -538,8 +538,8 @@ def test_caller_supplied_savings_beyond_json_range_are_clamped_and_never_drop_th
                 "model": "savings-overflow-test",
                 "custom_llm_provider": "openai",
                 "call_type": "acompletion",
-                "litellm_call_id": "overflow-request",
-                "litellm_params": {"metadata": {"user_api_key": "key"}},
+                "hangarllm_call_id": "overflow-request",
+                "hangarllm_params": {"metadata": {"user_api_key": "key"}},
             },
             response_obj=ModelResponse(
                 id="overflow-request", model="savings-overflow-test", usage=Usage(prompt_tokens=10, completion_tokens=5)
@@ -558,5 +558,5 @@ def test_caller_supplied_savings_beyond_json_range_are_clamped_and_never_drop_th
     assert dict(restored["metadata"])["compression_savings"] == {"tokens_saved": 2**53 - 1}
     assert dict(restored["metadata"])["compression_savings"] == {"tokens_saved": 2**53 - 1}
     assert [
-        dict(item.increments)["spend"] for item in project(restored) if item.table == "LiteLLM_VerificationToken"
+        dict(item.increments)["spend"] for item in project(restored) if item.table == "HangarLLM_VerificationToken"
     ] == [0.5]

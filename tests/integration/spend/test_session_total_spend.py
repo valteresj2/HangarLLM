@@ -60,7 +60,7 @@ def test_logs_ui_session_total_spend_sums_every_round_of_a_multi_round_session(g
         assert len(wire.drain()) == len(ROUND_USAGE)
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT request_id, spend FROM "LiteLLM_SpendLogs" WHERE session_id=%s ORDER BY "startTime"',
+                'SELECT request_id, spend FROM "HangarLLM_SpendLogs" WHERE session_id=%s ORDER BY "startTime"',
                 (session_id,),
             ),
             lambda values: len(values) == len(ROUND_USAGE),
@@ -92,7 +92,7 @@ def _completed_round(gateway: Gateway, alias: str, session_id: str, prompt: str)
     response: Final = gateway.request(
         "POST",
         "/v1/chat/completions",
-        {"model": alias, "messages": [{"role": "user", "content": prompt}], "litellm_trace_id": session_id},
+        {"model": alias, "messages": [{"role": "user", "content": prompt}], "hangarllm_trace_id": session_id},
     )
     assert response.status_code == 200, response.text
     return str(response.json()["id"])

@@ -95,7 +95,7 @@ class TestMigrationStartup:
         history: Final = database.history()
         with database.lock(PRISMA_LOCK):
             with containers.start(
-                database, (COMPLETE,), environment={"LITELLM_MIGRATION_LOCK_TIMEOUT": "12"}
+                database, (COMPLETE,), environment={"HANGARLLM_MIGRATION_LOCK_TIMEOUT": "12"}
             ) as replica:
                 until("Prisma lock contention", lambda: "Waiting for the Prisma migration lock" in replica.logs())
                 failed((replica,), "Timed out waiting for another Prisma migration")
@@ -168,12 +168,12 @@ class TestMigrationStartup:
     )
     def test_restart_preserves_history_and_data(self, containers: Containers, database: Database, v2: bool) -> None:
         history: Final = database.history()
-        before: Final = database.query('SELECT token FROM "LiteLLM_VerificationToken" ORDER BY token')
+        before: Final = database.query('SELECT token FROM "HangarLLM_VerificationToken" ORDER BY token')
         for _ in range(2):
             with containers.start(database, v2=v2) as replica:
                 ready((replica,), database)
         assert database.history() == history
-        assert set(before).issubset(database.query('SELECT token FROM "LiteLLM_VerificationToken" ORDER BY token'))
+        assert set(before).issubset(database.query('SELECT token FROM "HangarLLM_VerificationToken" ORDER BY token'))
 
     @meta(
         Subject(

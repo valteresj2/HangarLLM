@@ -5,12 +5,12 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.extraction.transformation import BaseExtractionConfig
-from litellm.types.extraction import ExtractionRequestBody
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import hangarllm
+from hangarllm.llms.base_llm.chat.transformation import BaseLLMException
+from hangarllm.llms.base_llm.extraction.transformation import BaseExtractionConfig
+from hangarllm.types.extraction import ExtractionRequestBody
+from hangarllm.types.utils import LlmProviders
+from hangarllm.utils import ProviderConfigManager
 
 INVOICE_STATE: Final = "Invoice #4471 from Acme Tools, dated March 3 2026. Total $174.00. Payment due in 30 days."
 INVOICE_FIELDS: Final = {
@@ -68,7 +68,7 @@ def _response(payload: object) -> httpx.Response:
 
 def test_only_cloudflare_serves_extraction() -> None:
     assert ProviderConfigManager.get_provider_extraction_config("gpt-5", LlmProviders.OPENAI) is None
-    assert isinstance(_cloudflare_config(), litellm.CloudflareExtractionConfig)
+    assert isinstance(_cloudflare_config(), hangarllm.CloudflareExtractionConfig)
 
 
 @pytest.mark.parametrize("model", ("clairic", "@cf/cloudflare/clairic"))
@@ -210,7 +210,7 @@ def test_field_names_with_dots_dashes_and_underscores_up_to_64_chars_are_accepte
 
 def test_decisions_config_still_resolves_clef_after_the_shared_helpers_moved(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
-    config: Final = litellm.CloudflareDecisionsConfig()
+    config: Final = hangarllm.CloudflareDecisionsConfig()
     api_base: Final = config.get_default_api_base()
 
     assert api_base is not None

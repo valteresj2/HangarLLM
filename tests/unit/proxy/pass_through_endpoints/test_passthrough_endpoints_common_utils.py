@@ -8,36 +8,36 @@ import pytest
 from fastapi import Request, Response
 from fastapi.testclient import TestClient
 
-from litellm.passthrough.utils import CommonUtils
+from hangarllm.passthrough.utils import CommonUtils
 
 
 from unittest.mock import Mock
 
-from litellm.proxy.pass_through_endpoints.common_utils import get_litellm_virtual_key
+from hangarllm.proxy.pass_through_endpoints.common_utils import get_hangarllm_virtual_key
 
 
 @pytest.mark.asyncio
-async def test_get_litellm_virtual_key():
+async def test_get_hangarllm_virtual_key():
     """
-    Test that the get_litellm_virtual_key function correctly handles the API key authentication
+    Test that the get_hangarllm_virtual_key function correctly handles the API key authentication
     """
-    # Test with x-litellm-api-key
+    # Test with x-hangarllm-api-key
     mock_request = Mock()
-    mock_request.headers = {"x-litellm-api-key": "test-key-123"}
-    result = get_litellm_virtual_key(mock_request)
+    mock_request.headers = {"x-hangarllm-api-key": "test-key-123"}
+    result = get_hangarllm_virtual_key(mock_request)
     assert result == "Bearer test-key-123"
 
     # Test with Authorization header
     mock_request.headers = {"Authorization": "Bearer auth-key-456"}
-    result = get_litellm_virtual_key(mock_request)
+    result = get_hangarllm_virtual_key(mock_request)
     assert result == "Bearer auth-key-456"
 
-    # Test with both headers (x-litellm-api-key should take precedence)
+    # Test with both headers (x-hangarllm-api-key should take precedence)
     mock_request.headers = {
-        "x-litellm-api-key": "test-key-123",
+        "x-hangarllm-api-key": "test-key-123",
         "Authorization": "Bearer auth-key-456",
     }
-    result = get_litellm_virtual_key(mock_request)
+    result = get_hangarllm_virtual_key(mock_request)
     assert result == "Bearer test-key-123"
 
 

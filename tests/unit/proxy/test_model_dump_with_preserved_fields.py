@@ -13,11 +13,11 @@ while preserving specific fields for OpenAI API compatibility:
 
 from typing import Final
 
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+from hangarllm.hangarllm_core_utils.llm_response_utils.convert_dict_to_response import (
     convert_to_model_response_object,
 )
-from litellm.proxy.utils import model_dump_with_preserved_fields
-from litellm.types.utils import (
+from hangarllm.proxy.utils import model_dump_with_preserved_fields
+from hangarllm.types.utils import (
     Choices,
     Delta,
     Message,

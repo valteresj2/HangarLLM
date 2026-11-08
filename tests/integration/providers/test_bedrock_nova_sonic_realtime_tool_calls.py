@@ -139,7 +139,7 @@ def _bedrock_deployment(gateway: Gateway, scenario: Scenario, peer: BedrockRealt
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": DEPLOYMENT,
                 "aws_region_name": "us-east-1",
                 "aws_access_key_id": "integration-dummy-key",
@@ -163,7 +163,7 @@ def _openai_deployment(gateway: Gateway, scenario: Scenario, name: str) -> str:
         "/model/new",
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{OPENAI_VOICE_MODEL}",
                 "api_key": scenario_id,
                 "api_base": f"{gateway.upstream_url}/v1",

@@ -29,7 +29,7 @@ API:
 - ``Rig.model_id``: the router's ``model_info.id`` for ``CONFIG_MODEL`` (read from
   ``/model/info`` once the proxy is up). Pass it as ``ids["model_id"]`` so the
   ``{model_id}`` routes (``/credentials/by_model/{model_id}``, ...) resolve the deployment.
-- ``Rig.proxy``: the owned proxy ``Gateway`` with its master key (the ``LITELLM_MASTER_KEY``
+- ``Rig.proxy``: the owned proxy ``Gateway`` with its master key (the ``HANGARLLM_MASTER_KEY``
   from ``environment`` when a scenario overrides it). ``Rig.canaries``: config-held
   canaries by slot id. ``Rig.provider`` and ``Rig.sinks[name]``: ``Recorder`` objects whose
   ``requests()`` returns every request received so far (the underlying queue is drained into a
@@ -75,11 +75,11 @@ LOCAL_CATALOGS: Final = MappingProxyType(
     {
         name: "True"
         for name in (
-            "LITELLM_LOCAL_MODEL_COST_MAP",
-            "LITELLM_LOCAL_BLOG_POSTS",
-            "LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS",
-            "LITELLM_LOCAL_AUTOROUTER_PRESETS",
-            "LITELLM_LOCAL_POLICY_TEMPLATES",
+            "HANGARLLM_LOCAL_MODEL_COST_MAP",
+            "HANGARLLM_LOCAL_BLOG_POSTS",
+            "HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS",
+            "HANGARLLM_LOCAL_AUTOROUTER_PRESETS",
+            "HANGARLLM_LOCAL_POLICY_TEMPLATES",
         )
     }
 )
@@ -191,12 +191,12 @@ def _config(
     config["model_list"] = [
         {
             "model_name": CONFIG_MODEL,
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_base": provider_url + "/v1", "api_key": b1.value},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_base": provider_url + "/v1", "api_key": b1.value},
         }
     ]
     config["general_settings"]["store_prompts_in_spend_logs"] = True
-    config["litellm_settings"]["cache_params"]["ttl"] = 600
-    config["litellm_settings"].update({"callbacks": [GENERIC_SINK], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
+    config["hangarllm_settings"]["cache_params"]["ttl"] = 600
+    config["hangarllm_settings"].update({"callbacks": [GENERIC_SINK], "DEFAULT_FLUSH_INTERVAL_SECONDS": 1})
     if configure is not None:
         configure(config, provider_url)
     path: Final = root / f"canary-{uuid.uuid4().hex}.yaml"
@@ -244,7 +244,7 @@ def canary_rig(
             gateway, root, overrides, config=config, state=OwnedState.SHARED_WITH_WORKER
         ) as owned:
             admin = Gateway(
-                owned.gateway.client, overrides.get("LITELLM_MASTER_KEY", owned.gateway.key), owned.gateway.upstream_url
+                owned.gateway.client, overrides.get("HANGARLLM_MASTER_KEY", owned.gateway.key), owned.gateway.upstream_url
             )
             yield Rig(
                 admin,
@@ -295,7 +295,7 @@ def team_caller(scenario: Scenario) -> Caller:
 
 def settle(rig: Rig, request_id: str, marker: Canary) -> None:
     eventually(
-        lambda: read_rows('SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
+        lambda: read_rows('SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (request_id,)),
         lambda rows: len(rows) == 1,
         seconds=70,
     )

@@ -5,8 +5,8 @@ import httpx
 import openai
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
 TOKENHUB_RESPONSE: Final[dict[str, object]] = {
     "created": 1792551825,
@@ -30,7 +30,7 @@ def _client(captured: dict[str, object], status_code: int = 200, body: dict[str,
 def test_generation_posts_openai_and_tokenhub_params_to_the_wand_route() -> None:
     captured: Final[dict[str, object]] = {}
 
-    response: Final = litellm.image_generation(
+    response: Final = hangarllm.image_generation(
         model="tencent/seedream-image-v5.0-pro",
         prompt="a red paper lantern",
         size="2K",
@@ -66,7 +66,7 @@ def test_generation_returns_base64_images() -> None:
         "data": [{"output_format": "png", "size": "1024x1024", "b64_json": "aW1n"}],
     }
 
-    response: Final = litellm.image_generation(
+    response: Final = hangarllm.image_generation(
         model="tencent/seedream-image-v5.0-flash",
         prompt="a red paper lantern",
         response_format="b64_json",
@@ -89,7 +89,7 @@ def test_generation_returns_base64_images() -> None:
 def test_generation_resolves_a_configured_api_base_to_the_wand_route(api_base: str, expected_url: str) -> None:
     captured: Final[dict[str, object]] = {}
 
-    litellm.image_generation(
+    hangarllm.image_generation(
         model="tencent/seedream-image-v5.0-lite",
         prompt="a red paper lantern",
         api_key="sk-tokenhub",
@@ -115,7 +115,7 @@ def test_generation_sends_only_values_tokenhub_accepts(
 ) -> None:
     captured: Final[dict[str, object]] = {}
 
-    litellm.image_generation(
+    hangarllm.image_generation(
         model="tencent/seedream-image-v5.0-pro",
         prompt="a red paper lantern",
         api_key="sk-tokenhub",
@@ -133,8 +133,8 @@ def test_generation_sends_only_values_tokenhub_accepts(
 def test_generation_rejects_more_than_one_image_without_drop_params() -> None:
     captured: Final[dict[str, object]] = {}
 
-    with pytest.raises(litellm.UnsupportedParamsError) as exc_info:
-        litellm.image_generation(
+    with pytest.raises(hangarllm.UnsupportedParamsError) as exc_info:
+        hangarllm.image_generation(
             model="tencent/seedream-image-v5.0-pro",
             prompt="a red paper lantern",
             n=2,
@@ -163,8 +163,8 @@ def test_generation_rejects_more_than_one_image_without_drop_params() -> None:
     ],
 )
 def test_generation_surfaces_the_tokenhub_error_message(error: dict[str, object], expected_message: str) -> None:
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.image_generation(
+    with pytest.raises(hangarllm.BadRequestError) as exc_info:
+        hangarllm.image_generation(
             model="tencent/seedream-image-v5.0-pro",
             prompt="a red paper lantern",
             api_key="sk-tokenhub",
@@ -178,8 +178,8 @@ def test_generation_without_a_tokenhub_key_is_an_authentication_error(monkeypatc
     monkeypatch.delenv("TENCENT_API_KEY", raising=False)
     captured: Final[dict[str, object]] = {}
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        litellm.image_generation(
+    with pytest.raises(hangarllm.AuthenticationError) as exc_info:
+        hangarllm.image_generation(
             model="tencent/seedream-image-v5.0-pro",
             prompt="a red paper lantern",
             client=_client(captured),
@@ -198,7 +198,7 @@ def test_generation_keeps_other_tencent_image_models_on_the_openai_compatible_ro
         captured["body"] = json.loads(request.content)
         return httpx.Response(200, json={"created": 1792551825, "data": [{"url": "https://cos.example/hy.png"}]})
 
-    response: Final = litellm.image_generation(
+    response: Final = hangarllm.image_generation(
         model="tencent/hy-image-v3.5-preview",
         prompt="a red paper lantern",
         quality="high",

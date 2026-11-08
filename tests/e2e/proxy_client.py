@@ -69,7 +69,7 @@ from models import (
     KeyInfo,
     KeyInfoParams,
     KeyInfoResponse,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     MemorySummaryResponse,
     ModelDeleteBody,
     ModelInfoBody,
@@ -626,7 +626,7 @@ class ProxyClient:
     def model_cost_map(self) -> dict[str, CostMapEntry]:
         return unwrap(
             self.transport.get(
-                "/public/litellm_model_cost_map",
+                "/public/hangarllm_model_cost_map",
                 headers=self.management_headers(),
                 params=NoBody(),
                 response_type=CostMap,
@@ -651,11 +651,11 @@ class ProxyClient:
             response_type=FineTuningJobsResponse,
         )
 
-    @step("Add a deployment named {model_name} that calls {litellm_params.model}")
+    @step("Add a deployment named {model_name} that calls {hangarllm_params.model}")
     def create_model(
         self,
         model_name: str,
-        litellm_params: LiteLLMParamsBody,
+        hangarllm_params: HangarLLMParamsBody,
         mode: ModelMode | None = None,
         *,
         provider_live: bool = False,
@@ -665,7 +665,7 @@ class ProxyClient:
         return self.register_model(
             ModelNewBody(
                 model_name=model_name,
-                litellm_params=litellm_params,
+                hangarllm_params=hangarllm_params,
                 model_info=ModelInfoBody(mode=mode),
             ),
             provider_live=provider_live,
@@ -685,7 +685,7 @@ class ProxyClient:
         ).root
         return any(entry.field_name == field_name and entry.field_value is True for entry in fields)
 
-    @step("Add a deployment named {body.model_name} that calls {body.litellm_params.model}")
+    @step("Add a deployment named {body.model_name} that calls {body.hangarllm_params.model}")
     def register_model(
         self, body: ModelNewBody, listed_for: str | None = None, *, provider_live: bool = False
     ) -> str:
@@ -734,8 +734,8 @@ class ProxyClient:
         return self.transport.post(
             "/model/new",
             headers=self.management_headers(),
-            json=body.model_copy(update={"litellm_params": route_cache_model(
-                body.litellm_params, provider_edge_base,
+            json=body.model_copy(update={"hangarllm_params": route_cache_model(
+                body.hangarllm_params, provider_edge_base,
                 enabled=os.environ.get("E2E_PROVIDER_CACHE", "0") == "1" and not provider_live,
                 mode=body.model_info.mode,
             )}),
@@ -792,9 +792,9 @@ class ProxyClient:
             timeout=poll_timeout,
         )
 
-    @step("Update a deployment's settings to {litellm_params}")
-    def update_model(self, model_id: str, litellm_params: LiteLLMParamsBody) -> None:
-        """Merge `litellm_params` over the deployment `model_id`'s stored params via
+    @step("Update a deployment's settings to {hangarllm_params}")
+    def update_model(self, model_id: str, hangarllm_params: HangarLLMParamsBody) -> None:
+        """Merge `hangarllm_params` over the deployment `model_id`'s stored params via
         POST /model/update. The proxy overlays only the non-null fields and clears
         its model cache, so a later /model/info read reflects the change (eventually,
         after the reload)."""
@@ -803,7 +803,7 @@ class ProxyClient:
                 "/model/update",
                 headers=self.management_headers(),
                 json=ModelUpdateBody(
-                    litellm_params=litellm_params,
+                    hangarllm_params=hangarllm_params,
                     model_info=ModelInfoBody(id=model_id),
                 ),
                 response_type=NoBody,
@@ -929,7 +929,7 @@ class ProxyClient:
             response_type=NoBody,
         )
 
-    @step("Create a search tool backed by {body.search_tool.litellm_params.search_provider}")
+    @step("Create a search tool backed by {body.search_tool.hangarllm_params.search_provider}")
     def create_search_tool(self, body: SearchToolCreateBody) -> str:
         """POST /search_tools: register a search tool on the running proxy and return its id
         once every worker has had a config-reload window to pick it up from the DB."""
@@ -1107,7 +1107,7 @@ class ProxyClient:
         """POST /v1/messages (Anthropic-native). The response is either the
         Anthropic-shape passthrough (`content`) or the OpenAI-normalized shape
         (`choices`); AnthropicMessagesResponse models both. `session_id` goes out
-        as the `x-litellm-session-id` header, the way Claude Code sends it through
+        as the `x-hangarllm-session-id` header, the way Claude Code sends it through
         ANTHROPIC_CUSTOM_HEADERS, so every spend row the call produces shares it."""
         return self.transport.post(
             "/v1/messages",
@@ -1119,7 +1119,7 @@ class ProxyClient:
     def _anthropic_headers(self, key: str, *, session_id: str | None = None) -> AnthropicHeaders:
         return AnthropicHeaders(
             authorization=self.transport.bearer(key).authorization,
-            x_litellm_session_id=session_id,
+            x_hangarllm_session_id=session_id,
         )
 
     # ---- spend read-back ------------------------------------------------

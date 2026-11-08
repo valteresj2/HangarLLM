@@ -32,7 +32,7 @@ def _complete(request: Request) -> Reply:
 def _deployment(name: str, api_base: str) -> dict[str, object]:
     return {
         "guardrail_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "generic_guardrail_api",
             "mode": "pre_call",
             "api_base": api_base,
@@ -71,7 +71,7 @@ def test_requests_naming_a_shared_guardrail_are_spread_over_its_deployments(gate
             )
         checked: Final = (first.drain(), second.drain())
 
-    assert [(response.status_code, response.headers["x-litellm-applied-guardrails"]) for response in responses] == [
+    assert [(response.status_code, response.headers["x-hangarllm-applied-guardrails"]) for response in responses] == [
         (200, name)
     ] * _REQUESTS
     seen: Final = tuple(frozenset(json.loads(call.body)["texts"][0] for call in calls) for calls in checked)

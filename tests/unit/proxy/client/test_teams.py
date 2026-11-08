@@ -4,8 +4,8 @@ import pytest
 import requests
 import responses
 
-from litellm.proxy.client.exceptions import UnauthorizedError
-from litellm.proxy.client.teams import TeamsManagementClient
+from hangarllm.proxy.client.exceptions import UnauthorizedError
+from hangarllm.proxy.client.teams import TeamsManagementClient
 
 
 def test_list_gives_up_at_the_timeout_instead_of_hanging(hanging_server):

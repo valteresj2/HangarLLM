@@ -1,4 +1,4 @@
-# MCP module. Grounded in litellm/proxy/mcp_server/. See tests/e2e/AGENTS.md for the grammar.
+# MCP module. Grounded in hangarllm/proxy/mcp_server/. See tests/e2e/AGENTS.md for the grammar.
 - id: mcp.list_tools.api_key.succeeds
   module: mcp
   tier: P0
@@ -141,5 +141,5 @@
   operation: list_tools
   auth_family: api_key
   assertions: [semantic_filtered]
-  source: "litellm/proxy/hooks/mcp_semantic_filter/hook.py"
+  source: "hangarllm/proxy/hooks/mcp_semantic_filter/hook.py"
   rationale: The semantic tool filter must cut a large MCP catalog to top_k and keep the tool the prompt needs

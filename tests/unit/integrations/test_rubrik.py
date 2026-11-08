@@ -1,5 +1,5 @@
 """
-Tests for the Rubrik LiteLLM plugin.
+Tests for the Rubrik HangarLLM plugin.
 
 Covers initialization, apply_guardrail (prompt moderation + response/tool
 blocking), batch logging, and Anthropic format handling.
@@ -12,12 +12,12 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.integrations.rubrik import (
+from hangarllm.integrations.custom_guardrail import ModifyResponseException
+from hangarllm.integrations.rubrik import (
     RubrikLogger,
     _MalformedToolBlockingResponseError,
 )
-from litellm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy._types import UserAPIKeyAuth
 
 from tests.unit.integrations.rubrik_test_helpers import (
     make_inputs_with_tools,
@@ -68,7 +68,7 @@ class TestInitialization:
                 handler.response_moderation_endpoint
                 == "http://localhost:8080/v1/after_completion/openai/v1"
             )
-            assert handler.logging_endpoint == "http://localhost:8080/v1/litellm/batch"
+            assert handler.logging_endpoint == "http://localhost:8080/v1/hangarllm/batch"
             assert handler.key == "test-api-key"
             assert handler.moderation_client is not None
 
@@ -181,7 +181,7 @@ class TestInitialization:
         periodic flush task on first use to drain low-traffic batches."""
         # Simulate sync-init by hiding the running loop from the constructor.
         with patch(
-            "litellm.integrations.rubrik.asyncio.get_running_loop",
+            "hangarllm.integrations.rubrik.asyncio.get_running_loop",
             side_effect=RuntimeError("no running loop"),
         ):
             handler = RubrikLogger()
@@ -190,10 +190,10 @@ class TestInitialization:
         kwargs = {
             "standard_logging_object": {
                 "messages": [{"role": "user", "content": "hi"}],
-                "id": "litellm-id",
+                "id": "hangarllm-id",
             },
-            "litellm_call_id": "litellm-id",
-            "litellm_params": {},
+            "hangarllm_call_id": "hangarllm-id",
+            "hangarllm_params": {},
         }
         with patch.object(handler, "_log_batch_to_rubrik", AsyncMock()):
             await handler.async_log_success_event(kwargs, None, None, None)
@@ -202,25 +202,25 @@ class TestInitialization:
         handler._periodic_flush_task.cancel()
 
     def test_event_hook_defaults_to_post_call_when_none_passed(self, mock_env):
-        """`initialize_guardrail` always passes ``event_hook=litellm_params.mode``
+        """`initialize_guardrail` always passes ``event_hook=hangarllm_params.mode``
         (which is ``None`` when the user omits ``mode``). The logger must coerce
         a None ``event_hook`` to ``post_call`` rather than leaving it as None,
         which would otherwise cause the guardrail to run on every event hook."""
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         with patch("asyncio.create_task", Mock()):
             handler = RubrikLogger(event_hook=None)
             assert handler.event_hook == GuardrailEventHooks.post_call
 
     def test_explicit_event_hook_preserved(self, mock_env):
-        from litellm.types.guardrails import GuardrailEventHooks
+        from hangarllm.types.guardrails import GuardrailEventHooks
 
         with patch("asyncio.create_task", Mock()):
             handler = RubrikLogger(event_hook=GuardrailEventHooks.pre_call)
             assert handler.event_hook == GuardrailEventHooks.pre_call
 
     def test_default_on_defaults_to_false_when_none_passed(self, mock_env):
-        """Follows the standard litellm pattern: omitted ``default_on`` resolves
+        """Follows the standard hangarllm pattern: omitted ``default_on`` resolves
         to ``False`` (off by default). Users must explicitly set
         ``default_on: true`` to enable the guardrail for all requests."""
         with patch("asyncio.create_task", Mock()):
@@ -464,20 +464,20 @@ class TestBatchLogging:
                 "messages": [{"role": "user", "content": "hi"}],
                 "response": "hello",
             },
-            "litellm_params": {
+            "hangarllm_params": {
                 "proxy_server_request": {
                     "url": "http://proxy/v1/messages",
                 },
             },
-            "litellm_call_id": "litellm-call-123",
+            "hangarllm_call_id": "hangarllm-call-123",
         }
         await handler.async_log_success_event(
             kwargs=kwargs, response_obj=None, start_time=None, end_time=None
         )
-        assert handler.log_queue[0]["id"] == "litellm-call-123"
+        assert handler.log_queue[0]["id"] == "hangarllm-call-123"
 
-    async def test_litellm_call_id_always_used_as_correlation_key(self, handler):
-        """The merged plugin always uses litellm_call_id as the log ID for all
+    async def test_hangarllm_call_id_always_used_as_correlation_key(self, handler):
+        """The merged plugin always uses hangarllm_call_id as the log ID for all
         providers (not just Anthropic) so that logs correlate with the
         moderation (_blocking) and failure logs for the same request."""
         kwargs = {
@@ -486,17 +486,17 @@ class TestBatchLogging:
                 "messages": [{"role": "user", "content": "hi"}],
                 "response": "hello",
             },
-            "litellm_params": {
+            "hangarllm_params": {
                 "proxy_server_request": {
                     "url": "http://proxy/v1/chat/completions",
                 },
             },
-            "litellm_call_id": "litellm-call-123",
+            "hangarllm_call_id": "hangarllm-call-123",
         }
         await handler.async_log_success_event(
             kwargs=kwargs, response_obj=None, start_time=None, end_time=None
         )
-        assert handler.log_queue[0]["id"] == "litellm-call-123"
+        assert handler.log_queue[0]["id"] == "hangarllm-call-123"
 
     async def test_payload_deep_copied_not_mutated(self, handler):
         """Verify the shared standard_logging_object is not mutated."""
@@ -558,7 +558,7 @@ class TestApplyGuardrail:
         assert result is inputs
 
     async def test_no_tool_calls(self, handler):
-        from litellm.types.utils import GenericGuardrailAPIInputs
+        from hangarllm.types.utils import GenericGuardrailAPIInputs
 
         inputs = GenericGuardrailAPIInputs(texts=["hello"])
         result = await handler.apply_guardrail(
@@ -716,7 +716,7 @@ class TestApplyGuardrail:
         logging_obj.model_call_details = {
             "messages": [{"role": "user", "content": "hi"}],
             "model": "gpt-4",
-            "litellm_params": {
+            "hangarllm_params": {
                 "proxy_server_request": {"url": "/chat/completions"},
             },
         }
@@ -734,7 +734,7 @@ class TestApplyGuardrail:
 
     async def test_proxy_server_request_not_forwarded(self, handler):
         """proxy_server_request is intentionally NOT included in the request
-        envelope: in litellm >=1.83 its ``body`` carries a UserAPIKeyAuth
+        envelope: in hangarllm >=1.83 its ``body`` carries a UserAPIKeyAuth
         instance that breaks json.dumps, silently fail-opening the guardrail."""
         tc = make_tool_call_dict("call_1", "test_tool")
         inputs = make_inputs_with_tools([tc])
@@ -756,12 +756,12 @@ class TestApplyGuardrail:
         logging_obj.model_call_details = {
             "messages": [{"role": "user", "content": "hi"}],
             "model": "gpt-4",
-            "litellm_params": {
+            "hangarllm_params": {
                 "proxy_server_request": {
                     "url": "/chat/completions",
                     "method": "POST",
                     "headers": {
-                        "authorization": "Bearer sk-litellm-secret",
+                        "authorization": "Bearer sk-hangarllm-secret",
                         "cookie": "session=abc",
                         "x-api-key": "leaked-key",
                     },
@@ -831,7 +831,7 @@ class TestApplyGuardrailAnthropicFormat:
     async def test_text_only_response_sent_to_moderation(self, handler):
         """Text-only responses (no tool calls) are sent to the response
         moderation service to check the assistant's text content."""
-        from litellm.types.utils import GenericGuardrailAPIInputs
+        from hangarllm.types.utils import GenericGuardrailAPIInputs
 
         inputs = GenericGuardrailAPIInputs(texts=["Hello! I'm Claude."])
 
@@ -871,7 +871,7 @@ class TestNormalizeToolCalls:
         assert result[0].function.arguments == '{"a": 1}'
 
     def test_typed_object_input(self):
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         tc = ChatCompletionMessageToolCall(
             id="call_2",
@@ -896,7 +896,7 @@ class TestExtractResponseBlock:
     _extract_blocked_tools and handles both text blocks and tool blocks."""
 
     def test_all_allowed_returns_none(self):
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         tc = ChatCompletionMessageToolCall(
             id="call_1", type="function", function=Function(name="fn", arguments="{}")
@@ -915,7 +915,7 @@ class TestExtractResponseBlock:
         assert result is None
 
     def test_some_blocked_returns_explanation(self):
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         tc1 = ChatCompletionMessageToolCall(
             id="call_1",
@@ -946,7 +946,7 @@ class TestExtractResponseBlock:
             RubrikLogger._extract_response_block({"choices": []}, [], "")
 
     def test_null_tool_calls_treated_as_all_blocked(self):
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         tc = ChatCompletionMessageToolCall(
             id="call_1", type="function", function=Function(name="fn", arguments="{}")
@@ -967,7 +967,7 @@ class TestExtractResponseBlock:
 
     def test_text_block_detected(self):
         """When the service replaces the response text wholesale, it's a text block."""
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         service_resp = {
             "choices": [
@@ -988,7 +988,7 @@ class TestExtractResponseBlock:
     def test_tool_block_with_appended_explanation(self):
         """When the service appends an explanation to the original text, only the
         appended part is returned as the explanation."""
-        from litellm.types.utils import ChatCompletionMessageToolCall, Function
+        from hangarllm.types.utils import ChatCompletionMessageToolCall, Function
 
         tc = ChatCompletionMessageToolCall(
             id="call_1", type="function", function=Function(name="fn", arguments="{}")
@@ -1021,7 +1021,7 @@ class TestSanitizeProxyServerRequest:
             "url": "/chat/completions",
             "method": "POST",
             "headers": {
-                "authorization": "Bearer sk-litellm-secret",
+                "authorization": "Bearer sk-hangarllm-secret",
                 "cookie": "session=abc",
                 "content-type": "application/json",
             },
@@ -1151,7 +1151,7 @@ class TestApplyGuardrailEdgeCases:
 
     async def test_response_with_no_texts_and_no_tool_calls_returns_inputs(self, handler):
         """_moderate_response early-returns when both texts and tool_calls are empty."""
-        from litellm.types.utils import GenericGuardrailAPIInputs
+        from hangarllm.types.utils import GenericGuardrailAPIInputs
 
         inputs = GenericGuardrailAPIInputs()
         result = await handler.apply_guardrail(
@@ -1277,7 +1277,7 @@ class TestStashBlockContext:
 
     def test_with_none_logging_obj_stores_none_on_request_data(self):
         """When logging_obj is None, stores None on request_data (logged as error)."""
-        request_data: dict = {"litellm_call_id": "test-id"}
+        request_data: dict = {"hangarllm_call_id": "test-id"}
 
         RubrikLogger._stash_block_context(None, request_data)
 
@@ -1291,7 +1291,7 @@ class TestNormalizeToolCallsDuckTyped:
     def test_duck_typed_object_with_id_and_function_attrs(self):
         """Objects that have .id and .function attrs but are not
         ChatCompletionMessageToolCall are handled by the third branch."""
-        from litellm.types.utils import Function
+        from hangarllm.types.utils import Function
 
         tc = Mock()
         tc.id = "call_duck"
@@ -1307,7 +1307,7 @@ class TestNormalizeToolCallsDuckTyped:
 
     def test_duck_typed_without_type_defaults_to_function(self):
         """getattr(tc, "type", None) falls back to "function" when absent."""
-        from litellm.types.utils import Function
+        from hangarllm.types.utils import Function
 
         tc = Mock(spec=["id", "function"])  # no .type attr
         tc.id = "call_no_type"
@@ -1393,17 +1393,17 @@ class TestBuildPromptModerationPayload:
         inputs = {"structured_messages": [{"role": "user", "content": "hi"}]}
         request_data = {
             "correlation_key": "corr-123",
-            "litellm_call_id": "litellm-456",
+            "hangarllm_call_id": "hangarllm-456",
         }
         payload = RubrikLogger._build_prompt_moderation_payload(inputs, request_data)
         assert payload["correlation_key"] == "corr-123"
 
-    def test_payload_falls_back_to_litellm_call_id(self):
-        """When correlation_key is absent, litellm_call_id is used."""
+    def test_payload_falls_back_to_hangarllm_call_id(self):
+        """When correlation_key is absent, hangarllm_call_id is used."""
         inputs = {"structured_messages": [{"role": "user", "content": "hi"}]}
-        request_data = {"litellm_call_id": "litellm-789"}
+        request_data = {"hangarllm_call_id": "hangarllm-789"}
         payload = RubrikLogger._build_prompt_moderation_payload(inputs, request_data)
-        assert payload["correlation_key"] == "litellm-789"
+        assert payload["correlation_key"] == "hangarllm-789"
 
     def test_payload_omits_optional_fields_when_absent(self):
         inputs = {"structured_messages": [{"role": "user", "content": "hi"}]}
@@ -1558,7 +1558,7 @@ class TestSuccessEventBlockedSkip:
         """When kwargs['_rubrik_blocked'] is True, the event is not enqueued."""
         kwargs = {
             "_rubrik_blocked": True,
-            "litellm_call_id": "blocked-call-123",
+            "hangarllm_call_id": "blocked-call-123",
             "standard_logging_object": {
                 "messages": [{"role": "user", "content": "hi"}],
                 "response": "hello",
@@ -1578,7 +1578,7 @@ class TestPostCallFailureHook:
     async def test_non_modify_exception_returns_immediately(self, handler, user_api_key_dict):
         """Non-ModifyResponseException causes a no-op."""
         await handler.async_post_call_failure_hook(
-            request_data={"litellm_call_id": "test"},
+            request_data={"hangarllm_call_id": "test"},
             original_exception=ValueError("unrelated error"),
             user_api_key_dict=user_api_key_dict,
         )
@@ -1588,7 +1588,7 @@ class TestPostCallFailureHook:
         self, handler, user_api_key_dict
     ):
         """ModifyResponseException with no _rubrik_logging_obj → warning, no enqueue."""
-        request_data = {"litellm_call_id": "test-123", "model": "gpt-4"}
+        request_data = {"hangarllm_call_id": "test-123", "model": "gpt-4"}
         exc = ModifyResponseException(
             message="blocked",
             model="gpt-4",
@@ -1609,7 +1609,7 @@ class TestPostCallFailureHook:
         """ModifyResponseException + stashed logging_obj → builds and enqueues."""
         logging_obj = Mock()
         logging_obj.model_call_details = {
-            "litellm_call_id": "call-abc",
+            "hangarllm_call_id": "call-abc",
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "hi"}],
             "standard_logging_object": {
@@ -1643,7 +1643,7 @@ class TestPostCallFailureHook:
         forwarded downstream."""
         logging_obj = Mock()
         logging_obj.model_call_details = {
-            "litellm_call_id": "call-pop",
+            "hangarllm_call_id": "call-pop",
             "model": "gpt-4",
             "messages": [],
             "standard_logging_object": {
@@ -1695,7 +1695,7 @@ class TestPostCallFailureHook:
         """When _append_and_maybe_flush raises, the error is logged (lines 816-817)."""
         logging_obj = Mock()
         logging_obj.model_call_details = {
-            "litellm_call_id": "call-flush-err",
+            "hangarllm_call_id": "call-flush-err",
             "model": "gpt-4",
             "messages": [],
             "standard_logging_object": {
@@ -1730,7 +1730,7 @@ class TestPrepareBlockFailurePayload:
         """When standard_logging_object is on model_call_details, it is used as base."""
         logging_obj = Mock()
         logging_obj.model_call_details = {
-            "litellm_call_id": "call-slo",
+            "hangarllm_call_id": "call-slo",
             "model": "gpt-4",
             "standard_logging_object": {
                 "id": "chatcmpl-original",
@@ -1756,7 +1756,7 @@ class TestPrepareBlockFailurePayload:
         """A streamed block can arrive with the object populated; it keeps its own identity."""
         logging_obj = Mock()
         logging_obj.model_call_details = {
-            "litellm_call_id": "call-slo-identity",
+            "hangarllm_call_id": "call-slo-identity",
             "model": "gpt-4",
             "standard_logging_object": {
                 "id": "chatcmpl-original",
@@ -1783,7 +1783,7 @@ class TestPrepareBlockFailurePayload:
 
         logging_obj = Mock()
         logging_obj.model_call_details = {
-            "litellm_call_id": "call-fallback",
+            "hangarllm_call_id": "call-fallback",
             "model": "claude-3",
             "messages": [{"role": "user", "content": "question"}],
             "optional_params": {"temperature": 0.5},
@@ -1809,7 +1809,7 @@ class TestPrepareBlockFailurePayload:
         """_build_fallback_payload handles missing start_time gracefully."""
         logging_obj = Mock()
         logging_obj.model_call_details = {
-            "litellm_call_id": "call-notime",
+            "hangarllm_call_id": "call-notime",
             "model": "gpt-4",
             "messages": [],
             "optional_params": {},
@@ -1829,8 +1829,8 @@ class TestPrepareBlockFailurePayload:
 class TestBlockPayloadCallerAttribution:
     """A block log must identify the caller that triggered it.
 
-    The enriched litellm metadata lives under
-    ``model_call_details["litellm_params"]["metadata"]``, never at the top
+    The enriched hangarllm metadata lives under
+    ``model_call_details["hangarllm_params"]["metadata"]``, never at the top
     level, so sourcing identity from ``call_details["metadata"]`` yielded an
     empty string for every block. Identity comes from the authenticated
     ``user_api_key_dict`` the failure hook is handed.
@@ -1838,7 +1838,7 @@ class TestBlockPayloadCallerAttribution:
 
     def _blocked_call_details(self):
         return {
-            "litellm_call_id": "call-attr",
+            "hangarllm_call_id": "call-attr",
             "model": "claude-3",
             "messages": [{"role": "user", "content": "question"}],
             "optional_params": {},
@@ -1857,7 +1857,7 @@ class TestBlockPayloadCallerAttribution:
 
     def test_metadata_covers_the_full_caller_key_set(self, handler, user_api_key_dict):
         """A block log and a success log agree on the caller key set."""
-        from litellm.types.utils import StandardLoggingUserAPIKeyMetadata
+        from hangarllm.types.utils import StandardLoggingUserAPIKeyMetadata
 
         payload = handler._build_fallback_payload(self._blocked_call_details(), user_api_key_dict)
 
@@ -1886,7 +1886,7 @@ class TestBlockPayloadCallerAttribution:
         """End of the real hook chain: what actually lands on the Rubrik queue."""
         logging_obj = Mock()
         logging_obj.model_call_details = self._blocked_call_details()
-        request_data = {"litellm_call_id": "call-attr", "_rubrik_logging_obj": logging_obj}
+        request_data = {"hangarllm_call_id": "call-attr", "_rubrik_logging_obj": logging_obj}
         exc = ModifyResponseException(
             message="prompt blocked",
             model="claude-3",

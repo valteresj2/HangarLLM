@@ -7,8 +7,8 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.lens.adapter import (
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.lens.adapter import (
     Connection,
     Identity,
     delegated_identity,
@@ -18,7 +18,7 @@ from litellm.proxy.lens.adapter import (
     service_connection,
     service_status,
 )
-from litellm.tracing.remote import LensConnection
+from hangarllm.tracing.remote import LensConnection
 
 SECRET: Final = "gateway-delegated-identity-fixture-32"
 
@@ -31,7 +31,7 @@ def connection() -> Connection:
 @pytest.fixture
 def identity() -> Identity:
     return Identity(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="user",
         team_id="team",
         org_id="org",
@@ -47,16 +47,16 @@ def identity() -> Identity:
         ({}, True),
         ({"LENS_GATEWAY_SECRET": "short"}, False),
         ({"LENS_GATEWAY_SECRET": "x" * 513}, False),
-        ({"LITELLM_LENS_URL": "file:///tmp/lens"}, False),
-        ({"LITELLM_LENS_SERVICE_TOKEN": ""}, False),
+        ({"HANGARLLM_LENS_URL": "file:///tmp/lens"}, False),
+        ({"HANGARLLM_LENS_SERVICE_TOKEN": ""}, False),
     ),
     ids=("configured", "short_signing_secret", "long_signing_secret", "invalid_url", "missing_service_token"),
 )
 def test_connection_requires_valid_endpoint_and_both_secrets(overrides: Mapping[str, str], available: bool) -> None:
     configured: Final = Connection.from_env(
         {
-            "LITELLM_LENS_URL": "http://lens.test",
-            "LITELLM_LENS_SERVICE_TOKEN": SECRET,
+            "HANGARLLM_LENS_URL": "http://lens.test",
+            "HANGARLLM_LENS_SERVICE_TOKEN": SECRET,
             "LENS_GATEWAY_SECRET": SECRET,
             **overrides,
         }
@@ -68,11 +68,11 @@ def test_delegated_token_contains_only_authenticated_identity(connection: Connec
     token: Final = connection.identity_token(identity, 1000)
     assert token is not None
     decoded: Final = jwt.decode(
-        token, SECRET, algorithms=["HS256"], audience="litellm-lens", issuer="litellm", options={"verify_exp": False}
+        token, SECRET, algorithms=["HS256"], audience="hangarllm-lens", issuer="hangarllm", options={"verify_exp": False}
     )
     assert decoded == {
-        "iss": "litellm",
-        "aud": "litellm-lens",
+        "iss": "hangarllm",
+        "aud": "hangarllm-lens",
         "sub": "user",
         "iat": 1000,
         "exp": 1030,
@@ -84,20 +84,20 @@ def test_delegated_token_contains_only_authenticated_identity(connection: Connec
 @pytest.mark.parametrize(
     "role",
     (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        HangarllmUserRoles.PROXY_ADMIN,
+        HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        HangarllmUserRoles.INTERNAL_USER,
+        HangarllmUserRoles.INTERNAL_USER_VIEW_ONLY,
         None,
     ),
     ids=("admin", "admin_viewer", "user", "user_viewer", "default_user"),
 )
 async def test_delegated_identity_preserves_authenticated_lens_scope_and_log_permissions(
-    role: LitellmUserRoles | None,
+    role: HangarllmUserRoles | None,
 ) -> None:
     async def log_team_lookup(auth: UserAPIKeyAuth) -> tuple[str, ...]:
         assert auth.user_id == "user"
-        assert role not in (LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY)
+        assert role not in (HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY)
         return ("permitted-team",)
 
     identity: Final = await delegated_identity(
@@ -112,14 +112,14 @@ async def test_delegated_identity_preserves_authenticated_lens_scope_and_log_per
         log_team_lookup,
     )
     assert identity == Identity(
-        user_role=role or LitellmUserRoles.INTERNAL_USER,
+        user_role=role or HangarllmUserRoles.INTERNAL_USER,
         user_id="user",
         team_id="credential-team",
         org_id="org",
         token="token-hash",
         models=("model",),
         log_team_ids=()
-        if role in (LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY)
+        if role in (HangarllmUserRoles.PROXY_ADMIN, HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY)
         else ("permitted-team",),
     )
 
@@ -130,7 +130,7 @@ async def test_delegation_permission_failure_falls_back_to_own_user_scope() -> N
         raise RuntimeError("Permission database unavailable")
 
     identity: Final = await delegated_identity(
-        UserAPIKeyAuth(user_id="user", user_role=LitellmUserRoles.INTERNAL_USER), unavailable
+        UserAPIKeyAuth(user_id="user", user_role=HangarllmUserRoles.INTERNAL_USER), unavailable
     )
     assert identity.user_id == "user"
     assert identity.log_team_ids == ()
@@ -152,7 +152,7 @@ async def test_forwarding_replaces_caller_headers_and_preserves_wire_response(
         assert "cookie" not in request.headers
         assert "x-lens-internal" not in request.headers
         token: Final = request.headers["authorization"].removeprefix("Bearer ")
-        assert jwt.decode(token, SECRET, algorithms=["HS256"], audience="litellm-lens", options={"verify_exp": False})[
+        assert jwt.decode(token, SECRET, algorithms=["HS256"], audience="hangarllm-lens", options={"verify_exp": False})[
             "identity"
         ] == identity.model_dump(mode="json")
         return httpx.Response(
@@ -278,9 +278,9 @@ async def test_missing_connection_keeps_setup_readable_and_rejects_lens_requests
     monkeypatch: pytest.MonkeyPatch, identity: Identity, configured: bool
 ) -> None:
     monkeypatch.delenv("LENS_GATEWAY_SECRET", raising=False)
-    monkeypatch.setenv("LITELLM_LENS_SERVICE_TOKEN", SECRET)
-    monkeypatch.setenv("LITELLM_LENS_URL", "http://lens.test" if configured else "")
-    monkeypatch.setenv("LITELLM_LENS_PUBLIC_URL", "https://lens.example.test/")
+    monkeypatch.setenv("HANGARLLM_LENS_SERVICE_TOKEN", SECRET)
+    monkeypatch.setenv("HANGARLLM_LENS_URL", "http://lens.test" if configured else "")
+    monkeypatch.setenv("HANGARLLM_LENS_PUBLIC_URL", "https://lens.example.test/")
     status: Final = await service_connection(identity)
     assert status.configured == configured
     assert not status.connected

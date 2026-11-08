@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bench LiteLLM_HealthCheckTable + PrismaClient 
+Bench HangarLLM_HealthCheckTable + PrismaClient 
     - set DATABASE_URL to your Postgres
     - Run ```prisma generate``` to install prisma client before running test )
     - This test writes to the default "public" database. Make sure to run cleanup after testing
@@ -82,7 +82,7 @@ async def _seed(
     batch_idx = 0
     while inserted < total_rows:
         n = min(batch_size, total_rows - inserted)
-        await db.litellm_healthchecktable.create_many(
+        await db.hangarllm_healthchecktable.create_many(
             data=_build_batch(
                 batch_index=batch_idx,
                 batch_size=n,
@@ -98,7 +98,7 @@ async def _seed(
 
 
 async def _cleanup(prisma: Any) -> None:
-    result = await prisma.db.litellm_healthchecktable.delete_many(
+    result = await prisma.db.hangarllm_healthchecktable.delete_many(
         where={"checked_by": SEED_MARKER},
     )
     n = getattr(result, "count", result)
@@ -145,9 +145,9 @@ async def _amain() -> int:
     if repo_root not in sys.path:
         sys.path.insert(0, repo_root)
 
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.proxy_cli import append_query_params
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    from hangarllm.caching.caching import DualCache
+    from hangarllm.proxy.proxy_cli import append_query_params
+    from hangarllm.proxy.utils import PrismaClient, ProxyLogging
 
     db_url = append_query_params(
         database_url, {"connection_limit": 100, "pool_timeout": 60}

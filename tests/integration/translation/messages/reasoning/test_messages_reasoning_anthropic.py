@@ -26,8 +26,8 @@ SIGNATURE_1: Final = (
 CLAUDE_SONNET_4_6_THINKING_BUDGET_TEST_CASE: Final = replace(
     CLAUDE_SONNET_4_6_TEST_CASE,
     scenario="thinking_budget",
-    litellm_request={
-        **CLAUDE_SONNET_4_6_TEST_CASE.litellm_request,
+    hangarllm_request={
+        **CLAUDE_SONNET_4_6_TEST_CASE.hangarllm_request,
         "max_tokens": 2048,
         "thinking": {"type": "enabled", "budget_tokens": 1024},
     },
@@ -54,8 +54,8 @@ CLAUDE_SONNET_4_6_THINKING_BUDGET_TEST_CASE: Final = replace(
             "inference_geo": "global",
         },
     },
-    expected_litellm_response={
-        **CLAUDE_SONNET_4_6_TEST_CASE.expected_litellm_response,
+    expected_hangarllm_response={
+        **CLAUDE_SONNET_4_6_TEST_CASE.expected_hangarllm_response,
         "id": "msg_011CffzUREgTzMm1dXRqP2LR",
         "content": [
             {"type": "thinking", "thinking": "Hello!", "signature": SIGNATURE_1},
@@ -131,7 +131,7 @@ def test_messages_replays_signed_thinking_and_tool_results_without_losing_blocks
     replay: Final = replace(
         case,
         scenario="signed_thinking_replay",
-        litellm_request={**case.litellm_request, "messages": history},
+        hangarllm_request={**case.hangarllm_request, "messages": history},
         expected_provider_request={
             **case.expected_provider_request,
             "messages": [

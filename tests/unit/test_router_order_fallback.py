@@ -1,7 +1,7 @@
 """
 Tests for order-based fallback routing.
 
-When deployments have `order` set in litellm_params, lower order deployments
+When deployments have `order` set in hangarllm_params, lower order deployments
 should be tried first, and higher order deployments should be used as fallbacks
 when lower order deployments fail.
 """
@@ -14,12 +14,12 @@ import pytest
 import respx
 from openai import AsyncOpenAI
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_utils.prompt_caching_cache import PromptCachingCache
-from litellm.types.router import RouterRateLimitError
-from litellm.utils import get_deployment_order, get_order_filtered_deployments
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.router_utils.prompt_caching_cache import PromptCachingCache
+from hangarllm.types.router import RouterRateLimitError
+from hangarllm.utils import get_deployment_order, get_order_filtered_deployments
 
 # ---------------------------------------------------------------------------
 # Unit tests for get_order_filtered_deployments
@@ -33,7 +33,7 @@ class TestGetOrderFilteredDeployments:
             params["order"] = order
         return {
             "model_name": "test-model",
-            "litellm_params": params,
+            "hangarllm_params": params,
             "model_info": {"id": dep_id},
         }
 
@@ -96,8 +96,8 @@ class TestGetOrderFilteredDeployments:
 
 
 def test_get_deployment_order_reads_a_non_number_as_unordered():
-    assert get_deployment_order({"litellm_params": {"order": "first"}}) is None
-    assert get_deployment_order({"litellm_params": {"order": "2"}}) == 2
+    assert get_deployment_order({"hangarllm_params": {"order": "first"}}) is None
+    assert get_deployment_order({"hangarllm_params": {"order": "2"}}) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +111,7 @@ def test_router_order_without_pre_call_checks():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
                     "mock_response": "from order 1",
@@ -121,7 +121,7 @@ def test_router_order_without_pre_call_checks():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
                     "mock_response": "from order 2",
@@ -148,7 +148,7 @@ def test_router_order_no_fallback_when_healthy():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
                     "mock_response": "from order 1",
@@ -158,7 +158,7 @@ def test_router_order_no_fallback_when_healthy():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
                     "mock_response": "from order 2",
@@ -185,7 +185,7 @@ async def test_router_order_fallback_on_failure():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad-key",
                     "mock_response": Exception("connection error"),
@@ -195,7 +195,7 @@ async def test_router_order_fallback_on_failure():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good-key",
                     "mock_response": "success from order 2",
@@ -221,7 +221,7 @@ async def test_router_order_fallback_three_levels():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail 1"),
@@ -231,7 +231,7 @@ async def test_router_order_fallback_three_levels():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail 2"),
@@ -241,7 +241,7 @@ async def test_router_order_fallback_three_levels():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "success from order 3",
@@ -267,7 +267,7 @@ async def test_router_order_fallback_then_external_fallback():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 1"),
@@ -277,7 +277,7 @@ async def test_router_order_fallback_then_external_fallback():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 2"),
@@ -287,7 +287,7 @@ async def test_router_order_fallback_then_external_fallback():
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "success from external fallback",
@@ -314,7 +314,7 @@ async def test_router_order_fallback_with_non_standard_fallbacks():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 1"),
@@ -324,7 +324,7 @@ async def test_router_order_fallback_with_non_standard_fallbacks():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 2"),
@@ -334,7 +334,7 @@ async def test_router_order_fallback_with_non_standard_fallbacks():
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "success from non-standard fallback",
@@ -360,7 +360,7 @@ async def test_router_order_fallback_with_wildcard_model_group():
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 1"),
@@ -370,7 +370,7 @@ async def test_router_order_fallback_with_wildcard_model_group():
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_key": "good",
                     "mock_response": "success from wildcard order 2",
@@ -395,7 +395,7 @@ async def test_router_order_fallback_with_hidden_model_group_alias():
         model_list=[
             {
                 "model_name": "canonical-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 1"),
@@ -405,7 +405,7 @@ async def test_router_order_fallback_with_hidden_model_group_alias():
             },
             {
                 "model_name": "canonical-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "success from order 2",
@@ -441,17 +441,17 @@ async def test_router_order_fallback_does_not_reselect_order_1_when_order_2_is_f
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
-                    "mock_response": "litellm.RateLimitError",
+                    "mock_response": "hangarllm.RateLimitError",
                     "order": 1,
                 },
                 "model_info": {"id": "1"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "key",
                     "mock_response": "success from order 2",
@@ -462,7 +462,7 @@ async def test_router_order_fallback_does_not_reselect_order_1_when_order_2_is_f
         ],
         num_retries=0,
     )
-    litellm.callbacks.append(drop_order_2)
+    hangarllm.callbacks.append(drop_order_2)
     try:
         with pytest.raises(RouterRateLimitError, match="No deployments available") as exc_info:
             await router.acompletion(
@@ -471,7 +471,7 @@ async def test_router_order_fallback_does_not_reselect_order_1_when_order_2_is_f
             )
         assert "success from order 2" not in str(exc_info.value)
     finally:
-        litellm.callbacks.remove(drop_order_2)
+        hangarllm.callbacks.remove(drop_order_2)
 
 
 @pytest.mark.asyncio
@@ -481,7 +481,7 @@ async def test_router_order_fallback_ignores_prompt_cache_pin_on_target_order():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("azure peak load"),
@@ -491,7 +491,7 @@ async def test_router_order_fallback_ignores_prompt_cache_pin_on_target_order():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "success from order 2",
@@ -528,7 +528,7 @@ async def test_router_order_fallback_retries_keep_target_order():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 1"),
@@ -538,7 +538,7 @@ async def test_router_order_fallback_retries_keep_target_order():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("fail order 2"),
@@ -549,7 +549,7 @@ async def test_router_order_fallback_retries_keep_target_order():
         ],
         num_retries=1,
     )
-    litellm.callbacks.append(recorder)
+    hangarllm.callbacks.append(recorder)
     try:
         with pytest.raises(Exception, match="fail order 2"):
             await router.acompletion(
@@ -557,7 +557,7 @@ async def test_router_order_fallback_retries_keep_target_order():
                 messages=[{"role": "user", "content": "hi"}],
             )
     finally:
-        litellm.callbacks.remove(recorder)
+        hangarllm.callbacks.remove(recorder)
     assert seen_target_orders.count(2) >= 2
 
 
@@ -588,7 +588,7 @@ async def test_text_completion_order_fallback_hop_does_not_send_target_order_ups
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-completion-openai/gpt-3.5-turbo-instruct",
                     "api_key": "key",
                     "mock_response": Exception("fail order 1"),
@@ -598,7 +598,7 @@ async def test_text_completion_order_fallback_hop_does_not_send_target_order_ups
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "text-completion-openai/gpt-3.5-turbo-instruct",
                     "api_key": "key",
                     "api_base": "http://upstream.test",
@@ -672,12 +672,12 @@ def _openai_then_mantle_order_router() -> Router:
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {"model": "openai/gpt-6-astra", "api_key": "openai-key", "order": 1},
+                "hangarllm_params": {"model": "openai/gpt-6-astra", "api_key": "openai-key", "order": 1},
                 "model_info": {"id": "openai-order-1"},
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "bedrock_mantle/openai.gpt-6-astra",
                     "api_key": "mantle-bearer-token",
                     "aws_region_name": "us-east-1",
@@ -695,7 +695,7 @@ def _two_openai_orders_on_one_encryption_boundary_router() -> Router:
         model_list=[
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6-astra",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "openai-key",
@@ -705,7 +705,7 @@ def _two_openai_orders_on_one_encryption_boundary_router() -> Router:
             },
             {
                 "model_name": "gpt-6-astra",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-6-astra-mini",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "openai-key",
@@ -722,7 +722,7 @@ def _two_openai_orders_on_one_encryption_boundary_router() -> Router:
 async def test_responses_order_fallback_hop_drops_the_encrypted_reasoning_the_next_provider_cannot_decrypt(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     openai_route: Final = respx_mock.post(_OPENAI_RESPONSES_URL).mock(
         return_value=httpx.Response(500, json=_OVERLOADED_UPSTREAM)
     )
@@ -746,7 +746,7 @@ async def test_responses_order_fallback_hop_drops_the_encrypted_reasoning_the_ne
 async def test_responses_order_fallback_hop_keeps_the_encrypted_reasoning_the_same_boundary_can_decrypt(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     openai_route: Final = respx_mock.post(_OPENAI_RESPONSES_URL).mock(
         side_effect=[
             httpx.Response(500, json=_OVERLOADED_UPSTREAM),
@@ -766,7 +766,7 @@ async def test_responses_order_fallback_hop_keeps_the_encrypted_reasoning_the_sa
 
 
 def test_check_non_standard_fallback_format():
-    from litellm.router_utils.fallback_event_handlers import (
+    from hangarllm.router_utils.fallback_event_handlers import (
         check_non_standard_fallback_format,
     )
 

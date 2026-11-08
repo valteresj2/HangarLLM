@@ -12,12 +12,12 @@ from pathlib import Path
 from queue import SimpleQueue
 from typing import Final
 
-import litellm
+import hangarllm
 import pytest
 from integration._support.client import eventually
 from integration._support.redis_process import owned_redis
 from integration._support.wire import Reply, Request, wire_server
-from litellm import Router
+from hangarllm import Router
 from pydantic import JsonValue, TypeAdapter
 from redis import Redis
 from redis.exceptions import TimeoutError as RedisTimeoutError
@@ -54,7 +54,7 @@ def _deployment_list(
     return [
         {
             "model_name": model_name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{OPENAI_MODEL}",
                 "api_base": api_base,
                 "api_key": API_KEY,
@@ -133,7 +133,7 @@ async def _exercise_router(router: Router, model_name: str, markers: tuple[str, 
     second: Final = await router.acompletion(
         model=model_name, messages=[{"role": "user", "content": markers[1]}], max_tokens=8
     )
-    with pytest.raises(litellm.RateLimitError, match="No deployments available"):
+    with pytest.raises(hangarllm.RateLimitError, match="No deployments available"):
         await router.acompletion(
             model=model_name, messages=[{"role": "user", "content": markers[2]}], max_tokens=8
         )

@@ -4,9 +4,9 @@ import httpx
 import openai
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.utils import ImageObject, ImageResponse, ImageUsage, ImageUsageInputTokensDetails
+import hangarllm
+from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
+from hangarllm.types.utils import ImageObject, ImageResponse, ImageUsage, ImageUsageInputTokensDetails
 
 SEEDREAM_MODELS: Final = (
     "tencent/seedream-image-v5.0-pro",
@@ -33,9 +33,9 @@ def _image_response(total_tokens: int, images: int = 1) -> ImageResponse:
 def test_seedream_bills_tokenhub_usage_tokens_for_a_tier_size(
     local_model_cost_map: None, model: str, call_type: str
 ) -> None:
-    token_rate: Final = litellm.model_cost[model]["output_cost_per_image_token"]
+    token_rate: Final = hangarllm.model_cost[model]["output_cost_per_image_token"]
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=_image_response(total_tokens=56250),
         model=model,
         call_type=call_type,
@@ -47,9 +47,9 @@ def test_seedream_bills_tokenhub_usage_tokens_for_a_tier_size(
 
 @pytest.mark.parametrize("model", SEEDREAM_MODELS)
 def test_seedream_falls_back_to_the_per_image_price_without_usage(local_model_cost_map: None, model: str) -> None:
-    per_image_price: Final = litellm.model_cost[model]["output_cost_per_image"]
+    per_image_price: Final = hangarllm.model_cost[model]["output_cost_per_image"]
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = hangarllm.completion_cost(
         completion_response=_image_response(total_tokens=0, images=2),
         model=model,
         call_type="image_generation",
@@ -63,11 +63,11 @@ async def test_a_deployment_priced_tencent_image_model_outside_seedream_bills_it
     def respond(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"created": 1792551825, "data": [{"url": "https://cos.example/hy.png"}]})
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "hy-image",
-                "litellm_params": {"model": "tencent/hy-image-v3.5-preview", "api_key": "sk-tokenhub"},
+                "hangarllm_params": {"model": "tencent/hy-image-v3.5-preview", "api_key": "sk-tokenhub"},
                 "model_info": {"input_cost_per_image": 0.04},
             }
         ]
@@ -106,11 +106,11 @@ def test_a_seedream_deployment_priced_in_the_ui_bills_its_own_rate(
             },
         )
 
-    router: Final = litellm.Router(
+    router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "seedream-flash",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "tencent/seedream-image-v5.0-flash",
                     "api_key": "sk-tokenhub",
                     **deployment_price,

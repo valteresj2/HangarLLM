@@ -1,5 +1,5 @@
 """A key's or team's own Langfuse project gets one copy of the call with the Langfuse trace fields when the operator
-has no Langfuse keys, whether or not ``langfuse_otel`` is listed in ``litellm_settings.callbacks``."""
+has no Langfuse keys, whether or not ``langfuse_otel`` is listed in ``hangarllm_settings.callbacks``."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from pydantic import JsonValue
 
 OPERATION: Final = "gen_ai.operation.name"
 TAGS: Final = ["agent:orders", "run:r1"]
-LEGACY_SPANS: Final = frozenset({"litellm_request", "raw_gen_ai_request"})
+LEGACY_SPANS: Final = frozenset({"hangarllm_request", "raw_gen_ai_request"})
 
 
 def _chat(_request: Request) -> Reply:
@@ -62,7 +62,7 @@ def proxy(
             gateway,
             directory,
             {
-                "LITELLM_OTEL_V2": "1",
+                "HANGARLLM_OTEL_V2": "1",
                 "OTEL_BSP_SCHEDULE_DELAY": "300",
                 "OTEL_EXPORTER": "otlp_http",
                 "OTEL_ENDPOINT": audit_sinks.operator,

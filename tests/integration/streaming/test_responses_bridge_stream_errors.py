@@ -76,7 +76,7 @@ def test_bridged_azure_in_stream_rate_limit_reaches_the_openai_sdk_as_a_throttli
             )
         assert raised.value.status_code == 429
         assert_provider_typed_rate_limit(object_value(raised.value.body))
-        assert_failed_once(wire, raised.value.response.headers["x-litellm-call-id"], model)
+        assert_failed_once(wire, raised.value.response.headers["x-hangarllm-call-id"], model)
 
 
 async def test_bridged_openai_in_stream_rate_limit_reaches_the_async_openai_sdk_as_a_throttling_error(
@@ -95,7 +95,7 @@ async def test_bridged_openai_in_stream_rate_limit_reaches_the_async_openai_sdk_
             )
         assert raised.value.status_code == 429
         assert_provider_typed_rate_limit(object_value(raised.value.body))
-        assert_failed_once(wire, raised.value.response.headers["x-litellm-call-id"], model)
+        assert_failed_once(wire, raised.value.response.headers["x-hangarllm-call-id"], model)
 
 
 def _chat(gateway: Gateway, body: Mapping[str, JsonValue]) -> httpx.Response:
@@ -116,7 +116,7 @@ def _fallback_config(
     deployments: Final = [
         {
             "model_name": name,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": "azure/gpt-6",
                 "api_base": f"http://127.0.0.1:{port}",
                 "api_key": "synthetic-azure-key",
@@ -168,7 +168,7 @@ def test_bridged_in_stream_rate_limit_falls_back_to_the_healthy_deployment(fallb
         content: Final = chat_content(data_frames(response.text))
         assert content == "fallback answer", response.text
         assert len(primary.drain()) == 1 and len(spare.drain()) == 1
-        row: Final = spend_row(response.headers["x-litellm-call-id"])
+        row: Final = spend_row(response.headers["x-hangarllm-call-id"])
         assert row["status"] == "success" and row["model_group"] == _SPARE, row
 
 
@@ -184,7 +184,7 @@ def test_bridged_in_stream_rate_limit_whose_fallback_is_also_rate_limited_answer
         assert response.status_code == 429, response.text
         assert_provider_typed_rate_limit(error_body(response))
         assert len(primary.drain()) == 1 and len(spare.drain()) == 1
-        assert spend_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+        assert spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"
 
 
 def test_bridged_top_level_rate_limit_falls_back_to_the_healthy_deployment(fallback_proxy: FallbackProxy) -> None:
@@ -200,7 +200,7 @@ def test_bridged_top_level_rate_limit_falls_back_to_the_healthy_deployment(fallb
         assert response.status_code == 200, response.text
         assert chat_content(data_frames(response.text)) == "fallback answer", response.text
         assert len(primary.drain()) == 1 and len(spare.drain()) == 1
-        row: Final = spend_row(response.headers["x-litellm-call-id"])
+        row: Final = spend_row(response.headers["x-hangarllm-call-id"])
         assert row["status"] == "success" and row["model_group"] == _SPARE, row
 
 
@@ -234,7 +234,7 @@ def test_bridged_invalid_prompt_before_any_token_falls_back_to_the_healthy_deplo
         assert response.status_code == 200, response.text
         assert chat_content(data_frames(response.text)) == "fallback answer", response.text
         assert len(primary.drain()) == 1 and len(spare.drain()) == 1
-        row: Final = spend_row(response.headers["x-litellm-call-id"])
+        row: Final = spend_row(response.headers["x-hangarllm-call-id"])
         assert row["status"] == "success" and row["model_group"] == _SPARE, row
 
 
@@ -256,7 +256,7 @@ def test_bridged_invalid_prompt_answers_a_bad_request_without_trying_the_fallbac
         response: Final = _chat(bad_request_opt_out_proxy.gateway, chat_body(_PRIMARY, identity))
         assert response.status_code == 400, response.text
         message: Final = string_value(error_body(response)["message"])
-        assert message.startswith("litellm.BadRequestError: ") and _INVALID_PROMPT in message, message
+        assert message.startswith("hangarllm.BadRequestError: ") and _INVALID_PROMPT in message, message
         assert len(primary.drain()) == 1 and len(spare.drain()) == 0
 
 
@@ -264,7 +264,7 @@ def _in_stream_error_status(gateway: Gateway, stream: tuple[bytes, ...]) -> tupl
     with wire_server(serve(stream, AZURE_TARGET)) as wire, gateway.scenario() as scenario:
         model: Final = scenario.model(model="azure/gpt-6", api_base=wire.url, api_key="synthetic-azure-key")
         response: Final = _chat(gateway, chat_body(model, uuid.uuid4().hex))
-        assert_failed_once(wire, response.headers["x-litellm-call-id"], model)
+        assert_failed_once(wire, response.headers["x-hangarllm-call-id"], model)
         return response, model
 
 
@@ -280,7 +280,7 @@ def test_bridged_in_stream_server_error_reaches_the_client_as_the_provider_error
     error: Final = error_body(response)
     message: Final = string_value(error["message"])
     assert str(error["code"]) == "500", error
-    assert message.startswith("litellm.APIError: ") and "The server had an error" in message, message
+    assert message.startswith("hangarllm.APIError: ") and "The server had an error" in message, message
     assert SENTINEL_PREFIX not in message, message
 
 
@@ -296,7 +296,7 @@ def test_bridged_in_stream_invalid_prompt_is_a_bad_request_on_both_legs(gateway:
     error: Final = error_body(response)
     message: Final = string_value(error["message"])
     assert str(error["code"]) == "400", error
-    assert message.startswith("litellm.BadRequestError: ") and "Invalid prompt" in message, message
+    assert message.startswith("hangarllm.BadRequestError: ") and "Invalid prompt" in message, message
     assert SENTINEL_PREFIX not in message, message
 
 
@@ -308,7 +308,7 @@ def test_bridged_error_event_without_an_error_object_is_a_provider_typed_interna
     error: Final = error_body(response)
     message: Final = string_value(error["message"])
     assert str(error["code"]) == "500", error
-    assert message.startswith("litellm.APIError: ") and "Response API in-stream error" in message, message
+    assert message.startswith("hangarllm.APIError: ") and "Response API in-stream error" in message, message
     assert SENTINEL_PREFIX not in message, message
 
 
@@ -379,7 +379,7 @@ def test_bridged_transport_drop_after_response_created_is_a_500_without_the_sent
         assert str(error["code"]) == "500", error
         assert "never sent" not in response.text
         assert SENTINEL_PREFIX not in message, message
-        assert_failed_once(wire, response.headers["x-litellm-call-id"], model)
+        assert_failed_once(wire, response.headers["x-hangarllm-call-id"], model)
 
 
 def test_plain_chat_http_rate_limit_is_a_throttling_error_on_both_legs(gateway: Gateway) -> None:
@@ -405,7 +405,7 @@ def test_plain_chat_http_rate_limit_is_a_throttling_error_on_both_legs(gateway: 
         assert error["type"] == "throttling_error" and str(error["code"]) == "429", error
         message: Final = string_value(error["message"])
         assert message.startswith(RATE_LIMIT_PREFIX) and "Rate limit reached" in message, message
-        assert_failed_once(wire, raised.value.response.headers["x-litellm-call-id"], model)
+        assert_failed_once(wire, raised.value.response.headers["x-hangarllm-call-id"], model)
 
 
 def assert_messages_errorframe(events: Sequence[tuple[str, Mapping[str, JsonValue]]]) -> None:
@@ -480,4 +480,4 @@ def test_native_responses_stream_forwards_the_failed_response_on_both_legs(gatew
         assert object_value(failed["error"])["code"] == "rate_limit_exceeded", failed
         assert "data: [DONE]" not in response.text, response.text
         assert len(wire.drain()) == 1
-        assert spend_row(response.headers["x-litellm-call-id"])["status"] == "failure"
+        assert spend_row(response.headers["x-hangarllm-call-id"])["status"] == "failure"

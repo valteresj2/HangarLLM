@@ -11,8 +11,8 @@ import re
 
 import pytest
 
-# Root of the litellm package
-LITELLM_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "litellm")
+# Root of the hangarllm package
+HANGARLLM_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "hangarllm")
 
 # Regex for Base64 Basic Auth patterns: 'Basic <base64string>'
 # Matches strings like: Basic YW55dGhpbmc6YW55dGhpbmc=
@@ -34,9 +34,9 @@ def _is_real_base64_credentials(match_str: str) -> bool:
 
 
 def _collect_python_files():
-    """Collect all Python files under the litellm package."""
+    """Collect all Python files under the hangarllm package."""
     python_files = []
-    for root, dirs, files in os.walk(LITELLM_ROOT):
+    for root, dirs, files in os.walk(HANGARLLM_ROOT):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for f in files:
             if f.endswith(".py"):
@@ -59,7 +59,7 @@ def test_no_hardcoded_basic_auth_secrets():
                 for match in BASIC_AUTH_PATTERN.finditer(line):
                     b64_value = match.group(1)
                     if _is_real_base64_credentials(b64_value):
-                        rel_path = os.path.relpath(filepath, LITELLM_ROOT)
+                        rel_path = os.path.relpath(filepath, HANGARLLM_ROOT)
                         violations.append(f"  {rel_path}:{line_num}: {match.group(0)}")
 
     assert not violations, (

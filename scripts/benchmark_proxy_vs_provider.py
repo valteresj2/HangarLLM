@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Benchmark script comparing LiteLLM proxy vs direct provider endpoint.
+Benchmark script comparing HangarLLM proxy vs direct provider endpoint.
 Makes parallel calls to each endpoint and compares statistics including latency, throughput, and success rates.
 
 USAGE EXAMPLES:
 
 1. Basic Usage (Sequential, Recommended):
    # Set required environment variables
-   export LITELLM_PROXY_URL='http://localhost:4000/chat/completions'
+   export HANGARLLM_PROXY_URL='http://localhost:4000/chat/completions'
    export PROVIDER_URL='https://api.openai.com/v1/chat/completions'
-   export LITELLM_PROXY_API_KEY="$LITELLM_MASTER_KEY"
+   export HANGARLLM_PROXY_API_KEY="$HANGARLLM_MASTER_KEY"
    export PROVIDER_API_KEY='sk-openai-key'
    
    # Run from scripts directory
@@ -41,11 +41,11 @@ USAGE EXAMPLES:
    # 3 runs, 500 requests each, max 50 concurrent
 
 REQUIRED ENVIRONMENT VARIABLES:
-  - LITELLM_PROXY_URL: Full URL to LiteLLM proxy chat completions endpoint
+  - HANGARLLM_PROXY_URL: Full URL to HangarLLM proxy chat completions endpoint
   - PROVIDER_URL: Full URL to direct provider chat completions endpoint
 
 OPTIONAL ENVIRONMENT VARIABLES:
-  - LITELLM_PROXY_API_KEY: API key for LiteLLM proxy (if auth required)
+  - HANGARLLM_PROXY_API_KEY: API key for HangarLLM proxy (if auth required)
   - PROVIDER_API_KEY: API key for direct provider (if auth required)
 
 OUTPUT:
@@ -475,7 +475,7 @@ def compare_results(
     provider_stats = provider_results.calculate_stats()
 
     print(f"\n{'='*60}")
-    print(f"Comparison: LiteLLM Proxy vs Direct Provider")
+    print(f"Comparison: HangarLLM Proxy vs Direct Provider")
     print(f"{'='*60}")
 
     # Success Rate Comparison
@@ -524,20 +524,20 @@ def compare_results(
 async def main():
     """Main benchmark function"""
     parser = argparse.ArgumentParser(
-        description="Benchmark LiteLLM proxy vs direct provider endpoint",
+        description="Benchmark HangarLLM proxy vs direct provider endpoint",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Environment Variables (required):
-  LITELLM_PROXY_URL    - URL of the LiteLLM proxy endpoint (e.g., http://localhost:4000/chat/completions)
+  HANGARLLM_PROXY_URL    - URL of the HangarLLM proxy endpoint (e.g., http://localhost:4000/chat/completions)
   PROVIDER_URL         - URL of the direct provider endpoint (e.g., https://api.openai.com/v1/chat/completions)
-  LITELLM_PROXY_API_KEY - API key for LiteLLM proxy (optional, but may be required)
+  HANGARLLM_PROXY_API_KEY - API key for HangarLLM proxy (optional, but may be required)
   PROVIDER_API_KEY     - API key for direct provider (optional, but may be required)
 
 Examples:
   # 1. Basic usage (recommended - sequential execution)
-  export LITELLM_PROXY_URL='http://localhost:4000/chat/completions'
+  export HANGARLLM_PROXY_URL='http://localhost:4000/chat/completions'
   export PROVIDER_URL='https://api.openai.com/v1/chat/completions'
-  export LITELLM_PROXY_API_KEY="$LITELLM_MASTER_KEY"
+  export HANGARLLM_PROXY_API_KEY="$HANGARLLM_MASTER_KEY"
   export PROVIDER_API_KEY='sk-openai-key'
   python scripts/benchmark_proxy_vs_provider.py
   
@@ -602,16 +602,16 @@ Examples:
     args = parser.parse_args()
 
     # Configuration from environment variables
-    LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL")
+    HANGARLLM_PROXY_URL = os.getenv("HANGARLLM_PROXY_URL")
     PROVIDER_URL = os.getenv("PROVIDER_URL")
-    LITELLM_PROXY_API_KEY = os.getenv("LITELLM_PROXY_API_KEY", "")
+    HANGARLLM_PROXY_API_KEY = os.getenv("HANGARLLM_PROXY_API_KEY", "")
     PROVIDER_API_KEY = os.getenv("PROVIDER_API_KEY", "")
 
     # Validate required environment variables
-    if not LITELLM_PROXY_URL:
-        print("Error: LITELLM_PROXY_URL environment variable is required")
+    if not HANGARLLM_PROXY_URL:
+        print("Error: HANGARLLM_PROXY_URL environment variable is required")
         print(
-            "   Example: export LITELLM_PROXY_URL='https://your-proxy.com/chat/completions'"
+            "   Example: export HANGARLLM_PROXY_URL='https://your-proxy.com/chat/completions'"
         )
         sys.exit(1)
 
@@ -622,15 +622,15 @@ Examples:
         )
         sys.exit(1)
 
-    # Headers for LiteLLM proxy
+    # Headers for HangarLLM proxy
     proxy_headers = {
         "Content-Type": "application/json",
     }
-    if LITELLM_PROXY_API_KEY:
-        proxy_headers["Authorization"] = f"Bearer {LITELLM_PROXY_API_KEY}"
+    if HANGARLLM_PROXY_API_KEY:
+        proxy_headers["Authorization"] = f"Bearer {HANGARLLM_PROXY_API_KEY}"
     else:
         print(
-            "Warning: LITELLM_PROXY_API_KEY not set, requests may fail if authentication is required"
+            "Warning: HANGARLLM_PROXY_API_KEY not set, requests may fail if authentication is required"
         )
 
     # Headers for direct provider
@@ -660,13 +660,13 @@ Examples:
     timeout_seconds = args.timeout
 
     print("=" * 60)
-    print("LiteLLM Proxy vs Provider Benchmark")
+    print("HangarLLM Proxy vs Provider Benchmark")
     print("=" * 60)
     print(f"Configuration (from environment variables):")
-    print(f"  Proxy URL:    {LITELLM_PROXY_URL}")
+    print(f"  Proxy URL:    {HANGARLLM_PROXY_URL}")
     print(f"  Provider URL: {PROVIDER_URL}")
     print(
-        f"  Proxy API Key: {'Set' if LITELLM_PROXY_API_KEY else 'Not set (may cause auth errors)'}"
+        f"  Proxy API Key: {'Set' if HANGARLLM_PROXY_API_KEY else 'Not set (may cause auth errors)'}"
     )
     print(
         f"  Provider API Key: {'Set' if PROVIDER_API_KEY else 'Not set (may cause auth errors)'}"
@@ -721,7 +721,7 @@ Examples:
             print(f"\nRunning both benchmarks in parallel...")
             proxy_results, provider_results = await asyncio.gather(
                 benchmark_endpoint(
-                    LITELLM_PROXY_URL,
+                    HANGARLLM_PROXY_URL,
                     proxy_headers,
                     payload,
                     num_requests,
@@ -745,7 +745,7 @@ Examples:
                 print(f"   This ensures accurate results without interference.\n")
 
             proxy_results = await benchmark_endpoint(
-                LITELLM_PROXY_URL,
+                HANGARLLM_PROXY_URL,
                 proxy_headers,
                 payload,
                 num_requests,
@@ -793,7 +793,7 @@ Examples:
         print(f"\nResults:")
 
     # Print individual results
-    print_results("LiteLLM Proxy", final_proxy_results)
+    print_results("HangarLLM Proxy", final_proxy_results)
     print_results("Direct Provider", final_provider_results)
 
     # Print comparison
@@ -801,7 +801,7 @@ Examples:
 
     # Show run-to-run variance if multiple runs
     if args.runs > 1:
-        print_run_variance("LiteLLM Proxy", all_proxy_results)
+        print_run_variance("HangarLLM Proxy", all_proxy_results)
         print_run_variance("Direct Provider", all_provider_results)
 
     print(f"\n{'='*60}")

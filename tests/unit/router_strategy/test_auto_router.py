@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm.exceptions import Timeout as LiteLLMTimeout
-from litellm.router_api import RoutingContext
-from litellm.router_strategy.auto_router.auto_router import AutoRouter
+from hangarllm.exceptions import Timeout as HangarLLMTimeout
+from hangarllm.router_api import RoutingContext
+from hangarllm.router_strategy.auto_router.auto_router import AutoRouter
 
 pytestmark_skip_beta = pytest.mark.skip(
     reason="Skipping auto router tests - beta feature"
@@ -156,7 +156,7 @@ class TestExtractTextFromMessages:
 
 @pytest.fixture
 def mock_router_instance():
-    """Create a mock LiteLLM Router instance."""
+    """Create a mock HangarLLM Router instance."""
     router = MagicMock()
     router.acompletion = AsyncMock()
     return router
@@ -215,7 +215,7 @@ class TestAutoRouter:
 
     @pytest.mark.asyncio
     @patch("semantic_router.routers.SemanticRouter")
-    @patch("litellm.router_strategy.auto_router.litellm_encoder.LiteLLMRouterEncoder")
+    @patch("hangarllm.router_strategy.auto_router.hangarllm_encoder.HangarLLMRouterEncoder")
     async def test_async_pre_routing_hook_with_route_choice(
         self,
         mock_encoder_class,
@@ -256,7 +256,7 @@ class TestAutoRouter:
 
     @pytest.mark.asyncio
     @patch("semantic_router.routers.SemanticRouter")
-    @patch("litellm.router_strategy.auto_router.litellm_encoder.LiteLLMRouterEncoder")
+    @patch("hangarllm.router_strategy.auto_router.hangarllm_encoder.HangarLLMRouterEncoder")
     async def test_async_pre_routing_hook_with_list_route_choice(
         self,
         mock_encoder_class,
@@ -350,15 +350,15 @@ class FixedRouteLayer:
 
 
 def _embedding_response(input: List[str]) -> Any:
-    import litellm
+    import hangarllm
 
-    return litellm.EmbeddingResponse(
+    return hangarllm.EmbeddingResponse(
         data=[{"embedding": [0.1, 0.2], "index": i, "object": "embedding"} for i in range(len(input))]
     )
 
 
 class StubEmbeddingRouter:
-    """Stands in for the LiteLLM Router, recording the text and kwargs each query embedding was made with."""
+    """Stands in for the HangarLLM Router, recording the text and kwargs each query embedding was made with."""
 
     def __init__(self) -> None:
         self.seen_text: str | None = None
@@ -379,7 +379,7 @@ class FailingEmbeddingRouter(StubEmbeddingRouter):
     def __init__(self, error: Exception | None = None) -> None:
         super().__init__()
         self.error = error or ValueError(
-            "litellm.InternalServerError: input is too large to process. increase the physical batch size"
+            "hangarllm.InternalServerError: input is too large to process. increase the physical batch size"
         )
 
     async def aembedding(self, input: List[str], model: str, **kwargs: Any) -> Any:
@@ -519,7 +519,7 @@ class TestAutoRouterAlwaysResolvesARoutableModel:
     @pytest.mark.parametrize("error", (
         TimeoutError("private request content"),
         asyncio.TimeoutError("private request content"),
-        LiteLLMTimeout(message="private request content", model="embedding", llm_provider="openai"),
+        HangarLLMTimeout(message="private request content", model="embedding", llm_provider="openai"),
     ))
     @pytest.mark.parametrize("wrapped", [False, True])
     async def test_should_record_timeout_without_exception_message(self, error: Exception, wrapped: bool) -> None:
@@ -550,7 +550,7 @@ class TestAutoRouterEmbeddingInputCap:
     """The cap configured on the deployment is what the encoder enforces."""
 
     def test_should_default_the_cap_to_the_shared_constant(self):
-        from litellm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
+        from hangarllm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
 
         assert _auto_router(FixedRouteLayer(None)).max_input_chars == DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
 
@@ -582,7 +582,7 @@ class TestAutoRouterRoutesResponsesApiInput:
             model="my-auto-router",
             request_kwargs={
                 "input": "fix this stack trace",
-                "litellm_metadata": {"user_api_key_request_route": "/v1/responses"},
+                "hangarllm_metadata": {"user_api_key_request_route": "/v1/responses"},
             },
             messages=None,
         )
@@ -610,7 +610,7 @@ class TestAutoRouterRoutesResponsesApiInput:
                         "content": [{"type": "input_text", "text": "fix this stack trace"}],
                     }
                 ],
-                "litellm_metadata": {"user_api_key_request_route": "/v1/responses"},
+                "hangarllm_metadata": {"user_api_key_request_route": "/v1/responses"},
             },
             messages=None,
         )
@@ -627,7 +627,7 @@ class TestAutoRouterRoutesResponsesApiInput:
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
-            request_kwargs={"litellm_metadata": {"user_api_key_request_route": "/v1/responses"}},
+            request_kwargs={"hangarllm_metadata": {"user_api_key_request_route": "/v1/responses"}},
             messages=None,
         )
 
@@ -641,7 +641,7 @@ class TestAutoRouterRoutesResponsesApiInput:
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
-            request_kwargs={"messages": [], "litellm_metadata": {"user_api_key_request_route": "/v1/chat/completions"}},
+            request_kwargs={"messages": [], "hangarllm_metadata": {"user_api_key_request_route": "/v1/chat/completions"}},
             messages=[],
         )
 
@@ -655,7 +655,7 @@ class TestAutoRouterAttributesItsEmbeddingSpend:
 
     @pytest.mark.asyncio
     async def test_should_forward_the_callers_identity_to_the_query_embedding_minus_its_budget_reservation(self):
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
 
         router: Final = StubEmbeddingRouter()
         auto_router: Final = _auto_router(None, router=router)
@@ -665,7 +665,7 @@ class TestAutoRouterAttributesItsEmbeddingSpend:
                 "user_api_key_team_id": "team-1",
                 "user_api_key_budget_reservation": {"reservation_id": "r-1"},
             },
-            "litellm_session_id": "session-1",
+            "hangarllm_session_id": "session-1",
         }
 
         result: Final = await auto_router.async_pre_routing_hook(
@@ -682,7 +682,7 @@ class TestAutoRouterAttributesItsEmbeddingSpend:
         assert forwarded["user_api_key_team_id"] == "team-1"
         assert forwarded[INTERNAL_CALL_ORIGIN_METADATA_KEY] == "autorouter_classifier"
         assert "user_api_key_budget_reservation" not in forwarded
-        assert router.aembedding_kwargs["litellm_session_id"] == "session-1"
+        assert router.aembedding_kwargs["hangarllm_session_id"] == "session-1"
         assert router.aembedding_kwargs["proxy_server_request"] == {
             "body": {"model": "text-embedding-3-small", "input": ["fix this stack trace"]}
         }

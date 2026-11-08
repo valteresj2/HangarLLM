@@ -3,7 +3,7 @@ import re
 from typing import get_type_hints
 
 
-from litellm.types.utils import StandardLoggingPayload
+from hangarllm.types.utils import StandardLoggingPayload
 
 
 def get_all_fields(type_dict, prefix=""):

@@ -6,7 +6,7 @@ that would catch a regression.
 
 Companion: live suite `test_spend_tracking_e2e.py` + route breadth
 `test_spend_routes.py` (this directory). Offline regression suite:
-`tests/unit/proxy/spend_tracking/`. Reference PR: BerriAI/litellm#29956.
+`tests/unit/proxy/spend_tracking/`. Reference PR: valteresj2/HangarLLM#29956.
 
 Levels: `unit` mocked; `integration` real DB/cost-map; `live` real provider +
 proxy + SpendLogs rows. Status: `covered` / `partial` / `gap`.
@@ -67,7 +67,7 @@ proxy + SpendLogs rows. Status: `covered` / `partial` / `gap`.
 | `test_request_tags_round_trip` | tags persist onto the row |
 | `test_tag_spend_matches_sum_of_tagged_logs` | `/spend/tags` SUM/COUNT == tagged rows |
 | `test_end_user_spend_attributed_on_row` | `end_user` attributed + costed |
-| `test_end_user_header_attributes_responses_row` | `x-litellm-customer-id` / `x-litellm-end-user-id` + `x-litellm-tags` headers on `/v1/responses` (the Codex CLI `http_headers` shape) attributed + tagged + costed, and `/customer/info` spend equals the row |
+| `test_end_user_header_attributes_responses_row` | `x-hangarllm-customer-id` / `x-hangarllm-end-user-id` + `x-hangarllm-tags` headers on `/v1/responses` (the Codex CLI `http_headers` shape) attributed + tagged + costed, and `/customer/info` spend equals the row |
 | `test_each_model_on_a_shared_key_gets_its_own_row` | per-model/provider rows, correct model + cost, distinct request_ids matching response id |
 | `test_failure_call_writes_failure_status_row` | failed call -> `status=failure`, `spend=0` |
 | `test_spend_calculate_returns_nonzero_cost` | cost-map smoke (no batch wait) |

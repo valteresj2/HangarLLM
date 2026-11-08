@@ -1,7 +1,7 @@
 """structured_outputs x Vertex AI.
 
 Drive the real `claude` CLI in headless mode with the `--json-schema`
-flag, route through a LiteLLM proxy aimed at Vertex AI, and assert that
+flag, route through a HangarLLM proxy aimed at Vertex AI, and assert that
 the final stream-json `result` event surfaces a `structured_output`
 object whose shape matches the schema.
 
@@ -38,7 +38,7 @@ distinct row from `tool_use` because:
 It is NOT a test of Anthropic's server-side `output_config.schema`
 parameter -- that's a different feature used internally by Claude Code
 for session-title generation and is not reachable from any CLI flag.
-LiteLLM's `output_config`-stripping fixes (2.1.122, 2.1.81) surface in
+HangarLLM's `output_config`-stripping fixes (2.1.122, 2.1.81) surface in
 the `count_tokens` and other HTTP-probe rows, not here.
 
 Three Claude tiers run in parallel; one `compat_result.add(...)` per
@@ -122,7 +122,7 @@ def _validate_against_schema(
     StructuredOutput tool round-trip end-to-end", and that's
     answerable with a presence + type check over `required` keys.
     Any malformed schema beyond that would be a Claude Code bug,
-    not a LiteLLM-proxy bug, so a deeper check would only add false
+    not a HangarLLM-proxy bug, so a deeper check would only add false
     failures on the wrong axis.
     """
     type_map = {
@@ -164,7 +164,7 @@ def _validate_against_schema(
     )
 )
 def test_structured_outputs_vertex_ai(compat_result):
-    """Drive `claude --json-schema ...` against the LiteLLM proxy and
+    """Drive `claude --json-schema ...` against the HangarLLM proxy and
     assert the trailing `result` event contains a schema-conforming
     `structured_output`."""
     base_url, api_key = require_proxy(compat_result)

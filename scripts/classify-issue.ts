@@ -84,14 +84,14 @@ export interface Schema {
   readonly properties: Readonly<Record<string, { readonly enum?: readonly (string | null)[] }>>;
 }
 
-export const BUG_SECTIONS = ["Description", "Config", "LiteLLM Version", "Steps to Repro"] as const;
+export const BUG_SECTIONS = ["Description", "Config", "HangarLLM Version", "Steps to Repro"] as const;
 export const FEATURE_SECTIONS = ["The Feature", "User Flow", "How far you got"] as const;
-export const DOMAIN_HEADING = "Which part of LiteLLM is this about?";
-export const VERSION_HEADING = "LiteLLM Version";
+export const DOMAIN_HEADING = "Which part of HangarLLM is this about?";
+export const VERSION_HEADING = "HangarLLM Version";
 export const DEPLOYMENT_HEADING = "How are you deploying?";
 export const NOISE_HEADINGS = [
   "Check for existing issues",
-  "LiteLLM is hiring a founding backend engineer, are you interested in joining us and shipping to all our users?",
+  "HangarLLM is hiring a founding backend engineer, are you interested in joining us and shipping to all our users?",
   "Twitter / LinkedIn details",
 ] as const;
 export const FORM_HEADINGS: readonly string[] = [
@@ -177,7 +177,7 @@ export function issueText(body: string): string {
 
 export function userMessage(issue: Pick<IssueForClassification, "title" | "body">, passed: Gate & { kind: "pass" }): string {
   const capped = issueText(issue.body ?? "");
-  const versionLine = passed.version === null ? "" : `\nLiteLLM Version (from the template): ${passed.version}`;
+  const versionLine = passed.version === null ? "" : `\nHangarLLM Version (from the template): ${passed.version}`;
   return [
     `Title: ${issue.title}`,
     `Template: ${passed.template}`,
@@ -313,7 +313,7 @@ export async function classifyIssue(
   return parsed.classification;
 }
 
-export function litellmClient(apiBase: string, apiKey: string): LlmClient {
+export function hangarllmClient(apiBase: string, apiKey: string): LlmClient {
   return {
     complete: async (request: ChatRequest): Promise<string> => {
       const response = await fetch(`${apiBase.replace(/\/+$/, "")}/v1/chat/completions`, {
@@ -359,17 +359,17 @@ export function readConfig(
   if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
     throw new Error(`ISSUE_NUMBER must be a positive integer, got "${env.ISSUE_NUMBER}"`);
   }
-  const apiBase = env.LITELLM_API_BASE;
-  const apiKey = env.LITELLM_API_KEY;
+  const apiBase = env.HANGARLLM_API_BASE;
+  const apiKey = env.HANGARLLM_API_KEY;
   const model = env.ISSUE_CLASSIFIER_MODEL;
   if (!apiBase || !/^https?:\/\//.test(apiBase)) {
-    throw new Error("LITELLM_API_BASE must be the URL of a LiteLLM proxy, e.g. https://llm.example.com");
+    throw new Error("HANGARLLM_API_BASE must be the URL of a HangarLLM proxy, e.g. https://llm.example.com");
   }
   if (!apiKey) {
-    throw new Error("LITELLM_API_KEY is required");
+    throw new Error("HANGARLLM_API_KEY is required");
   }
   if (!model) {
-    throw new Error("ISSUE_CLASSIFIER_MODEL must name a model the LiteLLM deployment serves");
+    throw new Error("ISSUE_CLASSIFIER_MODEL must name a model the HangarLLM deployment serves");
   }
   return { token, repo, issueNumber, apiBase, apiKey, model, action: env.GITHUB_EVENT_ACTION ?? "", now };
 }
@@ -378,7 +378,7 @@ if (import.meta.main) {
   const { token, apiBase, apiKey, ...config } = readConfig(process.env, new Date());
   const prompt = await Bun.file(`${import.meta.dir}/../.github/prompts/issue-classifier.md`).text();
   const schema = (await Bun.file(`${import.meta.dir}/../.github/prompts/issue-classifier.schema.json`).json()) as Schema;
-  const verdict = await classifyIssue(githubApi(token), litellmClient(apiBase, apiKey), config, prompt, schema);
+  const verdict = await classifyIssue(githubApi(token), hangarllmClient(apiBase, apiKey), config, prompt, schema);
   if (verdict === null) {
     console.error(`#${config.issueNumber}: edit ignored, the issue is already classified or older than the edit window`);
   } else {

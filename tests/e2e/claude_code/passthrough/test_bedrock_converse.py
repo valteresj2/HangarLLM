@@ -3,7 +3,7 @@
 Structurally not applicable. In bedrock mode the `claude` CLI speaks
 only the InvokeModel wire (`/model/{id}/invoke-with-response-stream`);
 it has no Converse-wire client, so there is no Claude Code traffic a
-Converse passthrough could serve. LiteLLM's `/bedrock` route does
+Converse passthrough could serve. HangarLLM's `/bedrock` route does
 accept `/model/{id}/converse-stream`, but exercising it would test a
 wire no Claude Code user can produce, which is out of scope for this
 matrix.

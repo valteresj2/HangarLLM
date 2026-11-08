@@ -11,7 +11,7 @@ and crash ``json.loads``.
 import asyncio
 from typing import AsyncIterator, Iterator, List
 
-from litellm.llms.oci.chat.transformation import (
+from hangarllm.llms.oci.chat.transformation import (
     _aiter_sse_events,
     _iter_sse_events,
 )
@@ -206,7 +206,7 @@ class TestSseSplitterFeedsChunkCreator:
         import json
         from unittest.mock import MagicMock
 
-        from litellm.llms.oci.chat.transformation import OCIStreamWrapper
+        from hangarllm.llms.oci.chat.transformation import OCIStreamWrapper
 
         payload = {
             "apiFormat": "GENERIC",

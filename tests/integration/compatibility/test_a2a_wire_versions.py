@@ -62,7 +62,7 @@ def _register_agent(gateway: Gateway, scenario: Scenario, body: dict[str, JsonVa
     def cleanup() -> None:
         deleted: Final = gateway.request("DELETE", f"/v1/agents/{identity}")
         assert deleted.status_code == 200, deleted.text
-        assert read_rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
+        assert read_rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
 
     scenario.cleanups.callback(cleanup)
     return identity
@@ -153,7 +153,7 @@ def test_a2a_versions_and_legacy_casing_preserve_real_wire_and_response(gateway:
             def cleanup(identity: str = identity) -> None:
                 deleted: Final = gateway.request("DELETE", f"/v1/agents/{identity}")
                 assert deleted.status_code == 200, deleted.text
-                assert read_rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
+                assert read_rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
 
             scenario.cleanups.callback(cleanup)
             assert created.status_code == 200, created.text
@@ -266,7 +266,7 @@ def test_agent_serving_its_card_only_at_versioned_path_is_reached_with_bearer_an
         def cleanup() -> None:
             deleted: Final = gateway.request("DELETE", f"/v1/agents/{identity}")
             assert deleted.status_code == 200, deleted.text
-            assert read_rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
+            assert read_rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (identity,)) == []
 
         scenario.cleanups.callback(cleanup)
         response: Final = gateway.request(
@@ -406,7 +406,7 @@ def test_regression_db_agent_api_key_is_bearer_on_each_a2a_hop(
     gateway: Gateway, method: str, observed_method: str
 ) -> None:
     key: Final = "synthetic-backend-" + uuid.uuid4().hex
-    requests: Final = _a2a_auth_requests(gateway, method, {"litellm_params": {"api_key": key}}, {})
+    requests: Final = _a2a_auth_requests(gateway, method, {"hangarllm_params": {"api_key": key}}, {})
     observed: Final = tuple(request for request in requests if request.method == observed_method)
     assert len(observed) == 1, requests
     assert observed[0].headers.get("authorization") == f"Bearer {key}", observed[0].headers
@@ -417,7 +417,7 @@ def test_guard_static_authorization_overrides_api_key(gateway: Gateway, header_n
     requests: Final = _a2a_auth_requests(
         gateway,
         "SendMessage",
-        {"litellm_params": {"api_key": "backend-key"}, "static_headers": {header_name: "Bearer static-key"}},
+        {"hangarllm_params": {"api_key": "backend-key"}, "static_headers": {header_name: "Bearer static-key"}},
         {},
     )
     assert tuple(request.method for request in requests) == ("GET", "POST"), requests
@@ -427,11 +427,11 @@ def test_guard_static_authorization_overrides_api_key(gateway: Gateway, header_n
 @pytest.mark.parametrize("forwarding", ("configured", "convention"))
 def test_guard_forwarded_authorization_arrives_with_api_key(gateway: Gateway, forwarding: str) -> None:
     options: Final = {
-        "litellm_params": {"api_key": "backend-key"},
+        "hangarllm_params": {"api_key": "backend-key"},
         **({"extra_headers": ["authorization"]} if forwarding == "configured" else {}),
     }
     client_headers: Final = (
-        {"x-litellm-api-key": gateway.key, "Authorization": "Bearer client-agent-key"}
+        {"x-hangarllm-api-key": gateway.key, "Authorization": "Bearer client-agent-key"}
         if forwarding == "configured"
         else {"x-a2a-{agent}-authorization": "Bearer client-agent-key"}
     )
@@ -491,7 +491,7 @@ def test_a2a_stream_relays_each_upstream_event_as_its_own_sse_frame_in_the_pinne
             headers={
                 "Authorization": f"Bearer {key}",
                 "a2a-version": version,
-                "x-litellm-trace-id": marker + "-trace",
+                "x-hangarllm-trace-id": marker + "-trace",
                 "Accept": "text/event-stream",
             },
             json={"jsonrpc": "2.0", "id": marker, "method": method, "params": {"message": message}},
@@ -519,9 +519,9 @@ def test_a2a_stream_relays_each_upstream_event_as_its_own_sse_frame_in_the_pinne
         assert forwarded == {
             "authorization": "Bearer stream-server-token",
             "a2a-version": "0.3",
-            "x-litellm-trace-id": marker + "-trace",
-            "x-litellm-user-id": user,
-            "x-litellm-agent-id": identity,
+            "x-hangarllm-trace-id": marker + "-trace",
+            "x-hangarllm-user-id": user,
+            "x-hangarllm-agent-id": identity,
         }, posts[0].headers
         body: Final = json.loads(posts[0].body)
         assert str(uuid.UUID(body["id"])) == body["id"] and body["id"] != marker, posts[0].body
@@ -564,15 +564,15 @@ def test_a2a_send_forwards_configured_headers_and_minted_identity_but_never_spoo
             "X-API-Key": "client-secret",
             f"x-a2a-{marker}-authorization": "Bearer agent-token",
             f"x-a2a-{marker}-x-tenant": "tenant-1",
-            f"x-a2a-{marker}-x-litellm-team-id": "spoofed-team",
+            f"x-a2a-{marker}-x-hangarllm-team-id": "spoofed-team",
             f"x-a2a-{identity}-x-region": "eu-1",
             "x-a2a-other-agent-authorization": "Bearer leak",
-            "X-LiteLLM-User-Id": "spoofed-user",
-            "X-LiteLLM-Team-Id": "spoofed-team",
+            "X-HangarLLM-User-Id": "spoofed-user",
+            "X-HangarLLM-Team-Id": "spoofed-team",
         }
         for headers in (
-            {"Authorization": f"Bearer {team_key}", "x-litellm-trace-id": marker + "-trace", **spoofs},
-            {"x-litellm-api-key": solo_key, "Authorization": "Bearer backend-token", **spoofs},
+            {"Authorization": f"Bearer {team_key}", "x-hangarllm-trace-id": marker + "-trace", **spoofs},
+            {"x-hangarllm-api-key": solo_key, "Authorization": "Bearer backend-token", **spoofs},
         ):
             response = gateway.client.post(f"/a2a/{identity}", headers=headers, json=payload)
             assert response.status_code == 200, response.text
@@ -585,7 +585,7 @@ def test_a2a_send_forwards_configured_headers_and_minted_identity_but_never_spoo
             posts, ((member, team, team_key), (solo_user, None, solo_key)), strict=True
         ):
             forwarded = {name: value for name, value in post.headers.items() if name not in _TRANSPORT_HEADERS}
-            minted: Final = forwarded.get("x-litellm-trace-id", "")
+            minted: Final = forwarded.get("x-hangarllm-trace-id", "")
             if team_header is None:
                 assert _is_uuid(minted), post.headers
             expected = {
@@ -594,10 +594,10 @@ def test_a2a_send_forwards_configured_headers_and_minted_identity_but_never_spoo
                 "x-tenant": "tenant-1",
                 "x-region": "eu-1",
                 "a2a-version": "0.3",
-                "x-litellm-agent-id": identity,
-                "x-litellm-trace-id": marker + "-trace" if team_header is not None else minted,
-                "x-litellm-user-id": user,
-                **({} if team_header is None else {"x-litellm-team-id": team_header}),
+                "x-hangarllm-agent-id": identity,
+                "x-hangarllm-trace-id": marker + "-trace" if team_header is not None else minted,
+                "x-hangarllm-user-id": user,
+                **({} if team_header is None else {"x-hangarllm-team-id": team_header}),
             }
             assert forwarded == expected, post.headers
             body = json.loads(post.body)
@@ -715,13 +715,13 @@ def test_a2a_card_routes_front_the_agent_with_the_proxy_url_and_sdk_clients_call
         forwarded_headers: Final = tuple(
             {name: value for name, value in post.headers.items() if name not in _TRANSPORT_HEADERS} for post in posts
         )
-        assert all(_is_uuid(headers.get("x-litellm-trace-id", "")) for headers in forwarded_headers), forwarded_headers
+        assert all(_is_uuid(headers.get("x-hangarllm-trace-id", "")) for headers in forwarded_headers), forwarded_headers
         assert forwarded_headers == tuple(
             {
                 "authorization": "Bearer card-server-token",
-                "x-litellm-user-id": user,
-                "x-litellm-agent-id": identity,
-                "x-litellm-trace-id": headers.get("x-litellm-trace-id", ""),
+                "x-hangarllm-user-id": user,
+                "x-hangarllm-agent-id": identity,
+                "x-hangarllm-trace-id": headers.get("x-hangarllm-trace-id", ""),
                 "a2a-version": version,
             }
             for headers in forwarded_headers
@@ -1015,7 +1015,7 @@ def test_a2a_task_methods_pass_through_verbatim_and_push_callbacks_are_validated
             (
                 "https://10.0.0.1/callback",
                 "URL targets a blocked address (10.0.0.1). If this is a legitimate internal service, "
-                "add the host to `user_url_allowed_hosts` in litellm_settings.",
+                "add the host to `user_url_allowed_hosts` in hangarllm_settings.",
             ),
         ):
             for params in (

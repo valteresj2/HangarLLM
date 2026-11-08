@@ -13,7 +13,7 @@ CONCURRENT_CREATES: Final = 8
 
 def _membership_rows(organization_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT user_id, user_role FROM "LiteLLM_OrganizationMembership" WHERE organization_id = %s',
+        'SELECT user_id, user_role FROM "HangarLLM_OrganizationMembership" WHERE organization_id = %s',
         (organization_id,),
     )
 
@@ -48,7 +48,7 @@ def test_concurrent_creates_with_one_alias_each_persist_a_distinct_organization(
         identities: Final = {string_value(body["organization_id"]) for body in created}
         assert len(identities) == CONCURRENT_CREATES
         rows: Final = read_rows(
-            'SELECT organization_id FROM "LiteLLM_OrganizationTable" WHERE organization_alias = %s', (alias,)
+            'SELECT organization_id FROM "HangarLLM_OrganizationTable" WHERE organization_alias = %s', (alias,)
         )
         assert {string_value(row["organization_id"]) for row in rows} == identities
 
@@ -58,7 +58,7 @@ def test_list_returns_each_organization_with_its_budget_and_members(gateway: Gat
         organization_id: Final = scenario.organization(max_budget=3.5, tpm_limit=120)
         member: Final = scenario.org_member(organization_id, role="internal_user")
         listed: Final = _listed(gateway, organization_id)
-        budget: Final = object_value(listed["litellm_budget_table"])
+        budget: Final = object_value(listed["hangarllm_budget_table"])
         assert (budget["max_budget"], budget["tpm_limit"]) == (3.5, 120)
         members: Final = listed["members"]
         assert isinstance(members, list)
@@ -135,7 +135,7 @@ def _new_key(gateway: Gateway, **fields: JsonValue) -> str:
 
 def _key_rows(*hashes: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT token FROM "LiteLLM_VerificationToken" WHERE token = ANY(%s)',
+        'SELECT token FROM "HangarLLM_VerificationToken" WHERE token = ANY(%s)',
         (list(hashes),),
     )
 
@@ -212,11 +212,11 @@ def test_organization_delete_revokes_org_and_team_keys_on_gateway_and_peer(gatew
 
         hashed: Final = tuple(sha256(key.encode()).hexdigest() for key in (organization_key, team_key))
         assert _key_rows(*hashed) == []
-        assert read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,)) == []
+        assert read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,)) == []
         assert _membership_rows(organization_id) == []
         assert (
             read_rows(
-                'SELECT organization_id FROM "LiteLLM_OrganizationTable" WHERE organization_id = %s',
+                'SELECT organization_id FROM "HangarLLM_OrganizationTable" WHERE organization_id = %s',
                 (organization_id,),
             )
             == []

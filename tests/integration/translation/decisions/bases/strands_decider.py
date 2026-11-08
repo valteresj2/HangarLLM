@@ -6,8 +6,8 @@ from integration.translation.case import TranslationTestCase
 """
 STRANDS_DECIDER_2B_HOBSON_V19_TEST_CASE: Final = TranslationTestCase(
     scenario="basic",
-    litellm_endpoint="/v1/decisions",
-    litellm_request={
+    hangarllm_endpoint="/v1/decisions",
+    hangarllm_request={
         "model": "strands_decider/strands-decider-2B-hobson-v19",
         "input": "Help! My payouts have been failing for 3 days!",
         "questions": [{"type": "predicate", "name": "is_urgent", "instructions": "Does this convey urgency?"}],
@@ -26,7 +26,7 @@ STRANDS_DECIDER_2B_HOBSON_V19_TEST_CASE: Final = TranslationTestCase(
         "usage": {"input_tokens": 86, "output_tokens": 1},
         "latency_ms": 140.03,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "strands-decider-2B-hobson-v19",
         "answers": [{"type": "predicate", "name": "is_urgent", "probability": 0.8277}],
         "usage": {
@@ -40,8 +40,8 @@ STRANDS_DECIDER_2B_HOBSON_V19_TEST_CASE: Final = TranslationTestCase(
 )
 STRANDS_DECIDER_2B_HOBSON_V19_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
     scenario="systemone",
-    litellm_endpoint="/v1/systemone",
-    litellm_request={
+    hangarllm_endpoint="/v1/systemone",
+    hangarllm_request={
         "model": "strands_decider/strands-decider-2B-hobson-v19",
         "state": "Help! My payouts have been failing for 3 days!",
         "questions": {"is_urgent": {"type": "noul", "instructions": "Does this convey urgency?"}},
@@ -60,7 +60,7 @@ STRANDS_DECIDER_2B_HOBSON_V19_SYSTEMONE_TEST_CASE: Final = TranslationTestCase(
         "usage": {"input_tokens": 86, "output_tokens": 1},
         "latency_ms": 140.03,
     },
-    expected_litellm_response={
+    expected_hangarllm_response={
         "model": "strands-decider-2B-hobson-v19",
         "answers": {"is_urgent": {"type": "noul", "noul": 0.8277}},
         "usage": {"input_tokens": 86, "output_tokens": 1},

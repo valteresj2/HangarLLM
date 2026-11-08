@@ -20,7 +20,7 @@ from e2e_config import (
 )
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from lifecycle import ResourceManager
-from models import ChatBody, ChatMessage, ChatResponse, LiteLLMParamsBody
+from models import ChatBody, ChatMessage, ChatResponse, HangarLLMParamsBody
 from provider_edge import ProviderRequestObservation, observed_provider_edge
 from pydantic import BaseModel, JsonValue
 
@@ -67,7 +67,7 @@ class TestReliabilityCache:
         ) as edge:
             model_id: Final = client.proxy.create_model(
                 model,
-                LiteLLMParamsBody(
+                HangarLLMParamsBody(
                     model=CACHE_MODEL,
                     api_key="os.environ/OPENAI_API_KEY",
                     api_base=f"{edge.api_base('openai')}/v1",
@@ -85,7 +85,7 @@ class TestReliabilityCache:
                 "/chat/completions", headers=client.proxy.transport.bearer(scoped_key), json=body
             )
             assert first.status_code == 200, f"first call should succeed, got {first.status_code}: {first.body[:300]}"
-            assert "x-litellm-cache-key" not in first.headers, "first call must be a cache miss"
+            assert "x-hangarllm-cache-key" not in first.headers, "first call must be a cache miss"
             answer: Final = ChatResponse.model_validate_json(first.body)
             assert len(answer.choices) == 1
             choice: Final = answer.choices[0]
@@ -102,7 +102,7 @@ class TestReliabilityCache:
                 "/chat/completions", headers=client.proxy.transport.bearer(scoped_key), json=body
             )
             assert second.status_code == 200, f"second call should succeed, got {second.status_code}: {second.body[:300]}"
-            assert second.headers.get("x-litellm-cache-key"), "identical request must hit the response cache"
+            assert second.headers.get("x-hangarllm-cache-key"), "identical request must hit the response cache"
             assert _CachedAnswer.model_validate_json(second.body) == _CachedAnswer.model_validate_json(first.body), (
                 "cache hit changed the answer, finish reason or usage"
             )

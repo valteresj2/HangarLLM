@@ -10,7 +10,7 @@ corresponding guarantee is mutated away.
 import pytest
 from pydantic import SecretStr, TypeAdapter, ValidationError
 
-from litellm.proxy.mcp_server.outbound_credentials import (
+from hangarllm.proxy.mcp_server.outbound_credentials import (
     Ambient,
     ApiKeyConfig,
     AuthConfig,
@@ -41,10 +41,10 @@ _ID_JAG_MINIMAL = {
     "kind": "id_jag",
     "org_token_endpoint": "https://idp.example.com/token",
     "resource_token_endpoint": "https://mcp-as.example.com/token",
-    "client_id": "litellm",
+    "client_id": "hangarllm",
     "client_auth": {"source": "client_secret", "client_secret": "s"},
     "resource_client": {
-        "client_id": "litellm",
+        "client_id": "hangarllm",
         "client_auth": {"source": "client_secret", "client_secret": "s"},
     },
 }
@@ -233,7 +233,7 @@ def test_id_jag_secrets_do_not_leak_in_repr():
     config = IdJagConfig(
         org_token_endpoint="https://idp.example.com/token",
         resource_token_endpoint="https://mcp-as.example.com/token",
-        client_id="litellm",
+        client_id="hangarllm",
         client_auth=PrivateKeyJwtAuth(private_key=SecretStr("super-secret-pem")),
         resource_client=IdJagResourceClient(
             client_id="resource-client",
@@ -262,10 +262,10 @@ _CARRIER_CONFIGS = (
         lambda **kw: IdJagConfig(
             org_token_endpoint="https://idp.example.com/token",
             resource_token_endpoint="https://mcp-as.example.com/token",
-            client_id="litellm",
+            client_id="hangarllm",
             client_auth=ClientSecretAuth(client_secret=SecretStr("s")),
             resource_client=IdJagResourceClient(
-                client_id="litellm",
+                client_id="hangarllm",
                 client_auth=ClientSecretAuth(client_secret=SecretStr("s")),
             ),
             **kw,

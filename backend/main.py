@@ -1,6 +1,6 @@
 """UI backend entrypoint.
 
-Reuses the existing FastAPI app from `litellm.proxy.proxy_server` and trims its
+Reuses the existing FastAPI app from `hangarllm.proxy.proxy_server` and trims its
 route table to just the management/admin surface used by the dashboard. Purely
 additive — no existing module is modified.
 
@@ -18,11 +18,11 @@ from starlette.types import Lifespan
 
 # See gateway/main.py for why we assemble DATABASE_URL(s) here before
 # importing proxy_server.
-from litellm.proxy.db.db_url_settings import DatabaseURLSettings
+from hangarllm.proxy.db.db_url_settings import DatabaseURLSettings
 
 DatabaseURLSettings.from_env().apply_to_env()
 
-from litellm.proxy.proxy_server import app
+from hangarllm.proxy.proxy_server import app
 
 from backend.routes.allowlist import (
     BACKEND_EXACT_PATHS,

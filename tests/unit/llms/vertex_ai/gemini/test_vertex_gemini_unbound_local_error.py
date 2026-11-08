@@ -1,8 +1,8 @@
 import pytest
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+from hangarllm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm import ModelResponse
+from hangarllm import ModelResponse
 
 
 def test_process_candidates_unbound_local_error_fix():

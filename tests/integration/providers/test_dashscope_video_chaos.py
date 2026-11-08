@@ -67,7 +67,7 @@ def _config(
     name: str,
     model_list: tuple[Mapping[str, JsonValue], ...],
     router_settings: Mapping[str, JsonValue],
-    litellm_settings: Mapping[str, JsonValue],
+    hangarllm_settings: Mapping[str, JsonValue],
 ) -> Path:
     base: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     path: Final = tmp_path / f"{name}.yaml"
@@ -77,7 +77,7 @@ def _config(
                 **base,
                 "model_list": [dict(entry) for entry in model_list],
                 "router_settings": {**base["router_settings"], **router_settings},
-                "litellm_settings": {**base["litellm_settings"], **litellm_settings},
+                "hangarllm_settings": {**base["hangarllm_settings"], **hangarllm_settings},
             }
         )
     )
@@ -85,7 +85,7 @@ def _config(
 
 
 def _member(name: str, wire: Wire, key: str) -> Mapping[str, JsonValue]:
-    return {"model_name": name, "litellm_params": {"model": f"dashscope/{MODEL}", "api_base": wire.url, "api_key": key}}
+    return {"model_name": name, "hangarllm_params": {"model": f"dashscope/{MODEL}", "api_base": wire.url, "api_key": key}}
 
 
 def _create(gateway: Gateway, body: Mapping[str, JsonValue]) -> httpx.Response:
@@ -221,12 +221,12 @@ def environment_proxy(
         "dashscope-video-environment",
         (
             *(
-                {"model_name": f"env-{provider}", "litellm_params": {"model": f"{provider}/{MODEL}"}}
+                {"model_name": f"env-{provider}", "hangarllm_params": {"model": f"{provider}/{MODEL}"}}
                 for provider in environment_wires
             ),
             {
                 "model_name": "*",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/*",
                     "api_base": f"{catch_all_wire.url}/v1",
                     "api_key": _CATCH_ALL_KEY,
@@ -344,8 +344,8 @@ def test_the_video_base_beats_the_chat_base_for_videos_while_chat_keeps_the_chat
             tmp_path,
             "dashscope-video-base",
             (
-                {"model_name": "env-video", "litellm_params": {"model": f"dashscope/{MODEL}"}},
-                {"model_name": "env-chat", "litellm_params": {"model": "dashscope/qwen-plus"}},
+                {"model_name": "env-video", "hangarllm_params": {"model": f"dashscope/{MODEL}"}},
+                {"model_name": "env-chat", "hangarllm_params": {"model": "dashscope/qwen-plus"}},
             ),
             {},
             {},

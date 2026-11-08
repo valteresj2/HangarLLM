@@ -1,18 +1,18 @@
-# litellm_agents Data Source
+# hangarllm_agents Data Source
 
-Retrieves the list of A2A agents registered on the LiteLLM proxy.
+Retrieves the list of A2A agents registered on the HangarLLM proxy.
 
 ## Example Usage
 
 ```hcl
-data "litellm_agents" "all" {}
+data "hangarllm_agents" "all" {}
 
 output "agent_ids" {
-  value = data.litellm_agents.all.ids
+  value = data.hangarllm_agents.all.ids
 }
 
 # Only agents whose URL is currently reachable (or that have no URL)
-data "litellm_agents" "healthy" {
+data "hangarllm_agents" "healthy" {
   health_check = true
 }
 ```

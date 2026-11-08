@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from litellm.router_core import RouterCore
+from hangarllm.router_core import RouterCore
 from tests.unit.test_router.core.registry_helpers import MakeCore, ids, names_and_ids, team_deployment, typed
 from tests.unit.test_router.core.scripted_host import deployment
 
@@ -199,15 +199,15 @@ def test_ids_of_a_group_read_only_the_group_index(make_core: MakeCore) -> None:
     assert registry.names("int-a", kind="ids", exclude_team_models=True) == []
 
 
-def test_litellm_models_follow_aliases_and_wildcards(make_core: MakeCore) -> None:
+def test_hangarllm_models_follow_aliases_and_wildcards(make_core: MakeCore) -> None:
     registry = _core(make_core).registry()
 
-    assert registry.names("fast", kind="litellm_models") == ("openai/a", "openai/b")
-    assert registry.names("openai/gpt-x", kind="litellm_models") == ("openai/gpt-x",)
-    assert registry.names("nope", kind="litellm_models") == ()
+    assert registry.names("fast", kind="hangarllm_models") == ("openai/a", "openai/b")
+    assert registry.names("openai/gpt-x", kind="hangarllm_models") == ("openai/gpt-x",)
+    assert registry.names("nope", kind="hangarllm_models") == ()
 
 
-def test_litellm_base_models_use_a_deployments_base_model(make_core: MakeCore) -> None:
+def test_hangarllm_base_models_use_a_deployments_base_model(make_core: MakeCore) -> None:
     core = make_core(
         model_list=[
             deployment(
@@ -217,8 +217,8 @@ def test_litellm_base_models_use_a_deployments_base_model(make_core: MakeCore) -
         ]
     )
 
-    assert core.registry().names("gpt", kind="litellm_base_models") == ("azure/gpt-4o", "openai/gpt-4o-mini")
-    assert core.registry().names("gpt", kind="litellm_models") == ("azure/my-deployment", "openai/gpt-4o-mini")
+    assert core.registry().names("gpt", kind="hangarllm_base_models") == ("azure/gpt-4o", "openai/gpt-4o-mini")
+    assert core.registry().names("gpt", kind="hangarllm_models") == ("azure/my-deployment", "openai/gpt-4o-mini")
 
 
 @pytest.mark.parametrize(
@@ -231,7 +231,7 @@ def test_route_candidates_are_the_ids_a_request_for_the_name_may_reach(
     assert _core(make_core).registry().names(name, kind="route_candidates", team_id=team_id) == expected
 
 
-@pytest.mark.parametrize("kind", ["litellm_models", "wildcard", "route_candidates"])
+@pytest.mark.parametrize("kind", ["hangarllm_models", "wildcard", "route_candidates"])
 def test_a_name_kind_that_needs_a_model_name_raises_without_one(make_core: MakeCore, kind: str) -> None:
     with pytest.raises(TypeError, match="needs a model_name"):
         _core(make_core).registry().names(kind=kind)  # pyright: ignore[reportCallIssue, reportArgumentType]  # kind is one of the literals
@@ -282,7 +282,7 @@ def test_recognized_names_are_groups_aliases_and_deployment_ids(make_core: MakeC
         ("a", None, None),
     ],
 )
-def test_upstream_is_the_first_routable_deployments_litellm_model(
+def test_upstream_is_the_first_routable_deployments_hangarllm_model(
     make_core: MakeCore, name: str, team_id: str | None, expected: str | None
 ) -> None:
     assert _core(make_core).registry().resolve(name, kind="upstream", team_id=team_id) == expected
@@ -327,7 +327,7 @@ def test_from_id_resolves_a_group_name_or_deployment_id(
     assert _core(make_core).registry().resolve(name, kind="from_id") == expected
 
 
-def test_from_id_matches_a_litellm_model_suffix_and_the_first_matching_row_wins(make_core: MakeCore) -> None:
+def test_from_id_matches_a_hangarllm_model_suffix_and_the_first_matching_row_wins(make_core: MakeCore) -> None:
     """Odd but current: the alias row ``gpt -> emb`` is listed first, so ``emb``'s model resolves to ``gpt``."""
     registry = _core(make_core).registry()
 
@@ -588,7 +588,7 @@ def test_credentials_with_provider_add_the_model_and_its_provider(
     deployment_found = registry.deployment(lookup)
     assert found is not None
     assert deployment_found is not None
-    assert (found["model"], found["custom_llm_provider"]) == (deployment_found.litellm_params.model, provider)
+    assert (found["model"], found["custom_llm_provider"]) == (deployment_found.hangarllm_params.model, provider)
 
 
 @pytest.mark.parametrize(
@@ -645,9 +645,9 @@ def test_a_looked_up_deployment_is_a_copy(make_core: MakeCore) -> None:
     found = core.registry().deployment("a")
     assert found is not None
 
-    found.litellm_params.api_base = "https://mutated.example"
+    found.hangarllm_params.api_base = "https://mutated.example"
 
-    assert core.registry().all()[0]["litellm_params"].get("api_base") is None
+    assert core.registry().all()[0]["hangarllm_params"].get("api_base") is None
 
 
 def test_a_visible_dict_alias_is_listed_like_a_plain_alias(make_core: MakeCore) -> None:
@@ -658,7 +658,7 @@ def test_a_visible_dict_alias_is_listed_like_a_plain_alias(make_core: MakeCore) 
 
 
 def test_the_deprecated_generate_model_id_is_the_registry_id_hash(make_core: MakeCore) -> None:
-    from litellm.router_api import deployment_id
+    from hangarllm.router_api import deployment_id
 
     core = _core(make_core)
 

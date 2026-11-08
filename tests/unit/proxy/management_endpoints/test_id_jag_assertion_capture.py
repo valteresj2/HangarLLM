@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.proxy.management_endpoints.sso.id_jag_assertion_capture import (
+from hangarllm.proxy.management_endpoints.sso.id_jag_assertion_capture import (
     ActiveSSOProvider,
     active_sso_provider,
     id_jag_assertion_capture_gap,

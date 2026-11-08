@@ -19,7 +19,7 @@ _API_KEY: Final = "synthetic-search-key"
 _QUERY: Final = "integration search pricing"
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _PACKAGED_PRICES: Final = _JSON_OBJECT.validate_json(
-    (Path(__file__).resolve().parents[3] / "litellm" / "model_prices_and_context_window_backup.json").read_bytes()
+    (Path(__file__).resolve().parents[3] / "hangarllm" / "model_prices_and_context_window_backup.json").read_bytes()
 )
 _RESULTS: Final = {
     "tavily": {"results": [{"title": "Priced result", "url": "https://result.invalid/a", "content": "snippet"}]},
@@ -48,7 +48,7 @@ def _search_tool(
     scenario: Scenario,
     provider: str,
     api_base: str,
-    litellm_params: Mapping[str, JsonValue] = _NO_PARAMS,
+    hangarllm_params: Mapping[str, JsonValue] = _NO_PARAMS,
 ) -> str:
     name: Final = f"{provider}-priced-{uuid.uuid4().hex}"
     created: Final = gateway.post(
@@ -56,11 +56,11 @@ def _search_tool(
         {
             "search_tool": {
                 "search_tool_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "search_provider": provider,
                     "api_key": _API_KEY,
                     "api_base": api_base,
-                    **litellm_params,
+                    **hangarllm_params,
                 },
             }
         },
@@ -71,7 +71,7 @@ def _search_tool(
 
 def _spend(gateway: Gateway, call_id: str) -> float:
     rows: Final = eventually(
-        lambda: gateway.rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: gateway.rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda found: len(found) == 1,
         seconds=70,
     )
@@ -113,12 +113,12 @@ def test_search_is_charged_at_the_price_entry_for_the_mode_the_provider_ran(
         responses: Final = tuple(gateway.request("POST", path, sent) for path, sent in spellings)
         for (path, _), response in zip(spellings, responses, strict=True):
             assert response.status_code == 200, f"{path}: {response.text}"
-            assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(_price(priced_entry)), (
+            assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(_price(priced_entry)), (
                 path,
                 response.headers,
             )
         assert [request.target for request in wire.drain()] == [f"/{provider}/search"] * len(spellings)
-        assert [_spend(gateway, response.headers["x-litellm-call-id"]) for response in responses] == pytest.approx(
+        assert [_spend(gateway, response.headers["x-hangarllm-call-id"]) for response in responses] == pytest.approx(
             [_price(priced_entry)] * len(spellings)
         )
 
@@ -147,10 +147,10 @@ def test_a_mode_with_no_price_entry_of_its_own_is_charged_at_the_base_price(
         )
         assert [response.status_code for response in responses] == [200] * len(modes), [r.text for r in responses]
         assert [json.loads(request.body)[mode_param] for request in wire.drain()] == list(modes)
-        assert [float(response.headers["x-litellm-response-cost"]) for response in responses] == pytest.approx(
+        assert [float(response.headers["x-hangarllm-response-cost"]) for response in responses] == pytest.approx(
             [_price(f"{provider}/search")] * len(modes)
         )
-        assert [_spend(gateway, response.headers["x-litellm-call-id"]) for response in responses] == pytest.approx(
+        assert [_spend(gateway, response.headers["x-hangarllm-call-id"]) for response in responses] == pytest.approx(
             [_price(f"{provider}/search")] * len(modes)
         )
 
@@ -200,19 +200,19 @@ def test_a_concurrent_burst_with_upstream_failures_charges_each_success_at_its_m
             for (provider, mode, fails), response in zip(plan, responses, strict=True)
             if not fails
         )
-        assert [float(response.headers["x-litellm-response-cost"]) for response, _ in successes] == pytest.approx(
+        assert [float(response.headers["x-hangarllm-response-cost"]) for response, _ in successes] == pytest.approx(
             [price for _, price in successes]
         )
         rows: Final = eventually(
             lambda: gateway.rows(
-                'SELECT request_id, status, spend FROM "LiteLLM_SpendLogs" WHERE model_group = ANY(%s)',
+                'SELECT request_id, status, spend FROM "HangarLLM_SpendLogs" WHERE model_group = ANY(%s)',
                 (list(tools.values()),),
             ),
             lambda found: len(found) == len(plan),
             seconds=70,
         )
         assert {str(row["request_id"]): float(str(row["spend"])) for row in rows if row["status"] == "success"} == (
-            pytest.approx({response.headers["x-litellm-call-id"]: price for response, price in successes})
+            pytest.approx({response.headers["x-hangarllm-call-id"]: price for response, price in successes})
         )
         assert [float(str(row["spend"])) for row in rows if row["status"] != "success"] == [0.0] * (
             len(plan) - len(successes)
@@ -220,20 +220,20 @@ def test_a_concurrent_burst_with_upstream_failures_charges_each_success_at_its_m
 
 
 def _owned_config(
-    tmp_path: Path, search_tools: Sequence[JsonValue], litellm_settings: Mapping[str, JsonValue] = _NO_PARAMS
+    tmp_path: Path, search_tools: Sequence[JsonValue], hangarllm_settings: Mapping[str, JsonValue] = _NO_PARAMS
 ) -> Path:
     config: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     config["search_tools"] = list(search_tools)
-    config["litellm_settings"].update(litellm_settings)
+    config["hangarllm_settings"].update(hangarllm_settings)
     path: Final = tmp_path / f"search-mode-{uuid.uuid4().hex}.yaml"
     path.write_text(yaml.safe_dump(config))
     return path
 
 
-def _config_tool(name: str, provider: str, api_base: str, litellm_params: Mapping[str, JsonValue]) -> JsonValue:
+def _config_tool(name: str, provider: str, api_base: str, hangarllm_params: Mapping[str, JsonValue]) -> JsonValue:
     return {
         "search_tool_name": name,
-        "litellm_params": {"search_provider": provider, "api_key": _API_KEY, "api_base": api_base, **litellm_params},
+        "hangarllm_params": {"search_provider": provider, "api_key": _API_KEY, "api_base": api_base, **hangarllm_params},
     }
 
 
@@ -268,10 +268,10 @@ def test_a_mode_set_on_a_config_search_tool_is_charged_at_that_modes_price_unles
                     base_mode,
                 ]
                 assert (
-                    float(configured.headers["x-litellm-response-cost"]),
-                    float(overridden.headers["x-litellm-response-cost"]),
-                    _spend(candidate, configured.headers["x-litellm-call-id"]),
-                    _spend(candidate, overridden.headers["x-litellm-call-id"]),
+                    float(configured.headers["x-hangarllm-response-cost"]),
+                    float(overridden.headers["x-hangarllm-response-cost"]),
+                    _spend(candidate, configured.headers["x-hangarllm-call-id"]),
+                    _spend(candidate, overridden.headers["x-hangarllm-call-id"]),
                 ) == pytest.approx((_price(_MODE_ENTRY[provider]), _price(f"{provider}/search")) * 2), provider
 
 
@@ -285,8 +285,8 @@ def test_a_price_set_on_the_search_tool_still_wins_over_the_mode_price_entry(gat
         response: Final = gateway.request("POST", f"/v1/search/{tool}", {"query": _QUERY, "search_depth": "advanced"})
         assert response.status_code == 200, response.text
         assert [request.target for request in wire.drain()] == ["/tavily/search"]
-        assert float(response.headers["x-litellm-response-cost"]) == pytest.approx(0.02), response.headers
-        assert _spend(gateway, response.headers["x-litellm-call-id"]) == pytest.approx(0.02)
+        assert float(response.headers["x-hangarllm-response-cost"]) == pytest.approx(0.02), response.headers
+        assert _spend(gateway, response.headers["x-hangarllm-call-id"]) == pytest.approx(0.02)
 
 
 def _anthropic_reply(identity: str, content: Sequence[JsonValue], stop_reason: str) -> Reply:
@@ -403,7 +403,7 @@ def test_a_web_search_intercepted_on_every_llm_endpoint_is_charged_at_the_search
             )
             rows: Final = eventually(
                 lambda: candidate.rows(
-                    """SELECT spend FROM "LiteLLM_SpendLogs" WHERE call_type IN ('search', 'asearch')""", ()
+                    """SELECT spend FROM "HangarLLM_SpendLogs" WHERE call_type IN ('search', 'asearch')""", ()
                 ),
                 lambda found: len(found) == len(searches),
                 seconds=70,

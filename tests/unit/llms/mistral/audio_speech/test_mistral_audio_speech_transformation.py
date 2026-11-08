@@ -7,13 +7,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
-from litellm.llms.mistral.audio_speech.transformation import (
+import hangarllm
+from hangarllm.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
+from hangarllm.llms.mistral.audio_speech.transformation import (
     MistralTextToSpeechConfig,
     MistralTextToSpeechException,
 )
-from litellm.utils import ProviderConfigManager
+from hangarllm.utils import ProviderConfigManager
 
 SPEECH_URL: Final = "https://api.mistral.ai/v1/audio/speech"
 
@@ -21,7 +21,7 @@ SPEECH_URL: Final = "https://api.mistral.ai/v1/audio/speech"
 def test_mistral_text_to_speech_config_installed():
     config: Final = ProviderConfigManager.get_provider_text_to_speech_config(
         model="voxtral-mini-tts-2603",
-        provider=litellm.LlmProviders.MISTRAL,
+        provider=hangarllm.LlmProviders.MISTRAL,
     )
     assert isinstance(config, BaseTextToSpeechConfig)
     assert isinstance(config, MistralTextToSpeechConfig)
@@ -54,15 +54,15 @@ def test_transform_request_builds_mistral_body():
     config: Final = MistralTextToSpeechConfig()
     data: Final = config.transform_text_to_speech_request(
         model="voxtral-mini-tts-2603",
-        input="hello from litellm",
+        input="hello from hangarllm",
         voice="en_paul_neutral",
         optional_params={"response_format": "wav"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert data["dict_body"] == {
         "model": "voxtral-mini-tts-2603",
-        "input": "hello from litellm",
+        "input": "hello from hangarllm",
         "voice_id": "en_paul_neutral",
         "response_format": "wav",
     }
@@ -76,7 +76,7 @@ def test_transform_request_omits_voice_for_ref_audio_cloning():
         input="clone me",
         voice=None,
         optional_params={"ref_audio": "bXktdm9pY2Utc2FtcGxl"},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     )
     assert data["dict_body"] == {
@@ -88,7 +88,7 @@ def test_transform_request_omits_voice_for_ref_audio_cloning():
 
 def test_get_complete_url_default_base():
     config: Final = MistralTextToSpeechConfig()
-    url: Final = config.get_complete_url(model="voxtral-mini-tts-2603", api_base=None, litellm_params={})
+    url: Final = config.get_complete_url(model="voxtral-mini-tts-2603", api_base=None, hangarllm_params={})
     assert url == SPEECH_URL
 
 
@@ -98,7 +98,7 @@ def test_get_complete_url_default_base():
 )
 def test_get_complete_url_custom_base_always_versioned(api_base: str):
     config: Final = MistralTextToSpeechConfig()
-    url: Final = config.get_complete_url(model="voxtral-mini-tts-2603", api_base=api_base, litellm_params={})
+    url: Final = config.get_complete_url(model="voxtral-mini-tts-2603", api_base=api_base, hangarllm_params={})
     assert url == "https://custom.api.example.com/v1/audio/speech"
 
 

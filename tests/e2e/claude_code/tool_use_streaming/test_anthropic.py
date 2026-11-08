@@ -1,7 +1,7 @@
 """tool_use_streaming x Anthropic.
 
 Drive the real `claude` CLI in headless `--output-format stream-json`
-mode (with `--include-partial-messages`) against a running LiteLLM
+mode (with `--include-partial-messages`) against a running HangarLLM
 proxy that routes to Anthropic, ask Claude to invoke a built-in tool
 (`Bash`), and assert that the upstream (a) emitted a `tool_use` content
 block and (b) actually streamed the tool input incrementally — i.e.
@@ -110,7 +110,7 @@ def _count_input_json_deltas(events: Sequence[Mapping[str, Any]]) -> int:
     )
 )
 def test_tool_use_streaming_anthropic(compat_result):
-    """Drive the `claude` CLI against the LiteLLM proxy and assert the
+    """Drive the `claude` CLI against the HangarLLM proxy and assert the
     proxy preserves fine-grained tool streaming end-to-end."""
     base_url, api_key = require_proxy(compat_result)
 

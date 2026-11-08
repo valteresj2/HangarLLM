@@ -7,16 +7,16 @@ from typing import Final
 
 import google.auth
 import httpx
-import litellm
-import litellm.proxy.proxy_server
+import hangarllm
+import hangarllm.proxy.proxy_server
 import pytest
 import respx
 from google.auth.credentials import Credentials
 from pydantic import ValidationError
 
-from litellm.secret_managers.google_secret_manager import GoogleSecretManager
-from litellm.secret_managers.main import get_secret
-from litellm.types.secret_managers.main import KeyManagementSettings
+from hangarllm.secret_managers.google_secret_manager import GoogleSecretManager
+from hangarllm.secret_managers.main import get_secret
+from hangarllm.types.secret_managers.main import KeyManagementSettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,13 +34,13 @@ def _google_secret_manager(
     project_id: str,
 ) -> GoogleSecretManager:
     monkeypatch.setenv("GOOGLE_SECRET_MANAGER_PROJECT_ID", project_id)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     secret_manager: Final = GoogleSecretManager()
     credentials: Final = _CachedVertexCredentials(
         token="test-gsm-token",
         quota_project_id=project_id,
     )
-    vertex_chat_completion: Final = litellm.vertex_chat_completion
+    vertex_chat_completion: Final = hangarllm.vertex_chat_completion
     monkeypatch.setitem(
         vertex_chat_completion._credentials_project_mapping,
         (None, project_id),
@@ -117,11 +117,11 @@ def _access_response(body: object) -> httpx.Response:
 
 @pytest.fixture
 def manager(monkeypatch: pytest.MonkeyPatch) -> GoogleSecretManager:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
-    monkeypatch.setattr(litellm, "_key_management_system", None)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings())
-    monkeypatch.setattr(litellm.vertex_chat_completion, "_credentials_project_mapping", OrderedDict())
+    monkeypatch.setattr(hangarllm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(hangarllm, "secret_manager_client", None)
+    monkeypatch.setattr(hangarllm, "_key_management_system", None)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings())
+    monkeypatch.setattr(hangarllm.vertex_chat_completion, "_credentials_project_mapping", OrderedDict())
     monkeypatch.setattr(google.auth, "default", _default_credentials)
     monkeypatch.setenv("GOOGLE_SECRET_MANAGER_PROJECT_ID", PROJECT_ID)
     monkeypatch.delenv("GOOGLE_SECRET_MANAGER_ALWAYS_READ_SECRET_MANAGER", raising=False)

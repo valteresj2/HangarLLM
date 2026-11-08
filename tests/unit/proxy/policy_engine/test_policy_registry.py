@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from litellm.proxy.policy_engine.policy_registry import PolicyRegistry
-from litellm.types.proxy.policy_engine import PolicyCreateRequest, PolicyUpdateRequest
+from hangarllm.proxy.policy_engine.policy_registry import PolicyRegistry
+from hangarllm.types.proxy.policy_engine import PolicyCreateRequest, PolicyUpdateRequest
 
 _NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -78,7 +78,7 @@ class _PolicyTable:
 
 
 def _prisma_client(table: _PolicyTable) -> SimpleNamespace:
-    return SimpleNamespace(db=SimpleNamespace(litellm_policytable=table))
+    return SimpleNamespace(db=SimpleNamespace(hangarllm_policytable=table))
 
 
 @pytest.mark.asyncio
@@ -202,7 +202,7 @@ def _version_row(policy_id: str, content: Mapping[str, object]) -> SimpleNamespa
 
 
 def _versions_client(table: _VersionsTable) -> SimpleNamespace:
-    return SimpleNamespace(db=SimpleNamespace(litellm_policytable=table))
+    return SimpleNamespace(db=SimpleNamespace(hangarllm_policytable=table))
 
 
 @pytest.mark.parametrize("field", list(_VERSION_CONTENT))

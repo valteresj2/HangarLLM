@@ -2,10 +2,10 @@ from typing import List
 
 
 
-from litellm.llms.anthropic.messages.adapters.streaming_iterator import (
+from hangarllm.llms.anthropic.messages.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     Delta,
     ModelResponseStream,
     StreamingChoices,

@@ -11,8 +11,8 @@ from typing import Final
 import httpx
 import pytest
 import yaml
-from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
-from litellm.types.integrations.prometheus import LATENCY_BUCKETS
+from hangarllm.constants import HANGARLLM_PROXY_MASTER_KEY_ALIAS
+from hangarllm.types.integrations.prometheus import LATENCY_BUCKETS
 
 from tests.integration._support.client import Gateway, eventually, gateway_from_environment, object_value
 from tests.integration._support.process import owned_proxy
@@ -62,7 +62,7 @@ def _config(directory: Path, upstream: Wire) -> Path:
         *(
             {
                 "model_name": name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "input_cost_per_token": 0.001,
                     "output_cost_per_token": 0.002,
@@ -71,11 +71,11 @@ def _config(directory: Path, upstream: Wire) -> Path:
             }
             for name in (_GOOD, _LATENCY)
         ),
-        {"model_name": _LIMITED, "litellm_params": {"model": "openai/429", **params}},
-        {"model_name": _FAILING, "litellm_params": {"model": "openai/429", **params}},
+        {"model_name": _LIMITED, "hangarllm_params": {"model": "openai/429", **params}},
+        {"model_name": _FAILING, "hangarllm_params": {"model": "openai/429", **params}},
     ]
-    configuration["litellm_settings"]["callbacks"] = ["prometheus"]
-    configuration["litellm_settings"]["disable_end_user_cost_tracking_prometheus_only"] = True
+    configuration["hangarllm_settings"]["callbacks"] = ["prometheus"]
+    configuration["hangarllm_settings"]["disable_end_user_cost_tracking_prometheus_only"] = True
     configuration.setdefault("router_settings", {})["num_retries"] = 0
     path: Final = directory / "prometheus-request-metrics.yaml"
     path.write_text(yaml.safe_dump(configuration))
@@ -120,19 +120,19 @@ def test_a_rate_limited_call_counts_as_a_failed_and_a_429_total_request(rig: _Ri
     assert len(rig.upstream.drain()) == 1
     failed: Final = _until(
         rig,
-        "litellm_proxy_failed_requests_metric_total",
+        "hangarllm_proxy_failed_requests_metric_total",
         api_key_alias="None",
         exception_class="Openai.RateLimitError",
         exception_status="429",
-        hashed_api_key=LITELLM_PROXY_MASTER_KEY_ALIAS,
+        hashed_api_key=HANGARLLM_PROXY_MASTER_KEY_ALIAS,
         requested_model=_FAILING,
         route="/chat/completions",
     )
     assert [sample.value for sample in failed] == [1.0]
     totals: Final = _until(
         rig,
-        "litellm_proxy_total_requests_metric_total",
-        hashed_api_key=LITELLM_PROXY_MASTER_KEY_ALIAS,
+        "hangarllm_proxy_total_requests_metric_total",
+        hashed_api_key=HANGARLLM_PROXY_MASTER_KEY_ALIAS,
         requested_model=_FAILING,
         status_code="429",
     )
@@ -145,20 +145,20 @@ def test_a_good_call_exports_latency_histograms_on_the_shared_buckets_without_th
     assert len(rig.upstream.drain()) == 1
     master: Final = {
         "api_key_alias": "None",
-        "hashed_api_key": LITELLM_PROXY_MASTER_KEY_ALIAS,
+        "hashed_api_key": HANGARLLM_PROXY_MASTER_KEY_ALIAS,
         "requested_model": _LATENCY,
     }
-    _until(rig, "litellm_request_total_latency_metric_bucket", le="0.005", **master)
-    _until(rig, "litellm_llm_api_latency_metric_bucket", le="0.005", **master)
-    for name in ("litellm_request_total_latency_metric_count", "litellm_llm_api_latency_metric_count"):
+    _until(rig, "hangarllm_request_total_latency_metric_bucket", le="0.005", **master)
+    _until(rig, "hangarllm_llm_api_latency_metric_bucket", le="0.005", **master)
+    for name in ("hangarllm_request_total_latency_metric_count", "hangarllm_llm_api_latency_metric_count"):
         assert [sample.value for sample in _until(rig, name, **master)] == [1.0], name
     samples: Final = scrape(rig.gateway)
     assert _END_USER not in label_values(samples)
     expected: Final = {str(bucket).replace("inf", "+Inf") for bucket in LATENCY_BUCKETS}
     for name in (
-        "litellm_request_total_latency_metric_bucket",
-        "litellm_llm_api_latency_metric_bucket",
-        "litellm_overhead_latency_metric_bucket",
+        "hangarllm_request_total_latency_metric_bucket",
+        "hangarllm_llm_api_latency_metric_bucket",
+        "hangarllm_overhead_latency_metric_bucket",
     ):
         assert {sample.labels["le"] for sample in _series(samples, name)} == expected, name
 
@@ -174,12 +174,12 @@ def test_client_side_fallbacks_count_one_success_and_one_failure(rig: _Rig) -> N
         "api_key_alias": "None",
         "exception_class": "Openai.RateLimitError",
         "exception_status": "429",
-        "hashed_api_key": LITELLM_PROXY_MASTER_KEY_ALIAS,
+        "hashed_api_key": HANGARLLM_PROXY_MASTER_KEY_ALIAS,
         "requested_model": _LIMITED,
     }
-    succeeded: Final = _until(rig, "litellm_deployment_successful_fallbacks_total", fallback_model=_GOOD, **shared)
+    succeeded: Final = _until(rig, "hangarllm_deployment_successful_fallbacks_total", fallback_model=_GOOD, **shared)
     assert [sample.value for sample in succeeded] == [1.0]
-    lost: Final = _until(rig, "litellm_deployment_failed_fallbacks_total", fallback_model=missing, **shared)
+    lost: Final = _until(rig, "hangarllm_deployment_failed_fallbacks_total", fallback_model=missing, **shared)
     assert [sample.value for sample in lost] == [1.0]
 
 
@@ -191,9 +191,9 @@ class _Budget:
 
 
 def _budget(samples: Sequence[Sample], scope: str, label: str, identity: str) -> _Budget | None:
-    remaining: Final = _series(samples, f"litellm_remaining_{scope}_budget_metric", **{label: identity})
-    total: Final = _series(samples, f"litellm_{scope}_max_budget_metric", **{label: identity})
-    hours: Final = _series(samples, f"litellm_{scope}_budget_remaining_hours_metric", **{label: identity})
+    remaining: Final = _series(samples, f"hangarllm_remaining_{scope}_budget_metric", **{label: identity})
+    total: Final = _series(samples, f"hangarllm_{scope}_max_budget_metric", **{label: identity})
+    hours: Final = _series(samples, f"hangarllm_{scope}_budget_remaining_hours_metric", **{label: identity})
     if len(remaining) != 1 or len(total) != 1 or len(hours) != 1:
         return None
     return _Budget(remaining[0].value, total[0].value, hours[0].value)
@@ -263,12 +263,12 @@ def test_a_user_email_labels_the_spend_and_failed_request_series_of_its_keys(rig
         key: Final = scenario.key(user_id=user)
         assert _ask(rig, _GOOD, key).status_code == 200
         assert len(rig.upstream.drain()) == 1
-        spend: Final = _until(rig, "litellm_spend_metric_total", user_email=email)
+        spend: Final = _until(rig, "hangarllm_spend_metric_total", user_email=email)
         assert [(sample.labels["user"], sample.value) for sample in spend] == [(user, pytest.approx(0.005))]
         assert email in label_values(scrape(rig.gateway))
         assert _ask(rig, _FAILING, key).status_code == 429
         assert len(rig.upstream.drain()) == 1
         failed: Final = _until(
-            rig, "litellm_proxy_failed_requests_metric_total", user_email=email, requested_model=_FAILING
+            rig, "hangarllm_proxy_failed_requests_metric_total", user_email=email, requested_model=_FAILING
         )
         assert [(sample.labels["user"], sample.value) for sample in failed] == [(user, 1.0)]

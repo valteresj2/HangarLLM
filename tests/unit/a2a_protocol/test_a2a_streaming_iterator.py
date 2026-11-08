@@ -14,13 +14,13 @@ from types import SimpleNamespace
 
 import pytest
 
-import litellm
-from litellm.a2a_protocol import streaming_iterator as a2a_streaming_iterator_module
-from litellm.a2a_protocol.streaming_iterator import A2AStreamingIterator
-from litellm.a2a_protocol.utils import A2ARequestUtils
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import thread_pool_executor as thread_pool_executor_module
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
+import hangarllm
+from hangarllm.a2a_protocol import streaming_iterator as a2a_streaming_iterator_module
+from hangarllm.a2a_protocol.streaming_iterator import A2AStreamingIterator
+from hangarllm.a2a_protocol.utils import A2ARequestUtils
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils import thread_pool_executor as thread_pool_executor_module
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarllmLogging
 
 
 class RecordingCustomLogger(CustomLogger):
@@ -55,16 +55,16 @@ async def test_custom_logger_only_never_submits_sync_success_handler(monkeypatch
     monkeypatch.setattr(a2a_streaming_iterator_module, "executor", recording_executor, raising=False)
 
     recorder = RecordingCustomLogger()
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "success_callback", [recorder])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [recorder])
 
-    logging_obj = LitellmLogging(
+    logging_obj = HangarllmLogging(
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="a2a_send_message_streaming",
         start_time=time.time(),
-        litellm_call_id="lit-4210-test",
+        hangarllm_call_id="lit-4210-test",
         function_id="lit-4210-test",
     )
 
@@ -99,22 +99,22 @@ class _AgentChunk:
 @pytest.mark.asyncio
 async def test_stream_completion_counts_tokens_off_the_event_loop(monkeypatch):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.hangarllm_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
     )
 
     warm_tokenizer("gpt-5.6-luna")
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    logging_obj = LitellmLogging(
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    logging_obj = HangarllmLogging(
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="a2a_send_message_streaming",
         start_time=time.time(),
-        litellm_call_id="lit-7190-test",
+        hangarllm_call_id="lit-7190-test",
         function_id="lit-7190-test",
     )
 
@@ -162,13 +162,13 @@ class _SuccessRecorder(CustomLogger):
 async def test_stream_logs_its_first_chunk_time_measured_from_the_call_start():
     call_start: Final = datetime(2026, 10, 9, 12, 0, 0)
     recorder: Final = _SuccessRecorder()
-    logging_obj: Final = LitellmLogging(
+    logging_obj: Final = HangarllmLogging(
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="a2a_send_message_streaming",
         start_time=call_start,
-        litellm_call_id="a2a-first-chunk",
+        hangarllm_call_id="a2a-first-chunk",
         function_id="a2a-first-chunk",
         dynamic_async_success_callbacks=[recorder],
     )
@@ -238,7 +238,7 @@ async def _snapshot_stream() -> AsyncIterator[Mapping[str, object]]:
 
 
 async def _watsonx_stream() -> AsyncIterator[Mapping[str, object]]:
-    from litellm.a2a_protocol.providers.watsonx_orchestrate.transformation import (
+    from hangarllm.a2a_protocol.providers.watsonx_orchestrate.transformation import (
         WatsonxOrchestrateTransformation,
     )
 
@@ -303,15 +303,15 @@ async def _url_agent_sdk_stream() -> AsyncIterator[object]:
 async def test_stream_counts_the_whole_reply_once(
     agent_stream: Callable[[], AsyncIterator[object]], reply: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    logging_obj: Final = LitellmLogging(
+    monkeypatch.setattr(hangarllm, "success_callback", [])
+    monkeypatch.setattr(hangarllm, "_async_success_callback", [])
+    logging_obj: Final = HangarllmLogging(
         model="a2a_agent/trip-planner",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="asend_message_streaming",
         start_time=time.time(),
-        litellm_call_id="artifact-count",
+        hangarllm_call_id="artifact-count",
         function_id="artifact-count",
     )
     iterator: Final = A2AStreamingIterator(

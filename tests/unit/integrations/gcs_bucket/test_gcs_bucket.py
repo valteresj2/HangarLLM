@@ -9,15 +9,15 @@ import google.auth
 import google.auth.credentials
 import google.auth.transport
 import httpx
-import litellm
+import hangarllm
 import pytest
 import respx
 
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.gcs_bucket.gcs_bucket import GCSBucketLogger
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+from hangarllm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from hangarllm.integrations.gcs_bucket.gcs_bucket import GCSBucketLogger
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
 
 mock_response_data: Final = {
@@ -94,7 +94,7 @@ mock_response_data: Final = {
         "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
         "response_cost": 3.7500000000000003e-05,
         "additional_headers": {},
-        "litellm_overhead_time_ms": 2.126,
+        "hangarllm_overhead_time_ms": 2.126,
     },
     "model_map_information": {
         "model_map_key": "gpt-3.5-turbo-0301",
@@ -117,7 +117,7 @@ def _google_default_credentials(scopes: Sequence[str]) -> tuple[_StaticGoogleCre
 
 
 def _gcs_logger_storing_payload_on(stored_date: str | None, monkeypatch: pytest.MonkeyPatch) -> GCSBucketLogger:
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     monkeypatch.setattr(google.auth, "default", _google_default_credentials)
 
     def storage(request: httpx.Request) -> httpx.Response:
@@ -175,7 +175,7 @@ async def test_get_payload_not_found(monkeypatch):
 
 
 def _gcs_logger_with_upload_status(monkeypatch: pytest.MonkeyPatch, status_code: int) -> tuple[GCSBucketLogger, Mock]:
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     monkeypatch.setattr(google.auth, "default", _google_default_credentials)
     monkeypatch.setenv("GCS_FLUSH_INTERVAL", "3600")
     uploads: Final = Mock()
@@ -207,7 +207,7 @@ async def test_aaabasic_gcs_logger_stores_exact_success_payload(monkeypatch: pyt
         "id": "gcs-success",
     }
     await logger.async_log_success_event(
-        {"standard_logging_object": payload, "litellm_params": {"metadata": payload["metadata"]}},
+        {"standard_logging_object": payload, "hangarllm_params": {"metadata": payload["metadata"]}},
         payload["response"],
         None,
         None,
@@ -260,7 +260,7 @@ async def test_basic_gcs_logger_failure_stores_error_payload(monkeypatch: pytest
 async def test_unbatched_gcs_logs_upload_individual_success_and_failure_objects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.premium_user", True)
     monkeypatch.setattr(google.auth, "default", _google_default_credentials)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
     monkeypatch.setenv("GCS_USE_BATCHED_LOGGING", "false")
@@ -291,7 +291,7 @@ async def test_unbatched_gcs_logs_upload_individual_success_and_failure_objects(
         }
 
         await logger.async_log_success_event(
-            {"standard_logging_object": success_payload, "litellm_params": {"metadata": {}}},
+            {"standard_logging_object": success_payload, "hangarllm_params": {"metadata": {}}},
             success_payload["response"],
             None,
             None,
@@ -374,8 +374,8 @@ async def test_a_rejected_batch_line_items_write_raises_for_the_dispatcher(monke
 async def test_batch_line_items_are_serialized_off_the_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
     import threading
 
-    import litellm.integrations.gcs_bucket.gcs_bucket as gcs_bucket_module
-    from litellm.types.utils import StandardBatchLineItemsPayload
+    import hangarllm.integrations.gcs_bucket.gcs_bucket as gcs_bucket_module
+    from hangarllm.types.utils import StandardBatchLineItemsPayload
 
     logger, _ = _gcs_logger_with_upload_status(monkeypatch, 200)
     logger.async_httpx_client = AsyncHTTPHandler(
@@ -425,18 +425,18 @@ async def test_unbatched_background_cost_event_keeps_its_own_object_readable_by_
     ordinary: Final = {"id": "chatcmpl-ordinary", "error_str": None}
     batch_retrieve: Final = {"id": "batch_abc123", "response_cost": 0.07, "error_str": None}
     events: Final = (
-        ({"call_type": "aresponses", "litellm_params": {"metadata": {}}}, create),
+        ({"call_type": "aresponses", "hangarllm_params": {"metadata": {}}}, create),
         (
             {
                 "call_type": "aget_responses",
-                "litellm_params": {
+                "hangarllm_params": {
                     "metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN}
                 },
             },
             cost,
         ),
-        ({"call_type": "acompletion", "litellm_params": {"metadata": {}}}, ordinary),
-        ({"call_type": "aretrieve_batch", "litellm_params": {"metadata": {}}}, batch_retrieve),
+        ({"call_type": "acompletion", "hangarllm_params": {"metadata": {}}}, ordinary),
+        ({"call_type": "aretrieve_batch", "hangarllm_params": {"metadata": {}}}, batch_retrieve),
     )
 
     for kwargs, payload in events:
@@ -471,7 +471,7 @@ async def test_unbatched_gcs_log_id_still_names_a_background_cost_event_object(m
     await logger.async_log_success_event(
         {
             "call_type": "aget_responses",
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN,
                     "gcs_log_id": "qa-run-7",

@@ -9,7 +9,7 @@ from typing import Final
 import httpx
 
 from integration._support.client import Gateway, JSON_OBJECT, object_value
-from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
 
 def _record_latest_readback(

@@ -45,7 +45,7 @@ from integration.routing._reasoning_effort_levels_support import (
 )
 from pydantic import JsonValue
 
-from litellm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
+from hangarllm.constants import DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS
 
 CHAT: Final = "/v1/chat/completions"
 MESSAGES: Final = "/v1/messages"
@@ -77,7 +77,7 @@ _UNDECLARED: Final[Mapping[str, JsonValue]] = MappingProxyType({})
 _EMPTY_DECLARATION: Final[Mapping[str, JsonValue]] = MappingProxyType({"reasoning_effort_levels": []})
 _NONE_ONLY_DECLARATION: Final[Mapping[str, JsonValue]] = MappingProxyType({"reasoning_effort_levels": ["none"]})
 _ECHOED_MAP_KEY: Final[Mapping[str, JsonValue]] = MappingProxyType(
-    {"key": "azure/chat-latest", "litellm_provider": "azure"}
+    {"key": "azure/chat-latest", "hangarllm_provider": "azure"}
 )
 _LONG_LEVEL: Final = "x" * 5000
 _JSON_SCHEMA_FORMAT: Final[dict[str, JsonValue]] = {
@@ -2328,7 +2328,7 @@ def test_anthropic_sdk_gets_a_400_for_a_malformed_budget_to_a_non_claude_deploym
 
 def _served_by(response: httpx.Response) -> str:
     assert response.status_code == 200, response.text
-    return response.headers["x-litellm-model-id"]
+    return response.headers["x-hangarllm-model-id"]
 
 
 def test_each_deployment_of_a_model_group_gets_its_own_declared_level(gateway: Gateway) -> None:
@@ -2343,7 +2343,7 @@ def test_each_deployment_of_a_model_group_gets_its_own_declared_level(gateway: G
             "/model/new",
             {
                 "model_name": group,
-                "litellm_params": {"model": f"hosted_vllm/{KIMI}", "api_base": f"{high_wire.url}/v1", "api_key": "k"},
+                "hangarllm_params": {"model": f"hosted_vllm/{KIMI}", "api_base": f"{high_wire.url}/v1", "api_key": "k"},
                 "model_info": {"reasoning_effort_levels": ["high", "max"]},
             },
         )
@@ -2393,12 +2393,12 @@ def _deployment_id(gateway: Gateway, model: str) -> str:
 
 
 def _declared_levels(gateway: Gateway, identity: str) -> JsonValue:
-    entries: Final = list_value(gateway.get("/model/info", {"litellm_model_id": identity})["data"])
+    entries: Final = list_value(gateway.get("/model/info", {"hangarllm_model_id": identity})["data"])
     return object_value(object_value(entries[0])["model_info"]).get("reasoning_effort_levels")
 
 
 def test_a_declaration_updated_under_traffic_applies_to_the_next_request(gateway: Gateway) -> None:
-    from litellm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
+    from hangarllm.constants import PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
 
     first: Final = new_marker()
     second: Final = new_marker()
@@ -2451,7 +2451,7 @@ def _create_swapping_prompt(gateway: Gateway, prompt_id: str, model: str, marker
         "/prompts",
         {
             "prompt_id": prompt_id,
-            "litellm_params": {
+            "hangarllm_params": {
                 "prompt_id": prompt_id,
                 "prompt_integration": "dotprompt",
                 "dotprompt_content": f"---\nmodel: {model}\n---\nUser: {prompt(marker)}",

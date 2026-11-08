@@ -55,7 +55,7 @@ _WARMUP_SECONDS: Final = 60
 
 def _spend_logged_share(proxy: ProxyClient, call_ids: tuple[str, ...]) -> float | None:
     """Share of a sample of served requests whose spend row the gateway wrote, read back by the
-    request id the gateway returned in `x-litellm-call-id`."""
+    request id the gateway returned in `x-hangarllm-call-id`."""
     if not call_ids:
         return None
     found = 0
@@ -101,7 +101,7 @@ def test_perf_case(
     if case.event_loop is not None and not os.environ.get(OPT_IN_ENV):
         pytest.skip(
             f"{case.name} reads asyncio debug output: deploy the gateway with PYTHONASYNCIODEBUG=1 and "
-            f"LITELLM_EVENT_LOOP=asyncio, then set {OPT_IN_ENV}=1"
+            f"HANGARLLM_EVENT_LOOP=asyncio, then set {OPT_IN_ENV}=1"
         )
     plan: Final = build_plan(case)
     mock_urls: Final = {provider: mock_url(provider) for provider in MOCK_PROVIDERS}

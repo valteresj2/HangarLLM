@@ -11,12 +11,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm import completion
-from litellm._logging import verbose_logger
-from litellm.integrations.datadog.datadog import *
+import hangarllm
+from hangarllm import completion
+from hangarllm._logging import verbose_logger
+from hangarllm.integrations.datadog.datadog import *
 from datetime import datetime, timedelta
-from litellm.types.utils import (
+from hangarllm.types.utils import (
     StandardLoggingPayload,
     StandardLoggingModelInformation,
     StandardLoggingMetadata,

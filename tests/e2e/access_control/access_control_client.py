@@ -15,7 +15,7 @@ from models import (
     ChatBody,
     ChatMessage,
     KeyGenerateBody,
-    LiteLLMParamsBody,
+    HangarLLMParamsBody,
     ModelInfoBody,
     ModelNewBody,
     ProjectCreateBody,
@@ -188,7 +188,7 @@ class AccessControlClient:
             headers=self.proxy.transport.bearer(key),
             json=ModelNewBody(
                 model_name=model_name,
-                litellm_params=LiteLLMParamsBody(model="openai/gpt-4o-mini"),
+                hangarllm_params=HangarLLMParamsBody(model="openai/gpt-4o-mini"),
                 model_info=ModelInfoBody(id=model_name),
             ),
         )

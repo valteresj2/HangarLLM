@@ -5,7 +5,7 @@ import pytest
 import requests
 
 
-from litellm.proxy.client.users import (
+from hangarllm.proxy.client.users import (
     NotFoundError,
     UnauthorizedError,
     UsersManagementClient,

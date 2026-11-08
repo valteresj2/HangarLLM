@@ -3,22 +3,22 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
-from litellm.proxy.proxy_server import _should_include_fallback_errors
-from litellm.router import Router
+import hangarllm
+from hangarllm.hangarllm_core_utils.add_retry_fallback_headers import get_hidden_params_dict
+from hangarllm.proxy.proxy_server import _should_include_fallback_errors
+from hangarllm.router import Router
 
 
 def _two_group_fallback_router() -> Router:
-    return litellm.Router(
+    return hangarllm.Router(
         model_list=[
             {
                 "model_name": "primary-model",
-                "litellm_params": {"model": "openai/gpt-fake", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-fake", "api_key": "sk-fake"},
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {"model": "openai/gpt-fake-2", "api_key": "sk-fake"},
+                "hangarllm_params": {"model": "openai/gpt-fake-2", "api_key": "sk-fake"},
             },
         ],
         fallbacks=[{"primary-model": ["fallback-model"]}],
@@ -56,8 +56,8 @@ async def test_include_fallback_errors_propagates_through_router():
     )
 
     headers = _additional_headers(response)
-    assert headers["x-litellm-attempted-fallbacks"] == 1
-    errors = json.loads(headers["x-litellm-fallback-errors"])
+    assert headers["x-hangarllm-attempted-fallbacks"] == 1
+    errors = json.loads(headers["x-hangarllm-fallback-errors"])
     assert isinstance(errors, list) and len(errors) >= 1
     assert set(errors[0].keys()) == {"message", "type", "param", "code"}
 
@@ -74,8 +74,8 @@ async def test_router_omits_fallback_errors_without_opt_in():
     )
 
     headers = _additional_headers(response)
-    assert headers["x-litellm-attempted-fallbacks"] == 1
-    assert "x-litellm-fallback-errors" not in headers
+    assert headers["x-hangarllm-attempted-fallbacks"] == 1
+    assert "x-hangarllm-fallback-errors" not in headers
 
 
 @pytest.mark.asyncio
@@ -84,7 +84,7 @@ async def test_set_response_headers_adds_model_group_to_streaming_wrapper():
         def __init__(self):
             self._hidden_params = {"additional_headers": {"x-existing": "keep"}}
 
-    router = litellm.Router(model_list=[])
+    router = hangarllm.Router(model_list=[])
     response = StreamingWrapper()
 
     result = await router.set_response_headers(
@@ -95,14 +95,14 @@ async def test_set_response_headers_adds_model_group_to_streaming_wrapper():
     assert result is response
     assert response._hidden_params["additional_headers"] == {
         "x-existing": "keep",
-        "x-litellm-model-group": "fallback-model",
+        "x-hangarllm-model-group": "fallback-model",
     }
 
 
 def test_should_include_fallback_errors_gated_by_operator_setting():
     request_data: dict = {"include_fallback_errors": True}
 
-    import litellm.proxy.proxy_server as ps
+    import hangarllm.proxy.proxy_server as ps
 
     original = ps.general_settings.copy() if isinstance(ps.general_settings, dict) else {}
     try:

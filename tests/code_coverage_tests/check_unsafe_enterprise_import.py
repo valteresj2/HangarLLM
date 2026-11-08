@@ -31,9 +31,9 @@ class EnterpriseImportFinder(ast.NodeVisitor):
         self.in_try_block = len(self.try_blocks) > 0
 
     def visit_Import(self, node):
-        # Check for direct imports of litellm_enterprise
+        # Check for direct imports of hangarllm_enterprise
         for name in node.names:
-            if "litellm_enterprise" in name.name or "enterprise" in name.name:
+            if "hangarllm_enterprise" in name.name or "enterprise" in name.name:
                 if not self.in_try_block:
                     self.unsafe_imports.append(
                         {
@@ -46,9 +46,9 @@ class EnterpriseImportFinder(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
-        # Check for from litellm_enterprise imports
+        # Check for from hangarllm_enterprise imports
         if node.module and (
-            "litellm_enterprise" in node.module or "enterprise" in node.module
+            "hangarllm_enterprise" in node.module or "enterprise" in node.module
         ):
             if not self.in_try_block:
                 self.unsafe_imports.append(
@@ -84,8 +84,8 @@ def find_unsafe_enterprise_imports_in_directory(directory):
 
 
 if __name__ == "__main__":
-    # Check for unsafe enterprise imports in the litellm directory
-    directory_path = "./litellm"
+    # Check for unsafe enterprise imports in the hangarllm directory
+    directory_path = "./hangarllm"
     unsafe_imports = find_unsafe_enterprise_imports_in_directory(directory_path)
 
     if unsafe_imports:

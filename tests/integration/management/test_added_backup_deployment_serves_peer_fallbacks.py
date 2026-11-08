@@ -17,7 +17,7 @@ from tests.integration._support.redis_process import owned_redis
 pytestmark: Final = [pytest.mark.timeout(int(4 * graceful_stop_seconds() + 120))]
 
 COORDINATION_CONFIG: Final = Path(__file__).resolve().parents[1] / "coordination_redis_proxy_config.yaml"
-CONFIG_SYNC_CHANNEL: Final = "litellm_proxy.config_change"
+CONFIG_SYNC_CHANNEL: Final = "hangarllm_proxy.config_change"
 SUBSCRIBER_COUNTS: Final = TypeAdapter(tuple[tuple[str, int], ...])
 PERIODIC_RELOAD_SECONDS: Final = 3600
 PEER_PICKUP_SECONDS: Final = 4
@@ -61,7 +61,7 @@ def _add_deployment(writer: Gateway, group: str, upstream_model: str, order: int
         "/model/new",
         {
             "model_name": group,
-            "litellm_params": {
+            "hangarllm_params": {
                 "model": f"openai/{upstream_model}",
                 "api_key": PROVIDER_KEY,
                 "api_base": f"{writer.upstream_url}/v1",

@@ -4,13 +4,13 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm import completion_cost, cost_per_token, get_model_info
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.types.utils import TranscriptionResponse
+from hangarllm import completion_cost, cost_per_token, get_model_info
+from hangarllm.hangarllm_core_utils.get_llm_provider_logic import get_llm_provider
+from hangarllm.types.utils import TranscriptionResponse
 
 REPO_ROOT: Final = Path(__file__).parents[4]
 MAIN_COST_MAP: Final = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_COST_MAP: Final = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_COST_MAP: Final = REPO_ROOT / "hangarllm" / "model_prices_and_context_window_backup.json"
 COST_MAP_ADAPTER: Final = TypeAdapter(dict[str, dict[str, object]])
 A_MILLION: Final = 1_000_000
 AN_HOUR_IN_SECONDS: Final = 3600

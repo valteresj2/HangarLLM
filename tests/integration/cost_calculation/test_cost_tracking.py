@@ -259,7 +259,7 @@ def test_case_bills_expected_cost(gateway: Gateway, case: CostTrackingTestCase) 
                 f"{case.name}: proxy returned {response.status_code}, expected {case.expected.failure.status}: "
                 f"{response.text[:400]}"
             )
-            response_cost: Final = response.headers.get("x-litellm-response-cost")
+            response_cost: Final = response.headers.get("x-hangarllm-response-cost")
             assert response_cost is None or approx_equal(float(response_cost), 0.0), (
                 f"{case.name}: failure response cost was {response_cost}"
             )
@@ -293,20 +293,20 @@ def test_case_bills_expected_cost(gateway: Gateway, case: CostTrackingTestCase) 
             return
         assert isinstance(expected, ExactExpected)
         if isinstance(case.response, BinaryResponse):
-            header: Final = response.headers.get("x-litellm-response-cost")
+            header: Final = response.headers.get("x-hangarllm-response-cost")
             if header is not None:
                 assert approx_equal(float(header), expected.spend), (
-                    f"{case.name}: x-litellm-response-cost {header} != expected {expected.spend}"
+                    f"{case.name}: x-hangarllm-response-cost {header} != expected {expected.spend}"
                 )
         elif case.response.content_type == "application/json":
-            header: Final = cast(str | None, response.headers.get("x-litellm-response-cost"))
+            header: Final = cast(str | None, response.headers.get("x-hangarllm-response-cost"))
             if expected.cost_header and expected.spend != 0:
                 assert header is not None and approx_equal(float(header), expected.spend), (
-                    f"{case.name}: x-litellm-response-cost {header} != expected {expected.spend}"
+                    f"{case.name}: x-hangarllm-response-cost {header} != expected {expected.spend}"
                 )
             elif header is not None:
                 assert approx_equal(float(header), expected.spend), (
-                    f"{case.name}: x-litellm-response-cost {header} != expected {expected.spend}"
+                    f"{case.name}: x-hangarllm-response-cost {header} != expected {expected.spend}"
                 )
         for row in rows:
             assert_exact(case.name, case.response.content_type, expected, row, response)

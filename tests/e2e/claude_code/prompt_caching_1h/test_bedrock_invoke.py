@@ -1,6 +1,6 @@
 """prompt_caching_1h x Bedrock (Invoke).
 
-Drive the real `claude` CLI against a running LiteLLM proxy that routes
+Drive the real `claude` CLI against a running HangarLLM proxy that routes
 Claude requests to AWS Bedrock via the legacy `InvokeModel` API path,
 opt into the 1-hour cache TTL via `ENABLE_PROMPT_CACHING_1H`, and
 assert the upstream's usage block reports a non-zero cache token count.

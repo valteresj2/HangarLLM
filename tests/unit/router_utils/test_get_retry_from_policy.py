@@ -4,20 +4,20 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_retry_from_policy import get_num_retries_from_retry_policy
-from litellm.types.router import RetryPolicy
+import hangarllm
+from hangarllm.hangarllm_core_utils.get_retry_from_policy import get_num_retries_from_retry_policy
+from hangarllm.types.router import RetryPolicy
 
 _EXCEPTION_FOR_FIELD: Final = MappingProxyType(
     {
-        "BadRequestErrorRetries": litellm.BadRequestError,
-        "AuthenticationErrorRetries": litellm.AuthenticationError,
-        "TimeoutErrorRetries": litellm.Timeout,
-        "RateLimitErrorRetries": litellm.RateLimitError,
-        "ContentPolicyViolationErrorRetries": litellm.ContentPolicyViolationError,
-        "InternalServerErrorRetries": litellm.InternalServerError,
-        "ServiceUnavailableErrorRetries": litellm.ServiceUnavailableError,
-        "NotFoundErrorRetries": litellm.NotFoundError,
+        "BadRequestErrorRetries": hangarllm.BadRequestError,
+        "AuthenticationErrorRetries": hangarllm.AuthenticationError,
+        "TimeoutErrorRetries": hangarllm.Timeout,
+        "RateLimitErrorRetries": hangarllm.RateLimitError,
+        "ContentPolicyViolationErrorRetries": hangarllm.ContentPolicyViolationError,
+        "InternalServerErrorRetries": hangarllm.InternalServerError,
+        "ServiceUnavailableErrorRetries": hangarllm.ServiceUnavailableError,
+        "NotFoundErrorRetries": hangarllm.NotFoundError,
     }
 )
 
@@ -28,11 +28,11 @@ def _error(exception_type: type[Exception]) -> Exception:
     return exception_type(message="boom", llm_provider="openai", model="gpt-5.6")
 
 
-def _bad_request_answered_with_404() -> litellm.BadRequestError:
+def _bad_request_answered_with_404() -> hangarllm.BadRequestError:
     upstream: Final = httpx.Response(
         404, request=httpx.Request("GET", "https://api.openai.com/v1/responses/resp_missing")
     )
-    exception: Final = litellm.BadRequestError(
+    exception: Final = hangarllm.BadRequestError(
         message="Response with id 'resp_missing' not found.", llm_provider="openai", model="gpt-5.6", response=upstream
     )
     assert exception.status_code == 404
@@ -64,17 +64,17 @@ def test_subclass_prefers_its_own_field_over_the_parent_field():
     policy: Final = RetryPolicy(BadRequestErrorRetries=5, ContentPolicyViolationErrorRetries=1)
 
     assert (
-        get_num_retries_from_retry_policy(exception=_error(litellm.ContentPolicyViolationError), retry_policy=policy)
+        get_num_retries_from_retry_policy(exception=_error(hangarllm.ContentPolicyViolationError), retry_policy=policy)
         == 1
     )
-    assert get_num_retries_from_retry_policy(exception=_error(litellm.BadRequestError), retry_policy=policy) == 5
+    assert get_num_retries_from_retry_policy(exception=_error(hangarllm.BadRequestError), retry_policy=policy) == 5
 
 
 def test_subclass_falls_back_to_the_parent_field():
     policy: Final = RetryPolicy(BadRequestErrorRetries=5)
 
     assert (
-        get_num_retries_from_retry_policy(exception=_error(litellm.ContentPolicyViolationError), retry_policy=policy)
+        get_num_retries_from_retry_policy(exception=_error(hangarllm.ContentPolicyViolationError), retry_policy=policy)
         == 5
     )
 
@@ -82,7 +82,7 @@ def test_subclass_falls_back_to_the_parent_field():
 def test_payment_required_error_uses_bad_request_retries():
     assert (
         get_num_retries_from_retry_policy(
-            exception=_error(litellm.PaymentRequiredError),
+            exception=_error(hangarllm.PaymentRequiredError),
             retry_policy=RetryPolicy(BadRequestErrorRetries=0, DefaultRetries=3),
         )
         == 0
@@ -97,11 +97,11 @@ def test_unsupported_endpoint_preserves_the_connection_error_retry_budget(
     policy: Final = RetryPolicy(BadRequestErrorRetries=bad_request_retries, DefaultRetries=default_retries)
 
     assert get_num_retries_from_retry_policy(
-        exception=_error(litellm.UnsupportedEndpointError), retry_policy=policy
-    ) == get_num_retries_from_retry_policy(exception=_error(litellm.APIConnectionError), retry_policy=policy)
+        exception=_error(hangarllm.UnsupportedEndpointError), retry_policy=policy
+    ) == get_num_retries_from_retry_policy(exception=_error(hangarllm.APIConnectionError), retry_policy=policy)
 
 
-@pytest.mark.parametrize("exception_type", (litellm.BadGatewayError,))
+@pytest.mark.parametrize("exception_type", (hangarllm.BadGatewayError,))
 def test_default_retries_covers_exceptions_without_a_specific_field(exception_type: type[Exception]):
     exception: Final = _error(exception_type)
 
@@ -117,8 +117,8 @@ def test_default_retries_covers_exceptions_without_a_specific_field(exception_ty
 def test_specific_field_wins_over_default_retries():
     policy: Final = RetryPolicy(DefaultRetries=0, RateLimitErrorRetries=3)
 
-    assert get_num_retries_from_retry_policy(exception=_error(litellm.RateLimitError), retry_policy=policy) == 3
-    assert get_num_retries_from_retry_policy(exception=_error(litellm.BadGatewayError), retry_policy=policy) == 0
+    assert get_num_retries_from_retry_policy(exception=_error(hangarllm.RateLimitError), retry_policy=policy) == 3
+    assert get_num_retries_from_retry_policy(exception=_error(hangarllm.BadGatewayError), retry_policy=policy) == 0
 
 
 def test_not_found_retries_governs_a_bad_request_error_answered_with_404():
@@ -132,7 +132,7 @@ def test_not_found_retries_wins_over_bad_request_and_default_retries_for_a_404()
     policy: Final = RetryPolicy(NotFoundErrorRetries=0, BadRequestErrorRetries=5, DefaultRetries=3)
 
     assert get_num_retries_from_retry_policy(exception=_bad_request_answered_with_404(), retry_policy=policy) == 0
-    assert get_num_retries_from_retry_policy(exception=_error(litellm.NotFoundError), retry_policy=policy) == 0
+    assert get_num_retries_from_retry_policy(exception=_error(hangarllm.NotFoundError), retry_policy=policy) == 0
 
 
 def test_a_404_without_not_found_retries_falls_back_to_bad_request_then_default_retries():
@@ -145,11 +145,11 @@ def test_a_404_without_not_found_retries_falls_back_to_bad_request_then_default_
         == 0
     )
     assert get_num_retries_from_retry_policy(exception=exception, retry_policy=RetryPolicy(DefaultRetries=3)) == 3
-    assert get_num_retries_from_retry_policy(exception=_error(litellm.NotFoundError), retry_policy=RetryPolicy(DefaultRetries=3)) == 3
+    assert get_num_retries_from_retry_policy(exception=_error(hangarllm.NotFoundError), retry_policy=RetryPolicy(DefaultRetries=3)) == 3
 
 
 def test_not_found_retries_leaves_a_plain_400_alone():
-    exception: Final = _error(litellm.BadRequestError)
+    exception: Final = _error(hangarllm.BadRequestError)
     assert exception.status_code == 400
 
     assert get_num_retries_from_retry_policy(exception=exception, retry_policy=RetryPolicy(NotFoundErrorRetries=0)) is None
@@ -165,24 +165,24 @@ def test_default_retries_applies_when_the_specific_field_is_unset():
     policy: Final = RetryPolicy(DefaultRetries=2)
 
     assert (
-        get_num_retries_from_retry_policy(exception=_error(litellm.ServiceUnavailableError), retry_policy=policy) == 2
+        get_num_retries_from_retry_policy(exception=_error(hangarllm.ServiceUnavailableError), retry_policy=policy) == 2
     )
 
 
 def test_empty_policy_matches_nothing():
     assert (
-        get_num_retries_from_retry_policy(exception=_error(litellm.ServiceUnavailableError), retry_policy=RetryPolicy())
+        get_num_retries_from_retry_policy(exception=_error(hangarllm.ServiceUnavailableError), retry_policy=RetryPolicy())
         is None
     )
     assert (
-        get_num_retries_from_retry_policy(exception=_error(litellm.ServiceUnavailableError), retry_policy=None) is None
+        get_num_retries_from_retry_policy(exception=_error(hangarllm.ServiceUnavailableError), retry_policy=None) is None
     )
 
 
 def test_dict_policy_is_accepted():
     assert (
         get_num_retries_from_retry_policy(
-            exception=_error(litellm.ServiceUnavailableError),
+            exception=_error(hangarllm.ServiceUnavailableError),
             retry_policy={"ServiceUnavailableErrorRetries": 0},
         )
         == 0
@@ -190,7 +190,7 @@ def test_dict_policy_is_accepted():
 
 
 def test_model_group_policy_replaces_the_global_policy():
-    exception: Final = _error(litellm.ServiceUnavailableError)
+    exception: Final = _error(hangarllm.ServiceUnavailableError)
     global_policy: Final = RetryPolicy(ServiceUnavailableErrorRetries=5)
 
     assert (

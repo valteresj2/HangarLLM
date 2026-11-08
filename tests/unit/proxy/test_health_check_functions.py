@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.db.health_check_latest import LatestHealthCheckRow
-from litellm.proxy.health_endpoints._health_endpoints import (
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.db.health_check_latest import LatestHealthCheckRow
+from hangarllm.proxy.health_endpoints._health_endpoints import (
     _aggregate_health_check_results,
     _build_model_param_to_info_mapping,
     _perform_health_check_and_save,
@@ -17,15 +17,15 @@ from litellm.proxy.health_endpoints._health_endpoints import (
     _save_health_check_to_db,
     latest_health_checks_endpoint,
 )
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.utils import PrismaClient
 
 
 @pytest.fixture
 def mock_prisma():
     """Simplified mock PrismaClient with bound methods"""
     client = MagicMock()
-    client.db.litellm_healthchecktable.create = AsyncMock(return_value={"id": "test-id"})
-    client.db.litellm_healthchecktable.find_many = AsyncMock(return_value=[{"id": "1", "model_name": "test"}])
+    client.db.hangarllm_healthchecktable.create = AsyncMock(return_value={"id": "test-id"})
+    client.db.hangarllm_healthchecktable.find_many = AsyncMock(return_value=[{"id": "1", "model_name": "test"}])
 
     # Bind actual methods
     import types
@@ -54,7 +54,7 @@ def mock_prisma():
 async def test_save_health_check_result(mock_prisma, status, healthy, unhealthy, should_succeed):
     """Test health check result saving with various scenarios"""
     if not should_succeed:
-        mock_prisma.db.litellm_healthchecktable.create.side_effect = Exception("DB Error")
+        mock_prisma.db.hangarllm_healthchecktable.create.side_effect = Exception("DB Error")
 
     result = await mock_prisma.save_health_check_result(
         model_name="test-model",
@@ -64,7 +64,7 @@ async def test_save_health_check_result(mock_prisma, status, healthy, unhealthy,
     )
 
     if should_succeed:
-        mock_prisma.db.litellm_healthchecktable.create.assert_called_once()
+        mock_prisma.db.hangarllm_healthchecktable.create.assert_called_once()
     else:
         assert result is None
 
@@ -73,7 +73,7 @@ async def test_save_health_check_result(mock_prisma, status, healthy, unhealthy,
 async def test_get_health_check_history(mock_prisma):
     """Test health check history retrieval"""
     result = await mock_prisma.get_health_check_history(model_name="test", limit=50)
-    mock_prisma.db.litellm_healthchecktable.find_many.assert_called_once()
+    mock_prisma.db.hangarllm_healthchecktable.find_many.assert_called_once()
     assert len(result) == 1
 
 
@@ -125,17 +125,17 @@ def test_build_model_param_to_info_mapping():
         {
             "model_name": "gpt-3.5-turbo",
             "model_info": {"id": "model-123"},
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "hangarllm_params": {"model": "gpt-3.5-turbo"},
         },
         {
             "model_name": "gpt-4",
             "model_info": {"id": "model-456"},
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
         },
         {
             "model_name": "gpt-3.5-turbo-alias",
             "model_info": {"id": "model-789"},
-            "litellm_params": {"model": "gpt-3.5-turbo"},  # Same model param
+            "hangarllm_params": {"model": "gpt-3.5-turbo"},  # Same model param
         },
     ]
 
@@ -156,7 +156,7 @@ def test_build_model_param_to_info_mapping_no_model_name():
     model_list = [
         {
             "model_info": {"id": "model-123"},
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "hangarllm_params": {"model": "gpt-3.5-turbo"},
         },
     ]
 
@@ -225,7 +225,7 @@ def test_aggregate_health_check_results_attributes_each_result_to_its_own_deploy
     model_list: Final = [
         {
             "model_name": name,
-            "litellm_params": {"model": "openai/qwen", "api_base": f"http://{host}:11434/v1"},
+            "hangarllm_params": {"model": "openai/qwen", "api_base": f"http://{host}:11434/v1"},
             "model_info": {"id": f"{host}-{name}"},
         }
         for host, name in deployments
@@ -418,7 +418,7 @@ async def test_save_background_health_checks_to_db():
         {
             "model_name": "gpt-3.5-turbo",
             "model_info": {"id": "model-123"},
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "hangarllm_params": {"model": "gpt-3.5-turbo"},
         },
     ]
 
@@ -522,7 +522,7 @@ def _one_model_setup():
         {
             "model_name": "gpt-3.5-turbo",
             "model_info": {"id": "model-123"},
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "hangarllm_params": {"model": "gpt-3.5-turbo"},
         },
     ]
     return model_list, [{"model": "gpt-3.5-turbo"}], []
@@ -576,7 +576,7 @@ async def test_save_background_health_checks_to_db_exception_handling():
         {
             "model_name": "gpt-3.5-turbo",
             "model_info": {"id": "model-123"},
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "hangarllm_params": {"model": "gpt-3.5-turbo"},
         },
     ]
 
@@ -649,8 +649,8 @@ async def test_save_background_health_checks_compares_raw_checked_at_against_utc
     )
     mock_prisma.save_health_check_result = AsyncMock()
     model_list = [
-        {"model_name": "stale-model", "model_info": {"id": "stale-id"}, "litellm_params": {"model": "openai/stale"}},
-        {"model_name": "fresh-model", "model_info": {"id": "fresh-id"}, "litellm_params": {"model": "openai/fresh"}},
+        {"model_name": "stale-model", "model_info": {"id": "stale-id"}, "hangarllm_params": {"model": "openai/stale"}},
+        {"model_name": "fresh-model", "model_info": {"id": "fresh-id"}, "hangarllm_params": {"model": "openai/fresh"}},
     ]
 
     await save_background_health_checks_to_db(
@@ -685,7 +685,7 @@ async def test_latest_health_checks_endpoint_serialises_raw_rows(monkeypatch):
     )
     prisma = MagicMock()
     prisma.get_all_latest_health_checks = AsyncMock(return_value=(row,))
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma)
 
     response = await latest_health_checks_endpoint(user_api_key_dict=UserAPIKeyAuth())
 
@@ -717,7 +717,7 @@ async def test_perform_health_check_and_save_passes_model_id_to_perform_health_c
         {
             "model_name": "gpt-4",
             "model_info": {"id": "deployment-abc"},
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
         },
     ]
     healthy = [{"model": "gpt-4"}]
@@ -735,7 +735,7 @@ async def test_perform_health_check_and_save_passes_model_id_to_perform_health_c
         return healthy, unhealthy, {}
 
     with patch(
-        "litellm.proxy.health_endpoints._health_endpoints.perform_health_check",
+        "hangarllm.proxy.health_endpoints._health_endpoints.perform_health_check",
         side_effect=mock_perform_health_check,
     ) as mock_perform:
         result = await _perform_health_check_and_save(
@@ -764,7 +764,7 @@ async def test_perform_health_check_and_save_forwards_skip_disabled_background_f
         {
             "model_name": "gpt-4",
             "model_info": {"id": "deployment-abc"},
-            "litellm_params": {"model": "gpt-4"},
+            "hangarllm_params": {"model": "gpt-4"},
         },
     ]
 
@@ -772,7 +772,7 @@ async def test_perform_health_check_and_save_forwards_skip_disabled_background_f
         return [], [], {}
 
     with patch(
-        "litellm.proxy.health_endpoints._health_endpoints.perform_health_check",
+        "hangarllm.proxy.health_endpoints._health_endpoints.perform_health_check",
         side_effect=mock_perform_health_check,
     ) as mock_perform:
         await _perform_health_check_and_save(
@@ -795,22 +795,22 @@ async def test_perform_health_check_and_save_forwards_skip_disabled_background_f
 @pytest.mark.asyncio
 async def test_perform_health_check_narrows_to_a_team_deployment_by_its_public_name():
     """``/health?model=<team_public_model_name>`` must probe the team deployment, not an empty list."""
-    from litellm.proxy.health_check import perform_health_check
+    from hangarllm.proxy.health_check import perform_health_check
 
     team_deployment = {
         "model_name": "bedrock-nova_team-b_9f2c",
-        "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+        "hangarllm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
         "model_info": {"id": "id-team-b", "team_id": "team-b", "team_public_model_name": "bedrock-nova"},
     }
     other_deployment = {
         "model_name": "gpt-5.4-mini",
-        "litellm_params": {"model": "openai/gpt-5.4-mini"},
+        "hangarllm_params": {"model": "openai/gpt-5.4-mini"},
         "model_info": {"id": "id-openai"},
     }
     probe = AsyncMock(return_value=([{"model": "bedrock/us.amazon.nova-2-lite-v1:0", "model_id": "id-team-b"}], [], {}))
 
     with patch(  # test-quality-ok: the deployments handed to the probe are the assertion; no injection seam
-        "litellm.proxy.health_check._perform_health_check", probe
+        "hangarllm.proxy.health_check._perform_health_check", probe
     ):
         healthy, unhealthy, _ = await perform_health_check(
             model_list=[team_deployment, other_deployment], model="bedrock-nova", team_id="team-b"
@@ -824,17 +824,17 @@ async def test_perform_health_check_narrows_to_a_team_deployment_by_its_public_n
 @pytest.mark.asyncio
 async def test_perform_health_check_keeps_a_public_name_off_another_team():
     """A team's public model name is not a global alias: a caller from another team must not probe its deployment."""
-    from litellm.proxy.health_check import perform_health_check
+    from hangarllm.proxy.health_check import perform_health_check
 
     team_deployment = {
         "model_name": "bedrock-nova_team-b_9f2c",
-        "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+        "hangarllm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
         "model_info": {"id": "id-team-b", "team_id": "team-b", "team_public_model_name": "bedrock-nova"},
     }
     probe = AsyncMock(return_value=([{"model": "bedrock/us.amazon.nova-2-lite-v1:0", "model_id": "id-team-b"}], [], {}))
 
     with patch(  # test-quality-ok: the deployments handed to the probe are the assertion; no injection seam
-        "litellm.proxy.health_check._perform_health_check", probe
+        "hangarllm.proxy.health_check._perform_health_check", probe
     ):
         healthy, unhealthy, _ = await perform_health_check(
             model_list=[team_deployment], model="bedrock-nova", team_id="team-a"
@@ -847,22 +847,22 @@ async def test_perform_health_check_keeps_a_public_name_off_another_team():
 
 _GLOBAL_DEPLOYMENT = {
     "model_name": "bedrock-nova",
-    "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+    "hangarllm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
     "model_info": {"id": "id-bedrock"},
 }
 _TEAM_B_COPY = {
     "model_name": "bedrock-nova_team-b_9f2c",
-    "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+    "hangarllm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
     "model_info": {"id": "id-team-b", "team_id": "team-b", "team_public_model_name": "bedrock-nova"},
 }
 _GLOBAL_BARE_NAME = {
     "model_name": "gpt-5.4-nano",
-    "litellm_params": {"model": "gpt-5.4-nano"},
+    "hangarllm_params": {"model": "gpt-5.4-nano"},
     "model_info": {"id": "id-nano"},
 }
 _TEAM_B_BARE_COPY = {
     "model_name": "gpt-5.4-nano_team-b_7c3d",
-    "litellm_params": {"model": "gpt-5.4-nano"},
+    "hangarllm_params": {"model": "gpt-5.4-nano"},
     "model_info": {"id": "id-nano-team-b", "team_id": "team-b", "team_public_model_name": "gpt-5.4-nano"},
 }
 
@@ -882,23 +882,23 @@ _TEAM_B_BARE_COPY = {
         "a team-less caller reaches a public name nothing else carries",
         "model_name wins over a public name for a team-less caller",
         "a team's own copy wins over the global model_name",
-        "a team's own copy wins over a litellm_params.model equal to the public name",
-        "model_name wins over a litellm_params.model equal to it for a team-less caller",
-        "a provider model string no name carries still matches litellm_params.model",
+        "a team's own copy wins over a hangarllm_params.model equal to the public name",
+        "model_name wins over a hangarllm_params.model equal to it for a team-less caller",
+        "a provider model string no name carries still matches hangarllm_params.model",
     ],
 )
 async def test_perform_health_check_targets_a_name_the_way_a_request_for_it_routes(
     team_id, model, model_list, expected_ids
 ):
     """``/health?model=<name>`` probes the deployments a request for that name from the same caller would route to."""
-    from litellm.proxy.health_check import perform_health_check
+    from hangarllm.proxy.health_check import perform_health_check
 
     probe = AsyncMock(
         return_value=([{"model": "bedrock/us.amazon.nova-2-lite-v1:0", "model_id": i} for i in expected_ids], [], {})
     )
 
     with patch(  # test-quality-ok: the deployments handed to the probe are the assertion; no injection seam
-        "litellm.proxy.health_check._perform_health_check", probe
+        "hangarllm.proxy.health_check._perform_health_check", probe
     ):
         healthy, unhealthy, _ = await perform_health_check(model_list=model_list, model=model, team_id=team_id)
 
@@ -908,7 +908,7 @@ async def test_perform_health_check_targets_a_name_the_way_a_request_for_it_rout
 
 
 def test_parse_background_health_check_model_groups_unset_returns_none():
-    from litellm.proxy.health_check import parse_background_health_check_model_groups
+    from hangarllm.proxy.health_check import parse_background_health_check_model_groups
 
     assert parse_background_health_check_model_groups(None) is None
     assert parse_background_health_check_model_groups({}) is None
@@ -916,7 +916,7 @@ def test_parse_background_health_check_model_groups_unset_returns_none():
 
 
 def test_parse_background_health_check_model_groups_list_returns_frozenset():
-    from litellm.proxy.health_check import parse_background_health_check_model_groups
+    from hangarllm.proxy.health_check import parse_background_health_check_model_groups
 
     parsed = parse_background_health_check_model_groups(
         {"background_health_check_model_groups": ["prod-openai", "prod-claude"]}
@@ -926,14 +926,14 @@ def test_parse_background_health_check_model_groups_list_returns_frozenset():
 
 @pytest.mark.parametrize("bad_value", ["prod-openai", 42, {"a": 1}, [1, 2], [None]])
 def test_parse_background_health_check_model_groups_malformed_raises(bad_value):
-    from litellm.proxy.health_check import parse_background_health_check_model_groups
+    from hangarllm.proxy.health_check import parse_background_health_check_model_groups
 
     with pytest.raises(ValueError, match="must be a list of model group names"):
         parse_background_health_check_model_groups({"background_health_check_model_groups": bad_value})
 
 
 def test_filter_deployments_to_model_groups():
-    from litellm.proxy.health_check import filter_deployments_to_model_groups
+    from hangarllm.proxy.health_check import filter_deployments_to_model_groups
 
     model_list = [
         {"model_name": "prod-openai", "model_info": {"id": "a"}},

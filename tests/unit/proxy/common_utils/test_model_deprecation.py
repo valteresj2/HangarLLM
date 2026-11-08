@@ -12,11 +12,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.get_model_cost_map import AliasedCostEntry
-from litellm.proxy.common_utils.model_deprecation import (
+import hangarllm
+from hangarllm import Router
+from hangarllm._logging import verbose_logger
+from hangarllm.hangarllm_core_utils.get_model_cost_map import AliasedCostEntry
+from hangarllm.proxy.common_utils.model_deprecation import (
     _classify,
     _parse_deprecation_date,
     collect_model_deprecations,
@@ -75,12 +75,12 @@ class TestCollectModelDeprecations:
         assert snapshot.upcoming == []
 
     def test_should_skip_models_without_deprecation_metadata(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = _make_router(
             [
                 {
                     "model_name": "gpt-4o",
-                    "litellm_params": {"model": "openai/gpt-4o"},
+                    "hangarllm_params": {"model": "openai/gpt-4o"},
                     "model_info": {"id": "abc"},
                 }
             ]
@@ -93,20 +93,20 @@ class TestCollectModelDeprecations:
     def test_should_classify_into_three_buckets(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {
                 "deprecated-model": {
                     "deprecation_date": "2026-01-01",
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                 },
                 "imminent-model": {
                     "deprecation_date": "2026-06-15",
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                 },
                 "upcoming-model": {
                     "deprecation_date": "2027-01-01",
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                 },
             },
         )
@@ -114,17 +114,17 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "deprecated-alias",
-                    "litellm_params": {"model": "openai/deprecated-model"},
+                    "hangarllm_params": {"model": "openai/deprecated-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "imminent-alias",
-                    "litellm_params": {"model": "imminent-model"},
+                    "hangarllm_params": {"model": "imminent-model"},
                     "model_info": {"id": "2"},
                 },
                 {
                     "model_name": "upcoming-alias",
-                    "litellm_params": {"model": "openai/upcoming-model"},
+                    "hangarllm_params": {"model": "openai/upcoming-model"},
                     "model_info": {"id": "3"},
                 },
             ]
@@ -143,7 +143,7 @@ class TestCollectModelDeprecations:
     def test_should_prefer_explicit_deployment_override(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {"some-model": {"deprecation_date": "2030-01-01"}},
         )
@@ -151,7 +151,7 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "my-alias",
-                    "litellm_params": {"model": "some-model"},
+                    "hangarllm_params": {"model": "some-model"},
                     "model_info": {
                         "id": "x",
                         "deprecation_date": "2026-06-10",
@@ -168,7 +168,7 @@ class TestCollectModelDeprecations:
     def test_should_dedupe_duplicate_deployments_in_same_group(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {"shared-model": {"deprecation_date": "2026-06-10"}},
         )
@@ -176,12 +176,12 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "hangarllm_params": {"model": "shared-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "hangarllm_params": {"model": "shared-model"},
                     "model_info": {"id": "2"},
                 },
             ]
@@ -193,7 +193,7 @@ class TestCollectModelDeprecations:
 
     def test_should_resolve_via_unprefixed_model_name(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {"gpt-4o": {"deprecation_date": "2026-06-10"}},
         )
@@ -201,7 +201,7 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "openai/gpt-4o"},
+                    "hangarllm_params": {"model": "openai/gpt-4o"},
                     "model_info": {"id": "1"},
                 }
             ]
@@ -209,11 +209,11 @@ class TestCollectModelDeprecations:
 
         snapshot = collect_model_deprecations(llm_router=router, warn_within_days=30, today=date(2026, 6, 1))
 
-        assert [m.litellm_model for m in snapshot.imminent] == ["gpt-4o"]
+        assert [m.hangarllm_model for m in snapshot.imminent] == ["gpt-4o"]
 
     def test_should_keep_both_dates_when_group_has_conflicting_dates(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {"shared-model": {"deprecation_date": "2026-06-10"}},
         )
@@ -221,12 +221,12 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "hangarllm_params": {"model": "shared-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "hangarllm_params": {"model": "shared-model"},
                     "model_info": {"id": "2", "deprecation_date": "2027-01-01"},
                 },
             ]
@@ -240,7 +240,7 @@ class TestCollectModelDeprecations:
     def test_should_resolve_via_base_model(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {"base-thing": {"deprecation_date": "2026-06-10"}},
         )
@@ -248,7 +248,7 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "azure/some-deployment-name"},
+                    "hangarllm_params": {"model": "azure/some-deployment-name"},
                     "model_info": {"id": "1", "base_model": "base-thing"},
                 }
             ]
@@ -257,22 +257,22 @@ class TestCollectModelDeprecations:
         snapshot = collect_model_deprecations(llm_router=router, warn_within_days=30, today=today)
 
         assert len(snapshot.imminent) == 1
-        assert snapshot.imminent[0].litellm_model == "base-thing"
+        assert snapshot.imminent[0].hangarllm_model == "base-thing"
 
 
 class TestProviderScopedResolution:
     CATALOG = {
-        "gpt-4o": {"deprecation_date": "2027-01-14", "litellm_provider": "openai"},
-        "azure/gpt-4o": {"deprecation_date": "2027-04-14", "litellm_provider": "azure"},
-        "github_copilot/gpt-4o": {"litellm_provider": "github_copilot"},
+        "gpt-4o": {"deprecation_date": "2027-01-14", "hangarllm_provider": "openai"},
+        "azure/gpt-4o": {"deprecation_date": "2027-04-14", "hangarllm_provider": "azure"},
+        "github_copilot/gpt-4o": {"hangarllm_provider": "github_copilot"},
         "azure_ai/gpt-4.1": AliasedCostEntry(
-            {"deprecation_date": "2027-05-01", "litellm_provider": "azure_ai", "mode": "chat"}, ()
+            {"deprecation_date": "2027-05-01", "hangarllm_provider": "azure_ai", "mode": "chat"}, ()
         ),
         "custom-base": {"deprecation_date": "2026-12-01"},
-        "gpt-4.1": {"deprecation_date": "2027-01-14", "litellm_provider": "openai"},
-        "azure/gpt-4.1": {"deprecation_date": "2027-04-14", "litellm_provider": "azure"},
-        "gpt-4o-2024-05-13": {"deprecation_date": "2026-10-23", "litellm_provider": "openai"},
-        "azure/gpt-4o-2024-05-13": {"deprecation_date": "2026-12-09", "litellm_provider": "azure"},
+        "gpt-4.1": {"deprecation_date": "2027-01-14", "hangarllm_provider": "openai"},
+        "azure/gpt-4.1": {"deprecation_date": "2027-04-14", "hangarllm_provider": "azure"},
+        "gpt-4o-2024-05-13": {"deprecation_date": "2026-10-23", "hangarllm_provider": "openai"},
+        "azure/gpt-4o-2024-05-13": {"deprecation_date": "2026-12-09", "hangarllm_provider": "azure"},
         "azure/aliased-base": AliasedCostEntry(
             {"deprecation_date": "2026-11-20"}, ("azure/aliased-base", "azure/aliased-base-v1")
         ),
@@ -281,13 +281,13 @@ class TestProviderScopedResolution:
     COST_MAP = {
         **CATALOG,
         "azure_ai/gpt-4o": AliasedCostEntry(
-            {"deprecation_date": "2027-01-14", "litellm_provider": "azure", "mode": "chat"}, ()
+            {"deprecation_date": "2027-01-14", "hangarllm_provider": "azure", "mode": "chat"}, ()
         ),
         "registered-base": AliasedCostEntry({"deprecation_date": "2026-12-15"}, (), frozenset({"deprecation_date"})),
     }
 
     @pytest.mark.parametrize(
-        ("litellm_params", "model_info", "expected"),
+        ("hangarllm_params", "model_info", "expected"),
         [
             ({"model": "gpt-4o"}, {}, ("gpt-4o", date(2027, 1, 14), "openai")),
             ({"model": "openai/gpt-4o"}, {}, ("gpt-4o", date(2027, 1, 14), "openai")),
@@ -368,20 +368,20 @@ class TestProviderScopedResolution:
     def test_should_prefer_the_deployments_own_provider_date(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        litellm_params: Mapping[str, str],
+        hangarllm_params: Mapping[str, str],
         model_info: Mapping[str, str],
         expected: tuple[str, date, str | None],
     ) -> None:
-        monkeypatch.setattr(litellm, "model_cost", self.COST_MAP)
+        monkeypatch.setattr(hangarllm, "model_cost", self.COST_MAP)
         router: Final = _make_router(
-            [{"model_name": "alias", "litellm_params": litellm_params, "model_info": {"id": "1", **model_info}}]
+            [{"model_name": "alias", "hangarllm_params": hangarllm_params, "model_info": {"id": "1", **model_info}}]
         )
 
         snapshot: Final = collect_model_deprecations(
             llm_router=router, warn_within_days=30, today=date(2026, 6, 1), loaded_catalog=lambda: self.CATALOG
         )
 
-        assert [(m.litellm_model, m.deprecation_date, m.litellm_provider) for m in snapshot.upcoming] == [expected]
+        assert [(m.hangarllm_model, m.deprecation_date, m.hangarllm_provider) for m in snapshot.upcoming] == [expected]
 
 
 class TestFormatDeprecationAlertMessage:
@@ -392,20 +392,20 @@ class TestFormatDeprecationAlertMessage:
     def test_should_render_imminent_and_deprecated_sections(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {
                 "dead-model": {
                     "deprecation_date": "2026-01-01",
-                    "litellm_provider": "openai",
+                    "hangarllm_provider": "openai",
                 },
                 "soon-model": {
                     "deprecation_date": "2026-06-15",
-                    "litellm_provider": "anthropic",
+                    "hangarllm_provider": "anthropic",
                 },
                 "later-model": {
                     "deprecation_date": "2027-01-01",
-                    "litellm_provider": "anthropic",
+                    "hangarllm_provider": "anthropic",
                 },
             },
         )
@@ -413,17 +413,17 @@ class TestFormatDeprecationAlertMessage:
             [
                 {
                     "model_name": "dead",
-                    "litellm_params": {"model": "dead-model"},
+                    "hangarllm_params": {"model": "dead-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "soon",
-                    "litellm_params": {"model": "soon-model"},
+                    "hangarllm_params": {"model": "soon-model"},
                     "model_info": {"id": "2"},
                 },
                 {
                     "model_name": "later",
-                    "litellm_params": {"model": "later-model"},
+                    "hangarllm_params": {"model": "later-model"},
                     "model_info": {"id": "3"},
                 },
             ]
@@ -446,11 +446,11 @@ class TestFormatDeprecationAlertMessage:
             [
                 {
                     "model_name": "<!channel> pwned",
-                    "litellm_params": {"model": "openai/whatever"},
+                    "hangarllm_params": {"model": "openai/whatever"},
                     "model_info": {
                         "id": "1",
                         "deprecation_date": "2026-06-10",
-                        "litellm_provider": "<https://evil.example|openai> & co",
+                        "hangarllm_provider": "<https://evil.example|openai> & co",
                     },
                 }
             ]
@@ -468,12 +468,12 @@ class TestFormatDeprecationAlertMessage:
 
 class TestSuccessorModel:
     def test_unmatched_successor_logs_warning_by_default(self, monkeypatch, caplog):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = Router(
             model_list=[
                 {
                     "model_name": "old",
-                    "litellm_params": {"model": "openai/old-model"},
+                    "hangarllm_params": {"model": "openai/old-model"},
                     "model_info": {
                         "id": "1",
                         "deprecation_date": "2026-06-10",
@@ -493,12 +493,12 @@ class TestSuccessorModel:
         assert successor_records[0].levelno == logging.WARNING
 
     def test_empty_team_public_model_name_is_normalized_to_none(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = Router(
             model_list=[
                 {
                     "model_name": "team-model",
-                    "litellm_params": {"model": "openai/team-model"},
+                    "hangarllm_params": {"model": "openai/team-model"},
                     "model_info": {
                         "id": "1",
                         "team_id": "team-1",
@@ -514,15 +514,15 @@ class TestSuccessorModel:
         assert snapshot.imminent[0].team_public_model_name is None
 
     def test_should_surface_the_successor_set_on_the_deployment(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = Router(
             model_list=[
                 {
                     "model_name": "old",
-                    "litellm_params": {"model": "openai/old-model"},
+                    "hangarllm_params": {"model": "openai/old-model"},
                     "model_info": {"id": "1", "deprecation_date": "2026-06-10", "successor_model": "new"},
                 },
-                {"model_name": "new", "litellm_params": {"model": "openai/new-model"}, "model_info": {"id": "2"}},
+                {"model_name": "new", "hangarllm_params": {"model": "openai/new-model"}, "model_info": {"id": "2"}},
             ]
         )
 
@@ -531,15 +531,15 @@ class TestSuccessorModel:
         assert snapshot.imminent[0].successor_model == "new"
 
     def test_should_name_the_deployment_successor_when_the_date_comes_from_the_cost_map(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {"old-model": {"deprecation_date": "2026-06-10"}})
+        monkeypatch.setattr(hangarllm, "model_cost", {"old-model": {"deprecation_date": "2026-06-10"}})
         router = Router(
             model_list=[
                 {
                     "model_name": "old",
-                    "litellm_params": {"model": "openai/old-model"},
+                    "hangarllm_params": {"model": "openai/old-model"},
                     "model_info": {"id": "1", "successor_model": "my-pick"},
                 },
-                {"model_name": "my-pick", "litellm_params": {"model": "openai/pick"}, "model_info": {"id": "2"}},
+                {"model_name": "my-pick", "hangarllm_params": {"model": "openai/pick"}, "model_info": {"id": "2"}},
             ]
         )
 
@@ -548,17 +548,17 @@ class TestSuccessorModel:
         assert snapshot.imminent[0].successor_model == "my-pick"
 
     def test_should_ignore_blank_or_non_string_successors(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = _make_router(
             [
                 {
                     "model_name": "blank",
-                    "litellm_params": {"model": "openai/a"},
+                    "hangarllm_params": {"model": "openai/a"},
                     "model_info": {"id": "1", "deprecation_date": "2026-06-10", "successor_model": "   "},
                 },
                 {
                     "model_name": "number",
-                    "litellm_params": {"model": "openai/b"},
+                    "hangarllm_params": {"model": "openai/b"},
                     "model_info": {"id": "2", "deprecation_date": "2026-06-10", "successor_model": 7},
                 },
             ]
@@ -571,12 +571,12 @@ class TestSuccessorModel:
     def test_should_report_successors_as_set_and_warn_when_no_model_in_the_team_scope_matches(
         self, monkeypatch, caplog
     ):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = Router(
             model_list=[
                 {
                     "model_name": "model_name_t1_old",
-                    "litellm_params": {"model": "openai/team-old"},
+                    "hangarllm_params": {"model": "openai/team-old"},
                     "model_info": {
                         "id": "1",
                         "team_id": "t1",
@@ -587,25 +587,25 @@ class TestSuccessorModel:
                 },
                 {
                     "model_name": "model_name_t1_new",
-                    "litellm_params": {"model": "openai/team-new"},
+                    "hangarllm_params": {"model": "openai/team-new"},
                     "model_info": {"id": "2", "team_id": "t1", "team_public_model_name": "team-new"},
                 },
                 {
                     "model_name": "global-old",
-                    "litellm_params": {"model": "openai/global-old"},
+                    "hangarllm_params": {"model": "openai/global-old"},
                     "model_info": {"id": "3", "deprecation_date": "2026-06-10", "successor_model": "team-new"},
                 },
                 {
                     "model_name": "typo-old",
-                    "litellm_params": {"model": "openai/typo-old"},
+                    "hangarllm_params": {"model": "openai/typo-old"},
                     "model_info": {"id": "4", "deprecation_date": "2026-06-10", "successor_model": "gpt-nwe"},
                 },
                 {
                     "model_name": "wildcard-old",
-                    "litellm_params": {"model": "openai/wildcard-old"},
+                    "hangarllm_params": {"model": "openai/wildcard-old"},
                     "model_info": {"id": "5", "deprecation_date": "2026-06-10", "successor_model": "anthropic/x"},
                 },
-                {"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}, "model_info": {"id": "6"}},
+                {"model_name": "anthropic/*", "hangarllm_params": {"model": "anthropic/*"}, "model_info": {"id": "6"}},
             ]
         )
 
@@ -626,40 +626,40 @@ class TestSuccessorModel:
         assert any("typo-old names successor gpt-nwe" in warning for warning in warnings)
 
     def test_should_keep_the_first_deployment_and_carry_the_group_successor_when_deduping(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = Router(
             model_list=[
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "openai/a"},
+                    "hangarllm_params": {"model": "openai/a"},
                     "model_info": {"id": "1", "deprecation_date": "2026-06-10"},
                 },
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "openai/b"},
+                    "hangarllm_params": {"model": "openai/b"},
                     "model_info": {"id": "2", "deprecation_date": "2026-06-10", "successor_model": "alias-v2"},
                 },
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "openai/c"},
+                    "hangarllm_params": {"model": "openai/c"},
                     "model_info": {"id": "3", "deprecation_date": "2026-06-10", "successor_model": "alias-v3"},
                 },
-                {"model_name": "alias-v2", "litellm_params": {"model": "openai/v2"}, "model_info": {"id": "4"}},
-                {"model_name": "alias-v3", "litellm_params": {"model": "openai/v3"}, "model_info": {"id": "5"}},
+                {"model_name": "alias-v2", "hangarllm_params": {"model": "openai/v2"}, "model_info": {"id": "4"}},
+                {"model_name": "alias-v3", "hangarllm_params": {"model": "openai/v3"}, "model_info": {"id": "5"}},
             ]
         )
 
         snapshot = collect_model_deprecations(llm_router=router, warn_within_days=30, today=date(2026, 6, 1))
 
-        assert [(m.litellm_model, m.successor_model) for m in snapshot.imminent] == [("openai/a", "alias-v2")]
+        assert [(m.hangarllm_model, m.successor_model) for m in snapshot.imminent] == [("openai/a", "alias-v2")]
 
     def test_should_name_the_successor_in_the_slack_entry_and_escape_it(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(hangarllm, "model_cost", {})
         router = Router(
             model_list=[
                 {
                     "model_name": "old",
-                    "litellm_params": {"model": "openai/old-model"},
+                    "hangarllm_params": {"model": "openai/old-model"},
                     "model_info": {
                         "id": "1",
                         "deprecation_date": "2026-06-10",
@@ -668,12 +668,12 @@ class TestSuccessorModel:
                 },
                 {
                     "model_name": "<https://evil.example|new>",
-                    "litellm_params": {"model": "openai/new-model"},
+                    "hangarllm_params": {"model": "openai/new-model"},
                     "model_info": {"id": "2"},
                 },
                 {
                     "model_name": "orphan",
-                    "litellm_params": {"model": "openai/orphan-model"},
+                    "hangarllm_params": {"model": "openai/orphan-model"},
                     "model_info": {"id": "3", "deprecation_date": "2026-06-10"},
                 },
             ]
@@ -691,7 +691,7 @@ class TestSuccessorModel:
 class TestRecommendationSources:
     def test_should_return_the_cost_map_recommendation_and_provider_notice(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {
                 "old-model": {
@@ -702,7 +702,7 @@ class TestRecommendationSources:
             },
         )
         router = _make_router(
-            [{"model_name": "support", "litellm_params": {"model": "openai/old-model"}, "model_info": {}}]
+            [{"model_name": "support", "hangarllm_params": {"model": "openai/old-model"}, "model_info": {}}]
         )
         info = collect_model_deprecations(llm_router=router, today=date(2026, 6, 1)).imminent[0]
         assert info.successor_model == "new-model"
@@ -711,16 +711,16 @@ class TestRecommendationSources:
 
     def test_should_keep_configured_recommendation_provenance_when_merging_deployments(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {"old-model": {"deprecation_date": "2026-06-10", "successor_model": "catalog-pick"}},
         )
         router = _make_router(
             [
-                {"model_name": "support", "litellm_params": {"model": "openai/old-model"}, "model_info": {}},
+                {"model_name": "support", "hangarllm_params": {"model": "openai/old-model"}, "model_info": {}},
                 {
                     "model_name": "support",
-                    "litellm_params": {"model": "openai/old-model"},
+                    "hangarllm_params": {"model": "openai/old-model"},
                     "model_info": {"successor_model": "configured-pick"},
                 },
             ]
@@ -732,7 +732,7 @@ class TestRecommendationSources:
 
     def test_should_carry_the_notice_from_the_same_deployment_as_the_selected_recommendation(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            hangarllm,
             "model_cost",
             {
                 "a": {"deprecation_date": "2026-06-10", "deprecation_source": "https://provider.example/a"},
@@ -745,8 +745,8 @@ class TestRecommendationSources:
         )
         router = _make_router(
             [
-                {"model_name": "support", "litellm_params": {"model": "openai/a"}, "model_info": {}},
-                {"model_name": "support", "litellm_params": {"model": "openai/b"}, "model_info": {}},
+                {"model_name": "support", "hangarllm_params": {"model": "openai/a"}, "model_info": {}},
+                {"model_name": "support", "hangarllm_params": {"model": "openai/b"}, "model_info": {}},
             ]
         )
         info = collect_model_deprecations(llm_router=router, today=date(2026, 6, 1)).imminent[0]

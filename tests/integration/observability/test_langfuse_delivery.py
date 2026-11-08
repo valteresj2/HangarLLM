@@ -41,7 +41,7 @@ PROJECTS_PATH: Final = "/api/public/projects"
 TRACES_PATH: Final = "/api/public/otel/v1/traces"
 PROMPTS_PATH: Final = "/api/public/v2/prompts/"
 STOCK_CONFIG: Final = Path("tests/integration/proxy_config.yaml")
-CONFIG_SECTIONS: Final = ("litellm_settings", "environment_variables")
+CONFIG_SECTIONS: Final = ("hangarllm_settings", "environment_variables")
 LANGFUSE_ENVIRONMENT: Final = ("LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY")
 INHERITED_ENVIRONMENT: Final = (*LANGFUSE_ENVIRONMENT, "DATABASE_URL_READ_REPLICA")
 _PROXY_CONFIG: Final = TypeAdapter(dict[str, object])
@@ -103,7 +103,7 @@ def _text_prompt(name: str) -> Reply:
 def _langfuse_config(tmp_path: Path, general_settings: Mapping[str, JsonValue] | None = None) -> Path:
     config: Final = _PROXY_CONFIG.validate_python(yaml.safe_load(STOCK_CONFIG.read_text()))
     settings: Final = {
-        **_SETTINGS.validate_python(config["litellm_settings"]),
+        **_SETTINGS.validate_python(config["hangarllm_settings"]),
         "success_callback": ["langfuse"],
         "failure_callback": ["langfuse"],
     }
@@ -113,7 +113,7 @@ def _langfuse_config(tmp_path: Path, general_settings: Mapping[str, JsonValue] |
     }
     name: Final = "langfuse.yaml" if general_settings is None else "langfuse-merged.yaml"
     path: Final = tmp_path / name
-    path.write_text(yaml.safe_dump({**config, "litellm_settings": settings, "general_settings": general}))
+    path.write_text(yaml.safe_dump({**config, "hangarllm_settings": settings, "general_settings": general}))
     return path
 
 
@@ -128,7 +128,7 @@ def _langfuse_environment(langfuse: Wire) -> dict[str, str]:
 
 def _config_rows(database_url: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT param_name, param_value FROM "LiteLLM_Config" WHERE param_name IN (%s, %s) ORDER BY param_name',
+        'SELECT param_name, param_value FROM "HangarLLM_Config" WHERE param_name IN (%s, %s) ORDER BY param_name',
         CONFIG_SECTIONS,
         database_url=database_url,
     )
@@ -235,8 +235,8 @@ def test_langfuse_callback_delivers_the_generation_over_otlp_v4_with_the_caller_
         assert marker + "-question" in str(_attribute(attributes, "langfuse.observation.input"))
         assert marker + "-answer" in str(_attribute(attributes, "langfuse.observation.output"))
         assert (
-            _attribute(attributes, "langfuse.observation.metadata.litellm_call_id")
-            == response.headers["x-litellm-call-id"]
+            _attribute(attributes, "langfuse.observation.metadata.hangarllm_call_id")
+            == response.headers["x-hangarllm-call-id"]
         )
 
 
@@ -248,7 +248,7 @@ def test_langfuse_callback_stored_in_the_db_through_config_update_delivers_the_g
     public_key: Final = "pk-lf-db-" + marker
     secret_key: Final = "sk-lf-db-" + marker
     stock_settings: Final = _SETTINGS.validate_python(
-        _PROXY_CONFIG.validate_python(yaml.safe_load(STOCK_CONFIG.read_text()))["litellm_settings"]
+        _PROXY_CONFIG.validate_python(yaml.safe_load(STOCK_CONFIG.read_text()))["hangarllm_settings"]
     )
     assert "langfuse" not in json.dumps(
         [stock_settings.get(key) for key in ("callbacks", "success_callback", "failure_callback")]
@@ -278,7 +278,7 @@ def test_langfuse_callback_stored_in_the_db_through_config_update_delivers_the_g
         candidate.post(
             "/config/update",
             {
-                "litellm_settings": {"success_callback": ["langfuse"]},
+                "hangarllm_settings": {"success_callback": ["langfuse"]},
                 "environment_variables": {
                     "LANGFUSE_HOST": destination.url,
                     "LANGFUSE_PUBLIC_KEY": public_key,
@@ -321,7 +321,7 @@ def test_langfuse_callback_stored_in_the_db_through_config_update_delivers_the_g
 
         stored: Final = {string_value(row["param_name"]): row["param_value"] for row in _config_rows(scratch_url)}
         callbacks: Final = TypeAdapter(list[str]).validate_python(
-            object_value(stored["litellm_settings"]).get("success_callback") or []
+            object_value(stored["hangarllm_settings"]).get("success_callback") or []
         )
         assert "langfuse" in callbacks, stored
         assert set(object_value(stored["environment_variables"])) >= set(LANGFUSE_ENVIRONMENT), stored
@@ -474,7 +474,7 @@ def _await_span(received: list[Request], destination: Wire, call_id: str) -> Spa
         return tuple(
             span
             for span in _spans(received)
-            if _attribute(span.attributes, "langfuse.observation.metadata.litellm_call_id") == call_id
+            if _attribute(span.attributes, "langfuse.observation.metadata.hangarllm_call_id") == call_id
         )
 
     spans: Final = eventually(exported, lambda values: len(values) == 1, seconds=20)
@@ -575,7 +575,7 @@ def test_langfuse_trace_and_session_prefer_caller_metadata_over_w3c_headers(
         assert response.status_code == 200, response.text
         assert upstream_targets == [expected_target], upstream_targets
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
-        span: Final = _await_span(received, destination, response.headers["x-litellm-call-id"])
+        span: Final = _await_span(received, destination, response.headers["x-hangarllm-call-id"])
         assert span.trace_id.hex() == expected_trace_value
         assert _attribute(span.attributes, "session.id") == expected_session_value
 
@@ -625,7 +625,7 @@ def test_missing_session_id_reject_accepts_caller_metadata_and_baggage_fallback(
             headers=_w3c_headers(header_trace, None),
         )
         assert first.status_code == 200, first.text
-        first_span: Final = _await_span(received, destination, first.headers["x-litellm-call-id"])
+        first_span: Final = _await_span(received, destination, first.headers["x-hangarllm-call-id"])
         assert _attribute(first_span.attributes, "session.id") == caller_session
 
         baggage_session: Final = "baggage-" + marker + "-r2"
@@ -640,7 +640,7 @@ def test_missing_session_id_reject_accepts_caller_metadata_and_baggage_fallback(
             headers=_w3c_headers(uuid.uuid4().hex, baggage_session),
         )
         assert second.status_code == 200, second.text
-        second_span: Final = _await_span(received, destination, second.headers["x-litellm-call-id"])
+        second_span: Final = _await_span(received, destination, second.headers["x-hangarllm-call-id"])
         assert _attribute(second_span.attributes, "session.id") == baggage_session
 
         third: Final = candidate.request(
@@ -704,7 +704,7 @@ def test_missing_session_id_generate_derives_session_from_caller_trace(
         assert response.status_code == 200, response.text
         assert upstream_targets == [expected_target], upstream_targets
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
-        span: Final = _await_span(received, destination, response.headers["x-litellm-call-id"])
+        span: Final = _await_span(received, destination, response.headers["x-hangarllm-call-id"])
         assert _attribute(span.attributes, "session.id") == caller_trace
 
 
@@ -831,7 +831,7 @@ def audit_otel_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_AuditR
         owned_proxy(
             gateway,
             directory,
-            {"LITELLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300"},
+            {"HANGARLLM_OTEL_V2": "1", "OTEL_BSP_SCHEDULE_DELAY": "300"},
             config=_otel_config(directory, destination.url),
         ) as candidate,
         candidate.scenario() as scenario,
@@ -842,7 +842,7 @@ def audit_otel_rig(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_AuditR
 def _await_spend_row(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
         lambda: read_rows(
-            'SELECT session_id, status, metadata, cache_hit FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s',
+            'SELECT session_id, status, metadata, cache_hit FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s',
             (call_id,),
         ),
         lambda values: len(values) == 1,
@@ -871,7 +871,7 @@ def _assert_span_spend(
     expected_trace: str | None,
     expected_session: str | None,
 ) -> None:
-    call_id: Final = response.headers["x-litellm-call-id"]
+    call_id: Final = response.headers["x-hangarllm-call-id"]
     span: Final = _await_span(received, destination, call_id)
     if expected_trace is not None:
         assert span.trace_id.hex() == expected_trace, f"call {call_id}: trace id"
@@ -1018,7 +1018,7 @@ def test_audit_caller_metadata_wins_through_official_sdk_clients(audit_rig: _Aud
             return caller_trace, caller_session, asyncio.run(messages_call())
 
         expected: Final = {
-            call_headers["x-litellm-call-id"]: (caller_trace, caller_session, client_kind)
+            call_headers["x-hangarllm-call-id"]: (caller_trace, caller_session, client_kind)
             for client_kind, (caller_trace, caller_session, call_headers) in (
                 (kind, drive(kind))
                 for kind in (
@@ -1035,13 +1035,13 @@ def test_audit_caller_metadata_wins_through_official_sdk_clients(audit_rig: _Aud
             return tuple(
                 span
                 for span in _spans(received)
-                if _attribute(span.attributes, "langfuse.observation.metadata.litellm_call_id") in expected
+                if _attribute(span.attributes, "langfuse.observation.metadata.hangarllm_call_id") in expected
             )
 
         spans: Final = eventually(spans_named, lambda values: len(values) == len(expected), seconds=60)
         for span in spans:
             call_id: Final = str(
-                _attribute(span.attributes, "langfuse.observation.metadata.litellm_call_id")
+                _attribute(span.attributes, "langfuse.observation.metadata.hangarllm_call_id")
             )
             caller_trace, caller_session, client_kind = expected[call_id]
             assert span.trace_id.hex() == caller_trace, f"{client_kind}: trace id"
@@ -1052,13 +1052,13 @@ def test_audit_caller_metadata_wins_through_official_sdk_clients(audit_rig: _Aud
 
 def _otel_config(tmp_path: Path, sink_url: str) -> Path:
     config: Final = _PROXY_CONFIG.validate_python(yaml.safe_load(STOCK_CONFIG.read_text()))
-    settings: Final = {**_SETTINGS.validate_python(config["litellm_settings"]), "callbacks": ["otel"]}
+    settings: Final = {**_SETTINGS.validate_python(config["hangarllm_settings"]), "callbacks": ["otel"]}
     path: Final = tmp_path / "otel.yaml"
     path.write_text(
         yaml.safe_dump(
             {
                 **config,
-                "litellm_settings": settings,
+                "hangarllm_settings": settings,
                 "callback_settings": {
                     "otel": {"exporter": "http/json", "endpoint": sink_url, "mapper_names": ["genai"]}
                 },
@@ -1190,7 +1190,7 @@ def test_audit_generate_policy_derives_session_from_caller_trace(
         )
         assert response.status_code == 200, response.text
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         assert targets == [expected_target], targets
         span: Final = _await_span(received, audit_generate_rig.destination, call_id)
         assert _attribute(span.attributes, "session.id") == expected, f"call {call_id}: session.id"
@@ -1223,7 +1223,7 @@ def test_audit_generate_policy_is_stable_across_repeated_caller_trace(
         sessions: Final[list[str | None]] = []  # mutable-ok: collects the two observed sessions in order
         for attempt, response in zip(("first", "second"), responses):
             assert response.status_code == 200, f"{attempt}: {response.text}"
-            row: Final = _await_spend_row(response.headers["x-litellm-call-id"])
+            row: Final = _await_spend_row(response.headers["x-hangarllm-call-id"])
             sessions.append(string_value(row["session_id"]))
         assert sessions == [caller_trace, caller_trace], (
             f"generate must derive both sessions from the caller trace {caller_trace}"
@@ -1248,7 +1248,7 @@ def test_audit_generate_policy_fresh_session_without_any_ids(
                 "POST", endpoint, _trace_body(kind, model, f"{marker}-{attempt}", None)
             )
             assert response.status_code == 200, response.text
-            session: Final = _await_spend_row(response.headers["x-litellm-call-id"])["session_id"]
+            session: Final = _await_spend_row(response.headers["x-hangarllm-call-id"])["session_id"]
             assert session, f"{attempt}: generated session id must be non-empty"
             sessions.append(string_value(session))
         assert sessions[0] != sessions[1], f"two id-less calls must not share a session: {sessions}"
@@ -1302,14 +1302,14 @@ def test_audit_reject_policy(
             assert targets == [], targets
             rejected_rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT request_id, status FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s',
-                    (response.headers["x-litellm-call-id"],),
+                    'SELECT request_id, status FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s',
+                    (response.headers["x-hangarllm-call-id"],),
                 ),
                 lambda values: len(values) == 1,
                 seconds=240,
             )
             assert rejected_rows[0]["status"] == "failure", (
-                f"rejected call {response.headers['x-litellm-call-id']} must write exactly one failure spend row: {rejected_rows}"
+                f"rejected call {response.headers['x-hangarllm-call-id']} must write exactly one failure spend row: {rejected_rows}"
             )
             return
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
@@ -1328,7 +1328,7 @@ def test_audit_omit_policy_records_no_session(audit_omit_rig: _AuditRig, endpoin
             "POST", endpoint, _trace_body(kind, model, marker, None)
         )
         assert response.status_code == 200, response.text
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         assert targets == [expected_target], targets
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
         span: Final = _await_span(received, audit_omit_rig.destination, call_id)
@@ -1412,7 +1412,7 @@ def test_audit_five_kilobyte_caller_ids_win_verbatim(
             headers=_w3c_headers(header_trace, baggage_session),
         )
         assert response.status_code == 200, response.text
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         assert targets == [expected_target], targets
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
         span: Final = _await_span(received, audit_rig.destination, call_id)
@@ -1446,7 +1446,7 @@ def test_audit_identical_requests_twice_log_per_call(
                 headers=_w3c_headers(header_trace, baggage_session),
             )
             assert response.status_code == 200, f"{attempt}: {response.text}"
-            call_id: Final = response.headers["x-litellm-call-id"]
+            call_id: Final = response.headers["x-hangarllm-call-id"]
             span: Final = _await_span(received, audit_rig.destination, call_id)
             assert span.trace_id.hex() == caller_trace, f"{attempt} {call_id}: trace id"
             assert _attribute(span.attributes, "session.id") == caller_session, f"{attempt} {call_id}: session.id"
@@ -1470,9 +1470,9 @@ def test_audit_malformed_w3c_headers_are_ignored(audit_rig: _AuditRig) -> None:
         assert response.status_code == 200, response.text
         assert targets == ["/v1/chat/completions"], targets
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
-        span: Final = _await_span(received, audit_rig.destination, response.headers["x-litellm-call-id"])
+        span: Final = _await_span(received, audit_rig.destination, response.headers["x-hangarllm-call-id"])
         assert len(span.trace_id.hex()) == 32 and "zz" not in span.trace_id.hex(), span.trace_id.hex()
-        row: Final = _await_spend_row(response.headers["x-litellm-call-id"])
+        row: Final = _await_spend_row(response.headers["x-hangarllm-call-id"])
         span_session: Final = _attribute(span.attributes, "session.id")
         assert span_session in (None, row["session_id"]), (
             f"span session {span_session!r} diverges from spend session {row['session_id']!r}"
@@ -1506,11 +1506,11 @@ def test_audit_unauthenticated_call_leaves_no_spend_row(audit_rig: _AuditRig) ->
             "POST", "/v1/chat/completions", _trace_body("chat", model, marker + "-control", None)
         )
         assert control.status_code == 200, control.text
-        _await_spend_row(control.headers["x-litellm-call-id"])
+        _await_spend_row(control.headers["x-hangarllm-call-id"])
         assert (
             read_rows(
-                'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id=%s',
-                (denied.headers.get("x-litellm-call-id") or "",),
+                'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id=%s',
+                (denied.headers.get("x-hangarllm-call-id") or "",),
             )
             == []
         ), "an unauthenticated call must not write a spend row"
@@ -1546,7 +1546,7 @@ def test_audit_upstream_error_still_logs_caller_session(
         )
         assert response.status_code == upstream_status, response.text
         assert targets and set(targets) == {expected_target}, targets
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         row: Final = _await_spend_row(call_id)
         assert row["session_id"] == caller_session, f"call {call_id}: failure spend session {row}"
 
@@ -1590,7 +1590,7 @@ def test_audit_sink_rejection_does_not_break_the_caller(gateway: Gateway, tmp_pa
                 ),
             )
             assert response.status_code == 200, f"{attempt}: {response.text}"
-            _await_spend_row(response.headers["x-litellm-call-id"])
+            _await_spend_row(response.headers["x-hangarllm-call-id"])
         assert targets == ["/v1/chat/completions"] * 3, targets
 
 
@@ -1632,7 +1632,7 @@ def test_audit_key_metadata_session_still_honoured(audit_rig: _AuditRig, endpoin
             key=token,
         )
         assert response.status_code == 200, response.text
-        call_id: Final = response.headers["x-litellm-call-id"]
+        call_id: Final = response.headers["x-hangarllm-call-id"]
         assert targets == [expected_target], targets
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
         span: Final = _await_span(received, audit_rig.destination, call_id)
@@ -1670,10 +1670,10 @@ def test_audit_cache_hit_call_keeps_winning_ids(
         assert first.status_code == 200, first.text
         second: Final = candidate.request("POST", endpoint, body, headers=headers)
         assert second.status_code == 200, second.text
-        assert second.headers.get("x-litellm-cache-key"), (
+        assert second.headers.get("x-hangarllm-cache-key"), (
             f"second identical call must be a cache hit: {dict(second.headers)}"
         )
-        call_id: Final = second.headers["x-litellm-call-id"]
+        call_id: Final = second.headers["x-hangarllm-call-id"]
         assert targets == [expected_target], targets
         span: Final = _await_span(received, audit_rig.destination, call_id)
         if metadata_mode == "both":
@@ -1798,7 +1798,7 @@ def test_audit_sink_outage_mid_burst_loses_no_spend_rows(gateway: Gateway, tmp_p
         for _, _, response in answered:
             assert response.status_code == 200, response.text
         expected_by_call: Final = {
-            response.headers["x-litellm-call-id"]: caller_session
+            response.headers["x-hangarllm-call-id"]: caller_session
             for caller_session, response in ((session, res) for _, session, res in answered)
         }
         call_ids: Final = sorted(expected_by_call)
@@ -1808,7 +1808,7 @@ def test_audit_sink_outage_mid_burst_loses_no_spend_rows(gateway: Gateway, tmp_p
                 received.extend(accepted.get_nowait() for _ in range(accepted.qsize())) or tuple(
                     span
                     for span in _spans(received)
-                    if _attribute(span.attributes, "langfuse.observation.metadata.litellm_call_id")
+                    if _attribute(span.attributes, "langfuse.observation.metadata.hangarllm_call_id")
                     in expected_by_call
                 )
             ),
@@ -1819,7 +1819,7 @@ def test_audit_sink_outage_mid_burst_loses_no_spend_rows(gateway: Gateway, tmp_p
             call_id: sum(
                 1
                 for span in delivered
-                if _attribute(span.attributes, "langfuse.observation.metadata.litellm_call_id") == call_id
+                if _attribute(span.attributes, "langfuse.observation.metadata.hangarllm_call_id") == call_id
             )
             for call_id in call_ids
         }
@@ -1828,21 +1828,21 @@ def test_audit_sink_outage_mid_burst_loses_no_spend_rows(gateway: Gateway, tmp_p
         )
         for span in delivered:
             span_call: Final = str(
-                _attribute(span.attributes, "langfuse.observation.metadata.litellm_call_id")
+                _attribute(span.attributes, "langfuse.observation.metadata.hangarllm_call_id")
             )
             assert _attribute(span.attributes, "session.id") == expected_by_call[span_call], (
                 f"call {span_call}: session.id"
             )
         spend_rows: Final = eventually(
             lambda: read_rows(
-                'SELECT session_id, litellm_call_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = ANY(%s)',
+                'SELECT session_id, hangarllm_call_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = ANY(%s)',
                 (call_ids,),
             ),
             lambda values: len(values) == len(answered),
             seconds=150,
         )
         for row in spend_rows:
-            row_call: Final = string_value(row["litellm_call_id"])
+            row_call: Final = string_value(row["hangarllm_call_id"])
             assert row["session_id"] == expected_by_call[row_call], f"call {row_call}: spend {row}"
 
 
@@ -1892,21 +1892,21 @@ def test_audit_surviving_worker_keeps_serving_after_kill(gateway: Gateway, tmp_p
         received: Final[list[Request]] = []  # mutable-ok: drain() consumes the queue, later polls keep earlier ones
         for caller_session, response in answered:
             assert response.status_code == 200, response.text
-            call_id: Final = response.headers["x-litellm-call-id"]
+            call_id: Final = response.headers["x-hangarllm-call-id"]
             span: Final = _await_span(received, destination, call_id)
             assert _attribute(span.attributes, "session.id") == caller_session, f"{call_id}: session.id"
         expected_by_call: Final = {
-            response.headers["x-litellm-call-id"]: caller_session
+            response.headers["x-hangarllm-call-id"]: caller_session
             for caller_session, response in answered
         }
         spend_rows: Final = eventually(
             lambda: read_rows(
-                'SELECT session_id, litellm_call_id FROM "LiteLLM_SpendLogs" WHERE litellm_call_id = ANY(%s)',
+                'SELECT session_id, hangarllm_call_id FROM "HangarLLM_SpendLogs" WHERE hangarllm_call_id = ANY(%s)',
                 (list(expected_by_call),),
             ),
             lambda values: len(values) == len(answered),
             seconds=150,
         )
         for row in spend_rows:
-            row_call: Final = string_value(row["litellm_call_id"])
+            row_call: Final = string_value(row["hangarllm_call_id"])
             assert row["session_id"] == expected_by_call[row_call], f"call {row_call}: spend {row}"

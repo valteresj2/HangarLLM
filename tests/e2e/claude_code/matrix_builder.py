@@ -72,7 +72,7 @@ def build_matrix(
     *,
     manifest: Mapping[str, Any],
     results: Sequence[Mapping[str, Any]],
-    litellm_version: str,
+    hangarllm_version: str,
     claude_code_version: str,
     generated_at: str,
 ) -> Dict[str, Any]:
@@ -119,7 +119,7 @@ def build_matrix(
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at,
-        "litellm_version": litellm_version,
+        "hangarllm_version": hangarllm_version,
         "claude_code_version": claude_code_version,
         "providers": providers,
         "features": features_out,
@@ -258,7 +258,7 @@ def build_from_paths(
     *,
     manifest_path: Path,
     results_path: Path,
-    litellm_version: str,
+    hangarllm_version: str,
     claude_code_version: str,
     generated_at: str,
     output_path: Optional[Path] = None,
@@ -269,7 +269,7 @@ def build_from_paths(
     matrix = build_matrix(
         manifest=manifest,
         results=results,
-        litellm_version=litellm_version,
+        hangarllm_version=hangarllm_version,
         claude_code_version=claude_code_version,
         generated_at=generated_at,
     )

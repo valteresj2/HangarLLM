@@ -53,8 +53,8 @@ test.describe("Proxy Admin - Team guardrail removal", () => {
         data: {
           guardrail: {
             guardrail_name: guardrailName,
-            litellm_params: {
-              guardrail: "litellm_content_filter",
+            hangarllm_params: {
+              guardrail: "hangarllm_content_filter",
               mode: "pre_call",
               default_on: false,
               blocked_words: [{ keyword: bannedKeyword, action: "BLOCK" }],

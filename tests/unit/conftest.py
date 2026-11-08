@@ -18,7 +18,7 @@ from pytest_socket import enable_socket, socket_allow_hosts
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-    from litellm.caching.redis_cache import RedisCache
+    from hangarllm.caching.redis_cache import RedisCache
 
 RouterRedis: TypeAlias = tuple["RedisCache", asyncio.Queue[tuple[tuple[object, ...], str | None, str | None]]]
 RedisWriteGate: TypeAlias = tuple[asyncio.Event, asyncio.Event, asyncio.Event]
@@ -29,8 +29,8 @@ def redis_cache_double() -> "MagicMock":
     a closed local port, so they serve their memory tier while the double answers the Python Redis calls."""
     from unittest.mock import MagicMock
 
-    from litellm.caching.redis_cache import RedisCache
-    from litellm.redis.store_settings import RedisStoreSettings
+    from hangarllm.caching.redis_cache import RedisCache
+    from hangarllm.redis.store_settings import RedisStoreSettings
 
     redis: Final = MagicMock(spec=RedisCache)
     redis.redis_kwargs = {"host": "127.0.0.1", "port": 1, "socket_timeout": 0.2}
@@ -60,8 +60,8 @@ async def router_redis(
     from redis.asyncio import BlockingConnectionPool
     from redis.exceptions import ConnectionError
 
-    from litellm._internal_context import current_service_target
-    from litellm.caching.redis_cache import RedisCache
+    from hangarllm._internal_context import current_service_target
+    from hangarllm.caching.redis_cache import RedisCache
 
     commands: Final[asyncio.Queue[tuple[tuple[object, ...], str | None, str | None]]] = asyncio.Queue()
     started, released, unavailable = redis_write_gate
@@ -119,7 +119,7 @@ HOST_ENVIRONMENT_ALLOWLIST: Final = frozenset(
         "LC_CTYPE",
         "TZ",
         "VIRTUAL_ENV",
-        "LITELLM_LOCAL_MODEL_COST_MAP",
+        "HANGARLLM_LOCAL_MODEL_COST_MAP",
         "TIKTOKEN_CACHE_DIR",
     )
 )
@@ -131,36 +131,36 @@ HOST_ONLY_ENVIRONMENT: Final = frozenset(
 )
 
 os.environ["PYTHON_DOTENV_DISABLED"] = "1"
-os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-os.environ["LITELLM_UI_SESSION_SECRET"] = "unit-test-session-secret-0123456789abcdef"
-os.environ["LITELLM_ALLOW_SHARED_SECRETS"] = "true"
+os.environ["HANGARLLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ["HANGARLLM_UI_SESSION_SECRET"] = "unit-test-session-secret-0123456789abcdef"
+os.environ["HANGARLLM_ALLOW_SHARED_SECRETS"] = "true"
 
-import litellm  # noqa: E402  # litellm reads LITELLM_LOCAL_MODEL_COST_MAP at import
-import litellm.utils as litellm_utils_module  # noqa: E402  # same import-time dependency
-from litellm._logging import ALL_LOGGERS  # noqa: E402  # same import-time dependency
-from litellm.anthropic_beta_headers_manager import (
+import hangarllm  # noqa: E402  # hangarllm reads HANGARLLM_LOCAL_MODEL_COST_MAP at import
+import hangarllm.utils as hangarllm_utils_module  # noqa: E402  # same import-time dependency
+from hangarllm._logging import ALL_LOGGERS  # noqa: E402  # same import-time dependency
+from hangarllm.anthropic_beta_headers_manager import (
     reload_beta_headers_config,  # noqa: E402  # same import-time dependency
 )
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER  # noqa: E402  # same import-time dependency
-from litellm.litellm_core_utils.prompt_templates import (
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER  # noqa: E402  # same import-time dependency
+from hangarllm.hangarllm_core_utils.prompt_templates import (
     factory as prompt_factory_module,  # noqa: E402  # same import-time dependency
 )
-from litellm.litellm_core_utils.prompt_templates import (  # noqa: E402  # same import-time dependency
+from hangarllm.hangarllm_core_utils.prompt_templates import (  # noqa: E402  # same import-time dependency
     image_handling as image_handling_module,
 )
-from litellm.llms.custom_httpx.async_client_cleanup import (  # noqa: E402  # same import-time dependency
-    close_litellm_async_clients,
+from hangarllm.llms.custom_httpx.async_client_cleanup import (  # noqa: E402  # same import-time dependency
+    close_hangarllm_async_clients,
 )
-from litellm.llms.gemini.chat import (
+from hangarllm.llms.gemini.chat import (
     transformation as gemini_chat_transformation_module,  # noqa: E402  # same import-time dependency
 )
-from litellm.proxy.db import (
+from hangarllm.proxy.db import (
     tool_registry_writer as tool_registry_writer_module,  # noqa: E402  # same import-time dependency
 )
-from litellm.router_rust.surface.replay import (  # noqa: E402  # same import-time dependency
+from hangarllm.router_rust.surface.replay import (  # noqa: E402  # same import-time dependency
     _live_registries as live_router_registries,  # pyright: ignore[reportPrivateUsage]  # the routers the model-cost replay reaches
 )
-from litellm.router_utils.global_callback_holders import (  # noqa: E402  # same import-time dependency
+from hangarllm.router_utils.global_callback_holders import (  # noqa: E402  # same import-time dependency
     routers_holding_global_callbacks,
 )
 
@@ -186,10 +186,10 @@ AMBIENT_AWS_ENV_VARS: Final = (
     "AWS_DEFAULT_REGION",
 )
 MODULES_WITH_AWS_AUTH_HANDLERS: Final = (
-    "litellm.main",
-    "litellm.files.main",
-    "litellm.rerank_api.main",
-    "litellm.realtime_api.main",
+    "hangarllm.main",
+    "hangarllm.files.main",
+    "hangarllm.rerank_api.main",
+    "hangarllm.realtime_api.main",
 )
 CALLBACK_LISTS: Final = (
     "callbacks",
@@ -319,14 +319,14 @@ def _reset_aws_auth_caches() -> None:
 
 
 def _flush_client_caches() -> None:
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     image_handling_module.in_memory_cache.flush_cache()
     image_handling_module.pdf_probe_verdicts.flush_cache()
     _reset_aws_auth_caches()
 
 
 _MACOS_LONGEST_SOCKET_PATH: Final = 103
-_LONGEST_SOCKET_SUFFIX: Final = len("/sock12345678/d/litellm-pgbouncer-12345678/.s.PGSQL.65535")
+_LONGEST_SOCKET_SUFFIX: Final = len("/sock12345678/d/hangarllm-pgbouncer-12345678/.s.PGSQL.65535")
 
 
 def _socket_root() -> str:
@@ -359,7 +359,7 @@ def socket_tempdir(socket_dir: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture(autouse=True, scope="session")
 def bundled_tiktoken_cache() -> None:
-    importlib.import_module("litellm.litellm_core_utils.default_encoding")
+    importlib.import_module("hangarllm.hangarllm_core_utils.default_encoding")
 
 
 @pytest.fixture(scope="session")
@@ -383,22 +383,22 @@ def isolate_host_environment(isolated_aws_config_files: tuple[Path, Path]) -> It
         environment.setenv("AWS_EC2_METADATA_DISABLED", "true")
         for name in AMBIENT_AWS_ENV_VARS:
             environment.delenv(name, raising=False)
-        for name in ("PROXY_BASE_URL", "SERVER_ROOT_PATH", "SERVER_ROOT_PATHS", "LITELLM_LOG"):
+        for name in ("PROXY_BASE_URL", "SERVER_ROOT_PATH", "SERVER_ROOT_PATHS", "HANGARLLM_LOG"):
             environment.delenv(name, raising=False)
-        environment.setenv("LITELLM_CLI_DISABLE_KEYRING", "1")
-        environment.setenv("LITELLM_UI_SESSION_SECRET", "unit-test-session-secret-0123456789abcdef")
-        environment.setenv("LITELLM_ALLOW_SHARED_SECRETS", "true")
+        environment.setenv("HANGARLLM_CLI_DISABLE_KEYRING", "1")
+        environment.setenv("HANGARLLM_UI_SESSION_SECRET", "unit-test-session-secret-0123456789abcdef")
+        environment.setenv("HANGARLLM_ALLOW_SHARED_SECRETS", "true")
         yield
 
 
 @pytest.fixture(autouse=True)
-def isolate_litellm_globals() -> Iterator[None]:
-    original_callbacks: Final = {name: list(getattr(litellm, name) or []) for name in CALLBACK_LISTS}
+def isolate_hangarllm_globals() -> Iterator[None]:
+    original_callbacks: Final = {name: list(getattr(hangarllm, name) or []) for name in CALLBACK_LISTS}
     original_callback_holders: Final = frozenset(routers_holding_global_callbacks)
-    original_reset: Final = {name: getattr(litellm, name) for name in RESET_TO_NONE_GLOBALS}
-    original_restored: Final = {name: getattr(litellm, name) for name in RESTORED_GLOBALS if hasattr(litellm, name)}
+    original_reset: Final = {name: getattr(hangarllm, name) for name in RESET_TO_NONE_GLOBALS}
+    original_restored: Final = {name: getattr(hangarllm, name) for name in RESTORED_GLOBALS if hasattr(hangarllm, name)}
     original_clients: Final = {
-        name: litellm.__dict__[name] for name in MODULE_LEVEL_CLIENTS if name in litellm.__dict__
+        name: hangarllm.__dict__[name] for name in MODULE_LEVEL_CLIENTS if name in hangarllm.__dict__
     }
     original_loggers: Final = {
         logger: (logger.level, logger.disabled, logger.propagate, list(logger.handlers), list(logger.filters))
@@ -407,22 +407,22 @@ def isolate_litellm_globals() -> Iterator[None]:
     original_tool_policy_registry: Final = tool_registry_writer_module._tool_policy_registry
     _flush_client_caches()
     for name in CALLBACK_LISTS:
-        setattr(litellm, name, [])
+        setattr(hangarllm, name, [])
     routers_holding_global_callbacks.clear()
     for name in RESET_TO_NONE_GLOBALS:
-        setattr(litellm, name, None)
+        setattr(hangarllm, name, None)
     for name in MODULE_LEVEL_CLIENTS:
-        litellm.__dict__.pop(name, None)
+        hangarllm.__dict__.pop(name, None)
     tool_registry_writer_module._tool_policy_registry = None
     yield
     _flush_client_caches()
-    leaked_clients: Final = tuple(litellm.__dict__.pop(name, None) for name in MODULE_LEVEL_CLIENTS)
+    leaked_clients: Final = tuple(hangarllm.__dict__.pop(name, None) for name in MODULE_LEVEL_CLIENTS)
     for name, client in zip(MODULE_LEVEL_CLIENTS, leaked_clients):
         if client is not original_clients.get(name):
             _close_handler_if_needed(client)
-    litellm.__dict__.update(original_clients)
+    hangarllm.__dict__.update(original_clients)
     for name, value in (original_callbacks | original_reset | original_restored).items():
-        setattr(litellm, name, value)
+        setattr(hangarllm, name, value)
     routers_holding_global_callbacks.clear()
     routers_holding_global_callbacks.update(original_callback_holders)
     for logger, (level, disabled, propagate, handlers, filters) in original_loggers.items():
@@ -439,30 +439,30 @@ def isolate_router_model_cost_state() -> Iterator[None]:
     original_live_registries: Final = frozenset(live_router_registries)
     original_runtime_registered_model_cost: Final = {
         model_key: dict(model_value)
-        for model_key, model_value in litellm_utils_module._runtime_registered_model_cost.items()
+        for model_key, model_value in hangarllm_utils_module._runtime_registered_model_cost.items()
     }
-    litellm_utils_module._invalidate_model_cost_lowercase_map()
+    hangarllm_utils_module._invalidate_model_cost_lowercase_map()
     live_router_registries.clear()
-    litellm_utils_module._runtime_registered_model_cost.clear()
+    hangarllm_utils_module._runtime_registered_model_cost.clear()
     yield
     live_router_registries.clear()
     live_router_registries.update(original_live_registries)
-    litellm_utils_module._runtime_registered_model_cost.clear()
-    litellm_utils_module._runtime_registered_model_cost.update(original_runtime_registered_model_cost)
-    litellm_utils_module._invalidate_model_cost_lowercase_map()
-    litellm.get_model_info.cache_clear()
+    hangarllm_utils_module._runtime_registered_model_cost.clear()
+    hangarllm_utils_module._runtime_registered_model_cost.update(original_runtime_registered_model_cost)
+    hangarllm_utils_module._invalidate_model_cost_lowercase_map()
+    hangarllm.get_model_info.cache_clear()
 
 
 def _provider_model_sets() -> tuple[set[str], ...]:
-    module_globals: Final = tuple(vars(litellm).items())
+    module_globals: Final = tuple(vars(hangarllm).items())
     return tuple(models for name, models in module_globals if name.endswith("_models") and isinstance(models, set))
 
 
 @pytest.fixture(autouse=True)
 def isolate_model_catalog() -> Iterator[None]:
-    model_cost: Final = litellm.model_cost
+    model_cost: Final = hangarllm.model_cost
     model_cost_entries: Final = dict(model_cost)
-    models_by_provider: Final = litellm.models_by_provider
+    models_by_provider: Final = hangarllm.models_by_provider
     models_by_provider_entries: Final = dict(models_by_provider)
     provider_model_sets: Final = tuple((models, frozenset(models)) for models in _provider_model_sets())
     yield
@@ -473,29 +473,29 @@ def isolate_model_catalog() -> Iterator[None]:
     for models, entries in provider_model_sets:
         models.clear()
         models.update(entries)
-    litellm_utils_module._invalidate_model_cost_lowercase_map()
-    litellm.get_model_info.cache_clear()
+    hangarllm_utils_module._invalidate_model_cost_lowercase_map()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(hangarllm, "model_cost", hangarllm.get_model_cost_map(url=""))
+    hangarllm.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    hangarllm.get_model_info.cache_clear()
 
 
 @pytest.fixture
 def declare_mid_conversation_system(monkeypatch: pytest.MonkeyPatch) -> Callable[[str, bool], None]:
     def declare(model_cost_key: str, supported: bool) -> None:
         entry: Final = {
-            "litellm_provider": model_cost_key.split("/", 1)[0],
+            "hangarllm_provider": model_cost_key.split("/", 1)[0],
             "mode": "chat",
             "supports_mid_conversation_system": supported,
         }
-        monkeypatch.setitem(litellm.model_cost, model_cost_key, entry)
-        litellm.get_model_info.cache_clear()
+        monkeypatch.setitem(hangarllm.model_cost, model_cost_key, entry)
+        hangarllm.get_model_info.cache_clear()
 
     return declare
 
@@ -508,21 +508,21 @@ def set_native_structured_output(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
 ) -> Callable[[str, NativeStructuredOutputKey], None]:
     def set_flags(model_cost_key: str, native_key: NativeStructuredOutputKey) -> None:
-        entry: Final = litellm.model_cost[model_cost_key]
+        entry: Final = hangarllm.model_cost[model_cost_key]
         monkeypatch.setitem(entry, "supports_native_structured_output", native_key == "legacy")
         monkeypatch.setitem(entry, "supports_bedrock_native_structured_output", native_key in ("bedrock", "default"))
         monkeypatch.setitem(entry, "supports_bedrock_native_structured_output_by_default", native_key == "default")
-        litellm.get_model_info.cache_clear()
+        hangarllm.get_model_info.cache_clear()
 
     return set_flags
 
 
 @pytest.fixture
 def local_beta_headers_config(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     reload_beta_headers_config()
     yield
-    monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
     reload_beta_headers_config()
 
 
@@ -538,7 +538,7 @@ def async_only_image_fetch(monkeypatch: pytest.MonkeyPatch) -> AsyncOnlyImageFet
     fetch: Final = AsyncOnlyImageFetch()
 
     def forbid_sync_fetch(client: object, url: str, **kwargs: object) -> httpx.Response:
-        raise litellm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
+        raise hangarllm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
 
     async def serve_png(client: object, url: str, **kwargs: object) -> httpx.Response:
         fetch.fetched.append(url)
@@ -548,7 +548,7 @@ def async_only_image_fetch(monkeypatch: pytest.MonkeyPatch) -> AsyncOnlyImageFet
 
     def forbid_sync_convert(url: str, *args: object, **kwargs: object) -> str:
         if url.startswith(("http://", "https://")):
-            raise litellm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
+            raise hangarllm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
         return url
 
     monkeypatch.setattr(image_handling_module, "safe_get", forbid_sync_fetch)
@@ -595,10 +595,10 @@ async def drained_logging_worker() -> None:
 
 def pytest_sessionfinish() -> None:
     for name in MODULE_LEVEL_CLIENTS:
-        _close_handler_if_needed(litellm.__dict__.pop(name, None))
+        _close_handler_if_needed(hangarllm.__dict__.pop(name, None))
     for name in SESSION_CLIENTS:
-        _close_handler_if_needed(getattr(litellm, name, None))
-    _run_coroutine_if_needed(close_litellm_async_clients())
+        _close_handler_if_needed(getattr(hangarllm, name, None))
+    _run_coroutine_if_needed(close_hangarllm_async_clients())
     enable_socket()
 
 

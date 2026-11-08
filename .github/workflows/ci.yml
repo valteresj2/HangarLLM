@@ -34,11 +34,11 @@ jobs:
         run: uv sync --frozen --group proxy-dev --extra proxy
 
       - name: Ruff
-        run: uv run --no-sync ruff check litellm hangarllm litellm_cli
+        run: uv run --no-sync ruff check hangarllm hangarllm hangarllm_cli
 
       - name: Import smoke test
         run: |
-          uv run --no-sync python -c "import hangarllm, litellm; assert hangarllm is litellm"
+          uv run --no-sync python -c "import hangarllm, hangarllm; assert hangarllm is hangarllm"
           uv run --no-sync hangarllm --help > /dev/null
 
       - name: Fast unit tests
@@ -54,7 +54,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: ui/litellm-dashboard
+        working-directory: ui/hangarllm-dashboard
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
@@ -62,9 +62,9 @@ jobs:
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version-file: ui/litellm-dashboard/.nvmrc
+          node-version-file: ui/hangarllm-dashboard/.nvmrc
           cache: npm
-          cache-dependency-path: ui/litellm-dashboard/package-lock.json
+          cache-dependency-path: ui/hangarllm-dashboard/package-lock.json
 
       - run: npm ci
         env:

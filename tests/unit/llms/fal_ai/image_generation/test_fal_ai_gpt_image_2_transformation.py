@@ -1,17 +1,17 @@
 import pytest
 
-import litellm
-from litellm.llms.fal_ai.cost_calculator import cost_calculator
-from litellm.llms.fal_ai.image_generation import (
+import hangarllm
+from hangarllm.llms.fal_ai.cost_calculator import cost_calculator
+from hangarllm.llms.fal_ai.image_generation import (
     FalAIGPTImage2Config,
     FalAINanoBananaConfig,
     get_fal_ai_image_generation_config,
 )
-from litellm.llms.fal_ai.image_generation.gpt_image_2_transformation import (
+from hangarllm.llms.fal_ai.image_generation.gpt_image_2_transformation import (
     map_gpt_image_quality,
     supported_gpt_image_qualities,
 )
-from litellm.types.utils import ImageObject, ImageResponse
+from hangarllm.types.utils import ImageObject, ImageResponse
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_get_complete_url_derives_endpoint_from_model(model, expected_url):
         api_key="test-key",
         model=model,
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == expected_url
 
@@ -58,7 +58,7 @@ def test_get_complete_url_respects_api_base_override():
         api_key="test-key",
         model="openai/gpt-image-2",
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
     assert url == "https://proxy.internal/openai/gpt-image-2"
 
@@ -126,7 +126,7 @@ def test_transform_image_generation_request():
         model="openai/gpt-image-2",
         prompt="a red bicycle",
         optional_params={"quality": "high", "num_images": 2},
-        litellm_params={},
+        hangarllm_params={},
         headers={},
     ) == {"prompt": "a red bicycle", "quality": "high", "num_images": 2}
 
@@ -142,7 +142,7 @@ def test_gpt_image_25_routes_to_its_own_fal_endpoint(model):
     config = get_fal_ai_image_generation_config(model)
     assert isinstance(config, FalAIGPTImage2Config)
     assert (
-        config.get_complete_url(api_base=None, api_key="k", model=model, optional_params={}, litellm_params={})
+        config.get_complete_url(api_base=None, api_key="k", model=model, optional_params={}, hangarllm_params={})
         == f"https://fal.run/{model}"
     )
 

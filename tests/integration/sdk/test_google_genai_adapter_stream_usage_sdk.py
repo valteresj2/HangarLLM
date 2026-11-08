@@ -10,9 +10,9 @@ from integration._support.vertex import service_account_json
 from integration._support.wire import Reply, Request, Wire, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.google_genai import agenerate_content, agenerate_content_stream, generate_content
-from litellm.integrations.custom_logger import CustomLogger
+import hangarllm
+from hangarllm.google_genai import agenerate_content, agenerate_content_stream, generate_content
+from hangarllm.integrations.custom_logger import CustomLogger
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _PROVIDER_KEY: Final = "synthetic-provider-key"
@@ -155,13 +155,13 @@ def _member(name: str, wire: Wire) -> dict[str, JsonValue]:
             return {"model": "amazon_nova/nova-pro-v1", "api_base": wire.url, "api_key": _PROVIDER_KEY}
 
 
-def _chat_usage(chunks: Sequence[litellm.ModelResponseStream]) -> list[litellm.Usage]:
-    return [usage for chunk in chunks if isinstance(usage := getattr(chunk, "usage", None), litellm.Usage)]
+def _chat_usage(chunks: Sequence[hangarllm.ModelResponseStream]) -> list[hangarllm.Usage]:
+    return [usage for chunk in chunks if isinstance(usage := getattr(chunk, "usage", None), hangarllm.Usage)]
 
 
 @pytest.mark.parametrize("member", ["vertex_model_garden", "watsonx", "maritalk", "amazon_nova"])
 def test_sync_completion_stream_keeps_usage_sent_after_finish(wire: Wire, member: str) -> None:
-    stream: Final = litellm.completion(
+    stream: Final = hangarllm.completion(
         messages=[{"role": "user", "content": "sync iterator"}],
         stream=True,
         stream_options={"include_usage": True},
@@ -177,7 +177,7 @@ def test_sync_completion_stream_keeps_usage_sent_after_finish(wire: Wire, member
 
 @pytest.mark.parametrize("member", ["vertex_model_garden", "watsonx"])
 async def test_async_completion_stream_keeps_usage_sent_after_finish(wire: Wire, member: str) -> None:
-    stream: Final = await litellm.acompletion(
+    stream: Final = await hangarllm.acompletion(
         messages=[{"role": "user", "content": "async iterator"}],
         stream=True,
         stream_options={"include_usage": True},
@@ -224,9 +224,9 @@ def test_sync_generate_content_adapter_error_keeps_the_provider_status_and_logs_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     counter: Final = _FailureCounter()
-    monkeypatch.setattr(litellm, "callbacks", [counter])
+    monkeypatch.setattr(hangarllm, "callbacks", [counter])
     with wire_server(_respond(401)) as rejecting:
-        with pytest.raises(litellm.AuthenticationError) as raised:
+        with pytest.raises(hangarllm.AuthenticationError) as raised:
             generate_content(
                 model="openai/gpt-5.4-mini", contents=_contents(), api_base=rejecting.url, api_key=_PROVIDER_KEY
             )
@@ -240,9 +240,9 @@ async def test_async_generate_content_adapter_error_keeps_the_provider_status_an
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     counter: Final = _FailureCounter()
-    monkeypatch.setattr(litellm, "callbacks", [counter])
+    monkeypatch.setattr(hangarllm, "callbacks", [counter])
     with wire_server(_respond(401)) as rejecting:
-        with pytest.raises(litellm.AuthenticationError) as raised:
+        with pytest.raises(hangarllm.AuthenticationError) as raised:
             await agenerate_content(
                 model="openai/gpt-5.4-mini", contents=_contents(), api_base=rejecting.url, api_key=_PROVIDER_KEY
             )

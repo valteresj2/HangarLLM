@@ -66,7 +66,7 @@ def _submit_registration(
     return gateway.client.post(
         "/v1/mcp/server/register",
         json=_registration_body(peer, alias, description),
-        headers={"x-litellm-api-key": team_key},
+        headers={"x-hangarllm-api-key": team_key},
     )
 
 
@@ -92,7 +92,7 @@ def test_saved_submission_rules_are_listed_as_a_top_level_array(gateway: Gateway
         assert matching[0]["stored_in_db"] is True, listed.text
 
         stored: Final = read_rows(
-            'SELECT param_value -> \'mcp_required_fields\' AS field_value FROM "LiteLLM_Config" '
+            'SELECT param_value -> \'mcp_required_fields\' AS field_value FROM "HangarLLM_Config" '
             "WHERE param_name = %s",
             ("general_settings",),
         )
@@ -128,7 +128,7 @@ def test_team_submission_missing_a_required_field_is_rejected_and_complete_one_i
         assert missing_response.status_code == 400, missing_response.text
         assert "Submission is missing required fields: ['description']" in missing_response.text
         assert (
-            read_rows('SELECT server_id FROM "LiteLLM_MCPServerTable" WHERE alias = %s', (missing_alias,)) == []
+            read_rows('SELECT server_id FROM "HangarLLM_MCPServerTable" WHERE alias = %s', (missing_alias,)) == []
         )
 
         alias: Final = f"mcp_rules_{uuid.uuid4().hex}"

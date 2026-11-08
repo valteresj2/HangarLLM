@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm._logging import _ENABLE_SECRET_REDACTION, redact_string
+from hangarllm._logging import _ENABLE_SECRET_REDACTION, redact_string
 
 
 class TestRedactStringFunction:
@@ -72,7 +72,7 @@ class TestOpenAIRealtimeRedaction:
 
     @pytest.mark.asyncio
     async def test_generic_exception_redacts_reason(self):
-        from litellm.llms.openai.realtime.handler import OpenAIRealtime
+        from hangarllm.llms.openai.realtime.handler import OpenAIRealtime
 
         handler = OpenAIRealtime()
         secret_error = RuntimeError("Connection failed for api_key=sk-9876567890abcdefghij")
@@ -135,14 +135,14 @@ class TestRouterFallbackFailureTracebackRedaction:
     async def test_fallback_failure_does_not_leak_secret_via_exc_info(self, caplog):
         """Both the primary group and its fallback fail with the secret in the error, so the
         router logs the fallback failure while that exception is in flight."""
-        import litellm
+        import hangarllm
 
         secret = "sk-testsecretvalue1234567890abcdef"
-        router = litellm.Router(
+        router = hangarllm.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "api_key": "fake-key",
                         "mock_response": Exception(f"primary deployment failed api_key={secret}"),
@@ -150,7 +150,7 @@ class TestRouterFallbackFailureTracebackRedaction:
                 },
                 {
                     "model_name": "claude-3-haiku",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "anthropic/claude-3-haiku-20240307",
                         "api_key": "fake-key",
                         "mock_response": Exception(f"boom api_key={secret}"),
@@ -160,8 +160,8 @@ class TestRouterFallbackFailureTracebackRedaction:
             fallbacks=[{"gpt-3.5-turbo": ["claude-3-haiku"]}],
         )
 
-        with caplog.at_level(logging.DEBUG, logger="LiteLLM Router"):
-            with pytest.raises(litellm.InternalServerError):
+        with caplog.at_level(logging.DEBUG, logger="HangarLLM Router"):
+            with pytest.raises(hangarllm.InternalServerError):
                 await router.acompletion(model="gpt-3.5-turbo", messages=[{"role": "user", "content": "hi"}])
 
         debug_records = [r for r in caplog.records if r.levelno == logging.DEBUG]
@@ -197,7 +197,7 @@ class TestGeminiIngestionHeaders:
 
     @pytest.mark.asyncio
     async def test_create_file_search_store_sends_header(self):
-        from litellm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
+        from hangarllm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
 
         ingestion = GeminiRAGIngestion(ingest_options=_make_mock_ingest_options())
 
@@ -208,7 +208,7 @@ class TestGeminiIngestionHeaders:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.rag.ingestion.gemini_ingestion.get_async_httpx_client",
+            "hangarllm.rag.ingestion.gemini_ingestion.get_async_httpx_client",
             return_value=mock_client,
         ):
             result = await ingestion._create_file_search_store(
@@ -224,7 +224,7 @@ class TestGeminiIngestionHeaders:
 
     @pytest.mark.asyncio
     async def test_initiate_resumable_upload_sends_header(self):
-        from litellm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
+        from hangarllm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
 
         ingestion = GeminiRAGIngestion(ingest_options=_make_mock_ingest_options())
 
@@ -235,7 +235,7 @@ class TestGeminiIngestionHeaders:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.rag.ingestion.gemini_ingestion.get_async_httpx_client",
+            "hangarllm.rag.ingestion.gemini_ingestion.get_async_httpx_client",
             return_value=mock_client,
         ):
             result = await ingestion._initiate_resumable_upload(

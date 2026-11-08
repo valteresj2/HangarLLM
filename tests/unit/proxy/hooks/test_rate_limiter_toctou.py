@@ -6,10 +6,10 @@ separate awaits. Concurrent requests all observe the same pre-increment state,
 all pass validation, then all increment — bypassing the limit.
 
 Vulnerable code paths:
-- litellm/proxy/hooks/batch_rate_limiter.py:181-248
+- hangarllm/proxy/hooks/batch_rate_limiter.py:181-248
   (_check_and_increment_batch_counters: should_rate_limit(read_only=True)
   → validate → async_increment_tokens_with_ttl_preservation)
-- litellm/proxy/hooks/dynamic_rate_limiter_v3.py:463-548
+- hangarllm/proxy/hooks/dynamic_rate_limiter_v3.py:463-548
   (_check_rate_limits PHASE 1 read_only check → PHASE 3 increment)
 
 These tests EXPECTED to fail against current (vulnerable) code and pass once
@@ -23,18 +23,18 @@ from typing import List
 import pytest
 
 
-import litellm
-from litellm import DualCache, Router
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.batch_rate_limiter import BatchFileUsage
-from litellm.proxy.hooks.dynamic_rate_limiter_v3 import (
+import hangarllm
+from hangarllm import DualCache, Router
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.hooks.batch_rate_limiter import BatchFileUsage
+from hangarllm.proxy.hooks.dynamic_rate_limiter_v3 import (
     PROXY_DynamicRateLimitHandlerV3 as DynamicRateLimitHandler,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from hangarllm.proxy.hooks.parallel_request_limiter_v3 import (
     PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.utils import InternalUsageCache, hash_token
-from litellm.redis.stores.rate_limits import RateLimitScope
+from hangarllm.proxy.utils import InternalUsageCache, hash_token
+from hangarllm.redis.stores.rate_limits import RateLimitScope
 
 
 def _make_phase1_barrier(num_concurrent: int, timeout: float = 0.1):
@@ -202,8 +202,8 @@ async def test_dynamic_rate_limiter_v3_concurrent_bypasses_model_capacity(monkey
     # RPM + 1 successes before the next sees counter > RPM.
     MAX_SEQUENTIAL_SUCCESSES = MODEL_RPM + 1
 
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
-    litellm.priority_reservation = {"high": 0.9, "low": 0.1}
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
+    hangarllm.priority_reservation = {"high": 0.9, "low": 0.1}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -213,7 +213,7 @@ async def test_dynamic_rate_limiter_v3_concurrent_bypasses_model_capacity(monkey
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -227,7 +227,7 @@ async def test_dynamic_rate_limiter_v3_concurrent_bypasses_model_capacity(monkey
     barrier = _make_phase1_barrier(NUM_CONCURRENT)
     handler.v3_limiter.should_rate_limit = barrier(handler.v3_limiter.should_rate_limit)
 
-    from litellm.types.router import ModelGroupInfo
+    from hangarllm.types.router import ModelGroupInfo
 
     model_group_info = ModelGroupInfo(
         model_group=model,
@@ -276,8 +276,8 @@ async def test_dynamic_rate_limiter_v3_uses_atomic_check_and_increment(monkeypat
     bundled into the atomic call alongside model_saturation_check. When not
     enforced, priority counter is incremented for tracking only.
     """
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
-    litellm.priority_reservation = {"high": 0.9, "low": 0.1}
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
+    hangarllm.priority_reservation = {"high": 0.9, "low": 0.1}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -287,7 +287,7 @@ async def test_dynamic_rate_limiter_v3_uses_atomic_check_and_increment(monkeypat
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -308,7 +308,7 @@ async def test_dynamic_rate_limiter_v3_uses_atomic_check_and_increment(monkeypat
 
     handler.v3_limiter.atomic_check_and_increment_by_n = logging_atomic
 
-    from litellm.types.router import ModelGroupInfo
+    from hangarllm.types.router import ModelGroupInfo
 
     user = UserAPIKeyAuth(api_key=hash_token("dyn-atomic-key"))
     user.metadata = {"priority": "high"}
@@ -405,8 +405,8 @@ async def test_dynamic_rate_limiter_v3_fails_closed_on_unknown_descriptor(monkey
     """
     from fastapi import HTTPException
 
-    monkeypatch.setenv("LITELLM_LICENSE", "test-license-key")
-    litellm.priority_reservation = {"high": 0.9, "low": 0.1}
+    monkeypatch.setenv("HANGARLLM_LICENSE", "test-license-key")
+    hangarllm.priority_reservation = {"high": 0.9, "low": 0.1}
 
     dual_cache = DualCache()
     handler = DynamicRateLimitHandler(internal_usage_cache=dual_cache)
@@ -416,7 +416,7 @@ async def test_dynamic_rate_limiter_v3_fails_closed_on_unknown_descriptor(monkey
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "test-base",
@@ -443,7 +443,7 @@ async def test_dynamic_rate_limiter_v3_fails_closed_on_unknown_descriptor(monkey
 
     handler.v3_limiter.atomic_check_and_increment_by_n = fake_atomic
 
-    from litellm.types.router import ModelGroupInfo
+    from hangarllm.types.router import ModelGroupInfo
 
     user = UserAPIKeyAuth(api_key=hash_token("fail-closed-key"))
     user.metadata = {"priority": "high"}

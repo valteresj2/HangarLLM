@@ -293,7 +293,7 @@ def check_sensitive_logging(base_dir: str) -> List[Dict[str, Any]]:
     Check for logger.info() statements that might log sensitive data.
 
     Args:
-        base_dir: Base directory to scan (typically the litellm root)
+        base_dir: Base directory to scan (typically the hangarllm root)
 
     Returns:
         List of violations found
@@ -301,8 +301,8 @@ def check_sensitive_logging(base_dir: str) -> List[Dict[str, Any]]:
     detector = SensitiveLogDetector()
     all_violations = []
 
-    # Directories to scan - only main litellm codebase
-    scan_dirs = ["litellm", "enterprise"]  # Include enterprise directory if it exists
+    # Directories to scan - only main hangarllm codebase
+    scan_dirs = ["hangarllm", "enterprise"]  # Include enterprise directory if it exists
 
     # Directories to exclude (third-party code, venvs, etc.)
     exclude_dirs = {
@@ -318,7 +318,7 @@ def check_sensitive_logging(base_dir: str) -> List[Dict[str, Any]]:
         "dist",
         ".tox",
         "clean_env",
-        "litellm_env",
+        "hangarllm_env",
         "myenv",
         "py313_env",
         "venv_sip_bypass",
@@ -389,7 +389,7 @@ def main():
     ###################
     # Running in CI/CD
     ###################
-    base_dir = "./litellm"  # Adjust this path as needed
+    base_dir = "./hangarllm"  # Adjust this path as needed
 
     print(f"Checking for sensitive logging in: {base_dir}")
 

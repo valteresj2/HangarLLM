@@ -6,7 +6,7 @@ from typing import Final
 
 import pytest
 
-from litellm.rust_bridge.execution import (
+from hangarllm.rust_bridge.execution import (
     AsyncStream,
     Await,
     Complete,

@@ -15,7 +15,7 @@ _TEXT_BACKEND: Final = "gpt-3.5-turbo-instruct"
 _CHAT_BACKEND: Final = "gpt-5.4-mini"
 _API_KEY: Final = "synthetic-openai-key"
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
-_SPEND_ROW: Final = 'SELECT request_tags, metadata FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+_SPEND_ROW: Final = 'SELECT request_tags, metadata FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 
 
 class _TextChoice(BaseModel):

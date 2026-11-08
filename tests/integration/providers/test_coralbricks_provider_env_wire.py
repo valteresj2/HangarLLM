@@ -43,7 +43,7 @@ def env_config(env_wire: Wire, directory: Path) -> Path:
     base: Final = yaml.safe_load(Path("tests/integration/proxy_config.yaml").read_text())
     config: Final = {
         **base,
-        "model_list": [{"model_name": CONFIG_MODEL, "litellm_params": {"model": f"{PROVIDER}/{MODEL}"}}],
+        "model_list": [{"model_name": CONFIG_MODEL, "hangarllm_params": {"model": f"{PROVIDER}/{MODEL}"}}],
         "environment_variables": {
             **base.get("environment_variables", {}),
             "CORALBRICKS_API_KEY": ENV_KEY,

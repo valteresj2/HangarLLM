@@ -1,11 +1,11 @@
 """
-Unit tests for ``VertexAIBatchPrediction`` (litellm/llms/vertex_ai/batches/handler.py).
+Unit tests for ``VertexAIBatchPrediction`` (hangarllm/llms/vertex_ai/batches/handler.py).
 
 The handler is HTTP/auth glue around the (separately-tested) pure
 ``VertexAIBatchTransformation``. Each public method (create / retrieve / list /
 cancel) resolves a Vertex access token + URL, branches on ``_is_async``
 (returning the coroutine in the async case, doing the sync HTTP call otherwise),
-and parses the JSON into ``LiteLLMBatch`` (or the OpenAI list shape). POST-backed
+and parses the JSON into ``HangarLLMBatch`` (or the OpenAI list shape). POST-backed
 calls rely on the client's ``raise_for_status`` (non-2xx surfaces as
 ``httpx.HTTPStatusError``); GET-backed calls return without raising, so the
 handler checks their status codes itself.
@@ -19,7 +19,7 @@ We mock only true I/O / auth seams:
   * the httpx client factories (``get_httpx_client`` /
     ``get_async_httpx_client``) and the SSRF wrappers (``safe_get`` /
     ``async_safe_get``) - the network calls. We assert which seam fired with
-    what URL/headers/body, and that the response is parsed into the litellm
+    what URL/headers/body, and that the response is parsed into the hangarllm
     type. Sibling seams are asserted NOT called where relevant.
 
 The ``_is_async`` branch, the error paths, and the cancel
@@ -37,15 +37,15 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.llms.vertex_ai.batches.handler import (  # noqa: E402
+import hangarllm
+from hangarllm.llms.vertex_ai.batches.handler import (  # noqa: E402
     VertexAIBatchPrediction,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError  # noqa: E402
-from litellm.proxy.utils import handle_exception_on_proxy  # noqa: E402
-from litellm.types.utils import LiteLLMBatch  # noqa: E402
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError  # noqa: E402
+from hangarllm.proxy.utils import handle_exception_on_proxy  # noqa: E402
+from hangarllm.types.utils import HangarLLMBatch  # noqa: E402
 
-HMOD = "litellm.llms.vertex_ai.batches.handler"
+HMOD = "hangarllm.llms.vertex_ai.batches.handler"
 _CLIENT_ERROR_429: Final = "Client error '429 Too Many Requests' for url 'https://x/batchPredictionJobs'"
 TOKEN = "ya29.fake-access-token"
 PROJECT = "my-project"
@@ -87,7 +87,7 @@ def _make_handler() -> VertexAIBatchPrediction:
     ``VertexLLM``; we patch them on the instance (DI-style) so the URL/auth
     plumbing is deterministic and we can assert what got forwarded downstream.
     """
-    h = VertexAIBatchPrediction(gcs_bucket_name="litellm-testing-bucket")
+    h = VertexAIBatchPrediction(gcs_bucket_name="hangarllm-testing-bucket")
     h._ensure_access_token = MagicMock(return_value=(TOKEN, PROJECT))  # type: ignore[method-assign]
     # pass the computed default url straight through (no custom proxy)
     h._check_custom_proxy = MagicMock(  # type: ignore[method-assign]
@@ -136,7 +136,7 @@ def test_create_batch_sync_posts_and_parses():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, HangarLLMBatch)
     assert out.id == BATCH_ID
     assert out.status == "completed"
 
@@ -175,7 +175,7 @@ def test_create_batch_async_returns_coroutine_and_uses_async_client():
         assert asyncio.iscoroutine(coro)
         out = _run(coro)
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, HangarLLMBatch)
     assert out.id == BATCH_ID
     async_client.post.assert_awaited_once()
     # the async branch must NOT use the sync client for the request
@@ -204,7 +204,7 @@ def test_create_batch_sync_does_not_resolve_publisher_models():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, HangarLLMBatch)
     sent = json.loads(client.post.call_args.kwargs["data"])
     assert sent["model"] == "publishers/google/models/gemini-1.5-flash-001"
     safe_get.assert_not_called()
@@ -212,7 +212,7 @@ def test_create_batch_sync_does_not_resolve_publisher_models():
 
 ENDPOINT_ID = "7768560373388541952"
 ENDPOINT_CREATE_DATA = {
-    "input_file_id": f"gs://bucket/litellm-vertex-files/endpoints/{ENDPOINT_ID}/file-uuid"
+    "input_file_id": f"gs://bucket/hangarllm-vertex-files/endpoints/{ENDPOINT_ID}/file-uuid"
 }
 TUNED_MODEL_RESOURCE = f"projects/{PROJECT}/locations/{LOCATION}/models/1234509876"
 
@@ -251,7 +251,7 @@ def test_create_batch_sync_resolves_fine_tuned_endpoint_to_tuned_model():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, HangarLLMBatch)
     get_args, get_kwargs = safe_get.call_args
     assert get_args[1] == (
         f"https://{LOCATION}-aiplatform.googleapis.com/v1/projects/{PROJECT}"
@@ -450,7 +450,7 @@ def test_retrieve_batch_sync_uses_safe_get_with_batch_id_url():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, HangarLLMBatch)
     assert out.id == BATCH_ID
     # SSRF-wrapped fetch fired with the batch-id-appended url + bearer header
     args, kwargs = safe_get.call_args
@@ -486,7 +486,7 @@ def test_retrieve_batch_async_returns_coroutine_uses_async_safe_get():
         assert asyncio.iscoroutine(coro)
         out = _run(coro)
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, HangarLLMBatch)
     async_safe_get.assert_awaited_once()
     args, _ = async_safe_get.await_args
     assert args[1].endswith(f"/batchPredictionJobs/{BATCH_ID}")
@@ -514,10 +514,10 @@ def test_retrieve_batch_sync_non_200_raises():
 def test_retrieve_batch_sync_invokes_logging_pre_call():
     """When a real ``Logging`` obj is passed, ``pre_call`` is invoked with the
     request url + headers (the curl-redaction branch)."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
     h = _make_handler()
-    logging_obj = MagicMock(spec=LiteLLMLogging)
+    logging_obj = MagicMock(spec=HangarLLMLogging)
 
     with (
         patch(f"{HMOD}.get_httpx_client", return_value=MagicMock()),
@@ -683,7 +683,7 @@ def test_cancel_batch_sync_posts_cancel_then_retrieves():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, HangarLLMBatch)
     assert out.status == "cancelled"
 
     # POST hit the :cancel url
@@ -869,10 +869,10 @@ def test_async_retrieve_batch_non_200_raises():
 
 
 def test_async_retrieve_batch_invokes_logging_pre_call():
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging as HangarLLMLogging
 
     h = _make_handler()
-    logging_obj = MagicMock(spec=LiteLLMLogging)
+    logging_obj = MagicMock(spec=HangarLLMLogging)
 
     with (
         patch(f"{HMOD}.get_httpx_client", return_value=MagicMock()),
@@ -977,18 +977,18 @@ def test_async_cancel_batch_httpstatuserror_and_retrieve_non_200():
 
 mock_vertex_batch_response = {
     "name": "projects/123456789/locations/us-central1/batchPredictionJobs/test-batch-id-456",
-    "displayName": "litellm_batch_job",
+    "displayName": "hangarllm_batch_job",
     "model": "projects/123456789/locations/us-central1/models/gemini-1.5-flash-001",
     "modelVersionId": "v1",
     "inputConfig": {
         "gcsSource": {
             "uris": [
-                "gs://litellm-local/litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb"
+                "gs://hangarllm-local/hangarllm-vertex-files/publishers/google/models/gemini-1.5-flash-001/5f7b99ad-9203-4430-98bf-3b45451af4cb"
             ]
         }
     },
     "outputConfig": {
-        "gcsDestination": {"outputUriPrefix": "gs://litellm-local/batch-outputs/"}
+        "gcsDestination": {"outputUriPrefix": "gs://hangarllm-local/batch-outputs/"}
     },
     "dedicatedResources": {
         "machineSpec": {
@@ -1023,20 +1023,20 @@ mock_vertex_list_response = {
 
 @pytest.mark.asyncio
 async def test_vertex_list_batches(monkeypatch):
-    monkeypatch.setenv("GCS_BUCKET_NAME", "litellm-local")
-    monkeypatch.setenv("VERTEXAI_PROJECT", "litellm-test-project")
+    monkeypatch.setenv("GCS_BUCKET_NAME", "hangarllm-local")
+    monkeypatch.setenv("VERTEXAI_PROJECT", "hangarllm-test-project")
     monkeypatch.setenv("VERTEXAI_LOCATION", "us-central1")
 
     monkeypatch.setattr(
-        "litellm.llms.vertex_ai.batches.handler.VertexAIBatchPrediction._ensure_access_token",
+        "hangarllm.llms.vertex_ai.batches.handler.VertexAIBatchPrediction._ensure_access_token",
         lambda self, credentials, project_id, custom_llm_provider: (
             "mock-token",
-            "litellm-test-project",
+            "hangarllm-test-project",
         ),
     )
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get"
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get"
     ) as mock_get:
         mock_get_response = MagicMock()
         mock_get_response.json.return_value = mock_vertex_list_response
@@ -1045,7 +1045,7 @@ async def test_vertex_list_batches(monkeypatch):
         mock_get_response.is_redirect = False
         mock_get.return_value = mock_get_response
 
-        list_response = await litellm.alist_batches(
+        list_response = await hangarllm.alist_batches(
             custom_llm_provider="vertex_ai",
             limit=2,
         )
@@ -1059,7 +1059,7 @@ async def test_vertex_list_batches(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_vertex_async_create_batch_httpstatuserror_carries_vertex_error_body():
-    from litellm.llms.vertex_ai.batches.handler import VertexAIBatchPrediction
+    from hangarllm.llms.vertex_ai.batches.handler import VertexAIBatchPrediction
 
     handler = VertexAIBatchPrediction(gcs_bucket_name="test-bucket")
 
@@ -1077,7 +1077,7 @@ async def test_vertex_async_create_batch_httpstatuserror_carries_vertex_error_bo
     )
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         side_effect=http_error,
     ):
         with pytest.raises(httpx.HTTPStatusError) as exc_info:

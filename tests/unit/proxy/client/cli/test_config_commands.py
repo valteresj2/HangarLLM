@@ -6,9 +6,9 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from litellm.litellm_core_utils.private_json import write_private_json
-from litellm.proxy.client.cli import cli
-from litellm.proxy.client.cli.commands.config import (
+from hangarllm.hangarllm_core_utils.private_json import write_private_json
+from hangarllm.proxy.client.cli import cli
+from hangarllm.proxy.client.cli.commands.config import (
     get_config_file_path,
     get_config_value,
     load_config,
@@ -16,7 +16,7 @@ from litellm.proxy.client.cli.commands.config import (
     save_config,
     subscription_default,
 )
-from litellm.proxy.client.cli.interface import show_commands
+from hangarllm.proxy.client.cli.interface import show_commands
 
 
 @pytest.fixture
@@ -26,16 +26,16 @@ def cli_runner():
 
 @pytest.fixture
 def isolated_home(monkeypatch, tmp_path):
-    """Point HOME at tmp_path so tests never touch the developer's real ~/.litellm."""
+    """Point HOME at tmp_path so tests never touch the developer's real ~/.hangarllm."""
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
-    monkeypatch.delenv("LITELLM_PROXY_API_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_URL", raising=False)
+    monkeypatch.delenv("HANGARLLM_PROXY_API_KEY", raising=False)
     return tmp_path
 
 
 def _config_path(home: Path) -> Path:
-    return home / ".litellm" / "config.json"
+    return home / ".hangarllm" / "config.json"
 
 
 def _raise_home_unresolvable() -> str:
@@ -110,10 +110,10 @@ class TestConfigSet:
     def test_set_base_url_with_path_prefix_accepted(self, cli_runner, isolated_home):
         """Proxies are commonly served under a path prefix; the query/fragment
         rejection must not over-reach into legitimate paths."""
-        result = cli_runner.invoke(cli, ["config", "set", "base_url", "https://proxy.example.com/litellm"])
+        result = cli_runner.invoke(cli, ["config", "set", "base_url", "https://proxy.example.com/hangarllm"])
 
         assert result.exit_code == 0
-        assert json.loads(_config_path(isolated_home).read_text()) == {"base_url": "https://proxy.example.com/litellm"}
+        assert json.loads(_config_path(isolated_home).read_text()) == {"base_url": "https://proxy.example.com/hangarllm"}
 
     def test_set_leaves_no_temp_files_behind(self, cli_runner, isolated_home):
         """The atomic write goes through a .tmp-* sibling; it must be renamed away,
@@ -217,7 +217,7 @@ class TestHiddenCommands:
         """Hiding is about the listing only; anyone already scripting the command keeps working."""
         save_config({"hidden_commands": "codex"})
 
-        with patch("litellm.proxy.client.cli.commands.agents.run_agent") as run_agent_mock:
+        with patch("hangarllm.proxy.client.cli.commands.agents.run_agent") as run_agent_mock:
             result = cli_runner.invoke(
                 cli,
                 ["--base-url", "http://localhost:4000", "--api-key", "sk-key", "codex", "exec", "do a thing"],
@@ -259,7 +259,7 @@ class TestHiddenCommands:
 
 class TestConfigHelpers:
     def test_get_config_file_path_under_home(self, isolated_home):
-        assert get_config_file_path() == str(isolated_home / ".litellm" / "config.json")
+        assert get_config_file_path() == str(isolated_home / ".hangarllm" / "config.json")
 
     def test_load_config_missing_file_returns_empty(self, isolated_home):
         assert load_config() == {}
@@ -268,7 +268,7 @@ class TestConfigHelpers:
         """Path.home() raises RuntimeError in HOME-less containers; invocations that
         never needed the home dir (--api-key supplied) must keep working."""
         monkeypatch.setattr(
-            "litellm.proxy.client.cli.commands.config.get_config_file_path",
+            "hangarllm.proxy.client.cli.commands.config.get_config_file_path",
             _raise_home_unresolvable,
         )
 
@@ -352,7 +352,7 @@ class TestWritePrivateJson:
         def _interrupt(*args: object, **kwargs: object) -> None:
             raise KeyboardInterrupt()
 
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.json.dump", _interrupt)
+        monkeypatch.setattr("hangarllm.hangarllm_core_utils.private_json.json.dump", _interrupt)
         target = tmp_path / "config.json"
 
         with pytest.raises(KeyboardInterrupt):

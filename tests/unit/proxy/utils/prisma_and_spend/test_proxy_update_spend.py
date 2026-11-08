@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm.proxy.utils as utils_mod
-from litellm.proxy.db.spend_log_batching import spend_log_row_bytes
-from litellm.proxy.utils import PrismaClient, ProxyUpdateSpend, enqueue_spend_logs
+import hangarllm.proxy.utils as utils_mod
+from hangarllm.proxy.db.spend_log_batching import spend_log_row_bytes
+from hangarllm.proxy.utils import PrismaClient, ProxyUpdateSpend, enqueue_spend_logs
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +44,7 @@ async def test_update_end_user_spend_upserts_each_end_user(
     mock_prisma_client: Any,
 ) -> None:
     batcher = MagicMock()
-    batcher.litellm_endusertable.upsert = MagicMock()
+    batcher.hangarllm_endusertable.upsert = MagicMock()
     transaction = MagicMock()
     transaction.batch_ = lambda: _AsyncCM(batcher)
     mock_prisma_client.db.tx = lambda timeout: _AsyncCM(transaction)
@@ -59,7 +59,7 @@ async def test_update_end_user_spend_upserts_each_end_user(
         proxy_logging_obj=proxy_logging,
         end_user_list_transactions=end_user_costs,
     )
-    calls = batcher.litellm_endusertable.upsert.call_args_list
+    calls = batcher.hangarllm_endusertable.upsert.call_args_list
     ordered_ids = [c.kwargs["where"]["user_id"] for c in calls]
     creates = [c.kwargs["data"]["create"] for c in calls]
     pinned = {
@@ -87,7 +87,7 @@ async def test_update_end_user_spend_retries_on_connect_error(
     original exception bubbles up via ``_raise_failed_update_spend_exception``.
     """
     import httpx
-    import litellm.proxy.utils as utils_mod
+    import hangarllm.proxy.utils as utils_mod
 
     sleeps: list[float] = []
 
@@ -153,7 +153,7 @@ async def test_update_end_user_spend_non_connection_error_raises_immediately(
 def _end_user_deadlock_error() -> Exception:
     from prisma.errors import RawQueryError
 
-    return RawQueryError(data={"user_facing_error": {"error_code": "P2034", "meta": {"table": "LiteLLM_EndUserTable"}}})
+    return RawQueryError(data={"user_facing_error": {"error_code": "P2034", "meta": {"table": "HangarLLM_EndUserTable"}}})
 
 
 def _failing_tx(error: Exception) -> Any:
@@ -178,7 +178,7 @@ async def test_update_end_user_spend_retries_on_deadlock_then_commits(
     monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
 
     batcher = MagicMock()
-    batcher.litellm_endusertable.upsert = MagicMock()
+    batcher.hangarllm_endusertable.upsert = MagicMock()
     transaction = MagicMock()
     transaction.batch_ = lambda: _AsyncCM(batcher)
     mock_prisma_client.db.tx = MagicMock(side_effect=[_failing_tx(_end_user_deadlock_error()), _AsyncCM(transaction)])
@@ -194,8 +194,8 @@ async def test_update_end_user_spend_retries_on_deadlock_then_commits(
     )
 
     assert mock_prisma_client.db.tx.call_count == 2
-    batcher.litellm_endusertable.upsert.assert_called_once()
-    assert batcher.litellm_endusertable.upsert.call_args.kwargs["where"] == {"user_id": "end-user-1"}
+    batcher.hangarllm_endusertable.upsert.assert_called_once()
+    assert batcher.hangarllm_endusertable.upsert.call_args.kwargs["where"] == {"user_id": "end-user-1"}
     assert len(sleeps) == 1
     assert 1.0 <= sleeps[0] <= 2.0
     proxy_logging.failure_handler.assert_not_called()
@@ -228,7 +228,7 @@ async def test_update_spend_logs_writes_batches_via_create_many(
     mock_prisma_client: Any, make_spend_log_row: Any
 ) -> None:
     logs = [make_spend_log_row(request_id=f"r{i}", spend=float(i)) for i in range(3)]
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock()
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock()
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     await ProxyUpdateSpend.update_spend_logs(
@@ -238,9 +238,9 @@ async def test_update_spend_logs_writes_batches_via_create_many(
         proxy_logging_obj=proxy_logging,
         logs_to_process=logs,
     )
-    kwargs = mock_prisma_client.db.litellm_spendlogs.create_many.await_args.kwargs
+    kwargs = mock_prisma_client.db.hangarllm_spendlogs.create_many.await_args.kwargs
     pinned = {
-        "calls": mock_prisma_client.db.litellm_spendlogs.create_many.await_count,
+        "calls": mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count,
         "data_len": len(kwargs["data"]),
         "skip_duplicates": kwargs["skip_duplicates"],
         "first_request_id": kwargs["data"][0]["request_id"],
@@ -264,7 +264,7 @@ async def test_update_spend_logs_bounds_each_statement_by_payload_bytes(
     monkeypatch.setattr(utils_mod, "SPEND_LOG_WRITE_BATCH_MAX_BYTES", 50_000)
     blob = json.dumps({"content": "x" * 10_000})
     logs = [make_spend_log_row(request_id=f"r{i}", messages=blob, response=blob) for i in range(50)]
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock()
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock()
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
 
@@ -276,7 +276,7 @@ async def test_update_spend_logs_bounds_each_statement_by_payload_bytes(
         logs_to_process=logs,
     )
 
-    calls = mock_prisma_client.db.litellm_spendlogs.create_many.await_args_list
+    calls = mock_prisma_client.db.hangarllm_spendlogs.create_many.await_args_list
     written = [row["request_id"] for call in calls for row in call.kwargs["data"]]
     # Each statement is encoded whole rather than summed row by row, so the
     # assertion covers the collection framing the rows carry on the wire and
@@ -310,7 +310,7 @@ async def test_update_spend_logs_uses_spend_logs_url_when_set(
         "post_calls": writer.post.await_count,
         "url": writer.post.await_args.kwargs["url"],
         "headers": writer.post.await_args.kwargs["headers"],
-        "create_many_calls": mock_prisma_client.db.litellm_spendlogs.create_many.await_count,
+        "create_many_calls": mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count,
     }
     assert pinned == {
         "post_calls": 1,
@@ -328,7 +328,7 @@ async def test_update_spend_logs_pops_logs_when_logs_to_process_is_none(
         make_spend_log_row(request_id="a"),
         make_spend_log_row(request_id="b"),
     ]
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock()
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock()
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     await ProxyUpdateSpend.update_spend_logs(
@@ -338,7 +338,7 @@ async def test_update_spend_logs_pops_logs_when_logs_to_process_is_none(
         proxy_logging_obj=proxy_logging,
     )
     assert mock_prisma_client.spend_log_transactions == []
-    assert mock_prisma_client.db.litellm_spendlogs.create_many.await_count == 1
+    assert mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -351,14 +351,14 @@ async def test_update_spend_logs_failure_raises_after_retries(
     via ``_raise_failed_update_spend_exception``.
     """
     import httpx
-    import litellm.proxy.utils as utils_mod
+    import hangarllm.proxy.utils as utils_mod
 
     async def _fake_sleep(_: float) -> None:
         return None
 
     monkeypatch.setattr(utils_mod.asyncio, "sleep", _fake_sleep)
 
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=httpx.ReadError("network blip"))
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=httpx.ReadError("network blip"))
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     with pytest.raises(httpx.ReadError):
@@ -396,7 +396,7 @@ async def test_update_spend_logs_isolates_poison_row_and_persists_good_rows(
             raise _data_error("Inconsistent column data: 22P05 invalid byte sequence for encoding UTF8: 0x00")
         written.extend(ids)
 
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=_create_many)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=_create_many)
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
 
@@ -420,7 +420,7 @@ async def test_update_spend_logs_reraises_connection_masquerade_dataerror(
     is surfaced/retried rather than bisected into silent per-row drops.
     """
     err = _data_error("Can't reach database server at db-host:5432")
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=err)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=err)
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
 
@@ -451,7 +451,7 @@ async def test_update_spend_logs_retries_and_requeues_batch_on_db_outage(
         return None
 
     monkeypatch.setattr(utils_mod.asyncio, "sleep", _fake_sleep)
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(
         side_effect=_data_error("Can't reach database server at db-host:5432 (P1001)")
     )
     proxy_logging = MagicMock()
@@ -469,7 +469,7 @@ async def test_update_spend_logs_retries_and_requeues_batch_on_db_outage(
             logs_to_process=logs,
         )
 
-    assert mock_prisma_client.db.litellm_spendlogs.create_many.await_count == 3
+    assert mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count == 3
     assert [row["request_id"] for row in mock_prisma_client.spend_log_transactions] == ["a", "b", "c"]
 
 
@@ -495,7 +495,7 @@ async def test_update_spend_logs_retries_deadlock_and_keeps_every_row(
 
     monkeypatch.setattr(utils_mod.asyncio, "sleep", _fake_sleep)
     create_many = AsyncMock(side_effect=[_deadlock_error(), _deadlock_error(), None])
-    mock_prisma_client.db.litellm_spendlogs.create_many = create_many
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = create_many
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     mock_prisma_client.spend_log_transactions = []
@@ -527,7 +527,7 @@ async def test_update_spend_logs_requeues_batch_once_deadlock_retries_exhaust(
         return None
 
     monkeypatch.setattr(utils_mod.asyncio, "sleep", _fake_sleep)
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=_deadlock_error())
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=_deadlock_error())
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     mock_prisma_client.spend_log_transactions = [make_spend_log_row(request_id="c")]
@@ -541,7 +541,7 @@ async def test_update_spend_logs_requeues_batch_once_deadlock_retries_exhaust(
             logs_to_process=[make_spend_log_row(request_id="a"), make_spend_log_row(request_id="b")],
         )
 
-    assert mock_prisma_client.db.litellm_spendlogs.create_many.await_count == 2
+    assert mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count == 2
     assert [row["request_id"] for row in mock_prisma_client.spend_log_transactions] == ["a", "b", "c"]
 
 
@@ -559,7 +559,7 @@ async def test_update_spend_logs_requeues_batch_on_non_transport_db_error(
     err = TableNotFoundError(
         {"user_facing_error": {"error_code": "P2021", "message": "The table does not exist", "meta": {}}}
     )
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=err)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=err)
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     mock_prisma_client.spend_log_transactions = [make_spend_log_row(request_id="c")]
@@ -573,7 +573,7 @@ async def test_update_spend_logs_requeues_batch_on_non_transport_db_error(
             logs_to_process=[make_spend_log_row(request_id="a"), make_spend_log_row(request_id="b")],
         )
 
-    assert mock_prisma_client.db.litellm_spendlogs.create_many.await_count == 1
+    assert mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count == 1
     assert [row["request_id"] for row in mock_prisma_client.spend_log_transactions] == ["a", "b", "c"]
 
 
@@ -657,7 +657,7 @@ async def test_update_spend_logs_does_not_requeue_non_transport_failures(
     serialize would fail the same way on every flush, so requeueing it would
     wedge the head of the queue forever.
     """
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=ValueError("bad payload"))
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=ValueError("bad payload"))
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     mock_prisma_client.spend_log_transactions = []
@@ -672,7 +672,7 @@ async def test_update_spend_logs_does_not_requeue_non_transport_failures(
         )
 
     assert mock_prisma_client.spend_log_transactions == []
-    assert mock_prisma_client.db.litellm_spendlogs.create_many.await_count == 1
+    assert mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -685,7 +685,7 @@ async def test_update_spend_logs_caps_isolation_attempts_under_poison_flood(
     the DB work stays bounded and well below the input row count, and the helper
     still completes without raising.
     """
-    import litellm.proxy.utils as utils_mod
+    import hangarllm.proxy.utils as utils_mod
 
     attempt_cap = utils_mod.MAX_SPEND_LOG_ISOLATION_FAILURES_PER_BATCH
     # single create_many batch (< BATCH_SIZE) whose row count exceeds the attempt
@@ -698,7 +698,7 @@ async def test_update_spend_logs_caps_isolation_attempts_under_poison_flood(
     async def _always_poison(*, data: Any, skip_duplicates: bool) -> None:
         raise _data_error("invalid byte sequence for encoding UTF8: 0x00")
 
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=_always_poison)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=_always_poison)
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     logs = [make_spend_log_row(request_id=f"r{i}") for i in range(n_rows)]
@@ -711,7 +711,7 @@ async def test_update_spend_logs_caps_isolation_attempts_under_poison_flood(
         logs_to_process=logs,
     )
 
-    attempts = mock_prisma_client.db.litellm_spendlogs.create_many.await_count
+    attempts = mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count
     assert attempts <= attempt_cap
     assert attempts < n_rows
 
@@ -762,7 +762,7 @@ async def _flush_and_count_create_many(
 
     monkeypatch.setattr(utils_mod, "SPEND_LOG_WRITE_BATCH_MAX_BYTES", max_bytes)
     monkeypatch.setattr(utils_mod, "SPEND_LOG_WRITE_BATCH_MAX_ROWS", max_rows)
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=_create_many)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=_create_many)
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
 
@@ -773,7 +773,7 @@ async def _flush_and_count_create_many(
         proxy_logging_obj=proxy_logging,
         logs_to_process=logs,
     )
-    return int(mock_prisma_client.db.litellm_spendlogs.create_many.await_count)
+    return int(mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count)
 
 
 @pytest.mark.asyncio
@@ -830,7 +830,7 @@ async def test_clean_statement_is_still_written_after_a_poison_flood(
         written.extend(ids)
 
     monkeypatch.setattr(utils_mod, "SPEND_LOG_WRITE_BATCH_MAX_BYTES", 250_000)
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=_create_many)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=_create_many)
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
 
@@ -851,7 +851,7 @@ def test_disable_spend_updates_reflects_general_settings(
     """The static method delegates to ``general_settings['disable_spend_updates']``;
     flipping that value toggles the helper's return.
     """
-    import litellm.proxy.proxy_server as proxy_server_mod
+    import hangarllm.proxy.proxy_server as proxy_server_mod
 
     monkeypatch.setattr(proxy_server_mod, "general_settings", {"disable_spend_updates": True})
     pinned = {
@@ -869,7 +869,7 @@ def test_disable_spend_updates_reflects_general_settings(
 def test_disable_spend_updates_default_false_without_flag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm.proxy.proxy_server as proxy_server_mod
+    import hangarllm.proxy.proxy_server as proxy_server_mod
 
     monkeypatch.setattr(proxy_server_mod, "general_settings", {})
     assert ProxyUpdateSpend.disable_spend_updates() is False
@@ -878,7 +878,7 @@ def test_disable_spend_updates_default_false_without_flag(
 def test_disable_spend_updates_error_when_general_settings_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import litellm.proxy.proxy_server as proxy_server_mod
+    import hangarllm.proxy.proxy_server as proxy_server_mod
 
     monkeypatch.delattr(proxy_server_mod, "general_settings", raising=False)
     with pytest.raises(ImportError):
@@ -901,7 +901,7 @@ async def test_update_spend_logs_parks_failed_batch_in_redis_with_wire_safe_date
     err = TableNotFoundError(
         {"user_facing_error": {"error_code": "P2021", "message": "The table does not exist", "meta": {}}}
     )
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=err)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=err)
     mock_prisma_client.spend_log_transactions = []
 
     with pytest.raises(TableNotFoundError):
@@ -934,7 +934,7 @@ async def test_update_spend_logs_requeues_batch_when_postgres_is_out_of_connecti
     sleep: Final = AsyncMock(return_value=None)
     monkeypatch.setattr(utils_mod.asyncio, "sleep", sleep)
     err: Final = _data_error("Error in connector: Error querying the database: FATAL: sorry, too many clients already")
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(side_effect=err)
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(side_effect=err)
     proxy_logging: Final = MagicMock()
     proxy_logging.failure_handler = AsyncMock()
     mock_prisma_client.spend_log_transactions = [make_spend_log_row(request_id="e")]
@@ -949,7 +949,7 @@ async def test_update_spend_logs_requeues_batch_when_postgres_is_out_of_connecti
             logs_to_process=logs,
         )
 
-    assert mock_prisma_client.db.litellm_spendlogs.create_many.await_count == 1
+    assert mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count == 1
     sleep.assert_not_awaited()
     assert [row["request_id"] for row in mock_prisma_client.spend_log_transactions] == ["r0", "r1", "r2", "r3", "e"]
 
@@ -984,7 +984,7 @@ async def test_update_spend_logs_retries_and_requeues_batch_when_postgres_restar
         return None
 
     monkeypatch.setattr(utils_mod.asyncio, "sleep", _fake_sleep)
-    mock_prisma_client.db.litellm_spendlogs.create_many = AsyncMock(
+    mock_prisma_client.db.hangarllm_spendlogs.create_many = AsyncMock(
         side_effect=_create_many_while_postgres_is_restarting
     )
     proxy_logging = MagicMock()
@@ -1001,4 +1001,4 @@ async def test_update_spend_logs_retries_and_requeues_batch_when_postgres_restar
         )
 
     assert [row["request_id"] for row in mock_prisma_client.spend_log_transactions] == ["a", "b", "c"]
-    assert mock_prisma_client.db.litellm_spendlogs.create_many.await_count == 3
+    assert mock_prisma_client.db.hangarllm_spendlogs.create_many.await_count == 3

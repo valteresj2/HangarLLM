@@ -8,9 +8,9 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from litellm.integrations.opik.opik_payload_builder import build_opik_payload
-from litellm.integrations.opik.opik_payload_builder.types import SpanPayload, TracePayload
-from litellm.types.utils import ModelResponse, Usage
+from hangarllm.integrations.opik.opik_payload_builder import build_opik_payload
+from hangarllm.integrations.opik.opik_payload_builder.types import SpanPayload, TracePayload
+from hangarllm.types.utils import ModelResponse, Usage
 
 _START: Final = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
 _END: Final = datetime(2026, 1, 2, 3, 4, 6, tzinfo=timezone.utc)
@@ -47,7 +47,7 @@ _EXISTING_TRACE: Final = {"metadata": {"opik": {"current_span_data": {"trace_id"
 
 def _payloads_attached_to_trace_1(standard_logging_object: object) -> tuple[TracePayload | None, SpanPayload]:
     return build_opik_payload(
-        kwargs={"standard_logging_object": standard_logging_object, "litellm_params": _EXISTING_TRACE},
+        kwargs={"standard_logging_object": standard_logging_object, "hangarllm_params": _EXISTING_TRACE},
         response_obj=_RESPONSE_OBJ,
         start_time=_START,
         end_time=_END,
@@ -88,7 +88,7 @@ def test_build_opik_payload_creates_a_trace_and_its_span_from_the_standard_loggi
     )
     metadata: Final = {
         "thread_id": "thread-1",
-        "created_from": "litellm",
+        "created_from": "hangarllm",
         **_LOGGING_METADATA,
         **_OPIK_FIELDS_OF_THE_LOGGING_OBJECT,
         "cost": {"total_tokens": 0.25, "currency": "USD"},
@@ -165,7 +165,7 @@ def test_build_opik_payload_reads_any_string_keyed_mapping_as_the_standard_loggi
             span.id,
             {
                 "thread_id": "thread-1",
-                "created_from": "litellm",
+                "created_from": "hangarllm",
                 **_LOGGING_METADATA,
                 **_OPIK_FIELDS_OF_THE_LOGGING_OBJECT,
             },
@@ -189,14 +189,14 @@ def test_build_opik_payload_without_standard_logging_metadata_keeps_only_the_log
 
     assert (trace, span) == (
         None,
-        _span_attached_to_trace_1(span.id, {"created_from": "litellm", **_OPIK_FIELDS_OF_THE_LOGGING_OBJECT}),
+        _span_attached_to_trace_1(span.id, {"created_from": "hangarllm", **_OPIK_FIELDS_OF_THE_LOGGING_OBJECT}),
     )
 
 
 def test_build_opik_payload_of_an_empty_standard_logging_object_has_empty_input_and_output() -> None:
     _, span = _payloads_attached_to_trace_1({})
 
-    assert (span.input, span.output, span.metadata) == ({}, {}, {"created_from": "litellm"})
+    assert (span.input, span.output, span.metadata) == ({}, {}, {"created_from": "hangarllm"})
 
 
 @pytest.mark.parametrize(

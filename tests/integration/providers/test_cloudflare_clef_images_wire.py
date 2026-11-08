@@ -42,7 +42,7 @@ _OPENAI_QUESTIONS: Final[list[JsonValue]] = [
     {"type": "predicate", "name": "red", "instructions": "Is the screenshot red?"}
 ]
 _SPEND_QUERY: Final = (
-    'SELECT spend, status, call_type, model_group, prompt_tokens, completion_tokens FROM "LiteLLM_SpendLogs" '
+    'SELECT spend, status, call_type, model_group, prompt_tokens, completion_tokens FROM "HangarLLM_SpendLogs" '
     "WHERE request_id = %s"
 )
 _OWNED_TIMEOUT: Final = int(2 * graceful_stop_seconds() + 120)
@@ -54,12 +54,12 @@ import os
 
 import httpx
 
-from litellm.integrations.custom_logger import CustomLogger
+from hangarllm.integrations.custom_logger import CustomLogger
 
 
 class ImageInputRecorder(CustomLogger):
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        payload = {"call_id": kwargs.get("litellm_call_id"), "input": kwargs.get("input")}
+        payload = {"call_id": kwargs.get("hangarllm_call_id"), "input": kwargs.get("input")}
         async with httpx.AsyncClient(trust_env=False, timeout=10) as client:
             await client.post(os.environ["IMAGE_INPUT_SINK"], content=json.dumps(payload, default=str))
 
@@ -195,8 +195,8 @@ def _call_type(route: Route) -> str:
 
 def _assert_billed(gateway: Gateway, response: httpx.Response, model: str, route: Route, cost_map_key: str) -> None:
     expected: Final = _expected_spend(cost_map_key)
-    assert math.isclose(float(response.headers["x-litellm-response-cost"]), expected, rel_tol=1e-9), response.headers
-    call_id: Final = response.headers["x-litellm-call-id"]
+    assert math.isclose(float(response.headers["x-hangarllm-response-cost"]), expected, rel_tol=1e-9), response.headers
+    call_id: Final = response.headers["x-hangarllm-call-id"]
     row: Final = _spend_row(call_id)
     assert (row["status"], row["call_type"], row["model_group"], row["prompt_tokens"], row["completion_tokens"]) == (
         "success",
@@ -773,11 +773,11 @@ def allowlisted(rig: Gateway, wire: Wire, sink: Wire, tmp_path_factory: pytest.T
                 "model_list": [
                     {
                         "model_name": _ALLOWLISTED_MODEL,
-                        "litellm_params": {"model": _CLEF, "api_base": wire.url, "api_key": _API_KEY},
+                        "hangarllm_params": {"model": _CLEF, "api_base": wire.url, "api_key": _API_KEY},
                     }
                 ],
-                "litellm_settings": {
-                    **object_value(config["litellm_settings"]),
+                "hangarllm_settings": {
+                    **object_value(config["hangarllm_settings"]),
                     "callbacks": ["image_input_recorder.instance"],
                 },
                 "general_settings": {
@@ -829,7 +829,7 @@ def test_an_allowlisted_remote_image_reaches_clef_as_bytes_while_callbacks_log_t
     assert [_upstream_body(request) for request in posts] == [
         _expected_upstream_body("clef", _state(marker), [_PNG_DATA_URL])
     ] * 2
-    call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+    call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
     assert len(set(call_ids)) == 2, call_ids
     assert _logged_inputs(sink, call_ids) == {
         call_id: _expected_upstream_body("clef", _state(marker), [image_url]) for call_id in call_ids

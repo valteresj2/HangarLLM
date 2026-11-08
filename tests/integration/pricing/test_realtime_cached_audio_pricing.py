@@ -9,7 +9,7 @@ import pytest
 import websockets
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-import litellm
+import hangarllm
 from tests.integration._support.client import JSON_OBJECT, Gateway, eventually
 from tests.integration._support.database import read_rows
 from tests.integration._support.upstream import delete_scenario, register_scenario
@@ -28,7 +28,7 @@ class RealtimeRates(BaseModel):
 
 
 MODEL: Final = "gpt-realtime-2"
-RATES: Final = RealtimeRates.model_validate(litellm.get_model_info(MODEL, custom_llm_provider="openai"))
+RATES: Final = RealtimeRates.model_validate(hangarllm.get_model_info(MODEL, custom_llm_provider="openai"))
 TEXT_RATE: Final = RATES.input_cost_per_token
 AUDIO_RATE: Final = RATES.input_cost_per_audio_token
 CACHED_TEXT_RATE: Final = RATES.cache_read_input_token_cost
@@ -119,7 +119,7 @@ def test_realtime_cached_audio_tokens_bill_at_audio_cache_read_rate_not_full_aud
         assert session.get("type") == "session.created", session
         rows: Final = eventually(
             lambda: read_rows(
-                'SELECT spend, prompt_tokens, completion_tokens, call_type FROM "LiteLLM_SpendLogs" WHERE api_key = %s',
+                'SELECT spend, prompt_tokens, completion_tokens, call_type FROM "HangarLLM_SpendLogs" WHERE api_key = %s',
                 (sha256(key.encode()).hexdigest(),),
             ),
             lambda values: len(values) == 1,

@@ -18,7 +18,7 @@ import pytest
 from e2e_config import SLOW_PROVIDER_TIMEOUT_SECONDS, unique_marker
 from e2e_metadata import Domain, Mode, Provider, Route, Subject, meta
 from lifecycle import ResourceManager
-from models import LiteLLMParamsBody
+from models import HangarLLMParamsBody
 from proxy_client import ProxyClient
 from sdk_clients import SdkClients
 
@@ -37,7 +37,7 @@ def _register_image_model(proxy: ProxyClient, resources: ResourceManager) -> tup
     model = f"e2e-image-edit-{unique_marker()}"
     model_id = proxy.create_model(
         model,
-        LiteLLMParamsBody(model=IMAGE_EDIT_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
+        HangarLLMParamsBody(model=IMAGE_EDIT_BACKEND, api_key="os.environ/OPENAI_API_KEY"),
     )
     resources.defer(lambda: proxy.delete_model(model_id))
     return model, resources.key()

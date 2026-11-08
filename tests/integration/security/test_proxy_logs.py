@@ -2,9 +2,9 @@
 
 Each leg boots its own proxy (slot B1 lives in its config), sends one successful and one
 provider-rejected chat completion, stops the proxy so every buffered write reaches the log
-file, and then searches the whole captured log. The ``default`` leg runs with ``LITELLM_LOG``
+file, and then searches the whole captured log. The ``default`` leg runs with ``HANGARLLM_LOG``
 unset, the level an operator gets out of the box; the ``debug`` leg runs with
-``LITELLM_LOG=DEBUG``, which prints request data, router decisions and provider calls.
+``HANGARLLM_LOG=DEBUG``, which prints request data, router decisions and provider calls.
 
 Positive control: the provider double must receive ``Authorization: Bearer <B1 canary>`` for
 both requests. Sensitivity control: the provider double echoes the rejected message in its
@@ -26,7 +26,7 @@ from integration.security._canary import MARKER, Canary, canary, find_canary
 from integration.security._sinks import CONFIG_MODEL, PROVIDER_4XX, canary_rig, chat_upstream, settle, team_caller
 from integration.security._sweeps import Hit, assert_no_hits
 
-LEGS: Final = MappingProxyType({"default": MappingProxyType({}), "debug": MappingProxyType({"LITELLM_LOG": "DEBUG"})})
+LEGS: Final = MappingProxyType({"default": MappingProxyType({}), "debug": MappingProxyType({"HANGARLLM_LOG": "DEBUG"})})
 
 
 def echoing_upstream(request: Request) -> Reply:
@@ -57,7 +57,7 @@ def sweep_log(path: Path, canaries: tuple[Canary, ...]) -> tuple[Hit, ...]:
 
 @pytest.mark.parametrize("leg", tuple(LEGS))
 def test_proxy_log_carries_no_credential(leg: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LITELLM_LOG", raising=False)
+    monkeypatch.delenv("HANGARLLM_LOG", raising=False)
     marker: Final = canary(MARKER)
     with canary_rig(tmp_path, environment=LEGS[leg], upstream=echoing_upstream) as rig:
         b1: Final = rig.canaries["B1"]

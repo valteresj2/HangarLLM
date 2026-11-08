@@ -1,22 +1,22 @@
 """
 How the core builds its registry from ``model_list``: deployment ids, provider checks, environment
 gating, ``os.environ/`` references, per-organization fan-out, wildcard and team registration, and
-the pricing each deployment writes into ``litellm.model_cost``.
+the pricing each deployment writes into ``hangarllm.model_cost``.
 """
 
 import pytest
 
-import litellm
-from litellm.router_api import deployment_id
+import hangarllm
+from hangarllm.router_api import deployment_id
 from tests.unit.test_router.core.registry_helpers import MakeCore, ids, team_deployment, unique_id
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment
 
 
 def _bare(
     model_name: str, model: str, **params: object
-) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: litellm_params
+) -> dict[str, object]:  # mutable-ok: a model_list entry  # kwargs-ok: hangarllm_params
     """A model_list entry with no ``model_info`` at all."""
-    return {"model_name": model_name, "litellm_params": {"model": model, "api_key": "sk-test", **params}}
+    return {"model_name": model_name, "hangarllm_params": {"model": model, "api_key": "sk-test", **params}}
 
 
 # -- deployment ids -----------------------------------------------------------------------------
@@ -48,7 +48,7 @@ def test_generated_ids_differ_when_the_group_or_params_differ(make_core: MakeCor
 def test_a_declared_non_string_id_is_kept_as_a_string(make_core: MakeCore) -> None:
     core = make_core(
         model_list=[
-            {"model_name": "gpt", "litellm_params": {"model": "openai/x", "api_key": "k"}, "model_info": {"id": 1}}
+            {"model_name": "gpt", "hangarllm_params": {"model": "openai/x", "api_key": "k"}, "model_info": {"id": 1}}
         ]
     )
 
@@ -71,22 +71,22 @@ def test_two_deployments_declaring_one_id_are_both_kept_and_the_id_finds_the_las
 # -- the stored entries -------------------------------------------------------------------------
 
 
-def test_the_stored_entry_carries_litellm_param_defaults_and_model_info_flags(make_core: MakeCore) -> None:
+def test_the_stored_entry_carries_hangarllm_param_defaults_and_model_info_flags(make_core: MakeCore) -> None:
     core = make_core(model_list=[deployment("gpt", "a")])
 
     (entry,) = core.registry().all()
     assert entry["model_name"] == "gpt"
-    assert entry["litellm_params"]["model"] == "openai/a"
-    assert entry["litellm_params"]["api_key"] == "sk-test"
+    assert entry["hangarllm_params"]["model"] == "openai/a"
+    assert entry["hangarllm_params"]["api_key"] == "sk-test"
     assert entry["model_info"] == {"id": "a", "db_model": False, "member_auto_router": False}
 
 
-def test_top_level_rpm_and_tpm_are_copied_into_litellm_params(make_core: MakeCore) -> None:
+def test_top_level_rpm_and_tpm_are_copied_into_hangarllm_params(make_core: MakeCore) -> None:
     core = make_core(
         model_list=[
             {
                 "model_name": "gpt",
-                "litellm_params": {"model": "openai/x", "api_key": "k"},
+                "hangarllm_params": {"model": "openai/x", "api_key": "k"},
                 "model_info": {"id": "r"},
                 "rpm": 7,
                 "tpm": 9,
@@ -95,11 +95,11 @@ def test_top_level_rpm_and_tpm_are_copied_into_litellm_params(make_core: MakeCor
     )
 
     (entry,) = core.registry().all()
-    assert (entry["litellm_params"]["rpm"], entry["litellm_params"]["tpm"]) == (7, 9)
+    assert (entry["hangarllm_params"]["rpm"], entry["hangarllm_params"]["tpm"]) == (7, 9)
     assert (entry["rpm"], entry["tpm"]) == (7, 9)
 
 
-def test_os_environ_references_in_litellm_params_are_resolved(
+def test_os_environ_references_in_hangarllm_params_are_resolved(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("REGISTRY_CHAR_BASE", "https://env.example")
@@ -110,7 +110,7 @@ def test_os_environ_references_in_litellm_params_are_resolved(
         ]
     )
 
-    params = core.registry().all()[0]["litellm_params"]
+    params = core.registry().all()[0]["hangarllm_params"]
     assert (params["api_key"], params["api_base"]) == ("sk-from-env", "https://env.example")
 
 
@@ -130,18 +130,18 @@ def test_a_list_of_organizations_fans_out_into_one_deployment_per_organization(m
     core = make_core(model_list=[_bare("gpt", "openai/x", organization=["org-1", "org-2"])])
 
     entries = core.registry().all()
-    assert [entry["litellm_params"]["organization"] for entry in entries] == ["org-1", "org-2"]
+    assert [entry["hangarllm_params"]["organization"] for entry in entries] == ["org-1", "org-2"]
     assert len(set(ids(entries))) == 1
     assert core.registry().index("model_name") == {"gpt": [0, 1]}
 
 
-def test_deployment_names_list_each_deployments_litellm_model(make_core: MakeCore) -> None:
+def test_deployment_names_list_each_deployments_hangarllm_model(make_core: MakeCore) -> None:
     core = make_core(model_list=[deployment("gpt", "a"), deployment("gpt", "b"), deployment("emb", "e")])
 
     assert core.registry().names(kind="deployment_names") == ["openai/a", "openai/b", "openai/e"]
 
 
-def test_every_configured_litellm_model_starts_with_zero_latency(make_core: MakeCore) -> None:
+def test_every_configured_hangarllm_model_starts_with_zero_latency(make_core: MakeCore) -> None:
     core = make_core(model_list=[deployment("gpt", "a"), deployment("gpt", "b")])
 
     assert core.health().latency == {"openai/a": 0, "openai/b": 0}
@@ -161,7 +161,7 @@ def test_a_core_without_deployments_has_an_empty_registry(make_core: MakeCore, m
 
 
 def test_an_unknown_provider_raises_bad_request_at_construction(make_core: MakeCore) -> None:
-    with pytest.raises(litellm.BadRequestError, match="LLM Provider NOT provided"):
+    with pytest.raises(hangarllm.BadRequestError, match="LLM Provider NOT provided"):
         make_core(model_list=[deployment("gpt", "a", model="notaprovider/model")])
 
 
@@ -192,7 +192,7 @@ def test_ignore_invalid_deployments_drops_a_deployment_with_an_invalid_tag_regex
 
 
 def test_a_deployment_for_another_environment_is_left_out(make_core: MakeCore, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_ENVIRONMENT", "staging")
+    monkeypatch.setenv("HANGARLLM_ENVIRONMENT", "staging")
     core = make_core(
         model_list=[
             deployment("prod-only", "a", model_info={"supported_environments": ["production"]}),
@@ -208,7 +208,7 @@ def test_a_left_out_environment_deployment_still_names_its_group(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Odd but current: the group set is read from the given model_list, not from what was added."""
-    monkeypatch.setenv("LITELLM_ENVIRONMENT", "staging")
+    monkeypatch.setenv("HANGARLLM_ENVIRONMENT", "staging")
     core = make_core(
         model_list=[
             deployment("prod-only", "a", model_info={"supported_environments": ["production"]}),
@@ -220,19 +220,19 @@ def test_a_left_out_environment_deployment_still_names_its_group(
     assert core.registry().index("model_name") == {"h": [0]}
 
 
-def test_supported_environments_without_litellm_environment_raises(
+def test_supported_environments_without_hangarllm_environment_raises(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("LITELLM_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENVIRONMENT", raising=False)
 
-    with pytest.raises(ValueError, match="Set 'supported_environments' for model but not 'LITELLM_ENVIRONMENT' set"):
+    with pytest.raises(ValueError, match="Set 'supported_environments' for model but not 'HANGARLLM_ENVIRONMENT' set"):
         make_core(model_list=[deployment("gpt", "a", model_info={"supported_environments": ["production"]})])
 
 
 @pytest.mark.parametrize(
     ("environment", "supported", "message"),
     [
-        ("bogus", ["production"], "LITELLM_ENVIRONMENT must be one of"),
+        ("bogus", ["production"], "HANGARLLM_ENVIRONMENT must be one of"),
         ("staging", ["prod"], "supported_environments must be one of"),
         ("staging", "production", "supported_environments must be a list of"),
     ],
@@ -241,7 +241,7 @@ def test_supported_environments_without_litellm_environment_raises(
 def test_invalid_environment_configuration_raises(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch, environment: str, supported: object, message: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_ENVIRONMENT", environment)
+    monkeypatch.setenv("HANGARLLM_ENVIRONMENT", environment)
 
     with pytest.raises(ValueError, match=message):
         make_core(model_list=[deployment("gpt", "a", model_info={"supported_environments": supported})])
@@ -250,7 +250,7 @@ def test_invalid_environment_configuration_raises(
 def test_ignore_invalid_deployments_drops_an_invalid_environment_deployment(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("LITELLM_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("HANGARLLM_ENVIRONMENT", raising=False)
     core = make_core(
         model_list=[
             deployment("gpt", "a", model_info={"supported_environments": ["production"]}),
@@ -271,12 +271,12 @@ def test_ignore_invalid_deployments_drops_an_invalid_environment_deployment(
     ],
     ids=["unset", "matching", "other"],
 )
-def test_deployment_is_active_for_environment_follows_litellm_environment(
+def test_deployment_is_active_for_environment_follows_hangarllm_environment(
     make_core: MakeCore, monkeypatch: pytest.MonkeyPatch, model_info: dict[str, object], active: bool
 ) -> None:
     core = make_core(model_list=[deployment("gpt", "a")])
-    monkeypatch.setenv("LITELLM_ENVIRONMENT", "development")
-    candidate = litellm.types.router.Deployment(**deployment("gpt", "z", model_info=model_info))  # pyright: ignore[reportArgumentType]  # a model_list entry
+    monkeypatch.setenv("HANGARLLM_ENVIRONMENT", "development")
+    candidate = hangarllm.types.router.Deployment(**deployment("gpt", "z", model_info=model_info))  # pyright: ignore[reportArgumentType]  # a model_list entry
 
     assert core.deployment_is_active_for_environment(candidate) is active  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
@@ -326,7 +326,7 @@ def test_a_team_deployment_needs_both_team_id_and_public_name_to_be_team_indexed
     assert core.registry().names(kind="team_public") == frozenset()
 
 
-# -- pricing written into litellm.model_cost -----------------------------------------------------
+# -- pricing written into hangarllm.model_cost -----------------------------------------------------
 
 
 def test_custom_pricing_is_registered_under_the_deployment_id(make_core: MakeCore) -> None:
@@ -337,7 +337,7 @@ def test_custom_pricing_is_registered_under_the_deployment_id(make_core: MakeCor
         ]
     )
 
-    entry = litellm.model_cost[model_id]
+    entry = hangarllm.model_cost[model_id]
     assert (entry["input_cost_per_token"], entry["output_cost_per_token"]) == (1e-3, 2e-3)
 
 
@@ -345,8 +345,8 @@ def test_custom_input_pricing_inherits_the_backend_models_cache_read_price(make_
     model_id = unique_id()
     make_core(model_list=[deployment("gpt", model_id, model="openai/gpt-4o", input_cost_per_token=1e-3)])
 
-    builtin = litellm.get_model_info("openai/gpt-4o")
-    assert litellm.model_cost[model_id]["cache_read_input_token_cost"] == builtin["cache_read_input_token_cost"]
+    builtin = hangarllm.get_model_info("openai/gpt-4o")
+    assert hangarllm.model_cost[model_id]["cache_read_input_token_cost"] == builtin["cache_read_input_token_cost"]
 
 
 def test_a_user_set_cache_read_price_is_not_overwritten_by_inheritance(make_core: MakeCore) -> None:
@@ -359,14 +359,14 @@ def test_a_user_set_cache_read_price_is_not_overwritten_by_inheritance(make_core
         ]
     )
 
-    assert litellm.model_cost[model_id]["cache_read_input_token_cost"] == 7e-9
+    assert hangarllm.model_cost[model_id]["cache_read_input_token_cost"] == 7e-9
 
 
 def test_a_deployment_without_custom_pricing_registers_no_prices_under_its_id(make_core: MakeCore) -> None:
     model_id = unique_id()
     make_core(model_list=[deployment("gpt", model_id, model="openai/gpt-4o")])
 
-    entry = litellm.model_cost[model_id]
+    entry = hangarllm.model_cost[model_id]
     assert entry.get("input_cost_per_token") is None
     assert entry.get("output_cost_per_token") is None
 
@@ -375,5 +375,5 @@ def test_model_info_fields_are_registered_under_the_deployment_id(make_core: Mak
     model_id = unique_id()
     make_core(model_list=[deployment("gpt", model_id, model_info={"max_input_tokens": 1000, "mode": "embedding"})])
 
-    entry = litellm.model_cost[model_id]
+    entry = hangarllm.model_cost[model_id]
     assert (entry["max_input_tokens"], entry["mode"]) == (1000, "embedding")

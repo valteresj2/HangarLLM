@@ -10,11 +10,11 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.microsoft_purview.base import (
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.proxy.guardrails.guardrail_hooks.microsoft_purview.base import (
     PurviewGuardrailBase,
 )
-from litellm.proxy.guardrails.guardrail_hooks.microsoft_purview.purview_dlp import (
+from hangarllm.proxy.guardrails.guardrail_hooks.microsoft_purview.purview_dlp import (
     MicrosoftPurviewDLPGuardrail,
 )
 
@@ -244,7 +244,7 @@ class TestPreCallHook:
         guardrail = _make_guardrail()
         payload = {
             "messages": [{"role": "user", "content": "Hello, how are you?"}],
-            "litellm_call_id": "call-abc",
+            "hangarllm_call_id": "call-abc",
         }
 
         with patch.object(
@@ -367,7 +367,7 @@ class TestPreCallFullTranscript:
 class TestPostCallHook:
     @pytest.mark.asyncio
     async def test_post_call_allow(self):
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -395,7 +395,7 @@ class TestPostCallHook:
 
     @pytest.mark.asyncio
     async def test_post_call_block(self):
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -431,7 +431,7 @@ class TestPostCallHook:
 
     @pytest.mark.asyncio
     async def test_post_call_no_user_id_raises(self):
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -455,7 +455,7 @@ class TestPostCallHook:
 
     @pytest.mark.asyncio
     async def test_post_call_scans_all_choices(self):
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -511,7 +511,7 @@ class TestTextCompletionHooks:
 
     @pytest.mark.asyncio
     async def test_post_call_text_completion_all_choices(self):
-        from litellm.types.utils import TextChoices, TextCompletionResponse
+        from hangarllm.types.utils import TextChoices, TextCompletionResponse
 
         guardrail = _make_guardrail()
         response = TextCompletionResponse(
@@ -540,8 +540,8 @@ class TestTextCompletionHooks:
 
     @pytest.mark.asyncio
     async def test_streamed_multi_choice_text_completion_is_blocked_like_the_non_streamed_one(self):
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-        from litellm.types.utils import TextChoices, TextCompletionResponse
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.types.utils import TextChoices, TextCompletionResponse
 
         sensitive: Final = "4111 1111 1111 1111"
         choice_pieces: Final = ((sensitive[:9], sensitive[9:]), ("Hey", " you"))
@@ -731,7 +731,7 @@ class TestResponsesAPIHooks:
     @pytest.mark.asyncio
     async def test_post_call_responses_api_output_text(self):
         """Post-call hook must scan text from ``ResponsesAPIResponse.output``."""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         guardrail = _make_guardrail()
         response = ResponsesAPIResponse(
@@ -769,7 +769,7 @@ class TestResponsesAPIHooks:
     @pytest.mark.asyncio
     async def test_post_call_responses_api_empty_output_skips(self):
         """Post-call hook must not call _check_content when output has no text."""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         guardrail = _make_guardrail()
         response = ResponsesAPIResponse(
@@ -792,7 +792,7 @@ class TestResponsesAPIHooks:
     @pytest.mark.asyncio
     async def test_logging_hook_responses_api_input_and_output(self):
         """Logging hook must scan both ``input`` and ``ResponsesAPIResponse.output``."""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         guardrail = _make_guardrail()
         result_response = ResponsesAPIResponse(
@@ -817,7 +817,7 @@ class TestResponsesAPIHooks:
             await guardrail.async_logging_hook(
                 kwargs={
                     "input": "prompt body",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "metadata": {"user_api_key_user_id": "user-123"}
                     },
                 },
@@ -837,13 +837,13 @@ class TestResponsesAPIHooks:
         """Responses-API prompt audit must fire even when ``kwargs["messages"]`` is
         also set to the raw responses input.
 
-        litellm's logging pipeline (``function_setup`` +
+        hangarllm's logging pipeline (``function_setup`` +
         ``update_environment_variables``) stores the raw responses ``input``
         under ``model_call_details["messages"]``.  The audit must still extract
         the prompt via the responses-specific path, not silently fall through
         the generic ``messages`` branch with the wrong format.
         """
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         guardrail = _make_guardrail()
         result_response = ResponsesAPIResponse(
@@ -869,10 +869,10 @@ class TestResponsesAPIHooks:
                 kwargs={
                     "input": "prompt body",
                     "instructions": "system instructions",
-                    # Simulate litellm's logging path which mirrors the raw
+                    # Simulate hangarllm's logging path which mirrors the raw
                     # responses input under "messages".
                     "messages": "prompt body",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "metadata": {"user_api_key_user_id": "user-123"}
                     },
                 },
@@ -903,7 +903,7 @@ class TestLoggingResolveUserId:
     def test_logging_prefers_user_api_key_user_id_in_metadata(self):
         guardrail = _make_guardrail()
         kwargs = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_user_id": "trusted-from-proxy",
                     "user_id": "metadata-spoof",
@@ -918,7 +918,7 @@ class TestLoggingResolveUserId:
     def test_logging_ignores_caller_supplied_user_id_field(self):
         """Caller-controlled ``metadata[user_id_field]`` must not drive Purview audit attribution."""
         guardrail = _make_guardrail()
-        kwargs = {"litellm_params": {"metadata": {"user_id": "only-metadata-user"}}}
+        kwargs = {"hangarllm_params": {"metadata": {"user_id": "only-metadata-user"}}}
         assert guardrail._resolve_user_id_from_logging_kwargs(kwargs) is None
 
     def test_logging_kwargs_level_user_api_key_user_id(self):
@@ -926,7 +926,7 @@ class TestLoggingResolveUserId:
         guardrail = _make_guardrail()
         kwargs = {
             "user_api_key_user_id": "from-top-level",
-            "litellm_params": {"metadata": {}},
+            "hangarllm_params": {"metadata": {}},
         }
         assert (
             guardrail._resolve_user_id_from_logging_kwargs(kwargs) == "from-top-level"
@@ -934,7 +934,7 @@ class TestLoggingResolveUserId:
 
     def test_logging_returns_none_when_no_trusted_identity(self):
         guardrail = _make_guardrail()
-        kwargs = {"litellm_params": {"metadata": {}}}
+        kwargs = {"hangarllm_params": {"metadata": {}}}
         assert guardrail._resolve_user_id_from_logging_kwargs(kwargs) is None
 
 
@@ -1436,11 +1436,11 @@ class TestLoggingHookNonBlocking:
 
 class TestInitializerValidation:
     def test_missing_tenant_id(self):
-        from litellm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
             initialize_guardrail,
         )
 
-        litellm_params = Mock(
+        hangarllm_params = Mock(
             spec=[
                 "tenant_id",
                 "client_id",
@@ -1452,21 +1452,21 @@ class TestInitializerValidation:
                 "default_on",
             ]
         )
-        litellm_params.tenant_id = None
-        litellm_params.client_id = None
-        litellm_params.client_secret = None
-        litellm_params.api_key = "secret"
-        litellm_params.mode = "pre_call"
+        hangarllm_params.tenant_id = None
+        hangarllm_params.client_id = None
+        hangarllm_params.client_secret = None
+        hangarllm_params.api_key = "secret"
+        hangarllm_params.mode = "pre_call"
 
         with pytest.raises(ValueError, match="tenant_id is required"):
-            initialize_guardrail(litellm_params, {"guardrail_name": "test"})
+            initialize_guardrail(hangarllm_params, {"guardrail_name": "test"})
 
     def test_missing_client_id(self):
-        from litellm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
             initialize_guardrail,
         )
 
-        litellm_params = Mock(
+        hangarllm_params = Mock(
             spec=[
                 "tenant_id",
                 "client_id",
@@ -1478,21 +1478,21 @@ class TestInitializerValidation:
                 "default_on",
             ]
         )
-        litellm_params.tenant_id = "test-tenant"
-        litellm_params.client_id = None
-        litellm_params.client_secret = None
-        litellm_params.api_key = "secret"
-        litellm_params.mode = "pre_call"
+        hangarllm_params.tenant_id = "test-tenant"
+        hangarllm_params.client_id = None
+        hangarllm_params.client_secret = None
+        hangarllm_params.api_key = "secret"
+        hangarllm_params.mode = "pre_call"
 
         with pytest.raises(ValueError, match="client_id is required"):
-            initialize_guardrail(litellm_params, {"guardrail_name": "test"})
+            initialize_guardrail(hangarllm_params, {"guardrail_name": "test"})
 
     def test_missing_client_secret(self):
-        from litellm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
             initialize_guardrail,
         )
 
-        litellm_params = Mock(
+        hangarllm_params = Mock(
             spec=[
                 "tenant_id",
                 "client_id",
@@ -1504,14 +1504,14 @@ class TestInitializerValidation:
                 "default_on",
             ]
         )
-        litellm_params.tenant_id = "test-tenant"
-        litellm_params.client_id = "test-client"
-        litellm_params.client_secret = None
-        litellm_params.api_key = None
-        litellm_params.mode = "pre_call"
+        hangarllm_params.tenant_id = "test-tenant"
+        hangarllm_params.client_id = "test-client"
+        hangarllm_params.client_secret = None
+        hangarllm_params.api_key = None
+        hangarllm_params.mode = "pre_call"
 
         with pytest.raises(ValueError, match="client_secret"):
-            initialize_guardrail(litellm_params, {"guardrail_name": "test"})
+            initialize_guardrail(hangarllm_params, {"guardrail_name": "test"})
 
 
 # ---------------------------------------------------------------
@@ -1698,7 +1698,7 @@ class TestAsyncLoggingHookIndependence:
     @pytest.mark.asyncio
     async def test_response_audit_runs_even_if_prompt_audit_fails(self):
         """A failure in the prompt audit must not prevent the response audit from running."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -1723,7 +1723,7 @@ class TestAsyncLoggingHookIndependence:
             await guardrail.async_logging_hook(
                 kwargs={
                     "messages": [{"role": "user", "content": "prompt"}],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "metadata": {"user_api_key_user_id": "user-123"}
                     },
                 },
@@ -1737,7 +1737,7 @@ class TestAsyncLoggingHookIndependence:
     @pytest.mark.asyncio
     async def test_prompt_audit_runs_even_if_response_audit_fails(self):
         """A failure in the response audit must not affect the prompt audit result."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -1762,7 +1762,7 @@ class TestAsyncLoggingHookIndependence:
             await guardrail.async_logging_hook(
                 kwargs={
                     "messages": [{"role": "user", "content": "prompt"}],
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "metadata": {"user_api_key_user_id": "user-123"}
                     },
                 },
@@ -1785,7 +1785,7 @@ class TestAsyncLoggingHookIndependence:
         ):
             kwargs = {
                 "messages": [{"role": "user", "content": "prompt"}],
-                "litellm_params": {"metadata": {"user_api_key_user_id": "user-123"}},
+                "hangarllm_params": {"metadata": {"user_api_key_user_id": "user-123"}},
             }
             result_obj = {"some": "result"}
             out_kwargs, out_result = await guardrail.async_logging_hook(
@@ -1827,7 +1827,7 @@ class TestExtractToolCallArgs:
         assert '{"query": "secret"}' in args
 
     def test_object_message_with_tool_calls(self):
-        from litellm.types.utils import Message
+        from hangarllm.types.utils import Message
 
         msg = Message(
             role="assistant",
@@ -1931,7 +1931,7 @@ class TestGetPromptTextToolCalls:
 
             await guardrail.async_pre_call_hook(
                 user_api_key_dict=__import__(
-                    "litellm.proxy._types", fromlist=["UserAPIKeyAuth"]
+                    "hangarllm.proxy._types", fromlist=["UserAPIKeyAuth"]
                 ).UserAPIKeyAuth(api_key="test", user_id="user-123"),
                 cache=None,
                 data={
@@ -1969,7 +1969,7 @@ class TestGetPromptTextToolCalls:
 class TestCompletionResponseTextPartsToolCalls:
     def test_response_tool_call_args_included(self):
         """Model-generated tool_call arguments must appear in the DLP scan text."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -1998,7 +1998,7 @@ class TestCompletionResponseTextPartsToolCalls:
 
     def test_response_with_content_and_tool_calls(self):
         """Both message content and tool_call arguments must be included."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -2030,7 +2030,7 @@ class TestCompletionResponseTextPartsToolCalls:
     @pytest.mark.asyncio
     async def test_post_call_hook_scans_response_tool_call_args(self):
         """async_post_call_success_hook must send tool_call arguments to Purview."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
         response = ModelResponse(
@@ -2063,7 +2063,7 @@ class TestCompletionResponseTextPartsToolCalls:
             await guardrail.async_post_call_success_hook(
                 data={},
                 user_api_key_dict=__import__(
-                    "litellm.proxy._types", fromlist=["UserAPIKeyAuth"]
+                    "hangarllm.proxy._types", fromlist=["UserAPIKeyAuth"]
                 ).UserAPIKeyAuth(api_key="test", user_id="user-123"),
                 response=response,
             )
@@ -2074,8 +2074,8 @@ class TestCompletionResponseTextPartsToolCalls:
 
     @pytest.mark.asyncio
     async def test_post_call_hook_sends_server_tool_call_args_to_purview(self):
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         def graph(request: httpx.Request) -> httpx.Response:
             if request.url.host == "login.microsoftonline.com":
@@ -2131,7 +2131,7 @@ class TestCompletionResponseTextPartsToolCalls:
 
     def test_responses_api_function_call_args_included(self):
         """Function-call arguments in ``ResponsesAPIResponse.output`` must be DLP-scanned."""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         guardrail = _make_guardrail()
         response = ResponsesAPIResponse(
@@ -2161,7 +2161,7 @@ class TestCompletionResponseTextPartsToolCalls:
 
     def test_responses_api_function_call_args_only(self):
         """Function-call args must be scanned even when no ``output_text`` blocks exist."""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         guardrail = _make_guardrail()
         response = ResponsesAPIResponse(
@@ -2184,7 +2184,7 @@ class TestCompletionResponseTextPartsToolCalls:
         from openai.types.responses import ResponseFunctionWebSearch
         from openai.types.responses.response_function_web_search import ActionOpenPage
 
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from hangarllm.types.llms.openai import ResponsesAPIResponse
 
         guardrail: Final = _make_guardrail()
         response: Final = ResponsesAPIResponse(
@@ -2294,7 +2294,7 @@ class TestLoggingRejectsCallerInfluenceableIdentity:
     def test_end_user_id_in_metadata_is_ignored(self):
         guardrail = _make_guardrail()
         kwargs = {
-            "litellm_params": {
+            "hangarllm_params": {
                 "metadata": {
                     "user_api_key_end_user_id": "end-user-from-metadata",
                 }
@@ -2306,7 +2306,7 @@ class TestLoggingRejectsCallerInfluenceableIdentity:
         guardrail = _make_guardrail()
         kwargs = {
             "user_api_key_end_user_id": "end-user-from-kwargs",
-            "litellm_params": {"metadata": {}},
+            "hangarllm_params": {"metadata": {}},
         }
         assert guardrail._resolve_user_id_from_logging_kwargs(kwargs) is None
 
@@ -2497,7 +2497,7 @@ class TestStreamingIteratorHook:
     @pytest.mark.asyncio
     async def test_streaming_clean_response_yields_all_chunks(self):
         """Clean stream: all chunks must be re-yielded after DLP passes."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
 
@@ -2514,9 +2514,9 @@ class TestStreamingIteratorHook:
             yield assembled_response
 
         with (
-            patch("litellm.main.stream_chunk_builder", return_value=assembled_response),
+            patch("hangarllm.main.stream_chunk_builder", return_value=assembled_response),
             patch(
-                "litellm.llms.base_llm.base_model_iterator.MockResponseIterator"
+                "hangarllm.llms.base_llm.base_model_iterator.MockResponseIterator"
             ) as mock_iterator_cls,
             patch.object(
                 guardrail, "_check_content", new_callable=AsyncMock
@@ -2544,7 +2544,7 @@ class TestStreamingIteratorHook:
     @pytest.mark.asyncio
     async def test_streaming_violation_raises_before_any_chunk(self):
         """A policy violation must raise HTTPException before yielding any chunk."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
 
@@ -2564,7 +2564,7 @@ class TestStreamingIteratorHook:
             yield assembled_response
 
         with (
-            patch("litellm.main.stream_chunk_builder", return_value=assembled_response),
+            patch("hangarllm.main.stream_chunk_builder", return_value=assembled_response),
             patch.object(
                 guardrail,
                 "_check_content",
@@ -2597,7 +2597,7 @@ class TestStreamingIteratorHook:
     @pytest.mark.asyncio
     async def test_streaming_no_user_id_raises_before_yield(self):
         """No resolvable user_id → fail closed before any chunk is yielded."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from hangarllm.types.utils import Choices, Message, ModelResponse
 
         guardrail = _make_guardrail()
 
@@ -2614,7 +2614,7 @@ class TestStreamingIteratorHook:
             yield assembled_response
 
         with patch(
-            "litellm.main.stream_chunk_builder", return_value=assembled_response
+            "hangarllm.main.stream_chunk_builder", return_value=assembled_response
         ):
             chunks = []
             async def _drain():
@@ -2634,7 +2634,7 @@ class TestStreamingIteratorHook:
     @pytest.mark.asyncio
     async def test_streaming_text_completion_scans_before_yield(self):
         """Streamed /v1/completions must be DLP-scanned via TextCompletionResponse."""
-        from litellm.types.utils import TextChoices, TextCompletionResponse
+        from hangarllm.types.utils import TextChoices, TextCompletionResponse
 
         guardrail = _make_guardrail()
 
@@ -2647,7 +2647,7 @@ class TestStreamingIteratorHook:
             yield assembled_response
 
         with (
-            patch("litellm.main.stream_chunk_builder", return_value=assembled_response),
+            patch("hangarllm.main.stream_chunk_builder", return_value=assembled_response),
             patch.object(
                 guardrail, "_check_content", new_callable=AsyncMock
             ) as mock_check,
@@ -2669,7 +2669,7 @@ class TestStreamingIteratorHook:
     @pytest.mark.asyncio
     async def test_streaming_responses_api_scans_completed_event(self):
         """Streamed Responses API: assembled ResponsesAPIResponse must be DLP-scanned."""
-        from litellm.types.llms.openai import (
+        from hangarllm.types.llms.openai import (
             ResponseCompletedEvent,
             ResponseCreatedEvent,
             ResponsesAPIResponse,
@@ -2705,7 +2705,7 @@ class TestStreamingIteratorHook:
             yield completed_event
 
         with (
-            patch("litellm.main.stream_chunk_builder") as mock_stream_builder,
+            patch("hangarllm.main.stream_chunk_builder") as mock_stream_builder,
             patch.object(
                 guardrail, "_check_content", new_callable=AsyncMock
             ) as mock_check,
@@ -2729,7 +2729,7 @@ class TestStreamingIteratorHook:
     @pytest.mark.asyncio
     async def test_streaming_responses_api_violation_blocks_before_yield(self):
         """Responses API stream with a DLP violation must raise before any chunk is yielded."""
-        from litellm.types.llms.openai import (
+        from hangarllm.types.llms.openai import (
             ResponseCompletedEvent,
             ResponsesAPIResponse,
             ResponsesAPIStreamEvents,
@@ -2792,7 +2792,7 @@ class TestStreamingIteratorHook:
 
 class TestRegistration:
     def test_registry_contains_microsoft_purview(self):
-        from litellm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
+        from hangarllm.proxy.guardrails.guardrail_hooks.microsoft_purview import (
             guardrail_class_registry,
             guardrail_initializer_registry,
         )

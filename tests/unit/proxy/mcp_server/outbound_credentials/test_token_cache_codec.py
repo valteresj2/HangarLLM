@@ -1,9 +1,9 @@
 """Tests for the cache codec: encrypt on encode, drop the refresh_token, round-trip the bearer."""
 
-from litellm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
+from hangarllm.proxy.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
-from litellm.proxy.mcp_server.outbound_credentials.token_cache_codec import (
+from hangarllm.proxy.mcp_server.outbound_credentials.token_cache_codec import (
     OAuthTokenCacheCodec,
 )
 
@@ -65,4 +65,4 @@ def test_bound_token_round_trip_preserves_proof_without_refresh_secret():
 def test_malformed_bound_entries_fail_closed():
     codec = _wrapping_codec()
     for payload in ("not-json", "{}", '{"access_token":"at"}', '{"access_token":1,"identity_binding_proof":"p"}'):
-        assert codec.decode("enc:litellm-bound-oauth-v1:" + payload) is None
+        assert codec.decode("enc:hangarllm-bound-oauth-v1:" + payload) is None

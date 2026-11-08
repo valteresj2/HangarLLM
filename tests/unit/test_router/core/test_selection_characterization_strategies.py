@@ -10,9 +10,9 @@ from typing import Final
 import pydantic
 import pytest
 
-import litellm
-from litellm.router_api import ChangeSet
-from litellm.types.router import CustomRoutingStrategyBase, RouterRateLimitError, RoutingStrategy
+import hangarllm
+from hangarllm.router_api import ChangeSet
+from hangarllm.types.router import CustomRoutingStrategyBase, RouterRateLimitError, RoutingStrategy
 from tests.unit.test_router.core.scripted_host import ScriptedHost, deployment
 from tests.unit.test_router.core.selection_helpers import MESSAGES, MakeCore, picked_ids
 
@@ -32,7 +32,7 @@ NO_DEPLOYMENTS_MESSAGE: Final = (
 )
 
 
-def _two(**params: object) -> list[dict[str, object]]:  # mutable-ok: a model_list  # kwargs-ok: shared litellm_params
+def _two(**params: object) -> list[dict[str, object]]:  # mutable-ok: a model_list  # kwargs-ok: shared hangarllm_params
     return [deployment("g", "a", **params), deployment("g", "b", **params)]
 
 
@@ -284,7 +284,7 @@ async def test_applying_an_invalid_routing_strategy_raises_and_keeps_the_previou
 def _fixed(deployment_id: str) -> dict[str, object]:  # mutable-ok: the strategy interface's own type
     return {
         "model_name": "x",
-        "litellm_params": {"model": f"openai/{deployment_id}"},
+        "hangarllm_params": {"model": f"openai/{deployment_id}"},
         "model_info": {"id": deployment_id},
     }
 
@@ -385,10 +385,10 @@ async def test_a_custom_strategy_error_reaches_the_caller(make_core: MakeCore, h
         async def async_get_available_deployment(
             self, model: str, *args: object, **kwargs: object
         ) -> dict:  # mutable-ok: the strategy interface's own type  # kwargs-ok: the strategy interface
-            raise litellm.BadRequestError(message="refused by strategy", model=model, llm_provider="")
+            raise hangarllm.BadRequestError(message="refused by strategy", model=model, llm_provider="")
 
     core: Final = make_core(model_list=_two())
     core.register_plugin(Refusing())
-    with pytest.raises(litellm.BadRequestError, match="refused by strategy"):
+    with pytest.raises(hangarllm.BadRequestError, match="refused by strategy"):
         await core.acompletion(model="g", messages=MESSAGES, num_retries=0)  # pyright: ignore[reportAttributeAccessIssue]
     assert host.calls == []

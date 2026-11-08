@@ -9,12 +9,12 @@ import pytest
 from fastapi import HTTPException
 from prisma.errors import DataError
 
-import litellm
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.common_request_processing import proxy_exception_from_route_error
-from litellm.proxy.common_utils.openai_error_payload import proxy_exception_for
-from litellm.proxy.utils import get_error_message_str, handle_exception_on_proxy
-from litellm.types.router import RouterErrors
+import hangarllm
+from hangarllm.proxy._types import ProxyErrorTypes, ProxyException
+from hangarllm.proxy.common_request_processing import proxy_exception_from_route_error
+from hangarllm.proxy.common_utils.openai_error_payload import proxy_exception_for
+from hangarllm.proxy.utils import get_error_message_str, handle_exception_on_proxy
+from hangarllm.types.router import RouterErrors
 
 
 def normalize(value):
@@ -235,10 +235,10 @@ def test_handle_exception_on_proxy_labels_a_carried_status_the_same_way(status_c
 
 
 def test_handle_exception_on_proxy_keeps_the_type_the_exception_already_names():
-    """A rate limit litellm raised already names itself, and overwriting that with the status
+    """A rate limit hangarllm raised already names itself, and overwriting that with the status
     map's guess would drop what the client branches on."""
     result: Final = handle_exception_on_proxy(
-        litellm.RateLimitError(message="slow down", llm_provider="openai", model="gpt-4o")
+        hangarllm.RateLimitError(message="slow down", llm_provider="openai", model="gpt-4o")
     )
 
     assert (result.code, result.type) == ("429", "throttling_error")
@@ -252,10 +252,10 @@ def test_handle_exception_on_proxy_keeps_the_type_the_exception_already_names():
             response=httpx.Response(500, request=httpx.Request("GET", "https://api.openai.com/v1/batches/b")),
             body={"type": "server_error"},
         ),
-        litellm.Timeout(message="took too long", model="gpt-6.1-sol", llm_provider="openai"),
-        litellm.RateLimitError(message="slow down", llm_provider="openai", model="gpt-6.1-sol"),
-        litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-6.1-sol"),
-        litellm.BadRequestError(message="bad input", model="gpt-6.1-sol", llm_provider="openai"),
+        hangarllm.Timeout(message="took too long", model="gpt-6.1-sol", llm_provider="openai"),
+        hangarllm.RateLimitError(message="slow down", llm_provider="openai", model="gpt-6.1-sol"),
+        hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-6.1-sol"),
+        hangarllm.BadRequestError(message="bad input", model="gpt-6.1-sol", llm_provider="openai"),
         HTTPException(status_code=404, detail="no such batch"),
     ],
     ids=["provider_5xx_naming_its_own_type", "timeout", "rate_limit", "bad_key", "bad_request", "http_404"],
@@ -276,7 +276,7 @@ def test_handle_exception_on_proxy_labels_a_failure_the_way_the_chat_route_does(
         HTTPException(status_code=401, detail="not allowed"),
         HTTPException(status_code=403, detail="admin only"),
         HTTPException(status_code=404, detail="no such team"),
-        litellm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-6.1-sol"),
+        hangarllm.AuthenticationError(message="bad key", llm_provider="openai", model="gpt-6.1-sol"),
         ValueError(f"{RouterErrors.no_deployments_with_tag_routing.value}=['paid']"),
         _exception_carrying_status(409, "duplicate credential"),
     ],
@@ -313,7 +313,7 @@ def test_handle_exception_on_proxy_keeps_the_path_a_rejected_request_names():
     """A provider rejecting a batch input names the caller's own bucket path, and redacting the /tmp part of it
     leaves the caller nothing to fix their request with."""
     result: Final = handle_exception_on_proxy(
-        litellm.BadRequestError(
+        hangarllm.BadRequestError(
             message="Invalid input_file_id gs://my-bucket/tmp/batch_input.jsonl",
             model="gemini-3.1-pro-preview",
             llm_provider="vertex_ai",
@@ -362,10 +362,10 @@ def test_handle_exception_on_proxy_answers_a_generic_500_for_an_exception_whose_
     ],
     ids=["http_exception", "generic_exception", "already_proxy_exception"],
 )
-def test_handle_exception_on_proxy_returns_the_litellm_call_id_header(exc: Exception):
+def test_handle_exception_on_proxy_returns_the_hangarllm_call_id_header(exc: Exception):
     result = handle_exception_on_proxy(exc, "call-7836")
 
-    assert result.headers == {"x-litellm-call-id": "call-7836"}
+    assert result.headers == {"x-hangarllm-call-id": "call-7836"}
 
 
 def test_handle_exception_on_proxy_sends_no_call_id_header_when_the_request_has_none():
@@ -378,7 +378,7 @@ async def test_handle_exception_on_proxy_read_only_transaction_forces_writer_rec
 ) -> None:
     prisma_client = MagicMock()
     prisma_client.recreate_read_only_writer = AsyncMock(return_value=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
     exc = DataError(
         data={
             "user_facing_error": {
@@ -406,7 +406,7 @@ async def test_handle_exception_on_proxy_leaves_writer_alone_for_other_db_errors
 ) -> None:
     prisma_client = MagicMock()
     prisma_client.recreate_read_only_writer = AsyncMock(return_value=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.prisma_client", prisma_client)
 
     handle_exception_on_proxy(DataError(data={"user_facing_error": {"message": "deadlock detected"}}))
     await asyncio.sleep(0)

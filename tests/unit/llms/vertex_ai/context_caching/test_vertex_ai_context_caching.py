@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
+import hangarllm
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.llms.vertex_ai.context_caching.known_cached_contents import KnownCachedContents
-from litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching import (
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from hangarllm.llms.vertex_ai.common_utils import VertexAIError
+from hangarllm.llms.vertex_ai.context_caching.known_cached_contents import KnownCachedContents
+from hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching import (
     ContextCachingEndpoints,
 )
 
@@ -24,15 +24,15 @@ def local_model_cost_map(monkeypatch):
     ``get_model_info`` is lru_cached, so swapping ``model_cost`` is not enough on its
     own; clear on the way in and out so entries warmed against either map never leak
     across tests."""
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    original_model_cost = hangarllm.model_cost
+    monkeypatch.setenv("HANGARLLM_LOCAL_MODEL_COST_MAP", "True")
+    hangarllm.model_cost = hangarllm.get_model_cost_map(url="")
+    hangarllm.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        hangarllm.model_cost = original_model_cost
+        hangarllm.get_model_info.cache_clear()
 
 
 class TestContextCachingEndpoints:
@@ -50,7 +50,7 @@ class TestContextCachingEndpoints:
         # This avoids token counting in unit tests. The min-token guard is
         # tested explicitly in test_check_and_create_cache_skips_when_below_min_tokens.
         self._token_check_patcher = patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.is_prompt_caching_valid_prompt",
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.is_prompt_caching_valid_prompt",
             return_value=True,
         )
         self._token_check_patcher.start()
@@ -87,8 +87,8 @@ class TestContextCachingEndpoints:
         self._token_check_patcher.stop()
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     def test_check_and_create_cache_with_cached_content(self, mock_cache_obj, mock_separate, custom_llm_provider):
         """Test check_and_create_cache when cached_content is provided"""
         # Setup
@@ -125,7 +125,7 @@ class TestContextCachingEndpoints:
         mock_cache_obj.get_cache_key.assert_not_called()
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
     def test_check_and_create_cache_no_cached_messages(self, mock_separate, custom_llm_provider):
         """Test check_and_create_cache when no cached messages are found"""
         # Setup
@@ -157,8 +157,8 @@ class TestContextCachingEndpoints:
         assert returned_cache is None
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch.object(ContextCachingEndpoints, "check_cache")
     def test_check_and_create_cache_existing_cache_found(
         self, mock_check_cache, mock_cache_obj, mock_separate, custom_llm_provider
@@ -379,10 +379,10 @@ class TestContextCachingEndpoints:
         assert client.post.call_args.kwargs["url"].startswith("https://gateway.example.com/gemini/v1/cachedContents")
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
     )
     @patch.object(ContextCachingEndpoints, "check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
@@ -448,8 +448,8 @@ class TestContextCachingEndpoints:
         assert call_args.kwargs["json"]["tools"] == self.sample_tools
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch.object(ContextCachingEndpoints, "check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
     def test_check_and_create_cache_http_error(
@@ -503,8 +503,8 @@ class TestContextCachingEndpoints:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     async def test_async_check_and_create_cache_with_cached_content(
         self, mock_cache_obj, mock_separate, custom_llm_provider
     ):
@@ -540,7 +540,7 @@ class TestContextCachingEndpoints:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
     async def test_async_check_and_create_cache_no_cached_messages(self, mock_separate, custom_llm_provider):
         """Test async_check_and_create_cache when no cached messages are found"""
         # Setup
@@ -573,8 +573,8 @@ class TestContextCachingEndpoints:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch.object(ContextCachingEndpoints, "async_check_cache")
     async def test_async_check_and_create_cache_existing_cache_found(
         self, mock_async_check_cache, mock_cache_obj, mock_separate, custom_llm_provider
@@ -624,14 +624,14 @@ class TestContextCachingEndpoints:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
     )
     @patch.object(ContextCachingEndpoints, "async_check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.get_async_httpx_client")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.get_async_httpx_client")
     async def test_async_check_and_create_cache_create_new_cache(
         self,
         mock_get_client,
@@ -696,11 +696,11 @@ class TestContextCachingEndpoints:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch.object(ContextCachingEndpoints, "async_check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.get_async_httpx_client")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.get_async_httpx_client")
     async def test_async_check_and_create_cache_timeout_error(
         self,
         mock_get_client,
@@ -751,7 +751,7 @@ class TestContextCachingEndpoints:
     def test_check_and_create_cache_tools_popped_from_optional_params(self, custom_llm_provider):
         """Test that tools are properly popped from optional_params when there are cached messages"""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             # Mock to return cached messages so tools get popped
             cached_messages = [self.sample_messages[0]]  # System message with cache_control
@@ -791,7 +791,7 @@ class TestContextCachingEndpoints:
     def test_check_and_create_cache_tools_not_popped_when_no_cached_messages(self, custom_llm_provider):
         """Test that tools are NOT popped from optional_params when there are no cached messages"""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             mock_separate.return_value = (
                 [],
@@ -828,7 +828,7 @@ class TestContextCachingEndpoints:
     async def test_async_check_and_create_cache_tools_not_popped_when_no_cached_messages(self, custom_llm_provider):
         """Test that tools are NOT popped from optional_params in async version when there are no cached messages"""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             mock_separate.return_value = (
                 [],
@@ -865,7 +865,7 @@ class TestContextCachingEndpoints:
     async def test_async_check_and_create_cache_tools_popped_from_optional_params(self, custom_llm_provider):
         """Test that tools are properly popped from optional_params in async version when there are cached messages"""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             # Mock to return cached messages so tools get popped
             cached_messages = [self.sample_messages[0]]  # System message with cache_control
@@ -905,7 +905,7 @@ class TestContextCachingEndpoints:
     def test_check_and_create_cache_tool_choice_popped_from_optional_params(self, custom_llm_provider):
         """tool_choice is popped from optional_params when cached messages exist."""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             cached_messages = [self.sample_messages[0]]
             non_cached_messages = [self.sample_messages[1]]
@@ -936,7 +936,7 @@ class TestContextCachingEndpoints:
     def test_check_and_create_cache_tool_choice_not_popped_when_no_cached_messages(self, custom_llm_provider):
         """tool_choice is NOT popped when there are no cached messages (early return)."""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             mock_separate.return_value = ([], self.sample_messages)
 
@@ -966,7 +966,7 @@ class TestContextCachingEndpoints:
     async def test_async_check_and_create_cache_tool_choice_popped_from_optional_params(self, custom_llm_provider):
         """Async equivalent of test_check_and_create_cache_tool_choice_popped_from_optional_params."""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             cached_messages = [self.sample_messages[0]]
             non_cached_messages = [self.sample_messages[1]]
@@ -1000,7 +1000,7 @@ class TestContextCachingEndpoints:
     ):
         """Async equivalent of test_check_and_create_cache_tool_choice_not_popped_when_no_cached_messages."""
         with patch(
-            "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
+            "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages"
         ) as mock_separate:
             mock_separate.return_value = ([], self.sample_messages)
 
@@ -1026,10 +1026,10 @@ class TestContextCachingEndpoints:
             assert optional_params.get("tool_choice") == tool_choice
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
     )
     @patch.object(ContextCachingEndpoints, "check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
@@ -1090,10 +1090,10 @@ class TestContextCachingEndpoints:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
     )
     @patch.object(ContextCachingEndpoints, "async_check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
@@ -1152,10 +1152,10 @@ class TestContextCachingEndpoints:
         )
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
     )
     @patch.object(ContextCachingEndpoints, "check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
@@ -1206,10 +1206,10 @@ class TestContextCachingEndpoints:
         assert "toolConfig" not in call_args.kwargs["json"]
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
     )
     @patch.object(ContextCachingEndpoints, "check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
@@ -1266,10 +1266,10 @@ class TestContextCachingEndpoints:
         assert call_args.kwargs["json"]["toolConfig"] == function_pin
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.local_cache_obj")
     @patch(
-        "litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
+        "hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.transform_openai_messages_to_gemini_context_caching"
     )
     @patch.object(ContextCachingEndpoints, "check_cache")
     @patch.object(ContextCachingEndpoints, "_get_token_and_url_context_caching")
@@ -1284,13 +1284,13 @@ class TestContextCachingEndpoints:
     ):
         """Exercise the actual ToolConfig(FunctionCallingConfig(...)) constructor that map_tool_choice_values produces.
 
-        ToolConfig / FunctionCallingConfig are TypedDicts (litellm/types/llms/vertex_ai.py:158, 277)
+        ToolConfig / FunctionCallingConfig are TypedDicts (hangarllm/types/llms/vertex_ai.py:158, 277)
         so this is functionally identical to the dict-literal tests above at
         runtime — but exercising the typed constructor pins the test to the
         same call shape map_tool_choice_values uses and auto-follows if
         either type ever migrates to a Pydantic model upstream.
         """
-        from litellm.types.llms.vertex_ai import (
+        from hangarllm.types.llms.vertex_ai import (
             FunctionCallingConfig,
             ToolConfig,
         )
@@ -1340,7 +1340,7 @@ class TestContextCachingEndpoints:
         )
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
     @patch.object(ContextCachingEndpoints, "check_cache")
     def test_check_and_create_cache_distinct_tool_choices_use_distinct_keys(
         self,
@@ -1386,7 +1386,7 @@ class TestContextCachingEndpoints:
         assert first_cache_key != second_cache_key
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
     def test_check_and_create_cache_skips_when_below_min_tokens(self, mock_separate, custom_llm_provider):
         """Test that context caching is skipped when cached content is below 1024 tokens.
 
@@ -1509,7 +1509,7 @@ class TestContextCachingEndpoints:
         assert not self.mock_async_client.mock_calls
 
     @pytest.mark.parametrize("custom_llm_provider", ["gemini", "vertex_ai", "vertex_ai_beta"])
-    @patch("litellm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
+    @patch("hangarllm.llms.vertex_ai.context_caching.vertex_ai_context_caching.separate_cached_messages")
     @pytest.mark.asyncio
     async def test_async_check_and_create_cache_skips_when_below_min_tokens(self, mock_separate, custom_llm_provider):
         """Test that async context caching is skipped when cached content is below 1024 tokens."""
@@ -1598,7 +1598,7 @@ class TestContextCachingEndpoints:
             }
             for i in range(12)
         ]
-        large_tools: Final = litellm.utils.get_optional_params(
+        large_tools: Final = hangarllm.utils.get_optional_params(
             model="gemini-1.5-pro",
             custom_llm_provider="gemini",
             tools=openai_large_tools,
@@ -1791,7 +1791,7 @@ class TestContextCachingEndpoints:
 
 
 def test_cached_messages_end_on_supported_turn():
-    from litellm.llms.vertex_ai.context_caching.transformation import (
+    from hangarllm.llms.vertex_ai.context_caching.transformation import (
         cached_messages_end_on_supported_turn,
     )
 
@@ -2528,7 +2528,7 @@ def _recording_gemini_client(calls: list[httpx.Request]) -> HTTPHandler:
 
 def test_a_plain_system_prompt_goes_into_the_gemini_cache_instead_of_beside_it(local_model_cost_map) -> None:
     calls: Final[list[httpx.Request]] = []
-    litellm.completion(
+    hangarllm.completion(
         model="gemini/gemini-flash-latest",
         messages=[
             {"role": "system", "content": "You are terse."},

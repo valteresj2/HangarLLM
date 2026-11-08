@@ -7,17 +7,17 @@ from typing import Final
 
 import pytest
 
-from litellm.integrations.otel.model.payloads import ServiceSpanData
-from litellm.integrations.otel.model import spans as spans_mod
-from litellm.integrations.otel.model.spans import (
+from hangarllm.integrations.otel.model.payloads import ServiceSpanData
+from hangarllm.integrations.otel.model import spans as spans_mod
+from hangarllm.integrations.otel.model.spans import (
     _POSTGRES_OPERATION_BY_CALL_TYPE,
     PRISMA_RELATIONS,
     service_span_name,
 )
-from litellm.proxy.db.prisma_query_span import UNKNOWN_PRISMA_QUERY, parse_prisma_query, sql_operation
+from hangarllm.proxy.db.prisma_query_span import UNKNOWN_PRISMA_QUERY, parse_prisma_query, sql_operation
 
 _REPO: Final = Path(__file__).resolve().parents[4]
-_SOURCE_ROOTS: Final = ("litellm", "enterprise", "litellm-proxy-extras")
+_SOURCE_ROOTS: Final = ("hangarllm", "enterprise", "hangarllm-proxy-extras")
 _RAW_METHODS: Final = frozenset({"query_first", "query_raw", "execute_raw"})
 _CROSS_MODULE_FORWARDERS: Final = frozenset({"query_raw_within_statement_timeout"})
 _MODEL_METHODS: Final = frozenset(
@@ -40,7 +40,7 @@ _MODEL_METHODS: Final = frozenset(
 )
 _MODEL_BY_ACCESSOR: Final[Mapping[str, str]] = {relation.lower(): relation for relation in PRISMA_RELATIONS}
 _GENERIC_CRUD_HELPERS: Final = frozenset({"get_data", "get_generic_data", "insert_data", "update_data", "delete_data"})
-_TRANSACTION_BODIES: Final[Mapping[str, str]] = {"litellm/proxy/db/baseline_accounting.py": "baseline_accounting"}
+_TRANSACTION_BODIES: Final[Mapping[str, str]] = {"hangarllm/proxy/db/baseline_accounting.py": "baseline_accounting"}
 _RENDERED_NAME: Final = re.compile(
     r"postgres\.(select|insert|update|delete|upsert|ddl|set|transaction|lock) .+|postgres\.ping"
 )
@@ -59,14 +59,14 @@ def _engine_payload(root_field: str, sql: str | None = None) -> str:
     ("content", "expected"),
     [
         (
-            _engine_payload("findUniqueLiteLLM_VerificationToken"),
-            ("find_unique", "select", "LiteLLM_VerificationToken"),
+            _engine_payload("findUniqueHangarLLM_VerificationToken"),
+            ("find_unique", "select", "HangarLLM_VerificationToken"),
         ),
-        (_engine_payload("createOneLiteLLM_SpendLogs"), ("create", "insert", "LiteLLM_SpendLogs")),
-        (_engine_payload("findFirstLiteLLM_UserTableOrThrow"), ("find_first", "select", "LiteLLM_UserTable")),
+        (_engine_payload("createOneHangarLLM_SpendLogs"), ("create", "insert", "HangarLLM_SpendLogs")),
+        (_engine_payload("findFirstHangarLLM_UserTableOrThrow"), ("find_first", "select", "HangarLLM_UserTable")),
         (
-            '{"query": "mutation { result: queryRaw(query: \\"SELECT * FROM \\\\\\"LiteLLM_UserTable\\\\\\" WHERE user_id = $1\\", parameters: \\"[]\\") }"}',
-            ("query_raw", "select", "LiteLLM_UserTable"),
+            '{"query": "mutation { result: queryRaw(query: \\"SELECT * FROM \\\\\\"HangarLLM_UserTable\\\\\\" WHERE user_id = $1\\", parameters: \\"[]\\") }"}',
+            ("query_raw", "select", "HangarLLM_UserTable"),
         ),
         (
             '{"query": "mutation { result: executeRaw(query: \\"SET LOCAL statement_timeout = 5000\\", parameters: \\"[]\\") }"}',
@@ -100,12 +100,12 @@ def test_a_payload_the_parser_does_not_know_stays_the_legacy_function_named_span
 @pytest.mark.parametrize(
     ("sql", "expected"),
     [
-        ('SELECT 1 FROM "LiteLLM_VerificationTokenView" LIMIT 1', ("select", "LiteLLM_VerificationTokenView")),
+        ('SELECT 1 FROM "HangarLLM_VerificationTokenView" LIMIT 1', ("select", "HangarLLM_VerificationTokenView")),
         (
-            '\n  WITH keys AS (SELECT * FROM "LiteLLM_VerificationToken") SELECT 1',
-            ("select", "LiteLLM_VerificationToken"),
+            '\n  WITH keys AS (SELECT * FROM "HangarLLM_VerificationToken") SELECT 1',
+            ("select", "HangarLLM_VerificationToken"),
         ),
-        ('INSERT INTO "LiteLLM_DailyUserSpend" (id) VALUES ($1)', ("insert", "LiteLLM_DailyUserSpend")),
+        ('INSERT INTO "HangarLLM_DailyUserSpend" (id) VALUES ($1)', ("insert", "HangarLLM_DailyUserSpend")),
         ("SET LOCAL lock_timeout = 1000", ("set", "lock_timeout")),
         ("SELECT set_config('lock_timeout', $1::text, true)", ("set", "lock_timeout")),
         ("SELECT COUNT(*) FROM pg_stat_activity", ("select", "pg_catalog")),
@@ -113,10 +113,10 @@ def test_a_payload_the_parser_does_not_know_stays_the_legacy_function_named_span
         ("SELECT current_setting('transaction_read_only') AS transaction_read_only", ("select", "pg_catalog")),
         ('REFRESH MATERIALIZED VIEW "MonthlyGlobalSpend"', ("ddl", "MonthlyGlobalSpend")),
         (
-            'WITH team_rows AS (UPDATE "LiteLLM_TeamTable" SET models = $1 RETURNING team_id) SELECT team_id FROM team_rows',
-            ("update", "LiteLLM_TeamTable"),
+            'WITH team_rows AS (UPDATE "HangarLLM_TeamTable" SET models = $1 RETURNING team_id) SELECT team_id FROM team_rows',
+            ("update", "HangarLLM_TeamTable"),
         ),
-        ('LOCK TABLE "LiteLLM_LensIngestionKey" IN EXCLUSIVE MODE', ("lock", "LiteLLM_LensIngestionKey")),
+        ('LOCK TABLE "HangarLLM_LensIngestionKey" IN EXCLUSIVE MODE', ("lock", "HangarLLM_LensIngestionKey")),
         ("BEGIN", (None, None)),
     ],
 )

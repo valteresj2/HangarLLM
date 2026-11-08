@@ -1,12 +1,12 @@
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import AllCallbacks
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.proxy._types import AllCallbacks
 
 
 def test_pointfive_is_offered_in_the_ui_callback_registry():
     """The proxy ui builds its form from this registry, so an absent entry is an absent form."""
     entry = AllCallbacks().pointfive
 
-    assert entry.litellm_callback_name == "pointfive"
+    assert entry.hangarllm_callback_name == "pointfive"
     assert entry.ui_callback_name == "PointFive"
 
 

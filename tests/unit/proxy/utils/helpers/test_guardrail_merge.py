@@ -5,7 +5,7 @@ from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stub
 
 import pytest
 
-from litellm.proxy.utils import (
+from hangarllm.proxy.utils import (
     check_and_merge_model_level_guardrails,
     _merge_guardrails_with_existing,
 )
@@ -20,10 +20,10 @@ def _router_with_deployment(guardrails, *, by_alias: bool = False):
     deployment with the given guardrails. ``by_alias=True`` also stubs
     `get_model_list(model_name=...)` to return one matching deployment so the
     pre_call alias fallback (#29652) resolves."""
-    deployment = SimpleNamespace(litellm_params={"guardrails": guardrails})
+    deployment = SimpleNamespace(hangarllm_params={"guardrails": guardrails})
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
-    router.get_model_list.return_value = [{"litellm_params": {"guardrails": guardrails}}] if by_alias else []
+    router.get_model_list.return_value = [{"hangarllm_params": {"guardrails": guardrails}}] if by_alias else []
     return router
 
 
@@ -36,7 +36,7 @@ def _router_with_deployments(group_guardrails):
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
     router.get_model_list.return_value = [
-        {"litellm_params": {"guardrails": g} if g is not None else {}} for g in group_guardrails
+        {"hangarllm_params": {"guardrails": g} if g is not None else {}} for g in group_guardrails
     ]
     return router
 
@@ -148,7 +148,7 @@ def test_check_and_merge_model_level_guardrails_group_with_no_guardrails_returns
 
 def test_check_and_merge_model_level_guardrails_ignores_client_model_info_id_when_distrusted():
     """veria-ai HIGH on #29654: when allow_client_pricing_override is set,
-    add_litellm_data_to_request preserves the client-supplied
+    add_hangarllm_data_to_request preserves the client-supplied
     metadata.model_info, so a caller could spoof an unknown/unguarded
     model_info.id while requesting a guarded alias and bypass the merge.
     On the pre_call path (trust_client_model_info=False), the helper must
@@ -156,10 +156,10 @@ def test_check_and_merge_model_level_guardrails_ignores_client_model_info_id_whe
     """
     router = route_entry_points_to_stubs(MagicMock())
     # Spoofed id resolves to an unguarded deployment.
-    spoofed_deployment = SimpleNamespace(litellm_params={"guardrails": []})
+    spoofed_deployment = SimpleNamespace(hangarllm_params={"guardrails": []})
     router.get_deployment.return_value = spoofed_deployment
     # The real alias group has a guarded deployment.
-    router.get_model_list.return_value = [{"litellm_params": {"guardrails": ["alias-secret-scan"]}}]
+    router.get_model_list.return_value = [{"hangarllm_params": {"guardrails": ["alias-secret-scan"]}}]
 
     data = {
         "model": "guarded-alias",
@@ -191,7 +191,7 @@ def test_check_and_merge_model_level_guardrails_post_call_accepts_bare_string_gu
     not silently drop bare-string guardrail values that were truthy-accepted
     before. Wrap a scalar into a one-element list so post_call merge keeps
     working with single-guardrail configs."""
-    deployment = SimpleNamespace(litellm_params={"guardrails": "scalar-guardrail"})
+    deployment = SimpleNamespace(hangarllm_params={"guardrails": "scalar-guardrail"})
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = deployment
     data = {"model": "any", "metadata": {"model_info": {"id": "deployment-x"}}}
@@ -203,7 +203,7 @@ def test_check_and_merge_model_level_guardrails_alias_union_accepts_bare_string_
     """Same scalar-string contract on the pre_call alias-union path."""
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
-    router.get_model_list.return_value = [{"litellm_params": {"guardrails": "scalar-alias-guardrail"}}]
+    router.get_model_list.return_value = [{"hangarllm_params": {"guardrails": "scalar-alias-guardrail"}}]
     data = {"model": "alias-m", "metadata": {"model_info": {}}}
     result = check_and_merge_model_level_guardrails(data, router)
     assert "scalar-alias-guardrail" in result["metadata"]["guardrails"]
@@ -216,7 +216,7 @@ def test_check_and_merge_model_level_guardrails_alias_fallback_passes_team_id():
     deployments are invisible and their guardrails are silently dropped."""
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
-    router.get_model_list.return_value = [{"litellm_params": {"guardrails": ["team-guardrail"]}}]
+    router.get_model_list.return_value = [{"hangarllm_params": {"guardrails": ["team-guardrail"]}}]
     data = {
         "model": "team-scoped-alias",
         "metadata": {
@@ -229,8 +229,8 @@ def test_check_and_merge_model_level_guardrails_alias_fallback_passes_team_id():
     router.get_model_list.assert_called_once_with(model_name="team-scoped-alias", team_id="team-abc")
 
 
-def test_check_and_merge_model_level_guardrails_alias_fallback_reads_team_id_from_litellm_metadata():
-    """Backstop: some call sites stash the team id on litellm_metadata
+def test_check_and_merge_model_level_guardrails_alias_fallback_reads_team_id_from_hangarllm_metadata():
+    """Backstop: some call sites stash the team id on hangarllm_metadata
     instead of metadata. The alias fallback should accept either."""
     router = route_entry_points_to_stubs(MagicMock())
     router.get_deployment.return_value = None
@@ -238,7 +238,7 @@ def test_check_and_merge_model_level_guardrails_alias_fallback_reads_team_id_fro
     data = {
         "model": "alias-m",
         "metadata": {"model_info": {}},
-        "litellm_metadata": {"user_api_key_team_id": "team-xyz"},
+        "hangarllm_metadata": {"user_api_key_team_id": "team-xyz"},
     }
     check_and_merge_model_level_guardrails(data, router, trust_client_model_info=False)
     router.get_model_list.assert_called_once_with(model_name="alias-m", team_id="team-xyz")

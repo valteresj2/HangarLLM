@@ -19,17 +19,17 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from litellm.proxy.db.gateway_request_tracking import GatewayRequestAccumulator
-from litellm.proxy.middleware.billable_request_metrics_middleware import (
+from hangarllm.proxy.db.gateway_request_tracking import GatewayRequestAccumulator
+from hangarllm.proxy.middleware.billable_request_metrics_middleware import (
     BillableCategory,
     BillableRequestMetricsMiddleware,
     _extract_model_id,
     classify_billable_request,
 )
-from litellm.proxy.middleware.in_flight_requests_middleware import (
+from hangarllm.proxy.middleware.in_flight_requests_middleware import (
     InFlightRequestsMiddleware,
 )
-from litellm.types.proxy.gateway_requests import GatewayRequestCounts, GatewayRequestKey
+from hangarllm.types.proxy.gateway_requests import GatewayRequestCounts, GatewayRequestKey
 
 
 class FakeRecorder:
@@ -42,7 +42,7 @@ class FakeRecorder:
 
 def _make_app(recorder: Optional[FakeRecorder], status_code: int = 200, model_id: Optional[str] = None) -> Starlette:
     async def handler(request: Request) -> Response:
-        headers = {"x-litellm-model-id": model_id} if model_id else {}
+        headers = {"x-hangarllm-model-id": model_id} if model_id else {}
         return JSONResponse({}, status_code=status_code, headers=headers)
 
     paths = [
@@ -248,12 +248,12 @@ def test_chat_completions_not_misclassified_as_plain_completions():
 
 
 def test_extract_model_id_present():
-    headers = [(b"content-type", b"application/json"), (b"x-litellm-model-id", b"deploy-123")]
+    headers = [(b"content-type", b"application/json"), (b"x-hangarllm-model-id", b"deploy-123")]
     assert _extract_model_id(headers) == "deploy-123"
 
 
 def test_extract_model_id_case_insensitive():
-    assert _extract_model_id([(b"X-LiteLLM-Model-Id", b"deploy-9")]) == "deploy-9"
+    assert _extract_model_id([(b"X-HangarLLM-Model-Id", b"deploy-9")]) == "deploy-9"
 
 
 def test_extract_model_id_absent():
@@ -471,7 +471,7 @@ def test_record_runs_before_request_leaves_the_in_flight_tracker():
 def test_billable_middleware_is_registered_inside_the_in_flight_tracker():
     """Starlette makes the last-added middleware outermost, so the in-flight
     tracker must be registered after the billing middleware to wrap it."""
-    from litellm.proxy.proxy_server import app as proxy_app
+    from hangarllm.proxy.proxy_server import app as proxy_app
 
     classes = [middleware.cls for middleware in proxy_app.user_middleware]
     assert classes.index(InFlightRequestsMiddleware) < classes.index(BillableRequestMetricsMiddleware)
@@ -509,7 +509,7 @@ def test_sink_records_on_2xx():
 def test_varying_model_ids_fold_into_a_single_persisted_key():
     """
     The deployment that served a request reaches the middleware as the
-    x-litellm-model-id header, and a caller has some say in which deployment
+    x-hangarllm-model-id header, and a caller has some say in which deployment
     that is. The SGR key is persisted, so it must not carry that dimension: a
     caller who could vary it could mint an unbounded number of table rows.
     """

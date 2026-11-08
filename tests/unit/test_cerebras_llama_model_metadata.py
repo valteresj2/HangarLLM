@@ -6,7 +6,7 @@ Verifies that Cerebras Llama 3.1 models (standard hyphenated aliases):
 
 have correct rate card metadata, context window limits, and cost calculation parity
 with the un-hyphenated variants in model_prices_and_context_window.json.
-Fixes: https://github.com/BerriAI/litellm/issues/48157
+Fixes: upstream issue 48157
 """
 
 import json
@@ -14,14 +14,14 @@ from pathlib import Path
 
 import pytest
 
-import litellm
+import hangarllm
 
 
 @pytest.fixture(scope="module")
 def model_cost_maps():
     root = Path(__file__).resolve().parents[2]
     main_path = root / "model_prices_and_context_window.json"
-    backup_path = root / "litellm" / "model_prices_and_context_window_backup.json"
+    backup_path = root / "hangarllm" / "model_prices_and_context_window_backup.json"
 
     with open(main_path, "r", encoding="utf-8") as f:
         main_map = json.load(f)
@@ -38,7 +38,7 @@ CEREBRAS_MODELS_EXPECTED = {
         "max_input_tokens": 128000,
         "max_output_tokens": 128000,
         "mode": "chat",
-        "litellm_provider": "cerebras",
+        "hangarllm_provider": "cerebras",
     },
     "cerebras/llama-3.1-70b": {
         "input_cost_per_token": 6e-07,
@@ -46,7 +46,7 @@ CEREBRAS_MODELS_EXPECTED = {
         "max_input_tokens": 128000,
         "max_output_tokens": 128000,
         "mode": "chat",
-        "litellm_provider": "cerebras",
+        "hangarllm_provider": "cerebras",
     },
 }
 
@@ -91,12 +91,12 @@ def test_cerebras_llama_parity_with_unhyphenated(model_cost_maps, hyphenated, un
 
 
 def test_cerebras_llama_cost_per_token():
-    """Test that litellm.cost_per_token accurately computes costs for hyphenated Cerebras models."""
+    """Test that hangarllm.cost_per_token accurately computes costs for hyphenated Cerebras models."""
     prompt_tokens = 1_000_000
     completion_tokens = 1_000_000
 
     # llama-3.1-8b: $0.10 input + $0.10 output per 1M tokens
-    cost_prompt, cost_comp = litellm.cost_per_token(
+    cost_prompt, cost_comp = hangarllm.cost_per_token(
         model="cerebras/llama-3.1-8b",
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
@@ -105,7 +105,7 @@ def test_cerebras_llama_cost_per_token():
     assert pytest.approx(cost_comp, rel=1e-5) == 0.10
 
     # llama-3.1-70b: $0.60 input + $0.60 output per 1M tokens
-    cost_prompt_70b, cost_comp_70b = litellm.cost_per_token(
+    cost_prompt_70b, cost_comp_70b = hangarllm.cost_per_token(
         model="cerebras/llama-3.1-70b",
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,

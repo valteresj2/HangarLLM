@@ -17,7 +17,7 @@ from e2e_config import unique_marker
 from e2e_http import require_successful_call
 from e2e_metadata import Domain, Mode, Provider, Subject, meta
 from lifecycle import ResourceManager
-from models import KeyGenerateBody, LiteLLMParamsBody
+from models import KeyGenerateBody, HangarLLMParamsBody
 from quota_client import QuotaClient
 
 pytestmark = pytest.mark.e2e
@@ -61,7 +61,7 @@ class TestRedisCircuitBreakerPath:
         model = f"e2e-cb-model-{unique_marker()}"
         model_id = client.proxy.create_model(
             model,
-            LiteLLMParamsBody(model=BACKEND, api_key="os.environ/ANTHROPIC_API_KEY"),
+            HangarLLMParamsBody(model=BACKEND, api_key="os.environ/ANTHROPIC_API_KEY"),
         )
         resources.defer(lambda: client.proxy.delete_model(model_id))
 

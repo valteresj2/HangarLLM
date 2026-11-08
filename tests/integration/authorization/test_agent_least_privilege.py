@@ -19,7 +19,7 @@ def _write_access_config(directory: Path, *, default_deny: bool, model_name: str
         "model_list": [
             {
                 "model_name": model_name,
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "integration-provider-key",
                     "api_base": api_base,
@@ -96,7 +96,7 @@ def _create_agent(candidate: Gateway, wire: Wire, agent_name: str, cleanups: Exi
                 "defaultOutputModes": ["text"],
                 "skills": [],
             },
-            "litellm_params": {"make_public": False},
+            "hangarllm_params": {"make_public": False},
         },
     )
     agent_id: Final = string_value(created["agent_id"])
@@ -107,7 +107,7 @@ def _create_agent(candidate: Gateway, wire: Wire, agent_name: str, cleanups: Exi
 def _delete_agent(candidate: Gateway, agent_id: str) -> None:
     deleted: Final = candidate.request("DELETE", f"/v1/agents/{agent_id}")
     assert deleted.status_code == 200, deleted.text
-    assert candidate.rows('SELECT agent_id FROM "LiteLLM_AgentsTable" WHERE agent_id=%s', (agent_id,)) == []
+    assert candidate.rows('SELECT agent_id FROM "HangarLLM_AgentsTable" WHERE agent_id=%s', (agent_id,)) == []
 
 
 def _card(candidate: Gateway, agent_id: str, key: str) -> httpx.Response:

@@ -10,9 +10,9 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 from openai import OpenAI
 
-import litellm
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy._types import UserAPIKeyAuth
+import hangarllm
+from hangarllm.proxy.hangarllm_pre_call_utils import HangarLLMProxyRequestSetup
+from hangarllm.proxy._types import UserAPIKeyAuth
 
 
 
@@ -26,7 +26,7 @@ def test_add_key_level_controls_with_none_metadata():
     metadata_variable_name = "metadata"
 
     # Test with None key_metadata (this was causing the original error)
-    result = LiteLLMProxyRequestSetup.add_key_level_controls(
+    result = HangarLLMProxyRequestSetup.add_key_level_controls(
         key_metadata=None, data=data, _metadata_variable_name=metadata_variable_name
     )
 
@@ -34,7 +34,7 @@ def test_add_key_level_controls_with_none_metadata():
     assert result == data
 
     # Test with empty dict key_metadata (should also work)
-    result = LiteLLMProxyRequestSetup.add_key_level_controls(
+    result = HangarLLMProxyRequestSetup.add_key_level_controls(
         key_metadata={}, data=data, _metadata_variable_name=metadata_variable_name
     )
 
@@ -44,7 +44,7 @@ def test_add_key_level_controls_with_none_metadata():
     # Test with valid key_metadata containing cache settings
     key_metadata_with_cache = {"cache": {"ttl": 300, "s-maxage": 600}}
 
-    result = LiteLLMProxyRequestSetup.add_key_level_controls(
+    result = HangarLLMProxyRequestSetup.add_key_level_controls(
         key_metadata=key_metadata_with_cache,
         data=data.copy(),
         _metadata_variable_name=metadata_variable_name,
@@ -70,7 +70,7 @@ def test_add_key_level_controls_simulates_original_issue():
     # This is the exact call that was failing before the fix
     # user_api_key_dict.metadata was None, causing the error in add_key_level_controls
     try:
-        result = LiteLLMProxyRequestSetup.add_key_level_controls(
+        result = HangarLLMProxyRequestSetup.add_key_level_controls(
             key_metadata=None,  # This was the root cause of the issue
             data=data,
             _metadata_variable_name=metadata_variable_name,
@@ -90,13 +90,13 @@ def test_add_key_level_controls_simulates_original_issue():
             raise
 
 
-def test_batch_create_with_litellm_sdk():
+def test_batch_create_with_hangarllm_sdk():
     """
-    Test creating a batch using litellm SDK with metadata=None.
+    Test creating a batch using hangarllm SDK with metadata=None.
     This is a more direct test of the original issue.
     """
     # Mock the OpenAI batches instance to avoid actual API calls
-    with patch("litellm.batches.main.openai_batches_instance") as mock_openai_batches:
+    with patch("hangarllm.batches.main.openai_batches_instance") as mock_openai_batches:
         # Mock the response
         mock_response = MagicMock()
         mock_response.id = "batch_test123"
@@ -104,7 +104,7 @@ def test_batch_create_with_litellm_sdk():
 
         # This should not raise an exception
         try:
-            response = litellm.create_batch(
+            response = hangarllm.create_batch(
                 completion_window="24h",
                 endpoint="/v1/chat/completions",
                 input_file_id="file-test123",
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     test_add_key_level_controls_simulates_original_issue()
     print("✓ test_add_key_level_controls_simulates_original_issue passed")
 
-    test_batch_create_with_litellm_sdk()
-    print("✓ test_batch_create_with_litellm_sdk passed")
+    test_batch_create_with_hangarllm_sdk()
+    print("✓ test_batch_create_with_hangarllm_sdk passed")
 
     print("All tests passed! Issue #13995 fix is working correctly.")

@@ -17,11 +17,11 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.integrations.datadog.datadog_llm_obs import DataDogLLMObsLogger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import StandardLoggingGuardrailInformation
+import hangarllm
+from hangarllm.integrations.datadog.datadog_llm_obs import DataDogLLMObsLogger
+from hangarllm.hangarllm_core_utils.safe_json_dumps import safe_dumps
+from hangarllm.types.guardrails import GuardrailEventHooks
+from hangarllm.types.utils import StandardLoggingGuardrailInformation
 
 TOOL_DEFINITION: dict[str, Any] = {
     "type": "function",
@@ -80,7 +80,7 @@ def build_payload(
             "response_cost": 0.02,
             "status": "success",
         },
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
     }
 
 
@@ -205,7 +205,7 @@ def test_cache_tokens_are_reported_as_span_metrics(logger: DataDogLLMObsLogger) 
     """
     Datadog charts cache savings from span metrics; nested usage_object is not read for it.
 
-    litellm's normalized prompt count includes both cache categories, so the three cache
+    hangarllm's normalized prompt count includes both cache categories, so the three cache
     metrics must partition input_tokens: read + write + non_cached == input.
     """
     payload = build(
@@ -257,7 +257,7 @@ def test_anthropic_top_level_cache_keys_are_read(logger: DataDogLLMObsLogger) ->
 
 def test_cache_metrics_come_from_the_normalized_field_not_the_anthropic_one(logger: DataDogLLMObsLogger) -> None:
     """
-    litellm normalizes every provider's cache counters into prompt_tokens_details.
+    hangarllm normalizes every provider's cache counters into prompt_tokens_details.
 
     A real cached request from a non-Anthropic provider carries only `cached_tokens`, so
     reading the Anthropic-specific `cache_read_input_tokens` key reports nothing for it.
@@ -283,7 +283,7 @@ def test_cache_metrics_come_from_the_normalized_field_not_the_anthropic_one(logg
 def test_every_spelling_of_cache_write_tokens_is_read(
     logger: DataDogLLMObsLogger, usage_object: dict[str, Any]
 ) -> None:
-    """A raw usage dict that bypassed litellm's normalizer can carry any provider's spelling."""
+    """A raw usage dict that bypassed hangarllm's normalizer can carry any provider's spelling."""
     payload = build(logger, usage_object=usage_object)
 
     assert payload["metrics"]["cache_write_input_tokens"] == 95.0
@@ -486,8 +486,8 @@ def test_redacted_payload_keeps_metrics_and_removes_sensitive_fields(logger: Dat
         )
     )
 
-    assert result["meta"]["input"]["messages"][0]["content"] == "redacted-by-litellm"
-    assert result["meta"]["output"]["messages"][0]["content"] == "redacted-by-litellm"
+    assert result["meta"]["input"]["messages"][0]["content"] == "redacted-by-hangarllm"
+    assert result["meta"]["output"]["messages"][0]["content"] == "redacted-by-hangarllm"
     assert result["meta"]["metadata"]["router_tier"] == "premium"
     assert "router_signals" not in result["meta"]["metadata"]
     assert "routing_decision" not in result["meta"]["metadata"]
@@ -544,7 +544,7 @@ def test_a_failure_span_redacts_its_messages(logger: DataDogLLMObsLogger) -> Non
         )
     )
 
-    assert result["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+    assert result["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
     assert result["meta"]["output"]["messages"] == []
     assert result["status"] == "error"
 
@@ -569,7 +569,7 @@ def test_an_explicit_redaction_setting_survives_the_global_params(logger: DataDo
     with patch.dict(os.environ, {"DD_API_KEY": "k", "DD_SITE": "us5.datadoghq.com"}, clear=True):
         with patch("asyncio.create_task"):
             with patch.object(  # test-quality-ok: the ctor reads this module global with no injection seam
-                litellm, "datadog_llm_observability_params", {}
+                hangarllm, "datadog_llm_observability_params", {}
             ):
                 configured_logger = DataDogLLMObsLogger(
                     turn_off_message_logging=True
@@ -618,23 +618,23 @@ def test_redaction_keeps_the_conversation_shape_without_its_content() -> None:
 
     redacted_call = {
         "name": "get_weather",
-        "arguments": "redacted-by-litellm",
+        "arguments": "redacted-by-hangarllm",
         "tool_id": "call_abc123",
         "type": "function",
     }
     assert result["meta"]["input"]["messages"] == [
-        {"role": "user", "content": "redacted-by-litellm"},
-        {"role": "assistant", "content": "redacted-by-litellm", "tool_calls": [redacted_call]},
+        {"role": "user", "content": "redacted-by-hangarllm"},
+        {"role": "assistant", "content": "redacted-by-hangarllm", "tool_calls": [redacted_call]},
         {
             "role": "tool",
-            "content": "redacted-by-litellm",
+            "content": "redacted-by-hangarllm",
             "tool_results": [
-                {"name": "get_weather", "result": "redacted-by-litellm", "tool_id": "call_abc123", "type": "function"}
+                {"name": "get_weather", "result": "redacted-by-hangarllm", "tool_id": "call_abc123", "type": "function"}
             ],
         },
     ]
     assert result["meta"]["output"]["messages"] == [
-        {"role": "assistant", "content": "redacted-by-litellm", "tool_calls": [redacted_call]}
+        {"role": "assistant", "content": "redacted-by-hangarllm", "tool_calls": [redacted_call]}
     ]
     serialized = safe_dumps(result)
     assert "SECRET-7545" not in serialized
@@ -648,7 +648,7 @@ def test_redaction_counts_tool_result_tokens_before_replacing_them() -> None:
 
     result = _redacted_span_as_the_proxy_builds_it(payload)
 
-    expected_tokens = litellm.token_counter(model="claude-sonnet-5", text=SECRET_TOOL_RESULT)
+    expected_tokens = hangarllm.token_counter(model="claude-sonnet-5", text=SECRET_TOOL_RESULT)
     assert expected_tokens > 0
     assert result["metrics"]["tool_output_tokens"] == float(expected_tokens)
     assert result["metrics"]["input_tokens"] == 4447.0
@@ -664,7 +664,7 @@ def test_tool_output_tokens_sum_every_result_in_the_request(logger: DataDogLLMOb
     )
 
     assert payload["metrics"]["tool_output_tokens"] == float(
-        litellm.token_counter(text="one two three") + litellm.token_counter(text="four five six seven")
+        hangarllm.token_counter(text="one two three") + hangarllm.token_counter(text="four five six seven")
     )
 
 
@@ -702,16 +702,16 @@ def test_redaction_keeps_anthropic_tool_blocks_as_structure_only() -> None:
     assert result["meta"]["input"]["messages"] == [
         {
             "role": "assistant",
-            "content": "redacted-by-litellm",
+            "content": "redacted-by-hangarllm",
             "tool_calls": [
-                {"name": "get_weather", "arguments": "redacted-by-litellm", "tool_id": "toolu_1", "type": "tool_use"}
+                {"name": "get_weather", "arguments": "redacted-by-hangarllm", "tool_id": "toolu_1", "type": "tool_use"}
             ],
         },
         {
             "role": "user",
-            "content": "redacted-by-litellm",
+            "content": "redacted-by-hangarllm",
             "tool_results": [
-                {"name": "get_weather", "result": "redacted-by-litellm", "tool_id": "toolu_1", "type": "function"}
+                {"name": "get_weather", "result": "redacted-by-hangarllm", "tool_id": "toolu_1", "type": "function"}
             ],
         },
     ]
@@ -734,7 +734,7 @@ def test_redaction_blanks_tool_identifiers_that_are_not_strings() -> None:
     )
 
     assert result["meta"]["input"]["messages"][0]["tool_calls"] == [
-        {"name": "", "arguments": "redacted-by-litellm", "tool_id": "", "type": ""}
+        {"name": "", "arguments": "redacted-by-hangarllm", "tool_id": "", "type": ""}
     ]
     assert "SECRET-7545" not in safe_dumps(result)
 
@@ -745,7 +745,7 @@ def test_the_shared_hook_still_strips_what_redaction_governs_besides_messages() 
     logger_under_test = _redacting_logger(turn_off_message_logging=True)
 
     with patch.object(  # test-quality-ok: the hook reads this module global with no injection seam
-        litellm, "standard_logging_payload_excluded_fields", ["response"]
+        hangarllm, "standard_logging_payload_excluded_fields", ["response"]
     ):
         redacted = logger_under_test.redact_standard_logging_payload_from_model_call_details(payload)
 
@@ -770,10 +770,10 @@ def test_redaction_drops_unrecognized_and_malformed_message_roles() -> None:
     )
 
     assert result["meta"]["input"]["messages"] == [
-        {"role": "", "content": "redacted-by-litellm"},
-        {"role": "", "content": "redacted-by-litellm"},
-        {"role": "", "content": "redacted-by-litellm"},
-        {"role": "agent", "content": "redacted-by-litellm"},
+        {"role": "", "content": "redacted-by-hangarllm"},
+        {"role": "", "content": "redacted-by-hangarllm"},
+        {"role": "", "content": "redacted-by-hangarllm"},
+        {"role": "agent", "content": "redacted-by-hangarllm"},
     ]
     assert "SECRET-39402" not in safe_dumps(result)
 
@@ -789,7 +789,7 @@ def test_the_deprecated_message_logging_flag_engages_the_same_redaction() -> Non
         ),
     )
 
-    assert result["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+    assert result["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
     assert "tool_definitions" not in result["meta"]
     assert "routing_decision" not in result["meta"]["metadata"]
 
@@ -801,7 +801,7 @@ def test_a_truthy_redaction_setting_redacts_like_the_shared_hook() -> None:
         build_payload(messages=[{"role": "user", "content": "secret prompt"}]),
     )
 
-    assert result["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+    assert result["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
 
 
 def test_redaction_drops_every_prompt_carrying_metadata_record(logger: DataDogLLMObsLogger) -> None:
@@ -878,12 +878,12 @@ def test_a_caller_supplied_redaction_header_cannot_blank_the_guardrail_record(
 ) -> None:
     """Any key may redact its own prompts with the header; none may erase what a guardrail caught."""
     payload = _payload_with_guardrail_record([dict(_AUDIT_RECORD)])
-    payload["litellm_params"] = {"metadata": {"headers": {"x-litellm-enable-message-redaction": "true"}}}
+    payload["hangarllm_params"] = {"metadata": {"headers": {"x-hangarllm-enable-message-redaction": "true"}}}
 
     span = _span_json(logger, payload)
     record = span["meta"]["metadata"]["guardrail_information"][0]
 
-    assert span["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+    assert span["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
     assert record["guardrail_status"] == "guardrail_intervened"
     assert record["masked_entity_count"] == {"EMAIL": 2}
     assert "alice@acme.com" not in safe_dumps(span["meta"]["metadata"])
@@ -937,7 +937,7 @@ def test_odd_guardrail_shapes_still_produce_a_span(
         _payload_with_guardrail_record(guardrail_information),
     )
 
-    assert span["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+    assert span["meta"]["input"]["messages"] == [{"role": "user", "content": "redacted-by-hangarllm"}]
     assert span["meta"]["metadata"]["guardrail_information"] in (None, [], [{}])
 
 
@@ -973,7 +973,7 @@ def test_meta_omits_tool_definitions_when_no_tools_were_offered(logger: DataDogL
 def test_a_ddtrace_integer_parent_id_is_forwarded_as_its_string(logger: DataDogLLMObsLogger) -> None:
     """ddtrace hands span ids as ints; dropping them detaches the span from its APM trace."""
     kwargs = build_payload()
-    kwargs["litellm_params"]["metadata"]["parent_id"] = 8675309
+    kwargs["hangarllm_params"]["metadata"]["parent_id"] = 8675309
     start = datetime(2026, 9, 1, 12, 0, 0)
     span = json.loads(safe_dumps(logger.create_llm_obs_payload(kwargs, start, start + timedelta(seconds=2))))
     assert span["parent_id"] == "8675309"

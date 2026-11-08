@@ -14,7 +14,7 @@ def test_openai_embedding_timeouts(gateway: Gateway) -> None:
 
     def respond(request: Request) -> Reply:
         assert request.target == "/v1/embeddings"
-        assert JSON_OBJECT.validate_json(request.body)["input"] == ["good morning from litellm"]
+        assert JSON_OBJECT.validate_json(request.body)["input"] == ["good morning from hangarllm"]
         release.wait(timeout=30)
         return Reply(drop_connection=True)
 
@@ -30,7 +30,7 @@ def test_openai_embedding_timeouts(gateway: Gateway) -> None:
                 response: Final = gateway.request(
                     "POST",
                     "/v1/embeddings",
-                    {"model": model, "input": ["good morning from litellm"]},
+                    {"model": model, "input": ["good morning from hangarllm"]},
                 )
         finally:
             release.set()

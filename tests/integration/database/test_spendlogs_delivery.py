@@ -10,15 +10,15 @@ import pytest
 import pytest_asyncio
 from prisma import Prisma
 
-from litellm.repositories.accounting_delivery_repository import (
+from hangarllm.repositories.accounting_delivery_repository import (
     AccountingDeliveryRepository,
     DeliveryProjection,
     LedgerTransaction,
 )
-from litellm.repositories.spend_log_insert import spend_log_insert_statement
+from hangarllm.repositories.spend_log_insert import spend_log_insert_statement
 from tests.integration._support.database import scratch_database
 
-_MIGRATIONS: Final = Path(__file__).resolve().parents[3] / "litellm-proxy-extras/litellm_proxy_extras/migrations"
+_MIGRATIONS: Final = Path(__file__).resolve().parents[3] / "hangarllm-proxy-extras/hangarllm_proxy_extras/migrations"
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def delivery_database(request: pytest.FixtureRequest) -> Iterator[psycopg.Connec
             connection.execute("CREATE SCHEMA ledger_tenant")
             connection.execute("SET search_path TO ledger_tenant")
         connection.execute((_MIGRATIONS / "20261027000000_add_accounting_ledger_tables/migration.sql").read_text())
-        connection.execute("""CREATE TABLE "LiteLLM_SpendLogs" (
+        connection.execute("""CREATE TABLE "HangarLLM_SpendLogs" (
             request_id text PRIMARY KEY, call_type text NOT NULL, spend float8 NOT NULL DEFAULT 0,
             status text,
             metadata jsonb DEFAULT '{}', "startTime" timestamp(3) NOT NULL,
@@ -52,7 +52,7 @@ def _insert(
         for row in rows:
             if ledger and row["request_id"] in inserted:
                 connection.execute(
-                    'INSERT INTO "LiteLLM_SpendLogDelivery" (delivery_id, request_id, accounting_payload, is_batch) '
+                    'INSERT INTO "HangarLLM_SpendLogDelivery" (delivery_id, request_id, accounting_payload, is_batch) '
                     "VALUES (%s, %s, %s, %s)",
                     (row["request_id"], row["request_id"], Jsonb(dict(row)), row.get("call_type") == "aretrieve_batch"),
                 )
@@ -81,14 +81,14 @@ async def test_delivery_first_acceptance_deduplicates_all_storage_modes(
 ):
     from types import SimpleNamespace
 
-    from litellm.repositories.table_repositories import SpendLogsRepository
+    from hangarllm.repositories.table_repositories import SpendLogsRepository
 
     if partitioned:
-        delivery_database.execute('ALTER TABLE "LiteLLM_SpendLogs" RENAME TO spend_template')
+        delivery_database.execute('ALTER TABLE "HangarLLM_SpendLogs" RENAME TO spend_template')
         delivery_database.execute(
-            'CREATE TABLE "LiteLLM_SpendLogs" (LIKE spend_template INCLUDING DEFAULTS INCLUDING CONSTRAINTS, PRIMARY KEY(request_id, "startTime")) PARTITION BY RANGE ("startTime")'
+            'CREATE TABLE "HangarLLM_SpendLogs" (LIKE spend_template INCLUDING DEFAULTS INCLUDING CONSTRAINTS, PRIMARY KEY(request_id, "startTime")) PARTITION BY RANGE ("startTime")'
         )
-        delivery_database.execute('CREATE TABLE "LiteLLM_SpendLogs_p20261102" PARTITION OF "LiteLLM_SpendLogs" DEFAULT')
+        delivery_database.execute('CREATE TABLE "HangarLLM_SpendLogs_p20261102" PARTITION OF "HangarLLM_SpendLogs" DEFAULT')
         delivery_database.execute("DROP TABLE spend_template")
     repository = SpendLogsRepository(SimpleNamespace(db=delivery_client, writer_db=delivery_client))
     row = {**_with_payload({**_row("shared"), "call_type": call_type}), "accounting_log_disabled": mode == "disabled"}
@@ -99,14 +99,14 @@ async def test_delivery_first_acceptance_deduplicates_all_storage_modes(
         ),
     )
     assert sorted(results) == [0, 1]
-    assert delivery_database.execute('SELECT COUNT(*) FROM "LiteLLM_SpendLogs"').fetchone() == (int(mode == "local"),)
+    assert delivery_database.execute('SELECT COUNT(*) FROM "HangarLLM_SpendLogs"').fetchone() == (int(mode == "local"),)
     assert delivery_database.execute(
-        "SELECT accounting_payload->>'spend', state::text FROM \"LiteLLM_SpendLogDelivery\""
+        "SELECT accounting_payload->>'spend', state::text FROM \"HangarLLM_SpendLogDelivery\""
     ).fetchall() == [("0.5", "pending")]
     if partitioned:
-        delivery_database.execute('DROP TABLE "LiteLLM_SpendLogs_p20261102"')
+        delivery_database.execute('DROP TABLE "HangarLLM_SpendLogs_p20261102"')
     else:
-        delivery_database.execute('DELETE FROM "LiteLLM_SpendLogs"')
+        delivery_database.execute('DELETE FROM "HangarLLM_SpendLogs"')
 
     async def apply(transaction, deliveries):
         await transaction.execute_raw("UPDATE totals SET spend = spend + $1::float8", float(deliveries[0].row["spend"]))
@@ -122,7 +122,7 @@ async def test_delivery_first_acceptance_deduplicates_all_storage_modes(
 async def test_duplicate_rows_in_one_flush_keep_first_accounting_payload(delivery_database, delivery_client, mode):
     from types import SimpleNamespace
 
-    from litellm.repositories.table_repositories import SpendLogsRepository
+    from hangarllm.repositories.table_repositories import SpendLogsRepository
 
     repository = SpendLogsRepository(SimpleNamespace(db=delivery_client, writer_db=delivery_client))
     first = {**_with_payload(_row("repeated")), "accounting_log_disabled": mode == "disabled"}
@@ -131,10 +131,10 @@ async def test_duplicate_rows_in_one_flush_keep_first_accounting_payload(deliver
         "accounting_log_disabled": mode == "disabled",
     }
     assert await repository.insert_with_deliveries((first, later), write_spend_logs=mode != "url") == 1
-    assert delivery_database.execute('SELECT accounting_payload FROM "LiteLLM_SpendLogDelivery"').fetchone() == (
+    assert delivery_database.execute('SELECT accounting_payload FROM "HangarLLM_SpendLogDelivery"').fetchone() == (
         first["accounting_payload"],
     )
-    assert delivery_database.execute('SELECT spend FROM "LiteLLM_SpendLogs"').fetchall() == (
+    assert delivery_database.execute('SELECT spend FROM "HangarLLM_SpendLogs"').fetchall() == (
         [(first["spend"],)] if mode == "local" else []
     )
 
@@ -146,17 +146,17 @@ async def test_batch_charged_before_the_ledger_is_not_charged_again(
 ):
     from types import SimpleNamespace
 
-    from litellm.repositories.table_repositories import SpendLogsRepository
+    from hangarllm.repositories.table_repositories import SpendLogsRepository
 
     batch: Final = {**_row("batch_legacy"), "call_type": "aretrieve_batch", "status": "success"}
     _insert(delivery_database, ({**batch, "spend": legacy_spend},), ledger=False)
     repository = SpendLogsRepository(SimpleNamespace(db=delivery_client, writer_db=delivery_client))
     assert await repository.insert_with_deliveries((_with_payload({**batch, "spend": 1.0}),)) == accepted
-    assert delivery_database.execute('SELECT COUNT(*) FROM "LiteLLM_SpendLogDelivery"').fetchone() == (accepted,)
-    assert delivery_database.execute('SELECT spend FROM "LiteLLM_SpendLogs"').fetchall() == [(legacy_spend,)]
+    assert delivery_database.execute('SELECT COUNT(*) FROM "HangarLLM_SpendLogDelivery"').fetchone() == (accepted,)
+    assert delivery_database.execute('SELECT spend FROM "HangarLLM_SpendLogs"').fetchall() == [(legacy_spend,)]
 
 
-@pytest.mark.parametrize("table", ["LiteLLM_SpendLogs", "LiteLLM_SpendLogDelivery"])
+@pytest.mark.parametrize("table", ["HangarLLM_SpendLogs", "HangarLLM_SpendLogDelivery"])
 @pytest.mark.asyncio
 async def test_transaction_a_rolls_back_payload_and_log_on_failure(delivery_database, delivery_client, table):
     from types import SimpleNamespace
@@ -164,7 +164,7 @@ async def test_transaction_a_rolls_back_payload_and_log_on_failure(delivery_data
     from prisma.errors import PrismaError
     from psycopg import sql
 
-    from litellm.repositories.table_repositories import SpendLogsRepository
+    from hangarllm.repositories.table_repositories import SpendLogsRepository
 
     delivery_database.execute(
         sql.SQL("ALTER TABLE {} ADD CONSTRAINT reject_poison CHECK (request_id <> 'poison')").format(
@@ -174,8 +174,8 @@ async def test_transaction_a_rolls_back_payload_and_log_on_failure(delivery_data
     repository = SpendLogsRepository(SimpleNamespace(db=delivery_client, writer_db=delivery_client))
     with pytest.raises(PrismaError):
         await repository.insert_with_deliveries(tuple(_with_payload(_row(name)) for name in ("good", "poison")))
-    assert delivery_database.execute('SELECT COUNT(*) FROM "LiteLLM_SpendLogDelivery"').fetchone() == (0,)
-    assert delivery_database.execute('SELECT COUNT(*) FROM "LiteLLM_SpendLogs"').fetchone() == (0,)
+    assert delivery_database.execute('SELECT COUNT(*) FROM "HangarLLM_SpendLogDelivery"').fetchone() == (0,)
+    assert delivery_database.execute('SELECT COUNT(*) FROM "HangarLLM_SpendLogs"').fetchone() == (0,)
 
 
 @pytest.mark.asyncio
@@ -203,16 +203,16 @@ async def test_worker_rolls_back_destinations_and_parks_only_isolated_failure(
         assert failed.parked == ()
         assert delivery_database.execute("SELECT spend FROM totals").fetchone() == (0.0,)
         assert delivery_database.execute(
-            'SELECT DISTINCT state::text, attempts FROM "LiteLLM_SpendLogDelivery"'
+            'SELECT DISTINCT state::text, attempts FROM "HangarLLM_SpendLogDelivery"'
         ).fetchall() == [("pending", 1)]
-        delivery_database.execute('UPDATE "LiteLLM_SpendLogDelivery" SET next_attempt_at = CURRENT_TIMESTAMP')
+        delivery_database.execute('UPDATE "HangarLLM_SpendLogDelivery" SET next_attempt_at = CURRENT_TIMESTAMP')
         isolated: Final = await repository.apply_pending(apply, max_attempts=2)
         assert isolated.parked == ("bad",)
         applied: Final = await repository.apply_pending(apply, max_attempts=2)
         assert applied.applied == 1
         assert delivery_database.execute("SELECT spend FROM totals").fetchone() == (0.5,)
         assert delivery_database.execute(
-            'SELECT request_id, state::text FROM "LiteLLM_SpendLogDelivery" ORDER BY request_id'
+            'SELECT request_id, state::text FROM "HangarLLM_SpendLogDelivery" ORDER BY request_id'
         ).fetchall() == [("bad", "parked"), ("good", "applied")]
         assert (await repository.apply_pending(apply)).applied == 0
     finally:
@@ -237,8 +237,8 @@ async def test_a_locked_database_never_parks_a_valid_delivery(delivery_database,
         for _ in range(4):
             result = await repository.apply_pending(apply, max_attempts=2)
             assert result.failed == 1 and result.parked == ()
-            delivery_database.execute('UPDATE "LiteLLM_SpendLogDelivery" SET next_attempt_at = CURRENT_TIMESTAMP')
-    assert delivery_database.execute('SELECT state::text, attempts FROM "LiteLLM_SpendLogDelivery"').fetchall() == [
+            delivery_database.execute('UPDATE "HangarLLM_SpendLogDelivery" SET next_attempt_at = CURRENT_TIMESTAMP')
+    assert delivery_database.execute('SELECT state::text, attempts FROM "HangarLLM_SpendLogDelivery"').fetchall() == [
         ("pending", 4)
     ]
     assert (await repository.apply_pending(apply, max_attempts=2)).applied == 1
@@ -259,8 +259,8 @@ async def test_an_unreachable_database_reported_as_a_data_error_never_parks_a_de
     repository = AccountingDeliveryRepository(delivery_client)
     for _ in range(3):
         assert (await repository.apply_pending(unreachable, max_attempts=2)).parked == ()
-        delivery_database.execute('UPDATE "LiteLLM_SpendLogDelivery" SET next_attempt_at = CURRENT_TIMESTAMP')
-    assert delivery_database.execute('SELECT state::text, attempts FROM "LiteLLM_SpendLogDelivery"').fetchall() == [
+        delivery_database.execute('UPDATE "HangarLLM_SpendLogDelivery" SET next_attempt_at = CURRENT_TIMESTAMP')
+    assert delivery_database.execute('SELECT state::text, attempts FROM "HangarLLM_SpendLogDelivery"').fetchall() == [
         ("pending", 3)
     ]
 
@@ -306,7 +306,7 @@ async def test_two_workers_claim_disjoint_rows_and_apply_once(
     assert sum(result.applied for result in results) == 2
     assert delivery_database.execute("SELECT spend FROM totals").fetchone() == (1.0,)
     assert delivery_database.execute(
-        "SELECT COUNT(*) FROM \"LiteLLM_SpendLogDelivery\" WHERE state = 'applied'"
+        "SELECT COUNT(*) FROM \"HangarLLM_SpendLogDelivery\" WHERE state = 'applied'"
     ).fetchone() == (2,)
 
 
@@ -331,7 +331,7 @@ async def test_cancelled_worker_rolls_back_and_restart_applies_once(
     with pytest.raises(asyncio.CancelledError):
         await task
     assert delivery_database.execute("SELECT spend FROM totals").fetchone() == (0.0,)
-    assert delivery_database.execute('SELECT state::text, attempts FROM "LiteLLM_SpendLogDelivery"').fetchone() == (
+    assert delivery_database.execute('SELECT state::text, attempts FROM "HangarLLM_SpendLogDelivery"').fetchone() == (
         "pending",
         0,
     )
@@ -349,7 +349,7 @@ async def test_worker_applies_accounting_after_spend_logs_are_deleted(
     delivery_database: psycopg.Connection[tuple[object, ...]], delivery_client: Prisma
 ) -> None:
     _insert(delivery_database, (_row("removed"),))
-    delivery_database.execute('DELETE FROM "LiteLLM_SpendLogs"')
+    delivery_database.execute('DELETE FROM "HangarLLM_SpendLogs"')
 
     async def apply(transaction: LedgerTransaction, rows: tuple[DeliveryProjection, ...]) -> None:
         await transaction.execute_raw("UPDATE totals SET spend = spend + $1::float8", float(str(rows[0].row["spend"])))
@@ -366,7 +366,7 @@ async def test_receipt_cleanup_keeps_pending_and_parked_rows_and_reports_lag(
 ) -> None:
     _insert(delivery_database, tuple(_row(state) for state in ("pending", "parked", "applied")))
     delivery_database.execute(
-        'UPDATE "LiteLLM_SpendLogDelivery" '
+        'UPDATE "HangarLLM_SpendLogDelivery" '
         'SET state = request_id::"AccountingDeliveryState", '
         "created_at = CURRENT_TIMESTAMP - INTERVAL '40 days', "
         "applied_at = CURRENT_TIMESTAMP - INTERVAL '40 days'"
@@ -378,7 +378,7 @@ async def test_receipt_cleanup_keeps_pending_and_parked_rows_and_reports_lag(
     assert metrics.parked_count == 1
     assert metrics.oldest_pending_seconds >= 40 * 86400
     assert delivery_database.execute(
-        'SELECT request_id FROM "LiteLLM_SpendLogDelivery" ORDER BY request_id'
+        'SELECT request_id FROM "HangarLLM_SpendLogDelivery" ORDER BY request_id'
     ).fetchall() == [("parked",), ("pending",)]
 
 
@@ -388,31 +388,31 @@ def test_delivery_migration_replay_preserves_ledger_receipts(delivery_database, 
     if state is not None:
         _insert(delivery_database, (_row("replay"),))
         delivery_database.execute(
-            'UPDATE "LiteLLM_SpendLogDelivery" SET state=%s, attempts=3, last_error=%s',
+            'UPDATE "HangarLLM_SpendLogDelivery" SET state=%s, attempts=3, last_error=%s',
             (state, "retained failure"),
         )
-    before = delivery_database.execute('SELECT * FROM "LiteLLM_SpendLogDelivery"').fetchall()
+    before = delivery_database.execute('SELECT * FROM "HangarLLM_SpendLogDelivery"').fetchall()
     migration = (_MIGRATIONS / "20261103010000_spendlogs_accounting_delivery/migration.sql").read_text()
     delivery_database.execute(migration)
     delivery_database.execute(migration)
-    assert delivery_database.execute('SELECT * FROM "LiteLLM_SpendLogDelivery"').fetchall() == before
-    assert delivery_database.execute('SELECT count(*) FROM "LiteLLM_SpendLogs"').fetchone() == (int(state is not None),)
+    assert delivery_database.execute('SELECT * FROM "HangarLLM_SpendLogDelivery"').fetchall() == before
+    assert delivery_database.execute('SELECT count(*) FROM "HangarLLM_SpendLogs"').fetchone() == (int(state is not None),)
 
 
 @pytest.mark.parametrize("state", ["pending", "parked"])
 def test_delivery_migration_preserves_unused_old_receipts(state):
     with scratch_database("spendlogs_old_delivery") as url, psycopg.connect(url, autocommit=True) as connection:
         connection.execute((_MIGRATIONS / "20261027000000_add_accounting_ledger_tables/migration.sql").read_text())
-        connection.execute('CREATE TABLE "LiteLLM_SpendLogs" (request_id text PRIMARY KEY)')
+        connection.execute('CREATE TABLE "HangarLLM_SpendLogs" (request_id text PRIMARY KEY)')
         connection.execute(
-            'INSERT INTO "LiteLLM_AccountingDelivery" (event_id, target, version, state) VALUES (%s, %s, 1, %s)',
-            ("old-event", "LiteLLM_UserTable", state),
+            'INSERT INTO "HangarLLM_AccountingDelivery" (event_id, target, version, state) VALUES (%s, %s, 1, %s)',
+            ("old-event", "HangarLLM_UserTable", state),
         )
         connection.execute((_MIGRATIONS / "20261103010000_spendlogs_accounting_delivery/migration.sql").read_text())
-        assert connection.execute('SELECT event_id, state::text FROM "LiteLLM_AccountingDelivery"').fetchall() == [
+        assert connection.execute('SELECT event_id, state::text FROM "HangarLLM_AccountingDelivery"').fetchall() == [
             ("old-event", state)
         ]
-        assert connection.execute('SELECT COUNT(*) FROM "LiteLLM_SpendLogDelivery"').fetchone() == (0,)
+        assert connection.execute('SELECT COUNT(*) FROM "HangarLLM_SpendLogDelivery"').fetchone() == (0,)
 
 
 @pytest.mark.parametrize(
@@ -436,7 +436,7 @@ async def test_a_payload_the_engine_cannot_decode_never_blocks_other_deliveries(
 ):
     _insert(delivery_database, (_row("huge"), _row("good")))
     delivery_database.execute(
-        f'UPDATE "LiteLLM_SpendLogDelivery" SET accounting_payload = {payload} WHERE request_id = $$huge$$'
+        f'UPDATE "HangarLLM_SpendLogDelivery" SET accounting_payload = {payload} WHERE request_id = $$huge$$'
     )
 
     async def apply(transaction, deliveries):
@@ -453,7 +453,7 @@ async def test_a_payload_the_engine_cannot_decode_never_blocks_other_deliveries(
     assert sum(result.applied for result in results) == applied
     assert delivery_database.execute("SELECT spend FROM totals").fetchone() == (0.5 * applied,)
     assert delivery_database.execute(
-        'SELECT request_id, state::text FROM "LiteLLM_SpendLogDelivery" ORDER BY request_id'
+        'SELECT request_id, state::text FROM "HangarLLM_SpendLogDelivery" ORDER BY request_id'
     ).fetchall() == [("good", "applied"), ("huge", huge_state), ("later", "applied")]
 
 
@@ -461,12 +461,12 @@ async def test_a_payload_the_engine_cannot_decode_never_blocks_other_deliveries(
 async def test_retention_keeps_batch_receipts_indefinitely(delivery_database, delivery_client):
     _insert(delivery_database, (_row("normal"), {**_row("batch"), "call_type": "aretrieve_batch"}))
     delivery_database.execute(
-        "UPDATE \"LiteLLM_SpendLogDelivery\" SET state='applied', applied_at=CURRENT_TIMESTAMP - INTERVAL '400 days'"
+        "UPDATE \"HangarLLM_SpendLogDelivery\" SET state='applied', applied_at=CURRENT_TIMESTAMP - INTERVAL '400 days'"
     )
     repository = AccountingDeliveryRepository(delivery_client)
     assert await repository.cleanup_applied() == 1
     assert await repository.cleanup_applied() == 0
-    assert delivery_database.execute('SELECT request_id FROM "LiteLLM_SpendLogDelivery"').fetchall() == [("batch",)]
+    assert delivery_database.execute('SELECT request_id FROM "HangarLLM_SpendLogDelivery"').fetchall() == [("batch",)]
     metrics = await repository.metrics()
     assert metrics.batch_count == 1
     assert metrics.table_bytes > 0
@@ -479,9 +479,9 @@ async def test_ledger_batch_retrieves_charge_once_in_every_logging_mode(
 ):
     from types import SimpleNamespace
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-    from litellm.proxy.utils import jsonify_object
+    from hangarllm.proxy import proxy_server
+    from hangarllm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from hangarllm.proxy.utils import jsonify_object
 
     completed = {
         **_row("batch_completed"),
@@ -509,11 +509,11 @@ async def test_ledger_batch_retrieves_charge_once_in_every_logging_mode(
         disable_spend_logs=disabled,
     )
     assert (first, again) == (True, False)
-    assert delivery_database.execute('SELECT spend, metadata FROM "LiteLLM_SpendLogs"').fetchall() == (
+    assert delivery_database.execute('SELECT spend, metadata FROM "HangarLLM_SpendLogs"').fetchall() == (
         [] if disabled else [(0.5, {"status": "success"})]
     )
     assert delivery_database.execute(
-        'SELECT delivery_id, accounting_payload FROM "LiteLLM_SpendLogDelivery"'
+        'SELECT delivery_id, accounting_payload FROM "HangarLLM_SpendLogDelivery"'
     ).fetchall() == [("batch_completed", completed["accounting_payload"])]
 
 
@@ -523,7 +523,7 @@ async def test_invalid_cleanup_settings_preserve_receipts(delivery_database, del
     _insert(delivery_database, (_row("protected"),))
     with pytest.raises(ValueError, match="positive"):
         await AccountingDeliveryRepository(delivery_client).cleanup_applied(**{setting: 0})
-    assert delivery_database.execute('SELECT request_id, state::text FROM "LiteLLM_SpendLogDelivery"').fetchall() == [
+    assert delivery_database.execute('SELECT request_id, state::text FROM "HangarLLM_SpendLogDelivery"').fetchall() == [
         ("protected", "pending")
     ]
 
@@ -539,5 +539,5 @@ async def test_invalid_worker_settings_preserve_pending_work(delivery_database, 
         await AccountingDeliveryRepository(delivery_client).apply_pending(apply, **{setting: 0})
     apply.assert_not_awaited()
     assert delivery_database.execute(
-        'SELECT request_id, state::text, attempts FROM "LiteLLM_SpendLogDelivery"'
+        'SELECT request_id, state::text, attempts FROM "HangarLLM_SpendLogDelivery"'
     ).fetchall() == [("protected", "pending", 0)]

@@ -375,7 +375,7 @@ def _owned_config(path: Path, upstream: str, denied_tool: str) -> Path:
                 "model_list": [
                     {
                         "model_name": _OWNED_CHAT,
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "model": f"openai/{_OPENAI_BACKEND}",
                             "api_base": f"{upstream}/v1",
                             "api_key": _PROVIDER_KEY,
@@ -383,19 +383,19 @@ def _owned_config(path: Path, upstream: str, denied_tool: str) -> Path:
                     }
                 ],
                 "general_settings": {
-                    "master_key": "os.environ/LITELLM_MASTER_KEY",
+                    "master_key": "os.environ/HANGARLLM_MASTER_KEY",
                     "database_url": "os.environ/DATABASE_URL",
                 },
-                "litellm_settings": {"drop_params": True},
+                "hangarllm_settings": {"drop_params": True},
                 "router_settings": {"disable_cooldowns": True},
                 "guardrails": [
                     {
                         "guardrail_name": "malformed-tools-policy",
-                        "litellm_params": {"guardrail": "tool_policy", "mode": "pre_call", "default_on": True},
+                        "hangarllm_params": {"guardrail": "tool_policy", "mode": "pre_call", "default_on": True},
                     },
                     {
                         "guardrail_name": "malformed-tools-permission",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "guardrail": "tool_permission",
                             "mode": "pre_call",
                             "default_on": False,
@@ -408,7 +408,7 @@ def _owned_config(path: Path, upstream: str, denied_tool: str) -> Path:
                 "vector_store_registry": [
                     {
                         "vector_store_name": "malformed-tools-owned-store",
-                        "litellm_params": {
+                        "hangarllm_params": {
                             "vector_store_id": _OWNED_STORE,
                             "custom_llm_provider": "openai",
                             "api_base": upstream,
@@ -444,7 +444,7 @@ def owned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Owned]:
             "POST", "/v1/tool/policy", {"tool_name": blocked_tool, "input_policy": "blocked"}
         )
         assert policy.status_code == 200, policy.text
-        stack.callback(write_rows, 'DELETE FROM "LiteLLM_ToolTable" WHERE tool_name = %s', (blocked_tool,))
+        stack.callback(write_rows, 'DELETE FROM "HangarLLM_ToolTable" WHERE tool_name = %s', (blocked_tool,))
         wire: Final = stack.enter_context(wire_server(respond))
         stack.callback(release.set)
         proxy: Final = stack.enter_context(

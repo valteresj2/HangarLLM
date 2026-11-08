@@ -5,9 +5,9 @@ import time
 import pytest
 
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.router_strategy.lowest_latency import LowestLatencyLoggingHandler
+import hangarllm
+from hangarllm.caching.caching import DualCache
+from hangarllm.router_strategy.lowest_latency import LowestLatencyLoggingHandler
 
 
 def test_zero_completion_tokens_no_division_error():
@@ -23,7 +23,7 @@ def test_zero_completion_tokens_no_division_error():
 
     deployment_id = "1234"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gemini-2.5-flash",
                 "deployment": "gemini/gemini-2.5-flash",
@@ -33,21 +33,21 @@ def test_zero_completion_tokens_no_division_error():
     }
 
     # Create a ModelResponse with zero completion tokens (as reported in issue)
-    response_obj = litellm.ModelResponse(
+    response_obj = hangarllm.ModelResponse(
         id="9p13aIGDDNmPmLAP5-23mQQ",
         created=1752669685,
         model="gemini-2.5-flash",
         object="chat.completion",
         choices=[
-            litellm.Choices(
+            hangarllm.Choices(
                 finish_reason="stop",
                 index=0,
-                message=litellm.Message(
+                message=hangarllm.Message(
                     content=None, role="assistant", tool_calls=None
                 ),
             )
         ],
-        usage=litellm.Usage(
+        usage=hangarllm.Usage(
             completion_tokens=0,  # This causes the ZeroDivisionError
             prompt_tokens=245537,
             total_tokens=245537,
@@ -73,7 +73,7 @@ def test_zero_completion_tokens_no_division_error():
 
     # Verify the deployment was logged (even with zero completion tokens)
     cached_value = test_cache.get_cache(
-        key=f"{kwargs['litellm_params']['metadata']['model_group']}_map"
+        key=f"{kwargs['hangarllm_params']['metadata']['model_group']}_map"
     )
     assert cached_value is not None
     assert deployment_id in cached_value
@@ -89,7 +89,7 @@ def test_zero_completion_tokens_with_time_to_first_token():
 
     deployment_id = "1234"
     kwargs = {
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "model_group": "gemini-2.5-flash",
                 "deployment": "gemini/gemini-2.5-flash",
@@ -101,8 +101,8 @@ def test_zero_completion_tokens_with_time_to_first_token():
     }
 
     # Create a ModelResponse with zero completion tokens
-    response_obj = litellm.ModelResponse(
-        usage=litellm.Usage(
+    response_obj = hangarllm.ModelResponse(
+        usage=hangarllm.Usage(
             completion_tokens=0, prompt_tokens=100000, total_tokens=100000
         )
     )

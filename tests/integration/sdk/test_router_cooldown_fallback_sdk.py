@@ -10,10 +10,10 @@ from integration._support.openai_wire import chat_reply
 from integration._support.wire import Reply, Request, wire_server
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm import Router
-from litellm.router_utils.cooldown_handlers import async_get_cooldown_deployments
-from litellm.types.router import DeploymentTypedDict
+import hangarllm
+from hangarllm import Router
+from hangarllm.router_utils.cooldown_handlers import async_get_cooldown_deployments
+from hangarllm.types.router import DeploymentTypedDict
 
 _MODEL: Final = "gpt-5.4"
 _API_KEY: Final = "migration-fallback-test-key"
@@ -55,7 +55,7 @@ def _peer(request: Request) -> Reply:
 def _deployment(model_name: str, api_base: str, deployment_id: str) -> DeploymentTypedDict:
     return DeploymentTypedDict(
         model_name=model_name,
-        litellm_params={
+        hangarllm_params={
             "model": f"openai/{_MODEL}",
             "api_base": api_base,
             "api_key": _API_KEY,
@@ -84,7 +84,7 @@ async def test_fallback_response_reports_the_attempted_fallback() -> None:
         requests: Final = wire.drain()
 
     assert response.choices[0].message.content == f"{_ANSWER} backup"
-    assert response._hidden_params["additional_headers"]["x-litellm-attempted-fallbacks"] == 1
+    assert response._hidden_params["additional_headers"]["x-hangarllm-attempted-fallbacks"] == 1
     assert tuple(request.target for request in requests) == (
         "/primary/chat/completions",
         "/backup/chat/completions",
@@ -102,7 +102,7 @@ async def test_cooldown_skips_only_the_failed_duplicate_model_deployment() -> No
             allowed_fails=0,
             num_retries=0,
         )
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             await router.acompletion(
                 model="primary-deployment",
                 messages=[{"role": "user", "content": f"cooldown {uuid.uuid4().hex}"}],
@@ -138,7 +138,7 @@ async def test_string_valued_fallbacks_still_cool_down_the_failing_primary(fallb
             num_retries=0,
         )
         router.fallbacks = fallbacks
-        with pytest.raises(litellm.AuthenticationError):
+        with pytest.raises(hangarllm.AuthenticationError):
             await router.acompletion(
                 model="primary",
                 messages=[{"role": "user", "content": f"cooldown {uuid.uuid4().hex}"}],

@@ -5,16 +5,16 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.cohere.embed.transformation import (
+import hangarllm
+from hangarllm.hangarllm_core_utils.hangarllm_logging import Logging
+from hangarllm.llms.cohere.embed.transformation import (
     CohereEmbeddingConfig,
     CohereEmbeddingRowShape,
     CohereImageTokenBilling,
     cohere_embedding_response,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.utils import CallTypes, EmbeddingResponse
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.types.utils import CallTypes, EmbeddingResponse
 
 
 def _logging_obj(inputs: list[str]) -> Logging:
@@ -24,7 +24,7 @@ def _logging_obj(inputs: list[str]) -> Logging:
         stream=False,
         call_type=CallTypes.embedding,
         start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
-        litellm_call_id="test-call",
+        hangarllm_call_id="test-call",
         function_id="test-function",
     )
     logging_obj.model_call_details = {"input": inputs}
@@ -43,7 +43,7 @@ def test_cohere_text_embedding_request_maps_openai_params():
     assert request == {
         "model": "embed-english-v3.0",
         "texts": ["hello", "world"],
-        "input_type": litellm.COHERE_DEFAULT_EMBEDDING_INPUT_TYPE,
+        "input_type": hangarllm.COHERE_DEFAULT_EMBEDDING_INPUT_TYPE,
         "output_dimension": 256,
         "embedding_types": ["float"],
     }
@@ -83,7 +83,7 @@ def test_cohere_embedding_response_preserves_vectors_and_provider_usage():
         api_key="test-key",
         request_data={"texts": inputs},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
     assert response.model == "embed-english-v3.0"
@@ -106,10 +106,10 @@ def test_cohere_embedding_response_counts_tokens_when_provider_usage_is_missing(
         api_key="test-key",
         request_data={"texts": inputs},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
-    assert response.usage.prompt_tokens == len(litellm.encoding.encode("hello"))
+    assert response.usage.prompt_tokens == len(hangarllm.encoding.encode("hello"))
     assert response.usage.total_tokens == response.usage.prompt_tokens
 
 
@@ -123,10 +123,10 @@ def test_cohere_embedding_fallback_counts_special_token_text_as_plain_text() -> 
         api_key="test-key",
         request_data={"texts": [text]},
         optional_params={},
-        litellm_params={},
+        hangarllm_params={},
     )
 
-    assert response.usage.prompt_tokens == len(litellm.encoding.encode(text, disallowed_special=()))
+    assert response.usage.prompt_tokens == len(hangarllm.encoding.encode(text, disallowed_special=()))
 
 
 @pytest.mark.parametrize("image_key", ["images", "image_tokens"])
@@ -134,7 +134,7 @@ def test_cohere_embedding_usage_includes_text_and_image_token_details(image_key:
     usage: Final = cohere_embedding_response(
         {"embeddings": {"float": [[0.1]]}, "meta": {"billed_units": {"input_tokens": 5, image_key: 2}}},
         "embed-english-v3.0",
-        litellm.encoding,
+        hangarllm.encoding,
         ["hello"],
         CohereImageTokenBilling.SEPARATE_FROM_INPUT_TOKENS,
         CohereEmbeddingRowShape.OPENAI,
@@ -148,7 +148,7 @@ def test_cohere_embedding_usage_folded_image_tokens_count_input_tokens_only() ->
     usage: Final = cohere_embedding_response(
         {"embeddings": {"float": [[0.1]]}, "meta": {"billed_units": {"input_tokens": 24, "image_tokens": 6}}},
         "embed-v-4-0",
-        litellm.encoding,
+        hangarllm.encoding,
         [],
         CohereImageTokenBilling.FOLDED_INTO_INPUT_TOKENS,
         CohereEmbeddingRowShape.OPENAI,
@@ -172,7 +172,7 @@ def test_cohere_embedding_error_class_preserves_status_and_message():
 async def test_embedding_with_extra_headers_are_sent_to_cohere(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, sync_mode: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     route: Final = respx_mock.post("https://api.cohere.ai/v2/embed").mock(
         return_value=httpx.Response(
             200,
@@ -186,7 +186,7 @@ async def test_embedding_with_extra_headers_are_sent_to_cohere(
         "extra_headers": {"x-request-id": "test-request"},
     }
 
-    response: Final = litellm.embedding(**request) if sync_mode else await litellm.aembedding(**request)
+    response: Final = hangarllm.embedding(**request) if sync_mode else await hangarllm.aembedding(**request)
 
     assert route.calls.last.request.headers["x-request-id"] == "test-request"
     assert response.data[0]["embedding"] == [0.1, 0.2]
@@ -202,7 +202,7 @@ async def test_aembedding_sends_extra_headers_through_the_caller_supplied_async_
             json={"embeddings": {"float": [[0.3, 0.4]]}, "meta": {"billed_units": {"input_tokens": 2}}},
         )
 
-    response: Final = await litellm.aembedding(
+    response: Final = await hangarllm.aembedding(
         model="cohere/embed-english-v3.0",
         input=["hello world"],
         api_key="test-key",

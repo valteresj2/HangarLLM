@@ -238,8 +238,8 @@ def _budgeted_group(scenario: Scenario, wire: Wire, grant: Grant = "key") -> _Gr
 
 def _budget_rows(group: str) -> list[dict[str, object]]:
     return read_rows(
-        'SELECT g.budget_id, g.spend, b.max_budget, b.budget_duration FROM "LiteLLM_ModelAccessGroupBudgetTable" g '
-        'LEFT JOIN "LiteLLM_BudgetTable" b ON b.budget_id = g.budget_id WHERE g.access_group_name = %s',
+        'SELECT g.budget_id, g.spend, b.max_budget, b.budget_duration FROM "HangarLLM_ModelAccessGroupBudgetTable" g '
+        'LEFT JOIN "HangarLLM_BudgetTable" b ON b.budget_id = g.budget_id WHERE g.access_group_name = %s',
         (group,),
     )
 

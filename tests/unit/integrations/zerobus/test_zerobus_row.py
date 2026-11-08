@@ -1,6 +1,6 @@
 import json
 
-from litellm.integrations.zerobus.row import TRACE_TABLE_COLUMNS, create_table_sql, trace_row
+from hangarllm.integrations.zerobus.row import TRACE_TABLE_COLUMNS, create_table_sql, trace_row
 
 
 def _payload() -> dict[str, object]:
@@ -8,7 +8,7 @@ def _payload() -> dict[str, object]:
         "id": "chatcmpl-1",
         "trace_id": "trace-1",
         "session_id": "session-1",
-        "litellm_call_id": "call-1",
+        "hangarllm_call_id": "call-1",
         "call_type": "acompletion",
         "status": "success",
         "model": "gpt-4o",
@@ -90,7 +90,7 @@ def test_timestamps_become_epoch_microseconds():
 
 
 def test_a_zero_timestamp_is_null_rather_than_1970():
-    """LiteLLM leaves completionStartTime at 0 when there is no first token, which is not a real time."""
+    """HangarLLM leaves completionStartTime at 0 when there is no first token, which is not a real time."""
     row = trace_row({**_payload(), "completionStartTime": 0})
 
     assert row["completion_start_time"] is None
@@ -130,9 +130,9 @@ def test_the_row_survives_a_json_round_trip_unchanged():
 
 
 def test_create_table_sql_declares_every_column_with_its_type():
-    sql = create_table_sql("main.litellm.traces")
+    sql = create_table_sql("main.hangarllm.traces")
 
-    assert sql.startswith("CREATE TABLE main.litellm.traces (")
+    assert sql.startswith("CREATE TABLE main.hangarllm.traces (")
     assert "  start_time TIMESTAMP," in sql
     assert "  messages VARIANT," in sql
     assert "  cost_breakdown VARIANT\n);" in sql

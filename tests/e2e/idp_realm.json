@@ -1,12 +1,12 @@
 {
-  "realm": "litellm-e2e",
+  "realm": "hangarllm-e2e",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
   "accessTokenLifespan": 300,
   "clients": [
     {
-      "clientId": "litellm-e2e-tests",
+      "clientId": "hangarllm-e2e-tests",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": false,
@@ -26,12 +26,12 @@
           }
         },
         {
-          "name": "litellm-audience",
+          "name": "hangarllm-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.custom.audience": "litellm-e2e",
+            "included.custom.audience": "hangarllm-e2e",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
@@ -43,7 +43,7 @@
       ]
     },
     {
-      "clientId": "litellm-e2e-shortlived",
+      "clientId": "hangarllm-e2e-shortlived",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": false,
@@ -66,12 +66,12 @@
           }
         },
         {
-          "name": "litellm-audience",
+          "name": "hangarllm-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.custom.audience": "litellm-e2e",
+            "included.custom.audience": "hangarllm-e2e",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
@@ -83,14 +83,14 @@
       ]
     },
     {
-      "clientId": "litellm-e2e-admin",
+      "clientId": "hangarllm-e2e-admin",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "defaultClientScopes": [
         "email",
-        "litellm_proxy_admin",
+        "hangarllm_proxy_admin",
         "basic"
       ],
       "protocolMappers": [
@@ -108,12 +108,12 @@
           }
         },
         {
-          "name": "litellm-audience",
+          "name": "hangarllm-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.custom.audience": "litellm-e2e",
+            "included.custom.audience": "hangarllm-e2e",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
@@ -121,7 +121,7 @@
       ]
     },
     {
-      "clientId": "litellm-e2e-other-app",
+      "clientId": "hangarllm-e2e-other-app",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": false,
@@ -145,12 +145,12 @@
           }
         },
         {
-          "name": "litellm-audience",
+          "name": "hangarllm-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.custom.audience": "litellm-e2e-other-app",
+            "included.custom.audience": "hangarllm-e2e-other-app",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
@@ -160,7 +160,7 @@
   ],
   "clientScopes": [
     {
-      "name": "litellm_proxy_admin",
+      "name": "hangarllm_proxy_admin",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",

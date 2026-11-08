@@ -20,11 +20,11 @@ import pytest
 from fastapi import HTTPException
 from httpx import Request, Response
 
-import litellm
-from litellm import DualCache
-from litellm.constants import DEFAULT_OPENAI_MODERATIONS_MODEL
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.utils import CallTypesLiteral, Choices, Message, ModelResponse
+import hangarllm
+from hangarllm import DualCache
+from hangarllm.constants import DEFAULT_OPENAI_MODERATIONS_MODEL
+from hangarllm.proxy._types import UserAPIKeyAuth
+from hangarllm.types.utils import CallTypesLiteral, Choices, Message, ModelResponse
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def _aim_no_action_response() -> Response:
 @pytest.mark.asyncio
 async def test_aim_inspects_multimodal_list_content(user_api_key, monkeypatch):
     monkeypatch.setenv("AIM_API_KEY", "hs-aim-key")
-    from litellm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
+    from hangarllm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
 
     guard = AimGuardrail()
     sent_payload: Dict[str, Any] = {}
@@ -80,7 +80,7 @@ async def test_aim_inspects_multimodal_list_content(user_api_key, monkeypatch):
 @pytest.mark.asyncio
 async def test_aim_inspects_responses_api_input(user_api_key, monkeypatch):
     monkeypatch.setenv("AIM_API_KEY", "hs-aim-key")
-    from litellm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
+    from hangarllm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
 
     guard = AimGuardrail()
     sent_payload: Dict[str, Any] = {}
@@ -107,7 +107,7 @@ async def test_aim_post_call_inspects_all_choices(user_api_key, monkeypatch):
     """yVS0wMDO: ``n>1`` no longer bypasses Aim by hiding violations in
     ``choices[1+]``."""
     monkeypatch.setenv("AIM_API_KEY", "hs-aim-key")
-    from litellm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
+    from hangarllm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
 
     guard = AimGuardrail()
     inspected_outputs = []
@@ -142,7 +142,7 @@ async def test_aim_post_call_inspects_all_choices(user_api_key, monkeypatch):
 @pytest.mark.asyncio
 async def test_lakera_v2_inspects_responses_api_input(user_api_key, monkeypatch):
     monkeypatch.setenv("LAKERA_API_KEY", "lk-test")
-    from litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
         LakeraAIGuardrail,
     )
 
@@ -175,7 +175,7 @@ async def test_lakera_v2_responses_api_input_redacted_writeback(
     ``input``, so writing only to ``messages`` would let unredacted PII
     reach the LLM."""
     monkeypatch.setenv("LAKERA_API_KEY", "lk-test")
-    from litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
         LakeraAIGuardrail,
     )
 
@@ -208,7 +208,7 @@ async def test_aim_responses_api_input_anonymize_writeback(user_api_key, monkeyp
     """Greptile P1: Aim's anonymize action must redact ``data["input"]``
     for Responses-API requests, not just ``data["messages"]``."""
     monkeypatch.setenv("AIM_API_KEY", "hs-aim-key")
-    from litellm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
+    from hangarllm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
 
     guard = AimGuardrail()
 
@@ -249,7 +249,7 @@ async def test_lakera_v2_multimodal_pii_degrades_to_block(user_api_key, monkeypa
     monkeypatch.setenv("LAKERA_API_KEY", "lk-test")
     from fastapi import HTTPException
 
-    from litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
         LakeraAIGuardrail,
     )
 
@@ -295,7 +295,7 @@ async def test_lakera_v2_multimodal_pii_degrades_to_block(user_api_key, monkeypa
 @pytest.mark.asyncio
 async def test_lakera_v2_inspects_multimodal_list_content(user_api_key, monkeypatch):
     monkeypatch.setenv("LAKERA_API_KEY", "lk-test")
-    from litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
+    from hangarllm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
         LakeraAIGuardrail,
     )
 
@@ -337,7 +337,7 @@ async def test_lasso_multimodal_falls_back_to_classify(user_api_key, monkeypatch
     image parts — the hook must use the classify endpoint instead and
     leave the original payload intact."""
     monkeypatch.setenv("LASSO_API_KEY", "ls-test")
-    from litellm.proxy.guardrails.guardrail_hooks.lasso.lasso import LassoGuardrail
+    from hangarllm.proxy.guardrails.guardrail_hooks.lasso.lasso import LassoGuardrail
 
     guard = LassoGuardrail(lasso_api_key="ls-test", mask=True)
 
@@ -381,7 +381,7 @@ async def test_lasso_multimodal_falls_back_to_classify(user_api_key, monkeypatch
 @pytest.mark.asyncio
 async def test_lasso_inspects_responses_api_input(user_api_key, monkeypatch):
     monkeypatch.setenv("LASSO_API_KEY", "ls-test")
-    from litellm.proxy.guardrails.guardrail_hooks.lasso.lasso import LassoGuardrail
+    from hangarllm.proxy.guardrails.guardrail_hooks.lasso.lasso import LassoGuardrail
 
     guard = LassoGuardrail(lasso_api_key="ls-test")
 
@@ -408,7 +408,7 @@ async def test_lasso_masking_writes_back_responses_api_input(user_api_key, monke
     """Krrish blocker: Lasso classifix masking must update ``data["input"]``
     for Responses-API requests, not only ``data["messages"]``."""
     monkeypatch.setenv("LASSO_API_KEY", "ls-test")
-    from litellm.proxy.guardrails.guardrail_hooks.lasso.lasso import LassoGuardrail
+    from hangarllm.proxy.guardrails.guardrail_hooks.lasso.lasso import LassoGuardrail
 
     guard = LassoGuardrail(lasso_api_key="ls-test", mask=True)
     lasso_response = {
@@ -444,8 +444,8 @@ def test_banned_keywords_blocks_multimodal_content(monkeypatch):
     ``"completion"`` would pass even if the hook's call-type gate were
     misaligned with the runtime, so the test wouldn't catch regressions.
     """
-    monkeypatch.setattr("litellm.banned_keywords_list", ["forbidden"], raising=False)
-    from litellm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
+    monkeypatch.setattr("hangarllm.banned_keywords_list", ["forbidden"], raising=False)
+    from hangarllm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
     from fastapi import HTTPException
 
     guard = ENTERPRISE_BannedKeywords()
@@ -476,8 +476,8 @@ def test_banned_keywords_blocks_multimodal_content(monkeypatch):
 
 
 def test_banned_keywords_blocks_responses_api_input(monkeypatch):
-    monkeypatch.setattr("litellm.banned_keywords_list", ["forbidden"], raising=False)
-    from litellm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
+    monkeypatch.setattr("hangarllm.banned_keywords_list", ["forbidden"], raising=False)
+    from hangarllm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
     from fastapi import HTTPException
 
     guard = ENTERPRISE_BannedKeywords()
@@ -503,8 +503,8 @@ def test_banned_keywords_fires_on_text_content_call_types(monkeypatch, call_type
     ``call_type == "completion"`` and silently no-op'd both
     ``acompletion`` (chat completions) and ``aresponses`` (Responses API).
     """
-    monkeypatch.setattr("litellm.banned_keywords_list", ["forbidden"], raising=False)
-    from litellm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
+    monkeypatch.setattr("hangarllm.banned_keywords_list", ["forbidden"], raising=False)
+    from hangarllm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
     from fastapi import HTTPException
 
     guard = ENTERPRISE_BannedKeywords()
@@ -530,8 +530,8 @@ def test_banned_keywords_skips_non_text_call_types(monkeypatch):
     aren't in the text-guardrail scope. They must not trigger the hook
     even when the request body otherwise looks like a chat payload.
     """
-    monkeypatch.setattr("litellm.banned_keywords_list", ["forbidden"], raising=False)
-    from litellm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
+    monkeypatch.setattr("hangarllm.banned_keywords_list", ["forbidden"], raising=False)
+    from hangarllm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
 
     guard = ENTERPRISE_BannedKeywords()
 
@@ -553,8 +553,8 @@ def test_banned_keywords_skips_non_text_call_types(monkeypatch):
 async def test_banned_keywords_post_call_checks_all_choices(monkeypatch, user_api_key):
     """Krrish blocker: ``n>1`` responses must not bypass post-call checks by
     placing the banned text in ``choices[1+]``."""
-    monkeypatch.setattr("litellm.banned_keywords_list", ["forbidden"], raising=False)
-    from litellm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
+    monkeypatch.setattr("hangarllm.banned_keywords_list", ["forbidden"], raising=False)
+    from hangarllm.hangar.guardrails.banned_keywords import ENTERPRISE_BannedKeywords
     from fastapi import HTTPException
 
     guard = ENTERPRISE_BannedKeywords()
@@ -607,7 +607,7 @@ async def test_azure_content_safety_pre_call_fires_on_runtime_call_types(
     ``aresponses`` for the Responses API. The hook must inspect text
     fragments under both, not only the literal ``"completion"`` string
     used by some SDK callers."""
-    from litellm.proxy.hooks.azure_content_safety import PROXY_AzureContentSafety
+    from hangarllm.proxy.hooks.azure_content_safety import PROXY_AzureContentSafety
 
     guard = PROXY_AzureContentSafety.__new__(PROXY_AzureContentSafety)
     seen = []
@@ -630,7 +630,7 @@ async def test_azure_content_safety_post_call_checks_all_choices(user_api_key):
     """Krrish blocker: ``n>1`` responses must not bypass Azure Content Safety
     by placing the unsafe text in ``choices[1+]``."""
     from fastapi import HTTPException
-    from litellm.proxy.hooks.azure_content_safety import PROXY_AzureContentSafety
+    from hangarllm.proxy.hooks.azure_content_safety import PROXY_AzureContentSafety
 
     guard = PROXY_AzureContentSafety.__new__(PROXY_AzureContentSafety)
     seen_outputs = []
@@ -664,7 +664,7 @@ async def test_azure_content_safety_post_call_checks_all_choices(user_api_key):
 
 @pytest.mark.asyncio
 async def test_secret_detection_redacts_multimodal_text_parts(user_api_key):
-    from litellm.hangar.guardrails.secret_detection import (
+    from hangarllm.hangar.guardrails.secret_detection import (
         _ENTERPRISE_SecretDetection,
     )
 
@@ -700,7 +700,7 @@ async def test_secret_detection_redacts_multimodal_text_parts(user_api_key):
 
 @pytest.mark.asyncio
 async def test_secret_detection_redacts_responses_api_input(user_api_key):
-    from litellm.hangar.guardrails.secret_detection import (
+    from hangarllm.hangar.guardrails.secret_detection import (
         _ENTERPRISE_SecretDetection,
     )
 
@@ -726,7 +726,7 @@ async def test_openai_moderation_inspects_multimodal_content(monkeypatch, user_a
     """The aggregated text passed to ``llm_router.amoderation`` must include
     list-format text parts and Responses-API input — without this, multimodal
     content silently passed moderation."""
-    from litellm.hangar.guardrails.openai_moderation import (
+    from hangarllm.hangar.guardrails.openai_moderation import (
         ENTERPRISE_OpenAI_Moderation,
     )
 
@@ -745,7 +745,7 @@ async def test_openai_moderation_inspects_multimodal_content(monkeypatch, user_a
     fake_router.amoderation = AsyncMock(side_effect=fake_amoderation)
 
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.llm_router", fake_router, raising=False
+        "hangarllm.proxy.proxy_server.llm_router", fake_router, raising=False
     )
 
     await guard.async_moderation_hook(
@@ -776,22 +776,22 @@ async def test_openai_moderation_inspects_multimodal_content(monkeypatch, user_a
 async def test_openai_moderation_reads_model_name_at_call_time(
     monkeypatch, user_api_key, configured_after_init, expected_model
 ):
-    """``litellm_settings`` applies ``callbacks`` and ``openai_moderations_model_name`` in YAML
+    """``hangarllm_settings`` applies ``callbacks`` and ``openai_moderations_model_name`` in YAML
     order, so the hook must resolve the model when it runs, not when it is constructed."""
-    from litellm.hangar.guardrails.openai_moderation import (
+    from hangarllm.hangar.guardrails.openai_moderation import (
         ENTERPRISE_OpenAI_Moderation,
     )
 
-    monkeypatch.setattr(litellm, "openai_moderations_model_name", None)
+    monkeypatch.setattr(hangarllm, "openai_moderations_model_name", None)
     guard = ENTERPRISE_OpenAI_Moderation()
-    monkeypatch.setattr(litellm, "openai_moderations_model_name", configured_after_init)
+    monkeypatch.setattr(hangarllm, "openai_moderations_model_name", configured_after_init)
 
     class FakeModeration:
         results = [type("R", (), {"flagged": False})()]
 
     fake_router = MagicMock()
     fake_router.amoderation = AsyncMock(return_value=FakeModeration())
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", fake_router, raising=False)
+    monkeypatch.setattr("hangarllm.proxy.proxy_server.llm_router", fake_router, raising=False)
 
     await guard.async_moderation_hook(
         data={"messages": [{"role": "user", "content": "hello"}]},
@@ -804,21 +804,21 @@ async def test_openai_moderation_reads_model_name_at_call_time(
 
 @pytest.mark.asyncio
 async def test_openai_moderation_error_raising(monkeypatch, respx_mock):
-    from litellm.hangar.guardrails.openai_moderation import (
+    from hangarllm.hangar.guardrails.openai_moderation import (
         ENTERPRISE_OpenAI_Moderation,
     )
-    from litellm.proxy.utils import hash_token
+    from hangarllm.proxy.utils import hash_token
 
-    monkeypatch.setattr(litellm, "openai_moderations_model_name", "omni-moderation-latest")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "openai_moderations_model_name", "omni-moderation-latest")
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     openai_mod: Final = ENTERPRISE_OpenAI_Moderation()
     user_api_key_dict: Final = UserAPIKeyAuth(api_key=hash_token("sk-98765"))
 
-    llm_router: Final = litellm.Router(
+    llm_router: Final = hangarllm.Router(
         model_list=[
             {
                 "model_name": "omni-moderation-latest",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "omni-moderation-latest",
                     "api_key": "fake-key",
                 },
@@ -841,7 +841,7 @@ async def test_openai_moderation_error_raising(monkeypatch, respx_mock):
         },
     )
 
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", llm_router)
 
@@ -869,7 +869,7 @@ async def test_openai_moderation_error_raising(monkeypatch, respx_mock):
 async def test_google_text_moderation_inspects_multimodal_content(user_api_key):
     """The text passed to Google's moderation client must include list-format
     text parts."""
-    from litellm.hangar.guardrails.google_text_moderation import (
+    from hangarllm.hangar.guardrails.google_text_moderation import (
         ENTERPRISE_GoogleTextModeration,
     )
 
@@ -919,7 +919,7 @@ class _FinanceFlaggingLanguageClient:
 
 
 def _google_text_moderation_flagging_finance():
-    from litellm.hangar.guardrails.google_text_moderation import (
+    from hangarllm.hangar.guardrails.google_text_moderation import (
         ENTERPRISE_GoogleTextModeration,
     )
 

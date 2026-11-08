@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from tests._master_key import MASTER_KEY
 
-_THROWAWAY_ENV: Final = {"DATABASE_URL": "sqlite:///:memory:", "LITELLM_MASTER_KEY": MASTER_KEY}
+_THROWAWAY_ENV: Final = {"DATABASE_URL": "sqlite:///:memory:", "HANGARLLM_MASTER_KEY": MASTER_KEY}
 _PRE_EXISTING_ENV: Final = {key: os.environ.get(key) for key in _THROWAWAY_ENV}
 for _key, _value in _THROWAWAY_ENV.items():
     os.environ.setdefault(_key, _value)
@@ -12,8 +12,8 @@ for _key, _value in _THROWAWAY_ENV.items():
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.management_endpoints.request_error_endpoints import (
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy.management_endpoints.request_error_endpoints import (
     _DateRow,
     _EntityRow,
     _EntityStatusRow,
@@ -97,16 +97,16 @@ def test_fold_entities_attaches_top_status_and_keeps_kinds_apart() -> None:
     assert fold_entities("user", rows, status_rows) == ()
 
 
-def _auth(role: LitellmUserRoles) -> UserAPIKeyAuth:
+def _auth(role: HangarllmUserRoles) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(api_key="sk-test", user_role=role)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("role", [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.TEAM])
-async def test_non_admin_roles_are_refused(role: LitellmUserRoles) -> None:
+@pytest.mark.parametrize("role", [HangarllmUserRoles.INTERNAL_USER, HangarllmUserRoles.TEAM])
+async def test_non_admin_roles_are_refused(role: HangarllmUserRoles) -> None:
     prisma_client: Final = MagicMock()
     prisma_client.db.query_raw = AsyncMock()
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client):
         with pytest.raises(HTTPException) as refused:
             await get_request_error_activity(user_api_key_dict=_auth(role))
     assert refused.value.status_code == 403
@@ -115,9 +115,9 @@ async def test_non_admin_roles_are_refused(role: LitellmUserRoles) -> None:
 
 @pytest.mark.asyncio
 async def test_missing_database_is_a_500() -> None:
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):
         with pytest.raises(HTTPException) as refused:
-            await get_request_error_activity(user_api_key_dict=_auth(LitellmUserRoles.PROXY_ADMIN))
+            await get_request_error_activity(user_api_key_dict=_auth(HangarllmUserRoles.PROXY_ADMIN))
     assert refused.value.status_code == 500
 
 
@@ -131,9 +131,9 @@ async def test_admin_gets_totals_series_and_caller_breakdown() -> None:
             [{"kind": "team", "id": "team-a", "status_code": 429, "failed_requests": 12}],
         ]
     )
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma_client):
+    with patch("hangarllm.proxy.proxy_server.prisma_client", prisma_client):
         response: Final = await get_request_error_activity(
-            user_api_key_dict=_auth(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY),
+            user_api_key_dict=_auth(HangarllmUserRoles.PROXY_ADMIN_VIEW_ONLY),
             start_date="2026-10-01",
             end_date="2026-10-08",
         )

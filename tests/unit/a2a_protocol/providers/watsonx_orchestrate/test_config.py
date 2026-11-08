@@ -7,17 +7,17 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.a2a_protocol.providers.watsonx_orchestrate.config import WatsonxOrchestrateA2AConfig
-from litellm.a2a_protocol.providers.watsonx_orchestrate.handler import WXOLitellmParams
+import hangarllm
+from hangarllm.a2a_protocol.providers.watsonx_orchestrate.config import WatsonxOrchestrateA2AConfig
+from hangarllm.a2a_protocol.providers.watsonx_orchestrate.handler import WXOHangarllmParams
 
-MISSING_LITELLM_PARAMS: Final = re.escape(
-    "litellm_params is required for WatsonxOrchestrateA2AConfig "
+MISSING_HANGARLLM_PARAMS: Final = re.escape(
+    "hangarllm_params is required for WatsonxOrchestrateA2AConfig "
     "(must contain cp4d_host, instance_id, wxo_agent_id, api_key)"
 )
-MISSING_HOST: Final = re.escape("'cp4d_host' is required in litellm_params for WXO agents")
+MISSING_HOST: Final = re.escape("'cp4d_host' is required in hangarllm_params for WXO agents")
 RUNS_URL: Final = "https://wxo-config.test/orchestrate/cpd/instances/inst-1/v1/orchestrate/runs"
-LITELLM_PARAMS: Final[WXOLitellmParams] = {
+HANGARLLM_PARAMS: Final[WXOHangarllmParams] = {
     "cp4d_host": "https://wxo-config.test",
     "instance_id": "inst-1",
     "wxo_agent_id": "agent-1",
@@ -45,26 +45,26 @@ def _mock_wxo_route(respx_mock: respx.MockRouter, url: str) -> respx.Route:
 
 @pytest.fixture
 def httpx_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
 
 
-@pytest.mark.parametrize("litellm_params", [None, {}])
-async def test_handle_non_streaming_rejects_empty_litellm_params(litellm_params: WXOLitellmParams | None) -> None:
-    with pytest.raises(ValueError, match=MISSING_LITELLM_PARAMS):
-        await WatsonxOrchestrateA2AConfig().handle_non_streaming("req-1", _a2a_params(), litellm_params=litellm_params)
+@pytest.mark.parametrize("hangarllm_params", [None, {}])
+async def test_handle_non_streaming_rejects_empty_hangarllm_params(hangarllm_params: WXOHangarllmParams | None) -> None:
+    with pytest.raises(ValueError, match=MISSING_HANGARLLM_PARAMS):
+        await WatsonxOrchestrateA2AConfig().handle_non_streaming("req-1", _a2a_params(), hangarllm_params=hangarllm_params)
 
 
-async def test_handle_non_streaming_requires_litellm_params_when_only_other_keywords_are_given() -> None:
-    with pytest.raises(ValueError, match=MISSING_LITELLM_PARAMS):
+async def test_handle_non_streaming_requires_hangarllm_params_when_only_other_keywords_are_given() -> None:
+    with pytest.raises(ValueError, match=MISSING_HANGARLLM_PARAMS):
         await WatsonxOrchestrateA2AConfig().handle_non_streaming(
             "req-1", _a2a_params(), "https://ignored.test", agent_extra_headers={"x-tenant-id": "acme"}
         )
 
 
-async def test_handle_non_streaming_hands_litellm_params_to_the_wxo_handler() -> None:
+async def test_handle_non_streaming_hands_hangarllm_params_to_the_wxo_handler() -> None:
     with pytest.raises(ValueError, match=MISSING_HOST):
         await WatsonxOrchestrateA2AConfig().handle_non_streaming(
-            "req-1", _a2a_params(), litellm_params={"instance_id": "inst-1"}
+            "req-1", _a2a_params(), hangarllm_params={"instance_id": "inst-1"}
         )
 
 
@@ -78,7 +78,7 @@ async def test_handle_non_streaming_runs_the_agent_and_ignores_unrelated_keyword
         request_id="req-1",
         params=_a2a_params(),
         api_base="https://ignored.test",
-        litellm_params=LITELLM_PARAMS,
+        hangarllm_params=HANGARLLM_PARAMS,
         agent_extra_headers={"x-tenant-id": "acme"},
     )
 
@@ -98,28 +98,28 @@ async def test_handle_non_streaming_runs_the_agent_and_ignores_unrelated_keyword
     assert "x-tenant-id" not in run_request.headers
 
 
-@pytest.mark.parametrize("litellm_params", [None, {}])
-async def test_handle_streaming_rejects_empty_litellm_params(litellm_params: WXOLitellmParams | None) -> None:
+@pytest.mark.parametrize("hangarllm_params", [None, {}])
+async def test_handle_streaming_rejects_empty_hangarllm_params(hangarllm_params: WXOHangarllmParams | None) -> None:
     stream: Final = WatsonxOrchestrateA2AConfig().handle_streaming(
-        "req-1", _a2a_params(), litellm_params=litellm_params
+        "req-1", _a2a_params(), hangarllm_params=hangarllm_params
     )
 
-    with pytest.raises(ValueError, match=MISSING_LITELLM_PARAMS):
+    with pytest.raises(ValueError, match=MISSING_HANGARLLM_PARAMS):
         await anext(stream)
 
 
-async def test_handle_streaming_requires_litellm_params_when_only_other_keywords_are_given() -> None:
+async def test_handle_streaming_requires_hangarllm_params_when_only_other_keywords_are_given() -> None:
     stream: Final = WatsonxOrchestrateA2AConfig().handle_streaming(
         "req-1", _a2a_params(), "https://ignored.test", agent_extra_headers={"x-tenant-id": "acme"}
     )
 
-    with pytest.raises(ValueError, match=MISSING_LITELLM_PARAMS):
+    with pytest.raises(ValueError, match=MISSING_HANGARLLM_PARAMS):
         await anext(stream)
 
 
-async def test_handle_streaming_hands_litellm_params_to_the_wxo_handler() -> None:
+async def test_handle_streaming_hands_hangarllm_params_to_the_wxo_handler() -> None:
     stream: Final = WatsonxOrchestrateA2AConfig().handle_streaming(
-        "req-1", _a2a_params(), litellm_params={"instance_id": "inst-1"}
+        "req-1", _a2a_params(), hangarllm_params={"instance_id": "inst-1"}
     )
 
     with pytest.raises(ValueError, match=MISSING_HOST):
@@ -136,7 +136,7 @@ async def test_handle_streaming_runs_the_agent_and_ignores_unrelated_keywords(re
             request_id="req-1",
             params=_a2a_params(),
             api_base="https://ignored.test",
-            litellm_params=LITELLM_PARAMS,
+            hangarllm_params=HANGARLLM_PARAMS,
             agent_extra_headers={"x-tenant-id": "acme"},
         )
     ]

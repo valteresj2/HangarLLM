@@ -1,12 +1,12 @@
-# litellm_team_member Resource
+# hangarllm_team_member Resource
 
-Manages individual team member configurations in LiteLLM. This resource allows you to add, update, and remove team members with specific permissions and budget limits.
+Manages individual team member configurations in HangarLLM. This resource allows you to add, update, and remove team members with specific permissions and budget limits.
 
 ## Example Usage
 
 ```hcl
-resource "litellm_team_member" "engineer" {
-  team_id            = litellm_team.engineering.id
+resource "hangarllm_team_member" "engineer" {
+  team_id            = hangarllm_team.engineering.id
   user_id            = "user_3"
   user_email         = "engineer@example.com"
   role               = "user"
@@ -44,7 +44,7 @@ In addition to the arguments above, the following attributes are exported:
 Team members can be imported using the format `team_id:user_id`:
 
 ```shell
-terraform import litellm_team_member.engineer <team_id>:<user_id>
+terraform import hangarllm_team_member.engineer <team_id>:<user_id>
 ```
 
 Note: The team_id and user_id should match the values used in the resource configuration.

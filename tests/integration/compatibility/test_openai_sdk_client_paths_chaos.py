@@ -33,7 +33,7 @@ _Kind: TypeAlias = Literal["chat", "chat_stream", "messages", "responses", "comp
 _ALL_KINDS: Final[tuple[_Kind, ...]] = ("chat", "chat_stream", "messages", "responses", "completions", "moderations")
 _CHAT_KINDS: Final[tuple[_Kind, ...]] = ("chat", "chat_stream")
 _NO_CACHE: Final = {"cache": {"no-cache": True}}
-_SPEND_QUERY: Final = 'SELECT request_id FROM "LiteLLM_SpendLogs" WHERE request_id = %s'
+_SPEND_QUERY: Final = 'SELECT request_id FROM "HangarLLM_SpendLogs" WHERE request_id = %s'
 _CHAT: Final = JsonResponse(
     content_type="application/json",
     body={

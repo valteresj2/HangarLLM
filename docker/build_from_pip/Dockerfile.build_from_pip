@@ -3,7 +3,7 @@ FROM $UV_IMAGE AS uvbin
 
 FROM python:3.13-slim@sha256:739e7213785e88c0f702dcdc12c0973afcbd606dbf021a589cab77d6b00b579d
 
-ARG LITELLM_VERSION=1.83.0
+ARG HANGARLLM_VERSION=1.83.0
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ COPY schema.prisma .
 # artifact includes that extra; newer releases will simply dedupe these.
 RUN uv venv --python python && \
     uv pip install --python /app/.venv/bin/python \
-      "litellm[proxy,proxy-runtime]==${LITELLM_VERSION}" \
+      "hangarllm[proxy,proxy-runtime]==${HANGARLLM_VERSION}" \
       "google-cloud-aiplatform==1.133.0" \
       "google-genai==1.37.0" \
       "anthropic[vertex]==0.84.0" \

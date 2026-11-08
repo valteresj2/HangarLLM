@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm.proxy.spend_tracking.ptu_flat_cost_rollup as ptu_rollup
-from litellm.constants import PTU_ROLLUP_MAX_BACKFILL_DAYS, PTU_SENTINEL_API_KEY
-from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
-from litellm.types.router import ModelInfo
-from litellm.proxy.spend_tracking.ptu_flat_cost_rollup import (
+import hangarllm.proxy.spend_tracking.ptu_flat_cost_rollup as ptu_rollup
+from hangarllm.constants import PTU_ROLLUP_MAX_BACKFILL_DAYS, PTU_SENTINEL_API_KEY
+from hangarllm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+from hangarllm.types.router import ModelInfo
+from hangarllm.proxy.spend_tracking.ptu_flat_cost_rollup import (
     PTUModel,
     _active_hours_on_day,
     _compute_daily_flat_cost,
@@ -181,7 +181,7 @@ class _FakeBatch:
     def __init__(self, table):
         self._table = table
         self._queued = []
-        self.litellm_dailyteamspend = self
+        self.hangarllm_dailyteamspend = self
 
     def upsert(self, where, data):
         self._queued.append((where, data))
@@ -223,7 +223,7 @@ def _prisma_with_models(rows, existing_sentinel_rows=()):
     daily.upsert = AsyncMock()
     daily.delete_many = AsyncMock()
     prisma.db = types.SimpleNamespace(
-        litellm_proxymodeltable=model_table, litellm_dailyteamspend=daily, batch_=lambda: _FakeBatch(daily)
+        hangarllm_proxymodeltable=model_table, hangarllm_dailyteamspend=daily, batch_=lambda: _FakeBatch(daily)
     )
     return prisma, daily
 
@@ -445,7 +445,7 @@ def _router_entry(model_id="dep-1", model_name="gpt-4o-ptu", model_info=None, wi
         info["id"] = model_id
     return {
         "model_name": model_name,
-        "litellm_params": {"model": "azure/gpt-4o"},
+        "hangarllm_params": {"model": "azure/gpt-4o"},
         "model_info": info,
     }
 
@@ -690,7 +690,7 @@ async def test_scheduled_rollup_runs_and_releases_the_lock_when_it_wins():
 @pytest.mark.asyncio
 async def test_scheduled_rollup_releases_the_lock_even_when_the_run_raises():
     prisma, table = _prisma_with_models([])
-    prisma.db.litellm_proxymodeltable.find_many = AsyncMock(side_effect=RuntimeError("db down"))
+    prisma.db.hangarllm_proxymodeltable.find_many = AsyncMock(side_effect=RuntimeError("db down"))
     lock = _pod_lock(acquired=True)
 
     with pytest.raises(RuntimeError):
@@ -738,7 +738,7 @@ async def test_rollup_skips_the_prune_when_a_replacement_write_failed():
 
 
 class _FakeSentinelTable:
-    """In-memory LiteLLM_DailyTeamSpend that honours the sentinel key and prune predicate."""
+    """In-memory HangarLLM_DailyTeamSpend that honours the sentinel key and prune predicate."""
 
     def __init__(self, upsert_gate=None, failing_team=None):
         self.rows = {}
@@ -825,8 +825,8 @@ def _prisma_for(model_rows, daily_table):
     model_table = MagicMock()
     model_table.find_many = AsyncMock(return_value=model_rows)
     prisma.db = types.SimpleNamespace(
-        litellm_proxymodeltable=model_table,
-        litellm_dailyteamspend=daily_table,
+        hangarllm_proxymodeltable=model_table,
+        hangarllm_dailyteamspend=daily_table,
         batch_=lambda: _FakeBatch(daily_table),
     )
     return prisma
@@ -1505,7 +1505,7 @@ async def test_backfill_returns_empty_when_prisma_client_is_none():
 async def test_backfill_counts_a_charge_that_never_landed():
     table = _FakeSentinelTable()
     prisma = _prisma_for([_windowed_row(effective_from=_midnight(_day(-1)))], table)
-    prisma.db.litellm_dailyteamspend.upsert = AsyncMock(side_effect=RuntimeError("db down"))
+    prisma.db.hangarllm_dailyteamspend.upsert = AsyncMock(side_effect=RuntimeError("db down"))
 
     result = await run_ptu_flat_cost_backfill(prisma, today=TODAY)
 
@@ -1565,7 +1565,7 @@ async def test_a_failing_backfill_does_not_lose_the_days_rollup_result():
     swallow its result or raise into the scheduler."""
     table = _FakeSentinelTable()
     prisma = _prisma_for([_windowed_row()], table)
-    prisma.db.litellm_dailyteamspend.find_many = AsyncMock(side_effect=RuntimeError("read replica down"))
+    prisma.db.hangarllm_dailyteamspend.find_many = AsyncMock(side_effect=RuntimeError("read replica down"))
 
     result = await run_scheduled_ptu_rollup(prisma)
 
@@ -1581,7 +1581,7 @@ async def test_scheduled_rollup_alerts_when_a_backfill_charge_never_landed():
     table = _FakeSentinelTable()
     yesterday: Final = _SCHEDULED_NOW.date() - timedelta(days=1)
     prisma = _prisma_for([_windowed_row(effective_from=_midnight(yesterday - timedelta(days=1)))], table)
-    prisma.db.litellm_dailyteamspend.upsert = AsyncMock(side_effect=RuntimeError("db down"))
+    prisma.db.hangarllm_dailyteamspend.upsert = AsyncMock(side_effect=RuntimeError("db down"))
     alert = AsyncMock()
 
     await run_scheduled_ptu_rollup(prisma, alert=alert, clock=lambda: _SCHEDULED_NOW)
@@ -1595,7 +1595,7 @@ async def test_scheduled_rollup_alerts_when_a_backfill_charge_never_landed():
 async def test_a_broken_alert_channel_does_not_fail_the_backfill():
     table = _FakeSentinelTable()
     prisma = _prisma_for([_windowed_row()], table)
-    prisma.db.litellm_dailyteamspend.upsert = AsyncMock(side_effect=RuntimeError("db down"))
+    prisma.db.hangarllm_dailyteamspend.upsert = AsyncMock(side_effect=RuntimeError("db down"))
 
     result = await run_scheduled_ptu_rollup(prisma, alert=AsyncMock(side_effect=RuntimeError("slack down")))
 
@@ -2107,7 +2107,7 @@ def _router_holding(*entries):
 @pytest.mark.asyncio
 async def test_a_config_declared_deployment_is_priced():
     """The whole point. A PTU deployment the proxy only knows from config.yaml is not in
-    LiteLLM_ProxyModelTable, so a DB-only scan bills the provider's reservation to nobody."""
+    HangarLLM_ProxyModelTable, so a DB-only scan bills the provider's reservation to nobody."""
     entry = _router_entry(model_id="cfg-1", model_name="gpt-4o-ptu", model_info=dict(_VALID_PTU))
 
     loaded = await ptu_rollup._load_ptu_models(_prisma_for([], _FakeSentinelTable()), router=_router_holding(entry))
@@ -2213,7 +2213,7 @@ async def test_a_router_left_on_the_proxy_module_is_not_scanned(monkeypatch):
     """A run scans the router its caller hands it and nothing else. Reading the proxy module's
     global instead made every run depend on whatever else in the process had set one, which
     is what a caller passing no router is asking not to happen."""
-    import litellm.proxy.proxy_server as proxy_server
+    import hangarllm.proxy.proxy_server as proxy_server
 
     ambient = _router_holding(_router_entry(model_id="ambient-1", model_info=dict(_VALID_PTU)))
     monkeypatch.setattr(proxy_server, "llm_router", ambient, raising=False)

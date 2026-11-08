@@ -63,8 +63,8 @@ def test_gemini_passthrough_upstream_error_body_reaches_proxy_log_and_spend_row(
                 )
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
-                    (response.headers["x-litellm-call-id"],),
+                    'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
+                    (response.headers["x-hangarllm-call-id"],),
                 ),
                 lambda values: len(values) == 1,
                 seconds=70,
@@ -96,7 +96,7 @@ def _gemini_headers(candidate: Gateway) -> dict[str, str]:
 
 def _spend_error_information(call_id: str) -> dict[str, JsonValue]:
     rows: Final = eventually(
-        lambda: read_rows('SELECT metadata FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: read_rows('SELECT metadata FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -107,7 +107,7 @@ def _spend_error_information(call_id: str) -> dict[str, JsonValue]:
 
 def _spend_status(call_id: str) -> str:
     rows: Final = eventually(
-        lambda: read_rows('SELECT status FROM "LiteLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
+        lambda: read_rows('SELECT status FROM "HangarLLM_SpendLogs" WHERE request_id=%s', (call_id,)),
         lambda values: len(values) == 1,
         seconds=70,
     )
@@ -144,7 +144,7 @@ async def test_gemini_passthrough_async_client_404_body_reaches_proxy_log_and_sp
             assert response.json() == _UPSTREAM_ERROR, response.text
             warning: Final = _upstream_warning(owned.log)
             assert "was not found or your project" in warning, warning
-            error_information: Final = _spend_error_information(response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(response.headers["x-hangarllm-call-id"])
             assert "was not found or your project" in str(error_information["error_message"]), response.text
             assert error_information["error_code"] == "404", response.text
 
@@ -176,7 +176,7 @@ def test_gemini_passthrough_streaming_500_relays_full_body_and_logs_bounded_prev
             assert streamed == body
             warning: Final = _upstream_warning(owned.log)
             assert warning.endswith("... (truncated at 4096 chars)"), warning
-            error_information: Final = _spend_error_information(response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(response.headers["x-hangarllm-call-id"])
             error_message: Final = str(error_information["error_message"])
             assert error_message.endswith("... (truncated at 4096 chars)"), error_message
             assert error_information["error_code"] == "500", error_message
@@ -201,7 +201,7 @@ def test_gemini_passthrough_success_logs_nothing_and_spend_row_is_success(gatewa
             )
             assert response.status_code == 200, response.text
             assert response.json() == upstream_ok, response.text
-            assert _spend_status(response.headers["x-litellm-call-id"]) == "success"
+            assert _spend_status(response.headers["x-hangarllm-call-id"]) == "success"
             assert not _upstream_warnings(owned.log), owned.log.read_text()[-2000:]
 
 
@@ -256,12 +256,12 @@ def test_gemini_streaming_passthrough_request_tags_reach_spend_log(gateway: Gate
             ) as response:
                 assert response.status_code == 200
                 streamed: Final = response.read()
-                call_id: Final = response.headers["x-litellm-call-id"]
+                call_id: Final = response.headers["x-hangarllm-call-id"]
             assert streamed == b"".join(chunks)
 
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT request_tags, call_type, status FROM "LiteLLM_SpendLogs" WHERE request_id=%s',
+                    'SELECT request_tags, call_type, status FROM "HangarLLM_SpendLogs" WHERE request_id=%s',
                     (call_id,),
                 ),
                 lambda values: len(values) == 1,
@@ -305,7 +305,7 @@ def test_config_pass_through_route_logs_body_and_strips_query(gateway: Gateway, 
             warning: Final = _upstream_warning(owned.log)
             assert "max budget reached for this deployment" in warning, warning
             assert "?" not in warning and "secret-q" not in warning, warning
-            error_information: Final = _spend_error_information(response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(response.headers["x-hangarllm-call-id"])
             assert error_information["normalized_error"] == "500_UPSTREAM_PASSTHROUGH", response.text
             assert "max budget reached for this deployment" in str(error_information["error_message"]), response.text
 
@@ -341,7 +341,7 @@ def test_openai_passthrough_sdk_error_body_reaches_proxy_log_and_spend_row(gatew
             assert "does not exist" in str(raised.value), raised.value
             warning: Final = _upstream_warning(owned.log)
             assert "does not exist" in warning, warning
-            error_information: Final = _spend_error_information(raised.value.response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(raised.value.response.headers["x-hangarllm-call-id"])
             assert "does not exist" in str(error_information["error_message"])
 
 
@@ -367,7 +367,7 @@ async def test_openai_passthrough_async_sdk_error_body_reaches_proxy_log_and_spe
             assert "does not exist" in str(raised.value), raised.value
             warning: Final = _upstream_warning(owned.log)
             assert "does not exist" in warning, warning
-            error_information: Final = _spend_error_information(raised.value.response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(raised.value.response.headers["x-hangarllm-call-id"])
             assert "does not exist" in str(error_information["error_message"])
 
 
@@ -392,7 +392,7 @@ def test_gemini_passthrough_control_characters_cannot_forge_log_lines(gateway: G
             assert "\n" not in warning and "\x1b" not in warning, warning
             assert "line one" in warning and "FAKE LOG LINE" in warning, warning
             assert warning.endswith("... (truncated at 4096 chars)"), warning
-            error_information: Final = _spend_error_information(response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(response.headers["x-hangarllm-call-id"])
             assert error_information["error_code"] == "502", response.text
 
 
@@ -414,7 +414,7 @@ def test_gemini_passthrough_empty_error_body_still_logged_and_proxy_serves(gatew
             assert response.content == b"", response.text
             warning: Final = _upstream_warning(owned.log)
             assert "returned 404" in warning, warning
-            error_information: Final = _spend_error_information(response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(response.headers["x-hangarllm-call-id"])
             assert error_information["error_code"] == "404", response.text
             follow_up: Final = candidate.request(
                 "POST",
@@ -492,7 +492,7 @@ def test_gemini_passthrough_error_body_redacted_when_message_logging_off(gateway
     path: Final = tmp_path / "gemini-redacted.yaml"
     with wire_server(respond) as wire:
         config["environment_variables"] = {"GEMINI_API_BASE": wire.url, "GEMINI_API_KEY": "scripted"}
-        config["litellm_settings"]["turn_off_message_logging"] = True
+        config["hangarllm_settings"]["turn_off_message_logging"] = True
         path.write_text(yaml.safe_dump(config))
         with owned_proxy_process(gateway, tmp_path, {}, config=path) as owned:
             candidate: Final = owned.gateway
@@ -502,11 +502,11 @@ def test_gemini_passthrough_error_body_redacted_when_message_logging_off(gateway
             assert response.status_code == 404, response.text
             assert response.json() == upstream_error, response.text
             warning: Final = _upstream_warning(owned.log)
-            assert "redacted-by-litellm" in warning, warning
+            assert "redacted-by-hangarllm" in warning, warning
             assert "sensitive upstream explanation" not in warning, warning
-            error_information: Final = _spend_error_information(response.headers["x-litellm-call-id"])
+            error_information: Final = _spend_error_information(response.headers["x-hangarllm-call-id"])
             error_message: Final = str(error_information["error_message"])
-            assert "redacted-by-litellm" in error_message, error_message
+            assert "redacted-by-hangarllm" in error_message, error_message
             assert "sensitive upstream explanation" not in error_message, error_message
 
 
@@ -592,11 +592,11 @@ def test_gemini_passthrough_repeated_errors_each_get_row_and_log_line(gateway: G
                 )
                 for _ in range(2)
             )
-            call_ids: Final = tuple(response.headers["x-litellm-call-id"] for response in responses)
+            call_ids: Final = tuple(response.headers["x-hangarllm-call-id"] for response in responses)
             assert len(set(call_ids)) == 2
             for response in responses:
                 assert response.status_code == 404, response.text
-                error_information: Final = _spend_error_information(response.headers["x-litellm-call-id"])
+                error_information: Final = _spend_error_information(response.headers["x-hangarllm-call-id"])
                 assert "was not found or your project" in str(error_information["error_message"]), response.text
             eventually(
                 lambda: _upstream_warnings(owned.log, "returned 404"),
@@ -625,7 +625,7 @@ def test_budget_rejected_call_keeps_budget_normalized_error(gateway: Gateway, tm
             digest: Final = sha256(key.encode()).hexdigest()
             rows: Final = eventually(
                 lambda: read_rows(
-                    'SELECT metadata FROM "LiteLLM_SpendLogs" WHERE api_key=%s',
+                    'SELECT metadata FROM "HangarLLM_SpendLogs" WHERE api_key=%s',
                     (digest,),
                 ),
                 lambda values: any(

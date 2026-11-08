@@ -97,7 +97,7 @@ def _config(directory: Path, tracing: Path, wire: Wire) -> Path:
     )
     akto_down: Final = {
         "guardrail_name": _AKTO_DOWN,
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": "akto",
             "mode": "pre_call",
             "akto_base_url": "http://127.0.0.1:9",
@@ -110,10 +110,10 @@ def _config(directory: Path, tracing: Path, wire: Wire) -> Path:
         yaml.safe_dump(
             {
                 **configuration,
-                "model_list": [{"model_name": name, "litellm_params": params} for name, params in deployments],
+                "model_list": [{"model_name": name, "hangarllm_params": params} for name, params in deployments],
                 "router_settings": {**object_value(configuration.get("router_settings", {})), "num_retries": 0},
-                "litellm_settings": {
-                    **object_value(configuration["litellm_settings"]),
+                "hangarllm_settings": {
+                    **object_value(configuration["hangarllm_settings"]),
                     "sse_keepalive_ping_interval_seconds": _KEEPALIVE_SECONDS,
                 },
                 "guardrails": [akto_down],
@@ -169,7 +169,7 @@ def v2_rig(
         owned_proxy(
             shared,
             directory,
-            {"OTEL_EXPORTER": "http/json", "OTEL_ENDPOINT": audit_sinks.operator, "LITELLM_OTEL_V2": "1"},
+            {"OTEL_EXPORTER": "http/json", "OTEL_ENDPOINT": audit_sinks.operator, "HANGARLLM_OTEL_V2": "1"},
             config=_config(directory, tracing, wire),
             workers=2,
         ) as owned,
@@ -225,11 +225,11 @@ def test_the_failed_request_metric_counts_the_answered_status_and_the_deployment
     response: Final = _send(rig, route, model)
     assert response.status_code == answered, response.text
     assert len(rig.wire.drain()) == 1
-    failed: Final = _until(rig, "litellm_proxy_failed_requests_metric_total", model)
+    failed: Final = _until(rig, "hangarllm_proxy_failed_requests_metric_total", model)
     assert [(sample.labels["exception_status"], sample.labels["route"], sample.value) for sample in failed] == [
         (str(answered), route, 1.0)
     ], failed
-    deployment: Final = _until(rig, "litellm_deployment_failure_responses_total", model)
+    deployment: Final = _until(rig, "hangarllm_deployment_failure_responses_total", model)
     assert [(sample.labels["exception_status"], sample.value) for sample in deployment] == [(deployment_status, 1.0)], (
         deployment
     )
@@ -349,7 +349,7 @@ def test_a_fail_closed_guardrail_outage_is_answered_and_recorded_with_the_routes
         assert response.status_code == answered, response.text
         assert _AKTO_UNREACHABLE in response.text, response.text
         assert rig.wire.drain() == ()
-        failed: Final = _until(rig, "litellm_proxy_failed_requests_metric_total", model)
+        failed: Final = _until(rig, "hangarllm_proxy_failed_requests_metric_total", model)
         assert [(sample.labels["exception_status"], sample.labels["route"], sample.value) for sample in failed] == [
             (str(answered), route, 1.0)
         ], failed
@@ -375,11 +375,11 @@ def test_the_otel_v2_server_span_carries_the_status_the_route_answered(
     assert len(v2_rig.wire.drain()) == 1
     server: Final = eventually(
         lambda: _server_spans(v2_rig, since, trace_id),
-        lambda spans: any("litellm.provider.error.code" in span["attributes"] for span in spans),
+        lambda spans: any("hangarllm.provider.error.code" in span["attributes"] for span in spans),
         seconds=40,
         return_last_on_timeout=True,
     )
-    assert [str(span["attributes"].get("litellm.provider.error.code")) for span in server] == [str(answered)], server
+    assert [str(span["attributes"].get("hangarllm.provider.error.code")) for span in server] == [str(answered)], server
 
 
 def test_an_anthropic_pass_through_stream_that_fails_after_the_keepalive_opened_relays_the_upstream_body(

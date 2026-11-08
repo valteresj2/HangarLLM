@@ -91,7 +91,7 @@ def test_chat_completion_bad_model_with_spend_logs(gateway: Gateway) -> None:
             key=key,
         )
         assert response.status_code == 400, response.text
-        call_id: str | None = response.headers.get("x-litellm-call-id")
+        call_id: str | None = response.headers.get("x-hangarllm-call-id")
         assert call_id is not None
         logs_response = eventually(
             lambda: gateway.request("GET", "/spend/logs", params={"request_id": call_id}),

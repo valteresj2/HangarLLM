@@ -17,7 +17,7 @@ import os
 
 import httpx
 
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from hangarllm.proxy.management_helpers.team_metadata_validation import (
     TeamMetadataValidationPayload,
     TeamMetadataValidationResult,
 )

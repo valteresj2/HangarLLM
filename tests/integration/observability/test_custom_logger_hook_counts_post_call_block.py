@@ -37,7 +37,7 @@ def post_call_block(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[
     tmp_path: Final = tmp_path_factory.mktemp("hook-count-post-call-block")
     guardrail: Final = {
         "guardrail_name": "hook-count-post-call-block",
-        "litellm_params": {
+        "hangarllm_params": {
             "guardrail": f"{_PROBES}.BlockingPostCallGuardrail",
             "mode": "post_call",
             "default_on": True,

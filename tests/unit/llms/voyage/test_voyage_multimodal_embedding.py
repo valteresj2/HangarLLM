@@ -6,7 +6,7 @@ import pytest
 
 class TestVoyageMultimodalEmbeddings:
     def test_multimodal_model_detection(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -19,7 +19,7 @@ class TestVoyageMultimodalEmbeddings:
         assert not VoyageMultimodalEmbeddingConfig.is_multimodal_embeddings("voyage-4")
 
     def test_multimodal_embedding_url_generation(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -46,7 +46,7 @@ class TestVoyageMultimodalEmbeddings:
         )
 
     def test_multimodal_embedding_request_transformation(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -82,7 +82,7 @@ class TestVoyageMultimodalEmbeddings:
         }
 
     def test_multimodal_embedding_string_input_transformation(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -95,10 +95,10 @@ class TestVoyageMultimodalEmbeddings:
         ]
 
     def test_multimodal_embedding_response_transformation(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
-        from litellm.types.utils import EmbeddingResponse
+        from hangarllm.types.utils import EmbeddingResponse
 
         config = VoyageMultimodalEmbeddingConfig()
         response_payload = {
@@ -131,20 +131,20 @@ class TestVoyageMultimodalEmbeddings:
         assert transformed.usage.total_tokens == 2
 
     def test_provider_config_manager_routes_multimodal_models(self):
-        import litellm
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        import hangarllm
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
-        from litellm.utils import ProviderConfigManager
+        from hangarllm.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_embedding_config(
-            model="voyage-multimodal-3.5", provider=litellm.LlmProviders.VOYAGE
+            model="voyage-multimodal-3.5", provider=hangarllm.LlmProviders.VOYAGE
         )
 
         assert isinstance(config, VoyageMultimodalEmbeddingConfig)
 
     def test_map_openai_params_dimensions(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -161,7 +161,7 @@ class TestVoyageMultimodalEmbeddings:
         )
 
     def test_validate_environment_uses_api_key(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -172,7 +172,7 @@ class TestVoyageMultimodalEmbeddings:
         assert headers == {"Authorization": "Bearer test-key"}
 
     def test_validate_environment_uses_secret_fallback(self, monkeypatch):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -185,7 +185,7 @@ class TestVoyageMultimodalEmbeddings:
         assert headers == {"Authorization": "Bearer secret-key"}
 
     def test_validate_environment_raises_without_api_key(self, monkeypatch):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -199,7 +199,7 @@ class TestVoyageMultimodalEmbeddings:
         assert "VOYAGE_API_KEY" in str(exc_info.value)
 
     def test_normalize_image_url_dict_missing_url_raises(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -209,7 +209,7 @@ class TestVoyageMultimodalEmbeddings:
         assert "image_url" in str(exc_info.value)
 
     def test_is_multimodal_embeddings_helper(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -224,17 +224,17 @@ class TestVoyageMultimodalEmbeddings:
         )
 
     def test_utils_routing_via_provider_config_and_dimensions(self):
-        import litellm
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        import hangarllm
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
-        from litellm.utils import (
+        from hangarllm.utils import (
             ProviderConfigManager,
             get_optional_params_embeddings,
         )
 
         config = ProviderConfigManager.get_provider_embedding_config(
-            model="voyage-multimodal-3.5", provider=litellm.LlmProviders.VOYAGE
+            model="voyage-multimodal-3.5", provider=hangarllm.LlmProviders.VOYAGE
         )
         assert isinstance(config, VoyageMultimodalEmbeddingConfig)
 
@@ -247,7 +247,7 @@ class TestVoyageMultimodalEmbeddings:
         assert optional_params.get("output_dimension") == 1024
 
     def test_get_supported_openai_params_voyage_routes_multimodal(self):
-        from litellm.litellm_core_utils.get_supported_openai_params import (
+        from hangarllm.hangarllm_core_utils.get_supported_openai_params import (
             get_supported_openai_params,
         )
 
@@ -267,7 +267,7 @@ class TestVoyageMultimodalEmbeddings:
         assert "encoding_format" in standard_params
 
     def test_passthrough_non_content_input(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
         )
 
@@ -278,11 +278,11 @@ class TestVoyageMultimodalEmbeddings:
         assert request["inputs"] == [{"foo": "bar"}]
 
     def test_error_response_transformation_and_error_class(self):
-        from litellm.llms.voyage.embedding.transformation_multimodal import (
+        from hangarllm.llms.voyage.embedding.transformation_multimodal import (
             VoyageMultimodalEmbeddingConfig,
             VoyageMultimodalEmbeddingError,
         )
-        from litellm.types.utils import EmbeddingResponse
+        from hangarllm.types.utils import EmbeddingResponse
 
         config = VoyageMultimodalEmbeddingConfig()
         raw_response = MagicMock()

@@ -40,7 +40,7 @@ def _create_prompt(
         "/prompts",
         {
             "prompt_id": prompt_id,
-            "litellm_params": {
+            "hangarllm_params": {
                 "prompt_id": prompt_id,
                 "prompt_integration": "dotprompt",
                 "dotprompt_content": _content(model, marker),

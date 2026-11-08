@@ -1,12 +1,12 @@
 import pytest
 from typing import Final
-from litellm.llms.bedrock.embed.amazon_nova_transformation import AmazonNovaEmbeddingConfig
+from hangarllm.llms.bedrock.embed.amazon_nova_transformation import AmazonNovaEmbeddingConfig
 
 
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_nova_in_model_name():
     """Test that models with 'nova' in the name are detected."""
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     # Test various Nova model name formats
     test_models = [
@@ -22,7 +22,7 @@ def test_nova_in_model_name():
 @pytest.mark.usefixtures("fake_provider_credentials")
 def test_nova_provider_detection():
     """Test that Nova provider is correctly detected."""
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     provider = BaseAWSLLM.get_bedrock_embedding_provider(
         "amazon.nova-2-multimodal-embeddings-v1:0"

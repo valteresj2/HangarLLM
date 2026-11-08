@@ -28,7 +28,7 @@ export interface GatewayClient {
   ): Promise<AsyncIterable<ChatCompletionChunk>>;
 }
 
-export const USER_AGENT = `litellm-vscode/${packageJson.version}`;
+export const USER_AGENT = `hangarllm-vscode/${packageJson.version}`;
 export const ERROR_SUMMARY_LIMIT = 200;
 
 const GATEWAY_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);

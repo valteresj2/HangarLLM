@@ -9,10 +9,10 @@ import warnings
 
 import pytest
 
-import litellm
-from litellm.router_api import ChangeSet
-from litellm.router_core import RouterCore
-from litellm.types.router import Deployment, RetryPolicy
+import hangarllm
+from hangarllm.router_api import ChangeSet
+from hangarllm.router_core import RouterCore
+from hangarllm.types.router import Deployment, RetryPolicy
 from tests.unit.test_router.core.registry_helpers import (
     MESSAGES,
     MakeCore,
@@ -48,7 +48,7 @@ def test_add_deployment_returns_the_deployment_it_serves(make_core: MakeCore) ->
     added = core.add_deployment(typed("new", "n"))  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
     assert isinstance(added, Deployment)
-    assert (added.model_name, added.model_info.id, added.litellm_params.model) == ("new", "n", "openai/n")
+    assert (added.model_name, added.model_info.id, added.hangarllm_params.model) == ("new", "n", "openai/n")
 
 
 def test_an_added_deployment_is_appended_and_names_a_new_group(make_core: MakeCore) -> None:
@@ -64,7 +64,7 @@ def test_an_added_deployment_is_appended_and_names_a_new_group(make_core: MakeCo
 
 def test_an_added_deployment_without_an_id_gets_the_id_its_model_info_generated(make_core: MakeCore) -> None:
     core = _core(make_core)
-    candidate = Deployment(model_name="new", litellm_params={"model": "openai/q", "api_key": "k"})  # pyright: ignore[reportArgumentType]  # litellm_params as a dict
+    candidate = Deployment(model_name="new", hangarllm_params={"model": "openai/q", "api_key": "k"})  # pyright: ignore[reportArgumentType]  # hangarllm_params as a dict
 
     added = core.add_deployment(candidate)  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
@@ -106,7 +106,7 @@ def test_adding_a_deployment_with_an_unknown_provider_raises_and_adds_nothing(ma
     core = _core(make_core)
     version = core.registry().version
 
-    with pytest.raises(litellm.BadRequestError, match="LLM Provider NOT provided"):
+    with pytest.raises(hangarllm.BadRequestError, match="LLM Provider NOT provided"):
         core.add_deployment(typed("bad", "bad", model="notaprovider/x"))  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
     assert core.registry().names(kind="ids") == ["a", "b", "e", "w", "t1"]
@@ -120,7 +120,7 @@ def test_an_added_deployment_registers_its_custom_pricing(make_core: MakeCore) -
 
     core.add_deployment(typed("priced", model_id, model="openai/gpt-4o", input_cost_per_token=3e-3))  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
-    assert litellm.model_cost[model_id]["input_cost_per_token"] == 3e-3
+    assert hangarllm.model_cost[model_id]["input_cost_per_token"] == 3e-3
 
 
 # -- upsert -----------------------------------------------------------------------------------------
@@ -158,7 +158,7 @@ def test_a_failing_upsert_of_an_existing_deployment_raises_and_leaves_it_removed
     """Odd but current: without ignore_invalid_deployments the old deployment is popped and not restored."""
     core = _core(make_core)
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(hangarllm.BadRequestError):
         core.apply(ChangeSet(upsert=[typed("gpt", "a", model="notaprovider/x")]))
 
     assert core.registry().names(kind="ids") == ["b", "e", "w", "t1"]
@@ -174,7 +174,7 @@ def test_a_failing_upsert_under_ignore_invalid_deployments_restores_the_previous
     assert list(result.upserted) == [None]
     restored = core.registry().deployment("a")
     assert restored is not None
-    assert restored.litellm_params.model == "openai/a"
+    assert restored.hangarllm_params.model == "openai/a"
     assert core.registry().names(kind="ids") == ["b", "e", "w", "t1", "a"]
 
 
@@ -293,11 +293,11 @@ def test_set_model_list_keeps_the_aliases(make_core: MakeCore) -> None:
 
 def test_set_model_list_leaves_the_given_list_unchanged(make_core: MakeCore) -> None:
     core = _core(make_core)
-    given = [{"model_name": "new", "litellm_params": {"model": "openai/n", "api_key": "k"}}]
+    given = [{"model_name": "new", "hangarllm_params": {"model": "openai/n", "api_key": "k"}}]
 
     core.set_model_list(given)  # pyright: ignore[reportAttributeAccessIssue]  # public on the core
 
-    assert given == [{"model_name": "new", "litellm_params": {"model": "openai/n", "api_key": "k"}}]
+    assert given == [{"model_name": "new", "hangarllm_params": {"model": "openai/n", "api_key": "k"}}]
 
 
 def test_set_model_list_keeps_the_old_wildcard_routes(make_core: MakeCore) -> None:

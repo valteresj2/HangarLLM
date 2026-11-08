@@ -3,7 +3,7 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from litellm.llms.gemini.image_usage_transformation import transform_gemini_image_usage
+from hangarllm.llms.gemini.image_usage_transformation import transform_gemini_image_usage
 
 PROMPT_DETAILS: Final = [{"modality": "TEXT", "tokenCount": 30}, {"modality": "IMAGE", "tokenCount": 5}]
 

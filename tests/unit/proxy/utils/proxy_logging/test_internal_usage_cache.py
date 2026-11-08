@@ -1,7 +1,7 @@
 """Pin behavior of ``InternalUsageCache``: a thin adapter over ``DualCache``.
 
 Each method should pass-through to the underlying ``DualCache`` with
-exactly the same arguments, mapping ``litellm_parent_otel_span`` to the
+exactly the same arguments, mapping ``hangarllm_parent_otel_span`` to the
 ``DualCache`` kw it expects.
 """
 
@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.proxy.utils import InternalUsageCache
+from hangarllm.caching.caching import DualCache
+from hangarllm.proxy.utils import InternalUsageCache
 
 
 def _kwargs_snapshot(call):
@@ -45,7 +45,7 @@ async def test_async_get_cache_forwards_args():
     inner.async_get_cache = AsyncMock(return_value={"hit": True, "value": 42, "source": "redis"})
     cache = InternalUsageCache(dual_cache=inner)
 
-    result = await cache.async_get_cache(key="k", litellm_parent_otel_span="span", local_only=True, extra="x")
+    result = await cache.async_get_cache(key="k", hangarllm_parent_otel_span="span", local_only=True, extra="x")
     forwarded = _kwargs_snapshot(inner.async_get_cache.call_args)
     assert forwarded == {"key": "k", "local_only": True, "parent_otel_span": "span", "extra": "x"}
     assert result == {"hit": True, "value": 42, "source": "redis"}
@@ -57,7 +57,7 @@ async def test_async_get_cache_propagates_underlying_error_raises():
     inner.async_get_cache = AsyncMock(side_effect=RuntimeError("redis down"))
     cache = InternalUsageCache(dual_cache=inner)
     with pytest.raises(RuntimeError, match="redis down"):
-        await cache.async_get_cache(key="k", litellm_parent_otel_span=None)
+        await cache.async_get_cache(key="k", hangarllm_parent_otel_span=None)
 
 
 @pytest.mark.asyncio
@@ -66,13 +66,13 @@ async def test_async_set_cache_forwards_args():
     inner.async_set_cache = AsyncMock()
     cache = InternalUsageCache(dual_cache=inner)
 
-    await cache.async_set_cache(key="k", value="v", litellm_parent_otel_span="span", local_only=False, ttl=60)
+    await cache.async_set_cache(key="k", value="v", hangarllm_parent_otel_span="span", local_only=False, ttl=60)
     forwarded = _kwargs_snapshot(inner.async_set_cache.call_args)
     assert forwarded == {
         "key": "k",
         "value": "v",
         "local_only": False,
-        "litellm_parent_otel_span": "span",
+        "hangarllm_parent_otel_span": "span",
         "ttl": 60,
     }
 
@@ -83,7 +83,7 @@ async def test_async_set_cache_propagates_error_raises():
     inner.async_set_cache = AsyncMock(side_effect=ValueError("bad value"))
     cache = InternalUsageCache(dual_cache=inner)
     with pytest.raises(ValueError, match="bad value"):
-        await cache.async_set_cache(key="k", value="v", litellm_parent_otel_span=None)
+        await cache.async_set_cache(key="k", value="v", hangarllm_parent_otel_span=None)
 
 
 @pytest.mark.asyncio
@@ -93,12 +93,12 @@ async def test_async_batch_set_cache_forwards_pipeline():
     cache = InternalUsageCache(dual_cache=inner)
 
     pairs = [("a", 1), ("b", 2)]
-    await cache.async_batch_set_cache(cache_list=pairs, litellm_parent_otel_span=None, local_only=True, ttl=10)
+    await cache.async_batch_set_cache(cache_list=pairs, hangarllm_parent_otel_span=None, local_only=True, ttl=10)
     forwarded = _kwargs_snapshot(inner.async_set_cache_pipeline.call_args)
     assert forwarded == {
         "cache_list": pairs,
         "local_only": True,
-        "litellm_parent_otel_span": None,
+        "hangarllm_parent_otel_span": None,
         "ttl": 10,
     }
 
@@ -109,7 +109,7 @@ async def test_async_batch_set_cache_propagates_error_raises():
     inner.async_set_cache_pipeline = AsyncMock(side_effect=ConnectionError("network"))
     cache = InternalUsageCache(dual_cache=inner)
     with pytest.raises(ConnectionError):
-        await cache.async_batch_set_cache(cache_list=[], litellm_parent_otel_span=None)
+        await cache.async_batch_set_cache(cache_list=[], hangarllm_parent_otel_span=None)
 
 
 @pytest.mark.asyncio
@@ -137,7 +137,7 @@ async def test_async_increment_cache_forwards_args():
     inner = MagicMock()
     inner.async_increment_cache = AsyncMock(return_value=5.0)
     cache = InternalUsageCache(dual_cache=inner)
-    result = await cache.async_increment_cache(key="counter", value=1.5, litellm_parent_otel_span="span")
+    result = await cache.async_increment_cache(key="counter", value=1.5, hangarllm_parent_otel_span="span")
     forwarded = _kwargs_snapshot(inner.async_increment_cache.call_args)
     assert forwarded == {"key": "counter", "value": 1.5, "local_only": False, "parent_otel_span": "span"}
     assert result == 5.0
@@ -149,7 +149,7 @@ async def test_async_increment_cache_propagates_error_raises():
     inner.async_increment_cache = AsyncMock(side_effect=OverflowError())
     cache = InternalUsageCache(dual_cache=inner)
     with pytest.raises(OverflowError):
-        await cache.async_increment_cache(key="x", value=1.0, litellm_parent_otel_span=None)
+        await cache.async_increment_cache(key="x", value=1.0, hangarllm_parent_otel_span=None)
 
 
 def test_set_cache_forwards_args():

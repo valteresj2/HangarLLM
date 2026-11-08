@@ -10,18 +10,18 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 # Import proxy_server module first to ensure it's initialized
-import litellm.proxy.proxy_server as ps
-from litellm.proxy._types import (
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+import hangarllm.proxy.proxy_server as ps
+from hangarllm.proxy._types import (
+    HangarLLM_ObjectPermissionTable,
+    HangarLLM_TeamTable,
+    HangarllmUserRoles,
     UserAPIKeyAuth,
 )
 
 # Now we can safely import app
-from litellm.proxy.proxy_server import app
-from litellm.router import Router
-from litellm.types.search import SearchToolInfoResponse
+from hangarllm.proxy.proxy_server import app
+from hangarllm.router import Router
+from hangarllm.types.search import SearchToolInfoResponse
 from tests.unit.proxy.router_entry_point_stubs import route_entry_points_to_stubs
 
 client = TestClient(app)
@@ -35,7 +35,7 @@ async def test_list_search_tools_db_only(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "db-tool-1",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "hangarllm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "DB tool 1"},
             "created_at": datetime(2023, 11, 9, 12, 34, 56),
             "updated_at": datetime(2023, 11, 9, 13, 45, 12),
@@ -46,22 +46,22 @@ async def test_list_search_tools_db_only(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -80,9 +80,9 @@ async def test_list_search_tools_db_only(monkeypatch):
                     assert tool["created_at"] == "2023-11-09T12:34:56"
                     assert tool["updated_at"] == "2023-11-09T13:45:12"
                     # Verify masking of sensitive values
-                    assert tool["litellm_params"]["api_key"] != "sk-test"
-                    assert "****" in tool["litellm_params"]["api_key"]
-                    assert tool["litellm_params"]["search_provider"] == "perplexity"
+                    assert tool["hangarllm_params"]["api_key"] != "sk-test"
+                    assert "****" in tool["hangarllm_params"]["api_key"]
+                    assert tool["hangarllm_params"]["search_provider"] == "perplexity"
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -97,7 +97,7 @@ async def test_list_search_tools_config_only(monkeypatch):
     config_tools = [
         {
             "search_tool_name": "config-tool-1",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "tavily",
                 "api_key": "tvly-secret-key",
             },
@@ -109,22 +109,22 @@ async def test_list_search_tools_config_only(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={"search_tools": config_tools})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=config_tools)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -142,7 +142,7 @@ async def test_list_search_tools_config_only(monkeypatch):
                     assert tool["created_at"] is None
                     assert tool["updated_at"] is None
                     # Verify masking
-                    assert "tv****ey" in tool["litellm_params"]["api_key"]
+                    assert "tv****ey" in tool["hangarllm_params"]["api_key"]
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -158,7 +158,7 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
         {
             "search_tool_id": "db-id-1",
             "search_tool_name": "existing-tool",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-db"},
+            "hangarllm_params": {"search_provider": "perplexity", "api_key": "sk-db"},
             "search_tool_info": {"description": "DB tool"},
             "created_at": datetime(2023, 11, 9, 12, 34, 56),
             "updated_at": datetime(2023, 11, 9, 13, 45, 12),
@@ -169,12 +169,12 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
     config_tools = [
         {
             "search_tool_name": "existing-tool",  # Duplicate - should be filtered
-            "litellm_params": {"search_provider": "tavily", "api_key": "tvly-config"},
+            "hangarllm_params": {"search_provider": "tavily", "api_key": "tvly-config"},
             "search_tool_info": {"description": "Config tool - duplicate"},
         },
         {
             "search_tool_name": "unique-config-tool",  # Unique - should be included
-            "litellm_params": {"search_provider": "tavily", "api_key": "tvly-unique"},
+            "hangarllm_params": {"search_provider": "tavily", "api_key": "tvly-unique"},
             "search_tool_info": {"description": "Config tool - unique"},
         },
     ]
@@ -183,22 +183,22 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={"search_tools": config_tools})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=config_tools)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -219,9 +219,9 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
                     assert db_tool["is_from_config"] is False
                     assert db_tool["search_tool_id"] == "db-id-1"
                     # Verify masking of sensitive values in DB tool
-                    assert db_tool["litellm_params"]["api_key"] != "sk-db"
-                    assert "****" in db_tool["litellm_params"]["api_key"]
-                    assert db_tool["litellm_params"]["search_provider"] == "perplexity"
+                    assert db_tool["hangarllm_params"]["api_key"] != "sk-db"
+                    assert "****" in db_tool["hangarllm_params"]["api_key"]
+                    assert db_tool["hangarllm_params"]["search_provider"] == "perplexity"
 
                     # Verify unique config tool is present
                     config_tool = next(
@@ -256,7 +256,7 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "datetime-test-tool",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "hangarllm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "Test tool"},
             "created_at": datetime(2024, 1, 15, 10, 30, 45, 123456),
             "updated_at": datetime(2024, 1, 16, 14, 20, 30, 789012),
@@ -264,7 +264,7 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
         {
             "search_tool_id": "test-id-2",
             "search_tool_name": "null-datetime-tool",
-            "litellm_params": {"search_provider": "tavily", "api_key": "tvly-test"},
+            "hangarllm_params": {"search_provider": "tavily", "api_key": "tvly-test"},
             "search_tool_info": None,
             "created_at": None,
             "updated_at": None,
@@ -272,7 +272,7 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
         {
             "search_tool_id": "test-id-3",
             "search_tool_name": "string-datetime-tool",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "hangarllm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "Already string"},
             "created_at": "2024-01-17T08:15:00",  # Already a string
             "updated_at": "2024-01-18T09:25:00",  # Already a string
@@ -283,22 +283,22 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -320,8 +320,8 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
                     assert isinstance(tool1["updated_at"], str)
                     assert tool1["updated_at"] == "2024-01-16T14:20:30.789012"
                     # Verify masking of sensitive values
-                    assert tool1["litellm_params"]["api_key"] != "sk-test"
-                    assert "****" in tool1["litellm_params"]["api_key"]
+                    assert tool1["hangarllm_params"]["api_key"] != "sk-test"
+                    assert "****" in tool1["hangarllm_params"]["api_key"]
 
                     # Test None handling for tool 2
                     tool2 = next(
@@ -332,8 +332,8 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
                     assert tool2["created_at"] is None
                     assert tool2["updated_at"] is None
                     # Verify masking of sensitive values
-                    assert tool2["litellm_params"]["api_key"] != "tvly-test"
-                    assert "****" in tool2["litellm_params"]["api_key"]
+                    assert tool2["hangarllm_params"]["api_key"] != "tvly-test"
+                    assert "****" in tool2["hangarllm_params"]["api_key"]
 
                     # Test string passthrough for tool 3
                     tool3 = next(
@@ -344,8 +344,8 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
                     assert tool3["created_at"] == "2024-01-17T08:15:00"
                     assert tool3["updated_at"] == "2024-01-18T09:25:00"
                     # Verify masking of sensitive values
-                    assert tool3["litellm_params"]["api_key"] != "sk-test"
-                    assert "****" in tool3["litellm_params"]["api_key"]
+                    assert tool3["hangarllm_params"]["api_key"] != "sk-test"
+                    assert "****" in tool3["hangarllm_params"]["api_key"]
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -358,7 +358,7 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "db-tool-1",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "hangarllm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "DB tool"},
             "created_at": datetime(2023, 11, 9, 12, 34, 56),
             "updated_at": datetime(2023, 11, 9, 13, 45, 12),
@@ -369,21 +369,21 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config to raise an error
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(side_effect=Exception("Config error"))
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -396,8 +396,8 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
                     assert len(data["search_tools"]) == 1
                     assert data["search_tools"][0]["search_tool_name"] == "db-tool-1"
                     # Verify masking of sensitive values
-                    assert data["search_tools"][0]["litellm_params"]["api_key"] != "sk-test"
-                    assert "****" in data["search_tools"][0]["litellm_params"]["api_key"]
+                    assert data["search_tools"][0]["hangarllm_params"]["api_key"] != "sk-test"
+                    assert "****" in data["search_tools"][0]["hangarllm_params"]["api_key"]
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -405,11 +405,11 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
 @pytest.mark.asyncio
 async def test_list_search_tools_no_prisma_client(monkeypatch):
     """Test error handling when prisma_client is None"""
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    with patch("hangarllm.proxy.proxy_server.prisma_client", None):
+        from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
         )
 
         try:
@@ -433,7 +433,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "perplexity-tool",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "perplexity",
                 "api_key": "pplx-sk-9876567890abcdef",
                 "api_base": "https://api.perplexity.ai",
@@ -445,7 +445,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-2",
             "search_tool_name": "tavily-tool",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "tavily",
                 "api_key": "tvly-secret-key-12345",
                 "api_base": "https://api.tavily.com",
@@ -457,7 +457,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-3",
             "search_tool_name": "tool-with-token",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "custom",
                 "access_token": "token-abcdefghijklmnop",
                 "secret_key": "secret-xyz123",
@@ -469,7 +469,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-4",
             "search_tool_name": "tool-with-non-sensitive",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "custom",
                 "max_results": 10,
                 "timeout": 30,
@@ -484,22 +484,22 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("hangarllm.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -516,10 +516,10 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                         None,
                     )
                     assert tool1 is not None
-                    assert tool1["litellm_params"]["api_key"] != "pplx-sk-9876567890abcdef"
-                    assert "****" in tool1["litellm_params"]["api_key"]
-                    assert tool1["litellm_params"]["search_provider"] == "perplexity"
-                    assert tool1["litellm_params"]["api_base"] == "https://api.perplexity.ai"
+                    assert tool1["hangarllm_params"]["api_key"] != "pplx-sk-9876567890abcdef"
+                    assert "****" in tool1["hangarllm_params"]["api_key"]
+                    assert tool1["hangarllm_params"]["search_provider"] == "perplexity"
+                    assert tool1["hangarllm_params"]["api_base"] == "https://api.perplexity.ai"
 
                     # Test tool 2: api_key should be masked
                     tool2 = next(
@@ -527,9 +527,9 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                         None,
                     )
                     assert tool2 is not None
-                    assert tool2["litellm_params"]["api_key"] != "tvly-secret-key-12345"
-                    assert "****" in tool2["litellm_params"]["api_key"]
-                    assert tool2["litellm_params"]["search_provider"] == "tavily"
+                    assert tool2["hangarllm_params"]["api_key"] != "tvly-secret-key-12345"
+                    assert "****" in tool2["hangarllm_params"]["api_key"]
+                    assert tool2["hangarllm_params"]["search_provider"] == "tavily"
 
                     # Test tool 3: access_token and secret_key should be masked
                     tool3 = next(
@@ -537,10 +537,10 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                         None,
                     )
                     assert tool3 is not None
-                    assert tool3["litellm_params"]["access_token"] != "token-abcdefghijklmnop"
-                    assert "****" in tool3["litellm_params"]["access_token"]
-                    assert tool3["litellm_params"]["secret_key"] != "secret-xyz123"
-                    assert "****" in tool3["litellm_params"]["secret_key"]
+                    assert tool3["hangarllm_params"]["access_token"] != "token-abcdefghijklmnop"
+                    assert "****" in tool3["hangarllm_params"]["access_token"]
+                    assert tool3["hangarllm_params"]["secret_key"] != "secret-xyz123"
+                    assert "****" in tool3["hangarllm_params"]["secret_key"]
 
                     # Test tool 4: non-sensitive fields should remain unmasked
                     tool4 = next(
@@ -548,9 +548,9 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                         None,
                     )
                     assert tool4 is not None
-                    assert tool4["litellm_params"]["max_results"] == 10
-                    assert tool4["litellm_params"]["timeout"] == 30
-                    assert tool4["litellm_params"]["search_provider"] == "custom"
+                    assert tool4["hangarllm_params"]["max_results"] == 10
+                    assert tool4["hangarllm_params"]["timeout"] == 30
+                    assert tool4["hangarllm_params"]["search_provider"] == "custom"
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -561,7 +561,7 @@ async def test_get_all_search_tools_from_db_retries_on_transport_error():
     ClientNotConnectedError via call_with_db_reconnect_retry."""
     import prisma
 
-    from litellm.proxy.search_endpoints.search_tool_registry import (
+    from hangarllm.proxy.search_endpoints.search_tool_registry import (
         SearchToolRegistry,
     )
 
@@ -574,7 +574,7 @@ async def test_get_all_search_tools_from_db_retries_on_transport_error():
         return []
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_searchtoolstable.find_many = AsyncMock(side_effect=_flaky_find_many)
+    mock_prisma_client.db.hangarllm_searchtoolstable.find_many = AsyncMock(side_effect=_flaky_find_many)
     mock_prisma_client.attempt_db_reconnect = AsyncMock(return_value=True)
     mock_prisma_client._db_auth_reconnect_timeout_seconds = 2.0
     mock_prisma_client._db_auth_reconnect_lock_timeout_seconds = 0.1
@@ -599,11 +599,11 @@ def _mock_search_tool_backend(db_tools):
     mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
     with (
         patch(
-            "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+            "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
             mock_registry,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+        patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("hangarllm.proxy.proxy_server.proxy_config", mock_proxy_config),
     ):
         yield
 
@@ -613,7 +613,7 @@ def _scoping_db_tools():
         {
             "search_tool_id": "db-id-1",
             "search_tool_name": "db-tool-1",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "perplexity",
                 "api_key": "pplx-secret-1",
                 "api_base": "https://api.perplexity.ai",
@@ -625,7 +625,7 @@ def _scoping_db_tools():
         {
             "search_tool_id": "db-id-2",
             "search_tool_name": "db-tool-2",
-            "litellm_params": {
+            "hangarllm_params": {
                 "search_provider": "tavily",
                 "api_key": "tvly-secret-2",
                 "api_base": "https://api.tavily.com",
@@ -637,7 +637,7 @@ def _scoping_db_tools():
         {
             "search_tool_id": "db-id-3",
             "search_tool_name": "db-tool-3",
-            "litellm_params": {"search_provider": "exa", "api_key": "exa-secret-3"},
+            "hangarllm_params": {"search_provider": "exa", "api_key": "exa-secret-3"},
             "search_tool_info": {"description": "Exa"},
             "created_at": datetime(2024, 1, 1),
             "updated_at": datetime(2024, 1, 1),
@@ -647,7 +647,7 @@ def _scoping_db_tools():
 
 @contextlib.contextmanager
 def _override_auth(user):
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
 
     app.dependency_overrides[user_api_key_auth] = lambda: user
     try:
@@ -664,9 +664,9 @@ async def test_list_search_tools_scoped_to_key_object_permission():
     configured tool, leaking ids, api_base, and metadata for tools it cannot call.
     """
     restricted_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="internal_user",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-key",
             search_tools=["db-tool-1"],
         ),
@@ -681,14 +681,14 @@ async def test_list_search_tools_scoped_to_key_object_permission():
     assert response.status_code == 200
     tools = response.json()["search_tools"]
     assert [t["search_tool_name"] for t in tools] == ["db-tool-1"]
-    leaked = {t["litellm_params"].get("api_base") for t in tools}
+    leaked = {t["hangarllm_params"].get("api_base") for t in tools}
     assert "https://api.tavily.com" not in leaked
 
 
 @pytest.mark.asyncio
 async def test_list_search_tools_unrestricted_internal_user_sees_all():
     """An internal user with no search_tools allowlist is unrestricted and sees every tool."""
-    unrestricted_user = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="internal_user")
+    unrestricted_user = UserAPIKeyAuth(user_role=HangarllmUserRoles.INTERNAL_USER, user_id="internal_user")
 
     with (
         _mock_search_tool_backend(_scoping_db_tools()),
@@ -705,13 +705,13 @@ async def test_list_search_tools_unrestricted_internal_user_sees_all():
 async def test_list_search_tools_scoped_to_team_object_permission():
     """A team-level search_tools allowlist also scopes the listing for a non-admin caller."""
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="team-1",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = HangarLLM_TeamTable(
         team_id="team-1",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-team",
             search_tools=["db-tool-2"],
         ),
@@ -720,7 +720,7 @@ async def test_list_search_tools_scoped_to_team_object_permission():
     with (
         _mock_search_tool_backend(_scoping_db_tools()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "hangarllm.proxy.auth.auth_checks.get_team_object",
             AsyncMock(return_value=team_object),
         ),
         _override_auth(team_member),
@@ -735,9 +735,9 @@ async def test_list_search_tools_scoped_to_team_object_permission():
 async def test_list_search_tools_admin_with_restricted_key_still_sees_all():
     """Proxy admins bypass search-tool scoping even if their key carries an allowlist."""
     admin_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
         user_id="admin_user",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-admin",
             search_tools=["db-tool-1"],
         ),
@@ -756,7 +756,7 @@ def _search_tool_responses(*names: str) -> list[SearchToolInfoResponse]:
         SearchToolInfoResponse(
             search_tool_id=f"id-{name}",
             search_tool_name=name,
-            litellm_params={"search_provider": "perplexity"},
+            hangarllm_params={"search_provider": "perplexity"},
             search_tool_info=None,
             created_at=None,
             updated_at=None,
@@ -774,14 +774,14 @@ def _team_ids_looked_up(lookup: AsyncMock) -> list[str]:
 async def test_list_search_tools_dashboard_session_key_does_not_look_up_the_ui_team():
     """
     Regression: the Admin UI session key is stamped with the reserved team id
-    ``litellm-dashboard``, which has no row in LiteLLM_TeamTable. Resolving it as a real team
+    ``hangarllm-dashboard``, which has no row in HangarLLM_TeamTable. Resolving it as a real team
     raised 404, which the endpoint reported as a 500, so the Search Tools page was broken for
     every non-admin browsing the dashboard.
     """
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
 
     dashboard_session_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
     )
@@ -795,7 +795,7 @@ async def test_list_search_tools_dashboard_session_key_does_not_look_up_the_ui_t
     with (
         _mock_search_tool_backend(_scoping_db_tools()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "hangarllm.proxy.auth.auth_checks.get_team_object",
             ui_team_is_not_a_real_team,
         ),
         _override_auth(dashboard_session_user),
@@ -814,16 +814,16 @@ async def test_filter_visible_search_tools_dashboard_session_still_honors_key_al
     Skipping the synthetic team must not widen visibility: a dashboard session whose key
     carries a search_tools allowlist stays scoped to it.
     """
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-    from litellm.proxy.search_endpoints.search_tool_management import (
+    from hangarllm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from hangarllm.proxy.search_endpoints.search_tool_management import (
         _filter_visible_search_tools,
     )
 
     restricted_dashboard_session = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=HangarLLM_ObjectPermissionTable(
             object_permission_id="op-key",
             search_tools=["db-tool-3"],
         ),
@@ -843,19 +843,19 @@ async def test_filter_visible_search_tools_dashboard_session_still_honors_key_al
 @pytest.mark.asyncio
 async def test_filter_visible_search_tools_still_applies_a_real_team_allowlist():
     """A caller with a real team is still resolved and scoped by that team's allowlist."""
-    from litellm.proxy.search_endpoints.search_tool_management import (
+    from hangarllm.proxy.search_endpoints.search_tool_management import (
         _filter_visible_search_tools,
     )
 
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="team-1",
     )
     lookup = AsyncMock(
-        return_value=LiteLLM_TeamTable(
+        return_value=HangarLLM_TeamTable(
             team_id="team-1",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id="op-team",
                 search_tools=["db-tool-2"],
             ),
@@ -878,12 +878,12 @@ async def test_filter_visible_search_tools_propagates_a_real_team_lookup_failure
     A caller whose real team cannot be resolved must not fall through to "no team", which
     would drop that team's allowlist and show tools the caller may not call.
     """
-    from litellm.proxy.search_endpoints.search_tool_management import (
+    from hangarllm.proxy.search_endpoints.search_tool_management import (
         _filter_visible_search_tools,
     )
 
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="deleted-team",
     )
@@ -907,7 +907,7 @@ async def test_list_search_tools_reports_a_missing_real_team_as_404():
     masking it as a 500 or quietly returning an unscoped list.
     """
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=HangarllmUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="deleted-team",
     )
@@ -915,7 +915,7 @@ async def test_list_search_tools_reports_a_missing_real_team_as_404():
     with (
         _mock_search_tool_backend(_scoping_db_tools()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "hangarllm.proxy.auth.auth_checks.get_team_object",
             AsyncMock(
                 side_effect=HTTPException(
                     status_code=404,
@@ -935,7 +935,7 @@ async def test_list_search_tools_reports_a_missing_real_team_as_404():
 # Router sync on management writes (LIT-3379)
 #
 # The proxy resolves prisma_client / proxy_config / llm_router from
-# litellm.proxy.proxy_server module globals at call time and reaches its DB layer through a
+# hangarllm.proxy.proxy_server module globals at call time and reaches its DB layer through a
 # module-level registry singleton, so there is no constructor or parameter to inject through.
 # Patching those globals is the only seam that exercises the endpoint end to end.
 # ---------------------------------------------------------------------------
@@ -945,7 +945,7 @@ def _search_tool_row(name: str, provider: str = "tavily") -> dict:
     return {
         "search_tool_id": f"{name}-id",
         "search_tool_name": name,
-        "litellm_params": {"search_provider": provider, "api_key": "sk-test"},
+        "hangarllm_params": {"search_provider": provider, "api_key": "sk-test"},
         "search_tool_info": {"description": name},
     }
 
@@ -956,7 +956,7 @@ def _fake_registry(db_rows: list) -> MagicMock:
     async def _add(search_tool, **_):
         row = _search_tool_row(
             search_tool["search_tool_name"],
-            provider=search_tool.get("litellm_params", {}).get("search_provider", "tavily"),
+            provider=search_tool.get("hangarllm_params", {}).get("search_provider", "tavily"),
         )
         db_rows.append(row)
         return row
@@ -964,7 +964,7 @@ def _fake_registry(db_rows: list) -> MagicMock:
     async def _update(search_tool_id, search_tool, **_):
         row = _search_tool_row(
             search_tool["search_tool_name"],
-            provider=search_tool.get("litellm_params", {}).get("search_provider", "tavily"),
+            provider=search_tool.get("hangarllm_params", {}).get("search_provider", "tavily"),
         )
         db_rows[:] = [row if existing["search_tool_id"] == search_tool_id else existing for existing in db_rows]
         return row
@@ -987,8 +987,8 @@ def _fake_registry(db_rows: list) -> MagicMock:
 @contextlib.contextmanager
 def _live_router_and_db(db_rows: list):
     """Drive the endpoints against a real ProxyConfig so the router refresh actually runs."""
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.proxy_server import ProxyConfig
+    from hangarllm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from hangarllm.proxy.proxy_server import ProxyConfig
 
     proxy_config = ProxyConfig()
     proxy_config.update_config_state({})
@@ -996,28 +996,28 @@ def _live_router_and_db(db_rows: list):
 
     with contextlib.ExitStack() as stack:
         stack.enter_context(
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock())
+            patch("hangarllm.proxy.proxy_server.prisma_client", MagicMock())
         )  # test-quality-ok: proxy globals are the only seam; see the module note above
         stack.enter_context(
-            patch("litellm.proxy.proxy_server.proxy_config", proxy_config)
+            patch("hangarllm.proxy.proxy_server.proxy_config", proxy_config)
         )  # test-quality-ok: proxy globals are the only seam; see the module note above
         stack.enter_context(
-            patch("litellm.proxy.proxy_server.llm_router", router)
+            patch("hangarllm.proxy.proxy_server.llm_router", router)
         )  # test-quality-ok: proxy globals are the only seam; see the module note above
         stack.enter_context(
             patch(  # test-quality-ok: proxy globals are the only seam; see the module note above
-                "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+                "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
                 _fake_registry(db_rows),
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: proxy globals are the only seam; see the module note above
-                "litellm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
+                "hangarllm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
                 AsyncMock(side_effect=lambda **_: list(db_rows)),
             )
         )
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+            user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user"
         )
         try:
             yield router
@@ -1034,7 +1034,7 @@ async def test_create_search_tool_reaches_the_router_before_the_response():
             json={
                 "search_tool": {
                     "search_tool_name": "tavily-search",
-                    "litellm_params": {"search_provider": "tavily"},
+                    "hangarllm_params": {"search_provider": "tavily"},
                 }
             },
         )
@@ -1051,13 +1051,13 @@ async def test_update_search_tool_reaches_the_router_before_the_response():
             json={
                 "search_tool": {
                     "search_tool_name": "tavily-search",
-                    "litellm_params": {"search_provider": "exa_ai"},
+                    "hangarllm_params": {"search_provider": "exa_ai"},
                 }
             },
         )
 
     assert response.status_code == 200
-    assert router.settings().search_tools[0]["litellm_params"]["search_provider"] == "exa_ai"
+    assert router.settings().search_tools[0]["hangarllm_params"]["search_provider"] == "exa_ai"
 
 
 @pytest.mark.asyncio
@@ -1075,7 +1075,7 @@ async def test_create_search_tool_survives_a_failing_router_refresh():
     """The row is already committed, so a refresh failure must not turn into a 500."""
     with _live_router_and_db([]):
         with patch(  # test-quality-ok: forcing the refresh to fail needs the refresh itself replaced
-            "litellm.proxy.proxy_server.ProxyConfig.reload_search_tools_from_db",
+            "hangarllm.proxy.proxy_server.ProxyConfig.reload_search_tools_from_db",
             AsyncMock(side_effect=RuntimeError("registry boom")),
         ):
             response = TestClient(app).post(
@@ -1083,7 +1083,7 @@ async def test_create_search_tool_survives_a_failing_router_refresh():
                 json={
                     "search_tool": {
                         "search_tool_name": "tavily-search",
-                        "litellm_params": {"search_provider": "tavily"},
+                        "hangarllm_params": {"search_provider": "tavily"},
                     }
                 },
             )
@@ -1096,7 +1096,7 @@ def _search_caller(
     virtual_key: bool,
     key_search_tools: list[str] | None = None,
     team_id: str | None = None,
-    user_role: LitellmUserRoles = LitellmUserRoles.INTERNAL_USER,
+    user_role: HangarllmUserRoles = HangarllmUserRoles.INTERNAL_USER,
     api_key: str = "sk-caller",
 ) -> UserAPIKeyAuth:
     caller = UserAPIKeyAuth(
@@ -1108,7 +1108,7 @@ def _search_caller(
         object_permission=(
             None
             if key_search_tools is None
-            else LiteLLM_ObjectPermissionTable(object_permission_id="op-key", search_tools=key_search_tools)
+            else HangarLLM_ObjectPermissionTable(object_permission_id="op-key", search_tools=key_search_tools)
         ),
     )
     caller.via_virtual_key = virtual_key
@@ -1117,8 +1117,8 @@ def _search_caller(
 
 @pytest.fixture
 def search_permission_cache(monkeypatch: pytest.MonkeyPatch) -> Callable[[list[str] | None], None]:
-    from litellm.proxy._types import LiteLLM_UserTable
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+    from hangarllm.proxy._types import HangarLLM_UserTable
+    from hangarllm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
 
     cache = UserApiKeyCache()
     monkeypatch.setattr(ps, "user_api_key_cache", cache)
@@ -1126,11 +1126,11 @@ def search_permission_cache(monkeypatch: pytest.MonkeyPatch) -> Callable[[list[s
 
     def grant_user(search_tools: list[str] | None) -> None:
         cache.set_cache(
-            key="internal_user", value=LiteLLM_UserTable(user_id="internal_user", object_permission_id="op-user")
+            key="internal_user", value=HangarLLM_UserTable(user_id="internal_user", object_permission_id="op-user")
         )
         cache.set_cache(
             key=object_permission_cache_key("op-user"),
-            value=LiteLLM_ObjectPermissionTable(object_permission_id="op-user", search_tools=search_tools),
+            value=HangarLLM_ObjectPermissionTable(object_permission_id="op-user", search_tools=search_tools),
         )
 
     return grant_user
@@ -1153,7 +1153,7 @@ async def test_filter_visible_search_tools_keyless_user_follows_search_tool_deny
     user_search_tools: list[str] | None,
     expected: list[str],
 ):
-    from litellm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
+    from hangarllm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
 
     search_permission_cache(user_search_tools)
     team_lookup = AsyncMock()
@@ -1177,7 +1177,7 @@ async def test_filter_visible_search_tools_keyless_user_follows_search_tool_deny
 async def test_filter_visible_search_tools_standalone_key_needs_its_own_grant(
     search_permission_cache: Callable[[list[str] | None], None], key_search_tools: list[str] | None, expected: list[str]
 ):
-    from litellm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
+    from hangarllm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
 
     search_permission_cache(["db-tool-1", "db-tool-2"])
 
@@ -1206,13 +1206,13 @@ async def test_filter_visible_search_tools_team_key_needs_key_and_team_grants(
     team_search_tools: list[str],
     expected: list[str],
 ):
-    from litellm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
+    from hangarllm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
 
     team_lookup = AsyncMock(
-        return_value=LiteLLM_TeamTable(
+        return_value=HangarLLM_TeamTable(
             team_id="team-1",
             object_permission_id="op-team",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=HangarLLM_ObjectPermissionTable(
                 object_permission_id="op-team", search_tools=team_search_tools
             ),
         )
@@ -1233,11 +1233,11 @@ async def test_filter_visible_search_tools_team_key_needs_key_and_team_grants(
     [
         (
             _search_caller(
-                virtual_key=False, user_role=LitellmUserRoles.PROXY_ADMIN, api_key="litellm_proxy_master_key"
+                virtual_key=False, user_role=HangarllmUserRoles.PROXY_ADMIN, api_key="hangarllm_proxy_master_key"
             ),
             ["db-tool-1", "db-tool-2"],
         ),
-        (_search_caller(virtual_key=True, user_role=LitellmUserRoles.PROXY_ADMIN), []),
+        (_search_caller(virtual_key=True, user_role=HangarllmUserRoles.PROXY_ADMIN), []),
     ],
     ids=["master-key-sees-every-tool", "admin-virtual-key-is-filtered"],
 )
@@ -1245,7 +1245,7 @@ async def test_filter_visible_search_tools_team_key_needs_key_and_team_grants(
 async def test_filter_visible_search_tools_admin_under_search_tool_deny_by_default(
     search_permission_cache: Callable[[list[str] | None], None], caller: UserAPIKeyAuth, expected: list[str]
 ):
-    from litellm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
+    from hangarllm.proxy.search_endpoints.search_tool_management import _filter_visible_search_tools
 
     visible = await _filter_visible_search_tools(
         _search_tool_responses("db-tool-1", "db-tool-2"),
@@ -1263,7 +1263,7 @@ class _StoredSearchToolRow(SimpleNamespace):
 
 
 class _InMemorySearchToolsTable:
-    """Stands in for prisma's litellm_searchtoolstable: JSON columns are stored parsed, as prisma returns them."""
+    """Stands in for prisma's hangarllm_searchtoolstable: JSON columns are stored parsed, as prisma returns them."""
 
     def __init__(self, rows=()):
         self.rows = {row.search_tool_id: row for row in rows}
@@ -1272,7 +1272,7 @@ class _InMemorySearchToolsTable:
         row = _StoredSearchToolRow(
             search_tool_id=f"id-{len(self.rows)}",
             search_tool_name=data["search_tool_name"],
-            litellm_params=json.loads(data["litellm_params"]),
+            hangarllm_params=json.loads(data["hangarllm_params"]),
             search_tool_info=json.loads(data["search_tool_info"]),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
@@ -1292,12 +1292,12 @@ class _InMemorySearchToolsTable:
     async def update(self, where, data):
         row = self.rows[where["search_tool_id"]]
         for column, value in data.items():
-            setattr(row, column, json.loads(value) if column in ("litellm_params", "search_tool_info") else value)
+            setattr(row, column, json.loads(value) if column in ("hangarllm_params", "search_tool_info") else value)
         return row
 
     async def update_many(self, where, data):
         row = self.rows.get(where["search_tool_id"])
-        if row is None or row.litellm_params != json.loads(where["litellm_params"]["equals"]):
+        if row is None or row.hangarllm_params != json.loads(where["hangarllm_params"]["equals"]):
             return 0
         await self.update(where={"search_tool_id": row.search_tool_id}, data=data)
         return 1
@@ -1314,15 +1314,15 @@ class _TableWithEditDuringRotation(_InMemorySearchToolsTable):
         if self.pending_edit and self.pending_edit[0] == where["search_tool_id"]:
             edited_id, edited_params = self.pending_edit
             self.pending_edit = None
-            self.rows[edited_id].litellm_params = edited_params
+            self.rows[edited_id].hangarllm_params = edited_params
         return await super().update_many(where, data)
 
 
-def _stored_row(search_tool_id: str, name: str, litellm_params: dict) -> _StoredSearchToolRow:
+def _stored_row(search_tool_id: str, name: str, hangarllm_params: dict) -> _StoredSearchToolRow:
     return _StoredSearchToolRow(
         search_tool_id=search_tool_id,
         search_tool_name=name,
-        litellm_params=litellm_params,
+        hangarllm_params=hangarllm_params,
         search_tool_info={},
         created_at=datetime(2026, 9, 1),
         updated_at=datetime(2026, 9, 1),
@@ -1331,7 +1331,7 @@ def _stored_row(search_tool_id: str, name: str, litellm_params: dict) -> _Stored
 
 def _prisma_client_over(table: _InMemorySearchToolsTable) -> MagicMock:
     prisma_client = MagicMock()
-    prisma_client.db.litellm_searchtoolstable = table
+    prisma_client.db.hangarllm_searchtoolstable = table
     return prisma_client
 
 
@@ -1346,42 +1346,42 @@ SECRET_PARAMS = {
 
 @pytest.fixture
 def salt_key(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", SALT_KEY)
+    monkeypatch.setenv("HANGARLLM_SALT_KEY", SALT_KEY)
     monkeypatch.setattr(ps, "general_settings", {})
     return SALT_KEY
 
 
 @pytest.fixture
 def master_key_only(monkeypatch):
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
     monkeypatch.setattr(ps, "master_key", "sk-old-master-key")
     monkeypatch.setattr(ps, "general_settings", {})
     return "sk-old-master-key"
 
 
 @pytest.mark.asyncio
-async def test_search_tool_litellm_params_are_encrypted_at_rest_and_decrypted_on_read(salt_key):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
-    from litellm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
+async def test_search_tool_hangarllm_params_are_encrypted_at_rest_and_decrypted_on_read(salt_key):
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with
+    from hangarllm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
 
     table = _InMemorySearchToolsTable()
     prisma_client = _prisma_client_over(table)
     registry = SearchToolRegistry()
 
     created = await registry.add_search_tool_to_db(
-        search_tool={"search_tool_name": "agentcore-search", "litellm_params": SECRET_PARAMS},
+        search_tool={"search_tool_name": "agentcore-search", "hangarllm_params": SECRET_PARAMS},
         prisma_client=prisma_client,
     )
     await registry.update_search_tool_in_db(
         search_tool_id=created["search_tool_id"],
         search_tool={
             "search_tool_name": "agentcore-search",
-            "litellm_params": {**SECRET_PARAMS, "api_key": "tvly-rotated-api-key-0003"},
+            "hangarllm_params": {**SECRET_PARAMS, "api_key": "tvly-rotated-api-key-0003"},
         },
         prisma_client=prisma_client,
     )
 
-    stored = table.rows[created["search_tool_id"]].litellm_params
+    stored = table.rows[created["search_tool_id"]].hangarllm_params
     assert "tvly-" not in json.dumps(stored)
     assert "aws-secret-0002" not in json.dumps(stored)
     assert decrypt_if_encrypted_with(stored["api_key"], salt_key) == "tvly-rotated-api-key-0003"
@@ -1390,33 +1390,33 @@ async def test_search_tool_litellm_params_are_encrypted_at_rest_and_decrypted_on
 
     expected = {**SECRET_PARAMS, "api_key": "tvly-rotated-api-key-0003"}
     loaded = await SearchToolRegistry.get_all_search_tools_from_db(prisma_client=prisma_client)
-    assert [tool["litellm_params"] for tool in loaded] == [expected]
+    assert [tool["hangarllm_params"] for tool in loaded] == [expected]
     by_id = await registry.get_search_tool_by_id_from_db(created["search_tool_id"], prisma_client=prisma_client)
     by_name = await registry.get_search_tool_by_name_from_db("agentcore-search", prisma_client=prisma_client)
-    assert by_id["litellm_params"] == by_name["litellm_params"] == expected
+    assert by_id["hangarllm_params"] == by_name["hangarllm_params"] == expected
 
 
 @pytest.mark.asyncio
 async def test_search_tool_is_stored_as_written_when_no_encryption_key_is_configured(monkeypatch):
-    from litellm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
+    from hangarllm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
 
-    monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+    monkeypatch.delenv("HANGARLLM_SALT_KEY", raising=False)
     monkeypatch.setattr(ps, "master_key", None)
     monkeypatch.setattr(ps, "general_settings", {})
     table = _InMemorySearchToolsTable()
 
     created = await SearchToolRegistry().add_search_tool_to_db(
-        search_tool={"search_tool_name": "agentcore-search", "litellm_params": SECRET_PARAMS},
+        search_tool={"search_tool_name": "agentcore-search", "hangarllm_params": SECRET_PARAMS},
         prisma_client=_prisma_client_over(table),
     )
 
-    assert table.rows[created["search_tool_id"]].litellm_params == SECRET_PARAMS
+    assert table.rows[created["search_tool_id"]].hangarllm_params == SECRET_PARAMS
 
 
 @pytest.mark.asyncio
 async def test_plaintext_search_tool_rows_written_before_encryption_still_load(salt_key):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-    from litellm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
 
     encrypted_row = _stored_row(
         "encrypted-id",
@@ -1430,7 +1430,7 @@ async def test_plaintext_search_tool_rows_written_before_encryption_still_load(s
 
     loaded = await SearchToolRegistry.get_all_search_tools_from_db(prisma_client=prisma_client)
 
-    assert [tool["litellm_params"] for tool in loaded] == [
+    assert [tool["hangarllm_params"] for tool in loaded] == [
         {"search_provider": "tavily", "api_key": "tvly-new"},
         {"search_provider": "perplexity", "api_key": "pplx-legacy", "max_results": 5},
     ]
@@ -1438,11 +1438,11 @@ async def test_plaintext_search_tool_rows_written_before_encryption_still_load(s
 
 @pytest.mark.asyncio
 async def test_master_key_rotation_reencrypts_only_values_the_current_key_decrypts(master_key_only):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
         decrypt_if_encrypted_with,
         encrypt_value_helper,
     )
-    from litellm.proxy.search_endpoints.search_tool_registry import rotate_search_tools_master_key
+    from hangarllm.proxy.search_endpoints.search_tool_registry import rotate_search_tools_master_key
 
     new_key = "sk-new-master-key"
     foreign_ciphertext = encrypt_value_helper("tvly-foreign", new_encryption_key="sk-some-other-key")
@@ -1456,24 +1456,24 @@ async def test_master_key_rotation_reencrypts_only_values_the_current_key_decryp
     )
 
     await rotate_search_tools_master_key(prisma_client=_prisma_client_over(table), new_master_key=new_key)
-    after_first_rotation = json.dumps({row_id: row.litellm_params for row_id, row in table.rows.items()})
+    after_first_rotation = json.dumps({row_id: row.hangarllm_params for row_id, row in table.rows.items()})
     await rotate_search_tools_master_key(prisma_client=_prisma_client_over(table), new_master_key=new_key)
 
-    encrypted_params = table.rows["encrypted-id"].litellm_params
+    encrypted_params = table.rows["encrypted-id"].hangarllm_params
     assert decrypt_if_encrypted_with(encrypted_params["api_key"], new_key) == "tvly-new"
     assert encrypted_params["timeout"] == 30
-    assert table.rows["legacy-id"].litellm_params == legacy_params
-    assert table.rows["foreign-id"].litellm_params == {"api_key": foreign_ciphertext}
-    assert json.dumps({row_id: row.litellm_params for row_id, row in table.rows.items()}) == after_first_rotation
+    assert table.rows["legacy-id"].hangarllm_params == legacy_params
+    assert table.rows["foreign-id"].hangarllm_params == {"api_key": foreign_ciphertext}
+    assert json.dumps({row_id: row.hangarllm_params for row_id, row in table.rows.items()}) == after_first_rotation
 
 
 @pytest.mark.asyncio
 async def test_master_key_rotation_keeps_an_edit_made_while_it_runs(master_key_only):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import (
         decrypt_if_encrypted_with,
         encrypt_value_helper,
     )
-    from litellm.proxy.search_endpoints.search_tool_registry import rotate_search_tools_master_key
+    from hangarllm.proxy.search_endpoints.search_tool_registry import rotate_search_tools_master_key
 
     new_key = "sk-new-master-key"
     table = _TableWithEditDuringRotation(
@@ -1484,7 +1484,7 @@ async def test_master_key_rotation_keeps_an_edit_made_while_it_runs(master_key_o
 
     await rotate_search_tools_master_key(prisma_client=_prisma_client_over(table), new_master_key=new_key)
 
-    rotated = table.rows["edited-id"].litellm_params
+    rotated = table.rows["edited-id"].hangarllm_params
     assert decrypt_if_encrypted_with(rotated["api_key"], new_key) == "tvly-after-edit"
     assert rotated["max_results"] == 3
 
@@ -1496,21 +1496,21 @@ class _TableWhoseConditionalWritesNeverMatch(_InMemorySearchToolsTable):
 
 @pytest.mark.asyncio
 async def test_master_key_rotation_leaves_a_row_that_never_matches_and_finishes(salt_key):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-    from litellm.proxy.search_endpoints.search_tool_registry import rotate_search_tools_master_key
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.search_endpoints.search_tool_registry import rotate_search_tools_master_key
 
     stored = {"api_key": encrypt_value_helper("tvly-unmatched")}
     table = _TableWhoseConditionalWritesNeverMatch([_stored_row("unmatched-id", "unmatched", dict(stored))])
 
     await rotate_search_tools_master_key(prisma_client=_prisma_client_over(table), new_master_key="sk-new-master-key")
 
-    assert table.rows["unmatched-id"].litellm_params == stored
+    assert table.rows["unmatched-id"].hangarllm_params == stored
 
 
 @pytest.mark.asyncio
 async def test_master_key_rotation_with_a_salt_key_keeps_search_tools_readable(salt_key, monkeypatch):
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-    from litellm.proxy.search_endpoints.search_tool_registry import (
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.search_endpoints.search_tool_registry import (
         SearchToolRegistry,
         rotate_search_tools_master_key,
     )
@@ -1531,13 +1531,13 @@ async def test_master_key_rotation_with_a_salt_key_keeps_search_tools_readable(s
     monkeypatch.setattr(ps, "master_key", "sk-new-master-key")
 
     loaded = await SearchToolRegistry().get_search_tool_by_id_from_db("salted-id", prisma_client=prisma_client)
-    assert loaded["litellm_params"] == {"search_provider": "tavily", "api_key": "tvly-salted"}
+    assert loaded["hangarllm_params"] == {"search_provider": "tavily", "api_key": "tvly-salted"}
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("legacy_value", ["****", ".", "--", "*"])
 async def test_plaintext_values_that_are_not_base64_load_and_rotate_unchanged(salt_key, legacy_value):
-    from litellm.proxy.search_endpoints.search_tool_registry import (
+    from hangarllm.proxy.search_endpoints.search_tool_registry import (
         SearchToolRegistry,
         rotate_search_tools_master_key,
     )
@@ -1549,15 +1549,15 @@ async def test_plaintext_values_that_are_not_base64_load_and_rotate_unchanged(sa
     loaded = await SearchToolRegistry().get_search_tool_by_id_from_db("legacy-id", prisma_client=prisma_client)
     await rotate_search_tools_master_key(prisma_client=prisma_client, new_master_key="sk-new-master-key")
 
-    assert loaded["litellm_params"] == legacy_params
-    assert table.rows["legacy-id"].litellm_params == legacy_params
+    assert loaded["hangarllm_params"] == legacy_params
+    assert table.rows["legacy-id"].hangarllm_params == legacy_params
 
 
 @pytest.mark.asyncio
 async def test_list_and_info_show_the_loaded_tool_when_db_params_do_not_decrypt(master_key_only):
     """After /key/regenerate rewrites the rows and before a restart, the admin views read the loaded tool."""
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-    from litellm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
+    from hangarllm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from hangarllm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
 
     rewritten_params = {
         "search_provider": encrypt_value_helper("perplexity", new_encryption_key="sk-new-master-key"),
@@ -1568,7 +1568,7 @@ async def test_list_and_info_show_the_loaded_tool_when_db_params_do_not_decrypt(
     loaded_tool = {
         "search_tool_id": "rotated-id",
         "search_tool_name": "rotated",
-        "litellm_params": {
+        "hangarllm_params": {
             "search_provider": "perplexity",
             "api_key": "pplx-loaded-key",
             "api_base": "https://api.perplexity.ai",
@@ -1579,24 +1579,24 @@ async def test_list_and_info_show_the_loaded_tool_when_db_params_do_not_decrypt(
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client", _prisma_client_over(table)
+            "hangarllm.proxy.proxy_server.prisma_client", _prisma_client_over(table)
         ),  # test-quality-ok: proxy globals are the only seam; see the module note above
         patch(
-            "litellm.proxy.proxy_server.llm_router", fake_router
+            "hangarllm.proxy.proxy_server.llm_router", fake_router
         ),  # test-quality-ok: proxy globals are the only seam; see the module note above
         patch(  # test-quality-ok: proxy globals are the only seam; see the module note above
-            "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY", SearchToolRegistry()
+            "hangarllm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY", SearchToolRegistry()
         ),
-        _override_auth(UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user")),
+        _override_auth(UserAPIKeyAuth(user_role=HangarllmUserRoles.PROXY_ADMIN, user_id="admin_user")),
     ):
         listed = TestClient(app).get("/search_tools/list")
         info = TestClient(app).get("/search_tools/rotated-id")
 
     assert listed.status_code == 200
     assert info.status_code == 200
-    listed_params = [tool["litellm_params"] for tool in listed.json()["search_tools"]]
+    listed_params = [tool["hangarllm_params"] for tool in listed.json()["search_tools"]]
     assert [params["search_provider"] for params in listed_params] == ["perplexity"]
-    assert info.json()["litellm_params"]["search_provider"] == "perplexity"
-    assert info.json()["litellm_params"]["api_base"] == listed_params[0]["api_base"] != rewritten_params["api_base"]
+    assert info.json()["hangarllm_params"]["search_provider"] == "perplexity"
+    assert info.json()["hangarllm_params"]["api_base"] == listed_params[0]["api_base"] != rewritten_params["api_base"]
     assert "pplx-loaded-key" not in listed.text + info.text
     assert info.json()["created_at"] == listed.json()["search_tools"][0]["created_at"] == "2026-09-01T00:00:00"

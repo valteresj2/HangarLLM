@@ -7,11 +7,11 @@ import pytest
 import respx
 from pydantic import ValidationError
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.elevenlabs.audio_transcription.transformation import ElevenLabsAudioTranscriptionConfig
-from litellm.llms.elevenlabs.text_to_speech.transformation import ElevenLabsTextToSpeechConfig
-from litellm.types.utils import TranscriptionResponse
+import hangarllm
+from hangarllm.caching.llm_caching_handler import LLMClientCache
+from hangarllm.llms.elevenlabs.audio_transcription.transformation import ElevenLabsAudioTranscriptionConfig
+from hangarllm.llms.elevenlabs.text_to_speech.transformation import ElevenLabsTextToSpeechConfig
+from hangarllm.types.utils import TranscriptionResponse
 from typing import Any, Dict
 from unittest.mock import patch, MagicMock
 
@@ -28,10 +28,10 @@ def elevenlabs_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def _elevenlabs_httpx_transport(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     client_cache: Final = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", client_cache)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
-    monkeypatch.setattr(litellm, "sync_transport", None, raising=False)
+    monkeypatch.setattr(hangarllm, "in_memory_llm_clients_cache", client_cache)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "force_ipv4", False)
+    monkeypatch.setattr(hangarllm, "sync_transport", None, raising=False)
     yield
     client_cache.flush_cache()
 
@@ -183,11 +183,11 @@ class TestElevenLabsAudioTranscription:
             return mock_response
 
         # Mock the HTTPHandler.post method which is what actually makes the request
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from hangarllm.llms.custom_httpx.http_handler import HTTPHandler
 
         with patch.object(HTTPHandler, "post", side_effect=mock_post):
             try:
-                result = litellm.transcription(
+                result = hangarllm.transcription(
                     model="elevenlabs/scribe_v1",
                     file=audio_content,
                     diarize=True,  # This should be passed through to the form data
@@ -294,7 +294,7 @@ class TestElevenLabsTextToSpeechTransformation:
             kwargs=kwargs,
         )
 
-        litellm_params: Dict[str, Any] = {
+        hangarllm_params: Dict[str, Any] = {
             config.ELEVENLABS_VOICE_ID_KEY: voice_id,
             config.ELEVENLABS_QUERY_PARAMS_KEY: kwargs[
                 config.ELEVENLABS_QUERY_PARAMS_KEY
@@ -310,7 +310,7 @@ class TestElevenLabsTextToSpeechTransformation:
             input="Hello world",
             voice=voice_id,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
             headers=headers,
         )
 
@@ -323,7 +323,7 @@ class TestElevenLabsTextToSpeechTransformation:
         url = config.get_complete_url(
             model="eleven_multilingual_v2",
             api_base=None,
-            litellm_params=litellm_params,
+            hangarllm_params=hangarllm_params,
         )
 
         assert voice_id in url

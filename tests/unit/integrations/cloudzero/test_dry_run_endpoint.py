@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 
 
-from litellm.integrations.cloudzero.cloudzero import CloudZeroLogger
+from hangarllm.integrations.cloudzero.cloudzero import CloudZeroLogger
 
 
 class TestCloudZeroDryRunEndpoint:
@@ -46,7 +46,7 @@ class TestCloudZeroDryRunEndpoint:
                 "cost/cost": [0.01, 0.02],
                 "usage/amount": [150, 300],
                 "resource/service": ["openai", "openai"],
-                "resource/account": ["litellm", "litellm"],
+                "resource/account": ["hangarllm", "hangarllm"],
                 "resource/region": ["us-east-1", "us-east-1"],
                 "resource/id": ["gpt-4", "gpt-3.5-turbo"],
                 "entity_type": ["user", "user"],
@@ -60,10 +60,10 @@ class TestCloudZeroDryRunEndpoint:
 
         with (
             patch(
-                "litellm.integrations.cloudzero.database.LiteLLMDatabase"
+                "hangarllm.integrations.cloudzero.database.HangarLLMDatabase"
             ) as mock_db_class,
             patch(
-                "litellm.integrations.cloudzero.transform.CBFTransformer"
+                "hangarllm.integrations.cloudzero.transform.CBFTransformer"
             ) as mock_transformer_class,
         ):
 
@@ -117,7 +117,7 @@ class TestCloudZeroDryRunEndpoint:
         mock_empty_data = pl.DataFrame()
 
         with patch(
-            "litellm.integrations.cloudzero.database.LiteLLMDatabase"
+            "hangarllm.integrations.cloudzero.database.HangarLLMDatabase"
         ) as mock_db_class:
 
             # Setup mocks

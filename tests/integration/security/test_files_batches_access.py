@@ -32,12 +32,12 @@ from openai import OpenAI, PermissionDeniedError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 from typing_extensions import assert_never
 
-from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+from hangarllm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
-MANAGED_FILE_ROW: Final = 'SELECT model_mappings, flat_model_file_ids, created_by, team_id FROM "LiteLLM_ManagedFileTable" WHERE unified_file_id = %s'
+MANAGED_FILE_ROW: Final = 'SELECT model_mappings, flat_model_file_ids, created_by, team_id FROM "HangarLLM_ManagedFileTable" WHERE unified_file_id = %s'
 INPUT_FILENAME: Final = "in.jsonl"
-MANAGED_PREFIX: Final = "litellm_proxy:"
+MANAGED_PREFIX: Final = "hangarllm_proxy:"
 BUCKET: Final = "integration-delete-bucket"
 VERTEX_PROJECT: Final = "files-batches-delete-project"
 VERTEX_LOCATION: Final = "us-central1"
@@ -345,7 +345,7 @@ def _forbidden_surface_request(
                 "/v1/files",
                 data={"purpose": "batch"},
                 files={"file": (INPUT_FILENAME, _jsonl(forbidden), "application/jsonl")},
-                headers={"Authorization": f"Bearer {caller_key}", "x-litellm-model": forbidden},
+                headers={"Authorization": f"Bearer {caller_key}", "x-hangarllm-model": forbidden},
             )
         case "batch_encoded_input":
             return gateway.request(
@@ -384,7 +384,7 @@ def _forbidden_surface_request(
                 "/v1/batches",
                 {"input_file_id": raw_file, "endpoint": "/v1/chat/completions", "completion_window": "24h"},
                 key=caller_key,
-                headers={"x-litellm-model": forbidden},
+                headers={"x-hangarllm-model": forbidden},
             )
         case "file_get_encoded":
             return gateway.request("GET", f"/v1/files/{encoded_file}", key=caller_key)
@@ -392,7 +392,7 @@ def _forbidden_surface_request(
             return gateway.request("GET", f"/v1/files/{raw_file}", key=caller_key, params={"model": forbidden})
         case "file_get_header":
             return gateway.request(
-                "GET", f"/v1/files/{raw_file}", key=caller_key, headers={"x-litellm-model": forbidden}
+                "GET", f"/v1/files/{raw_file}", key=caller_key, headers={"x-hangarllm-model": forbidden}
             )
         case "file_content_encoded":
             return gateway.request("GET", f"/v1/files/{encoded_file}/content", key=caller_key)
@@ -402,7 +402,7 @@ def _forbidden_surface_request(
             )
         case "file_content_header":
             return gateway.request(
-                "GET", f"/v1/files/{raw_file}/content", key=caller_key, headers={"x-litellm-model": forbidden}
+                "GET", f"/v1/files/{raw_file}/content", key=caller_key, headers={"x-hangarllm-model": forbidden}
             )
         case "batch_get_encoded":
             return gateway.request("GET", f"/v1/batches/{encoded_batch}", key=caller_key)
@@ -410,7 +410,7 @@ def _forbidden_surface_request(
             return gateway.request("GET", f"/v1/batches/{raw_batch}", key=caller_key, params={"model": forbidden})
         case "batch_get_header":
             return gateway.request(
-                "GET", f"/v1/batches/{raw_batch}", key=caller_key, headers={"x-litellm-model": forbidden}
+                "GET", f"/v1/batches/{raw_batch}", key=caller_key, headers={"x-hangarllm-model": forbidden}
             )
         case _:
             assert_never(surface)
@@ -666,14 +666,14 @@ def test_non_admin_cannot_delete_a_raw_s3_uri(gateway: Gateway) -> None:
         _wait_until_every_worker_serves(gateway, model)
         caller_user: Final = scenario.user(user_role="internal_user")
         caller_key: Final = scenario.key(user_id=caller_user, models=[model])
-        object_uri: Final = f"s3://{BUCKET}/litellm-bedrock-files-obj.jsonl"
+        object_uri: Final = f"s3://{BUCKET}/hangarllm-bedrock-files-obj.jsonl"
         provider_path: Final = "/bedrock/v1/files/" + quote(object_uri, safe="")
 
         denied: Final = gateway.request("DELETE", provider_path, key=caller_key, params={"model": model})
         assert denied.status_code == 403, denied.text
         assert _error_message(denied, 403) == (
             "Raw cloud storage file ids can only be deleted by a proxy admin key. "
-            "Use the LiteLLM managed file id returned when the file was created."
+            "Use the HangarLLM managed file id returned when the file was created."
         ), denied.text
         assert _drained_other_than_model_list_probes(wire) == (), (
             "non-admin cloud-storage delete reached the storage backend"
@@ -696,7 +696,7 @@ def test_non_admin_cannot_delete_a_raw_gcs_uri_before_vertex_auth_or_storage(gat
         _wait_until_every_worker_serves(gateway, model)
         caller_user: Final = scenario.user(user_role="internal_user")
         caller_key: Final = scenario.key(user_id=caller_user, models=[model])
-        object_uri: Final = f"gs://{BUCKET}/litellm-vertex-files/litellm-vertex-files-obj.jsonl"
+        object_uri: Final = f"gs://{BUCKET}/hangarllm-vertex-files/hangarllm-vertex-files-obj.jsonl"
         token_wire.drain()
 
         denied: Final = gateway.request(
@@ -709,7 +709,7 @@ def test_non_admin_cannot_delete_a_raw_gcs_uri_before_vertex_auth_or_storage(gat
         assert denied.status_code == 403, f"{denied.text}; token requests={token_requests}"
         assert _error_message(denied, 403) == (
             "Raw cloud storage file ids can only be deleted by a proxy admin key. "
-            "Use the LiteLLM managed file id returned when the file was created."
+            "Use the HangarLLM managed file id returned when the file was created."
         ), denied.text
         assert token_requests == (), "non-admin raw GCS delete reached the Vertex token endpoint"
 
@@ -754,7 +754,7 @@ def test_non_admin_cannot_reach_vertex_with_a_twice_encoded_raw_gcs_uri(
         _wait_until_every_worker_serves(gateway, model)
         caller_user: Final = scenario.user(user_role="internal_user")
         caller_key: Final = scenario.key(user_id=caller_user, models=[model])
-        object_uri: Final = f"gs://{BUCKET}/litellm-vertex-files/litellm-vertex-files-obj.jsonl"
+        object_uri: Final = f"gs://{BUCKET}/hangarllm-vertex-files/hangarllm-vertex-files-obj.jsonl"
         twice_encoded: Final = quote(quote(object_uri, safe=""), safe="")
         token_wire.drain()
 
@@ -765,7 +765,7 @@ def test_non_admin_cannot_reach_vertex_with_a_twice_encoded_raw_gcs_uri(
         assert denied.status_code == 403, f"{denied.text}; token requests={token_requests}"
         assert _error_message(denied, 403) == (
             f"Raw cloud storage file ids can only be {verb} by a proxy admin key. "
-            "Use the LiteLLM managed file id returned when the file was created."
+            "Use the HangarLLM managed file id returned when the file was created."
         ), denied.text
         assert token_requests == (), f"non-admin twice-encoded raw GCS {method} reached the Vertex token endpoint"
 
@@ -798,7 +798,7 @@ def test_proxy_admin_deletes_a_raw_s3_uri_with_one_signed_delete(gateway: Gatewa
     with wire_server(_s3_backend()) as wire, gateway.scenario() as scenario:
         model: Final = _bedrock_model(scenario, wire)
         _wait_until_every_worker_serves(gateway, model)
-        object_uri: Final = f"s3://{BUCKET}/litellm-bedrock-files-obj.jsonl"
+        object_uri: Final = f"s3://{BUCKET}/hangarllm-bedrock-files-obj.jsonl"
         encoded_path: Final = "/v1/files/" + quote(object_uri, safe="")
 
         deleted: Final = gateway.request("DELETE", encoded_path, params={"model": model})
@@ -806,7 +806,7 @@ def test_proxy_admin_deletes_a_raw_s3_uri_with_one_signed_delete(gateway: Gatewa
         parsed: Final = _FileDeleted.model_validate_json(deleted.content)
         assert parsed.deleted is True and parsed.id == object_uri, deleted.text
         (request,) = _drained_other_than_model_list_probes(wire)
-        assert request.target == f"/{BUCKET}/litellm-bedrock-files-obj.jsonl", request.target
+        assert request.target == f"/{BUCKET}/hangarllm-bedrock-files-obj.jsonl", request.target
         _assert_signed_empty_body_s3_request(request, "DELETE", wire.url)
 
 
@@ -820,7 +820,7 @@ def test_proxy_admin_reads_a_raw_s3_uri_with_one_signed_get(gateway: Gateway) ->
     with wire_server(_s3_object_backend) as wire, gateway.scenario() as scenario:
         model: Final = _bedrock_model(scenario, wire)
         _wait_until_every_worker_serves(gateway, model)
-        object_key: Final = f"litellm-batch-outputs/{uuid.uuid4().hex}.jsonl.out"
+        object_key: Final = f"hangarllm-batch-outputs/{uuid.uuid4().hex}.jsonl.out"
         object_uri: Final = f"s3://{BUCKET}/{object_key}"
 
         read: Final = gateway.request(
@@ -903,7 +903,7 @@ def test_proxy_admin_deletes_a_raw_gcs_uri_with_one_authorized_storage_delete(
     gateway: Gateway, tmp_path: Path
 ) -> None:
     cert_file, key_file = write_self_signed_cert(tmp_path, (GCS_HOST,))
-    object_name: Final = f"litellm-vertex-files/admin-{uuid.uuid4().hex}.jsonl"
+    object_name: Final = f"hangarllm-vertex-files/admin-{uuid.uuid4().hex}.jsonl"
     object_uri: Final = f"gs://{BUCKET}/{object_name}"
     with (
         wire_server(_granting_vertex_token_backend) as token_wire,

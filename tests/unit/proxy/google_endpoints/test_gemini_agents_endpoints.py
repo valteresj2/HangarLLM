@@ -1,9 +1,9 @@
 """
-Unit tests for litellm/proxy/google_endpoints/agents_endpoints.py
+Unit tests for hangarllm/proxy/google_endpoints/agents_endpoints.py
 
 Focus: verify that list_gemini_agents, get_gemini_agent, delete_gemini_agent,
 and list_gemini_agent_versions correctly forward per-request credentials
-(api_key, api_base, …) supplied via the JSON-encoded litellm_params_template
+(api_key, api_base, …) supplied via the JSON-encoded hangarllm_params_template
 query parameter.  Flat credential query params (e.g. ?api_key=…) are no
 longer accepted — they would appear in server logs.
 """
@@ -22,7 +22,7 @@ from fastapi.datastructures import Headers, QueryParams
 from fastapi.testclient import TestClient
 
 
-from litellm.proxy.google_endpoints.agents_endpoints import (
+from hangarllm.proxy.google_endpoints.agents_endpoints import (
     _merge_query_params_into_data,
 )
 
@@ -68,49 +68,49 @@ class TestMergeQueryParamsIntoData:
         assert data["name"] == "my-agent"
         assert "api_key" not in data
 
-    def test_litellm_params_template_json_is_expanded(self):
+    def test_hangarllm_params_template_json_is_expanded(self):
         template = json.dumps({"api_key": "AIzaFromTemplate", "api_base": "https://example.com"})
         from urllib.parse import quote
 
-        request = _make_request(f"litellm_params_template={quote(template)}")
+        request = _make_request(f"hangarllm_params_template={quote(template)}")
         data = {"custom_llm_provider": "gemini"}
         _merge_query_params_into_data(data, request)
         assert data["api_key"] == "AIzaFromTemplate"
         assert data["api_base"] == "https://example.com"
         # The raw template key itself must NOT appear in data
-        assert "litellm_params_template" not in data
+        assert "hangarllm_params_template" not in data
 
-    def test_litellm_params_template_does_not_overwrite_existing(self):
+    def test_hangarllm_params_template_does_not_overwrite_existing(self):
         template = json.dumps({"api_key": "FromTemplate", "custom_llm_provider": "openai"})
         from urllib.parse import quote
 
-        request = _make_request(f"litellm_params_template={quote(template)}")
+        request = _make_request(f"hangarllm_params_template={quote(template)}")
         data = {"custom_llm_provider": "gemini"}
         _merge_query_params_into_data(data, request)
         # custom_llm_provider was already set; template must not override it
         assert data["custom_llm_provider"] == "gemini"
         assert data["api_key"] == "FromTemplate"
 
-    def test_invalid_litellm_params_template_json_is_ignored(self):
-        request = _make_request("litellm_params_template=NOT_VALID_JSON")
+    def test_invalid_hangarllm_params_template_json_is_ignored(self):
+        request = _make_request("hangarllm_params_template=NOT_VALID_JSON")
         data = {"custom_llm_provider": "gemini"}
         _merge_query_params_into_data(data, request)
         # Bad JSON is silently skipped; other data stays intact
         assert data == {"custom_llm_provider": "gemini"}
 
     def test_template_only_no_flat_params_merged(self):
-        """Only litellm_params_template is expanded; unknown flat params are dropped."""
+        """Only hangarllm_params_template is expanded; unknown flat params are dropped."""
         template = json.dumps({"api_key": "FromTemplate"})
         from urllib.parse import quote
 
-        qs = f"litellm_params_template={quote(template)}&vertex_project=my-project"
+        qs = f"hangarllm_params_template={quote(template)}&vertex_project=my-project"
         request = _make_request(qs)
         data = {"custom_llm_provider": "gemini"}
         _merge_query_params_into_data(data, request)
         assert data["api_key"] == "FromTemplate"
-        # flat vertex_project is ignored since it wasn't in litellm_params_template
+        # flat vertex_project is ignored since it wasn't in hangarllm_params_template
         assert "vertex_project" not in data
-        assert "litellm_params_template" not in data
+        assert "hangarllm_params_template" not in data
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ def mock_srv():
         "version": "0.0.0",
     }
     with patch(
-        "litellm.proxy.google_endpoints.agents_endpoints._proxy_server_imports",
+        "hangarllm.proxy.google_endpoints.agents_endpoints._proxy_server_imports",
         return_value=srv,
     ):
         yield srv
@@ -143,7 +143,7 @@ def mock_srv():
 
 @pytest.fixture
 def user_api_key_dict():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from hangarllm.proxy._types import UserAPIKeyAuth
 
     return UserAPIKeyAuth(api_key="test-key")
 
@@ -165,15 +165,15 @@ def _make_endpoint_request(query_string: str = "") -> MagicMock:
 async def test_list_gemini_agents_passes_api_key_to_processor(mock_srv, user_api_key_dict):
     from urllib.parse import quote
 
-    from litellm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
+    from hangarllm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
 
     template = json.dumps({"api_key": "AIzaListTest"})
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
-        request = _make_endpoint_request(f"litellm_params_template={quote(template)}")
+        request = _make_endpoint_request(f"hangarllm_params_template={quote(template)}")
         await list_gemini_agents(
             request=request,
             fastapi_response=MagicMock(),
@@ -189,15 +189,15 @@ async def test_list_gemini_agents_passes_api_key_to_processor(mock_srv, user_api
 async def test_get_gemini_agent_passes_api_key_to_processor(mock_srv, user_api_key_dict):
     from urllib.parse import quote
 
-    from litellm.proxy.google_endpoints.agents_endpoints import get_gemini_agent
+    from hangarllm.proxy.google_endpoints.agents_endpoints import get_gemini_agent
 
     template = json.dumps({"api_key": "AIzaGetTest"})
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
-        request = _make_endpoint_request(f"litellm_params_template={quote(template)}")
+        request = _make_endpoint_request(f"hangarllm_params_template={quote(template)}")
         await get_gemini_agent(
             request=request,
             name="my-agent",
@@ -215,15 +215,15 @@ async def test_get_gemini_agent_passes_api_key_to_processor(mock_srv, user_api_k
 async def test_delete_gemini_agent_passes_api_key_to_processor(mock_srv, user_api_key_dict):
     from urllib.parse import quote
 
-    from litellm.proxy.google_endpoints.agents_endpoints import delete_gemini_agent
+    from hangarllm.proxy.google_endpoints.agents_endpoints import delete_gemini_agent
 
     template = json.dumps({"api_key": "AIzaDeleteTest"})
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
-        request = _make_endpoint_request(f"litellm_params_template={quote(template)}")
+        request = _make_endpoint_request(f"hangarllm_params_template={quote(template)}")
         await delete_gemini_agent(
             request=request,
             name="my-agent",
@@ -241,17 +241,17 @@ async def test_delete_gemini_agent_passes_api_key_to_processor(mock_srv, user_ap
 async def test_list_gemini_agent_versions_passes_api_key_to_processor(mock_srv, user_api_key_dict):
     from urllib.parse import quote
 
-    from litellm.proxy.google_endpoints.agents_endpoints import (
+    from hangarllm.proxy.google_endpoints.agents_endpoints import (
         list_gemini_agent_versions,
     )
 
     template = json.dumps({"api_key": "AIzaVersionsTest"})
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
-        request = _make_endpoint_request(f"litellm_params_template={quote(template)}")
+        request = _make_endpoint_request(f"hangarllm_params_template={quote(template)}")
         await list_gemini_agent_versions(
             request=request,
             name="my-agent",
@@ -270,9 +270,9 @@ async def test_get_gemini_agent_name_not_overwritten_by_query_param(mock_srv, us
     """Path-param ``name`` must not be replaced by an attacker-controlled query param."""
     from urllib.parse import quote
 
-    from litellm.proxy.google_endpoints.agents_endpoints import get_gemini_agent
+    from hangarllm.proxy.google_endpoints.agents_endpoints import get_gemini_agent
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
@@ -281,7 +281,7 @@ async def test_get_gemini_agent_name_not_overwritten_by_query_param(mock_srv, us
         # ``api_key`` is supplied via the JSON template (required for non-admin
         # callers — see test_*_non_admin_without_api_key_is_rejected below).
         template = json.dumps({"api_key": "AIzaTest"})
-        request = _make_endpoint_request(f"name=INJECTED&litellm_params_template={quote(template)}")
+        request = _make_endpoint_request(f"name=INJECTED&hangarllm_params_template={quote(template)}")
         await get_gemini_agent(
             request=request,
             name="real-agent",
@@ -295,17 +295,17 @@ async def test_get_gemini_agent_name_not_overwritten_by_query_param(mock_srv, us
 
 @pytest.mark.asyncio
 async def test_list_agents_template_via_query_param(mock_srv, user_api_key_dict):
-    """litellm_params_template in query string is expanded."""
-    from litellm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
+    """hangarllm_params_template in query string is expanded."""
+    from hangarllm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
     from urllib.parse import quote
 
     template = json.dumps({"api_key": "TemplateKey", "vertex_project": "proj-x"})
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
-        request = _make_endpoint_request(f"litellm_params_template={quote(template)}")
+        request = _make_endpoint_request(f"hangarllm_params_template={quote(template)}")
         await list_gemini_agents(
             request=request,
             fastapi_response=MagicMock(),
@@ -315,7 +315,7 @@ async def test_list_agents_template_via_query_param(mock_srv, user_api_key_dict)
         init_data = MockProcessor.call_args[1]["data"]
         assert init_data["api_key"] == "TemplateKey"
         assert init_data["vertex_project"] == "proj-x"
-        assert "litellm_params_template" not in init_data
+        assert "hangarllm_params_template" not in init_data
 
 
 # ---------------------------------------------------------------------------
@@ -325,11 +325,11 @@ async def test_list_agents_template_via_query_param(mock_srv, user_api_key_dict)
 
 @pytest.fixture
 def proxy_admin_user_api_key_dict():
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
 
     return UserAPIKeyAuth(
         api_key="sk-admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=HangarllmUserRoles.PROXY_ADMIN,
     )
 
 
@@ -340,9 +340,9 @@ async def test_list_agents_non_admin_without_api_key_is_rejected(mock_srv, user_
     """
     from fastapi import HTTPException
 
-    from litellm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
+    from hangarllm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
@@ -362,9 +362,9 @@ async def test_list_agents_non_admin_without_api_key_is_rejected(mock_srv, user_
 async def test_delete_agent_non_admin_without_api_key_is_rejected(mock_srv, user_api_key_dict):
     from fastapi import HTTPException
 
-    from litellm.proxy.google_endpoints.agents_endpoints import delete_gemini_agent
+    from hangarllm.proxy.google_endpoints.agents_endpoints import delete_gemini_agent
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
@@ -384,12 +384,12 @@ async def test_delete_agent_non_admin_without_api_key_is_rejected(mock_srv, user
 async def test_create_agent_non_admin_without_api_key_is_rejected(mock_srv, user_api_key_dict):
     from fastapi import HTTPException
 
-    from litellm.proxy.google_endpoints.agents_endpoints import create_gemini_agent
+    from hangarllm.proxy.google_endpoints.agents_endpoints import create_gemini_agent
 
     with (
-        patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor,
+        patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor,
         patch(
-            "litellm.proxy.google_endpoints.agents_endpoints.read_request_body",
+            "hangarllm.proxy.google_endpoints.agents_endpoints.read_request_body",
             new=AsyncMock(return_value={"name": "agent-1", "base_agent": "waverunner"}),
         ),
     ):
@@ -410,9 +410,9 @@ async def test_create_agent_non_admin_without_api_key_is_rejected(mock_srv, user
 @pytest.mark.asyncio
 async def test_list_agents_proxy_admin_may_use_env_fallback(mock_srv, proxy_admin_user_api_key_dict):
     """Proxy admins (master key) keep the env-fallback convenience."""
-    from litellm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
+    from hangarllm.proxy.google_endpoints.agents_endpoints import list_gemini_agents
 
-    with patch("litellm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
+    with patch("hangarllm.proxy.google_endpoints.agents_endpoints.ProxyBaseLLMRequestProcessing") as MockProcessor:
         instance = MockProcessor.return_value
         instance.base_process_llm_request = AsyncMock(return_value=MagicMock())
 
@@ -435,7 +435,7 @@ def test_validate_environment_rejects_api_base_override_without_explicit_key(
     api_key — otherwise the proxy's shared GOOGLE_API_KEY leaks to the
     attacker-controlled host via the x-goog-api-key header.
     """
-    from litellm.llms.gemini.agents.transformation import GeminiAgentsConfig
+    from hangarllm.llms.gemini.agents.transformation import GeminiAgentsConfig
 
     # Even if env-fallback is available, api_base override must require api_key.
     monkeypatch.setenv("GOOGLE_API_KEY", "AIzaSharedSecret")
@@ -444,13 +444,13 @@ def test_validate_environment_rejects_api_base_override_without_explicit_key(
     with pytest.raises(ValueError, match="api_base"):
         cfg.validate_environment(
             headers={},
-            litellm_params={"api_base": "https://attacker.example"},
+            hangarllm_params={"api_base": "https://attacker.example"},
         )
 
 
 def test_validate_environment_allows_api_base_with_explicit_key(monkeypatch):
     """api_base override is OK when paired with an explicit api_key."""
-    from litellm.llms.gemini.agents.transformation import GeminiAgentsConfig
+    from hangarllm.llms.gemini.agents.transformation import GeminiAgentsConfig
 
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
@@ -458,7 +458,7 @@ def test_validate_environment_allows_api_base_with_explicit_key(monkeypatch):
     cfg = GeminiAgentsConfig()
     headers = cfg.validate_environment(
         headers={},
-        litellm_params={
+        hangarllm_params={
             "api_base": "https://my-gemini-proxy.example",
             "api_key": "AIzaCallerOwned",
         },
@@ -468,13 +468,13 @@ def test_validate_environment_allows_api_base_with_explicit_key(monkeypatch):
 
 def test_validate_environment_env_fallback_when_no_api_base_override(monkeypatch):
     """Without api_base override, env fallback continues to work for SDK use."""
-    from litellm.llms.gemini.agents.transformation import GeminiAgentsConfig
+    from hangarllm.llms.gemini.agents.transformation import GeminiAgentsConfig
 
     monkeypatch.setenv("GOOGLE_API_KEY", "AIzaFromEnv")
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     cfg = GeminiAgentsConfig()
-    headers = cfg.validate_environment(headers={}, litellm_params={})
+    headers = cfg.validate_environment(headers={}, hangarllm_params={})
     assert headers["x-goog-api-key"] == "AIzaFromEnv"
 
 
@@ -483,9 +483,9 @@ _PROXY_CONFIG: Final = Path(__file__).resolve().parents[1] / "test_configs" / "t
 
 @pytest.fixture
 def proxy_client(monkeypatch: pytest.MonkeyPatch, httpx_transport: None) -> TestClient:
-    from litellm.proxy.proxy_server import app, cleanup_router_config_variables, initialize
+    from hangarllm.proxy.proxy_server import app, cleanup_router_config_variables, initialize
 
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("HANGARLLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
     cleanup_router_config_variables()
     asyncio.run(initialize(config=str(_PROXY_CONFIG)))
     return TestClient(app)
@@ -507,7 +507,7 @@ def test_create_agent_route_forwards_googles_create_body(proxy_client: TestClien
 
     response: Final = proxy_client.post(
         "/v1beta/agents",
-        json={**google_body, "litellm_params_template": {"api_key": "AIza-caller"}},
+        json={**google_body, "hangarllm_params_template": {"api_key": "AIza-caller"}},
     )
 
     assert response.status_code == 200, response.text

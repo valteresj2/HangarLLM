@@ -8,11 +8,11 @@ from typing import Final, cast
 import pytest
 import pytest_asyncio
 
-import litellm
-from litellm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
-from litellm.integrations.posthog import PostHogLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.utils import StandardLoggingPayload
+import hangarllm
+from hangarllm.constants import LOGGING_WORKER_MAX_TIME_PER_COROUTINE
+from hangarllm.integrations.posthog import PostHogLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.types.utils import StandardLoggingPayload
 from tests._vcr_conftest_common import install_live_call_probe, record_vcr_outcome
 
 
@@ -142,7 +142,7 @@ async def test_distinct_id_fallback_chain():
     standard_payload = create_standard_logging_payload()
     kwargs = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {"metadata": {"user_id": "metadata-user-123"}},
+        "hangarllm_params": {"metadata": {"user_id": "metadata-user-123"}},
     }
 
     distinct_id = posthog_logger._get_distinct_id(standard_payload, kwargs)
@@ -190,7 +190,7 @@ async def test_custom_metadata_support():
 
     kwargs = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "user_id": "user-123",  # should be used for distinct_id, not custom property
                 "project_name": "test_project",  # should appear as project_name
@@ -214,13 +214,13 @@ async def test_custom_metadata_support():
 
 @pytest.mark.asyncio
 async def test_custom_metadata_filters_internal_fields():
-    """Test that LiteLLM internal fields are filtered out from custom metadata"""
+    """Test that HangarLLM internal fields are filtered out from custom metadata"""
     posthog_logger = PostHogLogger()
     standard_payload = create_standard_logging_payload()
 
     kwargs = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "custom_field": "should_appear",
                 "endpoint": "/chat/completions",  # internal field - should be filtered
@@ -249,7 +249,7 @@ async def test_custom_metadata_with_no_metadata():
     posthog_logger = PostHogLogger()
     standard_payload = create_standard_logging_payload()
 
-    # Test with no litellm_params
+    # Test with no hangarllm_params
     kwargs = {"standard_logging_object": standard_payload}
     event_payload = posthog_logger.create_posthog_event_payload(kwargs)
 
@@ -260,7 +260,7 @@ async def test_custom_metadata_with_no_metadata():
     # Test with empty metadata
     kwargs = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {"metadata": {}},
+        "hangarllm_params": {"metadata": {}},
     }
     event_payload = posthog_logger.create_posthog_event_payload(kwargs)
 
@@ -272,7 +272,7 @@ async def test_custom_metadata_with_no_metadata():
 @pytest.mark.asyncio
 async def test_dynamic_credentials():
     """Test that per-request credentials override environment variables"""
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from hangarllm.types.utils import StandardCallbackDynamicParams
 
     posthog_logger = PostHogLogger()
 
@@ -318,7 +318,7 @@ def test_async_callback_atexit_handler_exists():
     """
     import atexit
 
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     # Verify GLOBAL_LOGGING_WORKER has _flush_on_exit method
     assert hasattr(GLOBAL_LOGGING_WORKER, "_flush_on_exit"), "GLOBAL_LOGGING_WORKER should have _flush_on_exit method"
@@ -409,7 +409,7 @@ async def test_safe_dumps_serialization_in_sync_log():
 
     kwargs = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 # This custom key would leak a non-serializable object into
                 # the PostHog properties dict:
@@ -453,7 +453,7 @@ async def test_safe_dumps_serialization_in_async_send_batch():
 
     kwargs = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "custom_auth_obj": FakeNonSerializable(),
             }
@@ -502,7 +502,7 @@ async def test_safe_dumps_serialization_in_flush_on_exit():
 
     kwargs = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {
+        "hangarllm_params": {
             "metadata": {
                 "custom_auth_obj": FakeNonSerializable(),
             }
@@ -578,7 +578,7 @@ def _vcr_outcome_gate(request, vcr):
 
 
 @pytest_asyncio.fixture(loop_scope="function", autouse=True)
-async def drain_logging_worker(isolate_litellm_state: None) -> AsyncIterator[None]:
+async def drain_logging_worker(isolate_hangarllm_state: None) -> AsyncIterator[None]:
     yield
     await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS)
 
@@ -587,41 +587,41 @@ LOGGING_WORKER_DRAIN_TIMEOUT_SECONDS: Final = LOGGING_WORKER_MAX_TIME_PER_COROUT
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_hangarllm_state():
     """
     Per-function isolation fixture.
 
-    Resets litellm state to the true defaults captured at conftest import time,
+    Resets hangarllm state to the true defaults captured at conftest import time,
     then restores after the test. This prevents module-level mutations (e.g.
-    `litellm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
+    `hangarllm.num_retries = 3` at the top of test_langfuse_e2e_test.py) from
     leaking across tests within the same xdist worker.
     """
-    from litellm.litellm_core_utils import litellm_logging as ll_logging
-    from litellm.proxy.management_helpers import audit_logs as ll_audit_logs
+    from hangarllm.hangarllm_core_utils import hangarllm_logging as ll_logging
+    from hangarllm.proxy.management_helpers import audit_logs as ll_audit_logs
 
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
     yield
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+        hangarllm.in_memory_llm_clients_cache.flush_cache()
     ll_logging._in_memory_loggers.clear()
     ll_audit_logs._audit_log_callback_cache.clear()
     for attr in _LIST_ATTRS:
         if attr in _DEFAULTS:
             default = _DEFAULTS[attr]
-            setattr(litellm, attr, default.copy() if isinstance(default, list) else default)
+            setattr(hangarllm, attr, default.copy() if isinstance(default, list) else default)
     for attr in _SCALAR_ATTRS:
         if attr in _DEFAULTS:
-            setattr(litellm, attr, _DEFAULTS[attr])
+            setattr(hangarllm, attr, _DEFAULTS[attr])
 
 
 _LIST_ATTRS = (
@@ -655,21 +655,21 @@ _DEFAULTS: dict = {}
 @pytest.fixture(scope="module", autouse=True)
 def setup_and_teardown():
     """
-    Module-scoped setup. Reloads litellm only in single-process mode
+    Module-scoped setup. Reloads hangarllm only in single-process mode
     (skipped under xdist to avoid cross-worker interference).
     """
-    import litellm
+    import hangarllm
 
     worker_id = os_posthog.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
-        importlib.reload(litellm)
+        importlib.reload(hangarllm)
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(hangarllm, "proxy") and hasattr(hangarllm.proxy, "proxy_server"):
+                import hangarllm.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(hangarllm.proxy.proxy_server)
         except Exception:
             pass
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(hangarllm, "in_memory_llm_clients_cache"):
+            hangarllm.in_memory_llm_clients_cache.flush_cache()
     yield

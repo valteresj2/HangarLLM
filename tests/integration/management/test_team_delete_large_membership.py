@@ -24,7 +24,7 @@ import yaml
 from pydantic import JsonValue
 from redis import Redis
 
-from litellm.constants import TEAM_DELETE_TRANSACTION_TIMEOUT_SECONDS
+from hangarllm.constants import TEAM_DELETE_TRANSACTION_TIMEOUT_SECONDS
 from tests.integration._support.client import (
     Gateway,
     Scenario,
@@ -40,7 +40,7 @@ LARGE_ROSTER: Final = 250
 POOL_LIMIT: Final = 5
 # One statement seeds the whole roster: 250 individual /user/new calls would dominate the runtime.
 SEED_USERS_SQL: Final = """
-INSERT INTO "LiteLLM_UserTable" (user_id, user_role, teams, models)
+INSERT INTO "HangarLLM_UserTable" (user_id, user_role, teams, models)
 SELECT %s || '-' || lpad(n::text, 3, '0'), 'internal_user', '{}'::text[], '{}'::text[]
 FROM generate_series(1, %s::int) AS n
 """
@@ -49,12 +49,12 @@ FROM generate_series(1, %s::int) AS n
 PROXY_ADMIN: Final = "default_user_id"
 KEYS_WELL_PAST_THE_PUBLISH_CAP: Final = 2500
 SEED_TEAM_KEYS_SQL: Final = """
-INSERT INTO "LiteLLM_VerificationToken" (token, team_id, models)
+INSERT INTO "HangarLLM_VerificationToken" (token, team_id, models)
 SELECT encode(sha256(convert_to(%s || '-' || n::text, 'UTF8')), 'hex'), %s, '{}'::text[]
 FROM generate_series(1, %s::int) AS n
 """
 TAKE_TEAM_LOCK_SQL: Final = "SELECT pg_advisory_xact_lock(hashtext(%s))"
-LOCK_MODEL_ROW_SQL: Final = 'SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s FOR UPDATE'
+LOCK_MODEL_ROW_SQL: Final = 'SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s FOR UPDATE'
 LOCK_HELD_PAST_DEFAULT_TRANSACTION_SECONDS: Final = 7
 OLDEST_TRANSACTION_BLOCKED_BY_SQL: Final = """
 SELECT coalesce(max(extract(epoch FROM clock_timestamp() - xact_start)), 0)::float AS age
@@ -83,47 +83,47 @@ def _hashed(key: str) -> str:
 
 
 def _team_rows(team_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    return read_rows('SELECT team_id FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
 
 
 def _membership_user_ids(team_id: str) -> list[JsonValue]:
     rows: Final = read_rows(
-        'SELECT user_id FROM "LiteLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id', (team_id,)
+        'SELECT user_id FROM "HangarLLM_TeamMembership" WHERE team_id = %s ORDER BY user_id', (team_id,)
     )
     return [row["user_id"] for row in rows]
 
 
 def _user_teams(user_id: str) -> JsonValue:
-    rows: Final = read_rows('SELECT teams FROM "LiteLLM_UserTable" WHERE user_id = %s', (user_id,))
+    rows: Final = read_rows('SELECT teams FROM "HangarLLM_UserTable" WHERE user_id = %s', (user_id,))
     assert len(rows) == 1, f"user row for {user_id}: {rows}"
     return rows[0]["teams"]
 
 
 def _users_referencing(team_id: str) -> list[JsonValue]:
     rows: Final = read_rows(
-        'SELECT user_id FROM "LiteLLM_UserTable" WHERE %s = ANY(teams) ORDER BY user_id', (team_id,)
+        'SELECT user_id FROM "HangarLLM_UserTable" WHERE %s = ANY(teams) ORDER BY user_id', (team_id,)
     )
     return [row["user_id"] for row in rows]
 
 
 def _user_ids_with_prefix(prefix: str) -> list[JsonValue]:
     rows: Final = read_rows(
-        'SELECT user_id FROM "LiteLLM_UserTable" WHERE user_id LIKE %s ORDER BY user_id', (f"{prefix}-%",)
+        'SELECT user_id FROM "HangarLLM_UserTable" WHERE user_id LIKE %s ORDER BY user_id', (f"{prefix}-%",)
     )
     return [row["user_id"] for row in rows]
 
 
 def _live_token(hashed: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT token, team_id FROM "LiteLLM_VerificationToken" WHERE token = %s', (hashed,))
+    return read_rows('SELECT token, team_id FROM "HangarLLM_VerificationToken" WHERE token = %s', (hashed,))
 
 
 def _deleted_token(hashed: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT token, team_id FROM "LiteLLM_DeletedVerificationToken" WHERE token = %s', (hashed,))
+    return read_rows('SELECT token, team_id FROM "HangarLLM_DeletedVerificationToken" WHERE token = %s', (hashed,))
 
 
 def _tombstones(team_id: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT team_id, members_with_roles FROM "LiteLLM_DeletedTeamTable" WHERE team_id = %s', (team_id,)
+        'SELECT team_id, members_with_roles FROM "HangarLLM_DeletedTeamTable" WHERE team_id = %s', (team_id,)
     )
 
 
@@ -134,7 +134,7 @@ def _roster_user_ids(roster: JsonValue) -> list[str]:
 
 def _deleted_audit_rows(object_id: str, table_name: str) -> list[dict[str, JsonValue]]:
     return read_rows(
-        'SELECT before_value FROM "LiteLLM_AuditLog" WHERE object_id = %s AND table_name = %s AND action = %s',
+        'SELECT before_value FROM "HangarLLM_AuditLog" WHERE object_id = %s AND table_name = %s AND action = %s',
         (object_id, table_name, "deleted"),
     )
 
@@ -159,11 +159,11 @@ def _remove_team_by_sql(team_id: str) -> None:
     another request through the proxy under test."""
     if not _team_rows(team_id):
         return
-    write_rows('DELETE FROM "LiteLLM_TeamMembership" WHERE team_id = %s', (team_id,))
+    write_rows('DELETE FROM "HangarLLM_TeamMembership" WHERE team_id = %s', (team_id,))
     write_rows(
-        'UPDATE "LiteLLM_UserTable" SET teams = array_remove(teams, %s) WHERE %s = ANY(teams)', (team_id, team_id)
+        'UPDATE "HangarLLM_UserTable" SET teams = array_remove(teams, %s) WHERE %s = ANY(teams)', (team_id, team_id)
     )
-    write_rows('DELETE FROM "LiteLLM_TeamTable" WHERE team_id = %s', (team_id,))
+    write_rows('DELETE FROM "HangarLLM_TeamTable" WHERE team_id = %s', (team_id,))
     assert _team_rows(team_id) == []
 
 
@@ -180,17 +180,17 @@ def _create_team_model(scenario: Scenario, team_id: str) -> str:
         "/model/new",
         {
             "model_name": f"integration-{uuid.uuid4().hex}",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-integration"},
+            "hangarllm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-integration"},
             "model_info": {"team_id": team_id},
         },
     )
     model_id: Final = string_value(object_value(created["model_info"])["id"])
-    scenario.cleanups.callback(write_rows, 'DELETE FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (model_id,))
+    scenario.cleanups.callback(write_rows, 'DELETE FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (model_id,))
     return model_id
 
 
 def _team_model_rows(model_id: str) -> list[dict[str, JsonValue]]:
-    return read_rows('SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_id = %s', (model_id,))
+    return read_rows('SELECT model_id FROM "HangarLLM_ProxyModelTable" WHERE model_id = %s', (model_id,))
 
 
 def _delete_while_locked(gateway: Gateway, team_id: str, lock_sql: str, lock_target: str) -> httpx.Response:
@@ -215,7 +215,7 @@ def _generate_key(scenario: Scenario, **fields: JsonValue) -> str:
 
 
 def _delete_seeded_users(prefix: str) -> None:
-    write_rows('DELETE FROM "LiteLLM_UserTable" WHERE user_id LIKE %s', (f"{prefix}-%",))
+    write_rows('DELETE FROM "HangarLLM_UserTable" WHERE user_id LIKE %s', (f"{prefix}-%",))
     assert _user_ids_with_prefix(prefix) == []
 
 
@@ -522,7 +522,7 @@ def test_delete_writes_one_audit_row_for_the_team_and_one_per_key(gateway: Gatew
         owned_proxy_process(
             gateway,
             tmp_path,
-            {"DATABASE_URL": os.environ["DATABASE_URL"], "LITELLM_STORE_AUDIT_LOGS": "true"},
+            {"DATABASE_URL": os.environ["DATABASE_URL"], "HANGARLLM_STORE_AUDIT_LOGS": "true"},
             remove_environment=("DATABASE_URL_READ_REPLICA",),
         ) as owned,
         owned.gateway.scenario() as scenario,
@@ -539,15 +539,15 @@ def test_delete_writes_one_audit_row_for_the_team_and_one_per_key(gateway: Gatew
 
         def deleted_audit_rows() -> list[dict[str, JsonValue]]:
             return read_rows(
-                'SELECT table_name, action, object_id FROM "LiteLLM_AuditLog" '
+                'SELECT table_name, action, object_id FROM "HangarLLM_AuditLog" '
                 "WHERE object_id IN (%s, %s) AND action = 'deleted' ORDER BY table_name",
                 (team, hashed),
             )
 
         rows: Final = eventually(deleted_audit_rows, lambda found: len(found) >= 2, seconds=30)
         assert rows == [
-            {"table_name": "LiteLLM_TeamTable", "action": "deleted", "object_id": team},
-            {"table_name": "LiteLLM_VerificationToken", "action": "deleted", "object_id": hashed},
+            {"table_name": "HangarLLM_TeamTable", "action": "deleted", "object_id": team},
+            {"table_name": "HangarLLM_VerificationToken", "action": "deleted", "object_id": hashed},
         ]
 
 
@@ -557,7 +557,7 @@ def test_two_deletes_racing_on_one_team_write_one_tombstone_and_one_audit_row(ga
         owned_proxy_process(
             gateway,
             tmp_path,
-            {"DATABASE_URL": os.environ["DATABASE_URL"], "LITELLM_STORE_AUDIT_LOGS": "true"},
+            {"DATABASE_URL": os.environ["DATABASE_URL"], "HANGARLLM_STORE_AUDIT_LOGS": "true"},
             remove_environment=("DATABASE_URL_READ_REPLICA",),
         ) as owned,
         owned.gateway.scenario() as scenario,
@@ -581,7 +581,7 @@ def test_two_deletes_racing_on_one_team_write_one_tombstone_and_one_audit_row(ga
         assert [row["team_id"] for row in tombstones] == [team]
         assert _roster_user_ids(tombstones[0]["members_with_roles"]) == sorted([PROXY_ADMIN, user])
 
-    team_audit_rows: Final = _deleted_audit_rows(team, "LiteLLM_TeamTable")
+    team_audit_rows: Final = _deleted_audit_rows(team, "HangarLLM_TeamTable")
     assert len(team_audit_rows) == 1, team_audit_rows
     assert object_value(team_audit_rows[0]["before_value"])["team_id"] == team
 
@@ -772,7 +772,7 @@ def test_deleting_a_team_with_more_keys_than_the_publish_cap_revokes_every_key_o
 ) -> None:
     with gateway.scenario() as scenario:
         team: Final = _create_team(scenario)
-        scenario.cleanups.callback(write_rows, 'DELETE FROM "LiteLLM_VerificationToken" WHERE team_id = %s', (team,))
+        scenario.cleanups.callback(write_rows, 'DELETE FROM "HangarLLM_VerificationToken" WHERE team_id = %s', (team,))
         keys: Final = _seeded_team_keys(team, KEYS_WELL_PAST_THE_PUBLISH_CAP)
         assert _statuses(peer, keys) == {200: len(keys)}
 
@@ -780,7 +780,7 @@ def test_deleting_a_team_with_more_keys_than_the_publish_cap_revokes_every_key_o
             gateway, "/team/delete", {"team_ids": [team]}, timeout=2 * TEAM_DELETE_TRANSACTION_TIMEOUT_SECONDS
         )
         assert response.status_code == 200, response.text
-        assert read_rows('SELECT token FROM "LiteLLM_VerificationToken" WHERE team_id = %s', (team,)) == []
+        assert read_rows('SELECT token FROM "HangarLLM_VerificationToken" WHERE team_id = %s', (team,)) == []
 
         _ = eventually(lambda: _models_status(peer, keys[-1]), lambda status: status == 401, seconds=10)
         assert _statuses(peer, keys) == {401: len(keys)}

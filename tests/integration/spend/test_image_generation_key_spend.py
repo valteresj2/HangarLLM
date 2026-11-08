@@ -30,27 +30,27 @@ def test_identical_image_generations_each_charge_the_key(gateway: Gateway) -> No
         first: Final = gateway.request("POST", "/v1/images/generations", body, key=key)
         assert first.status_code == 200, first.text
         logged: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (digest,)),
             lambda rows: len(rows) == 1,
             seconds=70,
         )
         charge: Final = float(str(logged[0]["spend"]))
         assert charge == pytest.approx(PRICE_PER_IMAGE)
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda rows: float(str(rows[0]["spend"])) == pytest.approx(charge),
             seconds=70,
         )
         repeat: Final = gateway.request("POST", "/v1/images/generations", body, key=key)
         assert repeat.status_code == 200, repeat.text
         rows: Final = eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_SpendLogs" WHERE api_key=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_SpendLogs" WHERE api_key=%s', (digest,)),
             lambda values: len(values) == 2,
             seconds=70,
         )
         assert [float(str(row["spend"])) for row in rows] == pytest.approx([charge, charge])
         eventually(
-            lambda: read_rows('SELECT spend FROM "LiteLLM_VerificationToken" WHERE token=%s', (digest,)),
+            lambda: read_rows('SELECT spend FROM "HangarLLM_VerificationToken" WHERE token=%s', (digest,)),
             lambda values: float(str(values[0]["spend"])) == pytest.approx(2 * charge),
             seconds=70,
         )

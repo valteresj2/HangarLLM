@@ -1,5 +1,5 @@
 include:
   - non-existent-file.yaml
 
-litellm_settings:
+hangarllm_settings:
   callbacks: ["prometheus"]

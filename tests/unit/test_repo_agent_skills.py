@@ -62,7 +62,7 @@ def test_skill_outside_skills_folder_is_hidden_from_end_user_skill_installs(skil
     assert isinstance(frontmatter, dict), frontmatter
     metadata: Final = frontmatter.get("metadata")
     assert isinstance(metadata, dict) and metadata.get("internal") is True, (
-        f"{skill_directory} needs `metadata: {{internal: true}}`, or `npx skills add BerriAI/litellm` installs it "
+        f"{skill_directory} needs `metadata: {{internal: true}}`, or `npx skills add valteresj2/HangarLLM` installs it "
         "for end users, from a root dot-folder always and from anywhere with --full-depth (skills CLI 1.7.4, "
         "checked 2026-10-28)"
     )

@@ -74,7 +74,7 @@ def _owned_key(gateway: Gateway, scenario: Scenario, owner: str, **fields: JsonV
 def _key_row(gateway: Gateway, key: str) -> dict[str, JsonValue]:
     rows: Final = gateway.rows(
         "SELECT spend, max_budget, budget_duration, budget_id, budget_reset_at::text AS reset_at"
-        ' FROM "LiteLLM_VerificationToken" WHERE token = %s',
+        ' FROM "HangarLLM_VerificationToken" WHERE token = %s',
         (sha256(key.encode()).hexdigest(),),
     )
     assert len(rows) == 1, rows

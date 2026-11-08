@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from litellm.proxy.mcp_server.oauth_identity_binding import (
+from hangarllm.proxy.mcp_server.oauth_identity_binding import (
     RefreshOwnershipProven,
     RefreshTokenPresented,
     VerifiedRefreshToken,
@@ -23,11 +23,11 @@ from litellm.proxy.mcp_server.oauth_identity_binding import (
     current_binding_proof,
     enforce_oauth_identity_binding,
 )
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
+from hangarllm.types.mcp import MCPAuth, MCPTransport
+from hangarllm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
 
 ISSUER: Final = "https://idp.example.com"
-AUDIENCE: Final = "litellm-client"
+AUDIENCE: Final = "hangarllm-client"
 KID: Final = "test-key"
 
 _PRIVATE_KEY: Final = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -101,7 +101,7 @@ async def test_fetch_issuer_jwks_fetches_and_caches_keys():
     client.get = AsyncMock(return_value=response)
 
     with patch(  # test-quality-ok: no HTTP dependency injection seam exists for JWKS fetching
-        "litellm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
+        "hangarllm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
         return_value=client,
     ):
         first: Final = await _fetch_issuer_jwks(binding)
@@ -121,7 +121,7 @@ async def test_fetch_issuer_jwks_rejects_malformed_document():
     client.get = AsyncMock(return_value=response)
 
     with patch(  # test-quality-ok: no HTTP dependency injection seam exists for JWKS fetching
-        "litellm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
+        "hangarllm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
         return_value=client,
     ):
         with pytest.raises(TypeError, match="has no 'keys' array"):
@@ -136,7 +136,7 @@ async def test_discover_jwks_url_returns_provider_uri():
     client.get = AsyncMock(return_value=response)
 
     with patch(  # test-quality-ok: no HTTP dependency injection seam exists for OIDC discovery
-        "litellm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
+        "hangarllm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
         return_value=client,
     ):
         result: Final = await _discover_jwks_url("https://idp.example.com/")
@@ -153,7 +153,7 @@ async def test_discover_jwks_url_rejects_missing_provider_uri():
     client.get = AsyncMock(return_value=response)
 
     with patch(  # test-quality-ok: no HTTP dependency injection seam exists for OIDC discovery
-        "litellm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
+        "hangarllm.proxy.mcp_server.oauth_identity_binding.get_async_httpx_client",
         return_value=client,
     ):
         with pytest.raises(ValueError, match="returned no jwks_uri"):
@@ -177,7 +177,7 @@ async def test_load_caller_principal_supports_user_id_and_database_email():
     assert await _load_caller_principal("user-a", user_id_binding) == "user-a"
 
     with patch(  # test-quality-ok: caller loading is a lazy database boundary without injection
-        "litellm.proxy.mcp_server.bridge_token_flow.load_active_user_by_id",
+        "hangarllm.proxy.mcp_server.bridge_token_flow.load_active_user_by_id",
         new=AsyncMock(side_effect=["no_active_key", SimpleNamespace(user_email="alice@example.com")]),
     ):
         assert await _load_caller_principal("user-a", _server().oauth_identity_binding) is None
@@ -191,11 +191,11 @@ async def test_load_stored_refresh_token_returns_credential_and_fails_closed():
     get_credential: Final = AsyncMock(return_value={"refresh_token": "rt-1", "identity_binding_proof": proof})
     with (
         patch(  # test-quality-ok: stored-token loading is a lazy database boundary without injection
-            "litellm.proxy.mcp_server.db.get_user_oauth_credential",
+            "hangarllm.proxy.mcp_server.db.get_user_oauth_credential",
             new=get_credential,
         ),
         patch(  # test-quality-ok: stored-token loading is a lazy database boundary without injection
-            "litellm.proxy.utils.get_prisma_client_or_throw",
+            "hangarllm.proxy.utils.get_prisma_client_or_throw",
             return_value="prisma",
         ),
     ):
@@ -204,7 +204,7 @@ async def test_load_stored_refresh_token_returns_credential_and_fails_closed():
         assert await _load_stored_refresh_token("user-a", "srv-1", binding) is None
 
     with patch(  # test-quality-ok: stored-token loading is a lazy database boundary without injection
-        "litellm.proxy.utils.get_prisma_client_or_throw",
+        "hangarllm.proxy.utils.get_prisma_client_or_throw",
         side_effect=RuntimeError("database unavailable"),
     ):
         assert await _load_stored_refresh_token("user-a", "srv-1", binding) is None
@@ -216,7 +216,7 @@ async def test_matching_principal_passes():
     result: Final = await enforce_oauth_identity_binding(
         server=_server(),
         token_response={"access_token": "at", "id_token": token},
-        litellm_user_id="user-a",
+        hangarllm_user_id="user-a",
         grant_type="authorization_code",
         expected_nonce="test-nonce",
         refresh_ownership=None,
@@ -233,7 +233,7 @@ async def test_mismatched_principal_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -252,7 +252,7 @@ async def test_missing_upstream_principal_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -273,7 +273,7 @@ async def test_jwks_fetch_failure_is_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -295,7 +295,7 @@ async def test_missing_signing_key_is_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -313,7 +313,7 @@ async def test_missing_caller_principal_is_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -325,12 +325,12 @@ async def test_missing_caller_principal_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_refresh_without_id_token_requires_litellm_identity_for_presented_token():
+async def test_refresh_without_id_token_requires_hangarllm_identity_for_presented_token():
     with pytest.raises(HTTPException) as exc_info:
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at"},
-            litellm_user_id=None,
+            hangarllm_user_id=None,
             grant_type="refresh_token",
             refresh_ownership=RefreshTokenPresented("rt-1"),
             jwks_fetcher=_jwks_fetcher,
@@ -338,7 +338,7 @@ async def test_refresh_without_id_token_requires_litellm_identity_for_presented_
             stored_refresh_token_loader=_stored_refresh_token_loader("rt-1"),
         )
     assert exc_info.value.detail["error"] == "oauth_identity_binding_failed"
-    assert "no resolvable LiteLLM user identity" in exc_info.value.detail["error_description"]
+    assert "no resolvable HangarLLM user identity" in exc_info.value.detail["error_description"]
 
 
 @pytest.mark.asyncio
@@ -347,7 +347,7 @@ async def test_user_id_principal_matching_uses_exact_comparison():
     result: Final = await enforce_oauth_identity_binding(
         server=_server(principal_claim="sub", caller_field="user_id"),
         token_response={"access_token": "at", "id_token": token},
-        litellm_user_id="user-a",
+        hangarllm_user_id="user-a",
         grant_type="authorization_code",
         expected_nonce="test-nonce",
         refresh_ownership=None,
@@ -363,7 +363,7 @@ async def test_missing_id_token_rejected_on_authorization_code():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at"},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -379,7 +379,7 @@ async def test_refresh_without_id_token_allowed_when_presented_token_matches_sto
     result: Final = await enforce_oauth_identity_binding(
         server=_server(),
         token_response={"access_token": "at"},
-        litellm_user_id="user-a",
+        hangarllm_user_id="user-a",
         grant_type="refresh_token",
         refresh_ownership=RefreshTokenPresented("rt-1"),
         jwks_fetcher=_jwks_fetcher,
@@ -395,7 +395,7 @@ async def test_refresh_without_id_token_rejects_different_presented_token():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at"},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="refresh_token",
             refresh_ownership=RefreshTokenPresented("rt-stolen"),
             jwks_fetcher=_jwks_fetcher,
@@ -412,7 +412,7 @@ async def test_refresh_without_id_token_rejects_missing_stored_token():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at"},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="refresh_token",
             refresh_ownership=RefreshTokenPresented("rt-1"),
             jwks_fetcher=_jwks_fetcher,
@@ -429,7 +429,7 @@ async def test_identity_envelope_does_not_prove_upstream_binding():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at"},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="refresh_token",
             refresh_ownership=RefreshOwnershipProven(),
             jwks_fetcher=_jwks_fetcher,
@@ -444,7 +444,7 @@ async def test_refresh_without_id_token_rejects_without_ownership_proof():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at"},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="refresh_token",
             refresh_ownership=None,
             jwks_fetcher=_jwks_fetcher,
@@ -462,7 +462,7 @@ async def test_refresh_with_mismatched_id_token_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="refresh_token",
             refresh_ownership=None,
             jwks_fetcher=_jwks_fetcher,
@@ -476,7 +476,7 @@ async def test_audit_mode_logs_but_does_not_reject(caplog):
     result: Final = await enforce_oauth_identity_binding(
         server=_server(mode="audit"),
         token_response={"access_token": "at", "id_token": token},
-        litellm_user_id="user-a",
+        hangarllm_user_id="user-a",
         grant_type="authorization_code",
         refresh_ownership=None,
         jwks_fetcher=_jwks_fetcher,
@@ -494,7 +494,7 @@ async def test_unverified_email_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -518,7 +518,7 @@ async def test_wrong_issuer_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -529,13 +529,13 @@ async def test_wrong_issuer_rejected():
 
 
 @pytest.mark.asyncio
-async def test_no_litellm_identity_rejected():
+async def test_no_hangarllm_identity_rejected():
     token: Final = _sign_id_token({"email": "alice@example.com", "email_verified": True})
     with pytest.raises(HTTPException) as exc_info:
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id=None,
+            hangarllm_user_id=None,
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -550,7 +550,7 @@ async def test_disabled_binding_is_noop():
     result: Final = await enforce_oauth_identity_binding(
         server=_server(mode="disabled"),
         token_response={"access_token": "at"},
-        litellm_user_id=None,
+        hangarllm_user_id=None,
         grant_type="authorization_code",
         expected_nonce="test-nonce",
         refresh_ownership=None,
@@ -571,7 +571,7 @@ async def test_no_binding_is_noop():
     result: Final = await enforce_oauth_identity_binding(
         server=server,
         token_response={"access_token": "at"},
-        litellm_user_id=None,
+        hangarllm_user_id=None,
         grant_type="authorization_code",
         expected_nonce="test-nonce",
         refresh_ownership=None,
@@ -595,7 +595,7 @@ async def test_wrong_audience_rejected():
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             expected_nonce="test-nonce",
             refresh_ownership=None,
@@ -614,7 +614,7 @@ async def test_authorization_code_rejects_missing_or_foreign_nonce(nonce):
         await enforce_oauth_identity_binding(
             server=_server(),
             token_response={"access_token": "at", "id_token": token},
-            litellm_user_id="user-a",
+            hangarllm_user_id="user-a",
             grant_type="authorization_code",
             refresh_ownership=None,
             expected_nonce="this-login",
@@ -627,7 +627,7 @@ async def test_authorization_code_rejects_missing_or_foreign_nonce(nonce):
 
 @pytest.mark.asyncio
 async def test_binding_proof_rejects_changed_user_or_policy():
-    from litellm.proxy.mcp_server.oauth_identity_binding import credential_binding_matches
+    from hangarllm.proxy.mcp_server.oauth_identity_binding import credential_binding_matches
 
     binding = _server(caller_field="user_id", principal_claim="sub").oauth_identity_binding
     proof = await current_binding_proof(binding, "alice", "srv-1")
@@ -657,7 +657,7 @@ async def test_audit_matching_login_without_nonce_does_not_report_failure(caplog
     result: Final = await enforce_oauth_identity_binding(
         server=_server(mode="audit"),
         token_response={"access_token": "at", "id_token": token},
-        litellm_user_id="user-a",
+        hangarllm_user_id="user-a",
         grant_type="authorization_code",
         refresh_ownership=None,
         jwks_fetcher=_jwks_fetcher,

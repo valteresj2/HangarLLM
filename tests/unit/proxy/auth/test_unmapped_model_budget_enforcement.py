@@ -4,16 +4,16 @@ Test that models not in the cost map do NOT bypass budget enforcement.
 Regression test for the bug where unmapped models got fallback costs of 0,
 causing _is_model_cost_zero() to return True and skip all budget checks.
 
-See: https://github.com/BerriAI/litellm/issues/24770
+See: upstream issue 24770
 """
 
 import copy
 
 import pytest
 
-import litellm
-from litellm.proxy.auth.auth_checks import is_model_cost_zero
-from litellm.router import Router
+import hangarllm
+from hangarllm.proxy.auth.auth_checks import is_model_cost_zero
+from hangarllm.router import Router
 
 
 UNPRICED_ZERO_COST_MODEL = "ollama/unpriced-zero-cost-target"
@@ -22,7 +22,7 @@ UNPRICED_ZERO_COST_MODEL = "ollama/unpriced-zero-cost-target"
 def _explicitly_free(name: str, model: str = "gpt-3.5-turbo", **model_info: float) -> dict:
     return {
         "model_name": name,
-        "litellm_params": {
+        "hangarllm_params": {
             "model": model,
             "api_key": "sk-fake",
             "input_cost_per_token": 0.0,
@@ -33,15 +33,15 @@ def _explicitly_free(name: str, model: str = "gpt-3.5-turbo", **model_info: floa
 
 
 def _free_by_cost_map_only(name: str) -> dict:
-    litellm.model_cost[UNPRICED_ZERO_COST_MODEL] = {
+    hangarllm.model_cost[UNPRICED_ZERO_COST_MODEL] = {
         "input_cost_per_token": 0.0,
         "output_cost_per_token": 0.0,
-        "litellm_provider": "ollama",
+        "hangarllm_provider": "ollama",
         "mode": "chat",
     }
     return {
         "model_name": name,
-        "litellm_params": {"model": UNPRICED_ZERO_COST_MODEL, "api_base": "http://localhost:11434"},
+        "hangarllm_params": {"model": UNPRICED_ZERO_COST_MODEL, "api_base": "http://localhost:11434"},
         "model_info": {"id": f"{name}-id"},
     }
 
@@ -49,7 +49,7 @@ def _free_by_cost_map_only(name: str) -> dict:
 def _explicitly_free_ollama_wildcard() -> dict:
     return {
         "model_name": "ollama/*",
-        "litellm_params": {
+        "hangarllm_params": {
             "model": "ollama/*",
             "api_base": "http://localhost:11434",
             "input_cost_per_token": 0.0,
@@ -61,27 +61,27 @@ def _explicitly_free_ollama_wildcard() -> dict:
 
 def _served_model(router: Router, name: str) -> str:
     deployment = router.get_available_deployment(model=name, messages=[{"role": "user", "content": "hi"}])
-    return deployment["litellm_params"]["model"]
+    return deployment["hangarllm_params"]["model"]
 
 
 class TestUnmappedModelBudgetEnforcement:
     """Unmapped models must NOT bypass budget checks."""
 
     def setup_method(self):
-        """Snapshot litellm.model_cost before each test."""
-        self._saved_model_cost = copy.deepcopy(litellm.model_cost)
+        """Snapshot hangarllm.model_cost before each test."""
+        self._saved_model_cost = copy.deepcopy(hangarllm.model_cost)
 
     def teardown_method(self):
-        """Restore litellm.model_cost after each test."""
-        litellm.model_cost = self._saved_model_cost
+        """Restore hangarllm.model_cost after each test."""
+        hangarllm.model_cost = self._saved_model_cost
 
     def test_unmapped_model_enforces_budget(self):
-        """A model not in litellm.model_cost should have budget enforced."""
+        """A model not in hangarllm.model_cost should have budget enforced."""
         router = Router(
             model_list=[
                 {
                     "model_name": "custom-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/totally-nonexistent-model-xyz",
                         "api_key": "sk-fake",
                     },
@@ -97,7 +97,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -120,7 +120,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-fake",
                     },
@@ -130,13 +130,13 @@ class TestUnmappedModelBudgetEnforcement:
         result = is_model_cost_zero(model="paid-model", llm_router=router)
         assert result is False, "Known paid model should enforce budget (return False)"
 
-    def test_unmapped_model_with_litellm_params_pricing(self):
-        """A model with cost=0 in litellm_params (not model_info) should bypass budget."""
+    def test_unmapped_model_with_hangarllm_params_pricing(self):
+        """A model with cost=0 in hangarllm_params (not model_info) should bypass budget."""
         router = Router(
             model_list=[
                 {
                     "model_name": "free-via-params",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/nonexistent-but-free-model",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0,
@@ -146,7 +146,7 @@ class TestUnmappedModelBudgetEnforcement:
             ]
         )
         result = is_model_cost_zero(model="free-via-params", llm_router=router)
-        assert result is True, "Model with explicit cost=0 in litellm_params should bypass budget"
+        assert result is True, "Model with explicit cost=0 in hangarllm_params should bypass budget"
 
     def test_cache_invalidates_on_in_place_pricing_update(self):
         """
@@ -156,13 +156,13 @@ class TestUnmappedModelBudgetEnforcement:
         cached zero-cost answer so budget checks resume
         immediately — not after the next proxy restart.
         """
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from hangarllm.types.router import Deployment, HangarLLM_Params, ModelInfo
 
         router = Router(
             model_list=[
                 {
                     "model_name": "ramping-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/ramping-deploy",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0,
@@ -185,7 +185,7 @@ class TestUnmappedModelBudgetEnforcement:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="ramping-model",
-                litellm_params=LiteLLM_Params(
+                hangarllm_params=HangarLLM_Params(
                     model="openai/ramping-deploy",
                     api_key="sk-fake",
                     input_cost_per_token=0.000002,
@@ -210,7 +210,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "smart-router",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "auto_router/complexity_router/smart-router",
                         "complexity_router_default_model": "paid-model",
                         "input_cost_per_token": 0.0,
@@ -221,13 +221,13 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                     "model_info": {"id": "paid-id"},
                 },
             ]
         )
 
-        assert "input_cost_per_token" not in litellm.model_cost.get("alias-id", {})
+        assert "input_cost_per_token" not in hangarllm.model_cost.get("alias-id", {})
         assert is_model_cost_zero(model="smart-router", llm_router=router) is False
 
     def test_model_group_alias_to_free_model_bypasses_budget(self):
@@ -240,7 +240,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -263,7 +263,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -283,7 +283,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
                     "model_info": {"id": "paid-model-id"},
                 },
             ],
@@ -303,7 +303,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "ptu-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/ptu-deployment",
                         "api_base": "https://fake.openai.azure.com",
                         "api_key": "sk-fake",
@@ -335,7 +335,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -355,7 +355,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
                     "model_info": {"id": "paid-model-id"},
                 },
             ],
@@ -370,7 +370,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -395,7 +395,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -405,7 +405,7 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
+                    "hangarllm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
                     "model_info": {"id": "paid-model-id"},
                 },
             ],
@@ -428,7 +428,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -438,7 +438,7 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "ptu-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/ptu-deployment",
                         "api_base": "https://fake.openai.azure.com",
                         "api_key": "sk-fake",
@@ -475,17 +475,17 @@ class TestUnmappedModelBudgetEnforcement:
         target by name. The shadowed explicitly free deployment is never served under that name and
         must not lend it the bypass.
         """
-        litellm.model_cost["ollama/unpriced-zero-cost-target"] = {
+        hangarllm.model_cost["ollama/unpriced-zero-cost-target"] = {
             "input_cost_per_token": 0.0,
             "output_cost_per_token": 0.0,
-            "litellm_provider": "ollama",
+            "hangarllm_provider": "ollama",
             "mode": "chat",
         }
         router = Router(
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0,
@@ -495,7 +495,7 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "unpriced-target",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/unpriced-zero-cost-target",
                         "api_base": "http://localhost:11434",
                     },
@@ -520,7 +520,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "ptu-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "azure/ptu-deployment",
                         "api_base": "https://fake.openai.azure.com",
                         "api_key": "sk-fake",
@@ -531,7 +531,7 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -554,7 +554,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0,
@@ -564,7 +564,7 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0000002,
@@ -588,7 +588,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "chain-legacy",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "gpt-3.5-turbo",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0000002,
@@ -598,7 +598,7 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -667,7 +667,7 @@ class TestUnmappedModelBudgetEnforcement:
         router = Router(
             model_list=[
                 _explicitly_free("free-model", model="ollama/llama2"),
-                {"model_name": "*", "litellm_params": {"model": "openai/*", "api_key": "sk-fake"}},
+                {"model_name": "*", "hangarllm_params": {"model": "openai/*", "api_key": "sk-fake"}},
             ],
             model_group_alias={"chain-entry": "gpt-4o-mini", "gpt-4o-mini": "free-model"},
         )
@@ -688,7 +688,7 @@ class TestUnmappedModelBudgetEnforcement:
                 _explicitly_free("free-model", model="ollama/llama2"),
                 {
                     "model_name": "openai/*",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openai/*",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.00001,
@@ -753,7 +753,7 @@ class TestUnmappedModelBudgetEnforcement:
         compute a correct answer, just without caching."""
         from unittest.mock import MagicMock
 
-        from litellm.types.router import ModelGroupInfo
+        from hangarllm.types.router import ModelGroupInfo
 
         mock_router = MagicMock(spec=Router)
         registry = mock_router.registry.return_value

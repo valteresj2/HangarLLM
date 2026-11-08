@@ -1,4 +1,4 @@
-"""Bedrock Mantle cost tracking cases for openai.gpt-6-sol, a mode responses row that LiteLLM serves on /openai/v1/responses for both /v1/responses and chat clients."""
+"""Bedrock Mantle cost tracking cases for openai.gpt-6-sol, a mode responses row that HangarLLM serves on /openai/v1/responses for both /v1/responses and chat clients."""
 
 from __future__ import annotations
 

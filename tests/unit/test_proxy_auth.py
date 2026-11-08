@@ -1,7 +1,7 @@
 """
-Unit tests for litellm.proxy_auth module.
+Unit tests for hangarllm.proxy_auth module.
 
-Tests the OAuth2/JWT token management for LiteLLM Proxy authentication.
+Tests the OAuth2/JWT token management for HangarLLM Proxy authentication.
 """
 
 import time
@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from litellm.proxy_auth import (
+from hangarllm.proxy_auth import (
     AccessToken,
     AzureADCredential,
     GenericOAuth2Credential,
@@ -179,26 +179,26 @@ class TestGenericOAuth2Credential:
             assert mock_post.call_count == 1
 
 
-class TestLiteLLMIntegration:
-    """Tests for integration with litellm module."""
+class TestHangarLLMIntegration:
+    """Tests for integration with hangarllm module."""
 
     def test_proxy_auth_variable_exists(self):
-        """Test that litellm.proxy_auth variable exists."""
-        import litellm
+        """Test that hangarllm.proxy_auth variable exists."""
+        import hangarllm
 
         # Should be None by default
-        assert hasattr(litellm, "proxy_auth")
+        assert hasattr(hangarllm, "proxy_auth")
 
     def test_proxy_auth_can_be_set(self):
-        """Test that litellm.proxy_auth can be set to a ProxyAuthHandler."""
-        import litellm
+        """Test that hangarllm.proxy_auth can be set to a ProxyAuthHandler."""
+        import hangarllm
 
-        original_value = litellm.proxy_auth
+        original_value = hangarllm.proxy_auth
         try:
             cred = MockCredential()
             handler = ProxyAuthHandler(credential=cred, scope="test")
-            litellm.proxy_auth = handler
+            hangarllm.proxy_auth = handler
 
-            assert litellm.proxy_auth is handler
+            assert hangarllm.proxy_auth is handler
         finally:
-            litellm.proxy_auth = original_value
+            hangarllm.proxy_auth = original_value

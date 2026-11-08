@@ -20,22 +20,22 @@ from psycopg.rows import class_row
 pytestmark: Final = pytest.mark.timeout(240)
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
-PRISMA_DIR: Final = REPO_ROOT / "litellm-proxy-extras" / "litellm_proxy_extras"
+PRISMA_DIR: Final = REPO_ROOT / "hangarllm-proxy-extras" / "hangarllm_proxy_extras"
 PARTITION_SCRIPT: Final = REPO_ROOT / "db_scripts" / "partition_spend_logs.sql"
 SHIPPED_MIGRATIONS: Final = tuple(sorted(path.name for path in (PRISMA_DIR / "migrations").iterdir() if path.is_dir()))
 API_KEY_INDEX_MIGRATION: Final = "20260823000000_add_spend_logs_api_key_starttime_index"
-CALL_ID_INDEX_MIGRATION: Final = "20260831120001_spend_logs_litellm_call_id_index"
+CALL_ID_INDEX_MIGRATION: Final = "20260831120001_spend_logs_hangarllm_call_id_index"
 ORIGINAL_MIGRATION_SQL: Final = MappingProxyType(
     {
         API_KEY_INDEX_MIGRATION: (
             "-- CreateIndex\n"
-            'CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_api_key_startTime_idx" '
-            'ON "LiteLLM_SpendLogs"("api_key", "startTime");\n'
+            'CREATE INDEX IF NOT EXISTS "HangarLLM_SpendLogs_api_key_startTime_idx" '
+            'ON "HangarLLM_SpendLogs"("api_key", "startTime");\n'
         ),
         CALL_ID_INDEX_MIGRATION: (
             "-- CreateIndex\n"
-            'CREATE INDEX CONCURRENTLY IF NOT EXISTS "LiteLLM_SpendLogs_litellm_call_id_idx" '
-            'ON "LiteLLM_SpendLogs"("litellm_call_id");\n'
+            'CREATE INDEX CONCURRENTLY IF NOT EXISTS "HangarLLM_SpendLogs_hangarllm_call_id_idx" '
+            'ON "HangarLLM_SpendLogs"("hangarllm_call_id");\n'
         ),
     }
 )
@@ -43,16 +43,16 @@ MIGRATION_JOB_SECONDS: Final = 300
 INDEXES_IN_PLACE: Final = "Request-log indexes are all in place"
 INDEX_BUILD_LINES: Final = ("Building index", "Attached index")
 BUILD_SECONDS: Final = 60
-SPEND_LOGS_INDEXES: Final = ("LiteLLM_SpendLogs_api_key_startTime_idx", "LiteLLM_SpendLogs_litellm_call_id_idx")
+SPEND_LOGS_INDEXES: Final = ("HangarLLM_SpendLogs_api_key_startTime_idx", "HangarLLM_SpendLogs_hangarllm_call_id_idx")
 POPULATED_PARTITIONS: Final = MappingProxyType(
     {
-        "LiteLLM_SpendLogs_p2026_08": ("2026-08-01", "2026-09-01"),
-        "LiteLLM_SpendLogs_p2026_09": ("2026-09-01", "2026-10-01"),
+        "HangarLLM_SpendLogs_p2026_08": ("2026-08-01", "2026-09-01"),
+        "HangarLLM_SpendLogs_p2026_09": ("2026-09-01", "2026-10-01"),
     }
 )
-DEFAULT_PARTITION: Final = "LiteLLM_SpendLogs_pdefault"
+DEFAULT_PARTITION: Final = "HangarLLM_SpendLogs_pdefault"
 ROWS_PER_PARTITION: Final = 500
-PARTITIONED_PARENT_ERROR: Final = 'cannot create index on partitioned table "LiteLLM_SpendLogs" concurrently'
+PARTITIONED_PARENT_ERROR: Final = 'cannot create index on partitioned table "HangarLLM_SpendLogs" concurrently'
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +123,7 @@ def migration_cli(database_url: str, gateway: Gateway, resolver: Resolver) -> su
         text=True,
         timeout=MIGRATION_JOB_SECONDS,
         cwd=REPO_ROOT,
-        env={**os.environ, "DATABASE_URL": database_url, "LITELLM_MASTER_KEY": gateway.key},
+        env={**os.environ, "DATABASE_URL": database_url, "HANGARLLM_MASTER_KEY": gateway.key},
     )
 
 
@@ -152,13 +152,13 @@ def partition_spend_logs(database_url: str) -> None:
         for partition, (start, stop) in POPULATED_PARTITIONS.items():
             add_partition(connection, partition, start, stop)
             connection.execute(
-                'INSERT INTO "LiteLLM_SpendLogs" ("request_id", "call_type", "api_key", "startTime", "endTime") '
+                'INSERT INTO "HangarLLM_SpendLogs" ("request_id", "call_type", "api_key", "startTime", "endTime") '
                 "SELECT %s || n, 'acompletion', 'sk-' || (n %% 7), %s::timestamp + (n * interval '1 minute'), "
                 "%s::timestamp + (n * interval '1 minute') + interval '1 second' FROM generate_series(1, %s) AS n",
                 (partition, start, start, ROWS_PER_PARTITION),
             )
         connection.execute(
-            'INSERT INTO "LiteLLM_SpendLogs" ("request_id", "call_type", "startTime", "endTime") '
+            'INSERT INTO "HangarLLM_SpendLogs" ("request_id", "call_type", "startTime", "endTime") '
             "SELECT 'default-' || n, 'acompletion', '2026-07-01'::timestamp + (n * interval '1 minute'), "
             "'2026-07-01'::timestamp + (n * interval '1 minute') FROM generate_series(1, %s) AS n",
             (ROWS_PER_PARTITION,),
@@ -204,7 +204,7 @@ def parent_index_validity(database_url: str) -> Mapping[str, bool]:
     with psycopg.connect(database_url) as connection, connection.cursor(row_factory=class_row(_IndexRow)) as cursor:
         rows: Final = cursor.execute(
             "SELECT c.relname AS index, x.indisvalid AS valid FROM pg_index x JOIN pg_class c ON c.oid = x.indexrelid "
-            "WHERE x.indrelid = '\"LiteLLM_SpendLogs\"'::regclass AND c.relname = ANY(%s)",
+            "WHERE x.indrelid = '\"HangarLLM_SpendLogs\"'::regclass AND c.relname = ANY(%s)",
             (list(SPEND_LOGS_INDEXES),),
         ).fetchall()
     return MappingProxyType({row.index: row.valid for row in rows})
@@ -215,8 +215,8 @@ def index_oids(database_url: str) -> Mapping[str, int]:
     with psycopg.connect(database_url) as connection, connection.cursor(row_factory=class_row(_OidRow)) as cursor:
         rows: Final = cursor.execute(
             "SELECT c.relname AS index, c.oid::int AS oid FROM pg_index x JOIN pg_class c ON c.oid = x.indexrelid "
-            "WHERE x.indrelid = '\"LiteLLM_SpendLogs\"'::regclass OR x.indrelid IN "
-            "(SELECT inhrelid FROM pg_inherits WHERE inhparent = '\"LiteLLM_SpendLogs\"'::regclass)"
+            "WHERE x.indrelid = '\"HangarLLM_SpendLogs\"'::regclass OR x.indrelid IN "
+            "(SELECT inhrelid FROM pg_inherits WHERE inhparent = '\"HangarLLM_SpendLogs\"'::regclass)"
         ).fetchall()
     return MappingProxyType({row.index: row.oid for row in rows})
 
@@ -242,7 +242,7 @@ def expected_attachments(partitions: tuple[str, ...]) -> frozenset[tuple[str, st
 
 def add_partition(connection: psycopg.Connection[tuple[object, ...]], partition: str, start: str, stop: str) -> None:
     connection.execute(
-        sql.SQL('CREATE TABLE {} PARTITION OF "LiteLLM_SpendLogs" FOR VALUES FROM ({}) TO ({})').format(
+        sql.SQL('CREATE TABLE {} PARTITION OF "HangarLLM_SpendLogs" FOR VALUES FROM ({}) TO ({})').format(
             sql.Identifier(partition), sql.Literal(start), sql.Literal(stop)
         )
     )
@@ -262,8 +262,8 @@ def assert_both_indexes_cover_every_partition(database_url: str) -> None:
     assert attached_partition_indexes(database_url) == expected_attachments(populated)
     assert parent_index_validity(database_url) == {index: True for index in SPEND_LOGS_INDEXES}
     with psycopg.connect(database_url, autocommit=True) as connection:
-        add_partition(connection, "LiteLLM_SpendLogs_p2026_10", "2026-10-01", "2026-11-01")
-    assert attached_partition_indexes(database_url) == expected_attachments((*populated, "LiteLLM_SpendLogs_p2026_10"))
+        add_partition(connection, "HangarLLM_SpendLogs_p2026_10", "2026-10-01", "2026-11-01")
+    assert attached_partition_indexes(database_url) == expected_attachments((*populated, "HangarLLM_SpendLogs_p2026_10"))
 
 
 def assert_the_serving_proxy_boots_and_finds_the_indexes_in_place(
@@ -341,7 +341,7 @@ def test_a_serving_proxy_that_runs_the_migrations_itself_builds_both_indexes_aft
     with scratch_database() as database_url:
         deploy_schema_before_the_index_migrations(database_url, tmp_path)
         partition_spend_logs(database_url)
-        assert "LiteLLM_SpendLogs_litellm_call_id_idx" not in parent_index_validity(database_url)
+        assert "HangarLLM_SpendLogs_hangarllm_call_id_idx" not in parent_index_validity(database_url)
         with owned_proxy_process(
             gateway, tmp_path, {"DATABASE_URL": database_url}, database_setup=resolver.proxy_flags
         ) as booted:

@@ -20,15 +20,15 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm import Router
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy import utils as proxy_utils
-from litellm.proxy.utils import create_model_info_response
-from litellm.types.router import DeploymentModelListingInfo
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+import hangarllm
+from hangarllm import Router
+from hangarllm.integrations.custom_secret_manager import CustomSecretManager
+from hangarllm.proxy import proxy_server
+from hangarllm.proxy._types import HangarllmUserRoles, UserAPIKeyAuth
+from hangarllm.proxy import utils as proxy_utils
+from hangarllm.proxy.utils import create_model_info_response
+from hangarllm.types.router import DeploymentModelListingInfo
+from hangarllm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 from .conftest import normalize, route_entry_points_to_stubs  # type: ignore[import-not-found]
 
@@ -45,7 +45,7 @@ def _stub_model_info_response(model_id: str = "gpt-4", provider: str = "openai")
 @pytest.fixture
 def patched_models(monkeypatch):
     """Stub router + utility helpers used by the /models routes."""
-    from litellm.proxy import utils as proxy_utils
+    from hangarllm.proxy import utils as proxy_utils
 
     router = MagicMock()
     router.get_fully_blocked_model_names = MagicMock(return_value=set())
@@ -53,7 +53,7 @@ def patched_models(monkeypatch):
     router.get_model_access_groups = MagicMock(return_value={})
 
     deployment = MagicMock()
-    deployment.litellm_params.model = "gpt-4"
+    deployment.hangarllm_params.model = "gpt-4"
     router.get_deployment_by_model_group_name = MagicMock(return_value=deployment)
     router.get_routable_upstream_model = MagicMock(return_value="gpt-4")
     router.get_routable_upstream_provider = MagicMock(return_value=None)
@@ -85,7 +85,7 @@ def patched_models(monkeypatch):
     monkeypatch.setattr(proxy_utils, "validate_model_access", lambda **kwargs: None)
 
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "get_llm_provider",
         lambda model: (model, "openai", None, None),
     )
@@ -143,7 +143,7 @@ def test_anthropic_format_exposes_token_limits(client, auth_as, patched_models, 
     """Claude Code sizes requests off the listing, so the Anthropic-native entries
     carry the same token limits the OpenAI listing resolves, with the output budget
     named max_tokens as the Messages API names it."""
-    from litellm.proxy import utils as proxy_utils
+    from hangarllm.proxy import utils as proxy_utils
 
     def _create_model_info_response(model_id, provider="openai", **kwargs):
         if model_id != "claude-sonnet":
@@ -233,8 +233,8 @@ def test_anthropic_display_name_resolved_via_internal_team_key(client, auth_as, 
     """For a team-scoped row the configured display name must be looked up by the
     internal routing key while the entry itself is keyed by the public name, so
     the clean name lands on the id the client actually sees."""
-    from litellm.proxy import utils as proxy_utils
-    from litellm.proxy.auth import model_checks
+    from hangarllm.proxy import utils as proxy_utils
+    from hangarllm.proxy.auth import model_checks
 
     internal_name = "model_name_team-1_c0ffee"
 
@@ -242,7 +242,7 @@ def test_anthropic_display_name_resolved_via_internal_team_key(client, auth_as, 
         return_value=[
             {
                 "model_name": internal_name,
-                "litellm_params": {"model": "openai/gpt-4"},
+                "hangarllm_params": {"model": "openai/gpt-4"},
                 "model_info": {
                     "team_id": "team-1",
                     "team_public_model_name": "gpt-4-team",
@@ -311,8 +311,8 @@ def test_anthropic_format_returns_public_team_model_name(client, auth_as, patche
     """Regression: the Anthropic-native listing must go through the same team
     name translation as the OpenAI listing, so a caller never sees the internal
     ``model_name_{team_id}_{uuid}`` routing key."""
-    from litellm.proxy import utils as proxy_utils
-    from litellm.proxy.auth import model_checks
+    from hangarllm.proxy import utils as proxy_utils
+    from hangarllm.proxy.auth import model_checks
 
     internal_name = "model_name_team-1_c0ffee"
 
@@ -320,7 +320,7 @@ def test_anthropic_format_returns_public_team_model_name(client, auth_as, patche
         return_value=[
             {
                 "model_name": internal_name,
-                "litellm_params": {"model": "openai/gpt-4"},
+                "hangarllm_params": {"model": "openai/gpt-4"},
                 "model_info": {
                     "team_id": "team-1",
                     "team_public_model_name": "gpt-4-team",
@@ -467,9 +467,9 @@ def test_codex_reasoning_levels_are_the_ones_the_requesting_codex_parses(client,
     parse max, so it is offered there only to a newer release."""
     declared = {"supports_reasoning": True, "reasoning_effort_levels": ["low", "max"]}
     vllm = {"model": "hosted_vllm/qa-local-coder", "api_base": "https://vllm.example/v1"}
-    router = litellm.Router(
+    router = hangarllm.Router(
         model_list=[
-            {"model_name": name, "litellm_params": vllm, "model_info": declared} for name in ("gpt-4", "claude-sonnet")
+            {"model_name": name, "hangarllm_params": vllm, "model_info": declared} for name in ("gpt-4", "claude-sonnet")
         ]
     )
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -517,8 +517,8 @@ def test_codex_service_tiers_are_read_for_the_key_team(client, auth_as, patched_
 def test_codex_service_tiers_resolved_via_internal_team_key(client, auth_as, patched_models, monkeypatch, params):
     """A team-scoped row's tiers are looked up by the internal routing key while the entry is keyed by
     the public name Codex sends back as the model."""
-    from litellm.proxy import utils as proxy_utils
-    from litellm.proxy.auth import model_checks
+    from hangarllm.proxy import utils as proxy_utils
+    from hangarllm.proxy.auth import model_checks
 
     internal_name = "model_name_team-1_c0ffee"
 
@@ -526,7 +526,7 @@ def test_codex_service_tiers_resolved_via_internal_team_key(client, auth_as, pat
         return_value=[
             {
                 "model_name": internal_name,
-                "litellm_params": {"model": "openai/gpt-4"},
+                "hangarllm_params": {"model": "openai/gpt-4"},
                 "model_info": {"team_id": "team-1", "team_public_model_name": "gpt-4-team"},
             }
         ]
@@ -573,18 +573,18 @@ class _CatalogHeldUntilTheLoopRuns:
 def test_v1_models_fetches_a_live_openrouter_catalog_without_holding_the_event_loop_or_its_default_thread_pool(
     monkeypatch: pytest.MonkeyPatch, scope: str | None
 ):
-    monkeypatch.setattr(litellm, "check_provider_endpoint", True)
+    monkeypatch.setattr(hangarllm, "check_provider_endpoint", True)
     monkeypatch.setattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(proxy_server, "user_model", None)
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     monkeypatch.setattr(
         proxy_server,
         "llm_router",
-        litellm.Router(
+        hangarllm.Router(
             model_list=[
                 {
                     "model_name": "openrouter/*",
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "openrouter/*",
                         "api_key": f"sk-or-v1-models-off-loop-{scope}",
                         "api_base": OPENROUTER_BASE,
@@ -600,7 +600,7 @@ def test_v1_models_fetches_a_live_openrouter_catalog_without_holding_the_event_l
         listing: Final = asyncio.ensure_future(
             proxy_server.model_list(
                 user_api_key_dict=UserAPIKeyAuth(
-                    api_key="sk-test-key", user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN
+                    api_key="sk-test-key", user_id="admin", user_role=HangarllmUserRoles.PROXY_ADMIN
                 ),
                 scope=scope,
             )
@@ -618,11 +618,11 @@ def test_v1_models_fetches_a_live_openrouter_catalog_without_holding_the_event_l
 
 
 def _priced_jev_models() -> frozenset[str]:
-    return frozenset(name.removeprefix("typesafe/") for name in litellm.model_cost if name.startswith("typesafe/"))
+    return frozenset(name.removeprefix("typesafe/") for name in hangarllm.model_cost if name.startswith("typesafe/"))
 
 
 async def _admin_picker_models() -> set[str]:
-    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN)
     response: Final = await proxy_server.model_list(
         user_api_key_dict=admin, return_wildcard_routes=True, include_model_access_groups=True, scope="expand"
     )
@@ -646,8 +646,8 @@ async def test_scope_expand_offers_typesafe_models_when_typesafe_is_configured(
 async def test_scope_expand_still_lists_models_when_the_typesafe_key_reference_cannot_resolve(
     openai_only_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("LITELLM_QA_UNSET_TYPESAFE_TOKEN", raising=False)
-    monkeypatch.setenv("TYPESAFE_API_KEY", "oidc/env/LITELLM_QA_UNSET_TYPESAFE_TOKEN")
+    monkeypatch.delenv("HANGARLLM_QA_UNSET_TYPESAFE_TOKEN", raising=False)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "oidc/env/HANGARLLM_QA_UNSET_TYPESAFE_TOKEN")
 
     picker_models: Final = await _admin_picker_models()
 
@@ -673,9 +673,9 @@ async def test_scope_expand_does_not_read_the_secret_manager_for_typesafe_creden
     secret_manager: Final = MagicMock(spec=CustomSecretManager)
     secret_manager.sync_read_secret.return_value = None
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "secret_manager_client", secret_manager)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+    monkeypatch.setattr(hangarllm, "secret_manager_client", secret_manager)
+    monkeypatch.setattr(hangarllm, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(hangarllm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
 
     picker_models: Final = await _admin_picker_models()
 
@@ -692,14 +692,14 @@ async def test_default_model_list_does_not_offer_typesafe_models(
     openai_only_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "sk-typesafe-fake")
-    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     response: Final = await proxy_server.model_list(user_api_key_dict=admin)
 
     assert {model["id"] for model in response["data"]}.isdisjoint({"typesafe/*", *_priced_jev_models()})
 
 
-async def _key_dialog_models(user_role: LitellmUserRoles, team_id: str | None) -> set[str]:
+async def _key_dialog_models(user_role: HangarllmUserRoles, team_id: str | None) -> set[str]:
     caller: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=user_role)
     response: Final = await proxy_server.model_list(
         user_api_key_dict=caller, return_wildcard_routes=True, include_model_access_groups=True, team_id=team_id
@@ -713,7 +713,7 @@ async def test_key_dialog_without_a_team_offers_typesafe_models_to_an_admin(
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "sk-typesafe-fake")
 
-    dialog_models: Final = await _key_dialog_models(LitellmUserRoles.PROXY_ADMIN, team_id=None)
+    dialog_models: Final = await _key_dialog_models(HangarllmUserRoles.PROXY_ADMIN, team_id=None)
 
     assert {"gpt-4", "typesafe/*", *_priced_jev_models()} <= dialog_models
 
@@ -725,13 +725,13 @@ async def test_pickers_offer_typesafe_names_once_and_no_bare_name_for_registered
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "sk-typesafe-fake")
     jev_models: Final = _priced_jev_models()
-    monkeypatch.setattr(litellm, "model_cost", {**litellm.model_cost})
+    monkeypatch.setattr(hangarllm, "model_cost", {**hangarllm.model_cost})
     router: Final = Router(
         model_list=[
-            {"model_name": "typesafe/*", "litellm_params": {"model": "typesafe/*", "api_key": "sk-typesafe-fake"}},
+            {"model_name": "typesafe/*", "hangarllm_params": {"model": "typesafe/*", "api_key": "sk-typesafe-fake"}},
             {
                 "model_name": "ticket-router",
-                "litellm_params": {"model": "typesafe/my-classifier", "api_key": "sk-typesafe-fake"},
+                "hangarllm_params": {"model": "typesafe/my-classifier", "api_key": "sk-typesafe-fake"},
             },
         ]
     )
@@ -740,7 +740,7 @@ async def test_pickers_offer_typesafe_names_once_and_no_bare_name_for_registered
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     monkeypatch.setattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(proxy_server, "user_model", None)
-    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     response: Final = await proxy_server.model_list(
         user_api_key_dict=admin, return_wildcard_routes=True, include_model_access_groups=True, scope=scope
@@ -758,7 +758,7 @@ async def test_key_dialog_offers_no_typesafe_models_to_an_internal_user(
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "sk-typesafe-fake")
 
-    dialog_models: Final = await _key_dialog_models(LitellmUserRoles.INTERNAL_USER, team_id=None)
+    dialog_models: Final = await _key_dialog_models(HangarllmUserRoles.INTERNAL_USER, team_id=None)
 
     assert "gpt-4" in dialog_models
     assert dialog_models.isdisjoint({"typesafe/*", *_priced_jev_models()})
@@ -770,7 +770,7 @@ async def test_key_dialog_for_a_team_offers_no_typesafe_models_the_team_lacks(
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "sk-typesafe-fake")
 
-    dialog_models: Final = await _key_dialog_models(LitellmUserRoles.PROXY_ADMIN, team_id="team-without-typesafe")
+    dialog_models: Final = await _key_dialog_models(HangarllmUserRoles.PROXY_ADMIN, team_id="team-without-typesafe")
 
     assert dialog_models.isdisjoint({"typesafe/*", *_priced_jev_models()})
 
@@ -780,7 +780,7 @@ async def test_scope_expand_lists_no_typesafe_models_to_a_client_not_asking_for_
     openai_only_router: Router, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "sk-typesafe-fake")
-    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     response: Final = await proxy_server.model_list(user_api_key_dict=admin, scope="expand")
 
@@ -807,7 +807,7 @@ async def test_dashboard_lists_not_asking_for_allowlist_names_offer_no_typesafe_
     only_model_access_groups: bool | None,
 ) -> None:
     monkeypatch.setenv("TYPESAFE_API_KEY", "sk-typesafe-fake")
-    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin: Final = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=HangarllmUserRoles.PROXY_ADMIN)
 
     response: Final = await proxy_server.model_list(
         user_api_key_dict=admin,

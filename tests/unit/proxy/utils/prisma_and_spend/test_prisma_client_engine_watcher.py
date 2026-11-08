@@ -29,7 +29,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.utils import PrismaClient
+from hangarllm.proxy.utils import PrismaClient
 
 
 pytestmark = pytest.mark.skipif(
@@ -532,7 +532,7 @@ def test_stop_engine_watcher_error_in_cleanup_propagates(
 
 
 # ---------------------------------------------------------------------------
-# Planned engine restarts (https://github.com/BerriAI/litellm/issues/29176)
+# Planned engine restarts (upstream issue 29176)
 #
 # An RDS IAM token refresh kills + respawns the engine on purpose. The death
 # handlers must not treat that as a crash and trigger a forced reconnect that

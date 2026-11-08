@@ -48,7 +48,7 @@ async def test_bulk_update_specific_team_only_mutates_listed(
     world_team_ids = [actors.team_alpha_id, actors.team_beta_id, actors.team_gamma_id]
     before = {}
     for tid in world_team_ids + [bystander]:
-        row = await db.db.litellm_teamtable.find_unique(where={"team_id": tid})
+        row = await db.db.hangarllm_teamtable.find_unique(where={"team_id": tid})
         before[tid] = list(row.team_member_permissions or [])
 
     seeder = actors.keys[Actor.PROXY_ADMIN].cleartext
@@ -61,7 +61,7 @@ async def test_bulk_update_specific_team_only_mutates_listed(
     assert resp.status_code == 200, resp.text
     assert resp.json()["teams_updated"] == 1
 
-    target_row = await db.db.litellm_teamtable.find_unique(
+    target_row = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": target}
     )
     assert perm in (
@@ -69,7 +69,7 @@ async def test_bulk_update_specific_team_only_mutates_listed(
     ), f"target team did not gain perm; got={target_row.team_member_permissions}"
 
     for tid, before_perms in before.items():
-        after_row = await db.db.litellm_teamtable.find_unique(
+        after_row = await db.db.hangarllm_teamtable.find_unique(
             where={"team_id": tid}
         )
         assert list(after_row.team_member_permissions or []) == before_perms, (
@@ -120,7 +120,7 @@ async def test_bulk_update_unknown_team_id_rejected(
     )
     before = list(
         (
-            await db.db.litellm_teamtable.find_unique(where={"team_id": existing})
+            await db.db.hangarllm_teamtable.find_unique(where={"team_id": existing})
         ).team_member_permissions
         or []
     )
@@ -139,7 +139,7 @@ async def test_bulk_update_unknown_team_id_rejected(
     assert "not found" in resp.text.lower() or "ghost" in resp.text, resp.text
     # Critical: the partial-success regression shape is "real team got
     # mutated before the ghost-id check ran". Re-read and assert it didn't.
-    after_real = await db.db.litellm_teamtable.find_unique(
+    after_real = await db.db.hangarllm_teamtable.find_unique(
         where={"team_id": existing}
     )
     assert (
@@ -200,7 +200,7 @@ async def test_bulk_update_apply_to_all_mutates_every_team(
     )
     perm = "/key/health"  # distinct from the specific-team scenarios above
 
-    all_teams = await db.db.litellm_teamtable.find_many()
+    all_teams = await db.db.hangarllm_teamtable.find_many()
     snapshot = {t.team_id: list(t.team_member_permissions or []) for t in all_teams}
     expected_updates: Final = sum(
         1 for permissions in snapshot.values() if perm not in permissions
@@ -215,7 +215,7 @@ async def test_bulk_update_apply_to_all_mutates_every_team(
     assert resp.status_code == 200, resp.text
     assert resp.json()["teams_updated"] == expected_updates
 
-    post = await db.db.litellm_teamtable.find_many()
+    post = await db.db.hangarllm_teamtable.find_many()
     for team in post:
         perms = list(team.team_member_permissions or [])
         assert perm in perms, f"team {team.team_id} missing the all-perm: {perms}"

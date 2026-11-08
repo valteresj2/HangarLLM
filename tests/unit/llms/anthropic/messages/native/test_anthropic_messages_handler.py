@@ -19,20 +19,20 @@ from pydantic import TypeAdapter, ValidationError
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import litellm
-from litellm.anthropic_interface import messages
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.router import Router
-from litellm.types.utils import (
+import hangarllm
+from hangarllm.anthropic_interface import messages
+from hangarllm.integrations.custom_logger import CustomLogger
+from hangarllm.hangarllm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from hangarllm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from hangarllm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from hangarllm.router import Router
+from hangarllm.types.utils import (
     Delta,
     ModelResponse,
     StandardLoggingPayloadErrorInformation,
     StreamingChoices,
 )
-from litellm.utils import _invalidate_model_cost_lowercase_map
+from hangarllm.utils import _invalidate_model_cost_lowercase_map
 import unittest.mock
 
 
@@ -42,7 +42,7 @@ import unittest.mock
 async def test_openai_messages_forwards_stop_sequences_to_chat_completions(
     monkeypatch: pytest.MonkeyPatch, is_async: bool, stream: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     response: Final = (
         httpx.Response(
             200,
@@ -66,7 +66,7 @@ async def test_openai_messages_forwards_stop_sequences_to_chat_completions(
     )
     with respx.mock as upstream:
         chat: Final = upstream.post("https://api.openai.com/v1/chat/completions").mock(return_value=response)
-        create: Final = litellm.anthropic.messages.acreate if is_async else litellm.anthropic.messages.create
+        create: Final = hangarllm.anthropic.messages.acreate if is_async else hangarllm.anthropic.messages.create
         pending: Final = create(
             model="openai/gpt-4o-mini",
             max_tokens=80,
@@ -89,14 +89,14 @@ async def test_openai_messages_forwards_stop_sequences_to_chat_completions(
 @pytest.mark.parametrize("stop_sequences", [None, []], ids=["no-stops", "empty-stops"])
 def test_anthropic_messages_handler(stop_sequences):
     """
-    Test that api key is passed to litellm.responses for OpenAI models.
+    Test that api key is passed to hangarllm.responses for OpenAI models.
     OpenAI and Azure models are routed directly to the Responses API.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.responses", return_value="test-response") as mock_responses:
+    with patch("hangarllm.responses", return_value="test-response") as mock_responses:
         try:
             anthropic_messages_handler(
                 max_tokens=100,
@@ -159,7 +159,7 @@ async def test_openai_model_does_not_forward_stream_options_to_responses_api():
     with patch.object(AsyncHTTPHandler, "post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=100,
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             model="openai/gpt-6.1-sol",
@@ -175,14 +175,14 @@ async def test_openai_model_does_not_forward_stream_options_to_responses_api():
 
 def test_anthropic_messages_handler_dynamic_api_key_and_api_base_and_custom_values():
     """
-    Test that api key, api base, and extra kwargs are forwarded to litellm.completion for Azure models.
+    Test that api key, api base, and extra kwargs are forwarded to hangarllm.completion for Azure models.
     Azure models are routed through chat/completions (not the Responses API).
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.completion", return_value=MagicMock()) as mock_completion:
+    with patch("hangarllm.completion", return_value=MagicMock()) as mock_completion:
         try:
             anthropic_messages_handler(
                 max_tokens=100,
@@ -205,7 +205,7 @@ async def test_anthropic_messages_sanitizes_empty_text_blocks_before_dispatch():
     """Regression test for #22930.  The unified /v1/messages path must
     strip empty text blocks before forwarding, otherwise Anthropic
     returns 400 "text content blocks must be non-empty"."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     msgs = [
         {
@@ -243,7 +243,7 @@ async def test_anthropic_messages_sanitizes_empty_text_blocks_before_dispatch():
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_sanitizes_tool_use_ids_before_dispatch():
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     msgs = [
         {
@@ -289,16 +289,16 @@ async def _async_return(value):
 
 def test_anthropic_messages_handler_custom_llm_provider():
     """
-    Test that litellm.completion is called when a custom LLM provider is given.
+    Test that hangarllm.completion is called when a custom LLM provider is given.
 
-    Provider resolution now happens exactly once, inside litellm.completion itself
-    (BerriAI/litellm#37716), so the handler passes the original unresolved model through.
+    Provider resolution now happens exactly once, inside hangarllm.completion itself
+    (valteresj2/HangarLLM#37716), so the handler passes the original unresolved model through.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.completion", return_value="test-response") as mock_completion:
+    with patch("hangarllm.completion", return_value="test-response") as mock_completion:
         try:
             anthropic_messages_handler(
                 max_tokens=100,
@@ -310,7 +310,7 @@ def test_anthropic_messages_handler_custom_llm_provider():
         except (ValueError, TypeError, AttributeError) as e:
             print(f"Error: {e}")
 
-        # Assert that litellm.completion was called when using a custom LLM provider
+        # Assert that hangarllm.completion was called when using a custom LLM provider
         mock_completion.assert_called_once()
 
         # Verify that the custom provider was passed through
@@ -329,7 +329,7 @@ async def test_bedrock_converse_budget_tokens_preserved():
     The bug was that the messages -> completion adapter was converting thinking to reasoning_effort
     and losing the original budget_tokens value, causing it to use the default (128) instead.
     """
-    # Mock litellm.acompletion which is called internally by anthropic_messages_handler
+    # Mock hangarllm.acompletion which is called internally by anthropic_messages_handler
     mock_response = ModelResponse(
         id="test-id",
         model="bedrock/converse/us.anthropic.claude-sonnet-4-20250514-v1:0",
@@ -343,7 +343,7 @@ async def test_bedrock_converse_budget_tokens_preserved():
         usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     )
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("hangarllm.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
 
         try:
@@ -376,13 +376,13 @@ def test_openai_model_with_thinking_converts_to_reasoning():
     converted to a Responses API `reasoning` param (NOT passed as thinking).
 
     OpenAI models are routed directly to the Responses API, so we verify that
-    litellm.responses() is called with `reasoning` properly set.
+    hangarllm.responses() is called with `reasoning` properly set.
     """
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.responses", return_value="test-response") as mock_responses:
+    with patch("hangarllm.responses", return_value="test-response") as mock_responses:
         try:
             anthropic_messages_handler(
                 max_tokens=1024,
@@ -399,7 +399,7 @@ def test_openai_model_with_thinking_converts_to_reasoning():
         call_kwargs = mock_responses.call_args.kwargs
 
         # Verify reasoning is set (converted from thinking)
-        assert "reasoning" in call_kwargs, "reasoning should be passed to litellm.responses"
+        assert "reasoning" in call_kwargs, "reasoning should be passed to hangarllm.responses"
 
         # budget_tokens=1024 -> effort="low" (at the LOW budget threshold)
         # reasoning_auto_summary is False by default, so no summary key
@@ -410,7 +410,7 @@ def test_openai_model_with_thinking_converts_to_reasoning():
         assert "summary" not in call_kwargs["reasoning"]
 
         # Verify thinking is NOT passed directly to the Responses API
-        assert "thinking" not in call_kwargs, "thinking should NOT be passed directly to litellm.responses"
+        assert "thinking" not in call_kwargs, "thinking should NOT be passed directly to hangarllm.responses"
 
 
 class TestThinkingParameterTransformation:
@@ -418,12 +418,12 @@ class TestThinkingParameterTransformation:
 
     def test_claude_model_preserves_thinking_with_budget_tokens(self):
         """Test that Claude models get thinking parameter passed through with exact budget_tokens."""
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = HangarLLMAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="bedrock/converse/us.anthropic.claude-sonnet-4-20250514-v1:0",
         )
@@ -433,12 +433,12 @@ class TestThinkingParameterTransformation:
 
     def test_non_claude_model_converts_thinking_to_reasoning_effort(self):
         """Test that non-Claude models convert thinking to reasoning_effort."""
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 1024}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = HangarLLMAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="openai/gpt-5.2",
         )
@@ -450,31 +450,31 @@ class TestThinkingParameterTransformation:
 
     def test_translate_thinking_for_model_summary_when_enabled(self):
         """When reasoning_auto_summary is True, summary='detailed' is injected."""
-        import litellm
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            hangarllm.reasoning_auto_summary = True
             thinking = {"type": "enabled", "budget_tokens": 5000}
-            result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+            result = HangarLLMAnthropicMessagesAdapter.translate_thinking_for_model(
                 thinking=thinking,
                 model="openai/gpt-5.2",
             )
             assert result == {"reasoning_effort": {"effort": "high", "summary": "detailed"}}
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
     def test_translate_thinking_for_model_preserves_user_summary(self):
         """User-provided summary is always preserved regardless of flag."""
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 10000, "summary": "concise"}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = HangarLLMAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="openai/gpt-5.2",
         )
@@ -486,13 +486,13 @@ class TestThinkingSummaryPreservation:
 
     def test_thinking_summary_concise_preserved_for_openai(self):
         """User-provided summary='concise' should not be replaced with 'detailed'."""
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000, "summary": "concise"}
         completion_kwargs = {"model": "openai/gpt-5.1", "reasoning_effort": "medium"}
-        LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+        HangarLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
             completion_kwargs, thinking=thinking
         )
         assert completion_kwargs["reasoning_effort"] == {
@@ -502,13 +502,13 @@ class TestThinkingSummaryPreservation:
 
     def test_thinking_summary_auto_preserved_for_openai(self):
         """User-provided summary='auto' should be preserved."""
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 10000, "summary": "auto"}
         completion_kwargs = {"model": "openai/gpt-5.1", "reasoning_effort": "high"}
-        LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+        HangarLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
             completion_kwargs, thinking=thinking
         )
         assert completion_kwargs["reasoning_effort"] == {
@@ -518,20 +518,20 @@ class TestThinkingSummaryPreservation:
 
     def test_summary_added_when_auto_summary_enabled(self):
         """When reasoning_auto_summary is True, summary='detailed' is added."""
-        import litellm
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            hangarllm.reasoning_auto_summary = True
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": "medium",
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            HangarLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 5000}
             )
             assert completion_kwargs["reasoning_effort"] == {
@@ -539,71 +539,71 @@ class TestThinkingSummaryPreservation:
                 "summary": "detailed",
             }
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
     def test_no_summary_by_default_string_reasoning(self):
         """By default (reasoning_auto_summary=False), summary is not added for string reasoning_effort."""
-        import litellm
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            hangarllm.reasoning_auto_summary = False
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": "high",
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            HangarLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 10000}
             )
             assert completion_kwargs["reasoning_effort"] == {"effort": "high"}
             assert "summary" not in completion_kwargs["reasoning_effort"]
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
     def test_no_summary_by_default_dict_reasoning(self):
         """By default (reasoning_auto_summary=False), summary is not injected into dict reasoning_effort."""
-        import litellm
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            hangarllm.reasoning_auto_summary = False
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": {"effort": "medium"},
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            HangarLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 5000}
             )
             assert completion_kwargs["reasoning_effort"] == {"effort": "medium"}
             assert "summary" not in completion_kwargs["reasoning_effort"]
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
     def test_summary_added_when_env_var_set(self, monkeypatch):
-        """When LITELLM_REASONING_AUTO_SUMMARY env var is true, summary is added."""
-        import litellm
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        """When HANGARLLM_REASONING_AUTO_SUMMARY env var is true, summary is added."""
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
-            monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+            hangarllm.reasoning_auto_summary = False
+            monkeypatch.setenv("HANGARLLM_REASONING_AUTO_SUMMARY", "true")
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": "high",
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            HangarLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 10000}
             )
             assert completion_kwargs["reasoning_effort"] == {
@@ -611,38 +611,38 @@ class TestThinkingSummaryPreservation:
                 "summary": "detailed",
             }
         finally:
-            litellm.reasoning_auto_summary = original
-            os.environ.pop("LITELLM_REASONING_AUTO_SUMMARY", None)
+            hangarllm.reasoning_auto_summary = original
+            os.environ.pop("HANGARLLM_REASONING_AUTO_SUMMARY", None)
 
     def test_user_provided_summary_preserved_even_when_flag_off(self):
         """When user already set summary in dict reasoning_effort, it's preserved regardless of flag."""
-        import litellm
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            hangarllm.reasoning_auto_summary = False
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": {"effort": "high", "summary": "concise"},
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            HangarLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 10000}
             )
             assert completion_kwargs["reasoning_effort"]["summary"] == "concise"
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
     def test_openai_model_with_thinking_summary_end_to_end(self):
         """End-to-end: anthropic_messages_handler should preserve thinking.summary for OpenAI models."""
-        from litellm.llms.anthropic.messages.native.handler import (
+        from hangarllm.llms.anthropic.messages.native.handler import (
             anthropic_messages_handler,
         )
 
-        with patch("litellm.responses", return_value="test-response") as mock_responses:
+        with patch("hangarllm.responses", return_value="test-response") as mock_responses:
             try:
                 anthropic_messages_handler(
                     max_tokens=1024,
@@ -667,43 +667,43 @@ class TestThinkingSummaryPreservation:
 
     def test_responses_adapter_preserves_summary(self):
         """translate_thinking_to_reasoning should include summary when user provides it."""
-        from litellm.llms.anthropic.messages.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        from hangarllm.llms.anthropic.messages.responses_adapters.transformation import (
+            HangarLLMAnthropicToResponsesAPIAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000, "summary": "concise"}
-        result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
+        result = HangarLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
             thinking, model="openai/gpt-6.1-sol"
         )
         assert result == {"effort": "high", "summary": "concise"}
 
     def test_responses_adapter_no_summary_by_default(self):
         """translate_thinking_to_reasoning should not include summary by default (opt-in)."""
-        import litellm
-        from litellm.llms.anthropic.messages.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.responses_adapters.transformation import (
+            HangarLLMAnthropicToResponsesAPIAdapter,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            hangarllm.reasoning_auto_summary = False
             thinking = {"type": "enabled", "budget_tokens": 5000}
-            result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
+            result = HangarLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
                 thinking, model="openai/gpt-6.1-sol"
             )
             assert result == {"effort": "high"}
             assert result is not None and "summary" not in result
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
     def test_translate_thinking_for_model_preserves_summary(self):
         """translate_thinking_for_model should include summary in reasoning_effort dict when user provides it."""
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000, "summary": "concise"}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = HangarLLMAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="openai/gpt-5.2",
         )
@@ -711,21 +711,21 @@ class TestThinkingSummaryPreservation:
 
     def test_translate_thinking_for_model_disabled_stays_plain_string_when_auto_summary_enabled(self):
         """Disabled thinking must stay a plain string even when reasoning_auto_summary is on."""
-        import litellm
-        from litellm.llms.anthropic.messages.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        import hangarllm
+        from hangarllm.llms.anthropic.messages.adapters.transformation import (
+            HangarLLMAnthropicMessagesAdapter,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = hangarllm.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            hangarllm.reasoning_auto_summary = True
             thinking = {"type": "disabled"}
-            result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+            result = HangarLLMAnthropicMessagesAdapter.translate_thinking_for_model(
                 thinking=thinking,
                 model="openai/gpt-5.2",
             )
         finally:
-            litellm.reasoning_auto_summary = original
+            hangarllm.reasoning_auto_summary = original
 
         assert result == {"reasoning_effort": "none"}
 
@@ -751,7 +751,7 @@ def _empty_block_msgs():
 
 def test_handler_strips_when_no_presanitized_flag():
     """Sync entry point (no async wrapper): handler must still sanitize."""
-    from litellm.llms.anthropic.messages.native import handler, utils
+    from hangarllm.llms.anthropic.messages.native import handler, utils
 
     with patch.object(
         utils,
@@ -771,7 +771,7 @@ def test_handler_strips_when_no_presanitized_flag():
 
 def test_handler_skips_strip_when_presanitized():
     """Async wrapper already sanitized -> handler must NOT rescan."""
-    from litellm.llms.anthropic.messages.native import handler, utils
+    from hangarllm.llms.anthropic.messages.native import handler, utils
 
     with patch.object(
         utils,
@@ -784,7 +784,7 @@ def test_handler_skips_strip_when_presanitized():
             model="anthropic/claude-3-5-sonnet-20241022",
             custom_llm_provider="anthropic",
             mock_response="hi there",
-            _litellm_messages_presanitized=True,
+            _hangarllm_messages_presanitized=True,
         )
     assert spy.call_count == 0  # skipped the redundant scan
     assert result is not None
@@ -792,7 +792,7 @@ def test_handler_skips_strip_when_presanitized():
 
 def test_handler_flattens_replayed_unencrypted_web_search_results():
     """Synthesized search blocks replayed as history must reach the provider as text."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     captured = {}
 
@@ -808,7 +808,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
         handler.anthropic_messages_handler(
             max_tokens=10,
             messages=[
-                {"role": "user", "content": "latest litellm version?"},
+                {"role": "user", "content": "latest hangarllm version?"},
                 {
                     "role": "assistant",
                     "content": [
@@ -816,7 +816,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
                             "type": "server_tool_use",
                             "id": "srvtoolu_1",
                             "name": "web_search",
-                            "input": {"query": "latest litellm version"},
+                            "input": {"query": "latest hangarllm version"},
                         },
                         {
                             "type": "web_search_tool_result",
@@ -824,7 +824,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
                             "content": [
                                 {
                                     "type": "web_search_result",
-                                    "url": "https://github.com/BerriAI/litellm/releases",
+                                    "url": "https://github.com/valteresj2/HangarLLM/releases",
                                     "title": "Releases",
                                     "page_age": None,
                                     "encrypted_content": "",
@@ -847,7 +847,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
 
 def test_presanitized_flag_not_leaked_to_provider_params():
     """The private sentinel must be popped, never forwarded as a request param."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     captured = {}
 
@@ -866,23 +866,23 @@ def test_presanitized_flag_not_leaked_to_provider_params():
             messages=[{"role": "user", "content": "hi"}],
             model="anthropic/claude-3-5-sonnet-20241022",
             custom_llm_provider="anthropic",
-            _litellm_messages_presanitized=True,
+            _hangarllm_messages_presanitized=True,
         )
 
-    assert "_litellm_messages_presanitized" not in captured.get("optional", {})
-    assert "_litellm_messages_presanitized" not in captured.get("kwargs", {})
+    assert "_hangarllm_messages_presanitized" not in captured.get("optional", {})
+    assert "_hangarllm_messages_presanitized" not in captured.get("kwargs", {})
 
 
 @pytest.mark.asyncio
 async def test_async_wrapper_sets_presanitized_and_sanitizes_once():
     """End-to-end: wrapper sanitizes (once) AND signals the handler to skip."""
-    from litellm.llms.anthropic.messages.native import handler, utils
+    from hangarllm.llms.anthropic.messages.native import handler, utils
 
     captured = {}
 
     def fake_handler(*args, **kwargs):
         captured["messages"] = kwargs.get("messages")
-        captured["presanitized"] = kwargs.get("_litellm_messages_presanitized")
+        captured["presanitized"] = kwargs.get("_hangarllm_messages_presanitized")
         return "stub"
 
     fake_loop = MagicMock()
@@ -920,7 +920,7 @@ def _gate_stubs(monkeypatch):
     provider config handed to the native passthrough path and ``translation_calls``
     counts hits on the Anthropic->OpenAI translation handlers.
     """
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     captured = {}
     translation_calls = {"count": 0}
@@ -935,12 +935,12 @@ def _gate_stubs(monkeypatch):
 
     monkeypatch.setattr(handler.base_llm_http_handler, "anthropic_messages_handler", fake_native)
     monkeypatch.setattr(
-        handler.LiteLLMMessagesToResponsesAPIHandler,
+        handler.HangarLLMMessagesToResponsesAPIHandler,
         "anthropic_messages_handler",
         staticmethod(fake_translation),
     )
     monkeypatch.setattr(
-        handler.LiteLLMMessagesToCompletionTransformationHandler,
+        handler.HangarLLMMessagesToCompletionTransformationHandler,
         "anthropic_messages_handler",
         staticmethod(fake_translation),
     )
@@ -950,10 +950,10 @@ def _gate_stubs(monkeypatch):
 def test_gate_passthrough_when_supported_endpoints_opts_in(monkeypatch):
     """provider=openai + model_info.supported_endpoints containing /v1/messages
     must route to the native passthrough config, NOT the translation handlers."""
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
-    from litellm.llms.openai_like.messages.transformation import (
+    from hangarllm.llms.openai_like.messages.transformation import (
         OpenAILikeAnthropicMessagesConfig,
     )
 
@@ -976,7 +976,7 @@ def test_gate_passthrough_when_supported_endpoints_opts_in(monkeypatch):
 def test_gate_translates_when_supported_endpoints_absent(monkeypatch):
     """Default behavior is unchanged: without the /v1/messages opt-in, an openai
     deployment is translated (Responses API), never passed through natively."""
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
 
@@ -998,7 +998,7 @@ def test_gate_translates_when_supported_endpoints_absent(monkeypatch):
 def test_gate_passthrough_skipped_when_only_chat_completions_supported(monkeypatch):
     """A deployment that lists only /v1/chat/completions is still translated;
     the opt-in is specifically the /v1/messages entry."""
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
 
@@ -1031,7 +1031,7 @@ def test_gate_passthrough_forwards_cache_control_ttl_only_when_deployment_opts_i
 ):
     """The passthrough config strips cache_control.ttl unless the deployment sets
     model_info.cache_control_ttl to exactly true."""
-    from litellm.llms.anthropic.messages.native.handler import (
+    from hangarllm.llms.anthropic.messages.native.handler import (
         anthropic_messages_handler,
     )
 
@@ -1061,9 +1061,9 @@ def test_first_party_claude_4_8_plus_cost_map_entries_carry_mid_conversation_sys
     import os
     import re
 
-    import litellm
+    import hangarllm
 
-    cost_map_path = os.path.join(os.path.dirname(litellm.__file__), "model_prices_and_context_window_backup.json")
+    cost_map_path = os.path.join(os.path.dirname(hangarllm.__file__), "model_prices_and_context_window_backup.json")
     with open(cost_map_path) as f:
         cost_map = json.load(f)
     rules = cost_map["fallback_generalizations"]["rules"]
@@ -1077,7 +1077,7 @@ def test_first_party_claude_4_8_plus_cost_map_entries_carry_mid_conversation_sys
         key
         for key, info in cost_map.items()
         if isinstance(info, dict)
-        and info.get("litellm_provider") == "anthropic"
+        and info.get("hangarllm_provider") == "anthropic"
         and "claude" in key
         and pattern.search(key)
         and info.get("supports_mid_conversation_system") is not True
@@ -1104,7 +1104,7 @@ def test_first_party_claude_4_8_plus_cost_map_entries_carry_mid_conversation_sys
 )
 async def test_messages_strips_provider_prefix_exactly_once(requested_model, expected_wire_model, expected_url):
     """
-    BerriAI/litellm#37716: only the leading provider segment may be stripped on the way upstream.
+    valteresj2/HangarLLM#37716: only the leading provider segment may be stripped on the way upstream.
 
     A multi-segment id such as perplexity/perplexity/kimi-k3 must reach the provider as
     perplexity/kimi-k3, matching what /v1/chat/completions and /v1/responses already send.
@@ -1126,9 +1126,9 @@ async def test_messages_strips_provider_prefix_exactly_once(requested_model, exp
 
     with (
         patch.object(httpx.AsyncClient, "send", fake_send),
-        pytest.raises(litellm.exceptions.InternalServerError),
+        pytest.raises(hangarllm.exceptions.InternalServerError),
     ):
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=100,
             messages=[{"role": "user", "content": "ping"}],
             model=requested_model,
@@ -1162,8 +1162,8 @@ async def test_azure_ai_on_azure_openai_host_streams_natively_with_the_bare_depl
     credentials_from_env: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.delenv("AZURE_API_BASE", raising=False)
     monkeypatch.delenv("AZURE_API_KEY", raising=False)
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://qa-resource.cognitiveservices.azure.com")
@@ -1179,7 +1179,7 @@ async def test_azure_ai_on_azure_openai_host_streams_natively_with_the_bare_depl
             side_effect=httpx.ConnectError("cut at the wire")
         )
         with pytest.raises(openai.APIError):
-            await litellm.anthropic.messages.acreate(
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "What is the weather in Berlin?"}],
                 model="azure_ai/gpt-6-luna",
@@ -1199,13 +1199,13 @@ async def test_azure_ai_on_azure_openai_host_streams_natively_with_the_bare_depl
 async def test_bridged_messages_keep_the_region_of_a_regional_bedrock_mantle_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with respx.mock(assert_all_called=True) as respx_mock:
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
-        with pytest.raises(litellm.exceptions.ServiceUnavailableError):
-            await litellm.anthropic.messages.acreate(
+        with pytest.raises(hangarllm.exceptions.ServiceUnavailableError):
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model="bedrock_mantle/eu-west-1/openai.gpt-oss-120b",
@@ -1220,13 +1220,13 @@ async def test_bridged_messages_keep_the_region_of_a_regional_bedrock_mantle_mod
 async def test_bridged_messages_keep_the_callers_explicit_provider_over_the_model_prefix(
     model: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with respx.mock(assert_all_called=True) as respx_mock:
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
         with pytest.raises(openai.APIError):
-            await litellm.anthropic.messages.acreate(
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model=model,
@@ -1243,16 +1243,16 @@ async def test_bridged_messages_keep_the_callers_explicit_provider_over_the_mode
 def test_bridged_messages_reach_the_callers_provider_without_signing_in_to_the_prefix_provider(
     model: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("OPENAI_API_KEY", "server-openai-key")
     monkeypatch.setenv("CHATGPT_TOKEN_DIR", str(tmp_path))
     monkeypatch.setenv("GITHUB_COPILOT_TOKEN_DIR", str(tmp_path))
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with respx.mock(assert_all_called=True) as respx_mock:
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
         with pytest.raises(openai.APIError):
-            litellm.anthropic.messages.create(
+            hangarllm.anthropic.messages.create(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model=model,
@@ -1267,14 +1267,14 @@ def test_bridged_messages_reach_the_callers_provider_without_signing_in_to_the_p
 async def test_bridged_messages_send_the_deployments_key_for_azure_models_served_as_openai(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("OPENAI_API_KEY", "server-openai-key")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with respx.mock(assert_all_called=True) as respx_mock:
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
         with pytest.raises(openai.APIError):
-            await litellm.anthropic.messages.acreate(
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model="azure/mistral-large-latest",
@@ -1299,23 +1299,23 @@ async def test_bridged_messages_send_the_deployments_key_for_azure_models_served
 async def test_bridged_messages_keep_the_deployments_entra_credential_over_the_env_key(
     monkeypatch: pytest.MonkeyPatch, entra_credential: Mapping[str, object], api_base_from_env: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://example-resource.cognitiveservices.azure.com")
     monkeypatch.setenv("AZURE_AI_API_KEY", "azure-env-key")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     api_base: Final = {} if api_base_from_env else {"api_base": "https://example-resource.cognitiveservices.azure.com"}
 
     with (
-        patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id", return_value=lambda: "entra-token"),  # test-quality-ok: stands in for the Entra token fetch so the test can see which credential reaches Azure
+        patch("hangarllm.llms.azure.common_utils.get_azure_ad_token_from_entra_id", return_value=lambda: "entra-token"),  # test-quality-ok: stands in for the Entra token fetch so the test can see which credential reaches Azure
         patch(
-            "litellm.llms.azure.common_utils.get_azure_ad_token_from_username_password",
+            "hangarllm.llms.azure.common_utils.get_azure_ad_token_from_username_password",
             return_value=lambda: "entra-token",
         ),  # test-quality-ok: stands in for the Entra token fetch so the test can see which credential reaches Azure
         respx.mock(assert_all_called=True) as respx_mock,
     ):
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
         with pytest.raises(openai.APIError):
-            await litellm.anthropic.messages.acreate(
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model="azure_ai/gpt-6-luna",
@@ -1344,21 +1344,21 @@ async def test_bridged_messages_keep_the_deployments_entra_credential_over_the_e
 async def test_bridged_messages_keep_the_azure_env_credential_when_the_deployment_sets_its_own_api_base(
     azure_env_credential: Mapping[str, str], expected_header: str, expected_value: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     for name in ("AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_AD_TOKEN", "AZURE_TENANT_ID", "AZURE_CLIENT_ID"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("AZURE_AI_API_KEY", "key-for-another-resource")
     for name, value in azure_env_credential.items():
         monkeypatch.setenv(name, value)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with (
-        patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id", return_value=lambda: "entra-token"),  # test-quality-ok: stands in for the Entra token fetch so the test can see which credential reaches Azure
+        patch("hangarllm.llms.azure.common_utils.get_azure_ad_token_from_entra_id", return_value=lambda: "entra-token"),  # test-quality-ok: stands in for the Entra token fetch so the test can see which credential reaches Azure
         respx.mock(assert_all_called=True) as respx_mock,
     ):
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
         with pytest.raises(openai.APIError):
-            await litellm.anthropic.messages.acreate(
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model="azure_ai/gpt-6-luna",
@@ -1370,24 +1370,24 @@ async def test_bridged_messages_keep_the_azure_env_credential_when_the_deploymen
 
 
 @pytest.mark.asyncio
-async def test_bridged_messages_still_route_through_the_litellm_proxy_when_asked(
+async def test_bridged_messages_still_route_through_the_hangarllm_proxy_when_asked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setenv("LITELLM_PROXY_API_BASE", "https://proxy.example.com")
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "proxy-key")
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    monkeypatch.setenv("HANGARLLM_PROXY_API_BASE", "https://proxy.example.com")
+    monkeypatch.setenv("HANGARLLM_PROXY_API_KEY", "proxy-key")
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://example-resource.cognitiveservices.azure.com")
     monkeypatch.setenv("AZURE_AI_API_KEY", "azure-env-key")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with respx.mock(assert_all_called=True) as respx_mock:
         upstream: Final = respx_mock.route().mock(side_effect=httpx.ConnectError("cut at the wire"))
         with pytest.raises(openai.APIError):
-            await litellm.anthropic.messages.acreate(
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model="azure_ai/gpt-6-luna",
-                use_litellm_proxy=True,
+                use_hangarllm_proxy=True,
             )
 
     assert {call.request.url.host for call in upstream.calls} == {"proxy.example.com"}
@@ -1406,23 +1406,23 @@ async def test_messages_honors_a_chat_pin_on_a_prefixed_responses_deployment(
 ) -> None:
     """A deployment id whose stripped form is a chat row is kept on the Responses API, unless the
     deployment pins ``mode: chat``, which has to decide the route before the prefix is stripped."""
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
-    litellm.model_cost["perplexity/perplexity/pin-test-model"] = {
-        "litellm_provider": "perplexity",
+    monkeypatch.setattr(hangarllm, "model_cost", copy.deepcopy(hangarllm.model_cost))
+    hangarllm.model_cost["perplexity/perplexity/pin-test-model"] = {
+        "hangarllm_provider": "perplexity",
         "mode": "responses",
         "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
     }
-    litellm.model_cost["perplexity/pin-test-model"] = {"litellm_provider": "perplexity", "mode": "chat"}
+    hangarllm.model_cost["perplexity/pin-test-model"] = {"hangarllm_provider": "perplexity", "mode": "chat"}
     _invalidate_model_cost_lowercase_map()
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
 
     with respx.mock(assert_all_called=True) as respx_mock:
         upstream: Final = respx_mock.route(host="api.perplexity.ai").mock(
             side_effect=httpx.ConnectError("cut at the wire")
         )
-        with pytest.raises(litellm.exceptions.InternalServerError):
-            await litellm.anthropic.messages.acreate(
+        with pytest.raises(hangarllm.exceptions.InternalServerError):
+            await hangarllm.anthropic.messages.acreate(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "ping"}],
                 model="perplexity/perplexity/pin-test-model",
@@ -1468,9 +1468,9 @@ async def test_native_messages_strips_replayed_provider_specific_fields_from_wir
 
     with (
         patch.object(httpx.AsyncClient, "send", fake_send),
-        pytest.raises(litellm.exceptions.InternalServerError),
+        pytest.raises(hangarllm.exceptions.InternalServerError),
     ):
-        await litellm.anthropic.messages.acreate(
+        await hangarllm.anthropic.messages.acreate(
             max_tokens=100,
             messages=messages,
             model="anthropic/claude-haiku-4-5-20251001",
@@ -1491,7 +1491,7 @@ async def test_native_messages_strips_replayed_provider_specific_fields_from_wir
 )
 async def test_messages_streaming_reports_provider_local_model(requested_model, expected_reported_model):
     """
-    BerriAI/litellm#37716: the wire keeps every segment, so ``message_start`` must still
+    valteresj2/HangarLLM#37716: the wire keeps every segment, so ``message_start`` must still
     report the id the provider itself knows rather than the caller's prefixed deployment id.
     """
 
@@ -1502,8 +1502,8 @@ async def test_messages_streaming_reports_provider_local_model(requested_model, 
         async def __anext__(self):
             raise StopAsyncIteration
 
-    with patch("litellm.acompletion", new=AsyncMock(return_value=_EmptyStream())):
-        stream = await litellm.anthropic.messages.acreate(
+    with patch("hangarllm.acompletion", new=AsyncMock(return_value=_EmptyStream())):
+        stream = await hangarllm.anthropic.messages.acreate(
             max_tokens=100,
             messages=[{"role": "user", "content": "ping"}],
             model=requested_model,
@@ -1517,8 +1517,8 @@ async def test_messages_streaming_reports_provider_local_model(requested_model, 
 
 def test_messages_sync_streaming_reports_provider_local_model():
     """Same guarantee as the async bridge, at the sync call site."""
-    with patch("litellm.completion", new=MagicMock(return_value=iter(()))):
-        stream = litellm.anthropic.messages.create(
+    with patch("hangarllm.completion", new=MagicMock(return_value=iter(()))):
+        stream = hangarllm.anthropic.messages.create(
             max_tokens=100,
             messages=[{"role": "user", "content": "ping"}],
             model="perplexity/perplexity/kimi-k3",
@@ -1580,7 +1580,7 @@ class _SuccessPayloadCapture(CustomLogger):
         self.payloads: List[Dict[str, Any]] = []
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        if kwargs.get("litellm_call_id") == self.tracking_id:
+        if kwargs.get("hangarllm_call_id") == self.tracking_id:
             self.payloads.append(kwargs.get("standard_logging_object") or {})
 
 
@@ -1588,7 +1588,7 @@ class _SuccessPayloadCapture(CustomLogger):
 def capture_success_payloads(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     capture = _SuccessPayloadCapture(tracking_id=f"messages-stream-{uuid.uuid4()}")
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
     return capture
 
 
@@ -1636,14 +1636,14 @@ class TestMessagesStreamingSuccessLogging:
     @pytest.mark.asyncio
     async def test_responses_bridge_streaming_emits_success_logging(self, capture_success_payloads):
         """The Responses bridge, which is the default for openai/ deployments."""
-        from litellm.llms.anthropic.messages.responses_adapters.handler import (
-            LiteLLMMessagesToResponsesAPIHandler,
+        from hangarllm.llms.anthropic.messages.responses_adapters.handler import (
+            HangarLLMMessagesToResponsesAPIHandler,
         )
 
         _bind_logging_worker_to_running_loop()
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = httpx.Response(
@@ -1651,13 +1651,13 @@ class TestMessagesStreamingSuccessLogging:
                 content=_sse_body(_RESPONSES_SSE_EVENTS),
                 headers={"content-type": "text/event-stream"},
             )
-            sse_stream = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+            sse_stream = await HangarLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
                 max_tokens=100,
                 messages=self.MESSAGES,
                 model="openai/gpt-4o-mini",
                 stream=True,
                 custom_llm_provider="openai",
-                litellm_call_id=capture_success_payloads.tracking_id,
+                hangarllm_call_id=capture_success_payloads.tracking_id,
             )
             chunks = await _drain(sse_stream)
 
@@ -1675,26 +1675,26 @@ class TestMessagesStreamingSuccessLogging:
     @pytest.mark.asyncio
     async def test_chat_completions_bridge_streaming_emits_success_logging(self, capture_success_payloads):
         """The chat-completions bridge, reached via
-        litellm.use_chat_completions_url_for_anthropic_messages. Its router lookup is
+        hangarllm.use_chat_completions_url_for_anthropic_messages. Its router lookup is
         stubbed to what an SDK caller with no proxy running already resolves to."""
-        from litellm.llms.anthropic.messages.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        from hangarllm.llms.anthropic.messages.adapters.handler import (
+            HangarLLMMessagesToCompletionTransformationHandler,
         )
 
         _bind_logging_worker_to_running_loop()
 
         with patch(
-            "litellm.llms.anthropic.messages.adapters.handler._proxy_router_fallback",
+            "hangarllm.llms.anthropic.messages.adapters.handler._proxy_router_fallback",
             return_value=None,
         ):
-            sse_stream = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+            sse_stream = await HangarLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
                 max_tokens=100,
                 messages=self.MESSAGES,
                 model="openai/gpt-4o-mini",
                 stream=True,
                 custom_llm_provider="openai",
                 mock_response="hello there",
-                litellm_call_id=capture_success_payloads.tracking_id,
+                hangarllm_call_id=capture_success_payloads.tracking_id,
             )
             chunks = await _drain(sse_stream)
 
@@ -1722,8 +1722,8 @@ class _FailureCapture(CustomLogger):
 @pytest.mark.parametrize(
     "upstream_status, upstream_error_type, expected_exception",
     [
-        (401, "authentication_error", litellm.AuthenticationError),
-        (403, "permission_error", litellm.PermissionDeniedError),
+        (401, "authentication_error", hangarllm.AuthenticationError),
+        (403, "permission_error", hangarllm.PermissionDeniedError),
     ],
 )
 async def test_anthropic_messages_maps_provider_exception_before_failure_logging(
@@ -1737,10 +1737,10 @@ async def test_anthropic_messages_maps_provider_exception_before_failure_logging
     The 403 row pins the upstream status on the way through the mapper: Anthropic's
     documented permission_error must reach the caller as a 403, never as the mapper's
     APIConnectionError 500 fallthrough."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     capture = _FailureCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(hangarllm, "callbacks", [capture])
 
     def upstream_rejects_the_request(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -1779,7 +1779,7 @@ async def test_anthropic_messages_leaves_non_provider_failures_unmapped():
     """The mapping boundary is for provider failures only. A request rejected before
     the provider call (here invalid metadata) must surface as the original exception,
     not as the mapper's APIConnectionError, whose message embeds a server traceback."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     def upstream_must_not_be_called(request: httpx.Request) -> httpx.Response:
         raise AssertionError("the provider must not be called for a request rejected locally")
@@ -1825,7 +1825,7 @@ def _recording_client(seen_urls: list[str]) -> AsyncHTTPHandler:
 
 @pytest.mark.asyncio
 async def test_provider_messages_api_base_env_is_not_shadowed_by_the_chat_default(monkeypatch):
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     monkeypatch.delenv("DEEPSEEK_API_BASE", raising=False)
     monkeypatch.setenv("DEEPSEEK_ANTHROPIC_API_BASE", "https://deepseek.internal.example/anthropic")
@@ -1845,7 +1845,7 @@ async def test_provider_messages_api_base_env_is_not_shadowed_by_the_chat_defaul
 @pytest.mark.asyncio
 async def test_anthropic_messages_forwards_safeguards_and_unknown_beta_to_anthropic():
     """Shapes are what Claude Code 2.1.278 sends and api.anthropic.com returns, captured 2026-09-21."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     safeguards = [{"type": "dangerous_tool_use", "classifier_context": {"v": 1, "permission_mode": "auto"}}]
     client_betas = "dangerous-tool-use-2026-09-03,interleaved-thinking-2025-05-14"
@@ -1893,7 +1893,7 @@ async def test_anthropic_messages_forwards_safeguards_and_unknown_beta_to_anthro
 @pytest.mark.asyncio
 async def test_anthropic_messages_streaming_forwards_safeguards_and_keeps_safeguard_results():
     """Shapes are what Claude Code 2.1.278 sends and api.anthropic.com returns, captured 2026-09-21."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     safeguards = [{"type": "dangerous_tool_use", "classifier_context": {"v": 1, "permission_mode": "auto"}}]
     tool_verdicts = {"toolu_01": {"type": "evaluated", "outcome": "not_flagged"}}
@@ -1998,7 +1998,7 @@ async def test_anthropic_messages_forwards_safeguards_and_dangerous_tool_use_bet
     local_beta_headers_config, client_headers
 ):
     """Bedrock Invoke takes betas in the body's `anthropic_beta` and 400s on `safeguards` without the beta, so the beta rides along with the field."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     safeguards, safeguard_results = _claude_code_auto_mode_request()
     captured: dict[str, object] = {}
@@ -2027,7 +2027,7 @@ async def test_anthropic_messages_forwards_safeguards_and_dangerous_tool_use_bet
     local_beta_headers_config: None, client_headers: dict[str, str]
 ) -> None:
     """Vertex rawPredict takes the beta as the `anthropic-beta` header and 400s on `safeguards` without it, so the beta rides along with the field."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     safeguards, safeguard_results = _claude_code_auto_mode_request()
     captured: dict[str, object] = {}
@@ -2086,7 +2086,7 @@ def _flagging_classifier_router() -> Router:
         model_list=[
             {
                 "model_name": "classifier",
-                "litellm_params": {
+                "hangarllm_params": {
                     "model": "openai/classifier",
                     "api_key": "sk-classifier-test",
                     "mock_response": json.dumps(
@@ -2146,10 +2146,10 @@ def _native_upstream(*, stream: bool, model: str, **extra: object) -> AsyncHTTPH
 
 
 async def _native_messages(model: str, upstream: AsyncHTTPHandler, *, stream: bool, **extra: object) -> object:
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     safeguards, _ = _claude_code_auto_mode_request()
-    with patch("litellm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
+    with patch("hangarllm.proxy.proxy_server.general_settings", {"safeguards_classifier_model": "classifier"}):
         response = await handler.anthropic_messages(
             max_tokens=64,
             messages=[{"role": "user", "content": "set up the repo"}],
@@ -2158,8 +2158,8 @@ async def _native_messages(model: str, upstream: AsyncHTTPHandler, *, stream: bo
             client=upstream,
             stream=stream,
             safeguards=safeguards,
-            litellm_router=_flagging_classifier_router(),
-            litellm_metadata={"user_api_key": "hashed-key"},
+            hangarllm_router=_flagging_classifier_router(),
+            hangarllm_metadata={"user_api_key": "hashed-key"},
             **extra,
         )
         if not stream:
@@ -2234,12 +2234,12 @@ async def test_native_claude_route_that_drops_safeguards_gets_the_classifier_ver
 
 
 @pytest.mark.asyncio
-async def test_anthropic_messages_litellm_router_latency_metadata_tracking():
+async def test_anthropic_messages_hangarllm_router_latency_metadata_tracking():
     """
     Test the anthropic_messages with routing strategy and verify that _latency_per_deployment
-    field is passed in litellm_metadata when calling litellm.anthropic_messages
+    field is passed in hangarllm_metadata when calling hangarllm.anthropic_messages
     """
-    with unittest.mock.patch("litellm.anthropic_messages") as mock_anthropic_messages:
+    with unittest.mock.patch("hangarllm.anthropic_messages") as mock_anthropic_messages:
         # Mock the return value
         mock_response = {
             "id": "msg_123456",
@@ -2259,7 +2259,7 @@ async def test_anthropic_messages_litellm_router_latency_metadata_tracking():
             model_list=[
                 {
                     "model_name": MODEL_GROUP,
-                    "litellm_params": {
+                    "hangarllm_params": {
                         "model": "claude-haiku-4-5-20251001",
                         "api_key": os.getenv("ANTHROPIC_API_KEY"),
                     },
@@ -2284,7 +2284,7 @@ async def test_anthropic_messages_litellm_router_latency_metadata_tracking():
         # Verify response
         assert response == mock_response
 
-        # Verify that litellm.anthropic_messages was called
+        # Verify that hangarllm.anthropic_messages was called
         mock_anthropic_messages.assert_called_once()
 
         # Get the call arguments
@@ -2293,29 +2293,29 @@ async def test_anthropic_messages_litellm_router_latency_metadata_tracking():
 
         print("Call kwargs:", json.dumps(call_kwargs, indent=2, default=str))
 
-        # Verify that litellm_metadata was passed and contains _latency_per_deployment
-        assert "litellm_metadata" in call_kwargs, "litellm_metadata should be passed to anthropic_messages"
+        # Verify that hangarllm_metadata was passed and contains _latency_per_deployment
+        assert "hangarllm_metadata" in call_kwargs, "hangarllm_metadata should be passed to anthropic_messages"
 
-        litellm_metadata = call_kwargs["litellm_metadata"]
-        assert litellm_metadata is not None, "litellm_metadata should not be None"
-        assert isinstance(litellm_metadata, dict), "litellm_metadata should be a dictionary"
+        hangarllm_metadata = call_kwargs["hangarllm_metadata"]
+        assert hangarllm_metadata is not None, "hangarllm_metadata should not be None"
+        assert isinstance(hangarllm_metadata, dict), "hangarllm_metadata should be a dictionary"
 
         # Verify _latency_per_deployment is present
-        assert "_latency_per_deployment" in litellm_metadata, (
-            "litellm_metadata should contain _latency_per_deployment field"
+        assert "_latency_per_deployment" in hangarllm_metadata, (
+            "hangarllm_metadata should contain _latency_per_deployment field"
         )
 
         # Verify the structure of _latency_per_deployment
-        latency_per_deployment = litellm_metadata["_latency_per_deployment"]
+        latency_per_deployment = hangarllm_metadata["_latency_per_deployment"]
         assert isinstance(latency_per_deployment, dict), "_latency_per_deployment should be a dictionary"
 
         print(f"✅ Latency per deployment data: {latency_per_deployment}")
 
-        # Verify other expected fields in litellm_metadata
-        assert "model_group" in litellm_metadata
-        assert litellm_metadata["model_group"] == MODEL_GROUP
-        assert "deployment" in litellm_metadata
-        assert "model_info" in litellm_metadata
+        # Verify other expected fields in hangarllm_metadata
+        assert "model_group" in hangarllm_metadata
+        assert hangarllm_metadata["model_group"] == MODEL_GROUP
+        assert "deployment" in hangarllm_metadata
+        assert "model_info" in hangarllm_metadata
 
         # Verify other call parameters
         assert call_kwargs["model"] == "claude-haiku-4-5-20251001"
@@ -2324,7 +2324,7 @@ async def test_anthropic_messages_litellm_router_latency_metadata_tracking():
         assert call_kwargs["metadata"] == {"user_id": "hello"}
 
         print(
-            "✅ Successfully verified that _latency_per_deployment is passed in litellm_metadata to anthropic_messages"
+            "✅ Successfully verified that _latency_per_deployment is passed in hangarllm_metadata to anthropic_messages"
         )
 
         return response
@@ -2368,7 +2368,7 @@ async def test_anthropic_messages_with_extra_headers():
     mock_client.post = AsyncMock(return_value=mock_response)
 
     # Call the handler with extra_headers and our mocked client
-    response = await litellm.anthropic.messages.acreate(
+    response = await hangarllm.anthropic.messages.acreate(
         messages=messages,
         api_key=api_key,
         model="claude-haiku-4-5-20251001",
@@ -2432,7 +2432,7 @@ async def test_anthropic_messages_with_thinking():
     mock_client.post = AsyncMock(return_value=mock_response)
 
     # Call the handler with extra_headers and our mocked client
-    response = await litellm.anthropic.messages.acreate(
+    response = await hangarllm.anthropic.messages.acreate(
         messages=messages,
         api_key=api_key,
         model="claude-haiku-4-5-20251001",
@@ -2478,7 +2478,7 @@ async def test_anthropic_messages_bedrock_credentials_passthrough():
         # We also need to mock the actual AWS request signing to avoid real API calls
         with unittest.mock.patch("botocore.auth.SigV4Auth.add_auth"):
             # Set up mock for AsyncHTTPHandler.post to avoid actual API calls
-            with unittest.mock.patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
+            with unittest.mock.patch("hangarllm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post") as mock_post:
                 # Configure mock response
                 mock_response = unittest.mock.MagicMock()
                 mock_response.raise_for_status = unittest.mock.MagicMock()
@@ -2507,7 +2507,7 @@ async def test_anthropic_messages_bedrock_credentials_passthrough():
                 }
 
                 # Call the function with AWS credentials
-                await litellm.anthropic.messages.acreate(
+                await hangarllm.anthropic.messages.acreate(
                     messages=[{"role": "user", "content": "Hello, test credentials"}],
                     model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     max_tokens=100,
@@ -2562,7 +2562,7 @@ async def test_anthropic_messages_bedrock_dynamic_region():
         test_region = "us-east-1"
 
         # Call anthropic.messages.acreate with aws_region_name
-        response = await litellm.anthropic.messages.acreate(
+        response = await hangarllm.anthropic.messages.acreate(
             messages=[{"role": "user", "content": "Hello, test region"}],
             model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
             max_tokens=100,
@@ -2594,7 +2594,7 @@ async def test_anthropic_messages_bedrock_dynamic_region():
 async def test_anthropic_messages_with_safeguards_and_no_classifier_keep_the_upstream_400_for_malformed_messages(
     malformed_messages: object,
 ) -> None:
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     def upstream_rejects_the_messages(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -2606,7 +2606,7 @@ async def test_anthropic_messages_with_safeguards_and_no_classifier_keep_the_ups
     upstream: Final = AsyncHTTPHandler()
     upstream.client = httpx.AsyncClient(transport=httpx.MockTransport(upstream_rejects_the_messages))
 
-    with pytest.raises(litellm.BadRequestError) as rejected:
+    with pytest.raises(hangarllm.BadRequestError) as rejected:
         await handler.anthropic_messages(
             max_tokens=16,
             messages=malformed_messages,  # pyright: ignore[reportArgumentType]  # the malformed body under test
@@ -2624,7 +2624,7 @@ async def test_anthropic_messages_with_safeguards_and_no_classifier_keep_the_ups
 def test_native_messages_tool_config_point_marks_last_tool_and_drops_the_key(monkeypatch):
     """LIT-9880 on /v1/messages: the hook wrote the tool_config point back into kwargs and the
     native path dropped it silently, so the tools went out without any cache breakpoint."""
-    from litellm.llms.anthropic.messages.native import handler
+    from hangarllm.llms.anthropic.messages.native import handler
 
     captured = {}
 
@@ -2644,7 +2644,7 @@ def test_native_messages_tool_config_point_marks_last_tool_and_drops_the_key(mon
         model="anthropic/claude-opus-4-6",
         api_key="sk-test",
         tools=tools,
-        litellm_metadata={},
+        hangarllm_metadata={},
         cache_control_injection_points=[
             {"location": "message", "role": "user"},
             {"location": "tool_config", "control": {"type": "ephemeral", "ttl": "1h"}},
@@ -2702,7 +2702,7 @@ async def test_anthropic_messages_strict_tools_rejection_is_sent_again_without_s
     anthropic: Final = _RejectsStrictToolsOnce()
     tool: Final = {"name": "lookup_record", "input_schema": {"type": "object"}, "strict": True}
 
-    response: Final = await litellm.anthropic_messages(
+    response: Final = await hangarllm.anthropic_messages(
         max_tokens=16,
         messages=[{"role": "user", "content": "Use lookup_record to find invoice 42"}],
         model="anthropic/claude-sonnet-4-6",
@@ -2739,16 +2739,16 @@ async def test_azure_messages_replay_encrypted_reasoning_only_to_responses(
     stream: bool,
     is_async: bool,
 ) -> None:
-    from litellm.litellm_core_utils.prompt_templates.reasoning_utils import encrypted_reasoning_signature
+    from hangarllm.hangarllm_core_utils.prompt_templates.reasoning_utils import encrypted_reasoning_signature
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(hangarllm, "disable_aiohttp_transport", True)
     monkeypatch.setattr(
-        litellm,
+        hangarllm,
         "model_cost",
         {
-            **litellm.model_cost,
+            **hangarllm.model_cost,
             "azure/qa-deployment": {
-                "litellm_provider": "azure",
+                "hangarllm_provider": "azure",
                 "mode": "chat",
                 "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
                 "supports_native_streaming": True,
@@ -2756,7 +2756,7 @@ async def test_azure_messages_replay_encrypted_reasoning_only_to_responses(
         },
     )
     _invalidate_model_cost_lowercase_map()
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    hangarllm.in_memory_llm_clients_cache.flush_cache()
     chat_reply: Final = {
         "id": "chatcmpl-azure",
         "object": "chat.completion",
@@ -2786,7 +2786,7 @@ async def test_azure_messages_replay_encrypted_reasoning_only_to_responses(
                 else httpx.Response(200, json=_RESPONSES_COMPLETED_BODY if responses_target else chat_reply)
             )
         )
-        create: Final = litellm.anthropic.messages.acreate if is_async else litellm.anthropic.messages.create
+        create: Final = hangarllm.anthropic.messages.acreate if is_async else hangarllm.anthropic.messages.create
         pending: Final = create(
             model=model,
             model_info=model_info,
